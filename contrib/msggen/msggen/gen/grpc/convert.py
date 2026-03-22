@@ -79,7 +79,7 @@ class GrpcConverterGenerator(IGenerator):
             pb_variant = self.to_camel_case(f"{oneof_name}_{suffix}")
             pb_variant = pb_variant[0].upper() + pb_variant[1:]
             if isinstance(v, ArrayField):
-                wrapper_name = override(f"{parent_typename}{suffix.capitalize()}Wrapper")
+                wrapper_name = override(f"{parent_typename}{suffix}Wrapper")
                 wrapper_pb = self.to_camel_case(str(wrapper_name))
                 self.write(
                     f"            {prefix}::{typename}::{vname}(v) => pb::{pb_mod}::{pb_oneof_enum}::{pb_variant}(pb::{wrapper_pb} {{ items: v.into_iter().map(|i| {self.union_variant_conversion(v.itemtype, 'i')}).collect() }}),\n"

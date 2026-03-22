@@ -4822,7 +4822,7 @@ impl From<requests::CreateinvoiceRequest> for pb::CreateinvoiceRequest {
 impl From<requests::DatastoreKey> for pb::datastore_request::Key {
     fn from(c: requests::DatastoreKey) -> Self {
         match c {
-requests::DatastoreKey::ArrayOfString(v) => pb::datastore_request::Key::KeyArrString(pb::DatastoreRequestArrStringWrapper { items: v.into_iter().map(|i| i).collect() }),
+requests::DatastoreKey::ArrayOfString(v) => pb::datastore_request::Key::KeyArrString(pb::DatastoreRequestarrStringWrapper { items: v.into_iter().map(|i| i).collect() }),
 requests::DatastoreKey::String(v) => pb::datastore_request::Key::KeyString(v),
         }
     }
@@ -4844,7 +4844,7 @@ impl From<requests::DatastoreRequest> for pb::DatastoreRequest {
 impl From<requests::DatastoreusageKey> for pb::datastoreusage_request::Key {
     fn from(c: requests::DatastoreusageKey) -> Self {
         match c {
-requests::DatastoreusageKey::ArrayOfString(v) => pb::datastoreusage_request::Key::KeyArrString(pb::DatastoreusageRequestArrStringWrapper { items: v.into_iter().map(|i| i).collect() }),
+requests::DatastoreusageKey::ArrayOfString(v) => pb::datastoreusage_request::Key::KeyArrString(pb::DatastoreusageRequestarrStringWrapper { items: v.into_iter().map(|i| i).collect() }),
 requests::DatastoreusageKey::String(v) => pb::datastoreusage_request::Key::KeyString(v),
         }
     }
@@ -4885,7 +4885,7 @@ impl From<requests::CreateonionRequest> for pb::CreateonionRequest {
 impl From<requests::DeldatastoreKey> for pb::deldatastore_request::Key {
     fn from(c: requests::DeldatastoreKey) -> Self {
         match c {
-requests::DeldatastoreKey::ArrayOfString(v) => pb::deldatastore_request::Key::KeyArrString(pb::DeldatastoreRequestArrStringWrapper { items: v.into_iter().map(|i| i).collect() }),
+requests::DeldatastoreKey::ArrayOfString(v) => pb::deldatastore_request::Key::KeyArrString(pb::DeldatastoreRequestarrStringWrapper { items: v.into_iter().map(|i| i).collect() }),
 requests::DeldatastoreKey::String(v) => pb::deldatastore_request::Key::KeyString(v),
         }
     }
@@ -4982,7 +4982,7 @@ impl From<requests::InvoiceExposeprivatechannels> for pb::invoice_request::Expos
     fn from(c: requests::InvoiceExposeprivatechannels) -> Self {
         match c {
 requests::InvoiceExposeprivatechannels::Bool(v) => pb::invoice_request::Exposeprivatechannels::ExposeprivatechannelsBool(v),
-requests::InvoiceExposeprivatechannels::ArrayOfShortChannelId(v) => pb::invoice_request::Exposeprivatechannels::ExposeprivatechannelsArrScid(pb::InvoiceRequestArrScidWrapper { items: v.into_iter().map(|i| i.to_string()).collect() }),
+requests::InvoiceExposeprivatechannels::ArrayOfShortChannelId(v) => pb::invoice_request::Exposeprivatechannels::ExposeprivatechannelsArrScid(pb::InvoiceRequestarrScidWrapper { items: v.into_iter().map(|i| i.to_string()).collect() }),
 requests::InvoiceExposeprivatechannels::ShortChannelId(v) => pb::invoice_request::Exposeprivatechannels::ExposeprivatechannelsScid(v.to_string()),
         }
     }
@@ -5051,7 +5051,7 @@ impl From<requests::ListinvoicerequestsRequest> for pb::ListinvoicerequestsReque
 impl From<requests::ListdatastoreKey> for pb::listdatastore_request::Key {
     fn from(c: requests::ListdatastoreKey) -> Self {
         match c {
-requests::ListdatastoreKey::ArrayOfString(v) => pb::listdatastore_request::Key::KeyArrString(pb::ListdatastoreRequestArrStringWrapper { items: v.into_iter().map(|i| i).collect() }),
+requests::ListdatastoreKey::ArrayOfString(v) => pb::listdatastore_request::Key::KeyArrString(pb::ListdatastoreRequestarrStringWrapper { items: v.into_iter().map(|i| i).collect() }),
 requests::ListdatastoreKey::String(v) => pb::listdatastore_request::Key::KeyString(v),
         }
     }
