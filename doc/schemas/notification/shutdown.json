@@ -1,0 +1,18 @@
+{
+  "$schema": "../../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "notification": "shutdown",
+  "title": "Notification for plugin shutdown",
+  "description": [
+    "The **shutdown** notification informs a plugin that lightningd is shutting down."
+  ],
+  "added": "pre-v0.10.1",
+  "request": {
+    "added": "pre-v0.10.1"
+  },
+  "response": {
+    "added": "pre-v0.10.1",
+    "properties": {}
+  }
+}

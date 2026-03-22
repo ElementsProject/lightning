@@ -151,12 +151,30 @@ service Node {
 	rpc DelNetworkEvent(DelnetworkeventRequest) returns (DelnetworkeventResponse) {}
 	rpc ClnrestRegisterPath(ClnrestregisterpathRequest) returns (ClnrestregisterpathResponse) {}
 
+	rpc SubscribeBalanceSnapshot(StreamBalanceSnapshotRequest) returns (stream BalanceSnapshotNotification) {}
 	rpc SubscribeBlockAdded(StreamBlockAddedRequest) returns (stream BlockAddedNotification) {}
 	rpc SubscribeChannelOpenFailed(StreamChannelOpenFailedRequest) returns (stream ChannelOpenFailedNotification) {}
 	rpc SubscribeChannelOpened(StreamChannelOpenedRequest) returns (stream ChannelOpenedNotification) {}
-	rpc SubscribeConnect(StreamConnectRequest) returns (stream PeerConnectNotification) {}
-	rpc SubscribeCustomMsg(StreamCustomMsgRequest) returns (stream CustomMsgNotification) {}
 	rpc SubscribeChannelStateChanged(StreamChannelStateChangedRequest) returns (stream ChannelStateChangedNotification) {}
+	rpc SubscribeConnect(StreamConnectRequest) returns (stream PeerConnectNotification) {}
+	rpc SubscribeCoinMovement(StreamCoinMovementRequest) returns (stream CoinMovementNotification) {}
+	rpc SubscribeCustomMsg(StreamCustomMsgRequest) returns (stream CustomMsgNotification) {}
+	rpc SubscribeDeprecatedOneshot(StreamDeprecatedOneshotRequest) returns (stream DeprecatedOneshotNotification) {}
+	rpc SubscribeDisconnect(StreamDisconnectRequest) returns (stream DisconnectNotification) {}
+	rpc SubscribeForwardEvent(StreamForwardEventRequest) returns (stream ForwardEventNotification) {}
+	rpc SubscribeInvoiceCreation(StreamInvoiceCreationRequest) returns (stream InvoiceCreationNotification) {}
+	rpc SubscribeInvoicePayment(StreamInvoicePaymentRequest) returns (stream InvoicePaymentNotification) {}
+	rpc SubscribeLog(StreamLogRequest) returns (stream LogNotification) {}
+	rpc SubscribeOnionMessageForwardFail(StreamOnionMessageForwardFailRequest) returns (stream OnionMessageForwardFailNotification) {}
+	rpc SubscribeOpenChannelPeerSigs(StreamOpenChannelPeerSigsRequest) returns (stream OpenChannelPeerSigsNotification) {}
+	rpc SubscribePluginStarted(StreamPluginStartedRequest) returns (stream PluginStartedNotification) {}
+	rpc SubscribePluginStopped(StreamPluginStoppedRequest) returns (stream PluginStoppedNotification) {}
+	rpc SubscribeSendPayFailure(StreamSendPayFailureRequest) returns (stream SendPayFailureNotification) {}
+	rpc SubscribeSendPaySuccess(StreamSendPaySuccessRequest) returns (stream SendPaySuccessNotification) {}
+	rpc SubscribeShutdown(StreamShutdownRequest) returns (stream ShutdownNotification) {}
+	rpc SubscribeWarning(StreamWarningRequest) returns (stream WarningNotification) {}
+	rpc SubscribePayPartEnd(StreamPayPartEndRequest) returns (stream PayPartEndNotification) {}
+	rpc SubscribePayPartStart(StreamPayPartStartRequest) returns (stream PayPartStartNotification) {}
 }
 
 message GetinfoRequest {
@@ -4305,6 +4323,22 @@ message ClnrestregisterpathRuneRestrictions {
 	map<string, string> params = 3;
 }
 
+message StreamBalanceSnapshotRequest {
+}
+
+message BalanceSnapshotNotification {
+	bytes node_id = 1;
+	uint32 blockheight = 2;
+	uint32 timestamp = 3;
+	repeated BalanceSnapshotAccounts accounts = 4;
+}
+
+message BalanceSnapshotAccounts {
+	string account_id = 1;
+	Amount balance_msat = 2;
+	string coin_type = 3;
+}
+
 message StreamBlockAddedRequest {
 }
 
@@ -4328,6 +4362,29 @@ message ChannelOpenedNotification {
 	Amount funding_msat = 2;
 	bytes funding_txid = 3;
 	bool channel_ready = 4;
+}
+
+message StreamChannelStateChangedRequest {
+}
+
+message ChannelStateChangedNotification {
+	// channel_state_changed.cause
+	enum ChannelStateChangedCause {
+		UNKNOWN = 0;
+		LOCAL = 1;
+		USER = 2;
+		REMOTE = 3;
+		PROTOCOL = 4;
+		ONCHAIN = 5;
+	}
+	bytes peer_id = 1;
+	bytes channel_id = 2;
+	optional string short_channel_id = 3;
+	string timestamp = 4;
+	optional ChannelState old_state = 5;
+	ChannelState new_state = 6;
+	ChannelStateChangedCause cause = 7;
+	optional string message = 8;
 }
 
 message StreamConnectRequest {
@@ -4360,6 +4417,69 @@ message PeerConnectAddress {
 	optional uint32 port = 4;
 }
 
+message StreamCoinMovementRequest {
+}
+
+message CoinMovementNotification {
+	// coin_movement.type
+	enum CoinMovementType {
+		CHANNEL_MVT = 0;
+		CHAIN_MVT = 1;
+	}
+	// coin_movement.primary_tag
+	enum CoinMovementPrimaryTag {
+		DEPOSIT = 0;
+		WITHDRAWAL = 1;
+		PENALTY = 2;
+		CHANNEL_OPEN = 3;
+		CHANNEL_CLOSE = 4;
+		DELAYED_TO_US = 5;
+		HTLC_TX = 6;
+		HTLC_TIMEOUT = 7;
+		HTLC_FULFILL = 8;
+		TO_WALLET = 9;
+		ANCHOR = 10;
+		TO_THEM = 11;
+		PENALIZED = 12;
+		STOLEN = 13;
+		IGNORED = 14;
+		TO_MINER = 15;
+		INVOICE = 16;
+		ROUTED = 17;
+		PUSHED = 18;
+		LEASE_FEE = 19;
+		CHANNEL_PROPOSED = 20;
+		PENALTY_ADJ = 21;
+		JOURNAL_ENTRY = 22;
+	}
+	uint32 version = 1;
+	string coin_type = 2;
+	bytes node_id = 3;
+	CoinMovementType item_type = 4;
+	optional uint64 created_index = 5;
+	string account_id = 6;
+	Amount credit_msat = 7;
+	Amount debit_msat = 8;
+	uint64 timestamp = 9;
+	repeated string tags = 10;
+	optional CoinMovementPrimaryTag primary_tag = 11;
+	repeated string extra_tags = 12;
+	optional bytes payment_hash = 13;
+	optional uint64 part_id = 14;
+	optional uint64 group_id = 15;
+	optional Amount fees_msat = 16;
+	optional Outpoint utxo = 17;
+	optional bytes peer_id = 18;
+	optional string originating_account = 19;
+	optional bytes txid = 20;
+	optional bytes spending_txid = 21;
+	optional bytes utxo_txid = 22;
+	optional uint32 vout = 23;
+	optional Amount output_msat = 24;
+	optional uint32 output_count = 25;
+	optional uint32 blockheight = 26;
+}
+
 message StreamCustomMsgRequest {
 }
 
@@ -4368,25 +4488,259 @@ message CustomMsgNotification {
 	bytes payload = 2;
 }
 
-message StreamChannelStateChangedRequest {
+message StreamDeprecatedOneshotRequest {
 }
 
-message ChannelStateChangedNotification {
-	// channel_state_changed.cause
-	enum ChannelStateChangedCause {
-		UNKNOWN = 0;
-		LOCAL = 1;
-		USER = 2;
-		REMOTE = 3;
-		PROTOCOL = 4;
-		ONCHAIN = 5;
+message DeprecatedOneshotNotification {
+	bool deprecated_ok = 1;
+}
+
+message StreamDisconnectRequest {
+}
+
+message DisconnectNotification {
+	bytes id = 1;
+}
+
+message StreamForwardEventRequest {
+}
+
+message ForwardEventNotification {
+	// forward_event.status
+	enum ForwardEventStatus {
+		OFFERED = 0;
+		SETTLED = 1;
+		LOCAL_FAILED = 2;
+		FAILED = 3;
 	}
-	bytes peer_id = 1;
-	bytes channel_id = 2;
-	optional string short_channel_id = 3;
-	string timestamp = 4;
-	optional ChannelState old_state = 5;
-	ChannelState new_state = 6;
-	ChannelStateChangedCause cause = 7;
-	optional string message = 8;
+	// forward_event.style
+	enum ForwardEventStyle {
+		LEGACY = 0;
+		TLV = 1;
+	}
+	bytes payment_hash = 3;
+	string in_channel = 4;
+	optional string out_channel = 6;
+	Amount in_msat = 8;
+	optional Amount out_msat = 9;
+	optional Amount fee_msat = 10;
+	ForwardEventStatus status = 11;
+	optional uint32 failcode = 12;
+	optional string failreason = 13;
+	optional ForwardEventStyle style = 14;
+	double received_time = 15;
+	optional double resolved_time = 16;
+}
+
+message StreamInvoiceCreationRequest {
+}
+
+message InvoiceCreationNotification {
+	optional Amount msat = 1;
+	bytes preimage = 2;
+	string label = 3;
+}
+
+message StreamInvoicePaymentRequest {
+}
+
+message InvoicePaymentNotification {
+	Amount msat = 1;
+	bytes preimage = 2;
+	optional Outpoint outpoint = 3;
+	string label = 4;
+}
+
+message StreamLogRequest {
+}
+
+message LogNotification {
+	// log.level
+	enum LogLevel {
+		IO = 0;
+		TRACE = 1;
+		DEBUG = 2;
+		INFO = 3;
+		UNUSUAL = 4;
+		BROKEN = 5;
+	}
+	LogLevel level = 1;
+	string time = 2;
+	string timestamp = 3;
+	string source = 4;
+	string log = 5;
+}
+
+message StreamOnionMessageForwardFailRequest {
+}
+
+message OnionMessageForwardFailNotification {
+	bytes source = 1;
+	bytes incoming = 2;
+	bytes path_key = 3;
+	optional bytes outgoing = 4;
+	optional bytes next_node_id = 5;
+	optional string next_short_channel_id_dir = 6;
+}
+
+message StreamOpenChannelPeerSigsRequest {
+}
+
+message OpenChannelPeerSigsNotification {
+	bytes channel_id = 1;
+	string signed_psbt = 2;
+}
+
+message StreamPluginStartedRequest {
+}
+
+message PluginStartedNotification {
+	string plugin_name = 1;
+	string plugin_path = 2;
+	repeated string methods = 3;
+}
+
+message StreamPluginStoppedRequest {
+}
+
+message PluginStoppedNotification {
+	string plugin_name = 1;
+	string plugin_path = 2;
+	repeated string methods = 3;
+}
+
+message StreamSendPayFailureRequest {
+}
+
+message SendPayFailureNotification {
+	sint64 code = 1;
+	string message = 2;
+	SendpayFailureData data = 3;
+}
+
+message SendpayFailureData {
+	// sendpay_failure.data.status
+	enum SendpayFailureDataStatus {
+		FAILED = 0;
+		PENDING = 1;
+		COMPLETE = 2;
+	}
+	optional uint64 created_index = 1;
+	optional uint64 id = 2;
+	optional bytes payment_hash = 3;
+	optional uint64 groupid = 4;
+	optional uint64 updated_index = 5;
+	optional uint64 partid = 6;
+	optional bytes destination = 7;
+	optional Amount amount_msat = 8;
+	optional Amount amount_sent_msat = 9;
+	optional uint64 created_at = 10;
+	optional uint64 completed_at = 11;
+	optional SendpayFailureDataStatus status = 12;
+	optional bytes payment_preimage = 13;
+	optional string label = 14;
+	optional string bolt11 = 15;
+	optional string bolt12 = 16;
+	optional string description = 17;
+	optional bytes erroronion = 18;
+	optional bytes onionreply = 19;
+	optional uint32 erring_index = 20;
+	optional uint32 failcode = 21;
+	optional string failcodename = 22;
+	optional bytes erring_node = 23;
+	optional string erring_channel = 24;
+	optional uint32 erring_direction = 25;
+	optional bytes raw_message = 26;
+}
+
+message StreamSendPaySuccessRequest {
+}
+
+message SendPaySuccessNotification {
+	// sendpay_success.status
+	enum SendpaySuccessStatus {
+		COMPLETE = 0;
+	}
+	uint64 created_index = 1;
+	uint64 id = 2;
+	bytes payment_hash = 3;
+	uint64 groupid = 4;
+	optional uint64 updated_index = 5;
+	optional uint64 partid = 6;
+	optional bytes destination = 7;
+	optional Amount amount_msat = 8;
+	Amount amount_sent_msat = 9;
+	uint64 created_at = 10;
+	optional uint64 completed_at = 11;
+	SendpaySuccessStatus status = 12;
+	optional bytes payment_preimage = 13;
+	optional string label = 14;
+	optional string bolt11 = 15;
+	optional string bolt12 = 16;
+	optional string description = 17;
+	optional bytes erroronion = 18;
+}
+
+message StreamShutdownRequest {
+}
+
+message ShutdownNotification {
+}
+
+message StreamWarningRequest {
+}
+
+message WarningNotification {
+	// warning.level
+	enum WarningLevel {
+		WARN = 0;
+		ERROR = 1;
+	}
+	WarningLevel level = 1;
+	string time = 2;
+	string timestamp = 3;
+	string source = 4;
+	string log = 5;
+}
+
+message StreamPayPartEndRequest {
+}
+
+message PayPartEndNotification {
+	// pay_part_end.status
+	enum PayPartEndStatus {
+		SUCCESS = 0;
+		FAILURE = 1;
+	}
+	PayPartEndStatus status = 1;
+	double duration = 2;
+	bytes payment_hash = 3;
+	uint64 groupid = 4;
+	uint64 partid = 5;
+	optional bytes failed_msg = 6;
+	optional bytes failed_node_id = 7;
+	optional string failed_short_channel_id = 8;
+	optional uint32 failed_direction = 9;
+	optional uint32 error_code = 10;
+	optional string error_message = 11;
+}
+
+message StreamPayPartStartRequest {
+}
+
+message PayPartStartNotification {
+	bytes payment_hash = 1;
+	uint64 groupid = 2;
+	uint64 partid = 3;
+	Amount total_payment_msat = 4;
+	Amount attempt_msat = 5;
+	repeated PayPartStartHops hops = 6;
+}
+
+message PayPartStartHops {
+	bytes next_node = 1;
+	string short_channel_id = 2;
+	uint32 direction = 3;
+	Amount channel_in_msat = 4;
+	Amount channel_out_msat = 5;
 }

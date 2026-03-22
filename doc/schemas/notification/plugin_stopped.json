@@ -1,0 +1,52 @@
+{
+  "$schema": "../../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "notification": "plugin_stopped",
+  "title": "Notification for plugin stop",
+  "description": [
+    "The **plugin_stopped** notification informs whenever a plugin stops and exposes the same payload shape as **plugin_started**."
+  ],
+  "added": "v25.02",
+  "request": {
+    "added": "v25.02"
+  },
+  "response": {
+    "added": "v25.02",
+    "required": [
+      "plugin_name",
+      "plugin_path",
+      "methods"
+    ],
+    "properties": {
+      "plugin_name": {
+        "type": "string",
+        "description": [
+          "The short name of the plugin."
+        ],
+        "added": "v25.02"
+      },
+      "plugin_path": {
+        "type": "string",
+        "description": [
+          "The executable path of the plugin."
+        ],
+        "added": "v25.02"
+      },
+      "methods": {
+        "type": "array",
+        "description": [
+          "The RPC methods registered by the plugin."
+        ],
+        "added": "v25.02",
+        "items": {
+          "type": "string",
+          "description": [
+            "A method registered by the plugin."
+          ],
+          "added": "v25.02"
+        }
+      }
+    }
+  }
+}
