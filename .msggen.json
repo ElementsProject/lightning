@@ -1270,8 +1270,7 @@
         "CreateinvoiceRequest": {
             "CreateInvoice.invstring": 1,
             "CreateInvoice.label": 2,
-            "CreateInvoice.label_int": 5,
-            "CreateInvoice.label_string": 4,
+            "CreateInvoice.label_int": 4,
             "CreateInvoice.preimage": 3
         },
         "CreateinvoiceResponse": {
@@ -1325,8 +1324,7 @@
             "Datastore.hex": 2,
             "Datastore.key": 5,
             "Datastore.key[]": 1,
-            "Datastore.key_arr_string": 7,
-            "Datastore.key_string": 8,
+            "Datastore.key_string": 7,
             "Datastore.mode": 3,
             "Datastore.string": 6
         },
@@ -1343,8 +1341,7 @@
         },
         "DatastoreusageRequest": {
             "DatastoreUsage.key": 1,
-            "DatastoreUsage.key_arr_string": 2,
-            "DatastoreUsage.key_string": 3
+            "DatastoreUsage.key_string": 2
         },
         "DatastoreusageResponse": {
             "DatastoreUsage.datastoreusage": 1
@@ -1531,8 +1528,7 @@
             "DelDatastore.generation": 2,
             "DelDatastore.key": 3,
             "DelDatastore.key[]": 1,
-            "DelDatastore.key_arr_string": 4,
-            "DelDatastore.key_string": 5
+            "DelDatastore.key_string": 4
         },
         "DeldatastoreResponse": {
             "DelDatastore.generation": 2,
@@ -1552,8 +1548,7 @@
         "DelinvoiceRequest": {
             "DelInvoice.desconly": 3,
             "DelInvoice.label": 1,
-            "DelInvoice.label_string": 4,
-            "DelInvoice.label_u64": 5,
+            "DelInvoice.label_u64": 4,
             "DelInvoice.status": 2
         },
         "DelinvoiceResponse": {
@@ -2066,13 +2061,11 @@
             "Invoice.description": 2,
             "Invoice.expiry": 7,
             "Invoice.exposeprivatechannels": 8,
-            "Invoice.exposeprivatechannels_arr_scid": 14,
-            "Invoice.exposeprivatechannels_bool": 13,
-            "Invoice.exposeprivatechannels_scid": 15,
+            "Invoice.exposeprivatechannels_arr_scid": 12,
+            "Invoice.exposeprivatechannels_scid": 13,
             "Invoice.fallbacks[]": 4,
             "Invoice.label": 3,
-            "Invoice.label_int": 12,
-            "Invoice.label_string": 11,
+            "Invoice.label_int": 11,
             "Invoice.msatoshi": 1,
             "Invoice.preimage": 5
         },
@@ -2732,8 +2725,7 @@
         "ListdatastoreRequest": {
             "ListDatastore.key": 2,
             "ListDatastore.key[]": 1,
-            "ListDatastore.key_arr_string": 3,
-            "ListDatastore.key_string": 4
+            "ListDatastore.key_string": 3
         },
         "ListdatastoreResponse": {
             "ListDatastore.datastore[]": 1
@@ -2860,8 +2852,7 @@
             "ListInvoices.index": 5,
             "ListInvoices.invstring": 2,
             "ListInvoices.label": 1,
-            "ListInvoices.label_int": 9,
-            "ListInvoices.label_string": 8,
+            "ListInvoices.label_int": 8,
             "ListInvoices.limit": 7,
             "ListInvoices.offer_id": 4,
             "ListInvoices.payment_hash": 3,
@@ -3383,8 +3374,7 @@
         "OfferRequest": {
             "Offer.absolute_expiry": 6,
             "Offer.amount": 1,
-            "Offer.amount_currency": 17,
-            "Offer.amount_msat_or_any": 16,
+            "Offer.amount_currency": 16,
             "Offer.description": 2,
             "Offer.fronting_nodes[]": 15,
             "Offer.issuer": 3,
@@ -3780,9 +3770,8 @@
             "SetConfig.config": 1,
             "SetConfig.transient": 3,
             "SetConfig.val": 2,
-            "SetConfig.val_bool": 6,
-            "SetConfig.val_int": 5,
-            "SetConfig.val_string": 4
+            "SetConfig.val_bool": 5,
+            "SetConfig.val_int": 4
         },
         "SetconfigResponse": {
             "SetConfig.config": 1
@@ -4080,8 +4069,7 @@
         },
         "WaitinvoiceRequest": {
             "WaitInvoice.label": 1,
-            "WaitInvoice.label_int": 3,
-            "WaitInvoice.label_string": 2
+            "WaitInvoice.label_int": 2
         },
         "WaitinvoiceResponse": {
             "WaitInvoice.amount_msat": 6,

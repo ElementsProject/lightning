@@ -238,15 +238,21 @@ class GrpcGenerator(IGenerator):
 
             if isinstance(f, UnionField):
                 self.write(f"\toneof {f.normalized()} {{\n", False)
+                first_variant = True
                 for v in f.variants:
                     suffix = union_variant_suffix(v)
                     vname = f"{f.normalized()}_{suffix}"
                     vtype = self.union_variant_proto_type(v, str(message.typename))
                     vtype = typename_override(vtype)
-                    # Allocate variant numbers in the parent message's namespace
-                    parent = ".".join(f.path.split(".")[:-1])
-                    vfield = PrimitiveField(suffix, f"{parent}.{f.normalized()}_{suffix}", "", added=f.added, deprecated=f.deprecated)
-                    vnum = self.field2number(message.typename, vfield)
+                    if first_variant:
+                        # Reuse the original field number for backward compat
+                        vnum = i
+                        first_variant = False
+                    else:
+                        # Allocate new numbers for additional variants
+                        parent = ".".join(f.path.split(".")[:-1])
+                        vfield = PrimitiveField(suffix, f"{parent}.{f.normalized()}_{suffix}", "", added=f.added, deprecated=f.deprecated)
+                        vnum = self.field2number(message.typename, vfield)
                     self.write(f"\t\t{vtype} {vname} = {vnum};\n", False)
                 self.write(f"\t}}\n", False)
             elif isinstance(f, ArrayField):

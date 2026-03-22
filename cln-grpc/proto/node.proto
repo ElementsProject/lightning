@@ -587,8 +587,8 @@ message ConnectAddress {
 message CreateinvoiceRequest {
 	string invstring = 1;
 	oneof label {
-		string label_string = 4;
-		sint64 label_int = 5;
+		string label_string = 2;
+		sint64 label_int = 4;
 	}
 	bytes preimage = 3;
 }
@@ -640,8 +640,8 @@ message DatastoreRequest {
 	optional DatastoreMode mode = 3;
 	optional uint64 generation = 4;
 	oneof key {
-		DatastoreRequestarr_stringWrapper key_arr_string = 7;
-		string key_string = 8;
+		DatastoreRequestarr_stringWrapper key_arr_string = 5;
+		string key_string = 7;
 	}
 	optional string string = 6;
 }
@@ -659,8 +659,8 @@ message DatastoreusageRequestarr_stringWrapper {
 
 message DatastoreusageRequest {
 	oneof key {
-		DatastoreusageRequestarr_stringWrapper key_arr_string = 2;
-		string key_string = 3;
+		DatastoreusageRequestarr_stringWrapper key_arr_string = 1;
+		string key_string = 2;
 	}
 }
 
@@ -697,8 +697,8 @@ message DeldatastoreRequestarr_stringWrapper {
 message DeldatastoreRequest {
 	optional uint64 generation = 2;
 	oneof key {
-		DeldatastoreRequestarr_stringWrapper key_arr_string = 4;
-		string key_string = 5;
+		DeldatastoreRequestarr_stringWrapper key_arr_string = 3;
+		string key_string = 4;
 	}
 }
 
@@ -717,8 +717,8 @@ message DelinvoiceRequest {
 		UNPAID = 2;
 	}
 	oneof label {
-		string label_string = 4;
-		uint64 label_u64 = 5;
+		string label_string = 1;
+		uint64 label_u64 = 4;
 	}
 	DelinvoiceStatus status = 2;
 	optional bool desconly = 3;
@@ -814,17 +814,17 @@ message InvoiceRequestarr_scidWrapper {
 message InvoiceRequest {
 	string description = 2;
 	oneof label {
-		string label_string = 11;
-		sint64 label_int = 12;
+		string label_string = 3;
+		sint64 label_int = 11;
 	}
 	repeated string fallbacks = 4;
 	optional bytes preimage = 5;
 	optional uint32 cltv = 6;
 	optional uint64 expiry = 7;
 	oneof exposeprivatechannels {
-		bool exposeprivatechannels_bool = 13;
-		InvoiceRequestarr_scidWrapper exposeprivatechannels_arr_scid = 14;
-		string exposeprivatechannels_scid = 15;
+		bool exposeprivatechannels_bool = 8;
+		InvoiceRequestarr_scidWrapper exposeprivatechannels_arr_scid = 12;
+		string exposeprivatechannels_scid = 13;
 	}
 	optional bool deschashonly = 9;
 	AmountOrAny amount_msat = 10;
@@ -898,8 +898,8 @@ message ListdatastoreRequestarr_stringWrapper {
 
 message ListdatastoreRequest {
 	oneof key {
-		ListdatastoreRequestarr_stringWrapper key_arr_string = 3;
-		string key_string = 4;
+		ListdatastoreRequestarr_stringWrapper key_arr_string = 2;
+		string key_string = 3;
 	}
 }
 
@@ -921,8 +921,8 @@ message ListinvoicesRequest {
 		UPDATED = 1;
 	}
 	oneof label {
-		string label_string = 8;
-		sint64 label_int = 9;
+		string label_string = 1;
+		sint64 label_int = 8;
 	}
 	optional string invstring = 2;
 	optional bytes payment_hash = 3;
@@ -1212,8 +1212,8 @@ message WaitanyinvoicePaidOutpoint {
 
 message WaitinvoiceRequest {
 	oneof label {
-		string label_string = 2;
-		sint64 label_int = 3;
+		string label_string = 1;
+		sint64 label_int = 2;
 	}
 }
 
@@ -2468,8 +2468,8 @@ message MultiwithdrawResponse {
 
 message OfferRequest {
 	oneof amount {
-		AmountOrAny amount_msat_or_any = 16;
-		string amount_currency = 17;
+		AmountOrAny amount_msat_or_any = 1;
+		string amount_currency = 16;
 	}
 	optional string description = 2;
 	optional string issuer = 3;
@@ -2761,9 +2761,9 @@ message SetchannelChannels {
 message SetconfigRequest {
 	string config = 1;
 	oneof val {
-		string val_string = 4;
-		sint64 val_int = 5;
-		bool val_bool = 6;
+		string val_string = 2;
+		sint64 val_int = 4;
+		bool val_bool = 5;
 	}
 	optional bool transient = 3;
 }
