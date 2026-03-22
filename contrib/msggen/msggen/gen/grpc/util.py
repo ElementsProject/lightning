@@ -80,3 +80,36 @@ def camel_to_snake(camel_case: str):
     snake = re.sub(r"(?<!^)(?=[A-Z])", "_", camel_case).lower()
     snake = snake.replace("-", "")
     return snake
+
+
+def union_variant_suffix(f):
+    """Generate a short suffix for a union variant field name in proto/grpc contexts."""
+    from msggen.model import ArrayField, CompositeField, EnumField, PrimitiveField
+    if isinstance(f, PrimitiveField):
+        return {
+            "boolean": "bool",
+            "string": "string",
+            "integer": "int",
+            "u32": "u32",
+            "u64": "u64",
+            "short_channel_id": "scid",
+            "short_channel_id_dir": "sciddir",
+            "msat": "msat",
+            "msat_or_all": "msat_or_all",
+            "msat_or_any": "msat_or_any",
+            "sat": "sat",
+            "sat_or_all": "sat_or_all",
+            "pubkey": "pubkey",
+            "hex": "hex",
+            "number": "number",
+            "feerate": "feerate",
+            "currency": "currency",
+        }.get(f.typename, f.typename)
+    elif isinstance(f, ArrayField):
+        inner = union_variant_suffix(f.itemtype)
+        return f"arr_{inner}"
+    elif isinstance(f, EnumField):
+        return str(f.typename).lower()
+    elif isinstance(f, CompositeField):
+        return str(f.typename).lower()
+    return "unknown"

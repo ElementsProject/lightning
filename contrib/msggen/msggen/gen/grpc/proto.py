@@ -8,6 +8,7 @@ from msggen.gen.grpc.util import (
     typemap,
     method_name_overrides,
     notification_typename_overrides,
+    union_variant_suffix,
 )
 from msggen.model import (
     ArrayField,
@@ -15,6 +16,7 @@ from msggen.model import (
     CompositeField,
     EnumField,
     PrimitiveField,
+    UnionField,
     Service,
     MethodName,
     TypeName,
@@ -177,6 +179,32 @@ class GrpcGenerator(IGenerator):
 
         self.write(f"""{prefix}}}\n""", False)
 
+    def union_variant_proto_type(self, f, parent_typename):
+        """Return the protobuf type name for a union variant field."""
+        if isinstance(f, PrimitiveField):
+            return typemap.get(f.typename, f.typename)
+        elif isinstance(f, EnumField):
+            return str(f.typename)
+        elif isinstance(f, CompositeField):
+            return str(f.typename)
+        elif isinstance(f, ArrayField):
+            # oneof cannot contain repeated, so we need a wrapper message
+            return f"{parent_typename}{union_variant_suffix(f)}Wrapper"
+        return "bytes"
+
+    def generate_union_wrapper_messages(self, u: UnionField, parent_typename, typename_override=None):
+        """Generate wrapper messages for array variants inside a union (oneof can't contain repeated)."""
+        if typename_override is None:
+            typename_override = lambda x: x
+
+        for v in u.variants:
+            if isinstance(v, ArrayField):
+                wrapper_name = f"{parent_typename}{union_variant_suffix(v)}Wrapper"
+                item_type = typemap.get(v.itemtype.typename, v.itemtype.typename)
+                self.write(f"\nmessage {typename_override(wrapper_name)} {{\n", False)
+                self.write(f"\trepeated {item_type} items = 1;\n", False)
+                self.write(f"}}\n", False)
+
     def generate_message(self, message: CompositeField, typename_override=None):
         if message.omit():
             return
@@ -185,6 +213,11 @@ class GrpcGenerator(IGenerator):
         # This is equivalent to do not override
         if typename_override is None:
             typename_override = lambda x: x
+
+        # Generate wrapper messages for any union fields first
+        for f in message.fields:
+            if isinstance(f, UnionField):
+                self.generate_union_wrapper_messages(f, str(message.typename), typename_override)
 
         self.write(
             f"""
@@ -203,7 +236,26 @@ class GrpcGenerator(IGenerator):
 
             opt = "optional " if f.optional and not (isinstance(f, PrimitiveField) and f.typename == "string_map") else ""
 
-            if isinstance(f, ArrayField):
+            if isinstance(f, UnionField):
+                self.write(f"\toneof {f.normalized()} {{\n", False)
+                first_variant = True
+                for v in f.variants:
+                    suffix = union_variant_suffix(v)
+                    vname = f"{f.normalized()}_{suffix}"
+                    vtype = self.union_variant_proto_type(v, str(message.typename))
+                    vtype = typename_override(vtype)
+                    if first_variant:
+                        # Reuse the original field number for backward compat
+                        vnum = i
+                        first_variant = False
+                    else:
+                        # Allocate new numbers for additional variants
+                        parent = ".".join(f.path.split(".")[:-1])
+                        vfield = PrimitiveField(suffix, f"{parent}.{f.normalized()}_{suffix}", "", added=f.added, deprecated=f.deprecated)
+                        vnum = self.field2number(message.typename, vfield)
+                    self.write(f"\t\t{vtype} {vname} = {vnum};\n", False)
+                self.write(f"\t}}\n", False)
+            elif isinstance(f, ArrayField):
                 typename = f.override(
                     typemap.get(f.itemtype.typename, f.itemtype.typename)
                 )
@@ -264,5 +316,8 @@ def gather_subfields(field: Field) -> List[Field]:
     elif isinstance(field, ArrayField):
         fields = []
         fields.extend(gather_subfields(field.itemtype))
+    elif isinstance(field, UnionField):
+        for v in field.variants:
+            fields.extend(gather_subfields(v))
 
     return fields

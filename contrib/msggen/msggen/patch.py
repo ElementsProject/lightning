@@ -28,6 +28,10 @@ class Patch(ABC):
             if isinstance(f, model.ArrayField):
                 self.visit(f.itemtype, f, inherited_added=f.added or inherited_added, inherited_deprecated=f.deprecated or inherited_deprecated)
                 recurse(f.itemtype, inherited_added=f.added or inherited_added, inherited_deprecated=f.deprecated or inherited_deprecated)
+            elif isinstance(f, model.UnionField):
+                for v in f.variants:
+                    self.visit(v, f, inherited_added=f.added or inherited_added, inherited_deprecated=f.deprecated or inherited_deprecated)
+                    recurse(v, inherited_added=f.added or inherited_added, inherited_deprecated=f.deprecated or inherited_deprecated)
             elif isinstance(f, model.CompositeField):
                 for c in f.fields:
                     self.visit(c, f, inherited_added=inherited_added, inherited_deprecated=inherited_deprecated)

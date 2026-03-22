@@ -1,6 +1,7 @@
 # A grpc model
-from msggen.model import ArrayField, CompositeField, EnumField, PrimitiveField, Service
-from msggen.gen.grpc.util import notification_typename_overrides
+from msggen.model import ArrayField, CompositeField, EnumField, PrimitiveField, UnionField, Service
+from msggen.gen.grpc.util import notification_typename_overrides, camel_to_snake, union_variant_suffix
+from msggen.gen.rpc.rust import union_variant_name
 from msggen.gen import IGenerator
 from typing import TextIO
 from textwrap import indent, dedent
@@ -16,6 +17,86 @@ class GrpcConverterGenerator(IGenerator):
     def generate_array(self, prefix, field: ArrayField, override):
         if isinstance(field.itemtype, CompositeField):
             self.generate_composite(prefix, field.itemtype, override)
+
+    def union_variant_conversion(self, f, val="v"):
+        """Generate the conversion expression for a single union variant value."""
+        if isinstance(f, PrimitiveField):
+            mapping = {
+                "short_channel_id": f"{val}.to_string()",
+                "short_channel_id_dir": f"{val}.to_string()",
+                "pubkey": f"{val}.serialize().to_vec()",
+                "hex": f"hex::decode({val}).unwrap()",
+                "txid": f"hex::decode({val}).unwrap()",
+                "hash": f"<Sha256 as AsRef<[u8]>>::as_ref(&{val}).to_vec()",
+                "secret": f"{val}.to_vec()",
+                "msat": f"{val}.into()",
+                "msat_or_all": f"{val}.into()",
+                "msat_or_any": f"{val}.into()",
+                "sat": f"{val}.into()",
+                "sat_or_all": f"{val}.into()",
+                "feerate": f"{val}.into()",
+                "outpoint": f"{val}.into()",
+            }.get(f.typename, val)
+            return mapping
+        elif isinstance(f, ArrayField):
+            inner_mapping = {
+                "short_channel_id": "i.to_string()",
+                "short_channel_id_dir": "i.to_string()",
+                "pubkey": "i.serialize().to_vec()",
+                "hex": "hex::decode(i).unwrap()",
+                "txid": "hex::decode(i).unwrap()",
+            }.get(f.itemtype.typename, "i.into()")
+            return f"{val}.into_iter().map(|i| {inner_mapping}).collect()"
+        elif isinstance(f, EnumField):
+            return f"{val} as i32"
+        elif isinstance(f, CompositeField):
+            return f"{val}.into()"
+        return val
+
+    def generate_union(self, prefix, field: UnionField, parent_typename, override=None):
+        """Generate From impl for a union type (cln-rpc enum -> pb oneof)."""
+        if override is None:
+            override = lambda x: x
+
+        typename = str(field.typename)
+        pbname = override(self.to_camel_case(str(override(parent_typename))))
+        pb_mod = camel_to_snake(pbname)
+        oneof_name = field.normalized()
+        # The prost enum name is CamelCase of the oneof field name
+        pb_oneof_enum = self.to_camel_case(oneof_name[0].upper() + oneof_name[1:])
+
+        self.write(
+            f"""\
+        impl From<{prefix}::{typename}> for pb::{pb_mod}::{pb_oneof_enum} {{
+            fn from(c: {prefix}::{typename}) -> Self {{
+                match c {{
+        """
+        )
+
+        for v in field.variants:
+            vname = union_variant_name(v)
+            suffix = union_variant_suffix(v)
+            pb_variant = self.to_camel_case(f"{oneof_name}_{suffix}")
+            pb_variant = pb_variant[0].upper() + pb_variant[1:]
+            if isinstance(v, ArrayField):
+                wrapper_name = override(f"{parent_typename}{suffix}Wrapper")
+                wrapper_pb = self.to_camel_case(str(wrapper_name))
+                self.write(
+                    f"            {prefix}::{typename}::{vname}(v) => pb::{pb_mod}::{pb_oneof_enum}::{pb_variant}(pb::{wrapper_pb} {{ items: v.into_iter().map(|i| {self.union_variant_conversion(v.itemtype, 'i')}).collect() }}),\n"
+                )
+            else:
+                self.write(
+                    f"            {prefix}::{typename}::{vname}(v) => pb::{pb_mod}::{pb_oneof_enum}::{pb_variant}({self.union_variant_conversion(v)}),\n"
+                )
+
+        self.write(
+            f"""\
+                }}
+            }}
+        }}
+
+        """
+        )
 
     def generate_composite(self, prefix, field: CompositeField, override=None):
         """Generates the conversions from JSON-RPC to GRPC."""
@@ -34,6 +115,8 @@ class GrpcConverterGenerator(IGenerator):
                 self.generate_array(prefix, f, override)
             elif isinstance(f, CompositeField):
                 self.generate_composite(prefix, f, override)
+            elif isinstance(f, UnionField):
+                self.generate_union(prefix, f, str(field.typename), override)
 
         pbname = override(self.to_camel_case(str(override(field.typename))))
 
@@ -153,6 +236,13 @@ class GrpcConverterGenerator(IGenerator):
                 else:
                     rhs = f"c.{name}.map(|v| v.into())"
                 self.write(f"{name}: {rhs},\n", numindent=3)
+
+            elif isinstance(f, UnionField):
+                if not f.optional:
+                    self.write(f"{name}: Some(c.{name}.into()),\n", numindent=3)
+                else:
+                    self.write(f"{name}: c.{name}.map(|v| v.into()),\n", numindent=3)
+
         self.write(
             f"""\
                 }}
