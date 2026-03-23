@@ -116,7 +116,7 @@ INDEX_HTML_TEMPLATE = """<!DOCTYPE html>
 
 def generate_docs(output_dir: Path, repo_root: Path):
     """Generate documentation for all packages."""
-    print(f"Generating Python documentation for all workspace packages...")
+    print("Generating Python documentation for all workspace packages...")
     print(f"Output directory: {output_dir}")
 
     # Clean and create output directory

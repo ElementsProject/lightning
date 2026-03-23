@@ -1854,7 +1854,7 @@ def test_bip86_deterministic_addresses(node_factory):
     assert addr1_1 == addr2_1, f"Addresses for index 1 don't match: {addr1_1} != {addr2_1}"
 
     # Addresses should be different for different indices
-    assert addr1_0 != addr1_1, f"Addresses for different indices should be different"
+    assert addr1_0 != addr1_1, "Addresses for different indices should be different"
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "BIP86 tests are regtest-specific")
@@ -2776,7 +2776,7 @@ def test_rescan_missing_utxo(node_factory, bitcoind):
     l3.daemon.wait_for_log("Scanning for missed UTXOs finished")
 
     # Found it?
-    assert only_one(l3.db_query(f"SELECT spendheight as spendheight FROM utxoset WHERE blockheight=103 AND txindex=1"))['spendheight'] == 129
+    assert only_one(l3.db_query("SELECT spendheight as spendheight FROM utxoset WHERE blockheight=103 AND txindex=1"))['spendheight'] == 129
 
     # Restart will NOT invoke scan.
     oldstart_l3 = l3.daemon.logsearch_start

@@ -65,14 +65,14 @@ class GrpcConverterGenerator(IGenerator):
                 # The inner conversion applied to each element in the
                 # array. The current item is called `i`
                 mapping = {
-                    "hex": f"hex::decode(i).unwrap()",
-                    "secret": f"i.to_vec()",
-                    "hash": f"<Sha256 as AsRef<[u8]>>::as_ref(&i).to_vec()",
-                    "short_channel_id": f"i.to_string()",
-                    "short_channel_id_dir": f"i.to_string()",
-                    "pubkey": f"i.serialize().to_vec()",
-                    "txid": f"hex::decode(i).unwrap()",
-                }.get(typ, f"i.into()")
+                    "hex": "hex::decode(i).unwrap()",
+                    "secret": "i.to_vec()",
+                    "hash": "<Sha256 as AsRef<[u8]>>::as_ref(&i).to_vec()",
+                    "short_channel_id": "i.to_string()",
+                    "short_channel_id_dir": "i.to_string()",
+                    "pubkey": "i.serialize().to_vec()",
+                    "txid": "hex::decode(i).unwrap()",
+                }.get(typ, "i.into()")
 
                 self.write(f"// Field: {f.path}\n", numindent=3)
                 if not f.optional:
@@ -138,7 +138,7 @@ class GrpcConverterGenerator(IGenerator):
                 )
 
                 if f.deprecated:
-                    self.write(f"#[allow(deprecated)]\n", numindent=3)
+                    self.write("#[allow(deprecated)]\n", numindent=3)
                 self.write(f"{name}: {rhs}, // Rule #2 for type {typ}\n", numindent=3)
 
             elif isinstance(f, CompositeField):
@@ -149,10 +149,10 @@ class GrpcConverterGenerator(IGenerator):
                     rhs = f"c.{name}.map(|v| v.into())"
                 self.write(f"{name}: {rhs},\n", numindent=3)
         self.write(
-            f"""\
-                }}
-            }}
-        }}
+            """\
+                }
+            }
+        }
 
         """
         )

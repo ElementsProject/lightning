@@ -28,7 +28,7 @@ class GrpcServerGenerator(IGenerator):
 
     def generate(self, service: Service) -> None:
         self.write(
-            f"""\
+            """\
         use crate::pb::node_server::Node;
         use crate::pb;
         use cln_rpc::{{Request, Response, ClnRpc}};
@@ -113,7 +113,8 @@ class GrpcServerGenerator(IGenerator):
         #[tonic::async_trait]
         impl Node for Server
         {{
-        """,
+        """
+            .replace("{{", "{").replace("}}", "}"),
             numindent=0,
         )
 
