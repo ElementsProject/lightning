@@ -401,6 +401,8 @@ def test_bkpr_currency_dynamic(node_factory, fake_rateserver):
     assert all("currencyrate" not in e for e in events)
     num_events_1 = len(events)
 
+    time.sleep(1)
+
     l1.rpc.setconfig("bkpr-currency", "USD")
 
     inv2 = l2.rpc.invoice(100000, "test_bkpr_currency_dynamic_2", "desc")
