@@ -7555,7 +7555,7 @@ pub mod responses {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub closer: Option<ChannelSide>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub direction: Option<i64>,
+	    pub direction: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub dust_limit_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]

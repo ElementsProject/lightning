@@ -321,7 +321,7 @@
               ]
             },
             "direction": {
-              "type": "integer",
+              "type": "u32",
               "description": [
                 "The direction of the channel (i.e. 0 if we are the lesser node id, 1 if we are the greater)."
               ]
