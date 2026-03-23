@@ -21,7 +21,7 @@ git log "$PREV_TAG".. --format="%an|%ae" | sort | uniq -c | sort -rn > /tmp/auth
 sed -n 's/.*[Nn]amed by //p' < CHANGELOG.md | sed 's/(.*)//' | tr -dc '[:alnum:][:space:]' > /tmp/namers.$$
 git log "$PREV_TAG" --format="%an|%ae" | sort -u > /tmp/prev-authors.$$
 # Include aliases
-printf "Alex Myers\nShahanaFarooqui\nMatt Whitlock\n" >> /tmp/namers.$$
+printf "Alex Myers\nShahanaFarooqui\nMatt Whitlock\nSangbida Chaudhuri\n" >> /tmp/namers.$$
 
 NAMER=""
 BACKUP_NAMER=""
