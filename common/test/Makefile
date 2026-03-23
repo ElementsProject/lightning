@@ -126,6 +126,9 @@ common/test/run-trace:					\
 	wire/fromwire.o					\
 	wire/towire.o
 
+common/test/run-mkdatastorekey:				\
+	common/pseudorand.o
+
 common/test/run-htable:					\
 	common/pseudorand.o
 
