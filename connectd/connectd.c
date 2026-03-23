@@ -1847,8 +1847,6 @@ static const char **seednames(const tal_t *ctx, const struct node_id *id)
 		      BECH32_ENCODING_BECH32);
 	/* This is cdecker's seed */
 	tal_arr_expand(&seednames, tal_fmt(seednames, "%s.lseed.bitcoinstats.com", bech32));
-	/* This is darosior's seed */
-	tal_arr_expand(&seednames, tal_fmt(seednames, "%s.lseed.darosior.ninja", bech32));
 	return seednames;
 }
 
