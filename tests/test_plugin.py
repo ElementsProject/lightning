@@ -4129,7 +4129,7 @@ def test_sql(node_factory, bitcoind):
                   'pubkey': 'BLOB',
                   'secret': 'BLOB',
                   'number': 'REAL',
-                  'short_channel_id': 'TEXT'}
+                  'short_channel_id': 'SCID'}
 
     # Check schemas match
     for table, schema in expected_schemas.items():
@@ -4295,7 +4295,7 @@ def test_sql(node_factory, bitcoind):
     l1.rpc.pay(l3.rpc.invoice(amount_msat=1000000, label='inv1000', description='description 1000 msat')['bolt11'])
 
     # Two channels, l1->l3 *may* have an HTLC in flight.
-    ret = l1.rpc.sql("SELECT json_object('peer_id', hex(pc.peer_id), 'alias', alias, 'scid', short_channel_id, 'htlcs',"
+    ret = l1.rpc.sql("SELECT json_object('peer_id', hex(pc.peer_id), 'alias', alias, 'scid', fmt_scid(short_channel_id), 'htlcs',"
                      " (SELECT json_group_array(json_object('id', hex(id), 'amount_msat', amount_msat))"
                      " FROM peerchannels_htlcs ph WHERE ph.row = pc.rowid)) FROM peerchannels pc JOIN nodes n"
                      " ON pc.peer_id = n.nodeid ORDER BY n.alias, pc.peer_id;")
