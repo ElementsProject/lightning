@@ -1358,6 +1358,10 @@ int main(int argc, char *argv[])
 		goto stop;
 	}
 
+	/*~ Set up the hsmd-backed ecdh() wrapper before replaying any stored
+	 * HTLCs, since blinded onions may need ECDH during decode. */
+	ecdh_hsmd_setup(ld->hsm_fd, hsm_ecdh_failed);
+
 	/*~ Process any HTLCs we were in the middle of when we exited, now
 	 * that plugins (who might want to know via htlc_accepted hook) are
 	 * active.  These will immediately fail, since no peers are connected,
@@ -1441,9 +1445,6 @@ int main(int argc, char *argv[])
 	/*~ Setting this (global) activates the crash log: we don't usually need
 	 * a backtrace if we fail during startup. */
 	crashlog = ld->log;
-
-	/*~ This sets up the ecdh() function in ecdh_hsmd to talk to hsmd */
-	ecdh_hsmd_setup(ld->hsm_fd, hsm_ecdh_failed);
 
 	/*~ The root of every backtrace (almost).  This is our main event
 	 *  loop.  We don't even call it if they've already called `stop` */

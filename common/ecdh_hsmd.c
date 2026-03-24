@@ -1,4 +1,5 @@
 #include "config.h"
+#include <assert.h>
 #include <common/ecdh.h>
 #include <common/ecdh_hsmd.h>
 #include <common/utils.h>
@@ -11,6 +12,9 @@ static void (*stashed_failed)(enum status_failreason, const char *fmt, ...);
 void ecdh(const struct pubkey *point, struct secret *ss)
 {
 	const u8 *msg = towire_hsmd_ecdh_req(NULL, point);
+
+	assert(stashed_hsm_fd >= 0);
+	assert(stashed_failed != NULL);
 
 	if (!wire_sync_write(stashed_hsm_fd, take(msg)))
 		stashed_failed(STATUS_FAIL_HSM_IO, "Write ECDH to hsmd failed");
