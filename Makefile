@@ -934,7 +934,9 @@ installdirs:
 
 # $(PLUGINS) is defined in plugins/Makefile.
 
-install-program: installdirs $(BIN_PROGRAMS) $(PKGLIBEXEC_PROGRAMS) $(PLUGINS) $(PY_PLUGINS)
+# make install should only copy pre-built files, never trigger builds.
+# Building is done via 'make' or 'make all'; see #8971.
+install-program: installdirs
 	@$(NORMAL_INSTALL)
 	$(INSTALL_PROGRAM) $(BIN_PROGRAMS) $(DESTDIR)$(bindir)
 	$(INSTALL_PROGRAM) $(PKGLIBEXEC_PROGRAMS) $(DESTDIR)$(pkglibexecdir)
@@ -955,7 +957,7 @@ MAN7PAGES = $(filter %.7,$(MANPAGES))
 MAN8PAGES = $(filter %.8,$(MANPAGES))
 DOC_DATA = README.md LICENSE
 
-install-data: installdirs $(MAN1PAGES) $(MAN5PAGES) $(MAN7PAGES) $(MAN8PAGES) $(DOC_DATA)
+install-data: installdirs
 	@$(NORMAL_INSTALL)
 	$(INSTALL_DATA) $(MAN1PAGES) $(DESTDIR)$(man1dir)
 	$(INSTALL_DATA) $(MAN5PAGES) $(DESTDIR)$(man5dir)
