@@ -4556,7 +4556,7 @@ def test_sql(node_factory, bitcoind):
                   'pubkey': 'BLOB',
                   'secret': 'BLOB',
                   'number': 'REAL',
-                  'short_channel_id': 'TEXT'}
+                  'short_channel_id': 'SCID'}
 
     # Check schemas match
     for table, schema in expected_schemas.items():
@@ -4660,6 +4660,27 @@ def test_sql(node_factory, bitcoind):
     ret = l2.rpc.sql("SELECT in_htlc_id,out_msat,status,out_htlc_id FROM forwards WHERE in_htlc_id = 0;")
     assert only_one(ret['rows']) == [0, 12300, 'settled', 0]
 
+    # scid() is how you filter. A string literal is not rewritten.
+    fwd = only_one(l2.rpc.listforwards()['forwards'])
+    in_scid = fwd['in_channel']
+    q = "SELECT in_htlc_id FROM forwards WHERE in_channel = scid('{}');".format(in_scid)
+    ret = l2.rpc.sql(q)
+    assert only_one(only_one(ret['rows'])) == 0
+    plan = l2.rpc.sql("EXPLAIN QUERY PLAN " + q)
+    assert any('USING INDEX' in str(row) for row in plan['rows'])
+
+    # Bare string compare is a type mismatch, not a hidden rewrite.
+    assert l2.rpc.sql("SELECT in_htlc_id FROM forwards WHERE in_channel = '{}';".format(in_scid)) == {'rows': []}
+    # A doubled quote must not be treated as the end of a literal.
+    assert l2.rpc.sql("SELECT in_htlc_id FROM forwards WHERE status = 'it''s settled';") == {'rows': []}
+
+    ret = l2.rpc.sql("SELECT in_htlc_id FROM forwards WHERE in_channel = scid(scid('{}'));".format(in_scid))
+    assert only_one(only_one(ret['rows'])) == 0
+    with pytest.raises(RpcError, match='query failed'):
+        l2.rpc.sql("SELECT in_htlc_id FROM forwards WHERE in_channel = scid('{}-backup');".format(in_scid))
+    with pytest.raises(RpcError, match='query failed'):
+        l2.rpc.sql("SELECT fmt_scid('{}');".format(in_scid))
+
     with pytest.raises(RpcError, match='Unauthorized'):
         l2.rpc.sql("DELETE FROM forwards;")
 
@@ -4727,7 +4748,7 @@ def test_sql(node_factory, bitcoind):
     l1.rpc.xpay(l3.rpc.invoice(amount_msat=1000000, label='inv1000', description='description 1000 msat')['bolt11'])
 
     # Two channels, l1->l3 *may* have an HTLC in flight.
-    ret = l1.rpc.sql("SELECT json_object('peer_id', hex(pc.peer_id), 'alias', alias, 'scid', short_channel_id, 'htlcs',"
+    ret = l1.rpc.sql("SELECT json_object('peer_id', hex(pc.peer_id), 'alias', alias, 'scid', fmt_scid(short_channel_id), 'htlcs',"
                      " (SELECT json_group_array(json_object('id', hex(id), 'amount_msat', amount_msat))"
                      " FROM peerchannels_htlcs ph WHERE ph.row = pc.rowid)) FROM peerchannels pc JOIN nodes n"
                      " ON pc.peer_id = n.nodeid ORDER BY n.alias, pc.peer_id;")
