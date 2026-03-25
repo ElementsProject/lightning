@@ -8,6 +8,7 @@
 #include <common/bolt12_merkle.h>
 #include <common/features.h>
 #include <common/iso4217.h>
+#include <common/payer_proof.h>
 #include <common/setup.h>
 #include <common/utils.h>
 #include <common/version.h>
@@ -153,11 +154,17 @@ static bool print_offer_amount(const struct bitcoin_blkid *chains,
 	return ok;
 }
 
-static bool print_utf8(const char *fieldname, const char *description)
+static bool print_utf8(const char *fieldname, const utf8 *description)
 {
-	bool valid = utf8_check(description, tal_bytelen(description));
+	size_t len = tal_bytelen(description);
+	bool valid = utf8_check(description, len);
+
+	/* Decoded TLV utf8 fields are length-delimited, not necessarily NUL-terminated. */
+	if (len != 0 && description[len - 1] == '\0')
+		len--;
+
 	printf("%s: %.*s%s\n", fieldname,
-	       (int)tal_bytelen(description), description,
+	       (int)len, description,
 	       valid ? "" : "(INVALID UTF-8)");
 	return valid;
 }
@@ -349,6 +356,56 @@ static void print_hash(const char *fieldname, const struct sha256 *hash)
 {
 	printf("%s: %s\n",
 	       fieldname, fmt_sha256(tmpctx, hash));
+}
+
+static void print_bip340sig_field(const char *fieldname,
+				  const struct bip340sig *sig)
+{
+	printf("%s: %s\n", fieldname, fmt_bip340sig(tmpctx, sig));
+}
+
+static void print_sha256_array(const char *fieldname,
+			       const struct sha256 *hashes)
+{
+	printf("%s:", fieldname);
+	for (size_t i = 0; i < tal_count(hashes); i++)
+		printf(" %s", fmt_sha256(tmpctx, &hashes[i]));
+	printf("\n");
+}
+
+static void print_u64_array(const char *fieldname, const u64 *vals)
+{
+	printf("%s:", fieldname);
+	for (size_t i = 0; i < tal_count(vals); i++)
+		printf(" %"PRIu64, vals[i]);
+	printf("\n");
+}
+
+static bool print_payer_proof_extra_fields(const struct tlv_field *fields)
+{
+	bool ok = true;
+
+	for (size_t i = 0; i < tal_count(fields); i++) {
+		if (!is_bolt12_signature_field(fields[i].numtype)
+		    || fields[i].numtype == PAYER_PROOF_TLV_SIGNATURE
+		    || fields[i].numtype == PAYER_PROOF_TLV_PREIMAGE
+		    || fields[i].numtype == PAYER_PROOF_TLV_OMITTED_TLVS
+		    || fields[i].numtype == PAYER_PROOF_TLV_MISSING_HASHES
+		    || fields[i].numtype == PAYER_PROOF_TLV_LEAF_HASHES
+		    || fields[i].numtype == PAYER_PROOF_TLV_PAYER_SIGNATURE)
+			continue;
+		if (fields[i].numtype % 2 == 0) {
+			printf("UNKNOWN EVEN payer_proof field %"PRIu64": %s\n",
+			       fields[i].numtype,
+			       tal_hexstr(tmpctx, fields[i].value, fields[i].length));
+			ok = false;
+		} else {
+			printf("Unknown payer_proof field %"PRIu64": %s\n",
+			       fields[i].numtype,
+			       tal_hexstr(tmpctx, fields[i].value, fields[i].length));
+		}
+	}
+	return ok;
 }
 
 static void print_relative_expiry(u64 *created_at, u32 *relative)
@@ -1069,6 +1126,49 @@ int main(int argc, char *argv[])
 						       invoice->invoice_node_id,
 						       invoice->signature);
 		if (!print_extra_fields(invoice->fields))
+			well_formed = false;
+	} else if (streq(hrp, "lnp")) {
+		const struct payer_proof *proof
+			= payer_proof_decode(ctx, argv[2], strlen(argv[2]), &fail);
+
+		if (!proof)
+			errx(ERROR_BAD_DECODE, "Bad payer_proof: %s", fail);
+
+		if (proof->invoice->offer_description)
+			well_formed &= print_utf8("offer_description",
+						  proof->invoice->offer_description);
+		if (proof->invoice->offer_issuer)
+			well_formed &= print_utf8("offer_issuer",
+						  proof->invoice->offer_issuer);
+		if (proof->invoice->invoice_created_at)
+			print_abstime("invoice_created_at",
+				      *proof->invoice->invoice_created_at);
+		if (proof->invoice->invoice_amount)
+			print_msat("invoice_amount", *proof->invoice->invoice_amount);
+		if (proof->invoice->invoice_features)
+			print_features("invoice_features",
+				       proof->invoice->invoice_features);
+		if (proof->invoice->invreq_payer_id)
+			print_node_id("invreq_payer_id",
+				      proof->invoice->invreq_payer_id);
+		if (proof->invoice->invoice_payment_hash)
+			print_hash("invoice_payment_hash",
+				   proof->invoice->invoice_payment_hash);
+		if (proof->invoice->invoice_node_id)
+			print_node_id("invoice_node_id",
+				      proof->invoice->invoice_node_id);
+		print_bip340sig_field("invoice_signature", proof->invoice_signature);
+		printf("payment_preimage: %s\n", fmt_preimage(tmpctx, proof->preimage));
+		print_u64_array("omitted_tlvs", proof->omitted_tlvs);
+		print_sha256_array("missing_hashes", proof->missing_hashes);
+		print_sha256_array("leaf_hashes", proof->leaf_hashes);
+		print_bip340sig_field("payer_signature", proof->payer_signature);
+		if (proof->payer_note)
+			well_formed &= print_utf8("payer_note", proof->payer_note);
+		print_hash("merkle_root", &proof->merkle_root);
+		if (!print_extra_fields(proof->invoice->fields))
+			well_formed = false;
+		if (!print_payer_proof_extra_fields(proof->fields))
 			well_formed = false;
 	} else
 		errx(ERROR_BAD_DECODE, "Unknown prefix %s", hrp);

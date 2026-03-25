@@ -249,6 +249,8 @@ int main(int argc, char *argv[])
 		{ "LNI1ABCD",          LIKELY_BOLT12_INV },
 		{ "lnr1xyz",           LIKELY_BOLT12_INVREQ },
 		{ "LNR1XYZ",           LIKELY_BOLT12_INVREQ },
+		{ "lnp1proof",         LIKELY_BOLT12_PAYER_PROOF },
+		{ "LNP1PROOF",         LIKELY_BOLT12_PAYER_PROOF },
 
 		/* Emergency recover */
 		{ "clnemerg1foo",      LIKELY_EMERGENCY_RECOVER },
