@@ -495,6 +495,16 @@ static void handle_splice_lookup_tx(struct lightningd *ld,
 	}
 
 	tx = wallet_transaction_get(tmpctx, ld->wallet, &txid);
+	if (!tx
+	    && channel->funding_psbt
+	    && bitcoin_txid_eq(&channel->funding.txid, &txid)) {
+		/* Zeroconf funding can be used for splicing before topology
+		 * has indexed the funding tx, so reconstruct it from the
+		 * persisted funding PSBT if needed. */
+		tx = bitcoin_tx_with_psbt(tmpctx,
+					  clone_psbt(tmpctx,
+						     channel->funding_psbt));
+	}
 
 	if (!tx) {
 		channel_internal_error(channel,

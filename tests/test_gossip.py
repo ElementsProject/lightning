@@ -2401,9 +2401,14 @@ def test_gossip_force_broadcast_channel_msgs(node_factory, bitcoind):
     del tally['query_channel_range']
     del tally['ping']
     del tally['gossip_filter']
-    assert tally == {'channel_announce': 1,
-                     'channel_update': 1,
-                     'node_announce': 1}
+    # We can see l2 replay the shared channel_announcement while the final
+    # announcement is propagating. Allow a single duplicate.
+    assert tally in ({'channel_announce': 1,
+                      'channel_update': 1,
+                      'node_announce': 1},
+                     {'channel_announce': 2,
+                      'channel_update': 1,
+                      'node_announce': 1})
 
     # Make sure l1 sees l2's channel update
     wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 2)

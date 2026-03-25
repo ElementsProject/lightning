@@ -357,6 +357,7 @@ struct channel *new_unsaved_channel(struct peer *peer,
 	channel->state = DUALOPEND_OPEN_INIT;
 	channel->owner = NULL;
 	channel->reestablished = false;
+	channel->minimum_depth = ld->config.funding_confirms;
 	memset(&channel->billboard, 0, sizeof(channel->billboard));
 	channel->billboard.transient = tal_fmt(channel, "%s",
 					       "Empty channel init'd");
@@ -1309,4 +1310,3 @@ const u8 *channel_update_for_error(const tal_t *ctx,
 	/* FIXME: Call directly from callers */
 	return channel_gossip_update_for_error(ctx, channel);
 }
-

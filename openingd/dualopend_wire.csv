@@ -108,6 +108,7 @@ msgdata,dualopend_got_offer_reply,psbt,wally_psbt,
 msgdata,dualopend_got_offer_reply,shutdown_len,u16,
 msgdata,dualopend_got_offer_reply,our_shutdown_scriptpubkey,?u8,shutdown_len
 msgdata,dualopend_got_offer_reply,our_shutdown_wallet_index,?u32,
+msgdata,dualopend_got_offer_reply,mindepth,u32,
 # must go last because of embedded tu32
 msgdata,dualopend_got_offer_reply,lease_rates,?lease_rates,
 

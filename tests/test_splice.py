@@ -748,6 +748,7 @@ def test_splice_zeroconf(node_factory, bitcoind):
 
     # Open a zero-conf channel
     l1.fundwallet(10**7)
+    l1.fundwallet(10**7)
     l1.connect(l2)
     l1.rpc.fundchannel(l2.info['id'], fundamt, mindepth=0)
 
@@ -759,7 +760,8 @@ def test_splice_zeroconf(node_factory, bitcoind):
 
     # Confirm that this is indeed a zero-conf channel
     chan = only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])
-    assert chan['minimum_depth'] == 0
+    assert 'option_zeroconf' in chan['features']
+    assert 'short_channel_id' not in chan
 
     # Now splice in 100k sats
     spliceamt = 100000
