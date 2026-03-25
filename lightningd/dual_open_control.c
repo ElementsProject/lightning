@@ -1070,6 +1070,19 @@ openchannel2_sign_hook_cb(struct openchannel2_psbt_payload *payload STEALS)
 	/* Whatever happens, we free the payload */
 	tal_steal(tmpctx, payload);
 
+	/* Peer's gone away, let's try reconnecting.
+	 * Check this first: if dualopend died (e.g. peer disconnected),
+	 * there's no point validating signatures since we can't send
+	 * them anyway.  The disconnect notification can also race with
+	 * this hook in plugins, causing them to clean up state and
+	 * return the PSBT unsigned. */
+	if (!payload->dualopend) {
+		channel_saved_err_broken_reconn(channel,
+						"dualopend daemon died"
+						" before signed PSBT returned");
+		return;
+	}
+
 	/* Finalize it, if not already. It shouldn't work entirely */
 	psbt_finalize(payload->psbt);
 
@@ -1115,14 +1128,6 @@ openchannel2_sign_hook_cb(struct openchannel2_psbt_payload *payload STEALS)
 	msg = towire_dualopend_send_tx_sigs(NULL, inflight->funding_psbt);
 
 send_msg:
-	/* Peer's gone away, let's try reconnecting */
-	if (!payload->dualopend) {
-		channel_saved_err_broken_reconn(channel,
-						"dualopend daemon died"
-						" before signed PSBT returned");
-		tal_free(msg);
-		return;
-	}
 	tal_del_destructor2(payload->dualopend,
 			    openchannel2_psbt_remove_dualopend,
 			    payload);
