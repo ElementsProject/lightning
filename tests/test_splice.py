@@ -686,7 +686,6 @@ def test_easy_splice_out_address(node_factory, bitcoind, chainparams):
     assert initial_wallet_balance + Millisatoshi(spliceamt * 1000) == end_wallet_balance
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
@@ -709,8 +708,8 @@ def test_easy_splice_out_into_channel(node_factory, bitcoind, chainparams):
     bitcoind.generate_block(6, wait_for_mempool=1)
     l2.daemon.wait_for_log(r'lightningd, splice_locked clearing inflights')
 
-    p1 = only_one(l1.rpc.listpeerchannels())
-    p2 = only_one(l3.rpc.listpeerchannels())
+    p1 = only_one(l1.rpc.listpeerchannels()['channels'])
+    p2 = only_one(l3.rpc.listpeerchannels()['channels'])
     assert 'inflight' not in p1
     assert 'inflight' not in p2
 
