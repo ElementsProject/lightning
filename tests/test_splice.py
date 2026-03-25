@@ -1,6 +1,6 @@
 from fixtures import *  # noqa: F401,F403
 from pathlib import Path
-from pyln.client import Millisatoshi
+from pyln.client import Millisatoshi, RpcError
 import pytest
 import re
 import unittest
@@ -760,16 +760,21 @@ def test_splice_zeroconf(node_factory, bitcoind):
 
     # Confirm that this is indeed a zero-conf channel
     chan = only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])
+    chan_id = chan['channel_id']
     assert 'option_zeroconf' in chan['features']
     assert 'short_channel_id' not in chan
 
     # Now splice in 100k sats
     spliceamt = 100000
     l1.rpc.splicein("*:?", f"{spliceamt}")
+    l1.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
 
     p1 = only_one(l1.rpc.listpeerchannels(peer_id=l2.info['id'])['channels'])
     assert p1['inflight'][0]['splice_amount'] == spliceamt
     assert p1['inflight'][0]['total_funding_msat'] == (fundamt + spliceamt) * 1000
+
+    with pytest.raises(RpcError, match=r'Cannot RBF splice: channel uses option_zeroconf'):
+        l1.rpc.splice_init(chan_id, 50000)
 
     # Mine just 1 block — for zero-conf, splice_locked should fire at depth 1
     # (depth 0 in the watcher means "just appeared in a block")

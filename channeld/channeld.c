@@ -4928,16 +4928,6 @@ static void handle_splice_stfu_success(struct peer *peer)
 				    &peer->channel->funding_pubkey[LOCAL]);
 	}
 	else { /* RBF attempt */
-		/* BOLT #2:
-		 * The sender:
-		 *   - MUST NOT send `tx_init_rbf` if `option_zeroconf`
-		 *     has been negotiated.
-		 */
-		if (channel_type_has(peer->channel->type, OPT_ZEROCONF))
-			peer_failed_warn(peer->pps, &peer->channel_id,
-					 "Cannot RBF splice: channel uses"
-					 " option_zeroconf");
-
 		init_rbf_tlvs = tlv_tx_init_rbf_tlvs_new(tmpctx);
 		init_rbf_tlvs->funding_output_contribution = tal(init_rbf_tlvs, s64);
 		*init_rbf_tlvs->funding_output_contribution = peer->splicing->opener_relative;
@@ -5018,6 +5008,15 @@ static void handle_splice_init(struct peer *peer, const u8 *inmsg)
 							 " %u",
 							 peer->splicing->feerate_per_kw,
 							 peer->feerate_min));
+		wire_sync_write(MASTER_FD, take(msg));
+		return;
+	}
+	if (last_inflight(peer)
+	    && channel_type_has(peer->channel->type, OPT_ZEROCONF)) {
+		msg = towire_channeld_splice_state_error(NULL,
+							 "Cannot RBF splice:"
+							 " channel uses"
+							 " option_zeroconf");
 		wire_sync_write(MASTER_FD, take(msg));
 		return;
 	}
