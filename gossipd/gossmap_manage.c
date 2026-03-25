@@ -184,14 +184,12 @@ static bool map_add(struct cannounce_map *map,
 {
 	/* More than 10000 pending things?  Stop! */
 	if (map->count > 10000) {
-		if (!map->flood_reported) {
-			status_unusual("%s being flooded by %s: dropping some",
-				       map->name,
-				       pca->source_peer
-				       ? fmt_node_id(tmpctx, pca->source_peer)
-				       : "unknown");
-			map->flood_reported = true;
-		}
+		status_unusual_once(&map->flood_reported,
+				    "%s being flooded by %s: dropping some",
+				    map->name,
+				    pca->source_peer
+				    ? fmt_node_id(tmpctx, pca->source_peer)
+				    : "unknown");
 		return false;
 	}
 

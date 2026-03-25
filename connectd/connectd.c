@@ -646,11 +646,9 @@ static struct io_plan *connection_in(struct io_conn *conn,
 	/* Did we fail to accept? */
 	if (!conn) {
 		static bool accept_logged = false;
-		if (!accept_logged) {
-			status_broken("accepting incoming fd failed: %s",
-				      strerror(errno));
-			accept_logged = true;
-		}
+		status_broken_once(&accept_logged,
+				   "accepting incoming fd failed: %s",
+				   strerror(errno));
 		/* Maybe free up some fds by closing something. */
 		close_random_connection(daemon);
 		return NULL;
