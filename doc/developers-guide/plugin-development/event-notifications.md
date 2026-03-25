@@ -181,6 +181,19 @@ A notification for topic `invoice_creation` is sent every time an invoice is cre
 }
 ```
 
+If the invoice is associated with a BOLT 12 offer, an `offer_id` field will be present:
+
+```json
+{
+  "invoice_creation": {
+    "label": "unique-label-for-invoice",
+    "preimage": "0000000000000000000000000000000000000000000000000000000000000000",
+    "msat": 10000,
+    "offer_id": "b1d1062abc09790a68be83e4c257614a57978e4053a954bfee5909ed71e23e03"
+  }
+}
+```
+
 Before version `23.11` the `msat` field was a string with msat-suffix, e.g: `"10000msat"`.
 
 ### `warning`
