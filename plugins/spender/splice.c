@@ -2073,16 +2073,6 @@ validate_splice_cmd(struct splice_cmd *splice_cmd)
 						    " fee");
 			paying_fee_count++;
 		}
-		if (action->bitcoin_address && action->in_ppm)
-			return command_fail(splice_cmd->cmd,
-					    JSONRPC2_INVALID_PARAMS,
-					    "Dynamic bitcoin address amounts"
-					    " not supported for now");
-		if (action->bitcoin_address)
-			return command_fail(splice_cmd->cmd,
-					    JSONRPC2_INVALID_PARAMS,
-					    "Paying out to bitcoin addresses"
-					    " not supported for now.");
 	}
 
 	return NULL;

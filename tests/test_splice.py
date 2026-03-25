@@ -653,7 +653,6 @@ def test_easy_splice_out(node_factory, bitcoind, chainparams):
     assert initial_wallet_balance + Millisatoshi(spliceamt * 1000) == end_wallet_balance
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
@@ -686,7 +685,6 @@ def test_splice_out_address(node_factory, bitcoind, chainparams):
     assert initial_wallet_balance + Millisatoshi(spliceamt * 1000) == end_wallet_balance
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
