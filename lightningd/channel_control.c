@@ -710,9 +710,9 @@ static enum watch_result splice_depth_cb(struct lightningd *ld,
 	}
 
 	/* Reorged out?  OK, we're not committed yet.
-	 * But for zero-conf channels (minimum_depth == 0), depth 0 means
-	 * we should send splice_locked immediately per BOLT #2. */
-	if (depth == 0 && inflight->channel->minimum_depth != 0) {
+	 * Zero-conf splice_locked is handled directly in channeld once
+	 * tx_signatures have completed. */
+	if (depth == 0) {
 		return KEEP_WATCHING;
 	}
 
@@ -1003,7 +1003,9 @@ static void handle_update_inflight(struct lightningd *ld,
 	if (last_sig)
 		inflight->last_sig = *last_sig;
 
-	inflight->locked_scid = tal_steal(inflight, locked_scid);
+	inflight->locked_scid = tal_free(inflight->locked_scid);
+	if (locked_scid)
+		inflight->locked_scid = tal_steal(inflight, locked_scid);
 	inflight->i_sent_sigs = i_sent_sigs;
 
 	tal_wally_start();
@@ -1222,8 +1224,10 @@ static void handle_peer_splice_locked(struct channel *channel, const u8 *msg)
 
 	wallet_channel_clear_inflights(channel->peer->ld->wallet, channel);
 
-	/* Update the scid and tell everyone */
-	change_scid(channel, *inflight->locked_scid);
+	/* A zero-conf splice can lock before the new funding tx has a real scid. */
+	if (channel->scid
+	    && !short_channel_id_eq(*channel->scid, *inflight->locked_scid))
+		change_scid(channel, *inflight->locked_scid);
 
 	/* That freed watchers in inflights: now watch funding tx */
 	channel_watch_funding(channel->peer->ld, channel);

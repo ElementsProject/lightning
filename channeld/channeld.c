@@ -430,7 +430,9 @@ static void check_mutual_splice_locked(struct peer *peer)
 		return;
 
 	if (short_channel_id_eq(peer->short_channel_ids[LOCAL],
-				peer->splice_state->short_channel_id))
+				peer->splice_state->short_channel_id)
+	    && !short_channel_id_eq(peer->splice_state->short_channel_id,
+				    peer->local_alias))
 		peer_failed_err(peer->pps, &peer->channel_id,
 				 "Duplicate splice_locked events detected"
 				 " by scid check");
@@ -510,6 +512,53 @@ static void check_mutual_splice_locked(struct peer *peer)
 	peer->splice_state->remote_locked_txid = tal_free(peer->splice_state->remote_locked_txid);
 }
 
+static void send_local_splice_locked(struct peer *peer,
+				     struct inflight *inflight,
+				     const struct short_channel_id *scid)
+{
+	const struct short_channel_id *locked_scid;
+	bool already_locked = inflight->locked_scid != NULL;
+	u8 *msg;
+
+	if (already_locked)
+		locked_scid = inflight->locked_scid;
+	else
+		locked_scid = scid ? scid : &peer->local_alias;
+
+	if (!already_locked) {
+		assert(peer->channel_ready[LOCAL]);
+		assert(peer->channel_ready[REMOTE]);
+
+		inflight->locked_scid = tal_dup(inflight, struct short_channel_id,
+						locked_scid);
+		msg = towire_channeld_update_inflight(NULL,
+						      inflight->psbt,
+						      NULL,
+						      NULL,
+						      inflight->locked_scid,
+						      inflight->i_sent_sigs);
+		wire_sync_write(MASTER_FD, take(msg));
+	}
+
+	peer->splice_state->short_channel_id = *locked_scid;
+	status_debug("Current channel id is %s, splice_short_channel_id now set to %s",
+		     fmt_short_channel_id(tmpctx,
+					  peer->short_channel_ids[LOCAL]),
+		     fmt_short_channel_id(tmpctx,
+					  peer->splice_state->short_channel_id));
+
+	peer->splice_state->locked_txid = inflight->outpoint.txid;
+
+	if (!already_locked) {
+		msg = towire_splice_locked(NULL, &peer->channel_id,
+					   &inflight->outpoint.txid);
+		peer_write(peer->pps, take(msg));
+	}
+
+	peer->splice_state->locked_ready[LOCAL] = true;
+	check_mutual_splice_locked(peer);
+}
+
 static void implied_peer_splice_locked(struct peer *peer,
 				       struct bitcoin_txid splice_txid)
 {
@@ -568,6 +617,44 @@ static void handle_peer_splice_locked(struct peer *peer, const u8 *msg)
 	}
 
 	implied_peer_splice_locked(peer, splice_txid);
+}
+
+static void maybe_handle_cached_splice_locked(struct peer *peer,
+					      const struct inflight *inflight)
+{
+	const u8 *msg;
+
+	if (!peer->splicing || !peer->splicing->splice_locked_msg)
+		return;
+
+	if (is_stfu_active(peer))
+		return;
+
+	if (!inflight || !inflight->i_sent_sigs)
+		return;
+
+	msg = tal_steal(tmpctx, peer->splicing->splice_locked_msg);
+	peer->splicing->splice_locked_msg = NULL;
+	handle_peer_splice_locked(peer, msg);
+}
+
+static bool maybe_cache_splice_locked(struct peer *peer, const u8 *msg)
+{
+	if (fromwire_peektype(msg) != WIRE_SPLICE_LOCKED
+	    || !peer->splicing
+	    || peer->channel->minimum_depth != 0)
+		return false;
+
+	if (peer->splicing->splice_locked_msg)
+		peer_failed_warn(peer->pps, &peer->channel_id,
+				 "Received SPLICE_LOCKED while we already"
+				 " have one cached");
+
+	/* Zero-conf peers can send splice_locked while we're still resuming
+	 * the splice negotiation, so defer it until the local signature path
+	 * is complete and mutual splice_locked can safely clear inflights. */
+	peer->splicing->splice_locked_msg = tal_steal(peer->splicing, msg);
+	return true;
 }
 
 static void handle_peer_channel_ready(struct peer *peer, const u8 *msg)
@@ -3783,6 +3870,9 @@ static void resume_splice_negotiation(struct peer *peer,
 	if (peer->splicing) {
 		inws = peer->splicing->inws;
 		their_sig = peer->splicing->their_sig;
+
+		if (peer->splicing->tx_sig_msg)
+			recv_signature = true;
 	}
 	else {
 		inws = NULL;
@@ -3908,6 +3998,9 @@ static void resume_splice_negotiation(struct peer *peer,
 		wire_sync_write(MASTER_FD, take(msg));
 
 		peer_write(peer->pps, sigmsg);
+
+		if (peer->channel->minimum_depth == 0)
+			send_local_splice_locked(peer, inflight, NULL);
 	}
 
 	their_pubkey = &peer->channel->funding_pubkey[REMOTE];
@@ -3937,13 +4030,27 @@ static void resume_splice_negotiation(struct peer *peer,
 
 		check_tx_abort(peer, msg, &inflight->outpoint.txid);
 
-		if (handle_peer_error_or_warning(peer->pps, msg))
-			return;
+			if (handle_peer_error_or_warning(peer->pps, msg))
+				return;
 
-		if (type != WIRE_TX_SIGNATURES)
-			peer_failed_warn(peer->pps, &peer->channel_id,
-					"Splicing got incorrect message from"
-					" peer: %s (should be"
+			if (type == WIRE_CHANNEL_READY
+			    && peer->channel->minimum_depth == 0
+			    && peer->splice_state->locked_ready[LOCAL]) {
+				if (is_stfu_active(peer))
+					end_stfu_mode(peer);
+
+				handle_peer_channel_ready(peer, msg);
+				implied_peer_splice_locked(peer,
+							   inflight->outpoint.txid);
+				if (!tal_count(peer->splice_state->inflights))
+					peer->splicing = tal_free(peer->splicing);
+				return;
+			}
+
+			if (type != WIRE_TX_SIGNATURES)
+				peer_failed_warn(peer->pps, &peer->channel_id,
+						"Splicing got incorrect message from"
+						" peer: %s (should be"
 					" WIRE_TX_SIGNATURES)",
 					peer_wire_name(type));
 
@@ -3971,7 +4078,7 @@ static void resume_splice_negotiation(struct peer *peer,
 	  	 *  - MUST consider splice negotiation complete.
 	  	 *  - MUST consider the connection no longer quiescent.
 	  	 */
-		if (send_signature)
+		if (is_stfu_active(peer))
 			end_stfu_mode(peer);
 
 		their_sig = tal(tmpctx, struct bitcoin_signature);
@@ -4092,13 +4199,14 @@ static void resume_splice_negotiation(struct peer *peer,
 
 		peer_write(peer->pps, sigmsg);
 		status_debug("Splice: we signed second");
+
+		if (peer->channel->minimum_depth == 0)
+			send_local_splice_locked(peer, inflight, NULL);
 	}
 
 	if (send_signature) {
 		if (!recv_signature)
 			end_stfu_mode(peer);
-
-		peer->splicing = tal_free(peer->splicing);
 
 		if (our_role == TX_INITIATOR)
 			calc_weight(TX_INITIATOR, current_psbt, true);
@@ -4110,6 +4218,11 @@ static void resume_splice_negotiation(struct peer *peer,
 	}
 
 	audit_psbt(current_psbt, current_psbt);
+
+	maybe_handle_cached_splice_locked(peer, inflight);
+
+	if (send_signature)
+		peer->splicing = tal_free(peer->splicing);
 }
 
 static struct inflight *inflights_new(struct peer *peer)
@@ -4909,9 +5022,6 @@ static void splice_initiator_user_signed(struct peer *peer, const u8 *inmsg)
 	assert(tal_parent(inflight->psbt) != tmpctx);
 
 	resume_splice_negotiation(peer, false, false, true, sign_first, 0);
-
-	audit_psbt(inflight->psbt, inflight->psbt);
-	assert(tal_parent(inflight->psbt) != tmpctx);
 }
 
 /* This occurs once our 'stfu' transition was successful. */
@@ -5109,10 +5219,12 @@ static void peer_in(struct peer *peer, const u8 *msg)
 		if (peer->splicing && type == WIRE_TX_SIGNATURES) {
 			if (peer->splicing->tx_sig_msg)
 				peer_failed_warn(peer->pps, &peer->channel_id,
-						 "Received TX_SIGNATURES while"
-						 " we already have one cached");
+							 "Received TX_SIGNATURES while"
+							 " we already have one cached");
 			peer->splicing->tx_sig_msg = tal_steal(peer->splicing,
 							       msg);
+			return;
+		} else if (maybe_cache_splice_locked(peer, msg)) {
 			return;
 		} else if (type != WIRE_ANNOUNCEMENT_SIGNATURES) {
 			peer_failed_warn(peer->pps, &peer->channel_id,
@@ -5145,6 +5257,9 @@ static void peer_in(struct peer *peer, const u8 *msg)
 					 peer_wire_name(type));
 
 	peer->stfu_wait_single_msg = false;
+
+	if (maybe_cache_splice_locked(peer, msg))
+		return;
 
 	switch (type) {
 	case WIRE_CHANNEL_READY:
@@ -6225,10 +6340,7 @@ static void handle_funding_depth(struct peer *peer, const u8 *msg)
 		if (depth < peer->channel->minimum_depth)
 			return;
 
-		assert(peer->channel_ready[LOCAL]);
-		assert(peer->channel_ready[REMOTE]);
-
-		if(!peer->splice_state->locked_ready[LOCAL]) {
+		if (!peer->splice_state->locked_ready[LOCAL]) {
 			assert(scid);
 
 			inflight_match = NULL;
@@ -6247,16 +6359,6 @@ static void handle_funding_depth(struct peer *peer, const u8 *msg)
 								fmt_bitcoin_txid(tmpctx, &txid));
 					assert(scid);
 					assert(inflight->psbt);
-					inflight->locked_scid = tal_dup(inflight,
-									struct short_channel_id,
-									scid);
-					msg = towire_channeld_update_inflight(NULL,
-									      inflight->psbt,
-									      NULL,
-									      NULL,
-									      inflight->locked_scid,
-									      inflight->i_sent_sigs);
-					wire_sync_write(MASTER_FD, take(msg));
 					inflight_match = inflight;
 				}
 			}
@@ -6269,25 +6371,7 @@ static void handle_funding_depth(struct peer *peer, const u8 *msg)
 				return;
 			}
 
-			/* For splicing we only update the short channel id on mutual
-			 * splice lock */
-			peer->splice_state->short_channel_id = *scid;
-			status_debug("Current channel id is %s, "
-				     "splice_short_channel_id now set to %s",
-				      fmt_short_channel_id(tmpctx,
-							   peer->short_channel_ids[LOCAL]),
-				      fmt_short_channel_id(tmpctx,
-							   peer->splice_state->short_channel_id));
-
-			peer->splice_state->locked_txid = txid;
-
-			msg = towire_splice_locked(NULL, &peer->channel_id,
-						   &txid);
-
-			peer_write(peer->pps, take(msg));
-
-			peer->splice_state->locked_ready[LOCAL] = true;
-			check_mutual_splice_locked(peer);
+			send_local_splice_locked(peer, inflight_match, scid);
 		}
 
 		return;

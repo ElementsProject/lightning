@@ -1,6 +1,6 @@
 from fixtures import *  # noqa: F401,F403
 from pathlib import Path
-from pyln.client import Millisatoshi, RpcError
+from pyln.client import Millisatoshi
 import pytest
 import re
 import unittest
@@ -724,7 +724,7 @@ def test_easy_splice_out_into_channel(node_factory, bitcoind, chainparams):
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 def test_splice_zeroconf(node_factory, bitcoind):
-    """Test that splicing on a zero-conf channel locks immediately at depth 1.
+    """Test that splicing on a zero-conf channel locks immediately.
 
     Per BOLT #2 (bolts#1160), when option_zeroconf is negotiated:
     - nodes SHOULD send splice_locked immediately after tx_signatures
@@ -760,30 +760,17 @@ def test_splice_zeroconf(node_factory, bitcoind):
 
     # Confirm that this is indeed a zero-conf channel
     chan = only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])
-    chan_id = chan['channel_id']
     assert 'option_zeroconf' in chan['features']
     assert 'short_channel_id' not in chan
 
     # Now splice in 100k sats
     spliceamt = 100000
     l1.rpc.splicein("*:?", f"{spliceamt}")
-    l1.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
-
-    p1 = only_one(l1.rpc.listpeerchannels(peer_id=l2.info['id'])['channels'])
-    assert p1['inflight'][0]['splice_amount'] == spliceamt
-    assert p1['inflight'][0]['total_funding_msat'] == (fundamt + spliceamt) * 1000
-
-    with pytest.raises(RpcError, match=r'Cannot RBF splice: channel uses option_zeroconf'):
-        l1.rpc.splice_init(chan_id, 50000)
-
-    # Mine just 1 block — for zero-conf, splice_locked should fire at depth 1
-    # (depth 0 in the watcher means "just appeared in a block")
-    bitcoind.generate_block(1, wait_for_mempool=1)
 
     l1.daemon.wait_for_log(r'lightningd, splice_locked clearing inflights')
     l2.daemon.wait_for_log(r'lightningd, splice_locked clearing inflights')
 
-    # Verify the splice completed: no more inflights, balances updated
+    # Verify the splice completed immediately: no more inflights, balances updated
     p1 = only_one(l1.rpc.listpeerchannels(peer_id=l2.info['id'])['channels'])
     p2 = only_one(l2.rpc.listpeerchannels(l1.info['id'])['channels'])
     assert p1['to_us_msat'] == (fundamt + spliceamt) * 1000
@@ -794,3 +781,8 @@ def test_splice_zeroconf(node_factory, bitcoind):
     # Verify we can still use the channel after splice
     inv = l2.rpc.invoice(10000, 'test-post-splice', 'test')['bolt11']
     l1.rpc.pay(inv)
+
+    # The actual funding scid should still update once the splice confirms.
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    wait_for(lambda: 'short_channel_id' in
+             only_one(l1.rpc.listpeerchannels(peer_id=l2.info['id'])['channels']))
