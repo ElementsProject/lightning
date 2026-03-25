@@ -42,7 +42,8 @@ void notify_invoice_payment(struct lightningd *ld,
 void notify_invoice_creation(struct lightningd *ld,
 			     const struct amount_msat *amount,
 			     const struct preimage *preimage,
-			     const struct json_escape *label);
+			     const struct json_escape *label,
+			     const struct sha256 *offer_id);
 
 void notify_channel_opened(struct lightningd *ld,
 			   const struct node_id *node_id,
