@@ -116,6 +116,41 @@ def test_gossip_disable_channels(node_factory, bitcoind):
     wait_for(lambda: count_active(l2) == 2)
 
 
+def test_reestablish_announcement_sigs(node_factory, bitcoind):
+    """Regression test: peers must not disconnect after reestablishing
+    a channel that has already exchanged announcement_signatures.
+
+    A bug in send_channel_announce_sigs() caused it to unconditionally
+    send announcement_signatures on reconnect (missing early returns),
+    which made the remote peer drop the connection.
+    See: https://github.com/ElementsProject/lightning/issues/8978
+    """
+    opts = {'dev-no-reconnect': None, 'may_reconnect': True}
+    l1, l2 = node_factory.get_nodes(2, opts=opts)
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    scid, _ = l1.fundchannel(l2, 10**6)
+    bitcoind.generate_block(6)
+
+    # Wait for channel to be fully announced (both sides exchanged sigs)
+    l1.wait_channel_active(scid)
+    l2.wait_channel_active(scid)
+
+    # Disconnect and reconnect - channel should stay up
+    l1.rpc.disconnect(l2.info['id'], force=True)
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    # Wait for reestablishment
+    l1.daemon.wait_for_log('channel_gossip: reestablished')
+
+    # Channel must remain connected (the bug caused immediate disconnect)
+    import time
+    time.sleep(2)
+    channels = l1.rpc.listpeerchannels()['channels']
+    assert len(channels) == 1
+    assert channels[0]['peer_connected'] is True
+
+
 def test_announce_address(node_factory, bitcoind):
     """Make sure our announcements are well formed."""
 
