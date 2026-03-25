@@ -1322,6 +1322,63 @@ static struct command_result *refresh_tables(struct command *cmd,
 	return td->refresh(cmd, dbq->tables[0], dbq);
 }
 
+/* Check if a string is a valid short_channel_id (NNNxNNNxNNN format) */
+static bool looks_like_scid(const char *str, size_t len)
+{
+	struct short_channel_id scid;
+
+	return short_channel_id_from_str(str, len, &scid);
+}
+
+/* Rewrite SQL query to wrap scid string literals with scid() function.
+ * This transforms '735095x480x1' into scid('735095x480x1') so that
+ * SQLite can use indexes on integer SCID columns. */
+static const char *rewrite_scid_literals(const tal_t *ctx, const char *query)
+{
+	char *result = tal_strdup(ctx, "");
+	const char *p = query;
+
+	while (*p) {
+		/* Look for single-quoted string literals */
+		if (*p == '\'') {
+			const char *start = p + 1;
+			const char *end = strchr(start, '\'');
+
+			if (!end) {
+				/* Unterminated quote, just copy rest */
+				tal_append_fmt(&result, "%s", p);
+				break;
+			}
+
+			if (looks_like_scid(start, end - start)) {
+				/* Check if already wrapped in scid() by looking
+				 * back for "scid(" before the quote */
+				bool already_wrapped = false;
+				if (p - query >= 5) {
+					const char *before = p - 5;
+					if (strncmp(before, "scid(", 5) == 0)
+						already_wrapped = true;
+				}
+				if (!already_wrapped) {
+					tal_append_fmt(&result, "scid('%.*s')",
+						       (int)(end - start), start);
+					p = end + 1;
+					continue;
+				}
+			}
+			/* Not a scid or already wrapped: copy quote and content */
+			tal_append_fmt(&result, "%.*s",
+				       (int)(end - p + 1), p);
+			p = end + 1;
+		} else {
+			tal_append_fmt(&result, "%c", *p);
+			p++;
+		}
+	}
+
+	return result;
+}
+
 static struct command_result *json_sql(struct command *cmd,
 				       const char *buffer,
 				       const jsmntok_t *params)
@@ -1335,6 +1392,10 @@ static struct command_result *json_sql(struct command *cmd,
 		   p_req("query", param_string, &query),
 		   NULL))
 		return command_param_failed();
+
+	/* Rewrite scid string literals to use scid() function so
+	 * SQLite can use indexes on integer SCID columns. */
+	query = rewrite_scid_literals(tmpctx, query);
 
 	dbq->tables = tal_arr(dbq, struct table_desc *, 0);
 	dbq->authfail = NULL;
