@@ -530,7 +530,8 @@ void notify_disconnect(struct lightningd *ld UNNEEDED, const struct node_id *nod
 void notify_invoice_creation(struct lightningd *ld UNNEEDED,
 			     const struct amount_msat *amount UNNEEDED,
 			     const struct preimage *preimage UNNEEDED,
-			     const struct json_escape *label UNNEEDED)
+			     const struct json_escape *label UNNEEDED,
+			     const struct sha256 *offer_id UNNEEDED)
 { fprintf(stderr, "notify_invoice_creation called!\n"); abort(); }
 /* Generated stub for notify_invoice_payment */
 void notify_invoice_payment(struct lightningd *ld UNNEEDED,
