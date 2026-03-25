@@ -2,7 +2,7 @@ from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
 from pyln.client import RpcError, Millisatoshi
 from utils import (
-    only_one, wait_for, sync_blockheight, first_channel_id, calc_lease_fee, check_coin_moves
+    TIMEOUT, only_one, wait_for, sync_blockheight, first_channel_id, calc_lease_fee, check_coin_moves
 )
 from pyln.testing.utils import FUNDAMOUNT
 
@@ -3220,3 +3220,43 @@ def test_no_retransmit_confirmed_funding(node_factory):
     # Should not have attempted (and failed) to re-broadcast the funding tx.
     assert not l1.daemon.is_in_log('Failed to re-transmit funding tx')
     assert not l1.daemon.is_in_log('Successfully rexmitted funding tx')
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+@pytest.mark.openchannel('v2')
+@pytest.mark.xfail(
+    reason="Issue #8902 is not fixed at this commit",
+    strict=True,
+)
+def test_inflight_disconnect_commitment_v2(node_factory, bitcoind):
+    """Disconnect during dual-fund commitment signing should not trigger spurious BROKEN messages.
+    """
+    disconnects = ["+WIRE_COMMITMENT_SIGNED"]
+
+    opts = [{'experimental-dual-fund': None, 'dev-no-reconnect': None,
+             'may_reconnect': True, 'disconnect': disconnects},
+            {'experimental-dual-fund': None, 'dev-no-reconnect': None,
+             'may_reconnect': True}]
+
+    opener, funder = node_factory.get_nodes(2, opts=opts)
+
+    amount = 500000
+    opener.fundwallet(20000000)
+    funder.fundwallet(20000000)
+
+    funder.rpc.call('funderupdate',
+                    {'policy': 'available',
+                     'policy_mod': 100,
+                     'per_channel_max_msat': '1btc',
+                     'reserve_tank_msat': '0msat',
+                     'fund_probability': 100,
+                     'fuzz_percent': 0,
+                     'leases_only': False})
+
+    opener.rpc.connect(funder.info['id'], 'localhost', funder.port)
+    fut = node_factory.executor.submit(opener.rpc.fundchannel,
+                                       funder.info['id'], amount)
+
+    opener.daemon.wait_for_log(r'dev_disconnect: .WIRE_COMMITMENT_SIGNED')
+    opener.rpc.connect(funder.info['id'], 'localhost', funder.port)
+    fut.result(timeout=TIMEOUT)
