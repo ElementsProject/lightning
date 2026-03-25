@@ -225,8 +225,7 @@ bool feature_set_or(struct feature_set *a,
 		for (size_t j = 0; j < tal_bytelen(b->bits[i])*8; j++) {
 			if (feature_is_set(b->bits[i], j)
 			    && feature_offered(a->bits[i], j)) {
-				if (taken(b))
-					tal_free(b);
+				tal_free_if_taken(b);
 				return false;
 			}
 		}
@@ -239,8 +238,7 @@ bool feature_set_or(struct feature_set *a,
 		}
 	}
 
-	if (taken(b))
-		tal_free(b);
+	tal_free_if_taken(b);
 	return true;
 }
 
@@ -252,8 +250,7 @@ bool feature_set_sub(struct feature_set *a,
 		for (size_t j = 0; j < tal_bytelen(b->bits[i])*8; j++) {
 			if (feature_is_set(b->bits[i], j)
 			    && !feature_offered(a->bits[i], j)) {
-				if (taken(b))
-					tal_free(b);
+				tal_free_if_taken(b);
 				return false;
 			}
 		}
@@ -268,8 +265,7 @@ bool feature_set_sub(struct feature_set *a,
 	}
 
 
-	if (taken(b))
-		tal_free(b);
+	tal_free_if_taken(b);
 	return true;
 }
 
@@ -534,8 +530,7 @@ u8 *featurebits_or(const tal_t *ctx, const u8 *f1 TAKES, const u8 *f2 TAKES)
 		result[l1 - l2 + i] |= f2[i];
 
 	/* Cleanup the featurebits if we were told to do so. */
-	if (taken(f2))
-		tal_free(f2);
+	tal_free_if_taken(f2);
 
 	return result;
 }

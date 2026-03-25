@@ -97,6 +97,13 @@ void tal_arr_remove_(void *p, size_t elemsize, size_t n);
 		(*(p))[n] = (v);					\
 	} while(0)
 
+/* Helper to free an ptr if it's taken() */
+static inline void tal_free_if_taken(const tal_t *p)
+{
+	if (taken(p))
+		tal_free(p);
+}
+
 /* Check for valid UTF-8 */
 bool utf8_check(const void *buf, size_t buflen);
 

@@ -1249,8 +1249,7 @@ void channel_set_billboard(struct channel *channel, bool perm, const char *str)
 
 	if (str) {
 		*p = tal_fmt(channel, "%s:%s", channel_state_name(channel), str);
-		if (taken(str))
-			tal_free(str);
+		tal_free_if_taken(str);
 	}
 }
 

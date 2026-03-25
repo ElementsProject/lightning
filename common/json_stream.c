@@ -190,8 +190,7 @@ void json_add_primitive(struct json_stream *js,
 			const char *val TAKES)
 {
 	json_add_primitive_fmt(js, fieldname, "%s", val);
-	if (taken(val))
-		tal_free(val);
+	tal_free_if_taken(val);
 }
 
 void json_add_string(struct json_stream *js,
@@ -200,8 +199,7 @@ void json_add_string(struct json_stream *js,
 {
 	if (json_filter_ok(js->filter, fieldname))
 		json_out_addstr(js->jout, fieldname, str);
-	if (taken(str))
-		tal_free(str);
+	tal_free_if_taken(str);
 }
 
 static char *json_member_direct(struct json_stream *js,
@@ -304,8 +302,7 @@ void json_add_stringn(struct json_stream *result, const char *fieldname,
 		      const char *value TAKES, size_t value_len)
 {
 	json_add_str_fmt(result, fieldname, "%.*s", (int)value_len, value);
-	if (taken(value))
-		tal_free(value);
+	tal_free_if_taken(value);
 }
 
 void json_add_bool(struct json_stream *result, const char *fieldname, bool value)
@@ -345,8 +342,7 @@ void json_add_escaped_string(struct json_stream *result, const char *fieldname,
 		memcpy(dest + 1, esc->s, strlen(esc->s));
 		dest[1+strlen(esc->s)] = '"';
 	}
-	if (taken(esc))
-		tal_free(esc);
+	tal_free_if_taken(esc);
 }
 
 void json_add_timeabs(struct json_stream *result, const char *fieldname,
@@ -607,8 +603,7 @@ void json_add_psbt(struct json_stream *stream,
 	const char *psbt_b64;
 	psbt_b64 = fmt_wally_psbt(NULL, psbt);
 	json_add_string(stream, fieldname, take(psbt_b64));
-	if (taken(psbt))
-		tal_free(psbt);
+	tal_free_if_taken(psbt);
 }
 
 void json_add_amount_msat(struct json_stream *result,

@@ -239,8 +239,7 @@ u8 *bitcoin_scriptsig_redeem(const tal_t *ctx,
 	script_push_bytes(&script, redeemscript,
 			  tal_count(redeemscript));
 
-	if (taken(redeemscript))
-		tal_free(redeemscript);
+	tal_free_if_taken(redeemscript);
 
 	return script;
 }

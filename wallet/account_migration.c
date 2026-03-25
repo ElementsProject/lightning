@@ -184,8 +184,7 @@ static struct chain_event **find_chain_events(const tal_t *ctx,
 		tal_arr_expand(&results, e);
 	}
 
-	if (taken(stmt))
-		tal_free(stmt);
+	tal_free_if_taken(stmt);
 
 	return results;
 }

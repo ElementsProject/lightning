@@ -4,6 +4,7 @@
 #include <ccan/crypto/hkdf_sha256/hkdf_sha256.h>
 #include <ccan/mem/mem.h>
 #include <common/cryptomsg.h>
+#include <common/utils.h>
 #include <sodium/crypto_aead_chacha20poly1305.h>
 #include <wire/wire_io.h>
 
@@ -232,7 +233,6 @@ u8 *cryptomsg_encrypt_msg(const tal_t *ctx,
 
 	maybe_rotate_key(&cs->sn, &cs->sk, &cs->s_ck);
 
-	if (taken(msg))
-		tal_free(msg);
+	tal_free_if_taken(msg);
 	return out;
 }

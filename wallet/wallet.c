@@ -6922,8 +6922,7 @@ static u64 insert_channel_mvt(struct lightningd *ld,
 	db_exec_prepared_v2(take(stmt));
 
 	notify_channel_mvt(ld, chan_mvt, id);
-	if (taken(chan_mvt))
-		tal_free(chan_mvt);
+	tal_free_if_taken(chan_mvt);
 
 	return id;
 }
@@ -7115,8 +7114,7 @@ void wallet_save_chain_mvt(struct lightningd *ld,
 	id = insert_chain_mvt(ld, ld->wallet->db, chain_mvt);
 	notify_chain_mvt(ld, chain_mvt, id);
 out:
-	if (taken(chain_mvt))
-		tal_free(chain_mvt);
+	tal_free_if_taken(chain_mvt);
 }
 
 static void db_cols_account(struct db_stmt *stmt,
