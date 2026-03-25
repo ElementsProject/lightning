@@ -699,6 +699,13 @@ static enum watch_result splice_depth_cb(struct lightningd *ld,
 		return DELETE_WATCH;
 	}
 
+	/* Reorged out?  OK, we're not committed yet.
+	 * But for zero-conf channels (minimum_depth == 0), depth 0 means
+	 * we should send splice_locked immediately per BOLT #2. */
+	if (depth == 0 && inflight->channel->minimum_depth != 0) {
+		return KEEP_WATCHING;
+	}
+
 	if (inflight->channel->owner) {
 		log_debug(inflight->channel->log, "splice_depth_cb: sending funding depth scid: %s",
 			  fmt_short_channel_id(tmpctx, *inflight->scid));
