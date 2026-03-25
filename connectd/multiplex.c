@@ -1626,12 +1626,10 @@ void peer_connect_subd(struct daemon *daemon, const u8 *msg, int fd)
 	 * (subd will see immediate hangup). */
 	if (fd == -1) {
 		static bool recvfd_logged = false;
-		if (!recvfd_logged) {
-			status_broken("receiving lightningd fd failed for %s: %s",
-				      fmt_node_id(tmpctx, &id),
-				      strerror(errno));
-			recvfd_logged = true;
-		}
+		status_broken_once(&recvfd_logged,
+				   "receiving lightningd fd failed for %s: %s",
+				   fmt_node_id(tmpctx, &id),
+				   strerror(errno));
 		/* Maybe free up some fds by closing something. */
 		close_random_connection(daemon);
 		return;
