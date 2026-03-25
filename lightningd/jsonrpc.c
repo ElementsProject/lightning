@@ -1571,8 +1571,7 @@ struct jsonrpc_request *jsonrpc_request_start_(
 	} else {
 		r->id = tal_fmt(r, "\"cln:%s#%"PRIu64"\"", method, next_request_id);
 	}
-	if (taken(id_prefix))
-		tal_free(id_prefix);
+	tal_free_if_taken(id_prefix);
 	next_request_id++;
 	r->notify_cb = notify_cb;
 	r->response_cb = response_cb;

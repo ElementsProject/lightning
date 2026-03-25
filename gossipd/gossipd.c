@@ -103,8 +103,7 @@ void queue_peer_msg(struct daemon *daemon,
 	u8 *outermsg = towire_gossipd_send_gossip(NULL, peer, msg);
 	daemon_conn_send(daemon->connectd, take(outermsg));
 
-	if (taken(msg))
-		tal_free(msg);
+	tal_free_if_taken(msg);
 }
 
 /*~Routines to handle gossip messages from peer, forwarded by connectd.

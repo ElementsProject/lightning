@@ -1,6 +1,7 @@
 #include "config.h"
 #include <assert.h>
 #include <ccan/read_write_all/read_write_all.h>
+#include <common/utils.h>
 #include <errno.h>
 #include <wire/wire_io.h>
 #include <wire/wire_sync.h>
@@ -14,8 +15,7 @@ bool wire_sync_write(int fd, const void *msg TAKES)
 	ret = write_all(fd, &hdr, sizeof(hdr))
 		&& write_all(fd, msg, tal_count(msg));
 
-	if (taken(msg))
-		tal_free(msg);
+	tal_free_if_taken(msg);
 	return ret;
 }
 

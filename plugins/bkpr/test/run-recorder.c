@@ -118,8 +118,7 @@ struct json_out *json_out_obj(const tal_t *ctx,
 	json_out_start(jout, NULL, '{');
 	if (str)
 		json_out_addstr(jout, fieldname, str);
-	if (taken(str))
-		tal_free(str);
+	tal_free_if_taken(str);
 	json_out_end(jout, '}');
 	json_out_finished(jout);
 
@@ -540,8 +539,7 @@ done:
 	assert(json_parse_input(&parser, &toks, buf, strlen(buf), &complete));
 	assert(complete);
 
-	if (taken(params))
-		tal_free(params);
+	tal_free_if_taken(params);
 	*resp = buf;
 	return toks;
 }

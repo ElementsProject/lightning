@@ -428,8 +428,7 @@ static u8 *process_batch_elements(const tal_t *ctx, struct peer *peer, const u8 
 
 	} while(plen);
 
-	if (taken(msg))
-		tal_free(msg);
+	tal_free_if_taken(msg);
 
 	return ret;
 }

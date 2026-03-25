@@ -18,8 +18,7 @@ bool handle_peer_error_or_warning(struct per_peer_state *pps,
 	/* Simply log incoming warnings */
 	err = is_peer_warning(tmpctx, msg);
 	if (err) {
-		if (taken(msg))
-			tal_free(msg);
+		tal_free_if_taken(msg);
 		status_info("Received %s", err);
 		return true;
 	}

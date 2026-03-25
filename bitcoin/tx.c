@@ -359,8 +359,7 @@ void bitcoin_tx_input_set_witness(struct bitcoin_tx *tx, int innum,
 	wally_psbt_input_set_final_witness(&tx->psbt->inputs[innum], stack);
 	tal_wally_end(tx->psbt);
 
-	if (taken(witness))
-		tal_free(witness);
+	tal_free_if_taken(witness);
 }
 
 void bitcoin_tx_input_set_script(struct bitcoin_tx *tx, int innum, u8 *script)

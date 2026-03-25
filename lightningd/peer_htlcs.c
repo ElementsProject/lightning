@@ -277,8 +277,7 @@ void local_fail_in_htlc(struct htlc_in *hin, const u8 *failmsg TAKES)
 							 hin->shared_secret,
 							 failmsg);
 
-	if (taken(failmsg))
-		tal_free(failmsg);
+	tal_free_if_taken(failmsg);
 
 	fail_in_htlc(hin, take(failonion));
 }
@@ -994,8 +993,7 @@ static u8 *prepend_length(const tal_t *ctx, const u8 *payload TAKES)
 	ret = tal_arr(ctx, u8, len + tal_bytelen(payload));
 	memcpy(ret, buf, len);
 	memcpy(ret + len, payload, tal_bytelen(payload));
-	if (taken(payload))
-		tal_free(payload);
+	tal_free_if_taken(payload);
 	return ret;
 }
 

@@ -315,8 +315,7 @@ void txwatch_inform(const struct chain_topology *topo,
 	}
 
 	/* If we don't clone above, handle take() now */
-	if (taken(tx))
-		tal_free(tx);
+	tal_free_if_taken(tx);
 }
 
 struct scriptpubkeywatch {
