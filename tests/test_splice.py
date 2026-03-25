@@ -719,3 +719,71 @@ def test_easy_splice_out_into_channel(node_factory, bitcoind, chainparams):
 
     end_chan1_balance = Millisatoshi(bkpr_account_balance(l2, chan1))
     assert initial_chan1_balance + Millisatoshi(spliceamt * 1000) == end_chan1_balance
+
+
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_splice_zeroconf(node_factory, bitcoind):
+    """Test that splicing on a zero-conf channel locks immediately at depth 1.
+
+    Per BOLT #2 (bolts#1160), when option_zeroconf is negotiated:
+    - nodes SHOULD send splice_locked immediately after tx_signatures
+    - nodes MUST NOT send tx_init_rbf
+    """
+    zeroconf_plugin = Path(__file__).parent / "plugins" / "zeroconf-selective.py"
+    fundamt = 1000000
+
+    l1, l2 = node_factory.get_nodes(2, opts=[
+        {
+            'experimental-splicing': None,
+            'plugin': str(zeroconf_plugin),
+            'zeroconf_allow': 'any',
+        },
+        {
+            'experimental-splicing': None,
+            'plugin': str(zeroconf_plugin),
+            'zeroconf_allow': 'any',
+        },
+    ])
+
+    # Open a zero-conf channel
+    l1.fundwallet(10**7)
+    l1.connect(l2)
+    l1.rpc.fundchannel(l2.info['id'], fundamt, mindepth=0)
+
+    # Wait for both sides to be in CHANNELD_NORMAL (zero-conf, no blocks needed)
+    l1.daemon.wait_for_log(r'peer_in WIRE_CHANNEL_READY')
+    l2.daemon.wait_for_log(r'peer_in WIRE_CHANNEL_READY')
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['state'] == 'CHANNELD_NORMAL')
+    wait_for(lambda: only_one(l2.rpc.listpeerchannels(l1.info['id'])['channels'])['state'] == 'CHANNELD_NORMAL')
+
+    # Confirm that this is indeed a zero-conf channel
+    chan = only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])
+    assert chan['minimum_depth'] == 0
+
+    # Now splice in 100k sats
+    spliceamt = 100000
+    l1.rpc.splicein("*:?", f"{spliceamt}")
+
+    p1 = only_one(l1.rpc.listpeerchannels(peer_id=l2.info['id'])['channels'])
+    assert p1['inflight'][0]['splice_amount'] == spliceamt
+    assert p1['inflight'][0]['total_funding_msat'] == (fundamt + spliceamt) * 1000
+
+    # Mine just 1 block — for zero-conf, splice_locked should fire at depth 1
+    # (depth 0 in the watcher means "just appeared in a block")
+    bitcoind.generate_block(1, wait_for_mempool=1)
+
+    l1.daemon.wait_for_log(r'lightningd, splice_locked clearing inflights')
+    l2.daemon.wait_for_log(r'lightningd, splice_locked clearing inflights')
+
+    # Verify the splice completed: no more inflights, balances updated
+    p1 = only_one(l1.rpc.listpeerchannels(peer_id=l2.info['id'])['channels'])
+    p2 = only_one(l2.rpc.listpeerchannels(l1.info['id'])['channels'])
+    assert p1['to_us_msat'] == (fundamt + spliceamt) * 1000
+    assert p1['total_msat'] == (fundamt + spliceamt) * 1000
+    assert 'inflight' not in p1
+    assert 'inflight' not in p2
+
+    # Verify we can still use the channel after splice
+    inv = l2.rpc.invoice(10000, 'test-post-splice', 'test')['bolt11']
+    l1.rpc.pay(inv)
