@@ -147,6 +147,16 @@ static struct command_result *unreserve_get_result(struct command *cmd,
 	return make_error(cmd, abort_pkg, "unreserve_get_result");
 }
 
+static struct command_result *free_abort_pkg_and_forward(struct command *cmd,
+							 const char *methodname,
+							 const char *buf,
+							 const jsmntok_t *result,
+							 struct abort_pkg *abort_pkg)
+{
+	tal_free(abort_pkg);
+	return forward_error(cmd, methodname, buf, result, NULL);
+}
+
 static struct command_result *abort_get_result(struct command *cmd,
 					       const char *methodname,
 					       const char *buf,
@@ -163,7 +173,8 @@ static struct command_result *abort_get_result(struct command *cmd,
 		return make_error(cmd, abort_pkg, "abort_get_result");
 
 	req = jsonrpc_request_start(cmd, "unreserveinputs",
-				    unreserve_get_result, forward_error,
+				    unreserve_get_result,
+				    free_abort_pkg_and_forward,
 				    abort_pkg);
 
 	json_add_psbt(req->js, "psbt", splice_cmd->psbt);
@@ -193,7 +204,9 @@ static struct command_result *do_fail(struct command *cmd,
 	abort_pkg->code = code;
 
 	req = jsonrpc_request_start(cmd, "abort_channels",
-				    abort_get_result, forward_error, abort_pkg);
+				    abort_get_result,
+				    free_abort_pkg_and_forward,
+				    abort_pkg);
 
 	added = 0;
 	json_array_start(req->js, "channel_ids");
