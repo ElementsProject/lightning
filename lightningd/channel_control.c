@@ -1360,7 +1360,7 @@ static void peer_channeld_reestablished(struct channel *channel, const u8* msg)
 				       "bad channeld_reestablished %s",
 				       tal_hex(channel, msg));
 
-	channel_gossip_channel_reestablished(channel, announcement_sigs_requested);
+	channel_gossip_channel_reestablished(channel);
 }
 
 void channel_fallen_behind(struct channel *channel)
@@ -1976,7 +1976,7 @@ bool peer_start_channeld(struct channel *channel,
 
 	/* "Reestablished" if we've just opened. */
 	if (!reconnected)
-		channel_gossip_channel_reestablished(channel, false);
+		channel_gossip_channel_reestablished(channel);
 
 	/* FIXME: DTODO: Use a pointer to a txid instead of zero'ing one out. */
 	memset(&txid, 0, sizeof(txid));

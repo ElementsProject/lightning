@@ -698,8 +698,13 @@ static void send_channel_announce_sigs(struct channel *channel)
 	const u8 *ca, *msg;
 
 	/* Wait until we've exchanged reestablish messages */
-	if (!channel->reestablished)
+	if (!channel->reestablished) {
 		log_debug(channel->log, "channel_gossip: not sending channel_announcement_sigs until reestablished");
+		return;
+	}
+
+	if (cg->sent_sigs)
+		return;
 
 	ca = create_channel_announcement(tmpctx, channel, *channel->scid,
 					 NULL, NULL, NULL, NULL);
@@ -714,29 +719,23 @@ static void send_channel_announce_sigs(struct channel *channel)
 
 	/* Double-check that HSM gave valid signatures. */
 	sha256_double(&hash, ca + offset, tal_count(ca) - offset);
-	if (!check_signed_hash(&hash, &local_node_sig, &ld->our_pubkey))
+	if (!check_signed_hash(&hash, &local_node_sig, &ld->our_pubkey)) {
 		channel_internal_error(channel,
 				       "HSM returned an invalid node signature");
+		return;
+	}
 
-	if (!check_signed_hash(&hash, &local_bitcoin_sig, &channel->local_funding_pubkey))
+	if (!check_signed_hash(&hash, &local_bitcoin_sig, &channel->local_funding_pubkey)) {
 		channel_internal_error(channel,
 				       "HSM returned an invalid bitcoin signature");
+		return;
+	}
 
 	msg = towire_announcement_signatures(NULL,
 					     &channel->cid, *channel->scid,
 					     &local_node_sig, &local_bitcoin_sig);
 	msg_to_peer(channel->peer, take(msg));
 	cg->sent_sigs = true;
-}
-
-static void send_channel_announce_sigs_once(struct channel *channel)
-{
-	struct channel_gossip *cg = channel->channel_gossip;
-
-	if (cg->sent_sigs)
-		return;
-
-	send_channel_announce_sigs(channel);
 }
 
 /* Sends channel_announcement */
@@ -830,7 +829,7 @@ static void set_gossip_state(struct channel *channel,
 	case CGOSSIP_ANNOUNCED:
 		/* In case this snuck up on us (fast confirmations),
 		 * make sure we sent sigs */
-		send_channel_announce_sigs_once(channel);
+		send_channel_announce_sigs(channel);
 
 		/* BOLT #7:
 		 * A recipient node:
@@ -898,7 +897,7 @@ static void update_gossip_state(struct channel *channel)
 		return;
 	case CGOSSIP_WAITING_FOR_MATCHING_PEER_SIGS:
 	case CGOSSIP_WAITING_FOR_ANNOUNCE_DEPTH:
-		send_channel_announce_sigs_once(channel);
+		send_channel_announce_sigs(channel);
 		/* fall thru */
 	case CGOSSIP_WAITING_FOR_SCID:
 	case CGOSSIP_PRIVATE:
@@ -1006,7 +1005,7 @@ void channel_gossip_got_announcement_sigs(struct channel *channel,
 
 send_our_sigs:
 	/* This only works once, so we won't spam them. */
-	send_channel_announce_sigs_once(channel);
+	send_channel_announce_sigs(channel);
 }
 
 /* Short channel id changed (splice, or reorg). */
@@ -1202,8 +1201,7 @@ static void channel_reestablished_stable(struct channel *channel)
 }
 
 /* Peer has connected and successfully reestablished channel. */
-void channel_gossip_channel_reestablished(struct channel *channel,
-					  bool announcement_sigs_requested)
+void channel_gossip_channel_reestablished(struct channel *channel)
 {
 	channel->reestablished = true;
 	tal_free(channel->stable_conn_timer);
@@ -1220,9 +1218,6 @@ void channel_gossip_channel_reestablished(struct channel *channel,
 
 	/* We can re-xmit sigs once per reconnect */
 	channel->channel_gossip->sent_sigs = false;
-
-	if (announcement_sigs_requested)
-		send_channel_announce_sigs(channel);
 
 	/* BOLT #7:
 	 * - Upon reconnection (once the above timing requirements have
@@ -1244,7 +1239,7 @@ void channel_gossip_channel_reestablished(struct channel *channel,
 		check_channel_gossip(channel);
 		return;
 	case CGOSSIP_WAITING_FOR_MATCHING_PEER_SIGS:
-		send_channel_announce_sigs_once(channel);
+		send_channel_announce_sigs(channel);
 		/* fall thru */
 	case CGOSSIP_PRIVATE:
 	case CGOSSIP_WAITING_FOR_ANNOUNCE_DEPTH:
