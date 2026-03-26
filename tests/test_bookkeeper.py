@@ -1400,3 +1400,31 @@ def test_bkpr_report_fees(node_factory):
     assert len(nonzero) == 2
     tags = {line.split(',')[0] for line in nonzero}
     assert tags == {'invoice', 'invoice_fee'}
+
+
+def test_bkpr_report_no_currency(node_factory):
+    """All currency-related format tags must all resolve to NULL
+    and trigger their fallback text."""
+    l1, l2 = node_factory.line_graph(2)
+
+    inv = l2.rpc.invoice(100000, "test_bkpr_report_no_currency", "desc")
+    l1.rpc.pay(inv["bolt11"])
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['htlcs'] == [])
+
+    fmt = ("{tag}"
+           "|{bkpr-currency?NOCUR}"
+           "|{currencyrate?NORAT}"
+           "|{currencycredit?NOCREDIT}"
+           "|{currencydebit?NODEBIT}"
+           "|{currencycreditdebit?NOCD}")
+    lines = l1.rpc.bkpr_report(format=fmt)['report']
+    assert lines
+
+    for line in lines:
+        parts = line.split('|')
+        assert len(parts) == 6
+        assert parts[1] == 'NOCUR'
+        assert parts[2] == 'NORAT'
+        assert parts[3] == 'NOCREDIT'
+        assert parts[4] == 'NODEBIT'
+        assert parts[5] == 'NOCD'
