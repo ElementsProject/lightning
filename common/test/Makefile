@@ -111,10 +111,8 @@ common/test/run-bolt12_contact:				\
 	common/bigsize.o				\
 	common/base32.o					\
 	common/node_id.o				\
-	common/sciddir_or_pubkey.o			\
 	common/wireaddr.o				\
 	wire/bolt12_wiregen.o				\
-	wire/onion_wiregen.o				\
 	wire/fromwire.o					\
 	wire/tlvstream.o				\
 	wire/towire.o
