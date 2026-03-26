@@ -1439,11 +1439,11 @@ def test_bkpr_report_escape_none(node_factory):
     wait_for(lambda: only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['htlcs'] == [])
 
     # escape=none (explicit): description must appear verbatim with its comma.
-    lines_none = l1.rpc.bkpr_report(format="{description?-},{tag}",
-                                     escape='none')['report']
+    lines_none = l1.rpc.bkpr_report(
+        format="{description?-},{tag}", escape='none')['report']
     # escape=csv: description containing a comma must be quoted.
-    lines_csv = l1.rpc.bkpr_report(format="{description?-},{tag}",
-                                    escape='csv')['report']
+    lines_csv = l1.rpc.bkpr_report(
+        format="{description?-},{tag}", escape='csv')['report']
 
     assert len(lines_none) == len(lines_csv)
 
@@ -1457,3 +1457,19 @@ def test_bkpr_report_escape_none(node_factory):
     # it back to a single field containing the original string.
     parsed = next(csv.reader(io.StringIO(inv_csv)))
     assert parsed[0] == 'hello, world'
+
+
+def test_bkpr_report_empty_window(node_factory, bitcoind):
+    """bkpr-report with a start_time beyond all events must return an empty
+    list without errors."""
+    l1 = node_factory.get_node()
+    addr = l1.rpc.newaddr()['p2tr']
+
+    bitcoind.rpc.sendtoaddress(addr, 0.01)
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 1)
+
+    future = int(time.time()) + 10_000_000
+    report = l1.rpc.bkpr_report(
+        format="{tag},{creditdebit}", start_time=future)['report']
+    assert report == []
