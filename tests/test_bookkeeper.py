@@ -1373,3 +1373,30 @@ def test_bkpr_report_utctime(node_factory):
         # Both must produce valid "YYYY-MM-DD HH:MM:SS" strings.
         datetime.strptime(u_ts_str, "%Y-%m-%d %H:%M:%S")
         datetime.strptime(l_ts_str, "%Y-%m-%d %H:%M:%S")
+
+
+def test_bkpr_report_fees(node_factory):
+    """Test {fees} format tag.
+
+    {fees} is non-zero only when routing fees are incurred. A 3-node path
+    (l1 -> l2 -> l3) ensures l1's income events carry non-zero routing fees.
+    """
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
+
+    inv = l3.rpc.invoice(100000, "test_bkpr_report_fees", "desc")
+    l1.rpc.pay(inv["bolt11"])
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['htlcs'] == [])
+
+    lines = l1.rpc.bkpr_report(format="{tag},{fees}")['report']
+    assert lines
+
+    # Every row must produce a parseable non-negative decimal.
+    for line in lines:
+        tag, fees_str = line.split(',')
+        assert float(fees_str) >= 0
+
+    # This type of payment should produce exactly 2 non-zero fee events.
+    nonzero = [line for line in lines if float(line.split(',')[1]) > 0]
+    assert len(nonzero) == 2
+    tags = {line.split(',')[0] for line in nonzero}
+    assert tags == {'invoice', 'invoice_fee'}
