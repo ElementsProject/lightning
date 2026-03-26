@@ -1361,18 +1361,13 @@ def test_bkpr_report_utctime(node_factory):
     l1.rpc.pay(inv["bolt11"])
     wait_for(lambda: only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['htlcs'] == [])
 
-    utc_lines = l1.rpc.bkpr_report(format="{utctime},{tag}")['report']
-    loc_lines = l1.rpc.bkpr_report(format="{localtime},{tag}")['report']
+    # Fetch both timestamps in a single call to avoid a race between two
+    # separate bkpr-report calls where a background event could land in between.
+    lines = l1.rpc.bkpr_report(format="{utctime}|{localtime}|{tag}")['report']
 
-    assert utc_lines
-    assert len(utc_lines) == len(loc_lines)
-
-    for u, lc in zip(utc_lines, loc_lines):
-        u_ts_str, u_tag = u.split(',')
-        l_ts_str, l_tag = lc.split(',')
+    assert lines
+    for line in lines:
+        u_ts_str, l_ts_str, tag = line.split('|')
         # Both must produce valid "YYYY-MM-DD HH:MM:SS" strings.
         datetime.strptime(u_ts_str, "%Y-%m-%d %H:%M:%S")
         datetime.strptime(l_ts_str, "%Y-%m-%d %H:%M:%S")
-        # Both describe the same event.
-        assert u_tag == l_tag
-
