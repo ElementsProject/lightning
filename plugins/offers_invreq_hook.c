@@ -1192,6 +1192,20 @@ struct command_result *handle_invoice_request(struct command *cmd,
 	 *   - MUST reject the invoice request if the offer fields do not exactly match a
 	 *     valid, unexpired offer.
 	 */
+	/* bLIP 42: Log incoming contact fields (PoC) */
+	if (ir->invreq->invreq_contact_secret) {
+		plugin_log(cmd->plugin, LOG_INFORM,
+			   "bLIP 42: invoice_request contains contact_secret: %s",
+			   tal_hexstr(tmpctx,
+				      ir->invreq->invreq_contact_secret,
+				      sizeof(*ir->invreq->invreq_contact_secret)));
+		if (ir->invreq->invreq_payer_offer) {
+			plugin_log(cmd->plugin, LOG_INFORM,
+				   "bLIP 42: invoice_request contains payer_offer (%zu bytes)",
+				   tal_bytelen(ir->invreq->invreq_payer_offer));
+		}
+	}
+
 	invreq_offer_id(ir->invreq, &ir->offer_id);
 
 	/* Now, look up offer */

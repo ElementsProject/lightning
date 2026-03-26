@@ -16,6 +16,7 @@ COMMON_SRC_NOGEN :=				\
 	common/bolt11.c				\
 	common/bolt11_json.c			\
 	common/bolt12.c				\
+	common/bolt12_contact.c			\
 	common/bolt12_id.c			\
 	common/bolt12_merkle.c			\
 	common/channel_config.c			\
