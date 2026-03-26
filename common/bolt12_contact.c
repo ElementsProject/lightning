@@ -1,5 +1,4 @@
 #include "config.h"
-#include <ccan/crypto/sha256/sha256.h>
 #include <ccan/tal/tal.h>
 #include <common/bolt12_contact.h>
 #include <common/utils.h>
