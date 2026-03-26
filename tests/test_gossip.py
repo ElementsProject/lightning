@@ -1506,7 +1506,7 @@ def test_getroute_exclude_duplicate(node_factory):
 
 def test_getroute_exclude(node_factory, bitcoind):
     """Test getroute's exclude argument"""
-    l1, l2, l3, l4, l5 = node_factory.get_nodes(5)
+    l1, l2, l3, l4, l5 = node_factory.get_nodes(5, opts={'disable-plugin': 'cln-grpc'})
     node_factory.join_nodes([l1, l2, l3, l4], wait_for_announce=True)
 
     # This should work
@@ -2322,7 +2322,7 @@ def test_generate_gossip_store(node_factory):
 
 
 def test_seeker_first_peer(node_factory, bitcoind):
-    l1, l2, l3, l4, l5 = node_factory.get_nodes(5)
+    l1, l2, l3, l4, l5 = node_factory.get_nodes(5, opts={'disable-plugin': 'cln-grpc'})
 
     node_factory.join_nodes([l4, l5], wait_for_announce=True)
 
@@ -2401,9 +2401,10 @@ def test_gossip_force_broadcast_channel_msgs(node_factory, bitcoind):
     del tally['query_channel_range']
     del tally['ping']
     del tally['gossip_filter']
-    assert tally == {'channel_announce': 1,
-                     'channel_update': 1,
-                     'node_announce': 1}
+    # Under valgrind we can occasionally observe the final channel_announcement twice.
+    assert tally['channel_announce'] in (1, 2)
+    assert tally['channel_update'] == 1
+    assert tally['node_announce'] == 1
 
     # Make sure l1 sees l2's channel update
     wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 2)
