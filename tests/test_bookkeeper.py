@@ -1349,3 +1349,32 @@ def test_bkpr_report_lightning_cli_csv(node_factory):
     parsed = [next(csv.reader(io.StringIO(line))) for line in res.splitlines()]
     assert parsed
     assert all(len(row) == 3 for row in parsed)
+
+
+def test_bkpr_report_utctime(node_factory):
+    """Test {utctime} format tag.
+
+    {utctime} is the UTC counterpart of {localtime}. Verify it produces valid
+    "YYYY-MM-DD HH:MM:SS" strings and that its tag column matches {localtime}.
+    """
+    l1, l2 = node_factory.line_graph(2)
+
+    inv = l2.rpc.invoice(100000, "test_bkpr_report_utctime", "desc")
+    l1.rpc.pay(inv["bolt11"])
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['htlcs'] == [])
+
+    utc_lines = l1.rpc.bkpr_report(format="{utctime},{tag}")['report']
+    loc_lines = l1.rpc.bkpr_report(format="{localtime},{tag}")['report']
+
+    assert utc_lines
+    assert len(utc_lines) == len(loc_lines)
+
+    for u, lc in zip(utc_lines, loc_lines):
+        u_ts_str, u_tag = u.split(',')
+        l_ts_str, l_tag = lc.split(',')
+        # Both must produce valid "YYYY-MM-DD HH:MM:SS" strings.
+        datetime.strptime(u_ts_str, "%Y-%m-%d %H:%M:%S")
+        datetime.strptime(l_ts_str, "%Y-%m-%d %H:%M:%S")
+        # Both describe the same event.
+        assert u_tag == l_tag
+
