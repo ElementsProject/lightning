@@ -1426,3 +1426,34 @@ def test_bkpr_report_no_currency(node_factory):
         assert parts[3] == 'NOCREDIT'
         assert parts[4] == 'NODEBIT'
         assert parts[5] == 'NOCD'
+
+
+def test_bkpr_report_escape_none(node_factory):
+    """escape=none must leave special characters unescaped in the output,
+    in contrast to escape=csv which wraps fields containing commas/quotes."""
+    l1, l2 = node_factory.line_graph(2)
+
+    # Description with a comma so CSV-sensitive escaping is detectable.
+    inv = l2.rpc.invoice(100000, "test_bkpr_report_escape_none", 'hello, world')
+    l1.rpc.pay(inv["bolt11"])
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['htlcs'] == [])
+
+    # escape=none (explicit): description must appear verbatim with its comma.
+    lines_none = l1.rpc.bkpr_report(format="{description?-},{tag}",
+                                     escape='none')['report']
+    # escape=csv: description containing a comma must be quoted.
+    lines_csv = l1.rpc.bkpr_report(format="{description?-},{tag}",
+                                    escape='csv')['report']
+
+    assert len(lines_none) == len(lines_csv)
+
+    # Find the invoice row — it has the description with the embedded comma.
+    inv_none = only_one([l for l in lines_none if 'invoice' in l.split(',')[-1]])
+    inv_csv = only_one([l for l in lines_csv if 'invoice' in l.split(',')[-1]])
+
+    # With escape=none the comma in the description is NOT escaped.
+    assert 'hello, world' in inv_none
+    # With escape=csv the description field is quoted, so csv.reader collapses
+    # it back to a single field containing the original string.
+    parsed = next(csv.reader(io.StringIO(inv_csv)))
+    assert parsed[0] == 'hello, world'
