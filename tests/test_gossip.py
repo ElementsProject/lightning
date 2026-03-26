@@ -144,7 +144,6 @@ def test_reestablish_announcement_sigs(node_factory, bitcoind):
     l1.daemon.wait_for_log('channel_gossip: reestablished')
 
     # Channel must remain connected (the bug caused immediate disconnect)
-    import time
     time.sleep(2)
     channels = l1.rpc.listpeerchannels()['channels']
     assert len(channels) == 1
