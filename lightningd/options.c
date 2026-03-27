@@ -952,6 +952,10 @@ static void dev_register_opts(struct lightningd *ld)
 		       opt_set_bool,
 		       &ld->dev_keep_nagle,
 		       "Tell connectd not to set TCP_NODELAY.");
+	clnopt_noarg("--dev-uniform-padding", OPT_DEV,
+		       opt_set_bool,
+		       &ld->dev_uniform_padding,
+		       "Pad all outgoing peer messages to uniform 1460-byte segments");
 	/* This is handled directly in daemon_developer_mode(), so we ignore it here */
 	clnopt_noarg("--dev-debug-self", OPT_DEV,
 		     opt_ignore,
