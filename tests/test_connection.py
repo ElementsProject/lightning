@@ -4818,7 +4818,7 @@ def test_constant_packet_size(node_factory, tcp_capture):
     Test that TCP packets between nodes are constant size.  This will be skipped unless
     you can run `dumpcap` (usually means you have to be in the `wireshark` group).
     """
-    l1, l2, l3, l4 = node_factory.get_nodes(4)
+    l1, l2, l3, l4 = node_factory.get_nodes(4, opts={'dev-uniform-padding': None})
 
     # Encrypted setup BOLT 8 has some short packets.
     l1.connect(l2)
