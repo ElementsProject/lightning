@@ -1,13 +1,17 @@
 use crate::{
-    core::lsps2::provider::{
-        Blockheight, BlockheightProvider, DatastoreProvider, LightningProvider, Lsps2OfferProvider,
+    core::lsps2::{
+        actor::ActionExecutor,
+        provider::{
+            ChannelRecoveryInfo, DatastoreProvider,
+            ForwardActivity, Lsps2PolicyProvider, RecoveryProvider,
+        },
     },
     proto::{
-        lsps0::Msat,
+        lsps0::{Msat, ShortChannelId},
         lsps2::{
-            DatastoreEntry, Lsps2PolicyGetChannelCapacityRequest,
-            Lsps2PolicyGetChannelCapacityResponse, Lsps2PolicyGetInfoRequest,
-            Lsps2PolicyGetInfoResponse, OpeningFeeParams,
+            DatastoreEntry, FinalizedDatastoreEntry, Lsps2PolicyBuyRequest, Lsps2PolicyBuyResponse,
+            Lsps2PolicyGetInfoRequest, Lsps2PolicyGetInfoResponse, OpeningFeeParams,
+            SessionOutcome,
         },
     },
 };
@@ -17,159 +21,439 @@ use bitcoin::secp256k1::PublicKey;
 use cln_rpc::{
     model::{
         requests::{
-            DatastoreMode, DatastoreRequest, DeldatastoreRequest, FundchannelRequest,
-            GetinfoRequest, ListdatastoreRequest, ListpeerchannelsRequest,
+            AddpsbtoutputRequest, CloseRequest, ConnectRequest, DatastoreMode, DatastoreRequest,
+            DeldatastoreRequest, DisconnectRequest, FundchannelCancelRequest,
+            FundchannelCompleteRequest, FundchannelStartRequest, FundpsbtRequest, GetinfoRequest,
+            ListdatastoreRequest, ListforwardsIndex, ListforwardsRequest, ListpeerchannelsRequest,
+            SendpsbtRequest, SignpsbtRequest, UnreserveinputsRequest,
         },
-        responses::ListdatastoreResponse,
+        responses::{ListdatastoreResponse, ListforwardsForwardsStatus},
     },
-    primitives::{Amount, AmountOrAll, ChannelState, Sha256, ShortChannelId},
+    primitives::{Amount, AmountOrAll, ChannelState, Feerate, Sha256},
     ClnRpc,
 };
 use core::fmt;
+use log::warn;
 use serde::Serialize;
 use std::path::PathBuf;
+use std::str::FromStr;
+use std::time::Duration;
 
 pub const DS_MAIN_KEY: &'static str = "lsps";
 pub const DS_SUB_KEY: &'static str = "lsps2";
+pub const DS_SESSIONS_KEY: &str = "sessions";
+pub const DS_ACTIVE_KEY: &str = "active";
+pub const DS_FINALIZED_KEY: &str = "finalized";
+
+// ---------------------------------------------------------------------------
+// ClnRpcClient — shared connection helper
+// ---------------------------------------------------------------------------
 
 #[derive(Clone)]
-pub struct ClnApiRpc {
+pub struct ClnRpcClient {
     rpc_path: PathBuf,
 }
 
-impl ClnApiRpc {
+impl ClnRpcClient {
     pub fn new(rpc_path: PathBuf) -> Self {
         Self { rpc_path }
     }
 
-    async fn create_rpc(&self) -> Result<ClnRpc> {
+    pub async fn create_rpc(&self) -> Result<ClnRpc> {
+        // Note: Add retry and backoff, be nicer than just failing.
         ClnRpc::new(&self.rpc_path).await
     }
-}
 
-#[async_trait]
-impl LightningProvider for ClnApiRpc {
-    async fn fund_jit_channel(
+    pub async fn poll_channel_ready(
         &self,
-        peer_id: &PublicKey,
-        amount: &Msat,
-    ) -> Result<(Sha256, String)> {
-        let mut rpc = self.create_rpc().await?;
-        let res = rpc
-            .call_typed(&FundchannelRequest {
-                announce: Some(false),
-                close_to: None,
-                compact_lease: None,
-                feerate: None,
-                minconf: None,
-                mindepth: Some(0),
-                push_msat: None,
-                request_amt: None,
-                reserve: None,
-                channel_type: Some(vec![12, 46, 50]),
-                utxos: None,
-                amount: AmountOrAll::Amount(Amount::from_msat(amount.msat())),
-                id: peer_id.to_owned(),
-            })
-            .await
-            .with_context(|| "calling fundchannel")?;
-        Ok((res.channel_id, res.txid))
+        channel_id: &Sha256,
+        timeout: Duration,
+        interval: Duration,
+    ) -> Result<()> {
+        let deadline = tokio::time::Instant::now() + timeout;
+        loop {
+            if self.check_channel_normal(channel_id).await? {
+                return Ok(());
+            }
+            if tokio::time::Instant::now() + interval > deadline {
+                anyhow::bail!(
+                    "timed out waiting for channel {} to reach CHANNELD_NORMAL",
+                    channel_id
+                );
+            }
+            tokio::time::sleep(interval).await;
+        }
     }
 
-    async fn is_channel_ready(&self, peer_id: &PublicKey, channel_id: &Sha256) -> Result<bool> {
+    pub async fn check_channel_normal(&self, channel_id: &Sha256) -> Result<bool> {
         let mut rpc = self.create_rpc().await?;
         let r = rpc
             .call_typed(&ListpeerchannelsRequest {
-                channel_id: None,
-                id: Some(peer_id.to_owned()),
+                channel_id: Some(*channel_id),
+                id: None,
                 short_channel_id: None,
             })
             .await
             .with_context(|| "calling listpeerchannels")?;
 
-        let chs = r
-            .channels
-            .iter()
-            .find(|&ch| ch.channel_id.is_some_and(|id| id == *channel_id));
-        if let Some(ch) = chs {
-            if ch.state == ChannelState::CHANNELD_NORMAL {
-                return Ok(true);
+        Ok(r.channels
+            .first()
+            .is_some_and(|ch| ch.state == ChannelState::CHANNELD_NORMAL))
+    }
+
+    pub async fn connect_with_retry(&self, peer_id: &str, timeout: Duration) -> Result<()> {
+        let deadline = tokio::time::Instant::now() + timeout;
+        let mut backoff = Duration::from_secs(1);
+        let max_backoff = Duration::from_secs(10);
+
+        loop {
+            let mut rpc = self.create_rpc().await?;
+            let res = rpc
+                .call_typed(&ConnectRequest {
+                    host: None,
+                    port: None,
+                    id: peer_id.to_string(),
+                })
+                .await;
+
+            if res.is_ok() {
+                return Ok(());
+            }
+
+            if tokio::time::Instant::now() + backoff > deadline {
+                anyhow::bail!("connect to {peer_id} timed out after {timeout:?}");
+            }
+
+            tokio::time::sleep(backoff).await;
+            backoff = (backoff * 2).min(max_backoff);
+        }
+    }
+
+    /// Get the short_channel_id for a channel, needed for listforwards queries.
+    /// Falls back to alias.local for unconfirmed JIT channels.
+    pub async fn get_channel_scid(
+        &self,
+        channel_id: &str,
+    ) -> Result<Option<cln_rpc::primitives::ShortChannelId>> {
+        let mut rpc = self.create_rpc().await?;
+        let peers = rpc
+            .call_typed(&ListpeerchannelsRequest {
+                channel_id: None,
+                id: None,
+                short_channel_id: None,
+            })
+            .await?;
+
+        for ch in &peers.channels {
+            if let Some(ref cid) = ch.channel_id {
+                if cid.to_string() == channel_id {
+                    return Ok(ch
+                        .short_channel_id
+                        .or(ch.alias.as_ref().and_then(|a| a.local)));
+                }
             }
         }
+        Ok(None)
+    }
 
-        return Ok(false);
+    pub async fn unreserve_inputs(&self, psbt: &str) -> Result<()> {
+        let mut rpc = self.create_rpc().await?;
+        rpc.call_typed(&UnreserveinputsRequest {
+            reserve: None,
+            psbt: psbt.to_string(),
+        })
+        .await
+        .with_context(|| "calling unreserveinputs")?;
+        Ok(())
+    }
+}
+
+// ---------------------------------------------------------------------------
+// ClnActionExecutor — implements ActionExecutor
+// ---------------------------------------------------------------------------
+
+/// Converts msat to sat, rounding up to avoid underfunding.
+fn msat_to_sat_ceil(msat: u64) -> u64 {
+    msat.div_ceil(1000)
+}
+
+#[derive(Clone)]
+pub struct ClnActionExecutor {
+    rpc: ClnRpcClient,
+}
+
+impl ClnActionExecutor {
+    pub fn new(rpc: ClnRpcClient) -> Self {
+        Self { rpc }
+    }
+
+    async fn cleanup_failed_funding(&self, peer_id: &PublicKey, psbt: &str) {
+        if let Err(e) = self.rpc.unreserve_inputs(psbt).await {
+            warn!("cleanup: unreserveinputs for psbt={psbt} failed: {e}");
+        }
+        if let Err(e) = self.cancel_fundchannel(peer_id).await {
+            warn!("cleanup: fundchannel_cancel failed: {e}");
+        }
+    }
+
+    async fn cancel_fundchannel(&self, peer_id: &PublicKey) -> Result<()> {
+        let mut rpc = self.rpc.create_rpc().await?;
+        rpc.call_typed(&FundchannelCancelRequest {
+            id: peer_id.to_owned(),
+        })
+        .await
+        .with_context(|| "calling fundchannel_cancel")?;
+        Ok(())
     }
 }
 
 #[async_trait]
-impl DatastoreProvider for ClnApiRpc {
-    async fn store_buy_request(
+impl ActionExecutor for ClnActionExecutor {
+    async fn fund_channel(
         &self,
-        scid: &ShortChannelId,
-        peer_id: &PublicKey,
-        opening_fee_params: &OpeningFeeParams,
-        expected_payment_size: &Option<Msat>,
-    ) -> Result<bool> {
-        let mut rpc = self.create_rpc().await?;
-        #[derive(Serialize)]
-        struct BorrowedDatastoreEntry<'a> {
-            peer_id: &'a PublicKey,
-            opening_fee_params: &'a OpeningFeeParams,
-            #[serde(borrow)]
-            expected_payment_size: &'a Option<Msat>,
-        }
+        peer_id: String,
+        channel_size: Msat,
+        _opening_fee_params: OpeningFeeParams,
+        _scid: ShortChannelId,
+    ) -> anyhow::Result<(String, String)> {
+        let pk = PublicKey::from_str(&peer_id)
+            .with_context(|| format!("parsing peer_id '{peer_id}'"))?;
+        let channel_sat = msat_to_sat_ceil(channel_size.msat());
 
-        let ds = BorrowedDatastoreEntry {
-            peer_id,
-            opening_fee_params,
-            expected_payment_size,
-        };
-        let json_str = serde_json::to_string(&ds)?;
+        self.rpc.connect_with_retry(&peer_id, Duration::from_secs(90))
+            .await?;
 
-        let ds = DatastoreRequest {
-            generation: None,
-            hex: None,
-            mode: Some(DatastoreMode::MUST_CREATE),
-            string: Some(json_str),
-            key: vec![
-                DS_MAIN_KEY.to_string(),
-                DS_SUB_KEY.to_string(),
-                scid.to_string(),
-            ],
-        };
-
-        let _ = rpc
-            .call_typed(&ds)
-            .await
-            .map_err(anyhow::Error::new)
-            .with_context(|| "calling datastore")?;
-
-        Ok(true)
-    }
-
-    async fn get_buy_request(&self, scid: &ShortChannelId) -> Result<DatastoreEntry> {
-        let mut rpc = self.create_rpc().await?;
-        let key = vec![
-            DS_MAIN_KEY.to_string(),
-            DS_SUB_KEY.to_string(),
-            scid.to_string(),
-        ];
-        let res = rpc
-            .call_typed(&ListdatastoreRequest {
-                key: Some(key.clone()),
+        let mut rpc = self.rpc.create_rpc().await?;
+        let start_res = rpc
+            .call_typed(&FundchannelStartRequest {
+                id: pk,
+                amount: Amount::from_sat(channel_sat),
+                mindepth: Some(0),
+                channel_type: Some(vec![12, 46, 50]), // zero_conf channel
+                announce: Some(false),
+                close_to: None,
+                feerate: None,
+                push_msat: None,
+                reserve: Some(Amount::from_sat(0)),
             })
             .await
-            .with_context(|| "calling listdatastore")?;
+            .with_context(|| "calling fundchannel_start")?;
+        let funding_address = start_res.funding_address;
 
-        let (rec, _) = deserialize_by_key(&res, key)?;
-        Ok(rec)
+        // Reserve input and add to tx
+        let mut rpc = self.rpc.create_rpc().await?;
+        let fundpsbt_res = match rpc
+            .call_typed(&FundpsbtRequest {
+                satoshi: AmountOrAll::Amount(Amount::from_sat(channel_sat)),
+                feerate: Feerate::Normal,
+                startweight: 1000,
+                excess_as_change: Some(true),
+                locktime: None,
+                min_witness_weight: None,
+                minconf: None,
+                nonwrapped: None,
+                opening_anchor_channel: None,
+                reserve: None,
+            })
+            .await
+        {
+            Ok(r) => r,
+            Err(e) => {
+                self.cancel_fundchannel(&pk).await.ok();
+                return Err(anyhow::Error::new(e).context("calling fundpsbt"));
+            }
+        };
+
+        let addout_res = match rpc
+            .call_typed(&AddpsbtoutputRequest {
+                satoshi: Amount::from_sat(channel_sat),
+                initialpsbt: Some(fundpsbt_res.psbt.clone()),
+                destination: Some(funding_address),
+                locktime: None,
+            })
+            .await
+        {
+            Ok(r) => r,
+            Err(e) => {
+                self.cleanup_failed_funding(&pk, &fundpsbt_res.psbt).await;
+                return Err(anyhow::Error::new(e).context("calling addpsbtoutput"));
+            }
+        };
+        let psbt = addout_res.psbt;
+
+        let complete_res = match rpc
+            .call_typed(&FundchannelCompleteRequest {
+                id: pk,
+                psbt: psbt.clone(),
+                withhold: Some(true),
+            })
+            .await
+        {
+            Ok(r) => r,
+            Err(e) => {
+                self.cleanup_failed_funding(&pk, &psbt).await;
+                return Err(anyhow::Error::new(e).context("calling fundchannel_complete"));
+            }
+        };
+        let channel_id = complete_res.channel_id;
+
+        if let Err(e) = self
+            .rpc
+            .poll_channel_ready(
+                &channel_id,
+                Duration::from_secs(120),
+                Duration::from_secs(1),
+            )
+            .await
+        {
+            self.cleanup_failed_funding(&pk, &psbt).await;
+            return Err(e);
+        }
+
+        Ok((channel_id.to_string(), psbt))
+    }
+
+    async fn broadcast_tx(
+        &self,
+        channel_id: String,
+        funding_psbt: String,
+    ) -> anyhow::Result<String> {
+        // Idempotency: check if funding tx was already broadcast.
+        let sha = channel_id
+            .parse::<Sha256>()
+            .with_context(|| format!("parsing channel_id '{channel_id}'"))?;
+        let mut rpc = self.rpc.create_rpc().await?;
+        let list_res = rpc
+            .call_typed(&ListpeerchannelsRequest {
+                channel_id: Some(sha),
+                id: None,
+                short_channel_id: None,
+            })
+            .await
+            .with_context(|| "calling listpeerchannels in broadcast_tx")?;
+        if let Some(ch) = list_res.channels.first() {
+            let already_broadcast = ch
+                .funding
+                .as_ref()
+                .and_then(|f| f.withheld)
+                .map(|w| !w)
+                .unwrap_or(false);
+            if already_broadcast {
+                // Tx was already broadcast; return the existing txid as a no-op.
+                if let Some(txid) = &ch.funding_txid {
+                    return Ok(txid.clone());
+                }
+            }
+        }
+
+        let mut rpc = self.rpc.create_rpc().await?;
+        let sign_res = rpc
+            .call_typed(&SignpsbtRequest {
+                psbt: funding_psbt,
+                signonly: None,
+            })
+            .await
+            .with_context(|| "calling signpsbt")?;
+        let send_res = rpc
+            .call_typed(&SendpsbtRequest {
+                psbt: sign_res.signed_psbt,
+                reserve: None,
+            })
+            .await
+            .with_context(|| "calling sendpsbt")?;
+        Ok(send_res.txid)
+    }
+
+    async fn abandon_session(
+        &self,
+        channel_id: String,
+        funding_psbt: String,
+    ) -> anyhow::Result<()> {
+        // Idempotency: check if channel still exists.
+        if !self.is_channel_alive(&channel_id).await.unwrap_or(false) {
+            // Channel already gone — no-op.
+            // TODO: Belt-and-suspenders: scan listpeerchannels for
+            // orphaned withheld channels not claimed by any session.
+            return Ok(());
+        }
+
+        let close_res = {
+            let mut rpc = self.rpc.create_rpc().await?;
+            rpc.call_typed(&CloseRequest {
+                destination: None,
+                fee_negotiation_step: None,
+                force_lease_closed: None,
+                unilateraltimeout: Some(1), // We didn't even broadcast the channel yet.
+                wrong_funding: None,
+                feerange: None,
+                id: channel_id.clone(),
+            })
+            .await
+            .with_context(|| format!("calling close for channel_id={channel_id}"))
+        };
+
+        if let Err(e) = &close_res {
+            warn!("abandon_session: close failed for channel_id={channel_id}: {e}");
+        }
+
+        let unreserve_res = self.rpc.unreserve_inputs(&funding_psbt).await;
+        if let Err(e) = &unreserve_res {
+            warn!("abandon_session: unreserveinputs failed for funding_psbt={funding_psbt}: {e}");
+        }
+
+        match (close_res, unreserve_res) {
+            (Ok(_), Ok(())) => Ok(()),
+            (Err(close_err), Ok(())) => Err(close_err),
+            (Ok(_), Err(unreserve_err)) => Err(unreserve_err),
+            (Err(close_err), Err(unreserve_err)) => Err(anyhow::anyhow!(
+                "abandon_session failed for channel_id={channel_id}: close failed: {close_err}; unreserveinputs failed for funding_psbt={funding_psbt}: {unreserve_err}"
+            )),
+        }
+    }
+
+    async fn disconnect(&self, peer_id: String) -> anyhow::Result<()> {
+        let pk = PublicKey::from_str(&peer_id)
+            .with_context(|| format!("parsing peer_id '{peer_id}'"))?;
+        let mut rpc = self.rpc.create_rpc().await?;
+        let _ = rpc
+            .call_typed(&DisconnectRequest {
+                id: pk,
+                force: None,
+            })
+            .await
+            .with_context(|| "calling disconnect")?;
+        Ok(())
+    }
+
+    async fn is_channel_alive(&self, channel_id: &str) -> anyhow::Result<bool> {
+        let sha = channel_id
+            .parse::<Sha256>()
+            .with_context(|| format!("parsing channel_id '{channel_id}'"))?;
+        self.rpc.check_channel_normal(&sha).await
+    }
+}
+
+// ---------------------------------------------------------------------------
+// ClnDatastore — implements DatastoreProvider
+// ---------------------------------------------------------------------------
+
+#[derive(Clone)]
+pub struct ClnDatastore {
+    rpc: ClnRpcClient,
+}
+
+impl ClnDatastore {
+    pub fn new(rpc: ClnRpcClient) -> Self {
+        Self { rpc }
     }
 
     async fn del_buy_request(&self, scid: &ShortChannelId) -> Result<()> {
-        let mut rpc = self.create_rpc().await?;
+        let mut rpc = self.rpc.create_rpc().await?;
         let key = vec![
             DS_MAIN_KEY.to_string(),
             DS_SUB_KEY.to_string(),
+            DS_SESSIONS_KEY.to_string(),
+            DS_ACTIVE_KEY.to_string(),
             scid.to_string(),
         ];
 
@@ -185,33 +469,215 @@ impl DatastoreProvider for ClnApiRpc {
 }
 
 #[async_trait]
-impl Lsps2OfferProvider for ClnApiRpc {
-    async fn get_offer(
+impl DatastoreProvider for ClnDatastore {
+    async fn store_buy_request(
         &self,
-        request: &Lsps2PolicyGetInfoRequest,
-    ) -> Result<Lsps2PolicyGetInfoResponse> {
-        let mut rpc = self.create_rpc().await?;
-        rpc.call_raw("lsps2-policy-getpolicy", request)
-            .await
-            .context("failed to call lsps2-policy-getpolicy")
-    }
+        scid: &ShortChannelId,
+        peer_id: &PublicKey,
+        opening_fee_params: &OpeningFeeParams,
+        expected_payment_size: &Option<Msat>,
+        channel_capacity_msat: &Msat,
+    ) -> Result<DatastoreEntry> {
+        let created_at = chrono::Utc::now();
+        let mut rpc = self.rpc.create_rpc().await?;
+        #[derive(Serialize)]
+        struct BorrowedDatastoreEntry<'a> {
+            peer_id: &'a PublicKey,
+            opening_fee_params: &'a OpeningFeeParams,
+            #[serde(borrow)]
+            expected_payment_size: &'a Option<Msat>,
+            channel_capacity_msat: &'a Msat,
+            created_at: chrono::DateTime<chrono::Utc>,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            channel_id: Option<String>,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            funding_psbt: Option<String>,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            funding_txid: Option<String>,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            preimage: Option<String>,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            forwards_updated_index: &'a Option<u64>,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            payment_hash: Option<String>,
+        }
 
-    async fn get_channel_capacity(
-        &self,
-        params: &Lsps2PolicyGetChannelCapacityRequest,
-    ) -> Result<Lsps2PolicyGetChannelCapacityResponse> {
-        let mut rpc = self.create_rpc().await?;
-        rpc.call_raw("lsps2-policy-getchannelcapacity", params)
+        let ds = BorrowedDatastoreEntry {
+            peer_id,
+            opening_fee_params,
+            expected_payment_size,
+            channel_capacity_msat,
+            created_at,
+            channel_id: None,
+            funding_psbt: None,
+            funding_txid: None,
+            preimage: None,
+            forwards_updated_index: &None,
+            payment_hash: None,
+        };
+        let json_str = serde_json::to_string(&ds)?;
+
+        let ds = DatastoreRequest {
+            generation: None,
+            hex: None,
+            mode: Some(DatastoreMode::MUST_CREATE),
+            string: Some(json_str),
+            key: vec![
+                DS_MAIN_KEY.to_string(),
+                DS_SUB_KEY.to_string(),
+                DS_SESSIONS_KEY.to_string(),
+                DS_ACTIVE_KEY.to_string(),
+                scid.to_string(),
+            ],
+        };
+
+        let _ = rpc
+            .call_typed(&ds)
             .await
             .map_err(anyhow::Error::new)
-            .with_context(|| "calling lsps2-policy-getchannelcapacity")
+            .with_context(|| "calling datastore")?;
+
+        Ok(DatastoreEntry {
+            peer_id: *peer_id,
+            opening_fee_params: opening_fee_params.clone(),
+            expected_payment_size: *expected_payment_size,
+            channel_capacity_msat: *channel_capacity_msat,
+            created_at,
+            channel_id: None,
+            funding_psbt: None,
+            funding_txid: None,
+            preimage: None,
+            forwards_updated_index: None,
+            payment_hash: None,
+        })
+    }
+
+    async fn get_buy_request(&self, scid: &ShortChannelId) -> Result<DatastoreEntry> {
+        let mut rpc = self.rpc.create_rpc().await?;
+        let key = vec![
+            DS_MAIN_KEY.to_string(),
+            DS_SUB_KEY.to_string(),
+            DS_SESSIONS_KEY.to_string(),
+            DS_ACTIVE_KEY.to_string(),
+            scid.to_string(),
+        ];
+        let res = rpc
+            .call_typed(&ListdatastoreRequest {
+                key: Some(key.clone()),
+            })
+            .await
+            .with_context(|| "calling listdatastore")?;
+
+        let (rec, _) = deserialize_by_key(&res, key)?;
+        Ok(rec)
+    }
+
+    async fn save_session(&self, scid: &ShortChannelId, entry: &DatastoreEntry) -> Result<()> {
+        let json_str = serde_json::to_string(entry)?;
+        let mut rpc = self.rpc.create_rpc().await?;
+        rpc.call_typed(&DatastoreRequest {
+            generation: None,
+            hex: None,
+            mode: Some(DatastoreMode::CREATE_OR_REPLACE),
+            string: Some(json_str),
+            key: vec![
+                DS_MAIN_KEY.to_string(),
+                DS_SUB_KEY.to_string(),
+                DS_SESSIONS_KEY.to_string(),
+                DS_ACTIVE_KEY.to_string(),
+                scid.to_string(),
+            ],
+        })
+        .await
+        .with_context(|| "calling datastore for save_session")?;
+        Ok(())
+    }
+
+    async fn finalize_session(&self, scid: &ShortChannelId, outcome: SessionOutcome) -> Result<()> {
+        let entry = match self.get_buy_request(scid).await {
+            Ok(e) => e,
+            Err(e) => {
+                warn!("finalize_session: active entry for scid={scid} already gone: {e}");
+                return Ok(());
+            }
+        };
+
+        let finalized = FinalizedDatastoreEntry {
+            entry,
+            outcome,
+            finalized_at: chrono::Utc::now(),
+        };
+        let json_str = serde_json::to_string(&finalized)?;
+
+        let mut rpc = self.rpc.create_rpc().await?;
+        let key = vec![
+            DS_MAIN_KEY.to_string(),
+            DS_SUB_KEY.to_string(),
+            DS_SESSIONS_KEY.to_string(),
+            DS_FINALIZED_KEY.to_string(),
+            scid.to_string(),
+        ];
+        rpc.call_typed(&DatastoreRequest {
+            generation: None,
+            hex: None,
+            mode: Some(DatastoreMode::MUST_CREATE),
+            string: Some(json_str),
+            key,
+        })
+        .await
+        .with_context(|| "calling datastore for finalize_session")?;
+
+        self.del_buy_request(scid).await?;
+        Ok(())
+    }
+
+    async fn list_active_sessions(&self) -> Result<Vec<(ShortChannelId, DatastoreEntry)>> {
+        let mut rpc = self.rpc.create_rpc().await?;
+        let prefix = vec![
+            DS_MAIN_KEY.to_string(),
+            DS_SUB_KEY.to_string(),
+            DS_SESSIONS_KEY.to_string(),
+            DS_ACTIVE_KEY.to_string(),
+        ];
+        let res = rpc
+            .call_typed(&ListdatastoreRequest { key: Some(prefix) })
+            .await
+            .with_context(|| "calling listdatastore for list_active_sessions")?;
+
+        let mut sessions = Vec::new();
+        for ds in &res.datastore {
+            if let Some(scid_str) = ds.key.last() {
+                if let Ok(scid) = scid_str.parse::<ShortChannelId>() {
+                    let json_str = ds.string.as_deref().unwrap_or("");
+                    if let Ok(entry) = serde_json::from_str::<DatastoreEntry>(json_str) {
+                        sessions.push((scid, entry));
+                    }
+                }
+            }
+        }
+        Ok(sessions)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// ClnPolicyProvider — implements Lsps2PolicyProvider
+// ---------------------------------------------------------------------------
+
+#[derive(Clone)]
+pub struct ClnPolicyProvider {
+    rpc: ClnRpcClient,
+}
+
+impl ClnPolicyProvider {
+    pub fn new(rpc: ClnRpcClient) -> Self {
+        Self { rpc }
     }
 }
 
 #[async_trait]
-impl BlockheightProvider for ClnApiRpc {
-    async fn get_blockheight(&self) -> Result<Blockheight> {
-        let mut rpc = self.create_rpc().await?;
+impl Lsps2PolicyProvider for ClnPolicyProvider {
+    async fn get_blockheight(&self) -> Result<u32> {
+        let mut rpc = self.rpc.create_rpc().await?;
         let info = rpc
             .call_typed(&GetinfoRequest {})
             .await
@@ -219,7 +685,170 @@ impl BlockheightProvider for ClnApiRpc {
             .with_context(|| "calling getinfo")?;
         Ok(info.blockheight)
     }
+
+    async fn get_info(
+        &self,
+        request: &Lsps2PolicyGetInfoRequest,
+    ) -> Result<Lsps2PolicyGetInfoResponse> {
+        let mut rpc = self.rpc.create_rpc().await?;
+        rpc.call_raw("lsps2-policy-getpolicy", request)
+            .await
+            .context("failed to call lsps2-policy-getpolicy")
+    }
+
+    async fn buy(&self, request: &Lsps2PolicyBuyRequest) -> Result<Lsps2PolicyBuyResponse> {
+        let mut rpc = self.rpc.create_rpc().await?;
+        rpc.call_raw("lsps2-policy-buy", request)
+            .await
+            .map_err(anyhow::Error::new)
+            .with_context(|| "calling lsps2-policy-buy")
+    }
 }
+
+// ---------------------------------------------------------------------------
+// ClnRecoveryProvider — implements RecoveryProvider
+// ---------------------------------------------------------------------------
+
+#[derive(Clone)]
+pub struct ClnRecoveryProvider {
+    rpc: ClnRpcClient,
+}
+
+impl ClnRecoveryProvider {
+    pub fn new(rpc: ClnRpcClient) -> Self {
+        Self { rpc }
+    }
+}
+
+#[async_trait]
+impl RecoveryProvider for ClnRecoveryProvider {
+    async fn get_forward_activity(&self, channel_id: &str) -> Result<ForwardActivity> {
+        // Check historical forwards via listforwards using out_channel filter.
+        let scid = match self.rpc.get_channel_scid(channel_id).await? {
+            Some(s) => s,
+            None => {
+                // Channel has no scid yet — no forwards possible.
+                return Ok(ForwardActivity::NoForwards);
+            }
+        };
+
+        let mut rpc = self.rpc.create_rpc().await?;
+        let fwd_res = rpc
+            .call_typed(&ListforwardsRequest {
+                in_channel: None,
+                index: Some(ListforwardsIndex::UPDATED),
+                limit: None,
+                out_channel: Some(scid),
+                start: None,
+                status: None,
+            })
+            .await
+            .with_context(|| "calling listforwards in get_forward_activity")?;
+
+        if fwd_res.forwards.is_empty() {
+            return Ok(ForwardActivity::NoForwards);
+        }
+
+        let mut has_offered = false;
+        for fwd in &fwd_res.forwards {
+            match fwd.status {
+                ListforwardsForwardsStatus::SETTLED => {
+                    return Ok(ForwardActivity::Settled);
+                }
+                ListforwardsForwardsStatus::OFFERED => {
+                    has_offered = true;
+                }
+                ListforwardsForwardsStatus::FAILED | ListforwardsForwardsStatus::LOCAL_FAILED => {}
+            }
+        }
+
+        if has_offered {
+            return Ok(ForwardActivity::Offered);
+        }
+
+        // All forwards failed.
+        Ok(ForwardActivity::AllFailed)
+    }
+
+    async fn get_channel_recovery_info(&self, channel_id: &str) -> Result<ChannelRecoveryInfo> {
+        let sha = channel_id
+            .parse::<Sha256>()
+            .with_context(|| format!("parsing channel_id '{channel_id}'"))?;
+        let mut rpc = self.rpc.create_rpc().await?;
+        let list_res = rpc
+            .call_typed(&ListpeerchannelsRequest {
+                channel_id: Some(sha),
+                id: None,
+                short_channel_id: None,
+            })
+            .await
+            .with_context(|| "calling listpeerchannels in get_channel_recovery_info")?;
+
+        match list_res.channels.first() {
+            None => Ok(ChannelRecoveryInfo {
+                exists: false,
+                withheld: false,
+            }),
+            Some(ch) => {
+                let withheld = ch
+                    .funding
+                    .as_ref()
+                    .and_then(|f| f.withheld)
+                    .unwrap_or(false);
+                Ok(ChannelRecoveryInfo {
+                    exists: true,
+                    withheld,
+                })
+            }
+        }
+    }
+
+    async fn close_and_unreserve(&self, channel_id: &str, funding_psbt: &str) -> Result<()> {
+        let sha = channel_id.parse::<Sha256>()
+            .with_context(|| format!("parsing channel_id '{channel_id}'"))?;
+        if !self.rpc.check_channel_normal(&sha).await.unwrap_or(false) {
+            return Ok(());
+        }
+
+        let close_res = {
+            let mut rpc = self.rpc.create_rpc().await?;
+            rpc.call_typed(&CloseRequest {
+                destination: None,
+                fee_negotiation_step: None,
+                force_lease_closed: None,
+                unilateraltimeout: Some(1),
+                wrong_funding: None,
+                feerange: None,
+                id: channel_id.to_string(),
+            })
+            .await
+            .with_context(|| format!("calling close for channel_id={channel_id}"))
+        };
+
+        if let Err(e) = &close_res {
+            warn!("close_and_unreserve: close failed for channel_id={channel_id}: {e}");
+        }
+
+        let unreserve_res = self.rpc.unreserve_inputs(funding_psbt).await;
+        if let Err(e) = &unreserve_res {
+            warn!("close_and_unreserve: unreserveinputs failed: {e}");
+        }
+
+        match (close_res, unreserve_res) {
+            (Ok(_), Ok(())) => Ok(()),
+            (Err(e), Ok(())) => Err(e),
+            (Ok(_), Err(e)) => Err(e),
+            (Err(ce), Err(ue)) => Err(anyhow::anyhow!(
+                "close_and_unreserve failed: close: {ce}; unreserve: {ue}"
+            )),
+        }
+    }
+
+}
+
+// ---------------------------------------------------------------------------
+// Datastore helpers (standalone)
+// ---------------------------------------------------------------------------
 
 #[derive(Debug)]
 pub enum DsError {
