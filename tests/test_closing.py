@@ -4076,7 +4076,7 @@ def test_peer_anchor_push(node_factory, bitcoind, executor, chainparams):
         assert len(bitcoind.rpc.getrawmempool()) == 2
 
     # Feerate tops out at +1, so this is the same.  This time we mine it!
-    l2.daemon.wait_for_log(fr"Worth fee [0-9]*sat for remote commit tx to get 100000000msat at block 125 \(\+1\) at feerate 15000perkw")
+    l2.daemon.wait_for_log(r"Worth fee [0-9]*sat for remote commit tx to get 100000000msat at block 125 \(\+1\) at feerate 15000perkw")
     l2.daemon.wait_for_log("sendrawtx exit 0")
 
     bitcoind.generate_block(1, needfeerate=15000)

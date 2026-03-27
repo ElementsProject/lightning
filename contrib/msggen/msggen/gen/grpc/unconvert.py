@@ -49,21 +49,21 @@ class GrpcUnconverterGenerator(GrpcConverterGenerator):
             if isinstance(f, ArrayField):
                 typ = f.itemtype.typename
                 mapping = {
-                    "hex": f"hex::encode(s)",
-                    "u32": f"s",
-                    "secret": f"s.try_into().unwrap()",
-                    "hash": f"Sha256::from_slice(&s).unwrap()",
-                    "short_channel_id": f"cln_rpc::primitives::ShortChannelId::from_str(&s).unwrap()",
-                    "short_channel_id_dir": f"cln_rpc::primitives::ShortChannelIdDir::from_str(&s).unwrap()",
-                    "pubkey": f"PublicKey::from_slice(&s).unwrap()",
-                    "txid": f"hex::encode(s)",
-                }.get(typ, f"s.into()")
+                    "hex": "hex::encode(s)",
+                    "u32": "s",
+                    "secret": "s.try_into().unwrap()",
+                    "hash": "Sha256::from_slice(&s).unwrap()",
+                    "short_channel_id": "cln_rpc::primitives::ShortChannelId::from_str(&s).unwrap()",
+                    "short_channel_id_dir": "cln_rpc::primitives::ShortChannelIdDir::from_str(&s).unwrap()",
+                    "pubkey": "PublicKey::from_slice(&s).unwrap()",
+                    "txid": "hex::encode(s)",
+                }.get(typ, "s.into()")
 
                 # TODO fix properly
                 if typ in ["ListtransactionsTransactionsType"]:
                     continue
                 if name == "state_changes":
-                    self.write(f" state_changes: None,")
+                    self.write(" state_changes: None,")
                     continue
 
                 if not f.optional:
@@ -147,10 +147,10 @@ class GrpcUnconverterGenerator(GrpcConverterGenerator):
                 self.write(f"{name}: {rhs},\n", numindent=3)
 
         self.write(
-            f"""\
-                }}
-            }}
-        }}
+            """\
+                }
+            }
+        }
 
         """
         )

@@ -158,7 +158,7 @@ class GrpcGenerator(IGenerator):
             )
 
         self.write(
-            f"""}}
+            """}
         """
         )
 
@@ -228,7 +228,7 @@ class GrpcGenerator(IGenerator):
 
     def generate(self, service: Service) -> None:
         """Generate the GRPC protobuf file and write to `dest`"""
-        self.write(f"""syntax = "proto3";\npackage cln;\n""")
+        self.write("""syntax = "proto3";\npackage cln;\n""")
         self.write(
             """
         // This file was automatically derived from the JSON-RPC schemas in

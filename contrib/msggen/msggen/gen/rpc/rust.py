@@ -179,10 +179,10 @@ def gen_enum(e, meta, override):
         norm = v.normalized()
         decl += f'            {typename}::{norm} => "{norm}",\n'
     decl += dedent(
-        f"""\
-            }}.to_string()
-        }}
-    }}
+        """\
+            }.to_string()
+        }
+    }
 
     """
     )
@@ -196,7 +196,7 @@ def gen_enum(e, meta, override):
         defi += rename_if_necessary(str(e.name), e.name.normalized())
         defi += f"    pub {e.name.normalized()}: {typename},\n"
     else:
-        defi = f'    #[serde(skip_serializing_if = "Option::is_none")]\n'
+        defi = '    #[serde(skip_serializing_if = "Option::is_none")]\n'
         defi += f"    pub {e.name.normalized()}: Option<{typename}>,\n"
 
     return defi, decl
@@ -223,7 +223,7 @@ def rename_if_necessary(original, name):
     if str(original) != str(name):
         return f"    #[serde(rename = \"{original}\")]\n"
     else:
-        return f""
+        return ""
 
 
 def gen_array(a, meta, override=None):
@@ -390,7 +390,7 @@ class RustGenerator(IGenerator):
     def generate_enums(self, service: Service):
         """The Request and Response enums serve as parsing primitives."""
         self.write(
-            f"""\
+            """\
         use serde::{{Deserialize, Serialize}};
 
         #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -398,6 +398,7 @@ class RustGenerator(IGenerator):
         #[serde(rename_all = "lowercase")]
         pub enum Request {{
         """
+            .replace("{{", "{").replace("}}", "}"),
         )
 
         for method in service.methods:
@@ -410,13 +411,13 @@ class RustGenerator(IGenerator):
             )
 
         self.write(
-            f"""\
-        }}
+            """\
+        }
 
         #[derive(Clone, Debug, Serialize, Deserialize)]
         #[serde(tag = "method", content = "result")]
         #[serde(rename_all = "lowercase")]
-        pub enum Response {{
+        pub enum Response {
         """
         )
 
@@ -430,8 +431,8 @@ class RustGenerator(IGenerator):
             )
 
         self.write(
-            f"""\
-        }}
+            """\
+        }
 
         """
         )

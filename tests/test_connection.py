@@ -4743,7 +4743,7 @@ def test_networkevents(node_factory, executor):
                         'peer_id': l2.info['id'],
                         'type': 'connect_fail',
                         'connect_attempted': True,
-                        'reason': f'All addresses failed: 127.0.0.1:1: Connection establishment: Connection refused. '}]
+                        'reason': 'All addresses failed: 127.0.0.1:1: Connection establishment: Connection refused. '}]
 
     # Connect failed because unreachable
     with pytest.raises(RpcError, match="Connection establishment: Connection timed out."):
@@ -4756,7 +4756,7 @@ def test_networkevents(node_factory, executor):
                         'peer_id': l2.info['id'],
                         'type': 'connect_fail',
                         'connect_attempted': True,
-                        'reason': f'All addresses failed: 1.1.1.1:8081: Connection establishment: Connection timed out. '}]
+                        'reason': 'All addresses failed: 1.1.1.1:8081: Connection establishment: Connection timed out. '}]
 
     # Connect failed because it doesn't advertize any addresses.
     with pytest.raises(RpcError, match="Unable to connect, no address known for peer"):
