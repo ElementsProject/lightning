@@ -485,16 +485,10 @@ static bool have_empty_encrypted_queue(const struct peer *peer)
 /* (Continue) writing the encrypted_peer_out array */
 static struct io_plan *write_encrypted_to_peer(struct peer *peer)
 {
-	size_t avail = membuf_num_elems(&peer->encrypted_peer_out);
-	/* With padding: always a full uniform-size chunk.
-	 * Without: flush whatever we have (caller ensures non-zero). */
-	size_t write_size = peer->daemon->dev_uniform_padding
-		? UNIFORM_MESSAGE_SIZE : avail;
-
-	assert(avail >= write_size && write_size > 0);
+	assert(membuf_num_elems(&peer->encrypted_peer_out) >= UNIFORM_MESSAGE_SIZE);
 	return io_write_partial(peer->to_peer,
 				membuf_elems(&peer->encrypted_peer_out),
-				write_size,
+				UNIFORM_MESSAGE_SIZE,
 				&peer->encrypted_peer_out_sent,
 				write_to_peer, peer);
 }
@@ -1251,11 +1245,8 @@ static struct io_plan *write_to_peer(struct io_conn *peer_conn,
 				/* Wait for them to wake us */
 				return msg_queue_wait(peer_conn, peer->peer_outq, write_to_peer, peer);
 			}
-			/* OK, add padding (only if --dev-uniform-padding enabled). */
-			if (peer->daemon->dev_uniform_padding)
-				pad_encrypted_queue(peer);
-			else
-				break;
+			/* OK, add padding. */
+			pad_encrypted_queue(peer);
 		} else {
 			if (peer->draining_state == WRITING_TO_PEER)
 				status_peer_debug(&peer->id, "draining, but sending %s.",
@@ -1273,14 +1264,6 @@ static struct io_plan *write_to_peer(struct io_conn *peer_conn,
 	}
 
 	peer->nonurgent_flush_timer = tal_free(peer->nonurgent_flush_timer);
-
-	/* With uniform padding the buffer is always a full UNIFORM_MESSAGE_SIZE.
-	 * Without it, write whatever we have; if nothing, go back to waiting. */
-	if (have_empty_encrypted_queue(peer)) {
-		io_wake(&peer->subds);
-		io_wake(&peer->peer_in);
-		return msg_queue_wait(peer_conn, peer->peer_outq, write_to_peer, peer);
-	}
 	return write_encrypted_to_peer(peer);
 }
 
