@@ -177,6 +177,15 @@ def test_xpay_simple(node_factory):
     b12 = l1.rpc.fetchinvoice(offer, '100000msat')['invoice']
     l1.rpc.xpay(invstring=b12, payer_note="Payment for a cup of coffee")
 
+    # BOLT 12, direct peer
+    offer = l2.rpc.offer('any')['bolt12']
+    b12 = l1.rpc.fetchinvoice(offer, '10000msat')['invoice']
+    ret = l1.rpc.xpay(invstring=b12)
+    assert ret['failed_parts'] == 0
+    assert ret['successful_parts'] == 1
+    assert ret['amount_msat'] == 10000
+    assert ret['amount_sent_msat'] == 10000
+
     # Failure from l4.
     b11 = l4.rpc.invoice('10000msat', 'test_xpay_simple2', 'test_xpay_simple2 bolt11')['bolt11']
     l4.rpc.delinvoice('test_xpay_simple2', 'unpaid')
