@@ -116,38 +116,68 @@ def test_gossip_disable_channels(node_factory, bitcoind):
     wait_for(lambda: count_active(l2) == 2)
 
 
-def test_reestablish_announcement_sigs(node_factory, bitcoind):
-    """Regression test: peers must not disconnect after reestablishing
-    a channel that has already exchanged announcement_signatures.
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "sqlite3-specific DB manip")
+def test_reestablish_announcement_sigs(node_factory):
+    """Regression test: announcement_signatures must wait until
+    channel reestablishment has completed after reconnect.
 
     A bug in send_channel_announce_sigs() caused it to unconditionally
     send announcement_signatures on reconnect (missing early returns),
-    which made the remote peer drop the connection.
+    before the peers had exchanged channel_reestablish.
     See: https://github.com/ElementsProject/lightning/issues/8978
     """
-    opts = {'dev-no-reconnect': None, 'may_reconnect': True}
-    l1, l2 = node_factory.get_nodes(2, opts=opts)
+    opts = {'may_reconnect': True, 'dev-no-reconnect': None}
+    l1, l2 = node_factory.line_graph(2, wait_for_announce=True, opts=opts)
 
-    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-    scid, _ = l1.fundchannel(l2, 10**6)
-    bitcoind.generate_block(6)
+    def first_log_index(node, needle, start):
+        node.daemon.logs_catchup()
+        for idx, line in enumerate(node.daemon.logs[start:], start):
+            if needle in line:
+                return idx
+        return None
 
-    # Wait for channel to be fully announced (both sides exchanged sigs)
-    l1.wait_channel_active(scid)
-    l2.wait_channel_active(scid)
+    # Make l2 rely on its stored announcement state, and make l1 ask for
+    # announcement_signatures again on reconnect.
+    l2.stop()
+    gs_path = os.path.join(l2.daemon.lightning_dir, TEST_NETWORK, 'gossip_store')
+    os.unlink(gs_path)
+    l2.start()
+    wait_for(lambda: l2.rpc.listchannels()['channels'] != [])
 
-    # Disconnect and reconnect - channel should stay up
-    l1.rpc.disconnect(l2.info['id'], force=True)
-    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.db_manip("UPDATE channels SET remote_ann_node_sig=NULL, remote_ann_bitcoin_sig=NULL")
+    gs_path = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store')
+    os.unlink(gs_path)
+    l1.restart()
 
-    # Wait for reestablishment
+    l1.daemon.logs_catchup()
+    l2.daemon.logs_catchup()
+    l1_start = len(l1.daemon.logs)
+    l2_start = len(l2.daemon.logs)
+    l1.daemon.logsearch_start = l1_start
+    l2.daemon.logsearch_start = l2_start
+
+    l1.connect(l2)
+
     l1.daemon.wait_for_log('channel_gossip: reestablished')
+    l2.daemon.wait_for_log('channel_gossip: reestablished')
 
-    # Channel must remain connected (the bug caused immediate disconnect)
-    time.sleep(2)
-    channels = l1.rpc.listpeerchannels()['channels']
-    assert len(channels) == 1
-    assert channels[0]['peer_connected'] is True
+    l1.daemon.wait_for_logs(['peer_out WIRE_ANNOUNCEMENT_SIGNATURES',
+                             'peer_in WIRE_ANNOUNCEMENT_SIGNATURES'])
+    l2.daemon.wait_for_log('peer_out WIRE_ANNOUNCEMENT_SIGNATURES')
+
+    l1_reestablished = first_log_index(l1, 'channel_gossip: reestablished', l1_start)
+    l2_reestablished = first_log_index(l2, 'channel_gossip: reestablished', l2_start)
+    l1_announce = first_log_index(l1, 'peer_out WIRE_ANNOUNCEMENT_SIGNATURES', l1_start)
+    l2_announce = first_log_index(l2, 'peer_out WIRE_ANNOUNCEMENT_SIGNATURES', l2_start)
+
+    assert l1_reestablished is not None
+    assert l2_reestablished is not None
+    assert l1_announce > l1_reestablished
+    assert l2_announce > l2_reestablished
+
+    l1msgs = [l.split()[4] for l in l1.daemon.logs[l1_start:] if 'WIRE_ANNOUNCEMENT_SIGNATURES' in l]
+    assert sorted(l1msgs) == ['peer_in', 'peer_out']
+    assert len([l for l in l2.daemon.logs[l2_start:] if 'peer_out WIRE_ANNOUNCEMENT_SIGNATURES' in l]) == 1
 
 
 def test_announce_address(node_factory, bitcoind):
