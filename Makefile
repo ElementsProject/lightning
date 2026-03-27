@@ -955,7 +955,7 @@ MAN7PAGES = $(filter %.7,$(MANPAGES))
 MAN8PAGES = $(filter %.8,$(MANPAGES))
 DOC_DATA = README.md LICENSE
 
-install-data: installdirs $(MAN1PAGES) $(MAN5PAGES) $(MAN7PAGES) $(MAN8PAGES) $(DOC_DATA)
+install-data: installdirs
 	@$(NORMAL_INSTALL)
 	$(INSTALL_DATA) $(MAN1PAGES) $(DESTDIR)$(man1dir)
 	$(INSTALL_DATA) $(MAN5PAGES) $(DESTDIR)$(man5dir)
@@ -1020,7 +1020,7 @@ uninstall:
 	  rm -f $(DESTDIR)$(docdir)/`basename $$f`; \
 	done
 
-installcheck: all-programs
+installcheck: all-programs doc-all default-targets
 	@rm -rf testinstall || true
 	$(MAKE) DESTDIR=$$(pwd)/testinstall install
 	testinstall$(bindir)/lightningd --test-daemons-only --lightning-dir=testinstall
@@ -1042,7 +1042,7 @@ ifneq ($(VERSION),)
 bin-tarball: clightning-$(VERSION)-$(DISTRO).tar.xz
 clightning-$(VERSION)-$(DISTRO).tar.xz: DESTDIR=$(shell pwd)/
 clightning-$(VERSION)-$(DISTRO).tar.xz: prefix=opt/clightning
-clightning-$(VERSION)-$(DISTRO).tar.xz: install
+clightning-$(VERSION)-$(DISTRO).tar.xz: install doc-all default-targets
 	trap "rm -rf opt" 0; tar cvfa $@ opt/
 endif
 
