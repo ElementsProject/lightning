@@ -24,6 +24,42 @@ import unittest
 
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
+def test_vls_simple_send(node_factory):
+    l1, l2 = node_factory.line_graph(2, opts=[{'use_vls': True}, {}])
+
+    inv = l2.rpc.invoice(123000, 'test_vls_simple', 'description')['bolt11']
+    details = l1.dev_pay(inv, dev_use_shadow=False)
+    assert details['status'] == 'complete'
+    assert details['amount_msat'] == Millisatoshi(123000)
+    assert details['destination'] == l2.info['id']
+
+
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+def test_vls_simple_receive(node_factory):
+    l1, l2 = node_factory.line_graph(2, opts=[{}, {'use_vls': True}])
+
+    inv = l2.rpc.invoice(123000, 'test_vls_simple', 'description')['bolt11']
+    details = l1.dev_pay(inv, dev_use_shadow=False)
+    assert details['status'] == 'complete'
+    assert details['amount_msat'] == Millisatoshi(123000)
+    assert details['destination'] == l2.info['id']
+
+
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+def test_vls_simple_route(node_factory):
+    l1, l2, l3 = node_factory.line_graph(3, opts=[{}, {}, {'use_vls': True}])
+    
+    inv = l3.rpc.invoice(123000, 'test_vls_simple', 'description')['bolt11']
+    details = l1.rpc.pay(inv, dev_use_shadow=False)
+    assert details['status'] == 'complete'
+    assert details['amount_msat'] == Millisatoshi(123000)
+    assert details['destination'] == l3.info['id']
+   
+
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
 def test_pay(node_factory):
     l1, l2 = node_factory.line_graph(2)
 
