@@ -241,6 +241,7 @@ def test_xpay_fake_channeld(node_factory, bitcoind, chainparams, slow_mode):
                                             'allow_warning': True,
                                             'dev-throttle-gossip': None,
                                             'log-level': 'info',
+                                            'broken_log': 'Throttling incoming peer',
                                             # xpay gets upset if it's aging when we remove cln-askrene!
                                             'dev-xpay-no-age': None,
                                             },

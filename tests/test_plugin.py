@@ -3160,7 +3160,7 @@ def test_commando(node_factory, executor):
 @pytest.mark.slow_test
 def test_commando_stress(node_factory, executor):
     """Stress test to slam commando with many large queries"""
-    nodes = node_factory.get_nodes(5)
+    nodes = node_factory.get_nodes(5, opts=[{'broken_log': 'Throttling incoming peer'}, {}, {}, {}, {}])
 
     rune = nodes[0].rpc.createrune()['rune']
     for n in nodes[1:]:

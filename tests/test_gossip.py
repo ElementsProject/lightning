@@ -2164,7 +2164,9 @@ def test_dump_own_gossip(node_factory):
 def test_gossip_throttle(node_factory, bitcoind, chainparams):
     """Make some gossip, test it gets throttled"""
     l1, l2, l3, l4 = node_factory.line_graph(4, wait_for_announce=True,
-                                             opts=[{}, {}, {}, {'dev-throttle-gossip': None}])
+                                             opts=[{}, {}, {},
+                                                   {'broken_log': 'Throttling incoming peer',
+                                                    'dev-throttle-gossip': None}])
 
     # We expect: self-advertizement (3 messages for l1 and l4) plus
     # 4 node announcements, 3 channel announcements and 6 channel updates.
