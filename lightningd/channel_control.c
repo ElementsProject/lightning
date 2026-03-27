@@ -495,6 +495,16 @@ static void handle_splice_lookup_tx(struct lightningd *ld,
 	}
 
 	tx = wallet_transaction_get(tmpctx, ld->wallet, &txid);
+	if (!tx
+	    && channel->funding_psbt
+	    && bitcoin_txid_eq(&channel->funding.txid, &txid)) {
+		/* Zeroconf funding can be used for splicing before topology
+		 * has indexed the funding tx, so reconstruct it from the
+		 * persisted funding PSBT if needed. */
+		tx = bitcoin_tx_with_psbt(tmpctx,
+					  clone_psbt(tmpctx,
+						     channel->funding_psbt));
+	}
 
 	if (!tx) {
 		channel_internal_error(channel,
@@ -697,6 +707,13 @@ static enum watch_result splice_depth_cb(struct lightningd *ld,
 			  " in AWAITING_SPLICE, ending watch of txid %s",
 			 fmt_bitcoin_txid(tmpctx, &inflight->funding->outpoint.txid));
 		return DELETE_WATCH;
+	}
+
+	/* Reorged out?  OK, we're not committed yet.
+	 * Zero-conf splice_locked is handled directly in channeld once
+	 * tx_signatures have completed. */
+	if (depth == 0) {
+		return KEEP_WATCHING;
 	}
 
 	if (inflight->channel->owner) {
@@ -986,7 +1003,9 @@ static void handle_update_inflight(struct lightningd *ld,
 	if (last_sig)
 		inflight->last_sig = *last_sig;
 
-	inflight->locked_scid = tal_steal(inflight, locked_scid);
+	inflight->locked_scid = tal_free(inflight->locked_scid);
+	if (locked_scid)
+		inflight->locked_scid = tal_steal(inflight, locked_scid);
 	inflight->i_sent_sigs = i_sent_sigs;
 
 	tal_wally_start();
@@ -1205,8 +1224,10 @@ static void handle_peer_splice_locked(struct channel *channel, const u8 *msg)
 
 	wallet_channel_clear_inflights(channel->peer->ld->wallet, channel);
 
-	/* Update the scid and tell everyone */
-	change_scid(channel, *inflight->locked_scid);
+	/* A zero-conf splice can lock before the new funding tx has a real scid. */
+	if (channel->scid
+	    && !short_channel_id_eq(*channel->scid, *inflight->locked_scid))
+		change_scid(channel, *inflight->locked_scid);
 
 	/* That freed watchers in inflights: now watch funding tx */
 	channel_watch_funding(channel->peer->ld, channel);

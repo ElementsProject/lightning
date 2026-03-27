@@ -9,7 +9,6 @@ plugin = Plugin()
 
 @plugin.hook('openchannel')
 def on_openchannel(openchannel, plugin, **kwargs):
-    plugin.log(repr(openchannel))
     mindepth = int(plugin.options['zeroconf_mindepth']['value'])
 
     if openchannel['id'] == plugin.options['zeroconf_allow']['value'] or plugin.options['zeroconf_allow']['value'] == 'any':
@@ -17,6 +16,11 @@ def on_openchannel(openchannel, plugin, **kwargs):
         return {'result': 'continue', 'mindepth': mindepth}
     else:
         return {'result': 'continue'}
+
+
+@plugin.hook('openchannel2')
+def on_openchannel2(openchannel2, plugin, **kwargs):
+    return on_openchannel(openchannel2, plugin, **kwargs)
 
 
 plugin.add_option(

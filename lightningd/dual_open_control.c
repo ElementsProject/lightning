@@ -710,6 +710,7 @@ openchannel2_hook_cb(struct openchannel2_payload *payload STEALS)
 					       payload->psbt,
 					       payload->our_shutdown_scriptpubkey,
 					       our_shutdown_script_wallet_index,
+					       channel->minimum_depth,
 					       payload->rates);
 
 	subd_send_msg(dualopend, take(msg));
@@ -732,6 +733,7 @@ openchannel2_hook_deserialize(struct openchannel2_payload *payload,
 	}
 
 	const jsmntok_t *t_result = json_get_member(buffer, toks, "result");
+	const jsmntok_t *t_mindepth = json_get_member(buffer, toks, "mindepth");
 	if (!t_result)
 		fatal("Plugin returned an invalid response to the"
 		      " openchannel2 hook: %.*s",
@@ -779,6 +781,15 @@ openchannel2_hook_deserialize(struct openchannel2_payload *payload,
 			   " already set by other plugin. Ignoring!");
 	else
 		payload->our_shutdown_scriptpubkey = shutdown_script;
+
+	if (t_mindepth != NULL) {
+		json_to_u32(buffer, t_mindepth,
+			    &payload->channel->minimum_depth);
+		log_debug(dualopend->ld->log,
+			  "Setting mindepth=%u for this channel as requested by "
+			  "the openchannel2 hook",
+			  payload->channel->minimum_depth);
+	}
 
 
 	struct amount_msat fee_base, fee_max_base;
@@ -1769,6 +1780,16 @@ static void send_funding_tx(struct channel *channel,
 			   sendfunding_done, cs);
 }
 
+static void maybe_signal_zeroconf_lockin(struct channel *channel)
+{
+	if (channel->minimum_depth != 0)
+		return;
+
+	log_debug(channel->log, "Zero-conf funding: signaling immediate lock-in");
+	subd_send_msg(channel->owner,
+		      take(towire_dualopend_depth_reached(NULL, 0)));
+}
+
 static void handle_peer_tx_sigs_sent(struct subd *dualopend,
 				     const int *fds,
 				     const u8 *msg)
@@ -1847,6 +1868,7 @@ static void handle_peer_tx_sigs_sent(struct subd *dualopend,
 				  DUALOPEND_AWAITING_LOCKIN,
 				  REASON_UNKNOWN,
 				  "Sigs exchanged, waiting for lock-in");
+		maybe_signal_zeroconf_lockin(channel);
 
 		/* Mimic the old behavior, notify a channel has been opened,
 		 * for the accepter side */
@@ -1933,6 +1955,7 @@ static void handle_channel_locked(struct subd *dualopend,
 				  const u8 *msg)
 {
 	struct channel *channel = dualopend->channel;
+	struct channel_inflight *inflight;
 	struct peer_fd *peer_fd;
 
 	if (!fromwire_dualopend_channel_locked(msg)) {
@@ -1943,7 +1966,6 @@ static void handle_channel_locked(struct subd *dualopend,
 	}
 	peer_fd = new_peer_fd_arr(tmpctx, fds);
 
-	assert(channel->scid);
 	assert(channel->remote_channel_ready);
 
 	log_debug(channel->log, "Lockin complete state %s",
@@ -1958,15 +1980,26 @@ static void handle_channel_locked(struct subd *dualopend,
 			  CHANNELD_NORMAL,
 			  REASON_UNKNOWN,
 			  "Lockin complete");
-	channel_record_open(channel,
-			    short_channel_id_blocknum(*channel->scid),
-			    true);
+	lockin_has_completed(channel, true);
+
+	inflight = channel_current_inflight(channel);
+	if (inflight && inflight->funding_psbt) {
+		tal_free(channel->funding_psbt);
+		channel->funding_psbt = clone_psbt(channel,
+						      inflight->funding_psbt);
+		wallet_channel_save(dualopend->ld->wallet, channel);
+	}
 
 	/* Empty out the inflights */
 	wallet_channel_clear_inflights(dualopend->ld->wallet, channel);
 
-	/* That freed watchers in inflights: now watch funding tx */
-	channel_watch_depth(dualopend->ld, short_channel_id_blocknum(*channel->scid), channel);
+	/* Zeroconf channels still need to discover their on-chain scid later. */
+	if (channel->scid)
+		channel_watch_depth(dualopend->ld,
+				    short_channel_id_blocknum(*channel->scid),
+				    channel);
+	else
+		channel_watch_funding(dualopend->ld, channel);
 	channel_watch_funding_out(dualopend->ld, channel);
 
 	/* FIXME: LND sigs/update_fee msgs? */
@@ -2193,6 +2226,7 @@ static void handle_peer_tx_sigs_msg(struct subd *dualopend,
 				  DUALOPEND_AWAITING_LOCKIN,
 				  REASON_UNKNOWN,
 				  "Sigs exchanged, waiting for lock-in");
+		maybe_signal_zeroconf_lockin(channel);
 
 		/* Mimic the old behavior, notify a channel has been opened,
 		 * for the accepter side */
@@ -3030,6 +3064,7 @@ static struct command_result *openchannel_init(struct command *cmd,
 					       const struct wally_psbt *psbt,
 					       u32 feerate_per_kw_funding,
 					       u32 feerate_per_kw,
+					       u32 minimum_depth,
 					       const u8 *our_upfront_shutdown_script,
 					       bool announce_channel,
 					       const struct lease_rates *rates,
@@ -3059,6 +3094,7 @@ static struct command_result *openchannel_init(struct command *cmd,
 	channel->opener = LOCAL;
 	channel->open_attempt = oa = new_channel_open_attempt(channel);
 	channel->channel_flags = OUR_CHANNEL_FLAGS;
+	channel->minimum_depth = minimum_depth;
 	oa->funding = amount;
 	oa->cmd = cmd;
 
@@ -3124,6 +3160,7 @@ struct openchannel_init_info {
 	struct node_id *id;
 	struct amount_sat *amount, *request_amt;
 	struct wally_psbt *psbt;
+	u32 *mindepth;
 	u32 *feerate_per_kw_funding, *feerate_per_kw;
 	const u8 *our_upfront_shutdown_script;
 	bool *announce_channel;
@@ -3157,6 +3194,7 @@ static void openchannel_init_after_sync(struct chain_topology *topo,
 			 *info->request_amt,
 			 info->psbt,
 			 *info->feerate_per_kw_funding, *info->feerate_per_kw,
+			 *info->mindepth,
 			 info->our_upfront_shutdown_script,
 			 *info->announce_channel,
 			 info->rates, info->ctype);
@@ -3179,6 +3217,7 @@ static struct command_result *json_openchannel_init(struct command *cmd,
 			 p_req("initialpsbt", param_psbt, &info->psbt),
 			 p_opt("commitment_feerate", param_feerate, &info->feerate_per_kw),
 			 p_opt("funding_feerate", param_feerate, &info->feerate_per_kw_funding),
+			 p_opt("mindepth", param_u32, &info->mindepth),
 			 p_opt_def("announce", param_bool, &info->announce_channel, true),
 			 p_opt("close_to", param_bitcoin_address, &info->our_upfront_shutdown_script),
 			 p_opt_def("request_amt", param_sat, &info->request_amt, AMOUNT_SAT(0)),
@@ -3237,6 +3276,30 @@ static struct command_result *json_openchannel_init(struct command *cmd,
 		info->ctype = desired_channel_type(info, cmd->ld->our_features,
 						   peer->their_features);
 
+	if (channel_type_has(info->ctype, OPT_ZEROCONF)) {
+		if (info->mindepth && *info->mindepth != 0) {
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Cannot set non-zero mindepth for zero-conf channel_type");
+		}
+		if (!info->mindepth) {
+			info->mindepth = tal(info, u32);
+			*info->mindepth = 0;
+		}
+	} else if (info->mindepth && *info->mindepth == 0) {
+		if (!feature_negotiated(cmd->ld->our_features,
+					peer->their_features,
+					OPT_ZEROCONF)) {
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Cannot set mindepth=0: peer does not support zero-conf channels");
+		}
+		info->ctype = channel_type_dup(info, info->ctype);
+		channel_type_set_zeroconf(info->ctype);
+	}
+
+	if (!info->mindepth)
+		info->mindepth = tal_dup(info, u32,
+					 &cmd->ld->config.funding_confirms);
+
 	if (!cmd->ld->dev_any_channel_type &&
 	    !channel_type_accept(tmpctx,
 				 info->ctype->features,
@@ -3293,6 +3356,7 @@ static struct command_result *json_openchannel_init(struct command *cmd,
 				*info->request_amt,
 				info->psbt,
 				*info->feerate_per_kw_funding, *info->feerate_per_kw,
+				*info->mindepth,
 				info->our_upfront_shutdown_script,
 				*info->announce_channel,
 				info->rates, info->ctype);
@@ -4171,9 +4235,6 @@ bool peer_start_dualopend(struct peer *peer,
 	 *       considers reasonable to avoid double-spending of the
 	 *       funding transaction.
 	 */
-	/* FIXME: We should override this to 0 in the openchannel2 hook of we want zeroconf*/
-	channel->minimum_depth = peer->ld->config.funding_confirms;
-
 	msg = towire_dualopend_init(NULL, chainparams,
 				    peer->ld->our_features,
 				    peer->their_features,

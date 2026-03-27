@@ -1009,6 +1009,8 @@ openchannel_init_dest(struct multifundchannel_destination *dest)
 					mfc->feerate_str);
 	}
 	json_add_bool(req->js, "announce", dest->announce);
+	if (dest->mindepth)
+		json_add_u32(req->js, "mindepth", *dest->mindepth);
 	if (dest->close_to_str)
 		json_add_string(req->js, "close_to", dest->close_to_str);
 

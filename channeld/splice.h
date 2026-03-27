@@ -55,6 +55,8 @@ struct splicing {
 	bool sent_tx_complete;
 	/* If our peer signs early, we allow that and cache it here */
 	const u8 *tx_sig_msg;
+	/* Zero-conf peers may send splice_locked before we can process it. */
+	const u8 *splice_locked_msg;
 	/* The witness stack data received by peer */
 	struct witness **inws;
 	/* Their channel funding signature */

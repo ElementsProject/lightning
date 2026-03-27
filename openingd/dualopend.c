@@ -2548,6 +2548,7 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 						&tx_state->psbt,
 						&state->upfront_shutdown_script[LOCAL],
 						&state->local_upfront_shutdown_wallet_index,
+						&state->minimum_depth,
 						&tx_state->rates))
 		master_badmsg(WIRE_DUALOPEND_GOT_OFFER_REPLY, msg);
 
