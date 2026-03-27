@@ -114,7 +114,6 @@ static struct command_result *param_layer_names(struct command *cmd,
 
 		/* Must be a known layer name */
 		if (streq((*arr)[i], "auto.localchans")
-		    || streq((*arr)[i], "auto.no_mpp_support")
 		    || streq((*arr)[i], "auto.sourcefree")
 		    || streq((*arr)[i], "auto.include_fees"))
 			continue;
@@ -252,44 +251,6 @@ static struct layer *source_free_layer(const tal_t *ctx,
 	return layer;
 }
 
-/* We're going to abuse MCF, and take the largest flow it gives and ram everything
- * through it.  This is more effective if there's at least a *chance* that can handle
- * the full amount.
- *
- * It's far from perfect, but I have very little sympathy: if you want
- * to receive amounts reliably, enable MPP.
- */
-static struct layer *remove_small_channel_layer(const tal_t *ctx,
-						struct askrene *askrene,
-						struct amount_msat min_amount,
-						struct gossmap_localmods *localmods)
-{
-	struct layer *layer = new_temp_layer(ctx, askrene, "auto.no_mpp_support");
-	struct gossmap *gossmap = askrene->gossmap;
-	struct gossmap_chan *c;
-
-	/* We apply this so we see any created channels */
-	gossmap_apply_localmods(gossmap, localmods);
-
-	for (c = gossmap_first_chan(gossmap); c; c = gossmap_next_chan(gossmap, c)) {
-		struct short_channel_id_dir scidd;
-		if (amount_msat_greater_eq(gossmap_chan_get_capacity(gossmap, c),
-					   min_amount))
-			continue;
-
-		scidd.scid = gossmap_chan_scid(gossmap, c);
-		/* Layer will disable this in both directions */
-		for (scidd.dir = 0; scidd.dir < 2; scidd.dir++) {
-			const bool enabled = false;
-			layer_add_update_channel(layer, &scidd, &enabled,
-						 NULL, NULL, NULL, NULL, NULL);
-		}
-	}
-	gossmap_remove_localmods(gossmap, localmods);
-
-	return layer;
-}
-
 PRINTF_FMT(4, 5)
 static const char *cmd_log(const tal_t *ctx,
 			   struct command *cmd,
@@ -374,9 +335,6 @@ static const struct layer **apply_layers(const tal_t *ctx,
 			if (streq(layernames[i], "auto.localchans")) {
 				cmd_log(tmpctx, cmd, LOG_DBG, "Adding auto.localchans");
 				l = local_layer;
-			} else if (streq(layernames[i], "auto.no_mpp_support")) {
-				cmd_log(tmpctx, cmd, LOG_DBG, "Adding auto.no_mpp_support, sorry");
-				l = remove_small_channel_layer(layernames, askrene, amount, localmods);
 			} else if (streq(layernames[i], "auto.include_fees")) {
 				cmd_log(tmpctx, cmd, LOG_DBG, "Adding auto.include_fees");
 				/* This layer takes effect when converting flows
@@ -605,14 +563,7 @@ static struct command_result *do_getroutes(struct command *cmd,
 		goto fail;
 	}
 
-	/* auto.no_mpp_support layer overrides any choice of algorithm. */
-	if (have_layer(info->layers, "auto.no_mpp_support") &&
-	    info->dev_algo != ALGO_SINGLE_PATH) {
-		info->dev_algo = ALGO_SINGLE_PATH;
-		cmd_log(tmpctx, cmd, LOG_DBG,
-		       "Layer no_mpp_support is active we switch to a "
-		       "single path algorithm.");
-	}
+	/* maxparts=1 means the destination doesn't support MPP. */
 	if (info->maxparts == 1 &&
 	    info->dev_algo != ALGO_SINGLE_PATH) {
 		info->dev_algo = ALGO_SINGLE_PATH;
