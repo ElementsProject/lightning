@@ -514,13 +514,18 @@ def test_htlc_out_timeout(node_factory, bitcoind, executor):
 def test_htlc_in_timeout(node_factory, bitcoind, executor):
     """Test that we drop onchain if the peer doesn't accept fulfilled HTLC"""
 
-    # HTLC 1->2, 1 fails after 2 has sent committed the fulfill
+    # HTLC 1->2, 1 fails after 2 has sent committed the fulfill.
+    # l2 has the preimage but can't deliver it (l1 disconnected and
+    # won't reconnect).  l2 no longer force-closes for this (removal
+    # is in progress, preimage safe in DB).  Instead l1 force-closes
+    # when the offered HTLC hits its deadline, and l2 claims on-chain
+    # using the preimage via onchaind.
     disconnects = ['-WIRE_REVOKE_AND_ACK*2']
     # Feerates identical so we don't get gratuitous commit to update them
     l1 = node_factory.get_node(disconnect=disconnects,
                                options={'dev-no-reconnect': None},
                                feerates=(7500, 7500, 7500, 7500))
-    l2 = node_factory.get_node()
+    l2 = node_factory.get_node(options={'dev-no-reconnect': None})
     # Give it some sats for anchor spend!
     l2.fundwallet(25000, mine_block=False)
 
@@ -549,15 +554,23 @@ def test_htlc_in_timeout(node_factory, bitcoind, executor):
     assert not l2.daemon.is_in_log('hit deadline')
     bitcoind.generate_block(1)
 
-    l2.daemon.wait_for_log('Fulfilled HTLC 0 SENT_REMOVE_COMMIT cltv .* hit deadline')
-    l2.daemon.wait_for_log('sendrawtx exit 0')
-    l2.bitcoin.generate_block(1)
-    l2.daemon.wait_for_log(' to ONCHAIN')
-    l1.daemon.wait_for_log(' to ONCHAIN')
+    # l2 has the preimage but removal is in progress — it should NOT
+    # force-close.  It logs a warning instead.
+    l2.daemon.wait_for_log(r'but removal already in progress')
+    assert not l2.daemon.is_in_log(r'Peer permanent failure in CHANNELD_NORMAL: Fulfilled HTLC')
 
-    # L2 will collect HTLC (iff no shadow route)
+    # l1's offered HTLC hits deadline (cltv_expiry + 1), which is a
+    # few blocks after l2's fulfilled deadline.  l1 force-closes.
+    bitcoind.generate_block(4 + shadowlen)
+    l1.daemon.wait_for_log('Offered HTLC 0 SENT_ADD_ACK_REVOCATION cltv .* hit deadline')
+    l1.daemon.wait_for_log('sendrawtx exit 0')
+    l1.bitcoin.generate_block(1)
+    l1.daemon.wait_for_log(' to ONCHAIN')
+    l2.daemon.wait_for_log(' to ONCHAIN')
+
+    # L2 will collect HTLC using the preimage (from l1's unilateral)
     _, txid, blocks = l2.wait_for_onchaind_tx('OUR_HTLC_SUCCESS_TX',
-                                              'OUR_UNILATERAL/THEIR_HTLC')
+                                              'THEIR_UNILATERAL/THEIR_HTLC')
     assert blocks == 0
 
     # If we try to reuse the same output as we used for the anchor spend, then
