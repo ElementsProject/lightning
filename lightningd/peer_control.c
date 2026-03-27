@@ -3350,6 +3350,7 @@ static void set_channel_config(struct command *cmd, struct channel *channel,
 			       struct amount_msat *htlc_max,
 			       u32 delaysecs,
 			       bool *ignore_fee_limits,
+			       bool *announce,
 			       struct json_stream *response)
 {
 	bool warn_cannot_set_min = false, warn_cannot_set_max = false;
@@ -3400,6 +3401,11 @@ static void set_channel_config(struct command *cmd, struct channel *channel,
 	if (ignore_fee_limits)
 		channel->ignore_fee_limits = *ignore_fee_limits;
 
+	/* Upgrade private channel to public */
+	if (announce && *announce) {
+		channel->channel_flags |= CHANNEL_FLAGS_ANNOUNCE_CHANNEL;
+	}
+
 	/* Tell channeld about the new acceptable feerates */
 	if (channel->owner
 	    && streq(channel->owner->name, "channeld")
@@ -3409,6 +3415,10 @@ static void set_channel_config(struct command *cmd, struct channel *channel,
 
 	/* save values to database */
 	wallet_channel_save(cmd->ld->wallet, channel);
+
+	/* After saving, trigger gossip state update for announce change */
+	if (announce && *announce)
+		channel_gossip_set_announce(channel);
 
 	/* write JSON response entry */
 	json_object_start(response, NULL);
@@ -3436,6 +3446,8 @@ static void set_channel_config(struct command *cmd, struct channel *channel,
 	if (warn_cannot_set_max)
 		json_add_string(response, "warning_htlcmax_too_high",
 				"Set maximum_htlc_out_msat to maximum possible in channel");
+	json_add_bool(response, "announce",
+		      (channel->channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL) != 0);
 	json_object_end(response);
 }
 
@@ -3449,7 +3461,7 @@ static struct command_result *json_setchannel(struct command *cmd,
 	struct channel **channels;
 	u32 *base, *ppm, *delaysecs;
 	struct amount_msat *htlc_min, *htlc_max;
-	bool *ignore_fee_limits;
+	bool *ignore_fee_limits, *announce;
 
 	/* Parse the JSON command */
 	if (!param_check(cmd, buffer, params,
@@ -3460,6 +3472,7 @@ static struct command_result *json_setchannel(struct command *cmd,
 			 p_opt("htlcmax", param_msat, &htlc_max),
 			 p_opt_def("enforcedelay", param_number, &delaysecs, 600),
 			 p_opt("ignorefeelimits", param_bool, &ignore_fee_limits),
+			 p_opt("announce", param_bool, &announce),
 			 NULL))
 		return command_param_failed();
 
@@ -3468,6 +3481,12 @@ static struct command_result *json_setchannel(struct command *cmd,
 	    && amount_msat_less(*htlc_max, *htlc_min)) {
 		return command_fail(cmd, LIGHTNINGD,
 				    "htlcmax cannot be less than htlcmin");
+	}
+
+	/* Cannot set announce=false (public to private is not possible) */
+	if (announce && !*announce) {
+		return command_fail(cmd, LIGHTNINGD,
+				    "Cannot set a public channel back to private");
 	}
 
 	if (command_check_only(cmd))
@@ -3492,7 +3511,7 @@ static struct command_result *json_setchannel(struct command *cmd,
 				set_channel_config(cmd, channel, base, ppm,
 						   htlc_min, htlc_max,
 						   *delaysecs, ignore_fee_limits,
-						   response);
+						   announce, response);
 			}
 		}
 	/* single peer should be updated */
@@ -3501,7 +3520,7 @@ static struct command_result *json_setchannel(struct command *cmd,
 			set_channel_config(cmd, channels[i], base, ppm,
 					   htlc_min, htlc_max,
 					   *delaysecs, ignore_fee_limits,
-					   response);
+					   announce, response);
 		}
 	}
 
