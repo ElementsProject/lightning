@@ -381,6 +381,11 @@ static void watch_for_unconfirmed_txs(struct lightningd *ld,
 /* Mutual recursion via timer. */
 static void next_updatefee_timer(struct chain_topology *topo);
 
+bool unknown_feerates(const struct chain_topology *topo)
+{
+	return tal_count(topo->feerates[0]) == 0;
+}
+
 static u32 interp_feerate(const struct feerate_est *rates, u32 blockcount)
 {
 	const struct feerate_est *before = NULL, *after = NULL;

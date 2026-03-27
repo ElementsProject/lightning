@@ -2929,6 +2929,31 @@ def test_zeroconf_withhold(node_factory, bitcoind, stay_withheld, mutual_close):
             wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['state'] == 'AWAITING_UNILATERAL')
 
 
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+def test_opening_incoming_unknown_feerates(node_factory, bitcoind):
+    """
+    Don't allow incoming channels if we can't estimate feerates.
+    """
+    nofee_opts = {'ignore-fee-limits': True,
+                  'feerates': None,
+                  'dev-no-fake-fees': True}
+
+    l1, l2 = node_factory.get_nodes(2, opts=[{}, nofee_opts])
+
+    l1.fundwallet(FUNDAMOUNT)
+
+    # Connect peers
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    # Verify fee estimation is failing
+    l2.daemon.wait_for_log('Unable to estimate any fees')
+
+    # Open channel l1 <-> l2: l2 should refuse!
+    with pytest.raises(RpcError, match=r'They sent.*Cannot accept channel: feerates unknown'):
+        l1.rpc.fundchannel(l2.info['id'], 100000)
+
+
 def test_zeroconf_withhold_htlc_failback(node_factory, bitcoind):
     """Test that CLTV timeout on a withheld channel fails HTLCs back upstream without force-close."""
     zeroconf_plugin = str(Path(__file__).parent / "plugins" / "zeroconf-selective.py")
