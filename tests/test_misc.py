@@ -1011,6 +1011,30 @@ def test_malformed_rpc(node_factory):
     sock.close()
 
 
+def test_valid_json_cli(node_factory):
+    """Make sure lightning-cli passes valid json values, so that rust and python plugins
+    don't crash."""
+    l1 = node_factory.get_node(
+        options={
+            "log-level": "io",
+            "plugin": os.path.join(os.getcwd(), "tests/plugins/validatejson.py"),
+        }
+    )
+    # If passed as a literal number rust's serde_json::from_str will fail as the
+    # leading zero makes it invalid for an integer.
+    nodeid = "030000000000000000000000000000000000000000000000000000000000000001"
+    subprocess.check_output(
+        [
+            "cli/lightning-cli",
+            "--network={}".format(TEST_NETWORK),
+            "--lightning-dir={}".format(l1.daemon.lightning_dir),
+            "-k",
+            "validate-json-rpc",
+            f"nodeid={nodeid}",
+        ]
+    ).decode("utf-8")
+
+
 def test_cli(node_factory):
     l1 = node_factory.get_node(options={'log-level': 'io'})
 
@@ -1453,7 +1477,7 @@ def test_funding_reorg_private(node_factory, bitcoind):
 
     # l2 was running, sees last stale block being removed
     l2.daemon.wait_for_logs([r'Removing stale block {}'.format(106),
-                             r'Got depth change .->{} for .* REORG'.format(0)])
+                             r'Funding txid .* REORG from depth 2'])
 
     # New one should replace old.
     wait_for(lambda: l2.is_local_channel_active('108x1x0'))
@@ -2265,6 +2289,7 @@ def test_bitcoind_feerate_floor(node_factory, bitcoind, anchors):
             "unilateral_close": 44000,
             'unilateral_anchor_close': 15000,
             "penalty": 30000,
+            "splice": 15020,
             "min_acceptable": 7500,
             "max_acceptable": 600000,
             "floor": 1012,
@@ -2308,6 +2333,7 @@ def test_bitcoind_feerate_floor(node_factory, bitcoind, anchors):
             # This has increased (rounded up)
             "unilateral_close": 44000,
             "penalty": 30000,
+            "splice": 20024,
             # This has increased (rounded up)
             "min_acceptable": 20004,
             "max_acceptable": 600000,
@@ -2353,6 +2379,7 @@ def test_bitcoind_feerate_floor(node_factory, bitcoind, anchors):
             "unilateral_close": 44000,
             # This has increased (rounded up!)
             "penalty": 30004,
+            "splice": 30024,
             # This has increased (rounded up)
             "min_acceptable": 30004,
             "max_acceptable": 600000,
@@ -3850,6 +3877,7 @@ def test_force_feerates(node_factory):
         "unilateral_close": 1111,
         "unilateral_anchor_close": 1111,
         "penalty": 1111,
+        "splice": 1116,
         "min_acceptable": 1875,
         "max_acceptable": 150000,
         "estimates": estimates,
@@ -3866,6 +3894,7 @@ def test_force_feerates(node_factory):
         "unilateral_close": 2222,
         "unilateral_anchor_close": 2222,
         "penalty": 2222,
+        "splice": 2227,
         "min_acceptable": 1875,
         "max_acceptable": 150000,
         "estimates": estimates,
@@ -3882,6 +3911,7 @@ def test_force_feerates(node_factory):
         "unilateral_close": 3333,
         "unilateral_anchor_close": 3333,
         "penalty": 6666,
+        "splice": 3338,
         "min_acceptable": 1875,
         "max_acceptable": 150000,
         "estimates": estimates,
@@ -5008,7 +5038,7 @@ def test_tracing(node_factory):
         with open(fname, "rt") as f:
             for linenum, l in enumerate(f.readlines(), 1):
                 # In case an assertion fails
-                print(f"Parsing {fname}:{linenum}")
+                print(f"Parsing {fname}:{linenum}: {l.strip()}")
                 parts = l.split(maxsplit=2)
                 cmd = parts[0]
                 spanid = parts[1]
@@ -5046,8 +5076,9 @@ def test_tracing(node_factory):
                 else:
                     assert False, "Unknown trace line"
 
-        assert suspended == set()
-        assert traces == set()
+        # We can actually have a calls suspended when we shut down!
+        assert len(suspended) <= 1
+        assert suspended == traces
 
     # Test parent trace
     trace_fnamebase = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "l1.parent.trace")

@@ -1,6 +1,7 @@
 #include "config.h"
 
 #include <common/json_stream.h>
+#include <plugins/bkpr/bookkeeper.h>
 #include <plugins/bkpr/chain_event.h>
 #include <plugins/bkpr/descriptions.h>
 
@@ -18,6 +19,7 @@ void json_add_chain_event(struct json_stream *out,
 	json_add_amount_msat(out, "credit_msat", ev->credit);
 	json_add_amount_msat(out, "debit_msat", ev->debit);
 	json_add_string(out, "currency", chainparams->lightning_hrp);
+	json_add_currencyrate(out, "currencyrate", bkpr, ev->timestamp);
 	json_add_outpoint(out, "outpoint", &ev->outpoint);
 	desc = chain_event_description(bkpr, ev);
 

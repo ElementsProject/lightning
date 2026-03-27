@@ -6,7 +6,6 @@
 #include <ccan/tal/str/str.h>
 #include <common/clock_time.h>
 #include <common/coin_mvt.h>
-#include <common/json_parse_simple.h>
 #include <common/json_stream.h>
 #include <inttypes.h>
 #include <plugins/bkpr/account.h>

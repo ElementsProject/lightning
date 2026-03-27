@@ -100,6 +100,13 @@
               "description": [
                 "Timestamp this event was recorded by the node. For consolidated events such as onchain_fees, the most recent timestamp."
               ]
+            },
+            "currencyrate": {
+              "added": "v26.04",
+              "type": "number",
+              "description": [
+                "The value of `currencyrate` around the time the event occurred.  Only present if `bkpr-currency` is set, and a conversion value is available"
+              ]
             }
           },
           "allOf": [
@@ -124,6 +131,7 @@
                   "credit_msat": {},
                   "debit_msat": {},
                   "currency": {},
+                  "currencyrate": {},
                   "timestamp": {},
                   "description": {
                     "type": "string",
@@ -190,6 +198,7 @@
                   "debit_msat": {},
                   "currency": {},
                   "timestamp": {},
+                  "currencyrate": {},
                   "description": {},
                   "txid": {
                     "type": "txid",
@@ -225,6 +234,7 @@
                   "debit_msat": {},
                   "currency": {},
                   "timestamp": {},
+                  "currencyrate": {},
                   "description": {},
                   "fees_msat": {
                     "type": "msat",

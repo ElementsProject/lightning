@@ -10,6 +10,7 @@
 #include <common/json_param.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>
+#include <common/mkdatastorekey.h>
 #include <common/scb_wiregen.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -655,10 +656,11 @@ static struct command_result *commit_peer_backup(struct command *cmd,
 						 const struct peer_backup *pb)
 {
 	return jsonrpc_set_datastore_binary(cmd,
-					    tal_fmt(cmd,
-						    "chanbackup/peers/%s",
-						    fmt_node_id(tmpctx,
-								&pb->peer)),
+					    mkdatastorekey(tmpctx,
+							   "chanbackup",
+							   "peers",
+							   take(fmt_node_id(NULL,
+									    &pb->peer))),
 					    pb->data, tal_bytelen(pb->data),
 					    "create-or-replace",
 					    NULL, NULL, NULL);
@@ -891,7 +893,7 @@ static struct command_result *handle_your_peer_storage(struct command *cmd,
 
 
 		return jsonrpc_set_datastore_binary(cmd,
-					     	    "chanbackup/latestscb",
+						    mkdatastorekey(tmpctx, "chanbackup", "latestscb"),
 					     	    decoded_bkp,
 						    tal_bytelen(decoded_bkp),
 					     	    "create-or-replace",
@@ -985,7 +987,7 @@ static struct command_result *json_restorefrompeer(struct command *cmd,
 		return command_param_failed();
 
 	return jsonrpc_get_datastore_binary(cmd,
-				     	    "chanbackup/latestscb",
+				     	    mkdatastorekey(tmpctx, "chanbackup", "latestscb"),
 				     	    after_latestscb,
 				     	    NULL);
 }

@@ -2,7 +2,6 @@
 #include <common/amount.h>
 #include <common/json_param.c>
 #include <common/json_parse_simple.c>
-#include <common/randbytes.h>
 #include <common/setup.h>
 #include <stdio.h>
 #include <wire/wire.h>
@@ -181,6 +180,9 @@ int segwit_addr_decode(
     const char* addr
 )
 { fprintf(stderr, "segwit_addr_decode called!\n"); abort(); }
+/* Generated stub for siphash_seed */
+const struct siphash_seed *siphash_seed(void)
+{ fprintf(stderr, "siphash_seed called!\n"); abort(); }
 /* Generated stub for to_canonical_invstr */
 const char *to_canonical_invstr(const tal_t *ctx UNNEEDED, const char *invstring UNNEEDED)
 { fprintf(stderr, "to_canonical_invstr called!\n"); abort(); }

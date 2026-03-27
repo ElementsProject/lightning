@@ -6,6 +6,7 @@
 #include <common/json_param.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>
+#include <common/mkdatastorekey.h>
 #include <inttypes.h>
 #include <plugins/libplugin.h>
 
@@ -261,12 +262,11 @@ static u64 *total_cleaned(const struct subsystem_and_variant *sv)
 	return &totals[sv->type][sv->variant];
 }
 
-static const char *datastore_path(const tal_t *ctx,
-				  const struct subsystem_and_variant *sv,
-				  const char *field)
+static const char **datastore_path(const tal_t *ctx,
+				   const struct subsystem_and_variant *sv,
+				   const char *field)
 {
-	return tal_fmt(ctx, "autoclean/%s/%s",
-		       subsystem_to_str(sv), field);
+	return mkdatastorekey(ctx, "autoclean", subsystem_to_str(sv), field);
 }
 
 static struct command_result *clean_finished(struct clean_info *cinfo)
@@ -826,30 +826,30 @@ static const char *init(struct command *init_cmd,
 	return NULL;
 }
 
-static char *cycle_seconds_option(struct plugin *plugin, const char *arg,
+static char *cycle_seconds_option(struct command *cmd, const char *arg,
 				  bool check_only,
 				  u64 *cycle_seconds)
 {
-	char *problem = u64_option(plugin, arg, check_only, cycle_seconds);
+	char *problem = u64_option(cmd, arg, check_only, cycle_seconds);
 	if (problem || check_only)
 		return problem;
 
 	/* If timer is not running right now, reset it to new cycle_seconds */
 	if (cleantimer) {
 		tal_free(cleantimer);
-		cleantimer = global_timer(plugin,
+		cleantimer = global_timer(cmd->plugin,
 					  time_from_sec(*cycle_seconds),
 					  do_clean_timer, NULL);
 	}
 	return NULL;
 }
 
-static bool u64_jsonfmt_unless_zero(struct plugin *plugin,
+static bool u64_jsonfmt_unless_zero(struct command *cmd,
 				    struct json_stream *js, const char *fieldname, u64 *i)
 {
 	if (!*i)
 		return false;
-	return u64_jsonfmt(plugin, js, fieldname, i);
+	return u64_jsonfmt(cmd, js, fieldname, i);
 }
 
 static const struct plugin_command commands[] = { {

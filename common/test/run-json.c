@@ -6,7 +6,6 @@
 #include <common/channel_type.h>
 #include <common/clock_time.h>
 #include <common/json_filter.h>
-#include <common/randbytes.h>
 #include <common/sciddir_or_pubkey.h>
 #include <common/setup.h>
 #include <inttypes.h>

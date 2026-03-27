@@ -3310,6 +3310,7 @@ def test_partial_payment_timeout(node_factory, bitcoind):
     l2.daemon.wait_for_log(r'HTLC set contains 2 HTLCs, for a total of 1000msat out of 1000msat \(payment_secret\)')
 
 
+@pytest.mark.slow_test
 def test_partial_payment_restart(node_factory, bitcoind):
     """Test that we recover a set when we restart"""
     l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True,
@@ -4310,7 +4311,7 @@ def test_mpp_overload_payee(node_factory, bitcoind):
 
 def test_offer(node_factory, bitcoind):
     plugin = os.path.join(os.path.dirname(__file__), 'plugins/currencyUSDAUD5000.py')
-    l1 = node_factory.get_node(options={'plugin': plugin})
+    l1 = node_factory.get_node(options={'disable-plugin': 'cln-currencyrate', 'plugin': plugin})
 
     # Try empty description
     ret = l1.rpc.call('offer', [9, ''])
@@ -4520,7 +4521,8 @@ def test_fetchinvoice(node_factory, bitcoind):
                                          opts=[{},
                                                {'dev-allow-localhost': None},
                                                {'broken_log': "plugin-offers: Failed invreq.*Unknown command 'currencyconvert'",
-                                                'dev-allow-localhost': None}])
+                                                'dev-allow-localhost': None,
+                                                'disable-plugin': 'cln-currencyrate'}])
 
     # Simple offer first.
     offer1 = l3.rpc.call('offer', {'amount': '2msat',
@@ -5234,7 +5236,7 @@ def test_sendpay_grouping(node_factory, bitcoind):
     assert(len(l1.db.query("SELECT * FROM payments")) == 0)
     assert(len(l1.rpc.listpays()['pays']) == 0)
 
-    with pytest.raises(RpcError, match=r'Ran out of routes to try after [1-9]+ attempts'):
+    with pytest.raises(RpcError, match=r'Ran out of routes to try after [0-9]+ attempts'):
         l1.rpc.pay(inv, amount_msat='100002msat')
 
     # After this one invocation we have one entry in `listpays`
@@ -5246,7 +5248,7 @@ def test_sendpay_grouping(node_factory, bitcoind):
     wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 6)
     l3.stop()
 
-    with pytest.raises(RpcError, match=r'Ran out of routes to try after [1-9]+ attempts'):
+    with pytest.raises(RpcError, match=r'Ran out of routes to try after [0-9]+ attempts'):
         l1.rpc.pay(inv, amount_msat='100001msat')
 
     # Surprise: we should have 2 entries after 2 invocations

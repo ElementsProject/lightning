@@ -36,7 +36,7 @@ static size_t human_readable(const char *buffer, const jsmntok_t *t, char term)
 	case JSMN_PRIMITIVE:
 	case JSMN_STRING:
 		for (i = t->start; i < t->end; i++) {
-			/* We only translate \n and \t. */
+			/* We only translate \n, \t and remove other \s. */
 			if (buffer[i] == '\\' && i + 1 < t->end) {
 				if (buffer[i+1] == 'n') {
 					fputc('\n', stdout);
@@ -47,6 +47,7 @@ static size_t human_readable(const char *buffer, const jsmntok_t *t, char term)
 					i++;
 					continue;
 				}
+				i++;
 			}
 			fputc(buffer[i], stdout);
 		}
@@ -258,6 +259,13 @@ static bool is_literal(const char *arg)
 {
 	size_t arglen = strlen(arg);
 	if (arglen == 0) {
+		return false;
+	}
+	/* A string of digits with a leading zero cannot be a literal unless it
+	 * is "0". It should be passed with quotes as it might encode a hex
+	 * data. */
+	if (strspn(arg, "0123456789") == arglen && arglen > 1 &&
+	    arg[0] == '0') {
 		return false;
 	}
 	return strspn(arg, "0123456789.") == arglen

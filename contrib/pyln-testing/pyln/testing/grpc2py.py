@@ -1440,6 +1440,7 @@ def feerates_perkb2py(m):
         "mutual_close": m.mutual_close,  # PrimitiveField in generate_composite
         "opening": m.opening,  # PrimitiveField in generate_composite
         "penalty": m.penalty,  # PrimitiveField in generate_composite
+        "splice": m.splice,  # PrimitiveField in generate_composite
         "unilateral_anchor_close": m.unilateral_anchor_close,  # PrimitiveField in generate_composite
         "unilateral_close": m.unilateral_close,  # PrimitiveField in generate_composite
     })
@@ -1464,6 +1465,7 @@ def feerates_perkw2py(m):
         "mutual_close": m.mutual_close,  # PrimitiveField in generate_composite
         "opening": m.opening,  # PrimitiveField in generate_composite
         "penalty": m.penalty,  # PrimitiveField in generate_composite
+        "splice": m.splice,  # PrimitiveField in generate_composite
         "unilateral_anchor_close": m.unilateral_anchor_close,  # PrimitiveField in generate_composite
         "unilateral_close": m.unilateral_close,  # PrimitiveField in generate_composite
     })
@@ -2304,6 +2306,22 @@ def listconfigs_configs_conf2py(m):
     })
 
 
+def listconfigs_configs_currencyrate_add_source2py(m):
+    return remove_default({
+        "sources": [m.sources for i in m.sources], # ArrayField[primitive] in generate_composite
+        "values_str": [m.values_str for i in m.values_str], # ArrayField[primitive] in generate_composite
+        "plugin": m.plugin,  # PrimitiveField in generate_composite
+    })
+
+
+def listconfigs_configs_currencyrate_disable_source2py(m):
+    return remove_default({
+        "sources": [m.sources for i in m.sources], # ArrayField[primitive] in generate_composite
+        "values_str": [m.values_str for i in m.values_str], # ArrayField[primitive] in generate_composite
+        "plugin": m.plugin,  # PrimitiveField in generate_composite
+    })
+
+
 def listconfigs_configs_daemon2py(m):
     return remove_default({
         "set": m.set,  # PrimitiveField in generate_composite
@@ -2794,6 +2812,7 @@ def bkpr_listaccountevents_events2py(m):
         "blockheight": m.blockheight,  # PrimitiveField in generate_composite
         "credit_msat": amount2msat(m.credit_msat),  # PrimitiveField in generate_composite
         "currency": m.currency,  # PrimitiveField in generate_composite
+        "currencyrate": m.currencyrate,  # PrimitiveField in generate_composite
         "debit_msat": amount2msat(m.debit_msat),  # PrimitiveField in generate_composite
         "description": m.description,  # PrimitiveField in generate_composite
         "fees_msat": amount2msat(m.fees_msat),  # PrimitiveField in generate_composite
@@ -3343,6 +3362,31 @@ def delnetworkevent2py(m):
 
 def clnrest_register_path2py(m):
     return remove_default({
+    })
+
+
+def listcurrencyrates_currencyrates2py(m):
+    return remove_default({
+        "amount": m.amount,  # PrimitiveField in generate_composite
+        "source": m.source,  # PrimitiveField in generate_composite
+    })
+
+
+def listcurrencyrates2py(m):
+    return remove_default({
+        "currencyrates": [listcurrencyrates_currencyrates2py(i) for i in m.currencyrates],  # ArrayField[composite] in generate_composite
+    })
+
+
+def currencyconvert2py(m):
+    return remove_default({
+        "msat": amount2msat(m.msat),  # PrimitiveField in generate_composite
+    })
+
+
+def currencyrate2py(m):
+    return remove_default({
+        "rate": m.rate,  # PrimitiveField in generate_composite
     })
 
 

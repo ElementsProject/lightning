@@ -343,6 +343,9 @@ void migrate_fail_pending_payments_without_htlcs(struct lightningd *ld UNNEEDED,
 void migrate_fill_in_channel_type(struct lightningd *ld UNNEEDED,
 				  struct db *db UNNEEDED)
 { fprintf(stderr, "migrate_fill_in_channel_type called!\n"); abort(); }
+/* Generated stub for migrate_fix_payments_faildetail_type */
+void migrate_fix_payments_faildetail_type(struct lightningd *ld UNNEEDED, struct db *db UNNEEDED)
+{ fprintf(stderr, "migrate_fix_payments_faildetail_type called!\n"); abort(); }
 /* Generated stub for migrate_forwards_add_rowid */
 void migrate_forwards_add_rowid(struct lightningd *ld UNNEEDED,
 				struct db *db UNNEEDED)

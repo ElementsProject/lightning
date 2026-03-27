@@ -9,7 +9,6 @@
 #include <common/channel_type.h>
 #include <common/clock_time.h>
 #include <common/memleak.h>
-#include <common/randbytes.h>
 #include <common/setup.h>
 #include <stdio.h>
 

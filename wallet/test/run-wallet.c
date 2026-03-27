@@ -244,8 +244,8 @@ u8 *create_channel_announcement(const tal_t *ctx UNNEEDED,
 { fprintf(stderr, "create_channel_announcement called!\n"); abort(); }
 /* Generated stub for depthcb_update_scid */
 bool depthcb_update_scid(struct channel *channel UNNEEDED,
-			 const struct bitcoin_txid *txid UNNEEDED,
-			 const struct bitcoin_outpoint *outpoint UNNEEDED)
+			 const struct bitcoin_outpoint *outpoint UNNEEDED,
+			 const struct txlocator *loc UNNEEDED)
 { fprintf(stderr, "depthcb_update_scid called!\n"); abort(); }
 /* Generated stub for dev_disconnect_permanent */
 bool dev_disconnect_permanent(struct lightningd *ld UNNEEDED)
@@ -256,16 +256,6 @@ void   fatal(const char *fmt UNNEEDED, ...)
 /* Generated stub for fatal_vfmt */
 void  fatal_vfmt(const char *fmt UNNEEDED, va_list ap UNNEEDED)
 { fprintf(stderr, "fatal_vfmt called!\n"); abort(); }
-/* Generated stub for find_txwatch_ */
-struct txwatch *find_txwatch_(struct chain_topology *topo UNNEEDED,
-			      const struct bitcoin_txid *txid UNNEEDED,
-			      enum watch_result (*cb)(struct lightningd *ld UNNEEDED,
-						      const struct bitcoin_txid * UNNEEDED,
-						      const struct bitcoin_tx * UNNEEDED,
-						      unsigned int depth UNNEEDED,
-						      void *arg) UNNEEDED,
-			    void *arg UNNEEDED)
-{ fprintf(stderr, "find_txwatch_ called!\n"); abort(); }
 /* Generated stub for force_peer_disconnect */
 void force_peer_disconnect(struct lightningd *ld UNNEEDED,
 			   const struct peer *peer UNNEEDED,
@@ -379,6 +369,9 @@ bool fromwire_onchaind_dev_memleak_reply(const void *p UNNEEDED, bool *leak UNNE
 /* Generated stub for fromwire_openingd_dev_memleak_reply */
 bool fromwire_openingd_dev_memleak_reply(const void *p UNNEEDED, bool *leak UNNEEDED)
 { fprintf(stderr, "fromwire_openingd_dev_memleak_reply called!\n"); abort(); }
+/* Generated stub for get_network_blockheight */
+bool fromwire_channeld_reestablished(const void *p UNNEEDED, bool *leak UNNEEDED)
+{ fprintf(stderr, "fromwire_channeld_reestablished called!\n"); abort(); }
 /* Generated stub for get_network_blockheight */
 u32 get_network_blockheight(const struct chain_topology *topo UNNEEDED)
 { fprintf(stderr, "get_network_blockheight called!\n"); abort(); }
@@ -766,10 +759,31 @@ u8 *unsigned_node_announcement(const tal_t *ctx UNNEEDED,
 			       struct lightningd *ld UNNEEDED,
 			       const u8 *prev UNNEEDED)
 { fprintf(stderr, "unsigned_node_announcement called!\n"); abort(); }
+/* Generated stub for watch_blockdepth_ */
+bool watch_blockdepth_(const tal_t *ctx UNNEEDED,
+		       struct chain_topology *topo UNNEEDED,
+		       u32 blockheight UNNEEDED,
+		       enum watch_result (*depthcb)(struct lightningd *ld UNNEEDED, u32 depth UNNEEDED, void *) UNNEEDED,
+		       enum watch_result (*reorgcb)(struct lightningd *ld UNNEEDED, void *) UNNEEDED,
+		       void *arg UNNEEDED)
+{ fprintf(stderr, "watch_blockdepth_ called!\n"); abort(); }
 /* Generated stub for watch_opening_inflight */
 void watch_opening_inflight(struct lightningd *ld UNNEEDED,
 			    struct channel_inflight *inflight UNNEEDED)
 { fprintf(stderr, "watch_opening_inflight called!\n"); abort(); }
+/* Generated stub for watch_scriptpubkey_ */
+bool watch_scriptpubkey_(const tal_t *ctx UNNEEDED,
+			 struct chain_topology *topo UNNEEDED,
+			 const u8 *scriptpubkey TAKES UNNEEDED,
+			 const struct bitcoin_outpoint *expected_outpoint UNNEEDED,
+			 struct amount_sat expected_amount UNNEEDED,
+			 void (*cb)(struct lightningd *ld UNNEEDED,
+				    const struct bitcoin_tx *tx UNNEEDED,
+				    u32 outnum UNNEEDED,
+				    const struct txlocator *loc UNNEEDED,
+				    void *) UNNEEDED,
+			 void *arg UNNEEDED)
+{ fprintf(stderr, "watch_scriptpubkey_ called!\n"); abort(); }
 /* Generated stub for watch_splice_inflight */
 void watch_splice_inflight(struct lightningd *ld UNNEEDED,
 			   struct channel_inflight *inflight UNNEEDED)
@@ -855,12 +869,6 @@ struct log_book *new_log_book(struct lightningd *ld UNNEEDED)
 	return NULL;
 }
 
-void txfilter_add_scriptpubkey(struct txfilter *filter UNNEEDED, const u8 *script TAKES)
-{
-	if (taken(script))
-		tal_free(script);
-}
-
 /* Can actually be called by new_channel */
 u32 get_block_height(const struct chain_topology *topo UNNEEDED)
 {
@@ -869,6 +877,21 @@ u32 get_block_height(const struct chain_topology *topo UNNEEDED)
 
 void migrate_from_account_db(struct lightningd *ld UNNEEDED, struct db *db UNNEEDED)
 {
+}
+
+bool unwatch_scriptpubkey_(const tal_t *ctx UNNEEDED,
+			   struct chain_topology *topo UNNEEDED,
+			   const u8 *scriptpubkey TAKES UNNEEDED,
+			   const struct bitcoin_outpoint *expected_outpoint UNNEEDED,
+			   struct amount_sat expected_amount UNNEEDED,
+			   void (*cb)(struct lightningd *ld UNNEEDED,
+				      const struct bitcoin_tx *tx UNNEEDED,
+				      u32 outnum UNNEEDED,
+				      const struct txlocator *loc UNNEEDED,
+				      void *) UNNEEDED,
+			   void *arg UNNEEDED)
+{
+	return true;
 }
 
 /**

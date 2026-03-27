@@ -1,6 +1,12 @@
 [profile.release]
 strip = "debuginfo"
 
+[profile.small]
+inherits = "dev"
+opt-level = 0
+debug = 0
+codegen-units = 32
+
 [workspace]
 resolver = "2"
 members = [
@@ -12,9 +18,10 @@ members = [
     "plugins/lsps-plugin",
     "plugins/wss-proxy-plugin",
     "plugins/bip353-plugin",
+    "plugins/currencyrate-plugin",
 ]
 
 [workspace.dependencies]
-cln-rpc = { path = "cln-rpc", version = "0.5.0" }
-cln-grpc = { path = "cln-grpc", version = "0.5.0" }
-cln-plugin = { path = "plugins", version = "0.5.0" }
+cln-rpc = { path = "cln-rpc", version = "0.6.0" }
+cln-grpc = { path = "cln-grpc", version = "0.6.0" }
+cln-plugin = { path = "plugins", version = "0.6.0" }

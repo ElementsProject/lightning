@@ -158,8 +158,8 @@ Get dependencies:
 ```shell
 sudo dnf update -y && \
         sudo dnf groupinstall -y \
-                'C Development Tools and Libraries' \
-                'Development Tools' && \
+                'c-development' \
+                'development-tools' && \
         sudo dnf install -y \
                 clang \
                 gettext \
@@ -179,7 +179,8 @@ sudo dnf update -y && \
                 sed \
                 protobuf-compiler \
                 protobuf-devel \
-                postgresql-devel && \
+                postgresql-devel \
+                python3-mako && \
         sudo dnf clean all
 ```
 

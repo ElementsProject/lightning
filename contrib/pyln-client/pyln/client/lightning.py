@@ -1052,7 +1052,7 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("listpeers", payload)
 
-    def listpeerchannels(self, peer_id=None, short_channel_id=None):
+    def listpeerchannels(self, peer_id=None, short_channel_id=None, channel_id=None):
         """
         Show current peers channels, and if the {peer_id} is specified
         all the channels for the peer are returned, and if {short_channel_id} is
@@ -1061,6 +1061,7 @@ class LightningRpc(UnixDomainSocketRpc):
         payload = {
             "id": peer_id,
             "short_channel_id": short_channel_id,
+            "channel_id": channel_id,
         }
         return self.call("listpeerchannels", payload)
 
@@ -1120,7 +1121,7 @@ class LightningRpc(UnixDomainSocketRpc):
 
     def offer(self, amount, description=None, issuer=None, label=None, quantity_max=None, absolute_expiry=None,
               recurrence=None, recurrence_base=None, recurrence_paywindow=None, recurrence_limit=None,
-              single_use=None):
+              single_use=None, fronting_nodes=None):
         """
         Create an offer (or returns an existing one), which is a precursor to creating one or more invoices.
         It automatically enables the processing of an incoming invoice_request, and issuing of invoices.
@@ -1137,6 +1138,7 @@ class LightningRpc(UnixDomainSocketRpc):
             "recurrence_paywindow": recurrence_paywindow,
             "recurrence_limit": recurrence_limit,
             "single_use": single_use,
+            "fronting_nodes": fronting_nodes,
         }
         return self.call("offer", payload)
 
@@ -1225,6 +1227,24 @@ class LightningRpc(UnixDomainSocketRpc):
             "dev-wetrun": wetrun,
         }
         return self.call("dev-splice", payload)
+
+    def splicein(self, channel, amount):
+        """ Execute a splice """
+        payload = {
+            "channel": channel,
+            "amount": amount,
+        }
+        return self.call("splicein", payload)
+
+    def spliceout(self, channel, amount, destination=None, force_feerate=None):
+        """ Execute a splice out """
+        payload = {
+            "channel": channel,
+            "amount": amount,
+            "destination": destination,
+            "force_feerate": force_feerate,
+        }
+        return self.call("spliceout", payload)
 
     def stfu_channels(self, channel_ids):
         """ STFU multiple channels """

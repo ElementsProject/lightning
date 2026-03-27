@@ -69,7 +69,7 @@ static void test_json_out_add(const tal_t *ctx,
 	}
 }
 
-static void json_eq(const struct json_out *jout, const char *expect)
+static void json_eq(struct json_out *jout, const char *expect)
 {
 	size_t len;
 	const char *p;

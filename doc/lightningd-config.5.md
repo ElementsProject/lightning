@@ -539,6 +539,10 @@ delete the others.
 
 ### Payment and invoice control options:
 
+* **payment-fronting-node**=*nodeid*
+
+  Always use this *nodeid* as the entry point when we generate invoices or offers: currently, the node must be a neighbor we have a channel with.  For BOLT11 invoices we will use a routehint with the alias for the short channel id to provide limited privacy (we still reveal our node id).  For BOLT12 invoices and offers, we provide a blinded path from the node to us which provides better privacy.  This can be specified multiple times for multiple fronting nodes.
+
 * **disable-mpp** [plugin `pay`]
 
   Disable the multi-part payment sending support in the `pay` plugin. By default
@@ -566,6 +570,10 @@ command, so they invoices can also be paid onchain.
 * **askrene-max-threads**=*NUMBER* [plugin `askrene`, *dynamic*]
 
   This option controls how many routes askrene will calculate at once: this is only useful on nodes which make multiple payments at once, and setting the number higher than your number of cores/CPUS will not help.  The default is 4.
+
+* **bkpr-currency**=*name* [plugin `bookkeeper`, *dynamic*]
+
+  The *name* is an ISO-4217 name (e.g. USD), which will be passed to *currencyrate* to fetch the exchange rate for that currency on each bookkeeper event.  Setting *name* to the empty string is equivalent not setting it.
 
 ### Networking options
 
@@ -743,6 +751,27 @@ authenticate to the Tor control port.
 * **exposesecret-passphrase**=*passphrase*  [plugin `exposesecret`]
 
   Defines a passphrase which will let users extract the `hsm_secret` using the `exposesecret` command.  If this is not set, the `exposesecret` command always fails.
+
+* **currencyrate-add-source**=*NAME,URL,MEMBER* [plugin `cln-currencyrate`]
+
+  Add a price source for the `cln-currencyrate` plugin, of form `NAME,URL,MEMBERS` where `URL` and `MEMBERS`
+  can have `{currency}` and `{currency_lc}` to substitute for upper-case and
+  lower-case currency names. `MEMBERS` is how to deconstruct the result, for
+  example if the result is `{"USD": {"last_trade": 12456.79}}` then `MEMBERS`
+  would be `USD,last_trade`. If you need to deconstruct an array specify it's position with it's index, starting at 0. (added in v26.04)
+
+  The default sources are:
+  * coingecko: https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs\_currencies={currency\_lc}
+  * kraken: https://api.kraken.com/0/public/Ticker?pair=XXBTZ{currency}
+  * blockchain: https://blockchain.info/ticker
+  * bitstamp: https://www.bitstamp.net/api/v2/ticker/btc{currency\_lc}
+  * coindesk: https://data-api.coindesk.com/index/cc/v1/latest/tic
+  * coinbase: https://api.coinbase.com/v2/prices/BTC-{currency}/spot
+  * binance: https://data-api.binance.vision/api/v3/ticker/price?symbol=BTC{currency}
+
+* **currencyrate-disable-source**=*NAME* [plugin `cln-currencyrate`]
+
+  Disable the `cln-currencyrate` source with this name. (added in v26.04)
 
 
 ### Lightning Plugins

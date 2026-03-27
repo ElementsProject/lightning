@@ -136,7 +136,19 @@ bool htable_copy_(struct htable *dst, const struct htable *src)
 	*dst = *src;
 	dst->table = htable;
 	memcpy(dst->table, src->table, sizeof(size_t) << src->bits);
+	dst->locked = 0;
 	return true;
+}
+
+void htable_lock(struct htable *ht)
+{
+	ht->locked++;
+}
+
+void htable_unlock(struct htable *ht)
+{
+	assert(ht->locked != 0);
+	ht->locked--;
 }
 
 static size_t hash_bucket(const struct htable *ht, size_t h)
@@ -380,6 +392,7 @@ bool htable_add_(struct htable *ht, size_t hash, const void *p)
 	/* Cannot insert NULL, or (void *)1. */
 	assert(p);
 	assert(entry_is_valid((uintptr_t)p));
+	assert(ht->locked == 0);
 
 	/* Getting too full? */
 	if (ht->elems+1 + ht->deleted > ht_max(ht)) {

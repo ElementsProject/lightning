@@ -317,8 +317,10 @@ struct bitcoin_tx **channel_txs(const tal_t *ctx,
 			   &channel->basepoints[side],
 			   &channel->basepoints[!side],
 			   channel_has(channel, OPT_STATIC_REMOTEKEY),
-			   &keyset))
+			   &keyset)) {
+		status_broken("channel_txs fails to derive keyset");
 		return NULL;
+	}
 
 	/* Figure out what @side will already be committed to. */
 	gather_htlcs(ctx, channel, side, &committed, NULL, NULL);
@@ -332,16 +334,53 @@ struct bitcoin_tx **channel_txs(const tal_t *ctx,
 	side_pay = channel->view[side].owed[side];
 	other_side_pay = channel->view[side].owed[!side];
 
+	status_debug("channel->view[REMOTE].owed[REMOTE] %s;"
+		     " channel->view[REMOTE].owed[LOCAL] %s;"
+		     " channel->view[LOCAL].owed[REMOTE] %s;"
+		     " channel->view[LOCAL].owed[LOCAL] %s;",
+		     fmt_amount_m_as_sat(tmpctx,
+					 channel->view[REMOTE].owed[REMOTE]),
+		     fmt_amount_m_as_sat(tmpctx,
+					 channel->view[REMOTE].owed[LOCAL]),
+		     fmt_amount_m_as_sat(tmpctx,
+					 channel->view[LOCAL].owed[REMOTE]),
+		     fmt_amount_m_as_sat(tmpctx,
+					 channel->view[LOCAL].owed[LOCAL]));
+
 	if (side == LOCAL) {
-		if (!amount_msat_add_sat_s64(&side_pay, side_pay, splice_amnt))
+		if (!amount_msat_add_sat_s64(&side_pay, side_pay, splice_amnt)) {
+			status_broken("channel_txs fails to"
+				      " amount_msat_add_sat_s64 %s + %"PRId64
+				      " LOCAL (side_pay + splice_amnt)",
+				      fmt_amount_m_as_sat(tmpctx, side_pay),
+				      splice_amnt);
 			return NULL;
-		if (!amount_msat_add_sat_s64(&other_side_pay, other_side_pay, remote_splice_amnt))
+		}
+		if (!amount_msat_add_sat_s64(&other_side_pay, other_side_pay, remote_splice_amnt)) {
+			status_broken("channel_txs fails to"
+				      " amount_msat_add_sat_s64 %s + %"PRId64
+				      " LOCAL (other_side_pay + remote_splice_amnt)",
+				      fmt_amount_m_as_sat(tmpctx, other_side_pay),
+				      remote_splice_amnt);
 			return NULL;
+		}
 	} else if (side == REMOTE) {
-		if (!amount_msat_add_sat_s64(&side_pay, side_pay, remote_splice_amnt))
+		if (!amount_msat_add_sat_s64(&side_pay, side_pay, remote_splice_amnt)) {
+			status_broken("channel_txs fails to"
+				      " amount_msat_add_sat_s64 %s + %"PRId64
+				      " REMOTE (side_pay + remote_splice_amnt)",
+				      fmt_amount_m_as_sat(tmpctx, side_pay),
+				      remote_splice_amnt);
 			return NULL;
-		if (!amount_msat_add_sat_s64(&other_side_pay, other_side_pay, splice_amnt))
+		}
+		if (!amount_msat_add_sat_s64(&other_side_pay, other_side_pay, splice_amnt)){
+			status_broken("channel_txs fails to"
+				      " amount_msat_add_sat_s64 %s + %"PRId64
+				      " REMOTE (other_side_pay + splice_amnt)",
+				      fmt_amount_m_as_sat(tmpctx, other_side_pay),
+				      splice_amnt);
 			return NULL;
+		}
 	}
 
 	txs = tal_arr(ctx, struct bitcoin_tx *, 1);
@@ -1544,47 +1583,27 @@ static bool adjust_balance(struct balance view_owed[NUM_SIDES][NUM_SIDES],
 	return true;
 }
 
-bool pending_updates(const struct channel *channel,
-		     enum side side,
-		     bool uncommitted_ok)
+bool pending_updates(const struct channel *channel, enum side side)
 {
 	struct htlc_map_iter it;
 	const struct htlc *htlc;
 
 	/* Initiator might have fee changes or blockheight updates in play. */
 	if (side == channel->opener) {
-		if (!feerate_changes_done(channel->fee_states, uncommitted_ok))
+		if (!feerate_changes_done(channel->fee_states, false))
 			return true;
 
-		if (!blockheight_changes_done(channel->blockheight_states,
-					      uncommitted_ok))
+		if (!blockheight_changes_done(channel->blockheight_states, false))
 			return true;
 	}
 
+	/* Are we still waiting for the side to send something? */
 	for (htlc = htlc_map_first(channel->htlcs, &it);
 	     htlc;
 	     htlc = htlc_map_next(channel->htlcs, &it)) {
-		int flags = htlc_state_flags(htlc->state);
-
-		/* If it's still being added, its owner added it. */
-		if (flags & HTLC_ADDING) {
-			/* It might be OK if it's added, but not committed */
-			if (uncommitted_ok
-			    && (flags & HTLC_FLAG(!side, HTLC_F_PENDING)))
-				continue;
-			if (htlc_owner(htlc) == side)
-				return true;
-		/* If it's being removed, non-owner removed it */
-		} else if (htlc_state_flags(htlc->state) & HTLC_REMOVING) {
-			/* It might be OK if it's removed, but not committed */
-			if (uncommitted_ok
-			    && (flags & HTLC_FLAG(!side, HTLC_F_PENDING)))
-				continue;
-			if (htlc_owner(htlc) != side)
-				return true;
-		}
+		if (htlc_state_flags(htlc->state) & HTLC_FLAG(side, HTLC_F_WILL_SEND))
+			return true;
 	}
-
 	return false;
 }
 

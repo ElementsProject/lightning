@@ -53,6 +53,10 @@ void broadcast_tx_(const tal_t *ctx UNNEEDED,
 		   bool (*refresh)(struct channel * UNNEEDED, const struct bitcoin_tx ** UNNEEDED, void *) UNNEEDED,
 		   void *cbarg TAKES UNNEEDED)
 { fprintf(stderr, "broadcast_tx_ called!\n"); abort(); }
+/* Generated stub for channel_by_cid */
+struct channel *channel_by_cid(struct lightningd *ld UNNEEDED,
+			       const struct channel_id *cid UNNEEDED)
+{ fprintf(stderr, "channel_by_cid called!\n"); abort(); }
 /* Generated stub for channel_change_state_reason_str */
 const char *channel_change_state_reason_str(enum state_change reason UNNEEDED)
 { fprintf(stderr, "channel_change_state_reason_str called!\n"); abort(); }
@@ -242,8 +246,8 @@ void delete_channel(struct channel *channel STEALS UNNEEDED,
 { fprintf(stderr, "delete_channel called!\n"); abort(); }
 /* Generated stub for depthcb_update_scid */
 bool depthcb_update_scid(struct channel *channel UNNEEDED,
-			 const struct bitcoin_txid *txid UNNEEDED,
-			 const struct bitcoin_outpoint *outpoint UNNEEDED)
+			 const struct bitcoin_outpoint *outpoint UNNEEDED,
+			 const struct txlocator *loc UNNEEDED)
 { fprintf(stderr, "depthcb_update_scid called!\n"); abort(); }
 /* Generated stub for dev_disconnect_permanent */
 bool dev_disconnect_permanent(struct lightningd *ld UNNEEDED)
@@ -259,16 +263,6 @@ struct channel *find_channel_by_id(const struct peer *peer UNNEEDED,
 struct plugin *find_plugin_for_command(struct lightningd *ld UNNEEDED,
 				       const char *cmd_name UNNEEDED)
 { fprintf(stderr, "find_plugin_for_command called!\n"); abort(); }
-/* Generated stub for find_txwatch_ */
-struct txwatch *find_txwatch_(struct chain_topology *topo UNNEEDED,
-			      const struct bitcoin_txid *txid UNNEEDED,
-			      enum watch_result (*cb)(struct lightningd *ld UNNEEDED,
-						      const struct bitcoin_txid * UNNEEDED,
-						      const struct bitcoin_tx * UNNEEDED,
-						      unsigned int depth UNNEEDED,
-						      void *arg) UNNEEDED,
-			    void *arg UNNEEDED)
-{ fprintf(stderr, "find_txwatch_ called!\n"); abort(); }
 /* Generated stub for fixup_htlcs_out */
 void fixup_htlcs_out(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "fixup_htlcs_out called!\n"); abort(); }
@@ -664,6 +658,19 @@ u8 *towire_onchaind_dev_memleak(const tal_t *ctx UNNEEDED)
 /* Generated stub for towire_openingd_dev_memleak */
 u8 *towire_openingd_dev_memleak(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_openingd_dev_memleak called!\n"); abort(); }
+/* Generated stub for unwatch_scriptpubkey_ */
+bool unwatch_scriptpubkey_(const tal_t *ctx UNNEEDED,
+			   struct chain_topology *topo UNNEEDED,
+			   const u8 *scriptpubkey TAKES UNNEEDED,
+			   const struct bitcoin_outpoint *expected_outpoint UNNEEDED,
+			   struct amount_sat expected_amount UNNEEDED,
+			   void (*cb)(struct lightningd *ld UNNEEDED,
+				      const struct bitcoin_tx *tx UNNEEDED,
+				      u32 outnum UNNEEDED,
+				      const struct txlocator *loc UNNEEDED,
+				      void *) UNNEEDED,
+			   void *arg UNNEEDED)
+{ fprintf(stderr, "unwatch_scriptpubkey_ called!\n"); abort(); }
 /* Generated stub for wallet_channel_save */
 void wallet_channel_save(struct wallet *w UNNEEDED, struct channel *chan UNNEEDED)
 { fprintf(stderr, "wallet_channel_save called!\n"); abort(); }
@@ -671,9 +678,11 @@ void wallet_channel_save(struct wallet *w UNNEEDED, struct channel *chan UNNEEDE
 void wallet_delete_peer_if_unused(struct wallet *w UNNEEDED, u64 peer_dbid UNNEEDED)
 { fprintf(stderr, "wallet_delete_peer_if_unused called!\n"); abort(); }
 /* Generated stub for wallet_extract_owned_outputs */
-int wallet_extract_owned_outputs(struct wallet *w UNNEEDED, const struct wally_tx *tx UNNEEDED,
-				 bool is_coinbase UNNEEDED,
-				 const u32 *blockheight UNNEEDED)
+bool wallet_extract_owned_outputs(struct wallet *w UNNEEDED,
+				  const struct wally_tx *wtx UNNEEDED,
+				  bool is_coinbase UNNEEDED,
+				  const u32 *blockheight UNNEEDED,
+				  size_t **outputs UNNEEDED)
 { fprintf(stderr, "wallet_extract_owned_outputs called!\n"); abort(); }
 /* Generated stub for wallet_htlcs_load_in_for_channel */
 bool wallet_htlcs_load_in_for_channel(struct wallet *wallet UNNEEDED,
@@ -721,10 +730,31 @@ void wallet_transaction_add(struct wallet *w UNNEEDED, const struct wally_tx *tx
 /* Generated stub for wallet_transaction_height */
 u32 wallet_transaction_height(struct wallet *w UNNEEDED, const struct bitcoin_txid *txid UNNEEDED)
 { fprintf(stderr, "wallet_transaction_height called!\n"); abort(); }
+/* Generated stub for watch_blockdepth_ */
+bool watch_blockdepth_(const tal_t *ctx UNNEEDED,
+		       struct chain_topology *topo UNNEEDED,
+		       u32 blockheight UNNEEDED,
+		       enum watch_result (*depthcb)(struct lightningd *ld UNNEEDED, u32 depth UNNEEDED, void *) UNNEEDED,
+		       enum watch_result (*reorgcb)(struct lightningd *ld UNNEEDED, void *) UNNEEDED,
+		       void *arg UNNEEDED)
+{ fprintf(stderr, "watch_blockdepth_ called!\n"); abort(); }
 /* Generated stub for watch_opening_inflight */
 void watch_opening_inflight(struct lightningd *ld UNNEEDED,
 			    struct channel_inflight *inflight UNNEEDED)
 { fprintf(stderr, "watch_opening_inflight called!\n"); abort(); }
+/* Generated stub for watch_scriptpubkey_ */
+bool watch_scriptpubkey_(const tal_t *ctx UNNEEDED,
+			 struct chain_topology *topo UNNEEDED,
+			 const u8 *scriptpubkey TAKES UNNEEDED,
+			 const struct bitcoin_outpoint *expected_outpoint UNNEEDED,
+			 struct amount_sat expected_amount UNNEEDED,
+			 void (*cb)(struct lightningd *ld UNNEEDED,
+				    const struct bitcoin_tx *tx UNNEEDED,
+				    u32 outnum UNNEEDED,
+				    const struct txlocator *loc UNNEEDED,
+				    void *) UNNEEDED,
+			 void *arg UNNEEDED)
+{ fprintf(stderr, "watch_scriptpubkey_ called!\n"); abort(); }
 /* Generated stub for watch_splice_inflight */
 void watch_splice_inflight(struct lightningd *ld UNNEEDED,
 			   struct channel_inflight *inflight UNNEEDED)

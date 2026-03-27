@@ -4626,6 +4626,102 @@ impl Node for Server
 
     }
 
+    async fn list_currency_rates(
+        &self,
+        request: tonic::Request<pb::ListcurrencyratesRequest>,
+    ) -> Result<tonic::Response<pb::ListcurrencyratesResponse>, tonic::Status> {
+        let req = request.into_inner();
+        let req: requests::ListcurrencyratesRequest = req.into();
+        debug!("Client asked for list_currency_rates");
+        trace!("list_currency_rates request: {:?}", req);
+        let mut rpc = ClnRpc::new(&self.rpc_path)
+            .await
+            .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+        let result = rpc.call(Request::ListCurrencyRates(req))
+            .await
+            .map_err(|e| Status::new(
+               Code::Unknown,
+               format!("Error calling method ListCurrencyRates: {:?}", e)))?;
+        match result {
+            Response::ListCurrencyRates(r) => {
+               trace!("list_currency_rates response: {:?}", r);
+               Ok(tonic::Response::new(r.into()))
+            },
+            r => Err(Status::new(
+                Code::Internal,
+                format!(
+                    "Unexpected result {:?} to method call ListCurrencyRates",
+                    r
+                )
+            )),
+        }
+
+    }
+
+    async fn currency_convert(
+        &self,
+        request: tonic::Request<pb::CurrencyconvertRequest>,
+    ) -> Result<tonic::Response<pb::CurrencyconvertResponse>, tonic::Status> {
+        let req = request.into_inner();
+        let req: requests::CurrencyconvertRequest = req.into();
+        debug!("Client asked for currency_convert");
+        trace!("currency_convert request: {:?}", req);
+        let mut rpc = ClnRpc::new(&self.rpc_path)
+            .await
+            .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+        let result = rpc.call(Request::CurrencyConvert(req))
+            .await
+            .map_err(|e| Status::new(
+               Code::Unknown,
+               format!("Error calling method CurrencyConvert: {:?}", e)))?;
+        match result {
+            Response::CurrencyConvert(r) => {
+               trace!("currency_convert response: {:?}", r);
+               Ok(tonic::Response::new(r.into()))
+            },
+            r => Err(Status::new(
+                Code::Internal,
+                format!(
+                    "Unexpected result {:?} to method call CurrencyConvert",
+                    r
+                )
+            )),
+        }
+
+    }
+
+    async fn currency_rate(
+        &self,
+        request: tonic::Request<pb::CurrencyrateRequest>,
+    ) -> Result<tonic::Response<pb::CurrencyrateResponse>, tonic::Status> {
+        let req = request.into_inner();
+        let req: requests::CurrencyrateRequest = req.into();
+        debug!("Client asked for currency_rate");
+        trace!("currency_rate request: {:?}", req);
+        let mut rpc = ClnRpc::new(&self.rpc_path)
+            .await
+            .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+        let result = rpc.call(Request::CurrencyRate(req))
+            .await
+            .map_err(|e| Status::new(
+               Code::Unknown,
+               format!("Error calling method CurrencyRate: {:?}", e)))?;
+        match result {
+            Response::CurrencyRate(r) => {
+               trace!("currency_rate response: {:?}", r);
+               Ok(tonic::Response::new(r.into()))
+            },
+            r => Err(Status::new(
+                Code::Internal,
+                format!(
+                    "Unexpected result {:?} to method call CurrencyRate",
+                    r
+                )
+            )),
+        }
+
+    }
+
 
 
     type SubscribeBlockAddedStream = NotificationStream<pb::BlockAddedNotification>;

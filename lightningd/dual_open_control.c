@@ -1003,71 +1003,60 @@ static void dualopend_tell_depth(struct channel *channel,
 }
 
 static enum watch_result opening_depth_cb(struct lightningd *ld,
-					  const struct bitcoin_txid *txid,
-					  const struct bitcoin_tx *tx,
 					  unsigned int depth,
 					  struct channel_inflight *inflight)
 {
-	struct txlocator *loc;
-	struct short_channel_id scid;
-
 	/* Usually, we're here because we're awaiting a lockin, but
 	 * we could also mutual shutdown */
 	if (inflight->channel->state != DUALOPEND_AWAITING_LOCKIN)
 		return DELETE_WATCH;
 
-	/* Reorged out?  OK, we're not committed yet. */
-	if (depth == 0)
-		return KEEP_WATCHING;
-
-	/* FIXME: Don't do this until we're actually locked in! */
-	loc = wallet_transaction_locate(tmpctx, ld->wallet, txid);
-	if (!mk_short_channel_id(&scid,
-				 loc->blkheight, loc->index,
-				 inflight->funding->outpoint.n)) {
-		channel_fail_permanent(inflight->channel,
-				       REASON_LOCAL,
-				       "Invalid funding scid %u:%u:%u",
-				       loc->blkheight, loc->index,
-				       inflight->funding->outpoint.n);
-		return DELETE_WATCH;
-	}
-
-	if (!inflight->channel->scid) {
-		wallet_annotate_txout(ld->wallet, &inflight->funding->outpoint,
-				      TX_CHANNEL_FUNDING, inflight->channel->dbid);
-		channel_set_scid(inflight->channel, &scid);
-		wallet_channel_save(ld->wallet, inflight->channel);
-	} else if (!short_channel_id_eq(*inflight->channel->scid, scid)) {
-		/* We freaked out if required when original was
-		 * removed, so just update now */
-		log_info(inflight->channel->log, "Short channel id changed from %s->%s",
-			 fmt_short_channel_id(tmpctx, *inflight->channel->scid),
-			 fmt_short_channel_id(tmpctx, scid));
-		channel_set_scid(inflight->channel, &scid);
-		wallet_channel_save(ld->wallet, inflight->channel);
-	}
-
-	/* Tell connectd it can forward onion messages via this scid (ok if redundant!) */
-	if (inflight->channel->channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL)
-		tell_connectd_scid(ld, *inflight->channel->scid,
-				   &inflight->channel->peer->id);
-
 	if (depth >= inflight->channel->minimum_depth)
 		update_channel_from_inflight(ld, inflight->channel, inflight,
 					     false);
 
-	dualopend_tell_depth(inflight->channel, txid, depth);
-
+	dualopend_tell_depth(inflight->channel, &inflight->funding->outpoint.txid, depth);
 	return KEEP_WATCHING;
+}
+
+static enum watch_result opening_reorged_cb(struct lightningd *ld, struct channel_inflight *inflight)
+{
+	/* Reorged out?  OK, we're not committed yet. */
+	log_info(inflight->channel->log, "Candidate funding tx was in a block, now reorged out");
+	return DELETE_WATCH;
+}
+
+static void dual_funding_found(struct lightningd *ld,
+			       const struct bitcoin_tx *tx,
+			       u32 outnum,
+			       const struct txlocator *loc,
+			       struct channel_inflight *inflight)
+{
+	/* Kill it if the channel funding isn't a valid scid */
+	if (!depthcb_update_scid(inflight->channel,
+				 &inflight->funding->outpoint,
+				 loc))
+		return;
+
+	/* Otherwise, watch for block depth increases (we'll immediately expect one) */
+	watch_blockdepth(inflight, ld->topology, loc->blkheight,
+			 opening_depth_cb,
+			 opening_reorged_cb,
+			 inflight);
 }
 
 void watch_opening_inflight(struct lightningd *ld,
 			    struct channel_inflight *inflight)
 {
-	watch_txid(inflight, ld->topology,
-		   &inflight->funding->outpoint.txid,
-		   opening_depth_cb, inflight);
+	const u8 *funding_wscript = bitcoin_redeem_2of2(tmpctx,
+							&inflight->channel->local_funding_pubkey,
+							&inflight->channel->channel_info.remote_fundingkey);
+	watch_scriptpubkey(inflight, ld->topology,
+			   take(scriptpubkey_p2wsh(NULL, funding_wscript)),
+			   &inflight->funding->outpoint,
+			   inflight->funding->total_funds,
+			   dual_funding_found,
+			   inflight);
 }
 
 static void
@@ -1655,14 +1644,13 @@ static void handle_tx_broadcast(struct channel_send *cs)
 	struct command *cmd = channel->openchannel_signed_cmd;
 	struct json_stream *response;
 	struct bitcoin_txid txid;
-	int num_utxos;
 
 	/* This might have spent UTXOs from our wallet */
-	num_utxos = wallet_extract_owned_outputs(ld->wallet,
-						 /* FIXME: what txindex? */
-						 wtx, false, NULL);
-	if (num_utxos)
+	if (wallet_extract_owned_outputs(ld->wallet,
+					 /* FIXME: what txindex? */
+					 wtx, false, NULL, NULL)) {
 		wallet_transaction_add(ld->wallet, wtx, 0, 0);
+	}
 
 	if (cmd) {
 		response = json_stream_success(cmd);
@@ -1958,6 +1946,8 @@ static void handle_channel_locked(struct subd *dualopend,
 	assert(channel->scid);
 	assert(channel->remote_channel_ready);
 
+	log_debug(channel->log, "Lockin complete state %s",
+		  channel_state_name(channel));
 	/* This can happen if we missed their sigs, for some reason */
 	if (channel->state != DUALOPEND_AWAITING_LOCKIN)
 		log_debug(channel->log, "Lockin complete, but state %s",
@@ -1976,7 +1966,8 @@ static void handle_channel_locked(struct subd *dualopend,
 	wallet_channel_clear_inflights(dualopend->ld->wallet, channel);
 
 	/* That freed watchers in inflights: now watch funding tx */
-	channel_watch_funding(dualopend->ld, channel);
+	channel_watch_depth(dualopend->ld, short_channel_id_blocknum(*channel->scid), channel);
+	channel_watch_funding_out(dualopend->ld, channel);
 
 	/* FIXME: LND sigs/update_fee msgs? */
 	peer_start_channeld(channel, peer_fd, NULL, false);
@@ -2251,7 +2242,7 @@ static bool verify_option_will_fund_signature(struct peer *peer,
 static void handle_validate_lease(struct subd *dualopend,
 				  const u8 *msg)
 {
-	const secp256k1_ecdsa_signature sig;
+	secp256k1_ecdsa_signature sig = {{0}};
 	u16 chan_fee_max_ppt;
 	u32 chan_fee_max_base_msat, lease_expiry;
 	struct pubkey their_pubkey;

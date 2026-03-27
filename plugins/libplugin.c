@@ -43,10 +43,10 @@ struct plugin_option {
 	const char *description;
 	/* Handle an option.  If dynamic, check_only may be set to check
 	 * for validity (but must not make any changes!) */
-	char *(*handle)(struct plugin *plugin, const char *str, bool check_only,
+	char *(*handle)(struct command *cmd, const char *str, bool check_only,
 			void *arg);
 	/* Print an option (used to show the default value, if returns true) */
-	bool (*jsonfmt)(struct plugin *plugin, struct json_stream *js, const char *fieldname,
+	bool (*jsonfmt)(struct command *cmd, struct json_stream *js, const char *fieldname,
 			void *arg);
 	/* Arg for handle and jsonfmt */
 	void *arg;
@@ -56,6 +56,8 @@ struct plugin_option {
 	const char *depr_start, *depr_end;
 	/* If true, allow setting after plugin has initialized */
 	bool dynamic;
+	/* If true, allow multiple settings. */
+	bool multi;
 };
 
 struct plugin {
@@ -848,19 +850,19 @@ void rpc_scan(struct command *cmd,
 			   guide, method, err);
 }
 
-static void json_add_keypath(struct json_out *jout, const char *fieldname, const char *path)
+static void json_add_keypath(struct json_out *jout,
+			     const char *fieldname,
+			     const char **keys)
 {
-	char **parts = tal_strsplit(tmpctx, path, "/", STR_EMPTY_OK);
-
 	json_out_start(jout, fieldname, '[');
-	for (size_t i = 0; parts[i]; parts++)
-		json_out_addstr(jout, NULL, parts[i]);
+	for (size_t i = 0; i < tal_count(keys); i++)
+		json_out_addstr(jout, NULL, keys[i]);
 	json_out_end(jout, ']');
 }
 
 static const char *rpc_scan_datastore(const tal_t *ctx,
 				      struct command *cmd,
-				      const char *path,
+				      const char **keys,
 				      const char *hex_or_string,
 				      va_list ap)
 {
@@ -869,7 +871,7 @@ static const char *rpc_scan_datastore(const tal_t *ctx,
 
 	params = json_out_new(NULL);
 	json_out_start(params, NULL, '{');
-	json_add_keypath(params, "key", path);
+	json_add_keypath(params, "key", keys);
 	json_out_end(params, '}');
 	json_out_finished(params);
 
@@ -880,14 +882,14 @@ static const char *rpc_scan_datastore(const tal_t *ctx,
 
 const char *rpc_scan_datastore_str(const tal_t *ctx,
 				   struct command *cmd,
-				   const char *path,
+				   const char **keys,
 				   ...)
 {
 	const char *ret;
 	va_list ap;
 
-	va_start(ap, path);
-	ret = rpc_scan_datastore(ctx, cmd, path, "string", ap);
+	va_start(ap, keys);
+	ret = rpc_scan_datastore(ctx, cmd, keys, "string", ap);
 	va_end(ap);
 	return ret;
 }
@@ -895,14 +897,14 @@ const char *rpc_scan_datastore_str(const tal_t *ctx,
 /* This variant scans the hex encoding, not the string */
 const char *rpc_scan_datastore_hex(const tal_t *ctx,
 				   struct command *cmd,
-				   const char *path,
+				   const char **keys,
 				   ...)
 {
 	const char *ret;
 	va_list ap;
 
-	va_start(ap, path);
-	ret = rpc_scan_datastore(ctx, cmd, path, "hex", ap);
+	va_start(ap, keys);
+	ret = rpc_scan_datastore(ctx, cmd, keys, "hex", ap);
 	va_end(ap);
 	return ret;
 }
@@ -923,7 +925,7 @@ void rpc_enable_batching(struct plugin *plugin)
 }
 
 struct command_result *jsonrpc_set_datastore_(struct command *cmd,
-					      const char *path,
+					      const char **keys,
 					      const void *value,
 					      int len_or_str,
 					      const char *mode,
@@ -948,7 +950,7 @@ struct command_result *jsonrpc_set_datastore_(struct command *cmd,
 
 	req = jsonrpc_request_start(cmd, "datastore", cb, errcb, arg);
 
-	json_add_keypath(req->js->jout, "key", path);
+	json_add_keypath(req->js->jout, "key", keys);
 	if (len_or_str == -1)
 		json_add_string(req->js, "string", value);
 	else
@@ -1008,7 +1010,7 @@ static struct command_result *listdatastore_done(struct command *cmd,
 }
 
 struct command_result *jsonrpc_get_datastore_(struct command *cmd,
-					      const char *path,
+					      const char **keys,
 					      struct command_result *(*string_cb)(struct command *command,
 									   const char *val,
 									   void *arg),
@@ -1029,7 +1031,7 @@ struct command_result *jsonrpc_get_datastore_(struct command *cmd,
 				    listdatastore_done, plugin_broken_cb, dsi);
 	tal_steal(req, dsi);
 
-	json_add_keypath(req->js->jout, "key", path);
+	json_add_keypath(req->js->jout, "key", keys);
 	return send_outreq(req);
 }
 
@@ -1272,8 +1274,9 @@ handle_getmanifest(struct command *getmanifest_cmd,
 		json_add_string(params, "description", p->opts[i].description);
 		json_add_deprecated(params, "deprecated", p->opts[i].depr_start, p->opts[i].depr_end);
 		json_add_bool(params, "dynamic", p->opts[i].dynamic);
+		json_add_bool(params, "multi", p->opts[i].multi);
 		if (p->opts[i].jsonfmt)
-			p->opts[i].jsonfmt(p, params, "default", p->opts[i].arg);
+			p->opts[i].jsonfmt(getmanifest_cmd, params, "default", p->opts[i].arg);
 		json_object_end(params);
 	}
 	json_array_end(params);
@@ -1567,9 +1570,19 @@ static struct command_result *handle_init(struct command *cmd,
 		if (!popt)
 			plugin_err(p, "lightningd specified unknown option '%s'?", name);
 
-		problem = popt->handle(p, json_strdup(tmpctx, buf, t+1), false, popt->arg);
-		if (problem)
-			plugin_err(p, "option '%s': %s", popt->name, problem);
+		if (popt->multi) {
+			size_t j;
+			const jsmntok_t *opt;
+			json_for_each_arr(j, opt, t+1) {
+				problem = popt->handle(cmd, json_strdup(tmpctx, buf, opt), false, popt->arg);
+				if (problem)
+					plugin_err(p, "option '%s': %s", popt->name, problem);
+			}
+		} else {
+			problem = popt->handle(cmd, json_strdup(tmpctx, buf, t+1), false, popt->arg);
+			if (problem)
+				plugin_err(p, "option '%s': %s", popt->name, problem);
+		}
 	}
 
 	if (p->init) {
@@ -1598,7 +1611,7 @@ static struct command_result *handle_init(struct command *cmd,
 	return command_success(cmd, json_out_obj(cmd, NULL, NULL));
 }
 
-char *u64_option(struct plugin *plugin, const char *arg, bool check_only, u64 *i)
+char *u64_option(struct command *cmd, const char *arg, bool check_only, u64 *i)
 {
 	char *endp;
 	u64 v;
@@ -1615,10 +1628,10 @@ char *u64_option(struct plugin *plugin, const char *arg, bool check_only, u64 *i
 	return NULL;
 }
 
-char *u32_option(struct plugin *plugin, const char *arg, bool check_only, u32 *i)
+char *u32_option(struct command *cmd, const char *arg, bool check_only, u32 *i)
 {
 	u64 n;
-	char *problem = u64_option(plugin, arg, false, &n);
+	char *problem = u64_option(cmd, arg, false, &n);
 
 	if (problem)
 		return problem;
@@ -1631,10 +1644,10 @@ char *u32_option(struct plugin *plugin, const char *arg, bool check_only, u32 *i
 	return NULL;
 }
 
-char *u16_option(struct plugin *plugin, const char *arg, bool check_only, u16 *i)
+char *u16_option(struct command *cmd, const char *arg, bool check_only, u16 *i)
 {
 	u64 n;
-	char *problem = u64_option(plugin, arg, false, &n);
+	char *problem = u64_option(cmd, arg, false, &n);
 
 	if (problem)
 		return problem;
@@ -1647,7 +1660,7 @@ char *u16_option(struct plugin *plugin, const char *arg, bool check_only, u16 *i
 	return NULL;
 }
 
-char *bool_option(struct plugin *plugin, const char *arg, bool check_only, bool *i)
+char *bool_option(struct command *cmd, const char *arg, bool check_only, bool *i)
 {
 	if (!streq(arg, "true") && !streq(arg, "false"))
 		return tal_fmt(tmpctx, "'%s' is not a bool, must be \"true\" or \"false\"", arg);
@@ -1657,7 +1670,7 @@ char *bool_option(struct plugin *plugin, const char *arg, bool check_only, bool 
 	return NULL;
 }
 
-char *flag_option(struct plugin *plugin, const char *arg, bool check_only, bool *i)
+char *flag_option(struct command *cmd, const char *arg, bool check_only, bool *i)
 {
 	/* We only get called if the flag was provided, so *i should be false
 	 * by default */
@@ -1670,38 +1683,38 @@ char *flag_option(struct plugin *plugin, const char *arg, bool check_only, bool 
 	return NULL;
 }
 
-char *charp_option(struct plugin *plugin, const char *arg, bool check_only, char **p)
+char *charp_option(struct command *cmd, const char *arg, bool check_only, char **p)
 {
 	if (!check_only)
 		*p = tal_strdup(NULL, arg);
 	return NULL;
 }
 
-bool u64_jsonfmt(struct plugin *plugin, struct json_stream *js, const char *fieldname, u64 *i)
+bool u64_jsonfmt(struct command *cmd, struct json_stream *js, const char *fieldname, u64 *i)
 {
 	json_add_u64(js, fieldname, *i);
 	return true;
 }
 
-bool u32_jsonfmt(struct plugin *plugin, struct json_stream *js, const char *fieldname, u32 *i)
+bool u32_jsonfmt(struct command *cmd, struct json_stream *js, const char *fieldname, u32 *i)
 {
 	json_add_u32(js, fieldname, *i);
 	return true;
 }
 
-bool u16_jsonfmt(struct plugin *plugin, struct json_stream *js, const char *fieldname, u16 *i)
+bool u16_jsonfmt(struct command *cmd, struct json_stream *js, const char *fieldname, u16 *i)
 {
 	json_add_u32(js, fieldname, *i);
 	return true;
 }
 
-bool bool_jsonfmt(struct plugin *plugin, struct json_stream *js, const char *fieldname, bool *i)
+bool bool_jsonfmt(struct command *cmd, struct json_stream *js, const char *fieldname, bool *i)
 {
 	json_add_bool(js, fieldname, *i);
 	return true;
 }
 
-bool charp_jsonfmt(struct plugin *plugin, struct json_stream *js, const char *fieldname, char **p)
+bool charp_jsonfmt(struct command *cmd, struct json_stream *js, const char *fieldname, char **p)
 {
 	if (!*p)
 		return false;
@@ -1709,12 +1722,12 @@ bool charp_jsonfmt(struct plugin *plugin, struct json_stream *js, const char *fi
 	return true;
 }
 
-bool flag_jsonfmt(struct plugin *plugin, struct json_stream *js, const char *fieldname, bool *i)
+bool flag_jsonfmt(struct command *cmd, struct json_stream *js, const char *fieldname, bool *i)
 {
 	/* Don't print if the default (false) */
 	if (!*i)
 		return false;
-	return bool_jsonfmt(plugin, js, fieldname, i);
+	return bool_jsonfmt(cmd, js, fieldname, i);
 }
 
 static void setup_command_usage(struct plugin *p)
@@ -2213,7 +2226,7 @@ static void ld_command_handle(struct plugin *plugin,
 		else
 			val = "true";
 
-		problem = popt->handle(plugin, val, check_only, popt->arg);
+		problem = popt->handle(cmd, val, check_only, popt->arg);
 		if (problem)
 			ret = command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					   "%s", problem);
@@ -2384,13 +2397,14 @@ static struct plugin *new_plugin(const tal_t *ctx,
 		o.name = optname;
 		o.type = va_arg(ap, const char *);
 		o.description = va_arg(ap, const char *);
-		o.handle = va_arg(ap, char *(*)(struct plugin *, const char *str, bool check_only, void *arg));
-		o.jsonfmt = va_arg(ap, bool (*)(struct plugin *, struct json_stream *, const char *, void *arg));
+		o.handle = va_arg(ap, char *(*)(struct command *, const char *str, bool check_only, void *arg));
+		o.jsonfmt = va_arg(ap, bool (*)(struct command *, struct json_stream *, const char *, void *arg));
 		o.arg = va_arg(ap, void *);
 		o.dev_only = va_arg(ap, int); /* bool gets promoted! */
 		o.depr_start = va_arg(ap, const char *);
 		o.depr_end = va_arg(ap, const char *);
 		o.dynamic = va_arg(ap, int); /* bool gets promoted! */
+		o.multi = va_arg(ap, int); /* bool gets promoted! */
 		tal_arr_expand(&p->opts, o);
 	}
 

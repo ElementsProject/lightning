@@ -81,6 +81,9 @@ struct onionreply *new_onionreply(const tal_t *ctx UNNEEDED, const u8 *contents 
 /* Generated stub for pubkey_from_node_id */
 bool pubkey_from_node_id(struct pubkey *key UNNEEDED, const struct node_id *id UNNEEDED)
 { fprintf(stderr, "pubkey_from_node_id called!\n"); abort(); }
+/* Generated stub for siphash_seed */
+const struct siphash_seed *siphash_seed(void)
+{ fprintf(stderr, "siphash_seed called!\n"); abort(); }
 /* Generated stub for towire_amount_msat */
 void towire_amount_msat(u8 **pptr UNNEEDED, const struct amount_msat msat UNNEEDED)
 { fprintf(stderr, "towire_amount_msat called!\n"); abort(); }

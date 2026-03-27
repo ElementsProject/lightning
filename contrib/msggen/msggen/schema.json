@@ -1997,6 +1997,11 @@
                 }
               }
             }
+          },
+          "dev_remove_all": {
+            "hidden": true,
+            "type": "boolean",
+            "added": "v26.04"
           }
         }
       },
@@ -3461,6 +3466,7 @@
     "bkpr-editdescriptionbyoutpoint.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
+      "added": "v24.11",
       "additionalProperties": false,
       "rpc": "bkpr-editdescriptionbyoutpoint",
       "title": "Command to change the description for events with {outpoint} after they're made",
@@ -3770,6 +3776,7 @@
     "bkpr-editdescriptionbypaymentid.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
+      "added": "v24.11",
       "additionalProperties": false,
       "rpc": "bkpr-editdescriptionbypaymentid",
       "title": "Command to change the description for events with `payment_id` after they're made",
@@ -4413,6 +4420,13 @@
                   "description": [
                     "Timestamp this event was recorded by the node. For consolidated events such as onchain_fees, the most recent timestamp."
                   ]
+                },
+                "currencyrate": {
+                  "added": "v26.04",
+                  "type": "number",
+                  "description": [
+                    "The value of `currencyrate` around the time the event occurred.  Only present if `bkpr-currency` is set, and a conversion value is available"
+                  ]
                 }
               },
               "allOf": [
@@ -4437,6 +4451,7 @@
                       "credit_msat": {},
                       "debit_msat": {},
                       "currency": {},
+                      "currencyrate": {},
                       "timestamp": {},
                       "description": {
                         "type": "string",
@@ -4503,6 +4518,7 @@
                       "debit_msat": {},
                       "currency": {},
                       "timestamp": {},
+                      "currencyrate": {},
                       "description": {},
                       "txid": {
                         "type": "txid",
@@ -4538,6 +4554,7 @@
                       "debit_msat": {},
                       "currency": {},
                       "timestamp": {},
+                      "currencyrate": {},
                       "description": {},
                       "fees_msat": {
                         "type": "msat",
@@ -5093,6 +5110,132 @@
             ]
           }
         }
+      ]
+    },
+    "bkpr-report.json": {
+      "$schema": "../rpc-schema-draft.json",
+      "type": "object",
+      "added": "v26.04",
+      "rpc": "bkpr-report",
+      "title": "Formatting for all income impacting events",
+      "description": [
+        "The **bkpr-report** RPC command creates a list of all income impacting events that the bookkeeper plugin has recorded for this node.",
+        "",
+        "It has the useful property that when used with `lightning-cli` and the `escape=csv` it can directly produce valid CSV files."
+      ],
+      "request": {
+        "required": [],
+        "additionalProperties": false,
+        "properties": {
+          "format": {
+            "type": "string",
+            "description": [
+              "This format string is used for each income event (note that `lightning-cli` can get confused if the format begins and ends with `{` and `}`, so you may need to add a space).  The following tags in braces are replaced:",
+              "{account}: account name (channel id, or 'wallet')",
+              "{tag}: event tag.  This will be one of:",
+              " * `deposit`: an onchain send to the wallet by `outpoint`.",
+              " * `htlc_fulfill`: an onchain HTLC fulfill (due to unilaterally closed channel) at `outpoint`.",
+              " * `invoice`: either incoming (positive credit) or outgoing (positive debit) payment.",
+              " * `invoice_fee`: the routing fee paid to pay an outgoing invoice",
+              " * `journal_entry`: an accounting fixup, caused by loss of data (or, a node which predates bookkeeper)",
+              " * `lease_fee`: a fee paid or received to lease a channel via the experimental liquidity advertisement option",
+              " * `onchain_fee,`: a miner fee paid to open/close a channel, or make a bitcoin payment.  The `txid` will correspond to a `withdrawal` `outpoint` for withdrawl",
+              " * `pushed`: an amount pushed to or from us on channel open.",
+              " * `rebalance_fee`: routing fee paid for sending a payment to ourselves.",
+              " * `routed`: credit gained from routing a payment",
+              " * `withdrawal`: debit from an onchain spend.",
+              "{description}: description as provided in the invoice, if present",
+              "{credit}: credit amount in BTC",
+              "{debit}: debit amount in BTC",
+              "{fees}: fee amount in BTC",
+              "{localtime}: event timestamp in local time as YYYY-MM-DD HH:MM:SS",
+              "{utctime}: event timestamp in UTC as YYYY-MM-DD HH:MM:SS",
+              "{outpoint}: outpoint, if present",
+              "{txid}: txid, if present",
+              "{payment_id}: payment hash, if present",
+              "{bkpr-currency}: value of bkpr-currency, if any",
+              "{currencyrate}: exchange rate for 1 BTC at that event time, if available",
+              "{creditdebit}: +credit or -debit (or 0) in BTC",
+              "{currencycredit}: credit amount converted into bkpr-currency",
+              "{currencydebit}: debit amount converted into bkpr-currency",
+              "{currencycreditdebit}: +credit or -debit (or 0) in bkpr-currency",
+              "",
+              "If a field is unavailable, it expands to an empty string.",
+              "",
+              "You can provide fallback with ?, including more variable:",
+              " * {outpoint?NONE}",
+              " * {payment_id?txid: {txid?UNKNOWN}}",
+              "The first one the outpoint, or NONE if that is not available. ",
+              "The second prints the payment_id, or if that is not available, the string 'txid: ' followed by the txid, or if that is not available, 'txid: UNKNOWN'.",
+              "",
+              "The text after ? is used only if that tag would otherwise be empty.",
+              "",
+              "To include a literal {, write {{."
+            ]
+          },
+          "headers": {
+            "type": "array",
+            "description": [
+              "strings to place at the top of the output (useful when creating CSV files directly)."
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "escape": {
+            "type": "string",
+            "description": [
+              "How to handle the formatted output fields: if set to `csv` it will handle fields with commas or double-quotes correctly for that format.  Note that text is never escaped (you need to do that), only {} tags."
+            ],
+            "items": {
+              "type": "string"
+            },
+            "default": "none"
+          },
+          "start_time": {
+            "type": "u32",
+            "description": [
+              "UNIX timestamp (in seconds) that filters events after the provided timestamp."
+            ],
+            "default": "zero"
+          },
+          "end_time": {
+            "type": "u32",
+            "description": [
+              "UNIX timestamp (in seconds) that filters events up to and at the provided timestamp."
+            ],
+            "default": "max-int"
+          }
+        }
+      },
+      "response": {
+        "required": [
+          "report"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "format-hint": {},
+          "report": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "description": [
+                "The headers one per entry, followed by the formatted strings for each income event"
+              ]
+            }
+          }
+        }
+      },
+      "author": [
+        "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-bkpr-listaccountevents(7)",
+        "lightning-bkpr-listbalances(7)",
+        "lightningd-config(5)"
+      ],
+      "resources": [
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ]
     },
     "blacklistrune.json": {
@@ -7228,6 +7371,111 @@
             "unique_id": "5"
           }
         }
+      ]
+    },
+    "currencyconvert.json": {
+      "$schema": "../rpc-schema-draft.json",
+      "type": "object",
+      "rpc": "currencyconvert",
+      "title": "Command to convert a fiat amount into millisatoshis",
+      "added": "v26.04",
+      "description": [
+        "The **currencyconvert** RPC command converts a given amount in a given currency into millisatoshis.",
+        "It uses the median of the available exchange-rate sources for the requested currency."
+      ],
+      "request": {
+        "required": [
+          "amount",
+          "currency"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "amount": {
+            "type": "number",
+            "description": [
+              "The amount, expressed in the given currency, to convert into millisatoshis."
+            ]
+          },
+          "currency": {
+            "type": "string",
+            "description": [
+              "The ISO-4217 currency code (e.g. USD) to convert from.",
+              "The plugin normalizes this value to uppercase before querying sources."
+            ]
+          }
+        }
+      },
+      "response": {
+        "required": [
+          "msat"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "msat": {
+            "type": "msat",
+            "description": [
+              "The converted amount in millisatoshis, computed using the median result from the available sources."
+            ]
+          }
+        }
+      },
+      "author": [
+        "daywalker90 is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-currencyrates(7)"
+      ],
+      "resources": [
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
+      ]
+    },
+    "currencyrate.json": {
+      "$schema": "../rpc-schema-draft.json",
+      "type": "object",
+      "rpc": "currencyrate",
+      "title": "Command to determine a reasonable rate of conversion for a given currency",
+      "added": "v26.04",
+      "description": [
+        "The **currencyrate** RPC command provides the conversion of one BTC into the given currency",
+        "It uses the median of the available exchange-rate sources for the requested currency."
+      ],
+      "request": {
+        "required": [
+          "currency"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "currency": {
+            "type": "string",
+            "description": [
+              "The ISO-4217 currency code (e.g. USD) to convert to.",
+              "The plugin normalizes this value to uppercase before querying sources."
+            ]
+          }
+        }
+      },
+      "response": {
+        "required": [
+          "rate"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "rate": {
+            "type": "number",
+            "description": [
+              "The median value of one BTC, computed using the median result from the available sources."
+            ]
+          }
+        }
+      },
+      "author": [
+        "daywalker90 is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-listcurrencyrates(7)"
+      ],
+      "resources": [
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ]
     },
     "datastore.json": {
@@ -11913,6 +12161,7 @@
     "enableoffer.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
+      "added": "v24.08",
       "rpc": "enableoffer",
       "title": "Command for re-enabling an offer",
       "description": [
@@ -12033,6 +12282,7 @@
     "exposesecret.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
+      "added": "v24.11",
       "additionalProperties": false,
       "rpc": "exposesecret",
       "title": "Command for extracting the hsm_secret file for backup",
@@ -12309,6 +12559,13 @@
                 "description": [
                   "Feerate to use when creating penalty tx for watchtowers."
                 ]
+              },
+              "splice": {
+                "type": "u32",
+                "added": "v26.04",
+                "description": [
+                  "Feerate to use when performing a splice."
+                ]
               }
             }
           },
@@ -12433,6 +12690,13 @@
                 "description": [
                   "Feerate to use when creating penalty tx for watchtowers."
                 ]
+              },
+              "splice": {
+                "type": "u32",
+                "added": "v26.04",
+                "description": [
+                  "Feerate to use when performing a splice."
+                ]
               }
             }
           },
@@ -12539,6 +12803,7 @@
               "unilateral_close": 11000,
               "unilateral_anchor_close": 3750,
               "penalty": 7500,
+              "splice": 7505,
               "min_acceptable": 1875,
               "max_acceptable": 150000,
               "floor": 253,
@@ -12590,6 +12855,7 @@
               "unilateral_close": 44000,
               "unilateral_anchor_close": 15000,
               "penalty": 30000,
+              "splice": 30005,
               "min_acceptable": 7500,
               "max_acceptable": 600000,
               "floor": 1012,
@@ -14343,6 +14609,7 @@
     "getemergencyrecoverdata.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
+      "added": "v24.11",
       "rpc": "getemergencyrecoverdata",
       "title": "Command to fetch data from the emergency.recover file",
       "description": [
@@ -14537,6 +14804,7 @@
           },
           "address": {
             "type": "array",
+            "added": "v23.02",
             "description": [
               "The addresses we announce to the world."
             ],
@@ -14550,6 +14818,7 @@
               "properties": {
                 "type": {
                   "type": "string",
+                  "added": "v23.02",
                   "enum": [
                     "dns",
                     "ipv4",
@@ -14563,6 +14832,7 @@
                 },
                 "port": {
                   "type": "u16",
+                  "added": "v23.02",
                   "description": [
                     "Port number."
                   ]
@@ -14595,6 +14865,7 @@
                   "port": {},
                   "address": {
                     "type": "string",
+                    "added": "v23.02",
                     "description": [
                       "Address in expected format for **type**."
                     ]
@@ -15764,6 +16035,7 @@
     "injectpaymentonion.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
+      "added": "v24.11",
       "rpc": "injectpaymentonion",
       "title": "Send a payment with a custom onion packet",
       "description": [
@@ -20119,6 +20391,82 @@
                     ]
                   }
                 }
+              },
+              "currencyrate-add-source": {
+                "added": "v26.04",
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "values_str",
+                  "sources"
+                ],
+                "properties": {
+                  "values_str": {
+                    "type": "array",
+                    "added": "v26.04",
+                    "items": {
+                      "type": "string",
+                      "description": [
+                        "A source for cln-currencyrate to fetch price data from in the format of NAME,URL,MEMBERS"
+                      ]
+                    }
+                  },
+                  "sources": {
+                    "type": "array",
+                    "added": "v26.04",
+                    "items": {
+                      "type": "string",
+                      "description": [
+                        "Source of configuration setting."
+                      ]
+                    }
+                  },
+                  "plugin": {
+                    "type": "string",
+                    "added": "v26.04",
+                    "description": [
+                      "Plugin which registered this configuration setting."
+                    ]
+                  }
+                }
+              },
+              "currencyrate-disable-source": {
+                "added": "v26.04",
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "values_str",
+                  "sources"
+                ],
+                "properties": {
+                  "values_str": {
+                    "type": "array",
+                    "added": "v26.04",
+                    "items": {
+                      "type": "string",
+                      "description": [
+                        "The name of the cln-currencyrate source to disable"
+                      ]
+                    }
+                  },
+                  "sources": {
+                    "type": "array",
+                    "added": "v26.04",
+                    "items": {
+                      "type": "string",
+                      "description": [
+                        "Source of configuration setting."
+                      ]
+                    }
+                  },
+                  "plugin": {
+                    "type": "string",
+                    "added": "v26.04",
+                    "description": [
+                      "Plugin which registered this configuration setting."
+                    ]
+                  }
+                }
               }
             }
           }
@@ -20641,6 +20989,73 @@
             }
           }
         }
+      ]
+    },
+    "listcurrencyrates.json": {
+      "$schema": "../rpc-schema-draft.json",
+      "type": "object",
+      "rpc": "currencyrates",
+      "added": "v26.04",
+      "title": "Command to list millisatoshis-per-unit from each configured source",
+      "description": [
+        "The **listcurrencyrates** RPC command returns the number of units of a given currency for one BTC from each configured exchange-rate source."
+      ],
+      "request": {
+        "required": [
+          "currency"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "currency": {
+            "type": "string",
+            "description": [
+              "The ISO4217 currency code to query, eg USD.",
+              "The plugin normalizes this value to uppercase before querying sources."
+            ]
+          }
+        }
+      },
+      "response": {
+        "required": [
+          "currencyrates"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "currencyrates": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "source",
+                "amount"
+              ],
+              "properties": {
+                "source": {
+                  "type": "string",
+                  "description": [
+                    "The name of the source of this rate (see `currencyrate-add-source` in lightningd-config)"
+                  ]
+                },
+                "amount": {
+                  "type": "number",
+                  "description": [
+                    "The amount of currency for 1 BTC."
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "author": [
+        "daywalker90 is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-currencyconvert(7)"
+      ],
+      "resources": [
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ]
     },
     "listdatastore.json": {
@@ -21732,6 +22147,7 @@
     "listhtlcs.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
+      "added": "v22.11",
       "rpc": "listhtlcs",
       "title": "Command for querying HTLCs",
       "description": [
@@ -23509,9 +23925,11 @@
       "rpc": "listpeerchannels",
       "title": "Command returning data on channels of connected lightning nodes",
       "description": [
-        "The **listpeerchannels** RPC command returns list of this node's channels, with the possibility to filter them by peer's node id.",
+        "The **listpeerchannels** RPC command returns a list of this node's channels.",
         "",
-        "If no *id* is supplied, then channel data on all lightning nodes that are connected, or not connected but have open channels with this node, are returned."
+        "By default, data for all known channels is returned, including those to peers that are currently connected and those to peers that are disconnected but still have open channels.",
+        "",
+        "At most one of *id*, *short_channel_id* or *channel_id* may be provided as a filter. If more than one is provided, the command fails with an error."
       ],
       "categories": [
         "readonly"
@@ -23523,14 +23941,21 @@
           "id": {
             "type": "pubkey",
             "description": [
-              "If supplied, limits the channels to just the peer with the given ID, if it exists."
+              "If supplied, limits the channels to just the peer with the given ID, if it exists. Cannot be used with 'short_channel_id' or 'channel_id'."
             ]
           },
           "short_channel_id": {
             "added": "v25.05",
             "type": "short_channel_id",
             "description": [
-              "If supplied, limits the channels to just this short_channel_id (or local alias), if it exists.  Cannot be used with 'id'."
+              "If supplied, limits the channels to just this short_channel_id (or local alias), if it exists. Cannot be used with 'id' or 'channel_id'."
+            ]
+          },
+          "channel_id": {
+            "added": "v26.04",
+            "type": "hash",
+            "description": [
+              "If supplied, limits the channels to just this channel_id, if it exists. Cannot be used with 'id' or 'short_channel_id'."
             ]
           }
         }
@@ -23816,7 +24241,7 @@
                   ]
                 },
                 "direction": {
-                  "type": "integer",
+                  "type": "u32",
                   "description": [
                     "The direction of the channel (i.e. 0 if we are the lesser node id, 1 if we are the greater)."
                   ]
@@ -24077,7 +24502,7 @@
                   ],
                   "deprecated": [
                     "v25.02",
-                    "v26.03"
+                    "v26.04"
                   ]
                 },
                 "their_max_htlc_value_in_flight_msat": {
@@ -27735,6 +28160,17 @@
               "Make recurrence optional, for backwards compatibility (older payers will only pay once)."
             ]
           },
+          "fronting_nodes": {
+            "added": "v26.04",
+            "type": "array",
+            "items": {
+              "type": "pubkey"
+            },
+            "description": [
+              "An optional array of peer nodes to create blinded paths from.  One of these blinded paths will also be used for the invoice, when they request it.  This overrides the `payment-fronting-node` configuration setting.  If set to the empty array, this means *no fronting nodes*."
+            ],
+            "default": "The `payment-fronting-node` configuration setting"
+          },
           "dev_paths": {
             "hidden": true
           }
@@ -29259,7 +29695,7 @@
       "rpc": "ping",
       "title": "Command to check if a node is up.",
       "description": [
-        "The **ping** command checks if the node with *id* is ready to talk. It currently only works for peers we have a channel with."
+        "The **ping** command checks if the node with *id* is ready to talk. It only works for peers we are currently connected with."
       ],
       "request": {
         "required": [
@@ -33917,6 +34353,158 @@
         }
       ]
     },
+    "splicein.json": {
+      "$schema": "../rpc-schema-draft.json",
+      "type": "object",
+      "additionalProperties": false,
+      "added": "v26.04",
+      "rpc": "splicein",
+      "title": "Command to splice funds into a channel",
+      "warning": "experimental-splicing only",
+      "description": [
+        "`splicein` is the command to move funds into a channel."
+      ],
+      "request": {
+        "required": [
+          "channel",
+          "amount"
+        ],
+        "properties": {
+          "channel": {
+            "type": "string",
+            "description": [
+              "channel identifier or channel query. Format is the same as is used in `dev-splice`."
+            ]
+          },
+          "amount": {
+            "type": "string",
+            "description": [
+              "Amount in satoshis taken from the internal wallet and add to the channel. Format is the same as is used in `dev-splice`."
+            ]
+          }
+        }
+      },
+      "response": {
+        "required": [],
+        "properties": {
+          "psbt": {
+            "type": "string",
+            "description": [
+              "The final psbt"
+            ]
+          },
+          "tx": {
+            "type": "string",
+            "description": [
+              "The final transaction in hex"
+            ]
+          },
+          "txid": {
+            "type": "string",
+            "description": [
+              "The txid of the final transaction"
+            ]
+          }
+        }
+      },
+      "usage": [
+        "`splicein` is the command to add funds to a channel. It takes `amount` funds from your onchain wallet and places them into `channel`."
+      ],
+      "author": [
+        "Dusty [@dusty_daemon](mailto:@dustydaemon) is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-dev-splice(7)"
+      ],
+      "resources": [
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
+      ]
+    },
+    "spliceout.json": {
+      "$schema": "../rpc-schema-draft.json",
+      "type": "object",
+      "additionalProperties": false,
+      "added": "v26.04",
+      "rpc": "spliceout",
+      "title": "Command to splice funds out of a channel",
+      "warning": "experimental-splicing only",
+      "description": [
+        "`spliceout` is the command to move funds into a channel."
+      ],
+      "request": {
+        "required": [
+          "channel",
+          "amount"
+        ],
+        "properties": {
+          "channel": {
+            "type": "string",
+            "description": [
+              "channel identifier or channel query. Format is the same as is used in `dev-splice`."
+            ]
+          },
+          "amount": {
+            "type": "string",
+            "description": [
+              "Amount in satoshis taken from the channel. Format is the same as is used in `dev-splice`."
+            ]
+          },
+          "destination": {
+            "type": "string",
+            "description": [
+              "Where to send the funds to. Defaults to `wallet` which sends the funds to your onchain wallet. Specify a bitcoin address to send funds to that address or specify a channel identifier to send funds to another channel. Format is the same as is used in `dev-splice`."
+            ]
+          },
+          "force_feerate": {
+            "type": "boolean",
+            "description": [
+              "By default splices will fail if the fee provided looks too high. This is to protect against accidentally setting your fee higher than intended. Set `force_feerate` to true to skip this saftey check"
+            ]
+          }
+        }
+      },
+      "response": {
+        "required": [],
+        "properties": {
+          "psbt": {
+            "type": "string",
+            "description": [
+              "The final psbt"
+            ]
+          },
+          "tx": {
+            "type": "string",
+            "description": [
+              "The final transaction in hex"
+            ]
+          },
+          "txid": {
+            "type": "string",
+            "description": [
+              "The txid of the final transaction"
+            ]
+          }
+        }
+      },
+      "usage": [
+        "`spliceout` is the command take funds from a channel. It takes `amount` funds from the specified `channel` and puts them somewhere.",
+        "",
+        "The default destination is your onchain wallet.",
+        "By specifying the `destination` as a bitcoin address, the funds will be sent to the specified address",
+        "By specifying the `destination` as a channel identifier, the funds will be sent to the specified channel. This accomplishes a simple \"cross-splice\".",
+        "",
+        "The fee for the transaction will be taken from channel funds."
+      ],
+      "author": [
+        "Dusty [@dusty_daemon](mailto:@dustydaemon) is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-dev-splice(7)"
+      ],
+      "resources": [
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
+      ]
+    },
     "sql-template.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
@@ -37058,6 +37646,7 @@
     "xpay.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
+      "added": "v24.11",
       "additionalProperties": false,
       "rpc": "xpay",
       "title": "Command for sending a payment for an invoice",
@@ -37409,7 +37998,7 @@
             ],
             "description": [
               "The channel state, in particular \"CHANNELD_NORMAL\" and \"CHANNELD_AWAITING_SPLICE\" mean the channel can be used normally.",
-              "The deprecated value 'unknown' is also present for new channels: after v26.03 this field will be omitted instead."
+              "The deprecated value 'unknown' is also present for new channels: after v26.04 this field will be omitted instead."
             ],
             "added": "pre-v0.10.1"
           },

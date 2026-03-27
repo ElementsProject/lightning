@@ -2457,10 +2457,9 @@ static struct command_result *handle_rpc_command(struct command *cmd,
 				maxdelay = t + 1;
 			else {
 				plugin_log(cmd->plugin, LOG_INFORM,
-					   "Not redirecting pay (unknown arg %.*s)",
+					   "Unknown arg %.*s, xpay will ignore it.",
 					   json_tok_full_len(t),
 					   json_tok_full(buf, t));
-				goto dont_redirect;
 			}
 		}
 	} else {

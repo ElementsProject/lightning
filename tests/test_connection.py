@@ -979,7 +979,7 @@ def test_reconnect_remote_sends_no_sigs(node_factory):
     l2.daemon.wait_for_log('peer_out WIRE_ANNOUNCEMENT_SIGNATURES')
 
     l1msgs = [l.split()[4] for l in l1.daemon.logs[l1needle:] if 'WIRE_ANNOUNCEMENT_SIGNATURES' in l]
-    assert l1msgs == ['peer_out', 'peer_in']
+    assert sorted(l1msgs) == ['peer_in', 'peer_out']
 
     # l2 only sends one.
     assert len([l for l in l2.daemon.logs[l2needle:] if 'peer_out WIRE_ANNOUNCEMENT_SIGNATURES' in l]) == 1
@@ -4635,8 +4635,21 @@ def test_listpeerchannels_by_scid(node_factory):
     assert l2.rpc.listpeerchannels(short_channel_id=c['alias']['local']) == chans
     assert l2.rpc.listpeerchannels(short_channel_id=c['alias']['remote']) == {'channels': []}
 
-    with pytest.raises(RpcError, match="Cannot specify both short_channel_id and id"):
+    with pytest.raises(RpcError, match="Must not specify more than one of short_channel_id, channel_id or id"):
         l2.rpc.listpeerchannels(peer_id=l1.info['id'], short_channel_id='1x2x3')
+        l2.rpc.listpeerchannels(channel_id=c["channel_id"], short_channel_id='1x2x3')
+
+
+def test_listpeerchannels_by_channel_id(node_factory):
+    l1, l2, l3 = node_factory.line_graph(3, announce_channels=False)
+
+    chans = l2.rpc.listpeerchannels(l1.info['id'])
+    c = only_one(chans['channels'])
+    assert l2.rpc.listpeerchannels(channel_id=c['channel_id']) == chans
+
+    with pytest.raises(RpcError, match="Must not specify more than one of short_channel_id, channel_id or id"):
+        l2.rpc.listpeerchannels(peer_id=l1.info['id'], channel_id=c['channel_id'])
+        l2.rpc.listpeerchannels(short_channel_id="1x2x3", channel_id=['channel_id'])
 
 
 def test_networkevents(node_factory, executor):

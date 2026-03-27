@@ -5,13 +5,15 @@ from fixtures import *  # noqa: F401,F403
 from hashlib import sha256
 from pyln.client import RpcError, Millisatoshi
 from pyln.proto import Invoice
+from pyln.proto.onion import TlvPayload
 from pyln.testing.utils import FUNDAMOUNT
 from utils import (
     only_one, sync_blockheight, TIMEOUT, wait_for, TEST_NETWORK,
     expected_peer_features, expected_node_features,
     expected_channel_features, account_balance,
     check_coin_moves, first_channel_id, EXPERIMENTAL_DUAL_FUND,
-    mine_funding_to_announce, VALGRIND, first_scid
+    mine_funding_to_announce, VALGRIND, first_scid,
+    serialize_payload_tlv, tu64_encode
 )
 from tests.test_wallet import HsmTool, write_all, WAIT_TIMEOUT
 
@@ -1274,6 +1276,75 @@ def test_htlc_accepted_hook_direct_restart(node_factory, executor):
     f1.result()
 
 
+def test_htlc_accepted_hook_direct_restart_blinded(node_factory, executor):
+    """l2 restarts while it is pondering what to do with a blinded HTLC."""
+    l1, l2 = node_factory.line_graph(2, opts=[
+        {'may_reconnect': True},
+        {'may_reconnect': True,
+         'dev-allow-localhost': None,
+         'plugin': os.path.join(os.getcwd(), 'tests/plugins/hold_htlcs.py')}
+    ], wait_for_announce=True)
+
+    blockheight = l1.rpc.getinfo()['blockheight']
+    offer = l2.rpc.offer('any')
+    inv = l1.rpc.fetchinvoice(offer['bolt12'], '1000msat')
+    decoded = l1.rpc.decode(inv['invoice'])
+    assert len(decoded['invoice_paths']) == 1
+    assert decoded['invoice_paths'][0]['first_node_id'] == l2.info['id']
+
+    path_key = decoded['invoice_paths'][0]['first_path_key']
+    path = decoded['invoice_paths'][0]['path']
+    assert len(path) == 1
+
+    final_tlvs = TlvPayload()
+    final_tlvs.add_field(2, tu64_encode(1000))
+    final_tlvs.add_field(4, tu64_encode(blockheight + 18))
+    final_tlvs.add_field(10, bytes.fromhex(path[0]['encrypted_recipient_data']))
+    final_tlvs.add_field(12, bytes.fromhex(path_key))
+    final_tlvs.add_field(18, tu64_encode(1000))
+
+    hops = [{'pubkey': l1.info['id'],
+             'payload': serialize_payload_tlv(1000, 18 + 6,
+                                              first_scid(l1, l2),
+                                              blockheight).hex()},
+            {'pubkey': l2.info['id'],
+             'payload': final_tlvs.to_bytes().hex()}]
+    onion = l1.rpc.createonion(hops=hops,
+                               assocdata=decoded['invoice_payment_hash'])
+
+    f1 = executor.submit(l1.rpc.injectpaymentonion,
+                         onion=onion['onion'],
+                         payment_hash=decoded['invoice_payment_hash'],
+                         amount_msat=1000,
+                         cltv_expiry=blockheight + 18 + 6,
+                         partid=1,
+                         groupid=0,
+                         invstring=inv['invoice'])
+
+    l2.daemon.wait_for_log(r'Holding onto an incoming htlc for 10 seconds')
+
+    # Check that the status mentions the HTLC being held.
+    l2.rpc.listpeers()
+    channel = only_one(l2.rpc.listpeerchannels()['channels'])
+    htlc_status = channel['htlcs'][0].get('status', None)
+    assert htlc_status == "Waiting for the htlc_accepted hook of plugin hold_htlcs.py"
+
+    needle = l2.daemon.logsearch_start
+    l2.restart()
+
+    # The replayed HTLC should be reprocessed after startup and plugin init.
+    l2.daemon.logsearch_start = needle + 1
+    l2.daemon.wait_for_log(r'hold_htlcs.py initializing')
+    l2.daemon.wait_for_log(r'Replaying old unprocessed HTLC #')
+    l2.daemon.wait_for_log(r'Holding onto an incoming htlc for 10 seconds')
+
+    ret = f1.result()
+    assert sha256(bytes.fromhex(ret['payment_preimage'])).hexdigest() == decoded['invoice_payment_hash']
+
+    label = f"{decoded['offer_id']}-{decoded['invreq_payer_id']}-0"
+    assert only_one(l2.rpc.listinvoices(label)['invoices'])['status'] == 'paid'
+
+
 def test_htlc_accepted_hook_forward_restart(node_factory, executor):
     """l2 restarts while it is pondering what to do with an HTLC.
     """
@@ -1490,9 +1561,12 @@ def test_forward_event_notification(node_factory, bitcoind, executor):
     plugin_stats = l2.rpc.call('listforwards_plugin')['forwards']
     assert len(plugin_stats) == 6
 
-    # We don't have payment_hash in listforwards any more.
+    # We don't have payment_hash in listforwards any more. We also don't have
+    # preimage in listforwards
     for p in plugin_stats:
         del p['payment_hash']
+        if p.get('preimage') is not None:
+            del p['preimage']
 
     # use stats to build what we expect went to plugin.
     expect = stats[0].copy()
@@ -1742,6 +1816,7 @@ def test_libplugin(node_factory):
     assert l1.daemon.is_in_stderr(r"somearg-deprecated=test_opt: deprecated option")
 
     del l1.daemon.opts["somearg-deprecated"]
+    l1.daemon.opts["multiopt"] = ['hello', 'world']
     l1.start()
 
     # Test that check works as expected.
@@ -1754,6 +1829,9 @@ def test_libplugin(node_factory):
 
     # This works
     assert l1.rpc.check('checkthis', key=["test_libplugin", "name"]) == {'command_to_check': 'checkthis'}
+
+    assert l1.daemon.is_in_log('plugin-test_libplugin: multiopt#0 = hello')
+    assert l1.daemon.is_in_log('plugin-test_libplugin: multiopt#1 = world')
 
 
 def test_libplugin_deprecated(node_factory):
@@ -4054,6 +4132,8 @@ def test_sql(node_factory, bitcoind):
                          'type': 'string'},
                         {'name': 'timestamp',
                          'type': 'u32'},
+                        {'name': 'currencyrate',
+                         'type': 'number'},
                         {'name': 'description',
                          'type': 'string'},
                         {'name': 'outpoint',
@@ -4313,11 +4393,11 @@ def test_sql(node_factory, bitcoind):
 
 
 def test_sql_deprecated(node_factory, bitcoind):
-    l1, l2 = node_factory.line_graph(2, opts=[{'allow-deprecated-apis': True}, {}])
+    l1, l2 = node_factory.line_graph(2, opts=[{'allow-deprecated-apis': True, "broken_log": "DEPRECATED API USED: listpeerchannels.max_total_htlc_in_msat"}, {}])
 
-    # Even with deprecated APIs, this isn't there.
-    with pytest.raises(RpcError, match="Deprecated column table peerchannels.max_total_htlc_in_msat"):
-        l1.rpc.sql("SELECT max_total_htlc_in_msat FROM peerchannels;")
+    # With deprecated APIs, this is there.
+    ret = l1.rpc.sql("SELECT max_total_htlc_in_msat FROM peerchannels;")
+    assert ret == {'rows': [[-1]]}
 
     # It's deprecated in l2, so that will fail!
     with pytest.raises(RpcError, match="Deprecated column table peerchannels.max_total_htlc_in_msat"):

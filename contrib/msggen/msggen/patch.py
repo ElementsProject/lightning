@@ -21,25 +21,35 @@ class Patch(ABC):
 
         """
 
-        def recurse(f: model.Field):
+        def recurse(f: model.Field, inherited_added: Optional[str] = None, inherited_deprecated=None):
             # First recurse if we have further type definitions
-            self.visit(f)
+            self.visit(f, inherited_added=inherited_added, inherited_deprecated=inherited_deprecated)
 
             if isinstance(f, model.ArrayField):
-                self.visit(f.itemtype, f)
-                recurse(f.itemtype)
+                self.visit(f.itemtype, f, inherited_added=f.added or inherited_added, inherited_deprecated=f.deprecated or inherited_deprecated)
+                recurse(f.itemtype, inherited_added=f.added or inherited_added, inherited_deprecated=f.deprecated or inherited_deprecated)
             elif isinstance(f, model.CompositeField):
                 for c in f.fields:
-                    self.visit(c, f)
-                    recurse(c)
+                    self.visit(c, f, inherited_added=inherited_added, inherited_deprecated=inherited_deprecated)
+                    recurse(c, inherited_added=inherited_added, inherited_deprecated=inherited_deprecated)
             # Now visit ourselves
 
         for m in service.methods:
-            recurse(m.request)
-            recurse(m.response)
+            root_added = getattr(m.request, 'added', None) or getattr(m, 'added', None)
+            root_deprecated = getattr(m.request, 'deprecated', None) or getattr(m, 'deprecated', None)
+            if isinstance(root_deprecated, list):
+                assert len(root_deprecated) == 2
+                root_deprecated = root_deprecated[0]
+            recurse(m.request, inherited_added=root_added, inherited_deprecated=root_deprecated)
+            recurse(m.response, inherited_added=root_added, inherited_deprecated=root_deprecated)
         for n in service.notifications:
-            recurse(n.request)
-            recurse(n.response)
+            root_added = getattr(n.request, 'added', None) or getattr(n, 'added', None)
+            root_deprecated = getattr(n.request, 'deprecated', None) or getattr(n, 'deprecated', None)
+            if isinstance(root_deprecated, list):
+                assert len(root_deprecated) == 2
+                root_deprecated = root_deprecated[0]
+            recurse(n.request, inherited_added=root_added, inherited_deprecated=root_deprecated)
+            recurse(n.response, inherited_added=root_added, inherited_deprecated=root_deprecated)
 
 
 class VersionAnnotationPatch(Patch):
@@ -58,21 +68,26 @@ class VersionAnnotationPatch(Patch):
         """Create a patch that can annotate `added` and `deprecated`"""
         self.meta = meta
 
-    def visit(self, f: model.Field, parent: Optional[model.Field] = None) -> None:
+    def visit(self, f: model.Field, parent: Optional[model.Field] = None, inherited_added: Optional[str] = None, inherited_deprecated: Optional[str] = None) -> None:
         m = self.meta["model-field-versions"].get(f.path, {})
-
-        # The following lines are used to backfill fields that predate
-        # the introduction, so they need to use a default version to
-        # mark. These are stored in `.msggen.json` only, and we use
-        # the default value only on the first run. Code left commented
-        # to show how it was done
-        # if f.added is None and 'added' not in m:
-        #    m['added'] = 'pre-v0.10.1'
 
         added = m.get("added", None)
         deprecated = m.get("deprecated", None)
 
-        assert added or f.added, f"Field {f.path} does not have an `added` annotation"
+        if f.added is None and inherited_added is None and added is not None and added != "pre-v0.10.1":
+            raise ValueError(f"Post v0.10.1 method {f.path} has no `added` annotation")
+
+        if f.added is None and inherited_added is None and added is None:
+            raise ValueError(f"New method {f.path} has no `added` annotation")
+
+        if f.added is None:
+            f.added = inherited_added
+
+        if f.added is None:
+            f.added = added
+
+        if f.added and added and f.added != added:
+            raise ValueError(f"Field {f.path} changed `added` annotation: {f.added} != {added}")
 
         # We do not allow the added and deprecated flags to be
         # modified after the fact.
@@ -94,10 +109,8 @@ class VersionAnnotationPatch(Patch):
                     f"Field {f.path} changed `deprecated` annotation: {f.deprecated} vs {deprecated}"
                 )
 
-        if f.added is None:
-            f.added = added
         if f.deprecated is None:
-            f.deprecated = deprecated
+            f.deprecated = deprecated or inherited_deprecated
 
         # Backfill the metadata using the annotation
         self.meta["model-field-versions"][f.path] = {
@@ -135,9 +148,9 @@ class OptionalPatch(Patch):
         fields more stringent.
         """
 
-        return OptionalPatch.version_to_number("v0.10.1")
+        return OptionalPatch.version_to_number("v24.11")
 
-    def visit(self, f: model.Field, parent: Optional[model.Field] = None) -> None:
+    def visit(self, f: model.Field, parent: Optional[model.Field] = None, **kwargs) -> None:
         # Return if the optional field has been set already
         if "optional" in dir(f):
             if f.optional is not None:
@@ -219,7 +232,7 @@ class OverridePatch(Patch):
         "Wait.htlcs.state": "HtlcState",
     }
 
-    def visit(self, f: model.Field, parent: Optional[model.Field] = None) -> None:
+    def visit(self, f: model.Field, parent: Optional[model.Field] = None, **kwargs) -> None:
         """For now just skips the fields we can't convert."""
         f.omitted = f.path in self.omit
         f.type_override = self.overrides.get(f.path, None)

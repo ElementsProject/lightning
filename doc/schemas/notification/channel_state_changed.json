@@ -66,7 +66,7 @@
         ],
         "description": [
           "The channel state, in particular \"CHANNELD_NORMAL\" and \"CHANNELD_AWAITING_SPLICE\" mean the channel can be used normally.",
-          "The deprecated value 'unknown' is also present for new channels: after v26.03 this field will be omitted instead."
+          "The deprecated value 'unknown' is also present for new channels: after v26.04 this field will be omitted instead."
         ],
         "added": "pre-v0.10.1"
       },

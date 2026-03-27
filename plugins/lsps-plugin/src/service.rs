@@ -12,9 +12,9 @@ use cln_lsps::{
         },
         server::LspsService,
     },
-    proto::lsps0::Msat,
+    proto::lsps0::{Msat, LSPS0_MESSAGE_TYPE},
 };
-use cln_plugin::{options, Plugin};
+use cln_plugin::{options, HookBuilder, HookFilter, Plugin};
 use log::{debug, error, trace};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -78,7 +78,10 @@ async fn main() -> Result<(), anyhow::Error> {
         //     cln_plugin::FeatureBitsKind::Init,
         //     util::feature_bit_to_hex(LSP_FEATURE_BIT),
         // )
-        .hook("custommsg", service_custommsg_hook)
+        .hook_from_builder(
+            HookBuilder::new("custommsg", service_custommsg_hook)
+                .filters(vec![HookFilter::Int(i64::from(LSPS0_MESSAGE_TYPE))]),
+        )
         .hook("htlc_accepted", on_htlc_accepted)
         .configure()
         .await?

@@ -6,10 +6,12 @@
 #include <ccan/tal/str/str.h>
 #include <channeld/channeld_wiregen.h>
 #include <common/addr.h>
+#include <common/channel_id.h>
 #include <common/htlc_trim.h>
 #include <common/initial_commit_tx.h>
 #include <common/json_channel_type.h>
 #include <common/json_command.h>
+#include <common/psbt_open.h>
 #include <common/timeout.h>
 #include <common/version.h>
 #include <common/wire_error.h>
@@ -308,7 +310,7 @@ static struct bitcoin_tx *sign_and_send_last(const tal_t *ctx,
 	tx = sign_last_tx(ctx, channel, last_tx, last_sig);
 	bitcoin_txid(tx, &txid);
 	wallet_transaction_add(ld->wallet, tx->wtx, 0, 0);
-	wallet_extract_owned_outputs(ld->wallet, tx->wtx, false, NULL);
+	wallet_extract_owned_outputs(ld->wallet, tx->wtx, false, NULL, NULL);
 
 	/* Remember anchor information for commit_tx_boost */
 	adet = create_anchor_details(NULL, channel, tx);
@@ -328,22 +330,18 @@ static enum watch_result funding_spent(struct channel *channel,
 				       const struct block *block);
 
 /* We coop-closed channel: if another inflight confirms, force close */
-static enum watch_result closed_inflight_depth_cb(struct lightningd *ld,
-						  const struct bitcoin_txid *txid,
-						  const struct bitcoin_tx *tx,
-						  unsigned int depth,
-						  struct channel_inflight *inflight)
+static void closed_inflight_splice_found(struct lightningd *ld,
+					 const struct bitcoin_tx *tx,
+					 u32 outnum,
+					 const struct txlocator *loc,
+					 struct channel_inflight *inflight)
 {
-	if (depth == 0)
-		return KEEP_WATCHING;
-
 	/* This is now the main tx. */
 	update_channel_from_inflight(ld, inflight->channel, inflight, false);
 	channel_fail_saw_onchain(inflight->channel,
 				 REASON_UNKNOWN,
 				 tx,
 				 "Inflight tx confirmed after mutual close");
-	return DELETE_WATCH;
 }
 
 void drop_to_chain(struct lightningd *ld, struct channel *channel,
@@ -355,8 +353,45 @@ void drop_to_chain(struct lightningd *ld, struct channel *channel,
 
 	/* If we withheld the funding tx, we simply close */
 	if (channel->withheld) {
+		struct htlc_out_map_iter outi;
+		struct htlc_out *hout;
+
 		log_info(channel->log,
 			 "Withheld channel: not sending a close transaction");
+
+		for (hout = htlc_out_map_first(ld->htlcs_out, &outi);
+		     hout;
+		     hout = htlc_out_map_next(ld->htlcs_out, &outi)) {
+			if (hout->key.channel != channel)
+				continue;
+			/* Has already been settled or failed */
+			if (!hout->in
+			    || hout->in->badonion != 0
+			    || hout->in->failonion
+			    || hout->in->preimage)
+				continue;
+			local_fail_in_htlc(hout->in,
+					   take(towire_permanent_channel_failure(NULL)));
+		}
+
+		/* Unreserve any UTXOs from the withheld funding PSBT */
+		if (channel->funding_psbt) {
+			for (size_t i = 0; i < channel->funding_psbt->num_inputs; i++) {
+				struct bitcoin_outpoint outpoint;
+				struct utxo *utxo;
+
+				wally_psbt_input_get_outpoint(
+					&channel->funding_psbt->inputs[i], &outpoint);
+				utxo = wallet_utxo_get(tmpctx, ld->wallet, &outpoint);
+				if (!utxo || utxo->status != OUTPUT_STATE_RESERVED)
+					continue;
+
+				wallet_unreserve_utxo(ld->wallet, utxo,
+						      get_block_height(ld->topology),
+						      utxo->reserved_til);
+			}
+		}
+
 		resolve_close_command(ld, channel, cooperative,
 				      tal_arr(tmpctx, const struct bitcoin_tx *, 0));
 		free_htlcs(ld, channel);
@@ -451,9 +486,15 @@ void drop_to_chain(struct lightningd *ld, struct channel *channel,
 						&channel->funding)) {
 				continue;
 			}
-			watch_txid(inflight, ld->topology,
-				   &inflight->funding->outpoint.txid,
-				   closed_inflight_depth_cb, inflight);
+			const u8 *funding_wscript = bitcoin_redeem_2of2(tmpctx,
+									&channel->local_funding_pubkey,
+									inflight->funding->splice_remote_funding);
+			watch_scriptpubkey(inflight, ld->topology,
+					   take(scriptpubkey_p2wsh(NULL, funding_wscript)),
+					   &inflight->funding->outpoint,
+					   inflight->funding->total_funds,
+					   closed_inflight_splice_found,
+					   inflight);
 		}
 	}
 }
@@ -1058,7 +1099,8 @@ static void NON_NULL_ARGS(1, 2, 4, 5) json_add_channel(struct command *cmd,
 	if (channel->shutdown_scriptpubkey[LOCAL]) {
 		char *addr = encode_scriptpubkey_to_addr(tmpctx,
 					chainparams,
-					channel->shutdown_scriptpubkey[LOCAL]);
+					channel->shutdown_scriptpubkey[LOCAL],
+					tal_bytelen(channel->shutdown_scriptpubkey[LOCAL]));
 		if (addr)
 			json_add_string(response, "close_to_addr", addr);
 		json_add_hex_talarr(response, "close_to",
@@ -1196,7 +1238,7 @@ static void NON_NULL_ARGS(1, 2, 4, 5) json_add_channel(struct command *cmd,
 	json_add_amount_sat_msat(response, "dust_limit_msat",
 				 channel->our_config.dust_limit);
 	if (command_deprecated_out_ok(cmd, "max_total_htlc_in_msat",
-				      "v25.02", "v26.03"))
+				      "v25.02", "v26.04"))
 		json_add_amount_msat(response, "max_total_htlc_in_msat",
 				     channel->our_config.max_htlc_value_in_flight);
 	json_add_amount_msat(
@@ -2267,83 +2309,80 @@ void update_channel_from_inflight(struct lightningd *ld,
 	wallet_channel_save(ld->wallet, channel);
 }
 
+/* All reorg callback must return DELETE_WATCH; we make this so it's clear that we
+ * won't be called again. */
+static enum watch_result funding_reorged_cb(struct lightningd *ld, struct channel *channel)
+{
+	log_unusual(channel->log, "Funding txid %s REORG from depth %u (state %s)",
+		    fmt_bitcoin_txid(tmpctx, &channel->funding.txid),
+		    channel->depth,
+		    channel_state_name(channel));
+	channel->depth = 0;
+
+	/* That's not entirely unexpected in early states */
+	switch (channel->state) {
+	case DUALOPEND_AWAITING_LOCKIN:
+	case DUALOPEND_OPEN_INIT:
+	case DUALOPEND_OPEN_COMMIT_READY:
+	case DUALOPEND_OPEN_COMMITTED:
+		/* Shouldn't be here! */
+		channel_internal_error(channel,
+				       "Bad %s state: %s",
+				       __func__,
+				       channel_state_name(channel));
+		return DELETE_WATCH;
+	case CHANNELD_AWAITING_LOCKIN:
+		/* That's not entirely unexpected in early states */
+		log_debug(channel->log, "Funding tx %s reorganized out!",
+			  fmt_bitcoin_txid(tmpctx, &channel->funding.txid));
+		channel_set_scid(channel, NULL);
+		return DELETE_WATCH;
+
+		/* But it's often Bad News in later states */
+	case CHANNELD_AWAITING_SPLICE:
+	case CHANNELD_NORMAL:
+		/* If we opened, or it's zero-conf, we trust them anyway. */
+		if (channel->opener == LOCAL
+		    || channel->minimum_depth == 0) {
+			const char *str;
+
+			str = tal_fmt(tmpctx,
+				      "Funding tx %s reorganized out, but %s...",
+				      fmt_bitcoin_txid(tmpctx, &channel->funding.txid),
+				      channel->opener == LOCAL ? "we opened it" : "zeroconf anyway");
+
+			/* Log even if not connected! */
+			if (!channel->owner)
+				log_info(channel->log, "%s", str);
+			channel_fail_transient(channel, true, "%s", str);
+			return DELETE_WATCH;
+		}
+		/* fall thru */
+	case AWAITING_UNILATERAL:
+	case CHANNELD_SHUTTING_DOWN:
+	case CLOSINGD_SIGEXCHANGE:
+	case CLOSINGD_COMPLETE:
+	case FUNDING_SPEND_SEEN:
+	case ONCHAIN:
+	case CLOSED:
+		break;
+	}
+
+	channel_internal_error(channel,
+			       "Funding transaction has been reorged out in state %s!",
+			       channel_state_name(channel));
+	return DELETE_WATCH;
+}
+
 static enum watch_result funding_depth_cb(struct lightningd *ld,
-					  const struct bitcoin_txid *txid,
-					  const struct bitcoin_tx *tx,
 					  unsigned int depth,
 					  struct channel *channel)
 {
-	/* This is stub channel, we don't activate anything! */
-	if (channel->scid && is_stub_scid(*channel->scid))
-		return DELETE_WATCH;
-
-	/* We only use this to watch the current funding tx */
-	assert(bitcoin_txid_eq(txid, &channel->funding.txid));
-
 	channel->depth = depth;
 
 	log_debug(channel->log, "Funding tx %s depth %u of %u",
-		  fmt_bitcoin_txid(tmpctx, txid),
+		  fmt_bitcoin_txid(tmpctx, &channel->funding.txid),
 		  depth, channel->minimum_depth);
-
-	/* Reorged out? */
-	if (depth == 0) {
-		/* That's not entirely unexpected in early states */
-		switch (channel->state) {
-		case DUALOPEND_AWAITING_LOCKIN:
-		case DUALOPEND_OPEN_INIT:
-		case DUALOPEND_OPEN_COMMIT_READY:
-		case DUALOPEND_OPEN_COMMITTED:
-			/* Shouldn't be here! */
-			channel_internal_error(channel,
-					       "Bad %s state: %s",
-					       __func__,
-					       channel_state_name(channel));
-			return DELETE_WATCH;
-		case CHANNELD_AWAITING_LOCKIN:
-			/* That's not entirely unexpected in early states */
-			log_debug(channel->log, "Funding tx %s reorganized out!",
-				  fmt_bitcoin_txid(tmpctx, txid));
-			channel_set_scid(channel, NULL);
-			return KEEP_WATCHING;
-
-		/* But it's often Bad News in later states */
-		case CHANNELD_AWAITING_SPLICE:
-		case CHANNELD_NORMAL:
-			/* If we opened, or it's zero-conf, we trust them anyway. */
-			if (channel->opener == LOCAL
-			    || channel->minimum_depth == 0) {
-				const char *str;
-
-				str = tal_fmt(tmpctx,
-					      "Funding tx %s reorganized out, but %s...",
-					      fmt_bitcoin_txid(tmpctx, txid),
-					      channel->opener == LOCAL ? "we opened it" : "zeroconf anyway");
-
-				/* Log even if not connected! */
-				if (!channel->owner)
-					log_info(channel->log, "%s", str);
-				channel_fail_transient(channel, true, "%s", str);
-				return KEEP_WATCHING;
-			}
-			/* fall thru */
-		case AWAITING_UNILATERAL:
-		case CHANNELD_SHUTTING_DOWN:
-		case CLOSINGD_SIGEXCHANGE:
-		case CLOSINGD_COMPLETE:
-		case FUNDING_SPEND_SEEN:
-		case ONCHAIN:
-		case CLOSED:
-			break;
-		}
-		channel_internal_error(channel,
-				       "Funding transaction has been reorged out in state %s!",
-				       channel_state_name(channel));
-		return KEEP_WATCHING;
-	}
-
-	if (!depthcb_update_scid(channel, txid, &channel->funding))
-		return DELETE_WATCH;
 
 	switch (channel->state) {
 	/* We should not be in the callback! */
@@ -2363,7 +2402,7 @@ static enum watch_result funding_depth_cb(struct lightningd *ld,
 		/* If not awaiting lockin/announce, it doesn't care any more */
 		log_debug(channel->log,
 			  "Funding tx %s confirmed, but peer in state %s",
-			  fmt_bitcoin_txid(tmpctx, txid),
+			  fmt_bitcoin_txid(tmpctx, &channel->funding.txid),
 			  channel_state_name(channel));
 		return DELETE_WATCH;
 
@@ -2377,7 +2416,7 @@ static enum watch_result funding_depth_cb(struct lightningd *ld,
 		/* Fall thru */
 	case CHANNELD_NORMAL:
 	case CHANNELD_AWAITING_SPLICE:
-		channeld_tell_depth(channel, txid, depth);
+		channeld_tell_depth(channel, &channel->funding.txid, depth);
 
 		if (depth < ANNOUNCE_MIN_DEPTH || depth < channel->minimum_depth)
 			return KEEP_WATCHING;
@@ -2385,6 +2424,30 @@ static enum watch_result funding_depth_cb(struct lightningd *ld,
 		return DELETE_WATCH;
 	}
 	abort();
+}
+
+void channel_watch_depth(struct lightningd *ld,
+			 u32 blockheight,
+			 struct channel *channel)
+{
+	watch_blockdepth(channel, ld->topology, blockheight,
+			 funding_depth_cb,
+			 funding_reorged_cb,
+			 channel);
+}
+
+/* We see this tx output spend to the funding address. */
+static void channel_funding_found(struct lightningd *ld,
+				  const struct bitcoin_tx *tx,
+				  u32 outnum,
+				  const struct txlocator *loc,
+				  struct channel *channel)
+{
+	/* Closes channel if it doesn't fit in an scid! */
+	if (depthcb_update_scid(channel, &channel->funding, loc)) {
+		/* We will almost immediately get called, which is what we want! */
+		channel_watch_depth(ld, loc->blkheight, channel);
+	}
 }
 
 static enum watch_result funding_spent(struct channel *channel,
@@ -2430,26 +2493,55 @@ void channel_watch_wrong_funding(struct lightningd *ld, struct channel *channel)
 	}
 }
 
-/* We need to do this before we change channel funding (for splice), otherwise
- * funding_depth_cb will fail the assertion that it's the current funding tx */
-void channel_unwatch_funding(struct lightningd *ld, struct channel *channel)
+void channel_watch_funding_out(struct lightningd *ld, struct channel *channel)
 {
-	tal_free(find_txwatch(ld->topology,
-			      &channel->funding.txid, funding_depth_cb, channel));
+	tal_free(channel->funding_spend_watch);
+	channel->funding_spend_watch = watch_txo(channel, ld->topology, channel,
+						 &channel->funding,
+						 funding_spent);
 }
 
 void channel_watch_funding(struct lightningd *ld, struct channel *channel)
 {
 	log_debug(channel->log, "Watching for funding txid: %s",
-		fmt_bitcoin_txid(tmpctx, &channel->funding.txid));
-	watch_txid(channel, ld->topology,
-		   &channel->funding.txid, funding_depth_cb, channel);
+		  fmt_bitcoin_txid(tmpctx, &channel->funding.txid));
 
-	tal_free(channel->funding_spend_watch);
-	channel->funding_spend_watch = watch_txo(channel, ld->topology, channel,
-						 &channel->funding,
-						 funding_spent);
+	/* This is stub channel, we don't watch anything funding. */
+	if (!channel->scid || !is_stub_scid(*channel->scid)) {
+		const u8 *funding_wscript = bitcoin_redeem_2of2(tmpctx,
+								&channel->local_funding_pubkey,
+								&channel->channel_info.remote_fundingkey);
+
+		watch_scriptpubkey(channel, ld->topology,
+				   take(scriptpubkey_p2wsh(NULL, funding_wscript)),
+				   &channel->funding,
+				   channel->funding_sats,
+				   channel_funding_found,
+				   channel);
+	}
+
+	/* We watch for closing of course. */
+	channel_watch_funding_out(ld, channel);
 	channel_watch_wrong_funding(ld, channel);
+}
+
+void channel_unwatch_funding(struct lightningd *ld, struct channel *channel)
+{
+	const u8 *funding_wscript = bitcoin_redeem_2of2(tmpctx,
+							&channel->local_funding_pubkey,
+							&channel->channel_info.remote_fundingkey);
+
+	/* This is stub channel, we don't watch anything! */
+	if (channel->scid && is_stub_scid(*channel->scid))
+		return;
+
+	unwatch_scriptpubkey(channel, ld->topology,
+			     scriptpubkey_p2wsh(tmpctx, funding_wscript),
+			     &channel->funding,
+			     channel->funding_sats,
+			     channel_funding_found,
+			     channel);
+	/* FIXME: unwatch txo and depth too? */
 }
 
 static void json_add_peer(struct lightningd *ld,
@@ -2630,16 +2722,22 @@ static struct command_result *json_listpeerchannels(struct command *cmd,
 	struct peer *peer;
 	struct json_stream *response;
 	struct short_channel_id *scid;
+	struct channel_id *cid;
 
 	if (!param_check(cmd, buffer, params,
 			 p_opt("id", param_node_id, &peer_id),
 			 p_opt("short_channel_id", param_short_channel_id, &scid),
+			 p_opt("channel_id", param_channel_id, &cid),
 			 NULL))
 		return command_param_failed();
 
-	if (scid && peer_id)
+	int count = (peer_id != NULL) + (scid != NULL) + (cid != NULL);
+	if (count > 1) {
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "Cannot specify both short_channel_id and id");
+				    "Must not specify more than one of "
+					 "short_channel_id, channel_id or id"
+		);
+	}
 
 	response = json_stream_success(cmd);
 	json_array_start(response, "channels");
@@ -2650,6 +2748,10 @@ static struct command_result *json_listpeerchannels(struct command *cmd,
 			json_add_peerchannels(cmd, response, peer);
 	} else if (scid) {
 		const struct channel *c = any_channel_by_scid(cmd->ld, *scid, true);
+		if (c)
+			json_add_channel(cmd, response, NULL, c, c->peer);
+	} else if (cid) {
+		const struct channel *c = channel_by_cid(cmd->ld, cid);
 		if (c)
 			json_add_channel(cmd, response, NULL, c, c->peer);
 	} else {

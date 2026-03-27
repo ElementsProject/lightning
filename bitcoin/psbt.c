@@ -7,6 +7,7 @@
 #include <ccan/ccan/mem/mem.h>
 #include <common/utils.h>
 #include <wally_psbt.h>
+#include <wally_psbt_members.h>
 #include <wire/wire.h>
 
 
@@ -480,6 +481,28 @@ void psbt_input_set_witscript(struct wally_psbt *psbt, size_t in, const u8 *wscr
 	tal_wally_end(psbt);
 }
 
+const u8 *psbt_input_get_witscript(const tal_t *ctx,
+				    const struct wally_psbt *psbt,
+				    size_t in)
+{
+	size_t witscript_len, written_len;
+	u8 *witscript;
+	if (wally_psbt_get_input_witness_script_len(psbt, in, &witscript_len) != WALLY_OK)
+		abort();
+	witscript = tal_arr(ctx, u8, witscript_len);
+	if (wally_psbt_get_input_witness_script(psbt, in, witscript, witscript_len, &written_len) != WALLY_OK)
+		abort();
+	if (witscript_len != written_len)
+		abort();
+	return witscript;
+}
+
+bool psbt_input_get_ecdsa_sig(const tal_t *ctx,
+						 const struct wally_psbt *psbt,
+						 size_t in,
+						 const struct pubkey *pubkey,
+						 struct bitcoin_signature **sig);
+
 void psbt_elements_input_set_asset(struct wally_psbt *psbt, size_t in,
 				   struct amount_asset *asset)
 {
@@ -592,10 +615,16 @@ struct amount_sat psbt_input_get_amount(const struct wally_psbt *psbt,
 }
 
 size_t psbt_input_get_weight(const struct wally_psbt *psbt,
-			     size_t in)
+			     size_t in,
+			     enum PSBT_GUESS guess)
 {
 	size_t weight;
 	const struct wally_map_item *redeem_script;
+	struct wally_psbt_input *input = &psbt->inputs[in];
+	struct wally_tx_output *utxo_out = NULL;
+
+	if (input->utxo)
+		utxo_out = &input->utxo->outputs[input->index];
 
 	redeem_script = wally_map_get_integer(&psbt->inputs[in].psbt_fields, /* PSBT_IN_REDEEM_SCRIPT */ 0x04);
 
@@ -605,8 +634,20 @@ size_t psbt_input_get_weight(const struct wally_psbt *psbt,
 		weight +=
 			(redeem_script->value_len +
 				varint_size(redeem_script->value_len)) * 4;
+	} else if ((guess & PSBT_GUESS_2OF2)
+		   && utxo_out
+		   && is_p2wsh(utxo_out->script, utxo_out->script_len, NULL)) {
+		weight = bitcoin_tx_input_weight(false,
+						 bitcoin_tx_2of2_input_witness_weight());
+	} else if (utxo_out
+		   && is_p2wpkh(utxo_out->script, utxo_out->script_len, NULL)) {
+		weight = bitcoin_tx_input_weight(false,
+						 bitcoin_tx_input_witness_weight(UTXO_P2SH_P2WPKH));
+	} else if (utxo_out
+		   && is_p2tr(utxo_out->script, utxo_out->script_len, NULL)) {
+		weight = bitcoin_tx_input_weight(false,
+						 bitcoin_tx_input_witness_weight(UTXO_P2TR));
 	} else {
-		/* zero scriptSig length */
 		weight += varint_size(0) * 4;
 	}
 

@@ -56,6 +56,7 @@ class GrpcUnconverterGenerator(GrpcConverterGenerator):
                     "short_channel_id": f"cln_rpc::primitives::ShortChannelId::from_str(&s).unwrap()",
                     "short_channel_id_dir": f"cln_rpc::primitives::ShortChannelIdDir::from_str(&s).unwrap()",
                     "pubkey": f"PublicKey::from_slice(&s).unwrap()",
+                    "txid": f"hex::encode(s)",
                 }.get(typ, f"s.into()")
 
                 # TODO fix properly

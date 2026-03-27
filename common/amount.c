@@ -7,6 +7,7 @@
 #include <common/overflows.h>
 #include <common/utils.h>
 #include <inttypes.h>
+#include <stdio.h>
 #include <wire/wire.h>
 
 bool amount_sat_to_msat(struct amount_msat *msat,
@@ -62,6 +63,24 @@ const char *fmt_amount_msat_btc(const tal_t *ctx,
 char *fmt_amount_msat(const tal_t *ctx, struct amount_msat msat)
 {
 	return tal_fmt(ctx, "%"PRIu64"msat", msat.millisatoshis);
+}
+
+#define LSIZE 5
+
+char *fmt_amount_m_as_sat(const tal_t *ctx, struct amount_msat msat)
+{
+	char last[LSIZE] = {0};
+
+	if (msat.millisatoshis % MSAT_PER_SAT) {
+		snprintf(last, LSIZE, ".%03"PRIu64,
+			 msat.millisatoshis % MSAT_PER_SAT);
+		while(last[strlen(last) - 1] == '0')
+			last[strlen(last) - 1] = 0;
+	}
+
+	return tal_fmt(ctx, "%"PRIu64"%ssat",
+		       msat.millisatoshis / MSAT_PER_SAT,
+		       last);
 }
 
 const char *fmt_amount_sat_btc(const tal_t *ctx,
@@ -397,6 +416,13 @@ WARN_UNUSED_RESULT bool amount_sat_add_sat_s64(struct amount_sat *val,
 		return amount_sat_sub(val, a, amount_sat(-b));
 	else
 		return amount_sat_add(val, a, amount_sat(b));
+}
+
+bool amount_msat_can_add_sat_s64(struct amount_msat a, s64 b)
+{
+	struct amount_msat val;
+	/* This fails if the result goes below 0 */
+	return amount_msat_add_sat_s64(&val, a, b);
 }
 
 bool amount_sat_eq(struct amount_sat a, struct amount_sat b)

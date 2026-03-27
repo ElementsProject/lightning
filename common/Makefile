@@ -68,6 +68,7 @@ COMMON_SRC_NOGEN :=				\
 	common/keyset.c				\
 	common/lease_rates.c			\
 	common/memleak.c			\
+	common/mkdatastorekey.c			\
 	common/msg_queue.c			\
 	common/node_id.c			\
 	common/onion_decode.c			\
@@ -157,8 +158,8 @@ ALL_C_SOURCES += $(COMMON_SRC)
 common/htlc_state_names_gen.h: common/htlc_state.h ccan/ccan/cdump/tools/cdump-enumstr
 	ccan/ccan/cdump/tools/cdump-enumstr common/htlc_state.h > $@
 
-check-source-bolt: $(COMMON_SRC_NOGEN:%=bolt-check/%) $(COMMON_HEADERS:%=bolt-check/%)
-check-whitespace: $(COMMON_SRC_NOGEN:%=check-whitespace/%) $(COMMON_HEADERS:%=check-whitespace/%)
+check-source-bolt: $(COMMON_SRC_NOGEN:%=bolt-check/%) $(COMMON_HEADERS_NOGEN:%=bolt-check/%)
+check-whitespace: $(COMMON_SRC_NOGEN:%=check-whitespace/%) $(COMMON_HEADERS_NOGEN:%=check-whitespace/%)
 
 clean: common-clean
 

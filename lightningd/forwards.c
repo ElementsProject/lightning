@@ -1,7 +1,9 @@
 #include "config.h"
+#include <bitcoin/preimage.h>
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
 #include <common/json_command.h>
+#include <common/json_stream.h>
 #include <inttypes.h>
 #include <lightningd/forwards.h>
 #include <lightningd/jsonrpc.h>
@@ -86,7 +88,8 @@ bool string_to_forward_status(const char *status_str,
  * between 'listforwards' API and 'forward_event' notification. */
 void json_add_forwarding_fields(struct json_stream *response,
 				const struct forwarding *cur,
-				const struct sha256 *payment_hash)
+				const struct sha256 *payment_hash,
+				const struct preimage *preimage)
 {
 	/* We don't bother grabbing id from db on update. */
 	if (cur->created_index)
@@ -136,6 +139,8 @@ void json_add_forwarding_fields(struct json_stream *response,
 	json_add_timeabs(response, "received_time", cur->received_time);
 	if (cur->resolved_time)
 		json_add_timeabs(response, "resolved_time", *cur->resolved_time);
+	if (preimage)
+		json_add_preimage(response, "preimage", preimage);
 }
 
 static void listforwardings_add_forwardings(struct json_stream *response,
@@ -155,7 +160,7 @@ static void listforwardings_add_forwardings(struct json_stream *response,
 	while (stmt) {
 		const struct forwarding *cur = forwarding_details(tmpctx, wallet, stmt);
 		json_object_start(response, NULL);
-		json_add_forwarding_fields(response, cur, NULL);
+		json_add_forwarding_fields(response, cur, NULL, NULL);
 		json_object_end(response);
 		tal_free(cur);
 		stmt = forwarding_next(wallet, stmt);

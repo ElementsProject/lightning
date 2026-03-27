@@ -2255,6 +2255,10 @@ static void dev_report_fds(struct daemon *daemon, const u8 *msg)
 			status_info("dev_report_fds: %i -> gossip_store", fd);
 			continue;
 		}
+		if (fd == tor_service_fd) {
+			status_info("dev_report_fds: %i -> tor service fd", fd);
+			continue;
+		}
 		c = io_have_fd(fd, &listener);
 		if (!c) {
 			/* We consider a single CHR as expected */

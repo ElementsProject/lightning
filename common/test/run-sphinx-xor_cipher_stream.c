@@ -1,5 +1,6 @@
 #include "config.h"
 #include "../sphinx.c"
+#include <bitcoin/tx.h>
 #include <common/setup.h>
 #include <stdio.h>
 
@@ -103,14 +104,14 @@ struct onionreply *new_onionreply(const tal_t *ctx UNNEEDED, const u8 *contents 
 /* Generated stub for pubkey_from_node_id */
 bool pubkey_from_node_id(struct pubkey *key UNNEEDED, const struct node_id *id UNNEEDED)
 { fprintf(stderr, "pubkey_from_node_id called!\n"); abort(); }
+/* Generated stub for siphash_seed */
+const struct siphash_seed *siphash_seed(void)
+{ fprintf(stderr, "siphash_seed called!\n"); abort(); }
 /* Generated stub for subkey_from_hmac */
 void subkey_from_hmac(const char *prefix UNNEEDED,
 		      const struct secret *base UNNEEDED,
 		      struct secret *key UNNEEDED)
 { fprintf(stderr, "subkey_from_hmac called!\n"); abort(); }
-/* Generated stub for tlv_payload_new */
-struct tlv_payload *tlv_payload_new(const tal_t *ctx UNNEEDED)
-{ fprintf(stderr, "tlv_payload_new called!\n"); abort(); }
 /* Generated stub for towire */
 void towire(u8 **pptr UNNEEDED, const void *data UNNEEDED, size_t len UNNEEDED)
 { fprintf(stderr, "towire called!\n"); abort(); }
@@ -136,9 +137,6 @@ void towire_secp256k1_ecdsa_signature(u8 **pptr UNNEEDED,
 /* Generated stub for towire_sha256 */
 void towire_sha256(u8 **pptr UNNEEDED, const struct sha256 *sha256 UNNEEDED)
 { fprintf(stderr, "towire_sha256 called!\n"); abort(); }
-/* Generated stub for towire_tlv_payload */
-void towire_tlv_payload(u8 **pptr UNNEEDED, const struct tlv_payload *record UNNEEDED)
-{ fprintf(stderr, "towire_tlv_payload called!\n"); abort(); }
 /* Generated stub for towire_u16 */
 void towire_u16(u8 **pptr UNNEEDED, u16 v UNNEEDED)
 { fprintf(stderr, "towire_u16 called!\n"); abort(); }

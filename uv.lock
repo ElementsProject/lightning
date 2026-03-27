@@ -460,7 +460,6 @@ dependencies = [
     { name = "grpcio" },
     { name = "grpcio-tools" },
     { name = "mako" },
-    { name = "mnemonic" },
     { name = "protobuf" },
     { name = "pyln-client" },
     { name = "pyln-grpc-proto" },
@@ -502,7 +501,6 @@ requires-dist = [
     { name = "grpcio", specifier = "==1.75.1" },
     { name = "grpcio-tools", specifier = "==1.75.1" },
     { name = "mako", specifier = ">=1.1.6" },
-    { name = "mnemonic", specifier = ">=0.21" },
     { name = "protobuf", specifier = "==6.32.1" },
     { name = "pyln-client", editable = "contrib/pyln-client" },
     { name = "pyln-grpc-proto", editable = "contrib/pyln-grpc-proto" },
@@ -1623,7 +1621,7 @@ dev = [{ name = "pyln-proto", editable = "contrib/pyln-proto" }]
 
 [[package]]
 name = "pyln-client"
-version = "25.12"
+version = "26.4rc1"
 source = { editable = "contrib/pyln-client" }
 dependencies = [
     { name = "pyln-bolt7" },
@@ -1682,7 +1680,7 @@ dev = [
 
 [[package]]
 name = "pyln-proto"
-version = "25.12"
+version = "26.4rc1"
 source = { editable = "contrib/pyln-proto" }
 dependencies = [
     { name = "base58" },
@@ -1712,13 +1710,14 @@ dev = [{ name = "pytest", specifier = ">=8.0.0" }]
 
 [[package]]
 name = "pyln-testing"
-version = "25.12"
+version = "26.4rc1"
 source = { editable = "contrib/pyln-testing" }
 dependencies = [
     { name = "cheroot" },
     { name = "ephemeral-port-reserve" },
     { name = "flask" },
     { name = "jsonschema" },
+    { name = "mnemonic" },
     { name = "psutil" },
     { name = "psycopg2-binary" },
     { name = "pyln-client" },
@@ -1747,6 +1746,7 @@ requires-dist = [
     { name = "flask", specifier = ">=3.0.0" },
     { name = "grpcio", marker = "extra == 'grpc'", specifier = ">=1.75.0" },
     { name = "jsonschema", specifier = ">=4.4.0" },
+    { name = "mnemonic", specifier = ">=0.21" },
     { name = "psutil", specifier = ">=5.9.0" },
     { name = "psycopg2-binary", specifier = ">=2.9.0" },
     { name = "pyln-client", editable = "contrib/pyln-client" },

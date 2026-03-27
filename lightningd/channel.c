@@ -93,6 +93,9 @@ void delete_channel(struct channel *channel STEALS,
 	struct lightningd *ld = peer->ld;
 
 	if (channel->dbid != 0) {
+		/* We no longer care about the funding transaction */
+		channel_unwatch_funding(ld, channel);
+
 		wallet_channel_close(ld->wallet, channel);
 		/* Never open at all, not ours. */
 		if (completely_eliminate)
@@ -201,6 +204,7 @@ new_inflight(struct channel *channel,
 	inflight->funding_psbt = tal_steal(inflight, psbt);
 	inflight->last_tx = NULL;
 	inflight->tx_broadcast = false;
+	inflight->scid = NULL;
 
 	/* Channel lease infos */
 	inflight->lease_blockheight_start = lease_blockheight_start;
@@ -718,18 +722,6 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
  	/* Populate channel->channel_gossip */
 	channel_gossip_init(channel, take(peer_update));
 
-	/* Make sure we see any spends using this key */
-	if (!local_shutdown_scriptpubkey) {
-		if (anysegwit) {
-			txfilter_add_scriptpubkey(peer->ld->owned_txfilter,
-						  take(p2tr_for_keyidx(NULL, peer->ld,
-									 channel->final_key_idx)));
-		} else {
-			txfilter_add_scriptpubkey(peer->ld->owned_txfilter,
-						  take(p2wpkh_for_keyidx(NULL, peer->ld,
-									 channel->final_key_idx)));
-		}
-	}
 	/* scid is NULL when opening a new channel so we don't
 	 * need to set error in that case as well */
 	if (channel->scid && is_stub_scid(*channel->scid))

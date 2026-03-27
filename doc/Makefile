@@ -30,6 +30,7 @@ MARKDOWNPAGES := doc/addgossip.7 \
 	doc/bkpr-listaccountevents.7 \
 	doc/bkpr-listbalances.7 \
 	doc/bkpr-listincome.7 \
+	doc/bkpr-report.7 \
 	doc/blacklistrune.7 \
 	doc/cancelrecurringinvoice.7 \
 	doc/check.7 \
@@ -42,6 +43,8 @@ MARKDOWNPAGES := doc/addgossip.7 \
 	doc/createinvoice.7 \
 	doc/createonion.7 \
 	doc/createrune.7 \
+	doc/currencyconvert.7 \
+	doc/currencyrate.7 \
 	doc/datastore.7 \
 	doc/datastoreusage.7 \
 	doc/decode.7 \
@@ -85,6 +88,7 @@ MARKDOWNPAGES := doc/addgossip.7 \
 	doc/listchannels.7 \
 	doc/listclosedchannels.7 \
 	doc/listconfigs.7 \
+	doc/listcurrencyrates.7 \
 	doc/listdatastore.7 \
 	doc/listforwards.7 \
 	doc/listfunds.7 \
@@ -135,9 +139,11 @@ MARKDOWNPAGES := doc/addgossip.7 \
 	doc/signmessage.7 \
 	doc/signmessagewithkey.7 \
 	doc/signpsbt.7 \
+	doc/splicein.7 \
 	doc/splice_init.7 \
 	doc/splice_signed.7 \
 	doc/splice_update.7 \
+	doc/spliceout.7 \
 	doc/staticbackup.7 \
 	doc/stop.7 \
 	doc/txdiscard.7 \

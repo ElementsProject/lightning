@@ -16,7 +16,6 @@
 
 static int lightningd_fd;
 static struct privkey priv;
-static struct siphash_seed siphashseed;
 jmp_buf fuzz_env;
 
 /* MOCKS START */
@@ -27,9 +26,6 @@ u8 *towire_warningfmt(const tal_t *ctx UNNEEDED,
 		      const struct channel_id *channel UNNEEDED,
 		      const char *fmt UNNEEDED, ...)
 { longjmp(fuzz_env, 1); }
-
-const struct siphash_seed *siphash_seed(void)
-{ return &siphashseed; }
 /* MOCKS END */
 
 void ecdh(const struct pubkey *point, struct secret *ss)
@@ -68,19 +64,19 @@ void init(int *argc, char ***argv)
 	lightningd_fd = open("/dev/null", O_WRONLY);
 	status_setup_sync(lightningd_fd);
 	chainparams = chainparams_for_network("bitcoin");
+	fuzz_allow_siphash_seed = true;
 
 	memset(&priv, 'b', sizeof(priv));
-	memset(&siphashseed, 1, sizeof(siphashseed));
 }
 
 void run(const uint8_t *data, size_t size)
 {
-	if (setjmp(fuzz_env) != 0)
-		goto cleanup;
-
-	struct daemon *daemon;
+	struct daemon *daemon = NULL;
 	struct peer *peer;
 	struct pubkey dummy_key;
+
+	if (setjmp(fuzz_env) != 0)
+		goto cleanup;
 
 	memset(&dummy_key, 'c', sizeof(dummy_key));
 

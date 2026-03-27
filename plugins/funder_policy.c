@@ -20,7 +20,7 @@ const char *funder_opt_name(enum funder_opt opt)
 	abort();
 }
 
-char *funding_option(struct plugin *plugin, const char *arg, bool check_only, enum funder_opt *opt)
+char *funding_option(struct command *cmd, const char *arg, bool check_only, enum funder_opt *opt)
 {
 	enum funder_opt v;
 	if (streq(arg, "match"))
@@ -39,7 +39,7 @@ char *funding_option(struct plugin *plugin, const char *arg, bool check_only, en
 	return NULL;
 }
 
-bool jsonfmt_funding_option(struct plugin *plugin,
+bool jsonfmt_funding_option(struct command *cmd,
 			    struct json_stream *js,
 			    const char *fieldname,
 			    enum funder_opt *opt)

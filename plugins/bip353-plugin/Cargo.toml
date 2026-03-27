@@ -17,7 +17,7 @@ tokio = "1"
 
 log-panics = "2"
 
-cln-plugin = { version = "0.5", path = "../../plugins" }
+cln-plugin = { workspace = true }
 
 bitcoin-payment-instructions = { version = "0.5.0", features = ["http"] }
 

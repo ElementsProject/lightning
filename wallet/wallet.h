@@ -801,10 +801,18 @@ u32 wallet_blocks_contig_minheight(struct wallet *w);
 
 /**
  * wallet_extract_owned_outputs - given a tx, extract all of our outputs
+ * @w: wallet
+ * @is_coinbase: true if this is output 0 (can't spend for 100 blocks)
+ * @blockheight: non-NULL blockheight if known.
+ * @outputs: if non-NULL, output numbers of owned outputs are appended to it.
+ *
+ * Returns true if at least one output was to one of our addresses.
  */
-int wallet_extract_owned_outputs(struct wallet *w, const struct wally_tx *tx,
-				 bool is_coinbase,
-				 const u32 *blockheight);
+bool wallet_extract_owned_outputs(struct wallet *w,
+				  const struct wally_tx *wtx,
+				  bool is_coinbase,
+				  const u32 *blockheight,
+				  size_t **outputs);
 
 /**
  * wallet_htlc_save_in - store an htlc_in in the database
@@ -1271,13 +1279,6 @@ struct bitcoin_tx *wallet_transaction_get(const tal_t *ctx, struct wallet *w,
  * txid. Returns 0 if the transaction was not part of any block.
  */
 u32 wallet_transaction_height(struct wallet *w, const struct bitcoin_txid *txid);
-
-/**
- * Locate a transaction in the blockchain, returns NULL if the transaction is
- * not tracked or is not yet confirmed.
- */
-struct txlocator *wallet_transaction_locate(const tal_t *ctx, struct wallet *w,
-					    const struct bitcoin_txid *txid);
 
 /**
  * Get transaction IDs for transactions that we are tracking.

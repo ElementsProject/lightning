@@ -70,11 +70,11 @@ struct command_result *establish_onion_path_(struct command *cmd UNNEEDED,
 					     void *arg UNNEEDED)
 { fprintf(stderr, "establish_onion_path_ called!\n"); abort(); }
 /* Generated stub for flag_jsonfmt */
-bool flag_jsonfmt(struct plugin *plugin UNNEEDED, struct json_stream *js UNNEEDED, const char *fieldname UNNEEDED,
+bool flag_jsonfmt(struct command *cmd UNNEEDED, struct json_stream *js UNNEEDED, const char *fieldname UNNEEDED,
 		  bool *i UNNEEDED)
 { fprintf(stderr, "flag_jsonfmt called!\n"); abort(); }
 /* Generated stub for flag_option */
-char *flag_option(struct plugin *plugin UNNEEDED, const char *arg UNNEEDED, bool check_only UNNEEDED, bool *i UNNEEDED)
+char *flag_option(struct command *cmd UNNEEDED, const char *arg UNNEEDED, bool check_only UNNEEDED, bool *i UNNEEDED)
 { fprintf(stderr, "flag_option called!\n"); abort(); }
 /* Generated stub for forward_error */
 struct command_result *forward_error(struct command *cmd UNNEEDED,
@@ -174,6 +174,9 @@ void   plugin_err(struct plugin *p UNNEEDED, const char *fmt UNNEEDED, ...)
 /* Generated stub for plugin_feature_set */
 const struct feature_set *plugin_feature_set(const struct plugin *p UNNEEDED)
 { fprintf(stderr, "plugin_feature_set called!\n"); abort(); }
+/* Generated stub for plugin_get_data_ */
+void *plugin_get_data_(struct plugin *plugin UNNEEDED)
+{ fprintf(stderr, "plugin_get_data_ called!\n"); abort(); }
 /* Generated stub for plugin_gossmap_logcb */
 void plugin_gossmap_logcb(struct plugin *plugin UNNEEDED,
 			  enum log_level level UNNEEDED,

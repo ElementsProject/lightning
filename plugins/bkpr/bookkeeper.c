@@ -3,6 +3,7 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/cast/cast.h>
 #include <ccan/json_escape/json_escape.h>
+#include <ccan/json_out/json_out.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/tal/tal.h>
@@ -11,8 +12,11 @@
 #include <common/bolt12.h>
 #include <common/clock_time.h>
 #include <common/coin_mvt.h>
+#include <common/iso4217.h>
 #include <common/json_param.h>
 #include <common/json_stream.h>
+#include <common/memleak.h>
+#include <common/mkdatastorekey.h>
 #include <common/node_id.h>
 #include <db/exec.h>
 #include <errno.h>
@@ -29,6 +33,7 @@
 #include <plugins/bkpr/onchain_fee.h>
 #include <plugins/bkpr/rebalances.h>
 #include <plugins/bkpr/recorder.h>
+#include <plugins/bkpr/report.h>
 #include <plugins/libplugin.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -36,15 +41,88 @@
 #define CHAIN_MOVE "chain_mvt"
 #define CHANNEL_MOVE "channel_mvt"
 
-static struct bkpr *bkpr_of(struct plugin *plugin)
+/* We accept currencyrate from about 60 seconds ago */
+#define CURRENCYRATE_TOLERANCE_SECONDS 60
+
+struct bkpr *bkpr_of(struct plugin *plugin)
 {
 	return plugin_get_data(plugin, struct bkpr);
 }
 
-struct refresh_info {
-	size_t calls_remaining;
+const struct currencyrate *covering_currencyrate(const struct bkpr *bkpr,
+						 u64 timestamp)
+{
+	/* We look for the previous entry, then check duration covers this. */
+	u64 ts = timestamp + 1;
+	const struct currencyrate *crate = uintmap_before(bkpr->currency_rates, &ts);
+
+	if (crate && ts + crate->duration > timestamp)
+		return crate;
+	return NULL;
+}
+
+static u64 ratefactor(const struct iso4217_name_and_divisor *currency)
+{
+	u64 mul = 1;
+	for (u32 i = 0; i < currency->minor_unit; i++)
+		mul *= 10;
+	return mul;
+}
+
+const char *currencyrate_str(const tal_t *ctx,
+			     const struct bkpr *bkpr,
+			     u64 timestamp,
+			     const struct amount_msat *msat)
+{
+	const struct currencyrate *crate;
+	u64 mul, intpart, fracpart, raw_rate;
+
+	crate = covering_currencyrate(bkpr, timestamp);
+	if (!crate)
+		return NULL;
+	mul = ratefactor(bkpr->currency);
+
+	if (msat) {
+		unsigned __int128 v;
+		v = (unsigned __int128)msat->millisatoshis * crate->raw_rate /* Raw: 128-bit math */;
+		raw_rate = v / MSAT_PER_BTC;
+	} else {
+		raw_rate = crate->raw_rate;
+	}
+
+	intpart = raw_rate / mul;
+	fracpart = raw_rate % mul;
+
+	if (bkpr->currency->minor_unit == 0)
+		return tal_fmt(ctx, "%"PRIu64, intpart);
+
+	return tal_fmt(ctx, "%"PRIu64".%0*"PRIu64,
+		       intpart,
+		       (int)bkpr->currency->minor_unit,
+		       fracpart);
+}
+
+void json_add_currencyrate(struct json_stream *result,
+			   const char *fieldname,
+			   const struct bkpr *bkpr,
+			   u64 timestamp)
+{
+	const char *str = currencyrate_str(NULL, bkpr, timestamp, NULL);
+
+	if (str)
+		json_add_primitive(result, fieldname, take(str));
+}
+
+struct refresh_cb {
+	struct command *cmd;
 	struct command_result *(*cb)(struct command *, void *);
 	void *arg;
+};
+
+/* If one is already running, simply append your own cb & arg */
+struct refresh_info {
+	size_t calls_remaining;
+	struct refresh_cb *callbacks;
 };
 
 /* Rules: call use_rinfo when handing to a callback.
@@ -63,10 +141,27 @@ static struct command_result *rinfo_one_done(struct command *cmd,
 					     struct refresh_info *rinfo)
 {
 	assert(rinfo->calls_remaining > 0);
-	if (--rinfo->calls_remaining == 0)
-		return rinfo->cb(cmd, rinfo->arg);
-	else
-		return command_still_pending(cmd);
+	if (--rinfo->calls_remaining == 0) {
+		struct command_result *first_ret = NULL;
+		struct bkpr *bkpr = bkpr_of(cmd->plugin);
+
+		assert(rinfo == bkpr->rinfo);
+		bkpr->rinfo = NULL;
+
+		/* We return first one (it's for this command), ignore the rest */
+		for (size_t i = 0; i < tal_count(rinfo->callbacks); i++) {
+			struct command_result *ret;
+			const struct refresh_cb *cb = &rinfo->callbacks[i];
+
+			ret = cb->cb(cb->cmd, cb->arg);
+			if (i == 0)
+				first_ret = ret;
+		}
+		tal_free(rinfo);
+		return first_ret;
+	}
+
+	return command_still_pending(cmd);
 }
 
 struct command_result *ignore_datastore_reply(struct command *cmd,
@@ -126,7 +221,8 @@ static struct command_result *listchannelmoves_done(struct command *cmd,
 		parse_and_log_channel_move(cmd, buf, t, rinfo);
 
 	be_index = cpu_to_be64(bkpr->channelmoves_index);
-	jsonrpc_set_datastore_binary(cmd, "bookkeeper/channelmoves_index",
+	jsonrpc_set_datastore_binary(cmd,
+				     mkdatastorekey(tmpctx, "bookkeeper", "channelmoves_index"),
 				     &be_index, sizeof(be_index),
 				     "create-or-replace",
 				     datastore_done, NULL, use_rinfo(rinfo));
@@ -171,7 +267,8 @@ static struct command_result *listchainmoves_done(struct command *cmd,
 		parse_and_log_chain_move(cmd, buf, t, rinfo);
 
 	be_index = cpu_to_be64(bkpr->chainmoves_index);
-	jsonrpc_set_datastore_binary(cmd, "bookkeeper/chainmoves_index",
+	jsonrpc_set_datastore_binary(cmd,
+				     mkdatastorekey(tmpctx, "bookkeeper", "chainmoves_index"),
 				     &be_index, sizeof(be_index),
 				     "create-or-replace",
 				     datastore_done, NULL, use_rinfo(rinfo));
@@ -186,17 +283,31 @@ static struct command_result *refresh_moves_(struct command *cmd,
 						     void *),
 					     void *arg)
 {
-	struct refresh_info *rinfo = tal(cmd, struct refresh_info);
 	struct out_req *req;
 	struct bkpr *bkpr = bkpr_of(cmd->plugin);
+	struct refresh_cb refresh_cb;
 
-	rinfo->cb = cb;
-	rinfo->arg = arg;
-	rinfo->calls_remaining = 0;
+	refresh_cb.cmd = cmd;
+	refresh_cb.cb = cb;
+	refresh_cb.arg = arg;
+
+	/* If rinfo already running, just jump on that.
+	 *
+	 * NOTE: We assume cmd will not exit before refresh, which is
+	 * currently true, otherwise we'd need a destructor to remove it. */
+	if (bkpr->rinfo) {
+		tal_arr_expand(&bkpr->rinfo->callbacks, refresh_cb);
+		return command_still_pending(cmd);
+	}
+
+	bkpr->rinfo = tal(bkpr, struct refresh_info);
+	bkpr->rinfo->calls_remaining = 0;
+	bkpr->rinfo->callbacks = tal_dup_arr(bkpr->rinfo, struct refresh_cb, &refresh_cb, 1, 0);
+
 	req = jsonrpc_request_start(cmd, "listchainmoves",
 				    listchainmoves_done,
 				    plugin_broken_cb,
-				    use_rinfo(rinfo));
+				    use_rinfo(bkpr->rinfo));
 	json_add_string(req->js, "index", "created");
 	json_add_u64(req->js, "start", bkpr->chainmoves_index + 1);
 	return send_outreq(req);
@@ -367,6 +478,48 @@ static struct command_result *json_dump_income(struct command *cmd,
 		return command_param_failed();
 
 	return refresh_moves(cmd, do_dump_income, info);
+}
+
+static struct command_result *param_escaped_string_array(struct command *cmd,
+							 const char *name,
+							 const char *buffer,
+							 const jsmntok_t *tok,
+							 const char ***arr)
+{
+	size_t i;
+	const jsmntok_t *s;
+
+	if (tok->type != JSMN_ARRAY)
+		return command_fail_badparam(cmd, name, buffer, tok,
+					     "should be an array");
+	*arr = tal_arr(cmd, const char *, tok->size);
+	json_for_each_arr(i, s, tok) {
+		struct command_result *ret;
+
+		ret = param_escaped_string(cmd, name, buffer, s, &(*arr)[i]);
+		if (ret)
+			return ret;
+		tal_steal((*arr)[i], *arr);
+	}
+	return NULL;
+}
+
+static struct command_result *json_bkpr_report(struct command *cmd,
+					       const char *buf,
+					       const jsmntok_t *params)
+{
+	struct report_info *info = tal(cmd, struct report_info);
+
+	if (!param(cmd, buf, params,
+		   p_req("format", param_report_format, &info->format),
+		   p_opt("headers", param_escaped_string_array, &info->headers),
+		   p_opt_def("escape", param_escape_format, &info->escapes, REPORT_FMT_NONE),
+		   p_opt_def("start_time", param_u64, &info->start_time, 0),
+		   p_opt_def("end_time", param_u64, &info->end_time, SQLITE_MAX_UINT),
+		   NULL))
+		return command_param_failed();
+
+	return refresh_moves(cmd, do_bkpr_report, info);
 }
 
 struct list_income_info {
@@ -600,7 +753,7 @@ static void json_add_events(struct json_stream *res,
 		}
 
 		/* Last thing left is the fee */
-		json_add_onchain_fee(res, fee);
+		json_add_onchain_fee(res, bkpr, fee);
 		k++;
 	}
 }
@@ -1080,6 +1233,153 @@ static struct command_result *lookup_invoice_desc(struct command *cmd,
 	return send_outreq(req);
 }
 
+struct currency_time {
+	struct refresh_info *rinfo;
+	const struct iso4217_name_and_divisor *currency;
+	u64 timestamp;
+};
+
+static struct command_result *currencyrate_ds_done(struct command *cmd,
+						   const char *method,
+						   const char *buf,
+						   const jsmntok_t *result,
+						   struct refresh_info *rinfo)
+{
+	return rinfo_one_done(cmd, rinfo);
+}
+
+static struct command_result *currency_done(struct command *cmd,
+					    const char *method,
+					    const char *buf,
+					    const jsmntok_t *result,
+					    struct currency_time *ctime)
+{
+	struct bkpr *bkpr = bkpr_of(cmd->plugin);
+	double rate;
+	const char *err;
+
+	err = json_scan(cmd, buf, result, "{rate:%}",
+			JSON_SCAN(json_to_double, &rate));
+	if (err) {
+		plugin_log(cmd->plugin, LOG_BROKEN,
+			   "Invalid currencyrate return '%.*s': %s",
+			   json_tok_full_len(result),
+			   json_tok_full(buf, result), err);
+	/* Make sure they didn't change currency while we were out! */
+	} else if (bkpr->currency == ctime->currency) {
+		char *val;
+		const char **key;
+		u64 raw_rate = (u64)(rate * ratefactor(bkpr->currency));
+		/* Can we extend previous entry */
+		u64 ts = ctime->timestamp + 1;
+		struct currencyrate *crate
+			= uintmap_before(bkpr->currency_rates, &ts);
+
+		if (crate) {
+			u64 crate_end = ts + crate->duration;
+			/* If we raced, it might already be there! */
+			if (crate_end > ctime->timestamp)
+				goto out;
+
+			/* Reuse if it's recent, and the same rate.
+			 * (Recent check avoid glossing over failures, if we
+			 * couldn't get reliable data). */
+			if (raw_rate == crate->raw_rate
+			    && crate_end + CURRENCYRATE_TOLERANCE_SECONDS > ctime->timestamp) {
+				uintmap_del(bkpr->currency_rates, ts);
+				crate->duration = ctime->timestamp - ts + 1;
+			} else {
+				crate = NULL;
+			}
+		}
+
+		if (!crate) {
+			ts = ctime->timestamp;
+			crate = tal(bkpr->currency_rates, struct currencyrate);
+			crate->raw_rate = raw_rate;
+			crate->duration = 1;
+		}
+		uintmap_add(bkpr->currency_rates, ts, crate);
+		val = tal_fmt(tmpctx, "%"PRIu64":%u",
+			      crate->raw_rate, crate->duration);
+		key = mkdatastorekey(tmpctx,
+				     "bookkeeper",
+				     "currencyrate",
+				     ctime->currency->name,
+				     take(tal_fmt(NULL, "%"PRIu64, ts)));
+		jsonrpc_set_datastore_string(cmd, key, val,
+					     "create-or-replace",
+					     currencyrate_ds_done,
+					     plugin_broken_cb,
+					     use_rinfo(ctime->rinfo));
+	}
+out:
+	return rinfo_one_done(cmd, ctime->rinfo);
+}
+
+static struct command_result *currency_error(struct command *cmd,
+					     const char *method,
+					     const char *buf,
+					     const jsmntok_t *error,
+					     struct currency_time *ctime)
+{
+	struct bkpr *bkpr = bkpr_of(cmd->plugin);
+
+	if (!bkpr->warned_currency_fail) {
+		plugin_log(cmd->plugin, LOG_BROKEN,
+			   "error calling %s: %.*s",
+			   method, json_tok_full_len(error),
+			   json_tok_full(buf, error));
+		bkpr->warned_currency_fail = true;
+	}
+
+	return rinfo_one_done(cmd, ctime->rinfo);
+}
+
+static void lookup_currency(struct command *cmd,
+			    struct bkpr *bkpr,
+			    enum mvt_tag primary_tag,
+			    u64 timestamp,
+			    struct refresh_info *rinfo)
+{
+	struct out_req *req;
+	struct currency_time *ctime;
+	u64 now;
+
+	/* If we already have the timestamp, we're done */
+	if (covering_currencyrate(bkpr, timestamp) != NULL)
+		return;
+
+	/* If it's more than 60 seconds old, we should not apply the current
+	 * conversion.  This can definitely happen when we first turn on
+	 * currency conversion though, so don't print in that case. */
+	now = clock_time().ts.tv_sec;
+	if (now > timestamp + CURRENCYRATE_TOLERANCE_SECONDS) {
+		if (!uintmap_empty(bkpr->currency_rates)
+		    && !bkpr->warned_currency_fail) {
+			plugin_log(cmd->plugin, LOG_BROKEN,
+				   "Event %s timestamp %"PRIu64" is %"PRIu64" seconds old: too old for current %s currencyrate (only logging first such event: there may be others)",
+				   mvt_tag_str(primary_tag),
+				   timestamp, now - timestamp,
+				   bkpr->currency->name);
+			bkpr->warned_currency_fail = true;
+		}
+		return;
+	}
+
+	ctime = tal(cmd, struct currency_time);
+	ctime->timestamp = timestamp;
+	ctime->currency = bkpr->currency;
+	ctime->rinfo = use_rinfo(rinfo);
+	req = jsonrpc_request_start(cmd,
+				    "currencyrate",
+				    currency_done,
+				    currency_error,
+				    ctime);
+	json_add_string(req->js, "currency", bkpr->currency->name);
+	send_outreq(req);
+}
+
 static enum mvt_tag *json_to_tags(const tal_t *ctx, const char *buffer, const jsmntok_t *tok)
 {
 	size_t i;
@@ -1224,10 +1524,8 @@ parse_and_log_chain_move(struct command *cmd,
 	if (e->origin_acct)
 		find_or_create_account(cmd, bkpr, e->origin_acct);
 
-	/* Make this visible for queries (we expect increasing!).  If we raced, this is not true. */
-	if (e->db_id <= bkpr->chainmoves_index)
-		return;
-
+	/* Make this visible for queries (we expect increasing!). */
+	assert(e->db_id > bkpr->chainmoves_index);
 	bkpr->chainmoves_index = e->db_id;
 
 	/* This event *might* have implications for account;
@@ -1273,6 +1571,9 @@ parse_and_log_chain_move(struct command *cmd,
 			break;
 		}
 	}
+
+	if (bkpr->currency)
+		lookup_currency(cmd, bkpr, tag, e->timestamp, rinfo);
 }
 
 static void
@@ -1340,9 +1641,8 @@ parse_and_log_channel_move(struct command *cmd,
 			   " but no account exists %s",
 			   acct_name);
 
-	/* Make this visible for queries (we expect increasing!).  If we raced, this is not true. */
-	if (e->db_id <= bkpr->channelmoves_index)
-		return;
+	/* Make this visible for queries (we expect increasing!). */
+	assert(e->db_id > bkpr->channelmoves_index);
 	bkpr->channelmoves_index = e->db_id;
 
 	/* Check for invoice desc data, necessary */
@@ -1353,8 +1653,10 @@ parse_and_log_channel_move(struct command *cmd,
 			maybe_record_rebalance(cmd, bkpr, e);
 
 		lookup_invoice_desc(cmd, e->credit, e->payment_id, rinfo);
-		return;
 	}
+
+	if (bkpr->currency)
+		lookup_currency(cmd, bkpr, tag, e->timestamp, rinfo);
 }
 
 static bool json_to_tok(const char *buffer, const jsmntok_t *tok, const jsmntok_t **ret)
@@ -1516,6 +1818,10 @@ static const struct plugin_command commands[] = {
 		json_channel_apy
 	},
 	{
+		"bkpr-report",
+		json_bkpr_report,
+	},
+	{
 		"bkpr-editdescriptionbypaymentid",
 		json_edit_desc_payment_id
 	},
@@ -1532,6 +1838,78 @@ static bool json_hex_to_be64(const char *buffer, const jsmntok_t *tok,
 			  val, sizeof(*val));
 }
 
+static void memleak_scan_currencyrates(struct htable *memtable,
+				       currencymap_t *currency_rates)
+{
+	memleak_scan_uintmap(memtable, currency_rates);
+}
+
+/* Whenever wait says the chainmoves or channelmoves fires, we refresh */
+
+/* Mutual recursion */
+static struct command_result *
+currency_chainmoves_wait(struct command *auxcmd, void *unused);
+static struct command_result *
+currency_channelmoves_wait(struct command *auxcmd, void *unused);
+
+static struct command_result *
+currency_chainmoves_wait_done(struct command *auxcmd,
+			      const char *methodname,
+			      const char *buf,
+			      const jsmntok_t *result,
+			      void *unused)
+{
+	return refresh_moves(auxcmd, currency_chainmoves_wait, NULL);
+}
+
+static struct command_result *
+currency_channelmoves_wait_done(struct command *auxcmd,
+				const char *methodname,
+				const char *buf,
+				const jsmntok_t *result,
+				void *unused)
+{
+	return refresh_moves(auxcmd, currency_channelmoves_wait, NULL);
+}
+
+static struct command_result *
+currency_chainmoves_wait(struct command *auxcmd, void *unused)
+{
+	struct bkpr *bkpr = bkpr_of(auxcmd->plugin);
+	struct out_req *req;
+	req = jsonrpc_request_start(auxcmd, "wait",
+				    currency_chainmoves_wait_done,
+				    plugin_broken_cb,
+				    NULL);
+	json_add_string(req->js, "subsystem", "chainmoves");
+	json_add_string(req->js, "indexname", "created");
+	json_add_u64(req->js, "nextvalue", bkpr->chainmoves_index+1);
+	return send_outreq(req);
+}
+
+static struct command_result *
+currency_channelmoves_wait(struct command *auxcmd, void *unused)
+{
+	struct bkpr *bkpr = bkpr_of(auxcmd->plugin);
+	struct out_req *req;
+	req = jsonrpc_request_start(auxcmd, "wait",
+				    currency_channelmoves_wait_done,
+				    plugin_broken_cb,
+				    NULL);
+	json_add_string(req->js, "subsystem", "channelmoves");
+	json_add_string(req->js, "indexname", "created");
+	json_add_u64(req->js, "nextvalue", bkpr->channelmoves_index+1);
+	return send_outreq(req);
+}
+
+/* If we're supposed to do currency conversions, we refresh all the time. */
+static void start_waiting_for_currency(struct bkpr *bkpr, struct command *cmd)
+{
+	bkpr->currency_cmds = aux_command(cmd);
+	currency_chainmoves_wait(bkpr->currency_cmds, NULL);
+	currency_channelmoves_wait(bkpr->currency_cmds, NULL);
+}
+
 static const char *init(struct command *init_cmd, const char *b, const jsmntok_t *t)
 {
 	struct plugin *p = init_cmd->plugin;
@@ -1543,21 +1921,144 @@ static const char *init(struct command *init_cmd, const char *b, const jsmntok_t
 	bkpr->descriptions = init_descriptions(bkpr, init_cmd);
 	bkpr->rebalances = init_rebalances(bkpr, init_cmd);
 	bkpr->blockheights = init_blockheights(bkpr, init_cmd);
+	bkpr->rinfo = NULL;
 
 	/* Callers always expect the wallet account to exist. */
 	find_or_create_account(init_cmd, bkpr, ACCOUNT_NAME_WALLET);
 
 	/* Not existing is OK! */
-	if (rpc_scan_datastore_hex(tmpctx, init_cmd, "bookkeeper/channelmoves_index",
+	if (rpc_scan_datastore_hex(tmpctx, init_cmd,
+				   mkdatastorekey(tmpctx, "bookkeeper", "channelmoves_index"),
 				   JSON_SCAN(json_hex_to_be64, &index)) == NULL) {
 		bkpr->channelmoves_index = be64_to_cpu(index);
 	} else
 		bkpr->channelmoves_index = 0;
-	if (rpc_scan_datastore_hex(tmpctx, init_cmd, "bookkeeper/chainmoves_index",
+	if (rpc_scan_datastore_hex(tmpctx, init_cmd,
+				   mkdatastorekey(tmpctx, "bookkeeper", "chainmoves_index"),
 				   JSON_SCAN(json_hex_to_be64, &index)) == NULL) {
 		bkpr->chainmoves_index = be64_to_cpu(index);
 	} else
 		bkpr->chainmoves_index = 0;
+
+	/* If we're supposed to do currency conversions, start refresh now. */
+	if (bkpr->currency)
+		start_waiting_for_currency(bkpr, init_cmd);
+
+	return NULL;
+}
+
+static void load_currencyrates(struct command *cmd,
+			       struct bkpr *bkpr)
+{
+	struct json_out *params;
+	const jsmntok_t *reply, *ds, *t;
+	const char *buf;
+	size_t i;
+
+	params = json_out_new(NULL);
+	json_out_start(params, NULL, '{');
+	json_out_start(params, "key", '[');
+	json_out_addstr(params, NULL, "bookkeeper");
+	json_out_addstr(params, NULL, "currencyrate");
+	json_out_addstr(params, NULL, bkpr->currency->name);
+	json_out_end(params, ']');
+	json_out_end(params, '}');
+	json_out_finished(params);
+
+	reply = jsonrpc_request_sync(tmpctx, cmd, "listdatastore",
+				     take(params), &buf);
+	ds = json_get_member(buf, reply, "datastore");
+	json_for_each_arr(i, t, ds) {
+		const jsmntok_t *data, *keytok = json_get_member(buf, t, "key");
+		jsmntok_t ratetok, durationtok;
+		u64 ts;
+		struct currencyrate *crate;
+
+		if (keytok->size != 4)
+			goto weird;
+
+		/* key = ["bookkeeper", "currencyrate", "USD", "timestamp"] */
+		if (!json_to_u64(buf, keytok + 4, &ts))
+			goto weird;
+
+		data = json_get_member(buf, t, "string");
+		if (!data)
+			goto weird;
+
+		if (!split_tok(buf, data, ':', &ratetok, &durationtok))
+			goto weird;
+		crate = tal(bkpr->currency_rates, struct currencyrate);
+		if (!json_to_u64(buf, &ratetok, &crate->raw_rate)
+		    || !json_to_u32(buf, &durationtok, &crate->duration)) {
+			tal_free(crate);
+			goto weird;
+		}
+
+		uintmap_add(bkpr->currency_rates, ts, crate);
+		continue;
+
+	weird:
+		plugin_log(cmd->plugin, LOG_BROKEN,
+			   "Unexpected datastore rate entry '%.*s'",
+			   json_tok_full_len(t),
+			   json_tok_full(buf, t));
+	}
+}
+
+static bool currency_jsonfmt(struct command *cmd,
+			     struct json_stream *js,
+			     const char *fieldname,
+			     struct bkpr *bkpr)
+{
+	if (!bkpr->currency)
+		return false;
+	json_add_string(js, fieldname, bkpr->currency->name);
+	return true;
+}
+
+static char *option_currency(struct command *cmd,
+			     const char *arg,
+			     bool check_only,
+			     struct bkpr *bkpr)
+{
+	const struct iso4217_name_and_divisor *newcur;
+
+	/* Explicit empty string means unset. */
+	if (!streq(arg, "")) {
+		newcur = find_iso4217(arg, strlen(arg));
+		if (!newcur)
+			return "unknown ISO4217 code";
+	} else
+		newcur = NULL;
+
+	if (check_only)
+		return NULL;
+
+	/* Changed?  Clean up old one! */
+	if (bkpr->currency != NULL) {
+		/* Stop refreshes */
+		bkpr->currency_cmds = tal_free(bkpr->currency_cmds);
+		/* Clear existing values and free contents.*/
+		tal_free(bkpr->currency_rates);
+		bkpr->currency_rates = tal(bkpr, currencymap_t);
+		uintmap_init(bkpr->currency_rates);
+		memleak_add_helper(bkpr->currency_rates, memleak_scan_currencyrates);
+		bkpr->currency = NULL;
+	}
+
+	if (!newcur)
+		return NULL;
+
+	bkpr->currency = newcur;
+	/* Reset this so we get a new message for new currency */
+	bkpr->warned_currency_fail = false;
+
+	/* Start with saved currency rates */
+	load_currencyrates(cmd, bkpr);
+
+	/* Don't do this yet if we're before init! */
+	if (bkpr->accounts)
+		start_waiting_for_currency(bkpr, cmd);
 
 	return NULL;
 }
@@ -1569,11 +2070,20 @@ int main(int argc, char *argv[])
 
 	/* No datadir is default */
 	bkpr = tal(NULL, struct bkpr);
+	bkpr->currency = NULL;
+	bkpr->currency_rates = tal(bkpr, currencymap_t);
+	bkpr->accounts = NULL;
+	uintmap_init(bkpr->currency_rates);
+	memleak_add_helper(bkpr->currency_rates, memleak_scan_currencyrates);
 	plugin_main(argv, init, take(bkpr), PLUGIN_STATIC, true, NULL,
 		    commands, ARRAY_SIZE(commands),
 		    notifs, ARRAY_SIZE(notifs),
 		    NULL, 0,
 		    NULL, 0,
+		    plugin_option_dynamic("bkpr-currency",
+					  "string",
+					  "Look up and record this currency on each event",
+					  option_currency, currency_jsonfmt, bkpr),
 		    NULL);
 
 	return 0;

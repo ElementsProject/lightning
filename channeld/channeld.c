@@ -76,11 +76,17 @@ struct peer {
 	/* What (additional) messages the HSM accepts */
 	u32 *hsm_capabilities;
 
+	/* The feerate to initiate a splice */
+	u32 feerate_splice;
+
 	/* Tolerable amounts for feerate (only relevant for fundee). */
 	u32 feerate_min, feerate_max;
 
 	/* Feerate to be used when creating penalty transactions. */
 	u32 feerate_penalty;
+
+	/* Feerate to be used when opening a channel. */
+	u32 feerate_opening;
 
 	/* Local next per-commit point. */
 	struct pubkey next_local_per_commit;
@@ -214,9 +220,16 @@ const u8 *hsm_req(const tal_t *ctx, const u8 *req TAKES)
 	return msg;
 }
 
+/* We're in STFU mode now: must not send messages. */
 static bool is_stfu_active(const struct peer *peer)
 {
 	return peer->stfu_sent[LOCAL] && peer->stfu_sent[REMOTE];
+}
+
+/* We're trying to enter STFU mode now: don't start *new* conversations */
+static bool is_entering_stfu(const struct peer *peer)
+{
+	return peer->want_stfu || peer->stfu_sent[LOCAL] || peer->stfu_sent[REMOTE];
 }
 
 static void end_stfu_mode(struct peer *peer)
@@ -231,10 +244,20 @@ static void end_stfu_mode(struct peer *peer)
 
 static bool maybe_send_stfu(struct peer *peer)
 {
+	struct htlc_map_iter it;
+	const struct htlc *htlc;
+
 	if (!peer->want_stfu)
 		return false;
 
-	if (pending_updates(peer->channel, LOCAL, false)) {
+	for (htlc = htlc_map_first(peer->channel->htlcs, &it);
+	     htlc;
+	     htlc = htlc_map_next(peer->channel->htlcs, &it)) {
+		status_info("maybe_send_stfu: htlc %"PRIu64" state %s",
+			    htlc->id, htlc_state_name(htlc->state));
+	}
+
+	if (pending_updates(peer->channel, LOCAL)) {
 		status_info("Pending updates prevent us from STFU mode at this"
 			    " time.");
 		return false;
@@ -297,7 +320,7 @@ static void handle_stfu(struct peer *peer, const u8 *stfu)
 	}
 
 	/* Sanity check */
-	if (pending_updates(peer->channel, REMOTE, false))
+	if (pending_updates(peer->channel, REMOTE))
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "STFU but you still have updates pending?");
 
@@ -343,7 +366,7 @@ static void handle_stfu(struct peer *peer, const u8 *stfu)
 /* Returns true if we queued this for later handling (steals if true) */
 static bool handle_master_request_later(struct peer *peer, const u8 *msg)
 {
-	if (is_stfu_active(peer)) {
+	if (is_entering_stfu(peer)) {
 		msg_enqueue(peer->update_queue, take(msg));
 		return true;
 	}
@@ -964,6 +987,10 @@ static struct bitcoin_signature *calc_commitsigs(const tal_t *ctx,
 	const u8 *msg;
 	struct bitcoin_signature *htlc_sigs;
 
+	status_debug("calc_commitsigs(%p, %p, %p, %p, %p, %d, %p, %p)",
+		     ctx, peer, txs, funding_wscript, htlc_map,
+		     (int)commit_index, remote_per_commit, commit_sig);
+
 	htlcs = collect_htlcs(tmpctx, htlc_map);
 	msg = towire_hsmd_sign_remote_commitment_tx(NULL, txs[0],
 						    &remote_funding_pubkey,
@@ -1077,7 +1104,7 @@ static bool want_fee_update(const struct peer *peer, u32 *target)
 		return false;
 
 	/* No fee update while quiescing! */
-	if (peer->want_stfu || is_stfu_active(peer))
+	if (is_entering_stfu(peer))
 		return false;
 
 	current = channel_feerate(peer->channel, REMOTE);
@@ -1115,8 +1142,8 @@ static bool want_blockheight_update(const struct peer *peer, u32 *height)
 	if (peer->channel->lease_expiry == 0)
 		return false;
 
-	/* No fee update while quiescing! */
-	if (peer->want_stfu || is_stfu_active(peer))
+	/* No block update while quiescing! */
+	if (is_entering_stfu(peer))
 		return false;
 
 	/* What's the current blockheight */
@@ -1499,10 +1526,9 @@ static void send_commit(struct peer *peer)
 
 static void send_commit_if_not_stfu(struct peer *peer)
 {
-	if (!is_stfu_active(peer) && !peer->want_stfu) {
+	if (!peer->stfu_sent[LOCAL]) {
 		send_commit(peer);
-	}
-	else {
+	} else {
 		/* Timer now considered expired, you can add a new one. */
 		peer->commit_timer = NULL;
 		start_commit_timer(peer);
@@ -1887,9 +1913,9 @@ static void check_tx_abort(struct peer *peer, const u8 *msg, struct bitcoin_txid
 	exit(0);
 }
 
-static void splice_abort(struct peer *peer, const char *fmt, ...)
+static void splice_abort(struct peer *peer, struct inflight *inflight,
+			 const char *fmt, ...)
 {
-	struct inflight *inflight = last_inflight(peer);
 	struct bitcoin_outpoint *outpoint;
 	u8 *msg;
 	char *reason;
@@ -3004,28 +3030,39 @@ static struct wally_psbt *next_splice_step(const tal_t *ctx,
 	return ictx->desired_psbt;
 }
 
-static const u8 *peer_expect_msg_three(const tal_t *ctx,
+static const u8 *peer_expect_msg_four(const tal_t *ctx,
 				       struct peer *peer,
 				       enum peer_wire expect_type,
 				       enum peer_wire second_allowed_type,
-				       enum peer_wire third_allowed_type)
+				       enum peer_wire third_allowed_type,
+				       enum peer_wire fourth_allowed_type)
 {
 	u8 *msg;
 	enum peer_wire type;
 
 	msg = peer_read(ctx, peer->pps);
 	type = fromwire_peektype(msg);
-	if (type != expect_type && type != second_allowed_type
-	    && type != third_allowed_type)
+	if (type != expect_type
+	    && type != second_allowed_type
+	    && type != third_allowed_type
+	    && type != fourth_allowed_type)
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				"Got incorrect message from peer: %s"
-				" (should be %s) [%s]",
+				" (should be %s or %s or %s of %s) [%s]",
 				peer_wire_name(type),
 				peer_wire_name(expect_type),
+				peer_wire_name(second_allowed_type),
+				peer_wire_name(third_allowed_type),
+				peer_wire_name(fourth_allowed_type),
 				sanitize_error(tmpctx, msg, &peer->channel_id));
 
 	return msg;
 }
+
+/* In some circumstances Eclair send CHANNEL_READY after CHANNEL_REESTABLISH but
+ * before resuming splice negotiation, so we need a way to process it in this
+ * order. */
+static void peer_in(struct peer *peer, const u8 *msg);
 
 /* The question of "who signs splice commitments first" is the same order as the
  * splice `tx_signature`s are. This function handles sending & receiving the
@@ -3038,7 +3075,8 @@ static struct commitsig *interactive_send_commitments(struct peer *peer,
 						      size_t inflight_index,
 						      bool send_commitments,
 						      bool recv_commitments,
-						      const u8 **msg_received)
+						      const u8 **msg_received,
+						      int allowed_premature_msg)
 {
 	struct commitsig_info *result;
 	const u8 *msg;
@@ -3080,10 +3118,26 @@ static struct commitsig *interactive_send_commitments(struct peer *peer,
 	result = NULL;
 
 	if (recv_commitments) {
-		msg = peer_expect_msg_three(tmpctx, peer,
-					    WIRE_COMMITMENT_SIGNED,
-					    WIRE_TX_SIGNATURES,
-					    WIRE_TX_ABORT);
+		msg = peer_expect_msg_four(tmpctx, peer,
+					   WIRE_COMMITMENT_SIGNED,
+					   WIRE_TX_SIGNATURES,
+					   WIRE_TX_ABORT,
+					   allowed_premature_msg);
+
+		/* If the message is a type that we allow to receive
+		 * prematurely: process this, then come back and get another
+		 * message */
+		if (allowed_premature_msg
+		    && fromwire_peektype(msg) == allowed_premature_msg) {
+		    	/* Process the pre-allowed message */
+			peer_in(peer, msg);
+			/* Now get a new message */
+			msg = peer_expect_msg_four(tmpctx, peer,
+					   WIRE_COMMITMENT_SIGNED,
+					   WIRE_TX_SIGNATURES,
+					   WIRE_TX_ABORT,
+					   0);
+		}
 
 		check_tx_abort(peer, msg, &inflight->outpoint.txid);
 
@@ -3175,9 +3229,48 @@ static struct wally_psbt_output *find_channel_output(struct peer *peer,
 	return NULL;
 }
 
-static size_t calc_weight(enum tx_role role, const struct wally_psbt *psbt)
+static size_t calc_weight(enum tx_role role, const struct wally_psbt *psbt,
+			  bool log_math)
 {
-	size_t weight = 0;
+	size_t lweight = 0, weight = 0;
+
+	if (log_math)
+		status_debug("Counting tx weight;");
+
+	/* BOLT #2:
+	 * The rest of the transaction bytes' fees are the responsibility of
+	 * the peer who contributed that input or output via `tx_add_input` or
+	 * `tx_add_output`, at the agreed upon `feerate`.
+	 */
+	for (size_t i = 0; i < psbt->num_inputs; i++) {
+		if (is_initiators_serial(&psbt->inputs[i].unknowns)) {
+			if (role == TX_INITIATOR)
+				weight += psbt_input_get_weight(psbt, i, PSBT_GUESS_2OF2);
+		}
+		else {
+			if (role != TX_INITIATOR)
+				weight += psbt_input_get_weight(psbt, i, PSBT_GUESS_2OF2);
+		}
+		if (log_math)
+			status_debug(" Adding input"
+				     " %lu; weight: %lu", i, weight - lweight);
+		lweight = weight;
+	}
+
+	for (size_t i = 0; i < psbt->num_outputs; i++) {
+		if (is_initiators_serial(&psbt->outputs[i].unknowns)) {
+			if (role == TX_INITIATOR)
+				weight += psbt_output_get_weight(psbt, i);
+		}
+		else {
+			if (role != TX_INITIATOR)
+				weight += psbt_output_get_weight(psbt, i);
+		}
+		if (log_math)
+			status_debug(" Adding output"
+				     " %lu; weight: %lu", i, weight - lweight);
+		lweight = weight;
+	}
 
 	/* BOLT #2:
 	 * The *initiator* is responsible for paying the fees for the following fields,
@@ -3189,33 +3282,17 @@ static size_t calc_weight(enum tx_role role, const struct wally_psbt *psbt)
 	 *   - output count
 	 *   - locktime
 	 */
-	if (role == TX_INITIATOR)
+	if (role == TX_INITIATOR) {
 		weight += bitcoin_tx_core_weight(psbt->num_inputs,
 						 psbt->num_outputs);
+		if (log_math)
+			status_debug(" Adding bitcoin_tx_core_weight;"
+				     " weight: %lu", weight - lweight);
+		lweight = weight;
+	  }
 
-	/* BOLT #2:
-	 * The rest of the transaction bytes' fees are the responsibility of
-	 * the peer who contributed that input or output via `tx_add_input` or
-	 * `tx_add_output`, at the agreed upon `feerate`.
-	 */
-	for (size_t i = 0; i < psbt->num_inputs; i++)
-		if (is_initiators_serial(&psbt->inputs[i].unknowns)) {
-			if (role == TX_INITIATOR)
-				weight += psbt_input_get_weight(psbt, i);
-		}
-		else
-			if (role != TX_INITIATOR)
-				weight += psbt_input_get_weight(psbt, i);
-
-	for (size_t i = 0; i < psbt->num_outputs; i++)
-		if (is_initiators_serial(&psbt->outputs[i].unknowns)) {
-			if (role == TX_INITIATOR)
-				weight += psbt_output_get_weight(psbt, i);
-		}
-		else
-			if (role != TX_INITIATOR)
-				weight += psbt_output_get_weight(psbt, i);
-
+	if (log_math)
+		status_debug("Total weight: %lu", weight);
 	return weight;
 }
 
@@ -3307,7 +3384,8 @@ static struct amount_sat calc_balance(struct peer *peer)
 }
 
 /* Returns the total channel funding output amount if all checks pass.
- * Otherwise, exits via peer_failed_warn. DTODO: Change to `tx_abort`. */
+ * Otherwise, exits via peer_failed_warn.
+ * Note: Should only be called before adding splice to inflights. */
 static struct amount_sat check_balances(struct peer *peer,
 					enum tx_role our_role,
 					const struct wally_psbt *psbt,
@@ -3316,8 +3394,7 @@ static struct amount_sat check_balances(struct peer *peer,
 {
 	struct amount_sat min_initiator_fee, min_accepter_fee,
 			  max_initiator_fee, max_accepter_fee,
-			  funding_amount_res, min_multiplied,
-			  initiator_penalty_fee, accepter_penalty_fee;
+			  funding_amount_res;
 	struct amount_msat funding_amount,
 			   initiator_fee, accepter_fee;
 	struct amount_msat in[NUM_TX_ROLES], out[NUM_TX_ROLES],
@@ -3349,6 +3426,32 @@ static struct amount_sat check_balances(struct peer *peer,
 					 "Unable to add HTLC balance");
 	}
 
+	status_debug("in[TX_INITIATOR] %s; in[TX_ACCEPTER] %s",
+		     fmt_amount_m_as_sat(tmpctx, in[TX_INITIATOR]),
+		     fmt_amount_m_as_sat(tmpctx, in[TX_ACCEPTER]));
+
+	/* Here in[*] only contains the amounts from this channel.
+	 * This is a great opportunity to check their splice out amount does
+	 * not exceed their channel funds as this is never allowed even if
+	 * additional funds are otherwise contributed. */
+	if (!amount_msat_can_add_sat_s64(in[TX_INITIATOR],
+					 peer->splicing->opener_relative)) {
+		splice_abort(peer, NULL, "Intiator is attempting to splice out"
+			     " %"PRId64"sat funds out of channel while only "
+			     "having %s funds attributable to them.",
+			     peer->splicing->opener_relative,
+			     fmt_amount_m_as_sat(tmpctx, in[TX_INITIATOR]));
+	}
+	if (!amount_msat_can_add_sat_s64(in[TX_ACCEPTER],
+					 peer->splicing->accepter_relative)) {
+		splice_abort(peer, NULL, "Accepter is attempting to splice out"
+			     " %"PRId64"sat funds out of channel while only "
+			     "having %s funds attributable to them.",
+			     peer->splicing->accepter_relative,
+			     fmt_amount_m_as_sat(tmpctx, in[TX_ACCEPTER]));
+	}
+
+	/* Now add values from the other outputs */
 	for (size_t i = 0; i < psbt->num_inputs; i++)
 		if (i != chan_input_index)
 			add_amount_to_side(peer, in,
@@ -3397,11 +3500,16 @@ static struct amount_sat check_balances(struct peer *peer,
 	 */
 	if (!amount_msat_add_sat_s64(&funding_amount, funding_amount,
 				     peer->splicing->opener_relative))
-		splice_abort(peer, "Splice initiator did not provide enough"
+		splice_abort(peer, NULL, "Splice initiator did not provide enough"
 			     " funding, funding_amount: %s, opener_relative:"
 			     " %"PRIu64,
 			     fmt_amount_msat(tmpctx, funding_amount),
 			     peer->splicing->opener_relative);
+
+	status_debug("out[TX_INITIATOR] %s + %"PRId64,
+		     fmt_amount_m_as_sat(tmpctx, out[TX_INITIATOR]),
+		     peer->splicing->opener_relative);
+
 	if (!amount_msat_add_sat_s64(&out[TX_INITIATOR], out[TX_INITIATOR],
 				     peer->splicing->opener_relative))
 		peer_failed_warn(peer->pps, &peer->channel_id,
@@ -3409,12 +3517,16 @@ static struct amount_sat check_balances(struct peer *peer,
 
 	if (!amount_msat_add_sat_s64(&funding_amount, funding_amount,
 				     peer->splicing->accepter_relative))
-		splice_abort(peer, "Splice accepter did not provide enough"
+		splice_abort(peer, NULL, "Splice accepter did not provide enough"
 			     " funding");
 	if (!amount_msat_add_sat_s64(&out[TX_ACCEPTER], out[TX_ACCEPTER],
 				     peer->splicing->accepter_relative))
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Unable to add accepter funding to out amnt.");
+
+	status_debug("is in[TX_INITIATOR] %s less than out[TX_INITIATOR] %s?",
+		     fmt_amount_m_as_sat(tmpctx, in[TX_INITIATOR]),
+		     fmt_amount_m_as_sat(tmpctx, out[TX_INITIATOR]));
 
 	if (amount_msat_less(in[TX_INITIATOR], out[TX_INITIATOR])) {
 		msg = towire_channeld_splice_funding_error(NULL,
@@ -3422,7 +3534,7 @@ static struct amount_sat check_balances(struct peer *peer,
 							   out[TX_INITIATOR],
 							   true);
 		wire_sync_write(MASTER_FD, take(msg));
-		splice_abort(peer,
+		splice_abort(peer, NULL,
 				 "Initiator funding is less than commited"
 				 " amount. Initiator contributing %s but they"
 				 " committed to %s. Pending offered HTLC"
@@ -3449,7 +3561,7 @@ static struct amount_sat check_balances(struct peer *peer,
 							   out[TX_INITIATOR],
 							   true);
 		wire_sync_write(MASTER_FD, take(msg));
-		splice_abort(peer,
+		splice_abort(peer, NULL,
 				 "Accepter funding is less than commited"
 				 " amount. Accepter contributing %s but they"
 				 " committed to %s. Pending offered HTLC"
@@ -3466,40 +3578,33 @@ static struct amount_sat check_balances(struct peer *peer,
 			      "amount_sat_less / amount_sat_sub mismtach");
 
 	min_initiator_fee = amount_tx_fee(peer->splicing->feerate_per_kw,
-					  calc_weight(TX_INITIATOR, psbt));
+					  calc_weight(TX_INITIATOR, psbt, false));
 	min_accepter_fee = amount_tx_fee(peer->splicing->feerate_per_kw,
-					 calc_weight(TX_ACCEPTER, psbt));
+					 calc_weight(TX_ACCEPTER, psbt, false));
 
 	/* As a safeguard max feerate is checked (only) locally, if it's
 	 * particularly high we fail and tell the user but allow them to
 	 * override with `splice_force_feerate` */
-	max_accepter_fee = amount_tx_fee(peer->feerate_max,
-					 calc_weight(TX_ACCEPTER, psbt));
-	max_initiator_fee = amount_tx_fee(peer->feerate_max,
-					  calc_weight(TX_INITIATOR, psbt));
-	initiator_penalty_fee = amount_tx_fee(peer->feerate_penalty,
-					      calc_weight(TX_INITIATOR, psbt));
-	accepter_penalty_fee = amount_tx_fee(peer->feerate_penalty,
-					     calc_weight(TX_ACCEPTER, psbt));
+	max_accepter_fee = amount_tx_fee(peer->feerate_opening,
+					 calc_weight(TX_ACCEPTER, psbt, false));
+	max_initiator_fee = amount_tx_fee(peer->feerate_opening,
+					  calc_weight(TX_INITIATOR, psbt, opener));
 
-	/* Sometimes feerate_max is some absurdly high value, in that case we
-	 * give a fee warning based of a multiple of the min value. */
-	amount_sat_mul(&min_multiplied, min_accepter_fee, 5);
-	max_accepter_fee = SAT_MIN(min_multiplied, max_accepter_fee);
-	if (amount_sat_greater(accepter_penalty_fee, max_accepter_fee))
-		max_accepter_fee = accepter_penalty_fee;
-
-	amount_sat_mul(&min_multiplied, min_initiator_fee, 5);
-	max_initiator_fee = SAT_MIN(min_multiplied, max_initiator_fee);
-	if (amount_sat_greater(initiator_penalty_fee, max_initiator_fee))
-		max_initiator_fee = initiator_penalty_fee;
+	if (opener) {
+		status_debug("User specified fee of %s. Splice feerate %"PRIu32
+			     " * weight %lu / 1000 = %s",
+			     fmt_amount_m_as_sat(tmpctx, initiator_fee),
+			     peer->feerate_splice,
+			     calc_weight(TX_INITIATOR, psbt, false),
+			     fmt_amount_sat(tmpctx, max_initiator_fee));
+	}
 
 	/* Check initiator fee */
 	if (amount_msat_less_sat(initiator_fee, min_initiator_fee)) {
 		msg = towire_channeld_splice_feerate_error(NULL, initiator_fee,
 							   false);
 		wire_sync_write(MASTER_FD, take(msg));
-		splice_abort(peer,
+		splice_abort(peer, NULL,
 				 "%s fee (%s) was too low, must be at least %s",
 				 opener ? "Our" : "Your",
 				 fmt_amount_msat(tmpctx, initiator_fee),
@@ -3509,30 +3614,45 @@ static struct amount_sat check_balances(struct peer *peer,
 		&& amount_msat_greater_sat(initiator_fee, max_initiator_fee)) {
 		msg = towire_channeld_splice_feerate_error(NULL, initiator_fee,
 							   true);
+		status_debug("Our own fee (%s) is too high to use without"
+			     " forcing. Splice feerate %"PRIu32
+			     " x weight %lu / 1000 = %s (max)",
+			     fmt_amount_m_as_sat(tmpctx, initiator_fee),
+			     peer->feerate_splice,
+			     calc_weight(TX_INITIATOR, psbt, false),
+			     fmt_amount_sat(tmpctx, max_initiator_fee));
+
 		wire_sync_write(MASTER_FD, take(msg));
-		splice_abort(peer,
-				 "Our own fee (%s) was too high, max without"
-				 " forcing is %s.",
-				 fmt_amount_msat(tmpctx, initiator_fee),
-				 fmt_amount_sat(tmpctx, max_initiator_fee));
+
+		splice_abort(peer, NULL,
+			     "Our own fee (%s) is too high to use without"
+			     " forcing. Splice feerate %"PRIu32
+			     " x weight %lu / 1000 = %s (max)",
+			     fmt_amount_m_as_sat(tmpctx, initiator_fee),
+			     peer->feerate_splice,
+			     calc_weight(TX_INITIATOR, psbt, false),
+			     fmt_amount_sat(tmpctx, max_initiator_fee));
 	}
 	/* Check accepter fee */
 	if (amount_msat_less_sat(accepter_fee, min_accepter_fee)) {
 		msg = towire_channeld_splice_feerate_error(NULL, accepter_fee,
 							   false);
 		wire_sync_write(MASTER_FD, take(msg));
-		splice_abort(peer,
-				 "%s fee (%s) was too low, must be at least %s",
-				 opener ? "Your" : "Our",
-				 fmt_amount_msat(tmpctx, accepter_fee),
-				 fmt_amount_sat(tmpctx, min_accepter_fee));
+		splice_abort(peer, NULL,
+			     "%s fee (%s) was too low, must be at least %s"
+			     " weight: %"PRIu64", feerate_max: %"PRIu32,
+			     opener ? "Your" : "Our",
+			     fmt_amount_msat(tmpctx, accepter_fee),
+			     fmt_amount_sat(tmpctx, min_accepter_fee),
+			     calc_weight(TX_INITIATOR, psbt, false),
+			     peer->feerate_opening);
 	}
 	if (!peer->splicing->force_feerate && !opener
 		&& amount_msat_greater_sat(accepter_fee, max_accepter_fee)) {
 		msg = towire_channeld_splice_feerate_error(NULL, accepter_fee,
 							   true);
 		wire_sync_write(MASTER_FD, take(msg));
-		splice_abort(peer,
+		splice_abort(peer, NULL,
 				 "Our own fee (%s) was too high, max without"
 				 " forcing is %s.",
 				 fmt_amount_msat(tmpctx, accepter_fee),
@@ -3633,7 +3753,8 @@ static void resume_splice_negotiation(struct peer *peer,
 				      bool send_commitments,
 				      bool recv_commitments,
 				      bool send_signature,
-				      bool recv_signature)
+				      bool recv_signature,
+				      int allowed_premature_msg)
 {
 	struct inflight *inflight = last_inflight(peer);
 	enum tx_role our_role = inflight->i_am_initiator
@@ -3692,7 +3813,8 @@ static void resume_splice_negotiation(struct peer *peer,
 						    last_inflight_index(peer),
 						    send_commitments,
 						    recv_commitments,
-						    &msg_received);
+						    &msg_received,
+						    allowed_premature_msg);
 
 	check_tx_abort(peer, msg_received, &inflight->outpoint.txid);
 
@@ -3978,6 +4100,9 @@ static void resume_splice_negotiation(struct peer *peer,
 
 		peer->splicing = tal_free(peer->splicing);
 
+		if (our_role == TX_INITIATOR)
+			calc_weight(TX_INITIATOR, current_psbt, true);
+
 		final_tx = bitcoin_tx_with_psbt(tmpctx, current_psbt);
 		msg = towire_channeld_splice_confirmed_signed(tmpctx, final_tx,
 							      new_output_index);
@@ -4250,7 +4375,7 @@ static void splice_accepter(struct peer *peer, const u8 *inmsg)
 
 	peer->splice_state->count++;
 
-	resume_splice_negotiation(peer, true, true, true, true);
+	resume_splice_negotiation(peer, true, true, true, true, 0);
 }
 
 /* splice_initiator runs when splice_ack is received by the other side. It
@@ -4556,7 +4681,7 @@ static void splice_initiator_user_finalized(struct peer *peer)
 	their_commit = interactive_send_commitments(peer, new_inflight->psbt,
 						    our_role,
 						    last_inflight_index(peer),
-						    true, true, NULL);
+						    true, true, NULL, 0);
 
 	new_inflight->last_tx = tal_steal(new_inflight, their_commit->tx);
 	new_inflight->last_sig = their_commit->commit_signature;
@@ -4572,7 +4697,7 @@ static void splice_initiator_user_finalized(struct peer *peer)
 				     peer->splicing->force_sign_first);
 
 	if (!sign_first)
-		resume_splice_negotiation(peer, false, false, false, true);
+		resume_splice_negotiation(peer, false, false, false, true, 0);
 
 	outmsg = towire_channeld_splice_confirmed_update(NULL,
 							 new_inflight->psbt,
@@ -4773,7 +4898,7 @@ static void splice_initiator_user_signed(struct peer *peer, const u8 *inmsg)
 	audit_psbt(inflight->psbt, inflight->psbt);
 	assert(tal_parent(inflight->psbt) != tmpctx);
 
-	resume_splice_negotiation(peer, false, false, true, sign_first);
+	resume_splice_negotiation(peer, false, false, true, sign_first, 0);
 
 	audit_psbt(inflight->psbt, inflight->psbt);
 	assert(tal_parent(inflight->psbt) != tmpctx);
@@ -4936,15 +5061,9 @@ static void handle_stfu_req(struct peer *peer, const u8 *inmsg)
 	peer->stfu_initiator = LOCAL;
 	peer->want_stfu = true;
 
-	if (!maybe_send_stfu(peer)) {
-		msg = towire_channeld_splice_state_error(NULL, tal_fmt(tmpctx,
-							 "Pending updates"
-							 " prevent us from STFU"
-							 " mode at this"
-							 " time."));
-		wire_sync_write(MASTER_FD, take(msg));
-		return;
-	}
+	/* If the `stfu` cant be sent now it will be sent when the current
+	 * pending actions are completed. */
+	maybe_send_stfu(peer);
 }
 
 static void handle_abort_req(struct peer *peer, const u8 *inmsg)
@@ -4952,7 +5071,7 @@ static void handle_abort_req(struct peer *peer, const u8 *inmsg)
 	if (!fromwire_channeld_abort(inmsg))
 		master_badmsg(WIRE_CHANNELD_ABORT, inmsg);
 
-	splice_abort(peer, "requested by user");
+	splice_abort(peer, last_inflight(peer), "requested by user");
 }
 
 static void peer_in(struct peer *peer, const u8 *msg)
@@ -5499,6 +5618,7 @@ static void peer_reconnect(struct peer *peer,
 			   const struct secret *last_remote_per_commit_secret)
 {
 	struct channel_id channel_id;
+	bool announcement_sigs_requested;
 	/* Note: BOLT #2 uses these names! */
 	u64 next_commitment_number, next_revocation_number;
 	bool retransmit_revoke_and_ack, retransmit_commitment_signed;
@@ -5705,6 +5825,8 @@ static void peer_reconnect(struct peer *peer,
 	do {
 		clean_tmpctx();
 		msg = peer_read(tmpctx, peer->pps);
+		check_tx_abort(peer, msg,
+			       inflight ? &inflight->outpoint.txid : NULL);
 	} while (handle_peer_error_or_warning(peer->pps, msg) ||
 		 capture_premature_msg(&premature_msgs, msg));
 
@@ -5757,7 +5879,8 @@ static void peer_reconnect(struct peer *peer,
 						  false,
 						  !inflight->last_tx,
 						  false,
-						  true);
+						  true,
+						  WIRE_CHANNEL_READY);
 		} else if (bitcoin_txid_eq(&remote_next_funding->next_funding_txid,
 					   &inflight->outpoint.txid)) {
 			/* Don't send sigs unless we have theirs */
@@ -5773,7 +5896,8 @@ static void peer_reconnect(struct peer *peer,
 						  	: false,
 						  local_next_funding && !inflight->last_tx,
 						  true,
-						  local_next_funding);
+						  local_next_funding,
+						  WIRE_CHANNEL_READY);
 		} else if (bitcoin_txid_eq(&remote_next_funding->next_funding_txid,
 					   &peer->channel->funding.txid)) {
 			peer_failed_err(peer->pps,
@@ -5808,7 +5932,8 @@ static void peer_reconnect(struct peer *peer,
 				    " channel, ignoring it: %s",
 				    fmt_bitcoin_outpoint(tmpctx, &peer->channel->funding));
 		else
-			splice_abort(peer, "next_funding_txid not recognized.");
+			splice_abort(peer, NULL,
+				     "next_funding_txid not recognized.");
 	}
 
 	/* BOLT #2:
@@ -5989,6 +6114,24 @@ static void peer_reconnect(struct peer *peer,
 	if (retransmit_revoke_and_ack && peer->last_was_revoke)
 		resend_revoke(peer);
 
+	/* BOLT-splice #2
+	 *     1. type: 5 (`my_current_funding_locked`)
+	 *     2. data:
+	 *         * [`sha256`:`my_current_funding_locked_txid`]
+	 *         * [`byte`:`retransmit_flags`]
+	 *
+	 * The `retransmit_flags` bitfield is used to let our peer know which messages
+	 * we expect them to retransmit after the reconnection:
+	 *
+	 * | Bit Position  | Name                      |
+	 * | ------------- | --------------------------|
+	 * | 0             | `announcement_signatures` |
+	 */
+	announcement_sigs_requested = false;
+	if (recv_tlvs && recv_tlvs->my_current_funding_locked
+	    && recv_tlvs->my_current_funding_locked->retransmit_flags & 1)
+		announcement_sigs_requested = true;
+
 	/* BOLT #2:
 	 *
 	 *   - upon reconnection:
@@ -6001,7 +6144,7 @@ static void peer_reconnect(struct peer *peer,
 	tal_free(send_tlvs);
 
 	/* We've reestablished! */
-	wire_sync_write(MASTER_FD, take(towire_channeld_reestablished(NULL)));
+	wire_sync_write(MASTER_FD, take(towire_channeld_reestablished(NULL, announcement_sigs_requested)));
 
 	/* Corner case: we didn't send shutdown before because update_add_htlc
 	 * pending, but now they're cleared by restart, and we're actually
@@ -6302,10 +6445,13 @@ static void handle_feerates(struct peer *peer, const u8 *inmsg)
 {
 	u32 feerate;
 
-	if (!fromwire_channeld_feerates(inmsg, &feerate,
-				       &peer->feerate_min,
-				       &peer->feerate_max,
-				       &peer->feerate_penalty))
+	if (!fromwire_channeld_feerates(inmsg,
+					&feerate,
+				        &peer->feerate_min,
+				        &peer->feerate_max,
+				        &peer->feerate_penalty,
+				        &peer->feerate_opening,
+				        &peer->feerate_splice))
 		master_badmsg(WIRE_CHANNELD_FEERATES, inmsg);
 
 	/* BOLT #2:
@@ -6673,9 +6819,11 @@ static void init_channel(struct peer *peer)
 				    &lease_expiry,
 				    &conf[LOCAL], &conf[REMOTE],
 				    &fee_states,
+				    &peer->feerate_splice,
 				    &peer->feerate_min,
 				    &peer->feerate_max,
 				    &peer->feerate_penalty,
+				    &peer->feerate_opening,
 				    &peer->their_commit_sig,
 				    &funding_pubkey[REMOTE],
 				    &points[REMOTE],

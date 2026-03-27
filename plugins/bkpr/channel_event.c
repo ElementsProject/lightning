@@ -5,6 +5,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/amount.h>
 #include <common/json_stream.h>
+#include <plugins/bkpr/bookkeeper.h>
 #include <plugins/bkpr/channel_event.h>
 #include <plugins/bkpr/descriptions.h>
 #include <plugins/bkpr/rebalances.h>
@@ -44,6 +45,7 @@ void json_add_channel_event(struct json_stream *out,
 	if (!amount_msat_is_zero(ev->fees))
 		json_add_amount_msat(out, "fees_msat", ev->fees);
 	json_add_string(out, "currency", chainparams->lightning_hrp);
+	json_add_currencyrate(out, "currencyrate", bkpr, ev->timestamp);
 	if (ev->payment_id) {
 		const char *desc = channel_event_description(bkpr, ev);
 		json_add_sha256(out, "payment_id", ev->payment_id);

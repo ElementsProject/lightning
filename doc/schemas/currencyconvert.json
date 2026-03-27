@@ -1,0 +1,56 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "type": "object",
+  "rpc": "currencyconvert",
+  "title": "Command to convert a fiat amount into millisatoshis",
+  "added": "v26.04",
+  "description": [
+    "The **currencyconvert** RPC command converts a given amount in a given currency into millisatoshis.",
+    "It uses the median of the available exchange-rate sources for the requested currency."
+  ],
+  "request": {
+    "required": [
+      "amount",
+      "currency"
+    ],
+    "additionalProperties": false,
+    "properties": {
+      "amount": {
+        "type": "number",
+        "description": [
+          "The amount, expressed in the given currency, to convert into millisatoshis."
+        ]
+      },
+      "currency": {
+        "type": "string",
+        "description": [
+          "The ISO-4217 currency code (e.g. USD) to convert from.",
+          "The plugin normalizes this value to uppercase before querying sources."
+        ]
+      }
+    }
+  },
+  "response": {
+    "required": [
+      "msat"
+    ],
+    "additionalProperties": false,
+    "properties": {
+      "msat": {
+        "type": "msat",
+        "description": [
+          "The converted amount in millisatoshis, computed using the median result from the available sources."
+        ]
+      }
+    }
+  },
+  "author": [
+    "daywalker90 is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-currencyrates(7)"
+  ],
+  "resources": [
+    "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
+  ]
+}

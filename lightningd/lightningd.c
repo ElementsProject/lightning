@@ -77,7 +77,6 @@
 #include <lightningd/subd.h>
 #include <sys/resource.h>
 #include <wallet/invoices.h>
-#include <wallet/txfilter.h>
 #include <wally_bip32.h>
 
 static void destroy_alt_subdaemons(struct lightningd *ld);
@@ -372,6 +371,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	/* The gossip seeker automatically connects to a this many peers */
 	ld->autoconnect_seeker_peers = 10;
 
+	ld->fronting_nodes = tal_arr(ld, struct node_id, 0);
 	return ld;
 }
 
@@ -615,10 +615,11 @@ static void free_all_channels(struct lightningd *ld)
 	 * given a destructor (`destroy_peer`) which removes itself from the
 	 * hashtable.
 	 *
-	 * Deletion from a hashtable is allowed, but it does mean we could
-	 * skip entries in iteration.  Hence we repeat until empty!
+	 * Deletion from a hashtable during iteration is safe and consistent.
+	 * Adding is forbidden, hence the lock() function which causes that to
+	 * assert.
 	 */
-again:
+	peer_node_id_map_lock(ld->peers);
 	for (p = peer_node_id_map_first(ld->peers, &it);
 	     p;
 	     p = peer_node_id_map_next(ld->peers, &it)) {
@@ -643,8 +644,7 @@ again:
 		/* Removes itself from htable as we free it */
 		tal_free(p);
 	}
-	if (peer_node_id_map_first(ld->peers, &it))
-		goto again;
+	peer_node_id_map_unlock(ld->peers);
 
 	/*~ Commit the transaction.  Note that the db is actually
 	 * single-threaded, so commits never fail and we don't need
@@ -662,44 +662,6 @@ static void shutdown_global_subdaemons(struct lightningd *ld)
 	ld->connectd = subd_shutdown(ld->connectd, 10);
 	ld->gossip = subd_shutdown(ld->gossip, 10);
 	ld->hsm = subd_shutdown(ld->hsm, 10);
-}
-
-/*~ Our wallet logic needs to know what outputs we might be interested in.  We
- * use BIP32 (a.k.a. "HD wallet") to generate keys from a single seed, so we
- * keep the maximum-ever-used key index in the db, and add them all to the
- * filter here. */
-static void init_txfilter(struct wallet *w,
-			  const struct ext_key *bip32_base,
-			  struct txfilter *filter)
-{
-	/*~ This is defined in libwally, so we didn't have to reimplement */
-	struct ext_key ext;
-	/*~ Note the use of ccan/short_types u64 rather than uint64_t.
-	 * Thank me later. */
-	u64 bip32_max_index, bip86_max_index;
-
-	bip32_max_index = db_get_intvar(w->db, "bip32_max_index", 0);
-	/*~ One of the C99 things I unequivocally approve: for-loop scope. */
-	for (u64 i = 0; i <= bip32_max_index + w->keyscan_gap; i++) {
-		if (bip32_key_from_parent(bip32_base, i, BIP32_FLAG_KEY_PUBLIC, &ext) != WALLY_OK) {
-			abort();
-		}
-		txfilter_add_derkey(filter, ext.pub_key);
-	}
-
-	/* If BIP86 is enabled, also add BIP86-derived keys to the filter */
-	if (w->ld->bip86_base) {
-		bip86_max_index = db_get_intvar(w->db, "bip86_max_index", 0);
-		for (u64 i = 0; i <= bip86_max_index + w->keyscan_gap; i++) {
-			struct pubkey pubkey;
-			bip86_pubkey(w->ld, &pubkey, i);
-			/* Add both P2TR and P2WPKH scripts since BIP86 keys can be used for both */
-			u8 *p2tr_script = scriptpubkey_p2tr(tmpctx, &pubkey);
-			txfilter_add_scriptpubkey(filter, take(p2tr_script));
-			u8 *p2wpkh_script = scriptpubkey_p2wpkh(tmpctx, &pubkey);
-			txfilter_add_scriptpubkey(filter, take(p2wpkh_script));
-		}
-	}
 }
 
 /*~ The normal advice for daemons is to move into the root directory, so you
@@ -1316,9 +1278,6 @@ int main(int argc, char *argv[])
 	ld->wallet = wallet_new(ld, ld->timers);
 	trace_span_end(ld);
 
-	/*~ We keep a filter of scriptpubkeys we're interested in. */
-	ld->owned_txfilter = txfilter_new(ld);
-
 	/*~ This is the ccan/io central poll override from above. */
 	io_poll_override(io_poll_lightningd);
 
@@ -1349,11 +1308,6 @@ int main(int argc, char *argv[])
 	 * in hsm_secret will have strange consequences! */
 	if (!wallet_sanity_check(ld->wallet))
 		errx(EXITCODE_WALLET_DB_MISMATCH, "Wallet sanity check failed.");
-
-	/*~ Initialize the transaction filter with our pubkeys. */
-	trace_span_start("init_txfilter", ld->wallet);
-	init_txfilter(ld->wallet, ld->bip32_base, ld->owned_txfilter);
-	trace_span_end(ld->wallet);
 
 	/*~ Finish our runes initialization (includes reading from db) */
 	runes_finish_init(ld->runes);
@@ -1403,6 +1357,10 @@ int main(int argc, char *argv[])
 		tal_free(unconnected_htlcs_in);
 		goto stop;
 	}
+
+	/*~ Set up the hsmd-backed ecdh() wrapper before replaying any stored
+	 * HTLCs, since blinded onions may need ECDH during decode. */
+	ecdh_hsmd_setup(ld->hsm_fd, hsm_ecdh_failed);
 
 	/*~ Process any HTLCs we were in the middle of when we exited, now
 	 * that plugins (who might want to know via htlc_accepted hook) are
@@ -1487,9 +1445,6 @@ int main(int argc, char *argv[])
 	/*~ Setting this (global) activates the crash log: we don't usually need
 	 * a backtrace if we fail during startup. */
 	crashlog = ld->log;
-
-	/*~ This sets up the ecdh() function in ecdh_hsmd to talk to hsmd */
-	ecdh_hsmd_setup(ld->hsm_fd, hsm_ecdh_failed);
 
 	/*~ The root of every backtrace (almost).  This is our main event
 	 *  loop.  We don't even call it if they've already called `stop` */

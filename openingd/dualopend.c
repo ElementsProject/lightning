@@ -818,14 +818,14 @@ static char *check_balances(const tal_t *ctx,
 			assert(ok);
 
 			initiator_weight +=
-				psbt_input_get_weight(psbt, i);
+				psbt_input_get_weight(psbt, i, PSBT_GUESS_ZERO);
 		} else {
 			ok = amount_sat_add(&accepter_inputs,
 					    accepter_inputs, amt);
 			assert(ok);
 
 			accepter_weight +=
-				psbt_input_get_weight(psbt, i);
+				psbt_input_get_weight(psbt, i, PSBT_GUESS_ZERO);
 		}
 	}
 	tot_output_amt = AMOUNT_SAT(0);
@@ -1871,8 +1871,7 @@ static bool run_tx_interactive(struct state *state,
 			if (is_elements(chainparams)) {
 				struct amount_asset asset;
 
-				bitcoin_tx_output_get_amount_sat(tx, outpoint.n,
-								 &amt);
+				amt = bitcoin_tx_output_get_amount_sat(tx, outpoint.n);
 
 				/* FIXME: persist asset tags */
 				asset = amount_sat_to_asset(&amt,
@@ -2794,7 +2793,6 @@ static u8 *opener_commits(struct state *state,
 			  struct amount_sat total,
 			  char **err_reason)
 {
-	struct channel_id cid;
 	struct amount_msat our_msats;
 	struct penalty_base *pbase;
 	struct bitcoin_tx *local_commit;
@@ -2853,7 +2851,7 @@ static u8 *opener_commits(struct state *state,
 
 	tal_free(state->channel);
 	state->channel = new_initial_channel(state,
-					     &cid,
+					     &state->channel_id,
 					     &tx_state->funding,
 					     state->minimum_depth,
 					     take(new_height_states(NULL, LOCAL,

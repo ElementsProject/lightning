@@ -30,6 +30,13 @@ struct stfu_result
 	struct amount_msat available_funds;
 };
 
+struct stfu_req_info {
+	/* The channel on which this stfu request was made */
+	struct channel_id **channel_ids;
+	/* For multi-channel stfu command: the pending result */
+	struct stfu_result **results;
+};
+
 struct splice_command {
 	/* Inside struct lightningd splice_commands. */
 	struct list_node list;
@@ -37,21 +44,44 @@ struct splice_command {
 	struct command *cmd;
 	/* Channel being spliced. */
 	struct channel *channel;
-	/* For multi-channel commands: remaining channels awaiting response.
-	 * Allocated on ld -- free when finished. */
-	struct channel_id **channel_ids;
-	/* For multi-channel stfu command: the pending result */
-	struct stfu_result **results;
 	/* The user provided PSBT's version */
 	u32 user_psbt_ver;
+	/* For multi-channel commands: remaining channels awaiting response.
+	 * Allocated on ld -- free when finished. */
+	struct stfu_req_info *stfu_req_info;
 };
+
+static u32 default_feerate(struct lightningd *ld, const struct channel *channel,
+			   bool add_offset)
+{
+	u32 max_feerate;
+	bool anchors = channel_type_has_anchors(channel->type);
+	u32 feerate = unilateral_feerate(ld->topology, anchors);
+
+	/* Nothing to do if we don't know feerate. */
+	if (!feerate)
+		return 0;
+
+	max_feerate = feerate_max(ld, NULL);
+
+	/* The channel opener should use a slightly higher than minimal feerate
+	 * in order to avoid excessive feerate disagreements */
+	if (channel->opener == LOCAL) {
+		feerate += ld->config.feerate_offset;
+		if (feerate > max_feerate)
+			feerate = max_feerate;
+	}
+
+	return feerate;
+}
 
 void channel_update_feerates(struct lightningd *ld, const struct channel *channel)
 {
 	u8 *msg;
 	u32 min_feerate, max_feerate;
 	bool anchors = channel_type_has_anchors(channel->type);
-	u32 feerate = unilateral_feerate(ld->topology, anchors);
+	u32 feerate = default_feerate(ld, channel, (channel->opener == LOCAL));
+	u32 feerate_splice = default_feerate(ld, channel, true);
 
 	/* Nothing to do if we don't know feerate. */
 	if (!feerate)
@@ -63,13 +93,6 @@ void channel_update_feerates(struct lightningd *ld, const struct channel *channe
 	else
 		min_feerate = feerate_min(ld, NULL);
 	max_feerate = feerate_max(ld, NULL);
-	/* The channel opener should use a slightly higher than minimal feerate
-	 * in order to avoid excessive feerate disagreements */
-	if (channel->opener == LOCAL) {
-		feerate += ld->config.feerate_offset;
-		if (feerate > max_feerate)
-			feerate = max_feerate;
-	}
 
 	if (channel->ignore_fee_limits || ld->config.ignore_fee_limits) {
 		min_feerate = 1;
@@ -77,16 +100,21 @@ void channel_update_feerates(struct lightningd *ld, const struct channel *channe
 	}
 
 	log_debug(ld->log,
-		  "update_feerates: feerate = %u, min=%u, max=%u, penalty=%u",
+		  "update_feerates: feerate = %u, min=%u, max=%u, penalty=%u,"
+		  " opening=%u, splicing: %u",
 		  feerate,
 		  min_feerate,
 		  feerate_max(ld, NULL),
-		  penalty_feerate(ld->topology));
+		  penalty_feerate(ld->topology),
+		  opening_feerate(ld->topology),
+		  feerate_splice);
 
 	msg = towire_channeld_feerates(NULL, feerate,
 				       min_feerate,
 				       max_feerate,
-				       penalty_feerate(ld->topology));
+				       penalty_feerate(ld->topology),
+				       opening_feerate(ld->topology),
+				       feerate_splice);
 	subd_send_msg(channel->owner, take(msg));
 }
 
@@ -482,7 +510,6 @@ static void handle_splice_lookup_tx(struct lightningd *ld,
 /* Extra splice data we want to store for bitcoin send tx interface */
 struct send_splice_info
 {
-	struct splice_command *cc;
 	struct channel *channel;
 	const struct bitcoin_tx *final_tx;
 	u32 output_index;
@@ -496,27 +523,29 @@ static void handle_tx_broadcast(struct send_splice_info *info)
 	struct json_stream *response;
 	struct bitcoin_txid txid;
 	u8 *tx_bytes;
-	int num_utxos;
+	struct splice_command *cc;
 
 	tx_bytes = linearize_tx(tmpctx, info->final_tx);
 	bitcoin_txid(info->final_tx, &txid);
 
 	/* This might have spent UTXOs from our wallet */
-	num_utxos = wallet_extract_owned_outputs(ld->wallet,
-						 info->final_tx->wtx, false,
-						 NULL);
-	if (num_utxos)
+	if (wallet_extract_owned_outputs(ld->wallet,
+					 info->final_tx->wtx, false,
+					 NULL, NULL)) {
 		wallet_transaction_add(ld->wallet, info->final_tx->wtx, 0, 0);
+	}
 
-	if (info->cc) {
-		response = json_stream_success(info->cc->cmd);
+	cc = splice_command_for_chan(ld, info->channel);
+
+	if (cc) {
+		response = json_stream_success(cc->cmd);
 
 		json_add_hex(response, "tx", tx_bytes, tal_bytelen(tx_bytes));
 		json_add_txid(response, "txid", &txid);
 		json_add_u32(response, "outnum", info->output_index);
 		json_add_psbt(response, "psbt", info->psbt);
 
-		was_pending(command_success(info->cc->cmd, response));
+		was_pending(command_success(cc->cmd, response));
 	}
 }
 
@@ -527,25 +556,32 @@ static void check_utxo_block(struct bitcoind *bitcoind UNUSED,
 			     void *arg)
 {
 	struct send_splice_info *info = arg;
+	struct lightningd *ld = info->channel->peer->ld;
+	struct splice_command *cc;
 
 	if(!txout) {
-		if (info->cc)
-			was_pending(command_fail(info->cc->cmd,
+		cc = splice_command_for_chan(ld, info->channel);
+		if (cc)
+			was_pending(command_fail(cc->cmd,
 						 SPLICE_BROADCAST_FAIL,
-						 "Error broadcasting splice "
-						 "tx: %s. Unsent tx discarded "
-						 "%s.",
+						 "Error broadcasting splice"
+						 " %s. Unsent tx discarded"
+						 " %s.",
 						 info->err_msg,
-						 fmt_wally_tx(tmpctx,
-							      info->final_tx->wtx)));
+						 info->final_tx && info->final_tx->wtx ?
+							 fmt_wally_tx(tmpctx,
+								      info->final_tx->wtx)
+							 : "NULL"));
 
 		log_unusual(info->channel->log,
-			    "Error broadcasting splice "
-			    "tx: %s. Unsent tx discarded "
-			    "%s.",
+			    "Error broadcasting splice"
+			    " %s. Unsent tx discarded"
+			    " %s.",
 			    info->err_msg,
-			    fmt_wally_tx(tmpctx,
-					 info->final_tx->wtx));
+			    info->final_tx && info->final_tx->wtx ?
+				    fmt_wally_tx(tmpctx,
+					         info->final_tx->wtx)
+				    : "NULL");
 	}
 	else
 		handle_tx_broadcast(info);
@@ -558,8 +594,6 @@ static void send_splice_tx_done(struct bitcoind *bitcoind UNUSED,
 				bool success, const char *msg,
 				struct send_splice_info *info)
 {
-	/* A NULL value of `info->cc` means we got here without user intiation.
-	 * This means we are the ACCEPTER side of the splice */
 	struct lightningd *ld = info->channel->peer->ld;
 	struct bitcoin_outpoint outpoint;
 
@@ -587,13 +621,13 @@ static void send_splice_tx(struct channel *channel,
 	u8* tx_bytes = linearize_tx(tmpctx, tx);
 
 	log_debug(channel->log,
-		  "Broadcasting splice tx %s for channel %s.",
+		  "Broadcasting splice tx %s for channel %s. Final weight %lu",
 		  tal_hex(tmpctx, tx_bytes),
-		  fmt_channel_id(tmpctx, &channel->cid));
+		  fmt_channel_id(tmpctx, &channel->cid),
+		  bitcoin_tx_weight(tx));
 
 	struct send_splice_info *info = tal(NULL, struct send_splice_info);
 
-	info->cc = tal_steal(info, cc);
 	info->channel = channel;
 	info->final_tx = tal_steal(info, tx);
 	info->output_index = output_index;
@@ -652,51 +686,27 @@ static void handle_splice_confirmed_signed(struct lightningd *ld,
 }
 
 static enum watch_result splice_depth_cb(struct lightningd *ld,
-					 const struct bitcoin_txid *txid,
-					 const struct bitcoin_tx *tx,
 					 unsigned int depth,
-					 void *param)
+					 struct channel_inflight *inflight)
 {
-	/* find_txwatch triggers a type warning on inflight, so we do this. */
-	struct channel_inflight *inflight = param;
-	struct txlocator *loc;
-	struct short_channel_id scid;
-
-	/* What scid is this giving us? */
-	loc = wallet_transaction_locate(tmpctx, ld->wallet, txid);
-	if (!mk_short_channel_id(&scid,
-				 loc->blkheight, loc->index,
-				 inflight->funding->outpoint.n)) {
-		channel_fail_permanent(inflight->channel,
-				       REASON_LOCAL,
-				       "Invalid funding scid %u:%u:%u",
-				       loc->blkheight, loc->index,
-				       inflight->funding->outpoint.n);
-		return false;
-	}
-
 	/* Usually, we're here because we're awaiting a splice, but
 	 * we could also mutual shutdown, or that weird splice_locked_memonly
 	 * hack... */
 	if (inflight->channel->state != CHANNELD_AWAITING_SPLICE) {
-		log_info(inflight->channel->log, "Splice inflight event but not"
-			 " in AWAITING_SPLICE, ending watch of txid %s",
-			 fmt_bitcoin_txid(tmpctx, txid));
+		log_debug(inflight->channel->log, "Splice inflight event but not"
+			  " in AWAITING_SPLICE, ending watch of txid %s",
+			 fmt_bitcoin_txid(tmpctx, &inflight->funding->outpoint.txid));
 		return DELETE_WATCH;
 	}
 
-	/* Reorged out?  OK, we're not committed yet. */
-	if (depth == 0) {
-		return KEEP_WATCHING;
-	}
-
 	if (inflight->channel->owner) {
-		log_info(inflight->channel->log, "splice_depth_cb: sending funding depth scid: %s",
-			fmt_short_channel_id(tmpctx, scid));
+		log_debug(inflight->channel->log, "splice_depth_cb: sending funding depth scid: %s",
+			  fmt_short_channel_id(tmpctx, *inflight->scid));
 		subd_send_msg(inflight->channel->owner,
 			      take(towire_channeld_funding_depth(
-					   NULL, &scid,
-					   depth, true, txid)));
+					   NULL, inflight->scid,
+					   depth, true,
+					   &inflight->funding->outpoint.txid)));
 	}
 
 	/* channeld will tell us when splice is locked in: we'll clean
@@ -704,23 +714,61 @@ static enum watch_result splice_depth_cb(struct lightningd *ld,
 	return KEEP_WATCHING;
 }
 
+/* Reorged out?  OK, we're not committed yet. */
+static enum watch_result splice_reorged_cb(struct lightningd *ld, struct channel_inflight *inflight)
+{
+	log_unusual(inflight->channel->log, "Splice inflight txid %s reorged out",
+		    fmt_bitcoin_txid(tmpctx, &inflight->funding->outpoint.txid));
+	inflight->scid = tal_free(inflight->scid);
+	return DELETE_WATCH;
+}
+
+/* We see this tx output spend to the splice funding address. */
+static void splice_found(struct lightningd *ld,
+			 const struct bitcoin_tx *tx,
+			 u32 outnum,
+			 const struct txlocator *loc,
+			 struct channel_inflight *inflight)
+{
+	assert(!inflight->scid);
+	inflight->scid = tal(inflight, struct short_channel_id);
+
+	if (!mk_short_channel_id(inflight->scid,
+				 loc->blkheight, loc->index,
+				 inflight->funding->outpoint.n)) {
+		inflight->scid = tal_free(inflight->scid);
+		channel_fail_permanent(inflight->channel,
+				       REASON_LOCAL,
+				       "Invalid funding scid %u:%u:%u",
+				       loc->blkheight, loc->index,
+				       inflight->funding->outpoint.n);
+		return;
+	}
+
+	/* We will almost immediately get called, which is what we want! */
+	watch_blockdepth(inflight, ld->topology, loc->blkheight,
+			 splice_depth_cb,
+			 splice_reorged_cb,
+			 inflight);
+}
+
 void watch_splice_inflight(struct lightningd *ld,
 			   struct channel_inflight *inflight)
 {
+	const u8 *funding_wscript = bitcoin_redeem_2of2(tmpctx,
+							&inflight->channel->local_funding_pubkey,
+							inflight->funding->splice_remote_funding);
+
 	log_info(inflight->channel->log, "Watching splice inflight %s",
 		 fmt_bitcoin_txid(tmpctx,
 				  &inflight->funding->outpoint.txid));
-	watch_txid(inflight, ld->topology,
-		   &inflight->funding->outpoint.txid,
-		   splice_depth_cb, inflight);
-}
 
-static struct txwatch *splice_inflight_txwatch(struct channel *channel,
-					       struct channel_inflight *inflight)
-{
-	return find_txwatch(channel->peer->ld->topology,
-			    &inflight->funding->outpoint.txid,
-			    splice_depth_cb, channel);
+	watch_scriptpubkey(inflight, ld->topology,
+			   take(scriptpubkey_p2wsh(NULL, funding_wscript)),
+			   &inflight->funding->outpoint,
+			   inflight->funding->total_funds,
+			   splice_found,
+			   inflight);
 }
 
 static void handle_splice_sending_sigs(struct lightningd *ld,
@@ -767,16 +815,39 @@ static void handle_splice_sending_sigs(struct lightningd *ld,
 	watch_splice_inflight(ld, inflight);
 }
 
-bool depthcb_update_scid(struct channel *channel,
-			 const struct bitcoin_txid *txid,
-			 const struct bitcoin_outpoint *outpoint)
+static void scid_updated(struct channel *channel)
 {
-	struct txlocator *loc;
+	if (channel->channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL)
+		tell_connectd_scid(channel->peer->ld, *channel->scid, &channel->peer->id);
+
+	wallet_channel_save(channel->peer->ld->wallet, channel);
+}
+
+/* You must call scid_updated after this! */
+static void change_scid(struct channel *channel,
+			struct short_channel_id scid)
+{
+	struct short_channel_id old_scid = *channel->scid;
+
+	/* We freaked out if required when original was
+	 * removed, so just update now */
+	log_info(channel->log, "Short channel id changed from %s->%s",
+		 fmt_short_channel_id(tmpctx, *channel->scid),
+		 fmt_short_channel_id(tmpctx, scid));
+	channel_set_scid(channel, &scid);
+	/* In case we broadcast it before (e.g. splice!) */
+	channel_add_old_scid(channel, old_scid);
+	channel_gossip_scid_changed(channel);
+}
+
+bool depthcb_update_scid(struct channel *channel,
+			 const struct bitcoin_outpoint *outpoint,
+			 const struct txlocator *loc)
+{
 	struct lightningd *ld = channel->peer->ld;
 	struct short_channel_id scid;
 
 	/* What scid is this giving us? */
-	loc = wallet_transaction_locate(tmpctx, ld->wallet, txid);
 	if (!mk_short_channel_id(&scid,
 				 loc->blkheight, loc->index,
 				 outpoint->n)) {
@@ -807,23 +878,10 @@ bool depthcb_update_scid(struct channel *channel,
 			lockin_has_completed(channel, false);
 
 	} else {
-		struct short_channel_id old_scid = *channel->scid;
-
-		/* We freaked out if required when original was
-		 * removed, so just update now */
-		log_info(channel->log, "Short channel id changed from %s->%s",
-			 fmt_short_channel_id(tmpctx, *channel->scid),
-			 fmt_short_channel_id(tmpctx, scid));
-		channel_set_scid(channel, &scid);
-		/* In case we broadcast it before (e.g. splice!) */
-		channel_add_old_scid(channel, old_scid);
-		channel_gossip_scid_changed(channel);
+		change_scid(channel, scid);
 	}
 
-	if (channel->channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL)
-		tell_connectd_scid(ld, *channel->scid, &channel->peer->id);
-
-	wallet_channel_save(ld->wallet, channel);
+	scid_updated(channel);
 	return true;
 }
 
@@ -1106,7 +1164,6 @@ static void handle_peer_splice_locked(struct channel *channel, const u8 *msg)
 	s64 splice_amnt;
 	struct channel_inflight *inflight;
 	struct bitcoin_txid locked_txid;
-	struct txwatch *txw;
 
 	if (!fromwire_channeld_got_splice_locked(msg, &funding_sats,
 						 &splice_amnt,
@@ -1125,9 +1182,6 @@ static void handle_peer_splice_locked(struct channel *channel, const u8 *msg)
 
 	wallet_htlcsigs_confirm_inflight(channel->peer->ld->wallet, channel,
 					 &inflight->funding->outpoint);
-
-	/* Stop watching previous funding tx (could be, for announcement) */
-	channel_unwatch_funding(channel->peer->ld, channel);
 
 	/* Stash prev funding data so we can log it after scid is updated
 	 * (to get the blockheight) */
@@ -1151,8 +1205,8 @@ static void handle_peer_splice_locked(struct channel *channel, const u8 *msg)
 
 	wallet_channel_clear_inflights(channel->peer->ld->wallet, channel);
 
-	depthcb_update_scid(channel, &locked_txid,
-			    &inflight->funding->outpoint);
+	/* Update the scid and tell everyone */
+	change_scid(channel, *inflight->locked_scid);
 
 	/* That freed watchers in inflights: now watch funding tx */
 	channel_watch_funding(channel->peer->ld, channel);
@@ -1176,13 +1230,6 @@ static void handle_peer_splice_locked(struct channel *channel, const u8 *msg)
 	list_add_tail(&channel->inflights, &inflight->list);
 
 	lockin_complete(channel, CHANNELD_AWAITING_SPLICE);
-
-	/* Turn off tx watcher for the splice */
-	txw = splice_inflight_txwatch(channel, inflight);
-	if (!txw)
-		log_unusual(channel->log, "Can't unwatch txid %s",
-			    fmt_bitcoin_txid(tmpctx, &locked_txid));
-	tal_free(txw);
 }
 
 /* We were informed by channeld that channel is ready (reached mindepth) */
@@ -1303,6 +1350,17 @@ static void peer_got_shutdown(struct channel *channel, const u8 *msg)
 
 	/* TODO(cdecker) Selectively save updated fields to DB */
 	wallet_channel_save(ld->wallet, channel);
+}
+
+static void peer_channeld_reestablished(struct channel *channel, const u8* msg)
+{
+	bool announcement_sigs_requested;
+	if (!fromwire_channeld_reestablished(msg, &announcement_sigs_requested))
+		channel_internal_error(channel,
+				       "bad channeld_reestablished %s",
+				       tal_hex(channel, msg));
+
+	channel_gossip_channel_reestablished(channel, announcement_sigs_requested);
 }
 
 void channel_fallen_behind(struct channel *channel)
@@ -1488,17 +1546,16 @@ static void handle_confirmed_stfu(struct lightningd *ld,
 		return;
 	}
 
-	log_info(channel->log, "lightningd got confirmed stfu from channeld,"
-		 " channel_id count: %zu", tal_count(cc->channel_ids));
-
-	for (size_t i = 0; i < tal_count(cc->channel_ids); i++) {
-		if (channel_id_eq(cc->channel_ids[i], &channel->cid)) {
-			stfu_result = tal(cc->results, struct stfu_result);
+	for (size_t i = 0; i < tal_count(cc->stfu_req_info->channel_ids); i++) {
+		if (channel_id_eq(cc->stfu_req_info->channel_ids[i],
+				  &channel->cid)) {
+			stfu_result = tal(cc->stfu_req_info->results, struct stfu_result);
 			stfu_result->channel_id = channel->cid;
 			stfu_result->available_funds = available_funds;
 
-			tal_arr_expand(&cc->results, stfu_result);
-			tal_arr_remove(&cc->channel_ids, i);
+			tal_arr_expand(&cc->stfu_req_info->results,
+				       stfu_result);
+			tal_arr_remove(&cc->stfu_req_info->channel_ids, i);
 
 			log_info(channel->log, "lightningd found channel_id in command and removed it");
 			break;
@@ -1506,28 +1563,26 @@ static void handle_confirmed_stfu(struct lightningd *ld,
 	}
 
 	log_info(channel->log, "Finished processing confirmed stfu,"
-		 " channel_id count: %zu", tal_count(cc->channel_ids));
+		 " channel_id count: %zu, results count: %zu",
+		 tal_count(cc->stfu_req_info->channel_ids),
+		 tal_count(cc->stfu_req_info->results));
 
 	/* Once we run out of pending stfu requests we return to user */
-	if (tal_count(cc->channel_ids))
+	if (tal_count(cc->stfu_req_info->channel_ids))
 		return;
 
 	struct json_stream *response = json_stream_success(cc->cmd);
 
 	json_array_start(response, "channels");
-	for (size_t i = 0; i < tal_count(cc->results); i++) {
+	for (size_t i = 0; i < tal_count(cc->stfu_req_info->results); i++) {
 		json_object_start(response, NULL);
 		json_add_channel_id(response, "channel_id",
-				    &cc->results[i]->channel_id);
+				    &cc->stfu_req_info->results[i]->channel_id);
 		json_add_amount_msat(response, "available_msat",
-				     cc->results[i]->available_funds);
+				     cc->stfu_req_info->results[i]->available_funds);
 		json_object_end(response);
 	}
 	json_array_end(response);
-
-	/* channel_ids and results are free'd when the last stfu is finished */
-	tal_free(cc->channel_ids);
-	tal_free(cc->results);
 
 	was_pending(command_success(cc->cmd, response));
 }
@@ -1559,7 +1614,7 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 		peer_got_shutdown(sd->channel, msg);
 		break;
 	case WIRE_CHANNELD_REESTABLISHED:
-		channel_gossip_channel_reestablished(sd->channel);
+		peer_channeld_reestablished(sd->channel, msg);
 		break;
 	case WIRE_CHANNELD_SHUTDOWN_COMPLETE:
 		/* We expect 1 fd. */
@@ -1685,7 +1740,7 @@ bool peer_start_channeld(struct channel *channel,
 	const struct config *cfg = &ld->config;
 	struct secret last_remote_per_commit_secret;
 	struct penalty_base *pbases;
-	u32 min_feerate, max_feerate, curr_blockheight;
+	u32 feerate_splice, min_feerate, max_feerate, curr_blockheight;
 	struct channel_inflight *inflight;
 	struct inflight **inflights;
 	struct bitcoin_txid txid;
@@ -1845,6 +1900,8 @@ bool peer_start_channeld(struct channel *channel,
 		tal_arr_expand(&inflights, infcopy);
 	}
 
+	feerate_splice = default_feerate(ld, channel, true);
+
 	initmsg = towire_channeld_init(tmpctx,
 				       chainparams,
 				       ld->our_features,
@@ -1860,9 +1917,11 @@ bool peer_start_channeld(struct channel *channel,
 				       &channel->our_config,
 				       &channel->channel_info.their_config,
 				       channel->fee_states,
+				       feerate_splice,
 				       min_feerate,
 				       max_feerate,
 				       penalty_feerate(ld->topology),
+				       opening_feerate(ld->topology),
 				       &channel->last_sig,
 				       &channel->channel_info.remote_fundingkey,
 				       &channel->channel_info.theirbase,
@@ -1917,7 +1976,7 @@ bool peer_start_channeld(struct channel *channel,
 
 	/* "Reestablished" if we've just opened. */
 	if (!reconnected)
-		channel_gossip_channel_reestablished(channel);
+		channel_gossip_channel_reestablished(channel, false);
 
 	/* FIXME: DTODO: Use a pointer to a txid instead of zero'ing one out. */
 	memset(&txid, 0, sizeof(txid));
@@ -2288,7 +2347,7 @@ static struct command_result *json_splice_init(struct command *cmd,
 
 	if (!feerate_per_kw) {
 		feerate_per_kw = tal(cmd, u32);
-		*feerate_per_kw = opening_feerate(cmd->ld->topology);
+		*feerate_per_kw = default_feerate(cmd->ld, channel, true);
 	}
 
 	if (!initialpsbt)
@@ -2298,8 +2357,10 @@ static struct command_result *json_splice_init(struct command *cmd,
 				    SPLICE_INPUT_ERROR,
 				    "PSBT failed to validate.");
 
-	log_debug(cmd->ld->log, "splice_init input PSBT version %d",
-		  initialpsbt->version);
+	log_debug(cmd->ld->log, "splice_init input PSBT version %d,"
+		  " feerate: %u",
+		  initialpsbt->version,
+		  *feerate_per_kw);
 
 	cc = tal(cmd, struct splice_command);
 
@@ -2308,8 +2369,7 @@ static struct command_result *json_splice_init(struct command *cmd,
 
 	cc->cmd = cmd;
 	cc->channel = channel;
-	cc->channel_ids = NULL;
-	cc->results = NULL;
+	cc->stfu_req_info = NULL;
 	cc->user_psbt_ver = initialpsbt->version;
 
 	if (initialpsbt->version != 2 && !psbt_set_version(initialpsbt, 2))
@@ -2360,8 +2420,7 @@ static struct command_result *json_splice_update(struct command *cmd,
 
 	cc->cmd = cmd;
 	cc->channel = channel;
-	cc->channel_ids = NULL;
-	cc->results = NULL;
+	cc->stfu_req_info = NULL;
 	cc->user_psbt_ver = psbt->version;
 
 	if (psbt->version != 2 && !psbt_set_version(psbt, 2))
@@ -2396,8 +2455,7 @@ static struct command_result *single_splice_signed(struct command *cmd,
 
 	cc->cmd = cmd;
 	cc->channel = channel;
-	cc->channel_ids = NULL;
-	cc->results = NULL;
+	cc->stfu_req_info = NULL;
 	cc->user_psbt_ver = psbt->version;
 
 	if (psbt->version != 2 && !psbt_set_version(psbt, 2))
@@ -2490,11 +2548,10 @@ static struct command_result *json_stfu_channels(struct command *cmd,
 						 const jsmntok_t *params)
 {
 	struct channel *channel, **channels;
-	struct channel_id **channel_ids;
 	const jsmntok_t *channel_ids_tok, *channel_id_tok;
 	struct command_result *result;
 	struct splice_command *cc;
-	struct stfu_result **stfu_result;
+	struct stfu_req_info *req;
 	size_t i;
 
 	if (!param_check(cmd, buffer, params,
@@ -2525,16 +2582,19 @@ static struct command_result *json_stfu_channels(struct command *cmd,
 	if (command_check_only(cmd))
 		return command_check_done(cmd);
 
+	req = tal(cmd, struct stfu_req_info);
+
 	/* Next we split into multiple `stfu` commands. The final command to
-	 * return will handle free'ing `stfu_result` and `channel_ids` */
-	stfu_result = tal_arr(NULL, struct stfu_result*, 0);
-	channel_ids = tal_arr(NULL, struct channel_id*, tal_count(channels));
+	 * return finish the cmd response */
+	req->results = tal_arr(cmd, struct stfu_result*, 0);
+	req->channel_ids = tal_arr(cmd, struct channel_id*,
+				   tal_count(channels));
 
 	for (i = 0; i < tal_count(channels); i++) {
 		channel = channels[i];
 
-		channel_ids[i] = tal(channel_ids, struct channel_id);
-		*channel_ids[i] = channel->cid;
+		req->channel_ids[i] = tal(req->channel_ids, struct channel_id);
+		*req->channel_ids[i] = channel->cid;
 
 		cc = tal(cmd, struct splice_command);
 
@@ -2543,8 +2603,7 @@ static struct command_result *json_stfu_channels(struct command *cmd,
 
 		cc->cmd = cmd;
 		cc->channel = channel;
-		cc->channel_ids = channel_ids;
-		cc->results = stfu_result;
+		cc->stfu_req_info = req;
 
 		subd_send_msg(channel->owner, take(towire_channeld_stfu(NULL)));
 	}
@@ -2659,7 +2718,9 @@ static struct command_result *json_dev_feerate(struct command *cmd,
 	msg = towire_channeld_feerates(NULL, *feerate,
 				       feerate_min(cmd->ld, NULL),
 				       feerate_max(cmd->ld, NULL),
-				       penalty_feerate(cmd->ld->topology));
+				       penalty_feerate(cmd->ld->topology),
+				       opening_feerate(cmd->ld->topology),
+				       default_feerate(cmd->ld, channel, true));
 	subd_send_msg(channel->owner, take(msg));
 
 	response = json_stream_success(cmd);

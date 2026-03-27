@@ -108,8 +108,6 @@ static struct command_result *param_newaddr(struct command *cmd,
 bool WARN_UNUSED_RESULT newaddr_inner(struct command *cmd, struct pubkey *pubkey, enum addrtype addrtype)
 {
 	s64 keyidx;
-	u8 *b32script;
-	u8 *p2tr_script;
 	bool use_bip86_base = (cmd->ld->bip86_base != NULL);
 
 	/* Get new index - wallet_get_newindex now handles both BIP32 and BIP86 */
@@ -124,17 +122,6 @@ bool WARN_UNUSED_RESULT newaddr_inner(struct command *cmd, struct pubkey *pubkey
 		/* Legacy wallet - use BIP32 derivation */
 		bip32_pubkey(cmd->ld, pubkey, keyidx);
 	}
-
-	/* Generate scripts from pubkey (same logic for both wallet types) */
-	b32script = scriptpubkey_p2wpkh(tmpctx, pubkey);
-	p2tr_script = scriptpubkey_p2tr(tmpctx, pubkey);
-
-	/* Add scripts to filter based on requested address type */
-	if (addrtype & ADDR_BECH32)
-		txfilter_add_scriptpubkey(cmd->ld->owned_txfilter, b32script);
-	if (addrtype & ADDR_P2TR)
-		txfilter_add_scriptpubkey(cmd->ld->owned_txfilter, p2tr_script);
-
 	return true;
 }
 
@@ -226,7 +213,7 @@ static struct command_result *json_listaddresses(struct command *cmd,
 			 NULL))
 		return command_param_failed();
 
-	addr = encode_scriptpubkey_to_addr(tmpctx, chainparams, scriptpubkey);
+	addr = encode_scriptpubkey_to_addr(tmpctx, chainparams, scriptpubkey, tal_bytelen(scriptpubkey));
 
 	if (*liststart == 0) {
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
@@ -391,7 +378,8 @@ static void json_add_utxo(struct json_stream *response,
 
 	json_add_hex_talarr(response, "scriptpubkey", utxo->scriptPubkey);
 	out = encode_scriptpubkey_to_addr(tmpctx, chainparams,
-					  utxo->scriptPubkey);
+					  utxo->scriptPubkey,
+					  tal_bytelen(utxo->scriptPubkey));
 	if (!out)
 		log_broken(wallet->log,
 			   "Could not encode utxo %s%s!",
@@ -1027,7 +1015,7 @@ static void sendpsbt_done(struct bitcoind *bitcoind UNUSED,
 	wally_txid(sending->wtx, &txid);
 
 	/* Extract the change output and add it to the DB */
-	if (wallet_extract_owned_outputs(ld->wallet, sending->wtx, false, NULL) == 0) {
+	if (!wallet_extract_owned_outputs(ld->wallet, sending->wtx, false, NULL, NULL)) {
 		/* If we're not watching it for selfish reasons (i.e. pure send to
 		 * others), make sure we're watching it so we can update depth in db */
 		watch_unconfirmed_txid(ld, ld->topology, &txid);
@@ -1279,7 +1267,8 @@ json_signmessagewithkey(struct command *cmd, const char *buffer,
 
 	/* FIXME: we already had the address from the input */
 	char *addr;
-	addr = encode_scriptpubkey_to_addr(tmpctx, chainparams, scriptpubkey);
+	addr = encode_scriptpubkey_to_addr(tmpctx, chainparams, scriptpubkey,
+					   script_len);
 
 	if (!is_p2wpkh(scriptpubkey, script_len, NULL)) {
 		/* FIXME add support for BIP 322 */
