@@ -248,30 +248,43 @@ static struct command_result *splice_error_pkg(struct command *cmd,
 	return res;
 }
 
+static bool is_input_wallet(struct splice_script_result *action)
+{
+	if (action->onchain_wallet
+	    && !action->in_ppm
+	    && amount_sat_is_zero(action->in_sat)) {
+		return true;
+	}
+	return false;
+}
+
 static struct splice_script_result *input_wallet(struct splice_cmd *splice_cmd,
 						 size_t *index)
 {
 	for (size_t i = 0; i < tal_count(splice_cmd->actions); i++) {
-		struct splice_script_result *action = splice_cmd->actions[i];
-		if (action->onchain_wallet
-		    && !action->in_ppm
-		    && amount_sat_is_zero(action->in_sat)) {
+		if (is_input_wallet(splice_cmd->actions[i])) {
 			if (index)
 				*index = i;
-			return action;
+			return splice_cmd->actions[i];
 		}
 	}
 	return NULL;
 }
 
+static bool is_output_wallet(struct splice_script_result *action)
+{
+	if (!action->onchain_wallet)
+		return false;
+	if (action->in_ppm || !amount_sat_is_zero(action->in_sat))
+		return true;
+	return false;
+}
+
 static struct splice_script_result *output_wallet(struct splice_cmd *splice_cmd)
 {
 	for (size_t i = 0; i < tal_count(splice_cmd->actions); i++) {
-		struct splice_script_result *action = splice_cmd->actions[i];
-		if (!action->onchain_wallet)
-			continue;
-		if (action->in_ppm || !amount_sat_is_zero(action->in_sat))
-			return action;
+		if (is_output_wallet(splice_cmd->actions[i]))
+			return splice_cmd->actions[i];
 	}
 	return NULL;
 }
@@ -283,6 +296,74 @@ static struct splice_script_result *fee_action(struct splice_cmd *splice_cmd)
 		if (action->pays_fee)
 			return action;
 	}
+	return NULL;
+}
+
+static void log_actions(struct command *cmd,
+			struct splice_cmd *splice_cmd)
+{
+	for (size_t i = 0; i < tal_count(splice_cmd->actions); i++) {
+		struct splice_script_result *action = splice_cmd->actions[i];
+		char *name = tal_strdup(tmpctx, "");
+
+		if (action->channel_id)
+			tal_append_fmt(&name, "%.6s",
+				       fmt_channel_id(tmpctx,
+						      action->channel_id));
+
+		if (action->bitcoin_address)
+			tal_append_fmt(&name, "%s", action->bitcoin_address);
+
+		if (action->onchain_wallet)
+			tal_append_fmt(&name, "wallet");
+
+		plugin_log(cmd->plugin, LOG_DBG, "%s -> %s -> %s (pays_fee %s,"
+			   " out_ppm %u, out_sat %s, in_ppm %u, in_sat %s,"
+			   " onchain_action %s)",
+			   fmt_amount_sat(tmpctx, action->in_sat),
+			   name,
+			   fmt_amount_sat(tmpctx, action->out_sat),
+			   action->pays_fee ? "yes" : "no",
+			   action->out_ppm,
+			   fmt_amount_sat(tmpctx, action->out_sat),
+			   action->in_ppm,
+			   fmt_amount_sat(tmpctx, action->in_sat),
+			   action->onchain_wallet ? "yes" : "no");
+	}
+}
+
+static struct command_result *validate_actions(struct command *cmd,
+					       struct splice_cmd *splice_cmd)
+{
+	int in_wallet_count = 0;
+	int out_wallet_count = 0;
+	int fee_count = 0;
+
+	for (size_t i = 0; i < tal_count(splice_cmd->actions); i++) {
+		struct splice_script_result *action = splice_cmd->actions[i];
+		if (is_input_wallet(action))
+			in_wallet_count++;
+		if (is_output_wallet(action))
+			out_wallet_count++;
+	}
+
+	if (in_wallet_count > 1 || out_wallet_count > 1)
+		return do_fail(cmd, splice_cmd,
+			       JSONRPC2_INVALID_PARAMS,
+			       tal_fmt(tmpctx,
+				       "There should be max one output wallet"
+				       " and max but validation found %d"
+				       " in wallets and %d out wallets",
+				       in_wallet_count, out_wallet_count));
+
+	if (fee_count > 1)
+		return do_fail(cmd, splice_cmd,
+			       JSONRPC2_INVALID_PARAMS,
+			       tal_fmt(tmpctx,
+				       "There should be max one action paying"
+				       " fee but validation found %d",
+				       fee_count));
+
 	return NULL;
 }
 
@@ -306,7 +387,6 @@ static struct command_result *notice_missing_funds(struct command *cmd,
 
 #define NOTICE_MISSING(missing_funds, funds_needed, funds_available) \
 	{ \
-		struct command_result *result; \
 		result = notice_missing_funds(cmd, splice_cmd, missing_funds, \
 					      funds_needed, funds_available); \
 		if (result) \
@@ -342,6 +422,7 @@ static struct command_result *calc_in_ppm_and_fee(struct command *cmd,
 						  struct amount_sat *missing_funds,
 						  struct amount_sat *non_wallet_demand)
 {
+	struct command_result *result;
 	struct splice_script_result *action, *last_ppm_action;
 	struct amount_sat out_sats;
 	bool sub_fee_from_general;
@@ -349,8 +430,13 @@ static struct command_result *calc_in_ppm_and_fee(struct command *cmd,
 	int ppm_actions;
 	struct splice_script_result *in_wallet, *out_wallet;
 
-
 	add_to_debug_log(splice_cmd, "calc_in_ppm_and_fee");
+
+	log_actions(cmd, splice_cmd);
+
+	result = validate_actions(cmd, splice_cmd);
+	if (result)
+		return result;
 
 	plugin_log(cmd->plugin, LOG_DBG, "calc_in_ppm_and_fee starting"
 		   " calculations%s", final_pass ? " FINALIZING PASS" : "");
@@ -364,6 +450,8 @@ static struct command_result *calc_in_ppm_and_fee(struct command *cmd,
 	/* First add all sats going into general fund */
 	for (size_t i = 0; i < tal_count(splice_cmd->actions); i++) {
 		action = splice_cmd->actions[i];
+		if (amount_sat_is_zero(action->out_sat) && !action->out_ppm)
+			continue;
 		if (action->pays_fee) {
 			sub_fee_from_general = false;
 			/* Has the onchain fee been finalized? */
@@ -382,14 +470,8 @@ static struct command_result *calc_in_ppm_and_fee(struct command *cmd,
 
 			}
 		}
-		plugin_log(cmd->plugin, LOG_DBG, " plus %s (pays_fee %s, "
-			   "out_ppm %u, out_sat %s, in_ppm %u, in_sat %s)",
-			   fmt_amount_sat(tmpctx, action->out_sat),
-			   action->pays_fee ? "yes" : "no",
-			   action->out_ppm,
-			   fmt_amount_sat(tmpctx, action->out_sat),
-			   action->in_ppm,
-			   fmt_amount_sat(tmpctx, action->in_sat));
+		plugin_log(cmd->plugin, LOG_DBG, " plus %s",
+			   fmt_amount_sat(tmpctx, action->out_sat));
 		if (!amount_sat_add(&out_sats, out_sats, action->out_sat))
 			return do_fail(cmd, splice_cmd, JSONRPC2_INVALID_PARAMS,
 					    "Unable to add out_sats");
@@ -404,6 +486,8 @@ static struct command_result *calc_in_ppm_and_fee(struct command *cmd,
 	/* Now take away all sats being spent by general fund */
 	for (size_t i = 0; i < tal_count(splice_cmd->actions); i++) {
 		action = splice_cmd->actions[i];
+		if (amount_sat_is_zero(action->in_sat) && !action->in_ppm)
+			continue;
 		plugin_log(cmd->plugin, LOG_DBG, " minus %s",
 			   fmt_amount_sat(tmpctx, action->in_sat));
 		/* Subtract used funds from out_sats */
@@ -1635,6 +1719,10 @@ static struct command_result *continue_splice(struct command *cmd,
 
 	if (!splice_cmd->feerate_per_kw)
 		return load_feerate(cmd, splice_cmd);
+
+	result = validate_actions(cmd, splice_cmd);
+	if (result)
+		return result;
 
 	funding_wallet_action = input_wallet(splice_cmd, &funding_wallet_index);
 
