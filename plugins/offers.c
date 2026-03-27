@@ -19,6 +19,7 @@
 #include <common/json_stream.h>
 #include <common/memleak.h>
 #include <common/onion_message.h>
+#include <common/payer_proof.h>
 #include <errno.h>
 #include <inttypes.h>
 #include <plugins/establish_onion_path.h>
@@ -489,6 +490,7 @@ struct decodable {
 	struct tlv_offer *offer;
 	struct tlv_invoice *invoice;
 	struct tlv_invoice_request *invreq;
+	struct payer_proof *payer_proof;
 	struct rune *rune;
 	u8 *emergency_recover;
 };
@@ -529,6 +531,7 @@ enum likely_type {
 	LIKELY_BOLT12_OFFER,
 	LIKELY_BOLT12_INV,
 	LIKELY_BOLT12_INVREQ,
+	LIKELY_BOLT12_PAYER_PROOF,
 	LIKELY_EMERGENCY_RECOVER,
 	LIKELY_BOLT11,
 	LIKELY_OTHER,
@@ -556,6 +559,8 @@ static enum likely_type guess_type(const char *buffer, const jsmntok_t *tok)
 		return LIKELY_BOLT12_INV;
 	if (tok_pull(buffer, &tok_copy, "lnr1"))
 		return LIKELY_BOLT12_INVREQ;
+	if (tok_pull(buffer, &tok_copy, "lnp1"))
+		return LIKELY_BOLT12_PAYER_PROOF;
 	if (tok_pull(buffer, &tok_copy, "clnemerg1"))
 		return LIKELY_EMERGENCY_RECOVER;
 	/* BOLT #11:
@@ -659,6 +664,15 @@ static struct command_result *param_decodable(struct command *cmd,
 					      ? &likely_fail : &fail);
 	if (decodable->invreq) {
 		decodable->type = "bolt12 invoice_request";
+		return NULL;
+	}
+
+	decodable->payer_proof = payer_proof_decode(cmd, buffer + tok.start,
+						    tok.end - tok.start,
+						    type == LIKELY_BOLT12_PAYER_PROOF
+						    ? &likely_fail : &fail);
+	if (decodable->payer_proof) {
+		decodable->type = "bolt12 payer_proof";
 		return NULL;
 	}
 
@@ -965,6 +979,101 @@ static void json_add_extra_fields(struct json_stream *js,
 	}
 	if (have_extra)
 		json_array_end(js);
+}
+
+static void json_add_sha256_array(struct json_stream *js,
+				  const char *fieldname,
+				  const struct sha256 *hashes)
+{
+	json_array_start(js, fieldname);
+	for (size_t i = 0; i < tal_count(hashes); i++)
+		json_add_sha256(js, NULL, &hashes[i]);
+	json_array_end(js);
+}
+
+static void json_add_u64_array(struct json_stream *js,
+			       const char *fieldname,
+			       const u64 *vals)
+{
+	json_array_start(js, fieldname);
+	for (size_t i = 0; i < tal_count(vals); i++)
+		json_add_u64(js, NULL, vals[i]);
+	json_array_end(js);
+}
+
+static void json_add_unknown_payer_proof_fields(struct json_stream *js,
+						const char *fieldname,
+						const struct tlv_field *fields)
+{
+	bool have_extra = false;
+
+	for (size_t i = 0; i < tal_count(fields); i++) {
+		if (!is_bolt12_signature_field(fields[i].numtype)
+		    || fields[i].numtype == PAYER_PROOF_TLV_SIGNATURE
+		    || fields[i].numtype == PAYER_PROOF_TLV_PREIMAGE
+		    || fields[i].numtype == PAYER_PROOF_TLV_OMITTED_TLVS
+		    || fields[i].numtype == PAYER_PROOF_TLV_MISSING_HASHES
+		    || fields[i].numtype == PAYER_PROOF_TLV_LEAF_HASHES
+		    || fields[i].numtype == PAYER_PROOF_TLV_PAYER_SIGNATURE)
+			continue;
+		if (!have_extra) {
+			json_array_start(js, fieldname);
+			have_extra = true;
+		}
+		json_object_start(js, NULL);
+		json_add_u64(js, "type", fields[i].numtype);
+		json_add_u64(js, "length", fields[i].length);
+		json_add_hex(js, "value", fields[i].value, fields[i].length);
+		json_object_end(js);
+	}
+	if (have_extra)
+		json_array_end(js);
+}
+
+static void json_add_payer_proof(struct json_stream *js,
+				 const struct payer_proof *proof)
+{
+	if (proof->invoice->invreq_payer_id)
+		json_add_pubkey(js, "invreq_payer_id",
+				proof->invoice->invreq_payer_id);
+	if (proof->invoice->invoice_payment_hash)
+		json_add_sha256(js, "invoice_payment_hash",
+				proof->invoice->invoice_payment_hash);
+	if (proof->invoice->invoice_features)
+		json_add_hex_talarr(js, "invoice_features",
+				    proof->invoice->invoice_features);
+	if (proof->invoice->invoice_node_id)
+		json_add_pubkey(js, "invoice_node_id",
+				proof->invoice->invoice_node_id);
+	if (proof->invoice->offer_description)
+		json_add_stringn(js, "offer_description",
+				 proof->invoice->offer_description,
+				 tal_bytelen(proof->invoice->offer_description));
+	if (proof->invoice->offer_issuer)
+		json_add_stringn(js, "offer_issuer",
+				 proof->invoice->offer_issuer,
+				 tal_bytelen(proof->invoice->offer_issuer));
+	if (proof->invoice->invoice_amount)
+		json_add_amount_msat(js, "invoice_amount_msat",
+				     amount_msat(*proof->invoice->invoice_amount));
+	if (proof->invoice->invoice_created_at)
+		json_add_u64(js, "invoice_created_at",
+			     *proof->invoice->invoice_created_at);
+
+	json_add_bip340sig(js, "invoice_signature", proof->invoice_signature);
+	json_add_preimage(js, "payment_preimage", proof->preimage);
+	json_add_bip340sig(js, "payer_signature", proof->payer_signature);
+	if (proof->payer_note)
+		json_add_string(js, "payer_note", proof->payer_note);
+	json_add_sha256(js, "merkle_root", &proof->merkle_root);
+	json_add_u64_array(js, "omitted_tlvs", proof->omitted_tlvs);
+	json_add_sha256_array(js, "missing_hashes", proof->missing_hashes);
+	json_add_sha256_array(js, "leaf_hashes", proof->leaf_hashes);
+	json_add_extra_fields(js, "unknown_disclosed_invoice_tlvs",
+			      proof->invoice->fields);
+	json_add_unknown_payer_proof_fields(js, "unknown_payer_proof_tlvs",
+					    proof->fields);
+	json_add_bool(js, "valid", true);
 }
 
 static void json_add_offer(struct command *cmd, struct json_stream *js, const struct tlv_offer *offer)
@@ -1627,6 +1736,8 @@ static struct command_result *json_decode(struct command *cmd,
 		json_add_invoice_request(cmd, response, decodable->invreq);
 	if (decodable->invoice)
 		json_add_b12_invoice(cmd, response, decodable->invoice);
+	if (decodable->payer_proof)
+		json_add_payer_proof(response, decodable->payer_proof);
 	if (decodable->b11) {
 		/* The bolt11 decoder simply refuses to decode bad invs. */
 		json_add_bolt11(response, decodable->b11);

@@ -81,6 +81,7 @@ COMMON_SRC_NOGEN :=				\
 	common/peer_io.c			\
 	common/penalty_base.c			\
 	common/per_peer_state.c			\
+	common/payer_proof.c			\
 	common/permute_tx.c			\
 	common/ping.c				\
 	common/plugin.c				\
