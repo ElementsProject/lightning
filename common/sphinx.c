@@ -165,8 +165,7 @@ void sphinx_add_hop(struct sphinx_path *path, const struct pubkey *pubkey,
 	size_t len = tal_bytelen(payload);
 	towire_bigsize(&with_len, len);
 	towire_u8_array(&with_len, payload, len);
-	if (taken(payload))
-		tal_free(payload);
+	tal_free_if_taken(payload);
 
 	if (!sphinx_add_hop_has_length(path, pubkey, take(with_len)))
 		abort();

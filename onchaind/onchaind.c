@@ -215,8 +215,7 @@ static void send_coin_mvt(struct chain_coin_mvt *mvt TAKES)
 	wire_sync_write(REQ_FD,
 			take(towire_onchaind_notify_coin_mvt(NULL, mvt)));
 
-	if (taken(mvt))
-		tal_free(mvt);
+	tal_free_if_taken(mvt);
 }
 
 static void record_channel_withdrawal(const struct bitcoin_txid *tx_txid,

@@ -128,6 +128,10 @@ static struct peer *new_peer(struct daemon *daemon,
 	peer->cs = *cs;
 	peer->subds = tal_arr(peer, struct subd *, 0);
 	peer->peer_in = NULL;
+	peer->bytes_rcvd_this_second = 0;
+	peer->bytes_rcvd_start_time = time_mono();
+	peer->recv_timer = NULL;
+	peer->throttle_warned = false;
 	membuf_init(&peer->encrypted_peer_out,
 		    tal_arr(peer, u8, 0), 0,
 		    membuf_tal_resize);
@@ -646,11 +650,9 @@ static struct io_plan *connection_in(struct io_conn *conn,
 	/* Did we fail to accept? */
 	if (!conn) {
 		static bool accept_logged = false;
-		if (!accept_logged) {
-			status_broken("accepting incoming fd failed: %s",
-				      strerror(errno));
-			accept_logged = true;
-		}
+		status_broken_once(&accept_logged,
+				   "accepting incoming fd failed: %s",
+				   strerror(errno));
 		/* Maybe free up some fds by closing something. */
 		close_random_connection(daemon);
 		return NULL;
@@ -1753,8 +1755,10 @@ static void connect_init(struct daemon *daemon, const u8 *msg)
 	}
 
 	/* 500 bytes per second, not 1M per second */
-	if (dev_throttle_gossip)
+	if (dev_throttle_gossip) {
 		daemon->gossip_stream_limit = 500;
+		daemon->incoming_stream_limit = 500;
+	}
 
 	if (dev_limit_connections_inflight)
 		daemon->max_connect_in_flight = 1;
@@ -2567,6 +2571,7 @@ int main(int argc, char *argv[])
 	daemon->dev_keep_nagle = false;
 	/* We generally allow 1MB per second per peer, except for dev testing */
 	daemon->gossip_stream_limit = 1000000;
+	daemon->incoming_stream_limit = 1000000;
 	daemon->scid_htable = new_htable(daemon, scid_htable);
 
 	/* stdin == control */

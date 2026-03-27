@@ -171,8 +171,7 @@ char *utf8_str(const tal_t *ctx, const u8 *buf TAKES, size_t buflen)
 	char *ret;
 
 	if (!utf8_check(buf, buflen)) {
-		if (taken(buf))
-			tal_free(buf);
+		tal_free_if_taken(buf);
 		return NULL;
 	}
 

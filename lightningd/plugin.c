@@ -357,8 +357,7 @@ struct plugin *plugin_register(struct plugins *plugins, const char* path TAKES,
 					    "Plugin changed, needs restart.");
 				break;
 			}
-			if (taken(path))
-				tal_free(path);
+			tal_free_if_taken(path);
 			return NULL;
 		}
 	}
@@ -2454,8 +2453,7 @@ bool plugin_single_notify(struct plugin *p,
 	} else
 		interested = false;
 
-	if (taken(n))
-		tal_free(n);
+	tal_free_if_taken(n);
 
 	return interested;
 }

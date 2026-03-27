@@ -29,6 +29,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#define PENDING_LIMIT 10000
 #define GOSSIP_STORE_COMPACT_FILENAME "gossip_store.compact"
 
 struct pending_cannounce {
@@ -133,9 +134,24 @@ static void enqueue_cupdate(struct pending_cupdate ***queue,
 			    u32 fee_proportional_millionths,
 			    u32 timestamp,
 			    const u8 *update TAKES,
-			    const struct node_id *source_peer TAKES)
+			    const struct node_id *source_peer)
 {
-	struct pending_cupdate *pcu = tal(*queue, struct pending_cupdate);
+	struct pending_cupdate *pcu;
+
+	if (tal_count(*queue) > PENDING_LIMIT) {
+		static bool warned = false;
+		status_unusual_once(&warned,
+				    CI_UNEXPECTED
+				    "channel_updates being flooded by %s: dropping some",
+				    source_peer
+				    ? fmt_node_id(tmpctx, source_peer)
+				    : "unknown");
+		tal_free_if_taken(update);
+		tal_free_if_taken(source_peer);
+		return;
+	}
+
+	pcu = tal(*queue, struct pending_cupdate);
 
 	pcu->scid = scid;
 	pcu->signature = *signature;
@@ -159,7 +175,22 @@ static void enqueue_nannounce(struct pending_nannounce ***queue,
 			      const u8 *nannounce TAKES,
 			      const struct node_id *source_peer TAKES)
 {
-	struct pending_nannounce *pna = tal(*queue, struct pending_nannounce);
+	struct pending_nannounce *pna;
+
+	if (tal_count(*queue) > PENDING_LIMIT) {
+		static bool warned = false;
+		status_unusual_once(&warned,
+				    CI_UNEXPECTED
+				    "node_announcements being flooded by %s: dropping some",
+				    source_peer
+				    ? fmt_node_id(tmpctx, source_peer)
+				    : "unknown");
+		tal_free_if_taken(nannounce);
+		tal_free_if_taken(source_peer);
+		return;
+	}
+
+	pna = tal(*queue, struct pending_nannounce);
 
 	pna->node_id = *node_id;
 	pna->timestamp = timestamp;
@@ -183,15 +214,14 @@ static bool map_add(struct cannounce_map *map,
 		    struct pending_cannounce *pca)
 {
 	/* More than 10000 pending things?  Stop! */
-	if (map->count > 10000) {
-		if (!map->flood_reported) {
-			status_unusual("%s being flooded by %s: dropping some",
-				       map->name,
-				       pca->source_peer
-				       ? fmt_node_id(tmpctx, pca->source_peer)
-				       : "unknown");
-			map->flood_reported = true;
-		}
+	if (map->count > PENDING_LIMIT) {
+		status_unusual_once(&map->flood_reported,
+				    CI_UNEXPECTED
+				    "%s being flooded by %s: dropping some",
+				    map->name,
+				    pca->source_peer
+				    ? fmt_node_id(tmpctx, pca->source_peer)
+				    : "unknown");
 		return false;
 	}
 

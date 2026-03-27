@@ -543,8 +543,7 @@ struct json_out *json_out_obj(const tal_t *ctx,
 	json_out_start(jout, NULL, '{');
 	if (str)
 		json_out_addstr(jout, fieldname, str);
-	if (taken(str))
-		tal_free(str);
+	tal_free_if_taken(str);
 	json_out_end(jout, '}');
 	json_out_finished(jout);
 
@@ -791,8 +790,7 @@ static const jsmntok_t *sync_req(const tal_t *ctx,
 		json_out_start(jout, "params", '{');
 		json_out_end(jout, '}');
 	}
-	if (taken(params))
-		tal_free(params);
+	tal_free_if_taken(params);
 
 	/* If we're past init, we may need a new fd (the old one
 	 * is being used for async comms). */
