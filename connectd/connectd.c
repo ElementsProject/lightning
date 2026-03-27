@@ -1689,9 +1689,8 @@ static void connect_init(struct daemon *daemon, const u8 *msg)
 				    &dev_throttle_gossip,
 				    &daemon->dev_no_reconnect,
 				    &daemon->dev_fast_reconnect,
-			    &dev_limit_connections_inflight,
-			    &daemon->dev_keep_nagle,
-			    &daemon->dev_uniform_padding)) {
+				    &dev_limit_connections_inflight,
+				    &daemon->dev_keep_nagle)) {
 		/* This is a helper which prints the type expected and the actual
 		 * message, then exits (it should never be called!). */
 		master_badmsg(WIRE_CONNECTD_INIT, msg);
@@ -2566,7 +2565,6 @@ int main(int argc, char *argv[])
 	daemon->dev_exhausted_fds = false;
 	daemon->dev_lightningd_is_slow = false;
 	daemon->dev_keep_nagle = false;
-	daemon->dev_uniform_padding = false;
 	/* We generally allow 1MB per second per peer, except for dev testing */
 	daemon->gossip_stream_limit = 1000000;
 	daemon->scid_htable = new_htable(daemon, scid_htable);

@@ -309,9 +309,6 @@ struct daemon {
 	/* Allow localhost to be considered "public", only with --developer */
 	bool dev_allow_localhost;
 
-	/* Pad outgoing messages to uniform 1460-byte segments (traffic analysis defence) */
-	bool dev_uniform_padding;
-
 	/* How much to gossip allow a peer every 60 seconds (bytes) */
 	size_t gossip_stream_limit;
 

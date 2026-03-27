@@ -369,9 +369,6 @@ struct lightningd {
 	/* Tell connectd we don't want TCP_NODELAY */
 	bool dev_keep_nagle;
 
-	/* Pad outgoing messages to uniform 1460-byte segments (traffic analysis defence) */
-	bool dev_uniform_padding;
-
 	/* tor support */
 	struct wireaddr *proxyaddr;
 	bool always_use_proxy;
