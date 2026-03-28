@@ -229,13 +229,16 @@ void notify_invoice_payment(struct lightningd *ld,
 static void invoice_creation_notification_serialize(struct json_stream *stream,
 						    const struct amount_msat *amount,
 						    const struct preimage *preimage,
-						    const struct json_escape *label)
+						    const struct json_escape *label,
+						    const struct sha256 *offer_id)
 {
 	if (amount != NULL)
 		json_add_amount_msat(stream, "msat", *amount);
 
 	json_add_preimage(stream, "preimage", preimage);
 	json_add_escaped_string(stream, "label", label);
+	if (offer_id)
+		json_add_sha256(stream, "offer_id", offer_id);
 }
 
 REGISTER_NOTIFICATION(invoice_creation)
@@ -243,12 +246,13 @@ REGISTER_NOTIFICATION(invoice_creation)
 void notify_invoice_creation(struct lightningd *ld,
 			     const struct amount_msat *amount,
 			     const struct preimage *preimage,
-			     const struct json_escape *label)
+			     const struct json_escape *label,
+			     const struct sha256 *offer_id)
 {
 	struct jsonrpc_notification *n = notify_start(ld, "invoice_creation");
 	if (!n)
 		return;
-	invoice_creation_notification_serialize(n->stream, amount, preimage, label);
+	invoice_creation_notification_serialize(n->stream, amount, preimage, label, offer_id);
 	notify_send(ld, n);
 }
 
