@@ -291,10 +291,10 @@ char *fmt_wireaddr(const tal_t *ctx, const struct wireaddr *a)
 bool separate_address_and_port(const tal_t *ctx, const char *arg,
 			       char **addr, u16 *port)
 {
-	char *portcolon;
+	const char *portcolon;
 
 	if (strstarts(arg, "[")) {
-		char *end = strchr(arg, ']');
+		const char *end = strchr(arg, ']');
 		if (!end)
 			return false;
 		/* Copy inside [] */
