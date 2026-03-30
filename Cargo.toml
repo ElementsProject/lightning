@@ -8,7 +8,8 @@ debug = 0
 codegen-units = 32
 
 [workspace]
-resolver = "2"
+resolver = "3"
+package.rust-version = "1.85.0"
 members = [
     "cln-rpc",
     "cln-grpc",
