@@ -6,6 +6,7 @@ license = "MIT"
 description = "Fetches currency rates"
 homepage = "https://github.com/ElementsProject/lightning/tree/master/plugins"
 repository = "https://github.com/ElementsProject/lightning"
+rust-version.workspace = true
 
 [dependencies]
 anyhow = "1"

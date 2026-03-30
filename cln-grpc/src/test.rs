@@ -1,6 +1,7 @@
 use crate::pb::*;
 use serde_json::json;
 
+#[cfg(feature = "server")]
 #[test]
 fn test_listpeers() {
     let j: serde_json::Value = json!({
@@ -230,6 +231,7 @@ fn test_listpeers() {
     // assert_eq!(j, j2); // TODO, still some differences to fix
 }
 
+#[cfg(feature = "server")]
 #[test]
 fn test_getinfo() {
     let j = json!({
@@ -254,6 +256,7 @@ fn test_getinfo() {
     //assert_eq!(j, j2);
 }
 
+#[cfg(feature = "server")]
 #[test]
 fn test_keysend() {
     let g =
@@ -293,7 +296,7 @@ fn test_keysend() {
                 }],
             }),
             extratlvs: None,
-            maxfee: None
+            maxfee: None,
         };
 
     let u: cln_rpc::model::requests::KeysendRequest = g.into();

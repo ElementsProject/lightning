@@ -7,6 +7,7 @@ description = "The Core Lightning API as grpc primitives. Provides the bindings 
 homepage = "https://github.com/ElementsProject/lightning/tree/master/cln-grpc"
 repository = "https://github.com/ElementsProject/lightning"
 documentation = "https://docs.rs/cln-grpc"
+rust-version.workspace = true
 
 [features]
 default = []
