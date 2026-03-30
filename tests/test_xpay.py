@@ -1074,7 +1074,6 @@ def test_xpay_blockheight_mismatch(node_factory, bitcoind, executor):
     fut.result(TIMEOUT)
 
 
-@pytest.mark.xfail(strict=True)
 def test_bolt12_fees(node_factory):
     AMT_MSAT = 10000
     FEES_MSAT = 5000
