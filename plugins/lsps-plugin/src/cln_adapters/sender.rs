@@ -4,7 +4,7 @@ use crate::{
 };
 use async_trait::async_trait;
 use bitcoin::secp256k1::PublicKey;
-use cln_rpc::{model::requests::SendcustommsgRequest, ClnRpc};
+use cln_rpc::{ClnRpc, model::requests::SendcustommsgRequest};
 use std::path::PathBuf;
 
 #[derive(Clone)]

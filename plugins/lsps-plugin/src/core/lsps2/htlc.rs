@@ -1,14 +1,13 @@
 use crate::{
     core::{
         lsps2::provider::{DatastoreProvider, LightningProvider, Lsps2OfferProvider},
-        tlv::{TlvStream, TLV_FORWARD_AMT},
+        tlv::{TLV_FORWARD_AMT, TlvStream},
     },
     proto::{
         lsps0::{Msat, ShortChannelId},
         lsps2::{
-            compute_opening_fee,
+            Lsps2PolicyGetChannelCapacityRequest, compute_opening_fee,
             failure_codes::{TEMPORARY_CHANNEL_FAILURE, UNKNOWN_NEXT_PEER},
-            Lsps2PolicyGetChannelCapacityRequest,
         },
     },
 };
@@ -160,12 +159,12 @@ impl<A: DatastoreProvider + Lsps2OfferProvider + LightningProvider> HtlcAccepted
                     reason: RejectReason::InsufficientForFee {
                         fee: Msat::from_msat(fee),
                     },
-                })
+                });
             }
             None => {
                 return Ok(HtlcDecision::Reject {
                     reason: RejectReason::FeeOverflow,
-                })
+                });
             }
         };
 
@@ -186,7 +185,7 @@ impl<A: DatastoreProvider + Lsps2OfferProvider + LightningProvider> HtlcAccepted
             None => {
                 return Ok(HtlcDecision::Reject {
                     reason: RejectReason::PolicyDenied,
-                })
+                });
             }
         };
 
@@ -243,9 +242,9 @@ mod tests {
         DatastoreEntry, Lsps2PolicyGetChannelCapacityResponse, Lsps2PolicyGetInfoRequest,
         Lsps2PolicyGetInfoResponse, OpeningFeeParams, Promise,
     };
-    use anyhow::{anyhow, Result as AnyResult};
+    use anyhow::{Result as AnyResult, anyhow};
     use async_trait::async_trait;
-    use bitcoin::hashes::{sha256::Hash as Sha256, Hash};
+    use bitcoin::hashes::{Hash, sha256::Hash as Sha256};
     use bitcoin::secp256k1::PublicKey;
     use chrono::{TimeZone, Utc};
     use std::sync::atomic::{AtomicUsize, Ordering};

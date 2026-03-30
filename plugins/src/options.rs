@@ -132,8 +132,8 @@
 //!     Ok(())
 //! }
 //! ```
-use serde::ser::{SerializeSeq, Serializer};
 use serde::Serialize;
+use serde::ser::{SerializeSeq, Serializer};
 
 pub mod config_type {
     #[derive(Clone, Debug)]

@@ -2,7 +2,7 @@ use anyhow::anyhow;
 use cln_plugin::options::StringArrayConfigOption;
 use cln_plugin::{Builder, ConfiguredPlugin, Plugin, RpcMethodBuilder};
 use cln_rpc::ClnRpc;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::net::{IpAddr, SocketAddr};
 use std::path::Path;
 use std::str::FromStr;
@@ -190,7 +190,10 @@ async fn currencyrate(plugin: Plugin<PluginState>, args: Value) -> Result<Value,
     }
 }
 
-async fn listcurrencyrates(plugin: Plugin<PluginState>, args: Value) -> Result<Value, anyhow::Error> {
+async fn listcurrencyrates(
+    plugin: Plugin<PluginState>,
+    args: Value,
+) -> Result<Value, anyhow::Error> {
     let currency = match args {
         Value::Array(values) => {
             let currency = values

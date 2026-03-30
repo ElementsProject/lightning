@@ -2,14 +2,14 @@ use std::{net::SocketAddr, process, sync::Arc};
 
 use anyhow::anyhow;
 use certs::get_tls_config;
-use cln_plugin::{options::ConfigOption, Builder};
+use cln_plugin::{Builder, options::ConfigOption};
 
 use futures_util::{SinkExt, StreamExt};
-use options::{parse_options, WssproxyOptions, OPT_WSS_BIND_ADDR, OPT_WSS_CERTS_DIR};
+use options::{OPT_WSS_BIND_ADDR, OPT_WSS_CERTS_DIR, WssproxyOptions, parse_options};
 use rustls::ServerConfig;
 use tokio::net::{TcpListener, TcpStream};
-use tokio_rustls::{server::TlsStream, TlsAcceptor};
-use tokio_tungstenite::{accept_async, WebSocketStream};
+use tokio_rustls::{TlsAcceptor, server::TlsStream};
+use tokio_tungstenite::{WebSocketStream, accept_async};
 
 mod certs;
 mod options;
