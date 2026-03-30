@@ -1,7 +1,7 @@
 [package]
 name = "cln-currencyrate"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 license = "MIT"
 description = "Fetches currency rates"
 homepage = "https://github.com/ElementsProject/lightning/tree/master/plugins"

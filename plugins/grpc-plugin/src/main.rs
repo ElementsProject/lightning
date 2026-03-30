@@ -37,10 +37,20 @@ const OPTION_GRPC_MSG_BUFFER_SIZE : options::DefaultIntegerConfigOption = option
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<()> {
-    std::env::set_var(
-        "CLN_PLUGIN_LOG",
-        "cln_plugin=info,cln_rpc=info,cln_grpc=debug,debug",
-    );
+    unsafe {
+        // SAFETY:
+        // `std::env::set_var` is unsafe in Rust 2024 because environment variables
+        // are process-global and unsynchronized. Concurrent reads/writes from
+        // multiple threads can cause undefined behavior.
+        //
+        // This call happens at process startup, before any threads are spawned and
+        // before any code that may read environment variables is executed.
+        // Therefore, no concurrent access is possible.
+        std::env::set_var(
+            "CLN_PLUGIN_LOG",
+            "cln_plugin=info,cln_rpc=info,cln_grpc=debug,debug",
+        )
+    };
 
     let directory = std::env::current_dir()?;
 

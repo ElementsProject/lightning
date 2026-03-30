@@ -101,8 +101,12 @@ fn generate_or_load_identity(
             params.key_usages.push(rcgen::KeyUsagePurpose::KeyCertSign);
         } else {
             params.is_ca = rcgen::IsCa::NoCa;
-            params.key_usages.push(rcgen::KeyUsagePurpose::DigitalSignature);
-            params.key_usages.push(rcgen::KeyUsagePurpose::KeyEncipherment);
+            params
+                .key_usages
+                .push(rcgen::KeyUsagePurpose::DigitalSignature);
+            params
+                .key_usages
+                .push(rcgen::KeyUsagePurpose::KeyEncipherment);
             params.key_usages.push(rcgen::KeyUsagePurpose::KeyAgreement);
         }
         params
