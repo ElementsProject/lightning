@@ -1,8 +1,8 @@
-use anyhow::{anyhow, Error};
+use anyhow::{Error, anyhow};
 use rcgen::{CertificateParams, DistinguishedName, Ia5String, KeyPair};
+use rustls::ServerConfig;
 use rustls::pki_types::pem::PemObject;
 use rustls::pki_types::{CertificateDer, PrivateKeyDer};
-use rustls::ServerConfig;
 use std::fs;
 use std::net::IpAddr;
 use std::path::{Path, PathBuf};
@@ -18,7 +18,9 @@ pub fn generate_certificates(certs_path: &PathBuf, wss_host: &[String]) -> Resul
         "localhost".to_string(),
     ])?;
     ca_params.is_ca = rcgen::IsCa::Ca(rcgen::BasicConstraints::Unconstrained);
-    ca_params.key_usages.push(rcgen::KeyUsagePurpose::KeyCertSign);
+    ca_params
+        .key_usages
+        .push(rcgen::KeyUsagePurpose::KeyCertSign);
     ca_params.use_authority_key_identifier_extension = true;
     let ca_key = KeyPair::generate()?;
     let ca_cert = ca_params.self_signed(&ca_key)?;
@@ -38,9 +40,15 @@ pub fn generate_certificates(certs_path: &PathBuf, wss_host: &[String]) -> Resul
         "localhost".to_string(),
     ])?;
     server_params.is_ca = rcgen::IsCa::NoCa;
-    server_params.key_usages.push(rcgen::KeyUsagePurpose::DigitalSignature);
-    server_params.key_usages.push(rcgen::KeyUsagePurpose::KeyEncipherment);
-    server_params.key_usages.push(rcgen::KeyUsagePurpose::KeyAgreement);
+    server_params
+        .key_usages
+        .push(rcgen::KeyUsagePurpose::DigitalSignature);
+    server_params
+        .key_usages
+        .push(rcgen::KeyUsagePurpose::KeyEncipherment);
+    server_params
+        .key_usages
+        .push(rcgen::KeyUsagePurpose::KeyAgreement);
     server_params.use_authority_key_identifier_extension = true;
     server_params.distinguished_name = DistinguishedName::new();
     server_params

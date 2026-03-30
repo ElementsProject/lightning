@@ -1,8 +1,8 @@
 //! Common structs to handle JSON-RPC decoding and encoding. They are
 //! generic over the Notification and Request types.
 
-use serde::ser::{SerializeStruct, Serializer};
 use serde::de::{self, Deserializer};
+use serde::ser::{SerializeStruct, Serializer};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::fmt::Debug;

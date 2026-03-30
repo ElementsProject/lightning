@@ -12,9 +12,9 @@ use cln_lsps::{
         },
         server::LspsService,
     },
-    proto::lsps0::{Msat, LSPS0_MESSAGE_TYPE},
+    proto::lsps0::{LSPS0_MESSAGE_TYPE, Msat},
 };
-use cln_plugin::{options, HookBuilder, HookFilter, Plugin};
+use cln_plugin::{HookBuilder, HookFilter, Plugin, options};
 use log::{debug, error, trace};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;

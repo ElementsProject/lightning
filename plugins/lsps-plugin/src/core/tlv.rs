@@ -1,4 +1,4 @@
-use serde::{de::Error as DeError, Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer, de::Error as DeError};
 use std::{convert::TryFrom, fmt};
 use thiserror::Error;
 
@@ -411,7 +411,7 @@ mod tests {
         ]);
 
         let bytes = stream.to_bytes()?; // just ensure it encodes
-                                        // Decode back to confirm roundtrip/canonical encodings accepted
+        // Decode back to confirm roundtrip/canonical encodings accepted
         let back = TlvStream::from_bytes(&bytes)?;
         assert_eq!(back.0[0].type_, 0x00fc);
         assert_eq!(back.0[1].type_, 0x00fd);

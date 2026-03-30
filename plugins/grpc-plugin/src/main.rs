@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use cln_grpc::pb::node_server::NodeServer;
-use cln_plugin::{options, Builder, Plugin};
+use cln_plugin::{Builder, Plugin, options};
 use cln_rpc::notifications::Notification;
 use std::net::SocketAddr;
 use std::path::PathBuf;
@@ -30,10 +30,12 @@ const OPTION_GRPC_HOST: options::DefaultStringConfigOption =
         "Which host should the grpc listen for incomming connections?",
     );
 
-const OPTION_GRPC_MSG_BUFFER_SIZE : options::DefaultIntegerConfigOption = options::ConfigOption::new_i64_with_default(
-    "grpc-msg-buffer-size",
-    1024,
-    "Number of notifications which can be stored in the grpc message buffer. Notifications can be skipped if this buffer is full");
+const OPTION_GRPC_MSG_BUFFER_SIZE: options::DefaultIntegerConfigOption =
+    options::ConfigOption::new_i64_with_default(
+        "grpc-msg-buffer-size",
+        1024,
+        "Number of notifications which can be stored in the grpc message buffer. Notifications can be skipped if this buffer is full",
+    );
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<()> {

@@ -3,8 +3,8 @@ use std::time::Duration;
 use anyhow::anyhow;
 use bitcoin::hex::DisplayHex;
 use bitcoin_payment_instructions::{
-    hrn_resolution::HumanReadableName, http_resolver::HTTPHrnResolver, PaymentInstructions,
-    PaymentMethod, PossiblyResolvedPaymentMethod,
+    PaymentInstructions, PaymentMethod, PossiblyResolvedPaymentMethod,
+    hrn_resolution::HumanReadableName, http_resolver::HTTPHrnResolver,
 };
 use cln_plugin::{Builder, Plugin, RpcMethodBuilder};
 use serde::Serialize;

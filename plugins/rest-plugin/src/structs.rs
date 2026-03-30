@@ -16,11 +16,11 @@ use serde_json::json;
 use tokio::sync::mpsc::Sender;
 use tower_http::cors::CorsLayer;
 use utoipa::{
-    openapi::{
-        security::{ApiKey, ApiKeyValue, SecurityScheme},
-        Components,
-    },
     Modify, OpenApi,
+    openapi::{
+        Components,
+        security::{ApiKey, ApiKeyValue, SecurityScheme},
+    },
 };
 
 #[derive(Debug)]
