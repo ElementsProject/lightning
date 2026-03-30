@@ -1074,7 +1074,6 @@ def test_xpay_blockheight_mismatch(node_factory, bitcoind, executor):
     fut.result(TIMEOUT)
 
 
-@pytest.mark.xfail(strict=True)
 def test_blinded_path_fees(node_factory):
     """Test that we don't send the amount+fees to our direct peer (we should
     only send the required amount) when the sending node is the entry point in

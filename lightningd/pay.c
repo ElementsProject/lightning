@@ -1973,7 +1973,7 @@ static struct command_result *json_injectpaymentonion(struct command *cmd,
 		register_payment_and_waiter(cmd,
 					    payment_hash,
 					    *partid, *groupid,
-					    *destination_msat, *msat, AMOUNT_MSAT(0),
+					    *destination_msat, payload->amt_to_forward, AMOUNT_MSAT(0),
 					    label, invstring, local_invreq_id,
 					    &shared_secret,
 					    destination);
@@ -1981,7 +1981,7 @@ static struct command_result *json_injectpaymentonion(struct command *cmd,
 		/* Mark it pending now, though htlc_set_add might
 		 * not resolve immediately */
 		fixme_ignore(command_still_pending(cmd));
-		htlc_set_add(cmd->ld, cmd->ld->log, *msat, *payload->total_msat,
+		htlc_set_add(cmd->ld, cmd->ld->log, payload->amt_to_forward, *payload->total_msat,
 			     NULL, payment_hash, payload->payment_secret,
 			     selfpay_mpp_fail, selfpay_mpp_succeeded,
 			     selfpay);
@@ -2017,22 +2017,22 @@ static struct command_result *json_injectpaymentonion(struct command *cmd,
 					    "Unknown peer %s",
 					    fmt_node_id(tmpctx, &nid));
 
-		next = best_channel(cmd->ld, next_peer, *msat, NULL);
+		next = best_channel(cmd->ld, next_peer, payload->amt_to_forward, NULL);
 		if (!next)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "No available channel with peer %s",
 					    fmt_node_id(tmpctx, &nid));
 	}
 
-	if (amount_msat_greater(*msat, next->htlc_maximum_msat)
-	    || amount_msat_less(*msat, next->htlc_minimum_msat)) {
+	if (amount_msat_greater(payload->amt_to_forward, next->htlc_maximum_msat)
+	    || amount_msat_less(payload->amt_to_forward, next->htlc_minimum_msat)) {
 		/* Are we in old-range grace-period? */
 		if (!timemono_before(time_mono(), next->old_feerate_timeout)
-		    || amount_msat_less(*msat, next->old_htlc_minimum_msat)
-		    || amount_msat_greater(*msat, next->old_htlc_maximum_msat)) {
+		    || amount_msat_less(payload->amt_to_forward, next->old_htlc_minimum_msat)
+		    || amount_msat_greater(payload->amt_to_forward, next->old_htlc_maximum_msat)) {
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "Amount %s not in htlc min/max range %s-%s",
-					    fmt_amount_msat(tmpctx, *msat),
+					    fmt_amount_msat(tmpctx, payload->amt_to_forward),
 					    fmt_amount_msat(tmpctx, next->htlc_minimum_msat),
 					    fmt_amount_msat(tmpctx, next->htlc_maximum_msat));
 		}
@@ -2085,11 +2085,11 @@ static struct command_result *json_injectpaymentonion(struct command *cmd,
 	if (command_check_only(cmd))
 		return command_check_done(cmd);
 
-	failmsg = send_htlc_out(tmpctx, next, *msat,
+	failmsg = send_htlc_out(tmpctx, next, payload->amt_to_forward,
 				*cltv,
 				/* If unknown, we set this equal (so accounting logs 0 fees) */
 				amount_msat_eq(*destination_msat, AMOUNT_MSAT(0))
-				? *msat : *destination_msat,
+				? payload->amt_to_forward : *destination_msat,
 				payment_hash,
 				next_path_key, NULL, *partid, *groupid,
 				serialize_onionpacket(tmpctx, rs->next),
@@ -2104,7 +2104,7 @@ static struct command_result *json_injectpaymentonion(struct command *cmd,
 	register_payment_and_waiter(cmd,
 				    payment_hash,
 				    *partid, *groupid,
-				    *destination_msat, *msat, AMOUNT_MSAT(0),
+				    *destination_msat, payload->amt_to_forward, AMOUNT_MSAT(0),
 				    label, invstring, local_invreq_id,
 				    &shared_secret,
 				    destination);

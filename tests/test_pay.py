@@ -6360,7 +6360,7 @@ def test_injectpaymentonion_selfpay(node_factory, executor):
              'payload': serialize_payload_final_tlv(333, 18, 1000, blockheight, inv5['payment_secret']).hex()}]
     onion1 = l1.rpc.createonion(hops=hops1, assocdata=inv5['payment_hash'])
     hops2 = [{'pubkey': l1.info['id'],
-             'payload': serialize_payload_final_tlv(666, 18, 1000, blockheight, inv5['payment_secret']).hex()}]
+             'payload': serialize_payload_final_tlv(667, 18, 1000, blockheight, inv5['payment_secret']).hex()}]
     onion2 = l1.rpc.createonion(hops=hops2, assocdata=inv5['payment_hash'])
 
     fut1 = executor.submit(l1.rpc.injectpaymentonion,
