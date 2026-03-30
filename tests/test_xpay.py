@@ -1072,3 +1072,38 @@ def test_xpay_blockheight_mismatch(node_factory, bitcoind, executor):
     # Now let it catch up, and it will retry, and succeed.
     l1.daemon.rpcproxy.mock_rpc('getblockhash')
     fut.result(TIMEOUT)
+
+
+@pytest.mark.xfail(strict=True)
+def test_blinded_path_fees(node_factory):
+    """Test that we don't send the amount+fees to our direct peer (we should
+    only send the required amount) when the sending node is the entry point in
+    the blinded path."""
+    AMT_MSAT = 10000
+    FEES_MSAT = 5000
+    l1, l2 = node_factory.get_nodes(
+        2, opts={"may_reconnect": True, "fee-base": FEES_MSAT, "fee-per-satoshi": 0}
+    )
+    node_factory.join_nodes([l1, l2], wait_for_announce=True)
+
+    offer = l2.rpc.offer(amount="any", fronting_nodes=[l1.info["id"]])["bolt12"]
+    b12 = l1.rpc.fetchinvoice(offer, AMT_MSAT)["invoice"]
+
+    b12_decode = l1.rpc.decode(b12)
+    assert b12_decode["invoice_amount_msat"] == AMT_MSAT
+    assert len(b12_decode["invoice_paths"]) == 1
+    assert b12_decode["invoice_paths"][0]["first_node_id"] == l1.info["id"]
+    assert b12_decode["invoice_paths"][0]["payinfo"]["fee_base_msat"] == FEES_MSAT
+    assert b12_decode["invoice_paths"][0]["payinfo"]["fee_proportional_millionths"] == 0
+
+    ret = l1.rpc.xpay(invstring=b12)
+    assert ret["failed_parts"] == 0
+    assert ret["successful_parts"] == 1
+    assert ret["amount_msat"] == AMT_MSAT
+    assert ret["amount_sent_msat"] == AMT_MSAT + FEES_MSAT
+
+    # we pay fees to ourselves
+    htlcs = l1.rpc.listhtlcs()["htlcs"]
+    assert len(htlcs) == 1
+    assert htlcs[0]["payment_hash"] == b12_decode["invoice_payment_hash"]
+    assert htlcs[0]["amount_msat"] == AMT_MSAT
