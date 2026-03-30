@@ -1,5 +1,5 @@
-use crate::options::UntypedConfigOption;
 use crate::HookFilter;
+use crate::options::UntypedConfigOption;
 use serde::de::{self, Deserializer};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;

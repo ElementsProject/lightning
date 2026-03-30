@@ -146,7 +146,7 @@ mod tests {
         Lsps2PolicyGetChannelCapacityResponse, Lsps2PolicyGetInfoResponse, OpeningFeeParams,
         PolicyOpeningFeeParams, Promise,
     };
-    use anyhow::{anyhow, Result as AnyResult};
+    use anyhow::{Result as AnyResult, anyhow};
     use chrono::{TimeZone, Utc};
     use std::sync::{Arc, Mutex};
 

@@ -336,7 +336,7 @@ where
             None => {
                 return Err(anyhow!(
                     "Lost connection to lightning expecting getmanifest"
-                ))
+                ));
             }
         };
         let (init_id, configuration) = match input.next().await {
@@ -834,10 +834,14 @@ where
                 trace!("Received a message: {:?}", msg);
                 match msg {
                     messages::JsonRpc::Request(_id, _p) => {
-                        todo!("This is unreachable until we start filling in messages:Request. Until then the custom dispatcher below is used exclusively.");
+                        todo!(
+                            "This is unreachable until we start filling in messages:Request. Until then the custom dispatcher below is used exclusively."
+                        );
                     }
                     messages::JsonRpc::Notification(_n) => {
-                        todo!("As soon as we define the full structure of the messages::Notification we'll get here. Until then the custom dispatcher below is used.")
+                        todo!(
+                            "As soon as we define the full structure of the messages::Notification we'll get here. Until then the custom dispatcher below is used."
+                        )
                     }
                     messages::JsonRpc::CustomRequest(id, request) => {
                         trace!("Dispatching custom method {:?}", request);

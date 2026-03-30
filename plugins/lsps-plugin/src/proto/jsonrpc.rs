@@ -1,5 +1,5 @@
-use rand::{rngs::OsRng, TryRngCore as _};
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use rand::{TryRngCore as _, rngs::OsRng};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::{self, Value};
 use std::fmt;
 
@@ -225,12 +225,12 @@ impl<'de, R: DeserializeOwned> Deserialize<'de> for JsonRpcResponse<R> {
             (Some(_), Some(_)) => {
                 return Err(serde::de::Error::custom(
                     "Response cannot have both result and error",
-                ))
+                ));
             }
             (None, None) => {
                 return Err(serde::de::Error::custom(
                     "Response must have either result or error",
-                ))
+                ));
             }
         };
 
@@ -420,9 +420,11 @@ mod test_message_serialization {
             const METHOD: &'static str = "say_hello";
         }
         let rpc_request = SayHelloRequest.into_request();
-        assert!(!serde_json::to_string(&rpc_request)
-            .expect("could not convert to json")
-            .contains("\"params\""));
+        assert!(
+            !serde_json::to_string(&rpc_request)
+                .expect("could not convert to json")
+                .contains("\"params\"")
+        );
     }
 
     #[test]

@@ -1,6 +1,6 @@
 //! Primitive types representing [`Amount`]s, [`PublicKey`]s, ...
 use anyhow::Context;
-use anyhow::{anyhow, Error, Result};
+use anyhow::{Error, Result, anyhow};
 use bitcoin::hashes::Hash as BitcoinHash;
 use serde::{Deserialize, Serialize};
 use serde::{Deserializer, Serializer};

@@ -8,10 +8,10 @@ use std::{
 
 use anyhow::anyhow;
 use axum::{
+    Extension, Router,
     http::{HeaderName, HeaderValue},
     middleware,
     routing::{any, get},
-    Extension, Router,
 };
 use axum_server::tls_rustls::RustlsConfig;
 use certs::{do_certificates_exist, generate_certificates};
@@ -22,7 +22,7 @@ use handlers::{
 };
 use options::*;
 use serde_json::json;
-use socketioxide::{handler::ConnectHandler, SocketIo, SocketIoBuilder};
+use socketioxide::{SocketIo, SocketIoBuilder, handler::ConnectHandler};
 use tokio::{
     sync::mpsc::{self, Receiver},
     time,
