@@ -17,6 +17,10 @@ mod oracle;
 const DEFAULT_PROXY_PORT: u16 = 9050;
 const MSAT_PER_BTC: f64 = 1e11;
 
+fn round_to_3dp(price: f64) -> f64 {
+    format!("{:.3}", price).parse::<f64>().unwrap_or(price)
+}
+
 #[derive(Debug, Clone)]
 pub struct SourceResult {
     pub name: String,
@@ -146,15 +150,22 @@ async fn currencyconvert(plugin: Plugin<PluginState>, args: Value) -> Result<Val
 }
 
 async fn currencyrate(plugin: Plugin<PluginState>, args: Value) -> Result<Value, anyhow::Error> {
-    let currency = match args {
+    let (currency, source) = match args {
         Value::Array(values) => {
+            if values.len() > 2 {
+                return Err(anyhow!(
+                    "Too many arguments: expected at most 2 (currency [source]), got {}",
+                    values.len()
+                ));
+            }
             let currency = values
                 .first()
                 .ok_or_else(|| anyhow!("Missing currency"))?
                 .as_str()
                 .ok_or_else(|| anyhow!("currency must be a string"))?
-                .to_owned();
-            currency.to_uppercase()
+                .to_uppercase();
+            let source = values.get(1).and_then(|v| v.as_str()).map(str::to_owned);
+            (currency, source)
         }
         Value::Object(map) => {
             let currency = map
@@ -162,8 +173,9 @@ async fn currencyrate(plugin: Plugin<PluginState>, args: Value) -> Result<Value,
                 .ok_or_else(|| anyhow!("Missing currency"))?
                 .as_str()
                 .ok_or_else(|| anyhow!("currency must be a string"))?
-                .to_owned();
-            currency.to_uppercase()
+                .to_uppercase();
+            let source = map.get("source").and_then(|v| v.as_str()).map(str::to_owned);
+            (currency, source)
         }
         _ => return Err(anyhow!("Arguments must be an array or dictionary")),
     };
@@ -171,12 +183,18 @@ async fn currencyrate(plugin: Plugin<PluginState>, args: Value) -> Result<Value,
     let oracle = plugin.state().oracle.lock().await;
     oracle.currency_requested(&currency).await;
 
-    match oracle.get_median_rate(&currency).await {
-        Ok(result) => Ok(json!({
-            "rate": result,
-        })),
-        Err(e) => Err(anyhow!("Error converting currency: {e}")),
-    }
+    let rate = match source {
+        Some(source_name) => oracle
+            .get_source_rate(&currency, &source_name)
+            .await
+            .map_err(|e| anyhow!("Error getting rate from source: {e}"))?,
+        None => oracle
+            .get_median_rate(&currency)
+            .await
+            .map_err(|e| anyhow!("Error getting median rate: {e}"))?,
+    };
+
+    Ok(json!({ "rate": round_to_3dp(rate) }))
 }
 
 async fn listcurrencyrates(plugin: Plugin<PluginState>, args: Value) -> Result<Value, anyhow::Error> {
@@ -212,7 +230,7 @@ async fn listcurrencyrates(plugin: Plugin<PluginState>, args: Value) -> Result<V
                 .map(|source_result| {
                     json!({
                         "source": source_result.name,
-                        "amount": source_result.price,
+                        "amount": round_to_3dp(source_result.price),
                     })
                 })
                 .collect::<Vec<_>>();
