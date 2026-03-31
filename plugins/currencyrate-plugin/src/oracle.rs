@@ -523,6 +523,48 @@ impl BtcPriceOracle {
             }
         });
     }
+
+    pub async fn get_source_rate(
+        &self,
+        currency: &str,
+        source_name: &str,
+    ) -> Result<f64, anyhow::Error> {
+        self.refresh_currency(currency).await?;
+
+        let inner = self.inner.lock().await;
+
+        // Give a helpful error if the source name is unknown entirely
+        if !inner.sources.contains_key(source_name) {
+            let available = inner
+                .sources
+                .keys()
+                .cloned()
+                .collect::<Vec<_>>()
+                .join(", ");
+            return Err(anyhow!(
+                "Unknown source `{source_name}`. Available sources: {available}"
+            ));
+        }
+
+        let currency_cache = inner
+            .currencies
+            .get(currency)
+            .ok_or_else(|| anyhow!("No rates available for `{currency}`"))?;
+
+        let price_cache = currency_cache
+            .prices
+            .get(source_name)
+            .ok_or_else(|| anyhow!(
+                "Source `{source_name}` has no data for `{currency}`. \
+                The source may not support this currency or is currently backing off."
+            ))?;
+
+        if price_cache.timestamp + SERVE_TTL <= Instant::now() {
+            return Err(anyhow!("Cached rate from `{source_name}` is expired"));
+        }
+
+        Ok(price_cache.price)
+    }
 }
 
 fn get_median(source_results: Vec<SourceResult>) -> f64 {
