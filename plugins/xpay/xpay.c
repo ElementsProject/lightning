@@ -346,6 +346,13 @@ static struct amount_msat initial_sent(const struct attempt *attempt)
 {
 	if (tal_count(attempt->hops) == 0)
 		return attempt->delivers;
+	return attempt->hops[0].amount_out;
+}
+
+static struct amount_msat inject_amount(const struct attempt *attempt)
+{
+	if (tal_count(attempt->hops) == 0)
+		return attempt->delivers;
 	return attempt->hops[0].amount_in;
 }
 
@@ -1151,7 +1158,7 @@ static struct command_result *do_inject(struct command *aux_cmd,
 	json_add_hex_talarr(req->js, "onion", onion);
 	json_add_sha256(req->js, "payment_hash", &attempt->payment->payment_hash);
 	/* If no route, its the same as delivery (self-pay) */
-	json_add_amount_msat(req->js, "amount_msat", initial_sent(attempt));
+	json_add_amount_msat(req->js, "amount_msat", inject_amount(attempt));
 	json_add_u32(req->js, "cltv_expiry", initial_cltv_delta(attempt) + effective_bheight);
 	json_add_u64(req->js, "partid", attempt->partid);
 	json_add_u64(req->js, "groupid", attempt->payment->group_id);
@@ -1466,7 +1473,8 @@ static struct command_result *getroutes_for(struct command *aux_cmd,
 	json_array_start(req->js, "layers");
 	/* Add local channels */
 	json_add_string(req->js, NULL, "auto.localchans");
-	/* We don't pay fees for ourselves */
+	/* For the MCF computation we must discard the cost of routing through
+	 * our own channels because we don't pay fees for that. */
 	json_add_string(req->js, NULL, "auto.sourcefree");
 	/* Add xpay global channel */
 	json_add_string(req->js, NULL, "xpay");

@@ -1099,9 +1099,8 @@ def test_blinded_path_fees(node_factory):
     assert ret["failed_parts"] == 0
     assert ret["successful_parts"] == 1
     assert ret["amount_msat"] == AMT_MSAT
-    assert ret["amount_sent_msat"] == AMT_MSAT + FEES_MSAT
+    assert ret["amount_sent_msat"] == AMT_MSAT
 
-    # we pay fees to ourselves
     htlcs = l1.rpc.listhtlcs()["htlcs"]
     assert len(htlcs) == 1
     assert htlcs[0]["payment_hash"] == b12_decode["invoice_payment_hash"]
