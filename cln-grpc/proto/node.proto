@@ -4439,6 +4439,7 @@ message CurrencyconvertResponse {
 
 message CurrencyrateRequest {
 	string currency = 1;
+	optional string source = 2;
 }
 
 message CurrencyrateResponse {

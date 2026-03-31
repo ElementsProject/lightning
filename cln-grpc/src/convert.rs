@@ -6954,6 +6954,7 @@ impl From<requests::CurrencyrateRequest> for pb::CurrencyrateRequest {
     fn from(c: requests::CurrencyrateRequest) -> Self {
         Self {
             currency: c.currency, // Rule #2 for type string
+            source: c.source, // Rule #2 for type string?
         }
     }
 }
@@ -8974,6 +8975,7 @@ impl From<pb::CurrencyrateRequest> for requests::CurrencyrateRequest {
     fn from(c: pb::CurrencyrateRequest) -> Self {
         Self {
             currency: c.currency, // Rule #1 for type string
+            source: c.source, // Rule #1 for type string?
         }
     }
 }
