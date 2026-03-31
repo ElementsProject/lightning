@@ -108,6 +108,12 @@ median from currencyrates results",
 async fn currencyconvert(plugin: Plugin<PluginState>, args: Value) -> Result<Value, anyhow::Error> {
     let (amount, currency) = match args {
         Value::Array(values) => {
+            if values.len() > 2 {
+                return Err(anyhow!(
+                    "Too many arguments: expected at most 2 (amount currency), got {}",
+                    values.len()
+                ));
+            }
             let amount = values
                 .first()
                 .ok_or_else(|| anyhow!("Missing amount"))?
@@ -200,6 +206,12 @@ async fn currencyrate(plugin: Plugin<PluginState>, args: Value) -> Result<Value,
 async fn listcurrencyrates(plugin: Plugin<PluginState>, args: Value) -> Result<Value, anyhow::Error> {
     let currency = match args {
         Value::Array(values) => {
+            if values.len() > 1 {
+                return Err(anyhow!(
+                    "Too many arguments: expected at most 1 (currency), got {}",
+                    values.len()
+                ));
+            }
             let currency = values
                 .first()
                 .ok_or_else(|| anyhow!("Missing currency"))?
