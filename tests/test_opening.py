@@ -2931,7 +2931,6 @@ def test_zeroconf_withhold(node_factory, bitcoind, stay_withheld, mutual_close):
 
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
-@pytest.mark.xfail(strict=True)
 def test_opening_incoming_unknown_feerates(node_factory, bitcoind):
     """
     Don't allow incoming channels if we can't estimate feerates.

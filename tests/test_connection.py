@@ -2884,7 +2884,8 @@ def test_fundee_node_unconfirmed(node_factory, bitcoind):
 
 
 def test_no_fee_estimate(node_factory, bitcoind, executor):
-    l1 = node_factory.get_node(start=False, options={'dev-no-fake-fees': True})
+    l1 = node_factory.get_node(start=False, options={'dev-no-fake-fees': True},
+                               may_reconnect=True)
 
     # Fail any fee estimation requests until we allow them further down
     l1.daemon.rpcproxy.mock_rpc('estimatesmartfee', {
@@ -2892,7 +2893,7 @@ def test_no_fee_estimate(node_factory, bitcoind, executor):
     })
     l1.start()
 
-    l2 = node_factory.get_node()
+    l2 = node_factory.get_node(may_reconnect=True)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
     # Can't fund a channel.
@@ -2929,9 +2930,19 @@ def test_no_fee_estimate(node_factory, bitcoind, executor):
         with pytest.raises(RpcError, match=r'Cannot estimate fees'):
             l1.rpc.fundchannel(l2.info['id'], 10**6, '2000perkw', minconf=0)
 
-    # But can accept incoming connections.
+    # Can accept incoming connections, can't allow incoming channels
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    with pytest.raises(RpcError, match=r'feerates unknown'):
+        l2.fundchannel(l1, 10**6)
+
+    # Re-enable fees for a moment so we can fund channel.
+    l1.set_feerates((15000, 11000, 7500, 3750), True)
     l2.fundchannel(l1, 10**6)
+    l1.daemon.rpcproxy.mock_rpc('estimatesmartfee', {
+        'error': {"errors": ["Insufficient data or no feerate found"], "blocks": 0}
+    })
+    l1.restart()
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
     # Can do HTLCs.
     l2.pay(l1, 10**5)
@@ -2943,8 +2954,14 @@ def test_no_fee_estimate(node_factory, bitcoind, executor):
     sync_blockheight(bitcoind, [l1, l2])
 
     # Can do unilateral close.
-    l2.rpc.connect(l1.info['id'], 'localhost', l1.port)
+    l1.set_feerates((15000, 11000, 7500, 3750), True)
     l2.fundchannel(l1, 10**6)
+    l1.daemon.rpcproxy.mock_rpc('estimatesmartfee', {
+        'error': {"errors": ["Insufficient data or no feerate found"], "blocks": 0}
+    })
+    l1.restart()
+    l2.rpc.connect(l1.info['id'], 'localhost', l1.port)
+
     l2.pay(l1, 10**9 // 2)
     l1.rpc.dev_fail(l2.info['id'])
     l1.daemon.wait_for_log('Failing due to dev-fail command')
@@ -2953,18 +2970,6 @@ def test_no_fee_estimate(node_factory, bitcoind, executor):
     wait_for(lambda: len(bitcoind.rpc.getrawmempool()) > 0)
     bitcoind.generate_block(100)
     sync_blockheight(bitcoind, [l1, l2])
-
-    # Start estimatesmartfee.
-    l1.set_feerates((15000, 11000, 7500, 3750), True)
-
-    # Can now fund a channel (as a test, use slow feerate).
-    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-    sync_blockheight(bitcoind, [l1])
-    l1.rpc.fundchannel(l2.info['id'], 10**6, 'slow')
-
-    # Can withdraw (use urgent feerate). `minconf` may be needed depending on
-    # the previous `fundchannel` selecting all confirmed outputs.
-    l1.rpc.withdraw(l2.rpc.newaddr('bech32')['bech32'], 'all', 'urgent', minconf=0)
 
 
 def test_opener_feerate_reconnect(node_factory, bitcoind):
