@@ -1388,6 +1388,7 @@ def disableoffer2py(m):
         "active": m.active,  # PrimitiveField in generate_composite
         "bolt12": m.bolt12,  # PrimitiveField in generate_composite
         "description": m.description,  # PrimitiveField in generate_composite
+        "force_paths": m.force_paths,  # PrimitiveField in generate_composite
         "label": m.label,  # PrimitiveField in generate_composite
         "offer_id": hexlify(m.offer_id),  # PrimitiveField in generate_composite
         "single_use": m.single_use,  # PrimitiveField in generate_composite
@@ -1400,6 +1401,7 @@ def enableoffer2py(m):
         "active": m.active,  # PrimitiveField in generate_composite
         "bolt12": m.bolt12,  # PrimitiveField in generate_composite
         "description": m.description,  # PrimitiveField in generate_composite
+        "force_paths": m.force_paths,  # PrimitiveField in generate_composite
         "label": m.label,  # PrimitiveField in generate_composite
         "offer_id": hexlify(m.offer_id),  # PrimitiveField in generate_composite
         "single_use": m.single_use,  # PrimitiveField in generate_composite
@@ -1681,6 +1683,7 @@ def listoffers_offers2py(m):
         "active": m.active,  # PrimitiveField in generate_composite
         "bolt12": m.bolt12,  # PrimitiveField in generate_composite
         "description": m.description,  # PrimitiveField in generate_composite
+        "force_paths": m.force_paths,  # PrimitiveField in generate_composite
         "label": m.label,  # PrimitiveField in generate_composite
         "offer_id": hexlify(m.offer_id),  # PrimitiveField in generate_composite
         "single_use": m.single_use,  # PrimitiveField in generate_composite
@@ -1792,6 +1795,7 @@ def offer2py(m):
         "active": m.active,  # PrimitiveField in generate_composite
         "bolt12": m.bolt12,  # PrimitiveField in generate_composite
         "created": m.created,  # PrimitiveField in generate_composite
+        "force_paths": m.force_paths,  # PrimitiveField in generate_composite
         "label": m.label,  # PrimitiveField in generate_composite
         "offer_id": hexlify(m.offer_id),  # PrimitiveField in generate_composite
         "single_use": m.single_use,  # PrimitiveField in generate_composite

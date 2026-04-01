@@ -1748,7 +1748,7 @@ static struct command_result *json_createinvoice(struct command *cmd,
 		if (inv->offer_issuer_id || inv->offer_paths) {
 			invoice_offer_id(inv, &offer_id);
 			if (wallet_offer_find(tmpctx, cmd->ld->wallet,
-					      &offer_id, NULL, &status)) {
+					      &offer_id, NULL, &status, NULL)) {
 				if (!offer_status_active(status))
 					return command_fail(cmd,
 							    INVOICE_OFFER_INACTIVE,

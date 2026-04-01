@@ -3725,6 +3725,8 @@ def test_sql(node_factory, bitcoind):
                          'type': 'boolean'},
                         {'name': 'single_use',
                          'type': 'boolean'},
+                        {'name': 'force_paths',
+                         'type': 'boolean'},
                         {'name': 'bolt12',
                          'type': 'string'},
                         {'name': 'description',

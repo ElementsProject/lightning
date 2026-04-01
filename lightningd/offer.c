@@ -14,12 +14,14 @@ static void json_populate_offer(struct json_stream *response,
 				const struct sha256 *offer_id,
 				const char *b12,
 				const struct json_escape *label,
-				enum offer_status status)
+				enum offer_status status,
+				bool force_paths)
 {
 	json_add_sha256(response, "offer_id", offer_id);
 	json_add_bool(response, "active", offer_status_active(status));
 	json_add_bool(response, "single_use", offer_status_single(status));
 	json_add_string(response, "bolt12", b12);
+	json_add_bool(response, "force_paths", force_paths);
 	json_add_bool(response, "used", offer_status_used(status));
 	if (label)
 		json_add_escaped_string(response, "label", label);
@@ -100,7 +102,7 @@ static struct command_result *json_createoffer(struct command *cmd,
 	struct tlv_offer *offer;
 	struct sha256 offer_id;
 	const char *b12str;
-	bool *single_use;
+	bool *single_use, *force_paths;
 	enum offer_status status;
 	bool created;
 
@@ -108,6 +110,7 @@ static struct command_result *json_createoffer(struct command *cmd,
 		   p_req("bolt12", param_b12_offer, &offer),
 		   p_opt("label", param_label, &label),
 		   p_opt_def("single_use", param_bool, &single_use, false),
+		   p_opt_def("force_paths", param_bool, &force_paths, false),
 		   NULL))
 		return command_param_failed();
 
@@ -121,11 +124,11 @@ static struct command_result *json_createoffer(struct command *cmd,
 	/* If it already exists, we use that one instead (and then
 	 * the offer plugin will complain if it's inactive or expired) */
 	if (!wallet_offer_create(cmd->ld->wallet, &offer_id,
-				 b12str, label, status)) {
+				 b12str, label, status, *force_paths)) {
 		if (!wallet_offer_find(cmd, cmd->ld->wallet, &offer_id,
 				       cast_const2(const struct json_escape **,
 						   &label),
-				       &status)) {
+				       &status, force_paths)) {
 			return command_fail(cmd, LIGHTNINGD,
 					    "Could not create, nor find offer");
 		}
@@ -134,7 +137,7 @@ static struct command_result *json_createoffer(struct command *cmd,
 		created = true;
 
 	response = json_stream_success(cmd);
-	json_populate_offer(response, &offer_id, b12str, label, status);
+	json_populate_offer(response, &offer_id, b12str, label, status, *force_paths);
 	json_add_bool(response, "created", created);
 	return command_success(cmd, response);
 }
@@ -158,6 +161,7 @@ static struct command_result *json_listoffers(struct command *cmd,
 	const struct json_escape *label;
 	bool *active_only;
 	enum offer_status status;
+	bool force_paths;
 
 	if (!param(cmd, buffer, params,
 		   p_opt("offer_id", param_sha256, &offer_id),
@@ -169,12 +173,12 @@ static struct command_result *json_listoffers(struct command *cmd,
 	json_array_start(response, "offers");
 	if (offer_id) {
 		b12 = wallet_offer_find(tmpctx, wallet, offer_id, &label,
-					&status);
+					&status, &force_paths);
 		if (b12 && offer_status_active(status) >= *active_only) {
 			json_object_start(response, NULL);
 			json_populate_offer(response,
 					    offer_id, b12,
-					    label, status);
+					    label, status, force_paths);
 			description = offer_description_from_b12(tmpctx, cmd->ld, b12);
 			if (description)
 				json_add_stringn(response, "description", description, tal_bytelen(description));
@@ -188,12 +192,12 @@ static struct command_result *json_listoffers(struct command *cmd,
 		     stmt;
 		     stmt = wallet_offer_id_next(cmd->ld->wallet, stmt, &id)) {
 			b12 = wallet_offer_find(tmpctx, wallet, &id,
-						&label, &status);
+						&label, &status, &force_paths);
 			if (offer_status_active(status) >= *active_only) {
 				json_object_start(response, NULL);
 				json_populate_offer(response,
 						    &id, b12,
-						    label, status);
+						    label, status, force_paths);
 				description = offer_description_from_b12(tmpctx, cmd->ld, b12);
 				if (description)
 					json_add_stringn(response, "description", description, tal_bytelen(description));
@@ -223,13 +227,15 @@ static struct command_result *json_disableoffer(struct command *cmd,
 	const char *description;
 	const struct json_escape *label;
 	enum offer_status status;
+	bool force_paths;
 
 	if (!param_check(cmd, buffer, params,
 			 p_req("offer_id", param_sha256, &offer_id),
 			 NULL))
 		return command_param_failed();
 
-	b12 = wallet_offer_find(tmpctx, wallet, offer_id, &label, &status);
+	b12 = wallet_offer_find(tmpctx, wallet, offer_id,
+				&label, &status, &force_paths);
 	if (!b12)
 		return command_fail(cmd, LIGHTNINGD, "Unknown offer");
 
@@ -243,7 +249,7 @@ static struct command_result *json_disableoffer(struct command *cmd,
 	status = wallet_offer_disable(wallet, offer_id, status);
 
 	response = json_stream_success(cmd);
-	json_populate_offer(response, offer_id, b12, label, status);
+	json_populate_offer(response, offer_id, b12, label, status, force_paths);
 	description = offer_description_from_b12(tmpctx, cmd->ld, b12);
 	if (description)
 		json_add_stringn(response, "description", description, tal_bytelen(description));
@@ -268,13 +274,15 @@ static struct command_result *json_enableoffer(struct command *cmd,
 	const char *description;
 	const struct json_escape *label;
 	enum offer_status status;
+	bool force_paths;
 
 	if (!param_check(cmd, buffer, params,
 			 p_req("offer_id", param_sha256, &offer_id),
 			 NULL))
 		return command_param_failed();
 
-	b12 = wallet_offer_find(tmpctx, wallet, offer_id, &label, &status);
+	b12 = wallet_offer_find(tmpctx, wallet, offer_id,
+				&label, &status, &force_paths);
 	if (!b12)
 		return command_fail(cmd, LIGHTNINGD, "Unknown offer");
 
@@ -292,7 +300,7 @@ static struct command_result *json_enableoffer(struct command *cmd,
 	status = wallet_offer_enable(wallet, offer_id, status);
 
 	response = json_stream_success(cmd);
-	json_populate_offer(response, offer_id, b12, label, status);
+	json_populate_offer(response, offer_id, b12, label, status, force_paths);
 	description = offer_description_from_b12(tmpctx, cmd->ld, b12);
 	if (description)
 		json_add_stringn(response, "description", description, tal_bytelen(description));
