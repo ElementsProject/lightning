@@ -3046,6 +3046,7 @@ static struct command_result *openchannel_init(struct command *cmd,
 {
 	u32 *our_upfront_shutdown_script_wallet_index;
 	u32 found_wallet_index;
+	u32 anchor_feerate;
 	struct channel *channel;
 	struct open_attempt *oa;
 	int fds[2];
@@ -3093,12 +3094,19 @@ static struct command_result *openchannel_init(struct command *cmd,
 	} else
 		our_upfront_shutdown_script_wallet_index = NULL;
 
+	/* 0 from this means "unknown" */
+	anchor_feerate = unilateral_feerate(cmd->ld->topology, true);
+	if (anchor_feerate == 0) {
+		anchor_feerate = get_feerate_floor(cmd->ld->topology);
+		assert(anchor_feerate);
+	}
+
 	oa->open_msg = towire_dualopend_opener_init(oa,
 					   psbt, amount,
 					   oa->our_upfront_shutdown_script,
 					   our_upfront_shutdown_script_wallet_index,
 					   feerate_per_kw,
-					   unilateral_feerate(cmd->ld->topology, true),
+					   anchor_feerate,
 					   feerate_per_kw_funding,
 					   channel->channel_flags,
 					   amount_sat_is_zero(request_amt) ?
@@ -3803,7 +3811,7 @@ static struct command_result *json_queryrates(struct command *cmd,
 	struct peer *peer;
 	struct channel *channel;
 	u32 *feerate_per_kw_funding;
-	u32 *feerate_per_kw;
+	u32 *feerate_per_kw, anchor_feerate;
 	struct amount_sat *amount, *request_amt;
 	struct wally_psbt *psbt;
 	struct open_attempt *oa;
@@ -3891,12 +3899,19 @@ static struct command_result *json_queryrates(struct command *cmd,
 	} else
 		our_upfront_shutdown_script_wallet_index = NULL;
 
+	/* 0 from this means "unknown" */
+	anchor_feerate = unilateral_feerate(cmd->ld->topology, true);
+	if (anchor_feerate == 0) {
+		anchor_feerate = get_feerate_floor(cmd->ld->topology);
+		assert(anchor_feerate);
+	}
+
 	oa->open_msg = towire_dualopend_opener_init(oa,
 					   psbt, *amount,
 					   oa->our_upfront_shutdown_script,
 					   our_upfront_shutdown_script_wallet_index,
 					   *feerate_per_kw,
-					   unilateral_feerate(cmd->ld->topology, true),
+					   anchor_feerate,
 					   *feerate_per_kw_funding,
 					   channel->channel_flags,
 					   amount_sat_is_zero(*request_amt) ?
