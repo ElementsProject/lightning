@@ -83,17 +83,18 @@ struct chaninfo {
 	u32 feebase, feeppm, cltv;
 };
 
-/* Calls listpeerchannels, then cb with best peer (if any!) which has needed_feature */
+/* Calls listpeerchannels, then cb with best peer (if any!) which has needed_feature and (if set) the given payment capacity. */
 struct command_result *find_best_peer_(struct command *cmd,
 				       u64 needed_features,
+				       const struct amount_msat *amount,
 				       const struct pubkey *fronting_nodes,
 				       struct command_result *(*cb)(struct command *,
 								    const struct chaninfo *,
 								    void *),
 				       void *arg);
 
-#define find_best_peer(cmd, needed_features, fronting_nodes, cb, arg)	\
-	find_best_peer_((cmd), (needed_features), (fronting_nodes),	\
+#define find_best_peer(cmd, needed_features, amount, fronting_nodes, cb, arg) \
+	find_best_peer_((cmd), (needed_features), (amount), (fronting_nodes), \
 			typesafe_cb_preargs(struct command_result *, void *, \
 					    (cb), (arg),		\
 					    struct command *,		\

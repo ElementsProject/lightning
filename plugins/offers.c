@@ -320,6 +320,7 @@ struct find_best_peer_data {
 				     const struct chaninfo *,
 				     void *);
 	u64 needed_features;
+	const struct amount_msat *amount;
 	const struct pubkey *fronting_nodes;
 	void *arg;
 };
@@ -395,6 +396,11 @@ static struct command_result *listincoming_done(struct command *cmd,
 		if (!enabled)
 			continue;
 
+		/* Make sure it can pay us what we need (misleadingly,
+		 * listincoming caps "htlc_max_msat" at "receivable") */
+		if (data->amount && amount_msat_less(ci.htlc_max, *data->amount))
+			continue;
+
 		/* Not presented if there's no channel_announcement for peer:
 		 * we could use listpeers, but if it's private we probably
 		 * don't want to blinded route through it! */
@@ -425,6 +431,7 @@ static struct command_result *listincoming_done(struct command *cmd,
 
 struct command_result *find_best_peer_(struct command *cmd,
 				       u64 needed_features,
+				       const struct amount_msat *amount,
 				       const struct pubkey *fronting_nodes,
 				       struct command_result *(*cb)(struct command *,
 								    const struct chaninfo *,
@@ -435,6 +442,7 @@ struct command_result *find_best_peer_(struct command *cmd,
 	struct find_best_peer_data *data = tal(cmd, struct find_best_peer_data);
 	data->cb = cb;
 	data->arg = arg;
+	data->amount = tal_dup_or_null(data, struct amount_msat, amount);
 	data->needed_features = needed_features;
 	if (fronting_nodes)
 		data->fronting_nodes = tal_dup_talarr(data, struct pubkey, fronting_nodes);

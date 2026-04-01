@@ -344,7 +344,7 @@ static struct command_result *maybe_add_path(struct command *cmd,
 							     tal_count(offinfo->fronting_nodes));
 			} else {
 				return find_best_peer(cmd, 1ULL << OPT_ONION_MESSAGES,
-						      NULL,
+						      NULL, NULL,
 						      found_best_peer, offinfo);
 			}
 		}
@@ -819,6 +819,8 @@ struct command_result *json_invoicerequest(struct command *cmd,
 		idata->single_use = *single_use;
 		idata->label = label;
 		return find_best_peer(cmd, 1ULL << OPT_ONION_MESSAGES,
+				      /* FIXME: Strictly speaking, we should specify minimum *outgoing* here! */
+				      NULL,
 				      od->fronting_nodes,
 				      found_best_peer_invrequest, idata);
 	}
