@@ -276,10 +276,12 @@ static bool print_blindedpaths(const char *fieldname,
 			       tal_hex(tmpctx, p[j]->encrypted_recipient_data));
 		}
 		if (i < tal_count(blindedpay)) {
-			printf(" blindedpay: fee=%u/%u,cltv=%u,features=%s",
+			printf(" blindedpay: fee=%u/%u,cltv=%u,min/max=%s/%s,features=%s",
 			       blindedpay[i]->fee_base_msat,
 			       blindedpay[i]->fee_proportional_millionths,
 			       blindedpay[i]->cltv_expiry_delta,
+			       fmt_amount_msat(tmpctx, blindedpay[i]->htlc_minimum_msat),
+			       fmt_amount_msat(tmpctx, blindedpay[i]->htlc_maximum_msat),
 			       tal_hex(tmpctx, blindedpay[i]->features));
 		}
 		printf("\n");

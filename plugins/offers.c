@@ -754,6 +754,10 @@ static bool json_add_blinded_paths(struct command *cmd,
 				     blindedpay[i]->fee_proportional_millionths);
 			json_add_u32(js, "cltv_expiry_delta",
 				     blindedpay[i]->cltv_expiry_delta);
+			json_add_amount_msat(js, "htlc_minimum_msat",
+					     blindedpay[i]->htlc_minimum_msat);
+			json_add_amount_msat(js, "htlc_maximum_msat",
+					     blindedpay[i]->htlc_maximum_msat);
 			json_add_hex_talarr(js, "features", blindedpay[i]->features);
 			json_object_end(js);
 		}

@@ -6293,6 +6293,14 @@
             "added": "v23.05",
             "deprecated": null
         },
+        "Decode.invoice_paths[].payinfo.htlc_maximum_msat": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "Decode.invoice_paths[].payinfo.htlc_minimum_msat": {
+            "added": "v26.04",
+            "deprecated": null
+        },
         "Decode.invoice_payment_hash": {
             "added": "v23.05",
             "deprecated": null
