@@ -248,6 +248,7 @@ static struct command_result *create_offer(struct command *cmd,
 	if (offinfo->label)
 		json_add_string(req->js, "label", offinfo->label);
 	json_add_bool(req->js, "single_use", *offinfo->single_use);
+	json_add_bool(req->js, "force_paths", offinfo->fronting_nodes != NULL);
 
 	return send_outreq(req);
 }
