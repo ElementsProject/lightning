@@ -1700,6 +1700,7 @@ impl From<responses::DisableofferResponse> for pb::DisableofferResponse {
             active: c.active, // Rule #2 for type boolean
             bolt12: c.bolt12, // Rule #2 for type string
             description: c.description, // Rule #2 for type string?
+            force_paths: c.force_paths, // Rule #2 for type boolean?
             label: c.label, // Rule #2 for type string?
             offer_id: <Sha256 as AsRef<[u8]>>::as_ref(&c.offer_id).to_vec(), // Rule #2 for type hash
             single_use: c.single_use, // Rule #2 for type boolean
@@ -1715,6 +1716,7 @@ impl From<responses::EnableofferResponse> for pb::EnableofferResponse {
             active: c.active, // Rule #2 for type boolean
             bolt12: c.bolt12, // Rule #2 for type string
             description: c.description, // Rule #2 for type string?
+            force_paths: c.force_paths, // Rule #2 for type boolean?
             label: c.label, // Rule #2 for type string?
             offer_id: <Sha256 as AsRef<[u8]>>::as_ref(&c.offer_id).to_vec(), // Rule #2 for type hash
             single_use: c.single_use, // Rule #2 for type boolean
@@ -2105,6 +2107,7 @@ impl From<responses::ListoffersOffers> for pb::ListoffersOffers {
             active: c.active, // Rule #2 for type boolean
             bolt12: c.bolt12, // Rule #2 for type string
             description: c.description, // Rule #2 for type string?
+            force_paths: c.force_paths, // Rule #2 for type boolean?
             label: c.label, // Rule #2 for type string?
             offer_id: <Sha256 as AsRef<[u8]>>::as_ref(&c.offer_id).to_vec(), // Rule #2 for type hash
             single_use: c.single_use, // Rule #2 for type boolean
@@ -2261,6 +2264,7 @@ impl From<responses::OfferResponse> for pb::OfferResponse {
             active: c.active, // Rule #2 for type boolean
             bolt12: c.bolt12, // Rule #2 for type string
             created: c.created, // Rule #2 for type boolean
+            force_paths: c.force_paths, // Rule #2 for type boolean?
             label: c.label, // Rule #2 for type string?
             offer_id: <Sha256 as AsRef<[u8]>>::as_ref(&c.offer_id).to_vec(), // Rule #2 for type hash
             single_use: c.single_use, // Rule #2 for type boolean

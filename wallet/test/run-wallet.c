@@ -370,9 +370,6 @@ bool fromwire_onchaind_dev_memleak_reply(const void *p UNNEEDED, bool *leak UNNE
 bool fromwire_openingd_dev_memleak_reply(const void *p UNNEEDED, bool *leak UNNEEDED)
 { fprintf(stderr, "fromwire_openingd_dev_memleak_reply called!\n"); abort(); }
 /* Generated stub for get_network_blockheight */
-bool fromwire_channeld_reestablished(const void *p UNNEEDED, bool *leak UNNEEDED)
-{ fprintf(stderr, "fromwire_channeld_reestablished called!\n"); abort(); }
-/* Generated stub for get_network_blockheight */
 u32 get_network_blockheight(const struct chain_topology *topo UNNEEDED)
 { fprintf(stderr, "get_network_blockheight called!\n"); abort(); }
 /* Generated stub for hash_cid */
@@ -788,17 +785,6 @@ bool watch_scriptpubkey_(const tal_t *ctx UNNEEDED,
 void watch_splice_inflight(struct lightningd *ld UNNEEDED,
 			   struct channel_inflight *inflight UNNEEDED)
 { fprintf(stderr, "watch_splice_inflight called!\n"); abort(); }
-/* Generated stub for watch_txid_ */
-struct txwatch *watch_txid_(const tal_t *ctx UNNEEDED,
-			    struct chain_topology *topo UNNEEDED,
-			    const struct bitcoin_txid *txid UNNEEDED,
-			    enum watch_result (*cb)(struct lightningd *ld UNNEEDED,
-						    const struct bitcoin_txid * UNNEEDED,
-						    const struct bitcoin_tx * UNNEEDED,
-						    unsigned int depth UNNEEDED,
-						    void *arg) UNNEEDED,
-			    void *arg UNNEEDED)
-{ fprintf(stderr, "watch_txid_ called!\n"); abort(); }
 /* Generated stub for watch_txo */
 struct txowatch *watch_txo(const tal_t *ctx UNNEEDED,
 			   struct chain_topology *topo UNNEEDED,

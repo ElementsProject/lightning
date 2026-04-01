@@ -1082,6 +1082,8 @@ static const struct db_migration dbmigrations[] = {
     {NULL, migrate_fix_payments_faildetail_type,
      /* Fixing data types is idempotent, so no revert needed */
      NULL, NULL},
+    {SQL("ALTER TABLE offers ADD COLUMN force_paths INTEGER DEFAULT 0;"), NULL,
+     SQL("ALTER TABLE offers DROP COLUMN force_paths"), NULL},
 };
 
 const struct db_migration *get_db_migrations(size_t *num)

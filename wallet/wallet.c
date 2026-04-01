@@ -5972,7 +5972,8 @@ bool wallet_offer_create(struct wallet *w,
 			 const struct sha256 *offer_id,
 			 const char *bolt12,
 			 const struct json_escape *label,
-			 enum offer_status status)
+			 enum offer_status status,
+			 bool force_paths)
 {
 	struct db_stmt *stmt;
 
@@ -5998,7 +5999,8 @@ bool wallet_offer_create(struct wallet *w,
 				 ", bolt12"
 				 ", label"
 				 ", status"
-				 ") VALUES (?, ?, ?, ?);"));
+				 ", force_paths"
+				 ") VALUES (?, ?, ?, ?, ?);"));
 
 	db_bind_sha256(stmt, offer_id);
 	db_bind_text(stmt, bolt12);
@@ -6007,6 +6009,7 @@ bool wallet_offer_create(struct wallet *w,
 	else
 		db_bind_null(stmt);
 	db_bind_int(stmt, offer_status_in_db(status));
+	db_bind_int(stmt, force_paths);
 	db_exec_prepared_v2(take(stmt));
 	return true;
 }
@@ -6015,12 +6018,13 @@ char *wallet_offer_find(const tal_t *ctx,
 			struct wallet *w,
 			const struct sha256 *offer_id,
 			const struct json_escape **label,
-			enum offer_status *status)
+			enum offer_status *status,
+			bool *force_paths)
 {
 	struct db_stmt *stmt;
 	char *bolt12;
 
-	stmt = db_prepare_v2(w->db, SQL("SELECT bolt12, label, status"
+	stmt = db_prepare_v2(w->db, SQL("SELECT bolt12, label, status, force_paths"
 					"  FROM offers"
 					" WHERE offer_id = ?;"));
 	db_bind_sha256(stmt, offer_id);
@@ -6044,6 +6048,10 @@ char *wallet_offer_find(const tal_t *ctx,
 		*status = offer_status_in_db(db_col_int(stmt, "status"));
 	else
 		db_col_ignore(stmt, "status");
+	if (force_paths)
+		*force_paths = db_col_int(stmt, "force_paths");
+	else
+		db_col_ignore(stmt, "force_paths");
 
 	tal_free(stmt);
 	return bolt12;

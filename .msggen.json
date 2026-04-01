@@ -1653,6 +1653,7 @@
             "DisableOffer.active": 2,
             "DisableOffer.bolt12": 4,
             "DisableOffer.description": 7,
+            "DisableOffer.force_paths": 8,
             "DisableOffer.label": 6,
             "DisableOffer.offer_id": 1,
             "DisableOffer.single_use": 3,
@@ -1672,6 +1673,7 @@
             "EnableOffer.active": 2,
             "EnableOffer.bolt12": 4,
             "EnableOffer.description": 7,
+            "EnableOffer.force_paths": 8,
             "EnableOffer.label": 6,
             "EnableOffer.offer_id": 1,
             "EnableOffer.single_use": 3,
@@ -2925,6 +2927,7 @@
             "ListOffers.offers[].active": 2,
             "ListOffers.offers[].bolt12": 4,
             "ListOffers.offers[].description": 7,
+            "ListOffers.offers[].force_paths": 8,
             "ListOffers.offers[].label": 6,
             "ListOffers.offers[].offer_id": 1,
             "ListOffers.offers[].single_use": 3,
@@ -3406,6 +3409,7 @@
             "Offer.active": 2,
             "Offer.bolt12": 4,
             "Offer.created": 6,
+            "Offer.force_paths": 8,
             "Offer.label": 7,
             "Offer.offer_id": 1,
             "Offer.single_use": 3,
@@ -7213,6 +7217,10 @@
             "added": "v26.04",
             "deprecated": null
         },
+        "DisableOffer.force_paths": {
+            "added": "v26.04",
+            "deprecated": null
+        },
         "DisableOffer.label": {
             "added": "pre-v0.10.1",
             "deprecated": null
@@ -7262,6 +7270,10 @@
             "deprecated": null
         },
         "EnableOffer.description": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "EnableOffer.force_paths": {
             "added": "v26.04",
             "deprecated": null
         },
@@ -10821,6 +10833,10 @@
             "added": "v26.04",
             "deprecated": null
         },
+        "ListOffers.offers[].force_paths": {
+            "added": "v26.04",
+            "deprecated": null
+        },
         "ListOffers.offers[].label": {
             "added": "pre-v0.10.1",
             "deprecated": null
@@ -12179,6 +12195,10 @@
         },
         "Offer.description": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "Offer.force_paths": {
+            "added": "v26.04",
             "deprecated": null
         },
         "Offer.fronting_nodes[]": {

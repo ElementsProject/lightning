@@ -27,6 +27,7 @@
       "offer_id",
       "active",
       "single_use",
+      "force_paths",
       "bolt12",
       "used"
     ],
@@ -51,6 +52,13 @@
         "type": "boolean",
         "description": [
           "Whether the offer is disabled after first successful use."
+        ]
+      },
+      "force_paths": {
+        "type": "boolean",
+        "added": "v26.04",
+        "description": [
+          "True if `fronting_nodes` (or the `payment-fronting-node` configuration entry) is set: implies any invoice issued for this offer must use a subset of the same blinded paths."
         ]
       },
       "bolt12": {
