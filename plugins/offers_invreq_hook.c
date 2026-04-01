@@ -829,12 +829,11 @@ static struct command_result *listoffers_done(struct command *cmd,
 {
 	const struct offers_data *od = get_offers_data(cmd->plugin);
 	const jsmntok_t *arr = json_get_member(buf, result, "offers");
-	const jsmntok_t *offertok, *activetok, *b12tok;
-	bool active;
+	const jsmntok_t *offertok, *activetok, *b12tok, *forcetok;
+	bool active, force_paths;
 	struct command_result *err;
 	struct amount_msat amt;
 	struct tlv_invoice_request_invreq_recurrence_cancel *cancel;
-	struct pubkey *offer_fronts;
 
 	/* BOLT #12:
 	 *
@@ -920,34 +919,46 @@ static struct command_result *listoffers_done(struct command *cmd,
 		return fail_invreq(cmd, ir, "Offer expired");
 	}
 
-	/* If offer used fronting nodes, we use them too. */
-	offer_fronts = tal_arr(ir, struct pubkey, 0);
-	for (size_t i = 0; i < tal_count(ir->invreq->offer_paths); i++) {
-		const struct blinded_path *p = ir->invreq->offer_paths[i];
-		struct sciddir_or_pubkey first = p->first_node_id;
-
-		/* In dev mode we could set this.  Ignore if we can't map */
-		if (!first.is_pubkey && !gossmap_scidd_pubkey(get_gossmap(cmd->plugin), &first)) {
-			plugin_log(cmd->plugin, LOG_UNUSUAL,
-				   "Can't find front %s, ignoring in %s",
-				   fmt_sciddir_or_pubkey(tmpctx, &p->first_node_id),
-				   invrequest_encode(tmpctx, ir->invreq));
-			continue;
-		}
-		assert(first.is_pubkey);
-		/* Self-paths are not fronting nodes */
-		if (!pubkey_eq(&od->id, &first.pubkey))
-			tal_arr_expand(&offer_fronts, first.pubkey);
+	/* If offer specifically used fronting nodes, we use them for
+	 * invoice, too. */
+	forcetok = json_get_member(buf, offertok, "force_paths");
+	if (!forcetok) {
+		return fail_internalerr(cmd, ir,
+					"Missing force_paths: %.*s",
+					json_tok_full_len(offertok),
+					json_tok_full(buf, offertok));
 	}
-	if (tal_count(offer_fronts) != 0)
-		ir->fronting_nodes = offer_fronts;
-	else {
-		/* Get upset if none from offer (via invreq) were usable! */
-		if (tal_count(ir->invreq->offer_paths) != 0)
-			return fail_invreq(cmd, ir, "Fronting failed, could not find any fronts");
+	json_to_bool(buf, forcetok, &force_paths);
+	if (force_paths) {
+		/* Gather usable subset of offer fronts */
+		struct pubkey *offer_fronts;
 
-		/* Otherwise, use defaults */
-		tal_free(offer_fronts);
+		offer_fronts = tal_arr(ir, struct pubkey, 0);
+		for (size_t i = 0; i < tal_count(ir->invreq->offer_paths); i++) {
+			const struct blinded_path *p = ir->invreq->offer_paths[i];
+			struct sciddir_or_pubkey first = p->first_node_id;
+
+			/* In dev mode we could set this.  Ignore if we can't map */
+			if (!first.is_pubkey && !gossmap_scidd_pubkey(get_gossmap(cmd->plugin), &first)) {
+				plugin_log(cmd->plugin, LOG_UNUSUAL,
+					   "Can't find front %s, ignoring in %s",
+					   fmt_sciddir_or_pubkey(tmpctx, &p->first_node_id),
+					   invrequest_encode(tmpctx, ir->invreq));
+				continue;
+			}
+			assert(first.is_pubkey);
+			/* Self-paths are not fronting nodes */
+			if (!pubkey_eq(&od->id, &first.pubkey))
+				tal_arr_expand(&offer_fronts, first.pubkey);
+		}
+
+		/* None were usable? */
+		if (tal_count(offer_fronts) == 0)
+			return fail_invreq(cmd, ir,
+					   "Fronting failed, could not find any fronts");
+		ir->fronting_nodes = offer_fronts;
+	} else {
+		/* Use defaults (if none, add_blindedpaths will choose) */
 		ir->fronting_nodes = od->fronting_nodes;
 	}
 

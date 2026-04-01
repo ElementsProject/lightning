@@ -7159,8 +7159,6 @@ def test_offer_currency_no_amount(node_factory):
         l1.rpc.decode("lno1qcp4256ypgx9getnwss8vetrw3hhyuckyypwa3eyt44h6txtxquqh7lz5djge4afgfjn7k4rgrkuag0jsd5xvxg")
 
 
-# Note: only fails half the time (when it chooses l3!)
-@pytest.mark.xfail
 def test_blinded_path_max(node_factory):
     """We have a bug where we can create a invoice_blindedpay with 0 htlc_maximum_msat."""
     l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
