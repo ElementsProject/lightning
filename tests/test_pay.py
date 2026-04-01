@@ -6957,6 +6957,8 @@ def test_decode_expired_bolt12(node_factory):
                            'path': [{'blinded_node_id': '03f293aad04524af9d25e37e30975c9c48df7f46bb5707f5103c5f15477882ef0d',
                                      'encrypted_recipient_data': 'ae4ae7ed0b821d8bbb394f8cd3013ed6c56d0b29baeddb1ce21fb8c34ce33ff59e2250758574924b03a1b567606479c7c9b0'}],
                            'payinfo': {'cltv_expiry_delta': 18,
+                                       'htlc_maximum_msat': 2100000000000000000,
+                                       'htlc_minimum_msat': 0,
                                        'features': '',
                                        'fee_base_msat': 0,
                                        'fee_proportional_millionths': 0}}],

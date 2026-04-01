@@ -1151,6 +1151,8 @@ def decode_invoice_paths_payinfo2py(m):
         "features": hexlify(m.features),  # PrimitiveField in generate_composite
         "fee_base_msat": amount2msat(m.fee_base_msat),  # PrimitiveField in generate_composite
         "fee_proportional_millionths": m.fee_proportional_millionths,  # PrimitiveField in generate_composite
+        "htlc_maximum_msat": amount2msat(m.htlc_maximum_msat),  # PrimitiveField in generate_composite
+        "htlc_minimum_msat": amount2msat(m.htlc_minimum_msat),  # PrimitiveField in generate_composite
     })
 
 

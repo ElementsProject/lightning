@@ -9422,6 +9422,8 @@
                           "fee_base_msat",
                           "fee_proportional_millionths",
                           "cltv_expiry_delta",
+                          "htlc_minimum_msat",
+                          "htlc_maximum_msat",
                           "features"
                         ],
                         "additionalProperties": false,
@@ -9442,6 +9444,20 @@
                             "type": "u32",
                             "description": [
                               "CLTV delta for path."
+                            ]
+                          },
+                          "htlc_minimum_msat": {
+                            "type": "msat",
+                            "added": "v26.04",
+                            "description": [
+                              "Minimum amount which can be sent via path."
+                            ]
+                          },
+                          "htlc_maximum_msat": {
+                            "type": "msat",
+                            "added": "v26.04",
+                            "description": [
+                              "Maximum amount which can be sent via path."
                             ]
                           },
                           "features": {
