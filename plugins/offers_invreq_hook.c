@@ -396,6 +396,7 @@ static struct command_result *found_best_peer(struct command *cmd,
 static struct command_result *add_blindedpaths(struct command *cmd,
 					       struct invreq *ir)
 {
+	struct amount_msat amount = amount_msat(*ir->inv->invoice_amount);
 	if (!we_want_blinded_path(cmd->plugin, ir->fronting_nodes, true))
 		return create_invoicereq(cmd, ir);
 
@@ -405,6 +406,7 @@ static struct command_result *add_blindedpaths(struct command *cmd,
 	 * us onion messaging. */
 	return find_best_peer(cmd,
 			      (1ULL << OPT_ROUTE_BLINDING) | (1ULL << OPT_ONION_MESSAGES),
+			      &amount,
 			      ir->fronting_nodes, found_best_peer, ir);
 }
 
