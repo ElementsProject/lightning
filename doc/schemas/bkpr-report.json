@@ -113,6 +113,30 @@
       }
     }
   },
+  "examples": [
+    {
+      "request": {
+        "id": "example:bkpr-report#1",
+        "method": "bkpr-report",
+        "params": {
+          "headers": [
+            "Date,Tag,Account,Description,Credit,Debit,BTC/USD,Credit (USD),Debit(USD)"
+          ],
+          "format": "{localtime},{tag},{account},{description?Invoice description {description}:{outpoint?Onchain output {outpoint}:{txid?Onchain transaction {txid}}}},{credit?+{credit}:0},{debit?-{debit}:0},{currencyrate},${currencycredit},${currencydebit}",
+          "escape": "csv"
+        }
+      },
+      "response": {
+        "report": [
+          "Date,Tag,Account,Description,Credit,Debit,BTC/USD,Credit (USD),Debit(USD)",
+          "2026-04-02 12:42:03,deposit,wallet,Onchain output 37562cf0b3a5d6783ae02925bcc486bb89afe156abf15e692736e5da9a060018:1,+0.02000000000,0,67140.89,$1342.81,$0.00",
+          "2026-04-02 12:42:04,invoice,9b3114c8003dc8dedbcf3b7bc9fb04e1575a1112aea33be8369ae9670aff64f4,Invoice description test_bkpr_report_invoice,0,-0.00000123456,67140.89,$0.00,$0.08",
+          "2026-04-02 12:42:04,onchain_fee,9b3114c8003dc8dedbcf3b7bc9fb04e1575a1112aea33be8369ae9670aff64f4,Onchain transaction f464ff0a67e99a36e83ba3ae12115a57e104fbc97b3bcfdbdec83d00c814319b,0,-0.00004927000,67140.89,$0.00,$3.30"
+        ],
+        "format-hint": "simple"
+      }
+    }
+  ],
   "author": [
     "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
   ],
