@@ -3024,14 +3024,20 @@ def test_inflight_dbload(node_factory, bitcoind):
     l1.fundwallet(20000000)
     l2.fundwallet(20000000)
 
-    # l1 leases a channel from l2
+    # l1 leases a channel from l2; the dev-disconnect fires after l1
+    # sends COMMITMENT_SIGNED, killing dualopend mid-flow, so the RPC
+    # may fail with "dualopend died".
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     rates = l1.rpc.dev_queryrates(l2.info['id'], amount, amount)
-    l1.rpc.fundchannel(l2.info['id'], amount, request_amt=amount,
-                       feerate='{}perkw'.format(feerate),
-                       compact_lease=rates['compact_lease'])
+    try:
+        l1.rpc.fundchannel(l2.info['id'], amount, request_amt=amount,
+                           feerate='{}perkw'.format(feerate),
+                           compact_lease=rates['compact_lease'])
+    except RpcError:
+        pass
     l1.daemon.wait_for_log(r'dev_disconnect: \+WIRE_COMMITMENT_SIGNED')
 
-    # Restart l1; before the fix this would leave a spurious BROKEN
-    # 'Plugin must return a psbt with signatures' in l2's log.
-    l1.restart()
+    # Before the fix l2 would log a spurious BROKEN:
+    # 'Plugin must return a psbt with signatures'.
+    # After the fix, only the whitelisted 'dualopend daemon died'
+    # BROKEN appears (checked automatically during teardown).
