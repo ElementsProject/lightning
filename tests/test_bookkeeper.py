@@ -1275,22 +1275,24 @@ def test_bkpr_report_tags_and_fallback(node_factory):
     assert any(r[2] == "NONE" or r[3] == "NONE" or r[4] == "NONE" for r in rows)
 
     # Fancier fields should work, too
-    res = l1.rpc.bkpr_report(format="{tag}|{account}|{credit}|{debit}|{creditdebit}|{currencycredit}|{currencydebit}|{currencycreditdebit}")
+    res = l1.rpc.bkpr_report(format="{tag}|{account}|{credit}|{debit}|{creditdebit}|{currencycredit}|{currencydebit}|{currencycreditdebit}|{credit?NONE}")
     rows = [line.split("|") for line in res["report"]]
 
     for r in rows:
-        assert len(r) == 8
+        assert len(r) == 9
         # Credit or debit?
         if float(r[2]) > 0:
             assert r[4] == '+' + r[2]
             assert float(r[5]) > 0
             assert r[6] == '0.00'
             assert r[7] == '+' + r[5]
+            assert r[8] == r[2]
         else:
             assert r[4] == '-' + r[3]
             assert float(r[6]) > 0
             assert r[5] == '0.00'
             assert r[7] == '-' + r[6]
+            assert r[8] == 'NONE'
 
 
 def test_bkpr_report_invoice(node_factory):

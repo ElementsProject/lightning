@@ -5162,7 +5162,7 @@
               "",
               "If a field is unavailable, it expands to an empty string.",
               "",
-              "You can provide fallback with ?, including more variable:",
+              "You can provide fallback with ?, which is used when the tag is not present (or zero, for credit, debit, fees and creditdebit).  This fallback can include more tags:",
               " * {outpoint?NONE}",
               " * {payment_id?txid: {txid?UNKNOWN}}",
               "The first one the outpoint, or NONE if that is not available. ",
