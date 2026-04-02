@@ -3,6 +3,7 @@
 #include <ccan/mem/mem.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
+#include <common/bolt12_contact.h>
 #include <common/bolt12_id.h>
 #include <common/bolt12_merkle.h>
 #include <common/clock_time.h>
@@ -911,6 +912,8 @@ struct command_result *json_fetchinvoice(struct command *cmd,
 	u32 *timeout;
 	u64 *quantity;
 	u32 *recurrence_counter, *recurrence_start;
+	struct sha256 *contact_secret;
+	struct tlv_offer *contact_offer;
 
 	if (!param_check(cmd, buffer, params,
 			 p_req("offer", param_offer, &sent->offer),
@@ -923,6 +926,8 @@ struct command_result *json_fetchinvoice(struct command *cmd,
 			 p_opt("payer_note", param_string, &payer_note),
 			 p_opt("payer_metadata", param_bin_from_hex, &payer_metadata),
 			 p_opt("bip353", param_bip353, &bip353),
+			 p_opt("contact_secret", param_sha256, &contact_secret),
+			 p_opt("contact_offer", param_offer, &contact_offer),
 			 p_opt("dev_path_use_scidd", param_dev_scidd, &sent->dev_path_use_scidd),
 			 p_opt("dev_reply_path", param_dev_reply_path, &sent->dev_reply_path),
 		   NULL))
@@ -1129,6 +1134,23 @@ struct command_result *json_fetchinvoice(struct command *cmd,
 							payer_note,
 							strlen(payer_note),
 							0);
+
+	/* bLIP 42: If contact_secret is provided, include it and
+	 * optionally include the payer's own offer for pay-back. */
+	if (contact_offer && !contact_secret) {
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "contact_offer requires contact_secret");
+	}
+	if (contact_secret) {
+		invreq->invreq_contact_secret = tal_dup(invreq, struct sha256,
+							contact_secret);
+	}
+	if (contact_offer) {
+		u8 *offer_wire = tal_arr(tmpctx, u8, 0);
+		towire_tlv_offer(&offer_wire, contact_offer);
+		invreq->invreq_payer_offer = tal_dup_talarr(invreq, u8,
+							    offer_wire);
+	}
 
 	/* If only checking, we're done now */
 	if (command_check_only(cmd))
