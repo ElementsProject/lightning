@@ -51,6 +51,7 @@ jobs:
 
           uv run ./configure --disable-valgrind --disable-compat
           uv run make
+          uv run make check-gen-updated
 
       - name: Start bitcoind in regtest mode
         run: |
