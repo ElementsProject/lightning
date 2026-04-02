@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [26.04rc1] - 2026-03-23: TBD
+## [26.04rc2] - 2026-04-02: TBD
 
 This release is named by TBD.
 
@@ -17,8 +17,8 @@ This release is named by TBD.
  - New command `spliceout` for easily splicing out of channels ([#8857])
  - New command `splicein` allows for convenient splicing funds into a channel ([#8856])
  - Added support for multi (ie 3+) channel splices, dynamic wallet funding, and dynamic fee calculating. ([#8450])
- - Plugins: new `currencyrate` plugin to provide `currencyconvert` API ([#8842])
- - `listpeerchannels` now accepts a `channel_id` filter ([#8766])
+ - new plugin currencyrate to provide `currencyconvert` API ([#8842])
+ - `listpeerchannels` now accepts a `channel_id` filter, ([#8766])
  - JSON-RPC: `offer` now has a `fronting_nodes` option to specify neighbors for payer to use to fetch invoices and make payments. ([#8490])
  - Config: `payment-fronting-node` option to specify neighbor node(s) to use for all bolt11 invoices, bolt12 offers, invoices and invoice_requests. ([#8490])
  - libplugin: support for options which accumulate if specified more than once ("multi": true). ([#8490])
@@ -35,7 +35,12 @@ This release is named by TBD.
 
 ### Changed
 
- - Plugins: `forward_event` notification now has `preimage` set if status is settled. ([#8943])
+ - cln-rpc and cln-grpc now expose notification bindings for balance_snapshot, coin_movement, deprecated_oneshot, disconnect, forward_event, invoice_creation, invoice_payment, log, onionmessage_forward_fail, openchannel_peer_sigs, plugin_started, plugin_stopped, sendpay_failure, sendpay_success, shutdown, and warning. ([#8938])
+ - cln-rpc and cln-grpc now expose xpay notification bindings for `pay_part_start` and `pay_part_end`. ([#8938])
+ - lightningd: we don't allow new incoming channels if we cannot estimate fees (rather than assuming minfee). ([#8864])
+ - Plugins: `sql` plugin tables "htlcs", "forwards", "invoices", "sendpays" and "networkevents" are now updated more efficiently. ([#8914])
+ - uniform message padding is now opt-in via the --dev-uniform-padding flag. ([#8997])
+ - forward_event notification now has preimage set if status is settled. ([#8943])
  - Plugins: `askrene` now runs routing in parallel. ([#8723])
  - bcli plugin now uses synchronous execution, simplifying bitcoin backend communication and improving error handling reliability. ([#8820])
  - `gossipd` no longer compacts gossip_store on startup (improving start times significantly). ([#8903])
@@ -63,8 +68,10 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 
 ### Fixed
 
+ - connectd: throttle incoming peers to give fairer peer handling under stress. ([#8983])
+ - lightningd no longer crashes when replaying stored blinded HTLCs during startup. ([#8974])
  - lightningd: unreserve UTXOs from withheld funding PSBT ([#8943])
- - lightningd: withheld channel now fails back incoming inflight HTLC ([#8943])
+ - withheld channel now fails back incoming inflight HTLC ([#8943])
  - JSON-RPC: reckless command no longer hangs if reckless executable is not found in PATH. ([#8894])
  - lightning-cli: fix invalid json requests when input includes a numeric string with leading zeroes ([#8934])
  - xpay: handle payment redirected from "pay" even if we don't recognize some arguments. ([#8939])
@@ -94,6 +101,7 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 
 ### EXPERIMENTAL
 
+ - fixed crash with dual funding if we cannot estimate fees. ([#8864])
  - Protocol: avoid an occasional hang when splicing with a pending closing HTLC. ([#8911])
 
 
@@ -132,6 +140,7 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 [#8850]: https://github.com/ElementsProject/lightning/pull/8850
 [#8856]: https://github.com/ElementsProject/lightning/pull/8856
 [#8857]: https://github.com/ElementsProject/lightning/pull/8857
+[#8864]: https://github.com/ElementsProject/lightning/pull/8864
 [#8866]: https://github.com/ElementsProject/lightning/pull/8866
 [#8889]: https://github.com/ElementsProject/lightning/pull/8889
 [#8890]: https://github.com/ElementsProject/lightning/pull/8890
@@ -139,11 +148,16 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 [#8894]: https://github.com/ElementsProject/lightning/pull/8894
 [#8903]: https://github.com/ElementsProject/lightning/pull/8903
 [#8911]: https://github.com/ElementsProject/lightning/pull/8911
+[#8914]: https://github.com/ElementsProject/lightning/pull/8914
 [#8934]: https://github.com/ElementsProject/lightning/pull/8934
 [#8937]: https://github.com/ElementsProject/lightning/pull/8937
+[#8938]: https://github.com/ElementsProject/lightning/pull/8938
 [#8939]: https://github.com/ElementsProject/lightning/pull/8939
 [#8943]: https://github.com/ElementsProject/lightning/pull/8943
-[v26.04rc1]: https://github.com/ElementsProject/lightning/releases/tag/v26.04rc1
+[#8974]: https://github.com/ElementsProject/lightning/pull/8974
+[#8983]: https://github.com/ElementsProject/lightning/pull/8983
+[#8997]: https://github.com/ElementsProject/lightning/pull/8997
+[v26.04rc2]: https://github.com/ElementsProject/lightning/releases/tag/v26.04rc2
 
 
 ## [25.12] - 2025-12-04: "Boltz's Seamless Upgrade Experience"
