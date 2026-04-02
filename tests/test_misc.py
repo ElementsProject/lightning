@@ -2501,7 +2501,8 @@ def test_list_features_only(node_factory):
                 'option_provide_storage/odd',
                 'option_channel_type/even',
                 'option_scid_alias/odd',
-                'option_zeroconf/odd']
+                'option_zeroconf/odd',
+                'option_splice/odd']
     expected += ['supports_open_accept_channel_type']
 
     assert features == expected
