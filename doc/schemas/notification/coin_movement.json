@@ -63,7 +63,7 @@
         "description": [
           "1-based index indicating order this move was created in."
         ],
-        "added": "pre-v0.10.1"
+        "added": "v25.09"
       },
       "account_id": {
         "type": "string",

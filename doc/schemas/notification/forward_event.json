@@ -14,27 +14,13 @@
   "response": {
     "added": "pre-v0.10.1",
     "required": [
+      "payment_hash",
       "in_channel",
-      "in_htlc_id",
       "in_msat",
       "status",
       "received_time"
     ],
     "properties": {
-      "created_index": {
-        "type": "u64",
-        "description": [
-          "1-based index indicating order this forward was created in."
-        ],
-        "added": "v23.11"
-      },
-      "updated_index": {
-        "type": "u64",
-        "description": [
-          "1-based index indicating order this forward was updated in."
-        ],
-        "added": "v23.11"
-      },
       "payment_hash": {
         "type": "hash",
         "description": [
@@ -49,26 +35,12 @@
         ],
         "added": "pre-v0.10.1"
       },
-      "in_htlc_id": {
-        "type": "u64",
-        "description": [
-          "The inbound HTLC id for the forwarded HTLC."
-        ],
-        "added": "v22.11"
-      },
       "out_channel": {
         "type": "short_channel_id",
         "description": [
           "The outbound channel used for the forward, if one was selected."
         ],
         "added": "pre-v0.10.1"
-      },
-      "out_htlc_id": {
-        "type": "u64",
-        "description": [
-          "The outbound HTLC id, if one was assigned."
-        ],
-        "added": "v22.11"
       },
       "in_msat": {
         "type": "msat",
