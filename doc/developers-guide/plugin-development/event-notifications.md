@@ -602,29 +602,27 @@ The example shows a payment from this node via 103x1x0 (direction 1) to 022d2236
   "method": "pay_part_start",
   "params": {
     "origin": "cln-xpay",
-    "payload": {
-      "payment_hash": "651b28004d41cf0dc8e39a0b3d905651a7b012d03d81199fde09314700cb5a62",
-      "groupid": 5793910575598463611,
-      "partid": 1,
-      "total_payment_msat": 5000000,
-      "attempt_msat": 5000000,
-      "hops": [
-        {
-          "next_node": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
-          "short_channel_id": "103x1x0",
-          "direction": 1,
-          "channel_in_msat": 5000051,
-          "channel_out_msat": 5000051
-        },
-        {
-          "next_node": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
-          "short_channel_id": "103x2x0",
-          "direction": 0,
-          "channel_in_msat": 5000051,
-          "channel_out_msat": 5000000
-        }
-      ]
-    }
+    "payment_hash": "651b28004d41cf0dc8e39a0b3d905651a7b012d03d81199fde09314700cb5a62",
+    "groupid": 5793910575598463611,
+    "partid": 1,
+    "total_payment_msat": 5000000,
+    "attempt_msat": 5000000,
+    "hops": [
+      {
+        "next_node": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
+        "short_channel_id": "103x1x0",
+        "direction": 1,
+        "channel_in_msat": 5000051,
+        "channel_out_msat": 5000051
+      },
+      {
+        "next_node": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
+        "short_channel_id": "103x2x0",
+        "direction": 0,
+        "channel_in_msat": 5000051,
+        "channel_out_msat": 5000000
+      }
+    ]
   }
 }
 ```
@@ -652,13 +650,11 @@ will be missing in the unusual case where the error onion is corrupted.
   "method": "pay_part_end",
   "params": {
     "origin": "cln-xpay",
-    "payload": {
-      "status": "success",
-      "duration": 0.220209189,
-      "payment_hash": "651b28004d41cf0dc8e39a0b3d905651a7b012d03d81199fde09314700cb5a62",
-      "groupid": 5793910575598463611,
-      "partid": 1
-    }
+    "status": "success",
+    "duration": 0.220209189,
+    "payment_hash": "651b28004d41cf0dc8e39a0b3d905651a7b012d03d81199fde09314700cb5a62",
+    "groupid": 5793910575598463611,
+    "partid": 1
   }
 }
 ```
