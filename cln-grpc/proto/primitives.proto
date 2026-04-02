@@ -39,6 +39,7 @@ enum ChannelState {
 	ChanneldAwaitingSplice = 11;
 	DualopendOpenCommitted = 12;
 	DualopendOpenCommittReady = 13;
+	Closed = 14;
 }
 
 enum HtlcState {

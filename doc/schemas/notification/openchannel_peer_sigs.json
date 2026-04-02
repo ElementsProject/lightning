@@ -7,12 +7,12 @@
   "description": [
     "The **openchannel_peer_sigs** notification informs whenever a peer provides signatures for an in-progress channel open."
   ],
-  "added": "v24.02",
+  "added": "pre-v0.10.1",
   "request": {
-    "added": "v24.02"
+    "added": "pre-v0.10.1"
   },
   "response": {
-    "added": "v24.02",
+    "added": "pre-v0.10.1",
     "required": [
       "channel_id",
       "signed_psbt"
@@ -23,14 +23,14 @@
         "description": [
           "The channel id for the channel open attempt."
         ],
-        "added": "v24.02"
+        "added": "pre-v0.10.1"
       },
       "signed_psbt": {
         "type": "string",
         "description": [
           "The signed PSBT from the peer."
         ],
-        "added": "v24.02"
+        "added": "pre-v0.10.1"
       }
     }
   }

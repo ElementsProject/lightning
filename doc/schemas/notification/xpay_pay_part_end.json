@@ -8,117 +8,99 @@
     "The **pay_part_end** notification is emitted by the xpay plugin when a payment part completes."
   ],
   "added": "v25.09",
-  "request": {},
+  "request": {
+    "added": "v25.09"
+  },
   "response": {
+    "added": "v25.09",
     "required": [
-      "origin",
-      "payload"
+      "status",
+      "duration",
+      "payment_hash",
+      "groupid",
+      "partid"
     ],
     "properties": {
-      "origin": {
+      "status": {
         "type": "string",
+        "enum": [
+          "success",
+          "failure"
+        ],
         "description": [
-          "The plugin origin for the forwarded notification."
+          "Whether the payment part succeeded or failed."
         ],
         "added": "v25.09"
       },
-      "payload": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "status",
-          "duration",
-          "payment_hash",
-          "groupid",
-          "partid"
-        ],
+      "duration": {
+        "type": "number",
         "description": [
-          "The xpay notification payload."
+          "The time in seconds from send to result."
         ],
-        "added": "v25.09",
-        "properties": {
-          "status": {
-            "type": "string",
-            "enum": [
-              "success",
-              "failure"
-            ],
-            "description": [
-              "Whether the payment part succeeded or failed."
-            ],
-            "added": "v25.09"
-          },
-          "duration": {
-            "type": "number",
-            "description": [
-              "The time in seconds from send to result."
-            ],
-            "added": "v25.09"
-          },
-          "payment_hash": {
-            "type": "hash",
-            "description": [
-              "The payment hash for the xpay invocation."
-            ],
-            "added": "v25.09"
-          },
-          "groupid": {
-            "type": "u64",
-            "description": [
-              "The xpay group identifier for the payment attempt."
-            ],
-            "added": "v25.09"
-          },
-          "partid": {
-            "type": "u64",
-            "description": [
-              "The identifier for this payment part."
-            ],
-            "added": "v25.09"
-          },
-          "failed_msg": {
-            "type": "hex",
-            "description": [
-              "The decrypted onion error message, if available."
-            ],
-            "added": "v25.09"
-          },
-          "failed_node_id": {
-            "type": "pubkey",
-            "description": [
-              "The node that generated the failure, if known."
-            ],
-            "added": "v25.09"
-          },
-          "failed_short_channel_id": {
-            "type": "short_channel_id",
-            "description": [
-              "The short channel id complained about, if known."
-            ],
-            "added": "v25.09"
-          },
-          "failed_direction": {
-            "type": "u32",
-            "description": [
-              "The direction within the failed short channel id, if known."
-            ],
-            "added": "v25.09"
-          },
-          "error_code": {
-            "type": "u32",
-            "description": [
-              "The xpay error code, if known."
-            ],
-            "added": "v25.09"
-          },
-          "error_message": {
-            "type": "string",
-            "description": [
-              "The human-readable xpay error message."
-            ],
-            "added": "v25.09"
-          }
-        }
+        "added": "v25.09"
+      },
+      "payment_hash": {
+        "type": "hash",
+        "description": [
+          "The payment hash for the xpay invocation."
+        ],
+        "added": "v25.09"
+      },
+      "groupid": {
+        "type": "u64",
+        "description": [
+          "The xpay group identifier for the payment attempt."
+        ],
+        "added": "v25.09"
+      },
+      "partid": {
+        "type": "u64",
+        "description": [
+          "The identifier for this payment part."
+        ],
+        "added": "v25.09"
+      },
+      "failed_msg": {
+        "type": "hex",
+        "description": [
+          "The decrypted onion error message, if available."
+        ],
+        "added": "v25.09"
+      },
+      "failed_node_id": {
+        "type": "pubkey",
+        "description": [
+          "The node that generated the failure, if known."
+        ],
+        "added": "v25.09"
+      },
+      "failed_short_channel_id": {
+        "type": "short_channel_id",
+        "description": [
+          "The short channel id complained about, if known."
+        ],
+        "added": "v25.09"
+      },
+      "failed_direction": {
+        "type": "u32",
+        "description": [
+          "The direction within the failed short channel id, if known."
+        ],
+        "added": "v25.09"
+      },
+      "error_code": {
+        "type": "u32",
+        "description": [
+          "The xpay error code, if known."
+        ],
+        "added": "v25.09"
+      },
+      "error_message": {
+        "type": "string",
+        "description": [
+          "The human-readable xpay error message."
+        ],
+        "added": "v25.09"
       }
     }
   }

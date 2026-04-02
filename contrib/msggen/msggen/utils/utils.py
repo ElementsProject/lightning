@@ -1,9 +1,10 @@
-import json
-from pathlib import Path
-from importlib import resources
-from msggen.model import Method, CompositeField, Service, Notification, TypeName
 import functools
+import json
 from collections import OrderedDict
+from importlib import resources
+from pathlib import Path
+
+from msggen.model import CompositeField, Method, Notification, Service, TypeName
 
 grpc_method_names = [
     "Getinfo",
@@ -157,30 +158,38 @@ grpc_method_names = [
 ]
 
 grpc_notification_names = [
+    {"name": "balance_snapshot", "typename": "BalanceSnapshot"},
+    {"name": "block_added", "typename": "BlockAdded"},
+    {"name": "channel_open_failed", "typename": "ChannelOpenFailed"},
+    {"name": "channel_opened", "typename": "ChannelOpened"},
+    {"name": "channel_state_changed", "typename": "ChannelStateChanged"},
+    {"name": "connect", "typename": "Connect"},
+    {"name": "coin_movement", "typename": "CoinMovement"},
+    {"name": "custommsg", "typename": "CustomMsg"},
+    {"name": "deprecated_oneshot", "typename": "DeprecatedOneshot"},
+    {"name": "disconnect", "typename": "Disconnect"},
+    {"name": "forward_event", "typename": "ForwardEvent"},
+    {"name": "invoice_creation", "typename": "InvoiceCreation"},
+    {"name": "invoice_payment", "typename": "InvoicePayment"},
+    {"name": "log", "typename": "Log"},
+    {"name": "onionmessage_forward_fail", "typename": "OnionMessageForwardFail"},
+    {"name": "openchannel_peer_sigs", "typename": "OpenChannelPeerSigs"},
+    {"name": "plugin_started", "typename": "PluginStarted"},
+    {"name": "plugin_stopped", "typename": "PluginStopped"},
+    {"name": "sendpay_failure", "typename": "SendPayFailure"},
+    {"name": "sendpay_success", "typename": "SendPaySuccess"},
+    {"name": "shutdown", "typename": "Shutdown"},
+    {"name": "warning", "typename": "Warning"},
     {
-        "name": "block_added",
-        "typename": "BlockAdded"
+        "name": "pay_part_end",
+        "schema_name": "xpay_pay_part_end",
+        "typename": "PayPartEnd",
     },
     {
-        "name": "channel_open_failed",
-        "typename": "ChannelOpenFailed"
+        "name": "pay_part_start",
+        "schema_name": "xpay_pay_part_start",
+        "typename": "PayPartStart",
     },
-    {
-        "name": "channel_opened",
-        "typename": "ChannelOpened"
-    },
-    {
-        "name": "connect",
-        "typename": "Connect"
-    },
-    {
-        "name": "custommsg",
-        "typename": "CustomMsg"
-    },
-    {
-        "name": "channel_state_changed",
-        "typename": "ChannelStateChanged"
-    }
 ]
 
 
@@ -209,7 +218,7 @@ def combine_schemas(schema_dir: Path, dest: Path):
     bundle["methods"] = methods
     bundle["notifications"] = notifications
 
-    with dest.open(mode='w') as f:
+    with dest.open(mode="w") as f:
         json.dump(
             bundle,
             f,
@@ -229,8 +238,7 @@ def get_schema_bundle():
 
 
 def check_missing():
-    """Check for missing gRPC commands in the schema.
-    """
+    """Check for missing gRPC commands in the schema."""
     schema = get_schema_bundle()
     command_names = set(
         full_name.replace(".json", "") for full_name in schema["methods"].keys()
@@ -240,16 +248,17 @@ def check_missing():
 
 
 def load_jsonrpc_method(name):
-    """Load a method based on the file naming conventions for the JSON-RPC.
-    """
+    """Load a method based on the file naming conventions for the JSON-RPC."""
     schema = get_schema_bundle()
     rpc_name = f"{name.lower()}.json"
 
-    root_added = schema["methods"][rpc_name].get('added', None)
-    root_deprecated = schema["methods"][rpc_name].get('deprecated', None)
+    root_added = schema["methods"][rpc_name].get("added", None)
+    root_deprecated = schema["methods"][rpc_name].get("deprecated", None)
 
-    request = CompositeField.from_js(schema["methods"][rpc_name]['request'], path=name)
-    response = CompositeField.from_js(schema["methods"][rpc_name]['response'], path=name)
+    request = CompositeField.from_js(schema["methods"][rpc_name]["request"], path=name)
+    response = CompositeField.from_js(
+        schema["methods"][rpc_name]["response"], path=name
+    )
 
     if request.added is None:
         request.added = root_added
@@ -272,19 +281,20 @@ def load_jsonrpc_method(name):
     )
 
 
-def load_notification(name, typename: TypeName):
-    """Load a notification that can be received by a plug-in
-    """
+def load_notification(name, typename: TypeName, schema_name=None):
+    """Load a notification that can be received by a plug-in"""
     typename = str(typename)
 
     notifications = get_schema_bundle()["notifications"]
-    notif_name = f"{name.lower()}.json"
+    if schema_name is None:
+        schema_name = name
+    notif_name = f"{schema_name.lower()}.json"
 
-    root_added = notifications[notif_name].get('added', None)
-    root_deprecated = notifications[notif_name].get('deprecated', None)
+    root_added = notifications[notif_name].get("added", None)
+    root_deprecated = notifications[notif_name].get("deprecated", None)
 
-    request = CompositeField.from_js(notifications[notif_name]['request'], path=name)
-    response = CompositeField.from_js(notifications[notif_name]['response'], path=name)
+    request = CompositeField.from_js(notifications[notif_name]["request"], path=name)
+    response = CompositeField.from_js(notifications[notif_name]["response"], path=name)
 
     if request.added is None:
         request.added = root_added
@@ -303,7 +313,16 @@ def load_notification(name, typename: TypeName):
 
 def load_jsonrpc_service():
     methods = [load_jsonrpc_method(name) for name in grpc_method_names]
-    notifications = [load_notification(name=names["name"], typename=names["typename"]) for names in grpc_notification_names]
+    notifications = [
+        load_notification(
+            name=names["name"],
+            typename=names["typename"],
+            schema_name=names.get("schema_name"),
+        )
+        for names in grpc_notification_names
+    ]
     service = Service(name="Node", methods=methods, notifications=notifications)
-    service.includes = ['primitives.proto']  # Make sure we have the primitives included.
+    service.includes = [
+        "primitives.proto"
+    ]  # Make sure we have the primitives included.
     return service

@@ -8,124 +8,107 @@
     "The **pay_part_start** notification is emitted by the xpay plugin when a payment part begins."
   ],
   "added": "v25.09",
-  "request": {},
+  "request": {
+    "added": "v25.09"
+  },
   "response": {
+    "added": "v25.09",
     "required": [
-      "origin",
-      "payload"
+      "payment_hash",
+      "groupid",
+      "partid",
+      "total_payment_msat",
+      "attempt_msat",
+      "hops"
     ],
     "properties": {
-      "origin": {
-        "type": "string",
+      "payment_hash": {
+        "type": "hash",
         "description": [
-          "The plugin origin for the forwarded notification."
+          "The payment hash for the xpay invocation."
         ],
         "added": "v25.09"
       },
-      "payload": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "payment_hash",
-          "groupid",
-          "partid",
-          "total_payment_msat",
-          "attempt_msat",
-          "hops"
-        ],
+      "groupid": {
+        "type": "u64",
         "description": [
-          "The xpay notification payload."
+          "The xpay group identifier for the payment attempt."
+        ],
+        "added": "v25.09"
+      },
+      "partid": {
+        "type": "u64",
+        "description": [
+          "The identifier for this payment part."
+        ],
+        "added": "v25.09"
+      },
+      "total_payment_msat": {
+        "type": "msat",
+        "description": [
+          "The total payment amount for the xpay invocation."
+        ],
+        "added": "v25.09"
+      },
+      "attempt_msat": {
+        "type": "msat",
+        "description": [
+          "The amount this payment part attempts to deliver."
+        ],
+        "added": "v25.09"
+      },
+      "hops": {
+        "type": "array",
+        "description": [
+          "The route hops for this payment part."
         ],
         "added": "v25.09",
-        "properties": {
-          "payment_hash": {
-            "type": "hash",
-            "description": [
-              "The payment hash for the xpay invocation."
-            ],
-            "added": "v25.09"
-          },
-          "groupid": {
-            "type": "u64",
-            "description": [
-              "The xpay group identifier for the payment attempt."
-            ],
-            "added": "v25.09"
-          },
-          "partid": {
-            "type": "u64",
-            "description": [
-              "The identifier for this payment part."
-            ],
-            "added": "v25.09"
-          },
-          "total_payment_msat": {
-            "type": "msat",
-            "description": [
-              "The total payment amount for the xpay invocation."
-            ],
-            "added": "v25.09"
-          },
-          "attempt_msat": {
-            "type": "msat",
-            "description": [
-              "The amount this payment part attempts to deliver."
-            ],
-            "added": "v25.09"
-          },
-          "hops": {
-            "type": "array",
-            "description": [
-              "The route hops for this payment part."
-            ],
-            "added": "v25.09",
-            "items": {
-              "type": "object",
-              "additionalProperties": false,
-              "required": [
-                "next_node",
-                "short_channel_id",
-                "direction",
-                "channel_in_msat",
-                "channel_out_msat"
+        "items": {
+          "type": "object",
+          "added": "v25.09",
+          "additionalProperties": false,
+          "required": [
+            "next_node",
+            "short_channel_id",
+            "direction",
+            "channel_in_msat",
+            "channel_out_msat"
+          ],
+          "properties": {
+            "next_node": {
+              "type": "pubkey",
+              "description": [
+                "The next node for this hop."
               ],
-              "properties": {
-                "next_node": {
-                  "type": "pubkey",
-                  "description": [
-                    "The next node for this hop."
-                  ],
-                  "added": "v25.09"
-                },
-                "short_channel_id": {
-                  "type": "short_channel_id",
-                  "description": [
-                    "The short channel id used for this hop."
-                  ],
-                  "added": "v25.09"
-                },
-                "direction": {
-                  "type": "u32",
-                  "description": [
-                    "The direction within the short channel id."
-                  ],
-                  "added": "v25.09"
-                },
-                "channel_in_msat": {
-                  "type": "msat",
-                  "description": [
-                    "The amount entering the hop."
-                  ],
-                  "added": "v25.09"
-                },
-                "channel_out_msat": {
-                  "type": "msat",
-                  "description": [
-                    "The amount leaving the hop."
-                  ],
-                  "added": "v25.09"
-                }
-              }
+              "added": "v25.09"
+            },
+            "short_channel_id": {
+              "type": "short_channel_id",
+              "description": [
+                "The short channel id used for this hop."
+              ],
+              "added": "v25.09"
+            },
+            "direction": {
+              "type": "u32",
+              "description": [
+                "The direction within the short channel id."
+              ],
+              "added": "v25.09"
+            },
+            "channel_in_msat": {
+              "type": "msat",
+              "description": [
+                "The amount entering the hop."
+              ],
+              "added": "v25.09"
+            },
+            "channel_out_msat": {
+              "type": "msat",
+              "description": [
+                "The amount leaving the hop."
+              ],
+              "added": "v25.09"
             }
           }
         }

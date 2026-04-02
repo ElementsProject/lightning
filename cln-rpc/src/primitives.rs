@@ -29,6 +29,7 @@ pub enum ChannelState {
     CHANNELD_AWAITING_SPLICE = 11,
     DUALOPEND_OPEN_COMMITTED = 12,
     DUALOPEND_OPEN_COMMIT_READY = 13,
+    CLOSED = 14,
 }
 
 /// ['The first 10 states are for `out`, the next 10 are for `in`.']
@@ -461,6 +462,7 @@ impl TryFrom<i32> for ChannelState {
             11 => Ok(ChannelState::CHANNELD_AWAITING_SPLICE),
             12 => Ok(ChannelState::DUALOPEND_OPEN_COMMITTED),
             13 => Ok(ChannelState::DUALOPEND_OPEN_COMMIT_READY),
+            14 => Ok(ChannelState::CLOSED),
             _ => Err(anyhow!("Invalid channel state {}", value)),
         }
     }
@@ -483,6 +485,7 @@ impl Display for ChannelState {
             ChannelState::CHANNELD_AWAITING_SPLICE => write!(f, "CHANNELD_AWAITING_SPLICE"),
             ChannelState::DUALOPEND_OPEN_COMMITTED => write!(f, "DUALOPEND_OPEN_COMMITTED"),
             ChannelState::DUALOPEND_OPEN_COMMIT_READY => write!(f, "DUALOPEND_OPEN_COMMIT_READY"),
+            ChannelState::CLOSED => write!(f, "CLOSED"),
         }
     }
 }

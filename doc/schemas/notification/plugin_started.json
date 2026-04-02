@@ -7,12 +7,12 @@
   "description": [
     "The **plugin_started** notification informs whenever a plugin has started and registered its methods."
   ],
-  "added": "v24.02",
+  "added": "v25.02",
   "request": {
-    "added": "v24.02"
+    "added": "v25.02"
   },
   "response": {
-    "added": "v24.02",
+    "added": "v25.02",
     "required": [
       "plugin_name",
       "plugin_path",
@@ -24,27 +24,27 @@
         "description": [
           "The short name of the plugin."
         ],
-        "added": "v24.02"
+        "added": "v25.02"
       },
       "plugin_path": {
         "type": "string",
         "description": [
           "The executable path of the plugin."
         ],
-        "added": "v24.02"
+        "added": "v25.02"
       },
       "methods": {
         "type": "array",
         "description": [
           "The RPC methods registered by the plugin."
         ],
-        "added": "v24.02",
+        "added": "v25.02",
         "items": {
           "type": "string",
           "description": [
             "A method registered by the plugin."
           ],
-          "added": "v24.02"
+          "added": "v25.02"
         }
       }
     }
