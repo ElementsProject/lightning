@@ -1993,7 +1993,7 @@ void handle_peer_spoke(struct lightningd *ld, const u8 *msg)
 	struct channel_id channel_id;
 	struct peer *peer;
 	bool dual_fund;
-	const u8 *error;
+	const u8 *error = NULL;
 	int other_fd;
 	struct peer_fd *pfd;
 	char *errmsg;
