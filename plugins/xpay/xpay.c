@@ -1467,8 +1467,6 @@ static struct command_result *getroutes_for(struct command *aux_cmd,
 	/* Add user-specified layers */
 	for (size_t i = 0; i < tal_count(payment->layers); i++)
 		json_add_string(req->js, NULL, payment->layers[i]);
-	if (payment->disable_mpp)
-		json_add_string(req->js, NULL, "auto.no_mpp_support");
 	json_array_end(req->js);
 	json_add_amount_msat(req->js, "maxfee_msat", maxfee);
 	json_add_u32(req->js, "final_cltv", payment->final_cltv);
@@ -1477,6 +1475,9 @@ static struct command_result *getroutes_for(struct command *aux_cmd,
 		size_t count_pending = count_current_attempts(payment);
 		assert(payment->maxparts > count_pending);
 		json_add_u32(req->js, "maxparts", payment->maxparts - count_pending);
+	} else if (payment->disable_mpp) {
+		/* Destination doesn't support MPP: force single path. */
+		json_add_u32(req->js, "maxparts", 1);
 	}
 
 	return send_payment_req(aux_cmd, payment, req);
