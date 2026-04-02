@@ -70,7 +70,7 @@ static const struct fieldtypemap fieldtypemap[] = {
 	{ "boolean", "INTEGER" }, /* FIELD_BOOL */
 	{ "number", "REAL" }, /* FIELD_NUMBER */
 	{ "string", "TEXT" }, /* FIELD_STRING */
-	{ "short_channel_id", "TEXT" }, /* FIELD_SCID */
+	{ "short_channel_id", "SCID" }, /* FIELD_SCID */
 	{ "outpoint", "TEXT" }, /* FIELD_OUTPOINT */
 };
 
@@ -244,6 +244,52 @@ static enum fieldtype find_fieldtype(const jsmntok_t *name)
 	     name->end - name->start, schemas + name->start);
 }
 
+/* SQLite custom function: scid('NNNxNNNxNNN') -> u64 integer.
+ * Allows efficient queries like: WHERE in_channel = scid('735095x480x1') */
+static void sql_scid_func(sqlite3_context *ctx, int argc, sqlite3_value **argv)
+{
+	struct short_channel_id scid;
+	const char *str;
+
+	if (argc != 1) {
+		sqlite3_result_error(ctx, "scid() requires exactly one argument", -1);
+		return;
+	}
+	if (sqlite3_value_type(argv[0]) == SQLITE_NULL) {
+		sqlite3_result_null(ctx);
+		return;
+	}
+
+	str = (const char *)sqlite3_value_text(argv[0]);
+	if (!str || !short_channel_id_from_str(str, strlen(str), &scid)) {
+		sqlite3_result_error(ctx, "invalid short_channel_id format, expected NNNxNNNxNNN", -1);
+		return;
+	}
+
+	sqlite3_result_int64(ctx, scid.u64);
+}
+
+/* SQLite custom function: fmt_scid(u64) -> 'NNNxNNNxNNN' string.
+ * Useful for displaying integer SCIDs in text format within SQL expressions. */
+static void sql_fmt_scid_func(sqlite3_context *ctx, int argc, sqlite3_value **argv)
+{
+	struct short_channel_id scid;
+	char *str;
+
+	if (argc != 1) {
+		sqlite3_result_error(ctx, "fmt_scid() requires exactly one argument", -1);
+		return;
+	}
+	if (sqlite3_value_type(argv[0]) == SQLITE_NULL) {
+		sqlite3_result_null(ctx);
+		return;
+	}
+
+	scid.u64 = sqlite3_value_int64(argv[0]);
+	str = fmt_short_channel_id(tmpctx, scid);
+	sqlite3_result_text(ctx, str, -1, SQLITE_TRANSIENT);
+}
+
 static struct sqlite3 *sqlite_setup(struct plugin *plugin)
 {
 	int err;
@@ -299,6 +345,12 @@ static struct sqlite3 *sqlite_setup(struct plugin *plugin)
 		if (err != SQLITE_OK)
 			plugin_err(plugin, "Could not disable sync: %s", errmsg);
 	}
+
+	/* Register custom SCID functions for integer<->text conversion */
+	sqlite3_create_function(db, "scid", 1, SQLITE_UTF8, NULL,
+				sql_scid_func, NULL, NULL);
+	sqlite3_create_function(db, "fmt_scid", 1, SQLITE_UTF8, NULL,
+				sql_fmt_scid_func, NULL, NULL);
 
 	return db;
 }
@@ -423,6 +475,10 @@ static int sqlite_authorize(void *dbq_, int code,
 			return SQLITE_OK;
 		if (streq(b, "json_group_array"))
 			return SQLITE_OK;
+		if (streq(b, "scid"))
+			return SQLITE_OK;
+		if (streq(b, "fmt_scid"))
+			return SQLITE_OK;
 	}
 
 	/* See https://www.sqlite.org/c3ref/c_alter_table.html to decode these! */
@@ -464,7 +520,15 @@ static struct command_result *refresh_complete(struct command *cmd,
 			switch (sqlite3_column_type(dbq->stmt, i)) {
 			case SQLITE_INTEGER: {
 				s64 v = sqlite3_column_int64(dbq->stmt, i);
-				json_add_s64(ret, NULL, v);
+				const char *decltype = sqlite3_column_decltype(dbq->stmt, i);
+				if (decltype && streq(decltype, "SCID")) {
+					struct short_channel_id scid;
+					scid.u64 = (u64)v;
+					json_add_string(ret, NULL,
+							fmt_short_channel_id(tmpctx, scid));
+				} else {
+					json_add_s64(ret, NULL, v);
+				}
 				break;
 			}
 			case SQLITE_FLOAT: {
@@ -789,7 +853,18 @@ static struct command_result *process_json_obj(struct command *cmd,
 				}
 				sqlite3_bind_int64(stmt, (*sqloff)++, valmsat.millisatoshis /* Raw: db */);
 				break;
-			case FIELD_SCID:
+			case FIELD_SCID: {
+				struct short_channel_id scid;
+				if (!json_to_short_channel_id(buf, coltok, &scid)) {
+					return command_fail(cmd, LIGHTNINGD,
+							    "column %zu row %zu not a valid short_channel_id: %.*s",
+							    i, row,
+							    json_tok_full_len(coltok),
+							    json_tok_full(buf, coltok));
+				}
+				sqlite3_bind_int64(stmt, (*sqloff)++, scid.u64);
+				break;
+			}
 			case FIELD_STRING:
 			case FIELD_OUTPOINT:
 				sqlite3_bind_text(stmt, (*sqloff)++, buf + coltok->start,
@@ -1028,8 +1103,8 @@ static void delete_channel_from_db(struct command *cmd,
 	err = sqlite3_exec(sql->db,
 			   tal_fmt(tmpctx,
 				   "DELETE FROM channels"
-				   " WHERE short_channel_id = '%s'",
-				   fmt_short_channel_id(tmpctx, scid)),
+				   " WHERE short_channel_id = %"PRIu64,
+				   scid.u64),
 			   NULL, NULL, &errmsg);
 	if (err != SQLITE_OK)
 		plugin_err(cmd->plugin, "Could not delete from channels: %s",
@@ -1403,6 +1478,63 @@ static struct command_result *refresh_tables(struct command *cmd,
 	return td->refresh(cmd, dbq->tables[0], dbq);
 }
 
+/* Check if a string is a valid short_channel_id (NNNxNNNxNNN format) */
+static bool looks_like_scid(const char *str, size_t len)
+{
+	struct short_channel_id scid;
+
+	return short_channel_id_from_str(str, len, &scid);
+}
+
+/* Rewrite SQL query to wrap scid string literals with scid() function.
+ * This transforms '735095x480x1' into scid('735095x480x1') so that
+ * SQLite can use indexes on integer SCID columns. */
+static const char *rewrite_scid_literals(const tal_t *ctx, const char *query)
+{
+	char *result = tal_strdup(ctx, "");
+	const char *p = query;
+
+	while (*p) {
+		/* Look for single-quoted string literals */
+		if (*p == '\'') {
+			const char *start = p + 1;
+			const char *end = strchr(start, '\'');
+
+			if (!end) {
+				/* Unterminated quote, just copy rest */
+				tal_append_fmt(&result, "%s", p);
+				break;
+			}
+
+			if (looks_like_scid(start, end - start)) {
+				/* Check if already wrapped in scid() by looking
+				 * back for "scid(" before the quote */
+				bool already_wrapped = false;
+				if (p - query >= 5) {
+					const char *before = p - 5;
+					if (strncmp(before, "scid(", 5) == 0)
+						already_wrapped = true;
+				}
+				if (!already_wrapped) {
+					tal_append_fmt(&result, "scid('%.*s')",
+						       (int)(end - start), start);
+					p = end + 1;
+					continue;
+				}
+			}
+			/* Not a scid or already wrapped: copy quote and content */
+			tal_append_fmt(&result, "%.*s",
+				       (int)(end - p + 1), p);
+			p = end + 1;
+		} else {
+			tal_append_fmt(&result, "%c", *p);
+			p++;
+		}
+	}
+
+	return result;
+}
+
 static struct command_result *json_sql(struct command *cmd,
 				       const char *buffer,
 				       const jsmntok_t *params)
@@ -1416,6 +1548,10 @@ static struct command_result *json_sql(struct command *cmd,
 		   p_req("query", param_string, &query),
 		   NULL))
 		return command_param_failed();
+
+	/* Rewrite scid string literals to use scid() function so
+	 * SQLite can use indexes on integer SCID columns. */
+	query = rewrite_scid_literals(tmpctx, query);
 
 	dbq->tables = tal_arr(dbq, struct table_desc *, 0);
 	dbq->authfail = NULL;
