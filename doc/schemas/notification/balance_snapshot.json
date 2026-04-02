@@ -1,0 +1,86 @@
+{
+  "$schema": "../../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "notification": "balance_snapshot",
+  "title": "Notification for balance snapshots",
+  "description": [
+    "The **balance_snapshot** notification informs whenever lightningd emits a balance snapshot for bookkeeping."
+  ],
+  "added": "v24.11",
+  "request": {
+    "added": "v24.11"
+  },
+  "response": {
+    "added": "v24.11",
+    "required": [
+      "node_id",
+      "blockheight",
+      "timestamp",
+      "accounts"
+    ],
+    "properties": {
+      "node_id": {
+        "type": "pubkey",
+        "description": [
+          "The node id the snapshot was taken for."
+        ],
+        "added": "v24.11"
+      },
+      "blockheight": {
+        "type": "u32",
+        "description": [
+          "The blockheight at which the snapshot was taken."
+        ],
+        "added": "v24.11"
+      },
+      "timestamp": {
+        "type": "u32",
+        "description": [
+          "The snapshot time as seconds since epoch."
+        ],
+        "added": "v24.11"
+      },
+      "accounts": {
+        "type": "array",
+        "description": [
+          "The balances for each tracked account at the snapshot time."
+        ],
+        "added": "v24.11",
+        "items": {
+          "type": "object",
+          "added": "v24.11",
+          "additionalProperties": false,
+          "required": [
+            "account_id",
+            "balance_msat",
+            "coin_type"
+          ],
+          "properties": {
+            "account_id": {
+              "type": "string",
+              "description": [
+                "The account identifier for the balance."
+              ],
+              "added": "v24.11"
+            },
+            "balance_msat": {
+              "type": "msat",
+              "description": [
+                "The account balance in millisatoshis."
+              ],
+              "added": "v24.11"
+            },
+            "coin_type": {
+              "type": "string",
+              "description": [
+                "The BIP173 coin type name for the balance."
+              ],
+              "added": "v24.11"
+            }
+          }
+        }
+      }
+    }
+  }
+}
