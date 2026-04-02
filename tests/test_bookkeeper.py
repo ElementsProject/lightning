@@ -1251,7 +1251,7 @@ def test_bkpr_report_tags_and_fallback(node_factory):
     res = l1.rpc.call(
         "bkpr-report",
         {
-            "format": "{tag}|{account}|{outpoint?NONE}|{txid?NONE}|{payment_id?NONE}|{bkpr-currency?NONE}|{currencyrate?NONE}",
+            "format": "{tag}|{account}|{outpoint:NONE}|{txid:NONE}|{payment_id:NONE}|{bkpr-currency:NONE}|{currencyrate:NONE}",
             "headers": ['tag",account,outpoint,txid,payment_id,bkpr-currency,currencyrate', ",,,,,,"],
         },
     )
@@ -1275,7 +1275,7 @@ def test_bkpr_report_tags_and_fallback(node_factory):
     assert any(r[2] == "NONE" or r[3] == "NONE" or r[4] == "NONE" for r in rows)
 
     # Fancier fields should work, too
-    res = l1.rpc.bkpr_report(format="{tag}|{account}|{credit}|{debit}|{creditdebit}|{currencycredit}|{currencydebit}|{currencycreditdebit}|{credit?NONE}")
+    res = l1.rpc.bkpr_report(format="{tag}|{account}|{credit}|{debit}|{creditdebit}|{currencycredit}|{currencydebit}|{currencycreditdebit}|{credit:NONE}")
     rows = [line.split("|") for line in res["report"]]
 
     for r in rows:
@@ -1315,7 +1315,7 @@ def test_bkpr_report_invoice(node_factory):
     assert invline == f"invoice,{cid},test_bkpr_report_invoice,-0.00000123456,"
 
     # Test nested tags while we're here!
-    lines = l1.rpc.bkpr_report(format="{tag},{account},{description},{outpoint},{txid},{description?{outpoint?txid: {txid?UNKNOWN}}},{creditdebit}", escape='csv')['report']
+    lines = l1.rpc.bkpr_report(format="{tag},{account},{description},{outpoint},{txid},{description:{outpoint:txid: {txid:UNKNOWN}}},{creditdebit}", escape='csv')['report']
     for l in lines[1:]:
         parts = l.split(',')
         if parts[2] != '':

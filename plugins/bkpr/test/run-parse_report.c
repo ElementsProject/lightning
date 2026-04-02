@@ -72,22 +72,25 @@ static void test_parse_report_format_simple(void)
 	struct report_format *f;
 	const char *err, *start = "hello {tag} world";
 
-	f = parse_report_format(tmpctx, &start, '\0', &err);
+	f = parse_report_format(tmpctx, &start, '\0', '\0', &err);
 	assert(f);
 	assert(streq(start, ""));
 
 	assert(tal_count(f->fmt) == 3);
 	assert(f->fmt[0] == NULL);
 	assert(streq(f->str[0], "hello "));
-	assert(f->alt[0] == NULL);
+	assert(f->ifset[0] == NULL);
+	assert(f->ifnotset[0] == NULL);
 
 	assert(f->fmt[1] == report_fmt_tag);
 	assert(f->str[1] == NULL);
-	assert(f->alt[1] == NULL);
+	assert(f->ifset[1] == NULL);
+	assert(f->ifnotset[1] == NULL);
 
 	assert(f->fmt[2] == NULL);
 	assert(streq(f->str[2], " world"));
-	assert(f->alt[2] == NULL);
+	assert(f->ifset[2] == NULL);
+	assert(f->ifnotset[2] == NULL);
 }
 
 static void test_parse_report_format_escaped_open_brace(void)
@@ -95,7 +98,7 @@ static void test_parse_report_format_escaped_open_brace(void)
 	struct report_format *f;
 	const char *err, *start = "a{{b";
 
-	f = parse_report_format(tmpctx, &start, '\0', &err);
+	f = parse_report_format(tmpctx, &start, '\0', '\0', &err);
 	assert(f);
 	assert(streq(start, ""));
 
@@ -105,84 +108,123 @@ static void test_parse_report_format_escaped_open_brace(void)
 	assert(tal_count(f->str) == 2);
 	assert(streq(f->str[0], "a{"));
 	assert(streq(f->str[1], "b"));
-	assert(tal_count(f->alt) == 2);
-	assert(f->alt[0] == NULL);
-	assert(f->alt[1] == NULL);
+	assert(tal_count(f->ifnotset) == 2);
+	assert(f->ifnotset[0] == NULL);
+	assert(f->ifnotset[1] == NULL);
 }
 
-static void test_parse_report_format_alt_simple(void)
+/* {description:NONE} => description, or NONE if absent */
+static void test_parse_report_format_ifnotset_simple(void)
 {
 	struct report_format *f;
-	const char *err, *start = "{description?NONE}";
+	const char *err, *start = "{description:NONE}";
 
-	f = parse_report_format(tmpctx, &start, '\0', &err);
+	f = parse_report_format(tmpctx, &start, '\0', '\0', &err);
 	assert(f);
 	assert(streq(start, ""));
 
 	assert(tal_count(f->fmt) == 1);
 	assert(f->fmt[0] == report_fmt_desc);
 	assert(f->str[0] == NULL);
-	assert(f->alt[0] != NULL);
+	assert(f->ifset[0] == NULL);
+	assert(f->ifnotset[0] != NULL);
 
-	assert(tal_count(f->alt[0]->fmt) == 1);
-	assert(f->alt[0]->fmt[0] == NULL);
-	assert(streq(f->alt[0]->str[0], "NONE"));
-	assert(f->alt[0]->alt[0] == NULL);
+	assert(tal_count(f->ifnotset[0]->fmt) == 1);
+	assert(f->ifnotset[0]->fmt[0] == NULL);
+	assert(streq(f->ifnotset[0]->str[0], "NONE"));
+	assert(f->ifnotset[0]->ifnotset[0] == NULL);
 }
 
-static void test_parse_report_format_alt_nested(void)
+/* {description:{txid:{outpoint:NONE}}} => nested if-not-set */
+static void test_parse_report_format_ifnotset_nested(void)
 {
 	struct report_format *f, *a1, *a2;
-	const char *err, *start = "{description?{txid?{outpoint?NONE}}}";
+	const char *err, *start = "{description:{txid:{outpoint:NONE}}}";
 
-	f = parse_report_format(tmpctx, &start, '\0', &err);
+	f = parse_report_format(tmpctx, &start, '\0', '\0', &err);
 	assert(f);
 	assert(streq(start, ""));
 
 	assert(tal_count(f->fmt) == 1);
 	assert(f->fmt[0] == report_fmt_desc);
 	assert(f->str[0] == NULL);
-	assert(f->alt[0] != NULL);
+	assert(f->ifset[0] == NULL);
+	assert(f->ifnotset[0] != NULL);
 
-	a1 = f->alt[0];
+	a1 = f->ifnotset[0];
 	assert(tal_count(a1->fmt) == 1);
 	assert(a1->fmt[0] == report_fmt_txid);
 	assert(a1->str[0] == NULL);
-	assert(a1->alt[0] != NULL);
+	assert(a1->ifset[0] == NULL);
+	assert(a1->ifnotset[0] != NULL);
 
-	a2 = a1->alt[0];
+	a2 = a1->ifnotset[0];
 	assert(tal_count(a2->fmt) == 1);
 	assert(a2->fmt[0] == report_fmt_outpoint);
 	assert(a2->str[0] == NULL);
-	assert(a2->alt[0] != NULL);
+	assert(a2->ifset[0] == NULL);
+	assert(a2->ifnotset[0] != NULL);
 
-	assert(tal_count(a2->alt[0]->fmt) == 1);
-	assert(a2->alt[0]->fmt[0] == NULL);
-	assert(streq(a2->alt[0]->str[0], "NONE"));
-	assert(a2->alt[0]->alt[0] == NULL);
+	assert(tal_count(a2->ifnotset[0]->fmt) == 1);
+	assert(a2->ifnotset[0]->fmt[0] == NULL);
+	assert(streq(a2->ifnotset[0]->str[0], "NONE"));
+	assert(a2->ifnotset[0]->ifnotset[0] == NULL);
 }
 
-static void test_parse_report_format_alt_with_suffix(void)
+/* {description:{txid}X}Y => if-not-set with suffix */
+static void test_parse_report_format_ifnotset_with_suffix(void)
 {
 	struct report_format *f, *a1;
-	const char *err, *start = "{description?{txid}X}Y";
+	const char *err, *start = "{description:{txid}X}Y";
 
-	f = parse_report_format(tmpctx, &start, '\0', &err);
+	f = parse_report_format(tmpctx, &start, '\0', '\0', &err);
 	assert(f);
 	assert(streq(start, ""));
 
 	assert(tal_count(f->fmt) == 2);
 	assert(f->fmt[0] == report_fmt_desc);
-	assert(f->alt[0] != NULL);
+	assert(f->ifset[0] == NULL);
+	assert(f->ifnotset[0] != NULL);
 	assert(f->fmt[1] == NULL);
 	assert(streq(f->str[1], "Y"));
 
-	a1 = f->alt[0];
+	a1 = f->ifnotset[0];
 	assert(tal_count(a1->fmt) == 2);
 	assert(a1->fmt[0] == report_fmt_txid);
-	assert(a1->alt[0] == NULL);
+	assert(a1->ifnotset[0] == NULL);
 	assert(a1->fmt[1] == NULL);
 	assert(streq(a1->str[1], "X"));
+}
+
+/* {credit?+{credit}:0} => if-set and if-not-set */
+static void test_parse_report_format_ifset_and_ifnotset(void)
+{
+	struct report_format *f, *s1;
+	const char *err, *start = "{credit?+{credit}:0}";
+
+	f = parse_report_format(tmpctx, &start, '\0', '\0', &err);
+	assert(f);
+	assert(streq(start, ""));
+
+	assert(tal_count(f->fmt) == 1);
+	assert(f->fmt[0] == report_fmt_credit);
+	assert(f->str[0] == NULL);
+	assert(f->ifset[0] != NULL);
+	assert(f->ifnotset[0] != NULL);
+
+	/* if-set: "+{credit}" */
+	s1 = f->ifset[0];
+	assert(tal_count(s1->fmt) == 2);
+	assert(s1->fmt[0] == NULL);
+	assert(streq(s1->str[0], "+"));
+	assert(s1->fmt[1] == report_fmt_credit);
+	assert(s1->ifset[1] == NULL);
+	assert(s1->ifnotset[1] == NULL);
+
+	/* if-not-set: "0" */
+	assert(tal_count(f->ifnotset[0]->fmt) == 1);
+	assert(f->ifnotset[0]->fmt[0] == NULL);
+	assert(streq(f->ifnotset[0]->str[0], "0"));
 }
 
 static void test_parse_report_format_unknown_tag(void)
@@ -190,7 +232,7 @@ static void test_parse_report_format_unknown_tag(void)
 	struct report_format *f;
 	const char *err, *start = "{nope}";
 
-	f = parse_report_format(tmpctx, &start, '\0', &err);
+	f = parse_report_format(tmpctx, &start, '\0', '\0', &err);
 	assert(!f);
 	assert(err);
 	assert(strstr(err, "Unknown tag nope"));
@@ -201,7 +243,7 @@ static void test_parse_report_format_unterminated_tag(void)
 	struct report_format *f;
 	const char *err, *start = "{description";
 
-	f = parse_report_format(tmpctx, &start, '\0', &err);
+	f = parse_report_format(tmpctx, &start, '\0', '\0', &err);
 	assert(!f);
 	assert(err);
 	assert(strstr(err, "Unterminated tag"));
@@ -210,9 +252,9 @@ static void test_parse_report_format_unterminated_tag(void)
 static void test_parse_report_format_unterminated_nested_alt(void)
 {
 	struct report_format *f;
-	const char *err, *start = "{description?{txid}";
+	const char *err, *start = "{description:{txid}";
 
-	f = parse_report_format(tmpctx, &start, '\0', &err);
+	f = parse_report_format(tmpctx, &start, '\0', '\0', &err);
 	assert(!f);
 	assert(err);
 	assert(strstr(err, "Unterminated tag"));
@@ -221,9 +263,9 @@ static void test_parse_report_format_unterminated_nested_alt(void)
 static void test_parse_report_format_unknown_nested_tag(void)
 {
 	struct report_format *f;
-	const char *err, *start = "{description?{nope}}";
+	const char *err, *start = "{description:{nope}}";
 
-	f = parse_report_format(tmpctx, &start, '\0', &err);
+	f = parse_report_format(tmpctx, &start, '\0', '\0', &err);
 	assert(!f);
 	assert(err);
 	assert(strstr(err, "Unknown tag nope"));
@@ -234,9 +276,10 @@ int main(int argc, char *argv[])
 	common_setup(argv[0]);
 	test_parse_report_format_simple();
 	test_parse_report_format_escaped_open_brace();
-	test_parse_report_format_alt_simple();
-	test_parse_report_format_alt_nested();
-	test_parse_report_format_alt_with_suffix();
+	test_parse_report_format_ifnotset_simple();
+	test_parse_report_format_ifnotset_nested();
+	test_parse_report_format_ifnotset_with_suffix();
+	test_parse_report_format_ifset_and_ifnotset();
 	test_parse_report_format_unknown_tag();
 	test_parse_report_format_unterminated_tag();
 	test_parse_report_format_unterminated_nested_alt();
