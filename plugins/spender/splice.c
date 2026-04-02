@@ -187,7 +187,7 @@ static struct command_result *do_fail(struct command *cmd,
 		   "splice_error(psbt:%p, splice_cmd:%p, str: %s)",
 		   splice_cmd->psbt, splice_cmd, str ?: "");
 
-	abort_pkg = tal(cmd->plugin, struct abort_pkg);
+	abort_pkg = tal(cmd, struct abort_pkg);
 	abort_pkg->splice_cmd = tal_steal(abort_pkg, splice_cmd);
 	abort_pkg->str = tal_strdup(abort_pkg, str);
 	abort_pkg->code = code;
