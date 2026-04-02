@@ -15,6 +15,9 @@
 #include <plugins/bkpr/report.h>
 #include <plugins/libplugin.h>
 
+/* This is a zero, but treated specially if tested with ? */
+static const char ZERO_AMOUNT[] = "0";
+
 static const char *report_fmt_acct_name(const tal_t *ctx UNNEEDED,
 					const struct bkpr *bkpr UNNEEDED,
 					const struct income_event *e)
@@ -40,6 +43,8 @@ static const char *report_fmt_credit(const tal_t *ctx,
 				     const struct bkpr *bkpr UNNEEDED,
 				     const struct income_event *e)
 {
+	if (amount_msat_is_zero(e->credit))
+		return ZERO_AMOUNT;
 	return fmt_amount_msat_btc(ctx, e->credit, false);
 }
 
@@ -47,6 +52,8 @@ static const char *report_fmt_debit(const tal_t *ctx,
 				    const struct bkpr *bkpr UNNEEDED,
 				    const struct income_event *e)
 {
+	if (amount_msat_is_zero(e->debit))
+		return ZERO_AMOUNT;
 	return fmt_amount_msat_btc(ctx, e->debit, false);
 }
 
@@ -54,6 +61,8 @@ static const char *report_fmt_fees(const tal_t *ctx,
 				   const struct bkpr *bkpr UNNEEDED,
 				   const struct income_event *e)
 {
+	if (amount_msat_is_zero(e->fees))
+		return ZERO_AMOUNT;
 	return fmt_amount_msat_btc(ctx, e->fees, false);
 }
 
@@ -134,7 +143,7 @@ static const char *report_fmt_credit_debit(const tal_t *ctx,
 	if (!amount_msat_is_zero(e->debit))
 		return tal_fmt(ctx, "-%s",
 			       fmt_amount_msat_btc(tmpctx, e->debit, false));
-	return "0";
+	return ZERO_AMOUNT;
 }
 
 static const char *report_fmt_currency_credit(const tal_t *ctx,
@@ -411,6 +420,10 @@ static char *format_event(const tal_t *ctx,
 		}
 
 		v = fmt->fmt[i](tmpctx, bkpr, e);
+		/* If there's an alternative, we treat ZERO_AMOUNT as missing. */
+		if (v == ZERO_AMOUNT && fmt->alt[i])
+			v = NULL;
+
 		if (v) {
 			v = escape_value(tmpctx, v, esc);
 			out = tal_strcat(ctx, take(out), v);
