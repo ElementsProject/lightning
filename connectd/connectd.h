@@ -67,6 +67,8 @@ struct peer {
 	struct crypto_state cs;
 	/* Time when we first connected */
 	struct timemono connect_starttime;
+	/* Features they told us about */
+	const u8 *their_features;
 
 	/* Connection to the peer (NULL if it's disconnected and we're flushing) */
 	struct io_conn *to_peer;
