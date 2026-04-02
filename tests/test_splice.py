@@ -708,10 +708,8 @@ def test_easy_splice_out_into_channel(node_factory, bitcoind, chainparams):
     bitcoind.generate_block(6, wait_for_mempool=1)
     l2.daemon.wait_for_log(r'lightningd, splice_locked clearing inflights')
 
-    p1 = only_one(l1.rpc.listpeerchannels()['channels'])
-    p2 = only_one(l3.rpc.listpeerchannels()['channels'])
-    assert 'inflight' not in p1
-    assert 'inflight' not in p2
+    wait_for(lambda: 'inflight' not in only_one(l1.rpc.listpeerchannels()['channels']))
+    wait_for(lambda: 'inflight' not in only_one(l3.rpc.listpeerchannels()['channels']))
 
     wait_for(lambda: len(l2.rpc.listfunds()['outputs']) == 1)
     wait_for(lambda: len(l2.rpc.listfunds()['channels']) == 2)
