@@ -72,6 +72,7 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
  - renepay: fixes a race condition that leads to **BROKEN** plugin-cln-renepay: Unable to parse sendpay_failure ([#8798])
  - fuzz: fix build with newer clang. ([#8717])
  - Plugins: `bkpr_listbalances` no longer crashes if we lost our db, then do emergencyrecover and close a channel. ([#8890])
+ - Plugins: now wait for all plugins to gracefully shutdown instead of killing remaining plugins when one exits first. ([#7697])
  - lightningd: possible crash when peers disconnected if there was more than one plugin servicing the `peer_connected` hook. ([#8889])
  - JSON-RPC: `decode` is now more informative with malformed strings (won't claim everything is a malformed rune!). ([#8814])
  - reckless search now returns partial matches instead of requiring exact plugin names. ([#8762])
