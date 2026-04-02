@@ -4,8 +4,8 @@ use futures::SinkExt;
 use serde::Serialize;
 use std::sync::Arc;
 use tokio::io::AsyncWrite;
-use tokio::sync::mpsc;
 use tokio::sync::Mutex;
+use tokio::sync::mpsc;
 use tokio_util::codec::FramedWrite;
 
 #[derive(Clone, Debug, Serialize)]
@@ -74,8 +74,8 @@ where
 mod trace {
     use super::*;
     use tracing::Level;
-    use tracing_subscriber::prelude::*;
     use tracing_subscriber::Layer;
+    use tracing_subscriber::prelude::*;
 
     /// Initialize the logger starting a flusher to the passed in sink.
     pub fn init<O>(out: Arc<Mutex<FramedWrite<O, JsonCodec>>>) -> Result<(), log::SetLoggerError>

@@ -7,17 +7,17 @@ use std::{
 use anyhow::anyhow;
 use axum::http::HeaderValue;
 use cln_plugin::{
+    ConfiguredPlugin,
     options::{
         ConfigOption, DefaultStringArrayConfigOption, DefaultStringConfigOption,
         IntegerConfigOption, StringConfigOption,
     },
-    ConfiguredPlugin,
 };
 use tower_http::cors::{Any, CorsLayer};
 
 use crate::{
-    structs::{ClnrestOptions, ClnrestProtocol},
     PluginState,
+    structs::{ClnrestOptions, ClnrestProtocol},
 };
 
 pub const OPT_CLNREST_PORT: IntegerConfigOption =
@@ -94,7 +94,7 @@ pub fn parse_options(
 
     let swagger = match plugin.option(&OPT_CLNREST_SWAGGER)? {
         swag if !swag.starts_with('/') => {
-            return Err(anyhow!("`clnrest-swagger-root` must start with `/`"))
+            return Err(anyhow!("`clnrest-swagger-root` must start with `/`"));
         }
         swag => swag,
     };

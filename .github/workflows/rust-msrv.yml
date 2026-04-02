@@ -1,0 +1,26 @@
+name: Rust MSRV verification test
+on:
+  pull_request:
+    paths:
+      - '**/*.rs'
+      - '**/Cargo.toml'
+      - '**/Cargo.lock'
+jobs:
+  msrv-test:
+    name: Rust MSRV verification test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: protoc
+        uses: arduino/setup-protoc@v3
+
+      - name: Install cargo-hack
+        uses: taiki-e/install-action@cargo-hack
+
+      - name: Check MSRV
+        run: cargo hack check --rust-version --workspace --all-targets --all-features

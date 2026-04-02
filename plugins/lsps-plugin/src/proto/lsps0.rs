@@ -1,6 +1,6 @@
 use crate::proto::jsonrpc::{JsonRpcRequest, RpcError};
 use core::fmt;
-use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
 use thiserror::Error;
 
 const MSAT_PER_SAT: u64 = 1_000;

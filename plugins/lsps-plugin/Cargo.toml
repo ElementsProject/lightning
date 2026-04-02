@@ -1,7 +1,8 @@
 [package]
 name = "cln-lsps"
 version = "0.1.1"
-edition = "2021"
+edition = "2024"
+rust-version.workspace = true
 
 [[bin]]
 name = "cln-lsps-client"
@@ -15,7 +16,7 @@ path = "src/service.rs"
 anyhow = "1.0"
 async-trait = "0.1"
 bitcoin = "0.32.2"
-chrono = { version= "0.4.42", features = ["serde"] }
+chrono = { version = "0.4.42", features = ["serde"] }
 cln-plugin = { workspace = true }
 cln-rpc = { workspace = true }
 hex = "0.4"
