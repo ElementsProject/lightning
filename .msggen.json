@@ -4001,7 +4001,8 @@
             "SetChannel.channels[].peer_id": 1,
             "SetChannel.channels[].short_channel_id": 3,
             "SetChannel.channels[].warning_htlcmax_too_high": 9,
-            "SetChannel.channels[].warning_htlcmin_too_low": 7
+            "SetChannel.channels[].warning_htlcmin_too_low": 7,
+            "SetChannel.channels[].announce": 11
         },
         "SetchannelRequest": {
             "SetChannel.enforcedelay": 6,
@@ -4010,7 +4011,8 @@
             "SetChannel.htlcmax": 5,
             "SetChannel.htlcmin": 4,
             "SetChannel.id": 1,
-            "SetChannel.ignorefeelimits": 7
+            "SetChannel.ignorefeelimits": 7,
+            "SetChannel.announce": 8
         },
         "SetchannelResponse": {
             "SetChannel.channels[]": 1
@@ -13503,6 +13505,10 @@
             "added": "pre-v0.10.1",
             "deprecated": null
         },
+        "SetChannel.channels[].announce": {
+            "added": "v25.05",
+            "deprecated": null
+        },
         "SetChannel.enforcedelay": {
             "added": "pre-v0.10.1",
             "deprecated": null
@@ -13529,6 +13535,10 @@
         },
         "SetChannel.ignorefeelimits": {
             "added": "v23.08",
+            "deprecated": null
+        },
+        "SetChannel.announce": {
+            "added": "v25.05",
             "deprecated": null
         },
         "SetConfig": {
