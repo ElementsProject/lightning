@@ -2594,14 +2594,42 @@ void shutdown_plugins(struct lightningd *ld)
 	if (!list_empty(&ld->plugins->plugins)) {
 		struct timers *timer;
 		struct timer *expired;
+		int pending_count = 0;
+
+		/* Count plugins that received shutdown notification */
+		list_for_each(&ld->plugins->plugins, p, list)
+			pending_count++;
+
+		log_debug(ld->log, "Waiting for %d plugins to shutdown", pending_count);
 
 		/* 30 seconds should do it, use a clean timers struct */
 		timer = tal(NULL, struct timers);
 		timers_init(timer, time_mono());
 		new_reltimer(timer, timer, time_from_sec(30), NULL, NULL);
 
-		void *ret = io_loop(timer, &expired);
-		assert(ret == NULL || ret == destroy_plugin);
+		/* Wait for plugins to close stdout (which triggers destroy_plugin) */
+		while (!list_empty(&ld->plugins->plugins) && pending_count > 0) {
+			void *ret = io_loop(timer, &expired);
+
+			/* Count remaining plugins */
+			int new_count = 0;
+			list_for_each(&ld->plugins->plugins, p, list)
+				new_count++;
+
+			if (new_count < pending_count) {
+				log_debug(ld->log, "Plugin exited, %d remaining", new_count);
+				pending_count = new_count;
+			}
+
+			/* ret can be NULL (all conns closed), destroy_plugin (io_break called),
+			 * or expired (timer expired) */
+			if (ret == destroy_plugin) {
+				/* Plugin destroyed, continue waiting */
+				continue;
+			}
+			/* Either all connections closed (NULL) or timer expired */
+			break;
+		}
 
 		/* Report and free remaining plugins. */
 		while (!list_empty(&ld->plugins->plugins)) {
