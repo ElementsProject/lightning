@@ -110,7 +110,7 @@ async fn currencyconvert(plugin: Plugin<PluginState>, args: Value) -> Result<Val
         Value::Array(values) => {
             if values.len() > 2 {
                 return Err(anyhow!(
-                    "Too many arguments: expected at most 2 (amount currency), got {}",
+                    "Expected 2, got {}",
                     values.len()
                 ));
             }
@@ -160,7 +160,7 @@ async fn currencyrate(plugin: Plugin<PluginState>, args: Value) -> Result<Value,
         Value::Array(values) => {
             if values.len() > 2 {
                 return Err(anyhow!(
-                    "Too many arguments: expected at most 2 (currency [source]), got {}",
+                    "Expected 2, got {}",
                     values.len()
                 ));
             }
@@ -170,7 +170,11 @@ async fn currencyrate(plugin: Plugin<PluginState>, args: Value) -> Result<Value,
                 .as_str()
                 .ok_or_else(|| anyhow!("currency must be a string"))?
                 .to_uppercase();
-            let source = values.get(1).and_then(|v| v.as_str()).map(str::to_owned);
+            let source = values.get(1).and_then(|v| {  
+                v.as_str()  
+                    .map(str::to_owned)  
+                    .or_else(|| v.as_number().map(std::string::ToString::to_string))  
+            });
             (currency, source)
         }
         Value::Object(map) => {
@@ -180,7 +184,11 @@ async fn currencyrate(plugin: Plugin<PluginState>, args: Value) -> Result<Value,
                 .as_str()
                 .ok_or_else(|| anyhow!("currency must be a string"))?
                 .to_uppercase();
-            let source = map.get("source").and_then(|v| v.as_str()).map(str::to_owned);
+            let source = map.get("source").and_then(|v| {
+                v.as_str()
+                    .map(str::to_owned)
+                    .or_else(|| v.as_number().map(std::string::ToString::to_string))
+            });
             (currency, source)
         }
         _ => return Err(anyhow!("Arguments must be an array or dictionary")),
@@ -208,7 +216,7 @@ async fn listcurrencyrates(plugin: Plugin<PluginState>, args: Value) -> Result<V
         Value::Array(values) => {
             if values.len() > 1 {
                 return Err(anyhow!(
-                    "Too many arguments: expected at most 1 (currency), got {}",
+                    "Expected 1, got {}",
                     values.len()
                 ));
             }
