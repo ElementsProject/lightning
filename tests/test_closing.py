@@ -8,7 +8,7 @@ from utils import (
     scriptpubkey_addr, calc_lease_fee,
     check_utxos_channel, check_coin_moves,
     mine_funding_to_announce, check_inspect_channel,
-    first_scid, check_feerate
+    first_scid, check_feerate, did_short_sig
 )
 
 from typing import List, Optional
@@ -3787,7 +3787,8 @@ def test_closing_anchorspend_htlc_tx_rbf(node_factory, bitcoind):
     # We want an outstanding HTLC for l1, so it uses anchor to push.
     # Set feerates to lowball for now.
     l1, l2 = node_factory.line_graph(2, opts=[{'feerates': (1000,) * 4,
-                                               'min-emergency-msat': 546000},
+                                               'min-emergency-msat': 546000,
+                                               'broken_log': 'overgrind: short signature length'},
                                               {'feerates': (1000,) * 4,
                                                'disconnect': ['-WIRE_UPDATE_FAIL_HTLC']}])
     assert 'anchors/even' in only_one(l1.rpc.listpeerchannels()['channels'])['channel_type']['names']
@@ -3835,7 +3836,7 @@ def test_closing_anchorspend_htlc_tx_rbf(node_factory, bitcoind):
     total_weight = sum([d['weight'] for d in details])
     total_fees = sum([float(d['fees']['base']) * 100_000_000 for d in details])
     total_feerate_perkw = total_fees / total_weight * 1000
-    assert 2000 - 1 < total_feerate_perkw < 2000 + 1
+    assert did_short_sig(l1) or 2000 - 1 < total_feerate_perkw < 2000 + 1
 
     # But we don't mine it!  And fees go up again!
     l1.set_feerates((3000, 3000, 3000, 3000))
@@ -3850,7 +3851,7 @@ def test_closing_anchorspend_htlc_tx_rbf(node_factory, bitcoind):
     total_weight = sum([d['weight'] for d in details])
     total_fees = sum([float(d['fees']['base']) * 100_000_000 for d in details])
     total_feerate_perkw = total_fees / total_weight * 1000
-    assert 3000 - 1 < total_feerate_perkw < 3000 + 1
+    assert did_short_sig(l1) or 3000 - 1 < total_feerate_perkw < 3000 + 1
 
     # And now we'll get it in (there's some rounding, so feerate a bit lower!)
     bitcoind.generate_block(1, needfeerate=2990)
