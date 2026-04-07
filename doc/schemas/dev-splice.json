@@ -5,7 +5,6 @@
   "added": "v24.11",
   "rpc": "dev-splice",
   "title": "Command to initiate a channel to a peer",
-  "warning": "experimental-splicing only",
   "description": [
     "`splice` is the command to move funds into or out of a channel. Multiple actions can be combined together resulting in a single onchain transaction. Funds may be moved out of a channel and into another in a single batch enabling cross-channel movement."
   ],

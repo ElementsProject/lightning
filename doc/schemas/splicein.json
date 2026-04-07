@@ -5,7 +5,6 @@
   "added": "v26.04",
   "rpc": "splicein",
   "title": "Command to splice funds into a channel",
-  "warning": "experimental-splicing only",
   "description": [
     "`splicein` is the command to move funds into a channel."
   ],

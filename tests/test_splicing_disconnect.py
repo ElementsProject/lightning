@@ -18,9 +18,9 @@ def test_splice_disconnect_sig(node_factory, bitcoind):
         disconnect = ['=WIRE_TX_SIGNATURES'] + disconnect
 
     l1 = node_factory.get_node(disconnect=disconnect,
-                               options={'experimental-splicing': None, 'dev-no-reconnect': None},
+                               options={'dev-no-reconnect': None},
                                may_reconnect=True)
-    l2 = node_factory.get_node(options={'experimental-splicing': None}, may_reconnect=True)
+    l2 = node_factory.get_node(may_reconnect=True)
     l1.openchannel(l2, 1000000)
 
     chan_id = l1.get_channel_id(l2)
@@ -70,7 +70,7 @@ def test_splice_disconnect_sig(node_factory, bitcoind):
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 def test_splice_disconnect_commit(node_factory, bitcoind, executor):
-    l1 = node_factory.get_node(options={'experimental-splicing': None, 'dev-no-reconnect': None},
+    l1 = node_factory.get_node(options={'dev-no-reconnect': None},
                                may_reconnect=True)
     # Note: for dual-fund, there's a COMMITMENT_SIGNED for the initial tx, before splicing!
     if EXPERIMENTAL_DUAL_FUND:
@@ -78,7 +78,7 @@ def test_splice_disconnect_commit(node_factory, bitcoind, executor):
     else:
         disconnects = ['+WIRE_COMMITMENT_SIGNED']
     l2 = node_factory.get_node(disconnect=disconnects,
-                               options={'experimental-splicing': None, 'dev-no-reconnect': None},
+                               options={'dev-no-reconnect': None},
                                may_reconnect=True)
     l1.openchannel(l2, 1000000)
 

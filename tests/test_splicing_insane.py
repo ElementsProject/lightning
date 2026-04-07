@@ -5,7 +5,7 @@ import unittest
 
 
 def make_pending_splice(node_factory):
-    l1, l2 = node_factory.line_graph(2, fundamount=1000000, wait_for_announce=True, opts={'experimental-splicing': None, 'may_reconnect': True})
+    l1, l2 = node_factory.line_graph(2, fundamount=1000000, wait_for_announce=True, opts={'may_reconnect': True})
 
     chan_id = l1.get_channel_id(l2)
 

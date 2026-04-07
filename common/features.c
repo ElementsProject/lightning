@@ -140,10 +140,6 @@ static const struct feature_style feature_styles[] = {
 	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
 			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT,
 			  [CHANNEL_FEATURE] = FEATURE_DONT_REPRESENT} },
-	{ OPT_EXPERIMENTAL_SPLICE,
-	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
-			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT,
-			  [CHANNEL_FEATURE] = FEATURE_DONT_REPRESENT} },
 };
 
 struct dependency {

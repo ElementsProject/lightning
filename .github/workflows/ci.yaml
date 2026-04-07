@@ -500,7 +500,6 @@ jobs:
         env:
           COMPILER: ${{ matrix.COMPILER }}
           EXPERIMENTAL_DUAL_FUND: ${{ matrix.EXPERIMENTAL_DUAL_FUND }}
-          EXPERIMENTAL_SPLICING: ${{ matrix.EXPERIMENTAL_SPLICING }}
           COMPAT: 1
           SLOW_MACHINE: 1
           TEST_DEBUG: 1
@@ -553,13 +552,6 @@ jobs:
             COMPILER: gcc
             TEST_NETWORK: regtest
             EXPERIMENTAL_DUAL_FUND: 1
-          # And splicing!
-          - NAME: splicing
-            CFG: compile-gcc-O3
-            TEST_DB_PROVIDER: sqlite3
-            COMPILER: gcc
-            TEST_NETWORK: regtest
-            EXPERIMENTAL_SPLICING: 1
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -606,7 +598,6 @@ jobs:
         env:
           COMPILER: ${{ matrix.COMPILER }}
           EXPERIMENTAL_DUAL_FUND: ${{ matrix.EXPERIMENTAL_DUAL_FUND }}
-          EXPERIMENTAL_SPLICING: ${{ matrix.EXPERIMENTAL_SPLICING }}
           COMPAT: 1
           SLOW_MACHINE: 1
           TEST_DEBUG: 1

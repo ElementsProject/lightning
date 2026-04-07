@@ -1700,7 +1700,7 @@ def test_gossip_store_compact_while_extending(node_factory, bitcoind, executor):
         f.write(b'')
 
     fut.result(TIMEOUT)
-    # Exact gossip size varies with EXPERIMENTAL_SPLICING.
+    # Exact gossip size varies with SPLICING.
     l1.daemon.wait_for_logs(['gossipd: compaction done',
                              'connectd: Reopened gossip_store, reduced to offset 224[59]'])
 

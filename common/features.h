@@ -122,6 +122,8 @@ struct feature_set *feature_set_dup(const tal_t *ctx,
  * | 46/47 | `option_scid_alias`               | ... IN ...
  * | 48/49 | `option_payment_metadata`         |...  9 ...
  * | 50/51 | `option_zeroconf`                 | ... IN ...
+ * | 60/61 | `option_simple_close`             |... IN ...
+ * | 62/63 | `option_splice`                   |... IN ...
  */
 #define OPT_DATA_LOSS_PROTECT			0
 #define OPT_UPFRONT_SHUTDOWN_SCRIPT		4
@@ -144,16 +146,11 @@ struct feature_set *feature_set_dup(const tal_t *ctx,
 #define OPT_SCID_ALIAS				46
 #define OPT_PAYMENT_METADATA			48
 #define OPT_ZEROCONF				50
+#define OPT_SPLICE				62
 
 /* The old pre-zero-fee-anchors were deprecated, and we never supported them
  * outside experimental options */
 #define OPT_ANCHOR_OUTPUTS_DEPRECATED		20
-
-/* BOLT-splice #9:
- * | 62/63 | `option_splice` |  ... IN ...
- */
-#define OPT_SPLICE				62
-#define OPT_EXPERIMENTAL_SPLICE			162
 
 #define OPT_SHUTDOWN_WRONG_FUNDING		104
 

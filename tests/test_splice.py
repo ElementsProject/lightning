@@ -18,8 +18,7 @@ def test_script_splice_out(node_factory, bitcoind, chainparams):
 
     coin_mvt_plugin = Path(__file__).parent / "plugins" / "coin_movements.py"
     l1, l2 = node_factory.line_graph(2, fundamount=fundamt, wait_for_announce=True,
-                                     opts={'experimental-splicing': None,
-                                           'plugin': coin_mvt_plugin})
+                                     opts={'plugin': coin_mvt_plugin})
 
     initial_wallet_balance = Millisatoshi(bkpr_account_balance(l1, 'wallet'))
     initial_channel_balance = Millisatoshi(bkpr_account_balance(l1, first_channel_id(l1, l2)))
@@ -110,8 +109,7 @@ def test_script_splice_in(node_factory, bitcoind, chainparams):
 
     coin_mvt_plugin = Path(__file__).parent / "plugins" / "coin_movements.py"
     l1, l2 = node_factory.line_graph(2, fundamount=fundamt, wait_for_announce=True,
-                                     opts={'experimental-splicing': None,
-                                           'plugin': coin_mvt_plugin})
+                                     opts={'plugin': coin_mvt_plugin})
 
     initial_wallet_balance = Millisatoshi(bkpr_account_balance(l1, 'wallet'))
     initial_channel_balance = Millisatoshi(bkpr_account_balance(l1, first_channel_id(l1, l2)))
@@ -202,7 +200,7 @@ def test_script_splice_in(node_factory, bitcoind, chainparams):
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 def test_script_two_chan_splice_in(node_factory, bitcoind):
-    l1, l2, l3 = node_factory.line_graph(3, fundamount=1000000, wait_for_announce=True, opts={'experimental-splicing': None})
+    l1, l2, l3 = node_factory.line_graph(3, fundamount=1000000, wait_for_announce=True)
 
     chan_id1 = l2.get_channel_id(l1)
     chan_id2 = l2.get_channel_id(l3)
@@ -237,7 +235,7 @@ def test_script_two_chan_splice_in(node_factory, bitcoind):
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 def test_script_two_chan_splice_out(node_factory, bitcoind):
-    l1, l2, l3 = node_factory.line_graph(3, fundamount=1000000, wait_for_announce=True, opts={'experimental-splicing': None})
+    l1, l2, l3 = node_factory.line_graph(3, fundamount=1000000, wait_for_announce=True)
 
     # We need to get funds into l1 -> l2 channel so we can splice it out
     inv = l2.rpc.invoice(100000000, '1', 'no_1')
@@ -275,7 +273,7 @@ def test_script_two_chan_splice_out(node_factory, bitcoind):
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 def test_script_two_chan_splice_inout(node_factory, bitcoind):
-    l1, l2, l3 = node_factory.line_graph(3, fundamount=1000000, wait_for_announce=True, opts={'experimental-splicing': None})
+    l1, l2, l3 = node_factory.line_graph(3, fundamount=1000000, wait_for_announce=True)
 
     chan_id1 = l2.get_channel_id(l1)
     chan_id2 = l2.get_channel_id(l3)
@@ -316,8 +314,7 @@ def test_easy_splice_in(node_factory, bitcoind, chainparams):
 
     coin_mvt_plugin = Path(__file__).parent / "plugins" / "coin_movements.py"
     l1, l2 = node_factory.line_graph(2, fundamount=fundamt, wait_for_announce=True,
-                                     opts={'experimental-splicing': None,
-                                           'plugin': coin_mvt_plugin})
+                                     opts={'plugin': coin_mvt_plugin})
 
     # Splice in 100k sats into first channel
     spliceamt = 100000
@@ -353,7 +350,7 @@ def test_easy_splice_in(node_factory, bitcoind, chainparams):
 #
 # The channels for the second node are returned in chanids
 def make_chans(node_factory, qty=2, fundamount=1000000, balanced=True):
-    nodes = node_factory.line_graph(qty + 1, fundamount=fundamount, opts={'experimental-splicing': None, 'allow_bad_gossip': True})
+    nodes = node_factory.line_graph(qty + 1, fundamount=fundamount, opts={'allow_bad_gossip': True})
     chanids = []
 
     for i in range(len(nodes) - 1):
@@ -629,8 +626,7 @@ def test_easy_splice_out(node_factory, bitcoind, chainparams):
 
     coin_mvt_plugin = Path(__file__).parent / "plugins" / "coin_movements.py"
     l1, l2 = node_factory.line_graph(2, fundamount=fundamt, wait_for_announce=True,
-                                     opts={'experimental-splicing': None,
-                                           'plugin': coin_mvt_plugin})
+                                     opts={'plugin': coin_mvt_plugin})
 
     initial_wallet_balance = Millisatoshi(bkpr_account_balance(l1, 'wallet'))
 
@@ -660,8 +656,7 @@ def test_easy_splice_out(node_factory, bitcoind, chainparams):
 def test_easy_splice_out_address(node_factory, bitcoind, chainparams):
     fundamt = 1000000
 
-    l1, l2 = node_factory.line_graph(2, fundamount=fundamt, wait_for_announce=True,
-                                     opts={'experimental-splicing': None})
+    l1, l2 = node_factory.line_graph(2, fundamount=fundamt, wait_for_announce=True)
 
     initial_wallet_balance = Millisatoshi(bkpr_account_balance(l1, 'wallet'))
 
@@ -692,8 +687,7 @@ def test_easy_splice_out_address(node_factory, bitcoind, chainparams):
 def test_easy_splice_out_into_channel(node_factory, bitcoind, chainparams):
     fundamt = 1000000
 
-    l1, l2, l3 = node_factory.line_graph(3, fundamount=fundamt, wait_for_announce=True,
-                                         opts={'experimental-splicing': None})
+    l1, l2, l3 = node_factory.line_graph(3, fundamount=fundamt, wait_for_announce=True)
 
     chan1 = first_channel_id(l1, l2)
     chan2 = first_channel_id(l2, l3)

@@ -530,6 +530,10 @@
           },
           "experimental-splicing": {
             "added": "v23.08",
+            "deprecated": [
+              "v26.04",
+              "v27.04"
+            ],
             "type": "object",
             "additionalProperties": false,
             "required": [
