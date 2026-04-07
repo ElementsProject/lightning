@@ -9,10 +9,12 @@
 #include <common/splice_script.h>
 #include <errno.h>
 #include <inttypes.h>
+#include <stdio.h>
 
 #define SCRIPT_DUMP_TOKENS 0
 #define SCRIPT_DUMP_SEGMENTS 0
 
+/* Basic primitives */
 #define ARROW_SYMBOL "->"
 #define PIPE_SYMBOL '|'
 #define AT_SYMBOL '@'
@@ -22,10 +24,24 @@
 #define PLUS_SYMBOL '+'
 #define MINUS_SYMBOL '-'
 #define FEE_SYMBOL "fee"
+#define OPAREN_SYMBOL '('
+#define CPAREN_SYMBOL ')'
+#define DOT_SYMBOL '.'
 
+/* Script keywords */
+#define BALANCE_SYMBOL "balance"
+#define PEER_SYMBOL "peer"
+#define CHAN_SYMBOL "chan"
+#define NEW_SYMBOL "new"
+#define PRIVATE_SYMBOL "private"
+#define CLOSE_TO_SYMBOL "close_to"
+#define COMMIT_FEERATE_SYMBOL "commit_feerate"
+#define LEASE_SYMBOL "lease"
+
+/* Complex primitve regexes */
 #define PERCENT_REGEX "^([0-9]*)[.]?([0-9]*)%$"
-#define Q_REGEX "^\\?$"
-#define WILD_REGEX "^\\*$"
+#define Q_REGEX "^\\?|any|first|one$"
+#define WILD_REGEX "^\\*|all$"
 #define CHANID_REGEX "^[0-9A-Fa-f]{64}$"
 #define NODEID_REGEX "^0[23][0-9A-Fa-f]{62}$"
 #define WALLET_REGEX "^wallet$"
@@ -33,16 +49,34 @@
 #define SATM_REGEX "^([0-9]*)[.]?([0-9]*)[Mm]$"
 #define SATK_REGEX "^([0-9]*)[.]?([0-9]*)[Kk]$"
 
+/* Terminal width of debug output */
 #define CODE_SNIPPET_PADDING 80
 
 /* Minimum # of matching charaters to autocomplete nodeid or chanid */
 #define NODEID_MIN_CHARS 4
 #define CHANID_MIN_CHARS 4
 
+/* Shorthand for failing if `parameter` is set. */
+#define CHECK_ASSIGN_TOKEN(token, parameter, error, section) \
+	do { \
+		if (token->parameter) \
+			return new_error(ctx, error, token, section); \
+	} while(0)
+
+#define CHECK_ASSIGN_LEFT(token, section) \
+	CHECK_ASSIGN_TOKEN(token, left, LEFT_ALREADY_SET, section)
+#define CHECK_ASSIGN_MIDDLE(token, section) \
+	CHECK_ASSIGN_TOKEN(token, middle, MIDDLE_ALREADY_SET, section)
+#define CHECK_ASSIGN_RIGHT(token, section) \
+	CHECK_ASSIGN_TOKEN(token, right, RIGHT_ALREADY_SET, section)
+
 /* Token types from simplest to most complex. */
 enum token_type {
-	TOK_CHAR,
+
+	TOK_CHAR, /* Everything starts as a char */
 	TOK_DELIMITER, /* Newline or semicolon. Guaranteed one at end. */
+
+	/* Basic primitives */
 	TOK_ARROW,
 	TOK_STR,
 	TOK_PIPE, /* lease separator "|", ex 5M|3M (add 5M, lease 3M) */
@@ -50,8 +84,14 @@ enum token_type {
 	TOK_ATSYM, /* lease rate separator "@", ex 3M@2% */
 	TOK_PLUS,
 	TOK_MINUS,
+
+	/* Complex primitives */
 	TOK_PERCENT, /* ie "80%" */
 	TOK_SATS, /* ie 8M or 0 */
+	TOK_NUMBER, /* Floating point number (stored as double) */
+	TOK_OPAREN, /* open parentheses */
+	TOK_CPAREN, /* close parentheses */
+	TOK_DOT,
 	TOK_QUESTION, /* ie "?" */
 	TOK_WILDCARD, /* ie "*" */
 	TOK_FEE, /* ie the word "fee" */
@@ -60,6 +100,18 @@ enum token_type {
 	TOK_FEERATE, /* The fee rate */
 	TOK_NODEID,
 	TOK_BTCADDR,
+
+	/* Script keywords */
+	TOK_BALANCE,
+	TOK_PEER,
+	TOK_CHAN,
+	TOK_NEW,
+	TOK_PRIVATE,
+	TOK_CLOSE_TO,
+	TOK_COMMIT_FEERATE,
+	TOK_LEASE,
+
+	/* Compiler introduced types */
 	TOK_CHANQUERY, /* ie nodeid:? */
 	TOK_MULTI_CHANID, /* Matches stored in ->right */
 	TOK_LEASEREQ,
@@ -69,16 +121,68 @@ enum token_type {
 
 #define TOKEN_FLAG_FEERATE_NEGATIVE 0x01
 
+/* We turn the script into an array of tokens. The intial parse creates an array
+ * of tokens of type TOK_CHAR with `c` set. As we progress in proccessing the
+ * script we shrink the token array into less tokens where each token is
+ * logically more descriptive tokens.
+ *
+ * While the array trends smaller, some operations do actually increase the
+ * array size. For example TOK_MULTI_CHANID can match multiple channels, which
+ * results in more tokens being added.
+ *
+ * Eventually tokens will start getting attached to other tokens. For example
+ * a 'feerate' will get attached to an `amount`, which will itself get attached
+ * to a 'channel'. In these cases the most significant token stays in the token
+ * array and the detail tokens get attached as children via `left`, `middle` and
+ * `right`.
+ *
+ * Finally the tokens get compressed all the way down into TOK_SEGMENT which
+ * represents a single action (ie. splice, open channel, send funds to X).
+ *
+ * Each TOK_SEGMENT is turned into a splice_script_result which describes to the
+ * caller the specific actions to be performed.
+ */
 struct token {
 	enum token_type type;
 	size_t script_index; /* For error messages */
+
+	/* Generally one of the values below will be set. Sometimes extra values
+	 * are left set to ease in debugging. `type` will tell you which value
+	 * to expect to be filled. */
 	char c;
 	char *str;
 	u32 ppm;
 	struct amount_sat amount_sat;
 	struct node_id *node_id;
 	struct channel_id *chan_id;
+	double number;
+
+	/* Tokens can refer to other tokens. For example "a.b" will result in:
+	 * a.right = b
+	 *
+	 * "a(b)" will result in
+	 * a.middle = b
+	 *
+	 * "a -> b -> c" will result in:
+	 * b.left = a
+	 * b.right = c
+	 *
+	 * These relationships can have arbitrary depth, for instance:
+	 * a.b.c.d(e) results in:
+	 * a.right = b
+	 *  b.right = c
+	 *   c.right = d
+	 *    d.middle = e
+	 *
+	 * Whenever a token takes another as any of these fields it *must* take
+	 * over it's memory (ie. `tal_steal`).
+	 *
+	 * Circular token reference are not allowed (ie. KISS).
+	 */
 	struct token *left, *middle, *right;
+
+	/* Currently only used for tracking negative feerate values. Available
+	 * for future use. */
 	u32 flags;
 };
 
@@ -93,6 +197,7 @@ static struct token *new_token(const tal_t *ctx, enum token_type token_type,
 	token->str = NULL;
 	token->ppm = 0;
 	token->amount_sat = AMOUNT_SAT(0);
+	token->number = 0;
 	token->node_id = NULL;
 	token->chan_id = NULL;
 	token->left = NULL;
@@ -103,7 +208,6 @@ static struct token *new_token(const tal_t *ctx, enum token_type token_type,
 	return token;
 }
 
-#if SCRIPT_DUMP_TOKENS || SCRIPT_DUMP_SEGMENTS
 static const char *token_type_str(enum token_type type)
 {
 	switch (type) {
@@ -117,7 +221,11 @@ static const char *token_type_str(enum token_type type)
 	case TOK_MINUS: return "TOK_MINUS";
 	case TOK_COLON: return "TOK_COLON";
 	case TOK_SATS: return "TOK_SATS";
+	case TOK_NUMBER: return "TOK_NUMBER";
 	case TOK_PERCENT: return "TOK_PERCENT";
+	case TOK_OPAREN: return "TOK_OPAREN";
+	case TOK_CPAREN: return "TOK_CPAREN";
+	case TOK_DOT: return "TOK_DOT";
 	case TOK_QUESTION: return "TOK_QUESTION";
 	case TOK_WILDCARD: return "TOK_WILDCARD";
 	case TOK_FEE: return "TOK_FEE";
@@ -126,6 +234,14 @@ static const char *token_type_str(enum token_type type)
 	case TOK_FEERATE: return "TOK_FEERATE";
 	case TOK_NODEID: return "TOK_NODEID";
 	case TOK_BTCADDR: return "TOK_BTCADDR";
+	case TOK_BALANCE: return "TOK_BALANCE";
+	case TOK_PEER: return "TOK_PEER";
+	case TOK_CHAN: return "TOK_CHAN";
+	case TOK_NEW: return "TOK_NEW";
+	case TOK_PRIVATE: return "TOK_PRIVATE";
+	case TOK_CLOSE_TO: return "TOK_CLOSE_TO";
+	case TOK_COMMIT_FEERATE: return "TOK_COMMIT_FEERATE";
+	case TOK_LEASE: return "TOK_LEASE";
 	case TOK_CHANQUERY: return "TOK_CHANQUERY";
 	case TOK_MULTI_CHANID: return "TOK_MULTI_CHANID";
 	case TOK_LEASEREQ: return "TOK_LEASEREQ";
@@ -136,6 +252,7 @@ static const char *token_type_str(enum token_type type)
 	return NULL;
 }
 
+#if SCRIPT_DUMP_TOKENS || SCRIPT_DUMP_SEGMENTS
 static void dump_token_shallow(char **str, struct token *token, char *prefix)
 {
 	const char *tmp;
@@ -166,7 +283,8 @@ static void dump_token_shallow(char **str, struct token *token, char *prefix)
 
 	if (token->chan_id)
 		tal_append_fmt(str, " chan_id:%s",
-			       tal_hexstr(tmpctx, token->chan_id, sizeof(struct channel_id)));
+			       tal_hexstr(tmpctx, token->chan_id,
+			       sizeof(struct channel_id)));
 
 	if (token->ppm)
 		tal_append_fmt(str, " ppm:%u", token->ppm);
@@ -176,6 +294,9 @@ static void dump_token_shallow(char **str, struct token *token, char *prefix)
 		tal_append_fmt(str, " amnt:%s", tmp);
 		tal_free(tmp);
 	}
+
+	if (token->type == TOK_NUMBER)
+		tal_append_fmt(str, " number:%g", token->number);
 
 	if (token->flags)
 		tal_append_fmt(str, " flags:%u", token->flags);
@@ -197,7 +318,7 @@ static int dump_token(char **str, struct token *token, int indent, char *prefix)
 	tal_append_fmt(str, "\n");
 
 	if (token->middle)
-		dump_token(str, token->middle, indent, "m ");
+		dump_token(str, token->middle, indent + 1, "m ");
 
 	if (token->right)
 		dump_token(str, token->right, indent + 1, "r ");
@@ -223,6 +344,20 @@ static struct splice_script_error *debug_dump(const tal_t *ctx,
 #endif /* SCRIPT_DUMP_TOKENS */
 
 #if SCRIPT_DUMP_SEGMENTS
+static void append_token_modifiers(char **str, struct token *token)
+{
+	if (!token)
+		return;
+
+	if (token->middle)
+		tal_append_fmt(str, "(%s)", token->middle->str ?: "");
+
+	if (token->right) {
+		tal_append_fmt(str, ".%s", token->right->str ?: "");
+		append_token_modifiers(str, token->right);
+	}
+}
+
 static struct splice_script_error *dump_segments(const tal_t *ctx,
 						 struct token **tokens)
 {
@@ -237,11 +372,18 @@ static struct splice_script_error *dump_segments(const tal_t *ctx,
 		if (tokens[i]->type == TOK_SEGMENT) {
 			dump_token_shallow(&error->message, tokens[i]->left,
 					   "");
+			append_token_modifiers(&error->message,
+					       tokens[i]->left);
 			dump_token_shallow(&error->message, tokens[i]->middle,
 					   " -> ");
-			if (tokens[i]->right)
+			append_token_modifiers(&error->message,
+					       tokens[i]->middle);
+			if (tokens[i]->right) {
 				dump_token_shallow(&error->message,
 						   tokens[i]->right, " -> ");
+				append_token_modifiers(&error->message,
+						       tokens[i]->right);
+			}
 		}
 		else {
 			tal_append_fmt(&error->message, "Invalid token!! ");
@@ -264,7 +406,10 @@ static struct splice_script_error *new_error_offset(const tal_t *ctx,
 
 	error->type = type;
 	error->script_index = token->script_index + index_offset;
-	error->message = tal_strdup(error, "");
+	error->message = tal_fmt(error, "%s",
+				 type == INVALID_TOKEN
+				 	? token_type_str(token->type)
+				 	: "");
 	error->phase = phase;
 
 	return error;
@@ -335,6 +480,9 @@ char *fmt_splice_script_compiler_error(const tal_t *ctx,
 	case INVALID_TOKEN:
 		return tal_fmt(ctx, "Invalid token error\n%s",
 			       context_snippet(ctx, script, error));
+	case UNRECOGNIZED_TOKEN:
+		return tal_fmt(ctx, "Unrecognized keyword or value\n%s",
+			       context_snippet(ctx, script, error));
 	case DEBUG_DUMP:
 		return tal_fmt(ctx, "Token Dump:\n%s", error->message);
 	case TOO_MANY_PIPES:
@@ -385,6 +533,10 @@ char *fmt_splice_script_compiler_error(const tal_t *ctx,
 			       context_snippet(ctx, script, error));
 	case CHANQUERY_TYPEERROR:
 		return tal_fmt(ctx, "Channel query has invalid type(s)\n%s",
+			       context_snippet(ctx, script, error));
+	case CHANQUERY_PEERID_IS_CHANID:
+		return tal_fmt(ctx, "Invalid peer id (this query matches a"
+			       " channel but we expect a peer)\n%s",
 			       context_snippet(ctx, script, error));
 	case CHAN_INDEX_NOT_FOUND:
 		return tal_fmt(ctx, "Channel index not found for node\n%s",
@@ -505,6 +657,57 @@ char *fmt_splice_script_compiler_error(const tal_t *ctx,
 		return tal_fmt(ctx, "Valid feerate must be only number digits"
 			       " and no other characters\n%s",
 			       context_snippet(ctx, script, error));
+	case DOUBLE_CPAREN:
+		return tal_fmt(ctx, "Not allowed to nest parentheses\n%s",
+			       context_snippet(ctx, script, error));
+	case MULTI_ITEMS_IN_PAREN:
+		return tal_fmt(ctx, "Only one item allowed between"
+			       " parentheses\n%s",
+			       context_snippet(ctx, script, error));
+	case MISSING_CLOSE_PAREN:
+		return tal_fmt(ctx, "Missing an closing parentheses\n%s",
+			       context_snippet(ctx, script, error));
+	case PAREN_ON_NOTHING:
+		return tal_fmt(ctx, "Parentheses must come after something\n%s",
+			       context_snippet(ctx, script, error));
+	case PAREN_ON_DOT:
+		return tal_fmt(ctx, "Parentheses can't come after a dot\n%s",
+			       context_snippet(ctx, script, error));
+	case DOT_ON_DOT:
+		return tal_fmt(ctx, "Dot can't come after another dot\n%s",
+			       context_snippet(ctx, script, error));
+	case UNOPENED_PAREN:
+		return tal_fmt(ctx, "Parentheses was never opened\n%s",
+			       context_snippet(ctx, script, error));
+	case DOT_ON_NOTHING:
+		return tal_fmt(ctx, "Dot operator must come after something\n%s",
+			       context_snippet(ctx, script, error));
+	case DOT_OF_NOTHING:
+		return tal_fmt(ctx, "Dot operator must have something after"
+			       " it\n%s", context_snippet(ctx, script, error));
+	case LEFT_ALREADY_SET:
+		return tal_fmt(ctx, "Trying to left attach an element that"
+			       " already has something attached there.\n%s",
+			       context_snippet(ctx, script, error));
+	case MIDDLE_ALREADY_SET:
+		return tal_fmt(ctx, "Trying to middle attach an element that"
+			       " already has something attached there.\n%s",
+			       context_snippet(ctx, script, error));
+	case RIGHT_ALREADY_SET:
+		return tal_fmt(ctx, "Trying to right attach an element that"
+			       " already has something attached there.\n%s",
+			       context_snippet(ctx, script, error));
+	case NODEID_NOT_FOUND:
+		return tal_fmt(ctx, "Unable to resolve node id for node query"
+			       "\n%s", context_snippet(ctx, script, error));
+	case NODE_NEEDS_RIGHT:
+		return tal_fmt(ctx, "Node query needs to be modified by adding"
+			       " something to the right, for example .chan() or"
+			       " .new()\n%s",
+			       context_snippet(ctx, script, error));
+	case NODE_UNRECOGNIZED_RIGHT:
+		return tal_fmt(ctx, "Node is followed by unrecognized modifier."
+			       "\n%s", context_snippet(ctx, script, error));
 	}
 
 	return NULL;
@@ -515,6 +718,12 @@ static bool is_whitespace(char c)
 	return cisspace(c);
 }
 
+static bool is_digit(char c)
+{
+	return cisdigit(c);
+}
+
+/* Removes all whitespace */
 static struct splice_script_error *clean_whitespace(const tal_t *ctx,
 						    struct token ***tokens_inout)
 {
@@ -548,6 +757,13 @@ static char *find_suffix(char *str, char *suffix)
 	return NULL;
 }
 
+/* Eats all "->"s, and CHARs, turning them into TOK_STRs.
+ * Input must end in a TOK_DELIMITER
+ *
+ * Result:
+ *  TOK_STR TOK_ARROW TOK_STR TOK_DELIMITER
+ *  TOK_STR TOK_ARROW TOK_STR TOK_DELIMITER...
+ */
 static struct splice_script_error *find_arrows_and_strs(const tal_t *ctx,
 							struct token ***tokens_inout)
 {
@@ -596,8 +812,12 @@ static struct splice_script_error *find_arrows_and_strs(const tal_t *ctx,
 		case TOK_MINUS:
 		case TOK_COLON:
 		case TOK_SATS:
+		case TOK_NUMBER:
 		case TOK_PERCENT:
 		case TOK_QUESTION:
+		case TOK_OPAREN:
+		case TOK_CPAREN:
+		case TOK_DOT:
 		case TOK_WILDCARD:
 		case TOK_FEE:
 		case TOK_CHANID:
@@ -605,6 +825,14 @@ static struct splice_script_error *find_arrows_and_strs(const tal_t *ctx,
 		case TOK_FEERATE:
 		case TOK_NODEID:
 		case TOK_BTCADDR:
+		case TOK_BALANCE:
+		case TOK_PEER:
+		case TOK_CHAN:
+		case TOK_NEW:
+		case TOK_PRIVATE:
+		case TOK_CLOSE_TO:
+		case TOK_COMMIT_FEERATE:
+		case TOK_LEASE:
 		case TOK_CHANQUERY:
 		case TOK_MULTI_CHANID:
 		case TOK_LEASERATE:
@@ -624,6 +852,11 @@ static struct splice_script_error *find_arrows_and_strs(const tal_t *ctx,
 	return NULL;
 }
 
+/* Eats all "|:" turning them into tokens.
+ *
+ * Result:
+ *  TOK_STR TOK_PIPE TOK_STR TOK_COLON...
+ */
 static struct splice_script_error *process_top_separators(const tal_t *ctx,
 							  struct token ***tokens_inout)
 {
@@ -703,8 +936,12 @@ static struct splice_script_error *process_top_separators(const tal_t *ctx,
 		case TOK_MINUS:
 		case TOK_COLON:
 		case TOK_SATS:
+		case TOK_NUMBER:
 		case TOK_PERCENT:
 		case TOK_QUESTION:
+		case TOK_OPAREN:
+		case TOK_CPAREN:
+		case TOK_DOT:
 		case TOK_WILDCARD:
 		case TOK_FEE:
 		case TOK_CHANID:
@@ -712,6 +949,14 @@ static struct splice_script_error *process_top_separators(const tal_t *ctx,
 		case TOK_FEERATE:
 		case TOK_NODEID:
 		case TOK_BTCADDR:
+		case TOK_BALANCE:
+		case TOK_PEER:
+		case TOK_CHAN:
+		case TOK_NEW:
+		case TOK_PRIVATE:
+		case TOK_CLOSE_TO:
+		case TOK_COMMIT_FEERATE:
+		case TOK_LEASE:
 		case TOK_CHANQUERY:
 		case TOK_MULTI_CHANID:
 		case TOK_LEASERATE:
@@ -806,8 +1051,12 @@ static struct splice_script_error *process_2nd_separators(const tal_t *ctx,
 		case TOK_PLUS:
 		case TOK_MINUS:
 		case TOK_SATS:
+		case TOK_NUMBER:
 		case TOK_PERCENT:
 		case TOK_QUESTION:
+		case TOK_OPAREN:
+		case TOK_CPAREN:
+		case TOK_DOT:
 		case TOK_WILDCARD:
 		case TOK_FEE:
 		case TOK_CHANID:
@@ -815,6 +1064,14 @@ static struct splice_script_error *process_2nd_separators(const tal_t *ctx,
 		case TOK_FEERATE:
 		case TOK_NODEID:
 		case TOK_BTCADDR:
+		case TOK_BALANCE:
+		case TOK_PEER:
+		case TOK_CHAN:
+		case TOK_NEW:
+		case TOK_PRIVATE:
+		case TOK_CLOSE_TO:
+		case TOK_COMMIT_FEERATE:
+		case TOK_LEASE:
 		case TOK_CHANQUERY:
 		case TOK_MULTI_CHANID:
 		case TOK_LEASERATE:
@@ -885,8 +1142,12 @@ static struct splice_script_error *process_3rd_separators(const tal_t *ctx,
 			break;
 		case TOK_ATSYM:
 		case TOK_SATS:
+		case TOK_NUMBER:
 		case TOK_PERCENT:
 		case TOK_QUESTION:
+		case TOK_OPAREN:
+		case TOK_CPAREN:
+		case TOK_DOT:
 		case TOK_WILDCARD:
 		case TOK_FEE:
 		case TOK_CHANID:
@@ -894,6 +1155,14 @@ static struct splice_script_error *process_3rd_separators(const tal_t *ctx,
 		case TOK_FEERATE:
 		case TOK_NODEID:
 		case TOK_BTCADDR:
+		case TOK_BALANCE:
+		case TOK_PEER:
+		case TOK_CHAN:
+		case TOK_NEW:
+		case TOK_PRIVATE:
+		case TOK_CLOSE_TO:
+		case TOK_COMMIT_FEERATE:
+		case TOK_LEASE:
 		case TOK_CHANQUERY:
 		case TOK_MULTI_CHANID:
 		case TOK_LEASERATE:
@@ -1006,8 +1275,9 @@ static bool autocomplete_node_id(struct token *token,
 			match = &channels[i]->node_id;
 		}
 		/* nodeid query must *not* match any channel ids */
-		if (len <= sizeof(channels[i]->chan_id.id)
-		    && memeq(candidate.k, len, channels[i]->chan_id.id, len))
+		if (channels[i]->chan_id
+		    && len <= sizeof(channels[i]->chan_id->id)
+		    && memeq(candidate.k, len, channels[i]->chan_id->id, len))
 			*chan_id_overmatch = true;
 	}
 
@@ -1042,14 +1312,15 @@ static bool autocomplete_chan_id(struct token *token,
 
 	match = NULL;
 	for (size_t i = 0; i < tal_count(channels); i++) {
-		if (len <= sizeof(channels[i]->chan_id.id)
-		    && memeq(candidate.id, len, channels[i]->chan_id.id, len)) {
+		if (channels[i]->chan_id
+		    && len <= sizeof(channels[i]->chan_id->id)
+		    && memeq(candidate.id, len, channels[i]->chan_id->id, len)) {
 			/* must not match multiple channel ids */
-			if (match && !channel_id_eq(match, &channels[i]->chan_id)) {
+			if (match && !channel_id_eq(match, channels[i]->chan_id)) {
 				*multiple_chans = true;
 				return true;
 			}
-			match = &channels[i]->chan_id;
+			match = channels[i]->chan_id;
 		}
 		/* nodeid query must *not* match any node ids */
 		if (len <= sizeof(channels[i]->node_id.k)
@@ -1066,6 +1337,227 @@ static bool autocomplete_chan_id(struct token *token,
 	return true;
 }
 
+/* Eats all "()." turning them into tokens.
+ *
+ * Example: new.feerate(1.1)
+ *  TOK_STR TOK_DOT TOK_STR TOK_OPAREN TOK_SATS TOK_CPAREN
+ */
+static struct splice_script_error *process_paren_dot_separators(const tal_t *ctx,
+								struct token ***tokens_inout)
+{
+	const int tokenmap[] =
+	{
+		OPAREN_SYMBOL, TOK_OPAREN,
+		CPAREN_SYMBOL, TOK_CPAREN,
+		DOT_SYMBOL, TOK_DOT,
+	};
+	const int tokencount = sizeof(tokenmap) / sizeof(tokenmap[0]);
+	enum token_type token_type, last_token;
+	struct token **input = *tokens_inout;
+	struct token **tokens = tal_arr(ctx, struct token *, 0);
+	struct token *token;
+	size_t script_index;
+	char *start, *itr;
+
+	for (size_t i = 0; i < tal_count(input); i++) {
+		switch(input[i]->type) {
+		case TOK_CHAR:
+			return new_error(ctx, INVALID_TOKEN, input[i],
+					 "paren_dot_separators");
+		case TOK_DELIMITER:
+		case TOK_ARROW:
+		case TOK_PIPE:
+		case TOK_SATS:
+		case TOK_NUMBER:
+		case TOK_PERCENT:
+		case TOK_QUESTION:
+		case TOK_OPAREN:
+		case TOK_CPAREN:
+		case TOK_DOT:
+		case TOK_WILDCARD:
+		case TOK_PLUS:
+		case TOK_MINUS:
+		case TOK_FEE:
+		case TOK_CHANID:
+		case TOK_WALLET:
+		case TOK_NODEID:
+		case TOK_BTCADDR:
+		case TOK_COLON:
+		case TOK_ATSYM:
+			tal_arr_expand(&tokens,
+				       tal_steal(tokens, input[i]));
+			break;
+		case TOK_STR:
+			start = itr = input[i]->str;
+			last_token = TOK_CHAR;
+			while (*itr) {
+				token_type = TOK_CHAR;
+				for (size_t j = 0; j < tokencount; j += 2) {
+					if (*itr == tokenmap[j])
+						token_type = tokenmap[j + 1];
+				}
+				if (token_type == TOK_CHAR) {
+					itr++;
+					continue;
+				}
+				/* Turn off dot parsing inside parens */
+				if (token_type == TOK_DOT
+				    && last_token == TOK_OPAREN) {
+				    	itr++;
+					continue;
+				}
+				/* Turn off dot parsing on numbers */
+				if (token_type == TOK_DOT
+				    && itr > start
+				    && is_digit(itr[-1])) {
+					itr++;
+					continue;
+				}
+				last_token = token_type;
+
+				/* Calc script_index for `str` */
+				script_index = input[i]->script_index;
+				script_index += (start - input[i]->str);
+
+				/* Add any string before the token to result */
+				if (itr > start) {
+					*itr = 0;
+					token = new_token(tokens,
+							  TOK_STR,
+							  script_index);
+					token->str = tal_strdup(token, start);
+					tal_arr_expand(&tokens, token);
+				}
+
+				/* One character forward for matching token */
+				script_index++;
+
+				/* Add the matching token */
+				tal_arr_expand(&tokens,
+					       new_token(tokens,
+					       		 token_type,
+							 script_index));
+
+				/* Adjust start to be just after the token */
+				start = ++itr;
+			}
+
+			/* Add any remaining string to result */
+			if (itr > start) {
+				token = new_token(tokens,
+						  TOK_STR,
+						  script_index);
+				token->str = tal_strdup(token, start);
+				tal_arr_expand(&tokens, token);
+			}
+			break;
+		case TOK_BALANCE:
+		case TOK_PEER:
+		case TOK_CHAN:
+		case TOK_NEW:
+		case TOK_PRIVATE:
+		case TOK_CLOSE_TO:
+		case TOK_COMMIT_FEERATE:
+		case TOK_LEASE:
+		case TOK_CHANQUERY:
+		case TOK_MULTI_CHANID:
+		case TOK_FEERATE:
+		case TOK_LEASERATE:
+		case TOK_LEASEREQ:
+		case TOK_SEGMENT:
+			return new_error(ctx, INVALID_TOKEN, input[i],
+					 "paren_dot_separators");
+		}
+	}
+
+	tal_free(input);
+	*tokens_inout = tokens;
+	return NULL;
+}
+
+/* Eats all script keyword methods turning them into tokens.
+ *
+ * Example: new.commit_feerate(1.1)
+ *  TOK_NEW TOK_DOT TOK_COMMIT_FEERATE TOK_OPAREN TOK_SATS TOK_CPAREN
+ */
+static struct splice_script_error *process_keywords(const tal_t *ctx,
+						   struct token ***tokens_inout)
+{
+	struct token **input = *tokens_inout;
+	struct token **tokens = tal_arr(ctx, struct token *, tal_count(input));
+	size_t n = 0;
+
+	for (size_t i = 0; i < tal_count(input); i++) {
+		switch(input[i]->type) {
+		case TOK_CHAR:
+			return new_error(ctx, INVALID_TOKEN, input[i],
+					 "type_data");
+		case TOK_DELIMITER:
+		case TOK_ARROW:
+		case TOK_PIPE:
+		case TOK_COLON:
+		case TOK_ATSYM:
+		case TOK_PLUS:
+		case TOK_MINUS:
+		case TOK_OPAREN:
+		case TOK_CPAREN:
+		case TOK_DOT:
+			tokens[n++] = tal_steal(tokens, input[i]);
+			break;
+		case TOK_STR:
+			if (0 == strcmp(input[i]->str, BALANCE_SYMBOL))
+				input[i]->type = TOK_BALANCE;
+			if (0 == strcmp(input[i]->str, PEER_SYMBOL))
+				input[i]->type = TOK_PEER;
+			if (0 == strcmp(input[i]->str, CHAN_SYMBOL))
+				input[i]->type = TOK_CHAN;
+			if (0 == strcmp(input[i]->str, NEW_SYMBOL))
+				input[i]->type = TOK_NEW;
+			if (0 == strcmp(input[i]->str, PRIVATE_SYMBOL))
+				input[i]->type = TOK_PRIVATE;
+			if (0 == strcmp(input[i]->str, CLOSE_TO_SYMBOL))
+				input[i]->type = TOK_CLOSE_TO;
+			if (0 == strcmp(input[i]->str, COMMIT_FEERATE_SYMBOL))
+				input[i]->type = TOK_COMMIT_FEERATE;
+			if (0 == strcmp(input[i]->str, LEASE_SYMBOL))
+				input[i]->type = TOK_LEASE;
+			tokens[n++] = tal_steal(tokens, input[i]);
+			break;
+		case TOK_SATS:
+		case TOK_NUMBER:
+		case TOK_PERCENT:
+		case TOK_QUESTION:
+		case TOK_WILDCARD:
+		case TOK_FEE:
+		case TOK_CHANID:
+		case TOK_WALLET:
+		case TOK_FEERATE:
+		case TOK_NODEID:
+		case TOK_BTCADDR:
+		case TOK_BALANCE:
+		case TOK_PEER:
+		case TOK_CHAN:
+		case TOK_NEW:
+		case TOK_PRIVATE:
+		case TOK_CLOSE_TO:
+		case TOK_COMMIT_FEERATE:
+		case TOK_LEASE:
+		case TOK_CHANQUERY:
+		case TOK_MULTI_CHANID:
+		case TOK_LEASERATE:
+		case TOK_LEASEREQ:
+		case TOK_SEGMENT:
+			return new_error(ctx, INVALID_TOKEN, input[i],
+					 "type_data");
+		}
+	}
+
+	tal_free(input);
+	tal_resize(&tokens, n);
+	*tokens_inout = tokens;
+	return NULL;
+}
+
 static struct splice_script_error *type_data(const tal_t *ctx,
 					      struct splice_script_chan **channels,
 					      struct token ***tokens_inout)
@@ -1074,6 +1566,8 @@ static struct splice_script_error *type_data(const tal_t *ctx,
 	struct token **tokens = tal_arr(ctx, struct token *, tal_count(input));
 	char *whole, *decimal;
 	char *sat_candidate;
+	char *endptr;
+	double number;
 	struct amount_sat amount_sat;
 	bool multiple = false;
 	bool overmatch = false;
@@ -1091,6 +1585,17 @@ static struct splice_script_error *type_data(const tal_t *ctx,
 		case TOK_ATSYM:
 		case TOK_PLUS:
 		case TOK_MINUS:
+		case TOK_OPAREN:
+		case TOK_CPAREN:
+		case TOK_DOT:
+		case TOK_BALANCE:
+		case TOK_PEER:
+		case TOK_CHAN:
+		case TOK_NEW:
+		case TOK_PRIVATE:
+		case TOK_CLOSE_TO:
+		case TOK_COMMIT_FEERATE:
+		case TOK_LEASE:
 			tokens[n++] = tal_steal(tokens, input[i]);
 			break;
 		case TOK_STR:
@@ -1197,7 +1702,6 @@ static struct splice_script_error *type_data(const tal_t *ctx,
 							 "type_data");
 				input[i]->type = TOK_CHANID;
 			} else {
-
 				/* Parse shorthand sat formats */
 				sat_candidate = input[i]->str;
 
@@ -1231,6 +1735,10 @@ static struct splice_script_error *type_data(const tal_t *ctx,
 								      + atoll(decimal)));
 				}
 
+				errno = 0;
+				number = strtod(input[i]->str, &endptr);
+
+				/* Try to parse it as a sat first */
 				if (parse_amount_sat(&amount_sat, sat_candidate,
 						    strlen(sat_candidate))) {
 					input[i]->type = TOK_SATS;
@@ -1238,11 +1746,13 @@ static struct splice_script_error *type_data(const tal_t *ctx,
 				} else if(!sat_candidate || !strlen(sat_candidate)) {
 					input[i]->type = TOK_SATS;
 					input[i]->amount_sat = AMOUNT_SAT(0);
-				} else {
-					return new_error(ctx,
-							 CANNOT_PARSE_SAT_AMNT,
-							 input[i],
-							 "type_data");
+				} else if (endptr != input[i]->str
+					   && *endptr == '\0' && !errno) {
+
+					/* Fall back to a double if it couldnt
+					 * be parsed as a sat */
+					input[i]->type = TOK_NUMBER;
+					input[i]->number = number;
 				}
 
 				if (sat_candidate != input[i]->str)
@@ -1252,6 +1762,7 @@ static struct splice_script_error *type_data(const tal_t *ctx,
 			tokens[n++] = tal_steal(tokens, input[i]);
 			break;
 		case TOK_SATS:
+		case TOK_NUMBER:
 		case TOK_PERCENT:
 		case TOK_QUESTION:
 		case TOK_WILDCARD:
@@ -1294,8 +1805,20 @@ static struct splice_script_error *compress_top_operands(const tal_t *ctx,
 		case TOK_PIPE:
 		case TOK_STR:
 		case TOK_SATS:
+		case TOK_NUMBER:
 		case TOK_PERCENT:
 		case TOK_QUESTION:
+		case TOK_OPAREN:
+		case TOK_CPAREN:
+		case TOK_DOT:
+		case TOK_BALANCE:
+		case TOK_PEER:
+		case TOK_CHAN:
+		case TOK_NEW:
+		case TOK_PRIVATE:
+		case TOK_CLOSE_TO:
+		case TOK_COMMIT_FEERATE:
+		case TOK_LEASE:
 		case TOK_WILDCARD:
 		case TOK_PLUS:
 		case TOK_MINUS:
@@ -1313,6 +1836,9 @@ static struct splice_script_error *compress_top_operands(const tal_t *ctx,
 			input[i]->type = tokens[n-1]->type == TOK_FEE
 						? TOK_FEERATE
 						: TOK_LEASERATE;
+			CHECK_ASSIGN_RIGHT(input[i], "operands");
+			CHECK_ASSIGN_RIGHT(tokens[n-1], "operands");
+
 			input[i]->right = tal_steal(input[i], input[i+1]);
 			tokens[n-1]->right = tal_steal(tokens[n-1], input[i]);
 			i++;
@@ -1321,6 +1847,9 @@ static struct splice_script_error *compress_top_operands(const tal_t *ctx,
 			if (!n || i + 1 >= tal_count(input))
 				return new_error(ctx, INVALID_TOKEN, input[i],
 						 "operands");
+			CHECK_ASSIGN_LEFT(input[i], "operands");
+			CHECK_ASSIGN_RIGHT(input[i], "operands");
+
 			input[i]->type = TOK_CHANQUERY;
 			input[i]->left = tal_steal(input[i], tokens[n-1]);
 			input[i]->right = tal_steal(input[i], input[i+1]);
@@ -1362,8 +1891,20 @@ static struct splice_script_error *compress_2nd_operands(const tal_t *ctx,
 		case TOK_ARROW:
 		case TOK_STR:
 		case TOK_SATS:
+		case TOK_NUMBER:
 		case TOK_PERCENT:
 		case TOK_QUESTION:
+		case TOK_OPAREN:
+		case TOK_CPAREN:
+		case TOK_DOT:
+		case TOK_BALANCE:
+		case TOK_PEER:
+		case TOK_CHAN:
+		case TOK_NEW:
+		case TOK_PRIVATE:
+		case TOK_CLOSE_TO:
+		case TOK_COMMIT_FEERATE:
+		case TOK_LEASE:
 		case TOK_WILDCARD:
 		case TOK_CHANID:
 		case TOK_WALLET:
@@ -1391,6 +1932,7 @@ static struct splice_script_error *compress_2nd_operands(const tal_t *ctx,
 			if (!n)
 				return new_error(ctx, INVALID_TOKEN, input[i],
 						 "2nd_operands");
+			CHECK_ASSIGN_MIDDLE(tokens[n-1], "2nd_operands");
 
 			/* We put FEE on the middle spot of the amount */
 			tokens[n-1]->middle = tal_steal(tokens[n-1], input[i]);
@@ -1399,6 +1941,9 @@ static struct splice_script_error *compress_2nd_operands(const tal_t *ctx,
 			if (!n || i + 1 >= tal_count(input))
 				return new_error(ctx, INVALID_TOKEN, input[i],
 						 "2nd_operands");
+			CHECK_ASSIGN_RIGHT(input[i], "2nd_operands");
+			CHECK_ASSIGN_RIGHT(tokens[n-1], "2nd_operands");
+
 			input[i]->type = TOK_LEASEREQ;
 			input[i]->right = tal_steal(input[i], input[i+1]);
 
@@ -1419,9 +1964,12 @@ static struct splice_script_error *compress_2nd_operands(const tal_t *ctx,
 	return NULL;
 }
 
-static bool matches_chan_id(struct token *token, struct channel_id chan_id)
+static bool matches_chan_id(struct token *token, struct channel_id *chan_id)
 {
-	if (token->chan_id && channel_id_eq(token->chan_id, &chan_id))
+	if (!chan_id)
+		return false;
+
+	if (token->chan_id && channel_id_eq(token->chan_id, chan_id))
 		return true;
 
 	if (token->left && matches_chan_id(token->left, chan_id))
@@ -1460,6 +2008,31 @@ static struct node_id *first_node_with_unused_chan(const tal_t *ctx,
 	return NULL;
 }
 
+/* Searches through channels looking at just node_ids, return the `at_index`th
+ * unique node id. */
+static struct node_id *node_at_index(const tal_t *ctx,
+				     struct splice_script_chan **channels,
+				     int at_index)
+{
+	struct node_id *last_node_id = NULL;
+	if (at_index < 0)
+		return NULL;
+
+	for (size_t i = 0; i < tal_count(channels); i++) {
+		if (at_index == 0)
+			return tal_dup(ctx, struct node_id,
+				       &channels[i]->node_id);
+
+		if (!last_node_id || !node_id_eq(last_node_id,
+						 &channels[i]->node_id)) {
+			at_index--;
+			last_node_id = &channels[i]->node_id;
+		}
+	}
+
+	return NULL;
+}
+
 static struct channel_id *chan_for_node_index(const tal_t *ctx,
 					      struct splice_script_chan **channels,
 					      struct node_id node_id,
@@ -1467,9 +2040,9 @@ static struct channel_id *chan_for_node_index(const tal_t *ctx,
 {
 	for (size_t i = 0; i < tal_count(channels); i++)
 		if (node_id_eq(&node_id, &channels[i]->node_id))
-			if (channel_index-- == 0)
+			if (channels[i]->chan_id && channel_index-- == 0)
 				return tal_dup(ctx, struct channel_id,
-					       &channels[i]->chan_id);
+					       channels[i]->chan_id);
 	return NULL;
 }
 
@@ -1493,7 +2066,7 @@ static struct channel_id **unused_chans(const tal_t *ctx,
 		if (!used)
 			tal_arr_expand(&result, tal_dup(result,
 							struct channel_id,
-							&channels[i]->chan_id));
+							channels[i]->chan_id));
 	}
 
 	if (!tal_count(result))
@@ -1525,7 +2098,7 @@ static struct channel_id **unused_chans_for_node(const tal_t *ctx,
 		if (!used)
 			tal_arr_expand(&result, tal_dup(result,
 							struct channel_id,
-							&channels[i]->chan_id));
+							channels[i]->chan_id));
 	}
 
 	if (!tal_count(result))
@@ -1606,8 +2179,20 @@ static struct splice_script_error *resolve_channel_ids(const tal_t *ctx,
 		case TOK_LEASERATE:
 		case TOK_ARROW:
 		case TOK_SATS:
+		case TOK_NUMBER:
 		case TOK_PERCENT:
 		case TOK_QUESTION:
+		case TOK_OPAREN:
+		case TOK_CPAREN:
+		case TOK_DOT:
+		case TOK_BALANCE:
+		case TOK_PEER:
+		case TOK_CHAN:
+		case TOK_NEW:
+		case TOK_PRIVATE:
+		case TOK_CLOSE_TO:
+		case TOK_COMMIT_FEERATE:
+		case TOK_LEASE:
 		case TOK_WILDCARD:
 		case TOK_CHANID:
 		case TOK_WALLET:
@@ -1664,6 +2249,7 @@ static struct splice_script_error *resolve_channel_ids(const tal_t *ctx,
 							 CHAN_INDEX_NOT_FOUND,
 							 input[i],
 							 "resolve_channel_ids");
+
 				input[i]->type = TOK_CHANID;
 				input[i]->chan_id = tal_steal(input[i],
 							      chan_id);
@@ -1690,8 +2276,11 @@ static struct splice_script_error *resolve_channel_ids(const tal_t *ctx,
 				} else if (input[i]->right->type == TOK_WILDCARD) {
 					input[i]->type = TOK_MULTI_CHANID;
 					token_itr = input[i];
+
 					input[i]->right = tal_free(input[i]->right);
 					for (size_t j = 0; j < tal_count(chan_ids); j++) {
+						CHECK_ASSIGN_RIGHT(token_itr, "resolve_channel_ids");
+
 						token_itr->right = new_token(token_itr,
 									     TOK_CHANID,
 									     token_itr->script_index);
@@ -1715,6 +2304,7 @@ static struct splice_script_error *resolve_channel_ids(const tal_t *ctx,
 							 CHAN_INDEX_ON_WILDCARD_NODE,
 							 input[i],
 							 "resolve_channel_ids");
+
 				chan_ids = unused_chans(ctx, channels,
 							input,
 							tal_count(input),
@@ -1723,6 +2313,8 @@ static struct splice_script_error *resolve_channel_ids(const tal_t *ctx,
 				input[i]->right = tal_free(input[i]->right);
 				token_itr = input[i];
 				for (size_t j = 0; j < tal_count(chan_ids); j++) {
+					CHECK_ASSIGN_RIGHT(token_itr, "resolve_channel_ids");
+
 					token_itr->right = new_token(token_itr,
 								     TOK_CHANID,
 								     token_itr->script_index);
@@ -1733,6 +2325,11 @@ static struct splice_script_error *resolve_channel_ids(const tal_t *ctx,
 				}
 				tokens[n++] = tal_steal(tokens, input[i]);
 				tal_free(chan_ids);
+			} else if (input[i]->left->type == TOK_CHANID) {
+				return new_error(ctx,
+						 CHANQUERY_PEERID_IS_CHANID,
+						 input[i],
+						 "resolve_channel_ids");
 			} else {
 				return new_error(ctx,
 						 CHANQUERY_TYPEERROR,
@@ -1753,6 +2350,179 @@ static struct splice_script_error *resolve_channel_ids(const tal_t *ctx,
 	return NULL;
 }
 
+static struct splice_script_error *process_peer_token(const tal_t *ctx,
+						      struct splice_script_chan **channels,
+						      struct token **token_inout)
+{
+	struct token *chan;
+	struct token *token = *token_inout;
+	struct token *old_token_right;
+
+	if (!token->right)
+		return new_error(ctx, NODE_NEEDS_RIGHT, token,
+				 "process_peer_token");
+
+	if (token->right->type == TOK_CHAN) {
+		chan = token->right;
+
+		CHECK_ASSIGN_LEFT(token, "process_peer_token");
+
+		token->type = TOK_CHANQUERY;
+
+		/* TOK_CHANQUERY takes nodeid on left and query on the right */
+
+		token->left = token->middle;
+		token->middle = NULL;
+
+		if (chan->middle && token->right) {
+			old_token_right = token->right;
+			token->right = tal_steal(token, chan->middle);
+			token->right->right = tal_steal(token->right,
+							old_token_right);
+		}
+		chan->middle = NULL;
+
+		/* Modifying the token in place so we dont have to use
+		 * token_inout */
+		return NULL;
+	}
+
+	if (token->middle && token->middle->type == TOK_QUESTION)
+			token->node_id = node_at_index(token, channels, 0);
+
+	/* node().new will be handled later after node id processing phase */
+	if (token->right->type == TOK_NEW)
+		return NULL;
+
+	return new_error(ctx, NODE_UNRECOGNIZED_RIGHT, token,
+		"process_peer_token");
+}
+
+static struct splice_script_error *process_chan_token(const tal_t *ctx,
+						      struct splice_script_chan **channels,
+						      struct token **token_inout)
+{
+	struct token *token = *token_inout;
+
+	if (!token->middle)
+		return new_error(ctx, NODE_NEEDS_RIGHT, token,
+				 "process_chan_token");
+
+	*token_inout = token->middle;
+	(*token_inout)->right = tal_steal(*token_inout, token->right);
+	return NULL;
+}
+
+static struct splice_script_error *resolve_peer_and_chan(const tal_t *ctx,
+							 struct splice_script_chan **channels,
+							 struct token ***tokens_inout)
+{
+	struct splice_script_error *error;
+	struct token **input = *tokens_inout;
+	struct token **tokens = tal_arr(ctx, struct token *, tal_count(input));
+	size_t n = 0;
+
+	for (size_t i = 0; i < tal_count(input); i++) {
+		struct token *token = input[i];
+		switch(token->type) {
+		case TOK_CHAR:
+		case TOK_ATSYM:
+		case TOK_PLUS:
+		case TOK_MINUS:
+		case TOK_COLON:
+		case TOK_PIPE:
+		case TOK_STR:
+		case TOK_FEE:
+		case TOK_NODEID:
+			return new_error(ctx, INVALID_TOKEN, token,
+					 "resolve_peer_and_chan.");
+		case TOK_CHANID:
+		case TOK_LEASERATE:
+		case TOK_ARROW:
+		case TOK_SATS:
+		case TOK_NUMBER:
+		case TOK_PERCENT:
+		case TOK_QUESTION:
+		case TOK_OPAREN:
+		case TOK_CPAREN:
+		case TOK_DOT:
+		case TOK_BALANCE:
+		case TOK_NEW:
+		case TOK_PRIVATE:
+		case TOK_CLOSE_TO:
+		case TOK_COMMIT_FEERATE:
+		case TOK_LEASE:
+		case TOK_WILDCARD:
+		case TOK_WALLET:
+		case TOK_FEERATE:
+		case TOK_BTCADDR:
+		case TOK_LEASEREQ:
+		case TOK_DELIMITER:
+			tokens[n++] = tal_steal(tokens, token);
+			break;
+		case TOK_PEER:
+			error = process_peer_token(ctx, channels, &token);
+			if (error)
+				return error;
+			tokens[n++] = tal_steal(tokens, token);
+			break;
+		case TOK_CHAN:
+			error = process_chan_token(ctx, channels, &token);
+			if (error)
+				return error;
+			tokens[n++] = tal_steal(tokens, token);
+			break;
+		case TOK_MULTI_CHANID:
+		case TOK_SEGMENT:
+		case TOK_CHANQUERY:
+			return new_error(ctx, INVALID_TOKEN, token,
+					 "resolve_peer_and_chan..");
+		}
+	}
+
+	tal_free(input);
+	tal_resize(&tokens, n);
+	*tokens_inout = tokens;
+	return NULL;
+}
+
+static struct splice_script_error *check_for_unparsed_tokens(const tal_t *ctx,
+							     struct token *input)
+{
+	struct splice_script_error *error;
+
+	error = NULL;
+	if (input->type == TOK_STR)
+		error = new_error_msg(ctx, UNRECOGNIZED_TOKEN, input,
+				      "check_for_unparsed_tokens",
+				      tal_fmt(tmpctx, "'%s' unrecognized",
+				      	      input->str ?: "NULL"));
+
+	if (!error && input->left)
+		error = check_for_unparsed_tokens(ctx, input->left);
+
+	if (!error && input->middle)
+		error = check_for_unparsed_tokens(ctx, input->middle);
+
+	if (!error && input->right)
+		error = check_for_unparsed_tokens(ctx, input->right);
+
+	return error;
+}
+
+static struct splice_script_error *error_on_strings(const tal_t *ctx,
+						    struct token **input)
+{
+	struct splice_script_error *error;
+	for (size_t i = 0; i < tal_count(input); i++) {
+		error = check_for_unparsed_tokens(ctx, input[i]);
+		if (error)
+			return error;
+	}
+
+	return NULL;
+}
+
 static bool is_valid_middle(struct token *token)
 {
 	switch(token->type) {
@@ -1764,6 +2534,10 @@ static bool is_valid_middle(struct token *token)
 		case TOK_BTCADDR:
 		case TOK_WALLET:
 			return true;
+		case TOK_PEER:
+			return token->node_id
+			       && token->right
+			       && token->right->type == TOK_NEW;
 		case TOK_FEERATE:
 		case TOK_CHAR:
 		case TOK_ATSYM:
@@ -1775,8 +2549,19 @@ static bool is_valid_middle(struct token *token)
 		case TOK_PIPE:
 		case TOK_STR:
 		case TOK_SATS:
+		case TOK_NUMBER:
 		case TOK_PERCENT:
 		case TOK_QUESTION:
+		case TOK_OPAREN:
+		case TOK_CPAREN:
+		case TOK_DOT:
+		case TOK_BALANCE:
+		case TOK_CHAN:
+		case TOK_NEW:
+		case TOK_PRIVATE:
+		case TOK_CLOSE_TO:
+		case TOK_COMMIT_FEERATE:
+		case TOK_LEASE:
 		case TOK_WILDCARD:
 		case TOK_FEE:
 		case TOK_NODEID:
@@ -1814,8 +2599,20 @@ static struct splice_script_error *make_segments(const tal_t *ctx,
 		case TOK_ARROW:
 		case TOK_PIPE:
 		case TOK_SATS:
+		case TOK_NUMBER:
 		case TOK_PERCENT:
 		case TOK_QUESTION:
+		case TOK_OPAREN:
+		case TOK_CPAREN:
+		case TOK_DOT:
+		case TOK_BALANCE:
+		case TOK_PEER:
+		case TOK_CHAN:
+		case TOK_NEW:
+		case TOK_PRIVATE:
+		case TOK_CLOSE_TO:
+		case TOK_COMMIT_FEERATE:
+		case TOK_LEASE:
 		case TOK_WILDCARD:
 		case TOK_CHANID:
 		case TOK_WALLET:
@@ -1836,6 +2633,10 @@ static struct splice_script_error *make_segments(const tal_t *ctx,
 					return new_error(ctx, MISSING_ARROW,
 							 input[next_consumable+1],
 							 "segments");
+				CHECK_ASSIGN_LEFT(input[i], "segments.");
+				CHECK_ASSIGN_MIDDLE(input[i], "segments");
+				CHECK_ASSIGN_RIGHT(input[i], "segments");
+
 				input[i]->type = TOK_SEGMENT;
 				input[i]->left = tal_steal(input[i],
 							   input[next_consumable]);
@@ -1853,6 +2654,10 @@ static struct splice_script_error *make_segments(const tal_t *ctx,
 					return new_error(ctx, MISSING_ARROW,
 							 input[next_consumable+3],
 							 "segments");
+				CHECK_ASSIGN_LEFT(input[i], "segments..");
+				CHECK_ASSIGN_MIDDLE(input[i], "segments");
+				CHECK_ASSIGN_RIGHT(input[i], "segments");
+
 				input[i]->type = TOK_SEGMENT;
 				input[i]->left = tal_steal(input[i],
 							   input[next_consumable]);
@@ -1876,6 +2681,8 @@ static struct splice_script_error *make_segments(const tal_t *ctx,
 								 DOUBLE_MIDDLE_OP,
 								 tokens[n-1]->middle,
 								 "make_segments");
+					CHECK_ASSIGN_RIGHT(tokens[n-1], "segments");
+
 					tokens[n-1]->right = tokens[n-1]->middle;
 					tokens[n-1]->middle = tokens[n-1]->left;
 					tokens[n-1]->left = new_token(tokens[n-1],
@@ -1884,6 +2691,8 @@ static struct splice_script_error *make_segments(const tal_t *ctx,
 					tokens[n-1]->left->amount_sat = AMOUNT_SAT(0);
 
 				} else if (is_valid_middle(tokens[n-1]->middle)) {
+					CHECK_ASSIGN_RIGHT(tokens[n-1], "segments");
+
 					tokens[n-1]->right = new_token(tokens[n-1],
 								       TOK_SATS,
 								       tokens[n-1]->script_index);
@@ -1917,6 +2726,190 @@ static struct splice_script_error *make_segments(const tal_t *ctx,
 	return NULL;
 }
 
+/* Goes through the tokens and eats all OPAREN, CPAREN, and DOT tokens.
+ * Parens will be attached to the token just left of them on the `middle` ptr.
+ * Dots will attach the trailing token onto the token before it on the `right`.
+ *
+ * Example: "peer(0234).private"
+ * Input tokens:
+ *   STR OPAREN STR CPAREN DOT STR 
+ * Output tokens:
+ *   STR "peer"
+ *     ->middle:
+ *         STR "0234"
+ *     ->right:
+ *         STR "private"
+ *
+ * Example: "peer.private(0234)"
+ * Input tokens:
+ *   STR DOT STR OPAREN STR CPAREN
+ * Output tokens:
+ *   STR "peer"
+ *     ->right:
+ *         STR "private"
+ *           ->middle:
+ *               STR "0234"
+ */
+static struct splice_script_error *compress_parens_and_dots(const tal_t *ctx,
+							    struct token ***tokens_inout)
+{
+	struct token **input = *tokens_inout;
+	struct token **tokens = tal_arr(ctx, struct token *, tal_count(input));
+	size_t n = 0;
+	struct token *last_token = NULL;
+	struct token *close_paren = NULL;
+	struct token *paren_content = NULL;
+
+	/* Parens and dots are special in that they can be chained. In order to
+	 * keep our `right` assignment checks working correctly, we have to
+	 * process these tokens in reverse order. */
+	for (int i = tal_count(input) - 1; i >= 0; i--) {
+		switch(input[i]->type) {
+		case TOK_CHAR:
+			return new_error(ctx, INVALID_TOKEN, input[i],
+					 "parens_and_dots");
+		case TOK_DELIMITER:
+		case TOK_ARROW:
+		case TOK_PIPE:
+		case TOK_STR:
+		case TOK_SATS:
+		case TOK_NUMBER:
+		case TOK_PERCENT:
+		case TOK_QUESTION:
+		case TOK_WILDCARD:
+		case TOK_PLUS:
+		case TOK_MINUS:
+		case TOK_CHANID:
+		case TOK_FEE:
+		case TOK_WALLET:
+		case TOK_NODEID:
+		case TOK_BTCADDR:
+		case TOK_BALANCE:
+		case TOK_PEER:
+		case TOK_CHAN:
+		case TOK_NEW:
+		case TOK_PRIVATE:
+		case TOK_CLOSE_TO:
+		case TOK_COMMIT_FEERATE:
+		case TOK_LEASE:
+			if (close_paren) {
+				/* If we're inside parens, save this token for 
+				 * processing when we get to the final paren */
+				if (paren_content)
+					return new_error(ctx,
+							 MULTI_ITEMS_IN_PAREN,
+							 input[i],
+							 "parens_and_dots");
+				paren_content = input[i];
+			} else {
+				/* Otherwise, just push it onto the result as
+				 * normal */
+				last_token = input[i];
+				tokens[n++] = tal_steal(tokens, input[i]);
+			}
+			break;
+		case TOK_CPAREN:
+			/* NOTE: Don't forget we're looping backwards. */
+
+			/* When we see close paren we just store a reference to
+			 * it for later. */
+			if (close_paren)
+				return new_error(ctx, DOUBLE_CPAREN, input[i],
+						 "parens_and_dots");
+			close_paren = input[i];
+			paren_content = NULL;
+			break;
+		case TOK_OPAREN:
+			/* NOTE: Don't forget we're looping backwards. */
+
+			/* On opening paren, take the contents of paren pair
+			 * and attach them to the next token as `middle` */
+			if (!close_paren)
+				return new_error(ctx, MISSING_CLOSE_PAREN,
+						 input[i], "parens_and_dots");
+			if (i < 1)
+				return new_error(ctx, PAREN_ON_NOTHING,
+						 input[i], "parens_and_dots");
+			if (input[i-1]->type == TOK_DOT)
+				return new_error(ctx, PAREN_ON_DOT,
+						 input[i], "parens_and_dots");
+			CHECK_ASSIGN_MIDDLE(input[i-1], "parens_and_dots");
+
+			input[i-1]->middle = tal_steal(input[i-1],
+						       paren_content);
+
+			/* Take this example: "peer(abc).new"
+			 * 'new' will be attached to the close paren.
+			 * We must foward this attachment onto 'peer' */
+			if (close_paren->right) {
+				CHECK_ASSIGN_RIGHT(input[i-1], "parens_and_dots.");
+				input[i-1]->right = tal_steal(input[i-1],
+							      close_paren->right);
+			}
+			/* Fees must be at the end of the paren chain. We put
+			 * them on the right even though theyre coming from
+			 * middle. */
+			if (close_paren->middle
+			    && close_paren->middle->type == TOK_FEE) {
+				CHECK_ASSIGN_RIGHT(input[i-1], "parens_and_dots.");
+				input[i-1]->right = tal_steal(input[i-1],
+							      close_paren->middle);
+			}
+			close_paren = NULL;
+			paren_content = NULL;
+			break;
+		case TOK_DOT:
+			/* NOTE: Don't forget we're looping backwards. */
+
+			/* On dot, attach last token onto the next token as
+			 * `right` */
+			if (i < 1)
+				return new_error(ctx, DOT_ON_NOTHING,
+						 input[i], "parens_and_dots");
+			if (input[i-1]->type == TOK_DOT)
+				return new_error(ctx, DOT_ON_DOT,
+						 input[i], "parens_and_dots");
+			if (!last_token)
+				return new_error(ctx, DOT_OF_NOTHING,
+						 input[i], "parens_and_dots");
+			CHECK_ASSIGN_RIGHT(input[i-1], "parens_and_dots");
+
+			/* Steal next token and attach it to the last token */
+			input[i-1]->right = tal_steal(input[i-1], last_token);
+
+			/* Remove `last_token` from results */
+			tokens[n] = NULL;
+			n--;
+			break;
+		case TOK_ATSYM:
+		case TOK_COLON:
+		case TOK_CHANQUERY:
+		case TOK_MULTI_CHANID:
+		case TOK_FEERATE:
+		case TOK_LEASERATE:
+		case TOK_LEASEREQ:
+		case TOK_SEGMENT:
+			return new_error(ctx, INVALID_TOKEN, input[i],
+					 "parens_and_dots");
+		}
+	}
+
+	if (close_paren)
+		return new_error(ctx, UNOPENED_PAREN,
+				 close_paren, "parens_and_dots");
+
+	tal_free(input);
+	tal_resize(&tokens, n);
+
+	/* Now reverse the array back and put it into *tokens_inout */
+	*tokens_inout = tal_arr(ctx, struct token *, tal_count(tokens));
+	n = 0;
+	for (int i = tal_count(tokens) - 1; i >= 0; i--)
+		(*tokens_inout)[n++] = tal_steal(*tokens_inout, tokens[i]);
+
+	return NULL;
+}
+
 static void steal_sub_tokens(const tal_t *ctx, struct token *token)
 {
 	tal_steal(token, token->left);
@@ -1945,8 +2938,12 @@ static struct splice_script_error *expand_multichans(const tal_t *ctx,
 		case TOK_PIPE:
 		case TOK_STR:
 		case TOK_SATS:
+		case TOK_NUMBER:
 		case TOK_PERCENT:
 		case TOK_QUESTION:
+		case TOK_OPAREN:
+		case TOK_CPAREN:
+		case TOK_DOT:
 		case TOK_WILDCARD:
 		case TOK_FEE:
 		case TOK_CHANID:
@@ -1954,6 +2951,14 @@ static struct splice_script_error *expand_multichans(const tal_t *ctx,
 		case TOK_FEERATE:
 		case TOK_NODEID:
 		case TOK_BTCADDR:
+		case TOK_BALANCE:
+		case TOK_PEER:
+		case TOK_CHAN:
+		case TOK_NEW:
+		case TOK_PRIVATE:
+		case TOK_CLOSE_TO:
+		case TOK_COMMIT_FEERATE:
+		case TOK_LEASE:
 		case TOK_CHANQUERY:
 		case TOK_MULTI_CHANID:
 		case TOK_LEASEREQ:
@@ -1975,13 +2980,16 @@ static struct splice_script_error *expand_multichans(const tal_t *ctx,
 					/* Duplicate the SEGMENT token */
 					token = tal_dup(tokens, struct token,
 							input[i]);
+
 					token->left = tal_dup(token,
 							      struct token,
 							      token->left);
+
 					token->right = tal_dup(token,
 							       struct token,
 							       token->right);
 					/* token_itr is already a CHANID */
+
 					token->middle = tal_steal(token,
 								  token_itr);
 
@@ -2020,14 +3028,16 @@ static struct splice_script_error *expand_multichans(const tal_t *ctx,
 	return NULL;
 }
 
-static bool is_valid_amount(struct token *token)
+static bool is_valid_sat_amount(struct token *token)
 {
 	switch(token->type) {
 		case TOK_SATS:
 		case TOK_WILDCARD:
 		case TOK_PERCENT:
-			return true;
 		case TOK_FEE:
+		case TOK_BALANCE:
+			return true;
+		case TOK_NUMBER:
 		case TOK_CHAR:
 		case TOK_ATSYM:
 		case TOK_PLUS:
@@ -2038,11 +3048,21 @@ static bool is_valid_amount(struct token *token)
 		case TOK_PIPE:
 		case TOK_STR:
 		case TOK_QUESTION:
+		case TOK_OPAREN:
+		case TOK_CPAREN:
+		case TOK_DOT:
 		case TOK_CHANID:
 		case TOK_WALLET:
 		case TOK_FEERATE:
 		case TOK_NODEID:
 		case TOK_BTCADDR:
+		case TOK_PEER:
+		case TOK_CHAN:
+		case TOK_NEW:
+		case TOK_PRIVATE:
+		case TOK_CLOSE_TO:
+		case TOK_COMMIT_FEERATE:
+		case TOK_LEASE:
 		case TOK_CHANQUERY:
 		case TOK_MULTI_CHANID:
 		case TOK_LEASEREQ:
@@ -2054,22 +3074,31 @@ static bool is_valid_amount(struct token *token)
 	return false;
 }
 
-static bool is_valid_nonzero_amount(struct token *token)
+static bool is_valid_nonzero_sat_amount(struct token *token)
 {
 	if (token->type == TOK_SATS && amount_sat_is_zero(token->amount_sat))
 		return false;
 
-	return is_valid_amount(token);
+	return is_valid_sat_amount(token);
 }
 
 static bool valid_channel_id(struct channel_id *chan_id,
 			     struct splice_script_chan **channels)
 {
 	for (size_t i = 0; i < tal_count(channels); i++)
-		if (channel_id_eq(chan_id, &channels[i]->chan_id))
+		if (channel_id_eq(chan_id, channels[i]->chan_id))
 			return true;
 
 	return false;
+}
+
+static struct token *find_on_right(struct token *token, enum token_type type)
+{
+	if (!token)
+		return NULL;
+	if (token && token->type == type)
+		return token;
+	return find_on_right(token->right, type);
 }
 
 static struct splice_script_error *validate_and_clean(const tal_t *ctx,
@@ -2080,7 +3109,7 @@ static struct splice_script_error *validate_and_clean(const tal_t *ctx,
 	struct token **tokens = tal_arr(ctx, struct token *, tal_count(input));
 	size_t n = 0;
 	struct channel_id *chan_ids = tal_arr(ctx, struct channel_id, 0);
-	struct token *lease, *leaserate, *fee, *feerate;
+	struct token *lease, *leaserate, *fee, *leftfee, *rightfee, *feerate;
 	bool pay_fee_found = false;
 
 	for (size_t i = 0; i < tal_count(input); i++) {
@@ -2095,8 +3124,12 @@ static struct splice_script_error *validate_and_clean(const tal_t *ctx,
 		case TOK_PIPE:
 		case TOK_STR:
 		case TOK_SATS:
+		case TOK_NUMBER:
 		case TOK_PERCENT:
 		case TOK_QUESTION:
+		case TOK_OPAREN:
+		case TOK_CPAREN:
+		case TOK_DOT:
 		case TOK_WILDCARD:
 		case TOK_FEE:
 		case TOK_CHANID:
@@ -2104,6 +3137,15 @@ static struct splice_script_error *validate_and_clean(const tal_t *ctx,
 		case TOK_FEERATE:
 		case TOK_NODEID:
 		case TOK_BTCADDR:
+		case TOK_BALANCE:
+			/* Balance is invalid on a newchan query */
+		case TOK_PEER:
+		case TOK_CHAN:
+		case TOK_NEW:
+		case TOK_PRIVATE:
+		case TOK_CLOSE_TO:
+		case TOK_COMMIT_FEERATE:
+		case TOK_LEASE:
 		case TOK_CHANQUERY:
 		case TOK_MULTI_CHANID:
 		case TOK_LEASEREQ:
@@ -2111,25 +3153,29 @@ static struct splice_script_error *validate_and_clean(const tal_t *ctx,
 			return new_error(ctx, INVALID_TOKEN, input[i],
 					 "validate_and_clean");
 		case TOK_SEGMENT:
-			if (!is_valid_amount(input[i]->left))
+			if (!is_valid_sat_amount(input[i]->left))
 				return new_error(ctx, MISSING_AMOUNT_OR_WILD_OP,
 						 input[i]->left,
 						 "validate_and_clean");
-			if (!is_valid_amount(input[i]->right))
+			if (!is_valid_sat_amount(input[i]->right))
 				return new_error(ctx, MISSING_AMOUNT_OR_WILD_OP,
 						 input[i]->right,
 						 "validate_and_clean");
 
 			/* Process lease & lease rate.
-			 * ex: "0|10M@1% -> chan_id" (lease 10M at 1% fee) */
-			lease = input[i]->left->right;
+			 * ex: "0|10M@1% -> chan_id"
+			 * ex: "0 -> chan(chan_id).lease(10M @ 1%)"
+			 */
+
+			/* Splice in amounts on the left side of a segment can have leases
+	 		 * attached or they can be found in channel identifeir
+	 		 * in the segment's middle segment. */
+			lease = find_on_right(input[i]->left, TOK_LEASE)
+				?: find_on_right(input[i]->middle, TOK_LEASE);
 			leaserate = NULL;
-			if (lease) {
-				if (lease->type != TOK_LEASEREQ)
-					return new_error(ctx, INTERNAL_ERROR,
-							 lease,
-							 "validate_and_clean");
-				if (lease->right->type != TOK_SATS)
+			if (lease && lease->type == TOK_LEASEREQ) {
+				if (!lease->right
+				    || lease->right->type != TOK_SATS)
 					return new_error(ctx, LEASE_AMOUNT_ZERO,
 							 lease,
 							 "validate_and_clean");
@@ -2139,7 +3185,24 @@ static struct splice_script_error *validate_and_clean(const tal_t *ctx,
 							 lease->right,
 							 "validate_and_clean");
 				leaserate = lease->right->right;
+			} else if(lease && lease->type == TOK_LEASE) {
+				if (!lease->middle
+				    || lease->middle->type != TOK_SATS)
+					return new_error(ctx, LEASE_AMOUNT_ZERO,
+							 lease,
+							 "validate_and_clean");
+				lease->amount_sat = lease->middle->amount_sat;
+				if (amount_sat_is_zero(lease->amount_sat))
+					return new_error(ctx, LEASE_AMOUNT_ZERO,
+							 lease->right,
+							 "validate_and_clean");
+				leaserate = lease->middle->right;
+			} else if(lease) {
+				return new_error(ctx, INTERNAL_ERROR,
+						 input[i],
+						 "validate_and_clean");
 			}
+
 			if (leaserate) {
 				if (leaserate->type != TOK_LEASERATE)
 					return new_error(ctx, INTERNAL_ERROR,
@@ -2152,53 +3215,30 @@ static struct splice_script_error *validate_and_clean(const tal_t *ctx,
 				lease->ppm = leaserate->right->ppm;
 			}
 
-			/* Process left fee & fee rate.
+			/* Process fee & fee rate.
 			 * ex: "10M-fee@4k -> chan_id" (splice in 10M less fee) */
-			fee = input[i]->left->middle;
+			leftfee = find_on_right(input[i]->left->middle, TOK_FEE)
+				  ?: find_on_right(input[i]->left, TOK_FEE);
+			rightfee = find_on_right(input[i]->right->middle, TOK_FEE)
+				  ?: find_on_right(input[i]->right, TOK_FEE);
+			if (leftfee && rightfee)
+				return new_error(ctx, DUPLICATE_FEESTR,
+						 leftfee,
+						 "validate_and_clean");
+			fee = leftfee ?: rightfee;
 			feerate = NULL;
 			if (fee) {
-				if (fee->type != TOK_FEE)
-					return new_error(ctx, INTERNAL_ERROR,
-							 fee,
-							 "validate_and_clean");
-				if (!(fee->flags & TOKEN_FLAG_FEERATE_NEGATIVE))
+				if (leftfee && !(leftfee->flags
+						 & TOKEN_FLAG_FEERATE_NEGATIVE))
 					return new_error(ctx,
 							 LEFT_FEE_NOT_NEGATIVE,
-							 fee,
+							 leftfee,
 							 "validate_and_clean");
-				if (pay_fee_found)
-					return new_error(ctx, DUPLICATE_FEESTR,
-							 fee,
-							 "validate_and_clean");
-				pay_fee_found = true;
-				feerate = fee->right;
-			}
-			if (feerate) {
-				if (feerate->type != TOK_FEERATE)
-					return new_error(ctx, INTERNAL_ERROR,
-							 feerate,
-							 "validate_and_clean");
-				if (feerate->right->type != TOK_SATS)
-					return new_error(ctx, MISSING_AMOUNT_OP,
-							 feerate,
-							 "validate_and_clean");
-				fee->amount_sat = feerate->right->amount_sat;
-				fee->str = feerate->right->str;
-			}
-
-			/* Process right fee & fee rate.
-			 * ex: "chan_id -> 10M+fee@4k" (splice out 10M + fee) */
-			fee = input[i]->right->middle;
-			feerate = NULL;
-			if (fee) {
-				if (fee->type != TOK_FEE)
-					return new_error(ctx, INTERNAL_ERROR,
-							 fee,
-							 "validate_and_clean");
-				if ((fee->flags & TOKEN_FLAG_FEERATE_NEGATIVE))
+				if (rightfee && (rightfee->flags
+						 & TOKEN_FLAG_FEERATE_NEGATIVE))
 					return new_error(ctx,
 							 RIGHT_FEE_NOT_POSITIVE,
-							 fee,
+							 rightfee,
 							 "validate_and_clean");
 				if (pay_fee_found)
 					return new_error(ctx, DUPLICATE_FEESTR,
@@ -2215,13 +3255,13 @@ static struct splice_script_error *validate_and_clean(const tal_t *ctx,
 				if (feerate->right->type != TOK_SATS)
 					return new_error(ctx, MISSING_AMOUNT_OP,
 							 feerate,
-							 "validate_and_clean");
+							 "validate_and_clean'");
 				fee->amount_sat = feerate->right->amount_sat;
 				fee->str = feerate->right->str;
 			}
 
-			if (!is_valid_nonzero_amount(input[i]->left)
-				&& !is_valid_nonzero_amount(input[i]->right)
+			if (!is_valid_nonzero_sat_amount(input[i]->left)
+				&& !is_valid_nonzero_sat_amount(input[i]->right)
 				&& !lease
 				&& !fee)
 				return new_error(ctx, ZERO_AMOUNTS,
@@ -2230,8 +3270,8 @@ static struct splice_script_error *validate_and_clean(const tal_t *ctx,
 			/* Can't specify funds going into and out of into the
 			 * same segment. User should simply subtract one amount
 			 * from the other. */
-			if (is_valid_nonzero_amount(input[i]->left)
-				&& is_valid_nonzero_amount(input[i]->right))
+			if (is_valid_nonzero_sat_amount(input[i]->left)
+				&& is_valid_nonzero_sat_amount(input[i]->right))
 				return new_error(ctx, IN_AND_OUT_AMOUNTS,
 						 input[i]->left,
 						 "validate_and_clean");
@@ -2302,8 +3342,12 @@ static struct splice_script_error *calculate_amounts(const tal_t *ctx,
 		case TOK_PIPE:
 		case TOK_STR:
 		case TOK_SATS:
+		case TOK_NUMBER:
 		case TOK_PERCENT:
 		case TOK_QUESTION:
+		case TOK_OPAREN:
+		case TOK_CPAREN:
+		case TOK_DOT:
 		case TOK_WILDCARD:
 		case TOK_FEE:
 		case TOK_CHANID:
@@ -2311,6 +3355,14 @@ static struct splice_script_error *calculate_amounts(const tal_t *ctx,
 		case TOK_FEERATE:
 		case TOK_NODEID:
 		case TOK_BTCADDR:
+		case TOK_BALANCE:
+		case TOK_PEER:
+		case TOK_CHAN:
+		case TOK_NEW:
+		case TOK_PRIVATE:
+		case TOK_CLOSE_TO:
+		case TOK_COMMIT_FEERATE:
+		case TOK_LEASE:
 		case TOK_CHANQUERY:
 		case TOK_MULTI_CHANID:
 		case TOK_LEASEREQ:
@@ -2389,8 +3441,12 @@ static struct splice_script_error *calculate_amounts(const tal_t *ctx,
 		case TOK_PIPE:
 		case TOK_STR:
 		case TOK_SATS:
+		case TOK_NUMBER:
 		case TOK_PERCENT:
 		case TOK_QUESTION:
+		case TOK_OPAREN:
+		case TOK_CPAREN:
+		case TOK_DOT:
 		case TOK_WILDCARD:
 		case TOK_FEE:
 		case TOK_CHANID:
@@ -2398,6 +3454,14 @@ static struct splice_script_error *calculate_amounts(const tal_t *ctx,
 		case TOK_FEERATE:
 		case TOK_NODEID:
 		case TOK_BTCADDR:
+		case TOK_BALANCE:
+		case TOK_PEER:
+		case TOK_CHAN:
+		case TOK_NEW:
+		case TOK_PRIVATE:
+		case TOK_CLOSE_TO:
+		case TOK_COMMIT_FEERATE:
+		case TOK_LEASE:
 		case TOK_CHANQUERY:
 		case TOK_MULTI_CHANID:
 		case TOK_LEASEREQ:
@@ -2487,13 +3551,28 @@ struct splice_script_error *parse_splice_script(const tal_t *ctx,
 	if ((error = process_3rd_separators(ctx, &tokens)))
 		return error;
 
+	if ((error = process_paren_dot_separators(ctx, &tokens)))
+		return error;
+
+	if ((error = process_keywords(ctx, &tokens)))
+		return error;
+
 	if ((error = type_data(ctx, channels, &tokens)))
+		return error;
+
+	if ((error = error_on_strings(ctx, tokens)))
 		return error;
 
 	if ((error = compress_top_operands(ctx, &tokens)))
 		return error;
 
 	if ((error = compress_2nd_operands(ctx, &tokens)))
+		return error;
+
+	if ((error = compress_parens_and_dots(ctx, &tokens)))
+		return error;
+
+	if ((error = resolve_peer_and_chan(ctx, channels, &tokens)))
 		return error;
 
 	if ((error = resolve_channel_ids(ctx, channels, &tokens)))
@@ -2512,7 +3591,7 @@ struct splice_script_error *parse_splice_script(const tal_t *ctx,
 		return error;
 
 #if SCRIPT_DUMP_TOKENS
-	return debug_dump(ctx, tokens);
+	// return debug_dump(ctx, tokens);
 #endif
 #if SCRIPT_DUMP_SEGMENTS
 	return dump_segments(ctx, tokens);
@@ -2527,6 +3606,7 @@ struct splice_script_error *parse_splice_script(const tal_t *ctx,
 		struct token *fee = tokens[i]->left->middle
 					? tokens[i]->left->middle
 					: tokens[i]->right->middle;
+		struct token *itr_r;
 
 		if (lease) {
 			itr->lease_sat = lease->amount_sat;
@@ -2536,17 +3616,51 @@ struct splice_script_error *parse_splice_script(const tal_t *ctx,
 		itr->in_sat = tokens[i]->left->amount_sat;
 		itr->in_ppm = tokens[i]->left->ppm;
 
-		if (tokens[i]->middle->type == TOK_CHANID)
+		if (tokens[i]->middle->type == TOK_CHANID) {
 			itr->channel_id = tal_dup(itr, struct channel_id,
 						  tokens[i]->middle->chan_id);
-		else if (tokens[i]->middle->type == TOK_BTCADDR)
+			itr_r = find_on_right(tokens[i]->middle, TOK_LEASE);
+			if (itr_r) {
+				itr->lease_sat = itr_r->amount_sat;
+				itr->lease_max_ppm = itr_r->ppm;
+			}
+		}
+		else if (tokens[i]->middle->type == TOK_BTCADDR) {
 			itr->bitcoin_address = tal_strdup(itr,
 							 tokens[i]->middle->str);
-		else if (tokens[i]->middle->type == TOK_WALLET)
+		}
+		else if (tokens[i]->middle->type == TOK_WALLET){
 			itr->onchain_wallet = true;
-		else
+		}
+		else if (tokens[i]->middle->type == TOK_PEER
+			 && tokens[i]->middle->right
+			 && tokens[i]->middle->right->type == TOK_NEW) {
+			itr->peer_id = tal_dup(itr, struct node_id,
+					       tokens[i]->middle->node_id);
+			itr_r = tokens[i]->middle->right;
+			for (; itr_r; itr_r = itr_r->right) {
+				if (itr_r->type == TOK_PRIVATE)
+					itr->private_channel = true;
+				if (itr_r->type == TOK_CLOSE_TO
+				    && itr_r->middle)
+					itr->close_to_address = tal_strdup(itr, itr_r->middle->str);
+				if (itr_r->type == TOK_COMMIT_FEERATE
+				    && itr_r->middle) {
+					if (!parse_feerate(itr_r->middle, &itr->commit_feerate_per_kw))
+						return new_error(ctx, INVALID_FEERATE,
+								 itr_r,
+								 "splice_script_result");
+				}
+				if (itr_r->type == TOK_LEASE) {
+					itr->lease_sat = itr_r->amount_sat;
+					itr->lease_max_ppm = itr_r->ppm;
+				}
+			}
+		}
+		else {
 			return new_error(ctx, INTERNAL_ERROR, tokens[i],
 					 "splice_script_result");
+		}
 
 		itr->out_sat = tokens[i]->right->amount_sat;
 		itr->out_ppm = tokens[i]->right->ppm;
@@ -2598,6 +3712,8 @@ void splice_to_json(const tal_t *ctx,
 		if (splice[i]->channel_id)
 			json_add_channel_id(js, "channel_id",
 					    splice[i]->channel_id);
+		if (splice[i]->peer_id)
+			json_add_node_id(js, "peer_id", splice[i]->peer_id);
 		if (splice[i]->bitcoin_address)
 			json_add_string(js, "bitcoin_address",
 					splice[i]->bitcoin_address);
@@ -2613,6 +3729,24 @@ void splice_to_json(const tal_t *ctx,
 							 splice[i]->out_sat);
 			if (splice[i]->out_ppm)
 				json_add_u32(js, "ppm", splice[i]->out_ppm);
+			json_object_end(js);
+		}
+
+		if (splice[i]->balance_ppm)
+			json_add_u32(js, "balance_ppm", splice[i]->balance_ppm);
+
+		if (splice[i]->peer_id) {
+			json_object_start(js, "new_chan_params");
+			if (splice[i]->commit_feerate_per_kw)
+				json_add_u32(js, "commit_feerate_per_kw",
+					     splice[i]->commit_feerate_per_kw);
+
+			if (splice[i]->private_channel)
+				json_add_bool(js, "private_channel", true);
+
+			if (splice[i]->close_to_address)
+				json_add_string(js, "close_to_address",
+						splice[i]->close_to_address);
 			json_object_end(js);
 		}
 
@@ -2656,7 +3790,7 @@ bool json_to_splice(const tal_t *ctx, const char *buffer, const jsmntok_t *tok,
 
 	*result = tal_arr(ctx, struct splice_script_result*, 0);
 	json_for_each_arr(i, itr, splice) {
-		const jsmntok_t *lease, *in, *dest, *out, *fee, *obj;
+		const jsmntok_t *lease, *in, *dest, *out, *bal, *chan, *fee, *obj;
 		struct splice_script_result *ele = talz(*result, struct splice_script_result);
 
 		if ((lease = json_get_member(buffer, itr, "lease_request"))) {
@@ -2694,6 +3828,11 @@ bool json_to_splice(const tal_t *ctx, const char *buffer, const jsmntok_t *tok,
 							ele->channel_id))
 					return false;
 			}
+			if ((obj = json_get_member(buffer, dest, "peer_id"))) {
+				ele->peer_id = tal(ele, struct node_id);
+				if (!json_to_node_id(buffer, obj, ele->peer_id))
+					return false;
+			}
 			if ((obj = json_get_member(buffer, dest,
 						   "bitcoin_address"))) {
 				ele->bitcoin_address = json_strdup(ele, buffer,
@@ -2718,6 +3857,32 @@ bool json_to_splice(const tal_t *ctx, const char *buffer, const jsmntok_t *tok,
 			}
 			if ((obj = json_get_member(buffer, out, "ppm"))) {
 				if (!json_to_u32(buffer, obj, &ele->out_ppm))
+					return false;
+			}
+		}
+
+		if ((bal = json_get_member(buffer, itr, "balance_ppm")))
+			if (!json_to_u32(buffer, bal, &ele->balance_ppm))
+				return false;
+
+		if ((chan = json_get_member(buffer, itr, "new_chan_params"))) {
+			if ((obj = json_get_member(buffer, chan,
+						   "commit_feerate_per_kw"))) {
+				if (!json_to_u32(buffer, obj,
+						 &ele->commit_feerate_per_kw))
+					return false;
+			}
+			if ((obj = json_get_member(buffer, chan,
+						   "private_channel"))) {
+				if (!json_to_bool(buffer, obj,
+						 &ele->private_channel))
+					return false;
+			}
+			if ((obj = json_get_member(buffer, chan,
+						   "close_to_address"))) {
+				ele->close_to_address = json_strdup(ele, buffer,
+								    obj);
+				if (!ele->close_to_address)
 					return false;
 			}
 		}
@@ -2786,10 +3951,20 @@ char *splice_to_string(const tal_t *ctx,
 			       amount_sat_is_zero(result->in_sat) ? "put " : "",
 			       ppm_to_str(ctx, result->in_ppm),
 			       fee_str);
+	if (result->balance_ppm)
+		tal_append_fmt(&str, "%senough to %s balance channel%s into ",
+			       into_prefix,
+			       ppm_to_str(ctx, result->balance_ppm),
+			       fee_str);
 
 	if (result->channel_id)
-		tal_append_fmt(&str, "%s",
-			       tal_hexstr(tmpctx, result->channel_id, sizeof(struct channel_id)));
+		tal_append_fmt(&str, "%s%s%s",
+			       result->peer_id ? "new(" : "",
+			       tal_hexstr(tmpctx, result->channel_id, sizeof(struct channel_id)),
+			       result->peer_id ? ")" : "");
+	else if (result->peer_id)
+		tal_append_fmt(&str, "new channel with %s",
+			       fmt_node_id(ctx, result->peer_id));
 	if (result->bitcoin_address)
 		tal_append_fmt(&str, "%s", result->bitcoin_address);
 	if (result->onchain_wallet)
