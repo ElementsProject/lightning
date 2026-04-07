@@ -162,6 +162,7 @@ struct sql {
 	int gosstore_fd ;
 	size_t gosstore_nodes_off, gosstore_channels_off;
 	u64 next_rowid;
+	u32 limit_per_list;
 
 	/* This is an aux_command for all our watches */
 	struct command *waitcmd;
@@ -1715,14 +1716,13 @@ static const char *db_table_name(const tal_t *ctx, const char *cmdname)
 	return ret;
 }
 
-#define LIMIT_PER_LIST 10000
-
 static struct command_result *limited_list_done(struct command *cmd,
 						const char *method,
 						const char *buf,
 						const jsmntok_t *result,
 						struct db_query *dbq)
 {
+	struct sql *sql = sql_of(dbq->cmd->plugin);
 	struct table_desc *td = dbq->tables[0];
 	struct command_result *ret;
 	size_t num_entries;
@@ -1735,7 +1735,7 @@ static struct command_result *limited_list_done(struct command *cmd,
 		return ret;
 
 	/* If we got the number we asked for, we need to ask again. */
-	return one_refresh_done(cmd, dbq, num_entries == LIMIT_PER_LIST);
+	return one_refresh_done(cmd, dbq, num_entries == sql->limit_per_list);
 }
 
 /* The simplest case: append-only lists */
@@ -1743,6 +1743,7 @@ static struct command_result *refresh_by_created_index(struct command *cmd,
 						       struct table_desc *td,
 						       struct db_query *dbq)
 {
+	struct sql *sql = sql_of(dbq->cmd->plugin);
 	struct out_req *req;
 
 	/* Since we're relying on watches, mark refreshing unnecessary to start */
@@ -1754,7 +1755,7 @@ static struct command_result *refresh_by_created_index(struct command *cmd,
 				    dbq);
 	json_add_string(req->js, "index", "created");
 	json_add_u64(req->js, "start", td->last_created_index + 1);
-	json_add_u64(req->js, "limit", LIMIT_PER_LIST);
+	json_add_u64(req->js, "limit", sql->limit_per_list);
 	return send_outreq(req);
 }
 
@@ -2216,11 +2217,16 @@ int main(int argc, char *argv[])
 	sql->gosstore_fd = -1;
 	sql->gosstore_nodes_off = sql->gosstore_channels_off = 0;
 	sql->next_rowid = 1;
+	sql->limit_per_list = 10000;
 	plugin_main(argv, init, take(sql), PLUGIN_RESTARTABLE, true, NULL, commands, ARRAY_SIZE(commands),
 	            NULL, 0, NULL, 0, NULL, 0,
 		    plugin_option_dev("dev-sqlfilename",
 				      "string",
 				      "Use on-disk sqlite3 file instead of in memory (e.g. debugging)",
 				      charp_option, NULL, &sql->dbfilename),
+		    plugin_option_dev("dev-sqllistlimit",
+				      "int",
+				      "A variable setting for how many chainmoves/channelmoves we fetch at once",
+				      u32_option, NULL, &sql->limit_per_list),
 		    NULL);
 }
