@@ -4410,6 +4410,17 @@ def test_sql_deprecated(node_factory, bitcoind):
     assert ret == {'rows': [[1]]}
 
 
+@pytest.mark.xfail(strict=True)
+def test_sql_limit_per_list(node_factory):
+    l1, l2, l3 = node_factory.line_graph(
+        3, wait_for_announce=True, opts=[{}, {"dev-sqllistlimit": 10}, {}]
+    )
+    for i in range(20):
+        inv = l3.rpc.invoice(1000, f"inv-{i}", f"inv-{i}")["bolt11"]
+        l1.rpc.xpay(inv)
+    l2.rpc.sql("SELECT created_index, payment_hash FROM channelmoves")
+
+
 def test_plugin_persist_option(node_factory):
     """test that options from config file get remembered across plugin stop/start"""
     plugin_path = os.path.join(os.getcwd(), 'contrib/plugins/helloworld.py')
