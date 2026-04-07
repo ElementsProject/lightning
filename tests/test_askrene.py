@@ -2035,8 +2035,7 @@ def test_splice_dying_channel(node_factory, bitcoind):
     """We should NOT try to use the pre-splice channel here"""
     l1, l2, l3 = node_factory.line_graph(3,
                                          wait_for_announce=True,
-                                         fundamount=200000,
-                                         opts={'experimental-splicing': None})
+                                         fundamount=200000)
 
     chan_id = l1.get_channel_id(l2)
     funds_result = l1.rpc.addpsbtoutput(100000)

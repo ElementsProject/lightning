@@ -4,7 +4,6 @@
   "added": "v23.08",
   "rpc": "splice_init",
   "title": "Command to initiate a channel to a peer",
-  "warning": "experimental-splicing only",
   "description": [
     "`splice_init` is a low level RPC command which initiates a channel splice for a given channel specified by `channel_id`."
   ],

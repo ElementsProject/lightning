@@ -1318,7 +1318,6 @@ def generate_splice_examples(node_factory, bitcoind):
         # Basic setup for l7->l8
         options = [
             {
-                'experimental-splicing': None,
                 'allow-deprecated-apis': True,
                 'allow_bad_gossip': True,
                 'broken_log': '.*',

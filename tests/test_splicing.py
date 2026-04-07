@@ -12,7 +12,7 @@ from utils import (
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 def test_splice(node_factory, bitcoind):
-    l1, l2 = node_factory.line_graph(2, fundamount=1000000, wait_for_announce=True, opts={'experimental-splicing': None})
+    l1, l2 = node_factory.line_graph(2, fundamount=1000000, wait_for_announce=True)
 
     chan_id = l1.get_channel_id(l2)
 
@@ -51,7 +51,7 @@ def test_splice(node_factory, bitcoind):
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 def test_two_chan_splice_in(node_factory, bitcoind):
-    l1, l2, l3 = node_factory.line_graph(3, fundamount=1000000, wait_for_announce=True, opts={'experimental-splicing': None})
+    l1, l2, l3 = node_factory.line_graph(3, fundamount=1000000, wait_for_announce=True)
 
     # l2 will splice funds into the channels with l1 and l3 at the same time
 
@@ -124,7 +124,7 @@ def test_two_chan_splice_in(node_factory, bitcoind):
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 def test_splice_rbf(node_factory, bitcoind):
-    l1, l2 = node_factory.line_graph(2, fundamount=1000000, wait_for_announce=True, opts={'experimental-splicing': None})
+    l1, l2 = node_factory.line_graph(2, fundamount=1000000, wait_for_announce=True)
 
     chan_id = l1.get_channel_id(l2)
 
@@ -184,7 +184,7 @@ def test_splice_rbf(node_factory, bitcoind):
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 def test_splice_nosign(node_factory, bitcoind):
-    l1, l2 = node_factory.line_graph(2, fundamount=1000000, wait_for_announce=True, opts={'experimental-splicing': None})
+    l1, l2 = node_factory.line_graph(2, fundamount=1000000, wait_for_announce=True)
 
     chan_id = l1.get_channel_id(l2)
 
@@ -208,7 +208,7 @@ def test_splice_nosign(node_factory, bitcoind):
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 def test_splice_gossip(node_factory, bitcoind):
-    l1, l2, l3 = node_factory.line_graph(3, fundamount=1000000, wait_for_announce=True, opts={'experimental-splicing': None})
+    l1, l2, l3 = node_factory.line_graph(3, fundamount=1000000, wait_for_announce=True)
 
     chan_id = l1.get_channel_id(l2)
     pre_splice_scid = first_scid(l1, l2)
@@ -272,7 +272,7 @@ def test_splice_gossip(node_factory, bitcoind):
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 def test_splice_listnodes(node_factory, bitcoind):
     # Here we do a splice but underfund it purposefully
-    l1, l2 = node_factory.line_graph(2, fundamount=1000000, wait_for_announce=True, opts={'experimental-splicing': None})
+    l1, l2 = node_factory.line_graph(2, fundamount=1000000, wait_for_announce=True)
 
     chan_id = l1.get_channel_id(l2)
 
@@ -308,7 +308,7 @@ def test_splice_listnodes(node_factory, bitcoind):
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 def test_splice_out(node_factory, bitcoind):
-    l1, l2 = node_factory.line_graph(2, fundamount=1000000, wait_for_announce=True, opts={'experimental-splicing': None})
+    l1, l2 = node_factory.line_graph(2, fundamount=1000000, wait_for_announce=True)
 
     chan_id = l1.get_channel_id(l2)
 
@@ -347,8 +347,7 @@ def test_splice_out(node_factory, bitcoind):
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 def test_invalid_splice(node_factory, bitcoind):
     # Here we do a splice but underfund it purposefully
-    l1, l2 = node_factory.line_graph(2, fundamount=1000000, wait_for_announce=True, opts={'experimental-splicing': None,
-                                                                                          'may_reconnect': True,
+    l1, l2 = node_factory.line_graph(2, fundamount=1000000, wait_for_announce=True, opts={'may_reconnect': True,
                                                                                           'allow_warning': True})
 
     chan_id = l1.get_channel_id(l2)
@@ -405,8 +404,7 @@ def test_invalid_splice(node_factory, bitcoind):
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 def test_commit_crash_splice(node_factory, bitcoind):
     # Here we do a normal splice out but force a restart after commiting.
-    l1, l2 = node_factory.line_graph(2, fundamount=1000000, wait_for_announce=True, opts={'experimental-splicing': None,
-                                                                                          'may_reconnect': True})
+    l1, l2 = node_factory.line_graph(2, fundamount=1000000, wait_for_announce=True, opts={'may_reconnect': True})
 
     chan_id = l1.get_channel_id(l2)
 
@@ -456,7 +454,7 @@ def test_commit_crash_splice(node_factory, bitcoind):
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 def test_splice_stuck_htlc(node_factory, bitcoind, executor):
-    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True, opts={'experimental-splicing': None})
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
 
     l3.rpc.dev_ignore_htlcs(id=l2.info['id'], ignore=True)
 
@@ -501,7 +499,7 @@ def test_splice_stuck_htlc(node_factory, bitcoind, executor):
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 def test_route_by_old_scid(node_factory, bitcoind):
-    opts = {'experimental-splicing': None, 'may_reconnect': True}
+    opts = {'may_reconnect': True}
     # l1 sometimes talks about pre-splice channels.  l2 (being part of the splice) immediately forgets
     # the old scid and uses the new one, then complains when l1 talks about it.  Which is fine, but
     # breaks CI.
@@ -563,7 +561,7 @@ def test_route_by_old_scid(node_factory, bitcoind):
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 def test_splice_unannounced(node_factory, bitcoind):
-    l1, l2 = node_factory.line_graph(2, fundamount=1000000, wait_for_announce=False, opts={'experimental-splicing': None})
+    l1, l2 = node_factory.line_graph(2, fundamount=1000000, wait_for_announce=False)
 
     chan_id = l1.get_channel_id(l2)
 

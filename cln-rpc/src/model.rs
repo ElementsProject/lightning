@@ -10368,6 +10368,12 @@ pub mod responses {
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsExperimentalsplicing {
+	    pub set: bool,
+	    pub source: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListconfigsConfigsMaxlocktimeblocks {
 	    pub source: String,
 	    pub value_int: u32,
@@ -10560,12 +10566,6 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListconfigsConfigsExperimentalshutdownwrongfunding {
-	    pub set: bool,
-	    pub source: String,
-	}
-
-	#[derive(Clone, Debug, Deserialize, Serialize)]
-	pub struct ListconfigsConfigsExperimentalsplicing {
 	    pub set: bool,
 	    pub source: String,
 	}
@@ -10870,6 +10870,10 @@ pub mod responses {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub experimental_onion_messages: Option<ListconfigsConfigsExperimentalonionmessages>,
 	    #[deprecated]
+	    #[serde(rename = "experimental-splicing")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub experimental_splicing: Option<ListconfigsConfigsExperimentalsplicing>,
+	    #[deprecated]
 	    #[serde(rename = "max-locktime-blocks")]
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub max_locktime_blocks: Option<ListconfigsConfigsMaxlocktimeblocks>,
@@ -10948,9 +10952,6 @@ pub mod responses {
 	    #[serde(rename = "experimental-shutdown-wrong-funding")]
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub experimental_shutdown_wrong_funding: Option<ListconfigsConfigsExperimentalshutdownwrongfunding>,
-	    #[serde(rename = "experimental-splicing")]
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub experimental_splicing: Option<ListconfigsConfigsExperimentalsplicing>,
 	    #[serde(rename = "fee-base")]
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub fee_base: Option<ListconfigsConfigsFeebase>,

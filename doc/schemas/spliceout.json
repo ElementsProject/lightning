@@ -5,7 +5,6 @@
   "added": "v26.04",
   "rpc": "spliceout",
   "title": "Command to splice funds out of a channel",
-  "warning": "experimental-splicing only",
   "description": [
     "`spliceout` is the command to move funds into a channel."
   ],
