@@ -727,8 +727,7 @@ int connectd_init(struct lightningd *ld)
 				   !ld->reconnect,
 				   ld->dev_fast_reconnect,
 				   ld->dev_limit_connections_inflight,
-				   ld->dev_keep_nagle,
-				   ld->dev_uniform_padding);
+				   ld->dev_keep_nagle);
 
 	subd_req(ld->connectd, ld->connectd, take(msg), -1, 0,
 		 connect_init_done, NULL);
