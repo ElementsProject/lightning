@@ -481,9 +481,13 @@ static bool have_empty_encrypted_queue(const struct peer *peer)
 	return membuf_num_elems(&peer->encrypted_peer_out) == 0;
 }
 
+/* Funny story: we discovered an LND bug, where they hung up if we sent
+ * "no reply" ping messages.  This was fixed in (the upcoming) v21, which
+ * Laolu pointed out also supports onion messages.  Hence we use that
+ * to detect if we should pad packets. */
 static bool use_uniform_writes(const struct peer *peer)
 {
-	return peer->daemon->dev_uniform_padding;
+	return feature_offered(peer->their_features, OPT_ONION_MESSAGES);
 }
 
 /* (Continue) writing the encrypted_peer_out array */
