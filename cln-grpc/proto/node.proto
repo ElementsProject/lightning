@@ -3105,6 +3105,52 @@ message ListconfigsConfigs {
 	optional ListconfigsConfigsAutoconnectseekerpeers autoconnect_seeker_peers = 71;
 	optional ListconfigsConfigsCurrencyrateaddsource currencyrate_add_source = 74;
 	optional ListconfigsConfigsCurrencyratedisablesource currencyrate_disable_source = 75;
+	optional ListconfigsConfigsHelp help = 76;
+	optional ListconfigsConfigsVersion version = 77;
+	optional ListconfigsConfigsIpromisetofixbrokenapiuser i_promise_to_fix_broken_api_user = 78;
+	optional ListconfigsConfigsBitcoincli bitcoin_cli = 79;
+	optional ListconfigsConfigsBitcoindatadir bitcoin_datadir = 80;
+	optional ListconfigsConfigsBitcoinrpcuser bitcoin_rpcuser = 81;
+	optional ListconfigsConfigsBitcoinrpcpassword bitcoin_rpcpassword = 82;
+	optional ListconfigsConfigsBitcoinrpcconnect bitcoin_rpcconnect = 83;
+	optional ListconfigsConfigsBitcoinrpcport bitcoin_rpcport = 84;
+	optional ListconfigsConfigsBitcoinrpcclienttimeout bitcoin_rpcclienttimeout = 85;
+	optional ListconfigsConfigsBitcoinretrytimeout bitcoin_retry_timeout = 86;
+	optional ListconfigsConfigsHsmpassphrase hsm_passphrase = 87;
+	optional ListconfigsConfigsRecover recover = 88;
+	optional ListconfigsConfigsGrpchost grpc_host = 89;
+	optional ListconfigsConfigsGrpcport grpc_port = 90;
+	optional ListconfigsConfigsGrpcmsgbuffersize grpc_msg_buffer_size = 91;
+	optional ListconfigsConfigsAccepthtlctlvtype accept_htlc_tlv_type = 92;
+	optional ListconfigsConfigsMinemergencymsat min_emergency_msat = 93;
+	optional ListconfigsConfigsInvoicesonchainfallback invoices_onchain_fallback = 94;
+	optional ListconfigsConfigsAutocleancycle autoclean_cycle = 95;
+	optional ListconfigsConfigsAutocleannetworkeventsage autoclean_networkevents_age = 96;
+	optional ListconfigsConfigsAutocleansucceededforwardsage autoclean_succeededforwards_age = 97;
+	optional ListconfigsConfigsAutocleanfailedforwardsage autoclean_failedforwards_age = 98;
+	optional ListconfigsConfigsAutocleansucceededpaysage autoclean_succeededpays_age = 99;
+	optional ListconfigsConfigsAutocleanfailedpaysage autoclean_failedpays_age = 100;
+	optional ListconfigsConfigsAutocleanpaidinvoicesage autoclean_paidinvoices_age = 101;
+	optional ListconfigsConfigsAutocleanexpiredinvoicesage autoclean_expiredinvoices_age = 102;
+	optional ListconfigsConfigsPaymentfrontingnode payment_fronting_node = 103;
+	optional ListconfigsConfigsXpayhandlepay xpay_handle_pay = 104;
+	optional ListconfigsConfigsXpayslowmode xpay_slow_mode = 105;
+	optional ListconfigsConfigsAskrenetimeout askrene_timeout = 106;
+	optional ListconfigsConfigsAskrenemaxthreads askrene_max_threads = 107;
+	optional ListconfigsConfigsBkprcurrency bkpr_currency = 108;
+	optional ListconfigsConfigsClnrestport clnrest_port = 109;
+	optional ListconfigsConfigsClnrestprotocol clnrest_protocol = 110;
+	optional ListconfigsConfigsClnresthost clnrest_host = 111;
+	optional ListconfigsConfigsClnrestcerts clnrest_certs = 112;
+	optional ListconfigsConfigsClnrestcorsorigins clnrest_cors_origins = 113;
+	optional ListconfigsConfigsClnrestcsp clnrest_csp = 114;
+	optional ListconfigsConfigsClnrestswaggerroot clnrest_swagger_root = 115;
+	optional ListconfigsConfigsWssbindaddr wss_bind_addr = 116;
+	optional ListconfigsConfigsWsscerts wss_certs = 117;
+	optional ListconfigsConfigsExposesecretpassphrase exposesecret_passphrase = 118;
+	optional ListconfigsConfigsExperimentallspsclient experimental_lsps_client = 119;
+	optional ListconfigsConfigsExperimentallsps2service experimental_lsps2_service = 120;
+	optional ListconfigsConfigsExperimentallsps2promisesecret experimental_lsps2_promise_secret = 121;
 }
 
 message ListconfigsConfigsConf {
@@ -3457,6 +3503,288 @@ message ListconfigsConfigsRequireconfirmedinputs {
 
 message ListconfigsConfigsCommitfee {
 	uint64 value_int = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsHelp {
+	bool set = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsVersion {
+	bool set = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsIpromisetofixbrokenapiuser {
+	repeated string values_str = 1;
+	repeated string sources = 2;
+}
+
+message ListconfigsConfigsBitcoincli {
+	string value_str = 1;
+	string source = 2;
+	optional string plugin = 3;
+}
+
+message ListconfigsConfigsBitcoindatadir {
+	string value_str = 1;
+	string source = 2;
+	optional string plugin = 3;
+}
+
+message ListconfigsConfigsBitcoinrpcuser {
+	string value_str = 1;
+	string source = 2;
+	optional string plugin = 3;
+}
+
+message ListconfigsConfigsBitcoinrpcpassword {
+	string value_str = 1;
+	string source = 2;
+	optional string plugin = 3;
+}
+
+message ListconfigsConfigsBitcoinrpcconnect {
+	string value_str = 1;
+	string source = 2;
+	optional string plugin = 3;
+}
+
+message ListconfigsConfigsBitcoinrpcport {
+	uint32 value_int = 1;
+	string source = 2;
+	optional string plugin = 3;
+}
+
+message ListconfigsConfigsBitcoinrpcclienttimeout {
+	uint32 value_int = 1;
+	string source = 2;
+	optional string plugin = 3;
+}
+
+message ListconfigsConfigsBitcoinretrytimeout {
+	uint32 value_int = 1;
+	string source = 2;
+	optional string plugin = 3;
+}
+
+message ListconfigsConfigsHsmpassphrase {
+	bool set = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsRecover {
+	string value_str = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsGrpchost {
+	string value_str = 1;
+	string source = 2;
+	optional string plugin = 3;
+}
+
+message ListconfigsConfigsGrpcport {
+	uint32 value_int = 1;
+	string source = 2;
+	optional string plugin = 3;
+}
+
+message ListconfigsConfigsGrpcmsgbuffersize {
+	uint32 value_int = 1;
+	string source = 2;
+	optional string plugin = 3;
+}
+
+message ListconfigsConfigsAccepthtlctlvtype {
+	repeated uint32 values_int = 1;
+	repeated string sources = 2;
+}
+
+message ListconfigsConfigsMinemergencymsat {
+	Amount value_msat = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsInvoicesonchainfallback {
+	bool set = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsAutocleancycle {
+	uint32 value_int = 1;
+	string source = 2;
+	optional string plugin = 3;
+	optional bool dynamic = 4;
+}
+
+message ListconfigsConfigsAutocleannetworkeventsage {
+	uint32 value_int = 1;
+	string source = 2;
+	optional string plugin = 3;
+	optional bool dynamic = 4;
+}
+
+message ListconfigsConfigsAutocleansucceededforwardsage {
+	uint32 value_int = 1;
+	string source = 2;
+	optional string plugin = 3;
+	optional bool dynamic = 4;
+}
+
+message ListconfigsConfigsAutocleanfailedforwardsage {
+	uint32 value_int = 1;
+	string source = 2;
+	optional string plugin = 3;
+	optional bool dynamic = 4;
+}
+
+message ListconfigsConfigsAutocleansucceededpaysage {
+	uint32 value_int = 1;
+	string source = 2;
+	optional string plugin = 3;
+	optional bool dynamic = 4;
+}
+
+message ListconfigsConfigsAutocleanfailedpaysage {
+	uint32 value_int = 1;
+	string source = 2;
+	optional string plugin = 3;
+	optional bool dynamic = 4;
+}
+
+message ListconfigsConfigsAutocleanpaidinvoicesage {
+	uint32 value_int = 1;
+	string source = 2;
+	optional string plugin = 3;
+	optional bool dynamic = 4;
+}
+
+message ListconfigsConfigsAutocleanexpiredinvoicesage {
+	uint32 value_int = 1;
+	string source = 2;
+	optional string plugin = 3;
+	optional bool dynamic = 4;
+}
+
+message ListconfigsConfigsPaymentfrontingnode {
+	repeated string values_str = 1;
+	repeated string sources = 2;
+}
+
+message ListconfigsConfigsXpayhandlepay {
+	bool value_bool = 1;
+	string source = 2;
+	optional string plugin = 3;
+	optional bool dynamic = 4;
+}
+
+message ListconfigsConfigsXpayslowmode {
+	bool value_bool = 1;
+	string source = 2;
+	optional string plugin = 3;
+	optional bool dynamic = 4;
+}
+
+message ListconfigsConfigsAskrenetimeout {
+	uint32 value_int = 1;
+	string source = 2;
+	optional string plugin = 3;
+	optional bool dynamic = 4;
+}
+
+message ListconfigsConfigsAskrenemaxthreads {
+	uint32 value_int = 1;
+	string source = 2;
+	optional string plugin = 3;
+	optional bool dynamic = 4;
+}
+
+message ListconfigsConfigsBkprcurrency {
+	string value_str = 1;
+	string source = 2;
+	optional string plugin = 3;
+	optional bool dynamic = 4;
+}
+
+message ListconfigsConfigsClnrestport {
+	uint32 value_int = 1;
+	string source = 2;
+	optional string plugin = 3;
+}
+
+message ListconfigsConfigsClnrestprotocol {
+	// ListConfigs.configs.clnrest-protocol.value_str
+	enum ListconfigsConfigsClnrestprotocolValueStr {
+		HTTP = 0;
+		HTTPS = 1;
+	}
+	ListconfigsConfigsClnrestprotocolValueStr value_str = 1;
+	string source = 2;
+	optional string plugin = 3;
+}
+
+message ListconfigsConfigsClnresthost {
+	string value_str = 1;
+	string source = 2;
+	optional string plugin = 3;
+}
+
+message ListconfigsConfigsClnrestcerts {
+	string value_str = 1;
+	string source = 2;
+	optional string plugin = 3;
+}
+
+message ListconfigsConfigsClnrestcorsorigins {
+	string value_str = 1;
+	string source = 2;
+	optional string plugin = 3;
+}
+
+message ListconfigsConfigsClnrestcsp {
+	string value_str = 1;
+	string source = 2;
+	optional string plugin = 3;
+}
+
+message ListconfigsConfigsClnrestswaggerroot {
+	string value_str = 1;
+	string source = 2;
+	optional string plugin = 3;
+}
+
+message ListconfigsConfigsWssbindaddr {
+	repeated string values_str = 1;
+	repeated string sources = 2;
+	optional string plugin = 3;
+}
+
+message ListconfigsConfigsWsscerts {
+	string value_str = 1;
+	string source = 2;
+	optional string plugin = 3;
+}
+
+message ListconfigsConfigsExposesecretpassphrase {
+	string value_str = 1;
+	string source = 2;
+	optional string plugin = 3;
+}
+
+message ListconfigsConfigsExperimentallspsclient {
+	bool set = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsExperimentallsps2service {
+	bool set = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsExperimentallsps2promisesecret {
+	string value_str = 1;
 	string source = 2;
 }
 

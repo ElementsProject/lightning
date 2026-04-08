@@ -238,6 +238,10 @@
             "false": 1,
             "true": 0
         },
+        "ListconfigsConfigsClnrest-protocolValueStr": {
+            "HTTP": 0,
+            "HTTPS": 1
+        },
         "ListconfigsConfigsConfSource": {
             "cmdline": 0
         },
@@ -2387,6 +2391,7 @@
             "ListClosedChannels.closedchannels[]": 1
         },
         "ListconfigsConfigs": {
+            "ListConfigs.configs.accept-htlc-tlv-type": 92,
             "ListConfigs.configs.accept-htlc-tlv-types": 65,
             "ListConfigs.configs.add-source": 72,
             "ListConfigs.configs.addr": 47,
@@ -2397,10 +2402,36 @@
             "ListConfigs.configs.announce-addr-discovered": 54,
             "ListConfigs.configs.announce-addr-discovered-port": 55,
             "ListConfigs.configs.announce-addr-dns": 67,
+            "ListConfigs.configs.askrene-max-threads": 107,
+            "ListConfigs.configs.askrene-timeout": 106,
+            "ListConfigs.configs.autoclean-cycle": 95,
+            "ListConfigs.configs.autoclean-expiredinvoices-age": 102,
+            "ListConfigs.configs.autoclean-failedforwards-age": 98,
+            "ListConfigs.configs.autoclean-failedpays-age": 100,
+            "ListConfigs.configs.autoclean-networkevents-age": 96,
+            "ListConfigs.configs.autoclean-paidinvoices-age": 101,
+            "ListConfigs.configs.autoclean-succeededforwards-age": 97,
+            "ListConfigs.configs.autoclean-succeededpays-age": 99,
             "ListConfigs.configs.autoconnect-seeker-peers": 71,
             "ListConfigs.configs.autolisten": 51,
             "ListConfigs.configs.bind-addr": 49,
+            "ListConfigs.configs.bitcoin-cli": 79,
+            "ListConfigs.configs.bitcoin-datadir": 80,
+            "ListConfigs.configs.bitcoin-retry-timeout": 86,
+            "ListConfigs.configs.bitcoin-rpcclienttimeout": 85,
+            "ListConfigs.configs.bitcoin-rpcconnect": 83,
+            "ListConfigs.configs.bitcoin-rpcpassword": 82,
+            "ListConfigs.configs.bitcoin-rpcport": 84,
+            "ListConfigs.configs.bitcoin-rpcuser": 81,
+            "ListConfigs.configs.bkpr-currency": 108,
             "ListConfigs.configs.clear-plugins": 3,
+            "ListConfigs.configs.clnrest-certs": 112,
+            "ListConfigs.configs.clnrest-cors-origins": 113,
+            "ListConfigs.configs.clnrest-csp": 114,
+            "ListConfigs.configs.clnrest-host": 111,
+            "ListConfigs.configs.clnrest-port": 109,
+            "ListConfigs.configs.clnrest-protocol": 110,
+            "ListConfigs.configs.clnrest-swagger-root": 115,
             "ListConfigs.configs.cltv-delta": 36,
             "ListConfigs.configs.cltv-final": 37,
             "ListConfigs.configs.commit-fee": 69,
@@ -2419,20 +2450,31 @@
             "ListConfigs.configs.encrypted-hsm": 56,
             "ListConfigs.configs.experimental-anchors": 27,
             "ListConfigs.configs.experimental-dual-fund": 21,
+            "ListConfigs.configs.experimental-lsps-client": 119,
+            "ListConfigs.configs.experimental-lsps2-promise-secret": 121,
+            "ListConfigs.configs.experimental-lsps2-service": 120,
             "ListConfigs.configs.experimental-offers": 24,
             "ListConfigs.configs.experimental-onion-messages": 23,
             "ListConfigs.configs.experimental-peer-storage": 26,
             "ListConfigs.configs.experimental-shutdown-wrong-funding": 25,
             "ListConfigs.configs.experimental-splicing": 22,
+            "ListConfigs.configs.exposesecret-passphrase": 118,
             "ListConfigs.configs.fee-base": 39,
             "ListConfigs.configs.fee-per-satoshi": 41,
             "ListConfigs.configs.fetchinvoice-noconnect": 64,
             "ListConfigs.configs.force-feerates": 62,
             "ListConfigs.configs.funding-confirms": 35,
+            "ListConfigs.configs.grpc-host": 89,
+            "ListConfigs.configs.grpc-msg-buffer-size": 91,
+            "ListConfigs.configs.grpc-port": 90,
+            "ListConfigs.configs.help": 76,
+            "ListConfigs.configs.hsm-passphrase": 87,
             "ListConfigs.configs.htlc-maximum-msat": 44,
             "ListConfigs.configs.htlc-minimum-msat": 43,
+            "ListConfigs.configs.i-promise-to-fix-broken-api-user": 78,
             "ListConfigs.configs.ignore-fee-limits": 32,
             "ListConfigs.configs.important-plugin": 9,
+            "ListConfigs.configs.invoices-onchain-fallback": 94,
             "ListConfigs.configs.large-channels": 20,
             "ListConfigs.configs.lightning-dir": 12,
             "ListConfigs.configs.log-file": 60,
@@ -2444,12 +2486,15 @@
             "ListConfigs.configs.max-dust-htlc-exposure-msat": 45,
             "ListConfigs.configs.max-locktime-blocks": 34,
             "ListConfigs.configs.min-capacity-sat": 46,
+            "ListConfigs.configs.min-emergency-msat": 93,
             "ListConfigs.configs.network": 13,
             "ListConfigs.configs.offline": 50,
+            "ListConfigs.configs.payment-fronting-node": 103,
             "ListConfigs.configs.pid-file": 31,
             "ListConfigs.configs.plugin": 10,
             "ListConfigs.configs.plugin-dir": 11,
             "ListConfigs.configs.proxy": 52,
+            "ListConfigs.configs.recover": 88,
             "ListConfigs.configs.regtest": 6,
             "ListConfigs.configs.require-confirmed-inputs": 68,
             "ListConfigs.configs.rescan": 40,
@@ -2460,8 +2505,17 @@
             "ListConfigs.configs.subdaemon": 63,
             "ListConfigs.configs.testnet": 8,
             "ListConfigs.configs.tor-service-password": 66,
+            "ListConfigs.configs.version": 77,
             "ListConfigs.configs.wallet": 19,
-            "ListConfigs.configs.watchtime-blocks": 33
+            "ListConfigs.configs.watchtime-blocks": 33,
+            "ListConfigs.configs.wss-bind-addr": 116,
+            "ListConfigs.configs.wss-certs": 117,
+            "ListConfigs.configs.xpay-handle-pay": 104,
+            "ListConfigs.configs.xpay-slow-mode": 105
+        },
+        "ListconfigsConfigsAccept-htlc-tlv-type": {
+            "ListConfigs.configs.accept-htlc-tlv-type.sources[]": 2,
+            "ListConfigs.configs.accept-htlc-tlv-type.values_int[]": 1
         },
         "ListconfigsConfigsAccept-htlc-tlv-types": {
             "ListConfigs.configs.accept-htlc-tlv-types.source": 2,
@@ -2504,6 +2558,66 @@
             "ListConfigs.configs.announce-addr-dns.source": 2,
             "ListConfigs.configs.announce-addr-dns.value_bool": 1
         },
+        "ListconfigsConfigsAskrene-max-threads": {
+            "ListConfigs.configs.askrene-max-threads.dynamic": 4,
+            "ListConfigs.configs.askrene-max-threads.plugin": 3,
+            "ListConfigs.configs.askrene-max-threads.source": 2,
+            "ListConfigs.configs.askrene-max-threads.value_int": 1
+        },
+        "ListconfigsConfigsAskrene-timeout": {
+            "ListConfigs.configs.askrene-timeout.dynamic": 4,
+            "ListConfigs.configs.askrene-timeout.plugin": 3,
+            "ListConfigs.configs.askrene-timeout.source": 2,
+            "ListConfigs.configs.askrene-timeout.value_int": 1
+        },
+        "ListconfigsConfigsAutoclean-cycle": {
+            "ListConfigs.configs.autoclean-cycle.dynamic": 4,
+            "ListConfigs.configs.autoclean-cycle.plugin": 3,
+            "ListConfigs.configs.autoclean-cycle.source": 2,
+            "ListConfigs.configs.autoclean-cycle.value_int": 1
+        },
+        "ListconfigsConfigsAutoclean-expiredinvoices-age": {
+            "ListConfigs.configs.autoclean-expiredinvoices-age.dynamic": 4,
+            "ListConfigs.configs.autoclean-expiredinvoices-age.plugin": 3,
+            "ListConfigs.configs.autoclean-expiredinvoices-age.source": 2,
+            "ListConfigs.configs.autoclean-expiredinvoices-age.value_int": 1
+        },
+        "ListconfigsConfigsAutoclean-failedforwards-age": {
+            "ListConfigs.configs.autoclean-failedforwards-age.dynamic": 4,
+            "ListConfigs.configs.autoclean-failedforwards-age.plugin": 3,
+            "ListConfigs.configs.autoclean-failedforwards-age.source": 2,
+            "ListConfigs.configs.autoclean-failedforwards-age.value_int": 1
+        },
+        "ListconfigsConfigsAutoclean-failedpays-age": {
+            "ListConfigs.configs.autoclean-failedpays-age.dynamic": 4,
+            "ListConfigs.configs.autoclean-failedpays-age.plugin": 3,
+            "ListConfigs.configs.autoclean-failedpays-age.source": 2,
+            "ListConfigs.configs.autoclean-failedpays-age.value_int": 1
+        },
+        "ListconfigsConfigsAutoclean-networkevents-age": {
+            "ListConfigs.configs.autoclean-networkevents-age.dynamic": 4,
+            "ListConfigs.configs.autoclean-networkevents-age.plugin": 3,
+            "ListConfigs.configs.autoclean-networkevents-age.source": 2,
+            "ListConfigs.configs.autoclean-networkevents-age.value_int": 1
+        },
+        "ListconfigsConfigsAutoclean-paidinvoices-age": {
+            "ListConfigs.configs.autoclean-paidinvoices-age.dynamic": 4,
+            "ListConfigs.configs.autoclean-paidinvoices-age.plugin": 3,
+            "ListConfigs.configs.autoclean-paidinvoices-age.source": 2,
+            "ListConfigs.configs.autoclean-paidinvoices-age.value_int": 1
+        },
+        "ListconfigsConfigsAutoclean-succeededforwards-age": {
+            "ListConfigs.configs.autoclean-succeededforwards-age.dynamic": 4,
+            "ListConfigs.configs.autoclean-succeededforwards-age.plugin": 3,
+            "ListConfigs.configs.autoclean-succeededforwards-age.source": 2,
+            "ListConfigs.configs.autoclean-succeededforwards-age.value_int": 1
+        },
+        "ListconfigsConfigsAutoclean-succeededpays-age": {
+            "ListConfigs.configs.autoclean-succeededpays-age.dynamic": 4,
+            "ListConfigs.configs.autoclean-succeededpays-age.plugin": 3,
+            "ListConfigs.configs.autoclean-succeededpays-age.source": 2,
+            "ListConfigs.configs.autoclean-succeededpays-age.value_int": 1
+        },
         "ListconfigsConfigsAutoconnect-seeker-peers": {
             "ListConfigs.configs.autoconnect-seeker-peers.source": 2,
             "ListConfigs.configs.autoconnect-seeker-peers.value_int": 1
@@ -2516,9 +2630,90 @@
             "ListConfigs.configs.bind-addr.sources[]": 2,
             "ListConfigs.configs.bind-addr.values_str[]": 1
         },
+        "ListconfigsConfigsBitcoin-cli": {
+            "ListConfigs.configs.bitcoin-cli.plugin": 3,
+            "ListConfigs.configs.bitcoin-cli.source": 2,
+            "ListConfigs.configs.bitcoin-cli.value_str": 1
+        },
+        "ListconfigsConfigsBitcoin-datadir": {
+            "ListConfigs.configs.bitcoin-datadir.plugin": 3,
+            "ListConfigs.configs.bitcoin-datadir.source": 2,
+            "ListConfigs.configs.bitcoin-datadir.value_str": 1
+        },
+        "ListconfigsConfigsBitcoin-retry-timeout": {
+            "ListConfigs.configs.bitcoin-retry-timeout.plugin": 3,
+            "ListConfigs.configs.bitcoin-retry-timeout.source": 2,
+            "ListConfigs.configs.bitcoin-retry-timeout.value_int": 1
+        },
+        "ListconfigsConfigsBitcoin-rpcclienttimeout": {
+            "ListConfigs.configs.bitcoin-rpcclienttimeout.plugin": 3,
+            "ListConfigs.configs.bitcoin-rpcclienttimeout.source": 2,
+            "ListConfigs.configs.bitcoin-rpcclienttimeout.value_int": 1
+        },
+        "ListconfigsConfigsBitcoin-rpcconnect": {
+            "ListConfigs.configs.bitcoin-rpcconnect.plugin": 3,
+            "ListConfigs.configs.bitcoin-rpcconnect.source": 2,
+            "ListConfigs.configs.bitcoin-rpcconnect.value_str": 1
+        },
+        "ListconfigsConfigsBitcoin-rpcpassword": {
+            "ListConfigs.configs.bitcoin-rpcpassword.plugin": 3,
+            "ListConfigs.configs.bitcoin-rpcpassword.source": 2,
+            "ListConfigs.configs.bitcoin-rpcpassword.value_str": 1
+        },
+        "ListconfigsConfigsBitcoin-rpcport": {
+            "ListConfigs.configs.bitcoin-rpcport.plugin": 3,
+            "ListConfigs.configs.bitcoin-rpcport.source": 2,
+            "ListConfigs.configs.bitcoin-rpcport.value_int": 1
+        },
+        "ListconfigsConfigsBitcoin-rpcuser": {
+            "ListConfigs.configs.bitcoin-rpcuser.plugin": 3,
+            "ListConfigs.configs.bitcoin-rpcuser.source": 2,
+            "ListConfigs.configs.bitcoin-rpcuser.value_str": 1
+        },
+        "ListconfigsConfigsBkpr-currency": {
+            "ListConfigs.configs.bkpr-currency.dynamic": 4,
+            "ListConfigs.configs.bkpr-currency.plugin": 3,
+            "ListConfigs.configs.bkpr-currency.source": 2,
+            "ListConfigs.configs.bkpr-currency.value_str": 1
+        },
         "ListconfigsConfigsClear-plugins": {
             "ListConfigs.configs.clear-plugins.set": 1,
             "ListConfigs.configs.clear-plugins.source": 2
+        },
+        "ListconfigsConfigsClnrest-certs": {
+            "ListConfigs.configs.clnrest-certs.plugin": 3,
+            "ListConfigs.configs.clnrest-certs.source": 2,
+            "ListConfigs.configs.clnrest-certs.value_str": 1
+        },
+        "ListconfigsConfigsClnrest-cors-origins": {
+            "ListConfigs.configs.clnrest-cors-origins.plugin": 3,
+            "ListConfigs.configs.clnrest-cors-origins.source": 2,
+            "ListConfigs.configs.clnrest-cors-origins.value_str": 1
+        },
+        "ListconfigsConfigsClnrest-csp": {
+            "ListConfigs.configs.clnrest-csp.plugin": 3,
+            "ListConfigs.configs.clnrest-csp.source": 2,
+            "ListConfigs.configs.clnrest-csp.value_str": 1
+        },
+        "ListconfigsConfigsClnrest-host": {
+            "ListConfigs.configs.clnrest-host.plugin": 3,
+            "ListConfigs.configs.clnrest-host.source": 2,
+            "ListConfigs.configs.clnrest-host.value_str": 1
+        },
+        "ListconfigsConfigsClnrest-port": {
+            "ListConfigs.configs.clnrest-port.plugin": 3,
+            "ListConfigs.configs.clnrest-port.source": 2,
+            "ListConfigs.configs.clnrest-port.value_int": 1
+        },
+        "ListconfigsConfigsClnrest-protocol": {
+            "ListConfigs.configs.clnrest-protocol.plugin": 3,
+            "ListConfigs.configs.clnrest-protocol.source": 2,
+            "ListConfigs.configs.clnrest-protocol.value_str": 1
+        },
+        "ListconfigsConfigsClnrest-swagger-root": {
+            "ListConfigs.configs.clnrest-swagger-root.plugin": 3,
+            "ListConfigs.configs.clnrest-swagger-root.source": 2,
+            "ListConfigs.configs.clnrest-swagger-root.value_str": 1
         },
         "ListconfigsConfigsCltv-delta": {
             "ListConfigs.configs.cltv-delta.source": 2,
@@ -2596,6 +2791,18 @@
             "ListConfigs.configs.experimental-dual-fund.set": 1,
             "ListConfigs.configs.experimental-dual-fund.source": 2
         },
+        "ListconfigsConfigsExperimental-lsps-client": {
+            "ListConfigs.configs.experimental-lsps-client.set": 1,
+            "ListConfigs.configs.experimental-lsps-client.source": 2
+        },
+        "ListconfigsConfigsExperimental-lsps2-promise-secret": {
+            "ListConfigs.configs.experimental-lsps2-promise-secret.source": 2,
+            "ListConfigs.configs.experimental-lsps2-promise-secret.value_str": 1
+        },
+        "ListconfigsConfigsExperimental-lsps2-service": {
+            "ListConfigs.configs.experimental-lsps2-service.set": 1,
+            "ListConfigs.configs.experimental-lsps2-service.source": 2
+        },
         "ListconfigsConfigsExperimental-offers": {
             "ListConfigs.configs.experimental-offers.set": 1,
             "ListConfigs.configs.experimental-offers.source": 2
@@ -2615,6 +2822,11 @@
         "ListconfigsConfigsExperimental-splicing": {
             "ListConfigs.configs.experimental-splicing.set": 1,
             "ListConfigs.configs.experimental-splicing.source": 2
+        },
+        "ListconfigsConfigsExposesecret-passphrase": {
+            "ListConfigs.configs.exposesecret-passphrase.plugin": 3,
+            "ListConfigs.configs.exposesecret-passphrase.source": 2,
+            "ListConfigs.configs.exposesecret-passphrase.value_str": 1
         },
         "ListconfigsConfigsFee-base": {
             "ListConfigs.configs.fee-base.source": 2,
@@ -2637,6 +2849,29 @@
             "ListConfigs.configs.funding-confirms.source": 2,
             "ListConfigs.configs.funding-confirms.value_int": 1
         },
+        "ListconfigsConfigsGrpc-host": {
+            "ListConfigs.configs.grpc-host.plugin": 3,
+            "ListConfigs.configs.grpc-host.source": 2,
+            "ListConfigs.configs.grpc-host.value_str": 1
+        },
+        "ListconfigsConfigsGrpc-msg-buffer-size": {
+            "ListConfigs.configs.grpc-msg-buffer-size.plugin": 3,
+            "ListConfigs.configs.grpc-msg-buffer-size.source": 2,
+            "ListConfigs.configs.grpc-msg-buffer-size.value_int": 1
+        },
+        "ListconfigsConfigsGrpc-port": {
+            "ListConfigs.configs.grpc-port.plugin": 3,
+            "ListConfigs.configs.grpc-port.source": 2,
+            "ListConfigs.configs.grpc-port.value_int": 1
+        },
+        "ListconfigsConfigsHelp": {
+            "ListConfigs.configs.help.set": 1,
+            "ListConfigs.configs.help.source": 2
+        },
+        "ListconfigsConfigsHsm-passphrase": {
+            "ListConfigs.configs.hsm-passphrase.set": 1,
+            "ListConfigs.configs.hsm-passphrase.source": 2
+        },
         "ListconfigsConfigsHtlc-maximum-msat": {
             "ListConfigs.configs.htlc-maximum-msat.source": 2,
             "ListConfigs.configs.htlc-maximum-msat.value_msat": 1
@@ -2645,6 +2880,10 @@
             "ListConfigs.configs.htlc-minimum-msat.source": 2,
             "ListConfigs.configs.htlc-minimum-msat.value_msat": 1
         },
+        "ListconfigsConfigsI-promise-to-fix-broken-api-user": {
+            "ListConfigs.configs.i-promise-to-fix-broken-api-user.sources[]": 2,
+            "ListConfigs.configs.i-promise-to-fix-broken-api-user.values_str[]": 1
+        },
         "ListconfigsConfigsIgnore-fee-limits": {
             "ListConfigs.configs.ignore-fee-limits.source": 2,
             "ListConfigs.configs.ignore-fee-limits.value_bool": 1
@@ -2652,6 +2891,10 @@
         "ListconfigsConfigsImportant-plugin": {
             "ListConfigs.configs.important-plugin.sources[]": 2,
             "ListConfigs.configs.important-plugin.values_str[]": 1
+        },
+        "ListconfigsConfigsInvoices-onchain-fallback": {
+            "ListConfigs.configs.invoices-onchain-fallback.set": 1,
+            "ListConfigs.configs.invoices-onchain-fallback.source": 2
         },
         "ListconfigsConfigsLarge-channels": {
             "ListConfigs.configs.large-channels.set": 1,
@@ -2698,6 +2941,10 @@
             "ListConfigs.configs.min-capacity-sat.source": 2,
             "ListConfigs.configs.min-capacity-sat.value_int": 1
         },
+        "ListconfigsConfigsMin-emergency-msat": {
+            "ListConfigs.configs.min-emergency-msat.source": 2,
+            "ListConfigs.configs.min-emergency-msat.value_msat": 1
+        },
         "ListconfigsConfigsNetwork": {
             "ListConfigs.configs.network.source": 2,
             "ListConfigs.configs.network.value_str": 1
@@ -2705,6 +2952,10 @@
         "ListconfigsConfigsOffline": {
             "ListConfigs.configs.offline.set": 1,
             "ListConfigs.configs.offline.source": 2
+        },
+        "ListconfigsConfigsPayment-fronting-node": {
+            "ListConfigs.configs.payment-fronting-node.sources[]": 2,
+            "ListConfigs.configs.payment-fronting-node.values_str[]": 1
         },
         "ListconfigsConfigsPid-file": {
             "ListConfigs.configs.pid-file.source": 2,
@@ -2721,6 +2972,10 @@
         "ListconfigsConfigsProxy": {
             "ListConfigs.configs.proxy.source": 2,
             "ListConfigs.configs.proxy.value_str": 1
+        },
+        "ListconfigsConfigsRecover": {
+            "ListConfigs.configs.recover.source": 2,
+            "ListConfigs.configs.recover.value_str": 1
         },
         "ListconfigsConfigsRegtest": {
             "ListConfigs.configs.regtest.set": 1,
@@ -2762,6 +3017,10 @@
             "ListConfigs.configs.tor-service-password.source": 2,
             "ListConfigs.configs.tor-service-password.value_str": 1
         },
+        "ListconfigsConfigsVersion": {
+            "ListConfigs.configs.version.set": 1,
+            "ListConfigs.configs.version.source": 2
+        },
         "ListconfigsConfigsWallet": {
             "ListConfigs.configs.wallet.source": 2,
             "ListConfigs.configs.wallet.value_str": 1
@@ -2769,6 +3028,28 @@
         "ListconfigsConfigsWatchtime-blocks": {
             "ListConfigs.configs.watchtime-blocks.source": 2,
             "ListConfigs.configs.watchtime-blocks.value_int": 1
+        },
+        "ListconfigsConfigsWss-bind-addr": {
+            "ListConfigs.configs.wss-bind-addr.plugin": 3,
+            "ListConfigs.configs.wss-bind-addr.sources[]": 2,
+            "ListConfigs.configs.wss-bind-addr.values_str[]": 1
+        },
+        "ListconfigsConfigsWss-certs": {
+            "ListConfigs.configs.wss-certs.plugin": 3,
+            "ListConfigs.configs.wss-certs.source": 2,
+            "ListConfigs.configs.wss-certs.value_str": 1
+        },
+        "ListconfigsConfigsXpay-handle-pay": {
+            "ListConfigs.configs.xpay-handle-pay.dynamic": 4,
+            "ListConfigs.configs.xpay-handle-pay.plugin": 3,
+            "ListConfigs.configs.xpay-handle-pay.source": 2,
+            "ListConfigs.configs.xpay-handle-pay.value_bool": 1
+        },
+        "ListconfigsConfigsXpay-slow-mode": {
+            "ListConfigs.configs.xpay-slow-mode.dynamic": 4,
+            "ListConfigs.configs.xpay-slow-mode.plugin": 3,
+            "ListConfigs.configs.xpay-slow-mode.source": 2,
+            "ListConfigs.configs.xpay-slow-mode.value_bool": 1
         },
         "ListconfigsImportant-plugins": {
             "ListConfigs.important-plugins[].name": 2,
@@ -9331,6 +9612,18 @@
             "added": "v23.08",
             "deprecated": null
         },
+        "ListConfigs.configs.accept-htlc-tlv-type": {
+            "added": "v23.08",
+            "deprecated": null
+        },
+        "ListConfigs.configs.accept-htlc-tlv-type.sources[]": {
+            "added": "v23.08",
+            "deprecated": null
+        },
+        "ListConfigs.configs.accept-htlc-tlv-type.values_int[]": {
+            "added": "v23.08",
+            "deprecated": null
+        },
         "ListConfigs.configs.accept-htlc-tlv-types": {
             "added": "pre-v0.10.1",
             "deprecated": null
@@ -9455,6 +9748,206 @@
             "added": "pre-v0.10.1",
             "deprecated": null
         },
+        "ListConfigs.configs.askrene-max-threads": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "ListConfigs.configs.askrene-max-threads.dynamic": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "ListConfigs.configs.askrene-max-threads.plugin": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "ListConfigs.configs.askrene-max-threads.source": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "ListConfigs.configs.askrene-max-threads.value_int": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "ListConfigs.configs.askrene-timeout": {
+            "added": "v24.11",
+            "deprecated": null
+        },
+        "ListConfigs.configs.askrene-timeout.dynamic": {
+            "added": "v24.11",
+            "deprecated": null
+        },
+        "ListConfigs.configs.askrene-timeout.plugin": {
+            "added": "v24.11",
+            "deprecated": null
+        },
+        "ListConfigs.configs.askrene-timeout.source": {
+            "added": "v24.11",
+            "deprecated": null
+        },
+        "ListConfigs.configs.askrene-timeout.value_int": {
+            "added": "v24.11",
+            "deprecated": null
+        },
+        "ListConfigs.configs.autoclean-cycle": {
+            "added": "v22.11",
+            "deprecated": null
+        },
+        "ListConfigs.configs.autoclean-cycle.dynamic": {
+            "added": "v22.11",
+            "deprecated": null
+        },
+        "ListConfigs.configs.autoclean-cycle.plugin": {
+            "added": "v22.11",
+            "deprecated": null
+        },
+        "ListConfigs.configs.autoclean-cycle.source": {
+            "added": "v22.11",
+            "deprecated": null
+        },
+        "ListConfigs.configs.autoclean-cycle.value_int": {
+            "added": "v22.11",
+            "deprecated": null
+        },
+        "ListConfigs.configs.autoclean-expiredinvoices-age": {
+            "added": "v22.11",
+            "deprecated": null
+        },
+        "ListConfigs.configs.autoclean-expiredinvoices-age.dynamic": {
+            "added": "v22.11",
+            "deprecated": null
+        },
+        "ListConfigs.configs.autoclean-expiredinvoices-age.plugin": {
+            "added": "v22.11",
+            "deprecated": null
+        },
+        "ListConfigs.configs.autoclean-expiredinvoices-age.source": {
+            "added": "v22.11",
+            "deprecated": null
+        },
+        "ListConfigs.configs.autoclean-expiredinvoices-age.value_int": {
+            "added": "v22.11",
+            "deprecated": null
+        },
+        "ListConfigs.configs.autoclean-failedforwards-age": {
+            "added": "v22.11",
+            "deprecated": null
+        },
+        "ListConfigs.configs.autoclean-failedforwards-age.dynamic": {
+            "added": "v22.11",
+            "deprecated": null
+        },
+        "ListConfigs.configs.autoclean-failedforwards-age.plugin": {
+            "added": "v22.11",
+            "deprecated": null
+        },
+        "ListConfigs.configs.autoclean-failedforwards-age.source": {
+            "added": "v22.11",
+            "deprecated": null
+        },
+        "ListConfigs.configs.autoclean-failedforwards-age.value_int": {
+            "added": "v22.11",
+            "deprecated": null
+        },
+        "ListConfigs.configs.autoclean-failedpays-age": {
+            "added": "v22.11",
+            "deprecated": null
+        },
+        "ListConfigs.configs.autoclean-failedpays-age.dynamic": {
+            "added": "v22.11",
+            "deprecated": null
+        },
+        "ListConfigs.configs.autoclean-failedpays-age.plugin": {
+            "added": "v22.11",
+            "deprecated": null
+        },
+        "ListConfigs.configs.autoclean-failedpays-age.source": {
+            "added": "v22.11",
+            "deprecated": null
+        },
+        "ListConfigs.configs.autoclean-failedpays-age.value_int": {
+            "added": "v22.11",
+            "deprecated": null
+        },
+        "ListConfigs.configs.autoclean-networkevents-age": {
+            "added": "v25.12",
+            "deprecated": null
+        },
+        "ListConfigs.configs.autoclean-networkevents-age.dynamic": {
+            "added": "v25.12",
+            "deprecated": null
+        },
+        "ListConfigs.configs.autoclean-networkevents-age.plugin": {
+            "added": "v25.12",
+            "deprecated": null
+        },
+        "ListConfigs.configs.autoclean-networkevents-age.source": {
+            "added": "v25.12",
+            "deprecated": null
+        },
+        "ListConfigs.configs.autoclean-networkevents-age.value_int": {
+            "added": "v25.12",
+            "deprecated": null
+        },
+        "ListConfigs.configs.autoclean-paidinvoices-age": {
+            "added": "v22.11",
+            "deprecated": null
+        },
+        "ListConfigs.configs.autoclean-paidinvoices-age.dynamic": {
+            "added": "v22.11",
+            "deprecated": null
+        },
+        "ListConfigs.configs.autoclean-paidinvoices-age.plugin": {
+            "added": "v22.11",
+            "deprecated": null
+        },
+        "ListConfigs.configs.autoclean-paidinvoices-age.source": {
+            "added": "v22.11",
+            "deprecated": null
+        },
+        "ListConfigs.configs.autoclean-paidinvoices-age.value_int": {
+            "added": "v22.11",
+            "deprecated": null
+        },
+        "ListConfigs.configs.autoclean-succeededforwards-age": {
+            "added": "v22.11",
+            "deprecated": null
+        },
+        "ListConfigs.configs.autoclean-succeededforwards-age.dynamic": {
+            "added": "v22.11",
+            "deprecated": null
+        },
+        "ListConfigs.configs.autoclean-succeededforwards-age.plugin": {
+            "added": "v22.11",
+            "deprecated": null
+        },
+        "ListConfigs.configs.autoclean-succeededforwards-age.source": {
+            "added": "v22.11",
+            "deprecated": null
+        },
+        "ListConfigs.configs.autoclean-succeededforwards-age.value_int": {
+            "added": "v22.11",
+            "deprecated": null
+        },
+        "ListConfigs.configs.autoclean-succeededpays-age": {
+            "added": "v22.11",
+            "deprecated": null
+        },
+        "ListConfigs.configs.autoclean-succeededpays-age.dynamic": {
+            "added": "v22.11",
+            "deprecated": null
+        },
+        "ListConfigs.configs.autoclean-succeededpays-age.plugin": {
+            "added": "v22.11",
+            "deprecated": null
+        },
+        "ListConfigs.configs.autoclean-succeededpays-age.source": {
+            "added": "v22.11",
+            "deprecated": null
+        },
+        "ListConfigs.configs.autoclean-succeededpays-age.value_int": {
+            "added": "v22.11",
+            "deprecated": null
+        },
         "ListConfigs.configs.autoconnect-seeker-peers": {
             "added": "v24.11",
             "deprecated": null
@@ -9491,6 +9984,154 @@
             "added": "pre-v0.10.1",
             "deprecated": null
         },
+        "ListConfigs.configs.bitcoin-cli": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListConfigs.configs.bitcoin-cli.plugin": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListConfigs.configs.bitcoin-cli.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListConfigs.configs.bitcoin-cli.value_str": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListConfigs.configs.bitcoin-datadir": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListConfigs.configs.bitcoin-datadir.plugin": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListConfigs.configs.bitcoin-datadir.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListConfigs.configs.bitcoin-datadir.value_str": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListConfigs.configs.bitcoin-retry-timeout": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListConfigs.configs.bitcoin-retry-timeout.plugin": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListConfigs.configs.bitcoin-retry-timeout.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListConfigs.configs.bitcoin-retry-timeout.value_int": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListConfigs.configs.bitcoin-rpcclienttimeout": {
+            "added": "v24.05",
+            "deprecated": null
+        },
+        "ListConfigs.configs.bitcoin-rpcclienttimeout.plugin": {
+            "added": "v24.05",
+            "deprecated": null
+        },
+        "ListConfigs.configs.bitcoin-rpcclienttimeout.source": {
+            "added": "v24.05",
+            "deprecated": null
+        },
+        "ListConfigs.configs.bitcoin-rpcclienttimeout.value_int": {
+            "added": "v24.05",
+            "deprecated": null
+        },
+        "ListConfigs.configs.bitcoin-rpcconnect": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListConfigs.configs.bitcoin-rpcconnect.plugin": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListConfigs.configs.bitcoin-rpcconnect.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListConfigs.configs.bitcoin-rpcconnect.value_str": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListConfigs.configs.bitcoin-rpcpassword": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListConfigs.configs.bitcoin-rpcpassword.plugin": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListConfigs.configs.bitcoin-rpcpassword.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListConfigs.configs.bitcoin-rpcpassword.value_str": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListConfigs.configs.bitcoin-rpcport": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListConfigs.configs.bitcoin-rpcport.plugin": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListConfigs.configs.bitcoin-rpcport.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListConfigs.configs.bitcoin-rpcport.value_int": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListConfigs.configs.bitcoin-rpcuser": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListConfigs.configs.bitcoin-rpcuser.plugin": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListConfigs.configs.bitcoin-rpcuser.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListConfigs.configs.bitcoin-rpcuser.value_str": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListConfigs.configs.bkpr-currency": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "ListConfigs.configs.bkpr-currency.dynamic": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "ListConfigs.configs.bkpr-currency.plugin": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "ListConfigs.configs.bkpr-currency.source": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "ListConfigs.configs.bkpr-currency.value_str": {
+            "added": "v26.04",
+            "deprecated": null
+        },
         "ListConfigs.configs.clear-plugins": {
             "added": "pre-v0.10.1",
             "deprecated": null
@@ -9501,6 +10142,118 @@
         },
         "ListConfigs.configs.clear-plugins.source": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListConfigs.configs.clnrest-certs": {
+            "added": "v23.08",
+            "deprecated": null
+        },
+        "ListConfigs.configs.clnrest-certs.plugin": {
+            "added": "v23.08",
+            "deprecated": null
+        },
+        "ListConfigs.configs.clnrest-certs.source": {
+            "added": "v23.08",
+            "deprecated": null
+        },
+        "ListConfigs.configs.clnrest-certs.value_str": {
+            "added": "v23.08",
+            "deprecated": null
+        },
+        "ListConfigs.configs.clnrest-cors-origins": {
+            "added": "v23.08",
+            "deprecated": null
+        },
+        "ListConfigs.configs.clnrest-cors-origins.plugin": {
+            "added": "v23.08",
+            "deprecated": null
+        },
+        "ListConfigs.configs.clnrest-cors-origins.source": {
+            "added": "v23.08",
+            "deprecated": null
+        },
+        "ListConfigs.configs.clnrest-cors-origins.value_str": {
+            "added": "v23.08",
+            "deprecated": null
+        },
+        "ListConfigs.configs.clnrest-csp": {
+            "added": "v23.11",
+            "deprecated": null
+        },
+        "ListConfigs.configs.clnrest-csp.plugin": {
+            "added": "v23.11",
+            "deprecated": null
+        },
+        "ListConfigs.configs.clnrest-csp.source": {
+            "added": "v23.11",
+            "deprecated": null
+        },
+        "ListConfigs.configs.clnrest-csp.value_str": {
+            "added": "v23.11",
+            "deprecated": null
+        },
+        "ListConfigs.configs.clnrest-host": {
+            "added": "v23.08",
+            "deprecated": null
+        },
+        "ListConfigs.configs.clnrest-host.plugin": {
+            "added": "v23.08",
+            "deprecated": null
+        },
+        "ListConfigs.configs.clnrest-host.source": {
+            "added": "v23.08",
+            "deprecated": null
+        },
+        "ListConfigs.configs.clnrest-host.value_str": {
+            "added": "v23.08",
+            "deprecated": null
+        },
+        "ListConfigs.configs.clnrest-port": {
+            "added": "v23.08",
+            "deprecated": null
+        },
+        "ListConfigs.configs.clnrest-port.plugin": {
+            "added": "v23.08",
+            "deprecated": null
+        },
+        "ListConfigs.configs.clnrest-port.source": {
+            "added": "v23.08",
+            "deprecated": null
+        },
+        "ListConfigs.configs.clnrest-port.value_int": {
+            "added": "v23.08",
+            "deprecated": null
+        },
+        "ListConfigs.configs.clnrest-protocol": {
+            "added": "v23.08",
+            "deprecated": null
+        },
+        "ListConfigs.configs.clnrest-protocol.plugin": {
+            "added": "v23.08",
+            "deprecated": null
+        },
+        "ListConfigs.configs.clnrest-protocol.source": {
+            "added": "v23.08",
+            "deprecated": null
+        },
+        "ListConfigs.configs.clnrest-protocol.value_str": {
+            "added": "v23.08",
+            "deprecated": null
+        },
+        "ListConfigs.configs.clnrest-swagger-root": {
+            "added": "v24.05",
+            "deprecated": null
+        },
+        "ListConfigs.configs.clnrest-swagger-root.plugin": {
+            "added": "v24.05",
+            "deprecated": null
+        },
+        "ListConfigs.configs.clnrest-swagger-root.source": {
+            "added": "v24.05",
+            "deprecated": null
+        },
+        "ListConfigs.configs.clnrest-swagger-root.value_str": {
+            "added": "v24.05",
             "deprecated": null
         },
         "ListConfigs.configs.cltv-delta": {
@@ -9701,7 +10454,7 @@
         },
         "ListConfigs.configs.encrypted-hsm": {
             "added": "pre-v0.10.1",
-            "deprecated": null
+            "deprecated": "v25.12"
         },
         "ListConfigs.configs.encrypted-hsm.set": {
             "added": "pre-v0.10.1",
@@ -9713,7 +10466,7 @@
         },
         "ListConfigs.configs.experimental-anchors": {
             "added": "v23.08",
-            "deprecated": null
+            "deprecated": "v24.08"
         },
         "ListConfigs.configs.experimental-anchors.set": {
             "added": "pre-v0.10.1",
@@ -9733,6 +10486,42 @@
         },
         "ListConfigs.configs.experimental-dual-fund.source": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListConfigs.configs.experimental-lsps-client": {
+            "added": "v25.12",
+            "deprecated": null
+        },
+        "ListConfigs.configs.experimental-lsps-client.set": {
+            "added": "v25.12",
+            "deprecated": null
+        },
+        "ListConfigs.configs.experimental-lsps-client.source": {
+            "added": "v25.12",
+            "deprecated": null
+        },
+        "ListConfigs.configs.experimental-lsps2-promise-secret": {
+            "added": "v25.12",
+            "deprecated": null
+        },
+        "ListConfigs.configs.experimental-lsps2-promise-secret.source": {
+            "added": "v25.12",
+            "deprecated": null
+        },
+        "ListConfigs.configs.experimental-lsps2-promise-secret.value_str": {
+            "added": "v25.12",
+            "deprecated": null
+        },
+        "ListConfigs.configs.experimental-lsps2-service": {
+            "added": "v25.12",
+            "deprecated": null
+        },
+        "ListConfigs.configs.experimental-lsps2-service.set": {
+            "added": "v25.12",
+            "deprecated": null
+        },
+        "ListConfigs.configs.experimental-lsps2-service.source": {
+            "added": "v25.12",
             "deprecated": null
         },
         "ListConfigs.configs.experimental-offers": {
@@ -9761,7 +10550,7 @@
         },
         "ListConfigs.configs.experimental-peer-storage": {
             "added": "v23.02",
-            "deprecated": null
+            "deprecated": "v25.05"
         },
         "ListConfigs.configs.experimental-peer-storage.set": {
             "added": "pre-v0.10.1",
@@ -9793,6 +10582,22 @@
         },
         "ListConfigs.configs.experimental-splicing.source": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListConfigs.configs.exposesecret-passphrase": {
+            "added": "v24.11",
+            "deprecated": null
+        },
+        "ListConfigs.configs.exposesecret-passphrase.plugin": {
+            "added": "v24.11",
+            "deprecated": null
+        },
+        "ListConfigs.configs.exposesecret-passphrase.source": {
+            "added": "v24.11",
+            "deprecated": null
+        },
+        "ListConfigs.configs.exposesecret-passphrase.value_str": {
+            "added": "v24.11",
             "deprecated": null
         },
         "ListConfigs.configs.fee-base": {
@@ -9859,6 +10664,78 @@
             "added": "pre-v0.10.1",
             "deprecated": null
         },
+        "ListConfigs.configs.grpc-host": {
+            "added": "v24.11",
+            "deprecated": null
+        },
+        "ListConfigs.configs.grpc-host.plugin": {
+            "added": "v24.11",
+            "deprecated": null
+        },
+        "ListConfigs.configs.grpc-host.source": {
+            "added": "v24.11",
+            "deprecated": null
+        },
+        "ListConfigs.configs.grpc-host.value_str": {
+            "added": "v24.11",
+            "deprecated": null
+        },
+        "ListConfigs.configs.grpc-msg-buffer-size": {
+            "added": "v24.05",
+            "deprecated": null
+        },
+        "ListConfigs.configs.grpc-msg-buffer-size.plugin": {
+            "added": "v24.05",
+            "deprecated": null
+        },
+        "ListConfigs.configs.grpc-msg-buffer-size.source": {
+            "added": "v24.05",
+            "deprecated": null
+        },
+        "ListConfigs.configs.grpc-msg-buffer-size.value_int": {
+            "added": "v24.05",
+            "deprecated": null
+        },
+        "ListConfigs.configs.grpc-port": {
+            "added": "v0.11.0",
+            "deprecated": null
+        },
+        "ListConfigs.configs.grpc-port.plugin": {
+            "added": "v0.11.0",
+            "deprecated": null
+        },
+        "ListConfigs.configs.grpc-port.source": {
+            "added": "v0.11.0",
+            "deprecated": null
+        },
+        "ListConfigs.configs.grpc-port.value_int": {
+            "added": "v0.11.0",
+            "deprecated": null
+        },
+        "ListConfigs.configs.help": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListConfigs.configs.help.set": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListConfigs.configs.help.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListConfigs.configs.hsm-passphrase": {
+            "added": "v25.12",
+            "deprecated": null
+        },
+        "ListConfigs.configs.hsm-passphrase.set": {
+            "added": "v25.12",
+            "deprecated": null
+        },
+        "ListConfigs.configs.hsm-passphrase.source": {
+            "added": "v25.12",
+            "deprecated": null
+        },
         "ListConfigs.configs.htlc-maximum-msat": {
             "added": "pre-v0.10.1",
             "deprecated": null
@@ -9883,6 +10760,18 @@
             "added": "pre-v0.10.1",
             "deprecated": null
         },
+        "ListConfigs.configs.i-promise-to-fix-broken-api-user": {
+            "added": "v24.02",
+            "deprecated": null
+        },
+        "ListConfigs.configs.i-promise-to-fix-broken-api-user.sources[]": {
+            "added": "v24.02",
+            "deprecated": null
+        },
+        "ListConfigs.configs.i-promise-to-fix-broken-api-user.values_str[]": {
+            "added": "v24.02",
+            "deprecated": null
+        },
         "ListConfigs.configs.ignore-fee-limits": {
             "added": "pre-v0.10.1",
             "deprecated": null
@@ -9905,6 +10794,18 @@
         },
         "ListConfigs.configs.important-plugin.values_str[]": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListConfigs.configs.invoices-onchain-fallback": {
+            "added": "v23.11",
+            "deprecated": null
+        },
+        "ListConfigs.configs.invoices-onchain-fallback.set": {
+            "added": "v23.11",
+            "deprecated": null
+        },
+        "ListConfigs.configs.invoices-onchain-fallback.source": {
+            "added": "v23.11",
             "deprecated": null
         },
         "ListConfigs.configs.large-channels": {
@@ -10043,6 +10944,18 @@
             "added": "pre-v0.10.1",
             "deprecated": null
         },
+        "ListConfigs.configs.min-emergency-msat": {
+            "added": "v23.08",
+            "deprecated": null
+        },
+        "ListConfigs.configs.min-emergency-msat.source": {
+            "added": "v23.08",
+            "deprecated": null
+        },
+        "ListConfigs.configs.min-emergency-msat.value_msat": {
+            "added": "v23.08",
+            "deprecated": null
+        },
         "ListConfigs.configs.network": {
             "added": "pre-v0.10.1",
             "deprecated": null
@@ -10065,6 +10978,18 @@
         },
         "ListConfigs.configs.offline.source": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListConfigs.configs.payment-fronting-node": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "ListConfigs.configs.payment-fronting-node.sources[]": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "ListConfigs.configs.payment-fronting-node.values_str[]": {
+            "added": "v26.04",
             "deprecated": null
         },
         "ListConfigs.configs.pid-file": {
@@ -10113,6 +11038,18 @@
         },
         "ListConfigs.configs.proxy.value_str": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListConfigs.configs.recover": {
+            "added": "v23.11",
+            "deprecated": null
+        },
+        "ListConfigs.configs.recover.source": {
+            "added": "v23.11",
+            "deprecated": null
+        },
+        "ListConfigs.configs.recover.value_str": {
+            "added": "v23.11",
             "deprecated": null
         },
         "ListConfigs.configs.regtest": {
@@ -10235,6 +11172,18 @@
             "added": "pre-v0.10.1",
             "deprecated": null
         },
+        "ListConfigs.configs.version": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListConfigs.configs.version.set": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListConfigs.configs.version.source": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
         "ListConfigs.configs.wallet": {
             "added": "pre-v0.10.1",
             "deprecated": null
@@ -10257,6 +11206,78 @@
         },
         "ListConfigs.configs.watchtime-blocks.value_int": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListConfigs.configs.wss-bind-addr": {
+            "added": "v24.05",
+            "deprecated": null
+        },
+        "ListConfigs.configs.wss-bind-addr.plugin": {
+            "added": "v24.05",
+            "deprecated": null
+        },
+        "ListConfigs.configs.wss-bind-addr.sources[]": {
+            "added": "v24.05",
+            "deprecated": null
+        },
+        "ListConfigs.configs.wss-bind-addr.values_str[]": {
+            "added": "v24.05",
+            "deprecated": null
+        },
+        "ListConfigs.configs.wss-certs": {
+            "added": "v24.05",
+            "deprecated": null
+        },
+        "ListConfigs.configs.wss-certs.plugin": {
+            "added": "v24.05",
+            "deprecated": null
+        },
+        "ListConfigs.configs.wss-certs.source": {
+            "added": "v24.05",
+            "deprecated": null
+        },
+        "ListConfigs.configs.wss-certs.value_str": {
+            "added": "v24.05",
+            "deprecated": null
+        },
+        "ListConfigs.configs.xpay-handle-pay": {
+            "added": "v24.11",
+            "deprecated": null
+        },
+        "ListConfigs.configs.xpay-handle-pay.dynamic": {
+            "added": "v24.11",
+            "deprecated": null
+        },
+        "ListConfigs.configs.xpay-handle-pay.plugin": {
+            "added": "v24.11",
+            "deprecated": null
+        },
+        "ListConfigs.configs.xpay-handle-pay.source": {
+            "added": "v24.11",
+            "deprecated": null
+        },
+        "ListConfigs.configs.xpay-handle-pay.value_bool": {
+            "added": "v24.11",
+            "deprecated": null
+        },
+        "ListConfigs.configs.xpay-slow-mode": {
+            "added": "v25.02",
+            "deprecated": null
+        },
+        "ListConfigs.configs.xpay-slow-mode.dynamic": {
+            "added": "v25.02",
+            "deprecated": null
+        },
+        "ListConfigs.configs.xpay-slow-mode.plugin": {
+            "added": "v25.02",
+            "deprecated": null
+        },
+        "ListConfigs.configs.xpay-slow-mode.source": {
+            "added": "v25.02",
+            "deprecated": null
+        },
+        "ListConfigs.configs.xpay-slow-mode.value_bool": {
+            "added": "v25.02",
             "deprecated": null
         },
         "ListConfigs.daemon": {
