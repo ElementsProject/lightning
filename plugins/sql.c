@@ -1746,9 +1746,8 @@ static struct command_result *refresh_by_created_index(struct command *cmd,
 	struct sql *sql = sql_of(dbq->cmd->plugin);
 	struct out_req *req;
 
-	/* Since we're relying on watches, mark refreshing unnecessary to start */
-	assert(td->refresh_needs != REFRESH_UNNECESSARY);
-	td->refresh_needs = REFRESH_UNNECESSARY;
+	/* We no longer need refresh_created, but wait could update this meanwhile. */
+	td->refresh_needs &= ~REFRESH_CREATED;
 
 	req = jsonrpc_request_start(cmd, td->cmdname,
 				    limited_list_done, forward_error,
@@ -1782,7 +1781,6 @@ static struct command_result *updated_list_done(struct command *cmd,
 		return refresh_by_created_index(cmd, td, dbq);
 	}
 
-	td->refresh_needs = REFRESH_UNNECESSARY;
 	return one_refresh_done(cmd, dbq, false);
 }
 
@@ -1794,6 +1792,7 @@ static struct command_result *paginated_refresh(struct command *cmd,
 	 * entire thing */
 	if (td->refresh_needs & REFRESH_DELETED) {
 		plugin_log(cmd->plugin, LOG_DBG, "%s: total reload due to delete", td->name);
+		/* Since this reloads everything, covers all: updates and creates */
 		td->refresh_needs = REFRESH_UNNECESSARY;
 		return default_refresh(cmd, td, dbq);
 	}
@@ -1802,6 +1801,7 @@ static struct command_result *paginated_refresh(struct command *cmd,
 		struct out_req *req;
 		plugin_log(cmd->plugin, LOG_DBG,
 			   "%s: records updated, updating from %"PRIu64, td->name, td->last_updated_index + 1);
+		td->refresh_needs &= ~REFRESH_UPDATED;
 		req = jsonrpc_request_start(cmd, td->cmdname,
 					    updated_list_done, forward_error,
 					    dbq);
