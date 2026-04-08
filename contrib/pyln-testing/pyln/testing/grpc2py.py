@@ -2186,6 +2186,13 @@ def wait2py(m):
     })
 
 
+def listconfigs_configs_accept_htlc_tlv_type2py(m):
+    return remove_default({
+        "sources": [m.sources for i in m.sources], # ArrayField[primitive] in generate_composite
+        "values_int": [m.values_int for i in m.values_int], # ArrayField[primitive] in generate_composite
+    })
+
+
 def listconfigs_configs_addr2py(m):
     return remove_default({
         "sources": [m.sources for i in m.sources], # ArrayField[primitive] in generate_composite
@@ -2242,6 +2249,96 @@ def listconfigs_configs_announce_addr_dns2py(m):
     })
 
 
+def listconfigs_configs_askrene_max_threads2py(m):
+    return remove_default({
+        "dynamic": m.dynamic,  # PrimitiveField in generate_composite
+        "plugin": m.plugin,  # PrimitiveField in generate_composite
+        "source": m.source,  # PrimitiveField in generate_composite
+        "value_int": m.value_int,  # PrimitiveField in generate_composite
+    })
+
+
+def listconfigs_configs_askrene_timeout2py(m):
+    return remove_default({
+        "dynamic": m.dynamic,  # PrimitiveField in generate_composite
+        "plugin": m.plugin,  # PrimitiveField in generate_composite
+        "source": m.source,  # PrimitiveField in generate_composite
+        "value_int": m.value_int,  # PrimitiveField in generate_composite
+    })
+
+
+def listconfigs_configs_autoclean_cycle2py(m):
+    return remove_default({
+        "dynamic": m.dynamic,  # PrimitiveField in generate_composite
+        "plugin": m.plugin,  # PrimitiveField in generate_composite
+        "source": m.source,  # PrimitiveField in generate_composite
+        "value_int": m.value_int,  # PrimitiveField in generate_composite
+    })
+
+
+def listconfigs_configs_autoclean_expiredinvoices_age2py(m):
+    return remove_default({
+        "dynamic": m.dynamic,  # PrimitiveField in generate_composite
+        "plugin": m.plugin,  # PrimitiveField in generate_composite
+        "source": m.source,  # PrimitiveField in generate_composite
+        "value_int": m.value_int,  # PrimitiveField in generate_composite
+    })
+
+
+def listconfigs_configs_autoclean_failedforwards_age2py(m):
+    return remove_default({
+        "dynamic": m.dynamic,  # PrimitiveField in generate_composite
+        "plugin": m.plugin,  # PrimitiveField in generate_composite
+        "source": m.source,  # PrimitiveField in generate_composite
+        "value_int": m.value_int,  # PrimitiveField in generate_composite
+    })
+
+
+def listconfigs_configs_autoclean_failedpays_age2py(m):
+    return remove_default({
+        "dynamic": m.dynamic,  # PrimitiveField in generate_composite
+        "plugin": m.plugin,  # PrimitiveField in generate_composite
+        "source": m.source,  # PrimitiveField in generate_composite
+        "value_int": m.value_int,  # PrimitiveField in generate_composite
+    })
+
+
+def listconfigs_configs_autoclean_networkevents_age2py(m):
+    return remove_default({
+        "dynamic": m.dynamic,  # PrimitiveField in generate_composite
+        "plugin": m.plugin,  # PrimitiveField in generate_composite
+        "source": m.source,  # PrimitiveField in generate_composite
+        "value_int": m.value_int,  # PrimitiveField in generate_composite
+    })
+
+
+def listconfigs_configs_autoclean_paidinvoices_age2py(m):
+    return remove_default({
+        "dynamic": m.dynamic,  # PrimitiveField in generate_composite
+        "plugin": m.plugin,  # PrimitiveField in generate_composite
+        "source": m.source,  # PrimitiveField in generate_composite
+        "value_int": m.value_int,  # PrimitiveField in generate_composite
+    })
+
+
+def listconfigs_configs_autoclean_succeededforwards_age2py(m):
+    return remove_default({
+        "dynamic": m.dynamic,  # PrimitiveField in generate_composite
+        "plugin": m.plugin,  # PrimitiveField in generate_composite
+        "source": m.source,  # PrimitiveField in generate_composite
+        "value_int": m.value_int,  # PrimitiveField in generate_composite
+    })
+
+
+def listconfigs_configs_autoclean_succeededpays_age2py(m):
+    return remove_default({
+        "dynamic": m.dynamic,  # PrimitiveField in generate_composite
+        "plugin": m.plugin,  # PrimitiveField in generate_composite
+        "source": m.source,  # PrimitiveField in generate_composite
+        "value_int": m.value_int,  # PrimitiveField in generate_composite
+    })
+
+
 def listconfigs_configs_autoconnect_seeker_peers2py(m):
     return remove_default({
         "source": m.source,  # PrimitiveField in generate_composite
@@ -2263,10 +2360,139 @@ def listconfigs_configs_bind_addr2py(m):
     })
 
 
+def listconfigs_configs_bitcoin_cli2py(m):
+    return remove_default({
+        "plugin": m.plugin,  # PrimitiveField in generate_composite
+        "source": m.source,  # PrimitiveField in generate_composite
+        "value_str": m.value_str,  # PrimitiveField in generate_composite
+    })
+
+
+def listconfigs_configs_bitcoin_datadir2py(m):
+    return remove_default({
+        "plugin": m.plugin,  # PrimitiveField in generate_composite
+        "source": m.source,  # PrimitiveField in generate_composite
+        "value_str": m.value_str,  # PrimitiveField in generate_composite
+    })
+
+
+def listconfigs_configs_bitcoin_retry_timeout2py(m):
+    return remove_default({
+        "plugin": m.plugin,  # PrimitiveField in generate_composite
+        "source": m.source,  # PrimitiveField in generate_composite
+        "value_int": m.value_int,  # PrimitiveField in generate_composite
+    })
+
+
+def listconfigs_configs_bitcoin_rpcclienttimeout2py(m):
+    return remove_default({
+        "plugin": m.plugin,  # PrimitiveField in generate_composite
+        "source": m.source,  # PrimitiveField in generate_composite
+        "value_int": m.value_int,  # PrimitiveField in generate_composite
+    })
+
+
+def listconfigs_configs_bitcoin_rpcconnect2py(m):
+    return remove_default({
+        "plugin": m.plugin,  # PrimitiveField in generate_composite
+        "source": m.source,  # PrimitiveField in generate_composite
+        "value_str": m.value_str,  # PrimitiveField in generate_composite
+    })
+
+
+def listconfigs_configs_bitcoin_rpcpassword2py(m):
+    return remove_default({
+        "plugin": m.plugin,  # PrimitiveField in generate_composite
+        "source": m.source,  # PrimitiveField in generate_composite
+        "value_str": m.value_str,  # PrimitiveField in generate_composite
+    })
+
+
+def listconfigs_configs_bitcoin_rpcport2py(m):
+    return remove_default({
+        "plugin": m.plugin,  # PrimitiveField in generate_composite
+        "source": m.source,  # PrimitiveField in generate_composite
+        "value_int": m.value_int,  # PrimitiveField in generate_composite
+    })
+
+
+def listconfigs_configs_bitcoin_rpcuser2py(m):
+    return remove_default({
+        "plugin": m.plugin,  # PrimitiveField in generate_composite
+        "source": m.source,  # PrimitiveField in generate_composite
+        "value_str": m.value_str,  # PrimitiveField in generate_composite
+    })
+
+
+def listconfigs_configs_bkpr_currency2py(m):
+    return remove_default({
+        "dynamic": m.dynamic,  # PrimitiveField in generate_composite
+        "plugin": m.plugin,  # PrimitiveField in generate_composite
+        "source": m.source,  # PrimitiveField in generate_composite
+        "value_str": m.value_str,  # PrimitiveField in generate_composite
+    })
+
+
 def listconfigs_configs_clear_plugins2py(m):
     return remove_default({
         "set": m.set,  # PrimitiveField in generate_composite
         "source": m.source,  # PrimitiveField in generate_composite
+    })
+
+
+def listconfigs_configs_clnrest_certs2py(m):
+    return remove_default({
+        "plugin": m.plugin,  # PrimitiveField in generate_composite
+        "source": m.source,  # PrimitiveField in generate_composite
+        "value_str": m.value_str,  # PrimitiveField in generate_composite
+    })
+
+
+def listconfigs_configs_clnrest_cors_origins2py(m):
+    return remove_default({
+        "plugin": m.plugin,  # PrimitiveField in generate_composite
+        "source": m.source,  # PrimitiveField in generate_composite
+        "value_str": m.value_str,  # PrimitiveField in generate_composite
+    })
+
+
+def listconfigs_configs_clnrest_csp2py(m):
+    return remove_default({
+        "plugin": m.plugin,  # PrimitiveField in generate_composite
+        "source": m.source,  # PrimitiveField in generate_composite
+        "value_str": m.value_str,  # PrimitiveField in generate_composite
+    })
+
+
+def listconfigs_configs_clnrest_host2py(m):
+    return remove_default({
+        "plugin": m.plugin,  # PrimitiveField in generate_composite
+        "source": m.source,  # PrimitiveField in generate_composite
+        "value_str": m.value_str,  # PrimitiveField in generate_composite
+    })
+
+
+def listconfigs_configs_clnrest_port2py(m):
+    return remove_default({
+        "plugin": m.plugin,  # PrimitiveField in generate_composite
+        "source": m.source,  # PrimitiveField in generate_composite
+        "value_int": m.value_int,  # PrimitiveField in generate_composite
+    })
+
+
+def listconfigs_configs_clnrest_protocol2py(m):
+    return remove_default({
+        "value_str": str(m.value_str),  # EnumField in generate_composite
+        "plugin": m.plugin,  # PrimitiveField in generate_composite
+        "source": m.source,  # PrimitiveField in generate_composite
+    })
+
+
+def listconfigs_configs_clnrest_swagger_root2py(m):
+    return remove_default({
+        "plugin": m.plugin,  # PrimitiveField in generate_composite
+        "source": m.source,  # PrimitiveField in generate_composite
+        "value_str": m.value_str,  # PrimitiveField in generate_composite
     })
 
 
@@ -2392,6 +2618,27 @@ def listconfigs_configs_experimental_dual_fund2py(m):
     })
 
 
+def listconfigs_configs_experimental_lsps_client2py(m):
+    return remove_default({
+        "set": m.set,  # PrimitiveField in generate_composite
+        "source": m.source,  # PrimitiveField in generate_composite
+    })
+
+
+def listconfigs_configs_experimental_lsps2_promise_secret2py(m):
+    return remove_default({
+        "source": m.source,  # PrimitiveField in generate_composite
+        "value_str": m.value_str,  # PrimitiveField in generate_composite
+    })
+
+
+def listconfigs_configs_experimental_lsps2_service2py(m):
+    return remove_default({
+        "set": m.set,  # PrimitiveField in generate_composite
+        "source": m.source,  # PrimitiveField in generate_composite
+    })
+
+
 def listconfigs_configs_experimental_offers2py(m):
     return remove_default({
         "set": m.set,  # PrimitiveField in generate_composite
@@ -2424,6 +2671,14 @@ def listconfigs_configs_experimental_splicing2py(m):
     return remove_default({
         "set": m.set,  # PrimitiveField in generate_composite
         "source": m.source,  # PrimitiveField in generate_composite
+    })
+
+
+def listconfigs_configs_exposesecret_passphrase2py(m):
+    return remove_default({
+        "plugin": m.plugin,  # PrimitiveField in generate_composite
+        "source": m.source,  # PrimitiveField in generate_composite
+        "value_str": m.value_str,  # PrimitiveField in generate_composite
     })
 
 
@@ -2463,6 +2718,44 @@ def listconfigs_configs_funding_confirms2py(m):
     })
 
 
+def listconfigs_configs_grpc_host2py(m):
+    return remove_default({
+        "plugin": m.plugin,  # PrimitiveField in generate_composite
+        "source": m.source,  # PrimitiveField in generate_composite
+        "value_str": m.value_str,  # PrimitiveField in generate_composite
+    })
+
+
+def listconfigs_configs_grpc_msg_buffer_size2py(m):
+    return remove_default({
+        "plugin": m.plugin,  # PrimitiveField in generate_composite
+        "source": m.source,  # PrimitiveField in generate_composite
+        "value_int": m.value_int,  # PrimitiveField in generate_composite
+    })
+
+
+def listconfigs_configs_grpc_port2py(m):
+    return remove_default({
+        "plugin": m.plugin,  # PrimitiveField in generate_composite
+        "source": m.source,  # PrimitiveField in generate_composite
+        "value_int": m.value_int,  # PrimitiveField in generate_composite
+    })
+
+
+def listconfigs_configs_help2py(m):
+    return remove_default({
+        "set": m.set,  # PrimitiveField in generate_composite
+        "source": m.source,  # PrimitiveField in generate_composite
+    })
+
+
+def listconfigs_configs_hsm_passphrase2py(m):
+    return remove_default({
+        "set": m.set,  # PrimitiveField in generate_composite
+        "source": m.source,  # PrimitiveField in generate_composite
+    })
+
+
 def listconfigs_configs_htlc_maximum_msat2py(m):
     return remove_default({
         "source": m.source,  # PrimitiveField in generate_composite
@@ -2477,6 +2770,13 @@ def listconfigs_configs_htlc_minimum_msat2py(m):
     })
 
 
+def listconfigs_configs_i_promise_to_fix_broken_api_user2py(m):
+    return remove_default({
+        "sources": [m.sources for i in m.sources], # ArrayField[primitive] in generate_composite
+        "values_str": [m.values_str for i in m.values_str], # ArrayField[primitive] in generate_composite
+    })
+
+
 def listconfigs_configs_ignore_fee_limits2py(m):
     return remove_default({
         "source": m.source,  # PrimitiveField in generate_composite
@@ -2488,6 +2788,13 @@ def listconfigs_configs_important_plugin2py(m):
     return remove_default({
         "sources": [m.sources for i in m.sources], # ArrayField[primitive] in generate_composite
         "values_str": [m.values_str for i in m.values_str], # ArrayField[primitive] in generate_composite
+    })
+
+
+def listconfigs_configs_invoices_onchain_fallback2py(m):
+    return remove_default({
+        "set": m.set,  # PrimitiveField in generate_composite
+        "source": m.source,  # PrimitiveField in generate_composite
     })
 
 
@@ -2569,6 +2876,13 @@ def listconfigs_configs_min_capacity_sat2py(m):
     })
 
 
+def listconfigs_configs_min_emergency_msat2py(m):
+    return remove_default({
+        "source": m.source,  # PrimitiveField in generate_composite
+        "value_msat": amount2msat(m.value_msat),  # PrimitiveField in generate_composite
+    })
+
+
 def listconfigs_configs_network2py(m):
     return remove_default({
         "source": m.source,  # PrimitiveField in generate_composite
@@ -2580,6 +2894,13 @@ def listconfigs_configs_offline2py(m):
     return remove_default({
         "set": m.set,  # PrimitiveField in generate_composite
         "source": m.source,  # PrimitiveField in generate_composite
+    })
+
+
+def listconfigs_configs_payment_fronting_node2py(m):
+    return remove_default({
+        "sources": [m.sources for i in m.sources], # ArrayField[primitive] in generate_composite
+        "values_str": [m.values_str for i in m.values_str], # ArrayField[primitive] in generate_composite
     })
 
 
@@ -2605,6 +2926,13 @@ def listconfigs_configs_plugin_dir2py(m):
 
 
 def listconfigs_configs_proxy2py(m):
+    return remove_default({
+        "source": m.source,  # PrimitiveField in generate_composite
+        "value_str": m.value_str,  # PrimitiveField in generate_composite
+    })
+
+
+def listconfigs_configs_recover2py(m):
     return remove_default({
         "source": m.source,  # PrimitiveField in generate_composite
         "value_str": m.value_str,  # PrimitiveField in generate_composite
@@ -2681,6 +3009,13 @@ def listconfigs_configs_tor_service_password2py(m):
     })
 
 
+def listconfigs_configs_version2py(m):
+    return remove_default({
+        "set": m.set,  # PrimitiveField in generate_composite
+        "source": m.source,  # PrimitiveField in generate_composite
+    })
+
+
 def listconfigs_configs_wallet2py(m):
     return remove_default({
         "source": m.source,  # PrimitiveField in generate_composite
@@ -2692,6 +3027,40 @@ def listconfigs_configs_watchtime_blocks2py(m):
     return remove_default({
         "source": m.source,  # PrimitiveField in generate_composite
         "value_int": m.value_int,  # PrimitiveField in generate_composite
+    })
+
+
+def listconfigs_configs_wss_bind_addr2py(m):
+    return remove_default({
+        "sources": [m.sources for i in m.sources], # ArrayField[primitive] in generate_composite
+        "values_str": [m.values_str for i in m.values_str], # ArrayField[primitive] in generate_composite
+        "plugin": m.plugin,  # PrimitiveField in generate_composite
+    })
+
+
+def listconfigs_configs_wss_certs2py(m):
+    return remove_default({
+        "plugin": m.plugin,  # PrimitiveField in generate_composite
+        "source": m.source,  # PrimitiveField in generate_composite
+        "value_str": m.value_str,  # PrimitiveField in generate_composite
+    })
+
+
+def listconfigs_configs_xpay_handle_pay2py(m):
+    return remove_default({
+        "dynamic": m.dynamic,  # PrimitiveField in generate_composite
+        "plugin": m.plugin,  # PrimitiveField in generate_composite
+        "source": m.source,  # PrimitiveField in generate_composite
+        "value_bool": m.value_bool,  # PrimitiveField in generate_composite
+    })
+
+
+def listconfigs_configs_xpay_slow_mode2py(m):
+    return remove_default({
+        "dynamic": m.dynamic,  # PrimitiveField in generate_composite
+        "plugin": m.plugin,  # PrimitiveField in generate_composite
+        "source": m.source,  # PrimitiveField in generate_composite
+        "value_bool": m.value_bool,  # PrimitiveField in generate_composite
     })
 
 

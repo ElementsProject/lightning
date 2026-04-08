@@ -269,10 +269,36 @@ check-manpages: all-programs check-config-docs default-targets
 	@SED=$(SED) tools/check-manpage.sh "lightningd/lightningd --lightning-dir=/tmp/" doc/lightningd-config.5.md
 	@awk '/^$$/ { do { getline } while ($$0 ~ /^( {4,}|\t)/) } /^\s*```/ { do { getline } while ($$0 !~ /^\s*```/) } /^([^`_\\]|`([^`\\]|\\.)*`|\b_|_\b|\\.)*\B_\B/ { print "" ; print "Unescaped underscore at " FILENAME ":" NR ":" ; print ; ret = 1 } ENDFILE { NR = 0 } END { exit ret }' doc/*.[0-9].md
 
-# Makes sure that fields mentioned in schema are in man page, and vice versa.
+# Verify bidirectional consistency between JSON schema and man page
+# First loop (schema to man page):
+#   Extract all non-deprecated schema properties, excluding internal fields (conf, plugins, important-plugins).
+#   Check each appears in man page as '* **option**' or '* **option=**'.
+#
+# Second loop (man page to schema):
+#   Extract all man page options, excluding:
+#     - Plugin-specific options (lines with '[plugin ')
+#     - Command-line only flags (help, version)
+#     - Network aliases (mainnet, testnet, testnet4, signet)
+#     - Plugin management directives (plugin, important-plugin, plugin-dir, clear-plugins)
+#   Check each remaining option exists as a key in schema's configs.properties.
 check-config-docs:
-	@for c in `sed -n 's/^	"\(.*\)": {/\1/p' doc/schemas/listconfigs.json | grep -v '^# version$$' | grep -v '^plugins$$' | grep -v '^important-plugins$$'`; do if ! grep -q "^ \*\*$$c\*\*" doc/lightningd-config.5.md; then echo "$$c undocumented!"; exit 1; fi; done
-	@for c in `grep -v '\[plugin ' doc/lightningd-config.5.md | sed -n 's/^ \*\*\([^*]*\)\*\*.*/\1/p' | grep -v '^\(help\|version\|mainnet\|testnet\|testnet4\|signet\|plugin\|important-plugin\|plugin-dir\|clear-plugins\)$$'`; do if ! grep -q '"'"$$c"'"' doc/schemas/listconfigs.json; then echo "$$c documented but not in schema!"; exit 1; fi; done
+	@for c in `jq -r '.response.properties.configs.properties | to_entries[] | select(.value.deprecated == null) | .key' doc/schemas/listconfigs.json \
+		| grep -v '^conf$$' \
+		| grep -v '^plugins$$' \
+		| grep -v '^important-plugins$$'`; do \
+		if ! grep -q "^\* \*\*$$c\*\*" doc/lightningd-config.5.md && ! grep -q "^\* \*\*$$c=" doc/lightningd-config.5.md; then \
+			echo "$$c is undocumented in markdown but is in schema!"; \
+			exit 1; \
+		fi; \
+	done
+	@for c in `grep '^\* \*\*' doc/lightningd-config.5.md | grep -v '\[plugin ' | sed -n 's/^\* \*\*\([^*=]*\)[=*].*/\1/p' \
+		| grep -v '^\(help\|version\|mainnet\|testnet\|testnet4\|signet\|plugin\|important-plugin\|plugin-dir\|clear-plugins\)$$'`; do \
+		if ! jq -r '.response.properties.configs.properties | keys[]' doc/schemas/listconfigs.json | grep -qx "$$c"; then \
+			echo "$$c documented in markdown but not in schema!"; \
+			exit 1; \
+		fi; \
+	done
+	@echo "Config docs check passed!"
 
 doc-clean:
 	$(RM) $(MANPAGES) $(MARKDOWNPAGES_WITH_EXT) $(OLD_MARKDOWNPAGES_WITH_EXT) doc/.doc_version

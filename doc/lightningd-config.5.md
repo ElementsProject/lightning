@@ -299,19 +299,19 @@ automatically by `lightningd`.
   This option supports both legacy 32-byte `hsm_secret` files (where the passphrase
   encrypts the secret) and new BIP39 mnemonic-based secrets (where the passphrase
   is used as additional entropy during seed derivation according to the BIP39 standard).
-  
+
   Note that once you set a passphrase, this option will be mandatory for
-  `lightningd` to start. If there is no HSM secret yet, `lightningd` will create 
+  `lightningd` to start. If there is no HSM secret yet, `lightningd` will create
   a new mnemonic-based secret that will be secured with your passphrase following
   BIP39 specifications.
-  
+
   For legacy users: If you have an existing encrypted `hsm_secret` that was created
   with the deprecated `encrypted-hsm` option, this will continue to work seamlessly.
-  
+
   For new mnemonic-based secrets: The passphrase becomes part of the seed derivation
-  process as specified in BIP39, providing an additional factor of security. The 
+  process as specified in BIP39, providing an additional factor of security. The
   mnemonic words alone are not sufficient to derive the seed without the passphrase.
-  
+
   If you have an unencrypted legacy `hsm_secret` you want to encrypt, or need to
   manage your HSM secrets, see lightning-hsmtool(8).
 
@@ -339,7 +339,7 @@ connections. Default is 9736.
 * **recover**=*mnemonic*
 
   Restore the node from a mnemonic.  For pre-25.12 nodes (which didn't have a mnemonic), use a 32-byte secret encoded as either a codex32 secret string or a 64-character hex string.
-  
+
   This will fail if the `hsm_secret` file exists.  Your node will start the node in offline mode, for manual recovery.  The secret can be extracted from the `hsm_secret` using lightning-hsmtool(8)'s `getsecret`.
 
 * **alias**=*NAME*
@@ -861,6 +861,12 @@ including dual fund, additional channel splices, or generic transaction activity
 The operations will be bundled into a single transaction. The channel will remain
 active while awaiting splice confirmation, however you can only spend the smaller
 of the prior channel balance and the new one.
+
+* **require-confirmed-inputs**=*BOOL*
+
+  Require that peers use confirmed inputs for dual-funded channel opens.
+  If set to *true*, we will reject any dual-fund open request that contains
+  unconfirmed inputs. Default is false.
 
 * **experimental-lsps-client**
 

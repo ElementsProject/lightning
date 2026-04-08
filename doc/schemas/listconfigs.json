@@ -646,7 +646,11 @@
                   "Source of configuration setting."
                 ]
               }
-            }
+            },
+            "deprecated": [
+              "v25.05",
+              "v25.09"
+            ]
           },
           "experimental-anchors": {
             "type": "object",
@@ -669,7 +673,11 @@
                   "Source of configuration setting."
                 ]
               }
-            }
+            },
+            "deprecated": [
+              "v24.08",
+              "v25.05"
+            ]
           },
           "database-upgrade": {
             "type": "object",
@@ -1347,7 +1355,11 @@
                   "Source of configuration setting."
                 ]
               }
-            }
+            },
+            "deprecated": [
+              "v25.12",
+              "v26.04"
+            ]
           },
           "rpc-file-mode": {
             "type": "object",
@@ -1625,6 +1637,1552 @@
                 ]
               },
               "source": {
+                "type": "string",
+                "description": [
+                  "Source of configuration setting."
+                ]
+              }
+            }
+          },
+          "help": {
+            "added": "pre-v0.10.1",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "set",
+              "source"
+            ],
+            "properties": {
+              "set": {
+                "added": "pre-v0.10.1",
+                "type": "boolean",
+                "description": [
+                  "`true` if set in config or cmdline."
+                ]
+              },
+              "source": {
+                "added": "pre-v0.10.1",
+                "type": "string",
+                "description": [
+                  "Source of configuration setting."
+                ]
+              }
+            }
+          },
+          "version": {
+            "added": "pre-v0.10.1",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "set",
+              "source"
+            ],
+            "properties": {
+              "set": {
+                "added": "pre-v0.10.1",
+                "type": "boolean",
+                "description": [
+                  "`true` if set in config or cmdline."
+                ]
+              },
+              "source": {
+                "added": "pre-v0.10.1",
+                "type": "string",
+                "description": [
+                  "Source of configuration setting."
+                ]
+              }
+            }
+          },
+          "i-promise-to-fix-broken-api-user": {
+            "added": "v24.02",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "values_str",
+              "sources"
+            ],
+            "properties": {
+              "values_str": {
+                "added": "v24.02",
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "description": [
+                    "Field from config or cmdline."
+                  ]
+                }
+              },
+              "sources": {
+                "added": "v24.02",
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "description": [
+                    "Source of configuration setting."
+                  ]
+                }
+              }
+            }
+          },
+          "bitcoin-cli": {
+            "added": "pre-v0.10.1",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "value_str",
+              "source"
+            ],
+            "properties": {
+              "value_str": {
+                "added": "pre-v0.10.1",
+                "type": "string",
+                "description": [
+                  "The name of bitcoin-cli executable to run."
+                ]
+              },
+              "source": {
+                "added": "pre-v0.10.1",
+                "type": "string",
+                "description": [
+                  "Source of configuration setting."
+                ]
+              },
+              "plugin": {
+                "added": "pre-v0.10.1",
+                "type": "string",
+                "description": [
+                  "Plugin which registered this configuration setting."
+                ]
+              }
+            }
+          },
+          "bitcoin-datadir": {
+            "added": "pre-v0.10.1",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "value_str",
+              "source"
+            ],
+            "properties": {
+              "value_str": {
+                "added": "pre-v0.10.1",
+                "type": "string",
+                "description": [
+                  "-datadir argument to supply to bitcoin-cli."
+                ]
+              },
+              "source": {
+                "added": "pre-v0.10.1",
+                "type": "string",
+                "description": [
+                  "Source of configuration setting."
+                ]
+              },
+              "plugin": {
+                "added": "pre-v0.10.1",
+                "type": "string",
+                "description": [
+                  "Plugin which registered this configuration setting."
+                ]
+              }
+            }
+          },
+          "bitcoin-rpcuser": {
+            "added": "pre-v0.10.1",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "value_str",
+              "source"
+            ],
+            "properties": {
+              "value_str": {
+                "added": "pre-v0.10.1",
+                "type": "string",
+                "description": [
+                  "The RPC username for talking to bitcoind."
+                ]
+              },
+              "source": {
+                "added": "pre-v0.10.1",
+                "type": "string",
+                "description": [
+                  "Source of configuration setting."
+                ]
+              },
+              "plugin": {
+                "added": "pre-v0.10.1",
+                "type": "string",
+                "description": [
+                  "Plugin which registered this configuration setting."
+                ]
+              }
+            }
+          },
+          "bitcoin-rpcpassword": {
+            "added": "pre-v0.10.1",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "value_str",
+              "source"
+            ],
+            "properties": {
+              "value_str": {
+                "added": "pre-v0.10.1",
+                "type": "string",
+                "description": [
+                  "The RPC password for talking to bitcoind."
+                ]
+              },
+              "source": {
+                "added": "pre-v0.10.1",
+                "type": "string",
+                "description": [
+                  "Source of configuration setting."
+                ]
+              },
+              "plugin": {
+                "added": "pre-v0.10.1",
+                "type": "string",
+                "description": [
+                  "Plugin which registered this configuration setting."
+                ]
+              }
+            }
+          },
+          "bitcoin-rpcconnect": {
+            "added": "pre-v0.10.1",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "value_str",
+              "source"
+            ],
+            "properties": {
+              "value_str": {
+                "added": "pre-v0.10.1",
+                "type": "string",
+                "description": [
+                  "The bitcoind RPC host to connect to."
+                ]
+              },
+              "source": {
+                "added": "pre-v0.10.1",
+                "type": "string",
+                "description": [
+                  "Source of configuration setting."
+                ]
+              },
+              "plugin": {
+                "added": "pre-v0.10.1",
+                "type": "string",
+                "description": [
+                  "Plugin which registered this configuration setting."
+                ]
+              }
+            }
+          },
+          "bitcoin-rpcport": {
+            "added": "pre-v0.10.1",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "value_int",
+              "source"
+            ],
+            "properties": {
+              "value_int": {
+                "added": "pre-v0.10.1",
+                "type": "u32",
+                "description": [
+                  "The bitcoind RPC port to connect to."
+                ]
+              },
+              "source": {
+                "added": "pre-v0.10.1",
+                "type": "string",
+                "description": [
+                  "Source of configuration setting."
+                ]
+              },
+              "plugin": {
+                "added": "pre-v0.10.1",
+                "type": "string",
+                "description": [
+                  "Plugin which registered this configuration setting."
+                ]
+              }
+            }
+          },
+          "bitcoin-rpcclienttimeout": {
+            "added": "v24.05",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "value_int",
+              "source"
+            ],
+            "properties": {
+              "value_int": {
+                "added": "v24.05",
+                "type": "u32",
+                "description": [
+                  "The bitcoind RPC client timeout in seconds."
+                ]
+              },
+              "source": {
+                "added": "v24.05",
+                "type": "string",
+                "description": [
+                  "Source of configuration setting."
+                ]
+              },
+              "plugin": {
+                "added": "v24.05",
+                "type": "string",
+                "description": [
+                  "Plugin which registered this configuration setting."
+                ]
+              }
+            }
+          },
+          "bitcoin-retry-timeout": {
+            "added": "pre-v0.10.1",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "value_int",
+              "source"
+            ],
+            "properties": {
+              "value_int": {
+                "added": "pre-v0.10.1",
+                "type": "u32",
+                "description": [
+                  "Number of seconds to keep trying a bitcoin-cli command."
+                ]
+              },
+              "source": {
+                "added": "pre-v0.10.1",
+                "type": "string",
+                "description": [
+                  "Source of configuration setting."
+                ]
+              },
+              "plugin": {
+                "added": "pre-v0.10.1",
+                "type": "string",
+                "description": [
+                  "Plugin which registered this configuration setting."
+                ]
+              }
+            }
+          },
+          "hsm-passphrase": {
+            "added": "v25.12",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "set",
+              "source"
+            ],
+            "properties": {
+              "set": {
+                "added": "v25.12",
+                "type": "boolean",
+                "description": [
+                  "`true` if set in config or cmdline."
+                ]
+              },
+              "source": {
+                "added": "v25.12",
+                "type": "string",
+                "description": [
+                  "Source of configuration setting."
+                ]
+              }
+            }
+          },
+          "recover": {
+            "added": "v23.11",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "value_str",
+              "source"
+            ],
+            "properties": {
+              "value_str": {
+                "added": "v23.11",
+                "type": "string",
+                "description": [
+                  "Mnemonic or hex secret to restore the node."
+                ]
+              },
+              "source": {
+                "added": "v23.11",
+                "type": "string",
+                "description": [
+                  "Source of configuration setting."
+                ]
+              }
+            }
+          },
+          "grpc-host": {
+            "added": "v24.11",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "value_str",
+              "source"
+            ],
+            "properties": {
+              "value_str": {
+                "added": "v24.11",
+                "type": "string",
+                "description": [
+                  "Defines the GRPC server host."
+                ]
+              },
+              "source": {
+                "added": "v24.11",
+                "type": "string",
+                "description": [
+                  "Source of configuration setting."
+                ]
+              },
+              "plugin": {
+                "added": "v24.11",
+                "type": "string",
+                "description": [
+                  "Plugin which registered this configuration setting."
+                ]
+              }
+            }
+          },
+          "grpc-port": {
+            "added": "v0.11.0",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "value_int",
+              "source"
+            ],
+            "properties": {
+              "value_int": {
+                "added": "v0.11.0",
+                "type": "u32",
+                "description": [
+                  "The port number for the GRPC plugin to listen for incoming connections."
+                ]
+              },
+              "source": {
+                "added": "v0.11.0",
+                "type": "string",
+                "description": [
+                  "Source of configuration setting."
+                ]
+              },
+              "plugin": {
+                "added": "v0.11.0",
+                "type": "string",
+                "description": [
+                  "Plugin which registered this configuration setting."
+                ]
+              }
+            }
+          },
+          "grpc-msg-buffer-size": {
+            "added": "v24.05",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "value_int",
+              "source"
+            ],
+            "properties": {
+              "value_int": {
+                "added": "v24.05",
+                "type": "u32",
+                "description": [
+                  "The size of the buffer used by the GRPC-plugin."
+                ]
+              },
+              "source": {
+                "added": "v24.05",
+                "type": "string",
+                "description": [
+                  "Source of configuration setting."
+                ]
+              },
+              "plugin": {
+                "added": "v24.05",
+                "type": "string",
+                "description": [
+                  "Plugin which registered this configuration setting."
+                ]
+              }
+            }
+          },
+          "accept-htlc-tlv-type": {
+            "added": "v23.08",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "values_int",
+              "sources"
+            ],
+            "properties": {
+              "values_int": {
+                "added": "v23.08",
+                "type": "array",
+                "items": {
+                  "type": "u32",
+                  "description": [
+                    "HTLC TLV type to accept and ignore."
+                  ]
+                }
+              },
+              "sources": {
+                "added": "v23.08",
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "description": [
+                    "Source of configuration setting."
+                  ]
+                }
+              }
+            }
+          },
+          "min-emergency-msat": {
+            "added": "v23.08",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "value_msat",
+              "source"
+            ],
+            "properties": {
+              "value_msat": {
+                "added": "v23.08",
+                "type": "msat",
+                "description": [
+                  "Amount of funds to keep in the wallet to close anchor channels."
+                ]
+              },
+              "source": {
+                "added": "v23.08",
+                "type": "string",
+                "description": [
+                  "Source of configuration setting."
+                ]
+              }
+            }
+          },
+          "invoices-onchain-fallback": {
+            "added": "v23.11",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "set",
+              "source"
+            ],
+            "properties": {
+              "set": {
+                "added": "v23.11",
+                "type": "boolean",
+                "description": [
+                  "`true` if set in config or cmdline."
+                ]
+              },
+              "source": {
+                "added": "v23.11",
+                "type": "string",
+                "description": [
+                  "Source of configuration setting."
+                ]
+              }
+            }
+          },
+          "autoclean-cycle": {
+            "added": "v22.11",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "value_int",
+              "source"
+            ],
+            "properties": {
+              "value_int": {
+                "added": "v22.11",
+                "type": "u32",
+                "description": [
+                  "Perform search for things to clean every SECONDS seconds."
+                ]
+              },
+              "source": {
+                "added": "v22.11",
+                "type": "string",
+                "description": [
+                  "Source of configuration setting."
+                ]
+              },
+              "plugin": {
+                "added": "v22.11",
+                "type": "string",
+                "description": [
+                  "Plugin which registered this configuration setting."
+                ]
+              },
+              "dynamic": {
+                "added": "v22.11",
+                "type": "boolean",
+                "enum": [
+                  true
+                ],
+                "description": [
+                  "Can this be set by setconfig()."
+                ]
+              }
+            }
+          },
+          "autoclean-networkevents-age": {
+            "added": "v25.12",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "value_int",
+              "source"
+            ],
+            "properties": {
+              "value_int": {
+                "added": "v25.12",
+                "type": "u32",
+                "description": [
+                  "How old network events have to be before deletion."
+                ]
+              },
+              "source": {
+                "added": "v25.12",
+                "type": "string",
+                "description": [
+                  "Source of configuration setting."
+                ]
+              },
+              "plugin": {
+                "added": "v25.12",
+                "type": "string",
+                "description": [
+                  "Plugin which registered this configuration setting."
+                ]
+              },
+              "dynamic": {
+                "added": "v25.12",
+                "type": "boolean",
+                "enum": [
+                  true
+                ],
+                "description": [
+                  "Can this be set by setconfig()."
+                ]
+              }
+            }
+          },
+          "autoclean-succeededforwards-age": {
+            "added": "v22.11",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "value_int",
+              "source"
+            ],
+            "properties": {
+              "value_int": {
+                "added": "v22.11",
+                "type": "u32",
+                "description": [
+                  "How old successful forwards have to be before deletion."
+                ]
+              },
+              "source": {
+                "added": "v22.11",
+                "type": "string",
+                "description": [
+                  "Source of configuration setting."
+                ]
+              },
+              "plugin": {
+                "added": "v22.11",
+                "type": "string",
+                "description": [
+                  "Plugin which registered this configuration setting."
+                ]
+              },
+              "dynamic": {
+                "added": "v22.11",
+                "type": "boolean",
+                "enum": [
+                  true
+                ],
+                "description": [
+                  "Can this be set by setconfig()."
+                ]
+              }
+            }
+          },
+          "autoclean-failedforwards-age": {
+            "added": "v22.11",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "value_int",
+              "source"
+            ],
+            "properties": {
+              "value_int": {
+                "added": "v22.11",
+                "type": "u32",
+                "description": [
+                  "How old failed forwards have to be before deletion."
+                ]
+              },
+              "source": {
+                "added": "v22.11",
+                "type": "string",
+                "description": [
+                  "Source of configuration setting."
+                ]
+              },
+              "plugin": {
+                "added": "v22.11",
+                "type": "string",
+                "description": [
+                  "Plugin which registered this configuration setting."
+                ]
+              },
+              "dynamic": {
+                "added": "v22.11",
+                "type": "boolean",
+                "enum": [
+                  true
+                ],
+                "description": [
+                  "Can this be set by setconfig()."
+                ]
+              }
+            }
+          },
+          "autoclean-succeededpays-age": {
+            "added": "v22.11",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "value_int",
+              "source"
+            ],
+            "properties": {
+              "value_int": {
+                "added": "v22.11",
+                "type": "u32",
+                "description": [
+                  "How old successful payments have to be before deletion."
+                ]
+              },
+              "source": {
+                "added": "v22.11",
+                "type": "string",
+                "description": [
+                  "Source of configuration setting."
+                ]
+              },
+              "plugin": {
+                "added": "v22.11",
+                "type": "string",
+                "description": [
+                  "Plugin which registered this configuration setting."
+                ]
+              },
+              "dynamic": {
+                "added": "v22.11",
+                "type": "boolean",
+                "enum": [
+                  true
+                ],
+                "description": [
+                  "Can this be set by setconfig()."
+                ]
+              }
+            }
+          },
+          "autoclean-failedpays-age": {
+            "added": "v22.11",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "value_int",
+              "source"
+            ],
+            "properties": {
+              "value_int": {
+                "added": "v22.11",
+                "type": "u32",
+                "description": [
+                  "How old failed payment attempts have to be before deletion."
+                ]
+              },
+              "source": {
+                "added": "v22.11",
+                "type": "string",
+                "description": [
+                  "Source of configuration setting."
+                ]
+              },
+              "plugin": {
+                "added": "v22.11",
+                "type": "string",
+                "description": [
+                  "Plugin which registered this configuration setting."
+                ]
+              },
+              "dynamic": {
+                "added": "v22.11",
+                "type": "boolean",
+                "enum": [
+                  true
+                ],
+                "description": [
+                  "Can this be set by setconfig()."
+                ]
+              }
+            }
+          },
+          "autoclean-paidinvoices-age": {
+            "added": "v22.11",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "value_int",
+              "source"
+            ],
+            "properties": {
+              "value_int": {
+                "added": "v22.11",
+                "type": "u32",
+                "description": [
+                  "How old invoices which were paid have to be before deletion."
+                ]
+              },
+              "source": {
+                "added": "v22.11",
+                "type": "string",
+                "description": [
+                  "Source of configuration setting."
+                ]
+              },
+              "plugin": {
+                "added": "v22.11",
+                "type": "string",
+                "description": [
+                  "Plugin which registered this configuration setting."
+                ]
+              },
+              "dynamic": {
+                "added": "v22.11",
+                "type": "boolean",
+                "enum": [
+                  true
+                ],
+                "description": [
+                  "Can this be set by setconfig()."
+                ]
+              }
+            }
+          },
+          "autoclean-expiredinvoices-age": {
+            "added": "v22.11",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "value_int",
+              "source"
+            ],
+            "properties": {
+              "value_int": {
+                "added": "v22.11",
+                "type": "u32",
+                "description": [
+                  "How old expired invoices have to be before deletion."
+                ]
+              },
+              "source": {
+                "added": "v22.11",
+                "type": "string",
+                "description": [
+                  "Source of configuration setting."
+                ]
+              },
+              "plugin": {
+                "added": "v22.11",
+                "type": "string",
+                "description": [
+                  "Plugin which registered this configuration setting."
+                ]
+              },
+              "dynamic": {
+                "added": "v22.11",
+                "type": "boolean",
+                "enum": [
+                  true
+                ],
+                "description": [
+                  "Can this be set by setconfig()."
+                ]
+              }
+            }
+          },
+          "payment-fronting-node": {
+            "added": "v26.04",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "values_str",
+              "sources"
+            ],
+            "properties": {
+              "values_str": {
+                "added": "v26.04",
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "description": [
+                    "Node ID to use as entry point for invoices and offers."
+                  ]
+                }
+              },
+              "sources": {
+                "added": "v26.04",
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "description": [
+                    "Source of configuration setting."
+                  ]
+                }
+              }
+            }
+          },
+          "xpay-handle-pay": {
+            "added": "v24.11",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "value_bool",
+              "source"
+            ],
+            "properties": {
+              "value_bool": {
+                "added": "v24.11",
+                "type": "boolean",
+                "description": [
+                  "Make xpay intercept pay commands."
+                ]
+              },
+              "source": {
+                "added": "v24.11",
+                "type": "string",
+                "description": [
+                  "Source of configuration setting."
+                ]
+              },
+              "plugin": {
+                "added": "v24.11",
+                "type": "string",
+                "description": [
+                  "Plugin which registered this configuration setting."
+                ]
+              },
+              "dynamic": {
+                "added": "v24.11",
+                "type": "boolean",
+                "enum": [
+                  true
+                ],
+                "description": [
+                  "Can this be set by setconfig()."
+                ]
+              }
+            }
+          },
+          "xpay-slow-mode": {
+            "added": "v25.02",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "value_bool",
+              "source"
+            ],
+            "properties": {
+              "value_bool": {
+                "added": "v25.02",
+                "type": "boolean",
+                "description": [
+                  "Make xpay wait until all parts have failed/succeeded before returning."
+                ]
+              },
+              "source": {
+                "added": "v25.02",
+                "type": "string",
+                "description": [
+                  "Source of configuration setting."
+                ]
+              },
+              "plugin": {
+                "added": "v25.02",
+                "type": "string",
+                "description": [
+                  "Plugin which registered this configuration setting."
+                ]
+              },
+              "dynamic": {
+                "added": "v25.02",
+                "type": "boolean",
+                "enum": [
+                  true
+                ],
+                "description": [
+                  "Can this be set by setconfig()."
+                ]
+              }
+            }
+          },
+          "askrene-timeout": {
+            "added": "v24.11",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "value_int",
+              "source"
+            ],
+            "properties": {
+              "value_int": {
+                "added": "v24.11",
+                "type": "u32",
+                "description": [
+                  "Make getroutes call fail if it takes more than this many seconds."
+                ]
+              },
+              "source": {
+                "added": "v24.11",
+                "type": "string",
+                "description": [
+                  "Source of configuration setting."
+                ]
+              },
+              "plugin": {
+                "added": "v24.11",
+                "type": "string",
+                "description": [
+                  "Plugin which registered this configuration setting."
+                ]
+              },
+              "dynamic": {
+                "added": "v24.11",
+                "type": "boolean",
+                "enum": [
+                  true
+                ],
+                "description": [
+                  "Can this be set by setconfig()."
+                ]
+              }
+            }
+          },
+          "askrene-max-threads": {
+            "added": "v26.04",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "value_int",
+              "source"
+            ],
+            "properties": {
+              "value_int": {
+                "added": "v26.04",
+                "type": "u32",
+                "description": [
+                  "How many routes askrene will calculate at once."
+                ]
+              },
+              "source": {
+                "added": "v26.04",
+                "type": "string",
+                "description": [
+                  "Source of configuration setting."
+                ]
+              },
+              "plugin": {
+                "added": "v26.04",
+                "type": "string",
+                "description": [
+                  "Plugin which registered this configuration setting."
+                ]
+              },
+              "dynamic": {
+                "added": "v26.04",
+                "type": "boolean",
+                "enum": [
+                  true
+                ],
+                "description": [
+                  "Can this be set by setconfig()."
+                ]
+              }
+            }
+          },
+          "bkpr-currency": {
+            "added": "v26.04",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "value_str",
+              "source"
+            ],
+            "properties": {
+              "value_str": {
+                "added": "v26.04",
+                "type": "string",
+                "description": [
+                  "ISO-4217 name to fetch exchange rate for."
+                ]
+              },
+              "source": {
+                "added": "v26.04",
+                "type": "string",
+                "description": [
+                  "Source of configuration setting."
+                ]
+              },
+              "plugin": {
+                "added": "v26.04",
+                "type": "string",
+                "description": [
+                  "Plugin which registered this configuration setting."
+                ]
+              },
+              "dynamic": {
+                "added": "v26.04",
+                "type": "boolean",
+                "enum": [
+                  true
+                ],
+                "description": [
+                  "Can this be set by setconfig()."
+                ]
+              }
+            }
+          },
+          "clnrest-port": {
+            "added": "v23.08",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "value_int",
+              "source"
+            ],
+            "properties": {
+              "value_int": {
+                "added": "v23.08",
+                "type": "u32",
+                "description": [
+                  "Sets the REST server port to listen to."
+                ]
+              },
+              "source": {
+                "added": "v23.08",
+                "type": "string",
+                "description": [
+                  "Source of configuration setting."
+                ]
+              },
+              "plugin": {
+                "added": "v23.08",
+                "type": "string",
+                "description": [
+                  "Plugin which registered this configuration setting."
+                ]
+              }
+            }
+          },
+          "clnrest-protocol": {
+            "added": "v23.08",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "value_str",
+              "source"
+            ],
+            "properties": {
+              "value_str": {
+                "added": "v23.08",
+                "type": "string",
+                "enum": [
+                  "HTTP",
+                  "HTTPS"
+                ],
+                "description": [
+                  "Specifies the REST server protocol."
+                ]
+              },
+              "source": {
+                "added": "v23.08",
+                "type": "string",
+                "description": [
+                  "Source of configuration setting."
+                ]
+              },
+              "plugin": {
+                "added": "v23.08",
+                "type": "string",
+                "description": [
+                  "Plugin which registered this configuration setting."
+                ]
+              }
+            }
+          },
+          "clnrest-host": {
+            "added": "v23.08",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "value_str",
+              "source"
+            ],
+            "properties": {
+              "value_str": {
+                "added": "v23.08",
+                "type": "string",
+                "description": [
+                  "Defines the REST server host."
+                ]
+              },
+              "source": {
+                "added": "v23.08",
+                "type": "string",
+                "description": [
+                  "Source of configuration setting."
+                ]
+              },
+              "plugin": {
+                "added": "v23.08",
+                "type": "string",
+                "description": [
+                  "Plugin which registered this configuration setting."
+                ]
+              }
+            }
+          },
+          "clnrest-certs": {
+            "added": "v23.08",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "value_str",
+              "source"
+            ],
+            "properties": {
+              "value_str": {
+                "added": "v23.08",
+                "type": "string",
+                "description": [
+                  "Defines the path for HTTPS cert & key."
+                ]
+              },
+              "source": {
+                "added": "v23.08",
+                "type": "string",
+                "description": [
+                  "Source of configuration setting."
+                ]
+              },
+              "plugin": {
+                "added": "v23.08",
+                "type": "string",
+                "description": [
+                  "Plugin which registered this configuration setting."
+                ]
+              }
+            }
+          },
+          "clnrest-cors-origins": {
+            "added": "v23.08",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "value_str",
+              "source"
+            ],
+            "properties": {
+              "value_str": {
+                "added": "v23.08",
+                "type": "string",
+                "description": [
+                  "Define multiple origins which are allowed to share resources."
+                ]
+              },
+              "source": {
+                "added": "v23.08",
+                "type": "string",
+                "description": [
+                  "Source of configuration setting."
+                ]
+              },
+              "plugin": {
+                "added": "v23.08",
+                "type": "string",
+                "description": [
+                  "Plugin which registered this configuration setting."
+                ]
+              }
+            }
+          },
+          "clnrest-csp": {
+            "added": "v23.11",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "value_str",
+              "source"
+            ],
+            "properties": {
+              "value_str": {
+                "added": "v23.11",
+                "type": "string",
+                "description": [
+                  "Creates a whitelist of trusted content sources."
+                ]
+              },
+              "source": {
+                "added": "v23.11",
+                "type": "string",
+                "description": [
+                  "Source of configuration setting."
+                ]
+              },
+              "plugin": {
+                "added": "v23.11",
+                "type": "string",
+                "description": [
+                  "Plugin which registered this configuration setting."
+                ]
+              }
+            }
+          },
+          "clnrest-swagger-root": {
+            "added": "v24.05",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "value_str",
+              "source"
+            ],
+            "properties": {
+              "value_str": {
+                "added": "v24.05",
+                "type": "string",
+                "description": [
+                  "Root url for Swagger UI."
+                ]
+              },
+              "source": {
+                "added": "v24.05",
+                "type": "string",
+                "description": [
+                  "Source of configuration setting."
+                ]
+              },
+              "plugin": {
+                "added": "v24.05",
+                "type": "string",
+                "description": [
+                  "Plugin which registered this configuration setting."
+                ]
+              }
+            }
+          },
+          "wss-bind-addr": {
+            "added": "v24.05",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "values_str",
+              "sources"
+            ],
+            "properties": {
+              "values_str": {
+                "added": "v24.05",
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "description": [
+                    "Sets the WSS address."
+                  ]
+                }
+              },
+              "sources": {
+                "added": "v24.05",
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "description": [
+                    "Source of configuration setting."
+                  ]
+                }
+              },
+              "plugin": {
+                "added": "v24.05",
+                "type": "string",
+                "description": [
+                  "Plugin which registered this configuration setting."
+                ]
+              }
+            }
+          },
+          "wss-certs": {
+            "added": "v24.05",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "value_str",
+              "source"
+            ],
+            "properties": {
+              "value_str": {
+                "added": "v24.05",
+                "type": "string",
+                "description": [
+                  "Defines the path for WSS cert & key."
+                ]
+              },
+              "source": {
+                "added": "v24.05",
+                "type": "string",
+                "description": [
+                  "Source of configuration setting."
+                ]
+              },
+              "plugin": {
+                "added": "v24.05",
+                "type": "string",
+                "description": [
+                  "Plugin which registered this configuration setting."
+                ]
+              }
+            }
+          },
+          "exposesecret-passphrase": {
+            "added": "v24.11",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "value_str",
+              "source"
+            ],
+            "properties": {
+              "value_str": {
+                "added": "v24.11",
+                "type": "string",
+                "description": [
+                  "Passphrase which will let users extract the hsm_secret."
+                ]
+              },
+              "source": {
+                "added": "v24.11",
+                "type": "string",
+                "description": [
+                  "Source of configuration setting."
+                ]
+              },
+              "plugin": {
+                "added": "v24.11",
+                "type": "string",
+                "description": [
+                  "Plugin which registered this configuration setting."
+                ]
+              }
+            }
+          },
+          "experimental-lsps-client": {
+            "added": "v25.12",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "set",
+              "source"
+            ],
+            "properties": {
+              "set": {
+                "added": "v25.12",
+                "type": "boolean",
+                "description": [
+                  "`true` if set in config or cmdline."
+                ]
+              },
+              "source": {
+                "added": "v25.12",
+                "type": "string",
+                "description": [
+                  "Source of configuration setting."
+                ]
+              }
+            }
+          },
+          "experimental-lsps2-service": {
+            "added": "v25.12",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "set",
+              "source"
+            ],
+            "properties": {
+              "set": {
+                "added": "v25.12",
+                "type": "boolean",
+                "description": [
+                  "`true` if set in config or cmdline."
+                ]
+              },
+              "source": {
+                "added": "v25.12",
+                "type": "string",
+                "description": [
+                  "Source of configuration setting."
+                ]
+              }
+            }
+          },
+          "experimental-lsps2-promise-secret": {
+            "added": "v25.12",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "value_str",
+              "source"
+            ],
+            "properties": {
+              "value_str": {
+                "added": "v25.12",
+                "type": "string",
+                "description": [
+                  "64-character hex string that acts as the secret for promises."
+                ]
+              },
+              "source": {
+                "added": "v25.12",
                 "type": "string",
                 "description": [
                   "Source of configuration setting."
@@ -2016,10 +3574,6 @@
           "experimental-dual-fund": {
             "set": true,
             "source": "cmdline"
-          },
-          "experimental-quiesce": {
-            "set": false,
-            "source": "default"
           },
           "experimental-shutdown-wrong-funding": {
             "set": false,
