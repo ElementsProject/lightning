@@ -1731,6 +1731,8 @@ bool charp_jsonfmt(struct command *cmd, struct json_stream *js, const char *fiel
 bool string_array_jsonfmt(struct command *cmd, struct json_stream *js,
 			  const char *fieldname, const char ***arr)
 {
+	if (tal_count(*arr) == 0)
+		return false;
 	json_array_start(js, fieldname);
 	for (size_t i = 0; i < tal_count(*arr); i++)
 		json_add_string(js, NULL, (*arr)[i]);
