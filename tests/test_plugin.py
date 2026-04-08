@@ -4410,7 +4410,6 @@ def test_sql_deprecated(node_factory, bitcoind):
     assert ret == {'rows': [[1]]}
 
 
-@pytest.mark.xfail(strict=True)
 def test_sql_limit_per_list(node_factory):
     l1, l2, l3 = node_factory.line_graph(
         3, wait_for_announce=True, opts=[{}, {"dev-sqllistlimit": 10}, {}]
