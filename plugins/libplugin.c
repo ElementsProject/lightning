@@ -1688,6 +1688,14 @@ char *charp_option(struct command *cmd, const char *arg, bool check_only, char *
 	return NULL;
 }
 
+char *multi_string_option(struct command *cmd, const char *arg, bool check_only,
+			  const char ***arr)
+{
+	if (!check_only)
+		tal_arr_expand(arr, tal_strdup(*arr, arg));
+	return NULL;
+}
+
 bool u64_jsonfmt(struct command *cmd, struct json_stream *js, const char *fieldname, u64 *i)
 {
 	json_add_u64(js, fieldname, *i);
@@ -1717,6 +1725,16 @@ bool charp_jsonfmt(struct command *cmd, struct json_stream *js, const char *fiel
 	if (!*p)
 		return false;
 	json_add_string(js, fieldname, *p);
+	return true;
+}
+
+bool string_array_jsonfmt(struct command *cmd, struct json_stream *js,
+			  const char *fieldname, const char ***arr)
+{
+	json_array_start(js, fieldname);
+	for (size_t i = 0; i < tal_count(*arr); i++)
+		json_add_string(js, NULL, (*arr)[i]);
+	json_array_end(js);
 	return true;
 }
 
