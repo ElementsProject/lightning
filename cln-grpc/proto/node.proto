@@ -3190,15 +3190,17 @@ message ListconfigsConfigs {
 	optional ListconfigsConfigsLargechannels large_channels = 20;
 	optional ListconfigsConfigsExperimentaldualfund experimental_dual_fund = 21;
 	optional ListconfigsConfigsExperimentalsplicing experimental_splicing = 22 [deprecated = true];
+	optional ListconfigsConfigsExperimentalonionmessages experimental_onion_messages = 23 [deprecated = true];
 	optional ListconfigsConfigsExperimentalshutdownwrongfunding experimental_shutdown_wrong_funding = 25;
-	optional ListconfigsConfigsExperimentalpeerstorage experimental_peer_storage = 26;
-	optional ListconfigsConfigsExperimentalanchors experimental_anchors = 27;
+	optional ListconfigsConfigsExperimentalpeerstorage experimental_peer_storage = 26 [deprecated = true];
+	optional ListconfigsConfigsExperimentalanchors experimental_anchors = 27 [deprecated = true];
 	optional ListconfigsConfigsDatabaseupgrade database_upgrade = 28;
 	optional ListconfigsConfigsRgb rgb = 29;
 	optional ListconfigsConfigsAlias alias = 30;
 	optional ListconfigsConfigsPidfile pid_file = 31;
 	optional ListconfigsConfigsIgnorefeelimits ignore_fee_limits = 32;
 	optional ListconfigsConfigsWatchtimeblocks watchtime_blocks = 33;
+	optional ListconfigsConfigsMaxlocktimeblocks max_locktime_blocks = 34 [deprecated = true];
 	optional ListconfigsConfigsFundingconfirms funding_confirms = 35;
 	optional ListconfigsConfigsCltvdelta cltv_delta = 36;
 	optional ListconfigsConfigsCltvfinal cltv_final = 37;
@@ -3220,7 +3222,7 @@ message ListconfigsConfigs {
 	optional ListconfigsConfigsDisabledns disable_dns = 53;
 	optional ListconfigsConfigsAnnounceaddrdiscovered announce_addr_discovered = 54;
 	optional ListconfigsConfigsAnnounceaddrdiscoveredport announce_addr_discovered_port = 55;
-	optional ListconfigsConfigsEncryptedhsm encrypted_hsm = 56;
+	optional ListconfigsConfigsEncryptedhsm encrypted_hsm = 56 [deprecated = true];
 	optional ListconfigsConfigsRpcfilemode rpc_file_mode = 57;
 	optional ListconfigsConfigsLoglevel log_level = 58;
 	optional ListconfigsConfigsLogprefix log_prefix = 59;
@@ -3237,6 +3239,57 @@ message ListconfigsConfigs {
 	optional ListconfigsConfigsAutoconnectseekerpeers autoconnect_seeker_peers = 71;
 	optional ListconfigsConfigsCurrencyrateaddsource currencyrate_add_source = 74;
 	optional ListconfigsConfigsCurrencyratedisablesource currencyrate_disable_source = 75;
+	optional ListconfigsConfigsAccepthtlctlvtype accept_htlc_tlv_type = 76;
+	optional ListconfigsConfigsAskrenemaxthreads askrene_max_threads = 77;
+	optional ListconfigsConfigsAskrenetimeout askrene_timeout = 78;
+	optional ListconfigsConfigsAutocleancycle autoclean_cycle = 79;
+	optional ListconfigsConfigsAutocleanexpiredinvoicesage autoclean_expiredinvoices_age = 80;
+	optional ListconfigsConfigsAutocleanfailedforwardsage autoclean_failedforwards_age = 81;
+	optional ListconfigsConfigsAutocleanfailedpaysage autoclean_failedpays_age = 82;
+	optional ListconfigsConfigsAutocleannetworkeventsage autoclean_networkevents_age = 83;
+	optional ListconfigsConfigsAutocleanpaidinvoicesage autoclean_paidinvoices_age = 84;
+	optional ListconfigsConfigsAutocleansucceededforwardsage autoclean_succeededforwards_age = 85;
+	optional ListconfigsConfigsAutocleansucceededpaysage autoclean_succeededpays_age = 86;
+	optional ListconfigsConfigsBitcoincli bitcoin_cli = 87;
+	optional ListconfigsConfigsBitcoindatadir bitcoin_datadir = 88;
+	optional ListconfigsConfigsBitcoinretrytimeout bitcoin_retry_timeout = 89;
+	optional ListconfigsConfigsBitcoinrpcclienttimeout bitcoin_rpcclienttimeout = 90;
+	optional ListconfigsConfigsBitcoinrpcconnect bitcoin_rpcconnect = 91;
+	optional ListconfigsConfigsBitcoinrpcpassword bitcoin_rpcpassword = 92;
+	optional ListconfigsConfigsBitcoinrpcport bitcoin_rpcport = 93;
+	optional ListconfigsConfigsBitcoinrpcuser bitcoin_rpcuser = 94;
+	optional ListconfigsConfigsBkprcurrency bkpr_currency = 95;
+	optional ListconfigsConfigsClnrestcerts clnrest_certs = 96;
+	optional ListconfigsConfigsClnrestcorsorigins clnrest_cors_origins = 97;
+	optional ListconfigsConfigsClnrestcsp clnrest_csp = 98;
+	optional ListconfigsConfigsClnresthost clnrest_host = 99;
+	optional ListconfigsConfigsClnrestport clnrest_port = 100;
+	optional ListconfigsConfigsClnrestprotocol clnrest_protocol = 101;
+	optional ListconfigsConfigsClnrestswaggerroot clnrest_swagger_root = 102;
+	optional ListconfigsConfigsExperimentallspsclient experimental_lsps_client = 103;
+	optional ListconfigsConfigsExperimentallsps2promisesecret experimental_lsps2_promise_secret = 104;
+	optional ListconfigsConfigsExperimentallsps2service experimental_lsps2_service = 105;
+	optional ListconfigsConfigsExposesecretpassphrase exposesecret_passphrase = 106;
+	optional ListconfigsConfigsGrpchost grpc_host = 107;
+	optional ListconfigsConfigsGrpcmsgbuffersize grpc_msg_buffer_size = 108;
+	optional ListconfigsConfigsGrpcport grpc_port = 109;
+	optional ListconfigsConfigsHelp help = 110;
+	optional ListconfigsConfigsHsmpassphrase hsm_passphrase = 111;
+	optional ListconfigsConfigsIpromisetofixbrokenapiuser i_promise_to_fix_broken_api_user = 112;
+	optional ListconfigsConfigsInvoicesonchainfallback invoices_onchain_fallback = 113;
+	optional ListconfigsConfigsMinemergencymsat min_emergency_msat = 114;
+	optional ListconfigsConfigsPaymentfrontingnode payment_fronting_node = 115;
+	optional ListconfigsConfigsRecover recover = 116;
+	optional ListconfigsConfigsVersion version = 117;
+	optional ListconfigsConfigsWssbindaddr wss_bind_addr = 118;
+	optional ListconfigsConfigsWsscerts wss_certs = 119;
+	optional ListconfigsConfigsXpayhandlepay xpay_handle_pay = 120;
+	optional ListconfigsConfigsXpayslowmode xpay_slow_mode = 121;
+}
+
+message ListconfigsConfigsAccepthtlctlvtype {
+	repeated string sources = 1;
+	repeated uint32 values_int = 2;
 }
 
 message ListconfigsConfigsAddr {
@@ -3285,6 +3338,76 @@ message ListconfigsConfigsAnnounceaddrdns {
 	string source = 2;
 }
 
+message ListconfigsConfigsAskrenemaxthreads {
+	optional bool dynamic = 1;
+	optional string plugin = 2;
+	string source = 3;
+	uint32 value_int = 4;
+}
+
+message ListconfigsConfigsAskrenetimeout {
+	optional bool dynamic = 1;
+	optional string plugin = 2;
+	string source = 3;
+	uint32 value_int = 4;
+}
+
+message ListconfigsConfigsAutocleancycle {
+	optional bool dynamic = 1;
+	optional string plugin = 2;
+	string source = 3;
+	uint32 value_int = 4;
+}
+
+message ListconfigsConfigsAutocleanexpiredinvoicesage {
+	optional bool dynamic = 1;
+	optional string plugin = 2;
+	string source = 3;
+	uint32 value_int = 4;
+}
+
+message ListconfigsConfigsAutocleanfailedforwardsage {
+	optional bool dynamic = 1;
+	optional string plugin = 2;
+	string source = 3;
+	uint32 value_int = 4;
+}
+
+message ListconfigsConfigsAutocleanfailedpaysage {
+	optional bool dynamic = 1;
+	optional string plugin = 2;
+	string source = 3;
+	uint32 value_int = 4;
+}
+
+message ListconfigsConfigsAutocleannetworkeventsage {
+	optional bool dynamic = 1;
+	optional string plugin = 2;
+	string source = 3;
+	uint32 value_int = 4;
+}
+
+message ListconfigsConfigsAutocleanpaidinvoicesage {
+	optional bool dynamic = 1;
+	optional string plugin = 2;
+	string source = 3;
+	uint32 value_int = 4;
+}
+
+message ListconfigsConfigsAutocleansucceededforwardsage {
+	optional bool dynamic = 1;
+	optional string plugin = 2;
+	string source = 3;
+	uint32 value_int = 4;
+}
+
+message ListconfigsConfigsAutocleansucceededpaysage {
+	optional bool dynamic = 1;
+	optional string plugin = 2;
+	string source = 3;
+	uint32 value_int = 4;
+}
+
 message ListconfigsConfigsAutoconnectseekerpeers {
 	uint32 value_int = 1;
 	string source = 2;
@@ -3300,9 +3423,111 @@ message ListconfigsConfigsBindaddr {
 	repeated string sources = 2;
 }
 
+message ListconfigsConfigsBitcoincli {
+	optional string plugin = 1;
+	string source = 2;
+	string value_str = 3;
+}
+
+message ListconfigsConfigsBitcoindatadir {
+	optional string plugin = 1;
+	string source = 2;
+	string value_str = 3;
+}
+
+message ListconfigsConfigsBitcoinretrytimeout {
+	optional string plugin = 1;
+	string source = 2;
+	uint32 value_int = 3;
+}
+
+message ListconfigsConfigsBitcoinrpcclienttimeout {
+	optional string plugin = 1;
+	string source = 2;
+	uint32 value_int = 3;
+}
+
+message ListconfigsConfigsBitcoinrpcconnect {
+	optional string plugin = 1;
+	string source = 2;
+	string value_str = 3;
+}
+
+message ListconfigsConfigsBitcoinrpcpassword {
+	optional string plugin = 1;
+	string source = 2;
+	string value_str = 3;
+}
+
+message ListconfigsConfigsBitcoinrpcport {
+	optional string plugin = 1;
+	string source = 2;
+	uint32 value_int = 3;
+}
+
+message ListconfigsConfigsBitcoinrpcuser {
+	optional string plugin = 1;
+	string source = 2;
+	string value_str = 3;
+}
+
+message ListconfigsConfigsBkprcurrency {
+	optional bool dynamic = 1;
+	optional string plugin = 2;
+	string source = 3;
+	string value_str = 4;
+}
+
 message ListconfigsConfigsClearplugins {
 	bool set = 1;
 	string source = 2;
+}
+
+message ListconfigsConfigsClnrestcerts {
+	optional string plugin = 1;
+	string source = 2;
+	string value_str = 3;
+}
+
+message ListconfigsConfigsClnrestcorsorigins {
+	optional string plugin = 1;
+	string source = 2;
+	string value_str = 3;
+}
+
+message ListconfigsConfigsClnrestcsp {
+	optional string plugin = 1;
+	string source = 2;
+	string value_str = 3;
+}
+
+message ListconfigsConfigsClnresthost {
+	optional string plugin = 1;
+	string source = 2;
+	string value_str = 3;
+}
+
+message ListconfigsConfigsClnrestport {
+	optional string plugin = 1;
+	string source = 2;
+	uint32 value_int = 3;
+}
+
+message ListconfigsConfigsClnrestprotocol {
+	// ListConfigs.configs.clnrest-protocol.value_str
+	enum ListconfigsConfigsClnrestprotocolValueStr {
+		HTTP = 0;
+		HTTPS = 1;
+	}
+	optional string plugin = 1;
+	string source = 2;
+	ListconfigsConfigsClnrestprotocolValueStr value_str = 3;
+}
+
+message ListconfigsConfigsClnrestswaggerroot {
+	optional string plugin = 1;
+	string source = 2;
+	string value_str = 3;
 }
 
 message ListconfigsConfigsCltvdelta {
@@ -3383,13 +3608,13 @@ message ListconfigsConfigsDisableplugin {
 }
 
 message ListconfigsConfigsEncryptedhsm {
-	bool set = 1;
-	string source = 2;
+	bool set = 1 [deprecated = true];
+	string source = 2 [deprecated = true];
 }
 
 message ListconfigsConfigsExperimentalanchors {
-	bool set = 1;
-	string source = 2;
+	bool set = 1 [deprecated = true];
+	string source = 2 [deprecated = true];
 }
 
 message ListconfigsConfigsExperimentaldualfund {
@@ -3397,9 +3622,29 @@ message ListconfigsConfigsExperimentaldualfund {
 	string source = 2;
 }
 
-message ListconfigsConfigsExperimentalpeerstorage {
+message ListconfigsConfigsExperimentallspsclient {
 	bool set = 1;
 	string source = 2;
+}
+
+message ListconfigsConfigsExperimentallsps2promisesecret {
+	string source = 1;
+	string value_str = 2;
+}
+
+message ListconfigsConfigsExperimentallsps2service {
+	bool set = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsExperimentalonionmessages {
+	bool set = 1 [deprecated = true];
+	string source = 2 [deprecated = true];
+}
+
+message ListconfigsConfigsExperimentalpeerstorage {
+	bool set = 1 [deprecated = true];
+	string source = 2 [deprecated = true];
 }
 
 message ListconfigsConfigsExperimentalshutdownwrongfunding {
@@ -3410,6 +3655,12 @@ message ListconfigsConfigsExperimentalshutdownwrongfunding {
 message ListconfigsConfigsExperimentalsplicing {
 	bool set = 1 [deprecated = true];
 	string source = 2 [deprecated = true];
+}
+
+message ListconfigsConfigsExposesecretpassphrase {
+	optional string plugin = 1;
+	string source = 2;
+	string value_str = 3;
 }
 
 message ListconfigsConfigsFeebase {
@@ -3438,6 +3689,34 @@ message ListconfigsConfigsFundingconfirms {
 	string source = 2;
 }
 
+message ListconfigsConfigsGrpchost {
+	optional string plugin = 1;
+	string source = 2;
+	string value_str = 3;
+}
+
+message ListconfigsConfigsGrpcmsgbuffersize {
+	optional string plugin = 1;
+	string source = 2;
+	uint32 value_int = 3;
+}
+
+message ListconfigsConfigsGrpcport {
+	optional string plugin = 1;
+	string source = 2;
+	uint32 value_int = 3;
+}
+
+message ListconfigsConfigsHelp {
+	bool set = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsHsmpassphrase {
+	bool set = 1;
+	string source = 2;
+}
+
 message ListconfigsConfigsHtlcmaximummsat {
 	Amount value_msat = 1;
 	string source = 2;
@@ -3448,6 +3727,11 @@ message ListconfigsConfigsHtlcminimummsat {
 	string source = 2;
 }
 
+message ListconfigsConfigsIpromisetofixbrokenapiuser {
+	repeated string sources = 1;
+	repeated string values_str = 2;
+}
+
 message ListconfigsConfigsIgnorefeelimits {
 	bool value_bool = 1;
 	string source = 2;
@@ -3456,6 +3740,11 @@ message ListconfigsConfigsIgnorefeelimits {
 message ListconfigsConfigsImportantplugin {
 	repeated string values_str = 1;
 	repeated string sources = 2;
+}
+
+message ListconfigsConfigsInvoicesonchainfallback {
+	bool set = 1;
+	string source = 2;
 }
 
 message ListconfigsConfigsLargechannels {
@@ -3503,10 +3792,20 @@ message ListconfigsConfigsMaxdusthtlcexposuremsat {
 	string source = 2;
 }
 
+message ListconfigsConfigsMaxlocktimeblocks {
+	uint32 value_int = 1 [deprecated = true];
+	string source = 2 [deprecated = true];
+}
+
 message ListconfigsConfigsMincapacitysat {
 	uint64 value_int = 1;
 	string source = 2;
 	optional bool dynamic = 3;
+}
+
+message ListconfigsConfigsMinemergencymsat {
+	string source = 1;
+	Amount value_msat = 2;
 }
 
 message ListconfigsConfigsNetwork {
@@ -3517,6 +3816,11 @@ message ListconfigsConfigsNetwork {
 message ListconfigsConfigsOffline {
 	bool set = 1;
 	string source = 2;
+}
+
+message ListconfigsConfigsPaymentfrontingnode {
+	repeated string sources = 1;
+	repeated string values_str = 2;
 }
 
 message ListconfigsConfigsPidfile {
@@ -3537,6 +3841,11 @@ message ListconfigsConfigsPlugindir {
 message ListconfigsConfigsProxy {
 	string value_str = 1;
 	string source = 2;
+}
+
+message ListconfigsConfigsRecover {
+	string source = 1;
+	string value_str = 2;
 }
 
 message ListconfigsConfigsRegtest {
@@ -3589,6 +3898,11 @@ message ListconfigsConfigsTorservicepassword {
 	string source = 2;
 }
 
+message ListconfigsConfigsVersion {
+	bool set = 1;
+	string source = 2;
+}
+
 message ListconfigsConfigsWallet {
 	string value_str = 1;
 	string source = 2;
@@ -3597,6 +3911,32 @@ message ListconfigsConfigsWallet {
 message ListconfigsConfigsWatchtimeblocks {
 	uint32 value_int = 1;
 	string source = 2;
+}
+
+message ListconfigsConfigsWssbindaddr {
+	optional string plugin = 1;
+	repeated string sources = 2;
+	repeated string values_str = 3;
+}
+
+message ListconfigsConfigsWsscerts {
+	optional string plugin = 1;
+	string source = 2;
+	string value_str = 3;
+}
+
+message ListconfigsConfigsXpayhandlepay {
+	optional bool dynamic = 1;
+	optional string plugin = 2;
+	string source = 3;
+	bool value_bool = 4;
+}
+
+message ListconfigsConfigsXpayslowmode {
+	optional bool dynamic = 1;
+	optional string plugin = 2;
+	string source = 3;
+	bool value_bool = 4;
 }
 
 message StopRequest {
