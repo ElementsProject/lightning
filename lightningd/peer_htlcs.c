@@ -2973,6 +2973,23 @@ void htlcs_notify_new_block(struct lightningd *ld)
 			if (channel->error)
 				continue;
 
+			/* Fulfill is in progress: we have the preimage
+			 * and have already told channeld (or will on
+			 * reconnect).  Don't force-close; if peer goes
+			 * on-chain, onchaind will claim using the
+			 * preimage.
+			 * See https://github.com/ElementsProject/lightning/issues/8899 */
+			if (hin->hstate >= SENT_REMOVE_HTLC) {
+				log_unusual(channel->log,
+					    "Fulfilled HTLC %"PRIu64
+					    " %s cltv %u hit deadline,"
+					    " but removal already in progress",
+					    hin->key.id,
+					    htlc_state_name(hin->hstate),
+					    hin->cltv_expiry);
+				continue;
+			}
+
 			channel_fail_permanent(channel,
 					       REASON_PROTOCOL,
 					       "Fulfilled HTLC %"PRIu64
