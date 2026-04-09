@@ -1,6 +1,6 @@
 from fixtures import *  # noqa: F401,F403
 from pathlib import Path
-from pyln.client import Millisatoshi
+from pyln.client import RpcError, Millisatoshi
 import pytest
 import re
 import unittest
@@ -716,3 +716,16 @@ def test_easy_splice_out_into_channel(node_factory, bitcoind, chainparams):
 
     end_chan1_balance = Millisatoshi(bkpr_account_balance(l2, chan1))
     assert initial_chan1_balance + Millisatoshi(spliceamt * 1000) == end_chan1_balance
+
+
+@pytest.mark.xfail(strict=True)
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_spliceout_exceeds_channel_balance(node_factory):
+    l1, l2 = node_factory.line_graph(2, fundamount=1000000, wait_for_announce=True,
+                                     opts={'experimental-splicing': None})
+    with pytest.raises(RpcError):
+        l1.rpc.spliceout("*:?", "99999999")  # way more than channel holds
+    p1 = only_one(l1.rpc.listpeerchannels(peer_id=l2.info['id'])['channels'])
+    assert 'inflight' not in p1
