@@ -664,6 +664,11 @@ class NodeStub(object):
                 request_serializer=node__pb2.AskreneremovelayerRequest.SerializeToString,
                 response_deserializer=node__pb2.AskreneremovelayerResponse.FromString,
                 _registered_method=True)
+        self.AskReneRemoveChannelUpdate = channel.unary_unary(
+                '/cln.Node/AskReneRemoveChannelUpdate',
+                request_serializer=node__pb2.AskreneremovechannelupdateRequest.SerializeToString,
+                response_deserializer=node__pb2.AskreneremovechannelupdateResponse.FromString,
+                _registered_method=True)
         self.AskReneReserve = channel.unary_unary(
                 '/cln.Node/AskReneReserve',
                 request_serializer=node__pb2.AskrenereserveRequest.SerializeToString,
@@ -1655,6 +1660,12 @@ class NodeServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def AskReneRemoveChannelUpdate(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def AskReneReserve(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -2563,6 +2574,11 @@ def add_NodeServicer_to_server(servicer, server):
                     servicer.AskReneRemoveLayer,
                     request_deserializer=node__pb2.AskreneremovelayerRequest.FromString,
                     response_serializer=node__pb2.AskreneremovelayerResponse.SerializeToString,
+            ),
+            'AskReneRemoveChannelUpdate': grpc.unary_unary_rpc_method_handler(
+                    servicer.AskReneRemoveChannelUpdate,
+                    request_deserializer=node__pb2.AskreneremovechannelupdateRequest.FromString,
+                    response_serializer=node__pb2.AskreneremovechannelupdateResponse.SerializeToString,
             ),
             'AskReneReserve': grpc.unary_unary_rpc_method_handler(
                     servicer.AskReneReserve,
@@ -6197,6 +6213,33 @@ class Node(object):
             '/cln.Node/AskReneRemoveLayer',
             node__pb2.AskreneremovelayerRequest.SerializeToString,
             node__pb2.AskreneremovelayerResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def AskReneRemoveChannelUpdate(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/cln.Node/AskReneRemoveChannelUpdate',
+            node__pb2.AskreneremovechannelupdateRequest.SerializeToString,
+            node__pb2.AskreneremovechannelupdateResponse.FromString,
             options,
             channel_credentials,
             insecure,

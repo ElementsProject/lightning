@@ -1790,6 +1790,53 @@
         }
       ]
     },
+    "askrene-remove-channel-update.json": {
+      "$schema": "../rpc-schema-draft.json",
+      "type": "object",
+      "rpc": "askrene-remove-channel-update",
+      "title": "Command to remove a channel update entry in a layer",
+      "added": "v26.06",
+      "description": [
+        "The **askrene-remove-channel-update** RPC command removes a channel update entry in the layer."
+      ],
+      "request": {
+        "required": [
+          "layer",
+          "short_channel_id_dir"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "layer": {
+            "type": "string",
+            "description": [
+              "The name of the layer to apply this change to."
+            ]
+          },
+          "short_channel_id_dir": {
+            "type": "short_channel_id_dir",
+            "description": [
+              "The channel and direction to apply the change to."
+            ]
+          }
+        }
+      },
+      "response": {
+        "required": [],
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "see_also": [
+        "lightning-getroutes(7)",
+        "lightning-askrene-create-channel(7)",
+        "lightning-askrene-update-channel(7)"
+      ],
+      "author": [
+        "Lagrang3 is mainly responsible."
+      ],
+      "resources": [
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
+      ]
+    },
     "askrene-remove-layer.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",

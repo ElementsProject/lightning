@@ -4294,6 +4294,14 @@ impl From<responses::AskreneremovelayerResponse> for pb::AskreneremovelayerRespo
 }
 
 #[allow(unused_variables)]
+impl From<responses::AskreneremovechannelupdateResponse> for pb::AskreneremovechannelupdateResponse {
+    fn from(c: responses::AskreneremovechannelupdateResponse) -> Self {
+        Self {
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::AskrenereserveResponse> for pb::AskrenereserveResponse {
     fn from(c: responses::AskrenereserveResponse) -> Self {
         Self {
@@ -6598,6 +6606,16 @@ impl From<requests::AskreneremovelayerRequest> for pb::AskreneremovelayerRequest
 }
 
 #[allow(unused_variables)]
+impl From<requests::AskreneremovechannelupdateRequest> for pb::AskreneremovechannelupdateRequest {
+    fn from(c: requests::AskreneremovechannelupdateRequest) -> Self {
+        Self {
+            layer: c.layer, // Rule #2 for type string
+            short_channel_id_dir: c.short_channel_id_dir.to_string(), // Rule #2 for type short_channel_id_dir
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<requests::AskrenereservePath> for pb::AskrenereservePath {
     fn from(c: requests::AskrenereservePath) -> Self {
         Self {
@@ -8581,6 +8599,16 @@ impl From<pb::AskreneremovelayerRequest> for requests::AskreneremovelayerRequest
     fn from(c: pb::AskreneremovelayerRequest) -> Self {
         Self {
             layer: c.layer, // Rule #1 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::AskreneremovechannelupdateRequest> for requests::AskreneremovechannelupdateRequest {
+    fn from(c: pb::AskreneremovechannelupdateRequest) -> Self {
+        Self {
+            layer: c.layer, // Rule #1 for type string
+            short_channel_id_dir: cln_rpc::primitives::ShortChannelIdDir::from_str(&c.short_channel_id_dir).unwrap(), // Rule #1 for type short_channel_id_dir
         }
     }
 }

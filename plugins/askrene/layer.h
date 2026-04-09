@@ -86,6 +86,9 @@ void layer_add_update_channel(struct layer *layer,
 			      const u32 *proportional_fee,
 			      const u16 *delay);
 
+void layer_remove_channel_update(struct layer *layer,
+				 const struct short_channel_id_dir *scidd);
+
 /* If any capacities of channels are limited, unset the corresponding element in
  * the capacities[] array */
 void layer_clear_overridden_capacities(const struct layer *layer,
