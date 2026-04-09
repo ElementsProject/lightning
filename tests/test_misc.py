@@ -1797,11 +1797,15 @@ def test_ipv4_and_ipv6(node_factory):
         assert bind[1]['address'] == '0.0.0.0'
         assert int(bind[1]['port']) == port
     else:
-        # Assume we're IPv4 only...
         assert len(bind) == 1
-        assert bind[0]['type'] == 'ipv4'
-        assert bind[0]['address'] == '0.0.0.0'
-        assert int(bind[0]['port']) == port
+        if bind[0]['type'] == 'ipv4':
+            assert bind[0]['type'] == 'ipv4'
+            assert bind[0]['address'] == '0.0.0.0'
+            assert int(bind[0]['port']) == port
+        else:
+            assert bind[0]['type'] == 'ipv6'
+            assert bind[0]['address'] == '::'
+            assert int(bind[0]['port']) == port
 
 
 @unittest.skipIf(TEST_NETWORK == 'liquid-regtest', "Fees on elements are different")
