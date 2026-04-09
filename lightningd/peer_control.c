@@ -2137,6 +2137,21 @@ void handle_peer_spoke(struct lightningd *ld, const u8 *msg)
 						"Channel is closed and forgotten");
 			goto send_error;
 		}
+		/* Unknown channel: send error but don't disconnect.
+		 * If we hang up, the peer's dualopend may not
+		 * receive the error (it races with the disconnect),
+		 * leaving the peer with a saved channel that we
+		 * don't know about, causing an infinite reconnect
+		 * loop. */
+		log_peer_unusual(ld->log, &peer->id,
+				 "Unknown channel %s for %s",
+				 fmt_channel_id(tmpctx,
+						&channel_id),
+				 peer_wire_name(msgtype));
+		error = towire_errorfmt(tmpctx, &channel_id,
+					"Unknown channel for %s",
+					peer_wire_name(msgtype));
+		goto send_error_nohangup;
 	}
 
 	/* Weird message?  Log and reply with error. */
@@ -2160,6 +2175,15 @@ send_error:
 		      take(towire_connectd_disconnect_peer(NULL,
 							&peer->id,
 							peer->connectd_counter)));
+	return;
+
+send_error_nohangup:
+	log_peer_debug(ld->log, &peer->id, "Telling connectd to send error %s",
+		       tal_hex(tmpctx, error));
+	subd_send_msg(ld->connectd,
+		      take(towire_connectd_peer_send_msg(NULL, &peer->id,
+							 peer->connectd_counter,
+							 error)));
 	return;
 
 tell_connectd:
