@@ -3147,6 +3147,11 @@ def askrene_remove_layer2py(m):
     })
 
 
+def askrene_remove_channel_update2py(m):
+    return remove_default({
+    })
+
+
 def askrene_reserve2py(m):
     return remove_default({
     })
