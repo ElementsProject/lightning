@@ -207,7 +207,7 @@ class Grpc2PyGenerator(IGenerator):
                     cleanup=False,
                 )
 
-        self.write(f"    }})\n", cleanup=False)
+        self.write("    }})\n", cleanup=False)
 
         # Add ourselves to the converters so if we were generated as a
         # dependency for a composite they can find us again. We have

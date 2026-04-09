@@ -391,7 +391,7 @@ def update_examples_in_schema_files():
     with open(TEMP_EXAMPLES_FILE, 'w+', encoding='utf-8') as file:
         json.dump({'new_values_list': NEW_VALUES_LIST, 'replace_response_values': REPLACE_RESPONSE_VALUES[4:], 'examples_json': EXAMPLES_JSON, 'updated_examples_json': updated_examples}, file, indent=2, ensure_ascii=False)
 
-    logger.info(f'Updated All Examples in Schema Files!')
+    logger.info('Updated All Examples in Schema Files!')
     return None
 
 
@@ -1138,12 +1138,12 @@ def generate_wait_examples(l1, l2, bitcoind, executor):
         if curr_blockheight < 130:
             bitcoind.generate_block(130 - curr_blockheight)
             sync_blockheight(bitcoind, [l2])
-        update_example(node=l2, method='waitblockheight', params={'blockheight': 126}, description=[f'This will return immediately since the current blockheight exceeds the requested waitblockheight.'])
+        update_example(node=l2, method='waitblockheight', params={'blockheight': 126}, description=['This will return immediately since the current blockheight exceeds the requested waitblockheight.'])
         wbh = executor.submit(l2.rpc.waitblockheight, curr_blockheight + 1, 600)
         bitcoind.generate_block(1)
         sync_blockheight(bitcoind, [l2])
         wbhres = wbh.result(5)
-        update_example(node=l2, method='waitblockheight', params={'blockheight': curr_blockheight + 1, 'timeout': 600}, response=wbhres, description=[f'This will return after the next block is mined because requested waitblockheight is one block higher than the current blockheight.'])
+        update_example(node=l2, method='waitblockheight', params={'blockheight': curr_blockheight + 1, 'timeout': 600}, response=wbhres, description=['This will return after the next block is mined because requested waitblockheight is one block higher than the current blockheight.'])
         REPLACE_RESPONSE_VALUES.extend([
             {'data_keys': ['payment_hash'], 'original_value': wspc_res['details']['payment_hash'], 'new_value': NEW_VALUES_LIST['payment_hash_wspc_1']},
             {'data_keys': ['paid_at'], 'original_value': waires['paid_at'], 'new_value': NEW_VALUES_LIST['time_at_850']},
@@ -1257,7 +1257,7 @@ def generate_utils_examples(l1, l2, l3, l4, l5, l6, c23_2, c34_2, inv_l11, inv_l
 
         # SQL
         update_example(node=l1, method='sql', params={'query': 'SELECT id FROM peers'}, description=['A simple peers selection query:'])
-        update_example(node=l1, method='sql', params=[f"SELECT label, description, status FROM invoices WHERE label='label inv_l12'"], description=["A statement containing `=` needs `-o` in shell:"])
+        update_example(node=l1, method='sql', params=["SELECT label, description, status FROM invoices WHERE label='label inv_l12'"], description=["A statement containing `=` needs `-o` in shell:"])
         sql_res3 = l1.rpc.sql(f"SELECT nodeid FROM nodes WHERE nodeid != x'{l3.info['id']}'")
         update_example(node=l1, method='sql', params=[f"SELECT nodeid FROM nodes WHERE nodeid != x'{NEW_VALUES_LIST['l3_id']}'"], description=['If you want to get specific nodeid values from the nodes table:'], response=sql_res3)
         sql_res4 = l1.rpc.sql(f"SELECT nodeid FROM nodes WHERE nodeid IN (x'{l1.info['id']}', x'{l3.info['id']}')")
@@ -1523,7 +1523,7 @@ def generate_channels_examples(node_factory, bitcoind, l1, l3, l4, l5):
         utxo = f"{outputs[0]['txid']}:{outputs[0]['output']}"
         c41res = update_example(node=l4, method='fundchannel',
                                 params={'id': l1.info['id'], 'amount': 'all', 'feerate': 'normal', 'push_msat': 100000, 'utxos': [utxo]},
-                                description=[f'This example shows how to to open new channel with peer 1 from one whole utxo (you can use **listfunds** command to get txid and vout):'])
+                                description=['This example shows how to to open new channel with peer 1 from one whole utxo (you can use **listfunds** command to get txid and vout):'])
         # Close newly funded channels to bring the setup back to initial state
         l3.rpc.close(c35res['channel_id'])
         l4.rpc.close(c41res['channel_id'])
@@ -1592,7 +1592,7 @@ def generate_channels_examples(node_factory, bitcoind, l1, l3, l4, l5):
         ]
         example_destinations_2 = [
             {
-                'id': f'fakenodeid' + ('03' * 28) + '@127.0.0.1:19736',
+                'id': 'fakenodeid' + ('03' * 28) + '@127.0.0.1:19736',
                 'amount': 50000
             },
             {
@@ -1695,7 +1695,7 @@ def generate_autoclean_delete_examples(l1, l2, l3, l4, l5, c12, c23):
     try:
         logger.info('Auto-clean and Delete Start...')
         l2.rpc.close(l5.info['id'])
-        dfc_res1 = update_example(node=l2, method='dev-forget-channel', params={'id': l5.info['id']}, description=[f'Forget a channel by peer pubkey when only one channel exists with the peer:'])
+        dfc_res1 = update_example(node=l2, method='dev-forget-channel', params={'id': l5.info['id']}, description=['Forget a channel by peer pubkey when only one channel exists with the peer:'])
 
         # Create invoices for delpay and delinvoice examples
         inv_l35 = l3.rpc.invoice('50000sat', 'lbl_l35', 'l35 description')
@@ -1740,7 +1740,7 @@ def generate_autoclean_delete_examples(l1, l2, l3, l4, l5, c12, c23):
             update_example(node=l2, method='delforward', params={'in_channel': c12, 'in_htlc_id': local_failed_forwards[0]['in_htlc_id'], 'status': 'local_failed'})
         if len(failed_forwards) > 0 and 'in_htlc_id' in failed_forwards[0]:
             update_example(node=l2, method='delforward', params={'in_channel': c12, 'in_htlc_id': failed_forwards[0]['in_htlc_id'], 'status': 'failed'})
-        dfc_res2 = update_example(node=l2, method='dev-forget-channel', params={'id': l3.info['id'], 'short_channel_id': c23, 'force': True}, description=[f'Forget a channel by short channel id when peer has multiple channels:'])
+        dfc_res2 = update_example(node=l2, method='dev-forget-channel', params={'id': l3.info['id'], 'short_channel_id': c23, 'force': True}, description=['Forget a channel by short channel id when peer has multiple channels:'])
 
         # Autoclean
         update_example(node=l2, method='autoclean-once', params=['failedpays', 1])

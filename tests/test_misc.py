@@ -2987,9 +2987,9 @@ def test_custommsg_triggers_notification(node_factory):
 
     # TODO: Check if the peer_id and payload matches
     peer_id = l2.info["id"]
-    l1.daemon.wait_for_log(f"Received a custommsg with data")
+    l1.daemon.wait_for_log("Received a custommsg with data")
     l1.daemon.wait_for_log(f"peer_id={peer_id}")
-    l1.daemon.wait_for_log(f"payload=77770012")
+    l1.daemon.wait_for_log("payload=77770012")
 
 
 def test_makesecret(node_factory):

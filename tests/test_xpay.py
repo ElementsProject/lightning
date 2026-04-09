@@ -626,7 +626,7 @@ def test_xpay_no_mpp(node_factory, chainparams):
                                           f"currency={chainparams['bip173_prefix']}",
                                           f"p={no_mpp['payment_hash']}",
                                           f"s={no_mpp['payment_secret']}",
-                                          f"d=Paying l3 without mpp",
+                                          "d=Paying l3 without mpp",
                                           f"amount={AMOUNT}"]).decode('utf-8').strip()
 
     # This should not mpp!
