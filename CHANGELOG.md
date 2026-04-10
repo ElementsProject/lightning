@@ -10,36 +10,35 @@ This release is named by TBD.
 
 ### Added
 
+ - Protocol: we now pad all peer messages to make them the same length (excluding LND < v21 and current Eclair). ([#8893])
  - JSON-RPC: `bkpr-report` allows flexible summaries of bookkeeper income. ([#8937])
- - Config: `bkpr-currency` option to record conversion rate at each event. ([#8937])
- - JSON-RPC: `currencyrate` API for getting the current median BTC conversion to a given fiat currency. ([#8937])
- - JSON-RPC: `listcurrencyrates` API for examining the current values from the `currencyconvert` plugin's sources. ([#8937])
+ - Config: `bkpr-currency` option to record conversion rate at each bookkeeper event. ([#8937])
+ - JSON-RPC: `currencyconvert` and `currencyrate` via the new plugin `cln-currencyrate` ([#8842], [#8937])
  - JSON-RPC: `spliceout` and `splicein` for easily splicing in and out of channels ([#8857], [#8856])
- - JSON-RPC: `feerate` now supports `splice` as a rate name, and splice code uses it intelligently. ([#8450])
- - JSON-RPC: `currencyconvert` and `currencyrate` via the new plugin `currencyrate` ([#8842])
- - JSON-RPC: `listpeerchannels` now accepts a `channel_id` filter, ([#8766])
  - JSON-RPC: `offer` now has a `fronting_nodes` option to specify neighbors for payer to use to fetch invoices and make payments. ([#8490])
  - Config: `payment-fronting-node` option to specify neighbor node(s) to use for all bolt11 invoices, bolt12 offers, invoices and invoice_requests. ([#8490])
- - libplugin: support for options which accumulate if specified more than once ("multi": true). ([#8490])
- - Database: STRICT tables and security pragmas in developer mode ([#8559])
  - JSON-RPC: `getroutes` now operates in parallel: config `askrene-max-threads` controls how many (default 4). ([#8723])
- - Protocol: we now pad all peer messages to make them the same length (excluding LND < v21 and current Eclair). ([#8893])
  - JSON-RPC: `getroutes` has a new layer `auto.include_fees` that makes fees be deducted from the payment amount making in effect the receiver pay for routing fees. ([#8824])
  - JSON-RPC `clnrest-register-path` method to register dynamic paths for `clnrest` plugin ([#7529])
  - JSON-RPC: `offer` and `listoffer` exposes the offer description field. ([#8782])
+ - JSON-RPC: `listcurrencyrates` API for examining the current values from the `currencyconvert` plugin's sources. ([#8937])
  - JSON-RPC: `xpay` supports a `payer-note` field ([#8784])
  - Docker: Added a new `version-vls` tag which includes VLS's `remote_hsmd_socket` binary with the Core Lightning image. ([#8712])
+ - JSON-RPC: `feerate` now supports `splice` as a rate name, and splice code uses it intelligently. ([#8450])
+ - JSON-RPC: `listpeerchannels` now accepts a `channel_id` filter, ([#8766])
+ - Database: STRICT tables and security pragmas in developer mode ([#8559])
+ - libplugin: support for options which accumulate if specified more than once ("multi": true). ([#8490])
 
 
 ### Changed
 
  - Protocol: Splicing is enabled by default
+ - `gossipd` no longer compacts gossip_store on startup (improving start times significantly). ([#8903])
  - cln-rpc and cln-grpc now expose notification bindings for balance_snapshot, coin_movement, deprecated_oneshot, disconnect, forward_event, invoice_creation, invoice_payment, log, onionmessage_forward_fail, openchannel_peer_sigs, plugin_started, plugin_stopped, sendpay_failure, sendpay_success, shutdown, warning, and xpay's `pay_part_start` and `pay_part_end`. ([#8938])
  - lightningd: we don't allow new incoming channels if we cannot estimate fees (rather than assuming minfee). ([#8864])
  - Plugins: `sql` plugin tables "htlcs", "forwards", "invoices", "sendpays" and "networkevents" are now updated more efficiently. ([#8914])
  - Plugins: `forward_event` notification now has preimage set if status is settled. ([#8943])
  - Plugins: `bcli` now uses synchronous execution, simplifying bitcoin backend communication and improving error handling reliability. ([#8820])
- - `gossipd` no longer compacts gossip_store on startup (improving start times significantly). ([#8903])
  - Build: most binaries are now about 20% smaller. ([#8658])
  - lightningd: logging is now more efficient internally (no more pruning, simple ringbuffer). ([#8770])
 
@@ -64,6 +63,8 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
  - gossipd: now uses `lightning_gossip_compactd` helper to compact the gossip_store file on demand, keeping it under about 210MB. ([#8903])
  - connectd: throttle incoming peers to give fairer peer handling under stress. ([#8983])
  - lightningd no longer crashes when replaying stored blinded HTLCs during startup. ([#8974])
+ - JSON-RPC: `decode` is now more informative with malformed strings (won't claim everything is a malformed rune!). ([#8814])
+ - Build: Core lightning builds for Fedora on all systems are deterministic. ([#8846])
  - lightningd: unreserve UTXOs from withheld funding PSBT ([#8943])
  - lightningd: withheld channel now fails back incoming inflight HTLC ([#8943])
  - JSON-RPC: reckless command no longer hangs if reckless executable is not found in PATH. ([#8894])
@@ -74,12 +75,10 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
  - fuzz: fix build with newer clang. ([#8717])
  - Plugins: `bkpr_listbalances` no longer crashes if we lost our db, then do emergencyrecover and close a channel. ([#8890])
  - lightningd: possible crash when peers disconnected if there was more than one plugin servicing the `peer_connected` hook. ([#8889])
- - JSON-RPC: `decode` is now more informative with malformed strings (won't claim everything is a malformed rune!). ([#8814])
  - reckless search now returns partial matches instead of requiring exact plugin names. ([#8762])
  - JSON-RPC: `enableoffer` returns an error when trying to activate an used single use offer (don't crash!) ([#8813])
  - JSON_RPC: `getroutes` fixed a class of corner cases that cause askrene main loop to timeout instead of quickly failing, thus wasting runtime. ([#8866])
  - Testing infrastructure no longer fails when logging output capture is disabled. ([#8843])
- - Build: Core lightning builds for Fedora on all systems are deterministic. ([#8846])
  - Ensure documentation renders correctly when adding/updating new RPCs by detecting non-MDX-compatible pages. ([#8792])
 
 
