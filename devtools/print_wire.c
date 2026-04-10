@@ -135,7 +135,10 @@ bool printwire_tu64(const char *fieldname, const u8 **cursor, size_t *plen)
 bool printwire_wireaddr(const char *fieldname, const u8 **cursor, size_t *plen)
 {
 	struct wireaddr w;
-	if (!fromwire_wireaddr(cursor, plen, &w))
+	enum fromwireaddr_ret r;
+
+	r = fromwire_wireaddr(cursor, plen, &w);
+	if (r != FROMWIREADDR_OK && r != FROMWIREADDR_IGNORE)
 		return false;
 	printf("%s\n", fmt_wireaddr(tmpctx, &w));
 	return true;
@@ -206,7 +209,7 @@ static bool printwire_addresses(const u8 **cursor, size_t *plen, size_t len)
 	const size_t len_ref = *plen;
 
 	printf("[");
-	while (to_go && fromwire_wireaddr(cursor, plen, &addr)) {
+	while (to_go && fromwire_wireaddr(cursor, plen, &addr) == FROMWIREADDR_OK) {
 		to_go = len - (len_ref - *plen);
 		printf(" %s", fmt_wireaddr(NULL, &addr));
 	}
