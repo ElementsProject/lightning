@@ -156,6 +156,8 @@ pub enum Request {
 	BkprEditDescriptionByPaymentId(requests::BkpreditdescriptionbypaymentidRequest),
 	#[serde(rename = "bkpr-editdescriptionbyoutpoint")]
 	BkprEditDescriptionByOutpoint(requests::BkpreditdescriptionbyoutpointRequest),
+	#[serde(rename = "bkpr-report")]
+	BkprReport(requests::BkprreportRequest),
 	BlacklistRune(requests::BlacklistruneRequest),
 	CheckRune(requests::CheckruneRequest),
 	CreateRune(requests::CreateruneRequest),
@@ -346,6 +348,8 @@ pub enum Response {
 	BkprEditDescriptionByPaymentId(responses::BkpreditdescriptionbypaymentidResponse),
 	#[serde(rename = "bkpr-editdescriptionbyoutpoint")]
 	BkprEditDescriptionByOutpoint(responses::BkpreditdescriptionbyoutpointResponse),
+	#[serde(rename = "bkpr-report")]
+	BkprReport(responses::BkprreportResponse),
 	BlacklistRune(responses::BlacklistruneResponse),
 	CheckRune(responses::CheckruneResponse),
 	CreateRune(responses::CreateruneResponse),
@@ -4297,6 +4301,37 @@ pub mod requests {
 
 	    fn method(&self) -> &str {
 	        "bkpr-editdescriptionbyoutpoint"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct BkprreportRequest {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub end_time: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub escape: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub format: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub start_time: Option<u32>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub headers: Option<Vec<String>>,
+	}
+
+	impl From<BkprreportRequest> for Request {
+	    fn from(r: BkprreportRequest) -> Self {
+	        Request::BkprReport(r)
+	    }
+	}
+
+	impl IntoRequest for BkprreportRequest {
+	    type Response = super::responses::BkprreportResponse;
+	}
+
+	impl TypedRequest for BkprreportRequest {
+	    type Response = super::responses::BkprreportResponse;
+
+	    fn method(&self) -> &str {
+	        "bkpr-report"
 	    }
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -11769,6 +11804,22 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::BkprEditDescriptionByOutpoint(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct BkprreportResponse {
+	    pub report: Vec<String>,
+	}
+
+	impl TryFrom<Response> for BkprreportResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::BkprReport(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }

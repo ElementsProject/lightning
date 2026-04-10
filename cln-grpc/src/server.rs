@@ -3826,6 +3826,38 @@ impl Node for Server
 
     }
 
+    async fn bkpr_report(
+        &self,
+        request: tonic::Request<pb::BkprreportRequest>,
+    ) -> Result<tonic::Response<pb::BkprreportResponse>, tonic::Status> {
+        let req = request.into_inner();
+        let req: requests::BkprreportRequest = req.into();
+        debug!("Client asked for bkpr_report");
+        trace!("bkpr_report request: {:?}", req);
+        let mut rpc = ClnRpc::new(&self.rpc_path)
+            .await
+            .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+        let result = rpc.call(Request::BkprReport(req))
+            .await
+            .map_err(|e| Status::new(
+               Code::Unknown,
+               format!("Error calling method BkprReport: {:?}", e)))?;
+        match result {
+            Response::BkprReport(r) => {
+               trace!("bkpr_report response: {:?}", r);
+               Ok(tonic::Response::new(r.into()))
+            },
+            r => Err(Status::new(
+                Code::Internal,
+                format!(
+                    "Unexpected result {:?} to method call BkprReport",
+                    r
+                )
+            )),
+        }
+
+    }
+
     async fn blacklist_rune(
         &self,
         request: tonic::Request<pb::BlacklistruneRequest>,

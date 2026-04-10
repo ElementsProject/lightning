@@ -1220,6 +1220,16 @@
         "Bkpr-listincomeResponse": {
             "Bkpr-ListIncome.income_events[]": 1
         },
+        "Bkpr-reportRequest": {
+            "Bkpr-Report.end_time": 5,
+            "Bkpr-Report.escape": 3,
+            "Bkpr-Report.format": 1,
+            "Bkpr-Report.headers[]": 2,
+            "Bkpr-Report.start_time": 4
+        },
+        "Bkpr-reportResponse": {
+            "Bkpr-Report.report[]": 1
+        },
         "BlacklistruneBlacklist": {
             "BlacklistRune.blacklist[].end": 2,
             "BlacklistRune.blacklist[].start": 1
@@ -5953,6 +5963,34 @@
         },
         "Bkpr-ListIncome.start_time": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "Bkpr-Report": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "Bkpr-Report.end_time": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "Bkpr-Report.escape": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "Bkpr-Report.format": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "Bkpr-Report.headers[]": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "Bkpr-Report.report[]": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "Bkpr-Report.start_time": {
+            "added": "v26.04",
             "deprecated": null
         },
         "BlacklistRune": {

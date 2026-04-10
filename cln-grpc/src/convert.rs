@@ -3981,6 +3981,16 @@ impl From<responses::BkpreditdescriptionbyoutpointResponse> for pb::Bkpreditdesc
 }
 
 #[allow(unused_variables)]
+impl From<responses::BkprreportResponse> for pb::BkprreportResponse {
+    fn from(c: responses::BkprreportResponse) -> Self {
+        Self {
+            // Field: Bkpr-Report.report[]
+            report: c.report.into_iter().map(|i| i.into()).collect(), // Rule #3 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::BlacklistruneBlacklist> for pb::BlacklistruneBlacklist {
     fn from(c: responses::BlacklistruneBlacklist) -> Self {
         Self {
@@ -6477,6 +6487,20 @@ impl From<requests::BkpreditdescriptionbyoutpointRequest> for pb::Bkpreditdescri
 }
 
 #[allow(unused_variables)]
+impl From<requests::BkprreportRequest> for pb::BkprreportRequest {
+    fn from(c: requests::BkprreportRequest) -> Self {
+        Self {
+            end_time: c.end_time, // Rule #2 for type u32?
+            escape: c.escape, // Rule #2 for type string?
+            format: c.format, // Rule #2 for type string?
+            // Field: Bkpr-Report.headers[]
+            headers: c.headers.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
+            start_time: c.start_time, // Rule #2 for type u32?
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<requests::BlacklistruneRequest> for pb::BlacklistruneRequest {
     fn from(c: requests::BlacklistruneRequest) -> Self {
         Self {
@@ -8450,6 +8474,19 @@ impl From<pb::BkpreditdescriptionbyoutpointRequest> for requests::Bkpreditdescri
         Self {
             description: c.description, // Rule #1 for type string
             outpoint: c.outpoint, // Rule #1 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::BkprreportRequest> for requests::BkprreportRequest {
+    fn from(c: pb::BkprreportRequest) -> Self {
+        Self {
+            end_time: c.end_time, // Rule #1 for type u32?
+            escape: c.escape, // Rule #1 for type string?
+            format: c.format, // Rule #1 for type string?
+            headers: Some(c.headers.into_iter().map(|s| s.into()).collect()), // Rule #4
+            start_time: c.start_time, // Rule #1 for type u32?
         }
     }
 }
