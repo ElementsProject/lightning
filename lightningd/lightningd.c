@@ -878,7 +878,7 @@ static struct io_plan *sigchld_rfd_in(struct io_conn *conn,
  * features later, or adding them when supplied by plugins. */
 static struct feature_set *default_features(const tal_t *ctx)
 {
-	/* BOLT PR https://github.com/lightning/bolts/pull/1092
+	/* Proposed BOLT PR https://github.com/lightning/bolts/pull/1092
 	 * suggests making the following compulsory:
 	 *     var_onion_optin (all but 6 nodes)
 	 *     gossip_queries (all but 11 nodes)

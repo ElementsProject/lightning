@@ -89,9 +89,9 @@ struct payment {
 	u32 maxparts;
 	/* Do we have to do it all in a single part? */
 	bool disable_mpp;
-	/* BOLT11 payment secret (NULL for BOLT12, it uses blinded paths) */
+	/* BOLT-11 payment secret (NULL for BOLT-12, it uses blinded paths) */
 	const struct secret *payment_secret;
-	/* BOLT11 payment metadata (NULL for BOLT12, it uses blinded paths) */
+	/* BOLT-11 payment metadata (NULL for BOLT-12, it uses blinded paths) */
 	const u8 *payment_metadata;
 	/* Final CLTV value */
 	u32 final_cltv;
