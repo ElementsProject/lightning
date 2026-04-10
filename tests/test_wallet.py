@@ -1629,38 +1629,65 @@ def test_hsmtool_generatehsm_file_exists_error(node_factory):
     hsmtool.is_in_log(r"hsm_secret file.*already exists")
 
 
-def test_hsmtool_all_commands_work_with_mnemonic_formats(node_factory):
+@pytest.mark.parametrize("test_case", [
+    pytest.param({
+        "mnemonic": "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+        "passphrase": "",
+        "test_commands": [
+            ("getnodeid", "03653e90c1ce4660fd8505dd6d643356e93cfe202af109d382787639dd5890e87d"),
+            ("getsecret", "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"),
+            ("makerune", "6VkrWMI2hm2a2UTkg-EyUrrBJN0RcuPB80I1pCVkTD89MA=="),
+            ("dumponchaindescriptors",
+             "wpkh(xpub6BgBgsespWvERF3LHQu6CnqdvfEvtMcQjYrcRzx53QJjSxarj2afYWcLteoGVky7D3UKDP9QyrLprQ3VCECoY49yfdDEHGCtMMj92pReUsQ/0/*)#hjszq0wk\n"
+             "sh(wpkh(xpub6BgBgsespWvERF3LHQu6CnqdvfEvtMcQjYrcRzx53QJjSxarj2afYWcLteoGVky7D3UKDP9QyrLprQ3VCECoY49yfdDEHGCtMMj92pReUsQ/0/*))#u0t3u3xz\n"
+             "tr(xpub6BgBgsespWvERF3LHQu6CnqdvfEvtMcQjYrcRzx53QJjSxarj2afYWcLteoGVky7D3UKDP9QyrLprQ3VCECoY49yfdDEHGCtMMj92pReUsQ/0/*)#8e7pq23w"),
+        ]
+    }, id="no_passphrase"),
+    pytest.param({
+        "mnemonic": "ritual idle hat sunny universe pluck key alpha wing cake have wedding",
+        "passphrase": "test_passphrase",
+        "test_commands": [
+            ("getnodeid", "039020371fb803cd4ce1e9a909b502d7b0a9e0f10cccc35c3e9be959c52d3ba6bd"),
+            ("getsecret", "ritual idle hat sunny universe pluck key alpha wing cake have wedding"),
+            ("makerune", "2JtNfGMM_U0b3_R2DU9L5K6dxxRjHPgDGf7daoVwKEc9MA=="),
+            ("dumponchaindescriptors",
+             "wpkh(xpub6DQ23AMoZvy6gVSMi5EvBawiyXMVWW9txHh1msjH1b8W1HsC3VbcxSz71qjMeDqc5EFFADz7DuiSHsZtLs9hxYaH1WrRoWECiD2YbpyiFbd/0/*)#9n6j954n\n"
+             "sh(wpkh(xpub6DQ23AMoZvy6gVSMi5EvBawiyXMVWW9txHh1msjH1b8W1HsC3VbcxSz71qjMeDqc5EFFADz7DuiSHsZtLs9hxYaH1WrRoWECiD2YbpyiFbd/0/*))#ynr7hayd\n"
+             "tr(xpub6DQ23AMoZvy6gVSMi5EvBawiyXMVWW9txHh1msjH1b8W1HsC3VbcxSz71qjMeDqc5EFFADz7DuiSHsZtLs9hxYaH1WrRoWECiD2YbpyiFbd/0/*)#3njcgkrj"),
+        ]
+    }, id="with_passphrase")
+])
+def test_hsmtool_all_commands_work_with_mnemonic_formats(node_factory, test_case):
     """Test that all hsmtool commands work with mnemonic formats"""
     l1 = node_factory.get_node(start=False)
     hsm_path = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "hsm_secret")
     os.remove(hsm_path)
 
-    # Create a mnemonic-based hsm_secret (no passphrase for simplicity)
+    mnemonic = test_case['mnemonic']
+    passphrase = test_case['passphrase']
+    test_commands = test_case['test_commands']
+
+    # Create a mnemonic-based hsm_secret
     hsmtool = HsmTool(node_factory.directory, "generatehsm", hsm_path)
     master_fd, slave_fd = os.openpty()
     hsmtool.start(stdin=slave_fd)
     hsmtool.wait_for_log(r"Introduce your BIP39 word list")
-    write_all(master_fd, "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about\n".encode("utf-8"))
+    write_all(master_fd, f"{mnemonic}\n".encode("utf-8"))
     hsmtool.wait_for_log(r"Enter your passphrase:")
-    write_all(master_fd, "\n".encode("utf-8"))
+    write_all(master_fd, f"{passphrase}\n".encode("utf-8"))
     assert hsmtool.proc.wait(WAIT_TIMEOUT) == 0
 
-    # Test various commands work with mnemonic format
-    test_commands = [
-        (["getnodeid", hsm_path], "03653e90c1ce4660fd8505dd6d643356e93cfe202af109d382787639dd5890e87d"),
-        (["getsecret", hsm_path], "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"),
-        (["makerune", hsm_path], "6VkrWMI2hm2a2UTkg-EyUrrBJN0RcuPB80I1pCVkTD89MA=="),
-        (["dumponchaindescriptors", hsm_path],
-         "wpkh(xpub6BgBgsespWvERF3LHQu6CnqdvfEvtMcQjYrcRzx53QJjSxarj2afYWcLteoGVky7D3UKDP9QyrLprQ3VCECoY49yfdDEHGCtMMj92pReUsQ/0/*)#hjszq0wk\n"
-         "sh(wpkh(xpub6BgBgsespWvERF3LHQu6CnqdvfEvtMcQjYrcRzx53QJjSxarj2afYWcLteoGVky7D3UKDP9QyrLprQ3VCECoY49yfdDEHGCtMMj92pReUsQ/0/*))#u0t3u3xz\n"
-         "tr(xpub6BgBgsespWvERF3LHQu6CnqdvfEvtMcQjYrcRzx53QJjSxarj2afYWcLteoGVky7D3UKDP9QyrLprQ3VCECoY49yfdDEHGCtMMj92pReUsQ/0/*)#8e7pq23w"),
-    ]
-
-    for cmd_args, expected_output in test_commands:
-        cmd_line = ["tools/lightning-hsmtool"] + cmd_args
-        out = subprocess.check_output(cmd_line).decode("utf8")
-        actual_output = out.strip()
-        assert actual_output == expected_output, f"Command {cmd_args[0]} output mismatch"
+    for cmd, expected_output in test_commands:
+        result = subprocess.run(
+            ["tools/lightning-hsmtool", cmd, hsm_path],
+            input=f"{passphrase}\n" if passphrase else None,
+            capture_output=True, text=True
+        )
+        actual_output = result.stdout.strip()
+        if passphrase:
+            # remove 'Enter hsm_secret password:'
+            actual_output = "\n".join(actual_output.split("\n")[1:])
+        assert actual_output == expected_output, f"Command {cmd} output mismatch"
 
 
 def test_hsmtool_deterministic_node_ids(node_factory):
