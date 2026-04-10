@@ -50,7 +50,11 @@
       "dev_remove_all": {
         "hidden": true,
         "type": "boolean",
+<<<<<<< test-pr8681
+        "added": "v25.12"
+=======
         "added": "v26.04"
+>>>>>>> master
       }
     }
   },
