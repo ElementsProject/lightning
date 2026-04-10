@@ -658,6 +658,9 @@ static void handle_peer_add_htlc(struct peer *peer, const u8 *msg)
 				 "Bad peer_add_htlc %s", tal_hex(msg, msg));
 	}
 
+	/* BOLT #2:
+	 *  - MUST allow multiple HTLCs with the same `payment_hash`.
+	 */
 	add_err = channel_add_htlc(peer->channel, REMOTE, id, amount,
 				   cltv_expiry, &payment_hash,
 				   onion_routing_packet,
