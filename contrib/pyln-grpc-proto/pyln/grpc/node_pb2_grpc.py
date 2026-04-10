@@ -514,6 +514,16 @@ class NodeStub(object):
                 request_serializer=node__pb2.SpliceUpdateRequest.SerializeToString,
                 response_deserializer=node__pb2.SpliceUpdateResponse.FromString,
                 _registered_method=True)
+        self.SpliceIn = channel.unary_unary(
+                '/cln.Node/SpliceIn',
+                request_serializer=node__pb2.SpliceinRequest.SerializeToString,
+                response_deserializer=node__pb2.SpliceinResponse.FromString,
+                _registered_method=True)
+        self.SpliceOut = channel.unary_unary(
+                '/cln.Node/SpliceOut',
+                request_serializer=node__pb2.SpliceoutRequest.SerializeToString,
+                response_deserializer=node__pb2.SpliceoutResponse.FromString,
+                _registered_method=True)
         self.DevSplice = channel.unary_unary(
                 '/cln.Node/DevSplice',
                 request_serializer=node__pb2.DevspliceRequest.SerializeToString,
@@ -608,6 +618,11 @@ class NodeStub(object):
                 '/cln.Node/BkprEditDescriptionByOutpoint',
                 request_serializer=node__pb2.BkpreditdescriptionbyoutpointRequest.SerializeToString,
                 response_deserializer=node__pb2.BkpreditdescriptionbyoutpointResponse.FromString,
+                _registered_method=True)
+        self.BkprReport = channel.unary_unary(
+                '/cln.Node/BkprReport',
+                request_serializer=node__pb2.BkprreportRequest.SerializeToString,
+                response_deserializer=node__pb2.BkprreportResponse.FromString,
                 _registered_method=True)
         self.BlacklistRune = channel.unary_unary(
                 '/cln.Node/BlacklistRune',
@@ -1460,6 +1475,18 @@ class NodeServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def SpliceIn(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SpliceOut(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def DevSplice(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -1569,6 +1596,12 @@ class NodeServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def BkprEditDescriptionByOutpoint(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def BkprReport(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -2381,6 +2414,16 @@ def add_NodeServicer_to_server(servicer, server):
                     request_deserializer=node__pb2.SpliceUpdateRequest.FromString,
                     response_serializer=node__pb2.SpliceUpdateResponse.SerializeToString,
             ),
+            'SpliceIn': grpc.unary_unary_rpc_method_handler(
+                    servicer.SpliceIn,
+                    request_deserializer=node__pb2.SpliceinRequest.FromString,
+                    response_serializer=node__pb2.SpliceinResponse.SerializeToString,
+            ),
+            'SpliceOut': grpc.unary_unary_rpc_method_handler(
+                    servicer.SpliceOut,
+                    request_deserializer=node__pb2.SpliceoutRequest.FromString,
+                    response_serializer=node__pb2.SpliceoutResponse.SerializeToString,
+            ),
             'DevSplice': grpc.unary_unary_rpc_method_handler(
                     servicer.DevSplice,
                     request_deserializer=node__pb2.DevspliceRequest.FromString,
@@ -2475,6 +2518,11 @@ def add_NodeServicer_to_server(servicer, server):
                     servicer.BkprEditDescriptionByOutpoint,
                     request_deserializer=node__pb2.BkpreditdescriptionbyoutpointRequest.FromString,
                     response_serializer=node__pb2.BkpreditdescriptionbyoutpointResponse.SerializeToString,
+            ),
+            'BkprReport': grpc.unary_unary_rpc_method_handler(
+                    servicer.BkprReport,
+                    request_deserializer=node__pb2.BkprreportRequest.FromString,
+                    response_serializer=node__pb2.BkprreportResponse.SerializeToString,
             ),
             'BlacklistRune': grpc.unary_unary_rpc_method_handler(
                     servicer.BlacklistRune,
@@ -5350,6 +5398,60 @@ class Node(object):
             _registered_method=True)
 
     @staticmethod
+    def SpliceIn(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/cln.Node/SpliceIn',
+            node__pb2.SpliceinRequest.SerializeToString,
+            node__pb2.SpliceinResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SpliceOut(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/cln.Node/SpliceOut',
+            node__pb2.SpliceoutRequest.SerializeToString,
+            node__pb2.SpliceoutResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
     def DevSplice(request,
             target,
             options=(),
@@ -5852,6 +5954,33 @@ class Node(object):
             '/cln.Node/BkprEditDescriptionByOutpoint',
             node__pb2.BkpreditdescriptionbyoutpointRequest.SerializeToString,
             node__pb2.BkpreditdescriptionbyoutpointResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def BkprReport(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/cln.Node/BkprReport',
+            node__pb2.BkprreportRequest.SerializeToString,
+            node__pb2.BkprreportResponse.FromString,
             options,
             channel_credentials,
             insecure,

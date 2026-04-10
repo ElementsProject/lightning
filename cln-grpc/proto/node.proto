@@ -104,6 +104,8 @@ service Node {
 	rpc SpliceInit(SpliceInitRequest) returns (SpliceInitResponse) {}
 	rpc SpliceSigned(SpliceSignedRequest) returns (SpliceSignedResponse) {}
 	rpc SpliceUpdate(SpliceUpdateRequest) returns (SpliceUpdateResponse) {}
+	rpc SpliceIn(SpliceinRequest) returns (SpliceinResponse) {}
+	rpc SpliceOut(SpliceoutRequest) returns (SpliceoutResponse) {}
 	rpc DevSplice(DevspliceRequest) returns (DevspliceResponse) {}
 	rpc UnreserveInputs(UnreserveinputsRequest) returns (UnreserveinputsResponse) {}
 	rpc UpgradeWallet(UpgradewalletRequest) returns (UpgradewalletResponse) {}
@@ -123,6 +125,7 @@ service Node {
 	rpc BkprListIncome(BkprlistincomeRequest) returns (BkprlistincomeResponse) {}
 	rpc BkprEditDescriptionByPaymentId(BkpreditdescriptionbypaymentidRequest) returns (BkpreditdescriptionbypaymentidResponse) {}
 	rpc BkprEditDescriptionByOutpoint(BkpreditdescriptionbyoutpointRequest) returns (BkpreditdescriptionbyoutpointResponse) {}
+	rpc BkprReport(BkprreportRequest) returns (BkprreportResponse) {}
 	rpc BlacklistRune(BlacklistruneRequest) returns (BlacklistruneResponse) {}
 	rpc CheckRune(CheckruneRequest) returns (CheckruneResponse) {}
 	rpc CreateRune(CreateruneRequest) returns (CreateruneResponse) {}
@@ -2814,6 +2817,30 @@ message SpliceUpdateResponse {
 	optional bool signatures_secured = 3;
 }
 
+message SpliceinRequest {
+	string channel = 1;
+	string amount = 2;
+}
+
+message SpliceinResponse {
+	optional string psbt = 1;
+	optional string tx = 2;
+	optional string txid = 3;
+}
+
+message SpliceoutRequest {
+	string channel = 1;
+	string amount = 2;
+	optional string destination = 3;
+	optional bool force_feerate = 4;
+}
+
+message SpliceoutResponse {
+	optional string psbt = 1;
+	optional string tx = 2;
+	optional string txid = 3;
+}
+
 message DevspliceRequest {
 	string script_or_json = 1;
 	optional bool dryrun = 2;
@@ -3760,6 +3787,18 @@ message BkpreditdescriptionbyoutpointUpdated {
 	optional Amount fees_msat = 14;
 	optional bool is_rebalance = 15;
 	optional uint32 part_id = 16;
+}
+
+message BkprreportRequest {
+	optional string format = 1;
+	repeated string headers = 2;
+	optional string escape = 3;
+	optional uint32 start_time = 4;
+	optional uint32 end_time = 5;
+}
+
+message BkprreportResponse {
+	repeated string report = 1;
 }
 
 message BlacklistruneRequest {

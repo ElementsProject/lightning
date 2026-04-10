@@ -1220,6 +1220,16 @@
         "Bkpr-listincomeResponse": {
             "Bkpr-ListIncome.income_events[]": 1
         },
+        "Bkpr-reportRequest": {
+            "Bkpr-Report.end_time": 5,
+            "Bkpr-Report.escape": 3,
+            "Bkpr-Report.format": 1,
+            "Bkpr-Report.headers[]": 2,
+            "Bkpr-Report.start_time": 4
+        },
+        "Bkpr-reportResponse": {
+            "Bkpr-Report.report[]": 1
+        },
         "BlacklistruneBlacklist": {
             "BlacklistRune.blacklist[].end": 2,
             "BlacklistRune.blacklist[].start": 1
@@ -4128,6 +4138,26 @@
             "Splice_Update.psbt": 1,
             "Splice_Update.signatures_secured": 3
         },
+        "SpliceinRequest": {
+            "SpliceIn.amount": 2,
+            "SpliceIn.channel": 1
+        },
+        "SpliceinResponse": {
+            "SpliceIn.psbt": 1,
+            "SpliceIn.tx": 2,
+            "SpliceIn.txid": 3
+        },
+        "SpliceoutRequest": {
+            "SpliceOut.amount": 2,
+            "SpliceOut.channel": 1,
+            "SpliceOut.destination": 3,
+            "SpliceOut.force_feerate": 4
+        },
+        "SpliceoutResponse": {
+            "SpliceOut.psbt": 1,
+            "SpliceOut.tx": 2,
+            "SpliceOut.txid": 3
+        },
         "StaticbackupResponse": {
             "StaticBackup.scb[]": 1
         },
@@ -5933,6 +5963,34 @@
         },
         "Bkpr-ListIncome.start_time": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "Bkpr-Report": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "Bkpr-Report.end_time": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "Bkpr-Report.escape": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "Bkpr-Report.format": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "Bkpr-Report.headers[]": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "Bkpr-Report.report[]": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "Bkpr-Report.start_time": {
+            "added": "v26.04",
             "deprecated": null
         },
         "BlacklistRune": {
@@ -13733,6 +13791,62 @@
         },
         "SignPsbt.signonly[]": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "SpliceIn": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "SpliceIn.amount": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "SpliceIn.channel": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "SpliceIn.psbt": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "SpliceIn.tx": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "SpliceIn.txid": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "SpliceOut": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "SpliceOut.amount": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "SpliceOut.channel": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "SpliceOut.destination": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "SpliceOut.force_feerate": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "SpliceOut.psbt": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "SpliceOut.tx": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "SpliceOut.txid": {
+            "added": "v26.04",
             "deprecated": null
         },
         "Splice_Init": {

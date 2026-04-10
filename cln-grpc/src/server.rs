@@ -3154,6 +3154,70 @@ impl Node for Server
 
     }
 
+    async fn splice_in(
+        &self,
+        request: tonic::Request<pb::SpliceinRequest>,
+    ) -> Result<tonic::Response<pb::SpliceinResponse>, tonic::Status> {
+        let req = request.into_inner();
+        let req: requests::SpliceinRequest = req.into();
+        debug!("Client asked for splice_in");
+        trace!("splice_in request: {:?}", req);
+        let mut rpc = ClnRpc::new(&self.rpc_path)
+            .await
+            .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+        let result = rpc.call(Request::SpliceIn(req))
+            .await
+            .map_err(|e| Status::new(
+               Code::Unknown,
+               format!("Error calling method SpliceIn: {:?}", e)))?;
+        match result {
+            Response::SpliceIn(r) => {
+               trace!("splice_in response: {:?}", r);
+               Ok(tonic::Response::new(r.into()))
+            },
+            r => Err(Status::new(
+                Code::Internal,
+                format!(
+                    "Unexpected result {:?} to method call SpliceIn",
+                    r
+                )
+            )),
+        }
+
+    }
+
+    async fn splice_out(
+        &self,
+        request: tonic::Request<pb::SpliceoutRequest>,
+    ) -> Result<tonic::Response<pb::SpliceoutResponse>, tonic::Status> {
+        let req = request.into_inner();
+        let req: requests::SpliceoutRequest = req.into();
+        debug!("Client asked for splice_out");
+        trace!("splice_out request: {:?}", req);
+        let mut rpc = ClnRpc::new(&self.rpc_path)
+            .await
+            .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+        let result = rpc.call(Request::SpliceOut(req))
+            .await
+            .map_err(|e| Status::new(
+               Code::Unknown,
+               format!("Error calling method SpliceOut: {:?}", e)))?;
+        match result {
+            Response::SpliceOut(r) => {
+               trace!("splice_out response: {:?}", r);
+               Ok(tonic::Response::new(r.into()))
+            },
+            r => Err(Status::new(
+                Code::Internal,
+                format!(
+                    "Unexpected result {:?} to method call SpliceOut",
+                    r
+                )
+            )),
+        }
+
+    }
+
     async fn dev_splice(
         &self,
         request: tonic::Request<pb::DevspliceRequest>,
@@ -3755,6 +3819,38 @@ impl Node for Server
                 Code::Internal,
                 format!(
                     "Unexpected result {:?} to method call BkprEditDescriptionByOutpoint",
+                    r
+                )
+            )),
+        }
+
+    }
+
+    async fn bkpr_report(
+        &self,
+        request: tonic::Request<pb::BkprreportRequest>,
+    ) -> Result<tonic::Response<pb::BkprreportResponse>, tonic::Status> {
+        let req = request.into_inner();
+        let req: requests::BkprreportRequest = req.into();
+        debug!("Client asked for bkpr_report");
+        trace!("bkpr_report request: {:?}", req);
+        let mut rpc = ClnRpc::new(&self.rpc_path)
+            .await
+            .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+        let result = rpc.call(Request::BkprReport(req))
+            .await
+            .map_err(|e| Status::new(
+               Code::Unknown,
+               format!("Error calling method BkprReport: {:?}", e)))?;
+        match result {
+            Response::BkprReport(r) => {
+               trace!("bkpr_report response: {:?}", r);
+               Ok(tonic::Response::new(r.into()))
+            },
+            r => Err(Status::new(
+                Code::Internal,
+                format!(
+                    "Unexpected result {:?} to method call BkprReport",
                     r
                 )
             )),

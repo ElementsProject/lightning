@@ -2624,6 +2624,28 @@ impl From<responses::SpliceUpdateResponse> for pb::SpliceUpdateResponse {
 }
 
 #[allow(unused_variables)]
+impl From<responses::SpliceinResponse> for pb::SpliceinResponse {
+    fn from(c: responses::SpliceinResponse) -> Self {
+        Self {
+            psbt: c.psbt, // Rule #2 for type string?
+            tx: c.tx, // Rule #2 for type string?
+            txid: c.txid, // Rule #2 for type string?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::SpliceoutResponse> for pb::SpliceoutResponse {
+    fn from(c: responses::SpliceoutResponse) -> Self {
+        Self {
+            psbt: c.psbt, // Rule #2 for type string?
+            tx: c.tx, // Rule #2 for type string?
+            txid: c.txid, // Rule #2 for type string?
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::DevspliceResponse> for pb::DevspliceResponse {
     fn from(c: responses::DevspliceResponse) -> Self {
         Self {
@@ -3954,6 +3976,16 @@ impl From<responses::BkpreditdescriptionbyoutpointResponse> for pb::Bkpreditdesc
         Self {
             // Field: Bkpr-EditDescriptionByOutpoint.updated[]
             updated: c.updated.into_iter().map(|i| i.into()).collect(), // Rule #3 for type BkpreditdescriptionbyoutpointUpdated
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::BkprreportResponse> for pb::BkprreportResponse {
+    fn from(c: responses::BkprreportResponse) -> Self {
+        Self {
+            // Field: Bkpr-Report.report[]
+            report: c.report.into_iter().map(|i| i.into()).collect(), // Rule #3 for type string
         }
     }
 }
@@ -6244,6 +6276,28 @@ impl From<requests::SpliceUpdateRequest> for pb::SpliceUpdateRequest {
 }
 
 #[allow(unused_variables)]
+impl From<requests::SpliceinRequest> for pb::SpliceinRequest {
+    fn from(c: requests::SpliceinRequest) -> Self {
+        Self {
+            amount: c.amount, // Rule #2 for type string
+            channel: c.channel, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<requests::SpliceoutRequest> for pb::SpliceoutRequest {
+    fn from(c: requests::SpliceoutRequest) -> Self {
+        Self {
+            amount: c.amount, // Rule #2 for type string
+            channel: c.channel, // Rule #2 for type string
+            destination: c.destination, // Rule #2 for type string?
+            force_feerate: c.force_feerate, // Rule #2 for type boolean?
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<requests::DevspliceRequest> for pb::DevspliceRequest {
     fn from(c: requests::DevspliceRequest) -> Self {
         Self {
@@ -6428,6 +6482,20 @@ impl From<requests::BkpreditdescriptionbyoutpointRequest> for pb::Bkpreditdescri
         Self {
             description: c.description, // Rule #2 for type string
             outpoint: c.outpoint, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<requests::BkprreportRequest> for pb::BkprreportRequest {
+    fn from(c: requests::BkprreportRequest) -> Self {
+        Self {
+            end_time: c.end_time, // Rule #2 for type u32?
+            escape: c.escape, // Rule #2 for type string?
+            format: c.format, // Rule #2 for type string?
+            // Field: Bkpr-Report.headers[]
+            headers: c.headers.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
+            start_time: c.start_time, // Rule #2 for type u32?
         }
     }
 }
@@ -8200,6 +8268,28 @@ impl From<pb::SpliceUpdateRequest> for requests::SpliceUpdateRequest {
 }
 
 #[allow(unused_variables)]
+impl From<pb::SpliceinRequest> for requests::SpliceinRequest {
+    fn from(c: pb::SpliceinRequest) -> Self {
+        Self {
+            amount: c.amount, // Rule #1 for type string
+            channel: c.channel, // Rule #1 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::SpliceoutRequest> for requests::SpliceoutRequest {
+    fn from(c: pb::SpliceoutRequest) -> Self {
+        Self {
+            amount: c.amount, // Rule #1 for type string
+            channel: c.channel, // Rule #1 for type string
+            destination: c.destination, // Rule #1 for type string?
+            force_feerate: c.force_feerate, // Rule #1 for type boolean?
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<pb::DevspliceRequest> for requests::DevspliceRequest {
     fn from(c: pb::DevspliceRequest) -> Self {
         Self {
@@ -8384,6 +8474,19 @@ impl From<pb::BkpreditdescriptionbyoutpointRequest> for requests::Bkpreditdescri
         Self {
             description: c.description, // Rule #1 for type string
             outpoint: c.outpoint, // Rule #1 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::BkprreportRequest> for requests::BkprreportRequest {
+    fn from(c: pb::BkprreportRequest) -> Self {
+        Self {
+            end_time: c.end_time, // Rule #1 for type u32?
+            escape: c.escape, // Rule #1 for type string?
+            format: c.format, // Rule #1 for type string?
+            headers: Some(c.headers.into_iter().map(|s| s.into()).collect()), // Rule #4
+            start_time: c.start_time, // Rule #1 for type u32?
         }
     }
 }
