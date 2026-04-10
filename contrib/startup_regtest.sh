@@ -406,13 +406,14 @@ stop_nodes() {
 }
 
 stop_ln() {
-	stop_nodes "$@"
-	test ! -f "$BITCOIN_DIR/regtest/bitcoind.pid" || \
-		(kill "$(cat "$BITCOIN_DIR/regtest/bitcoind.pid")"; \
-		rm "$BITCOIN_DIR/regtest/bitcoind.pid")
+	network=${1:-regtest}
+	stop_nodes "$network"
+	test ! -f "$BITCOIN_DIR/$network/bitcoind.pid" || \
+		(kill "$(cat "$BITCOIN_DIR/$network/bitcoind.pid")"; \
+		rm "$BITCOIN_DIR/$network/bitcoind.pid")
 
 	unset LN_NODES
-	unalias bt-cli
+	unalias bt-cli 2>/dev/null || true
 }
 
 node_info() {
