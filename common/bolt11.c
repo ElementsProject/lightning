@@ -1028,10 +1028,15 @@ struct bolt11 *bolt11_decode(const tal_t *ctx, const char *str,
 
 	/* BOLT #11:
 	 *
-	 * A reader...  MUST check that the `signature` is valid (see
-	 * the `n` tagged field specified below). ... A reader...
-	 * MUST use the `n` field to validate the signature instead of
-	 * performing signature recovery.
+	 * A reader:
+	 *   - MUST check that the `signature` is valid (see the `n` tagged field specified below).
+	 */
+	/* BOLT #11:
+	 *
+	 * A reader:
+	 * ...
+	 *   - if a valid `n` field is provided:
+	 *     - MUST use the `n` field to validate the signature instead of performing signature recovery.
 	 */
 	if (!have_n) {
 		struct pubkey k;

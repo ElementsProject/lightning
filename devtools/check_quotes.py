@@ -201,10 +201,12 @@ def find_quote_immediate(
     """
     textparts = text.split("...")
     off = start
-    # Allow for exactly one whitespace separator (already collapsed)
+    # Allow for exactly one whitespace separator (already collapsed).
+    # The quote text itself may also have a leading space (from the comment
+    # continuation line joining), so strip both together.
     if off < len(section) and section[off] == " ":
         off += 1
-    first_part = textparts[0]
+    first_part = textparts[0].lstrip(" ")
     if not section[off:].startswith(first_part):
         return None, None
     off += len(first_part)
