@@ -18,11 +18,13 @@ Here's a checklist for the release process.
 
 ## Preparing for -rc1
 
-1. Check that `CHANGELOG.md` is well formatted, ordered in areas, covers all signficant changes, and sub-ordered approximately by user impact & coolness.
+1. Make sure any `CHANGELOG.md` changes from point releases have been imported.
 2. Use `devtools/changelog.py` to collect the changelog entries from pull request commit messages and merge them into the manually maintained `CHANGELOG.md`. This does API queries to GitHub, which are severely ratelimited unless you use an API token: set the `GH_TOKEN` environment variable to a Personal Access Token from https://github.com/settings/tokens
-3. Create a new CHANGELOG.md heading to `v<VERSION>rc1`, and create a link at the bottom. Note that you should exactly copy the date and name format from a previous release, as the `build-release.sh` script relies on this.
-4. Update the package versions: `uv run make update-versions NEW_VERSION=v<VERSION>rc1`
-5. Create a PR with the above.
+3. Check that `CHANGELOG.md` is well formatted, ordered in areas, covers all signficant changes, and sub-ordered approximately by user impact & coolness.
+4. Manually remove any entries which were mentioned for in the previous point releases (they will be duplicates!)
+5. Create a new CHANGELOG.md heading to `v<VERSION>rc1`, and create a link at the bottom. Note that you should exactly copy the date and name format from a previous release, as the `build-release.sh` script relies on this.
+6. Update the package versions: `uv run make update-versions NEW_VERSION=v<VERSION>rc1`
+7. Create a PR with the above.
 
 ## Releasing -rc1
 
