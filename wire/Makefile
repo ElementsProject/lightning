@@ -109,8 +109,6 @@ wire/channel_type_wiregen.c_args := $(wire/channel_type_wiregen.h_args)
 WIRE_GENERATED := $(filter %printgen.h %printgen.c %wiregen.h %wiregen.c, $(WIRE_SRC) $(WIRE_HEADERS))
 $(WIRE_GENERATED): wire/Makefile
 
-# You don't need to keep these if they don't exist.
-.INTERMEDIATE: $(WIRE_GENERATED)
 
 maintainer-clean: wire-maintainer-clean
 
