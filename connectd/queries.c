@@ -294,12 +294,12 @@ void handle_query_short_channel_ids(struct peer *peer, const u8 *msg)
 	} else
 		flags = NULL;
 
-	/* BOLT #7
+	/* BOLT #7:
 	 *
 	 * The receiver:
 	 * ...
 	 *   - if does not maintain up-to-date channel information for `chain_hash`:
-	 *     - MUST set `complete` to 0.
+	 *     - MUST set `full_information` to 0.
 	 */
 	if (!bitcoin_blkid_eq(&chainparams->genesis_blockhash, &chain)) {
 		status_peer_debug(&peer->id,
@@ -724,13 +724,7 @@ void handle_query_channel_range(struct peer *peer, const u8 *msg)
 	else
 		query_option_flags = 0;
 
-	/* BOLT #7
-	 *
-	 * The receiver of `query_channel_range`:
-	 * ...
-	 *   - if does not maintain up-to-date channel information for `chain_hash`:
-	 *     - MUST set `complete` to 0.
-	 */
+	/* Unknown chain_hash: reply with sync_complete=false. */
 	if (!bitcoin_blkid_eq(&chainparams->genesis_blockhash, &chain_hash)) {
 		status_peer_debug(&peer->id,
 				  "query_channel_range with chainhash %s",
