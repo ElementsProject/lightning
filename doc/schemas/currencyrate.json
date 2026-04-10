@@ -2,11 +2,24 @@
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
   "rpc": "currencyrate",
-  "title": "Command to determine a reasonable rate of conversion for a given currency",
+  "title": "Command to determine a reasonable BTC exchange rate for a given currency",
   "added": "v26.04",
   "description": [
-    "The **currencyrate** RPC command provides the conversion of one BTC into the given currency",
-    "It uses the median of the available exchange-rate sources for the requested currency."
+    "The **currencyrate** RPC command returns the exchange rate of one BTC in the given currency.",
+    "Rates are rounded to 3 decimal places as specified by ISO 4217.",
+    "",
+    "Without the optional *source* argument the command returns the median rate across all",
+    "configured exchange-rate sources.",
+    "",
+    "With *source* specified, the rate reported by that specific source is returned.",
+    "The list of active source names can be obtained via **listcurrencyrates**.",
+    "",
+    "To add or disable sources see the *currencyrate-add-source* and *currencyrate-disable-source*",
+    "options in **lightningd-config(5)**.",
+    "",
+    "EXAMPLE USAGE:",
+    "Get the median USD rate: `lightning-cli currencyrate USD`",
+    "Get the Binance USD rate: `lightning-cli currencyrate USD binance`"
   ],
   "request": {
     "required": [
@@ -17,8 +30,18 @@
       "currency": {
         "type": "string",
         "description": [
-          "The ISO-4217 currency code (e.g. USD) to convert to.",
-          "The plugin normalizes this value to uppercase before querying sources."
+          "The ISO 4217 currency code (e.g. USD) to convert to.",
+          "The plugin normalises this value to uppercase before querying sources."
+        ]
+      },
+      "source": {
+        "added": "v26.06",
+        "type": "string",
+        "description": [
+          "The name of a specific exchange-rate source to query.",
+          "If omitted, the median across all available sources is returned.",
+          "An error is returned if the source name is not recognised or has no",
+          "cached data for the requested currency."
         ]
       }
     }
@@ -32,7 +55,9 @@
       "rate": {
         "type": "number",
         "description": [
-          "The median value of one BTC, computed using the median result from the available sources."
+          "The number of currency units per 1 BTC, rounded to 3 decimal places (ISO 4217).",
+          "When *source* is omitted this is the median across all available sources.",
+          "When *source* is specified this is the rate reported by that source."
         ]
       }
     }
@@ -41,9 +66,44 @@
     "daywalker90 is mainly responsible."
   ],
   "see_also": [
-    "lightning-listcurrencyrates(7)"
+    "lightning-listcurrencyrates(7)",
+    "lightning-currencyconvert(7)",
+    "lightningd-config(5)"
   ],
   "resources": [
     "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
+  ],
+  "examples": [
+    {
+      "description": [
+        "Get the median BTC/USD rate across all configured sources:"
+      ],
+      "request": {
+        "id": "example:currencyrate#1",
+        "method": "currencyrate",
+        "params": {
+          "currency": "USD"
+        }
+      },
+      "response": {
+        "rate": 67889.825
+      }
+    },
+    {
+      "description": [
+        "Get the BTC/USD rate from the Binance source only:"
+      ],
+      "request": {
+        "id": "example:currencyrate#2",
+        "method": "currencyrate",
+        "params": {
+          "currency": "USD",
+          "source": "binance"
+        }
+      },
+      "response": {
+        "rate": 67931.9
+      }
+    }
   ]
 }
