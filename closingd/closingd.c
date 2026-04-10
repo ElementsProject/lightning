@@ -159,10 +159,9 @@ static void send_offer(struct per_peer_state *pps,
 
 	/* BOLT #3:
 	 *
-	 * ## Legacy Closing Transaction
-	 *...
-	 * Each node offering a signature... MAY eliminate its
-	 * own output.
+	 * Each node offering a signature:
+	 * ...
+	 *   - MAY eliminate its own output.
 	 */
 	/* (We don't do this). */
 	wire_sync_write(HSM_FD,
@@ -591,11 +590,12 @@ static void calc_fee_bounds(size_t expected_weight,
 
 	/* BOLT #2:
 	 * - if it is not the funder:
-	 *  - SHOULD set `max_fee_satoshis` to at least the `max_fee_satoshis`
-	 *   received
-	 *...
-	 * Note that the non-funder is not paying the fee, so there is
-	 * no reason for it to have a maximum feerate.
+	 *   - SHOULD set `max_fee_satoshis` to at least the `max_fee_satoshis` received
+	 */
+	/* BOLT #2:
+	 *
+	 * Note that the non-funder is not paying the fee, so there is no reason for it
+	 * to have a maximum feerate.
 	 */
 	if (opener == REMOTE) {
 		*maxfee = funding;

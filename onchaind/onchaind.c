@@ -1248,15 +1248,18 @@ static bool output_spent(struct tracked_output ***outs,
 			 * if it's revoked: */
 			/* BOLT #5:
 			 *
-			 * ## HTLC Output Handling: Local Commitment, Local Offers
-			 *...
-			 *    - MUST extract the payment preimage from the
-			 *      transaction input witness.
-			 *...
-			 * ## HTLC Output Handling: Remote Commitment, Local Offers
-			 *...
-			 *     - MUST extract the payment preimage from the
-			 *       HTLC-success transaction input witness.
+			 * A node:
+			 *   - if the commitment transaction HTLC output is spent using the payment
+			 *   preimage, the output is considered *irrevocably resolved*:
+			 *     - MUST extract the payment preimage from the transaction input witness.
+			 */
+			/* BOLT #5:
+			 *
+			 * A local node:
+			 *   - if the commitment transaction HTLC output is spent using the payment
+			 *   preimage:
+			 *     - MUST extract the payment preimage from the HTLC-success transaction input
+			 *     witness.
 			 */
 			handle_htlc_onchain_fulfill(out, tx_parts,
 						    &htlc_outpoint);
@@ -1426,13 +1429,13 @@ static void tx_new_depth(struct tracked_output **outs,
  *   - otherwise:
  *     - if the *remote node* is NOT irrevocably committed to the HTLC:
  *       - MUST NOT *resolve* the output by spending it.
- *...
- * ## HTLC Output Handling: Remote Commitment, Remote Offers
- *...
+ */
+/* BOLT #5:
+ *
  * A local node:
  *  - if it receives (or already possesses) a payment preimage for an unresolved
  *   HTLC output that it was offered AND for which it has committed to an
- * outgoing HTLC:
+ *  outgoing HTLC:
  *     - MUST *resolve* the output by spending it to a convenient address.
  *   - otherwise:
  *     - if the remote node is NOT irrevocably committed to the HTLC:
@@ -1479,9 +1482,6 @@ static void handle_preimage(struct tracked_output **outs,
 
 		/* BOLT #5:
 		 *
-		 *
-		 * ## HTLC Output Handling: Local Commitment, Remote Offers
-		 *...
 		 * A local node:
 		 *  - if it receives (or already possesses) a payment preimage
 		 *    for an unresolved HTLC output that it has been offered
@@ -1515,14 +1515,11 @@ static void handle_preimage(struct tracked_output **outs,
 		} else {
 			/* BOLT #5:
 			 *
-			 * ## HTLC Output Handling: Remote Commitment, Remote
-			 *    Offers
-			 *...
 			 * A local node:
 			 * - if it receives (or already possesses) a payment
 			 *   preimage for an unresolved HTLC output that it was
 			 *   offered AND for which it has committed to an
-			 *   outgoing HTLC:
+			 *  outgoing HTLC:
 			 *    - MUST *resolve* the output by spending it to a
 			 *      convenient address.
 			 */
@@ -1835,7 +1832,7 @@ static size_t resolve_our_htlc_ourcommit(struct tracked_output *out,
 
 		/* BOLT #5:
 		 *
-		 * ## HTLC Output Handling: Local Commitment, Local Offers
+		 * A node:
 		 * ...
 		 *  - if the commitment transaction HTLC output has *timed out*
 		 *  and hasn't been *resolved*:
@@ -1939,9 +1936,8 @@ static size_t resolve_our_htlc_theircommit(struct tracked_output *out,
 
 	/* BOLT #5:
 	 *
-	 * ## HTLC Output Handling: Remote Commitment, Local Offers
+	 * A local node:
 	 * ...
-	 *
 	 *   - if the commitment transaction HTLC output has *timed out* AND NOT
 	 *     been *resolved*:
 	 *     - MUST *resolve* the output, by spending it to a convenient
@@ -1971,21 +1967,13 @@ static size_t resolve_their_htlc(struct tracked_output *out,
 
 	/* BOLT #5:
 	 *
-	 * ## HTLC Output Handling: Remote Commitment, Remote Offers
-	 *...
-	 * ### Requirements
-	 *...
 	 * If not otherwise resolved, once the HTLC output has expired, it is
 	 * considered *irrevocably resolved*.
 	 */
 
 	/* BOLT #5:
 	 *
-	 * ## HTLC Output Handling: Local Commitment, Remote Offers
-	 *...
-	 * ### Requirements
-	 *...
-	 * If not otherwise resolved, once the HTLC output has expired, it is
+	 * If it's NOT otherwise resolved, once the HTLC output has expired, it is
 	 * considered *irrevocably resolved*.
 	 */
 
