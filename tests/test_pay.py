@@ -1281,21 +1281,21 @@ def test_forward_different_fees_and_cltv(node_factory, bitcoind):
     # 3. C: 30 blocks
     # 4. D: 40 blocks
     #
-    # C also uses a minimum `cltv_expiry` of 9 (the default) when requesting
+    # C also uses a `min_final_cltv_expiry_delta` of 18 (the default) when requesting
     # payments.
     #
-    # Also, each node has the same fee scheme which it uses for each of its
+    # Also, each node has a set fee scheme that it uses for each of its
     # channels:
     #
     # 1. A: 100 base + 1000 millionths
-    # 1. B: 200 base + 2000 millionths
-    # 1. C: 300 base + 3000 millionths
-    # 1. D: 400 base + 4000 millionths
+    # 2. B: 200 base + 2000 millionths
+    # 3. C: 300 base + 3000 millionths
+    # 4. D: 400 base + 4000 millionths
 
     # We don't do D yet.
     l1, l2, l3 = node_factory.get_nodes(3, opts=[{'cltv-delta': 10, 'fee-base': 100, 'fee-per-satoshi': 1000},
                                                  {'cltv-delta': 20, 'fee-base': 200, 'fee-per-satoshi': 2000},
-                                                 {'cltv-delta': 30, 'cltv-final': 9, 'fee-base': 300, 'fee-per-satoshi': 3000}])
+                                                 {'cltv-delta': 30, 'fee-base': 300, 'fee-per-satoshi': 3000}])
 
     ret = l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     assert ret['id'] == l2.info['id']
@@ -1318,13 +1318,9 @@ def test_forward_different_fees_and_cltv(node_factory, bitcoind):
     l1.wait_channel_active(c2)
 
     # BOLT #7:
-    #
-    # If B were to send 4,999,999 millisatoshi directly to C, it wouldn't
-    # charge itself a fee nor add its own `cltv_expiry_delta`, so it would
-    # use C's requested `cltv_expiry` of 9.  We also assume it adds a
-    # "shadow route" to give an extra CLTV of 42.  It could also add extra
-    # cltv deltas at other hops, as these values are a minimum, but we don't
-    # here for simplicity:
+    # If B were to send 4,999,999 millisatoshi directly to C, it would
+    # neither charge itself a fee nor add its own `cltv_expiry_delta`, so it would
+    # use C's requested `min_final_cltv_expiry_delta` of 18.
 
     # FIXME: Add shadow route
     shadow_route = 0
@@ -1334,38 +1330,36 @@ def test_forward_different_fees_and_cltv(node_factory, bitcoind):
     # BOLT #7:
     #
     #    * `amount_msat`: 4999999
-    #    * `cltv_expiry`: current-block-height + 9 + 42
+    #    * `cltv_expiry`: current-block-height + 18 + 42
     #    * `onion_routing_packet`:
     #      * `amt_to_forward` = 4999999
-    #      * `outgoing_cltv_value` = current-block-height + 9 + 42
+    #      * `outgoing_cltv_value` = current-block-height + 18 + 42
     #
     assert route[0]['amount_msat'] == 4999999
-    assert route[0]['delay'] == 9 + shadow_route
+    assert route[0]['delay'] == 18 + shadow_route
 
     # BOLT #7:
     # If A were to send 4,999,999 millisatoshi to C via B, it needs to
     # pay B the fee it specified in the B->C `channel_update`, calculated as
-    # per [HTLC Fees](#htlc_fees):
+    # per [HTLC Fees](#htlc-fees):...
+    #     200 + ( 4999999 * 2000 / 1000000 ) = 10199
     #
-    # 200 + 4999999 * 2000 / 1000000 = 10199
-    #
-    # Similarly, it would need to add the `cltv_expiry` from B->C's
-    # `channel_update` (20), plus C's requested minimum (9), plus 42 for the
-    # "shadow route".  Thus the `update_add_htlc` message from A to B would
-    # be:
+    # Similarly, it would need to add B->C's `channel_update` `cltv_expiry_delta` (20), C's
+    # requested `min_final_cltv_expiry_delta` (18), and the cost for the _shadow route_ (42).
+    # Thus, A->B's `update_add_htlc` message would be:
     #
     #    * `amount_msat`: 5010198
-    #    * `cltv_expiry`: current-block-height + 20 + 9 + 42
+    #    * `cltv_expiry`: current-block-height + 20 + 18 + 42
     #    * `onion_routing_packet`:
     #      * `amt_to_forward` = 4999999
-    #      * `outgoing_cltv_value` = current-block-height + 9 + 42
+    #      * `outgoing_cltv_value` = current-block-height + 18 + 42
     route = l1.rpc.getroute(l3.info['id'], 4999999, 1)["route"]
     assert len(route) == 2
 
     assert route[0]['amount_msat'] == 5010198
-    assert route[0]['delay'] == 20 + 9 + shadow_route
+    assert route[0]['delay'] == 20 + 18 + shadow_route
     assert route[1]['amount_msat'] == 4999999
-    assert route[1]['delay'] == 9 + shadow_route
+    assert route[1]['delay'] == 18 + shadow_route
 
     inv = l3.rpc.invoice(4999999, 'test_forward_different_fees_and_cltv', 'desc')
     rhash = inv['payment_hash']
@@ -1378,9 +1372,9 @@ def test_forward_different_fees_and_cltv(node_factory, bitcoind):
     # We add one to the blockcount for a bit of fuzz (FIXME: Shadowroute would fix this!)
     shadow_route = 1
     l1.daemon.wait_for_log("Adding HTLC 0 amount=5010198msat cltv={} gave CHANNEL_ERR_ADD_OK"
-                           .format(bitcoind.rpc.getblockcount() + 20 + 9 + shadow_route))
+                           .format(bitcoind.rpc.getblockcount() + 20 + 18 + shadow_route))
     l2.daemon.wait_for_log("Adding HTLC 0 amount=4999999msat cltv={} gave CHANNEL_ERR_ADD_OK"
-                           .format(bitcoind.rpc.getblockcount() + 9 + shadow_route))
+                           .format(bitcoind.rpc.getblockcount() + 18 + shadow_route))
     l3.daemon.wait_for_log("Resolved invoice 'test_forward_different_fees_and_cltv' with amount 4999999msat")
     assert only_one(l3.rpc.listinvoices('test_forward_different_fees_and_cltv')['invoices'])['status'] == 'paid'
 
