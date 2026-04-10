@@ -92,6 +92,13 @@ def gather_quotes(args: Namespace) -> Dict[int, List[Quote]]:
             filestart = fileinput.filename()
             curbolt = boltnum
             curquote = quote
+            # Handle single-line comment: /* BOLT #N: text */
+            if args.comment_end is not None:
+                stripped = curquote.rstrip()
+                if stripped.endswith(args.comment_end):
+                    curquote = stripped[: -len(args.comment_end)]
+                    add_quote(boltquotes, curbolt, filestart, linestart, curquote)
+                    curquote = None
         elif curquote is not None:
             # If this is a continuation (and not an end!), add it.
             if (
@@ -151,53 +158,155 @@ def load_bolt(boltdir: str, num: int) -> List[str]:
 def find_quote(
     text: str, boltsections: List[str]
 ) -> Tuple[Optional[str], Optional[int]]:
-    # '...' means "match anything".
+    # '...' means "match anything, but prefer within a single section".
+    # When a part is not found in the current section, we try subsequent
+    # sections so that quotes can explicitly span a section header.
     textparts = text.split("...")
-    for b in boltsections:
+    for start_si, start_b in enumerate(boltsections):
+        cur_si = start_si
+        cur_section = start_b
         off = 0
+        success = True
         for part in textparts:
-            off = b.find(part, off)
-            if off == -1:
-                break
-        if off != -1:
-            return b, off + len(part)
+            new_off = cur_section.find(part, off)
+            if new_off == -1:
+                # Try subsequent sections; strip leading whitespace since we're
+                # starting fresh at position 0 after a section boundary.
+                found = False
+                search_part = part.lstrip()
+                for next_si in range(cur_si + 1, len(boltsections)):
+                    new_off = boltsections[next_si].find(search_part, 0)
+                    if new_off != -1:
+                        cur_si = next_si
+                        cur_section = boltsections[next_si]
+                        off = new_off + len(search_part)
+                        found = True
+                        break
+                if not found:
+                    success = False
+                    break
+            else:
+                off = new_off + len(part)
+        if success:
+            return cur_section, off
     return None, None
+
+
+def find_quote_immediate(
+    text: str, section: str, start: int
+) -> Tuple[Optional[str], Optional[int]]:
+    """Find text in section starting immediately at position start.
+    Allows a single space separator (whitespace is already collapsed to single spaces).
+    The text may still contain '...' wildcards for its own internal matching.
+    """
+    textparts = text.split("...")
+    off = start
+    # Allow for exactly one whitespace separator (already collapsed)
+    if off < len(section) and section[off] == " ":
+        off += 1
+    first_part = textparts[0]
+    if not section[off:].startswith(first_part):
+        return None, None
+    off += len(first_part)
+    for part in textparts[1:]:
+        new_off = section.find(part, off)
+        if new_off == -1:
+            return None, None
+        off = new_off + len(part)
+    return section, off
 
 
 def main(args: Namespace) -> None:
     boltquotes = gather_quotes(args)
+    failed = False
     for bolt in boltquotes:
         boltsections = load_bolt(args.boltdir, bolt)
+        last_section: Optional[str] = None
+        last_end: int = 0
+        last_filename: Optional[str] = None
         for quote in boltquotes[bolt]:
-            sect, end = find_quote(quote.text, boltsections)
-            if not sect:
-                print(
-                    "{}:{}:cannot find match".format(quote.filename, quote.line),
-                    file=sys.stderr,
-                )
-                # Reduce the text until we find a match.
-                for n in range(len(quote.text), -1, -1):
-                    sect, end = find_quote(quote.text[:n], boltsections)
-                    if sect:
-                        print(
-                            "  common prefix: {}...".format(quote.text[:n]),
-                            file=sys.stderr,
-                        )
-                        print(
-                            "  expected ...{:.45}".format(sect[end:]), file=sys.stderr
-                        )
-                        print(
-                            "  but have ...{:.45}".format(quote.text[n:]),
-                            file=sys.stderr,
-                        )
-                        break
-                sys.exit(1)
-            elif args.verbose:
-                print(
-                    "{}:{}:Matched {} in {}".format(
-                        quote.filename, quote.line, quote.text, sect
+            # Reset per-file tracking when the file changes.
+            if quote.filename != last_filename:
+                last_section = None
+                last_end = 0
+                last_filename = quote.filename
+
+            if quote.text.startswith("..."):
+                # Leading '...' means this quote must immediately follow the
+                # previous quote (in this file) in the BOLT text.
+                if last_section is None:
+                    print(
+                        "{}:{}:'...' at start of quote but no previous BOLT #{} quote in this file".format(
+                            quote.filename, quote.line, bolt
+                        ),
+                        file=sys.stderr,
                     )
-                )
+                    if not args.keep_going:
+                        sys.exit(1)
+                    failed = True
+                    sect, end = None, None
+                else:
+                    text_after = quote.text[3:]
+                    sect, end = find_quote_immediate(text_after, last_section, last_end)
+                    if sect is None:
+                        print(
+                            "{}:{}:cannot find match (must immediately follow previous quote)".format(
+                                quote.filename, quote.line
+                            ),
+                            file=sys.stderr,
+                        )
+                        print(
+                            "  previous quote ended at: ...{:.45}".format(
+                                last_section[last_end:]
+                            ),
+                            file=sys.stderr,
+                        )
+                        print(
+                            "  but quote expects: {:.45}".format(text_after),
+                            file=sys.stderr,
+                        )
+                        if not args.keep_going:
+                            sys.exit(1)
+                        failed = True
+            else:
+                sect, end = find_quote(quote.text, boltsections)
+                if sect is None:
+                    print(
+                        "{}:{}:cannot find match".format(quote.filename, quote.line),
+                        file=sys.stderr,
+                    )
+                    # Reduce the text until we find a match.
+                    for n in range(len(quote.text), -1, -1):
+                        sect, end = find_quote(quote.text[:n], boltsections)
+                        if sect:
+                            print(
+                                "  common prefix: {}...".format(quote.text[:n]),
+                                file=sys.stderr,
+                            )
+                            print(
+                                "  expected ...{:.45}".format(sect[end:]), file=sys.stderr
+                            )
+                            print(
+                                "  but have ...{:.45}".format(quote.text[n:]),
+                                file=sys.stderr,
+                            )
+                            break
+                    if not args.keep_going:
+                        sys.exit(1)
+                    failed = True
+                elif args.verbose:
+                    print(
+                        "{}:{}:Matched {} in {}".format(
+                            quote.filename, quote.line, quote.text, sect
+                        )
+                    )
+
+            if sect is not None:
+                last_section = sect
+                last_end = end
+
+    if failed:
+        sys.exit(1)
 
 
 if __name__ == "__main__":
@@ -205,6 +314,8 @@ if __name__ == "__main__":
         description="Check BOLT quotes in the given files are correct"
     )
     parser.add_argument("-v", "--verbose", action="store_true")
+    parser.add_argument("-k", "--keep-going", action="store_true",
+                        help="Report all errors instead of stopping at first")
     # e.g. for C code these are '/* ', '*' and '*/'
     parser.add_argument(
         "--comment-start", help='marker for start of "BOLT #N" quote', default="# "
