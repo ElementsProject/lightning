@@ -226,8 +226,8 @@ static struct command_result *json_keysend(struct command *cmd, const char *buf,
 	 * caller to provide keysend secret */
 	p->our_amount = p->final_amount = *msat;
 	p->routes = tal_steal(p, hints);
-	// 22 is the Rust-Lightning default and the highest minimum we know of.
-	p->min_final_cltv_expiry = 22;
+	// 42 is the Rust-Lightning default and the highest minimum we know of.
+	p->min_final_cltv_expiry = 42;
 	p->features = NULL;
 	p->invstring = NULL;
 	/* Don't try to use invstring to hand to sendonion! */
