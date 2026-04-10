@@ -648,6 +648,13 @@ const char *gossmap_manage_channel_announcement(const tal_t *ctx,
 			       tal_hex(tmpctx, announce));
 	}
 
+	/* BOLT #7:
+	 *   - if the specified `chain_hash` is unknown to the receiver:
+	 *     - MUST ignore the message.
+	 */
+	if (!bitcoin_blkid_eq(&chain_hash, &chainparams->genesis_blockhash))
+		return NULL;
+
 	/* If a prior txout lookup failed there is little point it trying
 	 * again. Just drop the announcement and walk away whistling.
 	 *
@@ -1017,6 +1024,16 @@ const char *gossmap_manage_channel_update(const tal_t *ctx,
 				     &htlc_maximum_msat)) {
 		return tal_fmt(ctx, "channel_update: malformed %s",
 			       tal_hex(tmpctx, update));
+	}
+
+	/* BOLT #7:
+	 * - if the specified `chain_hash` value is unknown (meaning it isn't active on
+	 *   the specified chain):
+	 *     - MUST ignore the channel update.
+	 */
+	if (!bitcoin_blkid_eq(&chain_hash, &chainparams->genesis_blockhash)) {
+		status_debug("wrong chain for update %s", tal_hex(tmpctx, update));
+		return NULL;
 	}
 
 	/* Don't accept ancient or far-future timestamps. */

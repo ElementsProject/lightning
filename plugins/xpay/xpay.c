@@ -89,9 +89,9 @@ struct payment {
 	u32 maxparts;
 	/* Do we have to do it all in a single part? */
 	bool disable_mpp;
-	/* BOLT11 payment secret (NULL for BOLT12, it uses blinded paths) */
+	/* BOLT-11 payment secret (NULL for BOLT-12, it uses blinded paths) */
 	const struct secret *payment_secret;
-	/* BOLT11 payment metadata (NULL for BOLT12, it uses blinded paths) */
+	/* BOLT-11 payment metadata (NULL for BOLT-12, it uses blinded paths) */
 	const u8 *payment_metadata;
 	/* Final CLTV value */
 	u32 final_cltv;
@@ -744,6 +744,14 @@ static void update_knowledge_from_error(struct command *aux_cmd,
 	attempt_debug(attempt, "%s", description);
 
 	/* Final node sent an error */
+	/* BOLT #4:
+	 * - if the _final node_ is returning the error:
+	 *   - if the PERM bit is set:
+	 *     - SHOULD fail the payment.
+	 *   - otherwise:
+	 *     - if the error code is understood and valid:
+	 *       - MAY retry the payment.
+	 */
 	if (from_final) {
 		switch (failcode) {
 		/* These two are deprecated */

@@ -433,6 +433,9 @@ void peer_start_closingd(struct channel *channel, struct peer_fd *peer_fd)
 	}
 
 	/* BOLT #3:
+	 * ## Legacy Closing Transaction
+	 *...
+	 * ### Requirements
 	 *
 	 * Each node offering a signature:
 	 *  - MUST round each output down to whole satoshis.

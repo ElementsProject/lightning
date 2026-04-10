@@ -78,6 +78,9 @@ enum query_option_flags {
  *   either direction is older than two weeks (1209600 seconds):
  *     - MAY prune the channel.
  *     - MAY ignore the channel.
+ *     - Note: this is an individual node policy and MUST NOT be enforced by
+ *     forwarding peers, e.g. by closing channels when receiving outdated
+ *     gossip messages.
  */
 #define GOSSIP_PRUNE_INTERVAL(dev_fast_gossip_prune_flag) \
 	DEV_FAST_GOSSIP(dev_fast_gossip_prune_flag, 120, 1209600)

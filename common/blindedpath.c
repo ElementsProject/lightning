@@ -142,6 +142,8 @@ bool unblind_onion(const struct pubkey *path_key,
 	 *      - Tweak `public_key` by multiplying by $`HMAC256(\text{"blinded\_node\_id"}, blinding\_ss)`$.
 	 *    - or (equivalently):
 	 *      - Tweak its own `node_privkey` below by multiplying by $`HMAC256(\text{"blinded\_node\_id"}, blinding\_ss)`$.
+	 *  - Derive the shared secret `ss` as ECDH(`public_key`, `node_privkey`)
+	 *    (see [Shared Secret](#shared-secret)).
 	 */
 	ecdh(path_key, ss);
 	subkey_from_hmac("blinded_node_id", ss, &hmac);

@@ -18,7 +18,9 @@
  *    * [`u32`:`feerate_per_kw`]
  *    * [`u16`:`to_self_delay`]
  *    * [`u16`:`max_accepted_htlcs`]
- *...
+ */
+/* BOLT #2:
+ *
  * 1. type: 33 (`accept_channel`)
  * 2. data:
  *    * [`32*byte`:`temporary_channel_id`]

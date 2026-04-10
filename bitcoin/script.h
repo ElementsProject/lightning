@@ -102,13 +102,13 @@ u8 **bitcoin_witness_sig_and_element(const tal_t *ctx,
 				     const void *elem, size_t elemsize,
 				     const u8 *witnessscript);
 
-/* BOLT #3 to-local output */
+/* to-local output (BOLT #3) */
 u8 *bitcoin_wscript_to_local(const tal_t *ctx, u16 to_self_delay,
 			     u32 lease_remaining,
 			     const struct pubkey *revocation_pubkey,
 			     const struct pubkey *local_delayedkey);
 
-/* BOLT #3 offered/accepted HTLC outputs */
+/* offered/accepted HTLC outputs (BOLT #3) */
 u8 *bitcoin_wscript_htlc_offer(const tal_t *ctx,
 			       const struct pubkey *localhtlckey,
 			       const struct pubkey *remotehtlckey,
@@ -151,7 +151,7 @@ u8 *bitcoin_wscript_htlc_receive_ripemd(const tal_t *ctx,
 					bool option_anchor_outputs,
 					bool option_anchors_zero_fee_htlc_tx);
 
-/* BOLT #3 HTLC-success/HTLC-timeout output */
+/* HTLC-success/HTLC-timeout output (BOLT #3) */
 u8 *bitcoin_wscript_htlc_tx(const tal_t *ctx,
 			    u16 to_self_delay,
 			    const struct pubkey *revocation_pubkey,
