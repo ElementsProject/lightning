@@ -42,15 +42,12 @@ This release is named by TBD.
  - `gossipd` no longer compacts gossip_store on startup (improving start times significantly). ([#8903])
  - Build: most binaries are now about 20% smaller. ([#8658])
  - lightningd: logging is now more efficient internally (no more pruning, simple ringbuffer). ([#8770])
- - JSON-RPC: `recover` takes a 12-word mnemonic for nodes created by v25.12 or later. ([#8830])
- - `lightning-hsmtool`: `getsecret` replaces `getcodexsecret` for modern nodes (gives mnemonic). ([#8830])
 
 
 ### Deprecated
 
 Note: You should always set `allow-deprecated-apis=false` to test for changes.
 
- - `lightning-hsmtool`: `getcodexsecret`.  Use `getsecret`. ([#8830])
  - Config: `experimental-splicing`.  Enabled by default.  ([#9021])
 
 ### Removed
@@ -83,16 +80,7 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
  - JSON_RPC: `getroutes` fixed a class of corner cases that cause askrene main loop to timeout instead of quickly failing, thus wasting runtime. ([#8866])
  - Testing infrastructure no longer fails when logging output capture is disabled. ([#8843])
  - Build: Core lightning builds for Fedora on all systems are deterministic. ([#8846])
- - lightningd: we now correctly sign for non-taproot addresses given by nodes created by v25.12 or newer. ([#8831])
- - `lightning-hsmtool`: handle mnemonic hsm_secret files (nodes created >= v25.12). ([#8831])
- - plugins: `pay` can crash on errors returned from deep inside routehints. ([#8829])
- - plugins: `askrene` can crash on a corner case in increase_flows. ([#8829])
- - askrene: fix a plugin crash triggered during single path payments when a channel fees doesn't fit u32. ([#8832])
- - JSON-RPC: malformed filters no longer crash lightningd. ([#8780])
- - JSON-RPC: `pay` `maxdelay` parameter now enforced for direct channel payments ([#8740])
  - Ensure documentation renders correctly when adding/updating new RPCs by detecting non-MDX-compatible pages. ([#8792])
- - JSON-RPC: `listnodes` would occasionally not show a node announcement. ([#8769])
- - lightningd: potential crash on startup if bitcoind isn't up-to-date. ([#8779])
 
 
 ### EXPERIMENTAL
@@ -109,14 +97,10 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 [#8712]: https://github.com/ElementsProject/lightning/pull/8712
 [#8717]: https://github.com/ElementsProject/lightning/pull/8717
 [#8723]: https://github.com/ElementsProject/lightning/pull/8723
-[#8740]: https://github.com/ElementsProject/lightning/pull/8740
 [#8762]: https://github.com/ElementsProject/lightning/pull/8762
 [#8766]: https://github.com/ElementsProject/lightning/pull/8766
-[#8769]: https://github.com/ElementsProject/lightning/pull/8769
 [#8770]: https://github.com/ElementsProject/lightning/pull/8770
 [#8772]: https://github.com/ElementsProject/lightning/pull/8772
-[#8779]: https://github.com/ElementsProject/lightning/pull/8779
-[#8780]: https://github.com/ElementsProject/lightning/pull/8780
 [#8782]: https://github.com/ElementsProject/lightning/pull/8782
 [#8784]: https://github.com/ElementsProject/lightning/pull/8784
 [#8792]: https://github.com/ElementsProject/lightning/pull/8792
@@ -125,10 +109,6 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 [#8814]: https://github.com/ElementsProject/lightning/pull/8814
 [#8820]: https://github.com/ElementsProject/lightning/pull/8820
 [#8824]: https://github.com/ElementsProject/lightning/pull/8824
-[#8829]: https://github.com/ElementsProject/lightning/pull/8829
-[#8830]: https://github.com/ElementsProject/lightning/pull/8830
-[#8831]: https://github.com/ElementsProject/lightning/pull/8831
-[#8832]: https://github.com/ElementsProject/lightning/pull/8832
 [#8842]: https://github.com/ElementsProject/lightning/pull/8842
 [#8843]: https://github.com/ElementsProject/lightning/pull/8843
 [#8846]: https://github.com/ElementsProject/lightning/pull/8846
@@ -154,6 +134,45 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 [#8997]: https://github.com/ElementsProject/lightning/pull/8997
 [#9021]: https://github.com/ElementsProject/lightning/pull/9021
 [v26.04rc2]: https://github.com/ElementsProject/lightning/releases/tag/v26.04rc2
+
+
+## [25.12.1] - 2026-1-14: "Boltz's Seamless Upgrade Experience II"
+
+This is a recommended release, particularly for those creating new nodes.
+
+### Changed
+
+ - JSON-RPC: `recover` takes a 12-word mnemonic for nodes created by v25.12 or later. ([#8830])
+ - `lightning-hsmtool`: `getsecret` replaces `getcodexsecret` for modern nodes (gives mnemonic). ([#8830])
+
+### Deprecated
+
+Note: You should always set `allow-deprecated-apis=false` to test for changes.
+
+ - `lightning-hsmtool`: `getcodexsecret`.  Use `getsecret`. ([#8830])
+
+### Fixed
+
+ - lightningd: we now correctly sign for non-taproot addresses given by nodes created by v25.12 or newer. ([#8831])
+ - `lightning-hsmtool`: handle mnemonic hsm_secret files (nodes created >= v25.12). ([#8831])
+ - plugins: `pay` can crash on errors returned from deep inside routehints. ([#8829])
+ - plugins: `askrene` can crash on a corner case in increase_flows. ([#8829])
+ - askrene: fix a plugin crash triggered during single path payments when a channel fees doesn't fit u32. ([#8832])
+ - JSON-RPC: malformed filters no longer crash lightningd. ([#8780])
+ - pay: `maxdelay` parameter now enforced for direct channel payments ([#8740])
+ - gossipd: we would occasionally not show a node announcement in listnodes(). ([#8769])
+ - lightningd: potential crash on startup if bitcoind isn't up-to-date. ([#8779])
+
+
+[#8832]: https://github.com/ElementsProject/lightning/pull/8832
+[#8780]: https://github.com/ElementsProject/lightning/pull/8780
+[#8831]: https://github.com/ElementsProject/lightning/pull/8831
+[#8740]: https://github.com/ElementsProject/lightning/pull/8740
+[#8769]: https://github.com/ElementsProject/lightning/pull/8769
+[#8829]: https://github.com/ElementsProject/lightning/pull/8829
+[#8779]: https://github.com/ElementsProject/lightning/pull/8779
+[#8830]: https://github.com/ElementsProject/lightning/pull/8830
+[25.12.1]: https://github.com/ElementsProject/lightning/releases/tag/v25.12.1
 
 
 ## [25.12] - 2025-12-04: "Boltz's Seamless Upgrade Experience"
