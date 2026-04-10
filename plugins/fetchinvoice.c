@@ -368,6 +368,16 @@ struct command_result *handle_invoice_onion_message(struct command *cmd,
 	struct sent *sent;
 	struct command_result *err;
 
+	/* BOLT #4:
+	 * - otherwise (it is the final node):
+	 *   - if `path_id` is set and corresponds to a path the reader has previously published in a `reply_path`:
+	 *     - if the onion message is not a reply to that previous onion:
+	 *       - MUST ignore the onion message
+	 *   - otherwise (unknown or unset `path_id`):
+	 *     - if the onion message is a reply to an onion message which contained a `path_id`:
+	 *       - MUST respond (or not respond) exactly as if it did not send the initial onion message.
+	 */
+	/* We unmarshal the path_id into our secret: if it is NULL or wrong, we exit here */
 	sent = find_sent_by_secret(pathsecret);
 	if (!sent)
 		return NULL;
@@ -771,6 +781,14 @@ static struct command_result *invreq_done(struct command *cmd,
 	payload->invoice_request = tal_arr(payload, u8, 0);
 	towire_tlv_invoice_request(&payload->invoice_request, sent->invreq);
 
+	/* BOLT #12:
+	 *   - if it chooses to send an invoice request, it sends an onion message:
+	 *     - if `offer_paths` is set:
+	 *       - MUST send the onion message via any path in `offer_paths` to the final
+	 *         `onion_msg_hop`.`blinded_node_id` in that path
+	 *     - otherwise:
+	 *       - MUST send the onion message to `offer_issuer_id`
+	 */
 	/* Don't expect a reply message for cancel */
 	return send_message(cmd, sent,
 			    sent->invreq->invreq_recurrence_cancel ? false : true,

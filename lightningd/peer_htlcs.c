@@ -2625,6 +2625,12 @@ void peer_got_revoke(struct channel *channel, const u8 *msg)
 	badonions = tal_arrz(msg, enum onion_wire, tal_count(changed));
 	failmsgs = tal_arrz(msg, u8 *, tal_count(changed));
 	for (i = 0; i < tal_count(changed); i++) {
+		/* BOLT #2:
+		 * A node:
+		 *   - until an incoming HTLC has been irrevocably committed:
+		 *     - MUST NOT offer the corresponding outgoing HTLC
+		 *       (`update_add_htlc`) in response to that incoming HTLC.
+		 */
 		/* If we're doing final accept, we need to forward */
 		if (changed[i].newstate == RCVD_ADD_ACK_REVOCATION) {
 			peer_accepted_htlc(failmsgs,
