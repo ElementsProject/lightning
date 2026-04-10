@@ -834,22 +834,43 @@ u8 *unwrap_onionreply(const tal_t *ctx,
 	struct onionreply *r;
 	const u8 *cursor;
 	size_t max;
-	u16 msglen;
+	u8 *ret;
 
 	r = new_onionreply(tmpctx, reply->contents);
 	*origin_index = -1;
+	ret = NULL;
 
-	for (int i = 0; i < numhops; i++) {
-		struct secret key;
+	/* BOLT #4:
+	 * The _origin node_:
+	 *   - once the return message has been decrypted:
+	 *     - SHOULD store a copy of the message.
+	 *     - SHOULD continue decrypting, until the loop has been repeated 27 times
+	 *     (maximum route length of tlv payload type).
+	 *     - SHOULD use constant `ammag` and `um` keys to obfuscate the route length.
+	 *...
+	 * ### Rationale
+	 *
+	 * The requirements for the _origin node_ should help hide the payment sender.
+	 * By continuing decrypting 27 times (dummy decryption cycles after the error is found)
+	 * the erroring node cannot learn its relative position in the route by performing
+	 * a timing analysis if the sender were to retry the same route multiple times.
+	 */
+	for (size_t i = 0; i < 27; i++) {
+		struct secret ss, key;
 		struct hmac hmac, expected_hmac;
+
+		if (i < numhops)
+			ss = shared_secrets[i];
+		else
+			memset(&ss, 0x7, sizeof(ss));
 
 		/* Since the encryption is just XORing with the cipher
 		 * stream encryption is identical to decryption */
-		r = wrap_onionreply(tmpctx, &shared_secrets[i], r);
+		r = wrap_onionreply(tmpctx, &ss, r);
 
 		/* Check if the HMAC matches, this means that this is
 		 * the origin */
-		subkey_from_hmac("um", &shared_secrets[i], &key);
+		subkey_from_hmac("um", &ss, &key);
 
 		cursor = r->contents;
 		max = tal_count(r->contents);
@@ -861,18 +882,14 @@ u8 *unwrap_onionreply(const tal_t *ctx,
 
 		compute_hmac(&key, cursor, max, NULL, 0, &expected_hmac);
 		if (hmac_eq(&hmac, &expected_hmac)) {
+			u16 msglen;
+			msglen = fromwire_u16(&cursor, &max);
+			ret = fromwire_tal_arrn(ctx, &cursor, &max, msglen);
 			*origin_index = i;
-			break;
 		}
 	}
 
-	/* Didn't find source, it's garbled */
-	if (*origin_index == -1) {
-		return NULL;
-	}
-
-	msglen = fromwire_u16(&cursor, &max);
-	return fromwire_tal_arrn(ctx, &cursor, &max, msglen);
+	return ret;
 }
 
 struct onionpacket *sphinx_decompress(const tal_t *ctx,
