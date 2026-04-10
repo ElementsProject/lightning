@@ -126,6 +126,8 @@ pub enum Request {
 	SpliceSigned(requests::SpliceSignedRequest),
 	#[serde(rename = "splice_update")]
 	SpliceUpdate(requests::SpliceUpdateRequest),
+	SpliceIn(requests::SpliceinRequest),
+	SpliceOut(requests::SpliceoutRequest),
 	#[serde(rename = "dev-splice")]
 	DevSplice(requests::DevspliceRequest),
 	UnreserveInputs(requests::UnreserveinputsRequest),
@@ -314,6 +316,8 @@ pub enum Response {
 	SpliceSigned(responses::SpliceSignedResponse),
 	#[serde(rename = "splice_update")]
 	SpliceUpdate(responses::SpliceUpdateResponse),
+	SpliceIn(responses::SpliceinResponse),
+	SpliceOut(responses::SpliceoutResponse),
 	#[serde(rename = "dev-splice")]
 	DevSplice(responses::DevspliceResponse),
 	UnreserveInputs(responses::UnreserveinputsResponse),
@@ -3699,6 +3703,56 @@ pub mod requests {
 
 	    fn method(&self) -> &str {
 	        "splice_update"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct SpliceinRequest {
+	    pub amount: String,
+	    pub channel: String,
+	}
+
+	impl From<SpliceinRequest> for Request {
+	    fn from(r: SpliceinRequest) -> Self {
+	        Request::SpliceIn(r)
+	    }
+	}
+
+	impl IntoRequest for SpliceinRequest {
+	    type Response = super::responses::SpliceinResponse;
+	}
+
+	impl TypedRequest for SpliceinRequest {
+	    type Response = super::responses::SpliceinResponse;
+
+	    fn method(&self) -> &str {
+	        "splicein"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct SpliceoutRequest {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub destination: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub force_feerate: Option<bool>,
+	    pub amount: String,
+	    pub channel: String,
+	}
+
+	impl From<SpliceoutRequest> for Request {
+	    fn from(r: SpliceoutRequest) -> Self {
+	        Request::SpliceOut(r)
+	    }
+	}
+
+	impl IntoRequest for SpliceoutRequest {
+	    type Response = super::responses::SpliceoutResponse;
+	}
+
+	impl TypedRequest for SpliceoutRequest {
+	    type Response = super::responses::SpliceoutResponse;
+
+	    fn method(&self) -> &str {
+	        "spliceout"
 	    }
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -9830,6 +9884,48 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::SpliceUpdate(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct SpliceinResponse {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub psbt: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub tx: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub txid: Option<String>,
+	}
+
+	impl TryFrom<Response> for SpliceinResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::SpliceIn(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct SpliceoutResponse {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub psbt: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub tx: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub txid: Option<String>,
+	}
+
+	impl TryFrom<Response> for SpliceoutResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::SpliceOut(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }

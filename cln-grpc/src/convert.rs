@@ -2624,6 +2624,28 @@ impl From<responses::SpliceUpdateResponse> for pb::SpliceUpdateResponse {
 }
 
 #[allow(unused_variables)]
+impl From<responses::SpliceinResponse> for pb::SpliceinResponse {
+    fn from(c: responses::SpliceinResponse) -> Self {
+        Self {
+            psbt: c.psbt, // Rule #2 for type string?
+            tx: c.tx, // Rule #2 for type string?
+            txid: c.txid, // Rule #2 for type string?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::SpliceoutResponse> for pb::SpliceoutResponse {
+    fn from(c: responses::SpliceoutResponse) -> Self {
+        Self {
+            psbt: c.psbt, // Rule #2 for type string?
+            tx: c.tx, // Rule #2 for type string?
+            txid: c.txid, // Rule #2 for type string?
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::DevspliceResponse> for pb::DevspliceResponse {
     fn from(c: responses::DevspliceResponse) -> Self {
         Self {
@@ -6244,6 +6266,28 @@ impl From<requests::SpliceUpdateRequest> for pb::SpliceUpdateRequest {
 }
 
 #[allow(unused_variables)]
+impl From<requests::SpliceinRequest> for pb::SpliceinRequest {
+    fn from(c: requests::SpliceinRequest) -> Self {
+        Self {
+            amount: c.amount, // Rule #2 for type string
+            channel: c.channel, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<requests::SpliceoutRequest> for pb::SpliceoutRequest {
+    fn from(c: requests::SpliceoutRequest) -> Self {
+        Self {
+            amount: c.amount, // Rule #2 for type string
+            channel: c.channel, // Rule #2 for type string
+            destination: c.destination, // Rule #2 for type string?
+            force_feerate: c.force_feerate, // Rule #2 for type boolean?
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<requests::DevspliceRequest> for pb::DevspliceRequest {
     fn from(c: requests::DevspliceRequest) -> Self {
         Self {
@@ -8195,6 +8239,28 @@ impl From<pb::SpliceUpdateRequest> for requests::SpliceUpdateRequest {
         Self {
             channel_id: Sha256::from_slice(&c.channel_id).unwrap(), // Rule #1 for type hash
             psbt: c.psbt, // Rule #1 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::SpliceinRequest> for requests::SpliceinRequest {
+    fn from(c: pb::SpliceinRequest) -> Self {
+        Self {
+            amount: c.amount, // Rule #1 for type string
+            channel: c.channel, // Rule #1 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::SpliceoutRequest> for requests::SpliceoutRequest {
+    fn from(c: pb::SpliceoutRequest) -> Self {
+        Self {
+            amount: c.amount, // Rule #1 for type string
+            channel: c.channel, // Rule #1 for type string
+            destination: c.destination, // Rule #1 for type string?
+            force_feerate: c.force_feerate, // Rule #1 for type boolean?
         }
     }
 }
