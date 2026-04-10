@@ -2955,6 +2955,12 @@ def bkpr_editdescriptionbyoutpoint2py(m):
     })
 
 
+def bkpr_report2py(m):
+    return remove_default({
+        "report": [m.report for i in m.report], # ArrayField[primitive] in generate_composite
+    })
+
+
 def blacklistrune_blacklist2py(m):
     return remove_default({
         "end": m.end,  # PrimitiveField in generate_composite

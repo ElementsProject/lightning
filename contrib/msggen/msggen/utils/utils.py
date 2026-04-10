@@ -127,6 +127,7 @@ grpc_method_names = [
     "Bkpr-ListIncome",
     "Bkpr-EditDescriptionByPaymentId",
     "Bkpr-EditDescriptionByOutpoint",
+    "Bkpr-Report",
     "BlacklistRune",
     "CheckRune",
     "CreateRune",

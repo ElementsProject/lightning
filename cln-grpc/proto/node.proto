@@ -125,6 +125,7 @@ service Node {
 	rpc BkprListIncome(BkprlistincomeRequest) returns (BkprlistincomeResponse) {}
 	rpc BkprEditDescriptionByPaymentId(BkpreditdescriptionbypaymentidRequest) returns (BkpreditdescriptionbypaymentidResponse) {}
 	rpc BkprEditDescriptionByOutpoint(BkpreditdescriptionbyoutpointRequest) returns (BkpreditdescriptionbyoutpointResponse) {}
+	rpc BkprReport(BkprreportRequest) returns (BkprreportResponse) {}
 	rpc BlacklistRune(BlacklistruneRequest) returns (BlacklistruneResponse) {}
 	rpc CheckRune(CheckruneRequest) returns (CheckruneResponse) {}
 	rpc CreateRune(CreateruneRequest) returns (CreateruneResponse) {}
@@ -3786,6 +3787,18 @@ message BkpreditdescriptionbyoutpointUpdated {
 	optional Amount fees_msat = 14;
 	optional bool is_rebalance = 15;
 	optional uint32 part_id = 16;
+}
+
+message BkprreportRequest {
+	optional string format = 1;
+	repeated string headers = 2;
+	optional string escape = 3;
+	optional uint32 start_time = 4;
+	optional uint32 end_time = 5;
+}
+
+message BkprreportResponse {
+	repeated string report = 1;
 }
 
 message BlacklistruneRequest {

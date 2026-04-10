@@ -619,6 +619,11 @@ class NodeStub(object):
                 request_serializer=node__pb2.BkpreditdescriptionbyoutpointRequest.SerializeToString,
                 response_deserializer=node__pb2.BkpreditdescriptionbyoutpointResponse.FromString,
                 _registered_method=True)
+        self.BkprReport = channel.unary_unary(
+                '/cln.Node/BkprReport',
+                request_serializer=node__pb2.BkprreportRequest.SerializeToString,
+                response_deserializer=node__pb2.BkprreportResponse.FromString,
+                _registered_method=True)
         self.BlacklistRune = channel.unary_unary(
                 '/cln.Node/BlacklistRune',
                 request_serializer=node__pb2.BlacklistruneRequest.SerializeToString,
@@ -1596,6 +1601,12 @@ class NodeServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def BkprReport(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def BlacklistRune(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -2507,6 +2518,11 @@ def add_NodeServicer_to_server(servicer, server):
                     servicer.BkprEditDescriptionByOutpoint,
                     request_deserializer=node__pb2.BkpreditdescriptionbyoutpointRequest.FromString,
                     response_serializer=node__pb2.BkpreditdescriptionbyoutpointResponse.SerializeToString,
+            ),
+            'BkprReport': grpc.unary_unary_rpc_method_handler(
+                    servicer.BkprReport,
+                    request_deserializer=node__pb2.BkprreportRequest.FromString,
+                    response_serializer=node__pb2.BkprreportResponse.SerializeToString,
             ),
             'BlacklistRune': grpc.unary_unary_rpc_method_handler(
                     servicer.BlacklistRune,
@@ -5938,6 +5954,33 @@ class Node(object):
             '/cln.Node/BkprEditDescriptionByOutpoint',
             node__pb2.BkpreditdescriptionbyoutpointRequest.SerializeToString,
             node__pb2.BkpreditdescriptionbyoutpointResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def BkprReport(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/cln.Node/BkprReport',
+            node__pb2.BkprreportRequest.SerializeToString,
+            node__pb2.BkprreportResponse.FromString,
             options,
             channel_credentials,
             insecure,
