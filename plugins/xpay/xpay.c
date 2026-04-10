@@ -43,6 +43,7 @@ struct xpay {
 	bool slow_mode;
 	/* Suppress calls to askrene-age */
 	bool dev_no_age;
+	const char **user_layers;
 };
 
 static struct xpay *xpay_of(struct plugin *plugin)
@@ -1467,6 +1468,8 @@ static struct command_result *getroutes_for(struct command *aux_cmd,
 	/* Add user-specified layers */
 	for (size_t i = 0; i < tal_count(payment->layers); i++)
 		json_add_string(req->js, NULL, payment->layers[i]);
+	for (size_t i = 0; i < tal_count(xpay->user_layers); i++)
+		json_add_string(req->js, NULL, xpay->user_layers[i]);
 	if (payment->disable_mpp)
 		json_add_string(req->js, NULL, "auto.no_mpp_support");
 	json_array_end(req->js);
@@ -2534,6 +2537,7 @@ int main(int argc, char *argv[])
 	xpay->take_over_pay = false;
 	xpay->slow_mode = false;
 	xpay->dev_no_age = false;
+	xpay->user_layers = tal_arr(xpay, const char *, 0);
 	plugin_main(argv, init, take(xpay),
 		    PLUGIN_RESTARTABLE, true, NULL,
 		    commands, ARRAY_SIZE(commands),
@@ -2546,6 +2550,9 @@ int main(int argc, char *argv[])
 		    plugin_option_dynamic("xpay-slow-mode", "bool",
 					  "Wait until all parts have completed before returning success or failure",
 					  bool_option, bool_jsonfmt, &xpay->slow_mode),
+		    plugin_option_multi("xpay-user-layer", "string",
+					"Add a layer that will be used for every payment",
+					multi_string_option, string_array_jsonfmt, &xpay->user_layers),
 		    plugin_option_dev("dev-xpay-no-age", "flag",
 				      "Don't call askrene-age",
 				      flag_option, flag_jsonfmt, &xpay->dev_no_age),
