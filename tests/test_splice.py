@@ -723,6 +723,7 @@ def test_easy_splice_out_into_channel(node_factory, bitcoind, chainparams):
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 def test_spliceout_exceeds_channel_balance(node_factory):
+    """Test splicing out more than the channel balance fails"""
     l1, l2 = node_factory.line_graph(2, fundamount=1000000, wait_for_announce=True,
                                      opts={'experimental-splicing': None})
     with pytest.raises(RpcError):
