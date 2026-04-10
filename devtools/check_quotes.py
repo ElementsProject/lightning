@@ -1,6 +1,7 @@
 #! /usr/bin/python3
 import fileinput
 import glob
+import os
 import re
 import sys
 from argparse import ArgumentParser, REMAINDER, Namespace
@@ -157,17 +158,22 @@ def load_bolt(boltdir: str, num: int) -> List[str]:
 
 def find_quote(
     text: str, boltsections: List[str]
-) -> Tuple[Optional[str], Optional[int]]:
-    # '...' means "match anything, but prefer within a single section".
-    # When a part is not found in the current section, we try subsequent
-    # sections so that quotes can explicitly span a section header.
+) -> Tuple[int, int, int]:
+    """Search for text (with '...' wildcards) across boltsections.
+
+    Returns (section_idx, start, end) of the match, or (-1, 0, 0) on failure.
+    When a '...' part is not found in the current section we try subsequent
+    sections, so quotes can explicitly span a section header using '*...'.
+    For a cross-section match the start is credited as 0 in the final section.
+    """
     textparts = text.split("...")
     for start_si, start_b in enumerate(boltsections):
         cur_si = start_si
         cur_section = start_b
         off = 0
+        match_start = -1
         success = True
-        for part in textparts:
+        for i, part in enumerate(textparts):
             new_off = cur_section.find(part, off)
             if new_off == -1:
                 # Try subsequent sections; strip leading whitespace since we're
@@ -179,6 +185,8 @@ def find_quote(
                     if new_off != -1:
                         cur_si = next_si
                         cur_section = boltsections[next_si]
+                        # Cross-section: credit coverage from start of this section.
+                        match_start = 0
                         off = new_off + len(search_part)
                         found = True
                         break
@@ -186,18 +194,22 @@ def find_quote(
                     success = False
                     break
             else:
+                if i == 0 and match_start < 0:
+                    match_start = new_off
                 off = new_off + len(part)
         if success:
-            return cur_section, off
-    return None, None
+            return cur_si, (match_start if match_start >= 0 else 0), off
+    return -1, 0, 0
 
 
 def find_quote_immediate(
     text: str, section: str, start: int
-) -> Tuple[Optional[str], Optional[int]]:
+) -> Tuple[int, int]:
     """Find text in section starting immediately at position start.
-    Allows a single space separator (whitespace is already collapsed to single spaces).
-    The text may still contain '...' wildcards for its own internal matching.
+
+    Allows a single space separator (whitespace is already collapsed to single
+    spaces). The text may still contain '...' wildcards for its own internal
+    matching. Returns (match_start, end) or (-1, -1) on failure.
     """
     textparts = text.split("...")
     off = start
@@ -206,16 +218,33 @@ def find_quote_immediate(
     # continuation line joining), so strip both together.
     if off < len(section) and section[off] == " ":
         off += 1
+    match_start = off
     first_part = textparts[0].lstrip(" ")
     if not section[off:].startswith(first_part):
-        return None, None
+        return -1, -1
     off += len(first_part)
     for part in textparts[1:]:
         new_off = section.find(part, off)
         if new_off == -1:
-            return None, None
+            return -1, -1
         off = new_off + len(part)
-    return section, off
+    return match_start, off
+
+
+def write_coverage(filename: str, bolt: int, section_idx: int, start: int, end: int,
+                   src_file: str, src_line: int) -> None:
+    """Atomically append one coverage record to filename.
+
+    Each record is a single line '{bolt} {si} {start} {end} {src_file} {src_line}\\n',
+    written via a single os.write() call so parallel invocations don't
+    interleave partial lines.
+    """
+    record = "{} {} {} {} {} {}\n".format(bolt, section_idx, start, end, src_file, src_line).encode()
+    fd = os.open(filename, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o666)
+    try:
+        os.write(fd, record)
+    finally:
+        os.close(fd)
 
 
 def main(args: Namespace) -> None:
@@ -224,12 +253,14 @@ def main(args: Namespace) -> None:
     for bolt in boltquotes:
         boltsections = load_bolt(args.boltdir, bolt)
         last_section: Optional[str] = None
+        last_section_idx: int = -1
         last_end: int = 0
         last_filename: Optional[str] = None
         for quote in boltquotes[bolt]:
             # Reset per-file tracking when the file changes.
             if quote.filename != last_filename:
                 last_section = None
+                last_section_idx = -1
                 last_end = 0
                 last_filename = quote.filename
 
@@ -246,11 +277,12 @@ def main(args: Namespace) -> None:
                     if not args.keep_going:
                         sys.exit(1)
                     failed = True
-                    sect, end = None, None
+                    sect, istart, end = None, -1, 0
                 else:
                     text_after = quote.text[3:]
-                    sect, end = find_quote_immediate(text_after, last_section, last_end)
-                    if sect is None:
+                    istart, end = find_quote_immediate(text_after, last_section, last_end)
+                    if istart < 0:
+                        sect = None
                         print(
                             "{}:{}:cannot find match (must immediately follow previous quote)".format(
                                 quote.filename, quote.line
@@ -270,8 +302,14 @@ def main(args: Namespace) -> None:
                         if not args.keep_going:
                             sys.exit(1)
                         failed = True
+                    else:
+                        sect = last_section
+                        if args.coverage:
+                            write_coverage(args.coverage, bolt, last_section_idx, istart, end,
+                                           quote.filename, quote.line)
             else:
-                sect, end = find_quote(quote.text, boltsections)
+                si, start, end = find_quote(quote.text, boltsections)
+                sect = boltsections[si] if si >= 0 else None
                 if sect is None:
                     print(
                         "{}:{}:cannot find match".format(quote.filename, quote.line),
@@ -279,14 +317,15 @@ def main(args: Namespace) -> None:
                     )
                     # Reduce the text until we find a match.
                     for n in range(len(quote.text), -1, -1):
-                        sect, end = find_quote(quote.text[:n], boltsections)
-                        if sect:
+                        si2, _, end2 = find_quote(quote.text[:n], boltsections)
+                        if si2 >= 0:
+                            s2 = boltsections[si2]
                             print(
                                 "  common prefix: {}...".format(quote.text[:n]),
                                 file=sys.stderr,
                             )
                             print(
-                                "  expected ...{:.45}".format(sect[end:]), file=sys.stderr
+                                "  expected ...{:.45}".format(s2[end2:]), file=sys.stderr
                             )
                             print(
                                 "  but have ...{:.45}".format(quote.text[n:]),
@@ -296,12 +335,17 @@ def main(args: Namespace) -> None:
                     if not args.keep_going:
                         sys.exit(1)
                     failed = True
-                elif args.verbose:
-                    print(
-                        "{}:{}:Matched {} in {}".format(
-                            quote.filename, quote.line, quote.text, sect
+                else:
+                    if args.coverage:
+                        write_coverage(args.coverage, bolt, si, start, end,
+                                       quote.filename, quote.line)
+                    if args.verbose:
+                        print(
+                            "{}:{}:Matched {} in {}".format(
+                                quote.filename, quote.line, quote.text, sect
+                            )
                         )
-                    )
+                    last_section_idx = si
 
             if sect is not None:
                 last_section = sect
@@ -318,6 +362,8 @@ if __name__ == "__main__":
     parser.add_argument("-v", "--verbose", action="store_true")
     parser.add_argument("-k", "--keep-going", action="store_true",
                         help="Report all errors instead of stopping at first")
+    parser.add_argument("--coverage", metavar="FILE",
+                        help="Append coverage records to FILE (bolt section_idx start end)")
     # e.g. for C code these are '/* ', '*' and '*/'
     parser.add_argument(
         "--comment-start", help='marker for start of "BOLT #N" quote', default="# "
