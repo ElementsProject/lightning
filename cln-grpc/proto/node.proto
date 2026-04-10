@@ -104,6 +104,8 @@ service Node {
 	rpc SpliceInit(SpliceInitRequest) returns (SpliceInitResponse) {}
 	rpc SpliceSigned(SpliceSignedRequest) returns (SpliceSignedResponse) {}
 	rpc SpliceUpdate(SpliceUpdateRequest) returns (SpliceUpdateResponse) {}
+	rpc SpliceIn(SpliceinRequest) returns (SpliceinResponse) {}
+	rpc SpliceOut(SpliceoutRequest) returns (SpliceoutResponse) {}
 	rpc DevSplice(DevspliceRequest) returns (DevspliceResponse) {}
 	rpc UnreserveInputs(UnreserveinputsRequest) returns (UnreserveinputsResponse) {}
 	rpc UpgradeWallet(UpgradewalletRequest) returns (UpgradewalletResponse) {}
@@ -2812,6 +2814,30 @@ message SpliceUpdateResponse {
 	string psbt = 1;
 	bool commitments_secured = 2;
 	optional bool signatures_secured = 3;
+}
+
+message SpliceinRequest {
+	string channel = 1;
+	string amount = 2;
+}
+
+message SpliceinResponse {
+	optional string psbt = 1;
+	optional string tx = 2;
+	optional string txid = 3;
+}
+
+message SpliceoutRequest {
+	string channel = 1;
+	string amount = 2;
+	optional string destination = 3;
+	optional bool force_feerate = 4;
+}
+
+message SpliceoutResponse {
+	optional string psbt = 1;
+	optional string tx = 2;
+	optional string txid = 3;
 }
 
 message DevspliceRequest {

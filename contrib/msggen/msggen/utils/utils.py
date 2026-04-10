@@ -104,6 +104,8 @@ grpc_method_names = [
     "Splice_Init",
     "Splice_Signed",
     "Splice_Update",
+    "SpliceIn",
+    "SpliceOut",
     "Dev-Splice",
     "UnreserveInputs",
     "UpgradeWallet",

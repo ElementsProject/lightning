@@ -2054,6 +2054,22 @@ def splice_update2py(m):
     })
 
 
+def splicein2py(m):
+    return remove_default({
+        "psbt": m.psbt,  # PrimitiveField in generate_composite
+        "tx": m.tx,  # PrimitiveField in generate_composite
+        "txid": m.txid,  # PrimitiveField in generate_composite
+    })
+
+
+def spliceout2py(m):
+    return remove_default({
+        "psbt": m.psbt,  # PrimitiveField in generate_composite
+        "tx": m.tx,  # PrimitiveField in generate_composite
+        "txid": m.txid,  # PrimitiveField in generate_composite
+    })
+
+
 def dev_splice2py(m):
     return remove_default({
         "dryrun": [m.dryrun for i in m.dryrun], # ArrayField[primitive] in generate_composite
