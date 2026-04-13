@@ -188,7 +188,7 @@ doc/schemas/sql.json: doc/schemas/sql-template.json plugins/sql
 
 doc-all: $(MANPAGES) doc/index.rst
 
-SCHEMAS := $(wildcard doc/schemas/*.json) $(wildcard doc/schemas/notification/*.json)
+SCHEMAS := $(wildcard doc/schemas/*.json) $(wildcard doc/schemas/notification/*.json) $(wildcard doc/schemas/hook/*.json)
 
 # Don't try to build sql.json tables with plugins/sql if we don't have sqlite3
 ifeq ($(HAVE_SQLITE3),0)

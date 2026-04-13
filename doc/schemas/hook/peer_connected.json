@@ -1,0 +1,96 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "added": "pre-v0.10.1",
+  "type": "object",
+  "notification": "peer_connected",
+  "title": "Hook fired when a peer connects and completes handshake",
+  "description": [
+    "The **peer_connected** hook is called whenever a peer has connected and successfully completed the cryptographic handshake.",
+    "",
+    "This is a chained hook: the first plugin returning \"disconnect\" stops further processing.",
+    "Plugins can call `listpeers` to retrieve additional information about the peer."
+  ],
+  "request": {
+    "additionalProperties": false,
+    "required": [
+      "peer"
+    ],
+    "properties": {
+      "peer": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "direction",
+          "addr",
+          "features"
+        ],
+        "properties": {
+          "id": {
+            "type": "pubkey",
+            "description": [
+              "The node_id of the connected peer."
+            ]
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "in",
+              "out"
+            ],
+            "description": [
+              "Connection direction: `in` for incoming, `out` for outgoing."
+            ]
+          },
+          "addr": {
+            "type": "string",
+            "description": [
+              "The `addr` field shows the address that we are connected to ourselves, not the gossiped list of known addresses.",
+              "In particular this means that the port for incoming connections is an ephemeral port, that may not be available for reconnections."
+            ]
+          },
+          "remote_addr": {
+            "type": "string",
+            "description": [
+              "Our own address as reported by the remote peer. Helps with detecting our own IPv4 changes behind NAT."
+            ]
+          },
+          "features": {
+            "type": "hex",
+            "description": [
+              "Feature bits advertised by the peer, encoded as hex."
+            ]
+          }
+        }
+      }
+    }
+  },
+  "response": {
+    "additionalProperties": false,
+    "required": [
+      "result"
+    ],
+    "properties": {
+      "result": {
+        "type": "string",
+        "enum": [
+          "continue",
+          "disconnect"
+        ],
+        "description": [
+          "Whether to allow the connection to proceed or disconnect the peer."
+        ]
+      },
+      "error_message": {
+        "type": "string",
+        "description": [
+          "Optional error message sent to the peer before disconnection.",
+          "Only used if result is \"disconnect\"."
+        ]
+      }
+    }
+  },
+  "see_also": [
+    "lightning-listpeers(7)"
+  ]
+}

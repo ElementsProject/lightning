@@ -1,0 +1,226 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "added": "pre-v0.10.1",
+  "type": "object",
+  "notification": "rpc_command",
+  "title": "Hook for intercepting and modifying RPC commands",
+  "description": [
+    "The **rpc_command** hook allows a plugin to take over any RPC command.",
+    "",
+    "You can optionally specify a `filters` array, containing the command names you want to intercept: without this, all commands will be sent to this hook. (added in v25.12)",
+    "",
+    "The plugin receives the full JSON-RPC request and may choose to continue, replace the request, or return a custom result or error.",
+    "",
+    "This is a chained hook: only the first plugin that modifies the request or response will take effect. Other plugins will then be ignored and a warning will be logged."
+  ],
+  "request": {
+    "required": [
+      "rpc_command"
+    ],
+    "additionalProperties": false,
+    "properties": {
+      "rpc_command": {
+        "type": "object",
+        "description": [
+          "The original JSON-RPC request object."
+        ],
+        "additionalProperties": true,
+        "required": [
+          "id",
+          "method",
+          "params"
+        ],
+        "properties": {
+          "id": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": [
+              "The JSON-RPC request id."
+            ]
+          },
+          "method": {
+            "type": "string",
+            "description": [
+              "The RPC method name."
+            ]
+          },
+          "params": {
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": true
+              },
+              {
+                "type": "array",
+                "items": {}
+              }
+            ],
+            "description": [
+              "The parameters passed to the RPC method."
+            ]
+          }
+        }
+      }
+    }
+  },
+  "response": {
+    "additionalProperties": false,
+    "properties": {
+      "result": {
+        "type": "string",
+        "enum": [
+          "continue"
+        ],
+        "description": [
+          "Indicates that lightningd should continue processing the RPC command normally."
+        ]
+      },
+      "replace": {
+        "type": "object",
+        "description": [
+          "Replaces the original JSON-RPC request with a new one."
+        ],
+        "additionalProperties": true,
+        "required": [
+          "jsonrpc",
+          "id",
+          "method",
+          "params"
+        ],
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "enum": [
+              "2.0"
+            ],
+            "description": [
+              "The JSON-RPC version."
+            ]
+          },
+          "id": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": [
+              "The JSON-RPC request id."
+            ]
+          },
+          "method": {
+            "type": "string",
+            "description": [
+              "The RPC method name."
+            ]
+          },
+          "params": {
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": true
+              },
+              {
+                "type": "array",
+                "items": {}
+              }
+            ],
+            "description": [
+              "The parameters passed to the RPC method."
+            ]
+          }
+        }
+      },
+      "return": {
+        "type": "object",
+        "description": [
+          "Returns a custom JSON-RPC response to the caller."
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "result": {
+            "type": "object",
+            "description": [
+              "Custom result object to return to the caller."
+            ]
+          },
+          "error": {
+            "type": "object",
+            "description": [
+              "Custom error object to return to the caller."
+            ],
+            "additionalProperties": true,
+            "properties": {
+              "code": {
+                "type": "integer",
+                "description": [
+                  "JSON-RPC error code."
+                ]
+              },
+              "message": {
+                "type": "string",
+                "description": [
+                  "Human-readable error message."
+                ]
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ]
+          }
+        }
+      }
+    },
+    "oneOf": [
+      {
+        "required": [
+          "result"
+        ]
+      },
+      {
+        "required": [
+          "replace"
+        ]
+      },
+      {
+        "required": [
+          "return"
+        ],
+        "properties": {
+          "return": {
+            "required": [
+              "result"
+            ]
+          }
+        }
+      },
+      {
+        "required": [
+          "return"
+        ],
+        "properties": {
+          "return": {
+            "required": [
+              "error"
+            ]
+          }
+        }
+      }
+    ]
+  }
+}

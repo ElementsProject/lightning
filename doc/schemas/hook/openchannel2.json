@@ -1,0 +1,289 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "added": "pre-v0.10.1",
+  "type": "object",
+  "notification": "openchannel2",
+  "title": "Hook fired when a peer proposes opening a channel using v2 protocol",
+  "description": [
+    "The **openchannel2** hook is called whenever a remote peer tries to fund a channel using the v2 (dual-funding) protocol, after passing basic sanity checks.",
+    "",
+    "The payload mirrors the BOLT #2 `open_channel` message and dual-funding extensions.",
+    "There may be additional fields present depending on negotiated features.",
+    "",
+    "`requested_lease_msat`, `lease_blockheight_start`, and `node_blockheight` are only present if the peer requested a funding lease (`option_will_fund`).",
+    "",
+    "The plugin can reject the channel, accept it, or contribute funds via a PSBT when accepting.",
+    "",
+    "See `plugins/funder.c` for an example of how to use this hook to contribute funds to a channel open.",
+    "",
+    "This is a chained hook: multiple plugins may be invoked.",
+    "Returning any result other than \"continue\" terminates the chain.",
+    "Only the first plugin that sets mutation fields (e.g. `close_to`) will have them applied.",
+    "Invalid `close_to` addresses will cause lightningd to exit.",
+    "The PSBT must be consistent with the funding transaction and respect feerate constraints."
+  ],
+  "request": {
+    "additionalProperties": false,
+    "required": [
+      "openchannel2"
+    ],
+    "properties": {
+      "openchannel2": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": [
+          "id",
+          "channel_id",
+          "their_funding_msat",
+          "dust_limit_msat",
+          "max_htlc_value_in_flight_msat",
+          "htlc_minimum_msat",
+          "funding_feerate_per_kw",
+          "commitment_feerate_per_kw",
+          "feerate_our_max",
+          "feerate_our_min",
+          "to_self_delay",
+          "max_accepted_htlcs",
+          "channel_flags",
+          "locktime",
+          "channel_max_msat",
+          "require_confirmed_inputs",
+          "channel_type"
+        ],
+        "properties": {
+          "id": {
+            "type": "pubkey",
+            "description": [
+              "The `node_id` of the peer proposing the channel."
+            ]
+          },
+          "channel_id": {
+            "type": "hash",
+            "description": [
+              "Temporary `channel_id` assigned for this channel negotiation."
+            ]
+          },
+          "their_funding_msat": {
+            "type": "msat",
+            "description": [
+              "Amount contributed by the remote peer to the channel funding transaction."
+            ]
+          },
+          "dust_limit_msat": {
+            "type": "msat",
+            "description": [
+              "Minimum output value below which outputs are considered dust."
+            ]
+          },
+          "max_htlc_value_in_flight_msat": {
+            "type": "msat",
+            "description": [
+              "Maximum total value of outstanding HTLCs allowed in the channel at any time."
+            ]
+          },
+          "htlc_minimum_msat": {
+            "type": "msat",
+            "description": [
+              "Minimum HTLC value the peer will accept."
+            ]
+          },
+          "funding_feerate_per_kw": {
+            "type": "u32",
+            "description": [
+              "Feerate (per kw) used for the funding transaction."
+            ]
+          },
+          "commitment_feerate_per_kw": {
+            "type": "u32",
+            "description": [
+              "Feerate (per kw) used for commitment transactions."
+            ]
+          },
+          "feerate_our_max": {
+            "type": "u32",
+            "description": [
+              "Maximum feerate we are willing to accept for commitment transactions."
+            ]
+          },
+          "feerate_our_min": {
+            "type": "u32",
+            "description": [
+              "Minimum feerate we are willing to accept for commitment transactions."
+            ]
+          },
+          "to_self_delay": {
+            "type": "u16",
+            "description": [
+              "The number of blocks before they can take their funds if they unilateral close."
+            ]
+          },
+          "max_accepted_htlcs": {
+            "type": "u16",
+            "description": [
+              "Maximum number of HTLC's the remote is allowed to offer at once."
+            ]
+          },
+          "channel_flags": {
+            "type": "u8",
+            "description": [
+              "Channel flags as defined in BOLT #7."
+            ]
+          },
+          "locktime": {
+            "type": "u32",
+            "description": [
+              "Locktime to be used in the funding transaction."
+            ]
+          },
+          "shutdown_scriptpubkey": {
+            "type": "hex",
+            "description": [
+              "Optional shutdown scriptPubKey provided by the peer for cooperative close."
+            ]
+          },
+          "channel_max_msat": {
+            "type": "msat",
+            "description": [
+              "Maximum capacity this channel is allowed to reach."
+            ]
+          },
+          "requested_lease_msat": {
+            "type": "msat",
+            "description": [
+              "Amount of liquidity the peer is requesting us to lease to them.",
+              "Only present if `option_will_fund` is negotiated."
+            ]
+          },
+          "lease_blockheight_start": {
+            "type": "u32",
+            "description": [
+              "Blockheight at which the lease period begins.",
+              "Only present if `requested_lease_msat` is present."
+            ]
+          },
+          "node_blockheight": {
+            "type": "u32",
+            "description": [
+              "Current blockheight of the node.",
+              "Used in conjunction with lease parameters.",
+              "Only present if `requested_lease_msat` is present."
+            ]
+          },
+          "require_confirmed_inputs": {
+            "added": "v23.02",
+            "type": "boolean",
+            "description": [
+              "Indicates whether the peer requires all funding inputs to be confirmed."
+            ]
+          },
+          "channel_type": {
+            "added": "v25.09",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "bits",
+              "names"
+            ],
+            "properties": {
+              "bits": {
+                "type": "array",
+                "description": [
+                  "List of feature bit numbers that define the negotiated channel type.",
+                  "Each value represents a feature bit as defined in BOLT #2."
+                ],
+                "items": {
+                  "type": "u32",
+                  "description": [
+                    "Feature bit number."
+                  ]
+                }
+              },
+              "names": {
+                "type": "array",
+                "description": [
+                  "Human-readable names corresponding to each feature bit.",
+                  "Names are implementation-defined and may evolve over time."
+                ],
+                "items": {
+                  "type": "string",
+                  "description": [
+                    "Name of the feature bit."
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "response": {
+    "additionalProperties": false,
+    "required": [
+      "result"
+    ],
+    "properties": {
+      "result": {
+        "type": "string",
+        "enum": [
+          "continue",
+          "reject"
+        ],
+        "description": [
+          "Indicates whether to accept or reject the channel proposal.",
+          "Returning \"continue\" allows the channel negotiation to proceed.",
+          "Returning \"reject\" aborts the channel opening."
+        ]
+      },
+      "error_message": {
+        "type": "string",
+        "description": [
+          "Error message sent to the peer when rejecting the channel.",
+          "Only valid if result is \"reject\"."
+        ]
+      },
+      "close_to": {
+        "type": "string",
+        "description": [
+          "Bitcoin address to which funds will be sent on cooperative close.",
+          "Must be valid for the current chain or lightningd will exit with an error."
+        ]
+      },
+      "psbt": {
+        "type": "string",
+        "description": [
+          "Partially Signed Bitcoin Transaction contributing inputs and outputs for the funding transaction.",
+          "Used when the plugin contributes funds to the channel."
+        ]
+      },
+      "our_funding_msat": {
+        "type": "msat",
+        "description": [
+          "Amount we contribute to the channel funding.",
+          "This amount must NOT be included in any outputs in the provided PSBT.",
+          "Change outputs must be included separately."
+        ]
+      }
+    },
+    "if": {
+      "properties": {
+        "result": {
+          "type": "string",
+          "enum": [
+            "reject"
+          ]
+        }
+      },
+      "required": [
+        "result"
+      ]
+    },
+    "then": {
+      "properties": {
+        "error_message": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

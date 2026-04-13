@@ -1,0 +1,75 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "added": "pre-v0.10.1",
+  "type": "object",
+  "notification": "commitment_revocation",
+  "title": "Hook fired when a commitment transaction is revoked",
+  "description": [
+    "The **commitment_revocation** hook is called whenever a channel state is updated, and the old state was revoked. State updates in Lightning consist of the following steps:",
+    "",
+    "1. Proposal of a new state commitment in the form of a commitment transaction",
+    "2. Exchange of signatures for the agreed upon commitment transaction",
+    "3. Verification that the signatures match the commitment transaction",
+    "4. Exchange of revocation secrets that could be used to penalize an eventual misbehaving party",
+    "",
+    "The `commitment_revocation` hook is used to inform the plugin about the state transition being completed, and deliver the penalty transaction.",
+    "The penalty transaction could then be sent to a watchtower that automatically reacts in case one party attempts to settle using a revoked commitment.",
+    "",
+    "This is a chained hook: multiple plugins may be registered."
+  ],
+  "request": {
+    "additionalProperties": false,
+    "required": [
+      "commitment_txid",
+      "penalty_tx",
+      "channel_id",
+      "commitnum"
+    ],
+    "properties": {
+      "commitment_txid": {
+        "type": "txid",
+        "description": [
+          "The txid of the revoked commitment transaction."
+        ]
+      },
+      "penalty_tx": {
+        "type": "hex",
+        "description": [
+          "The penalty transaction that can spend the revoked commitment.",
+          "Can be sent to a watchtower for enforcement."
+        ]
+      },
+      "channel_id": {
+        "added": "v0.10.2",
+        "type": "hash",
+        "description": [
+          "The channel_id for which the revocation occurred."
+        ]
+      },
+      "commitnum": {
+        "added": "v0.10.2",
+        "type": "u64",
+        "description": [
+          "The commitment number identifying the revoked state."
+        ]
+      }
+    }
+  },
+  "response": {
+    "additionalProperties": false,
+    "required": [
+      "result"
+    ],
+    "properties": {
+      "result": {
+        "type": "string",
+        "enum": [
+          "continue"
+        ],
+        "description": [
+          "Plugins should always return \"continue\", otherwise subsequent hook subscribers would not get called."
+        ]
+      }
+    }
+  }
+}

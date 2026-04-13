@@ -1,0 +1,157 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "added": "pre-v0.10.1",
+  "type": "object",
+  "notification": "rbf_channel",
+  "title": "Hook for handling RBF channel funding requests",
+  "description": [
+    "The **rbf_channel** hook is called when a peer proposes replacing the funding transaction of an existing channel using Replace-By-Fee (RBF).",
+    "",
+    "The plugin can choose to reject or continue the negotiation.",
+    "",
+    "If continuing, the plugin may contribute additional inputs and outputs by returning a PSBT and specifying an `our_funding_msat` amount.",
+    "",
+    "The `our_funding_msat` value must not be included in any output in the PSBT. Change outputs should be included and calculated using the provided `funding_feerate_per_kw`."
+  ],
+  "request": {
+    "required": [
+      "rbf_channel"
+    ],
+    "additionalProperties": false,
+    "properties": {
+      "rbf_channel": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "channel_id",
+          "their_last_funding_msat",
+          "their_funding_msat",
+          "our_last_funding_msat",
+          "funding_feerate_per_kw",
+          "feerate_our_max",
+          "feerate_our_min",
+          "channel_max_msat",
+          "locktime",
+          "require_confirmed_inputs"
+        ],
+        "properties": {
+          "id": {
+            "type": "pubkey",
+            "description": [
+              "The `node_id` of the peer proposing the RBF."
+            ]
+          },
+          "channel_id": {
+            "type": "hash",
+            "description": [
+              "The `channel_id` of the channel being modified."
+            ]
+          },
+          "their_last_funding_msat": {
+            "type": "msat",
+            "description": [
+              "The peer's previous contribution to the funding transaction."
+            ]
+          },
+          "their_funding_msat": {
+            "type": "msat",
+            "description": [
+              "The peer's proposed new funding contribution."
+            ]
+          },
+          "our_last_funding_msat": {
+            "type": "msat",
+            "description": [
+              "Our previous contribution to the funding transaction."
+            ]
+          },
+          "funding_feerate_per_kw": {
+            "type": "u32",
+            "description": [
+              "The feerate to use for the updated funding transaction, in satoshis per kw."
+            ]
+          },
+          "feerate_our_max": {
+            "type": "u32",
+            "description": [
+              "The maximum feerate we are willing to accept for the funding transaction."
+            ]
+          },
+          "feerate_our_min": {
+            "type": "u32",
+            "description": [
+              "The minimum feerate we are willing to accept for the funding transaction."
+            ]
+          },
+          "channel_max_msat": {
+            "type": "msat",
+            "description": [
+              "The maximum total channel capacity allowed for this channel."
+            ]
+          },
+          "locktime": {
+            "type": "u32",
+            "description": [
+              "The locktime to use for the funding transaction."
+            ]
+          },
+          "requested_lease_msat": {
+            "type": "msat",
+            "description": [
+              "If present, the amount of liquidity the peer is requesting us to lease.",
+              "This field is optional and only included if the peer requested a lease."
+            ]
+          },
+          "require_confirmed_inputs": {
+            "added": "v23.02",
+            "type": "boolean",
+            "description": [
+              "Indicates whether the remote peer requires all inputs in the PSBT to be confirmed.",
+              "If true, the plugin must avoid adding unconfirmed inputs."
+            ]
+          }
+        }
+      }
+    }
+  },
+  "response": {
+    "required": [
+      "result"
+    ],
+    "additionalProperties": false,
+    "properties": {
+      "result": {
+        "type": "string",
+        "enum": [
+          "continue",
+          "reject"
+        ],
+        "description": [
+          "Whether to accept or reject the RBF proposal."
+        ]
+      },
+      "psbt": {
+        "type": "string",
+        "description": [
+          "A PSBT containing additional inputs and outputs to contribute to the funding transaction.",
+          "Only valid if `result` is `continue`."
+        ]
+      },
+      "our_funding_msat": {
+        "type": "msat",
+        "description": [
+          "The amount we are contributing to the new funding transaction.",
+          "Must not be included in any output in the PSBT."
+        ]
+      },
+      "error_message": {
+        "type": "string",
+        "description": [
+          "An error message explaining the rejection.",
+          "Only used if `result` is `reject` and will be sent to the peer."
+        ]
+      }
+    }
+  }
+}
