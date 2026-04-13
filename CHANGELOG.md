@@ -63,6 +63,7 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
  - gossipd: now uses `lightning_gossip_compactd` helper to compact the gossip_store file on demand, keeping it under about 210MB. ([#8903])
  - connectd: throttle incoming peers to give fairer peer handling under stress. ([#8983])
  - lightningd no longer crashes when replaying stored blinded HTLCs during startup. ([#8974])
+ - JSON-RPC: `keysend` now assumes 42, not 22 for final CLTV (should fix sending to LDK nodes)([#9046])
  - JSON-RPC: `decode` is now more informative with malformed strings (won't claim everything is a malformed rune!). ([#8814])
  - Build: Core lightning builds for Fedora on all systems are deterministic. ([#8846])
  - lightningd: unreserve UTXOs from withheld funding PSBT ([#8943])
@@ -132,6 +133,7 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 [#8983]: https://github.com/ElementsProject/lightning/pull/8983
 [#8997]: https://github.com/ElementsProject/lightning/pull/8997
 [#9021]: https://github.com/ElementsProject/lightning/pull/9021
+[#9046]: https://github.com/ElementsProject/lightning/pull/9046
 [v26.04rc2]: https://github.com/ElementsProject/lightning/releases/tag/v26.04rc2
 
 
