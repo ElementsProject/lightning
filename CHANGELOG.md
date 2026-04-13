@@ -4,13 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [26.04rc2] - 2026-04-02: TBD
+## [26.04rc3] - 2026-04-13: Negative Routing Fees
 
-This release is named by TBD.
+This release is named by @Chand-ra.
 
 ### Added
 
- - Protocol: we now pad all peer messages to make them the same length (excluding LND < v21 and current Eclair). ([#8893])
+ - Protocol: we now pad all peer messages to make them the same length (excluding LND < v21 and current Eclair). ([#8893], [#9022])
  - JSON-RPC: `bkpr-report` allows flexible summaries of bookkeeper income. ([#8937])
  - Config: `bkpr-currency` option to record conversion rate at each bookkeeper event. ([#8937])
  - JSON-RPC: `currencyconvert` and `currencyrate` via the new plugin `cln-currencyrate` ([#8842], [#8937])
@@ -28,6 +28,7 @@ This release is named by TBD.
  - JSON-RPC: `listpeerchannels` now accepts a `channel_id` filter, ([#8766])
  - Database: STRICT tables and security pragmas in developer mode ([#8559])
  - libplugin: support for options which accumulate if specified more than once ("multi": true). ([#8490])
+ - msggen: added `splicein`, `spliceout`, and `bkpr-report` RPC method definitions. ([#9047])
 
 
 ### Changed
@@ -133,8 +134,10 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 [#8983]: https://github.com/ElementsProject/lightning/pull/8983
 [#8997]: https://github.com/ElementsProject/lightning/pull/8997
 [#9021]: https://github.com/ElementsProject/lightning/pull/9021
+[#9022]: https://github.com/ElementsProject/lightning/pull/9022
 [#9046]: https://github.com/ElementsProject/lightning/pull/9046
-[v26.04rc2]: https://github.com/ElementsProject/lightning/releases/tag/v26.04rc2
+[#9047]: https://github.com/ElementsProject/lightning/pull/9047
+[v26.04rc3]: https://github.com/ElementsProject/lightning/releases/tag/v26.04rc3
 
 
 ## [25.12.1] - 2026-1-14: "Boltz's Seamless Upgrade Experience II"
