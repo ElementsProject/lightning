@@ -21,8 +21,8 @@ override = {
     "ListPeers.peers[].channels[].state_changes[]": None,
 }
 override_field = {
-    'RoutehintList': '"routes": [[decodekeysend_routes2py(i) for i in routehints] for routehints in m.routes]',
-    'DecodeRoutehintList': '"routes": [[decodepay_routes2py(i) for i in routehints] for routehints in m.routes]',
+    "RoutehintList": '"routes": [[decodekeysend_routes2py(i) for i in routehints] for routehints in m.routes]',
+    "DecodeRoutehintList": '"routes": [[decodepay_routes2py(i) for i in routehints] for routehints in m.routes]',
 }
 
 
@@ -59,6 +59,9 @@ class Grpc2PyGenerator(IGenerator):
             "currency": "m.{name}",
             "number": "m.{name}",
             "outpoint": "m.{name}",
+            "string_map": "m.{name}",
+            "json_object_or_array": "m.{name}",
+            "json_scalar": "m.{name}",
         }
 
     def generate_responses(self, service):
@@ -168,7 +171,10 @@ class Grpc2PyGenerator(IGenerator):
         for f in field.fields:
             name = f.normalized()
             if isinstance(f, PrimitiveField) and f.typename in override_field:
-                self.write(f'        {override_field[f.typename]},  # OverrideField in {f.typename}\n', cleanup=False)
+                self.write(
+                    f"        {override_field[f.typename]},  # OverrideField in {f.typename}\n",
+                    cleanup=False,
+                )
             elif isinstance(f, PrimitiveField):
                 typ = f.typename
 

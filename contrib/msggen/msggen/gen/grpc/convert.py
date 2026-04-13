@@ -133,8 +133,13 @@ class GrpcConverterGenerator(IGenerator):
                     "DecodeRoutehintList?": f"c.{name}.map(|drl| drl.into())",
                     "string_map": f"Some(c.{name})",
                     "string_map?": f"c.{name}.unwrap_or(HashMap::new())",
+                    "json_object_or_array": f"Some(c.{name})",
+                    "json_object_or_array?": f"c.{name}.map(|f| f.into())",
+                    "json_scalar": f"Some(c.{name})",
+                    "json_scalar?": f"c.{name}.map(|f| f.into())",
                 }.get(
-                    typ, f"c.{name}"  # default to just assignment
+                    typ,
+                    f"c.{name}",  # default to just assignment
                 )
 
                 if f.deprecated:

@@ -47,6 +47,8 @@ typemap = {
     "bip340sig": "String",
     "integer": "i64",
     "string_map": "HashMap<String, String>",
+    "json_object_or_array": "JsonObjectOrArray",
+    "json_scalar": "JsonScalar",
 }
 
 header = f"""
@@ -110,12 +112,17 @@ def gen_enum(e, meta, override):
 
     m = meta["grpc-field-map"]
     m2 = meta["grpc-enum-map"]
+    m3 = meta["rpc-only-enum-map"]
 
-    assert not (message_name in m and message_name in m2)
+    count = sum(message_name in d for d in (m, m2, m3))
+    assert count <= 1
+
     if message_name in m:
         m = m[message_name]
     elif message_name in m2:
         m = m2[message_name]
+    elif message_name in m3:
+        m = m3[message_name]
     else:
         m = {}
 
@@ -221,7 +228,7 @@ def gen_primitive(p):
 
 def rename_if_necessary(original, name):
     if str(original) != str(name):
-        return f"    #[serde(rename = \"{original}\")]\n"
+        return f'    #[serde(rename = "{original}")]\n'
     else:
         return f""
 
@@ -253,9 +260,9 @@ def gen_array(a, meta, override=None):
     # Note: flake8 gets confused on these strings in f strings, hence suppression:
     # contrib/msggen/msggen/gen/rpc/rust.py:250:42: E226 missing whitespace around arithmetic operator
     if not a.optional:
-        defi += f"    pub {name}: {'Vec<'*a.dims}{itemtype}{'>'*a.dims},\n"  # noqa: E226
+        defi += f"    pub {name}: {'Vec<' * a.dims}{itemtype}{'>' * a.dims},\n"  # noqa: E226
     else:
-        defi += f"    #[serde(skip_serializing_if = \"crate::is_none_or_empty\")]\n    pub {name}: Option<{'Vec<'*a.dims}{itemtype}{'>'*a.dims}>,\n"  # noqa: E226
+        defi += f'    #[serde(skip_serializing_if = "crate::is_none_or_empty")]\n    pub {name}: Option<{"Vec<" * a.dims}{itemtype}{">" * a.dims}>,\n'  # noqa: E226
 
     return (defi, decl)
 
@@ -282,7 +289,7 @@ def gen_composite(c, meta, override=None) -> Tuple[str, str]:
     if not c.optional:
         defi += f"    pub {c.normalized()}: {c.typename},\n"
     else:
-        defi += f"    #[serde(skip_serializing_if = \"Option::is_none\")]\n    pub {c.normalized()}: Option<{c.typename}>,\n"
+        defi += f'    #[serde(skip_serializing_if = "Option::is_none")]\n    pub {c.normalized()}: Option<{c.typename}>,\n'
 
     return defi, r
 

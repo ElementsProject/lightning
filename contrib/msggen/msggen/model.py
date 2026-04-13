@@ -17,7 +17,8 @@ class FieldName:
 
     def normalized(self):
         name = {
-            "type": "item_type"
+            "type": "item_type",
+            "return": "return_",
         }.get(self.name, self.name)
         name = name.replace(' ', '_').replace('-', '_').replace('[]', '').replace("/", "_")
         return name
@@ -135,10 +136,11 @@ class Field:
 class Service:
     """Top level class that wraps all the RPC methods.
     """
-    def __init__(self, name: str, methods=None, notifications=None):
+    def __init__(self, name: str, methods=None, notifications=None, hooks=None):
         self.name: str = name
         self.methods: List[Method] = [] if methods is None else methods
         self.notifications: List[Notification] = [] if notifications is None else notifications
+        self.hooks: List[Hook] = [] if hooks is None else hooks
 
         # If we require linking with some external files we'll add
         # them here so the generator can use them.
@@ -175,7 +177,22 @@ class Service:
             for field in notification.response.fields:
                 types.extend(gather_subfields(field))
 
+        for hook in self.hooks:
+            types.extend([hook.request])
+            for field in hook.request.fields:
+                types.extend(gather_subfields(field))
+            for field in hook.response.fields:
+                types.extend(gather_subfields(field))
+
         return types
+
+
+class Hook:
+    def __init__(self, name: str, typename: str, request: Field, response: Field):
+        self.name = name
+        self.typename = typename
+        self.request = request
+        self.response = response
 
 
 class Notification:
@@ -338,6 +355,9 @@ class EnumVariant(Field):
         return self.variant == other.variant
 
     def normalized(self):
+        if self.variant.replace('.', '', 1).isdigit() or self.variant.lstrip('-').replace('.', '', 1).isdigit():
+            normalized = self.variant.replace('.', '_')
+            return f"NUM_{normalized}"
         return self.variant.replace(' ', '_').replace('-', '_').replace("/", "_").upper()
 
 
@@ -433,6 +453,8 @@ class PrimitiveField(Field):
         "bip340sig",
         "hash",
         "string_map",
+        "json_object_or_array",
+        "json_scalar"
     ]
 
     def __init__(self, typename, path, description, added, deprecated):
@@ -521,6 +543,8 @@ CreateRuneRestrictionsField = ArrayField(itemtype=PrimitiveField("string", None,
 CheckRuneParamsField = ArrayField(itemtype=PrimitiveField("string", None, None, added=None, deprecated=None), dims=1, path=None, description=None, added=None, deprecated=None)
 ChainMovesExtraTagsField = ArrayField(itemtype=PrimitiveField("string", None, None, added=None, deprecated=None), dims=1, path=None, description=None, added=None, deprecated=None)
 ClnrestRegisterPathParamsField = PrimitiveField("string_map", None, None, added=None, deprecated=None)
+JsonIdField = PrimitiveField("json_scalar", None, None, added=None, deprecated=None)
+JsonObjectOrArrayField = PrimitiveField("json_object_or_array", None, None, added=None, deprecated=None)
 
 # TlvStreams are special, they don't have preset dict-keys, rather
 # they can specify `u64` keys pointing to hex payloads. So the schema
@@ -557,6 +581,10 @@ overrides = {
     'CheckRune.params': CheckRuneParamsField,
     "ListChainMoves.chainmoves[].extra_tags": ChainMovesExtraTagsField,
     "Clnrest-Register-Path.rune_restrictions.params": ClnrestRegisterPathParamsField,
+    "rpc_command.replace.id": JsonIdField,
+    "rpc_command.replace.params": JsonObjectOrArrayField,
+    "rpc_command.rpc_command.id": JsonIdField,
+    "rpc_command.rpc_command.params": JsonObjectOrArrayField
 }
 
 

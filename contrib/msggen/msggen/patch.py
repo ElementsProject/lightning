@@ -50,6 +50,14 @@ class Patch(ABC):
                 root_deprecated = root_deprecated[0]
             recurse(n.request, inherited_added=root_added, inherited_deprecated=root_deprecated)
             recurse(n.response, inherited_added=root_added, inherited_deprecated=root_deprecated)
+        for h in service.hooks:
+            root_added = getattr(h.request, 'added', None) or getattr(h, 'added', None)
+            root_deprecated = getattr(h.request, 'deprecated', None) or getattr(h, 'deprecated', None)
+            if isinstance(root_deprecated, list):
+                assert len(root_deprecated) == 2
+                root_deprecated = root_deprecated[0]
+            recurse(h.request, inherited_added=root_added, inherited_deprecated=root_deprecated)
+            recurse(h.response, inherited_added=root_added, inherited_deprecated=root_deprecated)
 
 
 class VersionAnnotationPatch(Patch):

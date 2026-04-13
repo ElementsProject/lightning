@@ -36,6 +36,8 @@ typemap = {
     "bip340sig": "string",
     "hash": "bytes",
     "string_map": "map<string, string>",
+    "json_object_or_array": "JsonObjectOrArray",
+    "json_scalar": "JsonScalar",
 }
 
 

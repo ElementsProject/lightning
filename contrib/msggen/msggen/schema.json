@@ -39938,5 +39938,2270 @@
         }
       }
     }
+  },
+  "hooks": {
+    "commitment_revocation.json": {
+      "$schema": "../rpc-schema-draft.json",
+      "added": "pre-v0.10.1",
+      "type": "object",
+      "notification": "commitment_revocation",
+      "title": "Hook fired when a commitment transaction is revoked",
+      "description": [
+        "The **commitment_revocation** hook is called whenever a channel state is updated, and the old state was revoked. State updates in Lightning consist of the following steps:",
+        "",
+        "1. Proposal of a new state commitment in the form of a commitment transaction",
+        "2. Exchange of signatures for the agreed upon commitment transaction",
+        "3. Verification that the signatures match the commitment transaction",
+        "4. Exchange of revocation secrets that could be used to penalize an eventual misbehaving party",
+        "",
+        "The `commitment_revocation` hook is used to inform the plugin about the state transition being completed, and deliver the penalty transaction.",
+        "The penalty transaction could then be sent to a watchtower that automatically reacts in case one party attempts to settle using a revoked commitment.",
+        "",
+        "This is a chained hook: multiple plugins may be registered."
+      ],
+      "request": {
+        "additionalProperties": false,
+        "required": [
+          "commitment_txid",
+          "penalty_tx",
+          "channel_id",
+          "commitnum"
+        ],
+        "properties": {
+          "commitment_txid": {
+            "type": "txid",
+            "description": [
+              "The txid of the revoked commitment transaction."
+            ]
+          },
+          "penalty_tx": {
+            "type": "hex",
+            "description": [
+              "The penalty transaction that can spend the revoked commitment.",
+              "Can be sent to a watchtower for enforcement."
+            ]
+          },
+          "channel_id": {
+            "added": "v0.10.2",
+            "type": "hash",
+            "description": [
+              "The channel_id for which the revocation occurred."
+            ]
+          },
+          "commitnum": {
+            "added": "v0.10.2",
+            "type": "u64",
+            "description": [
+              "The commitment number identifying the revoked state."
+            ]
+          }
+        }
+      },
+      "response": {
+        "additionalProperties": false,
+        "required": [
+          "result"
+        ],
+        "properties": {
+          "result": {
+            "type": "string",
+            "enum": [
+              "continue"
+            ],
+            "description": [
+              "Plugins should always return \"continue\", otherwise subsequent hook subscribers would not get called."
+            ]
+          }
+        }
+      }
+    },
+    "custommsg.json": {
+      "$schema": "../rpc-schema-draft.json",
+      "added": "pre-v0.10.1",
+      "type": "object",
+      "notification": "custommsg",
+      "title": "Hook for handling custom peer messages",
+      "description": [
+        "The **custommsg** hook is the receiving counterpart to the sendcustommsg RPC method and is called whenever a peer sends a custom message that is not handled internally by Core Lightning.",
+        "",
+        "The goal of these two components is to allow the implementation of custom protocols or prototypes on top of a Core Lightning node, without having to change the node's implementation itself.",
+        "",
+        "Messages are restricted to odd-numbered types and must not conflict with internally handled message types.",
+        "These limitations are in place in order to avoid conflicts with the internal state tracking, and avoiding disconnections or channel closures, since odd-numbered message can be ignored by nodes (see \"it's ok to be odd\" in BOLT #1 for details).",
+        "",
+        "Note that if the hook registration specifies \"filters\" then that should be a JSON array of message numbers, and the hook will only be called for those.",
+        "Otherwise, the hook is called for all messages not handled internally. (added in v25.12)",
+        "",
+        "This is a chained hook and MUST return `{\"result\": \"continue\"}`."
+      ],
+      "request": {
+        "required": [
+          "peer_id",
+          "payload"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "peer_id": {
+            "type": "pubkey",
+            "description": [
+              "The `node_id` of the peer that sent the message."
+            ]
+          },
+          "payload": {
+            "type": "hex",
+            "description": [
+              "The raw message payload as a hex string.",
+              "",
+              "The first two bytes encode the message type (big-endian), followed by the message payload.",
+              "The plugin must implement the parsing of the message, including the type prefix, since Core Lightning does not know how to parse the message."
+            ]
+          }
+        }
+      },
+      "response": {
+        "required": [
+          "result"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "result": {
+            "type": "string",
+            "enum": [
+              "continue"
+            ],
+            "description": [
+              "Must always be `continue`. Any other value will cause the hook to fail."
+            ]
+          }
+        }
+      },
+      "see_also": [
+        "lightning-sendcustommsg(7)"
+      ]
+    },
+    "db_write.json": {
+      "$schema": "../rpc-schema-draft.json",
+      "added": "pre-v0.10.1",
+      "type": "object",
+      "notification": "db_write",
+      "title": "Hook fired before database writes are committed",
+      "description": [
+        "The **db_write** hook is called whenever a change is about to be committed to the database, if you are using a SQLITE3 database (the default).",
+        "This hook will be useless (the \"writes\" field will always be empty) if you are using a PostgreSQL database.",
+        "",
+        "This hook is extremely restricted:",
+        "1. A plugin registering for this hook should not perform anything that may cause a database operation in response (pretty much, anything but logging).",
+        "2. A plugin registering for this hook should not register for other hooks or commands, as these may become intermingled and break rule #1.",
+        "3. The hook will be called before your plugin is initialized!",
+        "",
+        "This hook is strongly synchronous: `lightningd` will halt almost all processing until all plugins have responded.",
+        "",
+        "This hook is intended for creating continuous backups. The intent is that your backup plugin maintains three pieces of information (possibly in separate files):",
+        "1. A snapshot of the database",
+        "2. A log of database queries that will bring that snapshot up-to-date",
+        "3. The previous `data_version`",
+        "",
+        "`data_version` is an unsigned 32-bit number that will always increment by 1 each time `db_write` is called. Note that this will wrap around on the limit of 32-bit numbers.",
+        "",
+        "`writes` is an array of strings, each string being a database query that modifies the database.",
+        "If the `data_version` above is validated correctly, then you can simply append this to the log of database queries.",
+        "",
+        "Your plugin MUST validate the `data_version`. It MUST keep track of the previous `data_version` it got, and:",
+        "1. If the new `data_version` is exactly one higher than the previous, then this is the ideal case and nothing bad happened and we should save this and continue.",
+        "2. If the new `data_version` is exactly the same value as the previous, then the previous set of queries was not committed.",
+        "   Your plugin MAY overwrite the previous set of queries with the current set, or it MAY overwrite its entire backup with a new snapshot of the database and the current `writes` array",
+        "   (treating this case as if `data_version` were two or more higher than the previous).",
+        "3. If the new `data_version` is less than the previous, your plugin MUST halt and catch fire, and have the operator inspect what exactly happened here.",
+        "4. Otherwise, some queries were lost and your plugin SHOULD recover by creating a new snapshot of the database: copy the database file, back up the given `writes` array, then delete",
+        "   (or atomically rename if in a POSIX filesystem) the previous backups of the database and SQL statements, or you MAY fail the hook to abort `lightningd`.",
+        "",
+        "The \"rolling up\" of the database could be done periodically as well if the log of SQL statements has grown large.",
+        "",
+        "Any response other than `{\"result\": \"continue\"}` will cause `lightningd` to error without committing to the database! This is the expected way to halt and catch fire.",
+        "",
+        "`db_write` is a parallel-chained hook, i.e., multiple plugins can register it, and all of them will be invoked simultaneously without regard for order of registration.",
+        "The hook is considered handled if all registered plugins return `{\"result\": \"continue\"}`. If any plugin returns anything else, `lightningd` will error without committing to the database."
+      ],
+      "request": {
+        "additionalProperties": false,
+        "required": [
+          "data_version",
+          "writes"
+        ],
+        "properties": {
+          "data_version": {
+            "type": "u32",
+            "description": [
+              "A monotonically increasing 32-bit unsigned integer representing the database version.",
+              "Wraps around at the 32-bit limit."
+            ]
+          },
+          "writes": {
+            "type": "array",
+            "description": [
+              "Array of SQL statements that modify the database.",
+              "If using PostgreSQL, this array will always be empty.",
+              "Each entry is a SQL query string."
+            ],
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "response": {
+        "additionalProperties": false,
+        "required": [
+          "result"
+        ],
+        "properties": {
+          "result": {
+            "type": "string",
+            "enum": [
+              "continue"
+            ],
+            "description": [
+              "Must be \"continue\" for the database commit to proceed.",
+              "Any other value will abort the commit and cause `lightningd` to error."
+            ]
+          }
+        }
+      }
+    },
+    "htlc_accepted.json": {
+      "$schema": "../rpc-schema-draft.json",
+      "added": "pre-v0.10.1",
+      "type": "object",
+      "notification": "htlc_accepted",
+      "title": "Hook for handling incoming HTLCs",
+      "description": [
+        "The **htlc_accepted** hook is called whenever an incoming HTLC is accepted.",
+        "",
+        "The plugin can inspect the HTLC and decide to continue processing, fail it, or resolve it.",
+        "",
+        "lightningd will replay the HTLCs for which it doesn't have a final verdict during startup.",
+        "This means that, if the plugin response wasn't processed before the HTLC was forwarded, failed, or resolved,",
+        "then the plugin may see the same HTLC again during startup. It is therefore paramount that the plugin is idempotent if it talks to an external system.",
+        "",
+        "This is a chained hook: plugins are called in order until one returns a result other than `continue`.",
+        "After this the event is considered handled and the remaining plugins are skipped."
+      ],
+      "request": {
+        "required": [
+          "onion",
+          "htlc"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "peer_id": {
+            "added": "v25.12",
+            "type": "pubkey",
+            "description": [
+              "The `node_id` of the peer that offered this HTLC.",
+              "This field may be absent if the peer is unknown."
+            ]
+          },
+          "onion": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "payload",
+              "next_onion",
+              "shared_secret"
+            ],
+            "properties": {
+              "payload": {
+                "type": "hex",
+                "description": [
+                  "The raw unparsed onion payload received from the sender."
+                ]
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "tlv"
+                ],
+                "description": [
+                  "Indicates that the payload is TLV formatted.",
+                  "Only present if the payload was successfully parsed."
+                ]
+              },
+              "short_channel_id": {
+                "type": "short_channel_id",
+                "description": [
+                  "Determines the channel that the sender is hinting should be used next.",
+                  "Not present if this node is the final destination."
+                ]
+              },
+              "next_node_id": {
+                "type": "pubkey",
+                "description": [
+                  "The node_id of the next hop.",
+                  "Only present if specified in the onion payload."
+                ]
+              },
+              "forward_msat": {
+                "type": "msat",
+                "description": [
+                  "The amount to forward to the next hop."
+                ]
+              },
+              "outgoing_cltv_value": {
+                "type": "u32",
+                "description": [
+                  "Determines what the CLTV value for the HTLC that we forward to the next hop should be."
+                ]
+              },
+              "total_msat": {
+                "type": "msat",
+                "description": [
+                  "The total payment amount.",
+                  "Only present for final recipients using modern TLV payloads."
+                ]
+              },
+              "payment_secret": {
+                "type": "secret",
+                "description": [
+                  "The payment secret (which the payer should have obtained from the invoice) provided by the sender.",
+                  "Only present for final recipients."
+                ]
+              },
+              "payment_metadata": {
+                "type": "hex",
+                "description": [
+                  "Additional metadata provided in the onion payload.",
+                  "Only present if included by the sender."
+                ]
+              },
+              "next_onion": {
+                "type": "hex",
+                "description": [
+                  "The fully processed onion that we should be sending to the next hop as part of the outgoing HTLC.",
+                  "Processed in this case means that we took the incoming onion, decrypted it, extracted the payload destined for us, and serialised the resulting onion again."
+                ]
+              },
+              "shared_secret": {
+                "type": "secret",
+                "description": [
+                  "The shared secret used to decrypt the incoming onion.",
+                  "It is shared with the sender that constructed the onion."
+                ]
+              }
+            }
+          },
+          "htlc": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "short_channel_id",
+              "id",
+              "amount_msat",
+              "cltv_expiry",
+              "cltv_expiry_relative",
+              "payment_hash"
+            ],
+            "properties": {
+              "short_channel_id": {
+                "added": "v0.12.0",
+                "type": "short_channel_id",
+                "description": [
+                  "The channel this HTLC is coming from."
+                ]
+              },
+              "id": {
+                "added": "v0.12.0",
+                "type": "u64",
+                "description": [
+                  "The unique HTLC identifier assigned by the channel peer."
+                ]
+              },
+              "amount_msat": {
+                "added": "v0.12.0",
+                "type": "msat",
+                "description": [
+                  "The amount received in this HTLC.",
+                  "This amount minus the `forward_msat` amount is the fee that will stay with us."
+                ]
+              },
+              "cltv_expiry": {
+                "type": "u32",
+                "description": [
+                  "Determines when the HTLC reverts back to the sender.",
+                  "`cltv_expiry` minus `outgoing_cltv_value` should be equal or larger than our `cltv_delta` setting."
+                ]
+              },
+              "cltv_expiry_relative": {
+                "type": "u32",
+                "description": [
+                  "Hints how much time we still have to claim the HTLC.",
+                  "It is the `cltv_expiry` minus the current blockheight and is passed along mainly to avoid the plugin having to look up the current blockheight."
+                ]
+              },
+              "payment_hash": {
+                "type": "hash",
+                "description": [
+                  "The payment hash used to identify the payment."
+                ]
+              },
+              "extra_tlvs": {
+                "added": "v25.09",
+                "type": "hex",
+                "description": [
+                  "Optional TLV stream attached to the HTLC."
+                ]
+              }
+            }
+          },
+          "forward_to": {
+            "type": "hash",
+            "description": [
+              "The `channel_id` we intend to forward the HTLC to.",
+              "Will not be present if the `short_channel_id` was invalid or we were the final destination."
+            ]
+          }
+        }
+      },
+      "response": {
+        "required": [
+          "result"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "result": {
+            "type": "string",
+            "enum": [
+              "continue",
+              "fail",
+              "resolve"
+            ],
+            "description": [
+              "Determines how the HTLC should be handled.",
+              "",
+              "`continue` means that the plugin does not want to do anything special and lightningd should continue processing it normally,",
+              "i.e., resolve the payment if we're the recipient, or attempt to forward it otherwise. Notice that the usual checks such as sufficient fees and CLTV deltas are still enforced.",
+              "",
+              "It can also replace the onion.payload by specifying a payload in the response. Note that this is always a TLV-style payload,",
+              "so unlike onion.payload there is no length prefix (and it must be at least 4 hex digits long). This will be re-parsed;",
+              "it's useful for removing onion fields which a plugin doesn't want lightningd to consider.",
+              "",
+              "It can also specify forward_to in the response, replacing the destination.",
+              "This usually only makes sense if it wants to choose an alternate channel to the same next peer, but is useful if the payload is also replaced.",
+              "",
+              "Also, it can specify extra_tlvs in the response. This will replace the TLV-stream update_add_htlc_tlvs in the update_add_htlc message for forwarded htlcs.",
+              "",
+              "If the node is the final destination, the plugin can also replace the amount of the invoice that belongs to the payment_hash by specifying invoice_msat.",
+              "",
+              "",
+              "`fail` will tell lightningd to fail the HTLC with a given hex-encoded `failure_message` (please refer to BOLT #4 for details: `incorrect_or_unknown_payment_details` is the most common).",
+              "",
+              "Instead of `failure_message` the response can contain a hex-encoded `failure_onion` that will be used instead (please refer to the BOLT #4 for details).",
+              "This can be used, for example, if you're writing a bridge between two Lightning Networks. Note that lightningd will apply the obfuscation step to the value",
+              "returned here with its own shared secret (and key type `ammag`) before returning it to the previous hop.",
+              "",
+              "",
+              "`resolve` instructs lightningd to claim the HTLC by providing the preimage matching the `payment_hash` presented in the call.",
+              "Notice that the plugin must ensure that the `payment_key` really matches the `payment_hash` since lightningd will not check and the wrong value could result in the channel being closed."
+            ]
+          },
+          "payload": {
+            "type": "hex",
+            "description": [
+              "Replacement TLV payload to use instead of the original onion payload."
+            ]
+          },
+          "forward_to": {
+            "type": "hash",
+            "description": [
+              "Overrides the forwarding destination."
+            ]
+          },
+          "extra_tlvs": {
+            "added": "v25.09",
+            "type": "hex",
+            "description": [
+              "Replacement TLV stream for forwarded HTLCs."
+            ]
+          },
+          "invoice_msat": {
+            "added": "v25.12",
+            "type": "msat",
+            "description": [
+              "Overrides the invoice amount for final destination checks."
+            ]
+          },
+          "failure_message": {
+            "type": "hex",
+            "description": [
+              "Failure message to return if result is `fail`."
+            ]
+          },
+          "failure_onion": {
+            "type": "hex",
+            "description": [
+              "Serialized failure onion to return if result is `fail`."
+            ]
+          },
+          "payment_key": {
+            "type": "secret",
+            "description": [
+              "Preimage used to resolve the HTLC if result is `resolve`."
+            ]
+          }
+        },
+        "if": {
+          "properties": {
+            "result": {
+              "enum": [
+                "fail"
+              ]
+            }
+          }
+        },
+        "then": {
+          "anyOf": [
+            {
+              "required": [
+                "failure_message"
+              ]
+            },
+            {
+              "required": [
+                "failure_onion"
+              ]
+            }
+          ]
+        },
+        "else": {
+          "if": {
+            "properties": {
+              "result": {
+                "enum": [
+                  "resolve"
+                ]
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "payment_key"
+            ]
+          }
+        }
+      }
+    },
+    "invoice_payment.json": {
+      "$schema": "../rpc-schema-draft.json",
+      "added": "pre-v0.10.1",
+      "type": "object",
+      "notification": "invoice_payment",
+      "title": "Hook fired when a payment for an invoice is received",
+      "description": [
+        "The **invoice_payment** hook is called whenever a valid payment for an unpaid invoice has arrived.",
+        "",
+        "The hook is deliberately sparse. Plugins can use `listinvoices` to retrieve additional information.",
+        "",
+        "The plugin can:",
+        "- accept the payment by returning {\"result\": \"continue\"}",
+        "- reject the payment with a generic error using {\"result\": \"reject\"}",
+        "- reject the payment with a custom BOLT 4 failure message using the `failure_message` field",
+        "",
+        "If `failure_message` is provided, the payment will be failed with that message.",
+        "If result is \"reject\" and no `failure_message` is provided, the payment fails with `incorrect_or_unknown_payment_details`.",
+        "`failure_message` must NOT be provided when result is \"continue\".",
+        "",
+        "Before version 23.11 the msat field was encoded as a string with an 'msat' suffix."
+      ],
+      "request": {
+        "additionalProperties": false,
+        "required": [
+          "payment"
+        ],
+        "properties": {
+          "payment": {
+            "type": "object",
+            "additionalProperties": true,
+            "required": [
+              "label",
+              "preimage",
+              "msat"
+            ],
+            "properties": {
+              "label": {
+                "type": "string",
+                "description": [
+                  "Unique label identifying the invoice."
+                ]
+              },
+              "preimage": {
+                "type": "secret",
+                "description": [
+                  "The payment preimage."
+                ]
+              },
+              "msat": {
+                "type": "msat",
+                "description": [
+                  "Amount paid in millisatoshis."
+                ]
+              }
+            },
+            "description": [
+              "Basic payment information.",
+              "Additional TLV-derived fields may be included when running in developer mode."
+            ]
+          }
+        }
+      },
+      "response": {
+        "additionalProperties": false,
+        "required": [
+          "result"
+        ],
+        "properties": {
+          "result": {
+            "type": "string",
+            "enum": [
+              "continue",
+              "reject"
+            ],
+            "description": [
+              "Controls whether the payment is accepted or rejected.",
+              "\"continue\" accepts the payment.",
+              "\"reject\" fails the payment."
+            ]
+          },
+          "failure_message": {
+            "type": "hex",
+            "description": [
+              "Optional BOLT 4 failure message.",
+              "Used to provide a specific failure reason when rejecting the payment."
+            ]
+          }
+        },
+        "if": {
+          "properties": {
+            "result": {
+              "type": "string",
+              "enum": [
+                "reject"
+              ]
+            }
+          },
+          "required": [
+            "result"
+          ]
+        },
+        "then": {
+          "properties": {
+            "failure_message": {
+              "type": "hex"
+            }
+          }
+        }
+      },
+      "see_also": [
+        "lightning-listinvoices(7)"
+      ]
+    },
+    "onion_message_recv.json": {
+      "$schema": "../rpc-schema-draft.json",
+      "added": "pre-v0.10.1",
+      "type": "object",
+      "notification": "onion_message_recv",
+      "title": "Hook for receiving unsolicited onion messages",
+      "description": [
+        "The **onion_message_recv** hook is used for unsolicited onion messages (where the source knows that it is sending to this node).",
+        "",
+        "Replies MUST be ignored unless they use the correct path (see onion_message_recv_secret).",
+        "",
+        "Returning anything other than {\"result\": \"continue\"} prevents further hook processing."
+      ],
+      "request": {
+        "required": [
+          "onion_message"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "onion_message": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "reply_blindedpath": {
+                "type": "object",
+                "description": [
+                  "A blinded return path provided by the sender.",
+                  "",
+                  "This allows replying without revealing the recipient's identity or network position.",
+                  "If present, plugins must use this path if they construct a reply onion message."
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "first_node_id": {
+                    "type": "pubkey",
+                    "description": [
+                      "The introduction node of the blinded path.",
+                      "This is the first hop to which the reply should be sent.",
+                      "",
+                      "Only one of `first_node_id` or the pair `first_scid` and `first_scid_dir` is present."
+                    ]
+                  },
+                  "first_scid": {
+                    "type": "short_channel_id",
+                    "description": [
+                      "Alternative to `first_node_id`: identifies the introduction point via a channel.",
+                      "",
+                      "Only one of `first_node_id` or the pair `first_scid` and `first_scid_dir` is present."
+                    ]
+                  },
+                  "first_scid_dir": {
+                    "type": "u32",
+                    "description": [
+                      "Direction of the `short_channel_id` (0 or 1).",
+                      "",
+                      "Only one of `first_node_id` or the pair `first_scid` and `first_scid_dir` is present."
+                    ]
+                  },
+                  "first_path_key": {
+                    "added": "v24.11",
+                    "type": "pubkey",
+                    "description": [
+                      "Initial public key used to derive shared secrets with the first hop.",
+                      "",
+                      "This key allows each hop to derive per-hop encryption keys and blinding factors."
+                    ]
+                  },
+                  "hops": {
+                    "type": "array",
+                    "description": [
+                      "Sequence of blinded hops forming the path.",
+                      "",
+                      "Each hop contains a blinded node identifier and encrypted routing instructions."
+                    ],
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "blinded_node_id",
+                        "encrypted_recipient_data"
+                      ],
+                      "additionalProperties": false,
+                      "properties": {
+                        "blinded_node_id": {
+                          "type": "pubkey",
+                          "description": [
+                            "Blinded public key representing the hop.",
+                            "",
+                            "The actual node identity is hidden using a blinding factor."
+                          ]
+                        },
+                        "encrypted_recipient_data": {
+                          "type": "hex",
+                          "description": [
+                            "Encrypted TLV payload for this hop.",
+                            "",
+                            "Contains instructions (e.g., next hop) encrypted with a shared secret derived from the path key."
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "invoice_request": {
+                "type": "hex",
+                "description": [
+                  "BOLT #12 `invoice_request` payload."
+                ]
+              },
+              "invoice": {
+                "type": "hex",
+                "description": [
+                  "BOLT #12 `invoice` payload."
+                ]
+              },
+              "invoice_error": {
+                "type": "hex",
+                "description": [
+                  "BOLT #12 `invoice_error` payload."
+                ]
+              },
+              "unknown_fields": {
+                "type": "array",
+                "description": [
+                  "Unknown or unparsed TLV fields from the onion message.",
+                  "",
+                  "Plugins may inspect these for experimental or custom extensions."
+                ],
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "number",
+                    "value"
+                  ],
+                  "additionalProperties": false,
+                  "properties": {
+                    "number": {
+                      "type": "u64",
+                      "description": [
+                        "TLV type number."
+                      ]
+                    },
+                    "value": {
+                      "type": "hex",
+                      "description": [
+                        "Raw TLV value."
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "response": {
+        "required": [
+          "result"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "result": {
+            "type": "string",
+            "description": [
+              "Return \"continue\" to pass the message to the next plugin.",
+              "Returning any other value stops further hook processing."
+            ]
+          }
+        }
+      }
+    },
+    "onion_message_recv_secret.json": {
+      "$schema": "../rpc-schema-draft.json",
+      "added": "pre-v0.10.1",
+      "type": "object",
+      "notification": "onion_message_recv_secret",
+      "title": "Hook for receiving onion messages via blinded paths",
+      "description": [
+        "The **onion_message_recv_secret** hook is used when an onion message is received via a blinded path previously provided by this node.",
+        "",
+        "The presence of `pathsecret` allows the plugin to authenticate that the message used the intended return path.",
+        "",
+        "Replies MUST only be sent when the `pathsecret` matches expectations.",
+        "",
+        "Returning anything other than {\"result\": \"continue\"} prevents further hook processing."
+      ],
+      "request": {
+        "required": [
+          "onion_message"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "onion_message": {
+            "type": "object",
+            "required": [
+              "pathsecret"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "pathsecret": {
+                "type": "secret",
+                "description": [
+                  "Shared secret identifying the blinded path.",
+                  "",
+                  "Used to verify that the sender used a path previously provided by this node.",
+                  "This prevents probing attacks and unauthorized replies."
+                ]
+              },
+              "reply_blindedpath": {
+                "type": "object",
+                "description": [
+                  "A blinded return path provided by the sender.",
+                  "",
+                  "This allows replying without revealing the recipient's identity or network position.",
+                  "If present, plugins must use this path if they construct a reply onion message."
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "first_node_id": {
+                    "type": "pubkey",
+                    "description": [
+                      "The introduction node of the blinded path.",
+                      "This is the first hop to which the reply should be sent.",
+                      "",
+                      "Only one of `first_node_id` or the pair `first_scid` and `first_scid_dir` is present."
+                    ]
+                  },
+                  "first_scid": {
+                    "type": "short_channel_id",
+                    "description": [
+                      "Alternative to `first_node_id`: identifies the introduction point via a channel.",
+                      "",
+                      "Only one of `first_node_id` or the pair `first_scid` and `first_scid_dir` is present."
+                    ]
+                  },
+                  "first_scid_dir": {
+                    "type": "u32",
+                    "description": [
+                      "Direction of the `short_channel_id` (0 or 1).",
+                      "",
+                      "Only one of `first_node_id` or the pair `first_scid` and `first_scid_dir` is present."
+                    ]
+                  },
+                  "first_path_key": {
+                    "added": "v24.11",
+                    "type": "pubkey",
+                    "description": [
+                      "Initial public key used to derive shared secrets with the first hop.",
+                      "",
+                      "This key allows each hop to derive per-hop encryption keys and blinding factors."
+                    ]
+                  },
+                  "hops": {
+                    "type": "array",
+                    "description": [
+                      "Sequence of blinded hops forming the path.",
+                      "",
+                      "Each hop contains a blinded node identifier and encrypted routing instructions."
+                    ],
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "blinded_node_id",
+                        "encrypted_recipient_data"
+                      ],
+                      "additionalProperties": false,
+                      "properties": {
+                        "blinded_node_id": {
+                          "type": "pubkey",
+                          "description": [
+                            "Blinded public key representing the hop.",
+                            "",
+                            "The actual node identity is hidden using a blinding factor."
+                          ]
+                        },
+                        "encrypted_recipient_data": {
+                          "type": "hex",
+                          "description": [
+                            "Encrypted TLV payload for this hop.",
+                            "",
+                            "Contains instructions (e.g., next hop) encrypted with a shared secret derived from the path key."
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "invoice_request": {
+                "type": "hex",
+                "description": [
+                  "BOLT #12 `invoice_request` payload."
+                ]
+              },
+              "invoice": {
+                "type": "hex",
+                "description": [
+                  "BOLT #12 `invoice` payload."
+                ]
+              },
+              "invoice_error": {
+                "type": "hex",
+                "description": [
+                  "BOLT #12 `invoice_error` payload."
+                ]
+              },
+              "unknown_fields": {
+                "type": "array",
+                "description": [
+                  "Unknown or unparsed TLV fields from the onion message.",
+                  "",
+                  "Plugins may inspect these for experimental or custom extensions."
+                ],
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "number",
+                    "value"
+                  ],
+                  "additionalProperties": false,
+                  "properties": {
+                    "number": {
+                      "type": "u64",
+                      "description": [
+                        "TLV type number."
+                      ]
+                    },
+                    "value": {
+                      "type": "hex",
+                      "description": [
+                        "Raw TLV value."
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "response": {
+        "required": [
+          "result"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "result": {
+            "type": "string",
+            "description": [
+              "Return \"continue\" to pass the message to the next plugin.",
+              "Returning any other value stops further hook processing."
+            ]
+          }
+        }
+      }
+    },
+    "openchannel.json": {
+      "$schema": "../rpc-schema-draft.json",
+      "added": "pre-v0.10.1",
+      "type": "object",
+      "notification": "openchannel",
+      "title": "Hook fired when a peer proposes opening a channel using v1 protocol",
+      "description": [
+        "The **openchannel** hook is called whenever a remote peer tries to fund a channel using the v1 protocol, after passing basic sanity checks.",
+        "",
+        "The payload mirrors the BOLT #2 `open_channel` message and may include additional fields defined by the protocol.",
+        "",
+        "Plugins can reject the channel or modify certain parameters before accepting it.",
+        "",
+        "This is a chained hook: the first plugin returning a non-\"continue\" result terminates the chain.",
+        "Mutation fields (`close_to`, `mindepth`, `reserve`) are only applied from the first plugin that sets them.",
+        "Additional fields may be present in the request as defined by BOLT #2.",
+        "Providing invalid values (e.g., invalid `close_to` address) will cause lightningd to exit."
+      ],
+      "request": {
+        "additionalProperties": false,
+        "required": [
+          "openchannel"
+        ],
+        "properties": {
+          "openchannel": {
+            "type": "object",
+            "additionalProperties": true,
+            "required": [
+              "id",
+              "funding_msat",
+              "push_msat",
+              "dust_limit_msat",
+              "max_htlc_value_in_flight_msat",
+              "channel_reserve_msat",
+              "htlc_minimum_msat",
+              "feerate_per_kw",
+              "to_self_delay",
+              "max_accepted_htlcs",
+              "channel_flags",
+              "channel_type"
+            ],
+            "properties": {
+              "id": {
+                "type": "pubkey",
+                "description": [
+                  "The peer's node_id."
+                ]
+              },
+              "funding_msat": {
+                "type": "msat",
+                "description": [
+                  "Funding amount proposed by the peer."
+                ]
+              },
+              "push_msat": {
+                "type": "msat",
+                "description": [
+                  "Amount pushed to us at channel open."
+                ]
+              },
+              "dust_limit_msat": {
+                "type": "msat",
+                "description": [
+                  "Dust limit for outputs."
+                ]
+              },
+              "max_htlc_value_in_flight_msat": {
+                "type": "msat",
+                "description": [
+                  "Maximum HTLC value allowed in flight."
+                ]
+              },
+              "channel_reserve_msat": {
+                "type": "msat",
+                "description": [
+                  "Channel reserve required by the peer."
+                ]
+              },
+              "htlc_minimum_msat": {
+                "type": "msat",
+                "description": [
+                  "Minimum HTLC value."
+                ]
+              },
+              "feerate_per_kw": {
+                "type": "u32",
+                "description": [
+                  "Feerate in satoshi per kw."
+                ]
+              },
+              "to_self_delay": {
+                "type": "u32",
+                "description": [
+                  "The number of blocks before they can take their funds if they unilateral close."
+                ]
+              },
+              "max_accepted_htlcs": {
+                "type": "u32",
+                "description": [
+                  "Maximum number of HTLC's the remote is allowed to offer at once."
+                ]
+              },
+              "channel_flags": {
+                "type": "u8",
+                "description": [
+                  "Channel flags as defined in BOLT #7."
+                ]
+              },
+              "shutdown_scriptpubkey": {
+                "type": "hex",
+                "description": [
+                  "Optional shutdown scriptPubKey proposed by the peer."
+                ]
+              },
+              "channel_type": {
+                "added": "v25.09",
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "bits",
+                  "names"
+                ],
+                "properties": {
+                  "bits": {
+                    "type": "array",
+                    "description": [
+                      "List of feature bit numbers that define the negotiated channel type.",
+                      "Each value represents a feature bit as defined in BOLT #2."
+                    ],
+                    "items": {
+                      "type": "u32",
+                      "description": [
+                        "Feature bit number."
+                      ]
+                    }
+                  },
+                  "names": {
+                    "type": "array",
+                    "description": [
+                      "Human-readable names corresponding to each feature bit.",
+                      "Names are implementation-defined and may evolve over time."
+                    ],
+                    "items": {
+                      "type": "string",
+                      "description": [
+                        "Name of the feature bit."
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "response": {
+        "additionalProperties": false,
+        "required": [
+          "result"
+        ],
+        "properties": {
+          "result": {
+            "type": "string",
+            "enum": [
+              "continue",
+              "reject"
+            ],
+            "description": [
+              "Whether to accept or reject the channel opening request."
+            ]
+          },
+          "error_message": {
+            "type": "string",
+            "description": [
+              "Optional error message sent to the peer when rejecting."
+            ]
+          },
+          "close_to": {
+            "type": "string",
+            "description": [
+              "Bitcoin address for mutual close output.",
+              "Must be valid for the current chain or lightningd will exit with an error."
+            ]
+          },
+          "mindepth": {
+            "added": "v0.12.0",
+            "type": "u32",
+            "description": [
+              "`mindepth` is the number of confirmations to require before making the channel usable.",
+              "Notice that setting this to 0 (zeroconf) or some other low value might expose you to double-spending issues,",
+              "so only lower this value from the default if you trust the peer not to double-spend, or you reject incoming payments,",
+              "including forwards, until the funding is confirmed."
+            ]
+          },
+          "reserve": {
+            "added": "v22.11",
+            "type": "sat",
+            "description": [
+              "`reserve` is an absolute value for the amount (in satoshi) in the channel that the peer must keep on their side.",
+              "This ensures that they always have something to lose, so only lower this below the 1% of funding amount if you trust the peer.",
+              "The protocol requires this to be larger than the dust limit, hence it will be adjusted to be the dust limit if the specified value is below."
+            ]
+          }
+        },
+        "if": {
+          "properties": {
+            "result": {
+              "type": "string",
+              "enum": [
+                "reject"
+              ]
+            }
+          },
+          "required": [
+            "result"
+          ]
+        },
+        "then": {
+          "properties": {
+            "error_message": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "openchannel2.json": {
+      "$schema": "../rpc-schema-draft.json",
+      "added": "pre-v0.10.1",
+      "type": "object",
+      "notification": "openchannel2",
+      "title": "Hook fired when a peer proposes opening a channel using v2 protocol",
+      "description": [
+        "The **openchannel2** hook is called whenever a remote peer tries to fund a channel using the v2 (dual-funding) protocol, after passing basic sanity checks.",
+        "",
+        "The payload mirrors the BOLT #2 `open_channel` message and dual-funding extensions.",
+        "There may be additional fields present depending on negotiated features.",
+        "",
+        "`requested_lease_msat`, `lease_blockheight_start`, and `node_blockheight` are only present if the peer requested a funding lease (`option_will_fund`).",
+        "",
+        "The plugin can reject the channel, accept it, or contribute funds via a PSBT when accepting.",
+        "",
+        "See `plugins/funder.c` for an example of how to use this hook to contribute funds to a channel open.",
+        "",
+        "This is a chained hook: multiple plugins may be invoked.",
+        "Returning any result other than \"continue\" terminates the chain.",
+        "Only the first plugin that sets mutation fields (e.g. `close_to`) will have them applied.",
+        "Invalid `close_to` addresses will cause lightningd to exit.",
+        "The PSBT must be consistent with the funding transaction and respect feerate constraints."
+      ],
+      "request": {
+        "additionalProperties": false,
+        "required": [
+          "openchannel2"
+        ],
+        "properties": {
+          "openchannel2": {
+            "type": "object",
+            "additionalProperties": true,
+            "required": [
+              "id",
+              "channel_id",
+              "their_funding_msat",
+              "dust_limit_msat",
+              "max_htlc_value_in_flight_msat",
+              "htlc_minimum_msat",
+              "funding_feerate_per_kw",
+              "commitment_feerate_per_kw",
+              "feerate_our_max",
+              "feerate_our_min",
+              "to_self_delay",
+              "max_accepted_htlcs",
+              "channel_flags",
+              "locktime",
+              "channel_max_msat",
+              "require_confirmed_inputs",
+              "channel_type"
+            ],
+            "properties": {
+              "id": {
+                "type": "pubkey",
+                "description": [
+                  "The `node_id` of the peer proposing the channel."
+                ]
+              },
+              "channel_id": {
+                "type": "hash",
+                "description": [
+                  "Temporary `channel_id` assigned for this channel negotiation."
+                ]
+              },
+              "their_funding_msat": {
+                "type": "msat",
+                "description": [
+                  "Amount contributed by the remote peer to the channel funding transaction."
+                ]
+              },
+              "dust_limit_msat": {
+                "type": "msat",
+                "description": [
+                  "Minimum output value below which outputs are considered dust."
+                ]
+              },
+              "max_htlc_value_in_flight_msat": {
+                "type": "msat",
+                "description": [
+                  "Maximum total value of outstanding HTLCs allowed in the channel at any time."
+                ]
+              },
+              "htlc_minimum_msat": {
+                "type": "msat",
+                "description": [
+                  "Minimum HTLC value the peer will accept."
+                ]
+              },
+              "funding_feerate_per_kw": {
+                "type": "u32",
+                "description": [
+                  "Feerate (per kw) used for the funding transaction."
+                ]
+              },
+              "commitment_feerate_per_kw": {
+                "type": "u32",
+                "description": [
+                  "Feerate (per kw) used for commitment transactions."
+                ]
+              },
+              "feerate_our_max": {
+                "type": "u32",
+                "description": [
+                  "Maximum feerate we are willing to accept for commitment transactions."
+                ]
+              },
+              "feerate_our_min": {
+                "type": "u32",
+                "description": [
+                  "Minimum feerate we are willing to accept for commitment transactions."
+                ]
+              },
+              "to_self_delay": {
+                "type": "u16",
+                "description": [
+                  "The number of blocks before they can take their funds if they unilateral close."
+                ]
+              },
+              "max_accepted_htlcs": {
+                "type": "u16",
+                "description": [
+                  "Maximum number of HTLC's the remote is allowed to offer at once."
+                ]
+              },
+              "channel_flags": {
+                "type": "u8",
+                "description": [
+                  "Channel flags as defined in BOLT #7."
+                ]
+              },
+              "locktime": {
+                "type": "u32",
+                "description": [
+                  "Locktime to be used in the funding transaction."
+                ]
+              },
+              "shutdown_scriptpubkey": {
+                "type": "hex",
+                "description": [
+                  "Optional shutdown scriptPubKey provided by the peer for cooperative close."
+                ]
+              },
+              "channel_max_msat": {
+                "type": "msat",
+                "description": [
+                  "Maximum capacity this channel is allowed to reach."
+                ]
+              },
+              "requested_lease_msat": {
+                "type": "msat",
+                "description": [
+                  "Amount of liquidity the peer is requesting us to lease to them.",
+                  "Only present if `option_will_fund` is negotiated."
+                ]
+              },
+              "lease_blockheight_start": {
+                "type": "u32",
+                "description": [
+                  "Blockheight at which the lease period begins.",
+                  "Only present if `requested_lease_msat` is present."
+                ]
+              },
+              "node_blockheight": {
+                "type": "u32",
+                "description": [
+                  "Current blockheight of the node.",
+                  "Used in conjunction with lease parameters.",
+                  "Only present if `requested_lease_msat` is present."
+                ]
+              },
+              "require_confirmed_inputs": {
+                "added": "v23.02",
+                "type": "boolean",
+                "description": [
+                  "Indicates whether the peer requires all funding inputs to be confirmed."
+                ]
+              },
+              "channel_type": {
+                "added": "v25.09",
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "bits",
+                  "names"
+                ],
+                "properties": {
+                  "bits": {
+                    "type": "array",
+                    "description": [
+                      "List of feature bit numbers that define the negotiated channel type.",
+                      "Each value represents a feature bit as defined in BOLT #2."
+                    ],
+                    "items": {
+                      "type": "u32",
+                      "description": [
+                        "Feature bit number."
+                      ]
+                    }
+                  },
+                  "names": {
+                    "type": "array",
+                    "description": [
+                      "Human-readable names corresponding to each feature bit.",
+                      "Names are implementation-defined and may evolve over time."
+                    ],
+                    "items": {
+                      "type": "string",
+                      "description": [
+                        "Name of the feature bit."
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "response": {
+        "additionalProperties": false,
+        "required": [
+          "result"
+        ],
+        "properties": {
+          "result": {
+            "type": "string",
+            "enum": [
+              "continue",
+              "reject"
+            ],
+            "description": [
+              "Indicates whether to accept or reject the channel proposal.",
+              "Returning \"continue\" allows the channel negotiation to proceed.",
+              "Returning \"reject\" aborts the channel opening."
+            ]
+          },
+          "error_message": {
+            "type": "string",
+            "description": [
+              "Error message sent to the peer when rejecting the channel.",
+              "Only valid if result is \"reject\"."
+            ]
+          },
+          "close_to": {
+            "type": "string",
+            "description": [
+              "Bitcoin address to which funds will be sent on cooperative close.",
+              "Must be valid for the current chain or lightningd will exit with an error."
+            ]
+          },
+          "psbt": {
+            "type": "string",
+            "description": [
+              "Partially Signed Bitcoin Transaction contributing inputs and outputs for the funding transaction.",
+              "Used when the plugin contributes funds to the channel."
+            ]
+          },
+          "our_funding_msat": {
+            "type": "msat",
+            "description": [
+              "Amount we contribute to the channel funding.",
+              "This amount must NOT be included in any outputs in the provided PSBT.",
+              "Change outputs must be included separately."
+            ]
+          }
+        },
+        "if": {
+          "properties": {
+            "result": {
+              "type": "string",
+              "enum": [
+                "reject"
+              ]
+            }
+          },
+          "required": [
+            "result"
+          ]
+        },
+        "then": {
+          "properties": {
+            "error_message": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "openchannel2_changed.json": {
+      "$schema": "../rpc-schema-draft.json",
+      "added": "pre-v0.10.1",
+      "type": "object",
+      "notification": "openchannel2_changed",
+      "title": "Hook for handling updates to the dual-funding PSBT",
+      "description": [
+        "The **openchannel2_changed** hook is called when the peer sends an updated PSBT during dual-funding channel negotiation.",
+        "",
+        "This allows plugins to inspect and modify the PSBT before it is sent back to the peer.",
+        "",
+        "The negotiation continues until neither side makes further changes to the PSBT, at which point commitment transactions are exchanged.",
+        "",
+        "See `plugins/funder.c` for an example of how to use this hook to continue a v2 channel open."
+      ],
+      "request": {
+        "required": [
+          "openchannel2_changed"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "openchannel2_changed": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "channel_id",
+              "psbt",
+              "require_confirmed_inputs"
+            ],
+            "properties": {
+              "channel_id": {
+                "type": "hash",
+                "description": [
+                  "The temporary channel_id identifying the channel being negotiated."
+                ]
+              },
+              "psbt": {
+                "type": "string",
+                "description": [
+                  "The current Partially Signed Bitcoin Transaction (PSBT) representing the funding transaction.",
+                  "This PSBT includes contributions from both peers and may be modified."
+                ]
+              },
+              "require_confirmed_inputs": {
+                "added": "v23.02",
+                "type": "boolean",
+                "description": [
+                  "Indicates whether the remote peer requires all inputs in the PSBT to be confirmed.",
+                  "If true, the plugin must avoid adding unconfirmed inputs."
+                ]
+              }
+            }
+          }
+        }
+      },
+      "response": {
+        "required": [
+          "result",
+          "psbt"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "result": {
+            "type": "string",
+            "enum": [
+              "continue"
+            ],
+            "description": [
+              "Must be set to `continue` to proceed with the channel opening negotiation."
+            ]
+          },
+          "psbt": {
+            "type": "string",
+            "description": [
+              "The updated PSBT to send back to the peer.",
+              "If no modifications are made, this should be identical to the input PSBT."
+            ]
+          }
+        }
+      },
+      "examples": [
+        {
+          "request": {
+            "id": "example:openchannel2_changed#1",
+            "method": "openchannel2_changed",
+            "params": {
+              "openchannel2_changed": {
+                "channel_id": "252d1b0a1e57895e841...",
+                "psbt": "cHNidP8BADMCAAAAAQ+yBipSVZr...",
+                "require_confirmed_inputs": true
+              }
+            }
+          },
+          "response": {
+            "result": "continue",
+            "psbt": "cHNidP8BADMCAAAAAQ+yBipSVZr..."
+          }
+        }
+      ]
+    },
+    "openchannel2_sign.json": {
+      "$schema": "../rpc-schema-draft.json",
+      "added": "pre-v0.10.1",
+      "type": "object",
+      "notification": "openchannel2_sign",
+      "title": "Hook for signing the dual-funding PSBT",
+      "description": [
+        "The **openchannel2_sign** hook is called after commitment transactions have been received during dual-funding channel establishment.",
+        "",
+        "The plugin is expected to sign any inputs it owns in the provided PSBT and return the updated PSBT.",
+        "",
+        "If no inputs need to be signed, the original PSBT should be returned unchanged.",
+        "",
+        "Once both sides have provided signatures, the funding transaction will be broadcast.",
+        "",
+        "See `plugins/funder.c` for an example of how to use this hook to sign a funding transaction."
+      ],
+      "request": {
+        "required": [
+          "openchannel2_sign"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "openchannel2_sign": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "channel_id",
+              "psbt"
+            ],
+            "properties": {
+              "channel_id": {
+                "type": "hash",
+                "description": [
+                  "The temporary `channel_id` identifying the channel being negotiated."
+                ]
+              },
+              "psbt": {
+                "type": "string",
+                "description": [
+                  "The Partially Signed Bitcoin Transaction (PSBT) representing the funding transaction.",
+                  "The plugin should add signatures for any inputs it controls."
+                ]
+              }
+            }
+          }
+        }
+      },
+      "response": {
+        "required": [
+          "result",
+          "psbt"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "result": {
+            "type": "string",
+            "enum": [
+              "continue"
+            ],
+            "description": [
+              "Must be set to `continue` to proceed with channel opening."
+            ]
+          },
+          "psbt": {
+            "type": "string",
+            "description": [
+              "The PSBT including any added signatures.",
+              "If no inputs were signed, this should be identical to the input PSBT."
+            ]
+          }
+        }
+      },
+      "example_notifications": [
+        {
+          "method": "openchannel2_sign",
+          "params": {
+            "openchannel2_sign": {
+              "channel_id": "252d1b0a1e57895e841...",
+              "psbt": "cHNidP8BADMCAAAAAQ+yBipSVZr..."
+            }
+          }
+        }
+      ],
+      "examples": [
+        {
+          "request": {
+            "id": "example:openchannel2_sign#1",
+            "method": "openchannel2_sign",
+            "params": {
+              "openchannel2_sign": {
+                "channel_id": "252d1b0a1e57895e841...",
+                "psbt": "cHNidP8BADMCAAAAAQ+yBipSVZr..."
+              }
+            }
+          },
+          "response": {
+            "result": "continue",
+            "psbt": "cHNidP8BADMCAAAAAQ+yBipSVZr..."
+          }
+        }
+      ]
+    },
+    "peer_connected.json": {
+      "$schema": "../rpc-schema-draft.json",
+      "added": "pre-v0.10.1",
+      "type": "object",
+      "notification": "peer_connected",
+      "title": "Hook fired when a peer connects and completes handshake",
+      "description": [
+        "The **peer_connected** hook is called whenever a peer has connected and successfully completed the cryptographic handshake.",
+        "",
+        "This is a chained hook: the first plugin returning \"disconnect\" stops further processing.",
+        "Plugins can call `listpeers` to retrieve additional information about the peer."
+      ],
+      "request": {
+        "additionalProperties": false,
+        "required": [
+          "peer"
+        ],
+        "properties": {
+          "peer": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "direction",
+              "addr",
+              "features"
+            ],
+            "properties": {
+              "id": {
+                "type": "pubkey",
+                "description": [
+                  "The node_id of the connected peer."
+                ]
+              },
+              "direction": {
+                "type": "string",
+                "enum": [
+                  "in",
+                  "out"
+                ],
+                "description": [
+                  "Connection direction: `in` for incoming, `out` for outgoing."
+                ]
+              },
+              "addr": {
+                "type": "string",
+                "description": [
+                  "The `addr` field shows the address that we are connected to ourselves, not the gossiped list of known addresses.",
+                  "In particular this means that the port for incoming connections is an ephemeral port, that may not be available for reconnections."
+                ]
+              },
+              "remote_addr": {
+                "type": "string",
+                "description": [
+                  "Our own address as reported by the remote peer. Helps with detecting our own IPv4 changes behind NAT."
+                ]
+              },
+              "features": {
+                "type": "hex",
+                "description": [
+                  "Feature bits advertised by the peer, encoded as hex."
+                ]
+              }
+            }
+          }
+        }
+      },
+      "response": {
+        "additionalProperties": false,
+        "required": [
+          "result"
+        ],
+        "properties": {
+          "result": {
+            "type": "string",
+            "enum": [
+              "continue",
+              "disconnect"
+            ],
+            "description": [
+              "Whether to allow the connection to proceed or disconnect the peer."
+            ]
+          },
+          "error_message": {
+            "type": "string",
+            "description": [
+              "Optional error message sent to the peer before disconnection.",
+              "Only used if result is \"disconnect\"."
+            ]
+          }
+        }
+      },
+      "see_also": [
+        "lightning-listpeers(7)"
+      ]
+    },
+    "rbf_channel.json": {
+      "$schema": "../rpc-schema-draft.json",
+      "added": "pre-v0.10.1",
+      "type": "object",
+      "notification": "rbf_channel",
+      "title": "Hook for handling RBF channel funding requests",
+      "description": [
+        "The **rbf_channel** hook is called when a peer proposes replacing the funding transaction of an existing channel using Replace-By-Fee (RBF).",
+        "",
+        "The plugin can choose to reject or continue the negotiation.",
+        "",
+        "If continuing, the plugin may contribute additional inputs and outputs by returning a PSBT and specifying an `our_funding_msat` amount.",
+        "",
+        "The `our_funding_msat` value must not be included in any output in the PSBT. Change outputs should be included and calculated using the provided `funding_feerate_per_kw`."
+      ],
+      "request": {
+        "required": [
+          "rbf_channel"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "rbf_channel": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "channel_id",
+              "their_last_funding_msat",
+              "their_funding_msat",
+              "our_last_funding_msat",
+              "funding_feerate_per_kw",
+              "feerate_our_max",
+              "feerate_our_min",
+              "channel_max_msat",
+              "locktime",
+              "require_confirmed_inputs"
+            ],
+            "properties": {
+              "id": {
+                "type": "pubkey",
+                "description": [
+                  "The `node_id` of the peer proposing the RBF."
+                ]
+              },
+              "channel_id": {
+                "type": "hash",
+                "description": [
+                  "The `channel_id` of the channel being modified."
+                ]
+              },
+              "their_last_funding_msat": {
+                "type": "msat",
+                "description": [
+                  "The peer's previous contribution to the funding transaction."
+                ]
+              },
+              "their_funding_msat": {
+                "type": "msat",
+                "description": [
+                  "The peer's proposed new funding contribution."
+                ]
+              },
+              "our_last_funding_msat": {
+                "type": "msat",
+                "description": [
+                  "Our previous contribution to the funding transaction."
+                ]
+              },
+              "funding_feerate_per_kw": {
+                "type": "u32",
+                "description": [
+                  "The feerate to use for the updated funding transaction, in satoshis per kw."
+                ]
+              },
+              "feerate_our_max": {
+                "type": "u32",
+                "description": [
+                  "The maximum feerate we are willing to accept for the funding transaction."
+                ]
+              },
+              "feerate_our_min": {
+                "type": "u32",
+                "description": [
+                  "The minimum feerate we are willing to accept for the funding transaction."
+                ]
+              },
+              "channel_max_msat": {
+                "type": "msat",
+                "description": [
+                  "The maximum total channel capacity allowed for this channel."
+                ]
+              },
+              "locktime": {
+                "type": "u32",
+                "description": [
+                  "The locktime to use for the funding transaction."
+                ]
+              },
+              "requested_lease_msat": {
+                "type": "msat",
+                "description": [
+                  "If present, the amount of liquidity the peer is requesting us to lease.",
+                  "This field is optional and only included if the peer requested a lease."
+                ]
+              },
+              "require_confirmed_inputs": {
+                "added": "v23.02",
+                "type": "boolean",
+                "description": [
+                  "Indicates whether the remote peer requires all inputs in the PSBT to be confirmed.",
+                  "If true, the plugin must avoid adding unconfirmed inputs."
+                ]
+              }
+            }
+          }
+        }
+      },
+      "response": {
+        "required": [
+          "result"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "result": {
+            "type": "string",
+            "enum": [
+              "continue",
+              "reject"
+            ],
+            "description": [
+              "Whether to accept or reject the RBF proposal."
+            ]
+          },
+          "psbt": {
+            "type": "string",
+            "description": [
+              "A PSBT containing additional inputs and outputs to contribute to the funding transaction.",
+              "Only valid if `result` is `continue`."
+            ]
+          },
+          "our_funding_msat": {
+            "type": "msat",
+            "description": [
+              "The amount we are contributing to the new funding transaction.",
+              "Must not be included in any output in the PSBT."
+            ]
+          },
+          "error_message": {
+            "type": "string",
+            "description": [
+              "An error message explaining the rejection.",
+              "Only used if `result` is `reject` and will be sent to the peer."
+            ]
+          }
+        }
+      }
+    },
+    "recover.json": {
+      "$schema": "../rpc-schema-draft.json",
+      "added": "v23.08",
+      "type": "object",
+      "notification": "recover",
+      "title": "Hook fired when node starts in recovery mode",
+      "description": [
+        "The **recover** hook is called whenever the node is started using the --recovery flag.",
+        "It provides the codex32 secret used to derive the HSM secret.",
+        "Plugins can use this to reconnect to peers who keep your peer storage backups with them and recover state or funds.",
+        "",
+        "This hook is informational and does not allow altering execution flow.",
+        "Plugins are expected to perform recovery-related side effects such as reconnecting to peers."
+      ],
+      "request": {
+        "additionalProperties": false,
+        "required": [
+          "codex32"
+        ],
+        "properties": {
+          "codex32": {
+            "type": "string",
+            "description": [
+              "The codex32-encoded secret provided via --recover.",
+              "Used to reconstruct the node's HSM secret."
+            ]
+          }
+        }
+      },
+      "response": {
+        "additionalProperties": false,
+        "required": [
+          "result"
+        ],
+        "properties": {
+          "result": {
+            "type": "string",
+            "enum": [
+              "continue"
+            ],
+            "description": [
+              "Returning \"continue\" resumes normal execution."
+            ]
+          }
+        }
+      }
+    },
+    "rpc_command.json": {
+      "$schema": "../rpc-schema-draft.json",
+      "added": "pre-v0.10.1",
+      "type": "object",
+      "notification": "rpc_command",
+      "title": "Hook for intercepting and modifying RPC commands",
+      "description": [
+        "The **rpc_command** hook allows a plugin to take over any RPC command.",
+        "",
+        "You can optionally specify a `filters` array, containing the command names you want to intercept: without this, all commands will be sent to this hook. (added in v25.12)",
+        "",
+        "The plugin receives the full JSON-RPC request and may choose to continue, replace the request, or return a custom result or error.",
+        "",
+        "This is a chained hook: only the first plugin that modifies the request or response will take effect. Other plugins will then be ignored and a warning will be logged."
+      ],
+      "request": {
+        "required": [
+          "rpc_command"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "rpc_command": {
+            "type": "object",
+            "description": [
+              "The original JSON-RPC request object."
+            ],
+            "additionalProperties": true,
+            "required": [
+              "id",
+              "method",
+              "params"
+            ],
+            "properties": {
+              "id": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": [
+                  "The JSON-RPC request id."
+                ]
+              },
+              "method": {
+                "type": "string",
+                "description": [
+                  "The RPC method name."
+                ]
+              },
+              "params": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  {
+                    "type": "array",
+                    "items": {}
+                  }
+                ],
+                "description": [
+                  "The parameters passed to the RPC method."
+                ]
+              }
+            }
+          }
+        }
+      },
+      "response": {
+        "additionalProperties": false,
+        "properties": {
+          "result": {
+            "type": "string",
+            "enum": [
+              "continue"
+            ],
+            "description": [
+              "Indicates that lightningd should continue processing the RPC command normally."
+            ]
+          },
+          "replace": {
+            "type": "object",
+            "description": [
+              "Replaces the original JSON-RPC request with a new one."
+            ],
+            "additionalProperties": true,
+            "required": [
+              "jsonrpc",
+              "id",
+              "method",
+              "params"
+            ],
+            "properties": {
+              "jsonrpc": {
+                "type": "string",
+                "enum": [
+                  "2.0"
+                ],
+                "description": [
+                  "The JSON-RPC version."
+                ]
+              },
+              "id": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": [
+                  "The JSON-RPC request id."
+                ]
+              },
+              "method": {
+                "type": "string",
+                "description": [
+                  "The RPC method name."
+                ]
+              },
+              "params": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  {
+                    "type": "array",
+                    "items": {}
+                  }
+                ],
+                "description": [
+                  "The parameters passed to the RPC method."
+                ]
+              }
+            }
+          },
+          "return": {
+            "type": "object",
+            "description": [
+              "Returns a custom JSON-RPC response to the caller."
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "result": {
+                "type": "object",
+                "description": [
+                  "Custom result object to return to the caller."
+                ]
+              },
+              "error": {
+                "type": "object",
+                "description": [
+                  "Custom error object to return to the caller."
+                ],
+                "additionalProperties": true,
+                "properties": {
+                  "code": {
+                    "type": "integer",
+                    "description": [
+                      "JSON-RPC error code."
+                    ]
+                  },
+                  "message": {
+                    "type": "string",
+                    "description": [
+                      "Human-readable error message."
+                    ]
+                  }
+                },
+                "required": [
+                  "code",
+                  "message"
+                ]
+              }
+            }
+          }
+        },
+        "oneOf": [
+          {
+            "required": [
+              "result"
+            ]
+          },
+          {
+            "required": [
+              "replace"
+            ]
+          },
+          {
+            "required": [
+              "return"
+            ],
+            "properties": {
+              "return": {
+                "required": [
+                  "result"
+                ]
+              }
+            }
+          },
+          {
+            "required": [
+              "return"
+            ],
+            "properties": {
+              "return": {
+                "required": [
+                  "error"
+                ]
+              }
+            }
+          }
+        ]
+      }
+    }
   }
 }
