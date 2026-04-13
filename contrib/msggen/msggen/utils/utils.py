@@ -4,7 +4,7 @@ from collections import OrderedDict
 from importlib import resources
 from pathlib import Path
 
-from msggen.model import CompositeField, Method, Notification, Service, TypeName
+from msggen.model import CompositeField, Method, Notification, Hook, Service, TypeName
 
 grpc_method_names = [
     "Getinfo",
@@ -195,12 +195,32 @@ grpc_notification_names = [
     },
 ]
 
+hook_names = [
+    {"name": "peer_connected", "typename": "PeerConnected"},
+    {"name": "recover_hook", "schema_name": "recover", "typename": "RecoverHook"},
+    {"name": "commitment_revocation", "typename": "CommitmentRevocation"},
+    {"name": "db_write", "typename": "DbWrite"},
+    {"name": "invoice_payment_hook", "schema_name": "invoice_payment", "typename": "InvoicePaymentHook"},
+    {"name": "openchannel", "typename": "Openchannel"},
+    {"name": "openchannel2", "typename": "Openchannel2"},
+    {"name": "openchannel2_changed", "typename": "Openchannel2Changed"},
+    {"name": "openchannel2_sign", "typename": "Openchannel2Sign"},
+    {"name": "rbf_channel", "typename": "RbfChannel"},
+    {"name": "htlc_accepted", "typename": "HtlcAccepted"},
+    {"name": "rpc_command", "typename": "RpcCommand"},
+    {"name": "custommsg_hook", "schema_name": "custommsg", "typename": "CustommsgHook"},
+    {"name": "onion_message_recv", "typename": "OnionMessageRecv"},
+    {"name": "onion_message_recv_secret", "typename": "OnionMessageRecvSecret"},
+
+]
+
 
 def combine_schemas(schema_dir: Path, dest: Path):
     """Enumerate all schema files, and combine it into a single JSON file."""
     bundle = OrderedDict()
     methods = OrderedDict()
     notifications = OrderedDict()
+    hooks = OrderedDict()
 
     # Parse methods
     files = sorted(list(schema_dir.iterdir()))
@@ -218,8 +238,17 @@ def combine_schemas(schema_dir: Path, dest: Path):
             continue
         notifications[f.name] = json.load(f.open())
 
+    # Parse hooks
+    hooks_dir = schema_dir / "hook"
+    files = sorted(list(hooks_dir.iterdir()))
+    for f in files:
+        if not f.name.endswith("json"):
+            continue
+        hooks[f.name] = json.load(f.open())
+
     bundle["methods"] = methods
     bundle["notifications"] = notifications
+    bundle["hooks"] = hooks
 
     with dest.open(mode="w") as f:
         json.dump(
@@ -314,6 +343,36 @@ def load_notification(name, typename: TypeName, schema_name=None):
     return Notification(name, TypeName(typename), request, response)
 
 
+def load_hook(name, typename: TypeName, schema_name=None):
+    """Load a hook that can be used by a plug-in"""
+    typename = str(typename)
+
+    hooks = get_schema_bundle()["hooks"]
+    if schema_name is None:
+        schema_name = name
+    hook_name = f"{schema_name.lower()}.json"
+
+    root_added = hooks[hook_name].get("added", None)
+    root_deprecated = hooks[hook_name].get("deprecated", None)
+
+    request = CompositeField.from_js(hooks[hook_name]["request"], path=name)
+    response = CompositeField.from_js(hooks[hook_name]["response"], path=name)
+
+    if request.added is None:
+        request.added = root_added
+    if request.deprecated is None:
+        request.deprecated = root_deprecated
+    if response.added is None:
+        response.added = root_added
+    if response.deprecated is None:
+        response.deprecated = root_deprecated
+
+    request.typename += "Event"
+    response.typename += "Action"
+
+    return Hook(name, TypeName(typename), request, response)
+
+
 def load_jsonrpc_service():
     methods = [load_jsonrpc_method(name) for name in grpc_method_names]
     notifications = [
@@ -324,7 +383,17 @@ def load_jsonrpc_service():
         )
         for names in grpc_notification_names
     ]
-    service = Service(name="Node", methods=methods, notifications=notifications)
+    hooks = [
+        load_hook(
+            name=names["name"],
+            typename=names["typename"],
+            schema_name=names.get("schema_name"),
+        )
+        for names in hook_names
+    ]
+    service = Service(
+        name="Node", methods=methods, notifications=notifications, hooks=hooks
+    )
     service.includes = [
         "primitives.proto"
     ]  # Make sure we have the primitives included.

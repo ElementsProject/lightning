@@ -1,6 +1,16 @@
 from concurrent import futures
 from pyln.testing.db import SqliteDbProvider, PostgresDbProvider
-from pyln.testing.utils import NodeFactory, BitcoinD, ElementsD, env, LightningNode, TEST_DEBUG, TEST_NETWORK, SLOW_MACHINE, VALGRIND
+from pyln.testing.utils import (
+    NodeFactory,
+    BitcoinD,
+    ElementsD,
+    env,
+    LightningNode,
+    TEST_DEBUG,
+    TEST_NETWORK,
+    SLOW_MACHINE,
+    VALGRIND,
+)
 from pyln.client import Millisatoshi
 from typing import Dict
 from pathlib import Path
@@ -28,7 +38,7 @@ __attempts: Dict[str, int] = {}
 def test_base_dir():
     d = os.getenv("TEST_DIR", "/tmp")
 
-    directory = tempfile.mkdtemp(prefix='ltests-', dir=d)
+    directory = tempfile.mkdtemp(prefix="ltests-", dir=d)
     print("Running tests in {}".format(directory))
 
     yield directory
@@ -36,13 +46,19 @@ def test_base_dir():
     # Now check if any test directory is left because the corresponding test
     # failed. If there are no such tests we can clean up the root test
     # directory.
-    contents = [d for d in os.listdir(directory) if os.path.isdir(os.path.join(directory, d)) and d.startswith('test_')]
+    contents = [
+        d
+        for d in os.listdir(directory)
+        if os.path.isdir(os.path.join(directory, d)) and d.startswith("test_")
+    ]
     if contents == []:
         shutil.rmtree(directory)
     else:
-        print("Leaving base_dir {} intact, it still has test sub-directories with failure details: {}".format(
-            directory, contents
-        ))
+        print(
+            "Leaving base_dir {} intact, it still has test sub-directories with failure details: {}".format(
+                directory, contents
+            )
+        )
 
 
 @pytest.fixture(autouse=True)
@@ -66,7 +82,7 @@ def setup_logging():
 
     loggers = [logging.getLogger()] + list(logging.Logger.manager.loggerDict.values())
     for logger in loggers:
-        handlers = getattr(logger, 'handlers', [])
+        handlers = getattr(logger, "handlers", [])
         for handler in handlers:
             logger.removeHandler(handler)
 
@@ -80,7 +96,9 @@ def directory(request, test_base_dir, test_name):
     """
     # Auto set value if it isn't in the dict yet
     __attempts[test_name] = __attempts.get(test_name, 0) + 1
-    directory = os.path.join(test_base_dir, "{}_{}".format(test_name, __attempts[test_name]))
+    directory = os.path.join(
+        test_base_dir, "{}_{}".format(test_name, __attempts[test_name])
+    )
     request.node.has_errors = False
 
     if not os.path.exists(directory):
@@ -92,9 +110,9 @@ def directory(request, test_base_dir, test_name):
     # determine whether we succeeded or failed. Outcome can be None if the
     # failure occurs during the setup phase, hence the use to getattr instead
     # of accessing it directly.
-    rep_call = getattr(request.node, 'rep_call', None)
-    outcome = 'passed' if rep_call is None else rep_call.outcome
-    failed = not outcome or request.node.has_errors or outcome != 'passed'
+    rep_call = getattr(request.node, "rep_call", None)
+    outcome = "passed" if rep_call is None else rep_call.outcome
+    failed = not outcome or request.node.has_errors or outcome != "passed"
 
     if not failed:
         try:
@@ -102,13 +120,19 @@ def directory(request, test_base_dir, test_name):
         except OSError:
             # Usually, this means that e.g. valgrind is still running.  Wait
             # a little and retry.
-            files = [os.path.join(dp, f) for dp, dn, fn in os.walk(directory) for f in fn]
+            files = [
+                os.path.join(dp, f) for dp, dn, fn in os.walk(directory) for f in fn
+            ]
             print("Directory still contains files: ", files)
             print("... sleeping then retrying")
             time.sleep(10)
             shutil.rmtree(directory)
     else:
-        logging.debug("Test execution failed, leaving the test directory {} intact.".format(directory))
+        logging.debug(
+            "Test execution failed, leaving the test directory {} intact.".format(
+                directory
+            )
+        )
 
 
 @pytest.fixture
@@ -117,8 +141,8 @@ def test_name(request):
 
 
 network_daemons = {
-    'regtest': BitcoinD,
-    'liquid-regtest': ElementsD,
+    "regtest": BitcoinD,
+    "liquid-regtest": ElementsD,
 }
 
 
@@ -129,12 +153,12 @@ def node_cls():
 
 @pytest.fixture
 def bitcoind(request, directory, teardown_checks):
-    chaind = network_daemons[env('TEST_NETWORK', 'regtest')]
+    chaind = network_daemons[env("TEST_NETWORK", "regtest")]
     bitcoind = chaind(bitcoin_dir=directory)
 
     # @pytest.mark.parametrize('bitcoind', [False], indirect=True) if you don't
     # want bitcoind started!
-    if getattr(request, 'param', True):
+    if getattr(request, "param", True):
         try:
             bitcoind.start()
         except Exception:
@@ -145,21 +169,25 @@ def bitcoind(request, directory, teardown_checks):
 
         # FIXME: include liquid-regtest in this check after elementsd has been
         # updated
-        if info['version'] < 200100 and env('TEST_NETWORK') != 'liquid-regtest':
+        if info["version"] < 200100 and env("TEST_NETWORK") != "liquid-regtest":
             bitcoind.rpc.stop()
-            raise ValueError("bitcoind is too old. At least version 20100 (v0.20.1)"
-                             " is needed, current version is {}".format(info['version']))
-        elif info['version'] < 160000:
+            raise ValueError(
+                "bitcoind is too old. At least version 20100 (v0.20.1)"
+                " is needed, current version is {}".format(info["version"])
+            )
+        elif info["version"] < 160000:
             bitcoind.rpc.stop()
-            raise ValueError("elementsd is too old. At least version 160000 (v0.16.0)"
-                             " is needed, current version is {}".format(info['version']))
+            raise ValueError(
+                "elementsd is too old. At least version 160000 (v0.16.0)"
+                " is needed, current version is {}".format(info["version"])
+            )
 
         info = bitcoind.rpc.getblockchaininfo()
 
         # Make sure we have some spendable funds
-        if info['blocks'] < 101:
-            bitcoind.generate_block(101 - info['blocks'])
-        elif bitcoind.rpc.getwalletinfo()['balance'] < 1:
+        if info["blocks"] < 101:
+            bitcoind.generate_block(101 - info["blocks"])
+        elif bitcoind.rpc.getwalletinfo()["balance"] < 1:
             logging.debug("Insufficient balance, generating 1 block")
             bitcoind.generate_block(1)
 
@@ -218,6 +246,7 @@ def teardown_checks(request):
 
 def _extra_validator(is_request: bool):
     """JSON Schema validator with additions for our specialized types"""
+
     def is_hex(checker, instance):
         """Hex string"""
         if not checker.is_type(instance, "string"):
@@ -272,9 +301,14 @@ def _extra_validator(is_request: bool):
         # 2. the next 3 bytes: indicating the transaction index within the block
         # 3. the least significant 2 bytes: indicating the output index that pays to the
         #    channel.
-        return (blocknum >= 0 and blocknum < 2**24
-                and txnum >= 0 and txnum < 2**24
-                and outnum >= 0 and outnum < 2**16)
+        return (
+            blocknum >= 0
+            and blocknum < 2**24
+            and txnum >= 0
+            and txnum < 2**24
+            and outnum >= 0
+            and outnum < 2**16
+        )
 
     def is_short_channel_id_dir(checker, instance):
         """Short channel id with direction"""
@@ -307,7 +341,16 @@ def _extra_validator(is_request: bool):
             return False
         if instance in ("urgent", "normal", "slow", "minimum"):
             return True
-        if instance in ("opening", "mutual_close", "unilateral_close", "delayed_to_us", "htlc_resolution", "penalty", "min_acceptable", "max_acceptable"):
+        if instance in (
+            "opening",
+            "mutual_close",
+            "unilateral_close",
+            "delayed_to_us",
+            "htlc_resolution",
+            "penalty",
+            "min_acceptable",
+            "max_acceptable",
+        ):
             return True
         if not instance.endswith("perkw") and not instance.endswith("perkb"):
             return False
@@ -409,7 +452,7 @@ def _extra_validator(is_request: bool):
 
     def is_currency(checker, instance):
         """currency including currency code"""
-        pattern = re.compile(r'^\d+(\.\d+)?[A-Z][A-Z][A-Z]$')
+        pattern = re.compile(r"^\d+(\.\d+)?[A-Z][A-Z][A-Z]$")
         if checker.is_type(instance, "string") and pattern.match(instance):
             return True
         return False
@@ -425,67 +468,93 @@ def _extra_validator(is_request: bool):
                 return False
         return True
 
+    def is_json_object_or_array(checker, instance):
+        """rpc method params can be either an object or an array"""
+        return checker.is_type(instance, "object") or checker.is_type(instance, "array")
+
+    def is_json_scalar(checker, instance):
+        """rpc id can be either a string, number, or null"""
+        return checker.is_type(instance, "string") or checker.is_type(instance, "number") or checker.is_type(instance, "null")
+
     # "msat" for request can be many forms
     if is_request:
         is_msat = is_msat_request
     else:
         is_msat = is_msat_response
-    type_checker = jsonschema.Draft7Validator.TYPE_CHECKER.redefine_many({
-        "hex": is_hex,
-        "hash": is_32byte_hex,
-        "secret": is_32byte_hex,
-        "u64": is_u64,
-        "u32": is_u32,
-        "u16": is_u16,
-        "u8": is_u8,
-        "pubkey": is_pubkey,
-        "sat": is_sat,
-        "sat_or_all": is_sat_or_all,
-        "msat": is_msat,
-        "msat_or_all": is_msat_or_all,
-        "msat_or_any": is_msat_or_any,
-        "currency": is_currency,
-        "txid": is_txid,
-        "signature": is_signature,
-        "bip340sig": is_bip340sig,
-        "short_channel_id": is_short_channel_id,
-        "short_channel_id_dir": is_short_channel_id_dir,
-        "outpoint": is_outpoint,
-        "feerate": is_feerate,
-        "outputdesc": is_outputdesc,
-        "string_map": is_string_map,
-    })
+    type_checker = jsonschema.Draft7Validator.TYPE_CHECKER.redefine_many(
+        {
+            "hex": is_hex,
+            "hash": is_32byte_hex,
+            "secret": is_32byte_hex,
+            "u64": is_u64,
+            "u32": is_u32,
+            "u16": is_u16,
+            "u8": is_u8,
+            "pubkey": is_pubkey,
+            "sat": is_sat,
+            "sat_or_all": is_sat_or_all,
+            "msat": is_msat,
+            "msat_or_all": is_msat_or_all,
+            "msat_or_any": is_msat_or_any,
+            "currency": is_currency,
+            "txid": is_txid,
+            "signature": is_signature,
+            "bip340sig": is_bip340sig,
+            "short_channel_id": is_short_channel_id,
+            "short_channel_id_dir": is_short_channel_id_dir,
+            "outpoint": is_outpoint,
+            "feerate": is_feerate,
+            "outputdesc": is_outputdesc,
+            "string_map": is_string_map,
+            "json_object_or_array": is_json_object_or_array,
+            "json_scalar": is_json_scalar,
+        }
+    )
 
-    return jsonschema.validators.extend(jsonschema.Draft7Validator,
-                                        type_checker=type_checker)
+    return jsonschema.validators.extend(
+        jsonschema.Draft7Validator, type_checker=type_checker
+    )
 
 
 def _load_schema(filename):
     """Load the schema from @filename and create a validator for it"""
-    with open(filename, 'r') as f:
+    with open(filename, "r") as f:
         data = json.load(f)
-        return [_extra_validator(True)(data.get('request', {})), _extra_validator(False)(data.get('response', {}))]
+        return [
+            _extra_validator(True)(data.get("request", {})),
+            _extra_validator(False)(data.get("response", {})),
+        ]
 
 
 @pytest.fixture(autouse=True)
 def jsonschemas():
     """Load schema file if it exist: returns request/response schemas by pairs"""
     try:
-        schemafiles = os.listdir('doc/schemas')
+        schemafiles = os.listdir("doc/schemas")
     except FileNotFoundError:
         schemafiles = []
 
     schemas = {}
     for fname in schemafiles:
-        if fname.endswith('.json'):
-            base = fname.replace('lightning-', '').replace('.json', '')
+        if fname.endswith(".json"):
+            base = fname.replace("lightning-", "").replace(".json", "")
             # Request is 0 and Response is 1
-            schemas[base] = _load_schema(os.path.join('doc/schemas', fname))
+            schemas[base] = _load_schema(os.path.join("doc/schemas", fname))
     return schemas
 
 
 @pytest.fixture
-def node_factory(request, directory, test_name, bitcoind, executor, db_provider, teardown_checks, node_cls, jsonschemas):
+def node_factory(
+    request,
+    directory,
+    test_name,
+    bitcoind,
+    executor,
+    db_provider,
+    teardown_checks,
+    node_cls,
+    jsonschemas,
+):
     nf = NodeFactory(
         request,
         test_name,
@@ -514,7 +583,11 @@ def node_factory(request, directory, test_name, bitcoind, executor, db_provider,
     map_node_error(nf.nodes, printValgrindErrors, "reported valgrind errors")
     map_node_error(nf.nodes, printCrashLog, "had crash.log files")
     map_node_error(nf.nodes, checkBroken, "had BROKEN or That's weird messages")
-    map_node_error(nf.nodes, lambda n: not n.allow_warning and n.daemon.is_in_log(r' WARNING:'), "had warning messages")
+    map_node_error(
+        nf.nodes,
+        lambda n: not n.allow_warning and n.daemon.is_in_log(r" WARNING:"),
+        "had warning messages",
+    )
     map_node_error(nf.nodes, checkReconnect, "had unexpected reconnections")
     map_node_error(nf.nodes, checkPluginJSON, "had malformed hooks/notifications")
 
@@ -523,13 +596,29 @@ def node_factory(request, directory, test_name, bitcoind, executor, db_provider,
         for n in nf.nodes:
             dumpGossipStore(n)
 
-    map_node_error(nf.nodes, lambda n: n.daemon.is_in_log('Bad reestablish'), "had bad reestablish")
-    map_node_error(nf.nodes, lambda n: n.daemon.is_in_log('bad hsm request'), "had bad hsm requests")
-    map_node_error(nf.nodes, lambda n: n.daemon.is_in_log(r'Accessing a null column'), "Accessing a null column")
+    map_node_error(
+        nf.nodes, lambda n: n.daemon.is_in_log("Bad reestablish"), "had bad reestablish"
+    )
+    map_node_error(
+        nf.nodes,
+        lambda n: n.daemon.is_in_log("bad hsm request"),
+        "had bad hsm requests",
+    )
+    map_node_error(
+        nf.nodes,
+        lambda n: n.daemon.is_in_log(r"Accessing a null column"),
+        "Accessing a null column",
+    )
     map_node_error(nf.nodes, checkMemleak, "had memleak messages")
-    map_node_error(nf.nodes, lambda n: n.rc != 0 and not n.may_fail, "Node exited with return code {n.rc}")
+    map_node_error(
+        nf.nodes,
+        lambda n: n.rc != 0 and not n.may_fail,
+        "Node exited with return code {n.rc}",
+    )
     if not ok:
-        map_node_error(nf.nodes, prinErrlog, "some node failed unexpected, non-empty errlog file")
+        map_node_error(
+            nf.nodes, prinErrlog, "some node failed unexpected, non-empty errlog file"
+        )
 
     for n in nf.nodes:
         n.daemon.cleanup_files()
@@ -539,7 +628,7 @@ def getErrlog(node):
     for error_file in os.listdir(node.daemon.lightning_dir):
         if not re.fullmatch(r"errlog", error_file):
             continue
-        with open(os.path.join(node.daemon.lightning_dir, error_file), 'r') as f:
+        with open(os.path.join(node.daemon.lightning_dir, error_file), "r") as f:
             errors = f.read().strip()
             if errors:
                 return errors, error_file
@@ -549,7 +638,11 @@ def getErrlog(node):
 def prinErrlog(node):
     errors, fname = getErrlog(node)
     if errors:
-        print("-" * 31, "stderr of node {} captured in {} file".format(node.daemon.prefix, fname), "-" * 32)
+        print(
+            "-" * 31,
+            "stderr of node {} captured in {} file".format(node.daemon.prefix, fname),
+            "-" * 32,
+        )
         print(errors)
         print("-" * 80)
     return 1 if errors else 0
@@ -559,7 +652,7 @@ def getValgrindErrors(node):
     for error_file in os.listdir(node.daemon.lightning_dir):
         if not re.fullmatch(r"valgrind-errors.\d+", error_file):
             continue
-        with open(os.path.join(node.daemon.lightning_dir, error_file), 'r') as f:
+        with open(os.path.join(node.daemon.lightning_dir, error_file), "r") as f:
             errors = f.read().strip()
             if errors:
                 return errors, error_file
@@ -580,8 +673,8 @@ def getCrashLog(node):
     if node.may_fail:
         return None, None
     try:
-        crashlog = os.path.join(node.daemon.lightning_dir, 'crash.log')
-        with open(crashlog, 'r') as f:
+        crashlog = os.path.join(node.daemon.lightning_dir, "crash.log")
+        with open(crashlog, "r") as f:
             return f.readlines(), crashlog
     except Exception:
         return None, None
@@ -599,15 +692,17 @@ def printCrashLog(node):
 def checkReconnect(node):
     if node.may_reconnect:
         return 0
-    if node.daemon.is_in_log('Peer has reconnected'):
+    if node.daemon.is_in_log("Peer has reconnected"):
         return 1
     return 0
 
 
 def dumpGossipStore(node):
-    gs_path = os.path.join(node.daemon.lightning_dir, TEST_NETWORK, 'gossip_store')
-    gs = subprocess.run(['devtools/dump-gossipstore', '--print-deleted', gs_path],
-                        stdout=subprocess.PIPE)
+    gs_path = os.path.join(node.daemon.lightning_dir, TEST_NETWORK, "gossip_store")
+    gs = subprocess.run(
+        ["devtools/dump-gossipstore", "--print-deleted", gs_path],
+        stdout=subprocess.PIPE,
+    )
     print("GOSSIP STORE CONTENTS for {}:\n".format(node.daemon.prefix))
     print(gs.stdout.decode())
 
@@ -616,22 +711,24 @@ def checkBadGossip(node):
     if node.allow_bad_gossip:
         return 0
     # We can get bad gossip order from inside error msgs.
-    if node.daemon.is_in_log('Bad gossip order:'):
+    if node.daemon.is_in_log("Bad gossip order:"):
         # This can happen if a node sees a node_announce after a channel
         # is deleted, however.
-        if node.daemon.is_in_log('Deleting channel'):
+        if node.daemon.is_in_log("Deleting channel"):
             return 0
         return 1
 
     # Other 'Bad' messages shouldn't happen.
-    if node.daemon.is_in_log(r'gossipd.*Bad (?!gossip order from error)'):
+    if node.daemon.is_in_log(r"gossipd.*Bad (?!gossip order from error)"):
         return 1
     return 0
 
 
 def checkBroken(node):
     node.daemon.logs_catchup()
-    broken_lines = [l for l in node.daemon.logs if '**BROKEN**' in l or "That's weird: " in l]
+    broken_lines = [
+        l for l in node.daemon.logs if "**BROKEN**" in l or "That's weird: " in l
+    ]
     if node.broken_log:
         ex = re.compile(node.broken_log)
         broken_lines = [l for l in broken_lines if not ex.search(l)]
@@ -650,16 +747,18 @@ def checkPluginJSON(node):
         return 0
 
     try:
-        notificationfiles = os.listdir('doc/schemas/notification')
+        notificationfiles = os.listdir("doc/schemas/notification")
     except FileNotFoundError:
         notificationfiles = []
 
     notifications = {}
     for fname in notificationfiles:
-        if fname.endswith('.json'):
-            base = fname.replace('.json', '')
+        if fname.endswith(".json"):
+            base = fname.replace(".json", "")
             # Request is 0 and Response is 1
-            notifications[base] = _load_schema(os.path.join('doc/schemas/notification', fname))
+            notifications[base] = _load_schema(
+                os.path.join("doc/schemas/notification", fname)
+            )
 
     # FIXME: add doc/schemas/hook/
     hooks = {}
@@ -667,24 +766,27 @@ def checkPluginJSON(node):
     for f in (Path(node.daemon.lightning_dir) / "plugin-io").iterdir():
         # e.g. hook_in-peer_connected-124567-358
         io = json.loads(f.read_text())
-        parts = f.name.split('-')
-        if parts[0] == 'hook_in':
+        parts = f.name.split("-")
+        if parts[0] == "hook_in":
             schema = hooks.get(parts[1])
-            req = io['result']
+            req = io["result"]
             direction = 1
-        elif parts[0] == 'hook_out':
+        elif parts[0] == "hook_out":
             schema = hooks.get(parts[1])
-            req = io['params']
+            req = io["params"]
             direction = 0
         else:
-            assert parts[0] == 'notification_out'
+            assert parts[0] == "notification_out"
             schema = notifications.get(parts[1])
             # The notification is wrapped in an object of its own name.
-            req = io['params'][parts[1]]
+            req = io["params"][parts[1]]
             direction = 1
 
         # Until v26.09, with channel_state_changed.null_scid, that notification will be non-schema compliant.
-        if f.name.startswith('notification_out-channel_state_changed-') and node.daemon.opts.get('allow-deprecated-apis', True) is True:
+        if (
+            f.name.startswith("notification_out-channel_state_changed-")
+            and node.daemon.opts.get("allow-deprecated-apis", True) is True
+        ):
             continue
 
         if schema is not None:
@@ -697,33 +799,33 @@ def checkPluginJSON(node):
 
 
 def checkBadReestablish(node):
-    if node.daemon.is_in_log('Bad reestablish'):
+    if node.daemon.is_in_log("Bad reestablish"):
         return 1
     return 0
 
 
 def checkBadHSMRequest(node):
-    if node.daemon.is_in_log('bad hsm request'):
+    if node.daemon.is_in_log("bad hsm request"):
         return 1
     return 0
 
 
 def checkMemleak(node):
-    if node.daemon.is_in_log('MEMLEAK:'):
+    if node.daemon.is_in_log("MEMLEAK:"):
         return 1
     return 0
 
 
 # Mapping from TEST_DB_PROVIDER env variable to class to be used
 providers = {
-    'sqlite3': SqliteDbProvider,
-    'postgres': PostgresDbProvider,
+    "sqlite3": SqliteDbProvider,
+    "postgres": PostgresDbProvider,
 }
 
 
 @pytest.fixture
 def db_provider(test_base_dir):
-    provider = providers[os.getenv('TEST_DB_PROVIDER', 'sqlite3')](test_base_dir)
+    provider = providers[os.getenv("TEST_DB_PROVIDER", "sqlite3")](test_base_dir)
     provider.start()
     yield provider
     provider.stop()
@@ -740,29 +842,29 @@ def executor(teardown_checks):
 def chainparams():
     """Return the chainparams for the TEST_NETWORK.
 
-     - chain_hash is in network byte order, not the RPC return order.
-     - example_addr doesn't belong to any node in the test (randomly generated)
+    - chain_hash is in network byte order, not the RPC return order.
+    - example_addr doesn't belong to any node in the test (randomly generated)
 
     """
     chainparams = {
-        'regtest': {
+        "regtest": {
             "bip173_prefix": "bcrt",
             "elements": False,
             "name": "regtest",
-            "p2sh_prefix": '2',
+            "p2sh_prefix": "2",
             "example_addr": "bcrt1qeyyk6sl5pr49ycpqyckvmttus5ttj25pd0zpvg",
             "feeoutput": False,
-            "chain_hash": '06226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f',
+            "chain_hash": "06226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f",
         },
-        'liquid-regtest': {
+        "liquid-regtest": {
             "bip173_prefix": "ert",
             "elements": True,
             "name": "liquid-regtest",
-            "p2sh_prefix": 'X',
+            "p2sh_prefix": "X",
             "example_addr": "ert1qjsesxflhs3632syhcz7llpfx20p5tr0kpllfve",
             "feeoutput": True,
             "chain_hash": "9f87eb580b9e5f11dc211e9fb66abb3699999044f8fe146801162393364286c6",
-        }
+        },
     }
 
-    return chainparams[env('TEST_NETWORK', 'regtest')]
+    return chainparams[env("TEST_NETWORK", "regtest")]

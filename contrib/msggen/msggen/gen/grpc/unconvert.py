@@ -134,8 +134,13 @@ class GrpcUnconverterGenerator(GrpcConverterGenerator):
                     "TlvStream?": f"c.{name}.map(|s| s.into())",
                     "string_map": f"c.{name}.unwrap()",
                     "string_map?": f"Some(c.{name})",
+                    "json_object_or_array": f"c.{name}.unwrap()",
+                    "json_object_or_array?": f"Some(c.{name})",
+                    "json_scalar": f"c.{name}.unwrap()",
+                    "json_scalar?": f"Some(c.{name})",
                 }.get(
-                    typ, f"c.{name}"  # default to just assignment
+                    typ,
+                    f"c.{name}",  # default to just assignment
                 )
                 self.write(f"{name}: {rhs}, // Rule #1 for type {typ}\n", numindent=3)
             elif isinstance(f, CompositeField):

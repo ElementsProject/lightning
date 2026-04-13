@@ -14921,6 +14921,30 @@
             "added": "pre-v0.10.1",
             "deprecated": "v25.09"
         },
+        "commitment_revocation": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "commitment_revocation.channel_id": {
+            "added": "v0.10.2",
+            "deprecated": null
+        },
+        "commitment_revocation.commitment_txid": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "commitment_revocation.commitnum": {
+            "added": "v0.10.2",
+            "deprecated": null
+        },
+        "commitment_revocation.penalty_tx": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "commitment_revocation.result": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
         "connect": {
             "added": "pre-v0.10.1",
             "deprecated": null
@@ -14963,6 +14987,38 @@
         },
         "custommsg.peer_id": {
             "added": "v24.02",
+            "deprecated": null
+        },
+        "custommsg_hook": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "custommsg_hook.payload": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "custommsg_hook.peer_id": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "custommsg_hook.result": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "db_write": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "db_write.data_version": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "db_write.result": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "db_write.writes[]": {
+            "added": "pre-v0.10.1",
             "deprecated": null
         },
         "deprecated_oneshot": {
@@ -15033,6 +15089,126 @@
             "added": "v23.11",
             "deprecated": null
         },
+        "htlc_accepted": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "htlc_accepted.extra_tlvs": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "htlc_accepted.failure_message": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "htlc_accepted.failure_onion": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "htlc_accepted.forward_to": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "htlc_accepted.htlc": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "htlc_accepted.htlc.amount_msat": {
+            "added": "v0.12.0",
+            "deprecated": null
+        },
+        "htlc_accepted.htlc.cltv_expiry": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "htlc_accepted.htlc.cltv_expiry_relative": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "htlc_accepted.htlc.extra_tlvs": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "htlc_accepted.htlc.id": {
+            "added": "v0.12.0",
+            "deprecated": null
+        },
+        "htlc_accepted.htlc.payment_hash": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "htlc_accepted.htlc.short_channel_id": {
+            "added": "v0.12.0",
+            "deprecated": null
+        },
+        "htlc_accepted.invoice_msat": {
+            "added": "v25.12",
+            "deprecated": null
+        },
+        "htlc_accepted.onion": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "htlc_accepted.onion.forward_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "htlc_accepted.onion.next_node_id": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "htlc_accepted.onion.next_onion": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "htlc_accepted.onion.outgoing_cltv_value": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "htlc_accepted.onion.payload": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "htlc_accepted.onion.payment_metadata": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "htlc_accepted.onion.payment_secret": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "htlc_accepted.onion.shared_secret": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "htlc_accepted.onion.short_channel_id": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "htlc_accepted.onion.total_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "htlc_accepted.onion.type": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "htlc_accepted.payload": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "htlc_accepted.payment_key": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "htlc_accepted.peer_id": {
+            "added": "v25.12",
+            "deprecated": null
+        },
+        "htlc_accepted.result": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
         "invoice_creation": {
             "added": "pre-v0.10.1",
             "deprecated": null
@@ -15066,6 +15242,34 @@
             "deprecated": null
         },
         "invoice_payment.preimage": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "invoice_payment_hook": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "invoice_payment_hook.failure_message": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "invoice_payment_hook.payment": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "invoice_payment_hook.payment.label": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "invoice_payment_hook.payment.msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "invoice_payment_hook.payment.preimage": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "invoice_payment_hook.result": {
             "added": "pre-v0.10.1",
             "deprecated": null
         },
@@ -15221,6 +15425,146 @@
             "added": "pre-v0.10.1",
             "deprecated": null
         },
+        "onion_message_recv": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "onion_message_recv.onion_message": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "onion_message_recv.onion_message.invoice": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "onion_message_recv.onion_message.invoice_error": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "onion_message_recv.onion_message.invoice_request": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "onion_message_recv.onion_message.reply_blindedpath": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "onion_message_recv.onion_message.reply_blindedpath.first_node_id": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "onion_message_recv.onion_message.reply_blindedpath.first_path_key": {
+            "added": "v24.11",
+            "deprecated": null
+        },
+        "onion_message_recv.onion_message.reply_blindedpath.first_scid": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "onion_message_recv.onion_message.reply_blindedpath.first_scid_dir": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "onion_message_recv.onion_message.reply_blindedpath.hops[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "onion_message_recv.onion_message.reply_blindedpath.hops[].blinded_node_id": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "onion_message_recv.onion_message.reply_blindedpath.hops[].encrypted_recipient_data": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "onion_message_recv.onion_message.unknown_fields[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "onion_message_recv.onion_message.unknown_fields[].number": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "onion_message_recv.onion_message.unknown_fields[].value": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "onion_message_recv.result": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "onion_message_recv_secret": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "onion_message_recv_secret.onion_message": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "onion_message_recv_secret.onion_message.invoice": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "onion_message_recv_secret.onion_message.invoice_error": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "onion_message_recv_secret.onion_message.invoice_request": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "onion_message_recv_secret.onion_message.pathsecret": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "onion_message_recv_secret.onion_message.reply_blindedpath": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "onion_message_recv_secret.onion_message.reply_blindedpath.first_node_id": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "onion_message_recv_secret.onion_message.reply_blindedpath.first_path_key": {
+            "added": "v24.11",
+            "deprecated": null
+        },
+        "onion_message_recv_secret.onion_message.reply_blindedpath.first_scid": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "onion_message_recv_secret.onion_message.reply_blindedpath.first_scid_dir": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "onion_message_recv_secret.onion_message.reply_blindedpath.hops[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "onion_message_recv_secret.onion_message.reply_blindedpath.hops[].blinded_node_id": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "onion_message_recv_secret.onion_message.reply_blindedpath.hops[].encrypted_recipient_data": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "onion_message_recv_secret.onion_message.unknown_fields[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "onion_message_recv_secret.onion_message.unknown_fields[].number": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "onion_message_recv_secret.onion_message.unknown_fields[].value": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "onion_message_recv_secret.result": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
         "onionmessage_forward_fail": {
             "added": "v24.11",
             "deprecated": null
@@ -15247,6 +15591,266 @@
         },
         "onionmessage_forward_fail.source": {
             "added": "v24.11",
+            "deprecated": null
+        },
+        "openchannel": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel.close_to": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel.error_message": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel.mindepth": {
+            "added": "v0.12.0",
+            "deprecated": null
+        },
+        "openchannel.openchannel": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel.openchannel.channel_flags": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel.openchannel.channel_reserve_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel.openchannel.channel_type": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "openchannel.openchannel.channel_type.bits[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel.openchannel.channel_type.names[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel.openchannel.dust_limit_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel.openchannel.feerate_per_kw": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel.openchannel.funding_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel.openchannel.htlc_minimum_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel.openchannel.id": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel.openchannel.max_accepted_htlcs": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel.openchannel.max_htlc_value_in_flight_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel.openchannel.push_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel.openchannel.shutdown_scriptpubkey": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel.openchannel.to_self_delay": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel.reserve": {
+            "added": "v22.11",
+            "deprecated": null
+        },
+        "openchannel.result": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel2": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel2.close_to": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel2.error_message": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel2.openchannel2": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel2.openchannel2.channel_flags": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel2.openchannel2.channel_id": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel2.openchannel2.channel_max_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel2.openchannel2.channel_type": {
+            "added": "v25.09",
+            "deprecated": null
+        },
+        "openchannel2.openchannel2.channel_type.bits[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel2.openchannel2.channel_type.names[]": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel2.openchannel2.commitment_feerate_per_kw": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel2.openchannel2.dust_limit_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel2.openchannel2.feerate_our_max": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel2.openchannel2.feerate_our_min": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel2.openchannel2.funding_feerate_per_kw": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel2.openchannel2.htlc_minimum_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel2.openchannel2.id": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel2.openchannel2.lease_blockheight_start": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel2.openchannel2.locktime": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel2.openchannel2.max_accepted_htlcs": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel2.openchannel2.max_htlc_value_in_flight_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel2.openchannel2.node_blockheight": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel2.openchannel2.requested_lease_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel2.openchannel2.require_confirmed_inputs": {
+            "added": "v23.02",
+            "deprecated": null
+        },
+        "openchannel2.openchannel2.shutdown_scriptpubkey": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel2.openchannel2.their_funding_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel2.openchannel2.to_self_delay": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel2.our_funding_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel2.psbt": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel2.result": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel2_changed": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel2_changed.openchannel2_changed": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel2_changed.openchannel2_changed.channel_id": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel2_changed.openchannel2_changed.psbt": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel2_changed.openchannel2_changed.require_confirmed_inputs": {
+            "added": "v23.02",
+            "deprecated": null
+        },
+        "openchannel2_changed.psbt": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel2_changed.result": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel2_sign": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel2_sign.openchannel2_sign": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel2_sign.openchannel2_sign.channel_id": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel2_sign.openchannel2_sign.psbt": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel2_sign.psbt": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel2_sign.result": {
+            "added": "pre-v0.10.1",
             "deprecated": null
         },
         "openchannel_peer_sigs": {
@@ -15357,6 +15961,42 @@
             "added": "v25.09",
             "deprecated": null
         },
+        "peer_connected": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "peer_connected.error_message": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "peer_connected.peer": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "peer_connected.peer.addr": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "peer_connected.peer.direction": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "peer_connected.peer.features": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "peer_connected.peer.id": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "peer_connected.peer.remote_addr": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "peer_connected.result": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
         "plugin_started": {
             "added": "v25.02",
             "deprecated": null
@@ -15387,6 +16027,154 @@
         },
         "plugin_stopped.plugin_path": {
             "added": "v25.02",
+            "deprecated": null
+        },
+        "rbf_channel": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "rbf_channel.error_message": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "rbf_channel.our_funding_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "rbf_channel.psbt": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "rbf_channel.rbf_channel": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "rbf_channel.rbf_channel.channel_id": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "rbf_channel.rbf_channel.channel_max_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "rbf_channel.rbf_channel.feerate_our_max": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "rbf_channel.rbf_channel.feerate_our_min": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "rbf_channel.rbf_channel.funding_feerate_per_kw": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "rbf_channel.rbf_channel.id": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "rbf_channel.rbf_channel.locktime": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "rbf_channel.rbf_channel.our_last_funding_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "rbf_channel.rbf_channel.requested_lease_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "rbf_channel.rbf_channel.require_confirmed_inputs": {
+            "added": "v23.02",
+            "deprecated": null
+        },
+        "rbf_channel.rbf_channel.their_funding_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "rbf_channel.rbf_channel.their_last_funding_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "rbf_channel.result": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "recover_hook": {
+            "added": "v23.08",
+            "deprecated": null
+        },
+        "recover_hook.codex32": {
+            "added": "v23.08",
+            "deprecated": null
+        },
+        "recover_hook.result": {
+            "added": "v23.08",
+            "deprecated": null
+        },
+        "rpc_command": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "rpc_command.replace": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "rpc_command.replace.id": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "rpc_command.replace.jsonrpc": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "rpc_command.replace.method": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "rpc_command.replace.params": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "rpc_command.result": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "rpc_command.return": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "rpc_command.return.error": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "rpc_command.return.error.code": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "rpc_command.return.error.message": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "rpc_command.return.result": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "rpc_command.rpc_command": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "rpc_command.rpc_command.id": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "rpc_command.rpc_command.method": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "rpc_command.rpc_command.params": {
+            "added": "pre-v0.10.1",
             "deprecated": null
         },
         "sendpay_failure": {
@@ -15612,6 +16400,64 @@
         "warning.timestamp": {
             "added": "v24.02",
             "deprecated": null
+        }
+    },
+    "rpc-only-enum-map": {
+        "CommitmentRevocationResult": {
+            "continue": 0
+        },
+        "CustommsgHookResult": {
+            "continue": 0
+        },
+        "DbWriteResult": {
+            "continue": 0
+        },
+        "HtlcAcceptedOnionType": {
+            "tlv": 0
+        },
+        "HtlcAcceptedResult": {
+            "continue": 0,
+            "fail": 1,
+            "resolve": 2
+        },
+        "InvoicePaymentHookResult": {
+            "continue": 0,
+            "reject": 1
+        },
+        "Openchannel2ChangedResult": {
+            "continue": 0
+        },
+        "Openchannel2Result": {
+            "continue": 0,
+            "reject": 1
+        },
+        "Openchannel2SignResult": {
+            "continue": 0
+        },
+        "OpenchannelResult": {
+            "continue": 0,
+            "reject": 1
+        },
+        "PeerConnectedPeerDirection": {
+            "in": 0,
+            "out": 1
+        },
+        "PeerConnectedResult": {
+            "continue": 0,
+            "disconnect": 1
+        },
+        "RbfChannelResult": {
+            "continue": 0,
+            "reject": 1
+        },
+        "RecoverHookResult": {
+            "continue": 0
+        },
+        "RpcCommandReplaceJsonrpc": {
+            "2.0": 0
+        },
+        "RpcCommandResult": {
+            "continue": 0
         }
     }
 }
