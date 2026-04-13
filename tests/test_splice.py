@@ -718,7 +718,6 @@ def test_easy_splice_out_into_channel(node_factory, bitcoind, chainparams):
     assert initial_chan1_balance + Millisatoshi(spliceamt * 1000) == end_chan1_balance
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
