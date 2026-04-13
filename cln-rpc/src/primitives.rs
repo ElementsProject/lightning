@@ -1173,3 +1173,19 @@ impl Serialize for TlvStream {
         map.end()
     }
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(untagged)]
+pub enum JsonObjectOrArray {
+    Object(serde_json::Map<String, Value>),
+    Array(Vec<Value>),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(untagged)]
+pub enum JsonScalar {
+    String(String),
+    Number(serde_json::Number),
+    Bool(bool),
+    Null,
+}

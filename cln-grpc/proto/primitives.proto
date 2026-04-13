@@ -147,3 +147,40 @@ enum PluginSubcommand {
 	STARTDIR = 3;
 	LIST = 4;
 }
+
+message JsonObjectOrArray {
+	oneof structure {
+		JsonObject object = 1;
+		JsonArray array  = 2;
+	}
+}
+
+message JsonObject {
+	map<string, JsonValue> fields = 1;
+}
+
+message JsonArray {
+	repeated JsonValue values = 1;
+}
+
+message JsonValue {
+  	oneof kind {
+		bool   bool_value   = 1;
+		int64  int_value    = 2;
+		uint64 uint_value   = 3;
+		double double_value = 4;
+		string string_value = 5;
+		JsonArray  array    = 6;
+		JsonObject object   = 7;
+  }
+}
+
+message JsonScalar {
+	oneof scalar {
+		bool   bool_value   = 1;
+		int64  int_value    = 2;
+		uint64 uint_value   = 3;
+		double double_value = 4;
+		string string_value = 5;
+	}
+}
