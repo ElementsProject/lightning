@@ -10,7 +10,8 @@ mod convert {
 
     use cln_rpc::primitives::{
         Amount as JAmount, AmountOrAll as JAmountOrAll, AmountOrAny as JAmountOrAny,
-        Feerate as JFeerate, Outpoint as JOutpoint, OutputDesc as JOutputDesc,
+        Feerate as JFeerate, JsonObjectOrArray as JJsonObjectOrArray, JsonScalar as JJsonScalar,
+        Outpoint as JOutpoint, OutputDesc as JOutputDesc,
     };
 
     impl From<JAmount> for Amount {
@@ -277,6 +278,149 @@ mod convert {
             Self {
                 r#type: e.typ,
                 value: e.value,
+            }
+        }
+    }
+
+    impl From<serde_json::Value> for JsonValue {
+        fn from(v: serde_json::Value) -> Self {
+            let kind = match v {
+                serde_json::Value::Null => None,
+                serde_json::Value::Bool(b) => Some(json_value::Kind::BoolValue(b)),
+                serde_json::Value::Number(n) => {
+                    if let Some(u) = n.as_u64() {
+                        Some(json_value::Kind::UintValue(u))
+                    } else if let Some(i) = n.as_i64() {
+                        Some(json_value::Kind::IntValue(i))
+                    } else if let Some(f) = n.as_f64() {
+                        Some(json_value::Kind::DoubleValue(f))
+                    } else {
+                        let error = format!("Failed to parse number: `{}`", n);
+                        println!(
+                            "{}",
+                            serde_json::json!({"jsonrpc": "2.0",
+                          "method": "log",
+                          "params": {"level":"warn", "message": error}})
+                        );
+                        std::process::exit(1);
+                    }
+                }
+                serde_json::Value::String(s) => Some(json_value::Kind::StringValue(s)),
+                serde_json::Value::Array(arr) => Some(json_value::Kind::Array(JsonArray {
+                    values: arr.into_iter().map(JsonValue::from).collect(),
+                })),
+                serde_json::Value::Object(obj) => Some(json_value::Kind::Object(JsonObject {
+                    fields: obj
+                        .into_iter()
+                        .map(|(k, v)| (k, JsonValue::from(v)))
+                        .collect(),
+                })),
+            };
+            JsonValue { kind }
+        }
+    }
+
+    impl From<JJsonObjectOrArray> for JsonObjectOrArray {
+        fn from(v: JJsonObjectOrArray) -> Self {
+            let structure = match v {
+                JJsonObjectOrArray::Array(arr) => {
+                    Some(json_object_or_array::Structure::Array(JsonArray {
+                        values: arr.into_iter().map(JsonValue::from).collect(),
+                    }))
+                }
+                JJsonObjectOrArray::Object(obj) => {
+                    Some(json_object_or_array::Structure::Object(JsonObject {
+                        fields: obj
+                            .into_iter()
+                            .map(|(k, v)| (k, JsonValue::from(v)))
+                            .collect(),
+                    }))
+                }
+            };
+            JsonObjectOrArray { structure }
+        }
+    }
+
+    impl From<JsonValue> for serde_json::Value {
+        fn from(v: JsonValue) -> Self {
+            match v.kind {
+                None => serde_json::Value::Null,
+                Some(json_value::Kind::BoolValue(b)) => serde_json::Value::Bool(b),
+                Some(json_value::Kind::UintValue(u)) => serde_json::Value::Number(u.into()),
+                Some(json_value::Kind::IntValue(i)) => serde_json::Value::Number(i.into()),
+                Some(json_value::Kind::DoubleValue(f)) => match serde_json::Number::from_f64(f) {
+                    Some(num) => serde_json::Value::Number(num),
+                    None => {
+                        let error = format!("Failed to parse number: `{}`", f);
+                        println!(
+                            "{}",
+                            serde_json::json!({"jsonrpc": "2.0",
+                          "method": "log",
+                          "params": {"level":"warn", "message": error}})
+                        );
+                        std::process::exit(1);
+                    }
+                },
+                Some(json_value::Kind::StringValue(s)) => serde_json::Value::String(s),
+                Some(json_value::Kind::Array(arr)) => serde_json::Value::Array(
+                    arr.values
+                        .into_iter()
+                        .map(serde_json::Value::from)
+                        .collect(),
+                ),
+                Some(json_value::Kind::Object(obj)) => serde_json::Value::Object(
+                    obj.fields
+                        .into_iter()
+                        .map(|(k, v)| (k, serde_json::Value::from(v)))
+                        .collect(),
+                ),
+            }
+        }
+    }
+
+    impl From<JsonObjectOrArray> for JJsonObjectOrArray {
+        fn from(v: JsonObjectOrArray) -> Self {
+            match v.structure {
+                Some(json_object_or_array::Structure::Array(arr)) => JJsonObjectOrArray::Array(
+                    arr.values
+                        .into_iter()
+                        .map(serde_json::Value::from)
+                        .collect(),
+                ),
+                Some(json_object_or_array::Structure::Object(obj)) => JJsonObjectOrArray::Object(
+                    obj.fields
+                        .into_iter()
+                        .map(|(k, v)| (k, serde_json::Value::from(v)))
+                        .collect(),
+                ),
+                None => JJsonObjectOrArray::Array(vec![]), // or handle as error
+            }
+        }
+    }
+
+    impl From<JsonScalar> for JJsonScalar {
+        fn from(v: JsonScalar) -> Self {
+            match v.scalar {
+                None => JJsonScalar::Null,
+                Some(json_scalar::Scalar::BoolValue(b)) => JJsonScalar::Bool(b),
+                Some(json_scalar::Scalar::IntValue(i)) => JJsonScalar::Number(i.into()),
+                Some(json_scalar::Scalar::DoubleValue(d)) => {
+                    match serde_json::Number::from_f64(d) {
+                        Some(num) => JJsonScalar::Number(num),
+                        None => {
+                            let error = format!("Failed to parse number: `{}`", d);
+                            println!(
+                                "{}",
+                                serde_json::json!({"jsonrpc": "2.0",
+                          "method": "log",
+                          "params": {"level":"warn", "message": error}})
+                            );
+                            std::process::exit(1);
+                        }
+                    }
+                }
+                Some(json_scalar::Scalar::UintValue(u)) => JJsonScalar::Number(u.into()),
+                Some(json_scalar::Scalar::StringValue(s)) => JJsonScalar::String(s),
             }
         }
     }
