@@ -3089,3 +3089,32 @@ def test_no_retransmit_confirmed_funding(node_factory):
     # Should not have attempted (and failed) to re-broadcast the funding tx.
     assert not l1.daemon.is_in_log('Failed to re-transmit funding tx')
     assert not l1.daemon.is_in_log('Successfully rexmitted funding tx')
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_signpsbt_multiple_taproot_inputs(node_factory, bitcoind):
+    """Test signpsbt when a PSBT has a multiple taproot input"""
+    l1 = node_factory.get_node(options={'experimental-dual-fund': None})
+
+    amount = 200000
+
+    bitcoind.rpc.sendmany("",
+                          {l1.rpc.newaddr('all')['p2tr']: amount / 10 ** 8,
+                           l1.rpc.newaddr('all')['p2tr']: amount / 10 ** 8})
+
+    bitcoind.generate_block(1)
+
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 2)
+
+    bitcoind.generate_block(6)
+    outputs = l1.rpc.listfunds()['outputs']
+
+    tx_list = []
+    for o in outputs:
+        txid = o['txid']
+        vout = o['output']
+        tx_list.append(f"{txid}:{vout}")
+
+    psbt = l1.rpc.utxopsbt("all", "300perkw", 1000, tx_list)['psbt']
+
+    l1.rpc.signpsbt(psbt)
