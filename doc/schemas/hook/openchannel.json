@@ -1,0 +1,226 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "added": "pre-v0.10.1",
+  "type": "object",
+  "notification": "openchannel",
+  "title": "Hook fired when a peer proposes opening a channel using v1 protocol",
+  "description": [
+    "The **openchannel** hook is called whenever a remote peer tries to fund a channel using the v1 protocol, after passing basic sanity checks.",
+    "",
+    "The payload mirrors the BOLT #2 `open_channel` message and may include additional fields defined by the protocol.",
+    "",
+    "Plugins can reject the channel or modify certain parameters before accepting it.",
+    "",
+    "This is a chained hook: the first plugin returning a non-\"continue\" result terminates the chain.",
+    "Mutation fields (`close_to`, `mindepth`, `reserve`) are only applied from the first plugin that sets them.",
+    "Additional fields may be present in the request as defined by BOLT #2.",
+    "Providing invalid values (e.g., invalid `close_to` address) will cause lightningd to exit."
+  ],
+  "request": {
+    "additionalProperties": false,
+    "required": [
+      "openchannel"
+    ],
+    "properties": {
+      "openchannel": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": [
+          "id",
+          "funding_msat",
+          "push_msat",
+          "dust_limit_msat",
+          "max_htlc_value_in_flight_msat",
+          "channel_reserve_msat",
+          "htlc_minimum_msat",
+          "feerate_per_kw",
+          "to_self_delay",
+          "max_accepted_htlcs",
+          "channel_flags",
+          "channel_type"
+        ],
+        "properties": {
+          "id": {
+            "type": "pubkey",
+            "description": [
+              "The peer's node_id."
+            ]
+          },
+          "funding_msat": {
+            "type": "msat",
+            "description": [
+              "Funding amount proposed by the peer."
+            ]
+          },
+          "push_msat": {
+            "type": "msat",
+            "description": [
+              "Amount pushed to us at channel open."
+            ]
+          },
+          "dust_limit_msat": {
+            "type": "msat",
+            "description": [
+              "Dust limit for outputs."
+            ]
+          },
+          "max_htlc_value_in_flight_msat": {
+            "type": "msat",
+            "description": [
+              "Maximum HTLC value allowed in flight."
+            ]
+          },
+          "channel_reserve_msat": {
+            "type": "msat",
+            "description": [
+              "Channel reserve required by the peer."
+            ]
+          },
+          "htlc_minimum_msat": {
+            "type": "msat",
+            "description": [
+              "Minimum HTLC value."
+            ]
+          },
+          "feerate_per_kw": {
+            "type": "u32",
+            "description": [
+              "Feerate in satoshi per kw."
+            ]
+          },
+          "to_self_delay": {
+            "type": "u32",
+            "description": [
+              "The number of blocks before they can take their funds if they unilateral close."
+            ]
+          },
+          "max_accepted_htlcs": {
+            "type": "u32",
+            "description": [
+              "Maximum number of HTLC's the remote is allowed to offer at once."
+            ]
+          },
+          "channel_flags": {
+            "type": "u8",
+            "description": [
+              "Channel flags as defined in BOLT #7."
+            ]
+          },
+          "shutdown_scriptpubkey": {
+            "type": "hex",
+            "description": [
+              "Optional shutdown scriptPubKey proposed by the peer."
+            ]
+          },
+          "channel_type": {
+            "added": "v25.09",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "bits",
+              "names"
+            ],
+            "properties": {
+              "bits": {
+                "type": "array",
+                "description": [
+                  "List of feature bit numbers that define the negotiated channel type.",
+                  "Each value represents a feature bit as defined in BOLT #2."
+                ],
+                "items": {
+                  "type": "u32",
+                  "description": [
+                    "Feature bit number."
+                  ]
+                }
+              },
+              "names": {
+                "type": "array",
+                "description": [
+                  "Human-readable names corresponding to each feature bit.",
+                  "Names are implementation-defined and may evolve over time."
+                ],
+                "items": {
+                  "type": "string",
+                  "description": [
+                    "Name of the feature bit."
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "response": {
+    "additionalProperties": false,
+    "required": [
+      "result"
+    ],
+    "properties": {
+      "result": {
+        "type": "string",
+        "enum": [
+          "continue",
+          "reject"
+        ],
+        "description": [
+          "Whether to accept or reject the channel opening request."
+        ]
+      },
+      "error_message": {
+        "type": "string",
+        "description": [
+          "Optional error message sent to the peer when rejecting."
+        ]
+      },
+      "close_to": {
+        "type": "string",
+        "description": [
+          "Bitcoin address for mutual close output.",
+          "Must be valid for the current chain or lightningd will exit with an error."
+        ]
+      },
+      "mindepth": {
+        "added": "v0.12.0",
+        "type": "u32",
+        "description": [
+          "`mindepth` is the number of confirmations to require before making the channel usable.",
+          "Notice that setting this to 0 (zeroconf) or some other low value might expose you to double-spending issues,",
+          "so only lower this value from the default if you trust the peer not to double-spend, or you reject incoming payments,",
+          "including forwards, until the funding is confirmed."
+        ]
+      },
+      "reserve": {
+        "added": "v22.11",
+        "type": "sat",
+        "description": [
+          "`reserve` is an absolute value for the amount (in satoshi) in the channel that the peer must keep on their side.",
+          "This ensures that they always have something to lose, so only lower this below the 1% of funding amount if you trust the peer.",
+          "The protocol requires this to be larger than the dust limit, hence it will be adjusted to be the dust limit if the specified value is below."
+        ]
+      }
+    },
+    "if": {
+      "properties": {
+        "result": {
+          "type": "string",
+          "enum": [
+            "reject"
+          ]
+        }
+      },
+      "required": [
+        "result"
+      ]
+    },
+    "then": {
+      "properties": {
+        "error_message": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,100 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "added": "pre-v0.10.1",
+  "type": "object",
+  "notification": "openchannel2_changed",
+  "title": "Hook for handling updates to the dual-funding PSBT",
+  "description": [
+    "The **openchannel2_changed** hook is called when the peer sends an updated PSBT during dual-funding channel negotiation.",
+    "",
+    "This allows plugins to inspect and modify the PSBT before it is sent back to the peer.",
+    "",
+    "The negotiation continues until neither side makes further changes to the PSBT, at which point commitment transactions are exchanged.",
+    "",
+    "See `plugins/funder.c` for an example of how to use this hook to continue a v2 channel open."
+  ],
+  "request": {
+    "required": [
+      "openchannel2_changed"
+    ],
+    "additionalProperties": false,
+    "properties": {
+      "openchannel2_changed": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "channel_id",
+          "psbt",
+          "require_confirmed_inputs"
+        ],
+        "properties": {
+          "channel_id": {
+            "type": "hash",
+            "description": [
+              "The temporary channel_id identifying the channel being negotiated."
+            ]
+          },
+          "psbt": {
+            "type": "string",
+            "description": [
+              "The current Partially Signed Bitcoin Transaction (PSBT) representing the funding transaction.",
+              "This PSBT includes contributions from both peers and may be modified."
+            ]
+          },
+          "require_confirmed_inputs": {
+            "added": "v23.02",
+            "type": "boolean",
+            "description": [
+              "Indicates whether the remote peer requires all inputs in the PSBT to be confirmed.",
+              "If true, the plugin must avoid adding unconfirmed inputs."
+            ]
+          }
+        }
+      }
+    }
+  },
+  "response": {
+    "required": [
+      "result",
+      "psbt"
+    ],
+    "additionalProperties": false,
+    "properties": {
+      "result": {
+        "type": "string",
+        "enum": [
+          "continue"
+        ],
+        "description": [
+          "Must be set to `continue` to proceed with the channel opening negotiation."
+        ]
+      },
+      "psbt": {
+        "type": "string",
+        "description": [
+          "The updated PSBT to send back to the peer.",
+          "If no modifications are made, this should be identical to the input PSBT."
+        ]
+      }
+    }
+  },
+  "examples": [
+    {
+      "request": {
+        "id": "example:openchannel2_changed#1",
+        "method": "openchannel2_changed",
+        "params": {
+          "openchannel2_changed": {
+            "channel_id": "252d1b0a1e57895e841...",
+            "psbt": "cHNidP8BADMCAAAAAQ+yBipSVZr...",
+            "require_confirmed_inputs": true
+          }
+        }
+      },
+      "response": {
+        "result": "continue",
+        "psbt": "cHNidP8BADMCAAAAAQ+yBipSVZr..."
+      }
+    }
+  ]
+}

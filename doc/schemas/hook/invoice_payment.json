@@ -1,0 +1,114 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "added": "pre-v0.10.1",
+  "type": "object",
+  "notification": "invoice_payment",
+  "title": "Hook fired when a payment for an invoice is received",
+  "description": [
+    "The **invoice_payment** hook is called whenever a valid payment for an unpaid invoice has arrived.",
+    "",
+    "The hook is deliberately sparse. Plugins can use `listinvoices` to retrieve additional information.",
+    "",
+    "The plugin can:",
+    "- accept the payment by returning {\"result\": \"continue\"}",
+    "- reject the payment with a generic error using {\"result\": \"reject\"}",
+    "- reject the payment with a custom BOLT 4 failure message using the `failure_message` field",
+    "",
+    "If `failure_message` is provided, the payment will be failed with that message.",
+    "If result is \"reject\" and no `failure_message` is provided, the payment fails with `incorrect_or_unknown_payment_details`.",
+    "`failure_message` must NOT be provided when result is \"continue\".",
+    "",
+    "Before version 23.11 the msat field was encoded as a string with an 'msat' suffix."
+  ],
+  "request": {
+    "additionalProperties": false,
+    "required": [
+      "payment"
+    ],
+    "properties": {
+      "payment": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": [
+          "label",
+          "preimage",
+          "msat"
+        ],
+        "properties": {
+          "label": {
+            "type": "string",
+            "description": [
+              "Unique label identifying the invoice."
+            ]
+          },
+          "preimage": {
+            "type": "secret",
+            "description": [
+              "The payment preimage."
+            ]
+          },
+          "msat": {
+            "type": "msat",
+            "description": [
+              "Amount paid in millisatoshis."
+            ]
+          }
+        },
+        "description": [
+          "Basic payment information.",
+          "Additional TLV-derived fields may be included when running in developer mode."
+        ]
+      }
+    }
+  },
+  "response": {
+    "additionalProperties": false,
+    "required": [
+      "result"
+    ],
+    "properties": {
+      "result": {
+        "type": "string",
+        "enum": [
+          "continue",
+          "reject"
+        ],
+        "description": [
+          "Controls whether the payment is accepted or rejected.",
+          "\"continue\" accepts the payment.",
+          "\"reject\" fails the payment."
+        ]
+      },
+      "failure_message": {
+        "type": "hex",
+        "description": [
+          "Optional BOLT 4 failure message.",
+          "Used to provide a specific failure reason when rejecting the payment."
+        ]
+      }
+    },
+    "if": {
+      "properties": {
+        "result": {
+          "type": "string",
+          "enum": [
+            "reject"
+          ]
+        }
+      },
+      "required": [
+        "result"
+      ]
+    },
+    "then": {
+      "properties": {
+        "failure_message": {
+          "type": "hex"
+        }
+      }
+    }
+  },
+  "see_also": [
+    "lightning-listinvoices(7)"
+  ]
+}

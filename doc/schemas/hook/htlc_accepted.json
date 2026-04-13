@@ -1,0 +1,321 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "added": "pre-v0.10.1",
+  "type": "object",
+  "notification": "htlc_accepted",
+  "title": "Hook for handling incoming HTLCs",
+  "description": [
+    "The **htlc_accepted** hook is called whenever an incoming HTLC is accepted.",
+    "",
+    "The plugin can inspect the HTLC and decide to continue processing, fail it, or resolve it.",
+    "",
+    "lightningd will replay the HTLCs for which it doesn't have a final verdict during startup.",
+    "This means that, if the plugin response wasn't processed before the HTLC was forwarded, failed, or resolved,",
+    "then the plugin may see the same HTLC again during startup. It is therefore paramount that the plugin is idempotent if it talks to an external system.",
+    "",
+    "This is a chained hook: plugins are called in order until one returns a result other than `continue`.",
+    "After this the event is considered handled and the remaining plugins are skipped."
+  ],
+  "request": {
+    "required": [
+      "onion",
+      "htlc"
+    ],
+    "additionalProperties": false,
+    "properties": {
+      "peer_id": {
+        "added": "v25.12",
+        "type": "pubkey",
+        "description": [
+          "The `node_id` of the peer that offered this HTLC.",
+          "This field may be absent if the peer is unknown."
+        ]
+      },
+      "onion": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "payload",
+          "next_onion",
+          "shared_secret"
+        ],
+        "properties": {
+          "payload": {
+            "type": "hex",
+            "description": [
+              "The raw unparsed onion payload received from the sender."
+            ]
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "tlv"
+            ],
+            "description": [
+              "Indicates that the payload is TLV formatted.",
+              "Only present if the payload was successfully parsed."
+            ]
+          },
+          "short_channel_id": {
+            "type": "short_channel_id",
+            "description": [
+              "Determines the channel that the sender is hinting should be used next.",
+              "Not present if this node is the final destination."
+            ]
+          },
+          "next_node_id": {
+            "type": "pubkey",
+            "description": [
+              "The node_id of the next hop.",
+              "Only present if specified in the onion payload."
+            ]
+          },
+          "forward_msat": {
+            "type": "msat",
+            "description": [
+              "The amount to forward to the next hop."
+            ]
+          },
+          "outgoing_cltv_value": {
+            "type": "u32",
+            "description": [
+              "Determines what the CLTV value for the HTLC that we forward to the next hop should be."
+            ]
+          },
+          "total_msat": {
+            "type": "msat",
+            "description": [
+              "The total payment amount.",
+              "Only present for final recipients using modern TLV payloads."
+            ]
+          },
+          "payment_secret": {
+            "type": "secret",
+            "description": [
+              "The payment secret (which the payer should have obtained from the invoice) provided by the sender.",
+              "Only present for final recipients."
+            ]
+          },
+          "payment_metadata": {
+            "type": "hex",
+            "description": [
+              "Additional metadata provided in the onion payload.",
+              "Only present if included by the sender."
+            ]
+          },
+          "next_onion": {
+            "type": "hex",
+            "description": [
+              "The fully processed onion that we should be sending to the next hop as part of the outgoing HTLC.",
+              "Processed in this case means that we took the incoming onion, decrypted it, extracted the payload destined for us, and serialised the resulting onion again."
+            ]
+          },
+          "shared_secret": {
+            "type": "secret",
+            "description": [
+              "The shared secret used to decrypt the incoming onion.",
+              "It is shared with the sender that constructed the onion."
+            ]
+          }
+        }
+      },
+      "htlc": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "short_channel_id",
+          "id",
+          "amount_msat",
+          "cltv_expiry",
+          "cltv_expiry_relative",
+          "payment_hash"
+        ],
+        "properties": {
+          "short_channel_id": {
+            "added": "v0.12.0",
+            "type": "short_channel_id",
+            "description": [
+              "The channel this HTLC is coming from."
+            ]
+          },
+          "id": {
+            "added": "v0.12.0",
+            "type": "u64",
+            "description": [
+              "The unique HTLC identifier assigned by the channel peer."
+            ]
+          },
+          "amount_msat": {
+            "added": "v0.12.0",
+            "type": "msat",
+            "description": [
+              "The amount received in this HTLC.",
+              "This amount minus the `forward_msat` amount is the fee that will stay with us."
+            ]
+          },
+          "cltv_expiry": {
+            "type": "u32",
+            "description": [
+              "Determines when the HTLC reverts back to the sender.",
+              "`cltv_expiry` minus `outgoing_cltv_value` should be equal or larger than our `cltv_delta` setting."
+            ]
+          },
+          "cltv_expiry_relative": {
+            "type": "u32",
+            "description": [
+              "Hints how much time we still have to claim the HTLC.",
+              "It is the `cltv_expiry` minus the current blockheight and is passed along mainly to avoid the plugin having to look up the current blockheight."
+            ]
+          },
+          "payment_hash": {
+            "type": "hash",
+            "description": [
+              "The payment hash used to identify the payment."
+            ]
+          },
+          "extra_tlvs": {
+            "added": "v25.09",
+            "type": "hex",
+            "description": [
+              "Optional TLV stream attached to the HTLC."
+            ]
+          }
+        }
+      },
+      "forward_to": {
+        "type": "hash",
+        "description": [
+          "The `channel_id` we intend to forward the HTLC to.",
+          "Will not be present if the `short_channel_id` was invalid or we were the final destination."
+        ]
+      }
+    }
+  },
+  "response": {
+    "required": [
+      "result"
+    ],
+    "additionalProperties": false,
+    "properties": {
+      "result": {
+        "type": "string",
+        "enum": [
+          "continue",
+          "fail",
+          "resolve"
+        ],
+        "description": [
+          "Determines how the HTLC should be handled.",
+          "",
+          "`continue` means that the plugin does not want to do anything special and lightningd should continue processing it normally,",
+          "i.e., resolve the payment if we're the recipient, or attempt to forward it otherwise. Notice that the usual checks such as sufficient fees and CLTV deltas are still enforced.",
+          "",
+          "It can also replace the onion.payload by specifying a payload in the response. Note that this is always a TLV-style payload,",
+          "so unlike onion.payload there is no length prefix (and it must be at least 4 hex digits long). This will be re-parsed;",
+          "it's useful for removing onion fields which a plugin doesn't want lightningd to consider.",
+          "",
+          "It can also specify forward_to in the response, replacing the destination.",
+          "This usually only makes sense if it wants to choose an alternate channel to the same next peer, but is useful if the payload is also replaced.",
+          "",
+          "Also, it can specify extra_tlvs in the response. This will replace the TLV-stream update_add_htlc_tlvs in the update_add_htlc message for forwarded htlcs.",
+          "",
+          "If the node is the final destination, the plugin can also replace the amount of the invoice that belongs to the payment_hash by specifying invoice_msat.",
+          "",
+          "",
+          "`fail` will tell lightningd to fail the HTLC with a given hex-encoded `failure_message` (please refer to BOLT #4 for details: `incorrect_or_unknown_payment_details` is the most common).",
+          "",
+          "Instead of `failure_message` the response can contain a hex-encoded `failure_onion` that will be used instead (please refer to the BOLT #4 for details).",
+          "This can be used, for example, if you're writing a bridge between two Lightning Networks. Note that lightningd will apply the obfuscation step to the value",
+          "returned here with its own shared secret (and key type `ammag`) before returning it to the previous hop.",
+          "",
+          "",
+          "`resolve` instructs lightningd to claim the HTLC by providing the preimage matching the `payment_hash` presented in the call.",
+          "Notice that the plugin must ensure that the `payment_key` really matches the `payment_hash` since lightningd will not check and the wrong value could result in the channel being closed."
+        ]
+      },
+      "payload": {
+        "type": "hex",
+        "description": [
+          "Replacement TLV payload to use instead of the original onion payload."
+        ]
+      },
+      "forward_to": {
+        "type": "hash",
+        "description": [
+          "Overrides the forwarding destination."
+        ]
+      },
+      "extra_tlvs": {
+        "added": "v25.09",
+        "type": "hex",
+        "description": [
+          "Replacement TLV stream for forwarded HTLCs."
+        ]
+      },
+      "invoice_msat": {
+        "added": "v25.12",
+        "type": "msat",
+        "description": [
+          "Overrides the invoice amount for final destination checks."
+        ]
+      },
+      "failure_message": {
+        "type": "hex",
+        "description": [
+          "Failure message to return if result is `fail`."
+        ]
+      },
+      "failure_onion": {
+        "type": "hex",
+        "description": [
+          "Serialized failure onion to return if result is `fail`."
+        ]
+      },
+      "payment_key": {
+        "type": "secret",
+        "description": [
+          "Preimage used to resolve the HTLC if result is `resolve`."
+        ]
+      }
+    },
+    "if": {
+      "properties": {
+        "result": {
+          "enum": [
+            "fail"
+          ]
+        }
+      }
+    },
+    "then": {
+      "anyOf": [
+        {
+          "required": [
+            "failure_message"
+          ]
+        },
+        {
+          "required": [
+            "failure_onion"
+          ]
+        }
+      ]
+    },
+    "else": {
+      "if": {
+        "properties": {
+          "result": {
+            "enum": [
+              "resolve"
+            ]
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "payment_key"
+        ]
+      }
+    }
+  }
+}

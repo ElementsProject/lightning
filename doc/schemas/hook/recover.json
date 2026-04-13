@@ -1,0 +1,47 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "added": "v23.08",
+  "type": "object",
+  "notification": "recover",
+  "title": "Hook fired when node starts in recovery mode",
+  "description": [
+    "The **recover** hook is called whenever the node is started using the --recovery flag.",
+    "It provides the codex32 secret used to derive the HSM secret.",
+    "Plugins can use this to reconnect to peers who keep your peer storage backups with them and recover state or funds.",
+    "",
+    "This hook is informational and does not allow altering execution flow.",
+    "Plugins are expected to perform recovery-related side effects such as reconnecting to peers."
+  ],
+  "request": {
+    "additionalProperties": false,
+    "required": [
+      "codex32"
+    ],
+    "properties": {
+      "codex32": {
+        "type": "string",
+        "description": [
+          "The codex32-encoded secret provided via --recover.",
+          "Used to reconstruct the node's HSM secret."
+        ]
+      }
+    }
+  },
+  "response": {
+    "additionalProperties": false,
+    "required": [
+      "result"
+    ],
+    "properties": {
+      "result": {
+        "type": "string",
+        "enum": [
+          "continue"
+        ],
+        "description": [
+          "Returning \"continue\" resumes normal execution."
+        ]
+      }
+    }
+  }
+}

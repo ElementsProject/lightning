@@ -1,0 +1,103 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "added": "pre-v0.10.1",
+  "type": "object",
+  "notification": "openchannel2_sign",
+  "title": "Hook for signing the dual-funding PSBT",
+  "description": [
+    "The **openchannel2_sign** hook is called after commitment transactions have been received during dual-funding channel establishment.",
+    "",
+    "The plugin is expected to sign any inputs it owns in the provided PSBT and return the updated PSBT.",
+    "",
+    "If no inputs need to be signed, the original PSBT should be returned unchanged.",
+    "",
+    "Once both sides have provided signatures, the funding transaction will be broadcast.",
+    "",
+    "See `plugins/funder.c` for an example of how to use this hook to sign a funding transaction."
+  ],
+  "request": {
+    "required": [
+      "openchannel2_sign"
+    ],
+    "additionalProperties": false,
+    "properties": {
+      "openchannel2_sign": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "channel_id",
+          "psbt"
+        ],
+        "properties": {
+          "channel_id": {
+            "type": "hash",
+            "description": [
+              "The temporary `channel_id` identifying the channel being negotiated."
+            ]
+          },
+          "psbt": {
+            "type": "string",
+            "description": [
+              "The Partially Signed Bitcoin Transaction (PSBT) representing the funding transaction.",
+              "The plugin should add signatures for any inputs it controls."
+            ]
+          }
+        }
+      }
+    }
+  },
+  "response": {
+    "required": [
+      "result",
+      "psbt"
+    ],
+    "additionalProperties": false,
+    "properties": {
+      "result": {
+        "type": "string",
+        "enum": [
+          "continue"
+        ],
+        "description": [
+          "Must be set to `continue` to proceed with channel opening."
+        ]
+      },
+      "psbt": {
+        "type": "string",
+        "description": [
+          "The PSBT including any added signatures.",
+          "If no inputs were signed, this should be identical to the input PSBT."
+        ]
+      }
+    }
+  },
+  "example_notifications": [
+    {
+      "method": "openchannel2_sign",
+      "params": {
+        "openchannel2_sign": {
+          "channel_id": "252d1b0a1e57895e841...",
+          "psbt": "cHNidP8BADMCAAAAAQ+yBipSVZr..."
+        }
+      }
+    }
+  ],
+  "examples": [
+    {
+      "request": {
+        "id": "example:openchannel2_sign#1",
+        "method": "openchannel2_sign",
+        "params": {
+          "openchannel2_sign": {
+            "channel_id": "252d1b0a1e57895e841...",
+            "psbt": "cHNidP8BADMCAAAAAQ+yBipSVZr..."
+          }
+        }
+      },
+      "response": {
+        "result": "continue",
+        "psbt": "cHNidP8BADMCAAAAAQ+yBipSVZr..."
+      }
+    }
+  ]
+}
