@@ -3031,10 +3031,10 @@ def test_signpsbt_multiple_taproot_inputs(node_factory, bitcoind):
 
     amount = 200000
 
-    bitcoind.rpc.sendmany("", 
+    bitcoind.rpc.sendmany("",
                           {l1.rpc.newaddr('all')['p2tr']: amount / 10 ** 8,
                            l1.rpc.newaddr('all')['p2tr']: amount / 10 ** 8})
-    
+
     bitcoind.generate_block(1)
 
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 2)
