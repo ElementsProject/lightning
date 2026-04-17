@@ -728,7 +728,7 @@ def test_fee_overflow_migrated_forward(node_factory):
     #
     # In production, this value is written by wallet_forward_delete() when it
     # processes a settled forward whose out_msatoshi > in_msatoshi (e.g. an
-    # orphaned row from the instroduction of `forwards` migration where amounts 
+    # orphaned row from the instroduction of `forwards` migration where amounts
     # were copied as-is from forwarded_payments with an older storage schema).
     #
     # The chain that produces -1 in the DB:
