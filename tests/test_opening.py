@@ -1,5 +1,3 @@
-from itertools import count
-
 from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
 from pyln.client import RpcError, Millisatoshi
@@ -3050,4 +3048,4 @@ def test_signpsbt_multiple_taproot_inputs(node_factory, bitcoind):
 
     psbt = l1.rpc.utxopsbt("all", "300perkw", 1000, tx_list)['psbt']
 
-    result = l1.rpc.signpsbt(psbt)
+    l1.rpc.signpsbt(psbt)
