@@ -3888,7 +3888,16 @@ def test_closing_anchorspend_htlc_tx_rbf(node_factory, bitcoind):
 @pytest.mark.parametrize("anchors", [False, True])
 def test_htlc_no_force_close(node_factory, bitcoind, anchors):
     """l2<->l3 force closes while an HTLC is in flight from l1, but l2 can't timeout because the feerate has spiked.  It should do so anyway."""
-    opts = [{}, {}, {'disconnect': ['-WIRE_UPDATE_FULFILL_HTLC']}]
+    # l3 disconnects before sending update_fulfill_htlc to l2, and
+    # dev-no-reconnect prevents automatic reconnection.  This leaves
+    # l3's incoming HTLC in SENT_REMOVE_HTLC: l3 has the preimage but
+    # can't deliver it.  l3 no longer force-closes for this (the
+    # preimage is safe in the DB and onchaind will claim on-chain),
+    # so l2 force-closes first for the offered HTLC timeout.
+    opts = [{'dev-no-reconnect': None},
+            {'dev-no-reconnect': None},
+            {'disconnect': ['-WIRE_UPDATE_FULFILL_HTLC'],
+             'dev-no-reconnect': None}]
     if anchors is False:
         for opt in opts:
             opt['dev-force-features'] = "-23"
@@ -3912,17 +3921,20 @@ def test_htlc_no_force_close(node_factory, bitcoind, anchors):
 
     htlc_txs = []
 
-    # l3 drops to chain, holding htlc (but we stop it xmitting txs)
+    # l3 won't force-close (removal in progress), so censor its
+    # onchaind txs for when l2 goes on-chain and l3 sees the
+    # commitment.
     def censoring_sendrawtx(r):
         htlc_txs.append(r['params'][0])
         return {'id': r['id'], 'result': {}}
 
     l3.daemon.rpcproxy.mock_rpc('sendrawtransaction', censoring_sendrawtx)
 
-    # l3 gets upset, drops to chain when there are < 4 blocks remaining.
-    # But tx doesn't get mined...
+    # l3 should NOT force-close: it has the preimage and the removal is
+    # already in progress.  It just logs a warning.
     bitcoind.generate_block(8)
-    l3.daemon.wait_for_log("Peer permanent failure in CHANNELD_NORMAL: Fulfilled HTLC 0 SENT_REMOVE_.* cltv 119 hit deadline")
+    l3.daemon.wait_for_log(r'but removal already in progress')
+    assert not l3.daemon.is_in_log(r'Peer permanent failure in CHANNELD_NORMAL: Fulfilled HTLC 0 SENT_REMOVE')
 
     # l2 closes drops the commitment tx at block 115 (one block after timeout)
     bitcoind.generate_block(4)
@@ -3956,6 +3968,177 @@ def test_htlc_no_force_close(node_factory, bitcoind, anchors):
     sync_blockheight(bitcoind, [l1, l2, l3])
 
     # FIXME: l2 should complain!
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd anchors unsupported')
+def test_fulfilled_htlc_deadline_no_force_close(node_factory, bitcoind):
+    """Test that l2 does not force-close when fulfilled HTLC is in
+    SENT_REMOVE_HTLC state (preimage known, fulfill queued to channeld
+    but not yet sent to upstream peer).
+
+    Reproduces https://github.com/ElementsProject/lightning/issues/8899:
+    CLN force-closed with 'Fulfilled HTLC SENT_REMOVE_HTLC cltv hit deadline'
+    without attempting to send update_fulfill_htlc upstream first.
+    """
+    # l1 -> l2 -> l3 topology.
+    # l2 disconnects from l1 right before sending update_fulfill_htlc,
+    # so the incoming HTLC on l1-l2 stays in SENT_REMOVE_HTLC.
+    # l2 cannot reconnect (dev-no-reconnect), simulating the scenario where
+    # the upstream peer appears connected but isn't processing messages.
+    #
+    # Use identical feerates to avoid gratuitous commits to update them.
+    opts = [{'dev-no-reconnect': None,
+             'feerates': (7500, 7500, 7500, 7500)},
+            {'disconnect': ['-WIRE_UPDATE_FULFILL_HTLC'],
+             'dev-no-reconnect': None,
+             'feerates': (7500, 7500, 7500, 7500)},
+            {'feerates': (7500, 7500, 7500, 7500)}]
+
+    l1, l2, l3 = node_factory.line_graph(3, opts=opts, wait_for_announce=True)
+
+    amt = 12300000
+    inv = l3.rpc.invoice(amt, 'test_fulfilled_deadline', 'desc')
+
+    # Use explicit route with known delays to have predictable cltv_expiry.
+    # delay=16 for first hop (cltv_delta=6 + cltv_final=10),
+    # delay=10 for second hop (cltv_final=10).
+    route = [{'amount_msat': amt + 1 + amt * 10 // 1000000,
+              'id': l2.info['id'],
+              'delay': 16,
+              'channel': first_scid(l1, l2)},
+             {'amount_msat': amt,
+              'id': l3.info['id'],
+              'delay': 10,
+              'channel': first_scid(l2, l3)}]
+    l1.rpc.sendpay(route, inv['payment_hash'],
+                   payment_secret=inv['payment_secret'])
+
+    # l3 fulfills the HTLC, preimage flows back to l2.
+    # l2 transitions the incoming HTLC (from l1) to SENT_REMOVE_HTLC,
+    # then tries to send update_fulfill_htlc to l1 but disconnects.
+    # Wait for channeld on the l1-l2 channel to die after the disconnect.
+    # Note: "Peer transient failure" appears just before the dev_disconnect
+    # log in connectd, so we must wait for it first to avoid advancing the
+    # log search position past it.
+    l2.daemon.wait_for_log(r'chan#1: Peer transient failure in CHANNELD_NORMAL')
+
+    # Get the incoming HTLC's cltv_expiry from listpeerchannels.
+    htlc = only_one(only_one(l2.rpc.listpeerchannels(l1.info['id'])['channels'])['htlcs'])
+    # Under Valgrind, the state may advance to SENT_REMOVE_COMMIT before
+    # the disconnect fully takes effect.  Both states reproduce the bug.
+    assert htlc['state'] in ('SENT_REMOVE_HTLC', 'SENT_REMOVE_COMMIT'), \
+        f"Expected SENT_REMOVE_HTLC or SENT_REMOVE_COMMIT, got {htlc['state']}"
+    cltv_expiry = htlc['expiry']
+
+    # Compute the deadline dynamically from the actual HTLC cltv_expiry.
+    # htlc_in_deadline = cltv_expiry - (cltv_expiry_delta + 1)/2
+    # With regtest cltv_expiry_delta=6: deadline = cltv_expiry - 3
+    deadline = cltv_expiry - (6 + 1) // 2
+    current_height = bitcoind.rpc.getblockcount()
+
+    # Mine up to one block before the deadline — should NOT trigger force-close.
+    blocks_to_deadline = deadline - current_height
+    assert blocks_to_deadline > 1, f"Not enough room: deadline={deadline}, height={current_height}"
+    bitcoind.generate_block(blocks_to_deadline - 1)
+    sync_blockheight(bitcoind, [l2])
+    assert not l2.daemon.is_in_log('hit deadline')
+
+    # Mine one more block to hit the deadline.
+    # l2 should NOT force-close: it has the preimage and the removal is
+    # already in progress (SENT_REMOVE_HTLC or SENT_REMOVE_COMMIT).
+    # It just needs to reconnect to send update_fulfill_htlc upstream.
+    bitcoind.generate_block(1)
+    sync_blockheight(bitcoind, [l2])
+    l2.daemon.wait_for_log(r'but removal already in progress')
+    assert not l2.daemon.is_in_log(r'Fulfilled HTLC 0 SENT_REMOVE_(HTLC|COMMIT) cltv .* hit deadline[^,]')
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd anchors unsupported')
+def test_fulfilled_htlc_deadline_reconnect(node_factory, bitcoind, executor):
+    """After the incoming-HTLC deadline fires and l2 skips the force-close
+    (SENT_REMOVE_HTLC — removal in progress), a manual reconnect should cause
+    channeld to retransmit update_fulfill_htlc, completing the payment
+    cooperatively with the channel staying open.
+
+    This tests complements test_fulfilled_htlc_deadline_no_force_close:
+    the window between l2's deadline (cltv_expiry - 3) and l1's outgoing
+    deadline (cltv_expiry + 1) is enough for reconnect + retransmit to
+    settle the HTLC without going on-chain.
+    """
+    # dev-no-reconnect prevents automatic reconnect; we trigger it manually
+    # after the deadline fires.  may_reconnect suppresses unexpected-disconnect
+    # log-check failures in both l1 and l2.
+    opts = [{'dev-no-reconnect': None,
+             'may_reconnect': True,
+             'feerates': (7500, 7500, 7500, 7500)},
+            {'disconnect': ['-WIRE_UPDATE_FULFILL_HTLC'],
+             'dev-no-reconnect': None,
+             'may_reconnect': True,
+             'feerates': (7500, 7500, 7500, 7500)},
+            {'feerates': (7500, 7500, 7500, 7500)}]
+
+    l1, l2, l3 = node_factory.line_graph(3, opts=opts, wait_for_announce=True)
+
+    amt = 12300000
+    inv = l3.rpc.invoice(amt, 'test_deadline_reconnect', 'desc')
+
+    # same route setup used for test_fulfilled_htlc_deadline_no_force_close
+    route = [{'amount_msat': amt + 1 + amt * 10 // 1000000,
+              'id': l2.info['id'],
+              'delay': 16,
+              'channel': first_scid(l1, l2)},
+             {'amount_msat': amt,
+              'id': l3.info['id'],
+              'delay': 10,
+              'channel': first_scid(l2, l3)}]
+    l1.rpc.sendpay(route, inv['payment_hash'],
+                   payment_secret=inv['payment_secret'])
+
+    # l3 fulfills; preimage reaches l2.  l2 transitions the incoming HTLC to
+    # SENT_REMOVE_HTLC and tells channeld to send update_fulfill_htlc.  The
+    # dev_disconnect (-WIRE_UPDATE_FULFILL_HTLC) fires before the message is
+    # sent, killing the connection.  Under Valgrind, channeld can also advance
+    # the state to SENT_REMOVE_COMMIT by calling channel_sending_commit()
+    # (optimistically reporting the state to lightningd) before the write fd
+    # is fully sabotaged.  Both states are safe: the preimage is persisted.
+    l2.daemon.wait_for_log(r'chan#1: Peer transient failure in CHANNELD_NORMAL')
+
+    htlc = only_one(only_one(l2.rpc.listpeerchannels(l1.info['id'])['channels'])['htlcs'])
+    assert htlc['state'] in ('SENT_REMOVE_HTLC', 'SENT_REMOVE_COMMIT'), \
+        f"Expected SENT_REMOVE_HTLC or SENT_REMOVE_COMMIT, got {htlc['state']}"
+    cltv_expiry = htlc['expiry']
+
+    # Mine to l2's incoming-HTLC deadline. l2 should NOT force-close.
+    # The preimage is safe and channeld will retransmit on reconnect.
+    deadline = cltv_expiry - (6 + 1) // 2
+    current_height = bitcoind.rpc.getblockcount()
+    blocks_to_deadline = deadline - current_height
+    assert blocks_to_deadline >= 1, \
+        f"No room before deadline: deadline={deadline}, height={current_height}"
+    bitcoind.generate_block(blocks_to_deadline)
+    sync_blockheight(bitcoind, [l1, l2])
+
+    l2.daemon.wait_for_log(r'but removal already in progress')
+    assert not l2.daemon.is_in_log(
+        r'Fulfilled HTLC 0 SENT_REMOVE_(HTLC|COMMIT) cltv .* hit deadline[^,]')
+
+    # Reconnect l2 -> l1 now: channeld will do channel_reestablish and then
+    # call send_fail_or_fulfill() for the SENT_REMOVE_HTLC, retransmitting
+    # update_fulfill_htlc upstream. Payment should complete.
+    l2.rpc.connect(l1.info['id'], 'localhost', l1.port)
+
+    fut = executor.submit(l1.rpc.waitsendpay, inv['payment_hash'])
+    fut.result(TIMEOUT)
+
+    # Both nodes should stay in CHANNELD_NORMAL (no force-close occurred).
+    wait_for(lambda: only_one(
+        l1.rpc.listpeerchannels(l2.info['id'])['channels'])['state'] == 'CHANNELD_NORMAL')
+    wait_for(lambda: only_one(
+        l2.rpc.listpeerchannels(l1.info['id'])['channels'])['state'] == 'CHANNELD_NORMAL')
+
+    # The HTLC must be gone from l2's view (fully settled).
+    wait_for(lambda: only_one(
+        l2.rpc.listpeerchannels(l1.info['id'])['channels'])['htlcs'] == [])
 
 
 def test_closing_tx_valid(node_factory, bitcoind):
