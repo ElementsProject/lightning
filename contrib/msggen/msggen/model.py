@@ -503,6 +503,12 @@ class Command:
         return f"Command[name={self.name}, fields=[{fieldnames}]]"
 
 
+OfferStringField = PrimitiveField("string", None, None, added=None, deprecated=None)
+InvoiceLabelField = PrimitiveField("string", None, None, added=None, deprecated=None)
+DatastoreKeyField = ArrayField(itemtype=PrimitiveField("string", None, None, added=None, deprecated=None), dims=1, path=None, description=None, added=None, deprecated=None)
+DatastoreUsageKeyField = ArrayField(itemtype=PrimitiveField("string", None, None, added="v23.11", deprecated=None), dims=1, path=None, description=None, added="v23.11", deprecated=None)
+InvoiceExposeprivatechannelsField = ArrayField(itemtype=PrimitiveField("short_channel_id", None, None, added=None, deprecated=None), dims=1, path=None, description=None, added=None, deprecated=None)
+
 PayExclude = ArrayField(itemtype=PrimitiveField("string", None, None, added=None, deprecated=None), dims=1, path=None, description=None, added=None, deprecated=None)
 RenePayExclude = ArrayField(itemtype=PrimitiveField("string", None, None, added=None, deprecated=None), dims=1, path=None, description=None, added="v24.08", deprecated=None)
 RoutehintListField = PrimitiveField(
@@ -519,6 +525,7 @@ DecodeRoutehintListField = PrimitiveField(
     added=None,
     deprecated=None
 )
+SetConfigValField = PrimitiveField("string", None, None, added=None, deprecated=None)
 OfferStringField = PrimitiveField("string", None, None, added=None, deprecated=None)
 CreateRuneRestrictionsField = ArrayField(itemtype=PrimitiveField("string", None, None, added=None, deprecated=None), dims=1, path=None, description=None, added=None, deprecated=None)
 CheckRuneParamsField = ArrayField(itemtype=PrimitiveField("string", None, None, added=None, deprecated=None), dims=1, path=None, description=None, added=None, deprecated=None)
@@ -538,12 +545,24 @@ TlvStreamField = PrimitiveField(
 
 # Override fields with manually managed types, fieldpath -> field mapping
 overrides = {
+    'Invoice.label': InvoiceLabelField,
+    'DelInvoice.label': InvoiceLabelField,
+    'ListInvoices.label': InvoiceLabelField,
+    'Datastore.key': DatastoreKeyField,
+    'DelDatastore.key': DatastoreKeyField,
+    'ListDatastore.key': DatastoreKeyField,
+    'Invoice.exposeprivatechannels': InvoiceExposeprivatechannelsField,
     'Pay.exclude': PayExclude,
     'RenePay.exclude': RenePayExclude,
     'KeySend.routehints': RoutehintListField,
     'KeySend.extratlvs': TlvStreamField,
     'Decode.routes': DecodeRoutehintListField,
+    'CreateInvoice.label': InvoiceLabelField,
+    'DatastoreUsage.key': DatastoreUsageKeyField,
+    'WaitInvoice.label': InvoiceLabelField,
     'Offer.recurrence_base': OfferStringField,
+    'Offer.amount': OfferStringField,
+    'SetConfig.val': SetConfigValField,
     'CreateRune.restrictions': CreateRuneRestrictionsField,
     'CheckRune.params': CheckRuneParamsField,
     "ListChainMoves.chainmoves[].extra_tags": ChainMovesExtraTagsField,

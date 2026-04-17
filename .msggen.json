@@ -1270,7 +1270,6 @@
         "CreateinvoiceRequest": {
             "CreateInvoice.invstring": 1,
             "CreateInvoice.label": 2,
-            "CreateInvoice.label_int": 4,
             "CreateInvoice.preimage": 3
         },
         "CreateinvoiceResponse": {
@@ -1324,7 +1323,6 @@
             "Datastore.hex": 2,
             "Datastore.key": 5,
             "Datastore.key[]": 1,
-            "Datastore.key_string": 7,
             "Datastore.mode": 3,
             "Datastore.string": 6
         },
@@ -1340,8 +1338,7 @@
             "DatastoreUsage.datastoreusage.total_bytes": 2
         },
         "DatastoreusageRequest": {
-            "DatastoreUsage.key": 1,
-            "DatastoreUsage.key_string": 2
+            "DatastoreUsage.key": 1
         },
         "DatastoreusageResponse": {
             "DatastoreUsage.datastoreusage": 1
@@ -1527,8 +1524,7 @@
         "DeldatastoreRequest": {
             "DelDatastore.generation": 2,
             "DelDatastore.key": 3,
-            "DelDatastore.key[]": 1,
-            "DelDatastore.key_string": 4
+            "DelDatastore.key[]": 1
         },
         "DeldatastoreResponse": {
             "DelDatastore.generation": 2,
@@ -1548,7 +1544,6 @@
         "DelinvoiceRequest": {
             "DelInvoice.desconly": 3,
             "DelInvoice.label": 1,
-            "DelInvoice.label_u64": 4,
             "DelInvoice.status": 2
         },
         "DelinvoiceResponse": {
@@ -2061,11 +2056,8 @@
             "Invoice.description": 2,
             "Invoice.expiry": 7,
             "Invoice.exposeprivatechannels": 8,
-            "Invoice.exposeprivatechannels_arr_scid": 12,
-            "Invoice.exposeprivatechannels_scid": 13,
             "Invoice.fallbacks[]": 4,
             "Invoice.label": 3,
-            "Invoice.label_int": 11,
             "Invoice.msatoshi": 1,
             "Invoice.preimage": 5
         },
@@ -2724,8 +2716,7 @@
         },
         "ListdatastoreRequest": {
             "ListDatastore.key": 2,
-            "ListDatastore.key[]": 1,
-            "ListDatastore.key_string": 3
+            "ListDatastore.key[]": 1
         },
         "ListdatastoreResponse": {
             "ListDatastore.datastore[]": 1
@@ -2852,7 +2843,6 @@
             "ListInvoices.index": 5,
             "ListInvoices.invstring": 2,
             "ListInvoices.label": 1,
-            "ListInvoices.label_int": 8,
             "ListInvoices.limit": 7,
             "ListInvoices.offer_id": 4,
             "ListInvoices.payment_hash": 3,
@@ -3374,7 +3364,6 @@
         "OfferRequest": {
             "Offer.absolute_expiry": 6,
             "Offer.amount": 1,
-            "Offer.amount_currency": 16,
             "Offer.description": 2,
             "Offer.fronting_nodes[]": 15,
             "Offer.issuer": 3,
@@ -3769,9 +3758,7 @@
         "SetconfigRequest": {
             "SetConfig.config": 1,
             "SetConfig.transient": 3,
-            "SetConfig.val": 2,
-            "SetConfig.val_bool": 5,
-            "SetConfig.val_int": 4
+            "SetConfig.val": 2
         },
         "SetconfigResponse": {
             "SetConfig.config": 1
@@ -4068,8 +4055,7 @@
             "WaitInvoice.paid_outpoint.txid": 1
         },
         "WaitinvoiceRequest": {
-            "WaitInvoice.label": 1,
-            "WaitInvoice.label_int": 2
+            "WaitInvoice.label": 1
         },
         "WaitinvoiceResponse": {
             "WaitInvoice.amount_msat": 6,
@@ -6059,10 +6045,6 @@
             "added": "pre-v0.10.1",
             "deprecated": null
         },
-        "Datastore.key[]": {
-            "added": "pre-v0.10.1",
-            "deprecated": null
-        },
         "Datastore.mode": {
             "added": "pre-v0.10.1",
             "deprecated": null
@@ -6088,10 +6070,6 @@
             "deprecated": null
         },
         "DatastoreUsage.key": {
-            "added": "v23.11",
-            "deprecated": null
-        },
-        "DatastoreUsage.key[]": {
             "added": "v23.11",
             "deprecated": null
         },
@@ -6848,10 +6826,6 @@
             "deprecated": null
         },
         "DelDatastore.key": {
-            "added": "pre-v0.10.1",
-            "deprecated": null
-        },
-        "DelDatastore.key[]": {
             "added": "pre-v0.10.1",
             "deprecated": null
         },
@@ -8380,10 +8354,6 @@
             "deprecated": null
         },
         "Invoice.exposeprivatechannels": {
-            "added": "pre-v0.10.1",
-            "deprecated": null
-        },
-        "Invoice.exposeprivatechannels[]": {
             "added": "pre-v0.10.1",
             "deprecated": null
         },
@@ -10212,10 +10182,6 @@
             "deprecated": null
         },
         "ListDatastore.key": {
-            "added": "pre-v0.10.1",
-            "deprecated": null
-        },
-        "ListDatastore.key[]": {
             "added": "pre-v0.10.1",
             "deprecated": null
         },
