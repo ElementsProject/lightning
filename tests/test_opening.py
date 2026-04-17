@@ -3024,10 +3024,9 @@ def test_zeroconf_withhold_htlc_failback(node_factory, bitcoind):
 @pytest.mark.openchannel('v2')
 def test_multifunding_with_many_input(node_factory, bitcoind):
     """Test that multifundchannel can handle a large number of inputs."""
-    l1, l2= node_factory.get_nodes(2, opts={'old_hsmsecret': True})
+    l1, l2 = node_factory.get_nodes(2, opts={'old_hsmsecret': True})
 
-    amount =1000000
-
+    amount = 1000000
 
     addr = l1.rpc.newaddr('all')['p2tr']
     bitcoind.rpc.sendtoaddress(addr, amount / 10**8)
@@ -3038,10 +3037,9 @@ def test_multifunding_with_many_input(node_factory, bitcoind):
     destinations = [{"id": '{}@localhost:{}'.format(l2.info['id'], l2.port),
                      "amount": 'all'},
                     ]
-    
-    utxo = [f"{txid}:{vout}" 
-            for txid, vout in [(o['txid'], o['output']) 
-            for o in l1.rpc.listfunds()['outputs']]]
+
+    utxo = [f"{txid}:{vout}"
+            for txid, vout in [(o['txid'], o['output']) for o in l1.rpc.listfunds()['outputs']]]
 
     # add duplicate
     utxo.append(utxo[0])
@@ -3054,4 +3052,3 @@ def test_multifunding_with_many_input(node_factory, bitcoind):
 
     inv = l2.rpc.invoice(5000, 'i1', 'i1')['bolt11']
     l1.rpc.pay(inv)
-
