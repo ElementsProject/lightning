@@ -2,7 +2,7 @@
   "$schema": "../rpc-schema-draft.json",
   "added": "pre-v0.10.1",
   "type": "object",
-  "notification": "openchannel2_changed",
+  "hook": "openchannel2_changed",
   "title": "Hook for handling updates to the dual-funding PSBT",
   "description": [
     "The **openchannel2_changed** hook is called when the peer sends an updated PSBT during dual-funding channel negotiation.",

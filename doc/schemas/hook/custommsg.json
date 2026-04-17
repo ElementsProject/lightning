@@ -2,7 +2,7 @@
   "$schema": "../rpc-schema-draft.json",
   "added": "pre-v0.10.1",
   "type": "object",
-  "notification": "custommsg",
+  "hook": "custommsg",
   "title": "Hook for handling custom peer messages",
   "description": [
     "The **custommsg** hook is the receiving counterpart to the sendcustommsg RPC method and is called whenever a peer sends a custom message that is not handled internally by Core Lightning.",

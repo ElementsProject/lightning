@@ -2,7 +2,7 @@
   "$schema": "../rpc-schema-draft.json",
   "added": "pre-v0.10.1",
   "type": "object",
-  "notification": "commitment_revocation",
+  "hook": "commitment_revocation",
   "title": "Hook fired when a commitment transaction is revoked",
   "description": [
     "The **commitment_revocation** hook is called whenever a channel state is updated, and the old state was revoked. State updates in Lightning consist of the following steps:",

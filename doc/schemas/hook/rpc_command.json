@@ -2,7 +2,7 @@
   "$schema": "../rpc-schema-draft.json",
   "added": "pre-v0.10.1",
   "type": "object",
-  "notification": "rpc_command",
+  "hook": "rpc_command",
   "title": "Hook for intercepting and modifying RPC commands",
   "description": [
     "The **rpc_command** hook allows a plugin to take over any RPC command.",

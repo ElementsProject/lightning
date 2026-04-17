@@ -2,7 +2,7 @@
   "$schema": "../rpc-schema-draft.json",
   "added": "pre-v0.10.1",
   "type": "object",
-  "notification": "openchannel2_sign",
+  "hook": "openchannel2_sign",
   "title": "Hook for signing the dual-funding PSBT",
   "description": [
     "The **openchannel2_sign** hook is called after commitment transactions have been received during dual-funding channel establishment.",
@@ -71,7 +71,7 @@
       }
     }
   },
-  "example_notifications": [
+  "example_hooks": [
     {
       "method": "openchannel2_sign",
       "params": {

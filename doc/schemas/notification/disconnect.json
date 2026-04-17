@@ -8,11 +8,8 @@
     "The **disconnect** notification informs whenever the node disconnects from a peer."
   ],
   "added": "pre-v0.10.1",
-  "request": {
-    "added": "pre-v0.10.1"
-  },
+  "request": {},
   "response": {
-    "added": "pre-v0.10.1",
     "required": [
       "id"
     ],
@@ -21,8 +18,7 @@
         "type": "pubkey",
         "description": [
           "The id of the peer that disconnected."
-        ],
-        "added": "pre-v0.10.1"
+        ]
       }
     }
   }

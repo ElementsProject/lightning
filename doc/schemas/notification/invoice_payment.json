@@ -8,11 +8,8 @@
     "The **invoice_payment** notification informs whenever an invoice is paid."
   ],
   "added": "pre-v0.10.1",
-  "request": {
-    "added": "pre-v0.10.1"
-  },
+  "request": {},
   "response": {
-    "added": "pre-v0.10.1",
     "required": [
       "msat",
       "preimage",
@@ -23,15 +20,13 @@
         "type": "msat",
         "description": [
           "The amount paid for the invoice."
-        ],
-        "added": "pre-v0.10.1"
+        ]
       },
       "preimage": {
         "type": "secret",
         "description": [
           "The payment preimage for the invoice."
-        ],
-        "added": "pre-v0.10.1"
+        ]
       },
       "outpoint": {
         "type": "outpoint",
@@ -44,8 +39,7 @@
         "type": "string",
         "description": [
           "The label of the paid invoice."
-        ],
-        "added": "pre-v0.10.1"
+        ]
       }
     }
   }

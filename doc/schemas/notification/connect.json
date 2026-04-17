@@ -4,7 +4,7 @@
   "notification": "connect",
   "title": "Notification for connection with a peer",
   "description": [
-    "The **connect** informs whenever the node is connected to a peer."
+    "The **connect** notification informs whenever the node is connected to a peer."
   ],
   "additionalProperties": false,
   "added": "pre-v0.10.1",
@@ -20,8 +20,7 @@
         "type": "pubkey",
         "description": [
           "The id of the peer which sent the custom message"
-        ],
-        "added": "pre-v0.10.1"
+        ]
       },
       "direction": {
         "type": "string",
@@ -31,15 +30,13 @@
         ],
         "description": [
           "Direction of the connection"
-        ],
-        "added": "pre-v0.10.1"
+        ]
       },
       "address": {
         "type": "object",
         "description": [
           "Address information (mainly useful if **direction** is *out*)"
         ],
-        "added": "pre-v0.10.1",
         "additionalProperties": true,
         "required": [
           "type"
@@ -47,7 +44,6 @@
         "properties": {
           "type": {
             "type": "string",
-            "added": "pre-v0.10.1",
             "enum": [
               "local socket",
               "ipv4",
@@ -82,7 +78,6 @@
                 "type": {},
                 "socket": {
                   "type": "string",
-                  "added": "pre-v0.10.1",
                   "description": [
                     "Socket filename"
                   ]
@@ -114,14 +109,12 @@
                 "type": {},
                 "address": {
                   "type": "string",
-                  "added": "pre-v0.10.1",
                   "description": [
                     "Address in expected format for **type**"
                   ]
                 },
                 "port": {
                   "type": "u16",
-                  "added": "pre-v0.10.1",
                   "description": [
                     "Port number"
                   ]

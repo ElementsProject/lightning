@@ -2,7 +2,7 @@
   "$schema": "../rpc-schema-draft.json",
   "added": "pre-v0.10.1",
   "type": "object",
-  "notification": "htlc_accepted",
+  "hook": "htlc_accepted",
   "title": "Hook for handling incoming HTLCs",
   "description": [
     "The **htlc_accepted** hook is called whenever an incoming HTLC is accepted.",

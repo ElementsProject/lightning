@@ -8,11 +8,8 @@
     "The **warning** notification informs whenever lightningd emits a warning or error level event that should be surfaced to plugins."
   ],
   "added": "pre-v0.10.1",
-  "request": {
-    "added": "pre-v0.10.1"
-  },
+  "request": {},
   "response": {
-    "added": "pre-v0.10.1",
     "required": [
       "level",
       "time",
@@ -29,15 +26,13 @@
         ],
         "description": [
           "The log level of the warning notification."
-        ],
-        "added": "pre-v0.10.1"
+        ]
       },
       "time": {
         "type": "string",
         "description": [
           "The event time as seconds since epoch with subsecond precision."
-        ],
-        "added": "pre-v0.10.1"
+        ]
       },
       "timestamp": {
         "type": "string",
@@ -50,15 +45,13 @@
         "type": "string",
         "description": [
           "The source component that emitted the log entry."
-        ],
-        "added": "pre-v0.10.1"
+        ]
       },
       "log": {
         "type": "string",
         "description": [
           "The original log message."
-        ],
-        "added": "pre-v0.10.1"
+        ]
       }
     }
   }
