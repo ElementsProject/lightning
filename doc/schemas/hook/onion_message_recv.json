@@ -2,14 +2,14 @@
   "$schema": "../rpc-schema-draft.json",
   "added": "pre-v0.10.1",
   "type": "object",
-  "notification": "onion_message_recv",
+  "hook": "onion_message_recv",
   "title": "Hook for receiving unsolicited onion messages",
   "description": [
     "The **onion_message_recv** hook is used for unsolicited onion messages (where the source knows that it is sending to this node).",
     "",
     "Replies MUST be ignored unless they use the correct path (see onion_message_recv_secret).",
     "",
-    "Returning anything other than {\"result\": \"continue\"} prevents further hook processing."
+    "Returning anything other than `{\"result\": \"continue\"}` prevents further hook processing."
   ],
   "request": {
     "required": [

@@ -21,29 +21,25 @@
         "type": "pubkey",
         "description": [
           "The id of the peer which opened the channel"
-        ],
-        "added": "pre-v0.10.1"
+        ]
       },
       "funding_msat": {
         "type": "msat",
         "description": [
           "The amount of the funding transaction"
-        ],
-        "added": "pre-v0.10.1"
+        ]
       },
       "funding_txid": {
         "type": "txid",
         "description": [
           "The transaction id of the funding transaction"
-        ],
-        "added": "pre-v0.10.1"
+        ]
       },
       "channel_ready": {
         "type": "boolean",
         "description": [
           "true if the channel is ready"
-        ],
-        "added": "pre-v0.10.1"
+        ]
       }
     }
   }

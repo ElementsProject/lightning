@@ -5,14 +5,14 @@
   "notification": "shutdown",
   "title": "Notification for plugin shutdown",
   "description": [
-    "The **shutdown** notification informs a plugin that lightningd is shutting down."
+    "The **shutdown** notification informs a plugin that lightningd is shutting down.",
+    "",
+    "It is expected that the plugin terminates it's own process when subscribing to this notification.",
+    "If it does not do so, lightningd will kill the plugin's process after a timeout."
   ],
   "added": "pre-v0.10.1",
-  "request": {
-    "added": "pre-v0.10.1"
-  },
+  "request": {},
   "response": {
-    "added": "pre-v0.10.1",
     "properties": {}
   }
 }

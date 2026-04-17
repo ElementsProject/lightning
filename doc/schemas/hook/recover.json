@@ -2,7 +2,7 @@
   "$schema": "../rpc-schema-draft.json",
   "added": "v23.08",
   "type": "object",
-  "notification": "recover",
+  "hook": "recover",
   "title": "Hook fired when node starts in recovery mode",
   "description": [
     "The **recover** hook is called whenever the node is started using the --recovery flag.",

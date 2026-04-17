@@ -8,11 +8,8 @@
     "The **deprecated_oneshot** notification informs a plugin that the immediately following command uses different deprecation handling than the global setting."
   ],
   "added": "v24.02",
-  "request": {
-    "added": "v24.02"
-  },
+  "request": {},
   "response": {
-    "added": "v24.02",
     "required": [
       "deprecated_ok"
     ],
@@ -21,8 +18,7 @@
         "type": "boolean",
         "description": [
           "Whether deprecated APIs are allowed for the immediately following command."
-        ],
-        "added": "v24.02"
+        ]
       }
     }
   }

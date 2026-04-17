@@ -2,7 +2,7 @@
   "$schema": "../rpc-schema-draft.json",
   "added": "pre-v0.10.1",
   "type": "object",
-  "notification": "openchannel2",
+  "hook": "openchannel2",
   "title": "Hook fired when a peer proposes opening a channel using v2 protocol",
   "description": [
     "The **openchannel2** hook is called whenever a remote peer tries to fund a channel using the v2 (dual-funding) protocol, after passing basic sanity checks.",

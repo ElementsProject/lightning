@@ -2,7 +2,7 @@
   "$schema": "../rpc-schema-draft.json",
   "added": "pre-v0.10.1",
   "type": "object",
-  "notification": "db_write",
+  "hook": "db_write",
   "title": "Hook fired before database writes are committed",
   "description": [
     "The **db_write** hook is called whenever a change is about to be committed to the database, if you are using a SQLITE3 database (the default).",

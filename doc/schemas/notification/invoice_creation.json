@@ -8,11 +8,8 @@
     "The **invoice_creation** notification informs whenever a new invoice is created."
   ],
   "added": "pre-v0.10.1",
-  "request": {
-    "added": "pre-v0.10.1"
-  },
+  "request": {},
   "response": {
-    "added": "pre-v0.10.1",
     "required": [
       "preimage",
       "label"
@@ -22,22 +19,19 @@
         "type": "msat",
         "description": [
           "The invoice amount, if the invoice amount was specified at creation time."
-        ],
-        "added": "pre-v0.10.1"
+        ]
       },
       "preimage": {
         "type": "secret",
         "description": [
           "The payment preimage for the created invoice."
-        ],
-        "added": "pre-v0.10.1"
+        ]
       },
       "label": {
         "type": "string",
         "description": [
           "The label of the created invoice."
-        ],
-        "added": "pre-v0.10.1"
+        ]
       }
     }
   }

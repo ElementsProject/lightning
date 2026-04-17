@@ -2,7 +2,7 @@
   "$schema": "../rpc-schema-draft.json",
   "added": "pre-v0.10.1",
   "type": "object",
-  "notification": "rbf_channel",
+  "hook": "rbf_channel",
   "title": "Hook for handling RBF channel funding requests",
   "description": [
     "The **rbf_channel** hook is called when a peer proposes replacing the funding transaction of an existing channel using Replace-By-Fee (RBF).",

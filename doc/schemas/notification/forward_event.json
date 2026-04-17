@@ -8,11 +8,8 @@
     "The **forward_event** notification informs whenever the status of a forwarded HTLC changes."
   ],
   "added": "pre-v0.10.1",
-  "request": {
-    "added": "pre-v0.10.1"
-  },
+  "request": {},
   "response": {
-    "added": "pre-v0.10.1",
     "required": [
       "payment_hash",
       "in_channel",
@@ -25,43 +22,37 @@
         "type": "hash",
         "description": [
           "The payment hash for the forwarded HTLC."
-        ],
-        "added": "pre-v0.10.1"
+        ]
       },
       "in_channel": {
         "type": "short_channel_id",
         "description": [
           "The inbound channel that received the HTLC."
-        ],
-        "added": "pre-v0.10.1"
+        ]
       },
       "out_channel": {
         "type": "short_channel_id",
         "description": [
           "The outbound channel used for the forward, if one was selected."
-        ],
-        "added": "pre-v0.10.1"
+        ]
       },
       "in_msat": {
         "type": "msat",
         "description": [
           "The amount of the incoming HTLC."
-        ],
-        "added": "pre-v0.10.1"
+        ]
       },
       "out_msat": {
         "type": "msat",
         "description": [
           "The amount forwarded to the outbound channel, if known."
-        ],
-        "added": "pre-v0.10.1"
+        ]
       },
       "fee_msat": {
         "type": "msat",
         "description": [
           "The fee earned on the forward, if an outbound amount is known."
-        ],
-        "added": "pre-v0.10.1"
+        ]
       },
       "status": {
         "type": "string",
@@ -73,22 +64,19 @@
         ],
         "description": [
           "The current forwarding status."
-        ],
-        "added": "pre-v0.10.1"
+        ]
       },
       "failcode": {
         "type": "u32",
         "description": [
           "The BOLT 4 failcode when the forward failed locally."
-        ],
-        "added": "pre-v0.10.1"
+        ]
       },
       "failreason": {
         "type": "string",
         "description": [
           "The symbolic failcode name when the forward failed locally."
-        ],
-        "added": "pre-v0.10.1"
+        ]
       },
       "style": {
         "type": "string",
@@ -105,15 +93,13 @@
         "type": "number",
         "description": [
           "The UNIX timestamp when the HTLC was received."
-        ],
-        "added": "pre-v0.10.1"
+        ]
       },
       "resolved_time": {
         "type": "number",
         "description": [
           "The UNIX timestamp when the HTLC was resolved, if it has been resolved."
-        ],
-        "added": "pre-v0.10.1"
+        ]
       }
     }
   }

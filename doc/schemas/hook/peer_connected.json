@@ -2,7 +2,7 @@
   "$schema": "../rpc-schema-draft.json",
   "added": "pre-v0.10.1",
   "type": "object",
-  "notification": "peer_connected",
+  "hook": "peer_connected",
   "title": "Hook fired when a peer connects and completes handshake",
   "description": [
     "The **peer_connected** hook is called whenever a peer has connected and successfully completed the cryptographic handshake.",
