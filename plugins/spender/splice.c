@@ -147,6 +147,16 @@ static struct command_result *unreserve_get_result(struct command *cmd,
 	return make_error(cmd, abort_pkg, "unreserve_get_result");
 }
 
+static struct command_result *free_abort_pkg_and_forward(struct command *cmd,
+							 const char *methodname,
+							 const char *buf,
+							 const jsmntok_t *result,
+							 struct abort_pkg *abort_pkg)
+{
+	tal_free(abort_pkg);
+	return forward_error(cmd, methodname, buf, result, NULL);
+}
+
 static struct command_result *abort_get_result(struct command *cmd,
 					       const char *methodname,
 					       const char *buf,
@@ -163,7 +173,8 @@ static struct command_result *abort_get_result(struct command *cmd,
 		return make_error(cmd, abort_pkg, "abort_get_result");
 
 	req = jsonrpc_request_start(cmd, "unreserveinputs",
-				    unreserve_get_result, forward_error,
+				    unreserve_get_result,
+				    free_abort_pkg_and_forward,
 				    abort_pkg);
 
 	json_add_psbt(req->js, "psbt", splice_cmd->psbt);
@@ -193,7 +204,9 @@ static struct command_result *do_fail(struct command *cmd,
 	abort_pkg->code = code;
 
 	req = jsonrpc_request_start(cmd, "abort_channels",
-				    abort_get_result, forward_error, abort_pkg);
+				    abort_get_result,
+				    free_abort_pkg_and_forward,
+				    abort_pkg);
 
 	added = 0;
 	json_array_start(req->js, "channel_ids");
@@ -1620,6 +1633,77 @@ static struct command_result *handle_fee_and_ppm(struct command *cmd,
 	return NULL;
 }
 
+/* Fund out to bitcoin addresses */
+static struct command_result *handle_bitcoin_addrs(struct command *cmd,
+						   struct splice_cmd *splice_cmd)
+{
+	struct splice_script_result *action;
+	struct splice_cmd_action_state *state;
+	struct wally_psbt_output *output;
+	char *bitcoin_address;
+	u64 serial_id;
+	u8 *scriptpubkey;
+
+	for (size_t i = 0; i < tal_count(splice_cmd->actions); i++) {
+		action = splice_cmd->actions[i];
+		state = splice_cmd->states[i];
+		if (!action->bitcoin_address)
+			continue;
+		if (state->state != SPLICE_CMD_NONE)
+			continue;
+
+		if (!amount_sat_is_zero(action->out_sat))
+			return do_fail(cmd, splice_cmd,
+					    JSONRPC2_INVALID_PARAMS,
+					    "Cannot fund from bitcoin"
+					    " address");
+		if (!decode_scriptpubkey_from_addr(cmd, chainparams,
+						   action->bitcoin_address,
+						   &scriptpubkey))
+			return do_fail(cmd, splice_cmd,
+				       JSONRPC2_INVALID_PARAMS,
+				       "Bitcoin address"
+				       " unrecognized");
+
+		/* Reencode scriptpubkey to addr for verification */
+		bitcoin_address = encode_scriptpubkey_to_addr(tmpctx,
+							      chainparams,
+							      scriptpubkey,
+							      tal_bytelen(scriptpubkey));
+		if (!bitcoin_address)
+			return do_fail(cmd, splice_cmd,
+				       JSONRPC2_INVALID_PARAMS,
+				       "Bitcoin scriptpubkey failed"
+				       " reencoding for address");
+
+		if (0 != strcmp(bitcoin_address, action->bitcoin_address))
+			return do_fail(cmd, splice_cmd,
+				       JSONRPC2_INVALID_PARAMS,
+				       tal_fmt(tmpctx,
+					       "Bitcoin scriptpubkey"
+					       " failed validation for"
+					       " address. Reencoded"
+					       " address is %s while"
+					       " address from script is"
+					       " %s",
+					       bitcoin_address ?: "NULL",
+					       action->bitcoin_address));
+
+		output = psbt_append_output(splice_cmd->psbt,
+					    scriptpubkey,
+					    action->in_sat);
+
+		serial_id = psbt_new_output_serial(splice_cmd->psbt,
+				       		   TX_INITIATOR);
+		psbt_output_set_serial_id(splice_cmd->psbt, output,
+					  serial_id);
+
+		state->state = SPLICE_CMD_DONE;
+	}
+
+	return NULL;
+}
+
 static struct command_result *continue_splice(struct command *cmd,
 					      struct splice_cmd *splice_cmd)
 {
@@ -1660,6 +1744,10 @@ static struct command_result *continue_splice(struct command *cmd,
 
 		splice_cmd->fee_calculated = true;
 	}
+
+	result = handle_bitcoin_addrs(cmd, splice_cmd);
+	if (result)
+		return result;
 
 	/* Only after fee calcualtion can we add wallet actions taking funds */
 	for (size_t i = 0; i < tal_count(splice_cmd->actions); i++) {
@@ -1762,18 +1850,13 @@ static struct command_result *execute_splice(struct command *cmd,
 					      struct splice_cmd *splice_cmd)
 {
 	struct splice_script_result *action;
-	struct splice_cmd_action_state *state;
-	struct wally_psbt_output *output;
-	u64 serial_id;
 	int pays_fee;
-	u8 *scriptpubkey;
 
 	/* Basic validation */
 	pays_fee = 0;
 	for (size_t i = 0; i < tal_count(splice_cmd->actions); i++) {
 		int dest_count = 0;
 		action = splice_cmd->actions[i];
-		state = splice_cmd->states[i];
 
 		if (action->out_ppm && !action->onchain_wallet)
 			return do_fail(cmd, splice_cmd, JSONRPC2_INVALID_PARAMS,
@@ -1824,8 +1907,6 @@ static struct command_result *execute_splice(struct command *cmd,
 
 	for (size_t i = 0; i < tal_count(splice_cmd->actions); i++) {
 		action = splice_cmd->actions[i];
-		state = splice_cmd->states[i];
-		char *bitcoin_address;
 
 		/* `out_ppm` is the percent to take out of the action.
 		 * If it is set to '*' we get a value of UINT32_MAX.
@@ -1842,61 +1923,11 @@ static struct command_result *execute_splice(struct command *cmd,
 						    " feerate");
 			splice_cmd->feerate_per_kw = action->feerate_per_kw;
 		}
-
-		/* Fund out to bitcoin address */
-		if (action->bitcoin_address) {
-			if (!amount_sat_is_zero(action->in_sat))
-				return do_fail(cmd, splice_cmd,
-						    JSONRPC2_INVALID_PARAMS,
-						    "Cannot fund from bitcoin"
-						    " address");
-			if (!decode_scriptpubkey_from_addr(cmd, chainparams,
-							   action->bitcoin_address,
-							   &scriptpubkey))
-				return do_fail(cmd, splice_cmd,
-					       JSONRPC2_INVALID_PARAMS,
-					       "Bitcoin address"
-					       " unrecognized");
-
-			/* Reencode scriptpubkey to addr for verification */
-			bitcoin_address = encode_scriptpubkey_to_addr(tmpctx,
-								      chainparams,
-								      scriptpubkey,
-								      tal_bytelen(scriptpubkey));
-			if (!bitcoin_address)
-				return do_fail(cmd, splice_cmd,
-					       JSONRPC2_INVALID_PARAMS,
-					       "Bitcoin scriptpubkey failed"
-					       " reencoding for address");
-
-			if (!strcmp(bitcoin_address, action->bitcoin_address))
-				return do_fail(cmd, splice_cmd,
-					       JSONRPC2_INVALID_PARAMS,
-					       "Bitcoin scriptpubkey failed"
-					       " validation for address");
-
-			output = psbt_append_output(splice_cmd->psbt,
-						    scriptpubkey,
-						    action->in_sat);
-
-			/* DTODO: support dynamic address payouts (percent) */
-
-			serial_id = psbt_new_output_serial(splice_cmd->psbt,
-					       		   TX_INITIATOR);
-			psbt_output_set_serial_id(splice_cmd->psbt, output,
-						  serial_id);
-
-			state->state = SPLICE_CMD_DONE;
-
-			add_to_debug_log(splice_cmd,
-					 "execute_splice-load_btcaddress");
-		}
 	}
 
 	/* Set needed funds to the wallet contributions. */
 	for (size_t i = 0; i < tal_count(splice_cmd->actions); i++) {
 		action = splice_cmd->actions[i];
-		state = splice_cmd->states[i];
 		if (action->onchain_wallet
 		    && !amount_sat_is_zero(action->out_sat)) {
 			splice_cmd->needed_funds = action->out_sat;
@@ -2042,16 +2073,6 @@ validate_splice_cmd(struct splice_cmd *splice_cmd)
 						    " fee");
 			paying_fee_count++;
 		}
-		if (action->bitcoin_address && action->in_ppm)
-			return command_fail(splice_cmd->cmd,
-					    JSONRPC2_INVALID_PARAMS,
-					    "Dynamic bitcoin address amounts"
-					    " not supported for now");
-		if (action->bitcoin_address)
-			return command_fail(splice_cmd->cmd,
-					    JSONRPC2_INVALID_PARAMS,
-					    "Paying out to bitcoin addresses"
-					    " not supported for now.");
 	}
 
 	return NULL;
