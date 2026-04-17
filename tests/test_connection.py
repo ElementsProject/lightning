@@ -4651,7 +4651,6 @@ def test_no_delay(node_factory):
         assert normal_time <= nagle_time + 1.0
 
 
-
 def test_listpeerchannels_by_scid(node_factory):
     l1, l2, l3 = node_factory.line_graph(3, announce_channels=False)
 
