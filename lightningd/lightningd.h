@@ -434,6 +434,9 @@ struct lightningd {
 
 	/* Nodes to use for invoices / offers */
 	struct node_id *fronting_nodes;
+
+	/* Whether connectd should pad messages to make them equal length */
+	bool message_padding;
 };
 
 /* Turning this on allows a tal allocation to return NULL, rather than aborting.

@@ -707,6 +707,12 @@ all DNS lookups, to avoid leaking information.
 
   Disable the DNS bootstrapping mechanism to find a node by its node ID.
 
+* **message-padding**=*BOOL*
+
+  Normally `connectd` will send extra bytes to peers to make messages
+uniform length.  Some implementations don't accept these extra bytes:
+if we can't detect them, this option sets to `false` will disable it.
+
 * **tor-service-password**=*PASSWORD*
 
   Set a Tor control password, which may be needed for *autotor:* to

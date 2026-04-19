@@ -367,6 +367,9 @@ struct daemon {
 	 * (--dev-limit-connectsion-inflight sets this to 1 for testing). */
 	size_t max_connect_in_flight;
 
+	/* Add padding to messages (if peer seems ok) */
+	bool message_padding;
+
 	/* Hack to speed up gossip timer */
 	bool dev_fast_gossip;
 	/* Hack to avoid ping timeouts */
