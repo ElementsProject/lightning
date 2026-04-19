@@ -1668,6 +1668,10 @@ static void register_opts(struct lightningd *ld)
 			       opt_set_talstr, NULL,
 			       &ld->old_bookkeeper_db,
 			       opt_hidden);
+	clnopt_witharg("--message-padding", OPT_SHOWBOOL,
+		       opt_set_bool_arg, opt_show_bool,
+		       &ld->message_padding,
+		       "If true (the default), pad all messages to peers to make them equal length");
 
 	dev_register_opts(ld);
 }

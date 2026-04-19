@@ -491,9 +491,13 @@ static bool have_empty_encrypted_queue(const struct peer *peer)
  * "Phoenix-specific custom splices implementation" which Tbast
  * indicates is being phased out.  So if they offer that, don't send
  * such pings. */
+
+/* Oh, and then there was a node running LND master.  And those running
+ * LND with LNDK: so we added global disable. */
 static bool use_uniform_writes(const struct peer *peer)
 {
-	return feature_offered(peer->their_features, OPT_ONION_MESSAGES)
+	return peer->daemon->message_padding
+		&& feature_offered(peer->their_features, OPT_ONION_MESSAGES)
 		&& !feature_offered(peer->their_features, 154);
 }
 

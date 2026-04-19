@@ -11,6 +11,7 @@ This release is named by @Chand-ra.
 ### Added
 
  - Protocol: we now pad all peer messages to make them the same length (excluding LND < v21 and current Eclair). ([#8893], [#9022])
+ - Config: `message-padding` option can be set to `false` to disable it for all peers. ([#9068])
  - JSON-RPC: `bkpr-report` allows flexible summaries of bookkeeper income. ([#8937])
  - Config: `bkpr-currency` option to record conversion rate at each bookkeeper event. ([#8937])
  - JSON-RPC: `currencyconvert` and `currencyrate` via the new plugin `cln-currencyrate` ([#8842], [#8937])
@@ -137,6 +138,7 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 [#9022]: https://github.com/ElementsProject/lightning/pull/9022
 [#9046]: https://github.com/ElementsProject/lightning/pull/9046
 [#9047]: https://github.com/ElementsProject/lightning/pull/9047
+[#9068]: https://github.com/ElementsProject/lightning/pull/9068
 [v26.04rc3]: https://github.com/ElementsProject/lightning/releases/tag/v26.04rc3
 
 
