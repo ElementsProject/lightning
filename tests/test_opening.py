@@ -3018,3 +3018,34 @@ def test_zeroconf_withhold_htlc_failback(node_factory, bitcoind):
 
     # l1's channel to l2 is still normal — no force-close
     assert only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['state'] == 'CHANNELD_NORMAL'
+
+
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_signpsbt_multiple_taproot_inputs(node_factory, bitcoind):
+    """Test signpsbt when a PSBT has a multiple taproot input"""
+    l1 = node_factory.get_node(opts=[{'experimental-dual-fund': None}])
+
+    amount = 200000
+
+    bitcoind.rpc.sendmany("",
+                          {l1.rpc.newaddr('all')['p2tr']: amount / 10 ** 8,
+                           l1.rpc.newaddr('all')['p2tr']: amount / 10 ** 8})
+
+    bitcoind.generate_block(1)
+
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 2)
+
+    bitcoind.generate_block(6)
+    outputs = l1.rpc.listfunds()['outputs']
+
+    tx_list = []
+    for o in outputs:
+        txid = o['txid']
+        vout = o['output']
+        tx_list.append(f"{txid}:{vout}")
+
+    psbt = l1.rpc.utxopsbt("all", "300perkw", 1000, tx_list)['psbt']
+
+    l1.rpc.signpsbt(psbt)
