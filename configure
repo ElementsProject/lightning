@@ -220,7 +220,7 @@ have_function_sections()
     TMPOBJFILE=$CONFIG_VAR_FILE.$$.o
     
     echo "int foo(void); int foo(void) { return 0; }" > $TMPCFILE
-    $1 $2 -ffunction-sections -Wl,--gc-sections -c $TMPCFILE -o $TMPOBJFILE
+    $1 $2 -ffunction-sections -Wl,--gc-sections $TMPCFILE -o $TMPOBJFILE
 }
 
 usage()
