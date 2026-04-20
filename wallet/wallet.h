@@ -2064,6 +2064,15 @@ void wallet_watch_p2wpkh(struct lightningd *ld,
 			 u32 blockheight,
 			 u32 txindex);
 
+/* watch_found handler for the wallet/p2tr/<keyidx> dispatch entry:
+ * fires when a p2tr wallet address receives funds. */
+void wallet_watch_p2tr(struct lightningd *ld,
+		       const char *suffix,
+		       const struct bitcoin_tx *tx,
+		       size_t outnum,
+		       u32 blockheight,
+		       u32 txindex);
+
 /* Shared revert handler for the wallet/p2wpkh, wallet/p2tr and
  * wallet/p2sh_p2wpkh dispatch entries: undoes got_utxo + wallet_add_our_tx
  * for every output recorded at @suffix's keyindex and @blockheight. */

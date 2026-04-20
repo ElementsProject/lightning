@@ -154,4 +154,7 @@ static inline const char *owner_wallet_utxo(const tal_t *ctx,
 static inline const char *owner_wallet_p2wpkh(const tal_t *ctx, u64 keyidx)
 { return tal_fmt(ctx, "wallet/p2wpkh/%"PRIu64, keyidx); }
 
+static inline const char *owner_wallet_p2tr(const tal_t *ctx, u64 keyidx)
+{ return tal_fmt(ctx, "wallet/p2tr/%"PRIu64, keyidx); }
+
 #endif /* LIGHTNING_LIGHTNINGD_WATCHMAN_H */

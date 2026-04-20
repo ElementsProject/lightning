@@ -8220,3 +8220,15 @@ void wallet_watch_p2wpkh(struct lightningd *ld,
 					 ADDR_BECH32,
 					 tx, outnum, blockheight, txindex);
 }
+
+void wallet_watch_p2tr(struct lightningd *ld,
+		       const char *suffix,
+		       const struct bitcoin_tx *tx,
+		       size_t outnum,
+		       u32 blockheight,
+		       u32 txindex)
+{
+	wallet_watch_scriptpubkey_common(ld, (u32)strtoull(suffix, NULL, 10),
+					 ADDR_P2TR,
+					 tx, outnum, blockheight, txindex);
+}
