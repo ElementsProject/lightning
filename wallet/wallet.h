@@ -2064,6 +2064,29 @@ void wallet_scriptpubkey_watch_revert(struct lightningd *ld,
 				      const char *suffix,
 				      u32 blockheight);
 
+/* Record the wallet debit for a spent owned output.  The watch notification
+ * identifies the outpoint but not its amount, so reload the persisted UTXO
+ * before creating the movement. */
+void wallet_record_spend(struct lightningd *ld,
+			 const struct bitcoin_outpoint *outpoint,
+			 const struct bitcoin_txid *txid,
+			 u32 blockheight);
+
+/* watch_found handler for wallet/utxo/<txid>:<outnum>: an output we own was
+ * spent.  Marks it spent in our_outputs, stores the spending tx in our_txs,
+ * and records the withdrawal coin movement. */
+void wallet_utxo_spent_watch_found(struct lightningd *ld,
+				   const char *suffix,
+				   const struct bitcoin_tx *tx,
+				   size_t innum,
+				   u32 blockheight,
+				   u32 txindex);
+
+/* watch_revert handler: a reorg undid that spend; mark the UTXO unspent. */
+void wallet_utxo_spent_watch_revert(struct lightningd *ld,
+				    const char *suffix,
+				    u32 blockheight);
+
 /* Arm a scriptpubkey watch for an HD key under its wallet/spk/<keyidx>/<form>
  * owner; the form is derived from @script.  No-op (logs broken) if the script
  * isn't a form the wallet issues. */

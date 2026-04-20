@@ -465,6 +465,7 @@ static const struct watch_dispatch {
 	watch_found_fn handler;
 	watch_revert_fn revert;
 } watch_handlers[] = {
+	{ "wallet/utxo/", wallet_utxo_spent_watch_found, wallet_utxo_spent_watch_revert },
 	/* wallet/spk/<keyidx>/<form>: WATCH_SCRIPTPUBKEY, fires when an
 	 * address form (p2wpkh/p2tr/p2sh_p2wpkh) of this HD key receives
 	 * funds.  One dispatch entry serves all forms: the handler parses the

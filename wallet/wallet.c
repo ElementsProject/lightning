@@ -8261,3 +8261,128 @@ void wallet_scriptpubkey_watch_revert(struct lightningd *ld,
 	db_bind_int(stmt, blockheight);
 	db_exec_prepared_v2(take(stmt));
 }
+
+/* Record the wallet debit for a spent owned output.  The watch notification
+ * identifies the outpoint but not its amount, so reload the persisted UTXO
+ * before creating the movement. */
+void wallet_record_spend(struct lightningd *ld,
+			 const struct bitcoin_outpoint *outpoint,
+			 const struct bitcoin_txid *txid,
+			 u32 blockheight)
+{
+	struct utxo *utxo;
+
+	/* We only armed this watch after storing the UTXO, so it must exist. */
+	utxo = wallet_utxo_get(tmpctx, ld->wallet, outpoint);
+	if (!utxo) {
+		log_broken(ld->log, "No record of utxo %s",
+			   fmt_bitcoin_outpoint(tmpctx, outpoint));
+		return;
+	}
+
+	/* Ledger entry: utxo->amount left the wallet via @txid. */
+	wallet_save_chain_mvt(ld, new_coin_wallet_withdraw(tmpctx, txid, outpoint,
+							   blockheight,
+							   utxo->amount,
+							   mk_mvt_tags(MVT_WITHDRAWAL)));
+}
+
+/* A wallet/utxo watch owner suffix is "<txid>:<outnum>", as written by
+ * owner_wallet_utxo(). */
+static bool utxo_watch_suffix_to_outpoint(const char *suffix,
+					  struct bitcoin_outpoint *outpoint)
+{
+	const char *colon = strchr(suffix, ':');
+	const char *outnum_str;
+	char *end;
+
+	if (!colon)
+		return false;
+	if (!bitcoin_txid_from_hex(suffix, colon - suffix, &outpoint->txid))
+		return false;
+
+	/* The outnum is the decimal number after the colon. */
+	outnum_str = colon + 1;
+	outpoint->n = strtoul(outnum_str, &end, 10);
+
+	/* There must be at least one digit... */
+	if (end == outnum_str)
+		return false;
+	/* ...and nothing after the number. */
+	if (*end != '\0')
+		return false;
+
+	return true;
+}
+
+/* watch_found handler for wallet/utxo/<txid>:<outnum>: a tx spent an output
+ * we own (bwatch_got_utxo() armed this watch when it recorded the output).
+ * @innum (which input of @tx did the spending) is part of the shared
+ * watch_found_fn signature; unused here since the owner suffix already
+ * names the spent outpoint. */
+void wallet_utxo_spent_watch_found(struct lightningd *ld,
+				   const char *suffix,
+				   const struct bitcoin_tx *tx,
+				   size_t innum UNUSED,
+				   u32 blockheight,
+				   u32 txindex)
+{
+	struct bitcoin_outpoint outpoint;
+	struct db_stmt *stmt;
+	struct bitcoin_txid spending_txid;
+
+	if (!utxo_watch_suffix_to_outpoint(suffix, &outpoint)) {
+		log_broken(ld->log, "wallet/utxo watch_found: invalid suffix %s",
+			   suffix);
+		return;
+	}
+
+	bitcoin_txid(tx, &spending_txid);
+
+	/* Mark the output spent.  Like the legacy outputs table, the row is
+	 * kept: spendheight excludes it from coin selection, history
+	 * survives, and a reorg can undo this by clearing spendheight. */
+	stmt = db_prepare_v2(ld->wallet->db,
+		SQL("UPDATE our_outputs SET spendheight = ? "
+		    "WHERE txid = ? AND outnum = ?;"));
+	db_bind_int(stmt, blockheight);
+	db_bind_txid(stmt, &outpoint.txid);
+	db_bind_int(stmt, outpoint.n);
+	db_exec_prepared_v2(take(stmt));
+
+	/* The spending tx is wallet-relevant, so it goes into our_txs (like
+	 * the legacy transactions table) for listtransactions. */
+	wallet_add_our_tx(ld->wallet, tx->wtx, blockheight, txindex);
+
+	wallet_record_spend(ld, &outpoint, &spending_txid, blockheight);
+}
+
+/* watch_revert handler for wallet/utxo/<txid>:<outnum>: a reorg removed the
+ * transaction that spent this output, so it is ours again. */
+void wallet_utxo_spent_watch_revert(struct lightningd *ld,
+				    const char *suffix,
+				    u32 blockheight UNUSED)
+{
+	struct bitcoin_outpoint outpoint;
+	struct db_stmt *stmt;
+
+	if (!utxo_watch_suffix_to_outpoint(suffix, &outpoint)) {
+		log_broken(ld->log, "wallet/utxo watch_revert: invalid suffix %s",
+			   suffix);
+		return;
+	}
+
+	/* Undo watch_found: clearing spendheight makes the UTXO unspent. */
+	stmt = db_prepare_v2(ld->wallet->db,
+		SQL("UPDATE our_outputs SET spendheight = NULL "
+		    "WHERE txid = ? AND outnum = ?;"));
+	db_bind_txid(stmt, &outpoint.txid);
+	db_bind_int(stmt, outpoint.n);
+	db_exec_prepared_v2(take(stmt));
+
+	/* The withdrawal movement recorded by watch_found stays: coin
+	 * movements are append-only, and wallet_save_chain_mvt won't record
+	 * a duplicate if the spend re-confirms. */
+	log_debug(ld->log, "wallet/utxo watch_revert: cleared spendheight for %s",
+		  fmt_bitcoin_outpoint(tmpctx, &outpoint));
+}
