@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [26.04rc3] - 2026-04-13: Negative Routing Fees
+## [26.04] - 2026-04-20: Negative Routing Fees
 
 This release is named by @Chand-ra.
 
@@ -139,7 +139,7 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 [#9046]: https://github.com/ElementsProject/lightning/pull/9046
 [#9047]: https://github.com/ElementsProject/lightning/pull/9047
 [#9068]: https://github.com/ElementsProject/lightning/pull/9068
-[v26.04rc3]: https://github.com/ElementsProject/lightning/releases/tag/v26.04rc3
+[v26.04]: https://github.com/ElementsProject/lightning/releases/tag/v26.04
 
 
 ## [25.12.1] - 2026-1-14: "Boltz's Seamless Upgrade Experience II"
