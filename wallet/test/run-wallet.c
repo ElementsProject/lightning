@@ -1821,7 +1821,7 @@ static bool test_htlc_crud(struct lightningd *ld, const tal_t *ctx, bool bip86)
 	CHECK_MSG(
 		transaction_wrap(w->db, wallet_htlc_update(w, in.dbid, SENT_REMOVE_HTLC, &payment_key, 0, 0, NULL, NULL, &we_filled, in.key.id, in.key.channel, REMOTE, &in.payment_hash, in.cltv_expiry, in.msat)),
 	    "Update HTLC with payment_key failed");
-	onionreply = new_onionreply(tmpctx, tal_arrz(tmpctx, u8, 100));
+	onionreply = new_onionreply(tmpctx, tal_arrz(tmpctx, u8, 100), NULL);
 	CHECK_MSG(
 		transaction_wrap(w->db, wallet_htlc_update(w, in.dbid, SENT_REMOVE_HTLC, NULL, 0, 0, onionreply, NULL, &we_filled, in.key.id, in.key.channel, REMOTE, &in.payment_hash, in.cltv_expiry, in.msat)),
 	    "Update HTLC with failonion failed");

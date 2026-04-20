@@ -34,6 +34,9 @@ struct htlc {
 
 	/* Should we immediately fail this htlc? */
 	bool fail_immediate;
+
+	/* Attribution Data */
+	struct attribution_data *attr_data;
 };
 
 static inline bool htlc_has(const struct htlc *h, int flag)
