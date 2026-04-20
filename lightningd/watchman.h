@@ -151,4 +151,7 @@ static inline const char *owner_wallet_utxo(const tal_t *ctx,
 					    const struct bitcoin_outpoint *op)
 { return tal_fmt(ctx, "wallet/utxo/%s", fmt_bitcoin_outpoint(ctx, op)); }
 
+static inline const char *owner_wallet_p2wpkh(const tal_t *ctx, u64 keyidx)
+{ return tal_fmt(ctx, "wallet/p2wpkh/%"PRIu64, keyidx); }
+
 #endif /* LIGHTNING_LIGHTNINGD_WATCHMAN_H */

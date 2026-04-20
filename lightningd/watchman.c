@@ -475,7 +475,8 @@ static const struct watch_dispatch {
 	watch_found_fn handler;
 	watch_revert_fn revert;
 } watch_handlers[] = {
-	/* Entries added in subsequent commits alongside their handler functions. */
+	/* wallet/p2wpkh/<keyidx>: WATCH_SCRIPTPUBKEY, fires when a p2wpkh wallet address receives funds */
+	{ "wallet/p2wpkh/", wallet_watch_p2wpkh, wallet_scriptpubkey_watch_revert },
 	{ NULL, NULL, NULL },
 };
 

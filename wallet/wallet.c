@@ -8008,16 +8008,6 @@ static void bwatch_got_utxo(struct wallet *w,
 			    const u32 *blockheight,
 			    u32 txindex,
 			    struct bitcoin_outpoint *outpoint)
-	__attribute__((unused));
-static void bwatch_got_utxo(struct wallet *w,
-			    u64 keyindex,
-			    enum addrtype addrtype,
-			    const struct wally_tx *wtx,
-			    size_t outnum,
-			    bool is_coinbase,
-			    const u32 *blockheight,
-			    u32 txindex,
-			    struct bitcoin_outpoint *outpoint)
 {
 	struct utxo *utxo = tal(tmpctx, struct utxo);
 	const struct wally_tx_output *txout = &wtx->outputs[outnum];
@@ -8096,14 +8086,6 @@ type_ok:
  * (one each for p2wpkh, p2tr, p2sh_p2wpkh).  Cross-checks the matched
  * output against any pending invoice, records the transaction, and
  * stores the new UTXO. */
-static void wallet_watch_scriptpubkey_common(struct lightningd *ld,
-					     u32 keyindex,
-					     enum addrtype addrtype,
-					     const struct bitcoin_tx *tx,
-					     size_t outnum,
-					     u32 blockheight,
-					     u32 txindex)
-	__attribute__((unused));
 static void wallet_watch_scriptpubkey_common(struct lightningd *ld,
 					     u32 keyindex,
 					     enum addrtype addrtype,
@@ -8225,4 +8207,16 @@ void wallet_scriptpubkey_watch_revert(struct lightningd *ld,
 		wallet_del_tx_if_unreferenced(w, &outpoint.txid);
 	}
 	tal_free(stmt);
+}
+
+void wallet_watch_p2wpkh(struct lightningd *ld,
+			 const char *suffix,
+			 const struct bitcoin_tx *tx,
+			 size_t outnum,
+			 u32 blockheight,
+			 u32 txindex)
+{
+	wallet_watch_scriptpubkey_common(ld, (u32)strtoull(suffix, NULL, 10),
+					 ADDR_BECH32,
+					 tx, outnum, blockheight, txindex);
 }
