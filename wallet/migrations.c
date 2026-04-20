@@ -1084,6 +1084,35 @@ static const struct db_migration dbmigrations[] = {
      NULL, NULL},
     {SQL("ALTER TABLE offers ADD COLUMN force_paths INTEGER DEFAULT 0;"), NULL,
      SQL("ALTER TABLE offers DROP COLUMN force_paths"), NULL},
+
+    /* v26.04: parallel wallet tables without the blocks(height) FK that
+     * utxoset/transactions carry, so bwatch-driven writes don't need a
+     * blocks table.  Legacy tables stay for one release to keep downgrade
+     * working. */
+    {SQL("CREATE TABLE our_outputs ("
+	 "  txid BLOB NOT NULL,"
+	 "  outnum INTEGER NOT NULL,"
+	 "  blockheight INTEGER NOT NULL,"
+	 "  txindex INTEGER,"
+	 "  scriptpubkey BLOB NOT NULL,"
+	 "  satoshis BIGINT NOT NULL,"
+	 "  spendheight INTEGER,"
+	 "  keyindex INTEGER,"
+	 "  reserved_til INTEGER,"
+	 "  channel_dbid BIGINT,"
+	 "  peer_id BLOB,"
+	 "  commitment_point BLOB,"
+	 "  csv INTEGER,"
+	 "  PRIMARY KEY (txid, outnum)"
+	 ")"), NULL,
+     SQL("DROP TABLE our_outputs"), NULL},
+    {SQL("CREATE TABLE our_txs ("
+	 "  txid BLOB NOT NULL PRIMARY KEY,"
+	 "  blockheight INTEGER NOT NULL,"
+	 "  txindex INTEGER,"
+	 "  rawtx BLOB"
+	 ")"), NULL,
+     SQL("DROP TABLE our_txs"), NULL},
 };
 
 const struct db_migration *get_db_migrations(size_t *num)
