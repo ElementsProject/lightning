@@ -2089,4 +2089,23 @@ void wallet_scriptpubkey_watch_revert(struct lightningd *ld,
 				      const char *suffix,
 				      u32 blockheight);
 
+/* Emit a withdrawal coin movement for a spent wallet UTXO. */
+void wallet_record_spend(struct lightningd *ld,
+			 const struct bitcoin_outpoint *outpoint,
+			 const struct bitcoin_txid *txid,
+			 u32 blockheight);
+
+/* watch_found handler for wallet/utxo/<txid>:<outnum>. */
+void wallet_utxo_spent_watch_found(struct lightningd *ld,
+				   const char *suffix,
+				   const struct bitcoin_tx *tx,
+				   size_t innum,
+				   u32 blockheight,
+				   u32 txindex);
+
+/* Reorg-time counterpart: clears spendheight on the UTXO. */
+void wallet_utxo_spent_watch_revert(struct lightningd *ld,
+				    const char *suffix,
+				    u32 blockheight);
+
 #endif /* LIGHTNING_WALLET_WALLET_H */

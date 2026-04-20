@@ -7,6 +7,7 @@
 #include <ccan/tal/str/str.h>
 #include <channeld/channeld_wiregen.h>
 #include <common/clock_time.h>
+#include <common/json_parse.h>
 #include <common/memleak.h>
 #include <common/mkdatastorekey.h>
 #include <common/onionreply.h>
@@ -8275,4 +8276,91 @@ void wallet_watch_p2sh_p2wpkh(struct lightningd *ld,
 	wallet_watch_scriptpubkey_common(ld, (u32)strtoull(suffix, NULL, 10),
 					 ADDR_P2SH_SEGWIT,
 					 tx, outnum, blockheight, txindex);
+}
+
+void wallet_record_spend(struct lightningd *ld,
+			 const struct bitcoin_outpoint *outpoint,
+			 const struct bitcoin_txid *txid,
+			 u32 blockheight)
+{
+	struct utxo *utxo;
+
+	utxo = wallet_utxo_get(tmpctx, ld->wallet, outpoint);
+	if (!utxo) {
+		log_broken(ld->log, "No record of utxo %s",
+			   fmt_bitcoin_outpoint(tmpctx, outpoint));
+		return;
+	}
+
+	wallet_save_chain_mvt(ld, new_coin_wallet_withdraw(tmpctx, txid, outpoint,
+							   blockheight,
+							   utxo->amount,
+							   mk_mvt_tags(MVT_WITHDRAWAL)));
+}
+
+void wallet_utxo_spent_watch_found(struct lightningd *ld,
+				   const char *suffix,
+				   const struct bitcoin_tx *tx,
+				   size_t innum UNUSED,
+				   u32 blockheight,
+				   u32 txindex)
+{
+	struct bitcoin_outpoint outpoint;
+	struct db_stmt *stmt;
+	jsmntok_t tok;
+	struct bitcoin_txid spending_txid;
+
+	tok.start = 0;
+	tok.end = strlen(suffix);
+	if (!json_to_outpoint(suffix, &tok, &outpoint)) {
+		log_broken(ld->log, "wallet/utxo watch_found: invalid suffix %s",
+			   suffix);
+		return;
+	}
+
+	bitcoin_txid(tx, &spending_txid);
+
+	stmt = db_prepare_v2(ld->wallet->db,
+		SQL("UPDATE our_outputs SET spendheight = ? "
+		    "WHERE txid = ? AND outnum = ?;"));
+	db_bind_int(stmt, blockheight);
+	db_bind_txid(stmt, &outpoint.txid);
+	db_bind_int(stmt, outpoint.n);
+	db_exec_prepared_v2(take(stmt));
+
+	/* Refresh the spending tx's confirmed blockheight in our_txs so
+	 * listtransactions reports the correct confirmation. */
+	wallet_add_our_tx(ld->wallet, tx->wtx, blockheight, txindex);
+
+	wallet_record_spend(ld, &outpoint, &spending_txid, blockheight);
+}
+
+void wallet_utxo_spent_watch_revert(struct lightningd *ld,
+				    const char *suffix,
+				    u32 blockheight UNUSED)
+{
+	struct bitcoin_outpoint outpoint;
+	struct db_stmt *stmt;
+	jsmntok_t tok;
+
+	tok.start = 0;
+	tok.end = strlen(suffix);
+	if (!json_to_outpoint(suffix, &tok, &outpoint)) {
+		log_broken(ld->log, "wallet/utxo watch_revert: invalid suffix %s",
+			   suffix);
+		return;
+	}
+
+	/* Clear spendheight so the UTXO is unspent again.  Any coin movement
+	 * already recorded stays; wallet_save_chain_mvt deduplicates if the
+	 * spending tx re-confirms. */
+	stmt = db_prepare_v2(ld->wallet->db,
+		SQL("UPDATE our_outputs SET spendheight = NULL "
+		    "WHERE txid = ? AND outnum = ?;"));
+	db_bind_txid(stmt, &outpoint.txid);
+	db_bind_int(stmt, outpoint.n);
+	db_exec_prepared_v2(take(stmt));
+
+	log_debug(ld->log, "wallet/utxo watch_revert: cleared spendheight for %s",
+		  fmt_bitcoin_outpoint(tmpctx, &outpoint));
 }

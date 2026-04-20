@@ -475,6 +475,8 @@ static const struct watch_dispatch {
 	watch_found_fn handler;
 	watch_revert_fn revert;
 } watch_handlers[] = {
+	/* wallet/utxo/<txid>:<outnum>: WATCH_OUTPOINT, fires when a wallet UTXO is spent */
+	{ "wallet/utxo/", wallet_utxo_spent_watch_found, wallet_utxo_spent_watch_revert },
 	/* wallet/p2wpkh/<keyidx>: WATCH_SCRIPTPUBKEY, fires when a p2wpkh wallet address receives funds */
 	{ "wallet/p2wpkh/", wallet_watch_p2wpkh, wallet_scriptpubkey_watch_revert },
 	/* wallet/p2tr/<keyidx>: WATCH_SCRIPTPUBKEY, fires when a p2tr wallet address receives funds */
