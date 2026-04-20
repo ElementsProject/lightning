@@ -4,7 +4,6 @@
 #include <bitcoin/short_channel_id.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/str/str.h>
-#include <ccan/tal/str/str.h>
 #include <common/autodata.h>
 #include <common/json_command.h>
 #include <common/json_param.h>

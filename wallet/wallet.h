@@ -2022,4 +2022,44 @@ void wallet_datastore_save_payment_description(struct db *db,
 					       const char *desc);
 void migrate_setup_coinmoves(struct lightningd *ld, struct db *db);
 
+/* ====================================================================
+ * bwatch-driven wallet recording.
+ *
+ * These functions are invoked from lightningd/watchman's dispatch table
+ * when bwatch reports activity on a wallet-owned scriptpubkey.  They
+ * persist outputs and transactions in the `our_outputs` and `our_txs`
+ * tables, which run in parallel to the legacy `utxoset` / `transactions`
+ * tables so a node can downgrade cleanly for one release.
+ * ==================================================================== */
+
+/* Insert a wallet-owned UTXO row into our_outputs.  If the same outpoint
+ * was previously inserted unconfirmed (blockheight=0), the row is updated
+ * to the new confirmed blockheight so coin selection can spend it. */
+void wallet_add_our_output(struct wallet *w,
+			   const struct bitcoin_outpoint *outpoint,
+			   u32 blockheight, u32 txindex,
+			   const u8 *script, size_t script_len,
+			   struct amount_sat sat,
+			   u32 keyindex);
+
+/* Insert (or replace) a wallet-relevant transaction in our_txs. */
+void wallet_add_our_tx(struct wallet *w, const struct wally_tx *tx,
+		       u32 blockheight, u32 txindex);
+
+/* Undo wallet_annotate_txout for an output annotation. */
+void wallet_del_txout_annotation(struct wallet *w,
+				 const struct bitcoin_outpoint *outpoint);
+
+/* Undo wallet_add_our_tx: removes from our_txs only if no our_outputs row
+ * still references it. */
+void wallet_del_tx_if_unreferenced(struct wallet *w,
+				   const struct bitcoin_txid *txid);
+
+/* Shared revert handler for the wallet/p2wpkh, wallet/p2tr and
+ * wallet/p2sh_p2wpkh dispatch entries: undoes got_utxo + wallet_add_our_tx
+ * for every output recorded at @suffix's keyindex and @blockheight. */
+void wallet_scriptpubkey_watch_revert(struct lightningd *ld,
+				      const char *suffix,
+				      u32 blockheight);
+
 #endif /* LIGHTNING_WALLET_WALLET_H */

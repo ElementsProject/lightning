@@ -3,7 +3,9 @@
 
 #include "config.h"
 #include <bitcoin/tx.h>
+#include <ccan/tal/str/str.h>
 #include <ccan/tal/tal.h>
+#include <inttypes.h>
 
 struct lightningd;
 struct pending_op;
@@ -134,5 +136,19 @@ void watchman_watch_blockdepth(struct lightningd *ld,
 void watchman_unwatch_blockdepth(struct lightningd *ld,
 				 const char *owner,
 				 u32 confirm_height);
+
+/*
+ * Owner string constructors.
+ *
+ * Always use these instead of raw tal_fmt() to build owner strings.  Sharing
+ * one constructor between watchman_watch_* and watchman_unwatch_* guarantees
+ * the strings are identical and the unwatch can never silently fail due to a
+ * format mismatch (e.g. %u vs PRIu64).
+ */
+
+/* wallet/ owners */
+static inline const char *owner_wallet_utxo(const tal_t *ctx,
+					    const struct bitcoin_outpoint *op)
+{ return tal_fmt(ctx, "wallet/utxo/%s", fmt_bitcoin_outpoint(ctx, op)); }
 
 #endif /* LIGHTNING_LIGHTNINGD_WATCHMAN_H */

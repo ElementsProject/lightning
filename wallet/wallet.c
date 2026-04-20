@@ -16,14 +16,17 @@
 #include <db/common.h>
 #include <db/exec.h>
 #include <db/utils.h>
+#include <lightningd/chaintopology.h>
 #include <lightningd/channel.h>
 #include <lightningd/channel_gossip.h>
 #include <lightningd/closed_channel.h>
 #include <lightningd/coin_mvts.h>
 #include <lightningd/hsm_control.h>
+#include <lightningd/invoice.h>
 #include <lightningd/notification.h>
 #include <lightningd/peer_htlcs.h>
 #include <lightningd/runes.h>
+#include <lightningd/watchman.h>
 #include <onchaind/onchaind_wiregen.h>
 #include <wallet/datastore.h>
 #include <wallet/invoices.h>
@@ -7896,4 +7899,330 @@ void migrate_remove_chain_moves_duplicates(struct lightningd *ld, struct db *db)
 		db_bind_u64(stmt, to_delete[i]);
 		db_exec_prepared_v2(take(stmt));
 	}
+}
+
+/* ====================================================================
+ * bwatch-driven wallet recording.
+ *
+ * When bwatch reports that a wallet-owned scriptpubkey appeared in a block
+ * (or that a previously-seen output was reorged away), the dispatch table
+ * in lightningd/watchman calls into the helpers below.  They write to the
+ * `our_outputs` and `our_txs` tables, which are independent of the
+ * `utxoset` / `transactions` tables populated by the legacy chaintopology
+ * path.  Both sets of tables coexist for one release so a node can
+ * downgrade cleanly.
+ *
+ * Some statics are marked __attribute__((unused)) because the dispatch
+ * entries that wire them in are added in follow-on patches in this series.
+ * ==================================================================== */
+
+/* Map an addrtype to the string used in bwatch owner identifiers, e.g.
+ * ADDR_BECH32 -> "p2wpkh" giving "wallet/p2wpkh/<keyidx>". */
+static const char *wallet_addrtype_to_owner_prefix(enum addrtype addrtype)
+	__attribute__((unused));
+static const char *wallet_addrtype_to_owner_prefix(enum addrtype addrtype)
+{
+	switch (addrtype) {
+	case ADDR_BECH32:
+		return "p2wpkh";
+	case ADDR_P2TR:
+		return "p2tr";
+	case ADDR_P2SH_SEGWIT:
+		return "p2sh_p2wpkh";
+	case ADDR_ALL:
+		break;
+	}
+	return NULL;
+}
+
+/* Insert a wallet-owned UTXO row into our_outputs.  If the outpoint was
+ * previously inserted unconfirmed (blockheight=0) and we now have a real
+ * blockheight, promote the row so coin selection can treat it as
+ * spendable. */
+void wallet_add_our_output(struct wallet *w,
+			   const struct bitcoin_outpoint *outpoint,
+			   u32 blockheight, u32 txindex,
+			   const u8 *script, size_t script_len,
+			   struct amount_sat sat,
+			   u32 keyindex)
+{
+	struct db_stmt *stmt;
+
+	stmt = db_prepare_v2(w->db,
+		SQL("INSERT OR IGNORE INTO our_outputs "
+		    "(txid, outnum, blockheight, txindex, scriptpubkey, satoshis, keyindex) "
+		    "VALUES (?, ?, ?, ?, ?, ?, ?);"));
+	db_bind_txid(stmt, &outpoint->txid);
+	db_bind_int(stmt, outpoint->n);
+	db_bind_int(stmt, blockheight);
+	db_bind_int(stmt, txindex);
+	db_bind_blob(stmt, script, script_len);
+	db_bind_amount_sat(stmt, sat);
+	db_bind_int(stmt, keyindex);
+	db_exec_prepared_v2(take(stmt));
+
+	if (blockheight != 0) {
+		stmt = db_prepare_v2(w->db,
+			SQL("UPDATE our_outputs SET blockheight = ?, txindex = ? "
+			    "WHERE txid = ? AND outnum = ? AND blockheight < ?;"));
+		db_bind_int(stmt, blockheight);
+		db_bind_int(stmt, txindex);
+		db_bind_txid(stmt, &outpoint->txid);
+		db_bind_int(stmt, outpoint->n);
+		db_bind_int(stmt, blockheight);
+		db_exec_prepared_v2(take(stmt));
+	}
+}
+
+/* Insert (or replace) a wallet-relevant transaction in our_txs. */
+void wallet_add_our_tx(struct wallet *w, const struct wally_tx *tx,
+		       u32 blockheight, u32 txindex)
+{
+	struct db_stmt *stmt;
+	struct bitcoin_txid txid;
+
+	wally_txid(tx, &txid);
+
+	stmt = db_prepare_v2(w->db,
+			     SQL("INSERT OR REPLACE INTO our_txs "
+				 "(txid, blockheight, txindex, rawtx) VALUES (?, ?, ?, ?);"));
+	db_bind_txid(stmt, &txid);
+	db_bind_int(stmt, blockheight);
+	db_bind_int(stmt, txindex);
+	db_bind_talarr(stmt, linearize_wtx(tmpctx, tx));
+	db_exec_prepared_v2(take(stmt));
+}
+
+/* Record a freshly-discovered wallet output: insert it into our_outputs,
+ * arm bwatch to notify us when it's spent, and (if confirmed) emit a
+ * deposit coin movement.  Bwatch counterpart to the legacy got_utxo()
+ * defined earlier in this file
+ * and the legacy one is removed (and this one renamed) once the
+ * chaintopology code path goes away. */
+static void bwatch_got_utxo(struct wallet *w,
+			    u64 keyindex,
+			    enum addrtype addrtype,
+			    const struct wally_tx *wtx,
+			    size_t outnum,
+			    bool is_coinbase,
+			    const u32 *blockheight,
+			    u32 txindex,
+			    struct bitcoin_outpoint *outpoint)
+	__attribute__((unused));
+static void bwatch_got_utxo(struct wallet *w,
+			    u64 keyindex,
+			    enum addrtype addrtype,
+			    const struct wally_tx *wtx,
+			    size_t outnum,
+			    bool is_coinbase,
+			    const u32 *blockheight,
+			    u32 txindex,
+			    struct bitcoin_outpoint *outpoint)
+{
+	struct utxo *utxo = tal(tmpctx, struct utxo);
+	const struct wally_tx_output *txout = &wtx->outputs[outnum];
+	struct amount_asset asset = wally_tx_output_get_amount(txout);
+
+	utxo->keyindex = keyindex;
+	/* This switch() pattern catches anyone adding new cases, plus
+	 * runtime errors */
+	switch (addrtype) {
+	case ADDR_P2SH_SEGWIT:
+		utxo->utxotype = UTXO_P2SH_P2WPKH;
+		goto type_ok;
+	case ADDR_BECH32:
+		utxo->utxotype = UTXO_P2WPKH;
+		goto type_ok;
+	case ADDR_P2TR:
+		utxo->utxotype = UTXO_P2TR;
+		goto type_ok;
+	case ADDR_ALL:
+		break;
+	}
+	abort();
+
+type_ok:
+	utxo->amount = amount_asset_to_sat(&asset);
+	utxo->status = OUTPUT_STATE_AVAILABLE;
+	wally_txid(wtx, &utxo->outpoint.txid);
+	utxo->outpoint.n = outnum;
+	utxo->close_info = NULL;
+	utxo->is_in_coinbase = is_coinbase;
+
+	utxo->blockheight = blockheight;
+	utxo->spendheight = NULL;
+	utxo->scriptPubkey = tal_dup_arr(utxo, u8, txout->script, txout->script_len, 0);
+	log_debug(w->log, "Owning output %zu %s (%s) txid %s%s%s",
+		  outnum,
+		  fmt_amount_sat(tmpctx, utxo->amount),
+		  utxotype_to_str(utxo->utxotype),
+		  fmt_bitcoin_txid(tmpctx, &utxo->outpoint.txid),
+		  blockheight ? " CONFIRMED" : "",
+		  is_coinbase ? " COINBASE" : "");
+
+	/* We only record final ledger movements */
+	if (blockheight) {
+		struct chain_coin_mvt *mvt;
+
+		mvt = new_coin_wallet_deposit(tmpctx, &utxo->outpoint,
+					      *blockheight,
+					      utxo->amount,
+					      mk_mvt_tags(MVT_DEPOSIT));
+		wallet_save_chain_mvt(w->ld, mvt);
+	}
+
+	/* Persist the output and arm bwatch to fire on its spend; the owner
+	 * string ("wallet/utxo/<outpoint>") is what bwatch echoes back to us
+	 * in the spend notification. */
+	wallet_add_our_output(w, &utxo->outpoint,
+			      blockheight ? *blockheight : 0,
+			      txindex,
+			      utxo->scriptPubkey, tal_bytelen(utxo->scriptPubkey),
+			      utxo->amount,
+			      utxo->keyindex);
+	watchman_watch_outpoint(w->ld,
+				owner_wallet_utxo(tmpctx, &utxo->outpoint),
+				&utxo->outpoint,
+				(blockheight && *blockheight > 0)
+				    ? *blockheight
+				    : get_block_height(w->ld->topology));
+
+	wallet_annotate_txout(w, &utxo->outpoint, TX_WALLET_DEPOSIT, 0);
+	if (outpoint)
+		*outpoint = utxo->outpoint;
+}
+
+/* Shared body of the per-addrtype wallet scriptpubkey dispatch handlers
+ * (one each for p2wpkh, p2tr, p2sh_p2wpkh).  Cross-checks the matched
+ * output against any pending invoice, records the transaction, and
+ * stores the new UTXO. */
+static void wallet_watch_scriptpubkey_common(struct lightningd *ld,
+					     u32 keyindex,
+					     enum addrtype addrtype,
+					     const struct bitcoin_tx *tx,
+					     size_t outnum,
+					     u32 blockheight,
+					     u32 txindex)
+	__attribute__((unused));
+static void wallet_watch_scriptpubkey_common(struct lightningd *ld,
+					     u32 keyindex,
+					     enum addrtype addrtype,
+					     const struct bitcoin_tx *tx,
+					     size_t outnum,
+					     u32 blockheight,
+					     u32 txindex)
+{
+	struct wallet *w = ld->wallet;
+	const struct wally_tx_output *txout;
+	struct amount_asset asset;
+	bool is_coinbase = (txindex == 0);
+	struct amount_sat amount;
+	struct bitcoin_outpoint outpoint;
+	struct bitcoin_txid txid;
+
+	if (outnum >= tx->wtx->num_outputs) {
+		log_broken(w->log, "Invalid outnum %zu for tx with %zu outputs",
+			   outnum, tx->wtx->num_outputs);
+		return;
+	}
+
+	txout = &tx->wtx->outputs[outnum];
+	asset = wally_tx_output_get_amount(txout);
+
+	/* L-BTC has multi-asset outputs; we only care about the L-BTC main
+	 * asset here. */
+	if (!amount_asset_is_main(&asset)) {
+		log_debug(w->log, "Ignoring non-main asset output");
+		return;
+	}
+
+	bitcoin_txid(tx, &txid);
+	outpoint.txid = txid;
+	outpoint.n = outnum;
+	amount = bitcoin_tx_output_get_amount_sat(tx, outnum);
+
+	invoice_check_onchain_payment(ld, txout->script, amount, &outpoint);
+
+	wallet_add_our_tx(w, tx->wtx, blockheight, txindex);
+
+	bwatch_got_utxo(w, keyindex, addrtype, tx->wtx, outnum, is_coinbase,
+			&blockheight, txindex, &outpoint);
+
+	log_debug(w->log, "Wallet watch found: keyindex=%u, addrtype=%d, amount=%s, blockheight=%u%s",
+		  keyindex, addrtype, fmt_amount_sat(tmpctx, amount), blockheight,
+		  is_coinbase ? " COINBASE" : "");
+}
+
+/* Undo wallet_annotate_txout for an output annotation. */
+void wallet_del_txout_annotation(struct wallet *w,
+				 const struct bitcoin_outpoint *outpoint)
+{
+	struct db_stmt *stmt = db_prepare_v2(w->db,
+		SQL("DELETE FROM transaction_annotations "
+		    "WHERE txid = ? AND idx = ? AND location = ?"));
+	db_bind_txid(stmt, &outpoint->txid);
+	db_bind_int(stmt, outpoint->n);
+	db_bind_int(stmt, OUTPUT_ANNOTATION);
+	db_exec_prepared_v2(take(stmt));
+}
+
+/* Undo wallet_add_our_output for a single outpoint. */
+static void undo_wallet_add_our_output(struct wallet *w,
+				       const struct bitcoin_outpoint *outpoint)
+{
+	struct db_stmt *stmt = db_prepare_v2(w->db,
+		SQL("DELETE FROM our_outputs WHERE txid = ? AND outnum = ?"));
+	db_bind_txid(stmt, &outpoint->txid);
+	db_bind_int(stmt, outpoint->n);
+	db_exec_prepared_v2(take(stmt));
+}
+
+/* Undo wallet_add_our_tx: removes from our_txs only if no our_outputs row
+ * still references it. */
+void wallet_del_tx_if_unreferenced(struct wallet *w,
+				   const struct bitcoin_txid *txid)
+{
+	struct db_stmt *stmt = db_prepare_v2(w->db,
+		SQL("DELETE FROM our_txs WHERE txid = ?"
+		    " AND NOT EXISTS (SELECT 1 FROM our_outputs WHERE txid = ?)"));
+	db_bind_txid(stmt, txid);
+	db_bind_txid(stmt, txid);
+	db_exec_prepared_v2(take(stmt));
+}
+
+/* Reorg-time counterpart to wallet_watch_scriptpubkey_common: drops every
+ * our_outputs row for this keyindex confirmed at @blockheight, removes
+ * the matching outpoint watch from bwatch, the txout annotation, and the
+ * cached transaction (if no other output still references it).  The
+ * deposit chain movement and any invoice payment state recorded at the
+ * time are intentionally left in place — those side effects can't be
+ * meaningfully undone. */
+void wallet_scriptpubkey_watch_revert(struct lightningd *ld,
+				      const char *suffix,
+				      u32 blockheight)
+{
+	struct wallet *w = ld->wallet;
+	struct db_stmt *stmt;
+	struct bitcoin_outpoint outpoint;
+	u64 keyindex = strtoull(suffix, NULL, 10);
+
+	stmt = db_prepare_v2(w->db,
+		SQL("SELECT txid, outnum FROM our_outputs "
+		    "WHERE keyindex = ? AND blockheight = ?"));
+	db_bind_u64(stmt, keyindex);
+	db_bind_int(stmt, blockheight);
+	db_query_prepared(stmt);
+
+	while (db_step(stmt)) {
+		db_col_txid(stmt, "txid", &outpoint.txid);
+		outpoint.n = db_col_int(stmt, "outnum");
+
+		watchman_unwatch_outpoint(ld,
+					  owner_wallet_utxo(tmpctx, &outpoint),
+					  &outpoint);
+		wallet_del_txout_annotation(w, &outpoint);
+		undo_wallet_add_our_output(w, &outpoint);
+		wallet_del_tx_if_unreferenced(w, &outpoint.txid);
+	}
+	tal_free(stmt);
 }
