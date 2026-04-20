@@ -225,7 +225,7 @@ have_function_sections()
     
     echo "int foo(void); int foo(void) { return 0; }" > $TMPCFILE
     # We *want* this to fail if we get a warning, hence use -Werror.
-    $1 $2 -Werror -ffunction-sections -Wl,--gc-sections -c $TMPCFILE -o $TMPOBJFILE
+    $1 $2 -Werror -ffunction-sections -Wl,--gc-sections $TMPCFILE -o $TMPOBJFILE
 }
 
 usage()
