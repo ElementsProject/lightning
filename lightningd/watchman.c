@@ -1,7 +1,6 @@
 #include "config.h"
 #include <assert.h>
 #include <bitcoin/chainparams.h>
-#include <bitcoin/short_channel_id.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/str/str.h>
 #include <common/autodata.h>
@@ -15,6 +14,7 @@
 #include <lightningd/bitcoind.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/coin_mvts.h>
+#include <lightningd/gossip_control.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
@@ -483,6 +483,12 @@ static const struct watch_dispatch {
 	{ "wallet/p2tr/", wallet_watch_p2tr, wallet_scriptpubkey_watch_revert },
 	/* wallet/p2sh_p2wpkh/<keyidx>: WATCH_SCRIPTPUBKEY, fires when a p2sh-wrapped p2wpkh address receives funds */
 	{ "wallet/p2sh_p2wpkh/", wallet_watch_p2sh_p2wpkh, wallet_scriptpubkey_watch_revert },
+	/* gossip/funding_spent/<scid>: WATCH_OUTPOINT, fires when the confirmed funding output is spent.
+	 * Must precede "gossip/" so the longer prefix wins the strstarts() match. */
+	{ "gossip/funding_spent/", gossip_funding_spent_watch_found, gossip_funding_spent_watch_revert },
+	/* gossip/<scid>: WATCH_SCID, fires when the channel announcement UTXO is confirmed.
+	 * tx==NULL signals the SCID's expected position was absent from the block ("not found"). */
+	{ "gossip/", gossip_scid_watch_found, gossip_scid_watch_revert },
 	{ NULL, NULL, NULL },
 };
 

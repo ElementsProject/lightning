@@ -851,6 +851,13 @@ static void set_gossip_state(struct channel *channel,
 
 		/* And maybe our first node_announcement */
 		channel_gossip_node_announce(channel->peer->ld);
+
+		/* Watch for funding spend: inject_gossip skips GET_TXOUT so
+		 * gossip_scid_watch_found never fires for our own channels. */
+		watchman_watch_outpoint(channel->peer->ld,
+					owner_gossip_funding_spent(tmpctx, *channel->scid),
+					&channel->funding,
+					short_channel_id_blocknum(*channel->scid));
 		return;
 
 	case CGOSSIP_CHANNEL_ANNOUNCED_DYING:
@@ -1171,6 +1178,17 @@ void channel_gossip_init_done(struct lightningd *ld)
 				continue;
 
 			check_channel_gossip(channel);
+
+			/* inject_gossip skips GET_TXOUT, so gossip_scid_watch_found
+			 * never fires for our own channels; register explicitly. */
+			if (channel->channel_gossip->state == CGOSSIP_ANNOUNCED
+			    && channel->scid) {
+				watchman_watch_outpoint(ld,
+							owner_gossip_funding_spent(tmpctx, *channel->scid),
+							&channel->funding,
+							short_channel_id_blocknum(*channel->scid));
+			}
+
 			if (channel->channel_gossip->cupdate)
 				continue;
 			if (channel->channel_gossip->state != CGOSSIP_ANNOUNCED)

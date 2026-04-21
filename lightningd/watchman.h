@@ -2,6 +2,7 @@
 #define LIGHTNING_LIGHTNINGD_WATCHMAN_H
 
 #include "config.h"
+#include <bitcoin/short_channel_id.h>
 #include <bitcoin/tx.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/tal/tal.h>
@@ -9,7 +10,6 @@
 
 struct lightningd;
 struct pending_op;
-struct short_channel_id;
 
 /* lightningd's view of bwatch.  bwatch lives in a separate process and tells
  * us about new/reverted blocks and watch hits via JSON-RPC; watchman tracks
@@ -159,5 +159,14 @@ static inline const char *owner_wallet_p2tr(const tal_t *ctx, u64 keyidx)
 
 static inline const char *owner_wallet_p2sh_p2wpkh(const tal_t *ctx, u64 keyidx)
 { return tal_fmt(ctx, "wallet/p2sh_p2wpkh/%"PRIu64, keyidx); }
+
+/* gossip/ owners */
+static inline const char *owner_gossip_scid(const tal_t *ctx,
+					    struct short_channel_id scid)
+{ return tal_fmt(ctx, "gossip/%s", fmt_short_channel_id(ctx, scid)); }
+
+static inline const char *owner_gossip_funding_spent(const tal_t *ctx,
+						     struct short_channel_id scid)
+{ return tal_fmt(ctx, "gossip/funding_spent/%s", fmt_short_channel_id(ctx, scid)); }
 
 #endif /* LIGHTNING_LIGHTNINGD_WATCHMAN_H */
