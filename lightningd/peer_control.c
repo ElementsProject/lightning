@@ -2711,25 +2711,63 @@ void channel_funding_spent_watch_revert(struct lightningd *ld,
 					const char *suffix,
 					u32 blockheight)
 {
-	/* TODO: roll back onchaind state on funding-spend reorg.  The full
-	 * rollback (kill onchaind, restore CHANNELD_NORMAL, replay watches)
-	 * needs onchaind itself to be running on bwatch first; until then,
-	 * just record the event. */
 	u64 dbid = strtoull(suffix, NULL, 10);
 	struct channel *channel = channel_by_dbid(ld, dbid);
 
 	if (!channel) {
-		log_debug(ld->log,
-			  "channel/funding_spent revert: unknown dbid %"PRIu64
-			  " at block %u, ignoring",
-			  dbid, blockheight);
+		log_broken(ld->log,
+			   "channel/funding_spent revert: unknown dbid %"PRIu64
+			   ", ignoring",
+			   dbid);
+		return;
+	}
+
+	/* bwatch fires this revert whenever the funding-confirmation block is
+	 * reorged away, regardless of whether the outpoint was actually spent
+	 * (start_block on this watch is the funding confirmation height, not
+	 * the spend height).  funding_spend_txid is only set once we've seen
+	 * a spend, so its absence means there's nothing to roll back. */
+	if (!channel->funding_spend_txid) {
+		log_debug(channel->log,
+			  "Funding spend revert at block %u in state %s:"
+			  " outpoint never spent, ignoring",
+			  blockheight, channel_state_name(channel));
+		return;
+	}
+
+	/* Already in ONCHAIN means onchaind has fully taken over.  We don't
+	 * have a sane way to undo that, and in practice this revert during
+	 * ONCHAIN almost always means a startup resync (watchman height <
+	 * bwatch tip), not a real deep reorg of the spending tx. */
+	if (channel->state == ONCHAIN) {
+		log_unusual(channel->log,
+			    "Funding spend revert at block %u while ONCHAIN:"
+			    " ignoring (likely startup resync, not a real reorg)",
+			    blockheight);
 		return;
 	}
 
 	log_unusual(channel->log,
-		    "channel/funding_spent revert at block %u (state %s):"
-		    " no rollback yet",
+		    "Funding spend reorged out at block %u (state %s) --"
+		    " rolling back",
 		    blockheight, channel_state_name(channel));
+
+	/* Kill onchaind first so it stops touching state we're about to roll
+	 * back. */
+	channel_set_owner(channel, NULL);
+
+	/* Drop bwatch watches before clearing close_blockheight: the unwatch
+	 * for the channel_close depth watch needs that height to compute the
+	 * matching owner. */
+	onchaind_clear_watches(channel);
+	channel->close_blockheight = tal_free(channel->close_blockheight);
+
+	/* Reset gossip before channel_set_state persists the new state: there
+	 * is no legal backward gossip transition from ONCHAIN. */
+	channel_gossip_funding_reorg(channel);
+
+	channel_set_state(channel, channel->state, CHANNELD_NORMAL,
+			  REASON_UNKNOWN, "Funding spend reorged out");
 }
 
 void channel_wrong_funding_spent_watch_found(struct lightningd *ld,

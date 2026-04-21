@@ -957,6 +957,25 @@ void channel_gossip_init(struct channel *channel,
 	check_channel_gossip(channel);
 }
 
+void channel_gossip_funding_reorg(struct channel *channel)
+{
+	struct channel_gossip *cg = channel->channel_gossip;
+	if (!cg)
+		return;
+
+	/* Stashed remote sigs reference the old scid; drop them so the
+	 * fresh announcement (if any) doesn't try to use them. */
+	cg->remote_sigs = tal_free(cg->remote_sigs);
+
+	/* The state machine has no legal backward transition, so re-derive
+	 * from the channel's current properties instead of trying to walk
+	 * back through it. */
+	cg->state = derive_channel_state(channel);
+	log_debug(channel->log,
+		  "channel_gossip: reset to %s after funding reorg",
+		  channel_gossip_state_str(cg->state));
+}
+
 /* Something about channel changed: update if required */
 void channel_gossip_update(struct channel *channel)
 {
