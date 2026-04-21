@@ -27,6 +27,7 @@
 #include <lightningd/hsm_control.h>
 #include <lightningd/notification.h>
 #include <lightningd/opening_common.h>
+#include <lightningd/peer_control.h>
 #include <lightningd/peer_fd.h>
 #include <lightningd/plugin_hook.h>
 #include <openingd/dualopend_wiregen.h>
@@ -1002,61 +1003,39 @@ static void dualopend_tell_depth(struct channel *channel,
 					      to_go));
 }
 
-static enum watch_result opening_depth_cb(struct lightningd *ld,
-					  unsigned int depth,
-					  struct channel_inflight *inflight)
+void dualopend_channel_depth(struct lightningd *ld,
+			     struct channel *channel,
+			     u32 depth)
 {
-	/* Usually, we're here because we're awaiting a lockin, but
-	 * we could also mutual shutdown */
-	if (inflight->channel->state != DUALOPEND_AWAITING_LOCKIN)
-		return DELETE_WATCH;
+	struct channel_inflight *inflight;
 
-	if (depth >= inflight->channel->minimum_depth)
-		update_channel_from_inflight(ld, inflight->channel, inflight,
-					     false);
-
-	dualopend_tell_depth(inflight->channel, &inflight->funding->outpoint.txid, depth);
-	return KEEP_WATCHING;
-}
-
-static enum watch_result opening_reorged_cb(struct lightningd *ld, struct channel_inflight *inflight)
-{
-	/* Reorged out?  OK, we're not committed yet. */
-	log_info(inflight->channel->log, "Candidate funding tx was in a block, now reorged out");
-	return DELETE_WATCH;
-}
-
-static void dual_funding_found(struct lightningd *ld,
-			       const struct bitcoin_tx *tx,
-			       u32 outnum,
-			       const struct txlocator *loc,
-			       struct channel_inflight *inflight)
-{
-	/* Kill it if the channel funding isn't a valid scid */
-	if (!depthcb_update_scid(inflight->channel,
-				 &inflight->funding->outpoint,
-				 loc))
+	/* No scid yet means funding hasn't confirmed; nothing to report. */
+	if (!channel->scid)
 		return;
 
-	/* Otherwise, watch for block depth increases (we'll immediately expect one) */
-	watch_blockdepth(inflight, ld->topology, loc->blkheight,
-			 opening_depth_cb,
-			 opening_reorged_cb,
-			 inflight);
+	/* Push the new depth to dualopend so it can update its billboard
+	 * and decide when to send funding_locked. */
+	dualopend_tell_depth(channel, &channel->funding.txid, depth);
+
+	/* At/past minimum depth: promote the matching inflight into the
+	 * channel's funding fields (funding_sats, our_msat, etc.) so the
+	 * rest of the daemon sees the live numbers from here on. */
+	if (depth >= channel->minimum_depth) {
+		list_for_each(&channel->inflights, inflight, list) {
+			if (bitcoin_outpoint_eq(&inflight->funding->outpoint,
+						&channel->funding)) {
+				update_channel_from_inflight(ld, channel,
+							     inflight, false);
+				break;
+			}
+		}
+	}
 }
 
 void watch_opening_inflight(struct lightningd *ld,
 			    struct channel_inflight *inflight)
 {
-	const u8 *funding_wscript = bitcoin_redeem_2of2(tmpctx,
-							&inflight->channel->local_funding_pubkey,
-							&inflight->channel->channel_info.remote_fundingkey);
-	watch_scriptpubkey(inflight, ld->topology,
-			   take(scriptpubkey_p2wsh(NULL, funding_wscript)),
-			   &inflight->funding->outpoint,
-			   inflight->funding->total_funds,
-			   dual_funding_found,
-			   inflight);
+	channel_watch_funding(ld, inflight->channel);
 }
 
 static void

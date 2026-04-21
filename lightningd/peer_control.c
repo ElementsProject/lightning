@@ -324,15 +324,6 @@ static struct bitcoin_tx *sign_and_send_last(const tal_t *ctx,
 	return tx;
 }
 
-/* FIXME: reorder! */
-/* UNUSED: chaintopology funding_spent path; bwatch
- * channel_funding_spent_watch_found is the live producer.  Removed in the
- * follow-up cleanup commit. */
-static UNUSED enum watch_result funding_spent(struct channel *channel,
-					      const struct bitcoin_tx *tx,
-					      size_t inputnum UNUSED,
-					      const struct block *block);
-
 static bool channel_splice_watch_found(struct lightningd *ld,
 				       struct channel *channel,
 				       const struct bitcoin_txid *txid,
@@ -2573,52 +2564,41 @@ void channel_block_processed(struct lightningd *ld, u32 blockheight)
 					lockin_complete(channel,
 							CHANNELD_AWAITING_LOCKIN);
 				break;
+			case DUALOPEND_AWAITING_LOCKIN:
+				dualopend_channel_depth(ld, channel, depth);
+				break;
 			case CHANNELD_NORMAL:
-			case CHANNELD_AWAITING_SPLICE:
 				channeld_tell_depth(channel,
 						    &channel->funding.txid,
 						    depth);
 				break;
-			default:
-				/* DUALOPEND_*, AWAITING_UNILATERAL, CLOSED, etc.
-				 * keep using their existing depth-driving paths. */
+			case CHANNELD_AWAITING_SPLICE:
+				/* channel->scid and channel->funding.txid both
+				 * track the live funding (original before the
+				 * splice tx confirms; splice after).  Either
+				 * way, depth was computed from channel->scid
+				 * above, so this call is correct in both. */
+				channeld_tell_splice_depth(channel,
+							   channel->scid,
+							   &channel->funding.txid,
+							   depth);
+				break;
+
+			/* No channeld to notify. */
+			case DUALOPEND_OPEN_INIT:
+			case DUALOPEND_OPEN_COMMIT_READY:
+			case DUALOPEND_OPEN_COMMITTED:
+			case CHANNELD_SHUTTING_DOWN:
+			case CLOSINGD_SIGEXCHANGE:
+			case CLOSINGD_COMPLETE:
+			case AWAITING_UNILATERAL:
+			case FUNDING_SPEND_SEEN:
+			case ONCHAIN:
+			case CLOSED:
 				break;
 			}
 		}
 	}
-}
-
-static UNUSED enum watch_result funding_spent(struct channel *channel,
-					      const struct bitcoin_tx *tx,
-					      size_t inputnum UNUSED,
-					      const struct block *block)
-{
-	struct bitcoin_txid txid;
-	struct channel_inflight *inflight;
-
-	bitcoin_txid(tx, &txid);
-
-	/* If we're doing a splice, we expect the funding transaction to be
-	 * spent, so don't freak out and just keep watching in that case */
-	list_for_each(&channel->inflights, inflight, list) {
-		if (bitcoin_txid_eq(&txid,
-				    &inflight->funding->outpoint.txid)) {
-			/* splice_locked is a special flag that indicates this
-			 * is a memory-only inflight acting as a race condition
-			 * safeguard. When we see this, it is our responsability
-			 * to clean up this memory-only inflight. */
-			if (inflight->splice_locked_memonly) {
-				tal_free(inflight);
-				return DELETE_WATCH;
-			}
-			return KEEP_WATCHING;
-		}
-	}
-
-	wallet_insert_funding_spend(channel->peer->ld->wallet, channel,
-				    &txid, 0, block->height);
-
-	return onchaind_funding_spent(channel, tx, block->height);
 }
 
 /* Splice tx confirmed: swap the outpoint watch from old to new funding and
@@ -3135,7 +3115,6 @@ command_find_channel(struct command *cmd,
 static void setup_peer(struct peer *peer)
 {
 	struct channel *channel;
-	struct channel_inflight *inflight;
 	struct lightningd *ld = peer->ld;
 	bool connect = false, important = false;
 
@@ -3161,16 +3140,12 @@ static void setup_peer(struct peer *peer)
 			channel_watch_funding(ld, channel);
 			break;
 
-		/* We need to watch all inflights which may open channel */
+		/* The single bwatch scriptpubkey watch covers every inflight
+		 * (they all share the funding P2WSH); depth is driven by
+		 * channel_block_processed. */
 		case DUALOPEND_AWAITING_LOCKIN:
-			list_for_each(&channel->inflights, inflight, list)
-				watch_opening_inflight(ld, inflight);
-			break;
-
-		/* We need to watch all inflights which may splice */
 		case CHANNELD_AWAITING_SPLICE:
-			list_for_each(&channel->inflights, inflight, list)
-				watch_splice_inflight(ld, inflight);
+			channel_watch_funding(ld, channel);
 			break;
 		}
 

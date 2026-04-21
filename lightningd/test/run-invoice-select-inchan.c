@@ -265,6 +265,11 @@ bool depthcb_update_scid(struct channel *channel UNNEEDED,
 /* Generated stub for dev_disconnect_permanent */
 bool dev_disconnect_permanent(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "dev_disconnect_permanent called!\n"); abort(); }
+/* Generated stub for dualopend_channel_depth */
+void dualopend_channel_depth(struct lightningd *ld UNNEEDED,
+			     struct channel *channel UNNEEDED,
+			     u32 depth UNNEEDED)
+{ fprintf(stderr, "dualopend_channel_depth called!\n"); abort(); }
 /* Generated stub for fatal */
 void   fatal(const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "fatal called!\n"); abort(); }
@@ -744,10 +749,6 @@ void wallet_unreserve_utxo(struct wallet *w UNNEEDED, struct utxo *utxo UNNEEDED
 struct utxo *wallet_utxo_get(const tal_t *ctx UNNEEDED, struct wallet *w UNNEEDED,
 			     const struct bitcoin_outpoint *outpoint UNNEEDED)
 { fprintf(stderr, "wallet_utxo_get called!\n"); abort(); }
-/* Generated stub for watch_opening_inflight */
-void watch_opening_inflight(struct lightningd *ld UNNEEDED,
-			    struct channel_inflight *inflight UNNEEDED)
-{ fprintf(stderr, "watch_opening_inflight called!\n"); abort(); }
 /* Generated stub for watch_scriptpubkey_ */
 bool watch_scriptpubkey_(const tal_t *ctx UNNEEDED,
 			 struct chain_topology *topo UNNEEDED,
@@ -761,10 +762,6 @@ bool watch_scriptpubkey_(const tal_t *ctx UNNEEDED,
 				    void *) UNNEEDED,
 			 void *arg UNNEEDED)
 { fprintf(stderr, "watch_scriptpubkey_ called!\n"); abort(); }
-/* Generated stub for watch_splice_inflight */
-void watch_splice_inflight(struct lightningd *ld UNNEEDED,
-			   struct channel_inflight *inflight UNNEEDED)
-{ fprintf(stderr, "watch_splice_inflight called!\n"); abort(); }
 /* Generated stub for watchman_unwatch_blockdepth */
 void watchman_unwatch_blockdepth(struct lightningd *ld UNNEEDED,
 				 const char *owner UNNEEDED,

@@ -685,90 +685,12 @@ static void handle_splice_confirmed_signed(struct lightningd *ld,
 	send_splice_tx(channel, tx, cc, output_index, inflight->funding_psbt);
 }
 
-static enum watch_result splice_depth_cb(struct lightningd *ld,
-					 unsigned int depth,
-					 struct channel_inflight *inflight)
-{
-	/* Usually, we're here because we're awaiting a splice, but
-	 * we could also mutual shutdown, or that weird splice_locked_memonly
-	 * hack... */
-	if (inflight->channel->state != CHANNELD_AWAITING_SPLICE) {
-		log_debug(inflight->channel->log, "Splice inflight event but not"
-			  " in AWAITING_SPLICE, ending watch of txid %s",
-			 fmt_bitcoin_txid(tmpctx, &inflight->funding->outpoint.txid));
-		return DELETE_WATCH;
-	}
-
-	if (inflight->channel->owner) {
-		log_debug(inflight->channel->log, "splice_depth_cb: sending funding depth scid: %s",
-			  fmt_short_channel_id(tmpctx, *inflight->scid));
-		subd_send_msg(inflight->channel->owner,
-			      take(towire_channeld_funding_depth(
-					   NULL, inflight->scid,
-					   depth, true,
-					   &inflight->funding->outpoint.txid)));
-	}
-
-	/* channeld will tell us when splice is locked in: we'll clean
-	 * this watch up then. */
-	return KEEP_WATCHING;
-}
-
-/* Reorged out?  OK, we're not committed yet. */
-static enum watch_result splice_reorged_cb(struct lightningd *ld, struct channel_inflight *inflight)
-{
-	log_unusual(inflight->channel->log, "Splice inflight txid %s reorged out",
-		    fmt_bitcoin_txid(tmpctx, &inflight->funding->outpoint.txid));
-	inflight->scid = tal_free(inflight->scid);
-	return DELETE_WATCH;
-}
-
-/* We see this tx output spend to the splice funding address. */
-static void splice_found(struct lightningd *ld,
-			 const struct bitcoin_tx *tx,
-			 u32 outnum,
-			 const struct txlocator *loc,
-			 struct channel_inflight *inflight)
-{
-	assert(!inflight->scid);
-	inflight->scid = tal(inflight, struct short_channel_id);
-
-	if (!mk_short_channel_id(inflight->scid,
-				 loc->blkheight, loc->index,
-				 inflight->funding->outpoint.n)) {
-		inflight->scid = tal_free(inflight->scid);
-		channel_fail_permanent(inflight->channel,
-				       REASON_LOCAL,
-				       "Invalid funding scid %u:%u:%u",
-				       loc->blkheight, loc->index,
-				       inflight->funding->outpoint.n);
-		return;
-	}
-
-	/* We will almost immediately get called, which is what we want! */
-	watch_blockdepth(inflight, ld->topology, loc->blkheight,
-			 splice_depth_cb,
-			 splice_reorged_cb,
-			 inflight);
-}
-
+/* Thin wrapper kept so callers don't need to know the bwatch script watch
+ * (same P2WSH as the original funding) is what actually picks up the splice. */
 void watch_splice_inflight(struct lightningd *ld,
 			   struct channel_inflight *inflight)
 {
-	const u8 *funding_wscript = bitcoin_redeem_2of2(tmpctx,
-							&inflight->channel->local_funding_pubkey,
-							inflight->funding->splice_remote_funding);
-
-	log_info(inflight->channel->log, "Watching splice inflight %s",
-		 fmt_bitcoin_txid(tmpctx,
-				  &inflight->funding->outpoint.txid));
-
-	watch_scriptpubkey(inflight, ld->topology,
-			   take(scriptpubkey_p2wsh(NULL, funding_wscript)),
-			   &inflight->funding->outpoint,
-			   inflight->funding->total_funds,
-			   splice_found,
-			   inflight);
+	channel_watch_funding(ld, inflight->channel);
 }
 
 static void handle_splice_sending_sigs(struct lightningd *ld,
