@@ -286,7 +286,13 @@ static void watchman_add(struct lightningd *ld, const char *method,
 			 const char *owner, const char *json_params)
 {
 	struct watchman *wm = ld->watchman;
-	char *op_id = tal_fmt(tmpctx, "%s:%s", method, owner);
+	char *op_id;
+
+	/* No-op unless --experimental-bwatch stood up the watchman. */
+	if (!wm)
+		return;
+
+	op_id = tal_fmt(tmpctx, "%s:%s", method, owner);
 
 	/* Remove any existing add for this owner */
 	watchman_ack(ld, op_id);
@@ -304,12 +310,18 @@ static void watchman_del(struct lightningd *ld, const char *method,
 			 const char *owner, const char *json_params)
 {
 	struct watchman *wm = ld->watchman;
-	char *op_id = tal_fmt(tmpctx, "%s:%s", method, owner);
+	char *op_id, *add_op_id;
+
+	/* No-op unless --experimental-bwatch stood up the watchman. */
+	if (!wm)
+		return;
+
+	op_id = tal_fmt(tmpctx, "%s:%s", method, owner);
 
 	/* Cancel any pending add for this owner.  All del-methods are named
 	 * "del<suffix>" and their paired add-method is "add<suffix>" */
 	assert(strstarts(method, "del"));
-	char *add_op_id = tal_fmt(tmpctx, "add%s:%s", method + strlen("del"), owner);
+	add_op_id = tal_fmt(tmpctx, "add%s:%s", method + strlen("del"), owner);
 	watchman_ack(ld, add_op_id);
 	enqueue_op(wm, method, op_id, json_params);
 }
@@ -325,6 +337,9 @@ static void watchman_del(struct lightningd *ld, const char *method,
 void watchman_ack(struct lightningd *ld, const char *op_id)
 {
 	struct watchman *wm = ld->watchman;
+
+	if (!wm)
+		return;
 
 	for (size_t i = 0; i < tal_count(wm->pending_ops); i++) {
 		if (streq(wm->pending_ops[i]->op_id, op_id)) {
@@ -345,6 +360,9 @@ void watchman_ack(struct lightningd *ld, const char *op_id)
 void watchman_replay_pending(struct lightningd *ld)
 {
 	struct watchman *wm = ld->watchman;
+
+	if (!wm)
+		return;
 
 	for (size_t i = 0; i < tal_count(wm->pending_ops); i++) {
 		struct pending_op *op = wm->pending_ops[i];
@@ -804,6 +822,9 @@ static struct command_result *json_chaininfo(struct command *cmd,
 		   p_req("ibd", param_bool, &ibd),
 		   NULL))
 		return command_param_failed();
+
+	if (!cmd->ld->watchman)
+		return command_fail(cmd, LIGHTNINGD, "Watchman not initialized");
 
 	if (!streq(chain, chainparams->bip70_name))
 		fatal("Wrong network! Our Bitcoin backend is running on '%s',"

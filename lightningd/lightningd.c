@@ -46,6 +46,7 @@
 
 /*~ This is common code: routines shared by one or more executables
  *  (separate daemons, or the lightning-cli program). */
+#include <common/configvar.h>
 #include <common/daemon.h>
 #include <common/deprecation.h>
 #include <common/ecdh_hsmd.h>
@@ -287,6 +288,11 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	/*~ This is initialized later, but the plugin loop examines this,
 	 * so set it to NULL explicitly now. */
 	ld->wallet = NULL;
+
+	/*~ Only created if the user opts into --experimental-bwatch, but
+	 * plugin startup (watchman_notify_plugin_ready) examines it, so set
+	 * it to NULL explicitly now. */
+	ld->watchman = NULL;
 
 	/*~ Behavioral options */
 	ld->accept_extra_tlv_types = tal_arr(ld, u64, 0);
@@ -1164,6 +1170,18 @@ static void setup_fd_limit(struct lightningd *ld, size_t num_channels)
 	}
 }
 
+/*~ Has the user opted into the experimental bwatch chain watcher?  The
+ * --experimental-bwatch flag is registered by the bwatch plugin, not by
+ * lightningd, so we look for it in the parsed configvars rather than
+ * keeping our own copy. */
+static bool bwatch_enabled(const struct lightningd *ld)
+{
+	const char **names = tal_arr(tmpctx, const char *, 1);
+
+	names[0] = "experimental-bwatch";
+	return configvar_first(ld->configvars, names) != NULL;
+}
+
 int main(int argc, char *argv[])
 {
 	struct lightningd *ld;
@@ -1349,8 +1367,16 @@ int main(int argc, char *argv[])
 	trace_span_end(ld->topology);
 
 	/*~ Stand up the watchman: it queues bwatch RPC requests until the
-	 * bwatch plugin reports ready, then replays them. */
-	ld->watchman = watchman_new(ld, ld);
+	 * bwatch plugin reports ready, then replays them.  Must come after
+	 * setup_topology so start_block reflects the last-processed height.
+	 *
+	 * bwatch is opt-in for now: the --experimental-bwatch flag is
+	 * registered by the bwatch plugin, so peek at the configvar to gate
+	 * the lightningd side too.  Without it, ld->watchman stays NULL and
+	 * the watchman_* entry points are no-ops, leaving chain_topology as
+	 * the only chain watcher. */
+	if (bwatch_enabled(ld))
+		ld->watchman = watchman_new(ld, ld);
 
 	db_begin_transaction(ld->wallet->db);
 	trace_span_start("delete_old_htlcs", ld->wallet);
