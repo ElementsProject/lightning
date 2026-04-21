@@ -7949,23 +7949,32 @@ void migrate_remove_chain_moves_duplicates(struct lightningd *ld, struct db *db)
  * entries that wire them in are added in follow-on patches in this series.
  * ==================================================================== */
 
-/* Map an addrtype to the string used in bwatch owner identifiers, e.g.
- * ADDR_BECH32 -> "p2wpkh" giving "wallet/p2wpkh/<keyidx>". */
-static const char *wallet_addrtype_to_owner_prefix(enum addrtype addrtype)
-	__attribute__((unused));
-static const char *wallet_addrtype_to_owner_prefix(enum addrtype addrtype)
+/* Watch this scriptpubkey so bwatch tells us when the output confirms.
+ * P2SH-P2WPKH change isn't issued by the wallet, so it's a no-op. */
+static void watch_change_scriptpubkey(struct lightningd *ld,
+				      enum addrtype addrtype,
+				      u64 keyindex,
+				      const u8 *script,
+				      size_t script_len)
 {
+	const char *owner = NULL;
+
 	switch (addrtype) {
 	case ADDR_BECH32:
-		return "p2wpkh";
+		owner = owner_wallet_p2wpkh(tmpctx, keyindex);
+		break;
 	case ADDR_P2TR:
-		return "p2tr";
+		owner = owner_wallet_p2tr(tmpctx, keyindex);
+		break;
 	case ADDR_P2SH_SEGWIT:
-		return "p2sh_p2wpkh";
 	case ADDR_ALL:
 		break;
 	}
-	return NULL;
+	if (!owner)
+		return;
+
+	/* UINT32_MAX = perennial watch: never skip on reorg, never rescan. */
+	watchman_watch_scriptpubkey(ld, owner, script, script_len, UINT32_MAX);
 }
 
 /* Insert a wallet-owned UTXO row into our_outputs.  If the outpoint was
@@ -8109,6 +8118,10 @@ type_ok:
 				(blockheight && *blockheight > 0)
 				    ? *blockheight
 				    : get_block_height(w->ld->topology));
+
+	if (!blockheight)
+		watch_change_scriptpubkey(w->ld, addrtype, keyindex,
+					  txout->script, txout->script_len);
 
 	wallet_annotate_txout(w, &utxo->outpoint, TX_WALLET_DEPOSIT, 0);
 	if (outpoint)
