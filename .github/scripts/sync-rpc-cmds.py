@@ -5,8 +5,11 @@ import re
 from enum import Enum
 
 # readme url
-URL = "https://api.readme.com/v2/branches/stable"
+BRANCH = "stable"
+URL = f"https://api.readme.com/v2/branches/{BRANCH}"
 CATEGORY_SLUG = "JSON-RPC"
+NOTIFICATIONS_CATEGORY_SLUG = "Notifications"
+HOOKS_CATEGORY_SLUG = "Hooks"
 
 
 class Action(Enum):
@@ -15,8 +18,8 @@ class Action(Enum):
     DELETE = 'delete'
 
 
-def getListOfRPCDocs(headers):
-    response = requests.get(f"{URL}/categories/reference/{CATEGORY_SLUG}/pages", headers=headers)
+def getListOfDocs(headers, category):
+    response = requests.get(f"{URL}/categories/reference/{category}/pages", headers=headers)
     if response.status_code == 200:
         return response.json().get('data', [])
     else:
@@ -47,15 +50,15 @@ def check_renderable(response, action, title):
     return True
 
 
-def publishDoc(action, title, body, position, headers):
+def publishDoc(action, title, body, position, headers, category):
     payload = {
-        "title": title,
+        "title": get_display_name(title),
         "type": "basic",
         "content": {
             "body": body,
         },
         "category": {
-            "uri": f"/branches/stable/categories/reference/{CATEGORY_SLUG}"
+            "uri": f"/branches/{BRANCH}/categories/reference/{category}"
         },
         "hidden": False,
         "position": position,
@@ -99,18 +102,78 @@ def publishDoc(action, title, body, position, headers):
         print("Invalid action")
 
 
-def extract_rpc_commands(rst_content):
+def extract_all_from_rst(rst_content):
     manpages_block = re.search(
-        r"\.\. block_start manpages(.*?)" r"\.\. block_end manpages",
+        r"\.\. block_start manpages(.*?)\.\. block_end manpages",
         rst_content,
         re.DOTALL,
     )
-    if manpages_block:
-        commands = re.findall(
-            r"\b([a-zA-Z0-9_-]+)" r"\s+<([^>]+)>\n", manpages_block.group(1)
-        )
-        return commands
-    return []
+
+    if not manpages_block:
+        return [], [], []
+
+    entries = re.findall(
+        r"^\s*([a-zA-Z0-9_-]+)\s+<([^>]+)>",
+        manpages_block.group(1),
+        re.MULTILINE,
+    )
+
+    rpc_commands = []
+    notifications = []
+    hooks = []
+
+    for name, target in entries:
+        if name.startswith("notification-"):
+            notifications.append((name, target))
+        elif name.startswith("hook-"):
+            hooks.append((name, target))
+        else:
+            rpc_commands.append((name, target))
+
+    return rpc_commands, notifications, hooks
+
+
+def sync_docs(local_items, readme_items, category_slug, headers, label):
+    local_titles = {name for name, _ in local_items}
+    readme_titles = {item['slug'] for item in readme_items}
+
+    to_delete = readme_titles - local_titles
+    to_add = local_titles - readme_titles
+
+    # Deletions
+    for name in to_delete:
+        publishDoc(Action.DELETE, name, "", 0, headers, category_slug)
+        sleep(1)
+
+    # Add / Update
+    if not local_items:
+        print(f"⚠️  No {label} found in the Manpages block.")
+        return
+
+    position = 0
+    for name, file in local_items:
+        file_path = os.path.join("doc", file)
+
+        if not os.path.exists(file_path):
+            print(f"⚠️  WARNING: File not found: {file_path}, skipping {name}")
+            continue
+
+        with open(file_path) as f:
+            body = f.read()
+
+        action = Action.ADD if name in to_add else Action.UPDATE
+        publishDoc(action, name, body, position, headers, category_slug)
+
+        position += 1
+        sleep(1)
+
+
+def get_display_name(name):
+    if name.startswith("notification-"):
+        return name[len("notification-"):]
+    if name.startswith("hook-"):
+        return name[len("hook-"):]
+    return name
 
 
 def main():
@@ -136,34 +199,34 @@ def main():
     with open(path_to_rst, "r") as file:
         rst_content = file.read()
 
-    commands_from_local = extract_rpc_commands(rst_content)
-    commands_from_readme = getListOfRPCDocs(headers)
+    commands_from_local, notifications_from_local, hooks_from_local = extract_all_from_rst(rst_content)
+    commands_from_readme = getListOfDocs(headers, CATEGORY_SLUG)
+    notifications_from_readme = getListOfDocs(headers, NOTIFICATIONS_CATEGORY_SLUG)
+    hooks_from_readme = getListOfDocs(headers, HOOKS_CATEGORY_SLUG)
 
-    # Compare local and server commands list to get the list of command to add or delete
-    commands_local_title = set(command[0] for command in commands_from_local)
-    commands_readme_title = set(command['slug'] for command in commands_from_readme)
-    commands_to_delete = commands_readme_title - commands_local_title
-    commands_to_add = commands_local_title - commands_readme_title
-    for name in commands_to_delete:
-        publishDoc(Action.DELETE, name, "", 0, headers)
-        sleep(1)
+    sync_docs(
+        commands_from_local,
+        commands_from_readme,
+        CATEGORY_SLUG,
+        headers,
+        "commands"
+    )
 
-    if commands_from_local:
-        position = 0
-        for name, file in commands_from_local:
-            file_path = "doc/" + file
-            if not os.path.exists(file_path):
-                print(f"⚠️  WARNING: File not found: {file_path}, skipping {name}")
-                continue
+    sync_docs(
+        notifications_from_local,
+        notifications_from_readme,
+        NOTIFICATIONS_CATEGORY_SLUG,
+        headers,
+        "notifications"
+    )
 
-            with open(file_path) as f:
-                body = f.read()
-                action = Action.ADD if name in commands_to_add else Action.UPDATE
-                publishDoc(action, name, body, position, headers)
-            position += 1
-            sleep(1)
-    else:
-        print("⚠️  No commands found in the Manpages block.")
+    sync_docs(
+        hooks_from_local,
+        hooks_from_readme,
+        HOOKS_CATEGORY_SLUG,
+        headers,
+        "hooks"
+    )
 
     print("\n✨ Sync complete!")
 

@@ -85,6 +85,21 @@ Core Lightning Documentation
    getroute <getroute.7.md>
    getroutes <getroutes.7.md>
    help <help.7.md>
+   hook-commitment_revocation <hook-commitment_revocation.7.md>
+   hook-custommsg <hook-custommsg.7.md>
+   hook-db_write <hook-db_write.7.md>
+   hook-htlc_accepted <hook-htlc_accepted.7.md>
+   hook-invoice_payment <hook-invoice_payment.7.md>
+   hook-onion_message_recv <hook-onion_message_recv.7.md>
+   hook-onion_message_recv_secret <hook-onion_message_recv_secret.7.md>
+   hook-openchannel <hook-openchannel.7.md>
+   hook-openchannel2 <hook-openchannel2.7.md>
+   hook-openchannel2_changed <hook-openchannel2_changed.7.md>
+   hook-openchannel2_sign <hook-openchannel2_sign.7.md>
+   hook-peer_connected <hook-peer_connected.7.md>
+   hook-rbf_channel <hook-rbf_channel.7.md>
+   hook-recover <hook-recover.7.md>
+   hook-rpc_command <hook-rpc_command.7.md>
    injectonionmessage <injectonionmessage.7.md>
    injectpaymentonion <injectpaymentonion.7.md>
    invoice <invoice.7.md>
@@ -123,6 +138,30 @@ Core Lightning Documentation
    multifundchannel <multifundchannel.7.md>
    multiwithdraw <multiwithdraw.7.md>
    newaddr <newaddr.7.md>
+   notification-balance_snapshot <notification-balance_snapshot.7.md>
+   notification-block_added <notification-block_added.7.md>
+   notification-channel_open_failed <notification-channel_open_failed.7.md>
+   notification-channel_opened <notification-channel_opened.7.md>
+   notification-channel_state_changed <notification-channel_state_changed.7.md>
+   notification-coin_movement <notification-coin_movement.7.md>
+   notification-connect <notification-connect.7.md>
+   notification-custommsg <notification-custommsg.7.md>
+   notification-deprecated_oneshot <notification-deprecated_oneshot.7.md>
+   notification-disconnect <notification-disconnect.7.md>
+   notification-forward_event <notification-forward_event.7.md>
+   notification-invoice_creation <notification-invoice_creation.7.md>
+   notification-invoice_payment <notification-invoice_payment.7.md>
+   notification-log <notification-log.7.md>
+   notification-onionmessage_forward_fail <notification-onionmessage_forward_fail.7.md>
+   notification-openchannel_peer_sigs <notification-openchannel_peer_sigs.7.md>
+   notification-plugin_started <notification-plugin_started.7.md>
+   notification-plugin_stopped <notification-plugin_stopped.7.md>
+   notification-sendpay_failure <notification-sendpay_failure.7.md>
+   notification-sendpay_success <notification-sendpay_success.7.md>
+   notification-shutdown <notification-shutdown.7.md>
+   notification-warning <notification-warning.7.md>
+   notification-xpay_pay_part_end <notification-xpay_pay_part_end.7.md>
+   notification-xpay_pay_part_start <notification-xpay_pay_part_start.7.md>
    notifications <notifications.7.md>
    offer <offer.7.md>
    openchannel_abort <openchannel_abort.7.md>

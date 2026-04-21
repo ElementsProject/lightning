@@ -5,6 +5,7 @@
 from argparse import ArgumentParser
 import json
 import re
+import os
 
 # To maintain the sequence of the before return value (body) and after return value (footer) sections in the markdown file
 BODY_KEY_SEQUENCE = ['reliability', 'restriction_format', 'permitted_sqlite3_functions', 'treatment_of_types', 'tables', 'notes', 'notifications', 'sharing_runes', 'riskfactor_effect_on_routing', 'recommended_riskfactor_values', 'optimality', 'randomization']
@@ -87,7 +88,7 @@ def output_conditional_params(conditional_sub_array, condition):
 
 def output_type(properties, is_optional):
     """Add types for request and reponse parameters"""
-    typename = 'one of' if 'oneOf' in properties else esc_underscores(properties['type'])
+    typename = 'one of' if 'oneOf' in properties else esc_underscores(properties.get('type', 'any'))
     if typename == 'array':
         if 'items' in properties and 'type' in properties['items']:
             typename += ' of {}s'.format(esc_underscores(properties['items']['type']))
@@ -152,6 +153,9 @@ def output_member(propname, properties, is_optional, indent, print_type=True, pr
     if 'hidden' in properties and properties['hidden']:
         return
 
+    if ('type' not in properties and 'properties' not in properties and 'oneOf' not in properties and 'untyped' not in properties):
+        return
+
     if prefix is None:
         prefix = '- ' + fmt_propname(propname) if propname is not None else '-'
     output(indent + prefix)
@@ -174,16 +178,16 @@ def output_member(propname, properties, is_optional, indent, print_type=True, pr
     if 'deprecated' in properties:
         output(' **deprecated in {}, removed after {}**'.format(properties['deprecated'][0], properties['deprecated'][1] if len(properties['deprecated']) > 1 else deprecated_to_deleted(properties['deprecated'][0])))
 
-    if 'added' in properties:
+    if 'added' in properties and properties['added'] != 'pre-v0.10.1':
         output(' *(added {})*'.format(properties['added']))
 
     if 'oneOf' in properties and isinstance(properties['oneOf'], list):
         output(':\n')
         output_members(properties, indent + '  ')
-    elif not is_untyped and properties['type'] == 'object':
+    elif not is_untyped and properties.get('type') == 'object':
         output(':\n')
         output_members(properties, indent + '  ')
-    elif not is_untyped and properties['type'] == 'array':
+    elif not is_untyped and properties.get('type') == 'array':
         output(':\n')
         output_array(properties['items'], indent + '  ')
     else:
@@ -192,11 +196,15 @@ def output_member(propname, properties, is_optional, indent, print_type=True, pr
 
 def output_array(items, indent):
     """We've already said it's an array of {type}"""
+    if not isinstance(items, dict) or items == {}:
+        output(indent + '- (any type)\n')
+        return
+
     if 'oneOf' in items and isinstance(items['oneOf'], list):
         output_members(items, indent + '  ')
-    elif items['type'] == 'object':
+    elif items.get('type') == 'object':
         output_members(items, indent)
-    elif items['type'] == 'array':
+    elif items.get('type') == 'array':
         output(indent + '-')
         output_type(items, False)
         output(': {}\n'.format(esc_underscores('\n'.join(items['description']))) if 'description' in items and len(items['description']) > 0 else '\n')
@@ -205,10 +213,15 @@ def output_array(items, indent):
     else:
         if 'type' in items:
             output_member(None, items, True, indent)
+        else:
+            output(indent + '- (any type)\n')
 
 
 def has_members(sub):
     """Does this sub have any properties to print?"""
+    if 'properties' not in sub:
+        return False
+
     for p in list(sub['properties'].keys()):
         if len(sub['properties'][p]) == 0:
             continue
@@ -248,10 +261,21 @@ def output_members(sub, indent=''):
 
     if 'oneOf' in sub:
         for oneOfItem in sub['oneOf']:
-            if 'type' in oneOfItem and oneOfItem['type'] == 'array':
+            if 'properties' not in oneOfItem and 'type' not in oneOfItem:
+                continue
+
+            if oneOfItem.get('type') == 'array':
                 output_array(oneOfItem, indent)
+            elif 'properties' in oneOfItem:
+                output_members(oneOfItem, indent)
             else:
-                output_member(None, oneOfItem, False, indent, False if 'enum' in oneOfItem else True)
+                output_member(
+                    None,
+                    oneOfItem,
+                    False,
+                    indent,
+                    False if 'enum' in oneOfItem else True
+                )
 
     # If we have multiple ifs, we have to wrap them in allOf.
     if 'allOf' in sub:
@@ -323,76 +347,92 @@ def create_shell_command(rpc, example):
     output('```\n')
 
 
-def generate_header(schema):
+def generate_header(schema, name):
     """Generate lines for rpc title and synopsis with request parameters"""
-    output_title(esc_underscores(''.join([schema['rpc'], ' -- ', schema['title']])), '=', 0, 1)
-    output_title('SYNOPSIS')
-    # Add command level warning if exists
-    if 'warning' in schema:
-        output('**(WARNING: {})**\n\n'.format(esc_underscores(schema['warning'])))
-    # generate the rpc command details with request parameters
-    request = schema['request']
-    properties = request['properties']
-    toplevels = list(request['properties'].keys())
-    output('{} '.format(fmt_propname(schema['rpc'])))
-    i = 0
-    while i < len(toplevels):
-        # Skip hidden properties
-        if 'hidden' in properties[toplevels[i]] and properties[toplevels[i]]['hidden']:
-            i += 1
-            continue
-        # Search for the parameter in 'dependentUpon' array
-        dependent_upon_obj = request['dependentUpon'] if 'dependentUpon' in request else []
-        if toplevels[i] in dependent_upon_obj:
-            # Output parameters with appropriate separator
-            output('{}*{}* '.format('' if 'required' in request and toplevels[i] in request['required'] else '[', esc_underscores(toplevels[i])))
-            output_conditional_params(dependent_upon_obj[toplevels[i]], 'dependentUpon')
-            toplevels = [key for key in toplevels if key not in dependent_upon_obj[toplevels[i]]]
-            output('{}'.format('' if 'required' in request and toplevels[i] in request['required'] else '] '))
-        else:
-            # Search for the parameter in any conditional sub-arrays (oneOfMany, pairedWith)
-            condition, foundinsubarray = search_key_in_conditional_array(request, toplevels[i])
-            # If param found in the conditional sub-array
-            if condition != '' and foundinsubarray is not None:
+    output_title(esc_underscores(''.join([name, ' -- ', schema['title']])), '=', 0, 1)
+    if schema.get('rpc'):
+        output_title('SYNOPSIS')
+        # Add command level warning if exists
+        if 'warning' in schema:
+            output('**(WARNING: {})**\n\n'.format(esc_underscores(schema['warning'])))
+        # generate the rpc command details with request parameters
+        request = schema.get('request', {})
+        properties = request.get('properties', {})
+        toplevels = list(properties.keys())
+        output('{} '.format(fmt_propname(name)))
+        i = 0
+        while i < len(toplevels):
+            # Skip hidden properties
+            if 'hidden' in properties[toplevels[i]] and properties[toplevels[i]]['hidden']:
+                i += 1
+                continue
+            # Search for the parameter in 'dependentUpon' array
+            dependent_upon_obj = request['dependentUpon'] if 'dependentUpon' in request else []
+            if toplevels[i] in dependent_upon_obj:
                 # Output parameters with appropriate separator
-                output_conditional_params(foundinsubarray, condition)
-                # Remove found keys from toplevels array
-                toplevels = [key for key in toplevels if key not in foundinsubarray]
-                # Reset the cursor to the previous index
-                i = i - 1
+                output('{}*{}* '.format('' if 'required' in request and toplevels[i] in request['required'] else '[', esc_underscores(toplevels[i])))
+                output_conditional_params(dependent_upon_obj[toplevels[i]], 'dependentUpon')
+                toplevels = [key for key in toplevels if key not in dependent_upon_obj[toplevels[i]]]
+                output('{}'.format('' if 'required' in request and toplevels[i] in request['required'] else '] '))
             else:
-                # Print the key as it is if it doesn't exist in conditional array
-                output('{}'.format(fmt_paramname(toplevels[i], False if 'required' in request and toplevels[i] in request['required'] else True)))
-        i += 1
-    # plugin.json is an exception where all parameters cannot be printed deu to their dependency on different subcommands
-    # So, add ... at the end for plugin schema
-    if schema['rpc'] == 'plugin':
-        output('...')
+                # Search for the parameter in any conditional sub-arrays (oneOfMany, pairedWith)
+                condition, foundinsubarray = search_key_in_conditional_array(request, toplevels[i])
+                # If param found in the conditional sub-array
+                if condition != '' and foundinsubarray is not None:
+                    # Output parameters with appropriate separator
+                    output_conditional_params(foundinsubarray, condition)
+                    # Remove found keys from toplevels array
+                    toplevels = [key for key in toplevels if key not in foundinsubarray]
+                    # Reset the cursor to the previous index
+                    i = i - 1
+                else:
+                    # Print the key as it is if it doesn't exist in conditional array
+                    output('{}'.format(fmt_paramname(toplevels[i], False if 'required' in request and toplevels[i] in request['required'] else True)))
+            i += 1
+        # plugin.json is an exception where all parameters cannot be printed deu to their dependency on different subcommands
+        # So, add ... at the end for plugin schema
+        if schema.get('rpc') == 'plugin':
+            output('...')
     output('\n')
 
 
 def generate_description(schema):
     """Generate rpc description with request parameter descriptions"""
-    request = schema['request']
+    schema_type = get_schema_type(schema, True)
+    request = schema.get('request', {})
+    properties = request.get('properties', {})
     output_title('DESCRIPTION')
     # Add deprecated and removal information for the command
     if 'deprecated' in schema:
-        output('Command **deprecated in {}, removed after {}**.\n\n'.format(schema['deprecated'][0], schema['deprecated'][1] if len(schema['deprecated']) > 1 else deprecated_to_deleted(schema['deprecated'][0])))
+        output('{} **deprecated in {}, removed after {}**.\n\n'.format(schema_type, schema['deprecated'][0], schema['deprecated'][1] if len(schema['deprecated']) > 1 else deprecated_to_deleted(schema['deprecated'][0])))
     # Version when the command was added
-    if 'added' in schema:
-        output('Command *added* in {}.\n\n'.format(schema['added']))
+    if 'added' in schema and schema['added'] != 'pre-v0.10.1':
+        output('{} *added* in {}.\n\n'.format(schema_type, schema['added']))
     # Command's detailed description
     outputs(schema['description'], '\n')
     # Request parameter's detailed description
-    output('{}'.format('\n\n' if len(request['properties']) > 0 else '\n'))
-    output_members(request)
+    output('{}'.format('\n\n' if len(properties) > 0 else '\n'))
+
+    if properties:
+        if schema.get('hook'):
+            output_title('HOOK PAYLOAD')
+        output_members(request)
 
 
 def generate_return_value(schema):
     """This is not general, but works for us"""
-    output_title('RETURN VALUE')
+    schema_type = get_schema_type(schema)
+    if schema.get('rpc'):
+        output_title('RETURN VALUE')
+    elif schema.get('notification'):
+        output_title('NOTIFICATION PAYLOAD')
+    elif schema.get('hook'):
+        output_title('HOOK RETURN')
 
-    response = schema['response']
+    response = schema.get('response')
+    if response is None:
+        output(f'This {schema_type} does not have a response.\n\n')
+        return
 
     if 'pre_return_value_notes' in response:
         outputs(response['pre_return_value_notes'], '\n')
@@ -416,20 +456,24 @@ def generate_return_value(schema):
         # Use pre/post_return_value_notes with empty properties when dynamic generation of the return value section is not required.
         # But to add a custom return value section instead. Example: `commando` commands.
         if "pre_return_value_notes" not in response and "post_return_value_notes" not in response:
-            output('On success, an empty object is returned.\n')
+            if schema.get('rpc'):
+                output('On success, an empty object is returned.\n')
         sub = schema
     elif len(toplevels) == 1 and props[toplevels[0]]['type'] == 'object':
-        output('On success, an object containing {} is returned. It is an object containing:\n\n'.format(fmt_propname(toplevels[0])))
+        if schema.get('rpc'):
+            output('On success, an object containing {} is returned. It is an object containing:\n\n'.format(fmt_propname(toplevels[0])))
         # Don't have a description field here, it's not used.
         assert 'description' not in toplevels[0]
         sub = props[toplevels[0]]
     elif len(toplevels) == 1 and props[toplevels[0]]['type'] == 'array' and props[toplevels[0]]['items']['type'] == 'object':
-        output('On success, an object containing {} is returned. It is an array of objects, where each object contains:\n\n'.format(fmt_propname(toplevels[0])))
+        if schema.get('rpc'):
+            output('On success, an object containing {} is returned. It is an array of objects, where each object contains:\n\n'.format(fmt_propname(toplevels[0])))
         # Don't have a description field here, it's not used.
         assert 'description' not in toplevels[0]
         sub = props[toplevels[0]]['items']
     else:
-        output('On success, an object is returned, containing:\n\n')
+        if schema.get('rpc'):
+            output('On success, an object is returned, containing:\n\n')
         sub = response
 
     output_members(sub)
@@ -463,7 +507,7 @@ def generate_body(schema):
         output('\n')
 
 
-def generate_footer(schema):
+def generate_footer(schema, name):
     """Output sections which should be printed after return value"""
     for key in FOOTER_KEY_SEQUENCE:
         if key not in schema:
@@ -484,7 +528,7 @@ def generate_footer(schema):
             for i, example in enumerate(schema.get('examples', [])):
                 output('\n{}**Example {}**: {}\n'.format('' if i == 0 else '\n', i + 1, '\n'.join(example.get('description', ''))))
                 output('\nRequest:\n')
-                create_shell_command(schema['rpc'], example)
+                create_shell_command(name, example)
                 output('```json\n')
                 output(json.dumps(example['request'], indent=2).strip() + '\n')
                 output('```\n')
@@ -498,11 +542,28 @@ def generate_footer(schema):
         output('\n')
 
 
+def get_schema_type(schema, capitalize=False):
+    if 'rpc' in schema:
+        result = 'command'
+    elif 'notification' in schema:
+        result = 'notification'
+    elif 'hook' in schema:
+        result = 'hook'
+    else:
+        raise ValueError('Unknown schema type')
+
+    return result.capitalize() if capitalize else result
+
+
 def main(schemafile, markdownfile):
     with open(schemafile, 'r') as f:
         schema = json.load(f)
+
+    name = schema.get('rpc') or schema.get('notification') or schema.get('hook')
+    if name is None:
+        name = os.path.basename(schemafile).replace('.json', '')
     # Outputs rpc title and synopsis with request parameters
-    generate_header(schema)
+    generate_header(schema, name)
     # Outputs command description with request parameter descriptions
     generate_description(schema)
     # Outputs other remaining sections before return value section
@@ -510,7 +571,7 @@ def main(schemafile, markdownfile):
     # Outputs command response with response parameter descriptions
     generate_return_value(schema)
     # Outputs other remaining sections after return value section
-    generate_footer(schema)
+    generate_footer(schema, name)
 
     if markdownfile is None:
         return
