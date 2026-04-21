@@ -14,6 +14,7 @@
 #include <lightningd/channel_state.h>
 #include <wallet/wallet.h>
 
+struct onchaind_tx_map;
 struct uncommitted_channel;
 struct wally_psbt;
 
@@ -220,6 +221,19 @@ struct channel {
 	size_t num_onchain_spent_calls;
 	/* Height we're replaying at (if onchaind_replay_watches set) */
 	u32 onchaind_replay_height;
+
+	/* Per-session map of txs onchaind has asked us to watch:
+	 * txid -> {confirm height, the outpoints we registered}.
+	 * Initialised by onchaind_funding_spent; NULL before onchaind starts.
+	 * onchaind_clear_watches walks it to tear everything down on reorg. */
+	struct onchaind_tx_map *onchaind_watches;
+
+	/* The txid of the tx that spent our funding output, set by
+	 * onchaind_funding_spent.  Used by channel_funding_spent_watch_revert
+	 * to know we actually saw a spend (and to build the channel_close
+	 * blockdepth owner string for unwatch).  In-memory only: repopulated
+	 * on restart by the channel_close depth handler before onchaind runs. */
+	struct bitcoin_txid *funding_spend_txid;
 
 	/* Our original funds, in funding amount */
 	struct amount_sat our_funds;

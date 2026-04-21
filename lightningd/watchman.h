@@ -6,6 +6,7 @@
 #include <bitcoin/tx.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/tal/tal.h>
+#include <common/utils.h>
 #include <inttypes.h>
 
 struct lightningd;
@@ -181,5 +182,29 @@ static inline const char *owner_channel_funding_spent(const tal_t *ctx, u64 dbid
 
 static inline const char *owner_channel_wrong_funding_spent(const tal_t *ctx, u64 dbid)
 { return tal_fmt(ctx, "channel/wrong_funding_spent/%"PRIu64, dbid); }
+
+/* onchaind/ owners.
+ *
+ * Per-tx (not per-channel): onchaind asks us to track a particular spending tx
+ * and the specific outpoints of that tx it cares about, so the dbid+txid pair
+ * is the unit of identity here.  Txid is rendered in internal byte order via
+ * tal_hexstr so revert handlers can hex_decode the suffix back into a txid. */
+static inline const char *owner_onchaind_outpoint(const tal_t *ctx, u64 dbid,
+						  const struct bitcoin_txid *txid)
+{ return tal_fmt(ctx, "onchaind/outpoint/%"PRIu64"/%s",
+		 dbid, tal_hexstr(ctx, txid, sizeof(*txid))); }
+
+static inline const char *owner_onchaind_depth(const tal_t *ctx, u64 dbid,
+					       const struct bitcoin_txid *txid)
+{ return tal_fmt(ctx, "onchaind/depth/%"PRIu64"/%s",
+		 dbid, tal_hexstr(ctx, txid, sizeof(*txid))); }
+
+/* Restart marker: depth watch on the funding-spend tx itself, used to
+ * re-spawn onchaind across lightningd restarts.  Uses ':' to separate dbid
+ * from txid, consistent with wallet/utxo/<txid>:<outnum>. */
+static inline const char *owner_onchaind_channel_close(const tal_t *ctx, u64 dbid,
+						       const struct bitcoin_txid *txid)
+{ return tal_fmt(ctx, "onchaind/channel_close/%"PRIu64":%s",
+		 dbid, tal_hexstr(ctx, txid, sizeof(*txid))); }
 
 #endif /* LIGHTNING_LIGHTNINGD_WATCHMAN_H */

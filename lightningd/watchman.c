@@ -9,7 +9,6 @@
 #include <common/json_parse.h>
 #include <common/json_stream.h>
 #include <common/mkdatastorekey.h>
-#include <common/utils.h>
 #include <db/exec.h>
 #include <lightningd/bitcoind.h>
 #include <lightningd/chaintopology.h>

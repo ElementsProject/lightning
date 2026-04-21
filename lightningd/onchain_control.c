@@ -19,6 +19,7 @@
 #include <lightningd/onchain_control.h>
 #include <lightningd/peer_htlcs.h>
 #include <lightningd/subd.h>
+#include <lightningd/watchman.h>
 #include <onchaind/onchaind_wiregen.h>
 #include <wallet/txfilter.h>
 
@@ -42,6 +43,106 @@ static bool replay_tx_eq_txid(const struct replay_tx *rtx,
 
 HTABLE_DEFINE_NODUPS_TYPE(struct replay_tx, replay_tx_keyof, txid_hash, replay_tx_eq_txid,
 			  replay_tx_hash);
+
+/* Per-channel record of one tx onchaind is tracking.
+ *  - blockheight: confirmation height; needed to unwatch the matching
+ *    blockdepth watch on reorg or full resolution.
+ *  - txid: the spending tx whose outputs we're watching.
+ *  - outpoints: only the outputs onchaind asked about (typically HTLC and
+ *    to_us outputs of a unilateral close), not all outputs of the tx. */
+struct onchaind_watched_tx {
+	u32 blockheight;
+	struct bitcoin_txid txid;
+	struct bitcoin_outpoint *outpoints;
+};
+
+static const struct bitcoin_txid *
+onchaind_watched_tx_keyof(const struct onchaind_watched_tx *entry)
+{
+	return &entry->txid;
+}
+
+static bool onchaind_watched_tx_eq_txid(const struct onchaind_watched_tx *entry,
+					const struct bitcoin_txid *txid)
+{
+	return bitcoin_txid_eq(&entry->txid, txid);
+}
+
+static size_t onchaind_txid_hash(const struct bitcoin_txid *txid)
+{
+	size_t ret;
+	memcpy(&ret, txid, sizeof(ret));
+	return ret;
+}
+
+HTABLE_DEFINE_NODUPS_TYPE(struct onchaind_watched_tx,
+			  onchaind_watched_tx_keyof,
+			  onchaind_txid_hash,
+			  onchaind_watched_tx_eq_txid,
+			  onchaind_tx_map);
+
+/* Silence -Wunused-function for the generated _add until the producer side
+ * (onchaind_funding_spent / bwatch_watch_outpoints) is wired up later. */
+static void UNUSED onchaind_tx_map_silence_unused(struct onchaind_tx_map *m,
+						  struct onchaind_watched_tx *e)
+{
+	onchaind_tx_map_add(m, e);
+}
+
+/* Drop all bwatch watches we registered for this entry: the per-tx blockdepth
+ * watch and every outpoint watch under the same owner.  Idempotent on the
+ * outpoint side because bwatch tolerates duplicate deletes. */
+static void UNUSED unwatch_entry(struct channel *channel,
+				 struct onchaind_watched_tx *entry)
+{
+	struct lightningd *ld = channel->peer->ld;
+	const char *owner_out = owner_onchaind_outpoint(tmpctx, channel->dbid,
+							&entry->txid);
+
+	for (size_t i = 0; i < tal_count(entry->outpoints); i++)
+		watchman_unwatch_outpoint(ld, owner_out, &entry->outpoints[i]);
+
+	watchman_unwatch_blockdepth(ld,
+				    owner_onchaind_depth(tmpctx, channel->dbid,
+							 &entry->txid),
+				    entry->blockheight);
+}
+
+void onchaind_clear_watches(struct channel *channel)
+{
+	struct onchaind_tx_map_iter it;
+	struct onchaind_watched_tx *entry;
+	struct lightningd *ld = channel->peer->ld;
+
+	/* Restart marker first: this is the depth watch on the funding-spend
+	 * tx itself that lets us re-spawn onchaind across restarts.  Once it's
+	 * gone we are committed to not coming back to this close. */
+	if (channel->funding_spend_txid) {
+		u32 spend_blockheight = channel->close_blockheight
+			? *channel->close_blockheight
+			: wallet_transaction_height(ld->wallet,
+						    channel->funding_spend_txid);
+		if (spend_blockheight)
+			watchman_unwatch_blockdepth(
+				ld,
+				owner_onchaind_channel_close(
+					tmpctx, channel->dbid,
+					channel->funding_spend_txid),
+				spend_blockheight);
+		channel->funding_spend_txid
+			= tal_free(channel->funding_spend_txid);
+	}
+
+	if (!channel->onchaind_watches)
+		return;
+
+	for (entry = onchaind_tx_map_first(channel->onchaind_watches, &it);
+	     entry;
+	     entry = onchaind_tx_map_next(channel->onchaind_watches, &it))
+		unwatch_entry(channel, entry);
+
+	channel->onchaind_watches = tal_free(channel->onchaind_watches);
+}
 
 /* We dump all the known preimages when onchaind starts up. */
 static void onchaind_tell_fulfill(struct channel *channel)
