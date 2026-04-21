@@ -2108,4 +2108,16 @@ void wallet_utxo_spent_watch_revert(struct lightningd *ld,
 				    const char *suffix,
 				    u32 blockheight);
 
+void wallet_add_bwatch_scriptpubkey(struct lightningd *ld,
+				    const char *owner_prefix,
+				    u64 keyindex,
+				    u32 start_block,
+				    const u8 *script,
+				    size_t script_len);
+/* Watch the three scriptpubkey forms (p2wpkh, p2sh-p2wpkh, p2tr) of @derkey. */
+void wallet_add_bwatch_derkey(struct lightningd *ld,
+			      u64 keyindex,
+			      u32 start_block,
+			      const u8 derkey[PUBKEY_CMPR_LEN]);
+
 #endif /* LIGHTNING_WALLET_WALLET_H */

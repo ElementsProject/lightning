@@ -7977,6 +7977,34 @@ static void watch_change_scriptpubkey(struct lightningd *ld,
 	watchman_watch_scriptpubkey(ld, owner, script, script_len, UINT32_MAX);
 }
 
+void wallet_add_bwatch_scriptpubkey(struct lightningd *ld,
+				    const char *owner_prefix,
+				    u64 keyindex,
+				    u32 start_block,
+				    const u8 *script,
+				    size_t script_len)
+{
+	const char *owner = tal_fmt(tmpctx, "wallet/%s/%"PRIu64, owner_prefix, keyindex);
+	watchman_watch_scriptpubkey(ld, owner, script, script_len, start_block);
+}
+
+/* Helper to add bwatch watches for all scriptpubkeys derived from a derkey */
+void wallet_add_bwatch_derkey(struct lightningd *ld,
+			      u64 keyindex,
+			      u32 start_block,
+			      const u8 derkey[PUBKEY_CMPR_LEN])
+{
+	u8 *skp, *p2sh, *p2tr;
+
+	skp = scriptpubkey_p2wpkh_derkey(tmpctx, derkey);
+	p2sh = scriptpubkey_p2sh(tmpctx, skp);
+	p2tr = scriptpubkey_p2tr_derkey(tmpctx, derkey);
+
+	wallet_add_bwatch_scriptpubkey(ld, "p2wpkh", keyindex, start_block, skp, tal_bytelen(skp));
+	wallet_add_bwatch_scriptpubkey(ld, "p2sh_p2wpkh", keyindex, start_block, p2sh, tal_bytelen(p2sh));
+	wallet_add_bwatch_scriptpubkey(ld, "p2tr", keyindex, start_block, p2tr, tal_bytelen(p2tr));
+}
+
 /* Insert a wallet-owned UTXO row into our_outputs.  If the outpoint was
  * previously inserted unconfirmed (blockheight=0) and we now have a real
  * blockheight, promote the row so coin selection can treat it as
