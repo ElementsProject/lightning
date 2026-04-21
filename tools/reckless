@@ -1588,10 +1588,45 @@ def _install_plugin(src: InstInfo) -> Union[InstInfo, None]:
         log.debug("plugin testing error:")
         for line in test_log:
             log.debug(f'  {line}')
-        log.error('plugin testing failed')
-        remove_dir(clone_path)
-        remove_dir(inst_path)
-        return None
+        log.warning('plugin exited before establishing a CLN connection; '
+                    'it may require options to be configured')
+        # At this point the installation cannot continue without user input.
+        # This part might be incompatible with automated executions (e.g. CI)
+        user_input = ''
+        if sys.stdin.isatty():
+            print("Enter an option as NAME=VALUE to retry (string values only), "
+                  "or press Enter to skip: ", end='', flush=True)
+            try:
+                user_input = input().strip()
+            except EOFError:
+                pass
+        if user_input:
+            if '=' not in user_input:
+                log.warning("invalid option format (expected NAME=VALUE); skipping retry")
+            else:
+                opt_name, opt_value = user_input.split('=', 1)
+                opt_name = opt_name.strip()
+                if not opt_name:
+                    log.warning("option name cannot be empty; skipping retry")
+                elif not isinstance(opt_value, str):
+                    log.warning("option value must be a string; skipping retry")
+                else:
+                    retry_env = os.environ.copy()
+                    retry_env[opt_name] = opt_value
+                    log.debug(f"retrying plugin test with {opt_name}={opt_value!r}")
+                    try:
+                        retest = run(
+                            [Path(staged_src.source_loc).joinpath(staged_src.entry)],
+                            cwd=str(staging_path), stdout=PIPE, stderr=PIPE,
+                            text=True, timeout=10, env=retry_env)
+                        retest_returncode = retest.returncode
+                    except TimeoutExpired:
+                        retest_returncode = 0
+                    if retest_returncode == 0:
+                        log.info('plugin started successfully with provided option')
+                    else:
+                        log.warning('plugin still failed after retry; '
+                                    'options must be configured before use')
 
     add_installation_metadata(staged_src, src)
     log.info(f'plugin installed: {inst_path}')
