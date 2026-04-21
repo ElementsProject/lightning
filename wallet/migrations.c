@@ -10,6 +10,7 @@
 #include <wallet/account_migration.h>
 #include <wallet/db.h>
 #include <wallet/migrations.h>
+#include <wallet/wallet.h>
 
 static const char *revert_too_early(const tal_t *ctx, struct db *db)
 {
@@ -50,6 +51,58 @@ static const char *revert_withheld_column(const tal_t *ctx, struct db *db)
 	stmt = db_prepare_v2(db, SQL("ALTER TABLE channels DROP COLUMN withheld"));
 	db_exec_prepared_v2(take(stmt));
 	return NULL;
+}
+
+/* Backfill the new bwatch-driven tables (our_outputs, our_txs) from the
+ * legacy outputs / transactions tables, so the bwatch path sees pre-existing
+ * wallet UTXOs and txs without needing a full rescan.
+ *
+ * We intentionally source from outputs instead of utxoset:
+ * - outputs already contains only wallet-owned rows (HD + onchaind closes)
+ * - it carries wallet-only metadata (reserved_til, close_info columns)
+ * - it avoids expensive script->keyindex re-derivation over the full chain UTXO set
+ */
+void migrate_backfill_bwatch_tables(struct lightningd *ld UNNEEDED, struct db *db)
+{
+	struct db_stmt *stmt;
+
+	stmt = db_prepare_v2(db,
+		SQL("INSERT INTO our_outputs "
+		    "(txid, outnum, blockheight, txindex, scriptpubkey, satoshis, "
+		    " spendheight, reserved_til, keyindex, channel_dbid, peer_id, "
+		    " commitment_point, option_anchors, csv) "
+		    "SELECT "
+		    "  prev_out_tx, "
+		    "  prev_out_index, "
+		    "  COALESCE(confirmation_height, 0), "
+		    "  CASE "
+		    "    WHEN confirmation_height IS NULL THEN 0 "
+		    "    WHEN is_in_coinbase = 1 THEN 0 "
+		    "    ELSE 1 "
+		    "  END, "
+		    "  scriptpubkey, "
+		    "  value, "
+		    "  spend_height, "
+		    "  COALESCE(reserved_til, 0), "
+		    "  CASE WHEN channel_id IS NULL THEN keyindex ELSE NULL END, "
+		    "  channel_id, "
+		    "  peer_id, "
+		    "  commitment_point, "
+		    "  option_anchor_outputs, "
+		    "  csv_lock "
+		    "FROM outputs "
+		    "WHERE scriptpubkey IS NOT NULL "
+		    "ON CONFLICT(txid,outnum) DO NOTHING;"));
+	db_exec_prepared_v2(take(stmt));
+
+	stmt = db_prepare_v2(db,
+		SQL("INSERT INTO our_txs "
+		    "(txid, blockheight, txindex, rawtx) "
+		    "SELECT id, blockheight, COALESCE(txindex, 0), rawtx "
+		    "FROM transactions "
+		    "WHERE blockheight IS NOT NULL AND rawtx IS NOT NULL "
+		    "ON CONFLICT(txid) DO NOTHING;"));
+	db_exec_prepared_v2(take(stmt));
 }
 
 /* Do not reorder or remove elements from this array, it is used to
@@ -1123,6 +1176,12 @@ static const struct db_migration dbmigrations[] = {
 	 "  rawtx BLOB"
 	 ")"), NULL,
      SQL("DROP TABLE our_txs"), NULL},
+    /* The wallet now reads our_outputs/our_txs, but every write is still
+     * mirrored into the legacy outputs/transactions tables so a downgraded
+     * binary finds them fully up to date (no rescan needed).  The mirror
+     * writes stop in the release that removes chaintopology, freezing all
+     * the legacy tables at the same height. */
+    {NULL, migrate_backfill_bwatch_tables, NULL, NULL},
 };
 
 const struct db_migration *get_db_migrations(size_t *num)
