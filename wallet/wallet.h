@@ -591,6 +591,16 @@ struct utxo **wallet_utxo_boost(const tal_t *ctx,
 				bool *insufficient);
 
 /**
+ * wallet_scriptpubkey_to_keyidx - Derive HD keyindex for a scriptpubkey.
+ *
+ * Lower-level form that takes (ld, db) directly instead of a wallet.
+ * Callable from migrations, where ld->wallet is not yet initialised.
+ */
+bool wallet_scriptpubkey_to_keyidx(struct lightningd *ld, struct db *db,
+				   const u8 *script, size_t script_len,
+				   u32 *index, enum addrtype *addrtype);
+
+/**
  * wallet_can_spend - Do we have the private key matching this scriptpubkey?
  *
  * @w: (in) wallet holding the pubkeys to check against (privkeys are on HSM)

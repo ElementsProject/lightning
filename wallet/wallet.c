@@ -1036,6 +1036,53 @@ bool wallet_add_onchaind_utxo(struct wallet *w,
 	return true;
 }
 
+bool wallet_scriptpubkey_to_keyidx(struct lightningd *ld, struct db *db,
+				   const u8 *script, size_t script_len,
+				   u32 *index, enum addrtype *addrtype)
+{
+	/* How far we've derived so far; scan up to this index. */
+	u64 max_keyidx = db_get_intvar(db,
+				       ld->bip86_base
+				       ? "bip86_max_index" : "bip32_max_index",
+				       0);
+
+	for (u64 keyidx = 0; keyidx <= max_keyidx; keyidx++) {
+		struct pubkey pubkey;
+		const u8 *p2wpkh, *p2tr, *p2sh;
+
+		if (ld->bip86_base)
+			bip86_pubkey(ld, &pubkey, (u32)keyidx);
+		else
+			bip32_pubkey(ld, &pubkey, (u32)keyidx);
+
+		p2wpkh = scriptpubkey_p2wpkh(tmpctx, &pubkey);
+		if (tal_bytelen(p2wpkh) == script_len &&
+		    memcmp(p2wpkh, script, script_len) == 0) {
+			if (index) *index = (u32)keyidx;
+			if (addrtype) *addrtype = ADDR_BECH32;
+			return true;
+		}
+
+		p2tr = scriptpubkey_p2tr(tmpctx, &pubkey);
+		if (tal_bytelen(p2tr) == script_len &&
+		    memcmp(p2tr, script, script_len) == 0) {
+			if (index) *index = (u32)keyidx;
+			if (addrtype) *addrtype = ADDR_P2TR;
+			return true;
+		}
+
+		p2sh = scriptpubkey_p2sh(tmpctx, p2wpkh);
+		if (tal_bytelen(p2sh) == script_len &&
+		    memcmp(p2sh, script, script_len) == 0) {
+			if (index) *index = (u32)keyidx;
+			if (addrtype) *addrtype = ADDR_P2SH_SEGWIT;
+			return true;
+		}
+	}
+
+	return false;
+}
+
 bool wallet_can_spend(struct wallet *w, const u8 *script, size_t script_len,
 		      u32 *index, enum addrtype *addrtype)
 {
