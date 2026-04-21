@@ -432,6 +432,20 @@ def test_tag_install(node_factory):
             header = line
 
 
+def test_install_plugin_requiring_opts(node_factory):
+    """A plugin that exits non-zero when run standalone (e.g. because a
+    required option is not yet configured) should still install successfully."""
+    n = get_reckless_node(node_factory)
+    r = reckless([f"--network={NETWORK}", "-v", "install", "testplugreqopts"],
+                 dir=n.lightning_dir)
+    assert r.returncode == 0
+    assert r.search_stdout('plugin installed:')
+    assert r.search_stdout('testplugreqopts enabled')
+    assert r.search_stdout('may require options')
+    plugin_path = Path(n.lightning_dir) / 'reckless/testplugreqopts'
+    assert plugin_path.exists()
+
+
 # Note: uv timeouts from the GH network seem to happen?
 @pytest.mark.slow_test
 @unittest.skipIf(VALGRIND, "node too slow for starting plugin under valgrind")
