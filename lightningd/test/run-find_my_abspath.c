@@ -92,6 +92,9 @@ void htlcs_notify_new_block(struct lightningd *ld UNNEEDED)
 void htlcs_resubmit(struct lightningd *ld UNNEEDED,
 		    struct htlc_in_map *unconnected_htlcs_in STEALS UNNEEDED)
 { fprintf(stderr, "htlcs_resubmit called!\n"); abort(); }
+/* Generated stub for init_wallet_scriptpubkey_watches */
+void init_wallet_scriptpubkey_watches(struct wallet *w UNNEEDED)
+{ fprintf(stderr, "init_wallet_scriptpubkey_watches called!\n"); abort(); }
 /* Generated stub for invoices_start_expiration */
 void invoices_start_expiration(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "invoices_start_expiration called!\n"); abort(); }
