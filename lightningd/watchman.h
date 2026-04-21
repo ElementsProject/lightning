@@ -173,4 +173,7 @@ static inline const char *owner_gossip_funding_spent(const tal_t *ctx,
 static inline const char *owner_channel_funding(const tal_t *ctx, u64 dbid)
 { return tal_fmt(ctx, "channel/funding/%"PRIu64, dbid); }
 
+static inline const char *owner_channel_funding_depth(const tal_t *ctx, u64 dbid)
+{ return tal_fmt(ctx, "channel/funding_depth/%"PRIu64, dbid); }
+
 #endif /* LIGHTNING_LIGHTNINGD_WATCHMAN_H */

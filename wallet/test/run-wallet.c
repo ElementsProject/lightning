@@ -801,6 +801,11 @@ struct txowatch *watch_txo(const tal_t *ctx UNNEEDED,
 						   size_t input_num UNNEEDED,
 						   const struct block *block))
 { fprintf(stderr, "watch_txo called!\n"); abort(); }
+/* Generated stub for watchman_unwatch_blockdepth */
+void watchman_unwatch_blockdepth(struct lightningd *ld UNNEEDED,
+				 const char *owner UNNEEDED,
+				 u32 confirm_height UNNEEDED)
+{ fprintf(stderr, "watchman_unwatch_blockdepth called!\n"); abort(); }
 /* Generated stub for watchman_unwatch_outpoint */
 void watchman_unwatch_outpoint(struct lightningd *ld UNNEEDED,
 			       const char *owner UNNEEDED,

@@ -153,6 +153,28 @@ void channel_funding_watch_revert(struct lightningd *ld,
 				  const char *suffix,
 				  u32 blockheight);
 
+/* bwatch handler for "channel/funding_depth/<dbid>" (WATCH_BLOCKDEPTH): fires
+ * once per new block while the funding tx is accumulating confirmations.
+ * Drives channeld's depth state machine and triggers lock-in once
+ * minimum_depth is met.  Unwatches itself once depth reaches
+ * max(minimum_depth, ANNOUNCE_MIN_DEPTH). */
+void channel_funding_depth_found(struct lightningd *ld,
+				 const char *suffix,
+				 u32 depth,
+				 u32 blockheight);
+
+/* Reorg of the block that confirmed the funding tx: clear scid and, for
+ * states past lock-in, fail the channel transiently so it reconnects once
+ * the tx is re-mined. */
+void channel_funding_depth_revert(struct lightningd *ld,
+				  const char *suffix,
+				  u32 blockheight);
+
+/* Called from watchman's block_processed handler once per new block.
+ * Iterates every channel whose funding tx has confirmed and drives its
+ * depth-dependent state (lock-in, gossip announce, splice). */
+void channel_block_processed(struct lightningd *ld, u32 blockheight);
+
 /* Watch for spend of funding tx. */
 void channel_watch_funding_out(struct lightningd *ld, struct channel *channel);
 

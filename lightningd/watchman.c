@@ -467,7 +467,9 @@ static const struct depth_dispatch {
 	depth_found_fn handler;
 	watch_revert_fn revert;
 } depth_handlers[] = {
-	/* Entries added in subsequent commits alongside their handler functions. */
+	/* channel/funding_depth/<dbid>: WATCH_BLOCKDEPTH, fires once per new block
+	 * while the funding tx accumulates confirmations. */
+	{ "channel/funding_depth/", channel_funding_depth_found, channel_funding_depth_revert },
 	{ NULL, NULL, NULL },
 };
 

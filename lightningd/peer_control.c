@@ -2476,6 +2476,191 @@ void channel_funding_watch_revert(struct lightningd *ld UNUSED,
 {
 }
 
+void channel_funding_depth_found(struct lightningd *ld,
+				 const char *suffix,
+				 u32 depth,
+				 u32 blockheight)
+{
+	u64 dbid = strtoull(suffix, NULL, 10);
+	struct channel *channel = channel_by_dbid(ld, dbid);
+	u32 stop_depth;
+
+	if (!channel) {
+		log_debug(ld->log,
+			  "channel/funding_depth: unknown dbid %"PRIu64", ignoring",
+			  dbid);
+		return;
+	}
+
+	/* channel_block_processed runs every block too; whichever path
+	 * fires first sets channel->depth and the other sees the same value
+	 * here and skips, avoiding duplicate channeld notifications. */
+	if (depth == channel->depth)
+		return;
+
+	channel->depth = depth;
+	log_debug(channel->log,
+		  "channel/funding_depth: depth %u at block %u (state %s)",
+		  depth, blockheight, channel_state_name(channel));
+
+	switch (channel->state) {
+	case CHANNELD_AWAITING_LOCKIN:
+		channeld_tell_depth(channel, &channel->funding.txid, depth);
+		if (depth >= channel->minimum_depth
+		    && channel->remote_channel_ready)
+			lockin_complete(channel, CHANNELD_AWAITING_LOCKIN);
+		break;
+	case CHANNELD_NORMAL:
+	case CHANNELD_AWAITING_SPLICE:
+		channeld_tell_depth(channel, &channel->funding.txid, depth);
+		break;
+	default:
+		/* DUALOPEND_AWAITING_LOCKIN, ONCHAIN, etc. are driven by their
+		 * own watches today. */
+		break;
+	}
+
+	/* Stop the depth watch once both lock-in and gossip-announce
+	 * thresholds are satisfied; further depth ticks are unnecessary. */
+	stop_depth = (channel->minimum_depth > ANNOUNCE_MIN_DEPTH)
+		     ? channel->minimum_depth : ANNOUNCE_MIN_DEPTH;
+	if (depth >= stop_depth) {
+		u32 confirm_height = blockheight - depth + 1;
+		watchman_unwatch_blockdepth(ld,
+					    owner_channel_funding_depth(tmpctx, dbid),
+					    confirm_height);
+	}
+}
+
+void channel_funding_depth_revert(struct lightningd *ld,
+				  const char *suffix,
+				  u32 blockheight)
+{
+	u64 dbid = strtoull(suffix, NULL, 10);
+	struct channel *channel = channel_by_dbid(ld, dbid);
+
+	if (!channel) {
+		log_debug(ld->log,
+			  "channel/funding_depth revert: unknown dbid %"PRIu64", ignoring",
+			  dbid);
+		watchman_unwatch_blockdepth(ld,
+					    owner_channel_funding_depth(tmpctx, dbid),
+					    blockheight);
+		return;
+	}
+
+	if (!channel->scid || is_stub_scid(*channel->scid))
+		return;
+
+	log_unusual(channel->log,
+		    "Funding tx REORG from depth %u (state %s)",
+		    channel->depth, channel_state_name(channel));
+	channel->depth = 0;
+
+	watchman_unwatch_blockdepth(ld,
+				    owner_channel_funding_depth(tmpctx, dbid),
+				    blockheight);
+
+	switch (channel->state) {
+	case DUALOPEND_AWAITING_LOCKIN:
+	case DUALOPEND_OPEN_INIT:
+	case DUALOPEND_OPEN_COMMIT_READY:
+	case DUALOPEND_OPEN_COMMITTED:
+		channel_internal_error(channel,
+				       "Bad %s state: %s",
+				       __func__,
+				       channel_state_name(channel));
+		return;
+	case CHANNELD_AWAITING_LOCKIN:
+		channel_set_scid(channel, NULL);
+		return;
+	case CHANNELD_AWAITING_SPLICE:
+	case CHANNELD_NORMAL:
+		if (channel->opener == LOCAL || channel->minimum_depth == 0) {
+			channel_fail_transient(channel, true,
+					       "Funding tx %s reorganized out, but %s...",
+					       fmt_bitcoin_txid(tmpctx, &channel->funding.txid),
+					       channel->opener == LOCAL
+					       ? "we opened it"
+					       : "zeroconf anyway");
+			return;
+		}
+		/* fall through */
+	case AWAITING_UNILATERAL:
+	case CHANNELD_SHUTTING_DOWN:
+	case CLOSINGD_SIGEXCHANGE:
+	case CLOSINGD_COMPLETE:
+	case FUNDING_SPEND_SEEN:
+	case ONCHAIN:
+	case CLOSED:
+		break;
+	}
+
+	channel_internal_error(channel,
+			       "Funding transaction has been reorged out in state %s",
+			       channel_state_name(channel));
+}
+
+void channel_block_processed(struct lightningd *ld, u32 blockheight)
+{
+	struct peer *peer;
+	struct peer_node_id_map_iter it;
+
+	for (peer = peer_node_id_map_first(ld->peers, &it);
+	     peer;
+	     peer = peer_node_id_map_next(ld->peers, &it)) {
+		struct channel *channel;
+
+		list_for_each(&peer->channels, channel, list) {
+			u32 fund_block, depth;
+
+			/* onchaind drives its own per-tx depth tracking. */
+			if (channel->state == ONCHAIN
+			    || channel->state == FUNDING_SPEND_SEEN)
+				continue;
+
+			/* Skip unconfirmed channels; stub scids are zero-conf placeholders. */
+			if (!channel->scid || is_stub_scid(*channel->scid))
+				continue;
+
+			fund_block = short_channel_id_blocknum(*channel->scid);
+			depth = (blockheight >= fund_block)
+				? (blockheight - fund_block + 1)
+				: 0;
+
+			if (depth == channel->depth)
+				continue;
+
+			channel->depth = depth;
+			log_debug(channel->log,
+				  "Funding depth %u (block %u, scid block %u)",
+				  depth, blockheight, fund_block);
+
+			switch (channel->state) {
+			case CHANNELD_AWAITING_LOCKIN:
+				channeld_tell_depth(channel,
+						    &channel->funding.txid,
+						    depth);
+				if (depth >= channel->minimum_depth
+				    && channel->remote_channel_ready)
+					lockin_complete(channel,
+							CHANNELD_AWAITING_LOCKIN);
+				break;
+			case CHANNELD_NORMAL:
+			case CHANNELD_AWAITING_SPLICE:
+				channeld_tell_depth(channel,
+						    &channel->funding.txid,
+						    depth);
+				break;
+			default:
+				/* DUALOPEND_*, AWAITING_UNILATERAL, CLOSED, etc.
+				 * keep using their existing depth-driving paths. */
+				break;
+			}
+		}
+	}
+}
+
 static enum watch_result funding_spent(struct channel *channel,
 				       const struct bitcoin_tx *tx,
 				       size_t inputnum UNUSED,
