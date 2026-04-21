@@ -138,6 +138,21 @@ void update_channel_from_inflight(struct lightningd *ld,
 void channel_watch_funding(struct lightningd *ld, struct channel *channel);
 void channel_unwatch_funding(struct lightningd *ld, struct channel *channel);
 
+/* bwatch handler for "channel/funding/<dbid>" (WATCH_SCRIPTPUBKEY): the
+ * funding output script appeared in a tx, so the channel's funding tx has
+ * been confirmed.  Records the SCID and starts a depth watch to drive
+ * channeld's lock-in state machine. */
+void channel_funding_watch_found(struct lightningd *ld,
+				 const char *suffix,
+				 const struct bitcoin_tx *tx,
+				 size_t outnum,
+				 u32 blockheight,
+				 u32 txindex);
+
+void channel_funding_watch_revert(struct lightningd *ld,
+				  const char *suffix,
+				  u32 blockheight);
+
 /* Watch for spend of funding tx. */
 void channel_watch_funding_out(struct lightningd *ld, struct channel *channel);
 

@@ -18,6 +18,7 @@
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
+#include <lightningd/peer_control.h>
 #include <lightningd/plugin.h>
 #include <lightningd/watchman.h>
 #include <wallet/wallet.h>
@@ -489,6 +490,9 @@ static const struct watch_dispatch {
 	/* gossip/<scid>: WATCH_SCID, fires when the channel announcement UTXO is confirmed.
 	 * tx==NULL signals the SCID's expected position was absent from the block ("not found"). */
 	{ "gossip/", gossip_scid_watch_found, gossip_scid_watch_revert },
+	/* channel/funding/<dbid>: WATCH_SCRIPTPUBKEY, fires when the funding output script
+	 * appears in a tx (i.e. the channel's funding transaction has been confirmed). */
+	{ "channel/funding/", channel_funding_watch_found, channel_funding_watch_revert },
 	{ NULL, NULL, NULL },
 };
 

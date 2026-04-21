@@ -169,4 +169,8 @@ static inline const char *owner_gossip_funding_spent(const tal_t *ctx,
 						     struct short_channel_id scid)
 { return tal_fmt(ctx, "gossip/funding_spent/%s", fmt_short_channel_id(ctx, scid)); }
 
+/* channel/ owners */
+static inline const char *owner_channel_funding(const tal_t *ctx, u64 dbid)
+{ return tal_fmt(ctx, "channel/funding/%"PRIu64, dbid); }
+
 #endif /* LIGHTNING_LIGHTNINGD_WATCHMAN_H */

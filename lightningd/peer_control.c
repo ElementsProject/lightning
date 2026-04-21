@@ -36,6 +36,7 @@
 #include <lightningd/peer_fd.h>
 #include <lightningd/peer_htlcs.h>
 #include <lightningd/plugin_hook.h>
+#include <lightningd/watchman.h>
 #include <onchaind/onchaind_wiregen.h>
 #include <openingd/dualopend_wiregen.h>
 #include <openingd/openingd_wiregen.h>
@@ -2436,18 +2437,43 @@ void channel_watch_depth(struct lightningd *ld,
 			 channel);
 }
 
-/* We see this tx output spend to the funding address. */
-static void channel_funding_found(struct lightningd *ld,
-				  const struct bitcoin_tx *tx,
-				  u32 outnum,
-				  const struct txlocator *loc,
-				  struct channel *channel)
+void channel_funding_watch_found(struct lightningd *ld,
+				 const char *suffix,
+				 const struct bitcoin_tx *tx UNUSED,
+				 size_t outnum UNUSED,
+				 u32 blockheight,
+				 u32 txindex)
 {
-	/* Closes channel if it doesn't fit in an scid! */
-	if (depthcb_update_scid(channel, &channel->funding, loc)) {
-		/* We will almost immediately get called, which is what we want! */
-		channel_watch_depth(ld, loc->blkheight, channel);
+	u64 dbid = strtoull(suffix, NULL, 10);
+	struct channel *channel = channel_by_dbid(ld, dbid);
+	struct txlocator loc;
+
+	if (!channel) {
+		log_broken(ld->log,
+			   "channel/funding watch_found: no channel for dbid %"PRIu64,
+			   dbid);
+		return;
 	}
+
+	/* depthcb_update_scid() expects a txlocator; we have the block height
+	 * and txindex directly, so just fill one in on the stack. */
+	loc.blkheight = blockheight;
+	loc.index = txindex;
+
+	/* Closes the channel if the scid doesn't fit. */
+	if (depthcb_update_scid(channel, &channel->funding, &loc)) {
+		/* Will fire depth callbacks immediately, which is what we want. */
+		channel_watch_depth(ld, blockheight, channel);
+	}
+}
+
+/* No-op: the funding-depth watch's revert handler owns all funding-reorg
+ * logic.  Either it has already run (clearing scid), or the channel is
+ * still AWAITING_LOCKIN with no confirmed state to roll back. */
+void channel_funding_watch_revert(struct lightningd *ld UNUSED,
+				  const char *suffix UNUSED,
+				  u32 blockheight UNUSED)
+{
 }
 
 static enum watch_result funding_spent(struct channel *channel,
@@ -2511,13 +2537,17 @@ void channel_watch_funding(struct lightningd *ld, struct channel *channel)
 		const u8 *funding_wscript = bitcoin_redeem_2of2(tmpctx,
 								&channel->local_funding_pubkey,
 								&channel->channel_info.remote_fundingkey);
+		const u8 *funding_spk = scriptpubkey_p2wsh(tmpctx, funding_wscript);
 
-		watch_scriptpubkey(channel, ld->topology,
-				   take(scriptpubkey_p2wsh(NULL, funding_wscript)),
-				   &channel->funding,
-				   channel->funding_sats,
-				   channel_funding_found,
-				   channel);
+		/* Hand the funding scriptpubkey watch to bwatch.  start_block
+		 * is the current tip: rescan any past blocks if we're catching
+		 * up after a restart, otherwise just watch from now. */
+		watchman_watch_scriptpubkey(ld,
+					    owner_channel_funding(tmpctx,
+								  channel->dbid),
+					    funding_spk,
+					    tal_bytelen(funding_spk),
+					    get_block_height(ld->topology));
 	}
 
 	/* We watch for closing of course. */
@@ -2530,17 +2560,18 @@ void channel_unwatch_funding(struct lightningd *ld, struct channel *channel)
 	const u8 *funding_wscript = bitcoin_redeem_2of2(tmpctx,
 							&channel->local_funding_pubkey,
 							&channel->channel_info.remote_fundingkey);
+	const u8 *funding_spk;
 
 	/* This is stub channel, we don't watch anything! */
 	if (channel->scid && is_stub_scid(*channel->scid))
 		return;
 
-	unwatch_scriptpubkey(channel, ld->topology,
-			     scriptpubkey_p2wsh(tmpctx, funding_wscript),
-			     &channel->funding,
-			     channel->funding_sats,
-			     channel_funding_found,
-			     channel);
+	funding_spk = scriptpubkey_p2wsh(tmpctx, funding_wscript);
+	watchman_unwatch_scriptpubkey(ld,
+				      owner_channel_funding(tmpctx,
+							    channel->dbid),
+				      funding_spk,
+				      tal_bytelen(funding_spk));
 	/* FIXME: unwatch txo and depth too? */
 }
 

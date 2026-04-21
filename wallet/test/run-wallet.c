@@ -806,6 +806,12 @@ void watchman_unwatch_outpoint(struct lightningd *ld UNNEEDED,
 			       const char *owner UNNEEDED,
 			       const struct bitcoin_outpoint *outpoint UNNEEDED)
 { fprintf(stderr, "watchman_unwatch_outpoint called!\n"); abort(); }
+/* Generated stub for watchman_unwatch_scriptpubkey */
+void watchman_unwatch_scriptpubkey(struct lightningd *ld UNNEEDED,
+				   const char *owner UNNEEDED,
+				   const u8 *scriptpubkey UNNEEDED,
+				   size_t script_len UNNEEDED)
+{ fprintf(stderr, "watchman_unwatch_scriptpubkey called!\n"); abort(); }
 /* Generated stub for watchman_watch_outpoint */
 void watchman_watch_outpoint(struct lightningd *ld UNNEEDED,
 			     const char *owner UNNEEDED,
