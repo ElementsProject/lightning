@@ -208,6 +208,12 @@ struct channel {
 	/* Watch we have on funding output. */
 	struct txowatch *funding_spend_watch;
 
+	/* Original funding outpoint before a splice overwrites channel->funding.
+	 * Populated by channel_splice_watch_found; read by handle_peer_splice_locked
+	 * for channel_record_splice.  In-memory only: not persisted to the wallet.
+	 * NULL when no splice detection is pending. */
+	struct bitcoin_outpoint *pre_splice_funding;
+
 	/* If we're doing a replay for onchaind, here are the txids it's watching */
 	struct replay_tx_hash *onchaind_replay_watches;
 	/* Number of outstanding onchaind_spent calls */

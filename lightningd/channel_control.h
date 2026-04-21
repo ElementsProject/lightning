@@ -22,6 +22,13 @@ void channeld_tell_depth(struct channel *channel,
 			 const struct bitcoin_txid *txid,
 			 u32 depth);
 
+/* Send splice-specific funding_depth (is_splice=true) to channeld so it can
+ * begin splice lock-in. */
+void channeld_tell_splice_depth(struct channel *channel,
+				const struct short_channel_id *splice_scid,
+				const struct bitcoin_txid *txid,
+				u32 depth);
+
 /* Notify channels of new blocks. */
 void channel_notify_new_block(struct lightningd *ld);
 

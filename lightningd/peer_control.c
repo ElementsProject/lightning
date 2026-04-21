@@ -2576,6 +2576,172 @@ static enum watch_result funding_spent(struct channel *channel,
 	return onchaind_funding_spent(channel, tx, block->height);
 }
 
+/* Splice tx confirmed: swap the outpoint watch from old to new funding and
+ * notify channeld.  Returns true if the event was handled as a splice. */
+static UNUSED bool channel_splice_watch_found(struct lightningd *ld,
+					      struct channel *channel,
+					      const struct bitcoin_txid *txid,
+					      size_t outnum,
+					      const struct short_channel_id *scid,
+					      u32 blockheight)
+{
+	struct channel_inflight *inflight;
+
+	list_for_each(&channel->inflights, inflight, list) {
+		if (!bitcoin_txid_eq(txid, &inflight->funding->outpoint.txid)
+		    || outnum != inflight->funding->outpoint.n)
+			continue;
+
+		log_info(channel->log,
+			 "bwatch: splice tx %s confirmed at block %u (scid %s),"
+			 " switching outpoint watch",
+			 fmt_bitcoin_txid(tmpctx, txid),
+			 blockheight,
+			 fmt_short_channel_id(tmpctx, *scid));
+
+		/* Stash the original outpoint before overwriting channel->funding.
+		 * handle_peer_splice_locked reads this for channel_record_splice
+		 * (needs the old outpoint, not the splice one). */
+		channel->pre_splice_funding = tal_dup(channel,
+						      struct bitcoin_outpoint,
+						      &channel->funding);
+
+		watchman_unwatch_outpoint(ld,
+			owner_channel_funding_spent(tmpctx, channel->dbid),
+			&channel->funding);
+
+		channel->funding = inflight->funding->outpoint;
+		wallet_annotate_txout(ld->wallet, &channel->funding,
+				      TX_CHANNEL_FUNDING, channel->dbid);
+
+		/* Register the old scid as an alias so routing via the old scid
+		 * keeps working immediately.  channel_set_scid removes the old
+		 * entry from the chanmap first, so channel_add_old_scid must
+		 * come after it. */
+		if (channel->scid) {
+			struct short_channel_id old_scid = *channel->scid;
+			channel_set_scid(channel, scid);
+			channel_add_old_scid(channel, old_scid);
+		} else {
+			channel_set_scid(channel, scid);
+		}
+		wallet_channel_save(ld->wallet, channel);
+
+		watchman_watch_outpoint(ld,
+			owner_channel_funding_spent(tmpctx, channel->dbid),
+			&channel->funding,
+			blockheight);
+
+		channeld_tell_splice_depth(channel, scid, txid, 1);
+		return true;
+	}
+
+	return false;
+}
+
+void channel_funding_spent_watch_found(struct lightningd *ld,
+				       const char *suffix,
+				       const struct bitcoin_tx *tx,
+				       size_t innum UNUSED,
+				       u32 blockheight,
+				       u32 txindex UNUSED)
+{
+	u64 dbid = strtoull(suffix, NULL, 10);
+	struct channel *channel = channel_by_dbid(ld, dbid);
+	struct bitcoin_txid spending_txid;
+	struct channel_inflight *inflight;
+
+	if (!channel) {
+		log_broken(ld->log,
+			   "channel/funding_spent watch_found: no channel for dbid %"PRIu64,
+			   dbid);
+		return;
+	}
+
+	bitcoin_txid(tx, &spending_txid);
+	log_info(channel->log,
+		 "bwatch: funding outpoint %s:%u spent by %s at block %u",
+		 fmt_bitcoin_txid(tmpctx, &channel->funding.txid),
+		 channel->funding.n,
+		 fmt_bitcoin_txid(tmpctx, &spending_txid),
+		 blockheight);
+
+	/* Splice in progress: the spending tx is one of our inflights, so the
+	 * funding output is being legitimately consumed by our own splice. */
+	list_for_each(&channel->inflights, inflight, list) {
+		if (bitcoin_txid_eq(&spending_txid,
+				    &inflight->funding->outpoint.txid)) {
+			if (inflight->splice_locked_memonly) {
+				tal_free(inflight);
+				return;
+			}
+			return;
+		}
+	}
+
+	onchaind_funding_spent(channel, tx, blockheight);
+}
+
+void channel_funding_spent_watch_revert(struct lightningd *ld,
+					const char *suffix,
+					u32 blockheight)
+{
+	/* TODO: roll back onchaind state on funding-spend reorg.  The full
+	 * rollback (kill onchaind, restore CHANNELD_NORMAL, replay watches)
+	 * needs onchaind itself to be running on bwatch first; until then,
+	 * just record the event. */
+	u64 dbid = strtoull(suffix, NULL, 10);
+	struct channel *channel = channel_by_dbid(ld, dbid);
+
+	if (!channel) {
+		log_debug(ld->log,
+			  "channel/funding_spent revert: unknown dbid %"PRIu64
+			  " at block %u, ignoring",
+			  dbid, blockheight);
+		return;
+	}
+
+	log_unusual(channel->log,
+		    "channel/funding_spent revert at block %u (state %s):"
+		    " no rollback yet",
+		    blockheight, channel_state_name(channel));
+}
+
+void channel_wrong_funding_spent_watch_found(struct lightningd *ld,
+					     const char *suffix,
+					     const struct bitcoin_tx *tx,
+					     size_t innum UNUSED,
+					     u32 blockheight,
+					     u32 txindex UNUSED)
+{
+	u64 dbid = strtoull(suffix, NULL, 10);
+	struct channel *channel = channel_by_dbid(ld, dbid);
+	struct bitcoin_txid txid;
+
+	if (!channel) {
+		log_broken(ld->log,
+			   "channel/wrong_funding_spent watch_found:"
+			   " no channel for dbid %"PRIu64, dbid);
+		return;
+	}
+
+	bitcoin_txid(tx, &txid);
+	log_info(channel->log,
+		 "bwatch: wrong funding outpoint spent by %s at block %u",
+		 fmt_bitcoin_txid(tmpctx, &txid), blockheight);
+
+	onchaind_funding_spent(channel, tx, blockheight);
+}
+
+/* wrong_funding_spent and funding_spent both feed onchaind, so their
+ * reverts are the same. */
+void channel_wrong_funding_spent_watch_revert(struct lightningd *ld,
+					      const char *suffix,
+					      u32 blockheight)
+{
+	channel_funding_spent_watch_revert(ld, suffix, blockheight);
+}
+
 void channel_watch_wrong_funding(struct lightningd *ld, struct channel *channel)
 {
 	/* Watch the "wrong" funding too, in case we spend it. */

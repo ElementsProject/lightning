@@ -1184,10 +1184,15 @@ static void handle_peer_splice_locked(struct channel *channel, const u8 *msg)
 					 &inflight->funding->outpoint);
 
 	/* Stash prev funding data so we can log it after scid is updated
-	 * (to get the blockheight) */
+	 * (to get the blockheight).  After a splice, channel->funding holds
+	 * the new outpoint, so use pre_splice_funding for the original.
+	 * NULL means no splice — channel->funding is still the original. */
 	prev_our_msats = channel->our_msat;
 	prev_funding_sats = channel->funding_sats;
-	prev_funding_out = channel->funding;
+	prev_funding_out = channel->pre_splice_funding
+			   ? *channel->pre_splice_funding
+			   : channel->funding;
+	channel->pre_splice_funding = tal_free(channel->pre_splice_funding);
 
 	update_channel_from_inflight(channel->peer->ld, channel, inflight, true);
 
@@ -2009,6 +2014,30 @@ void channeld_tell_depth(struct channel *channel,
 		      take(towire_channeld_funding_depth(
 			  NULL, channel->scid, depth,
 			  false, txid)));
+}
+
+void channeld_tell_splice_depth(struct channel *channel,
+				const struct short_channel_id *splice_scid,
+				const struct bitcoin_txid *txid,
+				u32 depth)
+{
+	if (!channel->owner) {
+		log_debug(channel->log,
+			  "Splice tx %s confirmed, but peer disconnected",
+			  fmt_bitcoin_txid(tmpctx, txid));
+		return;
+	}
+
+	log_debug(channel->log,
+		  "Sending splice funding_depth scid=%s depth=%u",
+		  fmt_short_channel_id(tmpctx, *splice_scid), depth);
+
+	/* towire_channeld_funding_depth takes a non-const scid. */
+	subd_send_msg(channel->owner,
+		      take(towire_channeld_funding_depth(
+			  NULL,
+			  cast_const(struct short_channel_id *, splice_scid),
+			  depth, true, txid)));
 }
 
 /* Check if we are the fundee of this channel, the channel

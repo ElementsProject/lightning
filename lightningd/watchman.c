@@ -492,6 +492,11 @@ static const struct watch_dispatch {
 	/* gossip/<scid>: WATCH_SCID, fires when the channel announcement UTXO is confirmed.
 	 * tx==NULL signals the SCID's expected position was absent from the block ("not found"). */
 	{ "gossip/", gossip_scid_watch_found, gossip_scid_watch_revert },
+	/* channel/funding_spent/<dbid>: WATCH_OUTPOINT, fires when the funding outpoint is spent.
+	 * Must precede "channel/funding/" so the longer prefix wins the strstarts() match. */
+	{ "channel/funding_spent/", channel_funding_spent_watch_found, channel_funding_spent_watch_revert },
+	/* channel/wrong_funding_spent/<dbid>: WATCH_OUTPOINT, fires when shutdown_wrong_funding outpoint is spent. */
+	{ "channel/wrong_funding_spent/", channel_wrong_funding_spent_watch_found, channel_wrong_funding_spent_watch_revert },
 	/* channel/funding/<dbid>: WATCH_SCRIPTPUBKEY, fires when the funding output script
 	 * appears in a tx (i.e. the channel's funding transaction has been confirmed). */
 	{ "channel/funding/", channel_funding_watch_found, channel_funding_watch_revert },

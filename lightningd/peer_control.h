@@ -186,6 +186,41 @@ void channel_watch_depth(struct lightningd *ld,
 /* If this channel has a "wrong funding" shutdown, watch that too. */
 void channel_watch_wrong_funding(struct lightningd *ld, struct channel *channel);
 
+/* bwatch handler for "channel/funding_spent/<dbid>" (WATCH_OUTPOINT): the
+ * funding output was spent.  If the spending tx is one of our own
+ * inflights, this is a splice in progress and we just keep watching
+ * (handing the memory-only inflight off to channel_splice_watch_found).
+ * Otherwise the channel was closed/force-closed, so hand off to onchaind. */
+void channel_funding_spent_watch_found(struct lightningd *ld,
+				       const char *suffix,
+				       const struct bitcoin_tx *tx,
+				       size_t innum,
+				       u32 blockheight,
+				       u32 txindex);
+
+/* Reorg of the funding-spend tx.  Full rollback (kill onchaind, restore
+ * CHANNELD_NORMAL) lands once onchaind itself runs on bwatch; for now we
+ * just log the event. */
+void channel_funding_spent_watch_revert(struct lightningd *ld,
+					const char *suffix,
+					u32 blockheight);
+
+/* bwatch handler for "channel/wrong_funding_spent/<dbid>": the
+ * shutdown_wrong_funding outpoint we registered in channel_watch_wrong_funding
+ * was spent.  Handed off to onchaind the same way as channel_funding_spent. */
+void channel_wrong_funding_spent_watch_found(struct lightningd *ld,
+					     const char *suffix,
+					     const struct bitcoin_tx *tx,
+					     size_t innum,
+					     u32 blockheight,
+					     u32 txindex);
+
+/* Reorg of the wrong-funding-spend tx.  Same handling as channel_funding_spent
+ * since both arrive at the same onchaind state machine. */
+void channel_wrong_funding_spent_watch_revert(struct lightningd *ld,
+					      const char *suffix,
+					      u32 blockheight);
+
 /* How much can we spend in this channel? */
 struct amount_msat channel_amount_spendable(const struct channel *channel);
 
