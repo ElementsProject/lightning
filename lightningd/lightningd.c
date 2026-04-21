@@ -1367,16 +1367,28 @@ int main(int argc, char *argv[])
 	trace_span_end(ld->topology);
 
 	/*~ Stand up the watchman: it queues bwatch RPC requests until the
-	 * bwatch plugin reports ready, then replays them.  Must come after
-	 * setup_topology so start_block reflects the last-processed height.
+	 * bwatch plugin reports ready, then replays them.  Must come before
+	 * init_wallet_scriptpubkey_watches so the watches have somewhere to
+	 * enqueue, and after setup_topology so start_block reflects the
+	 * last-processed height.
 	 *
 	 * bwatch is opt-in for now: the --experimental-bwatch flag is
 	 * registered by the bwatch plugin, so peek at the configvar to gate
 	 * the lightningd side too.  Without it, ld->watchman stays NULL and
 	 * the watchman_* entry points are no-ops, leaving chain_topology as
 	 * the only chain watcher. */
-	if (bwatch_enabled(ld))
+	if (bwatch_enabled(ld)) {
 		ld->watchman = watchman_new(ld, ld);
+
+		/*~ Reads intvars and the addresses table, so needs a
+		 * transaction (the datastore writes it triggers self-wrap
+		 * when necessary). */
+		db_begin_transaction(ld->wallet->db);
+		trace_span_start("init_wallet_scriptpubkey_watches", ld->wallet);
+		init_wallet_scriptpubkey_watches(ld->wallet);
+		trace_span_end(ld->wallet);
+		db_commit_transaction(ld->wallet->db);
+	}
 
 	db_begin_transaction(ld->wallet->db);
 	trace_span_start("delete_old_htlcs", ld->wallet);

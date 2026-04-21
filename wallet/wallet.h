@@ -2092,4 +2092,9 @@ void wallet_add_bwatch_scriptpubkey(struct lightningd *ld,
 				    const u8 *script,
 				    size_t script_len);
 
+/* Register a bwatch watch for every scriptpubkey wallet_can_spend
+ * recognizes: every HD key up through {bip32,bip86}_max_index plus the
+ * keyscan_gap lookahead, in the address forms actually issued. */
+void init_wallet_scriptpubkey_watches(struct wallet *w);
+
 #endif /* LIGHTNING_WALLET_WALLET_H */

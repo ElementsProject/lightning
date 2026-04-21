@@ -994,6 +994,43 @@ bool wallet_can_spend(struct wallet *w, const u8 *script, size_t script_len,
 	return true;
 }
 
+static void watch_newindex_scripts(struct lightningd *ld,
+				   u64 keyidx,
+				   enum addrtype addrtype)
+{
+	struct pubkey pubkey;
+	const u8 *scriptpubkey;
+	bool legacy = (ld->bip86_base == NULL);
+	u32 start_block = UINT32_MAX;
+
+	if (ld->bip86_base)
+		bip86_pubkey(ld, &pubkey, keyidx);
+	else
+		bip32_pubkey(ld, &pubkey, keyidx);
+
+	if (addrtype & ADDR_BECH32) {
+		scriptpubkey = scriptpubkey_p2wpkh(tmpctx, &pubkey);
+		wallet_add_bwatch_scriptpubkey(ld, keyidx, start_block,
+					       scriptpubkey,
+					       tal_bytelen(scriptpubkey));
+
+		/* Pre-24.11 ADDR_ALL can include legacy wrapped form. */
+		if (addrtype == ADDR_ALL && legacy) {
+			const u8 *p2sh = scriptpubkey_p2sh(tmpctx, scriptpubkey);
+			wallet_add_bwatch_scriptpubkey(ld, keyidx, start_block,
+						       p2sh,
+						       tal_bytelen(p2sh));
+		}
+	}
+
+	if (addrtype & ADDR_P2TR) {
+		scriptpubkey = scriptpubkey_p2tr(tmpctx, &pubkey);
+		wallet_add_bwatch_scriptpubkey(ld, keyidx, start_block,
+					       scriptpubkey,
+					       tal_bytelen(scriptpubkey));
+	}
+}
+
 s64 wallet_get_newindex(struct lightningd *ld, enum addrtype addrtype)
 {
 	struct db_stmt *stmt;
@@ -1021,6 +1058,8 @@ s64 wallet_get_newindex(struct lightningd *ld, enum addrtype addrtype)
 	db_bind_u64(stmt, newidx);
 	db_bind_int(stmt, wallet_addrtype_in_db(addrtype));
 	db_exec_prepared_v2(take(stmt));
+
+	watch_newindex_scripts(ld, newidx, addrtype);
 
 	return newidx;
 }
@@ -8010,6 +8049,33 @@ void wallet_add_bwatch_scriptpubkey(struct lightningd *ld,
 				    script, script_len, start_block);
 }
 
+/* Register perennial bwatch watches for every scriptpubkey wallet_can_spend()
+ * recognizes, including keyscan_gap lookahead.  UINT32_MAX avoids a per-key
+ * startup rescan; existing outputs come from migration and catch-up comes from
+ * bwatch polling. */
+void init_wallet_scriptpubkey_watches(struct wallet *w)
+{
+	struct wallet_address_htable_iter it;
+	u64 bip32_max_index = db_get_intvar(w->db, "bip32_max_index", 0);
+	u64 bip86_max_index = db_get_intvar(w->db, "bip86_max_index", 0);
+	u64 max_index = bip32_max_index > bip86_max_index
+		? bip32_max_index : bip86_max_index;
+	u32 start_block = UINT32_MAX;
+
+	/* Extend the table to cover every key we've derived plus lookahead;
+	 * same rule wallet_can_spend applies. */
+	while (w->our_addresses_maxindex < max_index + w->keyscan_gap)
+		our_addresses_add_for_index(w, ++w->our_addresses_maxindex);
+
+	for (struct wallet_address *waddr
+		     = wallet_address_htable_first(w->our_addresses, &it);
+	     waddr;
+	     waddr = wallet_address_htable_next(w->our_addresses, &it)) {
+		wallet_add_bwatch_scriptpubkey(w->ld, waddr->index, start_block,
+					       waddr->swl.script, waddr->swl.len);
+	}
+}
+
 /* Insert a wallet-owned UTXO row into our_outputs.  If the outpoint was
  * previously inserted unconfirmed (blockheight=0) and we now have a real
  * blockheight, promote the row so coin selection can treat it as
@@ -8200,14 +8266,6 @@ static void bwatch_got_utxo(struct wallet *w,
 	watchman_watch_outpoint(w->ld,
 				owner_wallet_utxo(tmpctx, &output->outpoint),
 				&output->outpoint, start_block);
-
-	/* Unconfirmed: keep watching the scriptpubkey so bwatch tells us when
-	 * the output confirms.  UINT32_MAX = perennial watch: never skip on
-	 * reorg, never rescan. */
-	if (!blockheight)
-		wallet_add_bwatch_scriptpubkey(w->ld, keyindex, UINT32_MAX,
-					       output->txout->script,
-					       output->txout->script_len);
 }
 
 /* A wallet/spk watch owner suffix is "<keyindex>/<form>", as written by
