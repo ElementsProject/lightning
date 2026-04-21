@@ -325,10 +325,20 @@ static struct bitcoin_tx *sign_and_send_last(const tal_t *ctx,
 }
 
 /* FIXME: reorder! */
-static enum watch_result funding_spent(struct channel *channel,
-				       const struct bitcoin_tx *tx,
-				       size_t inputnum UNUSED,
-				       const struct block *block);
+/* UNUSED: chaintopology funding_spent path; bwatch
+ * channel_funding_spent_watch_found is the live producer.  Removed in the
+ * follow-up cleanup commit. */
+static UNUSED enum watch_result funding_spent(struct channel *channel,
+					      const struct bitcoin_tx *tx,
+					      size_t inputnum UNUSED,
+					      const struct block *block);
+
+static bool channel_splice_watch_found(struct lightningd *ld,
+				       struct channel *channel,
+				       const struct bitcoin_txid *txid,
+				       size_t outnum,
+				       const struct short_channel_id *scid,
+				       u32 blockheight);
 
 /* We coop-closed channel: if another inflight confirms, force close */
 static void closed_inflight_splice_found(struct lightningd *ld,
@@ -398,16 +408,6 @@ void drop_to_chain(struct lightningd *ld, struct channel *channel,
 		free_htlcs(ld, channel);
 		delete_channel(channel, false);
 		return;
-	}
-
-	/* If we're not already (e.g. close before channel fully open),
-	 * make sure we're watching for the funding spend */
-	if (!channel->funding_spend_watch) {
-		log_debug(channel->log, "Adding funding_spend_watch");
-		channel->funding_spend_watch = watch_txo(channel,
-							 ld->topology, channel,
-							 &channel->funding,
-							 funding_spent);
 	}
 
 	/* If this was triggered by a close command, get a copy of the cmd id */
@@ -2321,13 +2321,15 @@ void channel_watch_depth(struct lightningd *ld,
 
 void channel_funding_watch_found(struct lightningd *ld,
 				 const char *suffix,
-				 const struct bitcoin_tx *tx UNUSED,
-				 size_t outnum UNUSED,
+				 const struct bitcoin_tx *tx,
+				 size_t outnum,
 				 u32 blockheight,
 				 u32 txindex)
 {
 	u64 dbid = strtoull(suffix, NULL, 10);
 	struct channel *channel = channel_by_dbid(ld, dbid);
+	struct bitcoin_txid txid;
+	struct short_channel_id scid;
 	struct txlocator loc;
 
 	if (!channel) {
@@ -2337,13 +2339,56 @@ void channel_funding_watch_found(struct lightningd *ld,
 		return;
 	}
 
+	bitcoin_txid(tx, &txid);
+
+	if (!mk_short_channel_id(&scid, blockheight, txindex, outnum)) {
+		log_broken(channel->log,
+			   "bwatch: invalid scid from %u:%u:%zu",
+			   blockheight, txindex, outnum);
+		return;
+	}
+
+	/* Same funding scriptpubkey, different outpoint: this is a splice tx
+	 * for an existing channel, not the original funding confirmation. */
+	if (!bitcoin_txid_eq(&txid, &channel->funding.txid)
+	    || outnum != channel->funding.n) {
+		if (channel_splice_watch_found(ld, channel, &txid, outnum,
+					       &scid, blockheight))
+			return;
+		log_unusual(channel->log,
+			    "bwatch: funding watch_found for unexpected"
+			    " outpoint %s:%zu (expected %s:%u), ignoring",
+			    fmt_bitcoin_txid(tmpctx, &txid), outnum,
+			    fmt_bitcoin_txid(tmpctx, &channel->funding.txid),
+			    channel->funding.n);
+		return;
+	}
+
 	/* depthcb_update_scid() expects a txlocator; we have the block height
 	 * and txindex directly, so just fill one in on the stack. */
 	loc.blkheight = blockheight;
 	loc.index = txindex;
 
+	/* depthcb_update_scid is idempotent on rescan, so check before it
+	 * runs whether this is genuinely a first confirmation: the spend
+	 * watch must only be armed once or bwatch will hold a duplicate. */
+	bool first_confirm = !channel->scid;
+
 	/* Closes the channel if the scid doesn't fit. */
 	if (depthcb_update_scid(channel, &channel->funding, &loc)) {
+		if (first_confirm) {
+			/* channel_watch_funding only registers the
+			 * scriptpubkey watch before the channel has a scid;
+			 * the outpoint spend watch belongs here, the moment
+			 * the funding output exists on-chain.  Without this,
+			 * a close that happens entirely in-process never
+			 * fires channel_funding_spent_watch_found and the
+			 * channel can't progress to ONCHAIN. */
+			watchman_watch_outpoint(ld,
+				owner_channel_funding_spent(tmpctx, dbid),
+				&channel->funding,
+				blockheight);
+		}
 		/* Will fire depth callbacks immediately, which is what we want. */
 		channel_watch_depth(ld, blockheight, channel);
 	}
@@ -2543,10 +2588,10 @@ void channel_block_processed(struct lightningd *ld, u32 blockheight)
 	}
 }
 
-static enum watch_result funding_spent(struct channel *channel,
-				       const struct bitcoin_tx *tx,
-				       size_t inputnum UNUSED,
-				       const struct block *block)
+static UNUSED enum watch_result funding_spent(struct channel *channel,
+					      const struct bitcoin_tx *tx,
+					      size_t inputnum UNUSED,
+					      const struct block *block)
 {
 	struct bitcoin_txid txid;
 	struct channel_inflight *inflight;
@@ -2578,12 +2623,12 @@ static enum watch_result funding_spent(struct channel *channel,
 
 /* Splice tx confirmed: swap the outpoint watch from old to new funding and
  * notify channeld.  Returns true if the event was handled as a splice. */
-static UNUSED bool channel_splice_watch_found(struct lightningd *ld,
-					      struct channel *channel,
-					      const struct bitcoin_txid *txid,
-					      size_t outnum,
-					      const struct short_channel_id *scid,
-					      u32 blockheight)
+static bool channel_splice_watch_found(struct lightningd *ld,
+				       struct channel *channel,
+				       const struct bitcoin_txid *txid,
+				       size_t outnum,
+				       const struct short_channel_id *scid,
+				       u32 blockheight)
 {
 	struct channel_inflight *inflight;
 
@@ -2744,68 +2789,78 @@ void channel_wrong_funding_spent_watch_revert(struct lightningd *ld,
 
 void channel_watch_wrong_funding(struct lightningd *ld, struct channel *channel)
 {
-	/* Watch the "wrong" funding too, in case we spend it. */
 	if (channel->shutdown_wrong_funding) {
-		watch_txo(channel, ld->topology, channel,
-			  channel->shutdown_wrong_funding,
-			  funding_spent);
+		watchman_watch_outpoint(ld,
+			owner_channel_wrong_funding_spent(tmpctx, channel->dbid),
+			channel->shutdown_wrong_funding,
+			get_block_height(ld->topology));
 	}
-}
-
-void channel_watch_funding_out(struct lightningd *ld, struct channel *channel)
-{
-	tal_free(channel->funding_spend_watch);
-	channel->funding_spend_watch = watch_txo(channel, ld->topology, channel,
-						 &channel->funding,
-						 funding_spent);
 }
 
 void channel_watch_funding(struct lightningd *ld, struct channel *channel)
 {
-	log_debug(channel->log, "Watching for funding txid: %s",
-		  fmt_bitcoin_txid(tmpctx, &channel->funding.txid));
-
-	/* This is stub channel, we don't watch anything funding. */
-	if (!channel->scid || !is_stub_scid(*channel->scid)) {
+	if (!channel->scid) {
+		/* Funding tx not yet on-chain: register the scriptpubkey watch
+		 * so bwatch tells us when (or if) it confirms. */
 		const u8 *funding_wscript = bitcoin_redeem_2of2(tmpctx,
 								&channel->local_funding_pubkey,
 								&channel->channel_info.remote_fundingkey);
 		const u8 *funding_spk = scriptpubkey_p2wsh(tmpctx, funding_wscript);
 
-		/* Hand the funding scriptpubkey watch to bwatch.  start_block
-		 * is the current tip: rescan any past blocks if we're catching
-		 * up after a restart, otherwise just watch from now. */
+		log_debug(channel->log,
+			  "bwatch: watching funding scriptpubkey for dbid %"PRIu64,
+			  channel->dbid);
 		watchman_watch_scriptpubkey(ld,
-					    owner_channel_funding(tmpctx,
-								  channel->dbid),
+					    owner_channel_funding(tmpctx, channel->dbid),
 					    funding_spk,
 					    tal_bytelen(funding_spk),
 					    get_block_height(ld->topology));
+	} else {
+		/* Funding confirmed (or stub with known outpoint): watch for spend.
+		 * Stubs skip the scriptpubkey path because remote_fundingkey is a
+		 * placeholder; the outpoint alone is enough. */
+		log_debug(channel->log,
+			  "bwatch: watching funding outpoint %s:%u for dbid %"PRIu64,
+			  fmt_bitcoin_txid(tmpctx, &channel->funding.txid),
+			  channel->funding.n,
+			  channel->dbid);
+		watchman_watch_outpoint(ld,
+			owner_channel_funding_spent(tmpctx, channel->dbid),
+			&channel->funding,
+			get_block_height(ld->topology));
 	}
 
-	/* We watch for closing of course. */
-	channel_watch_funding_out(ld, channel);
 	channel_watch_wrong_funding(ld, channel);
 }
 
 void channel_unwatch_funding(struct lightningd *ld, struct channel *channel)
 {
-	const u8 *funding_wscript = bitcoin_redeem_2of2(tmpctx,
-							&channel->local_funding_pubkey,
-							&channel->channel_info.remote_fundingkey);
+	const u8 *funding_wscript;
 	const u8 *funding_spk;
 
-	/* This is stub channel, we don't watch anything! */
+	/* Stub channels have no watches. */
 	if (channel->scid && is_stub_scid(*channel->scid))
 		return;
 
-	funding_spk = scriptpubkey_p2wsh(tmpctx, funding_wscript);
-	watchman_unwatch_scriptpubkey(ld,
-				      owner_channel_funding(tmpctx,
-							    channel->dbid),
-				      funding_spk,
-				      tal_bytelen(funding_spk));
-	/* FIXME: unwatch txo and depth too? */
+	if (!channel->scid) {
+		/* Funding not yet on-chain: scriptpubkey watch is the active one. */
+		funding_wscript = bitcoin_redeem_2of2(tmpctx,
+						      &channel->local_funding_pubkey,
+						      &channel->channel_info.remote_fundingkey);
+		funding_spk = scriptpubkey_p2wsh(tmpctx, funding_wscript);
+		watchman_unwatch_scriptpubkey(ld,
+					      owner_channel_funding(tmpctx, channel->dbid),
+					      funding_spk,
+					      tal_bytelen(funding_spk));
+	} else {
+		/* Funding confirmed: unwatch the spend outpoint and the depth tracker. */
+		watchman_unwatch_outpoint(ld,
+			owner_channel_funding_spent(tmpctx, channel->dbid),
+			&channel->funding);
+		watchman_unwatch_blockdepth(ld,
+			owner_channel_funding_depth(tmpctx, channel->dbid),
+			short_channel_id_blocknum(*channel->scid));
+	}
 }
 
 static void json_add_peer(struct lightningd *ld,

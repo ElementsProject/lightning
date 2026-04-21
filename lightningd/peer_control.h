@@ -175,9 +175,6 @@ void channel_funding_depth_revert(struct lightningd *ld,
  * depth-dependent state (lock-in, gossip announce, splice). */
 void channel_block_processed(struct lightningd *ld, u32 blockheight);
 
-/* Watch for spend of funding tx. */
-void channel_watch_funding_out(struct lightningd *ld, struct channel *channel);
-
 /* Watch block that funding tx is in */
 void channel_watch_depth(struct lightningd *ld,
 			 u32 blockheight,

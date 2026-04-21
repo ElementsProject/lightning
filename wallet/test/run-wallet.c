@@ -131,6 +131,12 @@ void channeld_tell_depth(struct channel *channel UNNEEDED,
 			 const struct bitcoin_txid *txid UNNEEDED,
 			 u32 depth UNNEEDED)
 { fprintf(stderr, "channeld_tell_depth called!\n"); abort(); }
+/* Generated stub for channeld_tell_splice_depth */
+void channeld_tell_splice_depth(struct channel *channel UNNEEDED,
+				const struct short_channel_id *splice_scid UNNEEDED,
+				const struct bitcoin_txid *txid UNNEEDED,
+				u32 depth UNNEEDED)
+{ fprintf(stderr, "channeld_tell_splice_depth called!\n"); abort(); }
 /* Generated stub for check_announce_sigs */
 const char *check_announce_sigs(const struct channel *channel UNNEEDED,
 				struct short_channel_id scid UNNEEDED,
@@ -783,16 +789,6 @@ bool watch_scriptpubkey_(const tal_t *ctx UNNEEDED,
 void watch_splice_inflight(struct lightningd *ld UNNEEDED,
 			   struct channel_inflight *inflight UNNEEDED)
 { fprintf(stderr, "watch_splice_inflight called!\n"); abort(); }
-/* Generated stub for watch_txo */
-struct txowatch *watch_txo(const tal_t *ctx UNNEEDED,
-			   struct chain_topology *topo UNNEEDED,
-			   struct channel *channel UNNEEDED,
-			   const struct bitcoin_outpoint *outpoint UNNEEDED,
-			   enum watch_result (*cb)(struct channel * UNNEEDED,
-						   const struct bitcoin_tx *tx UNNEEDED,
-						   size_t input_num UNNEEDED,
-						   const struct block *block))
-{ fprintf(stderr, "watch_txo called!\n"); abort(); }
 /* Generated stub for watchman_unwatch_blockdepth */
 void watchman_unwatch_blockdepth(struct lightningd *ld UNNEEDED,
 				 const char *owner UNNEEDED,

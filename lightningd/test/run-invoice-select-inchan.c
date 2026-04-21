@@ -53,6 +53,10 @@ void broadcast_tx_(const tal_t *ctx UNNEEDED,
 		   bool (*refresh)(struct channel * UNNEEDED, const struct bitcoin_tx ** UNNEEDED, void *) UNNEEDED,
 		   void *cbarg TAKES UNNEEDED)
 { fprintf(stderr, "broadcast_tx_ called!\n"); abort(); }
+/* Generated stub for channel_add_old_scid */
+void channel_add_old_scid(struct channel *channel UNNEEDED,
+			  struct short_channel_id old_scid UNNEEDED)
+{ fprintf(stderr, "channel_add_old_scid called!\n"); abort(); }
 /* Generated stub for channel_by_cid */
 struct channel *channel_by_cid(struct lightningd *ld UNNEEDED,
 			       const struct channel_id *cid UNNEEDED)
@@ -144,6 +148,12 @@ void channeld_tell_depth(struct channel *channel UNNEEDED,
 			 const struct bitcoin_txid *txid UNNEEDED,
 			 u32 depth UNNEEDED)
 { fprintf(stderr, "channeld_tell_depth called!\n"); abort(); }
+/* Generated stub for channeld_tell_splice_depth */
+void channeld_tell_splice_depth(struct channel *channel UNNEEDED,
+				const struct short_channel_id *splice_scid UNNEEDED,
+				const struct bitcoin_txid *txid UNNEEDED,
+				u32 depth UNNEEDED)
+{ fprintf(stderr, "channeld_tell_splice_depth called!\n"); abort(); }
 /* Generated stub for cmd_id_from_close_command */
 const char *cmd_id_from_close_command(const tal_t *ctx UNNEEDED,
 				      struct lightningd *ld UNNEEDED, struct channel *channel UNNEEDED)
@@ -661,6 +671,11 @@ u8 *towire_onchaind_dev_memleak(const tal_t *ctx UNNEEDED)
 /* Generated stub for towire_openingd_dev_memleak */
 u8 *towire_openingd_dev_memleak(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_openingd_dev_memleak called!\n"); abort(); }
+/* Generated stub for wallet_annotate_txout */
+void wallet_annotate_txout(struct wallet *w UNNEEDED,
+			   const struct bitcoin_outpoint *outpoint UNNEEDED,
+			   enum wallet_tx_type type UNNEEDED, u64 channel UNNEEDED)
+{ fprintf(stderr, "wallet_annotate_txout called!\n"); abort(); }
 /* Generated stub for wallet_channel_save */
 void wallet_channel_save(struct wallet *w UNNEEDED, struct channel *chan UNNEEDED)
 { fprintf(stderr, "wallet_channel_save called!\n"); abort(); }
@@ -750,21 +765,16 @@ bool watch_scriptpubkey_(const tal_t *ctx UNNEEDED,
 void watch_splice_inflight(struct lightningd *ld UNNEEDED,
 			   struct channel_inflight *inflight UNNEEDED)
 { fprintf(stderr, "watch_splice_inflight called!\n"); abort(); }
-/* Generated stub for watch_txo */
-struct txowatch *watch_txo(const tal_t *ctx UNNEEDED,
-			   struct chain_topology *topo UNNEEDED,
-			   struct channel *channel UNNEEDED,
-			   const struct bitcoin_outpoint *outpoint UNNEEDED,
-			   enum watch_result (*cb)(struct channel * UNNEEDED,
-						   const struct bitcoin_tx *tx UNNEEDED,
-						   size_t input_num UNNEEDED,
-						   const struct block *block))
-{ fprintf(stderr, "watch_txo called!\n"); abort(); }
 /* Generated stub for watchman_unwatch_blockdepth */
 void watchman_unwatch_blockdepth(struct lightningd *ld UNNEEDED,
 				 const char *owner UNNEEDED,
 				 u32 confirm_height UNNEEDED)
 { fprintf(stderr, "watchman_unwatch_blockdepth called!\n"); abort(); }
+/* Generated stub for watchman_unwatch_outpoint */
+void watchman_unwatch_outpoint(struct lightningd *ld UNNEEDED,
+			       const char *owner UNNEEDED,
+			       const struct bitcoin_outpoint *outpoint UNNEEDED)
+{ fprintf(stderr, "watchman_unwatch_outpoint called!\n"); abort(); }
 /* Generated stub for watchman_unwatch_scriptpubkey */
 void watchman_unwatch_scriptpubkey(struct lightningd *ld UNNEEDED,
 				   const char *owner UNNEEDED,
@@ -776,6 +786,12 @@ void watchman_watch_blockdepth(struct lightningd *ld UNNEEDED,
 			       const char *owner UNNEEDED,
 			       u32 confirm_height UNNEEDED)
 { fprintf(stderr, "watchman_watch_blockdepth called!\n"); abort(); }
+/* Generated stub for watchman_watch_outpoint */
+void watchman_watch_outpoint(struct lightningd *ld UNNEEDED,
+			     const char *owner UNNEEDED,
+			     const struct bitcoin_outpoint *outpoint UNNEEDED,
+			     u32 start_block UNNEEDED)
+{ fprintf(stderr, "watchman_watch_outpoint called!\n"); abort(); }
 /* Generated stub for watchman_watch_scriptpubkey */
 void watchman_watch_scriptpubkey(struct lightningd *ld UNNEEDED,
 				 const char *owner UNNEEDED,
