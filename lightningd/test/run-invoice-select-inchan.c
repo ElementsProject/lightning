@@ -729,14 +729,6 @@ void wallet_unreserve_utxo(struct wallet *w UNNEEDED, struct utxo *utxo UNNEEDED
 struct utxo *wallet_utxo_get(const tal_t *ctx UNNEEDED, struct wallet *w UNNEEDED,
 			     const struct bitcoin_outpoint *outpoint UNNEEDED)
 { fprintf(stderr, "wallet_utxo_get called!\n"); abort(); }
-/* Generated stub for watch_blockdepth_ */
-bool watch_blockdepth_(const tal_t *ctx UNNEEDED,
-		       struct chain_topology *topo UNNEEDED,
-		       u32 blockheight UNNEEDED,
-		       enum watch_result (*depthcb)(struct lightningd *ld UNNEEDED, u32 depth UNNEEDED, void *) UNNEEDED,
-		       enum watch_result (*reorgcb)(struct lightningd *ld UNNEEDED, void *) UNNEEDED,
-		       void *arg UNNEEDED)
-{ fprintf(stderr, "watch_blockdepth_ called!\n"); abort(); }
 /* Generated stub for watch_opening_inflight */
 void watch_opening_inflight(struct lightningd *ld UNNEEDED,
 			    struct channel_inflight *inflight UNNEEDED)
@@ -779,6 +771,11 @@ void watchman_unwatch_scriptpubkey(struct lightningd *ld UNNEEDED,
 				   const u8 *scriptpubkey UNNEEDED,
 				   size_t script_len UNNEEDED)
 { fprintf(stderr, "watchman_unwatch_scriptpubkey called!\n"); abort(); }
+/* Generated stub for watchman_watch_blockdepth */
+void watchman_watch_blockdepth(struct lightningd *ld UNNEEDED,
+			       const char *owner UNNEEDED,
+			       u32 confirm_height UNNEEDED)
+{ fprintf(stderr, "watchman_watch_blockdepth called!\n"); abort(); }
 /* Generated stub for watchman_watch_scriptpubkey */
 void watchman_watch_scriptpubkey(struct lightningd *ld UNNEEDED,
 				 const char *owner UNNEEDED,

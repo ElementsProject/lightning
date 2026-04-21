@@ -762,14 +762,6 @@ u8 *unsigned_node_announcement(const tal_t *ctx UNNEEDED,
 			       struct lightningd *ld UNNEEDED,
 			       const u8 *prev UNNEEDED)
 { fprintf(stderr, "unsigned_node_announcement called!\n"); abort(); }
-/* Generated stub for watch_blockdepth_ */
-bool watch_blockdepth_(const tal_t *ctx UNNEEDED,
-		       struct chain_topology *topo UNNEEDED,
-		       u32 blockheight UNNEEDED,
-		       enum watch_result (*depthcb)(struct lightningd *ld UNNEEDED, u32 depth UNNEEDED, void *) UNNEEDED,
-		       enum watch_result (*reorgcb)(struct lightningd *ld UNNEEDED, void *) UNNEEDED,
-		       void *arg UNNEEDED)
-{ fprintf(stderr, "watch_blockdepth_ called!\n"); abort(); }
 /* Generated stub for watch_opening_inflight */
 void watch_opening_inflight(struct lightningd *ld UNNEEDED,
 			    struct channel_inflight *inflight UNNEEDED)
@@ -817,6 +809,11 @@ void watchman_unwatch_scriptpubkey(struct lightningd *ld UNNEEDED,
 				   const u8 *scriptpubkey UNNEEDED,
 				   size_t script_len UNNEEDED)
 { fprintf(stderr, "watchman_unwatch_scriptpubkey called!\n"); abort(); }
+/* Generated stub for watchman_watch_blockdepth */
+void watchman_watch_blockdepth(struct lightningd *ld UNNEEDED,
+			       const char *owner UNNEEDED,
+			       u32 confirm_height UNNEEDED)
+{ fprintf(stderr, "watchman_watch_blockdepth called!\n"); abort(); }
 /* Generated stub for watchman_watch_outpoint */
 void watchman_watch_outpoint(struct lightningd *ld UNNEEDED,
 			     const char *owner UNNEEDED,

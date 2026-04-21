@@ -756,8 +756,7 @@ static struct command_result *json_block_processed(struct command *cmd,
 		send_account_balance_snapshot(wm->ld);
 	}
 
-	/* TODO: channel_block_processed(wm->ld, *blockheight) lands in Group G
-	 * when channel.c is migrated off chaintopology onto watchman. */
+	channel_block_processed(wm->ld, *blockheight);
 	notify_new_block(wm->ld);
 
 	struct json_stream *response = json_stream_success(cmd);

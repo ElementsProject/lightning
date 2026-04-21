@@ -2310,131 +2310,13 @@ void update_channel_from_inflight(struct lightningd *ld,
 	wallet_channel_save(ld->wallet, channel);
 }
 
-/* All reorg callback must return DELETE_WATCH; we make this so it's clear that we
- * won't be called again. */
-static enum watch_result funding_reorged_cb(struct lightningd *ld, struct channel *channel)
-{
-	log_unusual(channel->log, "Funding txid %s REORG from depth %u (state %s)",
-		    fmt_bitcoin_txid(tmpctx, &channel->funding.txid),
-		    channel->depth,
-		    channel_state_name(channel));
-	channel->depth = 0;
-
-	/* That's not entirely unexpected in early states */
-	switch (channel->state) {
-	case DUALOPEND_AWAITING_LOCKIN:
-	case DUALOPEND_OPEN_INIT:
-	case DUALOPEND_OPEN_COMMIT_READY:
-	case DUALOPEND_OPEN_COMMITTED:
-		/* Shouldn't be here! */
-		channel_internal_error(channel,
-				       "Bad %s state: %s",
-				       __func__,
-				       channel_state_name(channel));
-		return DELETE_WATCH;
-	case CHANNELD_AWAITING_LOCKIN:
-		/* That's not entirely unexpected in early states */
-		log_debug(channel->log, "Funding tx %s reorganized out!",
-			  fmt_bitcoin_txid(tmpctx, &channel->funding.txid));
-		channel_set_scid(channel, NULL);
-		return DELETE_WATCH;
-
-		/* But it's often Bad News in later states */
-	case CHANNELD_AWAITING_SPLICE:
-	case CHANNELD_NORMAL:
-		/* If we opened, or it's zero-conf, we trust them anyway. */
-		if (channel->opener == LOCAL
-		    || channel->minimum_depth == 0) {
-			const char *str;
-
-			str = tal_fmt(tmpctx,
-				      "Funding tx %s reorganized out, but %s...",
-				      fmt_bitcoin_txid(tmpctx, &channel->funding.txid),
-				      channel->opener == LOCAL ? "we opened it" : "zeroconf anyway");
-
-			/* Log even if not connected! */
-			if (!channel->owner)
-				log_info(channel->log, "%s", str);
-			channel_fail_transient(channel, true, "%s", str);
-			return DELETE_WATCH;
-		}
-		/* fall thru */
-	case AWAITING_UNILATERAL:
-	case CHANNELD_SHUTTING_DOWN:
-	case CLOSINGD_SIGEXCHANGE:
-	case CLOSINGD_COMPLETE:
-	case FUNDING_SPEND_SEEN:
-	case ONCHAIN:
-	case CLOSED:
-		break;
-	}
-
-	channel_internal_error(channel,
-			       "Funding transaction has been reorged out in state %s!",
-			       channel_state_name(channel));
-	return DELETE_WATCH;
-}
-
-static enum watch_result funding_depth_cb(struct lightningd *ld,
-					  unsigned int depth,
-					  struct channel *channel)
-{
-	channel->depth = depth;
-
-	log_debug(channel->log, "Funding tx %s depth %u of %u",
-		  fmt_bitcoin_txid(tmpctx, &channel->funding.txid),
-		  depth, channel->minimum_depth);
-
-	switch (channel->state) {
-	/* We should not be in the callback! */
-	case DUALOPEND_AWAITING_LOCKIN:
-	case DUALOPEND_OPEN_INIT:
-	case DUALOPEND_OPEN_COMMIT_READY:
-	case DUALOPEND_OPEN_COMMITTED:
-		abort();
-
-	case AWAITING_UNILATERAL:
-	case CHANNELD_SHUTTING_DOWN:
-	case CLOSINGD_SIGEXCHANGE:
-	case CLOSINGD_COMPLETE:
-	case FUNDING_SPEND_SEEN:
-	case ONCHAIN:
-	case CLOSED:
-		/* If not awaiting lockin/announce, it doesn't care any more */
-		log_debug(channel->log,
-			  "Funding tx %s confirmed, but peer in state %s",
-			  fmt_bitcoin_txid(tmpctx, &channel->funding.txid),
-			  channel_state_name(channel));
-		return DELETE_WATCH;
-
-	case CHANNELD_AWAITING_LOCKIN:
-		/* This may be redundant, and may be public later, but
-		 * make sure we tell gossipd at least once */
-		if (depth >= channel->minimum_depth
-		    && channel->remote_channel_ready) {
-			lockin_complete(channel, CHANNELD_AWAITING_LOCKIN);
-		}
-		/* Fall thru */
-	case CHANNELD_NORMAL:
-	case CHANNELD_AWAITING_SPLICE:
-		channeld_tell_depth(channel, &channel->funding.txid, depth);
-
-		if (depth < ANNOUNCE_MIN_DEPTH || depth < channel->minimum_depth)
-			return KEEP_WATCHING;
-		/* Normal state and past announce depth?  Stop bothering us! */
-		return DELETE_WATCH;
-	}
-	abort();
-}
-
 void channel_watch_depth(struct lightningd *ld,
 			 u32 blockheight,
 			 struct channel *channel)
 {
-	watch_blockdepth(channel, ld->topology, blockheight,
-			 funding_depth_cb,
-			 funding_reorged_cb,
-			 channel);
+	watchman_watch_blockdepth(ld,
+				  owner_channel_funding_depth(tmpctx, channel->dbid),
+				  blockheight);
 }
 
 void channel_funding_watch_found(struct lightningd *ld,
