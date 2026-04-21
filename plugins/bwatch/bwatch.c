@@ -79,6 +79,63 @@ static struct command_result *poll_finished(struct command *cmd)
 	return timer_complete(cmd);
 }
 
+/* Send watch_revert for every owner affected by losing @removed_height. */
+static void bwatch_notify_reorg_watches(struct command *cmd,
+					struct bwatch *bwatch,
+					u32 removed_height)
+{
+	const char **owners = tal_arr(tmpctx, const char *, 0);
+	struct watch *w;
+
+	/* Snapshot owners first; revert handlers may call watchman_del and
+	 * mutate these tables. */
+
+	/* Scriptpubkey watches are perennial: always notify. */
+	struct scriptpubkey_watches_iter sit;
+	for (w = scriptpubkey_watches_first(bwatch->scriptpubkey_watches, &sit);
+	     w;
+	     w = scriptpubkey_watches_next(bwatch->scriptpubkey_watches, &sit)) {
+		for (size_t i = 0; i < tal_count(w->owners); i++)
+			tal_arr_expand(&owners, w->owners[i]);
+	}
+
+	/* Outpoint/scid/blockdepth: only notify watches whose anchor block is
+	 * being torn down (start_block >= removed_height).  Older long-lived
+	 * watches stay armed and will refire naturally on the new chain. */
+	struct outpoint_watches_iter oit;
+	for (w = outpoint_watches_first(bwatch->outpoint_watches, &oit);
+	     w;
+	     w = outpoint_watches_next(bwatch->outpoint_watches, &oit)) {
+		if (w->start_block < removed_height)
+			continue;
+		for (size_t i = 0; i < tal_count(w->owners); i++)
+			tal_arr_expand(&owners, w->owners[i]);
+	}
+
+	struct scid_watches_iter scit;
+	for (w = scid_watches_first(bwatch->scid_watches, &scit);
+	     w;
+	     w = scid_watches_next(bwatch->scid_watches, &scit)) {
+		if (w->start_block < removed_height)
+			continue;
+		for (size_t i = 0; i < tal_count(w->owners); i++)
+			tal_arr_expand(&owners, w->owners[i]);
+	}
+
+	struct blockdepth_watches_iter bdit;
+	for (w = blockdepth_watches_first(bwatch->blockdepth_watches, &bdit);
+	     w;
+	     w = blockdepth_watches_next(bwatch->blockdepth_watches, &bdit)) {
+		if (w->start_block < removed_height)
+			continue;
+		for (size_t i = 0; i < tal_count(w->owners); i++)
+			tal_arr_expand(&owners, w->owners[i]);
+	}
+
+	for (size_t i = 0; i < tal_count(owners); i++)
+		bwatch_send_watch_revert(cmd, owners[i], removed_height);
+}
+
 /* Remove tip block on reorg  */
 void bwatch_remove_tip(struct command *cmd, struct bwatch *bwatch)
 {
@@ -94,6 +151,10 @@ void bwatch_remove_tip(struct command *cmd, struct bwatch *bwatch)
 	plugin_log(bwatch->plugin, LOG_DBG, "Removing stale block %u: %s",
 		   bwatch->current_height,
 		   fmt_bitcoin_blkid(tmpctx, &bwatch->current_blockhash));
+
+	/* Notify owners of any watch affected by losing this block before we
+	 * tear it down, so they can roll back in the same order things happened. */
+	bwatch_notify_reorg_watches(cmd, bwatch, bwatch->current_height);
 
 	/* Delete block from datastore */
 	bwatch_delete_block_from_datastore(cmd, bwatch->current_height);
