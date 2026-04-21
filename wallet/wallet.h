@@ -19,6 +19,7 @@
 
 struct amount_msat;
 struct bitcoin_signature;
+struct ext_key;
 struct invoices;
 struct channel;
 struct channel_inflight;
@@ -2125,5 +2126,10 @@ void wallet_add_bwatch_derkey(struct lightningd *ld,
 			      u64 keyindex,
 			      u32 start_block,
 			      const u8 derkey[PUBKEY_CMPR_LEN]);
+
+/* Register bwatch watches for every HD key (BIP32, plus BIP86 if enabled)
+ * up through {bip32,bip86}_max_index + keyscan_gap. */
+void init_wallet_scriptpubkey_watches(struct wallet *w,
+				      const struct ext_key *bip32_base);
 
 #endif /* LIGHTNING_WALLET_WALLET_H */

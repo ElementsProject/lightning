@@ -75,8 +75,10 @@
 #include <lightningd/plugin_hook.h>
 #include <lightningd/runes.h>
 #include <lightningd/subd.h>
+#include <lightningd/watchman.h>
 #include <sys/resource.h>
 #include <wallet/invoices.h>
+#include <wallet/wallet.h>
 #include <wally_bip32.h>
 
 static void destroy_alt_subdaemons(struct lightningd *ld);
@@ -1330,6 +1332,17 @@ int main(int argc, char *argv[])
 	trace_span_start("setup_topology", ld->topology);
 	setup_topology(ld->topology);
 	trace_span_end(ld->topology);
+
+	/*~ Stand up the watchman: it queues bwatch RPC requests until the
+	 * bwatch plugin reports ready, then replays them.  Must come before
+	 * init_wallet_scriptpubkey_watches so the watches have somewhere to
+	 * enqueue, and after setup_topology so start_block reflects the
+	 * last-processed height. */
+	ld->watchman = watchman_new(ld, ld);
+
+	trace_span_start("init_wallet_scriptpubkey_watches", ld->wallet);
+	init_wallet_scriptpubkey_watches(ld->wallet, ld->bip32_base);
+	trace_span_end(ld->wallet);
 
 	db_begin_transaction(ld->wallet->db);
 	trace_span_start("delete_old_htlcs", ld->wallet);

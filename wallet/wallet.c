@@ -7868,6 +7868,41 @@ void wallet_add_bwatch_derkey(struct lightningd *ld,
 	wallet_add_bwatch_scriptpubkey(ld, "p2tr", keyindex, start_block, p2tr, tal_bytelen(p2tr));
 }
 
+/* Walk every HD key we've ever derived (plus a keyscan_gap lookahead) and
+ * register a bwatch watch for it.  start_block tells bwatch to (re)scan from
+ * that height; on a fresh node where topology has no tip yet, get_block_height
+ * returns 0 and we use UINT32_MAX to mean "watch forever, never rescan". */
+void init_wallet_scriptpubkey_watches(struct wallet *w,
+				      const struct ext_key *bip32_base)
+{
+	struct ext_key ext;
+	u64 bip32_max_index = db_get_intvar(w->db, "bip32_max_index", 0);
+	u64 bip86_max_index;
+	u32 tip = get_block_height(w->ld->topology);
+	u32 start_block = tip ? tip : UINT32_MAX;
+
+	for (u64 i = 0; i <= bip32_max_index + w->keyscan_gap; i++) {
+		if (bip32_key_from_parent(bip32_base, i,
+					  BIP32_FLAG_KEY_PUBLIC, &ext)
+		    != WALLY_OK) {
+			abort();
+		}
+		wallet_add_bwatch_derkey(w->ld, i, start_block, ext.pub_key);
+	}
+
+	if (w->ld->bip86_base) {
+		bip86_max_index = db_get_intvar(w->db, "bip86_max_index", 0);
+		for (u64 i = 0; i <= bip86_max_index + w->keyscan_gap; i++) {
+			struct pubkey pubkey;
+			u8 derkey[PUBKEY_CMPR_LEN];
+
+			bip86_pubkey(w->ld, &pubkey, i);
+			pubkey_to_der(derkey, &pubkey);
+			wallet_add_bwatch_derkey(w->ld, i, start_block, derkey);
+		}
+	}
+}
+
 /* Insert a wallet-owned UTXO row into our_outputs.  If the outpoint was
  * previously inserted unconfirmed (blockheight=0) and we now have a real
  * blockheight, promote the row so coin selection can treat it as
