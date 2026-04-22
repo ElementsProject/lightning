@@ -617,6 +617,11 @@ static void handle_onchain_htlc_timeout(struct channel *channel, const u8 *msg)
 
 static void handle_irrevocably_resolved(struct channel *channel, const u8 *msg UNUSED)
 {
+	/* Tear down the channel_close restart marker and every per-tx
+	 * bwatch entry; onchaind is done, so there is nothing left to
+	 * resume. */
+	onchaind_clear_watches(channel);
+
 	/* FIXME: Implement check_htlcs to ensure no dangling hout->in ptrs! */
 	free_htlcs(channel->peer->ld, channel);
 
