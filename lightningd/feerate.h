@@ -8,6 +8,9 @@
 struct command;
 struct lightningd;
 
+/* We keep the last three in case there are outliers (for min/max) */
+#define FEE_HISTORY_NUM 3
+
 /* Our plugins give us a series of blockcount, feerate pairs. */
 struct feerate_est {
 	u32 blockcount;

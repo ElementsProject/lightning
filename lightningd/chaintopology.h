@@ -14,9 +14,6 @@ struct txwatch;
 struct scriptpubkeywatch;
 struct wallet;
 
-/* We keep the last three in case there are outliers (for min/max) */
-#define FEE_HISTORY_NUM 3
-
 struct block {
 	u32 height;
 
@@ -64,16 +61,6 @@ struct chain_topology {
 	struct block *tip;
 	struct bitcoin_blkid prev_tip;
 	struct block_map *block_map;
-
-	/* This is the lowest feerate that bitcoind is saying will broadcast. */
-	u32 feerate_floor;
-
-	/* We keep last three feerates we got: this is useful for min/max. */
-	struct feerate_est *feerates[FEE_HISTORY_NUM];
-
-	/* We keep a smoothed feerate: this is useful when we're going to
-	 * suggest feerates / check feerates from our peers. */
-	struct feerate_est *smoothed_feerates;
 
 	/* Where to log things. */
 	struct logger *log;

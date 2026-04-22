@@ -8,6 +8,7 @@
 #include <ccan/tal/tal.h>
 #include <common/utils.h>
 #include <inttypes.h>
+#include <lightningd/feerate.h>
 
 struct lightningd;
 struct pending_op;
@@ -22,6 +23,16 @@ struct watchman {
 	struct bitcoin_blkid last_processed_hash;
 	u32 bitcoind_blockcount;
 	struct pending_op **pending_ops;
+
+	/* Lowest feerate bitcoind says it will broadcast. */
+	u32 feerate_floor;
+
+	/* Last three feerate samples (for min/max windows). */
+	struct feerate_est *feerates[FEE_HISTORY_NUM];
+
+	/* Exponentially smoothed feerate: used when proposing/checking
+	 * feerates with peers. */
+	struct feerate_est *smoothed_feerates;
 };
 
 /**

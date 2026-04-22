@@ -17,6 +17,7 @@
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
 #include <lightningd/notification.h>
+#include <lightningd/watchman.h>
 #include <math.h>
 
 const char *feerate_name(enum feerate feerate)
@@ -183,7 +184,7 @@ static void next_updatefee_timer(struct lightningd *ld);
 
 bool unknown_feerates(const struct lightningd *ld)
 {
-	return tal_count(ld->topology->feerates[0]) == 0;
+	return tal_count(ld->watchman->feerates[0]) == 0;
 }
 
 static u32 interp_feerate(const struct feerate_est *rates, u32 blockcount)
@@ -227,11 +228,11 @@ static u32 interp_feerate(const struct feerate_est *rates, u32 blockcount)
 
 u32 feerate_for_deadline(const struct lightningd *ld, u32 blockcount)
 {
-	u32 rate = interp_feerate(ld->topology->feerates[0], blockcount);
+	u32 rate = interp_feerate(ld->watchman->feerates[0], blockcount);
 
 	/* 0 is a special value, meaning "don't know" */
-	if (rate && rate < ld->topology->feerate_floor)
-		rate = ld->topology->feerate_floor;
+	if (rate && rate < ld->watchman->feerate_floor)
+		rate = ld->watchman->feerate_floor;
 	return rate;
 }
 
@@ -239,7 +240,7 @@ u32 smoothed_feerate_for_deadline(const struct lightningd *ld,
 				  u32 blockcount)
 {
 	/* Note: we cap it at feerate_floor when we smooth */
-	return interp_feerate(ld->topology->smoothed_feerates, blockcount);
+	return interp_feerate(ld->watchman->smoothed_feerates, blockcount);
 }
 
 /* feerate_for_deadline, but really lowball for distant targets */
@@ -342,9 +343,9 @@ void update_feerates(struct lightningd *ld,
 {
 	struct feerate_est *new_smoothed;
 	bool changed;
-	struct chain_topology *topo = ld->topology;
+	struct watchman *wm = ld->watchman;
 
-	topo->feerate_floor = feerate_floor;
+	wm->feerate_floor = feerate_floor;
 
 	/* Don't bother updating if we got no feerates; we'd rather have
 	 * historical ones, if any. */
@@ -352,31 +353,31 @@ void update_feerates(struct lightningd *ld,
 		return;
 
 	/* If the feerate blockcounts differ, don't average, just override */
-	if (topo->feerates[0] && different_blockcounts(ld, topo->feerates[0], rates)) {
-		for (size_t i = 0; i < ARRAY_SIZE(topo->feerates); i++)
-			topo->feerates[i] = tal_free(topo->feerates[i]);
-		topo->smoothed_feerates = tal_free(topo->smoothed_feerates);
+	if (wm->feerates[0] && different_blockcounts(ld, wm->feerates[0], rates)) {
+		for (size_t i = 0; i < ARRAY_SIZE(wm->feerates); i++)
+			wm->feerates[i] = tal_free(wm->feerates[i]);
+		wm->smoothed_feerates = tal_free(wm->smoothed_feerates);
 	}
 
 	/* Move down historical rates, insert these */
-	tal_free(topo->feerates[FEE_HISTORY_NUM-1]);
-	memmove(topo->feerates + 1, topo->feerates,
-		sizeof(topo->feerates[0]) * (FEE_HISTORY_NUM-1));
-	topo->feerates[0] = tal_dup_talarr(topo, struct feerate_est, rates);
-	changed = feerates_differ(topo->feerates[0], topo->feerates[1]);
+	tal_free(wm->feerates[FEE_HISTORY_NUM-1]);
+	memmove(wm->feerates + 1, wm->feerates,
+		sizeof(wm->feerates[0]) * (FEE_HISTORY_NUM-1));
+	wm->feerates[0] = tal_dup_talarr(wm, struct feerate_est, rates);
+	changed = feerates_differ(wm->feerates[0], wm->feerates[1]);
 
 	/* Use this as basis of new smoothed ones. */
-	new_smoothed = tal_dup_talarr(topo, struct feerate_est, topo->feerates[0]);
+	new_smoothed = tal_dup_talarr(wm, struct feerate_est, wm->feerates[0]);
 
 	/* If there were old smoothed feerates, incorporate those */
-	if (tal_count(topo->smoothed_feerates) != 0) {
+	if (tal_count(wm->smoothed_feerates) != 0) {
 		const size_t num_new = tal_count(new_smoothed);
 		for (size_t i = 0; i < num_new; i++)
 			smooth_one_feerate(ld, &new_smoothed[i]);
 	}
-	changed |= feerates_differ(topo->smoothed_feerates, new_smoothed);
-	tal_free(topo->smoothed_feerates);
-	topo->smoothed_feerates = new_smoothed;
+	changed |= feerates_differ(wm->smoothed_feerates, new_smoothed);
+	tal_free(wm->smoothed_feerates);
+	wm->smoothed_feerates = new_smoothed;
 
 	if (changed)
 		notify_feerate_change(ld);
@@ -489,12 +490,12 @@ u32 penalty_feerate(struct lightningd *ld)
 
 u32 get_feerate_floor(const struct lightningd *ld)
 {
-	return ld->topology->feerate_floor;
+	return ld->watchman->feerate_floor;
 }
 
 u32 feerate_min(struct lightningd *ld, bool *unknown)
 {
-	const struct chain_topology *topo = ld->topology;
+	const struct watchman *wm = ld->watchman;
 	u32 min;
 
 	if (unknown)
@@ -514,11 +515,11 @@ u32 feerate_min(struct lightningd *ld, bool *unknown)
 	 * [1] https://github.com/ElementsProject/lightning/issues/6362
 	 * */
 	min = 0xFFFFFFFF;
-	for (size_t i = 0; i < ARRAY_SIZE(topo->feerates); i++) {
-		const size_t num_feerates = tal_count(topo->feerates[i]);
+	for (size_t i = 0; i < ARRAY_SIZE(wm->feerates); i++) {
+		const size_t num_feerates = tal_count(wm->feerates[i]);
 		for (size_t j = 0; j < num_feerates; j++) {
-			if (topo->feerates[i][j].rate < min)
-				min = topo->feerates[i][j].rate;
+			if (wm->feerates[i][j].rate < min)
+				min = wm->feerates[i][j].rate;
 		}
 	}
 	if (min == 0xFFFFFFFF) {
@@ -538,17 +539,17 @@ u32 feerate_min(struct lightningd *ld, bool *unknown)
 
 u32 feerate_max(struct lightningd *ld, bool *unknown)
 {
-	const struct chain_topology *topo = ld->topology;
+	const struct watchman *wm = ld->watchman;
 	u32 max = 0;
 
 	if (unknown)
 		*unknown = false;
 
-	for (size_t i = 0; i < ARRAY_SIZE(topo->feerates); i++) {
-		const size_t num_feerates = tal_count(topo->feerates[i]);
+	for (size_t i = 0; i < ARRAY_SIZE(wm->feerates); i++) {
+		const size_t num_feerates = tal_count(wm->feerates[i]);
 		for (size_t j = 0; j < num_feerates; j++) {
-			if (topo->feerates[i][j].rate > max)
-				max = topo->feerates[i][j].rate;
+			if (wm->feerates[i][j].rate > max)
+				max = wm->feerates[i][j].rate;
 		}
 	}
 	if (!max) {
@@ -596,7 +597,7 @@ static struct command_result *json_feerates(struct command *cmd,
 		   NULL))
 		return command_param_failed();
 
-	const size_t num_feerates = tal_count(ld->topology->feerates[0]);
+	const size_t num_feerates = tal_count(ld->watchman->feerates[0]);
 
 	response = json_stream_success(cmd);
 	if (!num_feerates)
@@ -640,15 +641,15 @@ static struct command_result *json_feerates(struct command *cmd,
 		     feerate_to_style(get_feerate_floor(ld), *style));
 
 	json_array_start(response, "estimates");
-	assert(tal_count(ld->topology->smoothed_feerates) == num_feerates);
+	assert(tal_count(ld->watchman->smoothed_feerates) == num_feerates);
 	for (size_t i = 0; i < num_feerates; i++) {
 		json_object_start(response, NULL);
 		json_add_num(response, "blockcount",
-			     ld->topology->feerates[0][i].blockcount);
+			     ld->watchman->feerates[0][i].blockcount);
 		json_add_u64(response, "feerate",
-			     feerate_to_style(ld->topology->feerates[0][i].rate, *style));
+			     feerate_to_style(ld->watchman->feerates[0][i].rate, *style));
 		json_add_u64(response, "smoothed_feerate",
-			     feerate_to_style(ld->topology->smoothed_feerates[i].rate,
+			     feerate_to_style(ld->watchman->smoothed_feerates[i].rate,
 					      *style));
 		json_object_end(response);
 	}

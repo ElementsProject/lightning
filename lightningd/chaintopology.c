@@ -521,8 +521,6 @@ struct chain_topology *new_topology(struct lightningd *ld, struct logger *log)
 	topo->blockdepthwatches = new_htable(topo, blockdepthwatch_hash);
 	topo->log = log;
 	topo->poll_seconds = 30;
-	memset(topo->feerates, 0, sizeof(topo->feerates));
-	topo->smoothed_feerates = NULL;
 	topo->root = NULL;
 	topo->sync_waiters = tal(topo, struct list_head);
 	topo->extend_timer = NULL;

@@ -166,6 +166,9 @@ struct watchman *watchman_new(const tal_t *ctx, struct lightningd *ld)
 
 	wm->ld = ld;
 	wm->pending_ops = tal_arr(wm, struct pending_op *, 0);
+	wm->feerate_floor = 0;
+	memset(wm->feerates, 0, sizeof(wm->feerates));
+	wm->smoothed_feerates = NULL;
 
 	load_pending_ops(wm);
 	load_tip(wm);
