@@ -67,6 +67,14 @@ msgdata,onchaind_spent,tx,tx_parts,
 msgdata,onchaind_spent,input_num,u32,
 msgdata,onchaind_spent,blockheight,u32,
 
+# onchaind->master: register bwatch outpoint watches for outputs of a spending
+# tx that onchaind decided are worth tracking (HTLC second-stage, sweeps, ...).
+msgtype,onchaind_watch_outpoints,5104
+msgdata,onchaind_watch_outpoints,txid,bitcoin_txid,
+msgdata,onchaind_watch_outpoints,blockheight,u32,
+msgdata,onchaind_watch_outpoints,num_outpoints,u16,
+msgdata,onchaind_watch_outpoints,outpoints,bitcoin_outpoint,num_outpoints
+
 # master->onchaind: We will receive more than one of these, as depth changes.
 msgtype,onchaind_depth,5005
 msgdata,onchaind_depth,txid,bitcoin_txid,

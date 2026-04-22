@@ -1586,13 +1586,28 @@ static void handle_onchaind_spent(struct tracked_output ***outs, const u8 *msg)
 {
 	struct tx_parts *tx_parts;
 	u32 input_num, tx_blockheight;
+	struct bitcoin_outpoint *outpoints_to_watch;
+	size_t num_tracked_before;
 
 	if (!fromwire_onchaind_spent(msg, msg, &tx_parts, &input_num,
 				     &tx_blockheight))
 		master_badmsg(WIRE_ONCHAIND_SPENT, msg);
 
-	/* bwatch (un)watches outputs for us; we no longer report back. */
+	/* Any new entries appended to *outs by output_spent are outputs of the
+	 * spending tx that need further resolution; ask lightningd (via bwatch)
+	 * to start watching them. */
+	num_tracked_before = tal_count(*outs);
 	output_spent(outs, tx_parts, input_num, tx_blockheight);
+
+	outpoints_to_watch = tal_arr(tmpctx, struct bitcoin_outpoint, 0);
+	for (size_t i = num_tracked_before; i < tal_count(*outs); i++)
+		tal_arr_expand(&outpoints_to_watch, (*outs)[i]->outpoint);
+
+	wire_sync_write(REQ_FD,
+			take(towire_onchaind_watch_outpoints(NULL,
+							     &tx_parts->txid,
+							     tx_blockheight,
+							     outpoints_to_watch)));
 }
 
 static void handle_onchaind_known_preimage(struct tracked_output ***outs,
@@ -1668,6 +1683,7 @@ static void wait_for_resolved(struct tracked_output **outs)
 		case WIRE_ONCHAIND_SPEND_HTLC_TIMEOUT:
 		case WIRE_ONCHAIND_SPEND_FULFILL:
 		case WIRE_ONCHAIND_SPEND_HTLC_EXPIRED:
+		case WIRE_ONCHAIND_WATCH_OUTPOINTS:
 			break;
 		}
 		master_badmsg(-1, msg);

@@ -1729,6 +1729,25 @@ static void handle_onchaind_spend_htlc_expired(struct channel *channel,
 			  __func__);
 }
 
+static void handle_onchaind_watch_outpoints(struct channel *channel,
+					    const u8 *msg)
+{
+	struct bitcoin_txid txid;
+	u32 blockheight;
+	struct bitcoin_outpoint *outpoints;
+
+	if (!fromwire_onchaind_watch_outpoints(tmpctx, msg, &txid, &blockheight,
+					       &outpoints)) {
+		channel_internal_error(channel,
+				       "Invalid onchaind_watch_outpoints %s",
+				       tal_hex(tmpctx, msg));
+		return;
+	}
+
+	bwatch_watch_outpoints(channel, &txid, blockheight,
+			       outpoints, tal_count(outpoints));
+}
+
 static unsigned int onchain_msg(struct subd *sd, const u8 *msg, const int *fds UNUSED)
 {
 	enum onchaind_wire t = fromwire_peektype(msg);
@@ -1736,6 +1755,10 @@ static unsigned int onchain_msg(struct subd *sd, const u8 *msg, const int *fds U
 	switch (t) {
 	case WIRE_ONCHAIND_INIT_REPLY:
 		handle_onchain_init_reply(sd->channel, msg);
+		break;
+
+	case WIRE_ONCHAIND_WATCH_OUTPOINTS:
+		handle_onchaind_watch_outpoints(sd->channel, msg);
 		break;
 
  	case WIRE_ONCHAIND_EXTRACTED_PREIMAGE:
