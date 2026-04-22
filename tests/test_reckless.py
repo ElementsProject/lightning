@@ -604,6 +604,7 @@ def test_reckless_install_from_source_py(node_factory):
         if saved_redir is not None:
             my_env['REDIR_GITHUB'] = saved_redir
 
+
 @pytest.mark.slow_test
 @pytest.mark.flaky(max_runs=3)
 @unittest.skipIf(VALGRIND, "virtual environment triggers memleak detection")
