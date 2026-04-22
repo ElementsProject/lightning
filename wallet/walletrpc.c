@@ -1014,12 +1014,9 @@ static void sendpsbt_done(struct bitcoind *bitcoind UNUSED,
 	wallet_transaction_add(ld->wallet, sending->wtx, 0, 0);
 	wally_txid(sending->wtx, &txid);
 
-	/* Extract the change output and add it to the DB */
-	if (!wallet_extract_owned_outputs(ld->wallet, sending->wtx, false, NULL, NULL)) {
-		/* If we're not watching it for selfish reasons (i.e. pure send to
-		 * others), make sure we're watching it so we can update depth in db */
-		watch_unconfirmed_txid(ld, ld->topology, &txid);
-	}
+	/* Extract the change output and add it to the DB; bwatch handles the
+	 * confirmation tracking via wallet UTXO watches. */
+	wallet_extract_owned_outputs(ld->wallet, sending->wtx, false, NULL, NULL);
 
 	for (size_t i = 0; i < sending->psbt->num_outputs; i++)
 		maybe_notify_new_external_send(ld, &txid, i, sending->psbt);

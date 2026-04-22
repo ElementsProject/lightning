@@ -331,21 +331,6 @@ static bool channel_splice_watch_found(struct lightningd *ld,
 				       const struct short_channel_id *scid,
 				       u32 blockheight);
 
-/* We coop-closed channel: if another inflight confirms, force close */
-static void closed_inflight_splice_found(struct lightningd *ld,
-					 const struct bitcoin_tx *tx,
-					 u32 outnum,
-					 const struct txlocator *loc,
-					 struct channel_inflight *inflight)
-{
-	/* This is now the main tx. */
-	update_channel_from_inflight(ld, inflight->channel, inflight, false);
-	channel_fail_saw_onchain(inflight->channel,
-				 REASON_UNKNOWN,
-				 tx,
-				 "Inflight tx confirmed after mutual close");
-}
-
 void drop_to_chain(struct lightningd *ld, struct channel *channel,
 		   bool cooperative,
 		   const struct bitcoin_tx *unilateral_tx)
@@ -468,27 +453,6 @@ void drop_to_chain(struct lightningd *ld, struct channel *channel,
 		resolve_close_command(ld, channel, cooperative, txs);
 	}
 
-	/* In cooperative mode, we're assuming that we closed the right one:
-	 * this might not happen if we're splicing, or dual-funding still
-	 * opening.  So, if we get any unexpected inflight confirming, we
-	 * force close. */
-	if (cooperative) {
-		list_for_each(&channel->inflights, inflight, list) {
-			if (bitcoin_outpoint_eq(&inflight->funding->outpoint,
-						&channel->funding)) {
-				continue;
-			}
-			const u8 *funding_wscript = bitcoin_redeem_2of2(tmpctx,
-									&channel->local_funding_pubkey,
-									inflight->funding->splice_remote_funding);
-			watch_scriptpubkey(inflight, ld->topology,
-					   take(scriptpubkey_p2wsh(NULL, funding_wscript)),
-					   &inflight->funding->outpoint,
-					   inflight->funding->total_funds,
-					   closed_inflight_splice_found,
-					   inflight);
-		}
-	}
 }
 
 void resend_closing_transactions(struct lightningd *ld)

@@ -105,96 +105,6 @@ size_t get_tx_depth(const struct chain_topology *topo,
 	return topo->tip->height - blockheight + 1;
 }
 
-static enum watch_result closeinfo_txid_confirmed(struct lightningd *ld,
-						  const struct bitcoin_txid *txid,
-						  const struct bitcoin_tx *tx,
-						  unsigned int depth,
-						  void *unused)
-{
-	/* Sanity check. */
-	if (tx != NULL) {
-		struct bitcoin_txid txid2;
-
-		bitcoin_txid(tx, &txid2);
-		if (!bitcoin_txid_eq(txid, &txid2)) {
-			fatal("Txid for %s is not %s",
-			      fmt_bitcoin_tx(tmpctx, tx),
-			      fmt_bitcoin_txid(tmpctx, txid));
-		}
-	}
-
-	/* We delete ourselves first time, so should not be reorged out!! */
-	assert(depth > 0);
-	/* Subtle: depth 1 == current block. */
-	wallet_confirm_tx(ld->wallet, txid,
-			  get_block_height(ld->topology) + 1 - depth);
-	return DELETE_WATCH;
-}
-
-/* We need to know if close_info UTXOs (which the wallet doesn't natively know
- * how to spend, so is not in the normal path) get reconfirmed.
- *
- * This can happen on startup (where we manually unwind 100 blocks) or on a
- * reorg.  The db NULLs out the confirmation_height, so we can't easily figure
- * out just the new ones (and removing the ON DELETE SET NULL clause is
- * non-trivial).
- *
- * So every time, we just set a notification for every tx in this class we're
- * not already watching: there are not usually many, nor many reorgs, so the
- * redundancy is OK.
- */
-static void watch_for_utxo_reconfirmation(struct chain_topology *topo,
-					  struct wallet *wallet)
-{
-	struct utxo **unconfirmed;
-
-	unconfirmed = wallet_get_unconfirmed_closeinfo_utxos(tmpctx, wallet);
-	const size_t num_unconfirmed = tal_count(unconfirmed);
-	for (size_t i = 0; i < num_unconfirmed; i++) {
-		assert(unconfirmed[i]->close_info != NULL);
-		assert(unconfirmed[i]->blockheight == NULL);
-
-		if (find_txwatch(topo, &unconfirmed[i]->outpoint.txid,
-				 closeinfo_txid_confirmed, NULL))
-			continue;
-
-		watch_txid(topo, topo,
-			   &unconfirmed[i]->outpoint.txid,
-			   closeinfo_txid_confirmed, NULL);
-	}
-}
-
-static enum watch_result tx_confirmed(struct lightningd *ld,
-				      const struct bitcoin_txid *txid,
-				      const struct bitcoin_tx *tx,
-				      unsigned int depth,
-				      void *unused)
-{
-	/* We don't actually need to do anything here: the fact that we were
-	 * watching the tx made chaintopology.c update the transaction depth */
-	if (depth != 0)
-		return DELETE_WATCH;
-	return KEEP_WATCHING;
-}
-
-void watch_unconfirmed_txid(struct lightningd *ld,
-			    struct chain_topology *topo,
-			    const struct bitcoin_txid *txid)
-{
-	watch_txid(ld->wallet, topo, txid, tx_confirmed, NULL);
-}
-
-static void watch_for_unconfirmed_txs(struct lightningd *ld,
-				      struct chain_topology *topo)
-{
-	struct bitcoin_txid *txids;
-
-	txids = wallet_transactions_by_height(tmpctx, ld->wallet, 0);
-	log_debug(ld->log, "Got %zu unconfirmed transactions", tal_count(txids));
-	for (size_t i = 0; i < tal_count(txids); i++)
-		watch_unconfirmed_txid(ld, topo, &txids[i]);
-}
-
 struct sync_waiter {
 	/* Linked from chain_topology->sync_waiters */
 	struct list_node list;
@@ -433,9 +343,6 @@ static void remove_tip(struct chain_topology *topo)
 	removed_scids = wallet_utxoset_get_created(tmpctx, topo->ld->wallet,
 						   b->height);
 	wallet_block_remove(topo->ld->wallet, b);
-
-	/* This may have unconfirmed txs: reconfirm as we add blocks. */
-	watch_for_utxo_reconfirmation(topo, topo->ld->wallet);
 
 	/* Anyone watching for block removes */
 	watch_check_block_removed(topo, b->height);
@@ -791,14 +698,6 @@ void setup_topology(struct chain_topology *topo)
 	/* Rollback to the given blockheight, so we start track
 	 * correctly again */
 	wallet_blocks_rollback(topo->ld->wallet, blockscan_start);
-
-	/* May have unconfirmed txs: reconfirm as we add blocks. */
-	watch_for_utxo_reconfirmation(topo, topo->ld->wallet);
-
-	/* We usually watch txs because we have outputs coming to us, or they're
-	 * related to a channel.  But not if they're created by sendpsbt without any
-	 * outputs to us. */
-	watch_for_unconfirmed_txs(topo->ld, topo);
 	db_commit_transaction(topo->ld->wallet->db);
 
 	tal_free(local_ctx);

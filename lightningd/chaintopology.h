@@ -149,10 +149,4 @@ void topology_add_sync_waiter_(const tal_t *ctx,
 				  (arg))
 
 
-/* We want to update db when this txid is confirmed.  We always do this
- * if it's related to a channel or incoming funds, but sendpsbt without
- * change would be otherwise untracked. */
-void watch_unconfirmed_txid(struct lightningd *ld,
-			    struct chain_topology *topo,
-			    const struct bitcoin_txid *txid);
 #endif /* LIGHTNING_LIGHTNINGD_CHAINTOPOLOGY_H */
