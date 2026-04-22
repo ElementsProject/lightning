@@ -348,7 +348,7 @@ static struct command_result *finish_psbt(struct command *cmd,
 
 	if (!locktime) {
 		locktime = tal(cmd, u32);
-		*locktime = default_locktime(cmd->ld->topology);
+		*locktime = default_locktime(cmd->ld);
 	}
 
 	psbt = psbt_using_utxos(cmd, cmd->ld->wallet, utxos,
@@ -675,7 +675,7 @@ static struct command_result *json_addpsbtoutput(struct command *cmd,
 	if (!psbt) {
 		if (!locktime) {
 			locktime = tal(cmd, u32);
-			*locktime = default_locktime(cmd->ld->topology);
+			*locktime = default_locktime(cmd->ld);
 		}
 		psbt = create_psbt(cmd, 0, 0, *locktime);
 	} else if (locktime) {
@@ -785,7 +785,7 @@ static struct command_result *json_addpsbtinput(struct command *cmd,
 	if (!psbt) {
 		if (!locktime) {
 			locktime = tal(cmd, u32);
-			*locktime = default_locktime(cmd->ld->topology);
+			*locktime = default_locktime(cmd->ld);
 		}
 		psbt = create_psbt(cmd, 0, 0, *locktime);
 	} else if (locktime) {
@@ -805,7 +805,7 @@ static struct command_result *json_addpsbtinput(struct command *cmd,
 
 	if (!min_feerate) {
 		min_feerate = tal(cmd, u32);
-		*min_feerate = opening_feerate(cmd->ld->topology);
+		*min_feerate = opening_feerate(cmd->ld);
 	}
 
 	all = amount_sat_eq(*req_amount, AMOUNT_SAT(-1ULL));

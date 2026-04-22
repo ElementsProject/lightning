@@ -412,15 +412,15 @@ void peer_start_closingd(struct channel *channel, struct peer_fd *peer_fd)
 					   channel->opener, LOCAL);
 
 	/* If we can't determine feerate, start at half unilateral feerate. */
-	feerate = mutual_close_feerate(ld->topology);
+	feerate = mutual_close_feerate(ld);
 	if (!feerate) {
 		feerate = final_commit_feerate / 2;
-		if (feerate < get_feerate_floor(ld->topology))
-			feerate = get_feerate_floor(ld->topology);
+		if (feerate < get_feerate_floor(ld))
+			feerate = get_feerate_floor(ld);
 	}
 
 	/* Aim for reasonable max, but use final if we don't know. */
-	max_feerate = unilateral_feerate(ld->topology, false);
+	max_feerate = unilateral_feerate(ld, false);
 	if (!max_feerate)
 		max_feerate = final_commit_feerate;
 

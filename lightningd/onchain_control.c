@@ -1031,7 +1031,7 @@ static struct bitcoin_tx *onchaind_tx_unsigned(const tal_t *ctx,
 	for (;;) {
 		u32 feerate;
 
-		feerate = feerate_for_target(ld->topology, block_target);
+		feerate = feerate_for_target(ld, block_target);
 		*fee = amount_tx_fee(feerate, weight);
 
 		log_debug(channel->log,
@@ -1071,8 +1071,8 @@ static struct bitcoin_tx *onchaind_tx_unsigned(const tal_t *ctx,
 				    "Lowballing feerate for %s sats from %u to %u (deadline %u->%"PRIu64"):"
 				    " won't count on it being spent!",
 				    fmt_amount_sat(tmpctx, info->out_sats),
-				    feerate_for_target(ld->topology, info->deadline_block),
-				    feerate_for_target(ld->topology, block_target),
+				    feerate_for_target(ld, info->deadline_block),
+				    feerate_for_target(ld, block_target),
 				    info->deadline_block, block_target);
 		}
 	}
@@ -1203,7 +1203,7 @@ static bool consider_onchain_htlc_tx_rebroadcast(struct channel *channel,
 	 * but since that bitcoind will take the highest feerate ones, it will
 	 * priority order them for us. */
 
-	feerate = feerate_for_target(ld->topology, info->deadline_block);
+	feerate = feerate_for_target(ld, info->deadline_block);
 
 	/* Make a copy to play with */
 	newtx = clone_bitcoin_tx(tmpctx, info->raw_htlc_tx);

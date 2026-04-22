@@ -2,6 +2,7 @@
 #define LIGHTNING_LIGHTNINGD_CHAINTOPOLOGY_H
 #include "config.h"
 #include <lightningd/broadcast.h>
+#include <lightningd/feerate.h>
 #include <lightningd/watch.h>
 
 struct bitcoin_tx;
@@ -56,12 +57,6 @@ static inline bool block_eq(const struct block *b, const struct bitcoin_blkid *k
 }
 HTABLE_DEFINE_NODUPS_TYPE(struct block, keyof_block_map, hash_sha, block_eq,
 			  block_map);
-
-/* Our plugins give us a series of blockcount, feerate pairs. */
-struct feerate_est {
-	u32 blockcount;
-	u32 rate;
-};
 
 struct chain_topology {
 	struct lightningd *ld;
@@ -121,9 +116,6 @@ struct txlocator {
 	u32 index;
 };
 
-/* Get the minimum feerate that bitcoind will accept */
-u32 get_feerate_floor(const struct chain_topology *topo);
-
 /* This is the number of blocks which would have to be mined to invalidate
  * the tx */
 size_t get_tx_depth(const struct chain_topology *topo,
@@ -138,33 +130,6 @@ u32 get_block_height(const struct chain_topology *topo);
  * than our current scan position this is preferable since it is far less
  * likely to lag behind the rest of the network.*/
 u32 get_network_blockheight(const struct chain_topology *topo);
-
-/* Get feerate estimate for getting a tx in this many blocks */
-u32 feerate_for_deadline(const struct chain_topology *topo, u32 blockcount);
-u32 smoothed_feerate_for_deadline(const struct chain_topology *topo, u32 blockcount);
-
-/* Get feerate to hit this *block number*. */
-u32 feerate_for_target(const struct chain_topology *topo, u64 deadline);
-
-/* Has our feerate estimation failed altogether? */
-bool unknown_feerates(const struct chain_topology *topo);
-
-/* Get range of feerates to insist other side abide by for normal channels.
- * If we have to guess, sets *unknown to true, otherwise false. */
-u32 feerate_min(struct lightningd *ld, bool *unknown);
-u32 feerate_max(struct lightningd *ld, bool *unknown);
-
-/* These return 0 if unknown */
-u32 opening_feerate(struct chain_topology *topo);
-u32 mutual_close_feerate(struct chain_topology *topo);
-u32 unilateral_feerate(struct chain_topology *topo, bool option_anchors);
-/* For onchain resolution. */
-u32 delayed_to_us_feerate(struct chain_topology *topo);
-u32 htlc_resolution_feerate(struct chain_topology *topo);
-u32 penalty_feerate(struct chain_topology *topo);
-
-/* Usually we set nLocktime to tip (or recent) like bitcoind does */
-u32 default_locktime(const struct chain_topology *topo);
 
 struct chain_topology *new_topology(struct lightningd *ld, struct logger *log);
 void setup_topology(struct chain_topology *topology);
@@ -202,9 +167,6 @@ void topology_add_sync_waiter_(const tal_t *ctx,
 						      struct chain_topology *), \
 				  (arg))
 
-
-/* In channel_control.c */
-void notify_feerate_change(struct lightningd *ld);
 
 /* We want to update db when this txid is confirmed.  We always do this
  * if it's related to a channel or incoming funds, but sendpsbt without

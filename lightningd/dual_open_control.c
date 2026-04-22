@@ -2062,7 +2062,7 @@ static void accepter_got_offer(struct subd *dualopend,
 
 	/* Don't allow opening if we don't know any fees; even if
 	 * ignore-feerates is set. */
-	if (unknown_feerates(dualopend->ld->topology)) {
+	if (unknown_feerates(dualopend->ld)) {
 		subd_send_msg(dualopend,
 			      take(towire_dualopend_fail(NULL, "Cannot accept channel: feerates unknown")));
 		tal_free(payload);
@@ -2997,7 +2997,7 @@ static struct command_result *init_set_feerate(struct command *cmd,
 {
 	if (!*feerate_per_kw_funding) {
 		*feerate_per_kw_funding = tal(cmd, u32);
-		**feerate_per_kw_funding = opening_feerate(cmd->ld->topology);
+		**feerate_per_kw_funding = opening_feerate(cmd->ld);
 		if (!**feerate_per_kw_funding)
 			return command_fail(cmd, LIGHTNINGD,
 					    "`funding_feerate` not specified and fee "
@@ -3074,9 +3074,9 @@ static struct command_result *openchannel_init(struct command *cmd,
 		our_upfront_shutdown_script_wallet_index = NULL;
 
 	/* 0 from this means "unknown" */
-	anchor_feerate = unilateral_feerate(cmd->ld->topology, true);
+	anchor_feerate = unilateral_feerate(cmd->ld, true);
 	if (anchor_feerate == 0) {
-		anchor_feerate = get_feerate_floor(cmd->ld->topology);
+		anchor_feerate = get_feerate_floor(cmd->ld);
 		assert(anchor_feerate);
 	}
 
@@ -3879,9 +3879,9 @@ static struct command_result *json_queryrates(struct command *cmd,
 		our_upfront_shutdown_script_wallet_index = NULL;
 
 	/* 0 from this means "unknown" */
-	anchor_feerate = unilateral_feerate(cmd->ld->topology, true);
+	anchor_feerate = unilateral_feerate(cmd->ld, true);
 	if (anchor_feerate == 0) {
-		anchor_feerate = get_feerate_floor(cmd->ld->topology);
+		anchor_feerate = get_feerate_floor(cmd->ld);
 		assert(anchor_feerate);
 	}
 

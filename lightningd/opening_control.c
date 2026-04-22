@@ -874,7 +874,7 @@ static void opening_got_offer(struct subd *openingd,
 
 	/* Don't allow opening if we don't know any fees; even if
 	 * ignore-feerates is set. */
-	if (unknown_feerates(openingd->ld->topology)) {
+	if (unknown_feerates(openingd->ld)) {
 		subd_send_msg(openingd,
 			      take(towire_openingd_got_offer_reply(NULL, "Cannot accept channel: feerates unknown",
 								   NULL, NULL, NULL, 0)));
@@ -1346,14 +1346,14 @@ static struct command_result *json_fundchannel_start(struct command *cmd,
 		 * money in the immediate-close case, which is probably soon
 		 * and thus current feerates are sufficient. */
 		feerate_non_anchor = tal(cmd, u32);
-		*feerate_non_anchor = opening_feerate(cmd->ld->topology);
+		*feerate_non_anchor = opening_feerate(cmd->ld);
 		if (!*feerate_non_anchor) {
 			return command_fail(cmd, LIGHTNINGD,
 					    "Cannot estimate fees");
 		}
 	}
 
-	feerate_anchor = unilateral_feerate(cmd->ld->topology, true);
+	feerate_anchor = unilateral_feerate(cmd->ld, true);
 	/* Only complain here if we could possibly open one! */
 	if (!feerate_anchor
 	    && feature_offered(cmd->ld->our_features->bits[INIT_FEATURE],
@@ -1362,10 +1362,10 @@ static struct command_result *json_fundchannel_start(struct command *cmd,
 				    "Cannot estimate fees");
 	}
 
-	if (*feerate_non_anchor < get_feerate_floor(cmd->ld->topology)) {
+	if (*feerate_non_anchor < get_feerate_floor(cmd->ld)) {
 		return command_fail(cmd, LIGHTNINGD,
 				    "Feerate for non-anchor (%u perkw) below feerate floor %u perkw",
-				    *feerate_non_anchor, get_feerate_floor(cmd->ld->topology));
+				    *feerate_non_anchor, get_feerate_floor(cmd->ld));
 	}
 
 	peer = peer_by_id(cmd->ld, id);

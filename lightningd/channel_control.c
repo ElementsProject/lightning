@@ -56,7 +56,7 @@ static u32 default_feerate(struct lightningd *ld, const struct channel *channel,
 {
 	u32 max_feerate;
 	bool anchors = channel_type_has_anchors(channel->type);
-	u32 feerate = unilateral_feerate(ld->topology, anchors);
+	u32 feerate = unilateral_feerate(ld, anchors);
 
 	/* Nothing to do if we don't know feerate. */
 	if (!feerate)
@@ -89,7 +89,7 @@ void channel_update_feerates(struct lightningd *ld, const struct channel *channe
 
 	/* For anchors, we just need the commitment tx to relay. */
 	if (anchors)
-		min_feerate = get_feerate_floor(ld->topology);
+		min_feerate = get_feerate_floor(ld);
 	else
 		min_feerate = feerate_min(ld, NULL);
 	max_feerate = feerate_max(ld, NULL);
@@ -105,15 +105,15 @@ void channel_update_feerates(struct lightningd *ld, const struct channel *channe
 		  feerate,
 		  min_feerate,
 		  feerate_max(ld, NULL),
-		  penalty_feerate(ld->topology),
-		  opening_feerate(ld->topology),
+		  penalty_feerate(ld),
+		  opening_feerate(ld),
 		  feerate_splice);
 
 	msg = towire_channeld_feerates(NULL, feerate,
 				       min_feerate,
 				       max_feerate,
-				       penalty_feerate(ld->topology),
-				       opening_feerate(ld->topology),
+				       penalty_feerate(ld),
+				       opening_feerate(ld),
 				       feerate_splice);
 	subd_send_msg(channel->owner, take(msg));
 }
@@ -1766,7 +1766,7 @@ bool peer_start_channeld(struct channel *channel,
 
 	/* For anchors, we just need the commitment tx to relay. */
 	if (channel_type_has_anchors(channel->type))
-		min_feerate = get_feerate_floor(ld->topology);
+		min_feerate = get_feerate_floor(ld);
 	else
 		min_feerate = feerate_min(ld, NULL);
 	max_feerate = feerate_max(ld, NULL);
@@ -1847,8 +1847,8 @@ bool peer_start_channeld(struct channel *channel,
 				       feerate_splice,
 				       min_feerate,
 				       max_feerate,
-				       penalty_feerate(ld->topology),
-				       opening_feerate(ld->topology),
+				       penalty_feerate(ld),
+				       opening_feerate(ld),
 				       &channel->last_sig,
 				       &channel->channel_info.remote_fundingkey,
 				       &channel->channel_info.theirbase,
@@ -2669,8 +2669,8 @@ static struct command_result *json_dev_feerate(struct command *cmd,
 	msg = towire_channeld_feerates(NULL, *feerate,
 				       feerate_min(cmd->ld, NULL),
 				       feerate_max(cmd->ld, NULL),
-				       penalty_feerate(cmd->ld->topology),
-				       opening_feerate(cmd->ld->topology),
+				       penalty_feerate(cmd->ld),
+				       opening_feerate(cmd->ld),
 				       default_feerate(cmd->ld, channel, true));
 	subd_send_msg(channel->owner, take(msg));
 

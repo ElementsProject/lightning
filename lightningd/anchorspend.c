@@ -240,7 +240,7 @@ static struct wally_psbt *anchor_psbt(const tal_t *ctx,
 
 	/* PSBT knows how to spend utxos. */
 	psbt = psbt_using_utxos(ctx, ld->wallet, utxos,
-				default_locktime(ld->topology),
+				default_locktime(ld),
 				BITCOIN_TX_RBF_SEQUENCE, NULL);
 
 	/* BOLT #3:
@@ -379,7 +379,7 @@ static struct bitcoin_tx *spend_anchor(const tal_t *ctx,
 		if (!amount_msat_accumulate(&total_value, val->msat))
 			abort();
 
-		feerate_target = feerate_for_target(ld->topology, val->block);
+		feerate_target = feerate_for_target(ld, val->block);
 
 		/* If the feerate for the commitment tx is already
 		 * sufficient, don't try for anchor. */
@@ -451,7 +451,7 @@ static struct bitcoin_tx *spend_anchor(const tal_t *ctx,
 		block_target = unimportant_deadline->block;
 		if (block_target < get_block_height(ld->topology) + 12)
 			block_target = get_block_height(ld->topology) + 12;
-		feerate_target = feerate_for_target(ld->topology, block_target);
+		feerate_target = feerate_for_target(ld, block_target);
 
 		/* If the feerate for the commitment tx is already
 		 * sufficient, don't try for anchor. */
