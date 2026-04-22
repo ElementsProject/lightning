@@ -17,6 +17,7 @@
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
+#include <lightningd/onchain_control.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/plugin.h>
 #include <lightningd/watchman.h>
@@ -469,6 +470,13 @@ static const struct depth_dispatch {
 	/* channel/funding_depth/<dbid>: WATCH_BLOCKDEPTH, fires once per new block
 	 * while the funding tx accumulates confirmations. */
 	{ "channel/funding_depth/", channel_funding_depth_found, channel_funding_depth_revert },
+	/* onchaind/channel_close/<dbid>:<txid>: WATCH_BLOCKDEPTH, persistent restart
+	 * marker for a closing channel.  Normally a no-op; on crash recovery
+	 * (channel->owner == NULL) the handler relaunches onchaind. */
+	{ "onchaind/channel_close/", onchaind_channel_close_depth_found, onchaind_channel_close_depth_revert },
+	/* onchaind/depth/<dbid>/<txid>: WATCH_BLOCKDEPTH, per-tx depth ticks that
+	 * drive CSV and HTLC maturity checks inside onchaind. */
+	{ "onchaind/depth/", onchaind_depth_found, onchaind_depth_revert },
 	{ NULL, NULL, NULL },
 };
 
@@ -499,6 +507,9 @@ static const struct watch_dispatch {
 	/* channel/funding/<dbid>: WATCH_SCRIPTPUBKEY, fires when the funding output script
 	 * appears in a tx (i.e. the channel's funding transaction has been confirmed). */
 	{ "channel/funding/", channel_funding_watch_found, channel_funding_watch_revert },
+	/* onchaind/outpoint/<dbid>/<txid>: WATCH_OUTPOINT, fires when an output
+	 * onchaind asked us to track is spent (HTLC sweep, second-stage tx, ...). */
+	{ "onchaind/outpoint/", onchaind_output_watch_found, onchaind_output_watch_revert },
 	{ NULL, NULL, NULL },
 };
 

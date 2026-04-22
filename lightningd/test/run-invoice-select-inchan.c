@@ -94,6 +94,9 @@ void channel_fail_transient(struct channel *channel UNNEEDED,
 /* Generated stub for channel_gossip_channel_disconnect */
 void channel_gossip_channel_disconnect(struct channel *channel UNNEEDED)
 { fprintf(stderr, "channel_gossip_channel_disconnect called!\n"); abort(); }
+/* Generated stub for channel_gossip_funding_reorg */
+void channel_gossip_funding_reorg(struct channel *channel UNNEEDED)
+{ fprintf(stderr, "channel_gossip_funding_reorg called!\n"); abort(); }
 /* Generated stub for channel_gossip_get_remote_update */
 const struct peer_update *channel_gossip_get_remote_update(const struct channel *channel UNNEEDED)
 { fprintf(stderr, "channel_gossip_get_remote_update called!\n"); abort(); }
@@ -123,9 +126,19 @@ void channel_set_last_tx(struct channel *channel UNNEEDED,
 			 struct bitcoin_tx *tx UNNEEDED,
 			 const struct bitcoin_signature *sig UNNEEDED)
 { fprintf(stderr, "channel_set_last_tx called!\n"); abort(); }
+/* Generated stub for channel_set_owner */
+void channel_set_owner(struct channel *channel UNNEEDED, struct subd *owner UNNEEDED)
+{ fprintf(stderr, "channel_set_owner called!\n"); abort(); }
 /* Generated stub for channel_set_scid */
 void channel_set_scid(struct channel *channel UNNEEDED, const struct short_channel_id *new_scid UNNEEDED)
 { fprintf(stderr, "channel_set_scid called!\n"); abort(); }
+/* Generated stub for channel_set_state */
+void channel_set_state(struct channel *channel UNNEEDED,
+		       enum channel_state old_state UNNEEDED,
+		       enum channel_state state UNNEEDED,
+		       enum state_change reason UNNEEDED,
+		       const char *why UNNEEDED)
+{ fprintf(stderr, "channel_set_state called!\n"); abort(); }
 /* Generated stub for channel_state_name */
 const char *channel_state_name(const struct channel *channel UNNEEDED)
 { fprintf(stderr, "channel_state_name called!\n"); abort(); }
@@ -551,11 +564,17 @@ void notify_invoice_payment(struct lightningd *ld UNNEEDED,
 			    const struct json_escape *label UNNEEDED,
 			    const struct bitcoin_outpoint *outpoint UNNEEDED)
 { fprintf(stderr, "notify_invoice_payment called!\n"); abort(); }
+/* Generated stub for onchaind_clear_watches */
+void onchaind_clear_watches(struct channel *channel UNNEEDED)
+{ fprintf(stderr, "onchaind_clear_watches called!\n"); abort(); }
 /* Generated stub for onchaind_funding_spent */
-enum watch_result onchaind_funding_spent(struct channel *channel UNNEEDED,
-					 const struct bitcoin_tx *tx UNNEEDED,
-					 u32 blockheight UNNEEDED)
+void onchaind_funding_spent(struct channel *channel UNNEEDED,
+			    const struct bitcoin_tx *tx UNNEEDED,
+			    u32 blockheight UNNEEDED)
 { fprintf(stderr, "onchaind_funding_spent called!\n"); abort(); }
+/* Generated stub for onchaind_send_depth_updates */
+void onchaind_send_depth_updates(struct channel *channel UNNEEDED, u32 blockheight UNNEEDED)
+{ fprintf(stderr, "onchaind_send_depth_updates called!\n"); abort(); }
 /* Generated stub for param_index */
 struct command_result *param_index(struct command *cmd UNNEEDED, const char *name UNNEEDED,
 				   const char *buffer UNNEEDED,
