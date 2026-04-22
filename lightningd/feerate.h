@@ -11,6 +11,10 @@ struct lightningd;
 /* We keep the last three in case there are outliers (for min/max) */
 #define FEE_HISTORY_NUM 3
 
+/* How often we poll bitcoind (block extension + fee estimates).  Matches
+ * bwatch's default chain poll cadence (bwatch-poll-interval = 30000ms). */
+#define BITCOIND_POLL_SECONDS 30
+
 /* Our plugins give us a series of blockcount, feerate pairs. */
 struct feerate_est {
 	u32 blockcount;
@@ -82,8 +86,7 @@ u32 default_locktime(const struct lightningd *ld);
 /* Feed a fresh feerate sample into the smoothing/history machinery. */
 void update_feerates(struct lightningd *ld,
 		     u32 feerate_floor,
-		     const struct feerate_est *rates TAKES,
-		     void *arg);
+		     const struct feerate_est *rates TAKES);
 
 /* Start polling bitcoind for fee estimates every 30s */
 void start_fee_polling(struct lightningd *ld);

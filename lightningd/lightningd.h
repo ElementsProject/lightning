@@ -13,6 +13,7 @@
 
 struct amount_msat;
 struct bitcoind;
+struct fee_poll;
 struct oneshot;
 struct outgoing_tx_map;
 struct watchman;
@@ -251,6 +252,10 @@ struct lightningd {
 	struct ext_key *bip86_base;
 	struct wallet *wallet;
 	struct watchman *watchman;
+	struct fee_poll *fee_poll;
+
+	/* Deprecated --dev-bitcoind-poll value, ignored (bwatch drives updates). */
+	u32 dev_bitcoind_poll_ignored;
 
 	/* Outstanding waitsendpay commands. */
 	struct list_head waitsendpay_commands;

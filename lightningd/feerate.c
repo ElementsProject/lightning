@@ -180,7 +180,16 @@ struct command_result *param_feerate_val(struct command *cmd,
 }
 
 /* Mutual recursion via timer. */
-static void next_updatefee_timer(struct lightningd *ld);
+/* Fee polling: lightningd polls bitcoind for fee estimates every 30 seconds.
+ * bwatch only reports blockheight via block_processed; it does not call
+ * estimatefees. */
+struct fee_poll {
+	struct lightningd *ld;
+	struct oneshot *timer;
+};
+
+static void start_fee_estimate(struct fee_poll *fp);
+static void schedule_fee_estimate(struct fee_poll *fp);
 
 bool unknown_feerates(const struct lightningd *ld)
 {
@@ -272,9 +281,8 @@ static void smooth_one_feerate(const struct lightningd *ld,
 {
 	/* Smoothing factor alpha for simple exponential smoothing. The goal is to
 	 * have the feerate account for 90 percent of the values polled in the last
-	 * 2 minutes. The following will do that in a polling interval
-	 * independent manner. */
-	double alpha = 1 - pow(0.1,(double)ld->topology->poll_seconds / 120);
+	 * 2 minutes. */
+	double alpha = 1 - pow(0.1, (double)BITCOIND_POLL_SECONDS / 120);
 	u32 old_feerate, feerate_smooth;
 
 	/* We don't call this unless we had a previous feerate */
@@ -292,7 +300,7 @@ static void smooth_one_feerate(const struct lightningd *ld,
 		rate->rate = get_feerate_floor(ld);
 
 	if (rate->rate != feerate_smooth)
-		log_debug(ld->topology->log,
+		log_debug(ld->log,
 			  "Feerate estimate for %u blocks set to %u (was %u)",
 			  rate->blockcount, rate->rate, feerate_smooth);
 }
@@ -319,14 +327,14 @@ static bool different_blockcounts(struct lightningd *ld,
 {
 	const size_t num_feerates = tal_count(old);
 	if (num_feerates != tal_count(new)) {
-		log_unusual(ld->topology->log,
+		log_unusual(ld->log,
 			    "Presented with %zu feerates this time (was %zu!)",
 			    tal_count(new), num_feerates);
 		return true;
 	}
 	for (size_t i = 0; i < num_feerates; i++) {
 		if (old[i].blockcount != new[i].blockcount) {
-			log_unusual(ld->topology->log,
+			log_unusual(ld->log,
 				    "Presented with feerates"
 				    " for blockcount %u, previously %u",
 				    new[i].blockcount, old[i].blockcount);
@@ -338,8 +346,7 @@ static bool different_blockcounts(struct lightningd *ld,
 
 void update_feerates(struct lightningd *ld,
 		     u32 feerate_floor,
-		     const struct feerate_est *rates TAKES,
-		     void *arg UNUSED)
+		     const struct feerate_est *rates TAKES)
 {
 	struct feerate_est *new_smoothed;
 	bool changed;
@@ -383,35 +390,36 @@ void update_feerates(struct lightningd *ld,
 		notify_feerate_change(ld);
 }
 
-static void update_feerates_repeat(struct lightningd *ld,
-				   u32 feerate_floor,
-				   const struct feerate_est *rates TAKES,
-				   void *unused)
+static void update_feerates_and_reschedule(struct lightningd *ld,
+					   u32 feerate_floor,
+					   const struct feerate_est *rates TAKES,
+					   struct fee_poll *fp)
 {
-	update_feerates(ld, feerate_floor, rates, unused);
-	next_updatefee_timer(ld);
+	update_feerates(ld, feerate_floor, rates);
+	schedule_fee_estimate(fp);
 }
 
-static void start_fee_estimate(struct lightningd *ld)
+static void start_fee_estimate(struct fee_poll *fp)
 {
-	ld->topology->updatefee_timer = NULL;
-	/* Based on timer, update fee estimates. */
-	bitcoind_estimate_fees(ld->topology->request_ctx, ld->bitcoind,
-			       update_feerates_repeat, NULL);
+	fp->timer = NULL;
+	bitcoind_estimate_fees(fp, fp->ld->bitcoind,
+			       update_feerates_and_reschedule, fp);
+}
+
+static void schedule_fee_estimate(struct fee_poll *fp)
+{
+	fp->timer = new_reltimer(fp->ld->timers, fp,
+				 time_from_sec(BITCOIND_POLL_SECONDS),
+				 start_fee_estimate, fp);
 }
 
 void start_fee_polling(struct lightningd *ld)
 {
-	start_fee_estimate(ld);
-}
-
-static void next_updatefee_timer(struct lightningd *ld)
-{
-	assert(!ld->topology->updatefee_timer);
-	ld->topology->updatefee_timer
-		= new_reltimer(ld->timers, ld,
-			       time_from_sec(ld->topology->poll_seconds),
-			       start_fee_estimate, ld);
+	struct fee_poll *fp = tal(ld, struct fee_poll);
+	fp->ld = ld;
+	fp->timer = NULL;
+	ld->fee_poll = fp;
+	start_fee_estimate(fp);
 }
 
 struct rate_conversion {

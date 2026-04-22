@@ -279,6 +279,8 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->bitcoind = new_bitcoind(ld, ld, ld->log);
 	ld->outgoing_txs = new_htable(ld, outgoing_tx_map);
 	ld->rebroadcast_timer = NULL;
+	ld->fee_poll = NULL;
+	ld->dev_bitcoind_poll_ignored = 0;
 	ld->gossip_blockheight = 0;
 	ld->daemon_parent_fd = -1;
 	ld->proxyaddr = NULL;

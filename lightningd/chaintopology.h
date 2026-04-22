@@ -65,19 +65,13 @@ struct chain_topology {
 	/* Where to log things. */
 	struct logger *log;
 
-	/* How often to poll. */
-	u32 poll_seconds;
-
 	/* struct sync_waiters waiting for us to catch up with bitcoind (and
 	 * once that has caught up with the network).  NULL if we're already
 	 * caught up. */
 	struct list_head *sync_waiters;
 
 	/* Timers we're running. */
-	struct oneshot *checkchain_timer, *extend_timer, *updatefee_timer;
-
-	/* Parent context for requests (to bcli plugin) we have outstanding. */
-	tal_t *request_ctx;
+	struct oneshot *checkchain_timer, *extend_timer;
 
 	/* Transactions/txos we are watching. */
 	struct txwatch_hash *txwatches;

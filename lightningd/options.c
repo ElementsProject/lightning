@@ -814,8 +814,8 @@ static void dev_register_opts(struct lightningd *ld)
 		     "Announce and allow announcments for localhost address");
 	clnopt_witharg("--dev-bitcoind-poll", OPT_DEV|OPT_SHOWINT,
 		       opt_set_u32, opt_show_u32,
-		       &ld->topology->poll_seconds,
-		       "Time between polling for new transactions");
+		       &ld->dev_bitcoind_poll_ignored,
+		       "Deprecated: ignored (bwatch drives chain updates)");
 	clnopt_noarg("--dev-fast-gossip", OPT_DEV,
 		     opt_set_bool,
 		     &ld->dev_fast_gossip,

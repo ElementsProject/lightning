@@ -27,7 +27,7 @@ static void next_topology_timer(struct chain_topology *topo)
 {
 	assert(!topo->extend_timer);
 	topo->extend_timer = new_reltimer(topo->ld->timers, topo,
-					  time_from_sec(topo->poll_seconds),
+					  time_from_sec(BITCOIND_POLL_SECONDS),
 					  try_extend_tip, topo);
 }
 
@@ -485,7 +485,7 @@ static void try_extend_tip(struct chain_topology *topo)
 {
 	topo->extend_timer = NULL;
 	trace_span_start("extend_tip", topo);
-	bitcoind_getrawblockbyheight(topo->request_ctx, topo->ld->bitcoind, topo->tip->height + 1,
+	bitcoind_getrawblockbyheight(topo, topo->ld->bitcoind, topo->tip->height + 1,
 				     get_new_block, topo);
 }
 
@@ -520,13 +520,10 @@ struct chain_topology *new_topology(struct lightningd *ld, struct logger *log)
 	topo->scriptpubkeywatches = new_htable(topo, scriptpubkeywatch_hash);
 	topo->blockdepthwatches = new_htable(topo, blockdepthwatch_hash);
 	topo->log = log;
-	topo->poll_seconds = 30;
 	topo->root = NULL;
 	topo->sync_waiters = tal(topo, struct list_head);
 	topo->extend_timer = NULL;
-	topo->updatefee_timer = NULL;
 	topo->checkchain_timer = NULL;
-	topo->request_ctx = tal(topo, char);
 	list_head_init(topo->sync_waiters);
 
 	return topo;
@@ -577,15 +574,14 @@ static void retry_sync_getchaininfo_done(struct bitcoind *bitcoind, const char *
 
 	topo->checkchain_timer = new_reltimer(bitcoind->ld->timers, topo,
 					      /* Be 4x more aggressive in this case. */
-					      time_divide(time_from_sec(bitcoind->ld->topology
-									->poll_seconds), 4),
+					      time_divide(time_from_sec(BITCOIND_POLL_SECONDS), 4),
 					      retry_sync, topo);
 }
 
 static void retry_sync(struct chain_topology *topo)
 {
 	topo->checkchain_timer = NULL;
-	bitcoind_getchaininfo(topo->request_ctx, topo->ld->bitcoind, get_block_height(topo),
+	bitcoind_getchaininfo(topo, topo->ld->bitcoind, get_block_height(topo),
 			      retry_sync_getchaininfo_done, topo);
 }
 
@@ -772,7 +768,7 @@ void setup_topology(struct chain_topology *topo)
 		   chaininfo->ibd, topo, true);
 
 	/* It's very useful to have feerates early */
-	update_feerates(topo->ld, feerates->feerate_floor, feerates->rates, NULL);
+	update_feerates(topo->ld, feerates->feerate_floor, feerates->rates);
 
 	/* Get the first block, so we can initialize topography. */
 	bitcoind_getrawblockbyheight(topo, topo->ld->bitcoind, blockscan_start,
@@ -867,8 +863,6 @@ void stop_topology(struct chain_topology *topo)
 	/* Remove timers while we're cleaning up plugins. */
 	tal_free(topo->checkchain_timer);
 	tal_free(topo->extend_timer);
-	tal_free(topo->updatefee_timer);
-
-	/* Don't handle responses to any existing requests. */
-	tal_free(topo->request_ctx);
+	tal_free(topo->ld->fee_poll);
+	topo->ld->fee_poll = NULL;
 }
