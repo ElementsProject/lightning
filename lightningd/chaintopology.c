@@ -1055,7 +1055,6 @@ struct chain_topology *new_topology(struct lightningd *ld, struct logger *log)
 
 	topo->ld = ld;
 	topo->block_map = new_htable(topo, block_map);
-	topo->outgoing_txs = new_htable(topo, outgoing_tx_map);
 	topo->txwatches = new_htable(topo, txwatch_hash);
 	topo->txowatches = new_htable(topo, txowatch_hash);
 	topo->scriptpubkeywatches = new_htable(topo, scriptpubkeywatch_hash);
@@ -1068,7 +1067,6 @@ struct chain_topology *new_topology(struct lightningd *ld, struct logger *log)
 	topo->root = NULL;
 	topo->sync_waiters = tal(topo, struct list_head);
 	topo->extend_timer = NULL;
-	topo->rebroadcast_timer = NULL;
 	topo->updatefee_timer = NULL;
 	topo->checkchain_timer = NULL;
 	topo->request_ctx = tal(topo, char);

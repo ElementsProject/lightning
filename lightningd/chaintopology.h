@@ -95,13 +95,10 @@ struct chain_topology {
 	struct bitcoind *bitcoind;
 
 	/* Timers we're running. */
-	struct oneshot *checkchain_timer, *extend_timer, *updatefee_timer, *rebroadcast_timer;
+	struct oneshot *checkchain_timer, *extend_timer, *updatefee_timer;
 
 	/* Parent context for requests (to bcli plugin) we have outstanding. */
 	tal_t *request_ctx;
-
-	/* Bitcoin transactions we're broadcasting */
-	struct outgoing_tx_map *outgoing_txs;
 
 	/* Transactions/txos we are watching. */
 	struct txwatch_hash *txwatches;

@@ -275,6 +275,8 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 
 	/*~ This is detailed in chaintopology.c */
 	ld->topology = new_topology(ld, ld->log);
+	ld->outgoing_txs = new_htable(ld, outgoing_tx_map);
+	ld->rebroadcast_timer = NULL;
 	ld->gossip_blockheight = 0;
 	ld->daemon_parent_fd = -1;
 	ld->proxyaddr = NULL;

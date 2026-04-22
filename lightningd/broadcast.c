@@ -13,7 +13,7 @@
 bool we_broadcast(const struct lightningd *ld,
 		  const struct bitcoin_txid *txid)
 {
-	return outgoing_tx_map_exists(ld->topology->outgoing_txs, txid);
+	return outgoing_tx_map_exists(ld->outgoing_txs, txid);
 }
 
 struct tx_rebroadcast {
@@ -29,10 +29,9 @@ static void rebroadcasts_complete(struct lightningd *ld,
 				  size_t *num_rebroadcast_remaining)
 {
 	tal_free(num_rebroadcast_remaining);
-	ld->topology->rebroadcast_timer
-		= new_reltimer(ld->timers, ld->topology,
-			       time_from_sec(30 + pseudorand(30)),
-			       rebroadcast_txs, ld);
+	ld->rebroadcast_timer = new_reltimer(ld->timers, ld,
+					     time_from_sec(30 + pseudorand(30)),
+					     rebroadcast_txs, ld);
 }
 
 static void destroy_tx_broadcast(struct tx_rebroadcast *txrb,
@@ -66,8 +65,8 @@ void rebroadcast_txs(struct lightningd *ld)
 	size_t *num_rebroadcast_remaining = notleak(tal(ld, size_t));
 
 	*num_rebroadcast_remaining = 0;
-	for (otx = outgoing_tx_map_first(ld->topology->outgoing_txs, &it); otx;
-	     otx = outgoing_tx_map_next(ld->topology->outgoing_txs, &it)) {
+	for (otx = outgoing_tx_map_first(ld->outgoing_txs, &it); otx;
+	     otx = outgoing_tx_map_next(ld->outgoing_txs, &it)) {
 		struct tx_rebroadcast *txrb;
 		/* Already sent? */
 		if (wallet_transaction_height(ld->wallet, &otx->txid))
@@ -100,8 +99,7 @@ void rebroadcast_txs(struct lightningd *ld)
 	tal_free(cleanup_ctx);
 
 	/* Free explicitly in case we were called because a block came in. */
-	ld->topology->rebroadcast_timer
-		= tal_free(ld->topology->rebroadcast_timer);
+	ld->rebroadcast_timer = tal_free(ld->rebroadcast_timer);
 
 	/* Nothing to broadcast?  Reset timer immediately */
 	if (*num_rebroadcast_remaining == 0)
@@ -110,7 +108,7 @@ void rebroadcast_txs(struct lightningd *ld)
 
 static void destroy_outgoing_tx(struct outgoing_tx *otx, struct lightningd *ld)
 {
-	outgoing_tx_map_del(ld->topology->outgoing_txs, otx);
+	outgoing_tx_map_del(ld->outgoing_txs, otx);
 }
 
 static void broadcast_done(struct bitcoind *bitcoind,
@@ -136,7 +134,7 @@ static void broadcast_done(struct bitcoind *bitcoind,
 	}
 
 	/* For continual rebroadcasting, until context freed. */
-	outgoing_tx_map_add(ld->topology->outgoing_txs, otx);
+	outgoing_tx_map_add(ld->outgoing_txs, otx);
 	tal_add_destructor2(otx, destroy_outgoing_tx, ld);
 }
 
@@ -178,7 +176,7 @@ void broadcast_tx_(const tal_t *ctx,
 
 		/* For continual rebroadcasting, until channel freed. */
 		tal_steal(otx->channel, otx);
-		outgoing_tx_map_add(ld->topology->outgoing_txs, otx);
+		outgoing_tx_map_add(ld->outgoing_txs, otx);
 		tal_add_destructor2(otx, destroy_outgoing_tx, ld);
 		return;
 	}
@@ -198,8 +196,8 @@ void broadcast_shutdown(struct lightningd *ld)
 {
 	struct outgoing_tx *otx;
 	struct outgoing_tx_map_iter it;
-	for (otx = outgoing_tx_map_first(ld->topology->outgoing_txs, &it); otx;
-	     otx = outgoing_tx_map_next(ld->topology->outgoing_txs, &it)) {
+	for (otx = outgoing_tx_map_first(ld->outgoing_txs, &it); otx;
+	     otx = outgoing_tx_map_next(ld->outgoing_txs, &it)) {
 		tal_del_destructor2(otx, destroy_outgoing_tx, ld);
 		tal_free(otx);
 	}
