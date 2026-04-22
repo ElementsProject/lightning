@@ -215,13 +215,6 @@ struct channel {
 	 * NULL when no splice detection is pending. */
 	struct bitcoin_outpoint *pre_splice_funding;
 
-	/* If we're doing a replay for onchaind, here are the txids it's watching */
-	struct replay_tx_hash *onchaind_replay_watches;
-	/* Number of outstanding onchaind_spent calls */
-	size_t num_onchain_spent_calls;
-	/* Height we're replaying at (if onchaind_replay_watches set) */
-	u32 onchaind_replay_height;
-
 	/* Per-session map of txs onchaind has asked us to watch:
 	 * txid -> {confirm height, the outpoints we registered}.
 	 * Initialised by onchaind_funding_spent; NULL before onchaind starts.

@@ -1586,16 +1586,13 @@ static void handle_onchaind_spent(struct tracked_output ***outs, const u8 *msg)
 {
 	struct tx_parts *tx_parts;
 	u32 input_num, tx_blockheight;
-	bool interesting;
 
 	if (!fromwire_onchaind_spent(msg, msg, &tx_parts, &input_num,
 				     &tx_blockheight))
 		master_badmsg(WIRE_ONCHAIND_SPENT, msg);
 
-	interesting = output_spent(outs, tx_parts, input_num, tx_blockheight);
-
-	/* Tell lightningd if it was interesting */
-	wire_sync_write(REQ_FD, take(towire_onchaind_spent_reply(NULL, interesting)));
+	/* bwatch (un)watches outputs for us; we no longer report back. */
+	output_spent(outs, tx_parts, input_num, tx_blockheight);
 }
 
 static void handle_onchaind_known_preimage(struct tracked_output ***outs,
@@ -1655,7 +1652,6 @@ static void wait_for_resolved(struct tracked_output **outs)
 
 		/* We send these, not receive! */
 		case WIRE_ONCHAIND_INIT_REPLY:
-		case WIRE_ONCHAIND_SPENT_REPLY:
 		case WIRE_ONCHAIND_EXTRACTED_PREIMAGE:
 		case WIRE_ONCHAIND_MISSING_HTLC_OUTPUT:
 		case WIRE_ONCHAIND_HTLC_TIMEOUT:
