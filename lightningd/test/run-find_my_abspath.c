@@ -142,6 +142,11 @@ bool log_status_msg(struct logger *log UNNEEDED,
  		    const struct node_id *node_id UNNEEDED,
 		    const u8 *msg UNNEEDED)
 { fprintf(stderr, "log_status_msg called!\n"); abort(); }
+/* Generated stub for new_bitcoind */
+struct bitcoind *new_bitcoind(const tal_t *ctx UNNEEDED,
+			      struct lightningd *ld UNNEEDED,
+			      struct logger *log UNNEEDED)
+{ fprintf(stderr, "new_bitcoind called!\n"); abort(); }
 /* Generated stub for new_log_book */
 struct log_book *new_log_book(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "new_log_book called!\n"); abort(); }

@@ -12,6 +12,7 @@
 #include <wallet/wallet.h>
 
 struct amount_msat;
+struct bitcoind;
 struct oneshot;
 struct outgoing_tx_map;
 struct watchman;
@@ -226,6 +227,9 @@ struct lightningd {
 
 	/* Our chain topology. */
 	struct chain_topology *topology;
+
+	/* The bitcoind backend. */
+	struct bitcoind *bitcoind;
 
 	/* Bitcoin transactions we're broadcasting */
 	struct outgoing_tx_map *outgoing_txs;

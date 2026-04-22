@@ -89,7 +89,7 @@ void rebroadcast_txs(struct lightningd *ld)
 		txrb->num_rebroadcast_remaining = num_rebroadcast_remaining;
 		(*num_rebroadcast_remaining)++;
 		tal_add_destructor2(txrb, destroy_tx_broadcast, ld);
-		bitcoind_sendrawtx(txrb, ld->topology->bitcoind,
+		bitcoind_sendrawtx(txrb, ld->bitcoind,
 				   tal_strdup_or_null(tmpctx, otx->cmd_id),
 				   fmt_bitcoin_tx(tmpctx, otx->tx),
 				   otx->allowhighfees,
@@ -186,7 +186,7 @@ void broadcast_tx_(const tal_t *ctx,
 		  cmd_id ? " for " : "", cmd_id ? cmd_id : "");
 
 	wallet_transaction_add(ld->wallet, tx->wtx, 0, 0);
-	bitcoind_sendrawtx(otx, ld->topology->bitcoind, otx->cmd_id,
+	bitcoind_sendrawtx(otx, ld->bitcoind, otx->cmd_id,
 			   fmt_bitcoin_tx(tmpctx, otx->tx),
 			   allowhighfees,
 			   broadcast_done, otx);

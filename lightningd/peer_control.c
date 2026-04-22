@@ -559,7 +559,7 @@ void resend_opening_transactions(struct lightningd *ld)
 			if (!wtx)
 				continue;
 			bitcoind_sendrawtx(channel,
-					   ld->topology->bitcoind,
+					   ld->bitcoind,
 					   NULL,
 					   tal_hex(tmpctx,
 						   linearize_wtx(tmpctx, wtx)),
@@ -3457,7 +3457,7 @@ static struct command_result *json_getinfo(struct command *cmd,
 			     wallet_total_forward_fees(cmd->ld->wallet));
 	json_add_string(response, "lightning-dir", cmd->ld->config_netdir);
 
-	if (!cmd->ld->topology->bitcoind->synced)
+	if (!cmd->ld->bitcoind->synced)
 		json_add_string(response, "warning_bitcoind_sync",
 				"Bitcoind is not up-to-date with network.");
 	else if (!topology_synced(cmd->ld->topology))
@@ -4101,7 +4101,7 @@ static struct command_result *json_dev_forget_channel(struct command *cmd,
 		return command_check_done(cmd);
 
 	if (!channel_state_uncommitted(forget->channel->state))
-		bitcoind_getutxout(cmd, cmd->ld->topology->bitcoind,
+		bitcoind_getutxout(cmd, cmd->ld->bitcoind,
 				   &forget->channel->funding,
 				   process_dev_forget_channel, forget);
 	return command_still_pending(cmd);

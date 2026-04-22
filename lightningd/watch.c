@@ -222,7 +222,7 @@ static bool txw_fire(struct txwatch *txw,
 			  depth ? "" : " REORG");
 	}
 	txw->depth = depth;
-	r = txw->cb(txw->topo->bitcoind->ld, txid, txw->tx, txw->depth,
+	r = txw->cb(txw->topo->ld, txid, txw->tx, txw->depth,
 		    txw->cbarg);
 	switch (r) {
 	case DELETE_WATCH:

@@ -7557,7 +7557,7 @@ void wallet_begin_old_close_rescan(struct lightningd *ld)
 
 	/* This is not a leak, though it may take a while! */
 	tal_steal(ld, notleak(missing));
-	bitcoind_getrawblockbyheight(missing, ld->topology->bitcoind, earliest_block,
+	bitcoind_getrawblockbyheight(missing, ld->bitcoind, earliest_block,
 				     mutual_close_p2pkh_catch, missing);
 }
 

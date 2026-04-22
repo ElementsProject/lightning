@@ -60,6 +60,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <header_versions_gen.h>
+#include <lightningd/bitcoind.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/channel.h>
 #include <lightningd/channel_control.h>
@@ -275,6 +276,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 
 	/*~ This is detailed in chaintopology.c */
 	ld->topology = new_topology(ld, ld->log);
+	ld->bitcoind = new_bitcoind(ld, ld, ld->log);
 	ld->outgoing_txs = new_htable(ld, outgoing_tx_map);
 	ld->rebroadcast_timer = NULL;
 	ld->gossip_blockheight = 0;

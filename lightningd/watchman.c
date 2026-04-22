@@ -853,17 +853,17 @@ static struct command_result *json_chaininfo(struct command *cmd,
 		log_unusual(cmd->ld->log,
 			    "Waiting for initial block download"
 			    " (this can take a while!)");
-		cmd->ld->topology->bitcoind->synced = false;
+		cmd->ld->bitcoind->synced = false;
 	} else if (*headercount != *blockcount) {
 		log_unusual(cmd->ld->log,
 			    "Waiting for bitcoind to catch up"
 			    " (%u blocks of %u)",
 			    *blockcount, *headercount);
-		cmd->ld->topology->bitcoind->synced = false;
+		cmd->ld->bitcoind->synced = false;
 	} else {
-		if (!cmd->ld->topology->bitcoind->synced)
+		if (!cmd->ld->bitcoind->synced)
 			log_info(cmd->ld->log, "Bitcoin backend now synced");
-		cmd->ld->topology->bitcoind->synced = true;
+		cmd->ld->bitcoind->synced = true;
 		notify_new_block(cmd->ld);
 	}
 
@@ -871,7 +871,7 @@ static struct command_result *json_chaininfo(struct command *cmd,
 
 	struct json_stream *response = json_stream_success(cmd);
 	json_add_string(response, "chain", chain);
-	json_add_bool(response, "synced", cmd->ld->topology->bitcoind->synced);
+	json_add_bool(response, "synced", cmd->ld->bitcoind->synced);
 	return command_success(cmd, response);
 }
 

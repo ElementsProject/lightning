@@ -91,9 +91,6 @@ struct chain_topology {
 	 * caught up. */
 	struct list_head *sync_waiters;
 
-	/* The bitcoind. */
-	struct bitcoind *bitcoind;
-
 	/* Timers we're running. */
 	struct oneshot *checkchain_timer, *extend_timer, *updatefee_timer;
 

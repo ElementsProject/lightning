@@ -557,7 +557,7 @@ static struct command_result *json_dev_rescan_outputs(struct command *cmd,
 		json_array_end(rescan->response);
 		return command_success(cmd, rescan->response);
 	}
-	bitcoind_getutxout(rescan, cmd->ld->topology->bitcoind,
+	bitcoind_getutxout(rescan, cmd->ld->bitcoind,
 			   &rescan->utxos[0]->outpoint,
 			   process_utxo_result,
 			   rescan);
@@ -1228,7 +1228,7 @@ static struct command_result *json_sendpsbt(struct command *cmd,
 	}
 
 	/* Now broadcast the transaction */
-	bitcoind_sendrawtx(sending, cmd->ld->topology->bitcoind,
+	bitcoind_sendrawtx(sending, cmd->ld->bitcoind,
 			   cmd->id,
 			   tal_hex(tmpctx,
 				   linearize_wtx(tmpctx, sending->wtx)),
