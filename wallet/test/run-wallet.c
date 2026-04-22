@@ -81,7 +81,7 @@ void bitcoind_sendrawtx_(const tal_t *ctx UNNEEDED,
 { fprintf(stderr, "bitcoind_sendrawtx_ called!\n"); abort(); }
 /* Generated stub for broadcast_tx_ */
 void broadcast_tx_(const tal_t *ctx UNNEEDED,
-		   struct chain_topology *topo UNNEEDED,
+		   struct lightningd *ld UNNEEDED,
 		   struct channel *channel UNNEEDED,
 		   const struct bitcoin_tx *tx TAKES UNNEEDED,
 		   const char *cmd_id UNNEEDED, bool allowhighfees UNNEEDED, u32 minblock UNNEEDED,

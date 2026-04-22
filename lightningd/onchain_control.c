@@ -1390,7 +1390,7 @@ static void create_onchain_tx(struct channel *channel,
 
 	/* We allow "excessive" fees, as we may be fighting with censors and
 	 * we'd rather spend fees than have our adversary win. */
-	broadcast_tx(channel, ld->topology,
+	broadcast_tx(channel, ld,
 		     channel, take(tx), NULL, true, info->minblock,
 		     NULL, consider_onchain_rebroadcast, take(info));
 
@@ -1596,7 +1596,7 @@ static void handle_onchaind_spend_htlc_success(struct channel *channel,
 
 	log_debug(channel->log, "Broadcast for onchaind tx %s",
 		  fmt_bitcoin_tx(tmpctx, tx));
-	broadcast_tx(channel, channel->peer->ld->topology,
+	broadcast_tx(channel, channel->peer->ld,
 		     channel, take(tx), NULL, false,
 		     info->minblock, NULL,
 		     consider_onchain_htlc_tx_rebroadcast, take(info));
@@ -1678,7 +1678,7 @@ static void handle_onchaind_spend_htlc_timeout(struct channel *channel,
 
 	log_debug(channel->log, "Broadcast for onchaind tx %s",
 		  fmt_bitcoin_tx(tmpctx, tx));
-	broadcast_tx(channel, channel->peer->ld->topology,
+	broadcast_tx(channel, channel->peer->ld,
 		     channel, take(tx), NULL, false,
 		     info->minblock, NULL,
 		     consider_onchain_htlc_tx_rebroadcast, take(info));

@@ -602,7 +602,7 @@ static void create_and_broadcast_anchor(struct channel *channel,
 		 fmt_amount_sat(tmpctx, anch->anchor_spend_fee));
 
 	/* Send it! */
-	broadcast_tx(anch->adet, ld->topology, channel, take(newtx), NULL, true, 0, NULL,
+	broadcast_tx(anch->adet, ld, channel, take(newtx), NULL, true, 0, NULL,
 		     refresh_anchor_spend, anch);
 }
 
