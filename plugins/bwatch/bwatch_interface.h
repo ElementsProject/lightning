@@ -29,6 +29,14 @@ void bwatch_send_watch_revert(struct command *cmd,
  * normal chain-poll loop afterwards. */
 struct command_result *bwatch_send_chaininfo(struct command *cmd, void *unused);
 
+/* RPC handlers: add / remove a scriptpubkey watch. */
+struct command_result *json_bwatch_add_scriptpubkey(struct command *cmd,
+						    const char *buffer,
+						    const jsmntok_t *params);
+struct command_result *json_bwatch_del_scriptpubkey(struct command *cmd,
+						    const char *buffer,
+						    const jsmntok_t *params);
+
 /* Send a block_processed RPC to watchman after a new block has been
  * persisted.  The next poll is started from the ack callback so we don't
  * race ahead of watchman's view of the chain.  Chains on the same poll

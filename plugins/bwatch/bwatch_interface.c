@@ -3,6 +3,7 @@
 #include <common/json_parse.h>
 #include <common/json_stream.h>
 #include <plugins/bwatch/bwatch_interface.h>
+#include <plugins/bwatch/bwatch_store.h>
 
 /*
  * ============================================================================
@@ -305,4 +306,60 @@ struct command_result *bwatch_send_chaininfo(struct command *cmd,
 				    NULL);
 	json_add_u32(req->js, "last_height", bwatch->current_height);
 	return send_outreq(req);
+}
+
+/*
+ * ============================================================================
+ * RPC COMMAND HANDLERS
+ *
+ * Watch RPCs are thin wrappers over bwatch_add_watch / bwatch_del_watch.
+ * Adding a watch with start_block <= current_height needs a historical
+ * rescan; the helper for that lands in a later commit.
+ * ============================================================================
+ */
+
+/* Register a scriptpubkey watch for `owner` from `start_block` onwards. */
+struct command_result *json_bwatch_add_scriptpubkey(struct command *cmd,
+						    const char *buffer,
+						    const jsmntok_t *params)
+{
+	struct bwatch *bwatch = bwatch_of(cmd->plugin);
+	const char *owner;
+	u8 *scriptpubkey;
+	u32 *start_block;
+
+	if (!param(cmd, buffer, params,
+		   p_req("owner", param_string, &owner),
+		   p_req("scriptpubkey", param_bin_from_hex, &scriptpubkey),
+		   p_req("start_block", param_u32, &start_block),
+		   NULL))
+		return command_param_failed();
+
+	/* New owner is appended to the watch's owner list; same owner
+	 * re-adding lowers start_block if needed (rescan handled later). */
+	bwatch_add_watch(cmd, bwatch, WATCH_SCRIPTPUBKEY,
+			 NULL, scriptpubkey, NULL, NULL,
+			 *start_block, owner);
+	return command_success(cmd, json_out_obj(cmd, NULL, NULL));
+}
+
+/* Drop one owner from a scriptpubkey watch; the watch itself goes away
+ * once the last owner is removed. */
+struct command_result *json_bwatch_del_scriptpubkey(struct command *cmd,
+						    const char *buffer,
+						    const jsmntok_t *params)
+{
+	struct bwatch *bwatch = bwatch_of(cmd->plugin);
+	const char *owner;
+	u8 *scriptpubkey;
+
+	if (!param(cmd, buffer, params,
+		   p_req("owner", param_string, &owner),
+		   p_req("scriptpubkey", param_bin_from_hex, &scriptpubkey),
+		   NULL))
+		return command_param_failed();
+
+	bwatch_del_watch(cmd, bwatch, WATCH_SCRIPTPUBKEY,
+			 NULL, scriptpubkey, NULL, NULL, owner);
+	return command_success(cmd, json_out_obj(cmd, "removed", "true"));
 }
