@@ -4,10 +4,19 @@
 #include "config.h"
 #include <plugins/bwatch/bwatch.h>
 
-/* Outward-facing interface from bwatch to lightningd.
- *
- * Subsequent commits add the watch_found / watch_revert notifications
- * and the addwatch / delwatch / listwatch RPC commands. */
+/* Outward-facing interface from bwatch to lightningd. */
+
+/* Send watch_found notification to lightningd */
+void bwatch_send_watch_found(struct command *cmd,
+			     const struct bitcoin_tx *tx,
+			     u32 blockheight,
+			     const struct watch *w,
+			     u32 txindex,
+			     u32 index);
+
+void bwatch_send_watch_revert(struct command *cmd,
+			      const char *owner,
+			      u32 blockheight);
 
 /* Send a block_processed RPC to watchman after a new block has been
  * persisted.  The next poll is started from the ack callback so we don't
