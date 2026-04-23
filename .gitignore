@@ -31,7 +31,7 @@ coverage
 docs/python
 ccan/config.h
 __pycache__
-config.vars
+config.vars*
 monkeytype.sqlite3
 
 # Ignore some generated binaries
