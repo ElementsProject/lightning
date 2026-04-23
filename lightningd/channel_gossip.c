@@ -146,6 +146,14 @@ static struct state_transition allowed_transitions[] = {
 	  "Channel closed before 6 confirms, but now has 6 confirms so could be announced." },
 	{ CGOSSIP_WAITING_FOR_ANNOUNCE_DEPTH, CGOSSIP_CHANNEL_ANNOUNCED_DYING,
 	  "Channel hit announced depth, but closed" },
+
+	/* Private to public upgrade */
+	{ CGOSSIP_PRIVATE, CGOSSIP_WAITING_FOR_MATCHING_PEER_SIGS,
+	  "Private channel upgraded to public, waiting for peer announcement sigs" },
+	{ CGOSSIP_PRIVATE, CGOSSIP_WAITING_FOR_ANNOUNCE_DEPTH,
+	  "Private channel upgraded to public, already have peer sigs" },
+	{ CGOSSIP_PRIVATE, CGOSSIP_ANNOUNCED,
+	  "Private channel upgraded to public, already at announce depth" },
 };
 
 static void check_state_transition(const struct channel *channel,
@@ -285,14 +293,14 @@ static void check_channel_gossip(const struct channel *channel)
 		assert(is_private(channel));
 		assert(!is_dead(channel));
 		assert(!is_usable(channel));
-		assert(!cg->remote_sigs);
+		/* remote_sigs may be stashed if peer upgraded their side first */
 		assert(!cg->refresh_timer);
 		return;
 	case CGOSSIP_PRIVATE:
 		assert(is_private(channel));
 		assert(!is_dead(channel));
 		assert(is_usable(channel));
-		assert(!cg->remote_sigs);
+		/* remote_sigs may be stashed if peer upgraded their side first */
 		assert(!cg->refresh_timer);
 		return;
 	case CGOSSIP_WAITING_FOR_USABLE:
@@ -962,6 +970,22 @@ void channel_gossip_update(struct channel *channel)
 	update_gossip_state(channel);
 }
 
+/* Upgrade a private channel to public (announce it on the network) */
+void channel_gossip_set_announce(struct channel *channel)
+{
+	struct channel_gossip *cg = channel->channel_gossip;
+
+	/* Ignore unsaved channels */
+	if (!cg)
+		return;
+
+	/* Clear any cached private update, we'll need a new one! */
+	cg->cupdate = tal_free(cg->cupdate);
+
+	/* Re-derive and transition gossip state now that flag is set */
+	update_gossip_state(channel);
+}
+
 void channel_gossip_got_announcement_sigs(struct channel *channel,
 					  struct short_channel_id scid,
 					  const secp256k1_ecdsa_signature *node_sig,
@@ -982,11 +1006,10 @@ void channel_gossip_got_announcement_sigs(struct channel *channel,
 		return;
 	case CGOSSIP_PRIVATE_WAITING_FOR_USABLE:
 	case CGOSSIP_PRIVATE:
-		log_unusual(channel->log, "They sent an announcement_signatures message for a private channel?  Ignoring.");
-		u8 *warning = towire_warningfmt(NULL,
-						&channel->cid,
-						"You sent announcement_signatures for private channel");
-		msg_to_peer(channel->peer, take(warning));
+		/* Peer may have upgraded their side to public already.
+		 * Stash sigs so if we also upgrade, we have them ready. */
+		log_info(channel->log, "Stashing announcement_signatures from peer for private channel (in case we upgrade to public)");
+		stash_remote_announce_sigs(channel, scid, node_sig, bitcoin_sig);
 		return;
 	case CGOSSIP_WAITING_FOR_USABLE:
 	case CGOSSIP_WAITING_FOR_SCID:
