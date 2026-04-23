@@ -79,20 +79,9 @@ static struct command_result *poll_finished(struct command *cmd)
 	return timer_complete(cmd);
 }
 
-/* Just persisted a block — there may be more to catch up to, so poll again
- * immediately rather than waiting for the full interval.  Once getchaininfo
- * reports no change, poll_finished resets us to the steady-state cadence. */
-static struct command_result *fetch_more(struct command *cmd)
-{
-	struct bwatch *bwatch = bwatch_of(cmd->plugin);
-
-	bwatch->poll_timer = global_timer(cmd->plugin, time_from_sec(0),
-					  bwatch_poll_chain, NULL);
-	return timer_complete(cmd);
-}
-
 /* Process one block fetched from bitcoind: update tip, append to history,
- * then persist; the poll is rescheduled once the datastore write completes. */
+ * then persist; once persisted we notify watchman, and the next poll is
+ * scheduled from the block_processed ack so we don't race ahead of it. */
 static struct command_result *handle_block(struct command *cmd,
 					   const char *method UNUSED,
 					   const char *buf,
@@ -123,7 +112,8 @@ static struct command_result *handle_block(struct command *cmd,
 		bwatch->current_blockhash,
 		block->hdr.prev_hash,
 	};
-	return bwatch_add_block_to_datastore(cmd, &br, fetch_more);
+	return bwatch_add_block_to_datastore(cmd, &br,
+					     bwatch_send_block_processed);
 }
 
 /* getchaininfo response: pick the next block to fetch (or just reschedule). */
