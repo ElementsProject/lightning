@@ -1833,9 +1833,8 @@ static bool run_tx_interactive(struct state *state,
 			 * BOLT #2:
 			 *   The receiving node: ...
 			 *    - MUST fail the negotiation if:...
-			 *    - the `prevtx` and `prevtx_vout` are
-			 *    identical to a previously added (and not
-			 *    removed) input's
+			 *    - `prevtx` and `prevtx_vout` are identical to a previously
+			 *      added (and not removed) input
 			 */
 			bitcoin_txid(tx, &outpoint.txid);
 			if (psbt_has_input(psbt, &outpoint)) {
@@ -2432,9 +2431,8 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 	/* BOLT #2:
 	 * The receiving node MUST fail the channel if:
 	 *...
-	 *  - It supports `channel_type` and `channel_type` was set:
-	 *     - if `type` is not suitable.
-	 *     - if `type` includes `option_zeroconf` and it does not trust the sender to open an unconfirmed channel.
+	 *  - the `channel_type` is not suitable.
+	 *  - the `channel_type` includes `option_zeroconf` and it does not trust the sender to open an unconfirmed channel.
 	 */
 	if (!open_tlv->channel_type) {
 		negotiation_failed(state,
@@ -2684,7 +2682,7 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 	}
 
 	/* BOLT #2:
-	 * - if `option_channel_type` was negotiated:
+	 * The sender:...
 	 *    - MUST set `channel_type` to the `channel_type` from `open_channel`
 	 */
 	a_tlv->channel_type = state->channel_type->features;
@@ -3145,9 +3143,9 @@ static void opener_start(struct state *state, u8 *msg)
 	}
 
 	/* BOLT #2:
-	 * - if `channel_type` is set, and `channel_type` was set in
-	 *   `open_channel`, and they are not equal types:
-	 *    - MUST fail the channel.
+	 * The receiving node:
+	 *    - MUST fail the negotiation if:...
+	 *       - `channel_type` is not set.
 	 */
 	if (!a_tlv->channel_type) {
 		negotiation_failed(state,
@@ -3977,11 +3975,12 @@ static void do_reconnect_dance(struct state *state)
 	 *
 	 * - if it has sent `commitment_signed` for an
 	 *   interactive transaction construction but it has
-	 *   not received `tx_signatures`:
+	 * not received `tx_signatures`:
+	 *   - MUST include the `next_funding` TLV.
 	 *   - MUST set `next_funding_txid` to the txid of that
 	 *     interactive transaction.
-	 *   - otherwise:
-	 *   - MUST NOT set `next_funding_txid`.
+	 *   - if it has not received `commitment_signed` for this `next_funding_txid`:
+	 *     - MUST set the `commitment_signed` bit in `retransmit_flags`.
 	 */
 	tlvs = tlv_channel_reestablish_tlvs_new(tmpctx);
 	if (!tx_state->remote_funding_sigs_rcvd) {
@@ -4046,18 +4045,22 @@ static void do_reconnect_dance(struct state *state)
 
 	/* BOLT #2:
 	 * A receiving node:
-	 * - if `next_funding_txid` is set:
-	 *      - if `next_funding_txid` matches the latest interactive funding transaction:
-	 *        - if it has not received `tx_signatures` for that funding transaction:
-	 *          - MUST retransmit its `commitment_signed` for that funding transaction.
-	 *          - if it has already received `commitment_signed` and it should sign first,
-	 *          as specified in the [`tx_signatures` requirements](#the-tx_signatures-message):
-	 *            - MUST send its `tx_signatures` for that funding transaction.
-	 *        - if it has already received `tx_signatures` for that funding transaction:
-	 *          - MUST send its `tx_signatures` for that funding transaction.
-	 *       - otherwise:
-	 *       - MUST send `tx_abort` to let the sending node know that they can forget
-	 *         this funding transaction.
+	 *   - if the `next_funding` TLV is set:
+	 *	   - if `next_funding_txid` matches the latest interactive funding transaction:
+	 *	     - if it has not received `tx_signatures` for that funding transaction:
+	 *		   - if the `commitment_signed` bit is set in `retransmit_flags`:
+	 *		     - MUST retransmit its `commitment_signed` for that funding transaction.
+	 *		   - if it has already received `commitment_signed` and it should sign first,
+	 *			 as specified in the [`tx_signatures` requirements](#the-tx_signatures-message):
+	 *			 - MUST send its `tx_signatures` for that funding transaction.
+	 *		 - if it has already received `tx_signatures` for that funding transaction:
+	 *		   - MUST send its `tx_signatures` for that funding transaction.
+	 *	  - if it also sets `next_funding` in its own `channel_reestablish`, but the
+	 *		values don't match:
+	 *		- MUST send an `error` and fail the channel.
+	 *	  - otherwise:
+	 *	    - MUST send `tx_abort` to let the sending node know that they can forget
+	 *		  this funding transaction.
 	 */
 	if (tlvs->next_funding) {
 		/* Does this match ours? */
