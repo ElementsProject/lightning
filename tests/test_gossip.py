@@ -581,8 +581,8 @@ def test_gossip_persistence(node_factory, bitcoind):
     l1.rpc.dev_fail(l2.info['id'])
 
     # We need to wait for the unilateral close to hit the mempool,
-    # and 12 blocks for nodes to actually forget it.
-    bitcoind.generate_block(13, wait_for_mempool=1)
+    # and 72 blocks for nodes to actually forget it.
+    bitcoind.generate_block(73, wait_for_mempool=1)
 
     wait_for(lambda: active(l1) == [scid23, scid23])
     wait_for(lambda: active(l2) == [scid23, scid23])
@@ -2035,7 +2035,7 @@ def test_parms_listforwards(node_factory):
     assert len(forwards_dep) == 0
 
 
-def test_close_12_block_delay(node_factory, bitcoind):
+def test_close_72_block_delay(node_factory, bitcoind):
     l1, l2, l3, l4 = node_factory.line_graph(4, wait_for_announce=True)
 
     # Close l1-l2
@@ -2052,12 +2052,12 @@ def test_close_12_block_delay(node_factory, bitcoind):
 
     # BOLT #7:
     #   - once its funding output has been spent OR reorganized out:
-    #    - SHOULD forget a channel after a 12-block delay.
+    #    - SHOULD forget a channel after a 72-block delay.
 
-    # That implies 12 blocks *after* spending, i.e. 13 blocks deep!
+    # That implies 72 blocks *after* spending, i.e. 73 blocks deep!
 
-    # 12 blocks deep, l4 still sees it
-    bitcoind.generate_block(10)
+    # 72 blocks deep, l4 still sees it
+    bitcoind.generate_block(71)
     sync_blockheight(bitcoind, [l4])
     assert len(l4.rpc.listchannels(source=l1.info['id'])['channels']) == 1
 
@@ -2522,6 +2522,6 @@ def test_gossip_dying_when_compact(node_factory, bitcoind):
     wait_for(lambda: len(l1.rpc.listchannels()["channels"]) == 4)
     l1.rpc.call("dev-compact-gossip-store")
 
-    # Now actually close it (12 deep)
-    bitcoind.generate_block(11)
+    # Now actually close it (72 deep)
+    bitcoind.generate_block(71)
     wait_for(lambda: len(l1.rpc.listchannels()["channels"]) == 2)
