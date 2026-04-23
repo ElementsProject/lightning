@@ -31,6 +31,7 @@ struct short_channel_id;
 struct sha256;
 struct preimage;
 struct bitcoin_tx;
+struct bitcoin_blkid;
 struct wally_psbt;
 struct lease_rates;
 struct wireaddr;
@@ -309,6 +310,10 @@ void json_add_channel_id(struct json_stream *response,
 /* '"fieldname" : <hexrev>' or "<hexrev>" if fieldname is NULL */
 void json_add_txid(struct json_stream *result, const char *fieldname,
 		   const struct bitcoin_txid *txid);
+
+/* '"fieldname" : <hexrev>' or "<hexrev>" if fieldname is NULL */
+void json_add_bitcoin_blkid(struct json_stream *result, const char *fieldname,
+			    const struct bitcoin_blkid *blkid);
 
 /* '"fieldname" : "txid:n" */
 void json_add_outpoint(struct json_stream *result, const char *fieldname,
