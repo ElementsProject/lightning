@@ -20,11 +20,13 @@ PLUGIN_BCLI_OBJS := $(PLUGIN_BCLI_SRC:.c=.o)
 PLUGIN_BWATCH_SRC := plugins/bwatch/bwatch.c \
 	plugins/bwatch/bwatch_store.c \
 	plugins/bwatch/bwatch_scanner.c \
-	plugins/bwatch/bwatch_interface.c
+	plugins/bwatch/bwatch_interface.c \
+	plugins/bwatch/bwatch_wiregen.c
 PLUGIN_BWATCH_HEADER := plugins/bwatch/bwatch.h \
 	plugins/bwatch/bwatch_store.h \
 	plugins/bwatch/bwatch_scanner.h \
-	plugins/bwatch/bwatch_interface.h
+	plugins/bwatch/bwatch_interface.h \
+	plugins/bwatch/bwatch_wiregen.h
 PLUGIN_BWATCH_OBJS := $(PLUGIN_BWATCH_SRC:.c=.o)
 
 PLUGIN_COMMANDO_SRC := plugins/commando.c
@@ -202,6 +204,7 @@ plugins/bwatch/bwatch.o: $(PLUGIN_BWATCH_HEADER)
 plugins/bwatch/bwatch_store.o: $(PLUGIN_BWATCH_HEADER)
 plugins/bwatch/bwatch_scanner.o: $(PLUGIN_BWATCH_HEADER)
 plugins/bwatch/bwatch_interface.o: $(PLUGIN_BWATCH_HEADER)
+plugins/bwatch/bwatch_wiregen.o: $(PLUGIN_BWATCH_HEADER)
 plugins/bwatch/bwatch: $(PLUGIN_BWATCH_OBJS) $(PLUGIN_LIB_OBJS) libcommon.a
 
 plugins/keysend: $(PLUGIN_KEYSEND_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_PAY_LIB_OBJS) libcommon.a
