@@ -14,6 +14,7 @@
 #include <common/coin_mvt.h>
 #include <common/iso4217.h>
 #include <common/json_param.h>
+#include <common/json_parse_simple.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>
 #include <common/mkdatastorekey.h>
@@ -1835,13 +1836,6 @@ static const struct plugin_command commands[] = {
 		json_edit_desc_utxo
 	},
 };
-
-static bool json_hex_to_be64(const char *buffer, const jsmntok_t *tok,
-			     be64 *val)
-{
-	return hex_decode(buffer + tok->start, tok->end - tok->start,
-			  val, sizeof(*val));
-}
 
 static void memleak_scan_currencyrates(struct htable *memtable,
 				       currencymap_t *currency_rates)
