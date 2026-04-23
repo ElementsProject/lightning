@@ -290,8 +290,10 @@ static const char *init(struct command *cmd,
 static const struct plugin_command commands[] = {
 	{ "addscriptpubkeywatch", json_bwatch_add_scriptpubkey },
 	{ "addoutpointwatch",     json_bwatch_add_outpoint     },
+	{ "addscidwatch",         json_bwatch_add_scid         },
 	{ "delscriptpubkeywatch", json_bwatch_del_scriptpubkey },
 	{ "deloutpointwatch",     json_bwatch_del_outpoint     },
+	{ "delscidwatch",         json_bwatch_del_scid         },
 };
 
 int main(int argc, char *argv[])
