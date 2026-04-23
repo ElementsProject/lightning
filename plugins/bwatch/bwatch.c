@@ -258,6 +258,120 @@ struct command_result *bwatch_poll_chain(struct command *cmd,
 	return send_outreq(req);
 }
 
+/*
+ * ============================================================================
+ * RESCAN
+ *
+ * When a watch is added with start_block <= current_height, replay the
+ * historical blocks for that one watch so it sees confirmations that
+ * happened before it was registered.  Bounded by current_height so we
+ * never race the live polling loop.
+ *
+ * Async chain: fetch_block_rescan -> rescan_block_done -> next fetch.
+ * ============================================================================
+ */
+
+/* Fetch a single block by height during a rescan. */
+static struct command_result *fetch_block_rescan(struct command *cmd,
+						 u32 height,
+						 struct command_result *(*cb)(struct command *,
+									      const char *,
+									      const char *,
+									      const jsmntok_t *,
+									      struct rescan_state *),
+						 struct rescan_state *rescan)
+{
+	struct out_req *req = jsonrpc_request_start(cmd, "getrawblockbyheight",
+						    cb, cb, rescan);
+	json_add_u32(req->js, "height", height);
+	return send_outreq(req);
+}
+
+/* Finish a rescan chain: RPC commands get a JSON result; aux/timer
+ * commands just terminate. */
+static struct command_result *rescan_complete(struct command *cmd)
+{
+	switch (cmd->type) {
+	case COMMAND_TYPE_NORMAL:
+	case COMMAND_TYPE_HOOK:
+		return command_success(cmd, json_out_obj(cmd, NULL, NULL));
+	case COMMAND_TYPE_AUX:
+		return aux_command_done(cmd);
+	case COMMAND_TYPE_NOTIFICATION:
+	case COMMAND_TYPE_TIMER:
+	case COMMAND_TYPE_CHECK:
+	case COMMAND_TYPE_USAGE_ONLY:
+		break;
+	}
+	abort();
+}
+
+/* getrawblockbyheight callback for one block of a rescan: process the
+ * block, then either fetch the next or finish. */
+static struct command_result *rescan_block_done(struct command *cmd,
+						const char *method UNUSED,
+						const char *buf,
+						const jsmntok_t *result,
+						struct rescan_state *rescan)
+{
+	struct bitcoin_blkid blockhash;
+	struct bitcoin_block *block = block_from_response(buf, result, &blockhash);
+
+	if (!block) {
+		/* Chain may have rolled back past this height; stop quietly. */
+		plugin_log(cmd->plugin, LOG_DBG,
+			   "Rescan: block %u unavailable (chain rolled back?), stopping",
+			   rescan->current_block);
+		return rescan_complete(cmd);
+	}
+
+	/* rescan->watch is forwarded so the scanner only checks that one
+	 * watch (or all watches when watch == NULL). */
+	bwatch_process_block_txs(cmd, bwatch_of(cmd->plugin), block,
+				 rescan->current_block, &blockhash, rescan->watch);
+
+	/* Advance the cursor; if we still have blocks to scan, fetch the
+	 * next one and chain back into rescan_block_done. */
+	if (++rescan->current_block <= rescan->target_block)
+		return fetch_block_rescan(cmd, rescan->current_block,
+					  rescan_block_done, rescan);
+
+	plugin_log(cmd->plugin, LOG_INFORM, "Rescan complete");
+	return rescan_complete(cmd);
+}
+
+void bwatch_start_rescan(struct command *cmd,
+			 const struct watch *w,
+			 u32 start_block,
+			 u32 target_block)
+{
+	struct rescan_state *rescan;
+
+	if (w) {
+		plugin_log(cmd->plugin, LOG_INFORM,
+			   "Starting rescan for %s watch: blocks %u-%u",
+			   bwatch_get_watch_type_name(w->type),
+			   start_block, target_block);
+	} else {
+		plugin_log(cmd->plugin, LOG_INFORM,
+			   "Starting rescan for all watches: blocks %u-%u",
+			   start_block, target_block);
+	}
+
+	/* Owned by `cmd` so it lives across the async chain and gets
+	 * freed automatically when the command completes. */
+	rescan = tal(cmd, struct rescan_state);
+	rescan->watch = w;
+	rescan->current_block = start_block;
+	rescan->target_block = target_block;
+
+	/* Fire the first getrawblockbyheight; each response runs
+	 * rescan_block_done, which fetches the next block until we
+	 * pass target_block. */
+	fetch_block_rescan(cmd, rescan->current_block,
+			   rescan_block_done, rescan);
+}
+
 static const char *init(struct command *cmd,
 			const char *buf UNUSED,
 			const jsmntok_t *config UNUSED)

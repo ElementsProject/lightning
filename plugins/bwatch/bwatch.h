@@ -88,4 +88,19 @@ struct command_result *bwatch_poll_chain(struct command *cmd, void *unused);
  * than what we have stored. */
 void bwatch_remove_tip(struct command *cmd, struct bwatch *bwatch);
 
+/* Per-rescan cursor: which block we're on and how far to go. */
+struct rescan_state {
+	const struct watch *watch;	/* NULL = rescan all watches, non-NULL = single watch */
+	u32 current_block;		/* Next block to fetch */
+	u32 target_block;		/* Stop after this block */
+};
+
+/* Replay historical blocks for `w` (or all watches if w==NULL) from
+ * `start_block` up to `target_block` inclusive.  Runs asynchronously:
+ * fetch -> process -> fetch the next block. */
+void bwatch_start_rescan(struct command *cmd,
+			 const struct watch *w,
+			 u32 start_block,
+			 u32 target_block);
+
 #endif /* LIGHTNING_PLUGINS_BWATCH_BWATCH_H */
