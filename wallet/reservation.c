@@ -434,9 +434,9 @@ static inline u32 minconf_to_maxheight(u32 minconf, struct lightningd *ld)
 	/* Avoid wrapping around and suddenly allowing any confirmed
 	 * outputs. Since we can't have a coinbase output, and 0 is taken for
 	 * the disable case, we can just clamp to 1. */
-	if (minconf >= ld->topology->tip->height)
+	if (minconf >= get_block_height(ld->topology))
 		return 1;
-	return ld->topology->tip->height - minconf + 1;
+	return get_block_height(ld->topology) - minconf + 1;
 }
 
 /* Returns false if it needed to create change, but couldn't afford. */

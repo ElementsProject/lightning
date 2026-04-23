@@ -2503,46 +2503,6 @@ void wallet_channel_stats_incr_out_fulfilled(struct wallet *w, u64 id,
 	wallet_channel_stats_incr_x(w, id, m, query);
 }
 
-u32 wallet_blocks_maxheight(struct wallet *w)
-{
-	u32 max = 0;
-	struct db_stmt *stmt = db_prepare_v2(w->db, SQL("SELECT MAX(height) FROM blocks;"));
-	db_query_prepared(stmt);
-
-	/* If we ever processed a block we'll get the latest block in the chain */
-	if (db_step(stmt)) {
-		if (!db_col_is_null(stmt, "MAX(height)")) {
-			max = db_col_int(stmt, "MAX(height)");
-		} else {
-			db_col_ignore(stmt, "MAX(height)");
-		}
-	}
-	tal_free(stmt);
-	return max;
-}
-
-u32 wallet_blocks_contig_minheight(struct wallet *w)
-{
-	u32 min = 0;
-	struct db_stmt *stmt = db_prepare_v2(w->db, SQL("SELECT MAX(b.height)"
-							"  FROM blocks b"
-							"  WHERE NOT EXISTS ("
-							"    SELECT 1"
-							"    FROM blocks b2"
-							"    WHERE b2.height = b.height - 1)"));
-	db_query_prepared(stmt);
-
-	/* If we ever processed a block we'll get the first block in
-	 * the last run of blocks */
-	if (db_step(stmt)) {
-		if (!db_col_is_null(stmt, "MAX(b.height)")) {
-			min = db_col_int(stmt, "MAX(b.height)");
-		}
-	}
-	tal_free(stmt);
-	return min;
-}
-
 static void wallet_channel_config_insert(struct wallet *w,
 					 struct channel_config *cc)
 {
@@ -4766,39 +4726,20 @@ void wallet_utxoset_prune(struct wallet *w, u32 blockheight)
 	db_exec_prepared_v2(take(stmt));
 }
 
-void wallet_block_add(struct wallet *w, struct block *b)
+void wallet_block_add(struct wallet *w, u32 height,
+		      const struct bitcoin_blkid *blkid)
 {
+	/* Idempotent: bwatch may resend a block_processed during replay. */
+	if (wallet_have_block(w, height))
+		return;
+
 	struct db_stmt *stmt =
 	    db_prepare_v2(w->db, SQL("INSERT INTO blocks "
 				     "(height, hash, prev_hash) "
-				     "VALUES (?, ?, ?);"));
-	db_bind_int(stmt, b->height);
-	db_bind_sha256d(stmt, &b->blkid.shad);
-	if (b->prev) {
-		db_bind_sha256d(stmt, &b->prev->blkid.shad);
-	} else {
-		db_bind_null(stmt);
-	}
+				     "VALUES (?, ?, NULL);"));
+	db_bind_int(stmt, height);
+	db_bind_sha256d(stmt, &blkid->shad);
 	db_exec_prepared_v2(take(stmt));
-}
-
-void wallet_block_remove(struct wallet *w, struct block *b)
-{
-	struct db_stmt *stmt =
-		db_prepare_v2(w->db, SQL("DELETE FROM blocks WHERE hash = ?"));
-	db_bind_sha256d(stmt, &b->blkid.shad);
-	db_exec_prepared_v2(take(stmt));
-
-	/* Make sure that all descendants of the block are also deleted */
-	stmt = db_prepare_v2(w->db,
-			     SQL("SELECT * FROM blocks WHERE height >= ?;"));
-	db_bind_int(stmt, b->height);
-	db_query_prepared(stmt);
-	assert(!db_step(stmt));
-	tal_free(stmt);
-
-	/* We might need to watch more now-unspent UTXOs */
-	refill_outpointfilters(w);
 }
 
 void wallet_blocks_rollback(struct wallet *w, u32 height)

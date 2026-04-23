@@ -792,25 +792,6 @@ void wallet_channel_stats_incr_out_offered(struct wallet *w, u64 cdbid, struct a
 void wallet_channel_stats_incr_out_fulfilled(struct wallet *w, u64 cdbid, struct amount_msat msatoshi);
 
 /**
- * Retrieve the blockheight of the last block processed by lightningd.
- *
- * Will return the 0 if the wallet was never used before.
- *
- * @w: wallet to load from.
- */
-u32 wallet_blocks_maxheight(struct wallet *w);
-
-/**
- * Retrieve the blockheight of the first block processed by lightningd (ignoring
- * backfilled blocks for gossip).
- *
- * Will return the 0 if the wallet was never used before.
- *
- * @w: wallet to load from.
- */
-u32 wallet_blocks_contig_minheight(struct wallet *w);
-
-/**
  * wallet_extract_owned_outputs - given a tx, extract all of our outputs
  * @w: wallet
  * @is_coinbase: true if this is output 0 (can't spend for 100 blocks)
@@ -1199,14 +1180,14 @@ void wallet_htlc_sigs_add(struct wallet *w, u64 channel_id,
 bool wallet_sanity_check(struct wallet *w);
 
 /**
- * wallet_block_add - Add a block to the blockchain tracked by this wallet
+ * wallet_block_add - Record a block in the wallet's blocks table.
+ *
+ * Bwatch is the source of truth for the chain; this just keeps the wallet's
+ * `blocks` table populated so the FK references on outputs / utxoset /
+ * channeltxs / transactions stay valid.
  */
-void wallet_block_add(struct wallet *w, struct block *b);
-
-/**
- * wallet_block_remove - Remove a block (and all its descendants) from the tracked blockchain
- */
-void wallet_block_remove(struct wallet *w, struct block *b);
+void wallet_block_add(struct wallet *w, u32 height,
+		      const struct bitcoin_blkid *blkid);
 
 /**
  * wallet_blocks_rollback - Roll the blockchain back to the given height

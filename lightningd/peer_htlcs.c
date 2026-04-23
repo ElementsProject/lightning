@@ -1184,7 +1184,7 @@ static void htlc_accepted_hook_serialize(struct htlc_accepted_hook_payload *p,
 {
 	const struct route_step *rs = p->route_step;
 	struct htlc_in *hin = p->hin;
-	s32 expiry = hin->cltv_expiry, blockheight = p->ld->topology->tip->height;
+	s32 expiry = hin->cltv_expiry, blockheight = get_block_height(p->ld->topology);
 
 	tal_free(hin->status);
 	hin->status =

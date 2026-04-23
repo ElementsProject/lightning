@@ -5,7 +5,6 @@
 
 struct channel;
 struct bitcoin_tx;
-struct block;
 
 void onchaind_funding_spent(struct channel *channel,
 			    const struct bitcoin_tx *tx,

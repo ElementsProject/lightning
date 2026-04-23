@@ -7,7 +7,6 @@
 
 struct bitcoin_blkid;
 struct bitcoin_tx_output;
-struct block;
 struct feerate_est;
 struct lightningd;
 struct ripemd160;

@@ -17,6 +17,7 @@
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
+#include <lightningd/notification.h>
 #include <lightningd/onchain_control.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/plugin.h>
@@ -381,8 +382,8 @@ static void watchman_on_plugin_ready(struct lightningd *ld, struct plugin *plugi
 		log_debug(ld->log, "bwatch reached INIT_COMPLETE, replaying pending ops (height=%u)",
 			  wm->last_processed_height);
 		watchman_replay_pending(ld);
-		/* TODO: notify_block_added(ld, height, &hash) once that helper's
-		 * signature is migrated in Group H (chaintopology removal). */
+		notify_block_added(ld, wm->last_processed_height,
+				   &wm->last_processed_hash);
 	}
 }
 
@@ -717,6 +718,9 @@ static struct command_result *json_revert_block_processed(struct command *cmd,
 	wm->last_processed_height = *blockheight;
 	wm->last_processed_hash = *blockhash;
 	save_tip(wm);
+	/* Drop reverted blocks from the wallet table; FK ON DELETE
+	 * CASCADE / SET NULL will clean dependents. */
+	wallet_blocks_rollback(wm->ld->wallet, *blockheight);
 
 	struct json_stream *response = json_stream_success(cmd);
 	json_add_u32(response, "blockheight", *blockheight);
@@ -769,8 +773,10 @@ static struct command_result *json_block_processed(struct command *cmd,
 		wm->last_processed_height = *blockheight;
 		wm->last_processed_hash = *blockhash;
 		save_tip(wm);
-		/* TODO: notify_block_added(wm->ld, *blockheight, blockhash) once
-		 * its signature is migrated in Group H (chaintopology removal). */
+		/* Keep wallet's blocks table populated so utxoset/outputs/etc.
+		 * FK references stay valid. */
+		wallet_block_add(wm->ld->wallet, *blockheight, blockhash);
+		notify_block_added(wm->ld, *blockheight, blockhash);
 		send_account_balance_snapshot(wm->ld);
 	}
 

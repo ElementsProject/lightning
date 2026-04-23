@@ -1,6 +1,7 @@
 #ifndef LIGHTNING_LIGHTNINGD_NOTIFICATION_H
 #define LIGHTNING_LIGHTNINGD_NOTIFICATION_H
 #include "config.h"
+#include <bitcoin/block.h>
 #include <common/coin_mvt.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/pay.h>
@@ -99,7 +100,8 @@ void notify_balance_snapshot(struct lightningd *ld,
 			     const struct balance_snapshot *snap);
 
 void notify_block_added(struct lightningd *ld,
-			const struct block *block);
+			u32 height,
+			const struct bitcoin_blkid *blkid);
 
 void notify_openchannel_peer_sigs(struct lightningd *ld,
 				  const struct channel_id *cid,

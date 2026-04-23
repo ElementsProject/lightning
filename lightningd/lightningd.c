@@ -1332,18 +1332,18 @@ int main(int argc, char *argv[])
 	/*~ That's all of the wallet db operations for now. */
 	db_commit_transaction(ld->wallet->db);
 
+	/*~ Stand up the watchman: it queues bwatch RPC requests until the
+	 * bwatch plugin reports ready, then replays them.  Must come before
+	 * setup_topology, since update_feerates() writes through
+	 * ld->watchman, and before init_wallet_scriptpubkey_watches so the
+	 * watches have somewhere to enqueue. */
+	ld->watchman = watchman_new(ld, ld);
+
 	/*~ Initialize block topology.  This does its own io_loop to
 	 * talk to bitcoind, so does its own db transactions. */
 	trace_span_start("setup_topology", ld->topology);
 	setup_topology(ld->topology);
 	trace_span_end(ld->topology);
-
-	/*~ Stand up the watchman: it queues bwatch RPC requests until the
-	 * bwatch plugin reports ready, then replays them.  Must come before
-	 * init_wallet_scriptpubkey_watches so the watches have somewhere to
-	 * enqueue, and after setup_topology so start_block reflects the
-	 * last-processed height. */
-	ld->watchman = watchman_new(ld, ld);
 
 	trace_span_start("init_wallet_scriptpubkey_watches", ld->wallet);
 	init_wallet_scriptpubkey_watches(ld->wallet, ld->bip32_base);

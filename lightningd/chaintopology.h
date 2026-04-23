@@ -1,8 +1,6 @@
 #ifndef LIGHTNING_LIGHTNINGD_CHAINTOPOLOGY_H
 #define LIGHTNING_LIGHTNINGD_CHAINTOPOLOGY_H
 #include "config.h"
-#include <bitcoin/block.h>
-#include <ccan/htable/htable_type.h>
 #include <lightningd/broadcast.h>
 #include <lightningd/feerate.h>
 
@@ -13,53 +11,8 @@ struct lightningd;
 struct peer;
 struct wallet;
 
-struct block {
-	u32 height;
-
-	/* Actual header. */
-	struct bitcoin_block_hdr hdr;
-
-	/* Previous block (if any). */
-	struct block *prev;
-
-	/* Next block (if any). */
-	struct block *next;
-
-	/* Key for hash table */
-	struct bitcoin_blkid blkid;
-
-	/* Full copy of txs (freed in filter_block_txs) */
-	struct bitcoin_tx **full_txs;
-	struct bitcoin_txid *txids;
-};
-
-/* Hash blocks by sha */
-static inline const struct bitcoin_blkid *keyof_block_map(const struct block *b)
-{
-	return &b->blkid;
-}
-
-static inline size_t hash_sha(const struct bitcoin_blkid *key)
-{
-	size_t ret;
-
-	memcpy(&ret, key, sizeof(ret));
-	return ret;
-}
-
-static inline bool block_eq(const struct block *b, const struct bitcoin_blkid *key)
-{
-	return bitcoin_blkid_eq(&b->blkid, key);
-}
-HTABLE_DEFINE_NODUPS_TYPE(struct block, keyof_block_map, hash_sha, block_eq,
-			  block_map);
-
 struct chain_topology {
 	struct lightningd *ld;
-	struct block *root;
-	struct block *tip;
-	struct bitcoin_blkid prev_tip;
-	struct block_map *block_map;
 
 	/* Where to log things. */
 	struct logger *log;
@@ -70,14 +23,11 @@ struct chain_topology {
 	struct list_head *sync_waiters;
 
 	/* Timers we're running. */
-	struct oneshot *checkchain_timer, *extend_timer;
+	struct oneshot *checkchain_timer;
 
 	/* The number of headers known to the bitcoin backend at startup. Not
 	 * updated after the initial check. */
 	u32 headercount;
-
-	/* Progress on routine to look for old missed transactions.  0 = not interested. */
-	u32 old_block_scan;
 };
 
 /* Information relevant to locating a TX in a blockchain. */
@@ -111,8 +61,6 @@ void setup_topology(struct chain_topology *topology);
 void begin_topology(struct chain_topology *topo);
 
 void stop_topology(struct chain_topology *topo);
-
-struct txlocator *locate_tx(const void *ctx, const struct chain_topology *topo, const struct bitcoin_txid *txid);
 
 static inline bool topology_synced(const struct chain_topology *topo)
 {
