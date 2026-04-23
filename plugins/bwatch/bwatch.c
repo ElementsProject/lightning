@@ -168,7 +168,7 @@ static struct command_result *handle_block(struct command *cmd,
 		 * fire for the same block. */
 		bwatch_check_blockdepth_watches(cmd, bwatch, block_height);
 		bwatch_process_block_txs(cmd, bwatch, block, block_height,
-					 &blockhash);
+					 &blockhash, NULL);
 	}
 
 	/* Update state */
