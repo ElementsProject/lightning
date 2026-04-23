@@ -26,6 +26,8 @@ def pytest_configure(config):
                             "slow_test: slow tests aren't run under Valgrind")
     config.addinivalue_line("markers",
                             "openchannel: Limit this test to only run 'v1' or 'v2' openchannel protocol")
+    config.addinivalue_line("markers",
+                            "vls: mark test as using VLS (Validating Lightning Signer) for signing operations")
 
 
 def pytest_runtest_setup(item):
@@ -40,6 +42,12 @@ def pytest_runtest_setup(item):
             pytest.skip('v1-only test, EXPERIMENTAL_DUAL_FUND=1')
     if "slow_test" in item.keywords and VALGRIND and SLOW_MACHINE:
         pytest.skip("Skipping slow tests under VALGRIND")
+    if "vls" in item.keywords:
+        if not os.environ.get('REMOTE_SIGNER_PATH') and not os.environ.get('VLS_AUTO_BUILD'):
+            pytest.skip(
+                'VLS test skipped: set REMOTE_SIGNER_PATH (path to pre-built vlsd) '
+                'or VLS_AUTO_BUILD=1 to enable'
+            )
 
 
 @pytest.hookimpl(tryfirst=True)
