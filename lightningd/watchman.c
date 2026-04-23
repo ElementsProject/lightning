@@ -6,12 +6,13 @@
 #include <common/autodata.h>
 #include <common/json_command.h>
 #include <common/json_param.h>
-#include <common/json_parse_simple.h>
+#include <common/json_parse.h>
 #include <common/json_stream.h>
 #include <common/mkdatastorekey.h>
 #include <db/exec.h>
 #include <lightningd/bitcoind.h>
 #include <lightningd/chaintopology.h>
+#include <lightningd/coin_mvts.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
@@ -73,7 +74,6 @@ static void db_remove(struct watchman *wm, const char *op_id)
 	wallet_datastore_remove(wm->ld->wallet, key);
 }
 
-__attribute__((unused))
 static void save_tip(struct watchman *wm)
 {
 	struct db *db = wm->ld->wallet->db;
@@ -381,6 +381,117 @@ static void watchman_on_plugin_ready(struct lightningd *ld, struct plugin *plugi
 		 * signature is migrated in Group H (chaintopology removal). */
 	}
 }
+
+static struct command_result *param_bitcoin_blkid_cmd(struct command *cmd,
+						      const char *name,
+						      const char *buffer,
+						      const jsmntok_t *tok,
+						      struct bitcoin_blkid **blkid)
+{
+	*blkid = tal(cmd, struct bitcoin_blkid);
+	if (!json_to_bitcoin_blkid(buffer, tok, *blkid))
+		return command_fail_badparam(cmd, name, buffer, tok,
+					     "Expected a blockhash");
+	return NULL;
+}
+
+static struct command_result *json_revert_block_processed(struct command *cmd,
+							  const char *buffer,
+							  const jsmntok_t *obj UNUSED,
+							  const jsmntok_t *params)
+{
+	struct watchman *wm = cmd->ld->watchman;
+	u32 *blockheight;
+	struct bitcoin_blkid *blockhash;
+
+	if (!param(cmd, buffer, params,
+		   p_req("blockheight", param_number, &blockheight),
+		   p_req("blockhash", param_bitcoin_blkid_cmd, &blockhash),
+		   NULL))
+		return command_param_failed();
+
+	if (!wm)
+		return command_fail(cmd, LIGHTNINGD, "Watchman not initialized");
+
+	log_debug(wm->ld->log, "block_reverted: %u -> %u",
+		  wm->last_processed_height, *blockheight);
+	wm->last_processed_height = *blockheight;
+	wm->last_processed_hash = *blockhash;
+	save_tip(wm);
+
+	struct json_stream *response = json_stream_success(cmd);
+	json_add_u32(response, "blockheight", *blockheight);
+	return command_success(cmd, response);
+}
+
+static const struct json_command revert_block_processed_command = {
+	"revert_block_processed",
+	json_revert_block_processed,
+};
+AUTODATA(json_command, &revert_block_processed_command);
+
+/**
+ * json_block_processed - RPC handler for block_processed notifications from bwatch
+ *
+ * Called by bwatch after it finishes processing all watches in a block.
+ * We track this height to know where bwatch is in the chain, which helps
+ * during startup/reorg scenarios.
+ */
+static struct command_result *json_block_processed(struct command *cmd,
+						   const char *buffer,
+						   const jsmntok_t *obj UNUSED,
+						   const jsmntok_t *params)
+{
+	struct watchman *wm = cmd->ld->watchman;
+	u32 *blockheight;
+	struct bitcoin_blkid *blockhash;
+
+	if (!param(cmd, buffer, params,
+		   p_req("blockheight", param_number, &blockheight),
+		   p_req("blockhash", param_bitcoin_blkid_cmd, &blockhash),
+		   NULL))
+		return command_param_failed();
+
+	if (!wm)
+		return command_fail(cmd, LIGHTNINGD, "Watchman not initialized");
+
+	if (*blockheight != wm->last_processed_height) {
+		log_info(wm->ld->log, "block_processed: %u -> %u",
+			 wm->last_processed_height, *blockheight);
+
+		/* Fresh node: replay wallet watches now that bwatch->current_height > 0,
+		 * so add_watch_and_maybe_rescan will trigger historical rescans. */
+		if (wm->last_processed_height == 0) {
+			log_debug(wm->ld->log,
+				  "First block_processed on fresh node, replaying pending ops");
+			watchman_replay_pending(wm->ld);
+		}
+
+		wm->last_processed_height = *blockheight;
+		wm->last_processed_hash = *blockhash;
+		save_tip(wm);
+		/* TODO: notify_block_added(wm->ld, *blockheight, blockhash) once
+		 * its signature is migrated in Group H (chaintopology removal). */
+		send_account_balance_snapshot(wm->ld);
+	}
+
+	/* TODO: channel_block_processed(wm->ld, *blockheight) lands in Group G
+	 * when channel.c is migrated off chaintopology onto watchman. */
+	notify_new_block(wm->ld);
+
+	struct json_stream *response = json_stream_success(cmd);
+	json_add_u32(response, "blockheight", *blockheight);
+	if (wm->last_processed_height > 0)
+		json_add_string(response, "blockhash",
+				fmt_bitcoin_blkid(response, &wm->last_processed_hash));
+	return command_success(cmd, response);
+}
+
+static const struct json_command block_processed_command = {
+	"block_processed",
+	json_block_processed,
+};
+AUTODATA(json_command, &block_processed_command);
 
 /**
  * json_getwatchmanheight - RPC handler to return watchman's last processed height
