@@ -75,3 +75,38 @@ struct command_result *bwatch_send_block_processed(struct command *cmd)
 			fmt_bitcoin_blkid(tmpctx, &bwatch->current_blockhash));
 	return send_outreq(req);
 }
+
+/*
+ * ============================================================================
+ * REVERT BLOCK NOTIFICATION
+ * ============================================================================
+ */
+
+/* Generic fire-and-forget ack: aux notifications don't gate the poll, so
+ * we just close the aux command on either success or error. */
+static struct command_result *notify_ack(struct command *cmd,
+					 const char *method UNUSED,
+					 const char *buf UNUSED,
+					 const jsmntok_t *result UNUSED,
+					 void *arg UNUSED)
+{
+	return aux_command_done(cmd);
+}
+
+/* Notify watchman that a block was rolled back so it can update and persist
+ * its tip. Fire-and-forget via aux_command — the poll timer doesn't depend
+ * on the ack. Crash safety: if we crash before the ack, watchman's stale
+ * height will be higher than bwatch's on restart, retriggering rollback. */
+void bwatch_send_revert_block_processed(struct command *cmd, u32 new_height,
+					const struct bitcoin_blkid *new_hash)
+{
+	struct command *aux = aux_command(cmd);
+	struct out_req *req;
+
+	req = jsonrpc_request_start(aux, "revert_block_processed",
+				    notify_ack, notify_ack, NULL);
+	json_add_u32(req->js, "blockheight", new_height);
+	json_add_string(req->js, "blockhash",
+			fmt_bitcoin_blkid(tmpctx, new_hash));
+	send_outreq(req);
+}
