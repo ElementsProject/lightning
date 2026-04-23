@@ -17,6 +17,16 @@ PLUGIN_TXPREPARE_OBJS := $(PLUGIN_TXPREPARE_SRC:.c=.o)
 PLUGIN_BCLI_SRC := plugins/bcli.c
 PLUGIN_BCLI_OBJS := $(PLUGIN_BCLI_SRC:.c=.o)
 
+PLUGIN_BWATCH_SRC := plugins/bwatch/bwatch.c \
+	plugins/bwatch/bwatch_store.c \
+	plugins/bwatch/bwatch_scanner.c \
+	plugins/bwatch/bwatch_interface.c
+PLUGIN_BWATCH_HEADER := plugins/bwatch/bwatch.h \
+	plugins/bwatch/bwatch_store.h \
+	plugins/bwatch/bwatch_scanner.h \
+	plugins/bwatch/bwatch_interface.h
+PLUGIN_BWATCH_OBJS := $(PLUGIN_BWATCH_SRC:.c=.o)
+
 PLUGIN_COMMANDO_SRC := plugins/commando.c
 PLUGIN_COMMANDO_OBJS := $(PLUGIN_COMMANDO_SRC:.c=.o)
 
@@ -82,6 +92,7 @@ PLUGIN_ALL_SRC :=				\
 	$(PLUGIN_AUTOCLEAN_SRC)			\
 	$(PLUGIN_chanbackup_SRC)		\
 	$(PLUGIN_BCLI_SRC)			\
+	$(PLUGIN_BWATCH_SRC)			\
 	$(PLUGIN_COMMANDO_SRC)			\
 	$(PLUGIN_FUNDER_SRC)			\
 	$(PLUGIN_TOPOLOGY_SRC)			\
@@ -102,12 +113,14 @@ PLUGIN_ALL_HEADER :=				\
 	$(PLUGIN_FUNDER_HEADER)			\
 	$(PLUGIN_PAY_LIB_HEADER)		\
 	$(PLUGIN_OFFERS_HEADER)			\
-	$(PLUGIN_SPENDER_HEADER)
+	$(PLUGIN_SPENDER_HEADER)		\
+	$(PLUGIN_BWATCH_HEADER)
 
 C_PLUGINS :=					\
 	plugins/autoclean			\
 	plugins/chanbackup			\
 	plugins/bcli				\
+	plugins/bwatch/bwatch			\
 	plugins/commando			\
 	plugins/funder				\
 	plugins/topology			\
@@ -184,6 +197,12 @@ plugins/txprepare: $(PLUGIN_TXPREPARE_OBJS) $(PLUGIN_LIB_OBJS) libcommon.a
 plugins/exposesecret: $(PLUGIN_EXPOSESECRET_OBJS) $(PLUGIN_LIB_OBJS) libcommon.a
 
 plugins/bcli: $(PLUGIN_BCLI_OBJS) $(PLUGIN_LIB_OBJS) libcommon.a
+
+plugins/bwatch/bwatch.o: $(PLUGIN_BWATCH_HEADER)
+plugins/bwatch/bwatch_store.o: $(PLUGIN_BWATCH_HEADER)
+plugins/bwatch/bwatch_scanner.o: $(PLUGIN_BWATCH_HEADER)
+plugins/bwatch/bwatch_interface.o: $(PLUGIN_BWATCH_HEADER)
+plugins/bwatch/bwatch: $(PLUGIN_BWATCH_OBJS) $(PLUGIN_LIB_OBJS) libcommon.a
 
 plugins/keysend: $(PLUGIN_KEYSEND_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_PAY_LIB_OBJS) libcommon.a
 $(PLUGIN_KEYSEND_OBJS): $(PLUGIN_PAY_LIB_HEADER) libcommon.a
