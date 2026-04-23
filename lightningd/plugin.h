@@ -156,6 +156,9 @@ struct plugins {
 
 	/* Whether to save all IO to a file */
 	char *dev_save_io;
+
+	/* Optional callback invoked whenever a plugin reaches INIT_COMPLETE. */
+	void (*on_plugin_ready)(struct lightningd *ld, struct plugin *plugin);
 };
 
 /**
