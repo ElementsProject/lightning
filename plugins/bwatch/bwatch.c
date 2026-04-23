@@ -79,31 +79,96 @@ static struct command_result *poll_finished(struct command *cmd)
 	return timer_complete(cmd);
 }
 
-/* Process one block fetched from bitcoind: update tip, append to history,
- * then persist; once persisted we notify watchman, and the next poll is
- * scheduled from the block_processed ack so we don't race ahead of it. */
+/* Remove tip block on reorg. */
+static void bwatch_remove_tip(struct command *cmd, struct bwatch *bwatch)
+{
+	const struct block_record_wire *newtip;
+	size_t count = tal_count(bwatch->block_history);
+
+	if (count == 0) {
+		plugin_log(bwatch->plugin, LOG_BROKEN,
+			   "remove_tip called with no block history!");
+		return;
+	}
+
+	plugin_log(bwatch->plugin, LOG_DBG, "Removing stale block %u: %s",
+		   bwatch->current_height,
+		   fmt_bitcoin_blkid(tmpctx, &bwatch->current_blockhash));
+
+	/* Delete block from datastore */
+	bwatch_delete_block_from_datastore(cmd, bwatch->current_height);
+
+	/* Remove last block from history */
+	tal_resize(&bwatch->block_history, count - 1);
+
+	/* Move tip back one */
+	newtip = bwatch_last_block(bwatch);
+	if (newtip) {
+		assert(newtip->height == bwatch->current_height - 1);
+		bwatch->current_height = newtip->height;
+		bwatch->current_blockhash = newtip->hash;
+
+		/* Tell watchman the tip rolled back so it persists the new height+hash.
+		 * If we crash before the ack, watchman's stale height > bwatch's height
+		 * on restart, which naturally retriggers the rollback via getwatchmanheight. */
+		bwatch_send_revert_block_processed(cmd, bwatch->current_height,
+						   &bwatch->current_blockhash);
+	} else {
+		/* History exhausted: we've rolled back past everything we stored.
+		 * Set current_height to 0 so getwatchmanheight_done can reset it to
+		 * watchman_height.  Don't notify watchman — it already knows its own
+		 * height and we're about to resume from there via sequential polling. */
+		bwatch->current_height = 0;
+		memset(&bwatch->current_blockhash, 0, sizeof(bwatch->current_blockhash));
+	}
+}
+
+/* Process or initialize from a block. */
 static struct command_result *handle_block(struct command *cmd,
 					   const char *method UNUSED,
 					   const char *buf,
 					   const jsmntok_t *result,
-					   ptrint_t *block_height)
+					   ptrint_t *block_heightptr)
 {
 	struct bwatch *bwatch = bwatch_of(cmd->plugin);
 	struct bitcoin_blkid blockhash;
 	struct bitcoin_block *block;
+	bool is_init = (bwatch->current_height == 0);
+	u32 block_height = ptr2int(block_heightptr);
 
 	block = block_from_response(buf, result, &blockhash);
 	if (!block) {
 		plugin_log(cmd->plugin, LOG_UNUSUAL,
 			   "Failed to get/parse block %u: '%.*s'",
-			   (unsigned int)ptr2int(block_height),
+			   block_height,
 			   json_tok_full_len(result),
 			   json_tok_full(buf, result));
 		return poll_finished(cmd);
 	}
 
-	bwatch->current_height = ptr2int(block_height);
+	if (!is_init) {
+		/* Verify the parent of the new block is our current tip; if
+		 * not, we have a reorg.  Pop the tip and refetch the block
+		 * until we find a common ancestor, then roll forward from
+		 * there.  Skip when history is empty (rollback exhausted it). */
+		if (tal_count(bwatch->block_history) > 0 &&
+		    !bitcoin_blkid_eq(&block->hdr.prev_hash, &bwatch->current_blockhash)) {
+			plugin_log(cmd->plugin, LOG_INFORM,
+				   "Reorg detected at block %u: expected parent %s, got %s (fetched block hash: %s)",
+				   block_height,
+				   fmt_bitcoin_blkid(tmpctx, &bwatch->current_blockhash),
+				   fmt_bitcoin_blkid(tmpctx, &block->hdr.prev_hash),
+				   fmt_bitcoin_blkid(tmpctx, &blockhash));
+			bwatch_remove_tip(cmd, bwatch);
+			return fetch_block_handle(cmd, bwatch->current_height + 1);
+		}
+	}
+
+	/* Update state */
+	bwatch->current_height = block_height;
 	bwatch->current_blockhash = blockhash;
+
+	/* Update in-memory history immediately */
 	bwatch_add_block_to_history(bwatch, bwatch->current_height, &blockhash,
 				    &block->hdr.prev_hash);
 
