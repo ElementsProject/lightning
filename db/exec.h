@@ -4,6 +4,7 @@
 
 #include <ccan/short_types/short_types.h>
 #include <ccan/take/take.h>
+#include <ccan/tal/tal.h>
 
 struct db;
 
@@ -22,6 +23,10 @@ void db_set_intvar(struct db *db, const char *varname, s64 val);
  * the query failed or no such variable exists.
  */
 s64 db_get_intvar(struct db *db, const char *varname, s64 defval);
+
+void db_set_blobvar(struct db *db, const char *varname, const u8 *val, size_t len);
+/* Returns a tal-allocated blob, or NULL if not found. */
+const u8 *db_get_blobvar(const tal_t *ctx, struct db *db, const char *varname);
 
 /* Get the current data version (entries). */
 u32 db_data_version_get(struct db *db);
