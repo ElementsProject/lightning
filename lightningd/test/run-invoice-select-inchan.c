@@ -158,12 +158,6 @@ bool command_deprecated_in_ok(struct command *cmd UNNEEDED,
 			      const char *depr_start UNNEEDED,
 			      const char *depr_end UNNEEDED)
 { fprintf(stderr, "command_deprecated_in_ok called!\n"); abort(); }
-/* Generated stub for command_deprecated_out_ok */
-bool command_deprecated_out_ok(struct command *cmd UNNEEDED,
-			       const char *fieldname UNNEEDED,
-			       const char *depr_start UNNEEDED,
-			       const char *depr_end UNNEEDED)
-{ fprintf(stderr, "command_deprecated_out_ok called!\n"); abort(); }
 /* Generated stub for command_dev_apis */
 bool command_dev_apis(const struct command *cmd UNNEEDED)
 { fprintf(stderr, "command_dev_apis called!\n"); abort(); }
