@@ -6,6 +6,75 @@
 
 /*
  * ============================================================================
+ * SENDING WATCH_FOUND NOTIFICATIONS
+ * ============================================================================
+ */
+
+/* Callback for watch_found RPC.
+ * watch_found notifications are sent on an aux command so they cannot
+ * interfere with the poll command lifetime. */
+static struct command_result *notify_ack(struct command *cmd,
+				      const char *method UNUSED,
+				      const char *buf UNUSED,
+				      const jsmntok_t *result UNUSED,
+				      void *arg UNUSED)
+{
+	return aux_command_done(cmd);
+}
+
+/* Send watch_found notification to lightningd. */
+void bwatch_send_watch_found(struct command *cmd,
+			     const struct bitcoin_tx *tx,
+			     u32 blockheight,
+			     const struct watch *w,
+			     u32 txindex,
+			     u32 index)
+{
+	struct command *aux = aux_command(cmd);
+	struct out_req *req;
+
+	req = jsonrpc_request_start(aux, "watch_found",
+				    notify_ack, notify_ack, NULL);
+	/* tx==NULL signals "not found" for WATCH_SCID; omit tx+txindex so
+	 * json_watch_found passes tx=NULL down to the handler. */
+	if (tx) {
+		json_add_tx(req->js, "tx", tx);
+		json_add_u32(req->js, "txindex", txindex);
+		if (index != UINT32_MAX)
+			json_add_u32(req->js, "index", index);
+	}
+	json_add_u32(req->js, "blockheight", blockheight);
+
+	/* Add owners array */
+	json_array_start(req->js, "owners");
+	for (size_t i = 0; i < tal_count(w->owners); i++)
+		json_add_string(req->js, NULL, w->owners[i]);
+	json_array_end(req->js);
+
+	/* Tests (and operators) key off this line; keep wording stable. */
+	plugin_log(cmd->plugin, LOG_DBG,
+		   "watch_found at block %u", blockheight);
+
+	send_outreq(req);
+}
+
+/* Tell one owner that a previously-reported watch_found was rolled back. */
+void bwatch_send_watch_revert(struct command *cmd,
+			      const char *owner,
+			      u32 blockheight)
+{
+	struct command *aux = aux_command(cmd);
+	struct out_req *req;
+
+	req = jsonrpc_request_start(aux, "watch_revert",
+				    notify_ack, notify_ack, NULL);
+	json_add_string(req->js, "owner", owner);
+	json_add_u32(req->js, "blockheight", blockheight);
+	send_outreq(req);
+}
+
+/*
+ * ============================================================================
  * SENDING BLOCK_PROCESSED NOTIFICATION
  *
  * After bwatch has persisted a new tip, it tells watchman by sending the
@@ -81,17 +150,6 @@ struct command_result *bwatch_send_block_processed(struct command *cmd)
  * REVERT BLOCK NOTIFICATION
  * ============================================================================
  */
-
-/* Generic fire-and-forget ack: aux notifications don't gate the poll, so
- * we just close the aux command on either success or error. */
-static struct command_result *notify_ack(struct command *cmd,
-					 const char *method UNUSED,
-					 const char *buf UNUSED,
-					 const jsmntok_t *result UNUSED,
-					 void *arg UNUSED)
-{
-	return aux_command_done(cmd);
-}
 
 /* Notify watchman that a block was rolled back so it can update and persist
  * its tip. Fire-and-forget via aux_command — the poll timer doesn't depend
