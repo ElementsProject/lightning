@@ -28,7 +28,7 @@ bool bolt12_chains_match(const struct bitcoin_blkid *chains,
 	 *    - if the node does not accept bitcoin invoices:
 	 *      - MUST NOT respond to the offer
 	 *  - otherwise: (`offer_chains` is set):
-	 *    - if the node does not accept invoices for any of the `chains`:
+	 *    - if the node does not accept invoices for at least one of the `chains`:
 	 *      - MUST NOT respond to the offer
 	 */
 	if (!chains) {
@@ -219,6 +219,16 @@ struct tlv_offer *offer_decode(const tal_t *ctx,
 	 */
 	if (!offer->offer_description && offer->offer_amount) {
 		*fail = tal_strdup(ctx, "Offer does not contain a description, but contains an amount");
+		return tal_free(offer);
+	}
+
+	/* BOLT #12:
+	 *
+	 * - if `offer_amount` is set and is not greater than zero:
+	 *     - MUST NOT respond to the offer.
+	 */
+	if (offer->offer_amount && *offer->offer_amount == 0) {
+		*fail = tal_strdup(ctx, "offer_amount must be > 0");
 		return tal_free(offer);
 	}
 
