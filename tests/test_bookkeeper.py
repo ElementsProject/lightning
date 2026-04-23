@@ -1349,3 +1349,129 @@ def test_bkpr_report_lightning_cli_csv(node_factory):
     parsed = [next(csv.reader(io.StringIO(line))) for line in res.splitlines()]
     assert parsed
     assert all(len(row) == 3 for row in parsed)
+
+
+def test_bkpr_report_utctime(node_factory):
+    """Test {utctime} format tag.
+
+    {utctime} is the UTC counterpart of {localtime}. Verify it produces valid
+    "YYYY-MM-DD HH:MM:SS" strings and that its tag column matches {localtime}.
+    """
+    l1, l2 = node_factory.line_graph(2)
+
+    inv = l2.rpc.invoice(100000, "test_bkpr_report_utctime", "desc")
+    l1.rpc.pay(inv["bolt11"])
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['htlcs'] == [])
+
+    # Fetch both timestamps in a single call to avoid a race between two
+    # separate bkpr-report calls where a background event could land in between.
+    lines = l1.rpc.bkpr_report(format="{utctime}|{localtime}|{tag}")['report']
+
+    assert lines
+    for line in lines:
+        u_ts_str, l_ts_str, tag = line.split('|')
+        # Both must produce valid "YYYY-MM-DD HH:MM:SS" strings.
+        datetime.strptime(u_ts_str, "%Y-%m-%d %H:%M:%S")
+        datetime.strptime(l_ts_str, "%Y-%m-%d %H:%M:%S")
+
+
+def test_bkpr_report_fees(node_factory):
+    """Test {fees} format tag.
+
+    {fees} is non-zero only when routing fees are incurred. A 3-node path
+    (l1 -> l2 -> l3) ensures l1's income events carry non-zero routing fees.
+    """
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
+
+    inv = l3.rpc.invoice(100000, "test_bkpr_report_fees", "desc")
+    l1.rpc.pay(inv["bolt11"])
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['htlcs'] == [])
+
+    lines = l1.rpc.bkpr_report(format="{tag},{fees}")['report']
+    assert lines
+
+    # Every row must produce a parseable non-negative decimal.
+    for line in lines:
+        tag, fees_str = line.split(',')
+        assert float(fees_str) >= 0
+
+    # This type of payment should produce exactly 2 non-zero fee events.
+    nonzero = [line for line in lines if float(line.split(',')[1]) > 0]
+    assert len(nonzero) == 2
+    tags = {line.split(',')[0] for line in nonzero}
+    assert tags == {'invoice', 'invoice_fee'}
+
+
+def test_bkpr_report_no_currency(node_factory):
+    """All currency-related format tags must all resolve to NULL
+    and trigger their fallback text."""
+    l1, l2 = node_factory.line_graph(2)
+
+    inv = l2.rpc.invoice(100000, "test_bkpr_report_no_currency", "desc")
+    l1.rpc.pay(inv["bolt11"])
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['htlcs'] == [])
+
+    fmt = ("{tag}"
+           "|{bkpr-currency?NOCUR}"
+           "|{currencyrate?NORAT}"
+           "|{currencycredit?NOCREDIT}"
+           "|{currencydebit?NODEBIT}"
+           "|{currencycreditdebit?NOCD}")
+    lines = l1.rpc.bkpr_report(format=fmt)['report']
+    assert lines
+
+    for line in lines:
+        parts = line.split('|')
+        assert len(parts) == 6
+        assert parts[1] == 'NOCUR'
+        assert parts[2] == 'NORAT'
+        assert parts[3] == 'NOCREDIT'
+        assert parts[4] == 'NODEBIT'
+        assert parts[5] == 'NOCD'
+
+
+def test_bkpr_report_escape_none(node_factory):
+    """escape=none must leave special characters unescaped in the output,
+    in contrast to escape=csv which wraps fields containing commas/quotes."""
+    l1, l2 = node_factory.line_graph(2)
+
+    # Description with a comma so CSV-sensitive escaping is detectable.
+    inv = l2.rpc.invoice(100000, "test_bkpr_report_escape_none", 'hello, world')
+    l1.rpc.pay(inv["bolt11"])
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['htlcs'] == [])
+
+    # escape=none (explicit): description must appear verbatim with its comma.
+    lines_none = l1.rpc.bkpr_report(
+        format="{description?-},{tag}", escape='none')['report']
+    # escape=csv: description containing a comma must be quoted.
+    lines_csv = l1.rpc.bkpr_report(
+        format="{description?-},{tag}", escape='csv')['report']
+
+    assert len(lines_none) == len(lines_csv)
+
+    # Find the invoice row — it has the description with the embedded comma.
+    inv_none = only_one([l for l in lines_none if 'invoice' in l.split(',')[-1]])
+    inv_csv = only_one([l for l in lines_csv if 'invoice' in l.split(',')[-1]])
+
+    # With escape=none the comma in the description is NOT escaped.
+    assert 'hello, world' in inv_none
+    # With escape=csv the description field is quoted, so csv.reader collapses
+    # it back to a single field containing the original string.
+    parsed = next(csv.reader(io.StringIO(inv_csv)))
+    assert parsed[0] == 'hello, world'
+
+
+def test_bkpr_report_empty_window(node_factory, bitcoind):
+    """bkpr-report with a start_time beyond all events must return an empty
+    list without errors."""
+    l1 = node_factory.get_node()
+    addr = l1.rpc.newaddr()['p2tr']
+
+    bitcoind.rpc.sendtoaddress(addr, 0.01)
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 1)
+
+    future = int(time.time()) + 10_000_000
+    report = l1.rpc.bkpr_report(
+        format="{tag},{creditdebit}", start_time=future)['report']
+    assert report == []
