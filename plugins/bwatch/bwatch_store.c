@@ -1,7 +1,14 @@
 #include "config.h"
 #include <ccan/crypto/siphash24/siphash24.h>
+#include <ccan/json_out/json_out.h>
 #include <ccan/mem/mem.h>
+#include <ccan/str/hex/hex.h>
+#include <ccan/tal/str/str.h>
+#include <common/json_param.h>
+#include <common/json_parse.h>
+#include <common/mkdatastorekey.h>
 #include <plugins/bwatch/bwatch_store.h>
+#include <plugins/bwatch/bwatch_wiregen.h>
 
 const struct scriptpubkey *scriptpubkey_watch_keyof(const struct watch *w)
 {
@@ -147,4 +154,147 @@ void bwatch_remove_watch_from_hash(struct bwatch *bwatch, struct watch *w)
 		return;
 	}
 	abort();
+}
+
+/* List all datastore entries under a key prefix (up to 2 components).
+ * Shared between block_history loading and (in a follow-up commit)
+ * watch loading. */
+static const jsmntok_t *bwatch_list_datastore(const tal_t *ctx,
+					      struct command *cmd,
+					      const char *key1, const char *key2,
+					      const char **buf_out)
+{
+	struct json_out *params = json_out_new(tmpctx);
+	const jsmntok_t *result;
+
+	json_out_start(params, NULL, '{');
+	json_out_start(params, "key", '[');
+	json_out_addstr(params, NULL, key1);
+	if (key2)
+		json_out_addstr(params, NULL, key2);
+	json_out_end(params, ']');
+	json_out_end(params, '}');
+
+	result = jsonrpc_request_sync(ctx, cmd, "listdatastore", params, buf_out);
+	return json_get_member(*buf_out, result, "datastore");
+}
+
+/* Datastore write completed (success or expected failure such as duplicate).
+ * Either way, invoke the caller's continuation to keep the poll chain alive. */
+static struct command_result *block_store_done(struct command *cmd,
+					       const char *method UNNEEDED,
+					       const char *buf UNNEEDED,
+					       const jsmntok_t *result UNNEEDED,
+					       struct command_result *(*done)(struct command *))
+{
+	return done(cmd);
+}
+
+struct command_result *bwatch_add_block_to_datastore(
+	struct command *cmd,
+	const struct block_record_wire *br,
+	struct command_result *(*done)(struct command *cmd))
+{
+	/* Zero-pad to 10 digits so listdatastore returns blocks in height
+	 * order ("0000000100" < "0000000101"). */
+	const char **key = mkdatastorekey(tmpctx, "bwatch", "block_history",
+					  take(tal_fmt(NULL, "%010u", br->height)));
+	const u8 *data = towire_bwatch_block(tmpctx, br);
+
+	plugin_log(cmd->plugin, LOG_DBG, "Added block %u to datastore", br->height);
+
+	/* Chain `done` as both success and failure continuation so the poll
+	 * cmd is held alive until the write is acknowledged. Write failure
+	 * (e.g. duplicate on restart) is non-fatal — the poll must continue. */
+	return jsonrpc_set_datastore_binary(cmd, key,
+					    data, tal_bytelen(data),
+					    "must-create",
+					    block_store_done, block_store_done,
+					    done);
+}
+
+void bwatch_add_block_to_history(struct bwatch *bwatch, u32 height,
+				 const struct bitcoin_blkid *hash,
+				 const struct bitcoin_blkid *prev_hash)
+{
+	struct block_record_wire br;
+
+	br.height = height;
+	br.hash = *hash;
+	br.prev_hash = *prev_hash;
+	tal_arr_expand(&bwatch->block_history, br);
+
+	plugin_log(bwatch->plugin, LOG_DBG,
+		   "Added block %u to history (now %zu blocks)",
+		   height, tal_count(bwatch->block_history));
+}
+
+void bwatch_delete_block_from_datastore(struct command *cmd, u32 height)
+{
+	struct json_out *params = json_out_new(tmpctx);
+	const char *buf;
+
+	json_out_start(params, NULL, '{');
+	json_out_start(params, "key", '[');
+	json_out_addstr(params, NULL, "bwatch");
+	json_out_addstr(params, NULL, "block_history");
+	json_out_addstr(params, NULL, tal_fmt(tmpctx, "%010u", height));
+	json_out_end(params, ']');
+	json_out_end(params, '}');
+
+	jsonrpc_request_sync(tmpctx, cmd, "deldatastore", params, &buf);
+
+	plugin_log(cmd->plugin, LOG_DBG, "Deleted block %u from datastore", height);
+}
+
+const struct block_record_wire *bwatch_last_block(const struct bwatch *bwatch)
+{
+	if (tal_count(bwatch->block_history) == 0)
+		return NULL;
+
+	return &bwatch->block_history[tal_count(bwatch->block_history) - 1];
+}
+
+void bwatch_load_block_history(struct command *cmd, struct bwatch *bwatch)
+{
+	const char *buf;
+	const jsmntok_t *datastore, *t;
+	size_t i;
+	const struct block_record_wire *most_recent;
+
+	datastore = bwatch_list_datastore(tmpctx, cmd, "bwatch", "block_history", &buf);
+
+	json_for_each_arr(i, t, datastore) {
+		const u8 *data = json_tok_bin_from_hex(tmpctx, buf,
+						       json_get_member(buf, t, "hex"));
+		struct block_record_wire br;
+
+		if (!data)
+			plugin_err(cmd->plugin,
+				   "Bad block_history hex %.*s",
+				   json_tok_full_len(t),
+				   json_tok_full(buf, t));
+
+		if (!fromwire_bwatch_block(data, &br)) {
+			plugin_err(cmd->plugin,
+				   "Bad block_history %.*s",
+				   json_tok_full_len(t),
+				   json_tok_full(buf, t));
+		}
+		tal_arr_expand(&bwatch->block_history, br);
+	}
+
+	most_recent = bwatch_last_block(bwatch);
+	if (most_recent) {
+		bwatch->current_height = most_recent->height;
+		bwatch->current_blockhash = most_recent->hash;
+		plugin_log(cmd->plugin, LOG_DBG,
+			   "Restored %zu blocks from datastore, current height=%u",
+			   tal_count(bwatch->block_history),
+			   bwatch->current_height);
+	} else {
+		bwatch->current_height = 0;
+		memset(&bwatch->current_blockhash, 0,
+		       sizeof(bwatch->current_blockhash));
+	}
 }

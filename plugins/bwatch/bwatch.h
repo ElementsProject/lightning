@@ -2,6 +2,7 @@
 #define LIGHTNING_PLUGINS_BWATCH_BWATCH_H
 
 #include "config.h"
+#include <bitcoin/block.h>
 #include <bitcoin/short_channel_id.h>
 #include <bitcoin/tx.h>
 #include <plugins/libplugin.h>
@@ -12,6 +13,11 @@ struct scriptpubkey_watches;
 struct outpoint_watches;
 struct scid_watches;
 struct blockdepth_watches;
+
+/* Wire-format block record stored in lightningd's datastore.
+ * Defined by bwatch_wiregen.h; forward-declared here to avoid pulling
+ * the generated header into every consumer of bwatch.h. */
+struct block_record_wire;
 
 /* Watch type discriminator. */
 enum watch_type {
@@ -47,6 +53,11 @@ struct watch {
  * confirm-height) without dispatching on type at every call site. */
 struct bwatch {
 	struct plugin *plugin;
+	u32 current_height;
+	struct bitcoin_blkid current_blockhash;
+	/* Oldest first, most recent last. Used to replay a reorg by
+	 * peeling tips off until the parent hash matches the new chain. */
+	struct block_record_wire *block_history;
 
 	struct scriptpubkey_watches *scriptpubkey_watches;
 	struct outpoint_watches *outpoint_watches;
@@ -55,6 +66,9 @@ struct bwatch {
 
 	u32 poll_interval_ms;
 };
+
+/* Helper: get last block_history (or NULL) */
+const struct block_record_wire *bwatch_last_block(const struct bwatch *bwatch);
 
 /* Helper: retrieve the bwatch state from a plugin handle. */
 struct bwatch *bwatch_of(struct plugin *plugin);

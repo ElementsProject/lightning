@@ -5,6 +5,7 @@
 #include <plugins/bwatch/bwatch_interface.h>
 #include <plugins/bwatch/bwatch_scanner.h>
 #include <plugins/bwatch/bwatch_store.h>
+#include <plugins/bwatch/bwatch_wiregen.h>
 
 struct bwatch *bwatch_of(struct plugin *plugin)
 {
@@ -23,6 +24,14 @@ static const char *init(struct command *cmd,
 	bwatch->outpoint_watches = new_htable(bwatch, outpoint_watches);
 	bwatch->scid_watches = new_htable(bwatch, scid_watches);
 	bwatch->blockdepth_watches = new_htable(bwatch, blockdepth_watches);
+
+	bwatch->block_history = tal_arr(bwatch, struct block_record_wire, 0);
+
+	/* Replay persisted block history.  load_block_history sets
+	 * current_height / current_blockhash from the most recent record;
+	 * if there are no records, fall back to zero so the first poll
+	 * initialises us at the chain tip. */
+	bwatch_load_block_history(cmd, bwatch);
 
 	return NULL;
 }
