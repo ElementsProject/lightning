@@ -145,7 +145,7 @@ static struct command_result *block_processed_err(struct command *cmd,
 {
 	struct bwatch *bwatch = bwatch_of(cmd->plugin);
 
-	plugin_log(cmd->plugin, LOG_BROKEN,
+	plugin_log(cmd->plugin, LOG_DBG,
 		   "block_processed RPC failed (watchman not ready?): %.*s",
 		   json_tok_full_len(result), json_tok_full(buf, result));
 
@@ -190,4 +190,119 @@ void bwatch_send_revert_block_processed(struct command *cmd, u32 new_height,
 	json_add_string(req->js, "blockhash",
 			fmt_bitcoin_blkid(tmpctx, new_hash));
 	send_outreq(req);
+}
+
+/*
+ * ============================================================================
+ * CHAININFO ON STARTUP
+ *
+ * On init bwatch first asks bcli for chain name / IBD state / current
+ * blockcount, optionally rolls its tip back if bitcoind is shorter than
+ * what we have on disk, and forwards the result to watchman via the
+ * `chaininfo` RPC.  Whether watchman acks or errors, we then schedule
+ * the normal chain-poll loop.
+ * ============================================================================
+ */
+
+/* Watchman acked chaininfo: kick off normal polling. */
+static struct command_result *chaininfo_ack(struct command *cmd,
+					    const char *method UNUSED,
+					    const char *buf UNUSED,
+					    const jsmntok_t *result UNUSED,
+					    void *unused UNUSED)
+{
+	struct bwatch *bwatch = bwatch_of(cmd->plugin);
+	bwatch->poll_timer = global_timer(cmd->plugin, time_from_sec(0),
+					  bwatch_poll_chain, NULL);
+	return timer_complete(cmd);
+}
+
+/* Non-fatal: watchman may not be ready yet; poll anyway. */
+static struct command_result *chaininfo_err(struct command *cmd,
+					    const char *method UNUSED,
+					    const char *buf,
+					    const jsmntok_t *result,
+					    void *unused UNUSED)
+{
+	plugin_log(cmd->plugin, LOG_DBG,
+		   "chaininfo RPC failed: %.*s",
+		   json_tok_full_len(result), json_tok_full(buf, result));
+	return chaininfo_ack(cmd, method, buf, result, unused);
+}
+
+/* Got chain state from bcli: optionally roll back, then forward to watchman. */
+static struct command_result *chaininfo_getchaininfo_done(struct command *cmd,
+							  const char *method UNUSED,
+							  const char *buf,
+							  const jsmntok_t *result,
+							  void *unused UNUSED)
+{
+	struct bwatch *bwatch = bwatch_of(cmd->plugin);
+	struct out_req *req;
+	const char *chain;
+	u32 headercount, blockcount;
+	bool ibd;
+	const char *err;
+
+	err = json_scan(tmpctx, buf, result,
+			"{chain:%,headercount:%,blockcount:%,ibd:%}",
+			JSON_SCAN_TAL(tmpctx, json_strdup, &chain),
+			JSON_SCAN(json_to_number, &headercount),
+			JSON_SCAN(json_to_number, &blockcount),
+			JSON_SCAN(json_to_bool, &ibd));
+	if (err) {
+		plugin_log(cmd->plugin, LOG_BROKEN,
+			   "getchaininfo parse failed: %s", err);
+		return timer_complete(cmd);
+	}
+
+	/* Startup-only rollback: if bitcoind's chain is shorter than our
+	 * stored tip, peel off stale blocks now.  During normal polling the
+	 * shorter-chain case is handled by hash-mismatch reorg detection
+	 * inside handle_block. */
+	if (blockcount < bwatch->current_height) {
+		plugin_log(cmd->plugin, LOG_INFORM,
+			   "Startup: chain at %u but bwatch at %u; rolling back",
+			   blockcount, bwatch->current_height);
+		while (bwatch->current_height > blockcount
+		       && bwatch_last_block(bwatch))
+			bwatch_remove_tip(cmd, bwatch);
+	}
+
+	req = jsonrpc_request_start(cmd, "chaininfo",
+				    chaininfo_ack, chaininfo_err, NULL);
+	json_add_string(req->js, "chain", chain);
+	json_add_u32(req->js, "headercount", headercount);
+	json_add_u32(req->js, "blockcount", blockcount);
+	json_add_bool(req->js, "ibd", ibd);
+	return send_outreq(req);
+}
+
+/* bcli unreachable: log and fall back to polling so we don't stall init. */
+static struct command_result *chaininfo_getchaininfo_failed(struct command *cmd,
+							    const char *method UNUSED,
+							    const char *buf UNUSED,
+							    const jsmntok_t *result UNUSED,
+							    void *unused UNUSED)
+{
+	struct bwatch *bwatch = bwatch_of(cmd->plugin);
+	plugin_log(cmd->plugin, LOG_BROKEN,
+		   "getchaininfo failed during chaininfo init");
+	bwatch->poll_timer = global_timer(cmd->plugin, time_from_sec(0),
+					  bwatch_poll_chain, NULL);
+	return timer_complete(cmd);
+}
+
+struct command_result *bwatch_send_chaininfo(struct command *cmd,
+					     void *unused UNUSED)
+{
+	struct bwatch *bwatch = bwatch_of(cmd->plugin);
+	struct out_req *req;
+
+	req = jsonrpc_request_start(cmd, "getchaininfo",
+				    chaininfo_getchaininfo_done,
+				    chaininfo_getchaininfo_failed,
+				    NULL);
+	json_add_u32(req->js, "last_height", bwatch->current_height);
+	return send_outreq(req);
 }
