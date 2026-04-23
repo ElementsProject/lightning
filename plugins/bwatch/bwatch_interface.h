@@ -37,6 +37,14 @@ struct command_result *json_bwatch_del_scriptpubkey(struct command *cmd,
 						    const char *buffer,
 						    const jsmntok_t *params);
 
+/* RPC handlers: add / remove an outpoint watch. */
+struct command_result *json_bwatch_add_outpoint(struct command *cmd,
+						const char *buffer,
+						const jsmntok_t *params);
+struct command_result *json_bwatch_del_outpoint(struct command *cmd,
+						const char *buffer,
+						const jsmntok_t *params);
+
 /* Send a block_processed RPC to watchman after a new block has been
  * persisted.  The next poll is started from the ack callback so we don't
  * race ahead of watchman's view of the chain.  Chains on the same poll
