@@ -1,6 +1,7 @@
 #include "config.h"
 #include <assert.h>
 #include <bitcoin/chainparams.h>
+#include <bitcoin/short_channel_id.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/str/str.h>
 #include <ccan/tal/str/str.h>
@@ -423,6 +424,25 @@ void watchman_unwatch_outpoint(struct lightningd *ld,
 		     tal_fmt(tmpctx, "{\"outpoint\":\"%s:%u\"}",
 			     fmt_bitcoin_txid(tmpctx, &outpoint->txid),
 			     outpoint->n));
+}
+
+void watchman_watch_scid(struct lightningd *ld,
+			 const char *owner,
+			 const struct short_channel_id *scid,
+			 u32 start_block)
+{
+	watchman_add(ld, "addscidwatch", owner,
+		     tal_fmt(tmpctx, "{\"scid\":\"%s\",\"start_block\":%u}",
+			     fmt_short_channel_id(tmpctx, *scid), start_block));
+}
+
+void watchman_unwatch_scid(struct lightningd *ld,
+			   const char *owner,
+			   const struct short_channel_id *scid)
+{
+	watchman_del(ld, "delscidwatch", owner,
+		     tal_fmt(tmpctx, "{\"scid\":\"%s\"}",
+			     fmt_short_channel_id(tmpctx, *scid)));
 }
 
 /* Dispatch table - add new watch types here */

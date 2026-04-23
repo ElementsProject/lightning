@@ -7,6 +7,7 @@
 
 struct lightningd;
 struct pending_op;
+struct short_channel_id;
 
 /* lightningd's view of bwatch.  bwatch lives in a separate process and tells
  * us about new/reverted blocks and watch hits via JSON-RPC; watchman tracks
@@ -107,5 +108,16 @@ void watchman_watch_outpoint(struct lightningd *ld,
 void watchman_unwatch_outpoint(struct lightningd *ld,
 			       const char *owner,
 			       const struct bitcoin_outpoint *outpoint);
+
+/** Register a WATCH_SCID — fires when bwatch finds the output (for gossip get_txout). */
+void watchman_watch_scid(struct lightningd *ld,
+			 const char *owner,
+			 const struct short_channel_id *scid,
+			 u32 start_block);
+
+/** Remove a WATCH_SCID. */
+void watchman_unwatch_scid(struct lightningd *ld,
+			   const char *owner,
+			   const struct short_channel_id *scid);
 
 #endif /* LIGHTNING_LIGHTNINGD_WATCHMAN_H */
