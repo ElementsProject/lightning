@@ -77,4 +77,26 @@ void bwatch_save_watch_to_datastore(struct command *cmd, const struct watch *w);
 void bwatch_delete_watch_from_datastore(struct command *cmd, const struct watch *w);
 void bwatch_load_watches_from_datastore(struct command *cmd, struct bwatch *bwatch);
 
+/* High-level add/del that combine hash-table updates and datastore writes,
+ * and merge owner sets / lower start_block when the same key is registered
+ * multiple times. */
+struct watch *bwatch_add_watch(struct command *cmd,
+			       struct bwatch *bwatch,
+			       enum watch_type type,
+			       const struct bitcoin_outpoint *outpoint,
+			       const u8 *scriptpubkey,
+			       const struct short_channel_id *scid,
+			       const u32 *confirm_height,
+			       u32 start_block,
+			       const char *owner_id TAKES);
+
+void bwatch_del_watch(struct command *cmd,
+		      struct bwatch *bwatch,
+		      enum watch_type type,
+		      const struct bitcoin_outpoint *outpoint,
+		      const u8 *scriptpubkey,
+		      const struct short_channel_id *scid,
+		      const u32 *confirm_height,
+		      const char *owner_id);
+
 #endif /* LIGHTNING_PLUGINS_BWATCH_BWATCH_STORE_H */
