@@ -5143,3 +5143,43 @@ def test_filter_with_invalid_json(node_factory):
                          stdout=subprocess.PIPE)
     assert 'filter: Expected object: invalid token' in out.stdout.decode('utf-8')
     assert out.returncode == 1
+
+
+def test_tracing_socket(node_factory):
+    """Test UDS datagram tracing backend via CLN_TRACE_SOCKET."""
+    l1 = node_factory.get_node(start=False)
+    sock_path = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "trace.sock")
+
+    # Create a SOCK_DGRAM UDS listener
+    sock = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+    sock.bind(sock_path)
+    sock.settimeout(5)
+
+    l1.daemon.env["CLN_TRACE_SOCKET"] = sock_path
+    l1.start()
+    l1.stop()
+
+    # Collect all datagrams that were sent
+    spans = []
+    while True:
+        try:
+            data = sock.recv(4096)
+            spans.append(json.loads(data.decode("utf-8")))
+        except socket.timeout:
+            break
+
+    sock.close()
+
+    # We should have received at least some spans from startup
+    assert len(spans) > 0, "No spans received via UDS socket"
+
+    for span_array in spans:
+        # Each datagram is a Zipkin JSON array with one span
+        assert isinstance(span_array, list)
+        assert len(span_array) == 1
+        span = span_array[0]
+
+        # Validate required Zipkin fields are present
+        for key in ("id", "name", "timestamp", "duration", "traceId"):
+            assert key in span, f"Missing key {key} in span {span}"
+        assert span["localEndpoint"] == {"serviceName": "lightningd"}
