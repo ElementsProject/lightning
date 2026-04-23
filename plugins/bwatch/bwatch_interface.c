@@ -410,3 +410,51 @@ struct command_result *json_bwatch_del_outpoint(struct command *cmd,
 			 outpoint, NULL, NULL, NULL, owner);
 	return command_success(cmd, json_out_obj(cmd, "removed", "true"));
 }
+
+/* Register a short_channel_id watch for `owner` from `start_block`
+ * onwards. The scid pins the watch to one specific (block, txindex,
+ * outnum). */
+struct command_result *json_bwatch_add_scid(struct command *cmd,
+					    const char *buffer,
+					    const jsmntok_t *params)
+{
+	struct bwatch *bwatch = bwatch_of(cmd->plugin);
+	const char *owner;
+	struct short_channel_id *scid;
+	u32 *start_block;
+
+	if (!param(cmd, buffer, params,
+		   p_req("owner", param_string, &owner),
+		   p_req("scid", param_short_channel_id, &scid),
+		   p_req("start_block", param_u32, &start_block),
+		   NULL))
+		return command_param_failed();
+
+	/* New owner is appended to the watch's owner list; same owner
+	 * re-adding lowers start_block if needed (rescan handled later). */
+	bwatch_add_watch(cmd, bwatch, WATCH_SCID,
+			 NULL, NULL, scid, NULL,
+			 *start_block, owner);
+	return command_success(cmd, json_out_obj(cmd, NULL, NULL));
+}
+
+/* Drop one owner from a scid watch; the watch itself goes away once
+ * the last owner is removed. */
+struct command_result *json_bwatch_del_scid(struct command *cmd,
+					    const char *buffer,
+					    const jsmntok_t *params)
+{
+	struct bwatch *bwatch = bwatch_of(cmd->plugin);
+	const char *owner;
+	struct short_channel_id *scid;
+
+	if (!param(cmd, buffer, params,
+		   p_req("owner", param_string, &owner),
+		   p_req("scid", param_short_channel_id, &scid),
+		   NULL))
+		return command_param_failed();
+
+	bwatch_del_watch(cmd, bwatch, WATCH_SCID,
+			 NULL, NULL, scid, NULL, owner);
+	return command_success(cmd, json_out_obj(cmd, "removed", "true"));
+}
