@@ -163,6 +163,10 @@ static struct command_result *handle_block(struct command *cmd,
 			return fetch_block_handle(cmd, bwatch->current_height + 1);
 		}
 
+		/* Depth first: restart-marker watches (e.g. onchaind/
+		 * channel_close) start subdaemons before outpoint watches
+		 * fire for the same block. */
+		bwatch_check_blockdepth_watches(cmd, bwatch, block_height);
 		bwatch_process_block_txs(cmd, bwatch, block, block_height,
 					 &blockhash);
 	}

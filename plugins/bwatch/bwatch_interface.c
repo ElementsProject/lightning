@@ -58,6 +58,29 @@ void bwatch_send_watch_found(struct command *cmd,
 	send_outreq(req);
 }
 
+/* Send a blockdepth depth notification to lightningd: same watch_found
+ * RPC shape but with depth + blockheight only (no tx). */
+void bwatch_send_blockdepth_found(struct command *cmd,
+				  const struct watch *w,
+				  u32 depth,
+				  u32 blockheight)
+{
+	struct command *aux = aux_command(cmd);
+	struct out_req *req;
+
+	req = jsonrpc_request_start(aux, "watch_found",
+				    notify_ack, notify_ack, NULL);
+	json_add_u32(req->js, "blockheight", blockheight);
+	json_add_u32(req->js, "depth", depth);
+
+	json_array_start(req->js, "owners");
+	for (size_t i = 0; i < tal_count(w->owners); i++)
+		json_add_string(req->js, NULL, w->owners[i]);
+	json_array_end(req->js);
+
+	send_outreq(req);
+}
+
 /* Tell one owner that a previously-reported watch_found was rolled back. */
 void bwatch_send_watch_revert(struct command *cmd,
 			      const char *owner,

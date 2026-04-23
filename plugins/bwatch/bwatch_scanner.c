@@ -161,3 +161,26 @@ void bwatch_process_block_txs(struct command *cmd,
 
 	check_scid_watches(cmd, bwatch, block, blockheight);
 }
+
+/* Fire depth notifications for every active blockdepth watch.
+ * A watch with start_block > new_height is stale: its confirming block
+ * was reorged away, watch_revert has been sent, but the del hasn't
+ * arrived yet — skip it until deletion clears it from the table. */
+void bwatch_check_blockdepth_watches(struct command *cmd,
+				     struct bwatch *bwatch,
+				     u32 new_height)
+{
+	struct blockdepth_watches_iter it;
+	struct watch *w;
+
+	/* We only have one per channel or so in practice, so don't optimize */
+	for (w = blockdepth_watches_first(bwatch->blockdepth_watches, &it);
+	     w;
+	     w = blockdepth_watches_next(bwatch->blockdepth_watches, &it)) {
+		if (w->start_block > new_height)
+			continue; /* stale — awaiting deletion */
+
+		u32 depth = new_height - w->start_block + 1;
+		bwatch_send_blockdepth_found(cmd, w, depth, new_height);
+	}
+}

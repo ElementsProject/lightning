@@ -14,6 +14,12 @@ void bwatch_send_watch_found(struct command *cmd,
 			     u32 txindex,
 			     u32 index);
 
+/* Send blockdepth depth notification to lightningd (no tx, just depth + height) */
+void bwatch_send_blockdepth_found(struct command *cmd,
+				  const struct watch *w,
+				  u32 depth,
+				  u32 blockheight);
+
 void bwatch_send_watch_revert(struct command *cmd,
 			      const char *owner,
 			      u32 blockheight);

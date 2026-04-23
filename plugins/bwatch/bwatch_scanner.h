@@ -12,4 +12,10 @@ void bwatch_process_block_txs(struct command *cmd,
 			      u32 blockheight,
 			      const struct bitcoin_blkid *blockhash);
 
+/* Fire depth notifications for every active blockdepth watch at
+ * new_height. Called once per new block on the happy path. */
+void bwatch_check_blockdepth_watches(struct command *cmd,
+				     struct bwatch *bwatch,
+				     u32 new_height);
+
 #endif /* LIGHTNING_PLUGINS_BWATCH_BWATCH_SCANNER_H */
