@@ -24,6 +24,11 @@ void bwatch_send_watch_revert(struct command *cmd,
 			      const char *owner,
 			      u32 blockheight);
 
+/* Send chain name / IBD status / sync info to watchman on startup.
+ * Used as a timer callback from init; the ack/err handlers kick the
+ * normal chain-poll loop afterwards. */
+struct command_result *bwatch_send_chaininfo(struct command *cmd, void *unused);
+
 /* Send a block_processed RPC to watchman after a new block has been
  * persisted.  The next poll is started from the ack callback so we don't
  * race ahead of watchman's view of the chain.  Chains on the same poll
