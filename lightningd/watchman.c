@@ -50,7 +50,6 @@ static const char **make_key(const tal_t *ctx, const char *op_id TAKES)
 /* Persist a pending operation to the datastore for crash recovery.
  * The method is encoded in op_id (see struct pending_op), so we store
  * only json_params as the value. */
-__attribute__((unused))
 static void db_save(struct watchman *wm, const struct pending_op *op)
 {
 	const char **key = make_key(tmpctx, op->op_id);
@@ -68,6 +67,16 @@ static void db_remove(struct watchman *wm, const char *op_id)
 	wallet_datastore_remove(wm->ld->wallet, key);
 }
 
+__attribute__((unused))
+static void save_tip(struct watchman *wm)
+{
+	struct db *db = wm->ld->wallet->db;
+	db_set_intvar(db, "last_watchman_block_height", wm->last_processed_height);
+	db_set_blobvar(db, "last_watchman_block_hash",
+		       (const u8 *)&wm->last_processed_hash,
+		       sizeof(wm->last_processed_hash));
+}
+
 static void load_tip(struct watchman *wm)
 {
 	struct db *db = wm->ld->wallet->db;
@@ -81,6 +90,43 @@ static void load_tip(struct watchman *wm)
 		memcpy(&wm->last_processed_hash, blob, sizeof(wm->last_processed_hash));
 	}
 }
+
+/* Load all pending operations from datastore on startup */
+static void load_pending_ops(struct watchman *wm)
+{
+	const char **startkey = mkdatastorekey(tmpctx, "watchman", "pending");
+	const char **key;
+	const u8 *data;
+	u64 generation;
+	struct db_stmt *stmt;
+
+	for (stmt = wallet_datastore_first(tmpctx, wm->ld->wallet, startkey,
+					   &key, &data, &generation);
+	     stmt;
+	     stmt = wallet_datastore_next(tmpctx, startkey, stmt,
+					  &key, &data, &generation)) {
+		if (tal_count(key) != 3)
+			continue;
+
+		/* op_id is the datastore key; method is the prefix before ':'.
+		 * Malformed keys (no ':') are skipped — they can't be replayed. */
+		if (!strchr(key[2], ':')) {
+			log_broken(wm->ld->log,
+				   "Skipping malformed pending op key '%s' (no ':' separator)",
+				   key[2]);
+			continue;
+		}
+
+		struct pending_op *op = tal(wm, struct pending_op);
+		op->op_id       = tal_strdup(op, key[2]);
+		op->json_params = tal_strdup(op, (const char *)data);
+		tal_arr_expand(&wm->pending_ops, op);
+
+		log_debug(wm->ld->log, "Loaded pending op: %s", op->op_id);
+	}
+}
+
+static void watchman_on_plugin_ready(struct lightningd *ld, struct plugin *plugin);
 
 /* Apply --rescan: negative means absolute height (only go back),
  * positive means relative (go back N blocks from stored tip). */
@@ -112,11 +158,15 @@ struct watchman *watchman_new(const tal_t *ctx, struct lightningd *ld)
 	wm->ld = ld;
 	wm->pending_ops = tal_arr(wm, struct pending_op *, 0);
 
+	load_pending_ops(wm);
 	load_tip(wm);
 	apply_rescan(wm, ld);
 
 	log_info(ld->log, "Watchman: height=%u, %zu pending ops",
 		 wm->last_processed_height, tal_count(wm->pending_ops));
+
+	/* Replay pending ops exactly when bwatch transitions to INIT_COMPLETE. */
+	ld->plugins->on_plugin_ready = watchman_on_plugin_ready;
 
 	return wm;
 }
@@ -154,7 +204,6 @@ static const char *owner_from_op_id(const char *op_id)
 }
 
 /* op_id is "{method}:{owner}"; return the method prefix. */
-__attribute__((unused))
 static const char *method_from_op_id(const tal_t *ctx, const char *op_id)
 {
 	const char *colon = strchr(op_id, ':');
@@ -164,7 +213,6 @@ static const char *method_from_op_id(const tal_t *ctx, const char *op_id)
 
 /* Send an RPC request to the bwatch plugin.
  * op_id must be "{method}:{owner}", e.g. "addscriptpubkeywatch:wallet/p2wpkh/42". */
-__attribute__((unused))
 static void send_to_bwatch(struct watchman *wm, const char *method,
 			   const char *op_id, const char *json_params)
 {
@@ -216,6 +264,58 @@ static void send_to_bwatch(struct watchman *wm, const char *method,
 	plugin_request_send(bwatch, req);
 }
 
+/* Queue an operation, persist it for crash recovery, and send to bwatch. */
+static void enqueue_op(struct watchman *wm, const char *method,
+		       const char *op_id, const char *json_params)
+{
+	struct pending_op *op = tal(wm, struct pending_op);
+	op->op_id       = tal_strdup(op, op_id);
+	op->json_params = tal_strdup(op, json_params);
+	tal_arr_expand(&wm->pending_ops, op);
+	db_save(wm, op);
+	send_to_bwatch(wm, method, op_id, json_params);
+}
+
+/* Internal: queue an add for a specific per-type bwatch command. */
+__attribute__((unused))
+static void watchman_add(struct lightningd *ld, const char *method,
+			 const char *owner, const char *json_params)
+{
+	struct watchman *wm = ld->watchman;
+	char *op_id = tal_fmt(tmpctx, "%s:%s", method, owner);
+
+	/* Remove any existing add for this owner */
+	watchman_ack(ld, op_id);
+	enqueue_op(wm, method, op_id, json_params);
+}
+
+/**
+ * watchman_del - Queue a delete watch operation
+ *
+ * Simply queues the operation and sends to bwatch.
+ * Bwatch handles duplicate deletes idempotently.
+ * Cancels any pending add for this owner.
+ */
+__attribute__((unused))
+static void watchman_del(struct lightningd *ld, const char *method,
+			 const char *owner, const char *json_params)
+{
+	struct watchman *wm = ld->watchman;
+	char *op_id = tal_fmt(tmpctx, "%s:%s", method, owner);
+
+	/* Cancel any pending add for this owner — the add method is different
+	 * from the del method, so scan by owner rather than constructing the
+	 * add op_id directly. */
+	for (size_t i = 0; i < tal_count(wm->pending_ops); i++) {
+		if (strstarts(wm->pending_ops[i]->op_id, "add") &&
+		    streq(owner_from_op_id(wm->pending_ops[i]->op_id), owner)) {
+			watchman_ack(ld, wm->pending_ops[i]->op_id);
+			break;
+		}
+	}
+	enqueue_op(wm, method, op_id, json_params);
+}
+
 /**
  * watchman_ack - Acknowledge a completed watch operation
  *
@@ -235,5 +335,43 @@ void watchman_ack(struct lightningd *ld, const char *op_id)
 			tal_arr_remove(&wm->pending_ops, i);
 			return;
 		}
+	}
+}
+
+/**
+ * watchman_replay_pending - Resend all pending operations to bwatch
+ *
+ * Called on startup after bwatch is ready, to ensure any operations
+ * that were pending before a crash are sent to bwatch.
+ */
+void watchman_replay_pending(struct lightningd *ld)
+{
+	struct watchman *wm = ld->watchman;
+
+	for (size_t i = 0; i < tal_count(wm->pending_ops); i++) {
+		struct pending_op *op = wm->pending_ops[i];
+		send_to_bwatch(wm, method_from_op_id(tmpctx, op->op_id),
+			       op->op_id, op->json_params);
+	}
+}
+
+/* Replay pending ops when bwatch is ready.  On a fresh node current_height
+ * is still 0, so we defer to json_block_processed where it's guaranteed > 0. */
+static void watchman_on_plugin_ready(struct lightningd *ld, struct plugin *plugin)
+{
+	struct watchman *wm = ld->watchman;
+
+	if (!wm)
+		return;
+	/* Check if this is bwatch by seeing if it owns the "addscriptpubkeywatch" method. */
+	if (find_plugin_for_command(ld, "addscriptpubkeywatch") != plugin)
+		return;
+
+	if (wm->last_processed_height > 0) {
+		log_debug(ld->log, "bwatch reached INIT_COMPLETE, replaying pending ops (height=%u)",
+			  wm->last_processed_height);
+		watchman_replay_pending(ld);
+		/* TODO: notify_block_added(ld, height, &hash) once that helper's
+		 * signature is migrated in Group H (chaintopology removal). */
 	}
 }
