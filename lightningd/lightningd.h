@@ -12,6 +12,7 @@
 #include <wallet/wallet.h>
 
 struct amount_msat;
+struct watchman;
 
 /* Various adjustable things. */
 struct config {
@@ -239,6 +240,7 @@ struct lightningd {
 	/* Derive all our BIP86 keys from here */
 	struct ext_key *bip86_base;
 	struct wallet *wallet;
+	struct watchman *watchman;
 
 	/* Outstanding waitsendpay commands. */
 	struct list_head waitsendpay_commands;
