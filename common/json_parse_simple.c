@@ -2,6 +2,7 @@
 #include "config.h"
 #include <assert.h>
 #include <ccan/mem/mem.h>
+#include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
 #include <common/json_parse_simple.h>
 #include <common/utils.h>
@@ -149,6 +150,18 @@ bool json_to_bool(const char *buffer, const jsmntok_t *tok, bool *b)
 		return true;
 	}
 	return false;
+}
+
+bool json_hex_to_be32(const char *buffer, const jsmntok_t *tok, be32 *val)
+{
+	return hex_decode(buffer + tok->start, tok->end - tok->start,
+			  val, sizeof(*val));
+}
+
+bool json_hex_to_be64(const char *buffer, const jsmntok_t *tok, be64 *val)
+{
+	return hex_decode(buffer + tok->start, tok->end - tok->start,
+			  val, sizeof(*val));
 }
 
 

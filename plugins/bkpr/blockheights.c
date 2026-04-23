@@ -98,13 +98,6 @@ u32 find_blockheight(const struct bkpr *bkpr,
 	return e ? e->height : 0;
 }
 
-static bool json_hex_to_be32(const char *buffer, const jsmntok_t *tok,
-			     be32 *val)
-{
-	return hex_decode(buffer + tok->start, tok->end - tok->start,
-			  val, sizeof(*val));
-}
-
 struct blockheights *init_blockheights(const tal_t *ctx,
 				       struct command *init_cmd)
 {
