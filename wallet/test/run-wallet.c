@@ -779,19 +779,6 @@ u8 *unsigned_node_announcement(const tal_t *ctx UNNEEDED,
 			       struct lightningd *ld UNNEEDED,
 			       const u8 *prev UNNEEDED)
 { fprintf(stderr, "unsigned_node_announcement called!\n"); abort(); }
-/* Generated stub for watch_scriptpubkey_ */
-bool watch_scriptpubkey_(const tal_t *ctx UNNEEDED,
-			 struct chain_topology *topo UNNEEDED,
-			 const u8 *scriptpubkey TAKES UNNEEDED,
-			 const struct bitcoin_outpoint *expected_outpoint UNNEEDED,
-			 struct amount_sat expected_amount UNNEEDED,
-			 void (*cb)(struct lightningd *ld UNNEEDED,
-				    const struct bitcoin_tx *tx UNNEEDED,
-				    u32 outnum UNNEEDED,
-				    const struct txlocator *loc UNNEEDED,
-				    void *) UNNEEDED,
-			 void *arg UNNEEDED)
-{ fprintf(stderr, "watch_scriptpubkey_ called!\n"); abort(); }
 /* Generated stub for watchman_unwatch_blockdepth */
 void watchman_unwatch_blockdepth(struct lightningd *ld UNNEEDED,
 				 const char *owner UNNEEDED,
@@ -894,21 +881,6 @@ u32 get_block_height(const struct chain_topology *topo UNNEEDED)
 
 void migrate_from_account_db(struct lightningd *ld UNNEEDED, struct db *db UNNEEDED)
 {
-}
-
-bool unwatch_scriptpubkey_(const tal_t *ctx UNNEEDED,
-			   struct chain_topology *topo UNNEEDED,
-			   const u8 *scriptpubkey TAKES UNNEEDED,
-			   const struct bitcoin_outpoint *expected_outpoint UNNEEDED,
-			   struct amount_sat expected_amount UNNEEDED,
-			   void (*cb)(struct lightningd *ld UNNEEDED,
-				      const struct bitcoin_tx *tx UNNEEDED,
-				      u32 outnum UNNEEDED,
-				      const struct txlocator *loc UNNEEDED,
-				      void *) UNNEEDED,
-			   void *arg UNNEEDED)
-{
-	return true;
 }
 
 /**

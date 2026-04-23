@@ -38,26 +38,8 @@ static void filter_block_txs(struct chain_topology *topo, struct block *b)
 	for (size_t i = 0; i < num_txs; i++) {
 		struct bitcoin_tx *tx = b->full_txs[i];
 		struct bitcoin_txid txid;
-		const struct txlocator loc = { b->height, i };
 		bool is_coinbase = i == 0;
 		size_t *our_outnums;
-
-		/* Tell them if it spends a txo we care about. */
-		for (size_t j = 0; j < tx->wtx->num_inputs; j++) {
-			struct bitcoin_outpoint out;
-			struct txowatch_hash_iter it;
-
-			bitcoin_tx_input_get_txid(tx, j, &out.txid);
-			out.n = tx->wtx->inputs[j].index;
-
-			for (struct txowatch *txo = txowatch_hash_getfirst(topo->txowatches, &out, &it);
-			     txo;
-			     txo = txowatch_hash_getnext(topo->txowatches, &out, &it)) {
-				wallet_transaction_add(topo->ld->wallet,
-						       tx->wtx, b->height, i);
-				txowatch_fire(txo, tx, j, b);
-			}
-		}
 
 		txid = b->txids[i];
 		our_outnums = tal_arr(tmpctx, size_t, 0);
@@ -79,17 +61,11 @@ static void filter_block_txs(struct chain_topology *topo, struct block *b)
 
 		}
 
-		/* We did spends first, in case that tells us to watch tx. */
-
 		/* Make sure we preserve any transaction we are interested in */
-		if (watch_check_tx_outputs(topo, &loc, tx, &txid)
-		    || watching_txid(topo, &txid)
-		    || we_broadcast(topo->ld, &txid)) {
+		if (we_broadcast(topo->ld, &txid)) {
 			wallet_transaction_add(topo->ld->wallet,
 					       tx->wtx, b->height, i);
 		}
-
-		txwatch_inform(topo, &txid, take(tx));
 	}
 	b->full_txs = tal_free(b->full_txs);
 	b->txids = tal_free(b->txids);
@@ -136,12 +112,6 @@ static void updates_complete(struct chain_topology *topo)
 	if (!bitcoin_blkid_eq(&topo->tip->blkid, &topo->prev_tip)) {
 		/* Tell lightningd about new block. */
 		notify_new_block(topo->ld);
-
-		/* Tell blockdepth watchers */
-		watch_check_block_added(topo, topo->tip->height);
-
-		/* Tell watch code to re-evaluate all txs. */
-		watch_topology_changed(topo);
 
 		/* Maybe need to rebroadcast. */
 		rebroadcast_txs(topo->ld);
@@ -316,8 +286,6 @@ static struct block *new_block(struct chain_topology *topo,
 static void remove_tip(struct chain_topology *topo)
 {
 	struct block *b = topo->tip;
-	struct bitcoin_txid *txs;
-	size_t n;
 	const struct short_channel_id *removed_scids;
 
 	log_debug(topo->log, "Removing stale block %u: %s",
@@ -332,20 +300,10 @@ static void remove_tip(struct chain_topology *topo)
 		      b->height,
 		      fmt_bitcoin_blkid(tmpctx, &b->blkid));
 
-	txs = wallet_transactions_by_height(b, topo->ld->wallet, b->height);
-	n = tal_count(txs);
-
-	/* Notify that txs are kicked out (their height will be set NULL in db) */
-	for (size_t i = 0; i < n; i++)
-		txwatch_fire(topo, &txs[i], 0);
-
 	/* Grab these before we delete block from db */
 	removed_scids = wallet_utxoset_get_created(tmpctx, topo->ld->wallet,
 						   b->height);
 	wallet_block_remove(topo->ld->wallet, b);
-
-	/* Anyone watching for block removes */
-	watch_check_block_removed(topo, b->height);
 
 	block_map_del(topo->block_map, b);
 
@@ -422,10 +380,6 @@ struct chain_topology *new_topology(struct lightningd *ld, struct logger *log)
 
 	topo->ld = ld;
 	topo->block_map = new_htable(topo, block_map);
-	topo->txwatches = new_htable(topo, txwatch_hash);
-	topo->txowatches = new_htable(topo, txowatch_hash);
-	topo->scriptpubkeywatches = new_htable(topo, scriptpubkeywatch_hash);
-	topo->blockdepthwatches = new_htable(topo, blockdepthwatch_hash);
 	topo->log = log;
 	topo->root = NULL;
 	topo->sync_waiters = tal(topo, struct list_head);

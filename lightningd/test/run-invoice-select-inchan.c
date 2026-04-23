@@ -79,13 +79,6 @@ void channel_fail_permanent(struct channel *channel UNNEEDED,
 			    const char *fmt UNNEEDED,
 			    ...)
 { fprintf(stderr, "channel_fail_permanent called!\n"); abort(); }
-/* Generated stub for channel_fail_saw_onchain */
-void channel_fail_saw_onchain(struct channel *channel UNNEEDED,
-			      enum state_change reason UNNEEDED,
-			      const struct bitcoin_tx *tx UNNEEDED,
-			      const char *fmt UNNEEDED,
-			      ...)
-{ fprintf(stderr, "channel_fail_saw_onchain called!\n"); abort(); }
 /* Generated stub for channel_fail_transient */
 void channel_fail_transient(struct channel *channel UNNEEDED,
 			    bool disconnect UNNEEDED,
@@ -768,19 +761,6 @@ void wallet_unreserve_utxo(struct wallet *w UNNEEDED, struct utxo *utxo UNNEEDED
 struct utxo *wallet_utxo_get(const tal_t *ctx UNNEEDED, struct wallet *w UNNEEDED,
 			     const struct bitcoin_outpoint *outpoint UNNEEDED)
 { fprintf(stderr, "wallet_utxo_get called!\n"); abort(); }
-/* Generated stub for watch_scriptpubkey_ */
-bool watch_scriptpubkey_(const tal_t *ctx UNNEEDED,
-			 struct chain_topology *topo UNNEEDED,
-			 const u8 *scriptpubkey TAKES UNNEEDED,
-			 const struct bitcoin_outpoint *expected_outpoint UNNEEDED,
-			 struct amount_sat expected_amount UNNEEDED,
-			 void (*cb)(struct lightningd *ld UNNEEDED,
-				    const struct bitcoin_tx *tx UNNEEDED,
-				    u32 outnum UNNEEDED,
-				    const struct txlocator *loc UNNEEDED,
-				    void *) UNNEEDED,
-			 void *arg UNNEEDED)
-{ fprintf(stderr, "watch_scriptpubkey_ called!\n"); abort(); }
 /* Generated stub for watchman_unwatch_blockdepth */
 void watchman_unwatch_blockdepth(struct lightningd *ld UNNEEDED,
 				 const char *owner UNNEEDED,

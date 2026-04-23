@@ -375,7 +375,6 @@ struct channel *new_unsaved_channel(struct peer *peer,
 	channel->next_index[LOCAL] = 1;
 	channel->next_index[REMOTE] = 1;
 	channel->next_htlc_id = 0;
-	channel->funding_spend_watch = NULL;
 	channel->pre_splice_funding = NULL;
 	channel->onchaind_watches = NULL;
 	channel->funding_spend_txid = NULL;
@@ -615,7 +614,6 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->next_htlc_id = next_htlc_id;
 	channel->funding = *funding;
 	channel->funding_sats = funding_sats;
-	channel->funding_spend_watch = NULL;
 	channel->pre_splice_funding = NULL;
 	channel->onchaind_watches = NULL;
 	channel->funding_spend_txid = NULL;

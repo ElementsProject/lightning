@@ -1,17 +1,16 @@
 #ifndef LIGHTNING_LIGHTNINGD_CHAINTOPOLOGY_H
 #define LIGHTNING_LIGHTNINGD_CHAINTOPOLOGY_H
 #include "config.h"
+#include <bitcoin/block.h>
+#include <ccan/htable/htable_type.h>
 #include <lightningd/broadcast.h>
 #include <lightningd/feerate.h>
-#include <lightningd/watch.h>
 
 struct bitcoin_tx;
 struct bitcoind;
 struct command;
 struct lightningd;
 struct peer;
-struct txwatch;
-struct scriptpubkeywatch;
 struct wallet;
 
 struct block {
@@ -72,12 +71,6 @@ struct chain_topology {
 
 	/* Timers we're running. */
 	struct oneshot *checkchain_timer, *extend_timer;
-
-	/* Transactions/txos we are watching. */
-	struct txwatch_hash *txwatches;
-	struct txowatch_hash *txowatches;
-	struct scriptpubkeywatch_hash *scriptpubkeywatches;
-	struct blockdepthwatch_hash *blockdepthwatches;
 
 	/* The number of headers known to the bitcoin backend at startup. Not
 	 * updated after the initial check. */

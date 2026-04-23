@@ -45,8 +45,7 @@ LIGHTNINGD_SRC :=				\
 	lightningd/routehint.c			\
 	lightningd/runes.c			\
 	lightningd/subd.c			\
-	lightningd/wait.c			\
-	lightningd/watch.c
+	lightningd/wait.c
 
 LIGHTNINGD_SRC_NOHDR :=				\
 	lightningd/configs.c			\

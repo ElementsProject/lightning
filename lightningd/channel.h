@@ -206,9 +206,6 @@ struct channel {
 	struct bitcoin_outpoint funding;
 	struct amount_sat funding_sats;
 
-	/* Watch we have on funding output. */
-	struct txowatch *funding_spend_watch;
-
 	/* Original funding outpoint before a splice overwrites channel->funding.
 	 * Populated by channel_splice_watch_found; read by handle_peer_splice_locked
 	 * for channel_record_splice.  In-memory only: not persisted to the wallet.
