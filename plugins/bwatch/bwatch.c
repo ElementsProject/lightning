@@ -288,7 +288,8 @@ static const char *init(struct command *cmd,
 }
 
 static const struct plugin_command commands[] = {
-	/* Subsequent commits register addwatch / delwatch / listwatch here. */
+	{ "addscriptpubkeywatch", json_bwatch_add_scriptpubkey },
+	{ "delscriptpubkeywatch", json_bwatch_del_scriptpubkey },
 };
 
 int main(int argc, char *argv[])
