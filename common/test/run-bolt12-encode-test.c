@@ -429,15 +429,18 @@ int main(int argc, char *argv[])
 	/* BOLT #12:
 	 *   - if `offer_amount` is set and `offer_description` is not set:
 	 *     - MUST NOT respond to the offer.
-	 *   - if `offer_amount` is set and is not greater than zero:
+	 * 	 - if `offer_amount` is set and is not greater than zero:
 	 *     - MUST NOT respond to the offer.
 	 *   - if `offer_currency` is set and `offer_amount` is not set:
 	 *     - MUST NOT respond to the offer.
 	 *   - if neither `offer_issuer_id` nor `offer_paths` are set:
 	 *     - MUST NOT respond to the offer.
 	 */
+	offer->offer_amount = tal(offer, u64);
+	*offer->offer_amount = 10000;
+
 	offer->offer_description = NULL;
-	print_invalid_offer(offer, "Missing offer_description and offer_amount");
+	print_invalid_offer(offer, "Missing offer_description");
 	offer->offer_description = tal_utf8(tmpctx, "Test vectors");
 
 	offer->offer_amount = tal(offer, u64);
