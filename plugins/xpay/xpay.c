@@ -1706,22 +1706,6 @@ static struct command_result *populate_private_layer(struct command *cmd,
 	return batch_done(aux_cmd, batch);
 }
 
-static struct command_result *param_string_array(struct command *cmd, const char *name,
-						 const char *buffer, const jsmntok_t *tok,
-						 const char ***arr)
-{
-	size_t i;
-	const jsmntok_t *s;
-
-	if (tok->type != JSMN_ARRAY)
-		return command_fail_badparam(cmd, name, buffer, tok,
-					     "should be an array");
-	*arr = tal_arr(cmd, const char *, tok->size);
-	json_for_each_arr(i, s, tok)
-		(*arr)[i] = json_strdup(*arr, buffer, s);
-	return NULL;
-}
-
 static struct command_result *
 preapproveinvoice_succeed(struct command *cmd,
 			  const char *method,

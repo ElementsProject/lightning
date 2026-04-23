@@ -206,6 +206,11 @@ struct command_result *param_string_or_array(struct command *cmd, const char *na
 					     const char * buffer, const jsmntok_t *tok,
 					     struct str_or_arr **result);
 
+/* Array of strings */
+struct command_result *param_string_array(struct command *cmd, const char *name,
+					  const char *buffer, const jsmntok_t *tok,
+					  const char ***arr);
+
 /* Extract an invoice string from a generic string, strip the `lightning:`
  * prefix from it if needed. */
 struct command_result *param_invstring(struct command *cmd, const char *name,
