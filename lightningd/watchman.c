@@ -404,6 +404,27 @@ void watchman_unwatch_scriptpubkey(struct lightningd *ld,
 			     tal_hexstr(tmpctx, scriptpubkey, script_len)));
 }
 
+void watchman_watch_outpoint(struct lightningd *ld,
+			     const char *owner,
+			     const struct bitcoin_outpoint *outpoint,
+			     u32 start_block)
+{
+	watchman_add(ld, "addoutpointwatch", owner,
+		     tal_fmt(tmpctx, "{\"outpoint\":\"%s:%u\",\"start_block\":%u}",
+			     fmt_bitcoin_txid(tmpctx, &outpoint->txid),
+			     outpoint->n, start_block));
+}
+
+void watchman_unwatch_outpoint(struct lightningd *ld,
+			       const char *owner,
+			       const struct bitcoin_outpoint *outpoint)
+{
+	watchman_del(ld, "deloutpointwatch", owner,
+		     tal_fmt(tmpctx, "{\"outpoint\":\"%s:%u\"}",
+			     fmt_bitcoin_txid(tmpctx, &outpoint->txid),
+			     outpoint->n));
+}
+
 /* Dispatch table - add new watch types here */
 static const struct depth_dispatch {
 	const char *prefix;

@@ -97,4 +97,15 @@ void watchman_unwatch_scriptpubkey(struct lightningd *ld,
 				   const u8 *scriptpubkey,
 				   size_t script_len);
 
+/** Register a WATCH_OUTPOINT — fires when @outpoint is spent. */
+void watchman_watch_outpoint(struct lightningd *ld,
+			     const char *owner,
+			     const struct bitcoin_outpoint *outpoint,
+			     u32 start_block);
+
+/** Remove a WATCH_OUTPOINT (e.g. during splice before re-adding for new outpoint). */
+void watchman_unwatch_outpoint(struct lightningd *ld,
+			       const char *owner,
+			       const struct bitcoin_outpoint *outpoint);
+
 #endif /* LIGHTNING_LIGHTNINGD_WATCHMAN_H */
