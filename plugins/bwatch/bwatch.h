@@ -14,6 +14,9 @@ struct outpoint_watches;
 struct scid_watches;
 struct blockdepth_watches;
 
+/* Timer handle returned by global_timer; defined in libplugin. */
+struct plugin_timer;
+
 /* Wire-format block record stored in lightningd's datastore.
  * Defined by bwatch_wiregen.h; forward-declared here to avoid pulling
  * the generated header into every consumer of bwatch.h. */
@@ -64,6 +67,8 @@ struct bwatch {
 	struct scid_watches *scid_watches;
 	struct blockdepth_watches *blockdepth_watches;
 
+	/* Active poll timer; rescheduled at the end of every poll cycle. */
+	struct plugin_timer *poll_timer;
 	u32 poll_interval_ms;
 };
 
@@ -72,5 +77,10 @@ const struct block_record_wire *bwatch_last_block(const struct bwatch *bwatch);
 
 /* Helper: retrieve the bwatch state from a plugin handle. */
 struct bwatch *bwatch_of(struct plugin *plugin);
+
+/* Timer callback: kicks off one chain-poll cycle (getchaininfo →
+ * getrawblockbyheight → persist → reschedule).  Exposed so other modules
+ * can schedule a poll from their own callbacks. */
+struct command_result *bwatch_poll_chain(struct command *cmd, void *unused);
 
 #endif /* LIGHTNING_PLUGINS_BWATCH_BWATCH_H */
