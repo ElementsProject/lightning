@@ -296,6 +296,7 @@ static const struct plugin_command commands[] = {
 	{ "deloutpointwatch",     json_bwatch_del_outpoint     },
 	{ "delscidwatch",         json_bwatch_del_scid         },
 	{ "delblockdepthwatch",   json_bwatch_del_blockdepth   },
+	{ "listwatch",            json_bwatch_list             },
 };
 
 int main(int argc, char *argv[])
