@@ -332,12 +332,12 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags,
 		= state->upfront_shutdown_script[LOCAL];
 
 	/* BOLT #2:
-	 * - MUST set `channel_type`:
-	 *     - MUST set it to a defined type representing the type it wants.
-	 *     - MUST use the smallest bitmap possible to represent the channel
-	 *       type.
-	 *     - SHOULD NOT set it to a type containing a feature which was not
-	 *       negotiated.
+	 *  - MUST set `channel_type`:
+	 *    - MUST set it to a defined type representing the type it wants.
+	 *    - MUST use the smallest bitmap possible to represent the channel
+	 *      type.
+	 *    - SHOULD NOT set it to a type containing a feature which was not
+	 *      negotiated.
 	 */
 	open_tlvs->channel_type = state->channel_type->features;
 
