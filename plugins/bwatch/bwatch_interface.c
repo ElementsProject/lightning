@@ -79,6 +79,10 @@ void bwatch_send_blockdepth_found(struct command *cmd,
 		json_add_string(req->js, NULL, w->owners[i]);
 	json_array_end(req->js);
 
+	plugin_log(cmd->plugin, LOG_DBG,
+		   "watch_found at block %u (blockdepth depth=%u)",
+		   blockheight, depth);
+
 	send_outreq(req);
 }
 
@@ -456,5 +460,50 @@ struct command_result *json_bwatch_del_scid(struct command *cmd,
 
 	bwatch_del_watch(cmd, bwatch, WATCH_SCID,
 			 NULL, NULL, scid, NULL, owner);
+	return command_success(cmd, json_out_obj(cmd, "removed", "true"));
+}
+
+/* Register a blockdepth watch for `owner` anchored at `start_block`.
+ * Each new block fires a watch_found with depth = tip - start_block + 1. */
+struct command_result *json_bwatch_add_blockdepth(struct command *cmd,
+						  const char *buffer,
+						  const jsmntok_t *params)
+{
+	struct bwatch *bwatch = bwatch_of(cmd->plugin);
+	const char *owner;
+	u32 *start_block;
+
+	if (!param(cmd, buffer, params,
+		   p_req("owner", param_string, &owner),
+		   p_req("start_block", param_u32, &start_block),
+		   NULL))
+		return command_param_failed();
+
+	/* start_block doubles as the watch key (confirm_height) and
+	 * the anchor for depth = tip - start_block + 1. */
+	bwatch_add_watch(cmd, bwatch, WATCH_BLOCKDEPTH,
+			 NULL, NULL, NULL, start_block,
+			 *start_block, owner);
+	return command_success(cmd, json_out_obj(cmd, NULL, NULL));
+}
+
+/* Drop one owner from a blockdepth watch; the watch itself goes away
+ * once the last owner is removed. */
+struct command_result *json_bwatch_del_blockdepth(struct command *cmd,
+						  const char *buffer,
+						  const jsmntok_t *params)
+{
+	struct bwatch *bwatch = bwatch_of(cmd->plugin);
+	const char *owner;
+	u32 *start_block;
+
+	if (!param(cmd, buffer, params,
+		   p_req("owner", param_string, &owner),
+		   p_req("start_block", param_u32, &start_block),
+		   NULL))
+		return command_param_failed();
+
+	bwatch_del_watch(cmd, bwatch, WATCH_BLOCKDEPTH,
+			 NULL, NULL, NULL, start_block, owner);
 	return command_success(cmd, json_out_obj(cmd, "removed", "true"));
 }
