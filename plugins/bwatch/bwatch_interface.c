@@ -1,4 +1,5 @@
 #include "config.h"
+#include <ccan/json_out/json_out.h>
 #include <common/json_param.h>
 #include <common/json_parse.h>
 #include <common/json_stream.h>
@@ -506,4 +507,88 @@ struct command_result *json_bwatch_del_blockdepth(struct command *cmd,
 	bwatch_del_watch(cmd, bwatch, WATCH_BLOCKDEPTH,
 			 NULL, NULL, NULL, start_block, owner);
 	return command_success(cmd, json_out_obj(cmd, "removed", "true"));
+}
+
+/* Emit type / start_block / owners for one watch. */
+static void json_out_watch_common(struct json_out *jout,
+				  enum watch_type type,
+				  u32 start_block,
+				  wirestring **owners)
+{
+	json_out_addstr(jout, "type", bwatch_get_watch_type_name(type));
+	json_out_add(jout, "start_block", false, "%u", start_block);
+	json_out_start(jout, "owners", '[');
+	for (size_t i = 0; i < tal_count(owners); i++)
+		json_out_addstr(jout, NULL, owners[i]);
+	json_out_end(jout, ']');
+}
+
+/* Dump every active watch as a flat array; per-type fields go first
+ * so the consumer can dispatch on shape. */
+struct command_result *json_bwatch_list(struct command *cmd,
+					const char *buffer,
+					const jsmntok_t *params)
+{
+	struct bwatch *bwatch = bwatch_of(cmd->plugin);
+	struct json_out *jout;
+	struct watch *w;
+	struct scriptpubkey_watches_iter sit;
+	struct outpoint_watches_iter oit;
+	struct scid_watches_iter scit;
+	struct blockdepth_watches_iter bdit;
+
+	if (!param(cmd, buffer, params, NULL))
+		return command_param_failed();
+
+	jout = json_out_new(cmd);
+	json_out_start(jout, NULL, '{');
+	json_out_start(jout, "watches", '[');
+
+	for (w = scriptpubkey_watches_first(bwatch->scriptpubkey_watches, &sit);
+	     w;
+	     w = scriptpubkey_watches_next(bwatch->scriptpubkey_watches, &sit)) {
+		json_out_start(jout, NULL, '{');
+		json_out_addstr(jout, "scriptpubkey",
+				tal_hexstr(tmpctx, w->key.scriptpubkey.script,
+					   w->key.scriptpubkey.len));
+		json_out_watch_common(jout, w->type, w->start_block, w->owners);
+		json_out_end(jout, '}');
+	}
+
+	for (w = outpoint_watches_first(bwatch->outpoint_watches, &oit);
+	     w;
+	     w = outpoint_watches_next(bwatch->outpoint_watches, &oit)) {
+		json_out_start(jout, NULL, '{');
+		json_out_addstr(jout, "outpoint",
+				fmt_bitcoin_outpoint(tmpctx, &w->key.outpoint));
+		json_out_watch_common(jout, w->type, w->start_block, w->owners);
+		json_out_end(jout, '}');
+	}
+
+	for (w = scid_watches_first(bwatch->scid_watches, &scit);
+	     w;
+	     w = scid_watches_next(bwatch->scid_watches, &scit)) {
+		json_out_start(jout, NULL, '{');
+		json_out_add(jout, "blockheight", false, "%u",
+			     short_channel_id_blocknum(w->key.scid));
+		json_out_add(jout, "txindex", false, "%u",
+			     short_channel_id_txnum(w->key.scid));
+		json_out_add(jout, "outnum", false, "%u",
+			     short_channel_id_outnum(w->key.scid));
+		json_out_watch_common(jout, w->type, w->start_block, w->owners);
+		json_out_end(jout, '}');
+	}
+
+	for (w = blockdepth_watches_first(bwatch->blockdepth_watches, &bdit);
+	     w;
+	     w = blockdepth_watches_next(bwatch->blockdepth_watches, &bdit)) {
+		json_out_start(jout, NULL, '{');
+		json_out_add(jout, "blockdepth", false, "%u", w->start_block);
+		json_out_watch_common(jout, w->type, w->start_block, w->owners);
+		json_out_end(jout, '}');
+	}
+
+	json_out_end(jout, ']');
+	json_out_end(jout, '}');
+	return command_success(cmd, jout);
 }
