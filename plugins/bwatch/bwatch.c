@@ -162,6 +162,9 @@ static struct command_result *handle_block(struct command *cmd,
 			bwatch_remove_tip(cmd, bwatch);
 			return fetch_block_handle(cmd, bwatch->current_height + 1);
 		}
+
+		bwatch_process_block_txs(cmd, bwatch, block, block_height,
+					 &blockhash);
 	}
 
 	/* Update state */
