@@ -84,4 +84,17 @@ void watchman_ack(struct lightningd *ld, const char *op_id);
  */
 void watchman_replay_pending(struct lightningd *ld);
 
+/** Register a WATCH_SCRIPTPUBKEY — fires when @scriptpubkey appears in a tx output. */
+void watchman_watch_scriptpubkey(struct lightningd *ld,
+				 const char *owner,
+				 const u8 *scriptpubkey,
+				 size_t script_len,
+				 u32 start_block);
+
+/** Remove a WATCH_SCRIPTPUBKEY. */
+void watchman_unwatch_scriptpubkey(struct lightningd *ld,
+				   const char *owner,
+				   const u8 *scriptpubkey,
+				   size_t script_len);
+
 #endif /* LIGHTNING_LIGHTNINGD_WATCHMAN_H */

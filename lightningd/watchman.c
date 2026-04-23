@@ -10,6 +10,7 @@
 #include <common/json_parse.h>
 #include <common/json_stream.h>
 #include <common/mkdatastorekey.h>
+#include <common/utils.h>
 #include <db/exec.h>
 #include <lightningd/bitcoind.h>
 #include <lightningd/chaintopology.h>
@@ -284,7 +285,6 @@ static void enqueue_op(struct watchman *wm, const char *method,
 }
 
 /* Internal: queue an add for a specific per-type bwatch command. */
-__attribute__((unused))
 static void watchman_add(struct lightningd *ld, const char *method,
 			 const char *owner, const char *json_params)
 {
@@ -303,7 +303,6 @@ static void watchman_add(struct lightningd *ld, const char *method,
  * Bwatch handles duplicate deletes idempotently.
  * Cancels any pending add for this owner.
  */
-__attribute__((unused))
 static void watchman_del(struct lightningd *ld, const char *method,
 			 const char *owner, const char *json_params)
 {
@@ -381,6 +380,28 @@ static void watchman_on_plugin_ready(struct lightningd *ld, struct plugin *plugi
 		/* TODO: notify_block_added(ld, height, &hash) once that helper's
 		 * signature is migrated in Group H (chaintopology removal). */
 	}
+}
+
+void watchman_watch_scriptpubkey(struct lightningd *ld,
+				 const char *owner,
+				 const u8 *scriptpubkey,
+				 size_t script_len,
+				 u32 start_block)
+{
+	watchman_add(ld, "addscriptpubkeywatch", owner,
+		     tal_fmt(tmpctx, "{\"scriptpubkey\":\"%s\",\"start_block\":%u}",
+			     tal_hexstr(tmpctx, scriptpubkey, script_len),
+			     start_block));
+}
+
+void watchman_unwatch_scriptpubkey(struct lightningd *ld,
+				   const char *owner,
+				   const u8 *scriptpubkey,
+				   size_t script_len)
+{
+	watchman_del(ld, "delscriptpubkeywatch", owner,
+		     tal_fmt(tmpctx, "{\"scriptpubkey\":\"%s\"}",
+			     tal_hexstr(tmpctx, scriptpubkey, script_len)));
 }
 
 /* Dispatch table - add new watch types here */
