@@ -591,9 +591,9 @@ char *process_interactivetx_updates(const tal_t *ctx,
 			 * BOLT #2:
 			 *   The receiving node: ...
 			 *    - MUST fail the negotiation if:...
-			 *    - the `prevtx` and `prevtx_vout` are
-			 *    identical to a previously added (and not
-			 *    removed) input's
+			 *    - `prevtx` and `prevtx_vout` are
+			 *      identical to a previously added (and not
+			 *      removed) input
 			 */
 			bitcoin_txid(tx, &outpoint.txid);
 			if (psbt_has_input(ictx->current_psbt, &outpoint))
