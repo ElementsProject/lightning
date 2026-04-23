@@ -45,8 +45,7 @@ HTABLE_DEFINE_NODUPS_TYPE(struct watch, blockdepth_watch_keyof,
 			  blockdepth_watches);
 
 /* Human-readable name of a watch type, used as the second datastore key
- * component (e.g. ["bwatch", "scriptpubkey", <hex>]) once persistence
- * lands in a follow-up commit. */
+ * component (e.g. ["bwatch", "scriptpubkey", <hex>]). */
 const char *bwatch_get_watch_type_name(enum watch_type type);
 
 /* Watch hash table operations: dispatch on watch->type. */
@@ -71,5 +70,11 @@ void bwatch_add_block_to_history(struct bwatch *bwatch, u32 height,
 				 const struct bitcoin_blkid *prev_hash);
 void bwatch_delete_block_from_datastore(struct command *cmd, u32 height);
 void bwatch_load_block_history(struct command *cmd, struct bwatch *bwatch);
+
+/* Watch persistence: round-trip via bwatch_wiregen serialisation,
+ * stored under ["bwatch", <type>, <stringified-key>]. */
+void bwatch_save_watch_to_datastore(struct command *cmd, const struct watch *w);
+void bwatch_delete_watch_from_datastore(struct command *cmd, const struct watch *w);
+void bwatch_load_watches_from_datastore(struct command *cmd, struct bwatch *bwatch);
 
 #endif /* LIGHTNING_PLUGINS_BWATCH_BWATCH_STORE_H */

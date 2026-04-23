@@ -32,6 +32,7 @@ static const char *init(struct command *cmd,
 	 * if there are no records, fall back to zero so the first poll
 	 * initialises us at the chain tip. */
 	bwatch_load_block_history(cmd, bwatch);
+	bwatch_load_watches_from_datastore(cmd, bwatch);
 
 	return NULL;
 }
