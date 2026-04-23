@@ -318,10 +318,27 @@ struct command_result *bwatch_send_chaininfo(struct command *cmd,
  * RPC COMMAND HANDLERS
  *
  * Watch RPCs are thin wrappers over bwatch_add_watch / bwatch_del_watch.
- * Adding a watch with start_block <= current_height needs a historical
- * rescan; the helper for that lands in a later commit.
+ * Adding a watch whose start_block is <= our current chain tip needs a
+ * historical rescan so it sees confirmations that happened before the
+ * watch was registered; add_watch_and_maybe_rescan handles that.
  * ============================================================================
  */
+
+/* If this watch's start_block is at or behind our tip, replay the
+ * historical range for just this watch; otherwise we can return
+ * success immediately. */
+static struct command_result *add_watch_and_maybe_rescan(struct command *cmd,
+							 struct bwatch *bwatch,
+							 struct watch *w,
+							 u32 scan_start)
+{
+	if (w && bwatch->current_height > 0
+	    && scan_start <= bwatch->current_height) {
+		bwatch_start_rescan(cmd, w, scan_start, bwatch->current_height);
+		return command_still_pending(cmd);
+	}
+	return command_success(cmd, json_out_obj(cmd, NULL, NULL));
+}
 
 /* Register a scriptpubkey watch for `owner` from `start_block` onwards. */
 struct command_result *json_bwatch_add_scriptpubkey(struct command *cmd,
@@ -332,6 +349,7 @@ struct command_result *json_bwatch_add_scriptpubkey(struct command *cmd,
 	const char *owner;
 	u8 *scriptpubkey;
 	u32 *start_block;
+	struct watch *w;
 
 	if (!param(cmd, buffer, params,
 		   p_req("owner", param_string, &owner),
@@ -341,11 +359,11 @@ struct command_result *json_bwatch_add_scriptpubkey(struct command *cmd,
 		return command_param_failed();
 
 	/* New owner is appended to the watch's owner list; same owner
-	 * re-adding lowers start_block if needed (rescan handled later). */
-	bwatch_add_watch(cmd, bwatch, WATCH_SCRIPTPUBKEY,
-			 NULL, scriptpubkey, NULL, NULL,
-			 *start_block, owner);
-	return command_success(cmd, json_out_obj(cmd, NULL, NULL));
+	 * re-adding lowers start_block if needed. */
+	w = bwatch_add_watch(cmd, bwatch, WATCH_SCRIPTPUBKEY,
+			     NULL, scriptpubkey, NULL, NULL,
+			     *start_block, owner);
+	return add_watch_and_maybe_rescan(cmd, bwatch, w, *start_block);
 }
 
 /* Drop one owner from a scriptpubkey watch; the watch itself goes away
@@ -379,6 +397,7 @@ struct command_result *json_bwatch_add_outpoint(struct command *cmd,
 	const char *owner;
 	struct bitcoin_outpoint *outpoint;
 	u32 *start_block;
+	struct watch *w;
 
 	if (!param(cmd, buffer, params,
 		   p_req("owner", param_string, &owner),
@@ -388,11 +407,11 @@ struct command_result *json_bwatch_add_outpoint(struct command *cmd,
 		return command_param_failed();
 
 	/* New owner is appended to the watch's owner list; same owner
-	 * re-adding lowers start_block if needed (rescan handled later). */
-	bwatch_add_watch(cmd, bwatch, WATCH_OUTPOINT,
-			 outpoint, NULL, NULL, NULL,
-			 *start_block, owner);
-	return command_success(cmd, json_out_obj(cmd, NULL, NULL));
+	 * re-adding lowers start_block if needed. */
+	w = bwatch_add_watch(cmd, bwatch, WATCH_OUTPOINT,
+			     outpoint, NULL, NULL, NULL,
+			     *start_block, owner);
+	return add_watch_and_maybe_rescan(cmd, bwatch, w, *start_block);
 }
 
 /* Drop one owner from an outpoint watch; the watch itself goes away
@@ -427,6 +446,7 @@ struct command_result *json_bwatch_add_scid(struct command *cmd,
 	const char *owner;
 	struct short_channel_id *scid;
 	u32 *start_block;
+	struct watch *w;
 
 	if (!param(cmd, buffer, params,
 		   p_req("owner", param_string, &owner),
@@ -436,11 +456,11 @@ struct command_result *json_bwatch_add_scid(struct command *cmd,
 		return command_param_failed();
 
 	/* New owner is appended to the watch's owner list; same owner
-	 * re-adding lowers start_block if needed (rescan handled later). */
-	bwatch_add_watch(cmd, bwatch, WATCH_SCID,
-			 NULL, NULL, scid, NULL,
-			 *start_block, owner);
-	return command_success(cmd, json_out_obj(cmd, NULL, NULL));
+	 * re-adding lowers start_block if needed. */
+	w = bwatch_add_watch(cmd, bwatch, WATCH_SCID,
+			     NULL, NULL, scid, NULL,
+			     *start_block, owner);
+	return add_watch_and_maybe_rescan(cmd, bwatch, w, *start_block);
 }
 
 /* Drop one owner from a scid watch; the watch itself goes away once
@@ -473,6 +493,7 @@ struct command_result *json_bwatch_add_blockdepth(struct command *cmd,
 	struct bwatch *bwatch = bwatch_of(cmd->plugin);
 	const char *owner;
 	u32 *start_block;
+	struct watch *w;
 
 	if (!param(cmd, buffer, params,
 		   p_req("owner", param_string, &owner),
@@ -482,10 +503,10 @@ struct command_result *json_bwatch_add_blockdepth(struct command *cmd,
 
 	/* start_block doubles as the watch key (confirm_height) and
 	 * the anchor for depth = tip - start_block + 1. */
-	bwatch_add_watch(cmd, bwatch, WATCH_BLOCKDEPTH,
-			 NULL, NULL, NULL, start_block,
-			 *start_block, owner);
-	return command_success(cmd, json_out_obj(cmd, NULL, NULL));
+	w = bwatch_add_watch(cmd, bwatch, WATCH_BLOCKDEPTH,
+			     NULL, NULL, NULL, start_block,
+			     *start_block, owner);
+	return add_watch_and_maybe_rescan(cmd, bwatch, w, *start_block);
 }
 
 /* Drop one owner from a blockdepth watch; the watch itself goes away
