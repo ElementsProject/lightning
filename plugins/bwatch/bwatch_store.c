@@ -489,3 +489,114 @@ void bwatch_load_watches_from_datastore(struct command *cmd, struct bwatch *bwat
 	load_watches_by_type(cmd, bwatch, WATCH_SCID);
 	load_watches_by_type(cmd, bwatch, WATCH_BLOCKDEPTH);
 }
+
+/* -1 means "not found" */
+static int find_owner(wirestring **owners, const char *owner_id)
+{
+	for (size_t i = 0; i < tal_count(owners); i++) {
+		if (streq(owners[i], owner_id))
+			return i;
+	}
+	return -1;
+}
+
+struct watch *bwatch_add_watch(struct command *cmd,
+			       struct bwatch *bwatch,
+			       enum watch_type type,
+			       const struct bitcoin_outpoint *outpoint,
+			       const u8 *scriptpubkey,
+			       const struct short_channel_id *scid,
+			       const u32 *confirm_height,
+			       u32 start_block,
+			       const char *owner_id TAKES)
+{
+	struct watch *w = bwatch_get_watch(bwatch, type, outpoint, scriptpubkey,
+					   scid, confirm_height);
+
+	if (w) {
+		bool lowered = start_block < w->start_block;
+		bool found_owner = (find_owner(w->owners, owner_id) != -1);
+		if (lowered)
+			w->start_block = start_block;
+		if (!found_owner)
+			tal_arr_expand(&w->owners,
+				       tal_strdup(w->owners, owner_id));
+		bwatch_save_watch_to_datastore(cmd, w);
+		/* Always rescan even if owner is already registered: stateless
+		 * restarters (e.g. onchaind) re-register on startup and need
+		 * missed spend events replayed. */
+		plugin_log(cmd->plugin, LOG_DBG,
+			   found_owner
+			   ? (lowered
+			      ? "Owner %s already watching, lowering start_block to %u"
+			      : "Owner %s already watching, rescanning for missed events at %u")
+			   : "Owner %s added to existing watch, start_block %u",
+			   owner_id, w->start_block);
+		return w;
+	}
+
+	w = tal(bwatch, struct watch);
+	w->type = type;
+	w->start_block = start_block;
+	switch (w->type) {
+	case WATCH_SCRIPTPUBKEY:
+		w->key.scriptpubkey.len = tal_bytelen(scriptpubkey);
+		w->key.scriptpubkey.script = tal_dup_talarr(w, u8, scriptpubkey);
+		break;
+	case WATCH_OUTPOINT:
+		w->key.outpoint = *outpoint;
+		break;
+	case WATCH_SCID:
+		w->key.scid = *scid;
+		break;
+	case WATCH_BLOCKDEPTH:
+		/* confirm_height == start_block for blockdepth watches;
+		 * already set from start_block above. */
+		break;
+	}
+	w->owners = tal_arr(w, wirestring *, 1);
+	w->owners[0] = tal_strdup(w->owners, owner_id);
+	bwatch_save_watch_to_datastore(cmd, w);
+	bwatch_add_watch_to_hash(bwatch, w);
+	return w;
+}
+
+void bwatch_del_watch(struct command *cmd,
+		      struct bwatch *bwatch,
+		      enum watch_type type,
+		      const struct bitcoin_outpoint *outpoint,
+		      const u8 *scriptpubkey,
+		      const struct short_channel_id *scid,
+		      const u32 *confirm_height,
+		      const char *owner_id)
+{
+	struct watch *w = bwatch_get_watch(bwatch, type, outpoint, scriptpubkey,
+					   scid, confirm_height);
+	int owner_off;
+
+	if (!w) {
+		plugin_log(cmd->plugin, LOG_DBG,
+			   "Attempted to remove non-existent %s watch (already gone)",
+			   bwatch_get_watch_type_name(type));
+		return;
+	}
+
+	owner_off = find_owner(w->owners, owner_id);
+	if (owner_off < 0) {
+		plugin_log(cmd->plugin, LOG_BROKEN,
+			   "Attempted to remove watch for owner %s but it wasn't watching",
+			   owner_id);
+		return;
+	}
+
+	tal_free(w->owners[owner_off]);
+	tal_arr_remove(&w->owners, owner_off);
+
+	if (tal_count(w->owners) == 0) {
+		bwatch_delete_watch_from_datastore(cmd, w);
+		bwatch_remove_watch_from_hash(bwatch, w);
+		tal_free(w);
+	} else {
+		bwatch_save_watch_to_datastore(cmd, w);
+	}
+}
