@@ -156,9 +156,7 @@ void bwatch_remove_watch_from_hash(struct bwatch *bwatch, struct watch *w)
 	abort();
 }
 
-/* List all datastore entries under a key prefix (up to 2 components).
- * Shared between block_history loading and (in a follow-up commit)
- * watch loading. */
+/* List all datastore entries under a key prefix (up to 2 components). */
 static const jsmntok_t *bwatch_list_datastore(const tal_t *ctx,
 					      struct command *cmd,
 					      const char *key1, const char *key2,
@@ -297,4 +295,197 @@ void bwatch_load_block_history(struct command *cmd, struct bwatch *bwatch)
 		memset(&bwatch->current_blockhash, 0,
 		       sizeof(bwatch->current_blockhash));
 	}
+}
+
+static char *fmt_scriptpubkey(const tal_t *ctx,
+			      const struct scriptpubkey *scriptpubkey)
+{
+	return tal_hexstr(ctx, scriptpubkey->script, scriptpubkey->len);
+}
+
+/* Build the datastore key path for a watch.  All watch types share the
+ * ["bwatch", <type>, <stringified-key>] layout; only the key payload
+ * varies. */
+static const char **get_watch_datastore_key(const tal_t *ctx, const struct watch *w)
+{
+	const char *type_name = bwatch_get_watch_type_name(w->type);
+
+	switch (w->type) {
+	case WATCH_SCRIPTPUBKEY: {
+		return mkdatastorekey(ctx, "bwatch", type_name,
+				      take(fmt_scriptpubkey(NULL, &w->key.scriptpubkey)));
+	}
+	case WATCH_OUTPOINT:
+		return mkdatastorekey(ctx, "bwatch", type_name,
+				      take(fmt_bitcoin_outpoint(NULL, &w->key.outpoint)));
+	case WATCH_SCID:
+		return mkdatastorekey(ctx, "bwatch", type_name,
+				      take(fmt_short_channel_id(NULL, w->key.scid)));
+	case WATCH_BLOCKDEPTH:
+		return mkdatastorekey(ctx, "bwatch", type_name,
+				      take(tal_fmt(NULL, "%u", w->start_block)));
+	}
+	abort();
+}
+
+static struct watch_wire *watch_to_wire(const tal_t *ctx, const struct watch *w)
+{
+	struct watch_wire *wire = tal(ctx, struct watch_wire);
+	size_t num_owners;
+
+	wire->type = w->type;
+	wire->start_block = w->start_block;
+
+	wire->scriptpubkey = NULL;
+	memset(&wire->outpoint, 0, sizeof(wire->outpoint));
+	wire->scid_blockheight = wire->scid_txindex = wire->scid_outnum = 0;
+	wire->blockdepth = 0;
+
+	switch (w->type) {
+	case WATCH_SCRIPTPUBKEY:
+		wire->scriptpubkey = tal_dup_arr(wire, u8,
+						 w->key.scriptpubkey.script,
+						 w->key.scriptpubkey.len, 0);
+		break;
+	case WATCH_OUTPOINT:
+		wire->outpoint = w->key.outpoint;
+		break;
+	case WATCH_SCID:
+		wire->scid_blockheight = short_channel_id_blocknum(w->key.scid);
+		wire->scid_txindex = short_channel_id_txnum(w->key.scid);
+		wire->scid_outnum = short_channel_id_outnum(w->key.scid);
+		break;
+	case WATCH_BLOCKDEPTH:
+		wire->blockdepth = w->start_block;
+		break;
+	}
+
+	num_owners = tal_count(w->owners);
+	wire->owners = tal_arr(wire, wirestring *, num_owners);
+	for (size_t i = 0; i < num_owners; i++)
+		wire->owners[i] = tal_strdup(wire->owners, w->owners[i]);
+
+	return wire;
+}
+
+static struct watch *watch_from_wire(const tal_t *ctx, const struct watch_wire *wire)
+{
+	struct watch *w = tal(ctx, struct watch);
+	size_t num_owners;
+
+	w->type = wire->type;
+	w->start_block = wire->start_block;
+
+	switch (wire->type) {
+	case WATCH_SCRIPTPUBKEY:
+		w->key.scriptpubkey.len = tal_bytelen(wire->scriptpubkey);
+		w->key.scriptpubkey.script = tal_dup_arr(w, u8, wire->scriptpubkey,
+							 w->key.scriptpubkey.len, 0);
+		break;
+	case WATCH_OUTPOINT:
+		w->key.outpoint = wire->outpoint;
+		break;
+	case WATCH_SCID:
+		if (!mk_short_channel_id(&w->key.scid,
+					 wire->scid_blockheight,
+					 wire->scid_txindex,
+					 wire->scid_outnum))
+			return tal_free(w);
+		break;
+	case WATCH_BLOCKDEPTH:
+		w->start_block = wire->blockdepth;
+		break;
+	}
+
+	num_owners = tal_count(wire->owners);
+	w->owners = tal_arr(w, wirestring *, num_owners);
+	for (size_t i = 0; i < num_owners; i++)
+		w->owners[i] = tal_strdup(w->owners, wire->owners[i]);
+
+	return w;
+}
+
+static void load_watches_by_type(struct command *cmd, struct bwatch *bwatch,
+				 enum watch_type type)
+{
+	const char *watch_type_name = bwatch_get_watch_type_name(type);
+	const char *buf;
+	const jsmntok_t *datastore, *t;
+	size_t i, count = 0;
+
+	datastore = bwatch_list_datastore(tmpctx, cmd, "bwatch", watch_type_name, &buf);
+
+	json_for_each_arr(i, t, datastore) {
+		const u8 *data = json_tok_bin_from_hex(tmpctx, buf,
+						       json_get_member(buf, t, "hex"));
+		struct watch_wire *wire;
+		struct watch *w;
+
+		if (!data)
+			continue;
+
+		if (!fromwire_bwatch_watch(tmpctx, data, &wire))
+			continue;
+
+		w = watch_from_wire(bwatch, wire);
+		if (!w || w->type != type)
+			continue;
+
+		bwatch_add_watch_to_hash(bwatch, w);
+		count++;
+	}
+
+	plugin_log(cmd->plugin, LOG_DBG, "Restored %zu %s from datastore",
+		   count, watch_type_name);
+}
+
+void bwatch_save_watch_to_datastore(struct command *cmd, const struct watch *w)
+{
+	const u8 *data = towire_bwatch_watch(tmpctx, watch_to_wire(tmpctx, w));
+	const char **key = get_watch_datastore_key(tmpctx, w);
+	struct json_out *params = json_out_new(tmpctx);
+	const char *buf;
+
+	json_out_start(params, NULL, '{');
+	json_out_start(params, "key", '[');
+	for (size_t i = 0; i < tal_count(key); i++)
+		json_out_addstr(params, NULL, key[i]);
+	json_out_end(params, ']');
+	json_out_addstr(params, "mode", "create-or-replace");
+	json_out_addstr(params, "hex", tal_hex(tmpctx, data));
+	json_out_end(params, '}');
+
+	jsonrpc_request_sync(tmpctx, cmd, "datastore", params, &buf);
+
+	plugin_log(cmd->plugin, LOG_DBG,
+		   "Saved watch to datastore (type=%d, num_owners=%zu)",
+		   w->type, tal_count(w->owners));
+}
+
+void bwatch_delete_watch_from_datastore(struct command *cmd, const struct watch *w)
+{
+	const char **key = get_watch_datastore_key(tmpctx, w);
+	struct json_out *params = json_out_new(tmpctx);
+	const char *buf;
+
+	json_out_start(params, NULL, '{');
+	json_out_start(params, "key", '[');
+	for (size_t i = 0; i < tal_count(key); i++)
+		json_out_addstr(params, NULL, key[i]);
+	json_out_end(params, ']');
+	json_out_end(params, '}');
+
+	jsonrpc_request_sync(tmpctx, cmd, "deldatastore", params, &buf);
+
+	plugin_log(cmd->plugin, LOG_DBG,
+		   "Deleted watch from datastore: ...%s",
+		   key[tal_count(key) - 1]);
+}
+
+void bwatch_load_watches_from_datastore(struct command *cmd, struct bwatch *bwatch)
+{
+	load_watches_by_type(cmd, bwatch, WATCH_SCRIPTPUBKEY);
+	load_watches_by_type(cmd, bwatch, WATCH_OUTPOINT);
+	load_watches_by_type(cmd, bwatch, WATCH_SCID);
+	load_watches_by_type(cmd, bwatch, WATCH_BLOCKDEPTH);
 }
