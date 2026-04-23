@@ -79,8 +79,8 @@ static struct command_result *poll_finished(struct command *cmd)
 	return timer_complete(cmd);
 }
 
-/* Remove tip block on reorg. */
-static void bwatch_remove_tip(struct command *cmd, struct bwatch *bwatch)
+/* Remove tip block on reorg  */
+void bwatch_remove_tip(struct command *cmd, struct bwatch *bwatch)
 {
 	const struct block_record_wire *newtip;
 	size_t count = tal_count(bwatch->block_history);
@@ -280,9 +280,10 @@ static const char *init(struct command *cmd,
 	bwatch_load_block_history(cmd, bwatch);
 	bwatch_load_watches_from_datastore(cmd, bwatch);
 
-	/* Kick off the chain-poll loop. */
-	bwatch->poll_timer = global_timer(cmd->plugin, time_from_sec(0),
-					  bwatch_poll_chain, NULL);
+	/* Send chaininfo to watchman first; the ack/err callbacks then
+	 * kick off the chain-poll loop. */
+	global_timer(cmd->plugin, time_from_sec(0),
+		     bwatch_send_chaininfo, NULL);
 	return NULL;
 }
 

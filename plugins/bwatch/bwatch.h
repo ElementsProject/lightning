@@ -83,4 +83,9 @@ struct bwatch *bwatch_of(struct plugin *plugin);
  * can schedule a poll from their own callbacks. */
 struct command_result *bwatch_poll_chain(struct command *cmd, void *unused);
 
+/* Pop the current tip from in-memory + persisted history.  Exposed so the
+ * startup chaininfo path can roll back when bitcoind's chain is shorter
+ * than what we have stored. */
+void bwatch_remove_tip(struct command *cmd, struct bwatch *bwatch);
+
 #endif /* LIGHTNING_PLUGINS_BWATCH_BWATCH_H */
