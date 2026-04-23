@@ -1,21 +1,72 @@
 #include "config.h"
+#include <assert.h>
+#include <ccan/str/str.h>
+#include <ccan/tal/str/str.h>
+#include <common/json_parse_simple.h>
+#include <common/json_stream.h>
+#include <common/mkdatastorekey.h>
 #include <db/exec.h>
+#include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
+#include <lightningd/plugin.h>
 #include <lightningd/watchman.h>
 #include <wallet/wallet.h>
 
 /*
- * Watchman is the lightningd-side counterpart to the bwatch plugin.
- * It tracks how far we've processed the chain (last_processed_height +
- * hash, persisted in the SQL `vars` table), queues outbound watch ops
- * while bwatch is starting up, and dispatches watch_found / watch_revert /
- * blockdepth notifications to subdaemon-specific handlers.
+ * Watchman is the interface between lightningd and the bwatch plugin.
+ * It manages a pending operation queue to ensure reliable delivery of
+ * watch add/delete requests to bwatch, even across crashes.
  *
- * This commit lands just enough machinery to construct a watchman and
- * recover the persisted tip; the pending-op queue and ack lifecycle land
- * in subsequent commits.
+ * Architecture:
+ * - Subsystems (channel, onchaind, wallet) call watchman_add/watchman_del
+ * - Watchman queues operations and sends them to bwatch via RPC
+ * - Operations stay in queue until bwatch acknowledges them
+ * - On crash/restart, pending ops are replayed from datastore
+ * - Bwatch handles duplicate operations idempotently
  */
+
+/* A pending operation - method and params to send to bwatch */
+struct pending_op {
+	/* "{method}:{owner}", e.g. "addscriptpubkeywatch:wallet/p2wpkh/42".
+	 * Method and owner are recoverable from this without a separate field. */
+	const char *op_id;
+	const char *json_params; /* JSON params to send to bwatch */
+};
+
+
+/*
+ * Datastore persistence helpers
+ * Pending operations are stored at ["watchman", "pending", op_id]
+ */
+
+/* Generate datastore key for a pending operation */
+static const char **make_key(const tal_t *ctx, const char *op_id TAKES)
+{
+	return mkdatastorekey(ctx, "watchman", "pending", op_id);
+}
+
+
+/* Persist a pending operation to the datastore for crash recovery.
+ * The method is encoded in op_id (see struct pending_op), so we store
+ * only json_params as the value. */
+__attribute__((unused))
+static void db_save(struct watchman *wm, const struct pending_op *op)
+{
+	const char **key = make_key(tmpctx, op->op_id);
+	const u8 *data = (const u8 *)op->json_params;
+	if (wallet_datastore_get(tmpctx, wm->ld->wallet, key, NULL))
+		wallet_datastore_update(wm->ld->wallet, key, data);
+	else
+		wallet_datastore_create(wm->ld->wallet, key, data);
+}
+
+/* Remove a pending operation from the datastore */
+static void db_remove(struct watchman *wm, const char *op_id)
+{
+	const char **key = make_key(tmpctx, op_id);
+	wallet_datastore_remove(wm->ld->wallet, key);
+}
 
 static void load_tip(struct watchman *wm)
 {
@@ -68,4 +119,121 @@ struct watchman *watchman_new(const tal_t *ctx, struct lightningd *ld)
 		 wm->last_processed_height, tal_count(wm->pending_ops));
 
 	return wm;
+}
+
+/* Per-request context for bwatch_ack_response. Carries the bare op_id so the
+ * callback never needs to parse the JSON-RPC response id. */
+struct bwatch_ack_arg {
+	struct watchman *wm;
+	const char *op_id; /* "{method}:{owner}", e.g. "addscriptpubkeywatch:wallet/p2wpkh/42" */
+};
+
+/* Response callback for bwatch RPC requests; handles both success and error. */
+static void bwatch_ack_response(const char *buffer,
+				const jsmntok_t *toks,
+				const jsmntok_t *idtok UNUSED,
+				struct bwatch_ack_arg *arg)
+{
+	const jsmntok_t *err = json_get_member(buffer, toks, "error");
+
+	if (err) {
+		log_unusual(arg->wm->ld->log, "bwatch operation %s failed: %.*s",
+			    arg->op_id, json_tok_full_len(err), json_tok_full(buffer, err));
+	} else {
+		log_debug(arg->wm->ld->log, "Acknowledged pending op: %s", arg->op_id);
+	}
+
+	watchman_ack(arg->wm->ld, arg->op_id);
+}
+
+/* op_id is "{method}:{owner}"; return the owner suffix. */
+static const char *owner_from_op_id(const char *op_id)
+{
+	const char *colon = strchr(op_id, ':');
+	return colon ? colon + 1 : "";
+}
+
+/* op_id is "{method}:{owner}"; return the method prefix. */
+__attribute__((unused))
+static const char *method_from_op_id(const tal_t *ctx, const char *op_id)
+{
+	const char *colon = strchr(op_id, ':');
+	assert(colon); /* op_id must always be "{method}:{owner}" */
+	return tal_strndup(ctx, op_id, colon - op_id);
+}
+
+/* Send an RPC request to the bwatch plugin.
+ * op_id must be "{method}:{owner}", e.g. "addscriptpubkeywatch:wallet/p2wpkh/42". */
+__attribute__((unused))
+static void send_to_bwatch(struct watchman *wm, const char *method,
+			   const char *op_id, const char *json_params)
+{
+	struct plugin *bwatch;
+	struct jsonrpc_request *req;
+	const char *owner;
+	size_t len;
+
+	/* Find bwatch plugin by the command it registers */
+	bwatch = find_plugin_for_command(wm->ld, method);
+	if (!bwatch) {
+		log_broken(wm->ld->log, "bwatch plugin not found, cannot send %s", method);
+		return;
+	}
+
+	if (bwatch->plugin_state != INIT_COMPLETE) {
+		log_debug(wm->ld->log, "bwatch plugin not ready (state %d), queuing %s %s",
+			  bwatch->plugin_state, method, op_id);
+		return;
+	}
+
+	struct bwatch_ack_arg *arg = tal(tmpctx, struct bwatch_ack_arg);
+	arg->wm = wm;
+	arg->op_id = tal_strdup(arg, op_id);
+
+	req = jsonrpc_request_start(wm, method, op_id, bwatch->log,
+				     NULL, bwatch_ack_response, arg);
+
+	/* Parent arg to req so it's freed when the request is freed,
+	 * regardless of whether the callback fires. */
+	tal_steal(req, arg);
+
+	owner = owner_from_op_id(op_id);
+	if (!streq(owner, ""))
+		json_add_string(req->stream, "owner", owner);
+
+	/* json_params is a JSON object string like {"type":"...","scriptpubkey":"...","start_block":N}.
+	 * Append the rest (skip outer braces) so we get type, scriptpubkey, start_block, etc. */
+	len = strlen(json_params);
+	if (len >= 2 && json_params[0] == '{' && json_params[len-1] == '}') {
+		json_stream_append(req->stream, ",", 1);
+		json_stream_append(req->stream, json_params + 1, len - 2);
+	} else {
+		json_stream_append(req->stream, ",", 1);
+		json_stream_append(req->stream, json_params, len);
+	}
+
+	jsonrpc_request_end(req);
+	plugin_request_send(bwatch, req);
+}
+
+/**
+ * watchman_ack - Acknowledge a completed watch operation
+ *
+ * Called when bwatch confirms it has processed an add/del operation.
+ * Removes the operation from the pending queue and datastore.
+ * op_id must be the bare stored id (e.g. "add:wallet/p2wpkh/0"), not the
+ * full JSON-RPC response id.
+ */
+void watchman_ack(struct lightningd *ld, const char *op_id)
+{
+	struct watchman *wm = ld->watchman;
+
+	for (size_t i = 0; i < tal_count(wm->pending_ops); i++) {
+		if (streq(wm->pending_ops[i]->op_id, op_id)) {
+			db_remove(wm, op_id);
+			tal_free(wm->pending_ops[i]);
+			tal_arr_remove(&wm->pending_ops, i);
+			return;
+		}
+	}
 }
