@@ -1,5 +1,6 @@
 #include "config.h"
 #include <ccan/array_size/array_size.h>
+#include <common/memleak.h>
 #include <plugins/bwatch/bwatch.h>
 #include <plugins/bwatch/bwatch_interface.h>
 #include <plugins/bwatch/bwatch_scanner.h>
@@ -17,6 +18,12 @@ static const char *init(struct command *cmd,
 	struct bwatch *bwatch = bwatch_of(cmd->plugin);
 
 	bwatch->plugin = cmd->plugin;
+
+	bwatch->scriptpubkey_watches = new_htable(bwatch, scriptpubkey_watches);
+	bwatch->outpoint_watches = new_htable(bwatch, outpoint_watches);
+	bwatch->scid_watches = new_htable(bwatch, scid_watches);
+	bwatch->blockdepth_watches = new_htable(bwatch, blockdepth_watches);
+
 	return NULL;
 }
 
