@@ -445,6 +445,22 @@ void watchman_unwatch_scid(struct lightningd *ld,
 			     fmt_short_channel_id(tmpctx, *scid)));
 }
 
+void watchman_watch_blockdepth(struct lightningd *ld,
+			       const char *owner,
+			       u32 confirm_height)
+{
+	watchman_add(ld, "addblockdepthwatch", owner,
+		     tal_fmt(tmpctx, "{\"start_block\":%u}", confirm_height));
+}
+
+void watchman_unwatch_blockdepth(struct lightningd *ld,
+				 const char *owner,
+				 u32 confirm_height)
+{
+	watchman_del(ld, "delblockdepthwatch", owner,
+		     tal_fmt(tmpctx, "{\"start_block\":%u}", confirm_height));
+}
+
 /* Dispatch table - add new watch types here */
 static const struct depth_dispatch {
 	const char *prefix;

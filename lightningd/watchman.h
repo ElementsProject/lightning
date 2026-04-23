@@ -120,4 +120,19 @@ void watchman_unwatch_scid(struct lightningd *ld,
 			   const char *owner,
 			   const struct short_channel_id *scid);
 
+/**
+ * watchman_watch_blockdepth - Register a WATCH_BLOCKDEPTH
+ * @ld: lightningd instance
+ * @owner: the owner identifier (e.g. "channel/funding_depth/42")
+ * @confirm_height: the block height where the tx of interest was confirmed
+ */
+void watchman_watch_blockdepth(struct lightningd *ld,
+			       const char *owner,
+			       u32 confirm_height);
+
+/** Remove a WATCH_BLOCKDEPTH. */
+void watchman_unwatch_blockdepth(struct lightningd *ld,
+				 const char *owner,
+				 u32 confirm_height);
+
 #endif /* LIGHTNING_LIGHTNINGD_WATCHMAN_H */
