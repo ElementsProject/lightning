@@ -59,4 +59,17 @@ struct watch *bwatch_get_watch(struct bwatch *bwatch,
 			       const u32 *confirm_height);
 void bwatch_remove_watch_from_hash(struct bwatch *bwatch, struct watch *w);
 
+/* Block storage: in-memory history mirrors what's persisted under
+ * ["bwatch", "block_history", "%010u"].  Writes are async; reads happen
+ * once at startup. */
+struct command_result *bwatch_add_block_to_datastore(
+	struct command *cmd,
+	const struct block_record_wire *br,
+	struct command_result *(*done)(struct command *cmd));
+void bwatch_add_block_to_history(struct bwatch *bwatch, u32 height,
+				 const struct bitcoin_blkid *hash,
+				 const struct bitcoin_blkid *prev_hash);
+void bwatch_delete_block_from_datastore(struct command *cmd, u32 height);
+void bwatch_load_block_history(struct command *cmd, struct bwatch *bwatch);
+
 #endif /* LIGHTNING_PLUGINS_BWATCH_BWATCH_STORE_H */
