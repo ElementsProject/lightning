@@ -1,11 +1,17 @@
 #include "config.h"
 #include <assert.h>
+#include <bitcoin/chainparams.h>
 #include <ccan/str/str.h>
 #include <ccan/tal/str/str.h>
+#include <common/autodata.h>
+#include <common/json_command.h>
+#include <common/json_param.h>
 #include <common/json_parse_simple.h>
 #include <common/json_stream.h>
 #include <common/mkdatastorekey.h>
 #include <db/exec.h>
+#include <lightningd/bitcoind.h>
+#include <lightningd/chaintopology.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
@@ -375,3 +381,96 @@ static void watchman_on_plugin_ready(struct lightningd *ld, struct plugin *plugi
 		 * signature is migrated in Group H (chaintopology removal). */
 	}
 }
+
+/**
+ * json_getwatchmanheight - RPC handler to return watchman's last processed height
+ *
+ * Called by bwatch on startup to determine what height to rescan from.
+ */
+static struct command_result *json_getwatchmanheight(struct command *cmd,
+						     const char *buffer,
+						     const jsmntok_t *obj UNUSED,
+						     const jsmntok_t *params)
+{
+	struct watchman *wm = cmd->ld->watchman;
+	struct json_stream *response;
+	u32 height;
+
+	if (!param(cmd, buffer, params, NULL))
+		return command_param_failed();
+
+	height = wm ? wm->last_processed_height : 0;
+	log_debug(cmd->ld->log, "getwatchmanheight: returning height=%u (wm=%s)",
+		  height, wm ? "ok" : "NULL");
+	response = json_stream_success(cmd);
+	json_add_u32(response, "height", height);
+	if (wm && wm->last_processed_height > 0)
+		json_add_string(response, "blockhash",
+				fmt_bitcoin_blkid(response, &wm->last_processed_hash));
+	return command_success(cmd, response);
+}
+
+static const struct json_command getwatchmanheight_command = {
+	"getwatchmanheight",
+	json_getwatchmanheight,
+};
+AUTODATA(json_command, &getwatchmanheight_command);
+
+/**
+ * json_chaininfo - RPC handler for chaininfo from bwatch
+ *
+ * Called by bwatch on startup to inform watchman about the chain name,
+ * IBD status, and sync state. Validates we're on the right network and
+ * sets bitcoind->synced accordingly.
+ */
+static struct command_result *json_chaininfo(struct command *cmd,
+					     const char *buffer,
+					     const jsmntok_t *obj UNUSED,
+					     const jsmntok_t *params)
+{
+	const char *chain;
+	u32 *headercount, *blockcount;
+	bool *ibd;
+
+	if (!param(cmd, buffer, params,
+		   p_req("chain", param_string, &chain),
+		   p_req("headercount", param_number, &headercount),
+		   p_req("blockcount", param_number, &blockcount),
+		   p_req("ibd", param_bool, &ibd),
+		   NULL))
+		return command_param_failed();
+
+	if (!streq(chain, chainparams->bip70_name))
+		fatal("Wrong network! Our Bitcoin backend is running on '%s',"
+		      " but we expect '%s'.", chain, chainparams->bip70_name);
+	if (*ibd) {
+		log_unusual(cmd->ld->log,
+			    "Waiting for initial block download"
+			    " (this can take a while!)");
+		cmd->ld->topology->bitcoind->synced = false;
+	} else if (*headercount != *blockcount) {
+		log_unusual(cmd->ld->log,
+			    "Waiting for bitcoind to catch up"
+			    " (%u blocks of %u)",
+			    *blockcount, *headercount);
+		cmd->ld->topology->bitcoind->synced = false;
+	} else {
+		if (!cmd->ld->topology->bitcoind->synced)
+			log_info(cmd->ld->log, "Bitcoin backend now synced");
+		cmd->ld->topology->bitcoind->synced = true;
+		notify_new_block(cmd->ld);
+	}
+
+	cmd->ld->watchman->bitcoind_blockcount = *blockcount;
+
+	struct json_stream *response = json_stream_success(cmd);
+	json_add_string(response, "chain", chain);
+	json_add_bool(response, "synced", cmd->ld->topology->bitcoind->synced);
+	return command_success(cmd, response);
+}
+
+static const struct json_command chaininfo_command = {
+	"chaininfo",
+	json_chaininfo,
+};
+AUTODATA(json_command, &chaininfo_command);
