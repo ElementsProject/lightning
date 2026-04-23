@@ -1,5 +1,6 @@
 #include "config.h"
 #include <bitcoin/tx.h>
+#include <ccan/mem/mem.h>
 #include <common/utils.h>
 #include <plugins/bwatch/bwatch_interface.h>
 #include <plugins/bwatch/bwatch_scanner.h>
@@ -90,6 +91,74 @@ static void check_tx_against_all_watches(struct command *cmd,
 	check_outpoint_watches(cmd, bwatch, tx, blockheight, blockhash, txindex);
 }
 
+/* Check tx outputs against a single scriptpubkey watch (rescan path). */
+static void check_tx_scriptpubkey(struct command *cmd,
+				  const struct bitcoin_tx *tx,
+				  const struct watch *w,
+				  u32 blockheight,
+				  const struct bitcoin_blkid *blockhash,
+				  u32 txindex)
+{
+	for (size_t i = 0; i < tx->wtx->num_outputs; i++) {
+		if (memeq(tx->wtx->outputs[i].script,
+			  tx->wtx->outputs[i].script_len,
+			  w->key.scriptpubkey.script,
+			  w->key.scriptpubkey.len)) {
+			bwatch_send_watch_found(cmd, tx, blockheight, w,
+						txindex, i);
+			/* Same scriptpubkey may appear in multiple outputs. */
+		}
+	}
+}
+
+/* Check tx inputs against a single outpoint watch (rescan path). */
+static void check_tx_outpoint(struct command *cmd,
+			      const struct bitcoin_tx *tx,
+			      const struct watch *w,
+			      u32 blockheight,
+			      const struct bitcoin_blkid *blockhash,
+			      u32 txindex)
+{
+	for (size_t i = 0; i < tx->wtx->num_inputs; i++) {
+		struct bitcoin_outpoint outpoint;
+
+		bitcoin_tx_input_get_txid(tx, i, &outpoint.txid);
+		outpoint.n = tx->wtx->inputs[i].index;
+
+		if (bitcoin_outpoint_eq(&outpoint, &w->key.outpoint)) {
+			bwatch_send_watch_found(cmd, tx, blockheight, w,
+						txindex, i);
+			return; /* an outpoint can only be spent once */
+		}
+	}
+}
+
+/* Dispatch a single watch against one tx (rescan path). */
+static void check_tx_for_single_watch(struct command *cmd,
+				      const struct watch *w,
+				      const struct bitcoin_tx *tx,
+				      u32 blockheight,
+				      const struct bitcoin_blkid *blockhash,
+				      u32 txindex)
+{
+	switch (w->type) {
+	case WATCH_SCRIPTPUBKEY:
+		check_tx_scriptpubkey(cmd, tx, w, blockheight, blockhash, txindex);
+		break;
+	case WATCH_OUTPOINT:
+		check_tx_outpoint(cmd, tx, w, blockheight, blockhash, txindex);
+		break;
+	case WATCH_SCID:
+		/* scid watches don't scan transactions: txindex is encoded in
+		 * the scid key, so bwatch_check_scid_watches handles them
+		 * directly at the block level. */
+		break;
+	case WATCH_BLOCKDEPTH:
+		/* blockdepth watches fire per block; no per-tx work. */
+		break;
+	}
+}
+
 /* Fire watch_found for a scid watch anchored to this block. */
 static void maybe_fire_scid_watch(struct command *cmd,
 				  const struct bitcoin_block *block,
@@ -132,13 +201,18 @@ static void maybe_fire_scid_watch(struct command *cmd,
 	bwatch_send_watch_found(cmd, tx, blockheight, w, txindex, outnum);
 }
 
-/* Walk every scid watch and fire watch_found for any whose encoded
- * blockheight matches this block. */
-static void check_scid_watches(struct command *cmd,
+void bwatch_check_scid_watches(struct command *cmd,
 			       struct bwatch *bwatch,
 			       const struct bitcoin_block *block,
-			       u32 blockheight)
+			       u32 blockheight,
+			       const struct watch *w)
 {
+	if (w) {
+		if (w->type == WATCH_SCID)
+			maybe_fire_scid_watch(cmd, block, blockheight, w);
+		return;
+	}
+
 	struct scid_watches_iter it;
 	struct watch *scid_w;
 
@@ -153,13 +227,19 @@ void bwatch_process_block_txs(struct command *cmd,
 			      struct bwatch *bwatch,
 			      const struct bitcoin_block *block,
 			      u32 blockheight,
-			      const struct bitcoin_blkid *blockhash)
+			      const struct bitcoin_blkid *blockhash,
+			      const struct watch *w)
 {
-	for (size_t i = 0; i < tal_count(block->tx); i++)
-		check_tx_against_all_watches(cmd, bwatch, block->tx[i],
-					     blockheight, blockhash, i);
+	for (size_t i = 0; i < tal_count(block->tx); i++) {
+		if (w)
+			check_tx_for_single_watch(cmd, w, block->tx[i],
+						  blockheight, blockhash, i);
+		else
+			check_tx_against_all_watches(cmd, bwatch, block->tx[i],
+						     blockheight, blockhash, i);
+	}
 
-	check_scid_watches(cmd, bwatch, block, blockheight);
+	bwatch_check_scid_watches(cmd, bwatch, block, blockheight, w);
 }
 
 /* Fire depth notifications for every active blockdepth watch.
