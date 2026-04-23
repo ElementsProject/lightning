@@ -10,7 +10,8 @@
 #include <inttypes.h>
 #include <time.h>
 
-/* If chains is NULL, max_num_chains is ignored */
+/* If chains is NULL, max_num_chains is ignored.
+ * If must_be_chain is NULL, only structural validity is checked. */
 bool bolt12_chains_match(const struct bitcoin_blkid *chains,
 			 size_t max_num_chains,
 			 const struct chainparams *must_be_chain)
@@ -31,6 +32,13 @@ bool bolt12_chains_match(const struct bitcoin_blkid *chains,
 	 *    - if the node does not accept invoices for at least one of the `chains`:
 	 *      - MUST NOT respond to the offer
 	 */
+	if (chains && max_num_chains == 0)
+		return false;
+
+	/* No specific chain required: structurally valid. */
+	if (!must_be_chain)
+		return true;
+
 	if (!chains) {
 		max_num_chains = 1;
 		chains = &chainparams_for_network("bitcoin")->genesis_blockhash;
@@ -181,6 +189,18 @@ struct tlv_offer *offer_decode(const tal_t *ctx,
 	if (!offer) {
 		*fail = tal_fmt(ctx, "invalid offer data");
 		return NULL;
+	}
+
+	/* BOLT #12:
+	 *  - otherwise: (`offer_chains` is set):
+	 *    - if the node does not accept invoices for at least one of the `chains`:
+	 *      - MUST NOT respond to the offer
+	 */
+	for (size_t i = 0; i < tal_count(offer->fields); i++) {
+		if (offer->fields[i].numtype == 2 && offer->fields[i].length == 0) {
+			*fail = tal_strdup(ctx, "offer_chains must have at least one entry");
+			return tal_free(offer);
+		}
 	}
 
 	*fail = check_features_and_chain(ctx,
