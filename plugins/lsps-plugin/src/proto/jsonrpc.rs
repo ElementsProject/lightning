@@ -314,28 +314,27 @@ impl<R> JsonRpcResponseBody<R> {
 /// - `method_name(message)` - Creates error without data
 /// - `method_name_with_data(message, data)` - Creates error with data
 macro_rules! rpc_error_methods {
-    ($($method:ident => $code:expr),* $(,)?) => {
+    ($($method:ident, $method_with_data:ident => $code:expr),* $(,)?) => {
         $(
-            paste::paste! {
-                fn $method<T: std::fmt::Display>(message: T) -> $crate::proto::jsonrpc::RpcError {
-                    $crate::proto::jsonrpc::RpcError {
-                        code: $code,
-                        message: message.to_string(),
-                        data: None,
-                    }
-                }
-
-                fn [<$method _with_data>]<T: std::fmt::Display>(
-                    message: T,
-                    data: serde_json::Value,
-                ) -> $crate::proto::jsonrpc::RpcError {
-                    $crate::proto::jsonrpc::RpcError {
-                        code: $code,
-                        message: message.to_string(),
-                        data: Some(data),
-                    }
+            fn $method<T: std::fmt::Display>(message: T) -> $crate::proto::jsonrpc::RpcError {
+                $crate::proto::jsonrpc::RpcError {
+                    code: $code,
+                    message: message.to_string(),
+                    data: None,
                 }
             }
+
+            fn $method_with_data<T: std::fmt::Display>(
+                message: T,
+                data: serde_json::Value,
+            ) -> $crate::proto::jsonrpc::RpcError {
+                $crate::proto::jsonrpc::RpcError {
+                    code: $code,
+                    message: message.to_string(),
+                    data: Some(data),
+                }
+            }
+
         )*
     };
 }
@@ -383,11 +382,11 @@ impl RpcError {
 
 pub trait RpcErrorExt {
     rpc_error_methods! {
-    parse_error => PARSE_ERROR,
-    internal_error => INTERNAL_ERROR,
-    invalid_params => INVALID_PARAMS,
-    method_not_found => METHOD_NOT_FOUND,
-    invalid_request => INVALID_REQUEST,
+    parse_error, parse_error_with_data => PARSE_ERROR,
+    internal_error, internal_error_with_data => INTERNAL_ERROR,
+    invalid_params, invalid_params_with_data => INVALID_PARAMS,
+    method_not_found, method_not_found_with_data => METHOD_NOT_FOUND,
+    invalid_request, invalid_request_with_data => INVALID_REQUEST,
     }
 }
 
