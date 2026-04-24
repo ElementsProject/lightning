@@ -28,6 +28,8 @@ pub trait DatastoreProvider: Send + Sync {
     async fn finalize_session(&self, scid: &ShortChannelId, outcome: SessionOutcome) -> Result<()>;
 
     async fn list_active_sessions(&self) -> Result<Vec<(ShortChannelId, DatastoreEntry)>>;
+
+    async fn list_finalized_sessions(&self) -> Result<Vec<(ShortChannelId, DatastoreEntry)>>;
 }
 
 /// Status of forwards on a channel, used during recovery classification.

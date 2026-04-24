@@ -433,6 +433,10 @@ mod tests {
                 (k.parse::<ShortChannelId>().unwrap(), v.clone())
             }).collect())
         }
+
+        async fn list_finalized_sessions(&self) -> anyhow::Result<Vec<(ShortChannelId, DatastoreEntry)>> {
+            Ok(Vec::new())
+        }
     }
 
     struct MockExecutor {

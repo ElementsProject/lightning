@@ -608,4 +608,8 @@ impl<T: DatastoreProvider + Send + Sync> DatastoreProvider for Arc<T> {
     async fn list_active_sessions(&self) -> Result<Vec<(ShortChannelId, DatastoreEntry)>> {
         (**self).list_active_sessions().await
     }
+
+    async fn list_finalized_sessions(&self) -> Result<Vec<(ShortChannelId, DatastoreEntry)>> {
+        (**self).list_finalized_sessions().await
+    }
 }
