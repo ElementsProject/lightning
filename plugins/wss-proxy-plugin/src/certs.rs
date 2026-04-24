@@ -1,5 +1,6 @@
 use anyhow::{Error, anyhow};
-use rcgen::{CertificateParams, DistinguishedName, Ia5String, KeyPair};
+use rcgen::string::Ia5String;
+use rcgen::{CertificateParams, DistinguishedName, Issuer, KeyPair};
 use rustls::ServerConfig;
 use rustls::pki_types::pem::PemObject;
 use rustls::pki_types::{CertificateDer, PrivateKeyDer};
@@ -24,6 +25,7 @@ pub fn generate_certificates(certs_path: &PathBuf, wss_host: &[String]) -> Resul
     ca_params.use_authority_key_identifier_extension = true;
     let ca_key = KeyPair::generate()?;
     let ca_cert = ca_params.self_signed(&ca_key)?;
+    let ca_issuer = Issuer::from_params(&ca_params, &ca_key);
 
     fs::create_dir_all(certs_path)?;
 
@@ -74,9 +76,7 @@ pub fn generate_certificates(certs_path: &PathBuf, wss_host: &[String]) -> Resul
     }
 
     let server_key = KeyPair::generate()?;
-    let server_pem = server_params
-        .signed_by(&server_key, &ca_cert, &ca_key)?
-        .pem();
+    let server_pem = server_params.signed_by(&server_key, &ca_issuer)?.pem();
 
     fs::write(certs_path.join("server.pem"), server_pem)?;
     fs::write(
@@ -96,9 +96,7 @@ pub fn generate_certificates(certs_path: &PathBuf, wss_host: &[String]) -> Resul
         .distinguished_name
         .push(rcgen::DnType::CommonName, "cln wss-proxy client");
     let client_key = KeyPair::generate()?;
-    let client_pem = client_params
-        .signed_by(&client_key, &ca_cert, &ca_key)?
-        .pem();
+    let client_pem = client_params.signed_by(&client_key, &ca_issuer)?.pem();
 
     fs::write(certs_path.join("client.pem"), client_pem)?;
     fs::write(

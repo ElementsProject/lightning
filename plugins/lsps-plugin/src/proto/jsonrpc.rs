@@ -1,4 +1,4 @@
-use rand::{TryRngCore as _, rngs::OsRng};
+use rand::{TryRng, rngs::SysRng};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::{self, Value};
 use std::fmt;
@@ -43,7 +43,7 @@ pub trait JsonRpcRequest: Serialize {
 /// to a timestamp-based ID if random generation fails.
 fn generate_random_id() -> String {
     let mut bytes = [0u8; 10];
-    match OsRng.try_fill_bytes(&mut bytes) {
+    match SysRng.try_fill_bytes(&mut bytes) {
         Ok(_) => hex::encode(bytes),
         Err(_) => {
             // Fallback to a timestamp-based ID if random generation fails
