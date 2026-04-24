@@ -28,8 +28,6 @@ jobs:
     if: |
       github.event.action != 'edited' ||
       contains(github.event.pull_request.body, 'Changelog')
-    env:
-      BOLTDIR: bolts
     strategy:
       fail-fast: true
     steps:
@@ -197,6 +195,8 @@ jobs:
     runs-on: ubuntu-24.04
     needs:
       - compile
+    env:
+      BOLTDIR: bolts
     strategy:
       matrix:
         CFG: [compile-gcc]
