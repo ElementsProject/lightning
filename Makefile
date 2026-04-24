@@ -315,7 +315,7 @@ LDLIBS = -L$(CPATH) -lm $(SQLITE3_LDLIBS) $(COVFLAGS)
 endif
 
 ifeq ($(HAVE_FUNCTION_SECTIONS),1)
-LDLIBS += -Wl,--gc-sections
+LDFLAGS += -Wl,--gc-sections
 endif
 
 # If we have the postgres client library we need to link against it as well
