@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [26.04.1] - 2026-04-24: "Negative Routing Fees II"
+
+This point release is recommended: it fixes a build failure in some environments and a gossip protocol issue.
+
+### Fixed
+
+ - **Protocol:** we now reject `channel_announcement` messages where `node_id_1` is not lexicographically less than `node_id_2` (per BOLT; see [lightning/bolts#1333](https://github.com/lightning/bolts/pull/1333)), so malformed announcements no longer stress the gossip store and other readers. ([#9082])
+ - **Build:** correct `printf` format for the splice transaction weight log line (`%zu` for `size_t`), fixing a `-Werror` / `-Wformat` failure (for example in the `linux/amd64` Docker image build). ([#9083])
+
+[#9082]: https://github.com/ElementsProject/lightning/pull/9082
+[#9083]: https://github.com/ElementsProject/lightning/pull/9083
+[26.04.1]: https://github.com/ElementsProject/lightning/releases/tag/v26.04.1
+
 ## [26.04] - 2026-04-20: Negative Routing Fees
 
 This release is named by @Chand-ra.
