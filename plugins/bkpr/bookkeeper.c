@@ -83,9 +83,14 @@ const char *currencyrate_str(const tal_t *ctx,
 	mul = ratefactor(bkpr->currency);
 
 	if (msat) {
-		unsigned __int128 v;
-		v = (unsigned __int128)msat->millisatoshis * crate->raw_rate /* Raw: 128-bit math */;
-		raw_rate = v / MSAT_PER_BTC;
+		struct amount_msat res;
+
+		/* If multiply overflows, use floating point */
+		if (amount_msat_mul(&res, *msat, crate->raw_rate)) {
+			raw_rate = res.millisatoshis / MSAT_PER_BTC; /* Raw: divide */
+		} else {
+			raw_rate = (double)msat->millisatoshis * crate->raw_rate / MSAT_PER_BTC; /* Raw: double */
+		}
 	} else {
 		raw_rate = crate->raw_rate;
 	}
