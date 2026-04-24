@@ -52,9 +52,9 @@ impl core::error::Error for Error {}
 
 pub trait LSPS2RpcErrorExt {
     rpc_error_methods! {
-        invalid_opening_fee_params => error_codes::INVALID_OPENING_FEE_PARAMS,
-        payment_size_too_small => error_codes::PAYMENT_SIZE_TOO_SMALL,
-        payment_size_too_large => error_codes::PAYMENT_SIZE_TOO_LARGE
+        invalid_opening_fee_params, invalid_opening_fee_params_with_data => error_codes::INVALID_OPENING_FEE_PARAMS,
+        payment_size_too_small, payment_size_too_small_with_data => error_codes::PAYMENT_SIZE_TOO_SMALL,
+        payment_size_too_large, payment_size_too_large_with_data => error_codes::PAYMENT_SIZE_TOO_LARGE
     }
 }
 

@@ -19,7 +19,7 @@ pub mod error_codes {
 
 pub trait LSPS0RpcErrorExt {
     rpc_error_methods! {
-        client_rejected => error_codes::CLIENT_REJECTED,
+        client_rejected, client_rejected_with_data => error_codes::CLIENT_REJECTED,
     }
 }
 
