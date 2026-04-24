@@ -2548,11 +2548,11 @@ def test_unspend_during_reorg(node_factory, bitcoind):
     blockheight, txindex, _ = scid.split('x')
 
     # Use mainnet settings for rescan.
-    l3 = node_factory.get_node(options={'rescan': 15})
+    l3 = node_factory.get_node(options={'rescan': 75})
     l3.connect(l2)
 
     mine_funding_to_announce(bitcoind, [l1, l2, l3])
-    bitcoind.generate_block(20)
+    bitcoind.generate_block(90)
     sync_blockheight(bitcoind, [l3])
     wait_for(lambda: len(l3.rpc.listchannels()['channels']) == 2)
 
@@ -2562,10 +2562,10 @@ def test_unspend_during_reorg(node_factory, bitcoind):
     # Now, l3 sees the close, marks channel dying.
     l1.rpc.close(l2.info['id'])
     spentheight = bitcoind.rpc.getblockcount() + 1
-    bitcoind.generate_block(14, wait_for_mempool=1)
+    bitcoind.generate_block(74, wait_for_mempool=1)
     wait_for(lambda: len(l3.rpc.listchannels()['channels']) == 2)
 
-    # In one fell swoop it goes through dying, to dead (12 blocks)
+    # In one fell swoop it goes through dying, to dead (72 blocks)
     l3.daemon.wait_for_log(f"Adding block {spentheight}")
     l3.daemon.wait_for_log(f"gossipd: channel {scid} closing soon due to the funding outpoint being spent")
     l3.daemon.wait_for_log(f"gossipd: Deleting channel {scid} due to the funding outpoint being spent")
@@ -2576,7 +2576,7 @@ def test_unspend_during_reorg(node_factory, bitcoind):
     # Restart, see replay.
     l3.stop()
     # This is enough to take channel from dying to dead.
-    bitcoind.generate_block(10)
+    bitcoind.generate_block(70)
 
     l3.start()
     # Channel should still be dead.

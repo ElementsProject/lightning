@@ -1445,7 +1445,7 @@ def test_gossip_notices_close(node_factory, bitcoind):
 
     txid = only_one(l2.rpc.close(l3.info['id'])['txids'])
     wait_for(lambda: l2.rpc.listpeerchannels(l3.info['id'])['channels'][0]['state'] == 'CLOSINGD_COMPLETE')
-    bitcoind.generate_block(13, txid)
+    bitcoind.generate_block(73, txid)
 
     wait_for(lambda: l1.rpc.listchannels()['channels'] == [])
     wait_for(lambda: l1.rpc.listnodes()['nodes'] == [])
@@ -1683,7 +1683,7 @@ def test_gossip_store_compact_while_extending(node_factory, bitcoind, executor):
 
     scid23 = only_one(l2.rpc.listpeerchannels(l3.info['id'])['channels'])['short_channel_id']
     l2.rpc.close(l3.info['id'])
-    bitcoind.generate_block(13, wait_for_mempool=1)
+    bitcoind.generate_block(73, wait_for_mempool=1)
     wait_for(lambda: l1.rpc.listchannels(scid23) == {'channels': []})
 
     l1.rpc.setchannel(l2.info['id'], 41, 1004)
@@ -2008,7 +2008,7 @@ def test_topology_leak(node_factory, bitcoind):
 
     # Close and wait for gossip to catchup.
     txid = only_one(l2.rpc.close(l3.info['id'])['txids'])
-    bitcoind.generate_block(13, txid)
+    bitcoind.generate_block(73, txid)
 
     wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 2)
 
@@ -2057,11 +2057,11 @@ def test_close_72_block_delay(node_factory, bitcoind):
     # That implies 72 blocks *after* spending, i.e. 73 blocks deep!
 
     # 72 blocks deep, l4 still sees it
-    bitcoind.generate_block(71)
+    bitcoind.generate_block(70)
     sync_blockheight(bitcoind, [l4])
     assert len(l4.rpc.listchannels(source=l1.info['id'])['channels']) == 1
 
-    # 13 blocks deep does it.
+    # 72 blocks deep does it.
     bitcoind.generate_block(1)
     wait_for(lambda: l4.rpc.listchannels(source=l1.info['id'])['channels'] == [])
 
@@ -2490,7 +2490,7 @@ def test_gossmap_lost_node(node_factory, bitcoind):
 
     scid23 = only_one(l2.rpc.listpeerchannels(l3.info['id'])['channels'])['short_channel_id']
     l2.rpc.close(l3.info['id'])
-    bitcoind.generate_block(13, wait_for_mempool=1)
+    bitcoind.generate_block(73, wait_for_mempool=1)
 
     # Order of nodes is not stable.
     sync_blockheight(bitcoind, [l1])

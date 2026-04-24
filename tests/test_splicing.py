@@ -229,7 +229,7 @@ def test_splice_gossip(node_factory, bitcoind):
 
     bitcoind.generate_block(5, wait_for_mempool=result['txid'])
 
-    # l3 will see channel dying, but still consider it OK for 12 blocks.
+    # l3 will see channel dying, but still consider it OK for 72 blocks.
     l3.daemon.wait_for_log(f'gossipd: channel {pre_splice_scid} closing soon due to the funding outpoint being spent')
     assert len(l3.rpc.listchannels(short_channel_id=pre_splice_scid)['channels']) == 2
     assert len(l3.rpc.listchannels(source=l1.info['id'])['channels']) == 1
@@ -246,7 +246,7 @@ def test_splice_gossip(node_factory, bitcoind):
     wait_for(lambda: len(l3.rpc.listchannels(short_channel_id=post_splice_scid)['channels']) == 2)
     assert len(l3.rpc.listchannels(short_channel_id=pre_splice_scid)['channels']) == 2
 
-    bitcoind.generate_block(7)
+    bitcoind.generate_block(67)
 
     # The old channel should fall off l3's perspective
     wait_for(lambda: l3.rpc.listchannels(short_channel_id=pre_splice_scid)['channels'] == [])
