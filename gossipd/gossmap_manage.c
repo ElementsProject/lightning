@@ -648,6 +648,20 @@ const char *gossmap_manage_channel_announcement(const tal_t *ctx,
 			       tal_hex(tmpctx, announce));
 	}
 
+	/* BOLT-gossip-node-check #7:
+	 * The receiving node:
+	 *...
+	 *   - if `node_id_1` is not lexicographically less than `node_id_2`:
+	 *     - SHOULD send a `warning`.
+	 *     - MAY close the connection.
+	 *     - MUST ignore the message.
+	 */
+	if (!(node_id_cmp(&node_id_1, &node_id_2) < 0)) {
+		return tal_fmt(ctx, "node_id_1 must be the lesser node id! 1=%s, 2=%s",
+			       fmt_node_id(tmpctx, &node_id_1),
+			       fmt_node_id(tmpctx, &node_id_2));
+	}
+
 	/* If a prior txout lookup failed there is little point it trying
 	 * again. Just drop the announcement and walk away whistling.
 	 *
