@@ -201,7 +201,7 @@ static void negotiate_auth(struct rbuf *rbuf, const char *tor_password)
 	tor_send_cmd(rbuf, "PROTOCOLINFO 1");
 
 	while ((line = tor_response_line(rbuf)) != NULL) {
-		const char *p;
+		char *p;
 
 		if (!strstarts(line, "AUTH METHODS="))
 			continue;

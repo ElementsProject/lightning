@@ -464,8 +464,8 @@ static char **prepare_table_manip(const tal_t *ctx,
 				  struct db *db, const char *tablename)
 {
 	sqlite3_stmt *stmt;
-	const char *sql;
-	char *cmd, *bracket;
+	const char *sql, *bracket;
+	char *cmd;
 	char **parts;
 	int err;
 	struct db_sqlite3 *wrapper = (struct db_sqlite3 *)db->conn;
