@@ -658,6 +658,33 @@ impl DatastoreProvider for ClnDatastore {
         }
         Ok(sessions)
     }
+
+    async fn list_finalized_sessions(&self) -> Result<Vec<(ShortChannelId, DatastoreEntry)>> {
+        let mut rpc = self.rpc.create_rpc().await?;
+        let prefix = vec![
+            DS_MAIN_KEY.to_string(),
+            DS_SUB_KEY.to_string(),
+            DS_SESSIONS_KEY.to_string(),
+            DS_FINALIZED_KEY.to_string(),
+        ];
+        let res = rpc
+            .call_typed(&ListdatastoreRequest { key: Some(prefix) })
+            .await
+            .with_context(|| "calling listdatastore for list_finalized_sessions")?;
+
+        let mut sessions = Vec::new();
+        for ds in &res.datastore {
+            if let Some(scid_str) = ds.key.last() {
+                if let Ok(scid) = scid_str.parse::<ShortChannelId>() {
+                    let json_str = ds.string.as_deref().unwrap_or("");
+                    if let Ok(entry) = serde_json::from_str::<DatastoreEntry>(json_str) {
+                        sessions.push((scid, entry));
+                    }
+                }
+            }
+        }
+        Ok(sessions)
+    }
 }
 
 // ---------------------------------------------------------------------------

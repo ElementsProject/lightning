@@ -409,6 +409,10 @@ mod tests {
         async fn list_active_sessions(&self) -> AnyResult<Vec<(ShortChannelId, DatastoreEntry)>> {
             unimplemented!("not needed for service tests")
         }
+
+        async fn list_finalized_sessions(&self) -> AnyResult<Vec<(ShortChannelId, DatastoreEntry)>> {
+            unimplemented!("not needed for service tests")
+        }
     }
 
     fn handler(api: MockApi) -> Lsps2ServiceHandler<MockApi, MockApi> {
