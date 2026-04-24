@@ -26,6 +26,6 @@ tokio = { version = "1", features = ["net"] }
 tokio-util = { version = "0.7", features = ["codec"] }
 
 [dev-dependencies]
-env_logger = "0.10"
+env_logger = "0.11"
 tokio = { version = "1", features = ["net", "macros", "rt-multi-thread"] }
 tokio-test = "0.4.3"

@@ -32,7 +32,5 @@ rustls = { version = "0.23", default-features = false, features = [
 
 futures = "0.3"
 
-rand = "0.9"
-
 cln-plugin = { workspace = true }
 cln-rpc = { workspace = true }

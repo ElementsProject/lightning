@@ -66,7 +66,7 @@ pub trait ShortChannelIdJITExt {
 
 impl ShortChannelIdJITExt for ShortChannelId {
     fn generate_jit(blockheight: u32, distance: u32) -> Self {
-        use rand::{Rng as _, rng};
+        use rand::{RngExt as _, rng};
 
         let mut rng = rng();
         let block = blockheight + distance;

@@ -15,9 +15,9 @@ log = { version = "0.4", features = ['std'] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_yaml_ng = "0.10.0"
-quick-xml = { version = "0.38", features = ["serialize"] }
+quick-xml = { version = "0.39", features = ["serialize"] }
 roxmltree_to_serde = "0.6"
-serde_qs = "0.15"
+serde_qs = "1"
 tokio-util = { version = "0.7", features = ["codec"] }
 tokio = { version = "1", features = [
     'io-std',
@@ -39,7 +39,7 @@ futures-util = { version = "0.3", default-features = false, features = [
     "sink",
     "std",
 ] }
-rcgen = "0.13"
+rcgen = "0.14"
 hyper = "1"
 tower = "0.5"
 tower-http = { version = "0.6", features = ["cors", "set-header"] }

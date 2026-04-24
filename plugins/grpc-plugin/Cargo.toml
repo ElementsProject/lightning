@@ -16,8 +16,8 @@ path = "src/main.rs"
 [dependencies]
 anyhow = "1.0"
 log = "0.4"
-rcgen = { version = "0.13.1", features = ["pem", "x509-parser"] }
-prost = "0.12"
+rcgen = { version = "0.14", features = ["pem", "x509-parser"] }
+prost = "0.14"
 cln-grpc = { workspace = true, features = ["server"] }
 cln-plugin = { workspace = true }
 cln-rpc = { workspace = true }
@@ -28,5 +28,5 @@ features = ["net", "rt-multi-thread"]
 version = "1"
 
 [dependencies.tonic]
-features = ["tls", "transport"]
-version = "0.11"
+features = ["tls-ring", "transport"]
+version = "0.14"
