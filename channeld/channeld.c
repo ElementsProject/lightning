@@ -3253,7 +3253,7 @@ static size_t calc_weight(enum tx_role role, const struct wally_psbt *psbt,
 		}
 		if (log_math)
 			status_debug(" Adding input"
-				     " %lu; weight: %lu", i, weight - lweight);
+				     " %zu; weight: %zu", i, weight - lweight);
 		lweight = weight;
 	}
 
@@ -3268,7 +3268,7 @@ static size_t calc_weight(enum tx_role role, const struct wally_psbt *psbt,
 		}
 		if (log_math)
 			status_debug(" Adding output"
-				     " %lu; weight: %lu", i, weight - lweight);
+				     " %zu; weight: %zu", i, weight - lweight);
 		lweight = weight;
 	}
 
@@ -3287,12 +3287,12 @@ static size_t calc_weight(enum tx_role role, const struct wally_psbt *psbt,
 						 psbt->num_outputs);
 		if (log_math)
 			status_debug(" Adding bitcoin_tx_core_weight;"
-				     " weight: %lu", weight - lweight);
+				     " weight: %zu", weight - lweight);
 		lweight = weight;
 	  }
 
 	if (log_math)
-		status_debug("Total weight: %lu", weight);
+		status_debug("Total weight: %zu", weight);
 	return weight;
 }
 
@@ -3592,7 +3592,7 @@ static struct amount_sat check_balances(struct peer *peer,
 
 	if (opener) {
 		status_debug("User specified fee of %s. Splice feerate %"PRIu32
-			     " * weight %lu / 1000 = %s",
+			     " * weight %zu / 1000 = %s",
 			     fmt_amount_m_as_sat(tmpctx, initiator_fee),
 			     peer->feerate_splice,
 			     calc_weight(TX_INITIATOR, psbt, false),
@@ -3616,7 +3616,7 @@ static struct amount_sat check_balances(struct peer *peer,
 							   true);
 		status_debug("Our own fee (%s) is too high to use without"
 			     " forcing. Splice feerate %"PRIu32
-			     " x weight %lu / 1000 = %s (max)",
+			     " x weight %zu / 1000 = %s (max)",
 			     fmt_amount_m_as_sat(tmpctx, initiator_fee),
 			     peer->feerate_splice,
 			     calc_weight(TX_INITIATOR, psbt, false),
@@ -3627,7 +3627,7 @@ static struct amount_sat check_balances(struct peer *peer,
 		splice_abort(peer, NULL,
 			     "Our own fee (%s) is too high to use without"
 			     " forcing. Splice feerate %"PRIu32
-			     " x weight %lu / 1000 = %s (max)",
+			     " x weight %zu / 1000 = %s (max)",
 			     fmt_amount_m_as_sat(tmpctx, initiator_fee),
 			     peer->feerate_splice,
 			     calc_weight(TX_INITIATOR, psbt, false),
