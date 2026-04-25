@@ -67,6 +67,7 @@
 #include <lightningd/channel_gossip.h>
 #include <lightningd/closed_channel.h>
 #include <lightningd/connect_control.h>
+#include <lightningd/feerate.h>
 #include <lightningd/gossip_control.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/io_loop_with_timers.h>
@@ -1444,6 +1445,10 @@ int main(int argc, char *argv[])
 	 *  can start the poll loop which queries bitcoind for new blocks. */
 	begin_topology(ld->topology);
 
+	/*~ Poll bitcoind for fee estimates every 30s.  bwatch only reports
+	 * blockheight via block_processed; it does not call estimatefees. */
+	start_fee_polling(ld);
+
 	/*~ To handle --daemon, we fork the daemon early (otherwise we hit
 	 * issues with our pid changing), but keep the parent around until
 	 * we've completed most initialization: that way we'll exit with an
@@ -1501,6 +1506,9 @@ stop:
 
 	/* Stop topology callbacks. */
 	stop_topology(ld->topology);
+
+	/* Stop the fee-estimate polling timer. */
+	ld->fee_poll = tal_free(ld->fee_poll);
 
 	/* We're not going to collect our children. */
 	remove_sigchild_handler(sigchld_conn);

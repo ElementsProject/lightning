@@ -207,6 +207,9 @@ void setup_topology(struct chain_topology *topology UNNEEDED)
 /* Generated stub for shutdown_plugins */
 void shutdown_plugins(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "shutdown_plugins called!\n"); abort(); }
+/* Generated stub for start_fee_polling */
+void start_fee_polling(struct lightningd *ld UNNEEDED)
+{ fprintf(stderr, "start_fee_polling called!\n"); abort(); }
 /* Generated stub for stop_topology */
 void stop_topology(struct chain_topology *topo UNNEEDED)
 { fprintf(stderr, "stop_topology called!\n"); abort(); }

@@ -156,21 +156,6 @@ static void get_chaininfo_once(struct bitcoind *bitcoind, const char *chain,
 	io_break(bitcoind->ld->topology);
 }
 
-struct feerates_once {
-	u32 feerate_floor;
-	struct feerate_est *rates;
-};
-
-static void get_feerates_once(struct lightningd *ld,
-			      u32 feerate_floor,
-			      const struct feerate_est *rates TAKES,
-			      struct feerates_once *once)
-{
-	once->feerate_floor = feerate_floor;
-	once->rates = tal_dup_talarr(once, struct feerate_est, rates);
-	io_break(ld->topology);
-}
-
 /* We want to loop and poll until bitcoind has this height */
 struct wait_for_height {
 	struct bitcoind *bitcoind;
@@ -215,7 +200,6 @@ void setup_topology(struct chain_topology *topo)
 	/* Since we loop below, we free tmpctx, so we need a local */
 	const tal_t *local_ctx = tal(NULL, char);
 	struct chaininfo_once *chaininfo = tal(local_ctx, struct chaininfo_once);
-	struct feerates_once *feerates = tal(local_ctx, struct feerates_once);
 	bool blockscan_start_set;
 	u32 blockscan_start;
 
@@ -243,18 +227,11 @@ void setup_topology(struct chain_topology *topo)
 
 	/* Sanity checks, then topology initialization. */
 	chaininfo->chain = NULL;
-	feerates->rates = NULL;
 	bitcoind_getchaininfo(chaininfo, topo->ld->bitcoind, blockscan_start,
 			      get_chaininfo_once, chaininfo);
-	bitcoind_estimate_fees(feerates, topo->ld->bitcoind, get_feerates_once, feerates);
 
-	/* Each one will break, but they might only exit once! */
 	ret = io_loop_with_timers(topo->ld);
 	assert(ret == topo);
-	if (chaininfo->chain == NULL || feerates->rates == NULL) {
-		ret = io_loop_with_timers(topo->ld);
-		assert(ret == topo);
-	}
 
 	topo->headercount = chaininfo->headercount;
 	if (!streq(chaininfo->chain, chainparams->bip70_name))
@@ -284,20 +261,12 @@ void setup_topology(struct chain_topology *topo)
 					      wait_until_height_reached, wh);
 			ret = io_loop_with_timers(topo->ld);
 			assert(ret == wh);
-
-			/* Might have been a while, so re-ask for fee estimates */
-			bitcoind_estimate_fees(feerates, topo->ld->bitcoind, get_feerates_once, feerates);
-			ret = io_loop_with_timers(topo->ld);
-			assert(ret == topo);
 		}
 	}
 
 	/* Sets bitcoin->synced or logs warnings */
 	check_sync(topo->ld->bitcoind, chaininfo->headercount, chaininfo->blockcount,
 		   chaininfo->ibd, topo, true);
-
-	/* It's very useful to have feerates early */
-	update_feerates(topo->ld, feerates->feerate_floor, feerates->rates);
 
 	tal_free(local_ctx);
 
@@ -309,8 +278,6 @@ void begin_topology(struct chain_topology *topo)
 	/* If we were not synced, start looping to check */
 	if (!topo->ld->bitcoind->synced)
 		retry_sync(topo);
-	/* Regular feerate updates */
-	start_fee_polling(topo->ld);
 	/* Bootstrap the rebroadcast timer; it self-perpetuates from there. */
 	rebroadcast_txs(topo->ld);
 }
@@ -319,6 +286,4 @@ void stop_topology(struct chain_topology *topo)
 {
 	/* Remove timers while we're cleaning up plugins. */
 	tal_free(topo->checkchain_timer);
-	tal_free(topo->ld->fee_poll);
-	topo->ld->fee_poll = NULL;
 }
