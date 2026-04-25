@@ -289,8 +289,9 @@ PKG_CONFIG_PATH := $(SQLITE_PREFIX)/lib/pkgconfig:$(PKG_CONFIG_PATH)
 endif
 endif
 
-CPPFLAGS += -DCLN_NEXT_VERSION="\"$(CLN_NEXT_VERSION)\"" -DPKGLIBEXECDIR="\"$(pkglibexecdir)\"" -DBINDIR="\"$(bindir)\"" -DPLUGINDIR="\"$(plugindir)\"" -DCCAN_TAL_NEVER_RETURN_NULL=1
-CFLAGS = $(CPPFLAGS) $(CWARNFLAGS) $(CDEBUGFLAGS) $(COPTFLAGS) -I $(CCANDIR) $(EXTERNAL_INCLUDE_FLAGS) -I . -I$(CPATH) $(SQLITE3_CFLAGS) $(SODIUM_CFLAGS) $(POSTGRES_INCLUDE) $(FEATURES) $(COVFLAGS) $(DEV_CFLAGS) -DSHACHAIN_BITS=48 -DJSMN_PARENT_LINKS $(PIE_CFLAGS) $(COMPAT_CFLAGS) $(CSANFLAGS)
+# Put the environment-inherited flags *last* so the user has the final say.
+CPPFLAGS := -DCLN_NEXT_VERSION="\"$(CLN_NEXT_VERSION)\"" -DPKGLIBEXECDIR="\"$(pkglibexecdir)\"" -DBINDIR="\"$(bindir)\"" -DPLUGINDIR="\"$(plugindir)\"" -DCCAN_TAL_NEVER_RETURN_NULL=1 -DSHACHAIN_BITS=48 -DJSMN_PARENT_LINKS $(CPPFLAGS)
+CFLAGS := $(CWARNFLAGS) $(CDEBUGFLAGS) $(COPTFLAGS) -I $(CCANDIR) $(EXTERNAL_INCLUDE_FLAGS) -I . -I$(CPATH) $(SQLITE3_CFLAGS) $(SODIUM_CFLAGS) $(POSTGRES_INCLUDE) $(FEATURES) $(COVFLAGS) $(DEV_CFLAGS) $(PIE_CFLAGS) $(COMPAT_CFLAGS) $(CSANFLAGS) $(CFLAGS)
 
 # If CFLAGS is already set in the environment of make (to whatever value, it
 # does not matter) then it would export it to subprocesses with the above value
@@ -314,7 +315,7 @@ LDLIBS = -L$(CPATH) -lm $(SQLITE3_LDLIBS) $(COVFLAGS)
 endif
 
 ifeq ($(HAVE_FUNCTION_SECTIONS),1)
-LDLIBS += -Wl,--gc-sections
+LDFLAGS += -Wl,--gc-sections
 endif
 
 # If we have the postgres client library we need to link against it as well
@@ -330,8 +331,8 @@ FORCE:
 endif
 
 show-flags: config.vars
-	@$(ECHO) "CC: $(CC) $(CFLAGS) -c -o"
-	@$(ECHO) "LD: $(LINK.o) $(filter-out %.a,$^) $(LOADLIBES) $(EXTERNAL_LDLIBS) $(LDLIBS) -o"
+	@$(ECHO) "CC: $(COMPILE.c) -o"
+	@$(ECHO) "LD: $(LINK.c) $(filter-out %.a,$^) $(LOADLIBES) $(EXTERNAL_LDLIBS) $(LDLIBS) -o"
 
 # We will re-generate, but we won't generate for the first time!
 ccan/config.h config.vars &: configure ccan/tools/configurator/configurator.c
@@ -339,7 +340,7 @@ ccan/config.h config.vars &: configure ccan/tools/configurator/configurator.c
 	./configure --reconfigure
 
 %.o: %.c
-	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
+	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
 
 # tools/update-mocks.sh does nasty recursive make, must not do this!
 ifeq ($(SUPPRESS_GENERATION),1)
@@ -760,7 +761,7 @@ $(ALL_TEST_PROGRAMS) $(ALL_FUZZ_TARGETS): %: %.o
 # (as per EXTERNAL_LDLIBS) so we filter them out here.  We have to put the other
 # .a files (if any) at the end of the link line.
 $(ALL_PROGRAMS) $(ALL_TEST_PROGRAMS):
-	@$(call VERBOSE, "ld $@", $(LINK.o) $(filter-out %.a,$^) $(filter-out external/%,$(filter %.a,$^)) $(LOADLIBES) $(EXTERNAL_LDLIBS) $(LDLIBS) $($(@)_LDLIBS) -o $@)
+	@$(call VERBOSE, "ld $@", $(LINK.c) $(filter-out %.a,$^) $(filter-out external/%,$(filter %.a,$^)) $(LOADLIBES) $(EXTERNAL_LDLIBS) $(LDLIBS) $($(@)_LDLIBS) -o $@)
 ifeq ($(OS),Darwin)
 	@$(call VERBOSE, "dsymutil $@", dsymutil $@)
 endif
