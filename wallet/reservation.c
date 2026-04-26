@@ -576,7 +576,7 @@ static struct command_result *json_fundpsbt(struct command *cmd,
 
 		/* Since it's possible the lack of utxos is because we haven't
 		 * finished syncing yet, report a sync timing error first */
-		if (!topology_synced(cmd->ld->topology))
+		if (!cmd->ld->bitcoind->synced)
 			return command_fail(cmd,
 					    FUNDING_STILL_SYNCING_BITCOIN,
 					    "Cannot afford: still syncing with bitcoin network...");
@@ -598,7 +598,7 @@ static struct command_result *json_fundpsbt(struct command *cmd,
 				       *feerate_per_kw, *weight,
 				       &diff)
 		    || amount_sat_less(diff, chainparams->dust_limit)) {
-			if (!topology_synced(cmd->ld->topology))
+			if (!cmd->ld->bitcoind->synced)
 				return command_fail(cmd,
 						    FUNDING_STILL_SYNCING_BITCOIN,
 						    "Cannot afford: still syncing with bitcoin network...");
@@ -858,7 +858,7 @@ static struct command_result *json_addpsbtinput(struct command *cmd,
 
 		/* Since it's possible the lack of utxos is because we haven't
 		 * finished syncing yet, report a sync timing error first */
-		if (!topology_synced(cmd->ld->topology))
+		if (!cmd->ld->bitcoind->synced)
 			return command_fail(cmd,
 					    FUNDING_STILL_SYNCING_BITCOIN,
 					    "Cannot afford: still syncing with"

@@ -2494,13 +2494,6 @@ static struct command_result *openchannel_bump(struct openchannel_bump_info *inf
 	return command_still_pending(cmd);
 }
 
-/* sync_waiter must return void, so we use a simple wrapper */
-static void openchannel_bump_after_sync(struct chain_topology *topo,
-					struct openchannel_bump_info *info)
-{
-	openchannel_bump(info);
-}
-
 static struct command_result *
 json_openchannel_bump(struct command *cmd,
 		      const char *buffer,
@@ -2630,18 +2623,9 @@ json_openchannel_bump(struct command *cmd,
 	if (command_check_only(cmd))
 		return command_check_done(cmd);
 
-	/* Ok, we're kosher to start.  Delay if not synced yet. */
-	if (!topology_synced(cmd->ld->topology)) {
-		json_notify_fmt(cmd, LOG_UNUSUAL,
-				"Waiting to sync with bitcoind network (block %u of %u)",
-				get_block_height(cmd->ld->topology),
-				get_network_blockheight(cmd->ld->topology));
-
-		topology_add_sync_waiter(cmd, cmd->ld->topology,
-					 openchannel_bump_after_sync,
-					 info);
-		return command_still_pending(cmd);
-	}
+	if (!cmd->ld->bitcoind->synced)
+		return command_fail(cmd, FUNDING_STILL_SYNCING_BITCOIN,
+				    "Still syncing with bitcoin network");
 
 	return openchannel_bump(info);
 }
@@ -3127,37 +3111,6 @@ struct openchannel_init_info {
 	struct channel_type *ctype;
 };
 
-static void openchannel_init_after_sync(struct chain_topology *topo,
-					struct openchannel_init_info *info)
-{
-	struct peer *peer;
-
-	/* Look up peer again in case it's gone! */
-	peer = peer_by_id(info->cmd->ld, info->id);
-	if (!peer) {
-		was_pending(command_fail(info->cmd, FUNDING_UNKNOWN_PEER, "Unknown peer"));
-		return;
-	}
-
-	if (!feature_negotiated(info->cmd->ld->our_features,
-			        peer->their_features,
-				OPT_DUAL_FUND)) {
-		was_pending(command_fail(info->cmd, FUNDING_V2_NOT_SUPPORTED,
-					 "v2 openchannel not supported "
-					 "by peer"));
-		return;
-	}
-
-	openchannel_init(info->cmd, peer,
-			 *info->amount,
-			 *info->request_amt,
-			 info->psbt,
-			 *info->feerate_per_kw_funding, *info->feerate_per_kw,
-			 info->our_upfront_shutdown_script,
-			 *info->announce_channel,
-			 info->rates, info->ctype);
-}
-
 static struct command_result *json_openchannel_init(struct command *cmd,
 						    const char *buffer,
 						    const jsmntok_t *obj UNNEEDED,
@@ -3272,17 +3225,9 @@ static struct command_result *json_openchannel_init(struct command *cmd,
 	if (command_check_only(cmd))
 		return command_check_done(cmd);
 
-	if (!topology_synced(cmd->ld->topology)) {
-		json_notify_fmt(cmd, LOG_UNUSUAL,
-				"Waiting to sync with bitcoind network (block %u of %u)",
-				get_block_height(cmd->ld->topology),
-				get_network_blockheight(cmd->ld->topology));
-
-		topology_add_sync_waiter(cmd, cmd->ld->topology,
-					 openchannel_init_after_sync,
-					 info);
-		return command_still_pending(cmd);
-	}
+	if (!cmd->ld->bitcoind->synced)
+		return command_fail(cmd, FUNDING_STILL_SYNCING_BITCOIN,
+				    "Still syncing with bitcoin network");
 
 	return openchannel_init(cmd, peer,
 				*info->amount,

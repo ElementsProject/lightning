@@ -17,11 +17,6 @@ struct chain_topology {
 	/* Where to log things. */
 	struct logger *log;
 
-	/* struct sync_waiters waiting for us to catch up with bitcoind (and
-	 * once that has caught up with the network).  NULL if we're already
-	 * caught up. */
-	struct list_head *sync_waiters;
-
 	/* Timers we're running. */
 	struct oneshot *checkchain_timer;
 
@@ -56,33 +51,5 @@ void setup_topology(struct chain_topology *topology);
 void begin_topology(struct chain_topology *topo);
 
 void stop_topology(struct chain_topology *topo);
-
-static inline bool topology_synced(const struct chain_topology *topo)
-{
-	return topo->sync_waiters == NULL;
-}
-
-/**
- * topology_add_sync_waiter: wait for lightningd to sync with bitcoin network
- * @ctx: context to allocate the waiter from.
- * @topo: chain topology
- * @cb: callback to call when we're synced.
- * @arg: arg for @cb
- *
- * topology_synced() must be false when this is called.  It will be true
- * when @cb is called.  @cb will not be called if @ctx is freed first.
- */
-void topology_add_sync_waiter_(const tal_t *ctx,
-			       struct chain_topology *topo,
-			       void (*cb)(struct chain_topology *,
-					  void *),
-			       void *arg);
-#define topology_add_sync_waiter(ctx, topo, cb, arg)			\
-	topology_add_sync_waiter_((ctx), (topo),			\
-				  typesafe_cb_preargs(void, void *,	\
-						      (cb), (arg),	\
-						      struct chain_topology *), \
-				  (arg))
-
 
 #endif /* LIGHTNING_LIGHTNINGD_CHAINTOPOLOGY_H */

@@ -10,31 +10,6 @@
 #include <lightningd/watchman.h>
 #include <wallet/wallet.h>
 
-struct sync_waiter {
-	/* Linked from chain_topology->sync_waiters */
-	struct list_node list;
-	void (*cb)(struct chain_topology *topo, void *arg);
-	void *arg;
-};
-
-static void destroy_sync_waiter(struct sync_waiter *waiter)
-{
-	list_del(&waiter->list);
-}
-
-void topology_add_sync_waiter_(const tal_t *ctx,
-			       struct chain_topology *topo,
-			       void (*cb)(struct chain_topology *topo,
-					  void *arg),
-			       void *arg)
-{
-	struct sync_waiter *w = tal(ctx, struct sync_waiter);
-	w->cb = cb;
-	w->arg = arg;
-	list_add_tail(topo->sync_waiters, &w->list);
-	tal_add_destructor(w, destroy_sync_waiter);
-}
-
 u32 get_block_height(const struct chain_topology *topo)
 {
 	/* bwatch is the source of truth for processed-block height; the
@@ -66,9 +41,7 @@ struct chain_topology *new_topology(struct lightningd *ld, struct logger *log)
 
 	topo->ld = ld;
 	topo->log = log;
-	topo->sync_waiters = tal(topo, struct list_head);
 	topo->checkchain_timer = NULL;
-	list_head_init(topo->sync_waiters);
 
 	return topo;
 }

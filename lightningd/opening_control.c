@@ -1228,36 +1228,6 @@ static struct command_result *fundchannel_start(struct command *cmd,
 	return command_still_pending(cmd);
 }
 
-struct fundchannel_start_info {
-	struct command *cmd;
-	struct node_id id;
-	struct funding_channel *fc;
-	struct channel_id tmp_channel_id;
-	struct amount_sat *reserve;
-	u32 mindepth;
-};
-
-static void fundchannel_start_after_sync(struct chain_topology *topo,
-					 struct fundchannel_start_info *info)
-{
-	struct peer *peer;
-
-	/* Look up peer again in case it's gone! */
-	peer = peer_by_id(info->cmd->ld, &info->id);
-	if (!peer) {
-		was_pending(command_fail(info->cmd, FUNDING_UNKNOWN_PEER, "Unknown peer"));
-		return;
-	}
-
-	if (peer->connected != PEER_CONNECTED)
-		was_pending(command_fail(info->cmd, FUNDING_PEER_NOT_CONNECTED,
-					 "Peer %s",
-					 peer->connected == PEER_DISCONNECTED
-					 ? "not connected" : "still connecting"));
-	fundchannel_start(info->cmd, peer, info->fc,
-			  &info->tmp_channel_id, info->mindepth, info->reserve);
-}
-
 /**
  * json_fundchannel_start - Entrypoint for funding a channel
  */
@@ -1462,26 +1432,9 @@ static struct command_result *json_fundchannel_start(struct command *cmd,
 			reserve,
 			fc->channel_type);
 
-	if (!topology_synced(cmd->ld->topology)) {
-		struct fundchannel_start_info *info
-			= tal(cmd, struct fundchannel_start_info);
-
-		json_notify_fmt(cmd, LOG_UNUSUAL,
-				"Waiting to sync with bitcoind network (block %u of %u)",
-				get_block_height(cmd->ld->topology),
-				get_network_blockheight(cmd->ld->topology));
-
-		info->cmd = cmd;
-		info->fc = fc;
-		info->id = *id;
-		info->tmp_channel_id = tmp_channel_id;
-		info->reserve = reserve;
-		info->mindepth = *mindepth;
-		topology_add_sync_waiter(cmd, cmd->ld->topology,
-					 fundchannel_start_after_sync,
-					 info);
-		return command_still_pending(cmd);
-	}
+	if (!cmd->ld->bitcoind->synced)
+		return command_fail(cmd, FUNDING_STILL_SYNCING_BITCOIN,
+				    "Still syncing with bitcoin network");
 
 	return fundchannel_start(cmd, peer, fc,
 				 &tmp_channel_id, *mindepth, reserve);

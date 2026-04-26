@@ -149,7 +149,7 @@ static void try_update_blockheight(struct lightningd *ld,
 	log_debug(channel->log, "attempting update blockheight %s",
 		  fmt_channel_id(tmpctx, &channel->cid));
 
-	if (!topology_synced(ld->topology)) {
+	if (!ld->bitcoind->synced) {
 		log_debug(channel->log, "chain not synced,"
 			  " not updating blockheight");
 		return;
@@ -1789,7 +1789,7 @@ bool peer_start_channeld(struct channel *channel,
 			  " last saved (%d). setting to last saved. %s",
 			  curr_blockheight,
 			  last_height,
-			  !topology_synced(ld->topology) ? "(not synced)" : "");
+			  !ld->bitcoind->synced ? "(not synced)" : "");
 
 		curr_blockheight = last_height;
 	}

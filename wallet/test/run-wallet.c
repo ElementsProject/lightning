@@ -654,13 +654,6 @@ struct tlv_hsmd_dev_preinit_tlvs *tlv_hsmd_dev_preinit_tlvs_new(const tal_t *ctx
 /* Generated stub for tlv_hsmd_init_tlvs_new */
 struct tlv_hsmd_init_tlvs *tlv_hsmd_init_tlvs_new(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "tlv_hsmd_init_tlvs_new called!\n"); abort(); }
-/* Generated stub for topology_add_sync_waiter_ */
-void topology_add_sync_waiter_(const tal_t *ctx UNNEEDED,
-			       struct chain_topology *topo UNNEEDED,
-			       void (*cb)(struct chain_topology * UNNEEDED,
-					  void *) UNNEEDED,
-			       void *arg UNNEEDED)
-{ fprintf(stderr, "topology_add_sync_waiter_ called!\n"); abort(); }
 /* Generated stub for towire_channeld_dev_memleak */
 u8 *towire_channeld_dev_memleak(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_channeld_dev_memleak called!\n"); abort(); }

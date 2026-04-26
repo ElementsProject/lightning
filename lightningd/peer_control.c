@@ -3408,7 +3408,7 @@ static struct command_result *json_getinfo(struct command *cmd,
 	/* If we're still syncing, put the height we're up to here, so
 	 * they can see progress!  Otherwise use the height gossipd knows
 	 * about, so tests work properly. */
-	if (!topology_synced(cmd->ld->topology)) {
+	if (!cmd->ld->bitcoind->synced) {
 		json_add_num(response, "blockheight",
 			     get_block_height(cmd->ld->topology));
 	} else {
@@ -3424,9 +3424,6 @@ static struct command_result *json_getinfo(struct command *cmd,
 	if (!cmd->ld->bitcoind->synced)
 		json_add_string(response, "warning_bitcoind_sync",
 				"Bitcoind is not up-to-date with network.");
-	else if (!topology_synced(cmd->ld->topology))
-		json_add_string(response, "warning_lightningd_sync",
-				"Still loading latest blocks from bitcoind.");
 
 	u8 **bits = cmd->ld->our_features->bits;
 	json_object_start(response, "our_features");

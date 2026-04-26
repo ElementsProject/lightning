@@ -717,7 +717,7 @@ const u8 *send_htlc_out(const tal_t *ctx,
 	}
 
 	/* Note: we allow outgoing HTLCs before sync, for fast startup. */
-	if (!topology_synced(out->peer->ld->topology)) {
+	if (!out->peer->ld->bitcoind->synced) {
 		log_debug(out->log, "Sending HTLC while still syncing"
 			  " with bitcoin network (%u vs %u)",
 			  get_block_height(out->peer->ld->topology),
@@ -2358,18 +2358,6 @@ static bool peer_sending_revocation(struct channel *channel,
 	return true;
 }
 
-struct deferred_commitsig {
-	struct channel *channel;
-	const u8 *msg;
-};
-
-static void retry_deferred_commitsig(struct chain_topology *topo,
-				     struct deferred_commitsig *d)
-{
-	peer_got_commitsig(d->channel, d->msg);
-	tal_free(d);
-}
-
 /* This also implies we're sending revocation */
 void peer_got_commitsig(struct channel *channel, const u8 *msg)
 {
@@ -2407,23 +2395,9 @@ void peer_got_commitsig(struct channel *channel, const u8 *msg)
 		return;
 	}
 
-	/* If we're not synced with bitcoin network, we can't accept
-	 * any new HTLCs.  We stall at this point, in the hope that it
-	 * won't take long! */
-	if (added && !topology_synced(ld->topology)) {
-		struct deferred_commitsig *d;
-
+	if (added && !ld->bitcoind->synced)
 		log_unusual(channel->log,
-			    "Deferring incoming commit until we sync");
-
-		/* If subdaemon dies, we want to forget this. */
-		d = tal(channel->owner, struct deferred_commitsig);
-		d->channel = channel;
-		d->msg = tal_dup_talarr(d, u8, msg);
-		topology_add_sync_waiter(d, ld->topology,
-					 retry_deferred_commitsig, d);
-		return;
-	}
+			    "Processing incoming commit while bitcoind still syncing");
 
 	tx->chainparams = chainparams;
 
