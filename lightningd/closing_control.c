@@ -21,6 +21,7 @@
 #include <lightningd/lightningd.h>
 #include <lightningd/opening_common.h>
 #include <lightningd/peer_fd.h>
+#include <lightningd/watchman.h>
 #include <openingd/dualopend_wiregen.h>
 
 struct close_command {
@@ -656,14 +657,14 @@ static struct command_result *json_close(struct command *cmd,
 	assert(channel);
 
 	if (!*force_lease_close && sc->channel->opener != LOCAL
-	    && get_block_height(cmd->ld->topology) < channel->lease_expiry)
+	    && get_block_height(cmd->ld) < channel->lease_expiry)
 		return command_fail(cmd, LIGHTNINGD,
 				    "Peer leased this channel from us, we"
 				    " shouldn't close until lease has expired"
 				    " (lease expires block %u,"
 				    " current block %u)",
 				    channel->lease_expiry,
-				    get_block_height(cmd->ld->topology));
+				    get_block_height(cmd->ld));
 
 	/* Note: we don't change the channel until we're sure we succeed! */
 	assert(channel->final_key_idx <= UINT32_MAX);

@@ -7724,7 +7724,7 @@ void init_wallet_scriptpubkey_watches(struct wallet *w,
 	struct ext_key ext;
 	u64 bip32_max_index = db_get_intvar(w->db, "bip32_max_index", 0);
 	u64 bip86_max_index;
-	u32 tip = get_block_height(w->ld->topology);
+	u32 tip = get_block_height(w->ld);
 	u32 start_block = tip ? tip : UINT32_MAX;
 
 	for (u64 i = 0; i <= bip32_max_index + w->keyscan_gap; i++) {
@@ -7867,7 +7867,7 @@ type_ok:
 				&utxo->outpoint,
 				(blockheight && *blockheight > 0)
 				    ? *blockheight
-				    : get_block_height(w->ld->topology));
+				    : get_block_height(w->ld));
 
 	if (!blockheight)
 		watch_change_scriptpubkey(w->ld, addrtype, keyindex,

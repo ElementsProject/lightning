@@ -8,6 +8,7 @@
 #include <lightningd/chaintopology.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
+#include <lightningd/watchman.h>
 #include <wallet/wallet.h>
 
 bool we_broadcast(const struct lightningd *ld,
@@ -74,7 +75,7 @@ void rebroadcast_txs(struct lightningd *ld)
 
 		/* Don't send ones which aren't ready yet.  Note that if the
 		 * minimum block is N, we broadcast it when we have block N-1! */
-		if (get_block_height(ld->topology) + 1 < otx->minblock)
+		if (get_block_height(ld) + 1 < otx->minblock)
 			continue;
 
 		/* Don't free from txmap inside loop! */
@@ -168,7 +169,7 @@ void broadcast_tx_(const tal_t *ctx,
 
 	/* Note that if the minimum block is N, we broadcast it when
 	 * we have block N-1! */
-	if (get_block_height(ld->topology) + 1 < otx->minblock) {
+	if (get_block_height(ld) + 1 < otx->minblock) {
 		log_debug(ld->log,
 			  "Deferring broadcast of txid %s until block %u",
 			  fmt_bitcoin_txid(tmpctx, &otx->txid),

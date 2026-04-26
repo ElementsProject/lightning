@@ -6,6 +6,7 @@
 #include <lightningd/invoice.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/peer_htlcs.h>
+#include <lightningd/watchman.h>
 
 static struct incoming_payment *new_inpay(const tal_t *ctx,
 					  struct logger *log,
@@ -72,7 +73,7 @@ void htlc_set_fail_(struct htlc_set *set, const u8 *failmsg TAKES,
 		tal_del_destructor2(set->inpays[i], htlc_set_inpay_destroyed, set);
 
 		if (tal_bytelen(failmsg) == 0)
-			this_failmsg = towire_incorrect_or_unknown_payment_details(tmpctx, set->inpays[i]->msat, get_block_height(set->ld->topology));
+			this_failmsg = towire_incorrect_or_unknown_payment_details(tmpctx, set->inpays[i]->msat, get_block_height(set->ld));
 		else
 			this_failmsg = failmsg;
 

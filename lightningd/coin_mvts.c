@@ -5,6 +5,7 @@
 #include <lightningd/channel.h>
 #include <lightningd/coin_mvts.h>
 #include <lightningd/notification.h>
+#include <lightningd/watchman.h>
 
 
 struct channel_coin_mvt *new_channel_mvt_invoice_hin(const tal_t *ctx,
@@ -107,7 +108,7 @@ void send_account_balance_snapshot(struct lightningd *ld)
 	struct peer *p;
 	struct peer_node_id_map_iter it;
 
-	snap->blockheight = get_block_height(ld->topology);
+	snap->blockheight = get_block_height(ld);
 	snap->timestamp = coinmvt_current_time();
 	snap->node_id = &ld->our_nodeid;
 

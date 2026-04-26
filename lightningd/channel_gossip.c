@@ -14,6 +14,7 @@
 #include <lightningd/hsm_control.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/subd.h>
+#include <lightningd/watchman.h>
 
 enum channel_gossip_state {
 	/* It's dead, so don't talk about it. */
@@ -233,7 +234,7 @@ static bool has_matching_peer_sigs(const struct channel *channel)
 
 static bool has_announce_depth(const struct channel *channel)
 {
-	u32 block_height = get_block_height(channel->peer->ld->topology);
+	u32 block_height = get_block_height(channel->peer->ld);
 
 	if (!has_matching_peer_sigs(channel))
 		return false;

@@ -374,7 +374,7 @@ void drop_to_chain(struct lightningd *ld, struct channel *channel,
 					continue;
 
 				wallet_unreserve_utxo(ld->wallet, utxo,
-						      get_block_height(ld->topology),
+						      get_block_height(ld),
 						      utxo->reserved_til);
 			}
 		}
@@ -391,7 +391,7 @@ void drop_to_chain(struct lightningd *ld, struct channel *channel,
 
 	/* Set close attempt height (for anchor rexmission) */
 	if (channel->close_attempt_height == 0) {
-		channel->close_attempt_height = get_block_height(ld->topology);
+		channel->close_attempt_height = get_block_height(ld);
 		wallet_channel_save(channel->peer->ld->wallet, channel);
 	}
 
@@ -2778,7 +2778,7 @@ void channel_watch_wrong_funding(struct lightningd *ld, struct channel *channel)
 		watchman_watch_outpoint(ld,
 			owner_channel_wrong_funding_spent(tmpctx, channel->dbid),
 			channel->shutdown_wrong_funding,
-			get_block_height(ld->topology));
+			get_block_height(ld));
 	}
 }
 
@@ -2799,7 +2799,7 @@ void channel_watch_funding(struct lightningd *ld, struct channel *channel)
 					    owner_channel_funding(tmpctx, channel->dbid),
 					    funding_spk,
 					    tal_bytelen(funding_spk),
-					    get_block_height(ld->topology));
+					    get_block_height(ld));
 	} else {
 		/* Funding confirmed (or stub with known outpoint): watch for spend.
 		 * Stubs skip the scriptpubkey path because remote_fundingkey is a
@@ -2812,7 +2812,7 @@ void channel_watch_funding(struct lightningd *ld, struct channel *channel)
 		watchman_watch_outpoint(ld,
 			owner_channel_funding_spent(tmpctx, channel->dbid),
 			&channel->funding,
-			get_block_height(ld->topology));
+			get_block_height(ld));
 	}
 
 	channel_watch_wrong_funding(ld, channel);
@@ -3410,7 +3410,7 @@ static struct command_result *json_getinfo(struct command *cmd,
 	 * about, so tests work properly. */
 	if (!cmd->ld->bitcoind->synced) {
 		json_add_num(response, "blockheight",
-			     get_block_height(cmd->ld->topology));
+			     get_block_height(cmd->ld));
 	} else {
 		json_add_num(response, "blockheight",
 			     cmd->ld->gossip_blockheight);
@@ -3487,7 +3487,7 @@ timeout_waitblockheight_waiter(struct waitblockheight_waiter *w)
 /* Called by lightningd at each new block.  */
 void waitblockheight_notify_new_block(struct lightningd *ld)
 {
-	u32 block_height = get_block_height(ld->topology);
+	u32 block_height = get_block_height(ld);
 	struct waitblockheight_waiter *w, *n;
 	char *to_delete = tal(NULL, char);
 
@@ -3523,7 +3523,7 @@ static struct command_result *json_waitblockheight(struct command *cmd,
 		return command_param_failed();
 
 	/* Check if already reached anyway.  */
-	block_height = get_block_height(cmd->ld->topology);
+	block_height = get_block_height(cmd->ld);
 	if (*target_block_height <= block_height)
 		return waitblockheight_complete(cmd, block_height);
 

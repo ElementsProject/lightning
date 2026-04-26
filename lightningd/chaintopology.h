@@ -35,9 +35,6 @@ struct txlocator {
 	u32 index;
 };
 
-/* Get highest block number. */
-u32 get_block_height(const struct chain_topology *topo);
-
 /* Get the highest block number in the network that we are aware of. Unlike
  * `get_block_height` this takes into consideration the block header counter
  * in the bitcoin backend as well. If an absolute time is required, rather

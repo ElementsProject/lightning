@@ -65,7 +65,7 @@ u32 feerate_for_deadline(const struct lightningd *ld, u32 blockcount);
 u32 smoothed_feerate_for_deadline(const struct lightningd *ld, u32 blockcount);
 
 /* Get feerate to hit this *block number*. */
-u32 feerate_for_target(const struct lightningd *ld, u64 deadline);
+u32 feerate_for_target(struct lightningd *ld, u64 deadline);
 
 /* Get range of feerates to insist other side abide by for normal channels.
  * If we have to guess, sets *unknown to true, otherwise false. */
@@ -81,7 +81,7 @@ u32 htlc_resolution_feerate(struct lightningd *ld);
 u32 penalty_feerate(struct lightningd *ld);
 
 /* Usually we set nLocktime to tip (or recent) like bitcoind does */
-u32 default_locktime(const struct lightningd *ld);
+u32 default_locktime(struct lightningd *ld);
 
 /* Feed a fresh feerate sample into the smoothing/history machinery. */
 void update_feerates(struct lightningd *ld,

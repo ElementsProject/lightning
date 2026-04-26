@@ -366,6 +366,14 @@ void watchman_replay_pending(struct lightningd *ld)
 	}
 }
 
+u32 get_block_height(struct lightningd *ld)
+{
+	struct watchman *wm = ld->watchman;
+	if (!wm)
+		return 0;
+	return wm->last_processed_height;
+}
+
 /* Replay pending ops when bwatch is ready.  On a fresh node current_height
  * is still 0, so we defer to json_block_processed where it's guaranteed > 0. */
 static void watchman_on_plugin_ready(struct lightningd *ld, struct plugin *plugin)

@@ -11,6 +11,7 @@
 #include <lightningd/hsm_control.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
+#include <lightningd/watchman.h>
 
 /* 12 hours is usually enough reservation time */
 #define RESERVATION_DEFAULT (6 * 12)
@@ -99,7 +100,7 @@ static struct command_result *json_reserveinputs(struct command *cmd,
 					fmt_wally_psbt(tmpctx, psbt));
 	}
 
-	current_height = get_block_height(cmd->ld->topology);
+	current_height = get_block_height(cmd->ld);
 	for (size_t i = 0; i < psbt->num_inputs; i++) {
 		struct bitcoin_outpoint outpoint;
 		struct utxo *utxo;
@@ -202,11 +203,11 @@ static struct command_result *json_unreserveinputs(struct command *cmd,
 
 		wallet_unreserve_utxo(cmd->ld->wallet,
 				      utxo,
-				      get_block_height(cmd->ld->topology),
+				      get_block_height(cmd->ld),
 				      *reserve);
 
 		json_add_reservestatus(response, utxo, oldstatus, old_res,
-				       get_block_height(cmd->ld->topology));
+				       get_block_height(cmd->ld));
 	}
 	json_array_end(response);
 	return command_success(cmd, response);
@@ -343,7 +344,7 @@ static struct command_result *finish_psbt(struct command *cmd,
 	struct json_stream *response;
 	struct wally_psbt *psbt;
 	ssize_t change_outnum;
-	u32 current_height = get_block_height(cmd->ld->topology);
+	u32 current_height = get_block_height(cmd->ld);
 
 	if (!locktime) {
 		locktime = tal(cmd, u32);
@@ -433,9 +434,9 @@ static inline u32 minconf_to_maxheight(u32 minconf, struct lightningd *ld)
 	/* Avoid wrapping around and suddenly allowing any confirmed
 	 * outputs. Since we can't have a coinbase output, and 0 is taken for
 	 * the disable case, we can just clamp to 1. */
-	if (minconf >= get_block_height(ld->topology))
+	if (minconf >= get_block_height(ld))
 		return 1;
-	return get_block_height(ld->topology) - minconf + 1;
+	return get_block_height(ld) - minconf + 1;
 }
 
 /* Returns false if it needed to create change, but couldn't afford. */
@@ -457,7 +458,7 @@ static bool change_for_emergency(struct lightningd *ld,
 	 * needed amount. */
 	if (wallet_has_funds(ld->wallet,
 			     cast_const2(const struct utxo **, utxos),
-			     get_block_height(ld->topology),
+			     get_block_height(ld),
 			     &needed))
 		return true;
 
@@ -525,7 +526,7 @@ static struct command_result *json_fundpsbt(struct command *cmd,
 	all = amount_sat_eq(*amount, AMOUNT_SAT(-1ULL));
 	maxheight = minconf_to_maxheight(*minconf, cmd->ld);
 
-	current_height = get_block_height(cmd->ld->topology);
+	current_height = get_block_height(cmd->ld);
 
 	/* We keep adding until we meet their output requirements. */
 	utxos = tal_arr(cmd, struct utxo *, 0);
@@ -809,7 +810,7 @@ static struct command_result *json_addpsbtinput(struct command *cmd,
 
 	all = amount_sat_eq(*req_amount, AMOUNT_SAT(-1ULL));
 
-	current_height = get_block_height(cmd->ld->topology);
+	current_height = get_block_height(cmd->ld);
 
 	/* We keep adding until we meet their output requirements. */
 	utxos = tal_arr(cmd, struct utxo *, 0);
@@ -879,7 +880,7 @@ static struct command_result *json_addpsbtinput(struct command *cmd,
 	/* If rest of wallet has enough funds, than no emergency sats required. */
 	if (wallet_has_funds(cmd->ld->wallet,
 			     cast_const2(const struct utxo **, utxos),
-			     get_block_height(cmd->ld->topology),
+			     get_block_height(cmd->ld),
 			     &cmd->ld->emergency_sat))
 		emergency_sat = AMOUNT_SAT(0);
 	else
@@ -1026,7 +1027,7 @@ static struct command_result *json_utxopsbt(struct command *cmd,
 	all = amount_sat_eq(*amount, AMOUNT_SAT(-1ULL));
 
 	input = AMOUNT_SAT(0);
-	current_height = get_block_height(cmd->ld->topology);
+	current_height = get_block_height(cmd->ld);
 	for (size_t i = 0; i < tal_count(utxos); i++) {
 		const struct utxo *utxo = utxos[i];
 

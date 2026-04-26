@@ -22,6 +22,7 @@
 #include <lightningd/notification.h>
 #include <lightningd/peer_fd.h>
 #include <lightningd/peer_htlcs.h>
+#include <lightningd/watchman.h>
 #include <unistd.h>
 
 struct stfu_result
@@ -139,7 +140,7 @@ static void try_update_feerates(struct lightningd *ld, struct channel *channel)
 static void try_update_blockheight(struct lightningd *ld,
 				   struct channel *channel)
 {
-	u32 blockheight = get_block_height(ld->topology);
+	u32 blockheight = get_block_height(ld);
 	u8 *msg;
 
 	/* We don't update the blockheight for non-leased chans */
@@ -1777,7 +1778,7 @@ bool peer_start_channeld(struct channel *channel,
 	}
 
 	/* Make sure we don't go backsards on blockheights */
-	curr_blockheight = get_block_height(ld->topology);
+	curr_blockheight = get_block_height(ld);
 	if (curr_blockheight < get_blockheight(channel->blockheight_states,
 					       channel->opener, LOCAL)) {
 
@@ -1970,7 +1971,7 @@ static bool
 is_fundee_should_forget(struct lightningd *ld,
 			struct channel *channel)
 {
-	u32 block_height = get_block_height(ld->topology);
+	u32 block_height = get_block_height(ld);
 	/* 2016 by default */
 	u32 max_funding_unconfirmed = ld->dev_max_funding_unconfirmed;
 
@@ -2076,7 +2077,7 @@ void channel_notify_new_block(struct lightningd *ld)
 			    "confirmed. "
 			    "We are fundee and can forget channel without "
 			    "loss of funds.",
-			    get_block_height(ld->topology) - channel->first_blocknum,
+			    get_block_height(ld) - channel->first_blocknum,
 			    fmt_bitcoin_txid(tmpctx, &channel->funding.txid));
 		/* FIXME: Send an error packet for this case! */
 		/* And forget it. COMPLETELY. */

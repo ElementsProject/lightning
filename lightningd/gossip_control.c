@@ -38,7 +38,7 @@ static void get_txout(struct subd *gossip, const u8 *msg)
 	 * SCID is bogus) we shouldn't ask bwatch to scan a height it hasn't
 	 * reached. */
 	blockheight = short_channel_id_blocknum(scid);
-	start_block = get_block_height(gossip->ld->topology);
+	start_block = get_block_height(gossip->ld);
 	if (blockheight < start_block)
 		start_block = blockheight;
 	watchman_watch_scid(gossip->ld,
@@ -338,7 +338,7 @@ static void gossipd_new_blockheight_reply(struct subd *gossipd,
 
 void gossip_notify_new_block(struct lightningd *ld)
 {
-	u32 blockheight = get_block_height(ld->topology);
+	u32 blockheight = get_block_height(ld);
 
 	/* Only notify gossipd once bitcoind is synced. */
 	if (!ld->bitcoind->synced)
@@ -365,7 +365,7 @@ static void gossipd_init_done(struct subd *gossipd,
 	/* Tell it about any closures it might have missed! */
 	oldspends = wallet_utxoset_oldest_spentheight(tmpctx, ld->wallet);
 	if (oldspends) {
-		while (oldspends <= get_block_height(ld->topology)) {
+		while (oldspends <= get_block_height(ld)) {
 			const struct short_channel_id *scids;
 
 			scids = wallet_utxoset_get_spent(tmpctx, ld->wallet,

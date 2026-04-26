@@ -116,7 +116,7 @@ bool fromwire_hsmd_get_channel_basepoints_reply(const void *p UNNEEDED, struct b
 bool fromwire_hsmd_get_output_scriptpubkey_reply(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u8 **script UNNEEDED)
 { fprintf(stderr, "fromwire_hsmd_get_output_scriptpubkey_reply called!\n"); abort(); }
 /* Generated stub for get_block_height */
-u32 get_block_height(const struct chain_topology *topo UNNEEDED)
+u32 get_block_height(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "get_block_height called!\n"); abort(); }
 /* Generated stub for get_channel_basepoints */
 void get_channel_basepoints(struct lightningd *ld UNNEEDED,

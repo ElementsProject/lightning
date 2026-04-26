@@ -291,7 +291,7 @@ static void bwatch_watch_outpoints(struct channel *channel,
 					  blockheight);
 		/* Send the real depth straight away so a just-restarted onchaind
 		 * makes correct CSV decisions instead of starting from zero. */
-		u32 cur = get_block_height(ld->topology);
+		u32 cur = get_block_height(ld);
 		u32 depth = cur > blockheight ? cur - blockheight + 1 : 1;
 		onchain_tx_depth(channel, txid, depth);
 	}
@@ -773,9 +773,9 @@ struct onchain_signing_info {
 };
 
 /* If we don't care / don't know */
-static u32 infinite_block_deadline(const struct chain_topology *topo)
+static u32 infinite_block_deadline(struct lightningd *ld)
 {
-	return get_block_height(topo) + 300;
+	return get_block_height(ld) + 300;
 }
 
 /**
@@ -788,10 +788,10 @@ static u32 infinite_block_deadline(const struct chain_topology *topo)
  * is too close, in order not to waste too many funds on the sweep
  * fees.
  */
-static u32 slow_sweep_deadline(const struct chain_topology *topo,
+static u32 slow_sweep_deadline(struct lightningd *ld,
 			       const struct channel *c)
 {
-	u32 closeheight, deadline, height = get_block_height(topo);
+	u32 closeheight, deadline, height = get_block_height(ld);
 
 	if (c->close_blockheight) {
 		closeheight = *c->close_blockheight;
@@ -1036,7 +1036,7 @@ static struct bitcoin_tx *onchaind_tx_unsigned(const tal_t *ctx,
 		log_debug(channel->log,
 			  "Feerate for target %"PRIu64" (%+"PRId64" blocks) is %u, fee %s of %s",
 			  block_target,
-			  block_target - get_block_height(ld->topology),
+			  block_target - get_block_height(ld),
 			  feerate,
 			  fmt_amount_sat(tmpctx, *fee),
 			  fmt_amount_sat(tmpctx, info->out_sats));
@@ -1216,7 +1216,7 @@ static bool consider_onchain_htlc_tx_rebroadcast(struct channel *channel,
 
 	utxos = wallet_utxo_boost(tmpctx,
 				  ld->wallet,
-				  get_block_height(ld->topology),
+				  get_block_height(ld),
 				  AMOUNT_SAT(0),
 				  bitcoin_tx_compute_fee(newtx),
 				  feerate,
@@ -1324,7 +1324,7 @@ static u32 htlc_incoming_deadline(const struct channel *channel, u64 htlc_id)
 	if (!hin) {
 		log_broken(channel->log, "No htlc IN %"PRIu64", using infinite deadline",
 			   htlc_id);
-		return infinite_block_deadline(channel->peer->ld->topology);
+		return infinite_block_deadline(channel->peer->ld);
 	}
 
 	return hin->cltv_expiry - 1;
@@ -1340,7 +1340,7 @@ static u32 htlc_outgoing_incoming_deadline(const struct channel *channel, u64 ht
 	if (!hout) {
 		log_broken(channel->log, "No htlc OUT %"PRIu64", using infinite deadline",
 			   htlc_id);
-		return infinite_block_deadline(channel->peer->ld->topology);
+		return infinite_block_deadline(channel->peer->ld);
 	}
 
 	/* If it's ours, no real pressure, but let's avoid leaking
@@ -1442,7 +1442,7 @@ static void handle_onchaind_spend_to_us(struct channel *channel,
 
 	/* No real deadline on this, it's just returning to our wallet. */
 	info->deadline_block =
-	    slow_sweep_deadline(channel->peer->ld->topology, channel);
+	    slow_sweep_deadline(channel->peer->ld, channel);
 
 	/* sequence is usually channel->channel_info.their_config.to_self_delay,
 	 * but for leases it can be greater. */

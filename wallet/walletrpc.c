@@ -13,6 +13,7 @@
 #include <lightningd/channel.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/notification.h>
+#include <lightningd/watchman.h>
 #include <wallet/walletrpc.h>
 #include <wire/wire_sync.h>
 
@@ -360,7 +361,7 @@ static void json_add_utxo(struct json_stream *response,
 {
 	const char *out;
 	bool reserved;
-	u32 current_height = get_block_height(wallet->ld->topology);
+	u32 current_height = get_block_height(wallet->ld);
 
 	json_object_start(response, fieldname);
 	json_add_txid(response, "txid", &utxo->outpoint.txid);
@@ -701,7 +702,7 @@ static struct command_result *match_psbt_inputs_to_utxos(struct command *cmd,
 		}
 
 		/* Oops we haven't reserved this utxo yet! */
-		if (!utxo_is_reserved(utxo, get_block_height(cmd->ld->topology)))
+		if (!utxo_is_reserved(utxo, get_block_height(cmd->ld)))
 			return command_fail(cmd, LIGHTNINGD,
 					    "Aborting PSBT signing. UTXO %s is not reserved",
 					    fmt_bitcoin_outpoint(tmpctx,
@@ -993,7 +994,7 @@ static void sendpsbt_done(struct bitcoind *bitcoind UNUSED,
 		for (size_t i = 0; i < tal_count(sending->utxos); i++) {
 			wallet_unreserve_utxo(ld->wallet,
 					      sending->utxos[i],
-					      get_block_height(ld->topology),
+					      get_block_height(ld),
 					      sending->reserve_blocks);
 		}
 
@@ -1218,7 +1219,7 @@ static struct command_result *json_sendpsbt(struct command *cmd,
 
 	for (size_t i = 0; i < tal_count(sending->utxos); i++) {
 		if (!wallet_reserve_utxo(ld->wallet, sending->utxos[i],
-					 get_block_height(ld->topology),
+					 get_block_height(ld),
 					 sending->reserve_blocks))
 			fatal("UTXO not reservable?");
 	}

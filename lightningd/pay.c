@@ -15,6 +15,7 @@
 #include <lightningd/notification.h>
 #include <lightningd/pay.h>
 #include <lightningd/peer_htlcs.h>
+#include <lightningd/watchman.h>
 #include <wallet/invoices.h>
 
 /* Routing failure object */
@@ -2046,11 +2047,11 @@ static struct command_result *json_injectpaymentonion(struct command *cmd,
 	 */
 	/* In our case, G = 1, so we need to expire it one after it's expiration.
 	 * But never offer an expired HTLC; that's dumb. */
-	if (get_block_height(cmd->ld->topology) >= *cltv) {
+	if (get_block_height(cmd->ld) >= *cltv) {
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "Expiry cltv %u too close to current %u",
 				    *cltv,
-				    get_block_height(ld->topology));
+				    get_block_height(ld));
 	}
 
 	/* BOLT #4:
@@ -2058,12 +2059,12 @@ static struct command_result *json_injectpaymentonion(struct command *cmd,
 	 *  - if the `cltv_expiry` is more than `max_htlc_cltv` in the future:
 	 *     - return an `expiry_too_far` error.
 	 */
-	if (get_block_height(ld->topology)
+	if (get_block_height(ld)
 	    + ld->config.max_htlc_cltv < *cltv) {
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "Expiry cltv %u too far from current %u + max %u",
 				    *cltv,
-				    get_block_height(ld->topology),
+				    get_block_height(ld),
 				    ld->config.max_htlc_cltv);
 	}
 

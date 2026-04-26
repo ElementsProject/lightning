@@ -852,7 +852,7 @@ struct log_book *new_log_book(struct lightningd *ld UNNEEDED)
 }
 
 /* Can actually be called by new_channel */
-u32 get_block_height(const struct chain_topology *topo UNNEEDED)
+u32 get_block_height(struct lightningd *ld UNNEEDED)
 {
 	return 0;
 }

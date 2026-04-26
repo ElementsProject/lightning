@@ -253,11 +253,11 @@ u32 smoothed_feerate_for_deadline(const struct lightningd *ld,
 }
 
 /* feerate_for_deadline, but really lowball for distant targets */
-u32 feerate_for_target(const struct lightningd *ld, u64 deadline)
+u32 feerate_for_target(struct lightningd *ld, u64 deadline)
 {
 	u64 blocks, blockheight;
 
-	blockheight = get_block_height(ld->topology);
+	blockheight = get_block_height(ld);
 
 	/* Past deadline?  Want it now. */
 	if (blockheight > deadline)
@@ -568,9 +568,9 @@ u32 feerate_max(struct lightningd *ld, bool *unknown)
 	return max * ld->config.max_fee_multiplier;
 }
 
-u32 default_locktime(const struct lightningd *ld)
+u32 default_locktime(struct lightningd *ld)
 {
-	u32 locktime, current_height = get_block_height(ld->topology);
+	u32 locktime, current_height = get_block_height(ld);
 
 	/* Setting the locktime to the next block to be mined has multiple
 	 * benefits:

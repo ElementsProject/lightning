@@ -30,6 +30,7 @@
 #include <lightningd/peer_control.h>
 #include <lightningd/peer_fd.h>
 #include <lightningd/plugin_hook.h>
+#include <lightningd/watchman.h>
 #include <openingd/dualopend_wiregen.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -1451,7 +1452,7 @@ wallet_commit_channel(struct lightningd *ld,
 
 	/* If we're fundee, could be a little before this
 	 * in theory, but it's only used for timing out. */
-	channel->first_blocknum = get_block_height(ld->topology);
+	channel->first_blocknum = get_block_height(ld);
 
 	/* Update lease info for channel */
 	channel->blockheight_states = new_height_states(channel,
@@ -2076,7 +2077,7 @@ static void accepter_got_offer(struct subd *dualopend,
 	 * the plugin */
 	payload->feerate_our_min = feerate_min(dualopend->ld, NULL);
 	payload->feerate_our_max = feerate_max(dualopend->ld, NULL);
-	payload->node_blockheight = get_block_height(dualopend->ld->topology);
+	payload->node_blockheight = get_block_height(dualopend->ld);
 
 	if (feature_negotiated(dualopend->ld->our_features,
 			       channel->peer->their_features,
@@ -3074,7 +3075,7 @@ static struct command_result *openchannel_init(struct command *cmd,
 					   channel->channel_flags,
 					   amount_sat_is_zero(request_amt) ?
 						NULL : &request_amt,
-					   get_block_height(cmd->ld->topology),
+					   get_block_height(cmd->ld),
 					   false,
 					   ctype,
 					   rates);
@@ -3840,7 +3841,7 @@ static struct command_result *json_queryrates(struct command *cmd,
 					   channel->channel_flags,
 					   amount_sat_is_zero(*request_amt) ?
 						NULL : request_amt,
-					   get_block_height(cmd->ld->topology),
+					   get_block_height(cmd->ld),
 					   true,
 					   desired_channel_type(tmpctx, cmd->ld->our_features,
 								peer->their_features),

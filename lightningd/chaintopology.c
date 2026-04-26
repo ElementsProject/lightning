@@ -10,18 +10,9 @@
 #include <lightningd/watchman.h>
 #include <wallet/wallet.h>
 
-u32 get_block_height(const struct chain_topology *topo)
-{
-	/* bwatch is the source of truth for processed-block height; the
-	 * watchman holds the cached value persisted in the wallet db. */
-	if (!topo->ld->watchman)
-		return 0;
-	return topo->ld->watchman->last_processed_height;
-}
-
 u32 get_network_blockheight(const struct chain_topology *topo)
 {
-	u32 height = get_block_height(topo);
+	u32 height = get_block_height(topo->ld);
 	if (height > topo->headercount)
 		return height;
 	else
@@ -98,7 +89,7 @@ static void retry_sync_getchaininfo_done(struct bitcoind *bitcoind, const char *
 static void retry_sync(struct chain_topology *topo)
 {
 	topo->checkchain_timer = NULL;
-	bitcoind_getchaininfo(topo, topo->ld->bitcoind, get_block_height(topo),
+	bitcoind_getchaininfo(topo, topo->ld->bitcoind, get_block_height(topo->ld),
 			      retry_sync_getchaininfo_done, topo);
 }
 
@@ -180,7 +171,7 @@ void setup_topology(struct chain_topology *topo)
 		blockscan_start_set = true;
 	} else {
 		/* Get the blockheight bwatch reached on the previous run, or 0 */
-		blockscan_start = get_block_height(topo);
+		blockscan_start = get_block_height(topo->ld);
 		blockscan_start_set = (blockscan_start != 0);
 
 		/* If we don't know blockscan_start, can't do this yet */

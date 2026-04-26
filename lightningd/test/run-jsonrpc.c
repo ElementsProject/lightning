@@ -33,7 +33,7 @@ void db_set_readonly(struct db *db UNNEEDED, bool readonly UNNEEDED)
 void   fatal(const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "fatal called!\n"); abort(); }
 /* Generated stub for get_block_height */
-u32 get_block_height(const struct chain_topology *topo UNNEEDED)
+u32 get_block_height(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "get_block_height called!\n"); abort(); }
 /* Generated stub for hsm_secret_arg */
 char *hsm_secret_arg(const tal_t *ctx UNNEEDED,

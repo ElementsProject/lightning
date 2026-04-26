@@ -10,6 +10,7 @@
 #include <lightningd/channel.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/lightningd.h>
+#include <lightningd/watchman.h>
 #include <wally_psbt.h>
 
 /* This is attached to each anchor tx retransmission */
@@ -309,7 +310,7 @@ static struct wally_psbt *try_anchor_psbt(const tal_t *ctx,
 	*total_weight = base_weight;
 	*utxos = wallet_utxo_boost(ctx,
 				   ld->wallet,
-				   get_block_height(ld->topology),
+				   get_block_height(ld),
 				   anch->info.commitment_fee,
 				   chainparams->dust_limit,
 				   feerate_target,
@@ -407,7 +408,7 @@ static struct bitcoin_tx *spend_anchor(const tal_t *ctx,
 				  fmt_amount_sat(tmpctx, fee),
 				  anch->commit_side == LOCAL ? "local" : "remote",
 				  fmt_amount_msat(tmpctx, val->msat),
-				  val->block, val->block - get_block_height(ld->topology), feerate_target);
+				  val->block, val->block - get_block_height(ld), feerate_target);
 			break;
 		}
 
@@ -436,7 +437,7 @@ static struct bitcoin_tx *spend_anchor(const tal_t *ctx,
 			  fmt_amount_sat(tmpctx, fee),
 			  anch->commit_side == LOCAL ? "local" : "remote",
 			  fmt_amount_msat(tmpctx, val->msat),
-			  val->block, val->block - get_block_height(ld->topology), feerate);
+			  val->block, val->block - get_block_height(ld), feerate);
 		psbt = candidate_psbt;
 		psbt_fee = fee;
 		psbt_weight = weight;
@@ -449,8 +450,8 @@ static struct bitcoin_tx *spend_anchor(const tal_t *ctx,
 
 		/* We're not in a hurry.  Never aim for < 12 blocks away */
 		block_target = unimportant_deadline->block;
-		if (block_target < get_block_height(ld->topology) + 12)
-			block_target = get_block_height(ld->topology) + 12;
+		if (block_target < get_block_height(ld) + 12)
+			block_target = get_block_height(ld) + 12;
 		feerate_target = feerate_for_target(ld, block_target);
 
 		/* If the feerate for the commitment tx is already

@@ -149,6 +149,9 @@ void watchman_unwatch_blockdepth(struct lightningd *ld,
 				 const char *owner,
 				 u32 confirm_height);
 
+/* Get highest block number (from bwatch). */
+u32 get_block_height(struct lightningd *ld);
+
 /*
  * Owner string constructors.
  *
