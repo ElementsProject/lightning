@@ -10,16 +10,6 @@
 #include <lightningd/watchman.h>
 #include <wallet/wallet.h>
 
-size_t get_tx_depth(const struct chain_topology *topo,
-		    const struct bitcoin_txid *txid)
-{
-	u32 blockheight = wallet_transaction_height(topo->ld->wallet, txid);
-
-	if (blockheight == 0)
-		return 0;
-	return get_block_height(topo) - blockheight + 1;
-}
-
 struct sync_waiter {
 	/* Linked from chain_topology->sync_waiters */
 	struct list_node list;

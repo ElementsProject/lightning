@@ -40,11 +40,6 @@ struct txlocator {
 	u32 index;
 };
 
-/* This is the number of blocks which would have to be mined to invalidate
- * the tx */
-size_t get_tx_depth(const struct chain_topology *topo,
-		    const struct bitcoin_txid *txid);
-
 /* Get highest block number. */
 u32 get_block_height(const struct chain_topology *topo);
 
