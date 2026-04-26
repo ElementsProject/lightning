@@ -32,7 +32,6 @@
 #include <wallet/datastore.h>
 #include <wallet/invoices.h>
 #include <wallet/migrations.h>
-#include <wallet/txfilter.h>
 #include <wallet/wallet.h>
 #include <wally_bip32.h>
 
@@ -174,39 +173,6 @@ static void our_addresses_init(struct wallet *w)
 	w->our_addresses_maxindex = w->keyscan_gap;
 }
 
-/* Idempotent: outpointfilter_add is a noop if it already exists. */
-static void refill_outpointfilters(struct wallet *w)
-{
-	struct db_stmt *stmt;
-
-	stmt = db_prepare_v2(
-	    w->db,
-	    SQL("SELECT txid, outnum FROM utxoset WHERE spendheight is NULL"));
-	db_query_prepared(stmt);
-
-	while (db_step(stmt)) {
-		struct bitcoin_outpoint outpoint;
-		db_col_txid(stmt, "txid", &outpoint.txid);
-		outpoint.n = db_col_int(stmt, "outnum");
-		outpointfilter_add(w->utxoset_outpoints, &outpoint);
-	}
-	tal_free(stmt);
-}
-
-static void outpointfilters_init(struct wallet *w)
-{
-	struct utxo **utxos = wallet_get_all_utxos(NULL, w);
-
-	w->owned_outpoints = outpointfilter_new(w);
-	for (size_t i = 0; i < tal_count(utxos); i++)
-		outpointfilter_add(w->owned_outpoints, &utxos[i]->outpoint);
-
-	tal_free(utxos);
-
-	w->utxoset_outpoints = outpointfilter_new(w);
-	refill_outpointfilters(w);
-}
-
 struct wallet *wallet_new(struct lightningd *ld, struct timers *timers)
 {
 	struct wallet *wallet = tal(ld, struct wallet);
@@ -225,10 +191,6 @@ struct wallet *wallet_new(struct lightningd *ld, struct timers *timers)
 
 	trace_span_start("invoices_new", wallet);
 	wallet->invoices = invoices_new(wallet, wallet, timers);
-	trace_span_end(wallet);
-
-	trace_span_start("outpointfilters_init", wallet);
-	outpointfilters_init(wallet);
 	trace_span_end(wallet);
 
 	trace_span_start("our_addresses_init", wallet);
@@ -4706,20 +4668,6 @@ void wallet_utxoset_prune(struct wallet *w, u32 blockheight)
 {
 	struct db_stmt *stmt;
 
-	stmt = db_prepare_v2(
-	    w->db,
-	    SQL("SELECT txid, outnum FROM utxoset WHERE spendheight < ?"));
-	db_bind_int(stmt, blockheight - UTXO_PRUNE_DEPTH);
-	db_query_prepared(stmt);
-
-	while (db_step(stmt)) {
-		struct bitcoin_outpoint outpoint;
-		db_col_txid(stmt, "txid", &outpoint.txid);
-		outpoint.n = db_col_int(stmt, "outnum");
-		outpointfilter_remove(w->utxoset_outpoints, &outpoint);
-	}
-	tal_free(stmt);
-
 	stmt = db_prepare_v2(w->db,
 			     SQL("DELETE FROM utxoset WHERE spendheight < ?"));
 	db_bind_int(stmt, blockheight - UTXO_PRUNE_DEPTH);
@@ -4748,45 +4696,6 @@ void wallet_blocks_rollback(struct wallet *w, u32 height)
 							"WHERE height > ?"));
 	db_bind_int(stmt, height);
 	db_exec_prepared_v2(take(stmt));
-	refill_outpointfilters(w);
-}
-
-bool wallet_outpoint_spend(const tal_t *ctx, struct wallet *w, const u32 blockheight,
-			   const struct bitcoin_outpoint *outpoint)
-{
-	struct db_stmt *stmt;
-	bool our_spend;
-	if (outpointfilter_matches(w->owned_outpoints, outpoint)) {
-		stmt = db_prepare_v2(w->db, SQL("UPDATE outputs "
-						"SET spend_height = ?, "
-						" status = ? "
-						"WHERE prev_out_tx = ?"
-						" AND prev_out_index = ?"));
-
-		db_bind_int(stmt, blockheight);
-		db_bind_int(stmt, output_status_in_db(OUTPUT_STATE_SPENT));
-		db_bind_txid(stmt, &outpoint->txid);
-		db_bind_int(stmt, outpoint->n);
-
-		db_exec_prepared_v2(take(stmt));
-
-		our_spend = true;
-	} else
-		our_spend = false;
-
-	if (outpointfilter_matches(w->utxoset_outpoints, outpoint)) {
-		stmt = db_prepare_v2(w->db, SQL("UPDATE utxoset "
-						"SET spendheight = ? "
-						"WHERE txid = ?"
-						" AND outnum = ?"));
-
-		db_bind_int(stmt, blockheight);
-		db_bind_txid(stmt, &outpoint->txid);
-		db_bind_int(stmt, outpoint->n);
-		db_exec_prepared_v2(stmt);
-		tal_free(stmt);
-	}
-	return our_spend;
 }
 
 void wallet_utxoset_add(struct wallet *w,
@@ -4814,8 +4723,6 @@ void wallet_utxoset_add(struct wallet *w,
 	db_bind_blob(stmt, scriptpubkey, scriptpubkey_len);
 	db_bind_amount_sat(stmt, sat);
 	db_exec_prepared_v2(take(stmt));
-
-	outpointfilter_add(w->utxoset_outpoints, outpoint);
 }
 
 void wallet_filteredblock_add(struct wallet *w, const struct filteredblock *fb)
@@ -4852,8 +4759,6 @@ void wallet_filteredblock_add(struct wallet *w, const struct filteredblock *fb)
 		db_bind_talarr(stmt, o->scriptPubKey);
 		db_bind_amount_sat(stmt, o->amount);
 		db_exec_prepared_v2(take(stmt));
-
-		outpointfilter_add(w->utxoset_outpoints, &o->outpoint);
 	}
 }
 

@@ -22,7 +22,6 @@
 #include <lightningd/subd.h>
 #include <lightningd/watchman.h>
 #include <onchaind/onchaind_wiregen.h>
-#include <wallet/txfilter.h>
 
 /* Per-channel record of one tx onchaind is tracking.
  *  - blockheight: confirmation height; needed to unwatch the matching

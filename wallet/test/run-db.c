@@ -322,21 +322,6 @@ void notify_forward_event(struct lightningd *ld UNNEEDED,
 			  u64 created_index UNNEEDED,
 			  u64 updated_index UNNEEDED)
 { fprintf(stderr, "notify_forward_event called!\n"); abort(); }
-/* Generated stub for outpointfilter_add */
-void outpointfilter_add(struct outpointfilter *of UNNEEDED,
-			const struct bitcoin_outpoint *outpoint UNNEEDED)
-{ fprintf(stderr, "outpointfilter_add called!\n"); abort(); }
-/* Generated stub for outpointfilter_matches */
-bool outpointfilter_matches(struct outpointfilter *of UNNEEDED,
-			    const struct bitcoin_outpoint *outpoint UNNEEDED)
-{ fprintf(stderr, "outpointfilter_matches called!\n"); abort(); }
-/* Generated stub for outpointfilter_new */
-struct outpointfilter *outpointfilter_new(tal_t *ctx UNNEEDED)
-{ fprintf(stderr, "outpointfilter_new called!\n"); abort(); }
-/* Generated stub for outpointfilter_remove */
-void outpointfilter_remove(struct outpointfilter *of UNNEEDED,
-			   const struct bitcoin_outpoint *outpoint UNNEEDED)
-{ fprintf(stderr, "outpointfilter_remove called!\n"); abort(); }
 /* Generated stub for peer_set_dbid */
 void peer_set_dbid(struct peer *peer UNNEEDED, u64 dbid UNNEEDED)
 { fprintf(stderr, "peer_set_dbid called!\n"); abort(); }

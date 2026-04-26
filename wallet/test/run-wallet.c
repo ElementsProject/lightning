@@ -575,21 +575,6 @@ void onchaind_funding_spent(struct channel *channel UNNEEDED,
 /* Generated stub for onchaind_send_depth_updates */
 void onchaind_send_depth_updates(struct channel *channel UNNEEDED, u32 blockheight UNNEEDED)
 { fprintf(stderr, "onchaind_send_depth_updates called!\n"); abort(); }
-/* Generated stub for outpointfilter_add */
-void outpointfilter_add(struct outpointfilter *of UNNEEDED,
-			const struct bitcoin_outpoint *outpoint UNNEEDED)
-{ fprintf(stderr, "outpointfilter_add called!\n"); abort(); }
-/* Generated stub for outpointfilter_matches */
-bool outpointfilter_matches(struct outpointfilter *of UNNEEDED,
-			    const struct bitcoin_outpoint *outpoint UNNEEDED)
-{ fprintf(stderr, "outpointfilter_matches called!\n"); abort(); }
-/* Generated stub for outpointfilter_new */
-struct outpointfilter *outpointfilter_new(tal_t *ctx UNNEEDED)
-{ fprintf(stderr, "outpointfilter_new called!\n"); abort(); }
-/* Generated stub for outpointfilter_remove */
-void outpointfilter_remove(struct outpointfilter *of UNNEEDED,
-			   const struct bitcoin_outpoint *outpoint UNNEEDED)
-{ fprintf(stderr, "outpointfilter_remove called!\n"); abort(); }
 /* Generated stub for param_loglevel */
 struct command_result *param_loglevel(struct command *cmd UNNEEDED,
 				      const char *name UNNEEDED,

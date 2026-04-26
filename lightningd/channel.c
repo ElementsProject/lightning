@@ -16,7 +16,6 @@
 #include <lightningd/notification.h>
 #include <lightningd/opening_common.h>
 #include <lightningd/subd.h>
-#include <wallet/txfilter.h>
 
 void channel_set_owner(struct channel *channel, struct subd *owner)
 {

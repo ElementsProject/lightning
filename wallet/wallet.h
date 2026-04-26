@@ -43,14 +43,6 @@ struct wallet {
 	struct invoices *invoices;
 	u64 max_channel_dbid;
 
-	/* Filter matching all outpoints corresponding to our owned outputs,
-	 * including all spent ones */
-	struct outpointfilter *owned_outpoints;
-
-	/* Filter matching all outpoints that might be a funding transaction on
-	 * the blockchain. This is currently all P2WSH outputs */
-	struct outpointfilter *utxoset_outpoints;
-
 	/* Our issued wallet addresses.  We update on lookup. */
 	u32 our_addresses_maxindex;
 	struct wallet_address_htable *our_addresses;
@@ -1198,18 +1190,6 @@ void wallet_blocks_rollback(struct wallet *w, u32 height);
  * Return whether we have a block for the given height.
  */
 bool wallet_have_block(struct wallet *w, u32 blockheight);
-
-/**
- * Mark an outpoint as spent, both in the owned as well as the UTXO set
- *
- * Given the outpoint (txid, outnum), and the blockheight, mark the
- * corresponding DB entries as spent at the blockheight.
- *
- * @return true if found in our wallet's output set, false otherwise
- */
-bool wallet_outpoint_spend(const tal_t *ctx, struct wallet *w,
-			   const u32 blockheight,
-			   const struct bitcoin_outpoint *outpoint);
 
 struct outpoint *wallet_outpoint_for_scid(const tal_t *ctx, struct wallet *w,
 					  struct short_channel_id scid);

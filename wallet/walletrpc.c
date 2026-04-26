@@ -13,7 +13,6 @@
 #include <lightningd/channel.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/notification.h>
-#include <wallet/txfilter.h>
 #include <wallet/walletrpc.h>
 #include <wire/wire_sync.h>
 
