@@ -722,7 +722,7 @@ const u8 *send_htlc_out(const tal_t *ctx,
 		log_debug(out->log, "Sending HTLC while still syncing"
 			  " with bitcoin network (%u vs %u)",
 			  get_block_height(out->peer->ld),
-			  get_network_blockheight(out->peer->ld->topology));
+			  get_block_height(out->peer->ld));
 	}
 
 	/* Make peer's daemon own it, catch if it dies. */

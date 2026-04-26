@@ -380,9 +380,6 @@ bool fromwire_onchaind_dev_memleak_reply(const void *p UNNEEDED, bool *leak UNNE
 /* Generated stub for fromwire_openingd_dev_memleak_reply */
 bool fromwire_openingd_dev_memleak_reply(const void *p UNNEEDED, bool *leak UNNEEDED)
 { fprintf(stderr, "fromwire_openingd_dev_memleak_reply called!\n"); abort(); }
-/* Generated stub for get_network_blockheight */
-u32 get_network_blockheight(const struct chain_topology *topo UNNEEDED)
-{ fprintf(stderr, "get_network_blockheight called!\n"); abort(); }
 /* Generated stub for hash_cid */
 size_t hash_cid(const struct channel_id *cid UNNEEDED)
 { fprintf(stderr, "hash_cid called!\n"); abort(); }

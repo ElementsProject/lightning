@@ -24,6 +24,7 @@
 #include <lightningd/peer_fd.h>
 #include <lightningd/plugin_hook.h>
 #include <lightningd/subd.h>
+#include <lightningd/watchman.h>
 #include <openingd/openingd_wiregen.h>
 #include <unistd.h>
 #include <wally_psbt.h>
@@ -211,7 +212,7 @@ wallet_commit_channel(struct lightningd *ld,
 			      NULL, /* No commit sent yet */
 			      /* If we're fundee, could be a little before this
 			       * in theory, but it's only used for timing out. */
-			      get_network_blockheight(ld->topology),
+			      get_block_height(ld),
 			      feerate, feerate,
 			      &uc->local_basepoints,
 			      &uc->local_funding_pubkey,
@@ -1587,7 +1588,7 @@ static struct channel *stub_chan(struct command *cmd,
 			      NULL, /* No commit sent */
 			      /* If we're fundee, could be a little before this
 			       * in theory, but it's only used for timing out. */
-			      get_network_blockheight(ld->topology),
+			      get_block_height(ld),
                               feerate,
                               funding_sats.satoshis / MINIMUM_TX_WEIGHT * 1000 /* Raw: convert to feerate */,
 			      &basepoints,

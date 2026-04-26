@@ -35,13 +35,6 @@ struct txlocator {
 	u32 index;
 };
 
-/* Get the highest block number in the network that we are aware of. Unlike
- * `get_block_height` this takes into consideration the block header counter
- * in the bitcoin backend as well. If an absolute time is required, rather
- * than our current scan position this is preferable since it is far less
- * likely to lag behind the rest of the network.*/
-u32 get_network_blockheight(const struct chain_topology *topo);
-
 struct chain_topology *new_topology(struct lightningd *ld, struct logger *log);
 void setup_topology(struct chain_topology *topology);
 

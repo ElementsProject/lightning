@@ -10,15 +10,6 @@
 #include <lightningd/watchman.h>
 #include <wallet/wallet.h>
 
-u32 get_network_blockheight(const struct chain_topology *topo)
-{
-	u32 height = get_block_height(topo->ld);
-	if (height > topo->headercount)
-		return height;
-	else
-		return topo->headercount;
-}
-
 /* On shutdown, channels get deleted last.  That frees from our list, so
  * do it now instead. */
 static void destroy_chain_topology(struct chain_topology *topo)
