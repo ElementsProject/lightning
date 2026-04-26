@@ -193,13 +193,3 @@ void broadcast_tx_(const tal_t *ctx,
 			   broadcast_done, otx);
 }
 
-void broadcast_shutdown(struct lightningd *ld)
-{
-	struct outgoing_tx *otx;
-	struct outgoing_tx_map_iter it;
-	for (otx = outgoing_tx_map_first(ld->outgoing_txs, &it); otx;
-	     otx = outgoing_tx_map_next(ld->outgoing_txs, &it)) {
-		tal_del_destructor2(otx, destroy_outgoing_tx, ld);
-		tal_free(otx);
-	}
-}

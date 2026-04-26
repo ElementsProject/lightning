@@ -89,8 +89,4 @@ void rebroadcast_txs(struct lightningd *ld);
 bool we_broadcast(const struct lightningd *ld,
 		  const struct bitcoin_txid *txid);
 
-/* Drain all pending outgoing txs at shutdown, before channels (and their
- * outgoing_tx destructors) are freed. */
-void broadcast_shutdown(struct lightningd *ld);
-
 #endif /* LIGHTNING_LIGHTNINGD_BROADCAST_H */

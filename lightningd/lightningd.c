@@ -277,7 +277,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 
 	/*~ This is detailed in chaintopology.c */
 	ld->topology = new_topology(ld, ld->log);
-	ld->bitcoind = new_bitcoind(ld, ld, ld->log);
+	ld->bitcoind = NULL;
 	ld->outgoing_txs = new_htable(ld, outgoing_tx_map);
 	ld->rebroadcast_timer = NULL;
 	ld->fee_poll = NULL;
@@ -1324,6 +1324,15 @@ int main(int argc, char *argv[])
 	if (!wallet_sanity_check(ld->wallet))
 		errx(EXITCODE_WALLET_DB_MISMATCH, "Wallet sanity check failed.");
 
+	/*~ Initialize the watch manager which consumes watch events from bwatch plugin.
+	 * Must be done before init_wallet_scriptpubkey_watches as it adds watches. */
+	ld->watchman = watchman_new(ld, ld);
+
+	/*~ Add bwatch watches for our wallet scriptpubkeys (BIP32/BIP86 keys). */
+	trace_span_start("init_wallet_scriptpubkey_watches", ld->wallet);
+	init_wallet_scriptpubkey_watches(ld->wallet, ld->bip32_base);
+	trace_span_end(ld->wallet);
+
 	/*~ Finish our runes initialization (includes reading from db) */
 	runes_finish_init(ld->runes);
 
@@ -1333,22 +1342,12 @@ int main(int argc, char *argv[])
 	/*~ That's all of the wallet db operations for now. */
 	db_commit_transaction(ld->wallet->db);
 
-	/*~ Stand up the watchman: it queues bwatch RPC requests until the
-	 * bwatch plugin reports ready, then replays them.  Must come before
-	 * setup_topology, since update_feerates() writes through
-	 * ld->watchman, and before init_wallet_scriptpubkey_watches so the
-	 * watches have somewhere to enqueue. */
-	ld->watchman = watchman_new(ld, ld);
+	ld->bitcoind = new_bitcoind(ld, ld, ld->log);
+	bitcoind_check_commands(ld->bitcoind);
 
-	/*~ Initialize block topology.  This does its own io_loop to
-	 * talk to bitcoind, so does its own db transactions. */
-	trace_span_start("setup_topology", ld->topology);
-	setup_topology(ld->topology);
-	trace_span_end(ld->topology);
-
-	trace_span_start("init_wallet_scriptpubkey_watches", ld->wallet);
-	init_wallet_scriptpubkey_watches(ld->wallet, ld->bip32_base);
-	trace_span_end(ld->wallet);
+	/* Poll bitcoind for fee estimates every 30s.
+	 * bwatch only reports blockheight via block_processed. */
+	start_fee_polling(ld);
 
 	db_begin_transaction(ld->wallet->db);
 	trace_span_start("delete_old_htlcs", ld->wallet);
@@ -1441,14 +1440,6 @@ int main(int argc, char *argv[])
 	 * tx. */
 	setup_peers(ld);
 
-	/*~ Now that all the notifications for transactions are in place, we
-	 *  can start the poll loop which queries bitcoind for new blocks. */
-	begin_topology(ld->topology);
-
-	/*~ Poll bitcoind for fee estimates every 30s.  bwatch only reports
-	 * blockheight via block_processed; it does not call estimatefees. */
-	start_fee_polling(ld);
-
 	/*~ To handle --daemon, we fork the daemon early (otherwise we hit
 	 * issues with our pid changing), but keep the parent around until
 	 * we've completed most initialization: that way we'll exit with an
@@ -1503,12 +1494,6 @@ stop:
 		io_close_taken_fd(ld->stop_conn);
 		stop_response = tal_steal(NULL, ld->stop_response);
 	}
-
-	/* Stop topology callbacks. */
-	stop_topology(ld->topology);
-
-	/* Stop the fee-estimate polling timer. */
-	ld->fee_poll = tal_free(ld->fee_poll);
 
 	/* We're not going to collect our children. */
 	remove_sigchild_handler(sigchld_conn);

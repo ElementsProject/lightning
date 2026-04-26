@@ -208,6 +208,9 @@ void notify_feerate_change(struct lightningd *ld)
 
 	/* FIXME: We choose not to drop to chain if we can't contact
 	 * peer.  We *could* do so, however. */
+
+	/* RBF existing anchor txs to the new feerate. */
+	rebroadcast_txs(ld);
 }
 
 static struct splice_command *splice_command_for_chan(struct lightningd *ld,
