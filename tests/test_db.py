@@ -233,6 +233,60 @@ def test_last_tx_psbt_upgrade(node_factory, bitcoind):
     bitcoind.rpc.decoderawtransaction(last_txs[1].hex())
 
 
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "This test is based on a sqlite3 snapshot")
+@unittest.skipIf(TEST_NETWORK != 'regtest', "The network must match the DB snapshot")
+def test_our_tables_backfill_upgrade(node_factory, bitcoind):
+    """Upgrading a pre-bwatch db backfills our_outputs/our_txs from the
+    legacy outputs/transactions tables, and the wallet stays usable."""
+    bitcoind.generate_block(1)
+    l1 = node_factory.get_node(dbfile="l1-before-moves-in-db.sqlite3.xz",
+                               options={'database-upgrade': True},
+                               old_hsmsecret=True)
+
+    # The legacy tables were mirrored into the new bwatch tables.  The
+    # fixture's chain doesn't exist on this bitcoind, so heights past the
+    # common tip get reorged away at startup: that must hit both old and
+    # new tables in lockstep, so compare them (our_outputs uses a 0
+    # blockheight sentinel where outputs uses NULL).
+    legacy = l1.db_query('SELECT lower(hex(prev_out_tx)) AS txid,'
+                         ' prev_out_index AS outnum, value AS satoshis,'
+                         ' COALESCE(confirmation_height, 0) AS blockheight,'
+                         ' spend_height AS spendheight, keyindex'
+                         ' FROM outputs ORDER BY txid')
+    new = l1.db_query('SELECT lower(hex(txid)) AS txid, outnum, satoshis,'
+                      ' blockheight, spendheight, keyindex'
+                      ' FROM our_outputs ORDER BY txid')
+    assert len(new) == 2
+    assert new == legacy
+
+    assert (l1.db_query('SELECT lower(hex(txid)) AS txid FROM our_txs ORDER BY txid')
+            == l1.db_query('SELECT lower(hex(id)) AS txid FROM transactions ORDER BY id'))
+
+    # Both wallet UTXOs survived the upgrade (the reorg unconfirmed one and
+    # unspent the other; listfunds txids are in display byte order).
+    assert {(o['txid'], o['output']) for o in l1.rpc.listfunds()['outputs']} == {
+        ('63c59b312976320528552c258ae51563498dfd042b95bb0c842696614d59bb89', 1),
+        ('675ab2a8c43afcf98b82a1120d1a4d36768c898792fe1282c5be4ac055377fbe', 1)}
+
+    # The wallet still works after the upgrade: deposit fresh funds and
+    # spend them (the pre-upgrade UTXOs aren't on this chain, so pick the
+    # new one explicitly).
+    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['p2tr'], 0.01)
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    sync_blockheight(bitcoind, [l1])
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 3)
+
+    new_utxo = only_one([o for o in l1.rpc.listfunds()['outputs']
+                         if o['amount_msat'] == 1000000000])
+    withdraw = l1.rpc.withdraw(l1.rpc.newaddr()['p2tr'], 500000,
+                               utxos=['{}:{}'.format(new_utxo['txid'],
+                                                     new_utxo['output'])])
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    sync_blockheight(bitcoind, [l1])
+    wait_for(lambda: [o for o in l1.rpc.listfunds()['outputs']
+                      if o['txid'] == withdraw['txid'] and o['status'] == 'confirmed'] != [])
+
+
 @pytest.mark.slow_test
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "This test is based on a sqlite3 snapshot")
 @unittest.skipIf(TEST_NETWORK != 'regtest', "The network must match the DB snapshot")
