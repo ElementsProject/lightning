@@ -2052,15 +2052,11 @@ void wallet_add_our_output(struct wallet *w,
 			   struct amount_sat sat,
 			   u32 keyindex);
 
-/* Insert (or replace) a wallet-relevant transaction in our_txs. */
-void wallet_add_our_tx(struct wallet *w, const struct wally_tx *tx,
-		       u32 blockheight, u32 txindex);
-
 /* Undo wallet_annotate_txout for an output annotation. */
 void wallet_del_txout_annotation(struct wallet *w,
 				 const struct bitcoin_outpoint *outpoint);
 
-/* Undo wallet_add_our_tx: removes from our_txs only if no our_outputs row
+/* Undo wallet_transaction_add: removes from our_txs only if no our_outputs row
  * still references it. */
 void wallet_del_tx_if_unreferenced(struct wallet *w,
 				   const struct bitcoin_txid *txid);
@@ -2093,7 +2089,7 @@ void wallet_watch_p2sh_p2wpkh(struct lightningd *ld,
 			      u32 txindex);
 
 /* Shared revert handler for the wallet/p2wpkh, wallet/p2tr and
- * wallet/p2sh_p2wpkh dispatch entries: undoes got_utxo + wallet_add_our_tx
+ * wallet/p2sh_p2wpkh dispatch entries: undoes got_utxo + wallet_transaction_add
  * for every output recorded at @suffix's keyindex and @blockheight. */
 void wallet_scriptpubkey_watch_revert(struct lightningd *ld,
 				      const char *suffix,
