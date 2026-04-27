@@ -35,6 +35,7 @@ def pytest_configure(config):
 BWATCH_MIGRATION_ALLOWLIST: set[str] = {
     "test_cln_rs.py",
     "test_clnrest.py",
+    "test_db.py",
     "test_mkfunding.py",
     "test_onion.py",
     "test_reckless.py",

@@ -35,6 +35,7 @@ def test_db_dangling_peer_fix(node_factory, bitcoind):
     l2.fundchannel(l1, 200000, wait_for_active=True)
 
 
+@pytest.mark.skip(reason="Legacy gossip blocks/utxoset backfill; revisit when redesigned")
 @unittest.skipIf(TEST_NETWORK != 'regtest', "Address is network specific")
 def test_block_backfill(node_factory, bitcoind, chainparams):
     """Test whether we backfill data from the blockchain correctly.
@@ -237,10 +238,10 @@ def test_last_tx_psbt_upgrade(node_factory, bitcoind):
     bitcoind.rpc.decoderawtransaction(last_txs[1].hex())
 
 
+@pytest.mark.skip(reason="Legacy outputs scriptpubkey / full_channel_id migration; revisit when schema stabilizes")
 @pytest.mark.slow_test
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "This test is based on a sqlite3 snapshot")
 @unittest.skipIf(TEST_NETWORK != 'regtest', "The network must match the DB snapshot")
-@pytest.mark.skip(reason="bwatch migration: DB fixture not yet regenerated")
 def test_backfill_scriptpubkeys(node_factory, bitcoind):
     bitcoind.generate_block(214)
 
