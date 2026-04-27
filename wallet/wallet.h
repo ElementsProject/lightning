@@ -2042,10 +2042,6 @@ void wallet_add_our_output(struct wallet *w,
 			   struct amount_sat sat,
 			   u32 keyindex);
 
-/* Insert (or replace) a wallet-relevant transaction in our_txs. */
-void wallet_add_our_tx(struct wallet *w, const struct wally_tx *tx,
-		       u32 blockheight, u32 txindex);
-
 /* watch_found handler for the wallet/spk/<keyidx>/<form> dispatch entry:
  * fires when an address form (p2wpkh/p2tr/p2sh_p2wpkh) of this HD key
  * receives funds.  The keyindex is parsed from @suffix; the address type is
