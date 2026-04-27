@@ -11,7 +11,6 @@
 #include <common/pseudorand.h>
 #include <common/timeout.h>
 #include <lightningd/bitcoind.h>
-#include <lightningd/chaintopology.h>
 #include <lightningd/feerate.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>

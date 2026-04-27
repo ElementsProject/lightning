@@ -10,7 +10,6 @@
 #include <errno.h>
 #include <hsmd/permissions.h>
 #include <inttypes.h>
-#include <lightningd/chaintopology.h>
 #include <lightningd/channel.h>
 #include <lightningd/closing_control.h>
 #include <lightningd/connect_control.h>

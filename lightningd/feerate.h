@@ -94,4 +94,10 @@ void start_fee_polling(struct lightningd *ld);
 /* In channel_control.c */
 void notify_feerate_change(struct lightningd *ld);
 
+/* Information relevant to locating a TX in a blockchain. */
+struct txlocator {
+	u32 blkheight;
+	u32 index;
+};
+
 #endif /* LIGHTNING_LIGHTNINGD_FEERATE_H */

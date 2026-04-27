@@ -61,7 +61,7 @@
 #include <fcntl.h>
 #include <header_versions_gen.h>
 #include <lightningd/bitcoind.h>
-#include <lightningd/chaintopology.h>
+#include <lightningd/broadcast.h>
 #include <lightningd/channel.h>
 #include <lightningd/channel_control.h>
 #include <lightningd/channel_gossip.h>
@@ -275,8 +275,6 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->timers = tal(ld, struct timers);
 	timers_init(ld->timers, time_mono());
 
-	/*~ This is detailed in chaintopology.c */
-	ld->topology = new_topology(ld, ld->log);
 	ld->bitcoind = NULL;
 	ld->outgoing_txs = new_htable(ld, outgoing_tx_map);
 	ld->rebroadcast_timer = NULL;
@@ -1395,9 +1393,9 @@ int main(int argc, char *argv[])
 	htlcs_resubmit(ld, unconnected_htlcs_in);
 	db_commit_transaction(ld->wallet->db);
 
-	/*~ Activate connect daemon.  Needs to be after the initialization of
-	 * chaintopology, otherwise peers may connect and ask for
-	 * uninitialized data. */
+	/*~ Activate connect daemon.  Needs to be after watchman and wallet
+	 * scriptpubkey watches are initialized, otherwise peers may connect
+	 * and ask for uninitialized data. */
 	connectd_activate(ld);
 
 	/*~ Now handle sigchld, so we can clean up appropriately. */

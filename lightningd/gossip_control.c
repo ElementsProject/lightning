@@ -5,7 +5,7 @@
 #include <common/json_command.h>
 #include <connectd/connectd_wiregen.h>
 #include <hsmd/permissions.h>
-#include <lightningd/chaintopology.h>
+#include <lightningd/feerate.h>
 #include <lightningd/channel.h>
 #include <lightningd/channel_gossip.h>
 #include <lightningd/gossip_control.h>

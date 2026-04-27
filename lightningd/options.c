@@ -18,7 +18,6 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <hsmd/hsmd_wiregen.h>
-#include <lightningd/chaintopology.h>
 #include <lightningd/feerate.h>
 #include <lightningd/options.h>
 #include <lightningd/plugin.h>

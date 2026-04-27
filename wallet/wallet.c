@@ -17,7 +17,6 @@
 #include <db/common.h>
 #include <db/exec.h>
 #include <db/utils.h>
-#include <lightningd/chaintopology.h>
 #include <lightningd/channel.h>
 #include <lightningd/channel_gossip.h>
 #include <lightningd/closed_channel.h>

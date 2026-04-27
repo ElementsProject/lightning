@@ -1,6 +1,5 @@
 #include "config.h"
 #include <common/timeout.h>
-#include <lightningd/chaintopology.h>
 #include <lightningd/channel.h>
 #include <lightningd/htlc_set.h>
 #include <lightningd/invoice.h>

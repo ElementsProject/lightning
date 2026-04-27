@@ -155,9 +155,6 @@ struct logger *new_logger(const tal_t *ctx UNNEEDED, struct log_book *record UNN
 /* Generated stub for new_peer_fd_arr */
 struct peer_fd *new_peer_fd_arr(const tal_t *ctx UNNEEDED, const int *fd UNNEEDED)
 { fprintf(stderr, "new_peer_fd_arr called!\n"); abort(); }
-/* Generated stub for new_topology */
-struct chain_topology *new_topology(struct lightningd *ld UNNEEDED, struct logger *log UNNEEDED)
-{ fprintf(stderr, "new_topology called!\n"); abort(); }
 /* Generated stub for plugin_hook_call_ */
 bool plugin_hook_call_(struct lightningd *ld UNNEEDED,
 		       struct plugin_hook *hook UNNEEDED,

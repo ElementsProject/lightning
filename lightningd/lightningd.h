@@ -226,9 +226,6 @@ struct lightningd {
 	/* Outstanding connect commands. */
 	struct list_head connects;
 
-	/* Our chain topology. */
-	struct chain_topology *topology;
-
 	/* The bitcoind backend. */
 	struct bitcoind *bitcoind;
 

@@ -6,7 +6,8 @@
 #include <hsmd/hsmd_wiregen.h>
 #include <inttypes.h>
 #include <lightningd/anchorspend.h>
-#include <lightningd/chaintopology.h>
+#include <lightningd/broadcast.h>
+#include <lightningd/feerate.h>
 #include <lightningd/channel.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/lightningd.h>

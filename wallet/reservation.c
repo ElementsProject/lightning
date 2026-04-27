@@ -5,7 +5,6 @@
 #include <ccan/cast/cast.h>
 #include <common/json_command.h>
 #include <common/psbt_open.h>
-#include <lightningd/chaintopology.h>
 #include <lightningd/channel.h>
 #include <lightningd/feerate.h>
 #include <lightningd/hsm_control.h>

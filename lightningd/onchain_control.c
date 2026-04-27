@@ -12,7 +12,8 @@
 #include <hsmd/hsmd_wiregen.h>
 #include <hsmd/permissions.h>
 #include <inttypes.h>
-#include <lightningd/chaintopology.h>
+#include <lightningd/broadcast.h>
+#include <lightningd/feerate.h>
 #include <lightningd/channel.h>
 #include <lightningd/channel_control.h>
 #include <lightningd/coin_mvts.h>

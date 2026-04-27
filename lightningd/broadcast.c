@@ -5,7 +5,6 @@
 #include <common/timeout.h>
 #include <lightningd/bitcoind.h>
 #include <lightningd/broadcast.h>
-#include <lightningd/chaintopology.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
 #include <lightningd/watchman.h>

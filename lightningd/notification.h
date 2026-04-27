@@ -3,7 +3,7 @@
 #include "config.h"
 #include <bitcoin/block.h>
 #include <common/coin_mvt.h>
-#include <lightningd/chaintopology.h>
+#include <lightningd/feerate.h>
 #include <lightningd/pay.h>
 #include <lightningd/plugin.h>
 

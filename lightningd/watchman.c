@@ -11,7 +11,7 @@
 #include <common/mkdatastorekey.h>
 #include <db/exec.h>
 #include <lightningd/bitcoind.h>
-#include <lightningd/chaintopology.h>
+#include <lightningd/feerate.h>
 #include <lightningd/coin_mvts.h>
 #include <lightningd/gossip_control.h>
 #include <lightningd/jsonrpc.h>

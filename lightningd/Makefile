@@ -4,7 +4,6 @@ LIGHTNINGD_SRC :=				\
 	lightningd/anchorspend.c		\
 	lightningd/bitcoind.c			\
 	lightningd/broadcast.c			\
-	lightningd/chaintopology.c		\
 	lightningd/watchman.c			\
 	lightningd/channel.c			\
 	lightningd/channel_control.c		\
