@@ -6,6 +6,8 @@ on:
       - 'master'
     paths:
       - 'doc/schemas/*.json'
+      - 'doc/schemas/hook/*.json'
+      - 'doc/schemas/notification/*.json'
       - 'doc/*.1.md'
       - 'doc/*.5.md'
       - 'doc/*.8.md'
