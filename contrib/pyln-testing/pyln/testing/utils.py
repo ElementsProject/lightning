@@ -44,7 +44,7 @@ LIGHTNINGD_CONFIG = OrderedDict({
     "cltv-delta": 6,
     "cltv-final": 5,
     "watchtime-blocks": 5,
-    "rescan": 1,
+    "rescan": 0,
     'disable-dns': None,
 })
 
