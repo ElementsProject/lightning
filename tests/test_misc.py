@@ -616,7 +616,7 @@ def test_withdraw_misc(node_factory, bitcoind, chainparams):
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 10)
 
     # Reach around into the db to check that outputs were added
-    assert l1.db_query('SELECT COUNT(*) as c FROM outputs WHERE status=0')[0]['c'] == 10
+    assert l1.db_query('SELECT COUNT(*) as c FROM our_outputs WHERE spendheight IS NULL AND reserved_til = 0')[0]['c'] == 10
 
     waddr = l1.bitcoin.getnewaddress()
     # Now attempt to withdraw some (making sure we collect multiple inputs)
@@ -643,7 +643,7 @@ def test_withdraw_misc(node_factory, bitcoind, chainparams):
     sync_blockheight(bitcoind, [l1])
 
     # Now make sure two of them were marked as spent
-    assert l1.db_query('SELECT COUNT(*) as c FROM outputs WHERE status=2')[0]['c'] == 2
+    assert l1.db_query('SELECT COUNT(*) as c FROM our_outputs WHERE spendheight IS NOT NULL')[0]['c'] == 2
 
     dont_spend_outputs(l1, out['txid'])
 
@@ -654,13 +654,13 @@ def test_withdraw_misc(node_factory, bitcoind, chainparams):
 
     # Make sure l2 received the withdrawal.
     wait_for(lambda: len(l2.rpc.listfunds()['outputs']) == 1)
-    outputs = l2.db_query('SELECT value FROM outputs WHERE status=0;')
+    outputs = l2.db_query('SELECT satoshis as value FROM our_outputs WHERE spendheight IS NULL AND reserved_til = 0;')
     assert only_one(outputs)['value'] == amount
 
     # Now make sure an additional two of them were marked as spent
     sync_blockheight(bitcoind, [l1])
     dont_spend_outputs(l1, out['txid'])
-    assert l1.db_query('SELECT COUNT(*) as c FROM outputs WHERE status=2')[0]['c'] == 4
+    assert l1.db_query('SELECT COUNT(*) as c FROM our_outputs WHERE spendheight IS NOT NULL')[0]['c'] == 4
 
     if chainparams['name'] != 'regtest':
         return
@@ -680,7 +680,7 @@ def test_withdraw_misc(node_factory, bitcoind, chainparams):
     dont_spend_outputs(l1, out['txid'])
 
     # Now make sure additional two of them were marked as spent
-    assert l1.db_query('SELECT COUNT(*) as c FROM outputs WHERE status=2')[0]['c'] == 6
+    assert l1.db_query('SELECT COUNT(*) as c FROM our_outputs WHERE spendheight IS NOT NULL')[0]['c'] == 6
 
     # Simple test for withdrawal to P2WSH
     # Address from: https://bc-2.jp/tools/bech32demo/index.html
@@ -696,7 +696,7 @@ def test_withdraw_misc(node_factory, bitcoind, chainparams):
     sync_blockheight(bitcoind, [l1])
     dont_spend_outputs(l1, out['txid'])
     # Now make sure additional two of them were marked as spent
-    assert l1.db_query('SELECT COUNT(*) as c FROM outputs WHERE status=2')[0]['c'] == 8
+    assert l1.db_query('SELECT COUNT(*) as c FROM our_outputs WHERE spendheight IS NOT NULL')[0]['c'] == 8
 
     # failure testing for invalid SegWit addresses, from BIP173
     # HRP character out of range
@@ -725,7 +725,7 @@ def test_withdraw_misc(node_factory, bitcoind, chainparams):
         l1.rpc.withdraw('tb1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3pjxtptv', amount)
 
     # Should have 2 outputs available.
-    assert l1.db_query('SELECT COUNT(*) as c FROM outputs WHERE status=0')[0]['c'] == 2
+    assert l1.db_query('SELECT COUNT(*) as c FROM our_outputs WHERE spendheight IS NULL AND reserved_til = 0')[0]['c'] == 2
 
     # Unreserve everything.
     inputs = []
@@ -738,10 +738,10 @@ def test_withdraw_misc(node_factory, bitcoind, chainparams):
     # Test withdrawal to self.
     l1.rpc.withdraw(l1.rpc.newaddr('p2tr')['p2tr'], 'all', minconf=0)
     bitcoind.generate_block(1)
-    assert l1.db_query('SELECT COUNT(*) as c FROM outputs WHERE status=0')[0]['c'] == 1
+    assert l1.db_query('SELECT COUNT(*) as c FROM our_outputs WHERE spendheight IS NULL AND reserved_til = 0')[0]['c'] == 1
 
     l1.rpc.withdraw(waddr, 'all', minconf=0)
-    assert l1.db_query('SELECT COUNT(*) as c FROM outputs WHERE status=0')[0]['c'] == 0
+    assert l1.db_query('SELECT COUNT(*) as c FROM our_outputs WHERE spendheight IS NULL AND reserved_til = 0')[0]['c'] == 0
 
     # This should fail, can't even afford fee.
     with pytest.raises(RpcError, match=r'Could not afford'):

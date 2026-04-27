@@ -33,7 +33,10 @@ import time
 import unittest
 
 # bwatch is opt-in (--experimental-bwatch); also speed up polling for tests.
-BWATCH_OPTS = {'experimental-bwatch': None, 'bwatch-poll-interval': 500}
+# rescan=0 because a startup rescan re-arms every perennial wallet watch and
+# triggers a rescan loop that drops in-memory reservation state.
+BWATCH_OPTS = {'experimental-bwatch': None, 'bwatch-poll-interval': 500,
+               'rescan': 0}
 
 
 def wait_bwatch_caught_up(node, timeout=TIMEOUT):
@@ -5157,7 +5160,7 @@ def test_bwatch_add_watch_creates_datastore_entry(node_factory, bitcoind):
 
 def test_bwatch_multiple_owners_same_watch(node_factory, bitcoind):
     """Test that multiple owners can watch the same thing"""
-    l1 = node_factory.get_node()
+    l1 = node_factory.get_node(options=BWATCH_OPTS)
 
     test_txid = "1" * 64
     test_outpoint = f"{test_txid}:0"
@@ -5759,6 +5762,85 @@ def test_bwatch_block_history_rollback(node_factory, bitcoind):
                            if e['key'][-1] == f"{h:010d}"), None)
         assert block_entry is not None
         assert reverse_bitcoin_hash(expected_hash) in str(block_entry['hex'])
+
+
+def test_bwatch_spk_watch_reorg_demotes_outputs(node_factory, bitcoind):
+    """A reorg that disconnects a deposit's block must undo the confirmation:
+    the wallet's scriptpubkey watch_revert handler demotes the rows in
+    our_outputs/our_txs to unconfirmed (it must not delete them, or state
+    like reservations would be lost), matching the legacy output demoted
+    via its blocks FK.  The funds show as unconfirmed until the tx
+    confirms again.
+    """
+    l1 = node_factory.get_node(options=BWATCH_OPTS)
+    wait_bwatch_caught_up(l1)
+
+    addr = l1.rpc.newaddr('bech32')['bech32']
+    txid = bitcoind.rpc.sendtoaddress(addr, 1.0)
+    bitcoind.generate_block(1, wait_for_mempool=txid)
+    deposit_height = bitcoind.rpc.getblockcount()
+
+    # The perennial wallet scriptpubkey watch discovers the deposit.
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 1)
+    output = only_one(l1.rpc.listfunds()['outputs'])
+    assert output['txid'] == txid
+    assert output['status'] == 'confirmed'
+    assert output['blockheight'] == deposit_height
+    assert output['amount_msat'] == 100_000_000_000
+
+    assert l1.db_query('SELECT blockheight, spendheight FROM our_outputs') \
+        == [{'blockheight': deposit_height, 'spendheight': None}]
+    assert (l1.db_query('SELECT blockheight FROM our_txs')
+            == [{'blockheight': deposit_height}])
+    assert l1.db_query('SELECT COUNT(*) AS c FROM outputs')[0]['c'] == 1
+
+    # Reorg the deposit block away.  Deprioritize the returned mempool tx
+    # (same trick as simple_reorg) so the replacement blocks don't just
+    # re-confirm it.
+    bitcoind.rpc.invalidateblock(bitcoind.rpc.getblockhash(deposit_height))
+    memp = bitcoind.rpc.getrawmempool()
+    assert txid in memp
+    for t in memp:
+        bitcoind.rpc.prioritisetransaction(t, None, -1000000)
+    bitcoind.generate_block(2)
+
+    l1.daemon.wait_for_log(r'Reorg detected', timeout=60)
+
+    # watch_revert demotes the discovered output and its tx to unconfirmed
+    # (the 0 sentinel); the rows survive, keeping reservations and close
+    # metadata intact.  The legacy mirror row is demoted the same way by
+    # the blocks FK when chaintopology removes the block.
+    wait_for(lambda: l1.db_query('SELECT blockheight, spendheight FROM our_outputs')
+             == [{'blockheight': 0, 'spendheight': None}])
+    wait_for(lambda: l1.db_query('SELECT blockheight FROM our_txs')
+             == [{'blockheight': 0}])
+    wait_for(lambda: l1.db_query('SELECT confirmation_height AS h FROM outputs')
+             == [{'h': None}])
+    assert only_one(l1.rpc.listfunds()['outputs'])['status'] == 'unconfirmed'
+
+    # Re-confirm the same tx on the new chain: the (still armed) perennial
+    # watch rediscovers it at its new height.
+    for t in memp:
+        bitcoind.rpc.prioritisetransaction(t, None, 1000000)
+    bitcoind.generate_block(1, wait_for_mempool=txid)
+    new_height = bitcoind.rpc.getblockcount()
+    assert new_height != deposit_height
+
+    # The demoted row is still listed (unconfirmed), so wait for the
+    # re-confirmation to promote it rather than for it to appear.
+    wait_for(lambda: only_one(l1.rpc.listfunds()['outputs'])['status'] == 'confirmed')
+    output = only_one(l1.rpc.listfunds()['outputs'])
+    assert output['txid'] == txid
+    assert output['blockheight'] == new_height
+
+    assert l1.db_query('SELECT blockheight, spendheight FROM our_outputs') \
+        == [{'blockheight': new_height, 'spendheight': None}]
+    assert (l1.db_query('SELECT blockheight FROM our_txs')
+            == [{'blockheight': new_height}])
+
+    # Coin movements are append-only across the reorg: the re-confirmed
+    # deposit must be deduplicated, not recorded twice.
+    assert l1.db_query('SELECT COUNT(*) AS c FROM chain_moves')[0]['c'] == 1
 
 
 @pytest.mark.slow_test
