@@ -23,6 +23,6 @@ members = [
 ]
 
 [workspace.dependencies]
-cln-rpc = { path = "cln-rpc", version = "0.6.0" }
-cln-grpc = { path = "cln-grpc", version = "0.6.0" }
-cln-plugin = { path = "plugins", version = "0.6.0" }
+cln-rpc = { path = "cln-rpc", version = "0.7.0" }
+cln-grpc = { path = "cln-grpc", version = "0.7.0" }
+cln-plugin = { path = "plugins", version = "0.7.0" }
