@@ -4875,6 +4875,41 @@ void wallet_block_add(struct wallet *w, struct block *b)
 	db_exec_prepared_v2(take(stmt));
 }
 
+/* Demote our_outputs/our_txs rows discovered in now-disconnected blocks
+ * back to unconfirmed (the 0 sentinel), and undo spends recorded there.
+ *
+ * Demote, never delete: a row also carries state the chain cannot
+ * re-deliver (reserved_til, onchaind close metadata), and this path runs
+ * not just on real reorgs but on every startup, when chaintopology
+ * invalidates its rescan window.  Rediscovery re-promotes the row via
+ * wallet_add_our_output / wallet_transaction_add; a tx that never
+ * re-confirms just stays unconfirmed and unspendable.  This matches the
+ * legacy tables, whose blocks(height) foreign keys demote rows to NULL
+ * when the block row is deleted.  Spend watches stay armed: the outpoint
+ * is still ours, and it can confirm (and be spent) again. */
+static void wallet_our_tables_reorg(struct wallet *w, u32 height)
+{
+	struct db_stmt *stmt;
+
+	stmt = db_prepare_v2(w->db, SQL("UPDATE our_outputs "
+					"SET blockheight = 0, txindex = 0 "
+					"WHERE blockheight >= ?"));
+	db_bind_int(stmt, height);
+	db_exec_prepared_v2(take(stmt));
+
+	stmt = db_prepare_v2(w->db, SQL("UPDATE our_outputs "
+					"SET spendheight = NULL "
+					"WHERE spendheight >= ?"));
+	db_bind_int(stmt, height);
+	db_exec_prepared_v2(take(stmt));
+
+	stmt = db_prepare_v2(w->db, SQL("UPDATE our_txs "
+					"SET blockheight = 0, txindex = 0 "
+					"WHERE blockheight >= ?"));
+	db_bind_int(stmt, height);
+	db_exec_prepared_v2(take(stmt));
+}
+
 void wallet_block_remove(struct wallet *w, struct block *b)
 {
 	struct db_stmt *stmt =
@@ -4890,6 +4925,8 @@ void wallet_block_remove(struct wallet *w, struct block *b)
 	assert(!db_step(stmt));
 	tal_free(stmt);
 
+	wallet_our_tables_reorg(w, b->height);
+
 	/* We might need to watch more now-unspent UTXOs */
 	refill_outpointfilters(w);
 }
@@ -4900,6 +4937,9 @@ void wallet_blocks_rollback(struct wallet *w, u32 height)
 							"WHERE height > ?"));
 	db_bind_int(stmt, height);
 	db_exec_prepared_v2(take(stmt));
+
+	wallet_our_tables_reorg(w, height + 1);
+
 	refill_outpointfilters(w);
 }
 
