@@ -325,65 +325,6 @@ static bool is_single_arg_cmd(const char *command) {
 	return false;
 }
 
-static void log_notify(const char *log_line, size_t len)
-{
-	struct json_stream *js = plugin_notification_start(NULL, "reckless_log");
-	json_add_stringn(js, "log", log_line, len);
-	plugin_notification_end(plugin, js);
-}
-
-static void log_conn_finish(struct io_conn *conn, struct reckless *reckless)
-{
-	io_close(conn);
-	reckless->logfd = 0;
-
-}
-
-/* len does NOT include the \n */
-static const char *get_line(const struct reckless *rkls, size_t *len)
-{
-	const char *line = membuf_elems(&rkls->logbuf);
-	const char *eol = memchr(line, '\n', membuf_num_elems(&rkls->logbuf));
-
-	if (eol) {
-		*len = eol - line;
-		return line;
-	}
-	return NULL;
-}
-
-static struct io_plan *log_read_more(struct io_conn *conn,
-				     struct reckless *rkls)
-{
-	size_t len;
-	const char *line;
-
-	/* We read some more stuff in! */
-	membuf_added(&rkls->logbuf, rkls->logbytes_read);
-	rkls->logbytes_read = 0;
-
-	while ((line = get_line(rkls, &len)) != NULL) {
-		plugin_log(plugin, LOG_DBG, "reckless utility: %.*s", (int)len, line);
-		log_notify(line, len);
-		membuf_consume(&rkls->logbuf, len + 1);
-	}
-
-	/* Make sure there's more room */
-	membuf_prepare_space(&rkls->logbuf, 4096);
-
-	return io_read_partial(conn,
-			       membuf_space(&rkls->logbuf),
-			       membuf_num_space(&rkls->logbuf),
-			       &rkls->logbytes_read,
-			       log_read_more, rkls);
-}
-
-static struct io_plan *log_conn_init(struct io_conn *conn, struct reckless *rkls)
-{
-	io_set_finish(conn, log_conn_finish, rkls);
-	return log_read_more(conn, rkls);
-}
-
 static int open_socket(int *port)
 {
 	int sock;
