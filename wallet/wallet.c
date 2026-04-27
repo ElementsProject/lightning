@@ -5095,19 +5095,71 @@ wallet_utxoset_get_created(const tal_t *ctx, struct wallet *w,
 }
 
 void wallet_transaction_add(struct wallet *w, const struct wally_tx *tx,
-			    const u32 blockheight, const u32 txindex)
+			    u32 blockheight, u32 txindex)
 {
+	struct db_stmt *stmt;
 	struct bitcoin_txid txid;
-	struct db_stmt *stmt = db_prepare_v2(
-	    w->db, SQL("SELECT blockheight FROM transactions WHERE id=?"));
 
 	wally_txid(tx, &txid);
+
+	/* Insert if unknown, then promote to confirmed: an unconfirmed
+	 * (re)add must never clobber a recorded confirmation, which a bare
+	 * INSERT OR REPLACE would. */
+	stmt = db_prepare_v2(w->db,
+			     SQL("INSERT INTO our_txs "
+				 "(txid, blockheight, txindex, rawtx) "
+				 "VALUES (?, ?, ?, ?) "
+				 "ON CONFLICT(txid) DO NOTHING;"));
+	db_bind_txid(stmt, &txid);
+	db_bind_int(stmt, blockheight);
+	db_bind_int(stmt, txindex);
+	db_bind_talarr(stmt, linearize_wtx(tmpctx, tx));
+	db_exec_prepared_v2(take(stmt));
+
+	if (blockheight != 0) {
+		stmt = db_prepare_v2(w->db,
+				     SQL("UPDATE our_txs "
+					 "SET blockheight = ?, txindex = ? "
+					 "WHERE txid = ?;"));
+		db_bind_int(stmt, blockheight);
+		db_bind_int(stmt, txindex);
+		db_bind_txid(stmt, &txid);
+		db_exec_prepared_v2(take(stmt));
+	}
+
+	/* Also keep the legacy transactions table written: the close path
+	 * still depends on it (channeltxs.transaction_id has a foreign key
+	 * on transactions(id), and wallet_get_funding_spend joins it for the
+	 * rawtx).  It can only be frozen once onchaind is driven by bwatch.
+	 *
+	 * transactions.blockheight references blocks(height), which only
+	 * chain_topology populates; bwatch can be ahead of it, so record the
+	 * tx as unconfirmed if the block isn't known yet (topology's own
+	 * add will promote it once it processes that block). */
+	if (blockheight != 0) {
+		bool block_known;
+
+		stmt = db_prepare_v2(w->db,
+				     SQL("SELECT height FROM blocks "
+					 "WHERE height = ?;"));
+		db_bind_int(stmt, blockheight);
+		db_query_prepared(stmt);
+		block_known = db_step(stmt);
+		if (block_known)
+			db_col_ignore(stmt, "height");
+		tal_free(stmt);
+
+		if (!block_known)
+			blockheight = 0;
+	}
+
+	stmt = db_prepare_v2(w->db,
+			     SQL("SELECT blockheight FROM transactions WHERE id=?"));
 	db_bind_txid(stmt, &txid);
 	db_query_prepared(stmt);
 
 	if (!db_step(stmt)) {
 		tal_free(stmt);
-		/* This transaction is still unknown, insert */
 		stmt = db_prepare_v2(w->db,
 				     SQL("INSERT INTO transactions ("
 					 "  id"
@@ -5122,14 +5174,13 @@ void wallet_transaction_add(struct wallet *w, const struct wally_tx *tx,
 			db_bind_null(stmt);
 			db_bind_null(stmt);
 		}
-		db_bind_tx(stmt, tx);
+		db_bind_talarr(stmt, linearize_wtx(tmpctx, tx));
 		db_exec_prepared_v2(take(stmt));
 	} else {
 		db_col_ignore(stmt, "blockheight");
 		tal_free(stmt);
 
 		if (blockheight) {
-			/* We know about the transaction, update */
 			stmt = db_prepare_v2(w->db,
 					     SQL("UPDATE transactions "
 						 "SET blockheight = ?, txindex = ? "
@@ -5182,7 +5233,7 @@ struct bitcoin_tx *wallet_transaction_get(const tal_t *ctx, struct wallet *w,
 {
 	struct bitcoin_tx *tx;
 	struct db_stmt *stmt = db_prepare_v2(
-	    w->db, SQL("SELECT rawtx FROM transactions WHERE id=?"));
+	    w->db, SQL("SELECT rawtx FROM our_txs WHERE txid=?"));
 	db_bind_txid(stmt, txid);
 	db_query_prepared(stmt);
 
@@ -5204,7 +5255,7 @@ u32 wallet_transaction_height(struct wallet *w, const struct bitcoin_txid *txid)
 {
 	u32 blockheight;
 	struct db_stmt *stmt = db_prepare_v2(
-	    w->db, SQL("SELECT blockheight FROM transactions WHERE id=?"));
+	    w->db, SQL("SELECT blockheight FROM our_txs WHERE txid=?"));
 	db_bind_txid(stmt, txid);
 	db_query_prepared(stmt);
 
@@ -5213,10 +5264,9 @@ u32 wallet_transaction_height(struct wallet *w, const struct bitcoin_txid *txid)
 		return 0;
 	}
 
-	if (!db_col_is_null(stmt, "blockheight"))
-		blockheight = db_col_int(stmt, "blockheight");
-	else
-		blockheight = 0;
+	/* blockheight is NOT NULL; 0 is the unconfirmed sentinel, which is
+	 * exactly what our callers expect for "not in a block". */
+	blockheight = db_col_int(stmt, "blockheight");
 	tal_free(stmt);
 	return blockheight;
 }
@@ -5229,21 +5279,18 @@ struct bitcoin_txid *wallet_transactions_by_height(const tal_t *ctx,
 	struct bitcoin_txid *txids = tal_arr(ctx, struct bitcoin_txid, 0);
 	int count = 0;
 
-	/* Note: blockheight=NULL is not the same as is NULL! */
-	if (blockheight == 0) {
-		stmt = db_prepare_v2(
-			w->db, SQL("SELECT id FROM transactions WHERE blockheight IS NULL"));
-	} else {
-		stmt = db_prepare_v2(
-			w->db, SQL("SELECT id FROM transactions WHERE blockheight=?"));
-		db_bind_int(stmt, blockheight);
-	}
+	/* Unlike the legacy transactions table (where unconfirmed was NULL
+	 * and needed a separate IS NULL query), the 0 sentinel means a
+	 * single equality query handles confirmed and unconfirmed alike. */
+	stmt = db_prepare_v2(
+		w->db, SQL("SELECT txid FROM our_txs WHERE blockheight = ?"));
+	db_bind_int(stmt, blockheight);
 	db_query_prepared(stmt);
 
 	while (db_step(stmt)) {
 		count++;
 		tal_resize(&txids, count);
-		db_col_txid(stmt, "id", &txids[count-1]);
+		db_col_txid(stmt, "txid", &txids[count-1]);
 	}
 	tal_free(stmt);
 
@@ -5829,13 +5876,11 @@ struct wallet_transaction *wallet_transactions_get(const tal_t *ctx, struct wall
 	stmt = db_prepare_v2(
 	    w->db,
 	    SQL("SELECT"
-		"  t.id"
+		"  t.txid"
 		", t.rawtx"
 		", t.blockheight"
 		", t.txindex"
-		" FROM"
-		"  transactions t LEFT JOIN"
-		"  channels c ON (t.channel_id = c.id) "
+		" FROM our_txs t "
 		"ORDER BY t.blockheight, t.txindex ASC"));
 	db_query_prepared(stmt);
 
@@ -5844,21 +5889,13 @@ struct wallet_transaction *wallet_transactions_get(const tal_t *ctx, struct wall
 
 		tal_resize(&txs, tal_count(txs) + 1);
 		cur = &txs[tal_count(txs) - 1];
-		db_col_txid(stmt, "t.id", &cur->id);
+		db_col_txid(stmt, "t.txid", &cur->id);
 		cur->tx = db_col_tx(txs, stmt, "t.rawtx");
 		cur->rawtx = db_col_arr(txs, stmt, "t.rawtx", u8);
-		if (!db_col_is_null(stmt, "t.blockheight")) {
-			cur->blockheight = db_col_int(stmt, "t.blockheight");
-			if (!db_col_is_null(stmt, "t.txindex")) {
-				cur->txindex = db_col_int(stmt, "t.txindex");
-			} else {
-				cur->txindex = 0;
-			}
-		} else {
-			db_col_ignore(stmt, "t.txindex");
-			cur->blockheight = 0;
-			cur->txindex = 0;
-		}
+		/* Both NOT NULL; 0 = unconfirmed/unknown, and writers
+		 * guarantee blockheight 0 implies txindex 0. */
+		cur->blockheight = db_col_int(stmt, "t.blockheight");
+		cur->txindex = db_col_int(stmt, "t.txindex");
 	}
 	tal_free(stmt);
 	return txs;
@@ -8041,25 +8078,6 @@ void wallet_add_our_output(struct wallet *w,
 	}
 }
 
-/* Insert (or replace) a wallet-relevant transaction in our_txs. */
-void wallet_add_our_tx(struct wallet *w, const struct wally_tx *tx,
-		       u32 blockheight, u32 txindex)
-{
-	struct db_stmt *stmt;
-	struct bitcoin_txid txid;
-
-	wally_txid(tx, &txid);
-
-	stmt = db_prepare_v2(w->db,
-			     SQL("INSERT OR REPLACE INTO our_txs "
-				 "(txid, blockheight, txindex, rawtx) VALUES (?, ?, ?, ?);"));
-	db_bind_txid(stmt, &txid);
-	db_bind_int(stmt, blockheight);
-	db_bind_int(stmt, txindex);
-	db_bind_talarr(stmt, linearize_wtx(tmpctx, tx));
-	db_exec_prepared_v2(take(stmt));
-}
-
 /* Everything the scriptpubkey handler needs from its matching output.
  * Keeping extraction and validation together makes it explicit that no
  * wallet state is changed until the outnum and (on Elements) asset have
@@ -8236,7 +8254,7 @@ void wallet_watch_spk(struct lightningd *ld,
 				      &output.outpoint);
 
 	/* Store the full transaction before the output that refers to it. */
-	wallet_add_our_tx(w, tx->wtx, blockheight, txindex);
+	wallet_transaction_add(w, tx->wtx, blockheight, txindex);
 
 	/* Record the owned output, its deposit metadata and its spend watch. */
 	bwatch_got_utxo(w, keyindex, addrtype, &output, is_coinbase,
@@ -8384,7 +8402,7 @@ void wallet_utxo_spent_watch_found(struct lightningd *ld,
 
 	/* The spending tx is wallet-relevant, so it goes into our_txs (like
 	 * the legacy transactions table) for listtransactions. */
-	wallet_add_our_tx(ld->wallet, tx->wtx, blockheight, txindex);
+	wallet_transaction_add(ld->wallet, tx->wtx, blockheight, txindex);
 
 	wallet_record_spend(ld, &outpoint, &spending_txid, blockheight);
 }
