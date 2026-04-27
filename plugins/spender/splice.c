@@ -604,6 +604,18 @@ static bool json_to_msat_to_sat(const char *buffer, const jsmntok_t *tok,
 	return amount_msat_to_sat(sat, msat);
 }
 
+static bool json_to_msat_to_sat_round_down(const char *buffer,
+					   const jsmntok_t *tok,
+					   struct amount_sat *sat)
+{
+	struct amount_msat msat;
+
+	if (!json_to_msat(buffer, tok, &msat))
+		return false;
+	*sat = amount_msat_to_sat_round_down(msat);
+	return true;
+}
+
 static struct splice_script_result *make_wallet(struct splice_cmd *splice_cmd)
 {
 	struct splice_script_result *action;
@@ -1971,7 +1983,7 @@ static struct command_result *stfu_channels_get_result(struct command *cmd,
 		err = json_scan(tmpctx, buf, jchannel,
 				"{channel_id?:%,available_msat?:%}",
 				JSON_SCAN(json_to_channel_id, &channel_id),
-				JSON_SCAN(json_to_msat_to_sat, &sat));
+				JSON_SCAN(json_to_msat_to_sat_round_down, &sat));
 		if (err)
 			errx(1, "Bad stfu_channels.channels %zu: %s",
 			     i, err);
