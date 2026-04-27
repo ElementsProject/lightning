@@ -6060,7 +6060,12 @@ void wallet_invoice_request_mark_used(struct db *db, const struct sha256 *invreq
 
 void wallet_datastore_update(struct wallet *w, const char **key, const u8 *data)
 {
+	bool need_tx = !db_in_transaction(w->db);
+	if (need_tx)
+		db_begin_transaction(w->db);
 	db_datastore_update(w->db, key, data);
+	if (need_tx)
+		db_commit_transaction(w->db);
 }
 
 static void db_datastore_create(struct db *db, const char **key, const u8 *data)
@@ -6077,7 +6082,12 @@ static void db_datastore_create(struct db *db, const char **key, const u8 *data)
 
 void wallet_datastore_create(struct wallet *w, const char **key, const u8 *data)
 {
+	bool need_tx = !db_in_transaction(w->db);
+	if (need_tx)
+		db_begin_transaction(w->db);
 	db_datastore_create(w->db, key, data);
+	if (need_tx)
+		db_commit_transaction(w->db);
 }
 
 static void db_datastore_remove(struct db *db, const char **key)
@@ -6118,7 +6128,12 @@ void wallet_datastore_save_payment_description(struct db *db,
 
 void wallet_datastore_remove(struct wallet *w, const char **key)
 {
+	bool need_tx = !db_in_transaction(w->db);
+	if (need_tx)
+		db_begin_transaction(w->db);
 	db_datastore_remove(w->db, key);
+	if (need_tx)
+		db_commit_transaction(w->db);
 }
 
 u8 *wallet_datastore_get(const tal_t *ctx,
@@ -6126,7 +6141,14 @@ u8 *wallet_datastore_get(const tal_t *ctx,
 			 const char **key,
 			 u64 *generation)
 {
-	return db_datastore_get(ctx, w->db, key, generation);
+	bool need_tx = !db_in_transaction(w->db);
+	u8 *ret;
+	if (need_tx)
+		db_begin_transaction(w->db);
+	ret = db_datastore_get(ctx, w->db, key, generation);
+	if (need_tx)
+		db_commit_transaction(w->db);
+	return ret;
 }
 
 struct db_stmt *wallet_datastore_first(const tal_t *ctx,
