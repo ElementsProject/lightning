@@ -48,7 +48,7 @@ def test_withdraw(node_factory, bitcoind):
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 10)
 
     # Reach around into the db to check that outputs were added
-    assert l1.db_query('SELECT COUNT(*) as c FROM outputs WHERE status=0')[0]['c'] == 10
+    assert l1.db_query('SELECT COUNT(*) as count FROM our_outputs WHERE spendheight IS NULL AND (reserved_til IS NULL OR reserved_til = 0)')[0]['count'] == 10
 
     waddr = l1.bitcoin.rpc.getnewaddress()
     # Now attempt to withdraw some (making sure we collect multiple inputs)
@@ -85,7 +85,7 @@ def test_withdraw(node_factory, bitcoind):
         assert o['status'] == 'confirmed'
 
     # Now make sure two of them were marked as spent
-    assert l1.db_query('SELECT COUNT(*) as c FROM outputs WHERE status=2')[0]['c'] == 2
+    assert l1.db_query('SELECT COUNT(*) as count FROM our_outputs WHERE spendheight IS NOT NULL')[0]['count'] == 2
 
     # Now send some money to l2.
     # BIP86 wallets use P2TR addresses
@@ -93,8 +93,8 @@ def test_withdraw(node_factory, bitcoind):
     l1.rpc.withdraw(waddr, 2 * amount)
 
     # Now make sure an additional two of them were marked as reserved
-    assert l1.db_query('SELECT COUNT(*) as c FROM outputs WHERE status=2')[0]['c'] == 2
-    assert l1.db_query('SELECT COUNT(*) as c FROM outputs WHERE status=1')[0]['c'] == 2
+    assert l1.db_query('SELECT COUNT(*) as count FROM our_outputs WHERE spendheight IS NOT NULL')[0]['count'] == 2
+    assert l1.db_query('SELECT COUNT(*) as count FROM our_outputs WHERE spendheight IS NULL AND reserved_til > 0')[0]['count'] == 2
 
     # They're turned into spent once the node sees them mined.
     bitcoind.generate_block(1)
@@ -102,12 +102,12 @@ def test_withdraw(node_factory, bitcoind):
 
     # Make sure l2 received the withdrawal.
     assert len(l2.rpc.listfunds()['outputs']) == 1
-    outputs = l2.db_query('SELECT value FROM outputs WHERE status=0;')
+    outputs = l2.db_query('SELECT satoshis as value FROM our_outputs WHERE spendheight IS NULL AND (reserved_til IS NULL OR reserved_til = 0);')
     assert only_one(outputs)['value'] == 2 * amount
 
     # Now make sure an additional two of them were marked as spent
-    assert l1.db_query('SELECT COUNT(*) as c FROM outputs WHERE status=2')[0]['c'] == 4
-    assert l1.db_query('SELECT COUNT(*) as c FROM outputs WHERE status=1')[0]['c'] == 0
+    assert l1.db_query('SELECT COUNT(*) as count FROM our_outputs WHERE spendheight IS NOT NULL')[0]['count'] == 4
+    assert l1.db_query('SELECT COUNT(*) as count FROM our_outputs WHERE spendheight IS NULL AND reserved_til > 0')[0]['count'] == 0
 
     # Simple test for withdrawal to P2WPKH
     # Address from: https://bc-2.jp/tools/bech32demo/index.html
@@ -122,7 +122,7 @@ def test_withdraw(node_factory, bitcoind):
     bitcoind.generate_block(1)
     sync_blockheight(l1.bitcoin, [l1])
     # Now make sure additional two of them were marked as spent
-    assert l1.db_query('SELECT COUNT(*) as c FROM outputs WHERE status=2')[0]['c'] == 6
+    assert l1.db_query('SELECT COUNT(*) as count FROM our_outputs WHERE spendheight IS NOT NULL')[0]['count'] == 6
 
     # Simple test for withdrawal to P2WSH
     # Address from: https://bc-2.jp/tools/bech32demo/index.html
@@ -137,7 +137,7 @@ def test_withdraw(node_factory, bitcoind):
     bitcoind.generate_block(1)
     sync_blockheight(l1.bitcoin, [l1])
     # Now make sure additional two of them were marked as spent
-    assert l1.db_query('SELECT COUNT(*) as c FROM outputs WHERE status=2')[0]['c'] == 8
+    assert l1.db_query('SELECT COUNT(*) as count FROM our_outputs WHERE spendheight IS NOT NULL')[0]['count'] == 8
 
     # failure testing for invalid SegWit addresses, from BIP173
     # HRP character out of range
@@ -166,15 +166,15 @@ def test_withdraw(node_factory, bitcoind):
         l1.rpc.withdraw('tb1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3pjxtptv', 2 * amount)
 
     # Should have 6 outputs available: 2 original unspent + 4 change outputs from withdrawals
-    assert l1.db_query('SELECT COUNT(*) as c FROM outputs WHERE status=0')[0]['c'] == 6
+    assert l1.db_query('SELECT COUNT(*) as count FROM our_outputs WHERE spendheight IS NULL AND (reserved_til IS NULL OR reserved_til = 0)')[0]['count'] == 6
 
     # Test withdrawal to self.
     l1.rpc.withdraw(l1.rpc.newaddr('p2tr')['p2tr'], 'all', minconf=0)
     bitcoind.generate_block(1)
-    assert l1.db_query('SELECT COUNT(*) as c FROM outputs WHERE status=0')[0]['c'] == 1
+    assert l1.db_query('SELECT COUNT(*) as count FROM our_outputs WHERE spendheight IS NULL AND (reserved_til IS NULL OR reserved_til = 0)')[0]['count'] == 1
 
     l1.rpc.withdraw(waddr, 'all', minconf=0)
-    assert l1.db_query('SELECT COUNT(*) as c FROM outputs WHERE status=0')[0]['c'] == 0
+    assert l1.db_query('SELECT COUNT(*) as count FROM our_outputs WHERE spendheight IS NULL AND (reserved_til IS NULL OR reserved_til = 0)')[0]['count'] == 0
 
     # This should fail, can't even afford fee.
     with pytest.raises(RpcError, match=r'Could not afford'):
@@ -253,7 +253,7 @@ def test_addfunds_from_block(node_factory, bitcoind):
 
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 1)
 
-    outputs = l1.db_query('SELECT value FROM outputs WHERE status=0;')
+    outputs = l1.db_query('SELECT satoshis as value FROM our_outputs WHERE spendheight IS NULL AND (reserved_til IS NULL OR reserved_til = 0);')
     assert only_one(outputs)['value'] == 10000000
 
     # The address we detect must match what was paid to.
@@ -1225,7 +1225,8 @@ def test_sign_and_send_psbt(node_factory, bitcoind, chainparams):
 @unittest.skipIf(TEST_NETWORK == 'liquid-regtest', "BIP86 random_hsm not compatible with liquid-regtest bech32")
 def test_txsend(node_factory, bitcoind, chainparams):
     amount = 1000000
-    l1 = node_factory.get_node(random_hsm=True)
+    # Under valgrind, we can actually take 5 seconds to sign multiple inputs!
+    l1 = node_factory.get_node(random_hsm=True, broken_log="That's weird: Request signpsbt took")
     addr = chainparams['example_addr']
 
     # Add some funds to withdraw later
@@ -1722,9 +1723,9 @@ def test_hsmtool_deterministic_node_ids(node_factory):
     assert normal_node_id == generated_node_id, f"Node IDs don't match: {normal_node_id} != {generated_node_id}"
 
 
-def setup_bip86_node(node_factory, mnemonic="abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"):
+def setup_bip86_node(node_factory, mnemonic="abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about", options=None):
     """Helper function to set up a node with BIP86 support using a mnemonic-based HSM secret"""
-    l1 = node_factory.get_node(start=False)
+    l1 = node_factory.get_node(start=False, options=options)
 
     # Set up node with a mnemonic HSM secret
     hsm_path = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "hsm_secret")
@@ -1930,13 +1931,15 @@ def test_bip86_mnemonic_recovery(node_factory, bitcoind):
     bitcoind.generate_block(1)
 
     # Wait for funds to be visible
-    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) > 0)
+    wait_for(lambda: l1.db_query('SELECT COUNT(*) AS count FROM our_outputs WHERE spendheight IS NULL AND (reserved_til IS NULL OR reserved_til = 0)')[0]['count'] > 0)
 
-    # Create a second node with the same mnemonic
-    l2 = setup_bip86_node(node_factory, mnemonic)
+    # We don't have a default rescan, so we need to set it to 15 to ensure the node rescans the blocks
+    l2 = setup_bip86_node(node_factory, mnemonic, options={'rescan': 15})
+    l2.stop()
+    l2.start()
 
     # Wait for it to sync and see the funds
-    wait_for(lambda: len(l2.rpc.listfunds()['outputs']) > 0)
+    wait_for(lambda: l2.db_query('SELECT COUNT(*) AS count FROM our_outputs WHERE spendheight IS NULL AND (reserved_til IS NULL OR reserved_til = 0)')[0]['count'] > 0)
 
     # Check that the second node can see the same funds
     funds2 = l2.rpc.listfunds()
@@ -2421,7 +2424,7 @@ def test_hsmtool_getnodeid(node_factory):
 
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "Makes use of the sqlite3 db")
 @unittest.skipIf(TEST_NETWORK != 'regtest', "elementsd doesn't use p2tr anyway")
-@pytest.mark.skip(reason="bwatch migration: DB fixture not yet regenerated")
+@unittest.skip("Uses obsolete db snapshot tables.")
 def test_onchain_missing_no_p2tr_migrate(node_factory, bitcoind):
     """l1 and l2's db is from test_closing.py::test_onchain_p2tr_missed_txs before the fix"""
 
@@ -2482,17 +2485,16 @@ def test_old_htlcs_cleanup(node_factory, bitcoind):
 
     l1.stop()
     # They're still there.
-    assert l1.db_query('SELECT COUNT(*) as c FROM channel_htlcs')[0]['c'] == 10
+    assert l1.db_query('SELECT COUNT(*) as count FROM channel_htlcs')[0]['count'] == 10
 
     l1.start()
     # Now they're not
-    assert l1.db_query('SELECT COUNT(*) as c FROM channel_htlcs')[0]['c'] == 0
+    assert l1.db_query('SELECT COUNT(*) as count FROM channel_htlcs')[0]['count'] == 0
     assert l1.rpc.listhtlcs() == {'htlcs': []}
 
 
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "Makes use of the sqlite3 db")
 @unittest.skipIf(TEST_NETWORK != 'regtest', "sqlite3 snapshot is regtest")
-@pytest.mark.skip(reason="bwatch migration: DB fixture not yet regenerated")
 def test_pending_payments_cleanup(node_factory, bitcoind):
     bitcoind.generate_block(1)
     l1 = node_factory.get_node(dbfile='l1-pending-sendpays-with-no-htlc.sqlite3.xz', options={'database-upgrade': True}, old_hsmsecret=True)
@@ -2559,21 +2561,19 @@ def test_unspend_during_reorg(node_factory, bitcoind):
     wait_for(lambda: len(l3.rpc.listchannels()['channels']) == 2)
 
     # db shows it unspent.
-    assert only_one(l1.db_query(f"SELECT spendheight as spendheight FROM utxoset WHERE blockheight={blockheight} AND txindex={txindex}"))['spendheight'] is None
+    assert only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['state'] == 'CHANNELD_NORMAL'
 
     # Now, l3 sees the close, marks channel dying.
     l1.rpc.close(l2.info['id'])
     spentheight = bitcoind.rpc.getblockcount() + 1
     bitcoind.generate_block(14, wait_for_mempool=1)
-    wait_for(lambda: len(l3.rpc.listchannels()['channels']) == 2)
 
     # In one fell swoop it goes through dying, to dead (12 blocks)
-    l3.daemon.wait_for_log(f"Adding block {spentheight}")
     l3.daemon.wait_for_log(f"gossipd: channel {scid} closing soon due to the funding outpoint being spent")
     l3.daemon.wait_for_log(f"gossipd: Deleting channel {scid} due to the funding outpoint being spent")
 
     # db shows it spent
-    assert only_one(l3.db_query(f"SELECT spendheight as spendheight FROM utxoset WHERE blockheight={blockheight} AND txindex={txindex}"))['spendheight'] == spentheight
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['state'] in ['CLOSINGD_COMPLETE', 'FUNDING_SPEND_SEEN', 'ONCHAIND_AWAITING_TX_INPUTS', 'ONCHAIN'])
 
     # Restart, see replay.
     l3.stop()
@@ -2582,15 +2582,13 @@ def test_unspend_during_reorg(node_factory, bitcoind):
 
     l3.start()
     # Channel should still be dead.
-    l3.daemon.wait_for_log(f"Adding block {spentheight}")
-
     sync_blockheight(bitcoind, [l3])
-    assert only_one(l3.db_query(f"SELECT spendheight as spendheight FROM utxoset WHERE blockheight={blockheight} AND txindex={txindex}"))['spendheight'] == spentheight
+    wait_for(lambda: len(l3.rpc.listchannels()['channels']) == 0)
 
 
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "Makes use of the sqlite3 db")
 @unittest.skipIf(TEST_NETWORK != 'regtest', "sqlite3 snapshot is regtest")
-@pytest.mark.skip(reason="bwatch migration: DB fixture not yet regenerated")
+@unittest.skip("Obsolete after bwatch/our_outputs migration.")
 def test_rescan_missing_utxo(node_factory, bitcoind):
     """Test that node which missed a UTXO gets fixed up correctly"""
     blocks = ['0000002006226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f52da139a043b1ab6d83399d190c01417d4d69b5e03b3e813c0eac7a6e5b78c7d152a2969ffff7f200000000001020000000001010000000000000000000000000000000000000000000000000000000000000000ffffffff025100ffffffff0200f2052a01000000160014fcdde0698d0208be119fbd38f14407c89610f1930000000000000000266a24aa21a9ede2f61c3f71d1defd3fa999dfa36953755c690689799962b48bebd836974e8cf90120000000000000000000000000000000000000000000000000000000000000000000000000',

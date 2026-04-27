@@ -41,6 +41,7 @@ BWATCH_MIGRATION_ALLOWLIST: set[str] = {
     "test_reckless.py",
     "test_renepay.py",
     "test_runes.py",
+    "test_wallet.py",
 }
 
 
