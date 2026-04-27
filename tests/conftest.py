@@ -28,17 +28,25 @@ def pytest_configure(config):
                             "openchannel: Limit this test to only run 'v1' or 'v2' openchannel protocol")
 
 
+# TEMPORARY: allowlist of pytest files that have been verified on top of
+# the bwatch migration.  Tests in files NOT listed here are skipped until
+# each suite has been ported and validated.  Remove the allowlist (and the
+# pytest_collection_modifyitems hook below) once every suite is back on.
+BWATCH_MIGRATION_ALLOWLIST: set[str] = set()
+
+
 def pytest_collection_modifyitems(config, items):
-    """TEMPORARY: skip all integration tests during the bwatch migration.
+    """TEMPORARY: skip integration tests not yet re-enabled for bwatch.
 
     bwatch replaces chaintopology, watch.c, and txfilter, so most pytests
-    will fail mid-migration.  Suites are re-enabled file-by-file in later
-    commits as each chaintopology callback gets ported over.  Remove this
-    hook once everything is back on.
+    will fail mid-migration.  Suites are re-enabled file-by-file by adding
+    their filename to BWATCH_MIGRATION_ALLOWLIST.
     """
     skip_marker = pytest.mark.skip(reason="bwatch migration in progress")
     for item in items:
-        item.add_marker(skip_marker)
+        filename = os.path.basename(str(item.fspath))
+        if filename not in BWATCH_MIGRATION_ALLOWLIST:
+            item.add_marker(skip_marker)
 
 
 def pytest_runtest_setup(item):
