@@ -32,7 +32,15 @@ def pytest_configure(config):
 # the bwatch migration.  Tests in files NOT listed here are skipped until
 # each suite has been ported and validated.  Remove the allowlist (and the
 # pytest_collection_modifyitems hook below) once every suite is back on.
-BWATCH_MIGRATION_ALLOWLIST: set[str] = set()
+BWATCH_MIGRATION_ALLOWLIST: set[str] = {
+    "test_cln_rs.py",
+    "test_clnrest.py",
+    "test_mkfunding.py",
+    "test_onion.py",
+    "test_reckless.py",
+    "test_renepay.py",
+    "test_runes.py",
+}
 
 
 def pytest_collection_modifyitems(config, items):
