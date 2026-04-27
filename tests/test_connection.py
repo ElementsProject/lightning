@@ -1039,18 +1039,18 @@ def test_funding_change(node_factory, bitcoind):
     bitcoind.generate_block(1)
     sync_blockheight(bitcoind, [l1])
 
-    outputs = l1.db_query('SELECT value FROM outputs WHERE status=0;')
+    outputs = l1.db_query('SELECT satoshis AS value FROM our_outputs WHERE spendheight IS NULL AND reserved_til = 0;')
     assert only_one(outputs)['value'] == 10000000
 
     l1.rpc.fundchannel(l2.info['id'], 1000000)
     bitcoind.generate_block(1, wait_for_mempool=1)
     sync_blockheight(bitcoind, [l1])
-    outputs = {r['status']: r['value'] for r in l1.db_query(
-        'SELECT status, SUM(value) AS value FROM outputs GROUP BY status;')}
 
     # The 10m out is spent and we have a change output of 9m-fee
-    assert outputs[0] > 8990000
-    assert outputs[2] == 10000000
+    spent = l1.db_query('SELECT SUM(satoshis) AS value FROM our_outputs WHERE spendheight IS NOT NULL;')
+    unspent = l1.db_query('SELECT SUM(satoshis) AS value FROM our_outputs WHERE spendheight IS NULL;')
+    assert only_one(unspent)['value'] > 8990000
+    assert only_one(spent)['value'] == 10000000
 
 
 @pytest.mark.openchannel('v1')
@@ -1064,13 +1064,13 @@ def test_funding_all(node_factory, bitcoind):
     bitcoind.generate_block(1)
     sync_blockheight(bitcoind, [l1])
 
-    outputs = l1.db_query('SELECT value FROM outputs WHERE status=0;')
+    outputs = l1.db_query('SELECT satoshis AS value FROM our_outputs WHERE spendheight IS NULL AND reserved_til = 0;')
     assert only_one(outputs)['value'] == 10000000
 
     l1.rpc.fundchannel(l2.info['id'], "all")
 
     # Keeps emergency reserve!
-    outputs = l1.db_query('SELECT value FROM outputs WHERE status=0;')
+    outputs = l1.db_query('SELECT satoshis AS value FROM our_outputs WHERE spendheight IS NULL AND reserved_til = 0;')
     if 'anchors/even' in only_one(l1.rpc.listpeerchannels()['channels'])['channel_type']['names']:
         assert outputs == [{'value': 25000}]
     else:
