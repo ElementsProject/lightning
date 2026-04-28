@@ -10,7 +10,6 @@
 #include <errno.h>
 #include <hsmd/permissions.h>
 #include <inttypes.h>
-#include <lightningd/chaintopology.h>
 #include <lightningd/channel.h>
 #include <lightningd/closing_control.h>
 #include <lightningd/connect_control.h>
@@ -21,6 +20,7 @@
 #include <lightningd/lightningd.h>
 #include <lightningd/opening_common.h>
 #include <lightningd/peer_fd.h>
+#include <lightningd/watchman.h>
 #include <openingd/dualopend_wiregen.h>
 
 struct close_command {
@@ -412,15 +412,15 @@ void peer_start_closingd(struct channel *channel, struct peer_fd *peer_fd)
 					   channel->opener, LOCAL);
 
 	/* If we can't determine feerate, start at half unilateral feerate. */
-	feerate = mutual_close_feerate(ld->topology);
+	feerate = mutual_close_feerate(ld);
 	if (!feerate) {
 		feerate = final_commit_feerate / 2;
-		if (feerate < get_feerate_floor(ld->topology))
-			feerate = get_feerate_floor(ld->topology);
+		if (feerate < get_feerate_floor(ld))
+			feerate = get_feerate_floor(ld);
 	}
 
 	/* Aim for reasonable max, but use final if we don't know. */
-	max_feerate = unilateral_feerate(ld->topology, false);
+	max_feerate = unilateral_feerate(ld, false);
 	if (!max_feerate)
 		max_feerate = final_commit_feerate;
 
@@ -656,14 +656,14 @@ static struct command_result *json_close(struct command *cmd,
 	assert(channel);
 
 	if (!*force_lease_close && sc->channel->opener != LOCAL
-	    && get_block_height(cmd->ld->topology) < channel->lease_expiry)
+	    && get_block_height(cmd->ld) < channel->lease_expiry)
 		return command_fail(cmd, LIGHTNINGD,
 				    "Peer leased this channel from us, we"
 				    " shouldn't close until lease has expired"
 				    " (lease expires block %u,"
 				    " current block %u)",
 				    channel->lease_expiry,
-				    get_block_height(cmd->ld->topology));
+				    get_block_height(cmd->ld));
 
 	/* Note: we don't change the channel until we're sure we succeed! */
 	assert(channel->final_key_idx <= UINT32_MAX);

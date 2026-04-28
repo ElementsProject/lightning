@@ -11,7 +11,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/trace.h>
 #include <lightningd/bitcoind.h>
-#include <lightningd/chaintopology.h>
+#include <lightningd/feerate.h>
 #include <lightningd/io_loop_with_timers.h>
 #include <lightningd/plugin.h>
 

@@ -14,6 +14,7 @@
 #include <lightningd/channel_state.h>
 #include <wallet/wallet.h>
 
+struct onchaind_tx_map;
 struct uncommitted_channel;
 struct wally_psbt;
 
@@ -205,15 +206,24 @@ struct channel {
 	struct bitcoin_outpoint funding;
 	struct amount_sat funding_sats;
 
-	/* Watch we have on funding output. */
-	struct txowatch *funding_spend_watch;
+	/* Original funding outpoint before a splice overwrites channel->funding.
+	 * Populated by channel_splice_watch_found; read by handle_peer_splice_locked
+	 * for channel_record_splice.  In-memory only: not persisted to the wallet.
+	 * NULL when no splice detection is pending. */
+	struct bitcoin_outpoint *pre_splice_funding;
 
-	/* If we're doing a replay for onchaind, here are the txids it's watching */
-	struct replay_tx_hash *onchaind_replay_watches;
-	/* Number of outstanding onchaind_spent calls */
-	size_t num_onchain_spent_calls;
-	/* Height we're replaying at (if onchaind_replay_watches set) */
-	u32 onchaind_replay_height;
+	/* Per-session map of txs onchaind has asked us to watch:
+	 * txid -> {confirm height, the outpoints we registered}.
+	 * Initialised by onchaind_funding_spent; NULL before onchaind starts.
+	 * onchaind_clear_watches walks it to tear everything down on reorg. */
+	struct onchaind_tx_map *onchaind_watches;
+
+	/* The txid of the tx that spent our funding output, set by
+	 * onchaind_funding_spent.  Used by channel_funding_spent_watch_revert
+	 * to know we actually saw a spend (and to build the channel_close
+	 * blockdepth owner string for unwatch).  In-memory only: repopulated
+	 * on restart by the channel_close depth handler before onchaind runs. */
+	struct bitcoin_txid *funding_spend_txid;
 
 	/* Our original funds, in funding amount */
 	struct amount_sat our_funds;

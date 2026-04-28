@@ -13,7 +13,7 @@
 #include <lightningd/channel.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/notification.h>
-#include <wallet/txfilter.h>
+#include <lightningd/watchman.h>
 #include <wallet/walletrpc.h>
 #include <wire/wire_sync.h>
 
@@ -361,7 +361,7 @@ static void json_add_utxo(struct json_stream *response,
 {
 	const char *out;
 	bool reserved;
-	u32 current_height = get_block_height(wallet->ld->topology);
+	u32 current_height = get_block_height(wallet->ld);
 
 	json_object_start(response, fieldname);
 	json_add_txid(response, "txid", &utxo->outpoint.txid);
@@ -557,7 +557,7 @@ static struct command_result *json_dev_rescan_outputs(struct command *cmd,
 		json_array_end(rescan->response);
 		return command_success(cmd, rescan->response);
 	}
-	bitcoind_getutxout(rescan, cmd->ld->topology->bitcoind,
+	bitcoind_getutxout(rescan, cmd->ld->bitcoind,
 			   &rescan->utxos[0]->outpoint,
 			   process_utxo_result,
 			   rescan);
@@ -702,7 +702,7 @@ static struct command_result *match_psbt_inputs_to_utxos(struct command *cmd,
 		}
 
 		/* Oops we haven't reserved this utxo yet! */
-		if (!utxo_is_reserved(utxo, get_block_height(cmd->ld->topology)))
+		if (!utxo_is_reserved(utxo, get_block_height(cmd->ld)))
 			return command_fail(cmd, LIGHTNINGD,
 					    "Aborting PSBT signing. UTXO %s is not reserved",
 					    fmt_bitcoin_outpoint(tmpctx,
@@ -994,7 +994,7 @@ static void sendpsbt_done(struct bitcoind *bitcoind UNUSED,
 		for (size_t i = 0; i < tal_count(sending->utxos); i++) {
 			wallet_unreserve_utxo(ld->wallet,
 					      sending->utxos[i],
-					      get_block_height(ld->topology),
+					      get_block_height(ld),
 					      sending->reserve_blocks);
 		}
 
@@ -1014,12 +1014,9 @@ static void sendpsbt_done(struct bitcoind *bitcoind UNUSED,
 	wallet_transaction_add(ld->wallet, sending->wtx, 0, 0);
 	wally_txid(sending->wtx, &txid);
 
-	/* Extract the change output and add it to the DB */
-	if (!wallet_extract_owned_outputs(ld->wallet, sending->wtx, false, NULL, NULL)) {
-		/* If we're not watching it for selfish reasons (i.e. pure send to
-		 * others), make sure we're watching it so we can update depth in db */
-		watch_unconfirmed_txid(ld, ld->topology, &txid);
-	}
+	/* Extract the change output and add it to the DB; bwatch handles the
+	 * confirmation tracking via wallet UTXO watches. */
+	wallet_extract_owned_outputs(ld->wallet, sending->wtx, false, NULL, NULL);
 
 	for (size_t i = 0; i < sending->psbt->num_outputs; i++)
 		maybe_notify_new_external_send(ld, &txid, i, sending->psbt);
@@ -1222,13 +1219,13 @@ static struct command_result *json_sendpsbt(struct command *cmd,
 
 	for (size_t i = 0; i < tal_count(sending->utxos); i++) {
 		if (!wallet_reserve_utxo(ld->wallet, sending->utxos[i],
-					 get_block_height(ld->topology),
+					 get_block_height(ld),
 					 sending->reserve_blocks))
 			fatal("UTXO not reservable?");
 	}
 
 	/* Now broadcast the transaction */
-	bitcoind_sendrawtx(sending, cmd->ld->topology->bitcoind,
+	bitcoind_sendrawtx(sending, cmd->ld->bitcoind,
 			   cmd->id,
 			   tal_hex(tmpctx,
 				   linearize_wtx(tmpctx, sending->wtx)),

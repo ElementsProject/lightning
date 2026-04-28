@@ -9,7 +9,6 @@ struct crypto_state;
 struct lightningd;
 struct peer_fd;
 struct peer;
-struct txlocator;
 
 bool peer_start_channeld(struct channel *channel,
 			 struct peer_fd *peer_fd,
@@ -21,6 +20,13 @@ bool peer_start_channeld(struct channel *channel,
 void channeld_tell_depth(struct channel *channel,
 			 const struct bitcoin_txid *txid,
 			 u32 depth);
+
+/* Send splice-specific funding_depth (is_splice=true) to channeld so it can
+ * begin splice lock-in. */
+void channeld_tell_splice_depth(struct channel *channel,
+				const struct short_channel_id *splice_scid,
+				const struct bitcoin_txid *txid,
+				u32 depth);
 
 /* Notify channels of new blocks. */
 void channel_notify_new_block(struct lightningd *ld);
@@ -55,9 +61,9 @@ void lockin_has_completed(struct channel *channel, bool record_push);
 void watch_splice_inflight(struct lightningd *ld,
 			   struct channel_inflight *inflight);
 
-/* Update/set scid now this outpoint is mined. */
+/* Update/set scid; scid is pre-computed by the caller from block data. */
 bool depthcb_update_scid(struct channel *channel,
 			 const struct bitcoin_outpoint *outpoint,
-			 const struct txlocator *loc);
+			 const struct short_channel_id *scid);
 
 #endif /* LIGHTNING_LIGHTNINGD_CHANNEL_CONTROL_H */

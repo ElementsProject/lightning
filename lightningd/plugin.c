@@ -2095,6 +2095,8 @@ static void plugin_config_cb(const char *buffer,
 	}
 	if (tal_count(plugin->custom_msgs))
 		tell_connectd_custommsgs(plugin->plugins);
+	if (plugin->plugins->on_plugin_ready)
+		plugin->plugins->on_plugin_ready(plugin->plugins->ld, plugin);
 	notify_plugin_started(plugin->plugins->ld, plugin);
 	check_plugins_initted(plugin->plugins);
 }

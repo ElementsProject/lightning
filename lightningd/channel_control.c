@@ -11,6 +11,7 @@
 #include <connectd/connectd_wiregen.h>
 #include <errno.h>
 #include <hsmd/permissions.h>
+#include <lightningd/broadcast.h>
 #include <lightningd/channel.h>
 #include <lightningd/channel_control.h>
 #include <lightningd/channel_gossip.h>
@@ -22,6 +23,7 @@
 #include <lightningd/notification.h>
 #include <lightningd/peer_fd.h>
 #include <lightningd/peer_htlcs.h>
+#include <lightningd/watchman.h>
 #include <unistd.h>
 
 struct stfu_result
@@ -56,7 +58,7 @@ static u32 default_feerate(struct lightningd *ld, const struct channel *channel,
 {
 	u32 max_feerate;
 	bool anchors = channel_type_has_anchors(channel->type);
-	u32 feerate = unilateral_feerate(ld->topology, anchors);
+	u32 feerate = unilateral_feerate(ld, anchors);
 
 	/* Nothing to do if we don't know feerate. */
 	if (!feerate)
@@ -89,7 +91,7 @@ void channel_update_feerates(struct lightningd *ld, const struct channel *channe
 
 	/* For anchors, we just need the commitment tx to relay. */
 	if (anchors)
-		min_feerate = get_feerate_floor(ld->topology);
+		min_feerate = get_feerate_floor(ld);
 	else
 		min_feerate = feerate_min(ld, NULL);
 	max_feerate = feerate_max(ld, NULL);
@@ -105,15 +107,15 @@ void channel_update_feerates(struct lightningd *ld, const struct channel *channe
 		  feerate,
 		  min_feerate,
 		  feerate_max(ld, NULL),
-		  penalty_feerate(ld->topology),
-		  opening_feerate(ld->topology),
+		  penalty_feerate(ld),
+		  opening_feerate(ld),
 		  feerate_splice);
 
 	msg = towire_channeld_feerates(NULL, feerate,
 				       min_feerate,
 				       max_feerate,
-				       penalty_feerate(ld->topology),
-				       opening_feerate(ld->topology),
+				       penalty_feerate(ld),
+				       opening_feerate(ld),
 				       feerate_splice);
 	subd_send_msg(channel->owner, take(msg));
 }
@@ -139,7 +141,7 @@ static void try_update_feerates(struct lightningd *ld, struct channel *channel)
 static void try_update_blockheight(struct lightningd *ld,
 				   struct channel *channel)
 {
-	u32 blockheight = get_block_height(ld->topology);
+	u32 blockheight = get_block_height(ld);
 	u8 *msg;
 
 	/* We don't update the blockheight for non-leased chans */
@@ -149,7 +151,7 @@ static void try_update_blockheight(struct lightningd *ld,
 	log_debug(channel->log, "attempting update blockheight %s",
 		  fmt_channel_id(tmpctx, &channel->cid));
 
-	if (!topology_synced(ld->topology)) {
+	if (!ld->bitcoind->synced) {
 		log_debug(channel->log, "chain not synced,"
 			  " not updating blockheight");
 		return;
@@ -207,6 +209,9 @@ void notify_feerate_change(struct lightningd *ld)
 
 	/* FIXME: We choose not to drop to chain if we can't contact
 	 * peer.  We *could* do so, however. */
+
+	/* RBF existing anchor txs to the new feerate. */
+	rebroadcast_txs(ld);
 }
 
 static struct splice_command *splice_command_for_chan(struct lightningd *ld,
@@ -602,7 +607,7 @@ static void send_splice_tx_done(struct bitcoind *bitcoind UNUSED,
 
 	if (!success) {
 		info->err_msg = tal_strdup(info, msg);
-		bitcoind_getutxout(info, ld->topology->bitcoind, &outpoint,
+		bitcoind_getutxout(info, ld->bitcoind, &outpoint,
 				   check_utxo_block, info);
 	} else {
 		handle_tx_broadcast(info);
@@ -634,8 +639,8 @@ static void send_splice_tx(struct channel *channel,
 	info->err_msg = NULL;
 	info->psbt = psbt;
 
-	bitcoind_sendrawtx(ld->topology->bitcoind,
-			   ld->topology->bitcoind,
+	bitcoind_sendrawtx(ld->bitcoind,
+			   ld->bitcoind,
 			   cc ? cc->cmd->id : NULL,
 			   tal_hex(tmpctx, tx_bytes),
 			   false,
@@ -685,90 +690,12 @@ static void handle_splice_confirmed_signed(struct lightningd *ld,
 	send_splice_tx(channel, tx, cc, output_index, inflight->funding_psbt);
 }
 
-static enum watch_result splice_depth_cb(struct lightningd *ld,
-					 unsigned int depth,
-					 struct channel_inflight *inflight)
-{
-	/* Usually, we're here because we're awaiting a splice, but
-	 * we could also mutual shutdown, or that weird splice_locked_memonly
-	 * hack... */
-	if (inflight->channel->state != CHANNELD_AWAITING_SPLICE) {
-		log_debug(inflight->channel->log, "Splice inflight event but not"
-			  " in AWAITING_SPLICE, ending watch of txid %s",
-			 fmt_bitcoin_txid(tmpctx, &inflight->funding->outpoint.txid));
-		return DELETE_WATCH;
-	}
-
-	if (inflight->channel->owner) {
-		log_debug(inflight->channel->log, "splice_depth_cb: sending funding depth scid: %s",
-			  fmt_short_channel_id(tmpctx, *inflight->scid));
-		subd_send_msg(inflight->channel->owner,
-			      take(towire_channeld_funding_depth(
-					   NULL, inflight->scid,
-					   depth, true,
-					   &inflight->funding->outpoint.txid)));
-	}
-
-	/* channeld will tell us when splice is locked in: we'll clean
-	 * this watch up then. */
-	return KEEP_WATCHING;
-}
-
-/* Reorged out?  OK, we're not committed yet. */
-static enum watch_result splice_reorged_cb(struct lightningd *ld, struct channel_inflight *inflight)
-{
-	log_unusual(inflight->channel->log, "Splice inflight txid %s reorged out",
-		    fmt_bitcoin_txid(tmpctx, &inflight->funding->outpoint.txid));
-	inflight->scid = tal_free(inflight->scid);
-	return DELETE_WATCH;
-}
-
-/* We see this tx output spend to the splice funding address. */
-static void splice_found(struct lightningd *ld,
-			 const struct bitcoin_tx *tx,
-			 u32 outnum,
-			 const struct txlocator *loc,
-			 struct channel_inflight *inflight)
-{
-	assert(!inflight->scid);
-	inflight->scid = tal(inflight, struct short_channel_id);
-
-	if (!mk_short_channel_id(inflight->scid,
-				 loc->blkheight, loc->index,
-				 inflight->funding->outpoint.n)) {
-		inflight->scid = tal_free(inflight->scid);
-		channel_fail_permanent(inflight->channel,
-				       REASON_LOCAL,
-				       "Invalid funding scid %u:%u:%u",
-				       loc->blkheight, loc->index,
-				       inflight->funding->outpoint.n);
-		return;
-	}
-
-	/* We will almost immediately get called, which is what we want! */
-	watch_blockdepth(inflight, ld->topology, loc->blkheight,
-			 splice_depth_cb,
-			 splice_reorged_cb,
-			 inflight);
-}
-
+/* Thin wrapper kept so callers don't need to know the bwatch script watch
+ * (same P2WSH as the original funding) is what actually picks up the splice. */
 void watch_splice_inflight(struct lightningd *ld,
 			   struct channel_inflight *inflight)
 {
-	const u8 *funding_wscript = bitcoin_redeem_2of2(tmpctx,
-							&inflight->channel->local_funding_pubkey,
-							inflight->funding->splice_remote_funding);
-
-	log_info(inflight->channel->log, "Watching splice inflight %s",
-		 fmt_bitcoin_txid(tmpctx,
-				  &inflight->funding->outpoint.txid));
-
-	watch_scriptpubkey(inflight, ld->topology,
-			   take(scriptpubkey_p2wsh(NULL, funding_wscript)),
-			   &inflight->funding->outpoint,
-			   inflight->funding->total_funds,
-			   splice_found,
-			   inflight);
+	channel_watch_funding(ld, inflight->channel);
 }
 
 static void handle_splice_sending_sigs(struct lightningd *ld,
@@ -815,58 +742,20 @@ static void handle_splice_sending_sigs(struct lightningd *ld,
 	watch_splice_inflight(ld, inflight);
 }
 
-static void scid_updated(struct channel *channel)
-{
-	if (channel->channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL)
-		tell_connectd_scid(channel->peer->ld, *channel->scid, &channel->peer->id);
-
-	wallet_channel_save(channel->peer->ld->wallet, channel);
-}
-
-/* You must call scid_updated after this! */
-static void change_scid(struct channel *channel,
-			struct short_channel_id scid)
-{
-	struct short_channel_id old_scid = *channel->scid;
-
-	/* We freaked out if required when original was
-	 * removed, so just update now */
-	log_info(channel->log, "Short channel id changed from %s->%s",
-		 fmt_short_channel_id(tmpctx, *channel->scid),
-		 fmt_short_channel_id(tmpctx, scid));
-	channel_set_scid(channel, &scid);
-	/* In case we broadcast it before (e.g. splice!) */
-	channel_add_old_scid(channel, old_scid);
-	channel_gossip_scid_changed(channel);
-}
-
 bool depthcb_update_scid(struct channel *channel,
 			 const struct bitcoin_outpoint *outpoint,
-			 const struct txlocator *loc)
+			 const struct short_channel_id *scid)
 {
 	struct lightningd *ld = channel->peer->ld;
-	struct short_channel_id scid;
-
-	/* What scid is this giving us? */
-	if (!mk_short_channel_id(&scid,
-				 loc->blkheight, loc->index,
-				 outpoint->n)) {
-		channel_fail_permanent(channel,
-				       REASON_LOCAL,
-				       "Invalid funding scid %u:%u:%u",
-				       loc->blkheight, loc->index,
-				       outpoint->n);
-		return false;
-	}
 
 	/* No change?  Great. */
-	if (channel->scid && short_channel_id_eq(*channel->scid, scid))
+	if (channel->scid && short_channel_id_eq(*channel->scid, *scid))
 		return true;
 
 	if (!channel->scid) {
 		wallet_annotate_txout(ld->wallet, outpoint,
 				      TX_CHANNEL_FUNDING, channel->dbid);
-		channel_set_scid(channel, &scid);
+		channel_set_scid(channel, scid);
 
 		/* If we have a zeroconf channel, i.e., no scid yet
 		 * but have exchange `channel_ready` messages, then we
@@ -878,10 +767,23 @@ bool depthcb_update_scid(struct channel *channel,
 			lockin_has_completed(channel, false);
 
 	} else {
-		change_scid(channel, scid);
+		struct short_channel_id old_scid = *channel->scid;
+
+		/* We freaked out if required when original was
+		 * removed, so just update now */
+		log_info(channel->log, "Short channel id changed from %s->%s",
+			 fmt_short_channel_id(tmpctx, *channel->scid),
+			 fmt_short_channel_id(tmpctx, *scid));
+		channel_set_scid(channel, scid);
+		/* In case we broadcast it before (e.g. splice!) */
+		channel_add_old_scid(channel, old_scid);
+		channel_gossip_scid_changed(channel);
 	}
 
-	scid_updated(channel);
+	if (channel->channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL)
+		tell_connectd_scid(ld, *channel->scid, &channel->peer->id);
+
+	wallet_channel_save(ld->wallet, channel);
 	return true;
 }
 
@@ -1184,10 +1086,15 @@ static void handle_peer_splice_locked(struct channel *channel, const u8 *msg)
 					 &inflight->funding->outpoint);
 
 	/* Stash prev funding data so we can log it after scid is updated
-	 * (to get the blockheight) */
+	 * (to get the blockheight).  After a splice, channel->funding holds
+	 * the new outpoint, so use pre_splice_funding for the original.
+	 * NULL means no splice — channel->funding is still the original. */
 	prev_our_msats = channel->our_msat;
 	prev_funding_sats = channel->funding_sats;
-	prev_funding_out = channel->funding;
+	prev_funding_out = channel->pre_splice_funding
+			   ? *channel->pre_splice_funding
+			   : channel->funding;
+	channel->pre_splice_funding = tal_free(channel->pre_splice_funding);
 
 	update_channel_from_inflight(channel->peer->ld, channel, inflight, true);
 
@@ -1205,8 +1112,15 @@ static void handle_peer_splice_locked(struct channel *channel, const u8 *msg)
 
 	wallet_channel_clear_inflights(channel->peer->ld->wallet, channel);
 
-	/* Update the scid and tell everyone */
-	change_scid(channel, *inflight->locked_scid);
+	depthcb_update_scid(channel,
+			    &inflight->funding->outpoint,
+			    inflight->locked_scid);
+
+	/* channel_splice_watch_found already set channel->scid to the splice
+	 * scid, so depthcb_update_scid returns "no change" and skips
+	 * channel_gossip_scid_changed.  Call it explicitly now that the
+	 * channel is about to enter CHANNELD_NORMAL. */
+	channel_gossip_scid_changed(channel);
 
 	/* That freed watchers in inflights: now watch funding tx */
 	channel_watch_funding(channel->peer->ld, channel);
@@ -1839,7 +1753,7 @@ bool peer_start_channeld(struct channel *channel,
 
 	/* For anchors, we just need the commitment tx to relay. */
 	if (channel_type_has_anchors(channel->type))
-		min_feerate = get_feerate_floor(ld->topology);
+		min_feerate = get_feerate_floor(ld);
 	else
 		min_feerate = feerate_min(ld, NULL);
 	max_feerate = feerate_max(ld, NULL);
@@ -1850,7 +1764,7 @@ bool peer_start_channeld(struct channel *channel,
 	}
 
 	/* Make sure we don't go backsards on blockheights */
-	curr_blockheight = get_block_height(ld->topology);
+	curr_blockheight = get_block_height(ld);
 	if (curr_blockheight < get_blockheight(channel->blockheight_states,
 					       channel->opener, LOCAL)) {
 
@@ -1862,7 +1776,7 @@ bool peer_start_channeld(struct channel *channel,
 			  " last saved (%d). setting to last saved. %s",
 			  curr_blockheight,
 			  last_height,
-			  !topology_synced(ld->topology) ? "(not synced)" : "");
+			  !ld->bitcoind->synced ? "(not synced)" : "");
 
 		curr_blockheight = last_height;
 	}
@@ -1920,8 +1834,8 @@ bool peer_start_channeld(struct channel *channel,
 				       feerate_splice,
 				       min_feerate,
 				       max_feerate,
-				       penalty_feerate(ld->topology),
-				       opening_feerate(ld->topology),
+				       penalty_feerate(ld),
+				       opening_feerate(ld),
 				       &channel->last_sig,
 				       &channel->channel_info.remote_fundingkey,
 				       &channel->channel_info.theirbase,
@@ -2011,6 +1925,30 @@ void channeld_tell_depth(struct channel *channel,
 			  false, txid)));
 }
 
+void channeld_tell_splice_depth(struct channel *channel,
+				const struct short_channel_id *splice_scid,
+				const struct bitcoin_txid *txid,
+				u32 depth)
+{
+	if (!channel->owner) {
+		log_debug(channel->log,
+			  "Splice tx %s confirmed, but peer disconnected",
+			  fmt_bitcoin_txid(tmpctx, txid));
+		return;
+	}
+
+	log_debug(channel->log,
+		  "Sending splice funding_depth scid=%s depth=%u",
+		  fmt_short_channel_id(tmpctx, *splice_scid), depth);
+
+	/* towire_channeld_funding_depth takes a non-const scid. */
+	subd_send_msg(channel->owner,
+		      take(towire_channeld_funding_depth(
+			  NULL,
+			  cast_const(struct short_channel_id *, splice_scid),
+			  depth, true, txid)));
+}
+
 /* Check if we are the fundee of this channel, the channel
  * funding transaction is still not yet seen onchain, and
  * it has been too long since the channel was first opened.
@@ -2019,7 +1957,7 @@ static bool
 is_fundee_should_forget(struct lightningd *ld,
 			struct channel *channel)
 {
-	u32 block_height = get_block_height(ld->topology);
+	u32 block_height = get_block_height(ld);
 	/* 2016 by default */
 	u32 max_funding_unconfirmed = ld->dev_max_funding_unconfirmed;
 
@@ -2125,7 +2063,7 @@ void channel_notify_new_block(struct lightningd *ld)
 			    "confirmed. "
 			    "We are fundee and can forget channel without "
 			    "loss of funds.",
-			    get_block_height(ld->topology) - channel->first_blocknum,
+			    get_block_height(ld) - channel->first_blocknum,
 			    fmt_bitcoin_txid(tmpctx, &channel->funding.txid));
 		/* FIXME: Send an error packet for this case! */
 		/* And forget it. COMPLETELY. */
@@ -2245,7 +2183,7 @@ struct command_result *cancel_channel_before_broadcast(struct command *cmd,
 	 * the funding transaction isn't broadcast. We can't know if the funding
 	 * is broadcast by external wallet and the transaction hasn't
 	 * been onchain. */
-	bitcoind_getutxout(cc, cmd->ld->topology->bitcoind,
+	bitcoind_getutxout(cc, cmd->ld->bitcoind,
 			   &cancel_channel->funding,
 			   process_check_funding_broadcast,
 			   /* Freed by callback */
@@ -2718,8 +2656,8 @@ static struct command_result *json_dev_feerate(struct command *cmd,
 	msg = towire_channeld_feerates(NULL, *feerate,
 				       feerate_min(cmd->ld, NULL),
 				       feerate_max(cmd->ld, NULL),
-				       penalty_feerate(cmd->ld->topology),
-				       opening_feerate(cmd->ld->topology),
+				       penalty_feerate(cmd->ld),
+				       opening_feerate(cmd->ld),
 				       default_feerate(cmd->ld, channel, true));
 	subd_send_msg(channel->owner, take(msg));
 

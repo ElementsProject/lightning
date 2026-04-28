@@ -19,6 +19,9 @@ void channel_gossip_startup_done(struct lightningd *ld);
 /* Something about channel/blockchain changed: update if required */
 void channel_gossip_update(struct channel *channel);
 
+/* Funding tx was reorged out: reset gossip state to match new reality. */
+void channel_gossip_funding_reorg(struct channel *channel);
+
 /* Short channel id changed (splice, or reorg). */
 void channel_gossip_scid_changed(struct channel *channel);
 

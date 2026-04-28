@@ -64,10 +64,11 @@ def test_script_splice_out(node_factory, bitcoind, chainparams):
     expected_wallet_moves = [
         #  initial deposit
         {'type': 'chain_mvt', 'credit_msat': starting_wallet_msat, 'debit_msat': 0, 'tags': ['deposit']},
-        #  channel open spend
-        {'type': 'chain_mvt', 'credit_msat': 0, 'debit_msat': starting_wallet_msat, 'tags': ['withdrawal']},
-        #  channel open change
-        {'type': 'chain_mvt', 'credit_msat': initial_wallet_balance, 'debit_msat': 0, 'tags': ['deposit']},
+        #  channel open spend + change (bwatch may deliver in either order)
+        [
+            {'type': 'chain_mvt', 'credit_msat': 0, 'debit_msat': starting_wallet_msat, 'tags': ['withdrawal']},
+            {'type': 'chain_mvt', 'credit_msat': initial_wallet_balance, 'debit_msat': 0, 'tags': ['deposit']},
+        ],
         #  deposit of spliceamt - fees
         {'type': 'chain_mvt', 'credit_msat': Millisatoshi(spliceamt * 1000) - fee_guess, 'debit_msat': 0, 'tags': ['deposit']},
     ]
@@ -157,14 +158,16 @@ def test_script_splice_in(node_factory, bitcoind, chainparams):
     expected_wallet_moves = [
         #  initial deposit
         {'type': 'chain_mvt', 'credit_msat': starting_wallet_msat, 'debit_msat': 0, 'tags': ['deposit']},
-        #  channel open spend
-        {'type': 'chain_mvt', 'credit_msat': 0, 'debit_msat': starting_wallet_msat, 'tags': ['withdrawal']},
-        #  channel open change
-        {'type': 'chain_mvt', 'credit_msat': initial_wallet_balance, 'debit_msat': 0, 'tags': ['deposit']},
-        # splice-in spend
-        {'type': 'chain_mvt', 'debit_msat': initial_wallet_balance, 'credit_msat': 0, 'tags': ['withdrawal']},
-        #  post-splice deposit
-        {'type': 'chain_mvt', 'credit_msat': initial_wallet_balance - Millisatoshi(spliceamt * 1000) - fee_guess, 'debit_msat': 0, 'tags': ['deposit']},
+        #  channel open spend + change (bwatch may deliver in either order)
+        [
+            {'type': 'chain_mvt', 'credit_msat': 0, 'debit_msat': starting_wallet_msat, 'tags': ['withdrawal']},
+            {'type': 'chain_mvt', 'credit_msat': initial_wallet_balance, 'debit_msat': 0, 'tags': ['deposit']},
+        ],
+        #  splice-in spend + post-splice change (bwatch may deliver in either order)
+        [
+            {'type': 'chain_mvt', 'debit_msat': initial_wallet_balance, 'credit_msat': 0, 'tags': ['withdrawal']},
+            {'type': 'chain_mvt', 'credit_msat': initial_wallet_balance - Millisatoshi(spliceamt * 1000) - fee_guess, 'debit_msat': 0, 'tags': ['deposit']},
+        ],
     ]
 
     check_coin_moves(l1, 'wallet', expected_wallet_moves, chainparams)

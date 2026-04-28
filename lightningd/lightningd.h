@@ -12,6 +12,11 @@
 #include <wallet/wallet.h>
 
 struct amount_msat;
+struct bitcoind;
+struct fee_poll;
+struct oneshot;
+struct outgoing_tx_map;
+struct watchman;
 
 /* Various adjustable things. */
 struct config {
@@ -221,8 +226,12 @@ struct lightningd {
 	/* Outstanding connect commands. */
 	struct list_head connects;
 
-	/* Our chain topology. */
-	struct chain_topology *topology;
+	/* The bitcoind backend. */
+	struct bitcoind *bitcoind;
+
+	/* Bitcoin transactions we're broadcasting */
+	struct outgoing_tx_map *outgoing_txs;
+	struct oneshot *rebroadcast_timer;
 
 	/* Blockheight (as acknowledged by gossipd) */
 	u32 gossip_blockheight;
@@ -239,6 +248,11 @@ struct lightningd {
 	/* Derive all our BIP86 keys from here */
 	struct ext_key *bip86_base;
 	struct wallet *wallet;
+	struct watchman *watchman;
+	struct fee_poll *fee_poll;
+
+	/* Deprecated --dev-bitcoind-poll value, ignored (bwatch drives updates). */
+	u32 dev_bitcoind_poll_ignored;
 
 	/* Outstanding waitsendpay commands. */
 	struct list_head waitsendpay_commands;

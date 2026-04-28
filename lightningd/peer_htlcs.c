@@ -18,6 +18,7 @@
 #include <lightningd/peer_htlcs.h>
 #include <lightningd/plugin_hook.h>
 #include <lightningd/subd.h>
+#include <lightningd/watchman.h>
 #include <onchaind/onchaind_wiregen.h>
 
 #ifndef SUPERVERBOSE
@@ -289,7 +290,7 @@ const u8 *failmsg_incorrect_or_unknown(const tal_t *ctx,
 {
 	return towire_incorrect_or_unknown_payment_details(
 		ctx, msat,
-		get_block_height(ld->topology));
+		get_block_height(ld));
 }
 
 /* localfail are for handing to the local payer if it's local. */
@@ -493,12 +494,12 @@ static void handle_localpay(struct htlc_in *hin,
 	/* BOLT #4:
 	 *
 	 *   incoming `cltv_expiry` < `current_block_height` + `min_final_cltv_expiry_delta`.	 */
-	if (get_block_height(ld->topology) + ld->config.cltv_final
+	if (get_block_height(ld) + ld->config.cltv_final
 	    > hin->cltv_expiry) {
 		log_debug(hin->key.channel->log,
 			  "Expiry cltv too soon %u < %u + %u",
 			  hin->cltv_expiry,
-			  get_block_height(ld->topology),
+			  get_block_height(ld),
 			  ld->config.cltv_final);
 		failmsg = failmsg_incorrect_or_unknown(NULL, ld, hin->msat);
 		goto fail;
@@ -717,11 +718,11 @@ const u8 *send_htlc_out(const tal_t *ctx,
 	}
 
 	/* Note: we allow outgoing HTLCs before sync, for fast startup. */
-	if (!topology_synced(out->peer->ld->topology)) {
+	if (!out->peer->ld->bitcoind->synced) {
 		log_debug(out->log, "Sending HTLC while still syncing"
 			  " with bitcoin network (%u vs %u)",
-			  get_block_height(out->peer->ld->topology),
-			  get_network_blockheight(out->peer->ld->topology));
+			  get_block_height(out->peer->ld),
+			  get_block_height(out->peer->ld));
 	}
 
 	/* Make peer's daemon own it, catch if it dies. */
@@ -890,11 +891,11 @@ static void forward_htlc(struct htlc_in *hin,
 	 */
 	/* In our case, G = 1, so we need to expire it one after it's expiration.
 	 * But never offer an expired HTLC; that's dumb. */
-	if (get_block_height(ld->topology) >= outgoing_cltv_value) {
+	if (get_block_height(ld) >= outgoing_cltv_value) {
 		log_debug(hin->key.channel->log,
 			  "Expiry cltv %u too close to current %u",
 			  outgoing_cltv_value,
-			  get_block_height(ld->topology));
+			  get_block_height(ld));
 		failmsg = towire_expiry_too_soon(tmpctx,
 						 channel_update_for_error(tmpctx, next));
 		goto fail;
@@ -905,12 +906,12 @@ static void forward_htlc(struct htlc_in *hin,
 	 *  - if the `cltv_expiry` is more than `max_htlc_cltv` in the future:
 	 *     - return an `expiry_too_far` error.
 	 */
-	if (get_block_height(ld->topology)
+	if (get_block_height(ld)
 	    + ld->config.max_htlc_cltv < outgoing_cltv_value) {
 		log_debug(hin->key.channel->log,
 			  "Expiry cltv %u too far from current %u + max %u",
 			  outgoing_cltv_value,
-			  get_block_height(ld->topology),
+			  get_block_height(ld),
 			  ld->config.max_htlc_cltv);
 		failmsg = towire_expiry_too_far(tmpctx);
 		goto fail;
@@ -1184,7 +1185,7 @@ static void htlc_accepted_hook_serialize(struct htlc_accepted_hook_payload *p,
 {
 	const struct route_step *rs = p->route_step;
 	struct htlc_in *hin = p->hin;
-	s32 expiry = hin->cltv_expiry, blockheight = p->ld->topology->tip->height;
+	s32 expiry = hin->cltv_expiry, blockheight = get_block_height(p->ld);
 
 	tal_free(hin->status);
 	hin->status =
@@ -2358,18 +2359,6 @@ static bool peer_sending_revocation(struct channel *channel,
 	return true;
 }
 
-struct deferred_commitsig {
-	struct channel *channel;
-	const u8 *msg;
-};
-
-static void retry_deferred_commitsig(struct chain_topology *topo,
-				     struct deferred_commitsig *d)
-{
-	peer_got_commitsig(d->channel, d->msg);
-	tal_free(d);
-}
-
 /* This also implies we're sending revocation */
 void peer_got_commitsig(struct channel *channel, const u8 *msg)
 {
@@ -2407,23 +2396,9 @@ void peer_got_commitsig(struct channel *channel, const u8 *msg)
 		return;
 	}
 
-	/* If we're not synced with bitcoin network, we can't accept
-	 * any new HTLCs.  We stall at this point, in the hope that it
-	 * won't take long! */
-	if (added && !topology_synced(ld->topology)) {
-		struct deferred_commitsig *d;
-
+	if (added && !ld->bitcoind->synced)
 		log_unusual(channel->log,
-			    "Deferring incoming commit until we sync");
-
-		/* If subdaemon dies, we want to forget this. */
-		d = tal(channel->owner, struct deferred_commitsig);
-		d->channel = channel;
-		d->msg = tal_dup_talarr(d, u8, msg);
-		topology_add_sync_waiter(d, ld->topology,
-					 retry_deferred_commitsig, d);
-		return;
-	}
+			    "Processing incoming commit while bitcoind still syncing");
 
 	tx->chainparams = chainparams;
 
@@ -2890,7 +2865,7 @@ static void consider_failing_incoming(struct lightningd *ld,
 void htlcs_notify_new_block(struct lightningd *ld)
 {
 	bool removed;
-	u32 height = get_block_height(ld->topology);
+	u32 height = get_block_height(ld);
 
 	/* BOLT #2:
 	 *

@@ -24,6 +24,7 @@
 #include <lightningd/peer_fd.h>
 #include <lightningd/plugin_hook.h>
 #include <lightningd/subd.h>
+#include <lightningd/watchman.h>
 #include <openingd/openingd_wiregen.h>
 #include <unistd.h>
 #include <wally_psbt.h>
@@ -211,7 +212,7 @@ wallet_commit_channel(struct lightningd *ld,
 			      NULL, /* No commit sent yet */
 			      /* If we're fundee, could be a little before this
 			       * in theory, but it's only used for timing out. */
-			      get_network_blockheight(ld->topology),
+			      get_block_height(ld),
 			      feerate, feerate,
 			      &uc->local_basepoints,
 			      &uc->local_funding_pubkey,
@@ -874,7 +875,7 @@ static void opening_got_offer(struct subd *openingd,
 
 	/* Don't allow opening if we don't know any fees; even if
 	 * ignore-feerates is set. */
-	if (unknown_feerates(openingd->ld->topology)) {
+	if (unknown_feerates(openingd->ld)) {
 		subd_send_msg(openingd,
 			      take(towire_openingd_got_offer_reply(NULL, "Cannot accept channel: feerates unknown",
 								   NULL, NULL, NULL, 0)));
@@ -1228,36 +1229,6 @@ static struct command_result *fundchannel_start(struct command *cmd,
 	return command_still_pending(cmd);
 }
 
-struct fundchannel_start_info {
-	struct command *cmd;
-	struct node_id id;
-	struct funding_channel *fc;
-	struct channel_id tmp_channel_id;
-	struct amount_sat *reserve;
-	u32 mindepth;
-};
-
-static void fundchannel_start_after_sync(struct chain_topology *topo,
-					 struct fundchannel_start_info *info)
-{
-	struct peer *peer;
-
-	/* Look up peer again in case it's gone! */
-	peer = peer_by_id(info->cmd->ld, &info->id);
-	if (!peer) {
-		was_pending(command_fail(info->cmd, FUNDING_UNKNOWN_PEER, "Unknown peer"));
-		return;
-	}
-
-	if (peer->connected != PEER_CONNECTED)
-		was_pending(command_fail(info->cmd, FUNDING_PEER_NOT_CONNECTED,
-					 "Peer %s",
-					 peer->connected == PEER_DISCONNECTED
-					 ? "not connected" : "still connecting"));
-	fundchannel_start(info->cmd, peer, info->fc,
-			  &info->tmp_channel_id, info->mindepth, info->reserve);
-}
-
 /**
  * json_fundchannel_start - Entrypoint for funding a channel
  */
@@ -1346,14 +1317,14 @@ static struct command_result *json_fundchannel_start(struct command *cmd,
 		 * money in the immediate-close case, which is probably soon
 		 * and thus current feerates are sufficient. */
 		feerate_non_anchor = tal(cmd, u32);
-		*feerate_non_anchor = opening_feerate(cmd->ld->topology);
+		*feerate_non_anchor = opening_feerate(cmd->ld);
 		if (!*feerate_non_anchor) {
 			return command_fail(cmd, LIGHTNINGD,
 					    "Cannot estimate fees");
 		}
 	}
 
-	feerate_anchor = unilateral_feerate(cmd->ld->topology, true);
+	feerate_anchor = unilateral_feerate(cmd->ld, true);
 	/* Only complain here if we could possibly open one! */
 	if (!feerate_anchor
 	    && feature_offered(cmd->ld->our_features->bits[INIT_FEATURE],
@@ -1362,10 +1333,10 @@ static struct command_result *json_fundchannel_start(struct command *cmd,
 				    "Cannot estimate fees");
 	}
 
-	if (*feerate_non_anchor < get_feerate_floor(cmd->ld->topology)) {
+	if (*feerate_non_anchor < get_feerate_floor(cmd->ld)) {
 		return command_fail(cmd, LIGHTNINGD,
 				    "Feerate for non-anchor (%u perkw) below feerate floor %u perkw",
-				    *feerate_non_anchor, get_feerate_floor(cmd->ld->topology));
+				    *feerate_non_anchor, get_feerate_floor(cmd->ld));
 	}
 
 	peer = peer_by_id(cmd->ld, id);
@@ -1462,26 +1433,9 @@ static struct command_result *json_fundchannel_start(struct command *cmd,
 			reserve,
 			fc->channel_type);
 
-	if (!topology_synced(cmd->ld->topology)) {
-		struct fundchannel_start_info *info
-			= tal(cmd, struct fundchannel_start_info);
-
-		json_notify_fmt(cmd, LOG_UNUSUAL,
-				"Waiting to sync with bitcoind network (block %u of %u)",
-				get_block_height(cmd->ld->topology),
-				get_network_blockheight(cmd->ld->topology));
-
-		info->cmd = cmd;
-		info->fc = fc;
-		info->id = *id;
-		info->tmp_channel_id = tmp_channel_id;
-		info->reserve = reserve;
-		info->mindepth = *mindepth;
-		topology_add_sync_waiter(cmd, cmd->ld->topology,
-					 fundchannel_start_after_sync,
-					 info);
-		return command_still_pending(cmd);
-	}
+	if (!cmd->ld->bitcoind->synced)
+		return command_fail(cmd, FUNDING_STILL_SYNCING_BITCOIN,
+				    "Still syncing with bitcoin network");
 
 	return fundchannel_start(cmd, peer, fc,
 				 &tmp_channel_id, *mindepth, reserve);
@@ -1634,7 +1588,7 @@ static struct channel *stub_chan(struct command *cmd,
 			      NULL, /* No commit sent */
 			      /* If we're fundee, could be a little before this
 			       * in theory, but it's only used for timing out. */
-			      get_network_blockheight(ld->topology),
+			      get_block_height(ld),
                               feerate,
                               funding_sats.satoshis / MINIMUM_TX_WEIGHT * 1000 /* Raw: convert to feerate */,
 			      &basepoints,

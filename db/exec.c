@@ -89,6 +89,39 @@ s64 db_get_intvar(struct db *db, const char *varname, s64 defval)
 	return res;
 }
 
+void db_set_blobvar(struct db *db, const char *varname, const u8 *val, size_t len)
+{
+	size_t changes;
+	struct db_stmt *stmt = db_prepare_v2(db, SQL("UPDATE vars SET blobval=? WHERE name=?;"));
+	db_bind_blob(stmt, val, len);
+	db_bind_text(stmt, varname);
+	db_exec_prepared_v2(stmt);
+	changes = db_count_changes(stmt);
+	tal_free(stmt);
+
+	if (changes == 0) {
+		stmt = db_prepare_v2(db, SQL("INSERT INTO vars (name, blobval) VALUES (?, ?);"));
+		db_bind_text(stmt, varname);
+		db_bind_blob(stmt, val, len);
+		db_exec_prepared_v2(stmt);
+		tal_free(stmt);
+	}
+}
+
+const u8 *db_get_blobvar(const tal_t *ctx, struct db *db, const char *varname)
+{
+	struct db_stmt *stmt = db_prepare_v2(
+	    db, SQL("SELECT blobval FROM vars WHERE name=? LIMIT 1"));
+	db_bind_text(stmt, varname);
+
+	const u8 *res = NULL;
+	if (db_query_prepared_canfail(stmt) && db_step(stmt))
+		res = db_col_arr(ctx, stmt, "blobval", u8);
+
+	tal_free(stmt);
+	return res;
+}
+
 /* Leak tracking. */
 
 /* By making the update conditional on the current value we expect we

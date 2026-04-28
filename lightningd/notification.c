@@ -554,21 +554,22 @@ void notify_balance_snapshot(struct lightningd *ld,
 }
 
 static void block_added_notification_serialize(struct json_stream *stream,
-					       const struct block *block)
+					       u32 height,
+					       const struct bitcoin_blkid *blkid)
 {
-	json_add_string(stream, "hash",
-			fmt_bitcoin_blkid(tmpctx, &block->blkid));
-	json_add_u32(stream, "height", block->height);
+	json_add_string(stream, "hash", fmt_bitcoin_blkid(tmpctx, blkid));
+	json_add_u32(stream, "height", height);
 }
 REGISTER_NOTIFICATION(block_added);
 
 void notify_block_added(struct lightningd *ld,
-			const struct block *block)
+			u32 height,
+			const struct bitcoin_blkid *blkid)
 {
 	struct jsonrpc_notification *n = notify_start(ld, "block_added");
 	if (!n)
 		return;
-	block_added_notification_serialize(n->stream, block);
+	block_added_notification_serialize(n->stream, height, blkid);
 	notify_send(ld, n);
 }
 

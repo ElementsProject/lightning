@@ -138,8 +138,42 @@ void update_channel_from_inflight(struct lightningd *ld,
 void channel_watch_funding(struct lightningd *ld, struct channel *channel);
 void channel_unwatch_funding(struct lightningd *ld, struct channel *channel);
 
-/* Watch for spend of funding tx. */
-void channel_watch_funding_out(struct lightningd *ld, struct channel *channel);
+/* bwatch handler for "channel/funding/<dbid>" (WATCH_SCRIPTPUBKEY): the
+ * funding output script appeared in a tx, so the channel's funding tx has
+ * been confirmed.  Records the SCID and starts a depth watch to drive
+ * channeld's lock-in state machine. */
+void channel_funding_watch_found(struct lightningd *ld,
+				 const char *suffix,
+				 const struct bitcoin_tx *tx,
+				 size_t outnum,
+				 u32 blockheight,
+				 u32 txindex);
+
+void channel_funding_watch_revert(struct lightningd *ld,
+				  const char *suffix,
+				  u32 blockheight);
+
+/* bwatch handler for "channel/funding_depth/<dbid>" (WATCH_BLOCKDEPTH): fires
+ * once per new block while the funding tx is accumulating confirmations.
+ * Drives channeld's depth state machine and triggers lock-in once
+ * minimum_depth is met.  Unwatches itself once depth reaches
+ * max(minimum_depth, ANNOUNCE_MIN_DEPTH). */
+void channel_funding_depth_found(struct lightningd *ld,
+				 const char *suffix,
+				 u32 depth,
+				 u32 blockheight);
+
+/* Reorg of the block that confirmed the funding tx: clear scid and, for
+ * states past lock-in, fail the channel transiently so it reconnects once
+ * the tx is re-mined. */
+void channel_funding_depth_revert(struct lightningd *ld,
+				  const char *suffix,
+				  u32 blockheight);
+
+/* Called from watchman's block_processed handler once per new block.
+ * Iterates every channel whose funding tx has confirmed and drives its
+ * depth-dependent state (lock-in, gossip announce, splice). */
+void channel_block_processed(struct lightningd *ld, u32 blockheight);
 
 /* Watch block that funding tx is in */
 void channel_watch_depth(struct lightningd *ld,
@@ -148,6 +182,41 @@ void channel_watch_depth(struct lightningd *ld,
 
 /* If this channel has a "wrong funding" shutdown, watch that too. */
 void channel_watch_wrong_funding(struct lightningd *ld, struct channel *channel);
+
+/* bwatch handler for "channel/funding_spent/<dbid>" (WATCH_OUTPOINT): the
+ * funding output was spent.  If the spending tx is one of our own
+ * inflights, this is a splice in progress and we just keep watching
+ * (handing the memory-only inflight off to channel_splice_watch_found).
+ * Otherwise the channel was closed/force-closed, so hand off to onchaind. */
+void channel_funding_spent_watch_found(struct lightningd *ld,
+				       const char *suffix,
+				       const struct bitcoin_tx *tx,
+				       size_t innum,
+				       u32 blockheight,
+				       u32 txindex);
+
+/* Reorg of the funding-spend tx.  Full rollback (kill onchaind, restore
+ * CHANNELD_NORMAL) lands once onchaind itself runs on bwatch; for now we
+ * just log the event. */
+void channel_funding_spent_watch_revert(struct lightningd *ld,
+					const char *suffix,
+					u32 blockheight);
+
+/* bwatch handler for "channel/wrong_funding_spent/<dbid>": the
+ * shutdown_wrong_funding outpoint we registered in channel_watch_wrong_funding
+ * was spent.  Handed off to onchaind the same way as channel_funding_spent. */
+void channel_wrong_funding_spent_watch_found(struct lightningd *ld,
+					     const char *suffix,
+					     const struct bitcoin_tx *tx,
+					     size_t innum,
+					     u32 blockheight,
+					     u32 txindex);
+
+/* Reorg of the wrong-funding-spend tx.  Same handling as channel_funding_spent
+ * since both arrive at the same onchaind state machine. */
+void channel_wrong_funding_spent_watch_revert(struct lightningd *ld,
+					      const char *suffix,
+					      u32 blockheight);
 
 /* How much can we spend in this channel? */
 struct amount_msat channel_amount_spendable(const struct channel *channel);

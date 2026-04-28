@@ -1,0 +1,83 @@
+#ifndef LIGHTNING_PLUGINS_BWATCH_BWATCH_INTERFACE_H
+#define LIGHTNING_PLUGINS_BWATCH_BWATCH_INTERFACE_H
+
+#include "config.h"
+#include <plugins/bwatch/bwatch.h>
+
+/* Outward-facing interface from bwatch to lightningd. */
+
+/* Send watch_found notification to lightningd */
+void bwatch_send_watch_found(struct command *cmd,
+			     const struct bitcoin_tx *tx,
+			     u32 blockheight,
+			     const struct watch *w,
+			     u32 txindex,
+			     u32 index);
+
+/* Send blockdepth depth notification to lightningd (no tx, just depth + height) */
+void bwatch_send_blockdepth_found(struct command *cmd,
+				  const struct watch *w,
+				  u32 depth,
+				  u32 blockheight);
+
+void bwatch_send_watch_revert(struct command *cmd,
+			      const char *owner,
+			      u32 blockheight);
+
+/* Send chain name / IBD status / sync info to watchman on startup.
+ * Used as a timer callback from init; the ack/err handlers kick the
+ * normal chain-poll loop afterwards. */
+struct command_result *bwatch_send_chaininfo(struct command *cmd, void *unused);
+
+/* RPC handlers: add / remove a scriptpubkey watch. */
+struct command_result *json_bwatch_add_scriptpubkey(struct command *cmd,
+						    const char *buffer,
+						    const jsmntok_t *params);
+struct command_result *json_bwatch_del_scriptpubkey(struct command *cmd,
+						    const char *buffer,
+						    const jsmntok_t *params);
+
+/* RPC handlers: add / remove an outpoint watch. */
+struct command_result *json_bwatch_add_outpoint(struct command *cmd,
+						const char *buffer,
+						const jsmntok_t *params);
+struct command_result *json_bwatch_del_outpoint(struct command *cmd,
+						const char *buffer,
+						const jsmntok_t *params);
+
+/* RPC handlers: add / remove a scid watch. */
+struct command_result *json_bwatch_add_scid(struct command *cmd,
+					    const char *buffer,
+					    const jsmntok_t *params);
+struct command_result *json_bwatch_del_scid(struct command *cmd,
+					    const char *buffer,
+					    const jsmntok_t *params);
+
+/* RPC handlers: add / remove a blockdepth watch. */
+struct command_result *json_bwatch_add_blockdepth(struct command *cmd,
+						  const char *buffer,
+						  const jsmntok_t *params);
+struct command_result *json_bwatch_del_blockdepth(struct command *cmd,
+						  const char *buffer,
+						  const jsmntok_t *params);
+
+/* RPC handler: dump every active watch. */
+struct command_result *json_bwatch_list(struct command *cmd,
+					const char *buffer,
+					const jsmntok_t *params);
+
+/* Send a block_processed RPC to watchman after a new block has been
+ * persisted.  The next poll is started from the ack callback so we don't
+ * race ahead of watchman's view of the chain.  Chains on the same poll
+ * command so timer_complete fires once watchman has acknowledged. */
+struct command_result *bwatch_send_block_processed(struct command *cmd);
+
+/* Notify watchman that the tip has been rolled back during a reorg, so
+ * watchman can update and persist its own height.  Fire-and-forget via
+ * an aux_command — the poll timer doesn't depend on this ack.  Crash
+ * safety: if we crash before the ack lands, watchman's stale height will
+ * be higher than bwatch's on restart, which retriggers the rollback. */
+void bwatch_send_revert_block_processed(struct command *cmd, u32 new_height,
+					const struct bitcoin_blkid *new_hash);
+
+#endif /* LIGHTNING_PLUGINS_BWATCH_BWATCH_INTERFACE_H */

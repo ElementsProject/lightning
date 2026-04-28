@@ -16,7 +16,6 @@
 #include <lightningd/notification.h>
 #include <lightningd/opening_common.h>
 #include <lightningd/subd.h>
-#include <wallet/txfilter.h>
 
 void channel_set_owner(struct channel *channel, struct subd *owner)
 {
@@ -375,7 +374,9 @@ struct channel *new_unsaved_channel(struct peer *peer,
 	channel->next_index[LOCAL] = 1;
 	channel->next_index[REMOTE] = 1;
 	channel->next_htlc_id = 0;
-	channel->funding_spend_watch = NULL;
+	channel->pre_splice_funding = NULL;
+	channel->onchaind_watches = NULL;
+	channel->funding_spend_txid = NULL;
 	/* FIXME: remove push when v1 deprecated */
 	channel->push = AMOUNT_MSAT(0);
 	channel->closing_fee_negotiation_step = 50;
@@ -417,7 +418,6 @@ struct channel *new_unsaved_channel(struct peer *peer,
 	channel->ignore_fee_limits = ld->config.ignore_fee_limits;
 	channel->last_stable_connection = 0;
 	channel->stable_conn_timer = NULL;
-	channel->onchaind_replay_watches = NULL;
 	/* Nothing happened yet */
 	memset(&channel->stats, 0, sizeof(channel->stats));
 	channel->state_changes = tal_arr(channel, struct channel_state_change *, 0);
@@ -613,7 +613,9 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->next_htlc_id = next_htlc_id;
 	channel->funding = *funding;
 	channel->funding_sats = funding_sats;
-	channel->funding_spend_watch = NULL;
+	channel->pre_splice_funding = NULL;
+	channel->onchaind_watches = NULL;
+	channel->funding_spend_txid = NULL;
 	channel->push = push;
 	channel->our_funds = our_funds;
 	channel->remote_channel_ready = remote_channel_ready;
@@ -714,8 +716,6 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->ignore_fee_limits = ignore_fee_limits;
 	channel->last_stable_connection = last_stable_connection;
 	channel->stable_conn_timer = NULL;
-	channel->onchaind_replay_watches = NULL;
-	channel->num_onchain_spent_calls = 0;
 	channel->stats = *stats;
 	channel->state_changes = tal_steal(channel, state_changes);
 

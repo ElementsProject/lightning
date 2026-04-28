@@ -60,23 +60,26 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <header_versions_gen.h>
-#include <lightningd/chaintopology.h>
+#include <lightningd/bitcoind.h>
+#include <lightningd/broadcast.h>
 #include <lightningd/channel.h>
 #include <lightningd/channel_control.h>
 #include <lightningd/channel_gossip.h>
 #include <lightningd/closed_channel.h>
 #include <lightningd/connect_control.h>
+#include <lightningd/feerate.h>
 #include <lightningd/gossip_control.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/io_loop_with_timers.h>
 #include <lightningd/lightningd.h>
-#include <lightningd/onchain_control.h>
 #include <lightningd/peer_htlcs.h>
 #include <lightningd/plugin_hook.h>
 #include <lightningd/runes.h>
 #include <lightningd/subd.h>
+#include <lightningd/watchman.h>
 #include <sys/resource.h>
 #include <wallet/invoices.h>
+#include <wallet/wallet.h>
 #include <wally_bip32.h>
 
 static void destroy_alt_subdaemons(struct lightningd *ld);
@@ -272,8 +275,11 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->timers = tal(ld, struct timers);
 	timers_init(ld->timers, time_mono());
 
-	/*~ This is detailed in chaintopology.c */
-	ld->topology = new_topology(ld, ld->log);
+	ld->bitcoind = NULL;
+	ld->outgoing_txs = new_htable(ld, outgoing_tx_map);
+	ld->rebroadcast_timer = NULL;
+	ld->fee_poll = NULL;
+	ld->dev_bitcoind_poll_ignored = 0;
 	ld->gossip_blockheight = 0;
 	ld->daemon_parent_fd = -1;
 	ld->proxyaddr = NULL;
@@ -1316,6 +1322,15 @@ int main(int argc, char *argv[])
 	if (!wallet_sanity_check(ld->wallet))
 		errx(EXITCODE_WALLET_DB_MISMATCH, "Wallet sanity check failed.");
 
+	/*~ Initialize the watch manager which consumes watch events from bwatch plugin.
+	 * Must be done before init_wallet_scriptpubkey_watches as it adds watches. */
+	ld->watchman = watchman_new(ld, ld);
+
+	/*~ Add bwatch watches for our wallet scriptpubkeys (BIP32/BIP86 keys). */
+	trace_span_start("init_wallet_scriptpubkey_watches", ld->wallet);
+	init_wallet_scriptpubkey_watches(ld->wallet, ld->bip32_base);
+	trace_span_end(ld->wallet);
+
 	/*~ Finish our runes initialization (includes reading from db) */
 	runes_finish_init(ld->runes);
 
@@ -1325,11 +1340,12 @@ int main(int argc, char *argv[])
 	/*~ That's all of the wallet db operations for now. */
 	db_commit_transaction(ld->wallet->db);
 
-	/*~ Initialize block topology.  This does its own io_loop to
-	 * talk to bitcoind, so does its own db transactions. */
-	trace_span_start("setup_topology", ld->topology);
-	setup_topology(ld->topology);
-	trace_span_end(ld->topology);
+	ld->bitcoind = new_bitcoind(ld, ld, ld->log);
+	bitcoind_check_commands(ld->bitcoind);
+
+	/* Poll bitcoind for fee estimates every 30s.
+	 * bwatch only reports blockheight via block_processed. */
+	start_fee_polling(ld);
 
 	db_begin_transaction(ld->wallet->db);
 	trace_span_start("delete_old_htlcs", ld->wallet);
@@ -1377,17 +1393,10 @@ int main(int argc, char *argv[])
 	htlcs_resubmit(ld, unconnected_htlcs_in);
 	db_commit_transaction(ld->wallet->db);
 
-	/*~ Activate connect daemon.  Needs to be after the initialization of
-	 * chaintopology, otherwise peers may connect and ask for
-	 * uninitialized data. */
+	/*~ Activate connect daemon.  Needs to be after watchman and wallet
+	 * scriptpubkey watches are initialized, otherwise peers may connect
+	 * and ask for uninitialized data. */
 	connectd_activate(ld);
-
-	/*~ "onchaind" is a dumb daemon which tries to get our funds back: it
-	 * doesn't handle reorganizations, but it's idempotent, so we can
-	 * simply just restart it if the chain moves.  Similarly, we replay it
-	 * chain events from the database on restart, beginning with the
-	 * "funding transaction spent" event which creates it. */
-	onchaind_replay_channels(ld);
 
 	/*~ Now handle sigchld, so we can clean up appropriately. */
 	sigchld_conn = notleak(io_new_conn(ld, sigchld_rfd, sigchld_rfd_in, ld));
@@ -1428,10 +1437,6 @@ int main(int argc, char *argv[])
 	 * live channels with us, and makes sure we're watching the funding
 	 * tx. */
 	setup_peers(ld);
-
-	/*~ Now that all the notifications for transactions are in place, we
-	 *  can start the poll loop which queries bitcoind for new blocks. */
-	begin_topology(ld->topology);
 
 	/*~ To handle --daemon, we fork the daemon early (otherwise we hit
 	 * issues with our pid changing), but keep the parent around until
@@ -1487,9 +1492,6 @@ stop:
 		io_close_taken_fd(ld->stop_conn);
 		stop_response = tal_steal(NULL, ld->stop_response);
 	}
-
-	/* Stop topology callbacks. */
-	stop_topology(ld->topology);
 
 	/* We're not going to collect our children. */
 	remove_sigchild_handler(sigchld_conn);

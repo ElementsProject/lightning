@@ -19,6 +19,7 @@
 
 struct amount_msat;
 struct bitcoin_signature;
+struct ext_key;
 struct invoices;
 struct channel;
 struct channel_inflight;
@@ -41,14 +42,6 @@ struct wallet {
 	struct logger *log;
 	struct invoices *invoices;
 	u64 max_channel_dbid;
-
-	/* Filter matching all outpoints corresponding to our owned outputs,
-	 * including all spent ones */
-	struct outpointfilter *owned_outpoints;
-
-	/* Filter matching all outpoints that might be a funding transaction on
-	 * the blockchain. This is currently all P2WSH outputs */
-	struct outpointfilter *utxoset_outpoints;
 
 	/* Our issued wallet addresses.  We update on lookup. */
 	u32 our_addresses_maxindex;
@@ -591,6 +584,16 @@ struct utxo **wallet_utxo_boost(const tal_t *ctx,
 				bool *insufficient);
 
 /**
+ * wallet_scriptpubkey_to_keyidx - Derive HD keyindex for a scriptpubkey.
+ *
+ * Lower-level form that takes (ld, db) directly instead of a wallet.
+ * Callable from migrations, where ld->wallet is not yet initialised.
+ */
+bool wallet_scriptpubkey_to_keyidx(struct lightningd *ld, struct db *db,
+				   const u8 *script, size_t script_len,
+				   u32 *index, enum addrtype *addrtype);
+
+/**
  * wallet_can_spend - Do we have the private key matching this scriptpubkey?
  *
  * @w: (in) wallet holding the pubkeys to check against (privkeys are on HSM)
@@ -779,25 +782,6 @@ void wallet_channel_stats_incr_in_offered(struct wallet *w, u64 cdbid, struct am
 void wallet_channel_stats_incr_in_fulfilled(struct wallet *w, u64 cdbid, struct amount_msat msatoshi);
 void wallet_channel_stats_incr_out_offered(struct wallet *w, u64 cdbid, struct amount_msat msatoshi);
 void wallet_channel_stats_incr_out_fulfilled(struct wallet *w, u64 cdbid, struct amount_msat msatoshi);
-
-/**
- * Retrieve the blockheight of the last block processed by lightningd.
- *
- * Will return the 0 if the wallet was never used before.
- *
- * @w: wallet to load from.
- */
-u32 wallet_blocks_maxheight(struct wallet *w);
-
-/**
- * Retrieve the blockheight of the first block processed by lightningd (ignoring
- * backfilled blocks for gossip).
- *
- * Will return the 0 if the wallet was never used before.
- *
- * @w: wallet to load from.
- */
-u32 wallet_blocks_contig_minheight(struct wallet *w);
 
 /**
  * wallet_extract_owned_outputs - given a tx, extract all of our outputs
@@ -1188,14 +1172,14 @@ void wallet_htlc_sigs_add(struct wallet *w, u64 channel_id,
 bool wallet_sanity_check(struct wallet *w);
 
 /**
- * wallet_block_add - Add a block to the blockchain tracked by this wallet
+ * wallet_block_add - Record a block in the wallet's blocks table.
+ *
+ * Bwatch is the source of truth for the chain; this just keeps the wallet's
+ * `blocks` table populated so the FK references on outputs / utxoset /
+ * channeltxs / transactions stay valid.
  */
-void wallet_block_add(struct wallet *w, struct block *b);
-
-/**
- * wallet_block_remove - Remove a block (and all its descendants) from the tracked blockchain
- */
-void wallet_block_remove(struct wallet *w, struct block *b);
+void wallet_block_add(struct wallet *w, u32 height,
+		      const struct bitcoin_blkid *blkid);
 
 /**
  * wallet_blocks_rollback - Roll the blockchain back to the given height
@@ -1206,18 +1190,6 @@ void wallet_blocks_rollback(struct wallet *w, u32 height);
  * Return whether we have a block for the given height.
  */
 bool wallet_have_block(struct wallet *w, u32 blockheight);
-
-/**
- * Mark an outpoint as spent, both in the owned as well as the UTXO set
- *
- * Given the outpoint (txid, outnum), and the blockheight, mark the
- * corresponding DB entries as spent at the blockheight.
- *
- * @return true if found in our wallet's output set, false otherwise
- */
-bool wallet_outpoint_spend(const tal_t *ctx, struct wallet *w,
-			   const u32 blockheight,
-			   const struct bitcoin_outpoint *outpoint);
 
 struct outpoint *wallet_outpoint_for_scid(const tal_t *ctx, struct wallet *w,
 					  struct short_channel_id scid);
@@ -2021,5 +1993,104 @@ void wallet_datastore_save_payment_description(struct db *db,
 					       const struct sha256 *payment_hash,
 					       const char *desc);
 void migrate_setup_coinmoves(struct lightningd *ld, struct db *db);
+
+/* ====================================================================
+ * bwatch-driven wallet recording.
+ *
+ * These functions are invoked from lightningd/watchman's dispatch table
+ * when bwatch reports activity on a wallet-owned scriptpubkey.  They
+ * persist outputs and transactions in the `our_outputs` and `our_txs`
+ * tables, which run in parallel to the legacy `utxoset` / `transactions`
+ * tables so a node can downgrade cleanly for one release.
+ * ==================================================================== */
+
+/* Insert a wallet-owned UTXO row into our_outputs.  If the same outpoint
+ * was previously inserted unconfirmed (blockheight=0), the row is updated
+ * to the new confirmed blockheight so coin selection can spend it. */
+void wallet_add_our_output(struct wallet *w,
+			   const struct bitcoin_outpoint *outpoint,
+			   u32 blockheight, u32 txindex,
+			   const u8 *script, size_t script_len,
+			   struct amount_sat sat,
+			   u32 keyindex);
+
+/* Undo wallet_annotate_txout for an output annotation. */
+void wallet_del_txout_annotation(struct wallet *w,
+				 const struct bitcoin_outpoint *outpoint);
+
+/* Undo wallet_transaction_add: removes from our_txs only if no our_outputs row
+ * still references it. */
+void wallet_del_tx_if_unreferenced(struct wallet *w,
+				   const struct bitcoin_txid *txid);
+
+/* watch_found handler for the wallet/p2wpkh/<keyidx> dispatch entry:
+ * fires when a p2wpkh wallet address receives funds. */
+void wallet_watch_p2wpkh(struct lightningd *ld,
+			 const char *suffix,
+			 const struct bitcoin_tx *tx,
+			 size_t outnum,
+			 u32 blockheight,
+			 u32 txindex);
+
+/* watch_found handler for the wallet/p2tr/<keyidx> dispatch entry:
+ * fires when a p2tr wallet address receives funds. */
+void wallet_watch_p2tr(struct lightningd *ld,
+		       const char *suffix,
+		       const struct bitcoin_tx *tx,
+		       size_t outnum,
+		       u32 blockheight,
+		       u32 txindex);
+
+/* watch_found handler for the wallet/p2sh_p2wpkh/<keyidx> dispatch entry:
+ * fires when a p2sh-wrapped p2wpkh wallet address receives funds. */
+void wallet_watch_p2sh_p2wpkh(struct lightningd *ld,
+			      const char *suffix,
+			      const struct bitcoin_tx *tx,
+			      size_t outnum,
+			      u32 blockheight,
+			      u32 txindex);
+
+/* Shared revert handler for the wallet/p2wpkh, wallet/p2tr and
+ * wallet/p2sh_p2wpkh dispatch entries: undoes got_utxo + wallet_transaction_add
+ * for every output recorded at @suffix's keyindex and @blockheight. */
+void wallet_scriptpubkey_watch_revert(struct lightningd *ld,
+				      const char *suffix,
+				      u32 blockheight);
+
+/* Emit a withdrawal coin movement for a spent wallet UTXO. */
+void wallet_record_spend(struct lightningd *ld,
+			 const struct bitcoin_outpoint *outpoint,
+			 const struct bitcoin_txid *txid,
+			 u32 blockheight);
+
+/* watch_found handler for wallet/utxo/<txid>:<outnum>. */
+void wallet_utxo_spent_watch_found(struct lightningd *ld,
+				   const char *suffix,
+				   const struct bitcoin_tx *tx,
+				   size_t innum,
+				   u32 blockheight,
+				   u32 txindex);
+
+/* Reorg-time counterpart: clears spendheight on the UTXO. */
+void wallet_utxo_spent_watch_revert(struct lightningd *ld,
+				    const char *suffix,
+				    u32 blockheight);
+
+void wallet_add_bwatch_scriptpubkey(struct lightningd *ld,
+				    const char *owner_prefix,
+				    u64 keyindex,
+				    u32 start_block,
+				    const u8 *script,
+				    size_t script_len);
+/* Watch the three scriptpubkey forms (p2wpkh, p2sh-p2wpkh, p2tr) of @derkey. */
+void wallet_add_bwatch_derkey(struct lightningd *ld,
+			      u64 keyindex,
+			      u32 start_block,
+			      const u8 derkey[PUBKEY_CMPR_LEN]);
+
+/* Register bwatch watches for every HD key (BIP32, plus BIP86 if enabled)
+ * up through {bip32,bip86}_max_index + keyscan_gap. */
+void init_wallet_scriptpubkey_watches(struct wallet *w,
+				      const struct ext_key *bip32_base);
 
 #endif /* LIGHTNING_WALLET_WALLET_H */

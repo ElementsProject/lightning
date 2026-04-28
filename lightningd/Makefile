@@ -3,7 +3,8 @@
 LIGHTNINGD_SRC :=				\
 	lightningd/anchorspend.c		\
 	lightningd/bitcoind.c			\
-	lightningd/chaintopology.c		\
+	lightningd/broadcast.c			\
+	lightningd/watchman.c			\
 	lightningd/channel.c			\
 	lightningd/channel_control.c		\
 	lightningd/channel_gossip.c		\
@@ -43,8 +44,7 @@ LIGHTNINGD_SRC :=				\
 	lightningd/routehint.c			\
 	lightningd/runes.c			\
 	lightningd/subd.c			\
-	lightningd/wait.c			\
-	lightningd/watch.c
+	lightningd/wait.c
 
 LIGHTNINGD_SRC_NOHDR :=				\
 	lightningd/configs.c			\

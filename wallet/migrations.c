@@ -10,6 +10,7 @@
 #include <wallet/account_migration.h>
 #include <wallet/db.h>
 #include <wallet/migrations.h>
+#include <wallet/wallet.h>
 
 static const char *revert_too_early(const tal_t *ctx, struct db *db)
 {
@@ -50,6 +51,83 @@ static const char *revert_withheld_column(const tal_t *ctx, struct db *db)
 	stmt = db_prepare_v2(db, SQL("ALTER TABLE channels DROP COLUMN withheld"));
 	db_exec_prepared_v2(take(stmt));
 	return NULL;
+}
+
+/* Backfill the new bwatch-driven tables (our_outputs, our_txs) from the
+ * legacy utxoset / transactions tables, so the bwatch path sees pre-existing
+ * wallet UTXOs and txs without needing a full rescan.  Outputs that don't
+ * derive from any HD key are skipped: they're channel funding outputs or
+ * gossip watches, not wallet UTXOs. */
+void migrate_backfill_bwatch_tables(struct lightningd *ld, struct db *db)
+{
+	struct db_stmt *stmt;
+
+	stmt = db_prepare_v2(db,
+		SQL("SELECT txid, outnum, blockheight, txindex, "
+		    "       scriptpubkey, satoshis, spendheight "
+		    "FROM utxoset "
+		    "WHERE blockheight IS NOT NULL "
+		    "  AND scriptpubkey IS NOT NULL "
+		    "  AND satoshis IS NOT NULL;"));
+	db_query_prepared(stmt);
+
+	while (db_step(stmt)) {
+		struct db_stmt *ins;
+		struct bitcoin_txid txid;
+		u32 outnum, blockheight;
+		struct amount_sat sat;
+		const u8 *script = db_col_arr(tmpctx, stmt, "scriptpubkey", u8);
+		size_t script_len = tal_bytelen(script);
+		u32 keyindex;
+
+		db_col_txid(stmt, "txid", &txid);
+		outnum      = db_col_int(stmt, "outnum");
+		blockheight = db_col_int(stmt, "blockheight");
+		sat         = db_col_amount_sat(stmt, "satoshis");
+
+		/* TODO: also backfill channel-close outputs (delayed-payment,
+		 * to_remote, anchors) — those use per-channel keys that won't
+		 * match wallet_scriptpubkey_to_keyidx, and need their
+		 * channel_dbid/peer_id/commitment_point/csv columns copied
+		 * straight across from the legacy outputs table. */
+		if (!wallet_scriptpubkey_to_keyidx(ld, db,
+						   script, script_len,
+						   &keyindex, NULL)) {
+			db_col_ignore(stmt, "txindex");
+			db_col_ignore(stmt, "spendheight");
+			continue;
+		}
+
+		ins = db_prepare_v2(db,
+			SQL("INSERT OR IGNORE INTO our_outputs "
+			    "(txid, outnum, blockheight, txindex, "
+			    " scriptpubkey, satoshis, spendheight, keyindex) "
+			    "VALUES (?, ?, ?, ?, ?, ?, ?, ?);"));
+		db_bind_txid(ins, &txid);
+		db_bind_int(ins, outnum);
+		db_bind_int(ins, blockheight);
+		if (db_col_is_null(stmt, "txindex"))
+			db_bind_null(ins);
+		else
+			db_bind_int(ins, db_col_int(stmt, "txindex"));
+		db_bind_blob(ins, script, script_len);
+		db_bind_amount_sat(ins, sat);
+		if (db_col_is_null(stmt, "spendheight"))
+			db_bind_null(ins);
+		else
+			db_bind_int(ins, db_col_int(stmt, "spendheight"));
+		db_bind_int(ins, keyindex);
+		db_exec_prepared_v2(take(ins));
+	}
+	tal_free(stmt);
+
+	stmt = db_prepare_v2(db,
+		SQL("INSERT OR IGNORE INTO our_txs "
+		    "(txid, blockheight, txindex, rawtx) "
+		    "SELECT id, blockheight, txindex, rawtx "
+		    "FROM transactions "
+		    "WHERE blockheight IS NOT NULL AND rawtx IS NOT NULL;"));
+	db_exec_prepared_v2(take(stmt));
 }
 
 /* Do not reorder or remove elements from this array, it is used to
@@ -1084,6 +1162,39 @@ static const struct db_migration dbmigrations[] = {
      NULL, NULL},
     {SQL("ALTER TABLE offers ADD COLUMN force_paths INTEGER DEFAULT 0;"), NULL,
      SQL("ALTER TABLE offers DROP COLUMN force_paths"), NULL},
+
+    /* v26.04: parallel wallet tables without the blocks(height) FK that
+     * utxoset/transactions carry, so bwatch-driven writes don't need a
+     * blocks table.  Legacy tables stay for one release to keep downgrade
+     * working. */
+    {SQL("CREATE TABLE our_outputs ("
+	 "  txid BLOB NOT NULL,"
+	 "  outnum INTEGER NOT NULL,"
+	 "  blockheight INTEGER NOT NULL,"
+	 "  txindex INTEGER,"
+	 "  scriptpubkey BLOB NOT NULL,"
+	 "  satoshis BIGINT NOT NULL,"
+	 "  spendheight INTEGER,"
+	 "  keyindex INTEGER,"
+	 "  reserved_til INTEGER,"
+	 "  channel_dbid BIGINT,"
+	 "  peer_id BLOB,"
+	 "  commitment_point BLOB,"
+	 "  csv INTEGER,"
+	 "  PRIMARY KEY (txid, outnum)"
+	 ")"), NULL,
+     SQL("DROP TABLE our_outputs"), NULL},
+    {SQL("CREATE TABLE our_txs ("
+	 "  txid BLOB NOT NULL PRIMARY KEY,"
+	 "  blockheight INTEGER NOT NULL,"
+	 "  txindex INTEGER,"
+	 "  rawtx BLOB"
+	 ")"), NULL,
+     SQL("DROP TABLE our_txs"), NULL},
+    /* This release stops updating utxoset/transactions
+     * but leaves the rows in place, so a downgraded binary just resumes
+     * from the height they were frozen at. */
+    {NULL, migrate_backfill_bwatch_tables, NULL, NULL},
 };
 
 const struct db_migration *get_db_migrations(size_t *num)

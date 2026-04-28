@@ -6,10 +6,12 @@
 #include <hsmd/hsmd_wiregen.h>
 #include <inttypes.h>
 #include <lightningd/anchorspend.h>
-#include <lightningd/chaintopology.h>
+#include <lightningd/broadcast.h>
+#include <lightningd/feerate.h>
 #include <lightningd/channel.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/lightningd.h>
+#include <lightningd/watchman.h>
 #include <wally_psbt.h>
 
 /* This is attached to each anchor tx retransmission */
@@ -240,7 +242,7 @@ static struct wally_psbt *anchor_psbt(const tal_t *ctx,
 
 	/* PSBT knows how to spend utxos. */
 	psbt = psbt_using_utxos(ctx, ld->wallet, utxos,
-				default_locktime(ld->topology),
+				default_locktime(ld),
 				BITCOIN_TX_RBF_SEQUENCE, NULL);
 
 	/* BOLT #3:
@@ -309,7 +311,7 @@ static struct wally_psbt *try_anchor_psbt(const tal_t *ctx,
 	*total_weight = base_weight;
 	*utxos = wallet_utxo_boost(ctx,
 				   ld->wallet,
-				   get_block_height(ld->topology),
+				   get_block_height(ld),
 				   anch->info.commitment_fee,
 				   chainparams->dust_limit,
 				   feerate_target,
@@ -379,7 +381,7 @@ static struct bitcoin_tx *spend_anchor(const tal_t *ctx,
 		if (!amount_msat_accumulate(&total_value, val->msat))
 			abort();
 
-		feerate_target = feerate_for_target(ld->topology, val->block);
+		feerate_target = feerate_for_target(ld, val->block);
 
 		/* If the feerate for the commitment tx is already
 		 * sufficient, don't try for anchor. */
@@ -407,7 +409,7 @@ static struct bitcoin_tx *spend_anchor(const tal_t *ctx,
 				  fmt_amount_sat(tmpctx, fee),
 				  anch->commit_side == LOCAL ? "local" : "remote",
 				  fmt_amount_msat(tmpctx, val->msat),
-				  val->block, val->block - get_block_height(ld->topology), feerate_target);
+				  val->block, val->block - get_block_height(ld), feerate_target);
 			break;
 		}
 
@@ -436,7 +438,7 @@ static struct bitcoin_tx *spend_anchor(const tal_t *ctx,
 			  fmt_amount_sat(tmpctx, fee),
 			  anch->commit_side == LOCAL ? "local" : "remote",
 			  fmt_amount_msat(tmpctx, val->msat),
-			  val->block, val->block - get_block_height(ld->topology), feerate);
+			  val->block, val->block - get_block_height(ld), feerate);
 		psbt = candidate_psbt;
 		psbt_fee = fee;
 		psbt_weight = weight;
@@ -449,9 +451,9 @@ static struct bitcoin_tx *spend_anchor(const tal_t *ctx,
 
 		/* We're not in a hurry.  Never aim for < 12 blocks away */
 		block_target = unimportant_deadline->block;
-		if (block_target < get_block_height(ld->topology) + 12)
-			block_target = get_block_height(ld->topology) + 12;
-		feerate_target = feerate_for_target(ld->topology, block_target);
+		if (block_target < get_block_height(ld) + 12)
+			block_target = get_block_height(ld) + 12;
+		feerate_target = feerate_for_target(ld, block_target);
 
 		/* If the feerate for the commitment tx is already
 		 * sufficient, don't try for anchor. */
@@ -602,7 +604,7 @@ static void create_and_broadcast_anchor(struct channel *channel,
 		 fmt_amount_sat(tmpctx, anch->anchor_spend_fee));
 
 	/* Send it! */
-	broadcast_tx(anch->adet, ld->topology, channel, take(newtx), NULL, true, 0, NULL,
+	broadcast_tx(anch->adet, ld, channel, take(newtx), NULL, true, 0, NULL,
 		     refresh_anchor_spend, anch);
 }
 

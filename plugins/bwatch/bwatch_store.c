@@ -1,0 +1,602 @@
+#include "config.h"
+#include <ccan/crypto/siphash24/siphash24.h>
+#include <ccan/json_out/json_out.h>
+#include <ccan/mem/mem.h>
+#include <ccan/str/hex/hex.h>
+#include <ccan/tal/str/str.h>
+#include <common/json_param.h>
+#include <common/json_parse.h>
+#include <common/mkdatastorekey.h>
+#include <plugins/bwatch/bwatch_store.h>
+#include <plugins/bwatch/bwatch_wiregen.h>
+
+const struct scriptpubkey *scriptpubkey_watch_keyof(const struct watch *w)
+{
+	assert(w->type == WATCH_SCRIPTPUBKEY);
+	return &w->key.scriptpubkey;
+}
+
+size_t scriptpubkey_hash(const struct scriptpubkey *scriptpubkey)
+{
+	return siphash24(siphash_seed(), scriptpubkey->script, scriptpubkey->len);
+}
+
+bool scriptpubkey_watch_eq(const struct watch *w, const struct scriptpubkey *scriptpubkey)
+{
+	return w->key.scriptpubkey.len == scriptpubkey->len &&
+	       memeq(w->key.scriptpubkey.script, scriptpubkey->len,
+		     scriptpubkey->script, scriptpubkey->len);
+}
+
+const struct bitcoin_outpoint *outpoint_watch_keyof(const struct watch *w)
+{
+	assert(w->type == WATCH_OUTPOINT);
+	return &w->key.outpoint;
+}
+
+size_t outpoint_hash(const struct bitcoin_outpoint *outpoint)
+{
+	size_t h1 = siphash24(siphash_seed(), &outpoint->txid, sizeof(outpoint->txid));
+	size_t h2 = siphash24(siphash_seed(), &outpoint->n, sizeof(outpoint->n));
+	return h1 ^ h2;
+}
+
+bool outpoint_watch_eq(const struct watch *w, const struct bitcoin_outpoint *outpoint)
+{
+	return bitcoin_outpoint_eq(&w->key.outpoint, outpoint);
+}
+
+const struct short_channel_id *scid_watch_keyof(const struct watch *w)
+{
+	assert(w->type == WATCH_SCID);
+	return &w->key.scid;
+}
+
+size_t scid_hash(const struct short_channel_id *scid)
+{
+	return siphash24(siphash_seed(), scid, sizeof(*scid));
+}
+
+bool scid_watch_eq(const struct watch *w, const struct short_channel_id *scid)
+{
+	return short_channel_id_eq(w->key.scid, *scid);
+}
+
+const u32 *blockdepth_watch_keyof(const struct watch *w)
+{
+	assert(w->type == WATCH_BLOCKDEPTH);
+	return &w->start_block;
+}
+
+size_t u32_hash(const u32 *height)
+{
+	return siphash24(siphash_seed(), height, sizeof(*height));
+}
+
+bool blockdepth_watch_eq(const struct watch *w, const u32 *height)
+{
+	return w->start_block == *height;
+}
+
+const char *bwatch_get_watch_type_name(enum watch_type type)
+{
+	switch (type) {
+	case WATCH_SCRIPTPUBKEY:
+		return "scriptpubkey";
+	case WATCH_OUTPOINT:
+		return "outpoint";
+	case WATCH_SCID:
+		return "scid";
+	case WATCH_BLOCKDEPTH:
+		return "blockdepth";
+	}
+	abort();
+}
+
+void bwatch_add_watch_to_hash(struct bwatch *bwatch, struct watch *w)
+{
+	switch (w->type) {
+	case WATCH_SCRIPTPUBKEY:
+		scriptpubkey_watches_add(bwatch->scriptpubkey_watches, w);
+		return;
+	case WATCH_OUTPOINT:
+		outpoint_watches_add(bwatch->outpoint_watches, w);
+		return;
+	case WATCH_SCID:
+		scid_watches_add(bwatch->scid_watches, w);
+		return;
+	case WATCH_BLOCKDEPTH:
+		blockdepth_watches_add(bwatch->blockdepth_watches, w);
+		return;
+	}
+	abort();
+}
+
+struct watch *bwatch_get_watch(struct bwatch *bwatch,
+			       enum watch_type type,
+			       const struct bitcoin_outpoint *outpoint,
+			       const u8 *scriptpubkey,
+			       const struct short_channel_id *scid,
+			       const u32 *confirm_height)
+{
+	switch (type) {
+	case WATCH_SCRIPTPUBKEY: {
+		struct scriptpubkey k = {
+			.script = scriptpubkey,
+			.len = tal_bytelen(scriptpubkey),
+		};
+		return scriptpubkey_watches_get(bwatch->scriptpubkey_watches, &k);
+	}
+	case WATCH_OUTPOINT:
+		return outpoint_watches_get(bwatch->outpoint_watches, outpoint);
+	case WATCH_SCID:
+		return scid_watches_get(bwatch->scid_watches, scid);
+	case WATCH_BLOCKDEPTH:
+		return blockdepth_watches_get(bwatch->blockdepth_watches, confirm_height);
+	}
+	abort();
+}
+
+void bwatch_remove_watch_from_hash(struct bwatch *bwatch, struct watch *w)
+{
+	switch (w->type) {
+	case WATCH_SCRIPTPUBKEY:
+		scriptpubkey_watches_del(bwatch->scriptpubkey_watches, w);
+		return;
+	case WATCH_OUTPOINT:
+		outpoint_watches_del(bwatch->outpoint_watches, w);
+		return;
+	case WATCH_SCID:
+		scid_watches_del(bwatch->scid_watches, w);
+		return;
+	case WATCH_BLOCKDEPTH:
+		blockdepth_watches_del(bwatch->blockdepth_watches, w);
+		return;
+	}
+	abort();
+}
+
+/* List all datastore entries under a key prefix (up to 2 components). */
+static const jsmntok_t *bwatch_list_datastore(const tal_t *ctx,
+					      struct command *cmd,
+					      const char *key1, const char *key2,
+					      const char **buf_out)
+{
+	struct json_out *params = json_out_new(tmpctx);
+	const jsmntok_t *result;
+
+	json_out_start(params, NULL, '{');
+	json_out_start(params, "key", '[');
+	json_out_addstr(params, NULL, key1);
+	if (key2)
+		json_out_addstr(params, NULL, key2);
+	json_out_end(params, ']');
+	json_out_end(params, '}');
+
+	result = jsonrpc_request_sync(ctx, cmd, "listdatastore", params, buf_out);
+	return json_get_member(*buf_out, result, "datastore");
+}
+
+/* Datastore write completed (success or expected failure such as duplicate).
+ * Either way, invoke the caller's continuation to keep the poll chain alive. */
+static struct command_result *block_store_done(struct command *cmd,
+					       const char *method UNNEEDED,
+					       const char *buf UNNEEDED,
+					       const jsmntok_t *result UNNEEDED,
+					       struct command_result *(*done)(struct command *))
+{
+	return done(cmd);
+}
+
+struct command_result *bwatch_add_block_to_datastore(
+	struct command *cmd,
+	const struct block_record_wire *br,
+	struct command_result *(*done)(struct command *cmd))
+{
+	/* Zero-pad to 10 digits so listdatastore returns blocks in height
+	 * order ("0000000100" < "0000000101"). */
+	const char **key = mkdatastorekey(tmpctx, "bwatch", "block_history",
+					  take(tal_fmt(NULL, "%010u", br->height)));
+	const u8 *data = towire_bwatch_block(tmpctx, br);
+
+	plugin_log(cmd->plugin, LOG_DBG, "Added block %u to datastore", br->height);
+
+	/* Chain `done` as both success and failure continuation so the poll
+	 * cmd is held alive until the write is acknowledged. Write failure
+	 * (e.g. duplicate on restart) is non-fatal — the poll must continue. */
+	return jsonrpc_set_datastore_binary(cmd, key,
+					    data, tal_bytelen(data),
+					    "must-create",
+					    block_store_done, block_store_done,
+					    done);
+}
+
+void bwatch_add_block_to_history(struct bwatch *bwatch, u32 height,
+				 const struct bitcoin_blkid *hash,
+				 const struct bitcoin_blkid *prev_hash)
+{
+	struct block_record_wire br;
+
+	br.height = height;
+	br.hash = *hash;
+	br.prev_hash = *prev_hash;
+	tal_arr_expand(&bwatch->block_history, br);
+
+	plugin_log(bwatch->plugin, LOG_DBG,
+		   "Added block %u to history (now %zu blocks)",
+		   height, tal_count(bwatch->block_history));
+}
+
+void bwatch_delete_block_from_datastore(struct command *cmd, u32 height)
+{
+	struct json_out *params = json_out_new(tmpctx);
+	const char *buf;
+
+	json_out_start(params, NULL, '{');
+	json_out_start(params, "key", '[');
+	json_out_addstr(params, NULL, "bwatch");
+	json_out_addstr(params, NULL, "block_history");
+	json_out_addstr(params, NULL, tal_fmt(tmpctx, "%010u", height));
+	json_out_end(params, ']');
+	json_out_end(params, '}');
+
+	jsonrpc_request_sync(tmpctx, cmd, "deldatastore", params, &buf);
+
+	plugin_log(cmd->plugin, LOG_DBG, "Deleted block %u from datastore", height);
+}
+
+const struct block_record_wire *bwatch_last_block(const struct bwatch *bwatch)
+{
+	if (tal_count(bwatch->block_history) == 0)
+		return NULL;
+
+	return &bwatch->block_history[tal_count(bwatch->block_history) - 1];
+}
+
+void bwatch_load_block_history(struct command *cmd, struct bwatch *bwatch)
+{
+	const char *buf;
+	const jsmntok_t *datastore, *t;
+	size_t i;
+	const struct block_record_wire *most_recent;
+
+	datastore = bwatch_list_datastore(tmpctx, cmd, "bwatch", "block_history", &buf);
+
+	json_for_each_arr(i, t, datastore) {
+		const u8 *data = json_tok_bin_from_hex(tmpctx, buf,
+						       json_get_member(buf, t, "hex"));
+		struct block_record_wire br;
+
+		if (!data)
+			plugin_err(cmd->plugin,
+				   "Bad block_history hex %.*s",
+				   json_tok_full_len(t),
+				   json_tok_full(buf, t));
+
+		if (!fromwire_bwatch_block(data, &br)) {
+			plugin_err(cmd->plugin,
+				   "Bad block_history %.*s",
+				   json_tok_full_len(t),
+				   json_tok_full(buf, t));
+		}
+		tal_arr_expand(&bwatch->block_history, br);
+	}
+
+	most_recent = bwatch_last_block(bwatch);
+	if (most_recent) {
+		bwatch->current_height = most_recent->height;
+		bwatch->current_blockhash = most_recent->hash;
+		plugin_log(cmd->plugin, LOG_DBG,
+			   "Restored %zu blocks from datastore, current height=%u",
+			   tal_count(bwatch->block_history),
+			   bwatch->current_height);
+	} else {
+		bwatch->current_height = 0;
+		memset(&bwatch->current_blockhash, 0,
+		       sizeof(bwatch->current_blockhash));
+	}
+}
+
+static char *fmt_scriptpubkey(const tal_t *ctx,
+			      const struct scriptpubkey *scriptpubkey)
+{
+	return tal_hexstr(ctx, scriptpubkey->script, scriptpubkey->len);
+}
+
+/* Build the datastore key path for a watch.  All watch types share the
+ * ["bwatch", <type>, <stringified-key>] layout; only the key payload
+ * varies. */
+static const char **get_watch_datastore_key(const tal_t *ctx, const struct watch *w)
+{
+	const char *type_name = bwatch_get_watch_type_name(w->type);
+
+	switch (w->type) {
+	case WATCH_SCRIPTPUBKEY: {
+		return mkdatastorekey(ctx, "bwatch", type_name,
+				      take(fmt_scriptpubkey(NULL, &w->key.scriptpubkey)));
+	}
+	case WATCH_OUTPOINT:
+		return mkdatastorekey(ctx, "bwatch", type_name,
+				      take(fmt_bitcoin_outpoint(NULL, &w->key.outpoint)));
+	case WATCH_SCID:
+		return mkdatastorekey(ctx, "bwatch", type_name,
+				      take(fmt_short_channel_id(NULL, w->key.scid)));
+	case WATCH_BLOCKDEPTH:
+		return mkdatastorekey(ctx, "bwatch", type_name,
+				      take(tal_fmt(NULL, "%u", w->start_block)));
+	}
+	abort();
+}
+
+static struct watch_wire *watch_to_wire(const tal_t *ctx, const struct watch *w)
+{
+	struct watch_wire *wire = tal(ctx, struct watch_wire);
+	size_t num_owners;
+
+	wire->type = w->type;
+	wire->start_block = w->start_block;
+
+	wire->scriptpubkey = NULL;
+	memset(&wire->outpoint, 0, sizeof(wire->outpoint));
+	wire->scid_blockheight = wire->scid_txindex = wire->scid_outnum = 0;
+	wire->blockdepth = 0;
+
+	switch (w->type) {
+	case WATCH_SCRIPTPUBKEY:
+		wire->scriptpubkey = tal_dup_arr(wire, u8,
+						 w->key.scriptpubkey.script,
+						 w->key.scriptpubkey.len, 0);
+		break;
+	case WATCH_OUTPOINT:
+		wire->outpoint = w->key.outpoint;
+		break;
+	case WATCH_SCID:
+		wire->scid_blockheight = short_channel_id_blocknum(w->key.scid);
+		wire->scid_txindex = short_channel_id_txnum(w->key.scid);
+		wire->scid_outnum = short_channel_id_outnum(w->key.scid);
+		break;
+	case WATCH_BLOCKDEPTH:
+		wire->blockdepth = w->start_block;
+		break;
+	}
+
+	num_owners = tal_count(w->owners);
+	wire->owners = tal_arr(wire, wirestring *, num_owners);
+	for (size_t i = 0; i < num_owners; i++)
+		wire->owners[i] = tal_strdup(wire->owners, w->owners[i]);
+
+	return wire;
+}
+
+static struct watch *watch_from_wire(const tal_t *ctx, const struct watch_wire *wire)
+{
+	struct watch *w = tal(ctx, struct watch);
+	size_t num_owners;
+
+	w->type = wire->type;
+	w->start_block = wire->start_block;
+
+	switch (wire->type) {
+	case WATCH_SCRIPTPUBKEY:
+		w->key.scriptpubkey.len = tal_bytelen(wire->scriptpubkey);
+		w->key.scriptpubkey.script = tal_dup_arr(w, u8, wire->scriptpubkey,
+							 w->key.scriptpubkey.len, 0);
+		break;
+	case WATCH_OUTPOINT:
+		w->key.outpoint = wire->outpoint;
+		break;
+	case WATCH_SCID:
+		if (!mk_short_channel_id(&w->key.scid,
+					 wire->scid_blockheight,
+					 wire->scid_txindex,
+					 wire->scid_outnum))
+			return tal_free(w);
+		break;
+	case WATCH_BLOCKDEPTH:
+		w->start_block = wire->blockdepth;
+		break;
+	}
+
+	num_owners = tal_count(wire->owners);
+	w->owners = tal_arr(w, wirestring *, num_owners);
+	for (size_t i = 0; i < num_owners; i++)
+		w->owners[i] = tal_strdup(w->owners, wire->owners[i]);
+
+	return w;
+}
+
+static void load_watches_by_type(struct command *cmd, struct bwatch *bwatch,
+				 enum watch_type type)
+{
+	const char *watch_type_name = bwatch_get_watch_type_name(type);
+	const char *buf;
+	const jsmntok_t *datastore, *t;
+	size_t i, count = 0;
+
+	datastore = bwatch_list_datastore(tmpctx, cmd, "bwatch", watch_type_name, &buf);
+
+	json_for_each_arr(i, t, datastore) {
+		const u8 *data = json_tok_bin_from_hex(tmpctx, buf,
+						       json_get_member(buf, t, "hex"));
+		struct watch_wire *wire;
+		struct watch *w;
+
+		if (!data)
+			continue;
+
+		if (!fromwire_bwatch_watch(tmpctx, data, &wire))
+			continue;
+
+		w = watch_from_wire(bwatch, wire);
+		if (!w || w->type != type)
+			continue;
+
+		bwatch_add_watch_to_hash(bwatch, w);
+		count++;
+	}
+
+	plugin_log(cmd->plugin, LOG_DBG, "Restored %zu %s from datastore",
+		   count, watch_type_name);
+}
+
+void bwatch_save_watch_to_datastore(struct command *cmd, const struct watch *w)
+{
+	const u8 *data = towire_bwatch_watch(tmpctx, watch_to_wire(tmpctx, w));
+	const char **key = get_watch_datastore_key(tmpctx, w);
+	struct json_out *params = json_out_new(tmpctx);
+	const char *buf;
+
+	json_out_start(params, NULL, '{');
+	json_out_start(params, "key", '[');
+	for (size_t i = 0; i < tal_count(key); i++)
+		json_out_addstr(params, NULL, key[i]);
+	json_out_end(params, ']');
+	json_out_addstr(params, "mode", "create-or-replace");
+	json_out_addstr(params, "hex", tal_hex(tmpctx, data));
+	json_out_end(params, '}');
+
+	jsonrpc_request_sync(tmpctx, cmd, "datastore", params, &buf);
+
+	plugin_log(cmd->plugin, LOG_DBG,
+		   "Saved watch to datastore (type=%d, num_owners=%zu)",
+		   w->type, tal_count(w->owners));
+}
+
+void bwatch_delete_watch_from_datastore(struct command *cmd, const struct watch *w)
+{
+	const char **key = get_watch_datastore_key(tmpctx, w);
+	struct json_out *params = json_out_new(tmpctx);
+	const char *buf;
+
+	json_out_start(params, NULL, '{');
+	json_out_start(params, "key", '[');
+	for (size_t i = 0; i < tal_count(key); i++)
+		json_out_addstr(params, NULL, key[i]);
+	json_out_end(params, ']');
+	json_out_end(params, '}');
+
+	jsonrpc_request_sync(tmpctx, cmd, "deldatastore", params, &buf);
+
+	plugin_log(cmd->plugin, LOG_DBG,
+		   "Deleted watch from datastore: ...%s",
+		   key[tal_count(key) - 1]);
+}
+
+void bwatch_load_watches_from_datastore(struct command *cmd, struct bwatch *bwatch)
+{
+	load_watches_by_type(cmd, bwatch, WATCH_SCRIPTPUBKEY);
+	load_watches_by_type(cmd, bwatch, WATCH_OUTPOINT);
+	load_watches_by_type(cmd, bwatch, WATCH_SCID);
+	load_watches_by_type(cmd, bwatch, WATCH_BLOCKDEPTH);
+}
+
+/* -1 means "not found" */
+static int find_owner(wirestring **owners, const char *owner_id)
+{
+	for (size_t i = 0; i < tal_count(owners); i++) {
+		if (streq(owners[i], owner_id))
+			return i;
+	}
+	return -1;
+}
+
+struct watch *bwatch_add_watch(struct command *cmd,
+			       struct bwatch *bwatch,
+			       enum watch_type type,
+			       const struct bitcoin_outpoint *outpoint,
+			       const u8 *scriptpubkey,
+			       const struct short_channel_id *scid,
+			       const u32 *confirm_height,
+			       u32 start_block,
+			       const char *owner_id TAKES)
+{
+	struct watch *w = bwatch_get_watch(bwatch, type, outpoint, scriptpubkey,
+					   scid, confirm_height);
+
+	if (w) {
+		bool lowered = start_block < w->start_block;
+		bool found_owner = (find_owner(w->owners, owner_id) != -1);
+		if (lowered)
+			w->start_block = start_block;
+		if (!found_owner)
+			tal_arr_expand(&w->owners,
+				       tal_strdup(w->owners, owner_id));
+		bwatch_save_watch_to_datastore(cmd, w);
+		/* Always rescan even if owner is already registered: stateless
+		 * restarters (e.g. onchaind) re-register on startup and need
+		 * missed spend events replayed. */
+		plugin_log(cmd->plugin, LOG_DBG,
+			   found_owner
+			   ? (lowered
+			      ? "Owner %s already watching, lowering start_block to %u"
+			      : "Owner %s already watching, rescanning for missed events at %u")
+			   : "Owner %s added to existing watch, start_block %u",
+			   owner_id, w->start_block);
+		return w;
+	}
+
+	w = tal(bwatch, struct watch);
+	w->type = type;
+	w->start_block = start_block;
+	switch (w->type) {
+	case WATCH_SCRIPTPUBKEY:
+		w->key.scriptpubkey.len = tal_bytelen(scriptpubkey);
+		w->key.scriptpubkey.script = tal_dup_talarr(w, u8, scriptpubkey);
+		break;
+	case WATCH_OUTPOINT:
+		w->key.outpoint = *outpoint;
+		break;
+	case WATCH_SCID:
+		w->key.scid = *scid;
+		break;
+	case WATCH_BLOCKDEPTH:
+		/* confirm_height == start_block for blockdepth watches;
+		 * already set from start_block above. */
+		break;
+	}
+	w->owners = tal_arr(w, wirestring *, 1);
+	w->owners[0] = tal_strdup(w->owners, owner_id);
+	bwatch_save_watch_to_datastore(cmd, w);
+	bwatch_add_watch_to_hash(bwatch, w);
+	return w;
+}
+
+void bwatch_del_watch(struct command *cmd,
+		      struct bwatch *bwatch,
+		      enum watch_type type,
+		      const struct bitcoin_outpoint *outpoint,
+		      const u8 *scriptpubkey,
+		      const struct short_channel_id *scid,
+		      const u32 *confirm_height,
+		      const char *owner_id)
+{
+	struct watch *w = bwatch_get_watch(bwatch, type, outpoint, scriptpubkey,
+					   scid, confirm_height);
+	int owner_off;
+
+	if (!w) {
+		plugin_log(cmd->plugin, LOG_DBG,
+			   "Attempted to remove non-existent %s watch (already gone)",
+			   bwatch_get_watch_type_name(type));
+		return;
+	}
+
+	owner_off = find_owner(w->owners, owner_id);
+	if (owner_off < 0) {
+		plugin_log(cmd->plugin, LOG_BROKEN,
+			   "Attempted to remove watch for owner %s but it wasn't watching",
+			   owner_id);
+		return;
+	}
+
+	tal_free(w->owners[owner_off]);
+	tal_arr_remove(&w->owners, owner_off);
+
+	if (tal_count(w->owners) == 0) {
+		bwatch_delete_watch_from_datastore(cmd, w);
+		bwatch_remove_watch_from_hash(bwatch, w);
+		tal_free(w);
+	} else {
+		bwatch_save_watch_to_datastore(cmd, w);
+	}
+}

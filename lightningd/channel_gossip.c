@@ -7,13 +7,13 @@
 #include <common/wire_error.h>
 #include <connectd/connectd_wiregen.h>
 #include <hsmd/hsmd_wiregen.h>
-#include <lightningd/chaintopology.h>
 #include <lightningd/channel.h>
 #include <lightningd/channel_gossip.h>
 #include <lightningd/gossip_generation.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/subd.h>
+#include <lightningd/watchman.h>
 
 enum channel_gossip_state {
 	/* It's dead, so don't talk about it. */
@@ -233,7 +233,7 @@ static bool has_matching_peer_sigs(const struct channel *channel)
 
 static bool has_announce_depth(const struct channel *channel)
 {
-	u32 block_height = get_block_height(channel->peer->ld->topology);
+	u32 block_height = get_block_height(channel->peer->ld);
 
 	if (!has_matching_peer_sigs(channel))
 		return false;
@@ -851,6 +851,13 @@ static void set_gossip_state(struct channel *channel,
 
 		/* And maybe our first node_announcement */
 		channel_gossip_node_announce(channel->peer->ld);
+
+		/* Watch for funding spend: inject_gossip skips GET_TXOUT so
+		 * gossip_scid_watch_found never fires for our own channels. */
+		watchman_watch_outpoint(channel->peer->ld,
+					owner_gossip_funding_spent(tmpctx, *channel->scid),
+					&channel->funding,
+					short_channel_id_blocknum(*channel->scid));
 		return;
 
 	case CGOSSIP_CHANNEL_ANNOUNCED_DYING:
@@ -950,6 +957,25 @@ void channel_gossip_init(struct channel *channel,
 	check_channel_gossip(channel);
 }
 
+void channel_gossip_funding_reorg(struct channel *channel)
+{
+	struct channel_gossip *cg = channel->channel_gossip;
+	if (!cg)
+		return;
+
+	/* Stashed remote sigs reference the old scid; drop them so the
+	 * fresh announcement (if any) doesn't try to use them. */
+	cg->remote_sigs = tal_free(cg->remote_sigs);
+
+	/* The state machine has no legal backward transition, so re-derive
+	 * from the channel's current properties instead of trying to walk
+	 * back through it. */
+	cg->state = derive_channel_state(channel);
+	log_debug(channel->log,
+		  "channel_gossip: reset to %s after funding reorg",
+		  channel_gossip_state_str(cg->state));
+}
+
 /* Something about channel changed: update if required */
 void channel_gossip_update(struct channel *channel)
 {
@@ -996,6 +1022,14 @@ void channel_gossip_got_announcement_sigs(struct channel *channel,
 		/* We don't care what they said, but it does prompt our response */
 		goto send_our_sigs;
 	case CGOSSIP_WAITING_FOR_MATCHING_PEER_SIGS:
+		stash_remote_announce_sigs(channel, scid, node_sig, bitcoin_sig);
+		update_gossip_state(channel);
+		/* Under bwatch, peer_got_splice_locked fires asynchronously,
+		 * so the peer may retransmit sigs after we've already sent
+		 * ours.  Clear sent_sigs so we respond again, otherwise the
+		 * peer stays stuck in WAITING_FOR_MATCHING_PEER_SIGS. */
+		channel->channel_gossip->sent_sigs = false;
+		goto send_our_sigs;
 	case CGOSSIP_WAITING_FOR_ANNOUNCE_DEPTH:
 		stash_remote_announce_sigs(channel, scid, node_sig, bitcoin_sig);
 		update_gossip_state(channel);
@@ -1171,6 +1205,17 @@ void channel_gossip_init_done(struct lightningd *ld)
 				continue;
 
 			check_channel_gossip(channel);
+
+			/* inject_gossip skips GET_TXOUT, so gossip_scid_watch_found
+			 * never fires for our own channels; register explicitly. */
+			if (channel->channel_gossip->state == CGOSSIP_ANNOUNCED
+			    && channel->scid) {
+				watchman_watch_outpoint(ld,
+							owner_gossip_funding_spent(tmpctx, *channel->scid),
+							&channel->funding,
+							short_channel_id_blocknum(*channel->scid));
+			}
+
 			if (channel->channel_gossip->cupdate)
 				continue;
 			if (channel->channel_gossip->state != CGOSSIP_ANNOUNCED)

@@ -5,13 +5,13 @@
 #include <ccan/cast/cast.h>
 #include <common/json_command.h>
 #include <common/psbt_open.h>
-#include <lightningd/chaintopology.h>
 #include <lightningd/channel.h>
 #include <lightningd/feerate.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
-#include <wallet/txfilter.h>
+#include <lightningd/watchman.h>
+#include <wallet/wallet.h>
 
 /* 12 hours is usually enough reservation time */
 #define RESERVATION_DEFAULT (6 * 12)
@@ -100,7 +100,7 @@ static struct command_result *json_reserveinputs(struct command *cmd,
 					fmt_wally_psbt(tmpctx, psbt));
 	}
 
-	current_height = get_block_height(cmd->ld->topology);
+	current_height = get_block_height(cmd->ld);
 	for (size_t i = 0; i < psbt->num_inputs; i++) {
 		struct bitcoin_outpoint outpoint;
 		struct utxo *utxo;
@@ -203,11 +203,11 @@ static struct command_result *json_unreserveinputs(struct command *cmd,
 
 		wallet_unreserve_utxo(cmd->ld->wallet,
 				      utxo,
-				      get_block_height(cmd->ld->topology),
+				      get_block_height(cmd->ld),
 				      *reserve);
 
 		json_add_reservestatus(response, utxo, oldstatus, old_res,
-				       get_block_height(cmd->ld->topology));
+				       get_block_height(cmd->ld));
 	}
 	json_array_end(response);
 	return command_success(cmd, response);
@@ -344,11 +344,11 @@ static struct command_result *finish_psbt(struct command *cmd,
 	struct json_stream *response;
 	struct wally_psbt *psbt;
 	ssize_t change_outnum;
-	u32 current_height = get_block_height(cmd->ld->topology);
+	u32 current_height = get_block_height(cmd->ld);
 
 	if (!locktime) {
 		locktime = tal(cmd, u32);
-		*locktime = default_locktime(cmd->ld->topology);
+		*locktime = default_locktime(cmd->ld);
 	}
 
 	psbt = psbt_using_utxos(cmd, cmd->ld->wallet, utxos,
@@ -360,7 +360,7 @@ static struct command_result *finish_psbt(struct command *cmd,
 	change = change_amount(change, feerate_per_kw, weight);
 	if (amount_sat_greater(change, AMOUNT_SAT(0))) {
 		s64 keyidx;
-		u8 *b32script;
+		u8 *scriptpubkey;
 		enum addrtype type;
 
 		/* FIXME: P2TR for elements! */
@@ -377,18 +377,22 @@ static struct command_result *finish_psbt(struct command *cmd,
 					    " Keys exhausted.");
 
 		if (chainparams->is_elements) {
-			b32script = p2wpkh_for_keyidx(tmpctx, cmd->ld, keyidx);
+			scriptpubkey = p2wpkh_for_keyidx(tmpctx, cmd->ld, keyidx);
 		} else {
-			b32script = p2tr_for_keyidx(tmpctx, cmd->ld, keyidx);
+			scriptpubkey = p2tr_for_keyidx(tmpctx, cmd->ld, keyidx);
 		}
-		if (!b32script) {
+		if (!scriptpubkey) {
 			return command_fail(cmd, LIGHTNINGD,
 					    "Failed to generate change address."
 					    " Keys generation failure");
 		}
+		wallet_add_bwatch_scriptpubkey(cmd->ld,
+					      type == ADDR_BECH32 ? "p2wpkh" : "p2tr",
+					      keyidx, UINT32_MAX,
+					      scriptpubkey, tal_bytelen(scriptpubkey));
 
 		change_outnum = psbt->num_outputs;
-		psbt_append_output(psbt, b32script, change);
+		psbt_append_output(psbt, scriptpubkey, change);
 		/* Add additional weight of output */
 		weight += bitcoin_tx_output_weight(
 				chainparams->is_elements ? BITCOIN_SCRIPTPUBKEY_P2WPKH_LEN : BITCOIN_SCRIPTPUBKEY_P2TR_LEN);
@@ -434,9 +438,9 @@ static inline u32 minconf_to_maxheight(u32 minconf, struct lightningd *ld)
 	/* Avoid wrapping around and suddenly allowing any confirmed
 	 * outputs. Since we can't have a coinbase output, and 0 is taken for
 	 * the disable case, we can just clamp to 1. */
-	if (minconf >= ld->topology->tip->height)
+	if (minconf >= get_block_height(ld))
 		return 1;
-	return ld->topology->tip->height - minconf + 1;
+	return get_block_height(ld) - minconf + 1;
 }
 
 /* Returns false if it needed to create change, but couldn't afford. */
@@ -458,7 +462,7 @@ static bool change_for_emergency(struct lightningd *ld,
 	 * needed amount. */
 	if (wallet_has_funds(ld->wallet,
 			     cast_const2(const struct utxo **, utxos),
-			     get_block_height(ld->topology),
+			     get_block_height(ld),
 			     &needed))
 		return true;
 
@@ -526,7 +530,7 @@ static struct command_result *json_fundpsbt(struct command *cmd,
 	all = amount_sat_eq(*amount, AMOUNT_SAT(-1ULL));
 	maxheight = minconf_to_maxheight(*minconf, cmd->ld);
 
-	current_height = get_block_height(cmd->ld->topology);
+	current_height = get_block_height(cmd->ld);
 
 	/* We keep adding until we meet their output requirements. */
 	utxos = tal_arr(cmd, struct utxo *, 0);
@@ -577,7 +581,7 @@ static struct command_result *json_fundpsbt(struct command *cmd,
 
 		/* Since it's possible the lack of utxos is because we haven't
 		 * finished syncing yet, report a sync timing error first */
-		if (!topology_synced(cmd->ld->topology))
+		if (!cmd->ld->bitcoind->synced)
 			return command_fail(cmd,
 					    FUNDING_STILL_SYNCING_BITCOIN,
 					    "Cannot afford: still syncing with bitcoin network...");
@@ -599,7 +603,7 @@ static struct command_result *json_fundpsbt(struct command *cmd,
 				       *feerate_per_kw, *weight,
 				       &diff)
 		    || amount_sat_less(diff, chainparams->dust_limit)) {
-			if (!topology_synced(cmd->ld->topology))
+			if (!cmd->ld->bitcoind->synced)
 				return command_fail(cmd,
 						    FUNDING_STILL_SYNCING_BITCOIN,
 						    "Cannot afford: still syncing with bitcoin network...");
@@ -656,7 +660,7 @@ static struct command_result *json_addpsbtoutput(struct command *cmd,
 	ssize_t outnum;
 	u32 weight;
 	s64 keyidx;
-	const u8 *b32script;
+	const u8 *scriptpubkey;
 	bool *add_initiator_serial_ids;
 	struct wally_psbt_output *output;
 	u64 serial_id;
@@ -666,7 +670,7 @@ static struct command_result *json_addpsbtoutput(struct command *cmd,
 			 p_opt("initialpsbt", param_psbt, &psbt),
 			 p_opt("locktime", param_number, &locktime),
 			 p_opt("destination", param_bitcoin_address,
-			       &b32script),
+			       &scriptpubkey),
 			 p_opt_def("add_initiator_serial_ids", param_bool,
 			 	   &add_initiator_serial_ids, false),
 			 NULL))
@@ -675,7 +679,7 @@ static struct command_result *json_addpsbtoutput(struct command *cmd,
 	if (!psbt) {
 		if (!locktime) {
 			locktime = tal(cmd, u32);
-			*locktime = default_locktime(cmd->ld->topology);
+			*locktime = default_locktime(cmd->ld);
 		}
 		psbt = create_psbt(cmd, 0, 0, *locktime);
 	} else if (locktime) {
@@ -698,7 +702,7 @@ static struct command_result *json_addpsbtoutput(struct command *cmd,
 		return command_check_done(cmd);
 
 	/* Get a change adddress */
-	if (!b32script) {
+	if (!scriptpubkey) {
 		enum addrtype type;
 
 		/* FIXME: P2TR for elements! */
@@ -714,20 +718,24 @@ static struct command_result *json_addpsbtoutput(struct command *cmd,
 					    " Keys exhausted.");
 
 		if (chainparams->is_elements) {
-			b32script = p2wpkh_for_keyidx(tmpctx, cmd->ld, keyidx);
+			scriptpubkey = p2wpkh_for_keyidx(tmpctx, cmd->ld, keyidx);
 		} else {
-			b32script = p2tr_for_keyidx(tmpctx, cmd->ld, keyidx);
+			scriptpubkey = p2tr_for_keyidx(tmpctx, cmd->ld, keyidx);
 		}
 
-		if (!b32script) {
+		if (!scriptpubkey) {
 			return command_fail(cmd, LIGHTNINGD,
 					    "Failed to generate change address."
 					    " Keys generation failure");
 		}
+		wallet_add_bwatch_scriptpubkey(cmd->ld,
+					      type == ADDR_BECH32 ? "p2wpkh" : "p2tr",
+					      keyidx, UINT32_MAX,
+					      scriptpubkey, tal_bytelen(scriptpubkey));
 	}
 
 	outnum = psbt->num_outputs;
-	output = psbt_append_output(psbt, b32script, *amount);
+	output = psbt_append_output(psbt, scriptpubkey, *amount);
 
 	if (*add_initiator_serial_ids) {
 		serial_id = psbt_new_output_serial(psbt, TX_INITIATOR);
@@ -785,7 +793,7 @@ static struct command_result *json_addpsbtinput(struct command *cmd,
 	if (!psbt) {
 		if (!locktime) {
 			locktime = tal(cmd, u32);
-			*locktime = default_locktime(cmd->ld->topology);
+			*locktime = default_locktime(cmd->ld);
 		}
 		psbt = create_psbt(cmd, 0, 0, *locktime);
 	} else if (locktime) {
@@ -805,12 +813,12 @@ static struct command_result *json_addpsbtinput(struct command *cmd,
 
 	if (!min_feerate) {
 		min_feerate = tal(cmd, u32);
-		*min_feerate = opening_feerate(cmd->ld->topology);
+		*min_feerate = opening_feerate(cmd->ld);
 	}
 
 	all = amount_sat_eq(*req_amount, AMOUNT_SAT(-1ULL));
 
-	current_height = get_block_height(cmd->ld->topology);
+	current_height = get_block_height(cmd->ld);
 
 	/* We keep adding until we meet their output requirements. */
 	utxos = tal_arr(cmd, struct utxo *, 0);
@@ -859,7 +867,7 @@ static struct command_result *json_addpsbtinput(struct command *cmd,
 
 		/* Since it's possible the lack of utxos is because we haven't
 		 * finished syncing yet, report a sync timing error first */
-		if (!topology_synced(cmd->ld->topology))
+		if (!cmd->ld->bitcoind->synced)
 			return command_fail(cmd,
 					    FUNDING_STILL_SYNCING_BITCOIN,
 					    "Cannot afford: still syncing with"
@@ -880,7 +888,7 @@ static struct command_result *json_addpsbtinput(struct command *cmd,
 	/* If rest of wallet has enough funds, than no emergency sats required. */
 	if (wallet_has_funds(cmd->ld->wallet,
 			     cast_const2(const struct utxo **, utxos),
-			     get_block_height(cmd->ld->topology),
+			     get_block_height(cmd->ld),
 			     &cmd->ld->emergency_sat))
 		emergency_sat = AMOUNT_SAT(0);
 	else
@@ -1027,7 +1035,7 @@ static struct command_result *json_utxopsbt(struct command *cmd,
 	all = amount_sat_eq(*amount, AMOUNT_SAT(-1ULL));
 
 	input = AMOUNT_SAT(0);
-	current_height = get_block_height(cmd->ld->topology);
+	current_height = get_block_height(cmd->ld);
 	for (size_t i = 0; i < tal_count(utxos); i++) {
 		const struct utxo *utxo = utxos[i];
 
