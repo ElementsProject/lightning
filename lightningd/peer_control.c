@@ -2400,8 +2400,14 @@ void channel_funding_depth_found(struct lightningd *ld,
 			lockin_complete(channel, CHANNELD_AWAITING_LOCKIN);
 		break;
 	case CHANNELD_NORMAL:
-	case CHANNELD_AWAITING_SPLICE:
 		channeld_tell_depth(channel, &channel->funding.txid, depth);
+		break;
+	case CHANNELD_AWAITING_SPLICE:
+		/* Use the splice-flavoured tell so channeld routes through
+		 * its splice path; the regular tell is reserved for the
+		 * original funding tx's confirmation. */
+		channeld_tell_splice_depth(channel, channel->scid,
+					   &channel->funding.txid, depth);
 		break;
 	default:
 		/* DUALOPEND_AWAITING_LOCKIN, ONCHAIN, etc. are driven by their
