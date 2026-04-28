@@ -742,58 +742,20 @@ static void handle_splice_sending_sigs(struct lightningd *ld,
 	watch_splice_inflight(ld, inflight);
 }
 
-static void scid_updated(struct channel *channel)
-{
-	if (channel->channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL)
-		tell_connectd_scid(channel->peer->ld, *channel->scid, &channel->peer->id);
-
-	wallet_channel_save(channel->peer->ld->wallet, channel);
-}
-
-/* You must call scid_updated after this! */
-static void change_scid(struct channel *channel,
-			struct short_channel_id scid)
-{
-	struct short_channel_id old_scid = *channel->scid;
-
-	/* We freaked out if required when original was
-	 * removed, so just update now */
-	log_info(channel->log, "Short channel id changed from %s->%s",
-		 fmt_short_channel_id(tmpctx, *channel->scid),
-		 fmt_short_channel_id(tmpctx, scid));
-	channel_set_scid(channel, &scid);
-	/* In case we broadcast it before (e.g. splice!) */
-	channel_add_old_scid(channel, old_scid);
-	channel_gossip_scid_changed(channel);
-}
-
 bool depthcb_update_scid(struct channel *channel,
 			 const struct bitcoin_outpoint *outpoint,
-			 const struct txlocator *loc)
+			 const struct short_channel_id *scid)
 {
 	struct lightningd *ld = channel->peer->ld;
-	struct short_channel_id scid;
-
-	/* What scid is this giving us? */
-	if (!mk_short_channel_id(&scid,
-				 loc->blkheight, loc->index,
-				 outpoint->n)) {
-		channel_fail_permanent(channel,
-				       REASON_LOCAL,
-				       "Invalid funding scid %u:%u:%u",
-				       loc->blkheight, loc->index,
-				       outpoint->n);
-		return false;
-	}
 
 	/* No change?  Great. */
-	if (channel->scid && short_channel_id_eq(*channel->scid, scid))
+	if (channel->scid && short_channel_id_eq(*channel->scid, *scid))
 		return true;
 
 	if (!channel->scid) {
 		wallet_annotate_txout(ld->wallet, outpoint,
 				      TX_CHANNEL_FUNDING, channel->dbid);
-		channel_set_scid(channel, &scid);
+		channel_set_scid(channel, scid);
 
 		/* If we have a zeroconf channel, i.e., no scid yet
 		 * but have exchange `channel_ready` messages, then we
@@ -805,10 +767,23 @@ bool depthcb_update_scid(struct channel *channel,
 			lockin_has_completed(channel, false);
 
 	} else {
-		change_scid(channel, scid);
+		struct short_channel_id old_scid = *channel->scid;
+
+		/* We freaked out if required when original was
+		 * removed, so just update now */
+		log_info(channel->log, "Short channel id changed from %s->%s",
+			 fmt_short_channel_id(tmpctx, *channel->scid),
+			 fmt_short_channel_id(tmpctx, *scid));
+		channel_set_scid(channel, scid);
+		/* In case we broadcast it before (e.g. splice!) */
+		channel_add_old_scid(channel, old_scid);
+		channel_gossip_scid_changed(channel);
 	}
 
-	scid_updated(channel);
+	if (channel->channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL)
+		tell_connectd_scid(ld, *channel->scid, &channel->peer->id);
+
+	wallet_channel_save(ld->wallet, channel);
 	return true;
 }
 
@@ -1137,8 +1112,15 @@ static void handle_peer_splice_locked(struct channel *channel, const u8 *msg)
 
 	wallet_channel_clear_inflights(channel->peer->ld->wallet, channel);
 
-	/* Update the scid and tell everyone */
-	change_scid(channel, *inflight->locked_scid);
+	depthcb_update_scid(channel,
+			    &inflight->funding->outpoint,
+			    inflight->locked_scid);
+
+	/* channel_splice_watch_found already set channel->scid to the splice
+	 * scid, so depthcb_update_scid returns "no change" and skips
+	 * channel_gossip_scid_changed.  Call it explicitly now that the
+	 * channel is about to enter CHANNELD_NORMAL. */
+	channel_gossip_scid_changed(channel);
 
 	/* That freed watchers in inflights: now watch funding tx */
 	channel_watch_funding(channel->peer->ld, channel);

@@ -2286,7 +2286,6 @@ void channel_funding_watch_found(struct lightningd *ld,
 	struct channel *channel = channel_by_dbid(ld, dbid);
 	struct bitcoin_txid txid;
 	struct short_channel_id scid;
-	struct txlocator loc;
 
 	if (!channel) {
 		log_broken(ld->log,
@@ -2308,6 +2307,11 @@ void channel_funding_watch_found(struct lightningd *ld,
 	 * for an existing channel, not the original funding confirmation. */
 	if (!bitcoin_txid_eq(&txid, &channel->funding.txid)
 	    || outnum != channel->funding.n) {
+		/* Store in our_txs so onchaind / a follow-up splice can
+		 * locate it later. */
+		wallet_transaction_add(ld->wallet, tx->wtx,
+				       blockheight, txindex);
+
 		if (channel_splice_watch_found(ld, channel, &txid, outnum,
 					       &scid, blockheight))
 			return;
@@ -2320,19 +2324,21 @@ void channel_funding_watch_found(struct lightningd *ld,
 		return;
 	}
 
-	/* depthcb_update_scid() expects a txlocator; we have the block height
-	 * and txindex directly, so just fill one in on the stack. */
-	loc.blkheight = blockheight;
-	loc.index = txindex;
-
 	/* depthcb_update_scid is idempotent on rescan, so check before it
 	 * runs whether this is genuinely a first confirmation: the spend
 	 * watch must only be armed once or bwatch will hold a duplicate. */
 	bool first_confirm = !channel->scid;
 
 	/* Closes the channel if the scid doesn't fit. */
-	if (depthcb_update_scid(channel, &channel->funding, &loc)) {
+	if (depthcb_update_scid(channel, &channel->funding, &scid)) {
 		if (first_confirm) {
+			/* Save the funding rawtx so the peer's
+			 * splice_lookup_tx can find it. */
+			wallet_transaction_add(ld->wallet, tx->wtx,
+					       blockheight, txindex);
+			wallet_annotate_txout(ld->wallet, &channel->funding,
+					      TX_CHANNEL_FUNDING, channel->dbid);
+
 			/* channel_watch_funding only registers the
 			 * scriptpubkey watch before the channel has a scid;
 			 * the outpoint spend watch belongs here, the moment

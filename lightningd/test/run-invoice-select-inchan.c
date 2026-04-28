@@ -266,7 +266,7 @@ void delete_channel(struct channel *channel STEALS UNNEEDED,
 /* Generated stub for depthcb_update_scid */
 bool depthcb_update_scid(struct channel *channel UNNEEDED,
 			 const struct bitcoin_outpoint *outpoint UNNEEDED,
-			 const struct txlocator *loc UNNEEDED)
+			 const struct short_channel_id *scid UNNEEDED)
 { fprintf(stderr, "depthcb_update_scid called!\n"); abort(); }
 /* Generated stub for dev_disconnect_permanent */
 bool dev_disconnect_permanent(struct lightningd *ld UNNEEDED)
