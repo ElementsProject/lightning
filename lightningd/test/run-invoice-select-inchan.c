@@ -720,12 +720,6 @@ bool wallet_htlcs_load_out_for_channel(struct wallet *wallet UNNEEDED,
 /* Generated stub for wallet_init_channels */
 bool wallet_init_channels(struct wallet *w UNNEEDED)
 { fprintf(stderr, "wallet_init_channels called!\n"); abort(); }
-/* Generated stub for wallet_insert_funding_spend */
-void wallet_insert_funding_spend(struct wallet *w UNNEEDED,
-				 const struct channel *chan UNNEEDED,
-				 const struct bitcoin_txid *txid UNNEEDED,
-				 const u32 input_num UNNEEDED, const u32 blockheight UNNEEDED)
-{ fprintf(stderr, "wallet_insert_funding_spend called!\n"); abort(); }
 /* Generated stub for wallet_offer_find */
 char *wallet_offer_find(const tal_t *ctx UNNEEDED,
 			struct wallet *w UNNEEDED,
