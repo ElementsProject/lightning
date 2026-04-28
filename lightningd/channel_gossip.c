@@ -1022,6 +1022,14 @@ void channel_gossip_got_announcement_sigs(struct channel *channel,
 		/* We don't care what they said, but it does prompt our response */
 		goto send_our_sigs;
 	case CGOSSIP_WAITING_FOR_MATCHING_PEER_SIGS:
+		stash_remote_announce_sigs(channel, scid, node_sig, bitcoin_sig);
+		update_gossip_state(channel);
+		/* Under bwatch, peer_got_splice_locked fires asynchronously,
+		 * so the peer may retransmit sigs after we've already sent
+		 * ours.  Clear sent_sigs so we respond again, otherwise the
+		 * peer stays stuck in WAITING_FOR_MATCHING_PEER_SIGS. */
+		channel->channel_gossip->sent_sigs = false;
+		goto send_our_sigs;
 	case CGOSSIP_WAITING_FOR_ANNOUNCE_DEPTH:
 		stash_remote_announce_sigs(channel, scid, node_sig, bitcoin_sig);
 		update_gossip_state(channel);
