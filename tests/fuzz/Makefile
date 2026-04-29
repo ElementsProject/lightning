@@ -13,6 +13,12 @@ tests/fuzz/fuzz-handle_onion_message: connectd/onion_message.o connectd/connectd
 tests/fuzz/fuzz-full_channel: channeld/full_channel.o channeld/commit_tx.o
 tests/fuzz/fuzz-open_channel: hsmd/hsmd_wiregen.o openingd/common.o openingd/openingd_wiregen.o
 
+tests/fuzz/fuzz-gossipd: gossipd/gossipd_wiregen.o		\
+				  gossipd/queries.o			\
+				  gossipd/sigcheck.o			\
+				  gossipd/txout_failures.o		\
+				  connectd/connectd_gossipd_wiregen.o
+
 FUZZ_TARGETS_SRC := $(wildcard tests/fuzz/fuzz-*.c)
 FUZZ_TARGETS_OBJS := $(FUZZ_TARGETS_SRC:.c=.o)
 FUZZ_TARGETS_BIN := $(FUZZ_TARGETS_SRC:.c=)
