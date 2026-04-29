@@ -2600,8 +2600,15 @@ void shutdown_plugins(struct lightningd *ld)
 		timers_init(timer, time_mono());
 		new_reltimer(timer, timer, time_from_sec(30), NULL, NULL);
 
-		void *ret = io_loop(timer, &expired);
-		assert(ret == NULL || ret == destroy_plugin);
+		/* Keep looping while plugins are still shutting down.
+		 * io_loop can return early when one plugin exits (e.g.
+		 * num_fds drops to 0) but others may still need time. */
+		while (!list_empty(&ld->plugins->plugins)) {
+			void *ret = io_loop(timer, &expired);
+			/* Timer expired, stop waiting. */
+			if (expired)
+				break;
+		}
 
 		/* Report and free remaining plugins. */
 		while (!list_empty(&ld->plugins->plugins)) {
