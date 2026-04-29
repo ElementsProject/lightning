@@ -575,6 +575,10 @@ command, so they invoices can also be paid onchain.
 
   The *name* is an ISO-4217 name (e.g. USD), which will be passed to *currencyrate* to fetch the exchange rate for that currency on each bookkeeper event.  Setting *name* to the empty string is equivalent not setting it.
 
+* **bwatch-poll-interval**=*MILLISECONDS* [plugin `bwatch`]
+
+  Delay between polls for new blocks from `bitcoind` (default: 30000).
+
 ### Networking options
 
 Note that for simple setups, the implicit *autolisten* option does the
