@@ -661,14 +661,18 @@ def check_getroute_paths(node,
                          paths,
                          layers=[],
                          maxfee_msat=1000,
-                         final_cltv=99):
+                         final_cltv=99,
+                         maxparts=0):
     """Check that routes are as expected in result"""
-    getroutes = node.rpc.getroutes(source=source,
-                                   destination=destination,
-                                   amount_msat=amount_msat,
-                                   layers=layers,
-                                   maxfee_msat=maxfee_msat,
-                                   final_cltv=final_cltv)
+    kwargs = dict(source=source,
+                  destination=destination,
+                  amount_msat=amount_msat,
+                  layers=layers,
+                  maxfee_msat=maxfee_msat,
+                  final_cltv=final_cltv)
+    if maxparts:
+        kwargs["maxparts"] = maxparts
+    getroutes = node.rpc.getroutes(**kwargs)
 
     assert getroutes['probability_ppm'] <= 1000000
     # Total delivered should be amount we told it to send.
@@ -841,7 +845,7 @@ def test_getroutes_single_path(node_factory):
             source=nodemap[1],
             destination=nodemap[2],
             amount_msat=10000001,
-            layers=["auto.no_mpp_support"],
+            maxparts=1,
             maxfee_msat=1000,
             final_cltv=99,
         )
@@ -862,7 +866,7 @@ def test_getroutes_single_path(node_factory):
                 }
             ]
         ],
-        layers=["auto.no_mpp_support"],
+        maxparts=1,
     )
 
     # To be able to route this amount two parts are needed, therefore a single
@@ -873,7 +877,7 @@ def test_getroutes_single_path(node_factory):
             source=nodemap[0],
             destination=nodemap[2],
             amount_msat=10000001,
-            layers=["auto.no_mpp_support"],
+            maxparts=1,
             maxfee_msat=1000,
             final_cltv=99,
         )
@@ -900,7 +904,7 @@ def test_getroutes_single_path(node_factory):
                 },
             ]
         ],
-        layers=["auto.no_mpp_support"],
+        maxparts=1,
     )
 
 
@@ -2099,7 +2103,8 @@ def test_excessive_fee_cost(node_factory):
             source=l1.info["id"],
             destination=node1,
             amount_msat=one_btc // 2,
-            layers=["mylayer", "auto.no_mpp_support"],
+            layers=["mylayer"],
+            maxparts=1,
             maxfee_msat=1000,
             final_cltv=5,
         )
@@ -2583,7 +2588,8 @@ def test_impossible_payment(node_factory):
             source=node1,
             destination=node3,
             amount_msat=pay_amt,
-            layers=["mylayer", "auto.no_mpp_support"],
+            layers=["mylayer"],
+            maxparts=1,
             maxfee_msat=2 * pay_amt,
             final_cltv=5,
         )
