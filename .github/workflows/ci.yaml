@@ -28,8 +28,6 @@ jobs:
     if: |
       github.event.action != 'edited' ||
       contains(github.event.pull_request.body, 'Changelog')
-    env:
-      BOLTDIR: bolts
     strategy:
       fail-fast: true
     steps:
@@ -92,8 +90,6 @@ jobs:
           TEST_NETWORK: ${{ matrix.TEST_NETWORK }}
         run: |
           bash -x .github/scripts/setup.sh
-          # We're going to check BOLT quotes, so get the latest version
-          git clone https://github.com/lightning/bolts.git ../${BOLTDIR}
       - name: Configure
         run: ./configure --enable-debugbuild --enable-rust
       - name: Check source
@@ -199,6 +195,8 @@ jobs:
     runs-on: ubuntu-24.04
     needs:
       - compile
+    env:
+      BOLTDIR: bolts
     strategy:
       matrix:
         CFG: [compile-gcc]
@@ -224,6 +222,8 @@ jobs:
           TEST_NETWORK: ${{ matrix.TEST_NETWORK }}
         run: |
           bash -x .github/scripts/setup.sh
+          # We're going to check BOLT quotes, so get the latest version
+          git clone https://github.com/lightning/bolts.git ../${BOLTDIR}
 
       - name: Download build
         uses: actions/download-artifact@v4
@@ -732,7 +732,7 @@ jobs:
 
       - name: Test
         env:
-          PYTEST_OPTS: ${{ env.PYTEST_OPTS_BASE }} --test-group-random-seed=42 
+          PYTEST_OPTS: ${{ env.PYTEST_OPTS_BASE }} --test-group-random-seed=42
         run: |
           sg wireshark "uv run eatmydata pytest tests/ -n $(($(nproc) + 1)) ${PYTEST_OPTS} --test-group=${{ matrix.GROUP }} --test-group-count=${{ matrix.GROUP_COUNT }}"
       - name: Upload test results

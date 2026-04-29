@@ -68,7 +68,7 @@ bool from_bech32_charset(const tal_t *ctx,
 	u5 *u5data;
 	const char *sep;
 	bool upper = false, lower = false;
-	size_t datalen;
+	size_t datalen, nbits, trailing;
 
 	sep = memchr(bech32, '1', bech32_len);
 	if (!sep)
@@ -93,6 +93,18 @@ bool from_bech32_charset(const tal_t *ctx,
 	/* Check case consistency */
 	if (upper && lower)
 		goto fail;
+
+	/* Padding: converting N 5-bit groups to bytes leaves (N*5 % 8) trailing
+	 * bits. These must be zero and fewer than 5 (otherwise a full 5-bit
+	 * group is wasted as padding, which is invalid). */
+	nbits = datalen * 5;
+	trailing = nbits % 8;
+	if (trailing >= 5)
+		goto fail;
+	for (size_t i = nbits - trailing; i < nbits; i++) {
+		if (get_u5_bit(u5data, i))
+			goto fail;
+	}
 
 	*data = tal_arr(ctx, u8, 0);
 	bech32_pull_bits(data, u5data, tal_bytelen(u5data) * 5);

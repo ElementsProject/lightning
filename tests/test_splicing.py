@@ -229,7 +229,7 @@ def test_splice_gossip(node_factory, bitcoind):
 
     bitcoind.generate_block(5, wait_for_mempool=result['txid'])
 
-    # l3 will see channel dying, but still consider it OK for 12 blocks.
+    # l3 will see channel dying, but still consider it OK for 72 blocks.
     l3.daemon.wait_for_log(f'gossipd: channel {pre_splice_scid} closing soon due to the funding outpoint being spent')
     assert len(l3.rpc.listchannels(short_channel_id=pre_splice_scid)['channels']) == 2
     assert len(l3.rpc.listchannels(source=l1.info['id'])['channels']) == 1
@@ -246,7 +246,7 @@ def test_splice_gossip(node_factory, bitcoind):
     wait_for(lambda: len(l3.rpc.listchannels(short_channel_id=post_splice_scid)['channels']) == 2)
     assert len(l3.rpc.listchannels(short_channel_id=pre_splice_scid)['channels']) == 2
 
-    bitcoind.generate_block(7)
+    bitcoind.generate_block(67)
 
     # The old channel should fall off l3's perspective
     wait_for(lambda: l3.rpc.listchannels(short_channel_id=pre_splice_scid)['channels'] == [])
@@ -416,6 +416,8 @@ def test_commit_crash_splice(node_factory, bitcoind):
 
     l1.daemon.wait_for_log(r"Splice initiator: we commit")
 
+    # Snapshot log position before restart so we only search post-restart logs below.
+    pre_restart_logpos = l1.daemon.logsearch_start
     l1.restart()
 
     # The splicing inflight should have been left pending in the DB
@@ -425,6 +427,11 @@ def test_commit_crash_splice(node_factory, bitcoind):
     l1.daemon.wait_for_log(r'Got reestablish commit=1 revoke=0 inflights: 1, active splices: 1')
     l1.daemon.wait_for_log(r'Splice resume check with local_next_funding: sent, remote_next_funding: received, inflights: 1')
     l1.daemon.wait_for_log(r'Splice negotation, will not send commit, not recv commit, send signature, recv signature as initiator')
+
+    # channel_ready MUST NOT be retransmitted when either channel_reestablish
+    # message contains next_funding or my_current_funding_locked
+    assert not l1.daemon.is_in_log(r'Retransmitting channel_ready for channel',
+                                   start=pre_restart_logpos)
 
     assert l1.db_query("SELECT count(*) as c FROM channel_funding_inflights;")[0]['c'] == 1
 

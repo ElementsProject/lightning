@@ -10,7 +10,8 @@
 #include <inttypes.h>
 #include <time.h>
 
-/* If chains is NULL, max_num_chains is ignored */
+/* If chains is NULL, max_num_chains is ignored.
+ * If must_be_chain is NULL, only structural validity is checked. */
 bool bolt12_chains_match(const struct bitcoin_blkid *chains,
 			 size_t max_num_chains,
 			 const struct chainparams *must_be_chain)
@@ -28,9 +29,16 @@ bool bolt12_chains_match(const struct bitcoin_blkid *chains,
 	 *    - if the node does not accept bitcoin invoices:
 	 *      - MUST NOT respond to the offer
 	 *  - otherwise: (`offer_chains` is set):
-	 *    - if the node does not accept invoices for any of the `chains`:
+	 *    - if the node does not accept invoices for at least one of the `chains`:
 	 *      - MUST NOT respond to the offer
 	 */
+	if (chains && max_num_chains == 0)
+		return false;
+
+	/* No specific chain required: structurally valid. */
+	if (!must_be_chain)
+		return true;
+
 	if (!chains) {
 		max_num_chains = 1;
 		chains = &chainparams_for_network("bitcoin")->genesis_blockhash;
@@ -183,6 +191,18 @@ struct tlv_offer *offer_decode(const tal_t *ctx,
 		return NULL;
 	}
 
+	/* BOLT #12:
+	 *  - otherwise: (`offer_chains` is set):
+	 *    - if the node does not accept invoices for at least one of the `chains`:
+	 *      - MUST NOT respond to the offer
+	 */
+	for (size_t i = 0; i < tal_count(offer->fields); i++) {
+		if (offer->fields[i].numtype == 2 && offer->fields[i].length == 0) {
+			*fail = tal_strdup(ctx, "offer_chains must have at least one entry");
+			return tal_free(offer);
+		}
+	}
+
 	*fail = check_features_and_chain(ctx,
 					 our_features, must_be_chain,
 					 offer->offer_features,
@@ -219,6 +239,16 @@ struct tlv_offer *offer_decode(const tal_t *ctx,
 	 */
 	if (!offer->offer_description && offer->offer_amount) {
 		*fail = tal_strdup(ctx, "Offer does not contain a description, but contains an amount");
+		return tal_free(offer);
+	}
+
+	/* BOLT #12:
+	 *
+	 * - if `offer_amount` is set and is not greater than zero:
+	 *     - MUST NOT respond to the offer.
+	 */
+	if (offer->offer_amount && *offer->offer_amount == 0) {
+		*fail = tal_strdup(ctx, "offer_amount must be > 0");
 		return tal_free(offer);
 	}
 

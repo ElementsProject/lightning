@@ -206,10 +206,31 @@ static void fail_mismatch(const char *filename,
 	const char *match = NULL;
 	int matchlen;
 
+	if (verbose) {
+		fprintf(stderr, "%s:%u: BOLT mismatch in %s\n", filename, line, bolt->prefix);
+
+		/* Show what we're trying to match */
+		fprintf(stderr, "Looking for %zu parts:\n", tal_count(strings));
+		for (size_t i = 0; i < tal_count(strings); i++) {
+			fprintf(stderr, "  [%zu]: '%s'\n", i, strings[i]);
+		}
+	}
+
 	/* Figure out which substring didn't match, and how much to cut it */
-	for (size_t i = 0; i < tal_count(strings); i++) {
-		if (strstr(bolt->contents, strings[i]))
-			continue;
+	bool all_parts_found = true;
+    for (size_t i = 0; i < tal_count(strings); i++) {
+		if (strstr(bolt->contents, strings[i])){
+			if (verbose) {
+				fprintf(stderr, "  ✓ [%zu] FOUND: '%s'\n", i, strings[i]);
+			}
+
+            continue;
+		}
+
+		all_parts_found = false;
+		if (verbose) {
+        	fprintf(stderr, "  ✗ [%zu] NOT FOUND: '%s'\n", i, strings[i]);
+		}
 
 		/* OK, it doesn't match, truncate it until it does */
 		matchlen = strlen(strings[i]);
@@ -220,17 +241,39 @@ static void fail_mismatch(const char *filename,
 				break;
 			matchlen--;
 		}
-		break;
+		if (!verbose) {
+			break;
+		}
+
+		if (match) {
+			fprintf(stderr, "    Closest match (%d chars): '%.*s'...\n",
+				matchlen, matchlen, match);
+			fprintf(stderr, "    Full context: '%.50s'\n", match);
+		} else {
+			fprintf(stderr, "    No partial match found\n");
+		}
 	}
 
-	fprintf(stderr, "%s:%u:", filename, line);
-	if (match) {
-		fprintf(stderr, "Closest match: %.*s...[%.20s]\n",
-			matchlen, match, match + matchlen);
+	if (!verbose) {
+		fprintf(stderr, "%s:%u:", filename, line);
+		if (match) {
+			fprintf(stderr, "Closest match: %.*s...[%.20s]\n",
+				matchlen, match, match + matchlen);
+		} else {
+			fprintf(stderr, "Parts match, but not in this order\n");
+		}
 	} else {
-		fprintf(stderr, "Parts match, but not in this order\n");
+		if (all_parts_found) {
+			fprintf(stderr, "All parts found individually, but not in sequence!\n");
+			fprintf(stderr, "Check the order or spacing in your comment.\n");
+		}
+
+		/* Show some context from the source file */
+		fprintf(stderr, "\nSource context (showing %zu chars):\n", len > 100 ? 100 : len);
+		fprintf(stderr, "'%.*s%s'\n",
+			(int)(len > 100 ? 100 : len), pos, len > 100 ? "..." : "");
 	}
-	exit(1);
+    exit(1);
 }
 
 static bool find_strings(const char *bolttext, char **strings, size_t nstrings)

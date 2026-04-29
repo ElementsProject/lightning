@@ -4065,7 +4065,7 @@ def test_multichan(node_factory, executor, bitcoind):
         l2.rpc.close(l3.info['id'])
 
     l2.rpc.close(scid23b)
-    bitcoind.generate_block(13, wait_for_mempool=1)
+    bitcoind.generate_block(73, wait_for_mempool=1)
     sync_blockheight(bitcoind, [l1, l2, l3])
 
     # Gossip works as expected.
@@ -4116,7 +4116,7 @@ def test_multichan(node_factory, executor, bitcoind):
                         "id": 2,
                         "created_index": 3,
                         "updated_index": 27,
-                        "expiry": 135,
+                        "expiry": 195,
                         "direction": "out",
                         "amount_msat": Millisatoshi(100001001),
                         "payment_hash": inv3['payment_hash'],
@@ -4125,7 +4125,7 @@ def test_multichan(node_factory, executor, bitcoind):
                         "id": 3,
                         "created_index": 4,
                         "updated_index": 36,
-                        "expiry": 135,
+                        "expiry": 195,
                         "direction": "out",
                         "amount_msat": Millisatoshi(100001001),
                         "payment_hash": inv4['payment_hash'],
