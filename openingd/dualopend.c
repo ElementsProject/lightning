@@ -1237,12 +1237,10 @@ static char *do_commit_signed_received(const tal_t *ctx,
 			  &state->their_funding_pubkey, remote_sig)) {
 		/* BOLT #1:
 		 *
-		 * ### The `error` and `warning` Messages
-		 *...
 		 * - when failure was caused by an invalid signature check:
-		 *    - SHOULD include the raw, hex-encoded transaction in reply
-		 *      to a `funding_created`, `funding_signed`,
-		 *      `closing_signed`, or `commitment_signed` message.
+		 *   - SHOULD include the raw, hex-encoded transaction in reply
+		 *     to a `funding_created`, `funding_signed`,
+		 *     `closing_signed`, or `commitment_signed` message.
 		 */
 		/*~ This verbosity is not only useful for our own testing, but
 		 * a courtesy to other implementaters whose brains may be so
