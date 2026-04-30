@@ -158,6 +158,7 @@ grpc_method_names = [
     "ListCurrencyRates",
     "CurrencyConvert",
     "CurrencyRate",
+    "SendAmount",
 ]
 
 grpc_notification_names = [
