@@ -9,7 +9,6 @@ privacy:
 
 | Name                                               | Type               | First Deprecated | Last Supported | Description                                                                                                               |
 |----------------------------------------------------|--------------------|------------------|----------------|---------------------------------------------------------------------------------------------------------------------------|
-| xpay.ignore_bolt12_mpp                             | Field              | v25.05           | v25.12         | Try MPP even if the BOLT12 invoice doesn't explicitly allow it (CLN didn't until 25.02)                                   |
 | listpeerchannels.max_total_htlc_in_msat            | Field              | v25.02           | v26.04         | Use our_max_total_htlc_out_msat                                                                                           |
 | wait.details                                       | Field              | v25.05           | v26.06         | Use subsystem-specific object instead                                                                                     |
 | channel_state_changed.old_state.unknown            | Notification Field | v25.05           | v26.04         | Value "unknown" is deprecated: field will be omitted instead                                                              |

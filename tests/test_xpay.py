@@ -637,15 +637,10 @@ def test_xpay_no_mpp(node_factory, chainparams):
     assert ret['amount_sent_msat'] == AMOUNT + AMOUNT // 100000 + 1
 
 
-@pytest.mark.parametrize("deprecations", [False, True])
-def test_xpay_bolt12_no_mpp(node_factory, chainparams, deprecations):
+def test_xpay_bolt12_no_mpp(node_factory, chainparams):
     """If we force it, we use MPP even if BOLT12 invoice doesn't say we should"""
     # l4 needs dev-allow-localhost so it considers itself to have an advertized address, and doesn't create a blinded path from l2/l4.
     opts = [{}, {}, {'dev-force-features': -17, 'dev-allow-localhost': None}, {}]
-    if deprecations is True:
-        for o in opts:
-            o['i-promise-to-fix-broken-api-user'] = 'xpay.ignore_bolt12_mpp'
-            o['broken_log'] = 'DEPRECATED API USED: xpay.ignore_bolt12_mpp'
 
     l1, l2, l3, l4 = node_factory.get_nodes(4, opts=opts)
     node_factory.join_nodes([l1, l2, l3], wait_for_announce=True)
@@ -666,12 +661,8 @@ def test_xpay_bolt12_no_mpp(node_factory, chainparams, deprecations):
 
     ret = l1.rpc.xpay(invl3['invoice'])
     assert ret['failed_parts'] == 0
-    if deprecations:
-        assert ret['successful_parts'] == 2
-        assert ret['amount_sent_msat'] == AMOUNT + AMOUNT // 100000 + 2
-    else:
-        assert ret['successful_parts'] == 1
-        assert ret['amount_sent_msat'] == AMOUNT + AMOUNT // 100000 + 1
+    assert ret['successful_parts'] == 1
+    assert ret['amount_sent_msat'] == AMOUNT + AMOUNT // 100000 + 1
     assert ret['amount_msat'] == AMOUNT
 
 
