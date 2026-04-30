@@ -3337,9 +3337,9 @@ Try a range of future segwit versions as shutdown scripts.  We create many nodes
     l1 = node_factory.get_node(allow_warning=True)
 
     # BOLT #2:
-    # 5. if (and only if) `option_shutdown_anysegwit` is negotiated:
+    # 3. if (and only if) `option_shutdown_anysegwit` is negotiated:
     #    * `OP_1` through `OP_16` inclusive, followed by a single push of 2 to 40 bytes
-    #    (witness program versions 1 through 16)
+    #      (witness program versions 1 through 16)
     edge_valid = ['51020000', '5128' + '00' * 0x28,
                   '60020000', '6028' + '00' * 0x28]
     other_valid = ['52020000', '5228' + '00' * 0x28,

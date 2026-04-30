@@ -147,7 +147,7 @@ def test_xpay_simple(node_factory):
     node_factory.join_nodes([l1, l2, l3], wait_for_announce=True)
     node_factory.join_nodes([l3, l4], announce_channels=False)
 
-    # BOLT 11, direct peer
+    # BOLT-11, direct peer
     b11 = l2.rpc.invoice('10000msat', 'test_xpay_simple', 'test_xpay_simple bolt11')['bolt11']
     ret = l1.rpc.xpay(b11)
     assert ret['failed_parts'] == 0
@@ -160,7 +160,7 @@ def test_xpay_simple(node_factory):
     with pytest.raises(RpcError, match="Already paid"):
         l1.rpc.xpay(b11_paid)
 
-    # BOLT 11, indirect peer
+    # BOLT-11, indirect peer
     b11 = l3.rpc.invoice('10000msat', 'test_xpay_simple', 'test_xpay_simple bolt11')['bolt11']
     ret = l1.rpc.xpay(b11)
     assert ret['failed_parts'] == 0
@@ -168,16 +168,16 @@ def test_xpay_simple(node_factory):
     assert ret['amount_msat'] == 10000
     assert ret['amount_sent_msat'] == 10001
 
-    # BOLT 11, routehint
+    # BOLT-11, routehint
     b11 = l4.rpc.invoice('10000msat', 'test_xpay_simple', 'test_xpay_simple bolt11')['bolt11']
     l1.rpc.xpay(b11)
 
-    # BOLT 12 (with payer_note specified).
+    # BOLT-12 (with payer_note specified).
     offer = l3.rpc.offer('any')['bolt12']
     b12 = l1.rpc.fetchinvoice(offer, '100000msat')['invoice']
     l1.rpc.xpay(invstring=b12, payer_note="Payment for a cup of coffee")
 
-    # BOLT 12, direct peer
+    # BOLT-12, direct peer
     offer = l2.rpc.offer('any')['bolt12']
     b12 = l1.rpc.fetchinvoice(offer, '10000msat')['invoice']
     ret = l1.rpc.xpay(invstring=b12)
@@ -425,7 +425,7 @@ def test_xpay_takeover(node_factory, executor):
     l1.rpc.pay(b12)
     l1.daemon.wait_for_log('Redirecting pay->xpay')
 
-    # BOLT11 with amount.
+    # BOLT-11 with amount.
     inv = l3.rpc.invoice('any', "test_xpay_takeover3", "test_xpay_takeover3")['bolt11']
     l1.rpc.pay(inv, amount_msat=10000)
     l1.daemon.wait_for_log('Redirecting pay->xpay')
@@ -566,7 +566,7 @@ def test_xpay_maxdelay(node_factory):
 def test_xpay_unannounced(node_factory):
     l1, l2 = node_factory.line_graph(2, announce_channels=False)
 
-    # BOLT 11, direct peer
+    # BOLT-11, direct peer
     b11 = l2.rpc.invoice('10000msat', 'test_xpay_unannounced', 'test_xpay_unannounced bolt11')['bolt11']
     ret = l1.rpc.xpay(b11)
     assert ret['failed_parts'] == 0
@@ -574,7 +574,7 @@ def test_xpay_unannounced(node_factory):
     assert ret['amount_msat'] == 10000
     assert ret['amount_sent_msat'] == 10000
 
-    # BOLT 12, direct peer
+    # BOLT-12, direct peer
     offer = l2.rpc.offer('any')['bolt12']
     b12 = l1.rpc.fetchinvoice(offer, '100000msat')['invoice']
     l1.rpc.xpay(b12)
@@ -593,7 +593,7 @@ def test_xpay_zeroconf(node_factory):
 
     wait_for(lambda: all([c['state'] == 'CHANNELD_NORMAL' for c in l1.rpc.listpeerchannels()['channels'] + l2.rpc.listpeerchannels()['channels']]))
 
-    # BOLT 11, direct peer
+    # BOLT-11, direct peer
     b11 = l2.rpc.invoice('10000msat', 'test_xpay_unannounced', 'test_xpay_unannounced bolt11')['bolt11']
     ret = l1.rpc.xpay(b11)
     assert ret['failed_parts'] == 0
@@ -601,7 +601,7 @@ def test_xpay_zeroconf(node_factory):
     assert ret['amount_msat'] == 10000
     assert ret['amount_sent_msat'] == 10000
 
-    # BOLT 12, direct peer
+    # BOLT-12, direct peer
     offer = l2.rpc.offer('any')['bolt12']
     b12 = l1.rpc.fetchinvoice(offer, '100000msat')['invoice']
     l1.rpc.xpay(b12)
