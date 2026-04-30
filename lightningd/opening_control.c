@@ -156,7 +156,7 @@ wallet_commit_channel(struct lightningd *ld,
 	 * 2. data:
 	 *     * [`channel_id`:`channel_id`]
 	 *     * [`signature`:`signature`]
-	 *
+	 *...
 	 * #### Requirements
 	 *
 	 * Both peers:
