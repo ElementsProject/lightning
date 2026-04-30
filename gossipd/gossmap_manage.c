@@ -1455,12 +1455,12 @@ void gossmap_manage_channel_spent(struct gossmap_manage *gm,
 
 	/* BOLT #7:
 	 *   - once its funding output has been spent OR reorganized out:
-	 *     - SHOULD forget a channel after a 12-block delay.
+	 *     - SHOULD forget a channel after a 72-block delay.
 	 */
-	cd.deadline = blockheight + 12;
+	cd.deadline = blockheight + 72;
 	cd.scid = scid;
 
-	/* Remember locally so we can kill it in 12 blocks */
+	/* Remember locally so we can kill it in 72 blocks */
 	status_trace("channel %s closing soon due"
 		     " to the funding outpoint being spent",
 		     fmt_short_channel_id(tmpctx, scid));
