@@ -567,15 +567,17 @@ endif
 
 CHECK_QUOTES := devtools/check_quotes.py
 
+BOLT_COVERAGE_FLAGS=$(if $(COVERAGE_FILE),--coverage=$(COVERAGE_FILE),)
+
 # Any mention of BOLT# must be followed by an exact quote, modulo whitespace.
 bolt-check/%: % bolt-precheck
-	@if [ -d .tmp.lightningrfc ]; then uv run $(CHECK_QUOTES) -k $(CHECK_BOLT_COMMIT) --comment-start "/* " --comment-continue "*" --comment-end "*/" --boltdir .tmp.lightningrfc $<; else echo "Not checking BOLTs: BOLTDIR $(BOLTDIR) does not exist" >&2; fi
+	@if [ -d .tmp.lightningrfc ]; then uv run $(CHECK_QUOTES) -k $(CHECK_BOLT_COMMIT) --comment-start "/* " --comment-continue "*" --comment-end "*/" --boltdir .tmp.lightningrfc $(BOLT_COVERAGE_FLAGS) $<; else echo "Not checking BOLTs: BOLTDIR $(BOLTDIR) does not exist" >&2; fi
 
 bolt-check-py/%: % bolt-precheck
-	@if [ -d .tmp.lightningrfc ]; then uv run $(CHECK_QUOTES) -k $(CHECK_BOLT_COMMIT) --boltdir .tmp.lightningrfc $<; else echo "Not checking BOLTs: BOLTDIR $(BOLTDIR) does not exist" >&2; fi
+	@if [ -d .tmp.lightningrfc ]; then uv run $(CHECK_QUOTES) -k $(CHECK_BOLT_COMMIT) --boltdir .tmp.lightningrfc $(BOLT_COVERAGE_FLAGS) $<; else echo "Not checking BOLTs: BOLTDIR $(BOLTDIR) does not exist" >&2; fi
 
 bolt-check-rs/%: % bolt-precheck
-	@if [ -d .tmp.lightningrfc ]; then uv run $(CHECK_QUOTES) -k $(CHECK_BOLT_COMMIT) --comment-start "// " --comment-continue "//" --boltdir .tmp.lightningrfc $<; else echo "Not checking BOLTs: BOLTDIR $(BOLTDIR) does not exist" >&2; fi
+	@if [ -d .tmp.lightningrfc ]; then uv run $(CHECK_QUOTES) -k $(CHECK_BOLT_COMMIT) --comment-start "// " --comment-continue "//" --boltdir .tmp.lightningrfc $(BOLT_COVERAGE_FLAGS) $<; else echo "Not checking BOLTs: BOLTDIR $(BOLTDIR) does not exist" >&2; fi
 
 LOCAL_BOLTDIR=.tmp.lightningrfc
 
@@ -586,6 +588,14 @@ PYSRC=$(shell git ls-files "*.py" | grep -v /text.py)
 RUSTSRC=$(shell git ls-files "*.rs")
 
 check-source-bolt: $(ALL_NONGEN_SRCFILES:%=bolt-check/%) $(PYSRC:%=bolt-check-py/%) $(RUSTSRC:%=bolt-check-rs/%)
+
+check-requirements-coverage: bolt-precheck
+	@if [ ! -d .tmp.lightningrfc ]; then echo "Not checking BOLTs: BOLTDIR $(BOLTDIR) does not exist" >&2; exit 1; fi
+	@f=/tmp/cln-bolt-coverage.$$$$; \
+	 rm -f $$f; \
+	 $(MAKE) check-source-bolt COVERAGE_FILE=$$f && \
+	 uv run devtools/bolt-coverage.py --coverage $$f --boltdir .tmp.lightningrfc; \
+	 rc=$$?; rm -f $$f; exit $$rc
 
 check-whitespace/%: %
 	@if grep -Hn '[ 	]$$' $<; then echo Extraneous whitespace found >&2; exit 1; fi
