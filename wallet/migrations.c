@@ -1084,6 +1084,7 @@ static const struct db_migration dbmigrations[] = {
      NULL, NULL},
     {SQL("ALTER TABLE offers ADD COLUMN force_paths INTEGER DEFAULT 0;"), NULL,
      SQL("ALTER TABLE offers DROP COLUMN force_paths"), NULL},
+    /* ^v26.04 */
 };
 
 const struct db_migration *get_db_migrations(size_t *num)
