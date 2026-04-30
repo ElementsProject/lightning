@@ -407,7 +407,7 @@ int main(int argc, char *argv[])
 	 *   * `zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygs`: 0x1111111111111111111111111111111111111111111111111111111111111111
 	 * * `9`: features
 	 *   * `q5`: `data_length` (`q` = 0, `5` = 20; 0 * 32 + 20 == 20)
-	 *   * `sqqqqqqqqqqqqqqqpqsq`: b1000....00001000001000000000
+	 *   * `sqqqqqqqqqqqqqqqqsgq`: b1000....00000100000100000000
 	 * * `2`: unknown field
 	 *   * `qr`: `data_length` (`q` = 0, `r` = 3; 0 * 32 + 3 == 3)
 	 *   * `qqq`: zeroes
@@ -438,8 +438,8 @@ int main(int argc, char *argv[])
 	 * * `n`: node id
 	 *   * `pk`: `data_length` (`p` = 1, `k` = 22; 1 * 32 + 22 == 54) (ignored)
 	 *   * `qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq`
-	 * * `2jxxfsnucm4jf4zwtznpaxphce606fvhvje5x7d4gw7n73994hgs7nteqvenq8a4ml8aqtchv5d9pf7l558889hp4yyrqv6a7zpq9fgp`: signature
-	 * * `skqhza`: Bech32 checksum
+	 * * `z599y53s3ujmcfjp5xrdap68qxymkqphwsexhmhr8wdz5usdzkzrse33chw6dlp3jhuhge9ley7j2ayx36kawe7kmgg8sv5ugdyusdcq`: signature
+	 * * `zn8z9x`: Bech32 checksum
 	 */
 	extra = tal_arr(b11, struct bolt11_field, 10);
 	/* Unknown field */
