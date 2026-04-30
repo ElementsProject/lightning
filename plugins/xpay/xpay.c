@@ -191,6 +191,13 @@ static struct command_result *xpay_core(struct command *cmd,
 					u32 maxdelay,
                                         bool as_pay);
 
+static struct command_result *
+sendamount_core(struct command *cmd, const char *invstring TAKES,
+		const struct amount_msat sendamount_msat,
+		const struct amount_msat invoiceamount_msat,
+		const struct amount_msat *maxfee, const char **layers,
+		u32 retryfor, u32 maxdelay);
+
 /* Wrapper for pending commands (ignores return) */
 static void was_pending(const struct command_result *res)
 {
@@ -1862,10 +1869,10 @@ check_offer_sendamount_payable(struct command *cmd, const char *offerstr)
 				    "Cannot pay offer in different currency %s",
 				    b12offer->offer_currency);
 	/* Can only be applied to *any amount* offers. */
-	if (b12offer->offer_amount) {
+	if (b12offer->offer_amount)
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "Offer does not allow any amount.");
-	}
+				    "Expecting an offer with no amount.");
+
 	/* Not recurrence, one time only. */
 	if (offer_recurrence(b12offer))
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
@@ -1892,10 +1899,17 @@ invoice_fetched(struct command *cmd,
 	char *inv;
 
 	inv = json_strdup(NULL, buf, json_get_member(buf, result, "invoice"));
-	return xpay_core(cmd, take(to_canonical_invstr(NULL, take(inv))),
-			 NULL, params->maxfee, params->layers,
-			 params->retryfor, params->partial, params->maxdelay,
-			 false);
+	if (params->includefees_msat) {
+		return sendamount_core(
+		    cmd, take(to_canonical_invstr(NULL, take(inv))),
+		    *params->includefees_msat, *params->msat, params->maxfee,
+		    params->layers, params->retryfor, params->maxdelay);
+	} else {
+		return xpay_core(
+		    cmd, take(to_canonical_invstr(NULL, take(inv))), NULL,
+		    params->maxfee, params->layers, params->retryfor,
+		    params->partial, params->maxdelay, false);
+	}
 }
 
 static struct command_result *
@@ -2223,6 +2237,187 @@ static struct command_result *xpay_core(struct command *cmd,
 	return send_outreq(req);
 }
 
+/* Same pattern as xpay_core, but specific to sendamount. */
+static struct command_result *
+sendamount_core(struct command *cmd, const char *invstring TAKES,
+		const struct amount_msat sendamount_msat,
+		const struct amount_msat invoiceamount_msat,
+		const struct amount_msat *maxfee, const char **layers,
+		u32 retryfor, u32 maxdelay)
+{
+	struct payment *payment = tal(cmd, struct payment);
+	struct xpay *xpay = xpay_of(cmd->plugin);
+	struct gossmap *gossmap = get_gossmap(xpay);
+	struct amount_msat diff_msat;
+	char *err;
+	struct out_req *req;
+	u64 now, invexpiry;
+
+	list_head_init(&payment->current_attempts);
+	list_head_init(&payment->past_attempts);
+	payment->plugin = cmd->plugin;
+	payment->cmd = cmd;
+	payment->amount_being_routed = AMOUNT_MSAT(0);
+	payment->group_id = pseudorand(INT64_MAX);
+	payment->total_num_attempts = payment->num_failures = 0;
+	payment->requests = tal_arr(payment, struct out_req *, 0);
+	payment->prior_results = tal_strdup(payment, "");
+	payment->deadline = timemono_add(time_mono(), time_from_sec(retryfor));
+	payment->start_time = clock_time();
+	payment->start_blockheight = xpay->blockheight;
+	payment->pay_compat = false;
+	payment->invstring = tal_strdup(payment, invstring);
+	payment->includefees = true;
+	payment->maxdelay = maxdelay;
+	payment->disable_mpp = true;
+	payment->maxparts = 1;
+	if (layers)
+		payment->layers = tal_dup_talarr(payment, const char *, layers);
+	else
+		payment->layers = NULL;
+
+	payment->amount = sendamount_msat;
+	payment->mpp_amount = AMOUNT_MSAT(0);
+
+	if (amount_msat_is_zero(sendamount_msat))
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Cannot send zero amount");
+
+	if (!maxfee) {
+		/* The default maximum fee function is piecewise linear and
+		 * continuous. It always satisfies maxfee <= sendamount/2. */
+		if (amount_msat_less_eq(sendamount_msat, AMOUNT_MSAT(10000))) {
+			/* Very small amounts (<=10sats) we use a very high
+			 * relative fee but never above 50%. */
+			payment->maxfee = amount_msat_div(sendamount_msat, 2);
+		} else if (amount_msat_less_eq(sendamount_msat,
+					       AMOUNT_MSAT(500000))) {
+			/* In this medium range we fix the maximum fee to 5sats.
+			 */
+			payment->maxfee = AMOUNT_MSAT(5000);
+		} else {
+			/* For high value payments (>=500sat), the default is
+			 * 1%.*/
+			payment->maxfee = amount_msat_div(sendamount_msat, 100);
+		}
+	} else
+		payment->maxfee = *maxfee;
+
+	if (amount_msat_sub(&diff_msat, sendamount_msat, invoiceamount_msat)) {
+		/* Even if maxfee is specified, we cap it at half_amount because
+		 * we cannot pay more than half_amount in fees otherwise the
+		 * received amount will be smaller than the invoice amount. */
+		payment->maxfee = amount_msat_min(payment->maxfee, diff_msat);
+	} else {
+		return command_fail(
+		    cmd, JSONRPC2_INVALID_PARAMS,
+		    "Invoice amount (%s) is greater than send amount (%s).",
+		    fmt_amount_msat(tmpctx, invoiceamount_msat),
+		    fmt_amount_msat(tmpctx, sendamount_msat));
+	}
+
+	if (bolt12_has_prefix(payment->invstring)) {
+		// bolt12 invoice
+		struct tlv_invoice *b12inv = invoice_decode(
+		    tmpctx, payment->invstring, strlen(payment->invstring),
+		    plugin_feature_set(cmd->plugin), chainparams, &err);
+		if (!b12inv)
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Invalid bolt12 invoice: %s", err);
+
+		invexpiry = invoice_expiry(b12inv);
+		if (!amount_msat_eq(invoiceamount_msat,
+				    amount_msat(*b12inv->invoice_amount)))
+			return command_fail(
+			    cmd, JSONRPC2_INVALID_PARAMS,
+			    "Expecting a bolt12 invoice with amount %s, got %s "
+			    "instead",
+			    fmt_amount_msat(tmpctx, invoiceamount_msat),
+			    fmt_amount_msat(
+				tmpctx, amount_msat(*b12inv->invoice_amount)));
+
+		payment->route_hints = NULL;
+		payment->payment_secret = NULL;
+		payment->payment_metadata = NULL;
+		payment->paths = tal_steal(payment, b12inv->invoice_paths);
+		payment->payinfos =
+		    tal_steal(payment, b12inv->invoice_blindedpay);
+		payment->payment_hash = *b12inv->invoice_payment_hash;
+		payment->destination = *b12inv->invoice_node_id;
+		/* Resolve introduction points if possible */
+		for (size_t i = 0; i < tal_count(payment->paths); i++) {
+			if (!gossmap_scidd_pubkey(
+				gossmap, &payment->paths[i]->first_node_id)) {
+				payment_log(
+				    payment, LOG_UNUSUAL,
+				    "Could not resolve blinded path start %s: "
+				    "discarding",
+				    fmt_sciddir_or_pubkey(
+					tmpctx,
+					&payment->paths[i]->first_node_id));
+				tal_arr_remove(&payment->paths, i);
+				tal_arr_remove(&payment->payinfos, i);
+				i--;
+			}
+		}
+		/* In case we remove them all! */
+		if (tal_count(payment->paths) == 0)
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Could not resolve any paths: "
+					    "unknown short_channel_id");
+
+		/* We don't actually know the final_cltv for blinded
+		 * paths, we just know the cltv we use to enter the
+		 * final hop. */
+		payment->final_cltv = 0;
+	} else {
+		// bolt11 invoice
+		struct bolt11 *b11 = bolt11_decode(
+		    tmpctx, payment->invstring, plugin_feature_set(cmd->plugin),
+		    NULL, chainparams, &err);
+		if (!b11)
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Invalid bolt11 invoice: %s", err);
+		payment->route_hints = tal_steal(payment, b11->routes);
+		payment->paths = NULL;
+		payment->payinfos = NULL;
+		if (!pubkey_from_node_id(&payment->destination,
+					 &b11->receiver_id))
+			return command_fail(
+			    cmd, JSONRPC2_INVALID_PARAMS,
+			    "Invalid destination id %s",
+			    fmt_node_id(tmpctx, &b11->receiver_id));
+
+		payment->final_cltv = b11->min_final_cltv_expiry;
+		payment->payment_hash = b11->payment_hash;
+		payment->payment_secret =
+		    tal_steal(payment, b11->payment_secret);
+		if (!b11->payment_secret)
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "need payment_secret");
+		payment->payment_metadata = tal_steal(payment, b11->metadata);
+		if (b11->msat)
+			return command_fail(
+			    cmd, JSONRPC2_INVALID_PARAMS,
+			    "Expecting a Bolt11 invoice with no amount.");
+
+		invexpiry = b11->timestamp + b11->expiry;
+	}
+
+	now = clock_time().ts.tv_sec;
+	if (now > invexpiry)
+		return command_fail(cmd, PAY_INVOICE_EXPIRED,
+				    "Invoice expired %" PRIu64 " seconds ago",
+				    now - invexpiry);
+
+	/* Now preapprove, then start payment. */
+	req = jsonrpc_request_start(cmd, "preapproveinvoice",
+				    &preapproveinvoice_succeed, &forward_error,
+				    payment);
+	json_add_string(req->js, "bolt11", payment->invstring);
+	return send_outreq(req);
+}
+
 static struct command_result *json_xpay(struct command *cmd,
 					const char *buffer,
 					const jsmntok_t *params)
@@ -2235,6 +2430,94 @@ static struct command_result *json_xpay_as_pay(struct command *cmd,
 					       const jsmntok_t *params)
 {
 	return json_xpay_params(cmd, buffer, params, true);
+}
+
+/* When to use this?
+ * If we want to be specific about the amount we send and not about the amount
+ * the other end receives.
+ * Same pattern as json_xpay. */
+static struct command_result *json_sendamount(struct command *cmd,
+					      const char *buffer,
+					      const jsmntok_t *params)
+{
+	struct amount_msat *send_msat, *maxfee;
+	struct amount_msat invoice_msat;
+	const char *invstring;
+	const char **layers;
+	u32 *maxdelay;
+	const char *payer_note;
+	unsigned int *retryfor;
+	struct xpay_params *xparams;
+	struct out_req *req;
+
+	if (!param_check(cmd, buffer, params,
+			 p_req("invstring", param_invstring, &invstring),
+			 p_req("amount_msat", param_msat, &send_msat),
+			 p_opt("maxfee", param_msat, &maxfee),
+			 p_opt("layers", param_string_array, &layers),
+			 p_opt_def("retry_for", param_number, &retryfor, 60),
+			 p_opt_def("maxdelay", param_u32, &maxdelay, 2016),
+			 p_opt("payer_note", param_string, &payer_note), NULL))
+		return command_param_failed();
+
+	// FIXME: why does xpay returns this only after
+	// preapproveinvoice_succeed?
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
+
+	/* We need the recepient to generate an invoice for send_msat/2
+	 * so that we can deliver any value from send_msat/2 up to
+	 * send_msat. We don't know the fees in advance. We could use
+	 * getroutes to estimate some fees though, but the use of
+	 * blinded paths already invalidates this procedure: we can't
+	 * use getroutes until we have an invoice. */
+	invoice_msat = amount_msat_div_ceil(*send_msat, 2);
+	// FIXME: could this work with invoice_msat = 0?
+
+	/* Bolt12 offer */
+	if (bolt12_has_prefix(invstring)) {
+		struct command_result *ret;
+		ret = check_offer_sendamount_payable(cmd, invstring);
+		if (ret)
+			return ret;
+		xparams = tal(cmd, struct xpay_params);
+		xparams->msat =
+		    tal_dup(xparams, struct amount_msat, &invoice_msat);
+		xparams->maxfee = maxfee;
+		xparams->partial = NULL;
+		xparams->includefees_msat = send_msat;
+		xparams->layers = layers;
+		xparams->retryfor = *retryfor;
+		xparams->maxdelay = *maxdelay;
+		xparams->bip353 = NULL;
+		xparams->payer_note = payer_note;
+
+		return do_fetchinvoice(cmd, invstring, xparams);
+	}
+
+	/* BIP353 */
+	if (strchr(invstring, '@')) {
+		xparams = tal(cmd, struct xpay_params);
+		xparams->msat =
+		    tal_dup(xparams, struct amount_msat, &invoice_msat);
+		xparams->maxfee = maxfee;
+		xparams->partial = NULL;
+		xparams->includefees_msat = send_msat;
+		xparams->layers = layers;
+		xparams->retryfor = *retryfor;
+		xparams->maxdelay = *maxdelay;
+		xparams->bip353 = invstring;
+		xparams->payer_note = payer_note;
+
+		req = jsonrpc_request_start(cmd, "fetchbip353", bip353_fetched,
+					    forward_error, xparams);
+		json_add_string(req->js, "address", invstring);
+		return send_outreq(req);
+	}
+
+	/* Probably a bolt11, an invoice already. */
+	return sendamount_core(cmd, invstring, *send_msat, invoice_msat, maxfee,
+			       layers, *retryfor, *maxdelay);
 }
 
 static struct command_result *getchaininfo_done(struct command *aux_cmd,
@@ -2370,6 +2653,10 @@ static const struct plugin_command commands[] = {
 	{
 		"xpay-as-pay",
 		json_xpay_as_pay,
+	},
+	{
+		"sendamount",
+		json_sendamount,
 	},
 };
 
