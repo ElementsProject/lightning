@@ -538,7 +538,10 @@ static u8 *encrypted_decode(const tal_t *ctx, const char *str, char **fail) {
 		goto fail;
 	}
 	u8 *data8bit = tal_arr(data, u8, 0);
-	bech32_pull_bits(&data8bit, data, datalen*5);
+	if (!bech32_pull_bits(&data8bit, data, datalen*5)) {
+		*fail = tal_fmt(ctx, "invalid bech32 padding");
+		goto fail;
+	}
 
 	return data8bit;
 fail:
