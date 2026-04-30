@@ -346,9 +346,13 @@ def test_opening_tiny_channel(node_factory, anchors):
     #  1. Try to establish channel with capacity 1sat smaller than min_capacity_sat
     #  2. Try to establish channel with capacity exact min_capacity_sat
     #
-    # BOLT2
+    # BOLT #2:
     # The receiving node MAY fail the channel if:
-    #  - funding_satoshis is too small
+    # ...
+    #  - `funding_satoshis` is too small.
+    # ...
+    # The receiving node MUST fail the channel if:
+    # ...
     #  - it considers `feerate_per_kw` too small for timely processing or unreasonably large.
     #
     dustlimit = 546
