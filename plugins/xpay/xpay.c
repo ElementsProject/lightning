@@ -134,6 +134,9 @@ struct payment {
 	bool pay_compat;
 	/* When did we start? */
 	struct timeabs start_time;
+
+	/* sender pays for fees */
+	bool includefees;
 };
 
 /* One step in a path. */
@@ -1515,6 +1518,8 @@ static struct command_result *getroutes_for(struct command *aux_cmd,
 		json_add_string(req->js, NULL, payment->layers[i]);
 	if (payment->disable_mpp)
 		json_add_string(req->js, NULL, "auto.no_mpp_support");
+	if (payment->includefees)
+		json_add_string(req->js, NULL, "auto.include_fees");
 	json_array_end(req->js);
 	json_add_amount_msat(req->js, "maxfee_msat", maxfee);
 	json_add_u32(req->js, "final_cltv", payment->final_cltv);
@@ -1831,7 +1836,7 @@ static struct command_result *check_offer_payable(struct command *cmd,
 }
 
 struct xpay_params {
-	struct amount_msat *msat, *maxfee, *partial;
+	struct amount_msat *msat, *maxfee, *partial, *includefees_msat;
 	const char **layers;
 	unsigned int retryfor;
 	u32 maxdelay;
@@ -1954,6 +1959,7 @@ static struct command_result *json_xpay_params(struct command *cmd,
 		xparams->maxdelay = *maxdelay;
 		xparams->bip353 = NULL;
                 xparams->payer_note = payer_note;
+                xparams->includefees_msat = NULL;
 
 		return do_fetchinvoice(cmd, invstring, xparams);
 	}
@@ -1969,6 +1975,7 @@ static struct command_result *json_xpay_params(struct command *cmd,
 		xparams->maxdelay = *maxdelay;
 		xparams->bip353 = invstring;
                 xparams->payer_note = payer_note;
+                xparams->includefees_msat = NULL;
 
 		req = jsonrpc_request_start(cmd, "fetchbip353",
 					    bip353_fetched,
@@ -2014,6 +2021,7 @@ static struct command_result *xpay_core(struct command *cmd,
 	payment->start_blockheight = xpay->blockheight;
 	payment->pay_compat = as_pay;
 	payment->invstring = tal_strdup(payment, invstring);
+	payment->includefees = false;
 	if (layers)
 		payment->layers = tal_dup_talarr(payment, const char *, layers);
 	else
