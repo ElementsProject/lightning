@@ -491,8 +491,20 @@ static void handle_localpay(struct htlc_in *hin,
 	}
 
 	/* BOLT #4:
-	 *
-	 *   incoming `cltv_expiry` < `current_block_height` + `min_final_cltv_expiry_delta`.	 */
+	 *   - If it is the final node:
+	 *...
+	 *     - MUST return an error if:
+	 *...
+	 *      - incoming `cltv_expiry` < `current_block_height` + `min_final_cltv_expiry_delta`.
+	 */
+	/* Or, for inside a blinded path: */
+	/* BOLT #4:
+	 * - If `encrypted_recipient_data` is present:
+	 *...
+	 *   - If it is the final node:
+	 *...
+	 *     - MUST return an error if incoming `cltv_expiry` < `current_block_height` + `min_final_cltv_expiry_delta`.
+	 */
 	if (get_block_height(ld->topology) + ld->config.cltv_final
 	    > hin->cltv_expiry) {
 		log_debug(hin->key.channel->log,
@@ -2667,6 +2679,9 @@ void peer_got_revoke(struct channel *channel, const u8 *msg)
 	/* FIXME: Check per_commitment_secret -> per_commit_point */
 	update_per_commit_point(channel, &next_per_commitment_point);
 
+	/* BOLT #2:
+	 *  - MUST respond with a `revoke_and_ack` message.
+	 */
 	/* Tell it we've committed, and to go ahead with revoke. */
 	msg = towire_channeld_got_revoke_reply(msg);
 	subd_send_msg(channel->owner, take(msg));

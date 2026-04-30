@@ -1613,6 +1613,9 @@ static void handle_onchaind_known_preimage(struct tracked_output ***outs,
  *    - until all outputs are *irrevocably resolved*:
  *      - MUST monitor the blockchain for transactions that spend any output that
  *      is NOT *irrevocably resolved*.
+ *  - MUST *resolve* all outputs, as specified below.
+ *  - MUST be prepared to resolve outputs multiple times, in case of blockchain
+ *  reorganizations.
  */
 static void wait_for_resolved(struct tracked_output **outs)
 {
