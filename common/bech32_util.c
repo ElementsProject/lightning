@@ -31,12 +31,16 @@ static u8 get_u5_bit(const u5 *src, size_t bitoff)
         return ((src[bitoff / 5] >> (4 - (bitoff % 5))) & 1);
 }
 
-void bech32_pull_bits(u8 **data, const u5 *src, size_t nbits)
+bool bech32_pull_bits(u8 **data, const u5 *src, size_t nbits)
 {
         size_t i;
         size_t data_len = tal_count(*data);
+	size_t pad = nbits % 8;
 
-	/* We discard trailing bits. */
+	/* More than 4 padding bits means a superfluous u5 group was added. */
+	if (pad >= 5)
+		return false;
+
         for (i = 0; i + 8 <= nbits; i += 8) {
                 tal_resize(data, data_len+1);
                 (*data)[data_len] = 0;
@@ -46,6 +50,13 @@ void bech32_pull_bits(u8 **data, const u5 *src, size_t nbits)
                 }
                 data_len++;
         }
+
+	/* Padding bits must all be zero. */
+	for (size_t b = 0; b < pad; b++) {
+		if (get_u5_bit(src, i + b))
+			return false;
+	}
+	return true;
 }
 
 /* Returns a char, tracks case. */
@@ -95,7 +106,10 @@ bool from_bech32_charset(const tal_t *ctx,
 		goto fail;
 
 	*data = tal_arr(ctx, u8, 0);
-	bech32_pull_bits(data, u5data, tal_bytelen(u5data) * 5);
+	if (!bech32_pull_bits(data, u5data, tal_bytelen(u5data) * 5)) {
+		tal_free(*data);
+		goto fail;
+	}
 	tal_free(u5data);
 	return true;
 

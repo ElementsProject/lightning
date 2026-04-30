@@ -12,8 +12,9 @@ void bech32_push_bits(u5 **data, const void *src, size_t nbits);
 
 /**
  * Push the bytes in src in 8 bit format onto the end of data.
+ * Returns false if padding bits are non-zero or exceed 4 bits.
  */
-void bech32_pull_bits(u8 **data, const u5 *src, size_t nbits);
+bool bech32_pull_bits(u8 **data, const u5 *src, size_t nbits);
 
 /**
  * Checksumless bech32 routines.
