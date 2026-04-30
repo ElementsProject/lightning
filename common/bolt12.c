@@ -28,7 +28,7 @@ bool bolt12_chains_match(const struct bitcoin_blkid *chains,
 	 *    - if the node does not accept bitcoin invoices:
 	 *      - MUST NOT respond to the offer
 	 *  - otherwise: (`offer_chains` is set):
-	 *    - if the node does not accept invoices for any of the `chains`:
+	 *    - if the node does not accept invoices for at least one of the `chains`:
 	 *      - MUST NOT respond to the offer
 	 */
 	if (!chains) {
@@ -62,6 +62,10 @@ static char *check_features_and_chain(const tal_t *ctx,
 	if (must_be_chain) {
 		if (!bolt12_chains_match(chains, num_chains, must_be_chain))
 			return tal_fmt(ctx, "wrong chain");
+	} else {
+		/* Chains is *empty*, that can never work. */
+		if (chains && tal_count(chains) == 0)
+			return tal_fmt(ctx, "offer_chains with zero entries");
 	}
 
 	if (our_features) {
