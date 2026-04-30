@@ -227,7 +227,17 @@ struct tlv_offer *offer_decode(const tal_t *ctx,
 	}
 
 	/* BOLT #12:
-	 *
+	 *...
+	 *   - if `offer_amount` is set and is not greater than zero:
+	 *     - MUST NOT respond to the offer.
+	 */
+	if (offer->offer_amount && *offer->offer_amount == 0) {
+		*fail = tal_strdup(ctx, "Offer contains a zero amount");
+		return tal_free(offer);
+	}
+
+	/* BOLT #12:
+	 *...
 	 *   - if `offer_currency` is set and `offer_amount` is not set:
 	 *     - MUST NOT respond to the offer.
 	 */
@@ -237,7 +247,7 @@ struct tlv_offer *offer_decode(const tal_t *ctx,
 	}
 
 	/* BOLT #12:
-	 *
+	 *...
 	 *   - if neither `offer_issuer_id` nor `offer_paths` are set:
 	 *     - MUST NOT respond to the offer.
 	 */
@@ -247,6 +257,7 @@ struct tlv_offer *offer_decode(const tal_t *ctx,
 	}
 
 	/* BOLT #12:
+	 *...
 	 *   - if `num_hops` is 0 in any `blinded_path` in `offer_paths`:
 	 *     - MUST NOT respond to the offer.
 	 */
