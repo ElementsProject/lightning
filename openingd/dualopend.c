@@ -2430,9 +2430,8 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 	/* BOLT #2:
 	 * The receiving node MUST fail the channel if:
 	 *...
-	 *  - It supports `channel_type` and `channel_type` was set:
-	 *     - if `type` is not suitable.
-	 *     - if `type` includes `option_zeroconf` and it does not trust the sender to open an unconfirmed channel.
+	 *   - the `channel_type` is not suitable.
+	 *   - the `channel_type` includes `option_zeroconf` and it does not trust the sender to open an unconfirmed channel.
 	 */
 	if (!open_tlv->channel_type) {
 		negotiation_failed(state,
@@ -2682,8 +2681,7 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 	}
 
 	/* BOLT #2:
-	 * - if `option_channel_type` was negotiated:
-	 *    - MUST set `channel_type` to the `channel_type` from `open_channel`
+	 *  - MUST set `channel_type` to the `channel_type` from `open_channel`
 	 */
 	a_tlv->channel_type = state->channel_type->features;
 
@@ -3143,8 +3141,7 @@ static void opener_start(struct state *state, u8 *msg)
 	}
 
 	/* BOLT #2:
-	 * - if `channel_type` is set, and `channel_type` was set in
-	 *   `open_channel`, and they are not equal types:
+	 * if `channel_type` does not match the `channel_type` from `open_channel`:
 	 *    - MUST fail the channel.
 	 */
 	if (!a_tlv->channel_type) {
