@@ -1606,9 +1606,8 @@ static void handle_onchaind_spend_htlc_expired(struct channel *channel,
 
 	/* BOLT #5:
 	 *
-	 * ## HTLC Output Handling: Remote Commitment, Local Offers
+	 * A local node:
 	 * ...
-	 *
 	 *   - if the commitment transaction HTLC output has *timed out* AND NOT
 	 *     been *resolved*:
 	 *     - MUST *resolve* the output, by spending it to a convenient
