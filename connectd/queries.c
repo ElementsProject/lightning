@@ -688,6 +688,14 @@ static void queue_channel_ranges(struct peer *peer,
 			/* Last one must end with correct total */
 			this_num_blocks = number_of_blocks;
 
+		/* BOLT #7:
+		 * If the incoming message includes `query_option`, the receiver
+		 * MAY append additional information to its reply:
+		 * - if bit 0 in `query_option_flags` is set, the receiver MAY
+		 *   append a `timestamps_tlv`...
+		 * - if bit 1 in `query_option_flags` is set, the receiver MAY
+		 *   append a `checksums_tlv`...
+		 */
 		send_reply_channel_range(peer, first_blocknum, this_num_blocks,
 					 scids + off,
 					 query_option_flags & QUERY_ADD_TIMESTAMPS
