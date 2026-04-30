@@ -664,8 +664,11 @@ update-doc-examples:
 check-doc-examples: update-doc-examples
 	git diff --exit-code HEAD
 
+check-wire-format: extract-bolt-csv
+	git diff --exit-code HEAD
+
 # This should NOT compile things!
-check-source: check-makefile check-whitespace check-spelling check-python-flake8 check-includes check-shellcheck check-setup_locale check-tmpctx check-discouraged-functions check-amount-access check-bad-sprintf
+check-source: check-makefile check-whitespace check-spelling check-python-flake8 check-includes check-shellcheck check-setup_locale check-tmpctx check-discouraged-functions check-amount-access check-bad-sprintf check-wire-format
 
 full-check: check check-source
 
