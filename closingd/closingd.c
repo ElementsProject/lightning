@@ -59,6 +59,15 @@ static struct bitcoin_tx *close_tx(const tal_t *ctx,
 	struct bitcoin_tx *tx;
 	struct amount_sat out_minus_fee[NUM_SIDES];
 
+	/* BOLT #3:
+	 * ## Legacy Closing Transaction
+	 *...
+	 * ### Requirements
+	 *
+	 * Each node offering a signature:
+	 *...
+	 *   - MUST subtract the fee given by `fee_satoshis` from the output to the funder.
+	 */
 	out_minus_fee[LOCAL] = out[LOCAL];
 	out_minus_fee[REMOTE] = out[REMOTE];
 	if (!amount_sat_sub(&out_minus_fee[opener], out[opener], fee))

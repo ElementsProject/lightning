@@ -1088,6 +1088,14 @@ static void channel_fail_perm(struct channel *channel,
 				  why);
 	}
 
+	/* BOLT #5:
+	 * A node:
+	 *   - if a *local commitment transaction* has NOT ever contained a `to_local`
+	 *   or HTLC output:
+	 *     - MAY simply forget the channel.
+	 */
+	/* FIXME: We only implement a subset of this; we keep waiting
+	 * as long as it was finished opening. */
 	if (channel_state_open_uncommitted(channel->state)) {
 		delete_channel(channel, false);
 		return;

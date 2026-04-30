@@ -105,6 +105,17 @@ fail:
 	return false;
 }
 
+/* BOLT #12:
+ * # Encoding
+ *...
+ * ## Requirements
+ * Writers of a bolt12 string:
+ * - MUST either use all lowercase or all UPPERCASE.
+ * - SHOULD use uppercase for QR codes.
+ * - SHOULD use lower case otherwise.
+ * - MAY use `+`, optionally followed by whitespace, to separate large bolt12 strings.
+ */
+/* We use lower case, and we leave it to the caller to upcase (and +-break) if it wants */
 char *to_bech32_charset(const tal_t *ctx,
 			const char *hrp, const u8 *data)
 {
