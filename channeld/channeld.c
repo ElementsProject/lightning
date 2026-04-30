@@ -6087,9 +6087,9 @@ static void peer_reconnect(struct peer *peer,
 	/* BOLT #2:
 	 *
 	 *   - otherwise:
-	 *     - if `next_commitment_number` is not 1 greater than the
-	 *       commitment number of the last `commitment_signed` message the
-	 *       receiving node has sent:
+	 *    - if `next_commitment_number` is not equal to the commitment
+	 *      number of the next `commitment_signed` that the receiving
+	 *      node would send:
 	 *       - SHOULD send an `error` and fail the channel.
 	 */
 	} else if (next_commitment_number != peer->next_index[REMOTE])
