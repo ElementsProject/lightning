@@ -2033,10 +2033,15 @@ static struct command_result *xpay_core(struct command *cmd,
 		 * paths, we just know the cltv we use to enter the
 		 * final hop. */
 		payment->final_cltv = 0;
-		/* We will start honoring this flag in future */
+		/* BOLT #12:
+		 *   - if `invoice_features` contains the MPP/compulsory bit:
+		 *    - MUST pay the invoice via multiple separate blinded paths.
+		 *  - otherwise, if `invoice_features` contains the MPP/optional bit:
+		 *    - MAY pay the invoice via multiple separate payments.
+		 *  - otherwise:
+		 *    - MUST NOT use multiple parts to pay the invoice.
+		 */
 		payment->disable_mpp = !feature_offered(b12inv->invoice_features, OPT_BASIC_MPP);
-		if (payment->disable_mpp && command_deprecated_in_ok(cmd, "ignore_bolt12_mpp", "v25.05", "v25.12"))
-			payment->disable_mpp = false;
 	} else {
 		struct bolt11 *b11
 			= bolt11_decode(tmpctx, payment->invstring,
