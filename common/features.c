@@ -29,6 +29,7 @@ const char *feature_place_names[] = {
 	"bolt12_offer",
 	"bolt12_invreq",
 	"bolt12_invoice",
+	"channel_type",
 };
 
 static const struct feature_style feature_styles[] = {
@@ -81,7 +82,8 @@ static const struct feature_style feature_styles[] = {
 	{ OPT_ANCHORS_ZERO_FEE_HTLC_TX,
 	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
 			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT,
-			  [CHANNEL_FEATURE] = FEATURE_DONT_REPRESENT } },
+			  [CHANNEL_FEATURE] = FEATURE_DONT_REPRESENT,
+			  [CHANNEL_TYPE_FEATURE] = FEATURE_REPRESENT } },
 	{ OPT_DUAL_FUND,
 	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
 			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT,
@@ -93,7 +95,8 @@ static const struct feature_style feature_styles[] = {
 	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
 			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT,
 			  [BOLT11_FEATURE] = FEATURE_DONT_REPRESENT,
-			  [CHANNEL_FEATURE] = FEATURE_DONT_REPRESENT} },
+			  [CHANNEL_FEATURE] = FEATURE_DONT_REPRESENT,
+			  [CHANNEL_TYPE_FEATURE] = FEATURE_REPRESENT} },
 
 	/* Zeroconf is always signalled in `init`, but we still
 	 * negotiate on a per-channel basis when calling `fundchannel`
@@ -106,7 +109,8 @@ static const struct feature_style feature_styles[] = {
 		          [INIT_FEATURE] = FEATURE_REPRESENT,
 			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT,
 			  [BOLT11_FEATURE] = FEATURE_DONT_REPRESENT,
-			  [CHANNEL_FEATURE] = FEATURE_DONT_REPRESENT} },
+			  [CHANNEL_FEATURE] = FEATURE_DONT_REPRESENT,
+			  [CHANNEL_TYPE_FEATURE] = FEATURE_REPRESENT} },
 	{ OPT_ROUTE_BLINDING,
 	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
 			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT,
