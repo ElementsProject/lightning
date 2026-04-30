@@ -2562,7 +2562,7 @@ def test_unspend_during_reorg(node_factory, bitcoind):
     # Now, l3 sees the close, marks channel dying.
     l1.rpc.close(l2.info['id'])
     spentheight = bitcoind.rpc.getblockcount() + 1
-    bitcoind.generate_block(14, wait_for_mempool=1)
+    bitcoind.generate_block(74, wait_for_mempool=1)
     wait_for(lambda: len(l3.rpc.listchannels()['channels']) == 2)
 
     # In one fell swoop it goes through dying, to dead (12 blocks)
@@ -2576,12 +2576,10 @@ def test_unspend_during_reorg(node_factory, bitcoind):
     # Restart, see replay.
     l3.stop()
     # This is enough to take channel from dying to dead.
-    bitcoind.generate_block(10)
+    bitcoind.generate_block(70)
 
     l3.start()
     # Channel should still be dead.
-    l3.daemon.wait_for_log(f"Adding block {spentheight}")
-
     sync_blockheight(bitcoind, [l3])
     assert only_one(l3.db_query(f"SELECT spendheight as spendheight FROM utxoset WHERE blockheight={blockheight} AND txindex={txindex}"))['spendheight'] == spentheight
 

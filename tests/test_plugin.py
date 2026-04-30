@@ -4320,7 +4320,7 @@ def test_sql(node_factory, bitcoind):
     # This has to wait for the hold_invoice plugin to let go!
     open(os.path.join(l3.daemon.lightning_dir, TEST_NETWORK, "unhold"), "w").close()
     txid = only_one(l1.rpc.close(l2.info['id'])['txids'])
-    bitcoind.generate_block(13, wait_for_mempool=txid)
+    bitcoind.generate_block(73, wait_for_mempool=txid)
     wait_for(lambda: len(l3.rpc.listchannels(source=l1.info['id'])['channels']) == 0)
     assert len(l3.rpc.sql("SELECT * FROM channels WHERE source = X'{}';".format(l1.info['id']))['rows']) == 0
     l3.daemon.wait_for_log("Deleting channel: {}".format(scid))
