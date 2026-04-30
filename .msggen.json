@@ -1435,7 +1435,8 @@
             "CurrencyConvert.msat": 1
         },
         "CurrencyrateRequest": {
-            "CurrencyRate.currency": 1
+            "CurrencyRate.currency": 1,
+            "CurrencyRate.source": 2
         },
         "CurrencyrateResponse": {
             "CurrencyRate.rate": 1
@@ -6395,6 +6396,10 @@
         },
         "CurrencyRate.rate": {
             "added": "v26.04",
+            "deprecated": null
+        },
+        "CurrencyRate.source": {
+            "added": "v26.06",
             "deprecated": null
         },
         "Datastore": {

@@ -11,6 +11,16 @@ from werkzeug.serving import make_server
 
 LOGGER = logging.getLogger(__name__)
 
+ALL_RESOURCES = [
+    "bitstamp",
+    "coinbase",
+    "coingecko",
+    "kraken",
+    "blockchain.info",
+    "coindesk",
+    "binance",
+]
+
 
 def median(rateslist):
     rates = [entry["amount"] for entry in rateslist]
@@ -127,15 +137,7 @@ def test_apis_batch2(node_factory):
 
 def test_custom_source(node_factory):
     opts = {
-        "currencyrate-disable-source": [
-            "bitstamp",
-            "coinbase",
-            "coingecko",
-            "kraken",
-            "blockchain.info",
-            "coindesk",
-            "binance",
-        ],
+        "currencyrate-disable-source": ALL_RESOURCES,
         "currencyrate-add-source": [
             r"my-coingecko,https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies={currency_lc},bitcoin,{currency_lc}",
             r"my-kraken,https://api.kraken.com/0/public/Ticker?pair=XXBTZ{currency},result,XXBTZ{currency},c,0",
@@ -179,15 +181,7 @@ def test_custom_source(node_factory):
 
 def test_no_sources(node_factory):
     opts = {
-        "currencyrate-disable-source": [
-            "bitstamp",
-            "coinbase",
-            "coingecko",
-            "kraken",
-            "blockchain.info",
-            "coindesk",
-            "binance",
-        ],
+        "currencyrate-disable-source": ALL_RESOURCES,
     }
     l1 = node_factory.get_node(options=opts)
 
@@ -239,6 +233,9 @@ def fake_rateserver():
         "fast": 100_000_000,
         "slow": 50_000_000,
         "slow_delay": 1,
+        "too_high": 50_000.0116,
+        "too_low": 50_000.0114,
+        "midpoint": 50_000.0115,
     }
 
     @app.get("/fast")
@@ -249,6 +246,18 @@ def fake_rateserver():
     def slow():
         time.sleep(state["slow_delay"])
         return jsonify({"price": state["slow"]})
+
+    @app.get("/too_high")
+    def too_high():
+        return jsonify({"price": state["too_high"]})
+
+    @app.get("/too_low")
+    def too_low():
+        return jsonify({"price": state["too_low"]})
+
+    @app.get("/midpoint")
+    def midpoint():
+        return jsonify({"price": state["midpoint"]})
 
     srv = _ServerThread(app)
     srv.start()
@@ -265,15 +274,7 @@ def fake_rateserver():
 def test_cached_median(node_factory, fake_rateserver):
     """This should use the median of available sources"""
     opts = {
-        "currencyrate-disable-source": [
-            "bitstamp",
-            "coinbase",
-            "coingecko",
-            "kraken",
-            "blockchain.info",
-            "coindesk",
-            "binance",
-        ],
+        "currencyrate-disable-source": ALL_RESOURCES,
         "currencyrate-add-source": [
             f"fast,{fake_rateserver['url']}/fast,price",
             f"slow,{fake_rateserver['url']}/slow,price",
@@ -302,15 +303,7 @@ def test_cached_median(node_factory, fake_rateserver):
 
 def test_bkpr_listaccountevents_currencyrate(node_factory, fake_rateserver):
     opts = {
-        "currencyrate-disable-source": [
-            "bitstamp",
-            "coinbase",
-            "coingecko",
-            "kraken",
-            "blockchain.info",
-            "coindesk",
-            "binance",
-        ],
+        "currencyrate-disable-source": ALL_RESOURCES,
         "currencyrate-add-source": [
             f"fast,{fake_rateserver['url']}/fast,price",
             f"slow,{fake_rateserver['url']}/slow,price",
@@ -333,15 +326,7 @@ def test_bkpr_listaccountevents_currencyrate(node_factory, fake_rateserver):
 def test_bkpr_listaccountevents_realtime(node_factory, fake_rateserver):
     """Make sure we don't wait for bkpr command to look up rates!"""
     opts = {
-        "currencyrate-disable-source": [
-            "bitstamp",
-            "coinbase",
-            "coingecko",
-            "kraken",
-            "blockchain.info",
-            "coindesk",
-            "binance",
-        ],
+        "currencyrate-disable-source": ALL_RESOURCES,
         "currencyrate-add-source": [
             f"fast,{fake_rateserver['url']}/fast,price",
             f"slow,{fake_rateserver['url']}/slow,price",
@@ -372,15 +357,7 @@ def test_bkpr_listaccountevents_realtime(node_factory, fake_rateserver):
 
 def test_bkpr_currency_dynamic(node_factory, fake_rateserver):
     opts = {
-        "currencyrate-disable-source": [
-            "bitstamp",
-            "coinbase",
-            "coingecko",
-            "kraken",
-            "blockchain.info",
-            "coindesk",
-            "binance",
-        ],
+        "currencyrate-disable-source": ALL_RESOURCES,
         "currencyrate-add-source": [
             f"fast,{fake_rateserver['url']}/fast,price",
             f"slow,{fake_rateserver['url']}/slow,price",
@@ -434,15 +411,7 @@ def test_bkpr_currency_dynamic(node_factory, fake_rateserver):
 
 def test_bkpr_currencyrate_persisted(node_factory, fake_rateserver):
     opts = {
-        "currencyrate-disable-source": [
-            "bitstamp",
-            "coinbase",
-            "coingecko",
-            "kraken",
-            "blockchain.info",
-            "coindesk",
-            "binance",
-        ],
+        "currencyrate-disable-source": ALL_RESOURCES,
         "currencyrate-add-source": [
             f"fast,{fake_rateserver['url']}/fast,price",
             f"slow,{fake_rateserver['url']}/slow,price",
@@ -504,15 +473,7 @@ def test_bkpr_currencyrate_persisted(node_factory, fake_rateserver):
 
 def test_bkpr_currencyrate_warns_for_old_events(node_factory, fake_rateserver):
     opts = {
-        "currencyrate-disable-source": [
-            "bitstamp",
-            "coinbase",
-            "coingecko",
-            "kraken",
-            "blockchain.info",
-            "coindesk",
-            "binance",
-        ],
+        "currencyrate-disable-source": ALL_RESOURCES,
         "currencyrate-add-source": [
             f"fast,{fake_rateserver['url']}/fast,price",
             f"slow,{fake_rateserver['url']}/slow,price",
@@ -568,15 +529,7 @@ def test_bkpr_currencyrate_warns_for_old_events(node_factory, fake_rateserver):
 
 def test_bkpr_currencyrate_ranges(node_factory, fake_rateserver):
     opts = {
-        "currencyrate-disable-source": [
-            "bitstamp",
-            "coinbase",
-            "coingecko",
-            "kraken",
-            "blockchain.info",
-            "coindesk",
-            "binance",
-        ],
+        "currencyrate-disable-source": ALL_RESOURCES,
         "currencyrate-add-source": [
             f"fast,{fake_rateserver['url']}/fast,price",
             f"slow,{fake_rateserver['url']}/slow,price",
@@ -628,3 +581,99 @@ def test_bkpr_currencyrate_ranges(node_factory, fake_rateserver):
     # We will load them fine on restart, too.
     l1.restart()
     assert l1.rpc.bkpr_listaccountevents() == events
+
+
+def test_currencyrate_rounding(node_factory, fake_rateserver):
+    """Test currencyrate returns at most 3 decimal places (ISO 4217)."""
+
+    cases = [
+        ("too_high", f"{fake_rateserver['url']}/too_high", 50_000.012),
+        ("too_low", f"{fake_rateserver['url']}/too_low", 50_000.011),
+        ("midpoint", f"{fake_rateserver['url']}/midpoint", 50_000.012),
+    ]
+
+    for source_name, url, expected in cases:
+        opts = {
+            "currencyrate-disable-source": ALL_RESOURCES,
+            "currencyrate-add-source": [f"{source_name},{url},price"],
+        }
+        l1 = node_factory.get_node(options=opts)
+
+        result = l1.rpc.currencyrate("USD")
+        LOGGER.info("currencyrate rounding [%s]: %s", source_name, result)
+        rate = result["rate"]
+
+        decimal_places = len(f"{rate:.10f}".split(".")[1].rstrip("0"))
+        assert decimal_places <= 3, (
+            f"[{source_name}] Expected at most 3 decimal places, "
+            f"got {rate!r} ({decimal_places} decimal places)"
+        )
+        assert abs(rate - expected) < 1e-9, (
+            f"[{source_name}] Expected {expected} after rounding, got {rate!r}"
+        )
+
+        l1.stop()
+
+
+def test_currencyrate_source(node_factory, fake_rateserver):
+    """Test currencyrate with a source argument returns that source's rate."""
+
+    opts = {
+        "currencyrate-disable-source": ALL_RESOURCES,
+        "currencyrate-add-source": [
+            f"fast,{fake_rateserver['url']}/fast,price",
+            f"slow,{fake_rateserver['url']}/slow,price",
+        ],
+    }
+    l1 = node_factory.get_node(options=opts)
+
+    result_fast = l1.rpc.call("currencyrate", ["USD", "fast"])
+    LOGGER.info("currencyrate fast: %s", result_fast)
+    assert result_fast["rate"] == float(fake_rateserver["state"]["fast"])
+
+    result_slow = l1.rpc.call("currencyrate", ["USD", "slow"])
+    LOGGER.info("currencyrate slow: %s", result_slow)
+    assert result_slow["rate"] == float(fake_rateserver["state"]["slow"])
+
+    expected_median = (
+        fake_rateserver["state"]["fast"] + fake_rateserver["state"]["slow"]
+    ) / 2
+    result_median = l1.rpc.call("currencyrate", ["USD"])
+    LOGGER.info("currencyrate median: %s", result_median)
+    assert result_median["rate"] == float(expected_median)
+
+
+def test_currencyrate_unknown_source(node_factory, fake_rateserver):
+    """Test currencyrate with a non-existent source name returns an error."""
+
+    opts = {
+        "currencyrate-disable-source": ALL_RESOURCES,
+        "currencyrate-add-source": [
+            f"fast,{fake_rateserver['url']}/fast,price",
+        ],
+    }
+    l1 = node_factory.get_node(options=opts)
+
+    with pytest.raises(RpcError, match="Unknown source `nonexistent`"):
+        l1.rpc.call("currencyrate", ["USD", "nonexistent"])
+
+
+def test_currencyrate_too_many_args(node_factory, fake_rateserver):
+    """Test that all three RPC calls reject extra positional arguments."""
+
+    opts = {
+        "currencyrate-disable-source": ALL_RESOURCES,
+        "currencyrate-add-source": [
+            f"fast,{fake_rateserver['url']}/fast,price",
+        ],
+    }
+    l1 = node_factory.get_node(options=opts)
+
+    with pytest.raises(RpcError, match="Too many arguments"):
+        l1.rpc.call("currencyrate", ["USD", "fast", "extra_arg"])
+
+    with pytest.raises(RpcError, match="Too many arguments"):
+        l1.rpc.call("listcurrencyrates", ["USD", "extra_arg"])
+
+    with pytest.raises(RpcError, match="Too many arguments"):
+        l1.rpc.call("currencyconvert", [100, "USD", "extra_arg"])
