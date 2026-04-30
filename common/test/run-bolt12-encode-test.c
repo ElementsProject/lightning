@@ -448,6 +448,11 @@ int main(int argc, char *argv[])
 	offer->offer_paths = paths;
 	offer->offer_paths[1]->path = NULL;
 	print_invalid_offer(offer, "Second offer_path is empty");
+	offer->offer_paths = NULL;
+
+	offer->offer_chains = tal_arr(offer, struct bitcoin_blkid, 0);
+	print_invalid_offer(offer, "offer_chains with zero entries");
+	offer->offer_chains = NULL;
 
 	printf("]\n");
 	common_shutdown();
