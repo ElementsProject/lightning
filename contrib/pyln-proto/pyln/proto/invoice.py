@@ -329,7 +329,8 @@ class Invoice(object):
             # BOLT #11:
             # A reader:
             #   - MUST skip over `f` fields that use an unknown `version`.
-            #   - MUST fail the payment if any mandatory field (`p`, `h`, `s`, `n`) does not have the correct length (52, 52, 52, 53).
+            #   - MUST fail the payment if any field with fixed `data_length` (`p`, `h`, `s`, `n`)
+            #     does not have the correct length (52, 52, 52, 53).
             data_length = len(tagdata) / 5
 
             if tag == 'r':
@@ -392,7 +393,7 @@ class Invoice(object):
             # BOLT #11:
             # A reader:...
             #   - if a valid `n` field is provided:
-            #     - MUST use the `n` field to validate the signature instead of performing signature recovery.
+            #     - MUST use the `n` field to validate the signature instead of performing public-key recovery.
             inv.signature = inv.pubkey.ecdsa_deserialize_compact(sigdecoded[0:64])
             if not inv.pubkey.ecdsa_verify(bytearray([ord(c) for c in hrp]) + data.tobytes(), inv.signature):
                 raise ValueError('Invalid signature')

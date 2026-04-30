@@ -768,9 +768,8 @@ struct onionreply *create_onionreply(const tal_t *ctx,
 
 	/* BOLT #4:
 	 *
-	 * The node generating the error message (_erring node_) builds a return
-	 * packet consisting of
-	 * the following fields:
+	 * The node generating the error message builds a _return
+	 * packet_ consisting of the following fields:
 	 *
 	 * 1. data:
 	 *    * [`32*byte`:`hmac`]
@@ -816,8 +815,6 @@ struct onionreply *wrap_onionreply(const tal_t *ctx,
 	 * The erring node then generates a new key, using the key type `ammag`.
 	 * This key is then used to generate a pseudo-random stream, which is
 	 * in turn applied to the packet using `XOR`.
-	 *
-	 * The obfuscation step is repeated by every hop along the return path.
 	 */
 	subkey_from_hmac("ammag", shared_secret, &key);
 	result->contents = tal_dup_talarr(result, u8, reply->contents);

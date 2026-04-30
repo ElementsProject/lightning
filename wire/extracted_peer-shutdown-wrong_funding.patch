@@ -8,6 +8,6 @@
 +tlvtype,shutdown_tlvs,wrong_funding,100
 +tlvdata,shutdown_tlvs,wrong_funding,txid,sha256,
 +tlvdata,shutdown_tlvs,wrong_funding,outnum,u32,
- msgtype,closing_signed,39
- msgdata,closing_signed,channel_id,channel_id,
- msgdata,closing_signed,fee_satoshis,u64,
+ msgtype,closing_complete,40
+ msgdata,closing_complete,channel_id,channel_id,
+ msgdata,closing_complete,closer_scriptpubkey_len,u16,
