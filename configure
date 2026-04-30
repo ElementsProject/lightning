@@ -78,7 +78,7 @@ default_python()
     PYTHON_BINS="python3 python"
     for p in $PYTHON_BINS; do
         if [ "$(which $p)" != "" ] ; then
-            if $p --version 2>&1 | grep -q "Python 3."; then
+            if uv run $p --version 2>&1 | grep -q "Python 3."; then
                 echo "$p"
                 return
             fi
@@ -116,14 +116,14 @@ default_pytest()
 	# want to only call which on the executable
 	exe=$(echo "$p" | awk '{print $1}')
 	# shellcheck disable=SC2086
-	if [ "$(which $exe)" != "" ] ; then
-	    "$p" --version 2>&1 | grep -q "pytest" || continue
+	if [ "$(uv run which $exe)" != "" ] ; then
+	    uv run "$p" --version 2>&1 | grep -q "pytest" || continue
 	    echo "$p"
 	    return
 	fi
     done
 
-    if $1 -c "import pytest" 2>/dev/null; then
+    if uv run $1 -c "import pytest" 2>/dev/null; then
         echo "$1 -m pytest"
         return
     fi
