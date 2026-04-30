@@ -332,7 +332,7 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags,
 		= state->upfront_shutdown_script[LOCAL];
 
 	/* BOLT #2:
-	 *  - if it includes `channel_type`:
+	 * - MUST set `channel_type`:
 	 *     - MUST set it to a defined type representing the type it wants.
 	 *     - MUST use the smallest bitmap possible to represent the channel
 	 *       type.
@@ -410,9 +410,8 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags,
 	    their_mindepth);
 
 	/* BOLT #2:
-	 * - if `option_channel_type` was negotiated but the message doesn't
-	 *   include a `channel_type`:
-	 *    - MAY fail the channel.
+	 *   - if the message doesn't include a `channel_type`:
+	 *     - MUST fail the channel.
 	 */
 	if (!accept_tlvs->channel_type) {
 		negotiation_failed(state,
@@ -420,8 +419,7 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags,
 	}
 
 	/* BOLT #2:
-	 * - if `channel_type` is set, and `channel_type` was set in
-	 *   `open_channel`, and they are not equal types:
+	 * - if `channel_type` does not match the `channel_type` from `open_channel`:
 	 *    - MUST fail the channel.
 	 */
 	/* Simple case: caller specified, don't allow any variants */
@@ -881,18 +879,20 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	set_remote_upfront_shutdown(state, open_tlvs->upfront_shutdown_script);
 
 	/* BOLT #2:
-	 * The receiving node MUST fail the channel if:
-	 *...
-	 *  - It supports `channel_type` and `channel_type` was set:
-	 *     - if `type` is not suitable.
-	 *     - if `type` includes `option_zeroconf` and it does not trust the sender to open an unconfirmed channel.
+	 *  - if the message doesn't include a `channel_type`:
+	 *    - fail the channel.
 	 */
-	/* option_channel_type is compulsory. */
 	if (!open_tlvs->channel_type) {
 		negotiation_failed(state,
 				   "Did not set channel_type in open_channel message");
 	}
 
+	/* BOLT #2:
+	 * The receiving node MUST fail the channel if:
+	 *...
+	 *   - the `channel_type` is not suitable.
+	 *   - the `channel_type` includes `option_zeroconf` and it does not trust the sender to open an unconfirmed channel.
+	 */
 	state->channel_type = channel_type_accept(
 		state, open_tlvs->channel_type, state->our_features);
 	if (!state->channel_type) {
@@ -1050,7 +1050,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	/* BOLT #2:
 	 * The receiving node MUST fail the channel if:
 	 *...
-	 *     - if `type` includes `option_zeroconf` and it does not trust the
+	 *     - the `channel_type` includes `option_zeroconf` and it does not trust the
 	 *       sender to open an unconfirmed channel.
 	 */
 	if (channel_type_has(state->channel_type, OPT_ZEROCONF) &&
@@ -1077,8 +1077,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	accept_tlvs->upfront_shutdown_script
 		= state->upfront_shutdown_script[LOCAL];
 	/* BOLT #2:
-	 * - if `option_channel_type` was negotiated:
-	 *    - MUST set `channel_type` to the `channel_type` from `open_channel`
+	 *  - MUST set `channel_type` to the `channel_type` from `open_channel`
 	 */
 	accept_tlvs->channel_type = state->channel_type->features;
 
