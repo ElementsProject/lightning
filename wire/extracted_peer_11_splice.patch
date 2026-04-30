@@ -50,14 +50,10 @@ index f3a42e5537..4b01c56836 100644
  msgtype,revoke_and_ack,133
  msgdata,revoke_and_ack,channel_id,channel_id,
  msgdata,revoke_and_ack,per_commitment_secret,byte,32
-@@ -301,8 +326,12 @@ msgdata,channel_reestablish,next_commitment_number,u64,
- msgdata,channel_reestablish,next_revocation_number,u64,
- msgdata,channel_reestablish,your_last_per_commitment_secret,byte,32
- msgdata,channel_reestablish,my_current_per_commitment_point,point,
--tlvtype,channel_reestablish_tlvs,next_funding,0
-+tlvtype,channel_reestablish_tlvs,next_funding,1
+@@ -301,6 +326,9 @@ msgdata,channel_reestablish,next_commitment_number,u64,
+ tlvtype,channel_reestablish_tlvs,next_funding,1
  tlvdata,channel_reestablish_tlvs,next_funding,next_funding_txid,sha256,
-+tlvdata,channel_reestablish_tlvs,next_funding,retransmit_flags,byte,
+ tlvdata,channel_reestablish_tlvs,next_funding,retransmit_flags,byte,
 +tlvtype,channel_reestablish_tlvs,my_current_funding_locked,5
 +tlvdata,channel_reestablish_tlvs,my_current_funding_locked,my_current_funding_locked_txid,sha256,
 +tlvdata,channel_reestablish_tlvs,my_current_funding_locked,retransmit_flags,byte,
