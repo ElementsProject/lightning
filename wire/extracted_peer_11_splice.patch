@@ -1,8 +1,15 @@
-diff --git a/wire/peer_wire.csv b/wire/peer_wire.csv
-index 5b5803afc..41b57e85b 100644
---- a/wire/peer_wire.csv
-+++ b/wire/peer_wire.csv
-@@ -206,6 +206,19 @@ subtypedata,lease_rates,channel_fee_max_base_msat,tu32,
+diff --git b/wire/peer_wire.csv a/wire/peer_wire.csv
+index f3a42e5537..4b01c56836 100644
+--- b/wire/peer_wire.csv
++++ a/wire/peer_wire.csv
+@@ -1,3 +1,6 @@
++msgtype,protocol_batch_element,0
++msgdata,protocol_batch_element,channel_id,channel_id,
++msgdata,protocol_batch_element,element_size,u16,
+ msgtype,init,16
+ msgdata,init,gflen,u16,
+ msgdata,init,globalfeatures,byte,gflen
+@@ -217,6 +220,19 @@ subtypedata,lease_rates,channel_fee_max_base_msat,tu32,
  msgtype,stfu,2
  msgdata,stfu,channel_id,channel_id,
  msgdata,stfu,initiator,u8,
@@ -22,25 +29,38 @@ index 5b5803afc..41b57e85b 100644
  msgtype,shutdown,38
  msgdata,shutdown,channel_id,channel_id,
  msgdata,shutdown,len,u16,
-@@ -264,6 +250,10 @@ msgdata,commitment_signed,channel_id,channel_id,
+@@ -280,11 +296,20 @@ msgdata,update_fail_malformed_htlc,channel_id,channel_id,
+ msgdata,update_fail_malformed_htlc,id,u64,
+ msgdata,update_fail_malformed_htlc,sha256_of_onion,sha256,
+ msgdata,update_fail_malformed_htlc,failure_code,u16,
++msgtype,start_batch,127
++msgdata,start_batch,channel_id,channel_id,
++msgdata,start_batch,batch_size,u16,
++msgdata,start_batch,batch_info,start_batch_tlvs,
++tlvtype,start_batch_tlvs,batch_info,1
++tlvdata,start_batch_tlvs,batch_info,message_type,u16,
+ msgtype,commitment_signed,132
+ msgdata,commitment_signed,channel_id,channel_id,
  msgdata,commitment_signed,signature,signature,
  msgdata,commitment_signed,num_htlcs,u16,
  msgdata,commitment_signed,htlc_signature,signature,num_htlcs
 +msgdata,commitment_signed,splice_channel_id,commitment_signed_tlvs,
-+tlvtype,commitment_signed_tlvs,splice_info,0
-+tlvdata,commitment_signed_tlvs,splice_info,batch_size,u16,
++tlvtype,commitment_signed_tlvs,splice_info,1
 +tlvdata,commitment_signed_tlvs,splice_info,funding_txid,sha256,
  msgtype,revoke_and_ack,133
  msgdata,revoke_and_ack,channel_id,channel_id,
  msgdata,revoke_and_ack,per_commitment_secret,byte,32
-@@ -319,6 +320,10 @@ msgdata,channel_reestablish,your_last_per_commitment_secret,byte,32
+@@ -301,8 +326,12 @@ msgdata,channel_reestablish,next_commitment_number,u64,
+ msgdata,channel_reestablish,next_revocation_number,u64,
+ msgdata,channel_reestablish,your_last_per_commitment_secret,byte,32
  msgdata,channel_reestablish,my_current_per_commitment_point,point,
- tlvtype,channel_reestablish_tlvs,next_funding,0
+-tlvtype,channel_reestablish_tlvs,next_funding,0
++tlvtype,channel_reestablish_tlvs,next_funding,1
  tlvdata,channel_reestablish_tlvs,next_funding,next_funding_txid,sha256,
-+tlvtype,channel_reestablish_tlvs,your_last_funding_locked_txid,1
-+tlvdata,channel_reestablish_tlvs,your_last_funding_locked_txid,your_last_funding_locked_txid,sha256,
-+tlvtype,channel_reestablish_tlvs,my_current_funding_locked_txid,3
-+tlvdata,channel_reestablish_tlvs,my_current_funding_locked_txid,my_current_funding_locked_txid,sha256,
++tlvdata,channel_reestablish_tlvs,next_funding,retransmit_flags,byte,
++tlvtype,channel_reestablish_tlvs,my_current_funding_locked,5
++tlvdata,channel_reestablish_tlvs,my_current_funding_locked,my_current_funding_locked_txid,sha256,
++tlvdata,channel_reestablish_tlvs,my_current_funding_locked,retransmit_flags,byte,
  msgtype,announcement_signatures,259
  msgdata,announcement_signatures,channel_id,channel_id,
  msgdata,announcement_signatures,short_channel_id,short_channel_id,
