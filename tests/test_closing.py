@@ -3661,6 +3661,85 @@ def test_close_twice(node_factory, executor):
     assert fut2.result(TIMEOUT)['type'] == 'mutual'
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="Bug: channel stuck in CLOSINGD_COMPLETE if funding never confirms"
+)
+def test_closingd_complete_stuck_no_funding(node_factory, bitcoind):
+    """Mutual close pre-lockin + funding never confirms → permanent CLOSINGD_COMPLETE.
+
+    BOLT 2 explicitly permits sending `shutdown` before `channel_ready`
+    (i.e. before the funding tx has reached `minimum_depth`). Both sides
+    happily complete the mutual close negotiation and persist a
+    fully-signed close tx. If the funding tx then never confirms, the
+    close tx is permanently invalid — its only input is a 2-of-2 funding
+    output that does not exist on chain. The state machine has no path
+    from CLOSINGD_COMPLETE to FUNDING_SPEND_SEEN / ONCHAIN, and there is
+    no cleanup. The channel record sits in CLOSINGD_COMPLETE
+    indefinitely.
+
+    This test demonstrates the stuck state. It is marked xfail-strict
+    because no fix yet exists; once fixed, the marker should be removed.
+    """
+    l1, l2 = node_factory.line_graph(2, fundchannel=False)
+
+    # Fund l1's on-chain wallet
+    l1.fundwallet(10**7)
+
+    # Open the channel: funding tx is broadcast to bitcoind's mempool,
+    # but we do NOT mine it.
+    res = l1.rpc.fundchannel(l2.info['id'], 10**6)
+    funding_txid = res['txid']
+
+    # Both sides reach CHANNELD_AWAITING_LOCKIN
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['state']
+             == 'CHANNELD_AWAITING_LOCKIN')
+    wait_for(lambda: only_one(l2.rpc.listpeerchannels()['channels'])['state']
+             == 'CHANNELD_AWAITING_LOCKIN')
+
+    # Confirm the funding tx is in the mempool but NOT yet in any block
+    assert funding_txid in bitcoind.rpc.getrawmempool()
+
+    # Push funding's effective fee far below any block-min-fee so future
+    # generated blocks do not include it.  pyln-testing uses this same
+    # trick (utils.py:629–635).
+    bitcoind.rpc.prioritisetransaction(funding_txid, None, -10**8)
+
+    # Initiate mutual close while still in CHANNELD_AWAITING_LOCKIN
+    # (BOLT 2 §"Closing Initiation: shutdown" permits this).
+    l1.rpc.close(l2.info['id'])
+
+    # Both sides should reach CLOSINGD_COMPLETE
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['state']
+             == 'CLOSINGD_COMPLETE')
+    wait_for(lambda: only_one(l2.rpc.listpeerchannels()['channels'])['state']
+             == 'CLOSINGD_COMPLETE')
+
+    # Advance the chain.  CLN waits for an on-chain funding-spend event
+    # (not a block count), so 100 blocks is sufficient to demonstrate the
+    # stuck state.
+    bitcoind.generate_block(100)
+    sync_blockheight(bitcoind, [l1, l2])
+
+    # Sanity: funding really never confirmed
+    assert l1.rpc.listpeerchannels()['channels'][0].get('short_channel_id') is None
+    assert l2.rpc.listpeerchannels()['channels'][0].get('short_channel_id') is None
+
+    # Expected behavior under fix: channel record has moved beyond
+    # CLOSINGD_COMPLETE (transitioned to ONCHAIN with proof-of-give-up,
+    # been auto-forgotten, or some other resolved terminal state).
+    chans_l1 = l1.rpc.listpeerchannels()['channels']
+    chans_l2 = l2.rpc.listpeerchannels()['channels']
+    assert all(c['state'] != 'CLOSINGD_COMPLETE' for c in chans_l1), (
+        f"l1 still has channel in CLOSINGD_COMPLETE after 100 blocks: "
+        f"{[c['state'] for c in chans_l1]}"
+    )
+    assert all(c['state'] != 'CLOSINGD_COMPLETE' for c in chans_l2), (
+        f"l2 still has channel in CLOSINGD_COMPLETE after 100 blocks: "
+        f"{[c['state'] for c in chans_l2]}"
+    )
+
+
 def test_close_weight_estimate(node_factory, bitcoind):
     """closingd uses the expected closing tx weight to constrain fees; make sure that lightningd agrees
     once it has the actual agreed tx"""
