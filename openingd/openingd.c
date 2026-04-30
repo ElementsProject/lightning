@@ -149,10 +149,10 @@ static void set_reserve_absolute(struct state * state, const struct amount_sat d
 	} else {
 		/* BOLT #2:
 		 *
-		 * The sending node:
-		 *...
+		 * The sender:
+		 * ...
 		 * - MUST set `channel_reserve_satoshis` greater than or equal
-		 *to `dust_limit_satoshis` from the `open_channel` message.
+		 *   to `dust_limit_satoshis` from the `open_channel` message.
 		 */
 		if (amount_sat_greater(dust_limit, reserve_sat)) {
 			status_debug("Their reserve is too small, bumping to "
@@ -735,7 +735,8 @@ static bool funder_finalize_channel_setup(struct state *state,
 	 *
 	 * The recipient:
 	 *   - if `signature` is incorrect OR non-compliant with LOW-S-standard rule...:
-	 *     - MUST fail the channel
+	 *     - MUST send a `warning` and close the connection, or send an
+	 *       `error` and fail the channel.
 	 */
 	/* So we create *our* initial commitment transaction, and check the
 	 * signature they sent against that. */
@@ -1196,12 +1197,10 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 			  &theirsig)) {
 		/* BOLT #1:
 		 *
-		 * ### The `error` and `warning` Messages
-		 *...
 		 * - when failure was caused by an invalid signature check:
-		 *    - SHOULD include the raw, hex-encoded transaction in reply
-		 *      to a `funding_created`, `funding_signed`,
-		 *      `closing_signed`, or `commitment_signed` message.
+		 *   - SHOULD include the raw, hex-encoded transaction in reply
+		 *     to a `funding_created`, `funding_signed`,
+		 *     `closing_signed`, or `commitment_signed` message.
 		 */
 		/*~ This verbosity is not only useful for our own testing, but
 		 * a courtesy to other implementaters whose brains may be so
