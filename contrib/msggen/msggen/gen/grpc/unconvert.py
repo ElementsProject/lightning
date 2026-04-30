@@ -1,6 +1,8 @@
 # A grpc model
-from msggen.model import ArrayField, CompositeField, EnumField, PrimitiveField, Service
+from msggen.model import ArrayField, CompositeField, EnumField, PrimitiveField, UnionField, Service
 from msggen.gen.grpc.convert import GrpcConverterGenerator
+from msggen.gen.grpc.util import camel_to_snake, union_variant_suffix
+from msggen.gen.rpc.rust import union_variant_name
 
 
 class GrpcUnconverterGenerator(GrpcConverterGenerator):
@@ -11,6 +13,79 @@ class GrpcUnconverterGenerator(GrpcConverterGenerator):
 
         # TODO Temporarily disabled since the use of overrides is lossy
         # self.generate_responses(service)
+
+    def unconvert_variant_value(self, f, val="v"):
+        """Generate the reverse conversion expression for a union variant value (pb -> cln-rpc)."""
+        if isinstance(f, PrimitiveField):
+            return {
+                "short_channel_id": f"cln_rpc::primitives::ShortChannelId::from_str(&{val}).unwrap()",
+                "short_channel_id_dir": f"cln_rpc::primitives::ShortChannelIdDir::from_str(&{val}).unwrap()",
+                "pubkey": f"PublicKey::from_slice(&{val}).unwrap()",
+                "hex": f"hex::encode({val})",
+                "txid": f"hex::encode({val})",
+                "hash": f"Sha256::from_slice(&{val}).unwrap()",
+                "secret": f"{val}.try_into().unwrap()",
+                "msat": f"{val}.into()",
+                "msat_or_all": f"{val}.into()",
+                "msat_or_any": f"{val}.into()",
+                "sat": f"{val}.into()",
+                "sat_or_all": f"{val}.into()",
+                "feerate": f"{val}.into()",
+                "outpoint": f"{val}.into()",
+            }.get(f.typename, val)
+        elif isinstance(f, ArrayField):
+            inner_mapping = {
+                "short_channel_id": "cln_rpc::primitives::ShortChannelId::from_str(&s).unwrap()",
+                "short_channel_id_dir": "cln_rpc::primitives::ShortChannelIdDir::from_str(&s).unwrap()",
+                "pubkey": "PublicKey::from_slice(&s).unwrap()",
+                "hex": "hex::encode(s)",
+                "txid": "hex::encode(s)",
+            }.get(f.itemtype.typename, "s.into()")
+            return f"{val}.items.into_iter().map(|s| {inner_mapping}).collect()"
+        elif isinstance(f, EnumField):
+            return f"{val}.try_into().unwrap()"
+        elif isinstance(f, CompositeField):
+            return f"{val}.into()"
+        return val
+
+    def generate_union_unconvert(self, prefix, field: UnionField, parent_typename, override=None):
+        """Generate From impl for pb oneof -> cln-rpc union type."""
+        if override is None:
+            override = lambda x: x
+
+        typename = str(field.typename)
+        pbname = self.to_camel_case(str(parent_typename))
+        pb_mod = camel_to_snake(pbname)
+        oneof_name = field.normalized()
+        pb_oneof_enum = self.to_camel_case(oneof_name[0].upper() + oneof_name[1:])
+
+        self.write(
+            f"""\
+        impl From<pb::{pb_mod}::{pb_oneof_enum}> for {prefix}::{typename} {{
+            fn from(c: pb::{pb_mod}::{pb_oneof_enum}) -> Self {{
+                match c {{
+        """
+        )
+
+        for v in field.variants:
+            vname = union_variant_name(v)
+            suffix = union_variant_suffix(v)
+            pb_variant = self.to_camel_case(f"{oneof_name}_{suffix}")
+            pb_variant = pb_variant[0].upper() + pb_variant[1:]
+            conv = self.unconvert_variant_value(v)
+
+            self.write(
+                f"            pb::{pb_mod}::{pb_oneof_enum}::{pb_variant}(v) => {prefix}::{typename}::{vname}({conv}),\n"
+            )
+
+        self.write(
+            f"""\
+                }}
+            }}
+        }}
+
+        """
+        )
 
     def generate_composite(self, prefix, field: CompositeField, override=None) -> None:
         # First pass: generate any sub-fields before we generate the
@@ -26,6 +101,8 @@ class GrpcUnconverterGenerator(GrpcConverterGenerator):
                 self.generate_array(prefix, f, override)
             elif isinstance(f, CompositeField):
                 self.generate_composite(prefix, f, override)
+            elif isinstance(f, UnionField):
+                self.generate_union_unconvert(prefix, f, str(field.typename), override)
 
         has_deprecated = any([f.deprecated for f in field.fields])
         deprecated = ",deprecated" if has_deprecated else ""
@@ -150,6 +227,12 @@ class GrpcUnconverterGenerator(GrpcConverterGenerator):
                 else:
                     rhs = f"c.{name}.map(|v| v.into())"
                 self.write(f"{name}: {rhs},\n", numindent=3)
+
+            elif isinstance(f, UnionField):
+                if not f.optional:
+                    self.write(f"{name}: c.{name}.unwrap().into(),\n", numindent=3)
+                else:
+                    self.write(f"{name}: c.{name}.map(|v| v.into()),\n", numindent=3)
 
         self.write(
             f"""\

@@ -9,6 +9,7 @@ from msggen.model import (
     CompositeField,
     EnumField,
     PrimitiveField,
+    UnionField,
     Service,
     Method,
 )
@@ -74,10 +75,107 @@ def normalize_varname(field):
     return field
 
 
+def union_variant_name(field):
+    """Generate a Rust enum variant name from a union variant's field type."""
+    if isinstance(field, PrimitiveField):
+        return {
+            "boolean": "Bool",
+            "string": "String",
+            "integer": "Int",
+            "u32": "U32",
+            "u64": "U64",
+            "short_channel_id": "ShortChannelId",
+            "short_channel_id_dir": "ShortChannelIdDir",
+            "msat": "Msat",
+            "msat_or_all": "MsatOrAll",
+            "msat_or_any": "MsatOrAny",
+            "sat": "Sat",
+            "sat_or_all": "SatOrAll",
+            "pubkey": "Pubkey",
+            "hex": "Hex",
+            "txid": "Txid",
+            "number": "Number",
+            "float": "Float",
+            "feerate": "Feerate",
+            "outpoint": "Outpoint",
+            "outputdesc": "OutputDesc",
+            "hash": "Hash",
+            "secret": "Secret",
+            "currency": "Currency",
+        }.get(field.typename, field.typename.capitalize())
+    elif isinstance(field, ArrayField):
+        inner = union_variant_name(field.itemtype)
+        return f"ArrayOf{inner}"
+    elif isinstance(field, EnumField):
+        return str(field.typename)
+    elif isinstance(field, CompositeField):
+        return str(field.typename)
+    else:
+        return "Unknown"
+
+
+def union_variant_type(field):
+    """Generate the Rust type for a union variant."""
+    if isinstance(field, PrimitiveField):
+        return typemap.get(field.typename, field.typename)
+    elif isinstance(field, ArrayField):
+        inner = union_variant_type(field.itemtype)
+        return f"{'Vec<'*field.dims}{inner}{'>'*field.dims}"
+    elif isinstance(field, EnumField):
+        return str(field.typename)
+    elif isinstance(field, CompositeField):
+        return str(field.typename)
+    else:
+        return "serde_json::Value"
+
+
+def gen_union(u, meta):
+    defi, decl = "", ""
+    if u.omit():
+        return "", ""
+
+    typename = str(u.typename)
+
+    # Generate sub-type declarations for composite/enum variants
+    for v in u.variants:
+        if isinstance(v, CompositeField):
+            _, vdecl = gen_composite(v, meta)
+            decl += vdecl
+        elif isinstance(v, EnumField):
+            _, vdecl = gen_enum(v, meta, None)
+            decl += vdecl
+
+    decl += f"#[derive(Clone, Debug, Deserialize, Serialize)]\n"
+    decl += f"#[serde(untagged)]\n"
+    decl += f"pub enum {typename} {{\n"
+
+    for v in u.variants:
+        vname = union_variant_name(v)
+        vtype = union_variant_type(v)
+        decl += f"    {vname}({vtype}),\n"
+
+    decl += "}\n\n"
+
+    name = u.name.normalized()
+    org = str(u.name)
+    if u.deprecated:
+        defi += "    #[deprecated]\n"
+    defi += rename_if_necessary(org, name)
+    if not u.optional:
+        defi += f"    pub {name}: {typename},\n"
+    else:
+        defi += f'    #[serde(skip_serializing_if = "Option::is_none")]\n'
+        defi += f"    pub {name}: Option<{typename}>,\n"
+
+    return defi, decl
+
+
 def gen_field(field, meta, override=None):
     if field.omit():
         return ("", "")
-    if isinstance(field, CompositeField):
+    if isinstance(field, UnionField):
+        return gen_union(field, meta)
+    elif isinstance(field, CompositeField):
         return gen_composite(field, meta, override)
     elif isinstance(field, EnumField):
         return gen_enum(field, meta, override)
@@ -246,6 +344,8 @@ def gen_array(a, meta, override=None):
     elif isinstance(a.itemtype, CompositeField):
         itemtype = a.itemtype.typename
     elif isinstance(a.itemtype, EnumField):
+        itemtype = a.itemtype.typename
+    elif isinstance(a.itemtype, UnionField):
         itemtype = a.itemtype.typename
 
     if itemtype is None:

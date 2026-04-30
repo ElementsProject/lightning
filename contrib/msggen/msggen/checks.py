@@ -15,6 +15,10 @@ class Check(ABC):
             if isinstance(f, model.ArrayField):
                 self.visit(f.itemtype)
                 recurse(f.itemtype)
+            elif isinstance(f, model.UnionField):
+                for v in f.variants:
+                    self.visit(v)
+                    recurse(v)
             elif isinstance(f, model.CompositeField):
                 for c in f.fields:
                     self.visit(c)
