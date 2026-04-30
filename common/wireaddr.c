@@ -27,10 +27,11 @@ bool wireaddr_eq_without_port(const struct wireaddr *a, const struct wireaddr *b
 	return memeq(a->addr, a->addrlen, b->addr, b->addrlen);
 }
 
-/* Returns false if we didn't parse it, and *cursor == NULL if malformed. */
-bool fromwire_wireaddr(const u8 **cursor, size_t *max, struct wireaddr *addr)
+enum fromwireaddr_ret fromwire_wireaddr(const u8 **cursor, size_t *max, struct wireaddr *addr)
 {
 	addr->type = fromwire_u8(cursor, max);
+	if (*cursor == NULL)
+		return FROMWIREADDR_MALFORMED;
 
 	switch (addr->type) {
 	case ADDR_TYPE_IPV4:
@@ -50,12 +51,21 @@ bool fromwire_wireaddr(const u8 **cursor, size_t *max, struct wireaddr *addr)
 		memset(&addr->addr, 0, sizeof(addr->addr));
 		break;
 	default:
-		return false;
+		return FROMWIREADDR_UNKNOWN;
 	}
 	fromwire(cursor, max, addr->addr, addr->addrlen);
 	addr->port = fromwire_u16(cursor, max);
 
-	return *cursor != NULL;
+	if (*cursor == NULL)
+		return FROMWIREADDR_MALFORMED;
+	/* BOLT #7:
+	 *  - if `port` is equal to 0:
+	 *     - SHOULD ignore `ipv6_addr` OR `ipv4_addr` OR `hostname`.
+	 */
+	/* FIXME: This seems universal? */
+	if (addr->port == 0)
+		return FROMWIREADDR_IGNORE;
+	return FROMWIREADDR_OK;
 }
 
 void towire_wireaddr(u8 **pptr, const struct wireaddr *addr)
@@ -130,18 +140,20 @@ bool fromwire_wireaddr_internal(const u8 **cursor, size_t *max,
 		addr->u.allproto.port = fromwire_u16(cursor, max);
 		return *cursor != NULL;
 	case ADDR_INTERNAL_AUTOTOR:
-		fromwire_wireaddr(cursor, max, &addr->u.torservice.address);
+		if (fromwire_wireaddr(cursor, max, &addr->u.torservice.address) != FROMWIREADDR_OK)
+			fromwire_fail(cursor, max);
 		addr->u.torservice.port = fromwire_u16(cursor, max);
 		return *cursor != NULL;
 	case ADDR_INTERNAL_STATICTOR:
-		fromwire_wireaddr(cursor, max, &addr->u.torservice.address);
+		if (fromwire_wireaddr(cursor, max, &addr->u.torservice.address) != FROMWIREADDR_OK)
+			fromwire_fail(cursor, max);
 		fromwire_u8_array(cursor, max, (u8 *)addr->u.torservice.blob,
 				 sizeof(addr->u.torservice.blob));
 		addr->u.torservice.port = fromwire_u16(cursor, max);
 		return *cursor != NULL;
 	case ADDR_INTERNAL_WIREADDR:
 		addr->u.wireaddr.is_websocket = fromwire_bool(cursor, max);
-		return fromwire_wireaddr(cursor, max, &addr->u.wireaddr.wireaddr);
+		return fromwire_wireaddr(cursor, max, &addr->u.wireaddr.wireaddr) == FROMWIREADDR_OK;
 	case ADDR_INTERNAL_FORPROXY:
 		fromwire_u8_array(cursor, max, (u8 *)addr->u.unresolved.name,
 				  sizeof(addr->u.unresolved.name));
@@ -859,15 +871,21 @@ struct wireaddr *fromwire_wireaddr_array(const tal_t *ctx, const u8 *ser)
 		 *   - SHOULD ignore the first `address descriptor` that does
 		 *     NOT match the types defined above.
 		 */
-		if (!fromwire_wireaddr(&cursor, &len, &wireaddr)) {
-			if (!cursor)
-				/* Parsing address failed */
-				return tal_free(wireaddrs);
+		switch (fromwire_wireaddr(&cursor, &len, &wireaddr)) {
+		case FROMWIREADDR_MALFORMED:
+			/* Parsing address failed */
+			return tal_free(wireaddrs);
+		case FROMWIREADDR_UNKNOWN:
 			/* Unknown type, stop there. */
-			break;
+			len = 0;
+			continue;
+		case FROMWIREADDR_IGNORE:
+			continue;
+		case FROMWIREADDR_OK:
+			tal_arr_expand(&wireaddrs, wireaddr);
+			continue;
 		}
-
-		tal_arr_expand(&wireaddrs, wireaddr);
+		abort();
 	}
 	return wireaddrs;
 }
