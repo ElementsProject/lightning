@@ -410,15 +410,20 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags,
 	    their_mindepth);
 
 	/* BOLT #2:
-	 * - if `channel_type` is set, and `channel_type` was set in
-	 *   `open_channel`, and they are not equal types:
-	 *    - MUST fail the channel.
+	 * - if `option_channel_type` was negotiated but the message doesn't
+	 *   include a `channel_type`:
+	 *    - MAY fail the channel.
 	 */
 	if (!accept_tlvs->channel_type) {
 		negotiation_failed(state,
 				   "accept_channel without a channel_type");
 	}
 
+	/* BOLT #2:
+	 * - if `channel_type` is set, and `channel_type` was set in
+	 *   `open_channel`, and they are not equal types:
+	 *    - MUST fail the channel.
+	 */
 	/* Simple case: caller specified, don't allow any variants */
 	if (!featurebits_eq(accept_tlvs->channel_type, state->channel_type->features)) {
 		negotiation_failed(state,

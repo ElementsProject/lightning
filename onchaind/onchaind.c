@@ -961,6 +961,10 @@ static void billboard_update(struct tracked_output **outs)
 		       output_type_name(best->output_type), best->depth);
 }
 
+/* BOLT #5:
+ * - SHOULD extract the payment preimage from the transaction input witness, if
+ *   it's not already known.
+ */
 static void handle_htlc_onchain_fulfill(struct tracked_output *out,
 					const struct tx_parts *tx_parts,
 					const struct bitcoin_outpoint *htlc_outpoint)
@@ -1376,7 +1380,14 @@ static void tx_new_depth(struct tracked_output **outs,
 {
 	size_t i;
 
-	/* Special handling for commitment tx reaching depth */
+	/* BOLT #5:
+	 * - for any committed HTLC that does NOT have an output in this
+	 *   commitment transaction:
+	 *...
+	 *     - otherwise:
+	 *       - once the commitment transaction has reached reasonable depth:
+	 *         - MUST fail the corresponding incoming HTLC (if any).
+	 */
 	if (bitcoin_txid_eq(&outs[0]->resolved->txid, txid)
 	    && depth >= reasonable_depth
 	    && missing_htlc_msgs) {
@@ -2036,6 +2047,11 @@ static enum side matches_direction(const size_t *matches,
 static void note_missing_htlcs(u8 **htlc_scripts,
 			       const struct htlcs_info *htlcs_info)
 {
+	/* BOLT #5:
+	 * - for any committed HTLC that does NOT have an output in this
+	 *   commitment transaction:
+	*/
+	/* See onchain_control.c for the rest of the quote! */
 	for (size_t i = 0; i < tal_count(htlcs_info->htlcs); i++) {
 		u8 *msg;
 
@@ -2161,9 +2177,18 @@ static void handle_our_unilateral(const struct tx_parts *tx,
 
 	/* BOLT #5:
 	 *
-	 * In this case, a node discovers its *local commitment transaction*,
-	 * which *resolves* the funding transaction output.
+	 * A node:
+	 *   - upon discovering its *local commitment transaction*:
+	 *     - SHOULD spend the `to_local` output to a convenient address.
+	 *     - MUST wait until the `OP_CHECKSEQUENCEVERIFY` delay has passed (as
+	 *     specified by the remote node's `to_self_delay` field) before spending the
+	 *     output.
+	 *       - Note: if the output is spent (as recommended), the output is *resolved*
+	 *       by the spending transaction, otherwise it is considered *resolved* by the
+	 *       commitment transaction itself.
 	 */
+	/* We do NOT spend our unilateral, we remember how to spend it
+	 * in the wallet, thus it's immediately resolved. */
 	resolved_by_other(outs[0], &tx->txid, OUR_UNILATERAL);
 
 	/* Figure out what delayed to-us output looks like */
@@ -2267,7 +2292,7 @@ static void handle_our_unilateral(const struct tx_parts *tx,
 		    && wally_tx_output_scripteq(tx->outputs[i],
 						script[REMOTE])) {
 			/* BOLT #5:
-			 *
+			 *...
 			 *     - MAY ignore the `to_remote` output.
 			 *       - Note: No action is required by the local
 			 *       node, as `to_remote` is considered *resolved*
@@ -2409,7 +2434,7 @@ static void handle_our_unilateral(const struct tx_parts *tx,
 			 *
 			 *     - MUST handle HTLCs offered by itself as specified
 			 *       in [HTLC Output Handling: Local Commitment,
-			 *       Local Offers]
+			 *       Local Offers](#htlc-output-handling-local-commitment-local-offers).
 			 */
 			out = new_tracked_output(&outs, &outpoint,
 						 tx_blockheight,
@@ -2431,10 +2456,9 @@ static void handle_our_unilateral(const struct tx_parts *tx,
 						 NULL, NULL,
 						 remote_htlc_sigs);
 			/* BOLT #5:
-			 *
-			 *     - MUST handle HTLCs offered by the remote node
-			 *     as specified in [HTLC Output Handling: Local
-			 *     Commitment, Remote Offers]
+			 * - MUST handle HTLCs offered by the remote node
+			 *   as specified in [HTLC Output Handling: Local
+			 *   Commitment, Remote Offers](#htlc-output-handling-local-commitment-remote-offers).
 			 */
 			/* Tells us which htlc to use */
 			which_htlc = resolve_their_htlc(out, matches,

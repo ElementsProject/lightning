@@ -1407,6 +1407,13 @@ char *bolt11_encode_(const tal_t *ctx,
 
 	bech32_push_bits(&data, sig_and_recid, sizeof(sig_and_recid) * CHAR_BIT);
 
+	/* BOLT #11:
+	 * A writer:
+	 *    - MUST encode the payment request in Bech32 (see BIP-0173)
+	 *    - SHOULD use upper case for QR codes (see BIP-0173)
+	 *    - MAY exceed the 90-character limit specified in BIP-0173.
+	 */
+	/* We let the user upcase if they want */
 	output = tal_arr(ctx, char, strlen(hrp) + tal_count(data) + 8);
 	if (!bech32_encode(output, hrp, data, tal_count(data), (size_t)-1,
 			   BECH32_ENCODING_BECH32))
