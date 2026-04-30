@@ -6,7 +6,7 @@ set -e
 CONFIGURATOR=ccan/tools/configurator/configurator
 CONFIG_VAR_FILE=config.vars
 CONFIG_HEADER=ccan/config.h
-BASE_WARNFLAGS="-Wall -Wundef -Wmissing-prototypes -Wmissing-declarations -Wstrict-prototypes -Wold-style-definition -Werror"
+BASE_WARNFLAGS="-Wall -Wundef -Wmissing-prototypes -Wmissing-declarations -Wstrict-prototypes -Wold-style-definition"
 
 OS=$(uname -s)
 ARCH=$(uname -m)
@@ -51,7 +51,7 @@ default_coptflags()
     fi
 }
 
-# Given COPTFLAGS, HAVE_GCC and HAVE_MODERN_GCC, what CWARNFLAGS to default to?
+# Given COPTFLAGS, HAVE_GCC, HAVE_MODERN_GCC and DEBUGBUILD, what CWARNFLAGS to default to?
 default_cwarnflags()
 {
     F=$BASE_WARNFLAGS
@@ -66,6 +66,10 @@ default_cwarnflags()
 	# this gcc-only.
 	F="$F -Wshadow=local"
     fi
+    # Debug builds get -Werror (great for CI!)
+    if [ "$4" = 1 ]; then
+	F="$F -Werror"
+    fi
     echo "$F"
 }
 
@@ -74,7 +78,7 @@ default_python()
     PYTHON_BINS="python3 python"
     for p in $PYTHON_BINS; do
         if [ "$(which $p)" != "" ] ; then
-            if $p --version 2>&1 | grep -q "Python 3."; then
+            if uv run $p --version 2>&1 | grep -q "Python 3."; then
                 echo "$p"
                 return
             fi
@@ -112,14 +116,14 @@ default_pytest()
 	# want to only call which on the executable
 	exe=$(echo "$p" | awk '{print $1}')
 	# shellcheck disable=SC2086
-	if [ "$(which $exe)" != "" ] ; then
-	    "$p" --version 2>&1 | grep -q "pytest" || continue
+	if [ "$(uv run which $exe)" != "" ] ; then
+	    uv run "$p" --version 2>&1 | grep -q "pytest" || continue
 	    echo "$p"
 	    return
 	fi
     done
 
-    if $1 -c "import pytest" 2>/dev/null; then
+    if uv run $1 -c "import pytest" 2>/dev/null; then
         echo "$1 -m pytest"
         return
     fi
@@ -220,7 +224,8 @@ have_function_sections()
     TMPOBJFILE=$CONFIG_VAR_FILE.$$.o
     
     echo "int foo(void); int foo(void) { return 0; }" > $TMPCFILE
-    $1 $2 -ffunction-sections -Wl,--gc-sections -c $TMPCFILE -o $TMPOBJFILE
+    # We *want* this to fail if we get a warning, hence use -Werror.
+    $1 $2 -Werror -ffunction-sections -Wl,--gc-sections -c $TMPCFILE -o $TMPOBJFILE
 }
 
 usage()
@@ -231,7 +236,7 @@ usage()
     set_defaults
     DEFAULT_COPTFLAGS="$(default_coptflags $DEBUGBUILD)"
     # We assume we have a modern gcc.
-    DEFAULT_CWARNFLAGS="$(default_cwarnflags ""$DEFAULT_COPTFLAGS"" 1 1)"
+    DEFAULT_CWARNFLAGS="$(default_cwarnflags ""$DEFAULT_COPTFLAGS"" 1 1 ""$DEBUGBUILD"")"
     usage_with_default "CC" "$CC"
     usage_with_default "CWARNFLAGS" "$DEFAULT_CWARNFLAGS"
     usage_with_default "COPTFLAGS" "$DEFAULT_COPTFLAGS"
@@ -531,12 +536,6 @@ code=
 /*END*/
 EOF
 
-if check_command 'python3-mako' python3 -c 'import mako'; then
-    HAVE_PYTHON3_MAKO=1
-else
-    HAVE_PYTHON3_MAKO=0
-fi
-
 if ! check_command 'lowdown' lowdown; then
     echo "*** We need lowdown!" >&2
     exit 1
@@ -601,7 +600,8 @@ fi
 if [ -z ${CWARNFLAGS+x} ]; then
     CWARNFLAGS=$(default_cwarnflags "$COPTFLAGS" \
 		    $(sed -n 's/^HAVE_GCC=//p' < $CONFIG_VAR_FILE.$$) \
-		    $(sed -n 's/^HAVE_MODERN_GCC=//p' < $CONFIG_VAR_FILE.$$) )
+		    $(sed -n 's/^HAVE_MODERN_GCC=//p' < $CONFIG_VAR_FILE.$$) \
+		    "$DEBUGBUILD")
 fi
 
 add_var PREFIX "$PREFIX"
@@ -632,7 +632,6 @@ add_var CLANG_COVERAGE "$CLANG_COVERAGE"
 add_var ASAN "$ASAN"
 add_var UBSAN "$UBSAN"
 add_var TEST_NETWORK "$TEST_NETWORK"
-add_var HAVE_PYTHON3_MAKO "$HAVE_PYTHON3_MAKO"
 add_var SHA256SUM "$SHA256SUM"
 add_var FUZZING "$FUZZING"
 add_var RUST "$RUST"

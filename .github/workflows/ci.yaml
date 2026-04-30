@@ -312,6 +312,42 @@ jobs:
         run: |
           uv run eatmydata make -j $(nproc) check-units installcheck VALGRIND=${{ matrix.VALGRIND }} CARGO=false CC=devtools/cc-nobuild SUPPRESS_GENERATION=1
 
+  compile-32bit:
+    name: Build 32-bit (size_t != 64-bit warnings)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    needs:
+      - prebuild
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Add i386 architecture
+        run: |
+          sudo dpkg --add-architecture i386
+          sudo apt-get update -qq
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install dependencies
+        env:
+          TEST_NETWORK: ${{ matrix.TEST_NETWORK }}
+        run: |
+          bash -x .github/scripts/setup.sh
+          sudo apt-get install --no-install-recommends -yy \
+            gcc-multilib \
+            libsodium-dev:i386 \
+            libsqlite3-dev:i386 \
+            zlib1g-dev:i386
+
+      - name: Build
+        env:
+          PKG_CONFIG_PATH: /usr/lib/i386-linux-gnu/pkgconfig
+        run: |
+          ./configure --disable-rust --enable-debugbuild CC="gcc -m32" 
+          uv run make -j $(nproc) all-programs
+
   check-fuzz:
     name: Run fuzz regression tests
     runs-on: ubuntu-24.04
@@ -905,11 +941,12 @@ jobs:
       - min-btc-support
       - check-downgrade
       - check-compiled-source
+      - compile-32bit
     if: ${{ always() }}
     steps:
       - name: Complete
         env:
-          JOB_NAMES: "FIRST_INTEGRATION FULL_INTEGRATION CHECK_UNITS VALGRIND SANITIZERS BTC CHECK_COMPILED_SOURCE"
+          JOB_NAMES: "FIRST_INTEGRATION FULL_INTEGRATION CHECK_UNITS VALGRIND SANITIZERS BTC CHECK_COMPILED_SOURCE COMPILE_32BIT"
           FIRST_INTEGRATION: ${{ needs['first-integration'].result }}
           FULL_INTEGRATION: ${{ needs['full-integration'].result }}
           CHECK_UNITS: ${{ needs['check-units'].result }}
@@ -919,6 +956,7 @@ jobs:
           BTC: ${{ needs['min-btc-support'].result }}
           CHECK_DOWNGRADE: ${{ needs['check-downgrade'].result }}
           CHECK_COMPILED_SOURCE: ${{ needs['check-compiled-source'].result }}
+          COMPILE_32BIT: ${{ needs['compile-32bit'].result }}
         run: |
           failed=""
           for name in $JOB_NAMES; do
