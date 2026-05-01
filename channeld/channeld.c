@@ -2767,6 +2767,22 @@ static void handle_peer_fail_malformed_htlc(struct peer *peer, const u8 *msg)
 	abort();
 }
 
+/* These messages are handled by simpleclosed, not channeld.  They should
+ * never arrive here: if option_simple_close is negotiated, master starts
+ * simpleclosed (not closingd) after channeld sends shutdown_complete, so
+ * only simpleclosed talks to the peer at that point. */
+static void handle_peer_closing_complete(struct peer *peer, const u8 *msg)
+{
+	peer_failed_warn(peer->pps, &peer->channel_id,
+			 "Unexpected closing_complete in channeld");
+}
+
+static void handle_peer_closing_sig(struct peer *peer, const u8 *msg)
+{
+	peer_failed_warn(peer->pps, &peer->channel_id,
+			 "Unexpected closing_sig in channeld");
+}
+
 static void handle_peer_shutdown(struct peer *peer, const u8 *shutdown)
 {
 	struct channel_id channel_id;
@@ -5187,14 +5203,18 @@ static void peer_in(struct peer *peer, const u8 *msg)
 	case WIRE_TX_ABORT:
 		check_tx_abort(peer, msg, NULL);
 		return;
+	case WIRE_CLOSING_COMPLETE:
+		handle_peer_closing_complete(peer, msg);
+		return;
+	case WIRE_CLOSING_SIG:
+		handle_peer_closing_sig(peer, msg);
+		return;
 	case WIRE_INIT:
 	case WIRE_OPEN_CHANNEL:
 	case WIRE_ACCEPT_CHANNEL:
 	case WIRE_FUNDING_CREATED:
 	case WIRE_FUNDING_SIGNED:
 	case WIRE_CLOSING_SIGNED:
-	case WIRE_CLOSING_COMPLETE:
-	case WIRE_CLOSING_SIG:
 	case WIRE_TX_ADD_INPUT:
 	case WIRE_TX_REMOVE_INPUT:
 	case WIRE_TX_ADD_OUTPUT:
