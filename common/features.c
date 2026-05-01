@@ -140,6 +140,15 @@ static const struct feature_style feature_styles[] = {
 	{ OPT_PROVIDE_STORAGE,
 	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
 			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT } },
+
+	/* option_simple_close (bits 60/61).
+	 * Not in the default feature set yet; enabled via dev-force-features
+	 * or when we're ready to advertise it unconditionally.
+	 */
+	{ OPT_SIMPLE_CLOSE,
+	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
+			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT,
+			  [CHANNEL_FEATURE] = FEATURE_DONT_REPRESENT } },
 	{ OPT_SPLICE,
 	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
 			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT,

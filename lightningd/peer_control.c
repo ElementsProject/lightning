@@ -7,6 +7,7 @@
 #include <channeld/channeld_wiregen.h>
 #include <common/addr.h>
 #include <common/channel_id.h>
+#include <common/features.h>
 #include <common/htlc_trim.h>
 #include <common/initial_commit_tx.h>
 #include <common/json_channel_type.h>
@@ -507,6 +508,35 @@ void drop_to_chain(struct lightningd *ld, struct channel *channel,
 	}
 }
 
+/* Like drop_to_chain() for a cooperative close, but skips broadcasting the
+ * commitment tx.  Used by simpleclosed: the closing txs have already been
+ * broadcast by the subdaemon, so we only need to (a) watch for the funding
+ * output being spent (so we can move to FUNDING_SPEND_SEEN when it confirms)
+ * and (b) resolve any pending close command. */
+void drop_to_chain_simple_close(struct lightningd *ld, struct channel *channel)
+{
+	/* Watch for the closing tx confirming on-chain. */
+	if (!channel->funding_spend_watch) {
+		log_debug(channel->log, "Adding funding_spend_watch (simple close)");
+		channel->funding_spend_watch = watch_txo(channel,
+							 ld->topology, channel,
+							 &channel->funding,
+							 funding_spent);
+	}
+
+	/* Record close attempt height for anchor rebroadcast logic. */
+	if (channel->close_attempt_height == 0) {
+		channel->close_attempt_height = get_block_height(ld->topology);
+		wallet_channel_save(ld->wallet, channel);
+	}
+
+	/* The closing txs were already broadcast by simpleclosed; resolve the
+	 * pending close command with an empty txs array (no commitment tx to
+	 * report — the mutual close txs were already submitted). */
+	resolve_close_command(ld, channel, true,
+			      tal_arr(tmpctx, const struct bitcoin_tx *, 0));
+}
+
 void resend_closing_transactions(struct lightningd *ld)
 {
 	struct peer *peer;
@@ -532,7 +562,15 @@ void resend_closing_transactions(struct lightningd *ld)
 			case CLOSED:
 				continue;
 			case CLOSINGD_COMPLETE:
-				drop_to_chain(ld, channel, true, NULL);
+				/* simple-close channels: the mutual close txs
+				 * were already broadcast by simpleclosed; just
+				 * re-watch (don't re-broadcast commit tx). */
+				if (feature_negotiated(ld->our_features,
+						       channel->peer->their_features,
+						       OPT_SIMPLE_CLOSE))
+					drop_to_chain_simple_close(ld, channel);
+				else
+					drop_to_chain(ld, channel, true, NULL);
 				continue;
 			case AWAITING_UNILATERAL:
 				drop_to_chain(ld, channel, false, NULL);
