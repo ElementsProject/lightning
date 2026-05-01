@@ -89,12 +89,14 @@ struct bitcoin_tx *create_close_tx(const tal_t *ctx,
  * This variant is used for `closing_complete` and `closing_sig` messages
  * (i.e. where `option_simple_close` is negotiated).
  * ...
- * - version: 2
- * - locktime: `locktime` from the `closing_complete` message
- * ...
- * - txin count: 1
- * ...
- *   - txin[0] sequence: 0xFFFFFFFD
+ * The side with lesser funds can opt to omit their own output.
+ * * version: 2
+ * * locktime: `locktime` from the `closing_complete` message
+ * * txin count: 1
+ *   * `txin[0]` outpoint: `txid` and `output_index` of the channel output
+ *   * `txin[0]` sequence: 0xFFFFFFFD
+ *   * `txin[0]` script bytes: 0
+ *   * `txin[0]` witness: `0 <signature_for_pubkey1> <signature_for_pubkey2>`
  */
 struct bitcoin_tx *create_simple_close_tx(const tal_t *ctx,
 					  const struct chainparams *chainparams,
@@ -124,9 +126,10 @@ struct bitcoin_tx *create_simple_close_tx(const tal_t *ctx,
 			     funding_sats, NULL, funding_wscript);
 
 	/* BOLT #3:
-	 * The closer output:
-	 *   - `txout` amount: 0 if the `scriptpubkey` starts with `OP_RETURN`,
-	 *     otherwise the final balance for the closer, minus `fee_satoshis`
+	 * * The closer output: * `txout` amount:
+	 *   * 0 if the `scriptpubkey` starts with `OP_RETURN`
+	 *   * otherwise the final balance for the closer, minus `closing_complete.fee_satoshis`, rounded down to whole satoshis
+	 * * `txout` script: as specified in `closer_scriptpubkey` from the `closing_complete` message
 	 */
 	if (closer_script) {
 		struct amount_sat amt = closer_amount;
@@ -149,9 +152,11 @@ struct bitcoin_tx *create_simple_close_tx(const tal_t *ctx,
 	}
 
 	/* BOLT #3:
-	 * The closee output:
-	 *   - `txout` amount: 0 if the `scriptpubkey` starts with `OP_RETURN`,
-	 *     otherwise the final balance for the closee
+	 * * The closee output:
+	 *   * `txout` amount:
+	 *     * 0 if the `scriptpubkey` starts with `OP_RETURN`
+	 *     * otherwise the final balance for the closee, rounded down to whole satoshis
+	 *   * `txout` script: as specified in `closee_scriptpubkey` from the `closing_complete` message
 	 */
 	if (closee_script) {
 		struct amount_sat amt = closee_amount;

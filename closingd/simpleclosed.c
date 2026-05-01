@@ -160,7 +160,6 @@ static struct tlv_closing_tlvs *send_closing_complete(
 		closer_amount = AMOUNT_SAT(0);
 	closee_amount = remote_sat;
 
-	/* BOLT #2: lesser-funded side may omit its output if dust. */
 	is_lesser = amount_sat_less(local_sat, remote_sat);
 	closee_dust = amount_sat_less(closee_amount, dust_limit)
 		      && !is_op_return_script(remote_script);
@@ -170,17 +169,18 @@ static struct tlv_closing_tlvs *send_closing_complete(
 	tlvs = tlv_closing_tlvs_new(tmpctx);
 
 	/* BOLT #2:
-	 * The sender of closing_complete (aka. "the closer"):
+	 * The sender of `closing_complete` (aka. "the closer"):
+	 * ...
 	 * - If the local outstanding balance (in millisatoshi) is less than the remote outstanding balance:
 	 *   - MUST NOT set `closer_output_only`.
 	 *   - MUST set `closee_output_only` if the local output amount is dust.
-	 *   - MAY set `closee_output_only` if it considers the local output amount uneconomical AND its `closer_scriptpubkey` is not OP_RETURN.
+	 *   - MAY set `closee_output_only` if it considers the local output amount uneconomical AND its `closer_scriptpubkey` is not `OP_RETURN`.
 	 * - Otherwise (not lesser amount, cannot remove its own output):
 	 *   - MUST NOT set `closee_output_only`.
 	 *   - If it considers the local output amount uneconomical:
-	 *     - MAY send a `closer_scriptpubkey` that is a valid OP_RETURN script.
-	 *     - If it does, the output value MUST be set to zero so that all funds go to fees, as specified in BOLT #3.
-	 *   - If the `closee`'s output amount is dust:
+	 *     - MAY send a `closer_scriptpubkey` that is a valid `OP_RETURN` script.
+	 *     - If it does, the output value MUST be set to zero so that all funds go to fees, as specified in [BOLT #3]...
+	 *   - If the closee's output amount is dust:
 	 *     - MUST set `closer_output_only`.
 	 *     - MUST NOT set `closer_and_closee_outputs`.
 	 *   - Otherwise:
@@ -326,8 +326,14 @@ static struct bitcoin_tx *handle_closing_complete(
 		peer_failed_err(pps, &their_cid,
 				"Wrong channel_id in closing_complete");
 
-	/* BOLT #2: If closee_scriptpubkey does not match last script we sent,
-	 * SHOULD ignore and warn. */
+	/* BOLT #2:
+	 * The receiver of `closing_complete` (aka. "the closee"):
+	 * ...
+	 * - If `closee_scriptpubkey` does not match the last script it sent (from `closing_complete` or from the initial `shutdown`):
+	 *   - SHOULD ignore `closing_complete`.
+	 *   - SHOULD send a `warning`.
+	 *   - SHOULD close the connection.
+	 */
 	if (!memeq(closee_script, tal_count(closee_script),
 		   our_last_script, tal_count(our_last_script))) {
 		peer_failed_warn(pps, cid,
@@ -337,16 +343,19 @@ static struct bitcoin_tx *handle_closing_complete(
 				 tal_hex(tmpctx, our_last_script));
 	}
 
-	/* BOLT #2: Validate closer_scriptpubkey. */
+	/* BOLT #2:
+	 * The receiver of `closing_complete` (aka. "the closee"):
+	 * ...
+	 * - If `closer_scriptpubkey` is invalid (as detailed in the [`shutdown` requirements](#closing-initiation-shutdown)):
+	 *   - SHOULD ignore `closing_complete`.
+	 *   - SHOULD send a `warning`.
+	 *   - SHOULD close the connection.
+	 */
 	if (!valid_shutdown_scriptpubkey(closer_script, anysegwit,
 					 false, option_simple_close))
 		peer_failed_warn(pps, cid,
 				 "Invalid closer_scriptpubkey in closing_complete: %s",
 				 tal_hex(tmpctx, closer_script));
-
-	/* BOLT #2: fee_satoshis must not exceed closer's balance. */
-	/* (We don't know their exact balance here, so we trust it's valid;
-	 * the funding amount minus our amount is theirs.) */
 
 	funding_wscript = bitcoin_redeem_2of2(tmpctx, local_fundingkey,
 					      remote_fundingkey);
@@ -536,7 +545,7 @@ static struct bitcoin_tx *handle_closing_sig(
 				"Wrong channel_id in closing_sig");
 
 	/* BOLT #2:
-	 * The receiver of closing_sig:
+	 * The receiver of `closing_sig`:
 	 *   - If `closer_scriptpubkey`, `closee_scriptpubkey`, `fee_satoshis` or `locktime` don't match what was sent in `closing_complete`:
 	 *     - MUST either send a `warning` and close the connection, or send an `error` and fail the channel.
 	 */
@@ -551,7 +560,7 @@ static struct bitcoin_tx *handle_closing_sig(
 				 "closing_complete (script/fee/locktime mismatch)");
 
 	/* BOLT #2:
-	 * The receiver of closing_sig:
+	 * The receiver of `closing_sig`:
 	 * ...
 	 * - If `tlvs` does not contain exactly one signature:
 	 *   - MUST either send a `warning` and close the connection, or send an `error` and fail the channel.
@@ -564,12 +573,6 @@ static struct bitcoin_tx *handle_closing_sig(
 				 "closing_sig must have exactly one sig, got %d",
 				 nsigs);
 
-	/* BOLT #2:
-	 * The receiver of closing_sig:
-	 * ...
-	 * - If `tlvs` does not contain one of the TLV fields sent in `closing_complete`:
-	 *   - MUST either send a `warning` and close the connection, or send an `error` and fail the channel.
-	 */
 	if (tlvs->closer_output_only && !sent_tlvs->closer_output_only)
 		peer_failed_warn(pps, cid,
 				 "closing_sig closer_output_only not in our "
@@ -647,7 +650,7 @@ static struct bitcoin_tx *handle_closing_sig(
 				 "closing_sig fields");
 
 	/* BOLT #2:
-	 * The receiver of closing_sig:
+	 * The receiver of `closing_sig`:
 	 * ...
 	 * - If the signature field is not valid for the corresponding closing transaction specified in [BOLT #3]...:
 	 *   - MUST either send a `warning` and close the connection, or send an `error` and fail the channel.
