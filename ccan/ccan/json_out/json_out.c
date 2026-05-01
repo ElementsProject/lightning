@@ -306,7 +306,7 @@ bool json_out_addstrn(struct json_out *jout,
 	struct json_escape *e;
 
 	if (json_escape_needed(str, len)) {
-		e = json_escape(NULL, str);
+		e = json_escape_len(NULL, str, len);
 		str = e->s;
 		len = strlen(str);
 	} else
