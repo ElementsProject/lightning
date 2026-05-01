@@ -7,6 +7,7 @@
 #include <channeld/channeld_wiregen.h>
 #include <common/addr.h>
 #include <common/channel_id.h>
+#include <common/features.h>
 #include <common/htlc_trim.h>
 #include <common/initial_commit_tx.h>
 #include <common/json_channel_type.h>

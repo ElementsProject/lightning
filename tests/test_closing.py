@@ -4119,7 +4119,6 @@ def test_closing_cpfp(node_factory, bitcoind):
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(strict=True)
 def test_simple_close_basic(node_factory, bitcoind, chainparams):
     """Happy path: both nodes negotiate option_simple_close, fund a channel,
     make a payment, then close cooperatively.  Each side independently builds
@@ -4152,7 +4151,6 @@ def test_simple_close_basic(node_factory, bitcoind, chainparams):
              {o['txid'] for o in l2.rpc.listfunds()['outputs']})
 
 
-@pytest.mark.xfail(strict=True)
 def test_simple_close_closer_pays_fee(node_factory, bitcoind):
     """The closing node (the closer) pays the on-chain fee; the closee gets
     its exact channel balance as an output with no deduction."""
@@ -4206,7 +4204,6 @@ def test_simple_close_closer_pays_fee(node_factory, bitcoind):
         )
 
 
-@pytest.mark.xfail(strict=True)
 def test_simple_close_dust_output_omitted(node_factory, bitcoind):
     """When the closee's output would be below the dust limit it must be
     omitted from the closing tx (closer_output_only TLV variant)."""
@@ -4240,7 +4237,6 @@ def test_simple_close_dust_output_omitted(node_factory, bitcoind):
             f"tx {txid} has {len(tx['vout'])} outputs; expected 1 (dust omitted)"
 
 
-@pytest.mark.xfail(strict=True)
 def test_simple_close_restart(node_factory, bitcoind):
     """After a clean restart in CLOSINGD_COMPLETE the stored mutual close tx
     must be rebroadcast via resend_closing_transactions, not a commitment tx.
@@ -4291,7 +4287,6 @@ def test_simple_close_restart(node_factory, bitcoind):
     wait_for(lambda: confirmed_txid in {o['txid'] for o in l2.rpc.listfunds()['outputs']})
 
 
-@pytest.mark.xfail(strict=True)
 def test_simple_close_closee_path(node_factory, bitcoind):
     """Each node acts as both closer and closee simultaneously.  Verify that
     handle_simpleclosed_closee_broadcast runs on both nodes (confirmed by the
