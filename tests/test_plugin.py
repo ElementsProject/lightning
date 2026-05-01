@@ -4320,7 +4320,7 @@ def test_sql(node_factory, bitcoind):
     # This has to wait for the hold_invoice plugin to let go!
     open(os.path.join(l3.daemon.lightning_dir, TEST_NETWORK, "unhold"), "w").close()
     txid = only_one(l1.rpc.close(l2.info['id'])['txids'])
-    bitcoind.generate_block(13, wait_for_mempool=txid)
+    bitcoind.generate_block(73, wait_for_mempool=txid)
     wait_for(lambda: len(l3.rpc.listchannels(source=l1.info['id'])['channels']) == 0)
     assert len(l3.rpc.sql("SELECT * FROM channels WHERE source = X'{}';".format(l1.info['id']))['rows']) == 0
     l3.daemon.wait_for_log("Deleting channel: {}".format(scid))
@@ -4395,7 +4395,7 @@ def test_sql(node_factory, bitcoind):
 
 
 def test_sql_deprecated(node_factory, bitcoind):
-    l1, l2 = node_factory.line_graph(2, opts=[{'allow-deprecated-apis': True, "broken_log": "DEPRECATED API USED: listpeerchannels.max_total_htlc_in_msat"}, {}])
+    l1, l2 = node_factory.line_graph(2, opts=[{'i-promise-to-fix-broken-api-user': 'listpeerchannels.max_total_htlc_in_msat'}, {}])
 
     # With deprecated APIs, this is there.
     ret = l1.rpc.sql("SELECT max_total_htlc_in_msat FROM peerchannels;")

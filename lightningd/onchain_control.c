@@ -932,6 +932,15 @@ static struct bitcoin_tx *onchaind_tx_unsigned(const tal_t *ctx,
 	weight = bitcoin_tx_weight(tx) + 1 + 3 + 73 + 0 + tal_count(info->wscript);
 	weight += elements_tx_overhead(chainparams, 1, 1);
 
+	/* BOLT #5:
+	 * A node which broadcasts an HTLC-success or HTLC-timeout transaction for a
+	 * commitment transaction:
+	 *   - if `option_anchors` applies:
+	 *     - MUST combine it with inputs contributing sufficient fee to ensure timely
+	 *       inclusion in a block.
+	 *     - MAY combine it with other transactions.
+	 */
+	/* FIXME: We don't combine! */
 	block_target = info->deadline_block;
 	for (;;) {
 		u32 feerate;
@@ -1305,6 +1314,21 @@ static void create_onchain_tx(struct channel *channel,
 							 welements)));
 }
 
+/* BOLT #5:
+ *
+ *  - if `option_anchors` applies:
+ *    - MAY use a single transaction to *resolve* all the outputs.
+ *    - if confirmation doesn't happen before reaching `security_delay` blocks from
+ *  expiry:
+ *      - SHOULD *resolve* revoked outputs in their own, separate penalty transactions. A previous
+ *  penalty transaction claiming multiple revoked outputs at once may be blocked from confirming
+ *  because of a transaction pinning attack.
+ *  - otherwise:
+ *    - MAY use a single transaction to *resolve* all the outputs.
+ *  - MUST handle its transactions being invalidated by HTLC transactions.
+ */
+/* FIXME: we always use one transaction per HTLC, even when we have
+ * plenty of time and could combine them. */
 static void handle_onchaind_spend_to_us(struct channel *channel,
 					const u8 *msg)
 {
@@ -1606,9 +1630,8 @@ static void handle_onchaind_spend_htlc_expired(struct channel *channel,
 
 	/* BOLT #5:
 	 *
-	 * ## HTLC Output Handling: Remote Commitment, Local Offers
+	 * A local node:
 	 * ...
-	 *
 	 *   - if the commitment transaction HTLC output has *timed out* AND NOT
 	 *     been *resolved*:
 	 *     - MUST *resolve* the output, by spending it to a convenient

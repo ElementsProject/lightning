@@ -89,6 +89,10 @@ void htlc_set_fail_(struct htlc_set *set, const u8 *failmsg TAKES,
 
 void htlc_set_fulfill(struct htlc_set *set, const struct preimage *preimage)
 {
+	/* BOLT #4:
+	 * - if it fulfills any HTLCs in the HTLC set:
+	 *    - MUST fulfill the entire HTLC set.
+	 */
 	for (size_t i = 0; i < tal_count(set->inpays); i++) {
 		/* Don't remove from set */
 		tal_del_destructor2(set->inpays[i],

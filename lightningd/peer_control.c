@@ -229,6 +229,14 @@ u8 *p2tr_for_keyidx(const tal_t *ctx, struct lightningd *ld, u64 keyidx)
 	return scriptpubkey_p2tr(ctx, &shutdownkey);
 }
 
+/* BOLT #2:
+ * A node:
+ *   - MUST NOT broadcast old (revoked) commitment transactions,
+ *     - Note: doing so will allow the other node to seize all channel funds.
+ *   - SHOULD NOT sign commitment transactions, unless it's about to broadcast
+ *   them (due to a failed connection),
+ *     - Note: this is to reduce the above risk.
+ */
 static struct bitcoin_tx *sign_last_tx(const tal_t *ctx,
 				       const struct channel *channel,
 				       const struct bitcoin_tx *last_tx,

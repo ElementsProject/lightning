@@ -493,7 +493,10 @@ remote_routing_failure(const tal_t *ctx,
 		 * - if the _final node_ is returning the error:
 		 *   - if the PERM bit is set:
 		 *     - SHOULD fail the payment.
-		 * */
+		 *   - otherwise:
+		 *     - if the error code is understood and valid:
+		 *       - MAY retry the payment.
+		 */
 		if (failcode & BADONION)
 			*pay_errcode = PAY_UNPARSEABLE_ONION;
 		else if (failcode & PERM)

@@ -28,7 +28,7 @@ bool bolt12_chains_match(const struct bitcoin_blkid *chains,
 	 *    - if the node does not accept bitcoin invoices:
 	 *      - MUST NOT respond to the offer
 	 *  - otherwise: (`offer_chains` is set):
-	 *    - if the node does not accept invoices for any of the `chains`:
+	 *    - if the node does not accept invoices for at least one of the `chains`:
 	 *      - MUST NOT respond to the offer
 	 */
 	if (!chains) {
@@ -62,6 +62,10 @@ static char *check_features_and_chain(const tal_t *ctx,
 	if (must_be_chain) {
 		if (!bolt12_chains_match(chains, num_chains, must_be_chain))
 			return tal_fmt(ctx, "wrong chain");
+	} else {
+		/* Chains is *empty*, that can never work. */
+		if (chains && tal_count(chains) == 0)
+			return tal_fmt(ctx, "offer_chains with zero entries");
 	}
 
 	if (our_features) {
@@ -223,7 +227,17 @@ struct tlv_offer *offer_decode(const tal_t *ctx,
 	}
 
 	/* BOLT #12:
-	 *
+	 *...
+	 *   - if `offer_amount` is set and is not greater than zero:
+	 *     - MUST NOT respond to the offer.
+	 */
+	if (offer->offer_amount && *offer->offer_amount == 0) {
+		*fail = tal_strdup(ctx, "Offer contains a zero amount");
+		return tal_free(offer);
+	}
+
+	/* BOLT #12:
+	 *...
 	 *   - if `offer_currency` is set and `offer_amount` is not set:
 	 *     - MUST NOT respond to the offer.
 	 */
@@ -233,7 +247,7 @@ struct tlv_offer *offer_decode(const tal_t *ctx,
 	}
 
 	/* BOLT #12:
-	 *
+	 *...
 	 *   - if neither `offer_issuer_id` nor `offer_paths` are set:
 	 *     - MUST NOT respond to the offer.
 	 */
@@ -243,6 +257,7 @@ struct tlv_offer *offer_decode(const tal_t *ctx,
 	}
 
 	/* BOLT #12:
+	 *...
 	 *   - if `num_hops` is 0 in any `blinded_path` in `offer_paths`:
 	 *     - MUST NOT respond to the offer.
 	 */

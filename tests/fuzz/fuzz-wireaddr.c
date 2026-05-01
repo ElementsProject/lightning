@@ -34,7 +34,7 @@ void run(const uint8_t *data, size_t size)
 		size_t len = tal_bytelen(output_buffer);
 
 		assert(fromwire_wireaddr((const u8 **)&output_buffer, &len,
-					 &decoded_wa));
+					 &decoded_wa) == FROMWIREADDR_OK);
 		assert(wireaddr_eq(&wa, &decoded_wa));
 	}
 

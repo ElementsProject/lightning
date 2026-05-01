@@ -346,9 +346,13 @@ def test_opening_tiny_channel(node_factory, anchors):
     #  1. Try to establish channel with capacity 1sat smaller than min_capacity_sat
     #  2. Try to establish channel with capacity exact min_capacity_sat
     #
-    # BOLT2
+    # BOLT #2:
     # The receiving node MAY fail the channel if:
-    #  - funding_satoshis is too small
+    # ...
+    #  - `funding_satoshis` is too small.
+    # ...
+    # The receiving node MUST fail the channel if:
+    # ...
     #  - it considers `feerate_per_kw` too small for timely processing or unreasonably large.
     #
     dustlimit = 546
@@ -4065,7 +4069,7 @@ def test_multichan(node_factory, executor, bitcoind):
         l2.rpc.close(l3.info['id'])
 
     l2.rpc.close(scid23b)
-    bitcoind.generate_block(13, wait_for_mempool=1)
+    bitcoind.generate_block(73, wait_for_mempool=1)
     sync_blockheight(bitcoind, [l1, l2, l3])
 
     # Gossip works as expected.
@@ -4116,7 +4120,7 @@ def test_multichan(node_factory, executor, bitcoind):
                         "id": 2,
                         "created_index": 3,
                         "updated_index": 27,
-                        "expiry": 135,
+                        "expiry": 195,
                         "direction": "out",
                         "amount_msat": Millisatoshi(100001001),
                         "payment_hash": inv3['payment_hash'],
@@ -4125,7 +4129,7 @@ def test_multichan(node_factory, executor, bitcoind):
                         "id": 3,
                         "created_index": 4,
                         "updated_index": 36,
-                        "expiry": 135,
+                        "expiry": 195,
                         "direction": "out",
                         "amount_msat": Millisatoshi(100001001),
                         "payment_hash": inv4['payment_hash'],

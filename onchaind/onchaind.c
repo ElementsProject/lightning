@@ -961,6 +961,10 @@ static void billboard_update(struct tracked_output **outs)
 		       output_type_name(best->output_type), best->depth);
 }
 
+/* BOLT #5:
+ * - SHOULD extract the payment preimage from the transaction input witness, if
+ *   it's not already known.
+ */
 static void handle_htlc_onchain_fulfill(struct tracked_output *out,
 					const struct tx_parts *tx_parts,
 					const struct bitcoin_outpoint *htlc_outpoint)
@@ -1248,15 +1252,18 @@ static bool output_spent(struct tracked_output ***outs,
 			 * if it's revoked: */
 			/* BOLT #5:
 			 *
-			 * ## HTLC Output Handling: Local Commitment, Local Offers
-			 *...
-			 *    - MUST extract the payment preimage from the
-			 *      transaction input witness.
-			 *...
-			 * ## HTLC Output Handling: Remote Commitment, Local Offers
-			 *...
-			 *     - MUST extract the payment preimage from the
-			 *       HTLC-success transaction input witness.
+			 * A node:
+			 *   - if the commitment transaction HTLC output is spent using the payment
+			 *   preimage, the output is considered *irrevocably resolved*:
+			 *     - MUST extract the payment preimage from the transaction input witness.
+			 */
+			/* BOLT #5:
+			 *
+			 * A local node:
+			 *   - if the commitment transaction HTLC output is spent using the payment
+			 *   preimage:
+			 *     - MUST extract the payment preimage from the HTLC-success transaction input
+			 *     witness.
 			 */
 			handle_htlc_onchain_fulfill(out, tx_parts,
 						    &htlc_outpoint);
@@ -1373,7 +1380,14 @@ static void tx_new_depth(struct tracked_output **outs,
 {
 	size_t i;
 
-	/* Special handling for commitment tx reaching depth */
+	/* BOLT #5:
+	 * - for any committed HTLC that does NOT have an output in this
+	 *   commitment transaction:
+	 *...
+	 *     - otherwise:
+	 *       - once the commitment transaction has reached reasonable depth:
+	 *         - MUST fail the corresponding incoming HTLC (if any).
+	 */
 	if (bitcoin_txid_eq(&outs[0]->resolved->txid, txid)
 	    && depth >= reasonable_depth
 	    && missing_htlc_msgs) {
@@ -1426,13 +1440,13 @@ static void tx_new_depth(struct tracked_output **outs,
  *   - otherwise:
  *     - if the *remote node* is NOT irrevocably committed to the HTLC:
  *       - MUST NOT *resolve* the output by spending it.
- *...
- * ## HTLC Output Handling: Remote Commitment, Remote Offers
- *...
+ */
+/* BOLT #5:
+ *
  * A local node:
  *  - if it receives (or already possesses) a payment preimage for an unresolved
  *   HTLC output that it was offered AND for which it has committed to an
- * outgoing HTLC:
+ *  outgoing HTLC:
  *     - MUST *resolve* the output by spending it to a convenient address.
  *   - otherwise:
  *     - if the remote node is NOT irrevocably committed to the HTLC:
@@ -1479,9 +1493,6 @@ static void handle_preimage(struct tracked_output **outs,
 
 		/* BOLT #5:
 		 *
-		 *
-		 * ## HTLC Output Handling: Local Commitment, Remote Offers
-		 *...
 		 * A local node:
 		 *  - if it receives (or already possesses) a payment preimage
 		 *    for an unresolved HTLC output that it has been offered
@@ -1515,14 +1526,11 @@ static void handle_preimage(struct tracked_output **outs,
 		} else {
 			/* BOLT #5:
 			 *
-			 * ## HTLC Output Handling: Remote Commitment, Remote
-			 *    Offers
-			 *...
 			 * A local node:
 			 * - if it receives (or already possesses) a payment
 			 *   preimage for an unresolved HTLC output that it was
 			 *   offered AND for which it has committed to an
-			 *   outgoing HTLC:
+			 *  outgoing HTLC:
 			 *    - MUST *resolve* the output by spending it to a
 			 *      convenient address.
 			 */
@@ -1616,6 +1624,9 @@ static void handle_onchaind_known_preimage(struct tracked_output ***outs,
  *    - until all outputs are *irrevocably resolved*:
  *      - MUST monitor the blockchain for transactions that spend any output that
  *      is NOT *irrevocably resolved*.
+ *  - MUST *resolve* all outputs, as specified below.
+ *  - MUST be prepared to resolve outputs multiple times, in case of blockchain
+ *  reorganizations.
  */
 static void wait_for_resolved(struct tracked_output **outs)
 {
@@ -1835,7 +1846,7 @@ static size_t resolve_our_htlc_ourcommit(struct tracked_output *out,
 
 		/* BOLT #5:
 		 *
-		 * ## HTLC Output Handling: Local Commitment, Local Offers
+		 * A node:
 		 * ...
 		 *  - if the commitment transaction HTLC output has *timed out*
 		 *  and hasn't been *resolved*:
@@ -1939,9 +1950,8 @@ static size_t resolve_our_htlc_theircommit(struct tracked_output *out,
 
 	/* BOLT #5:
 	 *
-	 * ## HTLC Output Handling: Remote Commitment, Local Offers
+	 * A local node:
 	 * ...
-	 *
 	 *   - if the commitment transaction HTLC output has *timed out* AND NOT
 	 *     been *resolved*:
 	 *     - MUST *resolve* the output, by spending it to a convenient
@@ -1971,21 +1981,13 @@ static size_t resolve_their_htlc(struct tracked_output *out,
 
 	/* BOLT #5:
 	 *
-	 * ## HTLC Output Handling: Remote Commitment, Remote Offers
-	 *...
-	 * ### Requirements
-	 *...
 	 * If not otherwise resolved, once the HTLC output has expired, it is
 	 * considered *irrevocably resolved*.
 	 */
 
 	/* BOLT #5:
 	 *
-	 * ## HTLC Output Handling: Local Commitment, Remote Offers
-	 *...
-	 * ### Requirements
-	 *...
-	 * If not otherwise resolved, once the HTLC output has expired, it is
+	 * If it's NOT otherwise resolved, once the HTLC output has expired, it is
 	 * considered *irrevocably resolved*.
 	 */
 
@@ -2045,6 +2047,11 @@ static enum side matches_direction(const size_t *matches,
 static void note_missing_htlcs(u8 **htlc_scripts,
 			       const struct htlcs_info *htlcs_info)
 {
+	/* BOLT #5:
+	 * - for any committed HTLC that does NOT have an output in this
+	 *   commitment transaction:
+	*/
+	/* See onchain_control.c for the rest of the quote! */
 	for (size_t i = 0; i < tal_count(htlcs_info->htlcs); i++) {
 		u8 *msg;
 
@@ -2170,9 +2177,18 @@ static void handle_our_unilateral(const struct tx_parts *tx,
 
 	/* BOLT #5:
 	 *
-	 * In this case, a node discovers its *local commitment transaction*,
-	 * which *resolves* the funding transaction output.
+	 * A node:
+	 *   - upon discovering its *local commitment transaction*:
+	 *     - SHOULD spend the `to_local` output to a convenient address.
+	 *     - MUST wait until the `OP_CHECKSEQUENCEVERIFY` delay has passed (as
+	 *     specified by the remote node's `to_self_delay` field) before spending the
+	 *     output.
+	 *       - Note: if the output is spent (as recommended), the output is *resolved*
+	 *       by the spending transaction, otherwise it is considered *resolved* by the
+	 *       commitment transaction itself.
 	 */
+	/* We do NOT spend our unilateral, we remember how to spend it
+	 * in the wallet, thus it's immediately resolved. */
 	resolved_by_other(outs[0], &tx->txid, OUR_UNILATERAL);
 
 	/* Figure out what delayed to-us output looks like */
@@ -2276,7 +2292,7 @@ static void handle_our_unilateral(const struct tx_parts *tx,
 		    && wally_tx_output_scripteq(tx->outputs[i],
 						script[REMOTE])) {
 			/* BOLT #5:
-			 *
+			 *...
 			 *     - MAY ignore the `to_remote` output.
 			 *       - Note: No action is required by the local
 			 *       node, as `to_remote` is considered *resolved*
@@ -2418,7 +2434,7 @@ static void handle_our_unilateral(const struct tx_parts *tx,
 			 *
 			 *     - MUST handle HTLCs offered by itself as specified
 			 *       in [HTLC Output Handling: Local Commitment,
-			 *       Local Offers]
+			 *       Local Offers](#htlc-output-handling-local-commitment-local-offers).
 			 */
 			out = new_tracked_output(&outs, &outpoint,
 						 tx_blockheight,
@@ -2440,10 +2456,9 @@ static void handle_our_unilateral(const struct tx_parts *tx,
 						 NULL, NULL,
 						 remote_htlc_sigs);
 			/* BOLT #5:
-			 *
-			 *     - MUST handle HTLCs offered by the remote node
-			 *     as specified in [HTLC Output Handling: Local
-			 *     Commitment, Remote Offers]
+			 * - MUST handle HTLCs offered by the remote node
+			 *   as specified in [HTLC Output Handling: Local
+			 *   Commitment, Remote Offers](#htlc-output-handling-local-commitment-remote-offers).
 			 */
 			/* Tells us which htlc to use */
 			which_htlc = resolve_their_htlc(out, matches,

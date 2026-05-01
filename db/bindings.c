@@ -614,7 +614,7 @@ struct wireaddr *db_col_wireaddr(const tal_t *ctx,
 	struct wireaddr *waddr = tal(ctx, struct wireaddr);
 	const u8 *wire = db_col_arr(tmpctx, stmt, colname, u8);
 	size_t len = tal_bytelen(wire);
-	if (!fromwire_wireaddr(&wire, &len, waddr))
+	if (fromwire_wireaddr(&wire, &len, waddr) != FROMWIREADDR_OK)
 		return tal_free(waddr);
 	return waddr;
 }

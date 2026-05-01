@@ -117,7 +117,7 @@ static struct io_plan *peer_init_received(struct io_conn *conn,
 		size_t len = tal_bytelen(tlvs->remote_addr);
 
 		remote_addr = tal(peer, struct wireaddr);
-		if (fromwire_wireaddr(&cursor, &len, remote_addr)) {
+		if (fromwire_wireaddr(&cursor, &len, remote_addr) == FROMWIREADDR_OK) {
 			switch (remote_addr->type) {
 			case ADDR_TYPE_IPV4:
 			case ADDR_TYPE_IPV6:

@@ -156,12 +156,11 @@ wallet_commit_channel(struct lightningd *ld,
 	 * 2. data:
 	 *     * [`channel_id`:`channel_id`]
 	 *     * [`signature`:`signature`]
-	 *
+	 *...
 	 * #### Requirements
 	 *
 	 * Both peers:
-	 * ...
-	 * - MUST use that `channel_type` for all commitment transactions.
+	 * - MUST use the negotiated `channel_type` for all commitment transactions.
 	 */
 	/* i.e. We set it now for the channel permanently. */
 	if (channel_type_has(type, OPT_STATIC_REMOTEKEY))

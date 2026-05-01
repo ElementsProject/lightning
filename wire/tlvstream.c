@@ -203,6 +203,13 @@ bool fromwire_tlv(const u8 **cursor, size_t *max,
 			}
 		}
 
+		/* BOLT #1:
+		 *  - otherwise, if `type` is unknown:
+		 *    - if `type` is even:
+		 *      - MUST fail to parse the `tlv_stream`.
+		 *    - otherwise, if `type` is odd:
+		 *      - MUST discard the next `length` bytes.
+		 */
 		if (!field.meta && !tlv_type_is_allowed(&field, extra_types)) {
 			SUPERVERBOSE("unknown even");
 			if (err_type != NULL)

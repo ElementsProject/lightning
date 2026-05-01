@@ -830,18 +830,19 @@ def test_decode(node_factory):
     #
     # Breakdown:
     #
-    # * `lnbc`: prefix, lightning on bitcoin mainnet
+    # * `lnbc`: prefix, Lightning on Bitcoin mainnet
     # * `1`: Bech32 separator
     # * `pvjluez`: timestamp (1496314658)
     # * `s`: payment secret
     #   * `p5`: `data_length` (`p` = 1, `5` = 20; 1 * 32 + 20 == 52)
     #   * `zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygs`: payment secret 1111111111111111111111111111111111111111111111111111111111111111
     # * `p`: payment hash
-    #   * `p5`: `data_length` (`p` = 1, `5` = 20. 1 * 32 + 20 == 52)
+    #   * `p5`: `data_length` (`p` = 1, `5` = 20; 1 * 32 + 20 == 52)
     #   * `qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypq`: payment hash 0001020304050607080900010203040506070809000102030405060708090102
     # * `d`: short description
-    #   * `pl`: `data_length` (`p` = 1, `l` = 31. 1 * 32 + 31 == 63)
+    #   * `pl`: `data_length` (`p` = 1, `l` = 31; 1 * 32 + 31 == 63)
     #   * `2pkx2ctnv5sxxmmwwd5kgetjypeh2ursdae8g6twvus8g6rfwvs8qun0dfjkxaq`: 'Please consider supporting this project'
+    # ...
     # * `357wnc5r2ueh7ck6q93dj32dlqnls087fxdwk8qakdyafkq3yap9us6v52vjjsrvywa6rt52cm9r9zqt8r2t7mlcwspyetp5h2tztugp`: signature
     # * `9lfyql`: Bech32 checksum
     b11 = l1.rpc.decode(
@@ -864,18 +865,19 @@ def test_decode(node_factory):
     #
     # Breakdown:
     #
-    # * `lnbc`: prefix, lightning on bitcoin mainnet
+    # * `lnbc`: prefix, Lightning on Bitcoin mainnet
     # * `2500u`: amount (2500 micro-bitcoin)
     # * `1`: Bech32 separator
     # * `pvjluez`: timestamp (1496314658)
     # * `s`: payment secret...
     # * `p`: payment hash...
     # * `d`: short description
-    #   * `q5`: `data_length` (`q` = 0, `5` = 20. 0 * 32 + 20 == 20)
+    #   * `q5`: `data_length` (`q` = 0, `5` = 20; 0 * 32 + 20 == 20)
     #   * `xysxxatsyp3k7enxv4js`: '1 cup coffee'
     # * `x`: expiry time
-    #   * `qz`: `data_length` (`q` = 0, `z` = 2. 0 * 32 + 2 == 2)
-    #   * `pu`: 60 seconds (`p` = 1, `u` = 28.  1 * 32 + 28 == 60)
+    #   * `qz`: `data_length` (`q` = 0, `z` = 2; 0 * 32 + 2 == 2)
+    #   * `pu`: 60 seconds (`p` = 1, `u` = 28; 1 * 32 + 28 == 60)
+    # ...
     # * `uk0rl77nj30yxdy8j9vdx85fkpmdla2087ne0xh8nhedh8w27kyke0lp53ut353s06fv3qfegext0eh0ymjpf39tuven09sam30g4vgp`: signature
     # * `fna3rh`: Bech32 checksum
     b11 = l1.rpc.decode(
@@ -935,15 +937,15 @@ def test_decode(node_factory):
     #
     # Breakdown:
     #
-    # * `lnbc`: prefix, lightning on bitcoin mainnet
+    # * `lnbc`: prefix, Lightning on Bitcoin mainnet
     # * `20m`: amount (20 milli-bitcoin)
     # * `1`: Bech32 separator
     # * `pvjluez`: timestamp (1496314658)
-    # * `p`: payment hash...
     # * `s`: payment secret...
+    # * `p`: payment hash...
     # * `h`: tagged field: hash of description
-    # * `p5`: `data_length` (`p` = 1, `5` = 20. 1 * 32 + 20 == 52)
-    # * `8yjmdan79s6qqdhdzgynm4zwqd5d7xmw5fk98klysy043l2ahrqs`: SHA256 of 'One piece of chocolate cake, one icecream cone, one pickle, one slice of swiss cheese, one slice of salami, one lollypop, one piece of cherry pie, one sausage, one cupcake, and one slice of watermelon'
+    # * `p5`: `data_length` (`p` = 1, `5` = 20; 1 * 32 + 20 == 52)
+    # * `8yjmdan79s6qqdhdzgynm4zwqd5d7xmw5fk98klysy043l2ahrqs`: SHA256 of 'One piece of chocolate cake, one icecream cone, one pickle, one slice of swiss cheese, one slice of salami, one lollypop, one piece of cherry pie, one sausage, one cupcake, and one slice of watermelon'...
     # * `9`: features
     #   * `qr`: `data_length` (`q` = 0, `r` = 3; 0 * 32 + 3 == 3)
     #   * `sgq`: b100000100000000
@@ -975,7 +977,7 @@ def test_decode(node_factory):
     # * `s`: payment secret...
     # * `p`: payment hash...
     # * `f`: tagged field: fallback address
-    # * `pp`: `data_length` (`p` = 1. 1 * 32 + 1 == 33)
+    # * `pp`: `data_length` (`p` = 1; 1 * 32 + 1 == 33)
     # * `3x9et2e20v6pu37c5d9vax37wxq72un98`: `3` = 17, so P2PKH address
     # * `h`: tagged field: hash of description...
     # * `qh84fmvn2klvglsjxfy0vq2mz6t9kjfzlxfwgljj35w2kwa60qv49k7jlsgx43yhs9nuutllkhhnt090mmenuhp8ue33pv4klmrzlcqp`: signature
@@ -1003,7 +1005,7 @@ def test_decode(node_factory):
     #
     # Breakdown:
     #
-    # * `lnbc`: prefix, lightning on bitcoin mainnet
+    # * `lnbc`: prefix, Lightning on Bitcoin mainnet
     # * `20m`: amount (20 milli-bitcoin)
     # * `1`: Bech32 separator
     # * `pvjluez`: timestamp (1496314658)
@@ -1011,7 +1013,7 @@ def test_decode(node_factory):
     # * `p`: payment hash...
     # * `h`: tagged field: hash of description...
     # * `f`: tagged field: fallback address
-    #   * `pp`: `data_length` (`p` = 1. 1 * 32 + 1 == 33)
+    #   * `pp`: `data_length` (`p` = 1; 1 * 32 + 1 == 33)
     #   * `3` = 17, so P2PKH address
     #   * `qjmp7lwpagxun9pygexvgpjdc4jdj85f`: 160 bit P2PKH address
     # * `r`: tagged field: route information
@@ -1051,13 +1053,13 @@ def test_decode(node_factory):
     #
     # Breakdown:
     #
-    # * `lnbc`: prefix, lightning on bitcoin mainnet
+    # * `lnbc`: prefix, Lightning on Bitcoin mainnet
     # * `20m`: amount (20 milli-bitcoin)
     # * `1`: Bech32 separator
     # * `pvjluez`: timestamp (1496314658)
     # * `p`: payment hash...
     # * `f`: tagged field: fallback address.
-    # * `pp`: `data_length` (`p` = 1. 1 * 32 + 1 == 33)
+    # * `pp`: `data_length` (`p` = 1; 1 * 32 + 1 == 33)
     # * `j3a24vwu6r8ejrss3axul8rxldph2q7z9`: `j` = 18, so P2SH address
     # * `h`: tagged field: hash of description...
     # * `z6qsgww34xlatfj6e3sngrwfy3ytkt29d2qttr8qz2mnedfqysuqypgqex4haa2h8fx3wnypranf3pdwyluftwe680jjcfp438u82xqp`: signature
@@ -1076,13 +1078,13 @@ def test_decode(node_factory):
     # > ### On mainnet, with fallback (P2WPKH) address bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4
     # > lnbc20m1pvjluezsp5zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygshp58yjmdan79s6qqdhdzgynm4zwqd5d7xmw5fk98klysy043l2ahrqspp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqfppqw508d6qejxtdg4y5r3zarvary0c5xw7k9qrsgqt29a0wturnys2hhxpner2e3plp6jyj8qx7548zr2z7ptgjjc7hljm98xhjym0dg52sdrvqamxdezkmqg4gdrvwwnf0kv2jdfnl4xatsqmrnsse
     #
-    # * `lnbc`: prefix, lightning on bitcoin mainnet
+    # * `lnbc`: prefix, Lightning on Bitcoin mainnet
     # * `20m`: amount (20 milli-bitcoin)
     # * `1`: Bech32 separator
     # * `pvjluez`: timestamp (1496314658)
     # * `p`: payment hash...
     # * `f`: tagged field: fallback address.
-    # * `pp`: `data_length` (`p` = 1. 1 * 32 + 1 == 33)
+    # * `pp`: `data_length` (`p` = 1; 1 * 32 + 1 == 33)
     # * `q`: 0, so witness version 0.
     # * `qw508d6qejxtdg4y5r3zarvary0c5xw7k`: 160 bits = P2WPKH.
     # * `h`: tagged field: hash of description...
@@ -1102,13 +1104,13 @@ def test_decode(node_factory):
     # > ### On mainnet, with fallback (P2WSH) address bc1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3qccfmv3
     # > lnbc20m1pvjluezsp5zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygshp58yjmdan79s6qqdhdzgynm4zwqd5d7xmw5fk98klysy043l2ahrqspp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqfp4qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3q9qrsgq9vlvyj8cqvq6ggvpwd53jncp9nwc47xlrsnenq2zp70fq83qlgesn4u3uyf4tesfkkwwfg3qs54qe426hp3tz7z6sweqdjg05axsrjqp9yrrwc
     #
-    # * `lnbc`: prefix, lightning on bitcoin mainnet
+    # * `lnbc`: prefix, Lightning on Bitcoin mainnet
     # * `20m`: amount (20 milli-bitcoin)
     # * `1`: Bech32 separator
     # * `pvjluez`: timestamp (1496314658)
     # * `p`: payment hash...
     # * `f`: tagged field: fallback address.
-    # * `p4`: `data_length` (`p` = 1, `4` = 21. 1 * 32 + 21 == 53)
+    # * `p4`: `data_length` (`p` = 1, `4` = 21; 1 * 32 + 21 == 53)
     # * `q`: 0, so witness version 0.
     # * `rp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3q`: 260 bits = P2WSH.
     # * `h`: tagged field: hash of description...
@@ -1259,7 +1261,6 @@ def test_forward(node_factory, bitcoind):
 
 
 def test_forward_different_fees_and_cltv(node_factory, bitcoind):
-    # FIXME: Check BOLT quotes here too
     # BOLT #7:
     # ```
     #    B
@@ -1279,21 +1280,21 @@ def test_forward_different_fees_and_cltv(node_factory, bitcoind):
     # 3. C: 30 blocks
     # 4. D: 40 blocks
     #
-    # C also uses a minimum `cltv_expiry` of 9 (the default) when requesting
+    # C also uses a `min_final_cltv_expiry_delta` of 18 (the default) when requesting
     # payments.
     #
-    # Also, each node has the same fee scheme which it uses for each of its
+    # Also, each node has a set fee scheme that it uses for each of its
     # channels:
     #
     # 1. A: 100 base + 1000 millionths
-    # 1. B: 200 base + 2000 millionths
-    # 1. C: 300 base + 3000 millionths
-    # 1. D: 400 base + 4000 millionths
+    # 2. B: 200 base + 2000 millionths
+    # 3. C: 300 base + 3000 millionths
+    # 4. D: 400 base + 4000 millionths
 
     # We don't do D yet.
     l1, l2, l3 = node_factory.get_nodes(3, opts=[{'cltv-delta': 10, 'fee-base': 100, 'fee-per-satoshi': 1000},
                                                  {'cltv-delta': 20, 'fee-base': 200, 'fee-per-satoshi': 2000},
-                                                 {'cltv-delta': 30, 'cltv-final': 9, 'fee-base': 300, 'fee-per-satoshi': 3000}])
+                                                 {'cltv-delta': 30, 'fee-base': 300, 'fee-per-satoshi': 3000}])
 
     ret = l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     assert ret['id'] == l2.info['id']
@@ -1316,54 +1317,48 @@ def test_forward_different_fees_and_cltv(node_factory, bitcoind):
     l1.wait_channel_active(c2)
 
     # BOLT #7:
-    #
-    # If B were to send 4,999,999 millisatoshi directly to C, it wouldn't
-    # charge itself a fee nor add its own `cltv_expiry_delta`, so it would
-    # use C's requested `cltv_expiry` of 9.  We also assume it adds a
-    # "shadow route" to give an extra CLTV of 42.  It could also add extra
-    # cltv deltas at other hops, as these values are a minimum, but we don't
-    # here for simplicity:
+    # If B were to send 4,999,999 millisatoshi directly to C, it would
+    # neither charge itself a fee nor add its own `cltv_expiry_delta`, so it would
+    # use C's requested `min_final_cltv_expiry_delta` of 18.
 
     # FIXME: Add shadow route
     shadow_route = 0
-    route = l2.rpc.getroute(l3.info['id'], 4999999, 1)["route"]
+    route = l2.rpc.getroute(l3.info['id'], 4999999, 1, cltv=18)["route"]
     assert len(route) == 1
 
     # BOLT #7:
     #
     #    * `amount_msat`: 4999999
-    #    * `cltv_expiry`: current-block-height + 9 + 42
+    #    * `cltv_expiry`: current-block-height + 18 + 42
     #    * `onion_routing_packet`:
     #      * `amt_to_forward` = 4999999
-    #      * `outgoing_cltv_value` = current-block-height + 9 + 42
+    #      * `outgoing_cltv_value` = current-block-height + 18 + 42
     #
     assert route[0]['amount_msat'] == 4999999
-    assert route[0]['delay'] == 9 + shadow_route
+    assert route[0]['delay'] == 18 + shadow_route
 
     # BOLT #7:
     # If A were to send 4,999,999 millisatoshi to C via B, it needs to
     # pay B the fee it specified in the B->C `channel_update`, calculated as
-    # per [HTLC Fees](#htlc_fees):
+    # per [HTLC Fees](#htlc-fees):...
+    #     200 + ( 4999999 * 2000 / 1000000 ) = 10199
     #
-    # 200 + 4999999 * 2000 / 1000000 = 10199
-    #
-    # Similarly, it would need to add the `cltv_expiry` from B->C's
-    # `channel_update` (20), plus C's requested minimum (9), plus 42 for the
-    # "shadow route".  Thus the `update_add_htlc` message from A to B would
-    # be:
+    # Similarly, it would need to add B->C's `channel_update` `cltv_expiry_delta` (20), C's
+    # requested `min_final_cltv_expiry_delta` (18), and the cost for the _shadow route_ (42).
+    # Thus, A->B's `update_add_htlc` message would be:
     #
     #    * `amount_msat`: 5010198
-    #    * `cltv_expiry`: current-block-height + 20 + 9 + 42
+    #    * `cltv_expiry`: current-block-height + 20 + 18 + 42
     #    * `onion_routing_packet`:
     #      * `amt_to_forward` = 4999999
-    #      * `outgoing_cltv_value` = current-block-height + 9 + 42
-    route = l1.rpc.getroute(l3.info['id'], 4999999, 1)["route"]
+    #      * `outgoing_cltv_value` = current-block-height + 18 + 42
+    route = l1.rpc.getroute(l3.info['id'], 4999999, 1, cltv=18)["route"]
     assert len(route) == 2
 
     assert route[0]['amount_msat'] == 5010198
-    assert route[0]['delay'] == 20 + 9 + shadow_route
+    assert route[0]['delay'] == 20 + 18 + shadow_route
     assert route[1]['amount_msat'] == 4999999
-    assert route[1]['delay'] == 9 + shadow_route
+    assert route[1]['delay'] == 18 + shadow_route
 
     inv = l3.rpc.invoice(4999999, 'test_forward_different_fees_and_cltv', 'desc')
     rhash = inv['payment_hash']
@@ -1376,9 +1371,9 @@ def test_forward_different_fees_and_cltv(node_factory, bitcoind):
     # We add one to the blockcount for a bit of fuzz (FIXME: Shadowroute would fix this!)
     shadow_route = 1
     l1.daemon.wait_for_log("Adding HTLC 0 amount=5010198msat cltv={} gave CHANNEL_ERR_ADD_OK"
-                           .format(bitcoind.rpc.getblockcount() + 20 + 9 + shadow_route))
+                           .format(bitcoind.rpc.getblockcount() + 20 + 18 + shadow_route))
     l2.daemon.wait_for_log("Adding HTLC 0 amount=4999999msat cltv={} gave CHANNEL_ERR_ADD_OK"
-                           .format(bitcoind.rpc.getblockcount() + 9 + shadow_route))
+                           .format(bitcoind.rpc.getblockcount() + 18 + shadow_route))
     l3.daemon.wait_for_log("Resolved invoice 'test_forward_different_fees_and_cltv' with amount 4999999msat")
     assert only_one(l3.rpc.listinvoices('test_forward_different_fees_and_cltv')['invoices'])['status'] == 'paid'
 
@@ -2409,7 +2404,6 @@ def test_setchannel_routing(node_factory, bitcoind):
 
     # test fees are applied to HTLC forwards
     #
-    # BOLT #7:
     # If l1 were to send 4,999,999 millisatoshi to l3 via l2, it needs to
     # pay l2 the fee it specified in the l2->l3 `channel_update`, calculated as
     # per [HTLC Fees](#htlc_fees):  base + amt * pm / 10**6
@@ -5897,7 +5891,7 @@ def test_offer_paths(node_factory, bitcoind):
 
     # Make scid path invalid by closing it
     close = l1.rpc.close(paths[0]['first_scid'])
-    bitcoind.generate_block(13, wait_for_mempool=only_one(close['txids']))
+    bitcoind.generate_block(73, wait_for_mempool=only_one(close['txids']))
     wait_for(lambda: l5.rpc.listchannels(paths[0]['first_scid']) == {'channels': []})
 
     # Now connect l5->l4, and it will be able to reach l3 via that, and join blinded path.
@@ -6070,7 +6064,7 @@ def test_fetch_no_description_with_amount(node_factory):
     # Deprecated fields make schema checker upset.
     # BOLT #12:
     #
-    # - if offer_amount is set and offer_description is not set:
+    # - if `offer_amount` is set and `offer_description` is not set:
     #   - MUST NOT respond to the offer.
     err = r'description is required for the user to know what it was they paid for'
     with pytest.raises(RpcError, match=err) as err:

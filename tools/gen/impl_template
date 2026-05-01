@@ -91,7 +91,7 @@ ${fieldname} = tal_arr(${ctx}, ${typename}, ${f.size('*plen')});
 fromwire_${type_}_array(cursor, plen, ${fieldname}, ${f.size('*plen')});
     % else:
 	% if f.is_varlen():
-${fieldname} = ${f.size('*plen')} ? tal_arr(${ctx}, ${typename}, 0) : NULL;
+${fieldname} = tal_arr(${ctx}, ${typename}, 0);
 	% endif
         % if f.is_implicit_len():
 	while (*plen != 0) {

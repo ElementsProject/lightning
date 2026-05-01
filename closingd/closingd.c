@@ -59,6 +59,15 @@ static struct bitcoin_tx *close_tx(const tal_t *ctx,
 	struct bitcoin_tx *tx;
 	struct amount_sat out_minus_fee[NUM_SIDES];
 
+	/* BOLT #3:
+	 * ## Legacy Closing Transaction
+	 *...
+	 * ### Requirements
+	 *
+	 * Each node offering a signature:
+	 *...
+	 *   - MUST subtract the fee given by `fee_satoshis` from the output to the funder.
+	 */
 	out_minus_fee[LOCAL] = out[LOCAL];
 	out_minus_fee[REMOTE] = out[REMOTE];
 	if (!amount_sat_sub(&out_minus_fee[opener], out[opener], fee))
@@ -159,10 +168,9 @@ static void send_offer(struct per_peer_state *pps,
 
 	/* BOLT #3:
 	 *
-	 * ## Legacy Closing Transaction
-	 *...
-	 * Each node offering a signature... MAY eliminate its
-	 * own output.
+	 * Each node offering a signature:
+	 * ...
+	 *   - MAY eliminate its own output.
 	 */
 	/* (We don't do this). */
 	wire_sync_write(HSM_FD,
@@ -591,11 +599,12 @@ static void calc_fee_bounds(size_t expected_weight,
 
 	/* BOLT #2:
 	 * - if it is not the funder:
-	 *  - SHOULD set `max_fee_satoshis` to at least the `max_fee_satoshis`
-	 *   received
-	 *...
-	 * Note that the non-funder is not paying the fee, so there is
-	 * no reason for it to have a maximum feerate.
+	 *   - SHOULD set `max_fee_satoshis` to at least the `max_fee_satoshis` received
+	 */
+	/* BOLT #2:
+	 *
+	 * Note that the non-funder is not paying the fee, so there is no reason for it
+	 * to have a maximum feerate.
 	 */
 	if (opener == REMOTE) {
 		*maxfee = funding;

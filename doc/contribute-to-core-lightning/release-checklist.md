@@ -99,10 +99,16 @@ Here's a checklist for the release process.
 
 ## Post-release
 
-1. Create a PR to update Makefile's CLN_NEXT_VERSION and important dates for the next release on `.github/PULL_REQUEST_TEMPLATE.md`.
+1. Create a PR to update:
+  * `Makefile`: variables CLN_NEXT_VERSION and CLN_PREV_VERSION (this may break tests as deprecated things are disabled!)
+  * `tools/lightningd-downgrade.c`: to downgrade to the just-released version.
+  * `.github/workflows/ci.yaml`: change old-cln to download the just-released version.
+  * `.github/PULL_REQUEST_TEMPLATE.md` for important dates for the next release.
 2. Look through PRs which were delayed for release and merge them.
 3. Close out the Milestone for the now-shipped release.
 4. Update this file with any missing or changed instructions.
+5. Fetch the latest bolt revision in ../bolts.  Then run `./devtools/bolt-catchup.sh` to update BOLTVERSION in the Makefile and run `make check-bolt-quotes`.  It may get confused by merges in the BOLTs repository, so you may have to do some manual work.  Note: this step may involve a significant amount of work for new spec changes!
+6. Go through `doc/developers-guide/deprecated-features.md` and remove features and code whose `Last Supported` was the prior version (i.e. now two versions ago: we give one version where the user can use `i-promise-to-fix-broken-api-user=FEATURENAME` to re-enable it).  Also remove the features from any schemas and other documentation.
 
 ## Performing the Point (hotfix) Release
 

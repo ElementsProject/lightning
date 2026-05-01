@@ -97,7 +97,7 @@ static struct command_result *param_amount(struct command *cmd,
 	return NULL;
 }
 
-/* BOLT 13:
+/* Proposed BOLT #13:
  * - MUST set `time_unit` to 0 (seconds), 1 (days), or 2 (months).
  */
 struct time_string {

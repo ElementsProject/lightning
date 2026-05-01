@@ -31,7 +31,7 @@ struct invoice_details {
 	u64 paid_timestamp;
 	/* Set if state == PAID and invoice paid on chain; outpoint containing the payment */
 	const struct bitcoin_outpoint *paid_outpoint;
-	/* BOLT11 or BOLT12 encoding for this invoice */
+	/* BOLT-11 or BOLT-12 encoding for this invoice */
 	const char *invstring;
 
 	/* The description of the payment. */

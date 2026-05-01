@@ -536,7 +536,7 @@ static struct route_info **select_inchan(const tal_t *ctx,
 					 const struct routehint_candidate
 					 *candidates)
 {
-	/* BOLT11 struct wants an array of arrays (can provide multiple routes) */
+	/* BOLT-11 struct wants an array of arrays (can provide multiple routes) */
 	struct route_info **r = NULL;
 	double total_weight = 0.0;
 
@@ -1221,7 +1221,9 @@ static struct command_result *json_invoice(struct command *cmd,
 	info->b11->description = tal_steal(info->b11, desc_val);
 	/* BOLT #11:
 	 * * `h` (23): `data_length` 52. 256-bit description of purpose of payment (SHA256).
-	 *...
+	 */
+	/* BOLT #11:
+	 *
 	 * A writer:
 	 *...
 	 *    - MUST include either exactly one `d` or exactly one `h` field.
@@ -1233,6 +1235,12 @@ static struct command_result *json_invoice(struct command *cmd,
 		info->b11->description_hash = NULL;
 	info->b11->payment_secret = tal_dup(info->b11, struct secret,
 					    &payment_secret);
+	/* BOLT #11:
+	 *
+	 * A writer:
+	 *   - MUST set the `9` field to a feature vector compliant with the
+	 *     [BOLT 9 origin node requirements](09-features.md#requirements).
+	 */
 	info->b11->features = tal_dup_talarr(info->b11, u8,
 					     cmd->ld->our_features
 					     ->bits[BOLT11_FEATURE]);

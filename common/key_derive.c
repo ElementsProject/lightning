@@ -17,7 +17,9 @@
  * - The `remote_htlcpubkey` uses the remote node's `htlc_basepoint`;
  * - The `local_delayedpubkey` uses the local node's `delayed_payment_basepoint`;
  * - The `remote_delayedpubkey` uses the remote node's `delayed_payment_basepoint`.
- *...
+ */
+/* BOLT #3:
+ *
  * The `remotepubkey` is simply the remote node's `payment_basepoint`.
  */
 

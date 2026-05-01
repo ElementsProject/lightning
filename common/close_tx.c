@@ -24,6 +24,17 @@ struct bitcoin_tx *create_close_tx(const tal_t *ctx,
 	struct amount_sat total_out;
 	u8 *script;
 
+	/* BOLT #3:
+	 * ## Legacy Closing Transaction
+	 *...
+	 * ### Requirements
+	 *
+	 * Each node offering a signature:
+	 *   - MUST round each output down to whole satoshis.
+	 *   - MUST subtract the fee given by `fee_satoshis` from the output to the funder.
+	 *   - MUST remove any output below its own `dust_limit_satoshis`.
+	 *   - MAY eliminate its own output.
+	 */
 	assert(amount_sat_add(&total_out, to_us, to_them));
 	assert(amount_sat_less_eq(total_out, funding_sats));
 

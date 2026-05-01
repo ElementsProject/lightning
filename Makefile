@@ -7,10 +7,10 @@ VERSION ?= $(shell git describe --tags --always --dirty=-modded --abbrev=7 2>/de
 $(info Building version $(VERSION))
 
 # Next release.
-CLN_NEXT_VERSION := v26.04
+CLN_NEXT_VERSION := v26.06
 
 # Previous release (for downgrade testing)
-CLN_PREV_VERSION := v25.12
+CLN_PREV_VERSION := v26.04
 
 # --quiet / -s means quiet, dammit!
 ifeq ($(findstring s,$(word 1, $(MAKEFLAGS))),s)
@@ -33,7 +33,7 @@ CCANDIR := ccan
 
 # Where we keep the BOLT RFCs
 BOLTDIR := ../bolts/
-DEFAULT_BOLTVERSION := 68881992b97f20aca29edf7a4d673b8e6a70379a
+DEFAULT_BOLTVERSION := 311119388a46dfa859da3d2eda0ca836cfc5f078
 # Can be overridden on cmdline.
 BOLTVERSION := $(DEFAULT_BOLTVERSION)
 
@@ -560,31 +560,50 @@ print-hdr-to-check:
 # If you want to check a specific variant of quotes use:
 #   make check-source-bolt BOLTVERSION=xxx
 ifeq ($(BOLTVERSION),$(DEFAULT_BOLTVERSION))
-CHECK_BOLT_PREFIX=
+CHECK_BOLT_COMMIT=
 else
-CHECK_BOLT_PREFIX=--prefix="BOLT-$(BOLTVERSION)"
+CHECK_BOLT_COMMIT=--include-commit=$(BOLTVERSION)
 endif
 
+CHECK_QUOTES := devtools/check_quotes.py
+
+BOLT_COVERAGE_FLAGS=$(if $(COVERAGE_FILE),--coverage=$(COVERAGE_FILE),)
+
 # Any mention of BOLT# must be followed by an exact quote, modulo whitespace.
-bolt-check/%: % bolt-precheck devtools/check-bolt
-	@if [ -d .tmp.lightningrfc ]; then devtools/check-bolt $(CHECK_BOLT_PREFIX) .tmp.lightningrfc $<; else echo "Not checking BOLTs: BOLTDIR $(BOLTDIR) does not exist" >&2; fi
+bolt-check/%: % bolt-precheck
+	@if [ -d .tmp.lightningrfc ]; then uv run $(CHECK_QUOTES) -k $(CHECK_BOLT_COMMIT) --comment-start "/* " --comment-continue "*" --comment-end "*/" --boltdir .tmp.lightningrfc $(BOLT_COVERAGE_FLAGS) $<; else echo "Not checking BOLTs: BOLTDIR $(BOLTDIR) does not exist" >&2; fi
+
+bolt-check-py/%: % bolt-precheck
+	@if [ -d .tmp.lightningrfc ]; then uv run $(CHECK_QUOTES) -k $(CHECK_BOLT_COMMIT) --boltdir .tmp.lightningrfc $(BOLT_COVERAGE_FLAGS) $<; else echo "Not checking BOLTs: BOLTDIR $(BOLTDIR) does not exist" >&2; fi
+
+bolt-check-rs/%: % bolt-precheck
+	@if [ -d .tmp.lightningrfc ]; then uv run $(CHECK_QUOTES) -k $(CHECK_BOLT_COMMIT) --comment-start "// " --comment-continue "//" --boltdir .tmp.lightningrfc $(BOLT_COVERAGE_FLAGS) $<; else echo "Not checking BOLTs: BOLTDIR $(BOLTDIR) does not exist" >&2; fi
 
 LOCAL_BOLTDIR=.tmp.lightningrfc
 
 bolt-precheck:
 	@[ -d $(BOLTDIR) ] || exit 0; set -e; if [ -z "$(BOLTVERSION)" ]; then rm -rf $(LOCAL_BOLTDIR); ln -sf $(BOLTDIR) $(LOCAL_BOLTDIR); exit 0; fi; [ "$$(git -C $(LOCAL_BOLTDIR) rev-list --max-count=1 HEAD 2>/dev/null)" != "$(BOLTVERSION)" ] || exit 0; rm -rf $(LOCAL_BOLTDIR) && git clone -q $(BOLTDIR) $(LOCAL_BOLTDIR) && cd $(LOCAL_BOLTDIR) && git checkout -q $(BOLTVERSION)
 
-check-source-bolt: $(ALL_NONGEN_SRCFILES:%=bolt-check/%)
+PYSRC=$(shell git ls-files "*.py" | grep -v /text.py)
+RUSTSRC=$(shell git ls-files "*.rs")
+
+check-source-bolt: $(ALL_NONGEN_SRCFILES:%=bolt-check/%) $(PYSRC:%=bolt-check-py/%) $(RUSTSRC:%=bolt-check-rs/%)
+
+check-requirements-coverage: bolt-precheck
+	@if [ ! -d .tmp.lightningrfc ]; then echo "Not checking BOLTs: BOLTDIR $(BOLTDIR) does not exist" >&2; exit 1; fi
+	@f=/tmp/cln-bolt-coverage.$$$$; \
+	 rm -f $$f; \
+	 $(MAKE) check-source-bolt COVERAGE_FILE=$$f && \
+	 uv run devtools/bolt-coverage.py --coverage $$f --boltdir .tmp.lightningrfc; \
+	 rc=$$?; rm -f $$f; exit $$rc
 
 check-whitespace/%: %
 	@if grep -Hn '[ 	]$$' $<; then echo Extraneous whitespace found >&2; exit 1; fi
 
-check-whitespace: check-whitespace/Makefile check-whitespace/devtools/check-bolt.c $(ALL_NONGEN_SRCFILES:%=check-whitespace/%)
+check-whitespace: check-whitespace/Makefile $(ALL_NONGEN_SRCFILES:%=check-whitespace/%)
 
 check-spelling:
 	@tools/check-spelling.sh
-
-PYSRC=$(shell git ls-files "*.py" | grep -v /text.py)
 
 # Some tests in pyln will need to find lightningd to run, so have a PATH that
 # allows it to find that
@@ -645,8 +664,11 @@ update-doc-examples:
 check-doc-examples: update-doc-examples
 	git diff --exit-code HEAD
 
+check-wire-format: extract-bolt-csv
+	git diff --exit-code HEAD
+
 # This should NOT compile things!
-check-source: check-makefile check-whitespace check-spelling check-python-flake8 check-includes check-shellcheck check-setup_locale check-tmpctx check-discouraged-functions check-amount-access check-bad-sprintf
+check-source: check-makefile check-whitespace check-spelling check-python-flake8 check-includes check-shellcheck check-setup_locale check-tmpctx check-discouraged-functions check-amount-access check-bad-sprintf check-wire-format check-source-bolt
 
 full-check: check check-source
 

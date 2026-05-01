@@ -658,6 +658,21 @@ static void handle_peer_add_htlc(struct peer *peer, const u8 *msg)
 				 "Bad peer_add_htlc %s", tal_hex(msg, msg));
 	}
 
+	/* BOLT #2:
+	 *  - if the sender did not previously acknowledge the commitment of that HTLC:
+	 *     - MUST ignore a repeated `id` value after a reconnection.
+	 */
+	/* We do this is a subtle way: we only save the HTLC to the db once we
+	 * have received commitment_signed, which is when we send the
+	 * acknowledgement.  So if we disconnect, we restart channeld which
+	 * doesn't know about the HTLC, thus rexmits are fine.
+	 *
+	 * If we got the commitment_signed, we increment the reestablish fields
+	 * so they know not to send it again. */
+	/* BOLT #2:
+	 *  - MUST allow multiple HTLCs with the same `payment_hash`.
+	 */
+	/* We do: the key is the id, not the payment_hash */
 	add_err = channel_add_htlc(peer->channel, REMOTE, id, amount,
 				   cltv_expiry, &payment_hash,
 				   onion_routing_packet,
@@ -6092,9 +6107,9 @@ static void peer_reconnect(struct peer *peer,
 	/* BOLT #2:
 	 *
 	 *   - otherwise:
-	 *     - if `next_commitment_number` is not 1 greater than the
-	 *       commitment number of the last `commitment_signed` message the
-	 *       receiving node has sent:
+	 *    - if `next_commitment_number` is not equal to the commitment
+	 *      number of the next `commitment_signed` that the receiving
+	 *      node would send:
 	 *       - SHOULD send an `error` and fail the channel.
 	 */
 	} else if (next_commitment_number != peer->next_index[REMOTE])

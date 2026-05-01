@@ -89,9 +89,9 @@ struct payment {
 	u32 maxparts;
 	/* Do we have to do it all in a single part? */
 	bool disable_mpp;
-	/* BOLT11 payment secret (NULL for BOLT12, it uses blinded paths) */
+	/* BOLT-11 payment secret (NULL for BOLT-12, it uses blinded paths) */
 	const struct secret *payment_secret;
-	/* BOLT11 payment metadata (NULL for BOLT12, it uses blinded paths) */
+	/* BOLT-11 payment metadata (NULL for BOLT-12, it uses blinded paths) */
 	const u8 *payment_metadata;
 	/* Final CLTV value */
 	u32 final_cltv;
@@ -744,6 +744,14 @@ static void update_knowledge_from_error(struct command *aux_cmd,
 	attempt_debug(attempt, "%s", description);
 
 	/* Final node sent an error */
+	/* BOLT #4:
+	 * - if the _final node_ is returning the error:
+	 *   - if the PERM bit is set:
+	 *     - SHOULD fail the payment.
+	 *   - otherwise:
+	 *     - if the error code is understood and valid:
+	 *       - MAY retry the payment.
+	 */
 	if (from_final) {
 		switch (failcode) {
 		/* These two are deprecated */
@@ -2025,10 +2033,15 @@ static struct command_result *xpay_core(struct command *cmd,
 		 * paths, we just know the cltv we use to enter the
 		 * final hop. */
 		payment->final_cltv = 0;
-		/* We will start honoring this flag in future */
+		/* BOLT #12:
+		 *   - if `invoice_features` contains the MPP/compulsory bit:
+		 *    - MUST pay the invoice via multiple separate blinded paths.
+		 *  - otherwise, if `invoice_features` contains the MPP/optional bit:
+		 *    - MAY pay the invoice via multiple separate payments.
+		 *  - otherwise:
+		 *    - MUST NOT use multiple parts to pay the invoice.
+		 */
 		payment->disable_mpp = !feature_offered(b12inv->invoice_features, OPT_BASIC_MPP);
-		if (payment->disable_mpp && command_deprecated_in_ok(cmd, "ignore_bolt12_mpp", "v25.05", "v25.12"))
-			payment->disable_mpp = false;
 	} else {
 		struct bolt11 *b11
 			= bolt11_decode(tmpctx, payment->invstring,

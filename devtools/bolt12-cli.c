@@ -95,6 +95,7 @@ static bool print_offer_amount(const struct bitcoin_blkid *chains,
 	/* BOLT #12:
 	 * - if a specific minimum `offer_amount` is required for successful payment:
 	 *   - MUST set `offer_amount` to the amount expected (per item).
+	 *   - MUST set `offer_amount` greater than zero.
 	 *   - if the currency for `offer_amount` is that of all entries in `chains`:
 	 *     - MUST specify `offer_amount` in multiples of the minimum lightning-payable unit
 	 *       (e.g. milli-satoshis for bitcoin).
@@ -150,6 +151,10 @@ static bool print_offer_amount(const struct bitcoin_blkid *chains,
 		       currency);
 	}
 
+	if (amount == 0) {
+		printf(" *** INVALID zero offer_amount");
+		ok = false;
+	}
 	return ok;
 }
 

@@ -12,9 +12,8 @@ import struct
 
 
 # BOLT #11:
-#
-# A writer MUST encode `amount` as a positive decimal integer with no
-# leading zeroes, SHOULD use the shortest representation possible.
+# A writer:...
+#   - MUST encode `amount` as a positive decimal integer with no leading 0s.
 def shorten_amount(amount):
     """ Given an amount in bitcoin, shorten it
     """
@@ -47,8 +46,10 @@ def unshorten_amount(amount):
     }
     unit = str(amount)[-1]
     # BOLT #11:
-    # A reader SHOULD fail if `amount` contains a non-digit, or is followed by
-    # anything except a `multiplier` in the table above.
+    # A reader:...
+    #   - if `amount` contains a non-digit OR is followed by anything except
+    #   a `multiplier` (see table above):
+    #     - MUST fail the payment.
     if not re.fullmatch(r'\d+[pnum]?', str(amount)):
         raise ValueError("Invalid amount '{}'".format(amount))
 
@@ -233,8 +234,12 @@ class Invoice(object):
         for k, v in self.tags:
 
             # BOLT #11:
-            #
-            # A writer MUST NOT include more than one `d`, `h`, `n` or `x` fields,
+            # A writer:...
+            #   - MUST include either exactly one `d` or exactly one `h` field.
+            #   ...
+            #   - MAY include one `x` field.
+            #   ...
+            #   - MAY include one `n` field.
             if k in ('d', 'h', 'n', 'x'):
                 if k in tags_set:
                     raise ValueError("Duplicate '{}' tag".format(k))
@@ -264,9 +269,8 @@ class Invoice(object):
             tags_set.add(k)
 
         # BOLT #11:
-        #
-        # A writer MUST include either a `d` or `h` field, and MUST NOT include
-        # both.
+        # A writer:...
+        #   - MUST include either exactly one `d` or exactly one `h` field.
         if 'd' in tags_set and 'h' in tags_set:
             raise ValueError("Cannot include both 'd' and 'h'")
         if 'd' not in tags_set and 'h' not in tags_set:
@@ -285,8 +289,9 @@ class Invoice(object):
             raise ValueError("Bad bech32 checksum")
 
         # BOLT #11:
-        #
-        # A reader MUST fail if it does not understand the `prefix`.
+        # A reader:
+        #   - if it does NOT understand the `prefix`:
+        #     - MUST fail the payment.
         if not hrp.startswith('ln'):
             raise ValueError("Does not start with ln")
 
@@ -306,10 +311,13 @@ class Invoice(object):
             inv.currency = m.group(0)
             amountstr = hrp[2 + m.end():]
             # BOLT #11:
-            #
-            # A reader SHOULD indicate if amount is unspecified, otherwise it MUST
-            # multiply `amount` by the `multiplier` value (if any) to derive the
-            # amount required for payment.
+            # A reader:...
+            #   - if the `amount` is empty:
+            #     - SHOULD indicate to the payer that amount is unspecified.
+            #   - otherwise:...
+            #     - if the `multiplier` is present:
+            #       - MUST multiply `amount` by the `multiplier` value to derive the
+            #       amount required for payment.
             if amountstr != '':
                 inv.amount = unshorten_amount(amountstr)
 
@@ -319,10 +327,10 @@ class Invoice(object):
             tag, tagdata, data = pull_tagged(data)
 
             # BOLT #11:
-            #
-            # A reader MUST skip over unknown fields, an `f` field with unknown
-            # `version`, or a `p`, `h`, `n` or `r` field which does not have
-            # `data_length` 52, 52, 53 or 82 respectively.
+            # A reader:
+            #   - MUST skip over `f` fields that use an unknown `version`.
+            #   - MUST fail the payment if any field with fixed `data_length` (`p`, `h`, `s`, `n`)
+            #     does not have the correct length (52, 52, 52, 53).
             data_length = len(tagdata) / 5
 
             if tag == 'r':
@@ -379,14 +387,13 @@ class Invoice(object):
                 inv.unknown_tags.append((tag, tagdata))
 
         # BOLT #11:
-        #
-        # A reader MUST check that the `signature` is valid (see the `n` tagged
-        # field specified below).
+        # A reader:
+        #   - MUST check that the `signature` is valid (see the `n` tagged field specified below).
         if inv.pubkey:  # Specified by `n`
             # BOLT #11:
-            #
-            # A reader MUST use the `n` field to validate the signature instead of
-            # performing signature recovery if a valid `n` field is provided.
+            # A reader:...
+            #   - if a valid `n` field is provided:
+            #     - MUST use the `n` field to validate the signature instead of performing public-key recovery.
             inv.signature = inv.pubkey.ecdsa_deserialize_compact(sigdecoded[0:64])
             if not inv.pubkey.ecdsa_verify(bytearray([ord(c) for c in hrp]) + data.tobytes(), inv.signature):
                 raise ValueError('Invalid signature')

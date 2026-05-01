@@ -851,7 +851,6 @@ static struct command_result *listoffers_done(struct command *cmd,
 	/* BOLT #4:
 	 *
 	 * If it is the final recipient:
-	 *...
 	 * - MUST ignore the message if the `path_id` does not match
 	 *   the blinded route it created for this purpose
 	 */

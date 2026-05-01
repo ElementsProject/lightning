@@ -35,6 +35,7 @@ bool htlc_is_trimmed(enum side htlc_owner,
 	 *      - MUST NOT contain that output.
 	 *    - otherwise:
 	 *      - MUST be generated as specified in
+	 *      [Received HTLC Outputs](#received-htlc-outputs).
 	 */
 	else
 		htlc_fee = htlc_success_fee(feerate_per_kw,

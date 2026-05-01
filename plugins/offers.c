@@ -288,6 +288,19 @@ static struct command_result *onion_message_recv(struct command *cmd,
 			return res;
 	}
 
+	/* BOLT #4:
+	 * - otherwise (it is the final node):
+	 *   - if `path_id` is set and corresponds to a path the reader has previously published in a `reply_path`:
+	 *     - if the onion message is not a reply to that previous onion:
+	 *       - MUST ignore the onion message
+	 *   - otherwise (unknown or unset `path_id`):
+	 *     - if the onion message is a reply to an onion message which contained a `path_id`:
+	 *       - MUST respond (or not respond) exactly as if it did not send the initial onion message.
+	 */
+	/* FIXME: Technically, we don't meet the first half of this: we
+	 * always do parsing and sanity checking before checking the
+	 * secret (thus the path_id).  But we ignore it *after* that.
+	 */
 	replytok = json_get_member(buf, om, "reply_blindedpath");
 	if (replytok) {
 		reply_path = json_to_blinded_path(cmd, buf, replytok);
@@ -525,7 +538,10 @@ static u8 *encrypted_decode(const tal_t *ctx, const char *str, char **fail) {
 		goto fail;
 	}
 	u8 *data8bit = tal_arr(data, u8, 0);
-	bech32_pull_bits(&data8bit, data, datalen*5);
+	if (!bech32_pull_bits(&data8bit, data, datalen*5)) {
+		*fail = tal_fmt(ctx, "invalid bech32 padding");
+		goto fail;
+	}
 
 	return data8bit;
 fail:

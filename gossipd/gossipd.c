@@ -495,6 +495,15 @@ static void inject_gossip(struct daemon *daemon, const u8 *msg)
 
 /*~ This is where lightningd tells us that a channel's funding transaction has
  * been spent. */
+/* BOLT #7:
+ * ## Pruning the Network View
+ *...
+ * ### Requirements
+ *
+ * A node:
+ *   - SHOULD monitor the funding transactions in the blockchain, to identify
+ *   channels that are being closed.
+ */
 static void handle_outpoints_spent(struct daemon *daemon, const u8 *msg)
 {
 	struct short_channel_id *scids;

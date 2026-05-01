@@ -149,10 +149,10 @@ static void set_reserve_absolute(struct state * state, const struct amount_sat d
 	} else {
 		/* BOLT #2:
 		 *
-		 * The sending node:
-		 *...
+		 * The sender:
+		 * ...
 		 * - MUST set `channel_reserve_satoshis` greater than or equal
-		 *to `dust_limit_satoshis` from the `open_channel` message.
+		 *   to `dust_limit_satoshis` from the `open_channel` message.
 		 */
 		if (amount_sat_greater(dust_limit, reserve_sat)) {
 			status_debug("Their reserve is too small, bumping to "
@@ -332,7 +332,7 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags,
 		= state->upfront_shutdown_script[LOCAL];
 
 	/* BOLT #2:
-	 *  - if it includes `channel_type`:
+	 * - MUST set `channel_type`:
 	 *     - MUST set it to a defined type representing the type it wants.
 	 *     - MUST use the smallest bitmap possible to represent the channel
 	 *       type.
@@ -410,15 +410,18 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags,
 	    their_mindepth);
 
 	/* BOLT #2:
-	 * - if `channel_type` is set, and `channel_type` was set in
-	 *   `open_channel`, and they are not equal types:
-	 *    - MUST fail the channel.
+	 *   - if the message doesn't include a `channel_type`:
+	 *     - MUST fail the channel.
 	 */
 	if (!accept_tlvs->channel_type) {
 		negotiation_failed(state,
 				   "accept_channel without a channel_type");
 	}
 
+	/* BOLT #2:
+	 * - if `channel_type` does not match the `channel_type` from `open_channel`:
+	 *    - MUST fail the channel.
+	 */
 	/* Simple case: caller specified, don't allow any variants */
 	if (!featurebits_eq(accept_tlvs->channel_type, state->channel_type->features)) {
 		negotiation_failed(state,
@@ -735,7 +738,8 @@ static bool funder_finalize_channel_setup(struct state *state,
 	 *
 	 * The recipient:
 	 *   - if `signature` is incorrect OR non-compliant with LOW-S-standard rule...:
-	 *     - MUST fail the channel
+	 *     - MUST send a `warning` and close the connection, or send an
+	 *       `error` and fail the channel.
 	 */
 	/* So we create *our* initial commitment transaction, and check the
 	 * signature they sent against that. */
@@ -875,18 +879,20 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	set_remote_upfront_shutdown(state, open_tlvs->upfront_shutdown_script);
 
 	/* BOLT #2:
-	 * The receiving node MUST fail the channel if:
-	 *...
-	 *  - It supports `channel_type` and `channel_type` was set:
-	 *     - if `type` is not suitable.
-	 *     - if `type` includes `option_zeroconf` and it does not trust the sender to open an unconfirmed channel.
+	 *  - if the message doesn't include a `channel_type`:
+	 *    - fail the channel.
 	 */
-	/* option_channel_type is compulsory. */
 	if (!open_tlvs->channel_type) {
 		negotiation_failed(state,
 				   "Did not set channel_type in open_channel message");
 	}
 
+	/* BOLT #2:
+	 * The receiving node MUST fail the channel if:
+	 *...
+	 *   - the `channel_type` is not suitable.
+	 *   - the `channel_type` includes `option_zeroconf` and it does not trust the sender to open an unconfirmed channel.
+	 */
 	state->channel_type = channel_type_accept(
 		state, open_tlvs->channel_type, state->our_features);
 	if (!state->channel_type) {
@@ -1044,7 +1050,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	/* BOLT #2:
 	 * The receiving node MUST fail the channel if:
 	 *...
-	 *     - if `type` includes `option_zeroconf` and it does not trust the
+	 *     - the `channel_type` includes `option_zeroconf` and it does not trust the
 	 *       sender to open an unconfirmed channel.
 	 */
 	if (channel_type_has(state->channel_type, OPT_ZEROCONF) &&
@@ -1071,8 +1077,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	accept_tlvs->upfront_shutdown_script
 		= state->upfront_shutdown_script[LOCAL];
 	/* BOLT #2:
-	 * - if `option_channel_type` was negotiated:
-	 *    - MUST set `channel_type` to the `channel_type` from `open_channel`
+	 *  - MUST set `channel_type` to the `channel_type` from `open_channel`
 	 */
 	accept_tlvs->channel_type = state->channel_type->features;
 
@@ -1196,12 +1201,10 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 			  &theirsig)) {
 		/* BOLT #1:
 		 *
-		 * ### The `error` and `warning` Messages
-		 *...
 		 * - when failure was caused by an invalid signature check:
-		 *    - SHOULD include the raw, hex-encoded transaction in reply
-		 *      to a `funding_created`, `funding_signed`,
-		 *      `closing_signed`, or `commitment_signed` message.
+		 *   - SHOULD include the raw, hex-encoded transaction in reply
+		 *     to a `funding_created`, `funding_signed`,
+		 *     `closing_signed`, or `commitment_signed` message.
 		 */
 		/*~ This verbosity is not only useful for our own testing, but
 		 * a courtesy to other implementaters whose brains may be so

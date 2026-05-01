@@ -257,6 +257,10 @@ struct command_result *handle_invoice(struct command *cmd,
 					fmt_sha256(tmpctx, &inv->invreq_id));
 		}
 	} else {
+		/* BOLT #12:
+		 *   - if `invreq_paths` is present:
+		 *     - MUST reject the invoice if it did not arrive via one of those paths.
+		 */
 		/* Didn't use path.  Was it supposed to? */
 		if (inv->inv->invreq_paths) {
 			if (command_dev_apis(cmd))

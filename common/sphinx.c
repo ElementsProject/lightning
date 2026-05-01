@@ -24,10 +24,6 @@ struct hop_params {
 	struct pubkey ephemeralkey;
 };
 
-struct keyset {
-	struct secret pi, mu, rho, gamma;
-};
-
 /* Encapsulates the information about a given payment path for the the onion
  * routing algorithm.
  */
@@ -420,15 +416,6 @@ bool onion_shared_secret(
 					   &privkey->secret);
 }
 
-static void generate_key_set(const struct secret *secret,
-			     struct keyset *keys)
-{
-	subkey_from_hmac("rho", secret, &keys->rho);
-	subkey_from_hmac("pi", secret, &keys->pi);
-	subkey_from_hmac("mu", secret, &keys->mu);
-	subkey_from_hmac("gamma", secret, &keys->gamma);
-}
-
 static struct hop_params *generate_hop_params(
 	const tal_t *ctx,
 	const u8 *sessionkey,
@@ -548,7 +535,6 @@ struct onionpacket *create_onionpacket(
 	size_t fillerSize = sphinx_path_payloads_size(sp) -
 			      sphinx_hop_size(&sp->hops[num_hops - 1]);
 	u8 *filler;
-	struct keyset keys;
 	struct secret padkey;
 	struct hmac nexthmac;
 	struct hop_params *params;
@@ -596,22 +582,48 @@ struct onionpacket *create_onionpacket(
 		sphinx_prefill(packet->routinginfo, sp, max_prefill, params,
 			       fixed_size);
 
+	/* BOLT #4:
+	 * For each hop in the route, in reverse order, the sender applies the
+	 * following operations:
+	 *  - The _rho_-key and _mu_-key are generated using the hop's shared secret.
+	 *  - `shift_size` is defined as the length of the `hop_payload` plus the
+	 *    bigsize encoding of the length and the length of that HMAC. Thus
+	 *    if the payload length is `l` then the `shift_size` is `1 + l + 32`
+	 *    for `l < 253`, otherwise `3 + l + 32` due to the bigsize encoding of `l`.
+	 *  - The `hop_payload` field is right-shifted by `shift_size` bytes,
+	 *    discarding the last `shift_size` bytes that exceed its 1300-byte size.
+	 *  - The bigsize-serialized length, serialized `hop_payload` and `hmac`
+	 *    are copied into the following `shift_size` bytes.
+	 *  - The _rho_-key is used to generate 1300 bytes of pseudo-random byte stream
+	 *    which is then applied, with `XOR`, to the `hop_payloads` field.
+	 */
 	for (i = num_hops - 1; i >= 0; i--) {
-		generate_key_set(&params[i].secret, &keys);
-
+		struct secret rho, mu;
 		/* Rightshift mix-header by FRAME_SIZE */
 		size_t shiftSize = sphinx_hop_size(&sp->hops[i]);
 		memmove(packet->routinginfo + shiftSize, packet->routinginfo,
 			fixed_size - shiftSize);
 		sphinx_write_frame(packet->routinginfo, &sp->hops[i], &nexthmac);
-		xor_cipher_stream(packet->routinginfo, &keys.rho,
-				  fixed_size);
 
+		subkey_from_hmac("rho", &params[i].secret, &rho);
+		xor_cipher_stream(packet->routinginfo, &rho, fixed_size);
+
+		/* BOLT #4:
+		 *...
+		 * - If this is the last hop, i.e. the first iteration, then the tail of the
+		 *  `hop_payloads` field is overwritten with the routing information `filler`.
+		 */
 		if (i == num_hops - 1) {
 			memcpy(packet->routinginfo + fixed_size - fillerSize, filler, fillerSize);
 		}
 
-		compute_packet_hmac(packet, sp->associated_data, tal_bytelen(sp->associated_data), &keys.mu,
+		/* BOLT #4:
+		 *...
+		 *  - The next HMAC is computed (with the _mu_-key as HMAC-key) over the
+		 *  concatenated `hop_payloads` and associated data.
+		 */
+		subkey_from_hmac("mu", &params[i].secret, &mu);
+		compute_packet_hmac(packet, sp->associated_data, tal_bytelen(sp->associated_data), &mu,
 				    &nexthmac);
 	}
 	packet->hmac = nexthmac;
@@ -641,7 +653,7 @@ struct route_step *process_onionpacket(
 {
 	struct route_step *step = talz(ctx, struct route_step);
 	struct hmac hmac;
-	struct keyset keys;
+	struct secret mu, rho;
 	u8 blind[BLINDING_FACTOR_SIZE];
 	u8 *paddedheader;
 	size_t payload_size;
@@ -651,19 +663,33 @@ struct route_step *process_onionpacket(
 
 	step->next = talz(step, struct onionpacket);
 	step->next->version = msg->version;
-	generate_key_set(shared_secret, &keys);
 
-	compute_packet_hmac(msg, assocdata, assocdatalen, &keys.mu, &hmac);
+	/* BOLT #4:
+	 *   - Derive `mu` as $`HMAC256(\text{"mu"}, ss)`$
+	 *     (see [Key Generation](#key-generation)).
+	 *   - Derive the HMAC as $`HMAC256(mu, hop\_payloads || associated\_data)`$.
+	 */
+	subkey_from_hmac("mu", shared_secret, &mu);
+	compute_packet_hmac(msg, assocdata, assocdatalen, &mu, &hmac);
 
 	if (!hmac_eq(&msg->hmac, &hmac) || dev_fail_process_onionpacket) {
 		/* Computed MAC does not match expected MAC, the message was modified. */
 		return tal_free(step);
 	}
 
+	/* BOLT #4:
+	 * - Derive `rho` as $`HMAC256(\text{"rho"}, ss)`$
+	 *   (see [Key Generation](#key-generation)).
+	 * - Derive `bytestream` of twice the length of `hop_payloads` using `rho`
+	 *   (see [Pseudo Random Byte Stream](pseudo-random-byte-stream)).
+	 * - Set `unwrapped_payloads` to the XOR of `hop_payloads` and `bytestream`.
+	 */
+	subkey_from_hmac("rho", shared_secret, &rho);
+
 	//FIXME:store seen secrets to avoid replay attacks
 	paddedheader = tal_arrz(step, u8, tal_bytelen(msg->routinginfo)*2);
 	memcpy(paddedheader, msg->routinginfo, tal_bytelen(msg->routinginfo));
-	xor_cipher_stream(paddedheader, &keys.rho, tal_bytelen(paddedheader));
+	xor_cipher_stream(paddedheader, &rho, tal_bytelen(paddedheader));
 
 	compute_blinding_factor(&msg->ephemeralkey, shared_secret, blind);
 	if (!blind_group_element(&step->next->ephemeralkey, &msg->ephemeralkey, blind))
@@ -742,9 +768,8 @@ struct onionreply *create_onionreply(const tal_t *ctx,
 
 	/* BOLT #4:
 	 *
-	 * The node generating the error message (_erring node_) builds a return
-	 * packet consisting of
-	 * the following fields:
+	 * The node generating the error message builds a _return
+	 * packet_ consisting of the following fields:
 	 *
 	 * 1. data:
 	 *    * [`32*byte`:`hmac`]
@@ -790,8 +815,6 @@ struct onionreply *wrap_onionreply(const tal_t *ctx,
 	 * The erring node then generates a new key, using the key type `ammag`.
 	 * This key is then used to generate a pseudo-random stream, which is
 	 * in turn applied to the packet using `XOR`.
-	 *
-	 * The obfuscation step is repeated by every hop along the return path.
 	 */
 	subkey_from_hmac("ammag", shared_secret, &key);
 	result->contents = tal_dup_talarr(result, u8, reply->contents);
@@ -808,22 +831,43 @@ u8 *unwrap_onionreply(const tal_t *ctx,
 	struct onionreply *r;
 	const u8 *cursor;
 	size_t max;
-	u16 msglen;
+	u8 *ret;
 
 	r = new_onionreply(tmpctx, reply->contents);
 	*origin_index = -1;
+	ret = NULL;
 
-	for (int i = 0; i < numhops; i++) {
-		struct secret key;
+	/* BOLT #4:
+	 * The _origin node_:
+	 *   - once the return message has been decrypted:
+	 *     - SHOULD store a copy of the message.
+	 *     - SHOULD continue decrypting, until the loop has been repeated 27 times
+	 *     (maximum route length of tlv payload type).
+	 *     - SHOULD use constant `ammag` and `um` keys to obfuscate the route length.
+	 *...
+	 * ### Rationale
+	 *
+	 * The requirements for the _origin node_ should help hide the payment sender.
+	 * By continuing decrypting 27 times (dummy decryption cycles after the error is found)
+	 * the erroring node cannot learn its relative position in the route by performing
+	 * a timing analysis if the sender were to retry the same route multiple times.
+	 */
+	for (size_t i = 0; i < 27; i++) {
+		struct secret ss, key;
 		struct hmac hmac, expected_hmac;
+
+		if (i < numhops)
+			ss = shared_secrets[i];
+		else
+			memset(&ss, 0x7, sizeof(ss));
 
 		/* Since the encryption is just XORing with the cipher
 		 * stream encryption is identical to decryption */
-		r = wrap_onionreply(tmpctx, &shared_secrets[i], r);
+		r = wrap_onionreply(tmpctx, &ss, r);
 
 		/* Check if the HMAC matches, this means that this is
 		 * the origin */
-		subkey_from_hmac("um", &shared_secrets[i], &key);
+		subkey_from_hmac("um", &ss, &key);
 
 		cursor = r->contents;
 		max = tal_count(r->contents);
@@ -835,18 +879,14 @@ u8 *unwrap_onionreply(const tal_t *ctx,
 
 		compute_hmac(&key, cursor, max, NULL, 0, &expected_hmac);
 		if (hmac_eq(&hmac, &expected_hmac)) {
+			u16 msglen;
+			msglen = fromwire_u16(&cursor, &max);
+			ret = fromwire_tal_arrn(ctx, &cursor, &max, msglen);
 			*origin_index = i;
-			break;
 		}
 	}
 
-	/* Didn't find source, it's garbled */
-	if (*origin_index == -1) {
-		return NULL;
-	}
-
-	msglen = fromwire_u16(&cursor, &max);
-	return fromwire_tal_arrn(ctx, &cursor, &max, msglen);
+	return ret;
 }
 
 struct onionpacket *sphinx_decompress(const tal_t *ctx,

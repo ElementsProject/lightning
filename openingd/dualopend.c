@@ -1237,12 +1237,10 @@ static char *do_commit_signed_received(const tal_t *ctx,
 			  &state->their_funding_pubkey, remote_sig)) {
 		/* BOLT #1:
 		 *
-		 * ### The `error` and `warning` Messages
-		 *...
 		 * - when failure was caused by an invalid signature check:
-		 *    - SHOULD include the raw, hex-encoded transaction in reply
-		 *      to a `funding_created`, `funding_signed`,
-		 *      `closing_signed`, or `commitment_signed` message.
+		 *   - SHOULD include the raw, hex-encoded transaction in reply
+		 *     to a `funding_created`, `funding_signed`,
+		 *     `closing_signed`, or `commitment_signed` message.
 		 */
 		/*~ This verbosity is not only useful for our own testing, but
 		 * a courtesy to other implementaters whose brains may be so
@@ -2432,9 +2430,8 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 	/* BOLT #2:
 	 * The receiving node MUST fail the channel if:
 	 *...
-	 *  - It supports `channel_type` and `channel_type` was set:
-	 *     - if `type` is not suitable.
-	 *     - if `type` includes `option_zeroconf` and it does not trust the sender to open an unconfirmed channel.
+	 *   - the `channel_type` is not suitable.
+	 *   - the `channel_type` includes `option_zeroconf` and it does not trust the sender to open an unconfirmed channel.
 	 */
 	if (!open_tlv->channel_type) {
 		negotiation_failed(state,
@@ -2684,8 +2681,7 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 	}
 
 	/* BOLT #2:
-	 * - if `option_channel_type` was negotiated:
-	 *    - MUST set `channel_type` to the `channel_type` from `open_channel`
+	 *  - MUST set `channel_type` to the `channel_type` from `open_channel`
 	 */
 	a_tlv->channel_type = state->channel_type->features;
 
@@ -3145,8 +3141,7 @@ static void opener_start(struct state *state, u8 *msg)
 	}
 
 	/* BOLT #2:
-	 * - if `channel_type` is set, and `channel_type` was set in
-	 *   `open_channel`, and they are not equal types:
+	 * if `channel_type` does not match the `channel_type` from `open_channel`:
 	 *    - MUST fail the channel.
 	 */
 	if (!a_tlv->channel_type) {
@@ -3975,13 +3970,10 @@ static void do_reconnect_dance(struct state *state)
 
 	/* BOLT #2:
 	 *
-	 * - if it has sent `commitment_signed` for an
-	 *   interactive transaction construction but it has
-	 *   not received `tx_signatures`:
-	 *   - MUST set `next_funding_txid` to the txid of that
-	 *     interactive transaction.
-	 *   - otherwise:
-	 *   - MUST NOT set `next_funding_txid`.
+	 * - if it has sent `commitment_signed` for an interactive transaction construction but
+	 *   it has not received `tx_signatures`:
+	 *   - MUST include the `next_funding` TLV.
+	 *   - MUST set `next_funding_txid` to the txid of that interactive transaction.
 	 */
 	tlvs = tlv_channel_reestablish_tlvs_new(tmpctx);
 	if (!tx_state->remote_funding_sigs_rcvd) {
@@ -4046,10 +4038,11 @@ static void do_reconnect_dance(struct state *state)
 
 	/* BOLT #2:
 	 * A receiving node:
-	 * - if `next_funding_txid` is set:
+	 * - if the `next_funding` TLV is set:
 	 *      - if `next_funding_txid` matches the latest interactive funding transaction:
 	 *        - if it has not received `tx_signatures` for that funding transaction:
-	 *          - MUST retransmit its `commitment_signed` for that funding transaction.
+	 *          - if the `commitment_signed` bit is set in `retransmit_flags`:
+	 *             - MUST retransmit its `commitment_signed` for that funding transaction.
 	 *          - if it has already received `commitment_signed` and it should sign first,
 	 *          as specified in the [`tx_signatures` requirements](#the-tx_signatures-message):
 	 *            - MUST send its `tx_signatures` for that funding transaction.
@@ -4075,6 +4068,7 @@ static void do_reconnect_dance(struct state *state)
 				if (!tx_state->has_commitments)
 					send_our_sigs = false;
 			}
+			/* FIXME: examine retransmit_flags! */
 			if (send_our_sigs && psbt_side_finalized(tx_state->psbt, state->our_role)) {
 				msg = psbt_to_tx_sigs_msg(NULL, state, tx_state->psbt);
 				peer_write(state->pps, take(msg));
