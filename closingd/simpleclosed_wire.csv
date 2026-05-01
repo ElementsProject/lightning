@@ -1,0 +1,48 @@
+#include <bitcoin/signature.h>
+#include <bitcoin/tx.h>
+#include <bitcoin/pubkey.h>
+#include <common/bip32.h>
+#include <common/channel_id.h>
+#include <common/cryptomsg.h>
+#include <common/status_wire.h>
+#include <common/htlc.h>
+#include <common/htlc_wire.h>
+#include <wally_bip32.h>
+
+# Begin! (passes peer_fd and hsm_fd)
+msgtype,simpleclosed_init,3001
+msgdata,simpleclosed_init,chainparams,chainparams,
+msgdata,simpleclosed_init,channel_id,channel_id,
+msgdata,simpleclosed_init,funding,bitcoin_outpoint,
+msgdata,simpleclosed_init,funding_satoshi,amount_sat,
+msgdata,simpleclosed_init,local_fundingkey,pubkey,
+msgdata,simpleclosed_init,remote_fundingkey,pubkey,
+msgdata,simpleclosed_init,local_sat,amount_sat,
+msgdata,simpleclosed_init,remote_sat,amount_sat,
+msgdata,simpleclosed_init,our_dust_limit,amount_sat,
+msgdata,simpleclosed_init,min_feerate_perkw,u32,
+msgdata,simpleclosed_init,max_feerate_perkw,u32,
+msgdata,simpleclosed_init,local_wallet_index,?u32,
+msgdata,simpleclosed_init,local_wallet_ext_key,?ext_key,
+msgdata,simpleclosed_init,local_scriptpubkey_len,u16,
+msgdata,simpleclosed_init,local_scriptpubkey,u8,local_scriptpubkey_len
+msgdata,simpleclosed_init,remote_scriptpubkey_len,u16,
+msgdata,simpleclosed_init,remote_scriptpubkey,u8,remote_scriptpubkey_len
+msgdata,simpleclosed_init,opener,enum side,
+
+# simpleclosed tells master it got a valid closing_sig for our closing_complete;
+# master should broadcast this tx.
+msgtype,simpleclosed_got_sig,3002
+msgdata,simpleclosed_got_sig,tx,bitcoin_tx,
+
+# Master replies with the txid (after storing/broadcasting).
+msgtype,simpleclosed_got_sig_reply,3102
+msgdata,simpleclosed_got_sig_reply,closing_txid,bitcoin_txid,
+
+# simpleclosed tells master it signed and broadcast the peer's closing tx
+# (as the closee).
+msgtype,simpleclosed_closee_broadcast,3003
+msgdata,simpleclosed_closee_broadcast,tx,bitcoin_tx,
+
+# Negotiations complete, exiting.
+msgtype,simpleclosed_complete,3004
