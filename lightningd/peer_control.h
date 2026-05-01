@@ -129,6 +129,12 @@ void drop_to_chain(struct lightningd *ld, struct channel *channel,
 		   bool cooperative,
 		   const struct bitcoin_tx *unilateral_tx);
 
+/* Variant for option_simple_close: the subdaemon already broadcast the mutual
+ * close txs, so we just watch for the funding spend and resolve the close
+ * command — without broadcasting the commitment tx. */
+void drop_to_chain_simple_close(struct lightningd *ld,
+				struct channel *channel);
+
 void update_channel_from_inflight(struct lightningd *ld,
 				  struct channel *channel,
 				  const struct channel_inflight *inflight,

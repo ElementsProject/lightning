@@ -8,4 +8,5 @@ lightning_gossip_compactd
 lightning_hsmd
 lightning_onchaind
 lightning_openingd
+lightning_simpleclosed
 lightning_websocketd

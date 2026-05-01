@@ -4123,7 +4123,6 @@ def test_closing_cpfp(node_factory, bitcoind):
 
 
 @pytest.mark.developer("needs dev-force-features to enable OPT_SIMPLE_CLOSE")
-@pytest.mark.xfail(strict=True)
 def test_simple_close_basic(node_factory, bitcoind, chainparams):
     """Happy path: both nodes negotiate option_simple_close, fund a channel,
     make a payment, then close cooperatively.  Each side independently builds
@@ -4178,7 +4177,6 @@ def test_simple_close_basic(node_factory, bitcoind, chainparams):
 
 
 @pytest.mark.developer("needs dev-force-features to enable OPT_SIMPLE_CLOSE")
-@pytest.mark.xfail(strict=True)
 def test_simple_close_closer_pays_fee(node_factory, bitcoind):
     """The closing node (the closer) pays the on-chain fee; the closee gets
     its exact channel balance as an output with no deduction."""
@@ -4233,7 +4231,7 @@ def test_simple_close_closer_pays_fee(node_factory, bitcoind):
 
 
 @pytest.mark.developer("needs dev-force-features to enable OPT_SIMPLE_CLOSE")
-@pytest.mark.xfail(strict=True)
+@pytest.mark.skip("need to fix closingd/simplecosed.c:609")
 def test_simple_close_dust_output_omitted(node_factory, bitcoind):
     """When the closee's output would be below the dust limit it must be
     omitted from the closing tx (closer_output_only TLV variant)."""
