@@ -478,6 +478,22 @@ struct command_result *param_string_or_array(struct command *cmd, const char *na
 	return param_string(cmd, name, buffer, tok, &(*result)->str);
 }
 
+struct command_result *param_string_array(struct command *cmd, const char *name,
+					  const char *buffer, const jsmntok_t *tok,
+					  const char ***arr)
+{
+	size_t i;
+	const jsmntok_t *s;
+
+	if (tok->type != JSMN_ARRAY)
+		return command_fail_badparam(cmd, name, buffer, tok,
+					     "should be an array");
+	*arr = tal_arr(cmd, const char *, tok->size);
+	json_for_each_arr(i, s, tok)
+		(*arr)[i] = json_strdup(*arr, buffer, s);
+	return NULL;
+}
+
 struct command_result *param_invstring(struct command *cmd, const char *name,
 				       const char * buffer, const jsmntok_t *tok,
 				       const char **str)

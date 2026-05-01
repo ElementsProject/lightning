@@ -32,6 +32,22 @@ import sys
 import time
 import unittest
 
+# Fast bwatch polling for tests (plugin default is 30s). Pass explicitly per node.
+BWATCH_OPTS = {'bwatch-poll-interval': 500}
+
+
+def wait_bwatch_caught_up(node, timeout=TIMEOUT):
+    """Wait until bwatch has caught up to the chain tip and is idle.
+
+    After restart, height replayed from the datastore skips the "First poll"
+    debug line; both paths eventually emit "No block change" once idle.
+    """
+    node.daemon.wait_for_log(
+        r'First poll: init at block|No block change, current_height remains',
+        timeout=timeout,
+    )
+    node.daemon.wait_for_log(r'No block change', timeout=timeout)
+
 
 def test_option_passthrough(node_factory, directory):
     """ Ensure that registering options works.
@@ -5015,3 +5031,877 @@ def test_openchannel_hook_channel_type(node_factory, bitcoind):
         l2.daemon.wait_for_log(r"plugin-openchannel_hook_accepter.py: accept by design: channel_type {'bits': \[12, 22\], 'names': \['static_remotekey/even', 'anchors/even'\]}")
     else:
         l2.daemon.wait_for_log(r"plugin-openchannel_hook_accepter.py: accept by design: channel_type {'bits': \[12\], 'names': \['static_remotekey/even'\]}")
+
+
+def reverse_bitcoin_hash(hash_hex):
+    """Convert Bitcoin hash between display format and wire format.
+
+    Bitcoin hashes are stored in reverse byte order in the wire protocol
+    compared to how they're displayed in RPC calls.
+    """
+    return ''.join(reversed([hash_hex[i:i + 2] for i in range(0, len(hash_hex), 2)]))
+
+
+def test_bwatch_add_watch_creates_datastore_entry(node_factory, bitcoind):
+    """Test that adding a watch creates a datastore entry"""
+    l1 = node_factory.get_node(options=BWATCH_OPTS)
+    # Use an outpoint watch (scriptpubkey, outpoint, scid, blockdepth are the
+    # four watch types; there is no standalone txid type).
+    test_txid = "0" * 64
+    test_outpoint = f"{test_txid}:0"
+    l1.rpc.addoutpointwatch(owner='wallet/p2wpkh/0', outpoint=test_outpoint, start_block=100)
+
+    # Verify it's in the datastore
+    ds = l1.rpc.listdatastore(['bwatch', 'outpoint'])
+    assert any(d['key'] == ['bwatch', 'outpoint', test_outpoint] for d in ds['datastore'])
+
+
+def test_bwatch_multiple_owners_same_watch(node_factory, bitcoind):
+    """Test that multiple owners can watch the same thing"""
+    l1 = node_factory.get_node()
+
+    test_txid = "1" * 64
+    test_outpoint = f"{test_txid}:0"
+
+    # Add watch with two different owners for the same outpoint
+    l1.rpc.addoutpointwatch(owner='wallet/p2wpkh/0', outpoint=test_outpoint, start_block=100)
+    l1.rpc.addoutpointwatch(owner='wallet/p2tr/0', outpoint=test_outpoint, start_block=200)
+
+    # Should still be one datastore entry (one outpoint, two owners)
+    ds = l1.rpc.listdatastore(['bwatch', 'outpoint'])
+    assert sum(1 for d in ds['datastore'] if d['key'] == ['bwatch', 'outpoint', test_outpoint]) == 1
+
+
+def test_bwatch_same_owner_adds_twice(node_factory, bitcoind):
+    """Test that the same owner adding the same watch twice is idempotent"""
+    l1 = node_factory.get_node(options=BWATCH_OPTS)
+
+    test_txid = "6" * 64
+    test_outpoint = f"{test_txid}:0"
+
+    # Add watch with start_block 100
+    l1.rpc.addoutpointwatch(owner='wallet/p2wpkh/0', outpoint=test_outpoint, start_block=100)
+
+    # Add same watch again with different start_block
+    l1.rpc.addoutpointwatch(owner='wallet/p2wpkh/0', outpoint=test_outpoint, start_block=200)
+
+    # Should log that owner already exists
+    l1.daemon.wait_for_log(r'Owner wallet/p2wpkh/0 already watching')
+
+    # Should still be just one datastore entry
+    ds = l1.rpc.listdatastore(['bwatch', 'outpoint'])
+    assert sum(1 for d in ds['datastore'] if d['key'] == ['bwatch', 'outpoint', test_outpoint]) == 1
+
+    # Removing once should delete the watch (only one owner, not two)
+    l1.rpc.deloutpointwatch(owner='wallet/p2wpkh/0', outpoint=test_outpoint)
+
+    ds = l1.rpc.listdatastore(['bwatch', 'outpoint'])
+    assert not any(d['key'] == ['bwatch', 'outpoint', test_outpoint] for d in ds['datastore'])
+
+
+def test_bwatch_remove_one_owner_keeps_watch(node_factory, bitcoind):
+    """Test that removing one owner doesn't remove the watch if others remain"""
+    l1 = node_factory.get_node(options=BWATCH_OPTS)
+
+    test_txid = "2" * 64
+    test_outpoint = f"{test_txid}:0"
+
+    # Add watch with two owners
+    l1.rpc.addoutpointwatch(owner='wallet/p2wpkh/0', outpoint=test_outpoint, start_block=100)
+    l1.rpc.addoutpointwatch(owner='wallet/p2tr/0', outpoint=test_outpoint, start_block=100)
+
+    # Remove first owner
+    l1.rpc.deloutpointwatch(owner='wallet/p2wpkh/0', outpoint=test_outpoint)
+
+    # Watch should still exist (wallet/p2tr/0 is still watching)
+    ds = l1.rpc.listdatastore(['bwatch', 'outpoint'])
+    assert any(d['key'] == ['bwatch', 'outpoint', test_outpoint] for d in ds['datastore'])
+
+
+def test_bwatch_remove_last_owner_deletes_watch(node_factory, bitcoind):
+    """Test that removing the last owner deletes the datastore entry"""
+    l1 = node_factory.get_node(options=BWATCH_OPTS)
+
+    test_txid = "3" * 64
+    test_outpoint = f"{test_txid}:0"
+
+    # Add watch with one owner
+    l1.rpc.addoutpointwatch(owner='wallet/p2wpkh/0', outpoint=test_outpoint, start_block=100)
+
+    # Verify it exists
+    ds = l1.rpc.listdatastore(['bwatch', 'outpoint'])
+    assert any(d['key'] == ['bwatch', 'outpoint', test_outpoint] for d in ds['datastore'])
+
+    # Remove the only owner
+    l1.rpc.deloutpointwatch(owner='wallet/p2wpkh/0', outpoint=test_outpoint)
+
+    # Watch should be gone
+    ds = l1.rpc.listdatastore(['bwatch', 'outpoint'])
+    assert not any(d['key'] == ['bwatch', 'outpoint', test_outpoint] for d in ds['datastore'])
+
+
+def test_bwatch_scriptpubkey_watch(node_factory, bitcoind):
+    """Test scriptpubkey watch datastore operations"""
+    l1 = node_factory.get_node(options=BWATCH_OPTS)
+
+    # A simple P2PKH scriptpubkey — not used by the wallet (which uses P2WPKH/P2TR/P2SH-P2WPKH)
+    test_spk = "76a914" + "00" * 20 + "88ac"
+    expected_key = ['bwatch', 'scriptpubkey', test_spk]
+
+    l1.rpc.addscriptpubkeywatch(owner='wallet/p2wpkh/0', scriptpubkey=test_spk, start_block=100)
+
+    # Verify our specific key is in the datastore (wallet also has scriptpubkey entries)
+    ds = l1.rpc.listdatastore(['bwatch', 'scriptpubkey'])
+    assert any(d['key'] == expected_key for d in ds['datastore'])
+
+    # Remove it
+    l1.rpc.delscriptpubkeywatch(owner='wallet/p2wpkh/0', scriptpubkey=test_spk)
+
+    ds = l1.rpc.listdatastore(['bwatch', 'scriptpubkey'])
+    assert not any(d['key'] == expected_key for d in ds['datastore'])
+
+
+def test_bwatch_outpoint_watch(node_factory, bitcoind):
+    """Test outpoint watch datastore operations"""
+    l1 = node_factory.get_node(options=BWATCH_OPTS)
+    test_txid = "4" * 64
+    test_outpoint = f"{test_txid}:0"
+
+    l1.rpc.addoutpointwatch(owner='wallet/p2wpkh/0', outpoint=test_outpoint, start_block=100)
+
+    # Verify it's in the datastore (use any() since wallet may have its own outpoints)
+    ds = l1.rpc.listdatastore(['bwatch', 'outpoint'])
+    assert any(d['key'] == ['bwatch', 'outpoint', test_outpoint] for d in ds['datastore'])
+
+    # Remove it
+    l1.rpc.deloutpointwatch(owner='wallet/p2wpkh/0', outpoint=test_outpoint)
+
+    ds = l1.rpc.listdatastore(['bwatch', 'outpoint'])
+    assert not any(d['key'] == ['bwatch', 'outpoint', test_outpoint] for d in ds['datastore'])
+
+
+def test_bwatch_rescan_triggered_for_past_start_block(node_factory, bitcoind):
+    """Test that adding a watch with start_block in the past triggers a rescan"""
+    l1 = node_factory.get_node(options=BWATCH_OPTS)
+
+    # Wait for bwatch to fully sync to chain tip
+    l1.daemon.wait_for_log(r'No block change')
+
+    # Get current height (now bwatch is synced)
+    info = l1.rpc.getinfo()
+    current_height = info['blockheight']
+
+    test_txid = "7" * 64
+    test_outpoint = f"{test_txid}:0"
+
+    # Add watch with start_block in the past (before current height)
+    start_block = current_height - 5
+    l1.rpc.addoutpointwatch(owner='wallet/p2wpkh/0', outpoint=test_outpoint, start_block=start_block)
+
+    # Should trigger a rescan
+    l1.daemon.wait_for_log(rf'Starting rescan for outpoint watch: blocks {start_block}-{current_height}')
+
+    # Rescan should complete
+    l1.daemon.wait_for_log(r'Rescan complete')
+
+
+def test_bwatch_no_rescan_for_future_start_block(node_factory, bitcoind):
+    """Test that adding a watch with start_block in the future doesn't trigger rescan"""
+    l1 = node_factory.get_node(options=BWATCH_OPTS)
+
+    # Wait for bwatch to sync
+    wait_bwatch_caught_up(l1)
+
+    info = l1.rpc.getinfo()
+    current_height = info['blockheight']
+
+    test_txid = "8" * 64
+    test_outpoint = f"{test_txid}:0"
+
+    # Add watch with start_block in the future
+    future_block = current_height + 100
+    l1.rpc.addoutpointwatch(owner='wallet/p2wpkh/0', outpoint=test_outpoint, start_block=future_block)
+
+    # Should NOT trigger a rescan - give it a moment then check logs
+    import time
+    time.sleep(0.5)
+
+    # Check that no rescan was started for this watch
+    assert not l1.daemon.is_in_log(rf'Starting rescan.*blocks.*{future_block}')
+
+
+def test_bwatch_rescan_scriptpubkey(node_factory, bitcoind):
+    """Test that scriptpubkey watches also trigger rescan"""
+    l1 = node_factory.get_node(options=BWATCH_OPTS)
+
+    # Wait for bwatch to fully sync
+    l1.daemon.wait_for_log(r'No block change')
+
+    info = l1.rpc.getinfo()
+    current_height = info['blockheight']
+
+    test_spk = "76a914" + "11" * 20 + "88ac"
+    start_block = current_height - 3
+
+    l1.rpc.addscriptpubkeywatch(owner='wallet/p2wpkh/0', scriptpubkey=test_spk, start_block=start_block)
+
+    l1.daemon.wait_for_log(rf'Starting rescan for scriptpubkey watch: blocks {start_block}-{current_height}')
+    l1.daemon.wait_for_log(r'Rescan complete')
+
+
+@pytest.mark.slow_test
+def test_bwatch_scriptpubkey_watch_notifies_lightningd(node_factory, bitcoind):
+    """Test that a matching scriptpubkey triggers watch_found to lightningd"""
+    l1 = node_factory.get_node(options=BWATCH_OPTS)
+
+    # Wait for bwatch to fully sync
+    wait_bwatch_caught_up(l1)
+
+    # Get an address and its scriptpubkey
+    addr = l1.rpc.newaddr('bech32')['bech32']
+    addr_info = bitcoind.rpc.getaddressinfo(addr)
+    scriptpubkey = addr_info['scriptPubKey']
+
+    # Add a watch for this scriptpubkey with a wallet owner (p2wpkh uses keyindex 0 by default for newaddr)
+    l1.rpc.addscriptpubkeywatch(owner='wallet/p2wpkh/0', scriptpubkey=scriptpubkey, start_block=100)
+
+    # Send coins to that address (creates tx with matching scriptpubkey)
+    bitcoind.rpc.sendtoaddress(addr, 0.01)
+    bitcoind.generate_block(1)
+
+    # Wait for bwatch to process the block and send watch_found notification
+    l1.daemon.wait_for_log(r'watch_found at block', timeout=60)
+
+
+def test_bwatch_outpoint_watch_notifies_lightningd(node_factory, bitcoind):
+    """Test that spending a watched outpoint triggers watch_found to lightningd"""
+    l1, l2 = node_factory.get_nodes(2, opts=[dict(BWATCH_OPTS), dict(BWATCH_OPTS)])
+
+    # Wait for bwatch to be ready so wallet scriptpubkey watches are active
+    # before we mine the funding block.
+    l1.daemon.wait_for_log(r'No block change')
+    l2.daemon.wait_for_log(r'No block change')
+
+    # Fund l1 manually using listfunds to detect confirmation (bwatch populates
+    # the outputs table via watch_found when the scriptpubkey watch fires).
+    addr = l1.rpc.newaddr('p2tr')['p2tr']
+    bitcoind.rpc.sendtoaddress(addr, 10.0)
+    bitcoind.generate_block(1)
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) > 0, timeout=60)
+
+    l1.connect(l2)
+    l1.fundchannel(l2, 1_000_000)
+
+    # Get the channel's funding outpoint (first channel has dbid 1)
+    channels = l1.rpc.listpeerchannels(l2.info['id'])['channels']
+    ch = only_one([c for c in channels if c['state'] == 'CHANNELD_NORMAL'])
+    outpoint = f"{ch['funding_txid']}:{ch['funding_outnum']}"
+
+    # channel/funding_spent/<dbid> is the real handler — the channel already
+    # registered it, so addoutpointwatch may report "already watching"; either
+    # way the watch exists and will fire when the funding is spent.
+    l1.rpc.addoutpointwatch(owner='channel/funding_spent/1', outpoint=outpoint, start_block=100)
+
+    txid = only_one(l1.rpc.close(l2.info['id'])['txids'])
+    bitcoind.generate_block(1, wait_for_mempool=txid)
+
+    l1.daemon.wait_for_log(r'watch_found at block', timeout=60)
+
+
+@pytest.mark.slow_test
+def test_bwatch_rescan_notifies_lightningd(node_factory, bitcoind):
+    """Test that matches found during rescan also trigger watch_found"""
+    l1 = node_factory.get_node(options=BWATCH_OPTS)
+
+    # Get an address
+    addr = l1.rpc.newaddr('bech32')['bech32']
+    addr_info = bitcoind.rpc.getaddressinfo(addr)
+    scriptpubkey = addr_info['scriptPubKey']
+
+    # Send coins FIRST (before adding the watch)
+    bitcoind.rpc.sendtoaddress(addr, 0.01)
+    bitcoind.generate_block(1)
+
+    # Wait for bwatch to fully sync to the new block
+    import time
+    time.sleep(2)
+    l1.daemon.wait_for_log(r'No block change')
+
+    # Now get current height and add watch with start_block in the past
+    info = l1.rpc.getinfo()
+    start_block = info['blockheight'] - 1  # The block we just mined
+
+    # Add watch - should trigger rescan and find the tx
+    l1.rpc.addscriptpubkeywatch(owner='wallet/p2wpkh/0', scriptpubkey=scriptpubkey,
+                                start_block=start_block)
+
+    # Should trigger rescan
+    l1.daemon.wait_for_log(r'Starting rescan')
+
+    # Rescan should find the match and notify lightningd
+    l1.daemon.wait_for_log(r'watch_found at block', timeout=60)
+
+
+def test_bwatch_watches_persist_across_restart(node_factory, bitcoind):
+    """Test that watches are restored from datastore after restart"""
+    l1 = node_factory.get_node(options=BWATCH_OPTS)
+    test_txid = "5" * 64
+    test_outpoint = f"{test_txid}:0"
+
+    # Add an outpoint watch (persisted in bwatch datastore)
+    l1.rpc.addoutpointwatch(owner='wallet/p2wpkh/0', outpoint=test_outpoint, start_block=500)
+
+    # Restart the node
+    l1.restart()
+
+    # The watch should still be in the datastore after restart
+    ds = l1.rpc.listdatastore(['bwatch', 'outpoint'])
+    assert any(d['key'] == ['bwatch', 'outpoint', test_outpoint] for d in ds['datastore'])
+
+
+def test_bwatch_reorg_1_block(node_factory, bitcoind):
+    """Test bwatch handles a 1-block reorg correctly"""
+    l1 = node_factory.get_node(options=BWATCH_OPTS)
+
+    # Wait for bwatch to initialize and sync to initial tip
+    wait_bwatch_caught_up(l1)
+
+    # Mine a few blocks to establish history
+    bitcoind.generate_block(5)
+    # Wait for bwatch to fully catch up (important: bwatch must have the block
+    # that will be reorged, otherwise it can't detect the reorg)
+    l1.daemon.wait_for_log(r'No block change')
+
+    # Get the actual number of blocks bwatch has stored before reorg
+    ds_before = l1.rpc.listdatastore(['bwatch', 'block_history'])
+    blocks_before = len(ds_before['datastore'])
+
+    # Get the hash of the last block (the one we'll reorg out)
+    height = bitcoind.rpc.getblockcount()
+    old_block_hash = bitcoind.rpc.getblockhash(height)
+    common_ancestor_hash = bitcoind.rpc.getblockhash(height - 1)
+
+    # Invalidate the last block (1-block reorg)
+    bitcoind.rpc.invalidateblock(old_block_hash)
+
+    # Mine 2 new blocks on the new chain
+    bitcoind.generate_block(2)
+
+    # bwatch should detect and handle the reorg
+    l1.daemon.wait_for_log(r'Reorg detected', timeout=60)
+    # Persisting rolled-forward blocks is async; don't assert immediately after
+    # "Reorg detected" (see test_bwatch_reorg_2_blocks).
+    l1.daemon.wait_for_log(r'No block change', timeout=60)
+
+    # Verify bwatch's block history matches bitcoind's new chain
+    new_height = bitcoind.rpc.getblockcount()
+    # After reorg: removed 1 old block, added 2 new blocks, so net +1
+    wait_for(lambda: len(l1.rpc.listdatastore(['bwatch', 'block_history'])['datastore'])
+             == blocks_before + 1,
+             timeout=60)
+
+    ds = l1.rpc.listdatastore(['bwatch', 'block_history'])
+
+    # Verify the common ancestor is still present with correct hash
+    ancestor_entry = next((e for e in ds['datastore']
+                          if e['key'][-1] == f"{height - 1:010d}"), None)
+    assert ancestor_entry is not None
+    # Decode the block record and verify hash matches
+    assert reverse_bitcoin_hash(common_ancestor_hash) in str(ancestor_entry['hex'])
+
+    # Verify the old block hash is not in datastore
+    for entry in ds['datastore']:
+        assert reverse_bitcoin_hash(old_block_hash) not in str(entry['hex'])
+
+    # Verify the new tip matches bitcoind
+    new_tip_hash = bitcoind.rpc.getblockhash(new_height)
+    tip_entry = next((e for e in ds['datastore']
+                     if e['key'][-1] == f"{new_height:010d}"), None)
+    assert tip_entry is not None
+    assert reverse_bitcoin_hash(new_tip_hash) in str(tip_entry['hex'])
+
+
+@pytest.mark.slow_test
+def test_bwatch_reorg_2_blocks(node_factory, bitcoind):
+    """Test bwatch handles a 2-block reorg correctly"""
+    l1 = node_factory.get_node(options=BWATCH_OPTS)
+
+    # Wait for bwatch to initialize
+    wait_bwatch_caught_up(l1)
+
+    # Mine some blocks
+    bitcoind.generate_block(5)
+    expected_height = bitcoind.rpc.getblockcount()
+    l1.daemon.wait_for_log(rf'Added block {expected_height} to history')
+
+    # Get the hash of block to reorg from (2 blocks back)
+    height = bitcoind.rpc.getblockcount()
+    old_block1_hash = bitcoind.rpc.getblockhash(height - 1)
+    old_block2_hash = bitcoind.rpc.getblockhash(height)
+    common_ancestor_hash = bitcoind.rpc.getblockhash(height - 2)
+
+    # Invalidate to cause 2-block reorg
+    bitcoind.rpc.invalidateblock(old_block1_hash)
+
+    # Mine longer chain
+    bitcoind.generate_block(4)
+    time.sleep(2)
+
+    # bwatch should detect and handle the reorg
+    l1.daemon.wait_for_log(r'Reorg detected', timeout=60)
+    # Wait for bwatch to finish processing the new chain
+    l1.daemon.wait_for_log(r'No block change')
+
+    # Verify bwatch's block history matches bitcoind's new chain
+    new_height = bitcoind.rpc.getblockcount()
+
+    # Check that bwatch has correct number of blocks (from its start height, not genesis)
+    initial_height = 101  # regtest starts at this height
+    expected_blocks = new_height - initial_height + 1
+
+    # Wait for datastore to be fully updated
+    wait_for(lambda: len(l1.rpc.listdatastore(['bwatch', 'block_history'])['datastore']) == expected_blocks, timeout=60)
+
+    ds = l1.rpc.listdatastore(['bwatch', 'block_history'])
+
+    # Verify the common ancestor is still present with correct hash
+    ancestor_entry = next((e for e in ds['datastore']
+                          if e['key'][-1] == f"{height - 2:010d}"), None)
+    assert ancestor_entry is not None
+    assert reverse_bitcoin_hash(common_ancestor_hash) in str(ancestor_entry['hex'])
+
+    # Verify the old block hashes are not in datastore
+    for entry in ds['datastore']:
+        assert reverse_bitcoin_hash(old_block1_hash) not in str(entry['hex'])
+        assert reverse_bitcoin_hash(old_block2_hash) not in str(entry['hex'])
+
+    # Verify the new tip matches bitcoind
+    new_tip_hash = bitcoind.rpc.getblockhash(new_height)
+    tip_entry = next((e for e in ds['datastore']
+                     if e['key'][-1] == f"{new_height:010d}"), None)
+    assert tip_entry is not None
+    assert reverse_bitcoin_hash(new_tip_hash) in str(tip_entry['hex'])
+
+
+def test_bwatch_reorg_long_chain(node_factory, bitcoind):
+    """Test bwatch handles a longer reorg (5+ blocks)"""
+    l1 = node_factory.get_node(options=BWATCH_OPTS)
+
+    # Wait for bwatch to initialize and sync to initial tip
+    wait_bwatch_caught_up(l1)
+
+    # Mine 10 blocks and wait for bwatch to fully catch up
+    bitcoind.generate_block(10)
+    expected_height = bitcoind.rpc.getblockcount()
+    l1.daemon.wait_for_log(rf'Added block {expected_height} to history')
+
+    # Reorg 5 blocks - save hashes of blocks that will be reorged out
+    height = bitcoind.rpc.getblockcount()
+    common_ancestor_height = height - 5
+    common_ancestor_hash = bitcoind.rpc.getblockhash(common_ancestor_height)
+    old_hashes = [bitcoind.rpc.getblockhash(h)
+                  for h in range(common_ancestor_height + 1, height + 1)]
+
+    reorg_from_hash = bitcoind.rpc.getblockhash(
+        common_ancestor_height + 1)
+    bitcoind.rpc.invalidateblock(reorg_from_hash)
+
+    # Mine longer replacement chain
+    bitcoind.generate_block(8)
+    time.sleep(3)
+
+    # Should handle the deep reorg
+    l1.daemon.wait_for_log(r'Reorg detected')
+
+    # Verify bwatch's block history matches bitcoind's new chain
+    new_height = bitcoind.rpc.getblockcount()
+
+    # Wait for bwatch to fully sync to the new chain height
+    # bwatch stores blocks from initial height (101), not genesis
+    initial_height = 101  # regtest starts at this height
+    expected_blocks = new_height - initial_height + 1
+    wait_for(lambda: len(l1.rpc.listdatastore(['bwatch', 'block_history'])['datastore']) == expected_blocks)
+
+    ds = l1.rpc.listdatastore(['bwatch', 'block_history'])
+
+    # Check that bwatch has correct number of blocks
+    assert len(ds['datastore']) == expected_blocks
+
+    # Verify the common ancestor is still present with correct hash
+    ancestor_entry = next((e for e in ds['datastore']
+                          if e['key'][-1] == f"{common_ancestor_height:010d}"),
+                          None)
+    assert ancestor_entry is not None
+    assert reverse_bitcoin_hash(common_ancestor_hash) in str(ancestor_entry['hex'])
+
+    # Verify none of the old block hashes are in datastore
+    for entry in ds['datastore']:
+        for old_hash in old_hashes:
+            assert reverse_bitcoin_hash(old_hash) not in str(entry['hex'])
+
+    # Verify the new tip matches bitcoind
+    new_tip_hash = bitcoind.rpc.getblockhash(new_height)
+    tip_entry = next((e for e in ds['datastore']
+                     if e['key'][-1] == f"{new_height:010d}"), None)
+    assert tip_entry is not None
+    assert reverse_bitcoin_hash(new_tip_hash) in str(tip_entry['hex'])
+
+
+@pytest.mark.slow_test
+def test_bwatch_reorg_at_startup(node_factory, bitcoind):
+    """Test bwatch handles reorg that happened while node was down"""
+    l1 = node_factory.get_node(options=BWATCH_OPTS)
+
+    # Wait for bwatch to initialize and fully sync
+    wait_bwatch_caught_up(l1)
+
+    bitcoind.generate_block(5)
+    expected_height = bitcoind.rpc.getblockcount()
+    # Wait for bwatch to catch up to these new blocks
+    l1.daemon.wait_for_log(rf'Added block {expected_height} to history', timeout=60)
+
+    # Get block hash before stopping
+    height = bitcoind.rpc.getblockcount()
+    reorg_from_hash = bitcoind.rpc.getblockhash(height - 2)
+
+    # Stop the node
+    l1.stop()
+
+    # Cause a reorg while node is down
+    bitcoind.rpc.invalidateblock(reorg_from_hash)
+    bitcoind.generate_block(5)
+
+    # Restart the node
+    l1.start()
+
+    # bwatch should detect the chain changed and handle reorg during catch-up
+    # (reorg detection happens during catch-up, before "initialized" message)
+    l1.daemon.wait_for_log(r'Reorg detected', timeout=60)
+
+    # Wait for it to finish syncing
+    l1.daemon.wait_for_log(r'No block change')
+
+    # Verify the node is tracking the correct chain
+    info = l1.rpc.getinfo()
+    assert info['blockheight'] == bitcoind.rpc.getblockcount()
+
+
+@pytest.mark.slow_test
+def test_bwatch_block_history_rollback(node_factory, bitcoind):
+    """Test that block history is correctly rolled back during reorg"""
+    l1 = node_factory.get_node(options=BWATCH_OPTS)
+
+    # Wait for bwatch to fully sync
+    wait_bwatch_caught_up(l1)
+
+    # Mine blocks
+    bitcoind.generate_block(5)
+    expected_height = bitcoind.rpc.getblockcount()
+
+    # Wait for bwatch to process the new blocks
+    l1.daemon.wait_for_log(rf'Added block {expected_height} to history', timeout=60)
+
+    # Check block history exists in datastore
+    initial_height = 101  # regtest starts at this height
+    expected_initial_blocks = expected_height - initial_height + 1
+    wait_for(lambda: len(l1.rpc.listdatastore(['bwatch', 'block_history'])['datastore']) == expected_initial_blocks, timeout=60)
+
+    ds = l1.rpc.listdatastore(['bwatch', 'block_history'])
+    initial_count = len(ds['datastore'])
+    # bwatch stores blocks from its start height (101), so we should have at least 5 new blocks
+    assert initial_count >= 5
+
+    # Cause a 3-block reorg - save hashes of blocks that will be reorged
+    height = bitcoind.rpc.getblockcount()
+    common_ancestor_height = height - 3
+    common_ancestor_hash = bitcoind.rpc.getblockhash(common_ancestor_height)
+    old_hashes = [bitcoind.rpc.getblockhash(h)
+                  for h in range(common_ancestor_height + 1, height + 1)]
+
+    reorg_from_hash = bitcoind.rpc.getblockhash(
+        common_ancestor_height + 1)
+    bitcoind.rpc.invalidateblock(reorg_from_hash)
+    bitcoind.generate_block(5)
+
+    # Verify reorg was handled
+    l1.daemon.wait_for_log(r'Reorg detected', timeout=60)
+    # Wait for bwatch to finish syncing to the new chain
+    l1.daemon.wait_for_log(r'No block change')
+
+    # Verify block history after reorg
+    ds = l1.rpc.listdatastore(['bwatch', 'block_history'])
+    new_height = bitcoind.rpc.getblockcount()
+
+    # Should have correct number of blocks (from its start height, not genesis)
+    initial_height = 101  # regtest starts at this height
+    expected_blocks = new_height - initial_height + 1
+    assert len(ds['datastore']) == expected_blocks
+
+    # Verify the common ancestor is still present with correct hash
+    ancestor_entry = next((e for e in ds['datastore']
+                          if e['key'][-1] == f"{common_ancestor_height:010d}"),
+                          None)
+    assert ancestor_entry is not None
+    assert reverse_bitcoin_hash(common_ancestor_hash) in str(ancestor_entry['hex'])
+
+    # Verify old block hashes are not present
+    for entry in ds['datastore']:
+        for old_hash in old_hashes:
+            assert reverse_bitcoin_hash(old_hash) not in str(entry['hex'])
+
+    # Verify all blocks from common ancestor to tip match bitcoind
+    for h in range(common_ancestor_height, new_height + 1):
+        expected_hash = bitcoind.rpc.getblockhash(h)
+        block_entry = next((e for e in ds['datastore']
+                           if e['key'][-1] == f"{h:010d}"), None)
+        assert block_entry is not None
+        assert reverse_bitcoin_hash(expected_hash) in str(block_entry['hex'])
+
+
+@pytest.mark.slow_test
+def test_bwatch_listwatch(node_factory, bitcoind):
+    """Test that listwatch RPC returns all active watches"""
+    l1 = node_factory.get_node(options=BWATCH_OPTS)
+
+    # Record the baseline — the wallet registers scriptpubkey watches on startup.
+    initial_count = len(l1.rpc.listwatch()['watches'])
+
+    # Add an outpoint watch — clearly not a real UTXO.
+    test_outpoint_a_txid = "a" * 64
+    test_outpoint_a = f"{test_outpoint_a_txid}:0"
+    l1.rpc.addoutpointwatch(owner='wallet/p2wpkh/0', outpoint=test_outpoint_a, start_block=100)
+
+    # Add a P2PKH scriptpubkey watch — not used by the wallet (P2WPKH/P2TR/P2SH-P2WPKH only).
+    test_scriptpubkey = "76a914" + "b" * 40 + "88ac"
+    l1.rpc.addscriptpubkeywatch(owner='wallet/p2tr/0', scriptpubkey=test_scriptpubkey, start_block=200)
+
+    # Add a second outpoint watch
+    test_outpoint_c_txid = "c" * 64
+    test_outpoint_c = f"{test_outpoint_c_txid}:1"
+    l1.rpc.addoutpointwatch(owner='wallet/p2sh_p2wpkh/0', outpoint=test_outpoint_c, start_block=150)
+
+    # Add a second owner to the first outpoint watch
+    l1.rpc.addoutpointwatch(owner='wallet/p2tr/0', outpoint=test_outpoint_a, start_block=50)
+
+    result = l1.rpc.listwatch()
+    watches = result['watches']
+
+    # 3 new unique watches added on top of the wallet's initial set
+    assert len(watches) == initial_count + 3
+
+    # Find each test watch by its unique identifier
+    outpoint_a_watch = next((w for w in watches if w.get('outpoint') == test_outpoint_a), None)
+    scriptpubkey_watch = next((w for w in watches if w.get('scriptpubkey') == test_scriptpubkey), None)
+    outpoint_c_watch = next((w for w in watches if w.get('outpoint') == test_outpoint_c), None)
+
+    # Verify first outpoint watch (two owners, start_block is the minimum)
+    assert outpoint_a_watch is not None
+    assert outpoint_a_watch['start_block'] == 50  # minimum of 100 and 50
+    assert len(outpoint_a_watch['owners']) == 2
+    assert 'wallet/p2wpkh/0' in outpoint_a_watch['owners']
+    assert 'wallet/p2tr/0' in outpoint_a_watch['owners']
+
+    # Verify scriptpubkey watch
+    assert scriptpubkey_watch is not None
+    assert scriptpubkey_watch['start_block'] == 200
+    assert len(scriptpubkey_watch['owners']) == 1
+    assert scriptpubkey_watch['owners'][0] == 'wallet/p2tr/0'
+
+    # Verify second outpoint watch
+    assert outpoint_c_watch is not None
+    assert outpoint_c_watch['start_block'] == 150
+    assert len(outpoint_c_watch['owners']) == 1
+    assert outpoint_c_watch['owners'][0] == 'wallet/p2sh_p2wpkh/0'
+
+    # Remove one owner from first outpoint watch — watch itself should remain
+    l1.rpc.deloutpointwatch(owner='wallet/p2wpkh/0', outpoint=test_outpoint_a)
+
+    watches = l1.rpc.listwatch()['watches']
+    assert len(watches) == initial_count + 3
+    outpoint_a_watch = next(w for w in watches if w.get('outpoint') == test_outpoint_a)
+    assert len(outpoint_a_watch['owners']) == 1
+    assert outpoint_a_watch['owners'][0] == 'wallet/p2tr/0'
+
+    # Remove the last owner — outpoint watch should disappear entirely
+    l1.rpc.deloutpointwatch(owner='wallet/p2tr/0', outpoint=test_outpoint_a)
+
+    watches = l1.rpc.listwatch()['watches']
+    assert len(watches) == initial_count + 2
+    assert not any(w.get('outpoint') == test_outpoint_a for w in watches)
+
+
+# =============================================================================
+# Blockdepth watch tests
+# =============================================================================
+
+def test_bwatch_blockdepth_watch_creates_datastore_entry(node_factory, bitcoind):
+    """Test that adding a blockdepth watch creates a datastore entry"""
+    l1 = node_factory.get_node(options=BWATCH_OPTS)
+
+    # Wait for bwatch to sync
+    l1.daemon.wait_for_log(r'No block change')
+
+    info = l1.rpc.getinfo()
+    start_block = info['blockheight']
+
+    owner = "channel/funding_depth/999"
+    l1.rpc.addblockdepthwatch(owner=owner, start_block=start_block)
+
+    # Blockdepth watches are stored under ['bwatch', 'blockdepth', <start_block>]
+    ds = l1.rpc.listdatastore(['bwatch', 'blockdepth'])
+    blockdepth_keys = [d.get('key') for d in ds['datastore'] if d.get('key', [])[:2] == ['bwatch', 'blockdepth']]
+    assert any(
+        k[-1] == str(start_block) for k in blockdepth_keys
+    ), f"Expected blockdepth watch for start_block {start_block}, got keys: {blockdepth_keys}"
+
+    # Also verify via listwatch
+    watches = l1.rpc.listwatch()['watches']
+    bdw = [w for w in watches if w.get('type') == 'blockdepth' and owner in w.get('owners', [])]
+    assert len(bdw) == 1, f"Expected one blockdepth watch with owner {owner}, got: {watches}"
+    assert bdw[0]['start_block'] == start_block
+
+
+def test_bwatch_blockdepth_watch_remove(node_factory, bitcoind):
+    """Test that deleting a blockdepth watch removes it from the datastore"""
+    l1 = node_factory.get_node(options=BWATCH_OPTS)
+
+    l1.daemon.wait_for_log(r'No block change')
+
+    info = l1.rpc.getinfo()
+    start_block = info['blockheight']
+
+    owner = f"channel/funding_depth/888"
+    l1.rpc.addblockdepthwatch(owner=owner, start_block=start_block)
+
+    # Verify it's present
+    watches = l1.rpc.listwatch()['watches']
+    assert any(owner in w.get('owners', []) for w in watches if w.get('type') == 'blockdepth')
+
+    # Delete it
+    l1.rpc.delblockdepthwatch(owner=owner, start_block=start_block)
+
+    watches = l1.rpc.listwatch()['watches']
+    assert not any(owner in w.get('owners', []) for w in watches if w.get('type') == 'blockdepth')
+
+
+def test_bwatch_blockdepth_watch_multiple_owners(node_factory, bitcoind):
+    """Test that multiple owners can share a blockdepth watch at the same start_block"""
+    l1 = node_factory.get_node(options=BWATCH_OPTS)
+
+    l1.daemon.wait_for_log(r'No block change')
+
+    info = l1.rpc.getinfo()
+    start_block = info['blockheight']
+
+    owner_a = "channel/funding_depth/777"
+    owner_b = "channel/funding_depth/778"
+
+    l1.rpc.addblockdepthwatch(owner=owner_a, start_block=start_block)
+    l1.rpc.addblockdepthwatch(owner=owner_b, start_block=start_block)
+
+    watches = l1.rpc.listwatch()['watches']
+    bdw = [w for w in watches if w.get('type') == 'blockdepth'
+           and (owner_a in w.get('owners', []) or owner_b in w.get('owners', []))]
+    # Both owners may share one watch entry or appear in separate entries depending
+    # on whether bwatch merges same-start_block watches; either way both owners present.
+    all_owners = [o for w in bdw for o in w.get('owners', [])]
+    assert owner_a in all_owners
+    assert owner_b in all_owners
+
+    # Removing one owner keeps the watch (the other remains)
+    l1.rpc.delblockdepthwatch(owner=owner_a, start_block=start_block)
+    watches = l1.rpc.listwatch()['watches']
+    assert not any(owner_a in w.get('owners', []) for w in watches if w.get('type') == 'blockdepth')
+    assert any(owner_b in w.get('owners', []) for w in watches if w.get('type') == 'blockdepth')
+
+    # Removing the last owner deletes the entry entirely
+    l1.rpc.delblockdepthwatch(owner=owner_b, start_block=start_block)
+    watches = l1.rpc.listwatch()['watches']
+    assert not any(owner_b in w.get('owners', []) for w in watches if w.get('type') == 'blockdepth')
+
+
+@pytest.mark.slow_test
+def test_bwatch_blockdepth_watch_fires_each_block(node_factory, bitcoind):
+    """Test that a blockdepth watch fires watch_found for every block >= start_block"""
+    l1 = node_factory.get_node(options=BWATCH_OPTS)
+
+    l1.daemon.wait_for_log(r'No block change')
+
+    info = l1.rpc.getinfo()
+    start_block = info['blockheight'] + 1  # watch starts at the next block
+
+    # Use a channel/funding_depth/ owner so watchman dispatches it
+    owner = "channel/funding_depth/42"
+    l1.rpc.addblockdepthwatch(owner=owner, start_block=start_block)
+
+    # Mine the block that triggers the watch
+    bitcoind.generate_block(1)
+
+    # watch_found (blockdepth) should be logged — depth==1 at start_block
+    l1.daemon.wait_for_log(r'watch_found at block.*blockdepth', timeout=60)
+
+    # Mine another block — the watch fires again (it fires every block until deleted)
+    bitcoind.generate_block(1)
+    l1.daemon.wait_for_log(r'watch_found at block.*blockdepth', timeout=60)
+
+    # Clean up
+    l1.rpc.delblockdepthwatch(owner=owner, start_block=start_block)
+
+
+@pytest.mark.slow_test
+def test_bwatch_blockdepth_watch_persists_across_restart(node_factory, bitcoind):
+    """Test that a blockdepth watch survives a node restart"""
+    l1 = node_factory.get_node(options=BWATCH_OPTS)
+
+    l1.daemon.wait_for_log(r'No block change')
+
+    info = l1.rpc.getinfo()
+    start_block = info['blockheight']
+
+    owner = "channel/funding_depth/55"
+    l1.rpc.addblockdepthwatch(owner=owner, start_block=start_block)
+
+    # Verify present before restart
+    watches = l1.rpc.listwatch()['watches']
+    assert any(owner in w.get('owners', []) for w in watches if w.get('type') == 'blockdepth')
+
+    l1.restart()
+    l1.daemon.wait_for_log(r'No block change')
+
+    # Watch should be reloaded from bwatch's datastore after restart
+    watches = l1.rpc.listwatch()['watches']
+    assert any(owner in w.get('owners', []) for w in watches if w.get('type') == 'blockdepth')
+
+    # Clean up
+    l1.rpc.delblockdepthwatch(owner=owner, start_block=start_block)
+
+
+def test_bwatch_blockdepth_watch_no_fire_before_start_block(node_factory, bitcoind):
+    """Test that a blockdepth watch with a future start_block doesn't fire early"""
+    l1 = node_factory.get_node(options=BWATCH_OPTS)
+
+    l1.daemon.wait_for_log(r'No block change')
+
+    info = l1.rpc.getinfo()
+    # Set start_block well in the future so it cannot fire during this test
+    future_start = info['blockheight'] + 1000
+
+    owner = "channel/funding_depth/11"
+    l1.rpc.addblockdepthwatch(owner=owner, start_block=future_start)
+
+    # Mine a block — watch must NOT fire (start_block is 1000 blocks away)
+    bitcoind.generate_block(1)
+    import time
+    time.sleep(1)
+
+    # No blockdepth watch_found should have been logged for our start_block
+    assert not l1.daemon.is_in_log(
+        rf'watch_found at block.*blockdepth.*{future_start}'
+    )
+
+    # Verify watch is still present
+    watches = l1.rpc.listwatch()['watches']
+    assert any(owner in w.get('owners', []) for w in watches if w.get('type') == 'blockdepth')
+
+    # Clean up
+    l1.rpc.delblockdepthwatch(owner=owner, start_block=future_start)

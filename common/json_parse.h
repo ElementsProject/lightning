@@ -108,6 +108,10 @@ bool json_to_msat(const char *buffer, const jsmntok_t *tok,
 bool json_to_txid(const char *buffer, const jsmntok_t *tok,
 		  struct bitcoin_txid *txid);
 
+/* Extract a bitcoin blkid from this */
+bool json_to_bitcoin_blkid(const char *buffer, const jsmntok_t *tok,
+			   struct bitcoin_blkid *blkid);
+
 /* Extract a bitcoin outpoint from this */
 bool json_to_outpoint(const char *buffer, const jsmntok_t *tok,
 		      struct bitcoin_outpoint *op);

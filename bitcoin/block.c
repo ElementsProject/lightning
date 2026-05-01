@@ -228,16 +228,24 @@ void bitcoin_block_blkid(const struct bitcoin_block *b,
 	*out = b->hdr.hash;
 }
 
-static bool bitcoin_blkid_to_hex(const struct bitcoin_blkid *blockid,
-				 char *hexstr, size_t hexstr_len)
+bool bitcoin_blkid_from_hex(const char *hexstr, size_t hexstr_len,
+			   struct bitcoin_blkid *blkid)
 {
-	struct bitcoin_txid fake_txid;
-	fake_txid.shad = blockid->shad;
-	return bitcoin_txid_to_hex(&fake_txid, hexstr, hexstr_len);
+	if (!hex_decode(hexstr, hexstr_len, blkid, sizeof(*blkid)))
+		return false;
+	reverse_bytes(blkid->shad.sha.u.u8, sizeof(blkid->shad.sha.u.u8));
+	return true;
 }
 
-char *fmt_bitcoin_blkid(const tal_t *ctx,
-			const struct bitcoin_blkid *blkid)
+bool bitcoin_blkid_to_hex(const struct bitcoin_blkid *blkid,
+			 char *hexstr, size_t hexstr_len)
+{
+	struct sha256_double rev = blkid->shad;
+	reverse_bytes(rev.sha.u.u8, sizeof(rev.sha.u.u8));
+	return hex_encode(&rev, sizeof(rev), hexstr, hexstr_len);
+}
+
+char *fmt_bitcoin_blkid(const tal_t *ctx, const struct bitcoin_blkid *blkid)
 {
 	char *hexstr = tal_arr(ctx, char, hex_str_size(sizeof(*blkid)));
 

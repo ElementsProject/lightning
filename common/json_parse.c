@@ -601,6 +601,13 @@ bool json_to_txid(const char *buffer, const jsmntok_t *tok,
 				     tok->end - tok->start, txid);
 }
 
+bool json_to_bitcoin_blkid(const char *buffer, const jsmntok_t *tok,
+			   struct bitcoin_blkid *blkid)
+{
+	return bitcoin_blkid_from_hex(buffer + tok->start,
+				      tok->end - tok->start, blkid);
+}
+
 bool json_to_outpoint(const char *buffer, const jsmntok_t *tok,
 		      struct bitcoin_outpoint *op)
 {

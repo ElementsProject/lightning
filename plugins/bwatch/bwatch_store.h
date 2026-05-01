@@ -1,0 +1,102 @@
+#ifndef LIGHTNING_PLUGINS_BWATCH_BWATCH_STORE_H
+#define LIGHTNING_PLUGINS_BWATCH_BWATCH_STORE_H
+
+#include "config.h"
+#include <ccan/htable/htable_type.h>
+#include <plugins/bwatch/bwatch.h>
+
+/*
+ * Per-watch-type key/hash/eq triplets so HTABLE_DEFINE_NODUPS_TYPE can
+ * generate a typed hash table for each watch type.  Lookups then take
+ * the natural key (raw script bytes, bitcoin_outpoint, short_channel_id,
+ * or u32 confirm height) instead of dispatching on type at every call.
+ */
+
+const struct scriptpubkey *scriptpubkey_watch_keyof(const struct watch *w);
+size_t scriptpubkey_hash(const struct scriptpubkey *scriptpubkey);
+bool scriptpubkey_watch_eq(const struct watch *w, const struct scriptpubkey *scriptpubkey);
+
+const struct bitcoin_outpoint *outpoint_watch_keyof(const struct watch *w);
+size_t outpoint_hash(const struct bitcoin_outpoint *outpoint);
+bool outpoint_watch_eq(const struct watch *w, const struct bitcoin_outpoint *outpoint);
+
+const struct short_channel_id *scid_watch_keyof(const struct watch *w);
+size_t scid_hash(const struct short_channel_id *scid);
+bool scid_watch_eq(const struct watch *w, const struct short_channel_id *scid);
+
+const u32 *blockdepth_watch_keyof(const struct watch *w);
+size_t u32_hash(const u32 *height);
+bool blockdepth_watch_eq(const struct watch *w, const u32 *height);
+
+HTABLE_DEFINE_NODUPS_TYPE(struct watch, scriptpubkey_watch_keyof,
+			  scriptpubkey_hash, scriptpubkey_watch_eq,
+			  scriptpubkey_watches);
+
+HTABLE_DEFINE_NODUPS_TYPE(struct watch, outpoint_watch_keyof,
+			  outpoint_hash, outpoint_watch_eq,
+			  outpoint_watches);
+
+HTABLE_DEFINE_NODUPS_TYPE(struct watch, scid_watch_keyof,
+			  scid_hash, scid_watch_eq,
+			  scid_watches);
+
+HTABLE_DEFINE_NODUPS_TYPE(struct watch, blockdepth_watch_keyof,
+			  u32_hash, blockdepth_watch_eq,
+			  blockdepth_watches);
+
+/* Human-readable name of a watch type, used as the second datastore key
+ * component (e.g. ["bwatch", "scriptpubkey", <hex>]). */
+const char *bwatch_get_watch_type_name(enum watch_type type);
+
+/* Watch hash table operations: dispatch on watch->type. */
+void bwatch_add_watch_to_hash(struct bwatch *bwatch, struct watch *w);
+struct watch *bwatch_get_watch(struct bwatch *bwatch,
+			       enum watch_type type,
+			       const struct bitcoin_outpoint *outpoint,
+			       const u8 *scriptpubkey,
+			       const struct short_channel_id *scid,
+			       const u32 *confirm_height);
+void bwatch_remove_watch_from_hash(struct bwatch *bwatch, struct watch *w);
+
+/* Block storage: in-memory history mirrors what's persisted under
+ * ["bwatch", "block_history", "%010u"].  Writes are async; reads happen
+ * once at startup. */
+struct command_result *bwatch_add_block_to_datastore(
+	struct command *cmd,
+	const struct block_record_wire *br,
+	struct command_result *(*done)(struct command *cmd));
+void bwatch_add_block_to_history(struct bwatch *bwatch, u32 height,
+				 const struct bitcoin_blkid *hash,
+				 const struct bitcoin_blkid *prev_hash);
+void bwatch_delete_block_from_datastore(struct command *cmd, u32 height);
+void bwatch_load_block_history(struct command *cmd, struct bwatch *bwatch);
+
+/* Watch persistence: round-trip via bwatch_wiregen serialisation,
+ * stored under ["bwatch", <type>, <stringified-key>]. */
+void bwatch_save_watch_to_datastore(struct command *cmd, const struct watch *w);
+void bwatch_delete_watch_from_datastore(struct command *cmd, const struct watch *w);
+void bwatch_load_watches_from_datastore(struct command *cmd, struct bwatch *bwatch);
+
+/* High-level add/del that combine hash-table updates and datastore writes,
+ * and merge owner sets / lower start_block when the same key is registered
+ * multiple times. */
+struct watch *bwatch_add_watch(struct command *cmd,
+			       struct bwatch *bwatch,
+			       enum watch_type type,
+			       const struct bitcoin_outpoint *outpoint,
+			       const u8 *scriptpubkey,
+			       const struct short_channel_id *scid,
+			       const u32 *confirm_height,
+			       u32 start_block,
+			       const char *owner_id TAKES);
+
+void bwatch_del_watch(struct command *cmd,
+		      struct bwatch *bwatch,
+		      enum watch_type type,
+		      const struct bitcoin_outpoint *outpoint,
+		      const u8 *scriptpubkey,
+		      const struct short_channel_id *scid,
+		      const u32 *confirm_height,
+		      const char *owner_id);
+
+#endif /* LIGHTNING_PLUGINS_BWATCH_BWATCH_STORE_H */
