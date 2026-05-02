@@ -210,6 +210,8 @@ bitcoin_block_from_hex(const tal_t *ctx, const struct chainparams *chainparams,
 	b->txids = tal_arr(b, struct bitcoin_txid, num);
 	for (i = 0; i < num; i++) {
 		b->tx[i] = pull_bitcoin_tx_only(b->tx, &p, &len);
+		if (!b->tx[i])
+    			return tal_free(b);
 		b->tx[i]->chainparams = chainparams;
 		bitcoin_txid(b->tx[i], &b->txids[i]);
 	}
