@@ -373,10 +373,11 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 
 	ld->fronting_nodes = tal_arr(ld, struct node_id, 0);
 
-	/*~ connectd usually uses "no-reply" pings to fill out messages
-	 * where needed to make them uniform length.  Some implementations
-	 * don't like it, so it can be disabled. */
-	ld->message_padding = true;
+	/*~ connectd can use "no-reply" pings to fill out messages where needed
+	 * to make them uniform length. Deployed implementations can reject those
+	 * pings, so default to compatibility; operators can opt in with
+	 * --message-padding=true. */
+	ld->message_padding = false;
 
 	return ld;
 }

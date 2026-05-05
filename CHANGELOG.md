@@ -26,8 +26,8 @@ This release is named by @Chand-ra.
 
 ### Added
 
- - Protocol: we now pad all peer messages to make them the same length (excluding LND < v21 and current Eclair). ([#8893], [#9022])
- - Config: `message-padding` option can be set to `false` to disable it for all peers. ([#9068])
+ - Protocol: peer message padding can make messages uniform length, but is disabled by default for compatibility. ([#8893], [#9022])
+ - Config: `message-padding=true` enables peer message padding for all peers. ([#9068])
  - JSON-RPC: `bkpr-report` allows flexible summaries of bookkeeper income. ([#8937])
  - Config: `bkpr-currency` option to record conversion rate at each bookkeeper event. ([#8937])
  - JSON-RPC: `currencyconvert` and `currencyrate` via the new plugin `cln-currencyrate` ([#8842], [#8937])
