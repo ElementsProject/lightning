@@ -67,6 +67,9 @@ struct chanbackup {
 	/* Global secret object to keep the derived encryption key for the SCB */
 	struct secret secret;
 
+	/* We store the timestamp of the latest peer storage that we have. */
+	u32 latest_timestamp;
+
 	/* Cache of backups for each peer we know about */
 	struct backup_map *backups;
 
@@ -819,6 +822,41 @@ static struct command_result *datastore_failed(struct command *cmd,
 	return command_hook_success(cmd);
 }
 
+/* Compares the data between the stored scb and latest recvd scb,
+ * stores the most recent one only. */
+static struct command_result *store_latest_scb(struct command *cmd,
+					       struct chanbackup *cb,
+					       const u8 *received_scb)
+{
+	size_t recvd_scb_len = tal_bytelen(received_scb);
+	u64 version;
+	struct modern_scb_chan **scb_tlvs;
+	u32 timestamp_new;
+	bool is_converted;
+
+	if (!read_static_chan_backup(cmd, received_scb, &version, &timestamp_new, &scb_tlvs, &is_converted)) {
+		plugin_log(cmd->plugin, LOG_BROKEN, "Ignoring invalid peer storage: %s",
+			   tal_hex(tmpctx, received_scb));
+		return command_hook_success(cmd);
+	}
+
+	if (timestamp_new < cb->latest_timestamp) {
+		plugin_log(cmd->plugin, LOG_DBG, "Ignoring old Peer Storage");
+		return command_hook_success(cmd);
+	}
+
+	cb->latest_timestamp = timestamp_new;
+
+	return jsonrpc_set_datastore_binary(cmd,
+		mkdatastorekey(tmpctx, "chanbackup", "latestscb"),
+		received_scb, recvd_scb_len,
+		"create-or-replace",
+		datastore_success,
+		datastore_failed,
+	   	"Saving latestscb");
+
+}
+
 static struct command_result *handle_your_peer_storage(struct command *cmd,
 						       const char *buf,
 						       const jsmntok_t *params)
@@ -826,7 +864,7 @@ static struct command_result *handle_your_peer_storage(struct command *cmd,
         struct node_id node_id;
         u8 *payload, *payload_deserialise;
 	const char *err;
-	const struct chanbackup *cb = chanbackup(cmd->plugin);
+	struct chanbackup *cb = chanbackup(cmd->plugin);
 
 	err = json_scan(cmd, buf, params,
 			"{payload:%,peer_id:%}",
@@ -906,16 +944,7 @@ static struct command_result *handle_your_peer_storage(struct command *cmd,
                                                                NULL, 0) != 0)
                         return failed_peer_restore(cmd, &node_id,
 					           "Peer altered our data");
-
-
-		return jsonrpc_set_datastore_binary(cmd,
-						    mkdatastorekey(tmpctx, "chanbackup", "latestscb"),
-					     	    decoded_bkp,
-						    tal_bytelen(decoded_bkp),
-					     	    "create-or-replace",
-					     	    datastore_success,
-					     	    datastore_failed,
-						    "Saving latestscb");
+		return store_latest_scb(cmd, cb, decoded_bkp);
 	} else {
 		/* Any other message we ignore */
 		return command_hook_success(cmd);
@@ -1092,6 +1121,7 @@ static const char *init(struct command *init_cmd,
 	const char *info = "scb secret";
 	u8 *info_hex = tal_dup_arr(tmpctx, u8, (u8*)info, strlen(info), 0);
 	u8 *features;
+	u8 *latestscb;
 
 	/* Figure out if they specified --experimental-peer-storage */
 	rpc_scan(init_cmd, "getinfo",
@@ -1114,6 +1144,18 @@ static const char *init(struct command *init_cmd,
 				   	      info_hex,
 					      tal_bytelen(info_hex)))),
 		 "{secret:%}", JSON_SCAN(json_to_secret, &cb->secret));
+
+	/* Caching timestamp of latestscb that we have stored. This
+	 * would be useful for upgrading `chanbackup/latestscb`. */
+	cb->latest_timestamp = 0;
+	if (rpc_scan_datastore_hex(tmpctx, init_cmd,
+			       mkdatastorekey(tmpctx, "chanbackup", "latestscb"),
+			       JSON_SCAN_TAL(tmpctx, json_tok_bin_from_hex, &latestscb)) == NULL) {
+		u64 version;
+		struct modern_scb_chan **scb_tlvs;
+		bool is_converted;
+		read_static_chan_backup(init_cmd, latestscb, &version, &cb->latest_timestamp, &scb_tlvs, &is_converted);
+	}
 
 	setup_backup_map(init_cmd, cb);
 	plugin_set_data(init_cmd->plugin, cb);
