@@ -14678,7 +14678,9 @@
       },
       "response": {
         "required": [
-          "filedata"
+          "filedata",
+          "can_create_penalty",
+          "backed_up_channel_ids"
         ],
         "additionalProperties": false,
         "properties": {
@@ -14687,6 +14689,21 @@
             "description": [
               "The raw, hex-encoded, emergency.recover file"
             ]
+          },
+          "can_create_penalty": {
+            "type": "boolean",
+            "description": [
+              "If false, you are using legacy file version, which can not create penalty transactions, kindly delete emergency.recover and restart the node!"
+            ]
+          },
+          "backed_up_channel_ids": {
+            "type": "array",
+            "items": {
+              "type": "hash",
+              "description": [
+                "Channel IDs of channels backed up inside emergency.recover"
+              ]
+            }
           }
         }
       },
