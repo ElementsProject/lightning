@@ -584,8 +584,8 @@ LOCAL_BOLTDIR=.tmp.lightningrfc
 bolt-precheck:
 	@[ -d $(BOLTDIR) ] || exit 0; set -e; if [ -z "$(BOLTVERSION)" ]; then rm -rf $(LOCAL_BOLTDIR); ln -sf $(BOLTDIR) $(LOCAL_BOLTDIR); exit 0; fi; [ "$$(git -C $(LOCAL_BOLTDIR) rev-list --max-count=1 HEAD 2>/dev/null)" != "$(BOLTVERSION)" ] || exit 0; rm -rf $(LOCAL_BOLTDIR) && git clone -q $(BOLTDIR) $(LOCAL_BOLTDIR) && cd $(LOCAL_BOLTDIR) && git checkout -q $(BOLTVERSION)
 
-PYSRC=$(shell git ls-files "*.py" | grep -v /text.py)
-RUSTSRC=$(shell git ls-files "*.rs")
+PYSRC=$(filter-out $(PYTHON_GENERATED),$(shell git ls-files "*.py" | grep -v /text.py))
+RUSTSRC=$(filter-out $(CLN_GRPC_GENALL),$(shell git ls-files "*.rs"))
 
 check-source-bolt: $(ALL_NONGEN_SRCFILES:%=bolt-check/%) $(PYSRC:%=bolt-check-py/%) $(RUSTSRC:%=bolt-check-rs/%)
 
