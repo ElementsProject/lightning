@@ -5968,9 +5968,7 @@ static void peer_reconnect(struct peer *peer,
 	/* BOLT #2:
 	 *
 	 *   - if `next_commitment_number` is 1 in both the
-	 *    `channel_reestablish` it sent and received, and none of those
-	 *    `channel_reestablish` messages contain `my_current_funding_locked` or
-	 *    `next_funding` for a splice transaction:
+	 *     `channel_reestablish` it sent and received:
 	 *     - MUST retransmit `channel_ready`.
 	 *   - otherwise:
 	 *     - MUST NOT retransmit `channel_ready`, but MAY send `channel_ready` with
