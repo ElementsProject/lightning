@@ -54,7 +54,6 @@ def test_bookkeeping_splice_in(node_factory, bitcoind):
     initial_channel_bal = only_one(l1.rpc.listpeerchannels()['channels'])['to_us_msat']
 
     # Get initial bookkeeper state
-    initial_events = l1.rpc.bkpr_listaccountevents()['events']
     initial_balances = l1.rpc.bkpr_listbalances()['accounts']
     initial_wallet_bal = only_one([
         a for a in initial_balances if a['account'] == 'wallet'
@@ -88,12 +87,11 @@ def test_bookkeeping_splice_in(node_factory, bitcoind):
     vin = splice_tx['vin']
     vout = splice_tx['vout']
     in_amount = sum(
-        [bitcoind.rpc.getrawtransaction(v['txid'], True)['vout'][v['vout']]['value'] 
-        for v in vin]
+        [bitcoind.rpc.getrawtransaction(v['txid'], True)['vout'][v['vout']]['value']
+         for v in vin]
     )
     out_amount = sum([o['value'] for o in vout])
     splice_fee = int((in_amount - out_amount) * 10**8)
-
 
     # Wait for channel to return to normal
     l1.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
@@ -220,26 +218,14 @@ def test_bookkeeping_splice_out(node_factory, bitcoind):
     wallet_deposits = find_tags(wallet_events, 'deposit')
 
     # Should have deposits - including the splice out output
-    # one for initial funding, one for the change after 
+    # one for initial funding, one for the change after
     # channel opening, and one for splice out
     assert len(wallet_deposits) == 3
-
     # Check final balances
     balances = l1.rpc.bkpr_listbalances()['accounts']
     wallet_bal = only_one([
         a for a in balances if a['account'] == 'wallet'
     ])['balances'][0]['balance_msat']
-
-    # Compute fees from splice
-    splice_tx = bitcoind.rpc.getrawtransaction(splice_txid, True)
-    vin = splice_tx['vin']
-    vout = splice_tx['vout']
-    in_amount = sum(
-        [bitcoind.rpc.getrawtransaction(v['txid'], True)['vout'][v['vout']]['value'] 
-        for v in vin]
-    )
-    out_amount = sum([o['value'] for o in vout])
-    splice_fee = int((in_amount - out_amount) * 10**8)
 
     # Wallet should have increased (received splice out funds)
     assert wallet_bal >= initial_wallet_bal + Millisatoshi(splice_out_amount * 1000)
@@ -249,7 +235,7 @@ def test_bookkeeping_splice_out(node_factory, bitcoind):
     onchain_fees = find_tags(income_events, 'onchain_fee')
     # Should have some fee events recorded
     # channel open + splice
-    assert len(onchain_fees) >= 2  
+    assert len(onchain_fees) >= 2
 
     # Verify channel can still operate after splice
     inv = l2.rpc.invoice(10000, 'post_splice_out', 'test after splice out')
