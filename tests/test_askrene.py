@@ -2041,8 +2041,8 @@ def test_splice_dying_channel(node_factory, bitcoind):
     funds_result = l1.rpc.addpsbtoutput(100000)
     pre_splice_scidd = first_scidd(l1, l2)
 
-    # Pay with fee by subjtracting 5000 from channel balance
-    result = l1.rpc.splice_init(chan_id, -105000, funds_result['psbt'])
+    # Pay with fee by subjtracting 5801 from channel balance
+    result = l1.rpc.splice_init(chan_id, -105801, funds_result['psbt'])
     result = l1.rpc.splice_update(chan_id, result['psbt'])
     assert(result['commitments_secured'] is False)
     result = l1.rpc.splice_update(chan_id, result['psbt'])

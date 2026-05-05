@@ -488,9 +488,9 @@ def test_script_two_chan_splice_inout(node_factory, bitcoind):
     chan_id2 = l2.get_channel_id(l3)
 
     # move sats from chan 2 into chan 1
-    # By adding 10000 from wallet, the fee will be taken from this and the
+    # By adding 100000 from wallet, the fee will be taken from this and the
     # extra placed back into the wallet by default
-    result = l2.rpc.splice(f"wallet -> 10000; 100000 -> {chan_id1}; {chan_id2} -> 100000")
+    result = l2.rpc.splice(f"wallet -> 100000; 100000 -> {chan_id1}; {chan_id2} -> 100000")
 
     l3.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
     l2.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
@@ -639,7 +639,7 @@ def execute_script(node_factory, bitcoind, script, expected_balances=None, fee_m
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 def test_script_two_chan_splice_b(node_factory, bitcoind):
-    execute_script(node_factory, bitcoind, "wallet -> 10000; {} -> 100000; {} -> 100000",
+    execute_script(node_factory, bitcoind, "wallet -> 100000; {} -> 100000; {} -> 100000",
                    [500000 - 100000, 500000 - 100000])
 
 
@@ -647,7 +647,7 @@ def test_script_two_chan_splice_b(node_factory, bitcoind):
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 def test_script_two_chan_splice_c(node_factory, bitcoind):
-    execute_script(node_factory, bitcoind, "wallet -> 10000; 100000 -> {}; {} -> 100000",
+    execute_script(node_factory, bitcoind, "wallet -> 100000; 100000 -> {}; {} -> 100000",
                    [500000 + 100000, 500000 - 100000])
 
 
@@ -711,8 +711,8 @@ def test_script_two_chan_splice_j(node_factory, bitcoind):
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 def test_script_two_chan_splice_k(node_factory, bitcoind):
-    execute_script(node_factory, bitcoind, "{} -> 10000; 1000 -> {}",
-                   [500000 - 10000, 500000 + 1000])
+    execute_script(node_factory, bitcoind, "{} -> 100000; 1000 -> {}",
+                   [500000 - 100000, 500000 + 1000])
 
 
 @pytest.mark.openchannel('v1')
@@ -807,8 +807,8 @@ def test_script_two_chan_splice_v(node_factory, bitcoind):
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 def test_script_two_chan_splice_x(node_factory, bitcoind):
-    execute_script(node_factory, bitcoind, "* -> wallet; * -> {}; {} -> 100000",
-                   [500000 + 50000, 500000 - 100000], [-0.5, 0])
+    execute_script(node_factory, bitcoind, "* -> wallet; * -> {}; {} -> 200000",
+                   [500000 + 100000 + 1, 500000 - 200000], [-0.5, 0])  # (+1 to track rounded sat)
 
 
 @pytest.mark.openchannel('v1')

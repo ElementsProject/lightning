@@ -81,7 +81,7 @@ void channel_update_feerates(struct lightningd *ld, const struct channel *channe
 	u32 min_feerate, max_feerate;
 	bool anchors = channel_type_has_anchors(channel->type);
 	u32 feerate = default_feerate(ld, channel, (channel->opener == LOCAL));
-	u32 feerate_splice = default_feerate(ld, channel, true);
+	u32 feerate_splice = splice_feerate(ld->topology, ld);
 
 	/* Nothing to do if we don't know feerate. */
 	if (!feerate)
@@ -1900,7 +1900,7 @@ bool peer_start_channeld(struct channel *channel,
 		tal_arr_expand(&inflights, infcopy);
 	}
 
-	feerate_splice = default_feerate(ld, channel, true);
+	feerate_splice = splice_feerate(ld->topology, ld);
 
 	initmsg = towire_channeld_init(tmpctx,
 				       chainparams,
@@ -2347,7 +2347,7 @@ static struct command_result *json_splice_init(struct command *cmd,
 
 	if (!feerate_per_kw) {
 		feerate_per_kw = tal(cmd, u32);
-		*feerate_per_kw = default_feerate(cmd->ld, channel, true);
+		*feerate_per_kw = splice_feerate(cmd->ld->topology, cmd->ld);
 	}
 
 	if (!initialpsbt)
@@ -2720,7 +2720,7 @@ static struct command_result *json_dev_feerate(struct command *cmd,
 				       feerate_max(cmd->ld, NULL),
 				       penalty_feerate(cmd->ld->topology),
 				       opening_feerate(cmd->ld->topology),
-				       default_feerate(cmd->ld, channel, true));
+				       splice_feerate(cmd->ld->topology, cmd->ld));
 	subd_send_msg(channel->owner, take(msg));
 
 	response = json_stream_success(cmd);

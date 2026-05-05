@@ -3600,9 +3600,9 @@ static struct amount_sat check_balances(struct peer *peer,
 	/* As a safeguard max feerate is checked (only) locally, if it's
 	 * particularly high we fail and tell the user but allow them to
 	 * override with `splice_force_feerate` */
-	max_accepter_fee = amount_tx_fee(peer->feerate_opening,
+	max_accepter_fee = amount_tx_fee(peer->feerate_max,
 					 calc_weight(TX_ACCEPTER, psbt, false));
-	max_initiator_fee = amount_tx_fee(peer->feerate_opening,
+	max_initiator_fee = amount_tx_fee(peer->feerate_max,
 					  calc_weight(TX_INITIATOR, psbt, opener));
 
 	if (opener) {
@@ -3620,10 +3620,13 @@ static struct amount_sat check_balances(struct peer *peer,
 							   false);
 		wire_sync_write(MASTER_FD, take(msg));
 		splice_abort(peer, NULL,
-				 "%s fee (%s) was too low, must be at least %s",
+				 "%s fee (%s) was too low, must be at least %s"
+				 " weight: %"PRIu64", splicing->feerate_per_kw: %"PRIu32,
 				 opener ? "Our" : "Your",
 				 fmt_amount_msat(tmpctx, initiator_fee),
-				 fmt_amount_sat(tmpctx, min_initiator_fee));
+				 fmt_amount_sat(tmpctx, min_initiator_fee),
+				 calc_weight(TX_INITIATOR, psbt, false),
+				 peer->splicing->feerate_per_kw);
 	}
 	if (!peer->splicing->force_feerate && opener
 		&& amount_msat_greater_sat(initiator_fee, max_initiator_fee)) {
@@ -3660,7 +3663,7 @@ static struct amount_sat check_balances(struct peer *peer,
 			     fmt_amount_msat(tmpctx, accepter_fee),
 			     fmt_amount_sat(tmpctx, min_accepter_fee),
 			     calc_weight(TX_INITIATOR, psbt, false),
-			     peer->feerate_opening);
+			     peer->feerate_max);
 	}
 	if (!peer->splicing->force_feerate && !opener
 		&& amount_msat_greater_sat(accepter_fee, max_accepter_fee)) {
