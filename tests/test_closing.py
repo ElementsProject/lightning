@@ -32,7 +32,7 @@ def test_close_unknownfees_cpfp(node_factory, bitcoind):
     # l1 cannot estimate fees (dev-no-fake-fees + mocked estimatesmartfee error).
     # We start it stopped so we can install the mock before startup.
     opts = {
-        'feerates': None, 
+        'feerates': None,
         'dev-no-fake-fees': True,
     }
 
@@ -87,8 +87,8 @@ def test_close_unknownfees_cpfp(node_factory, bitcoind):
     # Now perform CPFP: spend the unconfirmed close output using withdraw
     # with an explicit feerate and minconf=0 to allow spending unconfirmed.
     cpfp_addr = l1.rpc.newaddr()['p2tr']
-    
-    # Withdraw should fail without 
+
+    # Withdraw should fail without
     with pytest.raises(RpcError, match=r'Cannot estimate fees \(yet\)'):
         l1.rpc.withdraw(cpfp_addr, 'all')
 
@@ -107,7 +107,7 @@ def test_close_unknownfees_cpfp(node_factory, bitcoind):
     # l1 should see the CPFP output as confirmed.
     wait_for(lambda: all(o['status'] == 'confirmed' and o['txid'] == cpfp_txid
                          for o in l1.rpc.listfunds()['outputs']))
-    
+
     # Start l2
     l2.start()
 
@@ -116,7 +116,7 @@ def test_close_unknownfees_cpfp(node_factory, bitcoind):
     wait_for(lambda: all(o['state'] == 'ONCHAIN'
                          for o in l2.rpc.listfunds()['channels']
                          if o['peer_id'] == l1.info['id']))
-  
+
 
 def test_closing_simple(node_factory, bitcoind, chainparams):
     coin_mvt_plugin = os.path.join(os.getcwd(), 'tests/plugins/coin_movements.py')
