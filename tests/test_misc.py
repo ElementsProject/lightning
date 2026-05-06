@@ -62,20 +62,12 @@ def test_lost_state_htlc_tx_onchaind_crash(node_factory, bitcoind, executor):
     # Wait for channel to be fully settled
     wait_for(lambda: all([only_one(ch.rpc.listpeerchannels()['channels'])['htlcs'] == [] for ch in (l1, l2)]))
 
-    # Start a payment from l1 to l2 - l2 will disconnect before fulfilling
-    inv = l2.rpc.invoice(100000000, 'htlc_test', 'test htlc')
-    t = executor.submit(l1.rpc.pay, inv['bolt11'])
-
     # Wait for l2 to disconnect (it received the HTLC and tried to fulfill)
     l2.daemon.wait_for_log('dev_disconnect')
 
     # l2 should have the HTLC in its commitment now
     # Sign l2's commitment which has the HTLC in it
     tx_with_htlc = l2.rpc.dev_sign_last_tx(l1.info['id'])['tx']
-
-    # Get channel dust limit for reference
-    dust_limit_msat = only_one([ch['dust_limit_msat'] for ch in l2.rpc.listpeerchannels()['channels'] if ch['peer_id'] == l1.info['id']])
-    dust_limit_sat = dust_limit_msat // 1000
 
     # Decode to verify we have more than 2 outputs (anchors + HTLC + balances)
     decoded = bitcoind.rpc.decoderawtransaction(tx_with_htlc)
