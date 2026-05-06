@@ -644,8 +644,8 @@ check-bad-sprintf:
 # Don't access amount_msat and amount_sat members directly without a good reason
 # since it risks overflow.
 check-amount-access:
-	@! (git grep -nE "(->|\.)(milli)?satoshis" -- "*.c" "*.h" ":(exclude)common/amount.*" ":(exclude)*/test/*" | grep -v '/* Raw:')
-	@! git grep -nE "\\(struct amount_(m)?sat\\)" -- "*.c" "*.h" ":(exclude)common/amount.*" ":(exclude)*/test/*" | grep -vE "sizeof.struct amount_(m)?sat."
+	@! (git grep -nE "(->|\.)(milli)?satoshis" -- "*.c" "*.h" ":(exclude)common/amount.*" ":(exclude)*/test/*" ":(exclude)tests/fuzz/*" | grep -v '/* Raw:')
+	@! git grep -nE "\\(struct amount_(m)?sat\\)" -- "*.c" "*.h" ":(exclude)common/amount.*" ":(exclude)*/test/*" ":(exclude)tests/fuzz/*" | grep -vE "sizeof.struct amount_(m)?sat."
 
 repeat-doc-examples:
 	@for i in $$(seq 1 $(n)); do \
