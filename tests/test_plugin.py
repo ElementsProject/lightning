@@ -611,7 +611,8 @@ def test_async_rpcmethod(node_factory, executor):
 def test_db_hook(node_factory, executor):
     """This tests the db hook."""
     dbfile = os.path.join(node_factory.directory, "dblog.sqlite3")
-    l1 = node_factory.get_node(options={'plugin': os.path.join(os.getcwd(), 'tests/plugins/dblog.py'),
+    l1 = node_factory.get_node(options={**BWATCH_OPTS,
+                                        'plugin': os.path.join(os.getcwd(), 'tests/plugins/dblog.py'),
                                         'dblog-file': dbfile})
 
     # It should see the db being created, and sometime later actually get
@@ -622,6 +623,10 @@ def test_db_hook(node_factory, executor):
     l1.daemon.wait_for_log('plugin-dblog.py: replaying pre-init data:')
     l1.daemon.wait_for_log('plugin-dblog.py: CREATE TABLE version \\(version INTEGER\\)')
     l1.daemon.wait_for_log("plugin-dblog.py: initialized.* 'startup': True")
+
+    # bwatch's first block-history write is async; if we stop before it runs,
+    # the main DB can diverge from dblog's mirror (hook may not run in time).
+    wait_bwatch_caught_up(l1)
 
     l1.stop()
 
@@ -636,7 +641,8 @@ def test_db_hook(node_factory, executor):
 def test_db_hook_multiple(node_factory, executor):
     """This tests the db hook for multiple-plugin case."""
     dbfile = os.path.join(node_factory.directory, "dblog.sqlite3")
-    l1 = node_factory.get_node(options={'plugin': os.path.join(os.getcwd(), 'tests/plugins/dblog.py'),
+    l1 = node_factory.get_node(options={**BWATCH_OPTS,
+                                        'plugin': os.path.join(os.getcwd(), 'tests/plugins/dblog.py'),
                                         'important-plugin': os.path.join(os.getcwd(), 'tests/plugins/dbdummy.py'),
                                         'dblog-file': dbfile})
 
@@ -648,6 +654,8 @@ def test_db_hook_multiple(node_factory, executor):
     l1.daemon.wait_for_log('plugin-dblog.py: replaying pre-init data:')
     l1.daemon.wait_for_log('plugin-dblog.py: CREATE TABLE version \\(version INTEGER\\)')
     l1.daemon.wait_for_log("plugin-dblog.py: initialized.* 'startup': True")
+
+    wait_bwatch_caught_up(l1)
 
     l1.stop()
 
