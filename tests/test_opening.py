@@ -3193,8 +3193,8 @@ def test_openchannel_rpc_bump_single_funded(node_factory, bitcoind):
 
     # Build a new PSBT spending the same UTXOs at a higher feerate.
     rbf_psbt = l1.rpc.utxopsbt(chan_amount, next_feerate, 250,
-                                prev_utxos, reservedok=True,
-                                excess_as_change=True)
+                               prev_utxos, reservedok=True,
+                               excess_as_change=True)
 
     # RBF bump
     bump = l1.rpc.openchannel_bump(chan_id, chan_amount, rbf_psbt['psbt'])
@@ -3289,8 +3289,8 @@ def test_openchannel_rpc_bump_dual_funded(node_factory, bitcoind):
     next_feerate = chan_info['next_feerate']
 
     rbf_psbt = l1.rpc.utxopsbt(chan_amount, next_feerate, 250,
-                                prev_utxos, reservedok=True,
-                                excess_as_change=True)
+                               prev_utxos, reservedok=True,
+                               excess_as_change=True)
 
     # RBF bump; l2 re-adds its inputs during openchannel_update
     bump = l1.rpc.openchannel_bump(chan_id, chan_amount, rbf_psbt['psbt'])
@@ -3417,8 +3417,8 @@ def test_openchannel_rpc_abort_mid_bump(node_factory, bitcoind):
     next_feerate = chan_info['next_feerate']
 
     rbf_psbt = l1.rpc.utxopsbt(chan_amount, next_feerate, 250,
-                                prev_utxos, reservedok=True,
-                                excess_as_change=True)
+                               prev_utxos, reservedok=True,
+                               excess_as_change=True)
 
     # Bump then immediately abort mid-bump
     bump = l1.rpc.openchannel_bump(chan_id, chan_amount, rbf_psbt['psbt'])
@@ -3566,16 +3566,16 @@ def test_openchannel_concurrent_init_both_sides(node_factory, bitcoind):
     def init_l1():
         try:
             results['l1'] = l1.rpc.openchannel_init(l2.info['id'], chan_amount,
-                                                     psbt1_res['psbt'],
-                                                     funding_feerate=feerate1)
+                                                    psbt1_res['psbt'],
+                                                    funding_feerate=feerate1)
         except Exception as e:
             errors['l1'] = e
 
     def init_l2():
         try:
             results['l2'] = l2.rpc.openchannel_init(l1.info['id'], chan_amount,
-                                                     psbt2_res['psbt'],
-                                                     funding_feerate=feerate2)
+                                                    psbt2_res['psbt'],
+                                                    funding_feerate=feerate2)
         except Exception as e:
             errors['l2'] = e
 
