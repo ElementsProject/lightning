@@ -2059,7 +2059,7 @@ def test_close_72_block_delay(node_factory, bitcoind):
     # That implies 72 blocks *after* spending, i.e. 73 blocks deep!
 
     # 72 blocks deep, l4 still sees it
-    bitcoind.generate_block(71)
+    bitcoind.generate_block(70)
     sync_blockheight(bitcoind, [l4])
     assert len(l4.rpc.listchannels(source=l1.info['id'])['channels']) == 1
 
