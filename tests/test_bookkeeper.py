@@ -3,7 +3,7 @@ from decimal import Decimal
 from pyln.client import Millisatoshi, RpcError
 from fixtures import TEST_NETWORK
 from utils import (
-    sync_blockheight, wait_for, only_one, first_channel_id, first_scid,TIMEOUT
+    sync_blockheight, wait_for, only_one, first_channel_id, first_scid, TIMEOUT
 )
 
 from datetime import datetime
@@ -112,7 +112,7 @@ def test_bookkeeping_penalty(node_factory, bitcoind, executor):
         l2.wait_for_onchaind_txs(
             ('OUR_PENALTY_TX', 'THEIR_REVOKED_UNILATERAL/DELAYED_CHEAT_OUTPUT_TO_THEM'),
             ('OUR_PENALTY_TX', 'THEIR_REVOKED_UNILATERAL/THEIR_HTLC')
-        )
+    )
 
     # Penalty txs should be broadcast immediately (no delay)
     assert blocks1 == 0
@@ -199,7 +199,7 @@ def test_bookkeeping_penalty(node_factory, bitcoind, executor):
     l2_events_after = l2.rpc.bkpr_listaccountevents()['events']
     l2_penalty_after = find_tags(l2_events_after, 'penalty')
     assert len(l2_penalty_after) == len(l2_penalty_events)
-    
+
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "fixme: broadcast fails, dusty")
 def test_bookkeeping_closing_trimmed_htlcs(node_factory, bitcoind, executor):
