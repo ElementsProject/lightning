@@ -1223,6 +1223,7 @@ def decode_offer_recurrence_paywindow2py(m):
 def decode_offer_recurrence2py(m):
     return remove_default({
         "basetime": m.basetime,  # PrimitiveField in generate_composite
+        "compulsory_field": m.compulsory_field,  # PrimitiveField in generate_composite
         "limit": m.limit,  # PrimitiveField in generate_composite
         "period": m.period,  # PrimitiveField in generate_composite
         "time_unit": m.time_unit,  # PrimitiveField in generate_composite

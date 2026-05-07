@@ -7055,6 +7055,8 @@ def test_cancel_recurrence(node_factory):
     offer = l2.rpc.offer(amount='1msat',
                          description='test_cancel_recurrence',
                          recurrence='1minutes')
+    # Check it decodes ok!
+    l1.rpc.decode(offer['bolt12'])
 
     # We cannot cancel if we never got the first one.
     with pytest.raises(RpcError, match="recurrence_counter: Must be non-zero"):
@@ -7068,7 +7070,9 @@ def test_cancel_recurrence(node_factory):
                               recurrence_counter=0,
                               recurrence_label='test_cancel_recurrence')
     l1.rpc.pay(ret['invoice'], label='test_cancel_recurrence')
-    l1.rpc.wait_for_log('invoice_request: ')
+    m = re.search(r'invoice_request: "([a-z0-9]*)"', l1.daemon.wait_for_log('plugin-offers: invoice_request:'))
+    decoded = l1.rpc.decode(m.group(1))
+    assert 'invreq_recurrence_cancel' not in decoded
 
     # Cancel counter must be correct!
     with pytest.raises(RpcError, match=r"previous invoice has not been paid \(last was 0\)"):
@@ -7080,9 +7084,9 @@ def test_cancel_recurrence(node_factory):
                                   recurrence_label='test_cancel_recurrence')
 
     # Get invoice request: it will have invreq_recurrence_cancel
-    m = re.search(r'invoice_request: "([a-z0-9]*)"', l1.daemon.is_in_log('invoice_request:'))
+    m = re.search(r'invoice_request: "([a-z0-9]*)"', l1.daemon.wait_for_log('plugin-offers: invoice_request:'))
     decoded = l1.rpc.decode(m.group(1))
-    assert decoded == []
+    assert decoded['invreq_recurrence_cancel'] is True
 
     # Now we cannot fetch second one!
     with pytest.raises(RpcError, match=r"invoice expired \(cancelled\?\)"):

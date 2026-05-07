@@ -6818,6 +6818,10 @@
             "added": "v23.05",
             "deprecated": null
         },
+        "Decode.offer_recurrence.compulsory_field": {
+            "added": "v26.06",
+            "deprecated": null
+        },
         "Decode.offer_recurrence.limit": {
             "added": "v23.05",
             "deprecated": null

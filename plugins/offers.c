@@ -856,10 +856,12 @@ static void json_add_recurrence(struct json_stream *js,
 				const struct recurrence *offer_recurrence,
 				const struct recurrence_paywindow *offer_recurrence_paywindow,
 				const u32 *offer_recurrence_limit,
-				const struct recurrence_base *offer_recurrence_base)
+				const struct recurrence_base *offer_recurrence_base,
+				bool compulsory)
 {
 	const char *name;
 	json_object_start(js, fieldname);
+	json_add_bool(js, "compulsory_field", compulsory);
 	json_add_num(js, "time_unit", offer_recurrence->time_unit);
 	name = recurrence_time_unit_name(offer_recurrence->time_unit);
 	if (name)
@@ -953,17 +955,19 @@ static bool json_add_offer_fields(struct command *cmd,
 		json_add_u64(js, "offer_quantity_max", *offer_quantity_max);
 
 	if (offer_recurrence_compulsory)
-		json_add_recurrence(js, "offer_recurrence_compulsory",
+		json_add_recurrence(js, "offer_recurrence",
 				    offer_recurrence_compulsory,
 				    offer_recurrence_paywindow,
 				    offer_recurrence_limit,
-				    offer_recurrence_base);
+				    offer_recurrence_base,
+				    true);
 	if (offer_recurrence_optional)
-		json_add_recurrence(js, "offer_recurrence_optional",
+		json_add_recurrence(js, "offer_recurrence",
 				    offer_recurrence_optional,
 				    offer_recurrence_paywindow,
 				    offer_recurrence_limit,
-				    offer_recurrence_base);
+				    offer_recurrence_base,
+				    false);
 
 	if (offer_issuer_id)
 		json_add_pubkey(js, "offer_issuer_id", offer_issuer_id);

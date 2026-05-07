@@ -8102,7 +8102,8 @@
                   ],
                   "required": [
                     "period",
-                    "time_unit"
+                    "time_unit",
+                    "compulsory_field"
                   ],
                   "additionalProperties": false,
                   "properties": {
@@ -8134,6 +8135,13 @@
                       "type": "u32",
                       "description": [
                         "Maximum period number for recurrence."
+                      ]
+                    },
+                    "compulsory_field": {
+                      "added": "v26.06",
+                      "type": "boolean",
+                      "description": [
+                        "True if this is the `offer_recurrence_compulsory` field (which means readers which don't understand recurrence cannot use it), false if this is the `offer_recurrence_optional` field."
                       ]
                     },
                     "paywindow": {
@@ -8552,6 +8560,13 @@
                       "type": "u32",
                       "description": [
                         "Maximum period number for recurrence."
+                      ]
+                    },
+                    "compulsory_field": {
+                      "added": "v26.06",
+                      "type": "boolean",
+                      "description": [
+                        "True if this is the `offer_recurrence_compulsory` field (which means readers which don't understand recurrence cannot use it), false if this is the `offer_recurrence_optional` field."
                       ]
                     },
                     "paywindow": {
@@ -9206,6 +9221,13 @@
                       "type": "u32",
                       "description": [
                         "Maximum period number for recurrence."
+                      ]
+                    },
+                    "compulsory_field": {
+                      "added": "v26.06",
+                      "type": "boolean",
+                      "description": [
+                        "True if this is the `offer_recurrence_compulsory` field (which means readers which don't understand recurrence cannot use it), false if this is the `offer_recurrence_optional` field."
                       ]
                     },
                     "paywindow": {
