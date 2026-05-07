@@ -171,7 +171,7 @@ void merkle_tlv(const struct tlv_field *fields, struct sha256 *merkle)
 	 * NULL.  This is less efficient than calculating the
 	 * power-of-2 split as we recurse, but simpler. */
 	arr = tal_arrz(NULL, struct sha256 *,
-		       1ULL << (ilog64(tal_count(fields)) + 1));
+		       1ULL << ilog64(tal_count(fields)));
 
 	n = 0;
 	for (size_t i = 0; i < tal_count(fields); i++) {
