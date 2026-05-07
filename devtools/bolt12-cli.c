@@ -834,6 +834,8 @@ int main(int argc, char *argv[])
 		print_hash("offer_id", &offer_id);
 		if (offer->offer_chains)
 			print_offer_chains(offer->offer_chains);
+		if (offer->offer_metadata)
+			print_hex("offer_metadata", offer->offer_metadata);
 		if (offer->offer_amount)
 			well_formed &= print_offer_amount(offer->offer_chains,
 							  offer->offer_currency,
@@ -903,6 +905,8 @@ int main(int argc, char *argv[])
 			print_hex("invreq_metadata", invreq->invreq_metadata);
 		if (invreq->offer_chains)
 			print_offer_chains(invreq->offer_chains);
+		if (invreq->offer_metadata)
+			print_hex("offer_metadata", invreq->offer_metadata);
 		if (invreq->offer_amount)
 			well_formed &= print_offer_amount(invreq->offer_chains,
 							  invreq->offer_currency,
@@ -992,6 +996,8 @@ int main(int argc, char *argv[])
 			print_hex("invreq_metadata", invoice->invreq_metadata);
 		if (invoice->offer_chains)
 			print_offer_chains(invoice->offer_chains);
+		if (invoice->offer_metadata)
+			print_hex("offer_metadata", invoice->offer_metadata);
 		if (invoice->offer_amount)
 			well_formed &= print_offer_amount(invoice->offer_chains,
 							  invoice->offer_currency,
