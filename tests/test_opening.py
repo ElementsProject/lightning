@@ -3045,9 +3045,9 @@ def test_openchannel_wrong_psbt_doesnt_crash_peer(node_factory, bitcoind):
 
     # Build two PSBTs spending different UTXOs
     psbt_a_res = l1.rpc.utxopsbt(chan_amount, 'opening', 250, [utxo_a],
-                                  excess_as_change=True)
+                                 excess_as_change=True)
     psbt_b = l1.rpc.utxopsbt(chan_amount, 'opening', 250, [utxo_b],
-                              excess_as_change=True)['psbt']
+                             excess_as_change=True)['psbt']
     funding_feerate = '{}perkw'.format(psbt_a_res['feerate_per_kw'])
 
     init = l1.rpc.openchannel_init(l2.info['id'], chan_amount, psbt_a_res['psbt'],
