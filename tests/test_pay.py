@@ -7068,6 +7068,7 @@ def test_cancel_recurrence(node_factory):
                               recurrence_counter=0,
                               recurrence_label='test_cancel_recurrence')
     l1.rpc.pay(ret['invoice'], label='test_cancel_recurrence')
+    l1.rpc.wait_for_log('invoice_request: ')
 
     # Cancel counter must be correct!
     with pytest.raises(RpcError, match=r"previous invoice has not been paid \(last was 0\)"):
@@ -7077,6 +7078,11 @@ def test_cancel_recurrence(node_factory):
     l1.rpc.cancelrecurringinvoice(offer=offer['bolt12'],
                                   recurrence_counter=1,
                                   recurrence_label='test_cancel_recurrence')
+
+    # Get invoice request: it will have invreq_recurrence_cancel
+    m = re.search(r'invoice_request: "([a-z0-9]*)"', l1.daemon.is_in_log('invoice_request:'))
+    decoded = l1.rpc.decode(m.group(1))
+    assert decoded == []
 
     # Now we cannot fetch second one!
     with pytest.raises(RpcError, match=r"invoice expired \(cancelled\?\)"):

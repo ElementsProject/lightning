@@ -1045,7 +1045,8 @@ static bool json_add_invreq_fields(struct command *cmd,
 				   struct blinded_path **invreq_paths,
 				   struct bip_353_name *bip353,
 				   const u32 *invreq_recurrence_counter,
-				   const u32 *invreq_recurrence_start)
+				   const u32 *invreq_recurrence_start,
+				   const struct tlv_invoice_request_invreq_recurrence_cancel *invreq_recurrence_cancel)
 {
 	bool valid = true;
 
@@ -1115,6 +1116,25 @@ static bool json_add_invreq_fields(struct command *cmd,
 		if (invreq_recurrence_start)
 			json_add_u32(js, "invreq_recurrence_start",
 				     *invreq_recurrence_start);
+	}
+
+	if (invreq_recurrence_cancel) {
+		json_add_bool(js, "invreq_recurrence_cancel", true);
+		/* BOLT-recurrence #12:
+		 * - if `offer_recurrence_optional` or `offer_recurrence_compulsory` are present:
+		 *...
+		 *   - if `invreq_recurrence_counter` is zero (initial request):
+		 *     - MUST reject the invoice request if there is a `invreq_recurrence_cancel` field.
+		 */
+		if (!invreq_recurrence_counter) {
+			valid = false;
+			json_add_string(js, "warning_invreq_recurrence_cancel_without_counter",
+					"invreq_recurrence_cancel is invalid without invreq_recurrence_counter");
+		} else if (*invreq_recurrence_counter == 0) {
+			valid = false;
+			json_add_string(js, "warning_invreq_recurrence_cancel_with_zero_counter",
+					"invreq_recurrence_cancel is invalid with invreq_recurrence_counter zero");
+		}
 	}
 
 	return valid;
@@ -1234,7 +1254,8 @@ static void json_add_invoice_request(struct command *cmd,
 					invreq->invreq_paths,
 					invreq->invreq_bip_353_name,
 					invreq->invreq_recurrence_counter,
-					invreq->invreq_recurrence_start);
+					invreq->invreq_recurrence_start,
+					invreq->invreq_recurrence_cancel);
 
 	/* BOLT #12:
 	 *   - MUST reject the invoice request if `invreq_payer_id` or `invreq_metadata` are not present.
@@ -1315,7 +1336,8 @@ static void json_add_b12_invoice(struct command *cmd,
 					invoice->invreq_paths,
 					invoice->invreq_bip_353_name,
 					invoice->invreq_recurrence_counter,
-					invoice->invreq_recurrence_start);
+					invoice->invreq_recurrence_start,
+					NULL);
 
 	/* BOLT #12:
 	 * - MUST reject the invoice if `invoice_paths` is not present

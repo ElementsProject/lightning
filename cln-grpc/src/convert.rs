@@ -1590,6 +1590,7 @@ impl From<responses::DecodeResponse> for pb::DecodeResponse {
             invreq_payer_id: c.invreq_payer_id.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
             invreq_payer_note: c.invreq_payer_note, // Rule #2 for type string?
             invreq_quantity: c.invreq_quantity, // Rule #2 for type u64?
+            invreq_recurrence_cancel: c.invreq_recurrence_cancel, // Rule #2 for type boolean?
             invreq_recurrence_counter: c.invreq_recurrence_counter, // Rule #2 for type u32?
             invreq_recurrence_start: c.invreq_recurrence_start, // Rule #2 for type u32?
             min_final_cltv_expiry: c.min_final_cltv_expiry, // Rule #2 for type u32?
@@ -1632,6 +1633,8 @@ impl From<responses::DecodeResponse> for pb::DecodeResponse {
             warning_invalid_offer_issuer: c.warning_invalid_offer_issuer, // Rule #2 for type string?
             warning_invreq_bip_353_name_domain_invalid: c.warning_invreq_bip_353_name_domain_invalid, // Rule #2 for type string?
             warning_invreq_bip_353_name_name_invalid: c.warning_invreq_bip_353_name_name_invalid, // Rule #2 for type string?
+            warning_invreq_recurrence_cancel_with_zero_counter: c.warning_invreq_recurrence_cancel_with_zero_counter, // Rule #2 for type string?
+            warning_invreq_recurrence_cancel_without_counter: c.warning_invreq_recurrence_cancel_without_counter, // Rule #2 for type string?
             warning_missing_invoice_amount: c.warning_missing_invoice_amount, // Rule #2 for type string?
             warning_missing_invoice_blindedpay: c.warning_missing_invoice_blindedpay, // Rule #2 for type string?
             warning_missing_invoice_created_at: c.warning_missing_invoice_created_at, // Rule #2 for type string?

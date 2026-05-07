@@ -1706,6 +1706,9 @@ message DecodeResponse {
 	optional DecodeInvreqBip353Name invreq_bip_353_name = 87;
 	optional string warning_invreq_bip_353_name_name_invalid = 88;
 	optional string warning_invreq_bip_353_name_domain_invalid = 89;
+	optional bool invreq_recurrence_cancel = 90;
+	optional string warning_invreq_recurrence_cancel_without_counter = 91;
+	optional string warning_invreq_recurrence_cancel_with_zero_counter = 92;
 }
 
 message DecodeOfferPaths {

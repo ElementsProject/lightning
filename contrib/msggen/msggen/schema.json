@@ -8758,6 +8758,15 @@
                     "When we're requesting to start an invoice at a non-zero period."
                   ]
                 },
+                "invreq_recurrence_cancel": {
+                  "type": "boolean",
+                  "enum": [
+                    true
+                  ],
+                  "description": [
+                    "Present to cancel a recurring invoice"
+                  ]
+                },
                 "signature": {
                   "type": "bip340sig",
                   "description": [
@@ -8854,6 +8863,7 @@
                 "invreq_bip_353_name": {},
                 "invreq_recurrence_counter": {},
                 "invreq_recurrence_start": {},
+                "invreq_recurrence_cancel": {},
                 "warning_invalid_offer_description": {
                   "type": "string",
                   "description": [
@@ -8908,6 +8918,18 @@
                   "added": "v25.02",
                   "description": [
                     "`invreq_bip_353_name` domain field contains unusual characters."
+                  ]
+                },
+                "warning_invreq_recurrence_cancel_without_counter": {
+                  "type": "string",
+                  "description": [
+                    "`invreq_recurrence_cancel` is present, but `invreq_recurrence_counter` isn't."
+                  ]
+                },
+                "warning_invreq_recurrence_cancel_with_zero_counter": {
+                  "type": "string",
+                  "description": [
+                    "`invreq_recurrence_cancel` is present, but `invreq_recurrence_counter` is 0."
                   ]
                 },
                 "warning_missing_invoice_request_signature": {

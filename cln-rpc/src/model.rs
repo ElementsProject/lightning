@@ -8105,6 +8105,8 @@ pub mod responses {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub invreq_quantity: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub invreq_recurrence_cancel: Option<bool>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub invreq_recurrence_counter: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub invreq_recurrence_start: Option<u32>,
@@ -8168,6 +8170,10 @@ pub mod responses {
 	    pub warning_invreq_bip_353_name_domain_invalid: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub warning_invreq_bip_353_name_name_invalid: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub warning_invreq_recurrence_cancel_with_zero_counter: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub warning_invreq_recurrence_cancel_without_counter: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub warning_missing_invoice_amount: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]

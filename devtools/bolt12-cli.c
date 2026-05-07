@@ -959,6 +959,8 @@ int main(int argc, char *argv[])
 		} else {
 			must_not_have(invreq, invreq_recurrence_start);
 		}
+		if (invreq->invreq_recurrence_cancel)
+			printf("invreq_recurrence_cancel\n");
 		if (invreq->invreq_paths)
 			print_blindedpaths("invreq_paths", invreq->invreq_paths, NULL);
 		if (must_have(invreq, signature)) {

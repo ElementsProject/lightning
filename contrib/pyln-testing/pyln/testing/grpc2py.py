@@ -1299,6 +1299,7 @@ def decode2py(m):
         "invreq_payer_id": hexlify(m.invreq_payer_id),  # PrimitiveField in generate_composite
         "invreq_payer_note": m.invreq_payer_note,  # PrimitiveField in generate_composite
         "invreq_quantity": m.invreq_quantity,  # PrimitiveField in generate_composite
+        "invreq_recurrence_cancel": m.invreq_recurrence_cancel,  # PrimitiveField in generate_composite
         "invreq_recurrence_counter": m.invreq_recurrence_counter,  # PrimitiveField in generate_composite
         "invreq_recurrence_start": m.invreq_recurrence_start,  # PrimitiveField in generate_composite
         "min_final_cltv_expiry": m.min_final_cltv_expiry,  # PrimitiveField in generate_composite
@@ -1333,6 +1334,8 @@ def decode2py(m):
         "warning_invalid_offer_issuer": m.warning_invalid_offer_issuer,  # PrimitiveField in generate_composite
         "warning_invreq_bip_353_name_domain_invalid": m.warning_invreq_bip_353_name_domain_invalid,  # PrimitiveField in generate_composite
         "warning_invreq_bip_353_name_name_invalid": m.warning_invreq_bip_353_name_name_invalid,  # PrimitiveField in generate_composite
+        "warning_invreq_recurrence_cancel_with_zero_counter": m.warning_invreq_recurrence_cancel_with_zero_counter,  # PrimitiveField in generate_composite
+        "warning_invreq_recurrence_cancel_without_counter": m.warning_invreq_recurrence_cancel_without_counter,  # PrimitiveField in generate_composite
         "warning_missing_invoice_amount": m.warning_missing_invoice_amount,  # PrimitiveField in generate_composite
         "warning_missing_invoice_blindedpay": m.warning_missing_invoice_blindedpay,  # PrimitiveField in generate_composite
         "warning_missing_invoice_created_at": m.warning_missing_invoice_created_at,  # PrimitiveField in generate_composite
