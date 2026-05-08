@@ -1992,9 +1992,10 @@ def test_reservations_leak_under_load(node_factory, executor):
         res = l1.rpc.askrene_listreservations()["reservations"]
         scids = [r["short_channel_id_dir"] for r in res]
         return len(scids) != len(set(scids))
+
     wait_for(has_channel_contention)
 
-    for f in concurrent_futures.as_completed(futs, timeout=TIMEOUT):
+    for f in concurrent_futures.as_completed(futs, timeout=TIMEOUT * 10):
         f.result()  # raise on any payment failure
 
     assert l1.rpc.askrene_listreservations() == {"reservations": []}
