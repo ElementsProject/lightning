@@ -2072,6 +2072,81 @@ def test_fundchannel_listtransaction(node_factory, bitcoind):
     assert tx['blockheight'] == 0
 
 
+@pytest.mark.xfail(strict=True)
+@unittest.skipIf(TEST_NETWORK != 'regtest', "Uss p2tr")
+def test_withdraw_returns_signed_tx(node_factory, bitcoind):
+    """
+    Test that withdraw returns a fully signed transaction in the 'tx' field.
+
+    Regression test for https://github.com/ElementsProject/lightning/issues/8701
+    where withdraw returned an unsigned transaction (empty witnesses) because
+    psbt_txid() used WALLY_PSBT_EXTRACT_NON_FINAL to extract the tx.
+    """
+    l1 = node_factory.get_node(random_hsm=True)
+
+    # Fund the wallet with a few UTXOs
+    addr = l1.rpc.newaddr('p2tr')['p2tr']
+    for i in range(3):
+        l1.bitcoin.rpc.sendtoaddress(addr, 0.01)
+    bitcoind.generate_block(1)
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 3)
+
+    waddr = l1.bitcoin.rpc.getnewaddress()
+    out = l1.rpc.withdraw(waddr, 'all')
+
+    # The tx field must be a fully signed transaction
+    decoded = bitcoind.rpc.decoderawtransaction(out['tx'])
+
+    # Every segwit input must have witness data (txinwitness)
+    for i, vin in enumerate(decoded['vin']):
+        assert 'txinwitness' in vin, \
+            f"Input {i} has no witness data - tx is unsigned! (issue #8701)"
+        assert len(vin['txinwitness']) > 0, \
+            f"Input {i} has empty witness stack"
+
+    # The returned tx must be directly broadcastable (already sent by withdraw,
+    # but verify it could be re-sent by checking it was accepted)
+    assert decoded['txid'] == out['txid']
+
+
+@pytest.mark.xfail(strict=True)
+@unittest.skipIf(TEST_NETWORK != 'regtest', "Uss p2tr")
+def test_withdraw_close_output_signed(node_factory, bitcoind):
+    """
+    Test that withdraw correctly signs close outputs (anchor/P2WSH).
+
+    Regression test for https://github.com/ElementsProject/lightning/issues/8701
+    The original issue involved spending channel close outputs (with
+    option_anchors CSV=1) alongside regular wallet UTXOs.
+    """
+    l1, l2 = node_factory.line_graph(2, fundchannel=True, wait_for_announce=True)
+
+    # Close the channel so l1 gets a close output
+    l1.rpc.close(l2.info['id'])
+    bitcoind.generate_block(1, wait_for_mempool=1)
+
+    # Wait for CSV lock (1 block for anchors) and the close output to mature
+    bitcoind.generate_block(100)
+    sync_blockheight(bitcoind, [l1])
+
+    wait_for(lambda: all(o['status'] == 'confirmed' for o in l1.rpc.listfunds()['outputs']))
+
+    # Withdraw all funds - this spends both regular and close outputs
+    waddr = l1.bitcoin.rpc.getnewaddress()
+    out = l1.rpc.withdraw(waddr, 'all')
+
+    decoded = bitcoind.rpc.decoderawtransaction(out['tx'])
+
+    # Every input must have witness data
+    for i, vin in enumerate(decoded['vin']):
+        assert 'txinwitness' in vin, \
+            f"Input {i} has no witness data - tx is unsigned! (issue #8701)"
+        assert len(vin['txinwitness']) > 0, \
+            f"Input {i} has empty witness stack"
+
+    assert decoded['txid'] == out['txid']
+
+
 def test_withdraw_nlocktime(node_factory):
     """
     Test that we don't set the nLockTime to 0 for withdrawal and
