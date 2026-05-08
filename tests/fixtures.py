@@ -68,7 +68,7 @@ def use_vls(pytestconfig):
 
 
 class LightningNode(utils.LightningNode):
-    def __init__(self, *args, use_vls=None, **kwargs):
+    def __init__(self, *args, use_vls=False, **kwargs):
         # Yes, we really want to test the local development version, not
         # something in out path.
         kwargs["executable"] = "lightningd/lightningd"
@@ -82,10 +82,6 @@ class LightningNode(utils.LightningNode):
             self.vls_mode = "cln:socket"
         elif use_vls is False:
             self.vls_mode = "cln:native"
-        else:
-            # use_vls=None (default) falls back to the VLS_MODE env var.
-            # Setting this env var causes all nodes use the same mode.
-            self.vls_mode = env("VLS_MODE", "cln:native")
 
         self.use_vls = self.vls_mode == "cln:socket"
         self.vlsd: ValidatingLightningSignerD | None = None
