@@ -16,7 +16,7 @@
  * Each form is signed using one or more *signature TLV elements*: TLV
  * types 240 through 1000 (inclusive).
  */
-static bool is_signature_field(const struct tlv_field *field)
+bool is_tlv_signature_field(const struct tlv_field *field)
 {
 	return field->numtype >= 240 && field->numtype <= 1000;
 }
@@ -265,7 +265,7 @@ void merkle_tlv_full_(struct sha256 *merkle,
 		if (tal_count(leaves) == 0)
 			bolt12_lnnonce_ctx(&lnnonce_ctx, f);
 
-		if (is_signature_field(f))
+		if (is_tlv_signature_field(f))
 			continue;
 
 		if (omitted) {

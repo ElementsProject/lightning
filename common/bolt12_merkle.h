@@ -60,6 +60,12 @@ void bolt12_calc_nonce(const struct sha256_ctx *lnnonce_ctx,
 		       struct sha256 *hash,
 		       void *unused);
 
+/* BOLT #12:
+ * Each form is signed using one or more *signature TLV elements*: TLV
+ * types 240 through 1000 (inclusive).
+ */
+bool is_tlv_signature_field(const struct tlv_field *field);
+
 /**
  * sighash_from_merkle - bolt12-style signature hash using this merkle root.
  * @messagename: message name, such as "offer".
