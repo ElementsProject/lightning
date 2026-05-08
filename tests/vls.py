@@ -62,10 +62,14 @@ class ValidatingLightningSignerD(TailableProc):
         # Set ALLOWLIST on the signer's proc env instead of os.environ so
         # multiple signers can coexist without the test coordinator leaking
         # state between them.
-        self.env["ALLOWLIST"] = env(
-            "REMOTE_SIGNER_ALLOWLIST",
-            "contrib/remote_hsmd/TESTING_ALLOWLIST",
-        )
+        allowlist = os.environ.get("REMOTE_SIGNER_ALLOWLIST")
+        if allowlist:
+            self.env["ALLOWLIST"] = allowlist
+        else:
+            logging.warning(
+                "REMOTE_SIGNER_ALLOWLIST is not set; vlsd will start without "
+                "an allowlist. Point it at an absolute path to override."
+            )
         self.env["VLS_AUTOAPPROVE"] = env("VLS_AUTO_APPROVE", "1")
         self.opts = [
             f"--network={network}",
