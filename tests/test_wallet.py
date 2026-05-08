@@ -2072,7 +2072,6 @@ def test_fundchannel_listtransaction(node_factory, bitcoind):
     assert tx['blockheight'] == 0
 
 
-@pytest.mark.xfail(strict=True)
 @unittest.skipIf(TEST_NETWORK != 'regtest', "Uss p2tr")
 def test_withdraw_returns_signed_tx(node_factory, bitcoind):
     """
@@ -2109,7 +2108,6 @@ def test_withdraw_returns_signed_tx(node_factory, bitcoind):
     assert decoded['txid'] == out['txid']
 
 
-@pytest.mark.xfail(strict=True)
 @unittest.skipIf(TEST_NETWORK != 'regtest', "Uss p2tr")
 def test_withdraw_close_output_signed(node_factory, bitcoind):
     """

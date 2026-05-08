@@ -156,15 +156,27 @@ static struct command_result *signpsbt_done(struct command *cmd,
 	/* Replace with signed tx. */
 	tal_free(utx->tx);
 
-	/* The txid from the final should match our expectation. */
-	psbt_txid(utx, utx->psbt, &txid, &utx->tx);
+	/* The txid from the signed PSBT should match our expectation. */
+	psbt_txid(NULL, utx->psbt, &txid, NULL);
 	if (!bitcoin_txid_eq(&txid, &utx->txid)) {
 		return command_fail(cmd, LIGHTNINGD,
 				    "Signed tx changed txid? Had '%s' now '%s'",
-				    tal_hex(tmpctx,
-					    linearize_wtx(tmpctx, utx->tx)),
-				    fmt_wally_psbt(tmpctx, utx->psbt));
+				    fmt_bitcoin_txid(tmpctx, &utx->txid),
+				    fmt_bitcoin_txid(tmpctx, &txid));
 	}
+
+	/* Finalize the signed PSBT and extract the fully signed tx,
+	 * so that utx->tx contains witness data for the response. */
+	if (!psbt_finalize(utx->psbt))
+		return command_fail(cmd, LIGHTNINGD,
+				    "Signed PSBT not finalizeable: %s",
+				    fmt_wally_psbt(tmpctx, utx->psbt));
+
+	utx->tx = psbt_final_tx(utx, utx->psbt);
+	if (!utx->tx)
+		return command_fail(cmd, LIGHTNINGD,
+				    "Could not extract final tx: %s",
+				    fmt_wally_psbt(tmpctx, utx->psbt));
 
 	req = jsonrpc_request_start(cmd, "sendpsbt",
 				    sendpsbt_done, forward_error,
