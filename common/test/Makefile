@@ -117,7 +117,7 @@ common/test/run-bolt12_merkle-json:			\
 	common/base32.o					\
 	common/wireaddr.o
 
-common/test/run-bolt12_proof:				\
+common/test/run-bolt12_proof common/test/run-bolt12_proof_vectors: \
 	common/bolt12.o					\
 	common/bigsize.o				\
 	common/amount.o					\

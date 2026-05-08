@@ -27,7 +27,6 @@ static void sha256_update_bigsize(struct sha256_ctx *ctx, u64 bigsize)
 	size_t len;
 
 	len = bigsize_put(buf, bigsize);
-	SUPERVERBOSE("%s", tal_hexstr(tmpctx, buf, len));
 	sha256_update(ctx, buf, len);
 }
 
@@ -37,7 +36,6 @@ static void sha256_update_tlvfield(struct sha256_ctx *ctx,
 	/* We don't keep it raw, so reconstruct. */
 	sha256_update_bigsize(ctx, field->numtype);
 	sha256_update_bigsize(ctx, field->length);
-	SUPERVERBOSE("%s", tal_hexstr(tmpctx, field->value, field->length));
 	sha256_update(ctx, field->value, field->length);
 }
 
@@ -51,9 +49,6 @@ static void h_simpletag_ctx(struct sha256_ctx *sctx, const char *tag)
 	sha256_init(sctx);
 	sha256_update(sctx, &sha, sizeof(sha));
 	sha256_update(sctx, &sha, sizeof(sha));
-	SUPERVERBOSE("tag=SHA256(%s) -> %s",
-		     tal_hexstr(tmpctx, tag, strlen(tag)),
-		     fmt_sha256(tmpctx, &sha));
 }
 
 
@@ -71,11 +66,8 @@ void bolt12_lnnonce_ctx(struct sha256_ctx *sctx, const struct tlv_field *field)
 
 	sha256_init(&inner_sctx);
 	sha256_update(&inner_sctx, "LnNonce", 7);
-	SUPERVERBOSE("tag=SHA256(%s", tal_hexstr(tmpctx, "LnNonce", 7));
 	sha256_update_tlvfield(&inner_sctx, field);
 	sha256_done(&inner_sctx, &sha);
-	SUPERVERBOSE(") -> %s\n",
-		     fmt_sha256(tmpctx, &sha));
 
 	sha256_init(sctx);
 	sha256_update(sctx, &sha, sizeof(sha));
@@ -91,23 +83,17 @@ void bolt12_calc_nonce(const struct sha256_ctx *lnnonce_ctx,
 	/* Copy context, to add field */
 	struct sha256_ctx ctx = *lnnonce_ctx;
 
-	SUPERVERBOSE("nonce: H(noncetag,");
 	sha256_update_bigsize(&ctx, fieldtype);
-
 	sha256_done(&ctx, hash);
-	SUPERVERBOSE(") = %s\n", fmt_sha256(tmpctx, hash));
 }
 
 static void calc_lnleaf(const struct tlv_field *field, struct sha256 *hash)
 {
 	struct sha256_ctx sctx;
 
-	SUPERVERBOSE("leaf: H(");
 	h_simpletag_ctx(&sctx, "LnLeaf");
-	SUPERVERBOSE(",");
 	sha256_update_tlvfield(&sctx, field);
 	sha256_done(&sctx, hash);
-	SUPERVERBOSE(") -> %s\n", fmt_sha256(tmpctx, hash));
 }
 
 /* BOLT #12:
@@ -122,16 +108,11 @@ static struct sha256 merkle_pair(const struct sha256 *a, const struct sha256 *b)
 	if (memcmp(a->u.u8, b->u.u8, sizeof(a->u.u8)) > 0)
 		return merkle_pair(b, a);
 
-	SUPERVERBOSE("branch: H(");
 	h_simpletag_ctx(&sctx, "LnBranch");
-	SUPERVERBOSE(",%s %s",
-		     tal_hexstr(tmpctx, a->u.u8, sizeof(a->u.u8)),
-		     tal_hexstr(tmpctx, b->u.u8, sizeof(b->u.u8)));
 	sha256_update(&sctx, a->u.u8, sizeof(a->u.u8));
 	sha256_update(&sctx, b->u.u8, sizeof(b->u.u8));
 
 	sha256_done(&sctx, &res);
-	SUPERVERBOSE(") -> %s\n", fmt_sha256(tmpctx, &res));
 	return res;
 }
 
@@ -193,19 +174,13 @@ static struct sha256 *merkle_recurse(struct sha256 **base,
 	if (len == 1)
 		return arr[0];
 
-	SUPERVERBOSE("Merkle recurse [%zu - %zu] and [%zu - %zu]\n",
-		     arr - base, arr + len / 2 - 1 - base,
-		     arr + len / 2 - base, arr + len - 1 - base);
 	left = merkle_recurse(base, arr, actual_arr, len / 2, resolve_omitted, arg);
 	right = merkle_recurse(base, arr + len / 2,
 			       actual_arr ? actual_arr + len / 2 : NULL,
 			       len / 2, resolve_omitted, arg);
 	/* left is never NULL if right is not NULL */
-	if (!right) {
-		SUPERVERBOSE("[%zu - %zu] is NULL!\n",
-			     arr + len / 2 - base, arr + len - base);
+	if (!right)
 		return left;
-	}
 	ret = tal(base, struct sha256);
 	left_omitted = is_omitted(left);
 	right_omitted = is_omitted(right);
@@ -253,8 +228,6 @@ void merkle_tlv_full_(struct sha256 *merkle,
 	struct sha256 **leaves, **actual_leaves, *ret;
 	struct sha256_ctx lnnonce_ctx;
 	bool omitted;
-
-	SUPERVERBOSE("nonce tag:");
 
 	leaves = tal_arr(NULL, struct sha256 *, 0);
 	actual_leaves = tal_arr(leaves, struct sha256 *, 0);
