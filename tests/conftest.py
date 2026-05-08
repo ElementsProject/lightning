@@ -29,6 +29,21 @@ def pytest_configure(config):
     config.addinivalue_line("markers",
                             "vls: mark test as using VLS (Validating Lightning Signer) for signing operations")
 
+    # VLS testing is opt-in via exactly `-m vls`. Without it, vls-marked
+    # tests still run but are forced to use_vls=False (see fixtures.py).
+    # With it, abort the session early if the signer is not available.
+    if (config.getoption("markexpr") or "").strip() == "vls":
+        if not os.environ.get('REMOTE_SIGNER_PATH') and not os.environ.get('VLS_AUTO_BUILD'):
+            raise pytest.UsageError(
+                'VLS tests selected via `-m vls` but neither REMOTE_SIGNER_PATH '
+                '(path to a pre-built vlsd) nor VLS_AUTO_BUILD=1 is set.'
+            )
+        if os.environ.get('REMOTE_SIGNER_PATH') and os.environ.get('VLS_AUTO_BUILD'):
+            raise pytest.UsageError(
+                'REMOTE_SIGNER_PATH and'
+                'VLS_AUTO_BUILD are mutually exclusive'
+            )
+
 
 def pytest_runtest_setup(item):
     open_versions = [mark.args[0] for mark in item.iter_markers(name='openchannel')]
@@ -42,12 +57,6 @@ def pytest_runtest_setup(item):
             pytest.skip('v1-only test, EXPERIMENTAL_DUAL_FUND=1')
     if "slow_test" in item.keywords and VALGRIND and SLOW_MACHINE:
         pytest.skip("Skipping slow tests under VALGRIND")
-    if "vls" in item.keywords:
-        if not os.environ.get('REMOTE_SIGNER_PATH') and not os.environ.get('VLS_AUTO_BUILD'):
-            pytest.skip(
-                'VLS test skipped: set REMOTE_SIGNER_PATH (path to pre-built vlsd) '
-                'or VLS_AUTO_BUILD=1 to enable'
-            )
 
 
 @pytest.hookimpl(tryfirst=True)
