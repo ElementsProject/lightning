@@ -74,6 +74,11 @@ struct bip340sig *payer_proof_signature_(const tal_t *ctx,
 						      struct bip340sig *sig,
 						      void *arg),
 					 void *arg);
+/**
+ * bolt12_payer_proof_merkle - get the merkle root of this proof for signing.
+ */
+void bolt12_payer_proof_merkle(const struct tlv_payer_proof *proof,
+			       struct sha256 *merkle);
 
 /* Check the payer proof signatures are valid: returns NULL if so,
  * otherwise error string */

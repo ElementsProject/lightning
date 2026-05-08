@@ -50,6 +50,7 @@ Core Lightning Documentation
    connect <connect.7.md>
    createinvoice <createinvoice.7.md>
    createonion <createonion.7.md>
+   createproof <createproof.7.md>
    createrune <createrune.7.md>
    currencyconvert <currencyconvert.7.md>
    currencyrate <currencyrate.7.md>

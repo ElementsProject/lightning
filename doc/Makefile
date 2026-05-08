@@ -42,6 +42,7 @@ MARKDOWNPAGES := doc/addgossip.7 \
 	doc/connect.7 \
 	doc/createinvoice.7 \
 	doc/createonion.7 \
+	doc/createproof.7 \
 	doc/createrune.7 \
 	doc/currencyconvert.7 \
 	doc/currencyrate.7 \

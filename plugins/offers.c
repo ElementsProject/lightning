@@ -10,6 +10,7 @@
 #include <common/bolt11_json.h>
 #include <common/bolt12_id.h>
 #include <common/bolt12_merkle.h>
+#include <common/bolt12_proof.h>
 #include <common/clock_time.h>
 #include <common/features.h>
 #include <common/gossmap.h>
@@ -19,7 +20,6 @@
 #include <common/json_stream.h>
 #include <common/memleak.h>
 #include <common/onion_message.h>
-#include <common/bolt12_proof.h>
 #include <errno.h>
 #include <inttypes.h>
 #include <plugins/establish_onion_path.h>
@@ -28,6 +28,7 @@
 #include <plugins/offers_inv_hook.h>
 #include <plugins/offers_invreq_hook.h>
 #include <plugins/offers_offer.h>
+#include <plugins/offers_proof.h>
 #include <sodium.h>
 
 #define HEADER_LEN crypto_secretstream_xchacha20poly1305_HEADERBYTES
@@ -1953,6 +1954,10 @@ static const struct plugin_command commands[] = {
     {
 	    "cancelrecurringinvoice",
 	    json_cancelrecurringinvoice,
+    },
+    {
+	    "createproof",
+	    json_createproof,
     },
     {
 	    "dev-rawrequest",

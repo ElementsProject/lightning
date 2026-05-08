@@ -112,6 +112,11 @@ struct command_result *json_cancelrecurringinvoice(struct command *cmd UNNEEDED,
 						   const char *buffer UNNEEDED,
 						   const jsmntok_t *params UNNEEDED)
 { fprintf(stderr, "json_cancelrecurringinvoice called!\n"); abort(); }
+/* Generated stub for json_createproof */
+struct command_result *json_createproof(struct command *cmd UNNEEDED,
+					const char *buffer UNNEEDED,
+					const jsmntok_t *params UNNEEDED)
+{ fprintf(stderr, "json_createproof called!\n"); abort(); }
 /* Generated stub for json_dev_rawrequest */
 struct command_result *json_dev_rawrequest(struct command *cmd UNNEEDED,
 					   const char *buffer UNNEEDED,

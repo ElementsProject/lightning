@@ -188,13 +188,13 @@ static const struct tlv_field *next_field_prepend_tlv0(bool *is_omitted,
 /* BOLT-payer_proof #12:
  * - MUST set `proof_signature` as detailed in [Signature Calculation](#signature-calculation) using the `invreq_payer_id` using the merkle-root as the `msg` and a `first_tlv` value of 0x0000 (i.e. type 0, length 0).
  */
-static void merkle_payer_proof(const struct tlv_field *fields,
+void bolt12_payer_proof_merkle(const struct tlv_payer_proof *proof,
 			       struct sha256 *merkle)
 {
 	struct tlv0_adding_leaf_iter iter;
 
 	/* We use a modified iterator to insert tlv0. */
-	iter.fields = fields;
+	iter.fields = proof->fields;
 	iter.n = -1;
 	iter.tlv0.meta = NULL;
 	iter.tlv0.numtype = 0;
@@ -220,7 +220,7 @@ struct bip340sig *payer_proof_signature_(const tal_t *ctx,
 	struct sha256 merkle;
 	struct bip340sig *sig;
 
-	merkle_payer_proof(unsignedproof->fields, &merkle);
+	bolt12_payer_proof_merkle(unsignedproof, &merkle);
 
 	sig = tal(ctx, struct bip340sig);
 	if (!sign("payer_proof", "proof_signature", &merkle, sig, arg))
@@ -482,7 +482,7 @@ const char *check_payer_proof(const tal_t *ctx,
 	 *  Calculation](#signature-calculation), using `msg` merkle-root and
 	 *  a `first_tlv` value of 0x0000 (i.e. type 0, length 0).
 	 */
-	merkle_payer_proof(pptlv->fields, &merkle);
+	bolt12_payer_proof_merkle(pptlv, &merkle);
 	sighash_from_merkle("payer_proof", "proof_signature", &merkle, &shash);
 	if (!check_schnorr_sig(&shash, &pptlv->invreq_payer_id->pubkey,
 			       pptlv->proof_signature)) {

@@ -7171,3 +7171,116 @@ def test_blinded_path_max(node_factory):
     offer = l2.rpc.offer('any')['bolt12']
     inv = l1.rpc.fetchinvoice(offer, '10000msat')['invoice']
     assert only_one(l1.rpc.decode(inv)['invoice_paths'])['payinfo']['htlc_maximum_msat'] > 0, f"bad paths for offer = {offer}, invoice = {inv}"
+
+
+def test_createproof(node_factory, bitcoind):
+    """Basic createproof tests: invoice string, offer string, no payment, note, include."""
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True,
+                                         opts=[{},
+                                               {'dev-allow-localhost': None},
+                                               {'dev-allow-localhost': None}])
+
+    offer = l3.rpc.offer('10000msat', 'test offer')
+    inv = l1.rpc.fetchinvoice(offer['bolt12'])['invoice']
+
+    # No payment yet: should fail with error 1700.
+    with pytest.raises(RpcError, match=r'1700.*No successful payment'):
+        l1.rpc.call('createproof', {'invstring': inv})
+
+    l1.rpc.xpay(inv)
+
+    # Proof by invoice string.
+    proof = only_one(l1.rpc.call('createproof', {'invstring': inv})['proofs'])
+
+    # Check returned field lists.
+    assert 'offer_description' in proof['offer_fields_included']
+    assert 'offer_issuer_id' in proof['offer_fields_included']
+    assert 'invreq_payer_id' in proof['invreq_fields_included']
+    assert 'invoice_payment_hash' in proof['invoice_fields_included']
+    assert 'invoice_amount' in proof['invoice_fields_included']
+    assert 'invoice_features' in proof['invoice_fields_included']
+    assert 'invoice_node_id' in proof['invoice_fields_included']
+    assert 'signature' in proof['invoice_fields_included']
+
+    # Decode the proof: must be valid.
+    decoded = l1.rpc.decode(proof['bolt12'])
+    assert decoded['type'] == 'bolt12 payer_proof'
+    assert decoded['valid'] is True
+
+    # Proof by offer string gives the same proof.
+    assert only_one(l1.rpc.call('createproof', {'invstring': offer['bolt12']})['proofs'])['bolt12'] == proof['bolt12']
+
+    # Second payment to same offer gives two proofs.
+    inv2 = l1.rpc.fetchinvoice(offer['bolt12'])['invoice']
+    l1.rpc.xpay(inv2)
+    ret3 = l1.rpc.call('createproof', {'invstring': offer['bolt12']})
+    assert len(ret3['proofs']) == 2
+
+    # Both decode as valid.
+    for p in ret3['proofs']:
+        d = l1.rpc.decode(p['bolt12'])
+        assert d['valid'] is True
+
+
+def test_createproof_note(node_factory, bitcoind):
+    """Proof with a note: decoded proof should include it."""
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True,
+                                         opts=[{},
+                                               {'dev-allow-localhost': None},
+                                               {'dev-allow-localhost': None}])
+
+    offer = l3.rpc.offer('5000msat', 'note test')
+    inv = l1.rpc.fetchinvoice(offer['bolt12'])['invoice']
+    l1.rpc.xpay(inv)
+
+    ret = l1.rpc.call('createproof', {'invstring': inv, 'note': 'I paid for this!'})
+    proof = only_one(ret['proofs'])
+
+    decoded = l1.rpc.decode(proof['bolt12'])
+    assert decoded['valid'] is True
+    assert decoded['proof_note'] == 'I paid for this!'
+
+    # Proof without note decodes fine with absent payer_note.
+    ret2 = l1.rpc.call('createproof', {'invstring': inv})
+    decoded2 = l1.rpc.decode(only_one(ret2['proofs'])['bolt12'])
+    assert decoded2['valid'] is True
+    assert 'proof_note' not in decoded2
+
+
+def test_createproof_include(node_factory, bitcoind):
+    """Proof with custom include list: only requested fields appear."""
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True,
+                                         opts=[{},
+                                               {'dev-allow-localhost': None},
+                                               {'dev-allow-localhost': None}])
+
+    offer = l3.rpc.offer('10000msat', 'include test')
+    inv = l1.rpc.fetchinvoice(offer['bolt12'])['invoice']
+    l1.rpc.xpay(inv)
+
+    # Include only invoice_amount by name, plus the mandatory fields.
+    ret = l1.rpc.call('createproof', {'invstring': inv,
+                                      'include': ['invoice_amount']})
+    proof = only_one(ret['proofs'])
+
+    # Mandatory fields always present.
+    assert 'invreq_payer_id' in proof['invreq_fields_included']
+    assert 'invoice_payment_hash' in proof['invoice_fields_included']
+    assert 'invoice_features' in proof['invoice_fields_included']
+    assert 'invoice_node_id' in proof['invoice_fields_included']
+    assert 'signature' in proof['invoice_fields_included']
+
+    # invoice_amount is there; but offer_description is not (not in our include list).
+    assert 'invoice_amount' in proof['invoice_fields_included']
+    assert 'offer_description' not in proof['offer_fields_included']
+
+    decoded = l1.rpc.decode(proof['bolt12'])
+    assert decoded['valid'] is True
+
+    # Include by number works too (170 = invoice_amount).
+    ret2 = l1.rpc.call('createproof', {'invstring': inv, 'include': [170]})
+    assert only_one(ret2['proofs'])['bolt12'] == proof['bolt12']
+
+    # Unknown name is an error.
+    with pytest.raises(RpcError, match=r'Unknown field name'):
+        l1.rpc.call('createproof', {'invstring': inv, 'include': ['no_such_field']})

@@ -142,6 +142,9 @@ enum jsonrpc_errcode {
 	/* Errors from recover command */
 	RECOVER_NODE_IN_USE = 1600,
 
+	/* Errors from createproof */
+	CREATEPROOF_NO_PAYMENT = 1700,
+
 	/* Errors from wait* commands */
 	WAIT_TIMEOUT = 2000,
 };
