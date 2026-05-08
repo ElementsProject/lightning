@@ -579,6 +579,11 @@ command, so they invoices can also be paid onchain.
 
   Delay between polls for new blocks from `bitcoind` (default: 30000).
 
+* **experimental-bwatch** [plugin `bwatch`]
+
+  Enable the experimental *bwatch* chain watcher.  Without this, the
+  plugin stays loaded but does not poll `bitcoind` or process watches.
+
 ### Networking options
 
 Note that for simple setups, the implicit *autolisten* option does the

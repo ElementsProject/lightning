@@ -32,8 +32,8 @@ import sys
 import time
 import unittest
 
-# Fast bwatch polling for tests (plugin default is 30s). Pass explicitly per node.
-BWATCH_OPTS = {'bwatch-poll-interval': 500}
+# bwatch is opt-in (--experimental-bwatch); also speed up polling for tests.
+BWATCH_OPTS = {'experimental-bwatch': None, 'bwatch-poll-interval': 500}
 
 
 def wait_bwatch_caught_up(node, timeout=TIMEOUT):

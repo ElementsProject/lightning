@@ -448,6 +448,16 @@ static const char *init(struct command *cmd,
 
 	bwatch->block_history = tal_arr(bwatch, struct block_record_wire, 0);
 
+	/* Default to "no chain seen yet"; bwatch_load_block_history will
+	 * overwrite these from the datastore when we're enabled. */
+	bwatch->current_height = 0;
+	memset(&bwatch->current_blockhash, 0, sizeof(bwatch->current_blockhash));
+
+	/* bwatch is opt-in: leave the plugin loaded but skip chain polling until the
+	 * user passes --experimental-bwatch. */
+	if (!bwatch->experimental)
+		return NULL;
+
 	/* Replay persisted block history.  load_block_history sets
 	 * current_height / current_blockhash from the most recent record;
 	 * if there are no records, fall back to zero so the first poll
@@ -481,12 +491,18 @@ int main(int argc, char *argv[])
 	setup_locale();
 	bwatch = tal(NULL, struct bwatch);
 	bwatch->poll_interval_ms = 30000;
+	bwatch->experimental = false;
 
 	plugin_main(argv, init, take(bwatch), PLUGIN_RESTARTABLE, true, NULL,
 		    commands, ARRAY_SIZE(commands),
 		    NULL, 0,
 		    NULL, 0,
 		    NULL, 0,
+		    plugin_option("experimental-bwatch", "flag",
+				  "experimental: enable the bwatch chain"
+				  " watcher (off by default)",
+				  flag_option, flag_jsonfmt,
+				  &bwatch->experimental),
 		    plugin_option("bwatch-poll-interval", "int",
 				  "Milliseconds between chain polls (default: 30000)",
 				  u32_option, u32_jsonfmt, &bwatch->poll_interval_ms),

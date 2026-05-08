@@ -70,6 +70,10 @@ struct bwatch {
 	/* Active poll timer; rescheduled at the end of every poll cycle. */
 	struct plugin_timer *poll_timer;
 	u32 poll_interval_ms;
+
+	/* Opt-in: bwatch is loaded but stays inert (no chain polling, no
+	 * watch processing) unless the user passes --experimental-bwatch. */
+	bool experimental;
 };
 
 /* Helper: get last block_history (or NULL) */
