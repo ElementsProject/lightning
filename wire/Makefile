@@ -88,7 +88,7 @@ wire/peer_exp_printgen.h_args := --include='wire/channel_type_printgen.h'
 wire/onion_exp_wiregen.h_args := $(wire/onion_wiregen.h_args)
 wire/onion_exp_wiregen.c_args := $(wire/onion_wiregen.c_args)
 
-wire/bolt12_wiregen.c_args := -s --expose-tlv-type=tlv_blinded_path --expose-tlv-type=tlv_invoice_request --expose-tlv-type=tlv_invoice --include='wire/onion_wiregen.h' 
+wire/bolt12_wiregen.c_args := -s --expose-tlv-type=tlv_blinded_path --expose-tlv-type=tlv_invoice_request --expose-tlv-type=tlv_invoice --expose-tlv-type=tlv_payer_proof --include='wire/onion_wiregen.h'
 wire/bolt12_wiregen.h_args := --include='bitcoin/short_channel_id.h' --include='bitcoin/signature.h' --include='bitcoin/privkey.h' --include='common/bigsize.h' --include='common/amount.h' --include='common/node_id.h' --include='bitcoin/block.h' $(wire/bolt12_wiregen.c_args) --include='bitcoin/preimage.h'
 
 wire/bolt12_printgen.c_args := --expose-tlv-type=tlv_blinded_path --expose-tlv-type=tlv_invoice_request --include='wire/onion_wiregen.h'  --include='wire/onion_printgen.h'
