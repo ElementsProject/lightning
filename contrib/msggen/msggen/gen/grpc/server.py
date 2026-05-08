@@ -28,18 +28,18 @@ class GrpcServerGenerator(IGenerator):
 
     def generate(self, service: Service) -> None:
         self.write(
-            f"""\
+            """\
         use crate::pb::node_server::Node;
         use crate::pb;
-        use cln_rpc::{{Request, Response, ClnRpc}};
+        use cln_rpc::{Request, Response, ClnRpc};
         use cln_rpc::notifications::Notification;
         use anyhow::Result;
-        use std::path::{{Path, PathBuf}};
+        use std::path::{Path, PathBuf};
         use std::pin::Pin;
-        use std::task::{{Context, Poll}};
+        use std::task::{Context, Poll};
         use cln_rpc::model::requests;
-        use log::{{debug, trace}};
-        use tonic::{{Code, Status}};
+        use log::{debug, trace};
+        use tonic::{Code, Status};
         use tokio::sync::broadcast;
         use tokio_stream::wrappers::errors::BroadcastStreamRecvError;
         use tokio_stream::wrappers::BroadcastStream;
@@ -47,72 +47,72 @@ class GrpcServerGenerator(IGenerator):
 
         #[derive(Clone)]
         pub struct Server
-        {{
+        {
             rpc_path: PathBuf,
             events : broadcast::Sender<Notification>
-        }}
+        }
 
         impl Server
-        {{
+        {
             pub async fn new(
                 path: &Path,
                 events : broadcast::Sender<Notification>
             ) -> Result<Self>
-            {{
-                Ok(Self {{
+            {
+                Ok(Self {
                     rpc_path: path.to_path_buf(),
                     events : events
-                }})
-            }}
-        }}
+                })
+            }
+        }
 
-        pub struct NotificationStream<T> {{
+        pub struct NotificationStream<T> {
             inner : Pin<Box<BroadcastStream<Notification>>>,
             fn_filter_map : fn(Notification) -> Option<T>
-        }}
+        }
 
-        impl<T : 'static + Send + Clone> tokio_stream::Stream for NotificationStream<T> {{
+        impl<T : 'static + Send + Clone> tokio_stream::Stream for NotificationStream<T> {
 
             type Item = Result<T, tonic::Status>;
 
-            fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {{
-                while let Poll::Ready(result) = self.inner.as_mut().poll_next(cx) {{
+            fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+                while let Poll::Ready(result) = self.inner.as_mut().poll_next(cx) {
                     // None is used here to signal that we have reached the end of stream
                     // If inner ends the stream by returning None we do the same
-                    if result.is_none() {{
+                    if result.is_none() {
                         return Poll::Ready(None)
-                    }}
+                    }
                     let result: Result<cln_rpc::Notification, BroadcastStreamRecvError> = result.unwrap();
 
-                    match result {{
-                        Err(BroadcastStreamRecvError::Lagged(lag)) => {{
+                    match result {
+                        Err(BroadcastStreamRecvError::Lagged(lag)) => {
                             // In this error case we've missed some notifications
                             // We log the error to core lightning and forward
                             // this information to the client
-                            log::warn!("Due to lag the grpc-server skipped {{}} notifications", lag);
+                            log::warn!("Due to lag the grpc-server skipped {} notifications", lag);
                             return Poll::Ready(Some(Err(
                                 Status::data_loss(
-                                    format!("Skipped up to {{}} notifications", lag)))))
-                        }}
-                        Ok(notification) => {{
+                                    format!("Skipped up to {} notifications", lag)))))
+                        }
+                        Ok(notification) => {
                             let filtered = (self.fn_filter_map)(notification);
-                            match filtered {{
+                            match filtered {
                                 Some(n) => return Poll::Ready(Some(Ok(n))),
-                                None => {{
+                                None => {
                                     // We ignore the message if it isn't a match.
                                     // e.g: A `ChannelOpenedStream` will ignore `CustomMsgNotifications`
-                                }}
-                            }}
-                        }}
-                    }}
-                }}
+                                }
+                            }
+                        }
+                    }
+                }
                 Poll::Pending
-            }}
-        }}
+            }
+        }
 
         #[tonic::async_trait]
         impl Node for Server
-        {{
+        {
         """,
             numindent=0,
         )

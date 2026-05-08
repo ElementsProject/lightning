@@ -2223,7 +2223,7 @@ def test_zeroreserve_alldust(node_factory):
     l1.fundwallet(10**6)
     error = (f'channel funding {minfunding}sat too small for chosen parameters: '
              f'a total of {maxhtlc * 2} HTLCs with dust value {mindust}sat would '
-             f'result in a commitment_transaction without outputs')
+             'result in a commitment_transaction without outputs')
 
     # This is right on the edge, and should fail
     with pytest.raises(RpcError, match=error):
@@ -2921,7 +2921,7 @@ def test_zeroconf_withhold(node_factory, bitcoind, stay_withheld, mutual_close):
         funds = l1.rpc.listfunds()
         for utxo in funds['outputs']:
             assert utxo['status'] == 'confirmed', \
-                f"UTXO still reserved after withheld close"
+                "UTXO still reserved after withheld close"
     else:
         if mutual_close:
             wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['state'] == 'CLOSINGD_COMPLETE')
