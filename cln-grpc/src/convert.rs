@@ -1553,6 +1553,17 @@ impl From<responses::DecodeRestrictions> for pb::DecodeRestrictions {
     }
 }
 
+#[allow(unused_variables)]
+impl From<responses::DecodeUnknownPayerProofTlvs> for pb::DecodeUnknownPayerProofTlvs {
+    fn from(c: responses::DecodeUnknownPayerProofTlvs) -> Self {
+        Self {
+            length: c.length, // Rule #2 for type u64
+            item_type: c.item_type, // Rule #2 for type u64
+            value: hex::decode(&c.value).unwrap(), // Rule #2 for type hex
+        }
+    }
+}
+
 #[allow(unused_variables,deprecated)]
 impl From<responses::DecodeResponse> for pb::DecodeResponse {
     fn from(c: responses::DecodeResponse) -> Self {
@@ -1615,6 +1626,15 @@ impl From<responses::DecodeResponse> for pb::DecodeResponse {
             payment_hash: c.payment_hash.map(|v| <Sha256 as AsRef<[u8]>>::as_ref(&v).to_vec()), // Rule #2 for type hash?
             payment_metadata: c.payment_metadata.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
             payment_secret: c.payment_secret.map(|v| v.to_vec()), // Rule #2 for type secret?
+            // Field: Decode.proof_leaf_hashes[]
+            proof_leaf_hashes: c.proof_leaf_hashes.map(|arr| arr.into_iter().map(|i| <Sha256 as AsRef<[u8]>>::as_ref(&i).to_vec()).collect()).unwrap_or(vec![]), // Rule #3
+            // Field: Decode.proof_missing_hashes[]
+            proof_missing_hashes: c.proof_missing_hashes.map(|arr| arr.into_iter().map(|i| <Sha256 as AsRef<[u8]>>::as_ref(&i).to_vec()).collect()).unwrap_or(vec![]), // Rule #3
+            proof_note: c.proof_note, // Rule #2 for type string?
+            // Field: Decode.proof_omitted_tlvs[]
+            proof_omitted_tlvs: c.proof_omitted_tlvs.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
+            proof_preimage: c.proof_preimage.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
+            proof_signature: c.proof_signature, // Rule #2 for type bip340sig?
             // Field: Decode.restrictions[]
             restrictions: c.restrictions.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
             routes: c.routes.map(|drl| drl.into()), // Rule #2 for type DecodeRoutehintList?
@@ -1622,6 +1642,8 @@ impl From<responses::DecodeResponse> for pb::DecodeResponse {
             string: c.string, // Rule #2 for type string?
             item_type: c.item_type as i32,
             unique_id: c.unique_id, // Rule #2 for type string?
+            // Field: Decode.unknown_payer_proof_tlvs[]
+            unknown_payer_proof_tlvs: c.unknown_payer_proof_tlvs.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
             valid: c.valid, // Rule #2 for type boolean
             version: c.version, // Rule #2 for type string?
             warning_empty_blinded_path: c.warning_empty_blinded_path, // Rule #2 for type string?

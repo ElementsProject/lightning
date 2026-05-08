@@ -8000,6 +8000,14 @@ pub mod responses {
 	    pub summary: String,
 	}
 
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct DecodeUnknownPayerProofTlvs {
+	    #[serde(rename = "type")]
+	    pub item_type: u64,
+	    pub length: u64,
+	    pub value: String,
+	}
+
 	/// ['What kind of object it decoded to.']
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	#[allow(non_camel_case_types)]
@@ -8016,6 +8024,8 @@ pub mod responses {
 	    RUNE = 4,
 	    #[serde(rename = "emergency recover")]
 	    EMERGENCY_RECOVER = 5,
+	    #[serde(rename = "bolt12 payer_proof")]
+	    BOLT12_PAYER_PROOF = 6,
 	}
 
 	impl TryFrom<i32> for DecodeType {
@@ -8028,6 +8038,7 @@ pub mod responses {
 	    3 => Ok(DecodeType::BOLT11_INVOICE),
 	    4 => Ok(DecodeType::RUNE),
 	    5 => Ok(DecodeType::EMERGENCY_RECOVER),
+	    6 => Ok(DecodeType::BOLT12_PAYER_PROOF),
 	            o => Err(anyhow::anyhow!("Unknown variant {} for enum DecodeType", o)),
 	        }
 	    }
@@ -8042,6 +8053,7 @@ pub mod responses {
 	            DecodeType::BOLT11_INVOICE => "BOLT11_INVOICE",
 	            DecodeType::RUNE => "RUNE",
 	            DecodeType::EMERGENCY_RECOVER => "EMERGENCY_RECOVER",
+	            DecodeType::BOLT12_PAYER_PROOF => "BOLT12_PAYER_PROOF",
 	        }.to_string()
 	    }
 	}
@@ -8143,6 +8155,12 @@ pub mod responses {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub payment_secret: Option<Secret>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub proof_note: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub proof_preimage: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub proof_signature: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub routes: Option<DecodeRoutehintList>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub signature: Option<String>,
@@ -8217,7 +8235,15 @@ pub mod responses {
 	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
 	    pub offer_paths: Option<Vec<DecodeOfferPaths>>,
 	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub proof_leaf_hashes: Option<Vec<Sha256>>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub proof_missing_hashes: Option<Vec<Sha256>>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub proof_omitted_tlvs: Option<Vec<u64>>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
 	    pub restrictions: Option<Vec<DecodeRestrictions>>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub unknown_payer_proof_tlvs: Option<Vec<DecodeUnknownPayerProofTlvs>>,
 	    // Path `Decode.type`
 	    #[serde(rename = "type")]
 	    pub item_type: DecodeType,

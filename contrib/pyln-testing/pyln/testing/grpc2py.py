@@ -1262,6 +1262,14 @@ def decode_unknown_offer_tlvs2py(m):
     })
 
 
+def decode_unknown_payer_proof_tlvs2py(m):
+    return remove_default({
+        "length": m.length,  # PrimitiveField in generate_composite
+        "item_type": m.type,  # PrimitiveField in generate_composite
+        "value": hexlify(m.value),  # PrimitiveField in generate_composite
+    })
+
+
 def decode2py(m):
     return remove_default({
         "extra": [decode_extra2py(i) for i in m.extra],  # ArrayField[composite] in generate_composite
@@ -1271,11 +1279,15 @@ def decode2py(m):
         "invreq_paths": [decode_invreq_paths2py(i) for i in m.invreq_paths],  # ArrayField[composite] in generate_composite
         "offer_chains": [hexlify(m.offer_chains) for i in hexlify(m.offer_chains)], # ArrayField[primitive] in generate_composite
         "offer_paths": [decode_offer_paths2py(i) for i in m.offer_paths],  # ArrayField[composite] in generate_composite
+        "proof_leaf_hashes": [hexlify(m.proof_leaf_hashes) for i in hexlify(m.proof_leaf_hashes)], # ArrayField[primitive] in generate_composite
+        "proof_missing_hashes": [hexlify(m.proof_missing_hashes) for i in hexlify(m.proof_missing_hashes)], # ArrayField[primitive] in generate_composite
+        "proof_omitted_tlvs": [m.proof_omitted_tlvs for i in m.proof_omitted_tlvs], # ArrayField[primitive] in generate_composite
         "restrictions": [decode_restrictions2py(i) for i in m.restrictions],  # ArrayField[composite] in generate_composite
         "type": str(m.item_type),  # EnumField in generate_composite
         "unknown_invoice_request_tlvs": [decode_unknown_invoice_request_tlvs2py(i) for i in m.unknown_invoice_request_tlvs],  # ArrayField[composite] in generate_composite
         "unknown_invoice_tlvs": [decode_unknown_invoice_tlvs2py(i) for i in m.unknown_invoice_tlvs],  # ArrayField[composite] in generate_composite
         "unknown_offer_tlvs": [decode_unknown_offer_tlvs2py(i) for i in m.unknown_offer_tlvs],  # ArrayField[composite] in generate_composite
+        "unknown_payer_proof_tlvs": [decode_unknown_payer_proof_tlvs2py(i) for i in m.unknown_payer_proof_tlvs],  # ArrayField[composite] in generate_composite
         "amount_msat": amount2msat(m.amount_msat),  # PrimitiveField in generate_composite
         "created_at": m.created_at,  # PrimitiveField in generate_composite
         "currency": m.currency,  # PrimitiveField in generate_composite
@@ -1320,6 +1332,9 @@ def decode2py(m):
         "payment_hash": hexlify(m.payment_hash),  # PrimitiveField in generate_composite
         "payment_metadata": hexlify(m.payment_metadata),  # PrimitiveField in generate_composite
         "payment_secret": hexlify(m.payment_secret),  # PrimitiveField in generate_composite
+        "proof_note": m.proof_note,  # PrimitiveField in generate_composite
+        "proof_preimage": hexlify(m.proof_preimage),  # PrimitiveField in generate_composite
+        "proof_signature": hexlify(m.proof_signature),  # PrimitiveField in generate_composite
         "routes": [[decodepay_routes2py(i) for i in routehints] for routehints in m.routes],  # OverrideField in DecodeRoutehintList
         "signature": hexlify(m.signature),  # PrimitiveField in generate_composite
         "string": m.string,  # PrimitiveField in generate_composite

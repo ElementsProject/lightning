@@ -101,6 +101,7 @@
             "bolt12 invoice": 1,
             "bolt12 invoice_request": 2,
             "bolt12 offer": 0,
+            "bolt12 payer_proof": 6,
             "emergency recover": 5,
             "rune": 4
         },
@@ -1574,6 +1575,12 @@
             "Decode.payment_hash": 63,
             "Decode.payment_metadata": 67,
             "Decode.payment_secret": 66,
+            "Decode.proof_leaf_hashes[]": 96,
+            "Decode.proof_missing_hashes[]": 95,
+            "Decode.proof_note": 97,
+            "Decode.proof_omitted_tlvs[]": 94,
+            "Decode.proof_preimage": 93,
+            "Decode.proof_signature": 98,
             "Decode.restrictions[]": 73,
             "Decode.routes": 82,
             "Decode.routes[][]": 68,
@@ -1584,6 +1591,7 @@
             "Decode.unknown_invoice_request_tlvs[]": 34,
             "Decode.unknown_invoice_tlvs[]": 49,
             "Decode.unknown_offer_tlvs[]": 19,
+            "Decode.unknown_payer_proof_tlvs[]": 99,
             "Decode.valid": 2,
             "Decode.version": 71,
             "Decode.warning_empty_blinded_path": 86,
@@ -1617,6 +1625,11 @@
         "DecodeRestrictions": {
             "Decode.restrictions[].alternatives[]": 1,
             "Decode.restrictions[].summary": 2
+        },
+        "DecodeUnknownPayerProofTlvs": {
+            "Decode.unknown_payer_proof_tlvs[].length": 2,
+            "Decode.unknown_payer_proof_tlvs[].type": 1,
+            "Decode.unknown_payer_proof_tlvs[].value": 3
         },
         "DecodepayExtra": {
             "DecodePay.extra[].data": 2,
@@ -6874,6 +6887,30 @@
             "added": "v23.05",
             "deprecated": null
         },
+        "Decode.proof_leaf_hashes[]": {
+            "added": "v23.05",
+            "deprecated": null
+        },
+        "Decode.proof_missing_hashes[]": {
+            "added": "v23.05",
+            "deprecated": null
+        },
+        "Decode.proof_note": {
+            "added": "v23.05",
+            "deprecated": null
+        },
+        "Decode.proof_omitted_tlvs[]": {
+            "added": "v23.05",
+            "deprecated": null
+        },
+        "Decode.proof_preimage": {
+            "added": "v23.05",
+            "deprecated": null
+        },
+        "Decode.proof_signature": {
+            "added": "v23.05",
+            "deprecated": null
+        },
         "Decode.restrictions[]": {
             "added": "v23.05",
             "deprecated": null
@@ -6975,6 +7012,22 @@
             "deprecated": null
         },
         "Decode.unknown_offer_tlvs[].value": {
+            "added": "v23.05",
+            "deprecated": null
+        },
+        "Decode.unknown_payer_proof_tlvs[]": {
+            "added": "v23.05",
+            "deprecated": null
+        },
+        "Decode.unknown_payer_proof_tlvs[].length": {
+            "added": "v23.05",
+            "deprecated": null
+        },
+        "Decode.unknown_payer_proof_tlvs[].type": {
+            "added": "v23.05",
+            "deprecated": null
+        },
+        "Decode.unknown_payer_proof_tlvs[].value": {
             "added": "v23.05",
             "deprecated": null
         },

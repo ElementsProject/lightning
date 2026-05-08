@@ -1622,6 +1622,7 @@ message DecodeResponse {
 		BOLT11_INVOICE = 3;
 		RUNE = 4;
 		EMERGENCY_RECOVER = 5;
+		BOLT12_PAYER_PROOF = 6;
 	}
 	DecodeType item_type = 1;
 	bool valid = 2;
@@ -1709,6 +1710,13 @@ message DecodeResponse {
 	optional bool invreq_recurrence_cancel = 90;
 	optional string warning_invreq_recurrence_cancel_without_counter = 91;
 	optional string warning_invreq_recurrence_cancel_with_zero_counter = 92;
+	optional bytes proof_preimage = 93;
+	repeated uint64 proof_omitted_tlvs = 94;
+	repeated bytes proof_missing_hashes = 95;
+	repeated bytes proof_leaf_hashes = 96;
+	optional string proof_note = 97;
+	optional string proof_signature = 98;
+	repeated DecodeUnknownPayerProofTlvs unknown_payer_proof_tlvs = 99;
 }
 
 message DecodeOfferPaths {
@@ -1773,6 +1781,12 @@ message DecodeFallbacks {
 message DecodeExtra {
 	string tag = 1;
 	string data = 2;
+}
+
+message DecodeUnknownPayerProofTlvs {
+	uint64 item_type = 1;
+	uint64 length = 2;
+	bytes value = 3;
 }
 
 message DecodeRestrictions {
