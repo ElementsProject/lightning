@@ -29,10 +29,16 @@ def _resolve_executable(datadir: Path) -> Path:
     vlsd_dir = (datadir / signer_folder).resolve()
     logging.info(f"Cloning {REPOS[0]} into {vlsd_dir}")
     run(["git", "clone", REPOS[0]], cwd=datadir, check=True, timeout=120)
-    logging.info(f"Building vlsd in {vlsd_dir}")
+    cargo_target_dir = os.environ.get("CARGO_TARGET_DIR")
+    target_dir = (
+        Path(os.path.expanduser(cargo_target_dir)).resolve()
+        if cargo_target_dir
+        else vlsd_dir / "target"
+    )
+    logging.info(f"Building vlsd in {vlsd_dir} (target dir: {target_dir})")
     run(["cargo", "build", "--features", "developer"],
         cwd=vlsd_dir, check=True, timeout=600)
-    return (vlsd_dir / "target" / "debug" / "vlsd").resolve()
+    return (target_dir / "debug" / "vlsd").resolve()
 
 
 class ValidatingLightningSignerD(TailableProc):
@@ -43,7 +49,7 @@ class ValidatingLightningSignerD(TailableProc):
         self.datadir.mkdir(exist_ok=True, parents=True)
 
         self.bin_dir = str(_resolve_executable(self.datadir))
-        self.executable = self.bin_dir + "/vlsd"
+        self.executable = self.bin_dir / "vlsd"
         self.port = reserve_unused_port()
         self.rpc_port = reserve_unused_port()
         self.remote_socket = (Path(self.bin_dir) / "remote_hsmd_socket").resolve()
