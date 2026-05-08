@@ -58,6 +58,15 @@ def node_factory(request, directory, test_name, bitcoind, executor, db_provider,
         raise Exception("At least one lightning exited with unexpected non-zero return code")
 
 
+@pytest.fixture
+def use_vls(pytestconfig):
+    # This fixture is used to mark tests as using VLS. It doesn't do anything
+    # by itself, but it allows us to select tests with `-m vls` and to skip
+    # them if the signer is not available.
+    markerexpr = pytestconfig.getoption("markexpr") or ""
+    return "vls" in markerexpr.split()
+
+
 class LightningNode(utils.LightningNode):
     def __init__(self, *args, use_vls=None, **kwargs):
         # Yes, we really want to test the local development version, not

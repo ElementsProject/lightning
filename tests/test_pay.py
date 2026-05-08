@@ -25,8 +25,8 @@ import unittest
 @pytest.mark.vls
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
-def test_vls_simple_send(node_factory):
-    l1, l2 = node_factory.line_graph(2, opts=[{'use_vls': True}, {}])
+def test_vls_simple_send(node_factory, use_vls):
+    l1, l2 = node_factory.line_graph(2, opts=[{'use_vls': use_vls}, {}])
 
     inv = l2.rpc.invoice(123000, 'test_vls_simple', 'description')['bolt11']
     details = l1.dev_pay(inv, dev_use_shadow=False)
@@ -38,8 +38,8 @@ def test_vls_simple_send(node_factory):
 @pytest.mark.vls
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
-def test_vls_simple_receive(node_factory):
-    l1, l2 = node_factory.line_graph(2, opts=[{}, {'use_vls': True}])
+def test_vls_simple_receive(node_factory, use_vls):
+    l1, l2 = node_factory.line_graph(2, opts=[{}, {'use_vls': use_vls}])
 
     inv = l2.rpc.invoice(123000, 'test_vls_simple', 'description')['bolt11']
     details = l1.dev_pay(inv, dev_use_shadow=False)
@@ -51,8 +51,8 @@ def test_vls_simple_receive(node_factory):
 @pytest.mark.vls
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
-def test_vls_simple_route(node_factory):
-    l1, l2, l3 = node_factory.line_graph(3, opts=[{}, {}, {'use_vls': True}])
+def test_vls_simple_route(node_factory, use_vls):
+    l1, l2, l3 = node_factory.line_graph(3, opts=[{}, {}, {'use_vls': use_vls}])
 
     inv = l3.rpc.invoice(123000, 'test_vls_simple', 'description')['bolt11']
     details = l1.rpc.pay(inv, dev_use_shadow=False)
