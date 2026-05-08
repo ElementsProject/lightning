@@ -99,7 +99,7 @@ static void print_valid_offer(const struct tlv_offer *offer,
 			      const char *extradesc,
 			      const struct tlv_field *extrafield)
 {
-	char *str = offer_encode(tmpctx, offer), *err;
+	const char *str = offer_encode(tmpctx, offer), *err;
 	struct tlv_offer *offer2;
 
 	/* We only use extrafield on the end */

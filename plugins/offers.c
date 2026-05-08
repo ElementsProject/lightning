@@ -514,7 +514,8 @@ struct decodable {
 	u8 *emergency_recover;
 };
 
-static u8 *encrypted_decode(const tal_t *ctx, const char *str, char **fail) {
+static u8 *encrypted_decode(const tal_t *ctx, const char *str, const char **fail)
+{
 	if (strlen(str) < 8) {
 		*fail = tal_fmt(ctx, "invalid payload");
 		return NULL;
@@ -640,7 +641,7 @@ static struct command_result *param_decodable(struct command *cmd,
 					      const jsmntok_t *token,
 					      struct decodable *decodable)
 {
-	char *likely_fail = NULL, *fail;
+	const char *likely_fail = NULL, *fail;
 	jsmntok_t tok;
 	enum likely_type type;
 

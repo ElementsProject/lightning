@@ -150,7 +150,7 @@ int main(int argc, char *argv[])
 	struct pubkey alice, bob;
 	struct sha256 sha;
 	secp256k1_keypair kp;
-	char *fail;
+	const char *fail;
 
 	common_setup(argv[0]);
 	/* Note: no nul term */

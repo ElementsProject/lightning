@@ -218,7 +218,7 @@ size_t LLVMFuzzerCustomCrossOver(const u8 *in1, size_t in1_size, const u8 *in2,
 void run(const uint8_t *data, size_t size)
 {
 	char *invoice_str = to_string(tmpctx, data, size);
-	char *fail = NULL;
+	const char *fail = NULL;
 
 	struct bolt11 *b11 = bolt11_decode(tmpctx, invoice_str, NULL, NULL, NULL, &fail);
 	if (b11)

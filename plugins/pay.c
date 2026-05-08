@@ -1259,7 +1259,7 @@ static struct command_result *json_pay(struct command *cmd,
 	struct payment *p;
 	const char *b11str;
 	struct bolt11 *b11;
-	char *b11_fail, *b12_fail;
+	const char *b11_fail, *b12_fail;
 	u64 *maxfee_pct_millionths;
 	u32 *maxdelay;
 	struct amount_msat *exemptfee, *msat, *maxfee, *partial;

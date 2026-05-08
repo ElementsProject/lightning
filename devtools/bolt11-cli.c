@@ -220,7 +220,8 @@ int main(int argc, char *argv[])
 	const char *method;
 	struct bolt11 *b11;
 	struct bolt11_field *extra;
-	char *fail, *description = NULL;
+	const char *fail;
+	char *description = NULL;
 
 	common_setup(argv[0]);
 

@@ -1767,7 +1767,7 @@ static struct command_result *check_offer_payable(struct command *cmd,
 						  const char *offerstr,
 						  const struct amount_msat *msat)
 {
-	char *err;
+	const char *err;
 	struct tlv_offer *b12offer = offer_decode(tmpctx,
 						  offerstr,
 						  strlen(offerstr),
@@ -1968,7 +1968,7 @@ static struct command_result *xpay_core(struct command *cmd,
 	struct node_id dstid;
 	u64 now, invexpiry;
 	struct out_req *req;
-	char *err;
+	const char *err;
 
 	list_head_init(&payment->current_attempts);
 	list_head_init(&payment->past_attempts);
@@ -2352,8 +2352,7 @@ static bool calc_maxfee(struct command *cmd,
 			return false;
 	} else {
 		const struct bolt11 *b11;
-		char *fail;
-		const char *invstr;
+		const char *invstr, *fail;
 
 		/* We need to know total amount to calc fee */
 		if (!invstringtok)

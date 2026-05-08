@@ -32,9 +32,9 @@ static const char *offer_description_from_b12(const tal_t *ctx,
 					const char *b12)
 {
     struct tlv_offer *offer;
-    char *fail;
+    const char *fail;
 
-	offer = offer_decode(ctx, b12, strlen(b12),
+    offer = offer_decode(ctx, b12, strlen(b12),
                          NULL, NULL, &fail);
     if (!offer) {
         log_debug(ld->log, "Failed to decode BOLT12: %s", fail);
@@ -53,7 +53,7 @@ static struct command_result *param_b12_offer(struct command *cmd,
 					      const jsmntok_t *tok,
 					      struct tlv_offer **offer)
 {
-	char *fail;
+	const char *fail;
 	*offer = offer_decode(cmd, buffer + tok->start,
 			      tok->end - tok->start,
 			      cmd->ld->our_features, chainparams, &fail);
@@ -332,7 +332,7 @@ static struct command_result *prev_payment(struct command *cmd,
 	     stmt = payments_next(cmd->ld->wallet, stmt)) {
 		const struct wallet_payment *payment;
 		const struct tlv_invoice *inv;
-		char *fail;
+		const char *fail;
 		struct sha256 inv_oid;
 
 		payment = payment_get_details(tmpctx, stmt);
@@ -415,7 +415,7 @@ static struct command_result *param_b12_invreq(struct command *cmd,
 					       const jsmntok_t *tok,
 					       struct tlv_invoice_request **invreq)
 {
-	char *fail;
+	const char *fail;
 
 	*invreq = invrequest_decode(cmd, buffer + tok->start,
 				    tok->end - tok->start,

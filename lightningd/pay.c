@@ -1938,7 +1938,7 @@ static struct command_result *json_injectpaymentonion(struct command *cmd,
 	/* If we have and can decode invstring, we extract destination for listsendpays */
 	if (invstring) {
 		struct bolt11 *b11;
-		char *fail;
+		const char *fail;
 
 		b11 = bolt11_decode(cmd, invstring, NULL, NULL, NULL, &fail);
 		if (b11) {
@@ -2229,7 +2229,7 @@ static struct command_result *json_listsendpays(struct command *cmd,
 
 	if (invstring) {
 		struct bolt11 *b11;
-		char *fail;
+		const char *fail;
 
 		b11 = bolt11_decode(cmd, invstring, cmd->ld->our_features, NULL,
 				    chainparams, &fail);

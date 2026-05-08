@@ -440,7 +440,7 @@ static struct command_result *param_offer(struct command *cmd,
 					  const jsmntok_t *tok,
 					  struct tlv_offer **offer)
 {
-	char *fail;
+	const char *fail;
 
 	*offer = offer_decode(cmd, buffer + tok->start, tok->end - tok->start,
 			      plugin_feature_set(cmd->plugin), chainparams,
@@ -682,7 +682,7 @@ static struct command_result *invreq_done(struct command *cmd,
 {
 	struct tlv_onionmsg_tlv *payload;
 	const jsmntok_t *t;
-	char *fail;
+	const char *fail;
 	const struct recurrence *recurrence;
 
 	/* Get invoice request */
@@ -1375,7 +1375,7 @@ static struct command_result *createinvoice_done(struct command *cmd,
 {
 	struct tlv_onionmsg_tlv *payload;
 	const jsmntok_t *invtok = json_get_member(buf, result, "bolt12");
-	char *fail;
+	const char *fail;
 
 	/* Replace invoice with signed one */
 	tal_free(sent->inv);
@@ -1436,7 +1436,7 @@ static struct command_result *param_invreq(struct command *cmd,
 					   const jsmntok_t *tok,
 					   struct tlv_invoice_request **invreq)
 {
-	char *fail;
+	const char *fail;
 	int badf;
 	struct sha256 merkle, sighash;
 
@@ -1662,7 +1662,7 @@ static struct command_result *param_raw_invreq(struct command *cmd,
 					       const jsmntok_t *tok,
 					       struct tlv_invoice_request **invreq)
 {
-	char *fail;
+	const char *fail;
 
 	*invreq = invrequest_decode(cmd, buffer + tok->start, tok->end - tok->start,
 				    plugin_feature_set(cmd->plugin), chainparams,

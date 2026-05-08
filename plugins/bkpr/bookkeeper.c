@@ -1057,7 +1057,8 @@ static char *do_account_close_checks(struct command *cmd,
 static char *fetch_out_desc_invstr(const tal_t *ctx, const char *buf,
 				   const jsmntok_t *tok, char **err)
 {
-	char *bolt, *desc, *fail;
+	char *bolt, *desc;
+	const char *fail;
 
 	/* It's a bolt11! Parse it out to a desc */
 	if (!json_scan(ctx, buf, tok, "{bolt11:%}",

@@ -66,7 +66,7 @@ static void json_add_invoice_fields(struct json_stream *response,
 
 	json_add_u64(response, "expires_at", inv->expiry_time);
 	if (inv->local_offer_id) {
-		char *fail;
+		const char *fail;
 		struct tlv_invoice *tinv;
 
 		json_add_sha256(response, "local_offer_id", inv->local_offer_id);
@@ -1334,7 +1334,7 @@ static struct command_result *json_listinvoices(struct command *cmd,
 	enum wait_index *listindex;
 	u64 *liststart;
 	u32 *listlimit;
-	char *fail;
+	const char *fail;
 
 	if (!param_check(cmd, buffer, params,
 			 p_opt("label", param_label, &label),
@@ -1671,7 +1671,7 @@ static struct command_result *json_createinvoice(struct command *cmd,
 	struct sha256 hash;
 	const u5 *sig;
 	bool have_n;
-	char *fail;
+	const char *fail;
 
 	if (!param_check(cmd, buffer, params,
 			 p_req("invstring", param_invstring, &invstring),
@@ -1956,7 +1956,7 @@ static struct command_result *json_signinvoice(struct command *cmd,
 	struct sha256 hash;
 	const u5 *sig;
 	bool have_n;
-	char *fail;
+	const char *fail;
 
 	if (!param_check(cmd, buffer, params,
 			 p_req("invstring", param_invstring, &invstring),

@@ -183,7 +183,8 @@ static void test_b11(const char *b11str,
 		     const char *hashed_desc)
 {
 	struct bolt11 *b11;
-	char *fail, *reproduce;
+	const char *fail;
+	char *reproduce;
 	struct bolt11_field *b11_extra, *expect_extra;
 
 	b11 = bolt11_decode(tmpctx, b11str, NULL, hashed_desc,
@@ -287,7 +288,7 @@ int main(int argc, char *argv[])
 	struct amount_msat msatoshi;
 	const char *badstr;
         struct bolt11_field *extra;
-	char *fail;
+	const char *fail;
 	struct feature_set *fset;
 
 	common_setup(argv[0]);

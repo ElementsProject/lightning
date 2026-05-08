@@ -111,7 +111,7 @@ static struct command_result *json_renepaystatus(struct command *cmd,
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "BOLT12 invoices are not yet supported.");
 
-		char *fail;
+		const char *fail;
 		struct bolt11 *b11 =
 		    bolt11_decode(tmpctx, invstring, plugin_feature_set(cmd->plugin),
 				  NULL, chainparams, &fail);
@@ -232,7 +232,7 @@ static struct command_result *json_renepay(struct command *cmd, const char *buf,
 
 	/* === Parse invoice === */
 
-	char *fail;
+	const char *fail;
 	struct bolt11 *b11 = NULL;
 	struct tlv_invoice *b12 = NULL;
 

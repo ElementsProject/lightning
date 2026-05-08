@@ -717,7 +717,7 @@ int main(int argc, char *argv[])
 	const char *method;
 	char *hrp;
 	u8 *data;
-	char *fail;
+	const char *fail;
 	bool to_hex = false;
 
 	common_setup(argv[0]);

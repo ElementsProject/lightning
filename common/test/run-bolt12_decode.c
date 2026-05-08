@@ -191,7 +191,7 @@ int main(int argc, char *argv[])
 	json_for_each_arr(i, t, toks) {
 		bool valid, actual;
 		const jsmntok_t *strtok;
-		char *fail;
+		const char *fail;
 		const char *str;
 		size_t dlen;
 
@@ -199,8 +199,8 @@ int main(int argc, char *argv[])
 		strtok = json_get_member(json, t, "string");
 		str = json_escape_unescape_len(tmpctx, json + strtok->start,
 					       strtok->end - strtok->start);
-		actual = (string_to_data(tmpctx, str, strlen(str),
-					 "lno", &dlen, &fail) != NULL);
+		actual = (b12_string_to_data(tmpctx, str, strlen(str),
+					     "lno", &dlen, &fail) != NULL);
 		assert(actual == valid);
 		printf("%s %s\n", str, valid ? "OK": "INVALID");
 	}

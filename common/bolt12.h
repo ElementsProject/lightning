@@ -32,7 +32,7 @@ char *offer_encode(const tal_t *ctx, const struct tlv_offer *bolt12_tlv);
 struct tlv_offer *offer_decode(const tal_t *ctx, const char *b12, size_t b12len,
 			       const struct feature_set *our_features,
 			       const struct chainparams *must_be_chain,
-			       char **fail);
+			       const char **fail);
 
 /**
  * invrequest_encode - encode this complete bolt12 invreq TLV into text.
@@ -55,7 +55,7 @@ struct tlv_invoice_request *invrequest_decode(const tal_t *ctx,
 					      const char *b12, size_t b12len,
 					      const struct feature_set *our_features,
 					      const struct chainparams *must_be_chain,
-					      char **fail);
+					      const char **fail);
 
 /**
  * invoice_encode - encode this complete bolt12 invoice TLV into text.
@@ -81,7 +81,7 @@ struct tlv_invoice *invoice_decode(const tal_t *ctx,
 				   const char *b12, size_t b12len,
 				   const struct feature_set *our_features,
 				   const struct chainparams *must_be_chain,
-				   char **fail);
+				   const char **fail);
 
 /* UINT64_MAX if no expiry. */
 u64 invoice_expiry(const struct tlv_invoice *invoice);
@@ -91,7 +91,7 @@ struct tlv_invoice *invoice_decode_minimal(const tal_t *ctx,
 					   const char *b12, size_t b12len,
 					   const struct feature_set *our_features,
 					   const struct chainparams *must_be_chain,
-					   char **fail);
+					   const char **fail);
 
 /* Check a bolt12-style signature. */
 bool bolt12_check_signature(const struct tlv_field *fields,
@@ -166,6 +166,14 @@ struct tlv_invoice *invoice_for_invreq(const tal_t *ctx,
  * Each form is signed using one or more *signature TLV elements*: TLV
  * types 240 through 1000 (inclusive). */
 bool is_bolt12_signature_field(u64 typenum);
+
+/* Helper to convert bolt12 string (with expected HRP) to data */
+const u8 *b12_string_to_data(const tal_t *ctx,
+			     const char *str,
+			     size_t str_len,
+			     const char *hrp_expected,
+			     size_t *dlen,
+			     const char **fail);
 
 /**
  * Return the first field (if any) outside the inclusive ranges.

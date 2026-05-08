@@ -111,11 +111,11 @@ static void *pull_all(const tal_t *ctx,
 }
 
 /* Frees bolt11, returns NULL. */
-static struct bolt11 *decode_fail(struct bolt11 *b11, char **fail,
+static struct bolt11 *decode_fail(struct bolt11 *b11, const char **fail,
 				  const char *fmt, ...)
 	PRINTF_FMT(3,4);
 
-static struct bolt11 *decode_fail(struct bolt11 *b11, char **fail,
+static struct bolt11 *decode_fail(struct bolt11 *b11, const char **fail,
 				  const char *fmt, ...)
 {
 	va_list ap;
@@ -752,7 +752,7 @@ struct bolt11 *bolt11_decode_nosig(const tal_t *ctx, const char *str,
 				   struct sha256 *hash,
 				   const u5 **sig,
 				   bool *have_n,
-				   char **fail)
+				   const char **fail)
 {
 	const char *hrp, *prefix;
 	char *amountstr;
@@ -981,7 +981,7 @@ struct bolt11 *bolt11_decode(const tal_t *ctx, const char *str,
 			     const struct feature_set *our_features,
 			     const char *description,
 			     const struct chainparams *must_be_chain,
-			     char **fail)
+			     const char **fail)
 {
 	const u5 *sigdata;
 	size_t data_len;

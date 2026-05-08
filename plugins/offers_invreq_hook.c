@@ -548,7 +548,7 @@ static struct command_result *prev_invoice_done(struct command *cmd,
 {
 	const jsmntok_t *status, *arr, *b12;
 	struct tlv_invoice *previnv;
-	char *fail;
+	const char *fail;
 
 	/* Was it created? */
 	arr = json_get_member(buf, result, "invoices");

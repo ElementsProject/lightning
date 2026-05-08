@@ -773,7 +773,7 @@ static const char *check_inv_condition(const tal_t *ctx,
 {
 	const char *invfield = alt->fieldname + strlen("pinv");
 	const char *param;
-	char *b11fail, *b12fail;
+	const char *b11fail, *b12fail;
 	const struct bolt11 *b11;
 	const struct tlv_invoice *b12;
 	enum invoice_field invf;

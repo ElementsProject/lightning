@@ -183,7 +183,7 @@ do {										\
 void run(const u8 *data, size_t size)
 {
 	struct tlv_invoice_request *invreq, *decoded_invreq;
-	char *fail = NULL, *encoded_invreq;
+	const char *fail = NULL, *encoded_invreq;
 
 	invreq = invrequest_decode(tmpctx, (const char *)data, size,
 			/*feature_set=*/NULL, /*must_be_chain=*/NULL, &fail);
