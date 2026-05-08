@@ -1,0 +1,373 @@
+#include "config.h"
+#include <assert.h>
+#include <bitcoin/pubkey.h>
+#include <ccan/array_size/array_size.h>
+#include <ccan/str/str.h>
+#include <common/bigsize.h>
+#include <common/bolt12_merkle.h>
+#include <common/payer_proof.h>
+#include <common/setup.h>
+#include <common/utils.h>
+#include <secp256k1_extrakeys.h>
+#include <secp256k1_schnorrsig.h>
+#include <stdio.h>
+#include <string.h>
+#include <wire/tlvstream.h>
+
+struct vector {
+	const char *name;
+	const char *invoice_hex;
+	const char *preimage_hex;
+	const char *payer_secret_hex;
+	const u64 *include_types;
+	size_t num_include_types;
+	const char *note;
+	const char *expected_merkle_hex;
+	const char *expected_proof_hex;
+	const char *expected_bech32;
+	const char *expected_fail;
+};
+
+static struct sha256 hex_to_sha256(const char *hex)
+{
+	struct sha256 sha;
+	u8 *raw = tal_hexdata(tmpctx, hex, strlen(hex));
+
+	assert(tal_bytelen(raw) == sizeof(sha));
+	memcpy(&sha, raw, sizeof(sha));
+	return sha;
+}
+
+static struct preimage hex_to_preimage(const char *hex)
+{
+	struct preimage preimage;
+	u8 *raw = tal_hexdata(tmpctx, hex, strlen(hex));
+
+	assert(tal_bytelen(raw) == sizeof(preimage));
+	memcpy(&preimage, raw, sizeof(preimage));
+	return preimage;
+}
+
+static struct secret hex_to_secret(const char *hex)
+{
+	struct secret secret;
+	u8 *raw = tal_hexdata(tmpctx, hex, strlen(hex));
+
+	assert(tal_bytelen(raw) == sizeof(secret));
+	memcpy(&secret, raw, sizeof(secret));
+	return secret;
+}
+
+static struct tlv_invoice *hex_to_invoice(const tal_t *ctx, const char *hex)
+{
+	u8 *wire = tal_hexdata(tmpctx, hex, strlen(hex));
+	const u8 *cursor = wire;
+	size_t len = tal_bytelen(wire);
+	struct tlv_invoice *invoice;
+
+	invoice = fromwire_tlv_invoice(ctx, &cursor, &len);
+	assert(invoice);
+	assert(len == 0);
+	return invoice;
+}
+
+static bool proof_has_type(const struct tlv_field *fields, u64 typenum)
+{
+	for (size_t i = 0; i < tal_count(fields); i++) {
+		if (fields[i].numtype == typenum)
+			return true;
+	}
+	return false;
+}
+
+static struct tlv_field *proof_raw_field(struct tlv_field *fields, u64 typenum)
+{
+	for (size_t i = 0; i < tal_count(fields); i++) {
+		if (fields[i].numtype == typenum)
+			return &fields[i];
+	}
+	return NULL;
+}
+
+static struct tlv_invoice *build_signed_tail_invoice(const tal_t *ctx,
+						     const struct preimage *preimage,
+						     const struct secret *payer_secret,
+						     const struct secret *node_secret)
+{
+	static const u8 metadata[] = { 0xde, 0xad, 0xbe, 0xef };
+	struct tlv_invoice *invoice = tlv_invoice_new(ctx);
+	struct sha256 merkle, sighash;
+	struct pubkey payer_id, node_id;
+	secp256k1_keypair keypair;
+	u8 *tail = tal_arr(NULL, u8, 1);
+
+	assert(pubkey_from_secret(payer_secret, &payer_id));
+	assert(pubkey_from_secret(node_secret, &node_id));
+
+	invoice->invreq_metadata = tal_dup_arr(invoice, u8,
+					       metadata, ARRAY_SIZE(metadata), 0);
+	invoice->invreq_payer_id = tal_dup(invoice, struct pubkey, &payer_id);
+	invoice->invoice_payment_hash = tal(invoice, struct sha256);
+	sha256(invoice->invoice_payment_hash, preimage->r, sizeof(preimage->r));
+	invoice->invoice_node_id = tal_dup(invoice, struct pubkey, &node_id);
+	tlv_update_fields(invoice, tlv_invoice, &invoice->fields);
+
+	tail[0] = 0x01;
+	tlvstream_set_raw(&invoice->fields, 1000000001ULL, take(tail), 1);
+	tail = tal_arr(NULL, u8, 1);
+	tail[0] = 0x02;
+	tlvstream_set_raw(&invoice->fields, 1000000003ULL, take(tail), 1);
+
+	merkle_tlv(invoice->fields, &merkle);
+	sighash_from_merkle("invoice", "signature", &merkle, &sighash);
+
+	invoice->signature = tal(invoice, struct bip340sig);
+	assert(secp256k1_keypair_create(secp256k1_ctx, &keypair,
+					node_secret->data) == 1);
+	assert(secp256k1_schnorrsig_sign32(secp256k1_ctx,
+					   invoice->signature->u8,
+					   sighash.u.u8,
+					   &keypair,
+					   NULL) == 1);
+
+	return invoice;
+}
+
+static void test_multiple_tail_omissions_fail_to_build(void)
+{
+	struct preimage preimage;
+	struct secret payer_secret, node_secret;
+	struct tlv_invoice *invoice;
+	struct payer_proof *proof;
+	char *fail;
+
+	memset(&preimage, 0x55, sizeof(preimage));
+	memset(&payer_secret, 'B', sizeof(payer_secret));
+	memset(&node_secret, 'A', sizeof(node_secret));
+
+	invoice = build_signed_tail_invoice(tmpctx, &preimage,
+					    &payer_secret, &node_secret);
+	proof = payer_proof_from_invoice(tmpctx, invoice, &preimage,
+					 &payer_secret, NULL, NULL, &fail);
+	assert(!proof);
+	assert(strstr(fail,
+		      "multiple omitted_tlvs markers after last included field"));
+}
+
+static void test_decode_rejects_multiple_tail_markers(void)
+{
+	struct preimage preimage;
+	struct secret payer_secret, node_secret;
+	struct tlv_invoice *invoice;
+	u64 *include_types = tal_arr(tmpctx, u64, 0);
+	struct payer_proof *proof, *decoded;
+	struct tlv_field *field;
+	const u8 *cursor;
+	size_t len;
+	u8 *omitted = tal_arr(tmpctx, u8, 0);
+	char *encoded;
+	char *fail;
+
+	memset(&preimage, 0x56, sizeof(preimage));
+	memset(&payer_secret, 'D', sizeof(payer_secret));
+	memset(&node_secret, 'C', sizeof(node_secret));
+
+	invoice = build_signed_tail_invoice(tmpctx, &preimage,
+					    &payer_secret, &node_secret);
+	tal_arr_expand(&include_types, 1000000001ULL);
+	proof = payer_proof_from_invoice(tmpctx, invoice, &preimage,
+					 &payer_secret, include_types,
+					 NULL, &fail);
+	assert(proof);
+
+	field = proof_raw_field(proof->fields, PAYER_PROOF_TLV_OMITTED_TLVS);
+	assert(field);
+
+	cursor = field->value;
+	len = field->length;
+	while (len) {
+		u64 marker = fromwire_bigsize(&cursor, &len);
+
+		assert(cursor);
+		towire_bigsize(&omitted, marker);
+	}
+	towire_bigsize(&omitted, 1000000004ULL);
+	tlvstream_set_raw(&proof->fields, PAYER_PROOF_TLV_OMITTED_TLVS,
+			  take(omitted), tal_bytelen(omitted));
+	encoded = payer_proof_encode(tmpctx, proof);
+
+	decoded = payer_proof_decode(tmpctx, encoded, strlen(encoded), &fail);
+	assert(!decoded);
+	assert(strstr(fail,
+		      "multiple omitted_tlvs markers after last included field"));
+}
+
+static void run_positive_vector(const struct vector *vec)
+{
+	struct tlv_invoice *invoice = hex_to_invoice(tmpctx, vec->invoice_hex);
+	struct preimage preimage = hex_to_preimage(vec->preimage_hex);
+	struct secret payer_secret = hex_to_secret(vec->payer_secret_hex);
+	u64 *include_types = tal_arr(tmpctx, u64, 0);
+	struct payer_proof *proof, *decoded;
+	struct sha256 expected_merkle = hex_to_sha256(vec->expected_merkle_hex);
+	u8 *serialized;
+	char *fail;
+
+	for (size_t i = 0; i < vec->num_include_types; i++)
+		tal_arr_expand(&include_types, vec->include_types[i]);
+
+	proof = payer_proof_from_invoice(tmpctx, invoice, &preimage, &payer_secret,
+					 include_types, vec->note, &fail);
+	if (!proof) {
+		fprintf(stderr, "%s build failed: %s\n", vec->name, fail);
+		abort();
+	}
+	assert(sha256_eq(&proof->merkle_root, &expected_merkle));
+	serialized = payer_proof_serialize(tmpctx, proof);
+	assert(streq(tal_hexstr(tmpctx, serialized, tal_bytelen(serialized)),
+		     vec->expected_proof_hex));
+	assert(streq(payer_proof_encode(tmpctx, proof), vec->expected_bech32));
+
+	decoded = payer_proof_decode(tmpctx,
+				     vec->expected_bech32,
+				     strlen(vec->expected_bech32),
+				     &fail);
+	if (!decoded) {
+		fprintf(stderr, "%s decode failed: %s\n", vec->name, fail);
+		abort();
+	}
+	assert(sha256_eq(&decoded->merkle_root, &expected_merkle));
+	serialized = payer_proof_serialize(tmpctx, decoded);
+	assert(streq(tal_hexstr(tmpctx, serialized, tal_bytelen(serialized)),
+		     vec->expected_proof_hex));
+	assert(streq(payer_proof_encode(tmpctx, decoded), vec->expected_bech32));
+	if (vec->note)
+		assert(streq(decoded->payer_note, vec->note));
+}
+
+static void run_negative_vector(const struct vector *vec)
+{
+	struct tlv_invoice *invoice = hex_to_invoice(tmpctx, vec->invoice_hex);
+	struct preimage preimage = hex_to_preimage(vec->preimage_hex);
+	struct secret payer_secret = hex_to_secret(vec->payer_secret_hex);
+	u64 *include_types = tal_arr(tmpctx, u64, 0);
+	struct payer_proof *proof;
+	char *fail;
+
+	for (size_t i = 0; i < vec->num_include_types; i++)
+		tal_arr_expand(&include_types, vec->include_types[i]);
+
+	proof = payer_proof_from_invoice(tmpctx, invoice, &preimage, &payer_secret,
+					 include_types, vec->note, &fail);
+	assert(!proof);
+	assert(strstr(fail, vec->expected_fail));
+}
+
+int main(int argc, char *argv[])
+{
+	static const u64 experimental_types[] = { 3000000001ULL };
+	static const struct vector vectors[] = {
+		{
+			.name = "basic_1",
+			.invoice_hex = "00202a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a0a0b5465737420726566756e6452030186a05821035be5e9478209674a96e60f1f037f6176540fd001fa1d64694770c56a7709c42ca0e002ba72a6e8ba53e8b971ad0c9823968aef4d78ce8af255ab43dff83003c902fb8d035c4e0dec7215e26833938730e5e505aa62504da85ba57106a46b5a2404fc9d8e0202bb58b5feca505c74edc000d8282fc556e51a1024fc8e7d7e56c6f887c5c8d5f2002b00000000000000000000000000000000000000000000000000000000000000000000000000000000000000028f5304e2373e56ee7d774cb89e9f1afecf0ee7e3e3757f189908f069daa36c60002c0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000a21c00000001000003e8002a0000000000000064000000e8d4a510000000a4046553f100a820fbbbb6de2aa74c3c9570d2d8db1de31eadb66113c96034a7adb21243754d7683aa030186a0b02102bb58b5feca505c74edc000d8282fc556e51a1024fc8e7d7e56c6f887c5c8d5f2f0403cee1ed02def0c52ddf045482563de6da28ac951c2d76a13a082f8589178dab8fd80b504d63faa1008c7252ceac78d144caa0a0abc7225e1519b9d3c23d3d503",
+			.preimage_hex = "6464646464646464646464646464646464646464646464646464646464646464",
+			.payer_secret_hex = "2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a",
+			.expected_merkle_hex = "598183c1ede2780027aa4b17e883c3861fc5ea0675bc8669ab1c4a18245646dc",
+			.expected_proof_hex = "5821035be5e9478209674a96e60f1f037f6176540fd001fa1d64694770c56a7709c42ca820fbbbb6de2aa74c3c9570d2d8db1de31eadb66113c96034a7adb21243754d7683b02102bb58b5feca505c74edc000d8282fc556e51a1024fc8e7d7e56c6f887c5c8d5f2f0403cee1ed02def0c52ddf045482563de6da28ac951c2d76a13a082f8589178dab8fd80b504d63faa1008c7252ceac78d144caa0a0abc7225e1519b9d3c23d3d503f2206464646464646464646464646464646464646464646464646464646464646464f4060102595a5ba9f6a077518c89052c7a872cb9431e9d3a55f9c50fdf2cc68bec9f77767a131453ba5cf0aab9db4f1881573502c3f93d2742be17d67fd147ed9f272f5b0261524074c509f1b295892052ed114cc2cc8daff8aae229bba39604b2d07f1073f2634da9175c861c16e9213e317c86192c86d0067c46f3d8c258e07ab21eb1dc9a0ee7cd46f2349579f43a2f4122023d4fdab8ed2bc2c145a9cef93c0bdb12a4cf444490b9f860f8b5964e46182999e90a503f490cba87704a2bbd11ee273cd1d89914b3446be864d496783ace8552519775393bfcf932b8982df152399773678d2b467298f3dc41f09d925857e780a08a67adb442baaf52e634a4e37f00d92db8f71e031eb5ecfa40e87b009b05ec3b38cb88fc910d3b20d550a3de7f6297ee54a01f94e620f6b06b1f30b85e642e70f89108128d97838dc9ef5b5bca0052c1aec67310242ba6f3cf",
+			.expected_bech32 = "lnp1tqssxkl9a9rcyzt8f2twvrclqdlkzaj5plgqr7sav355wux9dfmsn3pv4qs0hwakmc42wnpuj4cd9kxmrh33atdkvyfujcp557kmyyjrw4xhdqasyyptkk94lm99qhr5ahqqpkpg9lz4deg6zqj0erna0etvd7y8chydtuhsgq7wu8ks9hhsc5ka7pz5sftrmek69zkf28pdw6sn5zp0sky30rdt3lvqk5zdv0a2zqyvwffvatrc69zv4g9q40rjyhs4rxua8s3a84gr7gsxgeryv3jxgeryv3jxgeryv3jxgeryv3jxgeryv3jxgeryv3jxge85qcqsyk26tw5ldgrh2xxgjpfv02rjew2rr6wn540ec58a7txx30kf7amk0gf3g5a6tnc24wwmfuvgz4e4qtplj0f8g2lp04nl69r7m8e89adsyc2jgp6v2z03k22cjgzja5g5eskv3khl32hz9xa689syktg87yrn7f35m2ghtjrpc9hfyylrzlyxrykgd5qx03r08kxztrs84vs7k8wf5rh8e4r0ydy4086r5t6pygpr6n76hrkjhskpgk5ua7fup0d39fx0g3zfpw0cvrutt9jwgcvznx0fpfgr7jgvh2rhqj3th5g7ufeu68vfj99ng347sex5jeur4n592fgewafe8070jv4cnqklz53ejaek0rftgeef3u7ug8cfmyjc2lncpgy2v7kmgs464afwvd9yudlspkfdhrm3uqc7khk05s8g0vqfkp0v8vuvhz8ujyxnkgx42z3aulmzjlh9fgqljnnzpa4sdv0npwz7vsh8p7y3pqfgm9ur3hy77k6megq99sdwcee3qfpt5meu7",
+		},
+		{
+			.name = "basic_2",
+			.invoice_hex = "00202b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b0a0b5465737420726566756e6452030186a0582102bb58b5feca505c74edc000d8282fc556e51a1024fc8e7d7e56c6f887c5c8d5f2a0e002ba72a6e8ba53e8b971ad0c9823968aef4d78ce8af255ab43dff83003c902fb8d035c4e0dec7215e26833938730e5e505aa62504da85ba57106a46b5a2404fc9d8e0202bb58b5feca505c74edc000d8282fc556e51a1024fc8e7d7e56c6f887c5c8d5f2002b00000000000000000000000000000000000000000000000000000000000000000000000000000000000000028f5304e2373e56ee7d774cb89e9f1afecf0ee7e3e3757f189908f069daa36c60002c0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000a21c00000001000003e8002a0000000000000064000000e8d4a510000000a4046553f100a820dfb417454d7432715ecfaa33d89abdaba4457c3b2cbd85a4a20620d0cd806da6aa030186a0b021028f5304e2373e56ee7d774cb89e9f1afecf0ee7e3e3757f189908f069daa36c60f040e05701c5d40d9f864633b0180b607947d52e8ca7140c044432b44f99d9a501be783b6a0679e3a8c5cffe330a82528e2fbbcf4f0e7c82d63a78a3001b2ece8793",
+			.preimage_hex = "6565656565656565656565656565656565656565656565656565656565656565",
+			.payer_secret_hex = "2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b",
+			.expected_merkle_hex = "fa5a8702b482b4539920ece8cb0aefc1188a59f48602292fa8cf9b750cd14910",
+			.expected_proof_hex = "582102bb58b5feca505c74edc000d8282fc556e51a1024fc8e7d7e56c6f887c5c8d5f2a820dfb417454d7432715ecfaa33d89abdaba4457c3b2cbd85a4a20620d0cd806da6b021028f5304e2373e56ee7d774cb89e9f1afecf0ee7e3e3757f189908f069daa36c60f040e05701c5d40d9f864633b0180b607947d52e8ca7140c044432b44f99d9a501be783b6a0679e3a8c5cffe330a82528e2fbbcf4f0e7c82d63a78a3001b2ece8793f2206565656565656565656565656565656565656565656565656565656565656565f4060102595a5ba9f6a04486cc9b07e670368d3e9501499dd74ce33433b5eae050935380905bb318dcaa3ef095dea3001105a95319ff0481eaaa5e399eb7669d1e2f24fc3b4ccf9265884906d3fd8383814e7946a0307f21205a56f1c9a625ef7584e0ece604a3d5a95ec98edc667da97717c60b40f53f6d463d944b706871166d0d8315fd1aff5b2be445760980f661e17042d742ed42acfbd034f9a2d8373062ecfd5e4a41b051fd8ef8600daf9943a78c87233c599e015c0a48a688af6dcead6bce519744f54c362ef561e15ceb69f4872b7dc6eab64ab1996c4a48063ea8aabc934c06ecd79cdc5856a16ad539e240390cd836ece057745b204b0bcb4adeda0a7a59ce164accccebf000fa40d9668b991c06c1144c6afdaf9b061c7323288f1db31de2a40b593c82960ef5c4e9b0e88a712ebaf6eb23796cfd44aa9ad3b61bcced89048ad5b92ca94cbf420e",
+			.expected_bech32 = "lnp1tqss9w6ckhlv55zuwnkuqqxc9qhu24h9rggzflyw04l9d3hcslzu340j4qsdldqhg4xhgvn3tm865v7cn276hfz90saje0v95j3qvgxsekqxmf4syypg75cyugmnu4hw04m5ewy7nud0ancwul37xatlrzvs3urfm23kcc8sgrs9wqw96sxelpjxxwcpszmq09ra2t5v5u2qcpzyx26ylxwe55qmu7pmdgr8ncagch8luvc2sffgutamea8sulyz6ca83gcqrvhvapun7gsx2et9v4jk2et9v4jk2et9v4jk2et9v4jk2et9v4jk2et9v4jk2e05qcqsyk26tw5ldgzysmxfkplxwqmg6054q9yem46vuv6r8d02upgfx5uqjpdmxxxu4gl0p9w75vqpzpdf2vvl7pypa249uwv7kanf6830yn7rknx0jfjcsjgx607c8qupfeu5dgps0usjqkjk78y6vf00wkzwpm8xqj3at227ex8dcena49m303stgr6n7m2x8k2ykurgwytx6rvrzh734l6m90jy2asfsrmxrctsgtt59m2z4naaqd8e5tvrwvrzan74ujjpkpglmrhcvqx6lx2r57xgwgeutx0qzhq2fzng3tmde6kkhnj3jaz02npk9m6krc2uad5lfpet0hrw4dj2kxvkcjjgqcl2324ujdxqdmxhnnw9s44pdt2nncjq8yxdsdhvupthgkeqfv9ukjk7mg985kwwze9ven8t7qq05sxev69ej8qxcy2yc6ha47dsv8rnyv5g78dnrh32gz6e8jpfvrh4cn5mp6y2wyht4ahtydukel2y42dd8dsmenkcjpy26kuje22vhapqu",
+		},
+		{
+			.name = "basic_3",
+			.invoice_hex = "00202c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c0a0b5465737420726566756e6452030186a05821028f5304e2373e56ee7d774cb89e9f1afecf0ee7e3e3757f189908f069daa36c60a0e002ba72a6e8ba53e8b971ad0c9823968aef4d78ce8af255ab43dff83003c902fb8d035c4e0dec7215e26833938730e5e505aa62504da85ba57106a46b5a2404fc9d8e0202bb58b5feca505c74edc000d8282fc556e51a1024fc8e7d7e56c6f887c5c8d5f2002b00000000000000000000000000000000000000000000000000000000000000000000000000000000000000028f5304e2373e56ee7d774cb89e9f1afecf0ee7e3e3757f189908f069daa36c60002c0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000a21c00000001000003e8002a0000000000000064000000e8d4a510000000a4046553f100a820352302489bc2fcf025cf00cda8308033f97ac87712ce90b4d7cd72c58e4c3af9aa030186a0b02103948b53da97fdf674c0877315acbcc8761aa3b9a582b439982fbafac99f97210ff040e41e3dd7a964b2be7566ab0cccc0815ca84ea978e6790396763fedc69a1273edc268dfa714f4a46ef4b18ec7d7c2dd9a8dc0565a286e3f066641c4bfa32f7ba8",
+			.preimage_hex = "6666666666666666666666666666666666666666666666666666666666666666",
+			.payer_secret_hex = "2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c",
+			.expected_merkle_hex = "0861098ff963c08af8b4f179c4ed447b710b265c76f4eded57d1eeb4c2417ee6",
+			.expected_proof_hex = "5821028f5304e2373e56ee7d774cb89e9f1afecf0ee7e3e3757f189908f069daa36c60a820352302489bc2fcf025cf00cda8308033f97ac87712ce90b4d7cd72c58e4c3af9b02103948b53da97fdf674c0877315acbcc8761aa3b9a582b439982fbafac99f97210ff040e41e3dd7a964b2be7566ab0cccc0815ca84ea978e6790396763fedc69a1273edc268dfa714f4a46ef4b18ec7d7c2dd9a8dc0565a286e3f066641c4bfa32f7ba8f2206666666666666666666666666666666666666666666666666666666666666666f4060102595a5ba9f6a0294eb9e464a2b02e9e3c8631f663428eefb8dbd9f4618375f36adc4bbacf5c889f9e078e8e453de641b01781e7b1722189fc5d02007ef7a1e75ead73a2c831b3a04d51decb91fb799b21614b82e1d2b6fc3ffa78be99de272e68b5a6168d41d44fb023cc54925ebe86da1d9c50ec93fb088f4718f19b4f62b40aba18f16dd2da5f0617d50b2fee3f329b7776426f9ed7096713d20f08122e334ca029db829c92f860c89eb06e0151b1cd7bd89c3acd9afe5eab05798bab23aef3b3287b7e7c69c9db642f7222ed3e82ba3f7b0bcbfe705d781be46e82a26dbb830e08e91ca582ceb73bb3dd1c283d381fffc328a0893db11384a915df52203e41702b90dd18edc0c0fa407aad5cdb1035c1d4c8e46f2d52f7a41497d0425a6f92d30d7356eae055f81cce743eb1e3e99aa9ce3f6561e8771e4a7bec45f1ad3f64ef20f499406f0a6ccaf9",
+			.expected_bech32 = "lnp1tqss9r6nqn3rw0jkae7hwn9cn6034lk0pmn78cm40uvfjz8sd8d2xmrq4qsr2gczfzdu9l8syh8spndgxzqr87t6epm39n5skntu6uk93exr47dsyypefz6nm2tlman5czrhx9dvhny8vx4rhxjc9dpenqhm47kfn7tjzrlsgrjpu0wh49jt90n4v64senxqs9w2sn4f0rn8jqukwcl7m356zfe7msngm7n3fa9ydm6trrk86lpdmx5dcpt952rw8urxvswyh73j77ag7gsxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxveh5qcqsyk26tw5ldgpff6u7ge9zkqhfu0yxx8mxxs5wa7udhk05vxphtum2m39m4n6u3z0eupuw3eznmejpkqtcrea3wgscnlzaqgq8aaapua026uazeqcm8gzd280vhy0m0xdjzc2tstsa9dhu8la8305emcnju6945ctg6sw5f7cz8nz5jf0tapk6rkw9pmynlvyg73cc7xd57c45p2ap3utd6td97psh659jlm3lx2dhwajzd70dwzt8z0fq7zqj9ce5egpfmwpfeyhcvryfavrwq9gmrntmmzwr4nv6le02kpte3w4j8thnkv58klnud8yakep0wg3w605zhglhkz7tlec967qmu3hg9gndhwpsuz8frjjc9n4h8wea68pg85upll7r9zsgj0d3zwz2j9wl2gsrusts9wgd6x8dcrq05sr644wdkyp4c82v3er094f00fq5jlgyykn0jtfs6u6kats9t7quee6rav0raxd2nn3lv4s7sac7ffa7c30345lkfmeq7jv5qmc2dn90j",
+		},
+		{
+			.name = "with_note_simple",
+			.invoice_hex = "002032323232323232323232323232323232323232323232323232323232323232320a0b5465737420726566756e6452030186a058210290999dbbf43034bffb1dd53eac1eb4c33a4ea1c4f48ba585cfde3830840f0555a0e002ba72a6e8ba53e8b971ad0c9823968aef4d78ce8af255ab43dff83003c902fb8d035c4e0dec7215e26833938730e5e505aa62504da85ba57106a46b5a2404fc9d8e0202bb58b5feca505c74edc000d8282fc556e51a1024fc8e7d7e56c6f887c5c8d5f2002b00000000000000000000000000000000000000000000000000000000000000000000000000000000000000028f5304e2373e56ee7d774cb89e9f1afecf0ee7e3e3757f189908f069daa36c60002c0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000a21c00000001000003e8002a0000000000000064000000e8d4a510000000a4046553f100a8203ccee44d46ce196582f01189af32a2d7a8177e6a4aec2e7f2f6ff92a450667a6aa030186a0b021023c72addb4fdf09af94f0c94d7fe92a386a7e70cf8a1d85916386bb2535c7b1b1f040e9e591c186a5e508f1490ee3153697cb560cf4f36ce4dc4204b588be2511b9928eae6185199467af452cd378eaf1a8130caa77ab15aeda1a0fd4059c0efc53f9",
+			.preimage_hex = "9696969696969696969696969696969696969696969696969696969696969696",
+			.payer_secret_hex = "3232323232323232323232323232323232323232323232323232323232323232",
+			.note = "Payment for coffee",
+			.expected_merkle_hex = "a57a02442b2e05891975dd8cb75daadd638acdb5855e7c11d94120bff7034fe7",
+			.expected_proof_hex = "58210290999dbbf43034bffb1dd53eac1eb4c33a4ea1c4f48ba585cfde3830840f0555a8203ccee44d46ce196582f01189af32a2d7a8177e6a4aec2e7f2f6ff92a450667a6b021023c72addb4fdf09af94f0c94d7fe92a386a7e70cf8a1d85916386bb2535c7b1b1f040e9e591c186a5e508f1490ee3153697cb560cf4f36ce4dc4204b588be2511b9928eae6185199467af452cd378eaf1a8130caa77ab15aeda1a0fd4059c0efc53f9f2209696969696969696969696969696969696969696969696969696969696969696f4060102595a5ba9f6a0916b5368e2487fa2c71d99df1f01e1926f2717f31486fceebdbfefcd4ae201788655bc3fd63d2fa8ae2f925eb48f97da35b4288079b72037e2ec930d6736dd089d57eda51f43aadbe2604f5b377e10e94e58348738466889622e6923eac11ba97a78c334d0e399f6ffbbe740a4e8e97b739569eccac9a3340cff7fa1357280ee01da3e1b2c9403cff9005fddabf7350aae55c3d54c9f62e1ecaef207d08540a7f860054685442ad32953046195bd162006fa0e57feb11d6a9c58df3992fefb96e2d0fe9af0bc8c5853bbdd4d1dc37c5b0906261fe8f8572499400d9fb1438984cb645778847e05a8e3e1a555c64d8428769ae01b258694b9b0cd3bc2a7aa62c327bdfa5269b15cda9a3d232704d6c37d13d5aa3b4537e8cfd2174a82394cf260e500d1a5aab3a094cfd612429bc09d6601ff5fa94c543795d6cf22722a441e52476575045061796d656e7420666f7220636f66666565",
+			.expected_bech32 = "lnp1tqss9yyenkalgvp5hla3m4f74s0tfse6f6sufayt5kzulh3cxzzq7p244qsrenhyf4rvuxt9stcprzd0x23d02qh0e4y4mpw0uhkl7f2g5rx0f4syyprcu4dmd8a7zd0jncvjntlay4rs6n7wr8c58v9j93cdwe9xhrmrv0sgr57tywps6j72z83fy8wx9fkjl94vr857dkwfhzzqj6c3039zxue9r4wvxz3n9r84azje5mcatc6sycv4fm6k9dwmgdql4q9ns80c5le7gsfd95kj6tfd95kj6tfd95kj6tfd95kj6tfd95kj6tfd95kj6tfd9h5qcqsyk26tw5ldgy3ddfk3cjg073vw8vemu0srcvjdun30uc5sm7wa0dlalx54csp0zr9t0pl6c7jl29w97f9ady0jldrtdpgspumwgphutkfxrt8xmws382hakj37sa2m03xqn6mxalpp62wtq6gwwzxdzykytnfy04vzxaf0fuvxdxsuwvldlamuaq2f68f0dee260vety6xdqvlal6zdtjsrhqrk37rvkfgq70lyq9lhdt7u6s4tj4c025e8mzu8k2aus86zz5pflcvqz5dp2y9tfjj5cyvx2m693qqmaqu4l7kywk48zcmuue9lhmjm3dpl567z7gckznh0w568wr03dsjp3xrl50s4eyn9qqm8a3gwycfjmy2auggls94r37rf24cexcg2rkntspkfvxjjumpnfmc2n65ckry77l55nfk9wd4x3ayvnsf4kr05fat23mg5m73n7jza9gyw2v7fsw2qx35k4t8gy5eltpys5mczwkvq0lt755c4phjhtv7gnj9fzpu5j8v46sg5rp09kk2mn5ypnx7u3qvdhkven9v5",
+		},
+		{
+			.name = "with_note_service",
+			.invoice_hex = "002033333333333333333333333333333333333333333333333333333333333333330a0b5465737420726566756e6452030186a05821023c72addb4fdf09af94f0c94d7fe92a386a7e70cf8a1d85916386bb2535c7b1b1a0e002ba72a6e8ba53e8b971ad0c9823968aef4d78ce8af255ab43dff83003c902fb8d035c4e0dec7215e26833938730e5e505aa62504da85ba57106a46b5a2404fc9d8e0202bb58b5feca505c74edc000d8282fc556e51a1024fc8e7d7e56c6f887c5c8d5f2002b00000000000000000000000000000000000000000000000000000000000000000000000000000000000000028f5304e2373e56ee7d774cb89e9f1afecf0ee7e3e3757f189908f069daa36c60002c0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000a21c00000001000003e8002a0000000000000064000000e8d4a510000000a4046553f100a820fc19aa9fbfd2a861d1e58c290f4ccf06552567d2c00e1a10eabdd7d0c406289daa030186a0b02102407cba6352eaeb9354dc75ca26396785b27a85cfd4d58575de440902292d662af040e4f2a75f7359e5239ab923052e00da806f70c4b2e5f1b7bd3ed0334b443f8882dea120dcfeb4f3c7be976eaf5346add130825b5ac2d968dd0c643949c7f9327c",
+			.preimage_hex = "9797979797979797979797979797979797979797979797979797979797979797",
+			.payer_secret_hex = "3333333333333333333333333333333333333333333333333333333333333333",
+			.note = "Payment for consulting service",
+			.expected_merkle_hex = "bb3fb492c0787341db99e728a40bd18a3f5beeef4942d37a3c00d3a88e891df3",
+			.expected_proof_hex = "5821023c72addb4fdf09af94f0c94d7fe92a386a7e70cf8a1d85916386bb2535c7b1b1a820fc19aa9fbfd2a861d1e58c290f4ccf06552567d2c00e1a10eabdd7d0c406289db02102407cba6352eaeb9354dc75ca26396785b27a85cfd4d58575de440902292d662af040e4f2a75f7359e5239ab923052e00da806f70c4b2e5f1b7bd3ed0334b443f8882dea120dcfeb4f3c7be976eaf5346add130825b5ac2d968dd0c643949c7f9327cf2209797979797979797979797979797979797979797979797979797979797979797f4060102595a5ba9f6a091c67b3f790da53368c0544caef814e24069b1fc75a36bb881a853f71c55eb4742a0ba781720f04663deba7ffac5ca2d3a74af2e9ff50a22975f1479cc808dc9028c9bc439999e6337ed907b1535cbcf1ab1e5f867da59d29c5aa926dd45718e314ffa44ce594b2dc04280f3b575acc2f459f7f10bdd4a8474839d8d25705fe4ed280154b2fc3685f9e06cba28b9dfd7739dcfbdd1a504b2644d3dc5987653d8f860a31f3e3db78b51cbde287240197edde03b1b474c91d25cccea5f62ef6453bc993fb5b59839e98241bd63ce84dca332b99cc396c71bf2b80e56aced379819836d98e651ce7f9ac7d2a88b8bac8621fc3d5a87db2d4e9de0cd823b219e41241e66fa5e01f0e3294720ad47f95ad979d707c8630a0c9a6af5cb2a0c8ce786f679369e1997dd8753db6442ed5d6cb467fa1981004950f5f27c058adba98ef4d120b40e8a5061796d656e7420666f7220636f6e73756c74696e672073657276696365",
+			.expected_bech32 = "lnp1tqssy0rj4hd5lhcf4720pj2d0l5j5wr20ecvlzsaskgk8p4my56u0vd34qs0cxd2n7la92rp68jcc2g0fn8sv4f9vlfvqrs6zr4tm47scsrz38dsyypyql96vdfw46un2nw8tj3x89nctvn6sh8af4v9wh0ygzgz9ykkv2hsgrj09f6lwdv72gu6hy3s2tsqm2qx7uxyktjlrdaa8mgrxj6y87yg9h4pyrw0ad8nc7lfwm402dr2m5fssfd44skedrwscepef8rljvnu7gsf09uhj7te09uhj7te09uhj7te09uhj7te09uhj7te09uhj7te09l5qcqsyk26tw5ldgy3cean77gd55ek3sz5fjh0s98zgp5mrlr45d4m3qdg20m3c40tgap2pwnczus0q3nrm6a8l7k9egkn5a90960l2z3zja03g7wvszxujq5vn0zrnxv7vvm7myrmz56uhnc6k8jlse76t8ffck4fymw52uvwx98l53xwt99jmszzsrem2advct69nal3p0w54pr5swwc6ftstljw62qp2je0cd59l8sxew3gh80awuuae77arfgykfjy60w9npm98k8cvz33703ak794rj779peyqxt7mhsrkx68fjgayhxvaf0k9mmy2w7fj0a4kkvrn6vzgx7k8n5ymj3n9wvucwtvwxljhq89dt8dx7vpnqmdnrn9rnnlntra92yt3wkgvg0u84dg0kedf6w7pnvz8vseusfyren05hsp7r3jj3eq44rljkke08ts0jrrpgxf56h4ev4qer88smm8jd57rxtamp6nmdjy9m2adj6x07sesyqyj5847f7qtzkm4x80f5fqks8g55rp09kk2mn5ypnx7u3qvdhkuum4d36xjmn8ypek2unkd93k2",
+		},
+		{
+			.name = "with_note_long",
+			.invoice_hex = "002034343434343434343434343434343434343434343434343434343434343434340a0b5465737420726566756e6452030186a0582102407cba6352eaeb9354dc75ca26396785b27a85cfd4d58575de440902292d662aa0e002ba72a6e8ba53e8b971ad0c9823968aef4d78ce8af255ab43dff83003c902fb8d035c4e0dec7215e26833938730e5e505aa62504da85ba57106a46b5a2404fc9d8e0202bb58b5feca505c74edc000d8282fc556e51a1024fc8e7d7e56c6f887c5c8d5f2002b00000000000000000000000000000000000000000000000000000000000000000000000000000000000000028f5304e2373e56ee7d774cb89e9f1afecf0ee7e3e3757f189908f069daa36c60002c0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000a21c00000001000003e8002a0000000000000064000000e8d4a510000000a4046553f100a8205bcd7f17c6d1d2636206ea55dfb2204ac6a9f10669108c222e319258efbed25eaa030186a0b02102b21db47a75ceee5c010f69f66d48d5a017e4e2f46b47b496ddf03498c26e1cecf040b6d0b144b2d600d6201bc7fc7670b0e2bcb054ca2d59b5eba9b1059f035fb2b7ebcd9fabf4ed166bc7e93e28b3c8c5ba4ed6ee9078971552ddfe3b3c88d72ad4",
+			.preimage_hex = "9898989898989898989898989898989898989898989898989898989898989898",
+			.payer_secret_hex = "3434343434343434343434343434343434343434343434343434343434343434",
+			.note = "This is a longer note describing the payment purpose",
+			.expected_merkle_hex = "7d9bb8a3997fb9833844e61dc4d75dc829088b9bc7eaa042cb6c9d886f1012a1",
+			.expected_proof_hex = "582102407cba6352eaeb9354dc75ca26396785b27a85cfd4d58575de440902292d662aa8205bcd7f17c6d1d2636206ea55dfb2204ac6a9f10669108c222e319258efbed25eb02102b21db47a75ceee5c010f69f66d48d5a017e4e2f46b47b496ddf03498c26e1cecf040b6d0b144b2d600d6201bc7fc7670b0e2bcb054ca2d59b5eba9b1059f035fb2b7ebcd9fabf4ed166bc7e93e28b3c8c5ba4ed6ee9078971552ddfe3b3c88d72ad4f2209898989898989898989898989898989898989898989898989898989898989898f4060102595a5ba9f6a0f532a5ff479c99e787a5ff4693b76d75d431d03e8ff43629062067d2cc8eb74236757e4246ecbe2c94398711cb360fb87a3bd46b43f94076fb999cfcc7f6da0644975480d660610d6a0d2a5a2c395fc9c7c3c799976ccab5521ed35f6266ad2ee6dbb7604fc829420094dfa4e27f9f14ca66fd044d51e902f0bc4c5f509a048392a9271c8b3e109382729d79fa0e78ad7df1c22fe460d831a317805c2be77205f860d53027dc554cfc151a7c8e2178eb9e72845461c436ef0daaf6042420542fb2923b4af8ba3c091b194e8240ab162950c080283341f25a3dc60149cfc83b1ef3ae88502b39f2688dba74b50e44e5076dd45090656f14428f4378db92cd98176ed8fa74aa7780438d0a32edea348820eef7f2fbf05865d6916fbdb0d9425a22084bd70cdd88d2b8d19ab3cd3af0355529f1fc825f8160c8f3d74a98113d99a3ad89d7bf546869732069732061206c6f6e676572206e6f74652064657363726962696e6720746865207061796d656e7420707572706f7365",
+			.expected_bech32 = "lnp1tqssysruhf3496htjd2dcaw2ycuk0pdj02zul4x4s46au3qfqg5j6e324qs9hntlzlrdr5nrvgrw54wlkgsy434f7yrxjyyvyghrryjca7ldyh4syypty8d50f6uamjuqy8knandfr26q9lyut6xk3a5jmwlqdyccfhpem8sgzmdpv2ykttqp43qr0rlcanskr3tevz5egk4nd0t4xcst8crt7et067dn74lfmgkd0r7j03gk0yvtwjw6mhfq7yhz4fdml3m8jydw2k57gsf3xycnzvf3xycnzvf3xycnzvf3xycnzvf3xycnzvf3xycnzvf3x85qcqsyk26tw5ldg84x2jl73uun8nc0f0lg6fmwmt46scaq0507smzjp3qvlfver4hggm82ljzgmktuty58xr3rjekp7u85w75ddpljsrklwveelx87mdqv3yh2jqdvcrpp44q62j69su4ljw8c0ren9mve264y8knta3xdtfwumdmwcz0eq55yqy5m7jwylulzn9xdlgyf4g7jqhsh3x975y6qjpe92f8rj9nuyynsfef6706peu26l03cgh7gcxcxx330qzu90nhyp0cvr2nqf7u24x0c9g60j8zz78tneegg4rpcsmw7rd27czzggz597efyw62lzarczgmr98gys9tzc54psyq9qe5ruj68hrqzjw0eqa3auaw3pgzkw0jdzxm5a94pezw2pmd63gfqet0z3pg7smcmwfvmxqhdmv05a92w7qy8rg2xtk75dygyrh00uhm7pvxt453d77mpk2ztg3qsj7hpnwc354c6xdt8nf67q642203ljp9lqtqereawj5czy7engad38tm74rgd9ejq6tnypsjqmr0denk2u3qdehhgefqv3jhxcmjd93xjmn8yp6xsefqwpshjmt9de6zqur4wfcx7um9",
+		},
+		{
+			.name = "invalid_preimage",
+			.invoice_hex = "00203c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c0a0b5465737420726566756e6452030186a05821026776bee20c9bf74c421e703c23a132f6dbdf6c882c7f6634b128e66820139db1a0e002ba72a6e8ba53e8b971ad0c9823968aef4d78ce8af255ab43dff83003c902fb8d035c4e0dec7215e26833938730e5e505aa62504da85ba57106a46b5a2404fc9d8e0202bb58b5feca505c74edc000d8282fc556e51a1024fc8e7d7e56c6f887c5c8d5f2002b00000000000000000000000000000000000000000000000000000000000000000000000000000000000000028f5304e2373e56ee7d774cb89e9f1afecf0ee7e3e3757f189908f069daa36c60002c0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000a21c00000001000003e8002a0000000000000064000000e8d4a510000000a4046553f100a820e6d0fa555d22215548baedcbeed5078f3e4d69edb157e79675cc8cfcfc40048aaa030186a0b021022bbe83ba1af230dc06a960207aacbe4cb50172058e7d51d1fcd589a18a1ad1b0f0405051ffefb2b971ebdfdfe2907b803708dbfc68b60ab378d273a6faebc68f17136fe967d710598a517f2034b2dde6e4593fd2d6e03c0742b95289be5fa0e66c79",
+			.preimage_hex = "c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9",
+			.payer_secret_hex = "3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c",
+			.expected_fail = "payment preimage does not match invoice_payment_hash",
+		},
+		{
+			.name = "included_experimental_invoice_tlv",
+			.invoice_hex = "002046464646464646464646464646464646464646464646464646464646464646460a0b5465737420726566756e6452030186a05821024bc2a31265153f07e70e0bab08724e6b85e217f8cd628ceb62974247bb493382a0e002ba72a6e8ba53e8b971ad0c9823968aef4d78ce8af255ab43dff83003c902fb8d035c4e0dec7215e26833938730e5e505aa62504da85ba57106a46b5a2404fc9d8e0202bb58b5feca505c74edc000d8282fc556e51a1024fc8e7d7e56c6f887c5c8d5f2002b00000000000000000000000000000000000000000000000000000000000000000000000000000000000000028f5304e2373e56ee7d774cb89e9f1afecf0ee7e3e3757f189908f069daa36c60002c0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000a21c00000001000003e8002a0000000000000064000000e8d4a510000000a4046553f100a8207ffcc64c652fd457b5142f0bf1b586874ca12f665a88fa01c58985832f2df013aa030186a0b021021492bc6a132ac91cb8b9f57d2b809dd2bdb8e1a294d3edbb6c6f7fc03bf11cacf040fb5976a538d0c4fde519ac70bfc50c21bd3bfb4d28cd9e2b0b0856c0b4fb62b7ea017af8bbc2dee5749456b40b8434182d0f1f87c055060f2fd661daa2822576feb2d05e011e6578706572696d656e74616c2d70617965722d70726f6f662d6669656c64",
+			.preimage_hex = "d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2",
+			.payer_secret_hex = "4646464646464646464646464646464646464646464646464646464646464646",
+			.include_types = experimental_types,
+			.num_include_types = ARRAY_SIZE(experimental_types),
+			.expected_merkle_hex = "61c601b645d04554c4db1d8ed0dd3c59142de98c8d7867a1d314b9e4d6021656",
+			.expected_proof_hex = "5821024bc2a31265153f07e70e0bab08724e6b85e217f8cd628ceb62974247bb493382a8207ffcc64c652fd457b5142f0bf1b586874ca12f665a88fa01c58985832f2df013b021021492bc6a132ac91cb8b9f57d2b809dd2bdb8e1a294d3edbb6c6f7fc03bf11cacf040fb5976a538d0c4fde519ac70bfc50c21bd3bfb4d28cd9e2b0b0856c0b4fb62b7ea017af8bbc2dee5749456b40b8434182d0f1f87c055060f2fd661daa2822576f220d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2f4060102595a5ba9f6a0c5523be93940af8dc315216d1eda3fdbc274e426d90c1a4fe2cca0ad6ee2d1e385fd50f45bc3a5b19213c78e38547818a01eea623a25fa836b95562f77f60226b5fee5e8e104e8f09c8fed669f8c59fdf8a956ab77e5018d5fff74532b84a2b56c5d686ffd730071af90ffbdc561c366c13042f255c2ec4fd4c70de422a6aae315b6906268e7c802c113bd1c152cdf5808dcb7929dc4debd17791660f36cf363f880c8c2c1e195c3abdcece038417bf41e6b02fae0bb9cb986076dc30f90989e0407eff646236a3e7f12da67628a7e85768c92296510d97ef5626c8c26fd6e2162b067190c6f9d524244f6a55074cd71486a849acb11362bfd23f60ad21d6e379903f99f6f24440da2d0a7e559b97702aece0e503fe497b23ecdf7679626066b8455fa404fa66b8957944db4165f58eeeb418fcb1786a1e0419680c13e00331f9ee599ca58d5cb1a20abd564045c1d95234fe4662789b3ba41048f557391dd85b5534a1afeb2d05e011e6578706572696d656e74616c2d70617965722d70726f6f662d6669656c64",
+			.expected_bech32 = "lnp1tqssyj7z5vfx29flqlnsuzatppeyu6u9ugtl3ntz3n4k996zg7a5jvuz4qs8llxxf3jjl4zhk52z7zl3kkrgwn9p9an94z86q8zcnpvr9uklqyasyyppfy4udgfj4jguhzul2lftszwa90dcux3ff5ldhdkx7l7q80c3et8sgra4ja498rgvfl09rxk8p079pssm6wlmf55vm83tpvy9ds95ld3t06sp0tuthsk7u46fg445pwzrgxpdpu0c0sz4qc8jl4npm23gyftk7gsd95kj6tfd95kj6tfd95kj6tfd95kj6tfd95kj6tfd95kj6tfd95h5qcqsyk26tw5ldgx92ga7jw2q47xux9fpd50d507mcf6wgfkepsdylckv5zkkack3uwzl6585t0p6tvvjz0rcuwz50qv2q8h2vgazt75rdw24vtmh7cpzdd07uh5wzp8g7zwglmtxn7x9nl0c49t2kal9qxx4llm52v4cfg44d3wksmlawvq8rtusl77u2cwrvmqnqshj2hpwcn75cux7gg4x4t33td5svf5w0jqzcyfm68q49n04szxuk7ffm3x7h5thj9nq7dk0xclcsryv9s0pjhp6hh8vuquyz7l5re4s97hqhwwtnps8dhpslyycnczq0mlkgc3k50nlztdxwc5206zhdryj99j3pkt7743xerpxl4hzzc4svuvscmua2fpyfa492p6v6u2gd2zf4jc3xc4l6glkptfp6m3hnypln8m0y3zqmgks5lj4nwthq2hvurjs8ljf0v37ehmk093xqe4cg406gp86v6uf272ymdqktavwa66p3l930p4pupqedqxp8cqrx8u7ukvu5kx4evdzp274vsz9c8v4yd87ge383xem5sgy3a2h8ywask64xjs6l6edqhsprejhsur9wf5k6etww3skcttsv9uk2u3dwpex7mmx94nxjetvvs",
+		},
+	};
+
+	common_setup(argv[0]);
+
+	for (size_t i = 0; i < ARRAY_SIZE(vectors); i++) {
+		printf("%s\n", vectors[i].name);
+		if (vectors[i].expected_fail)
+			run_negative_vector(&vectors[i]);
+		else
+			run_positive_vector(&vectors[i]);
+	}
+
+	{
+		char *fail;
+		struct payer_proof *proof
+			= payer_proof_decode(tmpctx,
+					     vectors[ARRAY_SIZE(vectors) - 1].expected_bech32,
+					     strlen(vectors[ARRAY_SIZE(vectors) - 1].expected_bech32),
+					     &fail);
+		assert(proof);
+		assert(proof_has_type(proof->invoice->fields, 3000000001ULL));
+	}
+
+	test_multiple_tail_omissions_fail_to_build();
+	test_decode_rejects_multiple_tail_markers();
+
+	common_shutdown();
+	return 0;
+}
