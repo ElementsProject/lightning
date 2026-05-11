@@ -174,6 +174,13 @@
       }
     }
   },
+  "errors": [
+    "The following error codes may occur:",
+    "",
+    "- -1: Catchall nonspecific error.",
+    "- 205: Unable to find a route.",
+    "- 206: Route too expensive. Either the max_delay or maxfee_msat was exceeded."
+  ],
   "author": [
     "[lagrang3@protonmail.com](mailto:lagrang3@protonmail.com) wrote the minimum-cost-flow solver, Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) wrote the API and this documentation."
   ],

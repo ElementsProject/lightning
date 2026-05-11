@@ -413,6 +413,7 @@ static struct command_result *reap_child(struct router_child *child)
 	int child_status;
 	struct timerel time_delta;
 	const char *err;
+	enum jsonrpc_errcode ecode;
 
 	waitpid(child->pid, &child_status, 0);
 	time_delta = timemono_between(time_mono(), child->start);
@@ -430,7 +431,17 @@ static struct command_result *reap_child(struct router_child *child)
 
 	/* This is how it indicates an error message */
 	if (WEXITSTATUS(child_status) != 0 && child->reply_bytes) {
-		err = tal_strndup(child, child->reply_buf, child->reply_bytes);
+		if (child->reply_bytes <= sizeof(ecode)) {
+			plugin_log(child->cmd->plugin, LOG_BROKEN, "Truncated child reply (%zu) bytes, exited %i",
+				   child->reply_bytes, WEXITSTATUS(child_status));
+			ecode = LIGHTNINGD;
+			err = "Truncated child result";
+		} else {
+			memcpy(&ecode, child->reply_buf, sizeof(ecode));
+			err = tal_strndup(child,
+					  child->reply_buf + sizeof(ecode),
+					  child->reply_bytes - sizeof(ecode));
+		}
 		goto fail;
 	}
 	if (child->reply_bytes == 0) {
@@ -445,10 +456,11 @@ static struct command_result *reap_child(struct router_child *child)
 
 fail_broken:
 	plugin_log(child->cmd->plugin, LOG_BROKEN, "%s", err);
+	ecode = LIGHTNINGD;
 fail:
 	assert(err);
 	/* Frees child, since it's a child of cmd */
-	return command_fail(child->cmd, PAY_ROUTE_NOT_FOUND, "%s", err);
+	return command_fail(child->cmd, ecode, "%s", err);
 }
 
 /* Last one out finalizes */

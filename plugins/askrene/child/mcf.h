@@ -6,6 +6,7 @@
 #include <ccan/time/time.h>
 #include <common/amount.h>
 #include <common/gossmap.h>
+#include <common/jsonrpc_errors.h>
 
 struct route_query;
 
@@ -18,7 +19,8 @@ const char *default_routes(const tal_t *ctx, struct route_query *rq,
 			   struct amount_msat amount,
 			   struct amount_msat maxfee, u32 finalcltv,
 			   u32 maxdelay, size_t maxparts, struct flow ***flows,
-			   double *probability);
+			   double *probability,
+			   enum jsonrpc_errcode *ecode);
 
 /* A wrapper to the single-path constrained solver. */
 const char *single_path_routes(const tal_t *ctx, struct route_query *rq,
@@ -28,6 +30,7 @@ const char *single_path_routes(const tal_t *ctx, struct route_query *rq,
 			       struct amount_msat amount,
 			       struct amount_msat maxfee, u32 finalcltv,
 			       u32 maxdelay, struct flow ***flows,
-			       double *probability);
+			       double *probability,
+			       enum jsonrpc_errcode *ecode);
 
 #endif /* LIGHTNING_PLUGINS_ASKRENE_CHILD_MCF_H */

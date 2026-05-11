@@ -217,6 +217,7 @@ void run_child(const struct gossmap *gossmap,
 	const char *err, *p;
 	size_t len;
 	struct route_query *rq;
+	enum jsonrpc_errcode ecode;
 
 	/* We exit below, so we don't bother freeing this */
 	rq = new_route_query(NULL, gossmap, cmd_id, layers,
@@ -225,13 +226,14 @@ void run_child(const struct gossmap *gossmap,
 	if (single_path) {
 		err = single_path_routes(rq, rq, deadline, srcnode, dstnode,
 					 amount, maxfee, finalcltv,
-					 maxdelay, &flows, &probability);
+					 maxdelay, &flows, &probability, &ecode);
 	} else {
 		err = default_routes(rq, rq, deadline, srcnode, dstnode,
 				     amount, maxfee, finalcltv, maxdelay,
-				     maxparts, &flows, &probability);
+				     maxparts, &flows, &probability, &ecode);
 	}
 	if (err) {
+		write_all(replyfd, &ecode, sizeof(ecode));
 		write_all(replyfd, err, strlen(err));
 		/* Non-zero exit tells parent this is an error string. */
 		exit(1);
