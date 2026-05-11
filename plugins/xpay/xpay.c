@@ -87,8 +87,6 @@ struct payment {
 	u32 maxdelay;
 	/* If non-zero: maximum number of payment routes that can be pending. */
 	u32 maxparts;
-	/* Do we have to do it all in a single part? */
-	bool disable_mpp;
 	/* BOLT-11 payment secret (NULL for BOLT-12, it uses blinded paths) */
 	const struct secret *payment_secret;
 	/* BOLT-11 payment metadata (NULL for BOLT-12, it uses blinded paths) */
@@ -1483,8 +1481,6 @@ static struct command_result *getroutes_for(struct command *aux_cmd,
 	/* Add user-specified layers */
 	for (size_t i = 0; i < tal_count(payment->layers); i++)
 		json_add_string(req->js, NULL, payment->layers[i]);
-	if (payment->disable_mpp)
-		json_add_string(req->js, NULL, "auto.no_mpp_support");
 	json_array_end(req->js);
 	json_add_amount_msat(req->js, "maxfee_msat", maxfee);
 	json_add_u32(req->js, "final_cltv", payment->final_cltv);
@@ -1757,7 +1753,7 @@ preapproveinvoice_succeed(struct command *cmd,
 					 "xpay-%"PRIu64, payment->unique_id);
 
 	/* Now unique_id is set, we can log this message */
-	if (payment->disable_mpp)
+	if (payment->maxparts == 1)
 		payment_log(payment, LOG_INFORM, "No MPP support: this is going to be hard to pay");
 
 	return populate_private_layer(cmd, payment);
@@ -1966,6 +1962,7 @@ static struct command_result *xpay_core(struct command *cmd,
 	struct xpay *xpay = xpay_of(cmd->plugin);
 	struct gossmap *gossmap = get_gossmap(xpay);
 	struct node_id dstid;
+	bool disable_mpp;
 	u64 now, invexpiry;
 	struct out_req *req;
 	const char *err;
@@ -2049,7 +2046,7 @@ static struct command_result *xpay_core(struct command *cmd,
 		 *  - otherwise:
 		 *    - MUST NOT use multiple parts to pay the invoice.
 		 */
-		payment->disable_mpp = !feature_offered(b12inv->invoice_features, OPT_BASIC_MPP);
+		disable_mpp = !feature_offered(b12inv->invoice_features, OPT_BASIC_MPP);
 	} else {
 		struct bolt11 *b11
 			= bolt11_decode(tmpctx, payment->invstring,
@@ -2085,7 +2082,7 @@ static struct command_result *xpay_core(struct command *cmd,
 		else
 			payment->full_amount = *msat;
 
-		payment->disable_mpp = !feature_offered(b11->features, OPT_BASIC_MPP);
+		disable_mpp = !feature_offered(b11->features, OPT_BASIC_MPP);
  		if (amount_msat_is_zero(payment->full_amount))
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "Cannot pay bolt11 invoice with zero amount");
@@ -2129,6 +2126,9 @@ static struct command_result *xpay_core(struct command *cmd,
 		payment->maxparts = 6;
 	else
 		payment->maxparts = 0;
+
+	if (disable_mpp)
+		payment->maxparts = 1;
 
 	/* Now preapprove, then start payment. */
 	if (command_check_only(cmd)) {
