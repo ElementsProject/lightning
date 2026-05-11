@@ -31,6 +31,8 @@ privacy:
 | paystatus                                          | Command            | v26.06           | v27.03         | Uses internal pay structures, doesn't work with xpay, doesn't work across restarts.                                       |
 | getroute                                           | Command            | v26.06           | v27.03         | Less flexible than `getroutes` which takes an actual fee budget and can do multiple paths at once.                        |
 | keysend                                            | Command            | v26.06           | v27.03         | Replaced by more powerful `xkeysend`.                                                                                     |
+| renepay                                            | Command            | v26.06           | v27.03         | Use `xpay` instead.                                                                                                       |
+| renepaystatus                                      | Command            | v26.06           | v27.03         | Use `xpay` notifications and `listpays` or `listsendpays` instead.                                                        |
 
 Inevitably there are features which need to change: either to be generalized, or removed when they can no longer be supported.
 

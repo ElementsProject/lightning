@@ -31793,6 +31793,8 @@
       "title": "Command for sending a payment to a BOLT11 invoice",
       "added": "v23.08",
       "description": [
+        "WARNING: Deprecated, scheduled for removal in v27.03",
+        "",
         "**renepay** is a new payment plugin based on Pickhardt-Richter optimization method for Multi-Path-Payments. This implementation has not been thoroughly tested and it should be used with caution.",
         "",
         "The response will occur when the payment fails or succeeds. Once a payment has succeeded, calls to **renepay** with the same *invstring* will not lead to a new payment attempt, but instead it will succeed immediately.",
@@ -32055,6 +32057,8 @@
       "title": "Command for quering the status of previous renepay attempts",
       "added": "v23.08",
       "description": [
+        "WARNING: Deprecated, scheduled for removal in v27.03",
+        "",
         "The **renepaystatus** RPC command queries the payment plugin **renepay** for the status of previous payment attempts.",
         "",
         "This command always succeeds."

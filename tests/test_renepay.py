@@ -19,7 +19,7 @@ import unittest
 
 def test_simple(node_factory):
     """Testing simply paying a peer."""
-    l1, l2 = node_factory.line_graph(2)
+    l1, l2 = node_factory.line_graph(2, opts={'allow-deprecated-apis': True})
     inv = l2.rpc.invoice(123000, "test_renepay", "description")["bolt11"]
     details = l1.rpc.call("renepay", {"invstring": inv})
     assert details["status"] == "complete"
@@ -33,7 +33,7 @@ def test_direction_matters(node_factory):
         3,
         wait_for_announce=True,
         opts=[
-            {},
+            {'allow-deprecated-apis': True},
             {"fee-base": 2000, "fee-per-satoshi": 20, "cltv-delta": 20},
             {"fee-base": 3000, "fee-per-satoshi": 30, "cltv-delta": 30},
         ],
@@ -53,7 +53,8 @@ def test_shadow_routing(node_factory):
     """
     # We need l3 for random walk
     l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True,
-                                         opts={'dev-allow-localhost': None})
+                                         opts={'allow-deprecated-apis': True,
+                                               'dev-allow-localhost': None})
 
     amount = 10000
     total_amount = 0
@@ -77,7 +78,7 @@ def test_mpp(node_factory):
     Try paying 1.2M sats from 1 to 6.
     """
     opts = [
-        {"disable-mpp": None, "fee-base": 0, "fee-per-satoshi": 0, 'dev-allow-localhost': None},
+        {"disable-mpp": None, "fee-base": 0, "fee-per-satoshi": 0, 'dev-allow-localhost': None, 'allow-deprecated-apis': True},
     ]
     l1, l2, l3, l4, l5, l6 = node_factory.get_nodes(6, opts=opts * 6)
     node_factory.join_nodes(
@@ -97,7 +98,7 @@ def test_mpp(node_factory):
 
 def test_errors(node_factory, bitcoind):
     opts = [
-        {"disable-mpp": None, "fee-base": 0, "fee-per-satoshi": 0},
+        {"disable-mpp": None, "fee-base": 0, "fee-per-satoshi": 0, 'allow-deprecated-apis': True},
     ]
     l1, l2, l3, l4, l5, l6 = node_factory.get_nodes(6, opts=opts * 6)
     send_amount = Millisatoshi("21sat")
@@ -147,7 +148,7 @@ def test_errors(node_factory, bitcoind):
 @pytest.mark.openchannel("v1")
 @pytest.mark.openchannel("v2")
 def test_pay(node_factory):
-    l1, l2 = node_factory.line_graph(2)
+    l1, l2 = node_factory.line_graph(2, opts={'allow-deprecated-apis': True})
 
     inv = l2.rpc.invoice(123000, "test_pay", "description")["bolt11"]
     before = int(time.time())
@@ -230,7 +231,7 @@ def test_amounts(node_factory):
     """
     Check that the amount received matches the amount requested in the invoice.
     """
-    l1, l2 = node_factory.line_graph(2)
+    l1, l2 = node_factory.line_graph(2, opts={'allow-deprecated-apis': True})
     inv = l2.rpc.invoice(Millisatoshi(123456), "test_pay_amounts", "description")[
         "bolt11"
     ]
@@ -257,7 +258,7 @@ def test_limits(node_factory):
     - probability of success is too low.
     """
     opts = [
-        {"disable-mpp": None, "fee-base": 0, "fee-per-satoshi": 100},
+        {"disable-mpp": None, "fee-base": 0, "fee-per-satoshi": 100, 'allow-deprecated-apis': True},
     ]
     l1, l2, l3, l4, l5, l6 = node_factory.get_nodes(6, opts=opts * 6)
     node_factory.join_nodes(
@@ -365,7 +366,7 @@ def test_hardmpp(node_factory):
     we build the network capacities.
     """
     opts = [
-        {"disable-mpp": None, "fee-base": 0, "fee-per-satoshi": 0},
+        {"disable-mpp": None, "fee-base": 0, "fee-per-satoshi": 0, 'allow-deprecated-apis': True},
     ]
     l1, l2, l3, l4, l5, l6 = node_factory.get_nodes(6, opts=opts * 6)
     start_channels(
@@ -409,7 +410,7 @@ def test_hardmpp(node_factory):
 
 @pytest.mark.flaky(reruns=2)
 def test_self_pay(node_factory):
-    l1, l2 = node_factory.line_graph(2, wait_for_announce=True)
+    l1, l2 = node_factory.line_graph(2, wait_for_announce=True, opts={'allow-deprecated-apis': True})
 
     inv = l1.rpc.invoice(10000, "test", "test")["bolt11"]
     l1.rpc.call("renepay", {"invstring": inv})
@@ -443,6 +444,7 @@ def test_fee_allocation(node_factory):
             "fee-base": 1000,
             "fee-per-satoshi": 30000,
             "plugin": os.path.join(os.getcwd(), "tests/plugins/no_fail.py"),
+            'allow-deprecated-apis': True,
         },
     ]
     l1, l2, l3, l4 = node_factory.get_nodes(4, opts=opts * 4)
@@ -468,22 +470,24 @@ def test_htlc_max(node_factory):
     3----5----6
     """
     opts = [
-        {"disable-mpp": None, "fee-base": 0, "fee-per-satoshi": 0},
-        {"disable-mpp": None, "fee-base": 0, "fee-per-satoshi": 0},
-        {"disable-mpp": None, "fee-base": 0, "fee-per-satoshi": 0},
+        {"disable-mpp": None, "fee-base": 0, "fee-per-satoshi": 0, 'allow-deprecated-apis': True},
+        {"disable-mpp": None, "fee-base": 0, "fee-per-satoshi": 0, 'allow-deprecated-apis': True},
+        {"disable-mpp": None, "fee-base": 0, "fee-per-satoshi": 0, 'allow-deprecated-apis': True},
         {
             "disable-mpp": None,
             "fee-base": 0,
             "fee-per-satoshi": 0,
             "htlc-maximum-msat": 500000000,
+            'allow-deprecated-apis': True,
         },
         {
             "disable-mpp": None,
             "fee-base": 0,
             "fee-per-satoshi": 0,
             "htlc-maximum-msat": 500000000,
+            'allow-deprecated-apis': True,
         },
-        {"disable-mpp": None, "fee-base": 0, "fee-per-satoshi": 0},
+        {"disable-mpp": None, "fee-base": 0, "fee-per-satoshi": 0, 'allow-deprecated-apis': True},
     ]
     l1, l2, l3, l4, l5, l6 = node_factory.get_nodes(6, opts=opts)
     start_channels(
@@ -511,7 +515,7 @@ def test_previous_sendpays(node_factory, bitcoind):
     Check that renepay can complete a payment that already started
     """
     opts = [
-        {"disable-mpp": None, "fee-base": 1000, "fee-per-satoshi": 1000},
+        {"disable-mpp": None, "fee-base": 1000, "fee-per-satoshi": 1000, 'allow-deprecated-apis': True},
     ]
     l1, l2, l3, l4 = node_factory.line_graph(4, wait_for_announce=True, opts=opts * 4)
 
@@ -605,12 +609,12 @@ def test_fees(node_factory):
     """
     # made up some random fees for every node
     opts = [
-        {"disable-mpp": None, "fee-base": 1000, "fee-per-satoshi": 100},
-        {"disable-mpp": None, "fee-base": 2222, "fee-per-satoshi": 203},
-        {"disable-mpp": None, "fee-base": 3333, "fee-per-satoshi": 300},
-        {"disable-mpp": None, "fee-base": 2012, "fee-per-satoshi": 200},
-        {"disable-mpp": None, "fee-base": 1010, "fee-per-satoshi": 100},
-        {"disable-mpp": None, "fee-base": 1050, "fee-per-satoshi": 100},
+        {"disable-mpp": None, "fee-base": 1000, "fee-per-satoshi": 100, 'allow-deprecated-apis': True},
+        {"disable-mpp": None, "fee-base": 2222, "fee-per-satoshi": 203, 'allow-deprecated-apis': True},
+        {"disable-mpp": None, "fee-base": 3333, "fee-per-satoshi": 300, 'allow-deprecated-apis': True},
+        {"disable-mpp": None, "fee-base": 2012, "fee-per-satoshi": 200, 'allow-deprecated-apis': True},
+        {"disable-mpp": None, "fee-base": 1010, "fee-per-satoshi": 100, 'allow-deprecated-apis': True},
+        {"disable-mpp": None, "fee-base": 1050, "fee-per-satoshi": 100, 'allow-deprecated-apis': True},
     ]
     nodes = node_factory.line_graph(len(opts), wait_for_announce=True, opts=opts)
     source = nodes[0]
@@ -637,7 +641,7 @@ def test_fees(node_factory):
 
 def test_local_htlcmax0(node_factory):
     """Testing a simple pay route when local channels have htlcmax=0."""
-    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True, opts={'allow-deprecated-apis': True})
     l1.rpc.setchannel(l2.info["id"], htlcmax=0)
     inv = l3.rpc.invoice(123000, "test_renepay", "description")["bolt11"]
     details = l1.rpc.call("renepay", {"invstring": inv})
@@ -655,22 +659,24 @@ def test_htlcmax0(node_factory):
     Tests the plugin when some routes have htlc_max=0.
     """
     opts = [
-        {"disable-mpp": None, "fee-base": 0, "fee-per-satoshi": 0},
-        {"disable-mpp": None, "fee-base": 0, "fee-per-satoshi": 0},
-        {"disable-mpp": None, "fee-base": 0, "fee-per-satoshi": 0},
+        {"disable-mpp": None, "fee-base": 0, "fee-per-satoshi": 0, 'allow-deprecated-apis': True},
+        {"disable-mpp": None, "fee-base": 0, "fee-per-satoshi": 0, 'allow-deprecated-apis': True},
+        {"disable-mpp": None, "fee-base": 0, "fee-per-satoshi": 0, 'allow-deprecated-apis': True},
         {
             "disable-mpp": None,
             "fee-base": 0,
             "fee-per-satoshi": 0,
             "htlc-maximum-msat": 0,
+            'allow-deprecated-apis': True,
         },
         {
             "disable-mpp": None,
             "fee-base": 0,
             "fee-per-satoshi": 0,
             "htlc-maximum-msat": 800000000,
+            'allow-deprecated-apis': True,
         },
-        {"disable-mpp": None, "fee-base": 0, "fee-per-satoshi": 0},
+        {"disable-mpp": None, "fee-base": 0, "fee-per-satoshi": 0, 'allow-deprecated-apis': True},
     ]
     l1, l2, l3, l4, l5, l6 = node_factory.get_nodes(6, opts=opts)
     start_channels(
@@ -693,7 +699,7 @@ def test_htlcmax0(node_factory):
 
 
 def test_concurrency(node_factory):
-    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True, opts=[{}, {}, {}])
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True, opts={'allow-deprecated-apis': True})
     inv = l3.rpc.invoice("1000sat", "test_renepay", "description")["bolt11"]
     p1 = subprocess.Popen(
         [
@@ -735,10 +741,10 @@ def test_privatechan(node_factory, bitcoind):
     Tests if a payment can get through a private channel.
     """
     opts = [
-        {"disable-mpp": None, "fee-base": 0, "fee-per-satoshi": 0},
-        {"disable-mpp": None, "fee-base": 0, "fee-per-satoshi": 0},
-        {"disable-mpp": None, "fee-base": 0, "fee-per-satoshi": 100},
-        {"disable-mpp": None, "fee-base": 0, "fee-per-satoshi": 0},
+        {"disable-mpp": None, "fee-base": 0, "fee-per-satoshi": 0, 'allow-deprecated-apis': True},
+        {"disable-mpp": None, "fee-base": 0, "fee-per-satoshi": 0, 'allow-deprecated-apis': True},
+        {"disable-mpp": None, "fee-base": 0, "fee-per-satoshi": 100, 'allow-deprecated-apis': True},
+        {"disable-mpp": None, "fee-base": 0, "fee-per-satoshi": 0, 'allow-deprecated-apis': True},
     ]
     l1, l2, l3, l4 = node_factory.get_nodes(4, opts=opts)
 
@@ -771,7 +777,7 @@ def test_privatechan(node_factory, bitcoind):
 @unittest.skipIf(TEST_NETWORK == 'liquid-regtest', "broken for some reason")
 def test_hardmpp2(node_factory, bitcoind):
     """Credits to @daywalker90 for this test case."""
-    opts = {"disable-mpp": None, "fee-base": 0, "fee-per-satoshi": 10}
+    opts = {"disable-mpp": None, "fee-base": 0, "fee-per-satoshi": 10, 'allow-deprecated-apis': True}
     l1, l2, l3 = node_factory.get_nodes(3, opts=opts)
     start_channels(
         [
@@ -797,7 +803,7 @@ def test_hardmpp2(node_factory, bitcoind):
 
 def test_description(node_factory):
     """Test the processing of the payment description interface."""
-    l1, l2 = node_factory.line_graph(2)
+    l1, l2 = node_factory.line_graph(2, opts={'allow-deprecated-apis': True})
 
     # do not provide description in the command line, all payments should be
     # fine
@@ -840,7 +846,7 @@ def test_description(node_factory):
 
 def test_offers(node_factory):
     l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True,
-                                         opts={'dev-allow-localhost': None})
+                                         opts={'dev-allow-localhost': None, 'allow-deprecated-apis': True})
     offer = l3.rpc.offer("1000sat", "test_renepay_offers")['bolt12']
     invoice = l1.rpc.fetchinvoice(offer)['invoice']
     response = l1.rpc.call("renepay", {"invstring": invoice})
@@ -849,14 +855,14 @@ def test_offers(node_factory):
 
 def test_offer_selfpay(node_factory):
     """We can fetch an pay our own offer"""
-    l1 = node_factory.get_node()
+    l1 = node_factory.get_node(options={'allow-deprecated-apis': True})
     offer = l1.rpc.offer(amount="2msat", description="test_offer_path_self")["bolt12"]
     inv = l1.rpc.fetchinvoice(offer)["invoice"]
     l1.rpc.call("renepay", {"invstring": inv})
 
 
 def test_unannounced(node_factory):
-    l1, l2 = node_factory.line_graph(2, announce_channels=False)
+    l1, l2 = node_factory.line_graph(2, announce_channels=False, opts={'allow-deprecated-apis': True})
     # BOLT-11 direct peer
     b11 = l2.rpc.invoice(
         "100sat", "test_renepay_unannounced", "test_renepay_unannounced"

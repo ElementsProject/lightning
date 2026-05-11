@@ -5,6 +5,8 @@
   "title": "Command for quering the status of previous renepay attempts",
   "added": "v23.08",
   "description": [
+    "WARNING: Deprecated, scheduled for removal in v27.03",
+    "",
     "The **renepaystatus** RPC command queries the payment plugin **renepay** for the status of previous payment attempts.",
     "",
     "This command always succeeds."

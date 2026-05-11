@@ -445,11 +445,13 @@ static struct command_result *json_renepay(struct command *cmd, const char *buf,
 static const struct plugin_command commands[] = {
 	{
 		"renepaystatus",
-		json_renepaystatus
+		json_renepaystatus,
+		"v26.06", "v27.03",
 	},
 	{
 		"renepay",
-		json_renepay
+		json_renepay,
+		"v26.06", "v27.03",
 	},
 };
 
