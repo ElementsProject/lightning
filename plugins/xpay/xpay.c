@@ -2530,6 +2530,10 @@ static struct command_result *xpay_core(struct command *cmd,
 	struct out_req *req;
 	const char *err;
 
+	/* Make our own copy here, in case we exit early. */
+	if (!taken(invstring))
+		invstring = tal_strdup(tmpctx, invstring);
+
 	if (bolt12_has_prefix(invstring)) {
 		struct tlv_invoice *b12inv
 			= invoice_decode(tmpctx, invstring,
@@ -2555,7 +2559,7 @@ static struct command_result *xpay_core(struct command *cmd,
 				      retryfor,
 				      maxdelay,
 				      layers,
-				      invstring,
+				      take(invstring),
 				      b12inv->invoice_node_id,
 				      b12inv->invoice_payment_hash,
 				      amount_msat(*b12inv->invoice_amount),
@@ -2651,7 +2655,7 @@ static struct command_result *xpay_core(struct command *cmd,
 				      retryfor,
 				      maxdelay,
 				      layers,
-				      invstring,
+				      take(invstring),
 				      &dst,
 				      &b11->payment_hash,
 				      *msat,
