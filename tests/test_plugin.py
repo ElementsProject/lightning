@@ -441,7 +441,7 @@ def test_pay_plugin(node_factory):
         l1.rpc.call('pay')
 
     # Make sure usage messages are present.
-    msg = 'pay bolt11 [amount_msat] [label] [riskfactor] [maxfeepercent] '\
+    msg = 'pay invstring [amount_msat] [label] [riskfactor] [maxfeepercent] '\
           '[retry_for] [maxdelay] [exemptfee] [localinvreqid] [exclude] '\
           '[maxfee] [description] [partial_msat]'
     # We run with --developer:

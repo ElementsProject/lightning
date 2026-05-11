@@ -84,6 +84,14 @@ def test_pay(node_factory):
     assert apys_1[0]['routed_in_msat'] == apys_2[0]['routed_out_msat']
 
 
+def test_pay_invstring(node_factory):
+    l1, l2 = node_factory.line_graph(2)
+
+    l1.rpc.check_request_schemas = False
+    inv = l2.rpc.invoice(123000, 'test_pay_invstring', 'description')['bolt11']
+    l1.rpc.call('pay', {'invstring': inv})
+
+
 def test_pay_amounts(node_factory):
     l1, l2 = node_factory.line_graph(2)
     inv = l2.rpc.invoice(Millisatoshi("123sat"), 'test_pay_amounts', 'description')['bolt11']

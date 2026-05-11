@@ -30449,6 +30449,8 @@
           "bolt11": {
             "type": "string",
             "description": [
+              "NOTE: `invstring` is an alternate name for this parameter, since v26.06, for xpay compatibility.",
+              "",
               "Bolt11 or bolt12 invoice (such as one received from lightningd-fetchinvoice(7)). For a bolt11 invoice, if it does not contain an amount, *amount_msat* is required, otherwise if it is specified it must be *null*."
             ]
           },

@@ -1274,6 +1274,7 @@ static struct command_result *json_pay(struct command *cmd,
 	struct out_req *req;
 	struct route_exclusion **exclusions;
 	bool *dev_use_shadow;
+	bool use_invstring;
 
 	/* If any of the modifiers need to add params to the JSON-RPC call we
 	 * would add them to the `param()` call below, and have them be
@@ -1285,9 +1286,10 @@ static struct command_result *json_pay(struct command *cmd,
 	 * deployed by Lightning implementations.
 	 */
 	/* FIXME: Typo in spec for CLTV in descripton!  But it breaks our spelling check, so we omit it above */
+	/* We accept invstring, too (and use it in the help message) */
+	use_invstring = (!params || (params->type == JSMN_OBJECT && json_get_member(buf, params, "invstring")));
 	if (!param_check(cmd, buf, params,
-		   /* FIXME: parameter should be invstring now */
-		   p_req("bolt11", param_invstring, &b11str),
+		   p_req_var(use_invstring ? "invstring" : "bolt11", param_invstring, &b11str),
 		   p_opt("amount_msat", param_msat, &msat),
 		   p_opt("label", param_string, &label),
 		   p_opt_def("riskfactor", param_millionths,
