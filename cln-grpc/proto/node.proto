@@ -134,6 +134,7 @@ service Node {
 	rpc AskReneListLayers(AskrenelistlayersRequest) returns (AskrenelistlayersResponse) {}
 	rpc AskReneCreateLayer(AskrenecreatelayerRequest) returns (AskrenecreatelayerResponse) {}
 	rpc AskReneRemoveLayer(AskreneremovelayerRequest) returns (AskreneremovelayerResponse) {}
+	rpc AskReneRemoveChannelUpdate(AskreneremovechannelupdateRequest) returns (AskreneremovechannelupdateResponse) {}
 	rpc AskReneReserve(AskrenereserveRequest) returns (AskrenereserveResponse) {}
 	rpc AskReneAge(AskreneageRequest) returns (AskreneageResponse) {}
 	rpc GetRoutes(GetroutesRequest) returns (GetroutesResponse) {}
@@ -4030,6 +4031,14 @@ message AskreneremovelayerRequest {
 }
 
 message AskreneremovelayerResponse {
+}
+
+message AskreneremovechannelupdateRequest {
+	string layer = 1;
+	string short_channel_id_dir = 2;
+}
+
+message AskreneremovechannelupdateResponse {
 }
 
 message AskrenereserveRequest {

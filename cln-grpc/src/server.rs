@@ -4114,6 +4114,38 @@ impl Node for Server
 
     }
 
+    async fn ask_rene_remove_channel_update(
+        &self,
+        request: tonic::Request<pb::AskreneremovechannelupdateRequest>,
+    ) -> Result<tonic::Response<pb::AskreneremovechannelupdateResponse>, tonic::Status> {
+        let req = request.into_inner();
+        let req: requests::AskreneremovechannelupdateRequest = req.into();
+        debug!("Client asked for ask_rene_remove_channel_update");
+        trace!("ask_rene_remove_channel_update request: {:?}", req);
+        let mut rpc = ClnRpc::new(&self.rpc_path)
+            .await
+            .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+        let result = rpc.call(Request::AskReneRemoveChannelUpdate(req))
+            .await
+            .map_err(|e| Status::new(
+               Code::Unknown,
+               format!("Error calling method AskReneRemoveChannelUpdate: {:?}", e)))?;
+        match result {
+            Response::AskReneRemoveChannelUpdate(r) => {
+               trace!("ask_rene_remove_channel_update response: {:?}", r);
+               Ok(tonic::Response::new(r.into()))
+            },
+            r => Err(Status::new(
+                Code::Internal,
+                format!(
+                    "Unexpected result {:?} to method call AskReneRemoveChannelUpdate",
+                    r
+                )
+            )),
+        }
+
+    }
+
     async fn ask_rene_reserve(
         &self,
         request: tonic::Request<pb::AskrenereserveRequest>,

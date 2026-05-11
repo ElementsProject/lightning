@@ -206,6 +206,12 @@ def test_layers(node_factory):
                                   'cltv_expiry_delta': 19}]
     assert l2.rpc.askrene_listlayers('test_layers') == {'layers': [expect]}
 
+    # Can we remove channel update entries?
+    l2.rpc.askrene_remove_channel_update(layer='test_layers',
+                                         short_channel_id_dir='0x0x1/0')
+    expect['channel_updates'] = []
+    assert l2.rpc.askrene_listlayers('test_layers') == {'layers': [expect]}
+
     # We can tell it about made up channels...
     first_timestamp = int(time.time())
     l2.rpc.askrene_inform_channel('test_layers',

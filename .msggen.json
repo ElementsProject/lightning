@@ -894,6 +894,10 @@
         "Askrene-listreservationsResponse": {
             "AskRene-ListReservations.reservations[]": 1
         },
+        "Askrene-remove-channel-updateRequest": {
+            "AskRene-Remove-Channel-Update.layer": 1,
+            "AskRene-Remove-Channel-Update.short_channel_id_dir": 2
+        },
         "Askrene-remove-layerRequest": {
             "AskRene-Remove-Layer.layer": 1
         },
@@ -5049,6 +5053,18 @@
         },
         "AskRene-ListReservations.reservations[].short_channel_id_dir": {
             "added": "v24.11",
+            "deprecated": null
+        },
+        "AskRene-Remove-Channel-Update": {
+            "added": "v26.06",
+            "deprecated": null
+        },
+        "AskRene-Remove-Channel-Update.layer": {
+            "added": "v26.06",
+            "deprecated": null
+        },
+        "AskRene-Remove-Channel-Update.short_channel_id_dir": {
+            "added": "v26.06",
             "deprecated": null
         },
         "AskRene-Remove-Layer": {

@@ -136,6 +136,7 @@ grpc_method_names = [
     "AskRene-ListLayers",
     "AskRene-Create-Layer",
     "AskRene-Remove-Layer",
+    "AskRene-Remove-Channel-Update",
     "AskRene-Reserve",
     "AskRene-Age",
     "GetRoutes",

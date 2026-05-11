@@ -1115,6 +1115,29 @@ static struct command_result *json_askrene_update_channel(struct command *cmd,
 	return command_finished(cmd, response);
 }
 
+static struct command_result *
+json_askrene_remove_channel_update(struct command *cmd, const char *buffer,
+				   const jsmntok_t *params)
+{
+	struct layer *layer;
+	struct short_channel_id_dir *scidd;
+	struct json_stream *response;
+
+	if (!param(cmd, buffer, params,
+		   p_req("layer", param_known_layer, &layer),
+		   p_req("short_channel_id_dir", param_short_channel_id_dir,
+			 &scidd),
+		   NULL))
+		return command_param_failed();
+	plugin_log(cmd->plugin, LOG_TRACE, "%s called: %.*s", __func__,
+		   json_tok_full_len(params), json_tok_full(buffer, params));
+
+	layer_remove_channel_update(layer, scidd);
+
+	response = jsonrpc_stream_success(cmd);
+	return command_finished(cmd, response);
+}
+
 enum inform {
 	INFORM_CONSTRAINED,
 	INFORM_UNCONSTRAINED,
@@ -1447,6 +1470,10 @@ static const struct plugin_command commands[] = {
 	{
 		"askrene-update-channel",
 		json_askrene_update_channel,
+	},
+	{
+		"askrene-remove-channel-update",
+		json_askrene_remove_channel_update,
 	},
 	{
 		"askrene-inform-channel",

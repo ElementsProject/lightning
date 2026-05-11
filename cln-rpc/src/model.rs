@@ -170,6 +170,8 @@ pub enum Request {
 	AskReneCreateLayer(requests::AskrenecreatelayerRequest),
 	#[serde(rename = "askrene-remove-layer")]
 	AskReneRemoveLayer(requests::AskreneremovelayerRequest),
+	#[serde(rename = "askrene-remove-channel-update")]
+	AskReneRemoveChannelUpdate(requests::AskreneremovechannelupdateRequest),
 	#[serde(rename = "askrene-reserve")]
 	AskReneReserve(requests::AskrenereserveRequest),
 	#[serde(rename = "askrene-age")]
@@ -362,6 +364,8 @@ pub enum Response {
 	AskReneCreateLayer(responses::AskrenecreatelayerResponse),
 	#[serde(rename = "askrene-remove-layer")]
 	AskReneRemoveLayer(responses::AskreneremovelayerResponse),
+	#[serde(rename = "askrene-remove-channel-update")]
+	AskReneRemoveChannelUpdate(responses::AskreneremovechannelupdateResponse),
 	#[serde(rename = "askrene-reserve")]
 	AskReneReserve(responses::AskrenereserveResponse),
 	#[serde(rename = "askrene-age")]
@@ -4548,6 +4552,29 @@ pub mod requests {
 
 	    fn method(&self) -> &str {
 	        "askrene-remove-layer"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AskreneremovechannelupdateRequest {
+	    pub layer: String,
+	    pub short_channel_id_dir: ShortChannelIdDir,
+	}
+
+	impl From<AskreneremovechannelupdateRequest> for Request {
+	    fn from(r: AskreneremovechannelupdateRequest) -> Self {
+	        Request::AskReneRemoveChannelUpdate(r)
+	    }
+	}
+
+	impl IntoRequest for AskreneremovechannelupdateRequest {
+	    type Response = super::responses::AskreneremovechannelupdateResponse;
+	}
+
+	impl TypedRequest for AskreneremovechannelupdateRequest {
+	    type Response = super::responses::AskreneremovechannelupdateResponse;
+
+	    fn method(&self) -> &str {
+	        "askrene-remove-channel-update"
 	    }
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -12184,6 +12211,21 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::AskReneRemoveLayer(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AskreneremovechannelupdateResponse {
+	}
+
+	impl TryFrom<Response> for AskreneremovechannelupdateResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::AskReneRemoveChannelUpdate(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }
