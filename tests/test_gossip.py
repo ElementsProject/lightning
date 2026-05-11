@@ -398,7 +398,7 @@ def test_gossip_jsonrpc(node_factory):
                              'peer_in WIRE_ANNOUNCEMENT_SIGNATURES'])
 
     # Make sure we can route through the channel, will raise on failure
-    l1.rpc.getroute(l2.info['id'], 100, 1)
+    l1.single_route(l2.info['id'], 100)
 
     # Channels not should be activated locally
     assert l1.rpc.listchannels() == {'channels': []}

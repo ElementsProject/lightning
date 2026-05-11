@@ -2149,14 +2149,14 @@ def test_bad_onion(node_factory, bitcoind):
                                              opts={'log-level': 'io'})
 
     inv = l4.rpc.invoice(123000, 'test_bad_onion', 'description')
-    route = l1.rpc.getroute(l4.info['id'], 123000, 1)['route']
+    route = l1.single_route(l4.info['id'], 123000)
 
     assert len(route) == 3
 
     mangled_nodeid = '0265b6ab5ec860cd257865d61ef0bbf5b3339c36cbda8b26b74e7f1dca490b6518'
 
     # Replace id with a different pubkey, so onion encoded badly at third hop.
-    route[2]['id'] = mangled_nodeid
+    route[2]['node_id_out'] = mangled_nodeid
     l1.rpc.sendpay(route, inv['payment_hash'], payment_secret=inv['payment_secret'])
     with pytest.raises(RpcError) as err:
         l1.rpc.waitsendpay(inv['payment_hash'])
@@ -2168,7 +2168,7 @@ def test_bad_onion(node_factory, bitcoind):
     WIRE_INVALID_ONION_HMAC = 0x8000 | 0x4000 | 5
     assert err.value.error['data']['failcode'] == WIRE_INVALID_ONION_HMAC
     assert err.value.error['data']['erring_node'] == mangled_nodeid
-    assert err.value.error['data']['erring_channel'] == route[2]['channel']
+    assert err.value.error['data']['erring_channel'] == route[2]['short_channel_id_dir'].split('/')[0]
 
     # We should see a WIRE_UPDATE_FAIL_MALFORMED_HTLC from l4.
     line = l4.daemon.is_in_log(r'\[OUT\] 0087')
@@ -2180,7 +2180,7 @@ def test_bad_onion(node_factory, bitcoind):
     l1.daemon.wait_for_log(r'failcode .* from onionreply .*{sha}'.format(sha=sha))
 
     # Replace id with a different pubkey, so onion encoded badly at second hop.
-    route[1]['id'] = mangled_nodeid
+    route[1]['node_id_out'] = mangled_nodeid
     l1.rpc.sendpay(route, inv['payment_hash'], payment_secret=inv['payment_secret'])
     with pytest.raises(RpcError) as err:
         l1.rpc.waitsendpay(inv['payment_hash'])
@@ -2190,7 +2190,7 @@ def test_bad_onion(node_factory, bitcoind):
     assert err.value.error['code'] == PAY_TRY_OTHER_ROUTE
     assert err.value.error['data']['failcode'] == WIRE_INVALID_ONION_HMAC
     assert err.value.error['data']['erring_node'] == mangled_nodeid
-    assert err.value.error['data']['erring_channel'] == route[1]['channel']
+    assert err.value.error['data']['erring_channel'] == route[1]['short_channel_id_dir'].split('/')[0]
 
 
 def test_bad_onion_immediate_peer(node_factory, bitcoind):

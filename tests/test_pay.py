@@ -1323,7 +1323,7 @@ def test_forward_different_fees_and_cltv(node_factory, bitcoind):
 
     # FIXME: Add shadow route
     shadow_route = 0
-    route = l2.rpc.getroute(l3.info['id'], 4999999, 1, cltv=18)["route"]
+    route = l2.single_route(l3.info['id'], 4999999, cltv=18)
     assert len(route) == 1
 
     # BOLT #7:
@@ -1334,8 +1334,8 @@ def test_forward_different_fees_and_cltv(node_factory, bitcoind):
     #      * `amt_to_forward` = 4999999
     #      * `outgoing_cltv_value` = current-block-height + 18 + 42
     #
-    assert route[0]['amount_msat'] == 4999999
-    assert route[0]['delay'] == 18 + shadow_route
+    assert route[0]['amount_out_msat'] == 4999999
+    assert route[0]['cltv_out'] == 18 + shadow_route
 
     # BOLT #7:
     # If A were to send 4,999,999 millisatoshi to C via B, it needs to
@@ -1352,13 +1352,13 @@ def test_forward_different_fees_and_cltv(node_factory, bitcoind):
     #    * `onion_routing_packet`:
     #      * `amt_to_forward` = 4999999
     #      * `outgoing_cltv_value` = current-block-height + 18 + 42
-    route = l1.rpc.getroute(l3.info['id'], 4999999, 1, cltv=18)["route"]
+    route = l1.single_route(l3.info['id'], 4999999, cltv=18)
     assert len(route) == 2
 
-    assert route[0]['amount_msat'] == 5010198
-    assert route[0]['delay'] == 20 + 18 + shadow_route
-    assert route[1]['amount_msat'] == 4999999
-    assert route[1]['delay'] == 18 + shadow_route
+    assert route[0]['amount_out_msat'] == 5010198
+    assert route[0]['cltv_out'] == 20 + 18 + shadow_route
+    assert route[1]['amount_out_msat'] == 4999999
+    assert route[1]['cltv_out'] == 18 + shadow_route
 
     inv = l3.rpc.invoice(4999999, 'test_forward_different_fees_and_cltv', 'desc')
     rhash = inv['payment_hash']
@@ -1416,19 +1416,19 @@ def test_forward_pad_fees_and_cltv(node_factory, bitcoind):
     l1.wait_channel_active(c1)
     l1.wait_channel_active(c2)
 
-    route = l1.rpc.getroute(l3.info['id'], 4999999, 1)["route"]
+    route = l1.single_route(l3.info['id'], 4999999)
     assert len(route) == 2
 
-    assert route[0]['amount_msat'] == 5010198
-    assert route[0]['delay'] == 20 + 9
-    assert route[1]['amount_msat'] == 4999999
-    assert route[1]['delay'] == 9
+    assert route[0]['amount_out_msat'] == 5010198
+    assert route[0]['cltv_out'] == 20 + 9
+    assert route[1]['amount_out_msat'] == 4999999
+    assert route[1]['cltv_out'] == 9
 
     # Modify so we overpay, overdo the cltv.
-    route[0]['amount_msat'] += 2000
-    route[0]['delay'] += 20
-    route[1]['amount_msat'] += 1000
-    route[1]['delay'] += 10
+    route[0]['amount_out_msat'] += 2000
+    route[0]['cltv_out'] += 20
+    route[1]['amount_out_msat'] += 1000
+    route[1]['cltv_out'] += 10
 
     # This should work.
     inv = l3.rpc.invoice(4999999, 'test_forward_pad_fees_and_cltv', 'desc')
@@ -1689,12 +1689,12 @@ def test_forward_local_failed_stats(node_factory, bitcoind, executor):
 
     inv = l4.rpc.invoice(amount, 'fourth', 'desc')
     payment_hash = inv['payment_hash']
-    route = l6.rpc.getroute(l4.info['id'], amount, 1)['route']
+    route = l6.single_route(l4.info['id'], amount)
 
     mangled_nodeid = '0265b6ab5ec860cd257865d61ef0bbf5b3339c36cbda8b26b74e7f1dca490b6510'
 
     # Replace id with a different pubkey, so onion encoded badly at l2 hop.
-    route[1]['id'] = mangled_nodeid
+    route[1]['node_id_out'] = mangled_nodeid
 
     with pytest.raises(RpcError):
         l6.rpc.sendpay(route, payment_hash, payment_secret=inv['payment_secret'])
@@ -2415,8 +2415,8 @@ def test_setchannel_routing(node_factory, bitcoind):
     # Since it rounds up, it will use 4001792 as max capacity.
 
     # Should refuse to route this!
-    with pytest.raises(RpcError, match=r'Could not find a route'):
-        l1.rpc.getroute(l3.info['id'], 4001793, 1, fuzzpercent=0)["route"]
+    with pytest.raises(RpcError, match=r'feasible|exceeds htlc_maximum_msat'):
+        l1.rpc.getroutes(l1.info['id'], l3.info['id'], 4001793, layers=['auto.localchans', 'auto.sourcefree'], maxfee_msat=10000000, final_cltv=9, maxparts=1)
 
     # We should consider this unroutable!  (MPP is disabled!)
     inv = l3.dev_invoice(amount_msat=4001793,
@@ -2428,15 +2428,15 @@ def test_setchannel_routing(node_factory, bitcoind):
     assert routefail.value.error['attempts'][0]['failreason'] == 'No path found'
 
     # 1337 + 4000000 * 137 / 1000000 = 1885
-    route_ok = l1.rpc.getroute(l3.info['id'], 4000000, 1)["route"]
+    route_ok = l1.single_route(l3.info['id'], 4000000)
     assert len(route_ok) == 2
-    assert route_ok[0]['amount_msat'] == 4001885
-    assert route_ok[1]['amount_msat'] == 4000000
+    assert route_ok[0]['amount_out_msat'] == 4001885
+    assert route_ok[1]['amount_out_msat'] == 4000000
 
     # Make variant that tries to pay more than allowed htlc!
     route_bad = copy.deepcopy(route_ok)
-    route_bad[0]['amount_msat'] = Millisatoshi(4001887)
-    route_bad[1]['amount_msat'] = Millisatoshi(4000001)
+    route_bad[0]['amount_out_msat'] = Millisatoshi(4001887)
+    route_bad[1]['amount_out_msat'] = Millisatoshi(4000001)
     assert route_bad != route_ok
 
     # In case l3 includes a routehint, we need to make sure they also know
@@ -2459,14 +2459,14 @@ def test_setchannel_routing(node_factory, bitcoind):
     l1.rpc.waitsendpay(inv['payment_hash'])
 
     # Now try below minimum
-    route_ok = l1.rpc.getroute(l3.info['id'], 17, 1)["route"]
+    route_ok = l1.single_route(l3.info['id'], 17)
     assert len(route_ok) == 2
-    assert route_ok[0]['amount_msat'] == 1337 + 17
-    assert route_ok[1]['amount_msat'] == 17
+    assert route_ok[0]['amount_out_msat'] == 1337 + 17
+    assert route_ok[1]['amount_out_msat'] == 17
 
     route_bad = copy.deepcopy(route_ok)
-    route_bad[0]['amount_msat'] = Millisatoshi(1337 + 16)
-    route_bad[1]['amount_msat'] = Millisatoshi(16)
+    route_bad[0]['amount_out_msat'] = Millisatoshi(1337 + 16)
+    route_bad[1]['amount_out_msat'] = Millisatoshi(16)
     assert route_bad != route_ok
 
     inv = l3.rpc.invoice(17, 'test_setchannel_3', 'desc')
@@ -2512,10 +2512,10 @@ def test_setchannel_zero(node_factory, bitcoind):
     wait_for(lambda: [c['fee_per_millionth'] for c in l1.rpc.listchannels(scid)['channels']] == [0, DEF_PPM])
 
     # test if zero fees are applied
-    route = l1.rpc.getroute(l3.info['id'], 4999999, 1)["route"]
+    route = l1.single_route(l3.info['id'], 4999999)
     assert len(route) == 2
-    assert route[0]['amount_msat'] == 4999999
-    assert route[1]['amount_msat'] == 4999999
+    assert route[0]['amount_out_msat'] == 4999999
+    assert route[1]['amount_out_msat'] == 4999999
 
     # Wait for l3 to know about our low-balling, otherwise they'll add a wrong
     # routehint to the invoice.
@@ -2674,7 +2674,14 @@ def test_channel_spendable(node_factory, bitcoind, anchors):
 
     # We should be able to spend this much, and not one msat more!
     amount = l1.rpc.listpeerchannels()['channels'][0]['spendable_msat']
-    route = l1.rpc.getroute(l2.info['id'], amount + 1, riskfactor=1, fuzzpercent=0)['route']
+    # auto.localchans would refuse amount+1, so bypass it to test sendpay failure
+    route = only_one(l1.rpc.getroutes(source=l1.info['id'],
+                                      destination=l2.info['id'],
+                                      amount_msat=amount + 1,
+                                      layers=["auto.sourcefree"],
+                                      maxfee_msat=10000000,
+                                      final_cltv=9,
+                                      maxparts=1)['routes'])['path']
     l1.rpc.sendpay(route, payment_hash, payment_secret=inv['payment_secret'])
 
     # This should fail locally with "capacity exceeded"
@@ -2682,7 +2689,7 @@ def test_channel_spendable(node_factory, bitcoind, anchors):
         l1.rpc.waitsendpay(payment_hash, TIMEOUT)
 
     # Exact amount should succeed.
-    route = l1.rpc.getroute(l2.info['id'], amount, riskfactor=1, fuzzpercent=0)['route']
+    route = l1.single_route(l2.info['id'], amount)
     l1.rpc.sendpay(route, payment_hash, payment_secret=inv['payment_secret'])
 
     # Amount should drop to 0 once HTLC is sent; we have time, thanks to
@@ -2701,7 +2708,14 @@ def test_channel_spendable(node_factory, bitcoind, anchors):
     amount = l2.rpc.listpeerchannels()['channels'][0]['spendable_msat']
 
     # Turns out we won't route this, as it's over max - reserve:
-    route = l2.rpc.getroute(l1.info['id'], amount + 1, riskfactor=1, fuzzpercent=0)['route']
+    # auto.localchans would refuse amount+1, so bypass it to test sendpay failure
+    route = only_one(l2.rpc.getroutes(source=l2.info['id'],
+                                      destination=l1.info['id'],
+                                      amount_msat=amount + 1,
+                                      layers=["auto.sourcefree"],
+                                      maxfee_msat=10000000,
+                                      final_cltv=9,
+                                      maxparts=1)['routes'])['path']
     l2.rpc.sendpay(route, payment_hash, payment_secret=inv['payment_secret'])
 
     # This should fail locally with "capacity exceeded"
@@ -2709,7 +2723,7 @@ def test_channel_spendable(node_factory, bitcoind, anchors):
         l2.rpc.waitsendpay(payment_hash, TIMEOUT)
 
     # Exact amount should succeed.
-    route = l2.rpc.getroute(l1.info['id'], amount, riskfactor=1, fuzzpercent=0)['route']
+    route = l2.single_route(l1.info['id'], amount)
     l2.rpc.sendpay(route, payment_hash, payment_secret=inv['payment_secret'])
 
     # Amount should drop to 0 once HTLC is sent; we have time, thanks to
@@ -2731,7 +2745,15 @@ def test_channel_receivable(node_factory, bitcoind):
 
     # We should be able to receive this much, and not one msat more!
     amount = l2.rpc.listpeerchannels()['channels'][0]['receivable_msat']
-    route = l1.rpc.getroute(l2.info['id'], amount + 1, riskfactor=1, fuzzpercent=0)['route']
+    # If we get askrene to use the auto.localchans layer, it will know!
+    # So use getroutes without that
+    route = only_one(l1.rpc.getroutes(source=l1.info['id'],
+                                      destination=l2.info['id'],
+                                      amount_msat=amount + 1,
+                                      layers=["auto.sourcefree"],
+                                      maxfee_msat=10000000,
+                                      final_cltv=9,
+                                      maxparts=1)['routes'])['path']
     l1.rpc.sendpay(route, payment_hash, payment_secret=inv['payment_secret'])
 
     # This should fail locally with "capacity exceeded"
@@ -2739,7 +2761,13 @@ def test_channel_receivable(node_factory, bitcoind):
         l1.rpc.waitsendpay(payment_hash, TIMEOUT)
 
     # Exact amount should succeed.
-    route = l1.rpc.getroute(l2.info['id'], amount, riskfactor=1, fuzzpercent=0)['route']
+    route = only_one(l1.rpc.getroutes(source=l1.info['id'],
+                                      destination=l2.info['id'],
+                                      amount_msat=amount,
+                                      layers=["auto.sourcefree"],
+                                      maxfee_msat=10000000,
+                                      final_cltv=9,
+                                      maxparts=1)['routes'])['path']
     l1.rpc.sendpay(route, payment_hash, payment_secret=inv['payment_secret'])
 
     # Amount should drop to 0 once HTLC is sent; we have time, thanks to
@@ -2758,7 +2786,13 @@ def test_channel_receivable(node_factory, bitcoind):
     amount = l1.rpc.listpeerchannels()['channels'][0]['receivable_msat']
 
     # Turns out we won't route this, as it's over max - reserve:
-    route = l2.rpc.getroute(l1.info['id'], amount + 1, riskfactor=1, fuzzpercent=0)['route']
+    route = only_one(l2.rpc.getroutes(source=l2.info['id'],
+                                      destination=l1.info['id'],
+                                      amount_msat=amount + 1,
+                                      layers=["auto.sourcefree"],
+                                      maxfee_msat=10000000,
+                                      final_cltv=9,
+                                      maxparts=1)['routes'])['path']
     l2.rpc.sendpay(route, payment_hash, payment_secret=inv['payment_secret'])
 
     # This should fail locally with "capacity exceeded"
@@ -2766,7 +2800,7 @@ def test_channel_receivable(node_factory, bitcoind):
         l2.rpc.waitsendpay(payment_hash, TIMEOUT)
 
     # Exact amount should succeed.
-    route = l2.rpc.getroute(l1.info['id'], amount, riskfactor=1, fuzzpercent=0)['route']
+    route = l2.single_route(l1.info['id'], amount)
     l2.rpc.sendpay(route, payment_hash, payment_secret=inv['payment_secret'])
 
     # Amount should drop to 0 once HTLC is sent; we have time, thanks to
@@ -2802,12 +2836,12 @@ def test_channel_spendable_large(node_factory, bitcoind):
 
     # route or waitsendpay fill fail.
     with pytest.raises(RpcError):
-        route = l1.rpc.getroute(l2.info['id'], spendable + 1, riskfactor=1, fuzzpercent=0)['route']
+        route = l1.single_route(l2.info['id'], spendable + 1)
         l1.rpc.sendpay(route, payment_hash, payment_secret=inv['payment_secret'])
         l1.rpc.waitsendpay(payment_hash, TIMEOUT)
 
     # Exact amount should succeed.
-    route = l1.rpc.getroute(l2.info['id'], spendable, riskfactor=1, fuzzpercent=0)['route']
+    route = l1.single_route(l2.info['id'], spendable)
     l1.rpc.sendpay(route, payment_hash, payment_secret=inv['payment_secret'])
     open(os.path.join(l2.daemon.lightning_dir, TEST_NETWORK, "unhold"), "w").close()
     l1.rpc.waitsendpay(payment_hash, TIMEOUT)
@@ -3010,10 +3044,10 @@ def test_createonion_rpc(node_factory):
 def test_sendonion_rpc(node_factory):
     l1, l2, l3, l4 = node_factory.line_graph(4, wait_for_announce=True)
     amt = 10**3
-    route = l1.rpc.getroute(l4.info['id'], 10**3, 10)['route']
+    route = l1.single_route(l4.info['id'], 10**3)
     inv = l4.rpc.invoice(amt, "lbl", "desc")
 
-    first_hop = route[0]
+    first_hop = {'id': route[0]['node_id_out'], 'amount_msat': route[0]['amount_out_msat'], 'delay': route[0]['cltv_out']}
     blockheight = l1.rpc.getinfo()['blockheight']
 
     # Need to shift the parameters by one hop
@@ -3021,14 +3055,14 @@ def test_sendonion_rpc(node_factory):
     for h, n in zip(route[:-1], route[1:]):
         # We tell the node h about the parameters to use for n (a.k.a. h + 1)
         hops.append({
-            "pubkey": h['id'],
-            "payload": serialize_payload_tlv(n['amount_msat'], n['delay'], n['channel'], blockheight).hex()
+            "pubkey": h['node_id_out'],
+            "payload": serialize_payload_tlv(n['amount_out_msat'], n['cltv_out'], n['short_channel_id_dir'].rsplit('/', 1)[0], blockheight).hex()
         })
 
     # The last hop has a special payload:
     hops.append({
-        "pubkey": route[-1]['id'],
-        "payload": serialize_payload_final_tlv(route[-1]['amount_msat'], route[-1]['delay'], route[-1]['amount_msat'], blockheight, inv['payment_secret']).hex()
+        "pubkey": route[-1]['node_id_out'],
+        "payload": serialize_payload_final_tlv(route[-1]['amount_out_msat'], route[-1]['cltv_out'], route[-1]['amount_out_msat'], blockheight, inv['payment_secret']).hex()
     })
 
     onion = l1.rpc.createonion(hops=hops, assocdata=inv['payment_hash'])
@@ -3112,8 +3146,17 @@ def test_partial_payment(node_factory, bitcoind, executor):
     paysecret = l4.rpc.decode(inv['bolt11'])['payment_secret']
 
     # Separate routes for each part of the payment.
-    r134 = l1.rpc.getroute(l4.info['id'], 501, 1, exclude=[scid24 + '/0', scid24 + '/1'])['route']
-    r124 = l1.rpc.getroute(l4.info['id'], 499, 1, exclude=[scid34 + '/0', scid34 + '/1'])['route']
+    l1.rpc.askrene_create_layer(layer='excl_l2l4')
+    l1.rpc.askrene_update_channel(layer='excl_l2l4', short_channel_id_dir=scid24 + '/0', enabled=False)
+    l1.rpc.askrene_update_channel(layer='excl_l2l4', short_channel_id_dir=scid24 + '/1', enabled=False)
+    r134 = only_one(l1.rpc.getroutes(l1.info['id'], l4.info['id'], 501, layers=['excl_l2l4', 'auto.localchans', 'auto.sourcefree'], maxfee_msat=10000000, final_cltv=9, maxparts=1)['routes'])['path']
+    l1.rpc.askrene_remove_layer(layer='excl_l2l4')
+
+    l1.rpc.askrene_create_layer(layer='excl_l3l4')
+    l1.rpc.askrene_update_channel(layer='excl_l3l4', short_channel_id_dir=scid34 + '/0', enabled=False)
+    l1.rpc.askrene_update_channel(layer='excl_l3l4', short_channel_id_dir=scid34 + '/1', enabled=False)
+    r124 = only_one(l1.rpc.getroutes(l1.info['id'], l4.info['id'], 499, layers=['excl_l3l4', 'auto.localchans', 'auto.sourcefree'], maxfee_msat=10000000, final_cltv=9, maxparts=1)['routes'])['path']
+    l1.rpc.askrene_remove_layer(layer='excl_l3l4')
 
     # These can happen in parallel.
     l1.rpc.sendpay(
@@ -3462,10 +3505,10 @@ def test_reject_invalid_payload(node_factory):
 
     l1, l2 = node_factory.line_graph(2)
     amt = 10**3
-    route = l1.rpc.getroute(l2.info['id'], amt, 10)['route']
+    route = l1.single_route(l2.info['id'], amt)
     inv = l2.rpc.invoice(amt, "lbl", "desc")
 
-    first_hop = route[0]
+    first_hop = {'id': route[0]['node_id_out'], 'amount_msat': route[0]['amount_out_msat'], 'delay': route[0]['cltv_out']}
 
     # A TLV payload with an unknown even type:
     payload = TlvPayload()
@@ -6992,8 +7035,8 @@ def test_sendonion_sendpay(node_factory, bitcoind):
     # First case, do not overpay a pending MPP payment
     invstr = l3.rpc.invoice("10000sat", "inv", "description")["bolt11"]
     inv = l1.rpc.decode(invstr)
-    route2 = l1.rpc.getroute(inv["payee"], "2000sat", 10)["route"]
-    route8 = l1.rpc.getroute(inv["payee"], "8000sat", 10)["route"]
+    route2 = l1.single_route(inv["payee"], "2000sat")
+    route8 = l1.single_route(inv["payee"], "8000sat")
 
     def pay_with_sendpay(invoice, route, groupid, partid):
         l1.rpc.sendpay(
@@ -7013,19 +7056,19 @@ def test_sendonion_sendpay(node_factory, bitcoind):
             # We tell the node h about the parameters to use for n (a.k.a. h + 1)
             hops.append(
                 {
-                    "pubkey": h["id"],
+                    "pubkey": h["node_id_out"],
                     "payload": serialize_payload_tlv(
-                        n["amount_msat"], n["delay"], n["channel"], blockheight
+                        n["amount_out_msat"], n["cltv_out"], n["short_channel_id_dir"].rsplit("/", 1)[0], blockheight
                     ).hex(),
                 }
             )
         # The last hop has a special payload:
         hops.append(
             {
-                "pubkey": route[-1]["id"],
+                "pubkey": route[-1]["node_id_out"],
                 "payload": serialize_payload_final_tlv(
-                    route[-1]["amount_msat"],
-                    route[-1]["delay"],
+                    route[-1]["amount_out_msat"],
+                    route[-1]["cltv_out"],
                     invoice["amount_msat"],
                     blockheight,
                     invoice["payment_secret"],
@@ -7038,7 +7081,7 @@ def test_sendonion_sendpay(node_factory, bitcoind):
             {
                 "onion": onion["onion"],
                 "shared_secrets": onion["shared_secrets"],
-                "first_hop": route[0],
+                "first_hop": {"id": route[0]["node_id_out"], "amount_msat": route[0]["amount_out_msat"], "delay": route[0]["cltv_out"]},
                 "payment_hash": invoice["payment_hash"],
                 "total_amount_msat": invoice["amount_msat"],
                 "groupid": groupid,
