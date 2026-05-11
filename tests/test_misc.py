@@ -4337,7 +4337,7 @@ def test_graceful_htlc(node_factory, executor):
                                                {'plugin': os.path.join(os.getcwd(), 'tests/plugins/hold_invoice.py')}])
 
     inv = l3.rpc.invoice(10000, 'hold', 'hold invoice')
-    route = l1.rpc.getroute(l3.info['id'], 10000, 1)['route']
+    route = l1.single_route(l3.info['id'], 10000)
     l1.rpc.sendpay(route, inv['payment_hash'], payment_secret=inv['payment_secret'])
     wait_for(lambda: len(only_one(l3.rpc.listpeerchannels()['channels'])['htlcs']) == 1)
 
