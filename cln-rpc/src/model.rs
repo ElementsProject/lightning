@@ -204,6 +204,7 @@ pub enum Request {
 	ListCurrencyRates(requests::ListcurrencyratesRequest),
 	CurrencyConvert(requests::CurrencyconvertRequest),
 	CurrencyRate(requests::CurrencyrateRequest),
+	SendAmount(requests::SendamountRequest),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -398,6 +399,7 @@ pub enum Response {
 	ListCurrencyRates(responses::ListcurrencyratesResponse),
 	CurrencyConvert(responses::CurrencyconvertResponse),
 	CurrencyRate(responses::CurrencyrateResponse),
+	SendAmount(responses::SendamountResponse),
 }
 
 
@@ -5295,6 +5297,41 @@ pub mod requests {
 
 	    fn method(&self) -> &str {
 	        "currencyrate"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct SendamountRequest {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub label: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub maxdelay: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub maxfee: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub payer_note: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub retry_for: Option<u32>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub layers: Option<Vec<String>>,
+	    pub amount_msat: Amount,
+	    pub invstring: String,
+	}
+
+	impl From<SendamountRequest> for Request {
+	    fn from(r: SendamountRequest) -> Self {
+	        Request::SendAmount(r)
+	    }
+	}
+
+	impl IntoRequest for SendamountRequest {
+	    type Response = super::responses::SendamountResponse;
+	}
+
+	impl TypedRequest for SendamountRequest {
+	    type Response = super::responses::SendamountResponse;
+
+	    fn method(&self) -> &str {
+	        "sendamount"
 	    }
 	}
 }
@@ -12858,6 +12895,26 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::CurrencyRate(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct SendamountResponse {
+	    pub amount_msat: Amount,
+	    pub amount_sent_msat: Amount,
+	    pub failed_parts: u64,
+	    pub payment_preimage: Secret,
+	    pub successful_parts: u64,
+	}
+
+	impl TryFrom<Response> for SendamountResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::SendAmount(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }

@@ -779,6 +779,11 @@ class NodeStub(object):
                 request_serializer=node__pb2.CurrencyrateRequest.SerializeToString,
                 response_deserializer=node__pb2.CurrencyrateResponse.FromString,
                 _registered_method=True)
+        self.SendAmount = channel.unary_unary(
+                '/cln.Node/SendAmount',
+                request_serializer=node__pb2.SendamountRequest.SerializeToString,
+                response_deserializer=node__pb2.SendamountResponse.FromString,
+                _registered_method=True)
         self.SubscribeBalanceSnapshot = channel.unary_stream(
                 '/cln.Node/SubscribeBalanceSnapshot',
                 request_serializer=node__pb2.StreamBalanceSnapshotRequest.SerializeToString,
@@ -1798,6 +1803,12 @@ class NodeServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def SendAmount(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def SubscribeBalanceSnapshot(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -2689,6 +2700,11 @@ def add_NodeServicer_to_server(servicer, server):
                     servicer.CurrencyRate,
                     request_deserializer=node__pb2.CurrencyrateRequest.FromString,
                     response_serializer=node__pb2.CurrencyrateResponse.SerializeToString,
+            ),
+            'SendAmount': grpc.unary_unary_rpc_method_handler(
+                    servicer.SendAmount,
+                    request_deserializer=node__pb2.SendamountRequest.FromString,
+                    response_serializer=node__pb2.SendamountResponse.SerializeToString,
             ),
             'SubscribeBalanceSnapshot': grpc.unary_stream_rpc_method_handler(
                     servicer.SubscribeBalanceSnapshot,
@@ -6834,6 +6850,33 @@ class Node(object):
             '/cln.Node/CurrencyRate',
             node__pb2.CurrencyrateRequest.SerializeToString,
             node__pb2.CurrencyrateResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SendAmount(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/cln.Node/SendAmount',
+            node__pb2.SendamountRequest.SerializeToString,
+            node__pb2.SendamountResponse.FromString,
             options,
             channel_credentials,
             insecure,

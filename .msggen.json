@@ -3876,6 +3876,23 @@
             "sendpay_success.status": 12,
             "sendpay_success.updated_index": 5
         },
+        "SendamountRequest": {
+            "SendAmount.amount_msat": 2,
+            "SendAmount.invstring": 1,
+            "SendAmount.label": 8,
+            "SendAmount.layers[]": 4,
+            "SendAmount.maxdelay": 6,
+            "SendAmount.maxfee": 3,
+            "SendAmount.payer_note": 7,
+            "SendAmount.retry_for": 5
+        },
+        "SendamountResponse": {
+            "SendAmount.amount_msat": 4,
+            "SendAmount.amount_sent_msat": 5,
+            "SendAmount.failed_parts": 2,
+            "SendAmount.payment_preimage": 1,
+            "SendAmount.successful_parts": 3
+        },
         "SendcustommsgRequest": {
             "SendCustomMsg.msg": 2,
             "SendCustomMsg.node_id": 1
@@ -13313,6 +13330,58 @@
         },
         "ReserveInputs.reserve": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "SendAmount": {
+            "added": "v26.06",
+            "deprecated": null
+        },
+        "SendAmount.amount_msat": {
+            "added": "v26.06",
+            "deprecated": null
+        },
+        "SendAmount.amount_sent_msat": {
+            "added": "v26.06",
+            "deprecated": null
+        },
+        "SendAmount.failed_parts": {
+            "added": "v26.06",
+            "deprecated": null
+        },
+        "SendAmount.invstring": {
+            "added": "v26.06",
+            "deprecated": null
+        },
+        "SendAmount.label": {
+            "added": "v26.06",
+            "deprecated": null
+        },
+        "SendAmount.layers[]": {
+            "added": "v26.06",
+            "deprecated": null
+        },
+        "SendAmount.maxdelay": {
+            "added": "v26.06",
+            "deprecated": null
+        },
+        "SendAmount.maxfee": {
+            "added": "v26.06",
+            "deprecated": null
+        },
+        "SendAmount.payer_note": {
+            "added": "v26.06",
+            "deprecated": null
+        },
+        "SendAmount.payment_preimage": {
+            "added": "v26.06",
+            "deprecated": null
+        },
+        "SendAmount.retry_for": {
+            "added": "v26.06",
+            "deprecated": null
+        },
+        "SendAmount.successful_parts": {
+            "added": "v26.06",
             "deprecated": null
         },
         "SendCustomMsg": {

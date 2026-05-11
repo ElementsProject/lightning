@@ -1704,6 +1704,27 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("keysend", payload)
 
+    def sendamount(
+        self,
+        invstring,
+        amount_msat,
+        maxfee=None,
+        layers=None,
+        retry_for=None,
+        maxdelay=None,
+        payer_note=None,
+    ):
+        payload = {
+            "invstring": invstring,
+            "amount_msat": amount_msat,
+            "maxfee": maxfee,
+            "layers": layers,
+            "retry_for": retry_for,
+            "maxdelay": maxdelay,
+            "payer_note": payer_note,
+        }
+        return self.call("sendamount", payload)
+
     def xkeysend(self, destination, amount_msat, maxfee=None,
                  layers=None, retry_for=None, maxdelay=None,
                  extratlvs=None):

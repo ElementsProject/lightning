@@ -4696,6 +4696,19 @@ impl From<responses::CurrencyrateResponse> for pb::CurrencyrateResponse {
 }
 
 #[allow(unused_variables)]
+impl From<responses::SendamountResponse> for pb::SendamountResponse {
+    fn from(c: responses::SendamountResponse) -> Self {
+        Self {
+            amount_msat: Some(c.amount_msat.into()), // Rule #2 for type msat
+            amount_sent_msat: Some(c.amount_sent_msat.into()), // Rule #2 for type msat
+            failed_parts: c.failed_parts, // Rule #2 for type u64
+            payment_preimage: c.payment_preimage.to_vec(), // Rule #2 for type secret
+            successful_parts: c.successful_parts, // Rule #2 for type u64
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<notifications::BalanceSnapshotAccounts> for pb::BalanceSnapshotAccounts {
     fn from(c: notifications::BalanceSnapshotAccounts) -> Self {
         Self {
@@ -6946,6 +6959,23 @@ impl From<requests::CurrencyrateRequest> for pb::CurrencyrateRequest {
 }
 
 #[allow(unused_variables)]
+impl From<requests::SendamountRequest> for pb::SendamountRequest {
+    fn from(c: requests::SendamountRequest) -> Self {
+        Self {
+            amount_msat: Some(c.amount_msat.into()), // Rule #2 for type msat
+            invstring: c.invstring, // Rule #2 for type string
+            label: c.label, // Rule #2 for type string?
+            // Field: SendAmount.layers[]
+            layers: c.layers.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
+            maxdelay: c.maxdelay, // Rule #2 for type u32?
+            maxfee: c.maxfee.map(|f| f.into()), // Rule #2 for type msat?
+            payer_note: c.payer_note, // Rule #2 for type string?
+            retry_for: c.retry_for, // Rule #2 for type u32?
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<notifications::requests::StreamBalanceSnapshotRequest> for pb::StreamBalanceSnapshotRequest {
     fn from(c: notifications::requests::StreamBalanceSnapshotRequest) -> Self {
         Self {
@@ -8944,6 +8974,22 @@ impl From<pb::CurrencyrateRequest> for requests::CurrencyrateRequest {
     fn from(c: pb::CurrencyrateRequest) -> Self {
         Self {
             currency: c.currency, // Rule #1 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::SendamountRequest> for requests::SendamountRequest {
+    fn from(c: pb::SendamountRequest) -> Self {
+        Self {
+            amount_msat: c.amount_msat.unwrap().into(), // Rule #1 for type msat
+            invstring: c.invstring, // Rule #1 for type string
+            label: c.label, // Rule #1 for type string?
+            layers: Some(c.layers.into_iter().map(|s| s.into()).collect()), // Rule #4
+            maxdelay: c.maxdelay, // Rule #1 for type u32?
+            maxfee: c.maxfee.map(|a| a.into()), // Rule #1 for type msat?
+            payer_note: c.payer_note, // Rule #1 for type string?
+            retry_for: c.retry_for, // Rule #1 for type u32?
         }
     }
 }

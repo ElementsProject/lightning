@@ -4850,6 +4850,38 @@ impl Node for Server
 
     }
 
+    async fn send_amount(
+        &self,
+        request: tonic::Request<pb::SendamountRequest>,
+    ) -> Result<tonic::Response<pb::SendamountResponse>, tonic::Status> {
+        let req = request.into_inner();
+        let req: requests::SendamountRequest = req.into();
+        debug!("Client asked for send_amount");
+        trace!("send_amount request: {:?}", req);
+        let mut rpc = ClnRpc::new(&self.rpc_path)
+            .await
+            .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+        let result = rpc.call(Request::SendAmount(req))
+            .await
+            .map_err(|e| Status::new(
+               Code::Unknown,
+               format!("Error calling method SendAmount: {:?}", e)))?;
+        match result {
+            Response::SendAmount(r) => {
+               trace!("send_amount response: {:?}", r);
+               Ok(tonic::Response::new(r.into()))
+            },
+            r => Err(Status::new(
+                Code::Internal,
+                format!(
+                    "Unexpected result {:?} to method call SendAmount",
+                    r
+                )
+            )),
+        }
+
+    }
+
 
 
     type SubscribeBalanceSnapshotStream = NotificationStream<pb::BalanceSnapshotNotification>;

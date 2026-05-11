@@ -183,6 +183,7 @@ Core Lightning Documentation
    renepay <renepay.7.md>
    renepaystatus <renepaystatus.7.md>
    reserveinputs <reserveinputs.7.md>
+   sendamount <sendamount.7.md>
    sendcustommsg <sendcustommsg.7.md>
    sendinvoice <sendinvoice.7.md>
    sendonion <sendonion.7.md>

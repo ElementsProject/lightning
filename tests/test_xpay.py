@@ -1274,3 +1274,88 @@ def test_blinded_path_fees(node_factory):
     assert len(htlcs) == 1
     assert htlcs[0]["payment_hash"] == b12_decode["invoice_payment_hash"]
     assert htlcs[0]["amount_msat"] == AMT_MSAT
+
+
+def test_sendamount(node_factory):
+    l1, l2, l3, l4 = node_factory.get_nodes(4)
+    node_factory.join_nodes([l1, l2, l3, l4], wait_for_announce=True)
+
+    # pay bolt11
+    b11 = l4.rpc.invoice("any", "test_sendamount_bolt11", "test_sendamount bolt11")[
+        "bolt11"
+    ]
+    ret = l1.rpc.sendamount(b11, "100sat")
+    assert ret["successful_parts"] == 1
+    assert ret["amount_sent_msat"] == 100000
+
+    # pay bolt12
+    b12 = l4.rpc.offer("any")["bolt12"]
+    ret = l1.rpc.sendamount(b12, "100sat")
+    assert ret["successful_parts"] == 1
+    assert ret["amount_sent_msat"] == 100000
+
+    # pay to self bolt11
+    b11 = l4.rpc.invoice(
+        "any", "test_sendamount_bolt11_self", "test_sendamount_bolt11_self"
+    )["bolt11"]
+    ret = l4.rpc.sendamount(b11, "100sat")
+    assert ret["successful_parts"] == 1
+    assert ret["amount_sent_msat"] == 100000
+
+    # pay to self bolt12
+    b12 = l4.rpc.offer("any")["bolt12"]
+    ret = l4.rpc.sendamount(b12, "100sat")
+    assert ret["successful_parts"] == 1
+    assert ret["amount_sent_msat"] == 100000
+
+    # pay bolt11 direct peer
+    b11 = l4.rpc.invoice(
+        "any", "test_sendamount_bolt11_direct", "test_sendamount bolt11_direct"
+    )["bolt11"]
+    ret = l3.rpc.sendamount(b11, "100sat")
+    assert ret["successful_parts"] == 1
+    assert ret["amount_sent_msat"] == 100000
+
+    # pay bolt12 direct peer
+    b12 = l4.rpc.offer("any")["bolt12"]
+    ret = l3.rpc.sendamount(b12, "100sat")
+    assert ret["successful_parts"] == 1
+    assert ret["amount_sent_msat"] == 100000
+
+    # cannot sendamount to bolt11 with fixed amount
+    b11 = l4.rpc.invoice(
+        "100sat", "test_sendamount_bolt11_fail", "test_sendamount bolt11_fail"
+    )["bolt11"]
+    with pytest.raises(RpcError, match=r"Expecting a Bolt11 invoice with no amount."):
+        ret = l1.rpc.sendamount(b11, "100sat")
+
+    # cannot sendamount to bolt12 offer with fixed amount
+    b12 = l4.rpc.offer("100sat", "test sendamount bolt12 offer fail")["bolt12"]
+    with pytest.raises(RpcError, match=r"Expecting an offer with no amount"):
+        ret = l1.rpc.sendamount(b12, "100sat")
+
+    # cannot sendamount to bolt12 invoice
+    offer = l4.rpc.offer("any")["bolt12"]
+    b12 = l1.rpc.fetchinvoice(offer, "100sat")["invoice"]
+    with pytest.raises(RpcError, match=r"Invalid bolt12 offer: unexpected prefix lni"):
+        ret = l1.rpc.sendamount(b12, "100sat")
+
+
+def test_sendamount_bip353(node_factory):
+    fakebip353_plugin = Path(__file__).parent / "plugins" / "fakebip353.py"
+
+    l1 = node_factory.get_node()
+    offer = l1.rpc.offer("any")["bolt12"]
+
+    l2 = node_factory.get_node(
+        options={
+            "disable-plugin": "cln-bip353",
+            "plugin": fakebip353_plugin,
+            "bip353offer": offer,
+        }
+    )
+
+    node_factory.join_nodes([l2, l1])
+    ret = l2.rpc.sendamount("fake@fake.com", "100sat")
+    assert ret["successful_parts"] == 1
+    assert ret["amount_sent_msat"] == 100000

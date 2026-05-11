@@ -128,6 +128,7 @@ MARKDOWNPAGES := doc/addgossip.7 \
 	doc/renepay.7 \
 	doc/renepaystatus.7 \
 	doc/reserveinputs.7 \
+	doc/sendamount.7 \
 	doc/sendcustommsg.7 \
 	doc/sendinvoice.7 \
 	doc/sendonion.7 \
