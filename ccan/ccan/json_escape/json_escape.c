@@ -20,6 +20,14 @@ bool json_escape_eq(const struct json_escape *a, const struct json_escape *b)
 	return streq(a->s, b->s);
 }
 
+struct json_escape *json_escape_dup(const tal_t *ctx, const struct json_escape *esc TAKES)
+{
+	if (taken(esc))
+		return (struct json_escape *)tal_steal(ctx, esc);
+
+	return json_escape_string_(ctx, esc->s, strlen(esc->s));
+}
+
 bool json_escape_needed(const char *str, size_t len)
 {
 	size_t i;

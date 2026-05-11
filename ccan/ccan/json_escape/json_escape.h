@@ -27,6 +27,9 @@ struct json_escape *json_escape_len(const tal_t *ctx,
 struct json_escape *json_partial_escape(const tal_t *ctx,
 					 const char *str TAKES);
 
+/* Copy a json_escape */
+struct json_escape *json_escape_dup(const tal_t *ctx, const struct json_escape *esc TAKES);
+
 /* Do we need to escape this str? */
 bool json_escape_needed(const char *str, size_t len);
 
