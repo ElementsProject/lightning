@@ -1924,7 +1924,6 @@ def test_pay_retry(node_factory, bitcoind, executor, chainparams):
         l1.dev_pay(inv, dev_use_shadow=False)
 
 
-@pytest.mark.slow_test
 def test_pay_avoid_low_fee_chan(node_factory, bitcoind, executor, chainparams):
     """Make sure we're able to route around a low fee depleted channel """
 
@@ -1932,34 +1931,39 @@ def test_pay_avoid_low_fee_chan(node_factory, bitcoind, executor, chainparams):
     # probably means it needs to be fixed!
 
     # Setup:
-    # sender - router --------- dest
-    #             \              /
-    #              - randomnode -
-    # router is connected to the destination
-    # randomnode is also connected to router and the destination, with a low fee
+    # l1 - l2 ------ l4
+    #       \      /
+    #        - l3 -
+    # l2 is connected to the destination
+    # l3 is also connected to l2 and the destination, with a low fee
     # path. The channel however, is depleted.
-    sender, router, randomnode, dest = node_factory.get_nodes(4)
-    sender.rpc.connect(router.info['id'], 'localhost', router.port)
-    sender.fundchannel(router, 200000, wait_for_active=True)
-    router.rpc.connect(dest.info['id'], 'localhost', dest.port)
-    router_dest_scid, _ = router.fundchannel(dest, 10**6, wait_for_active=True)
-    randomnode.rpc.connect(dest.info['id'], 'localhost', dest.port)
-    randomnode_dest_scid, _ = randomnode.fundchannel(dest, 10**6, wait_for_active=True)
+    l1, l2, l3, l4 = node_factory.get_nodes(4)
+    node_factory.join_nodes([l1, l2, l4])
 
-    # Router has a depleted channel to randomnode. Mimic this by opening the
+    # l2 has a depleted channel to l3. Mimic this by opening the
     # channel the other way around.
-    randomnode.rpc.connect(router.info['id'], 'localhost', router.port)
-    scid_router_random, _ = randomnode.fundchannel(router, 10**6, wait_for_active=True)
+    node_factory.join_nodes([l3, l2])
+    node_factory.join_nodes([l3, l4])
+
+    l2l3_scid = first_scid(l2, l3)
+    l2l4_scid = first_scid(l2, l4)
+    l3l4_scid = first_scid(l3, l4)
 
     # Set relevant fees:
-    # - High fee from router to dest
-    # - Low fee from router to randomnode and randomnode to dest
-    router.rpc.setchannel(router_dest_scid, feebase=0, feeppm=2000, htlcmin=1)
-    router.rpc.setchannel(scid_router_random, feebase=0, feeppm=1, htlcmin=1)
-    randomnode.rpc.setchannel(randomnode_dest_scid, feebase=0, feeppm=1, htlcmin=1)
+    # - High fee from l2 to l4
+    # - Low fee from l2 to l3 and l3 to l4
+    l2.rpc.setchannel(l2l4_scid, feebase=0, feeppm=2000, htlcmin=1)
+    l2.rpc.setchannel(l2l3_scid, feebase=0, feeppm=1, htlcmin=1)
+    l3.rpc.setchannel(l3l4_scid, feebase=0, feeppm=1, htlcmin=1)
+
+    # Make sure l1 sees all the channels.
+    mine_funding_to_announce(bitcoind, [l1, l2, l3, l4])
 
     def has_gossip():
-        channels = sender.rpc.listchannels()['channels']
+        channels = l1.rpc.listchannels()['channels']
+        if len(channels) != 4 * 2:
+            return False
+
         if sum(1 for c in channels if c['fee_per_millionth'] == 1) != 2:
             return False
 
@@ -1968,26 +1972,24 @@ def test_pay_avoid_low_fee_chan(node_factory, bitcoind, executor, chainparams):
 
         return True
 
-    # Make sure all relevant gossip reached the sender.
-    mine_funding_to_announce(bitcoind, [sender, router, randomnode, dest])
     wait_for(has_gossip)
 
     def listpays_nofail(b11):
         while True:
-            pays = sender.rpc.listpays(b11)['pays']
+            pays = l1.rpc.listpays(b11)['pays']
             if len(pays) != 0:
                 if only_one(pays)['status'] == 'complete':
                     return
                 assert only_one(pays)['status'] != 'failed'
 
-    inv = dest.rpc.invoice(100000000, 'test_low_fee', 'test_low_fee')
+    inv = l4.rpc.invoice(100000000, 'test_low_fee', 'test_low_fee')
 
     # Make sure listpays doesn't transiently show failure while pay
     # is retrying.
     fut = executor.submit(listpays_nofail, inv['bolt11'])
 
     # Pay sender->dest should succeed via non-depleted channel
-    sender.dev_pay(inv['bolt11'], dev_use_shadow=False)
+    l1.dev_pay(inv['bolt11'], dev_use_shadow=False)
 
     fut.result()
 
