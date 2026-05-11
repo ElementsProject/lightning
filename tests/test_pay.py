@@ -1771,9 +1771,6 @@ def test_pay_variants(node_factory):
     l1.rpc.pay(b11)
 
 
-# This can fail since xpay doesn't yet control listpays, so it can flag something
-# failed while it's still being attempted.
-@pytest.mark.xfail()
 @pytest.mark.slow_test
 def test_pay_retry(node_factory, bitcoind, executor, chainparams):
     """Make sure pay command retries properly. """
@@ -1856,9 +1853,6 @@ def test_pay_retry(node_factory, bitcoind, executor, chainparams):
         l1.dev_pay(inv, dev_use_shadow=False)
 
 
-# This can fail since xpay doesn't yet control listpays, so it can flag something
-# failed while it's still being attempted.
-@pytest.mark.xfail()
 def test_pay_avoid_low_fee_chan(node_factory, bitcoind, executor, chainparams):
     """Make sure we're able to route around a low fee depleted channel """
 

@@ -25,6 +25,7 @@
 #include <errno.h>
 #include <inttypes.h>
 #include <plugins/libplugin.h>
+#include <plugins/xpay/listpays.h>
 #include <plugins/xpay/xpay.h>
 #include <stdarg.h>
 
@@ -2897,6 +2898,10 @@ static const struct plugin_command commands[] = {
 	{
 		"xkeysend",
 		json_xkeysend,
+	},
+	{
+		"listpays",
+		json_listpays
 	},
 };
 
