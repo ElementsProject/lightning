@@ -40,7 +40,7 @@ def test_splice(node_factory, bitcoind):
     l1.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
 
     inv = l2.rpc.invoice(10**2, '3', 'no_3')
-    l1.rpc.pay(inv['bolt11'])
+    l1.rpc.xpay(inv['bolt11'])
 
     # Check that the splice doesn't generate a unilateral close transaction
     time.sleep(5)
@@ -114,10 +114,10 @@ def test_two_chan_splice_in(node_factory, bitcoind):
     l1.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
 
     inv = l2.rpc.invoice(10**2, '1', 'no_1')
-    l1.rpc.pay(inv['bolt11'])
+    l1.rpc.xpay(inv['bolt11'])
 
     inv = l3.rpc.invoice(10**2, '2', 'no_2')
-    l2.rpc.pay(inv['bolt11'])
+    l2.rpc.xpay(inv['bolt11'])
 
 
 @pytest.mark.openchannel('v1')
@@ -146,7 +146,7 @@ def test_splice_rbf(node_factory, bitcoind):
     assert result['txid'] in list(mempool.keys())
 
     inv = l2.rpc.invoice(10**2, '1', 'no_1')
-    l1.rpc.pay(inv['bolt11'])
+    l1.rpc.xpay(inv['bolt11'])
 
     funds_result = l1.rpc.addpsbtoutput(100000)
 
@@ -162,7 +162,7 @@ def test_splice_rbf(node_factory, bitcoind):
     l1.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_AWAITING_SPLICE')
 
     inv = l2.rpc.invoice(10**2, '2', 'no_2')
-    l1.rpc.pay(inv['bolt11'])
+    l1.rpc.xpay(inv['bolt11'])
 
     # Make sure l1 doesn't unilateral close if HTLC hasn't completely settled before deadline.
     wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['htlcs'] == [])
@@ -173,7 +173,7 @@ def test_splice_rbf(node_factory, bitcoind):
     l1.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
 
     inv = l2.rpc.invoice(10**2, '3', 'no_3')
-    l1.rpc.pay(inv['bolt11'])
+    l1.rpc.xpay(inv['bolt11'])
 
     # Check that the splice doesn't generate a unilateral close transaction
     time.sleep(5)
@@ -335,7 +335,7 @@ def test_splice_out(node_factory, bitcoind):
     l1.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
 
     inv = l2.rpc.invoice(10**2, '3', 'no_3')
-    l1.rpc.pay(inv['bolt11'])
+    l1.rpc.xpay(inv['bolt11'])
 
     # Check that the splice doesn't generate a unilateral close transaction
     time.sleep(5)
@@ -392,7 +392,7 @@ def test_invalid_splice(node_factory, bitcoind):
     l1.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
 
     inv = l2.rpc.invoice(10**2, '3', 'no_3')
-    l1.rpc.pay(inv['bolt11'])
+    l1.rpc.xpay(inv['bolt11'])
 
     # Check that the splice doesn't generate a unilateral close transaction
     time.sleep(5)
@@ -443,7 +443,7 @@ def test_commit_crash_splice(node_factory, bitcoind):
     assert l1.db_query("SELECT count(*) as c FROM channel_funding_inflights;")[0]['c'] == 0
 
     inv = l2.rpc.invoice(10**2, '3', 'no_3')
-    l1.rpc.pay(inv['bolt11'])
+    l1.rpc.xpay(inv['bolt11'])
 
     # Check that the splice doesn't generate a unilateral close transaction
     time.sleep(5)
@@ -459,7 +459,7 @@ def test_splice_stuck_htlc(node_factory, bitcoind, executor):
     l3.rpc.dev_ignore_htlcs(id=l2.info['id'], ignore=True)
 
     inv = l3.rpc.invoice(10000000, '1', 'no_1')
-    executor.submit(l1.rpc.pay, inv['bolt11'])
+    executor.submit(l1.rpc.xpay, inv['bolt11'])
     l3.daemon.wait_for_log('their htlc 0 dev_ignore_htlcs')
 
     # Now we should have a stuck invoice between l1 -> l2

@@ -979,7 +979,7 @@ def test_report_routing_failure(node_factory, bitcoind):
 
     # Test
     inv = l4.rpc.invoice(1234567, 'inv', 'for testing')['bolt11']
-    l1.rpc.pay(inv)
+    l1.rpc.xpay(inv)
 
 
 def test_query_short_channel_id(node_factory, bitcoind, chainparams):

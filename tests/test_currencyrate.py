@@ -320,7 +320,7 @@ def test_bkpr_listaccountevents_currencyrate(node_factory, fake_rateserver):
     l1, l2 = node_factory.line_graph(2, opts=opts)
 
     inv = l2.rpc.invoice(100000, "test-bkpr-currency", "desc")
-    l1.rpc.pay(inv["bolt11"])
+    l1.rpc.xpay(inv["bolt11"])
     # We want this event in the list, so wait until it's totally closed.
     wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['htlcs'] == [])
 
@@ -353,7 +353,7 @@ def test_bkpr_listaccountevents_realtime(node_factory, fake_rateserver):
     old_median = (fake_rateserver["state"]["fast"] + fake_rateserver["state"]["slow"]) / 2
 
     inv = l2.rpc.invoice(100000, "test_bkpr_listaccountevents_realtime", "desc")
-    l1.rpc.pay(inv["bolt11"])
+    l1.rpc.xpay(inv["bolt11"])
     # We want this event in the list, so wait until it's totally closed.
     wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['htlcs'] == [])
 
@@ -391,7 +391,7 @@ def test_bkpr_currency_dynamic(node_factory, fake_rateserver):
     median_rate = (fake_rateserver["state"]["fast"] + fake_rateserver["state"]["slow"]) / 2
 
     inv1 = l2.rpc.invoice(100000, "test_bkpr_currency_dynamic_1", "desc")
-    l1.rpc.pay(inv1["bolt11"])
+    l1.rpc.xpay(inv1["bolt11"])
     # We want this event in the list, so wait until it's totally closed.
     wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['htlcs'] == [])
 
@@ -406,7 +406,7 @@ def test_bkpr_currency_dynamic(node_factory, fake_rateserver):
     l1.rpc.setconfig("bkpr-currency", "USD")
 
     inv2 = l2.rpc.invoice(100000, "test_bkpr_currency_dynamic_2", "desc")
-    l1.rpc.pay(inv2["bolt11"])
+    l1.rpc.xpay(inv2["bolt11"])
     wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['htlcs'] == [])
 
     events = l1.rpc.bkpr_listaccountevents()["events"]
@@ -422,7 +422,7 @@ def test_bkpr_currency_dynamic(node_factory, fake_rateserver):
     l1.rpc.setconfig("bkpr-currency", "")
 
     inv3 = l2.rpc.invoice(100000, "test_bkpr_currency_dynamic_3", "desc")
-    l1.rpc.pay(inv3["bolt11"])
+    l1.rpc.xpay(inv3["bolt11"])
     # If we don't wait here, we can get a spurious error from
     # cln-currencyrate as fixture gets torn down!
     wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['htlcs'] == [])
@@ -455,7 +455,7 @@ def test_bkpr_currencyrate_persisted(node_factory, fake_rateserver):
     old_median = (fake_rateserver["state"]["fast"] + fake_rateserver["state"]["slow"]) / 2
 
     inv = l2.rpc.invoice(100000, "test_bkpr_currencyrate_persisted", "desc")
-    l1.rpc.pay(inv["bolt11"])
+    l1.rpc.xpay(inv["bolt11"])
     # Make sure it's fully resolved so we get all events now.
     wait_for(lambda: only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['htlcs'] == [])
 
@@ -476,7 +476,7 @@ def test_bkpr_currencyrate_persisted(node_factory, fake_rateserver):
 
     # And we can add more.
     inv2 = l2.rpc.invoice(100000, "test_bkpr_currencyrate_persisted2", "desc")
-    l1.rpc.pay(inv2["bolt11"])
+    l1.rpc.xpay(inv2["bolt11"])
     wait_for(lambda: only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['htlcs'] == [])
 
     new_events = l1.rpc.bkpr_listaccountevents()["events"]
@@ -524,7 +524,7 @@ def test_bkpr_currencyrate_warns_for_old_events(node_factory, fake_rateserver):
 
     # 1. Create old events before bkpr-currency is enabled.
     inv1 = l2.rpc.invoice(100000, "test_bkpr_currencyrate_warns_old_1", "desc")
-    l1.rpc.pay(inv1["bolt11"])
+    l1.rpc.xpay(inv1["bolt11"])
     wait_for(lambda: only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['htlcs'] == [])
     events = l1.rpc.bkpr_listaccountevents()["events"]
     assert events
@@ -536,7 +536,7 @@ def test_bkpr_currencyrate_warns_for_old_events(node_factory, fake_rateserver):
 
     # New events.
     inv2 = l2.rpc.invoice(100000, "test_bkpr_currencyrate_warns_old_2", "desc")
-    l1.rpc.pay(inv2["bolt11"])
+    l1.rpc.xpay(inv2["bolt11"])
     wait_for(lambda: only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['htlcs'] == [])
 
     # It does NOT complain about records before we set currency at all.
@@ -552,7 +552,7 @@ def test_bkpr_currencyrate_warns_for_old_events(node_factory, fake_rateserver):
 
     # 4. Create new events while bookkeeper is stopped, then let them go stale.
     inv3 = l2.rpc.invoice(100000, "test_bkpr_currencyrate_warns_old_3", "desc")
-    l1.rpc.pay(inv3["bolt11"])
+    l1.rpc.xpay(inv3["bolt11"])
     wait_for(lambda: only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['htlcs'] == [])
     time.sleep(61)
 
@@ -592,7 +592,7 @@ def test_bkpr_currencyrate_ranges(node_factory, fake_rateserver):
     time.sleep(1)
 
     inv1 = l2.rpc.invoice(100000, "test_bkpr_currencyrate_ranges_1", "desc")
-    l1.rpc.pay(inv1["bolt11"])
+    l1.rpc.xpay(inv1["bolt11"])
     wait_for(lambda: only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['htlcs'] == [])
 
     # Now we change the rate (and make sure time goes forward so it re-checks!)
@@ -606,7 +606,7 @@ def test_bkpr_currencyrate_ranges(node_factory, fake_rateserver):
     l1.connect(l2)
 
     inv2 = l2.rpc.invoice(100000, "test_bkpr_currencyrate_ranges_2", "desc")
-    l1.rpc.pay(inv2["bolt11"])
+    l1.rpc.xpay(inv2["bolt11"])
     wait_for(lambda: only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['htlcs'] == [])
 
     # Calling this here makes sure it's finished processing currencyrates

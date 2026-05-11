@@ -100,7 +100,7 @@ def test_multifunding_v2_best_effort(node_factory, bitcoind):
         working_chans = [l4] if failed_sign else [l2, l4]
         for ldest in working_chans:
             inv = ldest.rpc.invoice(5000, 'i{}'.format(i), 'i{}'.format(i))['bolt11']
-            l1.rpc.pay(inv)
+            l1.rpc.xpay(inv)
 
         # Function to find the SCID of the channel that is
         # currently open.
@@ -653,7 +653,7 @@ def test_v2_rbf_liquidity_ad(node_factory, bitcoind, chainparams):
 
     # send some payments, mine a block or two
     inv = l2.rpc.invoice(10**4, '1', 'no_1')
-    l1.rpc.pay(inv['bolt11'])
+    l1.rpc.xpay(inv['bolt11'])
 
     # l2 attempts to close a channel that it leased, should succeed
     # (channel isnt leased)
@@ -1646,7 +1646,7 @@ def test_zeroconf_open(bitcoind, node_factory):
     l2alias = only_one(l2.rpc.listpeerchannels(l3.info['id'])['channels'])['alias']['local']
     assert(hop['pubkey'] == l2.info['id'])  # l2 is the entrypoint
     assert(hop['short_channel_id'] == l2alias)  # Alias has to make sense to entrypoint
-    l2.rpc.pay(inv)
+    l2.rpc.xpay(inv)
 
     # Ensure lightningd knows about the balance change before
     # attempting the other way around.
@@ -1654,7 +1654,7 @@ def test_zeroconf_open(bitcoind, node_factory):
 
     # Inverse payments should work too
     inv = l2.rpc.invoice(10**5, 'lbl', 'desc')['bolt11']
-    l3.rpc.pay(inv)
+    l3.rpc.xpay(inv)
 
 
 def test_zeroconf_public(bitcoind, node_factory, chainparams):
@@ -1792,7 +1792,7 @@ def test_zeroconf_forward(node_factory, bitcoind):
     # Make sure (esp in non-dev-mode) blockheights agree so we don't WIRE_EXPIRY_TOO_SOON...
     sync_blockheight(bitcoind, [l1, l2, l3])
     inv = l3.rpc.invoice(42 * 10**6, 'inv1', 'desc')['bolt11']
-    l1.rpc.pay(inv)
+    l1.rpc.xpay(inv)
 
     # And now try the other way around: zeroconf channel first
     # followed by a public one.
@@ -1803,7 +1803,7 @@ def test_zeroconf_forward(node_factory, bitcoind):
     wait_for(lambda: (p['htlcs'] == [] for p in l2.rpc.listpeerchannels()['channels']))
 
     inv = l1.rpc.invoice(42, 'back1', 'desc')['bolt11']
-    l3.rpc.pay(inv)
+    l3.rpc.xpay(inv)
 
 
 def test_zeroconf_refusal(bitcoind, node_factory, chainparams):
@@ -2068,7 +2068,7 @@ def test_zeroconf_multichan_forward(node_factory):
     l2.daemon.wait_for_log(r'peer_in WIRE_CHANNEL_READY')
     l3.daemon.wait_for_log(r'peer_in WIRE_CHANNEL_READY')
 
-    l1.rpc.pay(inv)
+    l1.rpc.xpay(inv)
 
     for c in l2.rpc.listpeerchannels(l3.info['id'])['channels']:
         if c['channel_id'] == zeroconf_cid:
@@ -2683,10 +2683,10 @@ def test_multifunding_all_amount(node_factory, bitcoind):
     wait_for(lambda: [c['state'] for c in (l1.rpc.listpeerchannels()['channels'])] == ['CHANNELD_NORMAL', 'CHANNELD_NORMAL'])
 
     inv = l2.rpc.invoice(5000, 'i1', 'i1')['bolt11']
-    l1.rpc.pay(inv)
+    l1.rpc.xpay(inv)
 
     inv2 = l3.rpc.invoice(100000, 'i2', 'i2')['bolt11']
-    l1.rpc.pay(inv2)
+    l1.rpc.xpay(inv2)
 
 
 @pytest.mark.parametrize("dopay", [True, False])  # Whether to send a payment or not
@@ -2735,7 +2735,7 @@ def test_zeroconf_forget(node_factory, bitcoind, dopay: bool):
     # risking any of our funds.
     if dopay:
         inv = l2.rpc.invoice(1, "payme", "my stake in the unconfirmed channel")
-        l1.rpc.pay(inv["bolt11"])
+        l1.rpc.xpay(inv["bolt11"])
         wait_for(lambda: only_one(l2.rpc.listpeerchannels()['channels'])['to_us_msat'] == 1)
 
     # We need *another* channel to make it forget the first though!  (One block later, otherwise

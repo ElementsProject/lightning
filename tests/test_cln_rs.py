@@ -306,8 +306,8 @@ def test_cln_plugin_reentrant(node_factory, executor):
     i1 = l1.rpc.invoice(label='lbl1', amount_msat='42sat', description='desc')['bolt11']
     i2 = l1.rpc.invoice(label='lbl2', amount_msat='31337sat', description='desc')['bolt11']
 
-    f1 = executor.submit(l2.rpc.pay, i1)
-    f2 = executor.submit(l2.rpc.pay, i2)
+    f1 = executor.submit(l2.rpc.xpay, i1)
+    f2 = executor.submit(l2.rpc.xpay, i2)
 
     l1.daemon.wait_for_logs(["plugin-cln-plugin-reentrant: Holding on to incoming HTLC Object"] * 2)
 

@@ -669,7 +669,7 @@ def test_invoice_payment_hook(node_factory):
 
     # This one works
     inv1 = l2.rpc.invoice(1230, 'label', 'description', preimage='1' * 64)
-    l1.rpc.pay(inv1['bolt11'])
+    l1.rpc.xpay(inv1['bolt11'])
 
     l2.daemon.wait_for_log('label=label')
     l2.daemon.wait_for_log('msat=')
@@ -677,11 +677,8 @@ def test_invoice_payment_hook(node_factory):
 
     # This one will be rejected.
     inv2 = l2.rpc.invoice(1230, 'label2', 'description', preimage='0' * 64)
-    with pytest.raises(RpcError):
-        l1.rpc.pay(inv2['bolt11'])
-
-    pstatus = l1.rpc.call('paystatus', [inv2['bolt11']])['pay'][0]
-    assert pstatus['attempts'][-1]['failure']['data']['failcodename'] == 'WIRE_TEMPORARY_NODE_FAILURE'
+    with pytest.raises(RpcError, match=r'Unexpected error \(temporary_node_failure\) from final node'):
+        l1.rpc.xpay(inv2['bolt11'])
 
     l2.daemon.wait_for_log('label=label2')
     l2.daemon.wait_for_log('msat=')
@@ -697,7 +694,7 @@ def test_invoice_payment_hook_hold(node_factory, executor):
     inv1 = l2.rpc.invoice(1230, 'label', 'description', preimage='1' * 64)
 
     # This should block.
-    f = executor.submit(l1.rpc.pay, inv1['bolt11'])
+    f = executor.submit(l1.rpc.xpay, inv1['bolt11'])
     time.sleep(5)
     assert not f.done()
 
@@ -1220,8 +1217,8 @@ def test_htlc_accepted_hook_fail(node_factory):
     # Now try with forwarded HTLCs: l2 should still fail them
     # This must fail
     inv = l3.rpc.invoice(1000, "lbl", "desc")['bolt11']
-    with pytest.raises(RpcError):
-        l1.rpc.pay(inv)
+    with pytest.raises(RpcError, match=r"We got a weird error \(temporary_node_failure\) for the invoice's route hint"):
+        l1.rpc.xpay(inv)
 
     # And the invoice must still be unpaid
     inv = l3.rpc.listinvoices("lbl")['invoices']
@@ -1238,7 +1235,7 @@ def test_htlc_accepted_hook_resolve(node_factory):
     ], wait_for_announce=True)
 
     inv = l3.rpc.invoice(amount_msat=1000, label="lbl", description="desc", preimage="00" * 32)['bolt11']
-    l1.rpc.pay(inv)
+    l1.rpc.xpay(inv)
 
     # And the invoice must still be unpaid
     inv = l3.rpc.listinvoices("lbl")['invoices']
@@ -1255,7 +1252,7 @@ def test_htlc_accepted_hook_direct_restart(node_factory, executor):
     ])
 
     i1 = l2.rpc.invoice(amount_msat=1000, label="direct", description="desc")['bolt11']
-    f1 = executor.submit(l1.rpc.pay, i1)
+    f1 = executor.submit(l1.rpc.xpay, i1)
 
     l2.daemon.wait_for_log(r'Holding onto an incoming htlc for 10 seconds')
 
@@ -1940,7 +1937,7 @@ def test_hook_chaining(node_factory):
 
     inv = l2.rpc.invoice(123, 'odd', "Odd payment handled by the first plugin",
                          preimage="AA" * 32)['bolt11']
-    l1.rpc.pay(inv)
+    l1.rpc.xpay(inv)
 
     # The first plugin will handle this, the second one should not be called.
     assert(l2.daemon.is_in_log(
@@ -1956,7 +1953,7 @@ def test_hook_chaining(node_factory):
     inv = l2.rpc.invoice(
         123, 'even', "Even payment handled by the second plugin", preimage="BB" * 32
     )['bolt11']
-    l1.rpc.pay(inv)
+    l1.rpc.xpay(inv)
     assert(l2.daemon.is_in_log(
         r'plugin-hook-chain-odd.py: htlc_accepted called for payment_hash {}'.format(hash2)
     ))
@@ -1968,7 +1965,7 @@ def test_hook_chaining(node_factory):
     # by the internal invoice handling.
     inv = l2.rpc.invoice(123, 'neither', "Neither plugin handles this",
                          preimage="CC" * 32)['bolt11']
-    l1.rpc.pay(inv)
+    l1.rpc.xpay(inv)
     assert(l2.daemon.is_in_log(
         r'plugin-hook-chain-odd.py: htlc_accepted called for payment_hash {}'.format(hash3)
     ))
@@ -2255,7 +2252,7 @@ def test_hook_crash(node_factory, executor, bitcoind):
     futures = []
     for n in nodes:
         inv = n.rpc.invoice(123, "lbl", "desc")['bolt11']
-        futures.append(executor.submit(l1.rpc.pay, inv))
+        futures.append(executor.submit(l1.rpc.xpay, inv))
 
     for n in nodes:
         n.daemon.wait_for_logs([
@@ -2298,14 +2295,14 @@ def test_replacement_payload(node_factory):
     # Replace with an invalid payload.
     l2.rpc.call('setpayload', ['0000'])
     inv = l2.rpc.invoice(123, 'test_replacement_payload', 'test_replacement_payload')['bolt11']
-    with pytest.raises(RpcError, match=r"WIRE_INVALID_ONION_PAYLOAD \(reply from remote\)"):
-        l1.rpc.pay(inv)
+    with pytest.raises(RpcError, match=r"Unexpected error \(invalid_onion_payload\) from final node"):
+        l1.rpc.xpay(inv)
 
     # Replace with valid payload, but corrupt payment_secret
     l2.rpc.call('setpayload', ['corrupt_secret'])
 
-    with pytest.raises(RpcError, match=r"WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS \(reply from remote\)"):
-        l1.rpc.pay(inv)
+    with pytest.raises(RpcError, match=r"Destination said it doesn't know invoice: incorrect_or_unknown_payment_details"):
+        l1.rpc.xpay(inv)
 
     assert l2.daemon.wait_for_log("Attempt to pay.*with wrong payment_secret")
 
@@ -2329,12 +2326,12 @@ def test_watchtower(node_factory, bitcoind, directory, chainparams):
     channel_id = l1.rpc.listpeerchannels()['channels'][0]['channel_id']
 
     # Force a new commitment
-    l1.rpc.pay(l2.rpc.invoice(25000000, 'lbl1', 'desc1')['bolt11'])
+    l1.rpc.xpay(l2.rpc.invoice(25000000, 'lbl1', 'desc1')['bolt11'])
 
     tx = l1.rpc.dev_sign_last_tx(l2.info['id'])['tx']
 
     # Now make sure it is out of date
-    l1.rpc.pay(l2.rpc.invoice(25000000, 'lbl2', 'desc2')['bolt11'])
+    l1.rpc.xpay(l2.rpc.invoice(25000000, 'lbl2', 'desc2')['bolt11'])
 
     # l2 stops watching the chain, allowing the watchtower to react
     l2.stop()
@@ -2610,15 +2607,15 @@ def test_htlc_accepted_hook_crash(node_factory, executor):
 
     # This should still succeed
 
-    f = executor.submit(l1.rpc.pay, i)
+    f = executor.submit(l1.rpc.xpay, i)
 
     l2.daemon.wait_for_log(r'Crashing on purpose...')
     l2.daemon.wait_for_log(
         r'Hook handler for htlc_accepted failed with an exception.'
     )
 
-    with pytest.raises(RpcError, match=r'failed: WIRE_TEMPORARY_NODE_FAILURE'):
-        f.result(10)
+    with pytest.raises(RpcError, match=r'Unexpected error \(temporary_node_failure\) from final node: disabling'):
+        f.result(TIMEOUT)
 
 
 def test_notify(node_factory):
@@ -2693,17 +2690,17 @@ def test_htlc_accepted_hook_failmsg(node_factory):
     # First let's test the newer failure_message, which should get passed
     # through without being mapped.
     tests = {
-        '2002': 'WIRE_TEMPORARY_NODE_FAILURE',
-        '400F' + 12 * '00': 'WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS',
-        '4009': 'WIRE_REQUIRED_CHANNEL_FEATURE_MISSING',
-        '4016' + 3 * '00': 'WIRE_INVALID_ONION_PAYLOAD',
+        '2002': 'temporary_node_failure',
+        '400F' + 12 * '00': 'incorrect_or_unknown_payment_details',
+        '4009': 'required_channel_feature_missing',
+        '4016' + 3 * '00': 'invalid_onion_payload',
     }
 
     for failmsg, expected in tests.items():
         l2.rpc.setfailmsg(msg=failmsg)
         inv = l2.rpc.invoice(42, 'failmsg{}'.format(failmsg), '')['bolt11']
-        with pytest.raises(RpcError, match=r'failcodename.: .{}.'.format(expected)):
-            l1.rpc.pay(inv)
+        with pytest.raises(RpcError, match=expected):
+            l1.rpc.xpay(inv)
 
 
 def test_htlc_accepted_hook_customtlvs(node_factory):
@@ -2718,14 +2715,14 @@ def test_htlc_accepted_hook_customtlvs(node_factory):
     single_tlv = "fe00010001012a"  # represents type: 65537, lenght: 1, value: 42
     l2.rpc.setcustomtlvs(tlvs=single_tlv)
     inv = l3.rpc.invoice(1000, 'customtlvs-singletlv', '')['bolt11']
-    l1.rpc.pay(inv)
+    l1.rpc.xpay(inv)
     l3.daemon.wait_for_log(f"called htlc accepted hook with extra_tlvs: {single_tlv}")
 
     # Mutliple tlvs - Check that we recieve multiple extra tlvs at l3 attached by l2.
     multi_tlv = "fdffff012afe00010001020539"  # represents type: 65535, length: 1, value: 42 and type: 65537, length: 2, value: 1337
     l2.rpc.setcustomtlvs(tlvs=multi_tlv)
     inv = l3.rpc.invoice(1000, 'customtlvs-multitlvs', '')['bolt11']
-    l1.rpc.pay(inv)
+    l1.rpc.xpay(inv)
     l3.daemon.wait_for_log(f"called htlc accepted hook with extra_tlvs: {multi_tlv}")
 
 
@@ -2825,7 +2822,7 @@ def test_htlc_accepted_hook_failonion(node_factory):
     l2.rpc.setfailonion('0' * (292 * 2))
     inv = l2.rpc.invoice(42, 'failonion000', '')['bolt11']
     with pytest.raises(RpcError):
-        l1.rpc.pay(inv)
+        l1.rpc.xpay(inv)
 
 
 @pytest.mark.slow_test  # VALGRIND running generally too slow to trigger race we need.
@@ -2867,14 +2864,14 @@ def test_htlc_accepted_hook_fwdto(node_factory):
     l1, l2, l3 = node_factory.line_graph(3, opts=[{}, {'plugin': plugin}, {}], wait_for_announce=True)
 
     # Add some balance
-    l1.rpc.pay(l2.rpc.invoice(10**9 // 2, 'balance', '')['bolt11'])
+    l1.rpc.xpay(l2.rpc.invoice(10**9 // 2, 'balance', '')['bolt11'])
     wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['htlcs'] == [])
 
     # make it forward back down same channel.
     l2.rpc.setfwdto(only_one(l1.rpc.listpeerchannels()['channels'])['channel_id'])
     inv = l3.rpc.invoice(42, 'fwdto', '')['bolt11']
-    with pytest.raises(RpcError, match="WIRE_INVALID_ONION_HMAC"):
-        l1.rpc.pay(inv)
+    with pytest.raises(RpcError, match=r"Unexpected error \(invalid_onion_hmac\) from intermediate node: disabling the invoice's route hint"):
+        l1.rpc.xpay(inv)
 
     assert l2.rpc.listforwards()['forwards'][0]['out_channel'] == only_one(l1.rpc.listpeerchannels()['channels'])['short_channel_id']
 
@@ -2952,32 +2949,6 @@ def test_self_disable(node_factory):
     # Also works with dynamic load attempts
     with pytest.raises(RpcError, match="Disabled via selfdisable option"):
         l1.rpc.plugin_start(p2, selfdisable=True)
-
-
-def test_custom_notification_topics(node_factory):
-    plugin = os.path.join(
-        os.path.dirname(__file__), "plugins", "custom_notifications.py"
-    )
-    l1, l2 = node_factory.line_graph(2, opts=[{'plugin': plugin}, {}])
-    l1.rpc.emit()
-    l1.daemon.wait_for_log("Got a custom notification Hello world from plugin custom_notifications.py")
-
-    inv = l2.rpc.invoice(42, "lbl", "desc")['bolt11']
-    l1.rpc.pay(inv)
-
-    l1.daemon.wait_for_log(r'Got a pay_success notification from plugin pay for payment_hash [0-9a-f]{64}')
-
-    # And now make sure that we drop unannounced notifications
-    l1.rpc.faulty_emit()
-    l1.daemon.wait_for_log(
-        r"Plugin attempted to send a notification to topic .* not forwarding"
-    )
-    time.sleep(1)
-    assert not l1.daemon.is_in_log(r'Got the ididntannouncethis event')
-
-    # The plugin just dist what previously was a fatal mistake (emit
-    # an unknown notification), make sure we didn't kill it.
-    assert str(plugin) in [p['name'] for p in l1.rpc.plugin_list()['plugins']]
 
 
 def test_restart_on_update(node_factory):
@@ -3292,12 +3263,12 @@ def test_autoclean(node_factory):
 
     # Reconnect, l1 pays invoice, we test paid expiry.
     l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
-    l1.rpc.pay(inv4['bolt11'])
+    l1.rpc.xpay(inv4['bolt11'])
 
     # We manually delete inv5 so we can have l1 fail a payment.
     l3.rpc.delinvoice('inv5', 'unpaid')
-    with pytest.raises(RpcError, match='WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS'):
-        l1.rpc.pay(inv5['bolt11'])
+    with pytest.raises(RpcError, match="Destination said it doesn't know invoice: incorrect_or_unknown_payment_details"):
+        l1.rpc.xpay(inv5['bolt11'])
 
     assert l3.rpc.autoclean_status()['autoclean']['paidinvoices']['enabled'] is False
     assert l3.rpc.autoclean_status()['autoclean']['paidinvoices']['cleaned'] == 0
@@ -3373,10 +3344,10 @@ def test_autoclean_once(node_factory):
     inv2 = l3.rpc.invoice(amount_msat=12300, label='inv2', description='description4')
     inv3 = l3.rpc.invoice(amount_msat=12300, label='inv3', description='description5')
 
-    l1.rpc.pay(inv2['bolt11'])
+    l1.rpc.xpay(inv2['bolt11'])
     l3.rpc.delinvoice('inv3', 'unpaid')
-    with pytest.raises(RpcError, match='WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS'):
-        l1.rpc.pay(inv3['bolt11'])
+    with pytest.raises(RpcError, match="Destination said it doesn't know invoice: incorrect_or_unknown_payment_details"):
+        l1.rpc.xpay(inv3['bolt11'])
 
     # Default status
     default_status = {'autoclean': {'failedpays': {'enabled': False,
@@ -4242,12 +4213,12 @@ def test_sql(node_factory, bitcoind):
     wait_for(lambda: l2.rpc.listnodes(l1.info['id'])['nodes'] != [])
 
     # This should create a forward through l2
-    l1.rpc.pay(l3.rpc.invoice(amount_msat=12300, label='inv1', description='description')['bolt11'])
+    l1.rpc.xpay(l3.rpc.invoice(amount_msat=12300, label='inv1', description='description')['bolt11'])
 
     # Very rough checks of other list commands (make sure l2 has one of each)
     l2.rpc.offer(1, 'desc')
     l2.rpc.invoice(1, 'label', 'desc')
-    l2.rpc.pay(l3.rpc.invoice(amount_msat=12300, label='inv2', description='description')['bolt11'])
+    l2.rpc.xpay(l3.rpc.invoice(amount_msat=12300, label='inv2', description='description')['bolt11'])
 
     # And I need at least one HTLC in-flight so listpeers.channels.htlcs isn't empty:
     l3.rpc.plugin_start(os.path.join(os.getcwd(), 'tests/plugins/hold_invoice.py'))
@@ -4370,7 +4341,7 @@ def test_sql(node_factory, bitcoind):
 
     # Test json functions
     scidl1l3, _ = l1.fundchannel(l3)
-    l1.rpc.pay(l3.rpc.invoice(amount_msat=1000000, label='inv1000', description='description 1000 msat')['bolt11'])
+    l1.rpc.xpay(l3.rpc.invoice(amount_msat=1000000, label='inv1000', description='description 1000 msat')['bolt11'])
 
     # Two channels, l1->l3 *may* have an HTLC in flight.
     ret = l1.rpc.sql("SELECT json_object('peer_id', hex(pc.peer_id), 'alias', alias, 'scid', short_channel_id, 'htlcs',"

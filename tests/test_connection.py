@@ -1191,8 +1191,8 @@ def test_v2_open(node_factory, bitcoind, chainparams):
 
     # Send a payment over the channel
     p = l2.rpc.invoice(100000, 'testpayment', 'desc')
-    l1.rpc.pay(p['bolt11'])
-    result = l1.rpc.waitsendpay(p['payment_hash'])
+    l1.rpc.xpay(p['bolt11'])
+    result = only_one(l1.rpc.listsendpays(payment_hash=p['payment_hash'])['payments'])
     assert(result['status'] == 'complete')
 
 
@@ -1708,7 +1708,7 @@ def test_funding_close_upfront(node_factory, bitcoind):
     # check that remote peer closing works as expected (and that remote's close_to works)
     _fundchannel(l1, l2, amt_addr, addr)
     # send some money to remote so that they have a closeout
-    l1.rpc.pay(l2.rpc.invoice((amt_addr // 2) * 1000, 'test_remote_close_to', 'desc')['bolt11'])
+    l1.rpc.xpay(l2.rpc.invoice((amt_addr // 2) * 1000, 'test_remote_close_to', 'desc')['bolt11'])
     assert l2.rpc.listpeerchannels()['channels'][-1]['close_to_addr'] == remote_valid_addr
     # The tx outputs must be one of the two permutations
     assert _close(l2, l1) in ([addr, remote_valid_addr], [remote_valid_addr, addr])
@@ -1857,7 +1857,7 @@ def test_multifunding_v1_v2_mixed(node_factory, bitcoind):
 
     for ldest in [l2, l3, l4]:
         inv = ldest.rpc.invoice(5000, 'inv', 'inv')['bolt11']
-        l1.rpc.pay(inv)
+        l1.rpc.xpay(inv)
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
@@ -1899,12 +1899,12 @@ def test_multifunding_v2_exclusive(node_factory, bitcoind):
     # For dual-funded channels, pay from accepter to initiator
     for ldest in [l2, l3]:
         inv = l1.rpc.invoice(5000, 'inv' + ldest.info['id'], 'inv')['bolt11']
-        ldest.rpc.pay(inv)
+        ldest.rpc.xpay(inv)
 
     # Then pay other direction
     for ldest in [l2, l3, l4]:
         inv = ldest.rpc.invoice(10000, 'inv', 'inv')['bolt11']
-        l1.rpc.pay(inv)
+        l1.rpc.xpay(inv)
 
 
 @pytest.mark.openchannel('v1')
@@ -1935,7 +1935,7 @@ def test_multifunding_simple(node_factory, bitcoind):
 
     for ldest in [l2, l3, l4]:
         inv = ldest.rpc.invoice(5000, 'inv', 'inv')['bolt11']
-        l1.rpc.pay(inv)
+        l1.rpc.xpay(inv)
 
 
 @pytest.mark.openchannel('v1')
@@ -1994,7 +1994,7 @@ def test_multifunding_one(node_factory, bitcoind):
 
     for ldest in [l2, l3]:
         inv = ldest.rpc.invoice(5000, 'inv', 'inv')['bolt11']
-        l1.rpc.pay(inv)
+        l1.rpc.xpay(inv)
 
 
 @pytest.mark.openchannel('v1')
@@ -2231,7 +2231,7 @@ def test_multifunding_best_effort(node_factory, bitcoind):
         # There should be working channels to l2 and l4.
         for ldest in [l2, l4]:
             inv = ldest.rpc.invoice(5000, 'i{}'.format(i), 'i{}'.format(i))['bolt11']
-            l1.rpc.pay(inv)
+            l1.rpc.xpay(inv)
 
         # Function to find the SCID of the channel that is
         # currently open.
@@ -2598,7 +2598,7 @@ def test_update_fee_dynamic(node_factory, bitcoind):
 
     # It will send UPDATE_FEE when it tries to send HTLC.
     inv = l2.rpc.invoice(5000, 'test_update_fee_dynamic', 'test_update_fee_dynamic')['bolt11']
-    l1.rpc.pay(inv)
+    l1.rpc.xpay(inv)
 
     l2.daemon.wait_for_log('peer_in.*UPDATE_FEE')
 
@@ -2610,7 +2610,7 @@ def test_update_fee_dynamic(node_factory, bitcoind):
     time.sleep(2)
 
     inv = l2.rpc.invoice(5000, 'test_update_fee_dynamic2', 'test_update_fee_dynamic2')['bolt11']
-    l1.rpc.pay(inv)
+    l1.rpc.xpay(inv)
 
     # Won't update fee.
     assert not l2.daemon.is_in_log('peer_in.*UPDATE_FEE',
@@ -2621,7 +2621,7 @@ def test_update_fee_dynamic(node_factory, bitcoind):
 
     # It will send UPDATE_FEE when it tries to send HTLC.
     inv = l2.rpc.invoice(5000, 'test_update_fee_dynamic3', 'test_update_fee_dynamic')['bolt11']
-    l1.rpc.pay(inv)
+    l1.rpc.xpay(inv)
 
     l2.daemon.wait_for_log('peer_in.*UPDATE_FEE')
 
@@ -3264,7 +3264,7 @@ def test_fulfill_incoming_first(node_factory, bitcoind):
                                          wait_for_announce=True)
 
     # This succeeds.
-    l1.rpc.pay(l3.rpc.invoice(200000000, 'test_fulfill_incoming_first', 'desc')['bolt11'])
+    l1.rpc.xpay(l3.rpc.invoice(200000000, 'test_fulfill_incoming_first', 'desc')['bolt11'])
 
     # l1 can shutdown, fine.
     l1.rpc.close(l2.info['id'])
@@ -3620,7 +3620,7 @@ def test_wumbo_channels(node_factory, bitcoind):
     inv = l2.rpc.invoice(str(1 << 24) + "sat", "test_wumbo_channels", "wumbo payment")
     assert 'warning_mpp' not in inv
 
-    l1.rpc.pay(inv['bolt11'])
+    l1.rpc.xpay(inv['bolt11'])
     # Done in a single shot!
     assert len(l1.rpc.listsendpays()['payments']) == 1
 
@@ -4144,7 +4144,7 @@ def test_multichan(node_factory, executor, bitcoind):
         wait_for(lambda: only_one(l3.rpc.listpeers(l2.info['id'])['peers'])['connected'])
 
     inv4 = l3.rpc.invoice(100000000, "invoice4", "invoice4")
-    l1.rpc.pay(inv4['bolt11'])
+    l1.rpc.xpay(inv4['bolt11'], dev_use_shadow=False)
 
     # A good place to test listhtlcs!
     wait_for(lambda: all([h['state'] == 'RCVD_REMOVE_ACK_REVOCATION' for h in l1.rpc.listhtlcs()['htlcs']]))
@@ -4218,7 +4218,7 @@ def test_mutual_reconnect_race(node_factory, executor, bitcoind):
                 "desc"
             )['bolt11']
             try:
-                l1.rpc.pay(inv)
+                l1.rpc.xpay(inv)
             except RpcError:
                 pass
 
@@ -4248,7 +4248,7 @@ def test_mutual_reconnect_race(node_factory, executor, bitcoind):
 
     wait_for(lambda: only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['connected'])
     inv = l2.rpc.invoice(100000000, "invoice4", "invoice4")
-    l1.rpc.pay(inv['bolt11'])
+    l1.rpc.xpay(inv['bolt11'])
 
 
 def test_no_reconnect_awating_unilateral(node_factory, bitcoind):

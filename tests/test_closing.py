@@ -857,7 +857,7 @@ def test_channel_lease_post_expiry(node_factory, bitcoind, chainparams):
 
     # send some payments, mine a block or two
     inv = l2.rpc.invoice(10**4, '1', 'no_1')
-    l1.rpc.pay(inv['bolt11'])
+    l1.rpc.xpay(inv['bolt11'])
 
     # make sure it's completely resolved before we generate blocks,
     # otherwise it can close HTLC!
@@ -974,9 +974,9 @@ def test_channel_lease_unilat_closes(node_factory, bitcoind):
 
     # send some payments, mine a block or two
     inv = l2.rpc.invoice(10**4, '1', 'no_1')
-    l1.rpc.pay(inv['bolt11'])
+    l1.rpc.xpay(inv['bolt11'])
     inv = l2.rpc.invoice(10**4, '3', 'no_3')
-    l3.rpc.pay(inv['bolt11'])
+    l3.rpc.xpay(inv['bolt11'])
 
     bitcoind.generate_block(2)
     sync_blockheight(bitcoind, [l1, l2, l3])
@@ -1079,7 +1079,7 @@ def test_channel_lease_lessor_cheat(node_factory, bitcoind, chainparams):
     wait_for(lambda: [c['active'] for c in l2.rpc.listchannels(l2.get_channel_scid(l1))['channels']] == [True, True])
     # send some payments, mine a block or two
     inv = l2.rpc.invoice(10**4, '1', 'no_1')
-    l1.rpc.pay(inv['bolt11'])
+    l1.rpc.xpay(inv['bolt11'])
 
     bitcoind.generate_block(1)
 
@@ -1094,7 +1094,7 @@ def test_channel_lease_lessor_cheat(node_factory, bitcoind, chainparams):
 
     # push some money from l2->l1, so the commit counter advances
     inv = l1.rpc.invoice(10**5, '2', 'no_2')
-    l2.rpc.pay(inv['bolt11'])
+    l2.rpc.xpay(inv['bolt11'])
 
     # stop both nodes, roll back l2's database
     l2.stop()
@@ -1151,7 +1151,7 @@ def test_channel_lease_lessee_cheat(node_factory, bitcoind, chainparams):
     wait_for(lambda: [c['active'] for c in l2.rpc.listchannels(l2.get_channel_scid(l1))['channels']] == [True, True])
     # send some payments, mine a block or two
     inv = l2.rpc.invoice(10**4, '1', 'no_1')
-    l1.rpc.pay(inv['bolt11'])
+    l1.rpc.xpay(inv['bolt11'])
 
     bitcoind.generate_block(1)
 
@@ -1166,7 +1166,7 @@ def test_channel_lease_lessee_cheat(node_factory, bitcoind, chainparams):
 
     # push some money from l2->l1, so the commit counter advances
     inv = l1.rpc.invoice(10**5, '2', 'no_2')
-    l2.rpc.pay(inv['bolt11'])
+    l2.rpc.xpay(inv['bolt11'])
 
     # stop both nodes, roll back l1's database
     l1.stop()
@@ -1246,11 +1246,11 @@ def test_penalty_htlc_tx_fulfill(node_factory, bitcoind, chainparams, anchors):
 
     # push some money so that 1 + 4 can both send htlcs
     inv = l2.rpc.invoice(10**9 // 2, '1', 'balancer')
-    l1.rpc.pay(inv['bolt11'])
+    l1.rpc.xpay(inv['bolt11'])
     wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['htlcs'] == [])
 
     inv = l4.rpc.invoice(10**9 // 2, '1', 'balancer')
-    l2.rpc.pay(inv['bolt11'])
+    l2.rpc.xpay(inv['bolt11'])
     wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['htlcs'] == [])
 
     # now we send one 'sticky' htlc: l4->l1
@@ -1275,7 +1275,7 @@ def test_penalty_htlc_tx_fulfill(node_factory, bitcoind, chainparams, anchors):
     inv = l3.rpc.invoice(10**4, '1', 'push')
     # Make sure gossipd in l2 knows it's active
     wait_for(lambda: [c['active'] for c in l2.rpc.listchannels(l2.get_channel_scid(l3))['channels']] == [True, True])
-    l2.rpc.pay(inv['bolt11'])
+    l2.rpc.xpay(inv['bolt11'])
 
     # stop both nodes, roll back l2's database
     l2.stop()
@@ -1439,10 +1439,10 @@ def test_penalty_htlc_tx_timeout(node_factory, bitcoind, chainparams, anchors):
 
     # push some money so that 1 + 4 can both send htlcs
     inv = l2.rpc.invoice(10**9 // 2, '1', 'balancer')
-    l1.rpc.pay(inv['bolt11'])
+    l1.rpc.xpay(inv['bolt11'])
 
     inv = l4.rpc.invoice(10**9 // 2, '1', 'balancer')
-    l2.rpc.pay(inv['bolt11'])
+    l2.rpc.xpay(inv['bolt11'])
 
     # now we send two 'sticky' htlcs, l1->l5 + l4->l1
     amt = 10**8 // 2
@@ -1476,7 +1476,7 @@ def test_penalty_htlc_tx_timeout(node_factory, bitcoind, chainparams, anchors):
     inv = l3.rpc.invoice(10**4, '1', 'push')
     # Make sure gossipd in l2 knows it's active
     wait_for(lambda: [c['active'] for c in l2.rpc.listchannels(l2.get_channel_scid(l3))['channels']] == [True, True])
-    l2.rpc.pay(inv['bolt11'])
+    l2.rpc.xpay(inv['bolt11'])
 
     # stop both nodes, roll back l2's database
     l2.stop()
@@ -3987,7 +3987,7 @@ def test_closing_tx_valid(node_factory, bitcoind):
 def test_closing_minfee(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, opts={'feerates': None})
 
-    l1.rpc.pay(l2.rpc.invoice(10000000, 'test', 'test')['bolt11'])
+    l1.rpc.xpay(l2.rpc.invoice(10000000, 'test', 'test')['bolt11'])
 
     wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['htlcs'] == [])
 
@@ -4091,7 +4091,7 @@ def test_closing_cpfp(node_factory, bitcoind):
     change = only_one(l1.rpc.listfunds()['outputs'])
 
     # Make sure both sides have some output
-    l1.rpc.pay(l2.rpc.invoice(10000000, 'test', 'test')['bolt11'])
+    l1.rpc.xpay(l2.rpc.invoice(10000000, 'test', 'test')['bolt11'])
 
     # Mutual close
     close_txid = only_one(l1.rpc.close(l2.info['id'])['txids'])
@@ -4199,7 +4199,7 @@ def test_anchorspend_using_to_remote(node_factory, bitcoind, anchors):
 
     # l4 disconnects after receiving fulfill.  It then unilaterally
     # closes, l2 gets to-remote with its output.
-    l4.rpc.pay(l2.rpc.invoice(100000000, 'test', 'test')['bolt11'])
+    l4.rpc.xpay(l2.rpc.invoice(100000000, 'test', 'test')['bolt11'])
     wait_for(lambda: only_one(l4.rpc.listpeerchannels()['channels'])['htlcs'] != [])
 
     wait_for(lambda: only_one(l4.rpc.listpeers()['peers'])['connected'] is False)
@@ -4221,7 +4221,7 @@ def test_anchorspend_using_to_remote(node_factory, bitcoind, anchors):
     for n in (l1, l2, l3):
         wait_for(lambda: len(n.rpc.listchannels()['channels']) == 4)
 
-    l3.rpc.pay(l2.rpc.invoice(200000000, 'test2', 'test2')['bolt11'])
+    l3.rpc.xpay(l2.rpc.invoice(200000000, 'test2', 'test2')['bolt11'])
     wait_for(lambda: only_one(l2.rpc.listpeerchannels(l3.info['id'])['channels'])['htlcs'] == [])
 
     # Get HTLC stuck, so l2 has reason to push commitment tx.
@@ -4281,7 +4281,7 @@ def test_onchain_reestablish_reply(node_factory, bitcoind, executor):
     # For l2->l2, try:
     # 1. are not in the initial state, and
     # 2. actually onchain.
-    l2.rpc.pay(l3.rpc.invoice(200000000, 'test', 'test')['bolt11'])
+    l2.rpc.xpay(l3.rpc.invoice(200000000, 'test', 'test')['bolt11'])
 
     # We block l3 from seeing close, so it will try to reestablish.
     def no_new_blocks(req):
@@ -4376,7 +4376,7 @@ def test_reestablish_closed_channels(node_factory, bitcoind):
     l2.daemon.rpcproxy.mock_rpc('getblockhash', no_new_blocks)
 
     # Make a payment, make sure it's entirely finished before we close.
-    l1.rpc.pay(l2.rpc.invoice(200000000, 'test', 'test')['bolt11'])
+    l1.rpc.xpay(l2.rpc.invoice(200000000, 'test', 'test')['bolt11'])
     wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['htlcs'] == [])
 
     # l1 closes, unilaterally.

@@ -59,7 +59,7 @@ def test_splice_disconnect_sig(node_factory, bitcoind):
     l2.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
 
     inv = l2.rpc.invoice(10**2, '3', 'no_3')
-    l1.rpc.pay(inv['bolt11'])
+    l1.rpc.xpay(inv['bolt11'])
 
     # Check that the splice doesn't generate a unilateral close transaction
     time.sleep(5)

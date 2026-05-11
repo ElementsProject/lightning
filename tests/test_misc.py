@@ -453,20 +453,12 @@ def test_htlc_out_timeout(node_factory, bitcoind, executor):
     inv = l2.rpc.invoice(amt, 'test_htlc_out_timeout', 'desc')['bolt11']
     assert only_one(l2.rpc.listinvoices('test_htlc_out_timeout')['invoices'])['status'] == 'unpaid'
 
-    executor.submit(l1.dev_pay, inv, dev_use_shadow=False)
+    executor.submit(l1.rpc.xpay, inv)
 
     # l1 will disconnect, and not reconnect.
     l1.daemon.wait_for_log('dev_disconnect: -WIRE_REVOKE_AND_ACK')
 
-    # Takes 6 blocks to timeout (cltv-final + 1), but we also give grace period of 1 block.
-    # shadow route can add extra blocks!
-    status = only_one(l1.rpc.call('paystatus')['pay'])
-    if 'shadow' in status:
-        shadowlen = 6 * status['shadow'].count('Added 6 cltv delay for shadow')
-    else:
-        shadowlen = 0
-
-    bitcoind.generate_block(5 + 1 + shadowlen)
+    bitcoind.generate_block(5 + 1)
     time.sleep(3)
     assert not l1.daemon.is_in_log('hit deadline')
     bitcoind.generate_block(1)
@@ -533,19 +525,12 @@ def test_htlc_in_timeout(node_factory, bitcoind, executor):
     inv = l2.rpc.invoice(amt, 'test_htlc_in_timeout', 'desc')['bolt11']
     assert only_one(l2.rpc.listinvoices('test_htlc_in_timeout')['invoices'])['status'] == 'unpaid'
 
-    executor.submit(l1.dev_pay, inv, dev_use_shadow=False)
+    executor.submit(l1.rpc.xpay, inv)
 
     # l1 will disconnect and not reconnect.
     l1.daemon.wait_for_log('dev_disconnect: -WIRE_REVOKE_AND_ACK')
 
-    # Deadline HTLC expiry minus 1/2 cltv-expiry delta (rounded up) (== cltv - 3).  cltv is 5+1.
-    # shadow route can add extra blocks!
-    status = only_one(l1.rpc.call('paystatus')['pay'])
-    if 'shadow' in status:
-        shadowlen = 6 * status['shadow'].count('Added 6 cltv delay for shadow')
-    else:
-        shadowlen = 0
-    bitcoind.generate_block(2 + shadowlen)
+    bitcoind.generate_block(2)
     assert not l2.daemon.is_in_log('hit deadline')
     bitcoind.generate_block(1)
 
@@ -555,7 +540,7 @@ def test_htlc_in_timeout(node_factory, bitcoind, executor):
     l2.daemon.wait_for_log(' to ONCHAIN')
     l1.daemon.wait_for_log(' to ONCHAIN')
 
-    # L2 will collect HTLC (iff no shadow route)
+    # L2 will collect HTLC
     _, txid, blocks = l2.wait_for_onchaind_tx('OUR_HTLC_SUCCESS_TX',
                                               'OUR_UNILATERAL/THEIR_HTLC')
     assert blocks == 0
@@ -3102,11 +3087,11 @@ def test_emergencyrecoverpenaltytxn(node_factory, bitcoind):
     stubs = l1.rpc.emergencyrecover()["stubs"]
     assert l1.daemon.is_in_log('channel {} already exists!'.format(_['channel_id']))
 
-    l2.rpc.pay(l1.rpc.invoice(25000000, 'lbl1', 'desc1')['bolt11'])
+    l2.rpc.xpay(l1.rpc.invoice(25000000, 'lbl1', 'desc1')['bolt11'])
 
     tx = l2.rpc.dev_sign_last_tx(l1.info['id'])['tx']
 
-    l2.rpc.pay(l1.rpc.invoice(25000000, 'lbl2', 'desc2')['bolt11'])
+    l2.rpc.xpay(l1.rpc.invoice(25000000, 'lbl2', 'desc2')['bolt11'])
 
     l1.stop()
 
@@ -3222,7 +3207,7 @@ def test_recover_plugin(node_factory, bitcoind):
 
     # successful payments
     i31 = l1.rpc.invoice(10000, 'i31', 'desc')
-    l2.rpc.pay(i31['bolt11'])
+    l2.rpc.xpay(i31['bolt11'])
 
     # Now, move l2 back in time.
     l2.stop()
@@ -3396,7 +3381,7 @@ def test_listforwards_and_listhtlcs(node_factory, bitcoind):
 
     # successful payments
     i31 = l3.rpc.invoice(1000, 'i31', 'desc')
-    l1.rpc.pay(i31['bolt11'])
+    l1.rpc.xpay(i31['bolt11'])
 
     # 1 htlc in, 1 htlc out.
     assert len(l2.rpc.listhtlcs()['htlcs']) == 2
@@ -3415,7 +3400,7 @@ def test_listforwards_and_listhtlcs(node_factory, bitcoind):
     assert len(l2.rpc.listhtlcs(id=c12, index='updated', start=1, limit=1)['htlcs']) == 1
 
     i41 = l4.rpc.invoice(2000, 'i41', 'desc')
-    l1.rpc.pay(i41['bolt11'])
+    l1.rpc.xpay(i41['bolt11'])
 
     # failed payment
     failed_inv = l3.rpc.invoice(4000, 'failed', 'desc')
@@ -3585,7 +3570,7 @@ def test_listforwards_wait(node_factory, executor):
 
     amt1 = 1000
     inv1 = l3.rpc.invoice(amt1, 'inv1', 'desc')
-    l1.rpc.pay(inv1['bolt11'])
+    l1.rpc.xpay(inv1['bolt11'], dev_use_shadow=False)
 
     waitres = waitcreate.result(TIMEOUT)
     assert waitres == {'subsystem': 'forwards',
@@ -3614,8 +3599,8 @@ def test_listforwards_wait(node_factory, executor):
     l2.daemon.wait_for_logs(['waiting on forwards created 2', 'waiting on forwards updated 2'])
     time.sleep(1)
 
-    with pytest.raises(RpcError, match="WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS"):
-        l1.rpc.pay(inv2['bolt11'])
+    with pytest.raises(RpcError, match="incorrect_or_unknown_payment_details"):
+        l1.rpc.xpay(inv2['bolt11'])
 
     waitres = waitcreate.result(TIMEOUT)
     assert waitres == {'subsystem': 'forwards',
@@ -3708,8 +3693,8 @@ def test_listhtlcs_wait(node_factory, bitcoind, executor):
     waitcreate = executor.submit(l2.rpc.wait, subsystem='htlcs', indexname='created', nextvalue=4)
     l2.daemon.wait_for_log('waiting on htlcs created 4')
 
-    with pytest.raises(RpcError, match="WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS"):
-        l1.rpc.pay(inv2['bolt11'])
+    with pytest.raises(RpcError, match="incorrect_or_unknown_payment_details"):
+        l1.rpc.xpay(inv2['bolt11'], dev_use_shadow=False)
 
     waitres = waitcreate.result(TIMEOUT)
     assert waitres == {'subsystem': 'htlcs',
@@ -3744,7 +3729,7 @@ def test_listforwards_ancient(node_factory, bitcoind):
 
     amt1 = 1000
     inv1 = l3.rpc.invoice(amt1, 'inv1', 'desc')
-    l1.rpc.pay(inv1['bolt11'])
+    l1.rpc.xpay(inv1['bolt11'])
 
     forwards = l2.rpc.listforwards()['forwards']
     assert len(forwards) == 1
@@ -4889,7 +4874,7 @@ def test_preapprove_use(node_factory, bitcoind, xkeysend):
     # This will fail at the preapprove step.
     inv = l1.rpc.invoice(123000, 'label', 'description', 3700)['bolt11']
     with pytest.raises(RpcError, match='invoice was declined'):
-        l2.rpc.pay(inv)
+        l2.rpc.xpay(inv)
 
     # This will fail the same way
     with pytest.raises(RpcError, match='invoice was declined'):

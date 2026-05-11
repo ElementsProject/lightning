@@ -1186,6 +1186,25 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("pay", payload)
 
+    def xpay(self, invstring, amount_msat=None, maxfee=None, retry_for=None,
+             partial_msat=None, maxdelay=None, payer_note=None, label=None, localinvreqid=None,
+             dev_use_shadow=None):
+        """
+        Send payment specified by {invstring}.
+        """
+        payload = {
+            "invstring": invstring,
+            "amount_msat": amount_msat,
+            "maxfee": maxfee,
+            "retry_for": retry_for,
+            "partial_msat": partial_msat,
+            "maxdelay": maxdelay,
+            "label": label,
+            "localinvreqid": localinvreqid,
+            "dev_use_shadow": dev_use_shadow,
+        }
+        return self.call("xpay", payload)
+
     def openchannel_init(self, node_id, channel_amount, psbt, feerate=None, funding_feerate=None, announce=True, close_to=None, request_amt=None, channel_type=None):
         """Initiate an openchannel with a peer """
         payload = {

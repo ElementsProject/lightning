@@ -82,7 +82,7 @@ def test_single_payment(node_factory, benchmark):
 
     def do_pay(l1, l2):
         invoice = l2.rpc.invoice(1000, 'invoice-{}'.format(random.random()), 'desc')['bolt11']
-        l1.rpc.pay(invoice)
+        l1.rpc.xpay(invoice)
 
     benchmark(do_pay, l1, l2)
 
@@ -92,7 +92,7 @@ def test_forward_payment(node_factory, benchmark):
 
     def do_pay(src, dest):
         invoice = dest.rpc.invoice(1000, 'invoice-{}'.format(random.random()), 'desc')['bolt11']
-        src.rpc.pay(invoice)
+        src.rpc.xpay(invoice)
 
     benchmark(do_pay, l1, l3)
 
@@ -102,7 +102,7 @@ def test_long_forward_payment(node_factory, benchmark):
 
     def do_pay(src, dest):
         invoice = dest.rpc.invoice(1000, 'invoice-{}'.format(random.random()), 'desc')['bolt11']
-        src.rpc.pay(invoice)
+        src.rpc.xpay(invoice)
 
     benchmark(do_pay, nodes[0], nodes[-1])
 
@@ -125,7 +125,7 @@ def test_pay(node_factory, benchmark):
         invoices.append(invoice)
 
     def do_pay(l1, l2):
-        l1.rpc.pay(invoices.pop())
+        l1.rpc.xpay(invoices.pop())
 
     benchmark(do_pay, l1, l2)
 

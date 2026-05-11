@@ -141,7 +141,7 @@ def test_invoice_preimage(node_factory):
 
     # Make invoice and pay it
     inv = l2.rpc.invoice(amount_msat=123456, label="inv", description="?", preimage=invoice_preimage)
-    payment = l1.rpc.pay(inv['bolt11'])
+    payment = l1.rpc.xpay(inv['bolt11'])
 
     # Check preimage was given.
     payment_preimage = payment['payment_preimage']
@@ -176,7 +176,7 @@ def test_invoice_routeboost(node_factory, bitcoind):
     assert r['cltv_expiry_delta'] == 6
 
     # Pay it (and make sure it's fully resolved before we take l2 offline!)
-    l2.rpc.pay(inv['bolt11'])
+    l2.rpc.xpay(inv['bolt11'])
     wait_channel_quiescent(l2, l3)
 
     # Due to reserve & fees, l2 doesn't have capacity to pay this.
@@ -386,8 +386,8 @@ def test_invoice_expiry(node_factory, executor):
     inv = l2.rpc.invoice(amount_msat=123000, label='test_pay', description='description', expiry=1)['bolt11']
     time.sleep(2)
 
-    with pytest.raises(RpcError):
-        l1.rpc.pay(inv)
+    with pytest.raises(RpcError, match='Invoice expired [1-9] seconds ago'):
+        l1.rpc.xpay(inv)
 
     invoices = l2.rpc.listinvoices('test_pay')['invoices']
     assert len(invoices) == 1
@@ -460,7 +460,7 @@ def test_waitinvoice(node_factory, executor):
     time.sleep(1)
     assert not f.done()
     # Pay invoice 2
-    l1.rpc.pay(inv2['bolt11'])
+    l1.rpc.xpay(inv2['bolt11'])
     # Waiter should stil be blocked
     time.sleep(1)
     assert not f.done()
@@ -468,7 +468,7 @@ def test_waitinvoice(node_factory, executor):
     r = executor.submit(l2.rpc.waitinvoice, 'inv2').result(timeout=5)
     assert r['label'] == 'inv2'
     # Pay invoice 1
-    l1.rpc.pay(inv1['bolt11'])
+    l1.rpc.xpay(inv1['bolt11'])
     # Waiter for invoice 1 should now finish
     r = f.result(timeout=5)
     assert r['label'] == 'inv1'
@@ -494,8 +494,8 @@ def test_waitanyinvoice(node_factory, executor):
     assert not f.done()
 
     # Now pay the first two invoices and make sure we notice
-    l1.rpc.pay(inv1['bolt11'])
-    l1.rpc.pay(inv2['bolt11'])
+    l1.rpc.xpay(inv1['bolt11'])
+    l1.rpc.xpay(inv2['bolt11'])
     r = f.result(timeout=5)
     assert r['label'] == 'inv1'
     pay_index = r['pay_index']
@@ -509,7 +509,7 @@ def test_waitanyinvoice(node_factory, executor):
     f = executor.submit(l2.rpc.waitanyinvoice, pay_index)
     time.sleep(1)
     assert not f.done()
-    l1.rpc.pay(inv3['bolt11'])
+    l1.rpc.xpay(inv3['bolt11'])
     r = f.result(timeout=5)
     assert r['label'] == 'inv3'
     pay_index = r['pay_index']
@@ -521,7 +521,7 @@ def test_waitanyinvoice(node_factory, executor):
 
     # If timeout is 0 but a paid invoice is available
     # anyway, it should return successfully immediately.
-    l1.rpc.pay(inv4['bolt11'])
+    l1.rpc.xpay(inv4['bolt11'])
     r = executor.submit(l2.rpc.waitanyinvoice, pay_index, 0).result(timeout=5)
     assert r['label'] == 'inv4'
 
@@ -556,13 +556,13 @@ def test_waitanyinvoice_reversed(node_factory, executor):
 
     # Pay inv2, wait, pay inv1, wait
     # Pay inv2
-    l1.rpc.pay(inv2['bolt11'])
+    l1.rpc.xpay(inv2['bolt11'])
     # Wait - should not block, should return inv2
     r = executor.submit(l2.rpc.waitanyinvoice).result(timeout=5)
     assert r['label'] == 'inv2'
     pay_index = r['pay_index']
     # Pay inv1
-    l1.rpc.pay(inv1['bolt11'])
+    l1.rpc.xpay(inv1['bolt11'])
     # Wait inv2 - should not block, should return inv1
     r = executor.submit(l2.rpc.waitanyinvoice, pay_index).result(timeout=5)
     assert r['label'] == 'inv1'
@@ -602,7 +602,7 @@ def test_amountless_invoice(node_factory):
     details = l1.rpc.decode(inv)
     assert('msatoshi' not in details)
 
-    l1.rpc.pay(inv, amount_msat=1337)
+    l1.rpc.xpay(inv, amount_msat=1337)
 
     i = l2.rpc.listinvoices()['invoices']
     assert(len(i) == 1)
@@ -692,7 +692,7 @@ def test_wait_invoices(node_factory, executor):
 
     waitfut = executor.submit(l2.rpc.call, 'wait', {'subsystem': 'invoices', 'indexname': 'updated', 'nextvalue': 1})
     l2.daemon.wait_for_log('waiting on invoices updated 1')
-    l1.rpc.pay(inv['bolt11'])
+    l1.rpc.xpay(inv['bolt11'])
     waitres = waitfut.result(TIMEOUT)
     assert waitres == {'subsystem': 'invoices',
                        'updated': 1,
@@ -836,7 +836,7 @@ def test_listinvoices_index(node_factory):
 
     # Pay 10 of them, in reverse order.  These will be the last ones in the 'updated' index.
     for i in range(70, 60, -1):
-        l1.rpc.pay(invs[i]['bolt11'])
+        l1.rpc.xpay(invs[i]['bolt11'])
 
     # Make sure it's fully resolved!
     wait_for(lambda: only_one(l2.rpc.listpeerchannels()['channels'])['htlcs'] == [])

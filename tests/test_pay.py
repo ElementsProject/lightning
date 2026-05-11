@@ -5001,13 +5001,20 @@ def test_pay_blockheight_mismatch(node_factory, bitcoind):
 
     """
 
-    send, direct, recv = node_factory.line_graph(3, wait_for_announce=True)
+    send, direct, recv = node_factory.line_graph(3,
+                                                 wait_for_announce=True,
+                                                 opts={'may_reconnect': True})
     sync_blockheight(bitcoind, [send, recv])
+
+    height = bitcoind.rpc.getblockchaininfo()['blocks']
 
     # Pin `send` at the current height. by not returning the next
     # blockhash. This error is special-cased not to count as the
     # backend failing since it is used to poll for the next block.
     def mock_getblockhash(req):
+        # Allow old blocks, for restart.
+        if int(req['params'][0]) <= height:
+            return None
         return {
             "id": req['id'],
             "error": {
@@ -5020,6 +5027,10 @@ def test_pay_blockheight_mismatch(node_factory, bitcoind):
     bitcoind.generate_block(100)
 
     sync_blockheight(bitcoind, [recv])
+    # For xpay, it doesn't poll the blockheight, only handles case where
+    # it's behind at the start.
+    send.restart()
+    send.rpc.connect(direct.info['id'], 'localhost', direct.port)
 
     inv = recv.rpc.invoice(42, 'lbl', 'desc')['bolt11']
     send.rpc.pay(inv)

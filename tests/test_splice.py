@@ -566,7 +566,7 @@ def make_chans(node_factory, qty=2, fundamount=1000000, balanced=True):
         nodes[i].daemon.wait_for_log(' to CHANNELD_NORMAL')
         if balanced:
             inv = nodes[i + 1].rpc.invoice(1000 * fundamount // 2, 'balance', 'balance')
-            nodes[i].rpc.pay(inv['bolt11'])
+            nodes[i].rpc.xpay(inv['bolt11'])
 
     chanids.insert(0, nodes[1].get_channel_id(nodes[0]))
     if qty > 1:
