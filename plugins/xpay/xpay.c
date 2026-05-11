@@ -25,13 +25,17 @@
 #include <errno.h>
 #include <inttypes.h>
 #include <plugins/libplugin.h>
+#include <plugins/xpay/xpay.h>
 #include <stdarg.h>
 
 #define PREIMAGE_TLV_TYPE 5482373484
 
 /* For the whole plugin */
 struct xpay {
+	/* This is me. */
 	struct pubkey local_id;
+	/* These are my struct payments */
+	struct list_head payments;
 	/* Access via get_gossmap() */
 	struct gossmap *global_gossmap;
 	/* Creates unique layer names */
@@ -62,6 +66,8 @@ static struct gossmap *get_gossmap(struct xpay *xpay)
 
 /* The unifies bolt11 and bolt12 handling */
 struct payment {
+	/* Inside xpay->payments */
+	struct list_node list;
 	struct plugin *plugin;
 	/* Stop sending new payments after this */
 	struct timemono deadline;
@@ -2306,6 +2312,13 @@ static struct command_result *json_xpay_params(struct command *cmd,
 			 label, localinvreqid, *dev_use_shadow, as_pay);
 }
 
+static void destroy_payment(struct payment *payment)
+{
+	struct xpay *xpay = xpay_of(payment->plugin);
+
+	list_del_from(&xpay->payments, &payment->list);
+}
+
 /* Does NOT set:
  * ->maxparts
  * ->use_shadow
@@ -2401,7 +2414,21 @@ static struct payment *new_payment(const tal_t *ctx,
 	payment->private_layer = tal_fmt(payment,
 					 "xpay-%"PRIu64, payment->unique_id);
 
+	list_add_tail(&xpay->payments, &payment->list);
+	tal_add_destructor(payment, destroy_payment);
 	return payment;
+}
+
+bool attempt_ongoing(struct plugin *plugin, const struct sha256 *payment_hash)
+{
+	struct xpay *xpay = xpay_of(plugin);
+	const struct payment *payment;
+
+	list_for_each(&xpay->payments, payment, list) {
+		if (sha256_eq(&payment->payment_hash, payment_hash))
+			return true;
+	}
+	return false;
 }
 
 static struct command_result *xpay_core(struct command *cmd,
@@ -3140,6 +3167,7 @@ int main(int argc, char *argv[])
 	xpay->take_over_pay = true;
 	xpay->slow_mode = false;
 	xpay->dev_no_age = false;
+	list_head_init(&xpay->payments);
 	plugin_main(argv, init, take(xpay),
 		    PLUGIN_RESTARTABLE, true, NULL,
 		    commands, ARRAY_SIZE(commands),
