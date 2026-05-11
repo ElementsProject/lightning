@@ -11,7 +11,6 @@ from utils import (
     tu64_encode
 )
 import copy
-import json
 import os
 import pytest
 import random
@@ -3733,8 +3732,7 @@ def test_keysend_maxfee(node_factory):
     assert len(l3.rpc.listinvoices()['invoices']) == 1
 
 
-@pytest.mark.parametrize("tlv_payload_length", [638, 639, 640, 641, 1022, 1023, 1024])
-def test_keysend_description_size_limit(node_factory, tlv_payload_length):
+def test_keysend_description_size_limit(node_factory):
     """
     Test keysend description handling near BOLT11 field size limits.
 
@@ -3745,16 +3743,22 @@ def test_keysend_description_size_limit(node_factory, tlv_payload_length):
     """
     l1, l2 = node_factory.line_graph(2, wait_for_announce=True)
     amt = 10000
-    prefix = 'keysend: {"message": ""}'
+    prefix = 'keysend: '
     base_len = len(prefix)
 
-    # Prep TLV payload with test length
-    body_len = tlv_payload_length - base_len
-    tlv_payload = json.dumps({"message": "a" * body_len}).encode().hex()
+    tlv_lens = [638, 639, 640, 641, 1022, 1023, 1024]
+    expected = set()
+    for tlv_payload_length in tlv_lens:
+        # Prep TLV payload with test length
+        body_len = tlv_payload_length - base_len
+        tlv_payload = ("a" * body_len).encode().hex()
+        expected.add(prefix + "a" * body_len)
 
-    # Send keysend payment with test payload
-    l1.rpc.keysend(l2.info["id"], amt, extratlvs={7629169: tlv_payload})
-    assert len(l2.rpc.listinvoices()["invoices"]) == 1
+        # Send keysend payment with test payload
+        l1.rpc.keysend(l2.info["id"], amt, extratlvs={7629169: tlv_payload})
+
+    assert set(inv['description'] for inv in l2.rpc.listinvoices()["invoices"]) == expected
+    assert all(inv['amount_received_msat'] == amt for inv in l2.rpc.listinvoices()["invoices"])
 
 
 def test_invalid_onion_channel_update(node_factory):
