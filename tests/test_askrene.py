@@ -81,7 +81,7 @@ def test_reserve(node_factory):
     time.sleep(2)
 
     # Reservations can be in either order.
-    with pytest.raises(RpcError, match=rf'We could not find a usable set of paths.  The shortest path is {scid12}->{scid23}, but {scid12dir} already reserved 10000000*msat by command ".*" \([0-9]* seconds ago\), 10000000*msat by command ".*" \([0-9]* seconds ago\)'):
+    with pytest.raises(RpcError, match=rf'We could not find a usable set of paths. The shortest path is {scid12}->{scid23}, but {scid12dir} already reserved 10000000*msat by command ".*" \([0-9]* seconds ago\), 10000000*msat by command ".*" \([0-9]* seconds ago\)'):
         l1.rpc.getroutes(source=l1.info['id'],
                          destination=l3.info['id'],
                          amount_msat=1000000,
@@ -692,7 +692,7 @@ def test_getroutes(node_factory):
 
     # Too much should give a decent explanation.
     dir01 = direction(nodemap[0], nodemap[1])
-    with pytest.raises(RpcError, match=rf"We could not find a usable set of paths\.  The shortest path is 0x1x0, but 0x1x0/{dir01} isn't big enough to carry 1000000001msat\."):
+    with pytest.raises(RpcError, match=rf"We could not find a usable set of paths\. The shortest path is 0x1x0, but 0x1x0/{dir01} isn't big enough to carry 1000000001msat\."):
         l1.rpc.getroutes(source=nodemap[0],
                          destination=nodemap[1],
                          amount_msat=1000000001,
@@ -701,7 +701,7 @@ def test_getroutes(node_factory):
                          final_cltv=99)
 
     # This should tell us source doesn't have enough.
-    with pytest.raises(RpcError, match=r"We could not find a usable set of paths\.  Total source capacity is only 1019000000msat \(in 3 channels\)\."):
+    with pytest.raises(RpcError, match=r"We could not find a usable set of paths\. Total source capacity is only 1019000000msat \(in 3 channels\)\."):
         l1.rpc.getroutes(source=nodemap[0],
                          destination=nodemap[1],
                          amount_msat=2000000001,
@@ -710,7 +710,7 @@ def test_getroutes(node_factory):
                          final_cltv=99)
 
     # This should tell us dest doesn't have enough.
-    with pytest.raises(RpcError, match=r"We could not find a usable set of paths\.  Total destination capacity is only 1000000000msat \(in 1 channels\)\."):
+    with pytest.raises(RpcError, match=r"We could not find a usable set of paths\. Total destination capacity is only 1000000000msat \(in 1 channels\)\."):
         l1.rpc.getroutes(source=nodemap[0],
                          destination=nodemap[4],
                          amount_msat=1000000001,
@@ -724,7 +724,7 @@ def test_getroutes(node_factory):
     l1.rpc.askrene_update_channel(layer="chans_disabled",
                                   short_channel_id_dir=f'0x1x0/{dir01}',
                                   enabled=False)
-    with pytest.raises(RpcError, match=rf"We could not find a usable set of paths\.  The shortest path is 0x1x0, but 0x1x0/{dir01} marked disabled by layer chans_disabled\."):
+    with pytest.raises(RpcError, match=rf"We could not find a usable set of paths\. The shortest path is 0x1x0, but 0x1x0/{dir01} marked disabled by layer chans_disabled\."):
         l1.rpc.getroutes(source=nodemap[0],
                          destination=nodemap[1],
                          amount_msat=1000,
@@ -1390,7 +1390,7 @@ def test_max_htlc(node_factory, bitcoind):
                                   amount_msat=1,
                                   inform='constrained')
 
-    with pytest.raises(RpcError, match=rf"We could not find a usable set of paths.  The shortest path is 0x1x0, but 0x1x0/{dir01} exceeds htlc_maximum_msat ~1000448msat"):
+    with pytest.raises(RpcError, match=rf"We could not find a usable set of paths. The shortest path is 0x1x0, but 0x1x0/{dir01} exceeds htlc_maximum_msat ~1000448msat"):
         l1.rpc.getroutes(source=nodemap[0],
                          destination=nodemap[1],
                          amount_msat=20_000_000,
@@ -1424,7 +1424,7 @@ def test_min_htlc_after_excess(node_factory, bitcoind):
     l1 = node_factory.get_node(gossip_store_file=gsfile.name)
 
     dir01 = direction(nodemap[0], nodemap[1])
-    with pytest.raises(RpcError, match=rf"We could not find a usable set of paths.  The shortest path is 0x1x0, but 0x1x0/{dir01} below htlc_minumum_msat ~2000msat"):
+    with pytest.raises(RpcError, match=rf"We could not find a usable set of paths. The shortest path is 0x1x0, but 0x1x0/{dir01} below htlc_minumum_msat ~2000msat"):
         l1.rpc.getroutes(source=nodemap[0],
                          destination=nodemap[1],
                          amount_msat=1999,
@@ -1435,11 +1435,11 @@ def test_min_htlc_after_excess(node_factory, bitcoind):
 
 # These were obviously having a bad day at the time of the snapshot:
 canned_gossmap_badnodes = {
-    19: "We could not find a usable set of paths.  The shortest path is 103x1x0->0x2134x0->988x333x988->16188x333x16169, but 0x2134x0/0 exceeds htlc_maximum_msat ~1000448msat",
-    53: "We could not find a usable set of paths.  The destination has disabled 177 of 177 channels, leaving capacity only 0msat of 4003677000msat.",
-    69: "We could not find a usable set of paths.  The destination has disabled 151 of 151 channels, leaving capacity only 0msat of 9092303000msat.",
-    72: "We could not find a usable set of paths.  The destination has disabled 146 of 146 channels, leaving capacity only 0msat of 1996000000msat.",
-    86: "We could not find a usable set of paths.  The destination has disabled 131 of 131 channels, leaving capacity only 0msat of 162000000msat.",
+    19: "We could not find a usable set of paths. The shortest path is 103x1x0->0x2134x0->988x333x988->16188x333x16169, but 0x2134x0/0 exceeds htlc_maximum_msat ~1000448msat",
+    53: r"We could not find a usable set of paths\. All 177 channels to the destination are disabled\.",
+    69: r"We could not find a usable set of paths\. All 151 channels to the destination are disabled\.",
+    72: r"We could not find a usable set of paths\. All 146 channels to the destination are disabled\.",
+    86: r"We could not find a usable set of paths\. All 131 channels to the destination are disabled\.",
 }
 
 
@@ -2055,7 +2055,7 @@ def test_askrene_reserve_clash(node_factory, bitcoind):
                                   }])
 
     # We can't use this on layer 1 anymore, only 50000 msat left.
-    with pytest.raises(RpcError, match=r"We could not find a usable set of paths.  The shortest path is 0x0x0, but 0x0x0/1 already reserved 950000msat by command"):
+    with pytest.raises(RpcError, match=r"We could not find a usable set of paths. The shortest path is 0x0x0, but 0x0x0/1 already reserved 950000msat by command"):
         l1.rpc.getroutes(source=l1.info['id'],
                          destination=node1,
                          amount_msat=500000,
@@ -2609,7 +2609,7 @@ def test_impossible_payment(node_factory):
     )
     with pytest.raises(
         RpcError,
-        match=r"We could not find a usable set of paths.  The shortest path is 0x0x1->0x0x2, but 0x0x1/0 exceeds htlc_maximum_msat",
+        match=r"We could not find a usable set of paths. The shortest path is 0x0x1->0x0x2, but 0x0x1/0 exceeds htlc_maximum_msat",
     ):
         l1.rpc.getroutes(
             source=node1,
@@ -2621,7 +2621,7 @@ def test_impossible_payment(node_factory):
         )
     with pytest.raises(
         RpcError,
-        match=r"We could not find a usable set of paths.  The shortest path is 0x0x1->0x0x2, but 0x0x1/0 exceeds htlc_maximum_msat",
+        match=r"We could not find a usable set of paths. The shortest path is 0x0x1->0x0x2, but 0x0x1/0 exceeds htlc_maximum_msat",
     ):
         l1.rpc.getroutes(
             source=node1,

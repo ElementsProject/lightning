@@ -3,7 +3,7 @@ from fixtures import TEST_NETWORK
 from pyln.client import RpcError
 from pyln.testing.utils import FUNDAMOUNT, only_one
 from utils import (
-    TIMEOUT, first_scid, GenChannel, generate_gossip_store, wait_for,
+    TIMEOUT, first_scid, first_scidd, GenChannel, generate_gossip_store, wait_for,
     sync_blockheight,
 )
 
@@ -197,11 +197,11 @@ def test_xpay_simple(node_factory):
 
     # Failure from l3 (with routehint)
     l4.stop()
-    with pytest.raises(RpcError, match=r"Failed after 1 attempts\. We got temporary_channel_failure for the invoice's route hint \([0-9x]*/[01]\), assuming it can't carry 10000msat\. Then routing failed: We could not find a usable set of paths\.  The shortest path is [0-9x]*->[0-9x]*->[0-9x]*, but [0-9x]*/[01]\ layer xpay-7 says max is 9999msat"):
+    with pytest.raises(RpcError, match=r"Failed after 1 attempts\. We got temporary_channel_failure for the invoice's route hint \([0-9x]*/[01]\), assuming it can't carry 10000msat\. Then routing failed: We could not find a usable set of paths\. The shortest path is [0-9x]*->[0-9x]*->[0-9x]*, but [0-9x]*/[01]\ layer xpay-7 says max is 9999msat"):
         l1.rpc.xpay(b11)
 
     # Failure from l3 (with blinded path)
-    with pytest.raises(RpcError, match=r"Failed after 1 attempts. We got an error from inside the blinded path 0x0x0/1: we assume it means insufficient capacity. Then routing failed: We could not find a usable set of paths.  The shortest path is [0-9x]*->[0-9x]*->0x0x0, but 0x0x0/1 layer xpay-8 says max is 99999msat"):
+    with pytest.raises(RpcError, match=r"Failed after 1 attempts. We got an error from inside the blinded path 0x0x0/1: we assume it means insufficient capacity. Then routing failed: We could not find a usable set of paths. The shortest path is [0-9x]*->[0-9x]*->0x0x0, but 0x0x0/1 layer xpay-8 says max is 99999msat"):
         l1.rpc.xpay(b12)
 
     # Restart, try pay already paid one again.
@@ -1072,6 +1072,23 @@ def test_xpay_blockheight_mismatch(node_factory, bitcoind, executor):
     # Now let it catch up, and it will retry, and succeed.
     l1.daemon.rpcproxy.mock_rpc('getblockhash')
     fut.result(TIMEOUT)
+
+
+def test_error_messages(node_factory):
+    """Nicer error messages when we disable the only channel to the destination."""
+    plugin = os.path.join(os.path.dirname(__file__), 'plugins/replace_payload.py')
+    l1, l2 = node_factory.line_graph(
+        2,
+        opts=[{}, {"plugin": plugin}],
+        wait_for_announce=True
+    )
+
+    # Replace with an invalid payload.
+    l2.rpc.call('setpayload', ['0000'])
+    inv = l2.rpc.invoice(123, 'test_error_messages', 'test_error_messages')['bolt11']
+    scidd = first_scidd(l1, l2)
+    with pytest.raises(RpcError, match=rf"Failed after 1 attempts\. Unexpected error \(invalid_onion_payload\) from final node: disabling {scidd} for this payment\. Then routing failed: We could not find a usable set of paths\. All 1 channels to the source are disabled."):
+        l1.rpc.xpay(inv)
 
 
 def test_blinded_path_fees(node_factory):
