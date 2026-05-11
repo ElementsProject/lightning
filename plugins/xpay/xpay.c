@@ -850,7 +850,14 @@ static void update_knowledge_from_error(struct command *aux_cmd,
 		send_payment_req(aux_cmd, attempt->payment, req);
 	}
 
-	from_final = (index == tal_count(attempt->hops));
+	/* Because we might include blinded paths, final node is end of route, OR destination node id */
+	if (index == tal_count(attempt->hops)) {
+		from_final = true;
+	} else if (index > 0 && pubkey_eq(&attempt->hops[index-1].next_node,
+					  &attempt->payment->destination)) {
+		from_final = true;
+	} else
+		from_final = false;
 	failcode = fromwire_peektype(replymsg);
 	failcode_name = onion_wire_name(failcode);
 	if (strstarts(failcode_name, "WIRE_"))
