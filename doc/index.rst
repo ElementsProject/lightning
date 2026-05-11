@@ -215,5 +215,6 @@ Core Lightning Documentation
    waitinvoice <waitinvoice.7.md>
    waitsendpay <waitsendpay.7.md>
    withdraw <withdraw.7.md>
+   xkeysend <xkeysend.7.md>
    xpay <xpay.7.md>
 .. block_end manpages

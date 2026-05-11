@@ -159,6 +159,7 @@ MARKDOWNPAGES := doc/addgossip.7 \
 	doc/wait.7 \
 	doc/waitsendpay.7 \
 	doc/withdraw.7 \
+	doc/xkeysend.7 \
 	doc/xpay.7
 
 NOTIFICATION_SCHEMAS := $(wildcard doc/schemas/notification/*.json)

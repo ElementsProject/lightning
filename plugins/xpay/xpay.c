@@ -19,12 +19,15 @@
 #include <common/onion_encode.h>
 #include <common/onionreply.h>
 #include <common/pseudorand.h>
+#include <common/randbytes.h>
 #include <common/route.h>
 #include <common/wireaddr.h>
 #include <errno.h>
 #include <inttypes.h>
 #include <plugins/libplugin.h>
 #include <stdarg.h>
+
+#define PREIMAGE_TLV_TYPE 5482373484
 
 /* For the whole plugin */
 struct xpay {
@@ -69,7 +72,7 @@ struct payment {
 	struct command *cmd;
 	/* Unique id */
 	u64 unique_id;
-	/* For logging, and for sendpays */
+	/* For logging, and for sendpays: NULL for xkeysend! */
 	const char *invstring;
 	/* Explicit layers they told us to include */
 	const char **layers;
@@ -978,6 +981,16 @@ static void update_knowledge_from_error(struct command *aux_cmd,
 	 */
 	if (from_final) {
 		switch (failcode) {
+		/* This is possible if we're keysending */
+		case WIRE_INVALID_ONION_PAYLOAD:
+			if (!attempt->payment->invstring) {
+				payment_give_up(aux_cmd, attempt->payment,
+						PAY_DESTINATION_PERM_FAIL,
+						"Destination reported %s (likely doesn't support keysend)",
+						errmsg);
+				return;
+			}
+			/* Fall thru */
 		/* These two are deprecated */
 		case WIRE_FINAL_INCORRECT_CLTV_EXPIRY:
 		case WIRE_FINAL_INCORRECT_HTLC_AMOUNT:
@@ -986,7 +999,6 @@ static void update_knowledge_from_error(struct command *aux_cmd,
 		case WIRE_INVALID_ONION_VERSION:
 		case WIRE_INVALID_ONION_HMAC:
 		case WIRE_INVALID_ONION_KEY:
-		case WIRE_INVALID_ONION_PAYLOAD:
 
 		/* These should not be sent by final node */
 		case WIRE_TEMPORARY_CHANNEL_FAILURE:
@@ -1412,7 +1424,11 @@ static struct command_result *do_inject(struct command *aux_cmd,
 	json_add_u32(req->js, "cltv_expiry", initial_cltv_delta(attempt) + effective_bheight);
 	json_add_u64(req->js, "partid", attempt->partid);
 	json_add_u64(req->js, "groupid", attempt->payment->group_id);
-	json_add_string(req->js, "invstring", attempt->payment->invstring);
+	/* Use invstring for payments, destination directly for keysend */
+	if (attempt->payment->invstring)
+		json_add_string(req->js, "invstring", attempt->payment->invstring);
+	else
+		json_add_pubkey(req->js, "destination", &attempt->payment->destination);
 	json_add_amount_msat(req->js, "destination_msat", attempt->delivers);
 	if (attempt->payment->localinvreqid)
 		json_add_sha256(req->js, "localinvreqid", attempt->payment->localinvreqid);
@@ -2324,7 +2340,7 @@ static struct payment *new_payment(const tal_t *ctx,
 	payment->deadline = timemono_add(time_mono(), time_from_sec(retryfor));
 	payment->start_blockheight = xpay->blockheight;
 	payment->cmd = cmd;
-	payment->invstring = tal_strdup(payment, invstring);
+	payment->invstring = tal_strdup_or_null(payment, invstring);
 	payment->localinvreqid = tal_dup_or_null(payment, struct sha256, localinvreqid);
 	if (label)
 		payment->label = json_escape_dup(payment, label);
@@ -2687,6 +2703,118 @@ static struct command_result *xpay_layer_created(struct command *aux_cmd,
 	return aux_command_done(aux_cmd);
 }
 
+static struct command_result *
+preapprovekeysend_succeed(struct command *cmd,
+			  const char *method,
+			  const char *buf,
+			  const jsmntok_t *result,
+			  struct payment *payment)
+{
+	/* Now we can conclude `check` command */
+	if (command_check_only(cmd)) {
+		return command_check_done(cmd);
+	}
+
+	/* Actually we don't need a private layer, but unification is easy. */
+	return populate_private_layer(cmd, payment);
+}
+
+static struct command_result *json_xkeysend(struct command *cmd,
+					    const char *buf,
+					    const jsmntok_t *params)
+{
+	struct xpay *xpay = xpay_of(cmd->plugin);
+	struct amount_msat *msat, *maxfee;
+	struct pubkey *dst;
+	u32 *maxdelay;
+	unsigned int *retryfor;
+	struct payment *payment;
+	struct json_escape *label;
+	const char *err;
+	struct preimage preimage;
+	struct sha256 payment_hash;
+	const char **layers;
+	struct tlv_field *extra_fields;
+	u8 *tlvs;
+	struct out_req *req;
+
+	if (!param_check(cmd, buf, params,
+			 p_req("destination", param_pubkey, &dst),
+			 p_req("amount_msat", param_msat, &msat),
+			 p_opt("label", param_label, &label),
+			 p_opt("maxfee", param_msat, &maxfee),
+			 p_opt("layers", param_string_array, &layers),
+			 p_opt_def("retry_for", param_number, &retryfor, 60),
+			 p_opt_def("maxdelay", param_number, &maxdelay, 2016),
+			 p_opt("extratlvs", param_extra_tlvs, &extra_fields),
+			 NULL))
+		return command_param_failed();
+
+	randbytes(&preimage, sizeof(preimage));
+	sha256(&payment_hash, &preimage, sizeof(preimage));
+
+	/* We explicitly prohibit self-keysends */
+	if (pubkey_eq(&xpay->local_id, dst)) {
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "We are the destination. Keysend cannot be used to send funds to yourself");
+	}
+
+	payment = new_payment(cmd, cmd,
+			      *retryfor,
+			      *maxdelay,
+			      layers,
+			      NULL, /* NULL invstring is the marker of a keysend vs pay */
+			      dst,
+			      &payment_hash,
+			      *msat,
+			      NULL,
+			      maxfee,
+			      NULL, NULL,
+			      // 22 is the Rust-Lightning default and the
+			      // highest minimum CLTV we know of.
+			      22,
+			      label,
+			      NULL,
+			      false,
+			      &err);
+	if (!payment)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "%s", err);
+
+	if (!extra_fields)
+		extra_fields = tal_arr(cmd, struct tlv_field, 0);
+	tlvstream_set_raw(&extra_fields, PREIMAGE_TLV_TYPE,
+			  &preimage, sizeof(struct preimage));
+
+	/* Keysend only supports a single part, usually (we support multi!) */
+	payment->maxparts = 1;
+
+	/* Single payments should always use shadow routes */
+	payment->use_shadow = true;
+
+	/* Convert tlvs into their array representation for appending (assumes
+	 * they're greater than any TLV we set!) */
+	tlvs = tal_arr(payment, u8, 0);
+	towire_tlvstream_raw(&tlvs, extra_fields);
+	payment->extra_tlvs = tlvs;
+
+	/* We do pre-approval immediately (note: even if command_check_only!) */
+	if (command_check_only(cmd)) {
+		req = jsonrpc_request_start(cmd, "check",
+					    preapprovekeysend_succeed,
+					    forward_error, payment);
+		json_add_string(req->js, "command_to_check", "preapprovekeysend");
+	} else {
+		req = jsonrpc_request_start(cmd, "preapprovekeysend",
+					    preapprovekeysend_succeed,
+					    forward_error, payment);
+	}
+	json_add_pubkey(req->js, "destination", &payment->destination);
+	json_add_sha256(req->js, "payment_hash", &payment->payment_hash);
+	json_add_amount_msat(req->js, "amount_msat", payment->amount);
+	return send_outreq(req);
+}
+
 static const char *init(struct command *init_cmd,
 			const char *buf UNUSED, const jsmntok_t *config UNUSED)
 {
@@ -2738,6 +2866,10 @@ static const struct plugin_command commands[] = {
 	{
 		"xpay-as-pay",
 		json_xpay_as_pay,
+	},
+	{
+		"xkeysend",
+		json_xkeysend,
 	},
 };
 
