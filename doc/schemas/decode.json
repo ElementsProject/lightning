@@ -3097,7 +3097,7 @@
     "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
   ],
   "see_also": [
-    "lightning-pay(7)",
+    "lightning-xpay(7)",
     "lightning-offer(7)",
     "lightning-fetchinvoice(7)",
     "lightning-sendinvoice(7)",

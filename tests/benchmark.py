@@ -58,7 +58,7 @@ def test_single_hop(node_factory, executor):
         inv = l2.rpc.invoice(1000, 'invoice-%d' % (i), 'desc')
         invoices.append((inv['payment_hash'], inv['payment_secret']))
 
-    route = l1.rpc.getroute(l2.rpc.getinfo()['id'], 1000, 1)['route']
+    route = l1.single_route(l2.rpc.getinfo()['id'], 1000)
     print("Sending payments")
     start_time = time()
 

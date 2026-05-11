@@ -85,7 +85,7 @@ def test_pay(node_factory):
 
 
 def test_pay_invstring(node_factory):
-    l1, l2 = node_factory.line_graph(2)
+    l1, l2 = node_factory.line_graph(2, opts={'allow-deprecated-apis': True})
 
     l1.rpc.check_request_schemas = False
     inv = l2.rpc.invoice(123000, 'test_pay_invstring', 'description')['bolt11']
@@ -3866,7 +3866,7 @@ def test_mpp_adaptive(node_factory, bitcoind):
     }
     """
     amt = 10**7 - 1
-    l1, l2, l3, l4 = node_factory.get_nodes(4)
+    l1, l2, l3, l4 = node_factory.get_nodes(4, opts={'allow-deprecated-apis': True})
 
     l1.connect(l2)
     l2.connect(l4)
@@ -5055,7 +5055,8 @@ def test_self_pay(node_factory):
 
     """
     l1, l2 = node_factory.line_graph(2, wait_for_announce=True,
-                                     opts={'xpay-handle-pay': False})
+                                     opts={'xpay-handle-pay': False,
+                                           'allow-deprecated-apis': True})
 
     inv = l1.rpc.invoice(10000, 'test', 'test')['bolt11']
     l1.rpc.pay(inv)
@@ -5284,7 +5285,8 @@ def test_sendpay_grouping(node_factory, bitcoind):
 @pytest.mark.flaky(reruns=2)
 def test_pay_manual_exclude(node_factory, bitcoind):
     l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True,
-                                         opts={'xpay-handle-pay': False})
+                                         opts={'xpay-handle-pay': False,
+                                               'allow-deprecated-apis': True})
     l1_id = l1.rpc.getinfo()['id']
     l2_id = l2.rpc.getinfo()['id']
     l3_id = l3.rpc.getinfo()['id']
@@ -5744,7 +5746,8 @@ def test_pay_routehint_minhtlc(node_factory, bitcoind):
 @pytest.mark.openchannel('v2')
 def test_pay_partial_msat(node_factory, executor):
     l1, l2, l3 = node_factory.line_graph(3,
-                                         opts={'xpay-handle-pay': False})
+                                         opts={'xpay-handle-pay': False,
+                                               'allow-deprecated-apis': True})
 
     inv = l3.rpc.invoice(100000000, "inv", "inv")
 
@@ -6156,7 +6159,8 @@ def diamond_network(node_factory):
     """
     opts = [
         {'fee-per-satoshi': 0, 'fee-base': 0,      # Sender
-         'xpay-handle-pay': False},
+         'xpay-handle-pay': False,
+         'allow-deprecated-apis': True},
         {'fee-per-satoshi': 0, 'fee-base': 0},     # Low fee, but exhausted channel
         {'fee-per-satoshi': 5000, 'fee-base': 0},  # Disincentivize using fw2
         {'fee-per-satoshi': 0, 'fee-base': 0},     # Recipient

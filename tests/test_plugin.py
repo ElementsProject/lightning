@@ -4900,13 +4900,11 @@ def test_peer_storage(node_factory, bitcoind):
     assert not l2.daemon.is_in_log(r'PeerStorageFailed')
 
 
-@pytest.mark.parametrize("deprecated", [False, True])
-def test_pay_plugin_notifications(node_factory, bitcoind, chainparams, deprecated):
+def test_pay_plugin_notifications(node_factory, bitcoind, chainparams):
     plugin = os.path.join(os.getcwd(), 'tests/plugins/all_notifications.py')
     opts = {"plugin": plugin,
-            "xpay-handle-pay": False}
-    if deprecated:
-        opts['allow-deprecated-apis'] = True
+            "xpay-handle-pay": False,
+            "allow-deprecated-apis": True}
 
     l1, l2, l3 = node_factory.line_graph(3, opts=[opts, {}, {}],
                                          wait_for_announce=True)
@@ -4939,9 +4937,8 @@ def test_pay_plugin_notifications(node_factory, bitcoind, chainparams, deprecate
                                 'enabled': True}
     channel_hint_update = {'origin': 'pay',
                            'channel_hint_update': channel_hint_update_core}
-    if deprecated:
-        # pyln-client's plugin.py duplicated payload into same name as update.
-        channel_hint_update['payload'] = {'channel_hint': channel_hint_update_core}
+    # pyln-client's plugin.py duplicated payload into same name as update.
+    channel_hint_update['payload'] = {'channel_hint': channel_hint_update_core}
 
     assert data == channel_hint_update
 
@@ -4953,9 +4950,8 @@ def test_pay_plugin_notifications(node_factory, bitcoind, chainparams, deprecate
                     'bolt11': inv1['bolt11']}
     success = {'origin': 'pay',
                'pay_success': success_core}
-    if deprecated:
-        # pyln-client's plugin.py duplicated payload into same name as update.
-        success['payload'] = success_core
+    # pyln-client's plugin.py duplicated payload into same name as update.
+    success['payload'] = success_core
     assert data == success
 
     inv2 = l3.rpc.invoice(10000, "second", "desc")
@@ -4969,9 +4965,8 @@ def test_pay_plugin_notifications(node_factory, bitcoind, chainparams, deprecate
     failure_core = {'payment_hash': inv2['payment_hash'], 'bolt11': inv2['bolt11'], 'error': {'message': 'failed: WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS (reply from remote)'}}
     failure = {'origin': 'pay',
                'pay_failure': failure_core}
-    if deprecated:
-        # pyln-client's plugin.py duplicated payload into same name as update.
-        failure['payload'] = failure_core
+    # pyln-client's plugin.py duplicated payload into same name as update.
+    failure['payload'] = failure_core
     assert data == failure
 
 

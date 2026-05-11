@@ -4878,7 +4878,7 @@ def test_preapprove_use(node_factory, bitcoind, xkeysend):
 
     # This will fail the same way
     with pytest.raises(RpcError, match='invoice was declined'):
-        l2.rpc.check('pay', bolt11=inv)
+        l2.rpc.check('xpay', invstring=inv)
 
     # Now keysend.
     with pytest.raises(RpcError, match='keysend was declined'):

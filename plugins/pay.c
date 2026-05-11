@@ -1309,6 +1309,12 @@ static struct command_result *json_pay(struct command *cmd,
 		      NULL))
 		return command_param_failed();
 
+	/* We can't just mark this command deprecated, as that prevents
+	 * xpay from overriding (lightningd stops it first!) */
+	if (!command_deprecated_in_ok(cmd, NULL, "v26.06", "v27.03"))
+		return command_fail(cmd, JSONRPC2_METHOD_NOT_FOUND,
+				    "Command \"pay\" is deprecated");
+
 	p = payment_new(cmd, cmd, NULL /* No parent */, global_hints, paymod_mods);
 	p->invstring = tal_steal(p, b11str);
 	p->description = tal_steal(p, description);
@@ -1544,7 +1550,8 @@ static struct command_result *handle_channel_hint_update(struct command *cmd,
 static const struct plugin_command commands[] = {
 	{
 		"paystatus",
-		json_paystatus
+		json_paystatus,
+		"v26.06", "v27.03",
 	}, {
 		"listpays",
 		json_listpays

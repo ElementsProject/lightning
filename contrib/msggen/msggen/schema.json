@@ -34,7 +34,7 @@
         "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
       ],
       "see_also": [
-        "lightning-pay(7)"
+        "lightning-xpay(7)"
       ],
       "resources": [
         "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
@@ -11084,7 +11084,7 @@
         "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
       ],
       "see_also": [
-        "lightning-pay(7)",
+        "lightning-xpay(7)",
         "lightning-offer(7)",
         "lightning-fetchinvoice(7)",
         "lightning-sendinvoice(7)",
@@ -11966,7 +11966,7 @@
       "see_also": [
         "lightning-listpays(7)",
         "lightning-listsendpays(7)",
-        "lightning-paystatus(7)"
+        "lightning-xpay(7)"
       ],
       "resources": [
         "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
@@ -14120,7 +14120,7 @@
       ],
       "see_also": [
         "lightning-sendinvoice(7)",
-        "lightning-pay(7)"
+        "lightning-xpay(7)"
       ],
       "resources": [
         "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
@@ -17395,7 +17395,7 @@
       "see_also": [
         "lightning-listinvoices(7)",
         "lightning-delinvoice(7)",
-        "lightning-pay(7)"
+        "lightning-xpay(7)"
       ],
       "resources": [
         "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
@@ -24897,7 +24897,7 @@
         "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
       ],
       "see_also": [
-        "lightning-pay(7)",
+        "lightning-xpay(7)",
         "lightning-paystatus(7)",
         "lightning-listsendpays(7)"
       ],
@@ -30434,7 +30434,7 @@
       "description": [
         "NOTE: As of v26.06, xpay transparantly handles most **pay** invocations, and **pay** is deprecated.",
         "",
-        "The **pay** RPC command attempts to find a route to the given destination, and send the funds it asks for. .",
+        "The **pay** RPC command attempts to find a route to the given destination, and send the funds it asks for.",
         "",
         "The response will occur when the payment fails or succeeds. Once a payment has succeeded, calls to **pay** with the same *bolt11* will succeed immediately.",
         "",
@@ -30660,6 +30660,7 @@
         "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
       ],
       "see_also": [
+        "lightning-xpay(7)",
         "lightning-listpays(7)",
         "lightning-decode(7)",
         "lightning-listinvoices(7)",
@@ -31309,7 +31310,7 @@
         "Ken Sedgwick [ken@bonsai.com](mailto:ken@bonsai.com) is mainly responsible."
       ],
       "see_also": [
-        "lightning-pay(7)"
+        "lightning-xpay(7)"
       ],
       "resources": [
         "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
@@ -33422,7 +33423,7 @@
         "lightning-delinvoice(7)",
         "lightning-getroute(7)",
         "lightning-invoice(7)",
-        "lightning-pay(7)",
+        "lightning-xpay(7)",
         "lightning-waitsendpay(7)"
       ],
       "resources": [
@@ -38512,7 +38513,7 @@
       ],
       "see_also": [
         "lightning-sendpay(7)",
-        "lightning-pay(7)"
+        "lightning-xpay(7)"
       ],
       "resources": [
         "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
@@ -38824,11 +38825,11 @@
       "added": "v24.11",
       "additionalProperties": false,
       "rpc": "xpay",
-      "title": "Command for sending a payment for an invoice",
+      "title": "Command for sending a payment",
       "description": [
-        "The **xpay** RPC command attempts to find routes to the given destination, and send the funds it asks for.",
+        "The **xpay** RPC command attempts to make the specified payment: it can look up BIP353 names (such as \u20bfrusty@blockstream.com), it can resolve simple offers (lno1...), and pay bolt11 (lnbc...) and bolt12 invoices (lni1...).",
         "",
-        "This plugin is simpler and more sophisticated than the older 'pay' plugin, but does not have all the same features."
+        "This plugin is both simpler and more sophisticated than the older 'pay' plugin."
       ],
       "request": {
         "required": [
@@ -38857,7 +38858,7 @@
           "layers": {
             "type": "array",
             "description": [
-              "These are askrene layers to apply in addition to xpay's own: these can alter the topology or provide additional information on the lightning network.  See askrene-create-layer."
+              "These are askrene layers to apply in addition to xpay's own: these can alter the topology or provide additional information on the lightning network.  This lets you exclude particular nodes or channels, or bias against them: see askrene-create-layer."
             ],
             "items": {
               "type": "string",
@@ -38968,7 +38969,7 @@
         "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
       ],
       "see_also": [
-        "lightning-pay(7)",
+        "lightning-listpays(7)",
         "lightning-decode(7)"
       ],
       "resources": [

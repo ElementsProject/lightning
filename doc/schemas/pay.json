@@ -6,7 +6,7 @@
   "description": [
     "NOTE: As of v26.06, xpay transparantly handles most **pay** invocations, and **pay** is deprecated.",
     "",
-    "The **pay** RPC command attempts to find a route to the given destination, and send the funds it asks for. .",
+    "The **pay** RPC command attempts to find a route to the given destination, and send the funds it asks for.",
     "",
     "The response will occur when the payment fails or succeeds. Once a payment has succeeded, calls to **pay** with the same *bolt11* will succeed immediately.",
     "",
@@ -232,6 +232,7 @@
     "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
   ],
   "see_also": [
+    "lightning-xpay(7)",
     "lightning-listpays(7)",
     "lightning-decode(7)",
     "lightning-listinvoices(7)",

@@ -27,6 +27,8 @@ privacy:
 | getroutes.next_node_id                             | Field              | v26.06           | v27.06         | Use `node_id_out` instead (since v26.06)                                                                                  |
 | getroutes.amount_msat                              | Field              | v26.06           | v27.06         | Use `amount_in_msat` instead (since v26.06)                                                                               |
 | getroutes.delay                                    | Field              | v26.06           | v27.06         | Use `cltv_in` instead (since v26.06)                                                                                      |
+| pay                                                | Command            | v26.06           | v27.03         | Use the more sophisticated and effective "xpay" command instead (since v24.11).                                           |
+| paystatus                                          | Command            | v26.06           | v27.03         | Uses internal pay structures, doesn't work with xpay, doesn't work across restarts.                                       |
 
 Inevitably there are features which need to change: either to be generalized, or removed when they can no longer be supported.
 
