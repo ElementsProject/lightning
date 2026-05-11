@@ -531,10 +531,22 @@ pub mod requests {
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct SendpayRoute {
-	    pub amount_msat: Amount,
-	    pub channel: ShortChannelId,
-	    pub delay: u32,
-	    pub id: PublicKey,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub amount_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub amount_out_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub channel: Option<ShortChannelId>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub cltv_out: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub delay: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub id: Option<PublicKey>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub node_id_out: Option<PublicKey>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub short_channel_id_dir: Option<ShortChannelIdDir>,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]

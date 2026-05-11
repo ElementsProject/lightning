@@ -4013,10 +4013,14 @@
         },
         "SendpayRoute": {
             "SendPay.route[].amount_msat": 5,
+            "SendPay.route[].amount_out_msat": 8,
             "SendPay.route[].channel": 4,
+            "SendPay.route[].cltv_out": 9,
             "SendPay.route[].delay": 3,
             "SendPay.route[].id": 2,
-            "SendPay.route[].msatoshi": 1
+            "SendPay.route[].msatoshi": 1,
+            "SendPay.route[].node_id_out": 7,
+            "SendPay.route[].short_channel_id_dir": 6
         },
         "SendpsbtRequest": {
             "SendPsbt.psbt": 1,
@@ -13593,8 +13597,16 @@
             "added": "pre-v0.10.1",
             "deprecated": null
         },
+        "SendPay.route[].amount_out_msat": {
+            "added": "v26.06",
+            "deprecated": null
+        },
         "SendPay.route[].channel": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "SendPay.route[].cltv_out": {
+            "added": "v26.06",
             "deprecated": null
         },
         "SendPay.route[].delay": {
@@ -13603,6 +13615,14 @@
         },
         "SendPay.route[].id": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "SendPay.route[].node_id_out": {
+            "added": "v26.06",
+            "deprecated": null
+        },
+        "SendPay.route[].short_channel_id_dir": {
+            "added": "v26.06",
             "deprecated": null
         },
         "SendPay.status": {

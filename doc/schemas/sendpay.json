@@ -6,7 +6,7 @@
   "description": [
     "The **sendpay** RPC command attempts to send funds associated with the given *payment_hash*, along a route to the final destination in the route.",
     "",
-    "Generally, a client would call lightning-getroute(7) to resolve a route, then use **sendpay** to send it. If it fails, it would call lightning-getroute(7) again to retry. If the route is empty, a payment-to-self is attempted.",
+    "Generally, a client would call lightning-getroute(7) or lightning-getroutes(7) to resolve a route, then use **sendpay** to send it.  This is why *sendpay*'s route ignores unknown members: it uses the fields from either of those commands and ignored others. If it fails, it would call lightning-getroutes(7) again to retry. If the route is empty, a payment-to-self is attempted.",
     "",
     "The response will occur when the payment is on its way to the destination. The **sendpay** RPC command does not wait for definite success or definite failure of the payment (except for already-succeeded payments, or to-self payments). Instead, use the **waitsendpay** RPC command to poll or wait for definite success or definite failure.",
     "",
@@ -23,36 +23,58 @@
         "type": "array",
         "items": {
           "type": "object",
-          "required": [
-            "amount_msat",
-            "id",
-            "delay",
-            "channel"
-          ],
           "additionalProperties": true,
           "properties": {
-            "id": {
-              "type": "pubkey",
-              "description": [
-                "The node at the end of this hop."
-              ]
-            },
-            "channel": {
-              "type": "short_channel_id",
+            "short_channel_id_dir": {
+              "type": "short_channel_id_dir",
+              "added": "v26.06",
               "description": [
                 "The channel joining these nodes."
               ]
             },
-            "delay": {
+            "node_id_out": {
+              "type": "pubkey",
+              "added": "v26.06",
+              "description": [
+                "The node at the end of this hop."
+              ]
+            },
+            "amount_out_msat": {
+              "added": "v26.06",
+              "type": "msat",
+              "description": [
+                "The amount expected at the far end of this hop."
+              ]
+            },
+            "cltv_out": {
+              "added": "v26.06",
               "type": "u32",
               "description": [
                 "The total CLTV expected by the node at the end of this hop."
               ]
             },
+            "id": {
+              "type": "pubkey",
+              "description": [
+                "The node at the end of this hop (older name for `node_id_out`)."
+              ]
+            },
+            "channel": {
+              "type": "short_channel_id",
+              "description": [
+                "The channel joining these nodes (older name for `short_channel_id_dir`)"
+              ]
+            },
+            "delay": {
+              "type": "u32",
+              "description": [
+                "The total CLTV expected by the node at the end of this hop (older name for `cltv_out`)."
+              ]
+            },
             "amount_msat": {
               "type": "msat",
               "description": [
-                "The amount expected by the node at the end of this hop."
+                "The amount expected by the node at the end of this hop (older name for `amount_out_msat`)."
               ]
             }
           }

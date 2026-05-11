@@ -1393,19 +1393,22 @@ AUTODATA(json_command, &sendonion_command);
 JSON-RPC sendpay interface
 -----------------------------------------------------------------------------*/
 
-/* FIXME: We accept his parameter for now, will deprecate eventually */
-static struct command_result *param_route_hop_style(struct command *cmd,
-						    const char *name,
-						    const char *buffer,
-						    const jsmntok_t *tok,
-						    int **unused)
+static struct command_result *either(struct command *cmd,
+				     const char *name,
+				     const char *buffer,
+				     const jsmntok_t *tok,
+				     const char *name1,
+				     const char *name2,
+				     const jsmntok_t **ret)
 {
-	if (json_tok_streq(buffer, tok, "tlv")) {
+	*ret = json_get_member(buffer, tok, name1);
+	if (*ret)
 		return NULL;
-	}
-
+	*ret = json_get_member(buffer, tok, name2);
+	if (*ret)
+		return NULL;
 	return command_fail_badparam(cmd, name, buffer, tok,
-			    "should be 'tlv' ('legacy' not supported)");
+				     tal_fmt(tmpctx, "must have either %s or %s", name1, name2));
 }
 
 static struct command_result *param_route_hops(struct command *cmd,
@@ -1418,32 +1421,45 @@ static struct command_result *param_route_hops(struct command *cmd,
 	const jsmntok_t *t;
 
 	if (tok->type != JSMN_ARRAY)
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "%s must be an array", name);
+		return command_fail_badparam(cmd, name, buffer, tok, "must be an array");
 
 	*hops = tal_arr(cmd, struct route_hop, tok->size);
 	json_for_each_arr(i, t, tok) {
-		struct amount_msat *amount_msat;
-		struct node_id *id;
-		struct short_channel_id *channel;
-		unsigned *delay, *direction;
-		int *ignored;
+		struct command_result *ret;
+		const jsmntok_t *member;
+		struct short_channel_id_dir scidd;
 
-		if (!param(cmd, buffer, t,
-			   p_req("amount_msat", param_msat, &amount_msat),
-			   p_req("id", param_node_id, &id),
-			   p_req("delay", param_number, &delay),
-			   p_req("channel", param_short_channel_id, &channel),
-			   /* Allowed (getroute supplies it) but ignored */
-			   p_opt("direction", param_number, &direction),
-			   p_opt("style", param_route_hop_style, &ignored),
-			   NULL))
-			return command_param_failed();
-
-		(*hops)[i].amount = *amount_msat;
-		(*hops)[i].node_id = *id;
-		(*hops)[i].delay = *delay;
-		(*hops)[i].scid = *channel;
+		ret = either(cmd, name, buffer, t, "short_channel_id_dir", "channel", &member);
+		if (ret)
+			return ret;
+		if (!json_to_short_channel_id_dir(buffer, member, &scidd)
+		    && !json_to_short_channel_id(buffer, member, &scidd.scid)) {
+			return command_fail_badparam(cmd, name, buffer, member,
+						     "bad short_channel_id");
+		}
+		/* We don't actually need the direction */
+		(*hops)[i].scid = scidd.scid;
+		ret = either(cmd, name, buffer, t, "node_id_out", "id", &member);
+		if (ret)
+			return ret;
+		if (!json_to_node_id(buffer, member, &(*hops)[i].node_id)) {
+			return command_fail_badparam(cmd, name, buffer, member,
+						     "bad node_id");
+		}
+		ret = either(cmd, name, buffer, t, "amount_out_msat", "amount_msat", &member);
+		if (ret)
+			return ret;
+		if (!json_to_msat(buffer, member, &(*hops)[i].amount)) {
+			return command_fail_badparam(cmd, name, buffer, member,
+						     "bad amount");
+		}
+		ret = either(cmd, name, buffer, t, "cltv_out", "delay", &member);
+		if (ret)
+			return ret;
+		if (!json_to_u32(buffer, member, &(*hops)[i].delay)) {
+			return command_fail_badparam(cmd, name, buffer, member,
+						     "bad cltv_out/delay");
+		}
 	}
 
 	return NULL;

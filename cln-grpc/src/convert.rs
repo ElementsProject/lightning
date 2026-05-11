@@ -5118,10 +5118,14 @@ impl From<requests::ListfundsRequest> for pb::ListfundsRequest {
 impl From<requests::SendpayRoute> for pb::SendpayRoute {
     fn from(c: requests::SendpayRoute) -> Self {
         Self {
-            amount_msat: Some(c.amount_msat.into()), // Rule #2 for type msat
-            channel: c.channel.to_string(), // Rule #2 for type short_channel_id
-            delay: c.delay, // Rule #2 for type u32
-            id: c.id.serialize().to_vec(), // Rule #2 for type pubkey
+            amount_msat: c.amount_msat.map(|f| f.into()), // Rule #2 for type msat?
+            amount_out_msat: c.amount_out_msat.map(|f| f.into()), // Rule #2 for type msat?
+            channel: c.channel.map(|v| v.to_string()), // Rule #2 for type short_channel_id?
+            cltv_out: c.cltv_out, // Rule #2 for type u32?
+            delay: c.delay, // Rule #2 for type u32?
+            id: c.id.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
+            node_id_out: c.node_id_out.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
+            short_channel_id_dir: c.short_channel_id_dir.map(|v| v.to_string()), // Rule #2 for type short_channel_id_dir?
         }
     }
 }
@@ -7143,10 +7147,14 @@ impl From<pb::ListfundsRequest> for requests::ListfundsRequest {
 impl From<pb::SendpayRoute> for requests::SendpayRoute {
     fn from(c: pb::SendpayRoute) -> Self {
         Self {
-            amount_msat: c.amount_msat.unwrap().into(), // Rule #1 for type msat
-            channel: cln_rpc::primitives::ShortChannelId::from_str(&c.channel).unwrap(), // Rule #1 for type short_channel_id
-            delay: c.delay, // Rule #1 for type u32
-            id: PublicKey::from_slice(&c.id).unwrap(), // Rule #1 for type pubkey
+            amount_msat: c.amount_msat.map(|a| a.into()), // Rule #1 for type msat?
+            amount_out_msat: c.amount_out_msat.map(|a| a.into()), // Rule #1 for type msat?
+            channel: c.channel.map(|v| cln_rpc::primitives::ShortChannelId::from_str(&v).unwrap()), // Rule #1 for type short_channel_id?
+            cltv_out: c.cltv_out, // Rule #1 for type u32?
+            delay: c.delay, // Rule #1 for type u32?
+            id: c.id.map(|v| PublicKey::from_slice(&v).unwrap()), // Rule #1 for type pubkey?
+            node_id_out: c.node_id_out.map(|v| PublicKey::from_slice(&v).unwrap()), // Rule #1 for type pubkey?
+            short_channel_id_dir: c.short_channel_id_dir.map(|v| cln_rpc::primitives::ShortChannelIdDir::from_str(&v).unwrap()), // Rule #1 for type short_channel_id_dir?
         }
     }
 }

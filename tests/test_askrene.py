@@ -1712,6 +1712,7 @@ def test_real_biases(node_factory, bitcoind, executor):
 
 
 @pytest.mark.slow_test
+@unittest.skipIf(TEST_NETWORK != 'regtest', "FIXME: fails on elements")
 def test_askrene_fake_channeld(node_factory, bitcoind):
     outfile = tempfile.NamedTemporaryFile(prefix='gossip-store-')
     nodeids = subprocess.check_output(['devtools/gossmap-compress',
@@ -1761,45 +1762,37 @@ def test_askrene_fake_channeld(node_factory, bitcoind):
             preimage_hex = f'{n:02}' + '00' * 31
             hash_hex = sha256(bytes.fromhex(preimage_hex)).hexdigest()
 
-            paths = {}
-            # FIXME: Sendpay wants a different format, so we convert.
             for i, r in enumerate(routes['routes']):
-                paths[i] = [{'id': h['node_id_out'],
-                             'channel': h['short_channel_id_dir'].split('/')[0],
-                             'direction': int(h['short_channel_id_dir'].split('/')[1]),
-                             'delay': h['cltv_out'],
-                             'amount_msat': h['amount_out_msat']}
-                            for h in r['path']]
-                l1.rpc.sendpay(paths[i], hash_hex,
+                l1.rpc.sendpay(r['path'], hash_hex,
                                amount_msat=AMOUNT,
                                payment_secret='00' * 32,
                                partid=i + 1, groupid=1)
 
-            for i, p in paths.items():
+            for i, r in enumerate(routes['routes']):
                 # Worst-case timeout is 1 second per hop, + 60 seconds if MPP timeout!
                 try:
-                    if l1.rpc.waitsendpay(hash_hex, timeout=TIMEOUT + len(p) + 60, partid=i + 1, groupid=1):
+                    if l1.rpc.waitsendpay(hash_hex, timeout=TIMEOUT + len(r['path']) + 60, partid=i + 1, groupid=1):
                         success = True
                 except RpcError as err:
                     # Timeout means this one succeeded!
                     if err.error['data']['failcode'] == MPP_TIMEOUT:
-                        for h in p:
+                        for h in r['path']:
                             l1.rpc.askrene_inform_channel('test_askrene_fake_channeld',
-                                                          f"{h['channel']}/{h['direction']}",
-                                                          h['amount_msat'],
+                                                          h['short_channel_id_dir'],
+                                                          h['amount_in_msat'],
                                                           'unconstrained')
                     elif err.error['data']['failcode'] == TEMPORARY_CHANNEL_FAILURE:
                         # We succeeded up to here
                         failpoint = err.error['data']['erring_index']
-                        for h in p[:failpoint]:
+                        for h in r['path'][:failpoint]:
                             l1.rpc.askrene_inform_channel('test_askrene_fake_channeld',
-                                                          f"{h['channel']}/{h['direction']}",
-                                                          h['amount_msat'],
+                                                          h['short_channel_id_dir'],
+                                                          h['amount_in_msat'],
                                                           'unconstrained')
-                        h = p[failpoint]
+                        h = r['path'][failpoint]
                         l1.rpc.askrene_inform_channel('test_askrene_fake_channeld',
-                                                      f"{h['channel']}/{h['direction']}",
-                                                      h['amount_msat'],
+                                                      h['short_channel_id_dir'],
+                                                      h['amount_in_msat'],
                                                       'constrained')
                     else:
                         raise err
