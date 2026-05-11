@@ -770,6 +770,86 @@ static bool process_channel_update_from_onion_error(struct command *aux_cmd,
 	return true;
 }
 
+/* pay used to "work" if you asked it to pay again. */
+static struct command_result *
+payment_listsendpays_previous(struct command *cmd,
+			      const char *method,
+			      const char *buf,
+			      const jsmntok_t *result,
+			      struct payment *payment)
+{
+	size_t i;
+	const jsmntok_t *t, *arr;
+	size_t parts = 0;
+	struct preimage preimage;
+	struct amount_msat sent, msat;
+	u32 created_at;
+
+	arr = json_get_member(buf, result, "payments");
+	json_for_each_arr(i, t, arr) {
+		const jsmntok_t *status = json_get_member(buf, t, "status");
+		if (!json_tok_streq(buf, status, "complete"))
+			continue;
+
+		if (parts == 0) {
+			json_scan(tmpctx, buf, t,
+				  "{created_at:%"
+				  ",amount_msat:%"
+				  ",amount_sent_msat:%"
+				  ",payment_preimage:%}",
+				  JSON_SCAN(json_to_u32, &created_at),
+				  JSON_SCAN(json_to_msat, &msat),
+				  JSON_SCAN(json_to_msat, &sent),
+				  JSON_SCAN(json_to_preimage, &preimage));
+		} else {
+			struct amount_msat diff_msat, diff_sent;
+			json_scan(tmpctx, buf, t,
+				  "{amount_msat:%"
+				  ",amount_sent_msat:%}",
+				  JSON_SCAN(json_to_msat, &diff_msat),
+				  JSON_SCAN(json_to_msat, &diff_sent));
+			if (!amount_msat_accumulate(&msat, diff_msat) ||
+			    !amount_msat_accumulate(&sent, diff_sent))
+				plugin_err(cmd->plugin,
+					   "msat overflow adding up parts");
+		}
+		parts++;
+	}
+
+	/* Avoid terminating twice */
+	payment->cmd = NULL;
+	/* Shouldn't happen! */
+	if (parts == 0) {
+		return command_fail(cmd,
+				    PAY_INJECTPAYMENTONION_ALREADY_PAID,
+				    "Already paid this invoice successfully");
+	} else {
+		struct json_stream *js = jsonrpc_stream_success(cmd);
+		json_add_preimage(js, "payment_preimage", &preimage);
+		json_add_string(js, "status", "complete");
+		json_add_amount_msat(js, "amount_msat", msat);
+		json_add_amount_msat(js, "amount_sent_msat", sent);
+		json_add_pubkey(js, "destination", &payment->destination);
+		json_add_sha256(js, "payment_hash", &payment->payment_hash);
+		json_add_u32(js, "created_at", created_at);
+		json_add_num(js, "parts", parts);
+		return command_finished(cmd, js);
+	}
+}
+
+static void payment_already_paid(struct payment *payment)
+{
+	struct out_req *req;
+
+	req = jsonrpc_request_start(payment->cmd, "listsendpays",
+				    payment_listsendpays_previous,
+				    payment_listsendpays_previous,
+				    payment);
+
+	json_add_sha256(req->js, "payment_hash", &payment->payment_hash);
+	send_outreq(req);
+}
+
 static void update_knowledge_from_error(struct command *aux_cmd,
 					const char *buf,
 					const jsmntok_t *error,
@@ -791,6 +871,11 @@ static void update_knowledge_from_error(struct command *aux_cmd,
 			   json_tok_full_len(error), json_tok_full(buf, error));
 
 	if (ecode == PAY_INJECTPAYMENTONION_ALREADY_PAID) {
+		/* pay was OK when this happened, so we fake it up. */
+		if (attempt->payment->pay_compat && attempt->payment->cmd) {
+			payment_already_paid(attempt->payment);
+			return;
+		}
 		payment_give_up(aux_cmd, attempt->payment,
 				PAY_INJECTPAYMENTONION_ALREADY_PAID,
 				"Already paid this invoice successfully");
