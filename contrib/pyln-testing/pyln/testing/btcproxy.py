@@ -47,7 +47,10 @@ class BitcoinRpcProxy(object):
             return ret
         elif method in self.mocks and callable(self.mocks[method]):
             self.mock_counts[method] += 1
-            return self.mocks[method](r)
+            # If a mock returns "None" it means "call the real one"
+            ret = self.mocks[method](r)
+            if ret is not None:
+                return ret
 
         try:
             reply = {
