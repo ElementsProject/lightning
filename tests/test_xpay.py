@@ -986,6 +986,32 @@ def test_xpay_bip353(node_factory):
     l2.rpc.xpay('fake@fake.com', 100)
 
 
+def test_xpay_shadow_cltv(node_factory, bitcoind):
+    """Shadow CLTV: dev_use_shadow=False gives exact CLTV; errors for offer/BIP353."""
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
+    scidd_21 = first_scidd(l2, l1)
+    scidd_23 = first_scidd(l2, l3)
+    scidd_32 = first_scidd(l3, l2)
+
+    # One in 4 chance that it adds two shadow routes...
+    i = 0
+    while True:
+        inv = l3.rpc.invoice('10000msat', f'with_shadow {i}', f'with shadow {i}')['bolt11']
+        l1.rpc.xpay(invstring=inv)
+        if l1.daemon.is_in_log(r'shadow #2: stopping'):
+            break
+        i += 1
+
+    # First one must be the one to l2.
+    assert l1.daemon.is_in_log(f"shadow #0: adding {scidd_32} to {l2.info['id']}")
+    # Second one could be back to l3 or to l1.
+    assert l1.daemon.is_in_log(f"shadow #1: adding {scidd_23} to {l3.info['id']}") or l1.daemon.is_in_log(f"shadow #1: adding {scidd_21} to {l1.info['id']}")
+
+    # Final cltv is 5, then two shadow hops and one padding.
+    expected_cltv = bitcoind.rpc.getblockchaininfo()['blocks'] + 5 + 1 + 6 * 2
+    assert l2.daemon.is_in_log(f"Adding HTLC .* amount=10000msat cltv={expected_cltv} gave CHANNEL_ERR_ADD_OK")
+
+
 def test_xpay_limited_max_accepted_htlcs(node_factory):
     """xpay should try to reduce flows to 6 if there is an unannounced channel, and only try more if that fails"""
     CHANNEL_SIZE_SATS = 10**6
@@ -1065,10 +1091,10 @@ def test_xpay_blockheight_mismatch(node_factory, bitcoind, executor):
 
     # This will wait, then fail.
     with pytest.raises(RpcError, match=f'Timed out waiting for blockheight {l3_height}'):
-        l1.rpc.xpay(invstring=inv, retry_for=10)
+        l1.rpc.xpay(invstring=inv, retry_for=10, dev_use_shadow=False)
 
     # This will succeed, because we wait for the blocks.
-    fut = executor.submit(l1.rpc.xpay, invstring=inv, retry_for=60)
+    fut = executor.submit(l1.rpc.xpay, invstring=inv, retry_for=60, dev_use_shadow=False)
     l1.daemon.wait_for_log(fr"Our blockheight may be too low: waiting .* seconds for height {l3_height} \(we are at {l1_height}\)")
 
     # Now let it catch up, and it will retry, and succeed.

@@ -38686,6 +38686,11 @@
             "description": [
               "`localinvreqid` is used by offers to link a payment attempt to a local `invoice_request` offer created by lightningd-invoicerequest(7). This  ensures that we only make a single payment for an offer, and that the offer is marked `used` once paid."
             ]
+          },
+          "dev_use_shadow": {
+            "hidden": true,
+            "type": "boolean",
+            "added": "v26.06"
           }
         }
       },

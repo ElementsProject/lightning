@@ -6790,6 +6790,7 @@ impl From<requests::XpayRequest> for pb::XpayRequest {
     fn from(c: requests::XpayRequest) -> Self {
         Self {
             amount_msat: c.amount_msat.map(|f| f.into()), // Rule #2 for type msat?
+            dev_use_shadow: c.dev_use_shadow, // Rule #2 for type boolean?
             invstring: c.invstring, // Rule #2 for type string
             label: c.label, // Rule #2 for type string?
             // Field: Xpay.layers[]
@@ -8779,6 +8780,7 @@ impl From<pb::XpayRequest> for requests::XpayRequest {
     fn from(c: pb::XpayRequest) -> Self {
         Self {
             amount_msat: c.amount_msat.map(|a| a.into()), // Rule #1 for type msat?
+            dev_use_shadow: c.dev_use_shadow, // Rule #1 for type boolean?
             invstring: c.invstring, // Rule #1 for type string
             label: c.label, // Rule #1 for type string?
             layers: Some(c.layers.into_iter().map(|s| s.into()).collect()), // Rule #4

@@ -4439,6 +4439,7 @@
         },
         "XpayRequest": {
             "Xpay.amount_msat": 2,
+            "Xpay.dev_use_shadow": 11,
             "Xpay.invstring": 1,
             "Xpay.label": 9,
             "Xpay.layers[]": 4,
@@ -14752,6 +14753,10 @@
         },
         "Xpay.amount_sent_msat": {
             "added": "v24.11",
+            "deprecated": null
+        },
+        "Xpay.dev_use_shadow": {
+            "added": "v26.06",
             "deprecated": null
         },
         "Xpay.failed_parts": {

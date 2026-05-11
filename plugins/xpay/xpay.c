@@ -137,6 +137,9 @@ struct payment {
 	bool pay_compat;
 	/* When did we start? */
 	struct timeabs start_time;
+
+	/* Are we to add a shadow route? */
+	bool use_shadow;
 };
 
 /* One step in a path. */
@@ -188,6 +191,7 @@ static struct command_result *xpay_core(struct command *cmd,
 					u32 maxdelay,
 					const struct json_escape *label,
 					const struct sha256 *local_invreq_id,
+					bool use_shadow,
                                         bool as_pay);
 
 /* Wrapper for pending commands (ignores return) */
@@ -1366,6 +1370,72 @@ static struct attempt *new_attempt(struct payment *payment,
 	return attempt;
 }
 
+/* BOLT #7:
+ *
+ * In order to create a plausible offset, the origin node MAY start a limited
+ * random walk on the graph, starting from the intended recipient and summing the
+ * `cltv_expiry_delta`s, and use the resulting sum as the offset.
+ * This effectively creates a _shadow route extension_ to the actual route and
+ * provides better protection against this attack vector than simply picking a
+ * random offset would.
+ */
+static void add_cltv_shadow(struct payment *payment,
+			    struct gossmap *gossmap,
+			    struct hop *hops)
+{
+	struct node_id last_node;
+
+	assert(tal_count(hops) > 0);
+	node_id_from_pubkey(&last_node, &hops[tal_count(hops) - 1].next_node);
+
+	/* Coinflip up to three times to extend. */
+	for (size_t i = 0; i < 3; i++) {
+		const struct gossmap_node *n;
+		const struct gossmap_chan *c;
+		int dir;
+		struct short_channel_id_dir scidd;
+
+		if (pseudorand(2) == 0) {
+			payment_log(payment, LOG_DBG, "shadow #%zu: stopping", i);
+			break;
+		}
+
+		n = gossmap_find_node(gossmap, &last_node);
+		if (!n) {
+			payment_log(payment, LOG_DBG, "shadow #%zu: can't find node %s",
+				    i, fmt_node_id(tmpctx, &last_node));
+			break;
+		}
+
+		/* Pick random channel as shadow */
+		c = gossmap_nth_chan(gossmap, n, pseudorand(n->num_chans), &dir);
+		scidd.scid = gossmap_chan_scid(gossmap, c);
+		scidd.dir = dir;
+
+		if (!gossmap_chan_set(c, dir)) {
+			payment_log(payment, LOG_DBG, "shadow #%zu: %s no channel_update",
+				    i, fmt_short_channel_id_dir(tmpctx, &scidd));
+			break;
+		}
+
+		if (hops[0].cltv_value_in + c->half[dir].delay > payment->maxdelay) {
+			payment_log(payment, LOG_DBG, "shadow #%zu: %s adds too much delay (%u)",
+				    i, fmt_short_channel_id_dir(tmpctx, &scidd),
+				    c->half[dir].delay);
+			break;
+		}
+
+		gossmap_node_get_id(gossmap, gossmap_nth_node(gossmap, c, !dir), &last_node);
+		payment_log(payment, LOG_DBG, "shadow #%zu: adding %s to %s",
+			    i, fmt_short_channel_id_dir(tmpctx, &scidd),
+			    fmt_node_id(tmpctx, &last_node));
+		for (size_t j = 0; j < tal_count(hops); j++) {
+			hops[j].cltv_value_in += c->half[dir].delay;
+			hops[j].cltv_value_out += c->half[dir].delay;
+		}
+	}
+}
+
 static struct command_result *getroutes_done(struct command *aux_cmd,
 					     const char *method,
 					     const char *buf,
@@ -1451,6 +1521,10 @@ static struct command_result *getroutes_done(struct command *aux_cmd,
 		}
 		hops[j-1].amount_out = delivers;
 		hops[j-1].cltv_value_out = payment->final_cltv;
+
+		if (payment->use_shadow)
+			add_cltv_shadow(payment, gossmap, hops);
+
 		attempt = new_attempt(payment, delivers, take(hops));
 
 		/* Reserve this route */
@@ -1985,7 +2059,7 @@ invoice_fetched(struct command *cmd,
 	return xpay_core(cmd, take(to_canonical_invstr(NULL, take(inv))),
 			 NULL, params->maxfee, params->layers,
 			 params->retryfor, params->partial, params->maxdelay,
-			 params->label, NULL, false);
+			 params->label, NULL, false, false);
 }
 
 static struct command_result *
@@ -2056,6 +2130,7 @@ static struct command_result *json_xpay_params(struct command *cmd,
 	struct json_escape *label;
 	struct out_req *req;
 	struct xpay_params *xparams;
+	bool *dev_use_shadow;
 
 	if (!param_check(cmd, buffer, params,
 			 p_req("invstring", param_invstring, &invstring),
@@ -2068,6 +2143,7 @@ static struct command_result *json_xpay_params(struct command *cmd,
 			 p_opt("payer_note", param_string, &payer_note),
 			 p_opt("label", param_label, &label),
 			 p_opt("localinvreqid", param_sha256, &localinvreqid),
+			 p_opt_dev("dev_use_shadow", param_bool, &dev_use_shadow, true),
                          NULL))
 		return command_param_failed();
 
@@ -2082,6 +2158,10 @@ static struct command_result *json_xpay_params(struct command *cmd,
 		if (localinvreqid)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "Cannot use localinvreqid with offer payment");
+
+		if (*dev_use_shadow == false)
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Cannot use dev_use_shadow=false with offer payment");
 
 		if (command_check_only(cmd))
 			return command_check_done(cmd);
@@ -2106,6 +2186,13 @@ static struct command_result *json_xpay_params(struct command *cmd,
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "Cannot use localinvreqid with BIP353 payment");
 
+		if (*dev_use_shadow == false)
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Cannot use dev_use_shadow=false with BIP353 payment");
+
+		if (command_check_only(cmd))
+			return command_check_done(cmd);
+
 		xparams = tal(cmd, struct xpay_params);
 		xparams->msat = msat;
 		xparams->maxfee = maxfee;
@@ -2126,13 +2213,14 @@ static struct command_result *json_xpay_params(struct command *cmd,
 
 	return xpay_core(cmd, invstring,
 			 msat, maxfee, layers, *retryfor, partial, *maxdelay,
-			 label, localinvreqid, as_pay);
+			 label, localinvreqid, *dev_use_shadow, as_pay);
 }
 
 /* Does NOT set:
  * ->unique_id
  * ->private_layer
  * ->maxparts
+ * ->use_shadow
  *
  * On bad settings, return NULL and sets *err.
  */
@@ -2235,6 +2323,7 @@ static struct command_result *xpay_core(struct command *cmd,
 					u32 maxdelay,
 					const struct json_escape *label,
 					const struct sha256 *localinvreqid,
+					bool use_shadow,
 					bool as_pay)
 {
 	struct payment *payment;
@@ -2313,6 +2402,14 @@ static struct command_result *xpay_core(struct command *cmd,
 					    "Could not resolve any paths: unknown short_channel_id");
 		}
 
+		/* We DO NOT use a shadow path if there's a non-self blinded path */
+		if (tal_count(payment->paths) > 1
+		    || !pubkey_eq(&payment->paths[0]->first_node_id.pubkey, b12inv->invoice_node_id)) {
+			payment_log(payment, LOG_DBG,
+				    "Non-trivial blinded path: not using shadow routing");
+			use_shadow = false;
+		}
+
 		/* BOLT #12:
 		 *   - if `invoice_features` contains the MPP/compulsory bit:
 		 *    - MUST pay the invoice via multiple separate blinded paths.
@@ -2383,6 +2480,7 @@ static struct command_result *xpay_core(struct command *cmd,
 		invexpiry = b11->timestamp + b11->expiry;
 	}
 
+	payment->use_shadow = use_shadow;
 	now = clock_time().ts.tv_sec;
 	if (now > invexpiry)
 		return command_fail(cmd, PAY_INVOICE_EXPIRED,

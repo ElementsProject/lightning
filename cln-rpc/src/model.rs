@@ -4909,6 +4909,8 @@ pub mod requests {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub amount_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub dev_use_shadow: Option<bool>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub label: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub localinvreqid: Option<String>,

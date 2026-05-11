@@ -4233,6 +4233,7 @@ message XpayRequest {
 	optional string payer_note = 8;
 	optional string label = 9;
 	optional bytes localinvreqid = 10;
+	optional bool dev_use_shadow = 11;
 }
 
 message XpayResponse {
