@@ -4877,7 +4877,8 @@ def test_preapprove(node_factory, bitcoind, preapprove):
     l1.daemon.wait_for_log("preapprove_keysend: check_only=0")
 
 
-def test_preapprove_use(node_factory, bitcoind):
+@pytest.mark.parametrize("xkeysend", [False, True])
+def test_preapprove_use(node_factory, bitcoind, xkeysend):
     """Test preapprove calls implicitly made by pay and keysend"""
     l1, l2 = node_factory.line_graph(2, opts=[{}, {'dev-hsmd-fail-preapprove': None}])
 
@@ -4896,9 +4897,15 @@ def test_preapprove_use(node_factory, bitcoind):
 
     # Now keysend.
     with pytest.raises(RpcError, match='keysend was declined'):
-        l2.rpc.keysend(l1.info['id'], 1000)
+        if xkeysend:
+            l2.rpc.xkeysend(l1.info['id'], 1000)
+        else:
+            l2.rpc.keysend(l1.info['id'], 1000)
     with pytest.raises(RpcError, match='keysend was declined'):
-        l2.rpc.check('keysend', destination=l1.info['id'], amount_msat=1000)
+        if xkeysend:
+            l2.rpc.check('xkeysend', destination=l1.info['id'], amount_msat=1000)
+        else:
+            l2.rpc.check('keysend', destination=l1.info['id'], amount_msat=1000)
 
 
 def test_badparam_discretion(node_factory):

@@ -3547,13 +3547,19 @@ def test_excluded_adjacent_routehint(node_factory, bitcoind):
         l1.rpc.pay(bolt11=inv['bolt11'], maxfeepercent=0, exemptfee=0)
 
 
-def test_keysend(node_factory):
+@pytest.mark.parametrize("keysendcmd", ["keysend", "xkeysend"])
+def test_keysend(node_factory, keysendcmd):
     amt = 10000
     l1, l2, l3, l4 = node_factory.line_graph(
         4,
         wait_for_announce=True,
         opts=[{}, {}, {}, {'disable-plugin': 'keysend'}]
     )
+
+    if keysendcmd == 'xkeysend':
+        l1keysend = l1.rpc.xkeysend
+    else:
+        l1keysend = l1.rpc.keysend
 
     # The keysend featurebit must be set in the announcement, i.e., l1 should
     # learn that l3 supports keysends.
@@ -3567,10 +3573,10 @@ def test_keysend(node_factory):
 
     # Self-sends are not allowed (see #4438)
     with pytest.raises(RpcError, match=r'We are the destination.'):
-        l1.rpc.keysend(l1.info['id'], amt)
+        l1keysend(l1.info['id'], amt)
 
     # Send an indirect one from l1 to l3
-    l1.rpc.keysend(l3.info['id'], amt)
+    l1keysend(l3.info['id'], amt)
     invs = l3.rpc.listinvoices()['invoices']
     assert(len(invs) == 1)
 
@@ -3579,7 +3585,7 @@ def test_keysend(node_factory):
     assert(inv['amount_received_msat'] >= Millisatoshi(amt))
 
     # Now send a direct one instead from l1 to l2
-    l1.rpc.keysend(l2.info['id'], amt)
+    l1keysend(l2.info['id'], amt)
     invs = l2.rpc.listinvoices()['invoices']
     assert(len(invs) == 1)
 
@@ -3588,11 +3594,16 @@ def test_keysend(node_factory):
 
     # And finally try to send a keysend payment to l4, which doesn't
     # support it. It MUST fail.
-    with pytest.raises(RpcError, match=r"Recipient [0-9a-f]{66} reported an invalid payload"):
-        l3.rpc.keysend(l4.info['id'], amt)
+    if keysendcmd == 'xkeysend':
+        with pytest.raises(RpcError, match=r"Destination reported invalid_onion_payload \(likely doesn't support keysend\)"):
+            l3.rpc.xkeysend(l4.info['id'], amt)
+    else:
+        with pytest.raises(RpcError, match=r"Recipient [0-9a-f]{66} reported an invalid payload"):
+            l3.rpc.keysend(l4.info['id'], amt)
 
 
-def test_keysend_strip_tlvs(node_factory):
+@pytest.mark.parametrize("keysendcmd", ["keysend", "xkeysend"])
+def test_keysend_strip_tlvs(node_factory, keysendcmd):
     """Use the extratlvs option to deliver a message with sphinx' TLV type, which keysend strips.
     """
     amt = 10**7
@@ -3611,11 +3622,18 @@ def test_keysend_strip_tlvs(node_factory):
         ]
     )
 
+    if keysendcmd == 'xkeysend':
+        l1keysend = l1.rpc.xkeysend
+        l2keysend = l2.rpc.xkeysend
+    else:
+        l1keysend = l1.rpc.keysend
+        l2keysend = l2.rpc.keysend
+
     # Make sure listconfigs works here
     assert l1.rpc.listconfigs('accept-htlc-tlv-type')['configs']['accept-htlc-tlv-type']['values_int'] == [133773310, 99990]
 
     # l1 is configured to accept, so l2 should still filter them out
-    l1.rpc.keysend(l2.info['id'], amt, extratlvs={133773310: 'FEEDC0DE'})
+    l1keysend(l2.info['id'], amt, extratlvs={133773310: 'FEEDC0DE'})
     inv = only_one(l2.rpc.listinvoices()['invoices'])
     assert not l2.daemon.is_in_log(r'plugin-sphinx-receiver.py.*extratlvs.*133773310.*feedc0de')
 
@@ -3624,14 +3642,14 @@ def test_keysend_strip_tlvs(node_factory):
     l2.rpc.delinvoice(inv['label'], 'paid')
 
     # Now try again with the TLV type in extra_tlvs as string:
-    l1.rpc.keysend(l2.info['id'], amt, extratlvs={133773310: b'hello there'.hex()})
+    l1keysend(l2.info['id'], amt, extratlvs={133773310: b'hello there'.hex()})
     inv = only_one(l2.rpc.listinvoices()['invoices'])
     assert inv['description'] == 'keysend: hello there'
     l2.daemon.wait_for_log('Keysend payment uses illegal even field 133773310: stripping')
     l2.rpc.delinvoice(inv['label'], 'paid')
 
     # We can (just!) fit a giant description in.
-    l1.rpc.keysend(l2.info['id'], amt, extratlvs={133773310: (b'a' * 1100).hex()})
+    l1keysend(l2.info['id'], amt, extratlvs={133773310: (b'a' * 1100).hex()})
     inv = only_one(l2.rpc.listinvoices()['invoices'])
     assert inv['description'] == 'keysend: ' + 'a' * 1100
     l2.rpc.delinvoice(inv['label'], 'paid')
@@ -3642,14 +3660,14 @@ def test_keysend_strip_tlvs(node_factory):
 More info
 """
     # Since we're at it, use this to test string-keyed TLVs
-    l1.rpc.keysend(l2.info['id'], amt, extratlvs={"133773310": bytes(ksinfo, encoding='utf8').hex()})
+    l1keysend(l2.info['id'], amt, extratlvs={"133773310": bytes(ksinfo, encoding='utf8').hex()})
     inv = only_one(l2.rpc.listinvoices()['invoices'])
     assert inv['description'] == 'keysend: ' + ksinfo
     l2.daemon.wait_for_log('Keysend payment uses illegal even field 133773310: stripping')
 
     # Now reverse the direction. l1 accepts 133773310, but filters out
     # other even unknown types (like 133773312).
-    l2.rpc.keysend(l1.info['id'], amt, extratlvs={
+    l2keysend(l1.info['id'], amt, extratlvs={
         "133773310": b"helloworld".hex(),  # This one is allowlisted
         "133773312": b"filterme".hex(),  # This one will get stripped
     })
@@ -3707,32 +3725,91 @@ def test_keysend_routehint(node_factory):
     assert(inv['amount_received_msat'] >= Millisatoshi(amt))
 
 
-def test_keysend_maxfee(node_factory):
+def test_xkeysend_layer(node_factory):
+    """Test whether we can deliver a keysend by adding layer (vs keyhint's routehints)
+    """
+    amt = 10000
+    l1, l2 = node_factory.line_graph(2, wait_for_announce=True)
+    l3 = node_factory.get_node()
+    l2.connect(l3)
+    l2.fundchannel(l3, announce_channel=False)
+
+    dest = l3.info['id']
+    chan = only_one(l3.rpc.listpeerchannels()['channels'])
+    l1.rpc.askrene_create_layer('test_xkeysend_layer1')
+    l1.rpc.askrene_create_channel('test_xkeysend_layer1',
+                                  l2.info['id'],
+                                  dest,
+                                  chan['alias']['remote'],
+                                  '1000000sat')
+    l1.rpc.askrene_update_channel(layer='test_xkeysend_layer1',
+                                  short_channel_id_dir=f"{chan['alias']['remote']}/{chan['direction'] ^ 1}",
+                                  htlc_minimum_msat=100,
+                                  htlc_maximum_msat=900000000,
+                                  fee_base_msat=1,
+                                  fee_proportional_millionths=2,
+                                  cltv_expiry_delta=18,
+                                  enabled=True)
+
+    # Dummy one
+    l1.rpc.askrene_create_layer('test_xkeysend_layer2')
+    l1.rpc.askrene_create_channel('test_xkeysend_layer2',
+                                  l2.info['id'],
+                                  '02' * 33,
+                                  '1x2x3',
+                                  '1000000sat')
+    for scidd in ('1x2x3/0', '1x2x3/1'):
+        l1.rpc.askrene_update_channel(layer='test_xkeysend_layer2',
+                                      short_channel_id_dir=scidd,
+                                      htlc_minimum_msat=100,
+                                      htlc_maximum_msat=900000000,
+                                      fee_base_msat=1,
+                                      fee_proportional_millionths=2,
+                                      cltv_expiry_delta=18,
+                                      enabled=True)
+
+    # Without any extra information we should fail:
+    with pytest.raises(RpcError):
+        l1.rpc.call("xkeysend", payload={'destination': dest, 'amount_msat': amt})
+
+    # We should also fail with only non-useful layers:
+    with pytest.raises(RpcError):
+        l1.rpc.call("xkeysend", payload={'destination': dest, 'amount_msat': amt, 'layers': ['test_xkeysend_layer2']})
+
+    l1.rpc.call("xkeysend", payload={'destination': dest, 'amount_msat': amt, 'layers': ['test_xkeysend_layer1', 'test_xkeysend_layer2']})
+    inv = only_one(l3.rpc.listinvoices()['invoices'])
+    assert inv['amount_received_msat'] == amt
+
+
+@pytest.mark.parametrize("keysendcmd", ["keysend", "xkeysend"])
+def test_keysend_maxfee(node_factory, keysendcmd):
     l1, l2, l3 = node_factory.line_graph(
         3,
         wait_for_announce=True,
         opts=[{}, {'fee-base': 50, 'fee-per-satoshi': 0}, {}]
     )
 
-    # We should fail because maxfee and exemptfee cannot be set simultaneously.
-    with pytest.raises(RpcError):
-        l1.rpc.call("keysend", payload={'destination': l3.info['id'], 'amount_msat': 1, 'maxfee': 1, 'exemptfee': 5000})
+    if keysendcmd == 'keysend':
+        # We should fail because maxfee and exemptfee cannot be set simultaneously.
+        with pytest.raises(RpcError):
+            l1.rpc.call(keysendcmd, payload={'destination': l3.info['id'], 'amount_msat': 1, 'maxfee': 1, 'exemptfee': 5000})
 
-    # We should fail because maxfee and maxfeepercent cannot be set simultaneously.
-    with pytest.raises(RpcError):
-        l1.rpc.call("keysend", payload={'destination': l3.info['id'], 'amount_msat': 1, 'maxfee': 1, 'maxfeepercent': 0.0001})
+        # We should fail because maxfee and maxfeepercent cannot be set simultaneously.
+        with pytest.raises(RpcError):
+            l1.rpc.call(keysendcmd, payload={'destination': l3.info['id'], 'amount_msat': 1, 'maxfee': 1, 'maxfeepercent': 0.0001})
 
     # We should fail because 50msat base fee on l2 exceeds maxfee of 1msat.
-    with pytest.raises(RpcError):
-        l1.rpc.call("keysend", payload={'destination': l3.info['id'], 'amount_msat': 1, 'maxfee': 1})
+    with pytest.raises(RpcError, match='Fee exceeds our fee budget|excessive cost'):
+        l1.rpc.call(keysendcmd, payload={'destination': l3.info['id'], 'amount_msat': 1, 'maxfee': 1})
     assert len(l3.rpc.listinvoices()['invoices']) == 0
 
     # Perform a normal keysend with maxfee.
-    l1.rpc.call("keysend", payload={'destination': l3.info['id'], 'amount_msat': 1, 'maxfee': 50})
+    l1.rpc.call(keysendcmd, payload={'destination': l3.info['id'], 'amount_msat': 1, 'maxfee': 50})
     assert len(l3.rpc.listinvoices()['invoices']) == 1
 
 
-def test_keysend_description_size_limit(node_factory):
+@pytest.mark.parametrize("keysendcmd", ["keysend", "xkeysend"])
+def test_keysend_description_size_limit(node_factory, keysendcmd):
     """
     Test keysend description handling near BOLT11 field size limits.
 
@@ -3746,6 +3823,11 @@ def test_keysend_description_size_limit(node_factory):
     prefix = 'keysend: '
     base_len = len(prefix)
 
+    if keysendcmd == 'xkeysend':
+        l1keysend = l1.rpc.xkeysend
+    else:
+        l1keysend = l1.rpc.keysend
+
     tlv_lens = [638, 639, 640, 641, 1022, 1023, 1024]
     expected = set()
     for tlv_payload_length in tlv_lens:
@@ -3755,7 +3837,7 @@ def test_keysend_description_size_limit(node_factory):
         expected.add(prefix + "a" * body_len)
 
         # Send keysend payment with test payload
-        l1.rpc.keysend(l2.info["id"], amt, extratlvs={7629169: tlv_payload})
+        l1keysend(l2.info["id"], amt, extratlvs={7629169: tlv_payload})
 
     assert set(inv['description'] for inv in l2.rpc.listinvoices()["invoices"]) == expected
     assert all(inv['amount_received_msat'] == amt for inv in l2.rpc.listinvoices()["invoices"])
@@ -4091,15 +4173,15 @@ def test_delpay_mixed_status(node_factory, bitcoind):
     assert len(l1.rpc.listsendpays()['payments']) == 1
 
 
-def test_listpay_result_with_paymod(node_factory, bitcoind):
+@pytest.mark.parametrize("keysendcmd", ["keysend", "xkeysend"])
+def test_listpay_result_with_paymod(node_factory, bitcoind, keysendcmd):
     """
     The object of this test is to verify the correct behavior
     of the RPC command listpay e with two different type of
     payment, such as: keysend (without invoice) and pay (with invoice).
-    l1 -> keysend -> l2
-    l2 -> pay invoice -> l3
+    l1 -> pay invoice -> l2
+    l2 -> keysend -> l3
     """
-
     amount_sat = 10 ** 6
 
     l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
@@ -4107,7 +4189,7 @@ def test_listpay_result_with_paymod(node_factory, bitcoind):
     invl2 = l2.rpc.invoice(amount_sat * 2, "inv_l2", "inv_l2")
     l1.rpc.pay(invl2['bolt11'])
 
-    l2.rpc.keysend(l3.info['id'], amount_sat * 2, "keysend_l3")
+    l2.rpc.call(keysendcmd, payload=[l3.info['id'], amount_sat * 2])
 
     assert 'bolt11' in l1.rpc.listpays()['pays'][0]
     assert 'bolt11' not in l2.rpc.listpays()['pays'][0]

@@ -1684,3 +1684,24 @@ class LightningRpc(UnixDomainSocketRpc):
             "extratlvs": extratlvs,
         }
         return self.call("keysend", payload)
+
+    def xkeysend(self, destination, amount_msat, maxfee=None,
+                 layers=None, retry_for=None, maxdelay=None,
+                 extratlvs=None):
+        """
+        """
+        if extratlvs is not None and not isinstance(extratlvs, dict):
+            raise ValueError(
+                "extratlvs is not a dictionary with integer keys and hexadecimal values"
+            )
+
+        payload = {
+            "destination": destination,
+            "amount_msat": amount_msat,
+            "maxfee": maxfee,
+            "layers": layers,
+            "retry_for": retry_for,
+            "maxdelay": maxdelay,
+            "extratlvs": extratlvs,
+        }
+        return self.call("xkeysend", payload)
