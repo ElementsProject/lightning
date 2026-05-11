@@ -10,6 +10,7 @@
 
 struct additional_cost_htable;
 struct gossmap;
+struct gossmap_node;
 struct json_filter;
 struct layer;
 struct reserve_htable;

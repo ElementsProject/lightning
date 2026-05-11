@@ -4,7 +4,7 @@
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/tal/str/str.h>
 #include <common/json_stream.h>
-#include <common/route.h>
+#include <common/node_id.h>
 #include <common/utils.h>
 #include <plugins/askrene/child/child.h>
 #include <plugins/askrene/child/child_log.h>
@@ -12,122 +12,128 @@
 #include <plugins/askrene/child/mcf.h>
 #include <plugins/askrene/child/route_query.h>
 
+struct hop {
+	/* Via this channel */
+	struct short_channel_id_dir scidd;
+	/* Nodes at each end */
+	struct node_id node_in, node_out;
+	/* This is amount the node needs (including fees) */
+	struct amount_msat amount_in;
+	/* ... to send this amount */
+	struct amount_msat amount_out;
+	/* This is the delay, including delay across node */
+	u32 cltv_value_in;
+	/* This is the delay, out from node. */
+	u32 cltv_value_out;
+};
+
 /* A single route. */
 struct route {
 	/* Actual path to take */
-	struct route_hop *hops;
+	struct hop *hops;
 	/* Probability estimate (0-1) */
 	double success_prob;
 };
 
-static const char *fmt_route(const tal_t *ctx,
-			     const struct route *route,
-			     struct amount_msat delivers,
-			     u32 final_cltv)
+static const struct hop *final_hop(const struct hop *hops)
+{
+	assert(tal_count(hops) > 0);
+
+	return &hops[tal_count(hops) - 1];
+}
+
+static const char *fmt_route(const tal_t *ctx, const struct route *route)
 {
 	char *str = tal_strdup(ctx, "");
+	const struct hop *final = final_hop(route->hops);
 
 	for (size_t i = 0; i < tal_count(route->hops); i++) {
-		struct short_channel_id_dir scidd;
-		scidd.scid = route->hops[i].scid;
-		scidd.dir = route->hops[i].direction;
 		tal_append_fmt(&str, "%s/%u %s -> ",
-			       fmt_amount_msat(tmpctx, route->hops[i].amount),
-			       route->hops[i].delay,
-			       fmt_short_channel_id_dir(tmpctx, &scidd));
+			       fmt_amount_msat(tmpctx, route->hops[i].amount_in),
+			       route->hops[i].cltv_value_in,
+			       fmt_short_channel_id_dir(tmpctx, &route->hops[i].scidd));
 	}
-	tal_append_fmt(&str, "%s/%u",
-		       fmt_amount_msat(tmpctx, delivers), final_cltv);
+	tal_append_fmt(&str, "%s/%u (prob=%0.3f%%)",
+		       fmt_amount_msat(tmpctx, final->amount_out),
+		       final->cltv_value_out,
+		       route->success_prob * 100);
 	return str;
 }
 
 /* Convert back into routes, with delay and other information fixed */
 static struct route **convert_flows_to_routes(const tal_t *ctx,
-					      struct route_query *rq,
+					      const struct route_query *rq,
 					      u32 finalcltv,
 					      struct flow **flows,
-					      struct amount_msat **amounts,
 					      bool include_fees)
 {
-	struct route **routes;
-	routes = tal_arr(ctx, struct route *, tal_count(flows));
-	*amounts = tal_arr(ctx, struct amount_msat, tal_count(flows));
+	struct route **routes = tal_arr(ctx, struct route *, tal_count(flows));
 
 	for (size_t i = 0; i < tal_count(flows); i++) {
 		struct route *r;
 		struct amount_msat msat;
-		u32 delay;
+		u32 cltv_value;
 
 		routes[i] = r = tal(routes, struct route);
 		r->success_prob = flow_probability(flows[i], rq);
-		r->hops = tal_arr(r, struct route_hop, tal_count(flows[i]->path));
+		r->hops = tal_arr(r, struct hop, tal_count(flows[i]->path));
 
 		msat = flows[i]->delivers;
-		delay = finalcltv;
+		cltv_value = finalcltv;
+
+		/* Fill in backwards to calculate delay */
+		for (int j = tal_count(flows[i]->path) - 1; j >= 0; j--) {
+			struct hop *hop = &r->hops[j];
+			struct gossmap_node *n;
+			const struct half_chan *h = flow_edge(flows[i], j);
+
+			hop->cltv_value_out = cltv_value;
+			cltv_value += h->delay;
+			hop->cltv_value_in = cltv_value;
+
+			hop->scidd.scid = gossmap_chan_scid(rq->gossmap,
+							    flows[i]->path[j]);
+			hop->scidd.dir = flows[i]->dirs[j];
+			n = gossmap_nth_node(rq->gossmap,
+					     flows[i]->path[j],
+					     flows[i]->dirs[j]);
+			gossmap_node_get_id(rq->gossmap, n, &hop->node_in);
+			n = gossmap_nth_node(rq->gossmap,
+					     flows[i]->path[j],
+					     !flows[i]->dirs[j]);
+			gossmap_node_get_id(rq->gossmap, n, &hop->node_out);
+		}
 
 		if (!include_fees) {
-			/* Fill in backwards to calc amount and delay */
+			/* Fill in backwards to calc amount */
 			for (int j = tal_count(flows[i]->path) - 1; j >= 0;
 			     j--) {
-				struct route_hop *rh = &r->hops[j];
-				struct gossmap_node *far_end;
+				struct hop *hop = &r->hops[j];
 				const struct half_chan *h =
 				    flow_edge(flows[i], j);
 
+				hop->amount_out = msat;
 				if (!amount_msat_add_fee(&msat, h->base_fee,
 							 h->proportional_fee))
 					abort();
-				delay += h->delay;
-
-				rh->scid = gossmap_chan_scid(rq->gossmap,
-							     flows[i]->path[j]);
-				rh->direction = flows[i]->dirs[j];
-				far_end = gossmap_nth_node(rq->gossmap,
-							   flows[i]->path[j],
-							   !flows[i]->dirs[j]);
-				gossmap_node_get_id(rq->gossmap, far_end,
-						    &rh->node_id);
-				rh->amount = msat;
-				rh->delay = delay;
+				hop->amount_in = msat;
 			}
-		        (*amounts)[i] = flows[i]->delivers;
 		} else {
-			/* Fill in backwards to calc delay */
-			for (int j = tal_count(flows[i]->path) - 1; j >= 0;
-			     j--) {
-				struct route_hop *rh = &r->hops[j];
-				struct gossmap_node *far_end;
-				const struct half_chan *h =
-				    flow_edge(flows[i], j);
-
-				delay += h->delay;
-
-				rh->scid = gossmap_chan_scid(rq->gossmap,
-							     flows[i]->path[j]);
-				rh->direction = flows[i]->dirs[j];
-				far_end = gossmap_nth_node(rq->gossmap,
-							   flows[i]->path[j],
-							   !flows[i]->dirs[j]);
-				gossmap_node_get_id(rq->gossmap, far_end,
-						    &rh->node_id);
-				rh->delay = delay;
-			}
 			/* Compute fees forward */
 			for (int j = 0; j < tal_count(flows[i]->path); j++) {
-				struct route_hop *rh = &r->hops[j];
+				struct hop *hop = &r->hops[j];
 				const struct half_chan *h =
 				    flow_edge(flows[i], j);
 
-				rh->amount = msat;
+				hop->amount_in = msat;
                                 msat = amount_msat_sub_fee(msat, h->base_fee,
 							   h->proportional_fee);
+				hop->amount_out = msat;
 			}
-		        (*amounts)[i] = msat;
 		}
 
 		child_log(tmpctx, LOG_INFORM, "Flow %zu/%zu: %s",
-			  i, tal_count(flows),
-			  fmt_route(tmpctx, r, (*amounts)[i], finalcltv));
+			  i, tal_count(flows), fmt_route(tmpctx, r));
 	}
 
 	return routes;
@@ -135,30 +141,26 @@ static struct route **convert_flows_to_routes(const tal_t *ctx,
 
 static void json_add_getroutes(struct json_stream *js,
 			       struct route **routes,
-			       const struct amount_msat *amounts,
-			       double probability,
-			       u32 final_cltv)
+			       double probability)
 {
 	json_add_u64(js, "probability_ppm", (u64)(probability * 1000000));
 	json_array_start(js, "routes");
 	for (size_t i = 0; i < tal_count(routes); i++) {
+		const struct hop *final = final_hop(routes[i]->hops);
 		json_object_start(js, NULL);
 		json_add_u64(js, "probability_ppm",
 			     (u64)(routes[i]->success_prob * 1000000));
-		json_add_amount_msat(js, "amount_msat", amounts[i]);
-		json_add_u32(js, "final_cltv", final_cltv);
+		json_add_amount_msat(js, "amount_msat", final->amount_out);
+		json_add_u32(js, "final_cltv", final->cltv_value_out);
 		json_array_start(js, "path");
 		for (size_t j = 0; j < tal_count(routes[i]->hops); j++) {
-			struct short_channel_id_dir scidd;
-			const struct route_hop *r = &routes[i]->hops[j];
+			const struct hop *hop = &routes[i]->hops[j];
 			json_object_start(js, NULL);
-			scidd.scid = r->scid;
-			scidd.dir = r->direction;
 			json_add_short_channel_id_dir(
-			    js, "short_channel_id_dir", scidd);
-			json_add_node_id(js, "next_node_id", &r->node_id);
-			json_add_amount_msat(js, "amount_msat", r->amount);
-			json_add_u32(js, "delay", r->delay);
+			    js, "short_channel_id_dir", hop->scidd);
+			json_add_node_id(js, "next_node_id", &hop->node_out);
+			json_add_amount_msat(js, "amount_msat", hop->amount_in);
+			json_add_u32(js, "delay", hop->cltv_value_in);
 			json_object_end(js);
 		}
 		json_array_end(js);
@@ -213,7 +215,6 @@ void run_child(const struct gossmap *gossmap,
 	double probability;
 	struct flow **flows;
 	struct route **routes;
-	struct amount_msat *amounts;
 	const char *err, *p;
 	size_t len;
 	struct route_query *rq;
@@ -245,10 +246,8 @@ void run_child(const struct gossmap *gossmap,
 		  tal_count(flows));
 
 	/* convert flows to routes */
-	routes = convert_flows_to_routes(rq, rq, finalcltv, flows,
-					 &amounts, include_fees);
+	routes = convert_flows_to_routes(rq, rq, finalcltv, flows, include_fees);
 	assert(tal_count(routes) == tal_count(flows));
-	assert(tal_count(amounts) == tal_count(flows));
 
 	/* output the results */
 	struct json_stream *js = new_json_stream(tmpctx, NULL, NULL);
@@ -258,7 +257,7 @@ void run_child(const struct gossmap *gossmap,
 	json_object_start(js, "result");
 	if (cmd_filter)
 		json_stream_attach_filter(js, cmd_filter);
-	json_add_getroutes(js, routes, amounts, probability, finalcltv);
+	json_add_getroutes(js, routes, probability);
 
 	/* Detach filter before it complains about closing object it never saw */
 	if (cmd_filter) {
