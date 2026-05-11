@@ -83,6 +83,10 @@ struct payment {
 	struct amount_msat full_amount;
 	/* Maximum fee we're prepare to pay */
 	struct amount_msat maxfee;
+	/* local invreqid to asociate with this payment, for atomicity. */
+	const struct sha256 *localinvreqid;
+	/* Optional label the user wants attached to these payments. */
+	const struct json_escape *label;
 	/* Maximum delay on the route we're ok with */
 	u32 maxdelay;
 	/* If non-zero: maximum number of payment routes that can be pending. */
@@ -182,6 +186,8 @@ static struct command_result *xpay_core(struct command *cmd,
 					u32 retryfor,
 					const struct amount_msat *partial,
 					u32 maxdelay,
+					const struct json_escape *label,
+					const struct sha256 *local_invreq_id,
                                         bool as_pay);
 
 /* Wrapper for pending commands (ignores return) */
@@ -1189,6 +1195,10 @@ static struct command_result *do_inject(struct command *aux_cmd,
 	json_add_u64(req->js, "groupid", attempt->payment->group_id);
 	json_add_string(req->js, "invstring", attempt->payment->invstring);
 	json_add_amount_msat(req->js, "destination_msat", attempt->delivers);
+	if (attempt->payment->localinvreqid)
+		json_add_sha256(req->js, "localinvreqid", attempt->payment->localinvreqid);
+	if (attempt->payment->label)
+		json_add_escaped_string(req->js, "label", attempt->payment->label);
 	return send_payment_req(aux_cmd, attempt->payment, req);
 }
 
@@ -1836,6 +1846,7 @@ struct xpay_params {
 	u32 maxdelay;
 	const char *bip353;
 	const char *payer_note;
+	struct json_escape *label;
 };
 
 static struct command_result *
@@ -1851,7 +1862,7 @@ invoice_fetched(struct command *cmd,
 	return xpay_core(cmd, take(to_canonical_invstr(NULL, take(inv))),
 			 NULL, params->maxfee, params->layers,
 			 params->retryfor, params->partial, params->maxdelay,
-			 false);
+			 params->label, NULL, false);
 }
 
 static struct command_result *
@@ -1918,6 +1929,8 @@ static struct command_result *json_xpay_params(struct command *cmd,
 	u32 *maxdelay;
         const char *payer_note;
         unsigned int *retryfor;
+	struct sha256 *localinvreqid;
+	struct json_escape *label;
 	struct out_req *req;
 	struct xpay_params *xparams;
 
@@ -1929,7 +1942,9 @@ static struct command_result *json_xpay_params(struct command *cmd,
 			 p_opt_def("retry_for", param_number, &retryfor, 60),
 			 p_opt("partial_msat", param_msat, &partial),
 			 p_opt_def("maxdelay", param_u32, &maxdelay, 2016),
-                         p_opt("payer_note", param_string, &payer_note),
+			 p_opt("payer_note", param_string, &payer_note),
+			 p_opt("label", param_label, &label),
+			 p_opt("localinvreqid", param_sha256, &localinvreqid),
                          NULL))
 		return command_param_failed();
 
@@ -1940,6 +1955,10 @@ static struct command_result *json_xpay_params(struct command *cmd,
 		ret = check_offer_payable(cmd, invstring, msat);
 		if (ret)
 			return ret;
+
+		if (localinvreqid)
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Cannot use localinvreqid with offer payment");
 
 		if (command_check_only(cmd))
 			return command_check_done(cmd);
@@ -1953,12 +1972,17 @@ static struct command_result *json_xpay_params(struct command *cmd,
 		xparams->maxdelay = *maxdelay;
 		xparams->bip353 = NULL;
                 xparams->payer_note = payer_note;
+		xparams->label = label;
 
 		return do_fetchinvoice(cmd, invstring, xparams);
 	}
 
 	/* BIP353? */
 	if (!as_pay && strchr(invstring, '@')) {
+		if (localinvreqid)
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Cannot use localinvreqid with BIP353 payment");
+
 		xparams = tal(cmd, struct xpay_params);
 		xparams->msat = msat;
 		xparams->maxfee = maxfee;
@@ -1968,6 +1992,7 @@ static struct command_result *json_xpay_params(struct command *cmd,
 		xparams->maxdelay = *maxdelay;
 		xparams->bip353 = invstring;
                 xparams->payer_note = payer_note;
+		xparams->label = label;
 
 		req = jsonrpc_request_start(cmd, "fetchbip353",
 					    bip353_fetched,
@@ -1978,7 +2003,7 @@ static struct command_result *json_xpay_params(struct command *cmd,
 
 	return xpay_core(cmd, invstring,
 			 msat, maxfee, layers, *retryfor, partial, *maxdelay,
-			 as_pay);
+			 label, localinvreqid, as_pay);
 }
 
 /* Does NOT set:
@@ -2004,6 +2029,8 @@ static struct payment *new_payment(const tal_t *ctx,
 				   const struct secret *payment_secret,
 				   const u8 *payment_metadata,
 				   u32 final_cltv,
+				   const struct json_escape *label,
+				   const struct sha256 *localinvreqid,
 				   bool as_pay,
 				   const char **err)
 {
@@ -2015,6 +2042,11 @@ static struct payment *new_payment(const tal_t *ctx,
 	payment->start_blockheight = xpay->blockheight;
 	payment->cmd = cmd;
 	payment->invstring = tal_strdup(payment, invstring);
+	payment->localinvreqid = tal_dup_or_null(payment, struct sha256, localinvreqid);
+	if (label)
+		payment->label = json_escape_dup(payment, label);
+	else
+		payment->label = NULL;
 	if (layers)
 		payment->layers = tal_dup_talarr(payment, const char *, layers);
 	else
@@ -2078,6 +2110,8 @@ static struct command_result *xpay_core(struct command *cmd,
 					u32 retryfor,
 					const struct amount_msat *partial,
 					u32 maxdelay,
+					const struct json_escape *label,
+					const struct sha256 *localinvreqid,
 					bool as_pay)
 {
 	struct payment *payment;
@@ -2128,6 +2162,8 @@ static struct command_result *xpay_core(struct command *cmd,
 				       * cltv we use to enter the final
 				       * hop. */
 				      0,
+				      label,
+				      localinvreqid,
 				      as_pay,
 				      &err);
 		if (!payment)
@@ -2174,6 +2210,10 @@ static struct command_result *xpay_core(struct command *cmd,
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "Invalid bolt11 invoice: %s", err);
 
+		if (localinvreqid)
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Cannot use localinvreqid with BOLT11 payment");
+
 		if (!pubkey_from_node_id(&dst, &b11->receiver_id))
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "Invalid destination id %s",
@@ -2204,6 +2244,8 @@ static struct command_result *xpay_core(struct command *cmd,
 				      b11->payment_secret,
 				      b11->metadata,
 				      b11->min_final_cltv_expiry,
+				      label,
+				      localinvreqid,
 				      as_pay,
 				      &err);
 		if (!payment)

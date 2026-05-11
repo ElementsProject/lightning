@@ -6791,8 +6791,10 @@ impl From<requests::XpayRequest> for pb::XpayRequest {
         Self {
             amount_msat: c.amount_msat.map(|f| f.into()), // Rule #2 for type msat?
             invstring: c.invstring, // Rule #2 for type string
+            label: c.label, // Rule #2 for type string?
             // Field: Xpay.layers[]
             layers: c.layers.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
+            localinvreqid: c.localinvreqid.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
             maxdelay: c.maxdelay, // Rule #2 for type u32?
             maxfee: c.maxfee.map(|f| f.into()), // Rule #2 for type msat?
             partial_msat: c.partial_msat.map(|f| f.into()), // Rule #2 for type msat?
@@ -8778,7 +8780,9 @@ impl From<pb::XpayRequest> for requests::XpayRequest {
         Self {
             amount_msat: c.amount_msat.map(|a| a.into()), // Rule #1 for type msat?
             invstring: c.invstring, // Rule #1 for type string
+            label: c.label, // Rule #1 for type string?
             layers: Some(c.layers.into_iter().map(|s| s.into()).collect()), // Rule #4
+            localinvreqid: c.localinvreqid.map(|v| hex::encode(v)), // Rule #1 for type hex?
             maxdelay: c.maxdelay, // Rule #1 for type u32?
             maxfee: c.maxfee.map(|a| a.into()), // Rule #1 for type msat?
             partial_msat: c.partial_msat.map(|a| a.into()), // Rule #1 for type msat?

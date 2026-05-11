@@ -4440,7 +4440,9 @@
         "XpayRequest": {
             "Xpay.amount_msat": 2,
             "Xpay.invstring": 1,
+            "Xpay.label": 9,
             "Xpay.layers[]": 4,
+            "Xpay.localinvreqid": 10,
             "Xpay.maxdelay": 7,
             "Xpay.maxfee": 3,
             "Xpay.partial_msat": 6,
@@ -14760,7 +14762,15 @@
             "added": "v24.11",
             "deprecated": null
         },
+        "Xpay.label": {
+            "added": "v24.11",
+            "deprecated": null
+        },
         "Xpay.layers[]": {
+            "added": "v24.11",
+            "deprecated": null
+        },
+        "Xpay.localinvreqid": {
             "added": "v24.11",
             "deprecated": null
         },

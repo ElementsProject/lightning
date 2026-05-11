@@ -4909,6 +4909,10 @@ pub mod requests {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub amount_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub label: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub localinvreqid: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub maxdelay: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub maxfee: Option<Amount>,

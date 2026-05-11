@@ -4231,6 +4231,8 @@ message XpayRequest {
 	optional Amount partial_msat = 6;
 	optional uint32 maxdelay = 7;
 	optional string payer_note = 8;
+	optional string label = 9;
+	optional bytes localinvreqid = 10;
 }
 
 message XpayResponse {
