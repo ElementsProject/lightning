@@ -377,7 +377,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	/*~ connectd usually uses "no-reply" pings to fill out messages
 	 * where needed to make them uniform length.  Some implementations
 	 * don't like it, so it can be disabled. */
-	ld->message_padding = true;
+	ld->message_padding = false;
 
 	return ld;
 }

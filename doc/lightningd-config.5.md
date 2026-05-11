@@ -709,9 +709,9 @@ all DNS lookups, to avoid leaking information.
 
 * **message-padding**=*BOOL*
 
-  Normally `connectd` will send extra bytes to peers to make messages
-uniform length.  Some implementations don't accept these extra bytes:
-if we can't detect them, this option sets to `false` will disable it.
+  If set to `true`, `connectd` will send extra bytes to peers to make messages
+uniform length.  Some implementations don't accept these extra bytes,
+and our detection of them is not always reliable, so this option defaults to `false`.
 
 * **tor-service-password**=*PASSWORD*
 
