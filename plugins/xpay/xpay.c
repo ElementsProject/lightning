@@ -90,8 +90,9 @@ struct payment {
 	struct sha256 payment_hash;
 	/* Amount we're trying to pay */
 	struct amount_msat amount;
-	/* Fullamount of invoice (usually the same as above) */
-	struct amount_msat full_amount;
+	/* Relevant for partial payments. This is the value that must be written
+	 * in the final hop's payload for MPP coordination. */
+	struct amount_msat mpp_amount;
 	/* Maximum fee we're prepare to pay */
 	struct amount_msat maxfee;
 	/* local invreqid to asociate with this payment, for atomicity. */
@@ -1323,7 +1324,7 @@ static void append_blinded_payloads(struct sphinx_path *sp,
 		 */
 		payload = onion_blinded_hop(NULL,
 					    final ? &deliver : NULL,
-					    final ? &attempt->payment->full_amount : NULL,
+					    final ? &attempt->payment->mpp_amount : NULL,
 					    final ? &final_cltv : NULL,
 					    path->path[i]->encrypted_recipient_data,
 					    first ? &path->first_path_key : NULL);
@@ -1400,7 +1401,7 @@ static const u8 *create_onion(const tal_t *ctx,
 		u8 *final = onion_final_hop(NULL,
 					    attempt_deliver(attempt),
 					    attempt->payment->final_cltv + effective_bheight,
-					    attempt->payment->full_amount,
+					    attempt->payment->mpp_amount,
 					    attempt->payment->payment_secret,
 					    attempt->payment->payment_metadata);
 		hop_append(&final, attempt->payment->extra_tlvs);
@@ -2339,8 +2340,8 @@ static struct payment *new_payment(const tal_t *ctx,
 				   const char *invstring,
 				   const struct pubkey *destination,
 				   const struct sha256 *payment_hash,
-				   struct amount_msat full_amount,
-				   /* If set, we're not paying full_amount */
+				   struct amount_msat mpp_amount,
+				   /* If set, we're not paying mpp_amount */
 				   const struct amount_msat *partial,
 				   /* If unset, based on amount we're paying */
 				   const struct amount_msat *maxfee,
@@ -2371,12 +2372,12 @@ static struct payment *new_payment(const tal_t *ctx,
 		payment->layers = NULL;
 	payment->destination = *destination;
 	payment->payment_hash = *payment_hash;
-	payment->full_amount = full_amount;
+	payment->mpp_amount = mpp_amount;
 	if (partial) {
 		payment->amount = *partial;
-		if (amount_msat_greater(payment->amount, payment->full_amount)) {
+		if (amount_msat_greater(payment->amount, payment->mpp_amount)) {
 			*err = tal_fmt(ctx, "partial_msat must be less or equal to total amount %s",
-				       fmt_amount_msat(tmpctx, payment->full_amount));
+				       fmt_amount_msat(tmpctx, payment->mpp_amount));
 			return tal_free(payment);
 		}
 		if (amount_msat_is_zero(payment->amount)) {
@@ -2384,7 +2385,7 @@ static struct payment *new_payment(const tal_t *ctx,
 			return tal_free(payment);
 		}
 	} else {
-		payment->amount = payment->full_amount;
+		payment->amount = payment->mpp_amount;
 	}
 	if (maxfee) {
 		payment->maxfee = *maxfee;
@@ -2598,7 +2599,7 @@ static struct command_result *xpay_core(struct command *cmd,
 
 		payment->route_hints = tal_steal(payment, b11->routes);
 		disable_mpp = !feature_offered(b11->features, OPT_BASIC_MPP);
- 		if (amount_msat_is_zero(payment->full_amount))
+ 		if (amount_msat_is_zero(payment->mpp_amount))
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "Cannot pay bolt11 invoice with zero amount");
 		invexpiry = b11->timestamp + b11->expiry;
