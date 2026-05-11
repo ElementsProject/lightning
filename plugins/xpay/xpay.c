@@ -110,6 +110,9 @@ struct payment {
 	struct blinded_path **paths;
 	struct blinded_payinfo **payinfos;
 
+	/* Any extra tlvs to include in final payload (keysend) */
+	const u8 *extra_tlvs;
+
 	/* Current attempts, waiting for injectpaymentonion. */
 	struct list_head current_attempts;
 
@@ -1068,6 +1071,29 @@ static void append_blinded_payloads(struct sphinx_path *sp,
 	}
 }
 
+/* hop has size prepended, so this isn't a simple "append" */
+static void hop_append(u8 **hop, const u8 *appendme)
+{
+	bigsize_t prepended_len;
+	const u8 *cursor = *hop;
+	size_t tlvs_len = tal_bytelen(*hop);
+	u8 *result;
+
+	/* Pull off length */
+	prepended_len = fromwire_bigsize(&cursor, &tlvs_len);
+	assert(cursor);
+	assert(prepended_len == tlvs_len);
+
+	/* Rewrite: length + contents */
+	result = tal_arr(tal_parent(*hop), u8, 0);
+	towire_bigsize(&result, tlvs_len + tal_bytelen(appendme));
+	towire(&result, cursor, tlvs_len);
+	towire(&result, appendme, tal_bytelen(appendme));
+
+	tal_free(*hop);
+	*hop = result;
+}
+
 static const u8 *create_onion(const tal_t *ctx,
 			      struct attempt *attempt,
 			      u32 effective_bheight)
@@ -1108,13 +1134,14 @@ static const u8 *create_onion(const tal_t *ctx,
 	/* If we use a blinded path, final has to be special, so
 	 * that's done in append_blinded_payloads. */
 	if (!blinded_path) {
-		sphinx_add_hop_has_length(sp, node,
-					  take(onion_final_hop(NULL,
-							       attempt->delivers,
-							       attempt->payment->final_cltv + effective_bheight,
-							       attempt->payment->full_amount,
-							       attempt->payment->payment_secret,
-							       attempt->payment->payment_metadata)));
+		u8 *final = onion_final_hop(NULL,
+					    attempt->delivers,
+					    attempt->payment->final_cltv + effective_bheight,
+					    attempt->payment->full_amount,
+					    attempt->payment->payment_secret,
+					    attempt->payment->payment_metadata);
+		hop_append(&final, attempt->payment->extra_tlvs);
+		sphinx_add_hop_has_length(sp, node, take(final));
 	}
 
 	/* Fails if would be too long */
@@ -2030,6 +2057,7 @@ static struct payment *new_payment(const tal_t *ctx,
 	payment->route_hints = NULL;
 	payment->paths = NULL;
 	payment->payinfos = NULL;
+	payment->extra_tlvs = NULL;
 
 	list_head_init(&payment->current_attempts);
 	list_head_init(&payment->past_attempts);
