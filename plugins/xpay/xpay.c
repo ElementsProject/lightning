@@ -652,6 +652,120 @@ static u32 error_blockheight(const u8 *errmsg)
 	return height;
 }
 
+/* Return true if this contained a channel_update which (potentially) changed something. */
+static bool process_channel_update_from_onion_error(struct command *aux_cmd,
+						    struct attempt *attempt,
+						    const u8 *onion_message,
+						    const char *errname)
+{
+	u8 *channel_update;
+	struct amount_msat unused_msat;
+	u32 unused32;
+	secp256k1_ecdsa_signature signature;
+	struct bitcoin_blkid chain_hash;
+	struct short_channel_id_dir scidd;
+	u32 timestamp;
+	u8 message_flags, channel_flags;
+	u16 cltv_expiry_delta;
+	struct amount_msat htlc_minimum_msat, htlc_maximum_msat;
+	u32 fee_base_msat, fee_proportional_millionths;
+	struct out_req *req;
+	const struct gossmap *gossmap;
+	const struct gossmap_chan *c;
+
+	/* Identify failcodes that have some channel_update.
+	 *
+	 * TODO > BOLT 1.0: Add new failcodes when updating to a
+	 * new BOLT version. */
+	if (!fromwire_temporary_channel_failure(tmpctx,
+						onion_message,
+						&channel_update) &&
+	    !fromwire_amount_below_minimum(tmpctx,
+					   onion_message, &unused_msat,
+					   &channel_update) &&
+	    !fromwire_fee_insufficient(tmpctx,
+				       onion_message, &unused_msat,
+				       &channel_update) &&
+	    !fromwire_incorrect_cltv_expiry(tmpctx,
+					    onion_message, &unused32,
+					    &channel_update) &&
+	    !fromwire_expiry_too_soon(tmpctx,
+				      onion_message,
+				      &channel_update))
+		/* No channel update. */
+		return false;
+
+	/* LND before v0.18 (May 2024) would not include the
+	 * WIRE_CHANNEL_UPDATE type field, but now they do. */
+	if (!fromwire_channel_update(channel_update,
+				     &signature,
+				     &chain_hash,
+				     &scidd.scid,
+				     &timestamp,
+				     &message_flags,
+				     &channel_flags,
+				     &cltv_expiry_delta,
+				     &htlc_minimum_msat,
+				     &fee_base_msat,
+				     &fee_proportional_millionths,
+				     &htlc_maximum_msat))
+		return false;
+
+	scidd.dir = (channel_flags & ROUTING_FLAGS_DIRECTION);
+
+	/* If this is substantially the same as the one we already have, ignore it. */
+	gossmap = get_gossmap(xpay_of(aux_cmd->plugin));
+	c = gossmap_find_chan(gossmap, &scidd.scid);
+	if (c) {
+		const struct half_chan *hc = &c->half[scidd.dir];
+		if (gossmap_chan_set(c, scidd.dir)
+		    && hc->enabled == !(channel_flags & ROUTING_FLAGS_DISABLED)
+		    /* We convert the same way gossmap.c does */
+		    && u64_to_fp16(htlc_minimum_msat.millisatoshis, false) == hc->htlc_min /* Raw: convert */
+		    && u64_to_fp16(htlc_maximum_msat.millisatoshis, true) == hc->htlc_max /* Raw: convert */
+		    && fee_base_msat == hc->base_fee
+		    && fee_proportional_millionths == hc->proportional_fee
+		    && cltv_expiry_delta == hc->delay) {
+			return false;
+		}
+	}
+
+	attempt_log(attempt, LOG_DBG, "Got channel_update from error for %s: %s",
+		    fmt_short_channel_id_dir(tmpctx, &scidd),
+		    tal_hex(tmpctx, channel_update));
+
+	/* Update our local layer so it applies to this payment *only*.  We
+	 * don't bother checking the signature; we don't even check what
+	 * channel it is! */
+	req = payment_ignored_req(aux_cmd, attempt, "askrene-update-channel");
+	json_add_string(req->js, "layer", attempt->payment->private_layer);
+	json_add_short_channel_id_dir(req->js,
+				      "short_channel_id_dir",
+				      scidd);
+	json_add_bool(req->js, "enabled", !(channel_flags & ROUTING_FLAGS_DISABLED));
+	json_add_amount_msat(req->js, "htlc_minimum_msat", htlc_minimum_msat);
+	json_add_amount_msat(req->js, "htlc_maximum_msat", htlc_maximum_msat);
+	json_add_u32(req->js, "fee_base_msat", fee_base_msat);
+	json_add_u32(req->js, "fee_proportional_millionths", fee_proportional_millionths);
+	json_add_u32(req->js, "cltv_expiry_delta", cltv_expiry_delta);
+	send_payment_req(aux_cmd, attempt->payment, req);
+
+	/* We also bias *against* the channel.  This should help if the node is
+	 * stuck somehow, or trying to track us. */
+	req = payment_ignored_req(aux_cmd, attempt, "askrene-bias-channel");
+	json_add_string(req->js, "layer", attempt->payment->private_layer);
+	json_add_short_channel_id_dir(req->js,
+				      "short_channel_id_dir",
+				      scidd);
+	json_add_s32(req->js, "bias", -1);
+	json_add_string(req->js, "description",
+			tal_fmt(tmpctx, "negative bias due to channel_update in error %s",
+				errname));
+	json_add_bool(req->js, "relative", true);
+	send_payment_req(aux_cmd, attempt->payment, req);
+	return true;
+}
+
 static void update_knowledge_from_error(struct command *aux_cmd,
 					const char *buf,
 					const jsmntok_t *error,
@@ -826,6 +940,15 @@ static void update_knowledge_from_error(struct command *aux_cmd,
 		}
 	} else {
 		/* Non-final node */
+		if (process_channel_update_from_onion_error(aux_cmd, attempt,
+							    replymsg, errmsg)) {
+			add_result_summary(attempt, LOG_DBG,
+					   "We got %s for %s, containing a channel_update:"
+					   " updating our map",
+					   errmsg, describe_scidd(attempt, index));
+			goto check_previous_success;
+		}
+
 		switch (failcode) {
 		/* These ones are weird any time (did we encode wrongly?) */
 		case WIRE_INVALID_ONION_VERSION:
