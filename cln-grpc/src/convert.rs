@@ -4336,16 +4336,19 @@ impl From<responses::AskreneageResponse> for pb::AskreneageResponse {
     }
 }
 
-#[allow(unused_variables)]
+#[allow(unused_variables,deprecated)]
 impl From<responses::GetroutesRoutesPath> for pb::GetroutesRoutesPath {
     fn from(c: responses::GetroutesRoutesPath) -> Self {
         Self {
             amount_in_msat: c.amount_in_msat.map(|f| f.into()), // Rule #2 for type msat?
+            #[allow(deprecated)]
             amount_msat: c.amount_msat.map(|f| f.into()), // Rule #2 for type msat?
             amount_out_msat: c.amount_out_msat.map(|f| f.into()), // Rule #2 for type msat?
             cltv_in: c.cltv_in, // Rule #2 for type u32?
             cltv_out: c.cltv_out, // Rule #2 for type u32?
+            #[allow(deprecated)]
             delay: c.delay, // Rule #2 for type u32?
+            #[allow(deprecated)]
             next_node_id: c.next_node_id.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
             node_id_in: c.node_id_in.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
             node_id_out: c.node_id_out.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?

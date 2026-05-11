@@ -555,6 +555,7 @@ static struct command_result *do_getroutes(struct command *cmd,
 	const struct layer **layers;
 	s8 *biases;
 	fp16_t *capacities;
+	bool include_next_node_id, include_amount_msat, include_delay;
 
 	/* update the gossmap */
 	if (gossmap_refresh(askrene->gossmap)) {
@@ -655,6 +656,19 @@ static struct command_result *do_getroutes(struct command *cmd,
 
 	include_fees = have_layer(info->layers, "auto.include_fees");
 
+	/* Figure out what deprecated fields to include */
+	include_next_node_id = notification_deprecated_out_ok(askrene->plugin,
+							      "getroutes",
+							      "next_node_id",
+							      "v26.06", "v27.06");
+	include_amount_msat = notification_deprecated_out_ok(askrene->plugin,
+							     "getroutes",
+							     "amount_msat",
+							     "v26.06", "v27.06");
+	include_delay = notification_deprecated_out_ok(askrene->plugin,
+						       "getroutes",
+						       "delay",
+						       "v26.06", "v27.06");
 	child = tal(cmd, struct router_child);
 	child->start = time_mono();
 	deadline = timemono_add(child->start,
@@ -704,7 +718,11 @@ static struct command_result *do_getroutes(struct command *cmd,
 			  deadline, srcnode, dstnode, info->amount,
 			  info->maxfee, info->finalcltv, info->maxdelay, info->maxparts,
 			  include_fees,
-			  cmd->id, cmd->filter, replyfds[1]);
+			  cmd->id, cmd->filter,
+			  include_next_node_id,
+			  include_amount_msat,
+			  include_delay,
+			  replyfds[1]);
 		abort();
 	}
 

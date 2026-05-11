@@ -1594,25 +1594,23 @@ static struct command_result *getroutes_done(struct command *aux_cmd,
 			struct hop *hop = &hops[j];
 			err = json_scan(tmpctx, buf, hoptok,
 					"{short_channel_id_dir:%"
-					",amount_msat:%"
-					",next_node_id:%"
-					",delay:%}",
+					",amount_in_msat:%"
+					",amount_out_msat:%"
+					",node_id_out:%"
+					",cltv_in:%"
+					",cltv_out:%}",
 					JSON_SCAN(json_to_short_channel_id_dir,
 						  &hop->scidd),
 					JSON_SCAN(json_to_msat, &hop->amount_in),
+					JSON_SCAN(json_to_msat, &hop->amount_out),
 					JSON_SCAN(json_to_pubkey, &hop->next_node),
-					JSON_SCAN(json_to_u32, &hop->cltv_value_in));
+					JSON_SCAN(json_to_u32, &hop->cltv_value_in),
+					JSON_SCAN(json_to_u32, &hop->cltv_value_out));
 			if (err)
 				plugin_err(aux_cmd->plugin, "Malformed routes: %s",
 					   err);
 			hop->fake_channel = !gossmap_find_chan(gossmap, &hop->scidd.scid);
-			if (j > 0) {
-				hops[j-1].amount_out = hop->amount_in;
-				hops[j-1].cltv_value_out = hop->cltv_value_in;
-			}
 		}
-		hops[j-1].amount_out = delivers;
-		hops[j-1].cltv_value_out = payment->final_cltv;
 
 		if (payment->use_shadow)
 			add_cltv_shadow(payment, gossmap, hops);

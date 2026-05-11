@@ -141,7 +141,10 @@ static struct route **convert_flows_to_routes(const tal_t *ctx,
 
 static void json_add_getroutes(struct json_stream *js,
 			       struct route **routes,
-			       double probability)
+			       double probability,
+			       bool include_next_node_id,
+			       bool include_amount_msat,
+			       bool include_delay)
 {
 	json_add_u64(js, "probability_ppm", (u64)(probability * 1000000));
 	json_array_start(js, "routes");
@@ -165,9 +168,12 @@ static void json_add_getroutes(struct json_stream *js,
 			json_add_u32(js, "cltv_in", hop->cltv_value_in);
 			json_add_u32(js, "cltv_out", hop->cltv_value_out);
 
-			json_add_node_id(js, "next_node_id", &hop->node_out);
-			json_add_amount_msat(js, "amount_msat", hop->amount_in);
-			json_add_u32(js, "delay", hop->cltv_value_in);
+			if (include_next_node_id)
+				json_add_node_id(js, "next_node_id", &hop->node_out);
+			if (include_amount_msat)
+				json_add_amount_msat(js, "amount_msat", hop->amount_in);
+			if (include_delay)
+				json_add_u32(js, "delay", hop->cltv_value_in);
 			json_object_end(js);
 		}
 		json_array_end(js);
@@ -217,6 +223,9 @@ void run_child(const struct gossmap *gossmap,
               bool include_fees,
 	       const char *cmd_id,
 	       struct json_filter *cmd_filter,
+	       bool include_next_node_id,
+	       bool include_amount_msat,
+	       bool include_delay,
 	       int replyfd)
 {
 	double probability;
@@ -264,7 +273,10 @@ void run_child(const struct gossmap *gossmap,
 	json_object_start(js, "result");
 	if (cmd_filter)
 		json_stream_attach_filter(js, cmd_filter);
-	json_add_getroutes(js, routes, probability);
+	json_add_getroutes(js, routes, probability,
+			   include_next_node_id,
+			   include_amount_msat,
+			   include_delay);
 
 	/* Detach filter before it complains about closing object it never saw */
 	if (cmd_filter) {

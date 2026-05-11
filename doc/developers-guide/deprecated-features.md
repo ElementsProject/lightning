@@ -24,6 +24,9 @@ privacy:
 | hsmtool.getcodexsecret                             | Command            | v25.12.1         | v26.12         | Doesn't work on nodes using mnemonic secrets (v25.12 or later).  Use `getsecret` instead.                                 |
 | experimental_splicing                              | Config             | v26.04           | v27.04         | Splicing is now enabled by default                                                                                       |
 | getroutes.layers.auto.no_mpp_support               | Parameter          | v26.06           | v27.03         | Use `maxparts=1` instead (since v25.09)                                                                                   |
+| getroutes.next_node_id                             | Field              | v26.06           | v27.06         | Use `node_id_out` instead (since v26.06)                                                                                  |
+| getroutes.amount_msat                              | Field              | v26.06           | v27.06         | Use `amount_in_msat` instead (since v26.06)                                                                               |
+| getroutes.delay                                    | Field              | v26.06           | v27.06         | Use `cltv_in` instead (since v26.06)                                                                                      |
 
 Inevitably there are features which need to change: either to be generalized, or removed when they can no longer be supported.
 

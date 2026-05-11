@@ -16763,18 +16763,30 @@
                         "type": "msat",
                         "description": [
                           "The amount to send into this hop."
+                        ],
+                        "deprecated": [
+                          "v26.06",
+                          "v27.06"
                         ]
                       },
                       "next_node_id": {
                         "type": "pubkey",
                         "description": [
                           "The peer id at the end of this hop."
+                        ],
+                        "deprecated": [
+                          "v26.06",
+                          "v27.06"
                         ]
                       },
                       "delay": {
                         "type": "u32",
                         "description": [
                           "The total CLTV expected by the node at the start of this hop."
+                        ],
+                        "deprecated": [
+                          "v26.06",
+                          "v27.06"
                         ]
                       }
                     }

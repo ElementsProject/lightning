@@ -31,6 +31,9 @@ void run_child(const struct gossmap *gossmap,
 	       bool include_fees,
 	       const char *cmd_id,
 	       struct json_filter *cmd_filter,
+	       bool include_next_node_id,
+	       bool include_amount_msat,
+	       bool include_delay,
 	       int reply_fd) NORETURN;
 
 #endif /* LIGHTNING_PLUGINS_ASKRENE_CHILD_CHILD_H */
