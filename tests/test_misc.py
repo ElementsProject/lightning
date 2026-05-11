@@ -4318,6 +4318,8 @@ def test_graceful_no_peers(node_factory):
     """graceful with no channels returns immediately"""
     l1 = node_factory.get_node()
     assert l1.rpc.graceful() == {}
+    # Returns instantly even with timeout.
+    assert l1.rpc.graceful(10000) == {}
 
 
 def test_graceful_idle_peer(node_factory, executor):
@@ -4367,17 +4369,27 @@ def test_graceful_htlc(node_factory, executor):
 
     # Wait until graceful has sent at least one HTLC expiry notification
     wait_for(lambda: len(notifications) == 1)
+    wait_for(lambda: notifications[0] == f'Next HTLC SENT_ADD_ACK_REVOCATION expires at block #118 (10 blocks from now) going to peer {l3.info["id"]} (connected)')
+
+    # This will tell us about htlcs and the peers (peers unordered)
+    ret = l2.rpc.graceful(1)
+    assert ret in ({'pending_htlc_expiries': [118, 124],
+                    'pending_peers': [l1.info['id'], l3.info['id']]},
+                   {'pending_htlc_expiries': [118, 124],
+                    'pending_peers': [l3.info['id'], l1.info['id']]})
 
     # Close incoming connection, so incoming HTLC gets stuck.
     l1.rpc.disconnect(l2.info['id'], force=True)
+    wait_for(lambda: notifications[-1] == f'Next HTLC SENT_ADD_ACK_REVOCATION expires at block #118 (10 blocks from now) going to peer {l3.info["id"]} (connected)')
 
     # Release the hold so the *outgoing* HTLC resolves
     open(os.path.join(l3.daemon.lightning_dir, TEST_NETWORK, "unhold"), "w").close()
 
-    wait_for(lambda: notifications[0] == f'Next HTLC SENT_ADD_ACK_REVOCATION expires at block #118 (10 blocks from now) going to peer {l3.info["id"]} (connected)')
-    wait_for(lambda: len(notifications) == 2)
+    wait_for(lambda: notifications[-1] == f'Next HTLC SENT_REMOVE_HTLC expires at block #124 (16 blocks from now) coming from peer {l1.info["id"]} (disconnected)')
 
-    wait_for(lambda: notifications[1] == f'Next HTLC SENT_REMOVE_HTLC expires at block #124 (16 blocks from now) coming from peer {l1.info["id"]} (disconnected)')
+    ret = l2.rpc.graceful(1)
+    assert ret == {'pending_htlc_expiries': [124]}
+
     # Reconnect and it will settle.
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 

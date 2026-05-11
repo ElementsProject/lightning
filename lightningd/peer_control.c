@@ -3045,7 +3045,13 @@ struct graceful_waiter {
 	struct list_node list;
 	struct command *cmd;
 	const char *last_msg;
+	struct oneshot *timeout;
 };
+
+static void destroy_graceful_waiter(struct graceful_waiter *gw)
+{
+	list_del(&gw->list);
+}
 
 static struct command_result *check_graceful_shutdown_progress(struct lightningd *ld, struct command *cmd)
 {
@@ -3103,10 +3109,12 @@ static struct command_result *check_graceful_shutdown_progress(struct lightningd
 	} else if (num_connected) {
 		msg = tal_fmt(tmpctx, "%zu peers still connected", num_connected);
 	} else {
+		struct graceful_waiter *next;
 		/* All finished! */
 		if (cmd)
 			return command_success(cmd, json_stream_success(cmd));
-		while ((w = list_pop(&ld->graceful_commands, struct graceful_waiter, list)) != NULL)
+		/* destroy_graceful_waiter removes them from list. */
+		list_for_each_safe(&ld->graceful_commands, w, next, list)
 			was_pending(command_success(w->cmd, json_stream_success(w->cmd)));
 		return NULL;
 	}
@@ -3124,6 +3132,67 @@ static struct command_result *check_graceful_shutdown_progress(struct lightningd
 	return NULL;
 }
 
+static int cmp_height(const u32 *a,
+		      const u32 *b,
+		      void *unused)
+{
+	if (*a > *b)
+		return 1;
+	if (*b < *a)
+		return -1;
+	return 0;
+}
+
+static void graceful_timeout(struct graceful_waiter *gw)
+{
+	struct htlc_out_map_iter outi;
+	const struct htlc_out *hout;
+	struct htlc_in_map_iter ini;
+	const struct htlc_in *hin;
+	struct peer *peer;
+	struct peer_node_id_map_iter it;
+	struct lightningd *ld = gw->cmd->ld;
+	u32 *heights = tal_arr(tmpctx, u32, 0);
+	struct node_id *peers = tal_arr(tmpctx, struct node_id, 0);
+	struct json_stream *result;
+
+	/* Report on any remaining htlcs */
+	for (hout = htlc_out_map_first(ld->htlcs_out, &outi);
+	     hout;
+	     hout = htlc_out_map_next(ld->htlcs_out, &outi)) {
+		tal_arr_expand(&heights, hout->cltv_expiry);
+	}
+	for (hin = htlc_in_map_first(ld->htlcs_in, &ini);
+	     hin;
+	     hin = htlc_in_map_next(ld->htlcs_in, &ini)) {
+		tal_arr_expand(&heights, hin->cltv_expiry);
+	}
+
+	asort(heights, tal_count(heights), cmp_height, NULL);
+
+	for (peer = peer_node_id_map_first(ld->peers, &it);
+	     peer;
+	     peer = peer_node_id_map_next(ld->peers, &it)) {
+		if (peer->connected != PEER_DISCONNECTED)
+			tal_arr_expand(&peers, peer->id);
+	}
+
+	result = json_stream_success(gw->cmd);
+	if (tal_count(heights)) {
+		json_array_start(result, "pending_htlc_expiries");
+		for (size_t i = 0; i < tal_count(heights); i++)
+			json_add_u32(result, NULL, heights[i]);
+		json_array_end(result);
+	}
+	if (tal_count(peers)) {
+		json_array_start(result, "pending_peers");
+		for (size_t i = 0; i < tal_count(peers); i++)
+			json_add_node_id(result, NULL, &peers[i]);
+		json_array_end(result);
+	}
+	was_pending(command_success(gw->cmd, result));
+}
+
 void check_graceful_shutdown(struct lightningd *ld)
 {
 	check_graceful_shutdown_progress(ld, NULL);
@@ -3135,8 +3204,11 @@ static struct command_result *json_graceful(struct command *cmd,
 					    const jsmntok_t *params)
 {
 	struct graceful_waiter *gw = tal(cmd, struct graceful_waiter);
+	u64 *timeout;
 
-	if (!param(cmd, buffer, params, NULL))
+	if (!param(cmd, buffer, params,
+		   p_opt("timeout", param_u64, &timeout),
+		   NULL))
 		return command_param_failed();
 
 	log_unusual(cmd->ld->log, "JSON-RPC graceful: preventing more connections");
@@ -3144,7 +3216,12 @@ static struct command_result *json_graceful(struct command *cmd,
 
 	gw->cmd = cmd;
 	gw->last_msg = NULL;
+	if (timeout)
+		gw->timeout = new_reltimer(cmd->ld->timers, gw,
+					   time_from_sec(*timeout),
+					   graceful_timeout, gw);
 	list_add_tail(&cmd->ld->graceful_commands, &gw->list);
+	tal_add_destructor(gw, destroy_graceful_waiter);
 	return check_graceful_shutdown_progress(cmd->ld, cmd);
 }
 

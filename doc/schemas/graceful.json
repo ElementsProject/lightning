@@ -5,17 +5,44 @@
   "added": "v26.06",
   "title": "Command to prepare Core Lightning node for stopping.",
   "description": [
-    "**graceful** is a RPC command to prevent further htlcs, and disconnect all idle peers.  It returns when all HTLCs are complete, and all peers disconnected: then you can shutdown.  It also sends information about HTLC expiry, so you can judge how long it is safe to be offline."
+    "**graceful** is a RPC command to prevent further htlcs, and disconnect all idle peers.  It returns when all HTLCs are complete, and all peers disconnected: then you can shutdown.  It also sends notifications about HTLC expiry, so you can judge how long it is safe to be offline.",
+    "With a timeout, it always returns after that many seconds: if any peer connections or HTLCs are still pending, those are returned.  An empty response means nothing is pending"
   ],
   "request": {
     "required": [],
     "additionalProperties": false,
-    "properties": {}
+    "properties": {
+      "timeout": {
+        "type": "u32",
+        "description": [
+          "If set, the graceful command will return after this time even if not all HTLCs have terminated.  Useful for scripting, where you may want to follow with `stop`."
+        ]
+      }
+    }
   },
   "response": {
     "required": [],
     "additionalProperties": false,
-    "properties": {}
+    "properties": {
+      "pending_htlc_expiries": {
+        "type": "array",
+        "items": {
+          "type": "u32"
+        },
+        "description": [
+          "The (sorted) expiry blockheights of all HTLCs which are not resolved"
+        ]
+      },
+      "pending_peers": {
+        "type": "array",
+        "items": {
+          "type": "pubkey"
+        },
+        "description": [
+          "Any peers still connected (presumably because they have outstanding HTLCs)"
+        ]
+      }
+    }
   },
   "author": [
     "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
