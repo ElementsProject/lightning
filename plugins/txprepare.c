@@ -50,6 +50,45 @@ static struct wally_psbt *json_tok_psbt(const tal_t *ctx,
 	return psbt_from_b64(ctx, buffer + tok->start, tok->end - tok->start);
 }
 
+struct txprepare_cleanup {
+	char *error_json;
+};
+
+static struct command_result *
+txprepare_cleanup_done(struct command *cmd,
+		       const char *method UNUSED,
+		       const char *buf UNUSED,
+		       const jsmntok_t *result UNUSED,
+		       struct txprepare_cleanup *cleanup)
+{
+	return command_err_raw(cmd, cleanup->error_json);
+}
+
+/* Immediate send flows must drop the original PSBT input reservation. */
+static struct command_result *
+txprepare_forward_error(struct command *cmd,
+			const char *method,
+			const char *buf,
+			const jsmntok_t *error,
+			struct unreleased_tx *utx)
+{
+	struct out_req *req;
+	struct txprepare_cleanup *cleanup;
+
+	if (!utx->psbt)
+		return forward_error(cmd, method, buf, error, NULL);
+
+	cleanup = tal(cmd, struct txprepare_cleanup);
+	cleanup->error_json = json_strdup(cleanup, buf, error);
+
+	req = jsonrpc_request_start(cmd, "unreserveinputs",
+				    txprepare_cleanup_done,
+				    txprepare_cleanup_done,
+				    cleanup);
+	json_add_psbt(req->js, "psbt", utx->psbt);
+	return send_outreq(req);
+}
+
 static struct command_result *param_outputs(struct command *cmd,
 					    const char *name,
 					    const char *buffer,
@@ -179,7 +218,8 @@ static struct command_result *signpsbt_done(struct command *cmd,
 				    fmt_wally_psbt(tmpctx, utx->psbt));
 
 	req = jsonrpc_request_start(cmd, "sendpsbt",
-				    sendpsbt_done, forward_error,
+				    sendpsbt_done,
+				    txprepare_forward_error,
 				    utx);
 	json_add_psbt(req->js, "psbt", utx->psbt);
 	return send_outreq(req);
@@ -229,7 +269,8 @@ static struct command_result *finish_txprepare(struct command *cmd,
 		/* Won't live beyond this cmd. */
 		tal_steal(cmd, utx);
 		req = jsonrpc_request_start(cmd, "signpsbt",
-					    signpsbt_done, forward_error,
+					    signpsbt_done,
+					    txprepare_forward_error,
 					    utx);
 		json_add_psbt(req->js, "psbt", utx->psbt);
 		return send_outreq(req);
@@ -464,7 +505,8 @@ static struct command_result *json_txsend(struct command *cmd,
 	tal_steal(cmd, utx);
 
 	req = jsonrpc_request_start(cmd, "signpsbt",
-				    signpsbt_done, forward_error,
+				    signpsbt_done,
+				    txprepare_forward_error,
 				    utx);
 	json_add_psbt(req->js, "psbt", utx->psbt);
 	return send_outreq(req);

@@ -211,6 +211,33 @@ def test_withdraw(node_factory, bitcoind):
     l1.rpc.withdraw(l1.rpc.newaddr("p2tr")["p2tr"], 10**5, feerate="1000perkb")
 
 
+def test_withdraw_unreserves_inputs_on_send_failure(node_factory, bitcoind):
+    amount = 10**7
+    addrtype = good_addrtype()
+    l1 = node_factory.get_node(random_hsm=True)
+    addr = l1.rpc.newaddr(addrtype)[addrtype]
+
+    bitcoind.rpc.sendtoaddress(addr, amount / 10**8)
+    bitcoind.generate_block(1)
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 1)
+
+    def mock_sendrawtransaction(r):
+        return {'id': r['id'],
+                'error': {'code': 100,
+                          'message': 'feerate below mempool minimum: 251 < 253'}}
+
+    l1.daemon.rpcproxy.mock_rpc('sendrawtransaction', mock_sendrawtransaction)
+
+    with pytest.raises(RpcError, match=r'251 < 253'):
+        l1.rpc.withdraw(bitcoind.getnewaddress(), 'all', feerate='slow')
+
+    assert not any(o['reserved'] for o in l1.rpc.listfunds()['outputs'])
+
+    l1.daemon.rpcproxy.mock_rpc('sendrawtransaction', None)
+    sent = l1.rpc.withdraw(bitcoind.getnewaddress(), 'all', feerate='slow')
+    bitcoind.rpc.getmempoolentry(sent['txid'])
+
+
 def test_minconf_withdraw(node_factory, bitcoind):
     """Issue 2518: ensure that ridiculous confirmation levels don't overflow
 
@@ -2858,6 +2885,51 @@ def test_rescan_missing_utxo(node_factory, bitcoind):
     time.sleep(5)
     assert not l1.daemon.is_in_log("Scanning for missed UTXOs", start=oldstart_l1)
     assert not l3.daemon.is_in_log("Scanning for missed UTXOs", start=oldstart_l3)
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', "Uses regtest-specific address types")
+def test_withdraw_unreserves_on_broadcast_failure(node_factory, bitcoind):
+    """Test withdraw releases reservations after broadcast rejection."""
+    l1 = node_factory.get_node(random_hsm=True)
+    addr = l1.rpc.newaddr('p2tr')['p2tr']
+
+    # Fund the node
+    bitcoind.rpc.sendtoaddress(addr, 0.01)
+    bitcoind.generate_block(1)
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 1)
+
+    output = only_one(l1.rpc.listfunds()['outputs'])
+    assert output['status'] == 'confirmed'
+    assert not output.get('reserved', False)
+
+    waddr = bitcoind.rpc.getnewaddress()
+
+    # Mock sendrawtransaction to simulate bitcoind rejecting the transaction
+    # because the feerate is below its mempoolminfee
+    def mock_fail_sendrawtx(r):
+        # Self-remove after first call so subsequent transactions aren't blocked
+        l1.daemon.rpcproxy.mock_rpc('sendrawtransaction', None)
+        return {
+            'id': r['id'],
+            'error': {
+                'code': -26,
+                'message': 'min relay fee not met, 253 < 5000',
+            },
+            'result': None,
+        }
+
+    l1.daemon.rpcproxy.mock_rpc('sendrawtransaction', mock_fail_sendrawtx)
+
+    with pytest.raises(RpcError, match=r'Error broadcasting transaction'):
+        l1.rpc.withdraw(waddr, 'all')
+
+    outputs = l1.rpc.listfunds()['outputs']
+    assert not any(o.get('reserved', False) for o in outputs)
+
+    l1.rpc.withdraw(waddr, 'all')
+    bitcoind.generate_block(1)
+    sync_blockheight(bitcoind, [l1])
+    assert l1.db_query('SELECT COUNT(*) as c FROM outputs WHERE status=0')[0]['c'] == 0
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "Uses regtest-specific address types")
