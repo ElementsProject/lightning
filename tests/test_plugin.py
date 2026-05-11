@@ -450,13 +450,13 @@ def test_pay_plugin(node_factory):
 
 
 def test_keysend_plugin(node_factory):
-    l1, l2 = node_factory.line_graph(2)
+    l1, l2 = node_factory.line_graph(2, opts={'allow-deprecated-apis': True})
 
     with pytest.raises(RpcError, match=r'missing required parameter'):
         l1.rpc.call('keysend')
 
     # Make sure usage messages are present.
-    msg = 'keysend destination amount_msat [label] [maxfeepercent] [retry_for] '\
+    msg = 'keysend (DEPRECATED!) destination amount_msat [label] [maxfeepercent] [retry_for] '\
           '[maxdelay] [exemptfee] [extratlvs] [routehints] [maxfee]'
     # We run with --developer:
     msg += ' [dev_use_shadow]'

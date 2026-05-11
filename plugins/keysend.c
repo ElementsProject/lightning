@@ -296,7 +296,8 @@ static struct command_result *json_keysend(struct command *cmd, const char *buf,
 static const struct plugin_command commands[] = {
     {
 	    "keysend",
-		json_keysend
+	    json_keysend,
+	    "v26.06", "v27.03",
     },
 };
 

@@ -4865,7 +4865,8 @@ def test_preapprove(node_factory, bitcoind, preapprove):
 @pytest.mark.parametrize("xkeysend", [False, True])
 def test_preapprove_use(node_factory, bitcoind, xkeysend):
     """Test preapprove calls implicitly made by pay and keysend"""
-    l1, l2 = node_factory.line_graph(2, opts=[{}, {'dev-hsmd-fail-preapprove': None}])
+    l1, l2 = node_factory.line_graph(2, opts=[{}, {'dev-hsmd-fail-preapprove': None,
+                                                   'allow-deprecated-apis': True}])
 
     # Create some balance, make sure it's entirely settled.
     l1.pay(l2, 200000000)

@@ -2143,7 +2143,6 @@ def test_zeroreserve(node_factory, bitcoind):
 
     # Now do some drain tests on c1, as that should be drainable
     # completely by l2 being the fundee
-    l1.rpc.keysend(l2.info['id'], 10 * 7)  # Something above dust for sure
     l1.rpc.xkeysend(l2.info['id'], 10 * 7)  # Something above dust for sure
     l2.drain(l1)
 

@@ -328,6 +328,7 @@ def test_grpc_keysend_routehint(bitcoind, node_factory):
     l1, l2, l3 = node_factory.line_graph(
         3,
         announce_channels=True,  # Do not enforce scid-alias
+        opts={'allow-deprecated-apis': True}
     )
     bitcoind.generate_block(3)
     sync_blockheight(bitcoind, [l1, l2, l3])

@@ -3451,10 +3451,14 @@ def test_excluded_adjacent_routehint(node_factory, bitcoind):
 @pytest.mark.parametrize("keysendcmd", ["keysend", "xkeysend"])
 def test_keysend(node_factory, keysendcmd):
     amt = 10000
+    if keysendcmd == 'keysend':
+        opts = {'allow-deprecated-apis': True}
+    else:
+        opts = {}
     l1, l2, l3, l4 = node_factory.line_graph(
         4,
         wait_for_announce=True,
-        opts=[{}, {}, {}, {'disable-plugin': 'keysend'}]
+        opts=[opts, {}, opts, {'disable-plugin': 'keysend'}]
     )
 
     if keysendcmd == 'xkeysend':
@@ -3508,19 +3512,24 @@ def test_keysend_strip_tlvs(node_factory, keysendcmd):
     """Use the extratlvs option to deliver a message with sphinx' TLV type, which keysend strips.
     """
     amt = 10**7
+    opts = [
+        {
+            # Not needed, just for listconfigs test.
+            'accept-htlc-tlv-type': [133773310, 99990],
+            "plugin": os.path.join(os.path.dirname(__file__), "plugins/sphinx-receiver.py"),
+        },
+        {
+            "plugin": os.path.join(os.path.dirname(__file__), "plugins/sphinx-receiver.py"),
+        },
+    ]
+    if keysendcmd == 'keysend':
+        opts[0]['allow-deprecated-apis'] = True
+        opts[1]['allow-deprecated-apis'] = True
+
     l1, l2 = node_factory.line_graph(
         2,
         wait_for_announce=True,
-        opts=[
-            {
-                # Not needed, just for listconfigs test.
-                'accept-htlc-tlv-type': [133773310, 99990],
-                "plugin": os.path.join(os.path.dirname(__file__), "plugins/sphinx-receiver.py"),
-            },
-            {
-                "plugin": os.path.join(os.path.dirname(__file__), "plugins/sphinx-receiver.py"),
-            },
-        ]
+        opts=opts,
     )
 
     if keysendcmd == 'xkeysend':
@@ -3583,7 +3592,7 @@ def test_keysend_routehint(node_factory):
     """Test whether we can deliver a keysend by adding a routehint on the cli
     """
     amt = 10000
-    l1, l2 = node_factory.line_graph(2, wait_for_announce=True)
+    l1, l2 = node_factory.line_graph(2, wait_for_announce=True, opts={'allow-deprecated-apis': True})
     l3 = node_factory.get_node()
     l2.connect(l3)
     l2.fundchannel(l3, announce_channel=False)
@@ -3684,10 +3693,13 @@ def test_xkeysend_layer(node_factory):
 
 @pytest.mark.parametrize("keysendcmd", ["keysend", "xkeysend"])
 def test_keysend_maxfee(node_factory, keysendcmd):
+    opts = [{}, {'fee-base': 50, 'fee-per-satoshi': 0}, {}]
+    if keysendcmd == 'keysend':
+        opts[0]['allow-deprecated-apis'] = True
     l1, l2, l3 = node_factory.line_graph(
         3,
         wait_for_announce=True,
-        opts=[{}, {'fee-base': 50, 'fee-per-satoshi': 0}, {}]
+        opts=opts,
     )
 
     if keysendcmd == 'keysend':
@@ -3719,7 +3731,11 @@ def test_keysend_description_size_limit(node_factory, keysendcmd):
 
     See common/bolt11.h: BOLT11_FIELD_BYTE_LIMIT.
     """
-    l1, l2 = node_factory.line_graph(2, wait_for_announce=True)
+    if keysendcmd == 'keysend':
+        opts = {'allow-deprecated-apis': True}
+    else:
+        opts = {}
+    l1, l2 = node_factory.line_graph(2, wait_for_announce=True, opts=opts)
     amt = 10000
     prefix = 'keysend: '
     base_len = len(prefix)
@@ -4083,7 +4099,11 @@ def test_listpay_result_with_paymod(node_factory, bitcoind, keysendcmd):
     """
     amount_sat = 10 ** 6
 
-    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
+    if keysendcmd == 'keysend':
+        opts = {'allow-deprecated-apis': True}
+    else:
+        opts = {}
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True, opts=opts)
 
     invl2 = l2.rpc.invoice(amount_sat * 2, "inv_l2", "inv_l2")
     l1.rpc.pay(invl2['bolt11'])
