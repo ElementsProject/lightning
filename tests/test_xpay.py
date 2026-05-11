@@ -156,10 +156,12 @@ def test_xpay_simple(node_factory):
     assert ret['amount_msat'] == 10000
     assert ret['amount_sent_msat'] == 10000
 
+    PAY_INJECTPAYMENTONION_ALREADY_PAID = 219
     # Fails if we try to pay again
     b11_paid = b11
-    with pytest.raises(RpcError, match="Already paid"):
+    with pytest.raises(RpcError, match="Already paid") as err:
         l1.rpc.xpay(b11_paid)
+    assert err.value.error['code'] == PAY_INJECTPAYMENTONION_ALREADY_PAID
 
     # BOLT-11, indirect peer
     b11 = l3.rpc.invoice('10000msat', 'test_xpay_simple', 'test_xpay_simple bolt11')['bolt11']

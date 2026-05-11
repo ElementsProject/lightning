@@ -792,7 +792,7 @@ static void update_knowledge_from_error(struct command *aux_cmd,
 
 	if (ecode == PAY_INJECTPAYMENTONION_ALREADY_PAID) {
 		payment_give_up(aux_cmd, attempt->payment,
-				PAY_INJECTPAYMENTONION_FAILED,
+				PAY_INJECTPAYMENTONION_ALREADY_PAID,
 				"Already paid this invoice successfully");
 		return;
 	}
