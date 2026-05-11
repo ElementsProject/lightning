@@ -200,11 +200,11 @@ def test_xpay_simple(node_factory):
 
     # Failure from l3 (with routehint)
     l4.stop()
-    with pytest.raises(RpcError, match=r"Failed after 1 attempts\. We got temporary_channel_failure for the invoice's route hint \([0-9x]*/[01]\), assuming it can't carry 10000msat\. Then routing failed: We could not find a usable set of paths\. The shortest path is [0-9x]*->[0-9x]*->[0-9x]*, but [0-9x]*/[01]\ layer xpay-7 says max is 9999msat"):
+    with pytest.raises(RpcError, match=r"Failed after 1 attempts\. We got temporary_channel_failure for the invoice's route hint \([0-9x]*/[01]\), assuming it can't carry 10000msat\. Then routing failed: We could not find a usable set of paths\. The shortest path is [0-9x]*->[0-9x]*->[0-9x]*, but [0-9x]*/[01]\ layer xpay-15 says max is 9999msat"):
         l1.rpc.xpay(b11)
 
     # Failure from l3 (with blinded path)
-    with pytest.raises(RpcError, match=r"Failed after 1 attempts. We got an error from inside the blinded path 0x0x0/1: we assume it means insufficient capacity. Then routing failed: We could not find a usable set of paths. The shortest path is [0-9x]*->[0-9x]*->0x0x0, but 0x0x0/1 layer xpay-8 says max is 99999msat"):
+    with pytest.raises(RpcError, match=r"Failed after 1 attempts. We got an error from inside the blinded path 0x0x0/1: we assume it means insufficient capacity. Then routing failed: We could not find a usable set of paths. The shortest path is [0-9x]*->[0-9x]*->0x0x0, but 0x0x0/1 layer xpay-17 says max is 99999msat"):
         l1.rpc.xpay(b12)
 
     # Restart, try pay already paid one again.

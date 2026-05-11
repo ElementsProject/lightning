@@ -2060,16 +2060,6 @@ static struct command_result *param_string_array(struct command *cmd, const char
 	return NULL;
 }
 
-/* Must be called after payment_new */
-static void payment_set_unique_id(struct payment *payment)
-{
-	struct xpay *xpay = xpay_of(payment->plugin);
-
-	payment->unique_id = xpay->counter++;
-	payment->private_layer = tal_fmt(payment,
-					 "xpay-%"PRIu64, payment->unique_id);
-}
-
 static struct command_result *
 preapproveinvoice_succeed(struct command *cmd,
 			  const char *method,
@@ -2081,12 +2071,6 @@ preapproveinvoice_succeed(struct command *cmd,
 	if (command_check_only(cmd)) {
 		return command_check_done(cmd);
 	}
-
-	payment_set_unique_id(payment);
-
-	/* Now unique_id is set, we can log this message */
-	if (payment->maxparts == 1)
-		payment_log(payment, LOG_INFORM, "No MPP support: this is going to be hard to pay");
 
 	return populate_private_layer(cmd, payment);
 }
@@ -2309,8 +2293,6 @@ static struct command_result *json_xpay_params(struct command *cmd,
 }
 
 /* Does NOT set:
- * ->unique_id
- * ->private_layer
  * ->maxparts
  * ->use_shadow
  *
@@ -2401,6 +2383,9 @@ static struct payment *new_payment(const tal_t *ctx,
 	payment->requests = tal_arr(payment, struct out_req *, 0);
 	payment->start_time = clock_time();
 	payment->pay_compat = as_pay;
+	payment->unique_id = xpay->counter++;
+	payment->private_layer = tal_fmt(payment,
+					 "xpay-%"PRIu64, payment->unique_id);
 
 	return payment;
 }
@@ -2588,8 +2573,10 @@ static struct command_result *xpay_core(struct command *cmd,
 	else
 		payment->maxparts = 0;
 
-	if (disable_mpp)
+	if (disable_mpp) {
 		payment->maxparts = 1;
+		payment_log(payment, LOG_INFORM, "No MPP support: this is going to be hard to pay");
+	}
 
 	/* Now preapprove, then start payment. */
 	if (command_check_only(cmd)) {
