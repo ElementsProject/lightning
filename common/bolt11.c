@@ -1251,8 +1251,6 @@ static void maybe_encode_9(u5 **data, const u8 *features,
 
 static bool encode_extra(u5 **data, const struct bolt11_field *extra)
 {
-	size_t len;
-
 	/* Can't encode an invalid tag. */
 	if (bech32_charset_rev[(unsigned char)extra->tag] == -1)
 		return false;
@@ -1261,9 +1259,7 @@ static bool encode_extra(u5 **data, const struct bolt11_field *extra)
 	push_varlen_uint(data, tal_count(extra->data), 10);
 
 	/* extra->data is already u5s, so do this raw. */
-	len = tal_count(*data);
-	tal_resize(data, len + tal_count(extra->data));
-	memcpy(*data + len, extra->data, tal_count(extra->data));
+	tal_arr_append(data, extra->data);
 	return true;
 }
 

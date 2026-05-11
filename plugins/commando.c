@@ -102,8 +102,7 @@ static void append_contents(struct commando *commando, const u8 *msg, size_t msg
 		return;
 	}
 
-	tal_resize(&commando->contents, len + msglen);
-	memcpy(commando->contents + len, msg, msglen);
+	tal_arr_appendn(&commando->contents, msg, msglen);
 }
 
 struct reply {

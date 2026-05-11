@@ -48,8 +48,7 @@ static LAST_ARG_NULL void *concat_(const void *p, ...)
 
 	va_start(ap, p);
 	do {
-		tal_resize(&ret, len + tal_bytelen(p));
-		memcpy(ret + len, p, tal_bytelen(p));
+		tal_arr_append(&ret, p);
 		len += tal_bytelen(p);
 	} while ((p = va_arg(ap, const void *)) != NULL);
 	va_end(ap);

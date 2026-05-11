@@ -37,9 +37,7 @@ static void hash160(struct ripemd160 *redeemhash, const void *mem, size_t len)
 
 static void add(u8 **scriptp, const void *mem, size_t len)
 {
-	size_t oldlen = tal_count(*scriptp);
-	tal_resize(scriptp, oldlen + len);
-	memcpy(*scriptp + oldlen, mem, len);
+	tal_arr_appendn(scriptp, mem, len);
 }
 
 static void add_op(u8 **scriptp, u8 op)

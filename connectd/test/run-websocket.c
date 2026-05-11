@@ -2,6 +2,7 @@
 #include <assert.h>
 #include <common/amount.h>
 #include <common/memleak.h>
+#include <common/utils.h>
 #include <ccan/io/io.h>
 #include <ccan/read_write_all/read_write_all.h>
 #include <wire/wire.h>
@@ -31,9 +32,7 @@ static bool my_read_all(int fd, void *buf, size_t count)
 
 static ssize_t my_write(int fd, const void *buf, size_t count)
 {
-	size_t buflen = tal_bytelen(my_wbuf);
-	tal_resize(&my_wbuf, buflen + count);
-	memcpy(my_wbuf + buflen, buf, count);
+	tal_arr_appendn(&my_wbuf, buf, count);
 	return count;
 }
 static bool my_write_all(int fd, const void *buf, size_t count)

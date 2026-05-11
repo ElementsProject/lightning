@@ -190,23 +190,15 @@ struct command_result *plugin_register_all_complete(struct lightningd *ld,
 static void tell_connectd_custommsgs(struct plugins *plugins)
 {
 	struct plugin *p;
-	size_t n = 0;
-	u16 *all_msgs = tal_arr(tmpctx, u16, n);
+	u16 *all_msgs = tal_arr(tmpctx, u16, 0);
 
 	/* Not when shutting down */
 	if (!plugins->ld->connectd)
 		return;
 
 	/* Gather from all plugins. */
-	list_for_each(&plugins->plugins, p, list) {
-		size_t num = tal_count(p->custom_msgs);
-		/* Blah blah blah memcpy NULL blah blah */
-		if (num == 0)
-			continue;
-		tal_resize(&all_msgs, n + num);
-		memcpy(all_msgs + n, p->custom_msgs, num * sizeof(*p->custom_msgs));
-		n += num;
-	}
+	list_for_each(&plugins->plugins, p, list)
+		tal_arr_append(&all_msgs, p->custom_msgs);
 
 	/* Don't bother sorting or uniquifying.  If plugins are dumb, they deserve it. */
 	subd_send_msg(plugins->ld->connectd,

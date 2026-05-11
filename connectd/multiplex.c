@@ -376,7 +376,6 @@ static bool is_urgent(enum peer_wire type)
 static u8 *process_batch_elements(const tal_t *ctx, struct peer *peer, const u8 *msg TAKES)
 {
 	u8 *ret = tal_arr(ctx, u8, 0);
-	size_t ret_size = 0;
 	const u8 *cursor = msg;
 	size_t plen = tal_count(msg);
 
@@ -422,9 +421,7 @@ static u8 *process_batch_elements(const tal_t *ctx, struct peer *peer, const u8 
 		enc_msg = cryptomsg_encrypt_msg(tmpctx, &peer->cs,
 						take(element_bytes));
 
-		tal_resize(&ret, ret_size + tal_bytelen(enc_msg));
-		memcpy(&ret[ret_size], enc_msg, tal_bytelen(enc_msg));
-		ret_size += tal_bytelen(enc_msg);
+		tal_arr_append(&ret, enc_msg);
 
 	} while(plen);
 
