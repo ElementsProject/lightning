@@ -2562,7 +2562,7 @@ static struct command_result *handle_rpc_command(struct command *cmd,
 	struct xpay *xpay = xpay_of(cmd->plugin);
 	const jsmntok_t *rpc_tok, *method_tok, *params_tok, *id_tok,
 		*bolt11 = NULL, *amount_msat = NULL,
-		*partial_msat = NULL, *retry_for = NULL, *maxdelay = NULL;
+		*partial_msat = NULL, *retry_for = NULL, *maxdelay = NULL, *localinvreqid = NULL, *label = NULL;
 	const char *maxfee = NULL;
 	struct json_stream *response;
 
@@ -2623,6 +2623,10 @@ static struct command_result *handle_rpc_command(struct command *cmd,
 				exemptfee = t + 1;
 			else if (json_tok_streq(buf, t, "maxdelay"))
 				maxdelay = t + 1;
+			else if (json_tok_streq(buf, t, "label"))
+				label = t + 1;
+			else if (json_tok_streq(buf, t, "localinvreqid"))
+				localinvreqid = t + 1;
 			else {
 				plugin_log(cmd->plugin, LOG_INFORM,
 					   "Unknown arg %.*s, xpay will ignore it.",
@@ -2669,6 +2673,10 @@ static struct command_result *handle_rpc_command(struct command *cmd,
 		json_add_tok(response, "partial_msat", partial_msat, buf);
 	if (maxdelay)
 		json_add_tok(response, "maxdelay", maxdelay, buf);
+	if (label)
+		json_add_tok(response, "label", label, buf);
+	if (localinvreqid)
+		json_add_tok(response, "localinvreqid", localinvreqid, buf);
 	json_object_end(response);
 	json_object_end(response);
 	return command_finished(cmd, response);

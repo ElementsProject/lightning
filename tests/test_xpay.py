@@ -460,12 +460,13 @@ def test_xpay_takeover(node_factory, executor):
                              inv, "10000", 'label'])
     l1.daemon.wait_for_log(r'Not redirecting pay \(only handle 1 or 2 args\): ')
 
-    # Other args are ignored.
+    # Label gets maintained.
     inv = l3.rpc.invoice('any', "test_xpay_takeover7", "test_xpay_takeover7")
     l1.rpc.pay(inv['bolt11'], amount_msat=10000, label='test_xpay_takeover7')
-    l1.daemon.wait_for_log('Unknown arg "label", xpay will ignore it.')
     l1.daemon.wait_for_log('Redirecting pay->xpay')
+    assert any(p.get('label') == 'test_xpay_takeover7' for p in l1.rpc.listsendpays()['payments'])
 
+    # Other args are ignored.
     inv = l3.rpc.invoice('any', "test_xpay_takeover8", "test_xpay_takeover8")
     l1.rpc.pay(inv['bolt11'], amount_msat=10000, riskfactor=1)
     l1.daemon.wait_for_log('Unknown arg "riskfactor", xpay will ignore it.')
