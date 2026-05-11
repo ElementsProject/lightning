@@ -4936,7 +4936,7 @@ def test_fetchinvoice_autoconnect(node_factory, bitcoind):
     invreq = l2.rpc.call('invoicerequest', {'amount': '2msat',
                                             'description': 'simple test'})
     # Ofc l2 can't actually pay it!
-    with pytest.raises(RpcError, match='pay attempt failed: "Ran out of routes to try'):
+    with pytest.raises(RpcError, match='pay attempt failed: "Failed: There is no connection between source and destination at all"'):
         l3.rpc.call('sendinvoice', {'invreq': invreq['bolt12'], 'label': 'payme!'})
 
     assert l3.rpc.listpeers(l2.info['id'])['peers'] != []
