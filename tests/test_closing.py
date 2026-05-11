@@ -1247,12 +1247,10 @@ def test_penalty_htlc_tx_fulfill(node_factory, bitcoind, chainparams, anchors):
     # push some money so that 1 + 4 can both send htlcs
     inv = l2.rpc.invoice(10**9 // 2, '1', 'balancer')
     l1.rpc.pay(inv['bolt11'])
-    l1.rpc.waitsendpay(inv['payment_hash'])
     wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['htlcs'] == [])
 
     inv = l4.rpc.invoice(10**9 // 2, '1', 'balancer')
     l2.rpc.pay(inv['bolt11'])
-    l2.rpc.waitsendpay(inv['payment_hash'])
     wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['htlcs'] == [])
 
     # now we send one 'sticky' htlc: l4->l1

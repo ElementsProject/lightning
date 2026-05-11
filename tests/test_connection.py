@@ -3845,6 +3845,7 @@ def test_multichan_stress(node_factory, executor, bitcoind):
     l1, l2, l3 = node_factory.line_graph(3, opts={'may_reconnect': True,
                                                   'dev-no-reconnect': None})
 
+    scid23 = first_scid(l2, l3)
     # Now fund *second* channel l2->l3 (slightly larger)
     bitcoind.rpc.sendtoaddress(l2.rpc.newaddr('bech32')['bech32'], 0.1)
     bitcoind.generate_block(1)
@@ -3857,19 +3858,38 @@ def test_multichan_stress(node_factory, executor, bitcoind):
     mine_funding_to_announce(bitcoind, [l1, l2, l3], num_blocks=6, wait_for_mempool=1)
     wait_for(lambda: len(l1.rpc.listchannels(source=l3.info['id'])['channels']) == 2)
 
+    # We use sendpay directly here, because xpay learns and refuses to pay!
+    route = [{'amount_msat': 101,
+              'id': l2.info['id'],
+              'delay': 16,
+              'channel': first_scid(l1, l2)},
+             {'amount_msat': 100,
+              'id': l3.info['id'],
+              'delay': 10,
+              # We say this, but l2 will choose.
+              'channel': scid23}]
+
     def send_many_payments():
-        for i in range(30):
-            inv = l3.rpc.invoice(100, "label-" + str(i), "desc")['bolt11']
+        passes = 0
+        fails = 0
+        # Make sure we try many times, and get at least one pass and fail.
+        while passes == 0 or fails == 0 or passes + fails < 30:
+            inv = l3.rpc.invoice(100, "label-" + str(passes + fails), "desc")
+            l1.rpc.sendpay(route, inv['payment_hash'], payment_secret=inv['payment_secret'])
+            time.sleep(0.05)
             try:
-                l1.rpc.pay(inv)
+                l1.rpc.waitsendpay(inv['payment_hash'])
+                passes += 1
             except RpcError:
+                fails += 1
                 pass
 
     # Send a heap of payments, while reconnecting...
     fut = executor.submit(send_many_payments)
 
-    for i in range(10):
+    for _ in range(30):
         l3.rpc.disconnect(l2.info['id'], force=True)
+        time.sleep(0.1)
         l3.rpc.connect(l2.info['id'], 'localhost', l2.port)
     fut.result(TIMEOUT)
 

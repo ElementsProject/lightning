@@ -3674,7 +3674,7 @@ def test_listhtlcs_wait(node_factory, bitcoind, executor):
 
     amt1 = 1000
     inv1 = l3.rpc.invoice(amt1, 'inv1', 'desc')
-    l1.rpc.pay(inv1['bolt11'])
+    l1.rpc.xpay(invstring=inv1['bolt11'], dev_use_shadow=False)
 
     waitres = waitcreate.result(TIMEOUT)
     assert waitres == {'subsystem': 'htlcs',
