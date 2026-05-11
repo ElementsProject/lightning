@@ -158,6 +158,13 @@ static void json_add_getroutes(struct json_stream *js,
 			json_object_start(js, NULL);
 			json_add_short_channel_id_dir(
 			    js, "short_channel_id_dir", hop->scidd);
+			json_add_node_id(js, "node_id_in", &hop->node_in);
+			json_add_node_id(js, "node_id_out", &hop->node_out);
+			json_add_amount_msat(js, "amount_in_msat", hop->amount_in);
+			json_add_amount_msat(js, "amount_out_msat", hop->amount_out);
+			json_add_u32(js, "cltv_in", hop->cltv_value_in);
+			json_add_u32(js, "cltv_out", hop->cltv_value_out);
+
 			json_add_node_id(js, "next_node_id", &hop->node_out);
 			json_add_amount_msat(js, "amount_msat", hop->amount_in);
 			json_add_u32(js, "delay", hop->cltv_value_in);

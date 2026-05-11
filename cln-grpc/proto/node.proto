@@ -4073,10 +4073,16 @@ message GetroutesRoutes {
 }
 
 message GetroutesRoutesPath {
-	Amount amount_msat = 3;
-	bytes next_node_id = 4;
-	uint32 delay = 5;
+	optional Amount amount_msat = 3;
+	optional bytes next_node_id = 4;
+	optional uint32 delay = 5;
 	string short_channel_id_dir = 6;
+	optional Amount amount_in_msat = 7;
+	optional Amount amount_out_msat = 8;
+	optional bytes node_id_in = 9;
+	optional bytes node_id_out = 10;
+	optional uint32 cltv_in = 11;
+	optional uint32 cltv_out = 12;
 }
 
 message AskrenedisablenodeRequest {

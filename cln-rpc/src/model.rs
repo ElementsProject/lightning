@@ -12206,9 +12206,24 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct GetroutesRoutesPath {
-	    pub amount_msat: Amount,
-	    pub delay: u32,
-	    pub next_node_id: PublicKey,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub amount_in_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub amount_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub amount_out_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub cltv_in: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub cltv_out: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub delay: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub next_node_id: Option<PublicKey>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub node_id_in: Option<PublicKey>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub node_id_out: Option<PublicKey>,
 	    pub short_channel_id_dir: ShortChannelIdDir,
 	}
 

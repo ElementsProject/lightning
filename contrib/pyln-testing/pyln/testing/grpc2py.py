@@ -3204,9 +3204,15 @@ def askrene_age2py(m):
 
 def getroutes_routes_path2py(m):
     return remove_default({
+        "amount_in_msat": amount2msat(m.amount_in_msat),  # PrimitiveField in generate_composite
         "amount_msat": amount2msat(m.amount_msat),  # PrimitiveField in generate_composite
+        "amount_out_msat": amount2msat(m.amount_out_msat),  # PrimitiveField in generate_composite
+        "cltv_in": m.cltv_in,  # PrimitiveField in generate_composite
+        "cltv_out": m.cltv_out,  # PrimitiveField in generate_composite
         "delay": m.delay,  # PrimitiveField in generate_composite
         "next_node_id": hexlify(m.next_node_id),  # PrimitiveField in generate_composite
+        "node_id_in": hexlify(m.node_id_in),  # PrimitiveField in generate_composite
+        "node_id_out": hexlify(m.node_id_out),  # PrimitiveField in generate_composite
         "short_channel_id_dir": m.short_channel_id_dir,  # PrimitiveField in generate_composite
     })
 

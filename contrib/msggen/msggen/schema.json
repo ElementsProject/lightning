@@ -16703,15 +16703,60 @@
                     "additionalProperties": false,
                     "required": [
                       "short_channel_id_dir",
-                      "next_node_id",
-                      "amount_msat",
-                      "delay"
+                      "node_id_in",
+                      "node_id_out",
+                      "amount_in_msat",
+                      "amount_out_msat",
+                      "cltv_in",
+                      "cltv_out"
                     ],
                     "properties": {
                       "short_channel_id_dir": {
                         "type": "short_channel_id_dir",
                         "description": [
                           "The channel and direction joining these nodes."
+                        ]
+                      },
+                      "amount_in_msat": {
+                        "added": "v26.06",
+                        "type": "msat",
+                        "description": [
+                          "The amount to send into this hop."
+                        ]
+                      },
+                      "amount_out_msat": {
+                        "added": "v26.06",
+                        "type": "msat",
+                        "description": [
+                          "The amount which arrives at the far end of this hop."
+                        ]
+                      },
+                      "node_id_in": {
+                        "added": "v26.06",
+                        "type": "pubkey",
+                        "description": [
+                          "The peer id at the start of this hop."
+                        ]
+                      },
+                      "node_id_out": {
+                        "added": "v26.06",
+                        "type": "pubkey",
+                        "description": [
+                          "The peer id at the end of this hop."
+                        ]
+                      },
+                      "cltv_in": {
+                        "added": "v26.06",
+                        "type": "u32",
+                        "description": [
+                          "The total CLTV expected by the node at the start of this hop."
+                        ]
+                      },
+                      "cltv_out": {
+                        "added": "v26.06",
+                        "type": "u32",
+                        "description": [
+                          "The total CLTV expected by the node at the end of this hop."
                         ]
                       },
                       "amount_msat": {

@@ -2173,10 +2173,16 @@
             "GetRoutes.routes[].probability_ppm": 1
         },
         "GetroutesRoutesPath": {
+            "GetRoutes.routes[].path[].amount_in_msat": 7,
             "GetRoutes.routes[].path[].amount_msat": 3,
+            "GetRoutes.routes[].path[].amount_out_msat": 8,
+            "GetRoutes.routes[].path[].cltv_in": 11,
+            "GetRoutes.routes[].path[].cltv_out": 12,
             "GetRoutes.routes[].path[].delay": 5,
             "GetRoutes.routes[].path[].direction": 2,
             "GetRoutes.routes[].path[].next_node_id": 4,
+            "GetRoutes.routes[].path[].node_id_in": 9,
+            "GetRoutes.routes[].path[].node_id_out": 10,
             "GetRoutes.routes[].path[].short_channel_id": 1,
             "GetRoutes.routes[].path[].short_channel_id_dir": 6
         },
@@ -8531,8 +8537,24 @@
             "added": "v24.08",
             "deprecated": null
         },
+        "GetRoutes.routes[].path[].amount_in_msat": {
+            "added": "v26.06",
+            "deprecated": null
+        },
         "GetRoutes.routes[].path[].amount_msat": {
             "added": "v24.08",
+            "deprecated": null
+        },
+        "GetRoutes.routes[].path[].amount_out_msat": {
+            "added": "v26.06",
+            "deprecated": null
+        },
+        "GetRoutes.routes[].path[].cltv_in": {
+            "added": "v26.06",
+            "deprecated": null
+        },
+        "GetRoutes.routes[].path[].cltv_out": {
+            "added": "v26.06",
             "deprecated": null
         },
         "GetRoutes.routes[].path[].delay": {
@@ -8545,6 +8567,14 @@
         },
         "GetRoutes.routes[].path[].next_node_id": {
             "added": "v24.08",
+            "deprecated": null
+        },
+        "GetRoutes.routes[].path[].node_id_in": {
+            "added": "v26.06",
+            "deprecated": null
+        },
+        "GetRoutes.routes[].path[].node_id_out": {
+            "added": "v26.06",
             "deprecated": null
         },
         "GetRoutes.routes[].path[].short_channel_id": {
