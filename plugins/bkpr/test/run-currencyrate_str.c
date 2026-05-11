@@ -101,7 +101,6 @@ void command_log(struct command *cmd UNNEEDED, enum log_level level UNNEEDED,
 { fprintf(stderr, "command_log called!\n"); abort(); }
 /* Generated stub for command_param_failed */
 struct command_result *command_param_failed(void)
-
 { fprintf(stderr, "command_param_failed called!\n"); abort(); }
 /* Generated stub for command_set_usage */
 void command_set_usage(struct command *cmd UNNEEDED, const char *usage UNNEEDED)
@@ -260,7 +259,8 @@ struct out_req *jsonrpc_request_start_(struct command *cmd UNNEEDED,
 								       const char *buf UNNEEDED,
 								       const jsmntok_t *result UNNEEDED,
 								       void *arg) UNNEEDED,
-				       void *arg UNNEEDED)
+				       void *arg)
+
 { fprintf(stderr, "jsonrpc_request_start_ called!\n"); abort(); }
 /* Generated stub for jsonrpc_request_sync */
 const jsmntok_t *jsonrpc_request_sync(const tal_t *ctx UNNEEDED,
