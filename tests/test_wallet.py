@@ -2971,24 +2971,9 @@ def test_withdraw_stuck_reserved_on_broadcast_failure(node_factory, bitcoind):
     with pytest.raises(RpcError, match=r'Error broadcasting transaction'):
         l1.rpc.withdraw(waddr, 'all')
 
-    # BUG: UTXOs remain reserved despite the failed broadcast.
-    # sendpsbt_done correctly unreserves the reservation it added (72 blocks),
-    # but fundpsbt's prior reservation (72 blocks) is NOT cleaned up.
     outputs = l1.rpc.listfunds()['outputs']
     reserved = [o for o in outputs if o.get('reserved', False)]
-    assert len(reserved) > 0, \
-        "Expected UTXOs to be reserved after failed broadcast (known bug)"
-
-    with pytest.raises(RpcError, match=r'Could not afford'):
-        l1.rpc.withdraw(waddr, 'all')
-
-    # Workaround: build a PSBT from the stuck UTXOs and call unreserveinputs.
-    stuck_utxos = [{'txid': o['txid'], 'vout': o['output']} for o in reserved]
-    psbt = bitcoind.rpc.createpsbt(stuck_utxos, [])
-    l1.rpc.unreserveinputs(psbt)
-
-    outputs = l1.rpc.listfunds()['outputs']
-    assert not any(o.get('reserved', False) for o in outputs)
+    assert reserved == []
 
     l1.rpc.withdraw(waddr, 'all')
     bitcoind.generate_block(1)
