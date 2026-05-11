@@ -2173,6 +2173,34 @@ static struct command_result *check_offer_payable(struct command *cmd,
 	return NULL;
 }
 
+static struct command_result *
+check_offer_sendamount_payable(struct command *cmd, const char *offerstr)
+{
+	const char *err;
+	struct tlv_offer *b12offer =
+	    offer_decode(tmpctx, offerstr, strlen(offerstr),
+			 plugin_feature_set(cmd->plugin), chainparams, &err);
+	/* Is it a valid offer? */
+	if (!b12offer)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Invalid bolt12 offer: %s", err);
+	/* FIXME: add currency support */
+	if (b12offer->offer_currency)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Cannot pay offer in different currency %s",
+				    b12offer->offer_currency);
+	/* Can only be applied to *any amount* offers. */
+	if (b12offer->offer_amount) {
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Offer does not allow any amount.");
+	}
+	/* Not recurrence, one time only. */
+	if (offer_recurrence(b12offer))
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Cannot sendamount recurring offers");
+	return NULL;
+}
+
 struct xpay_params {
 	struct amount_msat *msat, *maxfee, *partial, *includefees_msat;
 	const char **layers;
@@ -2245,7 +2273,11 @@ bip353_fetched(struct command *cmd,
 				    json_tok_full(buf, result));
 	offerstr = json_strdup(tmpctx, buf, offertok);
 
-	ret = check_offer_payable(cmd, offerstr, xparams->msat);
+	if (xparams->includefees_msat)
+		ret = check_offer_sendamount_payable(cmd, offerstr);
+	else
+		ret = check_offer_payable(cmd, offerstr, xparams->msat);
+
 	if (ret)
 		return ret;
 
