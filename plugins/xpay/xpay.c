@@ -88,7 +88,8 @@ struct payment {
 	struct pubkey destination;
 	/* Hash we want the preimage for */
 	struct sha256 payment_hash;
-	/* Amount we're trying to pay */
+	/* Amount, either the desired deliver or desired spend amount depending
+	 * on the context. */
 	struct amount_msat amount;
 	/* Relevant for partial payments. This is the value that must be written
 	 * in the final hop's payload for MPP coordination. */
@@ -597,6 +598,12 @@ static struct amount_msat total_delivered(const struct payment *payment)
 			abort();
 	}
 	return sum;
+}
+
+/* This payment should deliver this amount. */
+static struct amount_msat payment_deliver(const struct payment *payment)
+{
+	return payment->amount;
 }
 
 /* We can notify others of what the details are, so they can do their own
@@ -1172,7 +1179,7 @@ check_previous_success:
 			    description,
 			    fmt_amount_msat(tmpctx,
 					    total_delivered(attempt->payment)),
-			    fmt_amount_msat(tmpctx, attempt->payment->amount));
+			    fmt_amount_msat(tmpctx, payment_deliver(attempt->payment)));
 	}
 }
 
@@ -1237,6 +1244,18 @@ static struct amount_msat total_being_delivered(const struct payment *payment)
 
 	list_for_each(&payment->current_attempts, attempt, list) {
 		if (!amount_msat_accumulate(&sum, attempt_deliver(attempt)))
+			abort();
+	}
+	return sum;
+}
+
+static struct amount_msat payment_current_amount(const struct payment *payment)
+{
+	struct attempt *attempt;
+	struct amount_msat sum = AMOUNT_MSAT(0);
+
+	list_for_each(&payment->current_attempts, attempt, list) {
+		if (!amount_msat_accumulate(&sum, attempt->amount))
 			abort();
 	}
 	return sum;
@@ -1591,7 +1610,7 @@ static struct command_result *getroutes_done(struct command *aux_cmd,
 
 	/* Do we have more that needs routing?  If so, re-ask */
 	if (!amount_msat_sub(&needs_routing,
-			     payment->amount,
+			     payment_deliver(payment),
 			     total_being_delivered(payment)))
 		abort();
 
@@ -1745,7 +1764,7 @@ static struct command_result *waitblockheight_done(struct command *aux_cmd,
 
 	if (!amount_msat_sub(&needs_routing,
 			     payment->amount,
-			     total_being_delivered(payment)))
+			     payment_current_amount(payment)))
 		abort();
 	return getroutes_for(aux_cmd, payment, needs_routing);
 }
@@ -2375,12 +2394,12 @@ static struct payment *new_payment(const tal_t *ctx,
 	payment->mpp_amount = mpp_amount;
 	if (partial) {
 		payment->amount = *partial;
-		if (amount_msat_greater(payment->amount, payment->mpp_amount)) {
+		if (amount_msat_greater(*partial, payment->mpp_amount)) {
 			*err = tal_fmt(ctx, "partial_msat must be less or equal to total amount %s",
 				       fmt_amount_msat(tmpctx, payment->mpp_amount));
 			return tal_free(payment);
 		}
-		if (amount_msat_is_zero(payment->amount)) {
+		if (amount_msat_is_zero(*partial)) {
 			*err = tal_fmt(ctx, "partial_msat must be non-zero");
 			return tal_free(payment);
 		}
