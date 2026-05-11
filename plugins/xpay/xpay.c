@@ -394,6 +394,14 @@ static struct amount_msat attempt_deliver(const struct attempt *attempt)
 	return attempt->hops[len - 1].amount_out;
 }
 
+static struct amount_msat attempt_mpp_amount(const struct attempt *attempt)
+{
+	if (!attempt->payment->includefees)
+		return attempt->payment->mpp_amount;
+	assert(attempt->payment->maxparts == 1);
+	return attempt_deliver(attempt);
+}
+
 static u32 initial_cltv_delta(const struct attempt *attempt)
 {
 	if (tal_count(attempt->hops) == 0)
@@ -1326,6 +1334,7 @@ static void append_blinded_payloads(struct sphinx_path *sp,
 	const struct blinded_path *path = attempt->payment->paths[path_num];
 	u32 final_cltv = effective_bheight;
 	struct amount_msat deliver = attempt_deliver(attempt);
+	const struct amount_msat mpp_amount = attempt_mpp_amount(attempt);
 
 	for (size_t i = 0; i < tal_count(path->path); i++) {
 		bool first = (i == 0);
@@ -1346,7 +1355,7 @@ static void append_blinded_payloads(struct sphinx_path *sp,
 		 */
 		payload = onion_blinded_hop(NULL,
 					    final ? &deliver : NULL,
-					    final ? &attempt->payment->mpp_amount : NULL,
+					    final ? &mpp_amount : NULL,
 					    final ? &final_cltv : NULL,
 					    path->path[i]->encrypted_recipient_data,
 					    first ? &path->first_path_key : NULL);
@@ -1390,6 +1399,7 @@ static const u8 *create_onion(const tal_t *ctx,
 	struct sphinx_path *sp;
 	const u8 *payload, *ret;
 	const struct pubkey *node;
+	const struct amount_msat mpp_amount = attempt_mpp_amount(attempt);
 
 	sp = sphinx_path_new(ctx, attempt->payment->payment_hash.u.u8,
 			     sizeof(attempt->payment->payment_hash.u.u8));
@@ -1423,7 +1433,7 @@ static const u8 *create_onion(const tal_t *ctx,
 		u8 *final = onion_final_hop(NULL,
 					    attempt_deliver(attempt),
 					    attempt->payment->final_cltv + effective_bheight,
-					    attempt->payment->mpp_amount,
+					    mpp_amount,
 					    attempt->payment->payment_secret,
 					    attempt->payment->payment_metadata);
 		hop_append(&final, attempt->payment->extra_tlvs);
