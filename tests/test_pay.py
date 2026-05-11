@@ -5738,9 +5738,6 @@ def test_pay_routehint_minhtlc(node_factory, bitcoind):
     # You should be able to pay the invoice!
     l1.rpc.pay(inv['bolt11'])
 
-    # And you should also be able to getroute (and have it ignore htlc_min/max constraints!)
-    l1.rpc.getroute(l3.info['id'], amount_msat=0, riskfactor=1)
-
 
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')

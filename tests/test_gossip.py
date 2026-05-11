@@ -1474,7 +1474,8 @@ def test_getroute_exclude_duplicate(node_factory):
     in the exclude list will not have permanent effects.
     """
 
-    l1, l2 = node_factory.line_graph(2, wait_for_announce=True)
+    l1, l2 = node_factory.line_graph(2, wait_for_announce=True,
+                                     opts={'allow-deprecated-apis': True})
 
     # Starting route
     route = l1.rpc.getroute(l2.info['id'], 1, 1)['route']
@@ -1506,7 +1507,8 @@ def test_getroute_exclude_duplicate(node_factory):
 
 def test_getroute_exclude(node_factory, bitcoind):
     """Test getroute's exclude argument"""
-    l1, l2, l3, l4, l5 = node_factory.get_nodes(5)
+    l1, l2, l3, l4, l5 = node_factory.get_nodes(5,
+                                                opts={'allow-deprecated-apis': True})
     node_factory.join_nodes([l1, l2, l3, l4], wait_for_announce=True)
 
     # This should work

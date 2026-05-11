@@ -29,6 +29,7 @@ privacy:
 | getroutes.delay                                    | Field              | v26.06           | v27.06         | Use `cltv_in` instead (since v26.06)                                                                                      |
 | pay                                                | Command            | v26.06           | v27.03         | Use the more sophisticated and effective "xpay" command instead (since v24.11).                                           |
 | paystatus                                          | Command            | v26.06           | v27.03         | Uses internal pay structures, doesn't work with xpay, doesn't work across restarts.                                       |
+| getroute                                           | Command            | v26.06           | v27.03         | Less flexible than `getroutes` which takes an actual fee budget and can do multiple paths at once.                        |
 
 Inevitably there are features which need to change: either to be generalized, or removed when they can no longer be supported.
 

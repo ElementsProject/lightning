@@ -4,6 +4,8 @@
   "rpc": "getroute",
   "title": "Command for routing a payment (low-level)",
   "description": [
+    "NOTE: As of v26.06, getroute is deprecated in favor of **getroutes**.  The usual equivalent is to use getroutes with `layers` including `auto.localchans`, `auto.sourcefree` and `maxparts` set to 1.",
+    "",
     "The **getroute** RPC command attempts to find the best route for the payment of *amount_msat* to lightning node *id*, such that the payment will arrive at *id* with *cltv*.",
     "",
     "There are two considerations for how good a route is: how low the fees are, and how long your payment will get stuck in a delayed output if a node goes down during the process. ."
