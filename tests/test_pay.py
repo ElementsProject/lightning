@@ -270,7 +270,7 @@ def test_pay_disconnect(node_factory, bitcoind):
     rhash = inv['payment_hash']
 
     # Can't use `pay` since that'd notice that we can't route, due to disabling channel_update
-    route = l1.rpc.getroute(l2.info['id'], 123000, 1)["route"]
+    route = l1.single_route(l2.info['id'], 123000)
 
     l2.stop()
     # Make sure channeld has exited!
@@ -1479,13 +1479,13 @@ def test_forward_stats(node_factory, bitcoind):
 
     inv = l3.rpc.invoice(amount, "first", "desc")
     payment_hash = inv['payment_hash']
-    route = l1.rpc.getroute(l3.info['id'], amount, 1)['route']
+    route = l1.single_route(l3.info['id'], amount)
 
     l1.rpc.sendpay(route, payment_hash, payment_secret=inv['payment_secret'])
     l1.rpc.waitsendpay(payment_hash)
 
     # l4 rejects since it doesn't know the payment_hash
-    route = l1.rpc.getroute(l4.info['id'], amount, 1)['route']
+    route = l1.single_route(l4.info['id'], amount)
     payment_hash = "F" * 64
     with pytest.raises(RpcError):
         l1.rpc.sendpay(route, payment_hash, payment_secret=inv['payment_secret'])
@@ -1493,7 +1493,7 @@ def test_forward_stats(node_factory, bitcoind):
 
     # l5 will hold the HTLC hostage.
     l5.rpc.dev_ignore_htlcs(id=l2.info['id'], ignore=True)
-    route = l1.rpc.getroute(l5.info['id'], amount, 1)['route']
+    route = l1.single_route(l5.info['id'], amount)
     inv = l5.rpc.invoice(amount, "first", "desc")
     payment_hash = inv['payment_hash']
     l1.rpc.sendpay(route, payment_hash, payment_secret=inv['payment_secret'])
@@ -1618,7 +1618,7 @@ def test_forward_local_failed_stats(node_factory, bitcoind, executor):
 
     inv = l3.rpc.invoice(amount, "first", "desc")
     payment_hash = inv['payment_hash']
-    route = l1.rpc.getroute(l3.info['id'], amount, 1)['route']
+    route = l1.single_route(l3.info['id'], amount)
 
     l2.rpc.close(c23, 1)
 
@@ -1777,7 +1777,7 @@ def test_htlcs_cltv_only_difference(node_factory, bitcoind):
     l4.rpc.dev_ignore_htlcs(id=l3.info['id'], ignore=True)
 
     # L2 tries to pay
-    r = l2.rpc.getroute(l4.info['id'], 10**8, 1)["route"]
+    r = l2.single_route(l4.info['id'], 10**8)
     l2.rpc.sendpay(r, h, payment_secret=inv['payment_secret'])
 
     # Now increment CLTV
@@ -1785,7 +1785,7 @@ def test_htlcs_cltv_only_difference(node_factory, bitcoind):
     sync_blockheight(bitcoind, [l1, l2, l3, l4])
 
     # L1 tries to pay
-    r = l1.rpc.getroute(l4.info['id'], 10**8, 1)["route"]
+    r = l1.single_route(l4.info['id'], 10**8)
     l1.rpc.sendpay(r, h, payment_secret=inv['payment_secret'])
 
     # Now increment CLTV
@@ -1793,7 +1793,7 @@ def test_htlcs_cltv_only_difference(node_factory, bitcoind):
     sync_blockheight(bitcoind, [l1, l2, l3, l4])
 
     # L3 tries to pay
-    r = l3.rpc.getroute(l4.info['id'], 10**8, 1)["route"]
+    r = l3.single_route(l4.info['id'], 10**8)
     l3.rpc.sendpay(r, h, payment_secret=inv['payment_secret'])
 
     # Give them time to go through.
@@ -2843,7 +2843,7 @@ def test_htlc_too_dusty_outgoing(node_factory, bitcoind, chainparams):
     num_dusty_htlcs = max_dust_limit_sat // htlc_val_sat
 
     # add a some non-dusty htlcs, these will fail when we raise the dust limit
-    route = l1.rpc.getroute(l2.info['id'], non_dust_htlc_val_sat * 1000, 1)['route']
+    route = l1.single_route(l2.info['id'], non_dust_htlc_val_sat * 1000)
     for i in range(0, 3):
         inv = l2.rpc.invoice((non_dust_htlc_val_sat * 1000), str(i + 100), str(i + 100))
         l1.rpc.sendpay(route, inv['payment_hash'], payment_secret=inv['payment_secret'])
@@ -2852,7 +2852,7 @@ def test_htlc_too_dusty_outgoing(node_factory, bitcoind, chainparams):
         assert res['status'] == 'pending'
 
     # add some dusty-htlcs
-    route = l1.rpc.getroute(l2.info['id'], htlc_val_msat, 1)['route']
+    route = l1.single_route(l2.info['id'], htlc_val_msat)
     for i in range(0, num_dusty_htlcs):
         inv = l2.rpc.invoice(htlc_val_msat, str(i), str(i))
         l1.rpc.sendpay(route, inv['payment_hash'], payment_secret=inv['payment_secret'])
@@ -2867,7 +2867,7 @@ def test_htlc_too_dusty_outgoing(node_factory, bitcoind, chainparams):
     wait_for(lambda: only_one(l1.rpc.listsendpays(payment_hash=inv['payment_hash'])['payments'])['status'] == 'failed')
 
     # but we can still add a non dust htlc
-    route = l1.rpc.getroute(l2.info['id'], non_dust_htlc_val_sat * 1000, 1)['route']
+    route = l1.single_route(l2.info['id'], non_dust_htlc_val_sat * 1000)
     inv = l2.rpc.invoice((10000 * 1000), str(120), str(120))
     l1.rpc.sendpay(route, inv['payment_hash'], payment_secret=inv['payment_secret'])
     l2.daemon.wait_for_log(r'their htlc .* dev_ignore_htlcs')
@@ -2895,7 +2895,7 @@ def test_htlc_too_dusty_incoming(node_factory, bitcoind):
     htlc_val_sat = 250
     htlc_val_msat = htlc_val_sat * 1000
     num_dusty_htlcs = max_dust_limit_sat // htlc_val_sat
-    route = l1.rpc.getroute(l3.info['id'], htlc_val_msat, 1)['route']
+    route = l1.single_route(l3.info['id'], htlc_val_msat)
 
     # l1 sends as much money as it can
     for i in range(0, num_dusty_htlcs):
@@ -3261,7 +3261,7 @@ def test_partial_payment_timeout(node_factory, bitcoind):
     inv = l2.rpc.invoice(1000, 'inv', 'inv')
     paysecret = l2.rpc.decode(inv['bolt11'])['payment_secret']
 
-    route = l1.rpc.getroute(l2.info['id'], 500, 1)['route']
+    route = l1.single_route(l2.info['id'], 500)
     l1.rpc.sendpay(
         route=route,
         payment_hash=inv['payment_hash'],
@@ -3316,7 +3316,7 @@ def test_partial_payment_restart(node_factory, bitcoind):
     inv = l3.rpc.invoice(1000, 'inv', 'inv')
     paysecret = l3.rpc.decode(inv['bolt11'])['payment_secret']
 
-    route = l1.rpc.getroute(l3.info['id'], 500, 1)['route']
+    route = l1.single_route(l3.info['id'], 500)
 
     l1.rpc.sendpay(
         route=route,
@@ -3361,7 +3361,7 @@ def test_partial_payment_htlc_loss(node_factory, bitcoind):
     inv = l3.rpc.invoice(1000, 'inv', 'inv')
     paysecret = l3.rpc.decode(inv['bolt11'])['payment_secret']
 
-    route = l1.rpc.getroute(l3.info['id'], 500, 1)['route']
+    route = l1.single_route(l3.info['id'], 500)
 
     l1.rpc.sendpay(route=route, payment_hash=inv['payment_hash'], amount_msat=1000, bolt11=inv['bolt11'], payment_secret=paysecret, partid=1)
 
@@ -3433,18 +3433,18 @@ caused a crash in 0.8.0, so we then disallowed it.
     with pytest.raises(RpcError, match=r'Do not specify msatoshi \(1001msat\) without'
                        ' partid: if you do, it must be exactly'
                        r' the final amount \(1000msat\)'):
-        l1.rpc.sendpay(route=l1.rpc.getroute(l2.info['id'], 1000, 1)['route'], payment_hash=inv['payment_hash'], amount_msat=1001, bolt11=inv['bolt11'], payment_secret=inv['payment_secret'])
+        l1.rpc.sendpay(route=l1.single_route(l2.info['id'], 1000), payment_hash=inv['payment_hash'], amount_msat=1001, bolt11=inv['bolt11'], payment_secret=inv['payment_secret'])
     with pytest.raises(RpcError, match=r'Do not specify msatoshi \(999msat\) without'
                        ' partid: if you do, it must be exactly'
                        r' the final amount \(1000msat\)'):
-        l1.rpc.sendpay(route=l1.rpc.getroute(l2.info['id'], 1000, 1)['route'], payment_hash=inv['payment_hash'], amount_msat=999, bolt11=inv['bolt11'], payment_secret=inv['payment_secret'])
+        l1.rpc.sendpay(route=l1.single_route(l2.info['id'], 1000), payment_hash=inv['payment_hash'], amount_msat=999, bolt11=inv['bolt11'], payment_secret=inv['payment_secret'])
 
     # Can't send MPP payment which pays any more than amount.
     with pytest.raises(RpcError, match=r'Final amount 1001msat is greater than 1000msat, despite MPP'):
-        l1.rpc.sendpay(route=l1.rpc.getroute(l2.info['id'], 1001, 1)['route'], payment_hash=inv['payment_hash'], amount_msat=1000, bolt11=inv['bolt11'], partid=1, payment_secret=inv['payment_secret'])
+        l1.rpc.sendpay(route=l1.single_route(l2.info['id'], 1001), payment_hash=inv['payment_hash'], amount_msat=1000, bolt11=inv['bolt11'], partid=1, payment_secret=inv['payment_secret'])
 
     # But this works
-    l1.rpc.sendpay(route=l1.rpc.getroute(l2.info['id'], 1001, 1)['route'], payment_hash=inv['payment_hash'], amount_msat=1001, bolt11=inv['bolt11'], payment_secret=inv['payment_secret'])
+    l1.rpc.sendpay(route=l1.single_route(l2.info['id'], 1001), payment_hash=inv['payment_hash'], amount_msat=1001, bolt11=inv['bolt11'], payment_secret=inv['payment_secret'])
     l1.rpc.waitsendpay(inv['payment_hash'])
 
     inv = only_one(l2.rpc.listinvoices('inv')['invoices'])

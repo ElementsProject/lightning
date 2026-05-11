@@ -2198,7 +2198,7 @@ def test_bad_onion_immediate_peer(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, opts=[{}, {'dev-fail-process-onionpacket': None}])
 
     inv = l2.rpc.invoice(123000, 'test_bad_onion_immediate_peer', 'description')
-    route = l1.rpc.getroute(l2.info['id'], 123000, 1)['route']
+    route = l1.single_route(l2.info['id'], 123000)
     assert len(route) == 1
 
     l1.rpc.sendpay(route, inv['payment_hash'], payment_secret=inv['payment_secret'])
@@ -3419,7 +3419,7 @@ def test_listforwards_and_listhtlcs(node_factory, bitcoind):
 
     # failed payment
     failed_inv = l3.rpc.invoice(4000, 'failed', 'desc')
-    failed_route = l1.rpc.getroute(l3.info['id'], 4000, 1)['route']
+    failed_route = l1.single_route(l3.info['id'], 4000)
 
     l2.rpc.close(c23)
 

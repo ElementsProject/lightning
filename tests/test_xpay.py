@@ -718,7 +718,7 @@ def test_fail_after_success(node_factory, bitcoind, executor, slow_mode):
     wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 10)
 
     inv = l5.rpc.invoice(800000000, 'test_xpay_slow_mode', 'test_xpay_slow_mode', preimage='00' * 32)['bolt11']
-    fut = executor.submit(l1.rpc.xpay, invstring=inv, retry_for=0)
+    fut = executor.submit(l1.rpc.xpay, invstring=inv, retry_for=0, dev_use_shadow=False)
 
     # Part via l3 is fine.  Part via l4 is stuck, so we kill l4 and mine
     # blocks to make l2 force close.

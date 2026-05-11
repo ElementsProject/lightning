@@ -1202,7 +1202,7 @@ def test_htlc_accepted_hook_fail(node_factory):
     # This must fail
     inv = l2.rpc.invoice(1000, "lbl", "desc")
     phash = inv['payment_hash']
-    route = l1.rpc.getroute(l2.info['id'], 1000, 1)['route']
+    route = l1.single_route(l2.info['id'], 1000)
 
     # Here shouldn't use `pay` command because l2 rejects with WIRE_TEMPORARY_NODE_FAILURE,
     # then it will be excluded when l1 try another pay attempt.
@@ -1507,14 +1507,14 @@ def test_forward_event_notification(node_factory, bitcoind, executor):
 
     inv = l3.rpc.invoice(amount, "first", "desc")
     payment_hash13 = inv['payment_hash']
-    route = l1.rpc.getroute(l3.info['id'], amount, 1)['route']
+    route = l1.single_route(l3.info['id'], amount)
 
     # status: offered -> settled
     l1.rpc.sendpay(route, payment_hash13, payment_secret=inv['payment_secret'])
     l1.rpc.waitsendpay(payment_hash13)
 
     # status: offered -> failed
-    route = l1.rpc.getroute(l4.info['id'], amount, 1)['route']
+    route = l1.single_route(l4.info['id'], amount)
     payment_hash14 = "f" * 64
     with pytest.raises(RpcError):
         l1.rpc.sendpay(route, payment_hash14, payment_secret="f" * 64)
@@ -1622,7 +1622,7 @@ def test_sendpay_notifications(node_factory, bitcoind):
     payment_hash1 = inv1['payment_hash']
     inv2 = l3.rpc.invoice(amount, "second", "desc")
     payment_hash2 = inv2['payment_hash']
-    route = l1.rpc.getroute(l3.info['id'], amount, 1)['route']
+    route = l1.single_route(l3.info['id'], amount)
 
     l1.rpc.sendpay(route, payment_hash1, payment_secret=inv1['payment_secret'])
     response1 = l1.rpc.waitsendpay(payment_hash1)
@@ -1653,7 +1653,7 @@ def test_sendpay_notifications_nowaiter(node_factory):
     payment_hash1 = inv1['payment_hash']
     inv2 = l3.rpc.invoice(amount, "second", "desc")
     payment_hash2 = inv2['payment_hash']
-    route = l1.rpc.getroute(l3.info['id'], amount, 1)['route']
+    route = l1.single_route(l3.info['id'], amount)
 
     l1.rpc.sendpay(route, payment_hash1, payment_secret=inv1['payment_secret'])
     l1.daemon.wait_for_log(r'Received a sendpay_success')
@@ -2446,14 +2446,14 @@ def test_coin_movement_notices(node_factory, bitcoind, chainparams):
 
     inv = l3.rpc.invoice(amount, "first", "desc")
     payment_hash13 = inv['payment_hash']
-    route = l1.rpc.getroute(l3.info['id'], amount, 1)['route']
+    route = l1.single_route(l3.info['id'], amount)
 
     # status: offered -> settled
     l1.rpc.sendpay(route, payment_hash13, payment_secret=inv['payment_secret'])
     l1.rpc.waitsendpay(payment_hash13)
 
     # status: offered -> failed
-    route = l1.rpc.getroute(l3.info['id'], amount, 1)['route']
+    route = l1.single_route(l3.info['id'], amount)
     payment_hash13 = "f" * 64
     with pytest.raises(RpcError):
         l1.rpc.sendpay(route, payment_hash13, payment_secret=inv['payment_secret'])
@@ -2462,14 +2462,14 @@ def test_coin_movement_notices(node_factory, bitcoind, chainparams):
     # go the other direction
     inv = l1.rpc.invoice(amount // 2, "first", "desc")
     payment_hash31 = inv['payment_hash']
-    route = l3.rpc.getroute(l1.info['id'], amount // 2, 1)['route']
+    route = l3.single_route(l1.info['id'], amount // 2)
     l3.rpc.sendpay(route, payment_hash31, payment_secret=inv['payment_secret'])
     l3.rpc.waitsendpay(payment_hash31)
 
     # receive a payment (endpoint)
     inv = l2.rpc.invoice(amount, "first", "desc")
     payment_hash12 = inv['payment_hash']
-    route = l1.rpc.getroute(l2.info['id'], amount, 1)['route']
+    route = l1.single_route(l2.info['id'], amount)
     l1.rpc.sendpay(route, payment_hash12, payment_secret=inv['payment_secret'])
     l1.rpc.waitsendpay(payment_hash12)
 
@@ -2478,7 +2478,7 @@ def test_coin_movement_notices(node_factory, bitcoind, chainparams):
     payment_hash21 = inv['payment_hash']
     # Make sure previous completely settled
     wait_for(lambda: only_one(l2.rpc.listpeerchannels(l1.info['id'])['channels'])['htlcs'] == [])
-    route = l2.rpc.getroute(l1.info['id'], amount // 2, 1)['route']
+    route = l2.single_route(l1.info['id'], amount // 2)
     l2.rpc.sendpay(route, payment_hash21, payment_secret=inv['payment_secret'])
     l2.rpc.waitsendpay(payment_hash21)
 
@@ -2741,7 +2741,7 @@ def test_htlc_accepted_hook_malformedtlvs(node_factory):
     l2.rpc.setcustomtlvs(tlvs=mal_tlv)
     inv = l3.rpc.invoice(1000, 'customtlvs-maltlvs', '')
     phash = inv['payment_hash']
-    route = l1.rpc.getroute(l3.info['id'], 1000, 1)['route']
+    route = l1.single_route(l3.info['id'], 1000)
 
     # Here shouldn't use `pay` command because l2 should fail with a broken log.
     l1.rpc.sendpay(route, phash, payment_secret=inv['payment_secret'])
@@ -4252,7 +4252,7 @@ def test_sql(node_factory, bitcoind):
     # And I need at least one HTLC in-flight so listpeers.channels.htlcs isn't empty:
     l3.rpc.plugin_start(os.path.join(os.getcwd(), 'tests/plugins/hold_invoice.py'))
     inv = l3.rpc.invoice(amount_msat=12300, label='inv3', description='description')
-    route = l1.rpc.getroute(l3.info['id'], 12300, 1)['route']
+    route = l1.single_route(l3.info['id'], 12300)
     l1.rpc.sendpay(route, inv['payment_hash'], payment_secret=inv['payment_secret'])
     # And an in-flight channel open...
     l2.openchannel(l3, confirm=False, wait_for_announce=False)

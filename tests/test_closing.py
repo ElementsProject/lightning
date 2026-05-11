@@ -1258,7 +1258,7 @@ def test_penalty_htlc_tx_fulfill(node_factory, bitcoind, chainparams, anchors):
     # now we send one 'sticky' htlc: l4->l1
     amt = 10**8 // 2
     sticky_inv = l1.rpc.invoice(amt, '2', 'sticky')
-    route = l4.rpc.getroute(l1.info['id'], amt, 1)['route']
+    route = l4.single_route(l1.info['id'], amt)
     l4.rpc.sendpay(route, sticky_inv['payment_hash'], payment_secret=sticky_inv['payment_secret'])
     l1.daemon.wait_for_log('dev_disconnect: -WIRE_UPDATE_FULFILL_HTLC')
 
@@ -1449,12 +1449,12 @@ def test_penalty_htlc_tx_timeout(node_factory, bitcoind, chainparams, anchors):
     # now we send two 'sticky' htlcs, l1->l5 + l4->l1
     amt = 10**8 // 2
     sticky_inv_1 = l5.rpc.invoice(amt, '2', 'sticky')
-    route = l1.rpc.getroute(l5.info['id'], amt, 1)['route']
+    route = l1.single_route(l5.info['id'], amt)
     l1.rpc.sendpay(route, sticky_inv_1['payment_hash'], payment_secret=sticky_inv_1['payment_secret'])
     l5.daemon.wait_for_log('dev_disconnect: -WIRE_UPDATE_FULFILL_HTLC')
 
     sticky_inv_2 = l1.rpc.invoice(amt, '2', 'sticky')
-    route = l4.rpc.getroute(l1.info['id'], amt, 1)['route']
+    route = l4.single_route(l1.info['id'], amt)
     l4.rpc.sendpay(route, sticky_inv_2['payment_hash'], payment_secret=sticky_inv_2['payment_secret'])
     l1.daemon.wait_for_log('dev_disconnect: -WIRE_UPDATE_FULFILL_HTLC')
 
@@ -2121,7 +2121,7 @@ def test_onchain_middleman_simple(node_factory, bitcoind, chainparams, anchors):
     inv = l3.rpc.invoice(10**8, 'middleman', 'desc')
     rhash = inv['payment_hash']
 
-    route = l1.rpc.getroute(l3.info['id'], 10**8, 1)["route"]
+    route = l1.single_route(l3.info['id'], 10**8)
     assert len(route) == 2
 
     q = queue.Queue()
@@ -2260,7 +2260,7 @@ def test_onchain_middleman_their_unilateral_in(node_factory, bitcoind, chainpara
     inv = l3.rpc.invoice(10**8, 'middleman', 'desc')
     rhash = inv['payment_hash']
 
-    route = l1.rpc.getroute(l3.info['id'], 10**8, 1)["route"]
+    route = l1.single_route(l3.info['id'], 10**8)
     assert len(route) == 2
 
     q = queue.Queue()
@@ -2368,7 +2368,7 @@ def test_onchain_their_unilateral_out(node_factory, bitcoind, chainparams, ancho
                                               {**opts, **{'disconnect': disconnects}}])
     channel_id = first_channel_id(l1, l2)
 
-    route = l1.rpc.getroute(l2.info['id'], 10**8, 1)["route"]
+    route = l1.single_route(l2.info['id'], 10**8)
     assert len(route) == 1
 
     q = queue.Queue()
@@ -3706,7 +3706,7 @@ We send an HTLC, and peer unilaterally closes: do we close upstream?
     ph1 = l3.rpc.invoice(amount_msat="10000sat", label='x1', description='desc2')['payment_hash']
     ph2 = l3.rpc.invoice(amount_msat="10000sat", label='x2', description='desc2')['payment_hash']
 
-    route = l1.rpc.getroute(l3.info['id'], 1, 1)['route']
+    route = l1.single_route(l3.info['id'], 1)
 
     # Start a payment
     l1.rpc.sendpay(route, ph1)
@@ -4028,7 +4028,7 @@ def test_peer_anchor_push(node_factory, bitcoind, executor, chainparams):
     # Get HTLC stuck, so l2 has reason to push commitment tx.
     amt = 100_000_000
     sticky_inv = l3.rpc.invoice(amt, 'sticky', 'sticky')
-    route = l1.rpc.getroute(l3.info['id'], amt, 1)['route']
+    route = l1.single_route(l3.info['id'], amt)
     l1.rpc.sendpay(route, sticky_inv['payment_hash'], payment_secret=sticky_inv['payment_secret'])
     l3.daemon.wait_for_log('dev_disconnect: -WIRE_UPDATE_FULFILL_HTLC')
 
@@ -4229,7 +4229,7 @@ def test_anchorspend_using_to_remote(node_factory, bitcoind, anchors):
     # Get HTLC stuck, so l2 has reason to push commitment tx.
     amt = 100_000_000
     sticky_inv = l3.rpc.invoice(amt, 'sticky', 'sticky')
-    route = l1.rpc.getroute(l3.info['id'], amt, 1)['route']
+    route = l1.single_route(l3.info['id'], amt)
     l1.rpc.sendpay(route, sticky_inv['payment_hash'], payment_secret=sticky_inv['payment_secret'])
     l3.daemon.wait_for_log('dev_disconnect: -WIRE_UPDATE_FULFILL_HTLC')
 
