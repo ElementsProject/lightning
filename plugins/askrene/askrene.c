@@ -355,12 +355,26 @@ struct getroutes_info {
 	u32 maxparts;
 };
 
+static void add_layer(const struct layer ***layers,
+		      const struct layer *l,
+		      const struct gossmap *gossmap,
+		      struct gossmap_localmods *localmods,
+		      fp16_t *capacities)
+{
+	tal_arr_expand(layers, l);
+	/* FIXME: Implement localmods_merge, and cache this in layer? */
+	layer_add_localmods(l, gossmap, localmods);
+
+	/* Clear any entries in capacities array if we
+	 * override them (incl local channels) */
+	layer_clear_overridden_capacities(l, gossmap, capacities);
+}
+
 /* Gather layers, clear capacities where layers contains info */
 static const struct layer **apply_layers(const tal_t *ctx,
 					 struct askrene *askrene,
 					 struct command *cmd,
 					 const struct node_id *source,
-					 struct amount_msat amount,
 					 struct gossmap_localmods *localmods,
 					 const char **layernames,
 					 const struct layer *local_layer,
@@ -376,7 +390,8 @@ static const struct layer **apply_layers(const tal_t *ctx,
 				l = local_layer;
 			} else if (streq(layernames[i], "auto.no_mpp_support")) {
 				cmd_log(tmpctx, cmd, LOG_DBG, "Adding auto.no_mpp_support, sorry");
-				l = remove_small_channel_layer(layernames, askrene, amount, localmods);
+				/* We will add a layer later, in the caller. */
+				continue;
 			} else if (streq(layernames[i], "auto.include_fees")) {
 				cmd_log(tmpctx, cmd, LOG_DBG, "Adding auto.include_fees");
 				/* This layer takes effect when converting flows
@@ -388,14 +403,7 @@ static const struct layer **apply_layers(const tal_t *ctx,
 				l = source_free_layer(layernames, askrene, source, localmods);
 			}
 		}
-
-		tal_arr_expand(&layers, l);
-		/* FIXME: Implement localmods_merge, and cache this in layer? */
-		layer_add_localmods(l, askrene->gossmap, localmods);
-
-		/* Clear any entries in capacities array if we
-		 * override them (incl local channels) */
-		layer_clear_overridden_capacities(l, askrene->gossmap, capacities);
+		add_layer(&layers, l, askrene->gossmap, localmods, capacities);
 	}
 	return layers;
 }
@@ -566,8 +574,17 @@ static struct command_result *do_getroutes(struct command *cmd,
 
 	/* apply selected layers to the localmods */
 	layers = apply_layers(cmd, askrene, cmd,
-			      &info->source, info->amount, localmods,
+			      &info->source, localmods,
 			      info->layers, info->local_layer, capacities);
+
+
+	/* no parallel payments means we can drop any smaller channels */
+	if (have_layer(info->layers, "auto.no_mpp_support") || info->maxparts == 1) {
+		add_layer(&layers,
+			  remove_small_channel_layer(layers, askrene, info->amount, localmods),
+			  askrene->gossmap,
+			  localmods, capacities);
+	}
 
 	/* Clear scids with reservations, too, so we don't have to look up
 	 * all the time! */
