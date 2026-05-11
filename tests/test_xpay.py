@@ -1105,6 +1105,62 @@ def test_xpay_blockheight_mismatch(node_factory, bitcoind, executor):
     fut.result(TIMEOUT)
 
 
+def test_xpay_user_layers(node_factory):
+    l1, l2, l3, l4 = node_factory.get_nodes(
+        4, opts={"may_reconnect": True, "xpay-handle-pay": True}
+    )
+    node_factory.join_nodes([l1, l2, l3], wait_for_announce=True)
+    node_factory.join_nodes([l2, l4], wait_for_announce=True)
+
+    layer = "disable-chan23"
+    l1.rpc.askrene_create_layer(layer=layer, persistent=True)
+    scid = l2.rpc.listpeerchannels(l3.info["id"])["channels"][0]["short_channel_id"]
+    direction = l2.rpc.listpeerchannels(l3.info["id"])["channels"][0]["direction"]
+    l1.rpc.askrene_update_channel(
+        layer=layer, enabled=False, short_channel_id_dir=f"{scid}/{direction}"
+    )
+
+    layer = "disable-chan24"
+    l1.rpc.askrene_create_layer(layer=layer, persistent=True)
+    scid = l2.rpc.listpeerchannels(l4.info["id"])["channels"][0]["short_channel_id"]
+    direction = l2.rpc.listpeerchannels(l4.info["id"])["channels"][0]["direction"]
+    l1.rpc.askrene_update_channel(
+        layer=layer, enabled=False, short_channel_id_dir=f"{scid}/{direction}"
+    )
+
+    # Let us load these layers as user layers in xpay. Both payments should fail
+    l1.stop()
+    l1.daemon.opts["xpay-user-layer"] = ["disable-chan23", "disable-chan24"]
+    l1.start()
+    l1.rpc.connect(l2.info["id"], "localhost", l2.port)
+    l1.daemon.wait_for_log(f"channeld.*: billboard: Channel ready for use")
+    inv3 = l3.rpc.invoice(1000, "test-xpay-user-layer", "test-xpay-user-layer")[
+        "bolt11"
+    ]
+    with pytest.raises(
+        RpcError,
+        match="We could not find a usable set of paths. All 1 channels to the destination are disabled.",
+    ):
+        l1.rpc.pay(inv3)
+    inv4 = l4.rpc.invoice(1000, "test-xpay-user-layer", "test-xpay-user-layer")[
+        "bolt11"
+    ]
+    with pytest.raises(
+        RpcError,
+        match="We could not find a usable set of paths. All 1 channels to the destination are disabled.",
+    ):
+        l1.rpc.pay(inv4)
+
+    # Without those layers, the same payments should go through
+    l1.stop()
+    del l1.daemon.opts["xpay-user-layer"]
+    l1.start()
+    l1.rpc.connect(l2.info["id"], "localhost", l2.port)
+    l1.daemon.wait_for_log(f"channeld.*: billboard: Channel ready for use")
+    l1.rpc.pay(inv3)
+    l1.rpc.pay(inv4)
+
+
 def test_xpay_get_error_with_update(node_factory):
     """We should process an update inside a temporary_channel_failure"""
     l1, l2, l3 = node_factory.line_graph(3, opts={'log-level': 'io'}, fundchannel=True, wait_for_announce=True)
