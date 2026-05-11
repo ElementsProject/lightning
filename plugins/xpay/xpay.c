@@ -178,7 +178,10 @@ struct attempt {
 	u64 partid;
 
 	struct payment *payment;
-	struct amount_msat delivers;
+
+	/* "amount" is either the intended deliver amount or the send amount,
+	 * depending on the payment context. */
+	struct amount_msat amount;
 	struct timemono start_time;
 
 	/* Path we tried, so we can unreserve, and tell askrene the results */
@@ -367,15 +370,23 @@ send_payment_req(struct command *aux_cmd,
 static struct amount_msat initial_sent(const struct attempt *attempt)
 {
 	if (tal_count(attempt->hops) == 0)
-		return attempt->delivers;
+		return attempt->amount;
 	return attempt->hops[0].amount_out;
 }
 
 static struct amount_msat inject_amount(const struct attempt *attempt)
 {
 	if (tal_count(attempt->hops) == 0)
-		return attempt->delivers;
+		return attempt->amount;
 	return attempt->hops[0].amount_in;
+}
+
+static struct amount_msat attempt_deliver(const struct attempt *attempt)
+{
+	const size_t len = tal_count(attempt->hops);
+	if (len == 0)
+		return attempt->amount;
+	return attempt->hops[len - 1].amount_out;
 }
 
 static u32 initial_cltv_delta(const struct attempt *attempt)
@@ -581,7 +592,7 @@ static struct amount_msat total_delivered(const struct payment *payment)
 	list_for_each(&payment->past_attempts, attempt, list) {
 		if (!attempt->preimage)
 			continue;
-		if (!amount_msat_accumulate(&sum, attempt->delivers))
+		if (!amount_msat_accumulate(&sum, attempt_deliver(attempt)))
 			abort();
 	}
 	return sum;
@@ -603,7 +614,7 @@ static void outgoing_notify_start(const struct attempt *attempt)
 	struct json_stream *js = plugin_notification_start(NULL, "pay_part_start");
 	json_add_attempt_fields(js, attempt);
 	json_add_amount_msat(js, "total_payment_msat", attempt->payment->amount);
-	json_add_amount_msat(js, "attempt_msat", attempt->delivers);
+	json_add_amount_msat(js, "attempt_msat", attempt->amount);
 	json_array_start(js, "hops");
 	for (size_t i = 0; i < tal_count(attempt->hops); i++) {
 		const struct hop *hop = &attempt->hops[i];
@@ -1051,7 +1062,7 @@ static void update_knowledge_from_error(struct command *aux_cmd,
 			add_result_summary(attempt, LOG_DBG,
 					   "Payment of %s reached destination,"
 					   " but timed out before the rest arrived.",
-					   fmt_amount_msat(tmpctx, attempt->delivers));
+					   fmt_amount_msat(tmpctx, attempt_deliver(attempt)));
 			return;
 		}
 	} else {
@@ -1191,7 +1202,7 @@ static struct command_result *injectpaymentonion_failed(struct command *aux_cmd,
 							struct attempt *attempt)
 {
 	struct payment *payment = attempt->payment;
-	struct amount_msat delivers = attempt->delivers;
+	struct amount_msat amount = attempt->amount;
 
 	payment->num_failures++;
 
@@ -1212,22 +1223,34 @@ static struct command_result *injectpaymentonion_failed(struct command *aux_cmd,
 
 	/* If we're not waiting for getroutes, kick one off */
 	if (amount_msat_is_zero(payment->amount_being_routed))
-		return getroutes_for(aux_cmd, payment, delivers);
+		return getroutes_for(aux_cmd, payment, amount);
 
 	/* Wait for getroutes to finish */
 	return command_still_pending(aux_cmd);
 }
 
-static struct amount_msat total_being_sent(const struct payment *payment)
+static struct amount_msat total_being_delivered(const struct payment *payment)
 {
 	struct attempt *attempt;
 	struct amount_msat sum = AMOUNT_MSAT(0);
 
 	list_for_each(&payment->current_attempts, attempt, list) {
-		if (!amount_msat_accumulate(&sum, attempt->delivers))
+		if (!amount_msat_accumulate(&sum, attempt_deliver(attempt)))
 			abort();
 	}
 	return sum;
+}
+
+static struct amount_msat attempt_fee(const struct attempt *attempt)
+{
+	const size_t len = tal_count(attempt->hops);
+	if (len == 0)
+		return AMOUNT_MSAT(0);
+	struct amount_msat fee;
+	if (!amount_msat_sub(&fee, attempt->hops[0].amount_in,
+			     attempt->hops[len - 1].amount_out))
+		abort();
+	return fee;
 }
 
 static struct amount_msat total_fees_being_sent(const struct payment *payment)
@@ -1236,13 +1259,7 @@ static struct amount_msat total_fees_being_sent(const struct payment *payment)
 	struct amount_msat sum = AMOUNT_MSAT(0);
 
 	list_for_each(&payment->current_attempts, attempt, list) {
-		struct amount_msat fee;
-		if (tal_count(attempt->hops) == 0)
-			continue;
-		if (!amount_msat_sub(&fee,
-				     attempt->hops[0].amount_in,
-				     attempt->delivers))
-			abort();
+		struct amount_msat fee = attempt_fee(attempt);
 		if (!amount_msat_accumulate(&sum, fee))
 			abort();
 	}
@@ -1285,6 +1302,7 @@ static void append_blinded_payloads(struct sphinx_path *sp,
 {
 	const struct blinded_path *path = attempt->payment->paths[path_num];
 	u32 final_cltv = effective_bheight;
+	struct amount_msat deliver = attempt_deliver(attempt);
 
 	for (size_t i = 0; i < tal_count(path->path); i++) {
 		bool first = (i == 0);
@@ -1304,7 +1322,7 @@ static void append_blinded_payloads(struct sphinx_path *sp,
 		 *   - MUST NOT include any other tlv field.
 		 */
 		payload = onion_blinded_hop(NULL,
-					    final ? &attempt->delivers : NULL,
+					    final ? &deliver : NULL,
 					    final ? &attempt->payment->full_amount : NULL,
 					    final ? &final_cltv : NULL,
 					    path->path[i]->encrypted_recipient_data,
@@ -1380,7 +1398,7 @@ static const u8 *create_onion(const tal_t *ctx,
 	 * that's done in append_blinded_payloads. */
 	if (!blinded_path) {
 		u8 *final = onion_final_hop(NULL,
-					    attempt->delivers,
+					    attempt_deliver(attempt),
 					    attempt->payment->final_cltv + effective_bheight,
 					    attempt->payment->full_amount,
 					    attempt->payment->payment_secret,
@@ -1437,7 +1455,7 @@ static struct command_result *do_inject(struct command *aux_cmd,
 		json_add_string(req->js, "invstring", attempt->payment->invstring);
 	else
 		json_add_pubkey(req->js, "destination", &attempt->payment->destination);
-	json_add_amount_msat(req->js, "destination_msat", attempt->delivers);
+	json_add_amount_msat(req->js, "destination_msat", attempt_deliver(attempt));
 	if (attempt->payment->localinvreqid)
 		json_add_sha256(req->js, "localinvreqid", attempt->payment->localinvreqid);
 	if (attempt->payment->label)
@@ -1471,13 +1489,13 @@ static struct command_result *reserve_done_err(struct command *aux_cmd,
 
 /* Does not set shared_secrets */
 static struct attempt *new_attempt(struct payment *payment,
-				   struct amount_msat delivers,
+				   struct amount_msat amount,
 				   const struct hop *hops TAKES)
 {
 	struct attempt *attempt = tal(payment, struct attempt);
 
 	attempt->payment = payment;
-	attempt->delivers = delivers;
+	attempt->amount = amount;
 	attempt->preimage = NULL;
 	attempt->partid = ++payment->total_num_attempts;
 	attempt->hops = tal_dup_talarr(attempt, struct hop, hops);
@@ -1573,7 +1591,7 @@ static struct command_result *getroutes_done(struct command *aux_cmd,
 	/* Do we have more that needs routing?  If so, re-ask */
 	if (!amount_msat_sub(&needs_routing,
 			     payment->amount,
-			     total_being_sent(payment)))
+			     total_being_delivered(payment)))
 		abort();
 
 	was_routing = payment->amount_being_routed;
@@ -1726,7 +1744,7 @@ static struct command_result *waitblockheight_done(struct command *aux_cmd,
 
 	if (!amount_msat_sub(&needs_routing,
 			     payment->amount,
-			     total_being_sent(payment)))
+			     total_being_delivered(payment)))
 		abort();
 	return getroutes_for(aux_cmd, payment, needs_routing);
 }
