@@ -2,8 +2,10 @@
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
   "rpc": "pay",
-  "title": "Command for sending a payment to a BOLT11 invoice",
+  "title": "Command for sending a payment to a BOLT11/BOLT12 invoice",
   "description": [
+    "NOTE: As of v26.06, xpay transparantly handles most **pay** invocations, and **pay** is deprecated.",
+    "",
     "The **pay** RPC command attempts to find a route to the given destination, and send the funds it asks for. .",
     "",
     "The response will occur when the payment fails or succeeds. Once a payment has succeeded, calls to **pay** with the same *bolt11* will succeed immediately.",

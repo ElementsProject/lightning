@@ -776,7 +776,8 @@ def test_wait_invoices(node_factory, executor):
 
 
 def test_invoice_deschash(node_factory, chainparams):
-    l1, l2 = node_factory.line_graph(2)
+    # xpay ignores description, so use real pay.
+    l1, l2 = node_factory.line_graph(2, opts={'xpay-handle-pay': False})
 
     # BOLT #11:
     # * `h`: tagged field: hash of description

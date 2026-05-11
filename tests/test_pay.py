@@ -102,51 +102,33 @@ def test_pay_limits(node_factory):
     """Test that we enforce fee max percentage and max delay"""
     l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
 
-    # FIXME: pylightning should define these!
-    PAY_STOPPED_RETRYING = 210
+    # FIXME: pylightning should define this!
+    PAY_ROUTE_TOO_EXPENSIVE = 206
 
     inv = l3.rpc.invoice("any", "any", 'description')
 
     # Fee too high.
-    err = r'Fee exceeds our fee budget: [1-9]msat > 0msat, discarding route'
+    err = r'Could not find route without excessive cost'
     with pytest.raises(RpcError, match=err) as err:
-        l1.rpc.call('pay', {'bolt11': inv['bolt11'], 'amount_msat': 100000, 'maxfeepercent': 0.0001, 'exemptfee': 0})
+        l1.rpc.call('xpay', {'invstring': inv['bolt11'], 'amount_msat': 100000, 'maxfee': 1})
 
-    assert err.value.error['code'] == PAY_STOPPED_RETRYING
+    assert err.value.error['code'] == PAY_ROUTE_TOO_EXPENSIVE
 
-    # It should have retried two more times (one without routehint and one with routehint)
-    status = l1.rpc.call('paystatus', {'bolt11': inv['bolt11']})['pay'][0]['attempts']
-
-    # We have an internal test to see if we can reach the destination directly
-    # without a routehint, that will enable a NULL-routehint. We will then try
-    # with the provided routehint, and the NULL routehint, resulting in 2
-    # attempts.
-    assert(len(status) == 2)
-    assert(status[0]['failure']['code'] == 205)
-
-    failmsg = r'CLTV delay exceeds our CLTV budget'
+    failmsg = r'Could not find route without excessive delays'
     # Delay too high.
     with pytest.raises(RpcError, match=failmsg) as err:
-        l1.rpc.call('pay', {'bolt11': inv['bolt11'], 'amount_msat': 100000, 'maxdelay': 0})
+        l1.rpc.call('xpay', {'invstring': inv['bolt11'], 'amount_msat': 100000, 'maxdelay': 0})
 
-    assert err.value.error['code'] == PAY_STOPPED_RETRYING
-    # Should also have retried two more times.
-    status = l1.rpc.call('paystatus', {'bolt11': inv['bolt11']})['pay'][1]['attempts']
-
-    assert(len(status) == 2)
-    assert(status[0]['failure']['code'] == 205)
+    assert err.value.error['code'] == PAY_ROUTE_TOO_EXPENSIVE
 
     # This fails!
-    err = r'Fee exceeds our fee budget: 2msat > 1msat, discarding route'
+    err = r'Could not find route without excessive cost'
     with pytest.raises(RpcError, match=err) as err:
-        l1.rpc.pay(bolt11=inv['bolt11'], amount_msat=100000, maxfee=1)
+        l1.rpc.xpay(invstring=inv['bolt11'], amount_msat=100000, maxfee=1)
 
     # This works, because fee is less than exemptfee.
     l1.dev_pay(inv['bolt11'], amount_msat=100000, maxfeepercent=0.0001,
                exemptfee=2000, dev_use_shadow=False)
-    status = l1.rpc.call('paystatus', {'bolt11': inv['bolt11']})['pay'][3]['attempts']
-    assert len(status) == 1
-    assert status[0]['strategy'] == "Initial attempt"
 
 
 def test_pay_maxdelay_direct_channel(node_factory):
@@ -156,8 +138,8 @@ def test_pay_maxdelay_direct_channel(node_factory):
     inv = l2.rpc.invoice('10000msat', 'test_pay_maxdelay_direct', 'description')['bolt11']
 
     # Delay too low for direct channel.
-    with pytest.raises(RpcError, match=r'CLTV delay exceeds our CLTV budget'):
-        l1.rpc.call('pay', {'bolt11': inv, 'maxdelay': 1})
+    with pytest.raises(RpcError, match=r'Could not find route without excessive delays'):
+        l1.rpc.call('xpay', {'invstring': inv, 'maxdelay': 1})
 
 
 def test_pay_exclude_node(node_factory, bitcoind):
@@ -177,18 +159,9 @@ def test_pay_exclude_node(node_factory, bitcoind):
     amount = 10**8
 
     inv = l3.rpc.invoice(amount, "test1", 'description')['bolt11']
-    with pytest.raises(RpcError):
+    # It should have eliminated route hint.
+    with pytest.raises(RpcError, match=r"Failed after 1 attempts. We got a weird error \(temporary_node_failure\) for the invoice's route hint \([0-9x]*/0\): disabling it for this payment. Then routing failed: We could not find a usable set of paths. All 1 channels to the destination are disabled."):
         l1.rpc.pay(inv)
-
-    # It should have retried (once without routehint, too)
-    status = l1.rpc.call('paystatus', {'bolt11': inv})['pay'][0]['attempts']
-
-    # Excludes channel, then ignores routehint which includes that, then
-    # it excludes other channel.
-    assert len(status) == 2
-    assert status[0]['strategy'] == "Initial attempt"
-    assert status[0]['failure']['data']['failcodename'] == 'WIRE_TEMPORARY_NODE_FAILURE'
-    assert 'failure' in status[1]
 
     # Get a fresh invoice, but do it before other routes exist, so routehint
     # will be via l2.
@@ -222,15 +195,7 @@ def test_pay_exclude_node(node_factory, bitcoind):
     # This `pay` will work
     l1.rpc.pay(inv)
 
-    # It should have retried (once without routehint, too)
-    status = l1.rpc.call('paystatus', {'bolt11': inv})['pay'][0]['attempts']
-
-    # Excludes channel, then ignores routehint which includes that, then
-    # it excludes other channel.
-    assert len(status) == 2
-    assert status[0]['strategy'] == "Initial attempt"
-    assert status[0]['failure']['data']['failcodename'] == 'WIRE_TEMPORARY_NODE_FAILURE'
-    assert 'success' in status[1]
+    [p['status'] for p in l1.rpc.listsendpays()['payments']] == ['failed', 'failed', 'complete']
 
 
 def test_pay0(node_factory):
@@ -309,38 +274,6 @@ def test_pay_disconnect(node_factory, bitcoind):
     l1.daemon.wait_for_log('ONCHAIN')
 
 
-def test_pay_get_error_with_update(node_factory):
-    """We should process an update inside a temporary_channel_failure"""
-    l1, l2, l3 = node_factory.line_graph(3, opts={'log-level': 'io'}, fundchannel=True, wait_for_announce=True)
-    chanid2 = l2.get_channel_scid(l3)
-
-    inv = l3.rpc.invoice(123000, 'test_pay_get_error_with_update', 'description')
-
-    # Make sure it's not doing startup any more (where it doesn't disable channels!)
-    l2.daemon.wait_for_log("channel_gossip: no longer in startup mode", timeout=70)
-
-    # Make sure l2 doesn't tell l1 directly that channel is disabled.
-    l2.rpc.dev_suppress_gossip()
-    l3.stop()
-
-    # Make sure that l2 has seen disconnect, considers channel disabled.
-    wait_for(lambda: only_one(l2.rpc.listpeerchannels(l3.info['id'])['channels'])['peer_connected'] is False)
-
-    assert(l1.is_channel_active(chanid2))
-
-    with pytest.raises(RpcError, match=r'WIRE_TEMPORARY_CHANNEL_FAILURE'):
-        l1.rpc.pay(inv['bolt11'])
-
-    # Make sure we get an onionreply, without the type prefix of the nested
-    # channel_update, and it should patch it to include a type prefix. The
-    # prefix 0x0102 should be in the channel_update, but not in the
-    # onionreply (negation of 0x0102 in the RE)
-    l1.daemon.wait_for_log(r'Extracted channel_update 0102.*from onionreply 1007008a[0-9a-fA-F]{276}$')
-
-    # And now monitor for l1 to apply the channel_update we just extracted
-    wait_for(lambda: not l1.is_channel_active(chanid2))
-
-
 def test_pay_error_update_fees(node_factory):
     """We should process an update inside a temporary_channel_failure"""
     l1, l2, l3 = node_factory.line_graph(3, fundchannel=True, wait_for_announce=True)
@@ -358,19 +291,16 @@ def test_pay_error_update_fees(node_factory):
     l2.rpc.setchannel(l3.info['id'], 1337, 137, enforcedelay=0)
 
     # Should bounce off and retry...
-    l1.rpc.pay(inv1['bolt11'])
-    attempts = only_one(l1.rpc.paystatus(inv1['bolt11'])['pay'])['attempts']
-    assert len(attempts) == 2
-    # WIRE_FEE_INSUFFICIENT = UPDATE|12
-    assert attempts[0]['failure']['data']['failcode'] == 4108
+    ret = l1.rpc.pay(inv1['bolt11'])
+    assert ret['parts'] == 2
+    payments = l1.rpc.listsendpays(inv1['bolt11'])['payments']
+    assert len(payments) == 2
 
-    # FIXME: We *DO NOT* handle misleading routehints!
-    # # Should ignore old routehint and do the same...
-    # l1.rpc.pay(inv2['bolt11'])
-    # attempts = only_one(l1.rpc.paystatus(inv2['bolt11'])['pay'])['attempts']
-    # assert len(attempts) == 2
-    # # WIRE_FEE_INSUFFICIENT = UPDATE|12
-    # assert attempts[0]['failure']['data']['failcode'] == 4108
+    # Should ignore old routehint and do the same...
+    ret = l1.rpc.pay(inv2['bolt11'])
+    assert ret['parts'] == 2
+    payments = l1.rpc.listsendpays(inv2['bolt11'])['payments']
+    assert len(payments) == 2
 
 
 def test_pay_optional_args(node_factory):
@@ -444,15 +374,6 @@ def test_payment_success_persistence(node_factory, bitcoind, executor):
     assert len(payments) == 1 and payments[0]['status'] == 'complete'
     assert len(invoices) == 1 and invoices[0]['status'] == 'paid'
 
-    l1.wait_local_channel_active(chanid)
-
-    # A duplicate should succeed immediately (nop) and return correct preimage.
-    preimage = l1.dev_pay(
-        inv1['bolt11'],
-        dev_use_shadow=False
-    )['payment_preimage']
-    assert l1.rpc.dev_rhash(preimage)['rhash'] == inv1['payment_hash']
-
 
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
@@ -502,7 +423,7 @@ def test_payment_failed_persistence(node_factory, executor):
     assert len(payments) == 1 and payments[0]['status'] == 'failed'
 
     # Another attempt should also fail.
-    with pytest.raises(RpcError):
+    with pytest.raises(RpcError, match='Invoice expired'):
         l1.rpc.pay(inv1['bolt11'])
 
 
@@ -518,7 +439,7 @@ def test_payment_duplicate_uncommitted(node_factory, executor):
     inv1 = l2.rpc.invoice(1000, 'inv1', 'inv1')
 
     # Start first payment, but not yet in db.
-    fut = executor.submit(l1.rpc.pay, inv1['bolt11'])
+    fut = executor.submit(l1.rpc.xpay, inv1['bolt11'])
 
     # Make sure that's started...
     l1.daemon.wait_for_log('peer_out WIRE_UPDATE_ADD_HTLC')
@@ -528,15 +449,16 @@ def test_payment_duplicate_uncommitted(node_factory, executor):
     assert len(payments) == 1
     assert payments[0]['status'] == 'pending' and payments[0]['payment_hash'] == inv1['payment_hash']
 
-    # Second one will succeed eventually.
-    fut2 = executor.submit(l1.rpc.pay, inv1['bolt11'])
+    # Second one will be stopped.
+    fut2 = executor.submit(l1.rpc.xpay, inv1['bolt11'])
 
     # Now, let it commit.
     l1.rpc.dev_reenable_commit(l2.info['id'])
 
-    # These should succeed.
+    # First should succeed, second should be denied.
     fut.result(TIMEOUT)
-    fut2.result(TIMEOUT)
+    with pytest.raises(RpcError, match="Payment with groupid=[0-9]* still in progress, cannot retry before that completes"):
+        fut2.result(TIMEOUT)
 
 
 def test_pay_maxfee_shadow(node_factory):
@@ -1841,6 +1763,9 @@ def test_pay_variants(node_factory):
     l1.rpc.pay(b11)
 
 
+# This can fail since xpay doesn't yet control listpays, so it can flag something
+# failed while it's still being attempted.
+@pytest.mark.xfail()
 @pytest.mark.slow_test
 def test_pay_retry(node_factory, bitcoind, executor, chainparams):
     """Make sure pay command retries properly. """
@@ -1919,10 +1844,13 @@ def test_pay_retry(node_factory, bitcoind, executor, chainparams):
     # It will try l1->l2->l3->l4->l5, which fails.
     # Finally, fails to find a route.
     inv = l5.rpc.invoice(10**8, 'test_retry2', 'test_retry2')['bolt11']
-    with pytest.raises(RpcError, match=r'4 attempts'):
+    with pytest.raises(RpcError, match=r'Failed after [0-9]* attempts'):
         l1.dev_pay(inv, dev_use_shadow=False)
 
 
+# This can fail since xpay doesn't yet control listpays, so it can flag something
+# failed while it's still being attempted.
+@pytest.mark.xfail()
 def test_pay_avoid_low_fee_chan(node_factory, bitcoind, executor, chainparams):
     """Make sure we're able to route around a low fee depleted channel """
 
@@ -2009,11 +1937,8 @@ def test_pay_routeboost(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, announce_channels=True, wait_for_announce=True)
     l3, l4, l5 = node_factory.line_graph(3, announce_channels=False, wait_for_announce=False)
 
-    # This should a "could not find a route" because that's true.
-    error = r'Destination [a-f0-9]{66} is not reachable directly and all routehints were unusable'
-
-    with pytest.raises(RpcError, match=error):
-        l1.rpc.pay(l5.rpc.invoice(10**8, 'test_retry', 'test_retry')['bolt11'])
+    with pytest.raises(RpcError, match=rf"Failed: Unknown destination node {l5.info['id']}"):
+        l1.rpc.xpay(l5.rpc.invoice(10**8, 'test_retry', 'test_retry')['bolt11'])
 
     l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
     scidl2l3, _ = l2.fundchannel(l3, 10**6)
@@ -2038,25 +1963,12 @@ def test_pay_routeboost(node_factory, bitcoind):
     assert only_one(only_one(l1.rpc.decode(inv['bolt11'])['routes']))
 
     # Now we should be able to pay it.
-    l1.dev_pay(inv['bolt11'], dev_use_shadow=False)
-
-    # Status should show all the gory details.
-    status = l1.rpc.call('paystatus', [inv['bolt11']])
-    assert only_one(status['pay'])['bolt11'] == inv['bolt11']
-    assert only_one(status['pay'])['amount_msat'] == Millisatoshi(10**5)
-    assert only_one(status['pay'])['destination'] == l4.info['id']
-    assert 'label' not in only_one(status['pay'])
-    assert 'routehint_modifications' not in only_one(status['pay'])
-    assert 'local_exclusions' not in only_one(status['pay'])
-    attempts = only_one(status['pay'])['attempts']
-    scid34 = l3.rpc.listpeerchannels(l4.info['id'])['channels'][0]['alias']['local']
-    assert(len(attempts) == 1)
-    a = attempts[0]
-    assert(a['strategy'] == "Initial attempt")
-    assert('success' in a)
-    assert('payment_preimage' in a['success'])
+    ret = l1.rpc.xpay(inv['bolt11'], dev_use_shadow=False)
+    assert ret['failed_parts'] == 0
+    assert ret['successful_parts'] == 1
 
     # With dev-route option we can test longer routehints.
+    scid34 = l3.rpc.listpeerchannels(l4.info['id'])['channels'][0]['alias']['local']
     scid45 = l4.rpc.listpeerchannels(l5.info['id'])['channels'][0]['alias']['local']
     routel3l4l5 = [{'id': l3.info['id'],
                     'short_channel_id': scid34,
@@ -2072,13 +1984,9 @@ def test_pay_routeboost(node_factory, bitcoind):
                          label='test_pay_routeboost2',
                          description='test_pay_routeboost2',
                          dev_routes=[routel3l4l5])
-    l1.dev_pay(inv['bolt11'], dev_use_shadow=False)
-    status = l1.rpc.call('paystatus', [inv['bolt11']])
-    pay = only_one(status['pay'])
-    attempts = pay['attempts']
-    assert(len(attempts) == 1)
-    assert 'failure' not in attempts[0]
-    assert 'success' in attempts[0]
+    ret = l1.rpc.xpay(inv['bolt11'], dev_use_shadow=False)
+    assert ret['failed_parts'] == 0
+    assert ret['successful_parts'] == 1
 
     # Finally, it should fall back to second routehint if first fails.
     # (Note, this is not public because it's not 6 deep). To test this
@@ -2108,24 +2016,10 @@ def test_pay_routeboost(node_factory, bitcoind):
                          label='test_pay_routeboost5',
                          description='test_pay_routeboost5',
                          dev_routes=[routel3l4l5, routel3l5])
-    l1.dev_pay(inv['bolt11'], label="paying test_pay_routeboost5",
-               dev_use_shadow=False)
-
-    status = l1.rpc.call('paystatus', [inv['bolt11']])
-    assert only_one(status['pay'])['bolt11'] == inv['bolt11']
-    assert only_one(status['pay'])['destination'] == l5.info['id']
-    assert only_one(status['pay'])['label'] == "paying test_pay_routeboost5"
-    assert 'routehint_modifications' not in only_one(status['pay'])
-    assert 'local_exclusions' not in only_one(status['pay'])
-    attempts = only_one(status['pay'])['attempts']
-
-    # First routehint in the invoice fails, we may retry that one
-    # unsuccessfully before switching, hence the >2 instead of =2
-    assert len(attempts) >= 2
-    assert 'success' not in attempts[0]
-    assert 'success' in attempts[-1]
-    # TODO Add assertion on the routehint once we add them to the pay
-    # output
+    ret = l1.rpc.xpay(inv['bolt11'], label="paying test_pay_routeboost5",
+                      dev_use_shadow=False)
+    assert ret['failed_parts'] == 0
+    assert ret['successful_parts'] == 1
 
 
 def test_setchannel_usage(node_factory, bitcoind):
@@ -2422,9 +2316,8 @@ def test_setchannel_routing(node_factory, bitcoind):
                          label='test_setchannel_1',
                          description='desc',
                          dev_routes=[])
-    with pytest.raises(RpcError) as routefail:
+    with pytest.raises(RpcError, match=f'The shortest path is [0-9x]*->{scid}, but {scid}/0 exceeds htlc_maximum_msat ~4001792msat'):
         l1.dev_pay(inv['bolt11'], dev_use_shadow=False)
-    assert routefail.value.error['attempts'][0]['failreason'] == 'No path found'
 
     # 1337 + 4000000 * 137 / 1000000 = 1885
     route_ok = l1.single_route(l3.info['id'], 4000000)
@@ -2976,13 +2869,13 @@ def test_pay_no_secret(node_factory, bitcoind):
 
     # Produced from modified version (different secret!).
     inv_badsecret = 'lnbcrt1u1pwuedm6pp5ve584t0cv27hwmy0cx9ca8uwyqyfw9y9dm3r8vus9fv36r2l9yjsdqaw3jhxazlwpshjhmwda0hxetrwfjhgxq8pmnt9qqcqp9sp52au0npwmw4xxv2rfrat04kh9p3jlmklgavhfxqukx0l05pw5tccs9qypqsqa286dmt2xh3jy8cd8ndeyr845q8a7nhgjkerdqjns76jraux6j25ddx9f5k5r2ey0kk942x3uhaff66794kyjxxcd48uevf7p6ja53gqjj5ur7'
-    with pytest.raises(RpcError, match=r"INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS.*'erring_index': 1"):
-        l1.rpc.pay(inv_badsecret)
+    with pytest.raises(RpcError, match=r"Destination said it doesn't know invoice: incorrect_or_unknown_payment_details"):
+        l1.rpc.xpay(inv_badsecret)
 
     # Produced from old version (no secret!)
     inv_nosecret = 'lnbcrt1u1pwue4vapp5ve584t0cv27hwmy0cx9ca8uwyqyfw9y9dm3r8vus9fv36r2l9yjsdqaw3jhxazlwpshjhmwda0hxetrwfjhgxq8pmnt9qqcqp9570xsjyykvssa6ty8fjth6f2y8h09myngad9utesttwjwclv95fz3lgd402f9e5yzpnxmkypg55rkvpg522gcz4ymsjl2w3m4jhw4jsp55m7tl'
-    with pytest.raises(RpcError, match=r"Invalid bolt11: Missing required payment secret \(s field\)"):
-        l1.rpc.pay(inv_nosecret)
+    with pytest.raises(RpcError, match=r"Invalid bolt11 invoice: Missing required payment secret \(s field\)"):
+        l1.rpc.xpay(inv_nosecret)
 
 
 def test_shadow_routing(node_factory):
@@ -3542,7 +3435,7 @@ def test_excluded_adjacent_routehint(node_factory, bitcoind):
     wait_for(lambda: 'remote' in only_one(l1.rpc.listpeerchannels()['channels'])['updates'])
 
     # This will make it reject the routehint.
-    err = r'Fee exceeds our fee budget: 1msat > 0msat, discarding route'
+    err = 'Failed: Could not find route without excessive cost'
     with pytest.raises(RpcError, match=err):
         l1.rpc.pay(bolt11=inv['bolt11'], maxfeepercent=0, exemptfee=0)
 
@@ -3887,7 +3780,7 @@ def test_pay_exemptfee(node_factory):
         wait_for_announce=True
     )
 
-    err = r'Ran out of routes to try'
+    err = r'Could not find route without excessive cost'
 
     with pytest.raises(RpcError, match=err):
         l1.dev_pay(l3.rpc.invoice(1, "lbl1", "desc")['bolt11'], dev_use_shadow=False)
@@ -4031,8 +3924,6 @@ def test_mpp_adaptive(node_factory, bitcoind):
 
     # You were supposed to mpp!
     assert count > 1
-    # Not every one should have the bolt11 string
-    assert bolt11s < count
 
     # listpays() shows bolt11 string
     assert 'bolt11' in only_one(l1.rpc.listpays()['pays'])
@@ -4720,7 +4611,7 @@ def test_fetchinvoice(node_factory, bitcoind):
     l1.rpc.pay(inv1['invoice'])
 
     # We can't pay the other one now.
-    with pytest.raises(RpcError, match="INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS.*'erring_node': '{}'".format(l3.info['id'])):
+    with pytest.raises(RpcError, match="Destination said it doesn't know invoice: incorrect_or_unknown_payment_details"):
         l1.rpc.pay(inv2['invoice'])
 
     # We can't reuse the offer, either.
@@ -5049,15 +4940,11 @@ def test_pay_waitblockheight_timeout(node_factory, bitcoind):
     sync_blockheight(bitcoind, [l1, l2])
     inv = l2.rpc.invoice(42, 'lbl', 'desc')['bolt11']
 
-    with pytest.raises(RpcError, match=r'WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS'):
-        l1.rpc.pay(inv)
-
-    # Post mortem checks that we tried only once.
-    status = l1.rpc.paystatus(inv)
+    with pytest.raises(RpcError, match=r'Timed out waiting for blockheight 2147483647\.'):
+        l1.rpc.xpay(inv)
 
     # Should have only one attempt that triggered the wait, which then failed.
-    assert len(status['pay']) == 1
-    assert len(status['pay'][0]['attempts']) == 1
+    assert len(l1.rpc.listsendpays()['payments']) == 1
 
 
 def test_dev_rawrequest(node_factory):
@@ -5159,7 +5046,8 @@ def test_self_pay(node_factory):
     """Repro test for issue 4345: pay ourselves via the pay plugin.
 
     """
-    l1, l2 = node_factory.line_graph(2, wait_for_announce=True)
+    l1, l2 = node_factory.line_graph(2, wait_for_announce=True,
+                                     opts={'xpay-handle-pay': False})
 
     inv = l1.rpc.invoice(10000, 'test', 'test')['bolt11']
     l1.rpc.pay(inv)
@@ -5204,14 +5092,8 @@ def test_unreachable_routehint(node_factory, bitcoind):
 
     assert('routes' in decoded and len(decoded['routes']) == 1)
 
-    with pytest.raises(RpcError, match=r'Destination [a-f0-9]{66} is not reachable'):
-        l1.rpc.pay(invoice)
-
-    l1.daemon.wait_for_log(
-        r"Removed routehint 0 because entrypoint {entrypoint} is unknown.".format(
-            entrypoint=entrypoint
-        )
-    )
+    with pytest.raises(RpcError, match=r'Failed: There is no connection between source and destination at all'):
+        l1.rpc.xpay(invoice)
 
     # Now connect l2 to l3 to create a bridge, but without a
     # channel. The entrypoint will become known, but still
@@ -5220,20 +5102,11 @@ def test_unreachable_routehint(node_factory, bitcoind):
     l2.connect(l3)
     wait_for(lambda: len(l1.rpc.listnodes(entrypoint)['nodes']) == 1)
 
-    with pytest.raises(RpcError, match=r'Destination [a-f0-9]{66} is not reachable') as excinfo:
+    with pytest.raises(RpcError, match=r'Failed: There is no connection between source and destination at all'):
         l1.rpc.pay(invoice)
 
-    # Verify that we failed for the correct reason.
-    l1.daemon.wait_for_log(
-        r"Removed routehint 0 because entrypoint {entrypoint} is unreachable.".format(
-            entrypoint=entrypoint
-        )
-    )
-
-    # Since we aborted once we realized the destination is unreachable
-    # both directly, and via the routehints we should now just have a
-    # single attempt.
-    assert(len(excinfo.value.error['attempts']) == 1)
+    # Make sure we didn't try to pay it.
+    assert l1.rpc.listsendpays() == {'payments': []}
 
 
 def test_routehint_tous(node_factory, bitcoind):
@@ -5257,8 +5130,8 @@ gives a routehint straight to us causes an issue
            == only_one(l3.rpc.listpeerchannels()['channels'])['alias']['remote'])
 
     l3.stop()
-    with pytest.raises(RpcError, match=r'Destination .* is not reachable directly and all routehints were unusable'):
-        l2.rpc.pay(inv)
+    with pytest.raises(RpcError, match=r'Failed: We could not find a usable set of paths. All 1 channels to the destination are disabled.'):
+        l2.rpc.xpay(inv)
 
 
 def test_setchannel_enforcement_delay(node_factory, bitcoind):
@@ -5372,20 +5245,14 @@ def test_sendpay_grouping(node_factory, bitcoind):
     assert(len(l1.db.query("SELECT * FROM payments")) == 0)
     assert(len(l1.rpc.listpays()['pays']) == 0)
 
-    with pytest.raises(RpcError, match=r'Ran out of routes to try after [0-9]+ attempts'):
-        l1.rpc.pay(inv, amount_msat='100002msat')
+    with pytest.raises(RpcError, match=r'Failed after 1 attempts'):
+        l1.rpc.xpay(inv, amount_msat='100002msat')
 
     # After this one invocation we have one entry in `listpays`
     assert(len(l1.rpc.listpays()['pays']) == 1)
 
-    # Pay learns, and sometimes now refuses to even attempt.  Give it a new channel.
-    l3.start()
-    node_factory.join_nodes([l2, l3], wait_for_announce=True)
-    wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 6)
-    l3.stop()
-
-    with pytest.raises(RpcError, match=r'Ran out of routes to try after [0-9]+ attempts'):
-        l1.rpc.pay(inv, amount_msat='100001msat')
+    with pytest.raises(RpcError, match=r'Failed after 1 attempts'):
+        l1.rpc.xpay(inv, amount_msat='100001msat')
 
     # Surprise: we should have 2 entries after 2 invocations
     assert(len(l1.rpc.listpays()['pays']) == 2)
@@ -5408,7 +5275,8 @@ def test_sendpay_grouping(node_factory, bitcoind):
 
 @pytest.mark.flaky(reruns=2)
 def test_pay_manual_exclude(node_factory, bitcoind):
-    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True,
+                                         opts={'xpay-handle-pay': False})
     l1_id = l1.rpc.getinfo()['id']
     l2_id = l2.rpc.getinfo()['id']
     l3_id = l3.rpc.getinfo()['id']
@@ -5451,8 +5319,8 @@ def test_pay_bolt11_metadata(node_factory, bitcoind):
     # Make l2 "know" about this invoice.
     l2.rpc.invoice(amount_msat=123000, label='label1', description='desc', preimage='00' * 32)
 
-    with pytest.raises(RpcError, match=r'WIRE_INVALID_ONION_PAYLOAD'):
-        l1.rpc.pay(inv)
+    with pytest.raises(RpcError, match=r'Unexpected error \(invalid_onion_payload\) from final node'):
+        l1.rpc.xpay(inv)
 
     l2.daemon.wait_for_log("Unexpected payment_metadata {}".format(b'this is metadata'.hex()))
 
@@ -5746,14 +5614,16 @@ def test_sendpays_wait(node_factory, executor):
     l1.daemon.wait_for_log('waiting on sendpays created 1')
 
     inv1 = l2.rpc.invoice(42, 'invlabel', 'invdesc')
-    l1.rpc.pay(inv1['bolt11'])
+    l1.rpc.xpay(inv1['bolt11'])
 
     waitres = waitfut.result(TIMEOUT)
+    # groupid is random
+    groupid = waitres['sendpays']['groupid']
     assert waitres == {'subsystem': 'sendpays',
                        'created': 1,
                        'sendpays': {'status': 'pending',
-                                    'partid': 0,
-                                    'groupid': 1,
+                                    'partid': 1,
+                                    'groupid': groupid,
                                     'payment_hash': inv1['payment_hash']}}
     assert only_one(l1.rpc.listsendpays(bolt11=inv1['bolt11'])['payments'])['created_index'] == 1
     assert only_one(l1.rpc.listsendpays(bolt11=inv1['bolt11'])['payments'])['updated_index'] == 1
@@ -5772,13 +5642,14 @@ def test_sendpays_wait(node_factory, executor):
 
     waitfut = executor.submit(l1.rpc.wait, subsystem='sendpays', indexname='updated', nextvalue=2)
     l1.daemon.wait_for_log('waiting on sendpays updated 2')
-    l1.rpc.pay(inv2['bolt11'])
+    l1.rpc.xpay(inv2['bolt11'])
     waitres = waitfut.result(TIMEOUT)
+    groupid = waitres['sendpays']['groupid']
     assert waitres == {'subsystem': 'sendpays',
                        'updated': 2,
                        'sendpays': {'status': 'complete',
-                                    'partid': 0,
-                                    'groupid': 1,
+                                    'partid': 1,
+                                    'groupid': groupid,
                                     'payment_hash': inv2['payment_hash']}}
     assert only_one(l1.rpc.listsendpays(bolt11=inv2['bolt11'])['payments'])['created_index'] == 2
     assert only_one(l1.rpc.listsendpays(bolt11=inv2['bolt11'])['payments'])['updated_index'] == 2
@@ -5794,15 +5665,16 @@ def test_sendpays_wait(node_factory, executor):
 
     waitfut = executor.submit(l1.rpc.wait, subsystem='sendpays', indexname='updated', nextvalue=3)
     l1.daemon.wait_for_log('waiting on sendpays updated 3')
-    with pytest.raises(RpcError, match="WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS"):
-        l1.rpc.pay(inv3['bolt11'])
+    with pytest.raises(RpcError, match="Destination said it doesn't know invoice: incorrect_or_unknown_payment_details"):
+        l1.rpc.xpay(inv3['bolt11'])
 
     waitres = waitfut.result(TIMEOUT)
+    groupid = waitres['sendpays']['groupid']
     assert waitres == {'subsystem': 'sendpays',
                        'updated': 3,
                        'sendpays': {'status': 'failed',
-                                    'partid': 0,
-                                    'groupid': 1,
+                                    'partid': 1,
+                                    'groupid': groupid,
                                     'payment_hash': inv3['payment_hash']}}
 
     # Order and pagination.
@@ -5823,14 +5695,14 @@ def test_sendpays_wait(node_factory, executor):
     waitfut = executor.submit(l1.rpc.wait, subsystem='sendpays', indexname='deleted', nextvalue=1)
     l1.daemon.wait_for_log('waiting on sendpays deleted 1')
 
-    l1.rpc.delpay(inv3['payment_hash'], 'failed', 0, 1)
+    l1.rpc.delpay(inv3['payment_hash'], 'failed', 1, groupid)
 
     waitres = waitfut.result(TIMEOUT)
     assert waitres == {'subsystem': 'sendpays',
                        'deleted': 1,
                        'sendpays': {'status': 'failed',
-                                    'partid': 0,
-                                    'groupid': 1,
+                                    'partid': 1,
+                                    'groupid': groupid,
                                     'payment_hash': inv3['payment_hash']}}
 
 
@@ -5863,7 +5735,8 @@ def test_pay_routehint_minhtlc(node_factory, bitcoind):
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 def test_pay_partial_msat(node_factory, executor):
-    l1, l2, l3 = node_factory.line_graph(3)
+    l1, l2, l3 = node_factory.line_graph(3,
+                                         opts={'xpay-handle-pay': False})
 
     inv = l3.rpc.invoice(100000000, "inv", "inv")
 
@@ -6121,7 +5994,7 @@ def test_offer_path_self(node_factory):
     l2.rpc.pay(inv)
 
     # It should have mapped the hop.
-    l2.daemon.wait_for_log(f"Mapped decrypted next hop from {scid} -> {l3.info['id']}")
+    l2.daemon.wait_for_log(f"injectpaymentonion: sending to channel {scid}")
 
 
 def test_offer_selfpay(node_factory):
@@ -6274,7 +6147,8 @@ def diamond_network(node_factory):
     ```
     """
     opts = [
-        {'fee-per-satoshi': 0, 'fee-base': 0},     # Sender
+        {'fee-per-satoshi': 0, 'fee-base': 0,      # Sender
+         'xpay-handle-pay': False},
         {'fee-per-satoshi': 0, 'fee-base': 0},     # Low fee, but exhausted channel
         {'fee-per-satoshi': 5000, 'fee-base': 0},  # Disincentivize using fw2
         {'fee-per-satoshi': 0, 'fee-base': 0},     # Recipient

@@ -2002,6 +2002,8 @@ static struct command_result *json_injectpaymentonion(struct command *cmd,
 
 	/* If they use scid, we use exactly the channel they tell us to here! */
 	if (payload->forward_channel) {
+		log_debug(cmd->ld->log, "injectpaymentonion: sending to channel %s",
+			  fmt_short_channel_id(tmpctx, *payload->forward_channel));
 		next = any_channel_by_scid(cmd->ld,
 					   *payload->forward_channel,
 					   true);
@@ -2023,6 +2025,8 @@ static struct command_result *json_injectpaymentonion(struct command *cmd,
 		struct peer *next_peer;
 
 		node_id_from_pubkey(&nid, payload->forward_node_id);
+		log_debug(cmd->ld->log, "injectpaymentonion: sending to peer %s",
+			  fmt_node_id(tmpctx, &nid));
 		next_peer = peer_by_id(cmd->ld, &nid);
 		if (!next_peer)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,

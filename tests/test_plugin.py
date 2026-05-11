@@ -4903,7 +4903,8 @@ def test_peer_storage(node_factory, bitcoind):
 @pytest.mark.parametrize("deprecated", [False, True])
 def test_pay_plugin_notifications(node_factory, bitcoind, chainparams, deprecated):
     plugin = os.path.join(os.getcwd(), 'tests/plugins/all_notifications.py')
-    opts = {"plugin": plugin}
+    opts = {"plugin": plugin,
+            "xpay-handle-pay": False}
     if deprecated:
         opts['allow-deprecated-apis'] = True
 

@@ -3137,7 +3137,7 @@ int main(int argc, char *argv[])
 
 	setup_locale();
 	xpay = tal(NULL, struct xpay);
-	xpay->take_over_pay = false;
+	xpay->take_over_pay = true;
 	xpay->slow_mode = false;
 	xpay->dev_no_age = false;
 	plugin_main(argv, init, take(xpay),
