@@ -178,6 +178,9 @@ command_find_channel(struct command *cmd,
 		     const char *buffer, const jsmntok_t *tok,
 		     struct channel **channel);
 
+/* Called whenever htlc closed, or peer disconnected */
+void check_graceful_shutdown(struct lightningd *ld);
+
 /* We do this lazily, when reconnecting */
 void peer_channels_cleanup(struct peer *peer);
 

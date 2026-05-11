@@ -1953,6 +1953,8 @@ void onchain_failed_our_htlc(const struct channel *channel,
 
 static void remove_htlc_in(struct channel *channel, struct htlc_in *hin)
 {
+	struct lightningd *ld = channel->peer->ld;
+
 	htlc_in_check(hin, __func__);
 	assert(hin->failonion || hin->preimage || hin->badonion);
 
@@ -1998,10 +2000,13 @@ static void remove_htlc_in(struct channel *channel, struct htlc_in *hin)
 	}
 
 	tal_free(hin);
+	check_graceful_shutdown(ld);
 }
 
 static void remove_htlc_out(struct channel *channel, struct htlc_out *hout)
 {
+	struct lightningd *ld = channel->peer->ld;
+
 	htlc_out_check(hout, __func__);
 	assert(hout->failonion || hout->preimage || hout->failmsg);
 	log_debug(channel->log, "Removing out HTLC %"PRIu64" state %s %s",
@@ -2048,6 +2053,7 @@ static void remove_htlc_out(struct channel *channel, struct htlc_out *hout)
 	}
 
 	tal_free(hout);
+	check_graceful_shutdown(ld);
 }
 
 static bool update_in_htlc(struct channel *channel,

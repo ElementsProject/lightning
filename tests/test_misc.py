@@ -4314,6 +4314,76 @@ def test_create_gossip_mesh(node_factory, bitcoind):
     assert False, "Test failed on purpose, grab the gossip store from /tmp/ltests-..."
 
 
+def test_graceful_no_peers(node_factory):
+    """graceful with no channels returns immediately"""
+    l1 = node_factory.get_node()
+    assert l1.rpc.graceful() == {}
+
+
+def test_graceful_idle_peer(node_factory, executor):
+    """graceful with an idle peer disconnects it and completes"""
+    l1, l2 = node_factory.line_graph(2)
+
+    notifications = []
+
+    def run_graceful():
+        def capture(message, **kwargs):
+            if message:
+                notifications.append(message)
+        with l1.rpc.notify(capture):
+            return l1.rpc.graceful()
+
+    fut = executor.submit(run_graceful)
+    result = fut.result(TIMEOUT)
+
+    assert result == {}
+    assert any("peers still connected" in n for n in notifications)
+
+
+def test_graceful_htlc(node_factory, executor):
+    """graceful with an HTLC in flight notifies about expiry and completes after HTLC resolves"""
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True,
+                                         opts=[{'may_reconnect': True,
+                                                'dev-no-reconnect': None},
+                                               {'may_reconnect': True,
+                                                'dev-no-reconnect': None},
+                                               {'plugin': os.path.join(os.getcwd(), 'tests/plugins/hold_invoice.py')}])
+
+    inv = l3.rpc.invoice(10000, 'hold', 'hold invoice')
+    route = l1.rpc.getroute(l3.info['id'], 10000, 1)['route']
+    l1.rpc.sendpay(route, inv['payment_hash'], payment_secret=inv['payment_secret'])
+    wait_for(lambda: len(only_one(l3.rpc.listpeerchannels()['channels'])['htlcs']) == 1)
+
+    notifications = []
+
+    def run_graceful():
+        def capture(message, **kwargs):
+            if message:
+                notifications.append(message)
+        with l2.rpc.notify(capture):
+            return l2.rpc.graceful()
+
+    fut = executor.submit(run_graceful)
+
+    # Wait until graceful has sent at least one HTLC expiry notification
+    wait_for(lambda: len(notifications) == 1)
+
+    # Close incoming connection, so incoming HTLC gets stuck.
+    l1.rpc.disconnect(l2.info['id'], force=True)
+
+    # Release the hold so the *outgoing* HTLC resolves
+    open(os.path.join(l3.daemon.lightning_dir, TEST_NETWORK, "unhold"), "w").close()
+
+    wait_for(lambda: notifications[0] == f'Next HTLC SENT_ADD_ACK_REVOCATION expires at block #118 (10 blocks from now) going to peer {l3.info["id"]} (connected)')
+    wait_for(lambda: len(notifications) == 2)
+
+    wait_for(lambda: notifications[1] == f'Next HTLC SENT_REMOVE_HTLC expires at block #124 (16 blocks from now) coming from peer {l1.info["id"]} (disconnected)')
+    # Reconnect and it will settle.
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    assert fut.result(TIMEOUT) == {}
+
+
 def test_fast_shutdown(node_factory):
     l1 = node_factory.get_node(start=False)
 

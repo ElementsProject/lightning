@@ -84,6 +84,7 @@ Core Lightning Documentation
    getlog <getlog.7.md>
    getroute <getroute.7.md>
    getroutes <getroutes.7.md>
+   graceful <graceful.7.md>
    help <help.7.md>
    hook-commitment_revocation <hook-commitment_revocation.7.md>
    hook-custommsg <hook-custommsg.7.md>

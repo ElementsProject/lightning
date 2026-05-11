@@ -95,8 +95,13 @@ struct config {
 typedef STRMAP(const char *) alt_subdaemon_map;
 
 enum lightningd_state {
+	/* Starting up */
 	LD_STATE_INITIALIZING,
+	/* Normal */
 	LD_STATE_RUNNING,
+	/* Waiting for graceful shutdown */
+	LD_STATE_GRACE,
+	/* Shutting down */
 	LD_STATE_SHUTDOWN,
 };
 
@@ -250,7 +255,8 @@ struct lightningd {
 	struct list_head disconnect_commands;
 	/* Outstanding wait commands */
 	struct list_head wait_commands;
-
+	/* Outstanding graceful commands */
+	struct list_head graceful_commands;
 	/* Outstanding splice commands. */
 	struct list_head splice_commands;
 

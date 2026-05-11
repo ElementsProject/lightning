@@ -962,8 +962,8 @@ void get_channel_basepoints(struct lightningd *ld,
 void channel_set_billboard(struct channel *channel, bool perm,
 			   const char *str TAKES);
 
-struct htlc_in *channel_has_htlc_in(struct channel *channel);
-struct htlc_out *channel_has_htlc_out(struct channel *channel);
+struct htlc_in *channel_has_htlc_in(const struct channel *channel);
+struct htlc_out *channel_has_htlc_out(const struct channel *channel);
 
 /* hin can be NULL */
 const u8 *channel_update_for_error(const tal_t *ctx,

@@ -76,6 +76,7 @@ MARKDOWNPAGES := doc/addgossip.7 \
 	doc/getlog.7 \
 	doc/getroute.7 \
 	doc/getroutes.7 \
+	doc/graceful.7 \
 	doc/help.7 \
 	doc/injectonionmessage.7 \
 	doc/injectpaymentonion.7 \

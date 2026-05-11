@@ -15941,6 +15941,45 @@
         }
       ]
     },
+    "graceful.json": {
+      "$schema": "../rpc-schema-draft.json",
+      "type": "object",
+      "rpc": "graceful",
+      "added": "v26.06",
+      "title": "Command to prepare Core Lightning node for stopping.",
+      "description": [
+        "**graceful** is a RPC command to prevent further htlcs, and disconnect all idle peers.  It returns when all HTLCs are complete, and all peers disconnected: then you can shutdown.  It also sends information about HTLC expiry, so you can judge how long it is safe to be offline."
+      ],
+      "request": {
+        "required": [],
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "response": {
+        "required": [],
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "author": [
+        "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-stop(7)"
+      ],
+      "resources": [
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
+      ],
+      "examples": [
+        {
+          "request": {
+            "id": "example:graceful#1",
+            "method": "graceful",
+            "params": {}
+          },
+          "response": {}
+        }
+      ]
+    },
     "help.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
@@ -34980,6 +35019,9 @@
       "author": [
         "Vincenzo Palazzo [vincenzo.palazzo@protonmail.com](mailto:vincenzo.palazzo@protonmail.com) wrote the initial version of this man page,",
         "but many others did the hard work of actually implementing this rpc command."
+      ],
+      "see_also": [
+        "lightning-graceful(7)"
       ],
       "resources": [
         "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"

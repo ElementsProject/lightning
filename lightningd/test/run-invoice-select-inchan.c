@@ -97,10 +97,10 @@ void channel_gossip_node_announce(struct lightningd *ld UNNEEDED)
 void channel_gossip_startup_done(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "channel_gossip_startup_done called!\n"); abort(); }
 /* Generated stub for channel_has_htlc_in */
-struct htlc_in *channel_has_htlc_in(struct channel *channel UNNEEDED)
+struct htlc_in *channel_has_htlc_in(const struct channel *channel UNNEEDED)
 { fprintf(stderr, "channel_has_htlc_in called!\n"); abort(); }
 /* Generated stub for channel_has_htlc_out */
-struct htlc_out *channel_has_htlc_out(struct channel *channel UNNEEDED)
+struct htlc_out *channel_has_htlc_out(const struct channel *channel UNNEEDED)
 { fprintf(stderr, "channel_has_htlc_out called!\n"); abort(); }
 /* Generated stub for channel_important_filter */
 bool channel_important_filter(const struct channel *channel UNNEEDED, void *unused UNNEEDED)
@@ -453,6 +453,12 @@ void  json_add_unsaved_channel(struct command *cmd UNNEEDED,
 					   const struct channel *channel UNNEEDED,
 					   const struct peer *peer UNNEEDED)
 { fprintf(stderr, "json_add_unsaved_channel called!\n"); abort(); }
+/* Generated stub for json_notify_fmt */
+void json_notify_fmt(struct command *cmd UNNEEDED,
+		     enum log_level level UNNEEDED,
+		     const char *fmt UNNEEDED, ...)
+
+{ fprintf(stderr, "json_notify_fmt called!\n"); abort(); }
 /* Generated stub for json_stream_fail */
 struct json_stream *json_stream_fail(struct command *cmd UNNEEDED,
 				     enum jsonrpc_errcode code UNNEEDED,
