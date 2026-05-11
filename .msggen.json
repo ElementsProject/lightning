@@ -2200,6 +2200,7 @@
         "InjectpaymentonionRequest": {
             "InjectPaymentOnion.amount_msat": 3,
             "InjectPaymentOnion.cltv_expiry": 4,
+            "InjectPaymentOnion.destination": 11,
             "InjectPaymentOnion.destination_msat": 10,
             "InjectPaymentOnion.groupid": 6,
             "InjectPaymentOnion.invstring": 8,
@@ -8745,6 +8746,10 @@
         },
         "InjectPaymentOnion.created_index": {
             "added": "v24.11",
+            "deprecated": null
+        },
+        "InjectPaymentOnion.destination": {
+            "added": "v26.06",
             "deprecated": null
         },
         "InjectPaymentOnion.destination_msat": {

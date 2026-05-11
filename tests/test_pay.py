@@ -6266,13 +6266,15 @@ def test_injectpaymentonion_mpp(node_factory, executor):
                            blockheight + 18 + 6,
                            1,
                            0)
+    # Test destination storage while we're here.
     fut2 = executor.submit(l1.rpc.injectpaymentonion,
-                           onion2['onion'],
-                           inv2['payment_hash'],
-                           2000,
-                           blockheight + 18 + 6,
-                           2,
-                           0)
+                           onion=onion2['onion'],
+                           payment_hash=inv2['payment_hash'],
+                           amount_msat=2000,
+                           cltv_expiry=blockheight + 18 + 6,
+                           partid=2,
+                           groupid=0,
+                           destination=l2.info['id'])
 
     # Now both should complete.
     ret = fut1.result(TIMEOUT)
@@ -6288,6 +6290,10 @@ def test_injectpaymentonion_mpp(node_factory, executor):
         assert lsp['payment_hash'] == inv2['payment_hash']
         assert lsp['status'] == 'complete'
         assert 'amount_msat' not in lsp
+        if lsp['partid'] == 1:
+            assert 'destination' not in lsp
+        else:
+            assert lsp['destination'] == l2.info['id']
     assert len(lsps) == 2
 
 

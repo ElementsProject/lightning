@@ -6762,6 +6762,7 @@ impl From<requests::InjectpaymentonionRequest> for pb::InjectpaymentonionRequest
         Self {
             amount_msat: Some(c.amount_msat.into()), // Rule #2 for type msat
             cltv_expiry: c.cltv_expiry.into(), // Rule #2 for type u16
+            destination: c.destination.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
             destination_msat: c.destination_msat.map(|f| f.into()), // Rule #2 for type msat?
             groupid: c.groupid, // Rule #2 for type u64
             invstring: c.invstring, // Rule #2 for type string?
@@ -8748,6 +8749,7 @@ impl From<pb::InjectpaymentonionRequest> for requests::InjectpaymentonionRequest
         Self {
             amount_msat: c.amount_msat.unwrap().into(), // Rule #1 for type msat
             cltv_expiry: c.cltv_expiry as u16, // Rule #1 for type u16
+            destination: c.destination.map(|v| PublicKey::from_slice(&v).unwrap()), // Rule #1 for type pubkey?
             destination_msat: c.destination_msat.map(|a| a.into()), // Rule #1 for type msat?
             groupid: c.groupid, // Rule #1 for type u64
             invstring: c.invstring, // Rule #1 for type string?

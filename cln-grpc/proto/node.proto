@@ -4204,6 +4204,7 @@ message InjectpaymentonionRequest {
 	optional string invstring = 8;
 	optional bytes localinvreqid = 9;
 	optional Amount destination_msat = 10;
+	optional bytes destination = 11;
 }
 
 message InjectpaymentonionResponse {

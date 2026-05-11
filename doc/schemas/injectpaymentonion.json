@@ -79,6 +79,13 @@
         "description": [
           "Amount that is actually delivered to the destination (i.e. `amount_msat` minus fees), for showing in listsendpays (confusingly, as `amount_msat`)."
         ]
+      },
+      "destination": {
+        "type": "pubkey",
+        "added": "v26.06",
+        "description": [
+          "Destination id (for *waitsendpay* and *listsendpays*).  If not set, will be extracted if possible from *invstring*."
+        ]
       }
     }
   },

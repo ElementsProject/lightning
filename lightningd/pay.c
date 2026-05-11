@@ -1867,6 +1867,7 @@ static struct command_result *json_injectpaymentonion(struct command *cmd,
 			 p_opt("invstring", param_invstring, &invstring),
 			 p_opt("localinvreqid", param_sha256, &local_invreq_id),
 			 p_opt_def("destination_msat", param_msat, &destination_msat, AMOUNT_MSAT(0)),
+			 p_opt("destination", param_node_id, &destination),
 			 NULL))
 		return command_param_failed();
 
@@ -1936,26 +1937,21 @@ static struct command_result *json_injectpaymentonion(struct command *cmd,
 	}
 
 	/* If we have and can decode invstring, we extract destination for listsendpays */
-	if (invstring) {
+	if (invstring && !destination) {
+		struct tlv_invoice *b12;
 		struct bolt11 *b11;
 		const char *fail;
 
-		b11 = bolt11_decode(cmd, invstring, NULL, NULL, NULL, &fail);
-		if (b11) {
+		if ((b11 = bolt11_decode(cmd, invstring,
+					 NULL, NULL, NULL, &fail)) != NULL) {
 			destination = &b11->receiver_id;
-		} else {
-			struct tlv_invoice *b12;
-
-			b12 = invoice_decode(cmd, invstring, strlen(invstring),
-					     NULL, NULL, &fail);
-			if (b12 && b12->invoice_node_id) {
-				destination = tal(cmd, struct node_id);
-				node_id_from_pubkey(destination, b12->invoice_node_id);
-			} else
-				destination = NULL;
+		} else if ((b12 = invoice_decode(cmd, invstring, strlen(invstring),
+						 NULL, NULL, &fail)) != NULL
+			   && b12->invoice_node_id) {
+			destination = tal(cmd, struct node_id);
+			node_id_from_pubkey(destination, b12->invoice_node_id);
 		}
-	} else
-		destination = NULL;
+	}
 
 	if (payload->final) {
 		struct selfpay *selfpay;
