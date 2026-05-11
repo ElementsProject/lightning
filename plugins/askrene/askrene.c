@@ -114,10 +114,15 @@ static struct command_result *param_layer_names(struct command *cmd,
 
 		/* Must be a known layer name */
 		if (streq((*arr)[i], "auto.localchans")
-		    || streq((*arr)[i], "auto.no_mpp_support")
 		    || streq((*arr)[i], "auto.sourcefree")
 		    || streq((*arr)[i], "auto.include_fees"))
 			continue;
+
+		if (streq((*arr)[i], "auto.no_mpp_support")
+		    && command_deprecated_in_ok(cmd, "layers.auto.no_mpp_support",
+						"v26.06", "v27.03"))
+			continue;
+
 		if (!find_layer(get_askrene(cmd->plugin), (*arr)[i])) {
 			return command_fail_badparam(cmd, name, buffer, t,
 						     "unknown layer");
@@ -264,7 +269,8 @@ static struct layer *remove_small_channel_layer(const tal_t *ctx,
 						struct amount_msat min_amount,
 						struct gossmap_localmods *localmods)
 {
-	struct layer *layer = new_temp_layer(ctx, askrene, "auto.no_mpp_support");
+	/* We use the prefix auto. to avoid clashing */
+	struct layer *layer = new_temp_layer(ctx, askrene, "auto.remove_small_channels");
 	struct gossmap *gossmap = askrene->gossmap;
 	struct gossmap_chan *c;
 
@@ -389,8 +395,7 @@ static const struct layer **apply_layers(const tal_t *ctx,
 				cmd_log(tmpctx, cmd, LOG_DBG, "Adding auto.localchans");
 				l = local_layer;
 			} else if (streq(layernames[i], "auto.no_mpp_support")) {
-				cmd_log(tmpctx, cmd, LOG_DBG, "Adding auto.no_mpp_support, sorry");
-				/* We will add a layer later, in the caller. */
+				/* deprecated */
 				continue;
 			} else if (streq(layernames[i], "auto.include_fees")) {
 				cmd_log(tmpctx, cmd, LOG_DBG, "Adding auto.include_fees");
@@ -405,6 +410,7 @@ static const struct layer **apply_layers(const tal_t *ctx,
 		}
 		add_layer(&layers, l, askrene->gossmap, localmods, capacities);
 	}
+
 	return layers;
 }
 
@@ -584,6 +590,12 @@ static struct command_result *do_getroutes(struct command *cmd,
 		}
 	}
 
+	/* auto.no_mpp_support layer forces maxparts == 1. */
+	if (have_layer(info->layers, "auto.no_mpp_support")) {
+		cmd_log(tmpctx, cmd, LOG_DBG, "Adding auto.no_mpp_support, sorry");
+		info->maxparts = 1;
+	}
+
 	/* apply selected layers to the localmods */
 	layers = apply_layers(cmd, askrene, cmd,
 			      &info->source, localmods,
@@ -591,7 +603,7 @@ static struct command_result *do_getroutes(struct command *cmd,
 
 
 	/* no parallel payments means we can drop any smaller channels */
-	if (have_layer(info->layers, "auto.no_mpp_support") || info->maxparts == 1) {
+	if (info->maxparts == 1) {
 		add_layer(&layers,
 			  remove_small_channel_layer(layers, askrene, info->amount, localmods),
 			  askrene->gossmap,
@@ -634,14 +646,6 @@ static struct command_result *do_getroutes(struct command *cmd,
 		goto fail;
 	}
 
-	/* auto.no_mpp_support layer overrides any choice of algorithm. */
-	if (have_layer(info->layers, "auto.no_mpp_support") &&
-	    info->dev_algo != ALGO_SINGLE_PATH) {
-		info->dev_algo = ALGO_SINGLE_PATH;
-		cmd_log(tmpctx, cmd, LOG_DBG,
-		       "Layer no_mpp_support is active we switch to a "
-		       "single path algorithm.");
-	}
 	if (info->maxparts == 1 &&
 	    info->dev_algo != ALGO_SINGLE_PATH) {
 		info->dev_algo = ALGO_SINGLE_PATH;

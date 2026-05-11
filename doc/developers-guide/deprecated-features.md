@@ -23,6 +23,8 @@ privacy:
 | channel_state_changed.null_message                 | Notification Field | v25.12           | v26.12         | In channel_state_changed notification, `message` will be missing instead of `null`                                        |
 | hsmtool.getcodexsecret                             | Command            | v25.12.1         | v26.12         | Doesn't work on nodes using mnemonic secrets (v25.12 or later).  Use `getsecret` instead.                                 |
 | experimental_splicing                              | Config             | v26.04           | v27.04         | Splicing is now enabled by default                                                                                       |
+| getroutes.layers.auto.no_mpp_support               | Parameter          | v26.06           | v27.03         | Use `maxparts=1` instead (since v25.09)                                                                                   |
+
 Inevitably there are features which need to change: either to be generalized, or removed when they can no longer be supported.
 
 Types of deprecation:
