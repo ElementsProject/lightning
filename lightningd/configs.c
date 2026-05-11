@@ -509,7 +509,6 @@ static void configvar_save(struct lightningd *ld,
 	struct configvar *oldcv;
 	size_t linenum;
 
-	/* If we don't already have "include config.setconfig" add it */
 	if (!ld->setconfig_file)
 		create_setconfig_include(ld);
 
@@ -532,29 +531,76 @@ replaced:
 			  ld->setconfig_file, linenum, confline);
 }
 
+/* For multi options: remove all existing, add all new values */
+static void configvar_save_multi(struct lightningd *ld,
+				 const char **names,
+				 const char **conflines,
+				 size_t nvals)
+{
+	size_t linenum;
+
+	if (!ld->setconfig_file)
+		create_setconfig_include(ld);
+
+	/* Comment out all file-based values, even overridden ones. */
+	for (size_t i = 0; i < tal_count(ld->configvars); i++) {
+		struct configvar *cv = ld->configvars[i];
+		if (cv->optvar && streq(cv->optvar, names[0]) && cv->file)
+			configfile_replace_var(ld, cv, NULL);
+	}
+
+	configvar_remove(&ld->configvars, names[0], CONFIGVAR_NETWORK_CONF, NULL);
+
+	for (size_t i = 0; i < nvals; i++) {
+		linenum = append_to_file(ld, ld->setconfig_file, conflines[i], true);
+		configvar_updated(ld, CONFIGVAR_NETWORK_CONF,
+				  ld->setconfig_file, linenum, conflines[i]);
+	}
+}
+
 static struct command_result *setconfig_success(struct command *cmd,
 						const struct opt_table *ot,
-						const char *val,
+						const char **vals,
+						size_t nvals,
 						bool transient)
 {
 	struct json_stream *response;
-	const char **names, *confline;
+	const char **names;
 
 	if (command_check_only(cmd))
 		return command_check_done(cmd);
 
 	names = opt_names_arr(tmpctx, ot);
 
-	if (val)
-		confline = tal_fmt(tmpctx, "%s=%s", names[0], val);
-	else
-		confline = names[0];
+	if (ot->type & OPT_MULTI) {
+		const char **conflines = tal_arr(tmpctx, const char *, nvals);
+		for (size_t i = 0; i < nvals; i++)
+			conflines[i] = tal_fmt(conflines, "%s=%s", names[0], vals[i]);
 
-	if (!transient)
-		configvar_save(cmd->ld, names, confline);
-	else
-		configvar_updated(cmd->ld, CONFIGVAR_SETCONFIG_TRANSIENT, NULL, 0, confline);
+		/* Always remove old transient values first */
+		configvar_remove(&cmd->ld->configvars, names[0],
+				 CONFIGVAR_SETCONFIG_TRANSIENT, NULL);
 
+		if (!transient) {
+			configvar_save_multi(cmd->ld, names, conflines, nvals);
+		} else {
+			for (size_t i = 0; i < nvals; i++)
+				configvar_updated(cmd->ld, CONFIGVAR_SETCONFIG_TRANSIENT,
+						  NULL, 0, conflines[i]);
+		}
+	} else {
+		const char *confline;
+
+		if (nvals > 0 && vals[0])
+			confline = tal_fmt(tmpctx, "%s=%s", names[0], vals[0]);
+		else
+			confline = names[0];
+
+		if (!transient)
+			configvar_save(cmd->ld, names, confline);
+		else
+			configvar_updated(cmd->ld, CONFIGVAR_SETCONFIG_TRANSIENT, NULL, 0, confline);
+	}
 
 	response = json_stream_success(cmd);
 	json_object_start(response, "config");
@@ -613,6 +659,7 @@ static struct command_result *json_setconfig(struct command *cmd,
 	char *err;
 	void *arg;
 	bool *transient;
+	const jsmntok_t *valtok;
 
 	if (!param_check(cmd, buffer, params,
 			 p_req("config", param_opt_dynamic_config, &ot),
@@ -621,8 +668,72 @@ static struct command_result *json_setconfig(struct command *cmd,
 			 NULL))
 		return command_param_failed();
 
-	/* We don't handle DYNAMIC MULTI, at least yet! */
-	assert(!(ot->type & OPT_MULTI));
+	valtok = json_get_member(buffer, params, "val");
+
+	if (ot->type & OPT_MULTI) {
+		const char **vals;
+		const char **names;
+		const jsmntok_t *t;
+		size_t i;
+
+		names = opt_names_arr(tmpctx, ot);
+
+		if (valtok && valtok->type != JSMN_ARRAY)
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "%s is a multi option: val must be an array",
+					    ot->names + 2);
+
+		if (valtok) {
+			vals = tal_arr(cmd, const char *, valtok->size);
+			json_for_each_arr(i, t, valtok) {
+				vals[i] = json_strdup(vals, buffer, t);
+			}
+		} else {
+			/* No val means empty array (clear all) */
+			vals = tal_arr(cmd, const char *, 0);
+		}
+
+		if (!*transient) {
+			const struct configvar *cv;
+			const char *fname;
+
+			cv = configvar_first(cmd->ld->configvars, names);
+
+			fname = config_not_writable(cmd, cmd, cv);
+			if (fname)
+				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+						    "Cannot write to config file %s",
+						    fname);
+
+			/* Check ALL existing config lines haven't changed */
+			for (cv = configvar_first(cmd->ld->configvars, names);
+			     cv;
+			     cv = configvar_next(cmd->ld->configvars, cv, names)) {
+				if (cv->file) {
+					const char *changed;
+					char **lines;
+
+					changed = grab_and_check(tmpctx,
+								 cv->file, cv->linenum,
+								 cv->configline,
+								 &lines);
+					if (changed)
+						return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+								    "%s", changed);
+				}
+			}
+		}
+
+		/* Multi options are always plugin options */
+		assert(is_plugin_opt(ot));
+		return plugin_set_dynamic_opt(cmd, ot, vals, tal_count(vals),
+					      *transient, setconfig_success);
+	}
+
+	if (valtok && valtok->type == JSMN_ARRAY)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "%s is not a multi option: val must not be an array",
+				    ot->names + 2);
 
 	if (!*transient) {
 		const struct configvar *cv;
@@ -665,8 +776,8 @@ static struct command_result *json_setconfig(struct command *cmd,
 					    "%s does not take a value",
 					    ot->names + 2);
 		if (is_plugin_opt(ot))
-			return plugin_set_dynamic_opt(cmd, ot, NULL, *transient,
-						      setconfig_success);
+			return plugin_set_dynamic_opt(cmd, ot, NULL, 0,
+						      *transient, setconfig_success);
 		err = ot->cb(arg);
 	} else {
 		assert(ot->type & OPT_HASARG);
@@ -674,9 +785,12 @@ static struct command_result *json_setconfig(struct command *cmd,
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "%s requires a value",
 					    ot->names + 2);
-		if (is_plugin_opt(ot))
-			return plugin_set_dynamic_opt(cmd, ot, val, *transient,
-						      setconfig_success);
+		if (is_plugin_opt(ot)) {
+			const char **vals = tal_arr(cmd, const char *, 1);
+			vals[0] = val;
+			return plugin_set_dynamic_opt(cmd, ot, vals, 1,
+						      *transient, setconfig_success);
+		}
 		err = ot->cb_arg(val, arg);
 	}
 
@@ -685,7 +799,10 @@ static struct command_result *json_setconfig(struct command *cmd,
 				    "Error setting %s: %s", ot->names + 2, err);
 	}
 
-	return setconfig_success(cmd, ot, val, *transient);
+	{
+		const char *vals[1] = {val};
+		return setconfig_success(cmd, ot, val ? vals : NULL, val ? 1 : 0, *transient);
+	}
 }
 
 static const struct json_command setconfig_command = {

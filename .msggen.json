@@ -4060,10 +4060,12 @@
             "SetConfig.config.plugin": 3,
             "SetConfig.config.set": 5,
             "SetConfig.config.source": 2,
+            "SetConfig.config.sources[]": 10,
             "SetConfig.config.value_bool": 9,
             "SetConfig.config.value_int": 8,
             "SetConfig.config.value_msat": 7,
-            "SetConfig.config.value_str": 6
+            "SetConfig.config.value_str": 6,
+            "SetConfig.config.values_str[]": 11
         },
         "SetconfigRequest": {
             "SetConfig.config": 1,
@@ -13757,6 +13759,10 @@
             "added": "v23.08",
             "deprecated": null
         },
+        "SetConfig.config.sources[]": {
+            "added": "v26.06",
+            "deprecated": null
+        },
         "SetConfig.config.value_bool": {
             "added": "v23.08",
             "deprecated": null
@@ -13771,6 +13777,10 @@
         },
         "SetConfig.config.value_str": {
             "added": "v23.08",
+            "deprecated": null
+        },
+        "SetConfig.config.values_str[]": {
+            "added": "v26.06",
             "deprecated": null
         },
         "SetConfig.transient": {
