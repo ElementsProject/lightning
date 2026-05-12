@@ -1,6 +1,6 @@
 [project]
 name = "pyln-proto"
-version = "v26.04.1"
+version = "v26.06rc1"
 description = "This package implements some of the Lightning Network protocol in pure python. It is intended for protocol testing and some minor tooling only. It is not deemed secure enough to handle any amount of real funds (you have been warned!)."
 authors = [
     {name = "Christian Decker", email = "decker.christian@gmail.com"}

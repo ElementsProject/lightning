@@ -4,6 +4,99 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [26.06rc1] - 2026-05-11: "CODENAME"
+
+### Added
+
+ - JSON-RPC: `graceful` command to prepare CLN for shutdown. ([#9111])
+ - JSON-RPC: `xkeysend` command for keysend with modern routing support. ([#9110])
+ - JSON-RPC: `sendamount` command, to make a payment specifying the desired amount to send instead of the amount to be received. ([#None])
+ - JSON-RPC: `askrene-remove-channel-update`, a new RPC to remove channel_update entries from layers. ([#9040])
+ - Plugins: `invoice_creation` notification now includes `offer_id` when the invoice is associated with a BOLT 12 offer. ([#8981])
+ - Config: option `xpay-user-layer` to add default layer(s) to `xpay` ([#9037])
+ - JSON-RPC: `sendpay` now accepts one of the `paths` returned from `getroutes` as its `route` parameter. ([#9110])
+ - JSON-RPC: `getroutes` `route` explicit fields `node_id_in`, `node_id_out`, `amount_in_msat`, `amount_out_msat`, `cltv_in`, `cltv_out`. ([#9110])
+ - Protocol: `xpay` now uses shadow CLTV additions to help mask final destination as per BOLT 7. ([#9110])
+ - Protocol: `xpay` will now update for the current payment if it gets a `channel_update` in an error message. ([#9110])
+ - JSON-RPC: `xpay` now accepts `label` and `localinvreqid` parameters (like `pay`). ([#9110])
+ - JSON-RPC: `injectpaymentonion` parameter `destination`. ([#9110])
+ - Tracing: Add a unix-domain socket sink for opentelemetry traces ([#9078])
+
+
+### Changed
+
+ - Protocol: `message-padding` defaults to false, due to poor detection of broken implementations. ([#9119])
+ - JSON-RPC: `xpay` now handles `pay` command by default (use `xpay-handle-pay=false` to prevent this) ([#9110])
+ - JSON-RPC: `pay` now accepts `invstring` as a parameter name for `bolt11`, to ease transition when xpay takes over in v27.03. ([#9110])
+ - offers: we now use `xpay` not `pay` for paying invoices made with invoicerequest(). ([#9110])
+ - JSON-RPC: `getemergencyrecoverdata` is now more verbose. ([#8422])
+ - Build: We no longer use `-Werror` by default, unless --enable-debugbuild is set. ([#9101])
+ - Protocol: We now wait 72 blocks, not 12, before closing channels (BOLT update) ([#9051])
+
+
+### Deprecated
+
+Note: You should always set `allow-deprecated-apis=false` to test for changes.
+
+ - JSON-RPC: `keysend` (use `xkeysend`).  `xkeysend` will take over `keysend` in v27.03. ([#9110])
+ - JSON-RPC: `getroute` (use `getroutes` with layers `["auto.localchans","auto.sourcefree"]` and `maxparts=1`) (available since v25.09). ([#9110])
+ - JSON-RPC: `pay` and `paystatus`: use `xpay`, `listpays` (or `xpay`'s notifications for details of attempts).  `pay` will be replaced by `xpay` in v27.03. ([#9110])
+ - JSON-RPC: `getroutes` `route` fields `next_node_id`, `amount_msat` and `delay` (use `node_id_out`, `amount_in_msat` and `cltv_in`). ([#9110])
+ - JSON-RPC: `getroutes` layer `auto.no_mpp_support`: use `maxparts=1` parameter instead (available since v25.09). ([#9110])
+
+
+### Removed
+
+ - JSON-RPC: `exclude` parameter to `pay` (when `xpay-handle-pay` is True): craft a layer with desired modifications and pass it to `xpay` `layers`. ([#9110])
+
+
+### Fixed
+
+ - Protocol: high fee issue that caused `splicein` and `spliceout` to abort. ([#9109])
+ - JSON-RPC: `setconfig` no longer crashes on dynamic multi-value plugin options ([#8751])
+ - contrib: the systemd lightningd.service script now shuts down lightningd properly. ([#9111])
+ - JSON-RPC: `xpay` now correctly returns error code 219 on already paid invoices (not 218). ([#9110])
+ - JSON-RPC: `withdraw` now returns a fully signed transaction in the `tx` response field. ([#8942])
+ - Wallet: Transactions now correctly create change outputs >= 330 sat for P2TR/P2WPKH instead of absorbing them as fees ([#8807])
+ - Protocol: we now only store the most recent peer backup when recovering from peers. ([#8422])
+ - JSON-RPC: `fundchannel_complete`: reject PSBTs with unsigned non-segwit inputs (could lead to unrecoverable funds!). ([#8922])
+ - Protocol: `gossipd` will now silently ignore gossip for other chains (rather than sending warnings). ([#9044])
+ - Protocol: when we send errors, we won't include a `channel_update` if we chose a different channel than the one they told us to. ([#9044])
+ - Protocol: use BOLT4's paranoid advice about doing constant-time error decryption. ([#9044])
+ - Fix for `splicein`, `spliceout`, and `dev-splice` commands where channel balances included partial sats. ([#9097])
+ - build: fix build errors with GCC 15 (Arch Linux). ([#9075])
+
+
+### EXPERIMENTAL
+
+ - JSON-RPC: `createproof` to create a payment proof for a (successful) BOLT12 payment. ([#9116])
+ - JSON-RPC: `decode` now supports the `lnp` payer proof format. ([#9116])
+ - Plugins: `bwatch` plugin (enable using `plugin=bwatch`) ([#9098])
+
+
+[#9101]: https://github.com/ElementsProject/lightning/pull/9101
+[#9044]: https://github.com/ElementsProject/lightning/pull/9044
+[#9100]: https://github.com/ElementsProject/lightning/pull/9100
+[#9110]: https://github.com/ElementsProject/lightning/pull/9110
+[#9040]: https://github.com/ElementsProject/lightning/pull/9040
+[#9111]: https://github.com/ElementsProject/lightning/pull/9111
+[#9097]: https://github.com/ElementsProject/lightning/pull/9097
+[#8422]: https://github.com/ElementsProject/lightning/pull/8422
+[#9078]: https://github.com/ElementsProject/lightning/pull/9078
+[#8981]: https://github.com/ElementsProject/lightning/pull/8981
+[#8751]: https://github.com/ElementsProject/lightning/pull/8751
+[#8807]: https://github.com/ElementsProject/lightning/pull/8807
+[#9037]: https://github.com/ElementsProject/lightning/pull/9037
+[#9119]: https://github.com/ElementsProject/lightning/pull/9119
+[#9051]: https://github.com/ElementsProject/lightning/pull/9051
+[#9098]: https://github.com/ElementsProject/lightning/pull/9098
+[#9075]: https://github.com/ElementsProject/lightning/pull/9075
+[#9109]: https://github.com/ElementsProject/lightning/pull/9109
+[#9116]: https://github.com/ElementsProject/lightning/pull/9116
+[#8942]: https://github.com/ElementsProject/lightning/pull/8942
+[#8922]: https://github.com/ElementsProject/lightning/pull/8922
+[26.06rc1]: https://github.com/ElementsProject/lightning/releases/tag/v26.06rc1
+
 ## [26.04.1] - 2026-04-25: "Negative Routing Fees II"
 
 This point release is recommended: it fixes a build failure in some environments and a gossip protocol issue.

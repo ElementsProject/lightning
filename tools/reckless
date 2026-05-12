@@ -21,7 +21,7 @@ from urllib.error import HTTPError
 import venv
 
 
-__VERSION__ = 'v26.04.1'
+__VERSION__ = 'v26.06rc1'
 
 logging.basicConfig(
     level=logging.INFO,
