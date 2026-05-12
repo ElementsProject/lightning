@@ -62,6 +62,7 @@ class Grpc2PyGenerator(IGenerator):
             "string_map": "m.{name}",
             "json_object_or_array": "m.{name}",
             "json_scalar": "m.{name}",
+            "proof_field": "m.{name}",
         }
 
     def generate_responses(self, service):

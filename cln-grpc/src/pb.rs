@@ -11,7 +11,7 @@ mod convert {
     use cln_rpc::primitives::{
         Amount as JAmount, AmountOrAll as JAmountOrAll, AmountOrAny as JAmountOrAny,
         Feerate as JFeerate, JsonObjectOrArray as JJsonObjectOrArray, JsonScalar as JJsonScalar,
-        Outpoint as JOutpoint, OutputDesc as JOutputDesc,
+        Outpoint as JOutpoint, OutputDesc as JOutputDesc, ProofField as JProofField,
     };
 
     impl From<JAmount> for Amount {
@@ -421,6 +421,35 @@ mod convert {
                 }
                 Some(json_scalar::Scalar::UintValue(u)) => JJsonScalar::Number(u.into()),
                 Some(json_scalar::Scalar::StringValue(s)) => JJsonScalar::String(s),
+            }
+        }
+    }
+
+    impl From<JProofField> for ProofField {
+        fn from(v: JProofField) -> Self {
+            let ident = match v {
+                JProofField::Name(n) => Some(proof_field::Ident::Name(n)),
+                JProofField::Number(n) => Some(proof_field::Ident::Number(n)),
+            };
+            ProofField { ident }
+        }
+    }
+
+    impl From<ProofField> for JProofField {
+        fn from(v: ProofField) -> Self {
+            match v.ident {
+                Some(proof_field::Ident::Name(n)) => JProofField::Name(n),
+                Some(proof_field::Ident::Number(n)) => JProofField::Number(n),
+                None => {
+                    let error = format!("Failed to parse proof field");
+                    println!(
+                        "{}",
+                        serde_json::json!({"jsonrpc": "2.0",
+                          "method": "log",
+                          "params": {"level":"warn", "message": error}})
+                    );
+                    std::process::exit(1);
+                }
             }
         }
     }

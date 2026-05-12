@@ -476,6 +476,10 @@ def _extra_validator(is_request: bool):
         """rpc id can be either a string, number, or null"""
         return checker.is_type(instance, "string") or checker.is_type(instance, "number") or checker.is_type(instance, "null")
 
+    def is_proof_field(checker, instance):
+        """proof fields can be either an object or a string"""
+        return checker.is_type(instance, "number") or checker.is_type(instance, "string")
+
     # "msat" for request can be many forms
     if is_request:
         is_msat = is_msat_request
@@ -508,6 +512,7 @@ def _extra_validator(is_request: bool):
             "string_map": is_string_map,
             "json_object_or_array": is_json_object_or_array,
             "json_scalar": is_json_scalar,
+            "proof_field": is_proof_field,
         }
     )
 

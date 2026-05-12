@@ -158,6 +158,9 @@ service Node {
 	rpc CurrencyConvert(CurrencyconvertRequest) returns (CurrencyconvertResponse) {}
 	rpc CurrencyRate(CurrencyrateRequest) returns (CurrencyrateResponse) {}
 	rpc SendAmount(SendamountRequest) returns (SendamountResponse) {}
+	rpc CreateProof(CreateproofRequest) returns (CreateproofResponse) {}
+	rpc Xkeysend(XkeysendRequest) returns (XkeysendResponse) {}
+	rpc Graceful(GracefulRequest) returns (GracefulResponse) {}
 
 	rpc SubscribeBalanceSnapshot(StreamBalanceSnapshotRequest) returns (stream BalanceSnapshotNotification) {}
 	rpc SubscribeBlockAdded(StreamBlockAddedRequest) returns (stream BlockAddedNotification) {}
@@ -4436,6 +4439,51 @@ message SendamountResponse {
 	uint64 successful_parts = 3;
 	Amount amount_msat = 4;
 	Amount amount_sent_msat = 5;
+}
+
+message CreateproofRequest {
+	string invstring = 1;
+	optional string note = 2;
+	repeated ProofField include = 3;
+}
+
+message CreateproofResponse {
+	repeated CreateproofProofs proofs = 1;
+}
+
+message CreateproofProofs {
+	string bolt12 = 1;
+	repeated ProofField offer_fields_included = 2;
+	repeated ProofField invreq_fields_included = 3;
+	repeated ProofField invoice_fields_included = 4;
+}
+
+message XkeysendRequest {
+	bytes destination = 1;
+	Amount amount_msat = 2;
+	optional string label = 3;
+	optional Amount maxfee = 4;
+	repeated string layers = 5;
+	optional uint32 retry_for = 6;
+	optional uint32 maxdelay = 7;
+	map<string, string> extratlvs = 8;
+}
+
+message XkeysendResponse {
+	bytes payment_preimage = 1;
+	uint64 failed_parts = 2;
+	uint64 successful_parts = 3;
+	Amount amount_msat = 4;
+	Amount amount_sent_msat = 5;
+}
+
+message GracefulRequest {
+	optional uint32 timeout = 1;
+}
+
+message GracefulResponse {
+	repeated uint32 pending_htlc_expiries = 1;
+	repeated bytes pending_peers = 2;
 }
 
 message StreamBalanceSnapshotRequest {

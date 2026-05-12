@@ -160,6 +160,9 @@ grpc_method_names = [
     "CurrencyConvert",
     "CurrencyRate",
     "SendAmount",
+    "CreateProof",
+    "Xkeysend",
+    "Graceful",
 ]
 
 grpc_notification_names = [

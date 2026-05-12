@@ -3431,6 +3431,38 @@ def sendamount2py(m):
     })
 
 
+def createproof_proofs2py(m):
+    return remove_default({
+        "invoice_fields_included": [m.invoice_fields_included for i in m.invoice_fields_included], # ArrayField[primitive] in generate_composite
+        "invreq_fields_included": [m.invreq_fields_included for i in m.invreq_fields_included], # ArrayField[primitive] in generate_composite
+        "offer_fields_included": [m.offer_fields_included for i in m.offer_fields_included], # ArrayField[primitive] in generate_composite
+        "bolt12": m.bolt12,  # PrimitiveField in generate_composite
+    })
+
+
+def createproof2py(m):
+    return remove_default({
+        "proofs": [createproof_proofs2py(i) for i in m.proofs],  # ArrayField[composite] in generate_composite
+    })
+
+
+def xkeysend2py(m):
+    return remove_default({
+        "amount_msat": amount2msat(m.amount_msat),  # PrimitiveField in generate_composite
+        "amount_sent_msat": amount2msat(m.amount_sent_msat),  # PrimitiveField in generate_composite
+        "failed_parts": m.failed_parts,  # PrimitiveField in generate_composite
+        "payment_preimage": hexlify(m.payment_preimage),  # PrimitiveField in generate_composite
+        "successful_parts": m.successful_parts,  # PrimitiveField in generate_composite
+    })
+
+
+def graceful2py(m):
+    return remove_default({
+        "pending_htlc_expiries": [m.pending_htlc_expiries for i in m.pending_htlc_expiries], # ArrayField[primitive] in generate_composite
+        "pending_peers": [hexlify(m.pending_peers) for i in hexlify(m.pending_peers)], # ArrayField[primitive] in generate_composite
+    })
+
+
 def decodekeysend_routes2py(m): # manual override
     return remove_default({
         "expirydelta": m.expirydelta,

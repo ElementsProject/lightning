@@ -137,6 +137,8 @@ class GrpcConverterGenerator(IGenerator):
                     "json_object_or_array?": f"c.{name}.map(|f| f.into())",
                     "json_scalar": f"Some(c.{name})",
                     "json_scalar?": f"c.{name}.map(|f| f.into())",
+                    "proof_field": f"Some(c.{name})",
+                    "proof_field?": f"c.{name}.map(|f| f.into())",
                 }.get(
                     typ,
                     f"c.{name}",  # default to just assignment

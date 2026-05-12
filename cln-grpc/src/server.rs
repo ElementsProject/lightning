@@ -4887,6 +4887,102 @@ impl Node for Server
 
     }
 
+    async fn create_proof(
+        &self,
+        request: tonic::Request<pb::CreateproofRequest>,
+    ) -> Result<tonic::Response<pb::CreateproofResponse>, tonic::Status> {
+        let req = request.into_inner();
+        let req: requests::CreateproofRequest = req.into();
+        debug!("Client asked for create_proof");
+        trace!("create_proof request: {:?}", req);
+        let mut rpc = ClnRpc::new(&self.rpc_path)
+            .await
+            .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+        let result = rpc.call(Request::CreateProof(req))
+            .await
+            .map_err(|e| Status::new(
+               Code::Unknown,
+               format!("Error calling method CreateProof: {:?}", e)))?;
+        match result {
+            Response::CreateProof(r) => {
+               trace!("create_proof response: {:?}", r);
+               Ok(tonic::Response::new(r.into()))
+            },
+            r => Err(Status::new(
+                Code::Internal,
+                format!(
+                    "Unexpected result {:?} to method call CreateProof",
+                    r
+                )
+            )),
+        }
+
+    }
+
+    async fn xkeysend(
+        &self,
+        request: tonic::Request<pb::XkeysendRequest>,
+    ) -> Result<tonic::Response<pb::XkeysendResponse>, tonic::Status> {
+        let req = request.into_inner();
+        let req: requests::XkeysendRequest = req.into();
+        debug!("Client asked for xkeysend");
+        trace!("xkeysend request: {:?}", req);
+        let mut rpc = ClnRpc::new(&self.rpc_path)
+            .await
+            .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+        let result = rpc.call(Request::Xkeysend(req))
+            .await
+            .map_err(|e| Status::new(
+               Code::Unknown,
+               format!("Error calling method Xkeysend: {:?}", e)))?;
+        match result {
+            Response::Xkeysend(r) => {
+               trace!("xkeysend response: {:?}", r);
+               Ok(tonic::Response::new(r.into()))
+            },
+            r => Err(Status::new(
+                Code::Internal,
+                format!(
+                    "Unexpected result {:?} to method call Xkeysend",
+                    r
+                )
+            )),
+        }
+
+    }
+
+    async fn graceful(
+        &self,
+        request: tonic::Request<pb::GracefulRequest>,
+    ) -> Result<tonic::Response<pb::GracefulResponse>, tonic::Status> {
+        let req = request.into_inner();
+        let req: requests::GracefulRequest = req.into();
+        debug!("Client asked for graceful");
+        trace!("graceful request: {:?}", req);
+        let mut rpc = ClnRpc::new(&self.rpc_path)
+            .await
+            .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+        let result = rpc.call(Request::Graceful(req))
+            .await
+            .map_err(|e| Status::new(
+               Code::Unknown,
+               format!("Error calling method Graceful: {:?}", e)))?;
+        match result {
+            Response::Graceful(r) => {
+               trace!("graceful response: {:?}", r);
+               Ok(tonic::Response::new(r.into()))
+            },
+            r => Err(Status::new(
+                Code::Internal,
+                format!(
+                    "Unexpected result {:?} to method call Graceful",
+                    r
+                )
+            )),
+        }
+
+    }
+
 
 
     type SubscribeBalanceSnapshotStream = NotificationStream<pb::BalanceSnapshotNotification>;

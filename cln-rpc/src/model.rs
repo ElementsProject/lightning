@@ -207,6 +207,9 @@ pub enum Request {
 	CurrencyConvert(requests::CurrencyconvertRequest),
 	CurrencyRate(requests::CurrencyrateRequest),
 	SendAmount(requests::SendamountRequest),
+	CreateProof(requests::CreateproofRequest),
+	Xkeysend(requests::XkeysendRequest),
+	Graceful(requests::GracefulRequest),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -402,6 +405,9 @@ pub enum Response {
 	CurrencyConvert(responses::CurrencyconvertResponse),
 	CurrencyRate(responses::CurrencyrateResponse),
 	SendAmount(responses::SendamountResponse),
+	CreateProof(responses::CreateproofResponse),
+	Xkeysend(responses::XkeysendResponse),
+	Graceful(responses::GracefulResponse),
 }
 
 
@@ -5382,6 +5388,90 @@ pub mod requests {
 
 	    fn method(&self) -> &str {
 	        "sendamount"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct CreateproofRequest {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub note: Option<String>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub include: Option<Vec<ProofField>>,
+	    pub invstring: String,
+	}
+
+	impl From<CreateproofRequest> for Request {
+	    fn from(r: CreateproofRequest) -> Self {
+	        Request::CreateProof(r)
+	    }
+	}
+
+	impl IntoRequest for CreateproofRequest {
+	    type Response = super::responses::CreateproofResponse;
+	}
+
+	impl TypedRequest for CreateproofRequest {
+	    type Response = super::responses::CreateproofResponse;
+
+	    fn method(&self) -> &str {
+	        "createproof"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct XkeysendRequest {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub extratlvs: Option<HashMap<String, String>>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub label: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub maxdelay: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub maxfee: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub retry_for: Option<u32>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub layers: Option<Vec<String>>,
+	    pub amount_msat: Amount,
+	    pub destination: PublicKey,
+	}
+
+	impl From<XkeysendRequest> for Request {
+	    fn from(r: XkeysendRequest) -> Self {
+	        Request::Xkeysend(r)
+	    }
+	}
+
+	impl IntoRequest for XkeysendRequest {
+	    type Response = super::responses::XkeysendResponse;
+	}
+
+	impl TypedRequest for XkeysendRequest {
+	    type Response = super::responses::XkeysendResponse;
+
+	    fn method(&self) -> &str {
+	        "xkeysend"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct GracefulRequest {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub timeout: Option<u32>,
+	}
+
+	impl From<GracefulRequest> for Request {
+	    fn from(r: GracefulRequest) -> Self {
+	        Request::Graceful(r)
+	    }
+	}
+
+	impl IntoRequest for GracefulRequest {
+	    type Response = super::responses::GracefulResponse;
+	}
+
+	impl TypedRequest for GracefulRequest {
+	    type Response = super::responses::GracefulResponse;
+
+	    fn method(&self) -> &str {
+	        "graceful"
 	    }
 	}
 }
@@ -12981,6 +13071,69 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::SendAmount(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct CreateproofProofs {
+	    pub bolt12: String,
+	    pub invoice_fields_included: Vec<ProofField>,
+	    pub invreq_fields_included: Vec<ProofField>,
+	    pub offer_fields_included: Vec<ProofField>,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct CreateproofResponse {
+	    pub proofs: Vec<CreateproofProofs>,
+	}
+
+	impl TryFrom<Response> for CreateproofResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::CreateProof(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct XkeysendResponse {
+	    pub amount_msat: Amount,
+	    pub amount_sent_msat: Amount,
+	    pub failed_parts: u64,
+	    pub payment_preimage: Secret,
+	    pub successful_parts: u64,
+	}
+
+	impl TryFrom<Response> for XkeysendResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::Xkeysend(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct GracefulResponse {
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub pending_htlc_expiries: Option<Vec<u32>>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub pending_peers: Option<Vec<PublicKey>>,
+	}
+
+	impl TryFrom<Response> for GracefulResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::Graceful(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }

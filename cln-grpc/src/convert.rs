@@ -4711,6 +4711,56 @@ impl From<responses::SendamountResponse> for pb::SendamountResponse {
 }
 
 #[allow(unused_variables)]
+impl From<responses::CreateproofProofs> for pb::CreateproofProofs {
+    fn from(c: responses::CreateproofProofs) -> Self {
+        Self {
+            bolt12: c.bolt12, // Rule #2 for type string
+            // Field: CreateProof.proofs[].invoice_fields_included
+            invoice_fields_included: c.invoice_fields_included.into_iter().map(|i| i.into()).collect(), // Rule #3 for type proof_field
+            // Field: CreateProof.proofs[].invreq_fields_included
+            invreq_fields_included: c.invreq_fields_included.into_iter().map(|i| i.into()).collect(), // Rule #3 for type proof_field
+            // Field: CreateProof.proofs[].offer_fields_included
+            offer_fields_included: c.offer_fields_included.into_iter().map(|i| i.into()).collect(), // Rule #3 for type proof_field
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::CreateproofResponse> for pb::CreateproofResponse {
+    fn from(c: responses::CreateproofResponse) -> Self {
+        Self {
+            // Field: CreateProof.proofs[]
+            proofs: c.proofs.into_iter().map(|i| i.into()).collect(), // Rule #3 for type CreateproofProofs
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::XkeysendResponse> for pb::XkeysendResponse {
+    fn from(c: responses::XkeysendResponse) -> Self {
+        Self {
+            amount_msat: Some(c.amount_msat.into()), // Rule #2 for type msat
+            amount_sent_msat: Some(c.amount_sent_msat.into()), // Rule #2 for type msat
+            failed_parts: c.failed_parts, // Rule #2 for type u64
+            payment_preimage: c.payment_preimage.to_vec(), // Rule #2 for type secret
+            successful_parts: c.successful_parts, // Rule #2 for type u64
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::GracefulResponse> for pb::GracefulResponse {
+    fn from(c: responses::GracefulResponse) -> Self {
+        Self {
+            // Field: Graceful.pending_htlc_expiries[]
+            pending_htlc_expiries: c.pending_htlc_expiries.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
+            // Field: Graceful.pending_peers[]
+            pending_peers: c.pending_peers.map(|arr| arr.into_iter().map(|i| i.serialize().to_vec()).collect()).unwrap_or(vec![]), // Rule #3
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<notifications::BalanceSnapshotAccounts> for pb::BalanceSnapshotAccounts {
     fn from(c: notifications::BalanceSnapshotAccounts) -> Self {
         Self {
@@ -7017,6 +7067,44 @@ impl From<requests::SendamountRequest> for pb::SendamountRequest {
 }
 
 #[allow(unused_variables)]
+impl From<requests::CreateproofRequest> for pb::CreateproofRequest {
+    fn from(c: requests::CreateproofRequest) -> Self {
+        Self {
+            // Field: CreateProof.include
+            include: c.include.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
+            invstring: c.invstring, // Rule #2 for type string
+            note: c.note, // Rule #2 for type string?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<requests::XkeysendRequest> for pb::XkeysendRequest {
+    fn from(c: requests::XkeysendRequest) -> Self {
+        Self {
+            amount_msat: Some(c.amount_msat.into()), // Rule #2 for type msat
+            destination: c.destination.serialize().to_vec(), // Rule #2 for type pubkey
+            extratlvs: c.extratlvs.unwrap_or(HashMap::new()), // Rule #2 for type string_map?
+            label: c.label, // Rule #2 for type string?
+            // Field: Xkeysend.layers[]
+            layers: c.layers.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
+            maxdelay: c.maxdelay, // Rule #2 for type u32?
+            maxfee: c.maxfee.map(|f| f.into()), // Rule #2 for type msat?
+            retry_for: c.retry_for, // Rule #2 for type u32?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<requests::GracefulRequest> for pb::GracefulRequest {
+    fn from(c: requests::GracefulRequest) -> Self {
+        Self {
+            timeout: c.timeout, // Rule #2 for type u32?
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<notifications::requests::StreamBalanceSnapshotRequest> for pb::StreamBalanceSnapshotRequest {
     fn from(c: notifications::requests::StreamBalanceSnapshotRequest) -> Self {
         Self {
@@ -9032,6 +9120,42 @@ impl From<pb::SendamountRequest> for requests::SendamountRequest {
             maxfee: c.maxfee.map(|a| a.into()), // Rule #1 for type msat?
             payer_note: c.payer_note, // Rule #1 for type string?
             retry_for: c.retry_for, // Rule #1 for type u32?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::CreateproofRequest> for requests::CreateproofRequest {
+    fn from(c: pb::CreateproofRequest) -> Self {
+        Self {
+            include: Some(c.include.into_iter().map(|s| s.into()).collect()), // Rule #4
+            invstring: c.invstring, // Rule #1 for type string
+            note: c.note, // Rule #1 for type string?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::XkeysendRequest> for requests::XkeysendRequest {
+    fn from(c: pb::XkeysendRequest) -> Self {
+        Self {
+            amount_msat: c.amount_msat.unwrap().into(), // Rule #1 for type msat
+            destination: PublicKey::from_slice(&c.destination).unwrap(), // Rule #1 for type pubkey
+            extratlvs: Some(c.extratlvs), // Rule #1 for type string_map?
+            label: c.label, // Rule #1 for type string?
+            layers: Some(c.layers.into_iter().map(|s| s.into()).collect()), // Rule #4
+            maxdelay: c.maxdelay, // Rule #1 for type u32?
+            maxfee: c.maxfee.map(|a| a.into()), // Rule #1 for type msat?
+            retry_for: c.retry_for, // Rule #1 for type u32?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::GracefulRequest> for requests::GracefulRequest {
+    fn from(c: pb::GracefulRequest) -> Self {
+        Self {
+            timeout: c.timeout, // Rule #1 for type u32?
         }
     }
 }
