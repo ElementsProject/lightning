@@ -1423,6 +1423,20 @@
             "CreateOnion.onion": 1,
             "CreateOnion.shared_secrets[]": 2
         },
+        "CreateproofProofs": {
+            "CreateProof.proofs[].bolt12": 1,
+            "CreateProof.proofs[].invoice_fields_included": 4,
+            "CreateProof.proofs[].invreq_fields_included": 3,
+            "CreateProof.proofs[].offer_fields_included": 2
+        },
+        "CreateproofRequest": {
+            "CreateProof.include": 3,
+            "CreateProof.invstring": 1,
+            "CreateProof.note": 2
+        },
+        "CreateproofResponse": {
+            "CreateProof.proofs[]": 1
+        },
         "CreateruneRequest": {
             "CreateRune.restrictions": 2,
             "CreateRune.rune": 1
@@ -2190,6 +2204,13 @@
             "GetRoutes.routes[].path[].node_id_out": 10,
             "GetRoutes.routes[].path[].short_channel_id": 1,
             "GetRoutes.routes[].path[].short_channel_id_dir": 6
+        },
+        "GracefulRequest": {
+            "Graceful.timeout": 1
+        },
+        "GracefulResponse": {
+            "Graceful.pending_htlc_expiries[]": 1,
+            "Graceful.pending_peers[]": 2
         },
         "HelpHelp": {
             "Help.help[].category": 2,
@@ -4471,6 +4492,23 @@
             "Withdraw.tx": 1,
             "Withdraw.txid": 2
         },
+        "XkeysendRequest": {
+            "Xkeysend.amount_msat": 2,
+            "Xkeysend.destination": 1,
+            "Xkeysend.extratlvs": 8,
+            "Xkeysend.label": 3,
+            "Xkeysend.layers[]": 5,
+            "Xkeysend.maxdelay": 7,
+            "Xkeysend.maxfee": 4,
+            "Xkeysend.retry_for": 6
+        },
+        "XkeysendResponse": {
+            "Xkeysend.amount_msat": 4,
+            "Xkeysend.amount_sent_msat": 5,
+            "Xkeysend.failed_parts": 2,
+            "Xkeysend.payment_preimage": 1,
+            "Xkeysend.successful_parts": 3
+        },
         "XpayRequest": {
             "Xpay.amount_msat": 2,
             "Xpay.dev_use_shadow": 11,
@@ -6415,6 +6453,42 @@
         },
         "CreateOnion.shared_secrets[]": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "CreateProof": {
+            "added": "v26.06",
+            "deprecated": null
+        },
+        "CreateProof.include": {
+            "added": "v26.06",
+            "deprecated": null
+        },
+        "CreateProof.invstring": {
+            "added": "v26.06",
+            "deprecated": null
+        },
+        "CreateProof.note": {
+            "added": "v26.06",
+            "deprecated": null
+        },
+        "CreateProof.proofs[]": {
+            "added": "v26.06",
+            "deprecated": null
+        },
+        "CreateProof.proofs[].bolt12": {
+            "added": "v26.06",
+            "deprecated": null
+        },
+        "CreateProof.proofs[].invoice_fields_included": {
+            "added": "v26.06",
+            "deprecated": null
+        },
+        "CreateProof.proofs[].invreq_fields_included": {
+            "added": "v26.06",
+            "deprecated": null
+        },
+        "CreateProof.proofs[].offer_fields_included": {
+            "added": "v26.06",
             "deprecated": null
         },
         "CreateRune": {
@@ -8755,6 +8829,22 @@
         },
         "Getinfo.warning_lightningd_sync": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "Graceful": {
+            "added": "v26.06",
+            "deprecated": null
+        },
+        "Graceful.pending_htlc_expiries[]": {
+            "added": "v26.06",
+            "deprecated": null
+        },
+        "Graceful.pending_peers[]": {
+            "added": "v26.06",
+            "deprecated": null
+        },
+        "Graceful.timeout": {
+            "added": "v26.06",
             "deprecated": null
         },
         "Help": {
@@ -14891,6 +14981,58 @@
         },
         "Withdraw.utxos[]": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "Xkeysend": {
+            "added": "v26.06",
+            "deprecated": null
+        },
+        "Xkeysend.amount_msat": {
+            "added": "v26.06",
+            "deprecated": null
+        },
+        "Xkeysend.amount_sent_msat": {
+            "added": "v26.06",
+            "deprecated": null
+        },
+        "Xkeysend.destination": {
+            "added": "v26.06",
+            "deprecated": null
+        },
+        "Xkeysend.extratlvs": {
+            "added": "v26.06",
+            "deprecated": null
+        },
+        "Xkeysend.failed_parts": {
+            "added": "v26.06",
+            "deprecated": null
+        },
+        "Xkeysend.label": {
+            "added": "v26.06",
+            "deprecated": null
+        },
+        "Xkeysend.layers[]": {
+            "added": "v26.06",
+            "deprecated": null
+        },
+        "Xkeysend.maxdelay": {
+            "added": "v26.06",
+            "deprecated": null
+        },
+        "Xkeysend.maxfee": {
+            "added": "v26.06",
+            "deprecated": null
+        },
+        "Xkeysend.payment_preimage": {
+            "added": "v26.06",
+            "deprecated": null
+        },
+        "Xkeysend.retry_for": {
+            "added": "v26.06",
+            "deprecated": null
+        },
+        "Xkeysend.successful_parts": {
+            "added": "v26.06",
             "deprecated": null
         },
         "Xpay": {

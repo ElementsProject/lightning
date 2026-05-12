@@ -1189,3 +1189,10 @@ pub enum JsonScalar {
     Bool(bool),
     Null,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(untagged)]
+pub enum ProofField {
+    Name(String),
+    Number(u64),
+}

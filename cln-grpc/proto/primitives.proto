@@ -184,3 +184,10 @@ message JsonScalar {
 		string string_value = 5;
 	}
 }
+
+message ProofField {
+	oneof ident {
+		string name   = 1;
+		uint64 number = 2;
+	}
+}

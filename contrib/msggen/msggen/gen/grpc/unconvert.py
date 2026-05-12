@@ -138,6 +138,8 @@ class GrpcUnconverterGenerator(GrpcConverterGenerator):
                     "json_object_or_array?": f"Some(c.{name})",
                     "json_scalar": f"c.{name}.unwrap()",
                     "json_scalar?": f"Some(c.{name})",
+                    "proof_field": f"c.{name}.unwrap()",
+                    "proof_field?": f"Some(c.{name})",
                 }.get(
                     typ,
                     f"c.{name}",  # default to just assignment
