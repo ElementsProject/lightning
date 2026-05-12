@@ -11165,6 +11165,12 @@ pub mod responses {
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsExperimentalsimpleclose {
+	    pub set: bool,
+	    pub source: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListconfigsConfigsFeebase {
 	    pub source: String,
 	    pub value_int: u32,
@@ -11534,6 +11540,9 @@ pub mod responses {
 	    #[serde(rename = "experimental-shutdown-wrong-funding")]
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub experimental_shutdown_wrong_funding: Option<ListconfigsConfigsExperimentalshutdownwrongfunding>,
+	    #[serde(rename = "experimental-simple-close")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub experimental_simple_close: Option<ListconfigsConfigsExperimentalsimpleclose>,
 	    #[serde(rename = "fee-base")]
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub fee_base: Option<ListconfigsConfigsFeebase>,

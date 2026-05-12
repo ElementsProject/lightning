@@ -3237,6 +3237,7 @@ message ListconfigsConfigs {
 	optional ListconfigsConfigsAutoconnectseekerpeers autoconnect_seeker_peers = 71;
 	optional ListconfigsConfigsCurrencyrateaddsource currencyrate_add_source = 74;
 	optional ListconfigsConfigsCurrencyratedisablesource currencyrate_disable_source = 75;
+	optional ListconfigsConfigsExperimentalsimpleclose experimental_simple_close = 76;
 }
 
 message ListconfigsConfigsAddr {
@@ -3403,6 +3404,11 @@ message ListconfigsConfigsExperimentalpeerstorage {
 }
 
 message ListconfigsConfigsExperimentalshutdownwrongfunding {
+	bool set = 1;
+	string source = 2;
+}
+
+message ListconfigsConfigsExperimentalsimpleclose {
 	bool set = 1;
 	string source = 2;
 }

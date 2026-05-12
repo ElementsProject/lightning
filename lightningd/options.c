@@ -1246,6 +1246,14 @@ static char *opt_set_dual_fund(struct lightningd *ld)
 	return NULL;
 }
 
+static char *opt_set_simple_close(struct lightningd *ld)
+{
+	feature_set_or(ld->our_features,
+		       take(feature_set_for_feature(NULL,
+						    OPTIONAL_FEATURE(OPT_SIMPLE_CLOSE))));
+	return NULL;
+}
+
 static char *opt_set_splicing(struct lightningd *ld)
 {
 	/* Show deprecation warning */
@@ -1487,6 +1495,11 @@ static void register_opts(struct lightningd *ld)
 				 "experimental: Advertise dual-funding"
 				 " and allow peers to establish channels"
 				 " via v2 channel open protocol.");
+
+	opt_register_early_noarg("--experimental-simple-close",
+				 opt_set_simple_close, ld,
+				 "experimental: Advertise option_simple_close"
+				 " and use the simplified mutual close protocol.");
 
 	/* Deprecated: splicing is on by default now */
 	opt_register_early_noarg("--experimental-splicing",

@@ -4115,8 +4115,7 @@ def test_closing_cpfp(node_factory, bitcoind):
 # ---------------------------------------------------------------------------
 # option_simple_close (BOLT #2 closing_complete/closing_sig)
 #
-# OPT_SIMPLE_CLOSE (bit 60) is not yet in the default feature set, so these
-# tests force it on both nodes with --dev-force-features.
+# OPT_SIMPLE_CLOSE (bit 60) is opt-in via --experimental-simple-close.
 # ---------------------------------------------------------------------------
 
 
@@ -4126,7 +4125,7 @@ def test_simple_close_basic(node_factory, bitcoind, chainparams):
     make a payment, then close cooperatively.  Each side independently builds
     and broadcasts its own closing tx; both spend the funding output so only
     one can confirm."""
-    opts = {'dev-force-features': '+60'}
+    opts = {'experimental-simple-close': None}
     l1, l2 = node_factory.line_graph(2, opts=opts)
 
     l1.pay(l2, 200000000)
@@ -4157,7 +4156,7 @@ def test_simple_close_basic(node_factory, bitcoind, chainparams):
 def test_simple_close_closer_pays_fee(node_factory, bitcoind):
     """The closing node (the closer) pays the on-chain fee; the closee gets
     its exact channel balance as an output with no deduction."""
-    opts = {'dev-force-features': '+60', 'feerates': (3750, 3750, 3750, 3750, 3750)}
+    opts = {'experimental-simple-close': None, 'feerates': (3750, 3750, 3750, 3750, 3750)}
     l1, l2 = node_factory.line_graph(2, opts=opts)
     chan = l1.get_channel_scid(l2)
 
@@ -4211,7 +4210,7 @@ def test_simple_close_closer_pays_fee(node_factory, bitcoind):
 def test_simple_close_dust_output_omitted(node_factory, bitcoind):
     """When the closee's output would be below the dust limit it must be
     omitted from the closing tx (closer_output_only TLV variant)."""
-    opts = {'dev-force-features': '+60', 'feerates': (3750, 3750, 3750, 3750, 3750)}
+    opts = {'experimental-simple-close': None, 'feerates': (3750, 3750, 3750, 3750, 3750)}
     l1, l2 = node_factory.line_graph(2, opts=opts)
     chan = l1.get_channel_scid(l2)
 
@@ -4330,9 +4329,7 @@ def test_simple_close_no_feature_fallback(node_factory, bitcoind, chainparams):
     """Without option_simple_close the nodes must fall back to legacy closingd
     (iterative closing_signed fee negotiation) and produce a single mutually-
     agreed closing tx."""
-    # Explicitly remove bit 60 to guard against future default-on changes.
-    opts = {'dev-force-features': '-60'}
-    l1, l2 = node_factory.line_graph(2, opts=opts)
+    l1, l2 = node_factory.line_graph(2)
     chan = l1.get_channel_scid(l2)
     fee = closing_fee(3750, 2) if not chainparams['elements'] else 4278
 
