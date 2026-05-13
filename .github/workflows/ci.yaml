@@ -34,7 +34,7 @@ jobs:
       fail-fast: true
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
@@ -75,14 +75,14 @@ jobs:
           fi
 
       - name: Set up Python 3.10
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.10"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v8.1.0
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         with:
           path: ~/ci-cache
           key: apt-${{ runner.os }}
@@ -104,7 +104,7 @@ jobs:
           uv run make -j $(nproc) check-source BASE_REF="origin/${{ github.base_ref }}" CARGO=false CC=devtools/cc-nobuild SUPPRESS_GENERATION=1
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: pytest-results-prebuild
           path: report.xml
@@ -149,17 +149,17 @@ jobs:
             DEBUG_BUILD:
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Python 3.10
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.10"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v8.1.0
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         with:
           path: ~/ci-cache
           key: apt-${{ runner.os }}
@@ -171,7 +171,7 @@ jobs:
           bash -x .github/scripts/setup.sh
 
       - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.9
+        uses: mozilla-actions/sccache-action@v0.0.10
       - run: sccache --zero-stats
 
       - name: Build
@@ -190,7 +190,7 @@ jobs:
 
           # Rename now so we don't clash
           mv testpack.tar.gz cln-${{ matrix.CFG }}.tar.gz
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: cln-${{ matrix.CFG }}.tar.gz
           path: cln-${{ matrix.CFG }}.tar.gz
@@ -204,17 +204,17 @@ jobs:
         CFG: [compile-gcc]
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Python 3.10
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.10"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v8.1.0
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         with:
           path: ~/ci-cache
           key: apt-${{ runner.os }}
@@ -226,7 +226,7 @@ jobs:
           bash -x .github/scripts/setup.sh
 
       - name: Download build
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: cln-${{ matrix.CFG }}.tar.gz
 
@@ -238,7 +238,7 @@ jobs:
           tar xaf cln-${{ matrix.CFG }}.tar.gz
 
       - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.9
+        uses: mozilla-actions/sccache-action@v0.0.10
       - run: sccache --zero-stats
 
       - name: Check
@@ -269,17 +269,17 @@ jobs:
             VALGRIND: 0
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Python 3.10
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.10"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v8.1.0
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         with:
           path: ~/ci-cache
           key: apt-${{ runner.os }}
@@ -293,7 +293,7 @@ jobs:
           git clone https://github.com/lightning/bolts.git ../${BOLTDIR}
 
       - name: Download build
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: cln-${{ matrix.CFG }}.tar.gz
 
@@ -306,7 +306,7 @@ jobs:
 
       # external/Makefile uses `TARGET_DIR := external/build-$(shell ${CC} -dumpmachine)` so we need sccache to "work" for that.
       - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.9
+        uses: mozilla-actions/sccache-action@v0.0.10
 
       - name: Check
         run: |
@@ -320,7 +320,7 @@ jobs:
       - prebuild
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Add i386 architecture
         run: |
@@ -328,7 +328,7 @@ jobs:
           sudo apt-get update -qq
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v8.1.0
 
       - name: Install dependencies
         env:
@@ -355,17 +355,17 @@ jobs:
       - prebuild
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Python 3.10
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.10"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v8.1.0
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         with:
           path: ~/ci-cache
           key: apt-${{ runner.os }}
@@ -377,7 +377,7 @@ jobs:
           bash -x .github/scripts/setup.sh
 
       - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.9
+        uses: mozilla-actions/sccache-action@v0.0.10
       - run: sccache --zero-stats
 
       - name: Build
@@ -408,17 +408,17 @@ jobs:
             TEST_NETWORK: liquid-regtest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Python 3.10
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.10"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v8.1.0
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         with:
           path: ~/ci-cache
           key: apt-${{ runner.os }}
@@ -430,7 +430,7 @@ jobs:
           bash -x .github/scripts/setup.sh
 
       - name: Download build
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: cln-${{ matrix.CFG }}.tar.gz
 
@@ -472,7 +472,7 @@ jobs:
           sg wireshark "uv run eatmydata pytest tests/test_downgrade.py -n $(($(nproc) + 1)) ${PYTEST_OPTS}"
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: pytest-results-check-downgrade-${{ matrix.TEST_DB_PROVIDER }}-${{ matrix.TEST_NETWORK }}
           path: report.xml
@@ -499,17 +499,17 @@ jobs:
         TEST_NETWORK: [regtest]
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Python 3.10
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.10"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v8.1.0
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         with:
           path: ~/ci-cache
           key: apt-${{ runner.os }}
@@ -521,7 +521,7 @@ jobs:
           bash -x .github/scripts/setup.sh
 
       - name: Download build
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: cln-${{ matrix.CFG }}.tar.gz
 
@@ -549,7 +549,7 @@ jobs:
           VALGRIND=0 sg wireshark "uv run eatmydata pytest tests/ -n $(($(nproc) + 1)) ${PYTEST_OPTS} --test-group=${{ matrix.GROUP }} --test-group-count=${{ matrix.GROUP_COUNT }}"
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: pytest-results-first-integration-${{ matrix.GROUP }}
           path: report.xml
@@ -590,17 +590,17 @@ jobs:
             EXPERIMENTAL_DUAL_FUND: 1
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Python 3.10
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.10"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v8.1.0
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         with:
           path: ~/ci-cache
           key: apt-${{ runner.os }}
@@ -612,7 +612,7 @@ jobs:
           bash -x .github/scripts/setup.sh
 
       - name: Download build
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: cln-${{ matrix.CFG }}.tar.gz
 
@@ -647,7 +647,7 @@ jobs:
           VALGRIND=0 sg wireshark "uv run eatmydata pytest tests/ -n $(($(nproc) + 1)) ${PYTEST_OPTS}"
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: pytest-results-integration-${{ matrix.name }}
           path: report.xml
@@ -669,17 +669,17 @@ jobs:
         GROUP_COUNT: [12]
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Python 3.10
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.10"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v8.1.0
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         with:
           path: ~/ci-cache
           key: apt-${{ runner.os }}
@@ -689,7 +689,7 @@ jobs:
           bash -x .github/scripts/setup.sh
 
       - name: Download build
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: cln-${{ matrix.CFG }}.tar.gz
 
@@ -709,7 +709,7 @@ jobs:
           VALGRIND=1 sg wireshark "uv run eatmydata pytest tests/ -n $(($(nproc) + 1)) ${PYTEST_OPTS} --test-group=${{ matrix.GROUP }} --test-group-count=${{ matrix.GROUP_COUNT }}"
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: pytest-results-integration-valgrind-${{ matrix.GROUP }}
           path: report.xml
@@ -733,17 +733,17 @@ jobs:
         GROUP_COUNT: [6]
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Python 3.10
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.10"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v8.1.0
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         with:
           path: ~/ci-cache
           key: apt-${{ runner.os }}
@@ -755,7 +755,7 @@ jobs:
           bash -x .github/scripts/setup.sh
 
       - name: Download build
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: cln-${{ matrix.CFG }}.tar.gz
 
@@ -773,7 +773,7 @@ jobs:
           sg wireshark "uv run eatmydata pytest tests/ -n $(($(nproc) + 1)) ${PYTEST_OPTS} --test-group=${{ matrix.GROUP }} --test-group-count=${{ matrix.GROUP_COUNT }}"
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: pytest-results-integration-sanitizers-${{ matrix.GROUP }}
           path: report.xml
@@ -796,16 +796,16 @@ jobs:
       - compile
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Set up Python 3.10
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.10"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v8.1.0
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         with:
           path: ~/ci-cache
           key: apt-${{ runner.os }}
@@ -815,7 +815,7 @@ jobs:
           bash -x .github/scripts/setup.sh
 
       - name: Download build
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: cln-${{ matrix.CFG }}.tar.gz
       - name: Unpack prebuilt binaries
@@ -832,7 +832,7 @@ jobs:
           uv run eatmydata make -j $(($(nproc) + 1)) check-doc-examples CARGO=false CC=devtools/cc-nobuild SUPPRESS_GENERATION=1
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: pytest-results-update-docs-examples
           path: report.xml
@@ -858,17 +858,17 @@ jobs:
             MIN_BTC_VERSION: "25.0"
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Python 3.10
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.10"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v8.1.0
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         with:
           path: ~/ci-cache
           key: apt-${{ runner.os }}
@@ -892,7 +892,7 @@ jobs:
         run: rm -rf "bitcoin-${{ matrix.MIN_BTC_VERSION }}-x86_64-linux-gnu.tar.gz" "bitcoin-${{ matrix.MIN_BTC_VERSION }}"
 
       - name: Download build
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: cln-${{ matrix.CFG }}.tar.gz
 
@@ -919,7 +919,7 @@ jobs:
           VALGRIND=0 sg wireshark "uv run eatmydata pytest tests/ -n $(($(nproc) + 1)) ${PYTEST_OPTS}"
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: pytest-results-min-btc-support-${{ matrix.NAME }}
           path: report.xml

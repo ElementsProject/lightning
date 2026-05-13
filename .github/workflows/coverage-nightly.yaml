@@ -19,15 +19,15 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Python 3.10
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.10"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v8.1.0
 
       - name: Install dependencies
         run: bash -x .github/scripts/setup.sh
@@ -38,7 +38,7 @@ jobs:
           uv run make -j $(nproc) testpack.tar.bz2
 
       - name: Upload build artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: cln-coverage-build
           path: testpack.tar.bz2
@@ -60,15 +60,15 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Python 3.10
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.10"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v8.1.0
 
       - name: Install dependencies
         run: bash -x .github/scripts/setup.sh
@@ -77,7 +77,7 @@ jobs:
         run: bash -x .github/scripts/install-bitcoind.sh
 
       - name: Download build artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: cln-coverage-build
 
@@ -97,7 +97,7 @@ jobs:
           uv run eatmydata pytest tests/ -n ${PYTEST_PAR} -vvv
 
       - name: Upload coverage data
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: coverage-raw-${{ matrix.name }}
@@ -112,7 +112,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install LLVM tools
         run: |
@@ -123,7 +123,7 @@ jobs:
           sudo ln -sf /usr/bin/llvm-cov-18 /usr/bin/llvm-cov
 
       - name: Download build artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: cln-coverage-build
 
@@ -131,7 +131,7 @@ jobs:
         run: tar -xaf testpack.tar.bz2
 
       - name: Download all coverage artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: coverage-raw-*
           path: coverage-artifacts
@@ -155,7 +155,7 @@ jobs:
           ./contrib/coverage/generate-coverage-report.sh
 
       - name: Upload to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v6
         with:
           files: coverage/merged.profdata
           flags: integration-tests
@@ -164,7 +164,7 @@ jobs:
           fail_ci_if_error: false
 
       - name: Upload HTML report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-html-report
           path: coverage/html

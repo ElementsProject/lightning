@@ -30,7 +30,7 @@ jobs:
             WORKDIR: contrib/pyln-proto
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
       with:
         # Need to fetch entire history in order to locate the version tag
         fetch-depth: 0
@@ -60,12 +60,12 @@ jobs:
         echo "DISTRIBUTION LOCATION: $DISTLOCATION"
   
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v6
       with:
         python-version: '3.10'
 
     - name: Install uv
-      uses: astral-sh/setup-uv@v5
+      uses: astral-sh/setup-uv@v8.1.0
 
     - name: Update pyln versions
       id: update-versions
