@@ -449,6 +449,8 @@ static bool channel_is_available(const struct gossmap_chan *c, int dir,
 {
 	if (!gossmap_chan_set(c, dir))
 		return false;
+	if (!c->half[dir].enabled)
+		return false;
 
 	const u32 chan_idx = gossmap_chan_idx(gossmap, c);
 	return !bitmap_test_bit(disabled, chan_idx * 2 + dir);
