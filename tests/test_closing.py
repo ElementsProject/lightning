@@ -4112,6 +4112,249 @@ def test_closing_cpfp(node_factory, bitcoind):
     sync_blockheight(bitcoind, [l1, l2])
     assert len(l1.rpc.listfunds()['outputs']) == 2
 
+# ---------------------------------------------------------------------------
+# option_simple_close (BOLT #2 closing_complete/closing_sig)
+#
+# OPT_SIMPLE_CLOSE (bit 60) is not yet in the default feature set, so these
+# tests force it on both nodes with --dev-force-features.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.xfail(strict=True)
+def test_simple_close_basic(node_factory, bitcoind, chainparams):
+    """Happy path: both nodes negotiate option_simple_close, fund a channel,
+    make a payment, then close cooperatively.  Each side independently builds
+    and broadcasts its own closing tx; both spend the funding output so only
+    one can confirm."""
+    opts = {'dev-force-features': '+60'}
+    l1, l2 = node_factory.line_graph(2, opts=opts)
+
+    l1.pay(l2, 200000000)
+    wait_for(lambda: only_one(l2.rpc.listpeerchannels()['channels'])['htlcs'] == [])
+
+    l1.rpc.close(l2.info['id'])
+
+    # Verify the simpleclosed daemon (not legacy closingd) handled the exchange.
+    l1.daemon.wait_for_log('Simple close starting')
+    l2.daemon.wait_for_log('Simple close starting')
+
+    # Each node builds its own closing tx; both spend the same funding output so
+    # only one can be in the mempool at a time (the other is rejected as an
+    # insufficient-fee RBF replacement at equal feerate).
+    # Mine one block: the winner confirms, the loser is evicted.
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    confirmed_txid = bitcoind.rpc.getblock(
+        bitcoind.rpc.getbestblockhash())['tx'][1]
+
+    # Both nodes must claim their output from whichever tx won.
+    wait_for(lambda: confirmed_txid in
+             {o['txid'] for o in l1.rpc.listfunds()['outputs']})
+    wait_for(lambda: confirmed_txid in
+             {o['txid'] for o in l2.rpc.listfunds()['outputs']})
+
+
+@pytest.mark.xfail(strict=True)
+def test_simple_close_closer_pays_fee(node_factory, bitcoind):
+    """The closing node (the closer) pays the on-chain fee; the closee gets
+    its exact channel balance as an output with no deduction."""
+    opts = {'dev-force-features': '+60', 'feerates': (3750, 3750, 3750, 3750, 3750)}
+    l1, l2 = node_factory.line_graph(2, opts=opts)
+    chan = l1.get_channel_scid(l2)
+
+    l1.pay(l2, 200000000)
+    wait_for(lambda: only_one(l2.rpc.listpeerchannels()['channels'])['htlcs'] == [])
+
+    # Sample both balances (in sat) before close.
+    l2_bal = only_one(
+        l2.rpc.listpeerchannels(l1.info['id'])['channels'])['to_us_msat'] // 1000
+    l1_bal = only_one(
+        l1.rpc.listpeerchannels(l2.info['id'])['channels'])['to_us_msat'] // 1000
+
+    # l1 initiates: l1 is the closer and bears the fee.
+    l1.rpc.close(chan)
+    l1.daemon.wait_for_log('Simple close starting')
+
+    # SIMPLE_CLOSE_WEIGHT = 900 wu (defined in simpleclosed.c).
+    expected_fee = 3750 * 900 // 1000  # = 3375 sat
+
+    # Only one of the two conflicting closing txs can be in the mempool at a time.
+    wait_for(lambda: bitcoind.rpc.getmempoolinfo()['size'] == 1)
+
+    # Inspect whichever tx won the race.  The invariant: one output equals the
+    # closee's exact balance (no fee deducted) and the other equals the closer's
+    # balance minus the fee.  Either (l1-closer, l2-closee) or the reverse is fine.
+    txid = only_one(bitcoind.rpc.getrawmempool())
+    tx = bitcoind.rpc.getrawtransaction(txid, True)
+    # Elements adds an explicit fee vout (scriptPubKey.type == 'fee'); filter it out.
+    real_vouts = [v for v in tx['vout'] if v['scriptPubKey'].get('type') != 'fee']
+    out_sats = sorted(int(round(v['value'] * 10**8)) for v in real_vouts)
+    assert len(out_sats) == 2, f"Expected 2 outputs in closing tx, got {out_sats}"
+
+    if l2_bal in out_sats:
+        # l1 was the closer in this tx: l2 (closee) gets exact balance.
+        l1_out = [s for s in out_sats if s != l2_bal][0]
+        assert l1_out == l1_bal - expected_fee, \
+            f"l1 closer output {l1_out} sat != {l1_bal} - {expected_fee} = {l1_bal - expected_fee}"
+    elif l1_bal in out_sats:
+        # l2 was the closer in this tx: l1 (closee) gets exact balance.
+        l2_out = [s for s in out_sats if s != l1_bal][0]
+        assert l2_out == l2_bal - expected_fee, \
+            f"l2 closer output {l2_out} sat != {l2_bal} - {expected_fee} = {l2_bal - expected_fee}"
+    else:
+        raise AssertionError(
+            f"Neither l1_bal ({l1_bal} sat) nor l2_bal ({l2_bal} sat) "
+            f"found as a full (undeducted) output in closing tx; outputs={out_sats}"
+        )
+
+
+@pytest.mark.xfail(strict=True)
+def test_simple_close_dust_output_omitted(node_factory, bitcoind):
+    """When the closee's output would be below the dust limit it must be
+    omitted from the closing tx (closer_output_only TLV variant)."""
+    opts = {'dev-force-features': '+60', 'feerates': (3750, 3750, 3750, 3750, 3750)}
+    l1, l2 = node_factory.line_graph(2, opts=opts)
+    chan = l1.get_channel_scid(l2)
+
+    # Give l2 a balance well below the default 546-sat dust limit.
+    l1.pay(l2, 400000)   # 400000 msat = 400 sat
+    wait_for(lambda: only_one(l2.rpc.listpeerchannels()['channels'])['htlcs'] == [])
+
+    l2_bal = only_one(
+        l2.rpc.listpeerchannels(l1.info['id'])['channels'])['to_us_msat'] // 1000
+    assert l2_bal < 546, f"l2 balance {l2_bal} sat must be below dust limit for this test"
+
+    # l1 is the non-lesser side (l1 >> l2), so it sends closer_output_only
+    # because the closee (l2) is dust; l2 as closer also has a dust-sized output
+    # after subtracting the fee (400 sat balance, fee 3375 sat → capped at 400 sat).
+    l1.rpc.close(chan)
+    l1.daemon.wait_for_log('Simple close starting')
+
+    wait_for(lambda: bitcoind.rpc.getmempoolinfo()['size'] >= 1)
+
+    # Every closing tx in the mempool must have exactly 1 output: the dust
+    # output is omitted in all variants.  Elements appends an explicit fee
+    # output (scriptPubKey type 'fee') which must not be counted here.
+    for txid in bitcoind.rpc.getrawmempool():
+        tx = bitcoind.rpc.getrawtransaction(txid, True)
+        real_vouts = [v for v in tx['vout'] if v['scriptPubKey'].get('type') != 'fee']
+        assert len(real_vouts) == 1, \
+            f"tx {txid} has {len(tx['vout'])} outputs; expected 1 (dust omitted)"
+
+
+@pytest.mark.xfail(strict=True)
+def test_simple_close_restart(node_factory, bitcoind):
+    """After a clean restart in CLOSINGD_COMPLETE the stored mutual close tx
+    must be rebroadcast via resend_closing_transactions, not a commitment tx.
+    This exercises channel_set_last_tx + wallet_channel_save: if the mutual
+    close tx is not persisted, the node would rebroadcast the commitment tx
+    (unilateral close) instead and the channel would not resolve as MUTUAL_CLOSE."""
+    opts = {'experimental-simple-close': None, 'may_reconnect': True}
+    l1, l2 = node_factory.line_graph(2, opts=opts)
+
+    l1.pay(l2, 200000000)
+    wait_for(lambda: only_one(l2.rpc.listpeerchannels()['channels'])['htlcs'] == [])
+
+    l1.rpc.close(l2.info['id'])
+
+    # Wait until l1 has stored the mutual close tx in the database.
+    l1.daemon.wait_for_log('Simple close: stored')
+
+    # Both sides must reach CLOSINGD_COMPLETE before we restart.
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['state'] == 'CLOSINGD_COMPLETE')
+
+    # Stop l1; the mutual close tx must have been persisted via
+    # channel_set_last_tx + wallet_channel_save.
+    l1.stop()
+
+    # Restart l1. resend_closing_transactions calls drop_to_chain which calls
+    # sign_and_send_last using the stored channel->last_tx (the mutual close tx).
+    l1.start()
+    # Both L1 and L2 broadcast conflicting txs (each node's closer tx).
+    # Whichever broadcasts second gets exit 26 (mempool conflict).  After
+    # restart L1 will attempt to rebroadcast, possibly getting 26 again if its
+    # tx was already in the mempool. Any sendrawtx call proves the tx was
+    # reloaded from the DB and the broadcast was attempted.
+    l1.daemon.wait_for_log('sendrawtx exit')
+
+    # Mine the winner; both mutual close txs conflict on the funding input so
+    # only one confirms.
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    sync_blockheight(bitcoind, [l1, l2])
+
+    # The channel must resolve as a MUTUAL close — not as a unilateral close,
+    # which would happen if l1 had rebroadcast the commitment tx instead.
+    l1.daemon.wait_for_log('Resolved FUNDING_TRANSACTION/FUNDING_OUTPUT by MUTUAL_CLOSE')
+    l2.daemon.wait_for_log('Resolved FUNDING_TRANSACTION/FUNDING_OUTPUT by MUTUAL_CLOSE')
+
+    # Both nodes must see their output from the confirmed closing tx.
+    confirmed_txid = bitcoind.rpc.getblock(bitcoind.rpc.getbestblockhash())['tx'][1]
+    wait_for(lambda: confirmed_txid in {o['txid'] for o in l1.rpc.listfunds()['outputs']})
+    wait_for(lambda: confirmed_txid in {o['txid'] for o in l2.rpc.listfunds()['outputs']})
+
+
+@pytest.mark.xfail(strict=True)
+def test_simple_close_closee_path(node_factory, bitcoind):
+    """Each node acts as both closer and closee simultaneously.  Verify that
+    handle_simpleclosed_closee_broadcast runs on both nodes (confirmed by the
+    'stored closee tx' log) so the peer's closing tx is persisted.  Both
+    nodes must claim their output from whichever tx wins the race."""
+    opts = {'experimental-simple-close': None}
+    l1, l2 = node_factory.line_graph(2, opts=opts)
+
+    l1.pay(l2, 200000000)
+    wait_for(lambda: only_one(l2.rpc.listpeerchannels()['channels'])['htlcs'] == [])
+
+    l1.rpc.close(l2.info['id'])
+
+    # Both log lines must appear on each node:
+    #   "stored closee tx" — handle_simpleclosed_closee_broadcast ran (peer's tx stored)
+    #   "stored closer tx" — handle_simpleclosed_got_sig ran (our own tx stored)
+    # The closee_broadcast message always arrives before got_sig (closing_complete
+    # is received before closing_sig in the protocol), so use wait_for_logs to
+    # find both in any order rather than two sequential wait_for_log calls.
+    l1.daemon.wait_for_logs(['Simple close: stored closer tx',
+                             'Simple close: stored closee tx'])
+    l2.daemon.wait_for_logs(['Simple close: stored closer tx',
+                             'Simple close: stored closee tx'])
+
+    # One of the two conflicting txs confirms; both nodes must see their output.
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    confirmed_txid = bitcoind.rpc.getblock(bitcoind.rpc.getbestblockhash())['tx'][1]
+
+    sync_blockheight(bitcoind, [l1, l2])
+    wait_for(lambda: confirmed_txid in {o['txid'] for o in l1.rpc.listfunds()['outputs']})
+    wait_for(lambda: confirmed_txid in {o['txid'] for o in l2.rpc.listfunds()['outputs']})
+
+
+def test_simple_close_no_feature_fallback(node_factory, bitcoind, chainparams):
+    """Without option_simple_close the nodes must fall back to legacy closingd
+    (iterative closing_signed fee negotiation) and produce a single mutually-
+    agreed closing tx."""
+    # Explicitly remove bit 60 to guard against future default-on changes.
+    opts = {'dev-force-features': '-60'}
+    l1, l2 = node_factory.line_graph(2, opts=opts)
+    chan = l1.get_channel_scid(l2)
+    fee = closing_fee(3750, 2) if not chainparams['elements'] else 4278
+
+    l1.pay(l2, 200000000)
+    wait_for(lambda: only_one(l2.rpc.listpeerchannels()['channels'])['htlcs'] == [])
+
+    l1.rpc.close(chan)
+
+    # Legacy mutual close: both sides agree on one tx, not two.
+    wait_for(lambda: bitcoind.rpc.getmempoolinfo()['size'] == 1)
+
+    closetxid = only_one(bitcoind.rpc.getrawmempool(False))
+    billboard = only_one(
+        l1.rpc.listpeerchannels(l2.info['id'])['channels'])['status']
+    assert billboard == [
+        'CLOSINGD_SIGEXCHANGE:We agreed on a closing fee of '
+        '{} satoshi for tx:{}'.format(fee, closetxid),
+    ]
+
+    # No simpleclosed daemon should have been started.
+    assert not l1.daemon.is_in_log('Simple close starting')
+
 
 @pytest.mark.skip("Solely to generate the blockchain and test dbs, before we fixed output p2pkh watching")
 def test_onchain_p2tr_missed_txs(node_factory, bitcoind):
