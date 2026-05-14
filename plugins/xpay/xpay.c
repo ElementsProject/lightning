@@ -1,4 +1,5 @@
 #include "config.h"
+#include <bitcoin/tx.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/htable/htable_type.h>
@@ -21,6 +22,7 @@
 #include <common/pseudorand.h>
 #include <common/randbytes.h>
 #include <common/route.h>
+#include <common/trace.h>
 #include <common/wireaddr.h>
 #include <errno.h>
 #include <inttypes.h>
@@ -2439,6 +2441,11 @@ static struct payment *new_payment(const tal_t *ctx,
 {
 	struct xpay *xpay = xpay_of(cmd->plugin);
 	struct payment *payment = tal(ctx, struct payment);
+	/* Start tracing the payment until it is destroyed. */
+	trace_span_start("xpay/payment", payment);
+	trace_span_tag(payment, "payment_hash",
+		       fmt_sha256(payment, payment_hash));
+	trace_span_suspend_may_free(payment);
 
 	payment->plugin = cmd->plugin;
 	payment->deadline = timemono_add(time_mono(), time_from_sec(retryfor));
