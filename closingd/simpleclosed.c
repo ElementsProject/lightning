@@ -309,7 +309,8 @@ static struct bitcoin_tx *handle_closing_complete(
 					struct amount_sat local_sat,
 					struct amount_sat dust_limit,
 					const u8 *our_last_script,
-					const u8 *msg)
+					const u8 *msg,
+					struct amount_sat *their_fee_out)
 {
 	struct channel_id their_cid = {};
 	u8 *closer_script, *closee_script;
@@ -330,6 +331,8 @@ static struct bitcoin_tx *handle_closing_complete(
 		peer_failed_warn(pps, &their_cid,
 				 "Bad closing_complete: %s",
 				 tal_hex(tmpctx, msg));
+
+	*their_fee_out = fee_sat;
 
 	/* BOLT #2:
 	 * The receiver of `closing_complete` (aka. "the closee"):
@@ -611,7 +614,7 @@ int main(int argc, char *argv[])
 	bool got_peer_complete, got_our_sig;
 	struct tlv_closing_tlvs *sent_tlvs;
 	u8 *sent_closer_script, *sent_closee_script;
-	struct amount_sat sent_fee;
+	struct amount_sat sent_fee, their_fee;
 	u32 sent_locktime = 0;
 
 	subdaemon_setup(argc, argv);
@@ -667,7 +670,8 @@ int main(int argc, char *argv[])
 			}
 			handle_closing_complete(&funding, funding_sats,
 				&local_fundingkey, &remote_fundingkey, local_wallet_index,
-				local_wallet_ext_key, local_sat, dust_limit, local_script, msg);
+				local_wallet_ext_key, local_sat, dust_limit, local_script,
+				msg, &their_fee);
 			got_peer_complete = true;
 			break;
 
@@ -761,7 +765,27 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	wire_sync_write(REQ_FD, take(towire_simpleclosed_complete(NULL)));
+	/* Decide whether to ask master to delay broadcasting our closer tx.
+	 * If our output (closer pays the full fee) is less than the peer's
+	 * output AND our proposed fee is lower than theirs, their tx has a
+	 * better chance of being mined first — give it an hour head-start.
+	 * Skip when closer_amount is zero: our output is dust and will be
+	 * omitted regardless, so there is nothing to protect by waiting. */
+	struct amount_sat closer_amount;
+	if (!amount_sat_sub(&closer_amount, local_sat, sent_fee))
+		closer_amount = AMOUNT_SAT(0);
+	bool delay_broadcast = amount_sat_greater(closer_amount, AMOUNT_SAT(0))
+		&& amount_sat_less(closer_amount, remote_sat)
+		&& amount_sat_less(sent_fee, their_fee);
+	if (delay_broadcast)
+		status_debug("Simple close: requesting delayed broadcast"
+			" (our output %s < peer %s, our fee %s < their fee %s)",
+			fmt_amount_sat(tmpctx, closer_amount),
+			fmt_amount_sat(tmpctx, remote_sat),
+			fmt_amount_sat(tmpctx, sent_fee),
+			fmt_amount_sat(tmpctx, their_fee));
+
+	wire_sync_write(REQ_FD, take(towire_simpleclosed_complete(NULL, delay_broadcast)));
 	tal_free(ctx);
 	daemon_shutdown();
 }

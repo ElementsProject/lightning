@@ -4320,6 +4320,54 @@ def test_simple_close_closee_path(node_factory, bitcoind):
     wait_for(lambda: confirmed_txid in {o['txid'] for o in l2.rpc.listfunds()['outputs']})
 
 
+def test_simple_close_delay_broadcast(node_factory, bitcoind, executor):
+    """When the closer has less output AND proposes a lower fee than the peer,
+    it must log a 1-hour delay and let the peer's higher-fee tx get mined first.
+    The peer (l2) has the reversed conditions and must NOT delay.
+
+    We verify the delay via the log message only — we cannot wait an hour."""
+    # feerates[3] (100-block ECONOMICAL target) drives BOTH mutual_close_feerate
+    # AND the anchor commitment feerate used during channel open.  The anchor
+    # path clamps to a floor of 1250 sat/kw, and l2 enforces a minimum of
+    # feerates[3]//2 = 7500//2 = 3750 sat/kw on the proposed commitment rate.
+    # So l1 needs feerates[3] >= 3750 to pass l2's open-channel check, yet
+    # still be strictly lower than l2's 7500 to trigger the delay heuristic.
+    # Setting per-node feerates at startup avoids smoothing: the first poll
+    # copies raw values directly with no exponential smoothing applied.
+    l1_opts = {'experimental-simple-close': None,
+               'feerates': (7500, 7500, 7500, 3750)}
+    l2_opts = {'experimental-simple-close': None,
+               'feerates': (7500, 7500, 7500, 7500)}
+    l1, l2 = node_factory.line_graph(2, opts=[l1_opts, l2_opts])
+
+    # Pay 600 000 sat l1 → l2: afterwards l1 ≈ 400 000 sat, l2 ≈ 600 000 sat.
+    l1.pay(l2, 600_000_000)
+    wait_for(lambda: only_one(l2.rpc.listpeerchannels()['channels'])['htlcs'] == [])
+
+    # l1's close RPC returns as soon as the mutual-close tx is stored, even
+    # though the broadcast itself is delayed 1 hour.  Run it in a thread so
+    # the test can proceed without blocking.
+    fut = executor.submit(l1.rpc.close, l2.info['id'])
+
+    # l1 as closer: closer_amount < remote_sat (l2 has more)
+    # AND sent_fee (≈3750*weight/1000) < their_fee (≈7500*weight/1000) → delay.
+    l1.daemon.wait_for_log('Simple close: delaying broadcast by 1 hour')
+
+    # l2 as closee: no delay expected.
+    wait_for(lambda: only_one(l2.rpc.listpeerchannels()['channels'])['state']
+             == 'CLOSINGD_COMPLETE')
+    assert not l2.daemon.is_in_log('Simple close: delaying broadcast')
+
+    # l2 broadcasts immediately; wait until its tx is confirmed.
+    # We wait for the broadcast log rather than polling getrawmempool(),
+    # which can miss a just-submitted tx under the rpcproxy timing.
+    l2.daemon.wait_for_log('Broadcasting txid')
+    bitcoind.generate_block(1)
+    l1.daemon.wait_for_log('Resolved FUNDING_TRANSACTION/FUNDING_OUTPUT by MUTUAL_CLOSE')
+    l2.daemon.wait_for_log('Resolved FUNDING_TRANSACTION/FUNDING_OUTPUT by MUTUAL_CLOSE')
+    fut.result(timeout=10)
+
+
 def test_simple_close_no_feature_fallback(node_factory, bitcoind, chainparams):
     """Without option_simple_close the nodes must fall back to legacy closingd
     (iterative closing_signed fee negotiation) and produce a single mutually-

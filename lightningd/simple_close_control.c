@@ -5,7 +5,9 @@
 #include <ccan/tal/str/str.h>
 #include <closingd/simpleclosed_wiregen.h>
 #include <common/fee_states.h>
+#include <common/memleak.h>
 #include <common/shutdown_scriptpubkey.h>
+#include <common/timeout.h>
 #include <errno.h>
 #include <hsmd/permissions.h>
 #include <inttypes.h>
@@ -24,6 +26,10 @@
 #include <wallet/wallet.h>
 #include <wally_bip32.h>
 
+/* How long the lower-fee closer delays broadcasting its own tx, giving the
+ * peer's higher-fee tx a head-start to be mined first (see the delay
+ * heuristic in handle_simpleclosed_complete). */
+#define SIMPLE_CLOSE_BROADCAST_DELAY_SECS 3600 /* 1 hour */
 
 /* Check that tx spends exactly our funding outpoint and every output goes
  * to a known shutdown script.  Returns an error string, or NULL on success. */
@@ -153,9 +159,17 @@ static void handle_simpleclosed_closee_broadcast(struct channel *channel,
 		fmt_bitcoin_txid(tmpctx, &txid));
 }
 
+static void delayed_drop_to_chain(struct channel *channel)
+{
+	log_info(channel->log, "Simple close: broadcast delay elapsed, broadcasting closing tx");
+	drop_to_chain(channel->peer->ld, channel, true, NULL);
+}
+
 static void handle_simpleclosed_complete(struct channel *channel, const u8 *msg)
 {
-	if (!fromwire_simpleclosed_complete(msg)) {
+	struct lightningd *ld = channel->peer->ld;
+	bool delay_broadcast;
+	if (!fromwire_simpleclosed_complete(msg, &delay_broadcast)) {
 		channel_internal_error(channel,
 			"bad simpleclosed_complete: %s",
 			tal_hex(msg, msg));
@@ -176,7 +190,24 @@ static void handle_simpleclosed_complete(struct channel *channel, const u8 *msg)
 		REASON_UNKNOWN,
 		"Simple close complete");
 
-	drop_to_chain(channel->peer->ld, channel, true, NULL);
+	if (delay_broadcast) {
+		log_info(channel->log,
+			"Simple close: delaying broadcast by 1 hour"
+			" (peer has higher-fee tx)");
+		/* Watch the funding outpoint now so onchaind starts when the
+		 * peer's higher-fee tx confirms.  Also resolves any pending
+		 * `close` RPC immediately rather than blocking for an hour. */
+		channel_watch_funding_out(ld, channel);
+		const struct bitcoin_tx **txs
+			= tal_arr(tmpctx, const struct bitcoin_tx *, 1);
+		txs[0] = channel->last_tx;
+		resolve_close_command(ld, channel, true, txs);
+		notleak(new_reltimer(ld->timers, channel,
+			time_from_sec(SIMPLE_CLOSE_BROADCAST_DELAY_SECS),
+			delayed_drop_to_chain, channel));
+	} else {
+		drop_to_chain(ld, channel, true, NULL);
+	}
 }
 
 static unsigned int simpleclosed_msg(struct subd *sd, const u8 *msg,

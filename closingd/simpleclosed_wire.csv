@@ -47,3 +47,4 @@ msgdata,simpleclosed_closee_broadcast,sig,bitcoin_signature,
 
 # Negotiations complete, exiting.
 msgtype,simpleclosed_complete,3004
+msgdata,simpleclosed_complete,delay_broadcast,bool,
