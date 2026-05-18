@@ -257,8 +257,7 @@ def test_connect_standard_addr(node_factory):
 
 
 def test_reconnect_channel_peers(node_factory, executor):
-    l1 = node_factory.get_node(may_reconnect=True)
-    l2 = node_factory.get_node(may_reconnect=True)
+    l1, l2 = node_factory.get_nodes(2, {'may_reconnect': True})
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
     l1.fundchannel(l2, 10**6)
@@ -1202,8 +1201,7 @@ def test_funding_push(node_factory, bitcoind, chainparams):
     # We track balances, to verify that accounting is ok.
     coin_mvt_plugin = os.path.join(os.getcwd(), 'tests/plugins/coin_movements.py')
 
-    l1 = node_factory.get_node(options={'plugin': coin_mvt_plugin})
-    l2 = node_factory.get_node(options={'plugin': coin_mvt_plugin})
+    l1, l2 = node_factory.get_nodes(2, {'plugin': coin_mvt_plugin})
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
@@ -2677,8 +2675,7 @@ def test_update_fee_reconnect(node_factory, bitcoind):
 
 
 def test_multiple_channels(node_factory):
-    l1 = node_factory.get_node()
-    l2 = node_factory.get_node()
+    l1, l2 = node_factory.get_nodes(2)
 
     ret = l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     assert ret['id'] == l2.info['id']
@@ -2705,8 +2702,7 @@ def test_multiple_channels(node_factory):
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 def test_forget_channel(node_factory):
-    l1 = node_factory.get_node()
-    l2 = node_factory.get_node()
+    l1, l2 = node_factory.get_nodes(2)
     l1.fundwallet(10**6)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l1.rpc.fundchannel(l2.info['id'], 10**5)
