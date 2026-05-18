@@ -1134,7 +1134,10 @@ static void try_connect_one_addr(struct connecting *connect)
 			hints.ai_socktype = SOCK_STREAM;
 			hints.ai_family = AF_UNSPEC;
 			hints.ai_protocol = 0;
+			/* AI_ADDRCONFIG speeds up connects on single-stack hosts by
+			 * pruning unreachable address families. */
 			hints.ai_flags = AI_ADDRCONFIG;
+
 			gai_err = getaddrinfo((char *)addr->u.wireaddr.wireaddr.addr,
 					      tal_fmt(tmpctx, "%d",
 						      addr->u.wireaddr.wireaddr.port),

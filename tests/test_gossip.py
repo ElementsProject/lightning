@@ -16,6 +16,7 @@ import os
 import pytest
 import struct
 import subprocess
+import sys
 import time
 import unittest
 import shutil
@@ -186,6 +187,8 @@ def test_announce_dns_suppressed(node_factory, bitcoind):
     assert addresses[0]['port'] == 1236
 
 
+@unittest.skipIf(sys.platform == "darwin",
+                 "localhost.localdomain not in /etc/hosts on macOS by default")
 def test_announce_and_connect_via_dns(node_factory, bitcoind):
     """ Test that DNS announcements propagate and can be used when connecting.
 
