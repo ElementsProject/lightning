@@ -4597,16 +4597,24 @@ def test_connect_ratelimit(node_factory, bitcoind):
 
 def test_onionmessage_forward_fail(node_factory, bitcoind):
     # The plugin will try to connect to l3, so it needs an advertized address.
-    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True,
-                                         opts=[{},
-                                               {'dev-allow-localhost': None,
-                                                'may_reconnect': True,
-                                                'dev-no-reconnect': None,
-                                                'plugin': os.path.join(os.getcwd(), 'tests/plugins/onionmessage_forward_fail_notification.py'),
-                                                },
-                                               {'dev-allow-localhost': None,
-                                                'dev-no-reconnect': None,
-                                                'may_reconnect': True}])
+    def setup(plugin):
+        @plugin.subscribe("onionmessage_forward_fail")
+        def on_onionmessage_forward_fail(onionmessage_forward_fail, **kwargs):
+            plugin.log(f"Received onionmessage_forward_fail {onionmessage_forward_fail}")
+            plugin.rpc.connect(onionmessage_forward_fail['next_node_id'])
+            # injectonionmessage expects to unwrap, so hand it *incoming*
+            plugin.rpc.injectonionmessage(onionmessage_forward_fail['path_key'],
+                                          onionmessage_forward_fail['incoming'])
+
+    l1 = node_factory.get_node()
+    l2 = node_factory.get_node(inline_plugin=setup,
+                               options={'dev-allow-localhost': None,
+                                        'dev-no-reconnect': None},
+                               may_reconnect=True)
+    l3 = node_factory.get_node(options={'dev-allow-localhost': None,
+                                        'dev-no-reconnect': None},
+                               may_reconnect=True)
+    node_factory.join_nodes([l1, l2, l3], wait_for_announce=True)
 
     offer = l3.rpc.offer(300, "test_onionmessage_forward_fail")
     l2.rpc.disconnect(l3.info['id'], force=True)
@@ -4614,7 +4622,7 @@ def test_onionmessage_forward_fail(node_factory, bitcoind):
     # The plugin in l2 fixes up the connection, so this works!
     l1.rpc.fetchinvoice(offer['bolt12'])
 
-    l2.daemon.is_in_log('plugin-onionmessage_forward_fail_notification.py: Received onionmessage_forward_fail')
+    l2.daemon.is_in_log('plugin-inline-plugin.py: Received onionmessage_forward_fail')
 
 
 def test_private_channel_no_reconnect(node_factory):
