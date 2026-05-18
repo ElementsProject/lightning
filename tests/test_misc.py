@@ -2868,11 +2868,11 @@ def test_new_node_is_mainnet(node_factory):
 
 
 def test_unicode_rpc(node_factory, executor, bitcoind):
-    node = node_factory.get_node()
+    l1 = node_factory.get_node()
     desc = "Some candy 🍬 and a nice glass of milk 🥛."
 
-    node.rpc.invoice(amount_msat=42, label=desc, description=desc)
-    invoices = node.rpc.listinvoices()['invoices']
+    l1.rpc.invoice(amount_msat=42, label=desc, description=desc)
+    invoices = l1.rpc.listinvoices()['invoices']
     assert(len(invoices) == 1)
     assert(invoices[0]['description'] == desc)
     assert(invoices[0]['label'] == desc)
@@ -2897,29 +2897,29 @@ def test_unix_socket_path_length(node_factory, bitcoind, directory, executor, db
 
 
 def test_waitblockheight(node_factory, executor, bitcoind):
-    node = node_factory.get_node()
+    l1 = node_factory.get_node()
 
-    sync_blockheight(bitcoind, [node])
+    sync_blockheight(bitcoind, [l1])
 
-    blockheight = node.rpc.getinfo()['blockheight']
+    blockheight = l1.rpc.getinfo()['blockheight']
 
     # Should succeed without waiting.
-    node.rpc.waitblockheight(blockheight - 2)
-    node.rpc.waitblockheight(blockheight - 1)
-    node.rpc.waitblockheight(blockheight)
+    l1.rpc.waitblockheight(blockheight - 2)
+    l1.rpc.waitblockheight(blockheight - 1)
+    l1.rpc.waitblockheight(blockheight)
 
     # Developer mode polls bitcoind every second, so 60 seconds is plenty.
     time = 60
 
     # Should not succeed yet.
-    fut2 = executor.submit(node.rpc.waitblockheight, blockheight + 2, time)
-    fut1 = executor.submit(node.rpc.waitblockheight, blockheight + 1, time)
+    fut2 = executor.submit(l1.rpc.waitblockheight, blockheight + 2, time)
+    fut1 = executor.submit(l1.rpc.waitblockheight, blockheight + 1, time)
     assert not fut1.done()
     assert not fut2.done()
 
     # Should take about ~1second and time out.
     with pytest.raises(RpcError):
-        node.rpc.waitblockheight(blockheight + 2, 1)
+        l1.rpc.waitblockheight(blockheight + 2, 1)
 
     # Others should still not be done.
     assert not fut1.done()
@@ -2927,13 +2927,13 @@ def test_waitblockheight(node_factory, executor, bitcoind):
 
     # Trigger just one more block.
     bitcoind.generate_block(1)
-    sync_blockheight(bitcoind, [node])
+    sync_blockheight(bitcoind, [l1])
     fut1.result(5)
     assert not fut2.done()
 
     # Trigger two blocks.
     bitcoind.generate_block(1)
-    sync_blockheight(bitcoind, [node])
+    sync_blockheight(bitcoind, [l1])
     fut2.result(5)
 
 
