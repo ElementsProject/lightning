@@ -1949,7 +1949,6 @@ def generate_list_examples(l1, l2, l3, c12, c23_2, inv_l31, inv_l32, offer_l23, 
             channel['scratch_txid'] = 'scratchid1' + (('0' + str(i)) * 27)
             channel['alias']['local'] = '3000000' + str(i) + 'x6000000' + str(i) + 'x6000' + str(i)
             channel['alias']['remote'] = '1000000' + str(i) + 'x2000000' + str(i) + 'x3000' + str(i)
-            channel['max_total_htlc_in_msat'] = NEW_VALUES_LIST['htlc_max_msat']
             channel['their_max_htlc_value_in_flight_msat'] = NEW_VALUES_LIST['htlc_max_msat']
             channel['our_max_htlc_value_in_flight_msat'] = NEW_VALUES_LIST['htlc_max_msat']
             for j, state in enumerate(channel['state_changes'], start=1):
@@ -1970,7 +1969,6 @@ def generate_list_examples(l1, l2, l3, c12, c23_2, inv_l31, inv_l32, offer_l23, 
                 channel['close_to_addr'] = 'bcrt1pcl' + (('000' + str(i)) * 14)
                 channel['close_to'] = 'db2dec31' + (('0' + str(i)) * 30)
                 channel['status'][0] = re.sub(r'(tx:)[a-f0-9]+', r'\1' + scrt_id, channel['status'][0])
-                channel['max_total_htlc_in_msat'] = NEW_VALUES_LIST['htlc_max_msat']
                 channel['their_max_htlc_value_in_flight_msat'] = NEW_VALUES_LIST['htlc_max_msat']
                 channel['our_max_htlc_value_in_flight_msat'] = NEW_VALUES_LIST['htlc_max_msat']
                 if 'inflight' in channel and len(channel['inflight']) > 0:

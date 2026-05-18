@@ -3883,9 +3883,6 @@ def test_sql(node_factory, bitcoind):
                          'type': 'u32'},
                         {'name': 'dust_limit_msat',
                          'type': 'msat'},
-                        {'name': 'max_total_htlc_in_msat',
-                         'type': 'msat',
-                         'deprecated': True},
                         {'name': 'their_max_htlc_value_in_flight_msat',
                          'type': 'msat'},
                         {'name': 'our_max_htlc_value_in_flight_msat',
@@ -4390,15 +4387,11 @@ def test_sql(node_factory, bitcoind):
 
 
 def test_sql_deprecated(node_factory, bitcoind):
-    l1, l2 = node_factory.line_graph(2, opts=[{'i-promise-to-fix-broken-api-user': 'listpeerchannels.max_total_htlc_in_msat'}, {}])
+    l1, l2 = node_factory.line_graph(2, opts=[{'allow-deprecated-apis': True}, {}])
 
-    # With deprecated APIs, this is there.
-    ret = l1.rpc.sql("SELECT max_total_htlc_in_msat FROM peerchannels;")
-    assert ret == {'rows': [[-1]]}
-
-    # It's deprecated in l2, so that will fail!
-    with pytest.raises(RpcError, match="Deprecated column table peerchannels.max_total_htlc_in_msat"):
-        l2.rpc.sql("SELECT max_total_htlc_in_msat FROM peerchannels;")
+    # Even with deprecated APIs, this isn't there.
+    with pytest.raises(RpcError, match="query failed with no such column: max_total_htlc_in_msat"):
+        l1.rpc.sql("SELECT max_total_htlc_in_msat FROM peerchannels;")
 
     # But we can use a wildcard fine.
     ret = l2.rpc.sql("SELECT COUNT(*) FROM peerchannels;")

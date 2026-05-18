@@ -312,9 +312,7 @@ static void channel_state_changed_notification_serialize(struct json_stream *str
 					      "v25.09", "v26.09"))
 		json_add_null(stream, "short_channel_id");
 	json_add_timeiso(stream, "timestamp", timestamp);
-	if (old_state != 0 || lightningd_deprecated_out_ok(ld, ld->deprecated_ok,
-							   "channel_state_changed", "old_state.unknown",
-							   "v25.05", "v26.03"))
+	if (old_state != 0)
 		json_add_string(stream, "old_state", channel_state_str(old_state));
 	json_add_string(stream, "new_state", channel_state_str(new_state));
 	json_add_string(stream, "cause", channel_change_state_reason_str(cause));

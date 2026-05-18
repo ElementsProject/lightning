@@ -28,12 +28,14 @@
       },
       "can_create_penalty": {
         "type": "boolean",
+        "added": "v26.06",
         "description": [
           "If false, you are using legacy file version, which can not create penalty transactions, kindly delete emergency.recover and restart the node!"
         ]
       },
       "backed_up_channel_ids": {
         "type": "array",
+        "added": "v26.06",
         "items": {
           "type": "hash",
           "description": [

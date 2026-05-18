@@ -777,7 +777,7 @@ message GetemergencyrecoverdataRequest {
 
 message GetemergencyrecoverdataResponse {
 	bytes filedata = 1;
-	bool can_create_penalty = 2;
+	optional bool can_create_penalty = 2;
 	repeated bytes backed_up_channel_ids = 3;
 }
 
@@ -1087,37 +1087,37 @@ message MakesecretResponse {
 }
 
 message PayRequest {
-	string bolt11 = 1;
-	optional string label = 3;
-	optional double maxfeepercent = 4;
-	optional uint32 retry_for = 5;
-	optional uint32 maxdelay = 6;
-	optional Amount exemptfee = 7;
-	optional double riskfactor = 8;
-	repeated string exclude = 10;
-	optional Amount maxfee = 11;
-	optional string description = 12;
-	optional Amount amount_msat = 13;
-	optional bytes localinvreqid = 14;
-	optional Amount partial_msat = 15;
+	string bolt11 = 1 [deprecated = true];
+	optional string label = 3 [deprecated = true];
+	optional double maxfeepercent = 4 [deprecated = true];
+	optional uint32 retry_for = 5 [deprecated = true];
+	optional uint32 maxdelay = 6 [deprecated = true];
+	optional Amount exemptfee = 7 [deprecated = true];
+	optional double riskfactor = 8 [deprecated = true];
+	repeated string exclude = 10 [deprecated = true];
+	optional Amount maxfee = 11 [deprecated = true];
+	optional string description = 12 [deprecated = true];
+	optional Amount amount_msat = 13 [deprecated = true];
+	optional bytes localinvreqid = 14 [deprecated = true];
+	optional Amount partial_msat = 15 [deprecated = true];
 }
 
 message PayResponse {
 	// Pay.status
 	enum PayStatus {
-		COMPLETE = 0;
-		PENDING = 1;
-		FAILED = 2;
+		COMPLETE = 0 [deprecated = true];
+		PENDING = 1 [deprecated = true];
+		FAILED = 2 [deprecated = true];
 	}
-	bytes payment_preimage = 1;
-	optional bytes destination = 2;
-	bytes payment_hash = 3;
-	double created_at = 4;
-	uint32 parts = 5;
-	Amount amount_msat = 6;
-	Amount amount_sent_msat = 7;
-	optional string warning_partial_completion = 8;
-	PayStatus status = 9;
+	bytes payment_preimage = 1 [deprecated = true];
+	optional bytes destination = 2 [deprecated = true];
+	bytes payment_hash = 3 [deprecated = true];
+	double created_at = 4 [deprecated = true];
+	uint32 parts = 5 [deprecated = true];
+	Amount amount_msat = 6 [deprecated = true];
+	Amount amount_sent_msat = 7 [deprecated = true];
+	optional string warning_partial_completion = 8 [deprecated = true];
+	PayStatus status = 9 [deprecated = true];
 }
 
 message ListnodesRequest {
@@ -1286,32 +1286,32 @@ message WithdrawResponse {
 }
 
 message KeysendRequest {
-	bytes destination = 1;
-	optional string label = 3;
-	optional double maxfeepercent = 4;
-	optional uint32 retry_for = 5;
-	optional uint32 maxdelay = 6;
-	optional Amount exemptfee = 7;
-	optional RoutehintList routehints = 8;
-	optional TlvStream extratlvs = 9;
-	Amount amount_msat = 10;
-	optional Amount maxfee = 11;
+	bytes destination = 1 [deprecated = true];
+	optional string label = 3 [deprecated = true];
+	optional double maxfeepercent = 4 [deprecated = true];
+	optional uint32 retry_for = 5 [deprecated = true];
+	optional uint32 maxdelay = 6 [deprecated = true];
+	optional Amount exemptfee = 7 [deprecated = true];
+	optional RoutehintList routehints = 8 [deprecated = true];
+	optional TlvStream extratlvs = 9 [deprecated = true];
+	Amount amount_msat = 10 [deprecated = true];
+	optional Amount maxfee = 11 [deprecated = true];
 }
 
 message KeysendResponse {
 	// KeySend.status
 	enum KeysendStatus {
-		COMPLETE = 0;
+		COMPLETE = 0 [deprecated = true];
 	}
-	bytes payment_preimage = 1;
-	optional bytes destination = 2;
-	bytes payment_hash = 3;
-	double created_at = 4;
-	uint32 parts = 5;
-	Amount amount_msat = 6;
-	Amount amount_sent_msat = 7;
-	optional string warning_partial_completion = 8;
-	KeysendStatus status = 9;
+	bytes payment_preimage = 1 [deprecated = true];
+	optional bytes destination = 2 [deprecated = true];
+	bytes payment_hash = 3 [deprecated = true];
+	double created_at = 4 [deprecated = true];
+	uint32 parts = 5 [deprecated = true];
+	Amount amount_msat = 6 [deprecated = true];
+	Amount amount_sent_msat = 7 [deprecated = true];
+	optional string warning_partial_completion = 8 [deprecated = true];
+	KeysendStatus status = 9 [deprecated = true];
 }
 
 message FundpsbtRequest {
@@ -1463,7 +1463,6 @@ message ListpeerchannelsChannels {
 	optional Amount fee_base_msat = 27;
 	optional uint32 fee_proportional_millionths = 28;
 	optional Amount dust_limit_msat = 29;
-	optional Amount max_total_htlc_in_msat = 30;
 	optional Amount their_reserve_msat = 31;
 	optional Amount our_reserve_msat = 32;
 	optional Amount spendable_msat = 33;
@@ -1646,8 +1645,6 @@ message DecodeResponse {
 	optional uint64 offer_absolute_expiry = 14;
 	optional uint64 offer_quantity_max = 15;
 	repeated DecodeOfferPaths offer_paths = 16;
-	optional bytes offer_node_id = 17;
-	optional string warning_missing_offer_node_id = 20;
 	optional string warning_invalid_offer_description = 21;
 	optional string warning_missing_offer_description = 22;
 	optional string warning_invalid_offer_currency = 23;
@@ -1727,7 +1724,6 @@ message DecodeResponse {
 
 message DecodeOfferPaths {
 	optional bytes first_node_id = 1;
-	optional bytes blinding = 2;
 	optional uint32 first_scid_dir = 4;
 	optional string first_scid = 5;
 	optional bytes first_path_key = 6;
@@ -1741,7 +1737,6 @@ message DecodeOfferRecurrencePaywindow {
 
 message DecodeInvreqPaths {
 	optional uint32 first_scid_dir = 1;
-	optional bytes blinding = 2;
 	optional bytes first_node_id = 3;
 	optional string first_scid = 4;
 	repeated DecodeInvreqPathsPath path = 5;
@@ -1917,8 +1912,6 @@ message FeeratesPerkb {
 	optional uint32 opening = 3;
 	optional uint32 mutual_close = 4;
 	optional uint32 unilateral_close = 5;
-	optional uint32 delayed_to_us = 6;
-	optional uint32 htlc_resolution = 7;
 	optional uint32 penalty = 8;
 	repeated FeeratesPerkbEstimates estimates = 9;
 	uint32 floor = 10;
@@ -1938,8 +1931,6 @@ message FeeratesPerkw {
 	optional uint32 opening = 3;
 	optional uint32 mutual_close = 4;
 	optional uint32 unilateral_close = 5;
-	optional uint32 delayed_to_us = 6;
-	optional uint32 htlc_resolution = 7;
 	optional uint32 penalty = 8;
 	repeated FeeratesPerkwEstimates estimates = 9;
 	uint32 floor = 10;
@@ -2196,31 +2187,31 @@ message FunderupdateResponse {
 }
 
 message GetrouteRequest {
-	bytes id = 1;
-	uint64 riskfactor = 3;
-	optional uint32 cltv = 4;
-	optional bytes fromid = 5;
-	optional uint32 fuzzpercent = 6;
-	repeated string exclude = 7;
-	optional uint32 maxhops = 8;
-	Amount amount_msat = 9;
+	bytes id = 1 [deprecated = true];
+	uint64 riskfactor = 3 [deprecated = true];
+	optional uint32 cltv = 4 [deprecated = true];
+	optional bytes fromid = 5 [deprecated = true];
+	optional uint32 fuzzpercent = 6 [deprecated = true];
+	repeated string exclude = 7 [deprecated = true];
+	optional uint32 maxhops = 8 [deprecated = true];
+	Amount amount_msat = 9 [deprecated = true];
 }
 
 message GetrouteResponse {
-	repeated GetrouteRoute route = 1;
+	repeated GetrouteRoute route = 1 [deprecated = true];
 }
 
 message GetrouteRoute {
 	// GetRoute.route[].style
 	enum GetrouteRouteStyle {
-		TLV = 0;
+		TLV = 0 [deprecated = true];
 	}
-	bytes id = 1;
-	string channel = 2;
-	uint32 direction = 3;
-	Amount amount_msat = 4;
-	uint32 delay = 5;
-	GetrouteRouteStyle style = 6;
+	bytes id = 1 [deprecated = true];
+	string channel = 2 [deprecated = true];
+	uint32 direction = 3 [deprecated = true];
+	Amount amount_msat = 4 [deprecated = true];
+	uint32 delay = 5 [deprecated = true];
+	GetrouteRouteStyle style = 6 [deprecated = true];
 }
 
 message ListaddressesRequest {
@@ -2614,63 +2605,63 @@ message PluginPlugins {
 }
 
 message RenepaystatusRequest {
-	optional string invstring = 1;
+	optional string invstring = 1 [deprecated = true];
 }
 
 message RenepaystatusResponse {
-	repeated RenepaystatusPaystatus paystatus = 1;
+	repeated RenepaystatusPaystatus paystatus = 1 [deprecated = true];
 }
 
 message RenepaystatusPaystatus {
 	// RenePayStatus.paystatus[].status
 	enum RenepaystatusPaystatusStatus {
-		COMPLETE = 0;
-		PENDING = 1;
-		FAILED = 2;
+		COMPLETE = 0 [deprecated = true];
+		PENDING = 1 [deprecated = true];
+		FAILED = 2 [deprecated = true];
 	}
-	string bolt11 = 1;
-	optional bytes payment_preimage = 2;
-	bytes payment_hash = 3;
-	double created_at = 4;
-	uint32 groupid = 5;
-	optional uint32 parts = 6;
-	Amount amount_msat = 7;
-	optional Amount amount_sent_msat = 8;
-	RenepaystatusPaystatusStatus status = 9;
-	optional bytes destination = 10;
-	repeated string notes = 11;
+	string bolt11 = 1 [deprecated = true];
+	optional bytes payment_preimage = 2 [deprecated = true];
+	bytes payment_hash = 3 [deprecated = true];
+	double created_at = 4 [deprecated = true];
+	uint32 groupid = 5 [deprecated = true];
+	optional uint32 parts = 6 [deprecated = true];
+	Amount amount_msat = 7 [deprecated = true];
+	optional Amount amount_sent_msat = 8 [deprecated = true];
+	RenepaystatusPaystatusStatus status = 9 [deprecated = true];
+	optional bytes destination = 10 [deprecated = true];
+	repeated string notes = 11 [deprecated = true];
 }
 
 message RenepayRequest {
-	string invstring = 1;
-	optional Amount amount_msat = 2;
-	optional Amount maxfee = 3;
-	optional uint32 maxdelay = 4;
-	optional uint32 retry_for = 5;
-	optional string description = 6;
-	optional string label = 7;
-	optional bool dev_use_shadow = 8;
-	repeated string exclude = 9;
+	string invstring = 1 [deprecated = true];
+	optional Amount amount_msat = 2 [deprecated = true];
+	optional Amount maxfee = 3 [deprecated = true];
+	optional uint32 maxdelay = 4 [deprecated = true];
+	optional uint32 retry_for = 5 [deprecated = true];
+	optional string description = 6 [deprecated = true];
+	optional string label = 7 [deprecated = true];
+	optional bool dev_use_shadow = 8 [deprecated = true];
+	repeated string exclude = 9 [deprecated = true];
 }
 
 message RenepayResponse {
 	// RenePay.status
 	enum RenepayStatus {
-		COMPLETE = 0;
-		PENDING = 1;
-		FAILED = 2;
+		COMPLETE = 0 [deprecated = true];
+		PENDING = 1 [deprecated = true];
+		FAILED = 2 [deprecated = true];
 	}
-	bytes payment_preimage = 1;
-	bytes payment_hash = 2;
-	double created_at = 3;
-	uint32 parts = 4;
-	Amount amount_msat = 5;
-	Amount amount_sent_msat = 6;
-	RenepayStatus status = 7;
-	optional bytes destination = 8;
-	optional string bolt11 = 9;
-	optional string bolt12 = 10;
-	optional uint64 groupid = 11;
+	bytes payment_preimage = 1 [deprecated = true];
+	bytes payment_hash = 2 [deprecated = true];
+	double created_at = 3 [deprecated = true];
+	uint32 parts = 4 [deprecated = true];
+	Amount amount_msat = 5 [deprecated = true];
+	Amount amount_sent_msat = 6 [deprecated = true];
+	RenepayStatus status = 7 [deprecated = true];
+	optional bytes destination = 8 [deprecated = true];
+	optional string bolt11 = 9 [deprecated = true];
+	optional string bolt12 = 10 [deprecated = true];
+	optional uint64 groupid = 11 [deprecated = true];
 }
 
 message ReserveinputsRequest {
@@ -2959,7 +2950,7 @@ message WaitResponse {
 	optional uint64 created = 2;
 	optional uint64 updated = 3;
 	optional uint64 deleted = 4;
-	optional WaitDetails details = 5;
+	optional WaitDetails details = 5 [deprecated = true];
 	optional WaitForwards forwards = 6;
 	optional WaitInvoices invoices = 7;
 	optional WaitSendpays sendpays = 8;
@@ -3054,28 +3045,28 @@ message WaitNetworkevents {
 message WaitDetails {
 	// Wait.details.status
 	enum WaitDetailsStatus {
-		UNPAID = 0;
-		PAID = 1;
-		EXPIRED = 2;
-		PENDING = 3;
-		FAILED = 4;
-		COMPLETE = 5;
-		OFFERED = 6;
-		SETTLED = 7;
-		LOCAL_FAILED = 8;
+		UNPAID = 0 [deprecated = true];
+		PAID = 1 [deprecated = true];
+		EXPIRED = 2 [deprecated = true];
+		PENDING = 3 [deprecated = true];
+		FAILED = 4 [deprecated = true];
+		COMPLETE = 5 [deprecated = true];
+		OFFERED = 6 [deprecated = true];
+		SETTLED = 7 [deprecated = true];
+		LOCAL_FAILED = 8 [deprecated = true];
 	}
-	optional WaitDetailsStatus status = 1;
-	optional string label = 2;
-	optional string description = 3;
-	optional string bolt11 = 4;
-	optional string bolt12 = 5;
-	optional uint64 partid = 6;
-	optional uint64 groupid = 7;
-	optional bytes payment_hash = 8;
-	optional string in_channel = 9;
-	optional uint64 in_htlc_id = 10;
-	optional Amount in_msat = 11;
-	optional string out_channel = 12;
+	optional WaitDetailsStatus status = 1 [deprecated = true];
+	optional string label = 2 [deprecated = true];
+	optional string description = 3 [deprecated = true];
+	optional string bolt11 = 4 [deprecated = true];
+	optional string bolt12 = 5 [deprecated = true];
+	optional uint64 partid = 6 [deprecated = true];
+	optional uint64 groupid = 7 [deprecated = true];
+	optional bytes payment_hash = 8 [deprecated = true];
+	optional string in_channel = 9 [deprecated = true];
+	optional uint64 in_htlc_id = 10 [deprecated = true];
+	optional Amount in_msat = 11 [deprecated = true];
+	optional string out_channel = 12 [deprecated = true];
 }
 
 message ListconfigsRequest {
@@ -3108,9 +3099,7 @@ message ListconfigsConfigs {
 	optional ListconfigsConfigsWallet wallet = 19;
 	optional ListconfigsConfigsLargechannels large_channels = 20;
 	optional ListconfigsConfigsExperimentaldualfund experimental_dual_fund = 21;
-	optional ListconfigsConfigsExperimentalsplicing experimental_splicing = 22;
-	optional ListconfigsConfigsExperimentalonionmessages experimental_onion_messages = 23;
-	optional ListconfigsConfigsExperimentaloffers experimental_offers = 24;
+	optional ListconfigsConfigsExperimentalsplicing experimental_splicing = 22 [deprecated = true];
 	optional ListconfigsConfigsExperimentalshutdownwrongfunding experimental_shutdown_wrong_funding = 25;
 	optional ListconfigsConfigsExperimentalpeerstorage experimental_peer_storage = 26;
 	optional ListconfigsConfigsExperimentalanchors experimental_anchors = 27;
@@ -3120,7 +3109,6 @@ message ListconfigsConfigs {
 	optional ListconfigsConfigsPidfile pid_file = 31;
 	optional ListconfigsConfigsIgnorefeelimits ignore_fee_limits = 32;
 	optional ListconfigsConfigsWatchtimeblocks watchtime_blocks = 33;
-	optional ListconfigsConfigsMaxlocktimeblocks max_locktime_blocks = 34;
 	optional ListconfigsConfigsFundingconfirms funding_confirms = 35;
 	optional ListconfigsConfigsCltvdelta cltv_delta = 36;
 	optional ListconfigsConfigsCltvfinal cltv_final = 37;
@@ -3272,18 +3260,8 @@ message ListconfigsConfigsExperimentaldualfund {
 }
 
 message ListconfigsConfigsExperimentalsplicing {
-	bool set = 1;
-	string source = 2;
-}
-
-message ListconfigsConfigsExperimentalonionmessages {
-	bool set = 1;
-	string source = 2;
-}
-
-message ListconfigsConfigsExperimentaloffers {
-	bool set = 1;
-	string source = 2;
+	bool set = 1 [deprecated = true];
+	string source = 2 [deprecated = true];
 }
 
 message ListconfigsConfigsExperimentalshutdownwrongfunding {
@@ -3327,11 +3305,6 @@ message ListconfigsConfigsIgnorefeelimits {
 }
 
 message ListconfigsConfigsWatchtimeblocks {
-	uint32 value_int = 1;
-	string source = 2;
-}
-
-message ListconfigsConfigsMaxlocktimeblocks {
 	uint32 value_int = 1;
 	string source = 2;
 }
@@ -4089,9 +4062,9 @@ message GetroutesRoutes {
 }
 
 message GetroutesRoutesPath {
-	optional Amount amount_msat = 3;
-	optional bytes next_node_id = 4;
-	optional uint32 delay = 5;
+	optional Amount amount_msat = 3 [deprecated = true];
+	optional bytes next_node_id = 4 [deprecated = true];
+	optional uint32 delay = 5 [deprecated = true];
 	string short_channel_id_dir = 6;
 	optional Amount amount_in_msat = 7;
 	optional Amount amount_out_msat = 8;
@@ -4603,7 +4576,7 @@ message CoinMovementNotification {
 	Amount credit_msat = 7;
 	Amount debit_msat = 8;
 	uint64 timestamp = 9;
-	repeated string tags = 10;
+	repeated string tags = 10 [deprecated = true];
 	optional CoinMovementPrimaryTag primary_tag = 11;
 	repeated string extra_tags = 12;
 	optional bytes payment_hash = 13;
@@ -4613,10 +4586,10 @@ message CoinMovementNotification {
 	optional Outpoint utxo = 17;
 	optional bytes peer_id = 18;
 	optional string originating_account = 19;
-	optional bytes txid = 20;
+	optional bytes txid = 20 [deprecated = true];
 	optional bytes spending_txid = 21;
-	optional bytes utxo_txid = 22;
-	optional uint32 vout = 23;
+	optional bytes utxo_txid = 22 [deprecated = true];
+	optional uint32 vout = 23 [deprecated = true];
 	optional Amount output_msat = 24;
 	optional uint32 output_count = 25;
 	optional uint32 blockheight = 26;

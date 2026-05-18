@@ -1175,6 +1175,7 @@ impl Node for Server
         request: tonic::Request<pb::PayRequest>,
     ) -> Result<tonic::Response<pb::PayResponse>, tonic::Status> {
         let req = request.into_inner();
+        #[allow(deprecated)]
         let req: requests::PayRequest = req.into();
         debug!("Client asked for pay");
         trace!("pay request: {:?}", req);
@@ -1399,6 +1400,7 @@ impl Node for Server
         request: tonic::Request<pb::KeysendRequest>,
     ) -> Result<tonic::Response<pb::KeysendResponse>, tonic::Status> {
         let req = request.into_inner();
+        #[allow(deprecated)]
         let req: requests::KeysendRequest = req.into();
         debug!("Client asked for key_send");
         trace!("key_send request: {:?}", req);
@@ -2231,6 +2233,7 @@ impl Node for Server
         request: tonic::Request<pb::GetrouteRequest>,
     ) -> Result<tonic::Response<pb::GetrouteResponse>, tonic::Status> {
         let req = request.into_inner();
+        #[allow(deprecated)]
         let req: requests::GetrouteRequest = req.into();
         debug!("Client asked for get_route");
         trace!("get_route request: {:?}", req);
@@ -2743,6 +2746,7 @@ impl Node for Server
         request: tonic::Request<pb::RenepaystatusRequest>,
     ) -> Result<tonic::Response<pb::RenepaystatusResponse>, tonic::Status> {
         let req = request.into_inner();
+        #[allow(deprecated)]
         let req: requests::RenepaystatusRequest = req.into();
         debug!("Client asked for rene_pay_status");
         trace!("rene_pay_status request: {:?}", req);
@@ -2775,6 +2779,7 @@ impl Node for Server
         request: tonic::Request<pb::RenepayRequest>,
     ) -> Result<tonic::Response<pb::RenepayResponse>, tonic::Status> {
         let req = request.into_inner();
+        #[allow(deprecated)]
         let req: requests::RenepayRequest = req.into();
         debug!("Client asked for rene_pay");
         trace!("rene_pay request: {:?}", req);

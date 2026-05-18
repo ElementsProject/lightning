@@ -1029,7 +1029,6 @@ def listpeerchannels_channels2py(m):
         "lost_state": m.lost_state,  # PrimitiveField in generate_composite
         "max_accepted_htlcs": m.max_accepted_htlcs,  # PrimitiveField in generate_composite
         "max_to_us_msat": amount2msat(m.max_to_us_msat),  # PrimitiveField in generate_composite
-        "max_total_htlc_in_msat": amount2msat(m.max_total_htlc_in_msat),  # PrimitiveField in generate_composite
         "maximum_htlc_out_msat": amount2msat(m.maximum_htlc_out_msat),  # PrimitiveField in generate_composite
         "min_to_us_msat": amount2msat(m.min_to_us_msat),  # PrimitiveField in generate_composite
         "minimum_htlc_in_msat": amount2msat(m.minimum_htlc_in_msat),  # PrimitiveField in generate_composite
@@ -1160,7 +1159,6 @@ def decode_invoice_paths_payinfo2py(m):
 
 def decode_invoice_paths2py(m):
     return remove_default({
-        "blinding": hexlify(m.blinding),  # PrimitiveField in generate_composite
         "first_node_id": hexlify(m.first_node_id),  # PrimitiveField in generate_composite
         "first_path_key": hexlify(m.first_path_key),  # PrimitiveField in generate_composite
         "first_scid": m.first_scid,  # PrimitiveField in generate_composite
@@ -1186,7 +1184,6 @@ def decode_invreq_paths_path2py(m):
 def decode_invreq_paths2py(m):
     return remove_default({
         "path": [decode_invreq_paths_path2py(i) for i in m.path],  # ArrayField[composite] in generate_composite
-        "blinding": hexlify(m.blinding),  # PrimitiveField in generate_composite
         "first_node_id": hexlify(m.first_node_id),  # PrimitiveField in generate_composite
         "first_path_key": hexlify(m.first_path_key),  # PrimitiveField in generate_composite
         "first_scid": m.first_scid,  # PrimitiveField in generate_composite
@@ -1204,7 +1201,6 @@ def decode_offer_paths_path2py(m):
 def decode_offer_paths2py(m):
     return remove_default({
         "path": [decode_offer_paths_path2py(i) for i in m.path],  # ArrayField[composite] in generate_composite
-        "blinding": hexlify(m.blinding),  # PrimitiveField in generate_composite
         "first_node_id": hexlify(m.first_node_id),  # PrimitiveField in generate_composite
         "first_path_key": hexlify(m.first_path_key),  # PrimitiveField in generate_composite
         "first_scid": m.first_scid,  # PrimitiveField in generate_composite
@@ -1326,7 +1322,6 @@ def decode2py(m):
         "offer_issuer": m.offer_issuer,  # PrimitiveField in generate_composite
         "offer_issuer_id": hexlify(m.offer_issuer_id),  # PrimitiveField in generate_composite
         "offer_metadata": hexlify(m.offer_metadata),  # PrimitiveField in generate_composite
-        "offer_node_id": hexlify(m.offer_node_id),  # PrimitiveField in generate_composite
         "offer_quantity_max": m.offer_quantity_max,  # PrimitiveField in generate_composite
         "payee": hexlify(m.payee),  # PrimitiveField in generate_composite
         "payment_hash": hexlify(m.payment_hash),  # PrimitiveField in generate_composite
@@ -1365,7 +1360,6 @@ def decode2py(m):
         "warning_missing_invreq_payer_id": m.warning_missing_invreq_payer_id,  # PrimitiveField in generate_composite
         "warning_missing_offer_description": m.warning_missing_offer_description,  # PrimitiveField in generate_composite
         "warning_missing_offer_issuer_id": m.warning_missing_offer_issuer_id,  # PrimitiveField in generate_composite
-        "warning_missing_offer_node_id": m.warning_missing_offer_node_id,  # PrimitiveField in generate_composite
         "warning_rune_invalid_utf8": m.warning_rune_invalid_utf8,  # PrimitiveField in generate_composite
         "warning_unknown_offer_currency": m.warning_unknown_offer_currency,  # PrimitiveField in generate_composite
     })
@@ -1457,9 +1451,7 @@ def feerates_perkb_estimates2py(m):
 def feerates_perkb2py(m):
     return remove_default({
         "estimates": [feerates_perkb_estimates2py(i) for i in m.estimates],  # ArrayField[composite] in generate_composite
-        "delayed_to_us": m.delayed_to_us,  # PrimitiveField in generate_composite
         "floor": m.floor,  # PrimitiveField in generate_composite
-        "htlc_resolution": m.htlc_resolution,  # PrimitiveField in generate_composite
         "max_acceptable": m.max_acceptable,  # PrimitiveField in generate_composite
         "min_acceptable": m.min_acceptable,  # PrimitiveField in generate_composite
         "mutual_close": m.mutual_close,  # PrimitiveField in generate_composite
@@ -1482,9 +1474,7 @@ def feerates_perkw_estimates2py(m):
 def feerates_perkw2py(m):
     return remove_default({
         "estimates": [feerates_perkw_estimates2py(i) for i in m.estimates],  # ArrayField[composite] in generate_composite
-        "delayed_to_us": m.delayed_to_us,  # PrimitiveField in generate_composite
         "floor": m.floor,  # PrimitiveField in generate_composite
-        "htlc_resolution": m.htlc_resolution,  # PrimitiveField in generate_composite
         "max_acceptable": m.max_acceptable,  # PrimitiveField in generate_composite
         "min_acceptable": m.min_acceptable,  # PrimitiveField in generate_composite
         "mutual_close": m.mutual_close,  # PrimitiveField in generate_composite
@@ -2431,20 +2421,6 @@ def listconfigs_configs_experimental_dual_fund2py(m):
     })
 
 
-def listconfigs_configs_experimental_offers2py(m):
-    return remove_default({
-        "set": m.set,  # PrimitiveField in generate_composite
-        "source": m.source,  # PrimitiveField in generate_composite
-    })
-
-
-def listconfigs_configs_experimental_onion_messages2py(m):
-    return remove_default({
-        "set": m.set,  # PrimitiveField in generate_composite
-        "source": m.source,  # PrimitiveField in generate_composite
-    })
-
-
 def listconfigs_configs_experimental_peer_storage2py(m):
     return remove_default({
         "set": m.set,  # PrimitiveField in generate_composite
@@ -2590,13 +2566,6 @@ def listconfigs_configs_max_dust_htlc_exposure_msat2py(m):
     return remove_default({
         "source": m.source,  # PrimitiveField in generate_composite
         "value_msat": amount2msat(m.value_msat),  # PrimitiveField in generate_composite
-    })
-
-
-def listconfigs_configs_max_locktime_blocks2py(m):
-    return remove_default({
-        "source": m.source,  # PrimitiveField in generate_composite
-        "value_int": m.value_int,  # PrimitiveField in generate_composite
     })
 
 

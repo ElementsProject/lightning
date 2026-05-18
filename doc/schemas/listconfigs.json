@@ -555,58 +555,6 @@
               }
             }
           },
-          "experimental-onion-messages": {
-            "deprecated": [
-              "v24.08",
-              "v25.02"
-            ],
-            "type": "object",
-            "additionalProperties": false,
-            "required": [
-              "set",
-              "source"
-            ],
-            "properties": {
-              "set": {
-                "type": "boolean",
-                "description": [
-                  "`true` if set in config or cmdline."
-                ]
-              },
-              "source": {
-                "type": "string",
-                "description": [
-                  "Source of configuration setting."
-                ]
-              }
-            }
-          },
-          "experimental-offers": {
-            "type": "object",
-            "additionalProperties": false,
-            "deprecated": [
-              "v24.11",
-              "v25.05"
-            ],
-            "required": [
-              "set",
-              "source"
-            ],
-            "properties": {
-              "set": {
-                "type": "boolean",
-                "description": [
-                  "`true` if set in config or cmdline."
-                ]
-              },
-              "source": {
-                "type": "string",
-                "description": [
-                  "Source of configuration setting."
-                ]
-              }
-            }
-          },
           "experimental-shutdown-wrong-funding": {
             "type": "object",
             "additionalProperties": false,
@@ -789,32 +737,6 @@
           },
           "watchtime-blocks": {
             "type": "object",
-            "additionalProperties": false,
-            "required": [
-              "value_int",
-              "source"
-            ],
-            "properties": {
-              "value_int": {
-                "type": "u32",
-                "description": [
-                  "Field from config or cmdline, or default."
-                ]
-              },
-              "source": {
-                "type": "string",
-                "description": [
-                  "Source of configuration setting."
-                ]
-              }
-            }
-          },
-          "max-locktime-blocks": {
-            "type": "object",
-            "deprecated": [
-              "v24.05",
-              "v24.11"
-            ],
             "additionalProperties": false,
             "required": [
               "value_int",
