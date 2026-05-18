@@ -1998,9 +1998,6 @@ json_multifundchannel(struct command *cmd,
 		   NULL))
 		return command_param_failed();
 
-	/* Should exist; it would only nonexist if it were a notification.  */
-	assert(cmd->id);
-
 	mfc->id = ++mfc_id;
 	mfc->cmd = cmd;
 
