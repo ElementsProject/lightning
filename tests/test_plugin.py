@@ -667,8 +667,13 @@ def test_db_hook_multiple(node_factory, executor):
 
 
 def test_utf8_passthrough(node_factory, executor):
-    l1 = node_factory.get_node(options={'plugin': os.path.join(os.getcwd(), 'tests/plugins/utf8.py'),
-                                        'log-level': 'io'})
+    def setup(plugin):
+        @plugin.method("utf8")
+        def echo(plugin, utf8):
+            assert '\\u' not in utf8
+            return {'utf8': utf8}
+
+    l1 = node_factory.get_node(inline_plugin=setup, options={'log-level': 'io'})
 
     # This works because Python unmangles.
     res = l1.rpc.call('utf8', ['ナンセンス 1杯'])
@@ -688,8 +693,22 @@ def test_utf8_passthrough(node_factory, executor):
 def test_invoice_payment_hook(node_factory):
     """ l1 uses the reject-payment plugin to reject invoices with odd preimages.
     """
-    opts = [{}, {'plugin': os.path.join(os.getcwd(), 'tests/plugins/reject_some_invoices.py')}]
-    l1, l2 = node_factory.line_graph(2, opts=opts)
+    def setup(plugin):
+        @plugin.hook('invoice_payment')
+        def on_payment(payment, plugin, **kwargs):
+            plugin.log("label={}".format(payment['label']))
+            plugin.log("msat={}".format(payment['msat']))
+            plugin.log("preimage={}".format(payment['preimage']))
+
+            if payment['preimage'].endswith('0'):
+                # WIRE_TEMPORARY_NODE_FAILURE = 0x2002
+                return {'failure_message': "2002"}
+
+            return {'result': 'continue'}
+
+    l1 = node_factory.get_node()
+    l2 = node_factory.get_node(inline_plugin=setup)
+    node_factory.join_nodes([l1, l2])
 
     # This one works
     inv1 = l2.rpc.invoice(1230, 'label', 'description', preimage='1' * 64)
@@ -731,8 +750,31 @@ def test_invoice_payment_hook_hold(node_factory, executor):
 def test_openchannel_hook(node_factory, bitcoind):
     """ l2 uses the reject_odd_funding_amounts plugin to reject some openings.
     """
-    opts = [{}, {'plugin': os.path.join(os.getcwd(), 'tests/plugins/reject_odd_funding_amounts.py')}]
-    l1, l2 = node_factory.line_graph(2, fundchannel=False, opts=opts)
+    def setup(plugin):
+        from pyln.client import Millisatoshi
+
+        def run_check(funding_amt_str):
+            if Millisatoshi(funding_amt_str).to_satoshi() % 2 == 1:
+                return {'result': 'reject', 'error_message': "I don't like odd amounts"}
+            return {'result': 'continue'}
+
+        @plugin.hook('openchannel')
+        def on_openchannel(openchannel, plugin, **kwargs):
+            plugin.log("{} VARS".format(len(openchannel.keys())))
+            for k in sorted(openchannel.keys()):
+                plugin.log("{}={}".format(k, openchannel[k]))
+            return run_check(openchannel['funding_msat'])
+
+        @plugin.hook('openchannel2')
+        def on_openchannel2(openchannel2, plugin, **kwargs):
+            plugin.log("{} VARS".format(len(openchannel2.keys())))
+            for k in sorted(openchannel2.keys()):
+                plugin.log("{}={}".format(k, openchannel2[k]))
+            return run_check(openchannel2['their_funding_msat'])
+
+    l1 = node_factory.get_node()
+    l2 = node_factory.get_node(inline_plugin=setup)
+    node_factory.join_nodes([l1, l2], fundchannel=False)
     l1.fundwallet(10**6)
 
     # Even amount: works.
@@ -776,9 +818,9 @@ def test_openchannel_hook(node_factory, bitcoind):
             'push_msat': 0,
         })
 
-    l2.daemon.wait_for_log('reject_odd_funding_amounts.py: {} VARS'.format(len(expected)))
+    l2.daemon.wait_for_log('inline-plugin.py: {} VARS'.format(len(expected)))
     for k, v in expected.items():
-        assert l2.daemon.is_in_log('reject_odd_funding_amounts.py: {}={}'.format(k, v))
+        assert l2.daemon.is_in_log('inline-plugin.py: {}={}'.format(k, v))
 
     # Close it.
     txid = only_one(l1.rpc.close(l2.info['id'])['txids'])
@@ -1252,11 +1294,15 @@ def test_htlc_accepted_hook_fail(node_factory):
 def test_htlc_accepted_hook_resolve(node_factory):
     """l3 creates an invoice, l2 knows the preimage and will shortcircuit.
     """
-    l1, l2, l3 = node_factory.line_graph(3, opts=[
-        {},
-        {'plugin': os.path.join(os.getcwd(), 'tests/plugins/shortcircuit.py')},
-        {}
-    ], wait_for_announce=True)
+    def setup(plugin):
+        @plugin.hook("htlc_accepted")
+        def on_htlc_accepted(onion, htlc, plugin, **kwargs):
+            return {"result": "resolve", "payment_key": "00" * 32}
+
+    l1 = node_factory.get_node()
+    l2 = node_factory.get_node(inline_plugin=setup)
+    l3 = node_factory.get_node()
+    node_factory.join_nodes([l1, l2, l3], wait_for_announce=True)
 
     inv = l3.rpc.invoice(amount_msat=1000, label="lbl", description="desc", preimage="00" * 32)['bolt11']
     l1.rpc.xpay(inv)
@@ -1408,41 +1454,62 @@ def test_htlc_accepted_hook_forward_restart(node_factory, executor):
 def test_warning_notification(node_factory):
     """ test 'warning' notifications
     """
-    l1 = node_factory.get_node(options={'plugin': os.path.join(os.getcwd(), 'tests/plugins/pretend_badlog.py')}, broken_log=r'Test warning notification\(for broken event\)|LINE[12]')
+    def setup(plugin):
+        @plugin.init()
+        def init(configuration, options, plugin):
+            plugin.log("initialized")
+
+        @plugin.subscribe("warning")
+        def notify_warning(plugin, warning, **kwargs):
+            plugin.log("Received warning")
+            plugin.log("level: {}".format(warning['level']))
+            plugin.log("time: {}".format(warning['time']))
+            plugin.log("source: {}".format(warning['source']))
+            plugin.log("log: {}".format(warning['log']))
+
+        @plugin.method("pretendbad")
+        def pretend_bad(event, level, plugin):
+            """Log an specified level entry.
+            And in plugin, we use 'warn'/'error' instead of
+            'unusual'/'broken'
+            """
+            plugin.log("{}".format(event), level)
+
+    l1 = node_factory.get_node(inline_plugin=setup, broken_log=r'Test warning notification\(for broken event\)|LINE[12]')
 
     # 1. test 'warn' level
     event = "Test warning notification(for unusual event)"
     l1.rpc.call('pretendbad', {'event': event, 'level': 'warn'})
 
     # ensure an unusual log_entry was produced by 'pretendunusual' method
-    l1.daemon.wait_for_log('plugin-pretend_badlog.py: Test warning notification\\(for unusual event\\)')
+    l1.daemon.wait_for_log('plugin-inline-plugin.py: Test warning notification\\(for unusual event\\)')
 
     # now wait for notification
-    l1.daemon.wait_for_log('plugin-pretend_badlog.py: Received warning')
-    l1.daemon.wait_for_log('plugin-pretend_badlog.py: level: warn')
-    l1.daemon.wait_for_log('plugin-pretend_badlog.py: time: *')
-    l1.daemon.wait_for_log('plugin-pretend_badlog.py: source: plugin-pretend_badlog.py')
-    l1.daemon.wait_for_log('plugin-pretend_badlog.py: log: Test warning notification\\(for unusual event\\)')
+    l1.daemon.wait_for_log('plugin-inline-plugin.py: Received warning')
+    l1.daemon.wait_for_log('plugin-inline-plugin.py: level: warn')
+    l1.daemon.wait_for_log('plugin-inline-plugin.py: time: *')
+    l1.daemon.wait_for_log('plugin-inline-plugin.py: source: plugin-inline-plugin.py')
+    l1.daemon.wait_for_log('plugin-inline-plugin.py: log: Test warning notification\\(for unusual event\\)')
 
     # 2. test 'error' level, steps like above
     event = "Test warning notification(for broken event)"
     l1.rpc.call('pretendbad', {'event': event, 'level': 'error'})
-    l1.daemon.wait_for_log(r'\*\*BROKEN\*\* plugin-pretend_badlog.py: Test warning notification\(for broken event\)')
+    l1.daemon.wait_for_log(r'\*\*BROKEN\*\* plugin-inline-plugin.py: Test warning notification\(for broken event\)')
 
-    l1.daemon.wait_for_log('plugin-pretend_badlog.py: Received warning')
-    l1.daemon.wait_for_log('plugin-pretend_badlog.py: level: error')
-    l1.daemon.wait_for_log('plugin-pretend_badlog.py: time: *')
-    l1.daemon.wait_for_log('plugin-pretend_badlog.py: source: plugin-pretend_badlog.py')
-    l1.daemon.wait_for_log('plugin-pretend_badlog.py: log: Test warning notification\\(for broken event\\)')
+    l1.daemon.wait_for_log('plugin-inline-plugin.py: Received warning')
+    l1.daemon.wait_for_log('plugin-inline-plugin.py: level: error')
+    l1.daemon.wait_for_log('plugin-inline-plugin.py: time: *')
+    l1.daemon.wait_for_log('plugin-inline-plugin.py: source: plugin-inline-plugin.py')
+    l1.daemon.wait_for_log('plugin-inline-plugin.py: log: Test warning notification\\(for broken event\\)')
 
     # Test linesplitting while we're here
     l1.rpc.call('pretendbad', {'event': 'LINE1\nLINE2', 'level': 'error'})
-    l1.daemon.wait_for_log(r'\*\*BROKEN\*\* plugin-pretend_badlog.py: LINE1')
-    l1.daemon.wait_for_log(r'\*\*BROKEN\*\* plugin-pretend_badlog.py: LINE2')
-    l1.daemon.wait_for_log('plugin-pretend_badlog.py: Received warning')
-    l1.daemon.wait_for_log('plugin-pretend_badlog.py: log: LINE1')
-    l1.daemon.wait_for_log('plugin-pretend_badlog.py: Received warning')
-    l1.daemon.wait_for_log('plugin-pretend_badlog.py: log: LINE2')
+    l1.daemon.wait_for_log(r'\*\*BROKEN\*\* plugin-inline-plugin.py: LINE1')
+    l1.daemon.wait_for_log(r'\*\*BROKEN\*\* plugin-inline-plugin.py: LINE2')
+    l1.daemon.wait_for_log('plugin-inline-plugin.py: Received warning')
+    l1.daemon.wait_for_log('plugin-inline-plugin.py: log: LINE1')
+    l1.daemon.wait_for_log('plugin-inline-plugin.py: Received warning')
+    l1.daemon.wait_for_log('plugin-inline-plugin.py: log: LINE2')
 
 
 def test_invoice_payment_notification(node_factory):
@@ -1632,11 +1699,33 @@ def test_forward_event_notification(node_factory, bitcoind, executor):
 def test_sendpay_notifications(node_factory, bitcoind):
     """ test 'sendpay_success' and 'sendpay_failure' notifications
     """
+    def setup(plugin):
+        @plugin.init()
+        def init(configuration, options, plugin):
+            plugin.success_list = []
+            plugin.failure_list = []
+
+        @plugin.subscribe("sendpay_success")
+        def notify_sendpay_success(plugin, sendpay_success):
+            plugin.log("Received a sendpay_success: id={}, payment_hash={}".format(sendpay_success['id'], sendpay_success['payment_hash']))
+            plugin.success_list.append(sendpay_success)
+
+        @plugin.subscribe("sendpay_failure")
+        def notify_sendpay_failure(plugin, sendpay_failure):
+            plugin.log("Received a sendpay_failure: id={}, payment_hash={}".format(sendpay_failure['data']['id'],
+                       sendpay_failure['data']['payment_hash']))
+            plugin.failure_list.append(sendpay_failure)
+
+        @plugin.method('listsendpays_plugin')
+        def record_lookup(plugin):
+            return {'sendpay_success': plugin.success_list,
+                    'sendpay_failure': plugin.failure_list}
+
     amount = 10**8
-    opts = [{'plugin': os.path.join(os.getcwd(), 'tests/plugins/sendpay_notifications.py')},
-            {},
-            {'may_reconnect': False}]
-    l1, l2, l3 = node_factory.line_graph(3, opts=opts, wait_for_announce=True)
+    l1 = node_factory.get_node(inline_plugin=setup)
+    l2 = node_factory.get_node()
+    l3 = node_factory.get_node(may_reconnect=False)
+    node_factory.join_nodes([l1, l2, l3], wait_for_announce=True)
     chanid23 = l2.get_channel_scid(l3)
 
     inv1 = l3.rpc.invoice(amount, "first", "desc")
@@ -1663,10 +1752,32 @@ def test_sendpay_notifications(node_factory, bitcoind):
 
 
 def test_sendpay_notifications_nowaiter(node_factory):
-    opts = [{'plugin': os.path.join(os.getcwd(), 'tests/plugins/sendpay_notifications.py')},
-            {},
-            {'may_reconnect': False}]
-    l1, l2, l3 = node_factory.line_graph(3, opts=opts, wait_for_announce=True)
+    def setup(plugin):
+        @plugin.init()
+        def init(configuration, options, plugin):
+            plugin.success_list = []
+            plugin.failure_list = []
+
+        @plugin.subscribe("sendpay_success")
+        def notify_sendpay_success(plugin, sendpay_success):
+            plugin.log("Received a sendpay_success: id={}, payment_hash={}".format(sendpay_success['id'], sendpay_success['payment_hash']))
+            plugin.success_list.append(sendpay_success)
+
+        @plugin.subscribe("sendpay_failure")
+        def notify_sendpay_failure(plugin, sendpay_failure):
+            plugin.log("Received a sendpay_failure: id={}, payment_hash={}".format(sendpay_failure['data']['id'],
+                       sendpay_failure['data']['payment_hash']))
+            plugin.failure_list.append(sendpay_failure)
+
+        @plugin.method('listsendpays_plugin')
+        def record_lookup(plugin):
+            return {'sendpay_success': plugin.success_list,
+                    'sendpay_failure': plugin.failure_list}
+
+    l1 = node_factory.get_node(inline_plugin=setup)
+    l2 = node_factory.get_node()
+    l3 = node_factory.get_node(may_reconnect=False)
+    node_factory.join_nodes([l1, l2, l3], wait_for_announce=True)
     chanid23 = l2.get_channel_scid(l3)
     amount = 10**8
 
@@ -3428,10 +3539,26 @@ def test_autoclean_once(node_factory):
 def test_block_added_notifications(node_factory, bitcoind):
     """Test if a plugin gets notifications when a new block is found"""
     base = bitcoind.rpc.getblockchaininfo()["blocks"]
-    plugin = [
-        os.path.join(os.getcwd(), "tests/plugins/block_added.py"),
-    ]
-    l1 = node_factory.get_node(options={"plugin": plugin})
+
+    def make_setup():
+        blocks_catched = []
+
+        def setup(plugin):
+            @plugin.init()
+            def on_init(plugin, options, configuration, **kwargs):
+                blocks_catched.clear()
+
+            @plugin.subscribe("block_added")
+            def notify_block_added(plugin, block_added, **kwargs):
+                blocks_catched.append(block_added["height"])
+
+            @plugin.method("blockscatched")
+            def return_moves(plugin):
+                return blocks_catched
+
+        return setup
+
+    l1 = node_factory.get_node(inline_plugin=make_setup())
     ret = l1.rpc.call("blockscatched")
     assert len(ret) == 1 and ret[0] == base + 0
 
@@ -3440,7 +3567,7 @@ def test_block_added_notifications(node_factory, bitcoind):
     ret = l1.rpc.call("blockscatched")
     assert len(ret) == 3 and ret[0] == base + 0 and ret[2] == base + 2
 
-    l2 = node_factory.get_node(options={"plugin": plugin})
+    l2 = node_factory.get_node(inline_plugin=make_setup())
     ret = l2.rpc.call("blockscatched")
     assert len(ret) == 1 and ret[0] == base + 2
 
