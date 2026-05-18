@@ -3020,7 +3020,16 @@ def test_sendonion_rpc(node_factory):
 @pytest.mark.openchannel('v2')
 def test_partial_payment(node_factory, bitcoind, executor):
     # We want to test two payments at the same time, before we send commit
-    l1, l2, l3, l4 = node_factory.get_nodes(4, [{}] + [{'dev-disable-commit-after': 0, 'dev-no-htlc-timeout': None}] * 2 + [{'plugin': os.path.join(os.getcwd(), 'tests/plugins/print_htlc_onion.py')}])
+    def setup(plugin):
+        @plugin.hook("htlc_accepted")
+        def on_htlc_accepted(htlc, onion, plugin, **kwargs):
+            plugin.log("Got onion {}".format(onion))
+            return {'result': 'continue'}
+
+    l1 = node_factory.get_node()
+    l2 = node_factory.get_node(options={'dev-disable-commit-after': 0, 'dev-no-htlc-timeout': None})
+    l3 = node_factory.get_node(options={'dev-disable-commit-after': 0, 'dev-no-htlc-timeout': None})
+    l4 = node_factory.get_node(inline_plugin=setup)
 
     # Two routes to l4: one via l2, and one via l3.
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -3156,7 +3165,7 @@ def test_partial_payment(node_factory, bitcoind, executor):
     assert res['partid'] == 2
 
     for i in range(2):
-        line = l4.daemon.wait_for_log('print_htlc_onion.py: Got onion')
+        line = l4.daemon.wait_for_log('inline-plugin.py: Got onion')
         assert "'type': 'tlv'" in line
         assert "'forward_msat': 499" in line or "'forward_msat': 501" in line
         assert "'total_msat': 1000" in line
@@ -3762,12 +3771,22 @@ def test_invalid_onion_channel_update(node_factory):
     even if some remote node does not send the required
     `channel_update`.
     '''
-    plugin = os.path.join(os.getcwd(), 'tests/plugins/fail_htlcs_invalid.py')
-    l1, l2, l3 = node_factory.line_graph(3,
-                                         opts=[{},
-                                               {'plugin': plugin},
-                                               {}],
-                                         wait_for_announce=True)
+    def setup(plugin):
+        @plugin.hook("htlc_accepted")
+        def on_htlc_accepted(onion, plugin, **kwargs):
+            plugin.log("Failing htlc on purpose with invalid onion failure")
+            plugin.log("onion: %r" % (onion))
+            # WIRE_TEMPORARY_CHANNEL_FAILURE = 0x1007
+            # This failure code should be followed by a
+            # `channel_update`; we deliberately return
+            # a 0-length `channel_update` to trigger
+            # issue #3757 reported by @sumBTC.
+            return {"result": "fail", "failure_message": "10070000"}
+
+    l1 = node_factory.get_node()
+    l2 = node_factory.get_node(inline_plugin=setup)
+    l3 = node_factory.get_node()
+    node_factory.join_nodes([l1, l2, l3], wait_for_announce=True)
 
     l1id = l1.info['id']
 
@@ -5880,11 +5899,26 @@ def test_blinded_reply_path_scid(node_factory):
 
 
 def test_pay_while_opening_channel(node_factory, bitcoind, executor):
-    delay_plugin = {'plugin': os.path.join(os.getcwd(),
-                                           'tests/plugins/openchannel_hook_delay.py'),
-                    'delaytime': '10'}
+    def setup(plugin):
+        import time
+        plugin.add_option('delaytime', '10', 'How long to hold the WIRE_OPEN_CHANNEL.')
+
+        @plugin.hook('openchannel')
+        def on_openchannel(openchannel, plugin, **kwargs):
+            delaytime = float(plugin.get_option('delaytime'))
+            plugin.log(f'delaying WIRE_ACCEPT_CHANNEL for {delaytime}s')
+            time.sleep(delaytime)
+            return {'result': 'continue'}
+
+        @plugin.hook('openchannel2')
+        def on_openchannel2(openchannel2, plugin, **kwargs):
+            delaytime = float(plugin.get_option('delaytime'))
+            plugin.log(f'delaying WIRE_ACCEPT_CHANNEL for {delaytime}s')
+            time.sleep(delaytime)
+            return {'result': 'continue'}
+
     l1, l2 = node_factory.line_graph(2, fundamount=10**6, wait_for_announce=True)
-    l3 = node_factory.get_node(options=delay_plugin)
+    l3 = node_factory.get_node(inline_plugin=setup, options={'delaytime': '10'})
     l1.connect(l3)
     executor.submit(l1.rpc.fundchannel, l3.info['id'], 100000)
     wait_for(lambda: l1.rpc.listpeerchannels(l3.info['id'])['channels'] != [])

@@ -7,7 +7,6 @@ from utils import (
     sync_blockheight,
 )
 
-import ast
 import os
 import pytest
 import re
@@ -826,9 +825,46 @@ def test_attempt_notifications(node_factory):
         # other types are ignored
         return obj
 
-    plugin_path = os.path.join(os.getcwd(), 'tests/plugins/custom_notifications.py')
-    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True,
-                                         opts=[{"plugin": plugin_path}, {}, {}])
+    part_starts = []
+    part_ends = []
+
+    def setup(plugin):
+        @plugin.subscribe("pay_part_start")
+        def on_pay_part_start(origin, **kwargs):
+            part_starts.append(kwargs)
+
+        @plugin.subscribe("pay_part_end")
+        def on_pay_part_end(origin, **kwargs):
+            part_ends.append(kwargs)
+
+        @plugin.subscribe("pay_success")
+        def on_pay_success(origin, pay_success, **kwargs):
+            pass
+
+        @plugin.subscribe("custom")
+        def on_custom_notification(origin, message, **kwargs):
+            pass
+
+        @plugin.subscribe("ididntannouncethis")
+        def on_faulty_emit(origin, payload, **kwargs):
+            pass
+
+        @plugin.method("emit")
+        def emit(plugin):
+            """Emit a simple string notification to topic "custom" """
+            plugin.notify("custom", {'message': "Hello world"})
+
+        @plugin.method("faulty-emit")
+        def faulty_emit(plugin):
+            """Emit a simple string notification to topic "custom" """
+            plugin.notify("ididntannouncethis", {'message': "Hello world"})
+
+        plugin.add_notification_topic("custom")
+
+    l1 = node_factory.get_node(inline_plugin=setup)
+    l2 = node_factory.get_node()
+    l3 = node_factory.get_node()
+    node_factory.join_nodes([l1, l2, l3], wait_for_announce=True)
 
     scid12 = only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['short_channel_id']
     scid12_dir = only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['direction']
@@ -837,9 +873,8 @@ def test_attempt_notifications(node_factory):
     inv1 = l3.rpc.invoice(5000000, 'test_attempt_notifications1', 'test_attempt_notifications1')
     l1.rpc.xpay(inv1['bolt11'])
 
-    line = l1.daemon.wait_for_log("plugin-custom_notifications.py: Got pay_part_start: ")
-    dict_str = line.split("Got pay_part_start: ", 1)[1]
-    data = zero_fields(ast.literal_eval(dict_str), ['groupid'])
+    wait_for(lambda: len(part_starts) >= 1)
+    data = zero_fields(part_starts.pop(0), ['groupid'])
     expected = {'pay_part_start':
                 {'payment_hash': inv1['payment_hash'],
                  'groupid': 0,
@@ -858,9 +893,8 @@ def test_attempt_notifications(node_factory):
                            'channel_out_msat': 5000000}]}}
     assert data == expected
 
-    line = l1.daemon.wait_for_log("plugin-custom_notifications.py: Got pay_part_end: ")
-    dict_str = line.split("Got pay_part_end: ", 1)[1]
-    data = zero_fields(ast.literal_eval(dict_str), ('duration', 'groupid'))
+    wait_for(lambda: len(part_ends) >= 1)
+    data = zero_fields(part_ends.pop(0), ('duration', 'groupid'))
     expected = {'pay_part_end':
                 {'payment_hash': inv1['payment_hash'],
                  'status': 'success',
@@ -876,9 +910,8 @@ def test_attempt_notifications(node_factory):
     with pytest.raises(RpcError, match=r"Destination said it doesn't know invoice: incorrect_or_unknown_payment_details"):
         l1.rpc.xpay(inv2['bolt11'])
 
-    line = l1.daemon.wait_for_log("plugin-custom_notifications.py: Got pay_part_start: ")
-    dict_str = line.split("Got pay_part_start: ", 1)[1]
-    data = zero_fields(ast.literal_eval(dict_str), ['groupid'])
+    wait_for(lambda: len(part_starts) >= 1)
+    data = zero_fields(part_starts.pop(0), ['groupid'])
     expected = {'pay_part_start':
                 {'payment_hash': inv2['payment_hash'],
                  'groupid': 0,
@@ -897,9 +930,8 @@ def test_attempt_notifications(node_factory):
                            'channel_out_msat': 10000000}]}}
     assert data == expected
 
-    line = l1.daemon.wait_for_log("plugin-custom_notifications.py: Got pay_part_end: ")
-    dict_str = line.split("Got pay_part_end: ", 1)[1]
-    data = zero_fields(ast.literal_eval(dict_str), ('duration', 'groupid'))
+    wait_for(lambda: len(part_ends) >= 1)
+    data = zero_fields(part_ends.pop(0), ('duration', 'groupid'))
     expected = {'pay_part_end':
                 {'payment_hash': inv2['payment_hash'],
                  'status': 'failure',
@@ -917,9 +949,8 @@ def test_attempt_notifications(node_factory):
     with pytest.raises(RpcError, match=r"Failed after 1 attempts"):
         l1.rpc.xpay(inv2['bolt11'])
 
-    line = l1.daemon.wait_for_log("plugin-custom_notifications.py: Got pay_part_start: ")
-    dict_str = line.split("Got pay_part_start: ", 1)[1]
-    data = zero_fields(ast.literal_eval(dict_str), ['groupid'])
+    wait_for(lambda: len(part_starts) >= 1)
+    data = zero_fields(part_starts.pop(0), ['groupid'])
     expected = {'pay_part_start':
                 {'payment_hash': inv2['payment_hash'],
                  'groupid': 0,
@@ -938,9 +969,8 @@ def test_attempt_notifications(node_factory):
                            'channel_out_msat': 10000000}]}}
     assert data == expected
 
-    line = l1.daemon.wait_for_log("plugin-custom_notifications.py: Got pay_part_end: ")
-    dict_str = line.split("Got pay_part_end: ", 1)[1]
-    data = zero_fields(ast.literal_eval(dict_str), ('duration', 'groupid', 'failed_msg'))
+    wait_for(lambda: len(part_ends) >= 1)
+    data = zero_fields(part_ends.pop(0), ('duration', 'groupid', 'failed_msg'))
     expected = {'pay_part_end':
                 {'payment_hash': inv2['payment_hash'],
                  'status': 'failure',
