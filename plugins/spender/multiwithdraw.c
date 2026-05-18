@@ -17,6 +17,9 @@
 Command Access
 -----------------------------------------------------------------------------*/
 
+/* Global counter to create unique md->id values */
+static u64 mw_id;
+
 static struct command_result *
 json_multiwithdraw(struct command *cmd,
 		   const char *buf,
@@ -173,8 +176,7 @@ json_multiwithdraw(struct command *cmd,
 		return command_param_failed();
 
 	mw->cmd = cmd;
-	assert(cmd->id);
-	mw->id = *cmd->id;
+	mw->id = mw_id++;
 	mw->psbt = NULL;
 
 	if (!mw->feerate)
