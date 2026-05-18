@@ -75,8 +75,8 @@ def test_option_passthrough(node_factory, directory):
 
     # Now try to see if it gets accepted, would fail to start if the
     # option didn't exist
-    n = node_factory.get_node(options={'plugin': plugin_path, 'greeting': 'Ciao'})
-    n.stop()
+    l1 = node_factory.get_node(options={'plugin': plugin_path, 'greeting': 'Ciao'})
+    l1.stop()
 
     with pytest.raises(subprocess.CalledProcessError):
         err_out = subprocess.run([
@@ -96,34 +96,34 @@ def test_option_types(node_factory):
        respected in output """
 
     plugin_path = os.path.join(os.getcwd(), 'tests/plugins/options.py')
-    n = node_factory.get_node(options={
+    l1 = node_factory.get_node(options={
         'plugin': plugin_path,
         'str_opt': 'ok',
         'int_opt': 22,
         'bool_opt': True,
     })
 
-    assert n.daemon.is_in_log(r"option str_opt ok <class 'str'>")
-    assert n.daemon.is_in_log(r"option int_opt 22 <class 'int'>")
-    assert n.daemon.is_in_log(r"option bool_opt True <class 'bool'>")
+    assert l1.daemon.is_in_log(r"option str_opt ok <class 'str'>")
+    assert l1.daemon.is_in_log(r"option int_opt 22 <class 'int'>")
+    assert l1.daemon.is_in_log(r"option bool_opt True <class 'bool'>")
     # flag options aren't passed through if not flagged on
-    assert not n.daemon.is_in_log(r"option flag_opt")
-    n.stop()
+    assert not l1.daemon.is_in_log(r"option flag_opt")
+    l1.stop()
 
     # A blank bool_opt should default to false
-    n = node_factory.get_node(options={
+    l1 = node_factory.get_node(options={
         'plugin': plugin_path, 'str_opt': 'ok',
         'int_opt': 22,
         'bool_opt': 'true',
         'flag_opt': None,
     })
 
-    assert n.daemon.is_in_log(r"option bool_opt True <class 'bool'>")
-    assert n.daemon.is_in_log(r"option flag_opt True <class 'bool'>")
-    n.stop()
+    assert l1.daemon.is_in_log(r"option bool_opt True <class 'bool'>")
+    assert l1.daemon.is_in_log(r"option flag_opt True <class 'bool'>")
+    l1.stop()
 
     # What happens if we give it a bad bool-option?
-    n = node_factory.get_node(options={
+    l1 = node_factory.get_node(options={
         'plugin': plugin_path,
         'str_opt': 'ok',
         'int_opt': 22,
@@ -131,12 +131,12 @@ def test_option_types(node_factory):
     }, may_fail=True, start=False)
 
     # the node should fail after start, and we get a stderr msg
-    n.daemon.start(wait_for_initialized=False, stderr_redir=True)
-    assert n.daemon.wait() == 1
-    wait_for(lambda: n.daemon.is_in_stderr("--bool_opt=!: Invalid argument '!'"))
+    l1.daemon.start(wait_for_initialized=False, stderr_redir=True)
+    assert l1.daemon.wait() == 1
+    wait_for(lambda: l1.daemon.is_in_stderr("--bool_opt=!: Invalid argument '!'"))
 
     # What happens if we give it a bad int-option?
-    n = node_factory.get_node(options={
+    l1 = node_factory.get_node(options={
         'plugin': plugin_path,
         'str_opt': 'ok',
         'int_opt': 'notok',
@@ -144,24 +144,24 @@ def test_option_types(node_factory):
     }, may_fail=True, start=False)
 
     # the node should fail after start, and we get a stderr msg
-    n.daemon.start(wait_for_initialized=False, stderr_redir=True)
-    assert n.daemon.wait() == 1
-    assert n.daemon.is_in_stderr("--int_opt=notok: 'notok' is not a number")
+    l1.daemon.start(wait_for_initialized=False, stderr_redir=True)
+    assert l1.daemon.wait() == 1
+    assert l1.daemon.is_in_stderr("--int_opt=notok: 'notok' is not a number")
 
     # We no longer allow '1' or '0' as boolean options
-    n = node_factory.get_node(options={
+    l1 = node_factory.get_node(options={
         'plugin': plugin_path,
         'str_opt': 'ok',
         'bool_opt': '1',
     }, may_fail=True, start=False)
 
     # the node should fail after start, and we get a stderr msg
-    n.daemon.start(wait_for_initialized=False, stderr_redir=True)
-    assert n.daemon.wait() == 1
-    assert n.daemon.is_in_stderr("--bool_opt=1: Invalid argument '1'")
+    l1.daemon.start(wait_for_initialized=False, stderr_redir=True)
+    assert l1.daemon.wait() == 1
+    assert l1.daemon.is_in_stderr("--bool_opt=1: Invalid argument '1'")
 
     # Flag opts shouldn't allow any input
-    n = node_factory.get_node(options={
+    l1 = node_factory.get_node(options={
         'plugin': plugin_path,
         'str_opt': 'ok',
         'int_opt': 11,
@@ -170,33 +170,33 @@ def test_option_types(node_factory):
     }, may_fail=True, start=False)
 
     # the node should fail after start, and we get a stderr msg
-    n.daemon.start(wait_for_initialized=False, stderr_redir=True)
-    assert n.daemon.wait() == 1
-    assert n.daemon.is_in_stderr("--flag_opt=True: doesn't allow an argument")
+    l1.daemon.start(wait_for_initialized=False, stderr_redir=True)
+    assert l1.daemon.wait() == 1
+    assert l1.daemon.is_in_stderr("--flag_opt=True: doesn't allow an argument")
 
-    n = node_factory.get_node(options={
+    l1 = node_factory.get_node(options={
         'plugin': plugin_path,
         'str_optm': ['ok', 'ok2'],
         'int_optm': [11, 12, 13],
     })
 
-    assert n.daemon.is_in_log(r"option str_optm \['ok', 'ok2'\] <class 'list'>")
-    assert n.daemon.is_in_log(r"option int_optm \[11, 12, 13\] <class 'list'>")
-    n.stop()
+    assert l1.daemon.is_in_log(r"option str_optm \['ok', 'ok2'\] <class 'list'>")
+    assert l1.daemon.is_in_log(r"option int_optm \[11, 12, 13\] <class 'list'>")
+    l1.stop()
 
 
 def test_millisatoshi_passthrough(node_factory):
     """ Ensure that Millisatoshi arguments and return work.
     """
     plugin_path = os.path.join(os.getcwd(), 'tests/plugins/millisatoshis.py')
-    n = node_factory.get_node(options={'plugin': plugin_path, 'log-level': 'io'})
+    l1 = node_factory.get_node(options={'plugin': plugin_path, 'log-level': 'io'})
 
     # By keyword (plugin literally returns Millisatoshi, which becomes a string)
-    ret = n.rpc.call('echo', {'msat': Millisatoshi(17), 'not_an_msat': '22msat'})['echo_msat']
+    ret = l1.rpc.call('echo', {'msat': Millisatoshi(17), 'not_an_msat': '22msat'})['echo_msat']
     assert Millisatoshi(ret) == Millisatoshi(17)
 
     # By position
-    ret = n.rpc.call('echo', [Millisatoshi(18), '22msat'])['echo_msat']
+    ret = l1.rpc.call('echo', [Millisatoshi(18), '22msat'])['echo_msat']
     assert Millisatoshi(ret) == Millisatoshi(18)
 
 
@@ -208,29 +208,29 @@ def test_rpc_passthrough(node_factory):
 
     """
     plugin_path = os.path.join(os.getcwd(), 'contrib/plugins/helloworld.py')
-    n = node_factory.get_node(options={'plugin': plugin_path, 'greeting': 'Ciao'})
+    l1 = node_factory.get_node(options={'plugin': plugin_path, 'greeting': 'Ciao'})
 
     # Make sure that the 'hello' command that the helloworld.py plugin
     # has registered is available.
-    cmd = [hlp for hlp in n.rpc.help()['help'] if 'hello' in hlp['command']]
+    cmd = [hlp for hlp in l1.rpc.help()['help'] if 'hello' in hlp['command']]
     assert(len(cmd) == 1)
 
     # Make sure usage message is present.
-    assert only_one(n.rpc.help('hello')['help'])['command'].startswith('hello [name]')
+    assert only_one(l1.rpc.help('hello')['help'])['command'].startswith('hello [name]')
     # While we're at it, let's check that helloworld.py is logging
     # correctly via the notifications plugin->lightningd
-    assert n.daemon.is_in_log('Plugin helloworld.py initialized')
+    assert l1.daemon.is_in_log('Plugin helloworld.py initialized')
 
     # Now try to call it and see what it returns:
-    greet = n.rpc.hello(name='World')
+    greet = l1.rpc.hello(name='World')
     assert(greet == "Ciao World")
     with pytest.raises(RpcError):
-        n.rpc.fail()
+        l1.rpc.fail()
 
     # Try to call a method without enough arguments
     with pytest.raises(RpcError, match="processing bye: missing a required"
                                        " argument"):
-        n.rpc.bye()
+        l1.rpc.bye()
 
 
 def test_plugin_dir(node_factory):
@@ -242,91 +242,91 @@ def test_plugin_dir(node_factory):
 def test_plugin_slowinit(node_factory):
     """Tests that the 'plugin' RPC command times out if plugin doesnt respond"""
     os.environ['SLOWINIT_TIME'] = '121'
-    n = node_factory.get_node()
+    l1 = node_factory.get_node()
 
     with pytest.raises(RpcError, match=': timed out before replying to init'):
-        n.rpc.plugin_start(os.path.join(os.getcwd(), "tests/plugins/slow_init.py"))
+        l1.rpc.plugin_start(os.path.join(os.getcwd(), "tests/plugins/slow_init.py"))
 
     # It's not actually configured yet, see what happens;
     # make sure 'rescan' and 'list' controls dont crash
-    n.rpc.plugin_rescan()
-    n.rpc.plugin_list()
+    l1.rpc.plugin_rescan()
+    l1.rpc.plugin_list()
 
 
 def test_plugin_command(node_factory):
     """Tests the 'plugin' RPC command"""
-    n = node_factory.get_node()
+    l1 = node_factory.get_node()
 
     # Make sure that the 'hello' command from the helloworld.py plugin
     # is not available.
-    cmd = [hlp for hlp in n.rpc.help()["help"] if "hello" in hlp["command"]]
+    cmd = [hlp for hlp in l1.rpc.help()["help"] if "hello" in hlp["command"]]
     assert(len(cmd) == 0)
 
     # Add the 'contrib/plugins' test dir
-    n.rpc.plugin_startdir(directory=os.path.join(os.getcwd(), "contrib/plugins"))
+    l1.rpc.plugin_startdir(directory=os.path.join(os.getcwd(), "contrib/plugins"))
     # Make sure that the 'hello' command from the helloworld.py plugin
     # is now available.
-    cmd = [hlp for hlp in n.rpc.help()["help"] if "hello" in hlp["command"]]
+    cmd = [hlp for hlp in l1.rpc.help()["help"] if "hello" in hlp["command"]]
     assert(len(cmd) == 1)
 
     # Make sure 'rescan' and 'list' subcommands dont crash
-    n.rpc.plugin_rescan()
-    n.rpc.plugin_list()
+    l1.rpc.plugin_rescan()
+    l1.rpc.plugin_list()
 
     # Make sure the plugin behaves normally after stop and restart
     assert("Successfully stopped helloworld.py."
-           == n.rpc.plugin_stop(plugin="helloworld.py")["result"])
-    n.daemon.wait_for_log(r"Killing plugin: stopped by lightningd via RPC")
-    n.rpc.plugin_start(plugin=os.path.join(os.getcwd(), "contrib/plugins/helloworld.py"))
-    n.daemon.wait_for_log(r"Plugin helloworld.py initialized")
-    assert("Hello world" == n.rpc.call(method="hello"))
+           == l1.rpc.plugin_stop(plugin="helloworld.py")["result"])
+    l1.daemon.wait_for_log(r"Killing plugin: stopped by lightningd via RPC")
+    l1.rpc.plugin_start(plugin=os.path.join(os.getcwd(), "contrib/plugins/helloworld.py"))
+    l1.daemon.wait_for_log(r"Plugin helloworld.py initialized")
+    assert("Hello world" == l1.rpc.call(method="hello"))
 
     # Now stop the helloworld plugin
     assert("Successfully stopped helloworld.py."
-           == n.rpc.plugin_stop(plugin="helloworld.py")["result"])
-    n.daemon.wait_for_log(r"Killing plugin: stopped by lightningd via RPC")
+           == l1.rpc.plugin_stop(plugin="helloworld.py")["result"])
+    l1.daemon.wait_for_log(r"Killing plugin: stopped by lightningd via RPC")
     # Make sure that the 'hello' command from the helloworld.py plugin
     # is not available anymore.
-    cmd = [hlp for hlp in n.rpc.help()["help"] if "hello" in hlp["command"]]
+    cmd = [hlp for hlp in l1.rpc.help()["help"] if "hello" in hlp["command"]]
     assert(len(cmd) == 0)
 
     # Test that we cannot start a plugin with 'dynamic' set to False in
     # getmanifest
     with pytest.raises(RpcError, match=r"Not a dynamic plugin"):
-        n.rpc.plugin_start(plugin=os.path.join(os.getcwd(), "tests/plugins/static.py"))
+        l1.rpc.plugin_start(plugin=os.path.join(os.getcwd(), "tests/plugins/static.py"))
 
     # Test that we cannot stop a started plugin with 'dynamic' flag set to
     # False
-    n2 = node_factory.get_node(options={
+    l2 = node_factory.get_node(options={
         "plugin": os.path.join(os.getcwd(), "tests/plugins/static.py")
     })
     with pytest.raises(RpcError, match=r"static.py cannot be managed when lightningd is up"):
-        n2.rpc.plugin_stop(plugin="static.py")
+        l2.rpc.plugin_stop(plugin="static.py")
 
     # Test that we don't crash when starting a broken plugin
     with pytest.raises(RpcError, match=r": exited before replying to getmanifest"):
-        n2.rpc.plugin_start(plugin=os.path.join(os.getcwd(), "tests/plugins/broken.py"))
+        l2.rpc.plugin_start(plugin=os.path.join(os.getcwd(), "tests/plugins/broken.py"))
 
     with pytest.raises(RpcError, match=r': timed out before replying to getmanifest'):
-        n2.rpc.plugin_start(os.path.join(os.getcwd(), 'contrib/plugins/fail/failtimeout.py'))
+        l2.rpc.plugin_start(os.path.join(os.getcwd(), 'contrib/plugins/fail/failtimeout.py'))
 
     # Test that we can add a directory with more than one new plugin in it.
     try:
-        n.rpc.plugin_startdir(os.path.join(os.getcwd(), "contrib/plugins"))
+        l1.rpc.plugin_startdir(os.path.join(os.getcwd(), "contrib/plugins"))
     except RpcError:
         pass
 
     # Usually, it crashes after the above return.
-    n.rpc.stop()
+    l1.rpc.stop()
 
 
 def test_plugin_fail_on_startup(node_factory):
     for crash in ('during_init', 'before_start', 'during_getmanifest'):
         os.environ['BROKEN_CRASH'] = crash
-        n = node_factory.get_node(options={'plugin': os.path.join(os.getcwd(), "tests/plugins/broken.py")})
+        l1 = node_factory.get_node(options={'plugin': os.path.join(os.getcwd(), "tests/plugins/broken.py")})
         # This can happen before 'Server started with public key' msg
-        n.daemon.logsearch_start = 0
-        n.daemon.wait_for_log('plugin-broken.py: Traceback')
+        l1.daemon.logsearch_start = 0
+        l1.daemon.wait_for_log('plugin-broken.py: Traceback')
 
     # Make sure they don't die *after* the message!
     time.sleep(30)
@@ -336,64 +336,64 @@ def test_plugin_disable(node_factory):
     """--disable-plugin works"""
     plugin_dir = os.path.join(os.getcwd(), 'contrib/plugins')
     # We used to need plugin-dir before disable-plugin!
-    n = node_factory.get_node(options=OrderedDict([('plugin-dir', plugin_dir),
-                                                   ('disable-plugin',
-                                                    '{}/helloworld.py'
-                                                    .format(plugin_dir))]))
+    l1 = node_factory.get_node(options=OrderedDict([('plugin-dir', plugin_dir),
+                                                    ('disable-plugin',
+                                                     '{}/helloworld.py'
+                                                     .format(plugin_dir))]))
     with pytest.raises(RpcError):
-        n.rpc.hello(name='Sun')
-    assert n.daemon.is_in_log('helloworld.py: disabled via disable-plugin')
-    n.stop()
+        l1.rpc.hello(name='Sun')
+    assert l1.daemon.is_in_log('helloworld.py: disabled via disable-plugin')
+    l1.stop()
 
     # Also works by basename.
-    n = node_factory.get_node(options=OrderedDict([('plugin-dir', plugin_dir),
-                                                   ('disable-plugin',
-                                                    'helloworld.py')]))
+    l1 = node_factory.get_node(options=OrderedDict([('plugin-dir', plugin_dir),
+                                                    ('disable-plugin',
+                                                     'helloworld.py')]))
     with pytest.raises(RpcError):
-        n.rpc.hello(name='Sun')
-    assert n.daemon.is_in_log('helloworld.py: disabled via disable-plugin')
-    n.stop()
+        l1.rpc.hello(name='Sun')
+    assert l1.daemon.is_in_log('helloworld.py: disabled via disable-plugin')
+    l1.stop()
 
     # Other order also works!
-    n = node_factory.get_node(options=OrderedDict([('disable-plugin',
-                                                    'helloworld.py'),
-                                                   ('plugin-dir', plugin_dir)]))
+    l1 = node_factory.get_node(options=OrderedDict([('disable-plugin',
+                                                     'helloworld.py'),
+                                                    ('plugin-dir', plugin_dir)]))
     with pytest.raises(RpcError):
-        n.rpc.hello(name='Sun')
-    assert n.daemon.is_in_log('helloworld.py: disabled via disable-plugin')
-    n.stop()
+        l1.rpc.hello(name='Sun')
+    assert l1.daemon.is_in_log('helloworld.py: disabled via disable-plugin')
+    l1.stop()
 
     # Both orders of explicit specification work.
-    n = node_factory.get_node(options=OrderedDict([('disable-plugin',
-                                                    'helloworld.py'),
-                                                   ('plugin',
-                                                    '{}/helloworld.py'
-                                                    .format(plugin_dir))]))
+    l1 = node_factory.get_node(options=OrderedDict([('disable-plugin',
+                                                     'helloworld.py'),
+                                                    ('plugin',
+                                                     '{}/helloworld.py'
+                                                     .format(plugin_dir))]))
     with pytest.raises(RpcError):
-        n.rpc.hello(name='Sun')
-    assert n.daemon.is_in_log('helloworld.py: disabled via disable-plugin')
-    n.stop()
+        l1.rpc.hello(name='Sun')
+    assert l1.daemon.is_in_log('helloworld.py: disabled via disable-plugin')
+    l1.stop()
 
     # Both orders of explicit specification work.
-    n = node_factory.get_node(options=OrderedDict([('plugin',
-                                                    '{}/helloworld.py'
-                                                    .format(plugin_dir)),
-                                                   ('disable-plugin',
-                                                    'helloworld.py')]))
+    l1 = node_factory.get_node(options=OrderedDict([('plugin',
+                                                     '{}/helloworld.py'
+                                                     .format(plugin_dir)),
+                                                    ('disable-plugin',
+                                                     'helloworld.py')]))
     with pytest.raises(RpcError):
-        n.rpc.hello(name='Sun')
-    assert n.daemon.is_in_log('helloworld.py: disabled via disable-plugin')
+        l1.rpc.hello(name='Sun')
+    assert l1.daemon.is_in_log('helloworld.py: disabled via disable-plugin')
 
     # Still disabled if we load directory.
-    n.rpc.plugin_startdir(directory=os.path.join(os.getcwd(), "contrib/plugins"))
-    n.daemon.wait_for_log('helloworld.py: disabled via disable-plugin')
-    n.stop()
+    l1.rpc.plugin_startdir(directory=os.path.join(os.getcwd(), "contrib/plugins"))
+    l1.daemon.wait_for_log('helloworld.py: disabled via disable-plugin')
+    l1.stop()
 
     # Check that list works
-    n = node_factory.get_node(options={'disable-plugin':
-                                       ['something-else.py', 'helloworld.py']})
+    l1 = node_factory.get_node(options={'disable-plugin':
+                                        ['something-else.py', 'helloworld.py']})
 
-    assert n.rpc.listconfigs()['configs']['disable-plugin'] == {'values_str': ['something-else.py', 'helloworld.py'], 'sources': ['cmdline', 'cmdline']}
+    assert l1.rpc.listconfigs()['configs']['disable-plugin'] == {'values_str': ['something-else.py', 'helloworld.py'], 'sources': ['cmdline', 'cmdline']}
 
 
 def test_plugin_hook(node_factory, executor):
@@ -2662,66 +2662,66 @@ def test_important_plugin(node_factory):
     # Cache it here.
     pluginsdir = os.path.join(os.path.dirname(__file__), "plugins")
 
-    n = node_factory.get_node(options={"important-plugin": os.path.join(pluginsdir, "nonexistent")},
-                              may_fail=True, expect_fail=True,
-                              # Other plugins can complain as lightningd stops suddenly:
-                              broken_log='Plugin marked as important, shutting down lightningd|Reading sync lightningd: Connection reset by peer|Lost connection to the RPC socket|Plugin terminated before replying to RPC call|plugin-cln-xpay: askrene-create-layer failed with.*Unknown command',
-                              start=False)
+    l1 = node_factory.get_node(options={"important-plugin": os.path.join(pluginsdir, "nonexistent")},
+                               may_fail=True, expect_fail=True,
+                               # Other plugins can complain as lightningd stops suddenly:
+                               broken_log='Plugin marked as important, shutting down lightningd|Reading sync lightningd: Connection reset by peer|Lost connection to the RPC socket|Plugin terminated before replying to RPC call|plugin-cln-xpay: askrene-create-layer failed with.*Unknown command',
+                               start=False)
 
-    n.daemon.start(wait_for_initialized=False, stderr_redir=True)
+    l1.daemon.start(wait_for_initialized=False, stderr_redir=True)
     # Will exit with failure code.
-    assert n.daemon.wait() == 1
-    assert n.daemon.is_in_stderr(r"Failed to register .*nonexistent: No such file or directory")
+    assert l1.daemon.wait() == 1
+    assert l1.daemon.is_in_stderr(r"Failed to register .*nonexistent: No such file or directory")
 
     # Check we exit if the important plugin dies.
-    n.daemon.opts['important-plugin'] = os.path.join(pluginsdir, "fail_by_itself.py")
+    l1.daemon.opts['important-plugin'] = os.path.join(pluginsdir, "fail_by_itself.py")
 
-    n.daemon.start(wait_for_initialized=False)
+    l1.daemon.start(wait_for_initialized=False)
     # Will exit with failure code.
-    assert n.daemon.wait() == 1
-    n.daemon.wait_for_log(r'fail_by_itself.py: Plugin marked as important, shutting down lightningd')
+    assert l1.daemon.wait() == 1
+    l1.daemon.wait_for_log(r'fail_by_itself.py: Plugin marked as important, shutting down lightningd')
 
     # Check if the important plugin is disabled, we run as normal.
-    n.daemon.opts['disable-plugin'] = "fail_by_itself.py"
-    n.daemon.start()
+    l1.daemon.opts['disable-plugin'] = "fail_by_itself.py"
+    l1.daemon.start()
     # Make sure we can call into a plugin RPC (this is from `bcli`) even
     # if fail_by_itself.py is disabled.
-    n.rpc.call("estimatefees", {})
-    n.stop()
+    l1.rpc.call("estimatefees", {})
+    l1.stop()
 
     # Check if an important plugin dies later, we fail.
-    del n.daemon.opts['disable-plugin']
-    n.daemon.opts['important-plugin'] = os.path.join(pluginsdir, "suicidal_plugin.py")
+    del l1.daemon.opts['disable-plugin']
+    l1.daemon.opts['important-plugin'] = os.path.join(pluginsdir, "suicidal_plugin.py")
 
-    n.start()
+    l1.start()
 
     with pytest.raises(RpcError):
-        n.rpc.call("die", {})
+        l1.rpc.call("die", {})
 
     # Should exit with exitcode 1
-    n.daemon.wait_for_log('suicidal_plugin.py: Plugin marked as important, shutting down lightningd')
-    assert n.daemon.wait() == 1
-    n.stop()
+    l1.daemon.wait_for_log('suicidal_plugin.py: Plugin marked as important, shutting down lightningd')
+    assert l1.daemon.wait() == 1
+    l1.stop()
 
     # Check that if a builtin plugin dies, we fail.
-    start = n.daemon.logsearch_start
-    n.start()
+    start = l1.daemon.logsearch_start
+    l1.start()
     # Reset logsearch_start, since this will predate message that start() looks for.
-    n.daemon.logsearch_start = start
-    line = n.daemon.wait_for_log(r'.*started\([0-9]*\).*plugins/pay')
+    l1.daemon.logsearch_start = start
+    line = l1.daemon.wait_for_log(r'.*started\([0-9]*\).*plugins/pay')
     pidstr = re.search(r'.*started\(([0-9]*)\).*plugins/pay', line).group(1)
 
     # Kill pay.
     os.kill(int(pidstr), signal.SIGKILL)
-    n.daemon.wait_for_log('pay: Plugin marked as important, shutting down lightningd')
+    l1.daemon.wait_for_log('pay: Plugin marked as important, shutting down lightningd')
     # Should exit with exitcode 1
-    assert n.daemon.wait() == 1
-    n.stop()
+    assert l1.daemon.wait() == 1
+    l1.stop()
 
 
 def test_dev_builtin_plugins_unimportant(node_factory):
-    n = node_factory.get_node(options={"dev-builtin-plugins-unimportant": None})
-    n.rpc.plugin_stop(plugin="pay")
+    l1 = node_factory.get_node(options={"dev-builtin-plugins-unimportant": None})
+    l1.rpc.plugin_stop(plugin="pay")
 
 
 def test_htlc_accepted_hook_crash(node_factory, executor):
@@ -3101,11 +3101,11 @@ plugin.run()
     """
 
     # get a node that is not started so we can put a plugin in its lightning_dir
-    n = node_factory.get_node(start=False)
-    if "dev-no-plugin-checksum" in n.daemon.opts:
-        del n.daemon.opts["dev-no-plugin-checksum"]
+    l1 = node_factory.get_node(start=False)
+    if "dev-no-plugin-checksum" in l1.daemon.opts:
+        del l1.daemon.opts["dev-no-plugin-checksum"]
 
-    lndir = n.daemon.lightning_dir
+    lndir = l1.daemon.lightning_dir
 
     # write hello world plugin to lndir/plugins
     os.makedirs(os.path.join(lndir, 'plugins'), exist_ok=True)
@@ -3115,13 +3115,13 @@ plugin.run()
     os.chmod(path, os.stat(path).st_mode | stat.S_IEXEC)
 
     # now fire up the node and wait for the plugin to print hello
-    n.daemon.start()
-    n.daemon.logsearch_start = 0
-    n.daemon.wait_for_log(r"test_restart_on_update 1")
+    l1.daemon.start()
+    l1.daemon.logsearch_start = 0
+    l1.daemon.wait_for_log(r"test_restart_on_update 1")
 
     # a rescan should not yet reload the plugin on the same file
-    n.rpc.plugin_rescan()
-    assert not n.daemon.is_in_log(r"Plugin changed, needs restart.")
+    l1.rpc.plugin_rescan()
+    assert not l1.daemon.is_in_log(r"Plugin changed, needs restart.")
 
     # modify the file
     with open(path, 'w+') as file:
@@ -3129,10 +3129,10 @@ plugin.run()
     os.chmod(path, os.stat(path).st_mode | stat.S_IEXEC)
 
     # rescan and check
-    n.rpc.plugin_rescan()
-    n.daemon.wait_for_log(r"Plugin changed, needs restart.")
-    n.daemon.wait_for_log(r"test_restart_on_update 2")
-    n.stop()
+    l1.rpc.plugin_rescan()
+    l1.daemon.wait_for_log(r"Plugin changed, needs restart.")
+    l1.daemon.wait_for_log(r"test_restart_on_update 2")
+    l1.stop()
 
 
 def test_plugin_shutdown(node_factory):
@@ -4609,25 +4609,25 @@ def test_all_subscription(node_factory, directory):
 
 def test_dynamic_option_python_plugin(node_factory):
     plugin = os.path.join(os.getcwd(), "tests/plugins/dynamic_option.py")
-    ln = node_factory.get_node(options={"plugin": plugin})
-    result = ln.rpc.listconfigs("test-dynamic-config")
+    l1 = node_factory.get_node(options={"plugin": plugin})
+    result = l1.rpc.listconfigs("test-dynamic-config")
 
     assert result["configs"]["test-dynamic-config"]["value_str"] == "initial"
 
-    assert ln.rpc.dynamic_option_report() == {'test-dynamic-config': 'initial'}
-    result = ln.rpc.setconfig("test-dynamic-config", "changed")
+    assert l1.rpc.dynamic_option_report() == {'test-dynamic-config': 'initial'}
+    result = l1.rpc.setconfig("test-dynamic-config", "changed")
     assert result["config"]["value_str"] == "changed"
-    assert ln.rpc.dynamic_option_report() == {'test-dynamic-config': 'changed'}
+    assert l1.rpc.dynamic_option_report() == {'test-dynamic-config': 'changed'}
 
-    ln.daemon.wait_for_log(
+    l1.daemon.wait_for_log(
         'dynamic_option.py:.*Setting config test-dynamic-config to changed'
     )
 
     with pytest.raises(RpcError, match="I don't like bad values!"):
-        ln.rpc.setconfig("test-dynamic-config", "bad value")
+        l1.rpc.setconfig("test-dynamic-config", "bad value")
 
     # Does not alter value!
-    assert ln.rpc.dynamic_option_report() == {'test-dynamic-config': 'changed'}
+    assert l1.rpc.dynamic_option_report() == {'test-dynamic-config': 'changed'}
 
 
 def test_renepay_not_important(node_factory):
