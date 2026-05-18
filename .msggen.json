@@ -6774,7 +6774,7 @@
             "deprecated": null
         },
         "Decode.invreq_recurrence_cancel": {
-            "added": "v23.05",
+            "added": "v26.06",
             "deprecated": null
         },
         "Decode.invreq_recurrence_counter": {
@@ -6942,27 +6942,27 @@
             "deprecated": null
         },
         "Decode.proof_leaf_hashes[]": {
-            "added": "v23.05",
+            "added": "v26.06",
             "deprecated": null
         },
         "Decode.proof_missing_hashes[]": {
-            "added": "v23.05",
+            "added": "v26.06",
             "deprecated": null
         },
         "Decode.proof_note": {
-            "added": "v23.05",
+            "added": "v26.06",
             "deprecated": null
         },
         "Decode.proof_omitted_tlvs[]": {
-            "added": "v23.05",
+            "added": "v26.06",
             "deprecated": null
         },
         "Decode.proof_preimage": {
-            "added": "v23.05",
+            "added": "v26.06",
             "deprecated": null
         },
         "Decode.proof_signature": {
-            "added": "v23.05",
+            "added": "v26.06",
             "deprecated": null
         },
         "Decode.restrictions[]": {
@@ -7070,19 +7070,19 @@
             "deprecated": null
         },
         "Decode.unknown_payer_proof_tlvs[]": {
-            "added": "v23.05",
+            "added": "v26.06",
             "deprecated": null
         },
         "Decode.unknown_payer_proof_tlvs[].length": {
-            "added": "v23.05",
+            "added": "v26.06",
             "deprecated": null
         },
         "Decode.unknown_payer_proof_tlvs[].type": {
-            "added": "v23.05",
+            "added": "v26.06",
             "deprecated": null
         },
         "Decode.unknown_payer_proof_tlvs[].value": {
-            "added": "v23.05",
+            "added": "v26.06",
             "deprecated": null
         },
         "Decode.valid": {
@@ -7130,11 +7130,11 @@
             "deprecated": null
         },
         "Decode.warning_invreq_recurrence_cancel_with_zero_counter": {
-            "added": "v23.05",
+            "added": "v26.06",
             "deprecated": null
         },
         "Decode.warning_invreq_recurrence_cancel_without_counter": {
-            "added": "v23.05",
+            "added": "v26.06",
             "deprecated": null
         },
         "Decode.warning_missing_invoice_amount": {
@@ -8398,11 +8398,11 @@
             "deprecated": null
         },
         "GetEmergencyRecoverData.backed_up_channel_ids[]": {
-            "added": "v24.11",
+            "added": "v26.06",
             "deprecated": null
         },
         "GetEmergencyRecoverData.can_create_penalty": {
-            "added": "v24.11",
+            "added": "v26.06",
             "deprecated": null
         },
         "GetEmergencyRecoverData.filedata": {
@@ -8463,67 +8463,67 @@
         },
         "GetRoute": {
             "added": "pre-v0.10.1",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "GetRoute.amount_msat": {
             "added": "pre-v0.10.1",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "GetRoute.cltv": {
             "added": "pre-v0.10.1",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "GetRoute.exclude[]": {
             "added": "pre-v0.10.1",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "GetRoute.fromid": {
             "added": "pre-v0.10.1",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "GetRoute.fuzzpercent": {
             "added": "pre-v0.10.1",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "GetRoute.id": {
             "added": "pre-v0.10.1",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "GetRoute.maxhops": {
             "added": "pre-v0.10.1",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "GetRoute.riskfactor": {
             "added": "pre-v0.10.1",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "GetRoute.route[]": {
             "added": "pre-v0.10.1",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "GetRoute.route[].amount_msat": {
             "added": "pre-v0.10.1",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "GetRoute.route[].channel": {
             "added": "pre-v0.10.1",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "GetRoute.route[].delay": {
             "added": "pre-v0.10.1",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "GetRoute.route[].direction": {
             "added": "pre-v0.10.1",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "GetRoute.route[].id": {
             "added": "pre-v0.10.1",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "GetRoute.route[].style": {
             "added": "pre-v0.10.1",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "GetRoutes": {
             "added": "v24.08",
@@ -8991,75 +8991,75 @@
         },
         "KeySend": {
             "added": "pre-v0.10.1",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "KeySend.amount_msat": {
             "added": "pre-v0.10.1",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "KeySend.amount_sent_msat": {
             "added": "pre-v0.10.1",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "KeySend.created_at": {
             "added": "pre-v0.10.1",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "KeySend.destination": {
             "added": "pre-v0.10.1",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "KeySend.exemptfee": {
             "added": "pre-v0.10.1",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "KeySend.extratlvs": {
             "added": "pre-v0.10.1",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "KeySend.label": {
             "added": "pre-v0.10.1",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "KeySend.maxdelay": {
             "added": "pre-v0.10.1",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "KeySend.maxfee": {
             "added": "v24.11",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "KeySend.maxfeepercent": {
             "added": "pre-v0.10.1",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "KeySend.parts": {
             "added": "pre-v0.10.1",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "KeySend.payment_hash": {
             "added": "pre-v0.10.1",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "KeySend.payment_preimage": {
             "added": "pre-v0.10.1",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "KeySend.retry_for": {
             "added": "pre-v0.10.1",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "KeySend.routehints": {
             "added": "pre-v0.10.1",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "KeySend.status": {
             "added": "pre-v0.10.1",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "KeySend.warning_partial_completion": {
             "added": "pre-v0.10.1",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "ListAddresses": {
             "added": "v24.11",
@@ -9582,55 +9582,55 @@
             "deprecated": null
         },
         "ListConfigs.configs.addr": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.addr.sources[]": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.addr.values_str[]": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.alias": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.alias.source": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.alias.value_str": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.allow-deprecated-apis": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.allow-deprecated-apis.source": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.allow-deprecated-apis.value_bool": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.always-use-proxy": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.always-use-proxy.source": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.always-use-proxy.value_bool": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.announce-addr": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.announce-addr-discovered": {
@@ -9642,39 +9642,39 @@
             "deprecated": null
         },
         "ListConfigs.configs.announce-addr-discovered-port.source": {
-            "added": "pre-v0.10.1",
+            "added": "v23.02",
             "deprecated": null
         },
         "ListConfigs.configs.announce-addr-discovered-port.value_int": {
-            "added": "pre-v0.10.1",
+            "added": "v23.02",
             "deprecated": null
         },
         "ListConfigs.configs.announce-addr-discovered.source": {
-            "added": "pre-v0.10.1",
+            "added": "v23.02",
             "deprecated": null
         },
         "ListConfigs.configs.announce-addr-discovered.value_str": {
-            "added": "pre-v0.10.1",
+            "added": "v23.02",
             "deprecated": null
         },
         "ListConfigs.configs.announce-addr-dns": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.announce-addr-dns.source": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.announce-addr-dns.value_bool": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.announce-addr.sources[]": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.announce-addr.values_str[]": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.autoconnect-seeker-peers": {
@@ -9690,111 +9690,111 @@
             "deprecated": null
         },
         "ListConfigs.configs.autolisten": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.autolisten.source": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.autolisten.value_bool": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.bind-addr": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.bind-addr.sources[]": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.bind-addr.values_str[]": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.clear-plugins": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.clear-plugins.set": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.clear-plugins.source": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.cltv-delta": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.cltv-delta.source": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.cltv-delta.value_int": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.cltv-final": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.cltv-final.source": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.cltv-final.value_int": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.commit-fee": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.commit-fee.source": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.commit-fee.value_int": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.commit-feerate-offset": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.commit-feerate-offset.source": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.commit-feerate-offset.value_int": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.commit-time": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.commit-time.source": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.commit-time.value_int": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.conf": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.conf.source": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.conf.value_str": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.currencyrate-add-source": {
@@ -9830,27 +9830,27 @@
             "deprecated": null
         },
         "ListConfigs.configs.daemon": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.daemon.set": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.daemon.source": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.database-upgrade": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.database-upgrade.source": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.database-upgrade.value_bool": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.developer": {
@@ -9858,51 +9858,51 @@
             "deprecated": null
         },
         "ListConfigs.configs.developer.set": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.developer.source": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.disable-dns": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.disable-dns.set": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.disable-dns.source": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.disable-mpp": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.disable-mpp.plugin": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.disable-mpp.set": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.disable-mpp.source": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.disable-plugin": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.disable-plugin.sources[]": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.disable-plugin.values_str[]": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.disable-source": {
@@ -9922,15 +9922,15 @@
             "deprecated": null
         },
         "ListConfigs.configs.encrypted-hsm": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.encrypted-hsm.set": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.encrypted-hsm.source": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.experimental-anchors": {
@@ -9938,23 +9938,23 @@
             "deprecated": null
         },
         "ListConfigs.configs.experimental-anchors.set": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.experimental-anchors.source": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.experimental-dual-fund": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.experimental-dual-fund.set": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.experimental-dual-fund.source": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.experimental-offers": {
@@ -9986,23 +9986,23 @@
             "deprecated": null
         },
         "ListConfigs.configs.experimental-peer-storage.set": {
-            "added": "pre-v0.10.1",
+            "added": "v23.02",
             "deprecated": null
         },
         "ListConfigs.configs.experimental-peer-storage.source": {
-            "added": "pre-v0.10.1",
+            "added": "v23.02",
             "deprecated": null
         },
         "ListConfigs.configs.experimental-shutdown-wrong-funding": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.experimental-shutdown-wrong-funding.set": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.experimental-shutdown-wrong-funding.source": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.experimental-splicing": {
@@ -10010,39 +10010,39 @@
             "deprecated": "v26.04"
         },
         "ListConfigs.configs.experimental-splicing.set": {
-            "added": "pre-v0.10.1",
-            "deprecated": null
+            "added": "v23.08",
+            "deprecated": "v26.04"
         },
         "ListConfigs.configs.experimental-splicing.source": {
-            "added": "pre-v0.10.1",
-            "deprecated": null
+            "added": "v23.08",
+            "deprecated": "v26.04"
         },
         "ListConfigs.configs.fee-base": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.fee-base.source": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.fee-base.value_int": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.fee-per-satoshi": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.fee-per-satoshi.source": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.fee-per-satoshi.value_int": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.fetchinvoice-noconnect": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.fetchinvoice-noconnect.plugin": {
@@ -10050,191 +10050,191 @@
             "deprecated": null
         },
         "ListConfigs.configs.fetchinvoice-noconnect.set": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.fetchinvoice-noconnect.source": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.force-feerates": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.force-feerates.source": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.force-feerates.value_str": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.funding-confirms": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.funding-confirms.source": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.funding-confirms.value_int": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.htlc-maximum-msat": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.htlc-maximum-msat.source": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.htlc-maximum-msat.value_msat": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.htlc-minimum-msat": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.htlc-minimum-msat.source": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.htlc-minimum-msat.value_msat": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.ignore-fee-limits": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.ignore-fee-limits.source": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.ignore-fee-limits.value_bool": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.important-plugin": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.important-plugin.sources[]": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.important-plugin.values_str[]": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.large-channels": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.large-channels.set": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.large-channels.source": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.lightning-dir": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.lightning-dir.source": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.lightning-dir.value_str": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.log-file": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.log-file.sources[]": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.log-file.values_str[]": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.log-level": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.log-level.source": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.log-level.value_str": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.log-prefix": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.log-prefix.source": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.log-prefix.value_str": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.log-timestamps": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.log-timestamps.source": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.log-timestamps.value_bool": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.mainnet": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.mainnet.set": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.mainnet.source": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.max-concurrent-htlcs": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.max-concurrent-htlcs.source": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.max-concurrent-htlcs.value_int": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.max-dust-htlc-exposure-msat": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.max-dust-htlc-exposure-msat.source": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.max-dust-htlc-exposure-msat.value_msat": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.max-locktime-blocks": {
@@ -10250,235 +10250,235 @@
             "deprecated": null
         },
         "ListConfigs.configs.min-capacity-sat": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.min-capacity-sat.dynamic": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.min-capacity-sat.source": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.min-capacity-sat.value_int": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.network": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.network.source": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.network.value_str": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.offline": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.offline.set": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.offline.source": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.pid-file": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.pid-file.source": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.pid-file.value_str": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.plugin": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.plugin-dir": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.plugin-dir.sources[]": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.plugin-dir.values_str[]": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.plugin.sources[]": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.plugin.values_str[]": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.proxy": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.proxy.source": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.proxy.value_str": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.regtest": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.regtest.set": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.regtest.source": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.require-confirmed-inputs": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.require-confirmed-inputs.source": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.require-confirmed-inputs.value_bool": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.rescan": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.rescan.source": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.rescan.value_int": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.rgb": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.rgb.source": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.rgb.value_str": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.rpc-file": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.rpc-file-mode": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.rpc-file-mode.source": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.rpc-file-mode.value_str": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.rpc-file.source": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.rpc-file.value_str": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.signet": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.signet.set": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.signet.source": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.subdaemon": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.subdaemon.sources[]": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.subdaemon.values_str[]": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.testnet": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.testnet.set": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.testnet.source": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.tor-service-password": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.tor-service-password.source": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.tor-service-password.value_str": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.wallet": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.wallet.source": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.wallet.value_str": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.watchtime-blocks": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.watchtime-blocks.source": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.configs.watchtime-blocks.value_int": {
-            "added": "pre-v0.10.1",
+            "added": "v23.08",
             "deprecated": null
         },
         "ListConfigs.daemon": {
@@ -11462,11 +11462,11 @@
             "deprecated": null
         },
         "ListPeerChannels.channels[].channel_type.bits[]": {
-            "added": "v23.02",
+            "added": "v23.05",
             "deprecated": null
         },
         "ListPeerChannels.channels[].channel_type.names[]": {
-            "added": "v23.02",
+            "added": "v23.05",
             "deprecated": null
         },
         "ListPeerChannels.channels[].close_to": {
@@ -12963,91 +12963,91 @@
         },
         "Pay": {
             "added": "pre-v0.10.1",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "Pay.amount_msat": {
             "added": "pre-v0.10.1",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "Pay.amount_sent_msat": {
             "added": "pre-v0.10.1",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "Pay.bolt11": {
             "added": "pre-v0.10.1",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "Pay.created_at": {
             "added": "pre-v0.10.1",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "Pay.description": {
             "added": "pre-v0.10.1",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "Pay.destination": {
             "added": "pre-v0.10.1",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "Pay.exclude": {
             "added": "pre-v0.10.1",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "Pay.exemptfee": {
             "added": "pre-v0.10.1",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "Pay.label": {
             "added": "pre-v0.10.1",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "Pay.localinvreqid": {
             "added": "pre-v0.10.1",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "Pay.maxdelay": {
             "added": "pre-v0.10.1",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "Pay.maxfee": {
             "added": "pre-v0.10.1",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "Pay.maxfeepercent": {
             "added": "pre-v0.10.1",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "Pay.partial_msat": {
             "added": "v23.05",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "Pay.parts": {
             "added": "pre-v0.10.1",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "Pay.payment_hash": {
             "added": "pre-v0.10.1",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "Pay.payment_preimage": {
             "added": "pre-v0.10.1",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "Pay.retry_for": {
             "added": "pre-v0.10.1",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "Pay.riskfactor": {
             "added": "pre-v0.10.1",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "Pay.status": {
             "added": "pre-v0.10.1",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "Pay.warning_partial_completion": {
             "added": "pre-v0.10.1",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "Ping": {
             "added": "pre-v0.10.1",
@@ -13163,139 +13163,139 @@
         },
         "RenePay": {
             "added": "v23.08",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "RenePay.amount_msat": {
             "added": "v23.08",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "RenePay.amount_sent_msat": {
             "added": "v23.08",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "RenePay.bolt11": {
             "added": "v23.08",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "RenePay.bolt12": {
             "added": "v23.08",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "RenePay.created_at": {
             "added": "v23.08",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "RenePay.description": {
             "added": "v23.08",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "RenePay.destination": {
             "added": "v23.08",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "RenePay.dev_use_shadow": {
             "added": "v23.08",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "RenePay.exclude": {
             "added": "v24.08",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "RenePay.groupid": {
             "added": "v23.08",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "RenePay.invstring": {
             "added": "v23.08",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "RenePay.label": {
             "added": "v23.08",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "RenePay.maxdelay": {
             "added": "v23.08",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "RenePay.maxfee": {
             "added": "v23.08",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "RenePay.parts": {
             "added": "v23.08",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "RenePay.payment_hash": {
             "added": "v23.08",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "RenePay.payment_preimage": {
             "added": "v23.08",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "RenePay.retry_for": {
             "added": "v23.08",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "RenePay.status": {
             "added": "v23.08",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "RenePayStatus": {
             "added": "v23.08",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "RenePayStatus.invstring": {
             "added": "v23.08",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "RenePayStatus.paystatus[]": {
             "added": "v23.08",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "RenePayStatus.paystatus[].amount_msat": {
             "added": "v23.08",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "RenePayStatus.paystatus[].amount_sent_msat": {
             "added": "v23.08",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "RenePayStatus.paystatus[].bolt11": {
             "added": "v23.08",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "RenePayStatus.paystatus[].created_at": {
             "added": "v23.08",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "RenePayStatus.paystatus[].destination": {
             "added": "v23.08",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "RenePayStatus.paystatus[].groupid": {
             "added": "v23.08",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "RenePayStatus.paystatus[].notes[]": {
             "added": "v23.08",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "RenePayStatus.paystatus[].parts": {
             "added": "v23.08",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "RenePayStatus.paystatus[].payment_hash": {
             "added": "v23.08",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "RenePayStatus.paystatus[].payment_preimage": {
             "added": "v23.08",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "RenePayStatus.paystatus[].status": {
             "added": "v23.08",
-            "deprecated": null
+            "deprecated": "v26.06"
         },
         "ReserveInputs": {
             "added": "pre-v0.10.1",
@@ -14443,51 +14443,51 @@
         },
         "Wait.details.bolt11": {
             "added": "v23.08",
-            "deprecated": null
+            "deprecated": "v25.05"
         },
         "Wait.details.bolt12": {
             "added": "v23.08",
-            "deprecated": null
+            "deprecated": "v25.05"
         },
         "Wait.details.description": {
             "added": "v23.08",
-            "deprecated": null
+            "deprecated": "v25.05"
         },
         "Wait.details.groupid": {
             "added": "v23.08",
-            "deprecated": null
+            "deprecated": "v25.05"
         },
         "Wait.details.in_channel": {
             "added": "v23.08",
-            "deprecated": null
+            "deprecated": "v25.05"
         },
         "Wait.details.in_htlc_id": {
             "added": "v23.08",
-            "deprecated": null
+            "deprecated": "v25.05"
         },
         "Wait.details.in_msat": {
             "added": "v23.08",
-            "deprecated": null
+            "deprecated": "v25.05"
         },
         "Wait.details.label": {
             "added": "v23.08",
-            "deprecated": null
+            "deprecated": "v25.05"
         },
         "Wait.details.out_channel": {
             "added": "v23.08",
-            "deprecated": null
+            "deprecated": "v25.05"
         },
         "Wait.details.partid": {
             "added": "v23.08",
-            "deprecated": null
+            "deprecated": "v25.05"
         },
         "Wait.details.payment_hash": {
             "added": "v23.08",
-            "deprecated": null
+            "deprecated": "v25.05"
         },
         "Wait.details.status": {
             "added": "v23.08",
-            "deprecated": null
+            "deprecated": "v25.05"
         },
         "Wait.forwards": {
             "added": "v25.05",
@@ -14918,7 +14918,7 @@
             "deprecated": null
         },
         "Xpay.label": {
-            "added": "v24.11",
+            "added": "v26.06",
             "deprecated": null
         },
         "Xpay.layers[]": {
@@ -14926,7 +14926,7 @@
             "deprecated": null
         },
         "Xpay.localinvreqid": {
-            "added": "v24.11",
+            "added": "v26.06",
             "deprecated": null
         },
         "Xpay.maxdelay": {
@@ -15878,11 +15878,11 @@
             "deprecated": null
         },
         "openchannel.openchannel.channel_type.bits[]": {
-            "added": "pre-v0.10.1",
+            "added": "v25.09",
             "deprecated": null
         },
         "openchannel.openchannel.channel_type.names[]": {
-            "added": "pre-v0.10.1",
+            "added": "v25.09",
             "deprecated": null
         },
         "openchannel.openchannel.dust_limit_msat": {
@@ -15966,11 +15966,11 @@
             "deprecated": null
         },
         "openchannel2.openchannel2.channel_type.bits[]": {
-            "added": "pre-v0.10.1",
+            "added": "v25.09",
             "deprecated": null
         },
         "openchannel2.openchannel2.channel_type.names[]": {
-            "added": "pre-v0.10.1",
+            "added": "v25.09",
             "deprecated": null
         },
         "openchannel2.openchannel2.commitment_feerate_per_kw": {

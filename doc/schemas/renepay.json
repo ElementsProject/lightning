@@ -4,6 +4,10 @@
   "rpc": "renepay",
   "title": "Command for sending a payment to a BOLT11 invoice",
   "added": "v23.08",
+  "deprecated": [
+    "v26.06",
+    "v27.03"
+  ],
   "description": [
     "WARNING: Deprecated, scheduled for removal in v27.03",
     "",

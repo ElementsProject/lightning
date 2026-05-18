@@ -1,6 +1,10 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
+  "deprecated": [
+    "v26.06",
+    "v27.03"
+  ],
   "rpc": "getroute",
   "title": "Command for routing a payment (low-level)",
   "description": [

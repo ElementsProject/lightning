@@ -575,16 +575,6 @@
                 "Minimum amount for an output on the channel transactions."
               ]
             },
-            "max_total_htlc_in_msat": {
-              "type": "msat",
-              "description": [
-                "Max amount accept in a single payment. This field is deprecated, use instead our_max_htlc_value_in_flight_msat"
-              ],
-              "deprecated": [
-                "v25.02",
-                "v26.04"
-              ]
-            },
             "their_max_htlc_value_in_flight_msat": {
               "type": "msat",
               "added": "v25.02",
@@ -1068,7 +1058,6 @@
                   "fee_base_msat": {},
                   "fee_proportional_millionths": {},
                   "dust_limit_msat": {},
-                  "max_total_htlc_in_msat": {},
                   "our_max_total_htlc_in_msat": {},
                   "their_max_total_htlc_in_msat": {},
                   "their_reserve_msat": {},
@@ -1169,7 +1158,6 @@
                   "fee_base_msat": {},
                   "fee_proportional_millionths": {},
                   "dust_limit_msat": {},
-                  "max_total_htlc_in_msat": {},
                   "our_max_total_htlc_in_msat": {},
                   "their_max_total_htlc_in_msat": {},
                   "their_reserve_msat": {},
@@ -1269,7 +1257,6 @@
                   "fee_base_msat": {},
                   "fee_proportional_millionths": {},
                   "dust_limit_msat": {},
-                  "max_total_htlc_in_msat": {},
                   "our_max_total_htlc_in_msat": {},
                   "their_max_total_htlc_in_msat": {},
                   "their_reserve_msat": {},
@@ -1371,7 +1358,6 @@
                   "fee_base_msat": {},
                   "fee_proportional_millionths": {},
                   "dust_limit_msat": {},
-                  "max_total_htlc_in_msat": {},
                   "our_max_total_htlc_in_msat": {},
                   "their_max_total_htlc_in_msat": {},
                   "their_reserve_msat": {},
@@ -1558,7 +1544,6 @@
             "fee_base_msat": 1,
             "fee_proportional_millionths": 10,
             "dust_limit_msat": 546000,
-            "max_total_htlc_in_msat": 18446744073709552000,
             "their_max_htlc_value_in_flight_msat": 18446744073709552000,
             "our_max_htlc_value_in_flight_msat": 18446744073709552000,
             "their_reserve_msat": 10000000,
@@ -1689,7 +1674,6 @@
             "fee_base_msat": 1,
             "fee_proportional_millionths": 10,
             "dust_limit_msat": 546000,
-            "max_total_htlc_in_msat": 18446744073709552000,
             "their_max_htlc_value_in_flight_msat": 18446744073709552000,
             "our_max_htlc_value_in_flight_msat": 18446744073709552000,
             "their_reserve_msat": 10000000,
@@ -1814,7 +1798,6 @@
             "fee_base_msat": 1,
             "fee_proportional_millionths": 10,
             "dust_limit_msat": 546000,
-            "max_total_htlc_in_msat": 18446744073709552000,
             "their_max_htlc_value_in_flight_msat": 18446744073709552000,
             "our_max_htlc_value_in_flight_msat": 18446744073709552000,
             "their_reserve_msat": 546000,

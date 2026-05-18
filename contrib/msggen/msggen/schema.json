@@ -8295,16 +8295,6 @@
                           "which end of the first_scid is the start of the path"
                         ]
                       },
-                      "blinding": {
-                        "deprecated": [
-                          "v24.11",
-                          "v25.05"
-                        ],
-                        "type": "pubkey",
-                        "description": [
-                          "Blinding factor for this path."
-                        ]
-                      },
                       "first_path_key": {
                         "added": "v24.11",
                         "type": "pubkey",
@@ -8348,16 +8338,6 @@
                   "type": "string",
                   "description": [
                     "The blinded path has 0 hops."
-                  ]
-                },
-                "offer_node_id": {
-                  "type": "pubkey",
-                  "deprecated": [
-                    "v24.08",
-                    "v24.11"
-                  ],
-                  "description": [
-                    "Obsolete name for offer_issuer_id."
                   ]
                 },
                 "offer_issuer_id": {
@@ -8533,16 +8513,6 @@
                 "quantity_max": {},
                 "unknown_offer_tlvs": {},
                 "recurrence": {},
-                "warning_missing_offer_node_id": {
-                  "type": "string",
-                  "deprecated": [
-                    "v24.08",
-                    "v24.11"
-                  ],
-                  "description": [
-                    "`offer_node_id` is not present."
-                  ]
-                },
                 "warning_missing_offer_issuer_id": {
                   "type": "string",
                   "added": "v24.08",
@@ -8735,16 +8705,6 @@
                           "Path key to deliver to first hop on this path."
                         ]
                       },
-                      "blinding": {
-                        "deprecated": [
-                          "v24.11",
-                          "v25.05"
-                        ],
-                        "type": "pubkey",
-                        "description": [
-                          "Blinding factor for this path."
-                        ]
-                      },
                       "path": {
                         "type": "array",
                         "description": [
@@ -8775,16 +8735,6 @@
                       }
                     }
                   }
-                },
-                "offer_node_id": {
-                  "type": "pubkey",
-                  "deprecated": [
-                    "v24.08",
-                    "v24.11"
-                  ],
-                  "description": [
-                    "Public key of the offering node."
-                  ]
                 },
                 "offer_issuer_id": {
                   "type": "pubkey",
@@ -8957,17 +8907,6 @@
                           "which end of the first_scid is the start of the path"
                         ]
                       },
-                      "blinding": {
-                        "added": "v24.08",
-                        "deprecated": [
-                          "v24.11",
-                          "v25.05"
-                        ],
-                        "type": "pubkey",
-                        "description": [
-                          "Blinding factor for this path."
-                        ]
-                      },
                       "first_path_key": {
                         "added": "v24.11",
                         "type": "pubkey",
@@ -9047,6 +8986,7 @@
                 },
                 "invreq_recurrence_cancel": {
                   "type": "boolean",
+                  "added": "v26.06",
                   "enum": [
                     true
                   ],
@@ -9209,12 +9149,14 @@
                 },
                 "warning_invreq_recurrence_cancel_without_counter": {
                   "type": "string",
+                  "added": "v26.06",
                   "description": [
                     "`invreq_recurrence_cancel` is present, but `invreq_recurrence_counter` isn't."
                   ]
                 },
                 "warning_invreq_recurrence_cancel_with_zero_counter": {
                   "type": "string",
+                  "added": "v26.06",
                   "description": [
                     "`invreq_recurrence_cancel` is present, but `invreq_recurrence_counter` is 0."
                   ]
@@ -9389,16 +9331,6 @@
                           "which end of the first_scid is the start of the path"
                         ]
                       },
-                      "blinding": {
-                        "deprecated": [
-                          "v24.11",
-                          "v25.05"
-                        ],
-                        "type": "pubkey",
-                        "description": [
-                          "Blinding factor for this path."
-                        ]
-                      },
                       "first_path_key": {
                         "added": "v24.11",
                         "type": "pubkey",
@@ -9436,16 +9368,6 @@
                       }
                     }
                   }
-                },
-                "offer_node_id": {
-                  "type": "pubkey",
-                  "deprecated": [
-                    "v24.08",
-                    "v24.11"
-                  ],
-                  "description": [
-                    "Public key of the offering node."
-                  ]
                 },
                 "offer_issuer_id": {
                   "type": "pubkey",
@@ -9618,17 +9540,6 @@
                           "which end of the first_scid is the start of the path"
                         ]
                       },
-                      "blinding": {
-                        "added": "v24.08",
-                        "deprecated": [
-                          "v24.11",
-                          "v25.05"
-                        ],
-                        "type": "pubkey",
-                        "description": [
-                          "Blinding factor for this path."
-                        ]
-                      },
                       "first_path_key": {
                         "added": "v24.11",
                         "type": "pubkey",
@@ -9738,16 +9649,6 @@
                         "type": "u32",
                         "description": [
                           "which end of the first_scid is the start of the path"
-                        ]
-                      },
-                      "blinding": {
-                        "type": "pubkey",
-                        "deprecated": [
-                          "v24.11",
-                          "v25.05"
-                        ],
-                        "description": [
-                          "Blinding factor for this path."
                         ]
                       },
                       "first_path_key": {
@@ -10514,16 +10415,6 @@
                           "which end of the first_scid is the start of the path"
                         ]
                       },
-                      "blinding": {
-                        "deprecated": [
-                          "v24.11",
-                          "v25.05"
-                        ],
-                        "type": "pubkey",
-                        "description": [
-                          "Blinding factor for this path."
-                        ]
-                      },
                       "first_path_key": {
                         "added": "v24.11",
                         "type": "pubkey",
@@ -10642,17 +10533,6 @@
                           "which end of the first_scid is the start of the path"
                         ]
                       },
-                      "blinding": {
-                        "added": "v24.08",
-                        "deprecated": [
-                          "v24.11",
-                          "v25.05"
-                        ],
-                        "type": "pubkey",
-                        "description": [
-                          "Blinding factor for this path."
-                        ]
-                      },
                       "first_path_key": {
                         "added": "v24.11",
                         "type": "pubkey",
@@ -10750,16 +10630,6 @@
                         "type": "u32",
                         "description": [
                           "which end of the first_scid is the start of the path"
-                        ]
-                      },
-                      "blinding": {
-                        "type": "pubkey",
-                        "deprecated": [
-                          "v24.11",
-                          "v25.05"
-                        ],
-                        "description": [
-                          "Blinding factor for this path."
                         ]
                       },
                       "first_path_key": {
@@ -10932,6 +10802,7 @@
                 },
                 "proof_preimage": {
                   "type": "hex",
+                  "added": "v26.06",
                   "minLength": 64,
                   "maxLength": 64,
                   "description": [
@@ -10940,6 +10811,7 @@
                 },
                 "proof_omitted_tlvs": {
                   "type": "array",
+                  "added": "v26.06",
                   "description": [
                     "TLV type markers for fields omitted from the proof."
                   ],
@@ -10949,6 +10821,7 @@
                 },
                 "proof_missing_hashes": {
                   "type": "array",
+                  "added": "v26.06",
                   "description": [
                     "Merkle hashes needed to reconstruct omitted subtrees."
                   ],
@@ -10958,6 +10831,7 @@
                 },
                 "proof_leaf_hashes": {
                   "type": "array",
+                  "added": "v26.06",
                   "description": [
                     "Nonce hashes for each disclosed non-signature TLV field."
                   ],
@@ -10967,18 +10841,21 @@
                 },
                 "proof_note": {
                   "type": "string",
+                  "added": "v26.06",
                   "description": [
                     "Optional note attached to the proof by the payer."
                   ]
                 },
                 "proof_signature": {
                   "type": "bip340sig",
+                  "added": "v26.06",
                   "description": [
                     "BIP-340 signature of `invreq_payer_id` over the proof."
                   ]
                 },
                 "unknown_payer_proof_tlvs": {
                   "type": "array",
+                  "added": "v26.06",
                   "description": [
                     "Any extra fields we didn't know how to parse."
                   ],
@@ -13552,26 +13429,6 @@
                   "Feerate for commitment_transaction in a live channel which we originally funded (if anchor_outputs was negotiated)."
                 ]
               },
-              "delayed_to_us": {
-                "type": "u32",
-                "deprecated": [
-                  "v23.05",
-                  "v24.05"
-                ],
-                "description": [
-                  "Feerate for returning unilateral close funds to our wallet."
-                ]
-              },
-              "htlc_resolution": {
-                "type": "u32",
-                "deprecated": [
-                  "v23.05",
-                  "v24.05"
-                ],
-                "description": [
-                  "Feerate for returning unilateral close HTLC outputs to our wallet."
-                ]
-              },
               "penalty": {
                 "type": "u32",
                 "description": [
@@ -13681,26 +13538,6 @@
                 "added": "v23.08",
                 "description": [
                   "Feerate for commitment_transaction in a live channel which we originally funded (if anchor_outputs was negotiated)."
-                ]
-              },
-              "delayed_to_us": {
-                "type": "u32",
-                "deprecated": [
-                  "v23.05",
-                  "v24.05"
-                ],
-                "description": [
-                  "Feerate for returning unilateral close funds to our wallet."
-                ]
-              },
-              "htlc_resolution": {
-                "type": "u32",
-                "deprecated": [
-                  "v23.05",
-                  "v24.05"
-                ],
-                "description": [
-                  "Feerate for returning unilateral close HTLC outputs to our wallet."
                 ]
               },
               "penalty": {
@@ -15654,12 +15491,14 @@
           },
           "can_create_penalty": {
             "type": "boolean",
+            "added": "v26.06",
             "description": [
               "If false, you are using legacy file version, which can not create penalty transactions, kindly delete emergency.recover and restart the node!"
             ]
           },
           "backed_up_channel_ids": {
             "type": "array",
+            "added": "v26.06",
             "items": {
               "type": "hash",
               "description": [
@@ -16401,6 +16240,10 @@
     "getroute.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
+      "deprecated": [
+        "v26.06",
+        "v27.03"
+      ],
       "rpc": "getroute",
       "title": "Command for routing a payment (low-level)",
       "description": [
@@ -17779,6 +17622,10 @@
     "keysend.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
+      "deprecated": [
+        "v26.06",
+        "v27.03"
+      ],
       "rpc": "keysend",
       "title": "Send funds to a node without an invoice",
       "description": [
@@ -20445,58 +20292,6 @@
                   }
                 }
               },
-              "experimental-onion-messages": {
-                "deprecated": [
-                  "v24.08",
-                  "v25.02"
-                ],
-                "type": "object",
-                "additionalProperties": false,
-                "required": [
-                  "set",
-                  "source"
-                ],
-                "properties": {
-                  "set": {
-                    "type": "boolean",
-                    "description": [
-                      "`true` if set in config or cmdline."
-                    ]
-                  },
-                  "source": {
-                    "type": "string",
-                    "description": [
-                      "Source of configuration setting."
-                    ]
-                  }
-                }
-              },
-              "experimental-offers": {
-                "type": "object",
-                "additionalProperties": false,
-                "deprecated": [
-                  "v24.11",
-                  "v25.05"
-                ],
-                "required": [
-                  "set",
-                  "source"
-                ],
-                "properties": {
-                  "set": {
-                    "type": "boolean",
-                    "description": [
-                      "`true` if set in config or cmdline."
-                    ]
-                  },
-                  "source": {
-                    "type": "string",
-                    "description": [
-                      "Source of configuration setting."
-                    ]
-                  }
-                }
-              },
               "experimental-shutdown-wrong-funding": {
                 "type": "object",
                 "additionalProperties": false,
@@ -20679,32 +20474,6 @@
               },
               "watchtime-blocks": {
                 "type": "object",
-                "additionalProperties": false,
-                "required": [
-                  "value_int",
-                  "source"
-                ],
-                "properties": {
-                  "value_int": {
-                    "type": "u32",
-                    "description": [
-                      "Field from config or cmdline, or default."
-                    ]
-                  },
-                  "source": {
-                    "type": "string",
-                    "description": [
-                      "Source of configuration setting."
-                    ]
-                  }
-                }
-              },
-              "max-locktime-blocks": {
-                "type": "object",
-                "deprecated": [
-                  "v24.05",
-                  "v24.11"
-                ],
                 "additionalProperties": false,
                 "required": [
                   "value_int",
@@ -25684,16 +25453,6 @@
                     "Minimum amount for an output on the channel transactions."
                   ]
                 },
-                "max_total_htlc_in_msat": {
-                  "type": "msat",
-                  "description": [
-                    "Max amount accept in a single payment. This field is deprecated, use instead our_max_htlc_value_in_flight_msat"
-                  ],
-                  "deprecated": [
-                    "v25.02",
-                    "v26.04"
-                  ]
-                },
                 "their_max_htlc_value_in_flight_msat": {
                   "type": "msat",
                   "added": "v25.02",
@@ -26177,7 +25936,6 @@
                       "fee_base_msat": {},
                       "fee_proportional_millionths": {},
                       "dust_limit_msat": {},
-                      "max_total_htlc_in_msat": {},
                       "our_max_total_htlc_in_msat": {},
                       "their_max_total_htlc_in_msat": {},
                       "their_reserve_msat": {},
@@ -26278,7 +26036,6 @@
                       "fee_base_msat": {},
                       "fee_proportional_millionths": {},
                       "dust_limit_msat": {},
-                      "max_total_htlc_in_msat": {},
                       "our_max_total_htlc_in_msat": {},
                       "their_max_total_htlc_in_msat": {},
                       "their_reserve_msat": {},
@@ -26378,7 +26135,6 @@
                       "fee_base_msat": {},
                       "fee_proportional_millionths": {},
                       "dust_limit_msat": {},
-                      "max_total_htlc_in_msat": {},
                       "our_max_total_htlc_in_msat": {},
                       "their_max_total_htlc_in_msat": {},
                       "their_reserve_msat": {},
@@ -26480,7 +26236,6 @@
                       "fee_base_msat": {},
                       "fee_proportional_millionths": {},
                       "dust_limit_msat": {},
-                      "max_total_htlc_in_msat": {},
                       "our_max_total_htlc_in_msat": {},
                       "their_max_total_htlc_in_msat": {},
                       "their_reserve_msat": {},
@@ -26667,7 +26422,6 @@
                 "fee_base_msat": 1,
                 "fee_proportional_millionths": 10,
                 "dust_limit_msat": 546000,
-                "max_total_htlc_in_msat": 18446744073709552000,
                 "their_max_htlc_value_in_flight_msat": 18446744073709552000,
                 "our_max_htlc_value_in_flight_msat": 18446744073709552000,
                 "their_reserve_msat": 10000000,
@@ -26798,7 +26552,6 @@
                 "fee_base_msat": 1,
                 "fee_proportional_millionths": 10,
                 "dust_limit_msat": 546000,
-                "max_total_htlc_in_msat": 18446744073709552000,
                 "their_max_htlc_value_in_flight_msat": 18446744073709552000,
                 "our_max_htlc_value_in_flight_msat": 18446744073709552000,
                 "their_reserve_msat": 10000000,
@@ -26923,7 +26676,6 @@
                 "fee_base_msat": 1,
                 "fee_proportional_millionths": 10,
                 "dust_limit_msat": 546000,
-                "max_total_htlc_in_msat": 18446744073709552000,
                 "their_max_htlc_value_in_flight_msat": 18446744073709552000,
                 "our_max_htlc_value_in_flight_msat": 18446744073709552000,
                 "their_reserve_msat": 546000,
@@ -27575,7 +27327,7 @@
                 "bolt12": {
                   "type": "string",
                   "description": [
-                    "The bolt12 string (if supplied for pay: **experimental-offers** only)."
+                    "The bolt12 string (if supplied for pay)."
                   ]
                 }
               },
@@ -30607,6 +30359,10 @@
     "pay.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
+      "deprecated": [
+        "v26.06",
+        "v27.03"
+      ],
       "rpc": "pay",
       "title": "Command for sending a payment to a BOLT11/BOLT12 invoice",
       "description": [
@@ -31965,6 +31721,10 @@
       "rpc": "renepay",
       "title": "Command for sending a payment to a BOLT11 invoice",
       "added": "v23.08",
+      "deprecated": [
+        "v26.06",
+        "v27.03"
+      ],
       "description": [
         "WARNING: Deprecated, scheduled for removal in v27.03",
         "",
@@ -32229,6 +31989,10 @@
       "rpc": "renepaystatus",
       "title": "Command for quering the status of previous renepay attempts",
       "added": "v23.08",
+      "deprecated": [
+        "v26.06",
+        "v27.03"
+      ],
       "description": [
         "WARNING: Deprecated, scheduled for removal in v27.03",
         "",
@@ -39278,12 +39042,14 @@
           },
           "label": {
             "type": "string",
+            "added": "v26.06",
             "description": [
               "Attach a label to payments for which is returned in `listpays` and `listsendpays`.  This is for your own use: it is not visible to the recipient."
             ]
           },
           "localinvreqid": {
             "type": "hex",
+            "added": "v26.06",
             "description": [
               "`localinvreqid` is used by offers to link a payment attempt to a local `invoice_request` offer created by lightningd-invoicerequest(7). This  ensures that we only make a single payment for an offer, and that the offer is marked `used` once paid."
             ]
@@ -39636,7 +39402,7 @@
             ],
             "description": [
               "The channel state, in particular \"CHANNELD_NORMAL\" and \"CHANNELD_AWAITING_SPLICE\" mean the channel can be used normally.",
-              "The deprecated value 'unknown' is also present for new channels: after v26.04 this field will be omitted instead."
+              "The deprecated value 'unknown' was also present for new channels up until v26.04, it was removed in v26.06."
             ]
           },
           "new_state": {

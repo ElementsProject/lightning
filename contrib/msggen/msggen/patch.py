@@ -31,7 +31,7 @@ class Patch(ABC):
             elif isinstance(f, model.CompositeField):
                 for c in f.fields:
                     self.visit(c, f, inherited_added=inherited_added, inherited_deprecated=inherited_deprecated)
-                    recurse(c, inherited_added=inherited_added, inherited_deprecated=inherited_deprecated)
+                    recurse(c, inherited_added=c.added or f.added or inherited_added, inherited_deprecated=c.deprecated or f.deprecated or inherited_deprecated)
             # Now visit ourselves
 
         for m in service.methods:
@@ -169,10 +169,6 @@ class OptionalPatch(Patch):
         if not f.required:
             f.optional = True
 
-        # Even if it's deprecated in future, reduce churn.
-        if f.deprecated:
-            f.optional = True
-
         # Set to optional if support has been added recently
         # This ensures generated code will run both on
         # newer and older versions of core lightning
@@ -182,6 +178,8 @@ class OptionalPatch(Patch):
         if parent is not None:
             if parent.added == f.added:
                 return
+            if f.deprecated and f.deprecated != parent.deprecated:
+                f.optional = True
 
         added = self.version_to_number(f.added)
         if added >= self.supported():

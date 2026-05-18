@@ -201,16 +201,6 @@
                       "which end of the first_scid is the start of the path"
                     ]
                   },
-                  "blinding": {
-                    "deprecated": [
-                      "v24.11",
-                      "v25.05"
-                    ],
-                    "type": "pubkey",
-                    "description": [
-                      "Blinding factor for this path."
-                    ]
-                  },
                   "first_path_key": {
                     "added": "v24.11",
                     "type": "pubkey",
@@ -254,16 +244,6 @@
               "type": "string",
               "description": [
                 "The blinded path has 0 hops."
-              ]
-            },
-            "offer_node_id": {
-              "type": "pubkey",
-              "deprecated": [
-                "v24.08",
-                "v24.11"
-              ],
-              "description": [
-                "Obsolete name for offer_issuer_id."
               ]
             },
             "offer_issuer_id": {
@@ -439,16 +419,6 @@
             "quantity_max": {},
             "unknown_offer_tlvs": {},
             "recurrence": {},
-            "warning_missing_offer_node_id": {
-              "type": "string",
-              "deprecated": [
-                "v24.08",
-                "v24.11"
-              ],
-              "description": [
-                "`offer_node_id` is not present."
-              ]
-            },
             "warning_missing_offer_issuer_id": {
               "type": "string",
               "added": "v24.08",
@@ -641,16 +611,6 @@
                       "Path key to deliver to first hop on this path."
                     ]
                   },
-                  "blinding": {
-                    "deprecated": [
-                      "v24.11",
-                      "v25.05"
-                    ],
-                    "type": "pubkey",
-                    "description": [
-                      "Blinding factor for this path."
-                    ]
-                  },
                   "path": {
                     "type": "array",
                     "description": [
@@ -681,16 +641,6 @@
                   }
                 }
               }
-            },
-            "offer_node_id": {
-              "type": "pubkey",
-              "deprecated": [
-                "v24.08",
-                "v24.11"
-              ],
-              "description": [
-                "Public key of the offering node."
-              ]
             },
             "offer_issuer_id": {
               "type": "pubkey",
@@ -863,17 +813,6 @@
                       "which end of the first_scid is the start of the path"
                     ]
                   },
-                  "blinding": {
-                    "added": "v24.08",
-                    "deprecated": [
-                      "v24.11",
-                      "v25.05"
-                    ],
-                    "type": "pubkey",
-                    "description": [
-                      "Blinding factor for this path."
-                    ]
-                  },
                   "first_path_key": {
                     "added": "v24.11",
                     "type": "pubkey",
@@ -953,6 +892,7 @@
             },
             "invreq_recurrence_cancel": {
               "type": "boolean",
+              "added": "v26.06",
               "enum": [
                 true
               ],
@@ -1115,12 +1055,14 @@
             },
             "warning_invreq_recurrence_cancel_without_counter": {
               "type": "string",
+              "added": "v26.06",
               "description": [
                 "`invreq_recurrence_cancel` is present, but `invreq_recurrence_counter` isn't."
               ]
             },
             "warning_invreq_recurrence_cancel_with_zero_counter": {
               "type": "string",
+              "added": "v26.06",
               "description": [
                 "`invreq_recurrence_cancel` is present, but `invreq_recurrence_counter` is 0."
               ]
@@ -1295,16 +1237,6 @@
                       "which end of the first_scid is the start of the path"
                     ]
                   },
-                  "blinding": {
-                    "deprecated": [
-                      "v24.11",
-                      "v25.05"
-                    ],
-                    "type": "pubkey",
-                    "description": [
-                      "Blinding factor for this path."
-                    ]
-                  },
                   "first_path_key": {
                     "added": "v24.11",
                     "type": "pubkey",
@@ -1342,16 +1274,6 @@
                   }
                 }
               }
-            },
-            "offer_node_id": {
-              "type": "pubkey",
-              "deprecated": [
-                "v24.08",
-                "v24.11"
-              ],
-              "description": [
-                "Public key of the offering node."
-              ]
             },
             "offer_issuer_id": {
               "type": "pubkey",
@@ -1524,17 +1446,6 @@
                       "which end of the first_scid is the start of the path"
                     ]
                   },
-                  "blinding": {
-                    "added": "v24.08",
-                    "deprecated": [
-                      "v24.11",
-                      "v25.05"
-                    ],
-                    "type": "pubkey",
-                    "description": [
-                      "Blinding factor for this path."
-                    ]
-                  },
                   "first_path_key": {
                     "added": "v24.11",
                     "type": "pubkey",
@@ -1644,16 +1555,6 @@
                     "type": "u32",
                     "description": [
                       "which end of the first_scid is the start of the path"
-                    ]
-                  },
-                  "blinding": {
-                    "type": "pubkey",
-                    "deprecated": [
-                      "v24.11",
-                      "v25.05"
-                    ],
-                    "description": [
-                      "Blinding factor for this path."
                     ]
                   },
                   "first_path_key": {
@@ -2420,16 +2321,6 @@
                       "which end of the first_scid is the start of the path"
                     ]
                   },
-                  "blinding": {
-                    "deprecated": [
-                      "v24.11",
-                      "v25.05"
-                    ],
-                    "type": "pubkey",
-                    "description": [
-                      "Blinding factor for this path."
-                    ]
-                  },
                   "first_path_key": {
                     "added": "v24.11",
                     "type": "pubkey",
@@ -2548,17 +2439,6 @@
                       "which end of the first_scid is the start of the path"
                     ]
                   },
-                  "blinding": {
-                    "added": "v24.08",
-                    "deprecated": [
-                      "v24.11",
-                      "v25.05"
-                    ],
-                    "type": "pubkey",
-                    "description": [
-                      "Blinding factor for this path."
-                    ]
-                  },
                   "first_path_key": {
                     "added": "v24.11",
                     "type": "pubkey",
@@ -2656,16 +2536,6 @@
                     "type": "u32",
                     "description": [
                       "which end of the first_scid is the start of the path"
-                    ]
-                  },
-                  "blinding": {
-                    "type": "pubkey",
-                    "deprecated": [
-                      "v24.11",
-                      "v25.05"
-                    ],
-                    "description": [
-                      "Blinding factor for this path."
                     ]
                   },
                   "first_path_key": {
@@ -2838,6 +2708,7 @@
             },
             "proof_preimage": {
               "type": "hex",
+              "added": "v26.06",
               "minLength": 64,
               "maxLength": 64,
               "description": [
@@ -2846,6 +2717,7 @@
             },
             "proof_omitted_tlvs": {
               "type": "array",
+              "added": "v26.06",
               "description": [
                 "TLV type markers for fields omitted from the proof."
               ],
@@ -2855,6 +2727,7 @@
             },
             "proof_missing_hashes": {
               "type": "array",
+              "added": "v26.06",
               "description": [
                 "Merkle hashes needed to reconstruct omitted subtrees."
               ],
@@ -2864,6 +2737,7 @@
             },
             "proof_leaf_hashes": {
               "type": "array",
+              "added": "v26.06",
               "description": [
                 "Nonce hashes for each disclosed non-signature TLV field."
               ],
@@ -2873,18 +2747,21 @@
             },
             "proof_note": {
               "type": "string",
+              "added": "v26.06",
               "description": [
                 "Optional note attached to the proof by the payer."
               ]
             },
             "proof_signature": {
               "type": "bip340sig",
+              "added": "v26.06",
               "description": [
                 "BIP-340 signature of `invreq_payer_id` over the proof."
               ]
             },
             "unknown_payer_proof_tlvs": {
               "type": "array",
+              "added": "v26.06",
               "description": [
                 "Any extra fields we didn't know how to parse."
               ],

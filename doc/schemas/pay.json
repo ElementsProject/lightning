@@ -1,6 +1,10 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
+  "deprecated": [
+    "v26.06",
+    "v27.03"
+  ],
   "rpc": "pay",
   "title": "Command for sending a payment to a BOLT11/BOLT12 invoice",
   "description": [

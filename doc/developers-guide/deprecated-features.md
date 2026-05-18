@@ -9,9 +9,7 @@ privacy:
 
 | Name                                               | Type               | First Deprecated | Last Supported | Description                                                                                                               |
 |----------------------------------------------------|--------------------|------------------|----------------|---------------------------------------------------------------------------------------------------------------------------|
-| listpeerchannels.max_total_htlc_in_msat            | Field              | v25.02           | v26.04         | Use our_max_total_htlc_out_msat                                                                                           |
 | wait.details                                       | Field              | v25.05           | v26.06         | Use subsystem-specific object instead                                                                                     |
-| channel_state_changed.old_state.unknown            | Notification Field | v25.05           | v26.04         | Value "unknown" is deprecated: field will be omitted instead                                                              |
 | coin_movement.tags                                 | Notification Field | v25.09           | v26.09         | Use `primary_tag` (first tag) and `extra_tags` instead                                                                    |
 | coin_movement.utxo_txid                            | Notification Field | v25.09           | v26.09         | Use `utxo` instead of `utxo_txid` & `vout`                                                                                |
 | coin_movement.txid                                 | Notification Field | v25.09           | v26.09         | Use `spending_txid` instead                                                                                               |
