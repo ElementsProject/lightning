@@ -160,7 +160,7 @@ static void generate_valid_vector(const char *name,
 				  bool (*include_field)(const struct tlv_field *, void *),
 				  bool explicit_empty_omitted)
 {
-	struct sha256 mroot, shash;
+	struct sha256 mroot, pproot, shash;
 	struct tlv_payer_proof *proof;
 	secp256k1_keypair kp = keypair_for_letter(payer_letter);
 	u8 *invoice_wire;
@@ -179,6 +179,10 @@ static void generate_valid_vector(const char *name,
 	}
 	proof->proof_signature = payer_proof_signature(proof, proof, sign_payer, &kp);
 	assert(proof->proof_signature);
+	/* Refresh fields to include proof_signature */
+	tlv_update_fields(proof, tlv_payer_proof, &proof->fields);
+
+	bolt12_payer_proof_merkle(proof, &pproot);
 
 	printf("{\n");
 	printf("\"name\":\"%s\",\n", name);
@@ -201,7 +205,7 @@ static void generate_valid_vector(const char *name,
 	printf("\"invoice_sighash\":\"%s\",\n", fmt_sha256(tmpctx, &shash));
 	printf("\"invoice_signature\":\"%s\",\n",
 	       tal_hexstr(tmpctx, inv->signature->u8, sizeof(inv->signature->u8)));
-	printf("\"proof_merkle_root\":\"%s\",\n", fmt_sha256(tmpctx, &mroot));
+	printf("\"proof_merkle_root\":\"%s\",\n", fmt_sha256(tmpctx, &pproot));
 	printf("\"proof_leaf_hashes\":[\n");
 	print_hashes_json(proof->proof_leaf_hashes, tal_count(proof->proof_leaf_hashes));
 	printf("],\n");
@@ -212,9 +216,6 @@ static void generate_valid_vector(const char *name,
 	print_hashes_json(proof->proof_missing_hashes, tal_count(proof->proof_missing_hashes));
 	printf("]\n");
 	printf("},\n");
-
-	/* Refresh fields to include proof_signature */
-	tlv_update_fields(proof, tlv_payer_proof, &proof->fields);
 
 	printf("\"result\":{\n");
 	printf("\"payer_sig\":\"%s\",\n",
