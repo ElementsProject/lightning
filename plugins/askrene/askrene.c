@@ -317,7 +317,7 @@ static const char *cmd_log(const tal_t *ctx,
 	if (level != LOG_DBG)
 		plugin_log(cmd->plugin,
 			   level == LOG_BROKEN ? level : level - 1,
-			   "%s: %s", cmd->id, msg);
+			   "%s: %s", cmd->idstr, msg);
 	return msg;
 }
 
@@ -718,7 +718,7 @@ static struct command_result *do_getroutes(struct command *cmd,
 			  deadline, srcnode, dstnode, info->amount,
 			  info->maxfee, info->finalcltv, info->maxdelay, info->maxparts,
 			  include_fees,
-			  cmd->id, cmd->filter,
+			  cmd->idstr, cmd->filter,
 			  include_next_node_id,
 			  include_amount_msat,
 			  include_delay,
@@ -989,7 +989,7 @@ static struct command_result *json_askrene_reserve(struct command *cmd,
 		   json_tok_full_len(params), json_tok_full(buffer, params));
 
 	for (size_t i = 0; i < tal_count(path); i++)
-		reserve_add(askrene->reserved, &path[i], cmd->id);
+		reserve_add(askrene->reserved, &path[i], cmd->idstr);
 
 	response = jsonrpc_stream_success(cmd);
 	return command_finished(cmd, response);
