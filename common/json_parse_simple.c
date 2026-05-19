@@ -61,35 +61,19 @@ char *json_strdup(const tal_t *ctx, const char *buffer, const jsmntok_t *tok)
 
 bool json_to_u64(const char *buffer, const jsmntok_t *tok, u64 *num)
 {
-	char *end;
-	unsigned long long l;
-
-	errno = 0;
-	l = strtoull(buffer + tok->start, &end, 0);
-	if (end != buffer + tok->end)
-		return false;
-
-	BUILD_ASSERT(sizeof(l) >= sizeof(*num));
-	*num = l;
-
-	/* Check for overflow */
-	if (l == ULLONG_MAX && errno == ERANGE)
-		return false;
-
-	if (*num != l)
-		return false;
-
-	return true;
+	return str_to_u64(buffer + tok->start, tok->end - tok->start, num);
 }
 
+/* Uncommon, we don't optimize these */
 bool json_to_s64(const char *buffer, const jsmntok_t *tok, s64 *num)
 {
+	const char *tmpbuf = json_strdup(tmpctx, buffer, tok);
 	char *end;
 	long long l;
 
 	errno = 0;
-	l = strtoll(buffer + tok->start, &end, 0);
-	if (end != buffer + tok->end)
+	l = strtoll(tmpbuf, &end, 0);
+	if (tmpbuf[0] == '\0' || *end != '\0')
 		return false;
 
 	BUILD_ASSERT(sizeof(l) >= sizeof(*num));
@@ -109,11 +93,12 @@ bool json_to_s64(const char *buffer, const jsmntok_t *tok, s64 *num)
 
 bool json_to_double(const char *buffer, const jsmntok_t *tok, double *num)
 {
+	const char *tmpbuf = json_strdup(tmpctx, buffer, tok);
 	char *end;
 
 	errno = 0;
-	*num = strtod(buffer + tok->start, &end);
-	if (end != buffer + tok->end)
+	*num = strtod(tmpbuf, &end);
+	if (tmpbuf[0] == '\0' || *end != '\0')
 		return false;
 
 	/* Check for overflow/underflow */

@@ -119,6 +119,9 @@ static inline void tal_free_if_taken(const tal_t *p)
 void tal_arr_append_(void *p, const void *append TAKES);
 void tal_arr_appendn_(void *p, const void *append TAKES, size_t bytes);
 
+/* Parse a decimal u64 from exactly buflen bytes; false on bad chars or overflow */
+bool str_to_u64(const char *buf, size_t buflen, u64 *num);
+
 /* Check for valid UTF-8 */
 bool utf8_check(const void *buf, size_t buflen);
 
