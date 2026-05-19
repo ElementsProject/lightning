@@ -2,6 +2,7 @@
 #define LIGHTNING_LIGHTNINGD_PLUGIN_H
 #include "config.h"
 #include <ccan/intmap/intmap.h>
+#include <common/hash_str.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 
@@ -23,11 +24,6 @@ struct plugin_subscription {
 	struct plugin *owner;
 	const char *topic;
 };
-
-static inline size_t hash_str(const char *str)
-{
-	return siphash24(siphash_seed(), str, strlen(str));
-}
 
 static inline const char *plugin_subscription_key(const struct plugin_subscription *ps)
 {
