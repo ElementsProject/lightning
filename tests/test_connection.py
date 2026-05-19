@@ -4820,7 +4820,7 @@ def test_networkevents(node_factory, executor):
                         'connect_attempted': True,
                         'reason': f'All addresses failed: 127.0.0.1:{l1.port}: Cryptographic handshake: peer closed connection (wrong key?). '}]
 
-        # Connect failed because no listener
+    # Connect failed because no listener
     with pytest.raises(
             RpcError,
             match=r"Connection establishment: (Connection refused|Bad file descriptor)."):
