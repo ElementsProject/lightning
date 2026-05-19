@@ -60,6 +60,7 @@ jobs:
           PYTEST_OPTS: "-vvv --timeout=1800 --durations=10"
           PYTEST_TESTS: |
             tests/test_misc.py::test_ipv4_and_ipv6
+            tests/test_misc.py::test_low_fd_limit
             tests/test_connection.py::test_websocket
             tests/test_connection.py::test_wss_proxy
             tests/test_plugin.py::test_inline_plugin_wait_for_log_no_selfmatch
