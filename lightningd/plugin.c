@@ -233,7 +233,7 @@ static void plugin_terminated_fail_req(struct plugin *plugin,
 
 	buf = tal_fmt(plugin,
 		      "{\"jsonrpc\": \"2.0\","
-		      "\"id\": %s,"
+		      "\"id\": \"%s\","
 		      "\"error\":"
 		      " {\"code\":%i, \"message\":\"%s\"}"
 		      "}\n\n",
@@ -550,10 +550,9 @@ static const char *plugin_notify_handle(struct plugin *plugin,
 			       "JSON-RPC notify \"id\"-field is not present");
 	}
 
-	/* Include any "" in id */
 	request = strmap_getn(&plugin->pending_requests,
-			      json_tok_full(buffer, idtok),
-			      json_tok_full_len(idtok));
+			      buffer + idtok->start,
+			      idtok->end - idtok->start);
 	if (!request) {
 		return NULL;
 	}
@@ -676,8 +675,8 @@ static void plugin_response_handle(struct plugin *plugin,
 	const tal_t *ctx;
 
 	request = strmap_getn(&plugin->pending_requests,
-			      json_tok_full(buffer, idtok),
-			      json_tok_full_len(idtok));
+			      buffer + idtok->start,
+			      idtok->end - idtok->start);
 	/* Can happen if request was freed before plugin responded */
 	if (!request) {
 		return;
@@ -1189,8 +1188,8 @@ static void json_stream_forward_change_id(struct json_stream *stream,
 					  const char *buffer,
 					  const jsmntok_t *toks,
 					  const jsmntok_t *idtok,
-					  /* Full token, including "" */
-					  const char *new_id)
+					  const char *new_id,
+					  bool make_new_id_a_string)
 {
 	/* We copy everything, but replace the id. Special care has to
 	 * be taken when the id that is being replaced is a string. If
@@ -1204,7 +1203,11 @@ static void json_stream_forward_change_id(struct json_stream *stream,
 
 	json_stream_append(stream, buffer + toks->start,
 			   id_start - (buffer + toks->start));
+	if (make_new_id_a_string)
+		json_stream_append(stream, "\"", 1);
 	json_stream_append(stream, new_id, strlen(new_id));
+	if (make_new_id_a_string)
+		json_stream_append(stream, "\"", 1);
 	json_stream_append(stream, id_end, (buffer + toks->end) - id_end);
 }
 
@@ -1216,7 +1219,8 @@ static void plugin_rpcmethod_cb(const char *buffer,
 	struct json_stream *response;
 
 	response = json_stream_raw_for_cmd(cmd);
-	json_stream_forward_change_id(response, buffer, toks, idtok, cmd->id);
+	/* cmd->id is a complete JSON token, quotes and all (if a string) */
+	json_stream_forward_change_id(response, buffer, toks, idtok, cmd->id, false);
 	json_stream_double_cr(response);
 	command_raw_complete(cmd, response);
 }
@@ -1237,8 +1241,9 @@ static void plugin_notify_cb(const char *buffer,
 	json_add_string(response, "jsonrpc", "2.0");
 	json_add_tok(response, "method", methodtok, buffer);
 	json_stream_append(response, ",\"params\":", strlen(",\"params\":"));
+	/* cmd->id is a complete JSON token, quotes and all (if a string) */
 	json_stream_forward_change_id(response, buffer,
-				      paramtoks, idtok, cmd->id);
+				      paramtoks, idtok, cmd->id, false);
 	json_object_end(response);
 
 	json_stream_double_cr(response);
@@ -1294,7 +1299,7 @@ static struct command_result *plugin_rpcmethod_check(struct command *cmd,
 					plugin_notify_cb,
 					plugin_rpcmethod_cb, cmd);
 
-	json_stream_forward_change_id(req->stream, buffer, toks, idtok, req->id);
+	json_stream_forward_change_id(req->stream, buffer, toks, idtok, req->id, true);
 	json_stream_double_cr(req->stream);
 	plugin_request_send(plugin, req);
 	req->stream = NULL;
@@ -1338,7 +1343,7 @@ static struct command_result *plugin_rpcmethod_dispatch(struct command *cmd,
 					plugin_notify_cb,
 					plugin_rpcmethod_cb, cmd);
 
-	json_stream_forward_change_id(req->stream, buffer, toks, idtok, req->id);
+	json_stream_forward_change_id(req->stream, buffer, toks, idtok, req->id, true);
 	json_stream_double_cr(req->stream);
 	plugin_request_send(plugin, req);
 	req->stream = NULL;
