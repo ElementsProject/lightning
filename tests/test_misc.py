@@ -5000,8 +5000,16 @@ def test_set_feerate_offset(node_factory, bitcoind):
 def test_low_fd_limit(node_factory, bitcoind):
     limits = resource.getrlimit(resource.RLIMIT_NOFILE)
 
-    # We assume this, otherwise l2 cannot increase limits!
-    if limits[0] == limits[1]:
+    # dev-fd-limit-multiplier is a u32, so values > UINT32_MAX fail option
+    # parsing. macOS also reports RLIM_INFINITY as the hard limit, making
+    # "ask for more than the hard limit" meaningless.  Cap to a bounded
+    # ceiling so the test works on any platform.
+    TEST_CEILING = 65536
+    if limits[1] == resource.RLIM_INFINITY or limits[1] > TEST_CEILING:
+        limits = (TEST_CEILING // 2, TEST_CEILING)
+        resource.setrlimit(resource.RLIMIT_NOFILE, limits)
+    elif limits[0] == limits[1]:
+        # We assume this, otherwise l2 cannot increase limits!
         limits = (limits[1] // 2, limits[1])
         resource.setrlimit(resource.RLIMIT_NOFILE, limits)
 
