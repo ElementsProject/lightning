@@ -3073,3 +3073,19 @@ def test_zeroconf_withhold_htlc_failback(node_factory, bitcoind):
 
     # l1's channel to l2 is still normal — no force-close
     assert only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['state'] == 'CHANNELD_NORMAL'
+
+
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+def test_no_retransmit_confirmed_funding(node_factory):
+    """An channel must not trigger funding tx re-transmission on restart."""
+    l1, _ = node_factory.line_graph(2, wait_for_announce=True)
+
+    # Channel is in CHANNELD_NORMAL and funding tx is confirmed.
+    assert only_one(l1.rpc.listpeerchannels()['channels'])['state'] == 'CHANNELD_NORMAL'
+
+    l1.restart()
+
+    # Should not have attempted (and failed) to re-broadcast the funding tx.
+    assert l1.daemon.is_in_log('Failed to re-transmit funding tx')
+    assert not l1.daemon.is_in_log('Successfully rexmitted funding tx')
