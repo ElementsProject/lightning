@@ -1,7 +1,11 @@
 #include "config.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/mem/mem.h>
+#include <ccan/tal/str/str.h>
+#include <common/amount.h>
 #include <common/iso4217.h>
+#include <common/overflows.h>
+#include <common/utils.h>
 
 /* Wikipedia leads me to: https://www.currency-iso.org/en/home/tables/table-a1.html
 
@@ -200,5 +204,88 @@ const struct iso4217_name_and_divisor *find_iso4217(const utf8 *prefix,
 			  prefix, len))
 			return &iso4217[i];
 	}
+	return NULL;
+}
+
+static bool msat_or_any(const tal_t *ctx,
+			const char *buf,
+			size_t buflen,
+			u64 **amount)
+{
+	struct amount_msat msat;
+
+	if (memeqstr(buf, buflen, "any")) {
+		*amount = NULL;
+		return true;
+	}
+
+	if (!parse_amount_msat(&msat, buf, buflen))
+		return false;
+
+	*amount = tal_dup(ctx, u64, &msat.millisatoshis); /* Raw: parsing */
+	return true;
+}
+
+const char *parse_currency_amount(const tal_t *ctx,
+				  const char *buf,
+				  size_t buflen,
+				  const struct iso4217_name_and_divisor **isocode,
+				  u64 **amount)
+{
+	const char *dot;
+	size_t wholelen;
+	u64 cents;
+	u64 total;
+
+	if (msat_or_any(ctx, buf, buflen, amount)) {
+		*isocode = NULL;
+		return NULL;
+	}
+
+	/* BOLT #12:
+	 *
+	 * - MUST specify `offer_currency` `iso4217` as an ISO 4217 three-letter code.
+	 * - MUST specify `offer_amount` in the currency unit adjusted by the ISO 4217
+	 *   exponent (e.g. USD cents).
+	 */
+	if (buflen < ISO4217_NAMELEN)
+		return tal_fmt(ctx, "Not a number, and too short for currency");
+
+	*isocode = find_iso4217(buf + buflen - ISO4217_NAMELEN, ISO4217_NAMELEN);
+	if (!*isocode)
+		return tal_fmt(ctx, "Unknown currency suffix %.*s",
+			       ISO4217_NAMELEN,
+			       buf + buflen - ISO4217_NAMELEN);
+
+	buflen -= ISO4217_NAMELEN;
+	dot = memchr(buf, '.', buflen);
+	if (!dot) {
+		wholelen = buflen;
+		cents = 0;
+	} else {
+		const char *afterdot = dot + 1;
+		size_t partlen = buf + buflen - afterdot;
+		wholelen = dot - buf;
+		if (partlen != (*isocode)->minor_unit)
+			return tal_fmt(ctx, "Currency %s requires %u minor units",
+				       (*isocode)->name, (*isocode)->minor_unit);
+		if (!str_to_u64(afterdot, partlen, &cents))
+			return tal_fmt(ctx, "Bad minor units number");
+	}
+
+	if (!str_to_u64(buf, wholelen, &total))
+		return tal_fmt(ctx, "Not a valid number");
+
+	for (size_t i = 0; i < (*isocode)->minor_unit; i++) {
+		if (mul_overflows_u64(total, 10))
+			return tal_fmt(ctx, "excessively large value");
+		total *= 10;
+	}
+
+	if (add_overflows_u64(total, cents))
+		return tal_fmt(ctx, "excessively large value");
+
+	total += cents;
+	*amount = tal_dup(ctx, u64, &total);
 	return NULL;
 }
