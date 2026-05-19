@@ -181,10 +181,7 @@ struct payment *payment_root(struct payment *p)
 static const char *paymod_log_header(const tal_t *ctx,
 				     struct payment *p)
 {
-	const char *id = payment_cmd(p)->id;
-	if (strstarts(id, "\""))
-		return tal_strndup(ctx, id+1, strlen(id+1)-1);
-	return tal_strdup(ctx, id);
+	return tal_strdup(ctx, payment_cmd(p)->idstr);
 }
 
 void

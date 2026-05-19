@@ -81,7 +81,7 @@ def test_reserve(node_factory):
     time.sleep(2)
 
     # Reservations can be in either order.
-    with pytest.raises(RpcError, match=rf'We could not find a usable set of paths. The shortest path is {scid12}->{scid23}, but {scid12dir} already reserved 10000000*msat by command ".*" \([0-9]* seconds ago\), 10000000*msat by command ".*" \([0-9]* seconds ago\)'):
+    with pytest.raises(RpcError, match=rf'We could not find a usable set of paths. The shortest path is {scid12}->{scid23}, but {scid12dir} already reserved 10000000*msat by command [-/#:a-zA-Z0-9]* \([0-9]* seconds ago\), 10000000*msat by command [-/#:a-zA-Z0-9]* \([0-9]* seconds ago\)'):
         l1.rpc.getroutes(source=l1.info['id'],
                          destination=l3.info['id'],
                          amount_msat=1000000,

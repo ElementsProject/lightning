@@ -269,7 +269,7 @@ void run_child(const struct gossmap *gossmap,
 	struct json_stream *js = new_json_stream(tmpctx, NULL, NULL);
 	json_object_start(js, NULL);
 	json_add_string(js, "jsonrpc", "2.0");
-	json_add_id(js, cmd_id);
+	json_add_string(js, "id", cmd_id);
 	json_object_start(js, "result");
 	if (cmd_filter)
 		json_stream_attach_filter(js, cmd_filter);
