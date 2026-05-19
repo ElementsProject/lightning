@@ -1244,7 +1244,8 @@ def test_cli_commando(node_factory):
                           '--network={}'.format(TEST_NETWORK),
                           '--lightning-dir={}'
                           .format(l1.daemon.lightning_dir),
-                          'help'])
+                          'help'],
+                         timeout=TIMEOUT)
     assert val.returncode == 3
 
     # Valid peer id, but needs rune!
@@ -1253,7 +1254,8 @@ def test_cli_commando(node_factory):
                           '--network={}'.format(TEST_NETWORK),
                           '--lightning-dir={}'
                           .format(l1.daemon.lightning_dir),
-                          'help'])
+                          'help'],
+                         timeout=TIMEOUT)
     assert val.returncode == 1
 
     # This works!
@@ -1262,7 +1264,8 @@ def test_cli_commando(node_factory):
                                    '--network={}'.format(TEST_NETWORK),
                                    '--lightning-dir={}'
                                    .format(l1.daemon.lightning_dir),
-                                   'help']).decode('utf-8')
+                                   'help'],
+                                  timeout=TIMEOUT).decode('utf-8')
     # Test some known output.
     assert 'addgossip message\n\naddoutpointwatch' in out
 
@@ -1279,7 +1282,8 @@ def test_cli_commando(node_factory):
                                    '--lightning-dir={}'
                                    .format(l1.daemon.lightning_dir),
                                    '-J', '-k',
-                                   'help', 'command=help']).decode('utf-8')
+                                   'help', 'command=help'],
+                                  timeout=TIMEOUT).decode('utf-8')
     j, _ = json.JSONDecoder().raw_decode(out)
     assert 'help [command]' in j['help'][0]['command']
 
@@ -1290,7 +1294,8 @@ def test_cli_commando(node_factory):
                                    '--lightning-dir={}'
                                    .format(l1.daemon.lightning_dir),
                                    '-J', '-o',
-                                   'help', 'help']).decode('utf-8')
+                                   'help', 'help'],
+                                  timeout=TIMEOUT).decode('utf-8')
     j, _ = json.JSONDecoder().raw_decode(out)
     assert 'help [command]' in j['help'][0]['command']
 
@@ -1301,7 +1306,8 @@ def test_cli_commando(node_factory):
                                    '--lightning-dir={}'
                                    .format(l1.daemon.lightning_dir),
                                    '-J', '--filter={"help":[{"command":true}]}',
-                                   'help', 'help']).decode('utf-8')
+                                   'help', 'help'],
+                                  timeout=TIMEOUT).decode('utf-8')
     j, _ = json.JSONDecoder().raw_decode(out)
     assert j == {'help': [{'command': 'help [command]'}]}
 
@@ -1315,7 +1321,8 @@ def test_cli_commando(node_factory):
                                        '--lightning-dir={}'
                                        .format(l1.daemon.lightning_dir),
                                        '-J', '-o',
-                                       'sendpay']).decode('utf-8')
+                                       'sendpay'],
+                                      timeout=TIMEOUT).decode('utf-8')
     except Exception:
         pass
 
@@ -1327,7 +1334,8 @@ def test_cli_commando(node_factory):
                           '--lightning-dir={}'
                           .format(l1.daemon.lightning_dir),
                           'x"[]{}'],
-                         stdout=subprocess.PIPE)
+                         stdout=subprocess.PIPE,
+                         timeout=TIMEOUT)
     assert 'Unknown command' in out.stdout.decode('utf-8')
 
     subprocess.check_output(['cli/lightning-cli',
@@ -1335,7 +1343,8 @@ def test_cli_commando(node_factory):
                              '--network={}'.format(TEST_NETWORK),
                              '--lightning-dir={}'
                              .format(l1.daemon.lightning_dir),
-                             'invoice', '123000', 'l"[]{}', 'd"[]{}']).decode('utf-8')
+                             'invoice', '123000', 'l"[]{}', 'd"[]{}'],
+                            timeout=TIMEOUT).decode('utf-8')
     # Check label is correct, and also that cli's keyword parsing works.
     out = subprocess.check_output(['cli/lightning-cli',
                                    '--commando={}:{}'.format(l2.info['id'], rune),
@@ -1343,7 +1352,8 @@ def test_cli_commando(node_factory):
                                    '--lightning-dir={}'
                                    .format(l1.daemon.lightning_dir),
                                    '-k',
-                                   'listinvoices', 'label=l"[]{}']).decode('utf-8')
+                                   'listinvoices', 'label=l"[]{}'],
+                                  timeout=TIMEOUT).decode('utf-8')
     j = json.loads(out)
     assert only_one(j['invoices'])['label'] == 'l"[]{}'
 
