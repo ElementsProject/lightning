@@ -166,46 +166,13 @@ struct tlv_payer_proof *make_unsigned_proof_(const tal_t *ctx,
 	return pptlv;
 }
 
-struct tlv0_adding_leaf_iter {
-	const struct tlv_field *fields;
-	struct tlv_field tlv0;
-	int n;
-};
-
-static const struct tlv_field *next_field_prepend_tlv0(bool *is_omitted,
-						       struct tlv0_adding_leaf_iter *iter)
-{
-	*is_omitted = false;
-	if (iter->n == -1) {
-		iter->n = 0;
-		return &iter->tlv0;
-	}
-	if (iter->n >= tal_count(iter->fields))
-		return NULL;
-	return &iter->fields[iter->n++];
-}
-
 /* BOLT-payer_proof #12:
- * - MUST set `proof_signature` as detailed in [Signature Calculation](#signature-calculation) using the `invreq_payer_id` using the merkle-root as the `msg` and a `first_tlv` value of 0x0000 (i.e. type 0, length 0).
+ * - MUST set `proof_signature` as detailed in [Signature Calculation](#signature-calculation) using the `invreq_payer_id` using the merkle-root as the `msg`.
  */
 void bolt12_payer_proof_merkle(const struct tlv_payer_proof *proof,
 			       struct sha256 *merkle)
 {
-	struct tlv0_adding_leaf_iter iter;
-
-	/* We use a modified iterator to insert tlv0. */
-	iter.fields = proof->fields;
-	iter.n = -1;
-	iter.tlv0.meta = NULL;
-	iter.tlv0.numtype = 0;
-	iter.tlv0.length = 0;
-	iter.tlv0.value = NULL;
-
-	merkle_tlv_full(merkle,
-			next_field_prepend_tlv0,
-			bolt12_calc_nonce,
-			NULL,
-			&iter);
+	merkle_tlv(proof->fields, merkle);
 }
 
 struct bip340sig *payer_proof_signature_(const tal_t *ctx,
@@ -479,8 +446,7 @@ const char *check_payer_proof(const tal_t *ctx,
 	 *...
 	 *  - `proof_signature` is not a valid signature using
 	 *  `invreq_payer_id` as described in [Signature
-	 *  Calculation](#signature-calculation), using `msg` merkle-root and
-	 *  a `first_tlv` value of 0x0000 (i.e. type 0, length 0).
+	 *  Calculation](#signature-calculation), using `msg` merkle-root.
 	 */
 	bolt12_payer_proof_merkle(pptlv, &merkle);
 	sighash_from_merkle("payer_proof", "proof_signature", &merkle, &shash);
