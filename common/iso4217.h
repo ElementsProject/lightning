@@ -18,4 +18,17 @@ struct iso4217_name_and_divisor {
 
 const struct iso4217_name_and_divisor *find_iso4217(const utf8 *prefix,
 						    size_t len);
+
+/**
+ * parse_currency_amount - convert msat amount, any, or currency amount.
+ *
+ * Returns error message or NULL.  On success:
+ * if *iso4217 == NULL: currency is BTC.  If *amount == NULL, "any".
+ * if *iso4217 != NULL: *amount is amount in cents in that currency, never NULL.
+ */
+const char *parse_currency_amount(const tal_t *ctx,
+				  const char *buf,
+				  size_t buflen,
+				  const struct iso4217_name_and_divisor **iso4217,
+				  u64 **amount);
 #endif /* LIGHTNING_COMMON_ISO4217_H */
