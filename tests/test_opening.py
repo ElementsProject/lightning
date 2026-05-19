@@ -3087,5 +3087,5 @@ def test_no_retransmit_confirmed_funding(node_factory):
     l1.restart()
 
     # Should not have attempted (and failed) to re-broadcast the funding tx.
-    assert l1.daemon.is_in_log('Failed to re-transmit funding tx')
+    assert not l1.daemon.is_in_log('Failed to re-transmit funding tx')
     assert not l1.daemon.is_in_log('Successfully rexmitted funding tx')

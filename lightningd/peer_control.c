@@ -565,11 +565,15 @@ void resend_opening_transactions(struct lightningd *ld)
 	     peer = peer_node_id_map_next(ld->peers, &it)) {
 		list_for_each(&peer->channels, channel, list) {
 			struct wally_tx *wtx;
-			if (channel_state_uncommitted(channel->state))
+			/* Only states where the funding/splice tx might
+			 * still be unconfirmed.  channel->depth can't be
+			 * used here: it's reset to 0 on DB load and only
+			 * repopulated once topology starts. */
+			if (channel->state != CHANNELD_AWAITING_LOCKIN
+			    && channel->state != DUALOPEND_AWAITING_LOCKIN
+			    && channel->state != CHANNELD_AWAITING_SPLICE)
 				continue;
 			if (!channel->funding_psbt || channel->withheld)
-				continue;
-			if (channel->depth != 0)
 				continue;
 			wtx = psbt_final_tx(tmpctx, channel->funding_psbt);
 			if (!wtx)
