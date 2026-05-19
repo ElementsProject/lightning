@@ -1893,7 +1893,7 @@ def test_libplugin(node_factory):
     myname = os.path.splitext(os.path.basename(sys.argv[0]))[0]
 
     # getmanifest assumes everyone handles string-based JSON ids:
-    l1.daemon.wait_for_log(r'test_libplugin: "[-A-Za-z0-9:#]*/cln:getmanifest#[0-9]*"\[OUT\]')
+    l1.daemon.wait_for_log(r'test_libplugin: [-A-Za-z0-9:#]*/cln:getmanifest#[0-9]*\[OUT\]')
 
     l1.daemon.wait_for_log("String name from datastore:.*object does not have member string")
     l1.daemon.wait_for_log("Hex name from datastore: 00010203")
@@ -1920,7 +1920,7 @@ def test_libplugin(node_factory):
     # Test hooks and notifications (add plugin, so we can test hook id)
     l2 = node_factory.get_node(options={"plugin": plugin, 'log-level': 'io'})
     l2.connect(l1)
-    l2.daemon.wait_for_log(r': "{}:connect#[0-9]*/cln:peer_connected#[0-9]*"\[OUT\]'.format(myname))
+    l2.daemon.wait_for_log(r': {}:connect#[0-9]*/cln:peer_connected#[0-9]*\[OUT\]'.format(myname))
 
     l1.daemon.wait_for_log("{} peer_connected".format(l2.info["id"]))
     l1.daemon.wait_for_log("{} connected".format(l2.info["id"]))
@@ -3188,7 +3188,7 @@ def test_commando(node_factory, executor):
 
     # Check JSON id is as expected (unfortunately pytest does not use a reliable name
     # for itself: with -k it calls itself `-c` here, instead of `pytest`).
-    l2.daemon.wait_for_log(r'plugin-commando: "[^:/]*:commando#[0-9]*/cln:commando#[0-9]*"\[OUT\]')
+    l2.daemon.wait_for_log(r'plugin-commando: [^:/]*:commando#[0-9]*/cln:commando#[0-9]*\[OUT\]')
     l1.daemon.wait_for_log(r'jsonrpc#[0-9]*: "[^:/]*:commando#[0-9]*/cln:commando#[0-9]*/commando:listpeers#[0-9]*"\[IN\]')
 
     res = l2.rpc.call(method='commando',
