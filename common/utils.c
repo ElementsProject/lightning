@@ -253,4 +253,3 @@ void *membuf_tal_resize(struct membuf *mb, void *rawelems, size_t newsize)
 	tal_resize(&p, newsize);
 	return p;
 }
-
