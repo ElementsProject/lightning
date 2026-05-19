@@ -172,6 +172,118 @@ int main(int argc, char *argv[])
 		assert(check_payer_proof(tmpctx, proof) == NULL);
 	}
 
+	/* Make sure that full proof notices if any field is altered! */
+	for (size_t i = 0;; i++) {
+		u8 *tlvstream;
+		const u8 *p;
+		size_t len;
+		struct tlv_payer_proof *tlvpp;
+		struct sha256 merkle, shash;
+
+		proof = make_unsigned_proof(tmpctx, inv, &preimage, "test",
+					    exclude_this, int2ptr(0));
+		proof->proof_signature = payer_proof_signature(proof, proof, sign,
+							       &kp);
+		tlv_update_fields(proof, tlv_payer_proof, &proof->fields);
+
+		if (i == tal_count(proof->fields))
+			break;
+
+		switch (proof->fields[i].numtype) {
+		/* Simple ones: we can increment the first byte to
+		 * change the value (and have it still decode) */
+		case TLV_PAYER_PROOF_OFFER_CHAINS:
+		case TLV_PAYER_PROOF_OFFER_METADATA:
+		case TLV_PAYER_PROOF_OFFER_CURRENCY:
+		case TLV_PAYER_PROOF_OFFER_AMOUNT:
+		case TLV_PAYER_PROOF_OFFER_DESCRIPTION:
+		case TLV_PAYER_PROOF_OFFER_ABSOLUTE_EXPIRY:
+		case TLV_PAYER_PROOF_OFFER_ISSUER:
+		case TLV_PAYER_PROOF_OFFER_QUANTITY_MAX:
+		case TLV_PAYER_PROOF_INVREQ_CHAIN:
+		case TLV_PAYER_PROOF_INVREQ_AMOUNT:
+		case TLV_PAYER_PROOF_INVREQ_QUANTITY:
+		case TLV_PAYER_PROOF_INVREQ_PAYER_NOTE:
+		case TLV_PAYER_PROOF_INVREQ_BIP_353_NAME:
+		case TLV_PAYER_PROOF_INVOICE_CREATED_AT:
+		case TLV_PAYER_PROOF_INVOICE_RELATIVE_EXPIRY:
+		case TLV_PAYER_PROOF_INVOICE_AMOUNT:
+		case TLV_PAYER_PROOF_PROOF_NOTE:
+		case TLV_PAYER_PROOF_INVOICE_PAYMENT_HASH:
+		case TLV_PAYER_PROOF_PROOF_PREIMAGE:
+			proof->fields[i].value[0]++;
+			break;
+
+		/* Put in random signature */
+		case TLV_PAYER_PROOF_SIGNATURE:
+		case TLV_PAYER_PROOF_PROOF_SIGNATURE: {
+			struct bip340sig sig;
+			struct sha256 msg;
+			memset(&msg, 0, sizeof(msg));
+			sign("", "", &msg, &sig, &kp);
+			assert(proof->fields[i].length == sizeof(sig));
+			memcpy(proof->fields[i].value, &sig, sizeof(sig));
+			break;
+		}
+		/* Flip bit 1 here */
+		case TLV_PAYER_PROOF_INVOICE_FEATURES:
+		case TLV_PAYER_PROOF_OFFER_FEATURES:
+		case TLV_PAYER_PROOF_INVREQ_FEATURES:
+			proof->fields[i].value[0] ^= 2;
+			break;
+
+		/* Truncate these */
+		case TLV_PAYER_PROOF_INVREQ_PATHS:
+		case TLV_PAYER_PROOF_INVOICE_PATHS:
+		case TLV_PAYER_PROOF_PROOF_OMITTED_TLVS:
+		case TLV_PAYER_PROOF_PROOF_MISSING_HASHES:
+		case TLV_PAYER_PROOF_PROOF_LEAF_HASHES:
+		case TLV_PAYER_PROOF_INVOICE_FALLBACKS:
+		case TLV_PAYER_PROOF_INVOICE_BLINDEDPAY:
+		case TLV_PAYER_PROOF_OFFER_PATHS:
+			proof->fields[i].length = 0;
+			break;
+
+		/* Replace with random pubkey */
+		case TLV_PAYER_PROOF_INVOICE_NODE_ID:
+		case TLV_PAYER_PROOF_INVREQ_PAYER_ID:
+		case TLV_PAYER_PROOF_OFFER_ISSUER_ID: {
+			struct secret secret;
+			struct pubkey pk;
+
+			memset(&secret, 7, sizeof(secret));
+			pubkey_from_secret(&secret, &pk);
+			assert(proof->fields[i].length == PUBKEY_CMPR_LEN);
+			pubkey_to_der(proof->fields[i].value, &pk);
+			break;
+		}
+		}
+
+		tlvstream = tal_arr(tmpctx, u8, 0);
+		towire_tlvstream_raw(&tlvstream, proof->fields);
+
+		/* Should demarshal OK */
+		len = tal_bytelen(tlvstream);
+		p = tlvstream;
+		tlvpp = fromwire_tlv_payer_proof(tmpctx, &p, &len);
+		assert(tlvpp);
+		assert(p != NULL);
+		assert(len == 0);
+
+		/* Proof sig should be invalid if we changed anything!*/
+		bolt12_payer_proof_merkle(tlvpp, &merkle);
+		sighash_from_merkle("payer_proof", "proof_signature",
+				    &merkle, &shash);
+
+		/* Except the invoice signature (that's checked separately). */
+		if (!check_schnorr_sig(&shash, &tlvpp->invreq_payer_id->pubkey,
+				       tlvpp->proof_signature)) {
+			assert(proof->fields[i].numtype != TLV_PAYER_PROOF_SIGNATURE);
+		} else {
+			assert(proof->fields[i].numtype == TLV_PAYER_PROOF_SIGNATURE);
+		}
+	}
+
 	common_shutdown();
 	return 0;
 }
