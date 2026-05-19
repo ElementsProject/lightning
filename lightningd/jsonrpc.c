@@ -1553,7 +1553,6 @@ struct jsonrpc_request *jsonrpc_request_start_(
 	struct jsonrpc_request *r = tal(ctx, struct jsonrpc_request);
 	static u64 next_request_id = 0;
 
-	r->id_is_string = true;
 	if (id_prefix) {
 		/* Strip "" and otherwise sanity-check */
 		if (strstarts(id_prefix, "\"")
@@ -1567,10 +1566,10 @@ struct jsonrpc_request *jsonrpc_request_start_(
 		if (json_escape_needed(id_prefix, strlen(id_prefix)))
 			id_prefix = "weird-id";
 
-		r->id = tal_fmt(r, "\"%s/cln:%s#%"PRIu64"\"",
+		r->id = tal_fmt(r, "%s/cln:%s#%"PRIu64,
 				id_prefix, method, next_request_id);
 	} else {
-		r->id = tal_fmt(r, "\"cln:%s#%"PRIu64"\"", method, next_request_id);
+		r->id = tal_fmt(r, "cln:%s#%"PRIu64, method, next_request_id);
 	}
 	tal_free_if_taken(id_prefix);
 	next_request_id++;
@@ -1586,7 +1585,7 @@ struct jsonrpc_request *jsonrpc_request_start_(
 	if (add_header) {
 		json_object_start(r->stream, NULL);
 		json_add_string(r->stream, "jsonrpc", "2.0");
-		json_add_id(r->stream, r->id);
+		json_add_string(r->stream, "id", r->id);
 		json_add_string(r->stream, "method", method);
 		json_object_start(r->stream, "params");
 	}

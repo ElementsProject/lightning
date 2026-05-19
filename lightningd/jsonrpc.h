@@ -78,7 +78,6 @@ struct jsonrpc_notification {
 
 struct jsonrpc_request {
 	const char *id;
-	bool id_is_string;
 	const char *method;
 	struct json_stream *stream;
 	void (*notify_cb)(const char *buffer,
