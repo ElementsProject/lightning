@@ -253,3 +253,23 @@ void *membuf_tal_resize(struct membuf *mb, void *rawelems, size_t newsize)
 	tal_resize(&p, newsize);
 	return p;
 }
+
+bool str_to_u64(const char *buf, size_t buflen, u64 *num)
+{
+	u64 val = 0;
+
+	if (buflen == 0)
+		return false;
+
+	for (size_t i = 0; i < buflen; i++) {
+		u64 digit;
+		if (buf[i] < '0' || buf[i] > '9')
+			return false;
+		digit = buf[i] - '0';
+		if (val > (UINT64_MAX - digit) / 10)
+			return false;
+		val = val * 10 + digit;
+	}
+	*num = val;
+	return true;
+}
