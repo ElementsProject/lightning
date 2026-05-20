@@ -4549,6 +4549,30 @@ def test_offer(node_factory, bitcoind):
     assert enable_ret['description'] == offer_desc
 
 
+def test_recurrence_escaped_label(node_factory, bitcoind):
+    l1, l2 = node_factory.line_graph(2)
+
+    # Recurring offer.
+    offer = l2.rpc.offer(amount='1msat',
+                         description='test_recurrence_escaped_label',
+                         recurrence='1minutes')['bolt12']
+    # Works the first time
+    weird_label = 'label \\ " \t \n'
+    ret = l1.rpc.fetchinvoice(offer=offer,
+                              recurrence_counter=0,
+                              recurrence_label=weird_label)
+    l1.rpc.xpay(invstring=ret['invoice'])
+    # Works the second time to match
+    l1.rpc.fetchinvoice(offer=offer,
+                        recurrence_counter=1,
+                        recurrence_label=weird_label)
+
+    # Works to cancel.
+    l1.rpc.cancelrecurringinvoice(offer=offer,
+                                  recurrence_counter=2,
+                                  recurrence_label=weird_label)
+
+
 def test_offer_deprecated_api(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, opts={'allow-deprecated-apis': True})
 
