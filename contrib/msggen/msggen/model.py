@@ -550,6 +550,7 @@ JsonIdField = PrimitiveField("json_scalar", None, None, added=None, deprecated=N
 JsonObjectOrArrayField = PrimitiveField("json_object_or_array", None, None, added=None, deprecated=None)
 ProofFieldArray = ArrayField(itemtype=PrimitiveField("proof_field", None, None, added=None, deprecated=None), dims=1, path=None, description=None, added=None, deprecated=None)
 XkeysendExtraTlvsField = PrimitiveField("string_map", None, None, added=None, deprecated=None)
+ChannelFeaturesArrayField = ArrayField(itemtype=PrimitiveField("string", None, None, added=None, deprecated=None), dims=1, path=None, description=None, added=None, deprecated=None)
 
 # TlvStreams are special, they don't have preset dict-keys, rather
 # they can specify `u64` keys pointing to hex payloads. So the schema
@@ -594,7 +595,8 @@ overrides = {
     "CreateProof.proofs[].invoice_fields_included": ProofFieldArray,
     "CreateProof.proofs[].invreq_fields_included": ProofFieldArray,
     "CreateProof.proofs[].offer_fields_included": ProofFieldArray,
-    "Xkeysend.extratlvs": XkeysendExtraTlvsField
+    "Xkeysend.extratlvs": XkeysendExtraTlvsField,
+    "ListPeerChannels.channels[].features": ChannelFeaturesArrayField,
 }
 
 

@@ -1443,6 +1443,7 @@ message ListpeerchannelsChannels {
 	bool peer_connected = 2;
 	ChannelState state = 3;
 	optional bytes scratch_txid = 4;
+	optional ListpeerchannelsChannelsChannelType channel_type = 5;
 	optional ListpeerchannelsChannelsFeerate feerate = 6;
 	optional string owner = 7;
 	optional string short_channel_id = 8;
@@ -1477,6 +1478,7 @@ message ListpeerchannelsChannels {
 	optional uint32 our_to_self_delay = 39;
 	optional uint32 max_accepted_htlcs = 40;
 	optional ListpeerchannelsChannelsAlias alias = 41;
+	repeated ListpeerchannelsChannelsStateChanges state_changes = 42;
 	repeated string status = 43;
 	optional uint64 in_payments_offered = 44;
 	optional Amount in_offered_msat = 45;
@@ -1497,6 +1499,12 @@ message ListpeerchannelsChannels {
 	optional uint32 direction = 60;
 	optional Amount their_max_htlc_value_in_flight_msat = 61;
 	optional Amount our_max_htlc_value_in_flight_msat = 62;
+	repeated string features = 63;
+}
+
+message ListpeerchannelsChannelsChannelType {
+	repeated uint32 bits = 1;
+	repeated ChannelTypeName names = 2;
 }
 
 message ListpeerchannelsChannelsUpdates {
@@ -1550,6 +1558,23 @@ message ListpeerchannelsChannelsAlias {
 	optional string remote = 2;
 }
 
+message ListpeerchannelsChannelsStateChanges {
+	// ListPeerChannels.channels[].state_changes[].cause
+	enum ListpeerchannelsChannelsStateChangesCause {
+		UNKNOWN = 0;
+		LOCAL = 1;
+		USER = 2;
+		REMOTE = 3;
+		PROTOCOL = 4;
+		ONCHAIN = 5;
+	}
+	string timestamp = 1;
+	ChannelState old_state = 2;
+	ChannelState new_state = 3;
+	ListpeerchannelsChannelsStateChangesCause cause = 4;
+	string message = 5;
+}
+
 message ListpeerchannelsChannelsHtlcs {
 	// ListPeerChannels.channels[].htlcs[].direction
 	enum ListpeerchannelsChannelsHtlcsDirection {
@@ -1591,6 +1616,7 @@ message ListclosedchannelsClosedchannels {
 	ChannelSide opener = 5;
 	optional ChannelSide closer = 6;
 	bool private = 7;
+	optional ListclosedchannelsClosedchannelsChannelType channel_type = 8;
 	uint64 total_local_commitments = 9;
 	uint64 total_remote_commitments = 10;
 	uint64 total_htlcs_sent = 11;
@@ -1615,6 +1641,11 @@ message ListclosedchannelsClosedchannels {
 message ListclosedchannelsClosedchannelsAlias {
 	optional string local = 1;
 	optional string remote = 2;
+}
+
+message ListclosedchannelsClosedchannelsChannelType {
+	repeated uint32 bits = 1;
+	repeated ChannelTypeName names = 2;
 }
 
 message DecodeRequest {
@@ -1648,6 +1679,8 @@ message DecodeResponse {
 	optional uint64 offer_absolute_expiry = 14;
 	optional uint64 offer_quantity_max = 15;
 	repeated DecodeOfferPaths offer_paths = 16;
+	optional DecodeOfferRecurrence offer_recurrence = 18;
+	repeated DecodeUnknownOfferTlvs unknown_offer_tlvs = 19;
 	optional string warning_invalid_offer_description = 21;
 	optional string warning_missing_offer_description = 22;
 	optional string warning_invalid_offer_currency = 23;
@@ -1661,11 +1694,13 @@ message DecodeResponse {
 	optional string invreq_payer_note = 31;
 	optional uint32 invreq_recurrence_counter = 32;
 	optional uint32 invreq_recurrence_start = 33;
+	repeated DecodeUnknownInvoiceRequestTlvs unknown_invoice_request_tlvs = 34;
 	optional string warning_missing_invreq_metadata = 35;
 	optional string warning_missing_invreq_payer_id = 36;
 	optional string warning_invalid_invreq_payer_note = 37;
 	optional string warning_missing_invoice_request_signature = 38;
 	optional string warning_invalid_invoice_request_signature = 39;
+	repeated DecodeInvoicePaths invoice_paths = 40;
 	optional uint64 invoice_created_at = 41;
 	optional uint32 invoice_relative_expiry = 42;
 	optional bytes invoice_payment_hash = 43;
@@ -1674,6 +1709,7 @@ message DecodeResponse {
 	optional bytes invoice_features = 46;
 	optional bytes invoice_node_id = 47;
 	optional uint64 invoice_recurrence_basetime = 48;
+	repeated DecodeUnknownInvoiceTlvs unknown_invoice_tlvs = 49;
 	optional string warning_missing_invoice_paths = 50;
 	optional string warning_missing_invoice_blindedpay = 51;
 	optional string warning_missing_invoice_created_at = 52;
@@ -1727,15 +1763,37 @@ message DecodeResponse {
 
 message DecodeOfferPaths {
 	optional bytes first_node_id = 1;
+	repeated DecodeOfferPathsPath path = 3;
 	optional uint32 first_scid_dir = 4;
 	optional string first_scid = 5;
 	optional bytes first_path_key = 6;
+}
+
+message DecodeOfferPathsPath {
+	bytes blinded_node_id = 1;
+	bytes encrypted_recipient_data = 2;
+}
+
+message DecodeOfferRecurrence {
+	uint32 time_unit = 1;
+	optional bool compulsory_field = 2;
+	optional string time_unit_name = 3;
+	uint32 period = 4;
+	optional uint64 basetime = 5;
+	optional DecodeOfferRecurrencePaywindow paywindow = 6;
+	optional uint32 limit = 7;
 }
 
 message DecodeOfferRecurrencePaywindow {
 	uint32 seconds_before = 1;
 	uint32 seconds_after = 2;
 	optional bool proportional_amount = 3;
+}
+
+message DecodeUnknownOfferTlvs {
+	uint64 item_type = 1;
+	uint64 length = 2;
+	bytes value = 3;
 }
 
 message DecodeInvreqPaths {
@@ -1756,15 +1814,45 @@ message DecodeInvreqBip353Name {
 	optional string domain = 2;
 }
 
+message DecodeUnknownInvoiceRequestTlvs {
+	uint64 item_type = 1;
+	uint64 length = 2;
+	bytes value = 3;
+}
+
+message DecodeInvoicePaths {
+	repeated DecodeInvoicePathsPath path = 1;
+	DecodeInvoicePathsPayinfo payinfo = 2;
+	optional bytes first_node_id = 3;
+	optional bytes first_path_key = 4;
+	optional uint32 first_scid_dir = 5;
+	optional string first_scid = 6;
+}
+
 message DecodeInvoicePathsPath {
 	bytes blinded_node_id = 1;
 	bytes encrypted_recipient_data = 2;
+}
+
+message DecodeInvoicePathsPayinfo {
+	optional Amount htlc_minimum_msat = 1;
+	bytes features = 2;
+	Amount fee_base_msat = 3;
+	uint32 fee_proportional_millionths = 4;
+	optional Amount htlc_maximum_msat = 5;
+	uint32 cltv_expiry_delta = 6;
 }
 
 message DecodeInvoiceFallbacks {
 	uint32 version = 1;
 	bytes hex = 2;
 	optional string address = 3;
+}
+
+message DecodeUnknownInvoiceTlvs {
+	uint64 item_type = 1;
+	uint64 length = 2;
+	bytes value = 3;
 }
 
 message DecodeFallbacks {

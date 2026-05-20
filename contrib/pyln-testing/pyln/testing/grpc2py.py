@@ -966,9 +966,9 @@ def listpeerchannels_channels_inflight2py(m):
 def listpeerchannels_channels_state_changes2py(m):
     return remove_default({
         "cause": str(m.cause),  # EnumField in generate_composite
-        "message": m.message,  # PrimitiveField in generate_composite
         "new_state": str(m.new_state),  # EnumField in generate_composite
         "old_state": str(m.old_state),  # EnumField in generate_composite
+        "message": m.message,  # PrimitiveField in generate_composite
         "timestamp": m.timestamp,  # PrimitiveField in generate_composite
     })
 
@@ -1001,7 +1001,7 @@ def listpeerchannels_channels_updates2py(m):
 def listpeerchannels_channels2py(m):
     return remove_default({
         "closer": str(m.closer),  # EnumField in generate_composite
-        "features": [str(i) for i in m.features],  # ArrayField[composite] in generate_composite
+        "features": [m.features for i in m.features], # ArrayField[primitive] in generate_composite
         "htlcs": [listpeerchannels_channels_htlcs2py(i) for i in m.htlcs],  # ArrayField[composite] in generate_composite
         "inflight": [listpeerchannels_channels_inflight2py(i) for i in m.inflight],  # ArrayField[composite] in generate_composite
         "opener": str(m.opener),  # EnumField in generate_composite
@@ -1158,11 +1158,11 @@ def decode_invoice_paths_payinfo2py(m):
 
 def decode_invoice_paths2py(m):
     return remove_default({
+        "path": [decode_invoice_paths_path2py(i) for i in m.path],  # ArrayField[composite] in generate_composite
         "first_node_id": hexlify(m.first_node_id),  # PrimitiveField in generate_composite
         "first_path_key": hexlify(m.first_path_key),  # PrimitiveField in generate_composite
         "first_scid": m.first_scid,  # PrimitiveField in generate_composite
         "first_scid_dir": m.first_scid_dir,  # PrimitiveField in generate_composite
-        "path": [decode_invoice_paths_path2py(i) for i in m.path],  # ArrayField[composite] in generate_composite
     })
 
 
