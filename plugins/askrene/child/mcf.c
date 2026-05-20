@@ -1401,8 +1401,7 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 
 		if (!new_flows) {
 			error_message = explain_failure(
-			    ctx, rq, srcnode, dstnode, amount_to_deliver);
-			*ecode = PAY_ROUTE_NOT_FOUND;
+				ctx, rq, srcnode, dstnode, amount_to_deliver, ecode);
 			goto fail;
 		}
 
