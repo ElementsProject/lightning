@@ -1096,7 +1096,7 @@ struct command_result *json_fetchinvoice(struct command *cmd,
 	json_add_string(req->js, "bolt12", invrequest_encode(tmpctx, invreq));
 	json_add_bool(req->js, "savetodb", false);
 	if (rec_label)
-		json_add_string(req->js, "recurrence_label", rec_label);
+		json_add_string(req->js, "label", rec_label);
 	return send_outreq(req);
 }
 
@@ -1250,7 +1250,7 @@ struct command_result *json_cancelrecurringinvoice(struct command *cmd,
 	/* We don't want this is the database: that's only for ones we publish */
 	json_add_string(req->js, "bolt12", invrequest_encode(tmpctx, invreq));
 	json_add_bool(req->js, "savetodb", false);
-	json_add_string(req->js, "recurrence_label", rec_label);
+	json_add_string(req->js, "label", rec_label);
 	return send_outreq(req);
 }
 

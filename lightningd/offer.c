@@ -313,101 +313,6 @@ static const struct json_command enableoffer_command = {
 };
 AUTODATA(json_command, &enableoffer_command);
 
-
-/* We do some sanity checks now, since we're looking up prev payment anyway,
- * but our main purpose is to fill in prev_basetime tweak. */
-static struct command_result *prev_payment(struct command *cmd,
-					   const struct json_escape *label,
-					   const struct tlv_invoice_request *invreq,
-					   u64 **prev_basetime)
-{
-	struct sha256 invreq_oid;
-	u64 last_recurrence = UINT64_MAX;
-	bool prev_unpaid = false;
-
-	invreq_offer_id(invreq, &invreq_oid);
-
-	for (struct db_stmt *stmt = payments_by_label(cmd->ld->wallet, label);
-	     stmt;
-	     stmt = payments_next(cmd->ld->wallet, stmt)) {
-		const struct wallet_payment *payment;
-		const struct tlv_invoice *inv;
-		const char *fail;
-		struct sha256 inv_oid;
-
-		payment = payment_get_details(tmpctx, stmt);
-		if (!payment->invstring)
-			continue;
-
-		inv = invoice_decode(tmpctx, payment->invstring,
-				     strlen(payment->invstring),
-				     NULL, chainparams, &fail);
-		if (!inv)
-			continue;
-
-		/* They can reuse labels across different offers. */
-		invoice_offer_id(inv, &inv_oid);
-		if (!sha256_eq(&inv_oid, &invreq_oid))
-			continue;
-
-		/* Be paranoid, in case someone inserts their own
-		 * clashing label! */
-		if (!inv->invreq_recurrence_counter)
-			continue;
-
-		/* BOLT-recurrence #12:
-		 * - if `offer_recurrence_base` is present:
-		 *   - MUST include `invreq_recurrence_start`
-		 *   - MUST set `period_offset` to the period the sender wants for the
-		 *     initial request
-		 *   - MUST set `period_offset` to the same value on all following requests.
-		 */
-		if (inv->invreq_recurrence_start
-		    && invreq->invreq_recurrence_start
-		    && *inv->invreq_recurrence_start != *invreq->invreq_recurrence_start) {
-			tal_free(stmt);
-			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "recurrence_start was"
-					    " previously %u",
-					    *inv->invreq_recurrence_start);
-		}
-
-		/* They should all have the same basetime */
-		if (!*prev_basetime)
-			*prev_basetime = tal_dup(cmd, u64, inv->invoice_recurrence_basetime);
-
-		/* Track highest one for better diagnostics */
-		if (last_recurrence == UINT64_MAX
-		    || last_recurrence < *inv->invreq_recurrence_counter) {
-			last_recurrence = *inv->invreq_recurrence_counter;
-		}
-
-		if (*inv->invreq_recurrence_counter == *invreq->invreq_recurrence_counter-1) {
-			/* Got it! */
-			if (payment->status == PAYMENT_COMPLETE) {
-				tal_free(stmt);
-				return NULL;
-			} else
-				prev_unpaid = true;
-		}
-	}
-
-	/* We found one, but it didn't succeed */
-	if (prev_unpaid)
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "previous invoice payment did not succeed");
-
-	/* We found one, but it was not the previus one */
-	if (last_recurrence != UINT64_MAX)
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "previous invoice has not been paid (last was %"PRIu64")",
-				    last_recurrence);
-
-	return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			    "No previous payment attempted for this"
-			    " label and offer");
-}
-
 /* FIXME(vincenzopalazzo): move this to comm/bolt12.h */
 static struct command_result *param_b12_invreq(struct command *cmd,
 					       const char *name,
@@ -483,7 +388,7 @@ static struct command_result *json_createinvoicerequest(struct command *cmd,
 	if (!param_check(cmd, buffer, params,
 			 p_req("bolt12", param_b12_invreq, &invreq),
 			 p_req("savetodb", param_bool, &save),
-			 p_opt("recurrence_label", param_label, &label),
+			 p_opt("label", param_label, &label),
 			 p_opt_def("single_use", param_bool, &single_use, true),
 			 NULL))
 		return command_param_failed();
@@ -492,21 +397,6 @@ static struct command_result *json_createinvoicerequest(struct command *cmd,
 		status = OFFER_SINGLE_USE_UNUSED;
 	else
 		status = OFFER_MULTIPLE_USE_UNUSED;
-
-	/* If it's a recurring payment, we look for previous to copy basetime */
-	if (invreq->invreq_recurrence_counter) {
-		if (!label)
-			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "Need payment label for recurring payments");
-
-		if (*invreq->invreq_recurrence_counter != 0) {
-			struct command_result *err
-				= prev_payment(cmd, label, invreq,
-					       &prev_basetime);
-			if (err)
-				return err;
-		}
-	}
 
 	/* If the payer_id is not our node id, we sanity check that it
 	 * correctly maps from invreq_metadata */
