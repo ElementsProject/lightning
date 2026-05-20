@@ -1127,7 +1127,6 @@ def decode_fallbacks2py(m):
         "type": str(m.item_type),  # EnumField in generate_composite
         "addr": m.addr,  # PrimitiveField in generate_composite
         "hex": hexlify(m.hex),  # PrimitiveField in generate_composite
-        "warning_invoice_fallbacks_version_invalid": m.warning_invoice_fallbacks_version_invalid,  # PrimitiveField in generate_composite
     })
 
 

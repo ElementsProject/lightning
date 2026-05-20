@@ -1490,7 +1490,6 @@ impl From<responses::DecodeFallbacks> for pb::DecodeFallbacks {
             addr: c.addr, // Rule #2 for type string?
             hex: hex::decode(&c.hex).unwrap(), // Rule #2 for type hex
             item_type: c.item_type as i32,
-            warning_invoice_fallbacks_version_invalid: c.warning_invoice_fallbacks_version_invalid, // Rule #2 for type string?
         }
     }
 }

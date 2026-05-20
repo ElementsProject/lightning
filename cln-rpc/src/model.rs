@@ -8184,8 +8184,6 @@ pub mod responses {
 	pub struct DecodeFallbacks {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub addr: Option<String>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub warning_invoice_fallbacks_version_invalid: Option<String>,
 	    // Path `Decode.fallbacks[].type`
 	    #[serde(rename = "type")]
 	    pub item_type: DecodeFallbacksType,
