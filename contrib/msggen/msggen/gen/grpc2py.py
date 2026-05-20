@@ -5,7 +5,7 @@ the node over the GRPC interface.
 
 """
 
-from msggen.model import ArrayField, CompositeField, EnumField, PrimitiveField, Service
+from msggen.model import ArrayField, CompositeField, EnumField, PrimitiveField, UnionField, Service
 from msggen.gen import IGenerator
 import logging
 from textwrap import dedent
@@ -210,6 +210,13 @@ class Grpc2PyGenerator(IGenerator):
                 name = f.name
                 self.write(
                     f'        "{name}": str(m.{f.name.normalized()}),  # EnumField in generate_composite\n',
+                    cleanup=False,
+                )
+
+            elif isinstance(f, UnionField):
+                oneof_name = f.normalized()
+                self.write(
+                    f'        "{name}": getattr(m, m.WhichOneof("{oneof_name}")) if m.WhichOneof("{oneof_name}") else None,  # UnionField\n',
                     cleanup=False,
                 )
 
