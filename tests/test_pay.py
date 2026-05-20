@@ -4803,7 +4803,7 @@ def test_fetchinvoice_recurrence(node_factory, bitcoind):
     l1.rpc.pay(ret['invoice'], label='test recurrence')
 
     # Now we can, but it's too early:
-    with pytest.raises(RpcError, match="Too early: can't send until time {}".format(period1['starttime'])):
+    with pytest.raises(RpcError, match=fr"Remote node sent failure message.*period_index 2 too early \(start {period1['starttime']}\)"):
         l1.rpc.call('fetchinvoice', {'offer': offer3['bolt12'],
                                      'recurrence_counter': 2,
                                      'recurrence_label': 'test recurrence'})
@@ -4848,7 +4848,7 @@ def test_fetchinvoice_recurrence(node_factory, bitcoind):
     while int(time.time()) <= period3['paywindow_end']:
         time.sleep(1)
 
-    with pytest.raises(RpcError, match="Too late: expired time {}".format(period3['paywindow_end'])):
+    with pytest.raises(RpcError, match=fr"Remote node sent failure message.*period_index 1 too late \(ended {period3['paywindow_end']}\)"):
         l1.rpc.call('fetchinvoice', {'offer': offer,
                                      'recurrence_counter': 1,
                                      'recurrence_label': 'test paywindow'})
