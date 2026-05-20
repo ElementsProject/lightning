@@ -112,6 +112,44 @@ def test_repeatpay_currency(node_factory):
                 if i['status'] == 'paid']) >= 1
 
 
+def test_repeatpay_amend(node_factory):
+    """amendrepeatpay raises a too-low limit and allows a blocked payment through.
+
+    offer=100msat; start with maxamount=50msat → ongoing_failing_amount immediately.
+    Amend to 200msat → payment succeeds.  Also covers error cases.
+    """
+    l1, l2 = node_factory.line_graph(2)
+
+    offer = l2.rpc.call('offer', {'amount': '100msat',
+                                  'description': 'amend',
+                                  'recurrence': '10seconds',
+                                  'recurrence_limit': 1})['bolt12']
+
+    l1.rpc.repeatpay(bolt12=offer, maxamount='50msat', label='amend')
+
+    # Should immediately hit failing_amount (invoice=100 > max=50).
+    wait_for(lambda: only_one(l1.rpc.listrepeatpays(label='amend')['repeatpays'])['status']
+             == 'ongoing_failing_amount', timeout=TIMEOUT)
+
+    # Unknown label is rejected.
+    with pytest.raises(RpcError, match='Unknown label'):
+        l1.rpc.amendrepeatpay(label='no-such', maxamount='1000msat')
+
+    # Raise the limit; next retry should pay successfully.
+    ret = l1.rpc.amendrepeatpay(label='amend', maxamount='200msat')
+    assert ret['maxamount_msat'] == 200
+    assert ret['label'] == 'amend'
+
+    wait_for(lambda: only_one(l1.rpc.listrepeatpays(label='amend')['repeatpays'])['payments_made'] >= 1,
+             timeout=TIMEOUT)
+
+    # Wait for the offer limit to be reached (finished) then verify amend is rejected.
+    wait_for(lambda: only_one(l1.rpc.listrepeatpays(label='amend')['repeatpays'])['status']
+             == 'complete_finished', timeout=10 + TIMEOUT)
+    with pytest.raises(RpcError, match='Payment already finished'):
+        l1.rpc.amendrepeatpay(label='amend', maxamount='9000msat')
+
+
 def test_repeatpay_currency_budget(node_factory):
     """When l2's rate makes the invoice exceed l1's maxamount, payment fails.
 
