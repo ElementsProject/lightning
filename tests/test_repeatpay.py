@@ -192,6 +192,31 @@ def test_repeatpay_cancel(node_factory):
         l1.rpc.cancelrepeatpay(label='no-such')
 
 
+def test_repeatpay_balance_failure(node_factory):
+    """When xpay returns PAY_INSUFFICIENT_FUNDS, repeatpay should set failing_balance status."""
+    # l1's channel is too small to pay the offer amount.
+    l1, l2 = node_factory.line_graph(2, fundamount=100000)
+
+    # This one is unaffordable up-front.
+    offer1 = l2.rpc.call('offer', {'amount': '100000sat',
+                                   'description': 'balance_test',
+                                   'recurrence': '60seconds'})['bolt12']
+
+    # We only get as far as fetching the invoice though, before returning.
+    ret = l1.rpc.repeatpay(bolt12=offer1, maxamount='100000sat', label='balance_test')
+    assert ret['status'] == 'ongoing_making_payment'
+    wait_for(lambda: only_one(l1.rpc.listrepeatpays('balance_test')['repeatpays'])['status'] == 'ongoing_failing_balance')
+    assert 'Paying invoice #1 failed' in only_one(l1.rpc.listrepeatpays('balance_test')['repeatpays'])['log'][-1]
+
+    # This one is unaffordable the second time.
+    offer2 = l2.rpc.call('offer', {'amount': '50000sat',
+                                   'description': 'balance_test',
+                                   'recurrence': '60seconds'})['bolt12']
+    l1.rpc.repeatpay(bolt12=offer2, maxamount='100000sat', label='balance_test2')
+    wait_for(lambda: only_one(l1.rpc.listrepeatpays('balance_test2')['repeatpays'])['status'] == 'ongoing_failing_balance')
+    assert 'Paying invoice #2 failed' in only_one(l1.rpc.listrepeatpays('balance_test2')['repeatpays'])['log'][-1]
+
+
 def test_repeatpay_currency_budget(node_factory):
     """When l2's rate makes the invoice exceed l1's maxamount, payment fails.
 

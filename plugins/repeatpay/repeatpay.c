@@ -857,15 +857,29 @@ static struct command_result *retry_payment_later(struct command *aux_cmd,
 static struct command_result *xpay_error(struct command *aux_cmd,
 					 const char *methodname,
 					 const char *buf,
-					 const jsmntok_t *err,
+					 const jsmntok_t *error,
 					 struct payment *payment)
 {
+	const jsmntok_t *msg;
+	int code;
+	enum repeatpay_status status;
+
+	/* xpay gives nice error messages! */
+	msg = json_get_member(buf, error, "message");
+	json_to_int(buf, json_get_member(buf, error, "code"), &code);
+
+	/* xpay (well, getroutes!) tells us if we're out of money. */
+	if (code == PAY_INSUFFICIENT_FUNDS)
+		status = REPEATPAY_ONGOING_FAILING_BALANCE;
+	else
+		status = REPEATPAY_ONGOING_FAILING_PAYMENT;
+
 	payment_set_status(aux_cmd, payment,
-			   REPEATPAY_ONGOING_FAILING_PAYMENT,
+			   status,
 			   "Paying invoice #%u failed: %.*s",
 			   payment->recurrence_counter + 1,
-			   json_tok_full_len(err),
-			   json_tok_full(buf, err));
+			   msg->end - msg->start,
+			   buf + msg->start);
 	return retry_payment_later(aux_cmd, payment);
 }
 
