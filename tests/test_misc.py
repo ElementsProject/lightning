@@ -999,12 +999,12 @@ def test_malformed_rpc(node_factory):
 def test_valid_json_cli(node_factory):
     """Make sure lightning-cli passes valid json values, so that rust and python plugins
     don't crash."""
-    l1 = node_factory.get_node(
-        options={
-            "log-level": "io",
-            "plugin": os.path.join(os.getcwd(), "tests/plugins/validatejson.py"),
-        }
-    )
+    def setup(plugin):
+        @plugin.method('validate-json-rpc')
+        def validate_json_rpc(plugin, *args, **kwargs):
+            return {}
+
+    l1 = node_factory.get_node(options={"log-level": "io"}, inline_plugin=setup)
     # If passed as a literal number rust's serde_json::from_str will fail as the
     # leading zero makes it invalid for an integer.
     nodeid = "030000000000000000000000000000000000000000000000000000000000000001"
@@ -1203,7 +1203,18 @@ def test_cli(node_factory):
 
 
 def test_cli_multiline_help(node_factory):
-    l1 = node_factory.get_node(options={'plugin': os.path.join(os.getcwd(), 'tests/plugins/multiline-help.py')})
+    def setup(plugin):
+        from pyln.client import Millisatoshi
+
+        @plugin.method("helpme")
+        def helpme(plugin, msat: Millisatoshi):
+            """This is a message which consumes multiple lines and thus should
+            be well-formatted by lightning-cli help
+
+            """
+            return {'help': msat}
+
+    l1 = node_factory.get_node(inline_plugin=setup)
 
     out = subprocess.check_output(['cli/lightning-cli',
                                    '--network={}'.format(TEST_NETWORK),
@@ -1235,7 +1246,8 @@ def test_cli_commando(node_factory):
                           '--network={}'.format(TEST_NETWORK),
                           '--lightning-dir={}'
                           .format(l1.daemon.lightning_dir),
-                          'help'])
+                          'help'],
+                         timeout=TIMEOUT)
     assert val.returncode == 3
 
     # Valid peer id, but needs rune!
@@ -1244,7 +1256,8 @@ def test_cli_commando(node_factory):
                           '--network={}'.format(TEST_NETWORK),
                           '--lightning-dir={}'
                           .format(l1.daemon.lightning_dir),
-                          'help'])
+                          'help'],
+                         timeout=TIMEOUT)
     assert val.returncode == 1
 
     # This works!
@@ -1253,7 +1266,8 @@ def test_cli_commando(node_factory):
                                    '--network={}'.format(TEST_NETWORK),
                                    '--lightning-dir={}'
                                    .format(l1.daemon.lightning_dir),
-                                   'help']).decode('utf-8')
+                                   'help'],
+                                  timeout=TIMEOUT).decode('utf-8')
     # Test some known output.
     assert 'addgossip message\n\naddoutpointwatch' in out
 
@@ -1270,7 +1284,8 @@ def test_cli_commando(node_factory):
                                    '--lightning-dir={}'
                                    .format(l1.daemon.lightning_dir),
                                    '-J', '-k',
-                                   'help', 'command=help']).decode('utf-8')
+                                   'help', 'command=help'],
+                                  timeout=TIMEOUT).decode('utf-8')
     j, _ = json.JSONDecoder().raw_decode(out)
     assert 'help [command]' in j['help'][0]['command']
 
@@ -1281,7 +1296,8 @@ def test_cli_commando(node_factory):
                                    '--lightning-dir={}'
                                    .format(l1.daemon.lightning_dir),
                                    '-J', '-o',
-                                   'help', 'help']).decode('utf-8')
+                                   'help', 'help'],
+                                  timeout=TIMEOUT).decode('utf-8')
     j, _ = json.JSONDecoder().raw_decode(out)
     assert 'help [command]' in j['help'][0]['command']
 
@@ -1292,7 +1308,8 @@ def test_cli_commando(node_factory):
                                    '--lightning-dir={}'
                                    .format(l1.daemon.lightning_dir),
                                    '-J', '--filter={"help":[{"command":true}]}',
-                                   'help', 'help']).decode('utf-8')
+                                   'help', 'help'],
+                                  timeout=TIMEOUT).decode('utf-8')
     j, _ = json.JSONDecoder().raw_decode(out)
     assert j == {'help': [{'command': 'help [command]'}]}
 
@@ -1306,7 +1323,8 @@ def test_cli_commando(node_factory):
                                        '--lightning-dir={}'
                                        .format(l1.daemon.lightning_dir),
                                        '-J', '-o',
-                                       'sendpay']).decode('utf-8')
+                                       'sendpay'],
+                                      timeout=TIMEOUT).decode('utf-8')
     except Exception:
         pass
 
@@ -1318,7 +1336,8 @@ def test_cli_commando(node_factory):
                           '--lightning-dir={}'
                           .format(l1.daemon.lightning_dir),
                           'x"[]{}'],
-                         stdout=subprocess.PIPE)
+                         stdout=subprocess.PIPE,
+                         timeout=TIMEOUT)
     assert 'Unknown command' in out.stdout.decode('utf-8')
 
     subprocess.check_output(['cli/lightning-cli',
@@ -1326,7 +1345,8 @@ def test_cli_commando(node_factory):
                              '--network={}'.format(TEST_NETWORK),
                              '--lightning-dir={}'
                              .format(l1.daemon.lightning_dir),
-                             'invoice', '123000', 'l"[]{}', 'd"[]{}']).decode('utf-8')
+                             'invoice', '123000', 'l"[]{}', 'd"[]{}'],
+                            timeout=TIMEOUT).decode('utf-8')
     # Check label is correct, and also that cli's keyword parsing works.
     out = subprocess.check_output(['cli/lightning-cli',
                                    '--commando={}:{}'.format(l2.info['id'], rune),
@@ -1334,7 +1354,8 @@ def test_cli_commando(node_factory):
                                    '--lightning-dir={}'
                                    .format(l1.daemon.lightning_dir),
                                    '-k',
-                                   'listinvoices', 'label=l"[]{}']).decode('utf-8')
+                                   'listinvoices', 'label=l"[]{}'],
+                                  timeout=TIMEOUT).decode('utf-8')
     j = json.loads(out)
     assert only_one(j['invoices'])['label'] == 'l"[]{}'
 
@@ -1431,15 +1452,40 @@ def test_funding_reorg_private(node_factory, bitcoind):
     """
     # Rescan to detect reorg at restart and may_reconnect so channeld
     # will restart.  Reorg can cause bad gossip msg.
-    opts = {'funding-confirms': 2, 'rescan': 10, 'may_reconnect': True,
-            'allow_bad_gossip': True,
-            # gossipd send lightning update for original channel.
-            'allow_warning': True,
-            'dev-fast-reconnect': None,
-            # if it's not zeroconf, we'll terminate on reorg.
-            'plugin': os.path.join(os.getcwd(), 'tests/plugins/zeroconf-selective.py'),
-            'zeroconf_allow': 'any'}
-    l1, l2 = node_factory.line_graph(2, fundchannel=False, opts=opts)
+    def setup(plugin):
+        plugin.add_option(
+            'zeroconf_allow',
+            '03864ef025fde8fb587d989186ce6a4a186895ee44a926bfc370e2c366597a3f8f',
+            'A node_id to allow zeroconf channels from',
+        )
+        plugin.add_option(
+            'zeroconf_mindepth',
+            0,
+            'Number of confirmations to require from allowlisted peers',
+        )
+
+        @plugin.hook('openchannel')
+        def on_openchannel(openchannel, plugin, **kwargs):
+            plugin.log(repr(openchannel))
+            mindepth = int(plugin.options['zeroconf_mindepth']['value'])
+
+            if openchannel['id'] == plugin.options['zeroconf_allow']['value'] or plugin.options['zeroconf_allow']['value'] == 'any':
+                plugin.log(f"This peer is in the zeroconf allowlist, setting mindepth={mindepth}")
+                return {'result': 'continue', 'mindepth': mindepth}
+            else:
+                return {'result': 'continue'}
+
+    cli_opts = {'funding-confirms': 2, 'rescan': 10,
+                'dev-fast-reconnect': None,
+                # if it's not zeroconf, we'll terminate on reorg.
+                'zeroconf_allow': 'any'}
+    node_opts = {'may_reconnect': True,
+                 'allow_bad_gossip': True,
+                 # gossipd send lightning update for original channel.
+                 'allow_warning': True}
+    l1 = node_factory.get_node(inline_plugin=setup, options=cli_opts, **node_opts)
+    l2 = node_factory.get_node(inline_plugin=setup, options=cli_opts, **node_opts)
+    node_factory.join_nodes([l1, l2], fundchannel=False)
     l1.fundwallet(10000000)
     sync_blockheight(bitcoind, [l1])                # height 102
     bitcoind.generate_block(3)                      # heights 103-105
@@ -1477,12 +1523,36 @@ def test_funding_reorg_remote_lags(node_factory, bitcoind):
     """Nodes may disagree about short_channel_id before channel announcement
     """
     # may_reconnect so channeld will restart; bad gossip can happen due to reorg
-    opts = {'funding-confirms': 1, 'may_reconnect': True, 'allow_bad_gossip': True,
-            'allow_warning': True, 'dev-fast-reconnect': None,
-            # if it's not zeroconf, l2 will terminate on reorg.
-            'plugin': os.path.join(os.getcwd(), 'tests/plugins/zeroconf-selective.py'),
-            'zeroconf_allow': 'any'}
-    l1, l2 = node_factory.line_graph(2, fundchannel=False, opts=opts)
+    def setup(plugin):
+        plugin.add_option(
+            'zeroconf_allow',
+            '03864ef025fde8fb587d989186ce6a4a186895ee44a926bfc370e2c366597a3f8f',
+            'A node_id to allow zeroconf channels from',
+        )
+        plugin.add_option(
+            'zeroconf_mindepth',
+            0,
+            'Number of confirmations to require from allowlisted peers',
+        )
+
+        @plugin.hook('openchannel')
+        def on_openchannel(openchannel, plugin, **kwargs):
+            plugin.log(repr(openchannel))
+            mindepth = int(plugin.options['zeroconf_mindepth']['value'])
+
+            if openchannel['id'] == plugin.options['zeroconf_allow']['value'] or plugin.options['zeroconf_allow']['value'] == 'any':
+                plugin.log(f"This peer is in the zeroconf allowlist, setting mindepth={mindepth}")
+                return {'result': 'continue', 'mindepth': mindepth}
+            else:
+                return {'result': 'continue'}
+
+    cli_opts = {'funding-confirms': 1, 'dev-fast-reconnect': None,
+                # if it's not zeroconf, l2 will terminate on reorg.
+                'zeroconf_allow': 'any'}
+    node_opts = {'may_reconnect': True, 'allow_bad_gossip': True, 'allow_warning': True}
+    l1 = node_factory.get_node(inline_plugin=setup, options=cli_opts, **node_opts)
+    l2 = node_factory.get_node(inline_plugin=setup, options=cli_opts, **node_opts)
+    node_factory.join_nodes([l1, l2], fundchannel=False)
     l1.fundwallet(10000000)
     sync_blockheight(bitcoind, [l1])                # height 102
 
@@ -2808,11 +2878,11 @@ def test_new_node_is_mainnet(node_factory):
 
 
 def test_unicode_rpc(node_factory, executor, bitcoind):
-    node = node_factory.get_node()
+    l1 = node_factory.get_node()
     desc = "Some candy 🍬 and a nice glass of milk 🥛."
 
-    node.rpc.invoice(amount_msat=42, label=desc, description=desc)
-    invoices = node.rpc.listinvoices()['invoices']
+    l1.rpc.invoice(amount_msat=42, label=desc, description=desc)
+    invoices = l1.rpc.listinvoices()['invoices']
     assert(len(invoices) == 1)
     assert(invoices[0]['description'] == desc)
     assert(invoices[0]['label'] == desc)
@@ -2837,29 +2907,29 @@ def test_unix_socket_path_length(node_factory, bitcoind, directory, executor, db
 
 
 def test_waitblockheight(node_factory, executor, bitcoind):
-    node = node_factory.get_node()
+    l1 = node_factory.get_node()
 
-    sync_blockheight(bitcoind, [node])
+    sync_blockheight(bitcoind, [l1])
 
-    blockheight = node.rpc.getinfo()['blockheight']
+    blockheight = l1.rpc.getinfo()['blockheight']
 
     # Should succeed without waiting.
-    node.rpc.waitblockheight(blockheight - 2)
-    node.rpc.waitblockheight(blockheight - 1)
-    node.rpc.waitblockheight(blockheight)
+    l1.rpc.waitblockheight(blockheight - 2)
+    l1.rpc.waitblockheight(blockheight - 1)
+    l1.rpc.waitblockheight(blockheight)
 
     # Developer mode polls bitcoind every second, so 60 seconds is plenty.
     time = 60
 
     # Should not succeed yet.
-    fut2 = executor.submit(node.rpc.waitblockheight, blockheight + 2, time)
-    fut1 = executor.submit(node.rpc.waitblockheight, blockheight + 1, time)
+    fut2 = executor.submit(l1.rpc.waitblockheight, blockheight + 2, time)
+    fut1 = executor.submit(l1.rpc.waitblockheight, blockheight + 1, time)
     assert not fut1.done()
     assert not fut2.done()
 
     # Should take about ~1second and time out.
     with pytest.raises(RpcError):
-        node.rpc.waitblockheight(blockheight + 2, 1)
+        l1.rpc.waitblockheight(blockheight + 2, 1)
 
     # Others should still not be done.
     assert not fut1.done()
@@ -2867,13 +2937,13 @@ def test_waitblockheight(node_factory, executor, bitcoind):
 
     # Trigger just one more block.
     bitcoind.generate_block(1)
-    sync_blockheight(bitcoind, [node])
+    sync_blockheight(bitcoind, [l1])
     fut1.result(5)
     assert not fut2.done()
 
     # Trigger two blocks.
     bitcoind.generate_block(1)
-    sync_blockheight(bitcoind, [node])
+    sync_blockheight(bitcoind, [l1])
     fut2.result(5)
 
 

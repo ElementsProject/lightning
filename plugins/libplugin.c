@@ -1,5 +1,6 @@
 #include "config.h"
 #include <ccan/io/io.h>
+#include <ccan/json_escape/json_escape.h>
 #include <ccan/json_out/json_out.h>
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/tal/path/path.h>
@@ -175,7 +176,7 @@ static struct command *new_command(const tal_t *ctx,
 	cmd->type = type;
 	cmd->filter = NULL;
 	cmd->methodname = tal_strdup(cmd, methodname);
-	cmd->id = tal_strdup(cmd, id);
+	cmd->idstr = tal_strdup(cmd, id);
 	return cmd;
 }
 
@@ -208,11 +209,11 @@ static void complain_deprecated(const char *feature,
 		/* Mild log message for disallowing */
 		plugin_log(cmd->plugin, LOG_DBG,
 			   "Note: disallowing deprecated %s for %s",
-			   feature, cmd->id);
+			   feature, cmd->idstr);
 	} else {
 		plugin_log(cmd->plugin, LOG_BROKEN,
 			   "DEPRECATED API USED: %s by %s",
-			   feature, cmd->id);
+			   feature, cmd->idstr);
 	}
 }
 
@@ -342,27 +343,16 @@ struct command_result *plugin_broken_cb(struct command *cmd,
 static const char *json_id(const tal_t *ctx, struct plugin *plugin,
 			   const char *method, const char *prefix)
 {
-	const char *rawid;
-	int rawidlen;
-
-	/* Strip quotes! */
-	if (strstarts(prefix, "\"")) {
-		assert(strlen(prefix) >= 2);
-		assert(strends(prefix, "\""));
-		rawid = prefix + 1;
-		rawidlen = strlen(prefix) - 2;
-	} else {
-		rawid = prefix;
-		rawidlen = strlen(prefix);
-	}
-
-	return tal_fmt(ctx, "\"%.*s/%s:%s#%"PRIu64"\"",
-		       rawidlen, rawid, plugin->id, method, plugin->next_outreq_id++);
+	/* Don't create weird IDs, they will get escaped and we won't match the reply. */
+	if (json_escape_needed(method, strlen(method)))
+		method = "!weird!";
+	return tal_fmt(ctx, "%s/%s:%s#%"PRIu64,
+		       prefix, plugin->id, method, plugin->next_outreq_id++);
 }
 
 static void destroy_out_req(struct out_req *out_req, struct plugin *plugin)
 {
-	strmap_del(&plugin->out_reqs, out_req->id, NULL);
+	strmap_del(&plugin->out_reqs, out_req->idstr, NULL);
 }
 
 /* FIXME: Move lightningd/jsonrpc to common/ ? */
@@ -389,18 +379,18 @@ jsonrpc_request_start_(struct command *cmd,
 	assert(cmd);
 	out = tal(cmd, struct out_req);
 	out->method = tal_strdup(out, method);
-	out->id = json_id(out, cmd->plugin, method, id_prefix ? id_prefix : cmd->id);
+	out->idstr = json_id(out, cmd->plugin, method, id_prefix ? id_prefix : cmd->idstr);
 	out->cmd = cmd;
 	out->cb = cb;
 	out->errcb = errcb;
 	out->arg = arg;
-	strmap_add(&cmd->plugin->out_reqs, out->id, out);
+	strmap_add(&cmd->plugin->out_reqs, out->idstr, out);
 	tal_add_destructor2(out, destroy_out_req, cmd->plugin);
 
 	out->js = new_json_stream(NULL, cmd, NULL);
 	json_object_start(out->js, NULL);
 	json_add_string(out->js, "jsonrpc", "2.0");
-	json_add_id(out->js, out->id);
+	json_add_string(out->js, "id", out->idstr);
 	json_add_string(out->js, "method", method);
 	if (filter) {
 		/* This is raw JSON, so paste, don't escape! */
@@ -432,7 +422,7 @@ static struct json_stream *jsonrpc_stream_start(struct command *cmd)
 
 	json_object_start(js, NULL);
 	json_add_string(js, "jsonrpc", "2.0");
-	json_add_id(js, cmd->id);
+	json_add_string(js, "id", cmd->idstr);
 
 	return js;
 }
@@ -781,8 +771,7 @@ static const jsmntok_t *sync_req(const tal_t *ctx,
 
 	json_out_start(jout, NULL, '{');
 	json_out_addstr(jout, "jsonrpc", "2.0");
-	/* Copy in id *literally* */
-	memcpy(json_out_member_direct(jout, "id", strlen(id)), id, strlen(id));
+	json_out_addstr(jout, "id", id);
 	json_out_addstr(jout, "method", method);
 	if (params)
 		json_out_add_splice(jout, "params", params);
@@ -1051,9 +1040,16 @@ static void handle_rpc_reply(const tal_t *working_ctx,
 		/* FIXME: Don't simply ignore notifications! */
 		return;
 
+	if (idtok->type != JSMN_STRING) {
+		plugin_log(plugin, LOG_BROKEN, "JSON reply with non-string id '%.*s'",
+			   json_tok_full_len(toks),
+			   json_tok_full(buf, toks));
+		return;
+	}
+
 	out = strmap_getn(&plugin->out_reqs,
-			  json_tok_full(buf, idtok),
-			  json_tok_full_len(idtok));
+			  buf + idtok->start,
+			  idtok->end - idtok->start);
 	if (!out) {
 		/* This can actually happen, if they free req! */
 		plugin_log(plugin, LOG_DBG, "JSON reply with unknown id '%.*s'",
@@ -1119,7 +1115,7 @@ send_outreq(const struct out_req *req)
 	 * result to pass to either the error or the success
 	 * callback. */
 	trace_span_start("jsonrpc", req);
-	trace_span_tag(req, "id", req->id);
+	trace_span_tag(req, "id", req->idstr);
 	trace_span_suspend_may_free(req);
 
 	ld_rpc_send(req->cmd->plugin, req->js);
@@ -1824,7 +1820,7 @@ struct plugin_timer *command_timer_(struct command *cmd,
 				    void *cb_arg)
 {
 	return new_timer(cmd, cmd->plugin,
-			 take(tal_fmt(NULL, "%s-timer", cmd->id)),
+			 take(tal_fmt(NULL, "%s-timer", cmd->idstr)),
 			 t, cb, cb_arg);
 }
 
@@ -1907,7 +1903,7 @@ struct json_stream *plugin_notify_start(struct command *cmd, const char *method)
 	json_add_string(js, "method", method);
 
 	json_object_start(js, "params");
-	json_add_id(js, cmd->id);
+	json_add_string(js, "id", cmd->idstr);
 
 	return js;
 }
@@ -2067,7 +2063,7 @@ static void ld_command_handle(struct plugin *plugin,
 			      const char *buffer,
 			      const jsmntok_t *toks)
 {
-	const jsmntok_t *methtok, *paramstok, *filtertok;
+	const jsmntok_t *methtok, *paramstok, *filtertok, *idtok;
 	const char *methodname;
 	struct command *cmd;
 	const char *id;
@@ -2076,6 +2072,7 @@ static void ld_command_handle(struct plugin *plugin,
 	methtok = json_get_member(buffer, toks, "method");
 	paramstok = json_get_member(buffer, toks, "params");
 	filtertok = json_get_member(buffer, toks, "filter");
+	idtok = json_get_member(buffer, toks, "id");
 
 	if (!methtok || !paramstok)
 		plugin_err(plugin, "Malformed JSON-RPC notification missing "
@@ -2084,14 +2081,21 @@ static void ld_command_handle(struct plugin *plugin,
 			   json_tok_full(buffer, toks));
 
 	methodname = json_strdup(NULL, buffer, methtok);
-	id = json_get_id(tmpctx, buffer, toks);
 
-	if (!id)
+	if (!idtok) {
 		type = COMMAND_TYPE_NOTIFICATION;
-	else if (streq(methodname, "check"))
-		type = COMMAND_TYPE_CHECK;
-	else
-		type = COMMAND_TYPE_NORMAL;
+		id = NULL;
+	} else {
+		if (idtok->type != JSMN_STRING)
+			plugin_err(plugin, "Malformed JSON-RPC id is not a string: %.*s",
+				   json_tok_full_len(toks),
+				   json_tok_full(buffer, toks));
+		id = json_strdup(tmpctx, buffer, idtok);
+		if (streq(methodname, "check"))
+			type = COMMAND_TYPE_CHECK;
+		else
+			type = COMMAND_TYPE_NORMAL;
+	}
 
 	cmd = new_command(plugin, plugin,
 			  id ? id : tal_fmt(tmpctx, "notification-%s", methodname),
@@ -2662,7 +2666,7 @@ command_hook_success(struct command *cmd)
 
 struct command *aux_command(const struct command *cmd)
 {
-	return new_command(cmd->plugin, cmd->plugin, cmd->id,
+	return new_command(cmd->plugin, cmd->plugin, cmd->idstr,
 			   cmd->methodname, COMMAND_TYPE_AUX);
 }
 

@@ -1995,6 +1995,7 @@ int main(int argc, char *argv[])
 	od->disable_connect = false;
 	od->dev_invoice_bpath_scid = false;
 	od->dev_invoice_internal_scid = NULL;
+	od->dev_currency_expiry = 600;
 	od->global_gossmap_ = NULL;
 
 	/* We deal in UTC; mktime() uses local time */
@@ -2013,5 +2014,8 @@ int main(int argc, char *argv[])
 		    plugin_option_dev("dev-invoice-internal-scid", "string",
 				      "Use short_channel_id instead of pubkey when creating a blinded payment path",
 				      scid_option, scid_jsonfmt, &od->dev_invoice_internal_scid),
+		    plugin_option_dev_dynamic("dev-currency-expiry", "int",
+					      "Max invoice expiry (seconds) for currency-denominated recurring offers",
+					      u32_option, u32_jsonfmt, &od->dev_currency_expiry),
 		    NULL);
 }

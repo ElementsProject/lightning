@@ -44,12 +44,16 @@ static void copy_data(u8 **out, const u8 *in, size_t len)
 	tal_arr_appendn(out, in, len);
 }
 
-/* askrene added DSTORE_CHANNEL_BIAS_V2 (convertable) and
- * DSTORE_NODE_BIAS (not convertable) */
+/* v25.12: askrene added DSTORE_CHANNEL_BIAS_V2 (convertable) and
+ *         DSTORE_NODE_BIAS (not convertable)
+ * v26.09: askrene added DSTORE_CHANNEL_IMPRESSION.
+ */
 static const char *convert_layer_data(const tal_t *ctx,
 				      const char *layername,
 				      const u8 *data_in,
-				      const u8 **data_out)
+				      const u8 **data_out,
+				      bool convert_bias,
+				      bool convert_impression)
 {
 	size_t len = tal_bytelen(data_in);
 	struct node_id n;
@@ -107,12 +111,29 @@ static const char *convert_layer_data(const tal_t *ctx,
 			if (fromwire_dstore_channel_bias_v2(tmpctx, &data_in, &len,
 							    &scidd, &bias,
 							    &string, &timestamp)) {
-				towire_dstore_channel_bias(&out, &scidd, bias, string);
+				if (convert_bias)
+					towire_dstore_channel_bias(&out, &scidd, bias, string);
+				else
+					copy_data(&out, data_in, olddata - data_in);
 			}
 			continue;
 
 		case DSTORE_NODE_BIAS:
-			return "Askrene has a node bias, which is not supported in v25.09";
+			if (convert_bias)
+				return "Askrene has a node bias, which is not supported in v25.09";
+			if (fromwire_dstore_node_bias(tmpctx, &data_in, &len,
+						      &n, &string, &bias, &bias, &timestamp))
+				copy_data(&out, data_in, olddata - data_in);
+			continue;
+
+		case DSTORE_CHANNEL_IMPRESSION:
+			if (fromwire_dstore_channel_impression(tmpctx, &data_in, &len,
+							       &scidd, &timestamp, &msat)) {
+				/* We don't convert, just omit these */
+				if (!convert_impression)
+					copy_data(&out, data_in, olddata - data_in);
+			}
+			continue;
 		}
 
 		return tal_fmt(ctx, "Unknown askrene layer record %u in %s", type, layername);
@@ -125,7 +146,10 @@ static const char *convert_layer_data(const tal_t *ctx,
 	return NULL;
 }
 
-static const char *downgrade_askrene_layers(const tal_t *ctx, struct db *db)
+static const char *downgrade_askrene_layers(const tal_t *ctx, struct db *db,
+					    bool convert_bias,
+					    bool convert_impression)
+
 {
 	const char **base, **k;
 	const u8 *data;
@@ -149,7 +173,8 @@ static const char *downgrade_askrene_layers(const tal_t *ctx, struct db *db)
 			continue;
 		layer = tal(layers, struct layer);
 		layer->key = tal_steal(layer, k);
-		err = convert_layer_data(layer, k[2], data, &layer->data);
+		err = convert_layer_data(layer, k[2], data, &layer->data,
+					 convert_bias, convert_impression);
 		if (err) {
 			tal_free(stmt);
 			return err;
@@ -163,10 +188,21 @@ static const char *downgrade_askrene_layers(const tal_t *ctx, struct db *db)
 	return NULL;
 }
 
+static const char *downgrade_askrene_layers_bias(const tal_t *ctx, struct db *db)
+{
+	return downgrade_askrene_layers(ctx, db, true, true);
+}
+
+static const char *downgrade_askrene_layers_impressions(const tal_t *ctx, struct db *db)
+{
+	return downgrade_askrene_layers(ctx, db, false, true);
+}
+
 static const struct db_version db_versions[] = {
-	{ "v25.09", 276, downgrade_askrene_layers, false },
+	{ "v25.09", 276, downgrade_askrene_layers_bias, false },
 	{ "v25.12", 280, NULL, false },
 	{ "v26.04", 282, NULL, false },
+	{ "v26.06", 282, downgrade_askrene_layers_impressions, false },
 };
 
 static const struct db_version *version_db(const char *version)

@@ -317,7 +317,7 @@ static const char *cmd_log(const tal_t *ctx,
 	if (level != LOG_DBG)
 		plugin_log(cmd->plugin,
 			   level == LOG_BROKEN ? level : level - 1,
-			   "%s: %s", cmd->id, msg);
+			   "%s: %s", cmd->idstr, msg);
 	return msg;
 }
 
@@ -718,7 +718,7 @@ static struct command_result *do_getroutes(struct command *cmd,
 			  deadline, srcnode, dstnode, info->amount,
 			  info->maxfee, info->finalcltv, info->maxdelay, info->maxparts,
 			  include_fees,
-			  cmd->id, cmd->filter,
+			  cmd->idstr, cmd->filter,
 			  include_next_node_id,
 			  include_amount_msat,
 			  include_delay,
@@ -984,7 +984,7 @@ static struct command_result *json_askrene_reserve(struct command *cmd,
 		   json_tok_full_len(params), json_tok_full(buffer, params));
 
 	for (size_t i = 0; i < tal_count(path); i++)
-		reserve_add(askrene->reserved, &path[i], cmd->id);
+		reserve_add(askrene->reserved, &path[i], cmd->idstr);
 
 	response = jsonrpc_stream_success(cmd);
 	return command_finished(cmd, response);
@@ -1174,6 +1174,7 @@ static struct command_result *json_askrene_inform_channel(struct command *cmd,
 	struct amount_msat *amount;
 	enum inform *inform;
 	const struct constraint *c;
+	const struct impression *imp;
 
 	if (!param_check(cmd, buffer, params,
 			 p_req("layer", param_known_layer, &layer),
@@ -1196,6 +1197,7 @@ static struct command_result *json_askrene_inform_channel(struct command *cmd,
 			*amount = AMOUNT_MSAT(0);
 		if (command_check_only(cmd))
 			return command_check_done(cmd);
+		imp = NULL;
 		c = layer_add_constraint(layer, scidd, clock_time().ts.tv_sec,
 					 NULL, amount);
 		goto output;
@@ -1204,12 +1206,16 @@ static struct command_result *json_askrene_inform_channel(struct command *cmd,
 		 * that no reserves were used) */
 		if (command_check_only(cmd))
 			return command_check_done(cmd);
+		imp = NULL;
 		c = layer_add_constraint(layer, scidd, clock_time().ts.tv_sec,
 					 amount, NULL);
 		goto output;
 	case INFORM_SUCCEEDED:
-		/* FIXME: We could do something useful here! */
+		if (command_check_only(cmd))
+			return command_check_done(cmd);
 		c = NULL;
+		imp = layer_add_impression(layer, scidd, clock_time().ts.tv_sec,
+					   *amount);
 		goto output;
 	}
 	abort();
@@ -1219,6 +1225,10 @@ output:
 	json_array_start(response, "constraints");
 	if (c)
 		json_add_constraint(response, NULL, c, layer);
+	json_array_end(response);
+	json_array_start(response, "impressions");
+	if (imp)
+		json_add_impression(response, NULL, imp, layer);
 	json_array_end(response);
 	return command_finished(cmd, response);
 }

@@ -6,6 +6,7 @@ doc-wrongdir:
 
 MARKDOWNPAGES := doc/addgossip.7 \
 	doc/addpsbtoutput.7 \
+	doc/amendrepeatpay.7 \
 	doc/askrene-age.7 \
 	doc/askrene-bias-channel.7 \
 	doc/askrene-bias-node.7 \
@@ -33,6 +34,7 @@ MARKDOWNPAGES := doc/addgossip.7 \
 	doc/bkpr-report.7 \
 	doc/blacklistrune.7 \
 	doc/cancelrecurringinvoice.7 \
+	doc/cancelrepeatpay.7 \
 	doc/check.7 \
 	doc/checkmessage.7 \
 	doc/checkrune.7 \
@@ -66,9 +68,9 @@ MARKDOWNPAGES := doc/addgossip.7 \
 	doc/feerates.7 \
 	doc/fetchbip353.7 \
 	doc/fetchinvoice.7 \
+	doc/fundchannel.7 \
 	doc/fundchannel_cancel.7 \
 	doc/fundchannel_complete.7 \
-	doc/fundchannel.7 \
 	doc/fundchannel_start.7 \
 	doc/funderupdate.7 \
 	doc/fundpsbt.7 \
@@ -103,6 +105,7 @@ MARKDOWNPAGES := doc/addgossip.7 \
 	doc/listpays.7 \
 	doc/listpeerchannels.7 \
 	doc/listpeers.7 \
+	doc/listrepeatpays.7 \
 	doc/listsendpays.7 \
 	doc/listtransactions.7 \
 	doc/makesecret.7 \
@@ -123,10 +126,11 @@ MARKDOWNPAGES := doc/addgossip.7 \
 	doc/preapproveinvoice.7 \
 	doc/preapprovekeysend.7 \
 	doc/reckless.7 \
-	doc/recoverchannel.7 \
 	doc/recover.7 \
+	doc/recoverchannel.7 \
 	doc/renepay.7 \
 	doc/renepaystatus.7 \
+	doc/repeatpay.7 \
 	doc/reserveinputs.7 \
 	doc/sendamount.7 \
 	doc/sendcustommsg.7 \
@@ -142,10 +146,10 @@ MARKDOWNPAGES := doc/addgossip.7 \
 	doc/signmessage.7 \
 	doc/signmessagewithkey.7 \
 	doc/signpsbt.7 \
-	doc/splicein.7 \
 	doc/splice_init.7 \
 	doc/splice_signed.7 \
 	doc/splice_update.7 \
+	doc/splicein.7 \
 	doc/spliceout.7 \
 	doc/staticbackup.7 \
 	doc/stop.7 \
@@ -155,10 +159,10 @@ MARKDOWNPAGES := doc/addgossip.7 \
 	doc/unreserveinputs.7 \
 	doc/upgradewallet.7 \
 	doc/utxopsbt.7 \
+	doc/wait.7 \
 	doc/waitanyinvoice.7 \
 	doc/waitblockheight.7 \
 	doc/waitinvoice.7 \
-	doc/wait.7 \
 	doc/waitsendpay.7 \
 	doc/withdraw.7 \
 	doc/xkeysend.7 \

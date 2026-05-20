@@ -752,6 +752,7 @@
             "AskRene-Create-Layer.layers[].created_channels[]": 5,
             "AskRene-Create-Layer.layers[].disabled_channels[]": 4,
             "AskRene-Create-Layer.layers[].disabled_nodes[]": 3,
+            "AskRene-Create-Layer.layers[].impressions[]": 10,
             "AskRene-Create-Layer.layers[].layer": 1,
             "AskRene-Create-Layer.layers[].node_biases[]": 9,
             "AskRene-Create-Layer.layers[].persistent": 2
@@ -780,6 +781,11 @@
             "AskRene-Create-Layer.layers[].created_channels[].destination": 2,
             "AskRene-Create-Layer.layers[].created_channels[].short_channel_id": 3,
             "AskRene-Create-Layer.layers[].created_channels[].source": 1
+        },
+        "Askrene-create-layerLayersImpressions": {
+            "AskRene-Create-Layer.layers[].impressions[].amount_msat": 3,
+            "AskRene-Create-Layer.layers[].impressions[].short_channel_id_dir": 1,
+            "AskRene-Create-Layer.layers[].impressions[].timestamp": 2
         },
         "Askrene-create-layerLayersNodeBiases": {
             "AskRene-Create-Layer.layers[].node_biases[].description": 4,
@@ -813,6 +819,12 @@
             "AskRene-Inform-Channel.constraints[].short_channel_id_dir": 1,
             "AskRene-Inform-Channel.constraints[].timestamp": 3
         },
+        "Askrene-inform-channelImpressions": {
+            "AskRene-Inform-Channel.impressions[].amount_msat": 4,
+            "AskRene-Inform-Channel.impressions[].layer": 2,
+            "AskRene-Inform-Channel.impressions[].short_channel_id_dir": 1,
+            "AskRene-Inform-Channel.impressions[].timestamp": 3
+        },
         "Askrene-inform-channelRequest": {
             "AskRene-Inform-Channel.amount_msat": 7,
             "AskRene-Inform-Channel.direction": 3,
@@ -825,7 +837,8 @@
         },
         "Askrene-inform-channelResponse": {
             "AskRene-Inform-Channel.constraint": 1,
-            "AskRene-Inform-Channel.constraints[]": 2
+            "AskRene-Inform-Channel.constraints[]": 2,
+            "AskRene-Inform-Channel.impressions[]": 3
         },
         "Askrene-listlayersLayers": {
             "AskRene-ListLayers.layers[].biases[]": 8,
@@ -834,6 +847,7 @@
             "AskRene-ListLayers.layers[].created_channels[]": 3,
             "AskRene-ListLayers.layers[].disabled_channels[]": 6,
             "AskRene-ListLayers.layers[].disabled_nodes[]": 2,
+            "AskRene-ListLayers.layers[].impressions[]": 10,
             "AskRene-ListLayers.layers[].layer": 1,
             "AskRene-ListLayers.layers[].node_biases[]": 9,
             "AskRene-ListLayers.layers[].persistent": 5
@@ -871,6 +885,11 @@
             "AskRene-ListLayers.layers[].created_channels[].htlc_minimum_msat": 5,
             "AskRene-ListLayers.layers[].created_channels[].short_channel_id": 3,
             "AskRene-ListLayers.layers[].created_channels[].source": 1
+        },
+        "Askrene-listlayersLayersImpressions": {
+            "AskRene-ListLayers.layers[].impressions[].amount_msat": 3,
+            "AskRene-ListLayers.layers[].impressions[].short_channel_id_dir": 1,
+            "AskRene-ListLayers.layers[].impressions[].timestamp": 2
         },
         "Askrene-listlayersLayersNodeBiases": {
             "AskRene-ListLayers.layers[].node_biases[].description": 4,
@@ -4745,6 +4764,22 @@
             "added": "v24.11",
             "deprecated": null
         },
+        "AskRene-Create-Layer.layers[].impressions[]": {
+            "added": "v26.09",
+            "deprecated": null
+        },
+        "AskRene-Create-Layer.layers[].impressions[].amount_msat": {
+            "added": "v26.09",
+            "deprecated": null
+        },
+        "AskRene-Create-Layer.layers[].impressions[].short_channel_id_dir": {
+            "added": "v26.09",
+            "deprecated": null
+        },
+        "AskRene-Create-Layer.layers[].impressions[].timestamp": {
+            "added": "v26.09",
+            "deprecated": null
+        },
         "AskRene-Create-Layer.layers[].layer": {
             "added": "v24.11",
             "deprecated": null
@@ -4851,6 +4886,26 @@
         },
         "AskRene-Inform-Channel.direction": {
             "added": "v24.11",
+            "deprecated": null
+        },
+        "AskRene-Inform-Channel.impressions[]": {
+            "added": "v26.09",
+            "deprecated": null
+        },
+        "AskRene-Inform-Channel.impressions[].amount_msat": {
+            "added": "v26.09",
+            "deprecated": null
+        },
+        "AskRene-Inform-Channel.impressions[].layer": {
+            "added": "v26.09",
+            "deprecated": null
+        },
+        "AskRene-Inform-Channel.impressions[].short_channel_id_dir": {
+            "added": "v26.09",
+            "deprecated": null
+        },
+        "AskRene-Inform-Channel.impressions[].timestamp": {
+            "added": "v26.09",
             "deprecated": null
         },
         "AskRene-Inform-Channel.inform": {
@@ -5015,6 +5070,22 @@
         },
         "AskRene-ListLayers.layers[].disabled_nodes[]": {
             "added": "v24.11",
+            "deprecated": null
+        },
+        "AskRene-ListLayers.layers[].impressions[]": {
+            "added": "v26.09",
+            "deprecated": null
+        },
+        "AskRene-ListLayers.layers[].impressions[].amount_msat": {
+            "added": "v26.09",
+            "deprecated": null
+        },
+        "AskRene-ListLayers.layers[].impressions[].short_channel_id_dir": {
+            "added": "v26.09",
+            "deprecated": null
+        },
+        "AskRene-ListLayers.layers[].impressions[].timestamp": {
+            "added": "v26.09",
             "deprecated": null
         },
         "AskRene-ListLayers.layers[].layer": {

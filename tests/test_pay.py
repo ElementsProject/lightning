@@ -3020,7 +3020,16 @@ def test_sendonion_rpc(node_factory):
 @pytest.mark.openchannel('v2')
 def test_partial_payment(node_factory, bitcoind, executor):
     # We want to test two payments at the same time, before we send commit
-    l1, l2, l3, l4 = node_factory.get_nodes(4, [{}] + [{'dev-disable-commit-after': 0, 'dev-no-htlc-timeout': None}] * 2 + [{'plugin': os.path.join(os.getcwd(), 'tests/plugins/print_htlc_onion.py')}])
+    def setup(plugin):
+        @plugin.hook("htlc_accepted")
+        def on_htlc_accepted(htlc, onion, plugin, **kwargs):
+            plugin.log("Got onion {}".format(onion))
+            return {'result': 'continue'}
+
+    l1 = node_factory.get_node()
+    l2 = node_factory.get_node(options={'dev-disable-commit-after': 0, 'dev-no-htlc-timeout': None})
+    l3 = node_factory.get_node(options={'dev-disable-commit-after': 0, 'dev-no-htlc-timeout': None})
+    l4 = node_factory.get_node(inline_plugin=setup)
 
     # Two routes to l4: one via l2, and one via l3.
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -3156,7 +3165,7 @@ def test_partial_payment(node_factory, bitcoind, executor):
     assert res['partid'] == 2
 
     for i in range(2):
-        line = l4.daemon.wait_for_log('print_htlc_onion.py: Got onion')
+        line = l4.daemon.wait_for_log('inline-plugin.py: Got onion')
         assert "'type': 'tlv'" in line
         assert "'forward_msat': 499" in line or "'forward_msat': 501" in line
         assert "'total_msat': 1000" in line
@@ -3762,12 +3771,22 @@ def test_invalid_onion_channel_update(node_factory):
     even if some remote node does not send the required
     `channel_update`.
     '''
-    plugin = os.path.join(os.getcwd(), 'tests/plugins/fail_htlcs_invalid.py')
-    l1, l2, l3 = node_factory.line_graph(3,
-                                         opts=[{},
-                                               {'plugin': plugin},
-                                               {}],
-                                         wait_for_announce=True)
+    def setup(plugin):
+        @plugin.hook("htlc_accepted")
+        def on_htlc_accepted(onion, plugin, **kwargs):
+            plugin.log("Failing htlc on purpose with invalid onion failure")
+            plugin.log("onion: %r" % (onion))
+            # WIRE_TEMPORARY_CHANNEL_FAILURE = 0x1007
+            # This failure code should be followed by a
+            # `channel_update`; we deliberately return
+            # a 0-length `channel_update` to trigger
+            # issue #3757 reported by @sumBTC.
+            return {"result": "fail", "failure_message": "10070000"}
+
+    l1 = node_factory.get_node()
+    l2 = node_factory.get_node(inline_plugin=setup)
+    l3 = node_factory.get_node()
+    node_factory.join_nodes([l1, l2, l3], wait_for_announce=True)
 
     l1id = l1.info['id']
 
@@ -4530,6 +4549,30 @@ def test_offer(node_factory, bitcoind):
     assert enable_ret['description'] == offer_desc
 
 
+def test_recurrence_escaped_label(node_factory, bitcoind):
+    l1, l2 = node_factory.line_graph(2)
+
+    # Recurring offer.
+    offer = l2.rpc.offer(amount='1msat',
+                         description='test_recurrence_escaped_label',
+                         recurrence='1minutes')['bolt12']
+    # Works the first time
+    weird_label = 'label \\ " \t \n'
+    ret = l1.rpc.fetchinvoice(offer=offer,
+                              recurrence_counter=0,
+                              recurrence_label=weird_label)
+    l1.rpc.xpay(invstring=ret['invoice'])
+    # Works the second time to match
+    l1.rpc.fetchinvoice(offer=offer,
+                        recurrence_counter=1,
+                        recurrence_label=weird_label)
+
+    # Works to cancel.
+    l1.rpc.cancelrecurringinvoice(offer=offer,
+                                  recurrence_counter=2,
+                                  recurrence_label=weird_label)
+
+
 def test_offer_deprecated_api(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, opts={'allow-deprecated-apis': True})
 
@@ -4713,6 +4756,34 @@ def test_fetchinvoice(node_factory, bitcoind):
         l1.rpc.call('fetchinvoice', {'offer': offer1['bolt12'], 'timeout': 10})
 
 
+def test_fetchinvoice_invoice_expiry(node_factory, bitcoind):
+    """Non-recurring invoices get a relative_expiry iff the offer has an
+    absolute_expiry or uses a currency (whose conversion rate can change)."""
+    plugin = os.path.join(os.path.dirname(__file__), 'plugins/currencyUSDAUD5000.py')
+    # l2 is the offer node; dev-currency-expiry=2 makes the currency window short.
+    l1, l2 = node_factory.line_graph(2,
+                                     opts=[{},
+                                           {'plugin': plugin,
+                                            'dev-currency-expiry': 10}])
+
+    # Plain msat offer: no currency, no absolute expiry → default expiry (7200).
+    offer_plain = l2.rpc.offer(amount='1msat', description='plain')
+    inv_plain = l1.rpc.fetchinvoice(offer=offer_plain['bolt12'])
+    assert l1.rpc.decode(inv_plain['invoice'])['invoice_relative_expiry'] == 7200
+
+    # Currency offer: invoice must expire within dev_currency_expiry seconds.
+    offer_usd = l2.rpc.offer(amount='1USD', description='usd')
+    inv_usd = l1.rpc.fetchinvoice(offer=offer_usd['bolt12'])
+    assert l1.rpc.decode(inv_usd['invoice'])['invoice_relative_expiry'] <= 10
+
+    # Absolute-expiry offer: invoice relative_expiry must not exceed time-to-expiry.
+    abs_expiry = int(time.time()) + 10
+    offer_abs = l2.rpc.offer(amount='1msat', description='abs',
+                             absolute_expiry=abs_expiry)
+    inv_abs = l1.rpc.fetchinvoice(offer=offer_abs['bolt12'])
+    assert l1.rpc.decode(inv_abs['invoice'])['invoice_relative_expiry'] <= 10
+
+
 def test_fetchinvoice_recurrence(node_factory, bitcoind):
     """Test for our recurrence extension"""
     l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True,
@@ -4748,7 +4819,7 @@ def test_fetchinvoice_recurrence(node_factory, bitcoind):
     assert period2['paywindow_end'] == period2['endtime']
 
     # Can't request 2 before paying 1.
-    with pytest.raises(RpcError, match='previous invoice has not been paid'):
+    with pytest.raises(RpcError, match='Remote node sent failure message.*Previous invoice #1 status "unpaid"'):
         l1.rpc.call('fetchinvoice', {'offer': offer3['bolt12'],
                                      'recurrence_counter': 2,
                                      'recurrence_label': 'test recurrence'})
@@ -4756,7 +4827,7 @@ def test_fetchinvoice_recurrence(node_factory, bitcoind):
     l1.rpc.pay(ret['invoice'], label='test recurrence')
 
     # Now we can, but it's too early:
-    with pytest.raises(RpcError, match="Too early: can't send until time {}".format(period1['starttime'])):
+    with pytest.raises(RpcError, match=fr"Remote node sent failure message.*period_index 2 too early \(start {period1['starttime']}\)"):
         l1.rpc.call('fetchinvoice', {'offer': offer3['bolt12'],
                                      'recurrence_counter': 2,
                                      'recurrence_label': 'test recurrence'})
@@ -4801,7 +4872,7 @@ def test_fetchinvoice_recurrence(node_factory, bitcoind):
     while int(time.time()) <= period3['paywindow_end']:
         time.sleep(1)
 
-    with pytest.raises(RpcError, match="Too late: expired time {}".format(period3['paywindow_end'])):
+    with pytest.raises(RpcError, match=fr"Remote node sent failure message.*period_index 1 too late \(ended {period3['paywindow_end']}\)"):
         l1.rpc.call('fetchinvoice', {'offer': offer,
                                      'recurrence_counter': 1,
                                      'recurrence_label': 'test paywindow'})
@@ -4827,6 +4898,53 @@ def test_recurrence_expired_offer(node_factory, bitcoind):
     l1.rpc.pay(ret['invoice'], label='test_recurrence_expired_offer')
 
 
+def test_recurring_currency_invoice_refresh(node_factory):
+    """After currency-expiry seconds, a new invoice request gets a
+    fresh invoice at the current rate; a request within that window
+    returns the cached invoice.
+
+    """
+    plugin = os.path.join(os.path.dirname(__file__), 'plugins/currencyUSDAUD5000.py')
+    # l2 hosts the offer with a 10-second currency expiry (normally 600s)
+    l1, l2 = node_factory.line_graph(2,
+                                     opts={'disable-plugin': 'cln-currencyrate',
+                                           'plugin': plugin,
+                                           'dev-currency-expiry': 10})
+
+    # Period is much longer than the currency expiry so we stay in period 0.
+    offer = l2.rpc.call('offer', {'amount': '1USD',
+                                  'description': 'refresh',
+                                  'recurrence': '1000seconds'})['bolt12']
+
+    # First fetch: server creates a fresh invoice (1 USD = 5000 msat).
+    inv1 = l1.rpc.call('fetchinvoice', {'offer': offer,
+                                        'recurrence_counter': 0,
+                                        'recurrence_label': 'refresh'})['invoice']
+
+    # Second fetch within the 10-second window: server returns the same invoice.
+    inv2 = l1.rpc.call('fetchinvoice', {'offer': offer,
+                                        'recurrence_counter': 0,
+                                        'recurrence_label': 'refresh'})['invoice']
+    assert inv1 == inv2, "Expected identical invoice within currency-expiry window"
+
+    # Change the rate on l2 before the window expires (1 USD = 2500 msat now).
+    l2.rpc.call('setcurrencyrate', {'msat_per_unit': 2500})
+
+    # Wait for the 10-second currency expiry to lapse.
+    time.sleep(11)
+
+    # Third fetch after expiry: server issues a fresh invoice at the new rate.
+    inv3 = l1.rpc.call('fetchinvoice', {'offer': offer,
+                                        'recurrence_counter': 0,
+                                        'recurrence_label': 'refresh'})['invoice']
+    assert inv3 != inv1, "Expected a fresh invoice after currency-expiry elapsed"
+
+    dec1 = l1.rpc.decode(inv1)
+    dec3 = l1.rpc.decode(inv3)
+    assert dec1['invoice_amount_msat'] == 5000
+    assert dec3['invoice_amount_msat'] == 2500
+
+
 def test_fetchinvoice_autoconnect(node_factory, bitcoind):
     """We should autoconnect if we need to, to route."""
 
@@ -4848,8 +4966,8 @@ def test_fetchinvoice_autoconnect(node_factory, bitcoind):
     l3.rpc.disconnect(l2.info['id'])
     invreq = l2.rpc.call('invoicerequest', {'amount': '2msat',
                                             'description': 'simple test'})
-    # Ofc l2 can't actually pay it!
-    with pytest.raises(RpcError, match='pay attempt failed: "Failed: There is no connection between source and destination at all"'):
+    # Ofc l3 can't actually pay it!
+    with pytest.raises(RpcError, match=r'pay attempt failed: "Failed: We could not find a usable set of paths. We know from auto.localchans that source has maximum capacity 0msat \(in 1 channels\)."'):
         l3.rpc.call('sendinvoice', {'invreq': invreq['bolt12'], 'label': 'payme!'})
 
     assert l3.rpc.listpeers(l2.info['id'])['peers'] != []
@@ -5880,11 +5998,26 @@ def test_blinded_reply_path_scid(node_factory):
 
 
 def test_pay_while_opening_channel(node_factory, bitcoind, executor):
-    delay_plugin = {'plugin': os.path.join(os.getcwd(),
-                                           'tests/plugins/openchannel_hook_delay.py'),
-                    'delaytime': '10'}
+    def setup(plugin):
+        import time
+        plugin.add_option('delaytime', '10', 'How long to hold the WIRE_OPEN_CHANNEL.')
+
+        @plugin.hook('openchannel')
+        def on_openchannel(openchannel, plugin, **kwargs):
+            delaytime = float(plugin.get_option('delaytime'))
+            plugin.log(f'delaying WIRE_ACCEPT_CHANNEL for {delaytime}s')
+            time.sleep(delaytime)
+            return {'result': 'continue'}
+
+        @plugin.hook('openchannel2')
+        def on_openchannel2(openchannel2, plugin, **kwargs):
+            delaytime = float(plugin.get_option('delaytime'))
+            plugin.log(f'delaying WIRE_ACCEPT_CHANNEL for {delaytime}s')
+            time.sleep(delaytime)
+            return {'result': 'continue'}
+
     l1, l2 = node_factory.line_graph(2, fundamount=10**6, wait_for_announce=True)
-    l3 = node_factory.get_node(options=delay_plugin)
+    l3 = node_factory.get_node(inline_plugin=setup, options={'delaytime': '10'})
     l1.connect(l3)
     executor.submit(l1.rpc.fundchannel, l3.info['id'], 100000)
     wait_for(lambda: l1.rpc.listpeerchannels(l3.info['id'])['channels'] != [])
@@ -7107,9 +7240,6 @@ def test_cancel_recurrence(node_factory):
     with pytest.raises(RpcError, match="recurrence_counter: Must be non-zero"):
         l1.rpc.cancelrecurringinvoice(offer['bolt12'], 0, 'test_cancel_recurrence')
 
-    with pytest.raises(RpcError, match="No previous payment attempted for this label and offer"):
-        l1.rpc.cancelrecurringinvoice(offer['bolt12'], 1, 'test_cancel_recurrence')
-
     # Fetch and pay first one
     ret = l1.rpc.fetchinvoice(offer=offer['bolt12'],
                               recurrence_counter=0,
@@ -7118,10 +7248,6 @@ def test_cancel_recurrence(node_factory):
     m = re.search(r'invoice_request: "([a-z0-9]*)"', l1.daemon.wait_for_log('plugin-offers: invoice_request:'))
     decoded = l1.rpc.decode(m.group(1))
     assert 'invreq_recurrence_cancel' not in decoded
-
-    # Cancel counter must be correct!
-    with pytest.raises(RpcError, match=r"previous invoice has not been paid \(last was 0\)"):
-        l1.rpc.cancelrecurringinvoice(offer['bolt12'], 2, 'test_cancel_recurrence')
 
     # Cancel second one.
     l1.rpc.cancelrecurringinvoice(offer=offer['bolt12'],
@@ -7134,7 +7260,7 @@ def test_cancel_recurrence(node_factory):
     assert decoded['invreq_recurrence_cancel'] is True
 
     # Now we cannot fetch second one!
-    with pytest.raises(RpcError, match=r"invoice expired \(cancelled\?\)"):
+    with pytest.raises(RpcError, match=r"invoice cancelled"):
         l1.rpc.fetchinvoice(offer=offer['bolt12'],
                             recurrence_counter=1,
                             recurrence_label='test_cancel_recurrence')

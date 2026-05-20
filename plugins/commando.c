@@ -673,7 +673,7 @@ static struct command_result *json_commando(struct command *cmd,
 
 	ocmd = new_commando(cmd, cmd, peer, oid);
 	ocmd->contents = tal_arr(ocmd, u8, 0);
-	ocmd->json_id = tal_strdup(ocmd, cmd->id);
+	ocmd->json_id = tal_fmt(ocmd, "\"%s\"", cmd->idstr);
 
 	tal_arr_expand(&outgoing_commands, ocmd);
 	tal_add_destructor2(ocmd, destroy_commando, &outgoing_commands);
