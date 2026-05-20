@@ -45,6 +45,15 @@ struct constraint {
 	struct amount_msat max;
 };
 
+/* An impression reflects something we did to a channel (successful payments) */
+struct impression {
+	/* This is the direction of the payment, but it affects both ways */
+	struct short_channel_id_dir scidd;
+	/* Time this constraint was last updated */
+	u64 timestamp;
+	struct amount_msat amount;
+};
+
 /* A bias, for special-effects (user-controlled) */
 struct bias {
 	struct short_channel_id_dir scidd;
@@ -74,6 +83,21 @@ static inline bool constraint_eq_scidd(const struct constraint *c,
 
 HTABLE_DEFINE_DUPS_TYPE(struct constraint, constraint_scidd, hash_scidd,
 			constraint_eq_scidd, constraint_hash);
+
+static struct short_channel_id
+impression_scid(const struct impression *imp)
+{
+	return imp->scidd.scid;
+}
+
+static inline bool impression_eq_scid(const struct impression *imp,
+					    struct short_channel_id scid)
+{
+	return short_channel_id_eq(scid, imp->scidd.scid);
+}
+
+HTABLE_DEFINE_DUPS_TYPE(struct impression, impression_scid, hash_scid,
+			impression_eq_scid, impression_hash);
 
 static struct short_channel_id
 local_channel_scid(const struct local_channel *lc)
@@ -158,6 +182,9 @@ struct layer {
 	/* Additional info, indexed by scid+dir */
 	struct constraint_hash *constraints;
 
+	/* Usage info, indexed by scid */
+	struct impression_hash *impressions;
+
 	/* Bias, indexed by scid+dir */
 	struct bias_hash *biases;
 
@@ -197,6 +224,7 @@ struct layer *new_temp_layer(const tal_t *ctx, struct askrene *askrene, const ch
 	l->local_channels = new_htable(l, local_channel_hash);
 	l->local_updates = new_htable(l, local_update_hash);
 	l->constraints = new_htable(l, constraint_hash);
+	l->impressions = new_htable(l, impression_hash);
 	l->biases = new_htable(l, bias_hash);
 	l->node_biases = new_htable(l, node_bias_hash);
 	l->disabled_nodes = tal_arr(l, struct node_id, 0);
@@ -314,6 +342,20 @@ static const struct constraint *add_constraint(struct layer *layer,
 
 	constraint_hash_add(layer->constraints, c);
 	return c;
+}
+
+static const struct impression *add_impression(struct layer *layer,
+					       const struct short_channel_id_dir *scidd,
+					       u64 timestamp,
+					       struct amount_msat amount)
+{
+	struct impression *imp = tal(layer, struct impression);
+	imp->scidd = *scidd;
+	imp->amount = amount;
+	imp->timestamp = timestamp;
+
+	impression_hash_add(layer->impressions, imp);
+	return imp;
 }
 
 static const struct bias *set_bias(struct layer *layer,
@@ -565,6 +607,38 @@ static void load_channel_constraint(struct plugin *plugin,
 		add_constraint(layer, &scidd, timestamp, min, max);
 }
 
+static void towire_save_channel_impression(u8 **data, const struct impression *imp)
+{
+	towire_dstore_channel_impression(data, &imp->scidd, imp->timestamp, imp->amount);
+}
+
+static void save_channel_impression(struct layer *layer, const struct impression *imp)
+{
+	u8 *data;
+
+	if (!layer->persistent)
+		return;
+
+	data = tal_arr(tmpctx, u8, 0);
+	towire_save_channel_impression(&data, imp);
+	append_layer_datastore(layer, data);
+}
+
+static void load_channel_impression(struct plugin *plugin,
+				    struct layer *layer,
+				    const u8 **cursor,
+				    size_t *len)
+{
+	struct short_channel_id_dir scidd;
+	struct amount_msat amount;
+	u64 timestamp;
+
+	if (fromwire_dstore_channel_impression(tmpctx, cursor, len,
+						     &scidd, &timestamp,
+						     &amount))
+		add_impression(layer, &scidd, timestamp, amount);
+}
+
 static void towire_save_channel_bias(u8 **data, const struct bias *bias)
 {
 	towire_dstore_channel_bias_v2(data,
@@ -702,6 +776,8 @@ static void save_complete_layer(struct layer *layer)
 	struct local_update_hash_iter luit;
 	struct constraint_hash_iter conit;
 	const struct constraint *c;
+	struct impression_hash_iter impit;
+	const struct impression *imp;
 	struct bias_hash_iter biasit;
 	const struct bias *b;
 	struct node_bias_hash_iter nbiasit;
@@ -733,6 +809,11 @@ static void save_complete_layer(struct layer *layer)
 		if (c->timestamp == UINT64_MAX)
 			continue;
 		towire_save_channel_constraint(&data, c);
+	}
+	for (imp = impression_hash_first(layer->impressions, &impit);
+	     imp;
+	     imp = impression_hash_next(layer->impressions, &impit)) {
+		towire_save_channel_impression(&data, imp);
 	}
 	for (b = bias_hash_first(layer->biases, &biasit);
 	     b;
@@ -793,6 +874,9 @@ static void populate_layer(struct askrene *askrene,
 			continue;
 		case DSTORE_NODE_BIAS:
 			load_node_bias(askrene->plugin, layer, &data, &len);
+			continue;
+		case DSTORE_CHANNEL_IMPRESSION:
+			load_channel_impression(askrene->plugin, layer, &data, &len);
 			continue;
 		}
 		plugin_err(askrene->plugin, "Invalid type %i in datastore: layer %s %s",
@@ -1000,6 +1084,8 @@ void layer_apply_constraints(const struct layer *layer,
 {
 	struct constraint *c;
 	struct constraint_hash_iter cit;
+	struct impression *imp;
+	struct impression_hash_iter impit;
 
 	/* We can have more than one: apply them all! */
 	for (c = constraint_hash_getfirst(layer->constraints, scidd, &cit);
@@ -1007,6 +1093,27 @@ void layer_apply_constraints(const struct layer *layer,
 	     c = constraint_hash_getnext(layer->constraints, scidd, &cit)) {
 		*min = amount_msat_max(*min, c->min);
 		*max = amount_msat_min(*max, c->max);
+	}
+
+	/* FIXME: we apply our usage at the end.  This is wrong (but
+	 * simple): we should interleave with the above based on
+	 * timestamp. */
+	for (imp = impression_hash_getfirst(layer->impressions, scidd->scid, &impit);
+	     imp;
+	     imp = impression_hash_getnext(layer->impressions, scidd->scid, &impit)) {
+		/* We made payment along this channel?  Capacity has reduced */
+		if (scidd->dir == imp->scidd.dir) {
+			if (!amount_msat_sub(min, *min, imp->amount))
+				*min = AMOUNT_MSAT(0);
+			if (!amount_msat_sub(max, *max, imp->amount))
+				*max = AMOUNT_MSAT(0);
+		} else {
+			/* We made the other way?  Capacity has increased */
+			if (!amount_msat_add(min, *min, imp->amount))
+				*min = AMOUNT_MSAT(-1ULL);
+			if (!amount_msat_add(max, *max, imp->amount))
+				*max = AMOUNT_MSAT(-1ULL);
+		}
 	}
 }
 
@@ -1021,6 +1128,18 @@ const struct constraint *layer_add_constraint(struct layer *layer,
 	c = add_constraint(layer, scidd, timestamp, min, max);
 	save_channel_constraint(layer, c);
 	return c;
+}
+
+const struct impression *layer_add_impression(struct layer *layer,
+					      const struct short_channel_id_dir *scidd,
+					      u64 timestamp,
+					      struct amount_msat amount)
+{
+	const struct impression *imp;
+
+	imp = add_impression(layer, scidd, timestamp, amount);
+	save_channel_impression(layer, imp);
+	return imp;
 }
 
 void layer_clear_overridden_capacities(const struct layer *layer,
@@ -1052,6 +1171,8 @@ size_t layer_trim_constraints(struct layer *layer, u64 cutoff)
 	struct bias *bias;
 	struct node_bias_hash_iter node_it;
 	struct node_bias *node_bias;
+	struct impression *imp;
+	struct impression_hash_iter impit;
 
 	for (con = constraint_hash_first(layer->constraints, &conit);
 	     con;
@@ -1059,6 +1180,16 @@ size_t layer_trim_constraints(struct layer *layer, u64 cutoff)
 		if (con->timestamp < cutoff) {
 			constraint_hash_delval(layer->constraints, &conit);
 			tal_free(con);
+			num_removed++;
+		}
+	}
+
+	for (imp = impression_hash_first(layer->impressions, &impit);
+	     imp;
+	     imp = impression_hash_next(layer->impressions, &impit)) {
+		if (imp->timestamp < cutoff) {
+			impression_hash_delval(layer->impressions, &impit);
+			tal_free(imp);
 			num_removed++;
 		}
 	}
@@ -1216,6 +1347,20 @@ void json_add_constraint(struct json_stream *js,
 	json_object_end(js);
 }
 
+void json_add_impression(struct json_stream *js,
+			 const char *fieldname,
+			 const struct impression *imp,
+			 const struct layer *layer)
+{
+	json_object_start(js, fieldname);
+	if (layer)
+		json_add_string(js, "layer", layer->name);
+	json_add_short_channel_id_dir(js, "short_channel_id_dir", imp->scidd);
+	json_add_u64(js, "timestamp", imp->timestamp);
+	json_add_amount_msat(js, "amount_msat", imp->amount);
+	json_object_end(js);
+}
+
 void json_add_bias(struct json_stream *js,
 		   const char *fieldname,
 		   const struct bias *b,
@@ -1259,6 +1404,8 @@ static void json_add_layer(struct json_stream *js,
 	struct local_update_hash_iter luit;
 	struct constraint_hash_iter conit;
 	const struct constraint *c;
+	struct impression_hash_iter impit;
+	const struct impression *imp;
 	struct bias_hash_iter biasit;
 	const struct bias *b;
 	struct node_bias_hash_iter node_it;
@@ -1293,6 +1440,13 @@ static void json_add_layer(struct json_stream *js,
 		if (c->timestamp == UINT64_MAX)
 			continue;
 		json_add_constraint(js, NULL, c, NULL);
+	}
+	json_array_end(js);
+	json_array_start(js, "impressions");
+	for (imp = impression_hash_first(layer->impressions, &impit);
+	     imp;
+	     imp = impression_hash_next(layer->impressions, &impit)) {
+		json_add_impression(js, NULL, imp, NULL);
 	}
 	json_array_end(js);
 	json_array_start(js, "biases");

@@ -113,6 +113,9 @@ static const char *convert_layer_data(const tal_t *ctx,
 
 		case DSTORE_NODE_BIAS:
 			return "Askrene has a node bias, which is not supported in v25.09";
+		case DSTORE_CHANNEL_IMPRESSION:
+			/* FIXME */
+			break;
 		}
 
 		return tal_fmt(ctx, "Unknown askrene layer record %u in %s", type, layername);
