@@ -4732,6 +4732,34 @@ def test_fetchinvoice(node_factory, bitcoind):
         l1.rpc.call('fetchinvoice', {'offer': offer1['bolt12'], 'timeout': 10})
 
 
+def test_fetchinvoice_invoice_expiry(node_factory, bitcoind):
+    """Non-recurring invoices get a relative_expiry iff the offer has an
+    absolute_expiry or uses a currency (whose conversion rate can change)."""
+    plugin = os.path.join(os.path.dirname(__file__), 'plugins/currencyUSDAUD5000.py')
+    # l2 is the offer node; dev-currency-expiry=2 makes the currency window short.
+    l1, l2 = node_factory.line_graph(2,
+                                     opts=[{},
+                                           {'plugin': plugin,
+                                            'dev-currency-expiry': 10}])
+
+    # Plain msat offer: no currency, no absolute expiry → default expiry (7200).
+    offer_plain = l2.rpc.offer(amount='1msat', description='plain')
+    inv_plain = l1.rpc.fetchinvoice(offer=offer_plain['bolt12'])
+    assert l1.rpc.decode(inv_plain['invoice'])['invoice_relative_expiry'] == 7200
+
+    # Currency offer: invoice must expire within dev_currency_expiry seconds.
+    offer_usd = l2.rpc.offer(amount='1USD', description='usd')
+    inv_usd = l1.rpc.fetchinvoice(offer=offer_usd['bolt12'])
+    assert l1.rpc.decode(inv_usd['invoice'])['invoice_relative_expiry'] <= 10
+
+    # Absolute-expiry offer: invoice relative_expiry must not exceed time-to-expiry.
+    abs_expiry = int(time.time()) + 10
+    offer_abs = l2.rpc.offer(amount='1msat', description='abs',
+                             absolute_expiry=abs_expiry)
+    inv_abs = l1.rpc.fetchinvoice(offer=offer_abs['bolt12'])
+    assert l1.rpc.decode(inv_abs['invoice'])['invoice_relative_expiry'] <= 10
+
+
 def test_fetchinvoice_recurrence(node_factory, bitcoind):
     """Test for our recurrence extension"""
     l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True,
