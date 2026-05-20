@@ -2739,3 +2739,54 @@ def test_bad_user_entries(node_factory):
             maxfee_msat=2000,
             final_cltv=5,
         )
+
+
+def test_constraint_impression_ordering(node_factory):
+    """Constraints and impressions must be applied in timestamp order.
+
+    An impression at T1 (older) followed by a constraint at T2 (newer) means
+    the constraint supersedes the impression: the impression is applied on the
+    unconstrained capacity and the constraint then clamps the result.  A
+    constraint at T1 followed by an impression at T2 means the impression
+    reduces the constrained capacity.
+    """
+    # Single channel 0->1 with 1000 sat capacity
+    cap_msat = 1_000_000
+    gsfile, nodemap = generate_gossip_store([GenChannel(0, 1, capacity_sats=cap_msat // 1000)])
+    l1 = node_factory.get_node(gossip_store_file=gsfile.name, opts={'disable-plugin': 'cln-xpay'})
+
+    chan_dir = scid_dir(nodemap, 0, 1, 0)
+
+    # --- Case 1: impression (T1, older) then tighter constraint (T2, newer) ---
+    # Impression says 300k was sent.  Constraint says max is 600k (newer info).
+    # Correct ordering: impression applied to unconstrained ∞, then constraint
+    # clamps to 600k.  Routing 400k should succeed.
+    l1.rpc.askrene_create_layer('test_ordering')
+    l1.rpc.askrene_inform_channel('test_ordering', chan_dir, 300_000, 'succeeded')
+    time.sleep(2)
+    l1.rpc.askrene_inform_channel('test_ordering', chan_dir, 600_001, 'constrained')
+
+    # Should succeed: effective max is 600k (constraint is newer, wins over impression)
+    routes = l1.rpc.getroutes(source=nodemap[0], destination=nodemap[1],
+                              amount_msat=400_000, layers=['test_ordering'],
+                              maxfee_msat=100_000, final_cltv=5)
+    assert routes['probability_ppm'] > 0
+
+    l1.rpc.askrene_remove_layer('test_ordering')
+
+    # --- Case 2: tighter constraint (T3, older) then impression (T4, newer) ---
+    # Constraint says max is 600k.  Impression says 300k was sent after that.
+    # Correct ordering: constraint applied first (max=600k), impression then
+    # reduces it to 300k.  Routing 400k should fail.
+    l1.rpc.askrene_create_layer('test_ordering')
+    l1.rpc.askrene_inform_channel('test_ordering', chan_dir, 600_001, 'constrained')
+    time.sleep(2)
+    l1.rpc.askrene_inform_channel('test_ordering', chan_dir, 300_000, 'succeeded')
+
+    # Should fail: effective max is 300k (impression is newer, reduces constrained capacity)
+    with pytest.raises(RpcError, match=r"We could not find a usable set of paths"):
+        l1.rpc.getroutes(source=nodemap[0], destination=nodemap[1],
+                         amount_msat=400_000, layers=['test_ordering'],
+                         maxfee_msat=100_000, final_cltv=5)
+
+    l1.rpc.askrene_remove_layer('test_ordering')
