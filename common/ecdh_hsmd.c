@@ -1,5 +1,6 @@
 #include "config.h"
 #include <assert.h>
+#include <ccan/io/io.h>
 #include <common/ecdh.h>
 #include <common/ecdh_hsmd.h>
 #include <common/utils.h>
@@ -33,4 +34,6 @@ void ecdh_hsmd_setup(int hsm_fd,
 {
 	stashed_hsm_fd = hsm_fd;
 	stashed_failed = failed;
+	/* Like read_fds in subd.c: don't trust sender's O_NONBLOCK state (issue #9060). */
+	io_fd_block(hsm_fd, true);
 }
