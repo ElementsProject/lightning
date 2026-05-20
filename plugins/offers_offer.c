@@ -607,7 +607,7 @@ static struct command_result *call_createinvoicerequest(struct command *cmd,
 	json_add_bool(req->js, "savetodb", true);
 	json_add_bool(req->js, "single_use", single_use);
 	if (label)
-		json_add_string(req->js, "recurrence_label", label);
+		json_add_string(req->js, "label", label);
 	return send_outreq(req);
 }
 
