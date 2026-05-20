@@ -3,6 +3,7 @@
 #include <ccan/cast/cast.h>
 #include <ccan/tal/str/str.h>
 #include <common/bech32_util.h>
+#include <common/bolt12.h>
 #include <common/bolt12_id.h>
 #include <common/bolt12_merkle.h>
 #include <common/clock_time.h>
@@ -744,6 +745,9 @@ static struct command_result *handle_amount_and_recurrence(struct command *cmd,
 							   struct invreq *ir,
 							   struct amount_msat base_inv_amount)
 {
+	const struct offers_data *od = get_offers_data(cmd->plugin);
+	u32 rel_expiry = BOLT12_DEFAULT_REL_EXPIRY;
+
 	/* BOLT #12:
 	 * - if `invreq_amount` is present:
 	 *    - MUST reject the invoice request if `invreq_amount`.`msat` is less than the
@@ -784,8 +788,29 @@ static struct command_result *handle_amount_and_recurrence(struct command *cmd,
 	if (ir->inv->invreq_recurrence_counter) {
 		return check_previous_invoice(cmd, ir);
 	}
-	/* We're happy with 2 hours timeout (default): they can always
-	 * request another. */
+
+	/* Don't allow invoices past expiry of offer. */
+	if (ir->invreq->offer_absolute_expiry) {
+		u64 until = *ir->invreq->offer_absolute_expiry
+			- *ir->inv->invoice_created_at;
+		if (until < rel_expiry)
+			rel_expiry = until;
+	}
+
+	/* And keep them short if currency conversion is involved */
+	if (ir->invreq->offer_currency && od->dev_currency_expiry < rel_expiry)
+		rel_expiry = od->dev_currency_expiry;
+
+	/* BOLT #12:
+	 *
+	 * - if the expiry for accepting payment is not 7200 seconds after
+         *   `invoice_created_at`:
+	 *     - MUST set `invoice_relative_expiry`.`seconds_from_creation` to
+	 *       the number of seconds after `invoice_created_at` that payment
+	 *       of this invoice should not be attempted.
+	 */
+	if (rel_expiry != BOLT12_DEFAULT_REL_EXPIRY)
+		ir->inv->invoice_relative_expiry = tal_dup(ir->inv, u32, &rel_expiry);
 
 	/* FIXME: Fallbacks? */
 	return add_blindedpaths(cmd, ir);
