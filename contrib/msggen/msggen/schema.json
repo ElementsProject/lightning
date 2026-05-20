@@ -27881,6 +27881,31 @@
                   "items": {
                     "type": "string"
                   }
+                },
+                "cancel_reason": {}
+              },
+              "if": {
+                "additionalProperties": true,
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "complete_cancelled",
+                      "complete_cancel_pending"
+                    ]
+                  }
+                }
+              },
+              "then": {
+                "additionalProperties": true,
+                "required": [],
+                "properties": {
+                  "cancel_reason": {
+                    "type": "string",
+                    "description": [
+                      "Reason given to issuer for cancellation (as specified by cancelrepeatpay)"
+                    ]
+                  }
                 }
               }
             }

@@ -20,6 +20,7 @@
 #include <inttypes.h>
 #include <plugins/libplugin.h>
 
+/* There is an overall "cancel_reason" flag which marks state as complete_cancel_pending */
 enum repeatpay_status {
 	REPEATPAY_ONGOING,
 	REPEATPAY_ONGOING_MAKING_PAYMENT,
@@ -29,7 +30,6 @@ enum repeatpay_status {
 	REPEATPAY_ONGOING_FAILING_PAYMENT,
 	REPEATPAY_COMPLETE_FINISHED,
 	REPEATPAY_COMPLETE_CANCELLED,
-	REPEATPAY_COMPLETE_CANCEL_PENDING,
 	REPEATPAY_COMPLETE_FAILED,
 #define MAX_REPEATPAY_STATUS REPEATPAY_COMPLETE_FAILED
 };
@@ -49,6 +49,9 @@ struct payment_max {
 struct payment {
 	/* How are we doing? */
 	enum repeatpay_status status;
+
+	/* Non-NULL if are we trying to cancel.  If non-empty, send this as a note */
+	const char *cancel_reason;
 
 	/* What's happened so far? */
 	struct payment_log **logs;
@@ -133,7 +136,6 @@ static const char *repeatpay_status_str(enum repeatpay_status status)
 	case REPEATPAY_ONGOING_FAILING_PAYMENT: return "ongoing_failing_payment";
 	case REPEATPAY_COMPLETE_FINISHED: return "complete_finished";
 	case REPEATPAY_COMPLETE_CANCELLED: return "complete_cancelled";
-	case REPEATPAY_COMPLETE_CANCEL_PENDING: return "complete_cancel_pending";
 	case REPEATPAY_COMPLETE_FAILED: return "complete_failed";
 	}
 	abort();
@@ -155,7 +157,6 @@ static bool payment_terminated(enum repeatpay_status status)
 	switch (status) {
 	case REPEATPAY_ONGOING:
 	case REPEATPAY_ONGOING_MAKING_PAYMENT:
-	case REPEATPAY_COMPLETE_CANCEL_PENDING:
 	case REPEATPAY_ONGOING_FAILING_AMOUNT:
 	case REPEATPAY_ONGOING_FAILING_BALANCE:
 	case REPEATPAY_ONGOING_FAILING_INVOICE:
@@ -239,6 +240,16 @@ static void save_payment_status(struct command *cmd,
 				     "create-or-replace", datastore_ok, NULL, NULL);
 }
 
+static void save_payment_cancel_reason(struct command *cmd,
+				       const struct payment *payment)
+{
+	if (payment->cancel_reason)
+		jsonrpc_set_datastore_string(cmd,
+					     payment_ds_key(tmpctx, payment->label, "cancel_reason"),
+					     payment->cancel_reason,
+					     "create-or-replace", datastore_ok, NULL, NULL);
+}
+
 static void PRINTF_FMT(4, 5)
 payment_set_status(struct command *cmd,
 		   struct payment *payment,
@@ -251,12 +262,13 @@ payment_set_status(struct command *cmd,
 	va_list ap;
 	va_start(ap, fmt);
 	const char *msg = tal_vfmt(NULL, fmt, ap);
-	plugin_log(cmd->plugin, LOG_DBG, "payment %s #%u: status %s->%s: %s",
+	plugin_log(cmd->plugin, LOG_DBG, "payment %s #%u: status %s->%s%s: %s",
 		   payment->label->s,
 		   /* Humans use 1-based counters */
 		   payment->recurrence_counter + 1,
 		   repeatpay_status_str(payment->status),
 		   repeatpay_status_str(status),
+		   payment->cancel_reason ? " (cancel pending)" : "",
 		   msg);
 	va_end(ap);
 
@@ -272,6 +284,7 @@ payment_set_status(struct command *cmd,
 	if (payment_hash_get(rp->payments, payment->label)) {
 		save_payment_log(cmd, payment, status, msg);
 		save_payment_status(cmd, payment);
+		save_payment_cancel_reason(cmd, payment);
 	}
 }
 
@@ -337,6 +350,7 @@ static void save_payment(struct repeatpay *rp, struct payment *payment)
 
 	save_payment_counter(rp->aux_cmd, payment);
 	save_payment_status(rp->aux_cmd, payment);
+	save_payment_cancel_reason(rp->aux_cmd, payment);
 	for (size_t i = 0; i < tal_count(payment->logs); i++)
 		save_payment_log(rp->aux_cmd, payment, payment->logs[i]->status, payment->logs[i]->msg);
 }
@@ -587,6 +601,7 @@ static void restore_payment(struct command *init_cmd,
 	/* Optional fields default to absent */
 	payment->payment_max.currency = NULL;
 	payment->payer_metadata = NULL;
+	payment->cancel_reason = NULL;
 
 	/* Fetch all fields for this label in one call. */
 	params = json_out_new(tmpctx);
@@ -654,6 +669,8 @@ static void restore_payment(struct command *init_cmd,
 			have_payer_id = true;
 		} else if (json_tok_streq(buf, keytok + 3, "payer_metadata")) {
 			payment->payer_metadata = tal_hexdata(payment, str, len);
+		} else if (json_tok_streq(buf, keytok + 3, "cancel_reason")) {
+			payment->cancel_reason = tal_strndup(payment, str, len);
 		} else
 			plugin_err(init_cmd->plugin,
 				   "Unknown datastore field '%.*s'",
@@ -910,6 +927,10 @@ static struct command_result *fetch_done(struct command *aux_cmd,
 		return retry_payment_later(aux_cmd, payment);
 	}
 
+	/* If we cancelled in the meantime, throw that away and try again */
+	if (payment->cancel_reason)
+		return start_next_payment(aux_cmd, payment);
+
 	return pay_invoice(aux_cmd, payment, inv);
 }
 
@@ -1033,6 +1054,33 @@ static struct command_result *currencyconvert_error(struct command *aux_cmd,
 	return retry_payment_later(aux_cmd, payment);
 }
 
+static struct command_result *cancel_done(struct command *aux_cmd,
+					  const char *method,
+					  const char *buf,
+					  const jsmntok_t *err,
+					  struct payment *payment)
+{
+	payment_set_status(aux_cmd, payment,
+			   REPEATPAY_COMPLETE_CANCELLED,
+			   "Sent a cancel message%s%s",
+			   streq(payment->cancel_reason, "") ? "": ": ",
+			   payment->cancel_reason);
+	return command_still_pending(aux_cmd);
+}
+
+static struct command_result *cancel_error(struct command *aux_cmd,
+					   const char *method,
+					   const char *buf,
+					   const jsmntok_t *err,
+					   struct payment *payment)
+{
+	payment_set_status(aux_cmd, payment, payment->status,
+			   "Cancel attempt failed, will retry: '%.*s'",
+			   json_tok_full_len(err),
+			   json_tok_full(buf, err));
+	return retry_payment_later(aux_cmd, payment);
+}
+
 static struct command_result *start_next_payment(struct command *aux_cmd,
 						 struct payment *payment)
 {
@@ -1063,13 +1111,29 @@ static struct command_result *start_next_payment(struct command *aux_cmd,
 
 	if (now < paytime) {
 		payment_set_status(aux_cmd, payment, REPEATPAY_ONGOING,
-				   "Waiting %s before fetching",
-				   fmt_approx_time(tmpctx, paytime - now));
+				   "Waiting %s before %s",
+				   fmt_approx_time(tmpctx, paytime - now),
+				   payment->cancel_reason ? "cancelling" : "fetching");
 		payment->next = command_timer(aux_cmd,
 					      time_from_sec(paytime - now),
 					      timer_next_payment,
 					      payment);
 		return command_still_pending(aux_cmd);
+	}
+
+	if (payment->cancel_reason) {
+		struct out_req *req;
+
+		req = jsonrpc_request_start(aux_cmd, "cancelrecurringinvoice", cancel_done, cancel_error, payment);
+		json_add_string(req->js, "offer", offer_encode(tmpctx, payment->offer));
+		json_add_u32(req->js, "recurrence_counter", payment->recurrence_counter);
+		if (payment->offer->offer_recurrence_base)
+			json_add_u32(req->js, "recurrence_start", payment->recurrence_start);
+		json_add_escaped_string(req->js, "recurrence_label", payment->label);
+		if (!streq(payment->cancel_reason, ""))
+			json_add_string(req->js, "payer_note", payment->cancel_reason);
+		/* We don't attach bip353 because we don't support recurring invoices from bip353! */
+		return send_outreq(req);
 	}
 
 	/* Before fetching next invoice, ensure max is updated */
@@ -1108,7 +1172,12 @@ static void json_add_payment(struct json_stream *result,
 		json_add_hex_talarr(result, "payer_metadata",
 				    payment->payer_metadata);
 	}
-	json_add_string(result, "status", repeatpay_status_str(payment->status));
+	if (payment->cancel_reason && !payment_terminated(payment->status))
+		json_add_string(result, "status", "complete_cancel_pending");
+	else
+		json_add_string(result, "status", repeatpay_status_str(payment->status));
+	if (payment->cancel_reason && !streq(payment->cancel_reason, ""))
+		json_add_string(result, "cancel_reason", payment->cancel_reason);
 	json_add_u64(result, "payments_made", payment->recurrence_counter);
 
 	json_array_start(result, "log");
@@ -1311,6 +1380,7 @@ static struct command_result *json_repeatpay(struct command *cmd,
 	payment->logs = tal_arr(payment, struct payment_log *, 0);
 	payment->basetime = 0;
 	payment->payer_metadata = NULL;
+	payment->cancel_reason = NULL;
 	tal_steal(payment, payment->label);
 	payment->offer = offer_decode(payment, offer, strlen(offer),
 				      plugin_feature_set(cmd->plugin),
@@ -1458,6 +1528,54 @@ static struct command_result *json_amendrepeatpay(struct command *cmd,
 	return command_finished(cmd, response);
 }
 
+static struct command_result *json_cancelrepeatpay(struct command *cmd,
+						   const char *buffer,
+						   const jsmntok_t *params)
+{
+	struct repeatpay *rp = repeatpay_of(cmd->plugin);
+	struct json_escape *label;
+	struct json_stream *response;
+	struct payment *payment;
+	const char *reason;
+
+	if (!param_check(cmd, buffer, params,
+		   p_req("label", param_label, &label),
+		   p_opt("reason", param_string, &reason),
+		   NULL))
+		return command_param_failed();
+
+	payment = payment_hash_get(rp->payments, label);
+	if (!payment)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Unknown label '%s'", label->s);
+	if (payment_terminated(payment->status))
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Payment already finished (%s)",
+				    repeatpay_status_str(payment->status));
+	if (payment->cancel_reason)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Payment already being cancelled (currently %s)",
+				    repeatpay_status_str(payment->status));
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
+
+	if (reason)
+		payment->cancel_reason = tal_steal(payment, reason);
+	else
+		payment->cancel_reason = "";
+
+	/* Don't actually change status here, just add a log */
+	payment_set_status(cmd, payment, payment->status,
+			   "Cancel pending by command %s%s%s",
+			   cmd->idstr,
+			   streq(payment->cancel_reason, "") ? "": ": ",
+			   payment->cancel_reason);
+
+	response = jsonrpc_stream_success(cmd);
+	json_add_payment(response, payment);
+	return command_finished(cmd, response);
+}
+
 static const struct plugin_command commands[] = {
 	{
 		"repeatpay",
@@ -1470,6 +1588,10 @@ static const struct plugin_command commands[] = {
 	{
 		"amendrepeatpay",
 		json_amendrepeatpay,
+	},
+	{
+		"cancelrepeatpay",
+		json_cancelrepeatpay,
 	},
 };
 

@@ -150,6 +150,48 @@ def test_repeatpay_amend(node_factory):
         l1.rpc.amendrepeatpay(label='amend', maxamount='9000msat')
 
 
+def test_repeatpay_cancel(node_factory):
+    """cancelrepeatpay marks a payment cancel_pending then transitions to cancelled.
+
+    Also verifies the cancel_reason field appears in listrepeatpays and that
+    cancelling a finished/already-cancelling payment is rejected.
+    """
+    l1, l2 = node_factory.line_graph(2)
+
+    offer = l2.rpc.call('offer', {'amount': '1msat',
+                                  'description': 'cancel',
+                                  'recurrence': '10seconds'})['bolt12']
+
+    l1.rpc.repeatpay(bolt12=offer, maxamount='1000msat', label='cancel')
+
+    # Wait for period 2 to complete; cancel before the period-1 timer fires.
+    wait_for(lambda: only_one(l1.rpc.listrepeatpays(label='cancel')['repeatpays'])['payments_made'] == 2)
+
+    ret = l1.rpc.cancelrepeatpay(label='cancel', reason='test done')
+    assert ret['status'] == 'complete_cancel_pending'
+    assert ret['cancel_reason'] == 'test done'
+
+    # A second cancel is rejected while cancel is pending.
+    with pytest.raises(RpcError, match='already being cancelled'):
+        l1.rpc.cancelrepeatpay(label='cancel')
+
+    # The period-1 timer fires (≤10 s), cancel message is sent, status → cancelled.
+    wait_for(lambda: only_one(l1.rpc.listrepeatpays(label='cancel')['repeatpays'])['status']
+             == 'complete_cancelled', timeout=10 + TIMEOUT)
+
+    # No further payments after cancel.
+    final = only_one(l1.rpc.listrepeatpays(label='cancel')['repeatpays'])
+    assert final['payments_made'] == 2
+
+    # Cancelling a terminated payment is rejected.
+    with pytest.raises(RpcError, match='Payment already finished'):
+        l1.rpc.cancelrepeatpay(label='cancel')
+
+    # Unknown label.
+    with pytest.raises(RpcError, match='Unknown label'):
+        l1.rpc.cancelrepeatpay(label='no-such')
+
+
 def test_repeatpay_currency_budget(node_factory):
     """When l2's rate makes the invoice exceed l1's maxamount, payment fails.
 
