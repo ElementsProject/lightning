@@ -4867,8 +4867,8 @@ def test_fetchinvoice_autoconnect(node_factory, bitcoind):
     l3.rpc.disconnect(l2.info['id'])
     invreq = l2.rpc.call('invoicerequest', {'amount': '2msat',
                                             'description': 'simple test'})
-    # Ofc l2 can't actually pay it!
-    with pytest.raises(RpcError, match='pay attempt failed: "Failed: There is no connection between source and destination at all"'):
+    # Ofc l3 can't actually pay it!
+    with pytest.raises(RpcError, match=r'pay attempt failed: "Failed: We could not find a usable set of paths. We know from auto.localchans that source has maximum capacity 0msat \(in 1 channels\)."'):
         l3.rpc.call('sendinvoice', {'invreq': invreq['bolt12'], 'label': 'payme!'})
 
     assert l3.rpc.listpeers(l2.info['id'])['peers'] != []
