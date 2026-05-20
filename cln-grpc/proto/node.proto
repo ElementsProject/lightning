@@ -4138,6 +4138,7 @@ message AskreneinformchannelRequest {
 
 message AskreneinformchannelResponse {
 	repeated AskreneinformchannelConstraints constraints = 2;
+	repeated AskreneinformchannelImpressions impressions = 3;
 }
 
 message AskreneinformchannelConstraints {
@@ -4146,6 +4147,13 @@ message AskreneinformchannelConstraints {
 	uint64 timestamp = 3;
 	optional Amount maximum_msat = 4;
 	optional Amount minimum_msat = 5;
+}
+
+message AskreneinformchannelImpressions {
+	string short_channel_id_dir = 1;
+	string layer = 2;
+	uint64 timestamp = 3;
+	Amount amount_msat = 4;
 }
 
 message AskrenecreatechannelRequest {

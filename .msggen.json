@@ -819,6 +819,12 @@
             "AskRene-Inform-Channel.constraints[].short_channel_id_dir": 1,
             "AskRene-Inform-Channel.constraints[].timestamp": 3
         },
+        "Askrene-inform-channelImpressions": {
+            "AskRene-Inform-Channel.impressions[].amount_msat": 4,
+            "AskRene-Inform-Channel.impressions[].layer": 2,
+            "AskRene-Inform-Channel.impressions[].short_channel_id_dir": 1,
+            "AskRene-Inform-Channel.impressions[].timestamp": 3
+        },
         "Askrene-inform-channelRequest": {
             "AskRene-Inform-Channel.amount_msat": 7,
             "AskRene-Inform-Channel.direction": 3,
@@ -831,7 +837,8 @@
         },
         "Askrene-inform-channelResponse": {
             "AskRene-Inform-Channel.constraint": 1,
-            "AskRene-Inform-Channel.constraints[]": 2
+            "AskRene-Inform-Channel.constraints[]": 2,
+            "AskRene-Inform-Channel.impressions[]": 3
         },
         "Askrene-listlayersLayers": {
             "AskRene-ListLayers.layers[].biases[]": 8,
@@ -4879,6 +4886,26 @@
         },
         "AskRene-Inform-Channel.direction": {
             "added": "v24.11",
+            "deprecated": null
+        },
+        "AskRene-Inform-Channel.impressions[]": {
+            "added": "v26.09",
+            "deprecated": null
+        },
+        "AskRene-Inform-Channel.impressions[].amount_msat": {
+            "added": "v26.09",
+            "deprecated": null
+        },
+        "AskRene-Inform-Channel.impressions[].layer": {
+            "added": "v26.09",
+            "deprecated": null
+        },
+        "AskRene-Inform-Channel.impressions[].short_channel_id_dir": {
+            "added": "v26.09",
+            "deprecated": null
+        },
+        "AskRene-Inform-Channel.impressions[].timestamp": {
+            "added": "v26.09",
             "deprecated": null
         },
         "AskRene-Inform-Channel.inform": {

@@ -4441,11 +4441,25 @@ impl From<responses::AskreneinformchannelConstraints> for pb::Askreneinformchann
 }
 
 #[allow(unused_variables)]
+impl From<responses::AskreneinformchannelImpressions> for pb::AskreneinformchannelImpressions {
+    fn from(c: responses::AskreneinformchannelImpressions) -> Self {
+        Self {
+            amount_msat: Some(c.amount_msat.into()), // Rule #2 for type msat
+            layer: c.layer, // Rule #2 for type string
+            short_channel_id_dir: c.short_channel_id_dir.to_string(), // Rule #2 for type short_channel_id_dir
+            timestamp: c.timestamp, // Rule #2 for type u64
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::AskreneinformchannelResponse> for pb::AskreneinformchannelResponse {
     fn from(c: responses::AskreneinformchannelResponse) -> Self {
         Self {
             // Field: AskRene-Inform-Channel.constraints[]
             constraints: c.constraints.into_iter().map(|i| i.into()).collect(), // Rule #3 for type AskreneinformchannelConstraints
+            // Field: AskRene-Inform-Channel.impressions[]
+            impressions: c.impressions.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
         }
     }
 }

@@ -85,15 +85,15 @@ HTABLE_DEFINE_DUPS_TYPE(struct constraint, constraint_scidd, hash_scidd,
 			constraint_eq_scidd, constraint_hash);
 
 static struct short_channel_id
-impression_scid(const struct impression *uc)
+impression_scid(const struct impression *imp)
 {
-	return uc->scidd.scid;
+	return imp->scidd.scid;
 }
 
-static inline bool impression_eq_scid(const struct impression *uc,
+static inline bool impression_eq_scid(const struct impression *imp,
 					    struct short_channel_id scid)
 {
-	return short_channel_id_eq(scid, uc->scidd.scid);
+	return short_channel_id_eq(scid, imp->scidd.scid);
 }
 
 HTABLE_DEFINE_DUPS_TYPE(struct impression, impression_scid, hash_scid,
@@ -348,13 +348,13 @@ static const struct impression *add_impression(struct layer *layer,
 					       u64 timestamp,
 					       struct amount_msat amount)
 {
-	struct impression *uc = tal(layer, struct impression);
-	uc->scidd = *scidd;
-	uc->amount = amount;
-	uc->timestamp = timestamp;
+	struct impression *imp = tal(layer, struct impression);
+	imp->scidd = *scidd;
+	imp->amount = amount;
+	imp->timestamp = timestamp;
 
-	impression_hash_add(layer->impressions, uc);
-	return uc;
+	impression_hash_add(layer->impressions, imp);
+	return imp;
 }
 
 static const struct bias *set_bias(struct layer *layer,
@@ -606,7 +606,12 @@ static void load_channel_constraint(struct plugin *plugin,
 		add_constraint(layer, &scidd, timestamp, min, max);
 }
 
-static void save_channel_impression(struct layer *layer, const struct impression *uc)
+static void towire_save_channel_impression(u8 **data, const struct impression *imp)
+{
+	towire_dstore_channel_impression(data, &imp->scidd, imp->timestamp, imp->amount);
+}
+
+static void save_channel_impression(struct layer *layer, const struct impression *imp)
 {
 	u8 *data;
 
@@ -614,7 +619,7 @@ static void save_channel_impression(struct layer *layer, const struct impression
 		return;
 
 	data = tal_arr(tmpctx, u8, 0);
-	towire_dstore_channel_impression(&data, &uc->scidd, uc->timestamp, uc->amount);
+	towire_save_channel_impression(&data, imp);
 	append_layer_datastore(layer, data);
 }
 
@@ -770,6 +775,8 @@ static void save_complete_layer(struct layer *layer)
 	struct local_update_hash_iter luit;
 	struct constraint_hash_iter conit;
 	const struct constraint *c;
+	struct impression_hash_iter impit;
+	const struct impression *imp;
 	struct bias_hash_iter biasit;
 	const struct bias *b;
 	struct node_bias_hash_iter nbiasit;
@@ -801,6 +808,11 @@ static void save_complete_layer(struct layer *layer)
 		if (c->timestamp == UINT64_MAX)
 			continue;
 		towire_save_channel_constraint(&data, c);
+	}
+	for (imp = impression_hash_first(layer->impressions, &impit);
+	     imp;
+	     imp = impression_hash_next(layer->impressions, &impit)) {
+		towire_save_channel_impression(&data, imp);
 	}
 	for (b = bias_hash_first(layer->biases, &biasit);
 	     b;

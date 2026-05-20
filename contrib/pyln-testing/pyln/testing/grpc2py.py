@@ -3273,9 +3273,19 @@ def askrene_inform_channel_constraints2py(m):
     })
 
 
+def askrene_inform_channel_impressions2py(m):
+    return remove_default({
+        "amount_msat": amount2msat(m.amount_msat),  # PrimitiveField in generate_composite
+        "layer": m.layer,  # PrimitiveField in generate_composite
+        "short_channel_id_dir": m.short_channel_id_dir,  # PrimitiveField in generate_composite
+        "timestamp": m.timestamp,  # PrimitiveField in generate_composite
+    })
+
+
 def askrene_inform_channel2py(m):
     return remove_default({
         "constraints": [askrene_inform_channel_constraints2py(i) for i in m.constraints],  # ArrayField[composite] in generate_composite
+        "impressions": [askrene_inform_channel_impressions2py(i) for i in m.impressions],  # ArrayField[composite] in generate_composite
     })
 
 

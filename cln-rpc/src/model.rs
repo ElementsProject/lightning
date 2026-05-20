@@ -4686,7 +4686,7 @@ pub mod requests {
 	        "askrene-disable-node"
 	    }
 	}
-	/// ['Whether this payment passed (implying capacity of at least that amount), failed (implying maximum capacity of one msat less), or succeeded (implying capacity has been reduced in this direction)']
+	/// ['Whether this payment passed (implying capacity of at least that amount), failed (implying maximum capacity of one msat less), or succeeded (implying capacity has been reduced in this direction)', 'If `succeeded`, then an `impression` is created and returned, otherwise a `constraint` is created and returned.']
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	#[allow(non_camel_case_types)]
 	pub enum AskreneinformchannelInform {
@@ -12387,6 +12387,14 @@ pub mod responses {
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AskreneinformchannelImpressions {
+	    pub amount_msat: Amount,
+	    pub layer: String,
+	    pub short_channel_id_dir: ShortChannelIdDir,
+	    pub timestamp: u64,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct AskreneinformchannelConstraints {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub maximum_msat: Option<Amount>,
@@ -12399,6 +12407,8 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct AskreneinformchannelResponse {
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub impressions: Option<Vec<AskreneinformchannelImpressions>>,
 	    pub constraints: Vec<AskreneinformchannelConstraints>,
 	}
 
