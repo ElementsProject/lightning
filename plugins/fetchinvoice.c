@@ -1,4 +1,5 @@
 #include "config.h"
+#include <ccan/json_escape/json_escape.h>
 #include <ccan/json_out/json_out.h>
 #include <ccan/mem/mem.h>
 #include <ccan/str/hex/hex.h>
@@ -791,7 +792,7 @@ static bool payer_key(const struct offers_data *od,
 static u8 *recurrence_invreq_metadata(const tal_t *ctx,
 				      const struct tlv_invoice_request *invreq,
 				      const struct secret *nodealias_base,
-				      const char *rec_label)
+				      const struct json_escape *rec_label)
 {
 	struct sha256 offer_id, tweak;
 	u8 *tweak_input;
@@ -799,11 +800,11 @@ static u8 *recurrence_invreq_metadata(const tal_t *ctx,
 	/* Use "offer_id || label" as tweak input */
 	invreq_offer_id(invreq, &offer_id);
 	tweak_input = tal_arr(tmpctx, u8,
-			      sizeof(offer_id) + strlen(rec_label));
+			      sizeof(offer_id) + strlen(rec_label->s));
 	memcpy(tweak_input, &offer_id, sizeof(offer_id));
 	memcpy(tweak_input + sizeof(offer_id),
-	       rec_label,
-	       strlen(rec_label));
+	       rec_label->s,
+	       strlen(rec_label->s));
 
 	bolt12_alias_tweak(nodealias_base,
 			   tweak_input,
@@ -854,7 +855,8 @@ struct command_result *json_fetchinvoice(struct command *cmd,
 {
 	const struct offers_data *od = get_offers_data(cmd->plugin);
 	struct amount_msat *msat;
-	const char *rec_label, *payer_note;
+	const char *payer_note;
+	struct json_escape *rec_label;
 	u8 *payer_metadata;
 	struct out_req *req;
 	struct tlv_invoice_request *invreq;
@@ -870,7 +872,7 @@ struct command_result *json_fetchinvoice(struct command *cmd,
 			 p_opt("quantity", param_u64, &quantity),
 			 p_opt("recurrence_counter", param_number, &recurrence_counter),
 			 p_opt("recurrence_start", param_number, &recurrence_start),
-			 p_opt("recurrence_label", param_string, &rec_label),
+			 p_opt("recurrence_label", param_label, &rec_label),
 			 p_opt_def("timeout", param_number, &timeout, 60),
 			 p_opt("payer_note", param_string, &payer_note),
 			 p_opt("payer_metadata", param_bin_from_hex, &payer_metadata),
@@ -1096,7 +1098,7 @@ struct command_result *json_fetchinvoice(struct command *cmd,
 	json_add_string(req->js, "bolt12", invrequest_encode(tmpctx, invreq));
 	json_add_bool(req->js, "savetodb", false);
 	if (rec_label)
-		json_add_string(req->js, "label", rec_label);
+		json_add_escaped_string(req->js, "label", rec_label);
 	return send_outreq(req);
 }
 
@@ -1105,7 +1107,8 @@ struct command_result *json_cancelrecurringinvoice(struct command *cmd,
 						   const jsmntok_t *params)
 {
 	const struct offers_data *od = get_offers_data(cmd->plugin);
-	const char *rec_label, *payer_note;
+	const char *payer_note;
+	struct json_escape *rec_label;
 	struct out_req *req;
 	struct tlv_invoice_request *invreq;
 	struct sent *sent = tal(cmd, struct sent);
@@ -1115,7 +1118,7 @@ struct command_result *json_cancelrecurringinvoice(struct command *cmd,
 	if (!param_check(cmd, buffer, params,
 			 p_req("offer", param_offer, &sent->offer),
 			 p_req("recurrence_counter", param_number, &recurrence_counter),
-			 p_req("recurrence_label", param_string, &rec_label),
+			 p_req("recurrence_label", param_label, &rec_label),
 			 p_opt("recurrence_start", param_number, &recurrence_start),
 			 p_opt("payer_note", param_string, &payer_note),
 			 p_opt("bip353", param_bip353, &bip353),
@@ -1250,7 +1253,7 @@ struct command_result *json_cancelrecurringinvoice(struct command *cmd,
 	/* We don't want this is the database: that's only for ones we publish */
 	json_add_string(req->js, "bolt12", invrequest_encode(tmpctx, invreq));
 	json_add_bool(req->js, "savetodb", false);
-	json_add_string(req->js, "label", rec_label);
+	json_add_escaped_string(req->js, "label", rec_label);
 	return send_outreq(req);
 }
 
