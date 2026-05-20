@@ -6057,6 +6057,58 @@ char *wallet_offer_find(const tal_t *ctx,
 	return bolt12;
 }
 
+u64 wallet_offer_count_payments(struct wallet *w,
+				const struct sha256 *offer_id)
+{
+	struct db_stmt *stmt;
+	u64 count = 0;
+
+	stmt = db_prepare_v2(w->db, SQL("SELECT COUNT(*)"
+					"  FROM invoices"
+					"  WHERE local_offer_id = ?"
+	                "  AND state = ?;"));
+										    
+	db_bind_sha256(stmt, offer_id);
+	db_bind_int(stmt, invoice_status_in_db(PAID)); 
+	db_query_prepared(stmt);
+
+	if (db_step(stmt)) {
+		count = db_col_u64(stmt, "COUNT(*)");
+	}
+
+	tal_free(stmt);
+	return count;
+}
+
+struct offer_payment_count *wallet_offer_all_payment_counts(struct wallet *w,
+								const tal_t *ctx)
+{
+	struct db_stmt *stmt;
+	struct offer_payment_count *counts = tal_arr(ctx, struct offer_payment_count, 0);
+
+	stmt = db_prepare_v2(w->db, SQL("SELECT local_offer_id, COUNT(*)"
+					"  FROM invoices"
+					"  WHERE local_offer_id IS NOT NULL"
+					"    AND state = ?"
+					"  GROUP BY local_offer_id;"));
+
+	db_bind_int(stmt, invoice_status_in_db(PAID));
+	db_query_prepared(stmt);
+
+	while (db_step(stmt)) {
+		struct offer_payment_count c;
+		db_col_sha256(stmt, "local_offer_id", &c.offer_id);
+		c.count = db_col_u64(stmt, "COUNT(*)");
+		tal_arr_expand(&counts, c);
+	}
+
+	tal_free(stmt);
+
+	asort(counts, tal_count(counts), offer_payment_count_cmp, NULL);
+
+	return counts;
+}
+
 struct db_stmt *wallet_offer_id_first(struct wallet *w, struct sha256 *offer_id)
 {
 	struct db_stmt *stmt;

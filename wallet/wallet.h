@@ -1505,6 +1505,52 @@ char *wallet_offer_find(const tal_t *ctx,
 	NON_NULL_ARGS(1,2,3);
 
 /**
+ * Count the number of successful payments for a given offer.
+ * @w: the wallet
+ * @offer_id: the merkle root of the offer to check (must be unique)
+ *
+ * Scans the database invoices table to find all settled (paid) invoices
+ * that are associated with the specified @offer_id.
+ *
+ * Returns the total count of completed payments as a 64-bit unsigned integer.
+ */
+u64 wallet_offer_count_payments(struct wallet *w,
+				const struct sha256 *offer_id)
+	NON_NULL_ARGS(1,2);
+
+struct offer_payment_count {
+	struct sha256 offer_id;
+	u64 count;
+};
+
+/**
+ * Comparator for sorting and searching offer_payment_count structures by offer_id.
+ * @a: the first offer_payment_count struct to compare
+ * @b: the second offer_payment_count struct to compare
+ * @ctx: unused callback context pointer required by the CCAN asort API
+ */
+static inline int offer_payment_count_cmp(const struct offer_payment_count *a,
+			const struct offer_payment_count *b,
+			void *ctx UNNEEDED)
+{
+	return memcmp(&a->offer_id, &b->offer_id, sizeof(a->offer_id));
+}
+
+ /**
+ * Retrieve payment counters for all offers.
+ * @w: the wallet
+ * @ctx: the tal context to allocate the returned array on
+ *
+ * Executes a single SQL query with a GROUP BY clause to aggregate all
+ * settled (paid) invoices associated with local offers. 
+ *
+ * Returns a sorted tal-allocated array of offer_payment_count structures. The array
+ * may have a length of 0 if no payments exist, but it will never return NULL.
+ */
+struct offer_payment_count *wallet_offer_all_payment_counts(struct wallet *w, const tal_t *ctx)
+	NO_NULL_ARGS;
+
+/**
  * Iterate through all the offers.
  * @w: the wallet
  * @offer_id: the first offer id (if returns non-NULL)

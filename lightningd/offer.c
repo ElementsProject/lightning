@@ -4,6 +4,7 @@
 #include <common/bolt12_id.h>
 #include <common/bolt12_merkle.h>
 #include <common/json_command.h>
+#include <common/utils.h>
 #include <hsmd/hsmd_wiregen.h>
 #include <inttypes.h>
 #include <lightningd/hsm_control.h>
@@ -148,6 +149,23 @@ static const struct json_command createoffer_command = {
 };
 AUTODATA(json_command, &createoffer_command);
 
+/* Helper for fast in-memory lookup of an offer's successful payment count */
+static u64 offer_payment_count_find(const struct offer_payment_count *counts,
+					const struct sha256 *id)
+{
+	struct offer_payment_count key;
+	const struct offer_payment_count *match;
+
+	if (!counts || tal_count(counts) == 0)
+		return 0;
+
+	key.offer_id = *id;
+	match = bsearch(&key, counts, tal_count(counts), sizeof(*counts),
+			(int (*)(const void *, const void *))offer_payment_count_cmp);
+
+	return match ? match->count : 0;
+}
+
 static struct command_result *json_listoffers(struct command *cmd,
 					       const char *buffer,
 					       const jsmntok_t *obj UNNEEDED,
@@ -182,11 +200,14 @@ static struct command_result *json_listoffers(struct command *cmd,
 			description = offer_description_from_b12(tmpctx, cmd->ld, b12);
 			if (description)
 				json_add_stringn(response, "description", description, tal_bytelen(description));
+			u64 used_count = wallet_offer_count_payments(wallet, offer_id);
+			json_add_u64(response, "used_count", used_count);	
 			json_object_end(response);
 		}
 	} else {
 		struct db_stmt *stmt;
 		struct sha256 id;
+		struct offer_payment_count *counts = wallet_offer_all_payment_counts(wallet, tmpctx);
 
 		for (stmt = wallet_offer_id_first(cmd->ld->wallet, &id);
 		     stmt;
@@ -201,6 +222,8 @@ static struct command_result *json_listoffers(struct command *cmd,
 				description = offer_description_from_b12(tmpctx, cmd->ld, b12);
 				if (description)
 					json_add_stringn(response, "description", description, tal_bytelen(description));
+				u64 used_count = offer_payment_count_find(counts, &id);
+				json_add_u64(response, "used_count", used_count);	
 				json_object_end(response);
 			}
 		}

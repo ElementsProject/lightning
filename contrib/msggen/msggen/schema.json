@@ -24414,7 +24414,8 @@
                 "single_use",
                 "force_paths",
                 "bolt12",
-                "used"
+                "used",
+                "used_count"
               ],
               "properties": {
                 "offer_id": {
@@ -24461,6 +24462,12 @@
                     "True if an associated invoice has been paid."
                   ]
                 },
+                "used_count": {
+                  "type": "u64",
+                  "description": [
+                    "The number of times this offer has been paid."
+                  ]
+                },
                 "label": {
                   "type": "string",
                   "description": [
@@ -24498,24 +24505,27 @@
                 "active": true,
                 "single_use": false,
                 "bolt12": "lno1qgsq000bolt210002100021000210002100021000210002100021000210002100021000210002100021000210002100021000210002100021000210002100021000",
+                "used": false,
                 "description": "Fish sale!",
-                "used": false
+                "used_count": 0
               },
               {
                 "offer_id": "offeridl22000002200000220000022000002200000220000022000002200000",
                 "active": true,
                 "single_use": false,
                 "bolt12": "lno1qgsq000bolt220002200022000220002200022000220002200022000220002200022000220002200022000220002200022000220002200022000220002200022000",
+                "used": false,
                 "description": "Coffee",
-                "used": false
+                "used_count": 0
               },
               {
                 "offer_id": "offeridl23000002300000230000023000002300000230000023000002300000",
                 "active": true,
                 "single_use": false,
                 "bolt12": "lno1qgsq000bolt230002300023000230002300023000230002300023000230002300023000230002300023000230002300023000230002300023000230002300023000",
+                "used": false,
                 "description": "Movie ticket",
-                "used": false
+                "used_count": 0
               }
             ]
           }
@@ -24535,7 +24545,29 @@
                 "active": true,
                 "single_use": false,
                 "bolt12": "lno1qgsq000bolt230002300023000230002300023000230002300023000230002300023000230002300023000230002300023000230002300023000230002300023000",
-                "used": false
+                "used": false,
+                "used_count": 0
+              }
+            ]
+          }
+        },
+        {
+          "request": {
+            "id": "example:listoffers#3",
+            "method": "listoffers",
+            "params": [
+              "offeridl23000002300000230000023000002300000230000023000002300000"
+            ]
+          },
+          "response": {
+            "offers": [
+              {
+                "offer_id": "offeridl23000002300000230000023000002300000230000023000002300000",
+                "active": true,
+                "single_use": false,
+                "bolt12": "lno1qgsq000bolt230002300023000230002300023000230002300023000230002300023000230002300023000230002300023000230002300023000230002300023000",
+                "used": true,
+                "used_count": 1
               }
             ]
           }

@@ -7329,3 +7329,90 @@ def test_createproof_include(node_factory, bitcoind):
     # Unknown name is an error.
     with pytest.raises(RpcError, match=r'Unknown field name'):
         l1.rpc.call('createproof', {'invstring': inv, 'include': ['no_such_field']})
+
+def test_offer_used_count(node_factory, bitcoind):
+    """Verify that the used_count counter increments correctly for BOLT12 offers"""
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True,
+                                         opts=[{},
+                                               {'dev-allow-localhost': None},
+                                               {'dev-allow-localhost': None}])
+
+    # Create a BOLT12 offer on the recipient node (l3)
+    offer = l3.rpc.offer('5000msat', 'used_count test')
+    offer_id = offer['offer_id']
+
+    # Verify that the initial usage counter on l3 is equal to 0
+    offers = l3.rpc.listoffers(offer_id=offer_id)['offers']
+    assert len(offers) == 1
+    assert offers[0]['used_count'] == 0
+
+    # The sender node (l1) requests an invoice based on l3's offer
+    inv = l1.rpc.fetchinvoice(offer['bolt12'])['invoice']
+
+    # Pay the invoice from l1 using xpay
+    l1.rpc.xpay(inv)
+
+    # Verify that l3's database counter increments to 1 after successful settlement
+    offers = l3.rpc.listoffers(offer_id=offer_id)['offers']
+    assert offers[0]['used_count'] == 1
+
+    # Perform a second payment to ensure the aggregate COUNT(*) functions properly
+    inv2 = l1.rpc.fetchinvoice(offer['bolt12'])['invoice']
+    l1.rpc.xpay(inv2)
+
+    # Verify that the counter scales up to 2
+    offers = l3.rpc.listoffers(offer_id=offer_id)['offers']
+    assert offers[0]['used_count'] == 2
+
+def test_offer_bulk_used_count(node_factory, bitcoind):
+    """Verify that multiple offer payment counters are aggregated correctly in a single bulk query"""
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True,
+                                         opts=[{},
+                                               {'dev-allow-localhost': None},
+                                               {'dev-allow-localhost': None}])
+
+    # create 3 separate offers on the recipient node (l3)
+    offer_a = l3.rpc.offer('1000msat', 'bulk test offer A')
+    offer_b = l3.rpc.offer('2000msat', 'bulk test offer B')
+    offer_c = l3.rpc.offer('3000msat', 'bulk test offer C')
+
+    id_a = offer_a['offer_id']
+    id_b = offer_b['offer_id']
+    id_c = offer_c['offer_id']
+
+    offers = l3.rpc.listoffers()['offers']
+    assert len(offers) == 3
+
+    offers_map = {o['offer_id']: o for o in offers}
+    assert offers_map[id_a]['used_count'] == 0
+    assert offers_map[id_b]['used_count'] == 0
+    assert offers_map[id_c]['used_count'] == 0
+
+    # simulate uneven payments across offers to test the database aggregation:
+    # Offer A will be paid 2 times
+    # Offer B will be paid 1 time
+    # Offer C will remain unpaid (0 times)
+
+    # offer A - 1st payment
+    inv_a1 = l1.rpc.fetchinvoice(offer_a['bolt12'])['invoice']
+    l1.rpc.xpay(inv_a1)
+
+    # offer A - 2nd payment
+    inv_a2 = l1.rpc.fetchinvoice(offer_a['bolt12'])['invoice']
+    l1.rpc.xpay(inv_a2)
+
+    # offer B - single payment
+    inv_b1 = l1.rpc.fetchinvoice(offer_b['bolt12'])['invoice']
+    l1.rpc.xpay(inv_b1)
+
+    # and no money to C
+
+    # trigger the bulk query branch (listoffers without offer_id parameter)
+    offers = l3.rpc.listoffers()['offers']
+    assert len(offers) == 3
+
+    # check individual counters
+    offers_map = {o['offer_id']: o for o in offers}
+    assert offers_map[id_a]['used_count'] == 2
+    assert offers_map[id_b]['used_count'] == 1
+    assert offers_map[id_c]['used_count'] == 0

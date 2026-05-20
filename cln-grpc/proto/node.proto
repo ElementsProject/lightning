@@ -2393,6 +2393,7 @@ message ListoffersOffers {
 	optional string label = 6;
 	optional string description = 7;
 	optional bool force_paths = 8;
+	uint64 used_count = 9;
 }
 
 message ListpaysRequest {

@@ -2304,6 +2304,7 @@ impl From<responses::ListoffersOffers> for pb::ListoffersOffers {
             offer_id: <Sha256 as AsRef<[u8]>>::as_ref(&c.offer_id).to_vec(), // Rule #2 for type hash
             single_use: c.single_use, // Rule #2 for type boolean
             used: c.used, // Rule #2 for type boolean
+            used_count: c.used_count, // Rule #2 for type u64
         }
     }
 }

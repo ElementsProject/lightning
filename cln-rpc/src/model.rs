@@ -9477,6 +9477,7 @@ pub mod responses {
 	    pub offer_id: Sha256,
 	    pub single_use: bool,
 	    pub used: bool,
+	    pub used_count: u64,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]

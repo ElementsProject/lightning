@@ -1698,6 +1698,7 @@ def listoffers_offers2py(m):
         "offer_id": hexlify(m.offer_id),  # PrimitiveField in generate_composite
         "single_use": m.single_use,  # PrimitiveField in generate_composite
         "used": m.used,  # PrimitiveField in generate_composite
+        "used_count": m.used_count,  # PrimitiveField in generate_composite
     })
 
 
