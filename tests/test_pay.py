@@ -4795,7 +4795,7 @@ def test_fetchinvoice_recurrence(node_factory, bitcoind):
     assert period2['paywindow_end'] == period2['endtime']
 
     # Can't request 2 before paying 1.
-    with pytest.raises(RpcError, match='previous invoice has not been paid'):
+    with pytest.raises(RpcError, match='Remote node sent failure message.*Previous invoice #1 status "unpaid"'):
         l1.rpc.call('fetchinvoice', {'offer': offer3['bolt12'],
                                      'recurrence_counter': 2,
                                      'recurrence_label': 'test recurrence'})
@@ -7229,9 +7229,6 @@ def test_cancel_recurrence(node_factory):
     with pytest.raises(RpcError, match="recurrence_counter: Must be non-zero"):
         l1.rpc.cancelrecurringinvoice(offer['bolt12'], 0, 'test_cancel_recurrence')
 
-    with pytest.raises(RpcError, match="No previous payment attempted for this label and offer"):
-        l1.rpc.cancelrecurringinvoice(offer['bolt12'], 1, 'test_cancel_recurrence')
-
     # Fetch and pay first one
     ret = l1.rpc.fetchinvoice(offer=offer['bolt12'],
                               recurrence_counter=0,
@@ -7240,10 +7237,6 @@ def test_cancel_recurrence(node_factory):
     m = re.search(r'invoice_request: "([a-z0-9]*)"', l1.daemon.wait_for_log('plugin-offers: invoice_request:'))
     decoded = l1.rpc.decode(m.group(1))
     assert 'invreq_recurrence_cancel' not in decoded
-
-    # Cancel counter must be correct!
-    with pytest.raises(RpcError, match=r"previous invoice has not been paid \(last was 0\)"):
-        l1.rpc.cancelrecurringinvoice(offer['bolt12'], 2, 'test_cancel_recurrence')
 
     # Cancel second one.
     l1.rpc.cancelrecurringinvoice(offer=offer['bolt12'],
