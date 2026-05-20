@@ -2700,7 +2700,6 @@ def test_impossible_payment(node_factory):
         )
 
 
-@pytest.mark.xfail(strict=True)
 def test_explain_source_dest_failures(node_factory, bitcoind):
     """askrene should give intelligent failure reasons when source or destination don't have
     capacity"""
