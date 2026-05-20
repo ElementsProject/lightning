@@ -606,9 +606,12 @@ static int cmp_rr_number(const struct routehint_candidate *a,
 	if (a->c->rr_number < b->c->rr_number)
 		return -1;
 
-	/* They're unique, so can't be equal */
-	log_broken(ld->log, "Two equal candidates %p and %p, channels %p and %p, rr_number %"PRIu64" and %"PRIu64,
-		   a, b, a->c, b->c, a->c->rr_number, b->c->rr_number);
+	/* rr_numbers are unique per channel; equal means same channel.
+	 * Some qsort implementations (notably macOS) compare an element
+	 * with itself, so a->c == b->c is expected and not a bug. */
+	if (a->c != b->c)
+		log_broken(ld->log, "Two equal candidates %p and %p, channels %p and %p, rr_number %"PRIu64" and %"PRIu64,
+			   a, b, a->c, b->c, a->c->rr_number, b->c->rr_number);
 	return 0;
 }
 
