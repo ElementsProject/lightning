@@ -4740,7 +4740,7 @@ pub mod requests {
 	        "askrene-disable-node"
 	    }
 	}
-	/// ['Whether this payment passed (implying capacity of at least that amount), failed (implying maximum capacity of one msat less), or succeeded (implying capacity has been reduced in this direction)']
+	/// ['Whether this payment passed (implying capacity of at least that amount), failed (implying maximum capacity of one msat less), or succeeded (implying capacity has been reduced in this direction)', 'If `succeeded`, then an `impression` is created and returned, otherwise a `constraint` is created and returned.']
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	#[allow(non_camel_case_types)]
 	pub enum AskreneinformchannelInform {
@@ -12510,6 +12510,13 @@ pub mod responses {
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AskrenelistlayersLayersImpressions {
+	    pub amount_msat: Amount,
+	    pub short_channel_id_dir: ShortChannelIdDir,
+	    pub timestamp: u64,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct AskrenelistlayersLayersNodeBiases {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub description: Option<String>,
@@ -12562,6 +12569,8 @@ pub mod responses {
 	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
 	    pub disabled_channels: Option<Vec<ShortChannelIdDir>>,
 	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub impressions: Option<Vec<AskrenelistlayersLayersImpressions>>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
 	    pub node_biases: Option<Vec<AskrenelistlayersLayersNodeBiases>>,
 	    pub channel_updates: Vec<AskrenelistlayersLayersChannelUpdates>,
 	    pub constraints: Vec<AskrenelistlayersLayersConstraints>,
@@ -12595,6 +12604,13 @@ pub mod responses {
 	    pub timestamp: Option<u64>,
 	    pub bias: i64,
 	    pub short_channel_id_dir: ShortChannelIdDir,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AskrenecreatelayerLayersImpressions {
+	    pub amount_msat: Amount,
+	    pub short_channel_id_dir: ShortChannelIdDir,
+	    pub timestamp: u64,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -12645,6 +12661,8 @@ pub mod responses {
 	    pub biases: Option<Vec<AskrenecreatelayerLayersBiases>>,
 	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
 	    pub disabled_channels: Option<Vec<ShortChannelIdDir>>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub impressions: Option<Vec<AskrenecreatelayerLayersImpressions>>,
 	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
 	    pub node_biases: Option<Vec<AskrenecreatelayerLayersNodeBiases>>,
 	    pub channel_updates: Vec<AskrenecreatelayerLayersChannelUpdates>,
@@ -12800,6 +12818,14 @@ pub mod responses {
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AskreneinformchannelImpressions {
+	    pub amount_msat: Amount,
+	    pub layer: String,
+	    pub short_channel_id_dir: ShortChannelIdDir,
+	    pub timestamp: u64,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct AskreneinformchannelConstraints {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub maximum_msat: Option<Amount>,
@@ -12812,6 +12838,8 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct AskreneinformchannelResponse {
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub impressions: Option<Vec<AskreneinformchannelImpressions>>,
 	    pub constraints: Vec<AskreneinformchannelConstraints>,
 	}
 

@@ -216,6 +216,35 @@ void towire_dstore_channel_constraint(u8 **data,
 	towire_opt_amount_msat(data, max);
 }
 
+bool fromwire_dstore_channel_impression(const tal_t *ctx,
+					const u8 **cursor, size_t *len,
+					struct short_channel_id_dir *scidd,
+					u64 *timestamp,
+					struct amount_msat *amount)
+{
+	if (fromwire_u16(cursor, len) != DSTORE_CHANNEL_IMPRESSION) {
+		fromwire_fail(cursor, len);
+		return false;
+	}
+
+	fromwire_short_channel_id_dir(cursor, len, scidd);
+	*timestamp = fromwire_u64(cursor, len);
+	*amount = fromwire_amount_msat(cursor, len);
+
+	return *cursor != NULL;
+}
+
+void towire_dstore_channel_impression(u8 **data,
+				      const struct short_channel_id_dir *scidd,
+				      u64 timestamp,
+				      struct amount_msat amount)
+{
+	towire_u16(data, DSTORE_CHANNEL_IMPRESSION);
+	towire_short_channel_id_dir(data, scidd);
+	towire_u64(data, timestamp);
+	towire_amount_msat(data, amount);
+}
+
 bool fromwire_dstore_channel_bias(const tal_t *ctx,
 				  const u8 **cursor, size_t *len,
 				  struct short_channel_id_dir *scidd,
