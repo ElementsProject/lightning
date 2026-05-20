@@ -1313,6 +1313,25 @@ static struct command_result *injectpaymentonion_succeeded(struct command *aux_c
 		plugin_err(aux_cmd->plugin, "Invalid injectpaymentonion result '%.*s'",
 			   json_tok_full_len(result), json_tok_full(buf, result));
 
+	/* We don't tell it about payment success for the local channel, since
+	 * auto.localchans is exact: adding an offset would make it worse! */
+	for (size_t i = 1; i < tal_count(attempt->hops); i++) {
+		struct out_req *req;
+		req = payment_ignored_req(aux_cmd, attempt, "askrene-inform-channel");
+		/* Put what we learned in xpay, unless it's a fake channel */
+		json_add_string(req->js, "layer",
+				attempt->hops[i].fake_channel
+				? attempt->payment->private_layer
+				: "xpay");
+		json_add_short_channel_id_dir(req->js,
+					      "short_channel_id_dir",
+					      attempt->hops[i].scidd);
+		json_add_amount_msat(req->js, "amount_msat",
+				     attempt->hops[i].amount_out);
+		json_add_string(req->js, "inform", "succeeded");
+		send_payment_req(aux_cmd, attempt->payment, req);
+	}
+
 	outgoing_notify_success(attempt);
 
 	/* Move from current_attempts to past_attempts */
