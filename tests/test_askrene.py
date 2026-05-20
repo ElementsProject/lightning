@@ -144,6 +144,7 @@ def test_layers(node_factory):
               'created_channels': [],
               'channel_updates': [],
               'constraints': [],
+              'impressions': [],
               'biases': [],
               'node_biases': []}
     l2.rpc.askrene_create_layer('test_layers')
@@ -272,6 +273,29 @@ def test_layers(node_factory):
     listlayers = l2.rpc.askrene_listlayers('test_layers')
     assert listlayers == {'layers': [expect]}
 
+    # Test succeeded inform creates an impression (not a constraint).
+    first_timestamp = int(time.time())
+    r = l2.rpc.askrene_inform_channel('test_layers', scid12dir, 50000, 'succeeded')
+    last_timestamp = int(time.time()) + 1
+    assert r['constraints'] == []
+    assert len(r['impressions']) == 1
+    assert r['impressions'][0]['amount_msat'] == 50000
+
+    listlayers = l2.rpc.askrene_listlayers('test_layers')
+    ts_imp = only_one(only_one(listlayers['layers'])['impressions'])['timestamp']
+    assert first_timestamp <= ts_imp <= last_timestamp
+    expect['impressions'] = [{'short_channel_id_dir': scid12dir,
+                              'timestamp': ts_imp,
+                              'amount_msat': 50000}]
+    assert listlayers == {'layers': [expect]}
+
+    # Impression aging: ts_imp does nothing.
+    assert l2.rpc.askrene_age('test_layers', ts_imp) == {'layer': 'test_layers', 'num_removed': 0}
+    # ts_imp+1 removes it.
+    assert l2.rpc.askrene_age('test_layers', ts_imp + 1) == {'layer': 'test_layers', 'num_removed': 1}
+    expect['impressions'] = []
+    assert l2.rpc.askrene_listlayers('test_layers') == {'layers': [expect]}
+
     with pytest.raises(RpcError, match="Unknown layer"):
         l2.rpc.askrene_remove_layer('test_layers_unknown')
 
@@ -347,6 +371,7 @@ def test_node_bias_rpc(node_factory):
         "created_channels": [],
         "channel_updates": [],
         "constraints": [],
+        "impressions": [],
         "biases": [],
         "node_biases": [],
     }
@@ -455,6 +480,7 @@ def test_node_bias_persistence(node_factory):
         "created_channels": [],
         "channel_updates": [],
         "constraints": [],
+        "impressions": [],
         "biases": [],
         "node_biases": [],
     }
@@ -579,6 +605,7 @@ def test_layer_persistence(node_factory):
               'created_channels': [],
               'channel_updates': [],
               'constraints': [],
+              'impressions': [],
               'biases': [],
               'node_biases': []}
     assert l1.rpc.askrene_listlayers('test_layer_persistence') == {'layers': [expect]}
@@ -620,6 +647,10 @@ def test_layer_persistence(node_factory):
                                   short_channel_id_dir=scid12dir,
                                   amount_msat=12341235,
                                   inform='constrained')
+    l1.rpc.askrene_inform_channel(layer='test_layer_persistence',
+                                  short_channel_id_dir=scid12dir,
+                                  amount_msat=50000,
+                                  inform='succeeded')
 
     expect = l1.rpc.askrene_listlayers('test_layer_persistence')
 

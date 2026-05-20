@@ -33,19 +33,17 @@ void get_constraints(const struct route_query *rq,
 		return;
 	}
 
+	/* Might be here because it's reserved, but capacity is normal. */
+	*max = gossmap_chan_get_capacity(rq->gossmap, chan);
+
 	/* Naive implementation! */
 	scidd.scid = gossmap_chan_scid(rq->gossmap, chan);
 	scidd.dir = dir;
-	*max = AMOUNT_MSAT(-1ULL);
 
 	/* Look through layers for any constraints (might be dummy
 	 * ones, for created channels!) */
 	for (size_t i = 0; i < tal_count(rq->layers); i++)
 		layer_apply_constraints(rq->layers[i], &scidd, min, max);
-
-	/* Might be here because it's reserved, but capacity is normal. */
-	if (amount_msat_eq(*max, AMOUNT_MSAT(-1ULL)))
-		*max = gossmap_chan_get_capacity(rq->gossmap, chan);
 
 	/* Finally, if any is in use, subtract that! */
 	reserve_sub(rq->reserved, &scidd, rq->layers, min);

@@ -755,7 +755,8 @@
                 "disabled_nodes",
                 "created_channels",
                 "channel_updates",
-                "constraints"
+                "constraints",
+                "impressions"
               ],
               "properties": {
                 "layer": {
@@ -906,6 +907,39 @@
                     }
                   }
                 },
+                "impressions": {
+                  "added": "v26.09",
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "short_channel_id_dir",
+                      "timestamp",
+                      "amount_msat"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                      "short_channel_id_dir": {
+                        "type": "short_channel_id_dir",
+                        "description": [
+                          "The short channel id and direction."
+                        ]
+                      },
+                      "timestamp": {
+                        "type": "u64",
+                        "description": [
+                          "The UNIX timestamp when this constraint was created."
+                        ]
+                      },
+                      "amount_msat": {
+                        "type": "msat",
+                        "description": [
+                          "The amount we successfully sent through this channel (implying its capacity is that much less, and the reverse direction that much more)"
+                        ]
+                      }
+                    }
+                  }
+                },
                 "biases": {
                   "type": "array",
                   "items": {
@@ -1033,6 +1067,7 @@
                 "created_channels": [],
                 "channel_updates": [],
                 "constraints": [],
+                "impressions": [],
                 "biases": [],
                 "node_biases": []
               }
@@ -1147,14 +1182,16 @@
               "succeeded"
             ],
             "description": [
-              "Whether this payment passed (implying capacity of at least that amount), failed (implying maximum capacity of one msat less), or succeeded (implying capacity has been reduced in this direction)"
+              "Whether this payment passed (implying capacity of at least that amount), failed (implying maximum capacity of one msat less), or succeeded (implying capacity has been reduced in this direction)",
+              "If `succeeded`, then an `impression` is created and returned, otherwise a `constraint` is created and returned."
             ]
           }
         }
       },
       "response": {
         "required": [
-          "constraints"
+          "constraints",
+          "impressions"
         ],
         "additionalProperties": false,
         "properties": {
@@ -1201,6 +1238,46 @@
                 }
               }
             }
+          },
+          "impressions": {
+            "added": "v26.09",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "layer",
+                "short_channel_id_dir",
+                "timestamp",
+                "amount_msat"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "short_channel_id_dir": {
+                  "type": "short_channel_id_dir",
+                  "description": [
+                    "The short channel id and direction."
+                  ]
+                },
+                "layer": {
+                  "type": "string",
+                  "description": [
+                    "The name of the layer to apply this change to."
+                  ]
+                },
+                "timestamp": {
+                  "type": "u64",
+                  "description": [
+                    "The UNIX timestamp when this constraint was created."
+                  ]
+                },
+                "amount_msat": {
+                  "type": "msat",
+                  "description": [
+                    "The amount we successfully sent through this channel (implying its capacity is that much less, and the reverse direction that much more)"
+                  ]
+                }
+              }
+            }
           }
         }
       },
@@ -1237,7 +1314,8 @@
                 "timestamp": 1738000000,
                 "minimum_msat": 100000
               }
-            ]
+            ],
+            "impressions": []
           }
         }
       ]
@@ -1280,6 +1358,7 @@
                 "disabled_nodes",
                 "created_channels",
                 "channel_updates",
+                "impressions",
                 "constraints"
               ],
               "properties": {
@@ -1442,6 +1521,39 @@
                     }
                   }
                 },
+                "impressions": {
+                  "added": "v26.09",
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "short_channel_id_dir",
+                      "timestamp",
+                      "amount_msat"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                      "short_channel_id_dir": {
+                        "type": "short_channel_id_dir",
+                        "description": [
+                          "The short channel id and direction."
+                        ]
+                      },
+                      "timestamp": {
+                        "type": "u64",
+                        "description": [
+                          "The UNIX timestamp when this constraint was created."
+                        ]
+                      },
+                      "amount_msat": {
+                        "type": "msat",
+                        "description": [
+                          "The amount we successfully sent through this channel (implying its capacity is that much less, and the reverse direction that much more)"
+                        ]
+                      }
+                    }
+                  }
+                },
                 "biases": {
                   "type": "array",
                   "items": {
@@ -1594,6 +1706,7 @@
                     "minimum_msat": 100000
                   }
                 ],
+                "impressions": [],
                 "biases": [
                   {
                     "short_channel_id_dir": "116x1x1/1",
@@ -1646,6 +1759,7 @@
                     "minimum_msat": 100000
                   }
                 ],
+                "impressions": [],
                 "biases": [
                   {
                     "short_channel_id_dir": "116x1x1/1",
@@ -1663,6 +1777,7 @@
                 "created_channels": [],
                 "channel_updates": [],
                 "constraints": [],
+                "impressions": [],
                 "biases": [],
                 "node_biases": []
               }
