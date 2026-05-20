@@ -1225,6 +1225,8 @@ static struct command_result *injectpaymentonion_failed(struct command *aux_cmd,
 {
 	struct payment *payment = attempt->payment;
 	struct amount_msat amount = attempt->amount;
+	trace_span_resume(attempt);
+	trace_span_end(attempt);
 
 	payment->num_failures++;
 
@@ -1308,6 +1310,8 @@ static struct command_result *injectpaymentonion_succeeded(struct command *aux_c
 {
 	struct preimage preimage;
 	struct payment *payment = attempt->payment;
+	trace_span_resume(attempt);
+	trace_span_end(attempt);
 
 	if (!json_to_preimage(buf,
 			      json_get_member(buf, result, "payment_preimage"),
@@ -1473,6 +1477,12 @@ static struct command_result *do_inject(struct command *aux_cmd,
 
 	outgoing_notify_start(attempt);
 	attempt->start_time = time_mono();
+	trace_span_resume(attempt->payment); // payment is the parent span
+	trace_span_start("xpay/injectpaymentonion", attempt);
+	trace_span_tag(attempt, "partid",
+		       tal_fmt(attempt, "%d", (int)(attempt->partid)));
+	trace_span_suspend(attempt);
+	trace_span_suspend(attempt->payment);
 
 	req = jsonrpc_request_start(aux_cmd,
 				    "injectpaymentonion",
