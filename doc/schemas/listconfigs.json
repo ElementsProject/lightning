@@ -2539,6 +2539,12 @@
             "source": "default",
             "plugin": "/usr/local/libexec/plugins/funder"
           },
+          "dev-currency-expiry": {
+            "value_int": 600,
+            "source": "default",
+            "plugin": "/usr/local/libexec/plugins/offers",
+            "dynamic": true
+          },
           "dev-invoice-bpath-scid": {
             "set": false,
             "source": "default",

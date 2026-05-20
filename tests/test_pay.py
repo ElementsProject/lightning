@@ -4846,6 +4846,53 @@ def test_recurrence_expired_offer(node_factory, bitcoind):
     l1.rpc.pay(ret['invoice'], label='test_recurrence_expired_offer')
 
 
+def test_recurring_currency_invoice_refresh(node_factory):
+    """After currency-expiry seconds, a new invoice request gets a
+    fresh invoice at the current rate; a request within that window
+    returns the cached invoice.
+
+    """
+    plugin = os.path.join(os.path.dirname(__file__), 'plugins/currencyUSDAUD5000.py')
+    # l2 hosts the offer with a 10-second currency expiry (normally 600s)
+    l1, l2 = node_factory.line_graph(2,
+                                     opts={'disable-plugin': 'cln-currencyrate',
+                                           'plugin': plugin,
+                                           'dev-currency-expiry': 10})
+
+    # Period is much longer than the currency expiry so we stay in period 0.
+    offer = l2.rpc.call('offer', {'amount': '1USD',
+                                  'description': 'refresh',
+                                  'recurrence': '1000seconds'})['bolt12']
+
+    # First fetch: server creates a fresh invoice (1 USD = 5000 msat).
+    inv1 = l1.rpc.call('fetchinvoice', {'offer': offer,
+                                        'recurrence_counter': 0,
+                                        'recurrence_label': 'refresh'})['invoice']
+
+    # Second fetch within the 10-second window: server returns the same invoice.
+    inv2 = l1.rpc.call('fetchinvoice', {'offer': offer,
+                                        'recurrence_counter': 0,
+                                        'recurrence_label': 'refresh'})['invoice']
+    assert inv1 == inv2, "Expected identical invoice within currency-expiry window"
+
+    # Change the rate on l2 before the window expires (1 USD = 2500 msat now).
+    l2.rpc.call('setcurrencyrate', {'msat_per_unit': 2500})
+
+    # Wait for the 10-second currency expiry to lapse.
+    time.sleep(11)
+
+    # Third fetch after expiry: server issues a fresh invoice at the new rate.
+    inv3 = l1.rpc.call('fetchinvoice', {'offer': offer,
+                                        'recurrence_counter': 0,
+                                        'recurrence_label': 'refresh'})['invoice']
+    assert inv3 != inv1, "Expected a fresh invoice after currency-expiry elapsed"
+
+    dec1 = l1.rpc.decode(inv1)
+    dec3 = l1.rpc.decode(inv3)
+    assert dec1['invoice_amount_msat'] == 5000
+    assert dec3['invoice_amount_msat'] == 2500
+
+
 def test_fetchinvoice_autoconnect(node_factory, bitcoind):
     """We should autoconnect if we need to, to route."""
 
@@ -7181,7 +7228,7 @@ def test_cancel_recurrence(node_factory):
     assert decoded['invreq_recurrence_cancel'] is True
 
     # Now we cannot fetch second one!
-    with pytest.raises(RpcError, match=r"invoice expired \(cancelled\?\)"):
+    with pytest.raises(RpcError, match=r"invoice cancelled"):
         l1.rpc.fetchinvoice(offer=offer['bolt12'],
                             recurrence_counter=1,
                             recurrence_label='test_cancel_recurrence')
