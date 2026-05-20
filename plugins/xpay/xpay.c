@@ -1606,16 +1606,24 @@ static void add_cltv_shadow(struct payment *payment,
 	}
 }
 
+/* Just a wrapper around payment so that we can trace the execution time of a
+ * getroutes request. */
+struct getroutes_request {
+	struct payment *payment;
+};
+
 static struct command_result *getroutes_done(struct command *aux_cmd,
 					     const char *method,
 					     const char *buf,
 					     const jsmntok_t *result,
-					     struct payment *payment)
+					     struct getroutes_request *getroutes_request)
 {
 	const jsmntok_t *t, *routes;
 	size_t i;
 	struct amount_msat needs_routing, was_routing;
+	struct payment *payment = getroutes_request->payment;
 	struct gossmap *gossmap = get_gossmap(xpay_of(payment->plugin));
+	tal_free(getroutes_request);
 
 	payment_log(payment, LOG_DBG, "getroutes_done: %s",
 		    payment->cmd ? "continuing" : "ignoring");
@@ -1726,8 +1734,10 @@ static struct command_result *getroutes_done_err(struct command *aux_cmd,
 						 const char *method,
 						 const char *buf,
 						 const jsmntok_t *error,
-						 struct payment *payment)
+						 struct getroutes_request *getroutes_request)
 {
+	struct payment *payment = getroutes_request->payment;
+	tal_free(getroutes_request);
 	int code;
 	const char *msg, *complaint;
 
@@ -1856,10 +1866,17 @@ static struct command_result *getroutes_for(struct command *aux_cmd,
 		maxfee = AMOUNT_MSAT(0);
 	}
 
+	struct getroutes_request *getroutes_request =
+	    tal(payment, struct getroutes_request);
+	getroutes_request->payment = payment;
+	trace_span_resume(payment); // payment is the parent span
+	trace_span_start("xpay/getroutes", getroutes_request);
+	trace_span_suspend_may_free(getroutes_request);
+	trace_span_suspend(payment);
 	req = jsonrpc_request_start(aux_cmd, "getroutes",
 				    getroutes_done,
 				    getroutes_done_err,
-				    payment);
+				    getroutes_request);
 
 	json_add_pubkey(req->js, "source", &xpay->local_id);
 	json_add_pubkey(req->js, "destination", dst);
