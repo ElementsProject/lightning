@@ -402,23 +402,13 @@
             "type": {},
             "valid": {},
             "offer_id": {},
-            "node_id": {},
             "signature": {},
-            "chains": {},
             "currency": {},
-            "minor_unit": {},
             "warning_unknown_offer_currency": {},
-            "amount": {},
             "amount_msat": {},
-            "send_invoice": {},
             "description": {},
-            "vendor": {},
             "features": {},
-            "absolute_expiry": {},
-            "paths": {},
-            "quantity_max": {},
             "unknown_offer_tlvs": {},
-            "recurrence": {},
             "warning_missing_offer_issuer_id": {
               "type": "string",
               "added": "v24.08",
@@ -982,7 +972,6 @@
             "offer_absolute_expiry": {},
             "offer_quantity_max": {},
             "offer_paths": {},
-            "offer_node_id": {},
             "offer_issuer_id": {},
             "offer_recurrence": {},
             "invreq_metadata": {},
@@ -1819,7 +1808,6 @@
             "invreq_payer_note": {},
             "invreq_paths": {},
             "invreq_bip_353_name": {},
-            "invreq_node_id": {},
             "invreq_recurrence_counter": {},
             "invreq_recurrence_start": {},
             "warning_invalid_offer_description": {
@@ -1911,28 +1899,6 @@
               "description": [
                 "Incorrect `signature`."
               ]
-            },
-            "fallbacks": {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "required": [
-                  "version",
-                  "hex"
-                ],
-                "additionalProperties": false,
-                "properties": {
-                  "version": {},
-                  "hex": {},
-                  "address": {},
-                  "warning_invoice_fallbacks_version_invalid": {
-                    "type": "string",
-                    "description": [
-                      "`version` is > 16."
-                    ]
-                  }
-                }
-              }
             }
           }
         }

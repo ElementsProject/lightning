@@ -1776,7 +1776,6 @@ message DecodeFallbacks {
 		P2WSH = 3;
 		P2TR = 4;
 	}
-	optional string warning_invoice_fallbacks_version_invalid = 1;
 	DecodeFallbacksType item_type = 2;
 	optional string addr = 3;
 	bytes hex = 4;
