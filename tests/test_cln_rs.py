@@ -452,6 +452,10 @@ def test_grpc_custommsg_notification(node_factory):
 
     # Test the connect notification
     custommsg_stream = l1.grpc.SubscribeCustomMsg(clnpb.StreamCustomMsgRequest())
+
+    # FIXME: The above does not seem to be synchronous, causing a flake.  Wait
+    # until it does something (and this seems to be something!)
+    l1.daemon.wait_for_log('plugin-cln-grpc: received settings ACK')
     l2.connect(l1)
 
     # Send the custom-msg to node l1
