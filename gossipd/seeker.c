@@ -59,6 +59,7 @@ struct seeker {
 
 	/* Channels we've heard about, but don't know (by scid). */
 	UINTMAP(bool) unknown_scids;
+	size_t num_unknown_scids;
 
 	/* Channels we've heard about newer timestamps for (by scid).  u8 is
 	 * query_flags. */
@@ -150,6 +151,7 @@ struct seeker *new_seeker(struct daemon *daemon)
 
 	seeker->daemon = daemon;
 	uintmap_init(&seeker->unknown_scids);
+	seeker->num_unknown_scids = 0;
 	uintmap_init(&seeker->stale_scids);
 	seeker->random_peer = NULL;
 	u32 gossipers = daemon->autoconnect_seeker_peers > SEEKER_GOSSIPERS ?
@@ -300,6 +302,7 @@ static struct short_channel_id *unknown_scids_remove(const tal_t *ctx,
 	while (uintmap_first(&seeker->unknown_scids, &scid)) {
 		scids[i].u64 = scid;
 		(void)uintmap_del(&seeker->unknown_scids, scid);
+		seeker->num_unknown_scids--;
 		if (++i == max)
 			break;
 	}
@@ -689,10 +692,15 @@ static bool add_unknown_scid(struct seeker *seeker,
 			     struct short_channel_id scid,
 			     struct peer *peer)
 {
+	/* We can't know everything! */
+	if (seeker->num_unknown_scids > 10000)
+		return false;
+
 	/* Check we're not already getting this one. */
 	if (!uintmap_add(&seeker->unknown_scids, scid.u64, true))
 		return false;
 
+	seeker->num_unknown_scids++;
 	set_preferred_peer(seeker, peer);
 	return true;
 }
@@ -1145,7 +1153,10 @@ bool remove_unknown_scid(struct seeker *seeker,
 			 const struct short_channel_id *scid,
 			 bool found /*FIXME: use this info!*/)
 {
-	return uintmap_del(&seeker->unknown_scids, scid->u64);
+	if (!uintmap_del(&seeker->unknown_scids, scid->u64))
+		return false;
+	seeker->num_unknown_scids--;
+	return true;
 }
 
 /* This peer told us about an update to an unknown channel.  Ask it for a
