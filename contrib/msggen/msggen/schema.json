@@ -195,6 +195,138 @@
         }
       ]
     },
+    "amendrepeatpay.json": {
+      "$schema": "../rpc-schema-draft.json",
+      "type": "object",
+      "rpc": "amendrepeatpay",
+      "title": "Command for modifying regular payments for a recurring BOLT12 offer",
+      "description": [
+        "The **amendrepeatpay** RPC command is used to change the authorized `amount` for a repeatpay command."
+      ],
+      "request": {
+        "required": [
+          "label",
+          "maxamount"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "type": "string",
+            "description": [
+              "Unique label to identify this recurring payment"
+            ]
+          },
+          "maxamount": {
+            "oneOf": [
+              {
+                "type": "msat"
+              },
+              {
+                "type": "currency"
+              }
+            ],
+            "description": [
+              "*maxamount* is the maximum amount to authorize per payment.  It is either in millisatoshi precision; it can be a whole number, or a whole number with suffix *msat* or *sat*, or a three decimal point number with suffix *sat*, or an 1 to 11 decimal point number suffixed by *btc*, or a number with an ISO 4217 postfix (e.g. USD), in which case currency conversion will need to be done for the invoice itself. A plugin is needed which provides the `currencyconvert` API for this currency, otherwise the repeatpay creation will fail."
+            ]
+          }
+        }
+      },
+      "response": {
+        "required": [
+          "offer",
+          "maxamount_msat",
+          "label",
+          "status",
+          "payments_made",
+          "log"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "offer": {
+            "type": "string",
+            "description": [
+              "The offer we are paying (same as the bolt12 parameter)."
+            ]
+          },
+          "maxamount_msat": {
+            "type": "msat",
+            "description": [
+              "The maximum millisatoshi amount we are authorized to pay per payment for the next invoice (it may change with each invoice, as we do further currency conversion)."
+            ]
+          },
+          "maxamount_currency": {
+            "type": "string",
+            "description": [
+              "The original currency amount specified by the amendpay (e.g. '100.00USD'), if a currency was given."
+            ]
+          },
+          "label": {
+            "type": "string",
+            "description": [
+              "Unique label to identify this recurring payment"
+            ]
+          },
+          "payer_id": {
+            "type": "pubkey",
+            "description": [
+              "The transient id we have used to identify ourselves as a (repeat) payer."
+            ]
+          },
+          "payer_metadata": {
+            "type": "hex",
+            "description": [
+              "The random data we use to derive our payer_id."
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ongoing",
+              "ongoing_making_payment",
+              "ongoing_failing_amount",
+              "ongoing_failing_balance",
+              "ongoing_failing_invoice",
+              "ongoing_failing_payment",
+              "complete_finished",
+              "complete_cancelled",
+              "complete_cancel_pending",
+              "complete_failed"
+            ],
+            "description": [
+              "Current status of the recurring payment."
+            ]
+          },
+          "payments_made": {
+            "type": "u64",
+            "description": [
+              "Number of payments successfully completed so far."
+            ]
+          },
+          "log": {
+            "type": "array",
+            "description": [
+              "Log of status transitions and notable events."
+            ],
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "author": [
+        "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-repeatpay(7)",
+        "lightning-cancelrepeatpay(7)",
+        "lightning-listrepeatpays(7)",
+        "lightning-offer(7)",
+        "lightning-xpay(7)"
+      ],
+      "resources": [
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
+      ]
+    },
     "askrene-age.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
@@ -5667,6 +5799,138 @@
       ],
       "see_also": [
         "lightning-fetchinvoice(7)"
+      ],
+      "resources": [
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
+      ]
+    },
+    "cancelrepeatpay.json": {
+      "$schema": "../rpc-schema-draft.json",
+      "type": "object",
+      "rpc": "cancelrepeatpay",
+      "title": "Command for cancelling regular payments for a recurring BOLT12 offer",
+      "description": [
+        "The **cancelrepeatpay** RPC command prevents further repeated payments for a prior **repeatpay** invocation.",
+        "",
+        "The command will arrange for **repeatpay** to send a *cancel* message instead of an invoice request, next time one is due.  This cannot be undone (though you may be able to restart another sequence of payments by invoking **repeatpay** again)."
+      ],
+      "request": {
+        "required": [
+          "label"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "type": "string",
+            "description": [
+              "Unique label to identify this recurring payment"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "description": [
+              "Reason to (try to) give the issuer for why we cancelled"
+            ]
+          }
+        }
+      },
+      "response": {
+        "required": [
+          "offer",
+          "maxamount_msat",
+          "label",
+          "status",
+          "payments_made",
+          "log"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "offer": {
+            "type": "string",
+            "description": [
+              "The offer we are paying (same as the bolt12 parameter)."
+            ]
+          },
+          "maxamount_msat": {
+            "type": "msat",
+            "description": [
+              "The maximum millisatoshi amount we are authorized to pay per payment for the next invoice (it may change with each invoice, as we do further currency conversion)."
+            ]
+          },
+          "maxamount_currency": {
+            "type": "string",
+            "description": [
+              "The original currency amount specified by the amendpay (e.g. '100.00USD'), if a currency was given."
+            ]
+          },
+          "label": {
+            "type": "string",
+            "description": [
+              "Unique label to identify this recurring payment"
+            ]
+          },
+          "payer_id": {
+            "type": "pubkey",
+            "description": [
+              "The transient id we have used to identify ourselves as a (repeat) payer."
+            ]
+          },
+          "payer_metadata": {
+            "type": "hex",
+            "description": [
+              "The random data we use to derive our payer_id."
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ongoing",
+              "ongoing_making_payment",
+              "ongoing_failing_amount",
+              "ongoing_failing_balance",
+              "ongoing_failing_invoice",
+              "ongoing_failing_payment",
+              "complete_finished",
+              "complete_cancelled",
+              "complete_cancel_pending",
+              "complete_failed"
+            ],
+            "description": [
+              "Current status of the recurring payment."
+            ]
+          },
+          "cancel_reason": {
+            "type": "string",
+            "description": [
+              "The reason given when this payment was cancelled."
+            ]
+          },
+          "payments_made": {
+            "type": "u64",
+            "description": [
+              "Number of payments successfully completed so far."
+            ]
+          },
+          "log": {
+            "type": "array",
+            "description": [
+              "Log of status transitions and notable events."
+            ],
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "author": [
+        "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-repeatpay(7)",
+        "lightning-amendrepeatpay(7)",
+        "lightning-listrepeatpays(7)",
+        "lightning-offer(7)",
+        "lightning-xpay(7)"
       ],
       "resources": [
         "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
@@ -27500,6 +27764,143 @@
         }
       ]
     },
+    "listrepeatpays.json": {
+      "$schema": "../rpc-schema-draft.json",
+      "type": "object",
+      "rpc": "listrepeatpays",
+      "title": "Command for viewing regular payments for a recurring BOLT12 offer",
+      "description": [
+        "The **listrepeatpays** RPC command is used to view payments made with the **repeatpay** command."
+      ],
+      "request": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "type": "string",
+            "description": [
+              "Only show repeat payments for this label."
+            ]
+          }
+        }
+      },
+      "response": {
+        "required": [
+          "repeatpays"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "repeatpays": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "offer",
+                "maxamount_msat",
+                "label",
+                "status",
+                "payments_made",
+                "log"
+              ],
+              "properties": {
+                "offer": {
+                  "type": "string",
+                  "description": [
+                    "The offer we are paying (same as the bolt12 parameter to repeatpay)."
+                  ]
+                },
+                "maxamount_msat": {
+                  "type": "msat",
+                  "description": [
+                    "The maximum millisatoshi amount we are authorized to pay per payment."
+                  ]
+                },
+                "maxamount_currency": {
+                  "type": "string",
+                  "description": [
+                    "The original currency amount specified by the user (e.g. '100.00USD'), if a currency was given."
+                  ]
+                },
+                "label": {
+                  "type": "string",
+                  "description": [
+                    "Unique label to identify this recurring payment."
+                  ]
+                },
+                "payer_id": {
+                  "type": "pubkey",
+                  "description": [
+                    "The transient id we have used to identify ourselves as a (repeat) payer."
+                  ]
+                },
+                "payer_metadata": {
+                  "type": "hex",
+                  "description": [
+                    "The random data we use to derive our payer_id."
+                  ]
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "ongoing",
+                    "ongoing_making_payment",
+                    "ongoing_failing_amount",
+                    "ongoing_failing_balance",
+                    "ongoing_failing_invoice",
+                    "ongoing_failing_payment",
+                    "complete_finished",
+                    "complete_cancelled",
+                    "complete_cancel_pending",
+                    "complete_failed"
+                  ],
+                  "description": [
+                    "Current status of the recurring payment:",
+                    "- ongoing: normal state, we're just waiting for the next time to start a payment",
+                    "- ongoing_making_payment: actually attempting a payment right now",
+                    "- ongoing_failing_amount: the invoice we received for the next payment exceeded the `maxamount` (which you change with `amendrepeatpay`).  We will retry.",
+                    "- ongoing_failing_balance: insufficient funds to make the next payment.  We will retry.",
+                    "- ongoing_failing_invoice: we could not fetch the next invoice.  We will retry.",
+                    "- ongoing_failing_payment: we could not pay the next invoice.  We will retry.",
+                    "- complete_finished: the offer specified a limited number of payments, and they're all done",
+                    "- complete_cancelled: no more payments being made because cancelrepeatpay was called",
+                    "- complete_cancel_pending: someone called cancelrepeatpay, but we're waiting until the next period to tell the issuer",
+                    "- complete_failed: after one or more failures, we gave up"
+                  ]
+                },
+                "payments_made": {
+                  "type": "u64",
+                  "description": [
+                    "Number of payments successfully completed so far."
+                  ]
+                },
+                "log": {
+                  "type": "array",
+                  "description": [
+                    "Log of status transitions and notable events."
+                  ],
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "author": [
+        "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-repeatpay(7)",
+        "lightning-cancelrepeatpay(7)",
+        "lightning-amendrepeatpay(7)",
+        "lightning-offer(7)",
+        "lightning-xpay(7)"
+      ],
+      "resources": [
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
+      ]
+    },
     "listsendpays.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
@@ -32502,6 +32903,158 @@
             ]
           }
         }
+      ]
+    },
+    "repeatpay.json": {
+      "$schema": "../rpc-schema-draft.json",
+      "type": "object",
+      "rpc": "repeatpay",
+      "title": "Command for sending regular payments for a recurring BOLT12 offer",
+      "description": [
+        "The **repeatpay** RPC command schedules repeated payments as indicated by an (experimental!) recurrence feature in an BOLT12 offer.",
+        "",
+        "The command will arrange payments on the schedule indicated the offer until one of:",
+        "1. The recurrence expires.  Some invoices only specify a limited number of repetitions.",
+        "2. The **cancelrepeatpay** command causes the payment to cease.",
+        "3. A payment is missed.  This could be because of a local error (such as unavailable currency conversion, or we were offline), the node was unreachable for fetching an invoice, the node gave an invalid response, insufficient fuds, xpay failure, or the amount requested was too much.  **repeatpay** will attempt to make payments multiple times leading up to the deadline.",
+        "",
+        "Note that it is perfectly possible to have multiple repeatpay commands for the same bolt12 offer.  The `payer_id` assigned to each will be different."
+      ],
+      "request": {
+        "required": [
+          "bolt12",
+          "maxamount",
+          "label"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "bolt12": {
+            "type": "string",
+            "description": [
+              "A bolt12 offer which contains a (draft!) recurrence specification."
+            ]
+          },
+          "maxamount": {
+            "oneOf": [
+              {
+                "type": "msat"
+              },
+              {
+                "type": "currency"
+              }
+            ],
+            "description": [
+              "*maxamount* is the maximum amount to authorize per payment.  It is either in millisatoshi precision; it can be a whole number, or a whole number with suffix *msat* or *sat*, or a three decimal point number with suffix *sat*, or an 1 to 11 decimal point number suffixed by *btc*, or a number with an ISO 4217 postfix (e.g. USD), in which case currency conversion will need to be done for the invoice itself. A plugin is needed which provides the `currencyconvert` API for this currency, otherwise the repeatpay creation will fail."
+            ]
+          },
+          "label": {
+            "type": "string",
+            "description": [
+              "Unique label to identify this recurring payment"
+            ]
+          },
+          "recurrence_start": {
+            "type": "u32",
+            "description": [
+              "Which period index to start paying from (default 0)."
+            ]
+          }
+        }
+      },
+      "response": {
+        "required": [
+          "offer",
+          "maxamount_msat",
+          "label",
+          "status",
+          "payments_made",
+          "log"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "offer": {
+            "type": "string",
+            "description": [
+              "The offer we are paying (same as the bolt12 parameter)."
+            ]
+          },
+          "maxamount_msat": {
+            "type": "msat",
+            "description": [
+              "The maximum millisatoshi amount we are authorized to pay per payment for the first invoice (it may change with each invoice, as we do further currency conversion)."
+            ]
+          },
+          "maxamount_currency": {
+            "type": "string",
+            "description": [
+              "The original currency amount specified by the user (e.g. '100.00USD'), if a currency was given."
+            ]
+          },
+          "label": {
+            "type": "string",
+            "description": [
+              "Unique label to identify this recurring payment"
+            ]
+          },
+          "payer_id": {
+            "type": "pubkey",
+            "description": [
+              "The transient id we have used to identify ourselves as a (repeat) payer."
+            ]
+          },
+          "payer_metadata": {
+            "type": "hex",
+            "description": [
+              "The random data we use to derive our payer_id."
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ongoing",
+              "ongoing_making_payment",
+              "ongoing_failing_amount",
+              "ongoing_failing_balance",
+              "ongoing_failing_invoice",
+              "ongoing_failing_payment",
+              "complete_finished",
+              "complete_cancelled",
+              "complete_cancel_pending",
+              "complete_failed"
+            ],
+            "description": [
+              "Current status of the recurring payment."
+            ]
+          },
+          "payments_made": {
+            "type": "u64",
+            "description": [
+              "Number of payments successfully completed so far."
+            ]
+          },
+          "log": {
+            "type": "array",
+            "description": [
+              "Log of status transitions and notable events."
+            ],
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "author": [
+        "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
+      ],
+      "see_also": [
+        "lightning-cancelrepeatpay(7)",
+        "lightning-amendrepeatpay(7)",
+        "lightning-listrepeatpays(7)",
+        "lightning-offer(7)",
+        "lightning-xpay(7)"
+      ],
+      "resources": [
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ]
     },
     "reserveinputs.json": {
