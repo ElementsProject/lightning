@@ -4172,6 +4172,17 @@ impl From<responses::AskrenelistlayersLayersCreatedChannels> for pb::Askrenelist
 }
 
 #[allow(unused_variables)]
+impl From<responses::AskrenelistlayersLayersImpressions> for pb::AskrenelistlayersLayersImpressions {
+    fn from(c: responses::AskrenelistlayersLayersImpressions) -> Self {
+        Self {
+            amount_msat: Some(c.amount_msat.into()), // Rule #2 for type msat
+            short_channel_id_dir: c.short_channel_id_dir.to_string(), // Rule #2 for type short_channel_id_dir
+            timestamp: c.timestamp, // Rule #2 for type u64
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::AskrenelistlayersLayersNodeBiases> for pb::AskrenelistlayersLayersNodeBiases {
     fn from(c: responses::AskrenelistlayersLayersNodeBiases) -> Self {
         Self {
@@ -4200,6 +4211,8 @@ impl From<responses::AskrenelistlayersLayers> for pb::AskrenelistlayersLayers {
             disabled_channels: c.disabled_channels.map(|arr| arr.into_iter().map(|i| i.to_string()).collect()).unwrap_or(vec![]), // Rule #3
             // Field: AskRene-ListLayers.layers[].disabled_nodes[]
             disabled_nodes: c.disabled_nodes.into_iter().map(|i| i.serialize().to_vec()).collect(), // Rule #3 for type pubkey
+            // Field: AskRene-ListLayers.layers[].impressions[]
+            impressions: c.impressions.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
             layer: c.layer, // Rule #2 for type string
             // Field: AskRene-ListLayers.layers[].node_biases[]
             node_biases: c.node_biases.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
@@ -4268,6 +4281,17 @@ impl From<responses::AskrenecreatelayerLayersCreatedChannels> for pb::Askrenecre
 }
 
 #[allow(unused_variables)]
+impl From<responses::AskrenecreatelayerLayersImpressions> for pb::AskrenecreatelayerLayersImpressions {
+    fn from(c: responses::AskrenecreatelayerLayersImpressions) -> Self {
+        Self {
+            amount_msat: Some(c.amount_msat.into()), // Rule #2 for type msat
+            short_channel_id_dir: c.short_channel_id_dir.to_string(), // Rule #2 for type short_channel_id_dir
+            timestamp: c.timestamp, // Rule #2 for type u64
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::AskrenecreatelayerLayersNodeBiases> for pb::AskrenecreatelayerLayersNodeBiases {
     fn from(c: responses::AskrenecreatelayerLayersNodeBiases) -> Self {
         Self {
@@ -4296,6 +4320,8 @@ impl From<responses::AskrenecreatelayerLayers> for pb::AskrenecreatelayerLayers 
             disabled_channels: c.disabled_channels.map(|arr| arr.into_iter().map(|i| i.to_string()).collect()).unwrap_or(vec![]), // Rule #3
             // Field: AskRene-Create-Layer.layers[].disabled_nodes[]
             disabled_nodes: c.disabled_nodes.into_iter().map(|i| i.serialize().to_vec()).collect(), // Rule #3 for type pubkey
+            // Field: AskRene-Create-Layer.layers[].impressions[]
+            impressions: c.impressions.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
             layer: c.layer, // Rule #2 for type string
             // Field: AskRene-Create-Layer.layers[].node_biases[]
             node_biases: c.node_biases.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3

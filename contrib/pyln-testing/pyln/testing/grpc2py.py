@@ -3090,6 +3090,14 @@ def askrene_listlayers_layers_created_channels2py(m):
     })
 
 
+def askrene_listlayers_layers_impressions2py(m):
+    return remove_default({
+        "amount_msat": amount2msat(m.amount_msat),  # PrimitiveField in generate_composite
+        "short_channel_id_dir": m.short_channel_id_dir,  # PrimitiveField in generate_composite
+        "timestamp": m.timestamp,  # PrimitiveField in generate_composite
+    })
+
+
 def askrene_listlayers_layers_node_biases2py(m):
     return remove_default({
         "description": m.description,  # PrimitiveField in generate_composite
@@ -3108,6 +3116,7 @@ def askrene_listlayers_layers2py(m):
         "created_channels": [askrene_listlayers_layers_created_channels2py(i) for i in m.created_channels],  # ArrayField[composite] in generate_composite
         "disabled_channels": [m.disabled_channels for i in m.disabled_channels], # ArrayField[primitive] in generate_composite
         "disabled_nodes": [hexlify(m.disabled_nodes) for i in hexlify(m.disabled_nodes)], # ArrayField[primitive] in generate_composite
+        "impressions": [askrene_listlayers_layers_impressions2py(i) for i in m.impressions],  # ArrayField[composite] in generate_composite
         "node_biases": [askrene_listlayers_layers_node_biases2py(i) for i in m.node_biases],  # ArrayField[composite] in generate_composite
         "layer": m.layer,  # PrimitiveField in generate_composite
         "persistent": m.persistent,  # PrimitiveField in generate_composite
@@ -3157,6 +3166,14 @@ def askrene_create_layer_layers_created_channels2py(m):
     })
 
 
+def askrene_create_layer_layers_impressions2py(m):
+    return remove_default({
+        "amount_msat": amount2msat(m.amount_msat),  # PrimitiveField in generate_composite
+        "short_channel_id_dir": m.short_channel_id_dir,  # PrimitiveField in generate_composite
+        "timestamp": m.timestamp,  # PrimitiveField in generate_composite
+    })
+
+
 def askrene_create_layer_layers_node_biases2py(m):
     return remove_default({
         "description": m.description,  # PrimitiveField in generate_composite
@@ -3175,6 +3192,7 @@ def askrene_create_layer_layers2py(m):
         "created_channels": [askrene_create_layer_layers_created_channels2py(i) for i in m.created_channels],  # ArrayField[composite] in generate_composite
         "disabled_channels": [m.disabled_channels for i in m.disabled_channels], # ArrayField[primitive] in generate_composite
         "disabled_nodes": [hexlify(m.disabled_nodes) for i in hexlify(m.disabled_nodes)], # ArrayField[primitive] in generate_composite
+        "impressions": [askrene_create_layer_layers_impressions2py(i) for i in m.impressions],  # ArrayField[composite] in generate_composite
         "node_biases": [askrene_create_layer_layers_node_biases2py(i) for i in m.node_biases],  # ArrayField[composite] in generate_composite
         "layer": m.layer,  # PrimitiveField in generate_composite
         "persistent": m.persistent,  # PrimitiveField in generate_composite

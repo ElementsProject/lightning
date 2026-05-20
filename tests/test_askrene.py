@@ -144,6 +144,7 @@ def test_layers(node_factory):
               'created_channels': [],
               'channel_updates': [],
               'constraints': [],
+              'impressions': [],
               'biases': [],
               'node_biases': []}
     l2.rpc.askrene_create_layer('test_layers')
@@ -347,6 +348,7 @@ def test_node_bias_rpc(node_factory):
         "created_channels": [],
         "channel_updates": [],
         "constraints": [],
+        "impressions": [],
         "biases": [],
         "node_biases": [],
     }
@@ -455,6 +457,7 @@ def test_node_bias_persistence(node_factory):
         "created_channels": [],
         "channel_updates": [],
         "constraints": [],
+        "impressions": [],
         "biases": [],
         "node_biases": [],
     }
@@ -579,6 +582,7 @@ def test_layer_persistence(node_factory):
               'created_channels': [],
               'channel_updates': [],
               'constraints': [],
+              'impressions': [],
               'biases': [],
               'node_biases': []}
     assert l1.rpc.askrene_listlayers('test_layer_persistence') == {'layers': [expect]}

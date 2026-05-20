@@ -12079,6 +12079,13 @@ pub mod responses {
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AskrenelistlayersLayersImpressions {
+	    pub amount_msat: Amount,
+	    pub short_channel_id_dir: ShortChannelIdDir,
+	    pub timestamp: u64,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct AskrenelistlayersLayersNodeBiases {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub description: Option<String>,
@@ -12131,6 +12138,8 @@ pub mod responses {
 	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
 	    pub disabled_channels: Option<Vec<ShortChannelIdDir>>,
 	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub impressions: Option<Vec<AskrenelistlayersLayersImpressions>>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
 	    pub node_biases: Option<Vec<AskrenelistlayersLayersNodeBiases>>,
 	    pub channel_updates: Vec<AskrenelistlayersLayersChannelUpdates>,
 	    pub constraints: Vec<AskrenelistlayersLayersConstraints>,
@@ -12164,6 +12173,13 @@ pub mod responses {
 	    pub timestamp: Option<u64>,
 	    pub bias: i64,
 	    pub short_channel_id_dir: ShortChannelIdDir,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AskrenecreatelayerLayersImpressions {
+	    pub amount_msat: Amount,
+	    pub short_channel_id_dir: ShortChannelIdDir,
+	    pub timestamp: u64,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -12214,6 +12230,8 @@ pub mod responses {
 	    pub biases: Option<Vec<AskrenecreatelayerLayersBiases>>,
 	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
 	    pub disabled_channels: Option<Vec<ShortChannelIdDir>>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub impressions: Option<Vec<AskrenecreatelayerLayersImpressions>>,
 	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
 	    pub node_biases: Option<Vec<AskrenecreatelayerLayersNodeBiases>>,
 	    pub channel_updates: Vec<AskrenecreatelayerLayersChannelUpdates>,
