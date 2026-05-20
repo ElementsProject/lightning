@@ -132,17 +132,22 @@ test_field(struct command *cmd,
  *       number of seconds after `invoice_created_at` that payment for this period
  *       will be accepted.
  */
-static void set_recurring_inv_expiry(struct tlv_invoice *inv, u64 last_pay)
+static void set_recurring_inv_expiry(struct command *cmd,
+				     struct tlv_invoice *inv, u64 last_pay)
 {
+	const struct offers_data *od = get_offers_data(cmd->plugin);
+
 	inv->invoice_relative_expiry = tal(inv, u32);
 
-	/* Don't give them a 0 second invoice, even if it's true. */
+	/* Don't give them a 0 second invoice, even if it's true: that's how we mark cancellations! */
 	if (last_pay <= *inv->invoice_created_at)
 		*inv->invoice_relative_expiry = 1;
 	else
 		*inv->invoice_relative_expiry = last_pay - *inv->invoice_created_at;
 
-	/* FIXME: Shorten expiry if we're doing currency conversion! */
+	/* Shorten to dev_currency_expiry (default 10 minutes) for currency conversion. */
+	if (inv->offer_currency && *inv->invoice_relative_expiry > od->dev_currency_expiry)
+		*inv->invoice_relative_expiry = od->dev_currency_expiry;
 }
 
 /* We rely on label forms for uniqueness. */
@@ -209,6 +214,19 @@ static struct command_result *createinvoice_done(struct command *cmd,
 	return send_onion_reply(cmd, ir->reply_path, payload);
 }
 
+static struct command_result *create_invoicereq(struct command *cmd,
+						struct invreq *ir);
+
+static struct command_result *delinvoice_done(struct command *cmd,
+					      const char *method,
+					      const char *buf,
+					      const jsmntok_t *result,
+					      struct invreq *ir)
+{
+	/* Old stale-rate invoice deleted; recreate with current rate. */
+	return create_invoicereq(cmd, ir);
+}
+
 static struct command_result *createinvoice_error(struct command *cmd,
 						  const char *method,
 						  const char *buf,
@@ -216,19 +234,43 @@ static struct command_result *createinvoice_error(struct command *cmd,
 						  struct invreq *ir)
 {
 	u32 code;
-	const char *status;
+	const char *status, *invstring;
 
 	/* If it already exists, we can reuse its bolt12 directly. */
 	if (json_scan(tmpctx, buf, err,
-		      "{code:%,data:{status:%}}",
+		      "{code:%,data:{status:%,bolt12:%}}",
 		      JSON_SCAN(json_to_u32, &code),
-		      JSON_SCAN_TAL(tmpctx, json_strdup, &status)) == NULL
+		      JSON_SCAN_TAL(tmpctx, json_strdup, &status),
+		      JSON_SCAN_TAL(tmpctx, json_strdup, &invstring)) == NULL
 	    && code == INVOICE_LABEL_ALREADY_EXISTS) {
 		if (streq(status, "unpaid"))
 			return createinvoice_done(cmd, method, buf,
 						  json_get_member(buf, err, "data"), ir);
-		if (streq(status, "expired"))
-			return fail_invreq(cmd, ir, "invoice expired (cancelled?)");
+		if (streq(status, "expired")) {
+			struct out_req *req;
+			const char *fail;
+			const struct tlv_invoice *inv;
+
+			inv = invoice_decode(tmpctx, invstring, strlen(invstring),
+					     plugin_feature_set(cmd->plugin),
+					     chainparams, &fail);
+			/* 0 relative expiry means "they cancelled it" */
+			if (inv && inv->invoice_relative_expiry && *inv->invoice_relative_expiry == 0)
+				return fail_invreq(cmd, ir, "invoice cancelled");
+
+			/* Happens when we shortened expiry for currency
+			 * changes.  Delete and retry */
+			req = jsonrpc_request_start(cmd, "delinvoice",
+						    delinvoice_done,
+						    error, ir);
+			json_add_label(req->js, &ir->offer_id,
+				       ir->inv->invreq_payer_id,
+				       ir->inv->invreq_recurrence_counter
+				       ? *ir->inv->invreq_recurrence_counter
+				       : 0);
+			json_add_string(req->js, "status", "expired");
+			return send_outreq(req);
+		}
 	}
 	return error(cmd, method, buf, err, ir);
 }
@@ -237,9 +279,6 @@ static struct command_result *create_invoicereq(struct command *cmd,
 						struct invreq *ir)
 {
 	struct out_req *req;
-
-	/* FIXME: We should add a real blinded path, and we *need to*
-	 * if we don't have public channels! */
 
 	/* Now, write invoice to db (returns the signed version) */
 	req = jsonrpc_request_start(cmd, "createinvoice",
@@ -506,7 +545,7 @@ static struct command_result *check_period(struct command *cmd,
 				   paywindow_end);
 	}
 
-	set_recurring_inv_expiry(ir->inv, paywindow_end);
+	set_recurring_inv_expiry(cmd, ir->inv, paywindow_end);
 
 	/* BOLT-recurrence #12:
 	 *
