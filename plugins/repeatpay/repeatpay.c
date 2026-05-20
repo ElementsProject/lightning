@@ -1,6 +1,9 @@
 #include "config.h"
+#include <bitcoin/pubkey.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/json_escape/json_escape.h>
+#include <ccan/json_out/json_out.h>
+#include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
 #include <common/bolt12.h>
 #include <common/bolt12_id.h>
@@ -10,7 +13,9 @@
 #include <common/json_param.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>
+#include <common/mkdatastorekey.h>
 #include <common/randbytes.h>
+#include <common/utils.h>
 #include <inttypes.h>
 #include <plugins/libplugin.h>
 
@@ -25,6 +30,7 @@ enum repeatpay_status {
 	REPEATPAY_COMPLETE_CANCELLED,
 	REPEATPAY_COMPLETE_CANCEL_PENDING,
 	REPEATPAY_COMPLETE_FAILED,
+#define MAX_REPEATPAY_STATUS REPEATPAY_COMPLETE_FAILED
 };
 
 struct payment_log {
@@ -132,6 +138,17 @@ static const char *repeatpay_status_str(enum repeatpay_status status)
 	abort();
 }
 
+static bool repeatpay_status_from_str(const char *str, size_t len, enum repeatpay_status *status)
+{
+	for (int i = 0; i <= MAX_REPEATPAY_STATUS; i++) {
+		if (memeqstr(str, len, repeatpay_status_str(i))) {
+			*status = i;
+			return true;
+		}
+	}
+	return false;
+}
+
 static bool payment_terminated(enum repeatpay_status status)
 {
 	switch (status) {
@@ -152,12 +169,77 @@ static bool payment_terminated(enum repeatpay_status status)
 	abort();
 }
 
+/* Datastore key for a field of a payment. */
+static const char **payment_ds_key(const tal_t *ctx,
+				    const struct json_escape *label,
+				    const char *field)
+{
+	return mkdatastorekey(ctx, "cln-repeatpay", label->s, field);
+}
+
+/* Restore log entries from the serialized form. */
+static struct payment_log **parse_payment_log(const tal_t *ctx, const char *str, size_t len)
+{
+	struct payment_log **logs;
+	char **lines, *ourstr;
+
+	ourstr = tal_strndup(NULL, str, len);
+	lines = tal_strsplit(tmpctx, take(ourstr), "\n", STR_NO_EMPTY);
+	logs = tal_arr(ctx, struct payment_log *, tal_count(lines) - 1);
+	for (size_t i = 0; lines[i]; i++) {
+		size_t statuslen = strcspn(lines[i], ":");
+
+		if (lines[i][statuslen] == '\0')
+			return tal_free(logs);
+		logs[i] = tal(logs, struct payment_log);
+		if (!repeatpay_status_from_str(lines[i], statuslen, &logs[i]->status))
+			return tal_free(logs);
+		logs[i]->msg = tal_strdup(logs[i], lines[i] + statuslen + 1);
+	}
+	return logs;
+}
+
+/* Ignore datastore responses: keep aux_cmd alive (unlike ignore_and_complete). */
+static struct command_result *datastore_ok(struct command *cmd,
+					   const char *methodname UNUSED,
+					   const char *buf UNUSED,
+					   const jsmntok_t *result UNUSED,
+					   void *arg UNUSED)
+{
+	return command_still_pending(cmd);
+}
+
+/* Append new log entry as "status:msg\n". */
+static void save_payment_log(struct command *cmd,
+			     const struct payment *payment,
+			     enum repeatpay_status status,
+			     const char *msg)
+{
+	const char *newlog = tal_fmt(tmpctx, "%s:%s\n",
+				     repeatpay_status_str(status), msg);
+	/* If we set this as a string, the "\n" gets mangled! */
+	jsonrpc_set_datastore_binary(cmd,
+				     payment_ds_key(tmpctx, payment->label, "log"),
+				     newlog, strlen(newlog),
+				     "create-or-append", datastore_ok, NULL, NULL);
+}
+
+static void save_payment_status(struct command *cmd,
+				const struct payment *payment)
+{
+	jsonrpc_set_datastore_string(cmd,
+				     payment_ds_key(tmpctx, payment->label, "status"),
+				     repeatpay_status_str(payment->status),
+				     "create-or-replace", datastore_ok, NULL, NULL);
+}
+
 static void PRINTF_FMT(4, 5)
 payment_set_status(struct command *cmd,
 		   struct payment *payment,
 		   enum repeatpay_status status,
 		   const char *fmt, ...)
 {
+	struct repeatpay *rp = repeatpay_of(cmd->plugin);
 	struct payment_log *log = tal(payment->logs, struct payment_log);
 
 	va_list ap;
@@ -179,11 +261,243 @@ payment_set_status(struct command *cmd,
 	log->status = status;
 	tal_arr_expand(&payment->logs, log);
 	payment->status = status;
+
+	/* If it's saved, write to datastore */
+	if (payment_hash_get(rp->payments, payment->label)) {
+		save_payment_log(cmd, payment, status, msg);
+		save_payment_status(cmd, payment);
+	}
 }
 
-/* Recursion.  This starts the next payment (if we're ready). */
+/* Update recurrence_counter after a successful payment. */
+static void save_payment_counter(struct command *aux_cmd,
+				  const struct payment *payment)
+{
+	jsonrpc_set_datastore_string(aux_cmd,
+				     payment_ds_key(tmpctx, payment->label,
+						    "recurrence_counter"),
+				     tal_fmt(tmpctx, "%"PRIu32,
+					     payment->recurrence_counter),
+				     "create-or-replace", datastore_ok, NULL, NULL);
+}
+
+/* Payment should now persist. */
+static void save_payment(struct repeatpay *rp, struct payment *payment)
+{
+	tal_steal(rp, payment);
+	payment_hash_add(rp->payments, payment);
+
+	jsonrpc_set_datastore_string(rp->aux_cmd,
+				     payment_ds_key(tmpctx, payment->label, "offer"),
+				     offer_encode(tmpctx, payment->offer),
+				     "create-or-replace", datastore_ok, NULL, NULL);
+	jsonrpc_set_datastore_string(rp->aux_cmd,
+				     payment_ds_key(tmpctx, payment->label, "max_amount_msat"),
+				     tal_fmt(tmpctx, "%"PRIu64,
+					     payment->max_amount_msat.millisatoshis), /* Raw: datastore */
+				     "create-or-replace", datastore_ok, NULL, NULL);
+	jsonrpc_set_datastore_string(rp->aux_cmd,
+				     payment_ds_key(tmpctx, payment->label, "payment_max_amount"),
+				     tal_fmt(tmpctx, "%"PRIu64, payment->payment_max.amount),
+				     "create-or-replace", datastore_ok, NULL, NULL);
+	if (payment->payment_max.currency) {
+		jsonrpc_set_datastore_string(rp->aux_cmd,
+					     payment_ds_key(tmpctx, payment->label, "payment_max_currency"),
+					     payment->payment_max.currency->name,
+					     "create-or-replace", datastore_ok, NULL, NULL);
+	}
+	jsonrpc_set_datastore_string(rp->aux_cmd,
+				     payment_ds_key(tmpctx, payment->label, "recurrence_start"),
+				     tal_fmt(tmpctx, "%"PRIu32,
+					     payment->recurrence_start),
+				     "create-or-replace", datastore_ok, NULL, NULL);
+	jsonrpc_set_datastore_string(rp->aux_cmd,
+				     payment_ds_key(tmpctx, payment->label, "basetime"),
+				     tal_fmt(tmpctx, "%"PRIu64, payment->basetime),
+				     "create-or-replace", datastore_ok, NULL, NULL);
+	if (payment->payer_metadata) {
+		jsonrpc_set_datastore_string(rp->aux_cmd,
+					     payment_ds_key(tmpctx, payment->label, "payer_id"),
+					     fmt_pubkey(tmpctx, &payment->payer_id),
+					     "create-or-replace", datastore_ok, NULL, NULL);
+		jsonrpc_set_datastore_string(rp->aux_cmd,
+					     payment_ds_key(tmpctx, payment->label,
+							    "payer_metadata"),
+					     tal_hexstr(tmpctx,
+							payment->payer_metadata,
+							tal_count(payment->payer_metadata)),
+					     "create-or-replace", datastore_ok, NULL, NULL);
+	}
+
+	save_payment_counter(rp->aux_cmd, payment);
+	save_payment_status(rp->aux_cmd, payment);
+	for (size_t i = 0; i < tal_count(payment->logs); i++)
+		save_payment_log(rp->aux_cmd, payment, payment->logs[i]->status, payment->logs[i]->msg);
+}
+
+/* forward declaration */
 static struct command_result *start_next_payment(struct command *aux_cmd,
 						 struct payment *payment);
+
+static void restore_payment(struct command *init_cmd,
+			     struct repeatpay *rp,
+			     const char *label_str)
+{
+	struct payment *payment = tal(rp, struct payment);
+	const jsmntok_t *reply, *ds, *t;
+	const char *buf;
+	struct json_out *params;
+	size_t i;
+	/* Required-field flags for scalars (pointers above serve as their own flags) */
+	bool have_status = false, have_max_amount = false;
+	bool have_counter = false, have_start = false, have_basetime = false;
+	bool have_payment_max_amount = false, have_payer_id = false;
+
+	payment->label = json_escape_string_(payment, label_str, strlen(label_str));
+	payment->next = NULL;
+	payment->deadline = 0;
+	payment->offer = NULL;
+	payment->logs = NULL;
+	/* Optional fields default to absent */
+	payment->payment_max.currency = NULL;
+	payment->payer_metadata = NULL;
+
+	/* Fetch all fields for this label in one call. */
+	params = json_out_new(tmpctx);
+	json_out_start(params, NULL, '{');
+	json_out_start(params, "key", '[');
+	json_out_addstr(params, NULL, "cln-repeatpay");
+	json_out_addstr(params, NULL, label_str);
+	json_out_end(params, ']');
+	json_out_end(params, '}');
+	json_out_finished(params);
+
+	reply = jsonrpc_request_sync(tmpctx, init_cmd, "listdatastore",
+				     take(params), &buf);
+	ds = json_get_member(buf, reply, "datastore");
+
+	json_for_each_arr(i, t, ds) {
+		const jsmntok_t *keytok = json_get_member(buf, t, "key");
+		const jsmntok_t *strtok = json_get_member(buf, t, "string");
+		const char *str;
+		size_t len;
+
+		if (!keytok || keytok->size != 3 || !strtok)
+			continue;
+
+		str = buf + strtok->start;
+		len = strtok->end - strtok->start;
+		if (json_tok_streq(buf, keytok + 3, "offer")) {
+			const char *fail;
+			payment->offer = offer_decode(payment, str, len,
+						      plugin_feature_set(init_cmd->plugin),
+						      chainparams, &fail);
+		} else if (json_tok_streq(buf, keytok + 3, "status")) {
+			if (!repeatpay_status_from_str(str, len, &payment->status))
+				goto bad;
+			have_status = true;
+		} else if (json_tok_streq(buf, keytok + 3, "max_amount_msat")) {
+			if (!json_to_msat(buf, strtok, &payment->max_amount_msat))
+				goto bad;
+			have_max_amount = true;
+		} else if (json_tok_streq(buf, keytok + 3, "recurrence_counter")) {
+			if (!json_to_u32(buf, strtok, &payment->recurrence_counter))
+				goto bad;
+			have_counter = true;
+		} else if (json_tok_streq(buf, keytok + 3, "recurrence_start")) {
+			if (!json_to_u32(buf, strtok, &payment->recurrence_start))
+				goto bad;
+			have_start = true;
+		} else if (json_tok_streq(buf, keytok + 3, "basetime")) {
+			if (!json_to_u64(buf, strtok, &payment->basetime))
+				goto bad;
+			have_basetime = true;
+		} else if (json_tok_streq(buf, keytok + 3, "log")) {
+			payment->logs = parse_payment_log(payment, str, len);
+		} else if (json_tok_streq(buf, keytok + 3, "payment_max_currency")) {
+			payment->payment_max.currency = find_iso4217(str, len);
+			if (!payment->payment_max.currency)
+				goto bad;
+		} else if (json_tok_streq(buf, keytok + 3, "payment_max_amount")) {
+			if (!json_to_u64(buf, strtok, &payment->payment_max.amount))
+				goto bad;
+			have_payment_max_amount = true;
+		} else if (json_tok_streq(buf, keytok + 3, "payer_id")) {
+			if (!pubkey_from_hexstr(str, len, &payment->payer_id))
+				goto bad;
+			have_payer_id = true;
+		} else if (json_tok_streq(buf, keytok + 3, "payer_metadata")) {
+			payment->payer_metadata = tal_hexdata(payment, str, len);
+		} else
+			plugin_err(init_cmd->plugin,
+				   "Unknown datastore field '%.*s'",
+				   json_tok_full_len(keytok + 3),
+				   json_tok_full(buf, keytok + 3));
+	}
+
+	/* Validate required fields */
+	if (!payment->offer
+	    || !have_status
+	    || !have_max_amount
+	    || !have_counter
+	    || !have_start
+	    || !have_basetime
+	    || !have_payment_max_amount
+	    || !payment->logs)
+		goto bad;
+
+	if (payment->payer_metadata && !have_payer_id)
+		goto bad;
+
+	payment_hash_add(rp->payments, payment);
+
+	/* Resume non-terminated payments.
+	 * FIXME: For REPEATPAY_ONGOING_MAKING_PAYMENT, check whether xpay already
+	 * completed this payment before we restarted (risk of double-pay). */
+	if (!payment_terminated(payment->status))
+		start_next_payment(rp->aux_cmd, payment);
+	return;
+
+bad:
+	plugin_log(init_cmd->plugin, LOG_BROKEN,
+		   "repeatpay: ignoring malformed datastore entry for '%s'",
+		   label_str);
+	tal_free(payment);
+}
+
+static void restore_payments(struct command *init_cmd, struct repeatpay *rp)
+{
+	const jsmntok_t *reply, *ds, *t;
+	const char *buf;
+	struct json_out *params;
+	size_t i;
+
+	params = json_out_new(tmpctx);
+	json_out_start(params, NULL, '{');
+	json_out_start(params, "key", '[');
+	json_out_addstr(params, NULL, "cln-repeatpay");
+	json_out_end(params, ']');
+	json_out_end(params, '}');
+	json_out_finished(params);
+
+	reply = jsonrpc_request_sync(tmpctx, init_cmd, "listdatastore",
+				     take(params), &buf);
+	ds = json_get_member(buf, reply, "datastore");
+
+	/* listdatastore returns immediate children only: each entry is
+	 * ["cln-repeatpay", "<label>"] with data=NULL (summary node). */
+	json_for_each_arr(i, t, ds) {
+		const jsmntok_t *keytok = json_get_member(buf, t, "key");
+		char *label_str;
+
+		if (!keytok || keytok->size != 2)
+			continue;
+		if (!json_tok_streq(buf, keytok + 1, "cln-repeatpay"))
+			continue;
+		label_str = json_strdup(tmpctx, buf, keytok + 2);
+		restore_payment(init_cmd, rp, label_str);
+	}
+}
 
 static const char *fmt_amount_for_currency(const tal_t *ctx,
 					   const struct payment_max *payment_max)
@@ -262,6 +576,7 @@ static struct command_result *xpay_done(struct command *aux_cmd,
 			   fmt_amount_msat(tmpctx, delivered),
 			   fmt_amount_msat(tmpctx, fee));
 	payment->recurrence_counter++;
+	save_payment_counter(aux_cmd, payment);
 	return start_next_payment(aux_cmd, payment);
 }
 
@@ -581,8 +896,7 @@ static struct command_result *first_fetch_succeeded(struct command *cmd,
 	payment->basetime = *inv->invoice_recurrence_basetime;
 	payment->payer_metadata = tal_dup_talarr(payment, u8, inv->invreq_metadata);
 
-	tal_steal(rp, payment);
-	payment_hash_add(rp->payments, payment);
+	save_payment(rp, payment);
 
 	/* Set deadline so retry_payment_later works if pay_invoice fails */
 	when_to_pay(rp, payment, &payment->deadline);
@@ -627,6 +941,11 @@ static struct command_result *fetch_first_invoice(struct command *cmd,
 		if (now < paytime) {
 			struct json_stream *response;
 
+			/* Make it clear this does not have payer_key yet. */
+			payment->payer_metadata = NULL;
+			payment->basetime = 0;
+			save_payment(rp, payment);
+
 			payment_set_status(rp->aux_cmd, payment,
 					   REPEATPAY_ONGOING,
 					   "Waiting %s before fetching",
@@ -635,10 +954,6 @@ static struct command_result *fetch_first_invoice(struct command *cmd,
 						      time_from_sec(paytime - now),
 						      timer_next_payment,
 						      payment);
-			/* Make it clear this does not have payer_key yet. */
-			payment->payer_metadata = NULL;
-			tal_steal(rp, payment);
-			payment_hash_add(rp->payments, payment);
 			response = jsonrpc_stream_success(cmd);
 			json_add_payment(response, payment);
 			return command_finished(cmd, response);
@@ -720,6 +1035,8 @@ static struct command_result *json_repeatpay(struct command *cmd,
 	payment->recurrence_counter = 0;
 	payment->status = REPEATPAY_ONGOING;
 	payment->logs = tal_arr(payment, struct payment_log *, 0);
+	payment->basetime = 0;
+	payment->payer_metadata = NULL;
 	tal_steal(payment, payment->label);
 	payment->offer = offer_decode(payment, offer, strlen(offer),
 				      plugin_feature_set(cmd->plugin),
@@ -818,6 +1135,7 @@ static const char *init(struct command *init_cmd,
 {
 	struct repeatpay *rp = repeatpay_of(init_cmd->plugin);
 	rp->aux_cmd = aux_command(init_cmd);
+	restore_payments(init_cmd, rp);
 	return NULL;
 }
 
