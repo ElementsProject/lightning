@@ -4,6 +4,7 @@
 #include <ccan/json_escape/json_escape.h>
 #include <ccan/json_out/json_out.h>
 #include <ccan/mem/mem.h>
+#include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
 #include <common/bolt12.h>
 #include <common/bolt12_id.h>
@@ -178,12 +179,17 @@ static const char **payment_ds_key(const tal_t *ctx,
 }
 
 /* Restore log entries from the serialized form. */
-static struct payment_log **parse_payment_log(const tal_t *ctx, const char *str, size_t len)
+static struct payment_log **parse_payment_log(const tal_t *ctx, const char *buf, const jsmntok_t *hextok)
 {
 	struct payment_log **logs;
 	char **lines, *ourstr;
+	size_t len = hextok->end - hextok->start;
 
-	ourstr = tal_strndup(NULL, str, len);
+	ourstr = tal_arr(tmpctx, char, hex_data_size(len) + 1);
+	if (!hex_decode(buf + hextok->start, len, ourstr, hex_data_size(len)))
+		return NULL;
+	ourstr[hex_data_size(len)] = '\0';
+
 	lines = tal_strsplit(tmpctx, take(ourstr), "\n", STR_NO_EMPTY);
 	logs = tal_arr(ctx, struct payment_log *, tal_count(lines) - 1);
 	for (size_t i = 0; lines[i]; i++) {
@@ -339,6 +345,226 @@ static void save_payment(struct repeatpay *rp, struct payment *payment)
 static struct command_result *start_next_payment(struct command *aux_cmd,
 						 struct payment *payment);
 
+/* While you were sleeping... */
+static void payment_offline_success(struct command *aux_cmd,
+				    struct payment *payment)
+{
+	payment_set_status(aux_cmd, payment,
+			   REPEATPAY_ONGOING,
+			   "Invoice paid while we were restarting");
+	payment->recurrence_counter++;
+	save_payment_counter(aux_cmd, payment);
+}
+
+static void payment_offline_failure(struct command *aux_cmd,
+				    struct payment *payment)
+{
+	payment_set_status(aux_cmd, payment,
+			   REPEATPAY_ONGOING_FAILING_PAYMENT,
+			   "Payment attempt failed while we were restarting");
+}
+
+struct pending_payment {
+	struct payment *payment;
+	struct sha256 payment_hash;
+	u64 max_changed_idx;
+};
+
+static struct command_result *arm_pending_watch(struct command *aux_cmd,
+						struct pending_payment *pending);
+
+static struct command_result *pending_listpays_done(struct command *aux_cmd,
+						    const char *methodname,
+						    const char *buf,
+						    const jsmntok_t *result,
+						    struct pending_payment *pending)
+{
+	const jsmntok_t *payments, *t;
+	size_t i;
+
+	payments = json_get_member(buf, result, "payments");
+	json_for_each_arr(i, t, payments) {
+		const jsmntok_t *status;
+
+		status = json_get_member(buf, t, "status");
+		/* Pending?  Wait again. */
+		if (json_tok_streq(buf, status, "pending"))
+			return arm_pending_watch(aux_cmd, pending);
+
+		/* Success?  That one's done, continue. */
+		if (json_tok_streq(buf, status, "complete")) {
+			payment_offline_success(aux_cmd, pending->payment);
+			start_next_payment(aux_cmd, pending->payment);
+			tal_free(pending);
+			return command_still_pending(aux_cmd);
+		}
+	}
+
+	/* Failure? Continue. */
+	payment_offline_failure(aux_cmd, pending->payment);
+	start_next_payment(aux_cmd, pending->payment);
+	tal_free(pending);
+	return command_still_pending(aux_cmd);
+}
+
+static struct command_result *pending_wait_done(struct command *aux_cmd,
+						const char *methodname,
+						const char *buf,
+						const jsmntok_t *result,
+						struct pending_payment *pending)
+{
+	const jsmntok_t *updated, *sendpays, *hash;
+	struct out_req *req;
+
+	updated = json_get_member(buf, result, "updated");
+	if (!updated
+	    || !json_to_u64(buf, updated, &pending->max_changed_idx)) {
+		plugin_err(aux_cmd->plugin,
+			   "bad updated in wait response %.*s",
+			   json_tok_full_len(result),
+			   json_tok_full(buf, result));
+	}
+
+	/* This isn't present if we've fallen behind: we use it as an
+	 * optimization. */
+	sendpays = json_get_member(buf, result, "sendpays");
+	if (sendpays) {
+		hash = json_get_member(buf, sendpays, "payment_hash");
+		if (hash) {
+			struct sha256 payment_hash;
+			if (!json_to_sha256(buf, hash, &payment_hash))
+				plugin_err(aux_cmd->plugin,
+					   "bad payment_hash in wait %.*s",
+					   json_tok_full_len(result),
+					   json_tok_full(buf, result));
+			/* Wrong hash?  Go back to watching */
+			if (!sha256_eq(&payment_hash, &pending->payment_hash))
+				return arm_pending_watch(aux_cmd, pending);
+		}
+	}
+
+	/* Label is not indexed, payment_hash is, so list by that */
+	req = jsonrpc_request_start(aux_cmd, "listsendpays",
+				    pending_listpays_done, plugin_broken_cb,
+				    pending);
+	json_add_sha256(req->js, "payment_hash", &pending->payment_hash);
+	return send_outreq(req);
+}
+
+static struct command_result *arm_pending_watch(struct command *aux_cmd,
+						struct pending_payment *pending)
+{
+	struct out_req *req;
+
+	req = jsonrpc_request_start(aux_cmd, "wait",
+				    pending_wait_done, plugin_broken_cb,
+				    pending);
+	json_add_string(req->js, "subsystem", "sendpays");
+	json_add_string(req->js, "indexname", "updated");
+	json_add_u64(req->js, "nextvalue", pending->max_changed_idx + 1);
+	return send_outreq(req);
+}
+
+/* Returns the bolt12 invoice string from the last MAKING_PAYMENT log entry.
+ * We logged "Paying <amount> <invstr>" when we called xpay. */
+static const char *invstr_from_making_payment_log(const struct payment *payment)
+{
+	for (ssize_t i = tal_count(payment->logs) - 1; i >= 0; i--) {
+		if (payment->logs[i]->status == REPEATPAY_ONGOING_MAKING_PAYMENT) {
+			/* "Paying <amount> <invstr>": invstr follows the last space */
+			const char *sp = strrchr(payment->logs[i]->msg, ' ');
+			if (sp)
+				return sp + 1;
+		}
+	}
+	return NULL;
+}
+
+/* Returns true if we are still going. */
+static bool payment_in_progress(struct command *init_cmd,
+				struct repeatpay *rp,
+				struct payment *payment,
+				const char *label_str UNUSED)
+{
+	const jsmntok_t *reply, *payments, *t;
+	const char *buf, *invstr;
+	struct json_out *params;
+	struct pending_payment *pending;
+	size_t i;
+
+	if (payment->status != REPEATPAY_ONGOING_MAKING_PAYMENT)
+		return false;
+
+	/* listsendpays doesn't support label; recover the invoice string from
+	 * the log so we can search by bolt11 instead. */
+	invstr = invstr_from_making_payment_log(payment);
+	if (!invstr) {
+		/* Can't identify the in-flight invoice; be conservative. */
+		payment_offline_failure(rp->aux_cmd, payment);
+		return false;
+	}
+
+	params = json_out_new(tmpctx);
+	json_out_start(params, NULL, '{');
+	json_out_addstr(params, "bolt11", invstr);
+	json_out_end(params, '}');
+	json_out_finished(params);
+
+	reply = jsonrpc_request_sync(tmpctx, init_cmd, "listsendpays",
+				     take(params), &buf);
+	payments = json_get_member(buf, reply, "payments");
+	pending = NULL;
+	json_for_each_arr(i, t, payments) {
+		const jsmntok_t *status, *updated;
+		u64 idx;
+
+		status = json_get_member(buf, t, "status");
+
+		/* If any part succeeded, everything is good. */
+		if (json_tok_streq(buf, status, "complete")) {
+			payment_offline_success(rp->aux_cmd, payment);
+			return false;
+		}
+		/* If they all fail, we'll know */
+		if (!json_tok_streq(buf, status, "pending"))
+			continue;
+
+		/* Still pending.  Grab payment hash if not already */
+		if (!pending) {
+			const jsmntok_t *hashtok
+				= json_get_member(buf, t, "payment_hash");
+			pending = tal(payment, struct pending_payment);
+			pending->payment = payment;
+			pending->max_changed_idx = 0;
+			if (!hashtok
+			    || !json_to_sha256(buf, hashtok,
+					       &pending->payment_hash)) {
+				plugin_err(rp->aux_cmd->plugin,
+					   "bad payment_hash in %.*s",
+					   json_tok_full_len(t),
+					   json_tok_full(buf, t));
+			}
+		}
+
+		updated = json_get_member(buf, t, "updated_index");
+		if (updated
+		    && json_to_u64(buf, updated, &idx)
+		    && idx > pending->max_changed_idx) {
+			pending->max_changed_idx = idx;
+		}
+	}
+
+	/* No parts pending means we failed over restart. */
+	if (!pending) {
+		payment_offline_failure(rp->aux_cmd, payment);
+		return false;
+	}
+
+	/* Still going.  We do the simplistic thing: watch and poll. */
+	arm_pending_watch(rp->aux_cmd, pending);
+	return true;
+}
+
 static void restore_payment(struct command *init_cmd,
 			     struct repeatpay *rp,
 			     const char *label_str)
@@ -413,7 +639,7 @@ static void restore_payment(struct command *init_cmd,
 				goto bad;
 			have_basetime = true;
 		} else if (json_tok_streq(buf, keytok + 3, "log")) {
-			payment->logs = parse_payment_log(payment, str, len);
+			payment->logs = parse_payment_log(payment, buf, json_get_member(buf, t, "hex"));
 		} else if (json_tok_streq(buf, keytok + 3, "payment_max_currency")) {
 			payment->payment_max.currency = find_iso4217(str, len);
 			if (!payment->payment_max.currency)
@@ -451,11 +677,12 @@ static void restore_payment(struct command *init_cmd,
 
 	payment_hash_add(rp->payments, payment);
 
-	/* Resume non-terminated payments.
-	 * FIXME: For REPEATPAY_ONGOING_MAKING_PAYMENT, check whether xpay already
-	 * completed this payment before we restarted (risk of double-pay). */
-	if (!payment_terminated(payment->status))
-		start_next_payment(rp->aux_cmd, payment);
+	/* Resume non-terminated payments. */
+	if (!payment_terminated(payment->status)) {
+		if (!payment_in_progress(init_cmd, rp, payment, label_str)) {
+			start_next_payment(rp->aux_cmd, payment);
+		}
+	}
 	return;
 
 bad:

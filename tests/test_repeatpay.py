@@ -1,9 +1,15 @@
+import os
 import time
 from fixtures import *  # noqa: F401,F403
+from fixtures import TEST_NETWORK
 from pyln.client import Millisatoshi, RpcError
 from utils import wait_for, only_one, TIMEOUT
 
 import pytest
+
+
+HOLD_INVOICE_PLUGIN = os.path.join(os.path.dirname(__file__), 'plugins', 'hold_invoice.py')
+HOLD_HTLCS_PLUGIN = os.path.join(os.path.dirname(__file__), 'plugins', 'hold_htlcs.py')
 
 
 def make_currency_plugin(state):
@@ -173,6 +179,142 @@ def test_repeatpay_persistence(node_factory):
     wait_for(lambda: only_one(l1.rpc.listrepeatpays(label='persist')['repeatpays'])['payments_made']
              > before['payments_made'],
              timeout=30 + TIMEOUT)
+
+
+def test_repeatpay_restart_making_payment(node_factory):
+    """Restart while status is making_payment; no double-pay and recovery."""
+    l1, l2 = node_factory.line_graph(2, opts={'may_reconnect': True})
+
+    # Long period keeps the deadline ahead so a retry after restart still
+    # lands inside the window.  recurrence_limit=1 gives two valid periods.
+    offer = l2.rpc.call('offer', {'amount': '1msat',
+                                  'description': 'mid-pay',
+                                  'recurrence': '30seconds',
+                                  'recurrence_limit': 1})['bolt12']
+
+    l1.rpc.repeatpay(bolt12=offer, maxamount='1000msat', label='mid-pay')
+
+    # Wait for the plugin to log the transition into making_payment for period 0.
+    l1.daemon.wait_for_log(r'plugin-cln-repeatpay: payment mid-pay #1: status.*->ongoing_making_payment')
+
+    # Restart while the payment is in-flight or has just completed.
+    l1.restart()
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    # Entry must survive with stable fields intact.
+    r = only_one(l1.rpc.listrepeatpays(label='mid-pay')['repeatpays'])
+    assert r['offer'] == offer
+    assert r['label'] == 'mid-pay'
+
+    # Wait until l1's counter and l2's paid-invoice count are both >=1 and
+    # equal each other: this is the no-double-pay / no-phantom-credit invariant.
+    def consistent_and_nonzero():
+        rr = only_one(l1.rpc.listrepeatpays(label='mid-pay')['repeatpays'])
+        paid = len([i for i in l2.rpc.listinvoices()['invoices']
+                    if i['status'] == 'paid'])
+        return rr['payments_made'] >= 1 and paid == rr['payments_made']
+    wait_for(consistent_and_nonzero)
+
+
+def test_repeatpay_restart_payment_pending_success(node_factory):
+    """Payment HTLC held in-flight during restart; an unrelated payment exercises
+    the wrong-hash re-arm in pending_wait_done; releasing the hold results in
+    the payment being counted exactly once (no double-pay)."""
+    # l3 holds every incoming invoice payment until 'unhold' file appears.
+    l1, l2, l3 = node_factory.line_graph(
+        3,
+        wait_for_announce=True,
+        opts=[{'may_reconnect': True},
+              {'may_reconnect': True},
+              {'may_reconnect': True, 'plugin': HOLD_INVOICE_PLUGIN}],
+    )
+
+    # Long period so the deadline is safely ahead of the test duration.
+    offer = l3.rpc.call('offer', {'amount': '1msat',
+                                  'description': 'holdpay',
+                                  'recurrence': '120seconds',
+                                  'recurrence_limit': 1})['bolt12']
+
+    l1.rpc.repeatpay(bolt12=offer, maxamount='10msat', label='holdpay')
+
+    # Wait until making_payment is logged and the HTLC has reached l3.
+    l1.daemon.wait_for_log(r'plugin-cln-repeatpay: payment holdpay #1: status.*->ongoing_making_payment')
+    wait_for(lambda: len(l3.rpc.listpeerchannels()['channels'][0]['htlcs']) > 0)
+
+    # Restart l1 while the payment is pending.
+    l1.restart()
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    # Pay l2's own invoice directly (l1→l2 only, not through l3).  When this
+    # completes it fires sendpays/updated with a *different* payment_hash,
+    # exercising the wrong-hash re-arm path in pending_wait_done before our
+    # real payment resolves.
+    l1.rpc.xpay(l2.rpc.invoice(1000, 'other', 'other')['bolt11'])
+
+    # Release the hold; l3 settles the HTLC and our payment becomes complete.
+    open(os.path.join(l3.daemon.lightning_dir, TEST_NETWORK, 'unhold'), 'w').close()
+
+    # The wait subscription should now fire with the correct hash, call
+    # pending_listpays_done, and increment the counter.
+    # Note that l1 will immediately pay second invoice!
+    wait_for(
+        lambda: only_one(l1.rpc.listrepeatpays(label='holdpay')['repeatpays'])['payments_made'] == 2,
+        timeout=TIMEOUT,
+    )
+
+    # No double-pay: paid invoices on l3 must equal what l1 has counted.
+    r = only_one(l1.rpc.listrepeatpays(label='holdpay')['repeatpays'])
+    paid = len([i for i in l3.rpc.listinvoices()['invoices'] if i['status'] == 'paid'])
+    assert paid == r['payments_made']
+
+
+def test_repeatpay_restart_payment_pending_failure(node_factory):
+    """Payment HTLC held in-flight during restart; an unrelated payment exercises
+    the wrong-hash re-arm; when the hold expires l3 rejects the HTLC;
+    plugin records offline failure and payments_made stays zero."""
+    # l3 holds every HTLC for 20 s then rejects it.
+    l1, l2, l3 = node_factory.line_graph(
+        3,
+        wait_for_announce=True,
+        opts=[{'may_reconnect': True},
+              {'may_reconnect': True},
+              {'may_reconnect': True,
+               'plugin': HOLD_HTLCS_PLUGIN,
+               'hold-time': 20,
+               'hold-result': 'fail'}],
+    )
+
+    # Long period so the payment deadline is not hit during the test.
+    offer = l3.rpc.call('offer', {'amount': '1msat',
+                                  'description': 'failpay',
+                                  'recurrence': '600seconds',
+                                  'recurrence_limit': 1})['bolt12']
+
+    l1.rpc.repeatpay(bolt12=offer, maxamount='10msat', label='failpay')
+
+    # Wait until making_payment is logged and the HTLC has reached l3.
+    l1.daemon.wait_for_log(r'plugin-cln-repeatpay: payment failpay #1: status.*->ongoing_making_payment')
+    wait_for(lambda: len(l3.rpc.listpeerchannels()['channels'][0]['htlcs']) > 0)
+
+    # Restart l1 while the HTLC is still being held (not yet failed).
+    l1.restart()
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    # Unrelated l1→l2 payment fires sendpays/updated with a different hash,
+    # exercising the wrong-hash re-arm path before the failure arrives.
+    l1.rpc.xpay(l2.rpc.invoice(1000, 'other', 'other')['bolt11'])
+
+    # After 20 s the hold expires and l3 rejects the HTLC.  The wait
+    # subscription fires; pending_listpays_done sees "failed" and calls
+    # payment_offline_failure, logging the status transition.
+    l1.daemon.wait_for_log(
+        r'plugin-cln-repeatpay: payment failpay.*->ongoing_failing_payment.*restarting',
+        timeout=25 + TIMEOUT,
+    )
+
+    # payment_offline_failure must not have credited any payment.
+    assert only_one(l1.rpc.listrepeatpays(label='failpay')['repeatpays'])['payments_made'] == 0
+    assert len([i for i in l3.rpc.listinvoices()['invoices'] if i['status'] == 'paid']) == 0
 
 
 def test_recurring_currency_invoice_refresh(node_factory):
