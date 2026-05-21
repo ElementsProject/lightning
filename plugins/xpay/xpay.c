@@ -2261,6 +2261,9 @@ invoice_fetched(struct command *cmd,
 		struct xpay_params *params)
 {
 	const char *inv;
+	trace_span_resume(params);
+	trace_span_tag(params, "status", "success");
+	trace_span_end(params);
 
 	inv = json_strdup(tmpctx, buf, json_get_member(buf, result, "invoice"));
 	inv = to_canonical_invstr(NULL, inv);
@@ -2271,6 +2274,26 @@ invoice_fetched(struct command *cmd,
 			 params->includefees_msat);
 }
 
+/* A wrapper around the possibility of an invoice fetch failure, just to put a
+ * trace_span_end. */
+static struct command_result *invoice_fetched_failed(struct command_result *ret,
+						     struct xpay_params *params)
+{
+	trace_span_resume(params);
+	trace_span_tag(params, "status", "failed");
+	trace_span_end(params);
+	return ret;
+}
+
+static struct command_result *
+invoice_fetched_rpcerror(struct command *cmd, const char *method,
+			 const char *buf, const jsmntok_t *error,
+			 struct xpay_params *params)
+{
+	return invoice_fetched_failed(
+	    forward_error(cmd, method, buf, error, params), params);
+}
+
 static struct command_result *
 do_fetchinvoice(struct command *cmd, const char *offerstr, struct xpay_params *xparams)
 {
@@ -2278,7 +2301,7 @@ do_fetchinvoice(struct command *cmd, const char *offerstr, struct xpay_params *x
 
 	req = jsonrpc_request_start(cmd, "fetchinvoice",
 				    invoice_fetched,
-				    forward_error,
+				    invoice_fetched_rpcerror,
 				    xparams);
 	json_add_string(req->js, "offer", offerstr);
 	if (xparams->msat)
@@ -2310,11 +2333,13 @@ bip353_fetched(struct command *cmd,
 			break;
 	}
 
-	if (!offertok)
-		return command_fail(cmd, PAY_UNSPECIFIED_ERROR,
+	if (!offertok) {
+		ret = command_fail(cmd, PAY_UNSPECIFIED_ERROR,
 				    "BIP353 response did not contain an offer (%.*s)",
 				    json_tok_full_len(result),
 				    json_tok_full(buf, result));
+		goto failed;
+	}
 	offerstr = json_strdup(tmpctx, buf, offertok);
 
 	if (xparams->includefees_msat)
@@ -2323,9 +2348,12 @@ bip353_fetched(struct command *cmd,
 		ret = check_offer_payable(cmd, offerstr, xparams->msat);
 
 	if (ret)
-		return ret;
+		goto failed;
 
 	return do_fetchinvoice(cmd, offerstr, xparams);
+
+failed:
+	return invoice_fetched_failed(ret, xparams);
 }
 
 static struct command_result *json_xpay_params(struct command *cmd,
@@ -2380,6 +2408,8 @@ static struct command_result *json_xpay_params(struct command *cmd,
 			return command_check_done(cmd);
 
 		xparams = tal(cmd, struct xpay_params);
+		trace_span_start("xpay/fetchinvoice", xparams);
+		trace_span_suspend(xparams);
 		xparams->msat = msat;
 		xparams->maxfee = maxfee;
 		xparams->partial = partial;
@@ -2408,6 +2438,8 @@ static struct command_result *json_xpay_params(struct command *cmd,
 			return command_check_done(cmd);
 
 		xparams = tal(cmd, struct xpay_params);
+		trace_span_start("xpay/fetchinvoice", xparams);
+		trace_span_suspend(xparams);
 		xparams->msat = msat;
 		xparams->maxfee = maxfee;
 		xparams->partial = partial;
@@ -2421,7 +2453,7 @@ static struct command_result *json_xpay_params(struct command *cmd,
 
 		req = jsonrpc_request_start(cmd, "fetchbip353",
 					    bip353_fetched,
-					    forward_error, xparams);
+					    invoice_fetched_rpcerror, xparams);
 		json_add_string(req->js, "address", invstring);
 		return send_outreq(req);
 	}
