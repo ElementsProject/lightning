@@ -46,7 +46,7 @@ Here's a checklist for the release process.
 
 1. Update CHANGELOG.md by changing rc(N-1) to rcN. Update the changelog list with information from newly merged PRs also.
 2. Update the package versions: `uv run make update-versions NEW_VERSION=v<VERSION>rcN`
-3. Add a PR with the rcN.
+3. Add a PR with the rcN, and merge it.
 4. Tag it `git pull && git tag -s v<VERSION>rcN && git push origin v<VERSION>rcN`.
 5. Pushing the tag automatically starts the "Release 🚀" CI job, creating a draft pre-release and uploading reproducible builds with their `SHA256SUMS` files signed by the project key.
 6. Set up the reproducible build environment by running the script `contrib/cl-repro.sh` to generate the necessary builder images.
