@@ -12,8 +12,7 @@ We have a 3 month release cycle, and the last two versions are supported.
 
 ## Reporting a Vulnerability
 
-To report security vulnerabilities, please send an email to one of the following addresses:
-- `rusty@rustcorp.com.au`
+To report security vulnerabilities, please send an email to:
 - `security@blockstream.com`
 
 Note: These email addresses are exclusively for vulnerability reporting.
