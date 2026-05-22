@@ -439,13 +439,13 @@ void init(int *argc, char ***argv)
 
 void run(const u8 *data, size_t size)
 {
-	if (setjmp(fuzz_env) != 0)
-		goto cleanup;
-
 	/* The function under test: fundee_channel(), calls
 	 * clean_tmpctx() mid-run, so create a separate context.
 	 */
 	const tal_t *run_ctx = tal(NULL, tal_t);
+
+	if (setjmp(fuzz_env) != 0)
+		goto cleanup;
 
 	/* Initialize the global pointers to the fuzz data. */
 	cursor = &data;
