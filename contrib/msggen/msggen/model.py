@@ -246,7 +246,7 @@ class CompositeField(Field):
 
         def merge_dicts(dict1, dict2):
             merged_dict = {}
-            for key in set(dict1.keys()) | set(dict2.keys()):
+            for key in sorted(set(dict1.keys()) | set(dict2.keys())):
                 if key in dict1 and key in dict2:
                     if isinstance(dict1[key], dict) and isinstance(dict2[key], dict):
                         merged_dict[key] = merge_dicts(dict1[key], dict2[key])
@@ -285,7 +285,7 @@ class CompositeField(Field):
         # Identify required fields
         required = js.get("required", [])
         fields = []
-        for fname, ftype in properties.items():
+        for fname, ftype in sorted(properties.items(), key=lambda x: x[0]):
             field = None
             desc = ftype["description"] if "description" in ftype else ""
             fpath = f"{path}.{fname}"
