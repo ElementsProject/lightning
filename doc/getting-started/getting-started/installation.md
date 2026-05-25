@@ -157,7 +157,7 @@ OS version: Fedora 39 or above
 Get dependencies:
 ```shell
 sudo dnf update -y && \
-        sudo dnf groupinstall -y \
+        sudo dnf group install -y \
                 'c-development' \
                 'development-tools' && \
         sudo dnf install -y \
@@ -180,7 +180,9 @@ sudo dnf update -y && \
                 protobuf-compiler \
                 protobuf-devel \
                 postgresql-devel \
-                python3-mako && \
+                python3-mako \
+                openssl \
+                openssl-devel && \
         sudo dnf clean all
 ```
 
@@ -188,6 +190,12 @@ Install Rust via rustup (required for Cargo lockfile v4 support):
 ```shell
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 source $HOME/.cargo/env
+```
+
+Install uv (Python package manager, used by the build):
+```shell
+curl -LsSf https://astral.sh/uv/install.sh | sh
+export PATH="$HOME/.local/bin:$PATH"
 ```
 
 Install lowdown (for documentation generation):
@@ -206,7 +214,7 @@ rm -rf /tmp/VERSION_1_0_2.tar.gz /tmp/lowdown-VERSION_1_0_2
 
 Make sure you have [bitcoind](https://github.com/bitcoin/bitcoin) available to run.
 
-Clone lightning:
+Clone lightning (including submodules):
 ```shell
 git clone https://github.com/ElementsProject/lightning.git
 cd lightning
@@ -214,14 +222,15 @@ cd lightning
 
 Checkout a release tag:
 ```shell
-git checkout v24.05
+git checkout v26.04
 ```
 
 Build and install lightning:
 ```shell
+uv sync --all-extras --all-groups --frozen
 ./configure
-make
-sudo make install
+RUST_PROFILE=release uv run make -j$(nproc)
+sudo RUST_PROFILE=release make install
 ```
 
 Running lightning (mainnet):
