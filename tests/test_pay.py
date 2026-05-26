@@ -7376,3 +7376,70 @@ def test_createproof_include(node_factory, bitcoind):
     # Unknown name is an error.
     with pytest.raises(RpcError, match=r'Unknown field name'):
         l1.rpc.call('createproof', {'invstring': inv, 'include': ['no_such_field']})
+
+
+def test_fetchinvoice_bolt11(node_factory, bitcoind):
+    """Test fetchinvoice bolt11=True fetches a bolt11 invoice via onion message."""
+    l1, l2 = node_factory.line_graph(2, wait_for_announce=True,
+                                     opts={'dev-allow-localhost': None})
+
+    # Simple offer should automatically have option_bolt11_request set.
+    offer = l2.rpc.offer(amount='2msat', description='bolt11 test')
+    assert offer['created'] is True
+
+    # Fetch a bolt11 invoice.
+    ret = l1.rpc.fetchinvoice(offer=offer['bolt12'],
+                              payer_metadata='0001020304050607',
+                              bolt11=True)
+    assert ret['invoice'].startswith('lnb')
+    decoded = l1.rpc.decode(ret['invoice'])
+    assert decoded['type'] == 'bolt11 invoice'
+    assert decoded['amount_msat'] == 2
+
+    # Requesting bolt11 again with same payer key returns the same invoice.
+    ret2 = l1.rpc.fetchinvoice(offer=offer['bolt12'],
+                               payer_metadata='0001020304050607',
+                               bolt11=True)
+    assert ret2['invoice'] == ret['invoice']
+
+    # Requesting non-bolt11 fails.
+    with pytest.raises(RpcError, match="invoice previously requested as a bolt11"):
+        l1.rpc.fetchinvoice(offer=offer['bolt12'], payer_metadata='0001020304050607')
+
+    # We can pay it.
+    l1.rpc.xpay(ret['invoice'])
+
+    # Don't hit onion ratelimits!
+    time.sleep(1)
+
+    # Cannot fetch it again with same payer key.
+    with pytest.raises(RpcError, match="Invoice already paid"):
+        l1.rpc.fetchinvoice(offer=offer['bolt12'],
+                            payer_metadata='0001020304050607',
+                            bolt11=True)
+
+    # Offer with quantity_max has no option_bolt11_request; rejects bolt11 param.
+    offer_qty = l2.rpc.offer(amount='1msat',
+                             description='qty offer',
+                             quantity_max=5)
+    with pytest.raises(RpcError, match="Cannot request bolt11: offer does not implement it"):
+        l1.rpc.fetchinvoice(offer=offer_qty['bolt12'], quantity=1, bolt11=True)
+
+    # Variable-amount offer works with amount_msat.
+    offer_any = l2.rpc.offer(amount='any', description='any amount')
+    ret = l1.rpc.fetchinvoice(offer=offer_any['bolt12'],
+                              bolt11=True,
+                              amount_msat=1000)
+    assert ret['invoice'].startswith('lnb')
+    decoded = l1.rpc.decode(ret['invoice'])
+    assert decoded['amount_msat'] == 1000
+
+    # Cannot request bolt11 after bolt12 with same payer key.
+    l1.rpc.fetchinvoice(offer=offer_any['bolt12'],
+                        amount_msat=1,
+                        payer_metadata='0001020304050608')
+    with pytest.raises(RpcError, match="invoice previously requested as a bolt12"):
+        l1.rpc.fetchinvoice(offer=offer_any['bolt12'],
+                            amount_msat=1,
+                            payer_metadata='0001020304050608',
+                            bolt11=True)

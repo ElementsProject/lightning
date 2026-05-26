@@ -1979,6 +1979,7 @@
         "FetchinvoiceRequest": {
             "FetchInvoice.amount_msat": 2,
             "FetchInvoice.bip353": 10,
+            "FetchInvoice.bolt11": 11,
             "FetchInvoice.offer": 1,
             "FetchInvoice.payer_metadata": 9,
             "FetchInvoice.payer_note": 8,
@@ -8106,6 +8107,10 @@
         },
         "FetchInvoice.bip353": {
             "added": "v25.02",
+            "deprecated": null
+        },
+        "FetchInvoice.bolt11": {
+            "added": "v26.09",
             "deprecated": null
         },
         "FetchInvoice.changes": {

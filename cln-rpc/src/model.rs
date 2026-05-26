@@ -2411,6 +2411,8 @@ pub mod requests {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub bip353: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub bolt11: Option<bool>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub payer_metadata: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub payer_note: Option<String>,

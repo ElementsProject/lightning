@@ -13907,6 +13907,13 @@
             ],
             "added": "v25.02"
           },
+          "bolt11": {
+            "type": "boolean",
+            "description": [
+              "Indicates we should fetch a bolt11 invoice instead (EXPERIMENTAL)"
+            ],
+            "added": "v26.09"
+          },
           "dev_reply_path": {
             "hidden": true
           },
@@ -13925,7 +13932,7 @@
           "invoice": {
             "type": "string",
             "description": [
-              "The BOLT12 invoice we fetched."
+              "The BOLT12 invoice we fetched (or BOLT11 if `bolt11` parameter was set)."
             ]
           },
           "changes": {
