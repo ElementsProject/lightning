@@ -15904,6 +15904,10 @@
             "added": "pre-v0.10.1",
             "deprecated": null
         },
+        "onion_message_recv.onion_message.bolt11_invoice": {
+            "added": "v26.09",
+            "deprecated": null
+        },
         "onion_message_recv.onion_message.invoice": {
             "added": "pre-v0.10.1",
             "deprecated": null
@@ -15970,6 +15974,10 @@
         },
         "onion_message_recv_secret.onion_message": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "onion_message_recv_secret.onion_message.bolt11_invoice": {
+            "added": "v26.09",
             "deprecated": null
         },
         "onion_message_recv_secret.onion_message.invoice": {
