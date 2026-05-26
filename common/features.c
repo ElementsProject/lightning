@@ -144,6 +144,8 @@ static const struct feature_style feature_styles[] = {
 	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
 			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT,
 			  [CHANNEL_FEATURE] = FEATURE_DONT_REPRESENT} },
+	{ OPT_BOLT11_REQUEST,
+	  .copy_style = { [BOLT12_OFFER_FEATURE] = FEATURE_REPRESENT } },
 };
 
 struct dependency {
