@@ -224,9 +224,12 @@ static struct command_result *createinvoice_error(struct command *cmd,
 		      JSON_SCAN(json_to_u32, &code),
 		      JSON_SCAN_TAL(tmpctx, json_strdup, &status)) == NULL
 	    && code == INVOICE_LABEL_ALREADY_EXISTS) {
-		if (streq(status, "unpaid"))
-			return createinvoice_done(cmd, method, buf,
-						  json_get_member(buf, err, "data"), ir);
+		if (streq(status, "unpaid")) {
+			const jsmntok_t *data = json_get_member(buf, err, "data");
+			if (!json_get_member(buf, data, "bolt12"))
+				return fail_invreq(cmd, ir, "invoice previously requested as a bolt11");
+			return createinvoice_done(cmd, method, buf, data, ir);
+		}
 		if (streq(status, "expired"))
 			return fail_invreq(cmd, ir, "invoice expired (cancelled?)");
 	}
@@ -823,6 +826,78 @@ static struct command_result *convert_currency(struct command *cmd,
 	return send_outreq(req);
 }
 
+static struct command_result *bolt11_invoice_done(struct command *cmd,
+						  const char *method,
+						  const char *buf,
+						  const jsmntok_t *result,
+						  struct invreq *ir)
+{
+	struct tlv_onionmsg_tlv *payload;
+	const jsmntok_t *t = json_get_member(buf, result, "bolt11");
+
+	/* In case it was a bolt12 last time! */
+	if (!t)
+		return fail_invreq(cmd, ir, "invoice previously requested as a bolt12");
+
+	payload = tlv_onionmsg_tlv_new(tmpctx);
+	/* Not nul-terminated! */
+	payload->bolt11_invoice = tal_dup_arr(payload, char,
+					      buf + t->start,
+					      t->end - t->start,
+					      0);
+	return send_onion_reply(cmd, ir->reply_path, payload);
+}
+
+static struct command_result *bolt11_listinvoices_done(struct command *cmd,
+						       const char *method,
+						       const char *buf,
+						       const jsmntok_t *result,
+						       struct invreq *ir)
+{
+	const jsmntok_t *arr = json_get_member(buf, result, "invoices"), *inv, *status;
+
+	if (arr->size == 0)
+		return fail_internalerr(cmd, ir, "Listing invoices gave no invoice?");
+
+	inv = arr + 1;
+	status = json_get_member(buf, inv, "status");
+	if (!json_tok_streq(buf, status, "unpaid")) {
+		return fail_invreq(cmd, ir, "Invoice already %.*s",
+				   status->end - status->start,
+				   buf + status->start);
+	}
+
+	/* If we hand it the first entry, it's exactly like we just generated it */
+	return bolt11_invoice_done(cmd, method, buf, inv, ir);
+}
+
+/* This can fail because they've already asked for it */
+static struct command_result *bolt11_invoice_error(struct command *cmd,
+						   const char *method,
+						   const char *buf,
+						   const jsmntok_t *err,
+						   struct invreq *ir)
+{
+	struct out_req *req;
+	u32 code;
+	if (json_scan(tmpctx, buf, err,
+		      "{code:%}",
+		      JSON_SCAN(json_to_u32, &code)) != NULL
+	    || code != INVOICE_LABEL_ALREADY_EXISTS) {
+		return fail_internalerr(cmd, ir,
+					"Bad invoice error %.*s",
+					json_tok_full_len(err),
+					json_tok_full(buf, err));
+	}
+
+	req = jsonrpc_request_start(cmd, "listinvoices",
+				    bolt11_listinvoices_done,
+				    error,
+				    ir);
+	json_add_label(req->js, &ir->offer_id, ir->invreq->invreq_payer_id, 0);
+	return send_outreq(req);
+}
+
 static struct command_result *listoffers_done(struct command *cmd,
 					      const char *method,
 					      const char *buf,
@@ -1041,6 +1116,46 @@ static struct command_result *listoffers_done(struct command *cmd,
 		err = invreq_must_not_have(cmd, ir, invreq_recurrence_cancel);
 		if (err)
 			return err;
+	}
+
+	/* BOLT-fetch-bolt11 #12:
+	 * - if `invreq_bolt11` is present:
+	 *   - if `offer_features` does not contain `option_bolt11_request`:
+	 *     - MUST reject the invoice request.
+	 *   - if `invreq_quantity` is present:
+	 *     - MUST reject the invoice request.
+	 * - SHOULD create a BOLT 11 invoice and place it in the
+	 *   `bolt11_invoice` field of a response `onionmsg_tlv`, sent using
+	 *   the `onionmsg_tlv` `reply_path`.
+	 */
+	if (ir->invreq->invreq_bolt11) {
+		struct out_req *req;
+		if (!feature_offered(ir->invreq->offer_features, OPT_BOLT11_REQUEST))
+			return fail_invreq(cmd, ir, "This offer is not bolt11 compatible");
+		if (ir->invreq->invreq_quantity)
+			return fail_invreq(cmd, ir, "Cannot have quantity with bolt11");
+		if (ir->invreq->offer_amount) {
+			if (ir->invreq->invreq_amount
+			    && *ir->invreq->offer_amount != *ir->invreq->invreq_amount)
+				return fail_invreq(cmd, ir, "Requested amount %s != offer amount %s",
+						   fmt_amount_msat(tmpctx, amount_msat(*ir->invreq->invreq_amount)),
+						   fmt_amount_msat(tmpctx, amount_msat(*ir->invreq->offer_amount)));
+			amt = amount_msat(*ir->invreq->offer_amount);
+		} else {
+			if (!ir->invreq->invreq_amount)
+				return fail_invreq(cmd, ir, "Missing invreq_amount");
+			amt = amount_msat(*ir->invreq->invreq_amount);
+		}
+		req = jsonrpc_request_start(cmd, "invoice",
+					    bolt11_invoice_done,
+					    bolt11_invoice_error,
+					    ir);
+		json_add_amount_msat(req->js, "amount_msat", amt);
+		json_add_label(req->js, &ir->offer_id, ir->invreq->invreq_payer_id, 0);
+		json_add_stringn(req->js, "description",
+				 ir->invreq->offer_description,
+				 tal_bytelen(ir->invreq->offer_description));
+		return send_outreq(req);
 	}
 
 	/* BOLT #12:
