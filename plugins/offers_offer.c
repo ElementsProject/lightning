@@ -472,6 +472,21 @@ static struct command_result *param_pubkey_arr(struct command *cmd,
 	return NULL;
 }
 
+/* Simple offers can be turned into bolt11 invoices */
+static bool offer_is_bolt11_compatible(const struct tlv_offer *offer)
+{
+	/* No currency conversion */
+	if (offer->offer_currency)
+		return false;
+	/* No quantities */
+	if (offer->offer_quantity_max)
+		return false;
+	/* No recurrence */
+	if (offer_recurrence(offer))
+		return false;
+	return true;
+}
+
 struct command_result *json_offer(struct command *cmd,
 				  const char *buffer,
 				  const jsmntok_t *params)
@@ -521,10 +536,9 @@ struct command_result *json_offer(struct command *cmd,
 	/* If they don't specify explicitly, use config (if any) */
 	if (!offinfo->fronting_nodes)
 		offinfo->fronting_nodes = od->fronting_nodes;
-	else if (tal_count(offinfo->fronting_nodes) == 0) {
+	else if (tal_count(offinfo->fronting_nodes) == 0)
 		/* [] means "no fronting" */
 		offinfo->fronting_nodes = tal_free(offinfo->fronting_nodes);
-	}
 
 	/* BOLT #12:
 	 *
@@ -610,6 +624,16 @@ struct command_result *json_offer(struct command *cmd,
 	 *     invoice from.
 	 */
 	offer->offer_issuer_id = tal_dup(offer, struct pubkey, &od->id);
+
+	/* bolt11 can do some fronting, but it's not as good (especially if we
+	 * ever obscure our own node id when fronting!).  So we act
+	 * conservatively and disable it. */
+	if (offer_is_bolt11_compatible(offer)
+	    && !paths
+	    && !offinfo->fronting_nodes) {
+		offer->offer_features = tal_arr(offer, u8, 0);
+		set_feature_bit(&offer->offer_features, OPTIONAL_FEATURE(OPT_BOLT11_REQUEST));
+	}
 
 	/* Now rest of offer will not change: we use pathless offer to create secret. */
 	if (paths) {
