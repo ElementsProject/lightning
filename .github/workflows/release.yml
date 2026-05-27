@@ -14,18 +14,12 @@ on:
         required: true
       skip_validation:
         description: Skip release validation for untagged commit testing
-        default: no
-        type: choice
-        options:
-          - yes
-          - no
+        default: false
+        type: boolean
       create_release:
         description: Create a draft release
-        default: no
-        type: choice
-        options:
-          - yes
-          - no
+        default: false
+        type: boolean
 
 jobs:
   check:
@@ -54,7 +48,7 @@ jobs:
           echo "Determined version: $VERSION"
 
       - name: Validate release
-        if: github.event_name != 'workflow_dispatch' || github.event.inputs.skip_validation != 'yes'
+        if: ${{ !(github.event_name == 'workflow_dispatch' && github.event.inputs.skip_validation) }}
         run: tools/check-release.sh --version=${VERSION}
 
       - name: Catpure version output
@@ -72,9 +66,9 @@ jobs:
       matrix:
         target:
           - 'bin-Fedora'
-          - 'bin-Ubuntu-focal'
           - 'bin-Ubuntu-jammy'
           - 'bin-Ubuntu-noble'
+          - 'bin-Ubuntu-resolute'
     steps:
       - name: Git checkout
         uses: actions/checkout@v6
@@ -99,7 +93,7 @@ jobs:
       - name: Build release
         run: |
           # Allow build release to execute if manually triggered for testing
-          if [ "${{ github.event_name }}" == "workflow_dispatch" && github.event.inputs.skip_validation == 'yes' ]; then
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ github.event.inputs.skip_validation }}" == "true" ]]; then
             tools/build-release.sh ${{ matrix.target }} --force-version "${{ env.version }}" --force-unclean --force-mtime "$(date +%Y-%m-%d)"
           else
             tools/build-release.sh ${{ matrix.target }}
@@ -187,7 +181,7 @@ jobs:
           echo "release_title=$RELEASE_TITLE" >> "$GITHUB_OUTPUT"
 
       - name: Prepare release draft
-        if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.create_release == 'yes')
+        if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.create_release) }}
         uses: softprops/action-gh-release@v3
         with:
           name: "${{ env.version }} ${{ steps.release_data.outputs.release_title }}"
