@@ -41,20 +41,20 @@ the non-updated repos).
 
 The following table lists the codenames of distributions that we currently support:
 
-- Ubuntu 20.04:
-  - Distribution Version: 20.04
-  - Codename: focal
 - Ubuntu 22.04:
   - Distribution Version: 22.04
   - Codename: jammy
 - Ubuntu 24.04:
   - Distribution Version: 24.04
   - Codename: noble
+- Ubuntu 26.04:
+  - Distribution Version: 26.04
+  - Codename: resolute
 
 Depending on your host OS release you might not have `debootstrap` manifests for versions newer than your host OS. Due to this we run the `debootstrap` commands in a container of the latest version itself:
 
 ```shell
-for v in focal jammy noble; do
+for v in jammy noble resolute; do
   echo "Building base image for $v"
   docker run --rm -v $(pwd):/build ubuntu:$v \
 	bash -c "apt-get update && apt-get install -y debootstrap && debootstrap $v /build/$v"
@@ -86,9 +86,9 @@ For this purpose we have a number of Dockerfiles in the [`contrib/reprobuild`](h
 We can then build the builder image by calling `docker build` and passing it the `Dockerfile`:
 
 ```shell
-docker build -t cl-repro-focal - < contrib/reprobuild/Dockerfile.focal
 docker build -t cl-repro-jammy - < contrib/reprobuild/Dockerfile.jammy
 docker build -t cl-repro-noble - < contrib/reprobuild/Dockerfile.noble
+docker build -t cl-repro-resolute - < contrib/reprobuild/Dockerfile.resolute
 ```
 
 Since we pass the `Dockerfile` through `stdin` the build command will not create a context, i.e., the current directory is not passed to `docker` and it'll be independent of the currently checked out version. This also means that you will be able to reuse the docker image for future builds, and don't have to repeat this dance every time. Verifying the `Dockerfile` therefore is  
@@ -102,9 +102,9 @@ Finally, after finishing the environment setup we can perform the actual build. 
 We'll need the release directory available for this, so create it now if it doesn't exist:`mkdir release`, then we can simply execute the following command inside the git repository (remember to checkout the tag you are trying to build):
 
 ```bash
-docker run --rm -v $(pwd):/repo -ti cl-repro-focal
 docker run --rm -v $(pwd):/repo -ti cl-repro-jammy
 docker run --rm -v $(pwd):/repo -ti cl-repro-noble
+docker run --rm -v $(pwd):/repo -ti cl-repro-resolute
 ```
 
 The last few lines of output also contain the `sha256sum` hashes of all artifacts, so if you're just verifying the build those are the lines that are of interest to you:
@@ -123,7 +123,7 @@ The release captain is in charge of creating the manifest, whereas contributors 
 ## Script build-release
 1: Pull latest code from master
 
-2: Run the `tools/build-release.sh bin-Fedora bin-Ubuntu sign` script. This will create a release directory, build binaries for Fedora, and build binaries for Ubuntu (Focal, Jammy, and Noble). Finally, it will sign the ZIP, Fedora, and Ubuntu builds.
+2: Run the `tools/build-release.sh bin-Fedora bin-Ubuntu sign` script. This will create a release directory, build binaries for Fedora, and build binaries for Ubuntu (Jammy, Noble, and Resolute). Finally, it will sign the ZIP, Fedora, and Ubuntu builds.
 
 ## Manual
 The release captain creates the manifest as follows:
@@ -143,7 +143,7 @@ gpg -sb --armor SHA256SUMS
 
 2: Copy above files in the lightning directory.
 
-3: Run `tools/build-release.sh --verify` script. It will build binaries for Ubuntu (Focal, Jammy & Noble), verify zip & Ubuntu builds while copying Fedora checksums from the release captain's file.
+3: Run `tools/build-release.sh --verify` script. It will build binaries for Ubuntu (Jammy, Noble & Resolute), verify zip & Ubuntu builds while copying Fedora checksums from the release captain's file.
 
 4. Then send the resulting `release/SHA256SUMS.asc` file to the release captain so it can be merged with the other signatures into `SHASUMS.asc`.
 
@@ -200,9 +200,9 @@ Producing output similar to the following:
 ```shell
 sha256sum: clightning-v24.11-Fedora-35-amd64.tar.gz: No such file or directory
 clightning-v24.11-Fedora-35-amd64.tar.gz: FAILED open or read
-clightning-v24.11-Ubuntu-20.04.tar.xz: OK
 clightning-v24.11-Ubuntu-22.04.tar.xz: OK
 clightning-v24.11-Ubuntu-24.04.tar.xz: OK
+clightning-v24.11-Ubuntu-26.04.tar.xz: OK
 clightning-v24.11.zip: OK
 sha256sum: WARNING: 1 listed file could not be read
 ```
