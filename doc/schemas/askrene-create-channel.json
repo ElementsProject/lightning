@@ -32,7 +32,7 @@
       "destination": {
         "type": "pubkey",
         "description": [
-          "The destination node id for the channel."
+          "The destination node id for the channel (must be different from source)."
         ]
       },
       "short_channel_id": {

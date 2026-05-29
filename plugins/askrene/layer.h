@@ -52,7 +52,7 @@ bool layer_check_local_channel(const struct local_channel *lc,
 			       const struct node_id *n2,
 			       struct amount_msat capacity);
 
-/* Add a local channel to a layer! */
+/* Add a local channel to a layer: src must not be equal to dst!*/
 void layer_add_local_channel(struct layer *layer,
 			     const struct node_id *src,
 			     const struct node_id *dst,
