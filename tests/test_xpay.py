@@ -975,6 +975,21 @@ def test_xpay_offer(node_factory):
     l1.rpc.xpay(offer2, 5000)
 
 
+def test_xpay_currency_offer(node_factory):
+    """Test that xpay and sendamount correctly report the currency name when rejecting non-msat offers."""
+    plugin = Path(__file__).parent / "plugins" / "currencyUSDAUD5000.py"
+    l1, l2 = node_factory.line_graph(2, wait_for_announce=True,
+                                     opts=[{}, {'plugin': str(plugin)}])
+
+    offerusd = l2.rpc.offer('10USD', 'USD test')['bolt12']
+
+    with pytest.raises(RpcError, match=r"Cannot pay offer in different currency USD"):
+        l1.rpc.xpay(offerusd)
+
+    with pytest.raises(RpcError, match=r"Cannot pay offer in different currency USD"):
+        l1.rpc.sendamount(offerusd, '100sat')
+
+
 def test_xpay_bip353(node_factory):
     fakebip353_plugin = Path(__file__).parent / "plugins" / "fakebip353.py"
 
