@@ -2153,7 +2153,8 @@ static struct command_result *check_offer_payable(struct command *cmd,
 	/* We will only one-shot if we know amount!  (FIXME: Convert!) */
 	if (b12offer->offer_currency)
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "Cannot pay offer in different currency %s",
+				    "Cannot pay offer in different currency %.*s",
+				    (int)tal_bytelen(b12offer->offer_currency),
 				    b12offer->offer_currency);
 	if (b12offer->offer_amount) {
 		if (msat && !amount_msat_eq(amount_msat(*b12offer->offer_amount), *msat)) {
@@ -2188,7 +2189,8 @@ check_offer_sendamount_payable(struct command *cmd, const char *offerstr)
 	/* FIXME: add currency support */
 	if (b12offer->offer_currency)
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "Cannot pay offer in different currency %s",
+				    "Cannot pay offer in different currency %.*s",
+				    (int)tal_bytelen(b12offer->offer_currency),
 				    b12offer->offer_currency);
 	/* Can only be applied to *any amount* offers. */
 	if (b12offer->offer_amount)
