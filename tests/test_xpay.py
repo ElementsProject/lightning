@@ -975,7 +975,6 @@ def test_xpay_offer(node_factory):
     l1.rpc.xpay(offer2, 5000)
 
 
-@pytest.mark.xfail(strict=True)
 def test_xpay_circular_routehint(node_factory):
     """Test that xpay gracefully skips a circular bolt11 routehint (src == dst)."""
     l1, l2 = node_factory.line_graph(2)

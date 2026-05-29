@@ -1922,6 +1922,16 @@ static void add_fake_channel(struct command *aux_cmd,
 	struct out_req *req;
 	struct short_channel_id_dir scidd;
 
+	/* We're not allowed to send these to askrene-create-channel,
+	 * so catch them now */
+	if (node_id_eq(src, dst)) {
+		payment_log(payment, LOG_UNUSUAL,
+			    "Invoice gave bad self-node route %s->%s",
+			    fmt_node_id(tmpctx, src),
+			    fmt_node_id(tmpctx, dst));
+		return;
+	}
+
 	scidd.scid = scid;
 	scidd.dir = node_id_idx(src, dst);
 	payment_log(payment, LOG_DBG,

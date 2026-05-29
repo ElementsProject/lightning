@@ -234,6 +234,7 @@ static struct local_channel *add_local_channel(struct layer *layer,
 		lc->n1 = *n1;
 		lc->n2 = *n2;
 	} else {
+		assert(!node_id_eq(n1, n2));
 		lc->n1 = *n2;
 		lc->n2 = *n1;
 	}
