@@ -2699,6 +2699,10 @@ static struct command_result *xpay_core(struct command *cmd,
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "%s", err);
 
+		if (bolt11_route_hints_have_loops(b11))
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Route hints contain self-loops "
+					    "in this bolt11 invoice");
 		payment->route_hints = tal_steal(payment, b11->routes);
 		disable_mpp = !feature_offered(b11->features, OPT_BASIC_MPP);
 		if (!includefees_msat && amount_msat_is_zero(payment->mpp_amount))

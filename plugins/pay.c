@@ -944,6 +944,10 @@ static struct command_result *json_pay(struct command *cmd,
 		if (b11 == NULL)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "Invalid bolt11: %s", b11_fail);
+		if (bolt11_route_hints_have_loops(b11))
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Route hints contain self-loops "
+					    "in this bolt11 invoice");
 
 		invmsat = b11->msat;
 		invexpiry = b11->timestamp + b11->expiry;

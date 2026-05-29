@@ -118,6 +118,10 @@ static struct command_result *json_renepaystatus(struct command *cmd,
 		if (b11 == NULL)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "Invalid bolt11: %s", fail);
+		if (bolt11_route_hints_have_loops(b11))
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Route hints contain self-loops "
+					    "in this bolt11 invoice");
 
 		struct payment *payment =
 		    payment_map_get(pay_plugin->payment_map, b11->payment_hash);

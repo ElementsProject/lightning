@@ -1418,3 +1418,23 @@ char *bolt11_encode_(const tal_t *ctx,
 
 	return output;
 }
+
+bool bolt11_route_hints_have_loops(const struct bolt11 *b11)
+{
+	const struct node_id *current, *next;
+	for (size_t i = 0; i < tal_count(b11->routes); i++) {
+		const struct route_info *route = b11->routes[i];
+		for (size_t j = 0; j < tal_count(route); j++) {
+			current = &route[j].pubkey;
+
+			if (j + 1 == tal_count(route))
+				next = &b11->receiver_id;
+			else
+				next = &route[j + 1].pubkey;
+
+			if (node_id_eq(current, next))
+				return true;
+		}
+	}
+	return false;
+}

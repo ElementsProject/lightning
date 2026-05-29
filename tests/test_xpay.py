@@ -1361,7 +1361,6 @@ def test_sendamount_bip353(node_factory):
     assert ret["amount_sent_msat"] == 100000
 
 
-@pytest.mark.xfail(strict=True)
 def test_paying_bad_bolt11(node_factory, chainparams):
     """A bad bolt11 invoice containing a self-loop routehint should be detected
     by xpay."""

@@ -135,4 +135,8 @@ const char *to_canonical_invstr(const tal_t *ctx, const char *invstring);
 extern bool dev_bolt11_old_order;
 extern bool dev_bolt11_omit_c_value;
 
+/* Check if a bolt11 invoice contains self-loops. This doesn't make the invoice
+ * invalid, but it is not useful and it could be even a malicious intention. */
+bool bolt11_route_hints_have_loops(const struct bolt11 *b11);
+
 #endif /* LIGHTNING_COMMON_BOLT11_H */
