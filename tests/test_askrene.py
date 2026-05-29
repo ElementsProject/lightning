@@ -2667,3 +2667,40 @@ def test_impossible_payment(node_factory):
             final_cltv=5,
             maxparts=1,
         )
+
+
+@pytest.mark.xfail(strict=True)
+def test_sanitize_create_channel(node_factory):
+    """To avoid gossmap's API to crash askrene we should sanitaze user's input.
+    In particular the obvious bad self-loop channel."""
+    gsfile, nodemap = generate_gossip_store([GenChannel(0, 1)])
+    l1 = node_factory.get_node(gossip_store_file=gsfile.name)
+    LAYER = "test-layer"
+    l1.rpc.askrene_create_layer(LAYER)
+
+    rpcerror = None
+    try:
+        l1.rpc.askrene_create_channel(
+            LAYER, nodemap[0], nodemap[0], "1x1x1", "1000000sat"
+        )
+    except RpcError as e:
+        # we check later
+        rpcerror = e
+
+    # This shouldn't crash askrene
+    l1.rpc.getroutes(
+        source=nodemap[0],
+        destination=nodemap[1],
+        amount_msat=10000,
+        layers=[LAYER],
+        maxfee_msat=1000,
+        final_cltv=99,
+    )
+
+    # askrene should refuse to create such channel
+    with pytest.raises(
+        RpcError,
+        match=r"source and destination must be different",
+    ):
+        if rpcerror:
+            raise rpcerror

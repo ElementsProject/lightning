@@ -1359,3 +1359,34 @@ def test_sendamount_bip353(node_factory):
     ret = l2.rpc.sendamount("fake@fake.com", "100sat")
     assert ret["successful_parts"] == 1
     assert ret["amount_sent_msat"] == 100000
+
+
+@pytest.mark.xfail(strict=True)
+def test_paying_bad_bolt11(node_factory, chainparams):
+    """A bad bolt11 invoice containing a self-loop routehint should be detected
+    by xpay."""
+    l1, l2, l3 = node_factory.get_nodes(3)
+    node_factory.join_nodes([l1, l2], wait_for_announce=True)
+
+    self_loop_route = [
+        {
+            "id": l3.info["id"],
+            "short_channel_id": "1x1x1",
+            "fee_base_msat": 0,
+            "fee_proportional_millionths": 0,
+            "cltv_expiry_delta": 6,
+        }
+    ]
+    inv = l3.dev_invoice(
+        amount_msat="21sat",
+        label="bad-invoice",
+        description="bad-invoice",
+        dev_routes=[self_loop_route],
+    )["bolt11"]
+
+    # xpay should refuse to pay this bad invoice
+    with pytest.raises(
+        RpcError,
+        match=r"Route hints contain self-loops",
+    ):
+        l1.rpc.xpay(inv)
