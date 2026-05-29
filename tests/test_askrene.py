@@ -2669,7 +2669,6 @@ def test_impossible_payment(node_factory):
         )
 
 
-@pytest.mark.xfail(strict=True)
 def test_sanitize_create_channel(node_factory):
     """To avoid gossmap's API to crash askrene we should sanitaze user's input.
     In particular the obvious bad self-loop channel."""

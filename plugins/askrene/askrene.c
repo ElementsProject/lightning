@@ -1066,6 +1066,10 @@ static struct command_result *json_askrene_create_channel(struct command *cmd,
 	plugin_log(cmd->plugin, LOG_TRACE, "%s called: %.*s", __func__,
 		   json_tok_full_len(params), json_tok_full(buffer, params));
 
+	if (node_id_eq(src, dst))
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "source and destination must be different");
+
 	if (layer_find_local_channel(layer, *scid)) {
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "channel already exists");
