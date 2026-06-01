@@ -69,7 +69,7 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
  - Protocol: use BOLT4's paranoid advice about doing constant-time error decryption. ([#9044])
  - Fix for `splicein`, `spliceout`, and `dev-splice` commands where channel balances included partial sats. ([#9097])
  - build: fix build errors with GCC 15 (Arch Linux). ([#9075])
-
+ - Plugins: xpay no longer crashes on circular bolt11 routehints. ([#9174])
 
 ### EXPERIMENTAL
 
@@ -89,6 +89,7 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 [#9078]: https://github.com/ElementsProject/lightning/pull/9078
 [#8981]: https://github.com/ElementsProject/lightning/pull/8981
 [#8751]: https://github.com/ElementsProject/lightning/pull/8751
+[#9174]: https://github.com/ElementsProject/lightning/pull/9174
 [#8807]: https://github.com/ElementsProject/lightning/pull/8807
 [#9037]: https://github.com/ElementsProject/lightning/pull/9037
 [#9119]: https://github.com/ElementsProject/lightning/pull/9119
