@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [26.06rc2] - 2026-05-21: "Quantum-Resistant Lightning Channel"
+## [26.06] - 2026-06-01: "Quantum-Resistant Lightning Channel"
 
 This release was named by @enaples.
 
@@ -100,7 +100,7 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 [#8942]: https://github.com/ElementsProject/lightning/pull/8942
 [#8922]: https://github.com/ElementsProject/lightning/pull/8922
 [#9136]: https://github.com/ElementsProject/lightning/pull/9136
-[26.06rc2]: https://github.com/ElementsProject/lightning/releases/tag/v26.06rc2
+[26.06]: https://github.com/ElementsProject/lightning/releases/tag/v26.06
 
 ## [26.04.1] - 2026-04-25: "Negative Routing Fees II"
 
