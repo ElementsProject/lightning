@@ -1,17 +1,21 @@
 #include "config.h"
 #include <assert.h>
 #include <bitcoin/chainparams.h>
+#include <bitcoin/short_channel_id.h>
+#include <ccan/array_size/array_size.h>
 #include <ccan/str/str.h>
 #include <ccan/tal/str/str.h>
 #include <common/autodata.h>
 #include <common/json_command.h>
 #include <common/json_param.h>
-#include <common/json_parse_simple.h>
+#include <common/json_parse.h>
 #include <common/json_stream.h>
 #include <common/mkdatastorekey.h>
+#include <common/utils.h>
 #include <db/exec.h>
 #include <lightningd/bitcoind.h>
 #include <lightningd/chaintopology.h>
+#include <lightningd/coin_mvts.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
@@ -73,7 +77,6 @@ static void db_remove(struct watchman *wm, const char *op_id)
 	wallet_datastore_remove(wm->ld->wallet, key);
 }
 
-__attribute__((unused))
 static void save_tip(struct watchman *wm)
 {
 	struct db *db = wm->ld->wallet->db;
@@ -283,7 +286,6 @@ static void enqueue_op(struct watchman *wm, const char *method,
 }
 
 /* Internal: queue an add for a specific per-type bwatch command. */
-__attribute__((unused))
 static void watchman_add(struct lightningd *ld, const char *method,
 			 const char *owner, const char *json_params)
 {
@@ -302,7 +304,6 @@ static void watchman_add(struct lightningd *ld, const char *method,
  * Bwatch handles duplicate deletes idempotently.
  * Cancels any pending add for this owner.
  */
-__attribute__((unused))
 static void watchman_del(struct lightningd *ld, const char *method,
 			 const char *owner, const char *json_params)
 {
@@ -372,10 +373,378 @@ static void watchman_on_plugin_ready(struct lightningd *ld, struct plugin *plugi
 		log_debug(ld->log, "bwatch reached INIT_COMPLETE, replaying pending ops (height=%u)",
 			  wm->last_processed_height);
 		watchman_replay_pending(ld);
-		/* TODO: notify_block_added(ld, height, &hash) once that helper's
-		 * signature is migrated in Group H (chaintopology removal). */
 	}
 }
+
+void watchman_watch_scriptpubkey(struct lightningd *ld,
+				 const char *owner,
+				 const u8 *scriptpubkey,
+				 size_t script_len,
+				 u32 start_block)
+{
+	watchman_add(ld, "addscriptpubkeywatch", owner,
+		     tal_fmt(tmpctx, "{\"scriptpubkey\":\"%s\",\"start_block\":%u}",
+			     tal_hexstr(tmpctx, scriptpubkey, script_len),
+			     start_block));
+}
+
+void watchman_unwatch_scriptpubkey(struct lightningd *ld,
+				   const char *owner,
+				   const u8 *scriptpubkey,
+				   size_t script_len)
+{
+	watchman_del(ld, "delscriptpubkeywatch", owner,
+		     tal_fmt(tmpctx, "{\"scriptpubkey\":\"%s\"}",
+			     tal_hexstr(tmpctx, scriptpubkey, script_len)));
+}
+
+void watchman_watch_outpoint(struct lightningd *ld,
+			     const char *owner,
+			     const struct bitcoin_outpoint *outpoint,
+			     u32 start_block)
+{
+	watchman_add(ld, "addoutpointwatch", owner,
+		     tal_fmt(tmpctx, "{\"outpoint\":\"%s:%u\",\"start_block\":%u}",
+			     fmt_bitcoin_txid(tmpctx, &outpoint->txid),
+			     outpoint->n, start_block));
+}
+
+void watchman_unwatch_outpoint(struct lightningd *ld,
+			       const char *owner,
+			       const struct bitcoin_outpoint *outpoint)
+{
+	watchman_del(ld, "deloutpointwatch", owner,
+		     tal_fmt(tmpctx, "{\"outpoint\":\"%s:%u\"}",
+			     fmt_bitcoin_txid(tmpctx, &outpoint->txid),
+			     outpoint->n));
+}
+
+void watchman_watch_scid(struct lightningd *ld,
+			 const char *owner,
+			 const struct short_channel_id *scid,
+			 u32 start_block)
+{
+	watchman_add(ld, "addscidwatch", owner,
+		     tal_fmt(tmpctx, "{\"scid\":\"%s\",\"start_block\":%u}",
+			     fmt_short_channel_id(tmpctx, *scid), start_block));
+}
+
+void watchman_unwatch_scid(struct lightningd *ld,
+			   const char *owner,
+			   const struct short_channel_id *scid)
+{
+	watchman_del(ld, "delscidwatch", owner,
+		     tal_fmt(tmpctx, "{\"scid\":\"%s\"}",
+			     fmt_short_channel_id(tmpctx, *scid)));
+}
+
+void watchman_watch_blockdepth(struct lightningd *ld,
+			       const char *owner,
+			       u32 confirm_height)
+{
+	watchman_add(ld, "addblockdepthwatch", owner,
+		     tal_fmt(tmpctx, "{\"start_block\":%u}", confirm_height));
+}
+
+void watchman_unwatch_blockdepth(struct lightningd *ld,
+				 const char *owner,
+				 u32 confirm_height)
+{
+	watchman_del(ld, "delblockdepthwatch", owner,
+		     tal_fmt(tmpctx, "{\"start_block\":%u}", confirm_height));
+}
+
+/* Dispatch table - add new watch types here */
+static const struct depth_dispatch {
+	const char *prefix;
+	depth_found_fn handler;
+	watch_revert_fn revert;
+} depth_handlers[] = {
+	/* Entries added in subsequent commits alongside their handler functions. */
+	{ NULL, NULL, NULL },
+};
+
+static const struct watch_dispatch {
+	const char *prefix;
+	watch_found_fn handler;
+	watch_revert_fn revert;
+} watch_handlers[] = {
+	/* Entries added in subsequent commits alongside their handler functions. */
+	{ NULL, NULL, NULL },
+};
+
+/* dispatch_watch_found: search depth_handlers then watch_handlers for owner.
+ * depth is NULL for tx-based notifications, set for blockdepth notifications. */
+static void dispatch_watch_found(struct lightningd *ld,
+				 const char *owner,
+				 const struct bitcoin_tx *tx,
+				 size_t outnum,
+				 u32 blockheight,
+				 u32 txindex,
+				 const u32 *depth)
+{
+	for (size_t i = 0; i < ARRAY_SIZE(depth_handlers); i++) {
+		if (!depth_handlers[i].prefix)
+			continue;
+		if (strstarts(owner, depth_handlers[i].prefix)) {
+			const char *suffix = owner + strlen(depth_handlers[i].prefix);
+			depth_handlers[i].handler(ld, suffix, *depth, blockheight);
+			return;
+		}
+	}
+	for (size_t i = 0; i < ARRAY_SIZE(watch_handlers); i++) {
+		if (!watch_handlers[i].prefix)
+			continue;
+		if (strstarts(owner, watch_handlers[i].prefix)) {
+			const char *suffix = owner + strlen(watch_handlers[i].prefix);
+			watch_handlers[i].handler(ld, suffix, tx, outnum, blockheight, txindex);
+			return;
+		}
+	}
+	log_debug(ld->log, "No handler for watch owner: %s", owner);
+}
+
+static void dispatch_watch_revert(struct lightningd *ld,
+				  const char *owner,
+				  u32 blockheight)
+{
+	for (size_t i = 0; i < ARRAY_SIZE(depth_handlers); i++) {
+		if (!depth_handlers[i].prefix)
+			continue;
+		if (strstarts(owner, depth_handlers[i].prefix)) {
+			const char *suffix = owner + strlen(depth_handlers[i].prefix);
+			depth_handlers[i].revert(ld, suffix, blockheight);
+			return;
+		}
+	}
+	for (size_t i = 0; i < ARRAY_SIZE(watch_handlers); i++) {
+		if (!watch_handlers[i].prefix)
+			continue;
+		if (strstarts(owner, watch_handlers[i].prefix)) {
+			const char *suffix = owner + strlen(watch_handlers[i].prefix);
+			watch_handlers[i].revert(ld, suffix, blockheight);
+			return;
+		}
+	}
+	log_debug(ld->log, "No revert handler for watch owner: %s", owner);
+}
+
+static struct command_result *param_bitcoin_tx(struct command *cmd,
+					       const char *name,
+					       const char *buffer,
+					       const jsmntok_t *tok,
+					       struct bitcoin_tx **tx)
+{
+	*tx = bitcoin_tx_from_hex(cmd, buffer + tok->start, tok->end - tok->start);
+	if (!*tx)
+		return command_fail_badparam(cmd, name, buffer, tok,
+					     "Expected a hex-encoded transaction");
+	return NULL;
+}
+
+static struct command_result *param_bitcoin_blkid_cmd(struct command *cmd,
+						      const char *name,
+						      const char *buffer,
+						      const jsmntok_t *tok,
+						      struct bitcoin_blkid **blkid)
+{
+	*blkid = tal(cmd, struct bitcoin_blkid);
+	if (!json_to_bitcoin_blkid(buffer, tok, *blkid))
+		return command_fail_badparam(cmd, name, buffer, tok,
+					     "Expected a blockhash");
+	return NULL;
+}
+
+/**
+ * json_watch_found - RPC handler for watch_found notifications from bwatch
+ *
+ * Handles both tx-based watches (scriptpubkey, outpoint, txid, scid) and
+ * blockdepth watches.  Dispatches by owner prefix.
+ *
+ * For WATCH_SCID, bwatch may omit "tx" and "txindex" to signal that the
+ * SCID's expected tx/output was absent from the encoded block ("not found").
+ * The handler (gossip_scid_watch_found) detects this via tx==NULL.
+ */
+static struct command_result *json_watch_found(struct command *cmd,
+					       const char *buffer,
+					       const jsmntok_t *obj UNUSED,
+					       const jsmntok_t *params)
+{
+	const char **owners;
+	u32 *blockheight, *txindex, *index, *depth;
+	struct bitcoin_tx *tx;
+
+	if (!param_check(cmd, buffer, params,
+			 p_req("blockheight", param_number, &blockheight),
+			 p_req("owners", param_string_array, &owners),
+			 p_opt("tx", param_bitcoin_tx, &tx),
+			 p_opt("txindex", param_number, &txindex),
+			 p_opt("index", param_number, &index),
+			 p_opt("depth", param_number, &depth),
+		   NULL))
+		return command_param_failed();
+
+	/* For normal tx-based watches tx+txindex are required.
+	 * Exception: WATCH_SCID owners send watch_found with tx==NULL to
+	 * signal "not found"; their handler checks for this explicitly. */
+	if (!depth && !tx && txindex)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "txindex provided without tx in watch_found");
+	if (!depth && tx && !txindex)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "tx provided without txindex in watch_found");
+
+	if (!cmd->ld->watchman)
+		return command_fail(cmd, LIGHTNINGD, "Watchman not initialized");
+
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
+
+	log_debug(cmd->ld->log, "watch_found at block %u%s", *blockheight,
+		  depth ? " (blockdepth)" : "");
+	for (size_t i = 0; i < tal_count(owners); i++)
+		dispatch_watch_found(cmd->ld, owners[i], tx,
+				     index ? *index : 0,
+				     *blockheight,
+				     txindex ? *txindex : 0,
+				     depth);
+
+	struct json_stream *response = json_stream_success(cmd);
+	json_add_u32(response, "blockheight", *blockheight);
+	return command_success(cmd, response);
+}
+
+static const struct json_command watch_found_command = {
+	"watch_found",
+	json_watch_found,
+};
+AUTODATA(json_command, &watch_found_command);
+
+/**
+ * json_watch_revert - RPC handler for watch_revert notifications from bwatch
+ *
+ * Called when a watched item's confirming block is reorged away.  Dispatches
+ * to the appropriate revert handler (depth or tx) based on owner prefix.
+ */
+static struct command_result *json_watch_revert(struct command *cmd,
+						const char *buffer,
+						const jsmntok_t *obj UNUSED,
+						const jsmntok_t *params)
+{
+	const char *owner;
+	u32 *blockheight;
+
+	if (!param(cmd, buffer, params,
+		   p_req("owner", param_string, &owner),
+		   p_req("blockheight", param_number, &blockheight),
+		   NULL))
+		return command_param_failed();
+
+	dispatch_watch_revert(cmd->ld, owner, *blockheight);
+	struct json_stream *response = json_stream_success(cmd);
+	json_add_u32(response, "blockheight", *blockheight);
+	return command_success(cmd, response);
+}
+
+static const struct json_command watch_revert_command = {
+	"watch_revert",
+	json_watch_revert,
+};
+AUTODATA(json_command, &watch_revert_command);
+
+static struct command_result *json_revert_block_processed(struct command *cmd,
+							  const char *buffer,
+							  const jsmntok_t *obj UNUSED,
+							  const jsmntok_t *params)
+{
+	struct watchman *wm = cmd->ld->watchman;
+	u32 *blockheight;
+	struct bitcoin_blkid *blockhash;
+
+	if (!param(cmd, buffer, params,
+		   p_req("blockheight", param_number, &blockheight),
+		   p_req("blockhash", param_bitcoin_blkid_cmd, &blockhash),
+		   NULL))
+		return command_param_failed();
+
+	if (!wm)
+		return command_fail(cmd, LIGHTNINGD, "Watchman not initialized");
+
+	log_debug(wm->ld->log, "block_reverted: %u -> %u",
+		  wm->last_processed_height, *blockheight);
+	wm->last_processed_height = *blockheight;
+	wm->last_processed_hash = *blockhash;
+	save_tip(wm);
+
+	struct json_stream *response = json_stream_success(cmd);
+	json_add_u32(response, "blockheight", *blockheight);
+	return command_success(cmd, response);
+}
+
+static const struct json_command revert_block_processed_command = {
+	"revert_block_processed",
+	json_revert_block_processed,
+};
+AUTODATA(json_command, &revert_block_processed_command);
+
+/**
+ * json_block_processed - RPC handler for block_processed notifications from bwatch
+ *
+ * Called by bwatch after it finishes processing all watches in a block.
+ * We track this height to know where bwatch is in the chain, which helps
+ * during startup/reorg scenarios.
+ */
+static struct command_result *json_block_processed(struct command *cmd,
+						   const char *buffer,
+						   const jsmntok_t *obj UNUSED,
+						   const jsmntok_t *params)
+{
+	struct watchman *wm = cmd->ld->watchman;
+	u32 *blockheight;
+	struct bitcoin_blkid *blockhash;
+
+	if (!param(cmd, buffer, params,
+		   p_req("blockheight", param_number, &blockheight),
+		   p_req("blockhash", param_bitcoin_blkid_cmd, &blockhash),
+		   NULL))
+		return command_param_failed();
+
+	if (!wm)
+		return command_fail(cmd, LIGHTNINGD, "Watchman not initialized");
+
+	if (*blockheight != wm->last_processed_height) {
+		log_info(wm->ld->log, "block_processed: %u -> %u",
+			 wm->last_processed_height, *blockheight);
+
+		/* Fresh node: replay wallet watches now that bwatch->current_height > 0,
+		 * so add_watch_and_maybe_rescan will trigger historical rescans. */
+		if (wm->last_processed_height == 0) {
+			log_debug(wm->ld->log,
+				  "First block_processed on fresh node, replaying pending ops");
+			watchman_replay_pending(wm->ld);
+		}
+
+		wm->last_processed_height = *blockheight;
+		wm->last_processed_hash = *blockhash;
+		save_tip(wm);
+		send_account_balance_snapshot(wm->ld);
+	}
+
+	notify_new_block(wm->ld);
+
+	struct json_stream *response = json_stream_success(cmd);
+	json_add_u32(response, "blockheight", *blockheight);
+	if (wm->last_processed_height > 0)
+		json_add_string(response, "blockhash",
+				fmt_bitcoin_blkid(response, &wm->last_processed_hash));
+	return command_success(cmd, response);
+}
+
+static const struct json_command block_processed_command = {
+	"block_processed",
+	json_block_processed,
+};
+AUTODATA(json_command, &block_processed_command);
 
 /**
  * json_getwatchmanheight - RPC handler to return watchman's last processed height

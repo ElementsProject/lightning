@@ -7,6 +7,7 @@
 
 struct lightningd;
 struct pending_op;
+struct short_channel_id;
 
 /* lightningd's view of bwatch.  bwatch lives in a separate process and tells
  * us about new/reverted blocks and watch hits via JSON-RPC; watchman tracks
@@ -83,5 +84,55 @@ void watchman_ack(struct lightningd *ld, const char *op_id);
  * Call this when bwatch is ready (e.g., on startup).
  */
 void watchman_replay_pending(struct lightningd *ld);
+
+/** Register a WATCH_SCRIPTPUBKEY — fires when @scriptpubkey appears in a tx output. */
+void watchman_watch_scriptpubkey(struct lightningd *ld,
+				 const char *owner,
+				 const u8 *scriptpubkey,
+				 size_t script_len,
+				 u32 start_block);
+
+/** Remove a WATCH_SCRIPTPUBKEY. */
+void watchman_unwatch_scriptpubkey(struct lightningd *ld,
+				   const char *owner,
+				   const u8 *scriptpubkey,
+				   size_t script_len);
+
+/** Register a WATCH_OUTPOINT — fires when @outpoint is spent. */
+void watchman_watch_outpoint(struct lightningd *ld,
+			     const char *owner,
+			     const struct bitcoin_outpoint *outpoint,
+			     u32 start_block);
+
+/** Remove a WATCH_OUTPOINT (e.g. during splice before re-adding for new outpoint). */
+void watchman_unwatch_outpoint(struct lightningd *ld,
+			       const char *owner,
+			       const struct bitcoin_outpoint *outpoint);
+
+/** Register a WATCH_SCID — fires when bwatch finds the output (for gossip get_txout). */
+void watchman_watch_scid(struct lightningd *ld,
+			 const char *owner,
+			 const struct short_channel_id *scid,
+			 u32 start_block);
+
+/** Remove a WATCH_SCID. */
+void watchman_unwatch_scid(struct lightningd *ld,
+			   const char *owner,
+			   const struct short_channel_id *scid);
+
+/**
+ * watchman_watch_blockdepth - Register a WATCH_BLOCKDEPTH
+ * @ld: lightningd instance
+ * @owner: the owner identifier (e.g. "channel/funding_depth/42")
+ * @confirm_height: the block height where the tx of interest was confirmed
+ */
+void watchman_watch_blockdepth(struct lightningd *ld,
+			       const char *owner,
+			       u32 confirm_height);
+
+/** Remove a WATCH_BLOCKDEPTH. */
+void watchman_unwatch_blockdepth(struct lightningd *ld,
+				 const char *owner,
+				 u32 confirm_height);
 
 #endif /* LIGHTNING_LIGHTNINGD_WATCHMAN_H */
