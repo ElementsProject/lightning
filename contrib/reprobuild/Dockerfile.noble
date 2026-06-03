@@ -1,4 +1,4 @@
-FROM ubuntu:noble
+FROM noble
 
 ENV TZ=UTC
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
@@ -8,7 +8,8 @@ ENV PATH=/root/.pyenv/shims:/root/.pyenv/bin:/root/.cargo/bin:/root/.local/bin:$
 ENV PROTOC_VERSION=29.4
 
 RUN sed -i '/updates/d' /etc/apt/sources.list && \
-    sed -i '/security/d' /etc/apt/sources.list
+    sed -i '/security/d' /etc/apt/sources.list && \
+    sed -i 's/^deb \(.*\) noble main$/deb \1 noble main universe/' /etc/apt/sources.list
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
