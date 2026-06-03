@@ -29,6 +29,7 @@
 #include <lightningd/plugin_control.h>
 #include <lightningd/plugin_hook.h>
 #include <lightningd/subd.h>
+#include <lightningd/watchman.h>
 
 /* Only this file can include this generated header! */
 # include <plugins/list_of_builtin_plugins_gen.h>
@@ -2087,6 +2088,7 @@ static void plugin_config_cb(const char *buffer,
 	}
 	if (tal_count(plugin->custom_msgs))
 		tell_connectd_custommsgs(plugin->plugins);
+	watchman_notify_plugin_ready(plugin->plugins->ld, plugin);
 	notify_plugin_started(plugin->plugins->ld, plugin);
 	check_plugins_initted(plugin->plugins);
 }

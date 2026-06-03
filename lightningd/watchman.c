@@ -135,8 +135,6 @@ static void load_pending_ops(struct watchman *wm)
 	}
 }
 
-static void watchman_on_plugin_ready(struct lightningd *ld, struct plugin *plugin);
-
 /* Apply --rescan: negative means absolute height (only go back),
  * positive means relative (go back N blocks from stored tip). */
 static void apply_rescan(struct watchman *wm, struct lightningd *ld)
@@ -167,15 +165,14 @@ struct watchman *watchman_new(const tal_t *ctx, struct lightningd *ld)
 	wm->ld = ld;
 	wm->pending_ops = tal_arr(wm, struct pending_op *, 0);
 
+	db_begin_transaction(ld->wallet->db);
 	load_pending_ops(wm);
 	load_tip(wm);
+	db_commit_transaction(ld->wallet->db);
 	apply_rescan(wm, ld);
 
 	log_info(ld->log, "Watchman: height=%u, %zu pending ops",
 		 wm->last_processed_height, tal_count(wm->pending_ops));
-
-	/* Replay pending ops exactly when bwatch transitions to INIT_COMPLETE. */
-	ld->plugins->on_plugin_ready = watchman_on_plugin_ready;
 
 	return wm;
 }
@@ -359,7 +356,7 @@ void watchman_replay_pending(struct lightningd *ld)
 
 /* Replay pending ops when bwatch is ready.  On a fresh node current_height
  * is still 0, so we defer to json_block_processed where it's guaranteed > 0. */
-static void watchman_on_plugin_ready(struct lightningd *ld, struct plugin *plugin)
+void watchman_notify_plugin_ready(struct lightningd *ld, struct plugin *plugin)
 {
 	struct watchman *wm = ld->watchman;
 

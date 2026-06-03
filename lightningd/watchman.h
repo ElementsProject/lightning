@@ -7,6 +7,7 @@
 
 struct lightningd;
 struct pending_op;
+struct plugin;
 struct short_channel_id;
 
 /* lightningd's view of bwatch.  bwatch lives in a separate process and tells
@@ -57,6 +58,14 @@ typedef void (*depth_found_fn)(struct lightningd *ld,
 			       const char *suffix,
 			       u32 depth,
 			       u32 blockheight);
+
+/**
+ * watchman_notify_plugin_ready - Called by plugin.c when any plugin reaches INIT_COMPLETE
+ *
+ * Checks whether the newly-ready plugin is bwatch and, if so, replays any
+ * pending watch operations that were queued before bwatch was available.
+ */
+void watchman_notify_plugin_ready(struct lightningd *ld, struct plugin *plugin);
 
 /**
  * watchman_new - Create and initialize a new watchman instance
