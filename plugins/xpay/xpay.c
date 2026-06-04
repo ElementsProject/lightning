@@ -1922,6 +1922,16 @@ static void add_fake_channel(struct command *aux_cmd,
 	struct out_req *req;
 	struct short_channel_id_dir scidd;
 
+	/* We're not allowed to send these to askrene-create-channel,
+	 * so catch them now */
+	if (node_id_eq(src, dst)) {
+		payment_log(payment, LOG_UNUSUAL,
+			    "Invoice gave bad self-node route %s->%s",
+			    fmt_node_id(tmpctx, src),
+			    fmt_node_id(tmpctx, dst));
+		return;
+	}
+
 	scidd.scid = scid;
 	scidd.dir = node_id_idx(src, dst);
 	payment_log(payment, LOG_DBG,
@@ -2153,7 +2163,8 @@ static struct command_result *check_offer_payable(struct command *cmd,
 	/* We will only one-shot if we know amount!  (FIXME: Convert!) */
 	if (b12offer->offer_currency)
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "Cannot pay offer in different currency %s",
+				    "Cannot pay offer in different currency %.*s",
+				    (int)tal_bytelen(b12offer->offer_currency),
 				    b12offer->offer_currency);
 	if (b12offer->offer_amount) {
 		if (msat && !amount_msat_eq(amount_msat(*b12offer->offer_amount), *msat)) {
@@ -2188,7 +2199,8 @@ check_offer_sendamount_payable(struct command *cmd, const char *offerstr)
 	/* FIXME: add currency support */
 	if (b12offer->offer_currency)
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "Cannot pay offer in different currency %s",
+				    "Cannot pay offer in different currency %.*s",
+				    (int)tal_bytelen(b12offer->offer_currency),
 				    b12offer->offer_currency);
 	/* Can only be applied to *any amount* offers. */
 	if (b12offer->offer_amount)

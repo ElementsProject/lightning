@@ -975,6 +975,47 @@ def test_xpay_offer(node_factory):
     l1.rpc.xpay(offer2, 5000)
 
 
+def test_xpay_circular_routehint(node_factory):
+    """Test that xpay gracefully skips a circular bolt11 routehint (src == dst)."""
+    l1, l2 = node_factory.line_graph(2)
+
+    # A routehint containing a same-node channel (example is l3 in this case)
+    circular_hint = [{'id': '03cecbfdc68544cc596223b68ce0710c9e5d2c9cb317ee07822d95079acc703d31',
+                      'short_channel_id': '1x2x3',
+                      'fee_base_msat': 0,
+                      'fee_proportional_millionths': 0,
+                      'cltv_expiry_delta': 6},
+                     {'id': '03cecbfdc68544cc596223b68ce0710c9e5d2c9cb317ee07822d95079acc703d31',
+                      'short_channel_id': '1x2x4',
+                      'fee_base_msat': 0,
+                      'fee_proportional_millionths': 0,
+                      'cltv_expiry_delta': 6}]
+    inv = l2.dev_invoice(amount_msat=10000,
+                         label='circular_hint',
+                         description='circular hint test',
+                         dev_routes=[circular_hint])
+
+    # Payment should still succeed via the direct channel.
+    ret = l1.rpc.xpay(inv['bolt11'])
+    assert ret['successful_parts'] == 1
+    l1.daemon.wait_for_log('Invoice gave bad self-node route')
+
+
+def test_xpay_currency_offer(node_factory):
+    """Test that xpay and sendamount correctly report the currency name when rejecting non-msat offers."""
+    plugin = Path(__file__).parent / "plugins" / "currencyUSDAUD5000.py"
+    l1, l2 = node_factory.line_graph(2, wait_for_announce=True,
+                                     opts=[{}, {'plugin': str(plugin)}])
+
+    offerusd = l2.rpc.offer('10USD', 'USD test')['bolt12']
+
+    with pytest.raises(RpcError, match=r"Cannot pay offer in different currency USD"):
+        l1.rpc.xpay(offerusd)
+
+    with pytest.raises(RpcError, match=r"Cannot pay offer in different currency USD"):
+        l1.rpc.sendamount(offerusd, '100sat')
+
+
 def test_xpay_bip353(node_factory):
     fakebip353_plugin = Path(__file__).parent / "plugins" / "fakebip353.py"
 
