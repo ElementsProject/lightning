@@ -122,7 +122,7 @@ C_PLUGINS :=					\
 	plugins/autoclean			\
 	plugins/chanbackup			\
 	plugins/bcli				\
-	plugins/bwatch/bwatch			\
+	plugins/cln-bwatch			\
 	plugins/commando			\
 	plugins/funder				\
 	plugins/topology			\
@@ -205,7 +205,7 @@ plugins/bwatch/bwatch_store.o: $(PLUGIN_BWATCH_HEADER)
 plugins/bwatch/bwatch_scanner.o: $(PLUGIN_BWATCH_HEADER)
 plugins/bwatch/bwatch_interface.o: $(PLUGIN_BWATCH_HEADER)
 plugins/bwatch/bwatch_wiregen.o: $(PLUGIN_BWATCH_HEADER)
-plugins/bwatch/bwatch: $(PLUGIN_BWATCH_OBJS) $(PLUGIN_LIB_OBJS) libcommon.a
+plugins/cln-bwatch: $(PLUGIN_BWATCH_OBJS) $(PLUGIN_LIB_OBJS) libcommon.a
 
 plugins/keysend: $(PLUGIN_KEYSEND_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_PAY_LIB_OBJS) libcommon.a
 $(PLUGIN_KEYSEND_OBJS): $(PLUGIN_PAY_LIB_HEADER) libcommon.a
