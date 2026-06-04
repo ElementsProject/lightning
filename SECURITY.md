@@ -6,11 +6,10 @@ We have a 3 month release cycle, and the last two versions are supported.
 
 ## Reporting a Vulnerability
 
-To report security vulnerabilities, please send an email to one of the following addresses:
-- `rusty@rustcorp.com.au`
+To report security vulnerabilities, please send an email to:
 - `security@blockstream.com`
 
-Note: These email addresses are exclusively for vulnerability reporting.
+Note: This email address is exclusively for vulnerability reporting.
 
 For all other inquiries/communication, please refer to the [Reach Out to Us](https://github.com/ElementsProject/lightning?tab=readme-ov-file#reach-out-to-us) section in our README.
 
