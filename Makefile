@@ -955,6 +955,13 @@ installdirs:
 	$(MKDIR_P) $(DESTDIR)$(docdir)
 
 # $(PLUGINS) is defined in plugins/Makefile.
+# Most plugins are a single binary that installs directly into plugindir
+# (e.g. plugins/pay -> plugindir/pay).  A few live in their own subdir and
+# lightningd looks them up by that nested name (e.g. plugins/bwatch/bwatch ->
+# plugindir/bwatch/bwatch; see PLUGIN_BASES in plugins/Makefile).  Those must
+# keep their subdir when installed, instead of being flattened to plugindir.
+FLAT_PLUGINS := $(foreach p,$(PLUGINS),$(if $(findstring /,$(p:plugins/%=%)),,$(p)))
+NESTED_PLUGINS := $(filter-out $(FLAT_PLUGINS),$(PLUGINS))
 
 install-program: installdirs $(BIN_PROGRAMS) $(PKGLIBEXEC_PROGRAMS) $(PLUGINS) $(PY_PLUGINS)
 	@$(NORMAL_INSTALL)
@@ -962,13 +969,14 @@ install-program: installdirs $(BIN_PROGRAMS) $(PKGLIBEXEC_PROGRAMS) $(PLUGINS) $
 	$(INSTALL_PROGRAM) $(PKGLIBEXEC_PROGRAMS) $(DESTDIR)$(pkglibexecdir)
 	@if [ -d "$(DESTDIR)$(plugindir)/clnrest" ]; then rm -rf $(DESTDIR)$(plugindir)/clnrest; fi
 	@if [ -d "$(DESTDIR)$(plugindir)/wss-proxy" ]; then rm -rf $(DESTDIR)$(plugindir)/wss-proxy; fi
-	[ -z "$(PLUGINS)" ] || $(INSTALL_PROGRAM) $(PLUGINS) $(DESTDIR)$(plugindir)
+	[ -z "$(FLAT_PLUGINS)" ] || $(INSTALL_PROGRAM) $(FLAT_PLUGINS) $(DESTDIR)$(plugindir)
+	for PLUGIN in $(NESTED_PLUGINS); do DST=$(DESTDIR)$(plugindir)/`echo $$PLUGIN | sed 's|^plugins/||'`; $(MKDIR_P) `dirname $$DST`; $(INSTALL_PROGRAM) $$PLUGIN $$DST; done
 	for PY in $(PY_PLUGINS); do DIR=`dirname $$PY`; DST=$(DESTDIR)$(plugindir)/`basename $$DIR`; if [ -d $$DST ]; then rm -rf $$DST; fi; $(INSTALL_PROGRAM) -d $$DIR; cp -a $$DIR $$DST ; done
 ifeq ($(OS),Darwin)
 	# Install dSYM bundles alongside binaries on macOS
 	for BIN in $(BIN_PROGRAMS); do if [ -d $$BIN.dSYM ]; then cp -a $$BIN.dSYM $(DESTDIR)$(bindir)/; fi; done
 	for BIN in $(PKGLIBEXEC_PROGRAMS); do if [ -d $$BIN.dSYM ]; then cp -a $$BIN.dSYM $(DESTDIR)$(pkglibexecdir)/; fi; done
-	for PLUGIN in $(PLUGINS); do if [ -d $$PLUGIN.dSYM ]; then cp -a $$PLUGIN.dSYM $(DESTDIR)$(plugindir)/; fi; done
+	for PLUGIN in $(PLUGINS); do if [ -d $$PLUGIN.dSYM ]; then DSTDIR=$(DESTDIR)$(plugindir)/`dirname \`echo $$PLUGIN | sed 's|^plugins/||'\``; $(MKDIR_P) $$DSTDIR; cp -a $$PLUGIN.dSYM $$DSTDIR/; fi; done
 endif
 
 MAN1PAGES = $(filter %.1,$(MANPAGES))
@@ -1009,9 +1017,14 @@ uninstall:
 	  $(ECHO) rm -f $(DESTDIR)$(bindir)/`basename $$f`; \
 	  rm -f $(DESTDIR)$(bindir)/`basename $$f`; \
 	done
-	@for f in $(PLUGINS); do \
+	@for f in $(FLAT_PLUGINS); do \
 	  $(ECHO) rm -f $(DESTDIR)$(plugindir)/`basename $$f`; \
 	  rm -f $(DESTDIR)$(plugindir)/`basename $$f`; \
+	done
+	@for f in $(NESTED_PLUGINS); do \
+	  d=`echo $$f | sed 's|^plugins/||;s|/.*||'`; \
+	  $(ECHO) rm -rf $(DESTDIR)$(plugindir)/$$d; \
+	  rm -rf $(DESTDIR)$(plugindir)/$$d; \
 	done
 	@for f in $(PY_PLUGINS); do \
 	  $(ECHO) rm -rf $(DESTDIR)$(plugindir)/$$(basename $$(dirname $$f)); \

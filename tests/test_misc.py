@@ -5331,3 +5331,46 @@ def test_tracing_socket(node_factory):
         for key in ("id", "name", "timestamp", "duration", "traceId"):
             assert key in span, f"Missing key {key} in span {span}"
         assert span["localEndpoint"] == {"serviceName": "lightningd"}
+
+
+# FIXME: This regression test exists because `bwatch` is the first builtin
+# plugin whose binary lives in its own subdirectory (plugins/bwatch/bwatch).
+# `make install` used to flatten every plugin into plugindir, so bwatch landed
+# at plugindir/bwatch (a file) while lightningd looked it up at
+# plugindir/bwatch/bwatch and failed to register it (see issue #9193).
+# This test can be removed once the bwatch plugin is stable and the install
+# layout is no longer in flux.
+def test_install_preserves_nested_plugin_path(tmp_path):
+    """`make install` must keep plugins/bwatch/bwatch nested, not flatten it."""
+    srcdir = Path(__file__).parent.parent
+
+    make = shutil.which("make")
+    if make is None:
+        pytest.skip("make not available")
+
+    # Only meaningful in a configured + built source tree.
+    if not (srcdir / "config.vars").exists():
+        pytest.skip("not a configured source tree (no config.vars)")
+    if not (srcdir / "plugins" / "bwatch" / "bwatch").exists():
+        pytest.skip("bwatch plugin not built")
+
+    destdir = tmp_path / "destdir"
+    completed = subprocess.run(
+        [make, "-C", str(srcdir), "DESTDIR={}".format(destdir), "install-program"],
+        stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+    )
+    assert completed.returncode == 0, completed.stdout.decode("utf-8", "replace")
+
+    nested = glob.glob(str(destdir / "**" / "plugins" / "bwatch" / "bwatch"),
+                       recursive=True)
+    flattened = [p for p in glob.glob(str(destdir / "**" / "plugins" / "bwatch"),
+                                      recursive=True)
+                 if os.path.isfile(p)]
+
+    assert nested, (
+        "bwatch was not installed at plugins/bwatch/bwatch; "
+        "flattened candidates: {}".format(flattened)
+    )
+    assert not flattened, (
+        "bwatch was flattened to plugins/bwatch instead of plugins/bwatch/bwatch"
+    )
