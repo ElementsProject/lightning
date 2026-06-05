@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [26.06.1] - 2026-06-05: "Qantum-Resistant Lightning Channel II"
+
+This point release is recommended: it fixes the bwatch plugin failure at registration
+
+### Fixed
+
+- Plugins: bwatch failed to register on startup after make install ([#9192])
+
+[(#9192)]: https://github.com/ElementsProject/lightning/pull/9192
+[26.06.1]: https://github.com/ElementsProject/lightning/releases/tag/v26.06.1
+
+
 ## [26.06] - 2026-06-01: "Quantum-Resistant Lightning Channel"
 
 This release was named by @enaples.
@@ -75,7 +87,7 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 
  - JSON-RPC: `createproof` to create a payment proof for a (successful) BOLT12 payment. ([#9116])
  - JSON-RPC: `decode` now supports the `lnp` payer proof format. ([#9116])
- - Plugins: `bwatch` plugin (enable using `plugin=bwatch`) ([#9098])
+ - Plugins: `bwatch` plugin (enable using `experimental-bwatch`) ([#9098])
 
 
 [#9101]: https://github.com/ElementsProject/lightning/pull/9101
