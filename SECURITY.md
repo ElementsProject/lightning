@@ -32,6 +32,7 @@ developers, and to validate signatures on releases:
 | Sangbida Chaudhuri | `sangbidac@gmail.com` | 1A37 1C2C 3064 5FAA 91AA  6B7D B643 E612 8422 1961 |
 | Lagrang3 | `lagrang3@protonmail.com` | C491 5808 7820 7F03 C3B9 66F9 B408 8CD4 608A 7CA1 |
 | daywalker90 | `daywalker990@gmx.de` | 8A07 9421 A871 D0B1 0835 1193 7AB4 802E D5A6 39F3 |
+| Níckolas Goline | `n@ngoline.com` | A576 56F8 004F 6FD6 8ED9  9C85 BE27 7A87 802A 6F08 |
 
 You can import a key by running the following command with that individual’s fingerprint:
 `gpg --keyserver hkps://keys.openpgp.org --recv-keys "<fingerprint>"`.
