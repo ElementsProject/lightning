@@ -66,7 +66,8 @@ stdenv.mkDerivation {
           tools/update-mocks.sh \
           tools/mockup.sh \
           tools/fromschema.py \
-          devtools/sql-rewrite.py
+          devtools/sql-rewrite.py \
+          devtools/blockreplace.py
       ''
     else
       ''
@@ -75,6 +76,11 @@ stdenv.mkDerivation {
       '';
 
   configureFlags = [ "--disable-valgrind" ];
+
+  # ./configure detects Python via `uv` (configure:default_python), which is not
+  # part of this derivation. Point it at the python3 we already provide so the
+  # codegen steps that call $(PYTHON) (e.g. devtools/blockreplace.py) work.
+  preConfigure = "export PYTHON=python3";
 
   enableParallelBuilding = true;
 

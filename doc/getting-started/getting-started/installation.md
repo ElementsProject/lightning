@@ -310,13 +310,40 @@ Finally, build `c-lightning`:
 
 ## To Build on NixOS
 
-Use nix-shell launch a shell with a full Core Lightning dev environment:
+Core Lightning ships a [Nix flake](https://nixos.wiki/wiki/Flakes), so on NixOS
+you don't need to install any build dependencies by hand. Make sure the
+`nix-command` and `flakes` features are enabled.
+
+Build and run directly from the repository; the git submodules are fetched
+automatically and the binaries are placed under `./result/bin`:
 ```shell
-nix-shell -Q -p gdb sqlite autoconf git clang libtool sqlite autoconf \
-autogen automake gmp zlib gettext libsodium poetry 'python3.withPackages (p: [p.bitcoinlib])' \
-valgrind --run "./configure && poetry shell"
-poetry install
-make
+nix build github:ElementsProject/lightning
+
+# Or run them straight away:
+nix run github:ElementsProject/lightning#lightningd -- --version
+nix run github:ElementsProject/lightning#lightning-cli -- --version
+```
+
+Build a specific release by appending the tag, or install into your profile:
+```shell
+nix build github:ElementsProject/lightning/v26.06.1
+nix profile install github:ElementsProject/lightning
+```
+
+From a local checkout, append `?submodules=1` so the build sees the submodules:
+```shell
+git clone https://github.com/ElementsProject/lightning.git
+cd lightning
+git checkout v26.06.1
+nix build ".?submodules=1"
+./result/bin/lightningd --version
+```
+
+To build with PostgreSQL support use the `cln-postgres` package, and for a
+development shell with the full toolchain use `nix develop`:
+```shell
+nix build ".?submodules=1#cln-postgres"
+nix develop
 ```
 
 ## To Build on macOS Apple Silicon
