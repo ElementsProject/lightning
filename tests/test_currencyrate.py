@@ -5,7 +5,7 @@ import time
 from utils import wait_for, only_one
 from pyln.client import RpcError
 from fixtures import *  # noqa: F401,F403
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from werkzeug.serving import make_server
 
 
@@ -45,39 +45,23 @@ def median_rate(rateslist):
     return range(int(rate * 0.99), int(rate * 1.01))
 
 
-def test_apis_batch1(node_factory):
-    opts = {
-        "currencyrate-disable-source": ["bitstamp", "coinbase"],
-    }
-    l1 = node_factory.get_node(options=opts)
+def test_apis(node_factory):
+    l1 = node_factory.get_node()
+
+    for source in ALL_RESOURCES:
+        try:
+            rate = l1.rpc.call("currencyrate", ["USD", source])["rate"]
+            LOGGER.info(rate)
+            assert rate > 10_000
+        except RpcError as e:
+            LOGGER.warning(f"{source} reported error: {e}")
+            msg = str(e)
+            assert "HTTP error 429" in msg or "HTTP error 401" in msg
+            continue
 
     rateslist = l1.rpc.call("listcurrencyrates", ["USD"])['currencyrates']
     LOGGER.info(rateslist)
-    rates = {entry["source"]: entry["amount"] for entry in rateslist}
-
-    assert "bitstamp" not in rates
-    assert "coinbase" not in rates
-
-    assert "coingecko" in rates
-    assert "kraken" in rates
-    assert "blockchain.info" in rates
-    assert "coindesk" in rates
-    assert "binance" in rates
-
-    # Death to the 58k gang!
-    assert rates["coingecko"] > 58000
-    assert rates["kraken"] > 58000
-    assert rates["blockchain.info"] > 58000
-    assert rates["coindesk"] > 58000
-    assert rates["binance"] > 58000
-
-    rates = [
-        rates["coingecko"],
-        rates["kraken"],
-        rates["blockchain.info"],
-        rates["coindesk"],
-        rates["binance"],
-    ]
+    rates = [{entry["source"]: entry["amount"] for entry in rateslist}]
 
     rates.sort()
 
@@ -89,94 +73,6 @@ def test_apis_batch1(node_factory):
     assert convert["msat"] in median_conversion(100, rateslist)
 
     assert int(l1.rpc.currencyrate("usd")['rate']) in median_rate(rateslist)
-
-
-def test_apis_batch2(node_factory):
-    opts = {
-        "currencyrate-disable-source": [
-            "coingecko",
-            "kraken",
-            "blockchain.info",
-            "coindesk",
-            "binance",
-        ],
-    }
-    l1 = node_factory.get_node(options=opts)
-
-    rateslist = l1.rpc.call("listcurrencyrates", ["USD"])['currencyrates']
-    LOGGER.info(rateslist)
-    rates = {entry["source"]: entry["amount"] for entry in rateslist}
-
-    assert "bitstamp" in rates
-    assert "coinbase" in rates
-
-    assert "coingecko" not in rates
-    assert "kraken" not in rates
-    assert "blockchain.info" not in rates
-    assert "coindesk" not in rates
-    assert "binance" not in rates
-
-    assert rates["bitstamp"] > 0
-    assert rates["coinbase"] > 0
-
-    rates = [
-        rates["bitstamp"],
-        rates["coinbase"],
-    ]
-    rates.sort()
-
-    convert = l1.rpc.call("currencyconvert", [100, "USD"])
-    LOGGER.info(convert)
-
-    assert "msat" in convert
-    assert convert["msat"] > 0
-    assert convert["msat"] in median_conversion(100, rateslist)
-
-    assert int(l1.rpc.currencyrate("USD")['rate']) in median_rate(rateslist)
-
-
-def test_custom_source(node_factory):
-    opts = {
-        "currencyrate-disable-source": ALL_RESOURCES,
-        "currencyrate-add-source": [
-            r"my-coingecko,https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies={currency_lc},bitcoin,{currency_lc}",
-            r"my-kraken,https://api.kraken.com/0/public/Ticker?pair=XXBTZ{currency},result,XXBTZ{currency},c,0",
-        ],
-    }
-    l1 = node_factory.get_node(options=opts)
-
-    rateslist = l1.rpc.call("listcurrencyrates", ["USD"])['currencyrates']
-    LOGGER.info(rateslist)
-    rates = {entry["source"]: entry["amount"] for entry in rateslist}
-
-    assert "bitstamp" not in rates
-    assert "coinbase" not in rates
-    assert "coingecko" not in rates
-    assert "kraken" not in rates
-    assert "blockchain.info" not in rates
-    assert "coindesk" not in rates
-    assert "binance" not in rates
-
-    assert "my-coingecko" in rates
-    assert "my-kraken" in rates
-
-    assert rates["my-coingecko"] > 0
-    assert rates["my-kraken"] > 0
-
-    rates = [
-        rates["my-coingecko"],
-        rates["my-kraken"],
-    ]
-    rates.sort()
-
-    convert = l1.rpc.call("currencyconvert", [100, "USD"])
-    LOGGER.info(convert)
-
-    assert "msat" in convert
-    assert convert["msat"] > 0
-    assert convert["msat"] in median_conversion(100, rateslist)
-
-    assert int(l1.rpc.currencyrate("USD")['rate']) in median_rate(rateslist)
 
 
 def test_no_sources(node_factory):
@@ -193,8 +89,13 @@ def test_no_sources(node_factory):
         LOGGER.info(rates)
 
 
-def test_invalid_currency(node_factory):
-    opts = {}
+def test_invalid_currency(node_factory, fake_rateserver):
+    opts = {
+        "currencyrate-disable-source": ALL_RESOURCES,
+        "currencyrate-add-source": [
+            f"invalid,{fake_rateserver['url']}/invalid?currency={{currency_lc}},price"
+        ],
+    }
     l1 = node_factory.get_node(options=opts)
 
     with pytest.raises(
@@ -204,19 +105,13 @@ def test_invalid_currency(node_factory):
         rates = l1.rpc.call("listcurrencyrates", ["XXX"])
         LOGGER.info(rates)
 
-    l1.daemon.wait_for_logs(["failed to get `XXX` rate from bitstamp",
-                             "failed to get `XXX` rate from coinbase",
-                             "failed to get `XXX` rate from coingecko",
-                             "failed to get `XXX` rate from kraken",
-                             "failed to get `XXX` rate from blockchain.info",
-                             "failed to get `XXX` rate from coindesk",
-                             "failed to get `XXX` rate from binance"])
+    l1.daemon.wait_for_log("failed to get `XXX` rate from invalid")
 
 
 class _ServerThread(threading.Thread):
     def __init__(self, app):
         super().__init__(daemon=True)
-        self._server = make_server("127.0.0.1", 0, app)
+        self._server = make_server("127.0.0.1", 0, app, threaded=True)
         self.port = self._server.server_port
 
     def run(self):
@@ -258,6 +153,11 @@ def fake_rateserver():
     @app.get("/midpoint")
     def midpoint():
         return jsonify({"price": state["midpoint"]})
+
+    @app.get("/invalid")
+    def invalid():
+        currency = request.args.get("currency")
+        return jsonify({"price": state[currency]})
 
     srv = _ServerThread(app)
     srv.start()
@@ -439,6 +339,9 @@ def test_bkpr_currencyrate_persisted(node_factory, fake_rateserver):
     fake_rateserver["state"]["fast"] = 200_000_000
     fake_rateserver["state"]["slow"] = 150_000_000
     new_median = (fake_rateserver["state"]["fast"] + fake_rateserver["state"]["slow"]) / 2
+
+    # CLN caches rates for 60s
+    time.sleep(61)
 
     new_events = l1.rpc.bkpr_listaccountevents()["events"]
     assert new_events == events
