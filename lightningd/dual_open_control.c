@@ -2966,7 +2966,14 @@ static struct command_result *json_openchannel_update(struct command *cmd,
 	if (!channel->open_attempt) {
 		/* Check if the last inflight for this matches? */
 		inflight = find_inprogress_inflight(channel, psbt);
+
 		if (inflight) {
+			/* Update the inflight's psbt to what the user provided. This
+			 * could happen if signatures were added for instance. */
+			tal_free(inflight->funding_psbt);
+			inflight->funding_psbt = tal_steal(inflight, psbt);
+			wallet_inflight_save(cmd->ld->wallet, inflight);
+
 			return command_success(cmd,
 				       build_commit_response(cmd, channel, inflight));
 		}
