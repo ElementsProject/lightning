@@ -4,7 +4,6 @@
   "added": "v23.08",
   "rpc": "splice_signed",
   "title": "Command to initiate a channel to a peer",
-  "warning": "experimental-splicing only",
   "description": [
     "`splice_signed` is a low level RPC command which finishes the active channel splice associated with `channel_id`.",
     "",

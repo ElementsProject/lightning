@@ -2,6 +2,7 @@ use crate::codec::{JsonCodec, JsonRpcCodec};
 pub use anyhow::anyhow;
 use anyhow::{Context, Result};
 use futures::sink::SinkExt;
+use serde::de::DeserializeOwned;
 use serde::Serialize;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 extern crate log;
@@ -195,7 +196,9 @@ where
         self
     }
 
-    /// Add a subscription to a given `hookname`
+    /// Add a hook subscription for `hookname` with a raw [`serde_json::Value`] request and response.
+    /// Prefer [`Builder::hook_typed`] for type-safe hooks, or [`Builder::hook_from_builder`] if you
+    /// need to configure `before`, `after`, or `filters`.
     pub fn hook<C, F>(mut self, hookname: &str, callback: C) -> Self
     where
         C: Send + Sync + 'static,
@@ -215,8 +218,57 @@ where
         self
     }
 
+    /// Add a hook subscription using a [`HookBuilder`], which allows configuring `before`, `after`,
+    /// and `filters` in addition to the callback. Use [`HookBuilder::new`] for raw
+    /// [`serde_json::Value`] hooks or [`HookBuilder::new_typed`] for type-safe hooks.
     pub fn hook_from_builder(mut self, hook: HookBuilder<S>) -> Builder<S, I, O> {
         self.hooks.insert(hook.name.clone(), hook.build());
+        self
+    }
+
+    /// Add a hook subscription for `hookname` with typed request and response. The request is
+    /// deserialized from JSON into `Req` and the response is serialized from `Resp` back to JSON
+    /// automatically. If deserialization of the request fails, the hook returns an error to CLN.
+    /// Use [`Builder::hook_from_builder`] with [`HookBuilder::new_typed`] if you additionally need
+    /// to configure `before`, `after`, or `filters`.
+    pub fn hook_typed<C, F, Req, Resp>(mut self, hookname: &str, callback: C) -> Self
+    where
+        C: Send + Sync + 'static,
+        C: Fn(Plugin<S>, Req) -> F + 'static,
+        F: Future<Output = Result<Resp, Error>> + Send + 'static,
+        Req: DeserializeOwned + Send + 'static,
+        Resp: Serialize + Send + 'static,
+    {
+        let hookname = hookname.to_string();
+        self.hooks.insert(
+            hookname.clone(),
+            Hook {
+                name: hookname.clone(),
+                callback: Box::new(move |p, r| {
+                    let typed_req = serde_json::from_value(r).unwrap_or_else(|e| {
+                        let error = format!(
+                            "cln-plugin: hook '{hookname}' received a request that doesn't match \
+                            the expected schema. Error: {e}"
+                        );
+                        println!(
+                            "{}",
+                            serde_json::json!({"jsonrpc": "2.0",
+                          "method": "log",
+                          "params": {"level":"warn", "message":error}})
+                        );
+                        std::process::exit(1);
+                    });
+                    let fut = callback(p, typed_req);
+                    Box::pin(async move {
+                        let typed_resp = fut.await?;
+                        serde_json::to_value(typed_resp).map_err(Error::from)
+                    })
+                }),
+                before: Vec::new(),
+                after: Vec::new(),
+                filters: None,
+            },
+        );
         self
     }
 
@@ -336,7 +388,7 @@ where
             None => {
                 return Err(anyhow!(
                     "Lost connection to lightning expecting getmanifest"
-                ))
+                ));
             }
         };
         let (init_id, configuration) = match input.next().await {
@@ -492,6 +544,43 @@ where
         Self {
             name: name.to_string(),
             callback: Box::new(move |p, r| Box::pin(callback(p, r))),
+            before: Vec::new(),
+            after: Vec::new(),
+            filters: None,
+        }
+    }
+
+    pub fn new_typed<C, F, Req, Resp>(name: &str, callback: C) -> Self
+    where
+        C: Send + Sync + 'static,
+        C: Fn(Plugin<S>, Req) -> F + 'static,
+        F: Future<Output = Result<Resp, Error>> + Send + 'static,
+        Req: DeserializeOwned + Send + 'static,
+        Resp: Serialize + Send + 'static,
+    {
+        let hookname = name.to_string();
+        Self {
+            name: hookname.clone(),
+            callback: Box::new(move |p, r| {
+                let typed_req = serde_json::from_value(r).unwrap_or_else(|e| {
+                    let error = format!(
+                        "cln-plugin: hook '{hookname}' received a request that doesn't match \
+                        the expected schema. Error: {e}"
+                    );
+                    println!(
+                        "{}",
+                        serde_json::json!({"jsonrpc": "2.0",
+                          "method": "log",
+                          "params": {"level":"warn", "message":error}})
+                    );
+                    std::process::exit(1);
+                });
+                let fut = callback(p, typed_req);
+                Box::pin(async move {
+                    let typed_resp = fut.await?;
+                    serde_json::to_value(typed_resp).map_err(Error::from)
+                })
+            }),
             before: Vec::new(),
             after: Vec::new(),
             filters: None,
@@ -834,10 +923,14 @@ where
                 trace!("Received a message: {:?}", msg);
                 match msg {
                     messages::JsonRpc::Request(_id, _p) => {
-                        todo!("This is unreachable until we start filling in messages:Request. Until then the custom dispatcher below is used exclusively.");
+                        todo!(
+                            "This is unreachable until we start filling in messages:Request. Until then the custom dispatcher below is used exclusively."
+                        );
                     }
                     messages::JsonRpc::Notification(_n) => {
-                        todo!("As soon as we define the full structure of the messages::Notification we'll get here. Until then the custom dispatcher below is used.")
+                        todo!(
+                            "As soon as we define the full structure of the messages::Notification we'll get here. Until then the custom dispatcher below is used."
+                        )
                     }
                     messages::JsonRpc::CustomRequest(id, request) => {
                         trace!("Dispatching custom method {:?}", request);

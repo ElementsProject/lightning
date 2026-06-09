@@ -39,7 +39,8 @@
           "bolt12 invoice_request",
           "bolt11 invoice",
           "rune",
-          "emergency recover"
+          "emergency recover",
+          "bolt12 payer_proof"
         ],
         "description": [
           "What kind of object it decoded to."
@@ -200,16 +201,6 @@
                       "which end of the first_scid is the start of the path"
                     ]
                   },
-                  "blinding": {
-                    "deprecated": [
-                      "v24.11",
-                      "v25.05"
-                    ],
-                    "type": "pubkey",
-                    "description": [
-                      "Blinding factor for this path."
-                    ]
-                  },
                   "first_path_key": {
                     "added": "v24.11",
                     "type": "pubkey",
@@ -255,16 +246,6 @@
                 "The blinded path has 0 hops."
               ]
             },
-            "offer_node_id": {
-              "type": "pubkey",
-              "deprecated": [
-                "v24.08",
-                "v24.11"
-              ],
-              "description": [
-                "Obsolete name for offer_issuer_id."
-              ]
-            },
             "offer_issuer_id": {
               "type": "pubkey",
               "added": "v24.08",
@@ -279,7 +260,8 @@
               ],
               "required": [
                 "period",
-                "time_unit"
+                "time_unit",
+                "compulsory_field"
               ],
               "additionalProperties": false,
               "properties": {
@@ -311,6 +293,13 @@
                   "type": "u32",
                   "description": [
                     "Maximum period number for recurrence."
+                  ]
+                },
+                "compulsory_field": {
+                  "added": "v26.06",
+                  "type": "boolean",
+                  "description": [
+                    "True if this is the `offer_recurrence_compulsory` field (which means readers which don't understand recurrence cannot use it), false if this is the `offer_recurrence_optional` field."
                   ]
                 },
                 "paywindow": {
@@ -413,33 +402,13 @@
             "type": {},
             "valid": {},
             "offer_id": {},
-            "node_id": {},
             "signature": {},
-            "chains": {},
             "currency": {},
-            "minor_unit": {},
             "warning_unknown_offer_currency": {},
-            "amount": {},
             "amount_msat": {},
-            "send_invoice": {},
             "description": {},
-            "vendor": {},
             "features": {},
-            "absolute_expiry": {},
-            "paths": {},
-            "quantity_max": {},
             "unknown_offer_tlvs": {},
-            "recurrence": {},
-            "warning_missing_offer_node_id": {
-              "type": "string",
-              "deprecated": [
-                "v24.08",
-                "v24.11"
-              ],
-              "description": [
-                "`offer_node_id` is not present."
-              ]
-            },
             "warning_missing_offer_issuer_id": {
               "type": "string",
               "added": "v24.08",
@@ -632,16 +601,6 @@
                       "Path key to deliver to first hop on this path."
                     ]
                   },
-                  "blinding": {
-                    "deprecated": [
-                      "v24.11",
-                      "v25.05"
-                    ],
-                    "type": "pubkey",
-                    "description": [
-                      "Blinding factor for this path."
-                    ]
-                  },
                   "path": {
                     "type": "array",
                     "description": [
@@ -672,16 +631,6 @@
                   }
                 }
               }
-            },
-            "offer_node_id": {
-              "type": "pubkey",
-              "deprecated": [
-                "v24.08",
-                "v24.11"
-              ],
-              "description": [
-                "Public key of the offering node."
-              ]
             },
             "offer_issuer_id": {
               "type": "pubkey",
@@ -729,6 +678,13 @@
                   "type": "u32",
                   "description": [
                     "Maximum period number for recurrence."
+                  ]
+                },
+                "compulsory_field": {
+                  "added": "v26.06",
+                  "type": "boolean",
+                  "description": [
+                    "True if this is the `offer_recurrence_compulsory` field (which means readers which don't understand recurrence cannot use it), false if this is the `offer_recurrence_optional` field."
                   ]
                 },
                 "paywindow": {
@@ -847,17 +803,6 @@
                       "which end of the first_scid is the start of the path"
                     ]
                   },
-                  "blinding": {
-                    "added": "v24.08",
-                    "deprecated": [
-                      "v24.11",
-                      "v25.05"
-                    ],
-                    "type": "pubkey",
-                    "description": [
-                      "Blinding factor for this path."
-                    ]
-                  },
                   "first_path_key": {
                     "added": "v24.11",
                     "type": "pubkey",
@@ -933,6 +878,16 @@
               "type": "u32",
               "description": [
                 "When we're requesting to start an invoice at a non-zero period."
+              ]
+            },
+            "invreq_recurrence_cancel": {
+              "type": "boolean",
+              "added": "v26.06",
+              "enum": [
+                true
+              ],
+              "description": [
+                "Present to cancel a recurring invoice"
               ]
             },
             "signature": {
@@ -1017,7 +972,6 @@
             "offer_absolute_expiry": {},
             "offer_quantity_max": {},
             "offer_paths": {},
-            "offer_node_id": {},
             "offer_issuer_id": {},
             "offer_recurrence": {},
             "invreq_metadata": {},
@@ -1031,6 +985,7 @@
             "invreq_bip_353_name": {},
             "invreq_recurrence_counter": {},
             "invreq_recurrence_start": {},
+            "invreq_recurrence_cancel": {},
             "warning_invalid_offer_description": {
               "type": "string",
               "description": [
@@ -1085,6 +1040,20 @@
               "added": "v25.02",
               "description": [
                 "`invreq_bip_353_name` domain field contains unusual characters."
+              ]
+            },
+            "warning_invreq_recurrence_cancel_without_counter": {
+              "type": "string",
+              "added": "v26.06",
+              "description": [
+                "`invreq_recurrence_cancel` is present, but `invreq_recurrence_counter` isn't."
+              ]
+            },
+            "warning_invreq_recurrence_cancel_with_zero_counter": {
+              "type": "string",
+              "added": "v26.06",
+              "description": [
+                "`invreq_recurrence_cancel` is present, but `invreq_recurrence_counter` is 0."
               ]
             },
             "warning_missing_invoice_request_signature": {
@@ -1257,16 +1226,6 @@
                       "which end of the first_scid is the start of the path"
                     ]
                   },
-                  "blinding": {
-                    "deprecated": [
-                      "v24.11",
-                      "v25.05"
-                    ],
-                    "type": "pubkey",
-                    "description": [
-                      "Blinding factor for this path."
-                    ]
-                  },
                   "first_path_key": {
                     "added": "v24.11",
                     "type": "pubkey",
@@ -1304,16 +1263,6 @@
                   }
                 }
               }
-            },
-            "offer_node_id": {
-              "type": "pubkey",
-              "deprecated": [
-                "v24.08",
-                "v24.11"
-              ],
-              "description": [
-                "Public key of the offering node."
-              ]
             },
             "offer_issuer_id": {
               "type": "pubkey",
@@ -1361,6 +1310,13 @@
                   "type": "u32",
                   "description": [
                     "Maximum period number for recurrence."
+                  ]
+                },
+                "compulsory_field": {
+                  "added": "v26.06",
+                  "type": "boolean",
+                  "description": [
+                    "True if this is the `offer_recurrence_compulsory` field (which means readers which don't understand recurrence cannot use it), false if this is the `offer_recurrence_optional` field."
                   ]
                 },
                 "paywindow": {
@@ -1479,17 +1435,6 @@
                       "which end of the first_scid is the start of the path"
                     ]
                   },
-                  "blinding": {
-                    "added": "v24.08",
-                    "deprecated": [
-                      "v24.11",
-                      "v25.05"
-                    ],
-                    "type": "pubkey",
-                    "description": [
-                      "Blinding factor for this path."
-                    ]
-                  },
                   "first_path_key": {
                     "added": "v24.11",
                     "type": "pubkey",
@@ -1601,16 +1546,6 @@
                       "which end of the first_scid is the start of the path"
                     ]
                   },
-                  "blinding": {
-                    "type": "pubkey",
-                    "deprecated": [
-                      "v24.11",
-                      "v25.05"
-                    ],
-                    "description": [
-                      "Blinding factor for this path."
-                    ]
-                  },
                   "first_path_key": {
                     "added": "v24.11",
                     "type": "pubkey",
@@ -1624,6 +1559,8 @@
                       "fee_base_msat",
                       "fee_proportional_millionths",
                       "cltv_expiry_delta",
+                      "htlc_minimum_msat",
+                      "htlc_maximum_msat",
                       "features"
                     ],
                     "additionalProperties": false,
@@ -1644,6 +1581,20 @@
                         "type": "u32",
                         "description": [
                           "CLTV delta for path."
+                        ]
+                      },
+                      "htlc_minimum_msat": {
+                        "type": "msat",
+                        "added": "v26.04",
+                        "description": [
+                          "Minimum amount which can be sent via path."
+                        ]
+                      },
+                      "htlc_maximum_msat": {
+                        "type": "msat",
+                        "added": "v26.04",
+                        "description": [
+                          "Maximum amount which can be sent via path."
                         ]
                       },
                       "features": {
@@ -1857,7 +1808,6 @@
             "invreq_payer_note": {},
             "invreq_paths": {},
             "invreq_bip_353_name": {},
-            "invreq_node_id": {},
             "invreq_recurrence_counter": {},
             "invreq_recurrence_start": {},
             "warning_invalid_offer_description": {
@@ -1949,28 +1899,6 @@
               "description": [
                 "Incorrect `signature`."
               ]
-            },
-            "fallbacks": {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "required": [
-                  "version",
-                  "hex"
-                ],
-                "additionalProperties": false,
-                "properties": {
-                  "version": {},
-                  "hex": {},
-                  "address": {},
-                  "warning_invoice_fallbacks_version_invalid": {
-                    "type": "string",
-                    "description": [
-                      "`version` is > 16."
-                    ]
-                  }
-                }
-              }
             }
           }
         }
@@ -2219,6 +2147,628 @@
           "additionalProperties": true,
           "properties": {
             "type": {
+              "enum": [
+                "bolt12 payer_proof"
+              ],
+              "type": "string"
+            },
+            "valid": {
+              "enum": [
+                true
+              ],
+              "type": "boolean"
+            }
+          }
+        },
+        "then": {
+          "additionalProperties": false,
+          "required": [
+            "invreq_payer_id",
+            "invoice_payment_hash",
+            "invoice_node_id",
+            "signature",
+            "proof_preimage",
+            "proof_signature",
+            "proof_omitted_tlvs",
+            "proof_missing_hashes",
+            "proof_leaf_hashes"
+          ],
+          "properties": {
+            "type": {
+              "type": "string"
+            },
+            "valid": {
+              "type": "boolean"
+            },
+            "offer_chains": {
+              "type": "array",
+              "description": [
+                "Which blockchains this offer is for (missing implies bitcoin mainnet only)."
+              ],
+              "items": {
+                "type": "hash",
+                "description": [
+                  "The genesis blockhash."
+                ]
+              }
+            },
+            "offer_metadata": {
+              "type": "hex",
+              "description": [
+                "Any metadata the creator of the offer includes."
+              ]
+            },
+            "offer_currency": {
+              "type": "string",
+              "description": [
+                "ISO 4217 code of the currency (missing implies Bitcoin)."
+              ],
+              "maxLength": 3,
+              "minLength": 3
+            },
+            "currency_minor_unit": {
+              "type": "u32",
+              "description": [
+                "The number of decimal places to apply to amount (if currency known)."
+              ]
+            },
+            "offer_amount": {
+              "type": "u64",
+              "description": [
+                "The amount in the `offer_currency` adjusted by `currency_minor_unit`, if any."
+              ]
+            },
+            "offer_amount_msat": {
+              "type": "msat",
+              "description": [
+                "The amount in bitcoin (if specified, and no `offer_currency`)."
+              ]
+            },
+            "offer_description": {
+              "type": "string",
+              "description": [
+                "The description of the purpose of the offer."
+              ]
+            },
+            "offer_issuer": {
+              "type": "string",
+              "description": [
+                "The description of the creator of the offer."
+              ]
+            },
+            "offer_features": {
+              "type": "hex",
+              "description": [
+                "The feature bits of the offer."
+              ]
+            },
+            "offer_absolute_expiry": {
+              "type": "u64",
+              "description": [
+                "UNIX timestamp of when this offer expires."
+              ]
+            },
+            "offer_quantity_max": {
+              "type": "u64",
+              "description": [
+                "The maximum quantity (or, if 0, means any quantity)."
+              ]
+            },
+            "offer_paths": {
+              "type": "array",
+              "description": [
+                "Paths to the destination."
+              ],
+              "items": {
+                "type": "object",
+                "required": [
+                  "first_path_key",
+                  "path"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "first_node_id": {
+                    "type": "pubkey",
+                    "description": [
+                      "The (presumably well-known) public key of the start of the path."
+                    ]
+                  },
+                  "first_scid": {
+                    "added": "v23.05",
+                    "type": "short_channel_id",
+                    "description": [
+                      "the short channel id of the start of the path (alternative to first_node_id)"
+                    ]
+                  },
+                  "first_scid_dir": {
+                    "added": "v23.05",
+                    "type": "u32",
+                    "description": [
+                      "which end of the first_scid is the start of the path"
+                    ]
+                  },
+                  "first_path_key": {
+                    "added": "v24.11",
+                    "type": "pubkey",
+                    "description": [
+                      "Path key to deliver to first hop on this path."
+                    ]
+                  },
+                  "path": {
+                    "type": "array",
+                    "description": [
+                      "An individual path."
+                    ],
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "blinded_node_id",
+                        "encrypted_recipient_data"
+                      ],
+                      "additionalProperties": false,
+                      "properties": {
+                        "blinded_node_id": {
+                          "type": "pubkey",
+                          "description": [
+                            "Node_id of the hop."
+                          ]
+                        },
+                        "encrypted_recipient_data": {
+                          "type": "hex",
+                          "description": [
+                            "Encrypted TLV entry for this hop."
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "offer_issuer_id": {
+              "type": "pubkey",
+              "added": "v24.08",
+              "description": [
+                "The pubkey associated with the offer (can be a node id)."
+              ]
+            },
+            "invreq_chain": {
+              "type": "hex",
+              "description": [
+                "Which blockchain this offer is for (missing implies bitcoin mainnet only)."
+              ],
+              "maxLength": 64,
+              "minLength": 64
+            },
+            "invreq_amount_msat": {
+              "type": "msat",
+              "description": [
+                "The amount the invoice should be for."
+              ]
+            },
+            "invreq_features": {
+              "type": "hex",
+              "description": [
+                "The feature bits of the invoice_request."
+              ]
+            },
+            "invreq_quantity": {
+              "type": "u64",
+              "description": [
+                "The number of items to invoice for."
+              ]
+            },
+            "invreq_payer_id": {
+              "type": "pubkey",
+              "description": [
+                "The payer's key."
+              ]
+            },
+            "invreq_payer_note": {
+              "type": "string",
+              "description": [
+                "A note attached by the payer."
+              ]
+            },
+            "invreq_paths": {
+              "type": "array",
+              "added": "v24.08",
+              "description": [
+                "Paths to the destination."
+              ],
+              "items": {
+                "type": "object",
+                "required": [
+                  "first_path_key",
+                  "path"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "first_node_id": {
+                    "added": "v24.08",
+                    "type": "pubkey",
+                    "description": [
+                      "The (presumably well-known) public key of the start of the path."
+                    ]
+                  },
+                  "first_scid": {
+                    "added": "v24.08",
+                    "type": "short_channel_id",
+                    "description": [
+                      "the short channel id of the start of the path (alternative to first_node_id)"
+                    ]
+                  },
+                  "first_scid_dir": {
+                    "added": "v24.08",
+                    "type": "u32",
+                    "description": [
+                      "which end of the first_scid is the start of the path"
+                    ]
+                  },
+                  "first_path_key": {
+                    "added": "v24.11",
+                    "type": "pubkey",
+                    "description": [
+                      "Path key to deliver to first hop on this path."
+                    ]
+                  },
+                  "path": {
+                    "type": "array",
+                    "added": "v24.08",
+                    "description": [
+                      "An individual path."
+                    ],
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "blinded_node_id",
+                        "encrypted_recipient_data"
+                      ],
+                      "additionalProperties": false,
+                      "properties": {
+                        "blinded_node_id": {
+                          "added": "v24.08",
+                          "type": "pubkey",
+                          "description": [
+                            "Node_id of the hop."
+                          ]
+                        },
+                        "encrypted_recipient_data": {
+                          "added": "v24.08",
+                          "type": "hex",
+                          "description": [
+                            "Encrypted TLV entry for this hop."
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "invreq_bip_353_name": {
+              "type": "object",
+              "added": "v25.02",
+              "description": [
+                "BIP 353 name which this invoice request is for."
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "added": "v25.02",
+                  "description": [
+                    "The name (part before the @)."
+                  ]
+                },
+                "domain": {
+                  "type": "string",
+                  "added": "v25.02",
+                  "description": [
+                    "The domain (part after the @)."
+                  ]
+                }
+              }
+            },
+            "invoice_paths": {
+              "type": "array",
+              "description": [
+                "Paths to pay the destination."
+              ],
+              "items": {
+                "type": "object",
+                "required": [
+                  "first_path_key",
+                  "payinfo",
+                  "path"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "first_node_id": {
+                    "type": "pubkey",
+                    "description": [
+                      "The (presumably well-known) public key of the start of the path."
+                    ]
+                  },
+                  "first_scid": {
+                    "added": "v23.05",
+                    "type": "short_channel_id",
+                    "description": [
+                      "the short channel id of the start of the path (alternative to first_node_id)"
+                    ]
+                  },
+                  "first_scid_dir": {
+                    "added": "v23.05",
+                    "type": "u32",
+                    "description": [
+                      "which end of the first_scid is the start of the path"
+                    ]
+                  },
+                  "first_path_key": {
+                    "added": "v24.11",
+                    "type": "pubkey",
+                    "description": [
+                      "Path key to deliver to first hop on this path."
+                    ]
+                  },
+                  "payinfo": {
+                    "type": "object",
+                    "required": [
+                      "fee_base_msat",
+                      "fee_proportional_millionths",
+                      "cltv_expiry_delta",
+                      "htlc_minimum_msat",
+                      "htlc_maximum_msat",
+                      "features"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                      "fee_base_msat": {
+                        "type": "msat",
+                        "description": [
+                          "Basefee for path."
+                        ]
+                      },
+                      "fee_proportional_millionths": {
+                        "type": "u32",
+                        "description": [
+                          "Proportional fee for path."
+                        ]
+                      },
+                      "cltv_expiry_delta": {
+                        "type": "u32",
+                        "description": [
+                          "CLTV delta for path."
+                        ]
+                      },
+                      "htlc_minimum_msat": {
+                        "type": "msat",
+                        "added": "v26.04",
+                        "description": [
+                          "Minimum amount which can be sent via path."
+                        ]
+                      },
+                      "htlc_maximum_msat": {
+                        "type": "msat",
+                        "added": "v26.04",
+                        "description": [
+                          "Maximum amount which can be sent via path."
+                        ]
+                      },
+                      "features": {
+                        "type": "hex",
+                        "description": [
+                          "Features allowed for path."
+                        ]
+                      }
+                    }
+                  },
+                  "path": {
+                    "type": "array",
+                    "description": [
+                      "An individual path."
+                    ],
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "blinded_node_id",
+                        "encrypted_recipient_data"
+                      ],
+                      "additionalProperties": false,
+                      "properties": {
+                        "blinded_node_id": {
+                          "type": "pubkey",
+                          "description": [
+                            "Node_id of the hop."
+                          ]
+                        },
+                        "encrypted_recipient_data": {
+                          "type": "hex",
+                          "description": [
+                            "Encrypted TLV entry for this hop."
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "invoice_created_at": {
+              "type": "u64",
+              "description": [
+                "The UNIX timestamp of invoice creation."
+              ]
+            },
+            "invoice_relative_expiry": {
+              "type": "u32",
+              "description": [
+                "The number of seconds after *invoice_created_at* when this expires."
+              ]
+            },
+            "invoice_payment_hash": {
+              "type": "hex",
+              "description": [
+                "The hash of the *proof_preimage*."
+              ],
+              "maxLength": 64,
+              "minLength": 64
+            },
+            "invoice_amount_msat": {
+              "type": "msat",
+              "description": [
+                "The amount required to fulfill invoice."
+              ]
+            },
+            "invoice_fallbacks": {
+              "type": "array",
+              "description": [
+                "Onchain addresses."
+              ],
+              "items": {
+                "type": "object",
+                "required": [
+                  "version",
+                  "hex"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "version": {
+                    "type": "u8",
+                    "description": [
+                      "Segwit address version."
+                    ]
+                  },
+                  "hex": {
+                    "type": "hex",
+                    "description": [
+                      "Raw encoded segwit address."
+                    ]
+                  },
+                  "address": {
+                    "type": "string",
+                    "description": [
+                      "Bech32 segwit address."
+                    ]
+                  }
+                }
+              }
+            },
+            "invoice_features": {
+              "type": "hex",
+              "description": [
+                "The feature bits of the invoice."
+              ]
+            },
+            "invoice_node_id": {
+              "type": "pubkey",
+              "description": [
+                "The id to pay (usually the same as offer_issuer_id)."
+              ]
+            },
+            "signature": {
+              "type": "bip340sig",
+              "description": [
+                "BIP-340 signature of `invoice_node_id` over the disclosed invoice fields."
+              ]
+            },
+            "proof_preimage": {
+              "type": "hex",
+              "added": "v26.06",
+              "minLength": 64,
+              "maxLength": 64,
+              "description": [
+                "The payment preimage proving payment."
+              ]
+            },
+            "proof_omitted_tlvs": {
+              "type": "array",
+              "added": "v26.06",
+              "description": [
+                "TLV type markers for fields omitted from the proof."
+              ],
+              "items": {
+                "type": "u64"
+              }
+            },
+            "proof_missing_hashes": {
+              "type": "array",
+              "added": "v26.06",
+              "description": [
+                "Merkle hashes needed to reconstruct omitted subtrees."
+              ],
+              "items": {
+                "type": "hash"
+              }
+            },
+            "proof_leaf_hashes": {
+              "type": "array",
+              "added": "v26.06",
+              "description": [
+                "Nonce hashes for each disclosed non-signature TLV field."
+              ],
+              "items": {
+                "type": "hash"
+              }
+            },
+            "proof_note": {
+              "type": "string",
+              "added": "v26.06",
+              "description": [
+                "Optional note attached to the proof by the payer."
+              ]
+            },
+            "proof_signature": {
+              "type": "bip340sig",
+              "added": "v26.06",
+              "description": [
+                "BIP-340 signature of `invreq_payer_id` over the proof."
+              ]
+            },
+            "unknown_payer_proof_tlvs": {
+              "type": "array",
+              "added": "v26.06",
+              "description": [
+                "Any extra fields we didn't know how to parse."
+              ],
+              "items": {
+                "type": "object",
+                "required": [
+                  "type",
+                  "length",
+                  "value"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "type": {
+                    "type": "u64",
+                    "description": [
+                      "The type."
+                    ]
+                  },
+                  "length": {
+                    "type": "u64",
+                    "description": [
+                      "The length."
+                    ]
+                  },
+                  "value": {
+                    "type": "hex",
+                    "description": [
+                      "The value."
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "additionalProperties": true,
+          "properties": {
+            "type": {
               "type": "string",
               "enum": [
                 "rune"
@@ -2390,7 +2940,7 @@
     "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
   ],
   "see_also": [
-    "lightning-pay(7)",
+    "lightning-xpay(7)",
     "lightning-offer(7)",
     "lightning-fetchinvoice(7)",
     "lightning-sendinvoice(7)",

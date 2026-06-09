@@ -857,7 +857,7 @@ def test_channel_lease_post_expiry(node_factory, bitcoind, chainparams):
 
     # send some payments, mine a block or two
     inv = l2.rpc.invoice(10**4, '1', 'no_1')
-    l1.rpc.pay(inv['bolt11'])
+    l1.rpc.xpay(inv['bolt11'])
 
     # make sure it's completely resolved before we generate blocks,
     # otherwise it can close HTLC!
@@ -974,9 +974,9 @@ def test_channel_lease_unilat_closes(node_factory, bitcoind):
 
     # send some payments, mine a block or two
     inv = l2.rpc.invoice(10**4, '1', 'no_1')
-    l1.rpc.pay(inv['bolt11'])
+    l1.rpc.xpay(inv['bolt11'])
     inv = l2.rpc.invoice(10**4, '3', 'no_3')
-    l3.rpc.pay(inv['bolt11'])
+    l3.rpc.xpay(inv['bolt11'])
 
     bitcoind.generate_block(2)
     sync_blockheight(bitcoind, [l1, l2, l3])
@@ -1079,7 +1079,7 @@ def test_channel_lease_lessor_cheat(node_factory, bitcoind, chainparams):
     wait_for(lambda: [c['active'] for c in l2.rpc.listchannels(l2.get_channel_scid(l1))['channels']] == [True, True])
     # send some payments, mine a block or two
     inv = l2.rpc.invoice(10**4, '1', 'no_1')
-    l1.rpc.pay(inv['bolt11'])
+    l1.rpc.xpay(inv['bolt11'])
 
     bitcoind.generate_block(1)
 
@@ -1094,7 +1094,7 @@ def test_channel_lease_lessor_cheat(node_factory, bitcoind, chainparams):
 
     # push some money from l2->l1, so the commit counter advances
     inv = l1.rpc.invoice(10**5, '2', 'no_2')
-    l2.rpc.pay(inv['bolt11'])
+    l2.rpc.xpay(inv['bolt11'])
 
     # stop both nodes, roll back l2's database
     l2.stop()
@@ -1151,7 +1151,7 @@ def test_channel_lease_lessee_cheat(node_factory, bitcoind, chainparams):
     wait_for(lambda: [c['active'] for c in l2.rpc.listchannels(l2.get_channel_scid(l1))['channels']] == [True, True])
     # send some payments, mine a block or two
     inv = l2.rpc.invoice(10**4, '1', 'no_1')
-    l1.rpc.pay(inv['bolt11'])
+    l1.rpc.xpay(inv['bolt11'])
 
     bitcoind.generate_block(1)
 
@@ -1166,7 +1166,7 @@ def test_channel_lease_lessee_cheat(node_factory, bitcoind, chainparams):
 
     # push some money from l2->l1, so the commit counter advances
     inv = l1.rpc.invoice(10**5, '2', 'no_2')
-    l2.rpc.pay(inv['bolt11'])
+    l2.rpc.xpay(inv['bolt11'])
 
     # stop both nodes, roll back l1's database
     l1.stop()
@@ -1246,19 +1246,17 @@ def test_penalty_htlc_tx_fulfill(node_factory, bitcoind, chainparams, anchors):
 
     # push some money so that 1 + 4 can both send htlcs
     inv = l2.rpc.invoice(10**9 // 2, '1', 'balancer')
-    l1.rpc.pay(inv['bolt11'])
-    l1.rpc.waitsendpay(inv['payment_hash'])
+    l1.rpc.xpay(inv['bolt11'])
     wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['htlcs'] == [])
 
     inv = l4.rpc.invoice(10**9 // 2, '1', 'balancer')
-    l2.rpc.pay(inv['bolt11'])
-    l2.rpc.waitsendpay(inv['payment_hash'])
+    l2.rpc.xpay(inv['bolt11'])
     wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['htlcs'] == [])
 
     # now we send one 'sticky' htlc: l4->l1
     amt = 10**8 // 2
     sticky_inv = l1.rpc.invoice(amt, '2', 'sticky')
-    route = l4.rpc.getroute(l1.info['id'], amt, 1)['route']
+    route = l4.single_route(l1.info['id'], amt)
     l4.rpc.sendpay(route, sticky_inv['payment_hash'], payment_secret=sticky_inv['payment_secret'])
     l1.daemon.wait_for_log('dev_disconnect: -WIRE_UPDATE_FULFILL_HTLC')
 
@@ -1277,7 +1275,7 @@ def test_penalty_htlc_tx_fulfill(node_factory, bitcoind, chainparams, anchors):
     inv = l3.rpc.invoice(10**4, '1', 'push')
     # Make sure gossipd in l2 knows it's active
     wait_for(lambda: [c['active'] for c in l2.rpc.listchannels(l2.get_channel_scid(l3))['channels']] == [True, True])
-    l2.rpc.pay(inv['bolt11'])
+    l2.rpc.xpay(inv['bolt11'])
 
     # stop both nodes, roll back l2's database
     l2.stop()
@@ -1441,20 +1439,20 @@ def test_penalty_htlc_tx_timeout(node_factory, bitcoind, chainparams, anchors):
 
     # push some money so that 1 + 4 can both send htlcs
     inv = l2.rpc.invoice(10**9 // 2, '1', 'balancer')
-    l1.rpc.pay(inv['bolt11'])
+    l1.rpc.xpay(inv['bolt11'])
 
     inv = l4.rpc.invoice(10**9 // 2, '1', 'balancer')
-    l2.rpc.pay(inv['bolt11'])
+    l2.rpc.xpay(inv['bolt11'])
 
     # now we send two 'sticky' htlcs, l1->l5 + l4->l1
     amt = 10**8 // 2
     sticky_inv_1 = l5.rpc.invoice(amt, '2', 'sticky')
-    route = l1.rpc.getroute(l5.info['id'], amt, 1)['route']
+    route = l1.single_route(l5.info['id'], amt)
     l1.rpc.sendpay(route, sticky_inv_1['payment_hash'], payment_secret=sticky_inv_1['payment_secret'])
     l5.daemon.wait_for_log('dev_disconnect: -WIRE_UPDATE_FULFILL_HTLC')
 
     sticky_inv_2 = l1.rpc.invoice(amt, '2', 'sticky')
-    route = l4.rpc.getroute(l1.info['id'], amt, 1)['route']
+    route = l4.single_route(l1.info['id'], amt)
     l4.rpc.sendpay(route, sticky_inv_2['payment_hash'], payment_secret=sticky_inv_2['payment_secret'])
     l1.daemon.wait_for_log('dev_disconnect: -WIRE_UPDATE_FULFILL_HTLC')
 
@@ -1478,7 +1476,7 @@ def test_penalty_htlc_tx_timeout(node_factory, bitcoind, chainparams, anchors):
     inv = l3.rpc.invoice(10**4, '1', 'push')
     # Make sure gossipd in l2 knows it's active
     wait_for(lambda: [c['active'] for c in l2.rpc.listchannels(l2.get_channel_scid(l3))['channels']] == [True, True])
-    l2.rpc.pay(inv['bolt11'])
+    l2.rpc.xpay(inv['bolt11'])
 
     # stop both nodes, roll back l2's database
     l2.stop()
@@ -2121,7 +2119,7 @@ def test_onchain_middleman_simple(node_factory, bitcoind, chainparams, anchors):
     inv = l3.rpc.invoice(10**8, 'middleman', 'desc')
     rhash = inv['payment_hash']
 
-    route = l1.rpc.getroute(l3.info['id'], 10**8, 1)["route"]
+    route = l1.single_route(l3.info['id'], 10**8)
     assert len(route) == 2
 
     q = queue.Queue()
@@ -2260,7 +2258,7 @@ def test_onchain_middleman_their_unilateral_in(node_factory, bitcoind, chainpara
     inv = l3.rpc.invoice(10**8, 'middleman', 'desc')
     rhash = inv['payment_hash']
 
-    route = l1.rpc.getroute(l3.info['id'], 10**8, 1)["route"]
+    route = l1.single_route(l3.info['id'], 10**8)
     assert len(route) == 2
 
     q = queue.Queue()
@@ -2368,7 +2366,7 @@ def test_onchain_their_unilateral_out(node_factory, bitcoind, chainparams, ancho
                                               {**opts, **{'disconnect': disconnects}}])
     channel_id = first_channel_id(l1, l2)
 
-    route = l1.rpc.getroute(l2.info['id'], 10**8, 1)["route"]
+    route = l1.single_route(l2.info['id'], 10**8)
     assert len(route) == 1
 
     q = queue.Queue()
@@ -3337,9 +3335,9 @@ Try a range of future segwit versions as shutdown scripts.  We create many nodes
     l1 = node_factory.get_node(allow_warning=True)
 
     # BOLT #2:
-    # 5. if (and only if) `option_shutdown_anysegwit` is negotiated:
+    # 3. if (and only if) `option_shutdown_anysegwit` is negotiated:
     #    * `OP_1` through `OP_16` inclusive, followed by a single push of 2 to 40 bytes
-    #    (witness program versions 1 through 16)
+    #      (witness program versions 1 through 16)
     edge_valid = ['51020000', '5128' + '00' * 0x28,
                   '60020000', '6028' + '00' * 0x28]
     other_valid = ['52020000', '5228' + '00' * 0x28,
@@ -3706,7 +3704,7 @@ We send an HTLC, and peer unilaterally closes: do we close upstream?
     ph1 = l3.rpc.invoice(amount_msat="10000sat", label='x1', description='desc2')['payment_hash']
     ph2 = l3.rpc.invoice(amount_msat="10000sat", label='x2', description='desc2')['payment_hash']
 
-    route = l1.rpc.getroute(l3.info['id'], 1, 1)['route']
+    route = l1.single_route(l3.info['id'], 1)
 
     # Start a payment
     l1.rpc.sendpay(route, ph1)
@@ -3787,7 +3785,8 @@ def test_closing_anchorspend_htlc_tx_rbf(node_factory, bitcoind):
     # We want an outstanding HTLC for l1, so it uses anchor to push.
     # Set feerates to lowball for now.
     l1, l2 = node_factory.line_graph(2, opts=[{'feerates': (1000,) * 4,
-                                               'min-emergency-msat': 546000},
+                                               'min-emergency-msat': 546000,
+                                               'broken_log': 'overgrind: short signature length'},
                                               {'feerates': (1000,) * 4,
                                                'disconnect': ['-WIRE_UPDATE_FAIL_HTLC']}])
     assert 'anchors/even' in only_one(l1.rpc.listpeerchannels()['channels'])['channel_type']['names']
@@ -3835,7 +3834,7 @@ def test_closing_anchorspend_htlc_tx_rbf(node_factory, bitcoind):
     total_weight = sum([d['weight'] for d in details])
     total_fees = sum([float(d['fees']['base']) * 100_000_000 for d in details])
     total_feerate_perkw = total_fees / total_weight * 1000
-    assert 2000 - 1 < total_feerate_perkw < 2000 + 1
+    check_feerate([l1], total_feerate_perkw, 2000)
 
     # But we don't mine it!  And fees go up again!
     l1.set_feerates((3000, 3000, 3000, 3000))
@@ -3850,7 +3849,7 @@ def test_closing_anchorspend_htlc_tx_rbf(node_factory, bitcoind):
     total_weight = sum([d['weight'] for d in details])
     total_fees = sum([float(d['fees']['base']) * 100_000_000 for d in details])
     total_feerate_perkw = total_fees / total_weight * 1000
-    assert 3000 - 1 < total_feerate_perkw < 3000 + 1
+    check_feerate([l1], total_feerate_perkw, 3000)
 
     # And now we'll get it in (there's some rounding, so feerate a bit lower!)
     bitcoind.generate_block(1, needfeerate=2990)
@@ -3988,7 +3987,7 @@ def test_closing_tx_valid(node_factory, bitcoind):
 def test_closing_minfee(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, opts={'feerates': None})
 
-    l1.rpc.pay(l2.rpc.invoice(10000000, 'test', 'test')['bolt11'])
+    l1.rpc.xpay(l2.rpc.invoice(10000000, 'test', 'test')['bolt11'])
 
     wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['htlcs'] == [])
 
@@ -4027,7 +4026,7 @@ def test_peer_anchor_push(node_factory, bitcoind, executor, chainparams):
     # Get HTLC stuck, so l2 has reason to push commitment tx.
     amt = 100_000_000
     sticky_inv = l3.rpc.invoice(amt, 'sticky', 'sticky')
-    route = l1.rpc.getroute(l3.info['id'], amt, 1)['route']
+    route = l1.single_route(l3.info['id'], amt)
     l1.rpc.sendpay(route, sticky_inv['payment_hash'], payment_secret=sticky_inv['payment_secret'])
     l3.daemon.wait_for_log('dev_disconnect: -WIRE_UPDATE_FULFILL_HTLC')
 
@@ -4092,7 +4091,7 @@ def test_closing_cpfp(node_factory, bitcoind):
     change = only_one(l1.rpc.listfunds()['outputs'])
 
     # Make sure both sides have some output
-    l1.rpc.pay(l2.rpc.invoice(10000000, 'test', 'test')['bolt11'])
+    l1.rpc.xpay(l2.rpc.invoice(10000000, 'test', 'test')['bolt11'])
 
     # Mutual close
     close_txid = only_one(l1.rpc.close(l2.info['id'])['txids'])
@@ -4200,7 +4199,7 @@ def test_anchorspend_using_to_remote(node_factory, bitcoind, anchors):
 
     # l4 disconnects after receiving fulfill.  It then unilaterally
     # closes, l2 gets to-remote with its output.
-    l4.rpc.pay(l2.rpc.invoice(100000000, 'test', 'test')['bolt11'])
+    l4.rpc.xpay(l2.rpc.invoice(100000000, 'test', 'test')['bolt11'])
     wait_for(lambda: only_one(l4.rpc.listpeerchannels()['channels'])['htlcs'] != [])
 
     wait_for(lambda: only_one(l4.rpc.listpeers()['peers'])['connected'] is False)
@@ -4222,13 +4221,13 @@ def test_anchorspend_using_to_remote(node_factory, bitcoind, anchors):
     for n in (l1, l2, l3):
         wait_for(lambda: len(n.rpc.listchannels()['channels']) == 4)
 
-    l3.rpc.pay(l2.rpc.invoice(200000000, 'test2', 'test2')['bolt11'])
+    l3.rpc.xpay(l2.rpc.invoice(200000000, 'test2', 'test2')['bolt11'])
     wait_for(lambda: only_one(l2.rpc.listpeerchannels(l3.info['id'])['channels'])['htlcs'] == [])
 
     # Get HTLC stuck, so l2 has reason to push commitment tx.
     amt = 100_000_000
     sticky_inv = l3.rpc.invoice(amt, 'sticky', 'sticky')
-    route = l1.rpc.getroute(l3.info['id'], amt, 1)['route']
+    route = l1.single_route(l3.info['id'], amt)
     l1.rpc.sendpay(route, sticky_inv['payment_hash'], payment_secret=sticky_inv['payment_secret'])
     l3.daemon.wait_for_log('dev_disconnect: -WIRE_UPDATE_FULFILL_HTLC')
 
@@ -4282,7 +4281,7 @@ def test_onchain_reestablish_reply(node_factory, bitcoind, executor):
     # For l2->l2, try:
     # 1. are not in the initial state, and
     # 2. actually onchain.
-    l2.rpc.pay(l3.rpc.invoice(200000000, 'test', 'test')['bolt11'])
+    l2.rpc.xpay(l3.rpc.invoice(200000000, 'test', 'test')['bolt11'])
 
     # We block l3 from seeing close, so it will try to reestablish.
     def no_new_blocks(req):
@@ -4377,7 +4376,7 @@ def test_reestablish_closed_channels(node_factory, bitcoind):
     l2.daemon.rpcproxy.mock_rpc('getblockhash', no_new_blocks)
 
     # Make a payment, make sure it's entirely finished before we close.
-    l1.rpc.pay(l2.rpc.invoice(200000000, 'test', 'test')['bolt11'])
+    l1.rpc.xpay(l2.rpc.invoice(200000000, 'test', 'test')['bolt11'])
     wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['htlcs'] == [])
 
     # l1 closes, unilaterally.

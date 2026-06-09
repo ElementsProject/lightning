@@ -228,6 +228,14 @@ u8 *p2tr_for_keyidx(const tal_t *ctx, struct lightningd *ld, u64 keyidx)
 	return scriptpubkey_p2tr(ctx, &shutdownkey);
 }
 
+/* BOLT #2:
+ * A node:
+ *   - MUST NOT broadcast old (revoked) commitment transactions,
+ *     - Note: doing so will allow the other node to seize all channel funds.
+ *   - SHOULD NOT sign commitment transactions, unless it's about to broadcast
+ *   them (due to a failed connection),
+ *     - Note: this is to reduce the above risk.
+ */
 static struct bitcoin_tx *sign_last_tx(const tal_t *ctx,
 				       const struct channel *channel,
 				       const struct bitcoin_tx *last_tx,
@@ -1237,10 +1245,7 @@ static void NON_NULL_ARGS(1, 2, 4, 5) json_add_channel(struct command *cmd,
 	/* channel config */
 	json_add_amount_sat_msat(response, "dust_limit_msat",
 				 channel->our_config.dust_limit);
-	if (command_deprecated_out_ok(cmd, "max_total_htlc_in_msat",
-				      "v25.02", "v26.04"))
-		json_add_amount_msat(response, "max_total_htlc_in_msat",
-				     channel->our_config.max_htlc_value_in_flight);
+
 	json_add_amount_msat(
 	    response, "their_max_htlc_value_in_flight_msat",
 	    channel->channel_info.their_config.max_htlc_value_in_flight);
@@ -1372,6 +1377,14 @@ peer_connected_serialize(struct peer_connected_hook_payload *payload,
 				fmt_wireaddr(tmpctx, payload->remote_addr));
 	json_add_hex_talarr(stream, "features", payload->their_features);
 	json_object_end(stream); /* .peer */
+}
+
+static bool ignore_idle_channel(const struct lightningd *ld,
+				const struct channel *channel)
+{
+	return ld->state == LD_STATE_GRACE
+		&& !channel_has_htlc_out(channel)
+		&& !channel_has_htlc_in(channel);
 }
 
 /* Talk to connectd about an active channel */
@@ -1550,6 +1563,12 @@ static void peer_connected_hook_final(struct peer_connected_hook_payload *payloa
 	list_for_each(&peer->channels, channel, list) {
 		/* FIXME: It can race by opening a channel before this! */
 		if (channel_state_wants_peercomms(channel->state) && !channel->owner) {
+			if (ignore_idle_channel(ld, channel)) {
+				log_debug(channel->log,
+					  "Peer has reconnected, but gracefully shutting down; "
+					  "not connecting subd");
+				continue;
+			}
 			log_debug(channel->log, "Peer has reconnected, state %s: connecting subd",
 				  channel_state_name(channel));
 
@@ -2056,6 +2075,22 @@ void handle_peer_spoke(struct lightningd *ld, const u8 *msg)
 				return;
 			}
 
+			if (msgtype == WIRE_CHANNEL_REESTABLISH
+			    && ignore_idle_channel(ld, channel)) {
+				log_debug(channel->log,
+					  "Peer sent channel_reestablish, but gracefully shutting down; "
+					  "sending warning and ignoring");
+				error = towire_warningfmt(tmpctx, &channel_id,
+							  "Declining to reestablish idle channel "
+							  "because this node will be halting soon.");
+				/* Don't goto send_error; we don't want to disconnect. */
+				subd_send_msg(ld->connectd,
+					      take(towire_connectd_peer_send_msg(NULL, &peer->id,
+										 peer->connectd_counter,
+										 error)));
+				return;
+			}
+
 			log_debug(channel->log, "channel already active");
 			if (channel->state == DUALOPEND_AWAITING_LOCKIN) {
 				pfd = sockpair(tmpctx, channel, &other_fd, &error);
@@ -2090,7 +2125,7 @@ void handle_peer_spoke(struct lightningd *ld, const u8 *msg)
 		}
 		if (peer->uncommitted_channel) {
 			error = towire_errorfmt(tmpctx, &channel_id,
-						"Multiple simulteneous opens not supported");
+						"Multiple simultaneous opens not supported");
 			goto send_error;
 		}
 		peer->uncommitted_channel = new_uncommitted_channel(peer);
@@ -2231,6 +2266,9 @@ static void peer_disconnected(struct lightningd *ld,
 	/* If connection was only thing keeping it, this will delete it. */
 	if (p)
 		maybe_delete_peer(p);
+
+	/* Maybe graceful wants to know? */
+	check_graceful_shutdown(ld);
 }
 
 void handle_peer_disconnected(struct lightningd *ld, const u8 *msg)
@@ -2860,7 +2898,8 @@ static void setup_peer(struct peer *peer)
 		    && !(channel->channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL))
 			continue;
 
-		if (channel_state_wants_peercomms(channel->state))
+		if (channel_state_wants_peercomms(channel->state)
+		    && !ignore_idle_channel(ld, channel))
 			connect = true;
 		if (channel_important_filter(channel, NULL))
 			important = true;
@@ -2962,6 +3001,232 @@ static struct command_result *param_peer(struct command *cmd,
 				    buffer + tok->start);
 	return NULL;
 }
+
+static void graceful_disconnect(struct peer *peer)
+{
+	force_peer_disconnect(peer->ld, peer, "graceful shutdown");
+}
+
+/* Returns number currently connected */
+static size_t disconnect_idle_peers(struct lightningd *ld)
+{
+	struct peer *peer;
+	struct peer_node_id_map_iter it;
+	size_t num_connected = 0;
+
+	for (peer = peer_node_id_map_first(ld->peers, &it);
+	     peer;
+	     peer = peer_node_id_map_next(ld->peers, &it)) {
+		bool all_idle = true;
+		const struct channel *channel;
+
+		if (peer->connected == PEER_DISCONNECTED)
+			continue;
+
+		num_connected++;
+		list_for_each(&peer->channels, channel, list) {
+			if (!ignore_idle_channel(ld, channel))
+				all_idle = false;
+		}
+		/* We can't use force_peer_disconnect here, since we must not
+		 * free the channel: make a timer do the dirty work! */
+		if (all_idle) {
+			new_reltimer(ld->timers, peer, time_from_sec(0),
+				     graceful_disconnect, peer);
+		}
+	}
+	return num_connected;
+}
+
+struct graceful_waiter {
+	struct list_node list;
+	struct command *cmd;
+	const char *last_msg;
+	struct oneshot *timeout;
+};
+
+static void destroy_graceful_waiter(struct graceful_waiter *gw)
+{
+	list_del(&gw->list);
+}
+
+static struct command_result *check_graceful_shutdown_progress(struct lightningd *ld, struct command *cmd)
+{
+	struct htlc_out_map_iter outi;
+	const struct htlc_out *hout, *closest_hout = NULL;
+	struct htlc_in_map_iter ini;
+	const struct htlc_in *hin, *closest_hin = NULL;
+	size_t num_connected;
+	struct graceful_waiter *w;
+	const char *msg;
+
+	if (ld->state != LD_STATE_GRACE)
+		return NULL;
+
+	/* Try disconnecing anyone who no longer has htlcs */
+	num_connected = disconnect_idle_peers(ld);
+
+	/* Report on any remaining htlcs */
+	for (hout = htlc_out_map_first(ld->htlcs_out, &outi);
+	     hout;
+	     hout = htlc_out_map_next(ld->htlcs_out, &outi)) {
+		if (!closest_hout || hout->cltv_expiry < closest_hout->cltv_expiry)
+			closest_hout = hout;
+	}
+	for (hin = htlc_in_map_first(ld->htlcs_in, &ini);
+	     hin;
+	     hin = htlc_in_map_next(ld->htlcs_in, &ini)) {
+		if (!closest_hin || hin->cltv_expiry < closest_hin->cltv_expiry)
+			closest_hin = hin;
+	}
+
+	/* Choose single closest one if both */
+	if (closest_hin && closest_hout) {
+		if (closest_hin->cltv_expiry < closest_hout->cltv_expiry)
+			closest_hout = NULL;
+		else
+			closest_hin = NULL;
+	}
+
+	/* If given a cmd, only do that one */
+	if (closest_hin || closest_hout) {
+		u32 expiry = closest_hin ? closest_hin->cltv_expiry : closest_hout->cltv_expiry;
+		const struct channel *c = closest_hin ? closest_hin->key.channel : closest_hout->key.channel;
+		u32 blockheight = get_block_height(ld->topology);
+		const char *state = htlc_state_name(closest_hin ? closest_hin->hstate : closest_hout->hstate);
+
+		msg = tal_fmt(tmpctx,
+			      "Next HTLC %s expires at block #%u (%u blocks %s) %s peer %s (%s)",
+			      state, expiry,
+			      expiry >= blockheight ? expiry - blockheight : blockheight - expiry,
+			      expiry >= blockheight ? "from now" : "ago",
+			      closest_hin ? "coming from" : "going to",
+			      fmt_node_id(tmpctx, &c->peer->id),
+			      c->peer->connected == PEER_CONNECTED ? "connected" : "disconnected");
+	} else if (num_connected) {
+		msg = tal_fmt(tmpctx, "%zu peers still connected", num_connected);
+	} else {
+		struct graceful_waiter *next;
+		/* All finished! */
+		if (cmd)
+			return command_success(cmd, json_stream_success(cmd));
+		/* destroy_graceful_waiter removes them from list. */
+		list_for_each_safe(&ld->graceful_commands, w, next, list)
+			was_pending(command_success(w->cmd, json_stream_success(w->cmd)));
+		return NULL;
+	}
+
+	/* Otherwise, notify everyone (iff it has changed). */
+	list_for_each(&ld->graceful_commands, w, list) {
+		if (!w->last_msg || !streq(w->last_msg, msg)) {
+			json_notify_fmt(w->cmd, LOG_INFORM, "%s", msg);
+			tal_free(w->last_msg);
+			w->last_msg = tal_strdup(w, msg);
+		}
+	}
+	if (cmd)
+		return command_still_pending(cmd);
+	return NULL;
+}
+
+static int cmp_height(const u32 *a,
+		      const u32 *b,
+		      void *unused)
+{
+	if (*a > *b)
+		return 1;
+	if (*b < *a)
+		return -1;
+	return 0;
+}
+
+static void graceful_timeout(struct graceful_waiter *gw)
+{
+	struct htlc_out_map_iter outi;
+	const struct htlc_out *hout;
+	struct htlc_in_map_iter ini;
+	const struct htlc_in *hin;
+	struct peer *peer;
+	struct peer_node_id_map_iter it;
+	struct lightningd *ld = gw->cmd->ld;
+	u32 *heights = tal_arr(tmpctx, u32, 0);
+	struct node_id *peers = tal_arr(tmpctx, struct node_id, 0);
+	struct json_stream *result;
+
+	/* Report on any remaining htlcs */
+	for (hout = htlc_out_map_first(ld->htlcs_out, &outi);
+	     hout;
+	     hout = htlc_out_map_next(ld->htlcs_out, &outi)) {
+		tal_arr_expand(&heights, hout->cltv_expiry);
+	}
+	for (hin = htlc_in_map_first(ld->htlcs_in, &ini);
+	     hin;
+	     hin = htlc_in_map_next(ld->htlcs_in, &ini)) {
+		tal_arr_expand(&heights, hin->cltv_expiry);
+	}
+
+	asort(heights, tal_count(heights), cmp_height, NULL);
+
+	for (peer = peer_node_id_map_first(ld->peers, &it);
+	     peer;
+	     peer = peer_node_id_map_next(ld->peers, &it)) {
+		if (peer->connected != PEER_DISCONNECTED)
+			tal_arr_expand(&peers, peer->id);
+	}
+
+	result = json_stream_success(gw->cmd);
+	if (tal_count(heights)) {
+		json_array_start(result, "pending_htlc_expiries");
+		for (size_t i = 0; i < tal_count(heights); i++)
+			json_add_u32(result, NULL, heights[i]);
+		json_array_end(result);
+	}
+	if (tal_count(peers)) {
+		json_array_start(result, "pending_peers");
+		for (size_t i = 0; i < tal_count(peers); i++)
+			json_add_node_id(result, NULL, &peers[i]);
+		json_array_end(result);
+	}
+	was_pending(command_success(gw->cmd, result));
+}
+
+void check_graceful_shutdown(struct lightningd *ld)
+{
+	check_graceful_shutdown_progress(ld, NULL);
+}
+
+static struct command_result *json_graceful(struct command *cmd,
+					    const char *buffer,
+					    const jsmntok_t *obj UNNEEDED,
+					    const jsmntok_t *params)
+{
+	struct graceful_waiter *gw = tal(cmd, struct graceful_waiter);
+	u64 *timeout;
+
+	if (!param(cmd, buffer, params,
+		   p_opt("timeout", param_u64, &timeout),
+		   NULL))
+		return command_param_failed();
+
+	log_unusual(cmd->ld->log, "JSON-RPC graceful: preventing more connections");
+	cmd->ld->state = LD_STATE_GRACE;
+
+	gw->cmd = cmd;
+	gw->last_msg = NULL;
+	if (timeout)
+		gw->timeout = new_reltimer(cmd->ld->timers, gw,
+					   time_from_sec(*timeout),
+					   graceful_timeout, gw);
+	list_add_tail(&cmd->ld->graceful_commands, &gw->list);
+	tal_add_destructor(gw, destroy_graceful_waiter);
+	return check_graceful_shutdown_progress(cmd->ld, cmd);
+}
+
+static const struct json_command graceful_command = {
+	"graceful",
+	json_graceful,
+};
+AUTODATA(json_command, &graceful_command);
 
 static struct command_result *json_disconnect(struct command *cmd,
 					      const char *buffer,

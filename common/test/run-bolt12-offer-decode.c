@@ -156,7 +156,7 @@ int main(int argc, char *argv[])
 	json_for_each_arr(i, t, toks) {
 		bool valid;
 		const char *desc, *bolt12;
-		char *fail;
+		const char *fail;
 		struct tlv_offer *offer;
 
 		assert(json_scan(tmpctx, json, t,

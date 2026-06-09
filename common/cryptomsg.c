@@ -4,6 +4,7 @@
 #include <ccan/crypto/hkdf_sha256/hkdf_sha256.h>
 #include <ccan/mem/mem.h>
 #include <common/cryptomsg.h>
+#include <common/utils.h>
 #include <sodium/crypto_aead_chacha20poly1305.h>
 #include <wire/wire_io.h>
 
@@ -71,9 +72,9 @@ static void le64_nonce(unsigned char *npub, u64 nonce)
 {
 	/* BOLT #8:
 	 *
-	 * ...with nonce `n` encoded as 32 zero bits, followed by a
-	 * *little-endian* 64-bit value.  Note: this follows the Noise Protocol
-	 * convention, rather than our normal endian
+	 * with nonce `n` encoded as 32 zero bits, followed by a
+	 * *little-endian* 64-bit value. Note: this follows the Noise
+	 * Protocol convention, rather than our normal endian.
 	 */
 	le64 le_nonce = cpu_to_le64(nonce);
 	const size_t zerolen = crypto_aead_chacha20poly1305_ietf_NPUBBYTES - sizeof(le_nonce);
@@ -232,7 +233,6 @@ u8 *cryptomsg_encrypt_msg(const tal_t *ctx,
 
 	maybe_rotate_key(&cs->sn, &cs->sk, &cs->s_ck);
 
-	if (taken(msg))
-		tal_free(msg);
+	tal_free_if_taken(msg);
 	return out;
 }

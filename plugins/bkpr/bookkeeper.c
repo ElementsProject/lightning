@@ -14,6 +14,7 @@
 #include <common/coin_mvt.h>
 #include <common/iso4217.h>
 #include <common/json_param.h>
+#include <common/json_parse_simple.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>
 #include <common/mkdatastorekey.h>
@@ -83,9 +84,14 @@ const char *currencyrate_str(const tal_t *ctx,
 	mul = ratefactor(bkpr->currency);
 
 	if (msat) {
-		unsigned __int128 v;
-		v = (unsigned __int128)msat->millisatoshis * crate->raw_rate /* Raw: 128-bit math */;
-		raw_rate = v / MSAT_PER_BTC;
+		struct amount_msat res;
+
+		/* If multiply overflows, use floating point */
+		if (amount_msat_mul(&res, *msat, crate->raw_rate)) {
+			raw_rate = res.millisatoshis / MSAT_PER_BTC; /* Raw: divide */
+		} else {
+			raw_rate = (double)msat->millisatoshis * crate->raw_rate / MSAT_PER_BTC; /* Raw: double */
+		}
 	} else {
 		raw_rate = crate->raw_rate;
 	}
@@ -1052,7 +1058,8 @@ static char *do_account_close_checks(struct command *cmd,
 static char *fetch_out_desc_invstr(const tal_t *ctx, const char *buf,
 				   const jsmntok_t *tok, char **err)
 {
-	char *bolt, *desc, *fail;
+	char *bolt, *desc;
+	const char *fail;
 
 	/* It's a bolt11! Parse it out to a desc */
 	if (!json_scan(ctx, buf, tok, "{bolt11:%}",
@@ -1830,13 +1837,6 @@ static const struct plugin_command commands[] = {
 		json_edit_desc_utxo
 	},
 };
-
-static bool json_hex_to_be64(const char *buffer, const jsmntok_t *tok,
-			     be64 *val)
-{
-	return hex_decode(buffer + tok->start, tok->end - tok->start,
-			  val, sizeof(*val));
-}
 
 static void memleak_scan_currencyrates(struct htable *memtable,
 				       currencymap_t *currency_rates)

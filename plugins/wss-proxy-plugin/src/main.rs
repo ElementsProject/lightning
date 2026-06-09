@@ -2,25 +2,36 @@ use std::{net::SocketAddr, process, sync::Arc};
 
 use anyhow::anyhow;
 use certs::get_tls_config;
-use cln_plugin::{options::ConfigOption, Builder};
+use cln_plugin::{Builder, options::ConfigOption};
 
 use futures_util::{SinkExt, StreamExt};
-use options::{parse_options, WssproxyOptions, OPT_WSS_BIND_ADDR, OPT_WSS_CERTS_DIR};
+use options::{OPT_WSS_BIND_ADDR, OPT_WSS_CERTS_DIR, WssproxyOptions, parse_options};
 use rustls::ServerConfig;
 use tokio::net::{TcpListener, TcpStream};
-use tokio_rustls::{server::TlsStream, TlsAcceptor};
-use tokio_tungstenite::{accept_async, WebSocketStream};
+use tokio_rustls::{TlsAcceptor, server::TlsStream};
+use tokio_tungstenite::{WebSocketStream, accept_async};
 
 mod certs;
 mod options;
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
+    unsafe {
+        // SAFETY:
+        // `std::env::set_var` is unsafe in Rust 2024 because environment variables
+        // are process-global and unsynchronized. Concurrent reads/writes from
+        // multiple threads can cause undefined behavior.
+        //
+        // This call happens at process startup, before any threads are spawned and
+        // before any code that may read environment variables is executed.
+        // Therefore, no concurrent access is possible.
+        std::env::set_var(
+            "CLN_PLUGIN_LOG",
+            "cln_plugin=info,cln_rpc=info,wss_proxy=debug,warn",
+        )
+    };
+
     log_panics::init();
-    std::env::set_var(
-        "CLN_PLUGIN_LOG",
-        "cln_plugin=info,cln_rpc=info,wss_proxy=debug,warn",
-    );
 
     let opt_wss_proxy_bind_addr = ConfigOption::new_str_arr_no_default(
         OPT_WSS_BIND_ADDR,

@@ -15,6 +15,9 @@
 #include <plugins/bkpr/report.h>
 #include <plugins/libplugin.h>
 
+/* This is a zero, but treated specially if tested with ? */
+static const char ZERO_AMOUNT[] = "0";
+
 static const char *report_fmt_acct_name(const tal_t *ctx UNNEEDED,
 					const struct bkpr *bkpr UNNEEDED,
 					const struct income_event *e)
@@ -40,6 +43,8 @@ static const char *report_fmt_credit(const tal_t *ctx,
 				     const struct bkpr *bkpr UNNEEDED,
 				     const struct income_event *e)
 {
+	if (amount_msat_is_zero(e->credit))
+		return ZERO_AMOUNT;
 	return fmt_amount_msat_btc(ctx, e->credit, false);
 }
 
@@ -47,6 +52,8 @@ static const char *report_fmt_debit(const tal_t *ctx,
 				    const struct bkpr *bkpr UNNEEDED,
 				    const struct income_event *e)
 {
+	if (amount_msat_is_zero(e->debit))
+		return ZERO_AMOUNT;
 	return fmt_amount_msat_btc(ctx, e->debit, false);
 }
 
@@ -54,6 +61,8 @@ static const char *report_fmt_fees(const tal_t *ctx,
 				   const struct bkpr *bkpr UNNEEDED,
 				   const struct income_event *e)
 {
+	if (amount_msat_is_zero(e->fees))
+		return ZERO_AMOUNT;
 	return fmt_amount_msat_btc(ctx, e->fees, false);
 }
 
@@ -134,7 +143,7 @@ static const char *report_fmt_credit_debit(const tal_t *ctx,
 	if (!amount_msat_is_zero(e->debit))
 		return tal_fmt(ctx, "-%s",
 			       fmt_amount_msat_btc(tmpctx, e->debit, false));
-	return "0";
+	return ZERO_AMOUNT;
 }
 
 static const char *report_fmt_currency_credit(const tal_t *ctx,
@@ -211,8 +220,10 @@ struct report_format {
 			    const struct bkpr *bkpr,
 			    const struct income_event *e);
 	const char **str;
-	/* If fmt returns NULL, evaluate these instead. */
-	struct report_format **alt;
+	/* If fmt returns non-NULL (and non-ZERO_AMOUNT), evaluate these instead of the value. */
+	struct report_format **ifset;
+	/* If fmt returns NULL (or ZERO_AMOUNT when either ifset/ifnotset is non-NULL), evaluate these. */
+	struct report_format **ifnotset;
 };
 
 static void add_literal(struct report_format *f,
@@ -222,15 +233,18 @@ static void add_literal(struct report_format *f,
 		tal_arr_expand(&f->fmt, NULL);
 		tal_arr_expand(&f->str,
 			       tal_strndup(f->str, *start, end - *start));
-		tal_arr_expand(&f->alt, NULL);
+		tal_arr_expand(&f->ifset, NULL);
+		tal_arr_expand(&f->ifnotset, NULL);
 		*start = end;
 	}
 }
 
+/* alt_term is a secondary loop terminator (in addition to term); '\0' means none. */
 static struct report_format *
 parse_report_format(const tal_t *ctx,
 		    const char **start,
 		    char term,
+		    char alt_term,
 		    const char **err)
 {
 	const char *p;
@@ -239,11 +253,12 @@ parse_report_format(const tal_t *ctx,
 	f = tal(ctx, struct report_format);
 	f->fmt = tal_arr(f, typeof(*f->fmt), 0);
 	f->str = tal_arr(f, const char *, 0);
-	f->alt = tal_arr(f, struct report_format *, 0);
+	f->ifset = tal_arr(f, struct report_format *, 0);
+	f->ifnotset = tal_arr(f, struct report_format *, 0);
 
 	p = *start;
-	while (*p != term) {
-		struct report_format *alt;
+	while (*p != term && !(alt_term && *p == alt_term)) {
+		struct report_format *ifset, *ifnotset;
 		const struct report_tag *rt;
 
 		if (*p == '\0') {
@@ -264,7 +279,8 @@ parse_report_format(const tal_t *ctx,
 			lit = tal_strcat(tmpctx, take(lit), "{");
 			tal_arr_expand(&f->fmt, NULL);
 			tal_arr_expand(&f->str, lit);
-			tal_arr_expand(&f->alt, NULL);
+			tal_arr_expand(&f->ifset, NULL);
+			tal_arr_expand(&f->ifnotset, NULL);
 			p += 2;
 			*start = p;
 			continue;
@@ -273,7 +289,7 @@ parse_report_format(const tal_t *ctx,
 		/* Emit preceding literal, if any. */
 		add_literal(f, start, p);
 
-		const char *endtag = p + 1 + strcspn(p+1, "?}");
+		const char *endtag = p + 1 + strcspn(p+1, "?:}");
 		if (*endtag == '\0') {
 			*err = tal_fmt(ctx, "Unterminated tag %s", p + 1);
 			return tal_free(f);
@@ -287,25 +303,45 @@ parse_report_format(const tal_t *ctx,
 			return tal_free(f);
 		}
 
+		ifset = ifnotset = NULL;
 		if (*endtag == '?') {
+			/* Parse if-set, which ends at ':' or '}' */
 			*start = endtag + 1;
-			alt = parse_report_format(f, start, '}', err);
-			if (!alt) {
-				/* Steal error upwards! */
+			ifset = parse_report_format(f, start, '}', ':', err);
+			if (!ifset) {
 				tal_steal(ctx, *err);
 				return tal_free(f);
 			}
-			/* Consume final } */
+			if (**start == ':') {
+				/* Parse if-not-set */
+				(*start)++;
+				ifnotset = parse_report_format(f, start, '}', '\0', err);
+				if (!ifnotset) {
+					tal_steal(ctx, *err);
+					return tal_free(f);
+				}
+			}
+			/* Consume final '}' */
+			(*start)++;
+		} else if (*endtag == ':') {
+			/* Only if-not-set */
+			*start = endtag + 1;
+			ifnotset = parse_report_format(f, start, '}', '\0', err);
+			if (!ifnotset) {
+				tal_steal(ctx, *err);
+				return tal_free(f);
+			}
+			/* Consume final '}' */
 			(*start)++;
 		} else {
 			assert(*endtag == '}');
-			alt = NULL;
 			*start = endtag + 1;
 		}
 
 		tal_arr_expand(&f->fmt, rt->fmt);
 		tal_arr_expand(&f->str, NULL);
-		tal_arr_expand(&f->alt, alt);
+		tal_arr_expand(&f->ifset, ifset);
+		tal_arr_expand(&f->ifnotset, ifnotset);
 
 		p = *start;
 	}
@@ -327,7 +363,7 @@ struct command_result *param_report_format(struct command *cmd,
 	if (ret)
 		return ret;
 
-	*format = parse_report_format(cmd, &start, '\0', &err);
+	*format = parse_report_format(cmd, &start, '\0', '\0', &err);
 	if (!*format)
 		return command_fail_badparam(cmd, name, buffer, tok, err);
 
@@ -411,15 +447,24 @@ static char *format_event(const tal_t *ctx,
 		}
 
 		v = fmt->fmt[i](tmpctx, bkpr, e);
+		/* Treat ZERO_AMOUNT as absent when there are conditionals. */
+		if (v == ZERO_AMOUNT && (fmt->ifset[i] || fmt->ifnotset[i]))
+			v = NULL;
+
 		if (v) {
-			v = escape_value(tmpctx, v, esc);
-			out = tal_strcat(ctx, take(out), v);
+			if (fmt->ifset[i]) {
+				out = tal_strcat(ctx, take(out),
+						 format_event(tmpctx, fmt->ifset[i], esc, bkpr, e));
+			} else {
+				out = tal_strcat(ctx, take(out),
+						 escape_value(tmpctx, v, esc));
+			}
 			continue;
 		}
 
-		if (fmt->alt[i]) {
-			char *alt = format_event(tmpctx, fmt->alt[i], esc, bkpr, e);
-			out = tal_strcat(ctx, take(out), alt);
+		if (fmt->ifnotset[i]) {
+			out = tal_strcat(ctx, take(out),
+					 format_event(tmpctx, fmt->ifnotset[i], esc, bkpr, e));
 		}
 	}
 

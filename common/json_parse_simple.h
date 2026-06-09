@@ -2,6 +2,7 @@
 #ifndef LIGHTNING_COMMON_JSON_PARSE_SIMPLE_H
 #define LIGHTNING_COMMON_JSON_PARSE_SIMPLE_H
 #include "config.h"
+#include <ccan/endian/endian.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
 
@@ -50,6 +51,12 @@ bool json_to_double(const char *buffer, const jsmntok_t *tok, double *num);
 
 /* Extract boolean from this */
 bool json_to_bool(const char *buffer, const jsmntok_t *tok, bool *b);
+
+/* Extract big-endian 32-bit from hex string (for datastore) */
+bool json_hex_to_be32(const char *buffer, const jsmntok_t *tok, be32 *val);
+
+/* Extract big-endian 64-bit from hex string (for datastore) */
+bool json_hex_to_be64(const char *buffer, const jsmntok_t *tok, be64 *val);
 
 /* Is this a number? [0..9]+ */
 bool json_tok_is_num(const char *buffer, const jsmntok_t *tok);

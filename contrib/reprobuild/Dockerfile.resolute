@@ -1,0 +1,74 @@
+FROM ubuntu:resolute
+
+ENV TZ=UTC
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+ENV SOURCE_DATE_EPOCH=1672531200
+ENV RUST_PROFILE=release
+ENV PATH=/root/.pyenv/shims:/root/.pyenv/bin:/root/.cargo/bin:/root/.local/bin:$PATH
+ENV PROTOC_VERSION=29.4
+
+RUN sed -i '/updates/d' /etc/apt/sources.list && \
+    sed -i '/security/d' /etc/apt/sources.list
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+    autoconf \
+    build-essential \
+    ca-certificates \
+    file \
+    gettext \
+    git \
+    curl \
+    libsqlite3-dev \
+    libpq-dev \
+    libsodium23 \
+    libsodium-dev \
+    lowdown \
+    libtool \
+    m4 \
+    sudo \
+    unzip \
+    wget \
+    jq \
+    zip
+
+# Configure /repo/.git as 'safe.directory'
+RUN git config --global --add safe.directory /repo/.git
+
+# Install Python3.10 (more reproducible than relying on python3-setuptools)
+RUN git clone https://github.com/pyenv/pyenv.git /root/.pyenv && \
+    apt-get install -y --no-install-recommends \
+    libbz2-dev \
+    libffi-dev \
+    libreadline-dev \
+    libssl-dev \
+    zlib1g-dev && \
+    pyenv install 3.10.0 && \
+    pyenv global 3.10.0
+
+RUN wget -qO- https://astral.sh/uv/install.sh | sh
+
+RUN wget https://sh.rustup.rs -O rustup-install.sh && \
+    bash rustup-install.sh --default-toolchain none --quiet -y && \
+    rm rustup-install.sh && \
+    /root/.cargo/bin/rustup install 1.85
+
+# Download protoc manually, it is in the update repos which we
+# disabled above, so `apt-get` can't find it anymore.
+RUN cd /tmp/ && \
+    wget https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-x86_64.zip && \
+    unzip protoc-${PROTOC_VERSION}-linux-x86_64.zip && \
+    mv bin/protoc /usr/local/bin && \
+    rm -rf include bin protoc-${PROTOC_VERSION}-linux-x86_64.zip
+
+RUN mkdir /build
+WORKDIR /build
+
+# We mount the repo into `/repo` and then we take a snapshot of it
+# first by cloning it. This ensures we're not including any
+# uncommitted changes in the working directory on the host. Notice
+# that we no longer take the zipfile.
+CMD git clone /repo . \
+    && uv sync --all-extras --all-groups \
+    && uv run tools/repro-build.sh \
+    && cp *.xz /repo/release/

@@ -16,6 +16,10 @@ After=network-online.target
 
 [Service]
 ExecStart=/usr/bin/lightningd --conf /etc/lightningd/lightningd.conf --pid-file=/run/lightningd/lightningd.pid
+# graceful was introduced in v26.06: before that, simply stop.
+ExecStop=/usr/bin/lightning-cli --conf /etc/lightningd/lightningd.conf graceful 20
+ExecStop=/usr/bin/lightning-cli --conf /etc/lightningd/lightningd.conf stop
+TimeoutStopSec=60
 
 # Creates /run/lightningd owned by bitcoin
 RuntimeDirectory=lightningd

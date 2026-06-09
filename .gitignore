@@ -101,6 +101,7 @@ bionic/
 focal/
 jammy/
 noble/
+resolute/
 release/
 .vscode/
 .cache/

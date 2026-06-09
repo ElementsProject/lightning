@@ -50,6 +50,23 @@ void status_io(enum log_level iodir,
 #define status_broken( ...)			\
 	status_fmt(LOG_BROKEN, NULL, __VA_ARGS__)
 
+/* Common case of logging once, based on bool flag */
+#define status_unusual_once(flag, ...)					\
+	do {								\
+		if (*(flag) != true) {					\
+			status_fmt(LOG_UNUSUAL, NULL, __VA_ARGS__);	\
+			(*flag) = true;					\
+		}							\
+	} while(0)
+
+#define status_broken_once(flag, ...)					\
+	do {								\
+		if (*(flag) != true) {					\
+			status_fmt(LOG_BROKEN, NULL, __VA_ARGS__);	\
+			(*flag) = true;					\
+		}							\
+	} while(0)
+
 /* For daemons which handle multiple peers */
 #define status_peer_trace(peer, ...)			\
 	status_fmt(LOG_TRACE, (peer), __VA_ARGS__)

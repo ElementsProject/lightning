@@ -4,8 +4,8 @@ use futures::SinkExt;
 use serde::Serialize;
 use std::sync::Arc;
 use tokio::io::AsyncWrite;
-use tokio::sync::mpsc;
 use tokio::sync::Mutex;
+use tokio::sync::mpsc;
 use tokio_util::codec::FramedWrite;
 
 #[derive(Clone, Debug, Serialize)]
@@ -74,8 +74,8 @@ where
 mod trace {
     use super::*;
     use tracing::Level;
-    use tracing_subscriber::prelude::*;
     use tracing_subscriber::Layer;
+    use tracing_subscriber::prelude::*;
 
     /// Initialize the logger starting a flusher to the passed in sink.
     pub fn init<O>(out: Arc<Mutex<FramedWrite<O, JsonCodec>>>) -> Result<(), log::SetLoggerError>
@@ -116,10 +116,21 @@ mod trace {
         ) {
             let mut extractor = LogExtract::default();
             event.record(&mut extractor);
-            let message = match extractor.msg {
+            let mut message = match extractor.msg {
                 Some(m) => m,
                 None => return,
             };
+
+            // Append any additional fields to the message
+            if !extractor.fields.is_empty() {
+                let fields_str: Vec<String> = extractor
+                    .fields
+                    .iter()
+                    .map(|(k, v)| format!("{}=\"{}\"", k, v))
+                    .collect();
+                message = format!("{} [{}]", message, fields_str.join(", "));
+            }
+
             let level = event.metadata().level().into();
             self.sender.send(LogEntry { level, message }).unwrap();
         }
@@ -141,14 +152,26 @@ mod trace {
     #[derive(Default)]
     struct LogExtract {
         msg: Option<String>,
+        fields: Vec<(String, String)>,
     }
 
     impl tracing::field::Visit for LogExtract {
         fn record_debug(&mut self, field: &tracing::field::Field, value: &dyn std::fmt::Debug) {
-            if field.name() != "message" {
-                return;
+            let field_name = field.name();
+            let field_value = format!("{value:?}");
+
+            if field_name == "message" {
+                self.msg = Some(field_value);
+            } else if !is_log_metadata_field(field_name) {
+                self.fields.push((field_name.to_owned(), field_value));
             }
-            self.msg = Some(format!("{:?}", value));
         }
+    }
+
+    fn is_log_metadata_field(name: &str) -> bool {
+        matches!(
+            name,
+            "log.target" | "log.module_path" | "log.file" | "log.line"
+        )
     }
 }

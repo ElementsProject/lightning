@@ -1,0 +1,93 @@
+{
+  "$schema": "../../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "notification": "pay_part_end",
+  "title": "Notification for xpay part end",
+  "description": [
+    "The **pay_part_end** notification is emitted by the xpay plugin when a payment part completes."
+  ],
+  "added": "v25.09",
+  "request": {},
+  "response": {
+    "required": [
+      "status",
+      "duration",
+      "payment_hash",
+      "groupid",
+      "partid"
+    ],
+    "properties": {
+      "status": {
+        "type": "string",
+        "enum": [
+          "success",
+          "failure"
+        ],
+        "description": [
+          "Whether the payment part succeeded or failed."
+        ]
+      },
+      "duration": {
+        "type": "number",
+        "description": [
+          "The time in seconds from send to result."
+        ]
+      },
+      "payment_hash": {
+        "type": "hash",
+        "description": [
+          "The payment hash for the xpay invocation."
+        ]
+      },
+      "groupid": {
+        "type": "u64",
+        "description": [
+          "The xpay group identifier for the payment attempt."
+        ]
+      },
+      "partid": {
+        "type": "u64",
+        "description": [
+          "The identifier for this payment part."
+        ]
+      },
+      "failed_msg": {
+        "type": "hex",
+        "description": [
+          "The decrypted onion error message, if available."
+        ]
+      },
+      "failed_node_id": {
+        "type": "pubkey",
+        "description": [
+          "The node that generated the failure, if known."
+        ]
+      },
+      "failed_short_channel_id": {
+        "type": "short_channel_id",
+        "description": [
+          "The short channel id complained about, if known."
+        ]
+      },
+      "failed_direction": {
+        "type": "u32",
+        "description": [
+          "The direction within the failed short channel id, if known."
+        ]
+      },
+      "error_code": {
+        "type": "u32",
+        "description": [
+          "The xpay error code, if known."
+        ]
+      },
+      "error_message": {
+        "type": "string",
+        "description": [
+          "The human-readable xpay error message."
+        ]
+      }
+    }
+  }
+}

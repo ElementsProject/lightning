@@ -378,8 +378,7 @@ static void msg_to_peer(const struct peer *peer, const u8 *msg TAKES)
 								 msg)));
 	}
 
-	if (taken(msg))
-		tal_free(msg);
+	tal_free_if_taken(msg);
 }
 
 static void addgossip_reply(struct subd *gossipd,
@@ -421,6 +420,10 @@ static void broadcast_new_gossip(struct lightningd *ld,
 	if (ld->dev_suppress_gossip)
 		return;
 
+	/* BOLT #7:
+	 * - SHOULD send gossip messages as it generates them regardless
+	 *   of `timestamp`.
+	 */
 	/* Tell all our peers about it, too! */
 	for (peer = peer_node_id_map_first(ld->peers, &it);
 	     peer;
@@ -660,6 +663,11 @@ static void stash_remote_announce_sigs(struct channel *channel,
 		  fmt_short_channel_id(tmpctx, scid),
 		  channel->scid ? fmt_short_channel_id(tmpctx, *channel->scid) : "none");
 
+	/* BOLT #7:
+	 *   - If it has not sent `channel_ready`:
+	 *     - SHOULD defer handling the `announcement_signatures` until
+	 *       after it has sent `channel_ready`.
+	 */
 	/* Save to db if we like these signatures */
 	if (!channel->scid)
 		return;
@@ -1110,8 +1118,7 @@ void channel_gossip_update_from_gossipd(struct channel *channel,
 	 * when we restarted; ignore, as it will catch up soon. */
 	case CGOSSIP_CHANNEL_ANNOUNCED_DEAD:
 	case CGOSSIP_CHANNEL_ANNOUNCED_DYING:
-		if (taken(channel_update))
-			tal_free(channel_update);
+		tal_free_if_taken(channel_update);
 		return;
 
 	/* This happens: we step back a block when restarting. */

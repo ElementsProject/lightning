@@ -1,4 +1,5 @@
 PLUGIN_XPAY_SRC :=				\
+	plugins/xpay/listpays.c			\
 	plugins/xpay/xpay.c
 
 PLUGIN_XPAY_HDRS :=

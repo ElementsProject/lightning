@@ -398,7 +398,7 @@ def test_gossip_jsonrpc(node_factory):
                              'peer_in WIRE_ANNOUNCEMENT_SIGNATURES'])
 
     # Make sure we can route through the channel, will raise on failure
-    l1.rpc.getroute(l2.info['id'], 100, 1)
+    l1.single_route(l2.info['id'], 100)
 
     # Channels not should be activated locally
     assert l1.rpc.listchannels() == {'channels': []}
@@ -581,8 +581,8 @@ def test_gossip_persistence(node_factory, bitcoind):
     l1.rpc.dev_fail(l2.info['id'])
 
     # We need to wait for the unilateral close to hit the mempool,
-    # and 12 blocks for nodes to actually forget it.
-    bitcoind.generate_block(13, wait_for_mempool=1)
+    # and 72 blocks for nodes to actually forget it.
+    bitcoind.generate_block(73, wait_for_mempool=1)
 
     wait_for(lambda: active(l1) == [scid23, scid23])
     wait_for(lambda: active(l2) == [scid23, scid23])
@@ -979,7 +979,7 @@ def test_report_routing_failure(node_factory, bitcoind):
 
     # Test
     inv = l4.rpc.invoice(1234567, 'inv', 'for testing')['bolt11']
-    l1.rpc.pay(inv)
+    l1.rpc.xpay(inv)
 
 
 def test_query_short_channel_id(node_factory, bitcoind, chainparams):
@@ -1445,7 +1445,7 @@ def test_gossip_notices_close(node_factory, bitcoind):
 
     txid = only_one(l2.rpc.close(l3.info['id'])['txids'])
     wait_for(lambda: l2.rpc.listpeerchannels(l3.info['id'])['channels'][0]['state'] == 'CLOSINGD_COMPLETE')
-    bitcoind.generate_block(13, txid)
+    bitcoind.generate_block(73, txid)
 
     wait_for(lambda: l1.rpc.listchannels()['channels'] == [])
     wait_for(lambda: l1.rpc.listnodes()['nodes'] == [])
@@ -1474,7 +1474,8 @@ def test_getroute_exclude_duplicate(node_factory):
     in the exclude list will not have permanent effects.
     """
 
-    l1, l2 = node_factory.line_graph(2, wait_for_announce=True)
+    l1, l2 = node_factory.line_graph(2, wait_for_announce=True,
+                                     opts={'allow-deprecated-apis': True})
 
     # Starting route
     route = l1.rpc.getroute(l2.info['id'], 1, 1)['route']
@@ -1506,7 +1507,8 @@ def test_getroute_exclude_duplicate(node_factory):
 
 def test_getroute_exclude(node_factory, bitcoind):
     """Test getroute's exclude argument"""
-    l1, l2, l3, l4, l5 = node_factory.get_nodes(5)
+    l1, l2, l3, l4, l5 = node_factory.get_nodes(5,
+                                                opts={'allow-deprecated-apis': True})
     node_factory.join_nodes([l1, l2, l3, l4], wait_for_announce=True)
 
     # This should work
@@ -1683,7 +1685,7 @@ def test_gossip_store_compact_while_extending(node_factory, bitcoind, executor):
 
     scid23 = only_one(l2.rpc.listpeerchannels(l3.info['id'])['channels'])['short_channel_id']
     l2.rpc.close(l3.info['id'])
-    bitcoind.generate_block(13, wait_for_mempool=1)
+    bitcoind.generate_block(73, wait_for_mempool=1)
     wait_for(lambda: l1.rpc.listchannels(scid23) == {'channels': []})
 
     l1.rpc.setchannel(l2.info['id'], 41, 1004)
@@ -1700,7 +1702,7 @@ def test_gossip_store_compact_while_extending(node_factory, bitcoind, executor):
         f.write(b'')
 
     fut.result(TIMEOUT)
-    # Exact gossip size varies with EXPERIMENTAL_SPLICING.
+    # Exact gossip size varies with SPLICING.
     l1.daemon.wait_for_logs(['gossipd: compaction done',
                              'connectd: Reopened gossip_store, reduced to offset 224[59]'])
 
@@ -2008,7 +2010,7 @@ def test_topology_leak(node_factory, bitcoind):
 
     # Close and wait for gossip to catchup.
     txid = only_one(l2.rpc.close(l3.info['id'])['txids'])
-    bitcoind.generate_block(13, txid)
+    bitcoind.generate_block(73, txid)
 
     wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 2)
 
@@ -2035,7 +2037,7 @@ def test_parms_listforwards(node_factory):
     assert len(forwards_dep) == 0
 
 
-def test_close_12_block_delay(node_factory, bitcoind):
+def test_close_72_block_delay(node_factory, bitcoind):
     l1, l2, l3, l4 = node_factory.line_graph(4, wait_for_announce=True)
 
     # Close l1-l2
@@ -2052,16 +2054,16 @@ def test_close_12_block_delay(node_factory, bitcoind):
 
     # BOLT #7:
     #   - once its funding output has been spent OR reorganized out:
-    #    - SHOULD forget a channel after a 12-block delay.
+    #    - SHOULD forget a channel after a 72-block delay.
 
-    # That implies 12 blocks *after* spending, i.e. 13 blocks deep!
+    # That implies 72 blocks *after* spending, i.e. 73 blocks deep!
 
-    # 12 blocks deep, l4 still sees it
-    bitcoind.generate_block(10)
+    # 72 blocks deep, l4 still sees it
+    bitcoind.generate_block(70)
     sync_blockheight(bitcoind, [l4])
     assert len(l4.rpc.listchannels(source=l1.info['id'])['channels']) == 1
 
-    # 13 blocks deep does it.
+    # 73 blocks deep does it.
     bitcoind.generate_block(1)
     wait_for(lambda: l4.rpc.listchannels(source=l1.info['id'])['channels'] == [])
 
@@ -2164,7 +2166,9 @@ def test_dump_own_gossip(node_factory):
 def test_gossip_throttle(node_factory, bitcoind, chainparams):
     """Make some gossip, test it gets throttled"""
     l1, l2, l3, l4 = node_factory.line_graph(4, wait_for_announce=True,
-                                             opts=[{}, {}, {}, {'dev-throttle-gossip': None}])
+                                             opts=[{}, {}, {},
+                                                   {'broken_log': 'Throttling incoming peer',
+                                                    'dev-throttle-gossip': None}])
 
     # We expect: self-advertizement (3 messages for l1 and l4) plus
     # 4 node announcements, 3 channel announcements and 6 channel updates.
@@ -2488,7 +2492,7 @@ def test_gossmap_lost_node(node_factory, bitcoind):
 
     scid23 = only_one(l2.rpc.listpeerchannels(l3.info['id'])['channels'])['short_channel_id']
     l2.rpc.close(l3.info['id'])
-    bitcoind.generate_block(13, wait_for_mempool=1)
+    bitcoind.generate_block(73, wait_for_mempool=1)
 
     # Order of nodes is not stable.
     sync_blockheight(bitcoind, [l1])
@@ -2520,6 +2524,6 @@ def test_gossip_dying_when_compact(node_factory, bitcoind):
     wait_for(lambda: len(l1.rpc.listchannels()["channels"]) == 4)
     l1.rpc.call("dev-compact-gossip-store")
 
-    # Now actually close it (12 deep)
-    bitcoind.generate_block(11)
+    # Now actually close it (72 deep)
+    bitcoind.generate_block(71)
     wait_for(lambda: len(l1.rpc.listchannels()["channels"]) == 2)

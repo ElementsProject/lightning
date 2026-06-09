@@ -234,6 +234,7 @@ static struct local_channel *add_local_channel(struct layer *layer,
 		lc->n1 = *n1;
 		lc->n2 = *n2;
 	} else {
+		assert(!node_id_eq(n1, n2));
 		lc->n1 = *n2;
 		lc->n2 = *n1;
 	}
@@ -893,6 +894,17 @@ void layer_add_update_channel(struct layer *layer,
 				base_fee, proportional_fee,
 				delay);
 	save_channel_update(layer, lu);
+}
+
+void layer_remove_channel_update(struct layer *layer,
+			      const struct short_channel_id_dir *scidd)
+{
+	struct local_update *lu;
+	lu = local_update_hash_get(layer->local_updates, scidd);
+	if (lu) {
+		local_update_hash_del(layer->local_updates, lu);
+		tal_free(lu);
+	}
 }
 
 const struct bias *layer_set_bias(struct layer *layer,

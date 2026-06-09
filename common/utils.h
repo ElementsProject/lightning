@@ -97,6 +97,28 @@ void tal_arr_remove_(void *p, size_t elemsize, size_t n);
 		(*(p))[n] = (v);					\
 	} while(0)
 
+/* Helper to free an ptr if it's taken() */
+static inline void tal_free_if_taken(const tal_t *p)
+{
+	if (taken(p))
+		tal_free(p);
+}
+
+/**
+ * Append one tal array to another (TAKES)
+ */
+#define tal_arr_append(pptr, append)				\
+	tal_arr_append_((pptr) + 0*sizeof(*(pptr) == (append)), (append))
+
+/**
+ * Append an array of appendnum elements to a tal arr (TAKES)
+ */
+#define tal_arr_appendn(pptr, append, appendnum)					\
+	tal_arr_appendn_((pptr), (append), (appendnum) * sizeof(*append) + 0*sizeof(*(pptr) == (append)))
+
+void tal_arr_append_(void *p, const void *append TAKES);
+void tal_arr_appendn_(void *p, const void *append TAKES, size_t bytes);
+
 /* Check for valid UTF-8 */
 bool utf8_check(const void *buf, size_t buflen);
 

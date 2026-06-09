@@ -439,6 +439,7 @@ int main(int argc, const char *argv[])
 	 *
 	 * # From remote_revocation_basepoint_secret
 	 * INTERNAL: remote_revocation_basepoint: 02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27
+	 *...
 	 * # From local_delayed_payment_basepoint_secret
 	 * INTERNAL: local_delayed_payment_basepoint: 023c72addb4fdf09af94f0c94d7fe92a386a7e70cf8a1d85916386bb2535c7b1b1
 	*/

@@ -238,6 +238,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	list_head_init(&ld->splice_commands);
 	list_head_init(&ld->waitblockheight_commands);
 	list_head_init(&ld->wait_commands);
+	list_head_init(&ld->graceful_commands);
 
 	/*~ Tal also explicitly supports arrays: it stores the number of
 	 * elements, which can be accessed with tal_count() (or tal_bytelen()
@@ -372,6 +373,12 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->autoconnect_seeker_peers = 10;
 
 	ld->fronting_nodes = tal_arr(ld, struct node_id, 0);
+
+	/*~ connectd usually uses "no-reply" pings to fill out messages
+	 * where needed to make them uniform length.  Some implementations
+	 * don't like it, so it can be disabled. */
+	ld->message_padding = false;
+
 	return ld;
 }
 
@@ -877,12 +884,27 @@ static struct io_plan *sigchld_rfd_in(struct io_conn *conn,
  * features later, or adding them when supplied by plugins. */
 static struct feature_set *default_features(const tal_t *ctx)
 {
-	/* BOLT PR https://github.com/lightning/bolts/pull/1092
+	/* Proposed BOLT PR https://github.com/lightning/bolts/pull/1092
 	 * suggests making the following compulsory:
 	 *     var_onion_optin (all but 6 nodes)
 	 *     gossip_queries (all but 11 nodes)
 	 *     option_data_loss_protect (all but 11 nodes)
 	 *     option_static_remotekey (all but 16 nodes)
+	 */
+	/* BOLT #9:
+	 * The origin node:
+	 *   * If it supports a feature above, SHOULD set the corresponding odd
+	 *     bit in all feature fields indicated by the Context column unless
+	 * 	indicated that it must set the even feature bit instead.
+	 *   * If it requires a feature above, MUST set the corresponding even
+	 *     feature bit in all feature fields indicated by the Context column,
+	 *     unless indicated that it must set the odd feature bit instead.
+	 *   * MUST NOT set feature bits it does not support.
+	 *   * MUST NOT set feature bits in fields not specified by the table above.
+	 *   * MUST NOT set both the optional and mandatory bits.
+	 *   * MUST set all transitive feature dependencies.
+	 *   * MUST support:
+	 *     * `var_onion_optin`
 	 */
 	struct feature_set *ret = NULL;
 	static const u32 features[] = {
@@ -906,6 +928,7 @@ static struct feature_set *default_features(const tal_t *ctx)
 		OPTIONAL_FEATURE(OPT_PROVIDE_STORAGE),
 		/* Removed later for elements */
 		OPTIONAL_FEATURE(OPT_ANCHORS_ZERO_FEE_HTLC_TX),
+		OPTIONAL_FEATURE(OPT_SPLICE),
 	};
 
 	for (size_t i = 0; i < ARRAY_SIZE(features); i++) {

@@ -1,4 +1,4 @@
-use cln_plugin::{messages::ProxyInfo, Plugin};
+use cln_plugin::{Plugin, messages::ProxyInfo};
 
 pub fn get_proxy(plugin: Plugin<()>) -> Option<ProxyInfo> {
     match plugin.configuration().always_use_proxy {

@@ -1,5 +1,5 @@
-use rand::{rngs::OsRng, TryRngCore as _};
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use rand::{TryRng, rngs::SysRng};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::{self, Value};
 use std::fmt;
 
@@ -43,7 +43,7 @@ pub trait JsonRpcRequest: Serialize {
 /// to a timestamp-based ID if random generation fails.
 fn generate_random_id() -> String {
     let mut bytes = [0u8; 10];
-    match OsRng.try_fill_bytes(&mut bytes) {
+    match SysRng.try_fill_bytes(&mut bytes) {
         Ok(_) => hex::encode(bytes),
         Err(_) => {
             // Fallback to a timestamp-based ID if random generation fails
@@ -225,12 +225,12 @@ impl<'de, R: DeserializeOwned> Deserialize<'de> for JsonRpcResponse<R> {
             (Some(_), Some(_)) => {
                 return Err(serde::de::Error::custom(
                     "Response cannot have both result and error",
-                ))
+                ));
             }
             (None, None) => {
                 return Err(serde::de::Error::custom(
                     "Response must have either result or error",
-                ))
+                ));
             }
         };
 
@@ -314,28 +314,27 @@ impl<R> JsonRpcResponseBody<R> {
 /// - `method_name(message)` - Creates error without data
 /// - `method_name_with_data(message, data)` - Creates error with data
 macro_rules! rpc_error_methods {
-    ($($method:ident => $code:expr),* $(,)?) => {
+    ($($method:ident, $method_with_data:ident => $code:expr),* $(,)?) => {
         $(
-            paste::paste! {
-                fn $method<T: std::fmt::Display>(message: T) -> $crate::proto::jsonrpc::RpcError {
-                    $crate::proto::jsonrpc::RpcError {
-                        code: $code,
-                        message: message.to_string(),
-                        data: None,
-                    }
-                }
-
-                fn [<$method _with_data>]<T: std::fmt::Display>(
-                    message: T,
-                    data: serde_json::Value,
-                ) -> $crate::proto::jsonrpc::RpcError {
-                    $crate::proto::jsonrpc::RpcError {
-                        code: $code,
-                        message: message.to_string(),
-                        data: Some(data),
-                    }
+            fn $method<T: std::fmt::Display>(message: T) -> $crate::proto::jsonrpc::RpcError {
+                $crate::proto::jsonrpc::RpcError {
+                    code: $code,
+                    message: message.to_string(),
+                    data: None,
                 }
             }
+
+            fn $method_with_data<T: std::fmt::Display>(
+                message: T,
+                data: serde_json::Value,
+            ) -> $crate::proto::jsonrpc::RpcError {
+                $crate::proto::jsonrpc::RpcError {
+                    code: $code,
+                    message: message.to_string(),
+                    data: Some(data),
+                }
+            }
+
         )*
     };
 }
@@ -383,11 +382,11 @@ impl RpcError {
 
 pub trait RpcErrorExt {
     rpc_error_methods! {
-    parse_error => PARSE_ERROR,
-    internal_error => INTERNAL_ERROR,
-    invalid_params => INVALID_PARAMS,
-    method_not_found => METHOD_NOT_FOUND,
-    invalid_request => INVALID_REQUEST,
+    parse_error, parse_error_with_data => PARSE_ERROR,
+    internal_error, internal_error_with_data => INTERNAL_ERROR,
+    invalid_params, invalid_params_with_data => INVALID_PARAMS,
+    method_not_found, method_not_found_with_data => METHOD_NOT_FOUND,
+    invalid_request, invalid_request_with_data => INVALID_REQUEST,
     }
 }
 
@@ -420,9 +419,11 @@ mod test_message_serialization {
             const METHOD: &'static str = "say_hello";
         }
         let rpc_request = SayHelloRequest.into_request();
-        assert!(!serde_json::to_string(&rpc_request)
-            .expect("could not convert to json")
-            .contains("\"params\""));
+        assert!(
+            !serde_json::to_string(&rpc_request)
+                .expect("could not convert to json")
+                .contains("\"params\"")
+        );
     }
 
     #[test]

@@ -7,7 +7,7 @@ use cln_plugin::options::{
     DefaultStringArrayConfigOption, IntegerArrayConfigOption, IntegerConfigOption,
     StringArrayConfigOption,
 };
-use cln_plugin::{messages, Builder, Error, HookBuilder, Plugin};
+use cln_plugin::{Builder, Error, HookBuilder, Plugin, messages};
 
 const TEST_NOTIF_TAG: &str = "test_custom_notification";
 

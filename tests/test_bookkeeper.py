@@ -684,7 +684,8 @@ def test_bookkeeping_descriptions(node_factory, bitcoind, chainparams):
     bolt12_desc = 'test "bolt12" description, 🥰🪢'
     offer = l1.rpc.call('offer', [100, bolt12_desc])
     invoice = l2.rpc.call('fetchinvoice', {'offer': offer['bolt12']})
-    paid = l2.rpc.pay(invoice['invoice'])
+    payment_hash = l2.rpc.decode(invoice['invoice'])['invoice_payment_hash']
+    l2.rpc.xpay(invoice['invoice'])
     wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['htlcs'] == [])
     wait_for(lambda: only_one(l2.rpc.listpeerchannels()['channels'])['htlcs'] == [])
     l1_inc_ev = l1.rpc.bkpr_listincome()['income_events']
@@ -693,12 +694,12 @@ def test_bookkeeping_descriptions(node_factory, bitcoind, chainparams):
     l2.daemon.wait_for_log('coin_move .* [(]invoice[)] 0msat -100msat')
 
     # Test paying an offer (bolt12) (rcvr)
-    inv = only_one([ev for ev in l1_inc_ev if 'payment_id' in ev and ev['payment_id'] == paid['payment_hash']])
+    inv = only_one([ev for ev in l1_inc_ev if 'payment_id' in ev and ev['payment_id'] == payment_hash])
     assert inv['description'] == bolt12_desc
 
     # Test paying an offer (bolt12) (sender)
     l2_inc_ev = l2.rpc.bkpr_listincome()['income_events']
-    inv = only_one([ev for ev in l2_inc_ev if 'payment_id' in ev and ev['payment_id'] == paid['payment_hash'] and ev['tag'] == 'invoice'])
+    inv = only_one([ev for ev in l2_inc_ev if 'payment_id' in ev and ev['payment_id'] == payment_hash and ev['tag'] == 'invoice'])
     assert inv['description'] == bolt12_desc
 
     # Check the CSVs look groovy
@@ -720,7 +721,7 @@ def test_bookkeeping_descriptions(node_factory, bitcoind, chainparams):
     # Test that we can update the description, payment id
     edited_desc_payid = 'edited payment_id description'
     for node in [l1, l2]:
-        results = node.rpc.bkpr_editdescriptionbypaymentid(paid['payment_hash'], edited_desc_payid)
+        results = node.rpc.bkpr_editdescriptionbypaymentid(payment_hash, edited_desc_payid)
         assert only_one(results['updated'])['description'] == edited_desc_payid
 
     # Test that we can update the description, outpoint
@@ -1245,13 +1246,13 @@ def test_bkpr_report_tags_and_fallback(node_factory):
     l1, l2 = node_factory.line_graph(2, opts={'bkpr-currency': 'USD'})
 
     inv = l2.rpc.invoice(100000, "test_bkpr_report_tags_and_fallback", 'desc with "quotes"')
-    l1.rpc.pay(inv["bolt11"])
+    l1.rpc.xpay(inv["bolt11"])
     wait_for(lambda: only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['htlcs'] == [])
 
     res = l1.rpc.call(
         "bkpr-report",
         {
-            "format": "{tag}|{account}|{outpoint?NONE}|{txid?NONE}|{payment_id?NONE}|{bkpr-currency?NONE}|{currencyrate?NONE}",
+            "format": "{tag}|{account}|{outpoint:NONE}|{txid:NONE}|{payment_id:NONE}|{bkpr-currency:NONE}|{currencyrate:NONE}",
             "headers": ['tag",account,outpoint,txid,payment_id,bkpr-currency,currencyrate', ",,,,,,"],
         },
     )
@@ -1275,22 +1276,24 @@ def test_bkpr_report_tags_and_fallback(node_factory):
     assert any(r[2] == "NONE" or r[3] == "NONE" or r[4] == "NONE" for r in rows)
 
     # Fancier fields should work, too
-    res = l1.rpc.bkpr_report(format="{tag}|{account}|{credit}|{debit}|{creditdebit}|{currencycredit}|{currencydebit}|{currencycreditdebit}")
+    res = l1.rpc.bkpr_report(format="{tag}|{account}|{credit}|{debit}|{creditdebit}|{currencycredit}|{currencydebit}|{currencycreditdebit}|{credit:NONE}")
     rows = [line.split("|") for line in res["report"]]
 
     for r in rows:
-        assert len(r) == 8
+        assert len(r) == 9
         # Credit or debit?
         if float(r[2]) > 0:
             assert r[4] == '+' + r[2]
             assert float(r[5]) > 0
             assert r[6] == '0.00'
             assert r[7] == '+' + r[5]
+            assert r[8] == r[2]
         else:
             assert r[4] == '-' + r[3]
             assert float(r[6]) > 0
             assert r[5] == '0.00'
             assert r[7] == '-' + r[6]
+            assert r[8] == 'NONE'
 
 
 def test_bkpr_report_invoice(node_factory):
@@ -1313,7 +1316,7 @@ def test_bkpr_report_invoice(node_factory):
     assert invline == f"invoice,{cid},test_bkpr_report_invoice,-0.00000123456,"
 
     # Test nested tags while we're here!
-    lines = l1.rpc.bkpr_report(format="{tag},{account},{description},{outpoint},{txid},{description?{outpoint?txid: {txid?UNKNOWN}}},{creditdebit}", escape='csv')['report']
+    lines = l1.rpc.bkpr_report(format="{tag},{account},{description},{outpoint},{txid},{description:{outpoint:txid: {txid:UNKNOWN}}},{creditdebit}", escape='csv')['report']
     for l in lines[1:]:
         parts = l.split(',')
         if parts[2] != '':
@@ -1330,7 +1333,7 @@ def test_bkpr_report_lightning_cli_csv(node_factory):
 
     # Give desc something awkward so CSV escaping matters if it shows up.
     inv = l2.rpc.invoice(100000, "test_bkpr_report_lightning_cli_csv", 'hello, "csv"')
-    l1.rpc.pay(inv["bolt11"])
+    l1.rpc.xpay(inv["bolt11"])
     wait_for(lambda: only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['htlcs'] == [])
 
     # Single-column CSV is enough to validate the CLI path and escaping.

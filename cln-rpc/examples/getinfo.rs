@@ -1,5 +1,5 @@
-use anyhow::{anyhow, Context};
-use cln_rpc::{model::requests::GetinfoRequest, ClnRpc, Request};
+use anyhow::{Context, anyhow};
+use cln_rpc::{ClnRpc, Request, model::requests::GetinfoRequest};
 use std::env::args;
 use std::path::Path;
 use tokio;

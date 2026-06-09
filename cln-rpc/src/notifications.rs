@@ -7,20 +7,71 @@ use crate::primitives::*;
 use serde::{Serialize, Deserialize};
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum Notification {
+    #[serde(rename = "balance_snapshot")]
+    BalanceSnapshot(BalanceSnapshotNotification),
     #[serde(rename = "block_added")]
     BlockAdded(BlockAddedNotification),
     #[serde(rename = "channel_open_failed")]
     ChannelOpenFailed(ChannelOpenFailedNotification),
     #[serde(rename = "channel_opened")]
     ChannelOpened(ChannelOpenedNotification),
-    #[serde(rename = "connect")]
-    Connect(ConnectNotification),
-    #[serde(rename = "custommsg")]
-    CustomMsg(CustomMsgNotification),
     #[serde(rename = "channel_state_changed")]
     ChannelStateChanged(ChannelStateChangedNotification),
+    #[serde(rename = "connect")]
+    Connect(ConnectNotification),
+    #[serde(rename = "coin_movement")]
+    CoinMovement(CoinMovementNotification),
+    #[serde(rename = "custommsg")]
+    CustomMsg(CustomMsgNotification),
+    #[serde(rename = "deprecated_oneshot")]
+    DeprecatedOneshot(DeprecatedOneshotNotification),
+    #[serde(rename = "disconnect")]
+    Disconnect(DisconnectNotification),
+    #[serde(rename = "forward_event")]
+    ForwardEvent(ForwardEventNotification),
+    #[serde(rename = "invoice_creation")]
+    InvoiceCreation(InvoiceCreationNotification),
+    #[serde(rename = "invoice_payment")]
+    InvoicePayment(InvoicePaymentNotification),
+    #[serde(rename = "log")]
+    Log(LogNotification),
+    #[serde(rename = "onionmessage_forward_fail")]
+    OnionMessageForwardFail(OnionMessageForwardFailNotification),
+    #[serde(rename = "openchannel_peer_sigs")]
+    OpenChannelPeerSigs(OpenChannelPeerSigsNotification),
+    #[serde(rename = "plugin_started")]
+    PluginStarted(PluginStartedNotification),
+    #[serde(rename = "plugin_stopped")]
+    PluginStopped(PluginStoppedNotification),
+    #[serde(rename = "sendpay_failure")]
+    SendPayFailure(SendPayFailureNotification),
+    #[serde(rename = "sendpay_success")]
+    SendPaySuccess(SendPaySuccessNotification),
+    #[serde(rename = "shutdown")]
+    Shutdown(ShutdownNotification),
+    #[serde(rename = "warning")]
+    Warning(WarningNotification),
+    #[serde(rename = "pay_part_end")]
+    PayPartEnd(PayPartEndNotification),
+    #[serde(rename = "pay_part_start")]
+    PayPartStart(PayPartStartNotification),
 }
 
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct BalanceSnapshotAccounts {
+    pub account_id: String,
+    pub balance_msat: Amount,
+    pub coin_type: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct BalanceSnapshotNotification {
+    pub accounts: Vec<BalanceSnapshotAccounts>,
+    pub blockheight: u32,
+    pub node_id: PublicKey,
+    pub timestamp: u32,
+}
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct BlockAddedNotification {
@@ -39,6 +90,69 @@ pub struct ChannelOpenedNotification {
     pub funding_msat: Amount,
     pub funding_txid: String,
     pub id: PublicKey,
+}
+
+/// ['The cause of the state change.']
+#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[allow(non_camel_case_types)]
+pub enum ChannelStateChangedCause {
+    #[serde(rename = "unknown")]
+    UNKNOWN = 0,
+    #[serde(rename = "local")]
+    LOCAL = 1,
+    #[serde(rename = "user")]
+    USER = 2,
+    #[serde(rename = "remote")]
+    REMOTE = 3,
+    #[serde(rename = "protocol")]
+    PROTOCOL = 4,
+    #[serde(rename = "onchain")]
+    ONCHAIN = 5,
+}
+
+impl TryFrom<i32> for ChannelStateChangedCause {
+    type Error = anyhow::Error;
+    fn try_from(c: i32) -> Result<ChannelStateChangedCause, anyhow::Error> {
+        match c {
+    0 => Ok(ChannelStateChangedCause::UNKNOWN),
+    1 => Ok(ChannelStateChangedCause::LOCAL),
+    2 => Ok(ChannelStateChangedCause::USER),
+    3 => Ok(ChannelStateChangedCause::REMOTE),
+    4 => Ok(ChannelStateChangedCause::PROTOCOL),
+    5 => Ok(ChannelStateChangedCause::ONCHAIN),
+            o => Err(anyhow::anyhow!("Unknown variant {} for enum ChannelStateChangedCause", o)),
+        }
+    }
+}
+
+impl ToString for ChannelStateChangedCause {
+    fn to_string(&self) -> String {
+        match self {
+            ChannelStateChangedCause::UNKNOWN => "UNKNOWN",
+            ChannelStateChangedCause::LOCAL => "LOCAL",
+            ChannelStateChangedCause::USER => "USER",
+            ChannelStateChangedCause::REMOTE => "REMOTE",
+            ChannelStateChangedCause::PROTOCOL => "PROTOCOL",
+            ChannelStateChangedCause::ONCHAIN => "ONCHAIN",
+        }.to_string()
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct ChannelStateChangedNotification {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub old_state: Option<ChannelState>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub short_channel_id: Option<ShortChannelId>,
+    // Path `channel_state_changed.cause`
+    pub cause: ChannelStateChangedCause,
+    // Path `channel_state_changed.new_state`
+    pub new_state: ChannelState,
+    pub channel_id: Sha256,
+    pub peer_id: PublicKey,
+    pub timestamp: String,
 }
 
 /// ['Direction of the connection']
@@ -138,77 +252,696 @@ pub struct ConnectNotification {
     pub id: PublicKey,
 }
 
+/// ['The primary movement tag.']
+#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[allow(non_camel_case_types)]
+pub enum CoinMovementPrimaryTag {
+    #[serde(rename = "deposit")]
+    DEPOSIT = 0,
+    #[serde(rename = "withdrawal")]
+    WITHDRAWAL = 1,
+    #[serde(rename = "penalty")]
+    PENALTY = 2,
+    #[serde(rename = "channel_open")]
+    CHANNEL_OPEN = 3,
+    #[serde(rename = "channel_close")]
+    CHANNEL_CLOSE = 4,
+    #[serde(rename = "delayed_to_us")]
+    DELAYED_TO_US = 5,
+    #[serde(rename = "htlc_tx")]
+    HTLC_TX = 6,
+    #[serde(rename = "htlc_timeout")]
+    HTLC_TIMEOUT = 7,
+    #[serde(rename = "htlc_fulfill")]
+    HTLC_FULFILL = 8,
+    #[serde(rename = "to_wallet")]
+    TO_WALLET = 9,
+    #[serde(rename = "anchor")]
+    ANCHOR = 10,
+    #[serde(rename = "to_them")]
+    TO_THEM = 11,
+    #[serde(rename = "penalized")]
+    PENALIZED = 12,
+    #[serde(rename = "stolen")]
+    STOLEN = 13,
+    #[serde(rename = "ignored")]
+    IGNORED = 14,
+    #[serde(rename = "to_miner")]
+    TO_MINER = 15,
+    #[serde(rename = "invoice")]
+    INVOICE = 16,
+    #[serde(rename = "routed")]
+    ROUTED = 17,
+    #[serde(rename = "pushed")]
+    PUSHED = 18,
+    #[serde(rename = "lease_fee")]
+    LEASE_FEE = 19,
+    #[serde(rename = "channel_proposed")]
+    CHANNEL_PROPOSED = 20,
+    #[serde(rename = "penalty_adj")]
+    PENALTY_ADJ = 21,
+    #[serde(rename = "journal_entry")]
+    JOURNAL_ENTRY = 22,
+}
+
+impl TryFrom<i32> for CoinMovementPrimaryTag {
+    type Error = anyhow::Error;
+    fn try_from(c: i32) -> Result<CoinMovementPrimaryTag, anyhow::Error> {
+        match c {
+    0 => Ok(CoinMovementPrimaryTag::DEPOSIT),
+    1 => Ok(CoinMovementPrimaryTag::WITHDRAWAL),
+    2 => Ok(CoinMovementPrimaryTag::PENALTY),
+    3 => Ok(CoinMovementPrimaryTag::CHANNEL_OPEN),
+    4 => Ok(CoinMovementPrimaryTag::CHANNEL_CLOSE),
+    5 => Ok(CoinMovementPrimaryTag::DELAYED_TO_US),
+    6 => Ok(CoinMovementPrimaryTag::HTLC_TX),
+    7 => Ok(CoinMovementPrimaryTag::HTLC_TIMEOUT),
+    8 => Ok(CoinMovementPrimaryTag::HTLC_FULFILL),
+    9 => Ok(CoinMovementPrimaryTag::TO_WALLET),
+    10 => Ok(CoinMovementPrimaryTag::ANCHOR),
+    11 => Ok(CoinMovementPrimaryTag::TO_THEM),
+    12 => Ok(CoinMovementPrimaryTag::PENALIZED),
+    13 => Ok(CoinMovementPrimaryTag::STOLEN),
+    14 => Ok(CoinMovementPrimaryTag::IGNORED),
+    15 => Ok(CoinMovementPrimaryTag::TO_MINER),
+    16 => Ok(CoinMovementPrimaryTag::INVOICE),
+    17 => Ok(CoinMovementPrimaryTag::ROUTED),
+    18 => Ok(CoinMovementPrimaryTag::PUSHED),
+    19 => Ok(CoinMovementPrimaryTag::LEASE_FEE),
+    20 => Ok(CoinMovementPrimaryTag::CHANNEL_PROPOSED),
+    21 => Ok(CoinMovementPrimaryTag::PENALTY_ADJ),
+    22 => Ok(CoinMovementPrimaryTag::JOURNAL_ENTRY),
+            o => Err(anyhow::anyhow!("Unknown variant {} for enum CoinMovementPrimaryTag", o)),
+        }
+    }
+}
+
+impl ToString for CoinMovementPrimaryTag {
+    fn to_string(&self) -> String {
+        match self {
+            CoinMovementPrimaryTag::DEPOSIT => "DEPOSIT",
+            CoinMovementPrimaryTag::WITHDRAWAL => "WITHDRAWAL",
+            CoinMovementPrimaryTag::PENALTY => "PENALTY",
+            CoinMovementPrimaryTag::CHANNEL_OPEN => "CHANNEL_OPEN",
+            CoinMovementPrimaryTag::CHANNEL_CLOSE => "CHANNEL_CLOSE",
+            CoinMovementPrimaryTag::DELAYED_TO_US => "DELAYED_TO_US",
+            CoinMovementPrimaryTag::HTLC_TX => "HTLC_TX",
+            CoinMovementPrimaryTag::HTLC_TIMEOUT => "HTLC_TIMEOUT",
+            CoinMovementPrimaryTag::HTLC_FULFILL => "HTLC_FULFILL",
+            CoinMovementPrimaryTag::TO_WALLET => "TO_WALLET",
+            CoinMovementPrimaryTag::ANCHOR => "ANCHOR",
+            CoinMovementPrimaryTag::TO_THEM => "TO_THEM",
+            CoinMovementPrimaryTag::PENALIZED => "PENALIZED",
+            CoinMovementPrimaryTag::STOLEN => "STOLEN",
+            CoinMovementPrimaryTag::IGNORED => "IGNORED",
+            CoinMovementPrimaryTag::TO_MINER => "TO_MINER",
+            CoinMovementPrimaryTag::INVOICE => "INVOICE",
+            CoinMovementPrimaryTag::ROUTED => "ROUTED",
+            CoinMovementPrimaryTag::PUSHED => "PUSHED",
+            CoinMovementPrimaryTag::LEASE_FEE => "LEASE_FEE",
+            CoinMovementPrimaryTag::CHANNEL_PROPOSED => "CHANNEL_PROPOSED",
+            CoinMovementPrimaryTag::PENALTY_ADJ => "PENALTY_ADJ",
+            CoinMovementPrimaryTag::JOURNAL_ENTRY => "JOURNAL_ENTRY",
+        }.to_string()
+    }
+}
+
+/// ['Whether this is a channel or chain movement.']
+#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[allow(non_camel_case_types)]
+pub enum CoinMovementType {
+    #[serde(rename = "channel_mvt")]
+    CHANNEL_MVT = 0,
+    #[serde(rename = "chain_mvt")]
+    CHAIN_MVT = 1,
+}
+
+impl TryFrom<i32> for CoinMovementType {
+    type Error = anyhow::Error;
+    fn try_from(c: i32) -> Result<CoinMovementType, anyhow::Error> {
+        match c {
+    0 => Ok(CoinMovementType::CHANNEL_MVT),
+    1 => Ok(CoinMovementType::CHAIN_MVT),
+            o => Err(anyhow::anyhow!("Unknown variant {} for enum CoinMovementType", o)),
+        }
+    }
+}
+
+impl ToString for CoinMovementType {
+    fn to_string(&self) -> String {
+        match self {
+            CoinMovementType::CHANNEL_MVT => "CHANNEL_MVT",
+            CoinMovementType::CHAIN_MVT => "CHAIN_MVT",
+        }.to_string()
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct CoinMovementNotification {
+    #[deprecated]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub txid: Option<String>,
+    #[deprecated]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub utxo_txid: Option<String>,
+    #[deprecated]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub vout: Option<u32>,
+    #[deprecated]
+    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+    pub tags: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub blockheight: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub created_index: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fees_msat: Option<Amount>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub group_id: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub originating_account: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub output_count: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub output_msat: Option<Amount>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub part_id: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub payment_hash: Option<Sha256>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub peer_id: Option<PublicKey>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub primary_tag: Option<CoinMovementPrimaryTag>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub spending_txid: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub utxo: Option<Outpoint>,
+    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+    pub extra_tags: Option<Vec<String>>,
+    // Path `coin_movement.type`
+    #[serde(rename = "type")]
+    pub item_type: CoinMovementType,
+    pub account_id: String,
+    pub coin_type: String,
+    pub credit_msat: Amount,
+    pub debit_msat: Amount,
+    pub node_id: PublicKey,
+    pub timestamp: u64,
+    pub version: u32,
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct CustomMsgNotification {
     pub payload: String,
     pub peer_id: PublicKey,
 }
 
-/// ['The cause of the state change.']
-#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
-#[allow(non_camel_case_types)]
-pub enum ChannelStateChangedCause {
-    #[serde(rename = "unknown")]
-    UNKNOWN = 0,
-    #[serde(rename = "local")]
-    LOCAL = 1,
-    #[serde(rename = "user")]
-    USER = 2,
-    #[serde(rename = "remote")]
-    REMOTE = 3,
-    #[serde(rename = "protocol")]
-    PROTOCOL = 4,
-    #[serde(rename = "onchain")]
-    ONCHAIN = 5,
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct DeprecatedOneshotNotification {
+    pub deprecated_ok: bool,
 }
 
-impl TryFrom<i32> for ChannelStateChangedCause {
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct DisconnectNotification {
+    pub id: PublicKey,
+}
+
+/// ['The onion format used for the forward, if known.']
+#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[allow(non_camel_case_types)]
+pub enum ForwardEventStyle {
+    #[serde(rename = "legacy")]
+    LEGACY = 0,
+    #[serde(rename = "tlv")]
+    TLV = 1,
+}
+
+impl TryFrom<i32> for ForwardEventStyle {
     type Error = anyhow::Error;
-    fn try_from(c: i32) -> Result<ChannelStateChangedCause, anyhow::Error> {
+    fn try_from(c: i32) -> Result<ForwardEventStyle, anyhow::Error> {
         match c {
-    0 => Ok(ChannelStateChangedCause::UNKNOWN),
-    1 => Ok(ChannelStateChangedCause::LOCAL),
-    2 => Ok(ChannelStateChangedCause::USER),
-    3 => Ok(ChannelStateChangedCause::REMOTE),
-    4 => Ok(ChannelStateChangedCause::PROTOCOL),
-    5 => Ok(ChannelStateChangedCause::ONCHAIN),
-            o => Err(anyhow::anyhow!("Unknown variant {} for enum ChannelStateChangedCause", o)),
+    0 => Ok(ForwardEventStyle::LEGACY),
+    1 => Ok(ForwardEventStyle::TLV),
+            o => Err(anyhow::anyhow!("Unknown variant {} for enum ForwardEventStyle", o)),
         }
     }
 }
 
-impl ToString for ChannelStateChangedCause {
+impl ToString for ForwardEventStyle {
     fn to_string(&self) -> String {
         match self {
-            ChannelStateChangedCause::UNKNOWN => "UNKNOWN",
-            ChannelStateChangedCause::LOCAL => "LOCAL",
-            ChannelStateChangedCause::USER => "USER",
-            ChannelStateChangedCause::REMOTE => "REMOTE",
-            ChannelStateChangedCause::PROTOCOL => "PROTOCOL",
-            ChannelStateChangedCause::ONCHAIN => "ONCHAIN",
+            ForwardEventStyle::LEGACY => "LEGACY",
+            ForwardEventStyle::TLV => "TLV",
+        }.to_string()
+    }
+}
+
+/// ['The current forwarding status.']
+#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[allow(non_camel_case_types)]
+pub enum ForwardEventStatus {
+    #[serde(rename = "offered")]
+    OFFERED = 0,
+    #[serde(rename = "settled")]
+    SETTLED = 1,
+    #[serde(rename = "local_failed")]
+    LOCAL_FAILED = 2,
+    #[serde(rename = "failed")]
+    FAILED = 3,
+}
+
+impl TryFrom<i32> for ForwardEventStatus {
+    type Error = anyhow::Error;
+    fn try_from(c: i32) -> Result<ForwardEventStatus, anyhow::Error> {
+        match c {
+    0 => Ok(ForwardEventStatus::OFFERED),
+    1 => Ok(ForwardEventStatus::SETTLED),
+    2 => Ok(ForwardEventStatus::LOCAL_FAILED),
+    3 => Ok(ForwardEventStatus::FAILED),
+            o => Err(anyhow::anyhow!("Unknown variant {} for enum ForwardEventStatus", o)),
+        }
+    }
+}
+
+impl ToString for ForwardEventStatus {
+    fn to_string(&self) -> String {
+        match self {
+            ForwardEventStatus::OFFERED => "OFFERED",
+            ForwardEventStatus::SETTLED => "SETTLED",
+            ForwardEventStatus::LOCAL_FAILED => "LOCAL_FAILED",
+            ForwardEventStatus::FAILED => "FAILED",
         }.to_string()
     }
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct ChannelStateChangedNotification {
+pub struct ForwardEventNotification {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub message: Option<String>,
+    pub failcode: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub old_state: Option<ChannelState>,
+    pub failreason: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub short_channel_id: Option<ShortChannelId>,
-    // Path `channel_state_changed.cause`
-    pub cause: ChannelStateChangedCause,
-    // Path `channel_state_changed.new_state`
-    pub new_state: ChannelState,
-    pub channel_id: Sha256,
-    pub peer_id: PublicKey,
+    pub fee_msat: Option<Amount>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub out_channel: Option<ShortChannelId>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub out_msat: Option<Amount>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub resolved_time: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub style: Option<ForwardEventStyle>,
+    // Path `forward_event.status`
+    pub status: ForwardEventStatus,
+    pub in_channel: ShortChannelId,
+    pub in_msat: Amount,
+    pub payment_hash: Sha256,
+    pub received_time: f64,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct InvoiceCreationNotification {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub msat: Option<Amount>,
+    pub label: String,
+    pub preimage: Secret,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct InvoicePaymentNotification {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub outpoint: Option<Outpoint>,
+    pub label: String,
+    pub msat: Amount,
+    pub preimage: Secret,
+}
+
+/// ['The log level of the emitted message.']
+#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[allow(non_camel_case_types)]
+pub enum LogLevel {
+    #[serde(rename = "io")]
+    IO = 0,
+    #[serde(rename = "trace")]
+    TRACE = 1,
+    #[serde(rename = "debug")]
+    DEBUG = 2,
+    #[serde(rename = "info")]
+    INFO = 3,
+    #[serde(rename = "unusual")]
+    UNUSUAL = 4,
+    #[serde(rename = "broken")]
+    BROKEN = 5,
+}
+
+impl TryFrom<i32> for LogLevel {
+    type Error = anyhow::Error;
+    fn try_from(c: i32) -> Result<LogLevel, anyhow::Error> {
+        match c {
+    0 => Ok(LogLevel::IO),
+    1 => Ok(LogLevel::TRACE),
+    2 => Ok(LogLevel::DEBUG),
+    3 => Ok(LogLevel::INFO),
+    4 => Ok(LogLevel::UNUSUAL),
+    5 => Ok(LogLevel::BROKEN),
+            o => Err(anyhow::anyhow!("Unknown variant {} for enum LogLevel", o)),
+        }
+    }
+}
+
+impl ToString for LogLevel {
+    fn to_string(&self) -> String {
+        match self {
+            LogLevel::IO => "IO",
+            LogLevel::TRACE => "TRACE",
+            LogLevel::DEBUG => "DEBUG",
+            LogLevel::INFO => "INFO",
+            LogLevel::UNUSUAL => "UNUSUAL",
+            LogLevel::BROKEN => "BROKEN",
+        }.to_string()
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct LogNotification {
+    // Path `log.level`
+    pub level: LogLevel,
+    pub log: String,
+    pub source: String,
+    pub time: String,
     pub timestamp: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct OnionMessageForwardFailNotification {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub next_node_id: Option<PublicKey>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub next_short_channel_id_dir: Option<ShortChannelIdDir>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub outgoing: Option<String>,
+    pub incoming: String,
+    pub path_key: PublicKey,
+    pub source: PublicKey,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct OpenChannelPeerSigsNotification {
+    pub channel_id: Sha256,
+    pub signed_psbt: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct PluginStartedNotification {
+    pub methods: Vec<String>,
+    pub plugin_name: String,
+    pub plugin_path: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct PluginStoppedNotification {
+    pub methods: Vec<String>,
+    pub plugin_name: String,
+    pub plugin_path: String,
+}
+
+/// ['The terminal status for a failed sendpay notification.']
+#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[allow(non_camel_case_types)]
+pub enum SendpayFailureDataStatus {
+    #[serde(rename = "failed")]
+    FAILED = 0,
+    #[serde(rename = "pending")]
+    PENDING = 1,
+    #[serde(rename = "complete")]
+    COMPLETE = 2,
+}
+
+impl TryFrom<i32> for SendpayFailureDataStatus {
+    type Error = anyhow::Error;
+    fn try_from(c: i32) -> Result<SendpayFailureDataStatus, anyhow::Error> {
+        match c {
+    0 => Ok(SendpayFailureDataStatus::FAILED),
+    1 => Ok(SendpayFailureDataStatus::PENDING),
+    2 => Ok(SendpayFailureDataStatus::COMPLETE),
+            o => Err(anyhow::anyhow!("Unknown variant {} for enum SendpayFailureDataStatus", o)),
+        }
+    }
+}
+
+impl ToString for SendpayFailureDataStatus {
+    fn to_string(&self) -> String {
+        match self {
+            SendpayFailureDataStatus::FAILED => "FAILED",
+            SendpayFailureDataStatus::PENDING => "PENDING",
+            SendpayFailureDataStatus::COMPLETE => "COMPLETE",
+        }.to_string()
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct SendpayFailureData {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub amount_msat: Option<Amount>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub amount_sent_msat: Option<Amount>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bolt11: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bolt12: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub completed_at: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub created_at: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub created_index: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub destination: Option<PublicKey>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub erring_channel: Option<ShortChannelId>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub erring_direction: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub erring_index: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub erring_node: Option<PublicKey>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub erroronion: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub failcode: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub failcodename: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub groupid: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub onionreply: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub partid: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub payment_hash: Option<Sha256>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub payment_preimage: Option<Secret>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub raw_message: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status: Option<SendpayFailureDataStatus>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_index: Option<u64>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct SendPayFailureNotification {
+    pub code: i64,
+    pub data: SendpayFailureData,
+    pub message: String,
+}
+
+/// ['The terminal status for a successful sendpay notification.']
+#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[allow(non_camel_case_types)]
+pub enum SendpaySuccessStatus {
+    #[serde(rename = "complete")]
+    COMPLETE = 0,
+}
+
+impl TryFrom<i32> for SendpaySuccessStatus {
+    type Error = anyhow::Error;
+    fn try_from(c: i32) -> Result<SendpaySuccessStatus, anyhow::Error> {
+        match c {
+    0 => Ok(SendpaySuccessStatus::COMPLETE),
+            o => Err(anyhow::anyhow!("Unknown variant {} for enum SendpaySuccessStatus", o)),
+        }
+    }
+}
+
+impl ToString for SendpaySuccessStatus {
+    fn to_string(&self) -> String {
+        match self {
+            SendpaySuccessStatus::COMPLETE => "COMPLETE",
+        }.to_string()
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct SendPaySuccessNotification {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub amount_msat: Option<Amount>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bolt11: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bolt12: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub completed_at: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub destination: Option<PublicKey>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub erroronion: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub partid: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub payment_preimage: Option<Secret>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_index: Option<u64>,
+    // Path `sendpay_success.status`
+    pub status: SendpaySuccessStatus,
+    pub amount_sent_msat: Amount,
+    pub created_at: u64,
+    pub created_index: u64,
+    pub groupid: u64,
+    pub id: u64,
+    pub payment_hash: Sha256,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct ShutdownNotification {
+}
+
+/// ['The log level of the warning notification.']
+#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[allow(non_camel_case_types)]
+pub enum WarningLevel {
+    #[serde(rename = "warn")]
+    WARN = 0,
+    #[serde(rename = "error")]
+    ERROR = 1,
+}
+
+impl TryFrom<i32> for WarningLevel {
+    type Error = anyhow::Error;
+    fn try_from(c: i32) -> Result<WarningLevel, anyhow::Error> {
+        match c {
+    0 => Ok(WarningLevel::WARN),
+    1 => Ok(WarningLevel::ERROR),
+            o => Err(anyhow::anyhow!("Unknown variant {} for enum WarningLevel", o)),
+        }
+    }
+}
+
+impl ToString for WarningLevel {
+    fn to_string(&self) -> String {
+        match self {
+            WarningLevel::WARN => "WARN",
+            WarningLevel::ERROR => "ERROR",
+        }.to_string()
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct WarningNotification {
+    // Path `warning.level`
+    pub level: WarningLevel,
+    pub log: String,
+    pub source: String,
+    pub time: String,
+    pub timestamp: String,
+}
+
+/// ['Whether the payment part succeeded or failed.']
+#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[allow(non_camel_case_types)]
+pub enum PayPartEndStatus {
+    #[serde(rename = "success")]
+    SUCCESS = 0,
+    #[serde(rename = "failure")]
+    FAILURE = 1,
+}
+
+impl TryFrom<i32> for PayPartEndStatus {
+    type Error = anyhow::Error;
+    fn try_from(c: i32) -> Result<PayPartEndStatus, anyhow::Error> {
+        match c {
+    0 => Ok(PayPartEndStatus::SUCCESS),
+    1 => Ok(PayPartEndStatus::FAILURE),
+            o => Err(anyhow::anyhow!("Unknown variant {} for enum PayPartEndStatus", o)),
+        }
+    }
+}
+
+impl ToString for PayPartEndStatus {
+    fn to_string(&self) -> String {
+        match self {
+            PayPartEndStatus::SUCCESS => "SUCCESS",
+            PayPartEndStatus::FAILURE => "FAILURE",
+        }.to_string()
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct PayPartEndNotification {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_code: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_message: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub failed_direction: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub failed_msg: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub failed_node_id: Option<PublicKey>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub failed_short_channel_id: Option<ShortChannelId>,
+    // Path `pay_part_end.status`
+    pub status: PayPartEndStatus,
+    pub duration: f64,
+    pub groupid: u64,
+    pub partid: u64,
+    pub payment_hash: Sha256,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct PayPartStartHops {
+    pub channel_in_msat: Amount,
+    pub channel_out_msat: Amount,
+    pub direction: u32,
+    pub next_node: PublicKey,
+    pub short_channel_id: ShortChannelId,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct PayPartStartNotification {
+    pub attempt_msat: Amount,
+    pub groupid: u64,
+    pub hops: Vec<PayPartStartHops>,
+    pub partid: u64,
+    pub payment_hash: Sha256,
+    pub total_payment_msat: Amount,
 }
 
 pub mod requests{
 use serde::{Serialize, Deserialize};
+
+    #[derive(Clone, Debug, Deserialize, Serialize)]
+    pub struct StreamBalanceSnapshotRequest {
+    }
 
     #[derive(Clone, Debug, Deserialize, Serialize)]
     pub struct StreamBlockAddedRequest {
@@ -223,7 +956,15 @@ use serde::{Serialize, Deserialize};
     }
 
     #[derive(Clone, Debug, Deserialize, Serialize)]
+    pub struct StreamChannelStateChangedRequest {
+    }
+
+    #[derive(Clone, Debug, Deserialize, Serialize)]
     pub struct StreamConnectRequest {
+    }
+
+    #[derive(Clone, Debug, Deserialize, Serialize)]
+    pub struct StreamCoinMovementRequest {
     }
 
     #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -231,7 +972,67 @@ use serde::{Serialize, Deserialize};
     }
 
     #[derive(Clone, Debug, Deserialize, Serialize)]
-    pub struct StreamChannelStateChangedRequest {
+    pub struct StreamDeprecatedOneshotRequest {
+    }
+
+    #[derive(Clone, Debug, Deserialize, Serialize)]
+    pub struct StreamDisconnectRequest {
+    }
+
+    #[derive(Clone, Debug, Deserialize, Serialize)]
+    pub struct StreamForwardEventRequest {
+    }
+
+    #[derive(Clone, Debug, Deserialize, Serialize)]
+    pub struct StreamInvoiceCreationRequest {
+    }
+
+    #[derive(Clone, Debug, Deserialize, Serialize)]
+    pub struct StreamInvoicePaymentRequest {
+    }
+
+    #[derive(Clone, Debug, Deserialize, Serialize)]
+    pub struct StreamLogRequest {
+    }
+
+    #[derive(Clone, Debug, Deserialize, Serialize)]
+    pub struct StreamOnionMessageForwardFailRequest {
+    }
+
+    #[derive(Clone, Debug, Deserialize, Serialize)]
+    pub struct StreamOpenChannelPeerSigsRequest {
+    }
+
+    #[derive(Clone, Debug, Deserialize, Serialize)]
+    pub struct StreamPluginStartedRequest {
+    }
+
+    #[derive(Clone, Debug, Deserialize, Serialize)]
+    pub struct StreamPluginStoppedRequest {
+    }
+
+    #[derive(Clone, Debug, Deserialize, Serialize)]
+    pub struct StreamSendPayFailureRequest {
+    }
+
+    #[derive(Clone, Debug, Deserialize, Serialize)]
+    pub struct StreamSendPaySuccessRequest {
+    }
+
+    #[derive(Clone, Debug, Deserialize, Serialize)]
+    pub struct StreamShutdownRequest {
+    }
+
+    #[derive(Clone, Debug, Deserialize, Serialize)]
+    pub struct StreamWarningRequest {
+    }
+
+    #[derive(Clone, Debug, Deserialize, Serialize)]
+    pub struct StreamPayPartEndRequest {
+    }
+
+    #[derive(Clone, Debug, Deserialize, Serialize)]
+    pub struct StreamPayPartStartRequest {
     }
 
 }

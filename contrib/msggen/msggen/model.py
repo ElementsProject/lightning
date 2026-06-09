@@ -17,7 +17,8 @@ class FieldName:
 
     def normalized(self):
         name = {
-            "type": "item_type"
+            "type": "item_type",
+            "return": "return_",
         }.get(self.name, self.name)
         name = name.replace(' ', '_').replace('-', '_').replace('[]', '').replace("/", "_")
         return name
@@ -135,10 +136,11 @@ class Field:
 class Service:
     """Top level class that wraps all the RPC methods.
     """
-    def __init__(self, name: str, methods=None, notifications=None):
+    def __init__(self, name: str, methods=None, notifications=None, hooks=None):
         self.name: str = name
         self.methods: List[Method] = [] if methods is None else methods
         self.notifications: List[Notification] = [] if notifications is None else notifications
+        self.hooks: List[Hook] = [] if hooks is None else hooks
 
         # If we require linking with some external files we'll add
         # them here so the generator can use them.
@@ -175,7 +177,22 @@ class Service:
             for field in notification.response.fields:
                 types.extend(gather_subfields(field))
 
+        for hook in self.hooks:
+            types.extend([hook.request])
+            for field in hook.request.fields:
+                types.extend(gather_subfields(field))
+            for field in hook.response.fields:
+                types.extend(gather_subfields(field))
+
         return types
+
+
+class Hook:
+    def __init__(self, name: str, typename: str, request: Field, response: Field):
+        self.name = name
+        self.typename = typename
+        self.request = request
+        self.response = response
 
 
 class Notification:
@@ -229,7 +246,7 @@ class CompositeField(Field):
 
         def merge_dicts(dict1, dict2):
             merged_dict = {}
-            for key in set(dict1.keys()) | set(dict2.keys()):
+            for key in sorted(set(dict1.keys()) | set(dict2.keys())):
                 if key in dict1 and key in dict2:
                     if isinstance(dict1[key], dict) and isinstance(dict2[key], dict):
                         merged_dict[key] = merge_dicts(dict1[key], dict2[key])
@@ -268,7 +285,7 @@ class CompositeField(Field):
         # Identify required fields
         required = js.get("required", [])
         fields = []
-        for fname, ftype in properties.items():
+        for fname, ftype in sorted(properties.items(), key=lambda x: x[0]):
             field = None
             desc = ftype["description"] if "description" in ftype else ""
             fpath = f"{path}.{fname}"
@@ -338,6 +355,9 @@ class EnumVariant(Field):
         return self.variant == other.variant
 
     def normalized(self):
+        if self.variant.replace('.', '', 1).isdigit() or self.variant.lstrip('-').replace('.', '', 1).isdigit():
+            normalized = self.variant.replace('.', '_')
+            return f"NUM_{normalized}"
         return self.variant.replace(' ', '_').replace('-', '_').replace("/", "_").upper()
 
 
@@ -379,7 +399,7 @@ class UnionField(Field):
         self.typename = path2type(path)
 
     @classmethod
-    def from_js(cls, js, path):
+    def from_js(cls, js, path, added=None, deprecated=None):
         assert('oneOf' in js)
         variants = []
         for child_js in js['oneOf']:
@@ -390,14 +410,16 @@ class UnionField(Field):
                 itemtype = EnumField.from_js(child_js, path)
 
             elif child_js["type"] in PrimitiveField.types:
+                item_added = child_js.get("added", added)
+                item_deprecated = child_js.get("deprecated", deprecated)
                 itemtype = PrimitiveField(
-                    child_js["type"], path, child_js.get("description", "")
+                    child_js["type"], path, child_js.get("description", ""), item_added, item_deprecated
                 )
             elif child_js["type"] == "array":
                 itemtype = ArrayField.from_js(path, child_js)
             variants.append(itemtype)
 
-        return UnionField(path, js.get('description', None), variants)
+        return UnionField(path, js.get('description', None), variants, added, deprecated)
 
 
 class PrimitiveField(Field):
@@ -433,6 +455,9 @@ class PrimitiveField(Field):
         "bip340sig",
         "hash",
         "string_map",
+        "json_object_or_array",
+        "json_scalar",
+        "proof_field",
     ]
 
     def __init__(self, typename, path, description, added, deprecated):
@@ -521,6 +546,11 @@ CreateRuneRestrictionsField = ArrayField(itemtype=PrimitiveField("string", None,
 CheckRuneParamsField = ArrayField(itemtype=PrimitiveField("string", None, None, added=None, deprecated=None), dims=1, path=None, description=None, added=None, deprecated=None)
 ChainMovesExtraTagsField = ArrayField(itemtype=PrimitiveField("string", None, None, added=None, deprecated=None), dims=1, path=None, description=None, added=None, deprecated=None)
 ClnrestRegisterPathParamsField = PrimitiveField("string_map", None, None, added=None, deprecated=None)
+JsonIdField = PrimitiveField("json_scalar", None, None, added=None, deprecated=None)
+JsonObjectOrArrayField = PrimitiveField("json_object_or_array", None, None, added=None, deprecated=None)
+ProofFieldArray = ArrayField(itemtype=PrimitiveField("proof_field", None, None, added=None, deprecated=None), dims=1, path=None, description=None, added=None, deprecated=None)
+XkeysendExtraTlvsField = PrimitiveField("string_map", None, None, added=None, deprecated=None)
+ChannelFeaturesArrayField = ArrayField(itemtype=PrimitiveField("string", None, None, added=None, deprecated=None), dims=1, path=None, description=None, added=None, deprecated=None)
 
 # TlvStreams are special, they don't have preset dict-keys, rather
 # they can specify `u64` keys pointing to hex payloads. So the schema
@@ -557,6 +587,16 @@ overrides = {
     'CheckRune.params': CheckRuneParamsField,
     "ListChainMoves.chainmoves[].extra_tags": ChainMovesExtraTagsField,
     "Clnrest-Register-Path.rune_restrictions.params": ClnrestRegisterPathParamsField,
+    "rpc_command.replace.id": JsonIdField,
+    "rpc_command.replace.params": JsonObjectOrArrayField,
+    "rpc_command.rpc_command.id": JsonIdField,
+    "rpc_command.rpc_command.params": JsonObjectOrArrayField,
+    "CreateProof.include": ProofFieldArray,
+    "CreateProof.proofs[].invoice_fields_included": ProofFieldArray,
+    "CreateProof.proofs[].invreq_fields_included": ProofFieldArray,
+    "CreateProof.proofs[].offer_fields_included": ProofFieldArray,
+    "Xkeysend.extratlvs": XkeysendExtraTlvsField,
+    "ListPeerChannels.channels[].features": ChannelFeaturesArrayField,
 }
 
 

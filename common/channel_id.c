@@ -6,6 +6,15 @@
 #include <common/utils.h>
 #include <wire/wire.h>
 
+/* BOLT #2:
+ * ### The `funding_signed` Message
+ *...
+ * #### Requirements
+ *...
+ * The sender MUST set:
+ * - `channel_id` by exclusive-OR of the `funding_txid` and the
+ *   `funding_output_index` from the `funding_created` message.
+ */
 void derive_channel_id(struct channel_id *channel_id,
 		       const struct bitcoin_outpoint *outpoint)
 {

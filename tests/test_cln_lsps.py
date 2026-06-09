@@ -346,7 +346,7 @@ def test_lsps2_non_approved_zero_conf(node_factory, bitcoind):
     )["bolt11"]
 
     with pytest.raises(ValueError):
-        l3.rpc.pay(bolt11, amount_msat=10000000)
+        l3.rpc.xpay(bolt11, amount_msat=10000000)
 
     # l1 shouldn't have a new channel.
     chs = l1.rpc.listpeerchannels()["channels"]

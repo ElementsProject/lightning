@@ -163,6 +163,13 @@
           "True if an associated invoice has been paid."
         ]
       },
+      "force_paths": {
+        "type": "boolean",
+        "added": "v26.04",
+        "description": [
+          "True if `fronting_nodes` (or the `payment-fronting-node` configuration entry) is set: implies any invoice issued for this offer must use a subset of the same blinded paths."
+        ]
+      },
       "created": {
         "type": "boolean",
         "description": [

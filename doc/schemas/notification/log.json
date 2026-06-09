@@ -1,0 +1,61 @@
+{
+  "$schema": "../../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "notification": "log",
+  "title": "Notification for log events",
+  "description": [
+    "The **log** notification informs whenever lightningd emits a log message and exposes the same payload shape as **warning**."
+  ],
+  "added": "v24.02",
+  "request": {},
+  "response": {
+    "required": [
+      "level",
+      "time",
+      "timestamp",
+      "source",
+      "log"
+    ],
+    "properties": {
+      "level": {
+        "type": "string",
+        "enum": [
+          "io",
+          "trace",
+          "debug",
+          "info",
+          "unusual",
+          "broken"
+        ],
+        "description": [
+          "The log level of the emitted message."
+        ]
+      },
+      "time": {
+        "type": "string",
+        "description": [
+          "The event time as seconds since epoch with subsecond precision."
+        ]
+      },
+      "timestamp": {
+        "type": "string",
+        "description": [
+          "The event time in ISO 8601 format."
+        ]
+      },
+      "source": {
+        "type": "string",
+        "description": [
+          "The source component that emitted the log entry."
+        ]
+      },
+      "log": {
+        "type": "string",
+        "description": [
+          "The original log message."
+        ]
+      }
+    }
+  }
+}

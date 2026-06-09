@@ -2,7 +2,7 @@ use crate::proto::{
     jsonrpc::{JsonRpcRequest, RpcError},
     lsps0::{DateTime, Msat, Ppm, ShortChannelId},
 };
-use bitcoin::hashes::{sha256, Hash, HashEngine, Hmac, HmacEngine};
+use bitcoin::hashes::{Hash, HashEngine, Hmac, HmacEngine, sha256};
 use chrono::Utc;
 use log::debug;
 use serde::{Deserialize, Serialize};
@@ -52,9 +52,9 @@ impl core::error::Error for Error {}
 
 pub trait LSPS2RpcErrorExt {
     rpc_error_methods! {
-        invalid_opening_fee_params => error_codes::INVALID_OPENING_FEE_PARAMS,
-        payment_size_too_small => error_codes::PAYMENT_SIZE_TOO_SMALL,
-        payment_size_too_large => error_codes::PAYMENT_SIZE_TOO_LARGE
+        invalid_opening_fee_params, invalid_opening_fee_params_with_data => error_codes::INVALID_OPENING_FEE_PARAMS,
+        payment_size_too_small, payment_size_too_small_with_data => error_codes::PAYMENT_SIZE_TOO_SMALL,
+        payment_size_too_large, payment_size_too_large_with_data => error_codes::PAYMENT_SIZE_TOO_LARGE
     }
 }
 
@@ -66,7 +66,7 @@ pub trait ShortChannelIdJITExt {
 
 impl ShortChannelIdJITExt for ShortChannelId {
     fn generate_jit(blockheight: u32, distance: u32) -> Self {
-        use rand::{rng, Rng as _};
+        use rand::{RngExt as _, rng};
 
         let mut rng = rng();
         let block = blockheight + distance;
@@ -428,10 +428,12 @@ mod tests {
         let result = serde_json::from_str::<TestData>(&json);
         assert!(result.is_err());
         // Check the error message relates to our PromiseError
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("promise string is too long"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("promise string is too long")
+        );
     }
 
     #[test]
@@ -442,10 +444,12 @@ mod tests {
         assert!(result.is_err());
         // This error occurs when Serde tries to deserialize 123 as the String
         // required by `try_from = "String"`.
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("invalid type: integer"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("invalid type: integer")
+        );
     }
 
     #[test]

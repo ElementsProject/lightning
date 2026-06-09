@@ -28,7 +28,9 @@ static inline size_t hash_scid(struct short_channel_id scid)
  * - MUST set `node_id_1` and `node_id_2` to the public keys of the two nodes
  * operating the channel, such that `node_id_1` is the lexicographically-lesser of the
  * two compressed keys sorted in ascending lexicographic order.
- *...
+ */
+/* BOLT #7:
+ *
  *   - if the origin node is `node_id_1` in the message:
  *     - MUST set the `direction` bit of `channel_flags` to 0.
  *   - otherwise:

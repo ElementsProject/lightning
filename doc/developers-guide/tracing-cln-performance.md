@@ -8,11 +8,20 @@ CLN includes a simple opentracing exporter that allows tracing the execution of 
 
 > In software engineering, tracing involves a specialized use of logging to record information about a program's execution. This information is typically used by programmers for debugging purposes, and additionally, depending on the type and detail of information contained in a trace log, by experienced system administrators or technical-support personnel and by software monitoring tools to diagnose common problems with software.
 
-The tracing system in CLN is implemented using [USDTs](https://illumos.org/books/dtrace/chp-usdt.html) (no, not that kind of [USDT](https://en.wikipedia.org/wiki/Tether_(cryptocurrency))). As such it emits events into the kernel, from where an exporter can receive them. If no exporter is configured then the kernel will replace the call-sites of the probe with a `NOP`, thus causing only minimal overhead when not tracing.
+CLN supports two tracing backends:
 
-## Compiling with tracing support
+1. **USDT probes** (eBPF-based) -- events are emitted into the kernel ring buffer, where an exporter can receive them. Requires kernel access and `systemtap-sdt-dev` headers at compile time.
+2. **Unix Domain Socket datagrams** -- completed spans are sent as self-contained Zipkin JSON payloads to a `SOCK_DGRAM` UDS socket. Works in restricted environments (e.g., Kubernetes) where kernel eBPF access is unavailable.
 
-CLN will build with tracing support if the necessary headers (`sys/sdt.h`) are present during the compilation. For debian and ubuntu based systems that is easily achieved by installing `systemtap-sdt-dev`:
+The tracing logic (span management, JSON serialization) is always compiled in. When no backend is active, all tracing functions return early with negligible overhead.
+
+## Backend 1: USDT Probes (eBPF)
+
+The USDT backend is implemented using [USDTs](https://illumos.org/books/dtrace/chp-usdt.html) (no, not that kind of [USDT](https://en.wikipedia.org/wiki/Tether_(cryptocurrency))). As such it emits events into the kernel, from where an exporter can receive them. If no exporter is configured then the kernel will replace the call-sites of the probe with a `NOP`, thus causing only minimal overhead when not tracing.
+
+### Compiling with USDT support
+
+CLN will build with USDT support if the necessary headers (`sys/sdt.h`) are present during the compilation. For debian and ubuntu based systems that is easily achieved by installing `systemtap-sdt-dev`:
 
 ```bash
 # apt-get install -y systemtap-sdt-dev
@@ -41,7 +50,7 @@ usdt:lightningd/lightningd:lightningd:span_start
 usdt:lightningd/lightningd:lightningd:span_suspend
 ```
 
-## Exporters
+### USDT Exporters
 
 The simplest way to get started with eBPF in general (which the tracing is built upon) is the `bpftrace` command that we've already seen above when checking if the binary was built with tracing support.
 
@@ -68,6 +77,84 @@ payload. This is due to the 512 byte limitation for eBPF programs out
 of the box.
 
 [bpftracer]: https://github.com/iovisor/bpftrace/issues/305
+
+## Backend 2: Unix Domain Socket Datagrams
+
+The UDS backend sends completed spans as atomic datagrams to a Unix
+domain socket. This is designed for environments where kernel eBPF
+access is unavailable, such as Kubernetes pods.
+
+### How it works
+
+Set the `CLN_TRACE_SOCKET` environment variable to the filesystem path
+of a `SOCK_DGRAM` Unix domain socket:
+
+```bash
+$ CLN_TRACE_SOCKET=/tmp/cln-traces.sock lightningd
+```
+
+When a span completes, its Zipkin-format JSON payload is sent via
+`sendto()` to the specified socket. Key properties:
+
+- **Atomic delivery**: Each datagram contains a complete, self-contained
+  JSON span payload. No framing or reassembly needed.
+- **Non-blocking**: The socket is set to `O_NONBLOCK`. If the collector
+  is down or the socket buffer is full, the `sendto()` silently fails
+  without affecting the node.
+- **Multi-writer safe**: Multiple CLN daemons can write to the same
+  socket path concurrently. The kernel guarantees datagram boundaries
+  are preserved.
+- **No USDT dependency**: Works on any system, regardless of whether
+  `systemtap-sdt-dev` is installed or `HAVE_USDT` is set.
+
+### Payload format
+
+Each datagram is a Zipkin v2 JSON array containing a single span:
+
+```json
+[{"id":"00f067aa0ba902b7","name":"lightningd/jsonrpc",
+  "timestamp":1700000000123000,"duration":500,
+  "localEndpoint":{"serviceName":"lightningd"},
+  "parentId":"d981248067b5e396",
+  "tags":{"method":"getinfo"},
+  "traceId":"4bf92f3577b34da6a3ce929d0e0e4736"}]
+```
+
+Payloads are capped at 2048 bytes, well below the UDS datagram limit
+(~200KB on Linux).
+
+### Setting up a collector
+
+Any process that binds a `SOCK_DGRAM` Unix domain socket at the
+configured path can receive spans. A minimal Python collector:
+
+```python
+import socket, os, json
+
+path = "/tmp/cln-traces.sock"
+if os.path.exists(path):
+    os.unlink(path)
+
+sock = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+sock.bind(path)
+
+while True:
+    data = sock.recv(4096)
+    spans = json.loads(data)
+    print(spans[0]["name"], spans[0]["duration"], "us")
+```
+
+In a Kubernetes deployment, the socket file is typically placed on a
+shared `emptyDir` volume so a sidecar container can collect spans and
+forward them to Jaeger, Tempo, or an OpenTelemetry Collector.
+
+## Environment Variables
+
+| Variable | Purpose |
+|----------|---------|
+| `CLN_TRACE_SOCKET` | Path to a `SOCK_DGRAM` UDS socket. Completed spans are sent as Zipkin JSON datagrams. |
+| `CLN_TRACEPARENT` | Inject a W3C Trace Context parent (`00-<trace_id>-<span_id>-<flags>`). All spans inherit this trace ID. |
+| `CLN_DEV_TRACE_FILE` | (Developer) Write all trace lifecycle events to `<path>.<pid>` files. Used for testing. |
 
 ## Tracing Overhead
 

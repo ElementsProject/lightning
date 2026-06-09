@@ -359,8 +359,7 @@ void bitcoin_tx_input_set_witness(struct bitcoin_tx *tx, int innum,
 	wally_psbt_input_set_final_witness(&tx->psbt->inputs[innum], stack);
 	tal_wally_end(tx->psbt);
 
-	if (taken(witness))
-		tal_free(witness);
+	tal_free_if_taken(witness);
 }
 
 void bitcoin_tx_input_set_script(struct bitcoin_tx *tx, int innum, u8 *script)
@@ -986,9 +985,13 @@ struct amount_sat change_amount(struct amount_sat excess, u32 feerate_perkw,
 	if (!amount_sat_sub(&excess, excess, fee))
 		return AMOUNT_SAT(0);
 
-	/* Must be non-dust */
-	if (!amount_sat_greater_eq(excess, chainparams->dust_limit))
-		return AMOUNT_SAT(0);
+	if (chainparams->is_elements) {
+		if (!amount_sat_greater_eq(excess, AMOUNT_SAT(546)))
+			return AMOUNT_SAT(0);
+	} else {
+		if (!amount_sat_greater_eq(excess, AMOUNT_SAT(330)))
+			return AMOUNT_SAT(0);
+	}
 
 	return excess;
 }

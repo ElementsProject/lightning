@@ -1,11 +1,12 @@
 [package]
 name = "cln-bip353"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 license = "MIT"
 description = "BIP-353 lookups"
 homepage = "https://github.com/ElementsProject/lightning/tree/master/plugins"
 repository = "https://github.com/ElementsProject/lightning"
+rust-version.workspace = true
 
 [dependencies]
 anyhow = "1"

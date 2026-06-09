@@ -18,11 +18,13 @@ Here's a checklist for the release process.
 
 ## Preparing for -rc1
 
-1. Check that `CHANGELOG.md` is well formatted, ordered in areas, covers all signficant changes, and sub-ordered approximately by user impact & coolness.
+1. Make sure any `CHANGELOG.md` changes from point releases have been imported.
 2. Use `devtools/changelog.py` to collect the changelog entries from pull request commit messages and merge them into the manually maintained `CHANGELOG.md`. This does API queries to GitHub, which are severely ratelimited unless you use an API token: set the `GH_TOKEN` environment variable to a Personal Access Token from https://github.com/settings/tokens
-3. Create a new CHANGELOG.md heading to `v<VERSION>rc1`, and create a link at the bottom. Note that you should exactly copy the date and name format from a previous release, as the `build-release.sh` script relies on this.
-4. Update the package versions: `uv run make update-versions NEW_VERSION=v<VERSION>rc1`
-5. Create a PR with the above.
+3. Check that `CHANGELOG.md` is well formatted, ordered in areas, covers all signficant changes, and sub-ordered approximately by user impact & coolness.
+4. Manually remove any entries which were mentioned for in the previous point releases (they will be duplicates!)
+5. Create a new CHANGELOG.md heading to `v<VERSION>rc1`, and create a link at the bottom. Note that you should exactly copy the date and name format from a previous release, as the `build-release.sh` script relies on this.
+6. Update the package versions: `uv run make update-versions NEW_VERSION=v<VERSION>rc1`
+7. Create a PR with the above.
 
 ## Releasing -rc1
 
@@ -97,10 +99,16 @@ Here's a checklist for the release process.
 
 ## Post-release
 
-1. Create a PR to update Makefile's CLN_NEXT_VERSION and important dates for the next release on `.github/PULL_REQUEST_TEMPLATE.md`.
+1. Create a PR to update:
+  * `Makefile`: variables CLN_NEXT_VERSION and CLN_PREV_VERSION (this may break tests as deprecated things are disabled!)
+  * `tools/lightningd-downgrade.c`: to downgrade to the just-released version.
+  * `.github/workflows/ci.yaml`: change old-cln to download the just-released version.
+  * `.github/PULL_REQUEST_TEMPLATE.md` for important dates for the next release.
 2. Look through PRs which were delayed for release and merge them.
 3. Close out the Milestone for the now-shipped release.
 4. Update this file with any missing or changed instructions.
+5. Fetch the latest bolt revision in ../bolts.  Then run `./devtools/bolt-catchup.sh` to update BOLTVERSION in the Makefile and run `make check-bolt-quotes`.  It may get confused by merges in the BOLTs repository, so you may have to do some manual work.  Note: this step may involve a significant amount of work for new spec changes!
+6. Go through `doc/developers-guide/deprecated-features.md` and remove features and code whose `Last Supported` was the prior version (i.e. now two versions ago: we give one version where the user can use `i-promise-to-fix-broken-api-user=FEATURENAME` to re-enable it).  Also remove the features from any schemas and other documentation.
 
 ## Performing the Point (hotfix) Release
 

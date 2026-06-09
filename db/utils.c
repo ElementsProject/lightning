@@ -200,8 +200,7 @@ void db_exec_prepared_v2(struct db_stmt *stmt TAKES)
 		db_fatal(stmt->db, "Error executing statement: %s", stmt->error);
 	}
 
-	if (taken(stmt))
-	    tal_free(stmt);
+	tal_free_if_taken(stmt);
 }
 
 size_t db_count_changes(struct db_stmt *stmt)
@@ -221,8 +220,7 @@ u64 db_last_insert_id_v2(struct db_stmt *stmt TAKES)
 	assert(stmt->executed);
 	id = stmt->db->config->last_insert_id_fn(stmt);
 
-	if (taken(stmt))
-		tal_free(stmt);
+	tal_free_if_taken(stmt);
 
 	return id;
 }

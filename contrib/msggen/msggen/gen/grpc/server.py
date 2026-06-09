@@ -125,13 +125,14 @@ class GrpcServerGenerator(IGenerator):
             method.name = method.name.replace("-", "")
             pbname_request = snake_to_camel(str(method.request.typename))
             pbname_response = snake_to_camel(str(method.response.typename))
+            depri = """\n                #[allow(deprecated)]""" if method.request.deprecated else ""
             self.write(
                 f"""\
             async fn {name}(
                 &self,
                 request: tonic::Request<pb::{pbname_request}>,
             ) -> Result<tonic::Response<pb::{pbname_response}>, tonic::Status> {{
-                let req = request.into_inner();
+                let req = request.into_inner();{depri}
                 let req: requests::{method.request.typename} = req.into();
                 debug!("Client asked for {name}");
                 trace!("{name} request: {{:?}}", req);

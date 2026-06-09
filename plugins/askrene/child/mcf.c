@@ -1343,6 +1343,7 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 	      struct amount_msat maxfee, u32 finalcltv, u32 maxdelay,
 	      size_t maxparts,
 	      struct flow ***flows, double *probability,
+	      enum jsonrpc_errcode *ecode,
 	      struct flow **(*solver)(const tal_t *, const struct route_query *,
 				      const struct gossmap_node *,
 				      const struct gossmap_node *,
@@ -1373,6 +1374,7 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 			error_message = child_log(ctx, LOG_BROKEN,
 						  "%s: timed out after deadline",
 						  __func__);
+			*ecode = PAY_STOPPED_RETRYING;
 			goto fail;
 		}
 
@@ -1400,13 +1402,16 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 		if (!new_flows) {
 			error_message = explain_failure(
 			    ctx, rq, srcnode, dstnode, amount_to_deliver);
+			*ecode = PAY_ROUTE_NOT_FOUND;
 			goto fail;
 		}
 
 		error_message =
 			refine_flows(ctx, rq, amount_to_deliver, &new_flows);
-		if (error_message)
+		if (error_message) {
+			*ecode = PAY_ROUTE_NOT_FOUND;
 			goto fail;
+		}
 
 		/* we finished removing flows and excess */
 		all_deliver = flowset_delivers(new_flows);
@@ -1450,6 +1455,7 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 				      "fraction (%lf)",
 				      __func__, fmt_amount_msat(tmpctx, feebudget),
 				      deliver_fraction);
+			*ecode = PAY_ROUTE_NOT_FOUND;
 			goto fail;
 		}
 		if (amount_msat_greater(all_fees, partial_feebudget)) {
@@ -1476,6 +1482,7 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 				    child_log(ctx, LOG_UNUSUAL,
 					      "Could not find route without "
 					      "excessive cost");
+				*ecode = PAY_ROUTE_TOO_EXPENSIVE;
 				goto fail;
 			} else {
 				/* mu cannot be increased but at least all_fees
@@ -1499,6 +1506,7 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 				    child_log(ctx, LOG_UNUSUAL,
 					      "Could not find route without "
 					      "excessive delays");
+				*ecode = PAY_ROUTE_TOO_EXPENSIVE;
 				goto fail;
 			}
 
@@ -1538,6 +1546,7 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 				      "%s: unexpected arithmetic operation "
 				      "failure on amount_msat",
 				      __func__);
+			*ecode = PAY_ROUTE_NOT_FOUND;
 			goto fail;
 		}
 	}
@@ -1558,6 +1567,7 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 		error_message = reduce_num_flows(rq, rq, flows, amount, maxparts);
 		if (error_message) {
 			*flows = tal_free(*flows);
+			*ecode = PAY_ROUTE_NOT_FOUND;
 			return error_message;
 		}
 
@@ -1572,6 +1582,7 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 						  fmt_amount_msat(tmpctx, fee),
 						  fmt_amount_msat(tmpctx, maxfee));
 			*flows = tal_free(*flows);
+			*ecode = PAY_ROUTE_TOO_EXPENSIVE;
 			return error_message;
 		}
 	}
@@ -1588,16 +1599,19 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 		    child_log(rq, LOG_BROKEN,
 			   "%s: check_htlc_min_limits failed", __func__);
 		*flows = tal_free(*flows);
+		*ecode = PAY_ROUTE_NOT_FOUND;
 		return error_message;
 	}
 	if (!check_htlc_max_limits(rq, *flows)) {
 		*flows = tal_free(*flows);
+		*ecode = PAY_ROUTE_NOT_FOUND;
 		return child_log(rq, LOG_BROKEN,
 				 "%s: check_htlc_max_limits failed", __func__);
 	}
 	if (tal_count(*flows) > maxparts) {
 		size_t num_flows = tal_count(*flows);
 		*flows = tal_free(*flows);
+		*ecode = PAY_ROUTE_NOT_FOUND;
 		return child_log(rq, LOG_BROKEN,
 				 "%s: the number of flows (%zu) exceeds the limit set "
 				 "on payment parts (%zu), please submit a bug report",
@@ -1620,10 +1634,12 @@ const char *default_routes(const tal_t *ctx, struct route_query *rq,
 			   struct amount_msat amount, struct amount_msat maxfee,
 			   u32 finalcltv, u32 maxdelay, size_t maxparts,
 			   struct flow ***flows,
-			   double *probability)
+			   double *probability,
+			   enum jsonrpc_errcode *ecode)
 {
 	return linear_routes(ctx, rq, deadline, srcnode, dstnode, amount, maxfee,
-			     finalcltv, maxdelay, maxparts, flows, probability, minflow);
+			     finalcltv, maxdelay, maxparts, flows, probability, ecode,
+			     minflow);
 }
 
 const char *single_path_routes(const tal_t *ctx, struct route_query *rq,
@@ -1633,9 +1649,10 @@ const char *single_path_routes(const tal_t *ctx, struct route_query *rq,
 			       struct amount_msat amount,
 			       struct amount_msat maxfee, u32 finalcltv,
 			       u32 maxdelay, struct flow ***flows,
-			       double *probability)
+			       double *probability,
+			       enum jsonrpc_errcode *ecode)
 {
 	return linear_routes(ctx, rq, deadline, srcnode, dstnode, amount, maxfee,
-			     finalcltv, maxdelay, 1, flows, probability,
+			     finalcltv, maxdelay, 1, flows, probability, ecode,
 			     single_path_flow);
 }

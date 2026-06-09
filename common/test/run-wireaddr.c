@@ -260,7 +260,7 @@ int main(int argc, char *argv[])
 	size_t encoded_wa_len = tal_bytelen(encoded_wa);
 
 	struct wireaddr decoded_wa;
-	assert(fromwire_wireaddr((const u8 **) &encoded_wa, &encoded_wa_len, &decoded_wa));
+	assert(fromwire_wireaddr((const u8 **) &encoded_wa, &encoded_wa_len, &decoded_wa) == FROMWIREADDR_OK);
 	assert(wireaddr_eq(&wa, &decoded_wa));
 
 	tal_free(expect);

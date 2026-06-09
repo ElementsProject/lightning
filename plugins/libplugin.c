@@ -543,8 +543,7 @@ struct json_out *json_out_obj(const tal_t *ctx,
 	json_out_start(jout, NULL, '{');
 	if (str)
 		json_out_addstr(jout, fieldname, str);
-	if (taken(str))
-		tal_free(str);
+	tal_free_if_taken(str);
 	json_out_end(jout, '}');
 	json_out_finished(jout);
 
@@ -791,8 +790,7 @@ static const jsmntok_t *sync_req(const tal_t *ctx,
 		json_out_start(jout, "params", '{');
 		json_out_end(jout, '}');
 	}
-	if (taken(params))
-		tal_free(params);
+	tal_free_if_taken(params);
 
 	/* If we're past init, we may need a new fd (the old one
 	 * is being used for async comms). */
@@ -850,9 +848,9 @@ void rpc_scan(struct command *cmd,
 			   guide, method, err);
 }
 
-static void json_add_keypath(struct json_out *jout,
-			     const char *fieldname,
-			     const char **keys)
+void json_add_keypath(struct json_out *jout,
+		      const char *fieldname,
+		      const char **keys)
 {
 	json_out_start(jout, fieldname, '[');
 	for (size_t i = 0; i < tal_count(keys); i++)
@@ -1690,6 +1688,14 @@ char *charp_option(struct command *cmd, const char *arg, bool check_only, char *
 	return NULL;
 }
 
+char *multi_string_option(struct command *cmd, const char *arg, bool check_only,
+			  const char ***arr)
+{
+	if (!check_only)
+		tal_arr_expand(arr, tal_strdup(*arr, arg));
+	return NULL;
+}
+
 bool u64_jsonfmt(struct command *cmd, struct json_stream *js, const char *fieldname, u64 *i)
 {
 	json_add_u64(js, fieldname, *i);
@@ -1719,6 +1725,18 @@ bool charp_jsonfmt(struct command *cmd, struct json_stream *js, const char *fiel
 	if (!*p)
 		return false;
 	json_add_string(js, fieldname, *p);
+	return true;
+}
+
+bool string_array_jsonfmt(struct command *cmd, struct json_stream *js,
+			  const char *fieldname, const char ***arr)
+{
+	if (tal_count(*arr) == 0)
+		return false;
+	json_array_start(js, fieldname);
+	for (size_t i = 0; i < tal_count(*arr); i++)
+		json_add_string(js, NULL, (*arr)[i]);
+	json_array_end(js);
 	return true;
 }
 

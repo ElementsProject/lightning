@@ -194,9 +194,9 @@ static struct command_result *listinvreqs_done(struct command *cmd,
 		   fmt_amount_msat(tmpctx, amt),
 		   fmt_sha256(tmpctx, &inv->invreq_id));
 
-	req = jsonrpc_request_start(cmd, "pay",
+	req = jsonrpc_request_start(cmd, "xpay",
 				    pay_done, pay_error, inv);
-	json_add_string(req->js, "bolt11", invoice_encode(tmpctx, inv->inv));
+	json_add_string(req->js, "invstring", invoice_encode(tmpctx, inv->inv));
 	json_add_sha256(req->js, "localinvreqid", &inv->invreq_id);
 	return send_outreq(req);
 }
@@ -257,6 +257,10 @@ struct command_result *handle_invoice(struct command *cmd,
 					fmt_sha256(tmpctx, &inv->invreq_id));
 		}
 	} else {
+		/* BOLT #12:
+		 *   - if `invreq_paths` is present:
+		 *     - MUST reject the invoice if it did not arrive via one of those paths.
+		 */
 		/* Didn't use path.  Was it supposed to? */
 		if (inv->inv->invreq_paths) {
 			if (command_dev_apis(cmd))

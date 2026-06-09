@@ -65,11 +65,11 @@ size_t LLVMFuzzerCustomMutator(u8 *fuzz_data, size_t size, size_t max_size,
 	size_t mutated_size;
 	char *encoded_data;
 	size_t encoded_size;
-	char *fail;
+	const char *fail;
 
 	/* Decode the input. */
-	decoded_data = string_to_data(tmpctx, (char *)fuzz_data, size,
-				      bech32_hrp, &decoded_size, &fail);
+	decoded_data = b12_string_to_data(tmpctx, (char *)fuzz_data, size,
+					  bech32_hrp, &decoded_size, &fail);
 	if (!decoded_data)
 		return initial_input(fuzz_data, size, max_size);
 	if (decoded_size > max_size)
@@ -113,15 +113,15 @@ size_t LLVMFuzzerCustomCrossOver(const u8 *data1, size_t size1, const u8 *data2,
 	size_t mutated_size;
 	char *encoded_data;
 	size_t encoded_size;
-	char *fail;
+	const char *fail;
 
 	/* Decode inputs. */
-	decoded_data1 = string_to_data(tmpctx, (char *)data1, size1, bech32_hrp,
-				       &decoded_size1, &fail);
+	decoded_data1 = b12_string_to_data(tmpctx, (char *)data1, size1, bech32_hrp,
+					   &decoded_size1, &fail);
 	if (!decoded_data1)
 		return cross_over_fail();
-	decoded_data2 = string_to_data(tmpctx, (char *)data2, size2, bech32_hrp,
-				       &decoded_size2, &fail);
+	decoded_data2 = b12_string_to_data(tmpctx, (char *)data2, size2, bech32_hrp,
+					   &decoded_size2, &fail);
 	if (!decoded_data2)
 		return cross_over_fail();
 

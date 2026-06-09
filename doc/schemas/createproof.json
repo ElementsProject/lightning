@@ -1,0 +1,164 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "type": "object",
+  "rpc": "createproof",
+  "added": "v26.06",
+  "title": "Create a BOLT12 payer proof (EXPERIMENTAL)",
+  "description": [
+    "NOTE: The proof format is still a draft: IT MAY CHANGE IN INCOMPATIBLE WAYS IN FUTURE.",
+    "",
+    "The **createproof** RPC command creates a proofs that we have made a BOLT12 payment according to the current draft specification.",
+    "In case we have made multiple payments to the same thing, we will create multiple proofs.",
+    "Each returned proof includes enough fields from the offer and invoice itself that a reader can verify it: see `decode`."
+  ],
+  "request": {
+    "required": [
+      "invstring"
+    ],
+    "additionalProperties": false,
+    "properties": {
+      "invstring": {
+        "type": "string",
+        "description": [
+          "bolt12 invoice, a bolt12 (non-recursive) offer or a BIP353 name."
+        ]
+      },
+      "note": {
+        "type": "string",
+        "description": [
+          "A note to include in the proof: someone can challenge you to create a proof with a given note, and so you can demonstrate that you can indeed make a new proof.  Default is an empty string."
+        ]
+      },
+      "include": {
+        "type": "array",
+        "description": [
+          "An explicit list of TLV field names or numbers to include in the proof if they are present.  The default values are:",
+          "* 10 (offer_description): identifies what was purchased",
+          "* 22 (offer_issuer_id): identifies who issued the offer being proved",
+          "* 164 (invoice_created_at): timestamp of invoice",
+          "* 170 (invoice_amount): the amount actually paid",
+          "",
+          "Note that the following fields are always included: 88 (invreq_payer_id), 168 (invoice_payment_hash), 174 (invoice_features), 176 (invoice_node_id) and 240 (signature)."
+        ],
+        "items": {
+          "oneOf": [
+            {
+              "type": "string",
+              "description": [
+                "Name of an offer, invoice_request or invoice field to include"
+              ]
+            },
+            {
+              "type": "u64",
+              "description": [
+                "Number of an offer, invoice_request or invoice field to include (allows reference to unknown fields)"
+              ]
+            }
+          ]
+        }
+      }
+    }
+  },
+  "response": {
+    "required": [
+      "proofs"
+    ],
+    "additionalProperties": false,
+    "properties": {
+      "proofs": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "bolt12",
+            "offer_fields_included",
+            "invreq_fields_included",
+            "invoice_fields_included"
+          ],
+          "properties": {
+            "bolt12": {
+              "type": "string",
+              "description": [
+                "The payer_proof."
+              ]
+            },
+            "offer_fields_included": {
+              "type": "array",
+              "items": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "description": [
+                      "The name of the field from the offer we included in the proof."
+                    ]
+                  },
+                  {
+                    "type": "u64",
+                    "description": [
+                      "The number of the field from the offer we included in the proof (if we don't know the name)."
+                    ]
+                  }
+                ]
+              }
+            },
+            "invreq_fields_included": {
+              "type": "array",
+              "items": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "description": [
+                      "The name of the field from the invoice_request we included in the proof."
+                    ]
+                  },
+                  {
+                    "type": "u64",
+                    "description": [
+                      "The number of the field from the invoice_request we included in the proof (if we don't know the name)."
+                    ]
+                  }
+                ]
+              }
+            },
+            "invoice_fields_included": {
+              "type": "array",
+              "items": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "description": [
+                      "The name of the field from the invoice we included in the proof."
+                    ]
+                  },
+                  {
+                    "type": "u64",
+                    "description": [
+                      "The number of the field from the invoice we included in the proof (if we don't know the name)."
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "errors": [
+    "The following error codes may occur:",
+    "",
+    "- -1: Catchall nonspecific error.",
+    "- 1700: We could not find a successful payment for that invstring."
+  ],
+  "author": [
+    "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-xpay(7)",
+    "lightning-decode(7)"
+  ],
+  "resources": [
+    "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
+  ]
+}

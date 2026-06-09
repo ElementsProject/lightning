@@ -89,7 +89,7 @@ u8 *unsigned_channel_update(const tal_t *ctx,
 	/* hsmd fills this in */
 	memset(&dummy_sig, 0, sizeof(dummy_sig));
 	/* BOLT #7:
-
+	 *
 	 * The `channel_flags` bitfield is used to indicate the direction of
 	 * the channel: it identifies the node that this update originated
 	 * from and signals various options concerning the channel. The

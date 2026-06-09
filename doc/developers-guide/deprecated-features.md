@@ -9,10 +9,7 @@ privacy:
 
 | Name                                               | Type               | First Deprecated | Last Supported | Description                                                                                                               |
 |----------------------------------------------------|--------------------|------------------|----------------|---------------------------------------------------------------------------------------------------------------------------|
-| xpay.ignore_bolt12_mpp                             | Field              | v25.05           | v25.12         | Try MPP even if the BOLT12 invoice doesn't explicitly allow it (CLN didn't until 25.02)                                   |
-| listpeerchannels.max_total_htlc_in_msat            | Field              | v25.02           | v26.04         | Use our_max_total_htlc_out_msat                                                                                           |
 | wait.details                                       | Field              | v25.05           | v26.06         | Use subsystem-specific object instead                                                                                     |
-| channel_state_changed.old_state.unknown            | Notification Field | v25.05           | v26.04         | Value "unknown" is deprecated: field will be omitted instead                                                              |
 | coin_movement.tags                                 | Notification Field | v25.09           | v26.09         | Use `primary_tag` (first tag) and `extra_tags` instead                                                                    |
 | coin_movement.utxo_txid                            | Notification Field | v25.09           | v26.09         | Use `utxo` instead of `utxo_txid` & `vout`                                                                                |
 | coin_movement.txid                                 | Notification Field | v25.09           | v26.09         | Use `spending_txid` instead                                                                                               |
@@ -23,6 +20,18 @@ privacy:
 | newaddr.addresstype.defaultbech32                  | Parameter          | v25.12           | v26.12         | Use `p2tr` in the response (present since v23.08 if `addresstype` is `p2tr`,  and always present since v24.12).           |
 | channel_state_changed.null_message                 | Notification Field | v25.12           | v26.12         | In channel_state_changed notification, `message` will be missing instead of `null`                                        |
 | hsmtool.getcodexsecret                             | Command            | v25.12.1         | v26.12         | Doesn't work on nodes using mnemonic secrets (v25.12 or later).  Use `getsecret` instead.                                 |
+| experimental_splicing                              | Config             | v26.04           | v27.04         | Splicing is now enabled by default                                                                                       |
+| getroutes.layers.auto.no_mpp_support               | Parameter          | v26.06           | v27.03         | Use `maxparts=1` instead (since v25.09)                                                                                   |
+| getroutes.next_node_id                             | Field              | v26.06           | v27.06         | Use `node_id_out` instead (since v26.06)                                                                                  |
+| getroutes.amount_msat                              | Field              | v26.06           | v27.06         | Use `amount_in_msat` instead (since v26.06)                                                                               |
+| getroutes.delay                                    | Field              | v26.06           | v27.06         | Use `cltv_in` instead (since v26.06)                                                                                      |
+| pay                                                | Command            | v26.06           | v27.03         | Use the more sophisticated and effective "xpay" command instead (since v24.11).                                           |
+| paystatus                                          | Command            | v26.06           | v27.03         | Uses internal pay structures, doesn't work with xpay, doesn't work across restarts.                                       |
+| getroute                                           | Command            | v26.06           | v27.03         | Less flexible than `getroutes` which takes an actual fee budget and can do multiple paths at once.                        |
+| keysend                                            | Command            | v26.06           | v27.03         | Replaced by more powerful `xkeysend`.                                                                                     |
+| renepay                                            | Command            | v26.06           | v27.03         | Use `xpay` instead.                                                                                                       |
+| renepaystatus                                      | Command            | v26.06           | v27.03         | Use `xpay` notifications and `listpays` or `listsendpays` instead.                                                        |
+
 Inevitably there are features which need to change: either to be generalized, or removed when they can no longer be supported.
 
 Types of deprecation:

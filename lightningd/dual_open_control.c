@@ -1178,12 +1178,12 @@ static struct amount_sat calculate_reserve(struct channel_config *their_config,
 {
 	struct amount_sat reserve, dust_limit;
 
-	/* BOLT #2
+	/* BOLT #2:
 	 *
-	 * The channel reserve is fixed at 1% of the total channel balance
-	 * rounded down (sum of `funding_satoshis` from `open_channel2`
-	 * and `accept_channel2`) or the `dust_limit_satoshis` from
-	 * `open_channel2`, whichever is greater.
+	 * Instead, the channel reserve is fixed at 1% of the total channel balance
+	 * (`open_channel2`.`funding_satoshis` + `accept_channel2`.`funding_satoshis`)
+	 * rounded down to the nearest whole satoshi or the `dust_limit_satoshis`,
+	 * whichever is greater.
 	 */
 	reserve = amount_sat_div(funding_total, 100);
 	dust_limit = opener == LOCAL ?
@@ -1811,12 +1811,16 @@ static void handle_peer_tx_sigs_sent(struct subd *dualopend,
 			return;
 		}
 
-		/* BOLT #2
-		 * The receiving node:  ...
-		 * - MUST fail the channel if:
-		 *   - the `witness_stack` weight lowers the
-		 *   effective `feerate` below the agreed upon
-		 *   transaction `feerate`
+		/* BOLT #2:
+		 *
+		 * The receiving node:
+		 * ...
+		 *   - if the `witness` weight lowers the effective `feerate`
+		 *     below the *opener*'s feerate for the funding transaction
+		 *     and the effective `feerate` is determined by the receiving
+		 *     node to be insufficient for getting the transaction
+		 *     confirmed in a timely manner:
+		 *     - SHOULD broadcast their commitment transaction, closing the channel
 		 */
 		if (!feerate_satisfied(inflight->funding_psbt,
 				       inflight->funding->feerate)) {
@@ -2081,6 +2085,15 @@ static void accepter_got_offer(struct subd *dualopend,
 		return;
 	}
 
+	/* Don't allow opening if we don't know any fees; even if
+	 * ignore-feerates is set. */
+	if (unknown_feerates(dualopend->ld->topology)) {
+		subd_send_msg(dualopend,
+			      take(towire_dualopend_fail(NULL, "Cannot accept channel: feerates unknown")));
+		tal_free(payload);
+		return;
+	}
+
 	/* As a convenience to the plugin, we provide our current known
 	 * min + max feerates. Ideally, the plugin will fail to
 	 * contribute funds if the peer's feerate range is outside of
@@ -2161,12 +2174,16 @@ static void handle_peer_tx_sigs_msg(struct subd *dualopend,
 			return;
 		}
 
-		/* BOLT #2
-		 * The receiving node:  ...
-		 * - MUST fail the channel if:
-		 *   - the `witness_stack` weight lowers the
-		 *   effective `feerate` below the agreed upon
-		 *   transaction `feerate`
+		/* BOLT #2:
+		 *
+		 * The receiving node:
+		 * ...
+		 *   - if the `witness` weight lowers the effective `feerate`
+		 *     below the *opener*'s feerate for the funding transaction
+		 *     and the effective `feerate` is determined by the receiving
+		 *     node to be insufficient for getting the transaction
+		 *     confirmed in a timely manner:
+		 *     - SHOULD broadcast their commitment transaction, closing the channel
 		 */
 		if (!feerate_satisfied(inflight->funding_psbt,
 				       inflight->funding->feerate)) {
@@ -2298,10 +2315,12 @@ static void handle_validate_rbf(struct subd *dualopend,
 	memset(inputs_present, true, tal_bytelen(inputs_present));
 
 	/* BOLT #2:
-	 * The receiving node: ...
-	 *    - MUST fail the negotiation if: ...
-	 *    - the transaction does not share at least one input with
-	 *    each previous funding transaction
+	 *
+	 *   - if this is an RBF attempt:
+	 *     - MUST fail the negotiation if:
+	 *       ...
+	 *       - the transaction does not share at least one input with
+	 *         each previous funding transaction
 	 */
 	list_for_each(&channel->inflights, inflight, list) {
 		/* Remove every non-matching input from set */
@@ -2346,11 +2365,11 @@ static void handle_validate_rbf(struct subd *dualopend,
 	last_fee = psbt_compute_fee(inflight->funding_psbt);
 
 	/* BOLT #2:
-	 * The receiving node: ...
-	 * - if this is an RBF attempt:
-	 *   - MUST fail the negotiation if:
-	 *   - the transaction's total fees is less than the last
-	 *   successfully negotiated transaction's fees
+	 *
+	 *   - if this is an RBF attempt:
+	 *     - MUST fail the negotiation if:
+	 *       - the transaction's total fees is less than the last
+	 *         successfully negotiated transaction's fees
 	 */
 	if (!amount_sat_greater(candidate_fee, last_fee)) {
 		char *errmsg = tal_fmt(tmpctx, "Proposed funding tx fee (%s)"
@@ -3037,6 +3056,7 @@ static struct command_result *openchannel_init(struct command *cmd,
 {
 	u32 *our_upfront_shutdown_script_wallet_index;
 	u32 found_wallet_index;
+	u32 anchor_feerate;
 	struct channel *channel;
 	struct open_attempt *oa;
 	int fds[2];
@@ -3084,12 +3104,19 @@ static struct command_result *openchannel_init(struct command *cmd,
 	} else
 		our_upfront_shutdown_script_wallet_index = NULL;
 
+	/* 0 from this means "unknown" */
+	anchor_feerate = unilateral_feerate(cmd->ld->topology, true);
+	if (anchor_feerate == 0) {
+		anchor_feerate = get_feerate_floor(cmd->ld->topology);
+		assert(anchor_feerate);
+	}
+
 	oa->open_msg = towire_dualopend_opener_init(oa,
 					   psbt, amount,
 					   oa->our_upfront_shutdown_script,
 					   our_upfront_shutdown_script_wallet_index,
 					   feerate_per_kw,
-					   unilateral_feerate(cmd->ld->topology, true),
+					   anchor_feerate,
 					   feerate_per_kw_funding,
 					   channel->channel_flags,
 					   amount_sat_is_zero(request_amt) ?
@@ -3794,7 +3821,7 @@ static struct command_result *json_queryrates(struct command *cmd,
 	struct peer *peer;
 	struct channel *channel;
 	u32 *feerate_per_kw_funding;
-	u32 *feerate_per_kw;
+	u32 *feerate_per_kw, anchor_feerate;
 	struct amount_sat *amount, *request_amt;
 	struct wally_psbt *psbt;
 	struct open_attempt *oa;
@@ -3882,12 +3909,19 @@ static struct command_result *json_queryrates(struct command *cmd,
 	} else
 		our_upfront_shutdown_script_wallet_index = NULL;
 
+	/* 0 from this means "unknown" */
+	anchor_feerate = unilateral_feerate(cmd->ld->topology, true);
+	if (anchor_feerate == 0) {
+		anchor_feerate = get_feerate_floor(cmd->ld->topology);
+		assert(anchor_feerate);
+	}
+
 	oa->open_msg = towire_dualopend_opener_init(oa,
 					   psbt, *amount,
 					   oa->our_upfront_shutdown_script,
 					   our_upfront_shutdown_script_wallet_index,
 					   *feerate_per_kw,
-					   unilateral_feerate(cmd->ld->topology, true),
+					   anchor_feerate,
 					   *feerate_per_kw_funding,
 					   channel->channel_flags,
 					   amount_sat_is_zero(*request_amt) ?

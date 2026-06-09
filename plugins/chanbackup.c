@@ -67,6 +67,9 @@ struct chanbackup {
 	/* Global secret object to keep the derived encryption key for the SCB */
 	struct secret secret;
 
+	/* We store the timestamp of the latest peer storage that we have. */
+	u32 latest_timestamp;
+
 	/* Cache of backups for each peer we know about */
 	struct backup_map *backups;
 
@@ -318,6 +321,42 @@ static struct modern_scb_chan *convert_from_legacy(const tal_t *ctx, struct lega
 	return modern_scb_tlv;
 }
 
+/* Reads WIRE_STATIC_CHAN_BACKUP and converts from legacy_scb_chan to
+ * modern_scb_chan, if required. */
+static bool read_static_chan_backup(struct command *cmd,
+				    const u8 *blob,
+				    u64 *version,
+				    u32 *timestamp,
+				    struct modern_scb_chan ***scb_tlvs,
+				    bool *is_converted)
+{
+	bool is_tlvs = false;
+	struct legacy_scb_chan **scb;
+
+	if (!fromwire_static_chan_backup(cmd,
+					 blob,
+					 version,
+					 timestamp,
+					 &scb)) {
+		is_tlvs = true;
+		if (!fromwire_static_chan_backup_with_tlvs(cmd,
+							   blob,
+							   version,
+							   timestamp,
+							   scb_tlvs)) {
+			return false;
+		}
+	}
+	*is_converted = !is_tlvs;
+	if (!is_tlvs) {
+		*scb_tlvs = tal_count(scb) ? tal_arr(cmd, struct modern_scb_chan *, tal_count(scb)): NULL;
+		for (size_t i=0; i < tal_count(scb); i++){
+			(*scb_tlvs)[i] = convert_from_legacy(cmd, scb[i]);
+		}
+	}
+	return true;
+}
+
 /* Recovers the channels by making RPC to `recoverchannel` */
 static struct command_result *json_emergencyrecover(struct command *cmd,
 						    const char *buf,
@@ -326,28 +365,16 @@ static struct command_result *json_emergencyrecover(struct command *cmd,
 	struct out_req *req;
 	u64 version;
 	u32 timestamp;
-	struct legacy_scb_chan **scb;
+	bool is_converted;
 	struct modern_scb_chan **scb_tlvs;
 
 	if (!param(cmd, buf, params, NULL))
 		return command_param_failed();
 
 	u8 *res = decrypt_scb(cmd->plugin);
-	bool is_tlvs = false;
-	if (!fromwire_static_chan_backup(cmd,
-                                         res,
-                                         &version,
-                                         &timestamp,
-                                         &scb)) {
-		if(!fromwire_static_chan_backup_with_tlvs(cmd,
-							  res,
-							  &version,
-							  &timestamp,
-							  &scb_tlvs)) {
-			plugin_err(cmd->plugin, "Corrupted SCB!");
-		}
-		is_tlvs = true;
-	}
+	if (!read_static_chan_backup(cmd, res, &version, &timestamp, &scb_tlvs, &is_converted))
+		return command_fail(cmd, LIGHTNINGD,
+				    "Invalid recovery format");
 
 	if ((version & 0x5555555555555555ULL) != (VERSION & 0x5555555555555555ULL)) {
 		plugin_err(cmd->plugin,
@@ -358,26 +385,18 @@ static struct command_result *json_emergencyrecover(struct command *cmd,
 				    after_recover_rpc,
 				    forward_error, NULL);
 
-	json_array_start(req->js, "scb");
-	if (is_tlvs) {
-		for (size_t i=0; i<tal_count(scb_tlvs); i++) {
-			u8 *scb_hex = tal_arr(cmd, u8, 0);
-			towire_modern_scb_chan(&scb_hex,scb_tlvs[i]);
-			json_add_hex_talarr(req->js, NULL, scb_hex);
-		}
-	} else {
+	if (is_converted) {
 		plugin_notify_message(cmd, LOG_DBG, "Processing legacy emergency.recover file format. "
-				      "Please migrate to the latest file format for improved "
-				      "compatibility and fund recovery.");
-
-		for (size_t i=0; i<tal_count(scb); i++) {
-			u8 *scb_hex = tal_arr(cmd, u8, 0);
-			struct modern_scb_chan *tmp_scb = convert_from_legacy(cmd, scb[i]);
-			towire_modern_scb_chan(&scb_hex, tmp_scb);
-			json_add_hex_talarr(req->js, NULL, scb_hex);
-		}
+			"Please migrate to the latest file format for improved "
+			"compatibility and fund recovery.");
 	}
 
+	json_array_start(req->js, "scb");
+	for (size_t i=0; i<tal_count(scb_tlvs); i++) {
+		u8 *scb_hex = tal_arr(cmd, u8, 0);
+		towire_modern_scb_chan(&scb_hex, scb_tlvs[i]);
+		json_add_hex_talarr(req->js, NULL, scb_hex);
+	}
 	json_array_end(req->js);
 
 	return send_outreq(req);
@@ -803,6 +822,41 @@ static struct command_result *datastore_failed(struct command *cmd,
 	return command_hook_success(cmd);
 }
 
+/* Compares the data between the stored scb and latest recvd scb,
+ * stores the most recent one only. */
+static struct command_result *store_latest_scb(struct command *cmd,
+					       struct chanbackup *cb,
+					       const u8 *received_scb)
+{
+	size_t recvd_scb_len = tal_bytelen(received_scb);
+	u64 version;
+	struct modern_scb_chan **scb_tlvs;
+	u32 timestamp_new;
+	bool is_converted;
+
+	if (!read_static_chan_backup(cmd, received_scb, &version, &timestamp_new, &scb_tlvs, &is_converted)) {
+		plugin_log(cmd->plugin, LOG_BROKEN, "Ignoring invalid peer storage: %s",
+			   tal_hex(tmpctx, received_scb));
+		return command_hook_success(cmd);
+	}
+
+	if (timestamp_new < cb->latest_timestamp) {
+		plugin_log(cmd->plugin, LOG_DBG, "Ignoring old Peer Storage");
+		return command_hook_success(cmd);
+	}
+
+	cb->latest_timestamp = timestamp_new;
+
+	return jsonrpc_set_datastore_binary(cmd,
+		mkdatastorekey(tmpctx, "chanbackup", "latestscb"),
+		received_scb, recvd_scb_len,
+		"create-or-replace",
+		datastore_success,
+		datastore_failed,
+	   	"Saving latestscb");
+
+}
+
 static struct command_result *handle_your_peer_storage(struct command *cmd,
 						       const char *buf,
 						       const jsmntok_t *params)
@@ -810,7 +864,7 @@ static struct command_result *handle_your_peer_storage(struct command *cmd,
         struct node_id node_id;
         u8 *payload, *payload_deserialise;
 	const char *err;
-	const struct chanbackup *cb = chanbackup(cmd->plugin);
+	struct chanbackup *cb = chanbackup(cmd->plugin);
 
 	err = json_scan(cmd, buf, params,
 			"{payload:%,peer_id:%}",
@@ -890,16 +944,7 @@ static struct command_result *handle_your_peer_storage(struct command *cmd,
                                                                NULL, 0) != 0)
                         return failed_peer_restore(cmd, &node_id,
 					           "Peer altered our data");
-
-
-		return jsonrpc_set_datastore_binary(cmd,
-						    mkdatastorekey(tmpctx, "chanbackup", "latestscb"),
-					     	    decoded_bkp,
-						    tal_bytelen(decoded_bkp),
-					     	    "create-or-replace",
-					     	    datastore_success,
-					     	    datastore_failed,
-						    "Saving latestscb");
+		return store_latest_scb(cmd, cb, decoded_bkp);
 	} else {
 		/* Any other message we ignore */
 		return command_hook_success(cmd);
@@ -912,8 +957,8 @@ static struct command_result *after_latestscb(struct command *cmd,
 {
         u64 version;
 	u32 timestamp;
+	bool is_converted;
 	struct modern_scb_chan **scb_tlvs;
-	struct legacy_scb_chan **scb;
         struct json_stream *response;
         struct out_req *req;
 
@@ -925,21 +970,8 @@ static struct command_result *after_latestscb(struct command *cmd,
 		return command_finished(cmd, response);
         }
 
-	bool is_tlvs = false;
-	if (!fromwire_static_chan_backup(cmd,
-                                         res,
-                                         &version,
-                                         &timestamp,
-                                         &scb)) {
-		if(!fromwire_static_chan_backup_with_tlvs(cmd,
-							  res,
-							  &version,
-							  &timestamp,
-							  &scb_tlvs)) {
-			plugin_err(cmd->plugin, "Corrupted SCB!");
-		}
-		is_tlvs = true;
-	}
+	if (!read_static_chan_backup(cmd, res, &version, &timestamp, &scb_tlvs, &is_converted))
+		return command_fail(cmd, LIGHTNINGD, "Invalid emergencyrecover");
 
 	if ((version & 0x5555555555555555ULL) != (VERSION & 0x5555555555555555ULL)) {
 		plugin_err(cmd->plugin,
@@ -951,28 +983,11 @@ static struct command_result *after_latestscb(struct command *cmd,
 				    &forward_error, NULL);
 
 	json_array_start(req->js, "scb");
-	if (is_tlvs) {
-		for (size_t i=0; i<tal_count(scb_tlvs); i++) {
-			u8 *scb_hex = tal_arr(cmd, u8, 0);
-			towire_modern_scb_chan(&scb_hex,scb_tlvs[i]);
-			json_add_hex_talarr(req->js, NULL, scb_hex);
-		}
-	} else {
-		for (size_t i=0; i<tal_count(scb); i++) {
-			u8 *scb_hex = tal_arr(cmd, u8, 0);
-			struct modern_scb_chan *tmp_scb_tlv = tal(cmd, struct modern_scb_chan);
-			tmp_scb_tlv->id = scb[i]->id;
-			tmp_scb_tlv->addr = scb[i]->addr;
-			tmp_scb_tlv->cid = scb[i]->cid;
-			tmp_scb_tlv->funding = scb[i]->funding;
-			tmp_scb_tlv->funding_sats = scb[i]->funding_sats;
-			tmp_scb_tlv->type = scb[i]->type;
-			tmp_scb_tlv->tlvs = tlv_scb_tlvs_new(cmd);
-			towire_modern_scb_chan(&scb_hex, tmp_scb_tlv);
-			json_add_hex_talarr(req->js, NULL, scb_hex);
-		}
+	for (size_t i=0; i<tal_count(scb_tlvs); i++) {
+		u8 *scb_hex = tal_arr(cmd, u8, 0);
+		towire_modern_scb_chan(&scb_hex, scb_tlvs[i]);
+		json_add_hex_talarr(req->js, NULL, scb_hex);
 	}
-
 	json_array_end(req->js);
 
 	return send_outreq(req);
@@ -996,17 +1011,36 @@ static struct command_result *json_getemergencyrecoverdata(struct command *cmd,
 						    	const char *buf,
 						    	const jsmntok_t *params)
 {
-	u8 *filedata;
+	const u8 *filedata, *decrypted_filedata;
+	u64 version;
+	u32 timestamp;
+	struct modern_scb_chan **scb_tlvs;
+	bool is_converted;
+	struct json_stream *response;
+
 	if (!param(cmd, buf, params, NULL))
 		return command_param_failed();
 
-	struct json_stream *response;
-
 	filedata = get_file_data(tmpctx, cmd->plugin);
+	decrypted_filedata = decrypt_scb(cmd->plugin);
+
+	if (!read_static_chan_backup(cmd, decrypted_filedata,
+				     &version,
+				     &timestamp,
+				     &scb_tlvs,
+				     &is_converted))
+		return command_fail(cmd, LIGHTNINGD, "Invalid emergencyrecover");
+
 	response = jsonrpc_stream_success(cmd);
 	json_add_hex_talarr(response, "filedata", filedata);
 
-
+	// If false, update the emergency.recover file immediately!
+	json_add_bool(response, "can_create_penalty", !is_converted);
+	json_array_start(response, "backed_up_channel_ids");
+	for (int i = 0; i < tal_count(scb_tlvs); i++) {
+		json_add_channel_id(response, NULL, &scb_tlvs[i]->cid);
+	}
+	json_array_end(response);
 	return command_finished(cmd, response);
 }
 
@@ -1087,6 +1121,7 @@ static const char *init(struct command *init_cmd,
 	const char *info = "scb secret";
 	u8 *info_hex = tal_dup_arr(tmpctx, u8, (u8*)info, strlen(info), 0);
 	u8 *features;
+	u8 *latestscb;
 
 	/* Figure out if they specified --experimental-peer-storage */
 	rpc_scan(init_cmd, "getinfo",
@@ -1109,6 +1144,18 @@ static const char *init(struct command *init_cmd,
 				   	      info_hex,
 					      tal_bytelen(info_hex)))),
 		 "{secret:%}", JSON_SCAN(json_to_secret, &cb->secret));
+
+	/* Caching timestamp of latestscb that we have stored. This
+	 * would be useful for upgrading `chanbackup/latestscb`. */
+	cb->latest_timestamp = 0;
+	if (rpc_scan_datastore_hex(tmpctx, init_cmd,
+			       mkdatastorekey(tmpctx, "chanbackup", "latestscb"),
+			       JSON_SCAN_TAL(tmpctx, json_tok_bin_from_hex, &latestscb)) == NULL) {
+		u64 version;
+		struct modern_scb_chan **scb_tlvs;
+		bool is_converted;
+		read_static_chan_backup(init_cmd, latestscb, &version, &cb->latest_timestamp, &scb_tlvs, &is_converted);
+	}
 
 	setup_backup_map(init_cmd, cb);
 	plugin_set_data(init_cmd->plugin, cb);

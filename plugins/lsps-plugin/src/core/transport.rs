@@ -2,10 +2,10 @@ use crate::proto::jsonrpc::{JsonRpcResponse, RequestObject};
 use async_trait::async_trait;
 use bitcoin::secp256k1::PublicKey;
 use core::fmt::Debug;
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Serialize, de::DeserializeOwned};
 use std::{collections::HashMap, sync::Arc, time::Duration};
 use thiserror::Error;
-use tokio::sync::{oneshot, Mutex};
+use tokio::sync::{Mutex, oneshot};
 
 /// Transport-specific errors that may occur when sending or receiving JSON-RPC
 /// messages.

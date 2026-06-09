@@ -2,7 +2,7 @@ use std::{collections::HashMap, process};
 
 use anyhow::anyhow;
 use axum::{
-    body::{to_bytes, Body},
+    body::{Body, to_bytes},
     extract::{Extension, Json, Path},
     http::{self, Request, StatusCode},
     middleware::Next,
@@ -10,17 +10,17 @@ use axum::{
 };
 use cln_plugin::Plugin;
 use cln_rpc::{
-    model::{requests::HelpRequest, responses::HelpResponse},
     RpcError,
+    model::{requests::HelpRequest, responses::HelpResponse},
 };
 use serde_json::json;
 use socketioxide::extract::{Data, SocketRef};
 use std::fmt::Write;
 
 use crate::{
+    SWAGGER_FALLBACK,
     shared::{call_rpc, filter_json, path_to_rest_map_and_params, verify_rune},
     structs::{AppError, CheckRuneParams, ClnrestMap, PluginState},
-    SWAGGER_FALLBACK,
 };
 
 /* Handler for list-methods */
@@ -122,7 +122,7 @@ pub async fn call_rpc_method(
                 code: None,
                 data: None,
                 message: format!("Could not read request body: {}", e),
-            }))
+            }));
         }
     };
 

@@ -1,6 +1,6 @@
 use crate::proto::jsonrpc::{JsonRpcRequest, RpcError};
 use core::fmt;
-use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
 use thiserror::Error;
 
 const MSAT_PER_SAT: u64 = 1_000;
@@ -19,7 +19,7 @@ pub mod error_codes {
 
 pub trait LSPS0RpcErrorExt {
     rpc_error_methods! {
-        client_rejected => error_codes::CLIENT_REJECTED,
+        client_rejected, client_rejected_with_data => error_codes::CLIENT_REJECTED,
     }
 }
 

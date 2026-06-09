@@ -181,6 +181,19 @@ A notification for topic `invoice_creation` is sent every time an invoice is cre
 }
 ```
 
+If the invoice is associated with a BOLT 12 offer, an `offer_id` field will be present:
+
+```json
+{
+  "invoice_creation": {
+    "label": "unique-label-for-invoice",
+    "preimage": "0000000000000000000000000000000000000000000000000000000000000000",
+    "msat": 10000,
+    "offer_id": "b1d1062abc09790a68be83e4c257614a57978e4053a954bfee5909ed71e23e03"
+  }
+}
+```
+
 Before version `23.11` the `msat` field was a string with msat-suffix, e.g: `"10000msat"`.
 
 ### `warning`
@@ -223,8 +236,7 @@ A notification for topic `forward_event` is sent every time the status of a forw
     "fee_msat": 1001,
     "status": "settled",
     "received_time": 1560696342.368,
-    "resolved_time": 1560696342.556,
-    "preimage": "0000000000000000000000000000000000000000000000000000000000000000"
+    "resolved_time": 1560696342.556
   }
 }
 ```
@@ -263,7 +275,6 @@ or
       fields;
 - `received_time` means when we received the htlc of this payment from the previous peer. It will be contained into all status case;
 - `resolved_time` means when the htlc of this payment between us and the next peer was resolved. The resolved result may success or fail, so only `settled` and `failed` case contain `resolved_time`;
-- `preimage` is the 64-hex-char payment preimage revealed when the HTLC was fulfilled. Only present when `status` is `settled`;
 - The `failcode` and `failreason` are defined in [BOLT 4](https://github.com/lightning/bolts/blob/master/04-onion-routing.md#failure-messages).
 
 ### `sendpay_success`

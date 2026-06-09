@@ -1,10 +1,16 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
+  "deprecated": [
+    "v26.06",
+    "v27.03"
+  ],
   "rpc": "pay",
-  "title": "Command for sending a payment to a BOLT11 invoice",
+  "title": "Command for sending a payment to a BOLT11/BOLT12 invoice",
   "description": [
-    "The **pay** RPC command attempts to find a route to the given destination, and send the funds it asks for. .",
+    "NOTE: As of v26.06, xpay transparantly handles most **pay** invocations, and **pay** is deprecated.",
+    "",
+    "The **pay** RPC command attempts to find a route to the given destination, and send the funds it asks for.",
     "",
     "The response will occur when the payment fails or succeeds. Once a payment has succeeded, calls to **pay** with the same *bolt11* will succeed immediately.",
     "",
@@ -19,6 +25,8 @@
       "bolt11": {
         "type": "string",
         "description": [
+          "NOTE: `invstring` is an alternate name for this parameter, since v26.06, for xpay compatibility.",
+          "",
           "Bolt11 or bolt12 invoice (such as one received from lightningd-fetchinvoice(7)). For a bolt11 invoice, if it does not contain an amount, *amount_msat* is required, otherwise if it is specified it must be *null*."
         ]
       },
@@ -228,6 +236,7 @@
     "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
   ],
   "see_also": [
+    "lightning-xpay(7)",
     "lightning-listpays(7)",
     "lightning-decode(7)",
     "lightning-listinvoices(7)",

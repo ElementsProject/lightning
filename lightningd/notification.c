@@ -229,13 +229,16 @@ void notify_invoice_payment(struct lightningd *ld,
 static void invoice_creation_notification_serialize(struct json_stream *stream,
 						    const struct amount_msat *amount,
 						    const struct preimage *preimage,
-						    const struct json_escape *label)
+						    const struct json_escape *label,
+						    const struct sha256 *offer_id)
 {
 	if (amount != NULL)
 		json_add_amount_msat(stream, "msat", *amount);
 
 	json_add_preimage(stream, "preimage", preimage);
 	json_add_escaped_string(stream, "label", label);
+	if (offer_id)
+		json_add_sha256(stream, "offer_id", offer_id);
 }
 
 REGISTER_NOTIFICATION(invoice_creation)
@@ -243,12 +246,13 @@ REGISTER_NOTIFICATION(invoice_creation)
 void notify_invoice_creation(struct lightningd *ld,
 			     const struct amount_msat *amount,
 			     const struct preimage *preimage,
-			     const struct json_escape *label)
+			     const struct json_escape *label,
+			     const struct sha256 *offer_id)
 {
 	struct jsonrpc_notification *n = notify_start(ld, "invoice_creation");
 	if (!n)
 		return;
-	invoice_creation_notification_serialize(n->stream, amount, preimage, label);
+	invoice_creation_notification_serialize(n->stream, amount, preimage, label, offer_id);
 	notify_send(ld, n);
 }
 
@@ -308,9 +312,7 @@ static void channel_state_changed_notification_serialize(struct json_stream *str
 					      "v25.09", "v26.09"))
 		json_add_null(stream, "short_channel_id");
 	json_add_timeiso(stream, "timestamp", timestamp);
-	if (old_state != 0 || lightningd_deprecated_out_ok(ld, ld->deprecated_ok,
-							   "channel_state_changed", "old_state.unknown",
-							   "v25.05", "v26.03"))
+	if (old_state != 0)
 		json_add_string(stream, "old_state", channel_state_str(old_state));
 	json_add_string(stream, "new_state", channel_state_str(new_state));
 	json_add_string(stream, "cause", channel_change_state_reason_str(cause));

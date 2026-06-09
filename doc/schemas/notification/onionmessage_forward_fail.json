@@ -1,0 +1,57 @@
+{
+  "$schema": "../../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "notification": "onionmessage_forward_fail",
+  "title": "Notification for onion message forwarding failures",
+  "description": [
+    "The **onionmessage_forward_fail** notification informs whenever lightningd cannot forward an onion message."
+  ],
+  "added": "v24.11",
+  "request": {},
+  "response": {
+    "required": [
+      "source",
+      "incoming",
+      "path_key"
+    ],
+    "properties": {
+      "source": {
+        "type": "pubkey",
+        "description": [
+          "The node that sent the incoming onion message."
+        ]
+      },
+      "incoming": {
+        "type": "hex",
+        "description": [
+          "The incoming onion message payload."
+        ]
+      },
+      "path_key": {
+        "type": "pubkey",
+        "description": [
+          "The path key used for the attempted forward."
+        ]
+      },
+      "outgoing": {
+        "type": "hex",
+        "description": [
+          "The outgoing onion message payload if a next hop had already been selected."
+        ]
+      },
+      "next_node_id": {
+        "type": "pubkey",
+        "description": [
+          "The next node id for the attempted forward when the next hop is a node."
+        ]
+      },
+      "next_short_channel_id_dir": {
+        "type": "short_channel_id_dir",
+        "description": [
+          "The next short_channel_id_dir for the attempted forward when the next hop is a channel."
+        ]
+      }
+    }
+  }
+}

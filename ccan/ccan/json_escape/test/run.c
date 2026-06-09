@@ -9,7 +9,7 @@ int main(void)
 	struct json_escape *e;
 
 	/* This is how many tests you plan to run */
-	plan_tests(6);
+	plan_tests(8);
 
 	e = json_escape(ctx, "Hello");
 	ok1(!strcmp(e->s, "Hello"));
@@ -25,6 +25,7 @@ int main(void)
 	ok1(!strcmp(json_escape_unescape(ctx, e),
 		    "\\\b\f\n\r\t\""
 		    "\\\\\\b\\f\\n\\r\\t\\\""));
+	ok1(json_escape_eq(e, json_escape_dup(ctx, e)));
 
 	/* This one doesn't escape the already-escaped chars */
 	e = json_partial_escape(ctx,
@@ -36,6 +37,7 @@ int main(void)
 	ok1(!strcmp(json_escape_unescape(ctx, e),
 		    "\\\b\f\n\r\t\""
 		    "\\\b\f\n\r\t\""));
+	ok1(json_escape_eq(e, json_escape_dup(ctx, e)));
 
 	tal_free(ctx);
 

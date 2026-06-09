@@ -3,7 +3,7 @@ from fixtures import TEST_NETWORK
 from pyln.client import RpcError
 from pyln.testing.utils import FUNDAMOUNT, only_one
 from utils import (
-    TIMEOUT, first_scid, GenChannel, generate_gossip_store, wait_for,
+    TIMEOUT, first_scid, first_scidd, GenChannel, generate_gossip_store, wait_for,
     sync_blockheight,
 )
 
@@ -16,6 +16,7 @@ import sys
 from hashlib import sha256
 from pathlib import Path
 import tempfile
+import time
 import unittest
 
 
@@ -147,7 +148,7 @@ def test_xpay_simple(node_factory):
     node_factory.join_nodes([l1, l2, l3], wait_for_announce=True)
     node_factory.join_nodes([l3, l4], announce_channels=False)
 
-    # BOLT 11, direct peer
+    # BOLT-11, direct peer
     b11 = l2.rpc.invoice('10000msat', 'test_xpay_simple', 'test_xpay_simple bolt11')['bolt11']
     ret = l1.rpc.xpay(b11)
     assert ret['failed_parts'] == 0
@@ -155,12 +156,14 @@ def test_xpay_simple(node_factory):
     assert ret['amount_msat'] == 10000
     assert ret['amount_sent_msat'] == 10000
 
+    PAY_INJECTPAYMENTONION_ALREADY_PAID = 219
     # Fails if we try to pay again
     b11_paid = b11
-    with pytest.raises(RpcError, match="Already paid"):
+    with pytest.raises(RpcError, match="Already paid") as err:
         l1.rpc.xpay(b11_paid)
+    assert err.value.error['code'] == PAY_INJECTPAYMENTONION_ALREADY_PAID
 
-    # BOLT 11, indirect peer
+    # BOLT-11, indirect peer
     b11 = l3.rpc.invoice('10000msat', 'test_xpay_simple', 'test_xpay_simple bolt11')['bolt11']
     ret = l1.rpc.xpay(b11)
     assert ret['failed_parts'] == 0
@@ -168,14 +171,23 @@ def test_xpay_simple(node_factory):
     assert ret['amount_msat'] == 10000
     assert ret['amount_sent_msat'] == 10001
 
-    # BOLT 11, routehint
+    # BOLT-11, routehint
     b11 = l4.rpc.invoice('10000msat', 'test_xpay_simple', 'test_xpay_simple bolt11')['bolt11']
     l1.rpc.xpay(b11)
 
-    # BOLT 12 (with payer_note specified).
+    # BOLT-12 (with payer_note specified).
     offer = l3.rpc.offer('any')['bolt12']
     b12 = l1.rpc.fetchinvoice(offer, '100000msat')['invoice']
     l1.rpc.xpay(invstring=b12, payer_note="Payment for a cup of coffee")
+
+    # BOLT-12, direct peer
+    offer = l2.rpc.offer('any')['bolt12']
+    b12 = l1.rpc.fetchinvoice(offer, '10000msat')['invoice']
+    ret = l1.rpc.xpay(invstring=b12)
+    assert ret['failed_parts'] == 0
+    assert ret['successful_parts'] == 1
+    assert ret['amount_msat'] == 10000
+    assert ret['amount_sent_msat'] == 10000
 
     # Failure from l4.
     b11 = l4.rpc.invoice('10000msat', 'test_xpay_simple2', 'test_xpay_simple2 bolt11')['bolt11']
@@ -188,11 +200,11 @@ def test_xpay_simple(node_factory):
 
     # Failure from l3 (with routehint)
     l4.stop()
-    with pytest.raises(RpcError, match=r"Failed after 1 attempts\. We got temporary_channel_failure for the invoice's route hint \([0-9x]*/[01]\), assuming it can't carry 10000msat\. Then routing failed: We could not find a usable set of paths\.  The shortest path is [0-9x]*->[0-9x]*->[0-9x]*, but [0-9x]*/[01]\ layer xpay-6 says max is 9999msat"):
+    with pytest.raises(RpcError, match=r"Failed after 1 attempts\. We got temporary_channel_failure for the invoice's route hint \([0-9x]*/[01]\), assuming it can't carry 10000msat\. Then routing failed: We could not find a usable set of paths\. The shortest path is [0-9x]*->[0-9x]*->[0-9x]*, but [0-9x]*/[01]\ layer xpay-15 says max is 9999msat"):
         l1.rpc.xpay(b11)
 
     # Failure from l3 (with blinded path)
-    with pytest.raises(RpcError, match=r"Failed after 1 attempts. We got an error from inside the blinded path 0x0x0/1: we assume it means insufficient capacity. Then routing failed: We could not find a usable set of paths.  The shortest path is [0-9x]*->[0-9x]*->0x0x0, but 0x0x0/1 layer xpay-7 says max is 99999msat"):
+    with pytest.raises(RpcError, match=r"Failed after 1 attempts. We got an error from inside the blinded path 0x0x0/1: we assume it means insufficient capacity. Then routing failed: We could not find a usable set of paths. The shortest path is [0-9x]*->[0-9x]*->0x0x0, but 0x0x0/1 layer xpay-17 says max is 99999msat"):
         l1.rpc.xpay(b12)
 
     # Restart, try pay already paid one again.
@@ -241,6 +253,7 @@ def test_xpay_fake_channeld(node_factory, bitcoind, chainparams, slow_mode):
                                             'allow_warning': True,
                                             'dev-throttle-gossip': None,
                                             'log-level': 'info',
+                                            'broken_log': 'Throttling incoming peer',
                                             # xpay gets upset if it's aging when we remove cln-askrene!
                                             'dev-xpay-no-age': None,
                                             },
@@ -387,7 +400,8 @@ def test_xpay_partial_msat(node_factory, executor):
 
 def test_xpay_takeover(node_factory, executor):
     l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True,
-                                         opts={'xpay-handle-pay': True})
+                                         opts={'xpay-handle-pay': True,
+                                               'allow-deprecated-apis': True})
 
     # Simple bolt11/bolt12 payment.
     inv = l3.rpc.invoice(100000, "test_xpay_takeover1", "test_xpay_takeover1")['bolt11']
@@ -415,7 +429,7 @@ def test_xpay_takeover(node_factory, executor):
     l1.rpc.pay(b12)
     l1.daemon.wait_for_log('Redirecting pay->xpay')
 
-    # BOLT11 with amount.
+    # BOLT-11 with amount.
     inv = l3.rpc.invoice('any', "test_xpay_takeover3", "test_xpay_takeover3")['bolt11']
     l1.rpc.pay(inv, amount_msat=10000)
     l1.daemon.wait_for_log('Redirecting pay->xpay')
@@ -450,12 +464,13 @@ def test_xpay_takeover(node_factory, executor):
                              inv, "10000", 'label'])
     l1.daemon.wait_for_log(r'Not redirecting pay \(only handle 1 or 2 args\): ')
 
-    # Other args are ignored.
+    # Label gets maintained.
     inv = l3.rpc.invoice('any', "test_xpay_takeover7", "test_xpay_takeover7")
     l1.rpc.pay(inv['bolt11'], amount_msat=10000, label='test_xpay_takeover7')
-    l1.daemon.wait_for_log('Unknown arg "label", xpay will ignore it.')
     l1.daemon.wait_for_log('Redirecting pay->xpay')
+    assert any(p.get('label') == 'test_xpay_takeover7' for p in l1.rpc.listsendpays()['payments'])
 
+    # Other args are ignored.
     inv = l3.rpc.invoice('any', "test_xpay_takeover8", "test_xpay_takeover8")
     l1.rpc.pay(inv['bolt11'], amount_msat=10000, riskfactor=1)
     l1.daemon.wait_for_log('Unknown arg "riskfactor", xpay will ignore it.')
@@ -556,7 +571,7 @@ def test_xpay_maxdelay(node_factory):
 def test_xpay_unannounced(node_factory):
     l1, l2 = node_factory.line_graph(2, announce_channels=False)
 
-    # BOLT 11, direct peer
+    # BOLT-11, direct peer
     b11 = l2.rpc.invoice('10000msat', 'test_xpay_unannounced', 'test_xpay_unannounced bolt11')['bolt11']
     ret = l1.rpc.xpay(b11)
     assert ret['failed_parts'] == 0
@@ -564,7 +579,7 @@ def test_xpay_unannounced(node_factory):
     assert ret['amount_msat'] == 10000
     assert ret['amount_sent_msat'] == 10000
 
-    # BOLT 12, direct peer
+    # BOLT-12, direct peer
     offer = l2.rpc.offer('any')['bolt12']
     b12 = l1.rpc.fetchinvoice(offer, '100000msat')['invoice']
     l1.rpc.xpay(b12)
@@ -583,7 +598,7 @@ def test_xpay_zeroconf(node_factory):
 
     wait_for(lambda: all([c['state'] == 'CHANNELD_NORMAL' for c in l1.rpc.listpeerchannels()['channels'] + l2.rpc.listpeerchannels()['channels']]))
 
-    # BOLT 11, direct peer
+    # BOLT-11, direct peer
     b11 = l2.rpc.invoice('10000msat', 'test_xpay_unannounced', 'test_xpay_unannounced bolt11')['bolt11']
     ret = l1.rpc.xpay(b11)
     assert ret['failed_parts'] == 0
@@ -591,7 +606,7 @@ def test_xpay_zeroconf(node_factory):
     assert ret['amount_msat'] == 10000
     assert ret['amount_sent_msat'] == 10000
 
-    # BOLT 12, direct peer
+    # BOLT-12, direct peer
     offer = l2.rpc.offer('any')['bolt12']
     b12 = l1.rpc.fetchinvoice(offer, '100000msat')['invoice']
     l1.rpc.xpay(b12)
@@ -627,15 +642,10 @@ def test_xpay_no_mpp(node_factory, chainparams):
     assert ret['amount_sent_msat'] == AMOUNT + AMOUNT // 100000 + 1
 
 
-@pytest.mark.parametrize("deprecations", [False, True])
-def test_xpay_bolt12_no_mpp(node_factory, chainparams, deprecations):
+def test_xpay_bolt12_no_mpp(node_factory, chainparams):
     """If we force it, we use MPP even if BOLT12 invoice doesn't say we should"""
     # l4 needs dev-allow-localhost so it considers itself to have an advertized address, and doesn't create a blinded path from l2/l4.
     opts = [{}, {}, {'dev-force-features': -17, 'dev-allow-localhost': None}, {}]
-    if deprecations is True:
-        for o in opts:
-            o['i-promise-to-fix-broken-api-user'] = 'xpay.ignore_bolt12_mpp'
-            o['broken_log'] = 'DEPRECATED API USED: xpay.ignore_bolt12_mpp'
 
     l1, l2, l3, l4 = node_factory.get_nodes(4, opts=opts)
     node_factory.join_nodes([l1, l2, l3], wait_for_announce=True)
@@ -656,12 +666,8 @@ def test_xpay_bolt12_no_mpp(node_factory, chainparams, deprecations):
 
     ret = l1.rpc.xpay(invl3['invoice'])
     assert ret['failed_parts'] == 0
-    if deprecations:
-        assert ret['successful_parts'] == 2
-        assert ret['amount_sent_msat'] == AMOUNT + AMOUNT // 100000 + 2
-    else:
-        assert ret['successful_parts'] == 1
-        assert ret['amount_sent_msat'] == AMOUNT + AMOUNT // 100000 + 1
+    assert ret['successful_parts'] == 1
+    assert ret['amount_sent_msat'] == AMOUNT + AMOUNT // 100000 + 1
     assert ret['amount_msat'] == AMOUNT
 
 
@@ -713,7 +719,7 @@ def test_fail_after_success(node_factory, bitcoind, executor, slow_mode):
     wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 10)
 
     inv = l5.rpc.invoice(800000000, 'test_xpay_slow_mode', 'test_xpay_slow_mode', preimage='00' * 32)['bolt11']
-    fut = executor.submit(l1.rpc.xpay, invstring=inv, retry_for=0)
+    fut = executor.submit(l1.rpc.xpay, invstring=inv, retry_for=0, dev_use_shadow=False)
 
     # Part via l3 is fine.  Part via l4 is stuck, so we kill l4 and mine
     # blocks to make l2 force close.
@@ -969,6 +975,47 @@ def test_xpay_offer(node_factory):
     l1.rpc.xpay(offer2, 5000)
 
 
+def test_xpay_circular_routehint(node_factory):
+    """Test that xpay gracefully skips a circular bolt11 routehint (src == dst)."""
+    l1, l2 = node_factory.line_graph(2)
+
+    # A routehint containing a same-node channel (example is l3 in this case)
+    circular_hint = [{'id': '03cecbfdc68544cc596223b68ce0710c9e5d2c9cb317ee07822d95079acc703d31',
+                      'short_channel_id': '1x2x3',
+                      'fee_base_msat': 0,
+                      'fee_proportional_millionths': 0,
+                      'cltv_expiry_delta': 6},
+                     {'id': '03cecbfdc68544cc596223b68ce0710c9e5d2c9cb317ee07822d95079acc703d31',
+                      'short_channel_id': '1x2x4',
+                      'fee_base_msat': 0,
+                      'fee_proportional_millionths': 0,
+                      'cltv_expiry_delta': 6}]
+    inv = l2.dev_invoice(amount_msat=10000,
+                         label='circular_hint',
+                         description='circular hint test',
+                         dev_routes=[circular_hint])
+
+    # Payment should still succeed via the direct channel.
+    ret = l1.rpc.xpay(inv['bolt11'])
+    assert ret['successful_parts'] == 1
+    l1.daemon.wait_for_log('Invoice gave bad self-node route')
+
+
+def test_xpay_currency_offer(node_factory):
+    """Test that xpay and sendamount correctly report the currency name when rejecting non-msat offers."""
+    plugin = Path(__file__).parent / "plugins" / "currencyUSDAUD5000.py"
+    l1, l2 = node_factory.line_graph(2, wait_for_announce=True,
+                                     opts=[{}, {'plugin': str(plugin)}])
+
+    offerusd = l2.rpc.offer('10USD', 'USD test')['bolt12']
+
+    with pytest.raises(RpcError, match=r"Cannot pay offer in different currency USD"):
+        l1.rpc.xpay(offerusd)
+
+    with pytest.raises(RpcError, match=r"Cannot pay offer in different currency USD"):
+        l1.rpc.sendamount(offerusd, '100sat')
+
+
 def test_xpay_bip353(node_factory):
     fakebip353_plugin = Path(__file__).parent / "plugins" / "fakebip353.py"
 
@@ -981,6 +1028,32 @@ def test_xpay_bip353(node_factory):
 
     node_factory.join_nodes([l2, l1])
     l2.rpc.xpay('fake@fake.com', 100)
+
+
+def test_xpay_shadow_cltv(node_factory, bitcoind):
+    """Shadow CLTV: dev_use_shadow=False gives exact CLTV; errors for offer/BIP353."""
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
+    scidd_21 = first_scidd(l2, l1)
+    scidd_23 = first_scidd(l2, l3)
+    scidd_32 = first_scidd(l3, l2)
+
+    # One in 4 chance that it adds two shadow routes...
+    i = 0
+    while True:
+        inv = l3.rpc.invoice('10000msat', f'with_shadow {i}', f'with shadow {i}')['bolt11']
+        l1.rpc.xpay(invstring=inv)
+        if l1.daemon.is_in_log(r'shadow #2: stopping'):
+            break
+        i += 1
+
+    # First one must be the one to l2.
+    assert l1.daemon.is_in_log(f"shadow #0: adding {scidd_32} to {l2.info['id']}")
+    # Second one could be back to l3 or to l1.
+    assert l1.daemon.is_in_log(f"shadow #1: adding {scidd_23} to {l3.info['id']}") or l1.daemon.is_in_log(f"shadow #1: adding {scidd_21} to {l1.info['id']}")
+
+    # Final cltv is 5, then two shadow hops and one padding.
+    expected_cltv = bitcoind.rpc.getblockchaininfo()['blocks'] + 5 + 1 + 6 * 2
+    assert l2.daemon.is_in_log(f"Adding HTLC .* amount=10000msat cltv={expected_cltv} gave CHANNEL_ERR_ADD_OK")
 
 
 def test_xpay_limited_max_accepted_htlcs(node_factory):
@@ -1062,12 +1135,268 @@ def test_xpay_blockheight_mismatch(node_factory, bitcoind, executor):
 
     # This will wait, then fail.
     with pytest.raises(RpcError, match=f'Timed out waiting for blockheight {l3_height}'):
-        l1.rpc.xpay(invstring=inv, retry_for=10)
+        l1.rpc.xpay(invstring=inv, retry_for=10, dev_use_shadow=False)
 
     # This will succeed, because we wait for the blocks.
-    fut = executor.submit(l1.rpc.xpay, invstring=inv, retry_for=60)
+    fut = executor.submit(l1.rpc.xpay, invstring=inv, retry_for=60, dev_use_shadow=False)
     l1.daemon.wait_for_log(fr"Our blockheight may be too low: waiting .* seconds for height {l3_height} \(we are at {l1_height}\)")
 
     # Now let it catch up, and it will retry, and succeed.
     l1.daemon.rpcproxy.mock_rpc('getblockhash')
     fut.result(TIMEOUT)
+
+
+def test_xpay_user_layers(node_factory):
+    l1, l2, l3, l4 = node_factory.get_nodes(
+        4, opts={"may_reconnect": True, "xpay-handle-pay": True}
+    )
+    node_factory.join_nodes([l1, l2, l3], wait_for_announce=True)
+    node_factory.join_nodes([l2, l4], wait_for_announce=True)
+
+    layer = "disable-chan23"
+    l1.rpc.askrene_create_layer(layer=layer, persistent=True)
+    scid = l2.rpc.listpeerchannels(l3.info["id"])["channels"][0]["short_channel_id"]
+    direction = l2.rpc.listpeerchannels(l3.info["id"])["channels"][0]["direction"]
+    l1.rpc.askrene_update_channel(
+        layer=layer, enabled=False, short_channel_id_dir=f"{scid}/{direction}"
+    )
+
+    layer = "disable-chan24"
+    l1.rpc.askrene_create_layer(layer=layer, persistent=True)
+    scid = l2.rpc.listpeerchannels(l4.info["id"])["channels"][0]["short_channel_id"]
+    direction = l2.rpc.listpeerchannels(l4.info["id"])["channels"][0]["direction"]
+    l1.rpc.askrene_update_channel(
+        layer=layer, enabled=False, short_channel_id_dir=f"{scid}/{direction}"
+    )
+
+    # Let us load these layers as user layers in xpay. Both payments should fail
+    l1.stop()
+    l1.daemon.opts["xpay-user-layer"] = ["disable-chan23", "disable-chan24"]
+    l1.start()
+    l1.rpc.connect(l2.info["id"], "localhost", l2.port)
+    l1.daemon.wait_for_log(f"channeld.*: billboard: Channel ready for use")
+    inv3 = l3.rpc.invoice(1000, "test-xpay-user-layer", "test-xpay-user-layer")[
+        "bolt11"
+    ]
+    with pytest.raises(
+        RpcError,
+        match="We could not find a usable set of paths. All 1 channels to the destination are disabled.",
+    ):
+        l1.rpc.pay(inv3)
+    inv4 = l4.rpc.invoice(1000, "test-xpay-user-layer", "test-xpay-user-layer")[
+        "bolt11"
+    ]
+    with pytest.raises(
+        RpcError,
+        match="We could not find a usable set of paths. All 1 channels to the destination are disabled.",
+    ):
+        l1.rpc.pay(inv4)
+
+    # Without those layers, the same payments should go through
+    l1.stop()
+    del l1.daemon.opts["xpay-user-layer"]
+    l1.start()
+    l1.rpc.connect(l2.info["id"], "localhost", l2.port)
+    l1.daemon.wait_for_log(f"channeld.*: billboard: Channel ready for use")
+    l1.rpc.pay(inv3)
+    l1.rpc.pay(inv4)
+
+
+def test_xpay_get_error_with_update(node_factory):
+    """We should process an update inside a temporary_channel_failure"""
+    l1, l2, l3 = node_factory.line_graph(3, opts={'log-level': 'io'}, fundchannel=True, wait_for_announce=True)
+    chanid2 = l2.get_channel_scid(l3)
+
+    inv = l3.rpc.invoice(123000, 'test_xpay_get_error_with_update', 'description')
+
+    # Make sure it's not doing startup any more (where it doesn't disable channels!)
+    l2.daemon.wait_for_log("channel_gossip: no longer in startup mode", timeout=70)
+
+    # Make sure l2 doesn't tell l1 directly that channel is disabled.
+    l2.rpc.dev_suppress_gossip()
+    l3.stop()
+
+    # Make sure that l2 has seen disconnect, considers channel disabled.
+    wait_for(lambda: only_one(l2.rpc.listpeerchannels(l3.info['id'])['channels'])['peer_connected'] is False)
+
+    assert(l1.is_channel_active(chanid2))
+
+    with pytest.raises(RpcError, match=r'temporary_channel_failure'):
+        l1.rpc.xpay(inv['bolt11'])
+
+    # Make sure we get an onionreply, without the type prefix of the nested
+    # channel_update, and it should patch it to include a type prefix. The
+    # prefix 0x0102 should be in the channel_update, but not in the
+    # onionreply (negation of 0x0102 in the RE)
+    l1.daemon.wait_for_log(rf'Got channel_update from error for {chanid2}/0: 0102')
+
+    # But this update is only for this one, not future ones!
+    time.sleep(5)
+    assert l1.is_channel_active(chanid2)
+
+
+def test_xpay_error_update_fees(node_factory):
+    """We should process an update inside a temporary_channel_failure"""
+    l1, l2, l3 = node_factory.line_graph(3, fundchannel=True, wait_for_announce=True)
+
+    # Don't include any routehints in first invoice.
+    inv1 = l3.dev_invoice(amount_msat=123000,
+                          label='test_xpay_error_update_fees',
+                          description='description',
+                          dev_routes=[])
+
+    inv2 = l3.rpc.invoice(123000, 'test_xpay_error_update_fees2', 'desc')
+    assert 'routes' not in l1.rpc.decode(inv1['bolt11'])
+    assert 'routes' in l1.rpc.decode(inv2['bolt11'])
+
+    # Make sure l2 doesn't tell l1 directly that channel fee is changed.
+    l2.rpc.dev_suppress_gossip()
+    l2.rpc.setchannel(l3.info['id'], 1337, 137, enforcedelay=0)
+
+    # Should bounce off and retry...
+    ret = l1.rpc.xpay(inv1['bolt11'])
+    assert ret["failed_parts"] == 1
+    assert ret["successful_parts"] == 1
+    l1.daemon.wait_for_log('We got fee_insufficient for .*, containing a channel_update: updating our map')
+
+    # This will have to do the same, since we don't remember such updates.  It will
+    # even fix the routehint which is (now) wrong.
+    ret = l1.rpc.xpay(inv2['bolt11'])
+    assert ret["failed_parts"] == 1
+    assert ret["successful_parts"] == 1
+    l1.daemon.wait_for_log('We got fee_insufficient for .*, containing a channel_update: updating our map')
+
+
+def test_error_messages(node_factory):
+    """Nicer error messages when we disable the only channel to the destination."""
+    plugin = os.path.join(os.path.dirname(__file__), 'plugins/replace_payload.py')
+    l1, l2 = node_factory.line_graph(
+        2,
+        opts=[{}, {"plugin": plugin}],
+        wait_for_announce=True
+    )
+
+    # Replace with an invalid payload.
+    l2.rpc.call('setpayload', ['0000'])
+    inv = l2.rpc.invoice(123, 'test_error_messages', 'test_error_messages')['bolt11']
+    scidd = first_scidd(l1, l2)
+    with pytest.raises(RpcError, match=rf"Failed after 1 attempts\. Unexpected error \(invalid_onion_payload\) from final node: disabling {scidd} for this payment\. Then routing failed: We could not find a usable set of paths\. All 1 channels to the source are disabled."):
+        l1.rpc.xpay(inv)
+
+
+def test_blinded_path_fees(node_factory):
+    """Test that we don't send the amount+fees to our direct peer (we should
+    only send the required amount) when the sending node is the entry point in
+    the blinded path."""
+    AMT_MSAT = 10000
+    FEES_MSAT = 5000
+    l1, l2 = node_factory.get_nodes(
+        2, opts={"may_reconnect": True, "fee-base": FEES_MSAT, "fee-per-satoshi": 0}
+    )
+    node_factory.join_nodes([l1, l2], wait_for_announce=True)
+
+    offer = l2.rpc.offer(amount="any", fronting_nodes=[l1.info["id"]])["bolt12"]
+    b12 = l1.rpc.fetchinvoice(offer, AMT_MSAT)["invoice"]
+
+    b12_decode = l1.rpc.decode(b12)
+    assert b12_decode["invoice_amount_msat"] == AMT_MSAT
+    assert len(b12_decode["invoice_paths"]) == 1
+    assert b12_decode["invoice_paths"][0]["first_node_id"] == l1.info["id"]
+    assert b12_decode["invoice_paths"][0]["payinfo"]["fee_base_msat"] == FEES_MSAT
+    assert b12_decode["invoice_paths"][0]["payinfo"]["fee_proportional_millionths"] == 0
+
+    ret = l1.rpc.xpay(invstring=b12)
+    assert ret["failed_parts"] == 0
+    assert ret["successful_parts"] == 1
+    assert ret["amount_msat"] == AMT_MSAT
+    assert ret["amount_sent_msat"] == AMT_MSAT
+
+    htlcs = l1.rpc.listhtlcs()["htlcs"]
+    assert len(htlcs) == 1
+    assert htlcs[0]["payment_hash"] == b12_decode["invoice_payment_hash"]
+    assert htlcs[0]["amount_msat"] == AMT_MSAT
+
+
+def test_sendamount(node_factory):
+    l1, l2, l3, l4 = node_factory.get_nodes(4)
+    node_factory.join_nodes([l1, l2, l3, l4], wait_for_announce=True)
+
+    # pay bolt11
+    b11 = l4.rpc.invoice("any", "test_sendamount_bolt11", "test_sendamount bolt11")[
+        "bolt11"
+    ]
+    ret = l1.rpc.sendamount(b11, "100sat")
+    assert ret["successful_parts"] == 1
+    assert ret["amount_sent_msat"] == 100000
+
+    # pay bolt12
+    b12 = l4.rpc.offer("any")["bolt12"]
+    ret = l1.rpc.sendamount(b12, "100sat")
+    assert ret["successful_parts"] == 1
+    assert ret["amount_sent_msat"] == 100000
+
+    # pay to self bolt11
+    b11 = l4.rpc.invoice(
+        "any", "test_sendamount_bolt11_self", "test_sendamount_bolt11_self"
+    )["bolt11"]
+    ret = l4.rpc.sendamount(b11, "100sat")
+    assert ret["successful_parts"] == 1
+    assert ret["amount_sent_msat"] == 100000
+
+    # pay to self bolt12
+    b12 = l4.rpc.offer("any")["bolt12"]
+    ret = l4.rpc.sendamount(b12, "100sat")
+    assert ret["successful_parts"] == 1
+    assert ret["amount_sent_msat"] == 100000
+
+    # pay bolt11 direct peer
+    b11 = l4.rpc.invoice(
+        "any", "test_sendamount_bolt11_direct", "test_sendamount bolt11_direct"
+    )["bolt11"]
+    ret = l3.rpc.sendamount(b11, "100sat")
+    assert ret["successful_parts"] == 1
+    assert ret["amount_sent_msat"] == 100000
+
+    # pay bolt12 direct peer
+    b12 = l4.rpc.offer("any")["bolt12"]
+    ret = l3.rpc.sendamount(b12, "100sat")
+    assert ret["successful_parts"] == 1
+    assert ret["amount_sent_msat"] == 100000
+
+    # cannot sendamount to bolt11 with fixed amount
+    b11 = l4.rpc.invoice(
+        "100sat", "test_sendamount_bolt11_fail", "test_sendamount bolt11_fail"
+    )["bolt11"]
+    with pytest.raises(RpcError, match=r"Expecting a Bolt11 invoice with no amount."):
+        ret = l1.rpc.sendamount(b11, "100sat")
+
+    # cannot sendamount to bolt12 offer with fixed amount
+    b12 = l4.rpc.offer("100sat", "test sendamount bolt12 offer fail")["bolt12"]
+    with pytest.raises(RpcError, match=r"Expecting an offer with no amount"):
+        ret = l1.rpc.sendamount(b12, "100sat")
+
+    # cannot sendamount to bolt12 invoice
+    offer = l4.rpc.offer("any")["bolt12"]
+    b12 = l1.rpc.fetchinvoice(offer, "100sat")["invoice"]
+    with pytest.raises(RpcError, match=r"Invalid bolt12 offer: unexpected prefix lni"):
+        ret = l1.rpc.sendamount(b12, "100sat")
+
+
+def test_sendamount_bip353(node_factory):
+    fakebip353_plugin = Path(__file__).parent / "plugins" / "fakebip353.py"
+
+    l1 = node_factory.get_node()
+    offer = l1.rpc.offer("any")["bolt12"]
+
+    l2 = node_factory.get_node(
+        options={
+            "disable-plugin": "cln-bip353",
+            "plugin": fakebip353_plugin,
+            "bip353offer": offer,
+        }
+    )
+
+    node_factory.join_nodes([l2, l1])
+    ret = l2.rpc.sendamount("fake@fake.com", "100sat")
+    assert ret["successful_parts"] == 1
+    assert ret["amount_sent_msat"] == 100000

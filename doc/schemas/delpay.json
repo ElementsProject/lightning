@@ -202,7 +202,7 @@
   "see_also": [
     "lightning-listpays(7)",
     "lightning-listsendpays(7)",
-    "lightning-paystatus(7)"
+    "lightning-xpay(7)"
   ],
   "resources": [
     "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"

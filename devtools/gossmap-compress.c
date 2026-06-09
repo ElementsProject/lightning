@@ -304,8 +304,7 @@ static void write_msg_to_gstore(int outfd, const u8 *msg TAKES)
 	    || !write_all(outfd, msg, tal_bytelen(msg))) {
 		err(1, "Writing gossip_store");
 	}
-	if (taken(msg))
-		tal_free(msg);
+	tal_free_if_taken(msg);
 }
 
 /* BOLT #7:

@@ -31,7 +31,7 @@ class Patch(ABC):
             elif isinstance(f, model.CompositeField):
                 for c in f.fields:
                     self.visit(c, f, inherited_added=inherited_added, inherited_deprecated=inherited_deprecated)
-                    recurse(c, inherited_added=inherited_added, inherited_deprecated=inherited_deprecated)
+                    recurse(c, inherited_added=c.added or f.added or inherited_added, inherited_deprecated=c.deprecated or f.deprecated or inherited_deprecated)
             # Now visit ourselves
 
         for m in service.methods:
@@ -50,6 +50,14 @@ class Patch(ABC):
                 root_deprecated = root_deprecated[0]
             recurse(n.request, inherited_added=root_added, inherited_deprecated=root_deprecated)
             recurse(n.response, inherited_added=root_added, inherited_deprecated=root_deprecated)
+        for h in service.hooks:
+            root_added = getattr(h.request, 'added', None) or getattr(h, 'added', None)
+            root_deprecated = getattr(h.request, 'deprecated', None) or getattr(h, 'deprecated', None)
+            if isinstance(root_deprecated, list):
+                assert len(root_deprecated) == 2
+                root_deprecated = root_deprecated[0]
+            recurse(h.request, inherited_added=root_added, inherited_deprecated=root_deprecated)
+            recurse(h.response, inherited_added=root_added, inherited_deprecated=root_deprecated)
 
 
 class VersionAnnotationPatch(Patch):
@@ -161,10 +169,6 @@ class OptionalPatch(Patch):
         if not f.required:
             f.optional = True
 
-        # Even if it's deprecated in future, reduce churn.
-        if f.deprecated:
-            f.optional = True
-
         # Set to optional if support has been added recently
         # This ensures generated code will run both on
         # newer and older versions of core lightning
@@ -174,6 +178,8 @@ class OptionalPatch(Patch):
         if parent is not None:
             if parent.added == f.added:
                 return
+            if f.deprecated and f.deprecated != parent.deprecated:
+                f.optional = True
 
         added = self.version_to_number(f.added)
         if added >= self.supported():
@@ -184,19 +190,6 @@ class OverridePatch(Patch):
     """Allows omitting some fields and overriding the type of fields based on configuration."""
 
     omit = [
-        "Decode.invoice_paths[]",
-        "Decode.invoice_paths[].payinfo",
-        "Decode.offer_paths[].path[]",
-        "Decode.offer_recurrence",
-        "Decode.unknown_invoice_request_tlvs[]",
-        "Decode.unknown_invoice_tlvs[]",
-        "Decode.unknown_offer_tlvs[]",
-        "ListClosedChannels.closedchannels[].channel_type",
-        "ListPeerChannels.channels[].channel_type",
-        "ListPeerChannels.channels[].features[]",
-        "ListPeerChannels.channels[].state_changes[]",
-        "ListPeers.peers[].channels[].state_changes[]",
-        "ListTransactions.transactions[].type[]",
         "ListConfigs.# version",
     ]
 
@@ -206,6 +199,7 @@ class OverridePatch(Patch):
     overrides = {
         "ListClosedChannels.closedchannels[].closer": "ChannelSide",
         "ListClosedChannels.closedchannels[].opener": "ChannelSide",
+        "ListClosedChannels.closedchannels[].channel_type.names[]": "ChannelTypeName",
         "ListFunds.channels[].state": "ChannelState",
         "ListPeerChannels.channels[].closer": "ChannelSide",
         "ListPeerChannels.channels[].opener": "ChannelSide",
@@ -229,6 +223,9 @@ class OverridePatch(Patch):
         "channel_state_changed.old_state": "ChannelState",
         "channel_state_changed.new_state": "ChannelState",
         "ListPeerChannels.channels[].state": "ChannelState",
+        "ListPeerChannels.channels[].state_changes[].old_state": "ChannelState",
+        "ListPeerChannels.channels[].state_changes[].new_state": "ChannelState",
+        "ListPeerChannels.channels[].channel_type.names[]": "ChannelTypeName",
         "Wait.htlcs.state": "HtlcState",
     }
 

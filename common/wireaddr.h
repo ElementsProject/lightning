@@ -60,8 +60,15 @@ enum addr_listen_announce {
 	ADDR_LISTEN_AND_ANNOUNCE = ADDR_LISTEN|ADDR_ANNOUNCE
 };
 
+enum fromwireaddr_ret {
+	FROMWIREADDR_MALFORMED,
+	FROMWIREADDR_UNKNOWN,
+	FROMWIREADDR_IGNORE,
+	FROMWIREADDR_OK,
+};
+
 void towire_wireaddr(u8 **pptr, const struct wireaddr *addr);
-bool fromwire_wireaddr(const u8 **cursor, size_t *max, struct wireaddr *addr);
+enum fromwireaddr_ret fromwire_wireaddr(const u8 **cursor, size_t *max, struct wireaddr *addr);
 
 enum addr_listen_announce fromwire_addr_listen_announce(const u8 **cursor,
 							size_t *max);

@@ -173,7 +173,8 @@ class GrpcGenerator(IGenerator):
 
         for i, v in self.enumerate_enum(typename_override(e.typename), e.variants):
             self.logger.debug(f"Generating enum variant {v}")
-            self.write(f"{prefix}\t{v.normalized()} = {i};\n", False)
+            depri = " [deprecated = true]" if e.deprecated else ""
+            self.write(f"{prefix}\t{v.normalized()} = {i}{depri};\n", False)
 
         self.write(f"""{prefix}}}\n""", False)
 
@@ -202,24 +203,25 @@ class GrpcGenerator(IGenerator):
                 continue
 
             opt = "optional " if f.optional and not (isinstance(f, PrimitiveField) and f.typename == "string_map") else ""
+            depri = " [deprecated = true]" if f.deprecated else ""
 
             if isinstance(f, ArrayField):
                 typename = f.override(
                     typemap.get(f.itemtype.typename, f.itemtype.typename)
                 )
-                self.write(f"\trepeated {typename} {f.normalized()} = {i};\n", False)
+                self.write(f"\trepeated {typename} {f.normalized()} = {i}{depri};\n", False)
             elif isinstance(f, PrimitiveField):
                 typename = f.override(typemap.get(f.typename, f.typename))
                 typename = typename_override(typename)
-                self.write(f"\t{opt}{typename} {f.normalized()} = {i};\n", False)
+                self.write(f"\t{opt}{typename} {f.normalized()} = {i}{depri};\n", False)
             elif isinstance(f, EnumField):
                 typename = f.override(f.typename)
                 typename = typename_override(typename)
-                self.write(f"\t{opt}{typename} {f.normalized()} = {i};\n", False)
+                self.write(f"\t{opt}{typename} {f.normalized()} = {i}{depri};\n", False)
             elif isinstance(f, CompositeField):
                 typename = f.override(f.typename)
                 typename = typename_override(typename)
-                self.write(f"\t{opt}{typename} {f.normalized()} = {i};\n", False)
+                self.write(f"\t{opt}{typename} {f.normalized()} = {i}{depri};\n", False)
 
         self.write(
             """}

@@ -1,0 +1,46 @@
+{
+  "$schema": "../../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "notification": "invoice_payment",
+  "title": "Notification for invoice payment",
+  "description": [
+    "The **invoice_payment** notification informs whenever an invoice is paid."
+  ],
+  "added": "pre-v0.10.1",
+  "request": {},
+  "response": {
+    "required": [
+      "msat",
+      "preimage",
+      "label"
+    ],
+    "properties": {
+      "msat": {
+        "type": "msat",
+        "description": [
+          "The amount paid for the invoice."
+        ]
+      },
+      "preimage": {
+        "type": "secret",
+        "description": [
+          "The payment preimage for the invoice."
+        ]
+      },
+      "outpoint": {
+        "type": "outpoint",
+        "description": [
+          "The onchain outpoint for a dual-funded or onchain invoice payment, if present."
+        ],
+        "added": "v23.11"
+      },
+      "label": {
+        "type": "string",
+        "description": [
+          "The label of the paid invoice."
+        ]
+      }
+    }
+  }
+}

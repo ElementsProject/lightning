@@ -27,7 +27,7 @@ void channel_set_owner(struct channel *channel, struct subd *owner)
 		subd_release_channel(old_owner, channel);
 }
 
-struct htlc_out *channel_has_htlc_out(struct channel *channel)
+struct htlc_out *channel_has_htlc_out(const struct channel *channel)
 {
 	struct htlc_out_map_iter outi;
 	struct htlc_out *hout;
@@ -43,7 +43,7 @@ struct htlc_out *channel_has_htlc_out(struct channel *channel)
 	return NULL;
 }
 
-struct htlc_in *channel_has_htlc_in(struct channel *channel)
+struct htlc_in *channel_has_htlc_in(const struct channel *channel)
 {
 	struct htlc_in_map_iter ini;
 	struct htlc_in *hin;
@@ -1088,6 +1088,14 @@ static void channel_fail_perm(struct channel *channel,
 				  why);
 	}
 
+	/* BOLT #5:
+	 * A node:
+	 *   - if a *local commitment transaction* has NOT ever contained a `to_local`
+	 *   or HTLC output:
+	 *     - MAY simply forget the channel.
+	 */
+	/* FIXME: We only implement a subset of this; we keep waiting
+	 * as long as it was finished opening. */
 	if (channel_state_open_uncommitted(channel->state)) {
 		delete_channel(channel, false);
 		return;
@@ -1249,8 +1257,7 @@ void channel_set_billboard(struct channel *channel, bool perm, const char *str)
 
 	if (str) {
 		*p = tal_fmt(channel, "%s:%s", channel_state_name(channel), str);
-		if (taken(str))
-			tal_free(str);
+		tal_free_if_taken(str);
 	}
 }
 
@@ -1303,10 +1310,32 @@ channel_scid_or_local_alias(const struct channel *chan)
 		return *chan->alias[LOCAL];
 }
 
+
+/* BOLT #4:
+ * An _intermediate hop_ MUST NOT, but the _final node_:
+ *...
+ *   - if it returns a `channel_update`:
+ *     - MUST set `short_channel_id` to the `short_channel_id` used
+ *       by the incoming onion.
+ */
+/* So, if the scid doesn't match (redirect or we chose an equivalent
+ * channel), we simply don't return an update. */
 const u8 *channel_update_for_error(const tal_t *ctx,
+				   const struct htlc_in *hin,
 				   struct channel *channel)
 {
-	/* FIXME: Call directly from callers */
+	if (!hin || !hin->payload || !hin->payload->forward_channel)
+		return NULL;
+
+	/* We shouldn't have forwarded to the channel if it wasn't
+	 * allowed to use that scid, so we can keep it simple here. */
+	if ((!channel->alias[LOCAL]
+	     || !short_channel_id_eq(*hin->payload->forward_channel, *channel->alias[LOCAL]))
+	    && (!channel->scid
+		|| !short_channel_id_eq(*hin->payload->forward_channel, *channel->scid))) {
+		return NULL;
+	}
+
 	return channel_gossip_update_for_error(ctx, channel);
 }
 

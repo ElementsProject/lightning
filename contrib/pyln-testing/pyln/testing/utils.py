@@ -82,7 +82,6 @@ SLOW_MACHINE = env("SLOW_MACHINE", "0") == "1"
 DEPRECATED_APIS = env("DEPRECATED_APIS", "0") == "1"
 TIMEOUT = int(env("TIMEOUT", 180 if SLOW_MACHINE else 60))
 EXPERIMENTAL_DUAL_FUND = env("EXPERIMENTAL_DUAL_FUND", "0") == "1"
-EXPERIMENTAL_SPLICING = env("EXPERIMENTAL_SPLICING", "0") == "1"
 GENERATE_EXAMPLES = env("GENERATE_EXAMPLES", "0") == "1"
 RUST = env("RUST", "0") == "1"
 
@@ -963,8 +962,6 @@ class LightningNode(object):
             self.daemon.opts["dev-no-reconnect"] = None
         if EXPERIMENTAL_DUAL_FUND:
             self.daemon.opts["experimental-dual-fund"] = None
-        if EXPERIMENTAL_SPLICING:
-            self.daemon.opts["experimental-splicing"] = None
         # Avoid test flakes cause by this option unless explicitly set.
         if self.cln_version >= "v24.11":
             self.daemon.opts.update({"autoconnect-seeker-peers": 0})
@@ -1366,7 +1363,7 @@ class LightningNode(object):
         start_time = time.time()
         while time.time() < start_time + timeout:
             try:
-                self.rpc.getroute(destination.info['id'], 1, 1)
+                self.single_route(destination.info['id'], 1)
                 return True
             except Exception:
                 time.sleep(1)
@@ -1386,19 +1383,9 @@ class LightningNode(object):
                     wait_for(lambda: len(self.rpc.listpeerchannels(peer["id"])['channels'][idx]['htlcs']) == 0)
 
     # This sends money to a directly connected peer
-    # if `route` is `True`, it can also send over the network.
-    def pay(self, dst, amt, label=None, route=False):
+    def pay(self, dst, amt, label=None):
         if not label:
             label = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(20))
-
-        if route is True:
-            invoice = dst.rpc.invoice(amt, label, "desc")
-            route = self.rpc.getroute(dst.info["id"], amt, riskfactor=0, fuzzpercent=0)
-            self.rpc.sendpay(route["route"], invoice["payment_hash"], payment_secret=invoice.get('payment_secret'))
-            result = self.rpc.waitsendpay(invoice["payment_hash"])
-            assert result.get('status') == 'complete'
-            self.wait_for_htlcs()
-            return
 
         # check we are connected
         dst_id = dst.info['id']
@@ -1430,6 +1417,16 @@ class LightningNode(object):
 
         # Make sure they're all settled, in case we quickly mine blocks!
         dst.wait_for_htlcs()
+
+    def single_route(self, node_id, amount_msat, cltv=9):
+        """Similar to the getroute() call (different output though!)"""
+        return only_one(self.rpc.getroutes(source=self.info['id'],
+                                           destination=node_id,
+                                           amount_msat=amount_msat,
+                                           layers=["auto.localchans", "auto.sourcefree"],
+                                           maxfee_msat=10000000,
+                                           final_cltv=cltv,
+                                           maxparts=1)['routes'])['path']
 
     # This helper sends all money to a peer until even 1 msat can't get through.
     def drain(self, peer):

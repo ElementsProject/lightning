@@ -1,0 +1,103 @@
+{
+  "$schema": "../../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "notification": "pay_part_start",
+  "title": "Notification for xpay part start",
+  "description": [
+    "The **pay_part_start** notification is emitted by the xpay plugin when a payment part begins."
+  ],
+  "added": "v25.09",
+  "request": {},
+  "response": {
+    "required": [
+      "payment_hash",
+      "groupid",
+      "partid",
+      "total_payment_msat",
+      "attempt_msat",
+      "hops"
+    ],
+    "properties": {
+      "payment_hash": {
+        "type": "hash",
+        "description": [
+          "The payment hash for the xpay invocation."
+        ]
+      },
+      "groupid": {
+        "type": "u64",
+        "description": [
+          "The xpay group identifier for the payment attempt."
+        ]
+      },
+      "partid": {
+        "type": "u64",
+        "description": [
+          "The identifier for this payment part."
+        ]
+      },
+      "total_payment_msat": {
+        "type": "msat",
+        "description": [
+          "The total payment amount for the xpay invocation."
+        ]
+      },
+      "attempt_msat": {
+        "type": "msat",
+        "description": [
+          "The amount this payment part attempts to deliver."
+        ]
+      },
+      "hops": {
+        "type": "array",
+        "description": [
+          "The route hops for this payment part."
+        ],
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "next_node",
+            "short_channel_id",
+            "direction",
+            "channel_in_msat",
+            "channel_out_msat"
+          ],
+          "properties": {
+            "next_node": {
+              "type": "pubkey",
+              "description": [
+                "The next node for this hop."
+              ]
+            },
+            "short_channel_id": {
+              "type": "short_channel_id",
+              "description": [
+                "The short channel id used for this hop."
+              ]
+            },
+            "direction": {
+              "type": "u32",
+              "description": [
+                "The direction within the short channel id."
+              ]
+            },
+            "channel_in_msat": {
+              "type": "msat",
+              "description": [
+                "The amount entering the hop."
+              ]
+            },
+            "channel_out_msat": {
+              "type": "msat",
+              "description": [
+                "The amount leaving the hop."
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}

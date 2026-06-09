@@ -10,6 +10,7 @@
 #include <common/bolt11_json.h>
 #include <common/bolt12_id.h>
 #include <common/bolt12_merkle.h>
+#include <common/bolt12_proof.h>
 #include <common/clock_time.h>
 #include <common/features.h>
 #include <common/gossmap.h>
@@ -27,6 +28,7 @@
 #include <plugins/offers_inv_hook.h>
 #include <plugins/offers_invreq_hook.h>
 #include <plugins/offers_offer.h>
+#include <plugins/offers_proof.h>
 #include <sodium.h>
 
 #define HEADER_LEN crypto_secretstream_xchacha20poly1305_HEADERBYTES
@@ -288,6 +290,19 @@ static struct command_result *onion_message_recv(struct command *cmd,
 			return res;
 	}
 
+	/* BOLT #4:
+	 * - otherwise (it is the final node):
+	 *   - if `path_id` is set and corresponds to a path the reader has previously published in a `reply_path`:
+	 *     - if the onion message is not a reply to that previous onion:
+	 *       - MUST ignore the onion message
+	 *   - otherwise (unknown or unset `path_id`):
+	 *     - if the onion message is a reply to an onion message which contained a `path_id`:
+	 *       - MUST respond (or not respond) exactly as if it did not send the initial onion message.
+	 */
+	/* FIXME: Technically, we don't meet the first half of this: we
+	 * always do parsing and sanity checking before checking the
+	 * secret (thus the path_id).  But we ignore it *after* that.
+	 */
 	replytok = json_get_member(buf, om, "reply_blindedpath");
 	if (replytok) {
 		reply_path = json_to_blinded_path(cmd, buf, replytok);
@@ -320,6 +335,7 @@ struct find_best_peer_data {
 				     const struct chaninfo *,
 				     void *);
 	u64 needed_features;
+	const struct amount_msat *amount;
 	const struct pubkey *fronting_nodes;
 	void *arg;
 };
@@ -395,6 +411,11 @@ static struct command_result *listincoming_done(struct command *cmd,
 		if (!enabled)
 			continue;
 
+		/* Make sure it can pay us what we need (misleadingly,
+		 * listincoming caps "htlc_max_msat" at "receivable") */
+		if (data->amount && amount_msat_less(ci.htlc_max, *data->amount))
+			continue;
+
 		/* Not presented if there's no channel_announcement for peer:
 		 * we could use listpeers, but if it's private we probably
 		 * don't want to blinded route through it! */
@@ -425,6 +446,7 @@ static struct command_result *listincoming_done(struct command *cmd,
 
 struct command_result *find_best_peer_(struct command *cmd,
 				       u64 needed_features,
+				       const struct amount_msat *amount,
 				       const struct pubkey *fronting_nodes,
 				       struct command_result *(*cb)(struct command *,
 								    const struct chaninfo *,
@@ -435,6 +457,7 @@ struct command_result *find_best_peer_(struct command *cmd,
 	struct find_best_peer_data *data = tal(cmd, struct find_best_peer_data);
 	data->cb = cb;
 	data->arg = arg;
+	data->amount = tal_dup_or_null(data, struct amount_msat, amount);
 	data->needed_features = needed_features;
 	if (fronting_nodes)
 		data->fronting_nodes = tal_dup_talarr(data, struct pubkey, fronting_nodes);
@@ -489,11 +512,13 @@ struct decodable {
 	struct tlv_offer *offer;
 	struct tlv_invoice *invoice;
 	struct tlv_invoice_request *invreq;
+	struct tlv_payer_proof *payer_proof;
 	struct rune *rune;
 	u8 *emergency_recover;
 };
 
-static u8 *encrypted_decode(const tal_t *ctx, const char *str, char **fail) {
+static u8 *encrypted_decode(const tal_t *ctx, const char *str, const char **fail)
+{
 	if (strlen(str) < 8) {
 		*fail = tal_fmt(ctx, "invalid payload");
 		return NULL;
@@ -517,7 +542,10 @@ static u8 *encrypted_decode(const tal_t *ctx, const char *str, char **fail) {
 		goto fail;
 	}
 	u8 *data8bit = tal_arr(data, u8, 0);
-	bech32_pull_bits(&data8bit, data, datalen*5);
+	if (!bech32_pull_bits(&data8bit, data, datalen*5)) {
+		*fail = tal_fmt(ctx, "invalid bech32 padding");
+		goto fail;
+	}
 
 	return data8bit;
 fail:
@@ -529,6 +557,7 @@ enum likely_type {
 	LIKELY_BOLT12_OFFER,
 	LIKELY_BOLT12_INV,
 	LIKELY_BOLT12_INVREQ,
+	LIKELY_BOLT12_PAYER_PROOF,
 	LIKELY_EMERGENCY_RECOVER,
 	LIKELY_BOLT11,
 	LIKELY_OTHER,
@@ -556,6 +585,8 @@ static enum likely_type guess_type(const char *buffer, const jsmntok_t *tok)
 		return LIKELY_BOLT12_INV;
 	if (tok_pull(buffer, &tok_copy, "lnr1"))
 		return LIKELY_BOLT12_INVREQ;
+	if (tok_pull(buffer, &tok_copy, "lnp1"))
+		return LIKELY_BOLT12_PAYER_PROOF;
 	if (tok_pull(buffer, &tok_copy, "clnemerg1"))
 		return LIKELY_EMERGENCY_RECOVER;
 	/* BOLT #11:
@@ -616,7 +647,7 @@ static struct command_result *param_decodable(struct command *cmd,
 					      const jsmntok_t *token,
 					      struct decodable *decodable)
 {
-	char *likely_fail = NULL, *fail;
+	const char *likely_fail = NULL, *fail;
 	jsmntok_t tok;
 	enum likely_type type;
 
@@ -659,6 +690,15 @@ static struct command_result *param_decodable(struct command *cmd,
 					      ? &likely_fail : &fail);
 	if (decodable->invreq) {
 		decodable->type = "bolt12 invoice_request";
+		return NULL;
+	}
+
+	decodable->payer_proof = payer_proof_decode(cmd, buffer + tok.start,
+						    tok.end - tok.start,
+						    type == LIKELY_BOLT12_PAYER_PROOF
+						    ? &likely_fail : &fail);
+	if (decodable->payer_proof) {
+		decodable->type = "bolt12 payer_proof";
 		return NULL;
 	}
 
@@ -754,6 +794,10 @@ static bool json_add_blinded_paths(struct command *cmd,
 				     blindedpay[i]->fee_proportional_millionths);
 			json_add_u32(js, "cltv_expiry_delta",
 				     blindedpay[i]->cltv_expiry_delta);
+			json_add_amount_msat(js, "htlc_minimum_msat",
+					     blindedpay[i]->htlc_minimum_msat);
+			json_add_amount_msat(js, "htlc_maximum_msat",
+					     blindedpay[i]->htlc_maximum_msat);
 			json_add_hex_talarr(js, "features", blindedpay[i]->features);
 			json_object_end(js);
 		}
@@ -828,10 +872,12 @@ static void json_add_recurrence(struct json_stream *js,
 				const struct recurrence *offer_recurrence,
 				const struct recurrence_paywindow *offer_recurrence_paywindow,
 				const u32 *offer_recurrence_limit,
-				const struct recurrence_base *offer_recurrence_base)
+				const struct recurrence_base *offer_recurrence_base,
+				bool compulsory)
 {
 	const char *name;
 	json_object_start(js, fieldname);
+	json_add_bool(js, "compulsory_field", compulsory);
 	json_add_num(js, "time_unit", offer_recurrence->time_unit);
 	name = recurrence_time_unit_name(offer_recurrence->time_unit);
 	if (name)
@@ -925,17 +971,19 @@ static bool json_add_offer_fields(struct command *cmd,
 		json_add_u64(js, "offer_quantity_max", *offer_quantity_max);
 
 	if (offer_recurrence_compulsory)
-		json_add_recurrence(js, "offer_recurrence_compulsory",
+		json_add_recurrence(js, "offer_recurrence",
 				    offer_recurrence_compulsory,
 				    offer_recurrence_paywindow,
 				    offer_recurrence_limit,
-				    offer_recurrence_base);
+				    offer_recurrence_base,
+				    true);
 	if (offer_recurrence_optional)
-		json_add_recurrence(js, "offer_recurrence_optional",
+		json_add_recurrence(js, "offer_recurrence",
 				    offer_recurrence_optional,
 				    offer_recurrence_paywindow,
 				    offer_recurrence_limit,
-				    offer_recurrence_base);
+				    offer_recurrence_base,
+				    false);
 
 	if (offer_issuer_id)
 		json_add_pubkey(js, "offer_issuer_id", offer_issuer_id);
@@ -1017,7 +1065,8 @@ static bool json_add_invreq_fields(struct command *cmd,
 				   struct blinded_path **invreq_paths,
 				   struct bip_353_name *bip353,
 				   const u32 *invreq_recurrence_counter,
-				   const u32 *invreq_recurrence_start)
+				   const u32 *invreq_recurrence_start,
+				   const struct tlv_invoice_request_invreq_recurrence_cancel *invreq_recurrence_cancel)
 {
 	bool valid = true;
 
@@ -1087,6 +1136,25 @@ static bool json_add_invreq_fields(struct command *cmd,
 		if (invreq_recurrence_start)
 			json_add_u32(js, "invreq_recurrence_start",
 				     *invreq_recurrence_start);
+	}
+
+	if (invreq_recurrence_cancel) {
+		json_add_bool(js, "invreq_recurrence_cancel", true);
+		/* BOLT-recurrence #12:
+		 * - if `offer_recurrence_optional` or `offer_recurrence_compulsory` are present:
+		 *...
+		 *   - if `invreq_recurrence_counter` is zero (initial request):
+		 *     - MUST reject the invoice request if there is a `invreq_recurrence_cancel` field.
+		 */
+		if (!invreq_recurrence_counter) {
+			valid = false;
+			json_add_string(js, "warning_invreq_recurrence_cancel_without_counter",
+					"invreq_recurrence_cancel is invalid without invreq_recurrence_counter");
+		} else if (*invreq_recurrence_counter == 0) {
+			valid = false;
+			json_add_string(js, "warning_invreq_recurrence_cancel_with_zero_counter",
+					"invreq_recurrence_cancel is invalid with invreq_recurrence_counter zero");
+		}
 	}
 
 	return valid;
@@ -1206,7 +1274,8 @@ static void json_add_invoice_request(struct command *cmd,
 					invreq->invreq_paths,
 					invreq->invreq_bip_353_name,
 					invreq->invreq_recurrence_counter,
-					invreq->invreq_recurrence_start);
+					invreq->invreq_recurrence_start,
+					invreq->invreq_recurrence_cancel);
 
 	/* BOLT #12:
 	 *   - MUST reject the invoice request if `invreq_payer_id` or `invreq_metadata` are not present.
@@ -1243,6 +1312,58 @@ static void json_add_invoice_request(struct command *cmd,
 
 	json_add_extra_fields(js, "unknown_invoice_request_tlvs", invreq->fields);
 	json_add_bool(js, "valid", valid);
+}
+
+static bool json_add_invoice_fields(struct command *cmd,
+				    struct json_stream *js,
+				    struct blinded_path **invoice_paths,
+				    struct blinded_payinfo **invoice_blindedpay,
+				    const u64 *invoice_created_at,
+				    const u32 *invoice_relative_expiry,
+				    const struct sha256 *invoice_payment_hash,
+				    const u64 *invoice_amount,
+				    struct fallback_address **invoice_fallbacks,
+				    const u8 *invoice_features,
+				    const struct pubkey *invoice_node_id,
+				    const struct bitcoin_blkid *invreq_chain,
+				    const u64 *invoice_recurrence_basetime)
+{
+	bool valid = true;
+
+	if (invoice_paths)
+		valid &= json_add_blinded_paths(cmd, js, "invoice_paths",
+						invoice_paths, invoice_blindedpay);
+
+	if (invoice_created_at)
+		json_add_u64(js, "invoice_created_at", *invoice_created_at);
+
+	if (invoice_relative_expiry)
+		json_add_u32(js, "invoice_relative_expiry",
+			     *invoice_relative_expiry);
+
+	if (invoice_payment_hash)
+		json_add_sha256(js, "invoice_payment_hash",
+				invoice_payment_hash);
+
+	if (invoice_amount)
+		json_add_amount_msat(js, "invoice_amount_msat",
+				     amount_msat(*invoice_amount));
+
+	if (invoice_fallbacks)
+		valid &= json_add_fallbacks(js, invreq_chain,
+					    invoice_fallbacks);
+
+	if (invoice_features)
+		json_add_hex_talarr(js, "invoice_features", invoice_features);
+
+	if (invoice_node_id)
+		json_add_pubkey(js, "invoice_node_id", invoice_node_id);
+
+	if (invoice_recurrence_basetime)
+		json_add_u64(js, "invoice_recurrence_basetime",
+			     *invoice_recurrence_basetime);
+
+	return valid;
 }
 
 static void json_add_b12_invoice(struct command *cmd,
@@ -1287,7 +1408,8 @@ static void json_add_b12_invoice(struct command *cmd,
 					invoice->invreq_paths,
 					invoice->invreq_bip_353_name,
 					invoice->invreq_recurrence_counter,
-					invoice->invreq_recurrence_start);
+					invoice->invreq_recurrence_start,
+					NULL);
 
 	/* BOLT #12:
 	 * - MUST reject the invoice if `invoice_paths` is not present
@@ -1297,24 +1419,17 @@ static void json_add_b12_invoice(struct command *cmd,
 	 * - MUST reject the invoice if `invoice_blindedpay` does not contain
 	 *   exactly one `blinded_payinfo` per `invoice_paths`.`blinded_path`.
 	 */
-	if (invoice->invoice_paths) {
-		if (!invoice->invoice_blindedpay) {
-			json_add_string(js, "warning_missing_invoice_blindedpay",
-					"invoices with paths without blindedpay are invalid");
-			valid = false;
-		}
-		valid &= json_add_blinded_paths(cmd, js, "invoice_paths",
-						invoice->invoice_paths,
-						invoice->invoice_blindedpay);
-	} else {
+	if (!invoice->invoice_paths) {
 		json_add_string(js, "warning_missing_invoice_paths",
 				"invoices without a invoice_paths are invalid");
 		valid = false;
+	} else if (!invoice->invoice_blindedpay) {
+		json_add_string(js, "warning_missing_invoice_blindedpay",
+				"invoices with paths without blindedpay are invalid");
+		valid = false;
 	}
 
-	if (invoice->invoice_created_at) {
-		json_add_u64(js, "invoice_created_at", *invoice->invoice_created_at);
-	} else {
+	if (!invoice->invoice_created_at) {
 		json_add_string(js, "warning_missing_invoice_created_at",
 				"invoices without created_at are invalid");
 		valid = false;
@@ -1329,14 +1444,7 @@ static void json_add_b12_invoice(struct command *cmd,
 	 *   - MUST reject the invoice if the current time since 1970-01-01 UTC
 	 *     is greater than `invoice_created_at` plus 7200.
 	 */
-	if (invoice->invoice_relative_expiry)
-		json_add_u32(js, "invoice_relative_expiry", *invoice->invoice_relative_expiry);
-	else
-		json_add_u32(js, "invoice_relative_expiry", BOLT12_DEFAULT_REL_EXPIRY);
-
-	if (invoice->invoice_payment_hash)
-		json_add_sha256(js, "invoice_payment_hash", invoice->invoice_payment_hash);
-	else {
+	if (!invoice->invoice_payment_hash) {
 		json_add_string(js, "warning_missing_invoice_payment_hash",
 				"invoices without a payment_hash are invalid");
 		valid = false;
@@ -1345,26 +1453,13 @@ static void json_add_b12_invoice(struct command *cmd,
 	/* BOLT #12:
 	 * - MUST reject the invoice if `invoice_amount` is not present.
 	 */
-	if (invoice->invoice_amount)
-		json_add_amount_msat(js, "invoice_amount_msat",
-				     amount_msat(*invoice->invoice_amount));
-	else {
+	if (!invoice->invoice_amount) {
 		json_add_string(js, "warning_missing_invoice_amount",
 				"invoices without an amount are invalid");
 		valid = false;
 	}
 
-	if (invoice->invoice_fallbacks)
-		valid &= json_add_fallbacks(js,
-					    invoice->invreq_chain,
-					    invoice->invoice_fallbacks);
-
-	if (invoice->invoice_features)
-		json_add_hex_talarr(js, "invoice_features", invoice->invoice_features);
-
-	if (invoice->invoice_node_id)
-		json_add_pubkey(js, "invoice_node_id", invoice->invoice_node_id);
-	else {
+	if (!invoice->invoice_node_id) {
 		json_add_string(js, "warning_missing_invoice_node_id",
 				"invoices without an invoice_node_id are invalid");
 		valid = false;
@@ -1374,22 +1469,145 @@ static void json_add_b12_invoice(struct command *cmd,
 	 * - if `offer_recurrence_optional` or `offer_recurrence_compulsory` are present:
 	 *   - MUST reject the invoice if `invoice_recurrence_basetime` is not present.
 	 */
-	if (invoice_recurrence(invoice)) {
-		if (invoice->invoice_recurrence_basetime)
-			json_add_u64(js, "invoice_recurrence_basetime",
-				     *invoice->invoice_recurrence_basetime);
-		else {
-			json_add_string(js, "warning_missing_invoice_recurrence_basetime",
-					"recurring invoices without a recurrence_basetime are invalid");
-			valid = false;
-		}
+	if (invoice_recurrence(invoice) && !invoice->invoice_recurrence_basetime) {
+		json_add_string(js, "warning_missing_invoice_recurrence_basetime",
+				"recurring invoices without a recurrence_basetime are invalid");
+		valid = false;
 	}
+
+	/* invoice_relative_expiry defaults to 7200 if not present */
+	u32 expiry = invoice->invoice_relative_expiry
+		? *invoice->invoice_relative_expiry
+		: BOLT12_DEFAULT_REL_EXPIRY;
+	valid &= json_add_invoice_fields(cmd, js,
+					 invoice->invoice_paths,
+					 invoice->invoice_blindedpay,
+					 invoice->invoice_created_at,
+					 &expiry,
+					 invoice->invoice_payment_hash,
+					 invoice->invoice_amount,
+					 invoice->invoice_fallbacks,
+					 invoice->invoice_features,
+					 invoice->invoice_node_id,
+					 invoice->invreq_chain,
+					 invoice_recurrence(invoice)
+					 ? invoice->invoice_recurrence_basetime
+					 : NULL);
 
 	/* invoice_decode checked this */
 	json_add_bip340sig(js, "signature", invoice->signature);
 
 	json_add_extra_fields(js, "unknown_invoice_tlvs", invoice->fields);
 	json_add_bool(js, "valid", valid);
+}
+
+static void json_add_payer_proof(struct json_stream *js,
+				 const struct tlv_payer_proof *proof)
+{
+	/* Selectively-disclosed offer fields */
+	if (proof->offer_chains)
+		json_add_chains(js, "offer_chains", proof->offer_chains);
+	if (proof->offer_metadata)
+		json_add_hex_talarr(js, "offer_metadata", proof->offer_metadata);
+	if (proof->offer_currency) {
+		const struct iso4217_name_and_divisor *iso4217;
+		json_add_utf8(js, "offer_currency", proof->offer_currency);
+		if (proof->offer_amount)
+			json_add_u64(js, "offer_amount", *proof->offer_amount);
+		iso4217 = find_iso4217(proof->offer_currency,
+				       tal_bytelen(proof->offer_currency));
+		if (iso4217)
+			json_add_num(js, "currency_minor_unit", iso4217->minor_unit);
+	} else if (proof->offer_amount)
+		json_add_amount_msat(js, "offer_amount_msat",
+				     amount_msat(*proof->offer_amount));
+	if (proof->offer_description)
+		json_add_utf8(js, "offer_description", proof->offer_description);
+	if (proof->offer_features)
+		json_add_hex_talarr(js, "offer_features", proof->offer_features);
+	if (proof->offer_absolute_expiry)
+		json_add_u64(js, "offer_absolute_expiry",
+			     *proof->offer_absolute_expiry);
+	if (proof->offer_paths)
+		json_add_blinded_paths(NULL, js, "offer_paths",
+				       proof->offer_paths, NULL);
+	if (proof->offer_issuer)
+		json_add_utf8(js, "offer_issuer", proof->offer_issuer);
+	if (proof->offer_quantity_max)
+		json_add_u64(js, "offer_quantity_max", *proof->offer_quantity_max);
+	if (proof->offer_issuer_id)
+		json_add_pubkey(js, "offer_issuer_id", proof->offer_issuer_id);
+
+	/* Selectively-disclosed invreq fields */
+	if (proof->invreq_chain)
+		json_add_sha256(js, "invreq_chain",
+				&proof->invreq_chain->shad.sha);
+	if (proof->invreq_amount)
+		json_add_amount_msat(js, "invreq_amount_msat",
+				     amount_msat(*proof->invreq_amount));
+	if (proof->invreq_features)
+		json_add_hex_talarr(js, "invreq_features",
+				    proof->invreq_features);
+	if (proof->invreq_quantity)
+		json_add_u64(js, "invreq_quantity", *proof->invreq_quantity);
+	if (proof->invreq_payer_id)
+		json_add_pubkey(js, "invreq_payer_id", proof->invreq_payer_id);
+	if (proof->invreq_payer_note)
+		json_add_utf8(js, "invreq_payer_note", proof->invreq_payer_note);
+	if (proof->invreq_paths)
+		json_add_blinded_paths(NULL, js, "invreq_paths",
+				       proof->invreq_paths, NULL);
+	if (proof->invreq_bip_353_name) {
+		json_object_start(js, "invreq_bip_353_name");
+		json_add_str_fmt(js, "name", "%.*s",
+				 (int)tal_bytelen(proof->invreq_bip_353_name->name),
+				 (char *)proof->invreq_bip_353_name->name);
+		json_add_str_fmt(js, "domain", "%.*s",
+				 (int)tal_bytelen(proof->invreq_bip_353_name->domain),
+				 (char *)proof->invreq_bip_353_name->domain);
+		json_object_end(js);
+	}
+
+	/* Selectively-disclosed invoice fields */
+	json_add_invoice_fields(NULL, js,
+				proof->invoice_paths,
+				proof->invoice_blindedpay,
+				proof->invoice_created_at,
+				proof->invoice_relative_expiry,
+				proof->invoice_payment_hash,
+				proof->invoice_amount,
+				proof->invoice_fallbacks,
+				proof->invoice_features,
+				proof->invoice_node_id,
+				proof->invreq_chain,
+				NULL);
+
+	/* Required proof fields */
+	json_add_bip340sig(js, "signature", proof->signature);
+	json_add_preimage(js, "proof_preimage", proof->proof_preimage);
+
+	/* Merkle support fields */
+	json_array_start(js, "proof_omitted_tlvs");
+	for (size_t i = 0; i < tal_count(proof->proof_omitted_tlvs); i++)
+		json_add_u64(js, NULL, proof->proof_omitted_tlvs[i]);
+	json_array_end(js);
+
+	json_array_start(js, "proof_missing_hashes");
+	for (size_t i = 0; i < tal_count(proof->proof_missing_hashes); i++)
+		json_add_sha256(js, NULL, &proof->proof_missing_hashes[i]);
+	json_array_end(js);
+
+	json_array_start(js, "proof_leaf_hashes");
+	for (size_t i = 0; i < tal_count(proof->proof_leaf_hashes); i++)
+		json_add_sha256(js, NULL, &proof->proof_leaf_hashes[i]);
+	json_array_end(js);
+
+	if (proof->proof_note)
+		json_add_utf8(js, "proof_note", proof->proof_note);
+	json_add_bip340sig(js, "proof_signature", proof->proof_signature);
+
+	json_add_extra_fields(js, "unknown_payer_proof_tlvs", proof->fields);
+	json_add_bool(js, "valid", true);
 }
 
 static void json_add_rune(struct command *cmd, struct json_stream *js, const struct rune *rune)
@@ -1627,6 +1845,8 @@ static struct command_result *json_decode(struct command *cmd,
 		json_add_invoice_request(cmd, response, decodable->invreq);
 	if (decodable->invoice)
 		json_add_b12_invoice(cmd, response, decodable->invoice);
+	if (decodable->payer_proof)
+		json_add_payer_proof(response, decodable->payer_proof);
 	if (decodable->b11) {
 		/* The bolt11 decoder simply refuses to decode bad invs. */
 		json_add_bolt11(response, decodable->b11);
@@ -1734,6 +1954,10 @@ static const struct plugin_command commands[] = {
     {
 	    "cancelrecurringinvoice",
 	    json_cancelrecurringinvoice,
+    },
+    {
+	    "createproof",
+	    json_createproof,
     },
     {
 	    "dev-rawrequest",

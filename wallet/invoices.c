@@ -278,10 +278,8 @@ bool invoices_create(struct invoices *invoices,
 	u64 now = clock_time().ts.tv_sec;
 
 	if (invoices_find_by_label(invoices, inv_dbid, label)) {
-		if (taken(msat))
-			tal_free(msat);
-		if (taken(label))
-			tal_free(label);
+		tal_free_if_taken(msat);
+		tal_free_if_taken(label);
 		return false;
 	}
 
@@ -335,10 +333,8 @@ bool invoices_create(struct invoices *invoices,
 		install_expiration_timer(invoices);
 	}
 
-	if (taken(msat))
-		tal_free(msat);
-	if (taken(label))
-		tal_free(label);
+	tal_free_if_taken(msat);
+	tal_free_if_taken(label);
 	return true;
 }
 

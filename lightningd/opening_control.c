@@ -156,12 +156,11 @@ wallet_commit_channel(struct lightningd *ld,
 	 * 2. data:
 	 *     * [`channel_id`:`channel_id`]
 	 *     * [`signature`:`signature`]
-	 *
+	 *...
 	 * #### Requirements
 	 *
 	 * Both peers:
-	 * ...
-	 * - MUST use that `channel_type` for all commitment transactions.
+	 * - MUST use the negotiated `channel_type` for all commitment transactions.
 	 */
 	/* i.e. We set it now for the channel permanently. */
 	if (channel_type_has(type, OPT_STATIC_REMOTEKEY))
@@ -872,6 +871,16 @@ static void opening_got_offer(struct subd *openingd,
 		return;
 	}
 
+	/* Don't allow opening if we don't know any fees; even if
+	 * ignore-feerates is set. */
+	if (unknown_feerates(openingd->ld->topology)) {
+		subd_send_msg(openingd,
+			      take(towire_openingd_got_offer_reply(NULL, "Cannot accept channel: feerates unknown",
+								   NULL, NULL, NULL, 0)));
+		tal_free(payload);
+		return;
+	}
+
 	tal_add_destructor2(openingd, openchannel_payload_remove_openingd, payload);
 	plugin_hook_call_openchannel(openingd->ld, NULL, payload);
 }
@@ -1084,6 +1093,18 @@ static struct command_result *json_fundchannel_complete(struct command *cmd,
 				    funding_psbt->outputs
 				    [*funding_txout_num].amount,
 				    fmt_amount_sat(tmpctx, fc->funding_sats));
+
+	/* Unsigned non-segwit inputs have malleable txids. */
+	for (size_t i = 0; i < funding_psbt->num_inputs; i++) {
+		struct wally_psbt_input *in = &funding_psbt->inputs[i];
+		if (!in->witness_utxo
+		    && !wally_map_get_integer(&in->psbt_fields,
+					      /* PSBT_IN_FINAL_SCRIPTSIG */ 0x07))
+			return command_fail(cmd, FUNDING_PSBT_INVALID,
+					    "Input %zu is non-segwit and unsigned:"
+					    " txid is unknown until signed",
+					    i);
+	}
 
 	funding_txid = tal(cmd, struct bitcoin_txid);
 	psbt_txid(NULL, funding_psbt, funding_txid, NULL);

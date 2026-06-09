@@ -1,0 +1,206 @@
+{
+  "$schema": "../../rpc-schema-draft.json",
+  "type": "object",
+  "additionalProperties": false,
+  "notification": "sendpay_failure",
+  "title": "Notification for failed sendpay completion",
+  "description": [
+    "The **sendpay_failure** notification informs whenever a payment attempt completes with failed status."
+  ],
+  "added": "pre-v0.10.1",
+  "request": {},
+  "response": {
+    "required": [
+      "code",
+      "message",
+      "data"
+    ],
+    "properties": {
+      "code": {
+        "type": "integer",
+        "description": [
+          "The JSON-RPC error code for the payment failure."
+        ]
+      },
+      "message": {
+        "type": "string",
+        "description": [
+          "The human-readable payment failure message."
+        ]
+      },
+      "data": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": [
+          "The structured payment failure details."
+        ],
+        "properties": {
+          "created_index": {
+            "type": "u64",
+            "description": [
+              "1-based index indicating order this payment was created in."
+            ],
+            "added": "v23.11"
+          },
+          "id": {
+            "type": "u64",
+            "description": [
+              "Old synonym for created_index."
+            ]
+          },
+          "payment_hash": {
+            "type": "hash",
+            "description": [
+              "The hash of the payment preimage."
+            ]
+          },
+          "groupid": {
+            "type": "u64",
+            "description": [
+              "Grouping key for multiple attempts on the same payment."
+            ]
+          },
+          "updated_index": {
+            "type": "u64",
+            "description": [
+              "1-based index indicating order this payment was updated in."
+            ],
+            "added": "v23.11"
+          },
+          "partid": {
+            "type": "u64",
+            "description": [
+              "Part number for a multi-part payment."
+            ]
+          },
+          "destination": {
+            "type": "pubkey",
+            "description": [
+              "The final destination of the payment, if known."
+            ]
+          },
+          "amount_msat": {
+            "type": "msat",
+            "description": [
+              "The amount intended for the destination, if known."
+            ]
+          },
+          "amount_sent_msat": {
+            "type": "msat",
+            "description": [
+              "The total amount sent including fees."
+            ]
+          },
+          "created_at": {
+            "type": "u64",
+            "description": [
+              "The UNIX timestamp when this payment was initiated."
+            ]
+          },
+          "completed_at": {
+            "type": "u64",
+            "description": [
+              "The UNIX timestamp when this payment completed."
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "failed",
+              "pending",
+              "complete"
+            ],
+            "description": [
+              "The terminal status for a failed sendpay notification."
+            ]
+          },
+          "payment_preimage": {
+            "type": "secret",
+            "description": [
+              "The payment preimage, if the payment later completed through another path."
+            ]
+          },
+          "label": {
+            "type": "string",
+            "description": [
+              "The optional label associated with the payment."
+            ]
+          },
+          "bolt11": {
+            "type": "string",
+            "description": [
+              "The bolt11 invoice string, if present."
+            ]
+          },
+          "bolt12": {
+            "type": "string",
+            "description": [
+              "The bolt12 invoice or offer string, if present."
+            ],
+            "added": "v24.02"
+          },
+          "description": {
+            "type": "string",
+            "description": [
+              "The description associated with the payment, if present."
+            ]
+          },
+          "erroronion": {
+            "type": "hex",
+            "description": [
+              "The raw error onion if one was retained for the payment."
+            ]
+          },
+          "onionreply": {
+            "type": "hex",
+            "description": [
+              "The onion reply for an unparseable onion failure."
+            ]
+          },
+          "erring_index": {
+            "type": "u32",
+            "description": [
+              "The position in the route where the failure occurred."
+            ]
+          },
+          "failcode": {
+            "type": "u32",
+            "description": [
+              "The BOLT 4 failcode."
+            ]
+          },
+          "failcodename": {
+            "type": "string",
+            "description": [
+              "The symbolic name for the failcode, if known."
+            ]
+          },
+          "erring_node": {
+            "type": "pubkey",
+            "description": [
+              "The node that produced the failure, if known."
+            ]
+          },
+          "erring_channel": {
+            "type": "short_channel_id",
+            "description": [
+              "The channel that produced the failure, if known."
+            ]
+          },
+          "erring_direction": {
+            "type": "u32",
+            "description": [
+              "The direction within the erring channel."
+            ]
+          },
+          "raw_message": {
+            "type": "hex",
+            "description": [
+              "The raw failure message payload, if present."
+            ]
+          }
+        }
+      }
+    }
+  }
+}

@@ -89,7 +89,7 @@ enum param_style {
  * Add a required parameter.
  */
 #define p_req_depr(name, depr_start, depr_end, cbx, arg)     \
-	      name"",                                        \
+	      name,                                          \
 	      PARAM_REQUIRED,                                \
 	      (depr_start), (depr_end),			     \
 	      (param_cbx)(cbx),				     \
@@ -99,7 +99,10 @@ enum param_style {
 			       (const jsmntok_t *)NULL,      \
 			       (arg)) == (struct command_result *)NULL)
 
-#define p_req(name, cbx, arg) p_req_depr(name, NULL, NULL, (cbx), (arg))
+#define p_req(name, cbx, arg) p_req_depr(name"", NULL, NULL, (cbx), (arg))
+
+/* name is not a literal: I promise its lifetime is infinite though! */
+#define p_req_var(name, cbx, arg) p_req_depr(name, NULL, NULL, (cbx), (arg))
 
 /*
  * Add an optional parameter.  *arg is set to NULL if it isn't found.
@@ -205,6 +208,11 @@ struct str_or_arr
 struct command_result *param_string_or_array(struct command *cmd, const char *name,
 					     const char * buffer, const jsmntok_t *tok,
 					     struct str_or_arr **result);
+
+/* Array of strings */
+struct command_result *param_string_array(struct command *cmd, const char *name,
+					  const char *buffer, const jsmntok_t *tok,
+					  const char ***arr);
 
 /* Extract an invoice string from a generic string, strip the `lightning:`
  * prefix from it if needed. */

@@ -1434,16 +1434,30 @@ bool channel_update_feerate(struct channel *channel, u32 feerate_per_kw)
 	if (!can_opener_afford_feerate(channel, feerate_per_kw))
 		return false;
 
-	/* BOLT-919 #2:
-	 * - if the `dust_balance_on_holder_tx` at the
-	 *   new `dust_buffer_feerate` is superior to
-	 *   the `max_dust_htlc_exposure_msat`:
-	 *   ...
-	 *   - MAY fail the channel
+	/* BOLT #2:
+	 * - if `option_anchors` was not negotiated:
+	 *   - if the `update_fee` increases `feerate_per_kw`:
+	 *     - if the dust balance of the remote transaction at the
+	 *       updated `feerate_per_kw` is greater then `max_dust_htlc_exposure_msat`:
+	 *       - MAY fail the channel
+	 *   - if the dust balance of the local transaction at the
+	 *       updated `feerate_per_kw` is greater than `max_dust_htlc_exposure_msat`:
+	 *       - MAY fail the channel
 	 */
-	if (!htlc_dust_ok(channel, feerate_per_kw, REMOTE) ||
-	    !htlc_dust_ok(channel, feerate_per_kw, LOCAL))
-		return false;
+	if (!channel_has(channel, OPT_ANCHORS_ZERO_FEE_HTLC_TX)) {
+		if (feerate_per_kw > channel_feerate(channel, REMOTE)) {
+			if (!htlc_dust_ok(channel, feerate_per_kw, REMOTE)) {
+				status_unusual("Feerate %u is too dusty for remote",
+					       feerate_per_kw);
+				return false;
+			}
+		}
+		if (!htlc_dust_ok(channel, feerate_per_kw, LOCAL)) {
+			status_unusual("Feerate %u is too dusty for local",
+				       feerate_per_kw);
+			return false;
+		}
+	}
 
 	status_debug("Setting %s feerate to %u",
 		     side_to_str(!channel->opener), feerate_per_kw);

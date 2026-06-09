@@ -5,7 +5,7 @@
 #include <stddef.h>
 #include <tests/fuzz/libfuzz.h>
 
-/* Include bolt12.c directly, to gain access to string_to_data(). */
+/* Include bolt12.c directly, to gain access to b12_string_to_data(). */
   #include "../../common/bolt12.c"
 
 void init(int *argc, char ***argv)
@@ -18,9 +18,9 @@ void init(int *argc, char ***argv)
 void run(const u8 *data, size_t size)
 {
 	size_t dlen;
-	char *fail;
+	const char *fail;
 
-	string_to_data(tmpctx, (const char *)data, size, "lno", &dlen, &fail);
+	b12_string_to_data(tmpctx, (const char *)data, size, "lno", &dlen, &fail);
 
 	clean_tmpctx();
 }

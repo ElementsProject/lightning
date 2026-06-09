@@ -199,7 +199,7 @@
   ],
   "see_also": [
     "lightning-sendinvoice(7)",
-    "lightning-pay(7)"
+    "lightning-xpay(7)"
   ],
   "resources": [
     "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"

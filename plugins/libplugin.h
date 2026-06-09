@@ -638,6 +638,8 @@ char *u32_option(struct command *cmd, const char *arg, bool check_only, u32 *i);
 char *u16_option(struct command *cmd, const char *arg, bool check_only, u16 *i);
 char *bool_option(struct command *cmd, const char *arg, bool check_only, bool *i);
 char *charp_option(struct command *cmd, const char *arg, bool check_only, char **p);
+char *multi_string_option(struct command *cmd, const char *arg, bool check_only,
+			  const char ***arr);
 char *flag_option(struct command *cmd, const char *arg, bool check_only, bool *i);
 
 bool u64_jsonfmt(struct command *cmd, struct json_stream *js, const char *fieldname,
@@ -650,6 +652,8 @@ bool bool_jsonfmt(struct command *cmd, struct json_stream *js, const char *field
 		  bool *i);
 bool charp_jsonfmt(struct command *cmd, struct json_stream *js, const char *fieldname,
 		   char **p);
+bool string_array_jsonfmt(struct command *cmd, struct json_stream *js,
+			  const char *fieldname, const char ***arr);
 
 /* Usually equivalent to NULL, since flag must default to false be useful! */
 bool flag_jsonfmt(struct command *cmd, struct json_stream *js, const char *fieldname,
@@ -695,6 +699,11 @@ struct listpeers_channel {
 struct listpeers_channel **json_to_listpeers_channels(const tal_t *ctx,
 						      const char *buffer,
 						      const jsmntok_t *tok);
+
+/* Helper to write keys[] array (mainly for datastore ops) */
+void json_add_keypath(struct json_out *jout,
+		      const char *fieldname,
+		      const char **keys);
 
 struct createonion_response {
 	u8 *onion;

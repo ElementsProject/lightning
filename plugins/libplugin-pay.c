@@ -1547,8 +1547,7 @@ static u8 *patch_channel_update(const tal_t *ctx, u8 *channel_update TAKES)
 		fixed = tal_arr(ctx, u8, 0);
 		towire_u16(&fixed, WIRE_CHANNEL_UPDATE);
 		towire(&fixed, channel_update, tal_bytelen(channel_update));
-		if (taken(channel_update))
-			tal_free(channel_update);
+		tal_free_if_taken(channel_update);
 		return fixed;
 	} else {
 		return tal_dup_talarr(ctx, u8, channel_update);

@@ -658,6 +658,21 @@ static void handle_peer_add_htlc(struct peer *peer, const u8 *msg)
 				 "Bad peer_add_htlc %s", tal_hex(msg, msg));
 	}
 
+	/* BOLT #2:
+	 *  - if the sender did not previously acknowledge the commitment of that HTLC:
+	 *     - MUST ignore a repeated `id` value after a reconnection.
+	 */
+	/* We do this is a subtle way: we only save the HTLC to the db once we
+	 * have received commitment_signed, which is when we send the
+	 * acknowledgement.  So if we disconnect, we restart channeld which
+	 * doesn't know about the HTLC, thus rexmits are fine.
+	 *
+	 * If we got the commitment_signed, we increment the reestablish fields
+	 * so they know not to send it again. */
+	/* BOLT #2:
+	 *  - MUST allow multiple HTLCs with the same `payment_hash`.
+	 */
+	/* We do: the key is the id, not the payment_hash */
 	add_err = channel_add_htlc(peer->channel, REMOTE, id, amount,
 				   cltv_expiry, &payment_hash,
 				   onion_routing_packet,
@@ -3253,7 +3268,7 @@ static size_t calc_weight(enum tx_role role, const struct wally_psbt *psbt,
 		}
 		if (log_math)
 			status_debug(" Adding input"
-				     " %lu; weight: %lu", i, weight - lweight);
+				     " %zu; weight: %zu", i, weight - lweight);
 		lweight = weight;
 	}
 
@@ -3268,7 +3283,7 @@ static size_t calc_weight(enum tx_role role, const struct wally_psbt *psbt,
 		}
 		if (log_math)
 			status_debug(" Adding output"
-				     " %lu; weight: %lu", i, weight - lweight);
+				     " %zu; weight: %zu", i, weight - lweight);
 		lweight = weight;
 	}
 
@@ -3287,12 +3302,12 @@ static size_t calc_weight(enum tx_role role, const struct wally_psbt *psbt,
 						 psbt->num_outputs);
 		if (log_math)
 			status_debug(" Adding bitcoin_tx_core_weight;"
-				     " weight: %lu", weight - lweight);
+				     " weight: %zu", weight - lweight);
 		lweight = weight;
 	  }
 
 	if (log_math)
-		status_debug("Total weight: %lu", weight);
+		status_debug("Total weight: %zu", weight);
 	return weight;
 }
 
@@ -3585,14 +3600,14 @@ static struct amount_sat check_balances(struct peer *peer,
 	/* As a safeguard max feerate is checked (only) locally, if it's
 	 * particularly high we fail and tell the user but allow them to
 	 * override with `splice_force_feerate` */
-	max_accepter_fee = amount_tx_fee(peer->feerate_opening,
+	max_accepter_fee = amount_tx_fee(peer->feerate_max,
 					 calc_weight(TX_ACCEPTER, psbt, false));
-	max_initiator_fee = amount_tx_fee(peer->feerate_opening,
+	max_initiator_fee = amount_tx_fee(peer->feerate_max,
 					  calc_weight(TX_INITIATOR, psbt, opener));
 
 	if (opener) {
 		status_debug("User specified fee of %s. Splice feerate %"PRIu32
-			     " * weight %lu / 1000 = %s",
+			     " * weight %zu / 1000 = %s",
 			     fmt_amount_m_as_sat(tmpctx, initiator_fee),
 			     peer->feerate_splice,
 			     calc_weight(TX_INITIATOR, psbt, false),
@@ -3605,10 +3620,13 @@ static struct amount_sat check_balances(struct peer *peer,
 							   false);
 		wire_sync_write(MASTER_FD, take(msg));
 		splice_abort(peer, NULL,
-				 "%s fee (%s) was too low, must be at least %s",
+				 "%s fee (%s) was too low, must be at least %s"
+				 " weight: %"PRIu64", splicing->feerate_per_kw: %"PRIu32,
 				 opener ? "Our" : "Your",
 				 fmt_amount_msat(tmpctx, initiator_fee),
-				 fmt_amount_sat(tmpctx, min_initiator_fee));
+				 fmt_amount_sat(tmpctx, min_initiator_fee),
+				 calc_weight(TX_INITIATOR, psbt, false),
+				 peer->splicing->feerate_per_kw);
 	}
 	if (!peer->splicing->force_feerate && opener
 		&& amount_msat_greater_sat(initiator_fee, max_initiator_fee)) {
@@ -3616,7 +3634,7 @@ static struct amount_sat check_balances(struct peer *peer,
 							   true);
 		status_debug("Our own fee (%s) is too high to use without"
 			     " forcing. Splice feerate %"PRIu32
-			     " x weight %lu / 1000 = %s (max)",
+			     " x weight %zu / 1000 = %s (max)",
 			     fmt_amount_m_as_sat(tmpctx, initiator_fee),
 			     peer->feerate_splice,
 			     calc_weight(TX_INITIATOR, psbt, false),
@@ -3627,7 +3645,7 @@ static struct amount_sat check_balances(struct peer *peer,
 		splice_abort(peer, NULL,
 			     "Our own fee (%s) is too high to use without"
 			     " forcing. Splice feerate %"PRIu32
-			     " x weight %lu / 1000 = %s (max)",
+			     " x weight %zu / 1000 = %s (max)",
 			     fmt_amount_m_as_sat(tmpctx, initiator_fee),
 			     peer->feerate_splice,
 			     calc_weight(TX_INITIATOR, psbt, false),
@@ -3645,7 +3663,7 @@ static struct amount_sat check_balances(struct peer *peer,
 			     fmt_amount_msat(tmpctx, accepter_fee),
 			     fmt_amount_sat(tmpctx, min_accepter_fee),
 			     calc_weight(TX_INITIATOR, psbt, false),
-			     peer->feerate_opening);
+			     peer->feerate_max);
 	}
 	if (!peer->splicing->force_feerate && !opener
 		&& amount_msat_greater_sat(accepter_fee, max_accepter_fee)) {
@@ -6072,9 +6090,9 @@ static void peer_reconnect(struct peer *peer,
 	/* BOLT #2:
 	 *
 	 *   - otherwise:
-	 *     - if `next_commitment_number` is not 1 greater than the
-	 *       commitment number of the last `commitment_signed` message the
-	 *       receiving node has sent:
+	 *    - if `next_commitment_number` is not equal to the commitment
+	 *      number of the next `commitment_signed` that the receiving
+	 *      node would send:
 	 *       - SHOULD send an `error` and fail the channel.
 	 */
 	} else if (next_commitment_number != peer->next_index[REMOTE])

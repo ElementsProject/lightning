@@ -5,7 +5,7 @@ use std::{
 
 use anyhow::anyhow;
 use cln_plugin::ConfiguredPlugin;
-use cln_rpc::{model::requests::ListconfigsRequest, ClnRpc};
+use cln_rpc::{ClnRpc, model::requests::ListconfigsRequest};
 
 pub const OPT_WSS_BIND_ADDR: &str = "wss-bind-addr";
 pub const OPT_WSS_CERTS_DIR: &str = "wss-certs";

@@ -151,7 +151,7 @@ do {										\
 void run(const u8 *data, size_t size)
 {
 	struct tlv_offer *offer, *decoded_offer;
-	char *fail = NULL, *encoded_offer;
+	const char *fail = NULL, *encoded_offer;
 
 	offer = offer_decode(tmpctx, (const char *)data, size,
 			/*feature_set=*/NULL, /*must_be_chain=*/NULL, &fail);

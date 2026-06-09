@@ -1248,6 +1248,12 @@ static char *opt_set_dual_fund(struct lightningd *ld)
 
 static char *opt_set_splicing(struct lightningd *ld)
 {
+	/* Show deprecation warning */
+	if (!opt_deprecated_ok(ld, "experimental_splicing", NULL,
+			       "v26.04", "v27.04"))
+		return "--experimental-splicing is now enabled by default"
+		       " enabled by default";
+
 	feature_set_or(ld->our_features,
 		       take(feature_set_for_feature(NULL,
 						    OPTIONAL_FEATURE(OPT_SPLICE))));
@@ -1482,10 +1488,12 @@ static void register_opts(struct lightningd *ld)
 				 " and allow peers to establish channels"
 				 " via v2 channel open protocol.");
 
+	/* Deprecated: splicing is on by default now */
 	opt_register_early_noarg("--experimental-splicing",
 				 opt_set_splicing, ld,
 				 "experimental: Enables the ability to resize"
 				 " channels using splicing");
+
 
 	/* This affects our features, so set early. */
 	opt_register_early_noarg("--experimental-shutdown-wrong-funding",
@@ -1660,6 +1668,10 @@ static void register_opts(struct lightningd *ld)
 			       opt_set_talstr, NULL,
 			       &ld->old_bookkeeper_db,
 			       opt_hidden);
+	clnopt_witharg("--message-padding", OPT_SHOWBOOL,
+		       opt_set_bool_arg, opt_show_bool,
+		       &ld->message_padding,
+		       "If true, pad all messages to peers to make them equal length");
 
 	dev_register_opts(ld);
 }

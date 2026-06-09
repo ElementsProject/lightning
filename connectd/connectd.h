@@ -67,6 +67,8 @@ struct peer {
 	struct crypto_state cs;
 	/* Time when we first connected */
 	struct timemono connect_starttime;
+	/* Features they told us about */
+	const u8 *their_features;
 
 	/* Connection to the peer (NULL if it's disconnected and we're flushing) */
 	struct io_conn *to_peer;
@@ -82,6 +84,15 @@ struct peer {
 
 	/* Input buffer. */
 	u8 *peer_in;
+
+	/* Bytes received in the last second. */
+	size_t bytes_rcvd_this_second;
+	/* When that second starts */
+	struct timemono bytes_rcvd_start_time;
+	/* Timer when we're throttling input */
+	struct oneshot *recv_timer;
+	/* Only send message once if peer gets throttled */
+	bool throttle_warned;
 
 	/* Output buffer. */
 	struct msg_queue *peer_outq;
@@ -309,8 +320,11 @@ struct daemon {
 	/* Allow localhost to be considered "public", only with --developer */
 	bool dev_allow_localhost;
 
-	/* How much to gossip allow a peer every 60 seconds (bytes) */
+	/* How much to gossip allow a peer every second (bytes) */
 	size_t gossip_stream_limit;
+
+	/* How much incomign traffic do we allow per peer every second (bytes) */
+	size_t incoming_stream_limit;
 
 	/* We support use of a SOCKS5 proxy (e.g. Tor) */
 	struct addrinfo *proxyaddr;
@@ -352,6 +366,9 @@ struct daemon {
 	/* How many connection attempts do we allow at once
 	 * (--dev-limit-connectsion-inflight sets this to 1 for testing). */
 	size_t max_connect_in_flight;
+
+	/* Add padding to messages (if peer seems ok) */
+	bool message_padding;
 
 	/* Hack to speed up gossip timer */
 	bool dev_fast_gossip;

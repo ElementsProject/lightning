@@ -179,9 +179,6 @@ bool extract_channel_id(const u8 *in_pkt, struct channel_id *channel_id)
 		 * 1. type: 17 (`error`)
 		 * 2. data:
 		 *    * [`channel_id`:`channel_id`]
-		 *...
-		 * The channel is referred to by `channel_id`, unless
-		 * `channel_id` is 0
 		 */
 		/* fall thru */
 	case WIRE_WARNING:
@@ -189,7 +186,9 @@ bool extract_channel_id(const u8 *in_pkt, struct channel_id *channel_id)
 		 * 1. type: 1 (`warning`)
 		 * 2. data:
 		 *    * [`channel_id`:`channel_id`]
-		 *...
+		 */
+		/* BOLT #1:
+		 *
 		 * The channel is referred to by `channel_id`, unless
 		 * `channel_id` is 0
 		 */

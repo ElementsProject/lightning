@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use cln_grpc::pb::node_server::NodeServer;
-use cln_plugin::{options, Builder, Plugin};
+use cln_plugin::{Builder, Plugin, options};
 use cln_rpc::notifications::Notification;
 use std::net::SocketAddr;
 use std::path::PathBuf;
@@ -30,17 +30,29 @@ const OPTION_GRPC_HOST: options::DefaultStringConfigOption =
         "Which host should the grpc listen for incomming connections?",
     );
 
-const OPTION_GRPC_MSG_BUFFER_SIZE : options::DefaultIntegerConfigOption = options::ConfigOption::new_i64_with_default(
-    "grpc-msg-buffer-size",
-    1024,
-    "Number of notifications which can be stored in the grpc message buffer. Notifications can be skipped if this buffer is full");
+const OPTION_GRPC_MSG_BUFFER_SIZE: options::DefaultIntegerConfigOption =
+    options::ConfigOption::new_i64_with_default(
+        "grpc-msg-buffer-size",
+        1024,
+        "Number of notifications which can be stored in the grpc message buffer. Notifications can be skipped if this buffer is full",
+    );
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<()> {
-    std::env::set_var(
-        "CLN_PLUGIN_LOG",
-        "cln_plugin=info,cln_rpc=info,cln_grpc=debug,debug",
-    );
+    unsafe {
+        // SAFETY:
+        // `std::env::set_var` is unsafe in Rust 2024 because environment variables
+        // are process-global and unsynchronized. Concurrent reads/writes from
+        // multiple threads can cause undefined behavior.
+        //
+        // This call happens at process startup, before any threads are spawned and
+        // before any code that may read environment variables is executed.
+        // Therefore, no concurrent access is possible.
+        std::env::set_var(
+            "CLN_PLUGIN_LOG",
+            "cln_plugin=info,cln_rpc=info,cln_grpc=debug,debug",
+        )
+    };
 
     let directory = std::env::current_dir()?;
 
@@ -52,12 +64,27 @@ async fn main() -> Result<()> {
         // However, doing this breaks the plugin at the time begin
         // We should fix this
         // .subscribe("*", handle_notification)
+        .subscribe("balance_snapshot", handle_notification)
         .subscribe("block_added", handle_notification)
         .subscribe("channel_open_failed", handle_notification)
         .subscribe("channel_opened", handle_notification)
         .subscribe("channel_state_changed", handle_notification)
+        .subscribe("coin_movement", handle_notification)
         .subscribe("connect", handle_notification)
         .subscribe("custommsg", handle_notification)
+        .subscribe("disconnect", handle_notification)
+        .subscribe("forward_event", handle_notification)
+        .subscribe("invoice_creation", handle_notification)
+        .subscribe("invoice_payment", handle_notification)
+        .subscribe("onionmessage_forward_fail", handle_notification)
+        .subscribe("openchannel_peer_sigs", handle_notification)
+        .subscribe("pay_part_start", handle_notification)
+        .subscribe("pay_part_end", handle_notification)
+        .subscribe("plugin_started", handle_notification)
+        .subscribe("plugin_stopped", handle_notification)
+        .subscribe("sendpay_failure", handle_notification)
+        .subscribe("sendpay_success", handle_notification)
+        .subscribe("warning", handle_notification)
         .configure()
         .await?
     {

@@ -616,6 +616,7 @@ static const struct plugin_command commands[] = {
 	{
 		"getroute",
 		json_getroute,
+		"v26.06", "v27.03",
 	},
 	{
 		"listchannels",

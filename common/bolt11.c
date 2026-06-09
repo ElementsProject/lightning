@@ -111,11 +111,11 @@ static void *pull_all(const tal_t *ctx,
 }
 
 /* Frees bolt11, returns NULL. */
-static struct bolt11 *decode_fail(struct bolt11 *b11, char **fail,
+static struct bolt11 *decode_fail(struct bolt11 *b11, const char **fail,
 				  const char *fmt, ...)
 	PRINTF_FMT(3,4);
 
-static struct bolt11 *decode_fail(struct bolt11 *b11, char **fail,
+static struct bolt11 *decode_fail(struct bolt11 *b11, const char **fail,
 				  const char *fmt, ...)
 {
 	va_list ap;
@@ -185,7 +185,7 @@ static const char *decode_p(struct bolt11 *b11,
 	/* BOLT #11:
 	 *
 	 * A reader...
-	 * - MUST fail the payment if any mandatory field (`p`, `h`, `s`, `n`)
+	 * - MUST fail the payment if any field with fixed `data_length` (`p`, `h`, `s`, `n`)
 	 *   does not have the correct length (52, 52, 52, 53).
 	 */
 	return pull_expected_length(b11, hu5, data, field_len, 52, 'p',
@@ -239,7 +239,7 @@ static const char *decode_h(struct bolt11 *b11,
 	/* BOLT #11:
 	 *
 	 * A reader...
-	 * - MUST fail the payment if any mandatory field (`p`, `h`, `s`, `n`)
+	 * - MUST fail the payment if any field with fixed `data_length` (`p`, `h`, `s`, `n`)
 	 *   does not have the correct length (52, 52, 52, 53). */
 	err = pull_expected_length(b11, hu5, data, field_len, 52, 'h',
 				    have_h, &hash);
@@ -324,7 +324,7 @@ static const char *decode_n(struct bolt11 *b11,
 	/* BOLT #11:
 	 *
 	 * A reader...
-	 * - MUST fail the payment if any mandatory field (`p`, `h`, `s`, `n`)
+	 * - MUST fail the payment if any field with fixed `data_length` (`p`, `h`, `s`, `n`)
 	 *   does not have the correct length (52, 52, 52, 53). */
 	err = pull_expected_length(b11, hu5, data, field_len, 53, 'n', have_n,
 				   &b11->receiver_id.k);
@@ -360,7 +360,7 @@ static const char *decode_s(struct bolt11 *b11,
 	/* BOLT #11:
 	 *
 	 * A reader...
-	 * - MUST fail the payment if any mandatory field (`p`, `h`, `s`, `n`)
+	 * - MUST fail the payment if any field with fixed `data_length` (`p`, `h`, `s`, `n`)
 	 *   does not have the correct length (52, 52, 52, 53). */
 	err = pull_expected_length(b11, hu5, data, field_len, 52, 's',
 				   have_s, &secret);
@@ -752,7 +752,7 @@ struct bolt11 *bolt11_decode_nosig(const tal_t *ctx, const char *str,
 				   struct sha256 *hash,
 				   const u5 **sig,
 				   bool *have_n,
-				   char **fail)
+				   const char **fail)
 {
 	const char *hrp, *prefix;
 	char *amountstr;
@@ -876,7 +876,8 @@ struct bolt11 *bolt11_decode_nosig(const tal_t *ctx, const char *str,
 	 *
 	 * 1. `timestamp`: seconds-since-1970 (35 bits, big-endian)
 	 * 1. zero or more tagged parts
-	 * 1. `signature`: Bitcoin-style signature of above (520 bits)
+	 * 1. `signature`: compact ECDSA/secp256k1 signature of the above
+	 *    (520 bits: 64-byte R||S + 1-byte recovery id)
 	 */
 	err = pull_uint(&hu5, &data, &data_len, &b11->timestamp, 35, false);
 	if (err)
@@ -980,7 +981,7 @@ struct bolt11 *bolt11_decode(const tal_t *ctx, const char *str,
 			     const struct feature_set *our_features,
 			     const char *description,
 			     const struct chainparams *must_be_chain,
-			     char **fail)
+			     const char **fail)
 {
 	const u5 *sigdata;
 	size_t data_len;
@@ -999,13 +1000,12 @@ struct bolt11 *bolt11_decode(const tal_t *ctx, const char *str,
 
 	/* BOLT #11:
 	 *
-	 * A writer...MUST set `signature` to a valid 512-bit
-	 * secp256k1 signature of the SHA2 256-bit hash of the
-	 * human-readable part, represented as UTF-8 bytes,
-	 * concatenated with the data part (excluding the signature)
-	 * with 0 bits appended to pad the data to the next byte
-	 * boundary, with a trailing byte containing the recovery ID
-	 * (0, 1, 2, or 3).
+	 * A writer...MUST set `signature` to a valid
+	 * compact ECDSA signature over secp256k1 of the SHA-256 hash of:
+	 * the human-readable part (as UTF-8 bytes) concatenated with the data part
+	 * (excluding the signature), with 0 bits appended to pad to a byte boundary.
+	 * The signature is encoded as 64 bytes (R || S), followed by a trailing 1-byte
+	 * recovery id in {0,1,2,3}.
 	 */
 	data_len = tal_count(sigdata);
 	err = pull_bits(NULL, &sigdata, &data_len, sig_and_recid, 520, false);
@@ -1028,10 +1028,15 @@ struct bolt11 *bolt11_decode(const tal_t *ctx, const char *str,
 
 	/* BOLT #11:
 	 *
-	 * A reader...  MUST check that the `signature` is valid (see
-	 * the `n` tagged field specified below). ... A reader...
-	 * MUST use the `n` field to validate the signature instead of
-	 * performing signature recovery.
+	 * A reader:
+	 *   - MUST check that the `signature` is valid (see the `n` tagged field specified below).
+	 */
+	/* BOLT #11:
+	 *
+	 * A reader:
+	 * ...
+	 *   - if a valid `n` field is provided:
+	 *     - MUST use the `n` field to validate the signature instead of performing public-key recovery.
 	 */
 	if (!have_n) {
 		struct pubkey k;
@@ -1246,8 +1251,6 @@ static void maybe_encode_9(u5 **data, const u8 *features,
 
 static bool encode_extra(u5 **data, const struct bolt11_field *extra)
 {
-	size_t len;
-
 	/* Can't encode an invalid tag. */
 	if (bech32_charset_rev[(unsigned char)extra->tag] == -1)
 		return false;
@@ -1256,9 +1259,7 @@ static bool encode_extra(u5 **data, const struct bolt11_field *extra)
 	push_varlen_uint(data, tal_count(extra->data), 10);
 
 	/* extra->data is already u5s, so do this raw. */
-	len = tal_count(*data);
-	tal_resize(data, len + tal_count(extra->data));
-	memcpy(*data + len, extra->data, tal_count(extra->data));
+	tal_arr_append(data, extra->data);
 	return true;
 }
 
@@ -1314,7 +1315,8 @@ char *bolt11_encode_(const tal_t *ctx,
 	 *
 	 * 1. `timestamp`: seconds-since-1970 (35 bits, big-endian)
 	 * 1. zero or more tagged parts
-	 * 1. `signature`: Bitcoin-style signature of above (520 bits)
+	 * 1. `signature`: compact ECDSA/secp256k1 signature of the above
+	 *    (520 bits: 64-byte R||S + 1-byte recovery id)
 	 */
 	push_varlen_uint(&data, b11->timestamp, 35);
 
@@ -1402,6 +1404,13 @@ char *bolt11_encode_(const tal_t *ctx,
 
 	bech32_push_bits(&data, sig_and_recid, sizeof(sig_and_recid) * CHAR_BIT);
 
+	/* BOLT #11:
+	 * A writer:
+	 *    - MUST encode the payment request in Bech32 (see BIP-0173)
+	 *    - SHOULD use upper case for QR codes (see BIP-0173)
+	 *    - MAY exceed the 90-character limit specified in BIP-0173.
+	 */
+	/* We let the user upcase if they want */
 	output = tal_arr(ctx, char, strlen(hrp) + tal_count(data) + 8);
 	if (!bech32_encode(output, hrp, data, tal_count(data), (size_t)-1,
 			   BECH32_ENCODING_BECH32))

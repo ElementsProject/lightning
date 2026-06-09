@@ -1175,6 +1175,7 @@ impl Node for Server
         request: tonic::Request<pb::PayRequest>,
     ) -> Result<tonic::Response<pb::PayResponse>, tonic::Status> {
         let req = request.into_inner();
+        #[allow(deprecated)]
         let req: requests::PayRequest = req.into();
         debug!("Client asked for pay");
         trace!("pay request: {:?}", req);
@@ -1399,6 +1400,7 @@ impl Node for Server
         request: tonic::Request<pb::KeysendRequest>,
     ) -> Result<tonic::Response<pb::KeysendResponse>, tonic::Status> {
         let req = request.into_inner();
+        #[allow(deprecated)]
         let req: requests::KeysendRequest = req.into();
         debug!("Client asked for key_send");
         trace!("key_send request: {:?}", req);
@@ -2231,6 +2233,7 @@ impl Node for Server
         request: tonic::Request<pb::GetrouteRequest>,
     ) -> Result<tonic::Response<pb::GetrouteResponse>, tonic::Status> {
         let req = request.into_inner();
+        #[allow(deprecated)]
         let req: requests::GetrouteRequest = req.into();
         debug!("Client asked for get_route");
         trace!("get_route request: {:?}", req);
@@ -2743,6 +2746,7 @@ impl Node for Server
         request: tonic::Request<pb::RenepaystatusRequest>,
     ) -> Result<tonic::Response<pb::RenepaystatusResponse>, tonic::Status> {
         let req = request.into_inner();
+        #[allow(deprecated)]
         let req: requests::RenepaystatusRequest = req.into();
         debug!("Client asked for rene_pay_status");
         trace!("rene_pay_status request: {:?}", req);
@@ -2775,6 +2779,7 @@ impl Node for Server
         request: tonic::Request<pb::RenepayRequest>,
     ) -> Result<tonic::Response<pb::RenepayResponse>, tonic::Status> {
         let req = request.into_inner();
+        #[allow(deprecated)]
         let req: requests::RenepayRequest = req.into();
         debug!("Client asked for rene_pay");
         trace!("rene_pay request: {:?}", req);
@@ -3147,6 +3152,70 @@ impl Node for Server
                 Code::Internal,
                 format!(
                     "Unexpected result {:?} to method call SpliceUpdate",
+                    r
+                )
+            )),
+        }
+
+    }
+
+    async fn splice_in(
+        &self,
+        request: tonic::Request<pb::SpliceinRequest>,
+    ) -> Result<tonic::Response<pb::SpliceinResponse>, tonic::Status> {
+        let req = request.into_inner();
+        let req: requests::SpliceinRequest = req.into();
+        debug!("Client asked for splice_in");
+        trace!("splice_in request: {:?}", req);
+        let mut rpc = ClnRpc::new(&self.rpc_path)
+            .await
+            .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+        let result = rpc.call(Request::SpliceIn(req))
+            .await
+            .map_err(|e| Status::new(
+               Code::Unknown,
+               format!("Error calling method SpliceIn: {:?}", e)))?;
+        match result {
+            Response::SpliceIn(r) => {
+               trace!("splice_in response: {:?}", r);
+               Ok(tonic::Response::new(r.into()))
+            },
+            r => Err(Status::new(
+                Code::Internal,
+                format!(
+                    "Unexpected result {:?} to method call SpliceIn",
+                    r
+                )
+            )),
+        }
+
+    }
+
+    async fn splice_out(
+        &self,
+        request: tonic::Request<pb::SpliceoutRequest>,
+    ) -> Result<tonic::Response<pb::SpliceoutResponse>, tonic::Status> {
+        let req = request.into_inner();
+        let req: requests::SpliceoutRequest = req.into();
+        debug!("Client asked for splice_out");
+        trace!("splice_out request: {:?}", req);
+        let mut rpc = ClnRpc::new(&self.rpc_path)
+            .await
+            .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+        let result = rpc.call(Request::SpliceOut(req))
+            .await
+            .map_err(|e| Status::new(
+               Code::Unknown,
+               format!("Error calling method SpliceOut: {:?}", e)))?;
+        match result {
+            Response::SpliceOut(r) => {
+               trace!("splice_out response: {:?}", r);
+               Ok(tonic::Response::new(r.into()))
+            },
+            r => Err(Status::new(
+                Code::Internal,
+                format!(
+                    "Unexpected result {:?} to method call SpliceOut",
                     r
                 )
             )),
@@ -3762,6 +3831,38 @@ impl Node for Server
 
     }
 
+    async fn bkpr_report(
+        &self,
+        request: tonic::Request<pb::BkprreportRequest>,
+    ) -> Result<tonic::Response<pb::BkprreportResponse>, tonic::Status> {
+        let req = request.into_inner();
+        let req: requests::BkprreportRequest = req.into();
+        debug!("Client asked for bkpr_report");
+        trace!("bkpr_report request: {:?}", req);
+        let mut rpc = ClnRpc::new(&self.rpc_path)
+            .await
+            .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+        let result = rpc.call(Request::BkprReport(req))
+            .await
+            .map_err(|e| Status::new(
+               Code::Unknown,
+               format!("Error calling method BkprReport: {:?}", e)))?;
+        match result {
+            Response::BkprReport(r) => {
+               trace!("bkpr_report response: {:?}", r);
+               Ok(tonic::Response::new(r.into()))
+            },
+            r => Err(Status::new(
+                Code::Internal,
+                format!(
+                    "Unexpected result {:?} to method call BkprReport",
+                    r
+                )
+            )),
+        }
+
+    }
+
     async fn blacklist_rune(
         &self,
         request: tonic::Request<pb::BlacklistruneRequest>,
@@ -4011,6 +4112,38 @@ impl Node for Server
                 Code::Internal,
                 format!(
                     "Unexpected result {:?} to method call AskReneRemoveLayer",
+                    r
+                )
+            )),
+        }
+
+    }
+
+    async fn ask_rene_remove_channel_update(
+        &self,
+        request: tonic::Request<pb::AskreneremovechannelupdateRequest>,
+    ) -> Result<tonic::Response<pb::AskreneremovechannelupdateResponse>, tonic::Status> {
+        let req = request.into_inner();
+        let req: requests::AskreneremovechannelupdateRequest = req.into();
+        debug!("Client asked for ask_rene_remove_channel_update");
+        trace!("ask_rene_remove_channel_update request: {:?}", req);
+        let mut rpc = ClnRpc::new(&self.rpc_path)
+            .await
+            .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+        let result = rpc.call(Request::AskReneRemoveChannelUpdate(req))
+            .await
+            .map_err(|e| Status::new(
+               Code::Unknown,
+               format!("Error calling method AskReneRemoveChannelUpdate: {:?}", e)))?;
+        match result {
+            Response::AskReneRemoveChannelUpdate(r) => {
+               trace!("ask_rene_remove_channel_update response: {:?}", r);
+               Ok(tonic::Response::new(r.into()))
+            },
+            r => Err(Status::new(
+                Code::Internal,
+                format!(
+                    "Unexpected result {:?} to method call AskReneRemoveChannelUpdate",
                     r
                 )
             )),
@@ -4722,6 +4855,159 @@ impl Node for Server
 
     }
 
+    async fn send_amount(
+        &self,
+        request: tonic::Request<pb::SendamountRequest>,
+    ) -> Result<tonic::Response<pb::SendamountResponse>, tonic::Status> {
+        let req = request.into_inner();
+        let req: requests::SendamountRequest = req.into();
+        debug!("Client asked for send_amount");
+        trace!("send_amount request: {:?}", req);
+        let mut rpc = ClnRpc::new(&self.rpc_path)
+            .await
+            .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+        let result = rpc.call(Request::SendAmount(req))
+            .await
+            .map_err(|e| Status::new(
+               Code::Unknown,
+               format!("Error calling method SendAmount: {:?}", e)))?;
+        match result {
+            Response::SendAmount(r) => {
+               trace!("send_amount response: {:?}", r);
+               Ok(tonic::Response::new(r.into()))
+            },
+            r => Err(Status::new(
+                Code::Internal,
+                format!(
+                    "Unexpected result {:?} to method call SendAmount",
+                    r
+                )
+            )),
+        }
+
+    }
+
+    async fn create_proof(
+        &self,
+        request: tonic::Request<pb::CreateproofRequest>,
+    ) -> Result<tonic::Response<pb::CreateproofResponse>, tonic::Status> {
+        let req = request.into_inner();
+        let req: requests::CreateproofRequest = req.into();
+        debug!("Client asked for create_proof");
+        trace!("create_proof request: {:?}", req);
+        let mut rpc = ClnRpc::new(&self.rpc_path)
+            .await
+            .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+        let result = rpc.call(Request::CreateProof(req))
+            .await
+            .map_err(|e| Status::new(
+               Code::Unknown,
+               format!("Error calling method CreateProof: {:?}", e)))?;
+        match result {
+            Response::CreateProof(r) => {
+               trace!("create_proof response: {:?}", r);
+               Ok(tonic::Response::new(r.into()))
+            },
+            r => Err(Status::new(
+                Code::Internal,
+                format!(
+                    "Unexpected result {:?} to method call CreateProof",
+                    r
+                )
+            )),
+        }
+
+    }
+
+    async fn xkeysend(
+        &self,
+        request: tonic::Request<pb::XkeysendRequest>,
+    ) -> Result<tonic::Response<pb::XkeysendResponse>, tonic::Status> {
+        let req = request.into_inner();
+        let req: requests::XkeysendRequest = req.into();
+        debug!("Client asked for xkeysend");
+        trace!("xkeysend request: {:?}", req);
+        let mut rpc = ClnRpc::new(&self.rpc_path)
+            .await
+            .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+        let result = rpc.call(Request::Xkeysend(req))
+            .await
+            .map_err(|e| Status::new(
+               Code::Unknown,
+               format!("Error calling method Xkeysend: {:?}", e)))?;
+        match result {
+            Response::Xkeysend(r) => {
+               trace!("xkeysend response: {:?}", r);
+               Ok(tonic::Response::new(r.into()))
+            },
+            r => Err(Status::new(
+                Code::Internal,
+                format!(
+                    "Unexpected result {:?} to method call Xkeysend",
+                    r
+                )
+            )),
+        }
+
+    }
+
+    async fn graceful(
+        &self,
+        request: tonic::Request<pb::GracefulRequest>,
+    ) -> Result<tonic::Response<pb::GracefulResponse>, tonic::Status> {
+        let req = request.into_inner();
+        let req: requests::GracefulRequest = req.into();
+        debug!("Client asked for graceful");
+        trace!("graceful request: {:?}", req);
+        let mut rpc = ClnRpc::new(&self.rpc_path)
+            .await
+            .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+        let result = rpc.call(Request::Graceful(req))
+            .await
+            .map_err(|e| Status::new(
+               Code::Unknown,
+               format!("Error calling method Graceful: {:?}", e)))?;
+        match result {
+            Response::Graceful(r) => {
+               trace!("graceful response: {:?}", r);
+               Ok(tonic::Response::new(r.into()))
+            },
+            r => Err(Status::new(
+                Code::Internal,
+                format!(
+                    "Unexpected result {:?} to method call Graceful",
+                    r
+                )
+            )),
+        }
+
+    }
+
+
+
+    type SubscribeBalanceSnapshotStream = NotificationStream<pb::BalanceSnapshotNotification>;
+
+    async fn subscribe_balance_snapshot(
+        &self,
+        _request : tonic::Request<pb::StreamBalanceSnapshotRequest>
+    ) -> Result<tonic::Response<Self::SubscribeBalanceSnapshotStream>, tonic::Status> {
+        let receiver = self.events.subscribe();
+        let stream = BroadcastStream::new(receiver);
+        let boxed = Box::pin(stream);
+
+        let result = NotificationStream {
+            inner : boxed,
+            fn_filter_map : |x| {
+                match x {
+                    Notification::BalanceSnapshot(x) => {
+                        Some(x.into())
+                    }
+                    _ => None
+                }
+            }
+        };
+        Ok(tonic::Response::new(result))
+    }
 
 
     type SubscribeBlockAddedStream = NotificationStream<pb::BlockAddedNotification>;
@@ -4799,6 +5085,31 @@ impl Node for Server
     }
 
 
+    type SubscribeChannelStateChangedStream = NotificationStream<pb::ChannelStateChangedNotification>;
+
+    async fn subscribe_channel_state_changed(
+        &self,
+        _request : tonic::Request<pb::StreamChannelStateChangedRequest>
+    ) -> Result<tonic::Response<Self::SubscribeChannelStateChangedStream>, tonic::Status> {
+        let receiver = self.events.subscribe();
+        let stream = BroadcastStream::new(receiver);
+        let boxed = Box::pin(stream);
+
+        let result = NotificationStream {
+            inner : boxed,
+            fn_filter_map : |x| {
+                match x {
+                    Notification::ChannelStateChanged(x) => {
+                        Some(x.into())
+                    }
+                    _ => None
+                }
+            }
+        };
+        Ok(tonic::Response::new(result))
+    }
+
+
     type SubscribeConnectStream = NotificationStream<pb::PeerConnectNotification>;
 
     async fn subscribe_connect(
@@ -4814,6 +5125,31 @@ impl Node for Server
             fn_filter_map : |x| {
                 match x {
                     Notification::Connect(x) => {
+                        Some(x.into())
+                    }
+                    _ => None
+                }
+            }
+        };
+        Ok(tonic::Response::new(result))
+    }
+
+
+    type SubscribeCoinMovementStream = NotificationStream<pb::CoinMovementNotification>;
+
+    async fn subscribe_coin_movement(
+        &self,
+        _request : tonic::Request<pb::StreamCoinMovementRequest>
+    ) -> Result<tonic::Response<Self::SubscribeCoinMovementStream>, tonic::Status> {
+        let receiver = self.events.subscribe();
+        let stream = BroadcastStream::new(receiver);
+        let boxed = Box::pin(stream);
+
+        let result = NotificationStream {
+            inner : boxed,
+            fn_filter_map : |x| {
+                match x {
+                    Notification::CoinMovement(x) => {
                         Some(x.into())
                     }
                     _ => None
@@ -4849,12 +5185,12 @@ impl Node for Server
     }
 
 
-    type SubscribeChannelStateChangedStream = NotificationStream<pb::ChannelStateChangedNotification>;
+    type SubscribeDeprecatedOneshotStream = NotificationStream<pb::DeprecatedOneshotNotification>;
 
-    async fn subscribe_channel_state_changed(
+    async fn subscribe_deprecated_oneshot(
         &self,
-        _request : tonic::Request<pb::StreamChannelStateChangedRequest>
-    ) -> Result<tonic::Response<Self::SubscribeChannelStateChangedStream>, tonic::Status> {
+        _request : tonic::Request<pb::StreamDeprecatedOneshotRequest>
+    ) -> Result<tonic::Response<Self::SubscribeDeprecatedOneshotStream>, tonic::Status> {
         let receiver = self.events.subscribe();
         let stream = BroadcastStream::new(receiver);
         let boxed = Box::pin(stream);
@@ -4863,7 +5199,382 @@ impl Node for Server
             inner : boxed,
             fn_filter_map : |x| {
                 match x {
-                    Notification::ChannelStateChanged(x) => {
+                    Notification::DeprecatedOneshot(x) => {
+                        Some(x.into())
+                    }
+                    _ => None
+                }
+            }
+        };
+        Ok(tonic::Response::new(result))
+    }
+
+
+    type SubscribeDisconnectStream = NotificationStream<pb::DisconnectNotification>;
+
+    async fn subscribe_disconnect(
+        &self,
+        _request : tonic::Request<pb::StreamDisconnectRequest>
+    ) -> Result<tonic::Response<Self::SubscribeDisconnectStream>, tonic::Status> {
+        let receiver = self.events.subscribe();
+        let stream = BroadcastStream::new(receiver);
+        let boxed = Box::pin(stream);
+
+        let result = NotificationStream {
+            inner : boxed,
+            fn_filter_map : |x| {
+                match x {
+                    Notification::Disconnect(x) => {
+                        Some(x.into())
+                    }
+                    _ => None
+                }
+            }
+        };
+        Ok(tonic::Response::new(result))
+    }
+
+
+    type SubscribeForwardEventStream = NotificationStream<pb::ForwardEventNotification>;
+
+    async fn subscribe_forward_event(
+        &self,
+        _request : tonic::Request<pb::StreamForwardEventRequest>
+    ) -> Result<tonic::Response<Self::SubscribeForwardEventStream>, tonic::Status> {
+        let receiver = self.events.subscribe();
+        let stream = BroadcastStream::new(receiver);
+        let boxed = Box::pin(stream);
+
+        let result = NotificationStream {
+            inner : boxed,
+            fn_filter_map : |x| {
+                match x {
+                    Notification::ForwardEvent(x) => {
+                        Some(x.into())
+                    }
+                    _ => None
+                }
+            }
+        };
+        Ok(tonic::Response::new(result))
+    }
+
+
+    type SubscribeInvoiceCreationStream = NotificationStream<pb::InvoiceCreationNotification>;
+
+    async fn subscribe_invoice_creation(
+        &self,
+        _request : tonic::Request<pb::StreamInvoiceCreationRequest>
+    ) -> Result<tonic::Response<Self::SubscribeInvoiceCreationStream>, tonic::Status> {
+        let receiver = self.events.subscribe();
+        let stream = BroadcastStream::new(receiver);
+        let boxed = Box::pin(stream);
+
+        let result = NotificationStream {
+            inner : boxed,
+            fn_filter_map : |x| {
+                match x {
+                    Notification::InvoiceCreation(x) => {
+                        Some(x.into())
+                    }
+                    _ => None
+                }
+            }
+        };
+        Ok(tonic::Response::new(result))
+    }
+
+
+    type SubscribeInvoicePaymentStream = NotificationStream<pb::InvoicePaymentNotification>;
+
+    async fn subscribe_invoice_payment(
+        &self,
+        _request : tonic::Request<pb::StreamInvoicePaymentRequest>
+    ) -> Result<tonic::Response<Self::SubscribeInvoicePaymentStream>, tonic::Status> {
+        let receiver = self.events.subscribe();
+        let stream = BroadcastStream::new(receiver);
+        let boxed = Box::pin(stream);
+
+        let result = NotificationStream {
+            inner : boxed,
+            fn_filter_map : |x| {
+                match x {
+                    Notification::InvoicePayment(x) => {
+                        Some(x.into())
+                    }
+                    _ => None
+                }
+            }
+        };
+        Ok(tonic::Response::new(result))
+    }
+
+
+    type SubscribeLogStream = NotificationStream<pb::LogNotification>;
+
+    async fn subscribe_log(
+        &self,
+        _request : tonic::Request<pb::StreamLogRequest>
+    ) -> Result<tonic::Response<Self::SubscribeLogStream>, tonic::Status> {
+        let receiver = self.events.subscribe();
+        let stream = BroadcastStream::new(receiver);
+        let boxed = Box::pin(stream);
+
+        let result = NotificationStream {
+            inner : boxed,
+            fn_filter_map : |x| {
+                match x {
+                    Notification::Log(x) => {
+                        Some(x.into())
+                    }
+                    _ => None
+                }
+            }
+        };
+        Ok(tonic::Response::new(result))
+    }
+
+
+    type SubscribeOnionMessageForwardFailStream = NotificationStream<pb::OnionMessageForwardFailNotification>;
+
+    async fn subscribe_onion_message_forward_fail(
+        &self,
+        _request : tonic::Request<pb::StreamOnionMessageForwardFailRequest>
+    ) -> Result<tonic::Response<Self::SubscribeOnionMessageForwardFailStream>, tonic::Status> {
+        let receiver = self.events.subscribe();
+        let stream = BroadcastStream::new(receiver);
+        let boxed = Box::pin(stream);
+
+        let result = NotificationStream {
+            inner : boxed,
+            fn_filter_map : |x| {
+                match x {
+                    Notification::OnionMessageForwardFail(x) => {
+                        Some(x.into())
+                    }
+                    _ => None
+                }
+            }
+        };
+        Ok(tonic::Response::new(result))
+    }
+
+
+    type SubscribeOpenChannelPeerSigsStream = NotificationStream<pb::OpenChannelPeerSigsNotification>;
+
+    async fn subscribe_open_channel_peer_sigs(
+        &self,
+        _request : tonic::Request<pb::StreamOpenChannelPeerSigsRequest>
+    ) -> Result<tonic::Response<Self::SubscribeOpenChannelPeerSigsStream>, tonic::Status> {
+        let receiver = self.events.subscribe();
+        let stream = BroadcastStream::new(receiver);
+        let boxed = Box::pin(stream);
+
+        let result = NotificationStream {
+            inner : boxed,
+            fn_filter_map : |x| {
+                match x {
+                    Notification::OpenChannelPeerSigs(x) => {
+                        Some(x.into())
+                    }
+                    _ => None
+                }
+            }
+        };
+        Ok(tonic::Response::new(result))
+    }
+
+
+    type SubscribePluginStartedStream = NotificationStream<pb::PluginStartedNotification>;
+
+    async fn subscribe_plugin_started(
+        &self,
+        _request : tonic::Request<pb::StreamPluginStartedRequest>
+    ) -> Result<tonic::Response<Self::SubscribePluginStartedStream>, tonic::Status> {
+        let receiver = self.events.subscribe();
+        let stream = BroadcastStream::new(receiver);
+        let boxed = Box::pin(stream);
+
+        let result = NotificationStream {
+            inner : boxed,
+            fn_filter_map : |x| {
+                match x {
+                    Notification::PluginStarted(x) => {
+                        Some(x.into())
+                    }
+                    _ => None
+                }
+            }
+        };
+        Ok(tonic::Response::new(result))
+    }
+
+
+    type SubscribePluginStoppedStream = NotificationStream<pb::PluginStoppedNotification>;
+
+    async fn subscribe_plugin_stopped(
+        &self,
+        _request : tonic::Request<pb::StreamPluginStoppedRequest>
+    ) -> Result<tonic::Response<Self::SubscribePluginStoppedStream>, tonic::Status> {
+        let receiver = self.events.subscribe();
+        let stream = BroadcastStream::new(receiver);
+        let boxed = Box::pin(stream);
+
+        let result = NotificationStream {
+            inner : boxed,
+            fn_filter_map : |x| {
+                match x {
+                    Notification::PluginStopped(x) => {
+                        Some(x.into())
+                    }
+                    _ => None
+                }
+            }
+        };
+        Ok(tonic::Response::new(result))
+    }
+
+
+    type SubscribeSendPayFailureStream = NotificationStream<pb::SendPayFailureNotification>;
+
+    async fn subscribe_send_pay_failure(
+        &self,
+        _request : tonic::Request<pb::StreamSendPayFailureRequest>
+    ) -> Result<tonic::Response<Self::SubscribeSendPayFailureStream>, tonic::Status> {
+        let receiver = self.events.subscribe();
+        let stream = BroadcastStream::new(receiver);
+        let boxed = Box::pin(stream);
+
+        let result = NotificationStream {
+            inner : boxed,
+            fn_filter_map : |x| {
+                match x {
+                    Notification::SendPayFailure(x) => {
+                        Some(x.into())
+                    }
+                    _ => None
+                }
+            }
+        };
+        Ok(tonic::Response::new(result))
+    }
+
+
+    type SubscribeSendPaySuccessStream = NotificationStream<pb::SendPaySuccessNotification>;
+
+    async fn subscribe_send_pay_success(
+        &self,
+        _request : tonic::Request<pb::StreamSendPaySuccessRequest>
+    ) -> Result<tonic::Response<Self::SubscribeSendPaySuccessStream>, tonic::Status> {
+        let receiver = self.events.subscribe();
+        let stream = BroadcastStream::new(receiver);
+        let boxed = Box::pin(stream);
+
+        let result = NotificationStream {
+            inner : boxed,
+            fn_filter_map : |x| {
+                match x {
+                    Notification::SendPaySuccess(x) => {
+                        Some(x.into())
+                    }
+                    _ => None
+                }
+            }
+        };
+        Ok(tonic::Response::new(result))
+    }
+
+
+    type SubscribeShutdownStream = NotificationStream<pb::ShutdownNotification>;
+
+    async fn subscribe_shutdown(
+        &self,
+        _request : tonic::Request<pb::StreamShutdownRequest>
+    ) -> Result<tonic::Response<Self::SubscribeShutdownStream>, tonic::Status> {
+        let receiver = self.events.subscribe();
+        let stream = BroadcastStream::new(receiver);
+        let boxed = Box::pin(stream);
+
+        let result = NotificationStream {
+            inner : boxed,
+            fn_filter_map : |x| {
+                match x {
+                    Notification::Shutdown(x) => {
+                        Some(x.into())
+                    }
+                    _ => None
+                }
+            }
+        };
+        Ok(tonic::Response::new(result))
+    }
+
+
+    type SubscribeWarningStream = NotificationStream<pb::WarningNotification>;
+
+    async fn subscribe_warning(
+        &self,
+        _request : tonic::Request<pb::StreamWarningRequest>
+    ) -> Result<tonic::Response<Self::SubscribeWarningStream>, tonic::Status> {
+        let receiver = self.events.subscribe();
+        let stream = BroadcastStream::new(receiver);
+        let boxed = Box::pin(stream);
+
+        let result = NotificationStream {
+            inner : boxed,
+            fn_filter_map : |x| {
+                match x {
+                    Notification::Warning(x) => {
+                        Some(x.into())
+                    }
+                    _ => None
+                }
+            }
+        };
+        Ok(tonic::Response::new(result))
+    }
+
+
+    type SubscribePayPartEndStream = NotificationStream<pb::PayPartEndNotification>;
+
+    async fn subscribe_pay_part_end(
+        &self,
+        _request : tonic::Request<pb::StreamPayPartEndRequest>
+    ) -> Result<tonic::Response<Self::SubscribePayPartEndStream>, tonic::Status> {
+        let receiver = self.events.subscribe();
+        let stream = BroadcastStream::new(receiver);
+        let boxed = Box::pin(stream);
+
+        let result = NotificationStream {
+            inner : boxed,
+            fn_filter_map : |x| {
+                match x {
+                    Notification::PayPartEnd(x) => {
+                        Some(x.into())
+                    }
+                    _ => None
+                }
+            }
+        };
+        Ok(tonic::Response::new(result))
+    }
+
+
+    type SubscribePayPartStartStream = NotificationStream<pb::PayPartStartNotification>;
+
+    async fn subscribe_pay_part_start(
+        &self,
+        _request : tonic::Request<pb::StreamPayPartStartRequest>
+    ) -> Result<tonic::Response<Self::SubscribePayPartStartStream>, tonic::Status> {
+        let receiver = self.events.subscribe();
+        let stream = BroadcastStream::new(receiver);
+        let boxed = Box::pin(stream);
+
+        let result = NotificationStream {
+            inner : boxed,
+            fn_filter_map : |x| {
+                match x {
+                    Notification::PayPartStart(x) => {
                         Some(x.into())
                     }
                     _ => None

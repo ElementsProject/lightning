@@ -4,53 +4,179 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [26.04rc1] - 2026-03-23: TBD
+## [26.06.1] - 2026-06-05: "Qantum-Resistant Lightning Channel II"
 
-This release is named by TBD.
+This point release is recommended: it fixes the bwatch plugin failure at registration
+
+### Fixed
+
+- Plugins: bwatch failed to register on startup after make install ([#9192])
+
+[(#9192)]: https://github.com/ElementsProject/lightning/pull/9192
+[26.06.1]: https://github.com/ElementsProject/lightning/releases/tag/v26.06.1
+
+
+## [26.06] - 2026-06-01: "Quantum-Resistant Lightning Channel"
+
+This release was named by @enaples.
 
 ### Added
 
- - JSON-RPC: `bkpr-report` allows flexible summaries of bookkeeper income. ([#8937])
- - Config: `bkpr-currency` option to record conversion rate at each event. ([#8937])
- - JSON-RPC: `currencyrate` API for getting the current median BTC conversion to a given fiat currency. ([#8937])
- - JSON-RPC: `listcurrencyrates` API for examining the current values from the `currencyconvert` plugin's sources. ([#8937])
- - New command `spliceout` for easily splicing out of channels ([#8857])
- - New command `splicein` allows for convenient splicing funds into a channel ([#8856])
- - Added support for multi (ie 3+) channel splices, dynamic wallet funding, and dynamic fee calculating. ([#8450])
- - Plugins: new `currencyrate` plugin to provide `currencyconvert` API ([#8842])
- - `listpeerchannels` now accepts a `channel_id` filter ([#8766])
- - JSON-RPC: `offer` now has a `fronting_nodes` option to specify neighbors for payer to use to fetch invoices and make payments. ([#8490])
- - Config: `payment-fronting-node` option to specify neighbor node(s) to use for all bolt11 invoices, bolt12 offers, invoices and invoice_requests. ([#8490])
- - libplugin: support for options which accumulate if specified more than once ("multi": true). ([#8490])
- - Database: STRICT tables and security pragmas in developer mode ([#8559])
- - Config: `askrene-max-threads` to control how many CPUs we use for routing (default 4). ([#8723])
- - Protocol: we now pad all peer messages to make them the same length. ([#8893])
- - `gossipd` now uses a `lightning_gossip_compactd` helper to compact the gossip_store on demand, keeping it under about 210MB. ([#8903])
- - askrene: add a new layer auto.include_fees that makes fees be deducted from the payment amount making in effect the receiver pay for routing fees. ([#8824])
- - clnrest: add clnrest-register-path rpc method to register dynamic paths ([#7529])
- - Expose decoded offer description in `offer` and `listoffers` RPC responses. ([#8782])
- - Add 'payer-note' field to the 'xpay' RPC call. ([#8784])
- - Added a new `version-vls` tag which includes VLS's `remote_hsmd_socket` binary with the Core Lightning image. ([#8712])
+ - JSON-RPC: `graceful` command to prepare CLN for shutdown. ([#9111])
+ - JSON-RPC: `xkeysend` command for keysend with modern routing support. ([#9110])
+ - JSON-RPC: `sendamount` command, to make a payment specifying the desired amount to send instead of the amount to be received. ([#None])
+ - JSON-RPC: `askrene-remove-channel-update`, a new RPC to remove channel_update entries from layers. ([#9040])
+ - Plugins: `invoice_creation` notification now includes `offer_id` when the invoice is associated with a BOLT 12 offer. ([#8981])
+ - Config: option `xpay-user-layer` to add default layer(s) to `xpay` ([#9037])
+ - JSON-RPC: `sendpay` now accepts one of the `paths` returned from `getroutes` as its `route` parameter. ([#9110])
+ - JSON-RPC: `getroutes` `route` explicit fields `node_id_in`, `node_id_out`, `amount_in_msat`, `amount_out_msat`, `cltv_in`, `cltv_out`. ([#9110])
+ - Protocol: `xpay` now uses shadow CLTV additions to help mask final destination as per BOLT 7. ([#9110])
+ - Protocol: `xpay` will now update for the current payment if it gets a `channel_update` in an error message. ([#9110])
+ - JSON-RPC: `xpay` now accepts `label` and `localinvreqid` parameters (like `pay`). ([#9110])
+ - JSON-RPC: `injectpaymentonion` parameter `destination`. ([#9110])
+ - Tracing: Add a unix-domain socket sink for opentelemetry traces ([#9078])
 
 
 ### Changed
 
- - Plugins: `forward_event` notification now has `preimage` set if status is settled. ([#8943])
- - Plugins: `askrene` now runs routing in parallel. ([#8723])
- - bcli plugin now uses synchronous execution, simplifying bitcoin backend communication and improving error handling reliability. ([#8820])
- - `gossipd` no longer compacts gossip_store on startup (improving start times significantly). ([#8903])
- - Build: most binaries are now about 20% smaller. ([#8658])
- - lightningd: logging is now more efficient internally (no more pruning, simple ringbuffer). ([#8770])
- - JSON-RPC: `recover` takes a 12-word mnemonic for nodes created by v25.12 or later. ([#8830])
- - `lightning-hsmtool`: `getsecret` replaces `getcodexsecret` for modern nodes (gives mnemonic). ([#8830])
+ - Protocol: `message-padding` defaults to false, due to poor detection of broken implementations. ([#9119])
+ - JSON-RPC: `xpay` now handles `pay` command by default (use `xpay-handle-pay=false` to prevent this) ([#9110])
+ - JSON-RPC: `pay` now accepts `invstring` as a parameter name for `bolt11`, to ease transition when xpay takes over in v27.03. ([#9110])
+ - offers: we now use `xpay` not `pay` for paying invoices made with invoicerequest(). ([#9110])
+ - JSON-RPC: `getemergencyrecoverdata` is now more verbose. ([#8422])
+ - Build: We no longer use `-Werror` by default, unless --enable-debugbuild is set. ([#9101])
+ - Protocol: We now wait 72 blocks, not 12, before closing channels (BOLT update) ([#9051])
 
 
 ### Deprecated
 
 Note: You should always set `allow-deprecated-apis=false` to test for changes.
 
- - `lightning-hsmtool`: `getcodexsecret`.  Use `getsecret`. ([#8830])
+ - JSON-RPC: `keysend` (use `xkeysend`).  `xkeysend` will take over `keysend` in v27.03. ([#9110])
+ - JSON-RPC: `getroute` (use `getroutes` with layers `["auto.localchans","auto.sourcefree"]` and `maxparts=1`) (available since v25.09). ([#9110])
+ - JSON-RPC: `pay` and `paystatus`: use `xpay`, `listpays` (or `xpay`'s notifications for details of attempts).  `pay` will be replaced by `xpay` in v27.03. ([#9110])
+ - JSON-RPC: `getroutes` `route` fields `next_node_id`, `amount_msat` and `delay` (use `node_id_out`, `amount_in_msat` and `cltv_in`). ([#9110])
+ - JSON-RPC: `getroutes` layer `auto.no_mpp_support`: use `maxparts=1` parameter instead (available since v25.09). ([#9110])
 
+
+### Removed
+
+ - JSON-RPC: `exclude` parameter to `pay` (when `xpay-handle-pay` is True): craft a layer with desired modifications and pass it to `xpay` `layers`. ([#9110])
+ - Plugins: `channel_state_changed` notification `message` field being `null`: it will be omitted instead (deprecated v25.12, disabled v26.04) ([#9136])
+ - JSON-RPC: `listpeerchannels` value `max_total_htlc_in_msat`: use `our_max_htlc_value_in_flight_msat` instead to follow spec naming convention (deprecated v25.02). ([#9136])
+
+
+### Fixed
+
+ - Protocol: high fee issue that caused `splicein` and `spliceout` to abort. ([#9109])
+ - JSON-RPC: `setconfig` no longer crashes on dynamic multi-value plugin options ([#8751])
+ - contrib: the systemd lightningd.service script now shuts down lightningd properly. ([#9111])
+ - JSON-RPC: `xpay` now correctly returns error code 219 on already paid invoices (not 218). ([#9110])
+ - JSON-RPC: `withdraw` now returns a fully signed transaction in the `tx` response field. ([#8942])
+ - Wallet: Transactions now correctly create change outputs >= 330 sat for P2TR/P2WPKH instead of absorbing them as fees ([#8807])
+ - Protocol: we now only store the most recent peer backup when recovering from peers. ([#8422])
+ - JSON-RPC: `fundchannel_complete`: reject PSBTs with unsigned non-segwit inputs (could lead to unrecoverable funds!). ([#8922])
+ - Protocol: `gossipd` will now silently ignore gossip for other chains (rather than sending warnings). ([#9044])
+ - Protocol: when we send errors, we won't include a `channel_update` if we chose a different channel than the one they told us to. ([#9044])
+ - Protocol: use BOLT4's paranoid advice about doing constant-time error decryption. ([#9044])
+ - Fix for `splicein`, `spliceout`, and `dev-splice` commands where channel balances included partial sats. ([#9097])
+ - build: fix build errors with GCC 15 (Arch Linux). ([#9075])
+ - Plugins: xpay no longer crashes on circular bolt11 routehints. ([#9174])
+
+### EXPERIMENTAL
+
+ - JSON-RPC: `createproof` to create a payment proof for a (successful) BOLT12 payment. ([#9116])
+ - JSON-RPC: `decode` now supports the `lnp` payer proof format. ([#9116])
+ - Plugins: `bwatch` plugin (enable using `experimental-bwatch`) ([#9098])
+
+
+[#9101]: https://github.com/ElementsProject/lightning/pull/9101
+[#9044]: https://github.com/ElementsProject/lightning/pull/9044
+[#9100]: https://github.com/ElementsProject/lightning/pull/9100
+[#9110]: https://github.com/ElementsProject/lightning/pull/9110
+[#9040]: https://github.com/ElementsProject/lightning/pull/9040
+[#9111]: https://github.com/ElementsProject/lightning/pull/9111
+[#9097]: https://github.com/ElementsProject/lightning/pull/9097
+[#8422]: https://github.com/ElementsProject/lightning/pull/8422
+[#9078]: https://github.com/ElementsProject/lightning/pull/9078
+[#8981]: https://github.com/ElementsProject/lightning/pull/8981
+[#8751]: https://github.com/ElementsProject/lightning/pull/8751
+[#9174]: https://github.com/ElementsProject/lightning/pull/9174
+[#8807]: https://github.com/ElementsProject/lightning/pull/8807
+[#9037]: https://github.com/ElementsProject/lightning/pull/9037
+[#9119]: https://github.com/ElementsProject/lightning/pull/9119
+[#9051]: https://github.com/ElementsProject/lightning/pull/9051
+[#9098]: https://github.com/ElementsProject/lightning/pull/9098
+[#9075]: https://github.com/ElementsProject/lightning/pull/9075
+[#9109]: https://github.com/ElementsProject/lightning/pull/9109
+[#9116]: https://github.com/ElementsProject/lightning/pull/9116
+[#8942]: https://github.com/ElementsProject/lightning/pull/8942
+[#8922]: https://github.com/ElementsProject/lightning/pull/8922
+[#9136]: https://github.com/ElementsProject/lightning/pull/9136
+[26.06]: https://github.com/ElementsProject/lightning/releases/tag/v26.06
+
+## [26.04.1] - 2026-04-25: "Negative Routing Fees II"
+
+This point release is recommended: it fixes a build failure in some environments and a gossip protocol issue.
+
+### Fixed
+
+ - **Protocol:** we now reject `channel_announcement` messages where `node_id_1` is not lexicographically less than `node_id_2` (per BOLT; see [lightning/bolts#1333](https://github.com/lightning/bolts/pull/1333)), so malformed announcements no longer stress the gossip store and other readers. ([#9082])
+ - **Build:** correct `printf` format for splice weight logging (`%zu` for `size_t` in `lightningd`, `channeld`, and the spender plugin), fixing `-Werror` / `-Wformat` failures (e.g. Docker and 32-bit ARM cross-compiles). ([#9083], [#9086])
+ - **Build:** bookkeeper no longer uses `__int128` for currency rate math, so 32-bit targets build again. ([#9085])
+
+[#9082]: https://github.com/ElementsProject/lightning/pull/9082
+[#9083]: https://github.com/ElementsProject/lightning/pull/9083
+[#9085]: https://github.com/ElementsProject/lightning/pull/9085
+[#9086]: https://github.com/ElementsProject/lightning/pull/9086
+[26.04.1]: https://github.com/ElementsProject/lightning/releases/tag/v26.04.1
+
+## [26.04] - 2026-04-20: Negative Routing Fees
+
+This release is named by @Chand-ra.
+
+### Added
+
+ - Protocol: we now pad all peer messages to make them the same length (excluding LND < v21 and current Eclair). ([#8893], [#9022])
+ - Config: `message-padding` option can be set to `false` to disable it for all peers. ([#9068])
+ - JSON-RPC: `bkpr-report` allows flexible summaries of bookkeeper income. ([#8937])
+ - Config: `bkpr-currency` option to record conversion rate at each bookkeeper event. ([#8937])
+ - JSON-RPC: `currencyconvert` and `currencyrate` via the new plugin `cln-currencyrate` ([#8842], [#8937])
+ - JSON-RPC: `spliceout` and `splicein` for easily splicing in and out of channels ([#8857], [#8856])
+ - JSON-RPC: `offer` now has a `fronting_nodes` option to specify neighbors for payer to use to fetch invoices and make payments. ([#8490])
+ - Config: `payment-fronting-node` option to specify neighbor node(s) to use for all bolt11 invoices, bolt12 offers, invoices and invoice_requests. ([#8490])
+ - JSON-RPC: `getroutes` now operates in parallel: config `askrene-max-threads` controls how many (default 4). ([#8723])
+ - JSON-RPC: `getroutes` has a new layer `auto.include_fees` that makes fees be deducted from the payment amount making in effect the receiver pay for routing fees. ([#8824])
+ - JSON-RPC `clnrest-register-path` method to register dynamic paths for `clnrest` plugin ([#7529])
+ - JSON-RPC: `offer` and `listoffer` exposes the offer description field. ([#8782])
+ - JSON-RPC: `listcurrencyrates` API for examining the current values from the `currencyconvert` plugin's sources. ([#8937])
+ - JSON-RPC: `xpay` supports a `payer-note` field ([#8784])
+ - Docker: Added a new `version-vls` tag which includes VLS's `remote_hsmd_socket` binary with the Core Lightning image. ([#8712])
+ - JSON-RPC: `feerate` now supports `splice` as a rate name, and splice code uses it intelligently. ([#8450])
+ - JSON-RPC: `listpeerchannels` now accepts a `channel_id` filter, ([#8766])
+ - Database: STRICT tables and security pragmas in developer mode ([#8559])
+ - libplugin: support for options which accumulate if specified more than once ("multi": true). ([#8490])
+ - msggen: added `splicein`, `spliceout`, and `bkpr-report` RPC method definitions. ([#9047])
+
+
+### Changed
+
+ - Protocol: Splicing is enabled by default
+ - `gossipd` no longer compacts gossip_store on startup (improving start times significantly). ([#8903])
+ - cln-rpc and cln-grpc now expose notification bindings for balance_snapshot, coin_movement, deprecated_oneshot, disconnect, forward_event, invoice_creation, invoice_payment, log, onionmessage_forward_fail, openchannel_peer_sigs, plugin_started, plugin_stopped, sendpay_failure, sendpay_success, shutdown, warning, and xpay's `pay_part_start` and `pay_part_end`. ([#8938])
+ - lightningd: we don't allow new incoming channels if we cannot estimate fees (rather than assuming minfee). ([#8864])
+ - Plugins: `sql` plugin tables "htlcs", "forwards", "invoices", "sendpays" and "networkevents" are now updated more efficiently. ([#8914])
+ - Plugins: `forward_event` notification now has preimage set if status is settled. ([#8943])
+ - Plugins: `bcli` now uses synchronous execution, simplifying bitcoin backend communication and improving error handling reliability. ([#8820])
+ - Build: most binaries are now about 20% smaller. ([#8658])
+ - lightningd: logging is now more efficient internally (no more pruning, simple ringbuffer). ([#8770])
+
+
+### Deprecated
+
+Note: You should always set `allow-deprecated-apis=false` to test for changes.
+
+ - Config: `experimental-splicing`.  Enabled by default.  ([#9021])
 
 ### Removed
 
@@ -63,6 +189,12 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 
 ### Fixed
 
+ - gossipd: now uses `lightning_gossip_compactd` helper to compact the gossip_store file on demand, keeping it under about 210MB. ([#8903])
+ - connectd: throttle incoming peers to give fairer peer handling under stress. ([#8983])
+ - lightningd no longer crashes when replaying stored blinded HTLCs during startup. ([#8974])
+ - JSON-RPC: `keysend` now assumes 42, not 22 for final CLTV (should fix sending to LDK nodes)([#9046])
+ - JSON-RPC: `decode` is now more informative with malformed strings (won't claim everything is a malformed rune!). ([#8814])
+ - Build: Core lightning builds for Fedora on all systems are deterministic. ([#8846])
  - lightningd: unreserve UTXOs from withheld funding PSBT ([#8943])
  - lightningd: withheld channel now fails back incoming inflight HTLC ([#8943])
  - JSON-RPC: reckless command no longer hangs if reckless executable is not found in PATH. ([#8894])
@@ -73,27 +205,16 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
  - fuzz: fix build with newer clang. ([#8717])
  - Plugins: `bkpr_listbalances` no longer crashes if we lost our db, then do emergencyrecover and close a channel. ([#8890])
  - lightningd: possible crash when peers disconnected if there was more than one plugin servicing the `peer_connected` hook. ([#8889])
- - JSON-RPC: `decode` is now more informative with malformed strings (won't claim everything is a malformed rune!). ([#8814])
  - reckless search now returns partial matches instead of requiring exact plugin names. ([#8762])
- - enableoffer: Adding an error when trying to activate an used single use offer (don't crash!) ([#8813])
- - askrene: fixed a class of corner cases that cause askrene main loop to timeout instead of quickly failing, thus wasting runtime. ([#8866])
+ - JSON-RPC: `enableoffer` returns an error when trying to activate an used single use offer (don't crash!) ([#8813])
+ - JSON_RPC: `getroutes` fixed a class of corner cases that cause askrene main loop to timeout instead of quickly failing, thus wasting runtime. ([#8866])
  - Testing infrastructure no longer fails when logging output capture is disabled. ([#8843])
- - Core lightning builds for Fedora on all systems are deterministic. ([#8846])
- - lightningd: we now correctly sign for non-taproot addresses given by nodes created by v25.12 or newer. ([#8831])
- - `lightning-hsmtool`: handle mnemonic hsm_secret files (nodes created >= v25.12). ([#8831])
- - plugins: `pay` can crash on errors returned from deep inside routehints. ([#8829])
- - plugins: `askrene` can crash on a corner case in increase_flows. ([#8829])
- - askrene: fix a plugin crash triggered during single path payments when a channel fees doesn't fit u32. ([#8832])
- - JSON-RPC: malformed filters no longer crash lightningd. ([#8780])
- - pay: `maxdelay` parameter now enforced for direct channel payments ([#8740])
  - Ensure documentation renders correctly when adding/updating new RPCs by detecting non-MDX-compatible pages. ([#8792])
- - gossipd: we would occasionally not show a node announcement in listnodes(). ([#8769])
- - Replacing sed by $(SED) in Makefile ([#8786])
- - lightningd: potential crash on startup if bitcoind isn't up-to-date. ([#8779])
 
 
 ### EXPERIMENTAL
 
+ - Dual-funding: fixed crash with dual funding if we cannot estimate fees. ([#8864])
  - Protocol: avoid an occasional hang when splicing with a pending closing HTLC. ([#8911])
 
 
@@ -105,33 +226,25 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 [#8712]: https://github.com/ElementsProject/lightning/pull/8712
 [#8717]: https://github.com/ElementsProject/lightning/pull/8717
 [#8723]: https://github.com/ElementsProject/lightning/pull/8723
-[#8740]: https://github.com/ElementsProject/lightning/pull/8740
 [#8762]: https://github.com/ElementsProject/lightning/pull/8762
 [#8766]: https://github.com/ElementsProject/lightning/pull/8766
-[#8769]: https://github.com/ElementsProject/lightning/pull/8769
 [#8770]: https://github.com/ElementsProject/lightning/pull/8770
 [#8772]: https://github.com/ElementsProject/lightning/pull/8772
-[#8779]: https://github.com/ElementsProject/lightning/pull/8779
-[#8780]: https://github.com/ElementsProject/lightning/pull/8780
 [#8782]: https://github.com/ElementsProject/lightning/pull/8782
 [#8784]: https://github.com/ElementsProject/lightning/pull/8784
-[#8786]: https://github.com/ElementsProject/lightning/pull/8786
 [#8792]: https://github.com/ElementsProject/lightning/pull/8792
 [#8798]: https://github.com/ElementsProject/lightning/pull/8798
 [#8813]: https://github.com/ElementsProject/lightning/pull/8813
 [#8814]: https://github.com/ElementsProject/lightning/pull/8814
 [#8820]: https://github.com/ElementsProject/lightning/pull/8820
 [#8824]: https://github.com/ElementsProject/lightning/pull/8824
-[#8829]: https://github.com/ElementsProject/lightning/pull/8829
-[#8830]: https://github.com/ElementsProject/lightning/pull/8830
-[#8831]: https://github.com/ElementsProject/lightning/pull/8831
-[#8832]: https://github.com/ElementsProject/lightning/pull/8832
 [#8842]: https://github.com/ElementsProject/lightning/pull/8842
 [#8843]: https://github.com/ElementsProject/lightning/pull/8843
 [#8846]: https://github.com/ElementsProject/lightning/pull/8846
 [#8850]: https://github.com/ElementsProject/lightning/pull/8850
 [#8856]: https://github.com/ElementsProject/lightning/pull/8856
 [#8857]: https://github.com/ElementsProject/lightning/pull/8857
+[#8864]: https://github.com/ElementsProject/lightning/pull/8864
 [#8866]: https://github.com/ElementsProject/lightning/pull/8866
 [#8889]: https://github.com/ElementsProject/lightning/pull/8889
 [#8890]: https://github.com/ElementsProject/lightning/pull/8890
@@ -139,11 +252,60 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 [#8894]: https://github.com/ElementsProject/lightning/pull/8894
 [#8903]: https://github.com/ElementsProject/lightning/pull/8903
 [#8911]: https://github.com/ElementsProject/lightning/pull/8911
+[#8914]: https://github.com/ElementsProject/lightning/pull/8914
 [#8934]: https://github.com/ElementsProject/lightning/pull/8934
 [#8937]: https://github.com/ElementsProject/lightning/pull/8937
+[#8938]: https://github.com/ElementsProject/lightning/pull/8938
 [#8939]: https://github.com/ElementsProject/lightning/pull/8939
 [#8943]: https://github.com/ElementsProject/lightning/pull/8943
-[v26.04rc1]: https://github.com/ElementsProject/lightning/releases/tag/v26.04rc1
+[#8974]: https://github.com/ElementsProject/lightning/pull/8974
+[#8983]: https://github.com/ElementsProject/lightning/pull/8983
+[#8997]: https://github.com/ElementsProject/lightning/pull/8997
+[#9021]: https://github.com/ElementsProject/lightning/pull/9021
+[#9022]: https://github.com/ElementsProject/lightning/pull/9022
+[#9046]: https://github.com/ElementsProject/lightning/pull/9046
+[#9047]: https://github.com/ElementsProject/lightning/pull/9047
+[#9068]: https://github.com/ElementsProject/lightning/pull/9068
+[v26.04]: https://github.com/ElementsProject/lightning/releases/tag/v26.04
+
+
+## [25.12.1] - 2026-1-14: "Boltz's Seamless Upgrade Experience II"
+
+This is a recommended release, particularly for those creating new nodes.
+
+### Changed
+
+ - JSON-RPC: `recover` takes a 12-word mnemonic for nodes created by v25.12 or later. ([#8830])
+ - `lightning-hsmtool`: `getsecret` replaces `getcodexsecret` for modern nodes (gives mnemonic). ([#8830])
+
+### Deprecated
+
+Note: You should always set `allow-deprecated-apis=false` to test for changes.
+
+ - `lightning-hsmtool`: `getcodexsecret`.  Use `getsecret`. ([#8830])
+
+### Fixed
+
+ - lightningd: we now correctly sign for non-taproot addresses given by nodes created by v25.12 or newer. ([#8831])
+ - `lightning-hsmtool`: handle mnemonic hsm_secret files (nodes created >= v25.12). ([#8831])
+ - plugins: `pay` can crash on errors returned from deep inside routehints. ([#8829])
+ - plugins: `askrene` can crash on a corner case in increase_flows. ([#8829])
+ - askrene: fix a plugin crash triggered during single path payments when a channel fees doesn't fit u32. ([#8832])
+ - JSON-RPC: malformed filters no longer crash lightningd. ([#8780])
+ - pay: `maxdelay` parameter now enforced for direct channel payments ([#8740])
+ - gossipd: we would occasionally not show a node announcement in listnodes(). ([#8769])
+ - lightningd: potential crash on startup if bitcoind isn't up-to-date. ([#8779])
+
+
+[#8832]: https://github.com/ElementsProject/lightning/pull/8832
+[#8780]: https://github.com/ElementsProject/lightning/pull/8780
+[#8831]: https://github.com/ElementsProject/lightning/pull/8831
+[#8740]: https://github.com/ElementsProject/lightning/pull/8740
+[#8769]: https://github.com/ElementsProject/lightning/pull/8769
+[#8829]: https://github.com/ElementsProject/lightning/pull/8829
+[#8779]: https://github.com/ElementsProject/lightning/pull/8779
+[#8830]: https://github.com/ElementsProject/lightning/pull/8830
+[25.12.1]: https://github.com/ElementsProject/lightning/releases/tag/v25.12.1
 
 
 ## [25.12] - 2025-12-04: "Boltz's Seamless Upgrade Experience"

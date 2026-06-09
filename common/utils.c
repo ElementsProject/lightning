@@ -147,6 +147,28 @@ void tal_arr_remove_(void *p, size_t elemsize, size_t n)
     tal_resize((char **)p, len - elemsize);
 }
 
+static void tal_arr_append_bytes(void *p, const void *append, size_t bytes)
+{
+	void **pptr = p;
+	size_t oldsize = tal_bytelen(*pptr);
+	tal_resize(pptr, oldsize + bytes);
+	/* Blah blah blah memcpy NULL blah blah */
+	if (append || bytes)
+		memcpy(*pptr + oldsize, memcheck(append, bytes), bytes);
+	if (taken(append))
+		tal_free(append);
+}
+
+void tal_arr_append_(void *p, const void *append TAKES)
+{
+	tal_arr_append_bytes(p, append, tal_bytelen(append));
+}
+
+void tal_arr_appendn_(void *p, const void *append TAKES, size_t bytes)
+{
+	tal_arr_append_bytes(p, append, bytes);
+}
+
 /* Check for valid UTF-8 */
 bool utf8_check(const void *vbuf, size_t buflen)
 {
@@ -171,8 +193,7 @@ char *utf8_str(const tal_t *ctx, const u8 *buf TAKES, size_t buflen)
 	char *ret;
 
 	if (!utf8_check(buf, buflen)) {
-		if (taken(buf))
-			tal_free(buf);
+		tal_free_if_taken(buf);
 		return NULL;
 	}
 

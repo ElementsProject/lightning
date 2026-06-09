@@ -1,12 +1,12 @@
 use axum::http;
 use cln_plugin::Plugin;
 use cln_rpc::{
-    model::responses::{CheckruneResponse, ShowrunesResponse},
     ClnRpc, RpcError,
+    model::responses::{CheckruneResponse, ShowrunesResponse},
 };
 use serde_json::json;
 
-use crate::{structs::AppError, CheckRuneParams, ClnrestMap, PluginState};
+use crate::{CheckRuneParams, ClnrestMap, PluginState, structs::AppError};
 
 pub async fn verify_rune(
     plugin: &Plugin<PluginState>,

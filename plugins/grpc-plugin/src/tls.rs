@@ -1,7 +1,7 @@
 //! Utilities to manage TLS certificates.
 use anyhow::{Context, Result};
 use log::debug;
-use rcgen::{Certificate, KeyPair};
+use rcgen::{Issuer, KeyPair};
 use std::path::Path;
 
 /// Just a wrapper around a certificate and an associated keypair.
@@ -16,13 +16,6 @@ impl Identity {
         let keystr = String::from_utf8_lossy(&self.key);
         let key = KeyPair::from_pem(&keystr)?;
         Ok(key)
-    }
-
-    fn to_certificate(&self) -> Result<Certificate> {
-        let certstr = String::from_utf8_lossy(&self.certificate);
-        let params = rcgen::CertificateParams::from_ca_cert_pem(&certstr)?;
-        let cert = params.self_signed(&self.to_key()?)?;
-        Ok(cert)
     }
 
     pub fn to_tonic_identity(&self) -> tonic::transport::Identity {
@@ -72,8 +65,8 @@ fn generate_or_load_identity(
     // regenerate the certificate
     if !key_path.exists() || !cert_path.exists() {
         debug!(
-            "Generating a new keypair in {:?}, it didn't exist",
-            &key_path
+            "Generating a new keypair in {}, it didn't exist",
+            &key_path.display()
         );
         let keypair = KeyPair::generate_for(&rcgen::PKCS_ECDSA_P256_SHA256)?;
 
@@ -89,8 +82,9 @@ fn generate_or_load_identity(
         drop(file);
 
         debug!(
-            "Generating a new certificate for key {:?} at {:?}",
-            &key_path, &cert_path
+            "Generating a new certificate for key {} at {}",
+            &key_path.display(),
+            &cert_path.display()
         );
 
         // Configure the certificate we want.
@@ -101,8 +95,12 @@ fn generate_or_load_identity(
             params.key_usages.push(rcgen::KeyUsagePurpose::KeyCertSign);
         } else {
             params.is_ca = rcgen::IsCa::NoCa;
-            params.key_usages.push(rcgen::KeyUsagePurpose::DigitalSignature);
-            params.key_usages.push(rcgen::KeyUsagePurpose::KeyEncipherment);
+            params
+                .key_usages
+                .push(rcgen::KeyUsagePurpose::DigitalSignature);
+            params
+                .key_usages
+                .push(rcgen::KeyUsagePurpose::KeyEncipherment);
             params.key_usages.push(rcgen::KeyUsagePurpose::KeyAgreement);
         }
         params
@@ -113,7 +111,11 @@ fn generate_or_load_identity(
         let cert = match parent {
             None => params.self_signed(&keypair),
             Some(parent) => {
-                params.signed_by(&keypair, &parent.to_certificate()?, &parent.to_key()?)
+                let key = parent.to_key()?;
+                let pem = String::from_utf8_lossy(&parent.certificate);
+
+                let issuer = Issuer::from_ca_cert_pem(&pem, &key)?;
+                params.signed_by(&keypair, &issuer)
             }
         }?;
         std::fs::write(&cert_path, cert.pem().as_bytes()).context("writing certificate to file")?;
@@ -121,5 +123,5 @@ fn generate_or_load_identity(
 
     let key = std::fs::read(&key_path)?;
     let certificate = std::fs::read(cert_path)?;
-    Ok(Identity { certificate, key })
+    Ok(Identity { key, certificate })
 }

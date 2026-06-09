@@ -97,7 +97,7 @@ static struct command_result *param_amount(struct command *cmd,
 	return NULL;
 }
 
-/* BOLT 13:
+/* Proposed BOLT #13:
  * - MUST set `time_unit` to 0 (seconds), 1 (days), or 2 (months).
  */
 struct time_string {
@@ -248,6 +248,7 @@ static struct command_result *create_offer(struct command *cmd,
 	if (offinfo->label)
 		json_add_string(req->js, "label", offinfo->label);
 	json_add_bool(req->js, "single_use", *offinfo->single_use);
+	json_add_bool(req->js, "force_paths", offinfo->fronting_nodes != NULL);
 
 	return send_outreq(req);
 }
@@ -343,7 +344,7 @@ static struct command_result *maybe_add_path(struct command *cmd,
 							     tal_count(offinfo->fronting_nodes));
 			} else {
 				return find_best_peer(cmd, 1ULL << OPT_ONION_MESSAGES,
-						      NULL,
+						      NULL, NULL,
 						      found_best_peer, offinfo);
 			}
 		}
@@ -818,6 +819,8 @@ struct command_result *json_invoicerequest(struct command *cmd,
 		idata->single_use = *single_use;
 		idata->label = label;
 		return find_best_peer(cmd, 1ULL << OPT_ONION_MESSAGES,
+				      /* FIXME: Strictly speaking, we should specify minimum *outgoing* here! */
+				      NULL,
 				      od->fronting_nodes,
 				      found_best_peer_invrequest, idata);
 	}

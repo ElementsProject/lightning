@@ -1474,12 +1474,14 @@ static inline bool offer_status_used(enum offer_status s)
  * @bolt12: offer as text.
  * @label: optional label for this offer.
  * @status: OFFER_SINGLE_USE or OFFER_MULTIPLE_USE
+ * @force_paths: so we know we have to use same path(s) for invoices
  */
 bool wallet_offer_create(struct wallet *w,
 			 const struct sha256 *offer_id,
 			 const char *bolt12,
 			 const struct json_escape *label,
-			 enum offer_status status)
+			 enum offer_status status,
+			 bool force_paths)
 	NON_NULL_ARGS(1,2,3);
 
 /**
@@ -1489,6 +1491,7 @@ bool wallet_offer_create(struct wallet *w,
  * @offer_id: the merkle root, as used for signing (must be unique)
  * @label: the label of the offer, set to NULL if none (or NULL)
  * @status: set if succeeds (or NULL)
+ * @force_paths: set if succeeds (or NULL)
  *
  * If @offer_id is found, returns the bolt12 text, sets @label and
  * @state.  Otherwise returns NULL.
@@ -1497,7 +1500,8 @@ char *wallet_offer_find(const tal_t *ctx,
 			struct wallet *w,
 			const struct sha256 *offer_id,
 			const struct json_escape **label,
-			enum offer_status *status)
+			enum offer_status *status,
+			bool *force_paths)
 	NON_NULL_ARGS(1,2,3);
 
 /**

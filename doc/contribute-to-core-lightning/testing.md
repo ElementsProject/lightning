@@ -63,7 +63,6 @@ Our Github Actions instance (see `.github/workflows/*.yml`) runs all these for e
 
 ```text
 EXPERIMENTAL_DUAL_FUND=[0|1]          - Enable dual-funding tests.
-EXPERIMENTAL_SPLICING=[0|1]           - Enable splicing tests.
 TEST_CHECK_DBSTMTS=[0|1]              - When running blackbox tests, this will
                                         load a plugin that logs all compiled
                                         and expanded database statements.

@@ -896,6 +896,24 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("getroute", payload)
 
+    def getroutes(self, source, destination, amount_msat, layers, maxfee_msat,
+                  final_cltv, maxdelay=None, maxparts=None):
+        """Find routes from {source} to {destination} for {amount_msat},
+        applying {layers}, paying no more than {maxfee_msat},
+        ending in {final_cltv}.
+        """
+        payload = {
+            "source": source,
+            "destination": destination,
+            "amount_msat": amount_msat,
+            "layers": layers,
+            "maxfee_msat": maxfee_msat,
+            "final_cltv": final_cltv,
+            "maxdelay": maxdelay,
+            "maxparts": maxparts,
+        }
+        return self.call("getroutes", payload)
+
     def help(self, command=None):
         """
         Show available commands, or just {command} if supplied.
@@ -1167,6 +1185,25 @@ class LightningRpc(UnixDomainSocketRpc):
             "partial_msat": partial_msat,
         }
         return self.call("pay", payload)
+
+    def xpay(self, invstring, amount_msat=None, maxfee=None, retry_for=None,
+             partial_msat=None, maxdelay=None, payer_note=None, label=None, localinvreqid=None,
+             dev_use_shadow=None):
+        """
+        Send payment specified by {invstring}.
+        """
+        payload = {
+            "invstring": invstring,
+            "amount_msat": amount_msat,
+            "maxfee": maxfee,
+            "retry_for": retry_for,
+            "partial_msat": partial_msat,
+            "maxdelay": maxdelay,
+            "label": label,
+            "localinvreqid": localinvreqid,
+            "dev_use_shadow": dev_use_shadow,
+        }
+        return self.call("xpay", payload)
 
     def openchannel_init(self, node_id, channel_amount, psbt, feerate=None, funding_feerate=None, announce=True, close_to=None, request_amt=None, channel_type=None):
         """Initiate an openchannel with a peer """
@@ -1666,3 +1703,45 @@ class LightningRpc(UnixDomainSocketRpc):
             "extratlvs": extratlvs,
         }
         return self.call("keysend", payload)
+
+    def sendamount(
+        self,
+        invstring,
+        amount_msat,
+        maxfee=None,
+        layers=None,
+        retry_for=None,
+        maxdelay=None,
+        payer_note=None,
+    ):
+        payload = {
+            "invstring": invstring,
+            "amount_msat": amount_msat,
+            "maxfee": maxfee,
+            "layers": layers,
+            "retry_for": retry_for,
+            "maxdelay": maxdelay,
+            "payer_note": payer_note,
+        }
+        return self.call("sendamount", payload)
+
+    def xkeysend(self, destination, amount_msat, maxfee=None,
+                 layers=None, retry_for=None, maxdelay=None,
+                 extratlvs=None):
+        """
+        """
+        if extratlvs is not None and not isinstance(extratlvs, dict):
+            raise ValueError(
+                "extratlvs is not a dictionary with integer keys and hexadecimal values"
+            )
+
+        payload = {
+            "destination": destination,
+            "amount_msat": amount_msat,
+            "maxfee": maxfee,
+            "layers": layers,
+            "retry_for": retry_for,
+            "maxdelay": maxdelay,
+            "extratlvs": extratlvs,
+        }
+        return self.call("xkeysend", payload)

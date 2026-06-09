@@ -112,6 +112,11 @@ struct command_result *json_cancelrecurringinvoice(struct command *cmd UNNEEDED,
 						   const char *buffer UNNEEDED,
 						   const jsmntok_t *params UNNEEDED)
 { fprintf(stderr, "json_cancelrecurringinvoice called!\n"); abort(); }
+/* Generated stub for json_createproof */
+struct command_result *json_createproof(struct command *cmd UNNEEDED,
+					const char *buffer UNNEEDED,
+					const jsmntok_t *params UNNEEDED)
+{ fprintf(stderr, "json_createproof called!\n"); abort(); }
 /* Generated stub for json_dev_rawrequest */
 struct command_result *json_dev_rawrequest(struct command *cmd UNNEEDED,
 					   const char *buffer UNNEEDED,
@@ -242,19 +247,21 @@ int main(int argc, char *argv[])
 	common_setup(argv[0]);
 
 	static const struct likely_test tests[] = {
-		/* BOLT12 */
+		/* BOLT-12 */
 		{ "lno1qqqqqq",        LIKELY_BOLT12_OFFER },
 		{ "LNO1QQQQQQ",        LIKELY_BOLT12_OFFER },
 		{ "lni1abcd",          LIKELY_BOLT12_INV },
 		{ "LNI1ABCD",          LIKELY_BOLT12_INV },
 		{ "lnr1xyz",           LIKELY_BOLT12_INVREQ },
 		{ "LNR1XYZ",           LIKELY_BOLT12_INVREQ },
+		{ "lnp1proof",         LIKELY_BOLT12_PAYER_PROOF },
+		{ "LNP1PROOF",         LIKELY_BOLT12_PAYER_PROOF },
 
 		/* Emergency recover */
 		{ "clnemerg1foo",      LIKELY_EMERGENCY_RECOVER },
 		{ "CLNEMERG1FOO",      LIKELY_EMERGENCY_RECOVER },
 
-		/* BOLT11 (lower + upper, amount + no amount) */
+		/* BOLT-11 (lower + upper, amount + no amount) */
 		{ "lnbc1qqqqqq",       LIKELY_BOLT11 },
 		{ "LNBC1QQQQQQ",       LIKELY_BOLT11 },
 		{ "lnbc10u1qqqqqq",    LIKELY_BOLT11 },

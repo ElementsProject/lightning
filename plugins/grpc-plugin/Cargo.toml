@@ -1,12 +1,13 @@
 [package]
-edition = "2021"
+edition = "2024"
 name = "cln-grpc-plugin"
-version = "0.5.0"
+version = "0.7.0"
 
 description = "A Core Lightning plugin that re-exposes the JSON-RPC over grpc. Authentication is done via mTLS."
 license = "MIT"
 repository = "https://github.com/ElementsProject/lightning"
 documentation = "https://docs.rs/crate/cln-grpc-plugin/"
+rust-version.workspace = true
 
 [[bin]]
 name = "cln-grpc"
@@ -15,9 +16,9 @@ path = "src/main.rs"
 [dependencies]
 anyhow = "1.0"
 log = "0.4"
-rcgen = { version = "0.13.1", features = ["pem", "x509-parser"] }
-prost = "0.12"
-cln-grpc = { workspace = true, features = ["server"]}
+rcgen = { version = "0.14", features = ["pem", "x509-parser"] }
+prost = "0.14"
+cln-grpc = { workspace = true, features = ["server"] }
 cln-plugin = { workspace = true }
 cln-rpc = { workspace = true }
 serde_json = "1.0.113"
@@ -27,5 +28,5 @@ features = ["net", "rt-multi-thread"]
 version = "1"
 
 [dependencies.tonic]
-features = ["tls", "transport"]
-version = "0.11"
+features = ["tls-ring", "transport"]
+version = "0.14"

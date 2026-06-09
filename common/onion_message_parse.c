@@ -177,6 +177,12 @@ const char *onion_message_parse(const tal_t *ctx,
 				       "onion_message_parse: invalid encrypted_recipient_data %s",
 				       tal_hex(tmpctx, om->encrypted_recipient_data));
 		}
+		/* BOLT #4:
+		 * - if it forwards the message:
+		 *   - MUST set `path_key` in the forwarded `onion_message`
+		 *     to the next `path_key` as calculated in
+		 *     [Route Blinding](#route-blinding).
+		 */
 		*next_onion_msg = towire_onion_message(ctx,
 						       &next_path_key,
 						       serialize_onionpacket(tmpctx, rs->next));

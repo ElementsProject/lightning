@@ -376,7 +376,6 @@ static bool is_urgent(enum peer_wire type)
 static u8 *process_batch_elements(const tal_t *ctx, struct peer *peer, const u8 *msg TAKES)
 {
 	u8 *ret = tal_arr(ctx, u8, 0);
-	size_t ret_size = 0;
 	const u8 *cursor = msg;
 	size_t plen = tal_count(msg);
 
@@ -422,14 +421,11 @@ static u8 *process_batch_elements(const tal_t *ctx, struct peer *peer, const u8 
 		enc_msg = cryptomsg_encrypt_msg(tmpctx, &peer->cs,
 						take(element_bytes));
 
-		tal_resize(&ret, ret_size + tal_bytelen(enc_msg));
-		memcpy(&ret[ret_size], enc_msg, tal_bytelen(enc_msg));
-		ret_size += tal_bytelen(enc_msg);
+		tal_arr_append(&ret, enc_msg);
 
 	} while(plen);
 
-	if (taken(msg))
-		tal_free(msg);
+	tal_free_if_taken(msg);
 
 	return ret;
 }
@@ -482,13 +478,38 @@ static bool have_empty_encrypted_queue(const struct peer *peer)
 	return membuf_num_elems(&peer->encrypted_peer_out) == 0;
 }
 
+/* Funny story: we discovered an LND bug, where they hung up if we sent
+ * "no reply" ping messages.  This was fixed in (the upcoming) v21, which
+ * Laolu pointed out also supports onion messages.  Hence we use that
+ * to detect if we should pad packets. */
+
+/* Funnier story: Eclair had the same bug, and have also committed a
+ * fix.  They currently use a boutique feature bit 154, which is
+ * "Phoenix-specific custom splices implementation" which Tbast
+ * indicates is being phased out.  So if they offer that, don't send
+ * such pings. */
+
+/* Oh, and then there was a node running LND master.  And those running
+ * LND with LNDK: so we added global disable. */
+static bool use_uniform_writes(const struct peer *peer)
+{
+	return peer->daemon->message_padding
+		&& feature_offered(peer->their_features, OPT_ONION_MESSAGES)
+		&& !feature_offered(peer->their_features, 154);
+}
+
 /* (Continue) writing the encrypted_peer_out array */
 static struct io_plan *write_encrypted_to_peer(struct peer *peer)
 {
-	assert(membuf_num_elems(&peer->encrypted_peer_out) >= UNIFORM_MESSAGE_SIZE);
+	size_t avail = membuf_num_elems(&peer->encrypted_peer_out);
+	/* With padding: always a full uniform-size chunk.
+	 * Without: flush whatever we have (caller ensures non-zero). */
+	size_t write_size = use_uniform_writes(peer) ? UNIFORM_MESSAGE_SIZE : avail;
+
+	assert(avail >= write_size && write_size > 0);
 	return io_write_partial(peer->to_peer,
 				membuf_elems(&peer->encrypted_peer_out),
-				UNIFORM_MESSAGE_SIZE,
+				write_size,
 				&peer->encrypted_peer_out_sent,
 				write_to_peer, peer);
 }
@@ -1245,8 +1266,11 @@ static struct io_plan *write_to_peer(struct io_conn *peer_conn,
 				/* Wait for them to wake us */
 				return msg_queue_wait(peer_conn, peer->peer_outq, write_to_peer, peer);
 			}
-			/* OK, add padding. */
-			pad_encrypted_queue(peer);
+			/* OK, add padding (only if supported). */
+			if (use_uniform_writes(peer))
+				pad_encrypted_queue(peer);
+			else
+				break;
 		} else {
 			if (peer->draining_state == WRITING_TO_PEER)
 				status_peer_debug(&peer->id, "draining, but sending %s.",
@@ -1264,6 +1288,14 @@ static struct io_plan *write_to_peer(struct io_conn *peer_conn,
 	}
 
 	peer->nonurgent_flush_timer = tal_free(peer->nonurgent_flush_timer);
+
+	/* With uniform padding the buffer is always a full UNIFORM_MESSAGE_SIZE.
+	 * Without it, write whatever we have; if nothing, go back to waiting. */
+	if (have_empty_encrypted_queue(peer)) {
+		io_wake(&peer->subds);
+		io_wake(&peer->peer_in);
+		return msg_queue_wait(peer_conn, peer->peer_outq, write_to_peer, peer);
+	}
 	return write_encrypted_to_peer(peer);
 }
 
@@ -1396,6 +1428,8 @@ static struct io_plan *read_body_from_peer_done(struct io_conn *peer_conn,
 				 tal_bytelen(peer->peer_in));
                return io_close(peer_conn);
        }
+
+       peer->bytes_rcvd_this_second += tal_bytelen(peer->peer_in);
        tal_free(peer->peer_in);
 
        type = fromwire_peektype(decrypted);
@@ -1512,15 +1546,51 @@ static struct io_plan *read_body_from_peer(struct io_conn *peer_conn,
        if (!cryptomsg_decrypt_header(&peer->cs, peer->peer_in, &len))
                return io_close(peer_conn);
 
+       peer->bytes_rcvd_this_second += tal_bytelen(peer->peer_in);
+
        tal_resize(&peer->peer_in, (u32)len + CRYPTOMSG_BODY_OVERHEAD);
        return io_read(peer_conn, peer->peer_in, tal_count(peer->peer_in),
 		      read_body_from_peer_done, peer);
 }
 
+static void recv_throttle_timeout(struct peer *peer)
+{
+	peer->recv_timer = tal_free(peer->recv_timer);
+	io_wake(&peer->peer_in);
+}
+
 static struct io_plan *read_hdr_from_peer(struct io_conn *peer_conn,
 					  struct peer *peer)
 {
+	struct timemono now = time_mono();
 	assert(peer->to_peer == peer_conn);
+
+	/* If it's been over a second, make a fresh start. */
+	if (time_to_sec(timemono_between(now, peer->bytes_rcvd_start_time)) > 0) {
+		peer->bytes_rcvd_start_time = now;
+		peer->bytes_rcvd_this_second = 0;
+	}
+
+	/* You sent too much this second? */
+	if (peer->bytes_rcvd_this_second > peer->daemon->incoming_stream_limit) {
+		status_unusual_once(&peer->throttle_warned,
+				    CI_UNEXPECTED
+				    "Throttling incoming peer %s:"
+				    " too much traffic",
+				    fmt_node_id(tmpctx, &peer->id));
+
+		/* Set timer for next second (if not already) */
+		if (!peer->recv_timer) {
+			peer->recv_timer = new_abstimer(&peer->daemon->timers,
+							peer,
+							timemono_add(peer->bytes_rcvd_start_time,
+								     time_from_sec(1)),
+							recv_throttle_timeout,
+							peer);
+		}
+		return io_wait(peer_conn, &peer->peer_in,
+			       read_hdr_from_peer, peer);
+	}
 
 	/* BOLT #8:
 	 *
@@ -1627,12 +1697,10 @@ void peer_connect_subd(struct daemon *daemon, const u8 *msg, int fd)
 	 * (subd will see immediate hangup). */
 	if (fd == -1) {
 		static bool recvfd_logged = false;
-		if (!recvfd_logged) {
-			status_broken("receiving lightningd fd failed for %s: %s",
-				      fmt_node_id(tmpctx, &id),
-				      strerror(errno));
-			recvfd_logged = true;
-		}
+		status_broken_once(&recvfd_logged,
+				   "receiving lightningd fd failed for %s: %s",
+				   fmt_node_id(tmpctx, &id),
+				   strerror(errno));
 		/* Maybe free up some fds by closing something. */
 		close_random_connection(daemon);
 		return;

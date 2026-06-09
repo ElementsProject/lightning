@@ -29,6 +29,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#define PENDING_LIMIT 10000
 #define GOSSIP_STORE_COMPACT_FILENAME "gossip_store.compact"
 
 struct pending_cannounce {
@@ -133,9 +134,24 @@ static void enqueue_cupdate(struct pending_cupdate ***queue,
 			    u32 fee_proportional_millionths,
 			    u32 timestamp,
 			    const u8 *update TAKES,
-			    const struct node_id *source_peer TAKES)
+			    const struct node_id *source_peer)
 {
-	struct pending_cupdate *pcu = tal(*queue, struct pending_cupdate);
+	struct pending_cupdate *pcu;
+
+	if (tal_count(*queue) > PENDING_LIMIT) {
+		static bool warned = false;
+		status_unusual_once(&warned,
+				    CI_UNEXPECTED
+				    "channel_updates being flooded by %s: dropping some",
+				    source_peer
+				    ? fmt_node_id(tmpctx, source_peer)
+				    : "unknown");
+		tal_free_if_taken(update);
+		tal_free_if_taken(source_peer);
+		return;
+	}
+
+	pcu = tal(*queue, struct pending_cupdate);
 
 	pcu->scid = scid;
 	pcu->signature = *signature;
@@ -159,7 +175,22 @@ static void enqueue_nannounce(struct pending_nannounce ***queue,
 			      const u8 *nannounce TAKES,
 			      const struct node_id *source_peer TAKES)
 {
-	struct pending_nannounce *pna = tal(*queue, struct pending_nannounce);
+	struct pending_nannounce *pna;
+
+	if (tal_count(*queue) > PENDING_LIMIT) {
+		static bool warned = false;
+		status_unusual_once(&warned,
+				    CI_UNEXPECTED
+				    "node_announcements being flooded by %s: dropping some",
+				    source_peer
+				    ? fmt_node_id(tmpctx, source_peer)
+				    : "unknown");
+		tal_free_if_taken(nannounce);
+		tal_free_if_taken(source_peer);
+		return;
+	}
+
+	pna = tal(*queue, struct pending_nannounce);
 
 	pna->node_id = *node_id;
 	pna->timestamp = timestamp;
@@ -183,15 +214,14 @@ static bool map_add(struct cannounce_map *map,
 		    struct pending_cannounce *pca)
 {
 	/* More than 10000 pending things?  Stop! */
-	if (map->count > 10000) {
-		if (!map->flood_reported) {
-			status_unusual("%s being flooded by %s: dropping some",
-				       map->name,
-				       pca->source_peer
-				       ? fmt_node_id(tmpctx, pca->source_peer)
-				       : "unknown");
-			map->flood_reported = true;
-		}
+	if (map->count > PENDING_LIMIT) {
+		status_unusual_once(&map->flood_reported,
+				    CI_UNEXPECTED
+				    "%s being flooded by %s: dropping some",
+				    map->name,
+				    pca->source_peer
+				    ? fmt_node_id(tmpctx, pca->source_peer)
+				    : "unknown");
 		return false;
 	}
 
@@ -618,6 +648,27 @@ const char *gossmap_manage_channel_announcement(const tal_t *ctx,
 			       tal_hex(tmpctx, announce));
 	}
 
+	/* BOLT-gossip-node-check #7:
+	 * The receiving node:
+	 *...
+	 *   - if `node_id_1` is not lexicographically less than `node_id_2`:
+	 *     - SHOULD send a `warning`.
+	 *     - MAY close the connection.
+	 *     - MUST ignore the message.
+	 */
+	if (!(node_id_cmp(&node_id_1, &node_id_2) < 0)) {
+		return tal_fmt(ctx, "node_id_1 must be the lesser node id! 1=%s, 2=%s",
+			       fmt_node_id(tmpctx, &node_id_1),
+			       fmt_node_id(tmpctx, &node_id_2));
+	}
+
+	/* BOLT #7:
+	 *   - if the specified `chain_hash` is unknown to the receiver:
+	 *     - MUST ignore the message.
+	 */
+	if (!bitcoin_blkid_eq(&chain_hash, &chainparams->genesis_blockhash))
+		return NULL;
+
 	/* If a prior txout lookup failed there is little point it trying
 	 * again. Just drop the announcement and walk away whistling.
 	 *
@@ -987,6 +1038,16 @@ const char *gossmap_manage_channel_update(const tal_t *ctx,
 				     &htlc_maximum_msat)) {
 		return tal_fmt(ctx, "channel_update: malformed %s",
 			       tal_hex(tmpctx, update));
+	}
+
+	/* BOLT #7:
+	 * - if the specified `chain_hash` value is unknown (meaning it isn't active on
+	 *   the specified chain):
+	 *     - MUST ignore the channel update.
+	 */
+	if (!bitcoin_blkid_eq(&chain_hash, &chainparams->genesis_blockhash)) {
+		status_debug("wrong chain for update %s", tal_hex(tmpctx, update));
+		return NULL;
 	}
 
 	/* Don't accept ancient or far-future timestamps. */
@@ -1394,12 +1455,12 @@ void gossmap_manage_channel_spent(struct gossmap_manage *gm,
 
 	/* BOLT #7:
 	 *   - once its funding output has been spent OR reorganized out:
-	 *     - SHOULD forget a channel after a 12-block delay.
+	 *     - SHOULD forget a channel after a 72-block delay.
 	 */
-	cd.deadline = blockheight + 12;
+	cd.deadline = blockheight + 72;
 	cd.scid = scid;
 
-	/* Remember locally so we can kill it in 12 blocks */
+	/* Remember locally so we can kill it in 72 blocks */
 	status_trace("channel %s closing soon due"
 		     " to the funding outpoint being spent",
 		     fmt_short_channel_id(tmpctx, scid));

@@ -673,9 +673,7 @@ size_t psbt_output_get_weight(const struct wally_psbt *psbt,
 
 static void add(u8 **key, const void *mem, size_t len)
 {
-	size_t oldlen = tal_count(*key);
-	tal_resize(key, oldlen + len);
-	memcpy(*key + oldlen, memcheck(mem, len), len);
+	tal_arr_appendn(key, mem, len);
 }
 
 static void add_type(u8 **key, const u8 num)

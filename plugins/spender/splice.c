@@ -187,7 +187,7 @@ static struct command_result *do_fail(struct command *cmd,
 		   "splice_error(psbt:%p, splice_cmd:%p, str: %s)",
 		   splice_cmd->psbt, splice_cmd, str ?: "");
 
-	abort_pkg = tal(cmd->plugin, struct abort_pkg);
+	abort_pkg = tal(cmd, struct abort_pkg);
 	abort_pkg->splice_cmd = tal_steal(abort_pkg, splice_cmd);
 	abort_pkg->str = tal_strdup(abort_pkg, str);
 	abort_pkg->code = code;
@@ -604,6 +604,18 @@ static bool json_to_msat_to_sat(const char *buffer, const jsmntok_t *tok,
 	return amount_msat_to_sat(sat, msat);
 }
 
+static bool json_to_msat_to_sat_round_down(const char *buffer,
+					   const jsmntok_t *tok,
+					   struct amount_sat *sat)
+{
+	struct amount_msat msat;
+
+	if (!json_to_msat(buffer, tok, &msat))
+		return false;
+	*sat = amount_msat_to_sat_round_down(msat);
+	return true;
+}
+
 static struct splice_script_result *make_wallet(struct splice_cmd *splice_cmd)
 {
 	struct splice_script_result *action;
@@ -869,7 +881,7 @@ static size_t calc_weight(struct splice_cmd *splice_cmd,
 	 */
 	for (size_t i = 0; i < psbt->num_inputs; i++) {
 		weight += psbt_input_get_weight(psbt, i, PSBT_GUESS_2OF2);
-		plugin_log(plugin, LOG_DBG, " Counting input; weight: %lu",
+		plugin_log(plugin, LOG_DBG, " Counting input; weight: %zu",
 			   weight - lweight);
 		lweight = weight;
 	}
@@ -879,7 +891,7 @@ static size_t calc_weight(struct splice_cmd *splice_cmd,
 		weight += bitcoin_tx_input_weight(false,
 						  bitcoin_tx_input_witness_weight(UTXO_P2TR) - 1);
 		plugin_log(plugin, LOG_DBG, " Simulating input (wallet);"
-			   " weight: %lu", weight - lweight);
+			   " weight: %zu", weight - lweight);
 		lweight = weight;
 	}
 
@@ -891,7 +903,7 @@ static size_t calc_weight(struct splice_cmd *splice_cmd,
 							  bitcoin_tx_2of2_input_witness_weight() - 1);
 			plugin_log(plugin, LOG_DBG, " Simulating input"
 				   " (channel); weight:"
-				   " %lu", weight - lweight);
+				   " %zu", weight - lweight);
 			lweight = weight;
 			extra_inputs++;
 		}
@@ -909,7 +921,7 @@ static size_t calc_weight(struct splice_cmd *splice_cmd,
 			weight += bitcoin_tx_output_weight(BITCOIN_SCRIPTPUBKEY_P2WSH_LEN);
 			plugin_log(plugin, LOG_DBG, " Simulating output"
 				   " (channel); weight:"
-				   " %lu", weight - lweight);
+				   " %zu", weight - lweight);
 			lweight = weight;
 
 			extra_outputs++;
@@ -921,13 +933,13 @@ static size_t calc_weight(struct splice_cmd *splice_cmd,
 		extra_outputs++;
 		plugin_log(plugin, LOG_DBG, " Simulating output"
 			   " (wallet); weight:"
-			   " %lu", weight - lweight);
+			   " %zu", weight - lweight);
 		lweight = weight;
 	}
 
 	for (size_t i = 0; i < psbt->num_outputs; i++) {
 		weight += psbt_output_get_weight(psbt, i);
-		plugin_log(plugin, LOG_DBG, " Adding output; weight: %lu",
+		plugin_log(plugin, LOG_DBG, " Adding output; weight: %zu",
 			   weight - lweight);
 		lweight = weight;
 	}
@@ -945,10 +957,10 @@ static size_t calc_weight(struct splice_cmd *splice_cmd,
 	weight += bitcoin_tx_core_weight(psbt->num_inputs + extra_inputs,
 					 psbt->num_outputs + extra_outputs);
 	plugin_log(plugin, LOG_DBG, " Adding bitcoin_tx_core_weight;"
-		   " weight: %lu", weight - lweight);
+		   " weight: %zu", weight - lweight);
 	lweight = weight;
 
-	plugin_log(plugin, LOG_DBG, "Total weight: %lu", weight);
+	plugin_log(plugin, LOG_DBG, "Total weight: %zu", weight);
 	return weight;
 }
 
@@ -1389,7 +1401,7 @@ static struct command_result *handle_fee_and_ppm(struct command *cmd,
 
 	plugin_log(cmd->plugin, LOG_INFORM,
 		   "Splice fee is %s at %"PRIu32" perkw (%.02f sat/vB) "
-		   "on tx where our weight units are %lu",
+		   "on tx where our weight units are %zu",
 		   fmt_amount_sat(tmpctx, onchain_fee),
 		   splice_cmd->feerate_per_kw,
 		   4 * splice_cmd->feerate_per_kw / 1000.0f,
@@ -1971,7 +1983,7 @@ static struct command_result *stfu_channels_get_result(struct command *cmd,
 		err = json_scan(tmpctx, buf, jchannel,
 				"{channel_id?:%,available_msat?:%}",
 				JSON_SCAN(json_to_channel_id, &channel_id),
-				JSON_SCAN(json_to_msat_to_sat, &sat));
+				JSON_SCAN(json_to_msat_to_sat_round_down, &sat));
 		if (err)
 			errx(1, "Bad stfu_channels.channels %zu: %s",
 			     i, err);

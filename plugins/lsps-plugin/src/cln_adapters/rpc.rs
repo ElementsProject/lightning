@@ -15,6 +15,7 @@ use anyhow::{Context, Result};
 use async_trait::async_trait;
 use bitcoin::secp256k1::PublicKey;
 use cln_rpc::{
+    ClnRpc,
     model::{
         requests::{
             DatastoreMode, DatastoreRequest, DeldatastoreRequest, FundchannelRequest,
@@ -23,7 +24,6 @@ use cln_rpc::{
         responses::ListdatastoreResponse,
     },
     primitives::{Amount, AmountOrAll, ChannelState, Sha256, ShortChannelId},
-    ClnRpc,
 };
 use core::fmt;
 use serde::Serialize;

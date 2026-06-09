@@ -372,25 +372,6 @@ static const struct plugin_notification notifs[] = { {
 	}
 };
 
-static char *set_multi_string_option(struct command *cmd,
-				     const char *arg,
-				     bool check_only,
-				     const char ***arr)
-{
-	if (!check_only)
-		tal_arr_expand(arr, tal_strdup(*arr, arg));
-	return NULL;
-}
-
-static bool multi_string_jsonfmt(struct command *cmd, struct json_stream *js, const char *fieldname, const char ***arr)
-{
-	json_array_start(js, fieldname);
-	for (size_t i = 0; i < tal_count(*arr); i++)
-		json_add_string(js, NULL, (*arr)[i]);
-	json_array_end(js);
-	return true;
-}
-
 int main(int argc, char *argv[])
 {
 	setup_locale();
@@ -436,8 +417,8 @@ int main(int argc, char *argv[])
 		    plugin_option_multi("multiopt",
 					"string",
 					"Set me multiple times!",
-					set_multi_string_option,
-					multi_string_jsonfmt,
+					multi_string_option,
+					string_array_jsonfmt,
 					&tlp->strarr),
 		    NULL);
 }

@@ -229,8 +229,7 @@ u8 *wire_sync_read(const tal_t *ctx, int fd UNNEEDED)
 
 bool wire_sync_write(int fd UNNEEDED, const void *msg TAKES)
 {
-	if (taken(msg))
-		tal_free(msg);
+	tal_free_if_taken(msg);
 	return true;
 }
 

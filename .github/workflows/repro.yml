@@ -14,10 +14,10 @@ jobs:
     strategy:
       fail-fast: false    # Let each build finish.
       matrix:
-        version: ['focal', 'jammy', 'noble']
+        version: ['jammy', 'noble', 'resolute']
     steps:
       - name: Git checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Build environment setup - ${{ matrix.version }}
         run: |
@@ -81,7 +81,7 @@ jobs:
           fi
 
       - name: Upload release artifact - ${{ matrix.version }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-${{ matrix.version }}
           path: release
@@ -89,10 +89,11 @@ jobs:
 
       - name: Send email on failure
         if: ${{ failure() }}
-        uses: dawidd6/action-send-mail@v3
+        uses: dawidd6/action-send-mail@v17
         with:
           server_address: smtp.gmail.com
           server_port: 587
+          secure: true
           username: ${{ secrets.EMAIL_USERNAME }}
           password: ${{ secrets.EMAIL_PASSWORD }}
           from: ${{ secrets.EMAIL_USERNAME }}

@@ -42,6 +42,7 @@
             "offer_id",
             "active",
             "single_use",
+            "force_paths",
             "bolt12",
             "used"
           ],
@@ -62,6 +63,13 @@
               "type": "boolean",
               "description": [
                 "Whether this expires as soon as it's paid."
+              ]
+            },
+            "force_paths": {
+              "type": "boolean",
+              "added": "v26.04",
+              "description": [
+                "Whether explicit blinded paths (i.e. fronting nodes) were adde when creating the offer (implying that they should be used when creating invoices)."
               ]
             },
             "bolt12": {

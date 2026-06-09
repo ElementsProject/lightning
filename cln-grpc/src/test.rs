@@ -1,6 +1,7 @@
 use crate::pb::*;
 use serde_json::json;
 
+#[cfg(feature = "server")]
 #[test]
 fn test_listpeers() {
     let j: serde_json::Value = json!({
@@ -230,6 +231,7 @@ fn test_listpeers() {
     // assert_eq!(j, j2); // TODO, still some differences to fix
 }
 
+#[cfg(feature = "server")]
 #[test]
 fn test_getinfo() {
     let j = json!({
@@ -254,6 +256,7 @@ fn test_getinfo() {
     //assert_eq!(j, j2);
 }
 
+#[cfg(feature = "server")]
 #[test]
 fn test_keysend() {
     let g =
@@ -293,7 +296,7 @@ fn test_keysend() {
                 }],
             }),
             extratlvs: None,
-            maxfee: None
+            maxfee: None,
         };
 
     let u: cln_rpc::model::requests::KeysendRequest = g.into();
@@ -319,4 +322,338 @@ fn test_keysend() {
     let g: cln_rpc::model::responses::KeysendResponse = u.into();
     let v2 = serde_json::to_value(g).unwrap();
     assert_eq!(v, v2);
+}
+
+/// Verify serde round-trip: serialize to JSON, deserialize back, and
+/// check the re-serialized value matches the first serialization.
+macro_rules! assert_serde_roundtrip {
+    ($value:expr, $type:ty) => {{
+        let v = serde_json::to_value(&$value).unwrap();
+        let rt: $type = serde_json::from_value(v.clone()).unwrap();
+        let v2 = serde_json::to_value(&rt).unwrap();
+        assert_eq!(v, v2);
+    }};
+}
+
+#[test]
+fn test_balance_snapshot() {
+    let j: serde_json::Value = json!({
+        "node_id": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
+        "blockheight": 103,
+        "timestamp": 1648222556,
+        "accounts": [
+            {
+                "account_id": "wallet",
+                "balance_msat": "500000000msat",
+                "coin_type": "bcrt"
+            },
+            {
+                "account_id": "44b77a6d66ca54f0c365c84b13a95fbde462415a0549228baa25ee1bb1dfef66",
+                "balance_msat": "1000000000msat",
+                "coin_type": "bcrt"
+            }
+        ]
+    });
+    let u: cln_rpc::notifications::BalanceSnapshotNotification = serde_json::from_value(j).unwrap();
+    assert_eq!(u.accounts.len(), 2);
+    assert_eq!(u.accounts[0].account_id, "wallet");
+    assert_eq!(u.blockheight, 103);
+    assert_serde_roundtrip!(u, cln_rpc::notifications::BalanceSnapshotNotification);
+    let _pb: crate::pb::BalanceSnapshotNotification = u.into();
+}
+
+#[test]
+fn test_coin_movement() {
+    let j: serde_json::Value = json!({
+        "version": 2,
+        "node_id": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
+        "coin_type": "bcrt",
+        "type": "channel_mvt",
+        "account_id": "44b77a6d66ca54f0c365c84b13a95fbde462415a0549228baa25ee1bb1dfef66",
+        "created_index": 1,
+        "credit_msat": "100000000msat",
+        "debit_msat": "0msat",
+        "timestamp": 1648222556,
+        "primary_tag": "invoice",
+        "payment_hash": "d17a42c4f7f49648064a0ce7ce848bd92c4c50f24d35fe5c3d1f3a7a9bf474b2",
+        "part_id": 0,
+        "group_id": 1,
+        "fees_msat": "1001msat",
+        "peer_id": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
+        "extra_tags": ["keysend"]
+    });
+    let u: cln_rpc::notifications::CoinMovementNotification = serde_json::from_value(j).unwrap();
+    assert_eq!(u.version, 2);
+    assert_eq!(
+        u.item_type,
+        cln_rpc::notifications::CoinMovementType::CHANNEL_MVT
+    );
+    assert_eq!(
+        u.primary_tag,
+        Some(cln_rpc::notifications::CoinMovementPrimaryTag::INVOICE)
+    );
+    assert_eq!(u.extra_tags, Some(vec!["keysend".to_string()]));
+    let _pb: crate::pb::CoinMovementNotification = u.into();
+
+    // Also test chain_mvt with utxo
+    let j2: serde_json::Value = json!({
+        "version": 2,
+        "node_id": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
+        "coin_type": "bcrt",
+        "type": "chain_mvt",
+        "account_id": "wallet",
+        "created_index": 2,
+        "credit_msat": "0msat",
+        "debit_msat": "50000000msat",
+        "timestamp": 1648222600,
+        "primary_tag": "withdrawal",
+        "utxo": "9e76017c75baab960aa7aad24f3b7b0a9708f2dbfdc9544a5cfa72fc44206a00:0",
+        "blockheight": 110,
+        "spending_txid": "67efdfb11bee25aa8b2249055a4162e4bd5fa9134bc865c3f054ca666d7ab744",
+        "output_msat": "49000000msat",
+        "output_count": 2
+    });
+    let u2: cln_rpc::notifications::CoinMovementNotification = serde_json::from_value(j2).unwrap();
+    assert_eq!(
+        u2.item_type,
+        cln_rpc::notifications::CoinMovementType::CHAIN_MVT
+    );
+    assert_eq!(
+        u2.primary_tag,
+        Some(cln_rpc::notifications::CoinMovementPrimaryTag::WITHDRAWAL)
+    );
+    assert!(u2.utxo.is_some());
+    assert_eq!(u2.blockheight, Some(110));
+    let _pb2: crate::pb::CoinMovementNotification = u2.into();
+}
+
+#[test]
+fn test_channel_state_changed() {
+    let j: serde_json::Value = json!({
+        "peer_id": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
+        "channel_id": "44b77a6d66ca54f0c365c84b13a95fbde462415a0549228baa25ee1bb1dfef66",
+        "short_channel_id": "103x2x1",
+        "timestamp": "2022-03-25T13:57:33.322Z",
+        "old_state": "CHANNELD_AWAITING_LOCKIN",
+        "new_state": "CHANNELD_NORMAL",
+        "cause": "remote",
+        "message": "Lockin complete"
+    });
+    let u: cln_rpc::notifications::ChannelStateChangedNotification =
+        serde_json::from_value(j).unwrap();
+    assert_eq!(
+        u.cause,
+        cln_rpc::notifications::ChannelStateChangedCause::REMOTE
+    );
+    assert_eq!(u.message, Some("Lockin complete".to_string()));
+    assert_serde_roundtrip!(u, cln_rpc::notifications::ChannelStateChangedNotification);
+    let _pb: crate::pb::ChannelStateChangedNotification = u.into();
+
+    // Also test without optional fields
+    let j_minimal: serde_json::Value = json!({
+        "peer_id": "0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518",
+        "channel_id": "44b77a6d66ca54f0c365c84b13a95fbde462415a0549228baa25ee1bb1dfef66",
+        "timestamp": "2022-03-25T13:57:33.322Z",
+        "new_state": "OPENINGD",
+        "cause": "user"
+    });
+    let u_min: cln_rpc::notifications::ChannelStateChangedNotification =
+        serde_json::from_value(j_minimal).unwrap();
+    assert!(u_min.old_state.is_none());
+    assert!(u_min.short_channel_id.is_none());
+    assert!(u_min.message.is_none());
+    let _pb_min: crate::pb::ChannelStateChangedNotification = u_min.into();
+}
+
+#[test]
+fn test_forward_event() {
+    // Settled forward with all fields
+    let j: serde_json::Value = json!({
+        "created_index": 1,
+        "updated_index": 2,
+        "status": "settled",
+        "in_channel": "103x1x0",
+        "in_htlc_id": 0,
+        "in_msat": "100001001msat",
+        "out_channel": "103x2x1",
+        "out_htlc_id": 0,
+        "out_msat": "100000000msat",
+        "fee_msat": "1001msat",
+        "payment_hash": "d17a42c4f7f49648064a0ce7ce848bd92c4c50f24d35fe5c3d1f3a7a9bf474b2",
+        "received_time": 1648222556.498,
+        "resolved_time": 1648222557.123,
+        "style": "tlv"
+    });
+    let u: cln_rpc::notifications::ForwardEventNotification = serde_json::from_value(j).unwrap();
+    assert_eq!(
+        u.status,
+        cln_rpc::notifications::ForwardEventStatus::SETTLED
+    );
+    assert_eq!(
+        u.style,
+        Some(cln_rpc::notifications::ForwardEventStyle::TLV)
+    );
+    assert!(u.out_channel.is_some());
+    let _pb: crate::pb::ForwardEventNotification = u.into();
+
+    // Failed forward with failure info
+    let j_failed: serde_json::Value = json!({
+        "created_index": 2,
+        "status": "local_failed",
+        "in_channel": "103x1x0",
+        "in_htlc_id": 1,
+        "in_msat": "50000000msat",
+        "payment_hash": "d17a42c4f7f49648064a0ce7ce848bd92c4c50f24d35fe5c3d1f3a7a9bf474b2",
+        "received_time": 1648222600.0,
+        "failcode": 16399,
+        "failreason": "WIRE_TEMPORARY_CHANNEL_FAILURE"
+    });
+    let u_failed: cln_rpc::notifications::ForwardEventNotification =
+        serde_json::from_value(j_failed).unwrap();
+    assert_eq!(
+        u_failed.status,
+        cln_rpc::notifications::ForwardEventStatus::LOCAL_FAILED
+    );
+    assert_eq!(u_failed.failcode, Some(16399));
+    assert!(u_failed.out_channel.is_none());
+    let _pb_failed: crate::pb::ForwardEventNotification = u_failed.into();
+}
+
+#[test]
+fn test_sendpay_failure() {
+    let j: serde_json::Value = json!({
+        "code": 204,
+        "message": "failed: WIRE_TEMPORARY_CHANNEL_FAILURE (reply from remote)",
+        "data": {
+            "created_index": 1,
+            "id": 1,
+            "payment_hash": "d17a42c4f7f49648064a0ce7ce848bd92c4c50f24d35fe5c3d1f3a7a9bf474b2",
+            "groupid": 1,
+            "updated_index": 1,
+            "partid": 0,
+            "destination": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
+            "amount_msat": "10000msat",
+            "amount_sent_msat": "10001msat",
+            "created_at": 1648222556,
+            "completed_at": 1648222557,
+            "status": "failed",
+            "erring_index": 1,
+            "failcode": 8195,
+            "failcodename": "WIRE_TEMPORARY_CHANNEL_FAILURE",
+            "erring_node": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
+            "erring_channel": "103x2x1",
+            "erring_direction": 0,
+            "bolt11": "lnbcrt100n1p3...",
+            "label": "test-payment-1"
+        }
+    });
+    let u: cln_rpc::notifications::SendPayFailureNotification = serde_json::from_value(j).unwrap();
+    assert_eq!(u.code, 204);
+    assert_eq!(
+        u.data.status,
+        Some(cln_rpc::notifications::SendpayFailureDataStatus::FAILED)
+    );
+    assert_eq!(u.data.failcode, Some(8195));
+    assert_eq!(u.data.erring_direction, Some(0));
+    let _pb: crate::pb::SendPayFailureNotification = u.into();
+}
+
+#[test]
+fn test_sendpay_success() {
+    let j: serde_json::Value = json!({
+        "created_index": 1,
+        "id": 1,
+        "payment_hash": "d17a42c4f7f49648064a0ce7ce848bd92c4c50f24d35fe5c3d1f3a7a9bf474b2",
+        "groupid": 1,
+        "updated_index": 1,
+        "partid": 0,
+        "destination": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
+        "amount_msat": "10000msat",
+        "amount_sent_msat": "10001msat",
+        "created_at": 1648222556,
+        "completed_at": 1648222557,
+        "status": "complete",
+        "payment_preimage": "e56c22b9ed85560b021e1577daad5742502d25c0c2f636b817f5c0c7580a66a8",
+        "bolt11": "lnbcrt100n1p3...",
+        "label": "test-payment-1"
+    });
+    let u: cln_rpc::notifications::SendPaySuccessNotification = serde_json::from_value(j).unwrap();
+    assert_eq!(
+        u.status,
+        cln_rpc::notifications::SendpaySuccessStatus::COMPLETE
+    );
+    assert_eq!(u.id, 1);
+    assert_eq!(u.groupid, 1);
+    assert!(u.payment_preimage.is_some());
+    assert_serde_roundtrip!(u, cln_rpc::notifications::SendPaySuccessNotification);
+    let _pb: crate::pb::SendPaySuccessNotification = u.into();
+}
+
+#[test]
+fn test_warning() {
+    let j: serde_json::Value = json!({
+        "level": "warn",
+        "time": "1648222556.498",
+        "timestamp": "2022-03-25T13:57:33.322Z",
+        "source": "lightningd(1234)",
+        "log": "Something unexpected happened"
+    });
+    let u: cln_rpc::notifications::WarningNotification = serde_json::from_value(j).unwrap();
+    assert_eq!(u.level, cln_rpc::notifications::WarningLevel::WARN);
+    assert_eq!(u.source, "lightningd(1234)");
+    assert_serde_roundtrip!(u, cln_rpc::notifications::WarningNotification);
+    let _pb: crate::pb::WarningNotification = u.into();
+
+    // Test error level
+    let j_err: serde_json::Value = json!({
+        "level": "error",
+        "time": "1648222600.000",
+        "timestamp": "2022-03-25T14:00:00.000Z",
+        "source": "channeld(5678)",
+        "log": "Fatal channel error"
+    });
+    let u_err: cln_rpc::notifications::WarningNotification = serde_json::from_value(j_err).unwrap();
+    assert_eq!(u_err.level, cln_rpc::notifications::WarningLevel::ERROR);
+    let _pb_err: crate::pb::WarningNotification = u_err.into();
+}
+
+#[test]
+fn test_pay_part_end() {
+    // Success case
+    let j: serde_json::Value = json!({
+        "status": "success",
+        "duration": 1.234,
+        "payment_hash": "d17a42c4f7f49648064a0ce7ce848bd92c4c50f24d35fe5c3d1f3a7a9bf474b2",
+        "groupid": 1,
+        "partid": 0
+    });
+    let u: cln_rpc::notifications::PayPartEndNotification = serde_json::from_value(j).unwrap();
+    assert_eq!(u.status, cln_rpc::notifications::PayPartEndStatus::SUCCESS);
+    assert!(u.failed_node_id.is_none());
+    assert_serde_roundtrip!(u, cln_rpc::notifications::PayPartEndNotification);
+    let _pb: crate::pb::PayPartEndNotification = u.into();
+
+    // Failure case with error details
+    let j_fail: serde_json::Value = json!({
+        "status": "failure",
+        "duration": 5.678,
+        "payment_hash": "d17a42c4f7f49648064a0ce7ce848bd92c4c50f24d35fe5c3d1f3a7a9bf474b2",
+        "groupid": 1,
+        "partid": 1,
+        "failed_node_id": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
+        "failed_short_channel_id": "103x2x1",
+        "failed_direction": 0,
+        "error_code": 8195,
+        "error_message": "WIRE_TEMPORARY_CHANNEL_FAILURE",
+        "failed_msg": "deadbeef"
+    });
+    let u_fail: cln_rpc::notifications::PayPartEndNotification =
+        serde_json::from_value(j_fail).unwrap();
+    assert_eq!(
+        u_fail.status,
+        cln_rpc::notifications::PayPartEndStatus::FAILURE
+    );
+    assert!(u_fail.failed_node_id.is_some());
+    assert_eq!(u_fail.error_code, Some(8195));
+    let _pb_fail: crate::pb::PayPartEndNotification = u_fail.into();
 }

@@ -97,10 +97,10 @@ void channel_gossip_node_announce(struct lightningd *ld UNNEEDED)
 void channel_gossip_startup_done(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "channel_gossip_startup_done called!\n"); abort(); }
 /* Generated stub for channel_has_htlc_in */
-struct htlc_in *channel_has_htlc_in(struct channel *channel UNNEEDED)
+struct htlc_in *channel_has_htlc_in(const struct channel *channel UNNEEDED)
 { fprintf(stderr, "channel_has_htlc_in called!\n"); abort(); }
 /* Generated stub for channel_has_htlc_out */
-struct htlc_out *channel_has_htlc_out(struct channel *channel UNNEEDED)
+struct htlc_out *channel_has_htlc_out(const struct channel *channel UNNEEDED)
 { fprintf(stderr, "channel_has_htlc_out called!\n"); abort(); }
 /* Generated stub for channel_important_filter */
 bool channel_important_filter(const struct channel *channel UNNEEDED, void *unused UNNEEDED)
@@ -453,6 +453,12 @@ void  json_add_unsaved_channel(struct command *cmd UNNEEDED,
 					   const struct channel *channel UNNEEDED,
 					   const struct peer *peer UNNEEDED)
 { fprintf(stderr, "json_add_unsaved_channel called!\n"); abort(); }
+/* Generated stub for json_notify_fmt */
+void json_notify_fmt(struct command *cmd UNNEEDED,
+		     enum log_level level UNNEEDED,
+		     const char *fmt UNNEEDED, ...)
+
+{ fprintf(stderr, "json_notify_fmt called!\n"); abort(); }
 /* Generated stub for json_stream_fail */
 struct json_stream *json_stream_fail(struct command *cmd UNNEEDED,
 				     enum jsonrpc_errcode code UNNEEDED,
@@ -524,7 +530,8 @@ void notify_disconnect(struct lightningd *ld UNNEEDED, const struct node_id *nod
 void notify_invoice_creation(struct lightningd *ld UNNEEDED,
 			     const struct amount_msat *amount UNNEEDED,
 			     const struct preimage *preimage UNNEEDED,
-			     const struct json_escape *label UNNEEDED)
+			     const struct json_escape *label UNNEEDED,
+			     const struct sha256 *offer_id UNNEEDED)
 { fprintf(stderr, "notify_invoice_creation called!\n"); abort(); }
 /* Generated stub for notify_invoice_payment */
 void notify_invoice_payment(struct lightningd *ld UNNEEDED,
@@ -661,7 +668,7 @@ u8 *towire_openingd_dev_memleak(const tal_t *ctx UNNEEDED)
 /* Generated stub for unwatch_scriptpubkey_ */
 bool unwatch_scriptpubkey_(const tal_t *ctx UNNEEDED,
 			   struct chain_topology *topo UNNEEDED,
-			   const u8 *scriptpubkey TAKES UNNEEDED,
+			   const u8 *scriptpubkey UNNEEDED,
 			   const struct bitcoin_outpoint *expected_outpoint UNNEEDED,
 			   struct amount_sat expected_amount UNNEEDED,
 			   void (*cb)(struct lightningd *ld UNNEEDED,
@@ -709,7 +716,8 @@ char *wallet_offer_find(const tal_t *ctx UNNEEDED,
 			struct wallet *w UNNEEDED,
 			const struct sha256 *offer_id UNNEEDED,
 			const struct json_escape **label UNNEEDED,
-			enum offer_status *status)
+			enum offer_status *status UNNEEDED,
+			bool *force_paths)
 
 { fprintf(stderr, "wallet_offer_find called!\n"); abort(); }
 /* Generated stub for wallet_save_network_event */
@@ -730,6 +738,14 @@ void wallet_transaction_add(struct wallet *w UNNEEDED, const struct wally_tx *tx
 /* Generated stub for wallet_transaction_height */
 u32 wallet_transaction_height(struct wallet *w UNNEEDED, const struct bitcoin_txid *txid UNNEEDED)
 { fprintf(stderr, "wallet_transaction_height called!\n"); abort(); }
+/* Generated stub for wallet_unreserve_utxo */
+void wallet_unreserve_utxo(struct wallet *w UNNEEDED, struct utxo *utxo UNNEEDED,
+			   u32 current_height UNNEEDED, u32 unreserve UNNEEDED)
+{ fprintf(stderr, "wallet_unreserve_utxo called!\n"); abort(); }
+/* Generated stub for wallet_utxo_get */
+struct utxo *wallet_utxo_get(const tal_t *ctx UNNEEDED, struct wallet *w UNNEEDED,
+			     const struct bitcoin_outpoint *outpoint UNNEEDED)
+{ fprintf(stderr, "wallet_utxo_get called!\n"); abort(); }
 /* Generated stub for watch_blockdepth_ */
 bool watch_blockdepth_(const tal_t *ctx UNNEEDED,
 		       struct chain_topology *topo UNNEEDED,
@@ -759,17 +775,6 @@ bool watch_scriptpubkey_(const tal_t *ctx UNNEEDED,
 void watch_splice_inflight(struct lightningd *ld UNNEEDED,
 			   struct channel_inflight *inflight UNNEEDED)
 { fprintf(stderr, "watch_splice_inflight called!\n"); abort(); }
-/* Generated stub for watch_txid_ */
-struct txwatch *watch_txid_(const tal_t *ctx UNNEEDED,
-			    struct chain_topology *topo UNNEEDED,
-			    const struct bitcoin_txid *txid UNNEEDED,
-			    enum watch_result (*cb)(struct lightningd *ld UNNEEDED,
-						    const struct bitcoin_txid * UNNEEDED,
-						    const struct bitcoin_tx * UNNEEDED,
-						    unsigned int depth UNNEEDED,
-						    void *arg) UNNEEDED,
-			    void *arg UNNEEDED)
-{ fprintf(stderr, "watch_txid_ called!\n"); abort(); }
 /* Generated stub for watch_txo */
 struct txowatch *watch_txo(const tal_t *ctx UNNEEDED,
 			   struct chain_topology *topo UNNEEDED,

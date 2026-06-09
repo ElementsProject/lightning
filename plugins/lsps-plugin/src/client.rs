@@ -1,5 +1,5 @@
-use anyhow::{anyhow, bail, Context};
-use bitcoin::hashes::{hex::FromHex, sha256, Hash};
+use anyhow::{Context, anyhow, bail};
+use bitcoin::hashes::{Hash, hex::FromHex, sha256};
 use chrono::{Duration, Utc};
 use cln_lsps::{
     cln_adapters::{
@@ -13,16 +13,17 @@ use cln_lsps::{
     core::{
         client::LspsClient,
         features::is_feature_bit_set_reversed,
-        tlv::{encode_tu64, TLV_FORWARD_AMT, TLV_PAYMENT_SECRET},
+        tlv::{TLV_FORWARD_AMT, TLV_PAYMENT_SECRET, encode_tu64},
         transport::{MultiplexedTransport, PendingRequests},
     },
     proto::{
-        lsps0::{Msat, LSPS0_MESSAGE_TYPE, LSP_FEATURE_BIT},
-        lsps2::{compute_opening_fee, Lsps2BuyResponse, Lsps2GetInfoResponse, OpeningFeeParams},
+        lsps0::{LSP_FEATURE_BIT, LSPS0_MESSAGE_TYPE, Msat},
+        lsps2::{Lsps2BuyResponse, Lsps2GetInfoResponse, OpeningFeeParams, compute_opening_fee},
     },
 };
-use cln_plugin::{options, HookBuilder, HookFilter};
+use cln_plugin::{HookBuilder, HookFilter, options};
 use cln_rpc::{
+    ClnRpc,
     model::{
         requests::{
             DatastoreMode, DatastoreRequest, DeldatastoreRequest, DelinvoiceRequest,
@@ -31,7 +32,6 @@ use cln_rpc::{
         responses::InvoiceResponse,
     },
     primitives::{Amount, AmountOrAny, PublicKey, ShortChannelId},
-    ClnRpc,
 };
 use log::{debug, info, warn};
 use rand::{CryptoRng, Rng};
@@ -522,16 +522,20 @@ async fn on_invoice_payment(
     // Delete DS-entries.
     let dir = p.configuration().lightning_dir;
     let rpc_path = Path::new(&dir).join(&p.configuration().rpc_file);
-    let mut cln_client = ok_or_continue!(cln_rpc::ClnRpc::new(rpc_path.clone())
-        .await
-        .context("failed to connect to core-lightning"));
-    ok_or_continue!(cln_client
-        .call_typed(&DeldatastoreRequest {
-            key: vec!["lsps".to_string(), "invoice".to_string(), hash.to_string()],
-            generation: None,
-        })
-        .await
-        .context("failed to delete datastore record"));
+    let mut cln_client = ok_or_continue!(
+        cln_rpc::ClnRpc::new(rpc_path.clone())
+            .await
+            .context("failed to connect to core-lightning")
+    );
+    ok_or_continue!(
+        cln_client
+            .call_typed(&DeldatastoreRequest {
+                key: vec!["lsps".to_string(), "invoice".to_string(), hash.to_string()],
+                generation: None,
+            })
+            .await
+            .context("failed to delete datastore record")
+    );
 
     Ok(serde_json::json!({"result": "continue"}))
 }
@@ -558,20 +562,24 @@ async fn on_htlc_accepted(
     // Check that the htlc belongs to a jit-channel request.
     let dir = p.configuration().lightning_dir;
     let rpc_path = Path::new(&dir).join(&p.configuration().rpc_file);
-    let mut cln_client = ok_or_continue!(cln_rpc::ClnRpc::new(rpc_path.clone())
-        .await
-        .context("failed to connect to core-lightning"));
+    let mut cln_client = ok_or_continue!(
+        cln_rpc::ClnRpc::new(rpc_path.clone())
+            .await
+            .context("failed to connect to core-lightning")
+    );
 
-    let lsp_data = ok_or_continue!(cln_client
-        .call_typed(&ListdatastoreRequest {
-            key: Some(vec![
-                "lsps".to_string(),
-                "invoice".to_string(),
-                hex::encode(&req.htlc.payment_hash),
-            ]),
-        })
-        .await
-        .context("failed to fetch datastore record"));
+    let lsp_data = ok_or_continue!(
+        cln_client
+            .call_typed(&ListdatastoreRequest {
+                key: Some(vec![
+                    "lsps".to_string(),
+                    "invoice".to_string(),
+                    hex::encode(&req.htlc.payment_hash),
+                ]),
+            })
+            .await
+            .context("failed to fetch datastore record")
+    );
 
     // If we don't know about this payment it's not an LSP payment, continue.
     some_or_continue!(lsp_data.datastore.first());
@@ -601,18 +609,20 @@ async fn on_htlc_accepted(
         // FIXME: If we are strict, we should reject the htlc here.
     }
 
-    let inv_res = ok_or_continue!(cln_client
-        .call_typed(&ListinvoicesRequest {
-            index: None,
-            invstring: None,
-            label: None,
-            limit: None,
-            offer_id: None,
-            payment_hash: Some(hex::encode(&req.htlc.payment_hash)),
-            start: None,
-        })
-        .await
-        .context("failed to get invoice"));
+    let inv_res = ok_or_continue!(
+        cln_client
+            .call_typed(&ListinvoicesRequest {
+                index: None,
+                invstring: None,
+                label: None,
+                limit: None,
+                offer_id: None,
+                payment_hash: Some(hex::encode(&req.htlc.payment_hash)),
+                start: None,
+            })
+            .await
+            .context("failed to get invoice")
+    );
 
     let invoice = some_or_continue!(
         inv_res.invoices.first(),
@@ -629,9 +639,11 @@ async fn on_htlc_accepted(
     ps.extend_from_slice(&payment_data[0..32]);
     ps.extend(encode_tu64(total_amt));
     payload.insert(TLV_PAYMENT_SECRET, ps);
-    let payload_bytes = ok_or_continue!(payload
-        .to_bytes()
-        .context("failed to encode payload as bytes"));
+    let payload_bytes = ok_or_continue!(
+        payload
+            .to_bytes()
+            .context("failed to encode payload as bytes")
+    );
 
     info!(
         "Amended onion payload with forward_amt={} and total_msat={}",
@@ -659,9 +671,11 @@ async fn on_openchannel(
 
     let dir = p.configuration().lightning_dir;
     let rpc_path = Path::new(&dir).join(&p.configuration().rpc_file);
-    let mut cln_client = ok_or_continue!(cln_rpc::ClnRpc::new(rpc_path.clone())
-        .await
-        .context("failed to connect to core-lightning"));
+    let mut cln_client = ok_or_continue!(
+        cln_rpc::ClnRpc::new(rpc_path.clone())
+            .await
+            .context("failed to connect to core-lightning")
+    );
 
     let ds_req = ListdatastoreRequest {
         key: Some(vec![
@@ -670,10 +684,12 @@ async fn on_openchannel(
             req.openchannel.id.clone(),
         ]),
     };
-    let ds_res = ok_or_continue!(cln_client
-        .call_typed(&ds_req)
-        .await
-        .context("failed to get datastore record"));
+    let ds_res = ok_or_continue!(
+        cln_client
+            .call_typed(&ds_req)
+            .await
+            .context("failed to get datastore record")
+    );
 
     if let Some(_rec) = ds_res.datastore.iter().next() {
         info!(
@@ -766,7 +782,7 @@ async fn check_peer_lsp_status(
             return Ok(PeerLspStatus {
                 connected: false,
                 has_lsp_feature: false,
-            })
+            });
         }
         Some(p) => p,
     };

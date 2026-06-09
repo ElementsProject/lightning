@@ -8,10 +8,12 @@ from utils import (
 )
 import os
 import pytest
+import random
 import subprocess
 import time
 import tempfile
 import unittest
+from concurrent import futures as concurrent_futures
 
 
 def direction(src, dst):
@@ -79,7 +81,7 @@ def test_reserve(node_factory):
     time.sleep(2)
 
     # Reservations can be in either order.
-    with pytest.raises(RpcError, match=rf'We could not find a usable set of paths.  The shortest path is {scid12}->{scid23}, but {scid12dir} already reserved 10000000*msat by command ".*" \([0-9]* seconds ago\), 10000000*msat by command ".*" \([0-9]* seconds ago\)'):
+    with pytest.raises(RpcError, match=rf'We could not find a usable set of paths. The shortest path is {scid12}->{scid23}, but {scid12dir} already reserved 10000000*msat by command ".*" \([0-9]* seconds ago\), 10000000*msat by command ".*" \([0-9]* seconds ago\)'):
         l1.rpc.getroutes(source=l1.info['id'],
                          destination=l3.info['id'],
                          amount_msat=1000000,
@@ -202,6 +204,12 @@ def test_layers(node_factory):
                                   'fee_base_msat': 1,
                                   'fee_proportional_millionths': 2,
                                   'cltv_expiry_delta': 19}]
+    assert l2.rpc.askrene_listlayers('test_layers') == {'layers': [expect]}
+
+    # Can we remove channel update entries?
+    l2.rpc.askrene_remove_channel_update(layer='test_layers',
+                                         short_channel_id_dir='0x0x1/0')
+    expect['channel_updates'] = []
     assert l2.rpc.askrene_listlayers('test_layers') == {'layers': [expect]}
 
     # We can tell it about made up channels...
@@ -537,8 +545,8 @@ def test_node_bias_routes(node_factory):
     )
     assert len(r["routes"]) == 1
     assert len(r["routes"][0]["path"]) == 3
-    assert r["routes"][0]["path"][0]["next_node_id"] == nodemap[2]
-    assert r["routes"][0]["path"][2]["next_node_id"] == nodemap[1]
+    assert r["routes"][0]["path"][0]["node_id_out"] == nodemap[2]
+    assert r["routes"][0]["path"][2]["node_id_out"] == nodemap[1]
 
     # by using the layer that penalizes node 2, we end up routing through node 3
     r = l1.rpc.getroutes(
@@ -551,8 +559,8 @@ def test_node_bias_routes(node_factory):
     )
     assert len(r["routes"]) == 1
     assert len(r["routes"][0]["path"]) == 2
-    assert r["routes"][0]["path"][0]["next_node_id"] == nodemap[3]
-    assert r["routes"][0]["path"][1]["next_node_id"] == nodemap[1]
+    assert r["routes"][0]["path"][0]["node_id_out"] == nodemap[3]
+    assert r["routes"][0]["path"][1]["node_id_out"] == nodemap[1]
 
 
 def test_layer_persistence(node_factory):
@@ -659,20 +667,18 @@ def check_getroute_paths(node,
                          destination,
                          amount_msat,
                          paths,
+                         maxparts=50,
                          layers=[],
                          maxfee_msat=1000,
-                         final_cltv=99,
-                         maxparts=0):
+                         final_cltv=99):
     """Check that routes are as expected in result"""
-    kwargs = dict(source=source,
-                  destination=destination,
-                  amount_msat=amount_msat,
-                  layers=layers,
-                  maxfee_msat=maxfee_msat,
-                  final_cltv=final_cltv)
-    if maxparts:
-        kwargs["maxparts"] = maxparts
-    getroutes = node.rpc.getroutes(**kwargs)
+    getroutes = node.rpc.getroutes(source=source,
+                                   destination=destination,
+                                   amount_msat=amount_msat,
+                                   layers=layers,
+                                   maxfee_msat=maxfee_msat,
+                                   final_cltv=final_cltv,
+                                   maxparts=maxparts)
 
     assert getroutes['probability_ppm'] <= 1000000
     # Total delivered should be amount we told it to send.
@@ -694,7 +700,7 @@ def test_getroutes(node_factory):
 
     # Too much should give a decent explanation.
     dir01 = direction(nodemap[0], nodemap[1])
-    with pytest.raises(RpcError, match=rf"We could not find a usable set of paths\.  The shortest path is 0x1x0, but 0x1x0/{dir01} isn't big enough to carry 1000000001msat\."):
+    with pytest.raises(RpcError, match=rf"We could not find a usable set of paths\. The shortest path is 0x1x0, but 0x1x0/{dir01} isn't big enough to carry 1000000001msat\."):
         l1.rpc.getroutes(source=nodemap[0],
                          destination=nodemap[1],
                          amount_msat=1000000001,
@@ -703,7 +709,7 @@ def test_getroutes(node_factory):
                          final_cltv=99)
 
     # This should tell us source doesn't have enough.
-    with pytest.raises(RpcError, match=r"We could not find a usable set of paths\.  Total source capacity is only 1019000000msat \(in 3 channels\)\."):
+    with pytest.raises(RpcError, match=r"We could not find a usable set of paths\. Total source capacity is only 1019000000msat \(in 3 channels\)\."):
         l1.rpc.getroutes(source=nodemap[0],
                          destination=nodemap[1],
                          amount_msat=2000000001,
@@ -712,7 +718,7 @@ def test_getroutes(node_factory):
                          final_cltv=99)
 
     # This should tell us dest doesn't have enough.
-    with pytest.raises(RpcError, match=r"We could not find a usable set of paths\.  Total destination capacity is only 1000000000msat \(in 1 channels\)\."):
+    with pytest.raises(RpcError, match=r"We could not find a usable set of paths\. Total destination capacity is only 1000000000msat \(in 1 channels\)\."):
         l1.rpc.getroutes(source=nodemap[0],
                          destination=nodemap[4],
                          amount_msat=1000000001,
@@ -726,7 +732,7 @@ def test_getroutes(node_factory):
     l1.rpc.askrene_update_channel(layer="chans_disabled",
                                   short_channel_id_dir=f'0x1x0/{dir01}',
                                   enabled=False)
-    with pytest.raises(RpcError, match=rf"We could not find a usable set of paths\.  The shortest path is 0x1x0, but 0x1x0/{dir01} marked disabled by layer chans_disabled\."):
+    with pytest.raises(RpcError, match=rf"We could not find a usable set of paths\. The shortest path is 0x1x0, but 0x1x0/{dir01} marked disabled by layer chans_disabled\."):
         l1.rpc.getroutes(source=nodemap[0],
                          destination=nodemap[1],
                          amount_msat=1000,
@@ -746,9 +752,12 @@ def test_getroutes(node_factory):
                                                            'final_cltv': 99,
                                                            'amount_msat': 1000,
                                                            'path': [{'short_channel_id_dir': f'0x1x0/{dir01}',
-                                                                     'next_node_id': nodemap[1],
-                                                                     'amount_msat': 1010,
-                                                                     'delay': 99 + 6}]}]}
+                                                                     'node_id_in': nodemap[0],
+                                                                     'node_id_out': nodemap[1],
+                                                                     'amount_in_msat': 1010,
+                                                                     'amount_out_msat': 1000,
+                                                                     'cltv_in': 99 + 6,
+                                                                     'cltv_out': 99}]}]}
     # Two hop, still easy.
     dir13 = direction(nodemap[1], nodemap[3])
     assert l1.rpc.getroutes(source=nodemap[0],
@@ -761,13 +770,19 @@ def test_getroutes(node_factory):
                                                            'final_cltv': 99,
                                                            'amount_msat': 100000,
                                                            'path': [{'short_channel_id_dir': f'0x1x0/{dir01}',
-                                                                     'next_node_id': nodemap[1],
-                                                                     'amount_msat': 103020,
-                                                                     'delay': 99 + 6 + 6},
+                                                                     'node_id_in': nodemap[0],
+                                                                     'node_id_out': nodemap[1],
+                                                                     'amount_in_msat': 103020,
+                                                                     'amount_out_msat': 102000,
+                                                                     'cltv_in': 99 + 6 + 6,
+                                                                     'cltv_out': 99 + 6},
                                                                     {'short_channel_id_dir': f'3x3x2/{dir13}',
-                                                                     'next_node_id': nodemap[3],
-                                                                     'amount_msat': 102000,
-                                                                     'delay': 99 + 6}
+                                                                     'node_id_in': nodemap[1],
+                                                                     'node_id_out': nodemap[3],
+                                                                     'amount_in_msat': 102000,
+                                                                     'amount_out_msat': 100000,
+                                                                     'cltv_in': 99 + 6,
+                                                                     'cltv_out': 99}
                                                                     ]}]}
 
     # Too expensive
@@ -806,9 +821,12 @@ def test_getroutes(node_factory):
                                                            'final_cltv': 99,
                                                            'amount_msat': 1000000,
                                                            'path': [{'short_channel_id_dir': f'3x2x3/{dir02}',
-                                                                     'next_node_id': nodemap[2],
-                                                                     'amount_msat': 1000001,
-                                                                     'delay': 99 + 6}]}]}
+                                                                     'node_id_in': nodemap[0],
+                                                                     'node_id_out': nodemap[2],
+                                                                     'amount_in_msat': 1000001,
+                                                                     'amount_out_msat': 1000000,
+                                                                     'cltv_in': 99 + 6,
+                                                                     'cltv_out': 99}]}]}
 
     # For 10000 sats, we will split.
     check_getroute_paths(l1,
@@ -816,13 +834,19 @@ def test_getroutes(node_factory):
                          nodemap[2],
                          10000000,
                          [[{'short_channel_id_dir': f'1x2x1/{dir02}',
-                            'next_node_id': nodemap[2],
-                            'amount_msat': 4500004,
-                            'delay': 99 + 6}],
+                            'node_id_in': nodemap[0],
+                            'node_id_out': nodemap[2],
+                            'amount_in_msat': 4500004,
+                            'amount_out_msat': 4500000,
+                            'cltv_in': 99 + 6,
+                            'cltv_out': 99}],
                           [{'short_channel_id_dir': f'3x2x3/{dir02}',
-                            'next_node_id': nodemap[2],
-                            'amount_msat': 5500005,
-                            'delay': 99 + 6}]])
+                            'node_id_in': nodemap[0],
+                            'node_id_out': nodemap[2],
+                            'amount_in_msat': 5500005,
+                            'amount_out_msat': 5500000,
+                            'cltv_in': 99 + 6,
+                            'cltv_out': 99}]])
 
 
 def test_getroutes_single_path(node_factory):
@@ -845,6 +869,7 @@ def test_getroutes_single_path(node_factory):
             source=nodemap[1],
             destination=nodemap[2],
             amount_msat=10000001,
+            layers=[],
             maxparts=1,
             maxfee_msat=1000,
             final_cltv=99,
@@ -860,9 +885,9 @@ def test_getroutes_single_path(node_factory):
             [
                 {
                     "short_channel_id_dir": "3x2x2/1",
-                    "next_node_id": nodemap[2],
-                    "amount_msat": 10000010,
-                    "delay": 99 + 6,
+                    "node_id_out": nodemap[2],
+                    "amount_in_msat": 10000010,
+                    "cltv_in": 99 + 6,
                 }
             ]
         ],
@@ -877,6 +902,7 @@ def test_getroutes_single_path(node_factory):
             source=nodemap[0],
             destination=nodemap[2],
             amount_msat=10000001,
+            layers=[],
             maxparts=1,
             maxfee_msat=1000,
             final_cltv=99,
@@ -892,15 +918,15 @@ def test_getroutes_single_path(node_factory):
             [
                 {
                     "short_channel_id_dir": "0x1x0/1",
-                    "next_node_id": nodemap[1],
-                    "amount_msat": 10000020,
-                    "delay": 99 + 6 + 6,
+                    "node_id_out": nodemap[1],
+                    "amount_in_msat": 10000020,
+                    "cltv_in": 99 + 6 + 6,
                 },
                 {
                     "short_channel_id_dir": "3x2x2/1",
-                    "next_node_id": nodemap[2],
-                    "amount_msat": 10000010,
-                    "delay": 99 + 6,
+                    "node_id_out": nodemap[2],
+                    "amount_in_msat": 10000010,
+                    "cltv_in": 99 + 6,
                 },
             ]
         ],
@@ -977,9 +1003,12 @@ def test_getroutes_auto_sourcefree(node_factory):
                                                            'final_cltv': 99,
                                                            'amount_msat': 1000,
                                                            'path': [{'short_channel_id_dir': f'0x1x0/{dir01}',
-                                                                     'next_node_id': nodemap[1],
-                                                                     'amount_msat': 1010,
-                                                                     'delay': 105}]}]}
+                                                                     'node_id_in': nodemap[0],
+                                                                     'node_id_out': nodemap[1],
+                                                                     'amount_in_msat': 1010,
+                                                                     'amount_out_msat': 1000,
+                                                                     'cltv_in': 105,
+                                                                     'cltv_out': 99}]}]}
 
     # Start easy
     assert l1.rpc.getroutes(source=nodemap[0],
@@ -992,9 +1021,12 @@ def test_getroutes_auto_sourcefree(node_factory):
                                                            'final_cltv': 99,
                                                            'amount_msat': 1000,
                                                            'path': [{'short_channel_id_dir': f'0x1x0/{dir01}',
-                                                                     'next_node_id': nodemap[1],
-                                                                     'amount_msat': 1000,
-                                                                     'delay': 99}]}]}
+                                                                     'node_id_in': nodemap[0],
+                                                                     'node_id_out': nodemap[1],
+                                                                     'amount_in_msat': 1000,
+                                                                     'amount_out_msat': 1000,
+                                                                     'cltv_in': 99,
+                                                                     'cltv_out': 99}]}]}
     # Two hop, still easy.
     dir13 = direction(nodemap[1], nodemap[3])
     assert l1.rpc.getroutes(source=nodemap[0],
@@ -1007,13 +1039,19 @@ def test_getroutes_auto_sourcefree(node_factory):
                                                            'final_cltv': 99,
                                                            'amount_msat': 100000,
                                                            'path': [{'short_channel_id_dir': f'0x1x0/{dir01}',
-                                                                     'next_node_id': nodemap[1],
-                                                                     'amount_msat': 102000,
-                                                                     'delay': 99 + 6},
+                                                                     'node_id_in': nodemap[0],
+                                                                     'node_id_out': nodemap[1],
+                                                                     'amount_in_msat': 102000,
+                                                                     'amount_out_msat': 102000,
+                                                                     'cltv_in': 99 + 6,
+                                                                     'cltv_out': 99 + 6},
                                                                     {'short_channel_id_dir': f'3x3x2/{dir13}',
-                                                                     'next_node_id': nodemap[3],
-                                                                     'amount_msat': 102000,
-                                                                     'delay': 99 + 6}
+                                                                     'node_id_in': nodemap[1],
+                                                                     'node_id_out': nodemap[3],
+                                                                     'amount_in_msat': 102000,
+                                                                     'amount_out_msat': 100000,
+                                                                     'cltv_in': 99 + 6,
+                                                                     'cltv_out': 99}
                                                                     ]}]}
 
     # Too expensive
@@ -1060,9 +1098,12 @@ def test_getroutes_maxdelay(node_factory):
                                                            'final_cltv': 99,
                                                            'amount_msat': 1000,
                                                            'path': [{'short_channel_id_dir': f'0x1x0/{dir01}',
-                                                                     'next_node_id': nodemap[1],
-                                                                     'amount_msat': 1010,
-                                                                     'delay': 179}]}]}
+                                                                     'node_id_in': nodemap[0],
+                                                                     'node_id_out': nodemap[1],
+                                                                     'amount_in_msat': 1010,
+                                                                     'amount_out_msat': 1000,
+                                                                     'cltv_in': 179,
+                                                                     'cltv_out': 99}]}]}
 
     # But use the channel with lower delay when needed
     assert l1.rpc.getroutes(source=nodemap[0],
@@ -1076,9 +1117,12 @@ def test_getroutes_maxdelay(node_factory):
                                                           'final_cltv': 99,
                                                           'amount_msat': 1000,
                                                           'path': [{'short_channel_id_dir': f'1x1x1/{dir01}',
-                                                                    'next_node_id': nodemap[1],
-                                                                    'amount_msat': 1020,
-                                                                    'delay': 139}]}]}
+                                                                    'node_id_in': nodemap[0],
+                                                                    'node_id_out': nodemap[1],
+                                                                    'amount_in_msat': 1020,
+                                                                    'amount_out_msat': 1000,
+                                                                    'cltv_in': 139,
+                                                                    'cltv_out': 99}]}]}
 
     # Excessive maxdelay parameter
     with pytest.raises(RpcError, match="maximum delay allowed is 2016"):
@@ -1124,9 +1168,9 @@ def test_getroutes_auto_localchans(node_factory):
                          100000,
                          maxfee_msat=100000,
                          layers=['auto.localchans'],
-                         paths=[[{'short_channel_id_dir': scid21dir, 'amount_msat': 102012, 'delay': 99 + 6 + 6 + 6},
-                                 {'short_channel_id_dir': f'0x1x0/{dir01}', 'amount_msat': 102010, 'delay': 99 + 6 + 6},
-                                 {'short_channel_id_dir': f'2x2x1/{dir12}', 'amount_msat': 101000, 'delay': 99 + 6}]])
+                         paths=[[{'short_channel_id_dir': scid21dir, 'amount_in_msat': 102012, 'cltv_in': 99 + 6 + 6 + 6},
+                                 {'short_channel_id_dir': f'0x1x0/{dir01}', 'amount_in_msat': 102010, 'cltv_in': 99 + 6 + 6},
+                                 {'short_channel_id_dir': f'2x2x1/{dir12}', 'amount_in_msat': 101000, 'cltv_in': 99 + 6}]])
 
     # This should get self-discount correct
     check_getroute_paths(l2,
@@ -1135,9 +1179,9 @@ def test_getroutes_auto_localchans(node_factory):
                          100000,
                          maxfee_msat=100000,
                          layers=['auto.localchans', 'auto.sourcefree'],
-                         paths=[[{'short_channel_id_dir': scid21dir, 'amount_msat': 102010, 'delay': 99 + 6 + 6},
-                                 {'short_channel_id_dir': f'0x1x0/{dir01}', 'amount_msat': 102010, 'delay': 99 + 6 + 6},
-                                 {'short_channel_id_dir': f'2x2x1/{dir12}', 'amount_msat': 101000, 'delay': 99 + 6}]])
+                         paths=[[{'short_channel_id_dir': scid21dir, 'amount_in_msat': 102010, 'cltv_in': 99 + 6 + 6},
+                                 {'short_channel_id_dir': f'0x1x0/{dir01}', 'amount_in_msat': 102010, 'cltv_in': 99 + 6 + 6},
+                                 {'short_channel_id_dir': f'2x2x1/{dir12}', 'amount_in_msat': 101000, 'cltv_in': 99 + 6}]])
 
 
 def test_fees_dont_exceed_constraints(node_factory):
@@ -1168,7 +1212,7 @@ def test_fees_dont_exceed_constraints(node_factory):
     assert len(routes) == 2
     for hop in routes[0]['path'] + routes[1]['path']:
         if hop['short_channel_id_dir'] == f"{chan['short_channel_id']}/{chan['direction']}":
-            amount = hop['amount_msat']
+            amount = hop['amount_in_msat']
     assert amount <= max_msat
 
 
@@ -1203,7 +1247,7 @@ def test_sourcefree_on_mods(node_factory, bitcoind):
                               final_cltv=99)['routes']
     # Expect no fee.
     check_route_as_expected(routes, [[{'short_channel_id_dir': f'0x3x3/{dir03}',
-                                       'amount_msat': 1000000, 'delay': 99}]])
+                                       'amount_in_msat': 1000000, 'cltv_in': 99}]])
 
     # NOT if we specify layers in the other order!
     routes = l1.rpc.getroutes(source=nodemap[0],
@@ -1214,7 +1258,7 @@ def test_sourcefree_on_mods(node_factory, bitcoind):
                               final_cltv=99)['routes']
     # Expect no fee.
     check_route_as_expected(routes, [[{'short_channel_id_dir': f'0x3x3/{dir03}',
-                                       'amount_msat': 1003000, 'delay': 117}]])
+                                       'amount_in_msat': 1003000, 'cltv_in': 117}]])
 
 
 def test_live_spendable(node_factory, bitcoind):
@@ -1256,7 +1300,7 @@ def test_live_spendable(node_factory, bitcoind):
     num_htlcs = {}
     for r in routes["routes"]:
         key = r["path"][0]["short_channel_id_dir"]
-        path_total[key] = path_total.get(key, 0) + r["path"][0]["amount_msat"]
+        path_total[key] = path_total.get(key, 0) + r["path"][0]["amount_in_msat"]
         num_htlcs[key] = num_htlcs.get(key, 0) + 1
 
     # Take into account 645000msat (3750 feerate x 172 weight) per-HTLC reduction in capacity.
@@ -1334,7 +1378,7 @@ def test_limits_fake_gossmap(node_factory, bitcoind):
     path_total = {}
     for r in routes["routes"]:
         key = r["path"][0]["short_channel_id_dir"]
-        path_total[key] = path_total.get(key, 0) + r["path"][0]["amount_msat"]
+        path_total[key] = path_total.get(key, 0) + r["path"][0]["amount_in_msat"]
 
     exceeded = {}
     for scidd in spendable.keys():
@@ -1382,8 +1426,8 @@ def test_max_htlc(node_factory, bitcoind):
 
     dir01 = direction(nodemap[0], nodemap[1])
     check_route_as_expected(routes['routes'],
-                            [[{'short_channel_id_dir': f'0x1x0/{dir01}', 'amount_msat': 1_000_001, 'delay': 10 + 6}],
-                             [{'short_channel_id_dir': f'1x1x1/{dir01}', 'amount_msat': 19_000_019, 'delay': 10 + 6}]])
+                            [[{'short_channel_id_dir': f'0x1x0/{dir01}', 'amount_in_msat': 1_000_001, 'cltv_in': 10 + 6}],
+                             [{'short_channel_id_dir': f'1x1x1/{dir01}', 'amount_in_msat': 19_000_019, 'cltv_in': 10 + 6}]])
 
     # If we can't use channel 2, we fail.
     l1.rpc.askrene_create_layer('removechan2')
@@ -1392,7 +1436,7 @@ def test_max_htlc(node_factory, bitcoind):
                                   amount_msat=1,
                                   inform='constrained')
 
-    with pytest.raises(RpcError, match=rf"We could not find a usable set of paths.  The shortest path is 0x1x0, but 0x1x0/{dir01} exceeds htlc_maximum_msat ~1000448msat"):
+    with pytest.raises(RpcError, match=rf"We could not find a usable set of paths. The shortest path is 0x1x0, but 0x1x0/{dir01} exceeds htlc_maximum_msat ~1000448msat"):
         l1.rpc.getroutes(source=nodemap[0],
                          destination=nodemap[1],
                          amount_msat=20_000_000,
@@ -1417,7 +1461,7 @@ def test_min_htlc(node_factory, bitcoind):
 
     dir01 = direction(nodemap[0], nodemap[1])
     check_route_as_expected(routes['routes'],
-                            [[{'short_channel_id_dir': f'1x1x1/{dir01}', 'amount_msat': 1_000, 'delay': 10 + 6}]])
+                            [[{'short_channel_id_dir': f'1x1x1/{dir01}', 'amount_in_msat': 1_000, 'cltv_in': 10 + 6}]])
 
 
 def test_min_htlc_after_excess(node_factory, bitcoind):
@@ -1426,7 +1470,7 @@ def test_min_htlc_after_excess(node_factory, bitcoind):
     l1 = node_factory.get_node(gossip_store_file=gsfile.name)
 
     dir01 = direction(nodemap[0], nodemap[1])
-    with pytest.raises(RpcError, match=rf"We could not find a usable set of paths.  The shortest path is 0x1x0, but 0x1x0/{dir01} below htlc_minumum_msat ~2000msat"):
+    with pytest.raises(RpcError, match=rf"We could not find a usable set of paths. The shortest path is 0x1x0, but 0x1x0/{dir01} below htlc_minumum_msat ~2000msat"):
         l1.rpc.getroutes(source=nodemap[0],
                          destination=nodemap[1],
                          amount_msat=1999,
@@ -1437,11 +1481,11 @@ def test_min_htlc_after_excess(node_factory, bitcoind):
 
 # These were obviously having a bad day at the time of the snapshot:
 canned_gossmap_badnodes = {
-    19: "We could not find a usable set of paths.  The shortest path is 103x1x0->0x2134x0->988x333x988->16188x333x16169, but 0x2134x0/0 exceeds htlc_maximum_msat ~1000448msat",
-    53: "We could not find a usable set of paths.  The destination has disabled 177 of 177 channels, leaving capacity only 0msat of 4003677000msat.",
-    69: "We could not find a usable set of paths.  The destination has disabled 151 of 151 channels, leaving capacity only 0msat of 9092303000msat.",
-    72: "We could not find a usable set of paths.  The destination has disabled 146 of 146 channels, leaving capacity only 0msat of 1996000000msat.",
-    86: "We could not find a usable set of paths.  The destination has disabled 131 of 131 channels, leaving capacity only 0msat of 162000000msat.",
+    19: "We could not find a usable set of paths. The shortest path is 103x1x0->0x2134x0->988x333x988->16188x333x16169, but 0x2134x0/0 exceeds htlc_maximum_msat ~1000448msat",
+    53: r"We could not find a usable set of paths\. All 177 channels to the destination are disabled\.",
+    69: r"We could not find a usable set of paths\. All 151 channels to the destination are disabled\.",
+    72: r"We could not find a usable set of paths\. All 146 channels to the destination are disabled\.",
+    86: r"We could not find a usable set of paths\. All 131 channels to the destination are disabled\.",
 }
 
 
@@ -1467,6 +1511,7 @@ def test_real_data(node_factory, bitcoind, executor):
                                      opts=[{'gossip_store_file': outfile.name,
                                             'allow_warning': True,
                                             'dev-throttle-gossip': None,
+                                            'broken_log': 'Throttling incoming peer',
                                             # This can be slow!
                                             'askrene-timeout': TIMEOUT},
                                            {'allow_warning': True}])
@@ -1509,7 +1554,7 @@ def test_real_data(node_factory, bitcoind, executor):
         futs = {}
         for n, prev in prevs.items():
             # Record fees
-            fees[n].append(sum([r['path'][0]['amount_msat'] for r in prev['routes']]) - AMOUNT)
+            fees[n].append(sum([r['path'][0]['amount_in_msat'] for r in prev['routes']]) - AMOUNT)
             # Now stress it, by asking it to spend 1msat less!
             futs[n] = executor.submit(l1.rpc.getroutes,
                                       source=l1.info['id'],
@@ -1527,7 +1572,7 @@ def test_real_data(node_factory, bitcoind, executor):
                 del prevs[n]
                 continue
 
-            fee = sum([r['path'][0]['amount_msat'] for r in routes['routes']]) - AMOUNT
+            fee = sum([r['path'][0]['amount_in_msat'] for r in routes['routes']]) - AMOUNT
             # Should get less expensive
             assert fee < fees[n][-1]
 
@@ -1577,6 +1622,7 @@ def test_real_biases(node_factory, bitcoind, executor):
     l1, l2 = node_factory.line_graph(2, fundamount=AMOUNT,
                                      opts=[{'gossip_store_file': outfile.name,
                                             'allow_warning': True,
+                                            'broken_log': 'Throttling incoming peer',
                                             'dev-throttle-gossip': None},
                                            {'allow_warning': True}])
 
@@ -1628,7 +1674,7 @@ def test_real_biases(node_factory, bitcoind, executor):
                 for r in routes:
                     for p in r['path']:
                         if p['short_channel_id_dir'] == chan:
-                            total += p['amount_msat']
+                            total += p['amount_in_msat']
                 return total
             amount_before = amount_through_chan(chan, route['routes'])
 
@@ -1672,6 +1718,7 @@ def test_real_biases(node_factory, bitcoind, executor):
 
 
 @pytest.mark.slow_test
+@unittest.skipIf(TEST_NETWORK != 'regtest', "FIXME: fails on elements")
 def test_askrene_fake_channeld(node_factory, bitcoind):
     outfile = tempfile.NamedTemporaryFile(prefix='gossip-store-')
     nodeids = subprocess.check_output(['devtools/gossmap-compress',
@@ -1689,6 +1736,7 @@ def test_askrene_fake_channeld(node_factory, bitcoind):
                                      opts=[{'gossip_store_file': outfile.name,
                                             'subdaemon': 'channeld:../tests/plugins/channeld_fakenet',
                                             'allow_warning': True,
+                                            'broken_log': 'Throttling incoming peer',
                                             'dev-throttle-gossip': None},
                                            {'allow_bad_gossip': True}])
 
@@ -1720,50 +1768,37 @@ def test_askrene_fake_channeld(node_factory, bitcoind):
             preimage_hex = f'{n:02}' + '00' * 31
             hash_hex = sha256(bytes.fromhex(preimage_hex)).hexdigest()
 
-            paths = {}
-            # Sendpay wants a different format, so we convert.
             for i, r in enumerate(routes['routes']):
-                paths[i] = [{'id': h['next_node_id'],
-                             'channel': h['short_channel_id_dir'].split('/')[0],
-                             'direction': int(h['short_channel_id_dir'].split('/')[1])}
-                            for h in r['path']]
-
-                # delay and amount_msat for sendpay are amounts at *end* of hop, not start!
-                with_end = r['path'] + [{'amount_msat': r['amount_msat'], 'delay': r['final_cltv']}]
-                for n, h in enumerate(paths[i]):
-                    h['delay'] = with_end[n + 1]['delay']
-                    h['amount_msat'] = with_end[n + 1]['amount_msat']
-
-                l1.rpc.sendpay(paths[i], hash_hex,
+                l1.rpc.sendpay(r['path'], hash_hex,
                                amount_msat=AMOUNT,
                                payment_secret='00' * 32,
                                partid=i + 1, groupid=1)
 
-            for i, p in paths.items():
+            for i, r in enumerate(routes['routes']):
                 # Worst-case timeout is 1 second per hop, + 60 seconds if MPP timeout!
                 try:
-                    if l1.rpc.waitsendpay(hash_hex, timeout=TIMEOUT + len(p) + 60, partid=i + 1, groupid=1):
+                    if l1.rpc.waitsendpay(hash_hex, timeout=TIMEOUT + len(r['path']) + 60, partid=i + 1, groupid=1):
                         success = True
                 except RpcError as err:
                     # Timeout means this one succeeded!
                     if err.error['data']['failcode'] == MPP_TIMEOUT:
-                        for h in p:
+                        for h in r['path']:
                             l1.rpc.askrene_inform_channel('test_askrene_fake_channeld',
-                                                          f"{h['channel']}/{h['direction']}",
-                                                          h['amount_msat'],
+                                                          h['short_channel_id_dir'],
+                                                          h['amount_in_msat'],
                                                           'unconstrained')
                     elif err.error['data']['failcode'] == TEMPORARY_CHANNEL_FAILURE:
                         # We succeeded up to here
                         failpoint = err.error['data']['erring_index']
-                        for h in p[:failpoint]:
+                        for h in r['path'][:failpoint]:
                             l1.rpc.askrene_inform_channel('test_askrene_fake_channeld',
-                                                          f"{h['channel']}/{h['direction']}",
-                                                          h['amount_msat'],
+                                                          h['short_channel_id_dir'],
+                                                          h['amount_in_msat'],
                                                           'unconstrained')
-                        h = p[failpoint]
+                        h = r['path'][failpoint]
                         l1.rpc.askrene_inform_channel('test_askrene_fake_channeld',
-                                                      f"{h['channel']}/{h['direction']}",
-                                                      h['amount_msat'],
+                                                      h['short_channel_id_dir'],
+                                                      h['amount_in_msat'],
                                                       'constrained')
                     else:
                         raise err
@@ -1959,6 +1994,48 @@ def test_unreserve_all(node_factory):
     assert l1.rpc.askrene_listreservations() == {"reservations": []}
 
 
+def test_reservations_leak_under_load(node_factory, executor):
+    """Stress-test reservation cleanup: concurrent payments over shared channels
+    must leave zero stale reservations after all payments settle."""
+    # Topology: two paths share l4 as a bottleneck relay.
+    #   Path A: l1 -> l2 -> l4 -> l5
+    #   Path B: l1 -> l3 -> l4 -> l6
+    # join_nodes([l1, l2, l4, l5]) creates channels: l1-l2, l2-l4, l4-l5
+    # join_nodes([l1, l3, l4, l6]) creates channels: l1-l3, l3-l4, l4-l6
+    zero_fee = {"fee-base": 0, "fee-per-satoshi": 0}
+    l1, l2, l3, l4, l5, l6 = node_factory.get_nodes(
+        6,
+        opts=[zero_fee] * 6,
+    )
+    node_factory.join_nodes([l1, l2, l4, l5], wait_for_announce=True)  # creates channels: l1-l2, l2-l4, l4-l5
+    node_factory.join_nodes([l1, l3, l4, l6], wait_for_announce=True)  # creates channels: l1-l3, l3-l4, l4-l6
+
+    NUM = 300
+    invoices = [l5.rpc.invoice(1000, f"inv-a-{i}", "x")["bolt11"] for i in range(NUM // 2)]
+    invoices += [l6.rpc.invoice(1000, f"inv-b-{i}", "x")["bolt11"] for i in range(NUM // 2)]
+    random.shuffle(invoices)
+
+    futs = [executor.submit(l1.rpc.xpay, inv) for inv in invoices]
+
+    # While payments are in flight, reservations must be non-empty: this
+    # checks the test isn't trivially passing on an empty table.
+    wait_for(lambda: l1.rpc.askrene_listreservations()["reservations"] != [])
+
+    # Make sure that we have channel contention by looking for repeating scids
+    def has_channel_contention():
+        res = l1.rpc.askrene_listreservations()["reservations"]
+        scids = [r["short_channel_id_dir"] for r in res]
+        return len(scids) != len(set(scids))
+
+    wait_for(has_channel_contention)
+
+    for f in concurrent_futures.as_completed(futs, timeout=TIMEOUT * 10):
+        f.result()  # raise on any payment failure
+
+    assert l1.rpc.askrene_listreservations() == {"reservations": []}
+    assert l1.daemon.is_in_log("reserve_remove failed") is None
+
+
 def test_askrene_reserve_clash(node_factory, bitcoind):
     """Reserves get (erroneously) counted globally by scid, even for fake scids."""
     l1 = node_factory.get_node()
@@ -2012,7 +2089,7 @@ def test_askrene_reserve_clash(node_factory, bitcoind):
                                   }])
 
     # We can't use this on layer 1 anymore, only 50000 msat left.
-    with pytest.raises(RpcError, match=r"We could not find a usable set of paths.  The shortest path is 0x0x0, but 0x0x0/1 already reserved 950000msat by command"):
+    with pytest.raises(RpcError, match=r"We could not find a usable set of paths. The shortest path is 0x0x0, but 0x0x0/1 already reserved 950000msat by command"):
         l1.rpc.getroutes(source=l1.info['id'],
                          destination=node1,
                          amount_msat=500000,
@@ -2036,15 +2113,14 @@ def test_splice_dying_channel(node_factory, bitcoind):
     """We should NOT try to use the pre-splice channel here"""
     l1, l2, l3 = node_factory.line_graph(3,
                                          wait_for_announce=True,
-                                         fundamount=200000,
-                                         opts={'experimental-splicing': None})
+                                         fundamount=200000)
 
     chan_id = l1.get_channel_id(l2)
     funds_result = l1.rpc.addpsbtoutput(100000)
     pre_splice_scidd = first_scidd(l1, l2)
 
-    # Pay with fee by subjtracting 5000 from channel balance
-    result = l1.rpc.splice_init(chan_id, -105000, funds_result['psbt'])
+    # Pay with fee by subjtracting 5801 from channel balance
+    result = l1.rpc.splice_init(chan_id, -105801, funds_result['psbt'])
     result = l1.rpc.splice_update(chan_id, result['psbt'])
     assert(result['commitments_secured'] is False)
     result = l1.rpc.splice_update(chan_id, result['psbt'])
@@ -2102,9 +2178,9 @@ def test_excessive_fee_cost(node_factory):
             destination=node1,
             amount_msat=one_btc // 2,
             layers=["mylayer"],
-            maxparts=1,
             maxfee_msat=1000,
             final_cltv=5,
+            maxparts=1,
         )
 
 
@@ -2202,9 +2278,9 @@ def test_includefees(node_factory):
                 "path": [
                     {
                         "short_channel_id_dir": "0x1x0/1",
-                        "next_node_id": nodemap[1],
-                        "amount_msat": 1011,
-                        "delay": 99 + 5,
+                        "node_id_out": nodemap[1],
+                        "amount_in_msat": 1011,
+                        "cltv_in": 99 + 5,
                     }
                 ],
             }
@@ -2223,15 +2299,15 @@ def test_includefees(node_factory):
                 "path": [
                     {
                         "short_channel_id_dir": "0x1x0/1",
-                        "next_node_id": nodemap[1],
-                        "amount_msat": 1033,
-                        "delay": 99 + 5 + 5,
+                        "node_id_out": nodemap[1],
+                        "amount_in_msat": 1033,
+                        "cltv_in": 99 + 5 + 5,
                     },
                     {
                         "short_channel_id_dir": "2x2x1/1",
-                        "next_node_id": nodemap[2],
-                        "amount_msat": 1022,
-                        "delay": 99 + 5,
+                        "node_id_out": nodemap[2],
+                        "amount_in_msat": 1022,
+                        "cltv_in": 99 + 5,
                     },
                 ],
             }
@@ -2250,21 +2326,21 @@ def test_includefees(node_factory):
                 "path": [
                     {
                         "short_channel_id_dir": "0x1x0/1",
-                        "next_node_id": nodemap[1],
-                        "amount_msat": 1066,
-                        "delay": 99 + 5 + 5 + 5,
+                        "node_id_out": nodemap[1],
+                        "amount_in_msat": 1066,
+                        "cltv_in": 99 + 5 + 5 + 5,
                     },
                     {
                         "short_channel_id_dir": "2x2x1/1",
-                        "next_node_id": nodemap[2],
-                        "amount_msat": 1055,
-                        "delay": 99 + 5 + 5,
+                        "node_id_out": nodemap[2],
+                        "amount_in_msat": 1055,
+                        "cltv_in": 99 + 5 + 5,
                     },
                     {
                         "short_channel_id_dir": "4x3x2/0",
-                        "next_node_id": nodemap[3],
-                        "amount_msat": 1033,
-                        "delay": 99 + 5,
+                        "node_id_out": nodemap[3],
+                        "amount_in_msat": 1033,
+                        "cltv_in": 99 + 5,
                     },
                 ],
             }
@@ -2285,9 +2361,9 @@ def test_includefees(node_factory):
                 "path": [
                     {
                         "short_channel_id_dir": "0x1x0/1",
-                        "next_node_id": nodemap[1],
-                        "amount_msat": 1000,
-                        "delay": 99 + 5,
+                        "node_id_out": nodemap[1],
+                        "amount_in_msat": 1000,
+                        "cltv_in": 99 + 5,
                     }
                 ],
             }
@@ -2306,15 +2382,15 @@ def test_includefees(node_factory):
                 "path": [
                     {
                         "short_channel_id_dir": "0x1x0/1",
-                        "next_node_id": nodemap[1],
-                        "amount_msat": 1000,
-                        "delay": 99 + 5 + 5,
+                        "node_id_out": nodemap[1],
+                        "amount_in_msat": 1000,
+                        "cltv_in": 99 + 5 + 5,
                     },
                     {
                         "short_channel_id_dir": "2x2x1/1",
-                        "next_node_id": nodemap[2],
-                        "amount_msat": 990,
-                        "delay": 99 + 5,
+                        "node_id_out": nodemap[2],
+                        "amount_in_msat": 990,
+                        "cltv_in": 99 + 5,
                     },
                 ],
             }
@@ -2333,21 +2409,21 @@ def test_includefees(node_factory):
                 "path": [
                     {
                         "short_channel_id_dir": "0x1x0/1",
-                        "next_node_id": nodemap[1],
-                        "amount_msat": 1000,
-                        "delay": 99 + 5 + 5 + 5,
+                        "node_id_out": nodemap[1],
+                        "amount_in_msat": 1000,
+                        "cltv_in": 99 + 5 + 5 + 5,
                     },
                     {
                         "short_channel_id_dir": "2x2x1/1",
-                        "next_node_id": nodemap[2],
-                        "amount_msat": 990,
-                        "delay": 99 + 5 + 5,
+                        "node_id_out": nodemap[2],
+                        "amount_in_msat": 990,
+                        "cltv_in": 99 + 5 + 5,
                     },
                     {
                         "short_channel_id_dir": "4x3x2/0",
-                        "next_node_id": nodemap[3],
-                        "amount_msat": 969,
-                        "delay": 99 + 5,
+                        "node_id_out": nodemap[3],
+                        "amount_in_msat": 969,
+                        "cltv_in": 99 + 5,
                     },
                 ],
             }
@@ -2367,9 +2443,9 @@ def test_includefees(node_factory):
                 "path": [
                     {
                         "short_channel_id_dir": "0x1x0/1",
-                        "next_node_id": nodemap[1],
-                        "amount_msat": 1000,
-                        "delay": 99,
+                        "node_id_out": nodemap[1],
+                        "amount_in_msat": 1000,
+                        "cltv_in": 99,
                     }
                 ],
             }
@@ -2388,15 +2464,15 @@ def test_includefees(node_factory):
                 "path": [
                     {
                         "short_channel_id_dir": "0x1x0/1",
-                        "next_node_id": nodemap[1],
-                        "amount_msat": 1022,
-                        "delay": 99 + 5,
+                        "node_id_out": nodemap[1],
+                        "amount_in_msat": 1022,
+                        "cltv_in": 99 + 5,
                     },
                     {
                         "short_channel_id_dir": "2x2x1/1",
-                        "next_node_id": nodemap[2],
-                        "amount_msat": 1022,
-                        "delay": 99 + 5,
+                        "node_id_out": nodemap[2],
+                        "amount_in_msat": 1022,
+                        "cltv_in": 99 + 5,
                     },
                 ],
             }
@@ -2415,21 +2491,21 @@ def test_includefees(node_factory):
                 "path": [
                     {
                         "short_channel_id_dir": "0x1x0/1",
-                        "next_node_id": nodemap[1],
-                        "amount_msat": 1055,
-                        "delay": 99 + 5 + 5,
+                        "node_id_out": nodemap[1],
+                        "amount_in_msat": 1055,
+                        "cltv_in": 99 + 5 + 5,
                     },
                     {
                         "short_channel_id_dir": "2x2x1/1",
-                        "next_node_id": nodemap[2],
-                        "amount_msat": 1055,
-                        "delay": 99 + 5 + 5,
+                        "node_id_out": nodemap[2],
+                        "amount_in_msat": 1055,
+                        "cltv_in": 99 + 5 + 5,
                     },
                     {
                         "short_channel_id_dir": "4x3x2/0",
-                        "next_node_id": nodemap[3],
-                        "amount_msat": 1033,
-                        "delay": 99 + 5,
+                        "node_id_out": nodemap[3],
+                        "amount_in_msat": 1033,
+                        "cltv_in": 99 + 5,
                     },
                 ],
             }
@@ -2449,9 +2525,9 @@ def test_includefees(node_factory):
                 "path": [
                     {
                         "short_channel_id_dir": "0x1x0/1",
-                        "next_node_id": nodemap[1],
-                        "amount_msat": 1000,
-                        "delay": 99,
+                        "node_id_out": nodemap[1],
+                        "amount_in_msat": 1000,
+                        "cltv_in": 99,
                     }
                 ],
             }
@@ -2470,15 +2546,15 @@ def test_includefees(node_factory):
                 "path": [
                     {
                         "short_channel_id_dir": "0x1x0/1",
-                        "next_node_id": nodemap[1],
-                        "amount_msat": 1000,
-                        "delay": 99 + 5,
+                        "node_id_out": nodemap[1],
+                        "amount_in_msat": 1000,
+                        "cltv_in": 99 + 5,
                     },
                     {
                         "short_channel_id_dir": "2x2x1/1",
-                        "next_node_id": nodemap[2],
-                        "amount_msat": 1000,
-                        "delay": 99 + 5,
+                        "node_id_out": nodemap[2],
+                        "amount_in_msat": 1000,
+                        "cltv_in": 99 + 5,
                     },
                 ],
             }
@@ -2497,21 +2573,21 @@ def test_includefees(node_factory):
                 "path": [
                     {
                         "short_channel_id_dir": "0x1x0/1",
-                        "next_node_id": nodemap[1],
-                        "amount_msat": 1000,
-                        "delay": 99 + 5 + 5,
+                        "node_id_out": nodemap[1],
+                        "amount_in_msat": 1000,
+                        "cltv_in": 99 + 5 + 5,
                     },
                     {
                         "short_channel_id_dir": "2x2x1/1",
-                        "next_node_id": nodemap[2],
-                        "amount_msat": 1000,
-                        "delay": 99 + 5 + 5,
+                        "node_id_out": nodemap[2],
+                        "amount_in_msat": 1000,
+                        "cltv_in": 99 + 5 + 5,
                     },
                     {
                         "short_channel_id_dir": "4x3x2/0",
-                        "next_node_id": nodemap[3],
-                        "amount_msat": 979,
-                        "delay": 99 + 5,
+                        "node_id_out": nodemap[3],
+                        "amount_in_msat": 979,
+                        "cltv_in": 99 + 5,
                     },
                 ],
             }
@@ -2568,7 +2644,7 @@ def test_impossible_payment(node_factory):
     )
     with pytest.raises(
         RpcError,
-        match=r"We could not find a usable set of paths.  The shortest path is 0x0x1->0x0x2, but 0x0x1/0 exceeds htlc_maximum_msat",
+        match=r"We could not find a usable set of paths. The shortest path is 0x0x1->0x0x2, but 0x0x1/0 exceeds htlc_maximum_msat",
     ):
         l1.rpc.getroutes(
             source=node1,
@@ -2580,14 +2656,14 @@ def test_impossible_payment(node_factory):
         )
     with pytest.raises(
         RpcError,
-        match=r"We could not find a usable set of paths.  The shortest path is 0x0x1->0x0x2, but 0x0x1/0 exceeds htlc_maximum_msat",
+        match=r"We could not find a usable set of paths. The shortest path is 0x0x1->0x0x2, but 0x0x1/0 exceeds htlc_maximum_msat",
     ):
         l1.rpc.getroutes(
             source=node1,
             destination=node3,
             amount_msat=pay_amt,
             layers=["mylayer"],
-            maxparts=1,
             maxfee_msat=2 * pay_amt,
             final_cltv=5,
+            maxparts=1,
         )

@@ -8,10 +8,10 @@ use std::{
 
 use anyhow::anyhow;
 use axum::{
+    Extension, Router,
     http::{HeaderName, HeaderValue},
     middleware,
     routing::{any, get},
-    Extension, Router,
 };
 use axum_server::tls_rustls::RustlsConfig;
 use certs::{do_certificates_exist, generate_certificates};
@@ -22,7 +22,7 @@ use handlers::{
 };
 use options::*;
 use serde_json::json;
-use socketioxide::{handler::ConnectHandler, SocketIo, SocketIoBuilder};
+use socketioxide::{SocketIo, SocketIoBuilder, handler::ConnectHandler};
 use tokio::{
     sync::mpsc::{self, Receiver},
     time,
@@ -48,11 +48,22 @@ mod structs;
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
+    unsafe {
+        // SAFETY:
+        // `std::env::set_var` is unsafe in Rust 2024 because environment variables
+        // are process-global and unsynchronized. Concurrent reads/writes from
+        // multiple threads can cause undefined behavior.
+        //
+        // This call happens at process startup, before any threads are spawned and
+        // before any code that may read environment variables is executed.
+        // Therefore, no concurrent access is possible.
+        std::env::set_var(
+            "CLN_PLUGIN_LOG",
+            "cln_plugin=info,cln_rpc=info,clnrest=debug,warn",
+        )
+    };
+
     log_panics::init();
-    std::env::set_var(
-        "CLN_PLUGIN_LOG",
-        "cln_plugin=info,cln_rpc=info,clnrest=debug,warn",
-    );
 
     let _ = rustls::crypto::ring::default_provider().install_default();
 

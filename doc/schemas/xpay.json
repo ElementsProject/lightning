@@ -4,11 +4,11 @@
   "added": "v24.11",
   "additionalProperties": false,
   "rpc": "xpay",
-  "title": "Command for sending a payment for an invoice",
+  "title": "Command for sending a payment",
   "description": [
-    "The **xpay** RPC command attempts to find routes to the given destination, and send the funds it asks for.",
+    "The **xpay** RPC command attempts to make the specified payment: it can look up BIP353 names (such as ₿rusty@blockstream.com), it can resolve simple offers (lno1...), and pay bolt11 (lnbc...) and bolt12 invoices (lni1...).",
     "",
-    "This plugin is simpler and more sophisticated than the older 'pay' plugin, but does not have all the same features."
+    "This plugin is both simpler and more sophisticated than the older 'pay' plugin."
   ],
   "request": {
     "required": [
@@ -37,7 +37,7 @@
       "layers": {
         "type": "array",
         "description": [
-          "These are askrene layers to apply in addition to xpay's own: these can alter the topology or provide additional information on the lightning network.  See askrene-create-layer."
+          "These are askrene layers to apply in addition to xpay's own: these can alter the topology or provide additional information on the lightning network.  This lets you exclude particular nodes or channels, or bias against them: see askrene-create-layer."
         ],
         "items": {
           "type": "string",
@@ -73,6 +73,25 @@
         "description": [
           "A message that a payer is willing to send to a payee within an invoice request."
         ]
+      },
+      "label": {
+        "type": "string",
+        "added": "v26.06",
+        "description": [
+          "Attach a label to payments for which is returned in `listpays` and `listsendpays`.  This is for your own use: it is not visible to the recipient."
+        ]
+      },
+      "localinvreqid": {
+        "type": "hex",
+        "added": "v26.06",
+        "description": [
+          "`localinvreqid` is used by offers to link a payment attempt to a local `invoice_request` offer created by lightningd-invoicerequest(7). This  ensures that we only make a single payment for an offer, and that the offer is marked `used` once paid."
+        ]
+      },
+      "dev_use_shadow": {
+        "hidden": true,
+        "type": "boolean",
+        "added": "v26.06"
       }
     }
   },
@@ -131,7 +150,7 @@
     "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
   ],
   "see_also": [
-    "lightning-pay(7)",
+    "lightning-listpays(7)",
     "lightning-decode(7)"
   ],
   "resources": [

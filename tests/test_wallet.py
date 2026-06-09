@@ -211,6 +211,33 @@ def test_withdraw(node_factory, bitcoind):
     l1.rpc.withdraw(l1.rpc.newaddr("p2tr")["p2tr"], 10**5, feerate="1000perkb")
 
 
+def test_withdraw_unreserves_inputs_on_send_failure(node_factory, bitcoind):
+    amount = 10**7
+    addrtype = good_addrtype()
+    l1 = node_factory.get_node(random_hsm=True)
+    addr = l1.rpc.newaddr(addrtype)[addrtype]
+
+    bitcoind.rpc.sendtoaddress(addr, amount / 10**8)
+    bitcoind.generate_block(1)
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 1)
+
+    def mock_sendrawtransaction(r):
+        return {'id': r['id'],
+                'error': {'code': 100,
+                          'message': 'feerate below mempool minimum: 251 < 253'}}
+
+    l1.daemon.rpcproxy.mock_rpc('sendrawtransaction', mock_sendrawtransaction)
+
+    with pytest.raises(RpcError, match=r'251 < 253'):
+        l1.rpc.withdraw(bitcoind.getnewaddress(), 'all', feerate='slow')
+
+    assert not any(o['reserved'] for o in l1.rpc.listfunds()['outputs'])
+
+    l1.daemon.rpcproxy.mock_rpc('sendrawtransaction', None)
+    sent = l1.rpc.withdraw(bitcoind.getnewaddress(), 'all', feerate='slow')
+    bitcoind.rpc.getmempoolentry(sent['txid'])
+
+
 def test_minconf_withdraw(node_factory, bitcoind):
     """Issue 2518: ensure that ridiculous confirmation levels don't overflow
 
@@ -2072,6 +2099,79 @@ def test_fundchannel_listtransaction(node_factory, bitcoind):
     assert tx['blockheight'] == 0
 
 
+@unittest.skipIf(TEST_NETWORK != 'regtest', "Uss p2tr")
+def test_withdraw_returns_signed_tx(node_factory, bitcoind):
+    """
+    Test that withdraw returns a fully signed transaction in the 'tx' field.
+
+    Regression test for https://github.com/ElementsProject/lightning/issues/8701
+    where withdraw returned an unsigned transaction (empty witnesses) because
+    psbt_txid() used WALLY_PSBT_EXTRACT_NON_FINAL to extract the tx.
+    """
+    l1 = node_factory.get_node(random_hsm=True)
+
+    # Fund the wallet with a few UTXOs
+    addr = l1.rpc.newaddr('p2tr')['p2tr']
+    for i in range(3):
+        l1.bitcoin.rpc.sendtoaddress(addr, 0.01)
+    bitcoind.generate_block(1)
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 3)
+
+    waddr = l1.bitcoin.rpc.getnewaddress()
+    out = l1.rpc.withdraw(waddr, 'all')
+
+    # The tx field must be a fully signed transaction
+    decoded = bitcoind.rpc.decoderawtransaction(out['tx'])
+
+    # Every segwit input must have witness data (txinwitness)
+    for i, vin in enumerate(decoded['vin']):
+        assert 'txinwitness' in vin, \
+            f"Input {i} has no witness data - tx is unsigned! (issue #8701)"
+        assert len(vin['txinwitness']) > 0, \
+            f"Input {i} has empty witness stack"
+
+    # The returned tx must be directly broadcastable (already sent by withdraw,
+    # but verify it could be re-sent by checking it was accepted)
+    assert decoded['txid'] == out['txid']
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', "Uss p2tr")
+def test_withdraw_close_output_signed(node_factory, bitcoind):
+    """
+    Test that withdraw correctly signs close outputs (anchor/P2WSH).
+
+    Regression test for https://github.com/ElementsProject/lightning/issues/8701
+    The original issue involved spending channel close outputs (with
+    option_anchors CSV=1) alongside regular wallet UTXOs.
+    """
+    l1, l2 = node_factory.line_graph(2, fundchannel=True, wait_for_announce=True)
+
+    # Close the channel so l1 gets a close output
+    l1.rpc.close(l2.info['id'])
+    bitcoind.generate_block(1, wait_for_mempool=1)
+
+    # Wait for CSV lock (1 block for anchors) and the close output to mature
+    bitcoind.generate_block(100)
+    sync_blockheight(bitcoind, [l1])
+
+    wait_for(lambda: all(o['status'] == 'confirmed' for o in l1.rpc.listfunds()['outputs']))
+
+    # Withdraw all funds - this spends both regular and close outputs
+    waddr = l1.bitcoin.rpc.getnewaddress()
+    out = l1.rpc.withdraw(waddr, 'all')
+
+    decoded = bitcoind.rpc.decoderawtransaction(out['tx'])
+
+    # Every input must have witness data
+    for i, vin in enumerate(decoded['vin']):
+        assert 'txinwitness' in vin, \
+            f"Input {i} has no witness data - tx is unsigned! (issue #8701)"
+        assert len(vin['txinwitness']) > 0, \
+            f"Input {i} has empty witness stack"
+
+    assert decoded['txid'] == out['txid']
+
+
 def test_withdraw_nlocktime(node_factory):
     """
     Test that we don't set the nLockTime to 0 for withdrawal and
@@ -2562,7 +2662,7 @@ def test_unspend_during_reorg(node_factory, bitcoind):
     # Now, l3 sees the close, marks channel dying.
     l1.rpc.close(l2.info['id'])
     spentheight = bitcoind.rpc.getblockcount() + 1
-    bitcoind.generate_block(14, wait_for_mempool=1)
+    bitcoind.generate_block(74, wait_for_mempool=1)
     wait_for(lambda: len(l3.rpc.listchannels()['channels']) == 2)
 
     # In one fell swoop it goes through dying, to dead (12 blocks)
@@ -2576,12 +2676,10 @@ def test_unspend_during_reorg(node_factory, bitcoind):
     # Restart, see replay.
     l3.stop()
     # This is enough to take channel from dying to dead.
-    bitcoind.generate_block(10)
+    bitcoind.generate_block(70)
 
     l3.start()
     # Channel should still be dead.
-    l3.daemon.wait_for_log(f"Adding block {spentheight}")
-
     sync_blockheight(bitcoind, [l3])
     assert only_one(l3.db_query(f"SELECT spendheight as spendheight FROM utxoset WHERE blockheight={blockheight} AND txindex={txindex}"))['spendheight'] == spentheight
 
@@ -2787,3 +2885,48 @@ def test_rescan_missing_utxo(node_factory, bitcoind):
     time.sleep(5)
     assert not l1.daemon.is_in_log("Scanning for missed UTXOs", start=oldstart_l1)
     assert not l3.daemon.is_in_log("Scanning for missed UTXOs", start=oldstart_l3)
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', "Uses regtest-specific address types")
+def test_withdraw_unreserves_on_broadcast_failure(node_factory, bitcoind):
+    """Test withdraw releases reservations after broadcast rejection."""
+    l1 = node_factory.get_node(random_hsm=True)
+    addr = l1.rpc.newaddr('p2tr')['p2tr']
+
+    # Fund the node
+    bitcoind.rpc.sendtoaddress(addr, 0.01)
+    bitcoind.generate_block(1)
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 1)
+
+    output = only_one(l1.rpc.listfunds()['outputs'])
+    assert output['status'] == 'confirmed'
+    assert not output.get('reserved', False)
+
+    waddr = bitcoind.rpc.getnewaddress()
+
+    # Mock sendrawtransaction to simulate bitcoind rejecting the transaction
+    # because the feerate is below its mempoolminfee
+    def mock_fail_sendrawtx(r):
+        # Self-remove after first call so subsequent transactions aren't blocked
+        l1.daemon.rpcproxy.mock_rpc('sendrawtransaction', None)
+        return {
+            'id': r['id'],
+            'error': {
+                'code': -26,
+                'message': 'min relay fee not met, 253 < 5000',
+            },
+            'result': None,
+        }
+
+    l1.daemon.rpcproxy.mock_rpc('sendrawtransaction', mock_fail_sendrawtx)
+
+    with pytest.raises(RpcError, match=r'Error broadcasting transaction'):
+        l1.rpc.withdraw(waddr, 'all')
+
+    outputs = l1.rpc.listfunds()['outputs']
+    assert not any(o.get('reserved', False) for o in outputs)
+
+    l1.rpc.withdraw(waddr, 'all')
+    bitcoind.generate_block(1)
+    sync_blockheight(bitcoind, [l1])
+    assert l1.db_query('SELECT COUNT(*) as c FROM outputs WHERE status=0')[0]['c'] == 0

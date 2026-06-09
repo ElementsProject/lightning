@@ -137,7 +137,7 @@ static const char *check_capacity(const tal_t *ctx,
 	if (amount_msat_greater(amount, stats.total.capacity)) {
 		return child_log(ctx, LOG_DBG,
 				 NO_USABLE_PATHS_STRING
-				 "  Total %s capacity is only %s"
+				 " Total %s capacity is only %s"
 				 " (in %zu channels).",
 				 name,
 				 fmt_amount_msat(tmpctx, stats.total.capacity),
@@ -146,7 +146,7 @@ static const char *check_capacity(const tal_t *ctx,
 	if (amount_msat_greater(amount, stats.gossip_known.capacity)) {
 		return child_log(ctx, LOG_DBG,
 				 NO_USABLE_PATHS_STRING
-				 "  Missing gossip for %s: only known %zu/%zu channels, leaving capacity only %s of %s.",
+				 " Missing gossip for %s: only known %zu/%zu channels, leaving capacity only %s of %s.",
 				 name,
 				 stats.gossip_known.num_channels,
 				 stats.total.num_channels,
@@ -154,12 +154,20 @@ static const char *check_capacity(const tal_t *ctx,
 				 fmt_amount_msat(tmpctx, stats.total.capacity));
 	}
 	if (amount_msat_greater(amount, stats.enabled.capacity)) {
+		/* Common case: one channel, disabled */
+		if (stats.enabled.num_channels == 0) {
+			return child_log(ctx, LOG_DBG,
+					 NO_USABLE_PATHS_STRING
+					 " All %zu channels to the %s are disabled.",
+					 stats.total.num_channels,
+					 name);
+		}
 		return child_log(ctx, LOG_DBG,
 				 NO_USABLE_PATHS_STRING
-				 "  The %s has disabled %zu of %zu channels, leaving capacity only %s of %s.",
-				 name,
+				 " %zu of %zu channels to %s are disabled, leaving capacity only %s of %s.",
 				 stats.total.num_channels - stats.enabled.num_channels,
 				 stats.total.num_channels,
+				 name,
 				 fmt_amount_msat(tmpctx, stats.enabled.capacity),
 				 fmt_amount_msat(tmpctx, stats.total.capacity));
 	}
@@ -272,7 +280,7 @@ const char *explain_failure(const tal_t *ctx,
 			    fmt_amount_msat(tmpctx, rolling_amount));
 			return child_log(ctx, LOG_INFORM,
 				      NO_USABLE_PATHS_STRING
-					 "  The shortest path is %s, but %s %s",
+					 " The shortest path is %s, but %s %s",
 					 path,
 					 fmt_short_channel_id_dir(tmpctx, &scidd),
 					 explanation);
@@ -313,7 +321,7 @@ const char *explain_failure(const tal_t *ctx,
 
 		return child_log(ctx, LOG_INFORM,
 				 NO_USABLE_PATHS_STRING
-				 "  The shortest path is %s, but %s %s",
+				 " The shortest path is %s, but %s %s",
 				 path,
 				 fmt_short_channel_id_dir(tmpctx, &scidd),
 				 explanation);

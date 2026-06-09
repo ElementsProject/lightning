@@ -1,6 +1,6 @@
 use crate::proto::jsonrpc::{RpcError, RpcErrorExt};
 use bitcoin::secp256k1::PublicKey;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::value::RawValue;
 use std::{collections::HashMap, future::Future, pin::Pin};
 
@@ -124,7 +124,7 @@ impl JsonRpcRouter {
                 return Some(error_response(
                     None,
                     RpcError::parse_error("failed to parse request"),
-                ))
+                ));
             }
         };
 

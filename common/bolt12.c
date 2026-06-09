@@ -28,7 +28,7 @@ bool bolt12_chains_match(const struct bitcoin_blkid *chains,
 	 *    - if the node does not accept bitcoin invoices:
 	 *      - MUST NOT respond to the offer
 	 *  - otherwise: (`offer_chains` is set):
-	 *    - if the node does not accept invoices for any of the `chains`:
+	 *    - if the node does not accept invoices for at least one of the `chains`:
 	 *      - MUST NOT respond to the offer
 	 */
 	if (!chains) {
@@ -62,6 +62,10 @@ static char *check_features_and_chain(const tal_t *ctx,
 	if (must_be_chain) {
 		if (!bolt12_chains_match(chains, num_chains, must_be_chain))
 			return tal_fmt(ctx, "wrong chain");
+	} else {
+		/* Chains is *empty*, that can never work. */
+		if (chains && tal_count(chains) == 0)
+			return tal_fmt(ctx, "offer_chains with zero entries");
 	}
 
 	if (our_features) {
@@ -105,12 +109,12 @@ static char *check_signature(const tal_t *ctx,
 	return NULL;
 }
 
-static const u8 *string_to_data(const tal_t *ctx,
-				const char *str,
-				size_t str_len,
-				const char *hrp_expected,
-				size_t *dlen,
-				char **fail)
+const u8 *b12_string_to_data(const tal_t *ctx,
+			     const char *str,
+			     size_t str_len,
+			     const char *hrp_expected,
+			     size_t *dlen,
+			     const char **fail)
 {
 	char *hrp;
 	u8 *data;
@@ -165,7 +169,7 @@ struct tlv_offer *offer_decode(const tal_t *ctx,
 			       const char *b12, size_t b12len,
 			       const struct feature_set *our_features,
 			       const struct chainparams *must_be_chain,
-			       char **fail)
+			       const char **fail)
 {
 	struct tlv_offer *offer;
 	const u8 *data;
@@ -173,9 +177,11 @@ struct tlv_offer *offer_decode(const tal_t *ctx,
 	const struct tlv_field *badf;
 	const struct recurrence *recurr;
 
-	data = string_to_data(tmpctx, b12, b12len, "lno", &dlen, fail);
-	if (!data)
-		return NULL;;
+	data = b12_string_to_data(tmpctx, b12, b12len, "lno", &dlen, fail);
+	if (!data) {
+		tal_steal(ctx, *fail);
+		return NULL;
+	}
 
 	offer = fromwire_tlv_offer(ctx, &data, &dlen);
 	if (!offer) {
@@ -223,7 +229,17 @@ struct tlv_offer *offer_decode(const tal_t *ctx,
 	}
 
 	/* BOLT #12:
-	 *
+	 *...
+	 *   - if `offer_amount` is set and is not greater than zero:
+	 *     - MUST NOT respond to the offer.
+	 */
+	if (offer->offer_amount && *offer->offer_amount == 0) {
+		*fail = tal_strdup(ctx, "Offer contains a zero amount");
+		return tal_free(offer);
+	}
+
+	/* BOLT #12:
+	 *...
 	 *   - if `offer_currency` is set and `offer_amount` is not set:
 	 *     - MUST NOT respond to the offer.
 	 */
@@ -233,7 +249,7 @@ struct tlv_offer *offer_decode(const tal_t *ctx,
 	}
 
 	/* BOLT #12:
-	 *
+	 *...
 	 *   - if neither `offer_issuer_id` nor `offer_paths` are set:
 	 *     - MUST NOT respond to the offer.
 	 */
@@ -243,6 +259,7 @@ struct tlv_offer *offer_decode(const tal_t *ctx,
 	}
 
 	/* BOLT #12:
+	 *...
 	 *   - if `num_hops` is 0 in any `blinded_path` in `offer_paths`:
 	 *     - MUST NOT respond to the offer.
 	 */
@@ -310,16 +327,18 @@ struct tlv_invoice_request *invrequest_decode(const tal_t *ctx,
 					      const char *b12, size_t b12len,
 					      const struct feature_set *our_features,
 					      const struct chainparams *must_be_chain,
-					      char **fail)
+					      const char **fail)
 {
 	struct tlv_invoice_request *invrequest;
 	const u8 *data;
 	size_t dlen;
 	const struct tlv_field *badf;
 
-	data = string_to_data(tmpctx, b12, b12len, "lnr", &dlen, fail);
-	if (!data)
+	data = b12_string_to_data(tmpctx, b12, b12len, "lnr", &dlen, fail);
+	if (!data) {
+		tal_steal(ctx, *fail);
 		return NULL;
+	}
 
 	invrequest = fromwire_tlv_invoice_request(ctx, &data, &dlen);
 	if (!invrequest) {
@@ -378,15 +397,17 @@ struct tlv_invoice *invoice_decode_minimal(const tal_t *ctx,
 					   const char *b12, size_t b12len,
 					   const struct feature_set *our_features,
 					   const struct chainparams *must_be_chain,
-					   char **fail)
+					   const char **fail)
 {
 	struct tlv_invoice *invoice;
 	const u8 *data;
 	size_t dlen;
 
-	data = string_to_data(tmpctx, b12, b12len, "lni", &dlen, fail);
-	if (!data)
+	data = b12_string_to_data(tmpctx, b12, b12len, "lni", &dlen, fail);
+	if (!data) {
+		tal_steal(ctx, *fail);
 		return NULL;
+	}
 
 	invoice = fromwire_tlv_invoice(ctx, &data, &dlen);
 	if (!invoice) {
@@ -525,7 +546,7 @@ struct tlv_invoice *invoice_decode(const tal_t *ctx,
 				   const char *b12, size_t b12len,
 				   const struct feature_set *our_features,
 				   const struct chainparams *must_be_chain,
-				   char **fail)
+				   const char **fail)
 {
 	struct tlv_invoice *invoice;
 

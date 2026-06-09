@@ -266,7 +266,7 @@
     "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
   ],
   "see_also": [
-    "lightning-pay(7)",
+    "lightning-xpay(7)",
     "lightning-paystatus(7)",
     "lightning-listsendpays(7)"
   ],

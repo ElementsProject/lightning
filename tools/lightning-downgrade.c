@@ -41,10 +41,7 @@ struct layer {
 
 static void copy_data(u8 **out, const u8 *in, size_t len)
 {
-	size_t oldlen = tal_bytelen(*out);
-
-	tal_resize(out, oldlen + len);
-	memcpy(*out + oldlen, in, len);
+	tal_arr_appendn(out, in, len);
 }
 
 /* askrene added DSTORE_CHANNEL_BIAS_V2 (convertable) and
@@ -169,6 +166,7 @@ static const char *downgrade_askrene_layers(const tal_t *ctx, struct db *db)
 static const struct db_version db_versions[] = {
 	{ "v25.09", 276, downgrade_askrene_layers, false },
 	{ "v25.12", 280, NULL, false },
+	{ "v26.04", 282, NULL, false },
 };
 
 static const struct db_version *version_db(const char *version)

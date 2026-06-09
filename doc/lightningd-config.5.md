@@ -563,6 +563,10 @@ command, so they invoices can also be paid onchain.
 
   Setting this makes `xpay` wait until all parts have failed/succeeded before returning.  Usually this is unnecessary, as xpay will return on the first success (we have the preimage, if they don't take all the parts that's their problem) or failure (the destination could succeed another part, but it would mean it was only partially paid).  The default is `false`.
 
+* **xpay-user-layer**=*name* [plugin `xpay`]
+
+  Specify the name of a layer `xpay` shall use always for every payment.  This is specially useful when combined with `xpay-handle-pay` since the `layers` parameter is not available in the `pay` interface.  This can be specified multiple times to add more layers.
+
 * **askrene-timeout**=*SECONDS* [plugin `askrene`, *dynamic*]
 
   This option makes the `getroutes` call fail if it takes more than this many seconds.  Setting it to zero is a fun way to ensure your node never makes payments.
@@ -574,6 +578,15 @@ command, so they invoices can also be paid onchain.
 * **bkpr-currency**=*name* [plugin `bookkeeper`, *dynamic*]
 
   The *name* is an ISO-4217 name (e.g. USD), which will be passed to *currencyrate* to fetch the exchange rate for that currency on each bookkeeper event.  Setting *name* to the empty string is equivalent not setting it.
+
+* **bwatch-poll-interval**=*MILLISECONDS* [plugin `bwatch`]
+
+  Delay between polls for new blocks from `bitcoind` (default: 30000).
+
+* **experimental-bwatch** [plugin `bwatch`]
+
+  Enable the experimental *bwatch* chain watcher.  Without this, the
+  plugin stays loaded but does not poll `bitcoind` or process watches.
 
 ### Networking options
 
@@ -706,6 +719,12 @@ all DNS lookups, to avoid leaking information.
 * **disable-dns**
 
   Disable the DNS bootstrapping mechanism to find a node by its node ID.
+
+* **message-padding**=*BOOL*
+
+  If set to `true`, `connectd` will send extra bytes to peers to make messages
+uniform length.  Some implementations don't accept these extra bytes,
+and our detection of them is not always reliable, so this option defaults to `false`.
 
 * **tor-service-password**=*PASSWORD*
 
@@ -861,6 +880,8 @@ including dual fund, additional channel splices, or generic transaction activity
 The operations will be bundled into a single transaction. The channel will remain
 active while awaiting splice confirmation, however you can only spend the smaller
 of the prior channel balance and the new one.
+
+  (deprecated in v26.04)
 
 * **experimental-lsps-client**
 
