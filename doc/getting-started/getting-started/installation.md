@@ -619,8 +619,27 @@ A working example that compiles both bitcoind and Core Lightning for Armbian can
 Get dependencies:
 ```shell
 apk update
-apk add --virtual .build-deps ca-certificates alpine-sdk autoconf automake git libtool \
-sqlite-dev python3 py3-mako net-tools zlib-dev libsodium gettext
+apk add --no-cache \
+  alpine-sdk autoconf automake libtool gmp-dev sqlite-dev python3 python3-dev \
+  py3-pip py3-mako net-tools zlib-dev libsodium libsodium-dev gettext gettext-dev \
+  musl-dev gcc git jq curl wget bash ca-certificates protobuf protobuf-dev \
+  postgresql-dev lowdown
+```
+
+Install Rust via rustup (required for Cargo:
+```shell
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+. $HOME/.cargo/env
+```
+
+> 📘
+>
+> The `rust`/`cargo` packages shipped by some Alpine releases can be older than Core Lightning's minimum supported Rust version (1.85.0), so installing the toolchain via rustup is recommended.
+
+Install uv for Python dependency management:
+```shell
+curl -LsSf https://astral.sh/uv/install.sh | sh
+export PATH="$HOME/.local/bin:$PATH"
 ```
 
 Clone lightning:
@@ -630,23 +649,22 @@ cd lightning
 git submodule update --init --recursive
 ```
 
+Checkout a release tag:
+```shell
+git checkout v26.06.1
+```
+
 Build and install:
 ```shell
+uv sync --all-extras --all-groups --frozen
 ./configure
-make
-make install
+RUST_PROFILE=release uv run make -j$(nproc)
+RUST_PROFILE=release make install
 ```
 
-Clean up:
-```shell
-cd .. && rm -rf lightning
-apk del .build-deps
-```
-
-Install runtime dependencies:
-```shell
-apk add libgcc libsodium sqlite-libs zlib
-```
+> 📘
+>
+> If you want to disable Rust because you don't need it or its plugins (cln-grpc, clnrest, cln-bip353 or wss-proxy), you can use `./configure --disable-rust` and skip the rustup step above.
 
 ## Python plugins
 
