@@ -5,7 +5,7 @@ description = "Just a helper to get our python dependencies under control"
 authors = [{ name = "Christian Decker", email = "cdecker@blockstream.com" }]
 requires-python = ">=3.10,<4.0"
 dependencies = [
-  "Mako>=1.1.6",
+  "mako>=1.3.12",
   "websocket-client>=1.2.3",
   "grpcio-tools==1.75.1",
   "grpcio==1.75.1",
