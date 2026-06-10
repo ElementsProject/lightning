@@ -562,6 +562,8 @@ pub struct ForwardEventNotification {
 pub struct InvoiceCreationNotification {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub msat: Option<Amount>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub offer_id: Option<Sha256>,
     pub label: String,
     pub preimage: Secret,
 }

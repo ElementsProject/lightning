@@ -5108,6 +5108,7 @@ impl From<notifications::InvoiceCreationNotification> for pb::InvoiceCreationNot
         Self {
             label: c.label, // Rule #2 for type string
             msat: c.msat.map(|f| f.into()), // Rule #2 for type msat?
+            offer_id: c.offer_id.map(|v| <Sha256 as AsRef<[u8]>>::as_ref(&v).to_vec()), // Rule #2 for type hash?
             preimage: c.preimage.to_vec(), // Rule #2 for type secret
         }
     }
