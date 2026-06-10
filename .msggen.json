@@ -2303,6 +2303,7 @@
         "InvoiceCreationNotification": {
             "invoice_creation.label": 3,
             "invoice_creation.msat": 1,
+            "invoice_creation.offer_id": 4,
             "invoice_creation.preimage": 2
         },
         "InvoicePaymentNotification": {
@@ -15685,6 +15686,10 @@
         },
         "invoice_creation.msat": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "invoice_creation.offer_id": {
+            "added": "v26.06",
             "deprecated": null
         },
         "invoice_creation.preimage": {

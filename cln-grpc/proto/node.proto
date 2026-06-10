@@ -4789,6 +4789,7 @@ message InvoiceCreationNotification {
 	optional Amount msat = 1;
 	bytes preimage = 2;
 	string label = 3;
+	optional bytes offer_id = 4;
 }
 
 message StreamInvoicePaymentRequest {

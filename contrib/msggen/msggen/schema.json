@@ -40053,6 +40053,13 @@
             "description": [
               "The label of the created invoice."
             ]
+          },
+          "offer_id": {
+            "type": "hash",
+            "added": "v26.06",
+            "description": [
+              "If the invoice is associated with a BOLT 12 offer, this `offer_id` will be present (merkle hash of non-signature fields)."
+            ]
           }
         }
       }
