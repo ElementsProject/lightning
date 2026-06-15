@@ -943,6 +943,11 @@ static struct command_result *json_getroutes(struct command *cmd,
 				    maxdelay_allowed);
 	}
 
+	if (node_id_eq(source, dest)) {
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "source and destination must be different");
+	}
+
 	if (command_check_only(cmd))
 		return command_check_done(cmd);
 
