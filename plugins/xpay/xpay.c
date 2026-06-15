@@ -2132,6 +2132,8 @@ static struct command_result *populate_private_layer(struct command *cmd,
 	return batch_done(aux_cmd, batch);
 }
 
+static struct command_result *age_layer(struct command *cmd, struct payment *payment);
+
 static struct command_result *
 preapprove_succeed(struct command *cmd, const char *method, const char *buf,
 		   const jsmntok_t *result, struct payment *payment)
@@ -2141,7 +2143,7 @@ preapprove_succeed(struct command *cmd, const char *method, const char *buf,
 		return command_check_done(cmd);
 	}
 
-	return populate_private_layer(cmd, payment);
+	return age_layer(cmd, payment);
 }
 
 static struct command_result *check_offer_payable(struct command *cmd,
@@ -2937,38 +2939,33 @@ static struct command_result *getinfo_done(struct command *aux_cmd,
 	return aux_command_done(aux_cmd);
 }
 
-/* Recursion */
-static void start_aging_timer(struct plugin *plugin);
+static struct command_result *populate_private_layer(struct command *cmd,
+						     struct payment *payment);
 
-static struct command_result *age_done(struct command *timer_cmd,
-				       const char *method,
-				       const char *buf,
-				       const jsmntok_t *result,
-				       void *unused)
+static struct command_result *age_done(struct command *cmd,
+				       const char *method UNUSED,
+				       const char *buf UNUSED,
+				       const jsmntok_t *result UNUSED,
+				       struct payment *payment)
 {
-	start_aging_timer(timer_cmd->plugin);
-	return timer_complete(timer_cmd);
+	return populate_private_layer(cmd, payment);
 }
 
-static struct command_result *age_layer(struct command *timer_cmd, void *unused)
+static struct command_result *age_layer(struct command *cmd, struct payment *payment)
 {
+	struct xpay *xpay = xpay_of(cmd->plugin);
+
+	if (xpay->dev_no_age)
+		return populate_private_layer(cmd, payment);
+
 	struct out_req *req;
-	req = jsonrpc_request_start(timer_cmd, "askrene-age",
+	req = jsonrpc_request_start(cmd, "askrene-age",
 				    age_done,
 				    plugin_broken_cb,
-				    NULL);
+				    payment);
 	json_add_string(req->js, "layer", "xpay");
 	json_add_u64(req->js, "cutoff", clock_time().ts.tv_sec - 3600);
 	return send_outreq(req);
-}
-
-static void start_aging_timer(struct plugin *plugin)
-{
-	struct xpay *xpay = xpay_of(plugin);
-
-	if (xpay->dev_no_age)
-		return;
-	notleak(global_timer(plugin, time_from_sec(60), age_layer, NULL));
 }
 
 static struct command_result *xpay_layer_created(struct command *aux_cmd,
@@ -2977,7 +2974,6 @@ static struct command_result *xpay_layer_created(struct command *aux_cmd,
 						 const jsmntok_t *result,
 						 void *unused)
 {
-	start_aging_timer(aux_cmd->plugin);
 	return aux_command_done(aux_cmd);
 }
 
