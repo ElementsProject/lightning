@@ -1069,6 +1069,11 @@ class LightningNode(object):
             creds,
             options=(('grpc.ssl_target_name_override', 'cln'),)
         )
+
+        # Force the connect+handshake to finish now, instead of lazily on
+        # the first RPC the caller happens to make.
+        grpc.channel_ready_future(channel).result(timeout=10)
+
         from pyln import grpc as clnpb
         return clnpb.NodeStub(channel)
 
