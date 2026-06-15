@@ -5145,7 +5145,6 @@ def test_filter_with_invalid_json(node_factory):
     assert out.returncode == 1
 
 
-@pytest.mark.xfail(strict=True)
 def test_long_logs(node_factory):
     """A plugin that creates a very long log entry. Lightningd should truncate
     the output and not crash."""
