@@ -2669,7 +2669,6 @@ def test_impossible_payment(node_factory):
         )
 
 
-@pytest.mark.xfail(strict=True)
 def test_bad_user_entries(node_factory):
     """Test bad user entries that should result in an RPC error and not crash
     lightningd."""
