@@ -2,9 +2,8 @@
 """Plugin to be used to test miscellaneous notifications.
 """
 
-from pyln.client import Plugin, RpcError
+from pyln.client import Plugin
 import sys
-import pytest
 
 plugin = Plugin()
 
@@ -36,14 +35,10 @@ def shutdown(plugin, **kwargs):
         plugin.rpc.getinfo()
         plugin.rpc.datastore(key='test', string='Allowed', mode="create-or-append")
         plugin.log("via plugin stop, datastore success")
-    except RpcError as e:
-        if e.error == {'code': -5, 'message': 'lightningd is shutting down'}:
-            # JSON RPC is disabled by now, but can do logging
-            with pytest.raises(RpcError, match=r'-5.*lightningd is shutting down'):
-                plugin.rpc.datastore(key='test', string='Not allowed', mode="create-or-append")
-            plugin.log("via lightningd shutdown, datastore failed")
-        else:
-            raise
+    except ConnectionRefusedError as e:
+        # lightningd shutdown, refusing RPC calls
+        plugin.log(str(e))
+        sys.exit(0)
 
     sys.exit(0)
 
