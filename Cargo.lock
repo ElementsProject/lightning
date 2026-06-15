@@ -504,6 +504,7 @@ dependencies = [
  "anyhow",
  "bytes",
  "cln-grpc",
+ "cln-rpc",
  "futures",
  "log",
  "serde",

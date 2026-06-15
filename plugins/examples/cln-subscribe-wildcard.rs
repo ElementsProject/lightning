@@ -22,6 +22,11 @@ async fn main() -> Result<()> {
 
 async fn handle_wildcard_notification(_plugin: Plugin<()>, value: serde_json::Value) -> Result<()> {
     let notification_type: String = value.as_object().unwrap().keys().next().unwrap().into();
+    let notification: cln_rpc::Notification = serde_json::from_value(value)?;
+
+    if let cln_rpc::Notification::Shutdown(_shutdown_notification) = notification {
+        std::process::exit(0);
+    }
 
     log::info!("Received notification {}", notification_type);
     Ok(())
