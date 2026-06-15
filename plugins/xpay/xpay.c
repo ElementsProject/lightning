@@ -2133,11 +2133,8 @@ static struct command_result *populate_private_layer(struct command *cmd,
 }
 
 static struct command_result *
-preapproveinvoice_succeed(struct command *cmd,
-			  const char *method,
-			  const char *buf,
-			  const jsmntok_t *result,
-			  struct payment *payment)
+preapprove_succeed(struct command *cmd, const char *method, const char *buf,
+		   const jsmntok_t *result, struct payment *payment)
 {
 	/* Now we can conclude `check` command */
 	if (command_check_only(cmd)) {
@@ -2782,12 +2779,12 @@ static struct command_result *xpay_core(struct command *cmd,
 	/* Now preapprove, then start payment. */
 	if (command_check_only(cmd)) {
 		req = jsonrpc_request_start(cmd, "check",
-					    &preapproveinvoice_succeed,
+					    &preapprove_succeed,
 					    &forward_error, payment);
 		json_add_string(req->js, "command_to_check", "preapproveinvoice");
 	} else {
 		req = jsonrpc_request_start(cmd, "preapproveinvoice",
-					    &preapproveinvoice_succeed,
+					    &preapprove_succeed,
 					    &forward_error, payment);
 	}
 	json_add_string(req->js, "bolt11", payment->invstring);
@@ -2984,22 +2981,6 @@ static struct command_result *xpay_layer_created(struct command *aux_cmd,
 	return aux_command_done(aux_cmd);
 }
 
-static struct command_result *
-preapprovekeysend_succeed(struct command *cmd,
-			  const char *method,
-			  const char *buf,
-			  const jsmntok_t *result,
-			  struct payment *payment)
-{
-	/* Now we can conclude `check` command */
-	if (command_check_only(cmd)) {
-		return command_check_done(cmd);
-	}
-
-	/* Actually we don't need a private layer, but unification is easy. */
-	return populate_private_layer(cmd, payment);
-}
-
 static struct command_result *json_xkeysend(struct command *cmd,
 					    const char *buf,
 					    const jsmntok_t *params)
@@ -3083,12 +3064,12 @@ static struct command_result *json_xkeysend(struct command *cmd,
 	/* We do pre-approval immediately (note: even if command_check_only!) */
 	if (command_check_only(cmd)) {
 		req = jsonrpc_request_start(cmd, "check",
-					    preapprovekeysend_succeed,
+					    preapprove_succeed,
 					    forward_error, payment);
 		json_add_string(req->js, "command_to_check", "preapprovekeysend");
 	} else {
 		req = jsonrpc_request_start(cmd, "preapprovekeysend",
-					    preapprovekeysend_succeed,
+					    preapprove_succeed,
 					    forward_error, payment);
 	}
 	json_add_pubkey(req->js, "destination", &payment->destination);
