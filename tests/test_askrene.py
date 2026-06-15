@@ -2667,3 +2667,45 @@ def test_impossible_payment(node_factory):
             final_cltv=5,
             maxparts=1,
         )
+
+
+@pytest.mark.xfail(strict=True)
+def test_bad_user_entries(node_factory):
+    """Test bad user entries that should result in an RPC error and not crash
+    lightningd."""
+    l1 = node_factory.get_node()
+    node1 = "020000000000000000000000000000000000000000000000000000000000000001"
+    node2 = "020000000000000000000000000000000000000000000000000000000000000002"
+    million_sats = 1000000000
+    l1.rpc.askrene_create_layer("mylayer")
+    l1.rpc.askrene_create_channel(
+        layer="mylayer",
+        source=node1,
+        destination=node2,
+        short_channel_id="0x0x1",
+        capacity_msat=million_sats,
+    )
+    l1.rpc.askrene_update_channel(
+        layer="mylayer",
+        short_channel_id_dir="0x0x1/0",
+        enabled=True,
+        htlc_minimum_msat=0,
+        htlc_maximum_msat=million_sats,
+        fee_base_msat=0,
+        fee_proportional_millionths=0,
+        cltv_expiry_delta=18,
+    )
+
+    # Try querying getroutes with source==destination
+    with pytest.raises(
+        RpcError,
+        match=r"source and destination must be different",
+    ):
+        l1.rpc.getroutes(
+            source=node1,
+            destination=node1,
+            amount_msat=1000,
+            layers=["mylayer"],
+            maxfee_msat=2000,
+            final_cltv=5,
+        )
