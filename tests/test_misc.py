@@ -5143,3 +5143,19 @@ def test_filter_with_invalid_json(node_factory):
                          stdout=subprocess.PIPE)
     assert 'filter: Expected object: invalid token' in out.stdout.decode('utf-8')
     assert out.returncode == 1
+
+
+@pytest.mark.xfail(strict=True)
+def test_long_logs(node_factory):
+    """A plugin that creates a very long log entry. Lightningd should truncate
+    the output and not crash."""
+
+    def setup(plugin):
+        @plugin.method("produce-log")
+        def prod_log(plugin):
+            """Produce a silly and very long log message."""
+            plugin.log("X" * 300000)
+            return {}
+
+    l1 = node_factory.get_node(inline_plugin=setup)
+    l1.rpc.call("produce-log")
