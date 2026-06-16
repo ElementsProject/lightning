@@ -193,13 +193,7 @@ def bitcoind(request, directory, teardown_checks):
 
     yield bitcoind
 
-    try:
-        bitcoind.stop()
-    except Exception:
-        bitcoind.proc.kill()
-    bitcoind.proc.wait()
-
-    bitcoind.cleanup_files()
+    bitcoind.kill()
 
 
 class TeardownErrors(object):

@@ -14,6 +14,7 @@ from pyln.client import NodeVersion
 from pyln.client import Plugin
 
 import ephemeral_port_reserve  # type: ignore
+import tempfile
 import json
 import logging
 import lzma
@@ -171,25 +172,46 @@ def get_tx_p2wsh_outnum(bitcoind, tx, amount):
     return None
 
 
-unused_port_lock = threading.Lock()
-unused_port_set = set()
+_PORT_LOCK_DIR = Path(tempfile.gettempdir()) / "pyln-testing-ports"
+_PORT_LOCK_DIR.mkdir(exist_ok=True)
 
 
 def reserve_unused_port():
     """Get an unused port: avoids handing out the same port unless it's been
     returned"""
-    with unused_port_lock:
-        while True:
-            port = ephemeral_port_reserve.reserve()
-            if port not in unused_port_set:
-                break
-        unused_port_set.add(port)
+    while True:
+        port = ephemeral_port_reserve.reserve()
 
-    return port
+        lock_path = _PORT_LOCK_DIR / f"{port}.lock"
+        try:
+            fd = os.open(str(lock_path), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            os.write(fd, str(os.getpid()).encode())
+            os.close(fd)
+            return port
+        except FileExistsError:
+            continue
 
 
 def drop_unused_port(port):
-    unused_port_set.remove(port)
+    if port:
+        lock_path = _PORT_LOCK_DIR / f"{port}.lock"
+        lock_path.unlink(missing_ok=True)
+
+
+def cleanup_stale_port_locks():
+    """Remove lockfiles whose owning process no longer exists."""
+    try:
+        for lock_path in _PORT_LOCK_DIR.glob("*.lock"):
+            try:
+                pid = int(lock_path.read_text())
+                try:
+                    os.kill(pid, 0)  # signal 0 = existence check, no actual signal
+                except ProcessLookupError:
+                    lock_path.unlink(missing_ok=True)
+            except (ValueError, PermissionError, FileNotFoundError):
+                pass
+    except Exception:
+        pass  # best-effort, never crash the test run over cleanup
 
 
 class TailableProc(object):
@@ -290,6 +312,8 @@ class TailableProc(object):
 
     def cleanup_files(self):
         """Ensure files are closed."""
+        cleanup_stale_port_locks()
+
         for f in ["stdout_write", "stderr_write", "stdout_read", "stderr_read"]:
             try:
                 getattr(self, f).close()
@@ -459,10 +483,7 @@ class BitcoinD(TailableProc):
         TailableProc.__init__(self, bitcoin_dir, verbose=False)
 
         if rpcport is None:
-            self.reserved_rpcport = reserve_unused_port()
-            rpcport = self.reserved_rpcport
-        else:
-            self.reserved_rpcport = None
+            rpcport = reserve_unused_port()
 
         self.bitcoin_dir = bitcoin_dir
         self.rpcport = rpcport
@@ -499,9 +520,15 @@ class BitcoinD(TailableProc):
         self.rpc = SimpleBitcoinProxy(btc_conf_file=self.conf_file)
         self.proxies = []
 
-    def __del__(self):
-        if self.reserved_rpcport is not None:
-            drop_unused_port(self.reserved_rpcport)
+    def kill(self):
+        try:
+            self.stop()
+        except Exception:
+            self.proc.kill()
+        self.proc.wait()
+
+        self.cleanup_files()
+        drop_unused_port(self.rpcport)
 
     def start(self, wallet_file=None):
         TailableProc.start(self)
