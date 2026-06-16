@@ -4412,9 +4412,20 @@ def test_graceful_htlc(node_factory, executor):
 
     fut = executor.submit(run_graceful)
 
+    inotif = 0
+
     # Wait until graceful has sent at least one HTLC expiry notification
-    wait_for(lambda: len(notifications) == 1)
-    wait_for(lambda: notifications[0] == f'Next HTLC SENT_ADD_ACK_REVOCATION expires at block #118 (10 blocks from now) going to peer {l3.info["id"]} (connected)')
+    wait_for(lambda: len(notifications) >= inotif + 1)
+
+    # Depending on on timing between the sendpay and `l2.rpc.graceful`, we may get
+    # RCVD_ADD_REVOCATION or we may be too late to get that.
+    if notifications[inotif] == f'Next HTLC RCVD_ADD_REVOCATION expires at block #118 (10 blocks from now) going to peer {l3.info["id"]} (connected)':
+        # If we get RCVD_ADD_REVOCATION, ignore it and move onto the next notification
+        inotif += 1
+        wait_for(lambda: len(notifications) >= inotif + 1)
+
+    wait_for(lambda: notifications[inotif] == f'Next HTLC SENT_ADD_ACK_REVOCATION expires at block #118 (10 blocks from now) going to peer {l3.info["id"]} (connected)')
+    inotif += 1
 
     # This will tell us about htlcs and the peers (peers unordered)
     ret = l2.rpc.graceful(1)
@@ -4425,12 +4436,16 @@ def test_graceful_htlc(node_factory, executor):
 
     # Close incoming connection, so incoming HTLC gets stuck.
     l1.rpc.disconnect(l2.info['id'], force=True)
-    wait_for(lambda: notifications[-1] == f'Next HTLC SENT_ADD_ACK_REVOCATION expires at block #118 (10 blocks from now) going to peer {l3.info["id"]} (connected)')
+    wait_for(lambda: len(notifications) >= inotif + 1)
+    wait_for(lambda: notifications[inotif] == f'Next HTLC SENT_ADD_ACK_REVOCATION expires at block #118 (10 blocks from now) going to peer {l3.info["id"]} (connected)')
+    inotif += 1
 
     # Release the hold so the *outgoing* HTLC resolves
     open(os.path.join(l3.daemon.lightning_dir, TEST_NETWORK, "unhold"), "w").close()
 
-    wait_for(lambda: notifications[-1] == f'Next HTLC SENT_REMOVE_HTLC expires at block #124 (16 blocks from now) coming from peer {l1.info["id"]} (disconnected)')
+    wait_for(lambda: len(notifications) >= inotif + 1)
+    wait_for(lambda: notifications[inotif] == f'Next HTLC SENT_REMOVE_HTLC expires at block #124 (16 blocks from now) coming from peer {l1.info["id"]} (disconnected)')
+    inotif += 1
 
     ret = l2.rpc.graceful(1)
     assert ret == {'pending_htlc_expiries': [124]}
