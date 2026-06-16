@@ -1,0 +1,7 @@
+{
+    "name": "testpluguv",
+    "short_description": "a plugin to test reckless installation using uv",
+    "long_description": "This plugin is one of several used in the reckless blackbox tests.  This one specifies dependencies for uv in the pyproject.toml and has a corresponding uv.lock file.",
+    "entrypoint": "testpluguv.py",
+    "requirements": ["python3"]
+}

@@ -1,0 +1,7 @@
+{
+    "name": "testplugfail",
+    "short_description": "a plugin to test reckless installation where the plugin fails to start",
+    "long_description": "This plugin is one of several used in the reckless blackbox tests.",
+    "entrypoint": "testplugfail.py",
+    "requirements": ["python3"]
+}

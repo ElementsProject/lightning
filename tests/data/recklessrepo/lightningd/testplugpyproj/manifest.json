@@ -1,0 +1,7 @@
+{
+    "name": "testplugpyproj",
+    "short_description": "a plugin to test reckless installation",
+    "long_description": "This plugin is one of several used in the reckless blackbox tests.  This one should succeed while specifying dependencies in pyproject.toml.",
+    "entrypoint": "testplugpyproj.py",
+    "requirements": ["python3"]
+}
