@@ -3018,3 +3018,37 @@ def test_zeroconf_withhold_htlc_failback(node_factory, bitcoind):
 
     # l1's channel to l2 is still normal — no force-close
     assert only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['state'] == 'CHANNELD_NORMAL'
+
+
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+def test_multifunding_with_many_input(node_factory, bitcoind):
+    """Test that multifundchannel can handle a large number of inputs."""
+    l1, l2 = node_factory.get_nodes(2, opts={'old_hsmsecret': True})
+
+    amount = 1000000
+
+    addr = l1.rpc.newaddr('all')['p2tr']
+    bitcoind.rpc.sendtoaddress(addr, amount / 10**8)
+    bitcoind.generate_block(1, wait_for_mempool=1)
+
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 1)
+
+    destinations = [{"id": '{}@localhost:{}'.format(l2.info['id'], l2.port),
+                     "amount": 'all'},
+                    ]
+
+    utxo = [f"{txid}:{vout}"
+            for txid, vout in [(o['txid'], o['output']) for o in l1.rpc.listfunds()['outputs']]]
+
+    # add duplicate
+    utxo.append(utxo[0])
+
+    l1.rpc.multifundchannel(destinations, minconf=1, utxos=utxo)
+
+    bitcoind.generate_block(1, wait_for_mempool=1)
+
+    wait_for(lambda: [c['state'] for c in (l1.rpc.listpeerchannels()['channels'])] == ['CHANNELD_NORMAL'])
+
+    inv = l2.rpc.invoice(5000, 'i1', 'i1')['bolt11']
+    l1.rpc.pay(inv)
