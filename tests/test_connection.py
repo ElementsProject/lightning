@@ -15,6 +15,7 @@ from utils import (
 )
 from pyln.testing.utils import VALGRIND, EXPERIMENTAL_DUAL_FUND, FUNDAMOUNT, RUST, SLOW_MACHINE
 
+import math
 import os
 import pytest
 import random
@@ -24,6 +25,7 @@ import unittest
 import websocket
 import signal
 import ssl
+import sys
 
 
 def test_connect_basic(node_factory):
@@ -4649,7 +4651,15 @@ def test_private_channel_no_reconnect(node_factory):
 
 @pytest.mark.slow_test
 def test_no_delay(node_factory):
-    """Is our Nagle disabling for critical messages working?"""
+    """Disabling Nagle for critical messages should speed up payment round-trips.
+
+    This is timing-based, so we compare it statistically: time N round-trips
+    with and without Nagle and compare the per-trip means with a K=3
+    standard-error margin (a spurious result is then a ~3-sigma, ~0.1% event).
+    The speedup only exists where the TCP Nagle timer is real (~200ms on Linux);
+    macOS loopback has no measurable timer, so there we only assert that
+    disabling Nagle isn't slower.
+    """
     l1, l2 = node_factory.line_graph(2, opts={'dev-keep-nagle': None,
                                               'may_reconnect': True})
 
@@ -4662,22 +4672,29 @@ def test_no_delay(node_factory):
     }
 
     def do_round_trips(n):
-        start = time.time()
+        """Return the list of per-trip durations (seconds) for n round-trips."""
+        times = []
         for _ in range(n):
             phash = random.randbytes(32).hex()
+            start = time.time()
             l1.rpc.sendpay([routestep], phash)
             with pytest.raises(RpcError, match="WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS"):
                 l1.rpc.waitsendpay(phash)
-        return time.time() - start
+            times.append(time.time() - start)
+        return times
 
-    # Probe the actual per-RTT Nagle overhead on this platform with a small
-    # sample (10 trips), then scale up for the full run.  Linux's TCP Nagle
-    # timer fires after ~200ms; macOS/loopback may be much shorter.
-    PROBE = 10
-    probe_nagle = do_round_trips(PROBE)
+    def mean(xs):
+        return sum(xs) / len(xs)
 
-    # Test with nagle (full run)
-    nagle_time = do_round_trips(100)
+    def variance(xs):
+        # Sample variance (Bessel-corrected).
+        m = mean(xs)
+        return sum((x - m) ** 2 for x in xs) / (len(xs) - 1)
+
+    N = 100
+
+    nagle_trips = do_round_trips(N)
+    nagle_time = sum(nagle_trips)
 
     del l1.daemon.opts['dev-keep-nagle']
     del l2.daemon.opts['dev-keep-nagle']
@@ -4685,33 +4702,29 @@ def test_no_delay(node_factory):
     l2.restart()
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
-    # Probe without nagle
-    probe_normal = do_round_trips(PROBE)
+    normal_trips = do_round_trips(N)
+    normal_time = sum(normal_trips)
 
-    # Test without nagle (full run)
-    normal_time = do_round_trips(100)
+    mean_nagle = mean(nagle_trips)
+    mean_normal = mean(normal_trips)
+    stderr = math.sqrt(variance(nagle_trips) / len(nagle_trips)
+                       + variance(normal_trips) / len(normal_trips))
 
-    # Estimate the per-RTT Nagle delay from the probe; average delay is half
-    # the timer period.  Use half again as variance margin (same logic as the
-    # original 200ms assumption).  If the platform shows no measurable Nagle
-    # effect (e.g. macOS loopback with a very short timer) the expected saving
-    # rounds down to zero and we only assert directional ordering.
-    per_rtt_delay = max(0.0, (probe_nagle - probe_normal) / PROBE)
-    expected_saving = 100 * per_rtt_delay / 2
+    # Margin = K standard errors of the difference of the per-trip means.
+    K = 3
+    margin = K * stderr
 
-    print(f"Nagle probe: {probe_nagle:.3f}s nagle, {probe_normal:.3f}s normal, "
-          f"per-RTT overhead ~{per_rtt_delay * 1000:.1f}ms, "
-          f"expected saving {expected_saving:.2f}s")
+    print(f"Nagle: mean trip {mean_nagle * 1000:.1f}ms with vs "
+          f"{mean_normal * 1000:.1f}ms without; saving "
+          f"{(mean_nagle - mean_normal) * 1000:.1f}ms, {K}-sigma margin "
+          f"{margin * 1000:.1f}ms (totals {nagle_time:.1f}s vs {normal_time:.1f}s)")
 
-    if expected_saving > 0.5:
-        # Platform shows a meaningful Nagle effect: assert at least half the saving.
-        # The 10-sample probe can overestimate per-RTT delay by ~2x due to variance,
-        # so apply an extra safety factor here.
-        assert normal_time < nagle_time - expected_saving / 2
+    if sys.platform.startswith('linux'):
+        # Linux has the ~200ms Nagle timer: disabling it should be significantly faster.
+        assert mean_normal < mean_nagle - margin
     else:
-        # Platform Nagle delay is too small to measure reliably (e.g. macOS);
-        # just assert that disabling Nagle is not slower.
-        assert normal_time <= nagle_time + 1.0
+        # No measurable timer (e.g. macOS loopback): just assert it's not slower.
+        assert mean_normal <= mean_nagle + margin
 
 
 def test_listpeerchannels_by_scid(node_factory):
