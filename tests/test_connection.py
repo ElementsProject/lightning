@@ -4707,12 +4707,12 @@ def test_no_delay(node_factory):
 
     mean_nagle = mean(nagle_trips)
     mean_normal = mean(normal_trips)
-    stderr = math.sqrt(variance(nagle_trips) / len(nagle_trips)
-                       + variance(normal_trips) / len(normal_trips))
+    se_diff = math.sqrt(variance(nagle_trips) / len(nagle_trips)
+                        + variance(normal_trips) / len(normal_trips))
 
     # Margin = K standard errors of the difference of the per-trip means.
     K = 3
-    margin = K * stderr
+    margin = K * se_diff
 
     print(f"Nagle: mean trip {mean_nagle * 1000:.1f}ms with vs "
           f"{mean_normal * 1000:.1f}ms without; saving "
