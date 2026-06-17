@@ -92,7 +92,7 @@ jobs:
         uses: dawidd6/action-send-mail@v17
         with:
           server_address: smtp.gmail.com
-          server_port: 587
+          server_port: 465
           secure: true
           username: ${{ secrets.EMAIL_USERNAME }}
           password: ${{ secrets.EMAIL_PASSWORD }}
