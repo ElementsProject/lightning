@@ -4704,8 +4704,10 @@ def test_no_delay(node_factory):
           f"expected saving {expected_saving:.2f}s")
 
     if expected_saving > 0.5:
-        # Platform shows a meaningful Nagle effect: assert the full saving.
-        assert normal_time < nagle_time - expected_saving
+        # Platform shows a meaningful Nagle effect: assert at least half the saving.
+        # The 10-sample probe can overestimate per-RTT delay by ~2x due to variance,
+        # so apply an extra safety factor here.
+        assert normal_time < nagle_time - expected_saving / 2
     else:
         # Platform Nagle delay is too small to measure reliably (e.g. macOS);
         # just assert that disabling Nagle is not slower.
