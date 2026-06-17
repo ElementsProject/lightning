@@ -5954,30 +5954,19 @@ static void peer_reconnect(struct peer *peer,
 				     "next_funding_txid not recognized.");
 	}
 
-	/* "none of those channel_reestablish messages contain
-	 * my_current_funding_locked or next_funding for a splice transaction" */
-	bool is_splice_active = local_next_funding
-		|| peer->splice_state->locked_ready[LOCAL]
-		|| remote_next_funding
-		|| (recv_tlvs
-		    && recv_tlvs->my_current_funding_locked
-		    && !bitcoin_txid_eq(
-			    &recv_tlvs->my_current_funding_locked->my_current_funding_locked_txid,
-			    &peer->channel->funding.txid));
-
 	/* BOLT #2:
 	 *
 	 *   - if `next_commitment_number` is 1 in both the
-	 *     `channel_reestablish` it sent and received:
+	 *    `channel_reestablish` it sent and received:
 	 *     - MUST retransmit `channel_ready`.
 	 *   - otherwise:
-	 *     - MUST NOT retransmit `channel_ready`, but MAY send `channel_ready` with
-	 * 		 a different `short_channel_id` `alias` field.
+	 *     - MUST NOT retransmit `channel_ready`, but MAY send
+	 *       `channel_ready` with a different `short_channel_id`
+	 *       `alias` field.
 	 */
 	if (peer->channel_ready[LOCAL]
 	    && peer->next_index[LOCAL] == 1
-	    && next_commitment_number == 1
-	    && !is_splice_active) {
+	    && next_commitment_number == 1) {
 		struct tlv_channel_ready_tlvs *tlvs = tlv_channel_ready_tlvs_new(tmpctx);
 
 		tlvs->short_channel_id = &peer->local_alias;
