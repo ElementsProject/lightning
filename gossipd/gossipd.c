@@ -328,6 +328,11 @@ void tell_lightningd_peer_update(struct daemon *daemon,
 {
 	struct peer_update remote_update;
 	u8* msg;
+
+	/* FIXME: Tell connectd to kick out source peer if this happens? */
+	if (daemon_conn_queue_length(daemon->master) > 10000)
+		return;
+
 	remote_update.scid = scid;
 	remote_update.fee_base = fee_base_msat;
 	remote_update.fee_ppm = fee_ppm;

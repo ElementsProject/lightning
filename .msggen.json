@@ -372,6 +372,14 @@
             "ONCHAIN": 8,
             "OPENINGD": 0
         },
+        "ListpeerchannelsChannelsStateChangesCause": {
+            "local": 1,
+            "onchain": 5,
+            "protocol": 4,
+            "remote": 3,
+            "unknown": 0,
+            "user": 2
+        },
         "ListpeerchannelsChannelsState_changesCause": {
             "local": 1,
             "onchain": 5,
@@ -1423,6 +1431,20 @@
             "CreateOnion.onion": 1,
             "CreateOnion.shared_secrets[]": 2
         },
+        "CreateproofProofs": {
+            "CreateProof.proofs[].bolt12": 1,
+            "CreateProof.proofs[].invoice_fields_included": 4,
+            "CreateProof.proofs[].invreq_fields_included": 3,
+            "CreateProof.proofs[].offer_fields_included": 2
+        },
+        "CreateproofRequest": {
+            "CreateProof.include": 3,
+            "CreateProof.invstring": 1,
+            "CreateProof.note": 2
+        },
+        "CreateproofResponse": {
+            "CreateProof.proofs[]": 1
+        },
         "CreateruneRequest": {
             "CreateRune.restrictions": 2,
             "CreateRune.rune": 1
@@ -1490,9 +1512,25 @@
             "Decode.invoice_fallbacks[].hex": 2,
             "Decode.invoice_fallbacks[].version": 1
         },
+        "DecodeInvoicePaths": {
+            "Decode.invoice_paths[].first_node_id": 3,
+            "Decode.invoice_paths[].first_path_key": 4,
+            "Decode.invoice_paths[].first_scid": 6,
+            "Decode.invoice_paths[].first_scid_dir": 5,
+            "Decode.invoice_paths[].path[]": 1,
+            "Decode.invoice_paths[].payinfo": 2
+        },
         "DecodeInvoicePathsPath": {
             "Decode.invoice_paths[].path[].blinded_node_id": 1,
             "Decode.invoice_paths[].path[].encrypted_recipient_data": 2
+        },
+        "DecodeInvoicePathsPayinfo": {
+            "Decode.invoice_paths[].payinfo.cltv_expiry_delta": 6,
+            "Decode.invoice_paths[].payinfo.features": 2,
+            "Decode.invoice_paths[].payinfo.fee_base_msat": 3,
+            "Decode.invoice_paths[].payinfo.fee_proportional_millionths": 4,
+            "Decode.invoice_paths[].payinfo.htlc_maximum_msat": 5,
+            "Decode.invoice_paths[].payinfo.htlc_minimum_msat": 1
         },
         "DecodeInvreqBip353Name": {
             "Decode.invreq_bip_353_name.domain": 2,
@@ -1517,6 +1555,19 @@
             "Decode.offer_paths[].first_scid": 5,
             "Decode.offer_paths[].first_scid_dir": 4,
             "Decode.offer_paths[].path[]": 3
+        },
+        "DecodeOfferPathsPath": {
+            "Decode.offer_paths[].path[].blinded_node_id": 1,
+            "Decode.offer_paths[].path[].encrypted_recipient_data": 2
+        },
+        "DecodeOfferRecurrence": {
+            "Decode.offer_recurrence.basetime": 5,
+            "Decode.offer_recurrence.compulsory_field": 2,
+            "Decode.offer_recurrence.limit": 7,
+            "Decode.offer_recurrence.paywindow": 6,
+            "Decode.offer_recurrence.period": 4,
+            "Decode.offer_recurrence.time_unit": 1,
+            "Decode.offer_recurrence.time_unit_name": 3
         },
         "DecodeOfferRecurrencePaywindow": {
             "Decode.offer_recurrence.paywindow.proportional_amount": 3,
@@ -1630,6 +1681,21 @@
         "DecodeRestrictions": {
             "Decode.restrictions[].alternatives[]": 1,
             "Decode.restrictions[].summary": 2
+        },
+        "DecodeUnknownInvoiceRequestTlvs": {
+            "Decode.unknown_invoice_request_tlvs[].length": 2,
+            "Decode.unknown_invoice_request_tlvs[].type": 1,
+            "Decode.unknown_invoice_request_tlvs[].value": 3
+        },
+        "DecodeUnknownInvoiceTlvs": {
+            "Decode.unknown_invoice_tlvs[].length": 2,
+            "Decode.unknown_invoice_tlvs[].type": 1,
+            "Decode.unknown_invoice_tlvs[].value": 3
+        },
+        "DecodeUnknownOfferTlvs": {
+            "Decode.unknown_offer_tlvs[].length": 2,
+            "Decode.unknown_offer_tlvs[].type": 1,
+            "Decode.unknown_offer_tlvs[].value": 3
         },
         "DecodeUnknownPayerProofTlvs": {
             "Decode.unknown_payer_proof_tlvs[].length": 2,
@@ -2191,6 +2257,13 @@
             "GetRoutes.routes[].path[].short_channel_id": 1,
             "GetRoutes.routes[].path[].short_channel_id_dir": 6
         },
+        "GracefulRequest": {
+            "Graceful.timeout": 1
+        },
+        "GracefulResponse": {
+            "Graceful.pending_htlc_expiries[]": 1,
+            "Graceful.pending_peers[]": 2
+        },
         "HelpHelp": {
             "Help.help[].category": 2,
             "Help.help[].command": 1,
@@ -2230,6 +2303,7 @@
         "InvoiceCreationNotification": {
             "invoice_creation.label": 3,
             "invoice_creation.msat": 1,
+            "invoice_creation.offer_id": 4,
             "invoice_creation.preimage": 2
         },
         "InvoicePaymentNotification": {
@@ -2419,6 +2493,10 @@
         "ListclosedchannelsClosedchannelsAlias": {
             "ListClosedChannels.closedchannels[].alias.local": 1,
             "ListClosedChannels.closedchannels[].alias.remote": 2
+        },
+        "ListclosedchannelsClosedchannelsChannelType": {
+            "ListClosedChannels.closedchannels[].channel_type.bits[]": 1,
+            "ListClosedChannels.closedchannels[].channel_type.names[]": 2
         },
         "ListclosedchannelsRequest": {
             "ListClosedChannels.id": 1
@@ -3151,6 +3229,7 @@
             "ListPeerChannels.channels[].closer": 20,
             "ListPeerChannels.channels[].direction": 60,
             "ListPeerChannels.channels[].dust_limit_msat": 29,
+            "ListPeerChannels.channels[].features": 63,
             "ListPeerChannels.channels[].features[]": 21,
             "ListPeerChannels.channels[].fee_base_msat": 27,
             "ListPeerChannels.channels[].fee_proportional_millionths": 28,
@@ -3210,6 +3289,10 @@
             "ListPeerChannels.channels[].alias.local": 1,
             "ListPeerChannels.channels[].alias.remote": 2
         },
+        "ListpeerchannelsChannelsChannelType": {
+            "ListPeerChannels.channels[].channel_type.bits[]": 1,
+            "ListPeerChannels.channels[].channel_type.names[]": 2
+        },
         "ListpeerchannelsChannelsChannel_type": {
             "ListPeerChannels.channels[].channel_type.bits[]": 1,
             "ListPeerChannels.channels[].channel_type.names[]": 2
@@ -3245,6 +3328,13 @@
             "ListPeerChannels.channels[].inflight[].scratch_txid": 6,
             "ListPeerChannels.channels[].inflight[].splice_amount": 7,
             "ListPeerChannels.channels[].inflight[].total_funding_msat": 4
+        },
+        "ListpeerchannelsChannelsStateChanges": {
+            "ListPeerChannels.channels[].state_changes[].cause": 4,
+            "ListPeerChannels.channels[].state_changes[].message": 5,
+            "ListPeerChannels.channels[].state_changes[].new_state": 3,
+            "ListPeerChannels.channels[].state_changes[].old_state": 2,
+            "ListPeerChannels.channels[].state_changes[].timestamp": 1
         },
         "ListpeerchannelsChannelsState_changes": {
             "ListPeerChannels.channels[].state_changes[].cause": 4,
@@ -4470,6 +4560,23 @@
             "Withdraw.psbt": 3,
             "Withdraw.tx": 1,
             "Withdraw.txid": 2
+        },
+        "XkeysendRequest": {
+            "Xkeysend.amount_msat": 2,
+            "Xkeysend.destination": 1,
+            "Xkeysend.extratlvs": 8,
+            "Xkeysend.label": 3,
+            "Xkeysend.layers[]": 5,
+            "Xkeysend.maxdelay": 7,
+            "Xkeysend.maxfee": 4,
+            "Xkeysend.retry_for": 6
+        },
+        "XkeysendResponse": {
+            "Xkeysend.amount_msat": 4,
+            "Xkeysend.amount_sent_msat": 5,
+            "Xkeysend.failed_parts": 2,
+            "Xkeysend.payment_preimage": 1,
+            "Xkeysend.successful_parts": 3
         },
         "XpayRequest": {
             "Xpay.amount_msat": 2,
@@ -6415,6 +6522,42 @@
         },
         "CreateOnion.shared_secrets[]": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "CreateProof": {
+            "added": "v26.06",
+            "deprecated": null
+        },
+        "CreateProof.include": {
+            "added": "v26.06",
+            "deprecated": null
+        },
+        "CreateProof.invstring": {
+            "added": "v26.06",
+            "deprecated": null
+        },
+        "CreateProof.note": {
+            "added": "v26.06",
+            "deprecated": null
+        },
+        "CreateProof.proofs[]": {
+            "added": "v26.06",
+            "deprecated": null
+        },
+        "CreateProof.proofs[].bolt12": {
+            "added": "v26.06",
+            "deprecated": null
+        },
+        "CreateProof.proofs[].invoice_fields_included": {
+            "added": "v26.06",
+            "deprecated": null
+        },
+        "CreateProof.proofs[].invreq_fields_included": {
+            "added": "v26.06",
+            "deprecated": null
+        },
+        "CreateProof.proofs[].offer_fields_included": {
+            "added": "v26.06",
             "deprecated": null
         },
         "CreateRune": {
@@ -8755,6 +8898,22 @@
         },
         "Getinfo.warning_lightningd_sync": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "Graceful": {
+            "added": "v26.06",
+            "deprecated": null
+        },
+        "Graceful.pending_htlc_expiries[]": {
+            "added": "v26.06",
+            "deprecated": null
+        },
+        "Graceful.pending_peers[]": {
+            "added": "v26.06",
+            "deprecated": null
+        },
+        "Graceful.timeout": {
+            "added": "v26.06",
             "deprecated": null
         },
         "Help": {
@@ -11486,6 +11645,10 @@
             "deprecated": null
         },
         "ListPeerChannels.channels[].dust_limit_msat": {
+            "added": "v23.02",
+            "deprecated": null
+        },
+        "ListPeerChannels.channels[].features": {
             "added": "v23.02",
             "deprecated": null
         },
@@ -14893,6 +15056,58 @@
             "added": "pre-v0.10.1",
             "deprecated": null
         },
+        "Xkeysend": {
+            "added": "v26.06",
+            "deprecated": null
+        },
+        "Xkeysend.amount_msat": {
+            "added": "v26.06",
+            "deprecated": null
+        },
+        "Xkeysend.amount_sent_msat": {
+            "added": "v26.06",
+            "deprecated": null
+        },
+        "Xkeysend.destination": {
+            "added": "v26.06",
+            "deprecated": null
+        },
+        "Xkeysend.extratlvs": {
+            "added": "v26.06",
+            "deprecated": null
+        },
+        "Xkeysend.failed_parts": {
+            "added": "v26.06",
+            "deprecated": null
+        },
+        "Xkeysend.label": {
+            "added": "v26.06",
+            "deprecated": null
+        },
+        "Xkeysend.layers[]": {
+            "added": "v26.06",
+            "deprecated": null
+        },
+        "Xkeysend.maxdelay": {
+            "added": "v26.06",
+            "deprecated": null
+        },
+        "Xkeysend.maxfee": {
+            "added": "v26.06",
+            "deprecated": null
+        },
+        "Xkeysend.payment_preimage": {
+            "added": "v26.06",
+            "deprecated": null
+        },
+        "Xkeysend.retry_for": {
+            "added": "v26.06",
+            "deprecated": null
+        },
+        "Xkeysend.successful_parts": {
+            "added": "v26.06",
+            "deprecated": null
+        },
         "Xpay": {
             "added": "v24.11",
             "deprecated": null
@@ -15471,6 +15686,10 @@
         },
         "invoice_creation.msat": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "invoice_creation.offer_id": {
+            "added": "v26.06",
             "deprecated": null
         },
         "invoice_creation.preimage": {

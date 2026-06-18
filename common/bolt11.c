@@ -1045,7 +1045,7 @@ struct bolt11 *bolt11_decode(const tal_t *ctx, const char *str,
 					     &sig,
 					     (const u8 *)&hash))
 			return decode_fail(b11, fail,
-					   "signature recovery failed");
+					   "public-key recovery failed");
 		node_id_from_pubkey(&b11->receiver_id, &k);
 	} else {
 		struct pubkey k;

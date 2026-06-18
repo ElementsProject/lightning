@@ -3020,7 +3020,16 @@ def test_sendonion_rpc(node_factory):
 @pytest.mark.openchannel('v2')
 def test_partial_payment(node_factory, bitcoind, executor):
     # We want to test two payments at the same time, before we send commit
-    l1, l2, l3, l4 = node_factory.get_nodes(4, [{}] + [{'dev-disable-commit-after': 0, 'dev-no-htlc-timeout': None}] * 2 + [{'plugin': os.path.join(os.getcwd(), 'tests/plugins/print_htlc_onion.py')}])
+    def setup(plugin):
+        @plugin.hook("htlc_accepted")
+        def on_htlc_accepted(htlc, onion, plugin, **kwargs):
+            plugin.log("Got onion {}".format(onion))
+            return {'result': 'continue'}
+
+    l1 = node_factory.get_node()
+    l2 = node_factory.get_node(options={'dev-disable-commit-after': 0, 'dev-no-htlc-timeout': None})
+    l3 = node_factory.get_node(options={'dev-disable-commit-after': 0, 'dev-no-htlc-timeout': None})
+    l4 = node_factory.get_node(inline_plugin=setup)
 
     # Two routes to l4: one via l2, and one via l3.
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -3156,7 +3165,7 @@ def test_partial_payment(node_factory, bitcoind, executor):
     assert res['partid'] == 2
 
     for i in range(2):
-        line = l4.daemon.wait_for_log('print_htlc_onion.py: Got onion')
+        line = l4.daemon.wait_for_log('inline-plugin.py: Got onion')
         assert "'type': 'tlv'" in line
         assert "'forward_msat': 499" in line or "'forward_msat': 501" in line
         assert "'total_msat': 1000" in line
@@ -3762,12 +3771,22 @@ def test_invalid_onion_channel_update(node_factory):
     even if some remote node does not send the required
     `channel_update`.
     '''
-    plugin = os.path.join(os.getcwd(), 'tests/plugins/fail_htlcs_invalid.py')
-    l1, l2, l3 = node_factory.line_graph(3,
-                                         opts=[{},
-                                               {'plugin': plugin},
-                                               {}],
-                                         wait_for_announce=True)
+    def setup(plugin):
+        @plugin.hook("htlc_accepted")
+        def on_htlc_accepted(onion, plugin, **kwargs):
+            plugin.log("Failing htlc on purpose with invalid onion failure")
+            plugin.log("onion: %r" % (onion))
+            # WIRE_TEMPORARY_CHANNEL_FAILURE = 0x1007
+            # This failure code should be followed by a
+            # `channel_update`; we deliberately return
+            # a 0-length `channel_update` to trigger
+            # issue #3757 reported by @sumBTC.
+            return {"result": "fail", "failure_message": "10070000"}
+
+    l1 = node_factory.get_node()
+    l2 = node_factory.get_node(inline_plugin=setup)
+    l3 = node_factory.get_node()
+    node_factory.join_nodes([l1, l2, l3], wait_for_announce=True)
 
     l1id = l1.info['id']
 
@@ -5327,24 +5346,37 @@ def test_pay_manual_exclude(node_factory, bitcoind):
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "Invoice is network specific")
-def test_pay_bolt11_metadata(node_factory, bitcoind):
-    l1, l2 = node_factory.line_graph(2, opts={'old_hsmsecret': True})
+def test_pay_bolt11_metadata(node_factory, chainparams):
+    l1, l2 = node_factory.line_graph(2)
 
-    # BOLT #11:
-    # > ### Please send 0.01 BTC with payment metadata 0x01fafaf0
-    # > lnbc10m1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdp9wpshjmt9de6zqmt9w3skgct5vysxjmnnd9jx2mq8q8a04uqsp5zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygs9q2gqqqqqqsgq7hf8he7ecf7n4ffphs6awl9t6676rrclv9ckg3d3ncn7fct63p6s365duk5wrk202cfy3aj5xnnp5gs3vrdvruverwwq7yzhkf5a3xqpd05wjc
+    # Generate a normal invoice on l2, then use bolt11-cli to re-encode it with
+    # payment metadata added.  old_hsmsecret gives l2 a known private key.
+    inv = l2.rpc.invoice(amount_msat=123000, label='label1', description='desc', preimage='00' * 32)
+    inv_decoded = l1.rpc.decode(inv['bolt11'])
+    inv_with_metadata = subprocess.check_output(['devtools/bolt11-cli', 'encode',
+                                                 # l2's private key (old_hsmsecret, WIF byte stripped)
+                                                 '0c633a7c17c701a0980158f5483035e01fa8bd091b47fadf2e86e589a9f93fca',
+                                                 f"currency={chainparams['bip173_prefix']}",
+                                                 f"p={inv['payment_hash']}",
+                                                 f"s={inv['payment_secret']}",
+                                                 "d=desc",
+                                                 "amount=123000msat",
+                                                 f"x={inv_decoded['expiry']}",
+                                                 f"c={inv_decoded['min_final_cltv_expiry']}",
+                                                 f"9={inv_decoded['features']}",
+                                                 "m=" + b'this is metadata'.hex()]).decode('utf-8').strip()
 
-    b11 = l1.rpc.decode('lnbc10m1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdp9wpshjmt9de6zqmt9w3skgct5vysxjmnnd9jx2mq8q8a04uqsp5zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygs9q2gqqqqqqsgq7hf8he7ecf7n4ffphs6awl9t6676rrclv9ckg3d3ncn7fct63p6s365duk5wrk202cfy3aj5xnnp5gs3vrdvruverwwq7yzhkf5a3xqpd05wjc')
-    assert b11['payment_metadata'] == '01fafaf0'
-
-    # I previously hacked lightningd to add "this is metadata" to metadata.
-    # After CI started failing, I *also* hacked it to set expiry to BIGNUM.
-    inv = "lnbcrt1230n1p3yzgcxsp5q8g040f9rl9mu2unkjuj0vn262s6nyrhz5hythk3ueu2lfzahmzspp5ve584t0cv27hwmy0cx9ca8uwyqyfw9y9dm3r8vus9fv36r2l9yjsdq8v3jhxccmq6w35xjueqd9ejqmt9w3skgct5vyxqxra2q2qcqp99q2sqqqqqysgqfw6efxpzk5x5vfj8se46yg667x5cvhyttnmuqyk0q7rmhx3gs249qhtdggnek8c5adm2pztkjddlwyn2art2zg9xap2ckczzl3fzz4qqsej6mf"
-    # Make l2 "know" about this invoice.
-    l2.rpc.invoice(amount_msat=123000, label='label1', description='desc', preimage='00' * 32)
+    # They should be basically identical
+    post_decoded = l1.rpc.decode(inv_with_metadata)
+    del inv_decoded['signature']
+    del post_decoded['signature']
+    del post_decoded['payment_metadata']
+    del inv_decoded['created_at']
+    del post_decoded['created_at']
+    assert inv_decoded == post_decoded
 
     with pytest.raises(RpcError, match=r'Unexpected error \(invalid_onion_payload\) from final node'):
-        l1.rpc.xpay(inv)
+        l1.rpc.xpay(inv_with_metadata)
 
     l2.daemon.wait_for_log("Unexpected payment_metadata {}".format(b'this is metadata'.hex()))
 
@@ -5880,11 +5912,26 @@ def test_blinded_reply_path_scid(node_factory):
 
 
 def test_pay_while_opening_channel(node_factory, bitcoind, executor):
-    delay_plugin = {'plugin': os.path.join(os.getcwd(),
-                                           'tests/plugins/openchannel_hook_delay.py'),
-                    'delaytime': '10'}
+    def setup(plugin):
+        import time
+        plugin.add_option('delaytime', '10', 'How long to hold the WIRE_OPEN_CHANNEL.')
+
+        @plugin.hook('openchannel')
+        def on_openchannel(openchannel, plugin, **kwargs):
+            delaytime = float(plugin.get_option('delaytime'))
+            plugin.log(f'delaying WIRE_ACCEPT_CHANNEL for {delaytime}s')
+            time.sleep(delaytime)
+            return {'result': 'continue'}
+
+        @plugin.hook('openchannel2')
+        def on_openchannel2(openchannel2, plugin, **kwargs):
+            delaytime = float(plugin.get_option('delaytime'))
+            plugin.log(f'delaying WIRE_ACCEPT_CHANNEL for {delaytime}s')
+            time.sleep(delaytime)
+            return {'result': 'continue'}
+
     l1, l2 = node_factory.line_graph(2, fundamount=10**6, wait_for_announce=True)
-    l3 = node_factory.get_node(options=delay_plugin)
+    l3 = node_factory.get_node(inline_plugin=setup, options={'delaytime': '10'})
     l1.connect(l3)
     executor.submit(l1.rpc.fundchannel, l3.info['id'], 100000)
     wait_for(lambda: l1.rpc.listpeerchannels(l3.info['id'])['channels'] != [])

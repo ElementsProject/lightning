@@ -370,6 +370,8 @@ def test_grpc_listpeerchannels(bitcoind, node_factory):
         announce_channels=True,  # Do not enforce scid-alias
     )
 
+    wait_for_grpc_start(l1)
+
     stub = l1.grpc
     res = stub.ListPeerChannels(clnpb.ListpeerchannelsRequest(id=None))
 
@@ -419,6 +421,8 @@ def test_rust_plugin_subscribe_wildcard(node_factory):
 def test_grpc_block_added_notifications(node_factory, bitcoind):
     l1 = node_factory.get_node()
 
+    wait_for_grpc_start(l1)
+
     # Test the block_added notification
     # Start listening to block added events over grpc
     block_added_stream = l1.grpc.SubscribeBlockAdded(clnpb.StreamBlockAddedRequest())
@@ -435,6 +439,8 @@ def test_grpc_block_added_notifications(node_factory, bitcoind):
 def test_grpc_connect_notification(node_factory):
     l1, l2 = node_factory.get_nodes(2)
 
+    wait_for_grpc_start(l1)
+
     # Test the connect notification
     connect_stream = l1.grpc.SubscribeConnect(clnpb.StreamConnectRequest())
 
@@ -450,6 +456,8 @@ def test_grpc_connect_notification(node_factory):
 
 def test_grpc_custommsg_notification(node_factory):
     l1, l2 = node_factory.get_nodes(2)
+
+    wait_for_grpc_start(l1)
 
     # Test the connect notification
     custommsg_stream = l1.grpc.SubscribeCustomMsg(clnpb.StreamCustomMsgRequest())

@@ -190,19 +190,6 @@ class OverridePatch(Patch):
     """Allows omitting some fields and overriding the type of fields based on configuration."""
 
     omit = [
-        "Decode.invoice_paths[]",
-        "Decode.invoice_paths[].payinfo",
-        "Decode.offer_paths[].path[]",
-        "Decode.offer_recurrence",
-        "Decode.unknown_invoice_request_tlvs[]",
-        "Decode.unknown_invoice_tlvs[]",
-        "Decode.unknown_offer_tlvs[]",
-        "ListClosedChannels.closedchannels[].channel_type",
-        "ListPeerChannels.channels[].channel_type",
-        "ListPeerChannels.channels[].features[]",
-        "ListPeerChannels.channels[].state_changes[]",
-        "ListPeers.peers[].channels[].state_changes[]",
-        "ListTransactions.transactions[].type[]",
         "ListConfigs.# version",
     ]
 
@@ -212,6 +199,7 @@ class OverridePatch(Patch):
     overrides = {
         "ListClosedChannels.closedchannels[].closer": "ChannelSide",
         "ListClosedChannels.closedchannels[].opener": "ChannelSide",
+        "ListClosedChannels.closedchannels[].channel_type.names[]": "ChannelTypeName",
         "ListFunds.channels[].state": "ChannelState",
         "ListPeerChannels.channels[].closer": "ChannelSide",
         "ListPeerChannels.channels[].opener": "ChannelSide",
@@ -235,6 +223,9 @@ class OverridePatch(Patch):
         "channel_state_changed.old_state": "ChannelState",
         "channel_state_changed.new_state": "ChannelState",
         "ListPeerChannels.channels[].state": "ChannelState",
+        "ListPeerChannels.channels[].state_changes[].old_state": "ChannelState",
+        "ListPeerChannels.channels[].state_changes[].new_state": "ChannelState",
+        "ListPeerChannels.channels[].channel_type.names[]": "ChannelTypeName",
         "Wait.htlcs.state": "HtlcState",
     }
 

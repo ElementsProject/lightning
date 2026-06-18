@@ -6,11 +6,10 @@ We have a 3 month release cycle, and the last two versions are supported.
 
 ## Reporting a Vulnerability
 
-To report security vulnerabilities, please send an email to one of the following addresses:
-- `rusty@rustcorp.com.au`
+To report security vulnerabilities, please send an email to:
 - `security@blockstream.com`
 
-Note: These email addresses are exclusively for vulnerability reporting.
+Note: This email address is exclusively for vulnerability reporting.
 
 For all other inquiries/communication, please refer to the [Reach Out to Us](https://github.com/ElementsProject/lightning?tab=readme-ov-file#reach-out-to-us) section in our README.
 
@@ -31,6 +30,9 @@ developers, and to validate signatures on releases:
 | Madeline Paech | `madeline@blockstream.com` | 7169 D262 72B5 0A3F 531A  A1C2 A57A FC23 1B58 0804 |
 | Blockstream CLN Release | `cln@blockstream.com` | 616C 52F9 9D06 12B2 A151  B107 4129 A994 AA7E 9852 |
 | Sangbida Chaudhuri | `sangbidac@gmail.com` | 1A37 1C2C 3064 5FAA 91AA  6B7D B643 E612 8422 1961 |
+| Lagrang3 | `lagrang3@protonmail.com` | C491 5808 7820 7F03 C3B9 66F9 B408 8CD4 608A 7CA1 |
+| daywalker90 | `daywalker990@gmx.de` | 8A07 9421 A871 D0B1 0835 1193 7AB4 802E D5A6 39F3 |
+| Níckolas Goline | `n@ngoline.com` | A576 56F8 004F 6FD6 8ED9  9C85 BE27 7A87 802A 6F08 |
 
 You can import a key by running the following command with that individual’s fingerprint:
 `gpg --keyserver hkps://keys.openpgp.org --recv-keys "<fingerprint>"`.

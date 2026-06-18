@@ -966,9 +966,9 @@ def listpeerchannels_channels_inflight2py(m):
 def listpeerchannels_channels_state_changes2py(m):
     return remove_default({
         "cause": str(m.cause),  # EnumField in generate_composite
-        "message": m.message,  # PrimitiveField in generate_composite
         "new_state": str(m.new_state),  # EnumField in generate_composite
         "old_state": str(m.old_state),  # EnumField in generate_composite
+        "message": m.message,  # PrimitiveField in generate_composite
         "timestamp": m.timestamp,  # PrimitiveField in generate_composite
     })
 
@@ -1001,7 +1001,7 @@ def listpeerchannels_channels_updates2py(m):
 def listpeerchannels_channels2py(m):
     return remove_default({
         "closer": str(m.closer),  # EnumField in generate_composite
-        "features": [str(i) for i in m.features],  # ArrayField[composite] in generate_composite
+        "features": [m.features for i in m.features], # ArrayField[primitive] in generate_composite
         "htlcs": [listpeerchannels_channels_htlcs2py(i) for i in m.htlcs],  # ArrayField[composite] in generate_composite
         "inflight": [listpeerchannels_channels_inflight2py(i) for i in m.inflight],  # ArrayField[composite] in generate_composite
         "opener": str(m.opener),  # EnumField in generate_composite
@@ -1127,7 +1127,6 @@ def decode_fallbacks2py(m):
         "type": str(m.item_type),  # EnumField in generate_composite
         "addr": m.addr,  # PrimitiveField in generate_composite
         "hex": hexlify(m.hex),  # PrimitiveField in generate_composite
-        "warning_invoice_fallbacks_version_invalid": m.warning_invoice_fallbacks_version_invalid,  # PrimitiveField in generate_composite
     })
 
 
@@ -1159,11 +1158,11 @@ def decode_invoice_paths_payinfo2py(m):
 
 def decode_invoice_paths2py(m):
     return remove_default({
+        "path": [decode_invoice_paths_path2py(i) for i in m.path],  # ArrayField[composite] in generate_composite
         "first_node_id": hexlify(m.first_node_id),  # PrimitiveField in generate_composite
         "first_path_key": hexlify(m.first_path_key),  # PrimitiveField in generate_composite
         "first_scid": m.first_scid,  # PrimitiveField in generate_composite
         "first_scid_dir": m.first_scid_dir,  # PrimitiveField in generate_composite
-        "path": [decode_invoice_paths_path2py(i) for i in m.path],  # ArrayField[composite] in generate_composite
     })
 
 
@@ -3428,6 +3427,38 @@ def sendamount2py(m):
         "failed_parts": m.failed_parts,  # PrimitiveField in generate_composite
         "payment_preimage": hexlify(m.payment_preimage),  # PrimitiveField in generate_composite
         "successful_parts": m.successful_parts,  # PrimitiveField in generate_composite
+    })
+
+
+def createproof_proofs2py(m):
+    return remove_default({
+        "invoice_fields_included": [m.invoice_fields_included for i in m.invoice_fields_included], # ArrayField[primitive] in generate_composite
+        "invreq_fields_included": [m.invreq_fields_included for i in m.invreq_fields_included], # ArrayField[primitive] in generate_composite
+        "offer_fields_included": [m.offer_fields_included for i in m.offer_fields_included], # ArrayField[primitive] in generate_composite
+        "bolt12": m.bolt12,  # PrimitiveField in generate_composite
+    })
+
+
+def createproof2py(m):
+    return remove_default({
+        "proofs": [createproof_proofs2py(i) for i in m.proofs],  # ArrayField[composite] in generate_composite
+    })
+
+
+def xkeysend2py(m):
+    return remove_default({
+        "amount_msat": amount2msat(m.amount_msat),  # PrimitiveField in generate_composite
+        "amount_sent_msat": amount2msat(m.amount_sent_msat),  # PrimitiveField in generate_composite
+        "failed_parts": m.failed_parts,  # PrimitiveField in generate_composite
+        "payment_preimage": hexlify(m.payment_preimage),  # PrimitiveField in generate_composite
+        "successful_parts": m.successful_parts,  # PrimitiveField in generate_composite
+    })
+
+
+def graceful2py(m):
+    return remove_default({
+        "pending_htlc_expiries": [m.pending_htlc_expiries for i in m.pending_htlc_expiries], # ArrayField[primitive] in generate_composite
+        "pending_peers": [hexlify(m.pending_peers) for i in hexlify(m.pending_peers)], # ArrayField[primitive] in generate_composite
     })
 
 

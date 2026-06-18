@@ -1056,6 +1056,8 @@ bool gossmap_local_addchan(struct gossmap_localmods *localmods,
 	u64 off;
 	struct localmod mod;
 
+	assert(!node_id_eq(n1, n2));
+
 	/* Don't create duplicate channels. */
 	if (find_localmod(localmods, scid))
 		return false;

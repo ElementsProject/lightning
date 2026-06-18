@@ -4,7 +4,21 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [26.06rc1] - 2026-05-11: "CODENAME"
+## [26.06.1] - 2026-06-05: "Qantum-Resistant Lightning Channel II"
+
+This point release is recommended: it fixes the bwatch plugin failure at registration
+
+### Fixed
+
+- Plugins: bwatch failed to register on startup after make install ([#9192])
+
+[(#9192)]: https://github.com/ElementsProject/lightning/pull/9192
+[26.06.1]: https://github.com/ElementsProject/lightning/releases/tag/v26.06.1
+
+
+## [26.06] - 2026-06-01: "Quantum-Resistant Lightning Channel"
+
+This release was named by @enaples.
 
 ### Added
 
@@ -48,6 +62,8 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 ### Removed
 
  - JSON-RPC: `exclude` parameter to `pay` (when `xpay-handle-pay` is True): craft a layer with desired modifications and pass it to `xpay` `layers`. ([#9110])
+ - Plugins: `channel_state_changed` notification `message` field being `null`: it will be omitted instead (deprecated v25.12, disabled v26.04) ([#9136])
+ - JSON-RPC: `listpeerchannels` value `max_total_htlc_in_msat`: use `our_max_htlc_value_in_flight_msat` instead to follow spec naming convention (deprecated v25.02). ([#9136])
 
 
 ### Fixed
@@ -65,13 +81,13 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
  - Protocol: use BOLT4's paranoid advice about doing constant-time error decryption. ([#9044])
  - Fix for `splicein`, `spliceout`, and `dev-splice` commands where channel balances included partial sats. ([#9097])
  - build: fix build errors with GCC 15 (Arch Linux). ([#9075])
-
+ - Plugins: xpay no longer crashes on circular bolt11 routehints. ([#9174])
 
 ### EXPERIMENTAL
 
  - JSON-RPC: `createproof` to create a payment proof for a (successful) BOLT12 payment. ([#9116])
  - JSON-RPC: `decode` now supports the `lnp` payer proof format. ([#9116])
- - Plugins: `bwatch` plugin (enable using `plugin=bwatch`) ([#9098])
+ - Plugins: `bwatch` plugin (enable using `experimental-bwatch`) ([#9098])
 
 
 [#9101]: https://github.com/ElementsProject/lightning/pull/9101
@@ -85,6 +101,7 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 [#9078]: https://github.com/ElementsProject/lightning/pull/9078
 [#8981]: https://github.com/ElementsProject/lightning/pull/8981
 [#8751]: https://github.com/ElementsProject/lightning/pull/8751
+[#9174]: https://github.com/ElementsProject/lightning/pull/9174
 [#8807]: https://github.com/ElementsProject/lightning/pull/8807
 [#9037]: https://github.com/ElementsProject/lightning/pull/9037
 [#9119]: https://github.com/ElementsProject/lightning/pull/9119
@@ -95,7 +112,8 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 [#9116]: https://github.com/ElementsProject/lightning/pull/9116
 [#8942]: https://github.com/ElementsProject/lightning/pull/8942
 [#8922]: https://github.com/ElementsProject/lightning/pull/8922
-[26.06rc1]: https://github.com/ElementsProject/lightning/releases/tag/v26.06rc1
+[#9136]: https://github.com/ElementsProject/lightning/pull/9136
+[26.06]: https://github.com/ElementsProject/lightning/releases/tag/v26.06
 
 ## [26.04.1] - 2026-04-25: "Negative Routing Fees II"
 

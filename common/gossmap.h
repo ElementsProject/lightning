@@ -89,6 +89,7 @@ struct gossmap_localmods *gossmap_localmods_new(const tal_t *ctx);
 /* Create a local-only channel; if this conflicts with a real channel when added,
  * that will be used instead.
  * Returns false (and does nothing) if scid was already in localmods.
+ * n1 must be different from n2.
  */
 bool gossmap_local_addchan(struct gossmap_localmods *localmods,
 			   const struct node_id *n1,

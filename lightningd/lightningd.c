@@ -75,6 +75,7 @@
 #include <lightningd/plugin_hook.h>
 #include <lightningd/runes.h>
 #include <lightningd/subd.h>
+#include <lightningd/watchman.h>
 #include <sys/resource.h>
 #include <wallet/invoices.h>
 #include <wally_bip32.h>
@@ -1346,6 +1347,10 @@ int main(int argc, char *argv[])
 	trace_span_start("setup_topology", ld->topology);
 	setup_topology(ld->topology);
 	trace_span_end(ld->topology);
+
+	/*~ Stand up the watchman: it queues bwatch RPC requests until the
+	 * bwatch plugin reports ready, then replays them. */
+	ld->watchman = watchman_new(ld, ld);
 
 	db_begin_transaction(ld->wallet->db);
 	trace_span_start("delete_old_htlcs", ld->wallet);

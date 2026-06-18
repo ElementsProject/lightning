@@ -11,8 +11,10 @@ from decimal import Decimal
 from pyln.client import LightningRpc
 from pyln.client import Millisatoshi
 from pyln.client import NodeVersion
+from pyln.client import Plugin
 
 import ephemeral_port_reserve  # type: ignore
+import tempfile
 import json
 import logging
 import lzma
@@ -22,6 +24,7 @@ import os
 import random
 import re
 import shutil
+import socket
 import sqlite3
 import string
 import struct
@@ -29,6 +32,7 @@ import subprocess
 import sys
 import threading
 import time
+import types
 import warnings
 
 BITCOIND_CONFIG = {
@@ -78,6 +82,8 @@ def env(name, default=None):
 VALGRIND = env("VALGRIND") == "1"
 TEST_NETWORK = env("TEST_NETWORK", 'regtest')
 TEST_DEBUG = env("TEST_DEBUG", "0") == "1"
+
+INLINE_PLUGIN_PATH = os.path.join(os.path.dirname(__file__), 'inline-plugin.py')
 SLOW_MACHINE = env("SLOW_MACHINE", "0") == "1"
 DEPRECATED_APIS = env("DEPRECATED_APIS", "0") == "1"
 TIMEOUT = int(env("TIMEOUT", 180 if SLOW_MACHINE else 60))
@@ -166,25 +172,46 @@ def get_tx_p2wsh_outnum(bitcoind, tx, amount):
     return None
 
 
-unused_port_lock = threading.Lock()
-unused_port_set = set()
+_PORT_LOCK_DIR = Path(tempfile.gettempdir()) / "pyln-testing-ports"
+_PORT_LOCK_DIR.mkdir(exist_ok=True)
 
 
 def reserve_unused_port():
     """Get an unused port: avoids handing out the same port unless it's been
     returned"""
-    with unused_port_lock:
-        while True:
-            port = ephemeral_port_reserve.reserve()
-            if port not in unused_port_set:
-                break
-        unused_port_set.add(port)
+    while True:
+        port = ephemeral_port_reserve.reserve()
 
-    return port
+        lock_path = _PORT_LOCK_DIR / f"{port}.lock"
+        try:
+            fd = os.open(str(lock_path), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            os.write(fd, str(os.getpid()).encode())
+            os.close(fd)
+            return port
+        except FileExistsError:
+            continue
 
 
 def drop_unused_port(port):
-    unused_port_set.remove(port)
+    if port:
+        lock_path = _PORT_LOCK_DIR / f"{port}.lock"
+        lock_path.unlink(missing_ok=True)
+
+
+def cleanup_stale_port_locks():
+    """Remove lockfiles whose owning process no longer exists."""
+    try:
+        for lock_path in _PORT_LOCK_DIR.glob("*.lock"):
+            try:
+                pid = int(lock_path.read_text())
+                try:
+                    os.kill(pid, 0)  # signal 0 = existence check, no actual signal
+                except ProcessLookupError:
+                    lock_path.unlink(missing_ok=True)
+            except (ValueError, PermissionError, FileNotFoundError):
+                pass
+    except Exception:
+        pass  # best-effort, never crash the test run over cleanup
 
 
 class TailableProc(object):
@@ -285,6 +312,8 @@ class TailableProc(object):
 
     def cleanup_files(self):
         """Ensure files are closed."""
+        cleanup_stale_port_locks()
+
         for f in ["stdout_write", "stderr_write", "stdout_read", "stderr_read"]:
             try:
                 getattr(self, f).close()
@@ -454,10 +483,7 @@ class BitcoinD(TailableProc):
         TailableProc.__init__(self, bitcoin_dir, verbose=False)
 
         if rpcport is None:
-            self.reserved_rpcport = reserve_unused_port()
-            rpcport = self.reserved_rpcport
-        else:
-            self.reserved_rpcport = None
+            rpcport = reserve_unused_port()
 
         self.bitcoin_dir = bitcoin_dir
         self.rpcport = rpcport
@@ -494,9 +520,15 @@ class BitcoinD(TailableProc):
         self.rpc = SimpleBitcoinProxy(btc_conf_file=self.conf_file)
         self.proxies = []
 
-    def __del__(self):
-        if self.reserved_rpcport is not None:
-            drop_unused_port(self.reserved_rpcport)
+    def kill(self):
+        try:
+            self.stop()
+        except Exception:
+            self.proc.kill()
+        self.proc.wait()
+
+        self.cleanup_files()
+        drop_unused_port(self.rpcport)
 
     def start(self, wallet_file=None):
         TailableProc.start(self)
@@ -1069,6 +1101,11 @@ class LightningNode(object):
             creds,
             options=(('grpc.ssl_target_name_override', 'cln'),)
         )
+
+        # Force the connect+handshake to finish now, instead of lazily on
+        # the first RPC the caller happens to make.
+        grpc.channel_ready_future(channel).result(timeout=10)
+
         from pyln import grpc as clnpb
         return clnpb.NodeStub(channel)
 
@@ -1786,7 +1823,8 @@ class NodeFactory(object):
     def get_node(self, node_id=None, options=None, dbfile=None,
                  bkpr_dbfile=None, feerates=(15000, 11000, 7500, 3750),
                  start=True, wait_for_bitcoind_sync=True, may_fail=False,
-                 expect_fail=False, cleandir=True, gossip_store_file=None, unused_grpc_port=True, **kwargs):
+                 expect_fail=False, cleandir=True, gossip_store_file=None, unused_grpc_port=True,
+                 inline_plugin=None, **kwargs):
         node_id = self.get_node_id() if not node_id else node_id
         port = reserve_unused_port()
         grpc_port = self.get_unused_port() if unused_grpc_port else None
@@ -1829,6 +1867,11 @@ class NodeFactory(object):
         if gossip_store_file:
             shutil.copy(gossip_store_file, os.path.join(node.daemon.lightning_dir, TEST_NETWORK,
                                                         'gossip_store'))
+
+        if inline_plugin is not None:
+            if 'plugin' not in node.daemon.opts:
+                node.daemon.opts['plugin'] = INLINE_PLUGIN_PATH
+            _inline_plugin(node, inline_plugin)
 
         if start:
             try:
@@ -1944,3 +1987,65 @@ class NodeFactory(object):
             drop_unused_port(p)
 
         return not unexpected_fail, err_msgs
+
+
+def _inline_plugin(node, setup_fn):
+    """Set up an inline plugin serve thread for a not-yet-started node.
+
+    Normally called via get_node(inline_plugin=setup_fn).  The plugin's cwd
+    (set by lightningd) is node.daemon.lightning_dir/TEST_NETWORK/, which is
+    where the shim looks for inline-plugin.sock.
+
+    Example::
+
+        def setup(plugin):
+            @plugin.method('greet')
+            def greet(name, plugin):
+                return {'message': f'hello {name}'}
+
+        l1 = node_factory.get_node(inline_plugin=setup)
+        assert l1.rpc.greet('world') == {'message': 'hello world'}
+    """
+    sock_path = os.path.join(node.daemon.lightning_dir, TEST_NETWORK, 'inline-plugin.sock')
+    srv = socket.socket(socket.AF_UNIX)
+    srv.bind(sock_path)
+    srv.listen(1)
+
+    plugin = Plugin(autopatch=False)
+    setup_fn(plugin)
+
+    def serve():
+        while True:
+            conn, _ = srv.accept()
+
+            class _SockWriter:
+                def write(self, data):
+                    try:
+                        conn.sendall(data)
+                    except OSError:
+                        pass
+
+                def flush(self):
+                    pass
+
+            writer = _SockWriter()
+            plugin.stdout = types.SimpleNamespace(buffer=writer, flush=writer.flush)
+
+            partial = b""
+            while True:
+                try:
+                    chunk = conn.recv(4096)
+                except OSError:
+                    break
+                if not chunk:
+                    break
+                partial += chunk
+                msgs = partial.split(b'\n\n')
+                if len(msgs) < 2:
+                    continue
+                try:
+                    partial = plugin._multi_dispatch(msgs)
+                except Exception:
+                    break
+
+    threading.Thread(target=serve, daemon=True).start()

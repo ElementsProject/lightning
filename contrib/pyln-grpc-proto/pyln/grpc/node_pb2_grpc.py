@@ -784,6 +784,21 @@ class NodeStub(object):
                 request_serializer=node__pb2.SendamountRequest.SerializeToString,
                 response_deserializer=node__pb2.SendamountResponse.FromString,
                 _registered_method=True)
+        self.CreateProof = channel.unary_unary(
+                '/cln.Node/CreateProof',
+                request_serializer=node__pb2.CreateproofRequest.SerializeToString,
+                response_deserializer=node__pb2.CreateproofResponse.FromString,
+                _registered_method=True)
+        self.Xkeysend = channel.unary_unary(
+                '/cln.Node/Xkeysend',
+                request_serializer=node__pb2.XkeysendRequest.SerializeToString,
+                response_deserializer=node__pb2.XkeysendResponse.FromString,
+                _registered_method=True)
+        self.Graceful = channel.unary_unary(
+                '/cln.Node/Graceful',
+                request_serializer=node__pb2.GracefulRequest.SerializeToString,
+                response_deserializer=node__pb2.GracefulResponse.FromString,
+                _registered_method=True)
         self.SubscribeBalanceSnapshot = channel.unary_stream(
                 '/cln.Node/SubscribeBalanceSnapshot',
                 request_serializer=node__pb2.StreamBalanceSnapshotRequest.SerializeToString,
@@ -1809,6 +1824,24 @@ class NodeServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def CreateProof(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def Xkeysend(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def Graceful(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def SubscribeBalanceSnapshot(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -2705,6 +2738,21 @@ def add_NodeServicer_to_server(servicer, server):
                     servicer.SendAmount,
                     request_deserializer=node__pb2.SendamountRequest.FromString,
                     response_serializer=node__pb2.SendamountResponse.SerializeToString,
+            ),
+            'CreateProof': grpc.unary_unary_rpc_method_handler(
+                    servicer.CreateProof,
+                    request_deserializer=node__pb2.CreateproofRequest.FromString,
+                    response_serializer=node__pb2.CreateproofResponse.SerializeToString,
+            ),
+            'Xkeysend': grpc.unary_unary_rpc_method_handler(
+                    servicer.Xkeysend,
+                    request_deserializer=node__pb2.XkeysendRequest.FromString,
+                    response_serializer=node__pb2.XkeysendResponse.SerializeToString,
+            ),
+            'Graceful': grpc.unary_unary_rpc_method_handler(
+                    servicer.Graceful,
+                    request_deserializer=node__pb2.GracefulRequest.FromString,
+                    response_serializer=node__pb2.GracefulResponse.SerializeToString,
             ),
             'SubscribeBalanceSnapshot': grpc.unary_stream_rpc_method_handler(
                     servicer.SubscribeBalanceSnapshot,
@@ -6877,6 +6925,87 @@ class Node(object):
             '/cln.Node/SendAmount',
             node__pb2.SendamountRequest.SerializeToString,
             node__pb2.SendamountResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def CreateProof(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/cln.Node/CreateProof',
+            node__pb2.CreateproofRequest.SerializeToString,
+            node__pb2.CreateproofResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def Xkeysend(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/cln.Node/Xkeysend',
+            node__pb2.XkeysendRequest.SerializeToString,
+            node__pb2.XkeysendResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def Graceful(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/cln.Node/Graceful',
+            node__pb2.GracefulRequest.SerializeToString,
+            node__pb2.GracefulResponse.FromString,
             options,
             channel_credentials,
             insecure,

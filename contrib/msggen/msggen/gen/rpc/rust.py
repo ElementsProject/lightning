@@ -49,6 +49,7 @@ typemap = {
     "string_map": "HashMap<String, String>",
     "json_object_or_array": "JsonObjectOrArray",
     "json_scalar": "JsonScalar",
+    "proof_field": "ProofField",
 }
 
 header = f"""

@@ -687,10 +687,10 @@ static void stash_remote_announce_sigs(struct channel *channel,
  * A node:
  * - If the `open_channel` message has the `announce_channel` bit set AND a
  *   `shutdown` message has not been sent:
- *    - After `channel_ready` has been sent and received AND the funding
- *       transaction has enough confirmations to ensure that it won't be
- *       reorganized:
- *       - MUST send `announcement_signatures` for the funding transaction.
+ *   - After `channel_ready` has been sent and received AND the funding
+ *     transaction has enough confirmations to ensure that it won't be
+ *     reorganized:
+ *     - MUST send `announcement_signatures` for the funding transaction....
  * - Otherwise:
  *   - MUST NOT send the `announcement_signatures` message.
  */

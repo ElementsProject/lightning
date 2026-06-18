@@ -1,4 +1,4 @@
-FROM focal
+FROM resolute
 
 ENV TZ=UTC
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
@@ -8,7 +8,8 @@ ENV PATH=/root/.pyenv/shims:/root/.pyenv/bin:/root/.cargo/bin:/root/.local/bin:$
 ENV PROTOC_VERSION=29.4
 
 RUN sed -i '/updates/d' /etc/apt/sources.list && \
-    sed -i '/security/d' /etc/apt/sources.list
+    sed -i '/security/d' /etc/apt/sources.list && \
+    sed -i 's/^deb \(.*\) resolute main$/deb \1 resolute main universe/' /etc/apt/sources.list
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
@@ -18,41 +19,29 @@ RUN apt-get update \
     file \
     gettext \
     git \
+    curl \
+    libsqlite3-dev \
     libpq-dev \
     libsodium23 \
     libsodium-dev \
+    lowdown \
     libtool \
     m4 \
     sudo \
     unzip \
     wget \
-    zip \
-    && cd /tmp \
-    && wget https://github.com/kristapsdz/lowdown/archive/refs/tags/VERSION_1_0_2.tar.gz \
-    && tar -xzf VERSION_1_0_2.tar.gz \
-    && cd lowdown-VERSION_1_0_2 \
-    && ./configure \
-    && make \
-    && make install \
-    && ldconfig \
-    && cd / \
-    && rm -rf /tmp/VERSION_1_0_2.tar.gz /tmp/lowdown-VERSION_1_0_2
+    jq \
+    zip
 
-# Ensure correct ownership
-RUN chown root:root /etc/sudoers
-RUN chown root:root /usr/lib/sudo/sudoers.so
+# Configure /repo/.git as 'safe.directory'
+RUN git config --global --add safe.directory /repo/.git
 
-# Download and install jq from official repository
-RUN wget -O /usr/local/bin/jq https://github.com/jqlang/jq/releases/download/jq-1.6/jq-linux64 \
-    && chmod +x /usr/local/bin/jq
-
-# install Python3.10 (more reproducible than relying on python3-setuptools)
+# Install Python3.10 (more reproducible than relying on python3-setuptools)
 RUN git clone https://github.com/pyenv/pyenv.git /root/.pyenv && \
     apt-get install -y --no-install-recommends \
     libbz2-dev \
     libffi-dev \
     libreadline-dev \
-    libsqlite3-dev \
     libssl-dev \
     zlib1g-dev && \
     pyenv install 3.10.0 && \

@@ -160,7 +160,7 @@ static void generate_valid_vector(const char *name,
 				  bool (*include_field)(const struct tlv_field *, void *),
 				  bool explicit_empty_omitted)
 {
-	struct sha256 mroot, shash;
+	struct sha256 mroot, pproot, shash;
 	struct tlv_payer_proof *proof;
 	secp256k1_keypair kp = keypair_for_letter(payer_letter);
 	u8 *invoice_wire;
@@ -179,6 +179,10 @@ static void generate_valid_vector(const char *name,
 	}
 	proof->proof_signature = payer_proof_signature(proof, proof, sign_payer, &kp);
 	assert(proof->proof_signature);
+	/* Refresh fields to include proof_signature */
+	tlv_update_fields(proof, tlv_payer_proof, &proof->fields);
+
+	bolt12_payer_proof_merkle(proof, &pproot);
 
 	printf("{\n");
 	printf("\"name\":\"%s\",\n", name);
@@ -189,7 +193,8 @@ static void generate_valid_vector(const char *name,
 	       tal_hexstr(tmpctx, invoice_wire, tal_bytelen(invoice_wire)));
 	printf("\"preimage\":\"%s\",\n",
 	       tal_hexstr(tmpctx, preimage->r, sizeof(preimage->r)));
-	printf("\"note\":\"%s\",\n", note);
+	if (note)
+		printf("\"note\":\"%s\",\n", note);
 	printf("\"invoice_fields\":[\n");
 	print_fields_json(inv->fields, tal_count(inv->fields), include_field, NULL);
 	printf("]\n");
@@ -200,7 +205,7 @@ static void generate_valid_vector(const char *name,
 	printf("\"invoice_sighash\":\"%s\",\n", fmt_sha256(tmpctx, &shash));
 	printf("\"invoice_signature\":\"%s\",\n",
 	       tal_hexstr(tmpctx, inv->signature->u8, sizeof(inv->signature->u8)));
-	printf("\"proof_merkle_root\":\"%s\",\n", fmt_sha256(tmpctx, &mroot));
+	printf("\"proof_merkle_root\":\"%s\",\n", fmt_sha256(tmpctx, &pproot));
 	printf("\"proof_leaf_hashes\":[\n");
 	print_hashes_json(proof->proof_leaf_hashes, tal_count(proof->proof_leaf_hashes));
 	printf("],\n");
@@ -211,9 +216,6 @@ static void generate_valid_vector(const char *name,
 	print_hashes_json(proof->proof_missing_hashes, tal_count(proof->proof_missing_hashes));
 	printf("]\n");
 	printf("},\n");
-
-	/* Refresh fields to include proof_signature */
-	tlv_update_fields(proof, tlv_payer_proof, &proof->fields);
 
 	printf("\"result\":{\n");
 	printf("\"payer_sig\":\"%s\",\n",
@@ -540,7 +542,7 @@ int main(int argc, char *argv[])
 	assert(inv);
 
 	printf("\"valid_vectors\":[\n");
-	generate_valid_vector("full_disclosure", inv, &preimage, 'B', "", include_all, false);
+	generate_valid_vector("full_disclosure", inv, &preimage, 'B', NULL, include_all, false);
 	printf(",\n");
 	/* For the rest, remove features and experimental field: keep it vanilla */
 	inv->invoice_features = tal_free(inv->invoice_features);
@@ -553,7 +555,7 @@ int main(int argc, char *argv[])
 	inv = invoice_decode(tmpctx, invstr, strlen(invstr), NULL, NULL, &fail);
 	assert(inv);
 
-	generate_valid_vector("minimal_disclosure", inv, &preimage, 'B', "",
+	generate_valid_vector("minimal_disclosure", inv, &preimage, 'B', NULL,
 			      include_minimal, false);
 	printf(",\n");
 	generate_valid_vector("with_note", inv, &preimage, 'B', "test note",
@@ -564,13 +566,13 @@ int main(int argc, char *argv[])
 	 * is entirely omitted, so its subtree hash appears in proof_missing_hashes AFTER
 	 * the hash for the adjacent type82 leaf (which shares the same 4-leaf subtree
 	 * and is resolved first during DFS). */
-	generate_valid_vector("left_subtree_omitted", inv, &preimage, 'B', "",
+	generate_valid_vector("left_subtree_omitted", inv, &preimage, 'B', NULL,
 			      include_amount, false);
 	printf(",\n");
 	/* This vector demonstrates that proof_omitted_tlvs present with length 0 is
 	 * accepted identically to the field being absent.  The spec says writers MAY
 	 * omit the field when empty, so readers must accept both forms. */
-	generate_valid_vector("empty_proof_omitted_tlvs_explicit", inv, &preimage, 'B', "",
+	generate_valid_vector("empty_proof_omitted_tlvs_explicit", inv, &preimage, 'B', NULL,
 			      include_all, true);
 	printf("\n],\n");
 

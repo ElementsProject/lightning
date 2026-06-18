@@ -14,7 +14,7 @@ jobs:
     strategy:
       fail-fast: false    # Let each build finish.
       matrix:
-        version: ['focal', 'jammy', 'noble']
+        version: ['jammy', 'noble', 'resolute']
     steps:
       - name: Git checkout
         uses: actions/checkout@v6
@@ -92,7 +92,8 @@ jobs:
         uses: dawidd6/action-send-mail@v17
         with:
           server_address: smtp.gmail.com
-          server_port: 587
+          server_port: 465
+          secure: true
           username: ${{ secrets.EMAIL_USERNAME }}
           password: ${{ secrets.EMAIL_PASSWORD }}
           from: ${{ secrets.EMAIL_USERNAME }}

@@ -1,6 +1,10 @@
 #! /bin/sh
 set -e
 
+echo "RAW ARGS: [$*]"
+echo "ARG COUNT: $#"
+echo "ARG1: [$1]"
+
 # When run inside docker (from below), we do build and drop result in /release
 if [ "$1" = "--inside-docker" ]; then
     echo "Inside docker: starting build"
@@ -32,44 +36,54 @@ SUDO=
 ALL_TARGETS="bin-Fedora bin-Ubuntu docker sign"
 # ALL_TARGETS="bin-Fedora bin-Ubuntu tarball deb docker sign"
 
-for arg; do
-    case "$arg" in
-    --force-version=*)
-        FORCE_VERSION=${arg#*=}
-        ;;
-    --force-unclean)
-        FORCE_UNCLEAN=true
-        ;;
-    --force-mtime=*)
-        FORCE_MTIME=${arg#*=}
-        ;;
-    --verify)
-        VERIFY_RELEASE=true
-        ;;
-    --without-zip)
-        WITHOUT_ZIP=true
-        ;;
-    --sudo)
-        SUDO=sudo
-        ;;
-    --help)
-        echo "Usage: [--force-version=<ver>] [--force-unclean] [--force-mtime=YYYY-MM-DD] [--verify] [TARGETS]"
-        echo Known targets: "$ALL_TARGETS"
-        echo "Example: tools/build-release.sh"
-        echo "Example: tools/build-release.sh --force-version=v23.05 --force-unclean --force-mtime=2023-05-01 bin-Fedora bin-Ubuntu sign"
-        echo "Example: tools/build-release.sh --verify"
-        echo "Example: tools/build-release.sh --force-version=v23.05 --force-unclean --force-mtime=2023-05-01 --verify"
-        echo "Example: tools/build-release.sh docker"
-        echo "Example: tools/build-release.sh --force-version=v23.05 --force-unclean --force-mtime=2023-05-01 docker"
-        exit 0
-        ;;
-    -*)
-        echo "Unknown arg $arg" >&2
-        exit 1
-        ;;
-    *)
-        break
-        ;;
+TARGETS=""
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --force-version=*)
+            FORCE_VERSION=${1#*=}
+            ;;
+        --force-version)
+            shift
+            FORCE_VERSION=$1
+            ;;
+        --force-unclean)
+            FORCE_UNCLEAN=true
+            ;;
+        --force-mtime=*)
+            FORCE_MTIME=${1#*=}
+            ;;
+        --force-mtime)
+            shift
+            FORCE_MTIME=$1
+            ;;
+        --verify)
+            VERIFY_RELEASE=true
+            ;;
+        --without-zip)
+            WITHOUT_ZIP=true
+            ;;
+        --sudo)
+            SUDO=sudo
+            ;;
+        --help)
+            echo "Usage: [--force-version=<ver>] [--force-unclean] [--force-mtime=YYYY-MM-DD] [--verify] [TARGETS]"
+            echo Known targets: "$ALL_TARGETS"
+            echo "Example: tools/build-release.sh"
+            echo "Example: tools/build-release.sh --force-version=v23.05 --force-unclean --force-mtime=2023-05-01 bin-Fedora bin-Ubuntu sign"
+            echo "Example: tools/build-release.sh --verify"
+            echo "Example: tools/build-release.sh --force-version=v23.05 --force-unclean --force-mtime=2023-05-01 --verify"
+            echo "Example: tools/build-release.sh docker"
+            echo "Example: tools/build-release.sh --force-version=v23.05 --force-unclean --force-mtime=2023-05-01 docker"
+            exit 0
+            ;;
+        -*)
+            echo "Unknown arg $1" >&2
+            exit 1
+            ;;
+        *)
+            TARGETS="$TARGETS $1"
+            ;;
     esac
     shift
 done
@@ -124,11 +138,7 @@ if [ "$VERIFY_RELEASE" = "true" ]; then
     fi
 fi
 
-if [ "$#" = 0 ]; then
-    TARGETS=" $ALL_TARGETS "
-else
-    TARGETS=" $* "
-fi
+TARGETS=${TARGETS:-$ALL_TARGETS}
 
 RELEASEDIR="$(pwd)/release"
 BARE_VERSION="$(echo "${VERSION}" | sed 's/^v//g')"
@@ -184,7 +194,7 @@ for target in $TARGETS; do
         ;;
     Ubuntu*)
         distributions=${platform#Ubuntu-}
-        [ "$distributions" = "Ubuntu" ] && distributions="focal jammy noble"
+        [ "$distributions" = "Ubuntu" ] && distributions="jammy noble resolute"
         for d in $distributions; do
             # Capitalize the first letter of distro
             D=$(echo "$d" | awk '{print toupper(substr($0,1,1))substr($0,2)}')
@@ -199,7 +209,7 @@ for target in $TARGETS; do
     esac
 done
 
-if [ -z "${TARGETS##* docker *}" ]; then
+if [ -z "${TARGETS##* docker *}" ] || [ -z "${TARGETS##* docker}" ]; then
     echo "Building Docker Images"
     DOCKER_USER="elementsproject"
     echo "Creating multi-platform images tagged as $VERSION and latest"
@@ -220,7 +230,7 @@ if [ -z "${TARGETS##* docker *}" ]; then
     echo "Pushed multi-platform images tagged as $VERSION and latest"
 fi
 
-if [ -z "${TARGETS##* sign *}" ]; then
+if [ -z "${TARGETS##* sign *}" ] || [ -z "${TARGETS##* sign}" ]; then
     echo "Signing Release"
     cd release/ || exit
     sha256sum clightning-"$VERSION"-*.tar.* clightning-"$VERSION".zip > SHA256SUMS-"$VERSION"
