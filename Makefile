@@ -825,7 +825,7 @@ update-ccan:
 	cp ../ccan/tools/configurator/configurator.c ../ccan/doc/configurator.1 ccan/tools/configurator/
 	$(MAKE) ccan/config.h
 	grep -v '^CCAN version:' ccan.old/README > ccan/README
-	echo CCAN version: `git -C ../ccan describe` >> ccan/README
+	echo CCAN version: `git -C ../ccan rev-parse --short HEAD` >> ccan/README
 	$(RM) -r ccan.old
 	$(RM) -r ccan/ccan/hash/ ccan/ccan/tal/talloc/	# Unnecessary deps
 
