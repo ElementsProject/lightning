@@ -1213,6 +1213,11 @@ size_t layer_trim_constraints(struct layer *layer, u64 cutoff)
 			/* Remove from table before realloc! */
 			if (!changed)
 				channel_intel_hash_del(layer->channel_intels, intelarr);
+
+			/* The pointer inside channel_intel has to be freed. */
+			tal_steal(tmpctx, intelarr[i].impression);
+			tal_steal(tmpctx, intelarr[i].constraint);
+
 			tal_arr_remove(&intelarr, i);
 			changed = true;
 			num_removed++;
