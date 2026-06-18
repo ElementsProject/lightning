@@ -167,6 +167,7 @@ static const struct db_version db_versions[] = {
 	{ "v25.09", 276, downgrade_askrene_layers, false },
 	{ "v25.12", 280, NULL, false },
 	{ "v26.04", 282, NULL, false },
+	{ "v26.06", 282, NULL, false },
 };
 
 static const struct db_version *version_db(const char *version)
