@@ -3018,3 +3018,51 @@ def test_zeroconf_withhold_htlc_failback(node_factory, bitcoind):
 
     # l1's channel to l2 is still normal — no force-close
     assert only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['state'] == 'CHANNELD_NORMAL'
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+@pytest.mark.openchannel('v2')
+def test_inflight_dbload(node_factory, bitcoind):
+    """Disconnect during dual-fund sign should not trigger spurious BROKEN.
+
+    Regression test for #8902: when the peer disconnects while the
+    openchannel2_sign hook is being processed, the funder plugin's
+    disconnect notification races with the hook, causing it to return
+    the PSBT unsigned.  Before the fix, this produced a spurious
+    'Plugin must return a psbt with signatures' BROKEN message.
+    """
+    disconnects = ["+WIRE_COMMITMENT_SIGNED"]
+
+    opts = [{'experimental-dual-fund': None, 'dev-no-reconnect': None,
+             'may_reconnect': True, 'disconnect': disconnects},
+            {'experimental-dual-fund': None, 'dev-no-reconnect': None,
+             'may_reconnect': True, 'funder-policy': 'match',
+             'funder-policy-mod': 100, 'lease-fee-base-sat': '100sat',
+             'lease-fee-basis': 100,
+             # The daemon-death BROKEN is expected on disconnect
+             'broken_log': 'dualopend daemon died before signed PSBT returned'}]
+
+    l1, l2 = node_factory.get_nodes(2, opts=opts)
+
+    feerate = 2000
+    amount = 500000
+    l1.fundwallet(20000000)
+    l2.fundwallet(20000000)
+
+    # l1 leases a channel from l2; the dev-disconnect fires after l1
+    # sends COMMITMENT_SIGNED, killing dualopend mid-flow, so the RPC
+    # may fail with "dualopend died".
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    rates = l1.rpc.dev_queryrates(l2.info['id'], amount, amount)
+    try:
+        l1.rpc.fundchannel(l2.info['id'], amount, request_amt=amount,
+                           feerate='{}perkw'.format(feerate),
+                           compact_lease=rates['compact_lease'])
+    except RpcError:
+        pass
+    l1.daemon.wait_for_log(r'dev_disconnect: \+WIRE_COMMITMENT_SIGNED')
+
+    # Before the fix l2 would log a spurious BROKEN:
+    # 'Plugin must return a psbt with signatures'.
+    # After the fix, only the whitelisted 'dualopend daemon died'
+    # BROKEN appears (checked automatically during teardown).
