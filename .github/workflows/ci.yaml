@@ -345,7 +345,7 @@ jobs:
         env:
           PKG_CONFIG_PATH: /usr/lib/i386-linux-gnu/pkgconfig
         run: |
-          ./configure --disable-rust --enable-debugbuild CC="gcc -m32" 
+          ./configure --disable-rust --enable-debugbuild CC="gcc -m32"
           uv run make -j $(nproc) all-programs
 
   check-fuzz:
@@ -445,8 +445,8 @@ jobs:
         run: |
           mkdir old-cln
           cd old-cln
-          wget https://github.com/ElementsProject/lightning/releases/download/v26.04/clightning-v26.04-ubuntu-24.04-amd64.tar.xz
-          tar -xaf clightning-v26.04-ubuntu-24.04-amd64.tar.xz
+          wget https://github.com/ElementsProject/lightning/releases/download/v26.06/clightning-v26.06-ubuntu-24.04-amd64.tar.xz
+          tar -xaf clightning-v26.06-ubuntu-24.04-amd64.tar.xz
 
       - name: Switch network
         if: ${{ matrix.TEST_NETWORK == 'liquid-regtest' }}
@@ -768,7 +768,7 @@ jobs:
 
       - name: Test
         env:
-          PYTEST_OPTS: ${{ env.PYTEST_OPTS_BASE }} --test-group-random-seed=42 
+          PYTEST_OPTS: ${{ env.PYTEST_OPTS_BASE }} --test-group-random-seed=42
         run: |
           sg wireshark "uv run eatmydata pytest tests/ -n $(($(nproc) + 1)) ${PYTEST_OPTS} --test-group=${{ matrix.GROUP }} --test-group-count=${{ matrix.GROUP_COUNT }}"
       - name: Upload test results
