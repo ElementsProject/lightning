@@ -87,6 +87,17 @@ bool tal_arr_eq_(const void *a, const void *b, size_t unused);
 void tal_arr_remove_(void *p, size_t elemsize, size_t n);
 
 /**
+ * Remove a range of element from an array
+ *
+ * This will shift the elements past the removed elements, changing
+ * their position in memory, so only use this for simple arrays.
+ */
+#define tal_arr_remove_range(p, position, count)                               \
+	tal_arr_remove_range_((p), sizeof(**p) * (position),                   \
+			      sizeof(**p) * (count))
+void tal_arr_remove_range_(void *p, size_t position, size_t chunk_size);
+
+/**
  * Insert an element in an array
  */
 #define tal_arr_insert(p, n, v) \
