@@ -1304,7 +1304,7 @@ static void handle_tx_sigs(struct state *state, const u8 *msg)
 	const struct witness **witnesses;
 	struct tx_state *tx_state = state->tx_state;
 
-	struct tlv_txsigs_tlvs *txsig_tlvs = tlv_txsigs_tlvs_new(tmpctx);
+	struct tlv_tx_signatures_tlvs *txsig_tlvs = tlv_tx_signatures_tlvs_new(tmpctx);
 	if (!fromwire_tx_signatures(tmpctx, msg, &cid, &txid,
 				    cast_const3(
 					    struct witness ***,
@@ -1700,7 +1700,7 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state)
 		case WIRE_PEER_STORAGE:
 		case WIRE_PEER_STORAGE_RETRIEVAL:
 		case WIRE_STFU:
-		case WIRE_SPLICE:
+		case WIRE_SPLICE_INIT:
 		case WIRE_SPLICE_ACK:
 		case WIRE_SPLICE_LOCKED:
 			break;
@@ -2082,7 +2082,7 @@ static bool run_tx_interactive(struct state *state,
 		case WIRE_PEER_STORAGE:
 		case WIRE_PEER_STORAGE_RETRIEVAL:
 		case WIRE_STFU:
-		case WIRE_SPLICE:
+		case WIRE_SPLICE_INIT:
 		case WIRE_SPLICE_ACK:
 		case WIRE_SPLICE_LOCKED:
 			open_abort(state, "Unexpected wire message %s",
@@ -4282,7 +4282,7 @@ static u8 *handle_peer_in(struct state *state)
 	case WIRE_PEER_STORAGE:
 	case WIRE_PEER_STORAGE_RETRIEVAL:
 	case WIRE_STFU:
-	case WIRE_SPLICE:
+	case WIRE_SPLICE_INIT:
 	case WIRE_SPLICE_ACK:
 	case WIRE_SPLICE_LOCKED:
 	case WIRE_PROTOCOL_BATCH_ELEMENT:

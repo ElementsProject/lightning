@@ -40,7 +40,7 @@ static bool equal(struct commitment_signed *x, struct commitment_signed *y)
 		return false;
 
 	assert(x->tlvs && y->tlvs);
-	return tal_arr_eq(x->tlvs->splice_info, y->tlvs->splice_info);
+	return tal_arr_eq(x->tlvs->funding_txid, y->tlvs->funding_txid);
 }
 
 void run(const u8 *data, size_t size)

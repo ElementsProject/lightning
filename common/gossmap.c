@@ -1947,7 +1947,7 @@ const void *gossmap_stream_next(const tal_t *ctx,
 		case WIRE_OPEN_CHANNEL2:
 		case WIRE_ACCEPT_CHANNEL2:
 		case WIRE_STFU:
-		case WIRE_SPLICE:
+		case WIRE_SPLICE_INIT:
 		case WIRE_SPLICE_ACK:
 		case WIRE_SPLICE_LOCKED:
 		case WIRE_SHUTDOWN:

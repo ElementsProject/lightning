@@ -10,7 +10,7 @@ struct tx_signatures {
 	struct channel_id channel_id;
 	struct bitcoin_txid txid;
 	struct witness **witnesses;
-	struct tlv_txsigs_tlvs *tlvs;
+	struct tlv_tx_signatures_tlvs *tlvs;
 };
 
 static void *encode(const tal_t *ctx, const struct tx_signatures *s)
