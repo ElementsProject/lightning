@@ -7,8 +7,10 @@ from utils import (
 from pyln.testing.utils import FUNDAMOUNT
 
 from pathlib import Path
+import os
 import pytest
 import re
+import threading
 import unittest
 import time
 
@@ -170,6 +172,59 @@ def test_v2_open_sigs_reconnect_2(node_factory, bitcoind):
     # Make sure we're ok.
     l1.daemon.wait_for_log(r'to CHANNELD_NORMAL')
     l2.daemon.wait_for_log(r'to CHANNELD_NORMAL')
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "sqlite3-specific DB manipulation")
+@pytest.mark.openchannel('v2')
+def test_v2_open_reconnect_next_funding_mismatch(node_factory, bitcoind):
+    """Both nodes set next_funding on reconnect but disagree on txid: error sent, channel fails."""
+    # l2 always sends tx_signatures first.  Disconnecting l2 just before it
+    # sends tx_signatures means neither node ever receives remote tx_sigs, so
+    # both end up in DUALOPEND_OPEN_COMMITTED with remote_funding_sigs_rcvd=False
+    # and will set next_funding in channel_reestablish.
+    broken = r'dualopend daemon died before signed PSBT returned|Owning subdaemon dualopend died'
+    l1, l2 = node_factory.get_nodes(2, opts=[
+        {'may_reconnect': True, 'dev-no-reconnect': None, 'broken_log': broken},
+        {'disconnect': ['-WIRE_TX_SIGNATURES'], 'may_reconnect': True,
+         'dev-no-reconnect': None, 'broken_log': broken}
+    ])
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    amount = 2**24
+    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['p2tr'], amount / 10**8 + 0.01)
+    bitcoind.generate_block(1)
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) > 0)
+
+    # -WIRE_TX_SIGNATURES causes fundchannel to block (it waits for reconnect
+    # that will never come due to dev-no-reconnect); run it in a daemon thread
+    # so the test can proceed.  l2.stop() below unblocks it via peer death.
+    def _fund():
+        try:
+            l1.rpc.fundchannel(l2.info['id'], 100000)
+        except Exception:
+            pass
+
+    threading.Thread(target=_fund, daemon=True).start()
+
+    # Both have exchanged commitment_signed (inflight in DB) but no tx_sigs yet.
+    # Use any() because the channel record may not exist yet when the thread starts.
+    wait_for(lambda: any(c['state'] == 'DUALOPEND_OPEN_COMMITTED'
+                         for c in l1.rpc.listpeerchannels()['channels']))
+    wait_for(lambda: any(c['state'] == 'DUALOPEND_OPEN_COMMITTED'
+                         for c in l2.rpc.listpeerchannels()['channels']))
+
+    # Corrupt l2's stored funding txid so it disagrees with l1's on reconnect.
+    l2.stop()
+    l2.db_manip("UPDATE channel_funding_inflights SET funding_tx_id = X'{}'".format('01' * 32))
+    l2.start()
+
+    # Reconnect: both will set next_funding in channel_reestablish but with
+    # different txids, triggering open_err_fatal on each side per BOLT #2.
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    l1.daemon.wait_for_log(r"next_funding_txid .* doesn't match ours")
+    l2.daemon.wait_for_log(r"next_funding_txid .* doesn't match ours")
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')

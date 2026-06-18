@@ -3976,7 +3976,9 @@ static void do_reconnect_dance(struct state *state)
 	 *   - MUST set `next_funding_txid` to the txid of that interactive transaction.
 	 */
 	tlvs = tlv_channel_reestablish_tlvs_new(tmpctx);
-	if (!tx_state->remote_funding_sigs_rcvd) {
+	/* Track whether we set next_funding before tlvs is overwritten by received msg */
+	bool we_set_next_funding = !tx_state->remote_funding_sigs_rcvd;
+	if (we_set_next_funding) {
 		tlvs->next_funding = talz(tlvs, struct tlv_channel_reestablish_tlvs_next_funding);
 		tlvs->next_funding->next_funding_txid = tx_state->funding.txid;
 		tlvs->next_funding->retransmit_flags = 1; /* COMMITMENT_SIGNED */
@@ -4082,15 +4084,21 @@ static void do_reconnect_dance(struct state *state)
 				status_debug("Unable to send our sigs, our psbt isn't signed");
 			} else
 				status_debug("No commitment, not sending our sigs (reconnected)");
+		} else if (we_set_next_funding) {
+			/* BOLT #2: if it also sets `next_funding` in its own
+			 * `channel_reestablish`, but the values don't match:
+			 * - MUST send an `error` and fail the channel. */
+			open_err_fatal(state, "next_funding_txid %s doesn't match ours %s",
+				       fmt_bitcoin_txid(tmpctx,
+							&tlvs->next_funding->next_funding_txid),
+				       fmt_bitcoin_txid(tmpctx,
+							&tx_state->funding.txid));
 		} else {
-			peer_billboard(true, "Non-matching next_funding on reconnect. Aborting.");
 			open_abort(state, "Sent next_funding_txid %s doesn't match ours %s",
-
 				   fmt_bitcoin_txid(tmpctx,
 						    &tlvs->next_funding->next_funding_txid),
 				   fmt_bitcoin_txid(tmpctx,
 						    &tx_state->funding.txid));
-			return;
 		}
 	}
 
