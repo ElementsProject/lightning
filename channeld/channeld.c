@@ -5956,14 +5956,19 @@ static void peer_reconnect(struct peer *peer,
 
 	/* BOLT #2:
 	 *
-	 *   - if `next_commitment_number` is 1 in both the
-	 *    `channel_reestablish` it sent and received:
-	 *     - MUST retransmit `channel_ready`.
-	 *   - otherwise:
-	 *     - MUST NOT retransmit `channel_ready`, but MAY send
-	 *       `channel_ready` with a different `short_channel_id`
-	 *       `alias` field.
+	 * A node:
+	 *  - if `next_commitment_number` is zero:
+	 *    - MUST immediately fail the channel and broadcast any relevant latest commitment
+	 *      transaction.
+	 *  - if `next_commitment_number` is 1 in both the `channel_reestablish` it
+	 *    sent and received, and none of those `channel_reestablish` messages
+	 *    contain `my_current_funding_locked` or `next_funding` for a splice transaction:
+	 *    - MUST retransmit `channel_ready`.
+	 *  - otherwise:
+	 *    - MUST NOT retransmit `channel_ready`, but MAY send `channel_ready` with
+	 *      a different `short_channel_id` `alias` field.
 	 */
+
 	if (peer->channel_ready[LOCAL]
 	    && peer->next_index[LOCAL] == 1
 	    && next_commitment_number == 1) {

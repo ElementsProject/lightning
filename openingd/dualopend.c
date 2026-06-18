@@ -4048,9 +4048,12 @@ static void do_reconnect_dance(struct state *state)
 	 *            - MUST send its `tx_signatures` for that funding transaction.
 	 *        - if it has already received `tx_signatures` for that funding transaction:
 	 *          - MUST send its `tx_signatures` for that funding transaction.
-	 *       - otherwise:
-	 *       - MUST send `tx_abort` to let the sending node know that they can forget
-	 *         this funding transaction.
+	 *      - if it also sets `next_funding` in its own `channel_reestablish`, but the
+	 *        values don't match:
+	 *        - MUST send an `error` and fail the channel.
+	 *      - otherwise:
+	 *        - MUST send `tx_abort` to let the sending node know that they can forget
+	 *        this funding transaction.
 	 */
 	if (tlvs->next_funding) {
 		/* Does this match ours? */
