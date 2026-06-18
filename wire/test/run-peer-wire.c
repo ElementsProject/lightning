@@ -805,7 +805,7 @@ static bool commitment_signed_eq(const struct msg_commitment_signed *a,
 {
 	return eq_upto(a, b, htlc_signature)
 		&& eq_var(a, b, htlc_signature)
-		&& eq_tlv(a, b, splice_info, bitcoin_txid_eq);
+		&& eq_tlv(a, b, funding_txid, bitcoin_txid_eq);
 }
 
 static bool funding_signed_eq(const struct msg_funding_signed *a,
@@ -1027,8 +1027,8 @@ int main(int argc, char *argv[])
 	cs.htlc_signature = tal_arr(ctx, secp256k1_ecdsa_signature, 2);
 	memset(cs.htlc_signature, 2, sizeof(secp256k1_ecdsa_signature)*2);
 	cs.tlvs = tlv_commitment_signed_tlvs_new(tmpctx);
-	cs.tlvs->splice_info = tal(ctx, struct bitcoin_txid);
-	set_bitcoin_txid(cs.tlvs->splice_info);
+	cs.tlvs->funding_txid = tal(ctx, struct bitcoin_txid);
+	set_bitcoin_txid(cs.tlvs->funding_txid);
 
 	msg = towire_struct_commitment_signed(ctx, &cs);
 	cs2 = fromwire_struct_commitment_signed(ctx, msg);

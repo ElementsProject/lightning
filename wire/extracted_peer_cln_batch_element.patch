@@ -1,0 +1,16 @@
+--- wire/peer_wire.csv
++++ wire/peer_wire.csv
+@@ -1,3 +1,6 @@
++msgtype,protocol_batch_element,0
++msgdata,protocol_batch_element,channel_id,channel_id,
++msgdata,protocol_batch_element,element_size,u16,
+ msgtype,init,16
+ msgdata,init,gflen,u16,
+ msgdata,init,globalfeatures,byte,gflen
+@@ -300,6 +303,7 @@
+ msgtype,start_batch,127
+ msgdata,start_batch,channel_id,channel_id,
+ msgdata,start_batch,batch_size,u16,
++msgdata,start_batch,tlvs,start_batch_tlvs,
+ tlvtype,start_batch_tlvs,message_type,1
+ tlvdata,start_batch_tlvs,message_type,message_type,u16,

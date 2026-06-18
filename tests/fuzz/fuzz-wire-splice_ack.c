@@ -5,22 +5,25 @@
 
 struct splice_ack {
 	struct channel_id channel_id;
-	s64 relative_satoshis;
+	s64 funding_contribution_satoshis;
 	struct pubkey funding_pubkey;
 };
 
 static void *encode(const tal_t *ctx, const struct splice_ack *s)
 {
 	return towire_splice_ack(ctx, &s->channel_id,
-				 s->relative_satoshis, &s->funding_pubkey);
+				 s->funding_contribution_satoshis, &s->funding_pubkey,
+				 NULL);
 }
 
 static struct splice_ack *decode(const tal_t *ctx, const void *p)
 {
 	struct splice_ack *s = tal(ctx, struct splice_ack);
+	struct tlv_splice_ack_tlvs *tlvs;
 
-	if (fromwire_splice_ack(p, &s->channel_id,
-				&s->relative_satoshis, &s->funding_pubkey))
+	if (fromwire_splice_ack(s, p, &s->channel_id,
+				&s->funding_contribution_satoshis, &s->funding_pubkey,
+				&tlvs))
 		return s;
 	return tal_free(s);
 }

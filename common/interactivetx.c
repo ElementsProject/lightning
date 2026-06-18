@@ -182,7 +182,7 @@ static u8 *read_next_msg(const tal_t *ctx,
 		case WIRE_STFU:
 		case WIRE_PEER_STORAGE:
 		case WIRE_PEER_STORAGE_RETRIEVAL:
-		case WIRE_SPLICE:
+		case WIRE_SPLICE_INIT:
 		case WIRE_SPLICE_ACK:
 		case WIRE_SPLICE_LOCKED:
 		*error = tal_fmt(ctx,
@@ -838,7 +838,7 @@ char *process_interactivetx_updates(const tal_t *ctx,
 		case WIRE_PONG:
 		case WIRE_PEER_STORAGE:
 		case WIRE_PEER_STORAGE_RETRIEVAL:
-		case WIRE_SPLICE:
+		case WIRE_SPLICE_INIT:
 		case WIRE_SPLICE_ACK:
 		case WIRE_STFU:
 		case WIRE_SPLICE_LOCKED:

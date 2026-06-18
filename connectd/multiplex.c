@@ -355,7 +355,7 @@ static bool is_urgent(enum peer_wire type)
 	case WIRE_PEER_STORAGE:
 	case WIRE_PEER_STORAGE_RETRIEVAL:
 	case WIRE_STFU:
-	case WIRE_SPLICE:
+	case WIRE_SPLICE_INIT:
 	case WIRE_SPLICE_ACK:
 	case WIRE_SPLICE_LOCKED:
 	case WIRE_PING:

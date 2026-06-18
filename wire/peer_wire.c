@@ -54,7 +54,7 @@ static bool unknown_type(enum peer_wire t)
 	case WIRE_OPEN_CHANNEL2:
 	case WIRE_ACCEPT_CHANNEL2:
 	case WIRE_STFU:
-	case WIRE_SPLICE:
+	case WIRE_SPLICE_INIT:
 	case WIRE_SPLICE_ACK:
 	case WIRE_SPLICE_LOCKED:
 		return false;
@@ -115,7 +115,7 @@ bool is_msg_for_gossipd(const u8 *cursor)
 	case WIRE_PEER_STORAGE:
 	case WIRE_PEER_STORAGE_RETRIEVAL:
 	case WIRE_STFU:
-	case WIRE_SPLICE:
+	case WIRE_SPLICE_INIT:
 	case WIRE_SPLICE_ACK:
 	case WIRE_SPLICE_LOCKED:
 		break;
@@ -396,29 +396,30 @@ bool extract_channel_id(const u8 *in_pkt, struct channel_id *channel_id)
 		 * 2. data:
 		 *     * [`channel_id`:`channel_id`]
 		 */
-	case WIRE_SPLICE:
+	case WIRE_SPLICE_INIT:
 		/* BOLT-splice #2:
-		 * 1. type: 74 (`splice`)
+		 * 1. type: 80 (`splice_init`)
 		 * 2. data:
-		 *     * [`chain_hash`:`chain_hash`]
 		 *     * [`channel_id`:`channel_id`]
+		 *     * [`s64`:`funding_contribution_satoshis`]
 		 *     * [`u32`:`funding_feerate_perkw`]
+		 *     * [`u32`:`locktime`]
 		 *     * [`point`:`funding_pubkey`]
 		 */
 	case WIRE_SPLICE_ACK:
 		/* BOLT-splice #2:
-		 * 1. type: 76 (`splice_ack`)
+		 * 1. type: 81 (`splice_ack`)
 		 * 2. data:
-		 *     * [`chain_hash`:`chain_hash`]
 		 *     * [`channel_id`:`channel_id`]
+		 *     * [`s64`:`funding_contribution_satoshis`]
 		 *     * [`point`:`funding_pubkey`]
 		 */
 	case WIRE_SPLICE_LOCKED:
 		/* BOLT-splice #2:
-		 * 1. type: 78 (`splice_locked`)
+		 * 1. type: 77 (`splice_locked`)
 		 * 2. data:
-		 *     * [`chain_hash`:`chain_hash`]
 		 *     * [`channel_id`:`channel_id`]
+		 *     * [`sha256`:`splice_txid`]
 		 */
 		return fromwire_channel_id(&cursor, &max, channel_id);
 	}
