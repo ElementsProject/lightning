@@ -147,6 +147,17 @@ void tal_arr_remove_(void *p, size_t elemsize, size_t n)
     tal_resize((char **)p, len - elemsize);
 }
 
+void tal_arr_remove_range_(void *p, size_t position, size_t chunk_size)
+{
+	// p is a pointer-to-pointer for tal_resize.
+	char *objp = *(char **)p;
+	size_t len = tal_bytelen(objp);
+	assert(chunk_size + position <= len);
+	memmove(objp + position, objp + position + chunk_size,
+		len - (chunk_size + position));
+	tal_resize((char **)p, len - chunk_size);
+}
+
 static void tal_arr_append_bytes(void *p, const void *append, size_t bytes)
 {
 	void **pptr = p;
