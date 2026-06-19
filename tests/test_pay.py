@@ -5312,6 +5312,17 @@ def test_sendpay_grouping(node_factory, bitcoind):
     # And finally we should have all 3 attempts to pay the invoice
     pays = l1.rpc.listpays()['pays']
     assert(len(pays) == 3)
+
+    # xpay returns the failure to the caller before it finishes cleaning up
+    # the payment, so a failed attempt can still be reported as 'pending'
+    # (attempt_ongoing() -> true) right after the rpc returns. Each xpay payment
+    # owns a private "xpay-<n>" askrene layer which is removed in that same cleanup,
+    # so wait for them all to disappear before checking the exact statuses.
+    # If payment hangs indefinetly, the default timeout will fail the test
+    # (60s/180s if SLOW_MACHINE=1).
+    wait_for(lambda: not any(layer['layer'].startswith('xpay-')
+                             for layer in l1.rpc.askrene_listlayers()['layers']))
+    pays = l1.rpc.listpays()['pays']
     assert([p['status'] for p in pays] == ['failed', 'failed', 'complete'])
 
 
