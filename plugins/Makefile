@@ -87,9 +87,6 @@ PLUGIN_FUNDER_HEADER :=				\
 	plugins/funder_policy.h
 PLUGIN_FUNDER_OBJS := $(PLUGIN_FUNDER_SRC:.c=.o)
 
-PLUGIN_RECKLESSRPC_SRC := plugins/recklessrpc.c
-PLUGIN_RECKLESSRPC_OBJS := $(PLUGIN_RECKLESSRPC_SRC:.c=.o)
-
 PLUGIN_ALL_SRC :=				\
 	$(PLUGIN_AUTOCLEAN_SRC)			\
 	$(PLUGIN_chanbackup_SRC)		\
@@ -106,8 +103,7 @@ PLUGIN_ALL_SRC :=				\
 	$(PLUGIN_PAY_LIB_SRC)			\
 	$(PLUGIN_PAY_SRC)			\
 	$(PLUGIN_SPENDER_SRC)			\
-	$(PLUGIN_RECOVER_SRC)			\
-	$(PLUGIN_RECKLESSRPC_SRC)
+	$(PLUGIN_RECOVER_SRC)
 
 PLUGIN_ALL_HEADER :=				\
 	$(PLUGIN_PAY_HEADER)			\
@@ -130,7 +126,6 @@ C_PLUGINS :=					\
 	plugins/keysend				\
 	plugins/offers				\
 	plugins/pay				\
-	plugins/recklessrpc			\
 	plugins/recover				\
 	plugins/txprepare			\
 	plugins/cln-renepay			\
@@ -153,7 +148,7 @@ $(shell test -d plugins/clnrest && $(RM) -r plugins/clnrest || true)
 $(shell test -d plugins/wss-proxy && $(RM) -r plugins/wss-proxy || true)
 
 ifneq ($(RUST),0)
-RUST_PLUGIN_NAMES := cln-grpc clnrest cln-lsps-client cln-lsps-service wss-proxy cln-bip353 cln-currencyrate
+RUST_PLUGIN_NAMES := cln-grpc clnrest cln-lsps-client cln-lsps-service wss-proxy cln-bip353 cln-currencyrate cln-reckless
 
 # Builtin plugins must be in this plugins dir to work when we're executed
 # *without* make install.
@@ -218,8 +213,6 @@ plugins/funder: $(PLUGIN_FUNDER_OBJS) $(PLUGIN_LIB_OBJS) libcommon.a
 
 plugins/recover:  $(PLUGIN_RECOVER_OBJS) $(PLUGIN_LIB_OBJS) libcommon.a
 
-plugins/recklessrpc: $(PLUGIN_RECKLESSRPC_OBJS) $(PLUGIN_LIB_OBJS) libcommon.a
-
 # This covers all the low-level list RPCs which return simple arrays
 SQL_LISTRPCS := listchannels listforwards listhtlcs listinvoices listnodes listoffers listpeers listpeerchannels listclosedchannels listtransactions listsendpays listchainmoves listchannelmoves bkpr-listaccountevents bkpr-listincome listnetworkevents
 SQL_LISTRPCS_SCHEMAS := $(foreach l,$(SQL_LISTRPCS),doc/schemas/$l.json)
@@ -274,6 +267,7 @@ CLN_LSPS_PLUGIN_SRC = $(shell find plugins/lsps-plugin/src -name "*.rs")
 CLN_WSS_PROXY_PLUGIN_SRC = $(shell find plugins/wss-proxy-plugin/src -name "*.rs")
 CLN_BIP353_PLUGIN_SRC = $(shell find plugins/bip353-plugin/src -name "*.rs")
 CLN_CURRENCYRATE_PLUGIN_SRC = $(shell find plugins/currencyrate-plugin/src -name "*.rs")
+CLN_RECKLESS_PLUGIN_SRC = $(shell find plugins/reckless-plugin/src -name "*.rs")
 
 $(RUST_TARGET_DIR)/cln-grpc: ${CLN_PLUGIN_SRC} ${CLN_GRPC_PLUGIN_SRC} $(MSGGEN_GENALL) $(MSGGEN_GEN_ALL)
 	$(CARGO) build ${CARGO_OPTS} --bin cln-grpc
@@ -289,11 +283,13 @@ $(RUST_TARGET_DIR)/cln-bip353: ${CLN_BIP353_PLUGIN_SRC}
 	$(CARGO) build ${CARGO_OPTS} --bin cln-bip353
 $(RUST_TARGET_DIR)/cln-currencyrate: ${CLN_CURRENCYRATE_PLUGIN_SRC}
 	$(CARGO) build ${CARGO_OPTS} --bin cln-currencyrate
+$(RUST_TARGET_DIR)/cln-reckless: ${CLN_RECKLESS_PLUGIN_SRC}
+	$(CARGO) build ${CARGO_OPTS} --bin cln-reckless
 
 ifneq ($(RUST),0)
 include plugins/rest-plugin/Makefile
 include plugins/wss-proxy-plugin/Makefile
-DEFAULT_TARGETS += $(CLN_PLUGIN_EXAMPLES) plugins/cln-grpc plugins/clnrest plugins/cln-lsps-client plugins/cln-lsps-service plugins/wss-proxy plugins/cln-bip353 plugins/cln-currencyrate
+DEFAULT_TARGETS += $(CLN_PLUGIN_EXAMPLES) plugins/cln-grpc plugins/clnrest plugins/cln-lsps-client plugins/cln-lsps-service plugins/wss-proxy plugins/cln-bip353 plugins/cln-currencyrate plugins/cln-reckless
 endif
 
 clean: plugins-clean

@@ -1,36 +1,69 @@
-reckless -- Issue a command to the reckless plugin manager utility
-==================================================================
+reckless -- Reckless, a plugin manager
+======================================
 
 SYNOPSIS
 --------
 
-**reckless** *command* [*target/subcommand*] [*target*] 
+**reckless** *command* [*subcommand*] [*target*] [*options*] [*amount\_msat*] [*payer\_note*] [*verbose*] [*developer*] 
 
 DESCRIPTION
 -----------
 
-The **reckless** RPC starts a reckless process with the *command* and *target* provided.  Node configuration, network, and lightning direrctory are automatically passed to the reckless utility.
+The **reckless** RPC lets you manage plugins. It has multiple commands available, best described in the **help** command.
 
-- **command** (string) (one of "install", "uninstall", "search", "enable", "disable", "source", "--version"): Determines which command to pass to reckless
+- **command** (string) (one of "install", "update", "uninstall", "listavailable", "listinstalled", "enable", "disable", "source", "tip", "help"): Determines which command to pass to reckless
    - *command* **install** takes a *plugin\_name* to search for and install a named plugin.
    - *command* **uninstall** takes a *plugin\_name* and attempts to uninstall a plugin of the same name.
-   - *command* **search** takes a *plugin\_name* to search for a named plugin.
+   - *command* **help** takes a *command* to display help for (plain text).
  ...
-- **target/subcommand** (one of, optional): Target of a reckless command or a subcommand.:
-  - (string)
-  - (array)
-- **target** (one of, optional): *name* of a plugin to install/uninstall/search/enable/disable or source to add/remove.:
-  - (string)
-  - (array)
+- **subcommand** (string, optional) (one of "add", "list", "remove"): A subcommand. Only in combination with *command* **source**.
+- **target** (string, optional): *name* of a plugin to install/update/uninstall/listavailable/enable/disable or source to add/remove. Can also have a git ref added with `<name>@<ref>` to install a specific version.
+- **options** (array of strings, optional): Plugin options to be used with the commands **install**/**update**/**enable** in the form of `key=value`. *(added v26.09)*:
+  - (string, optional)
+- **amount\_msat** (msat, optional): The amount of msat to send when using the *command* **tip**. *(added v26.09)*
+- **payer\_note** (string, optional): A message that a payer is willing to send to a payee when using the *command* **tip**. *(added v26.09)*
+- **verbose** (boolean, optional): Verbose output for all logging outputs for this command. *(added v26.09)*
+- **developer** (boolean, optional): Build plugins in debug mode and do not clean up build files where applicable. *(added v26.09)*
 
 RETURN VALUE
 ------------
 
 On success, an object is returned, containing:
 
-- **result** (array of strings): Output of the requested reckless command.:
-  - (string, optional)
-- **log** (array of strings): Verbose log entries of the requested reckless command.:
+- **result** (array): Output of the requested reckless command.:
+    - **plugin\_name** (string): The name of the plugin that was installed or updated.
+    - **enabled** (boolean): Whether the plugin was enabled or not.
+    - **installed\_commit** (string, optional): The git ref that was installed or updated to. Only present if source is a remote git repository.
+    - **plugin\_name** (string): The name of the plugin that was uninstalled/enabled/disabled.
+    - **plugin\_name** (string): The name of the plugin that was listed.
+    - **installer** (string) (one of "PythonUv", "PythonUvShebang", "PythonUvLegacy", "PoetryVenv", "PyprojectViaPip", "Python", "Nodejs", "Rust", "Go", "Custom"): The name of the plugin installer that is used.
+    - **manifest** (object):
+      - **entrypoint** (string): The entrypoint for the plugin.
+      - **short\_description** (string, optional): A short description of the plugin.
+      - **long\_description** (string, optional): A long description of the plugin.
+      - **dependencies** (array of strings, optional): Programs needed to install this plugin.:
+        - (string, optional)
+      - **install\_cmd** (array of strings, optional): Custom commands needed to install this plugin, if the default installers do not work.:
+        - (string, optional)
+      - **required\_options** (array of strings, optional): Options needed to install this plugin.:
+        - (string, optional)
+      - **offer** (string, optional): An offer for users to tip for this plugin.
+      - **installable** (boolean, optional): Whether this plugin is reckless-installable.
+    - **origin** (string): The origin of the plugin.
+    - **plugin\_name** (string): The name of the plugin that was listed.
+    - **installation\_date** (string): The date the plugin was installed.
+    - **installation\_time** (number): The timestamp the plugin was installed.
+    - **original\_source** (string): The original source of the plugin.
+    - **requested\_commit** (string, optional): The git ref that was requested to be installed.
+    - **installed\_commit** (string, optional): The git ref that was installed.
+    - **sources** (array of strings): The list of current sources.:
+      - (string, optional)
+    - **payment\_preimage** (secret): The proof of payment: SHA256 of this **payment\_hash**.
+    - **failed\_parts** (u64): How many separate payment parts failed.
+    - **successful\_parts** (u64): How many separate payment parts succeeded (or are anticipated to succeed).  This will be at least one.
+    - **amount\_msat** (msat): Amount the recipient received.
+    - **amount\_sent\_msat** (msat): Total amount we sent (including fees).
+- **log** (array of strings): Log entries of the requested reckless command.:
   - (string, optional)
 
 AUTHOR
