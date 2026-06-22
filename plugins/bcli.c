@@ -780,11 +780,22 @@ static void wait_and_check_bitcoind(struct plugin *p)
 {
 	struct bcli_result *res;
 	const char **cmd;
+	int i;
 
 	/* Special case: -rpcwait flags go on command line, not stdin */
-	cmd = gather_args(bitcoind, NULL, "-rpcwait", "-rpcwaittimeout=30",
+	/* We try 30 times one second rather than one time thirty seconds, because
+	 * we have seen cases bitcoind becomes available, but rpcwait still just hangs
+	 * needlessly.
+	 */
+	cmd = gather_args(bitcoind, NULL, "-rpcwait", "-rpcwaittimeout=1",
 			  "getnetworkinfo", NULL);
-	res = execute_bitcoin_cli(bitcoind, p, cmd, NULL);
+	res = NULL;
+	for (i = 0; i < 30; i++) {
+		tal_free(res);            /* NULL-safe; frees previous attempt */
+		res = execute_bitcoin_cli(bitcoind, p, cmd, NULL);
+		if (res->exitstatus != 1)
+			break;
+	}
 
 	if (res->exitstatus == 1)
 		bitcoind_failure(p,
