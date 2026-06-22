@@ -12,23 +12,24 @@ RUN sed -i '/updates/d' /etc/apt/sources.list && \
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        autoconf \
-        build-essential \
-        ca-certificates \
-        file \
-        gettext \
-        git \
-        libsqlite3-dev \
-        libpq-dev \
-        libsodium23 \
-        libsodium-dev \
-        libtool \
-        m4 \
-        sudo \
-        unzip \
-        wget \
-        jq \
-        zip \
+    autoconf \
+    automake \
+    build-essential \
+    ca-certificates \
+    file \
+    gettext \
+    git \
+    libsqlite3-dev \
+    libpq-dev \
+    libsodium23 \
+    libsodium-dev \
+    libtool \
+    m4 \
+    sudo \
+    unzip \
+    wget \
+    jq \
+    zip \
     && cd /tmp \
     && wget https://github.com/kristapsdz/lowdown/archive/refs/tags/VERSION_1_0_2.tar.gz \
     && tar -xzf VERSION_1_0_2.tar.gz \
