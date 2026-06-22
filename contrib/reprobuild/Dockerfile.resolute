@@ -13,6 +13,7 @@ RUN sed -i '/updates/d' /etc/apt/sources.list && \
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
     autoconf \
+    automake \
     build-essential \
     ca-certificates \
     file \
