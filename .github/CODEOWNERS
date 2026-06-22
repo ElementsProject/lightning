@@ -14,6 +14,12 @@ contrib/pyln-client/    @cdecker
 contrib/pyln-testing/   @cdecker
 # Needed to ensure hsmd wire compatibility between releases
 hsmd/hsmd_wire.csv      @cdecker @ksedgwic @devrandom
+plugins/xpay/           @Lagrang3
+plugins/askrene/        @Lagrang3
+plugins/renepay/        @Lagrang3
+tests/test_xpay.py      @Lagrang3
+tests/test_askrene.py   @Lagrang3
+tests/test_renepay.py   @Lagrang3
 
 # See https://help.github.com/articles/about-codeowners/ for more
 # information
