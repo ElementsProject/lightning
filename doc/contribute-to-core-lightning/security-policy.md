@@ -15,7 +15,7 @@ We have a 3 month release cycle, and the last two versions are supported.
 To report security vulnerabilities, please send an email to:
 - `security@blockstream.com`
 
-Note: These email addresses are exclusively for vulnerability reporting.
+Note: This email address is exclusively for vulnerability reporting.
 
 For all other inquiries/communication, please refer to the [Reach Out to Us](https://github.com/ElementsProject/lightning?tab=readme-ov-file#reach-out-to-us) section in our README.
 
@@ -41,6 +41,6 @@ developers, and to validate signatures on releases:
 | jaonoctus | `jaonoctus@protonmail.com` | 7B69 6A61 6F73 1337 520B  8A19 D8F3 1505 B581 D617 |
 | Blockstream CLN Release | `cln@blockstream.com` | 616C 52F9 9D06 12B2 A151  B107 4129 A994 AA7E 9852 |
 
-You can import a key by running the following command with that individual’s fingerprint: 
-`gpg --keyserver hkps://keys.openpgp.org --recv-keys "<fingerprint>"`. 
+You can import a key by running the following command with that individual’s fingerprint:
+`gpg --keyserver hkps://keys.openpgp.org --recv-keys "<fingerprint>"`.
 Ensure that you put quotes around fingerprints containing spaces.
