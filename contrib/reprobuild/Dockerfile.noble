@@ -12,26 +12,27 @@ RUN sed -i '/updates/d' /etc/apt/sources.list && \
     sed -i 's/^deb \(.*\) noble main$/deb \1 noble main universe/' /etc/apt/sources.list
 
 RUN apt-get update \
-	&& apt-get install -y --no-install-recommends \
-	autoconf \
-	build-essential \
-	ca-certificates \
-	file \
-	gettext \
-	git \
+    && apt-get install -y --no-install-recommends \
+    autoconf \
+    automake \
+    build-essential \
+    ca-certificates \
+    file \
+    gettext \
+    git \
     curl \
     libsqlite3-dev \
-	libpq-dev \
-	libsodium23 \
+    libpq-dev \
+    libsodium23 \
     libsodium-dev \
     lowdown \
-	libtool \
-	m4 \
-	sudo \
-	unzip \
-	wget \
+    libtool \
+    m4 \
+    sudo \
+    unzip \
+    wget \
     jq \
-	zip
+    zip
 
 # Configure /repo/.git as 'safe.directory'
 RUN git config --global --add safe.directory /repo/.git
