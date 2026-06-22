@@ -660,11 +660,7 @@ void logv(struct logger *log, enum log_level level,
 	size_t log_len;
 	char *logmsg;
 
-	/* This is WARN_UNUSED_RESULT, because everyone should somehow deal
-	 * with OOM, even though nobody does. */
-	if (vasprintf(&logmsg, fmt, ap) == -1)
-		abort();
-
+	logmsg = tal_vfmt(tmpctx, fmt, ap);
 	log_len = strlen(logmsg);
 
 	/* Sanitize any non-printable characters, and replace with '?' */
@@ -685,7 +681,7 @@ void logv(struct logger *log, enum log_level level,
 			       l.time,
 			       l.prefix->prefix,
 			       logmsg);
-	free(logmsg);
+	tal_free(logmsg);
 
 	errno = save_errno;
 }

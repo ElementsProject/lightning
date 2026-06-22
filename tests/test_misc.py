@@ -5406,3 +5406,18 @@ def test_tracing_socket(node_factory):
         for key in ("id", "name", "timestamp", "duration", "traceId"):
             assert key in span, f"Missing key {key} in span {span}"
         assert span["localEndpoint"] == {"serviceName": "lightningd"}
+
+
+def test_long_logs(node_factory):
+    """A plugin that creates a very long log entry. Lightningd should truncate
+    the output and not crash."""
+
+    def setup(plugin):
+        @plugin.method("produce-log")
+        def prod_log(plugin):
+            """Produce a silly and very long log message."""
+            plugin.log("X"*300000)
+            return {}
+
+    l1 = node_factory.get_node(inline_plugin=setup)
+    l1.rpc.call("produce-log")
