@@ -2510,13 +2510,15 @@ static struct payment *new_payment(const tal_t *ctx,
 	return payment;
 }
 
-bool attempt_ongoing(struct plugin *plugin, const struct sha256 *payment_hash)
+bool attempt_ongoing(struct plugin *plugin, const struct sha256 *payment_hash,
+		     u64 groupid)
 {
 	struct xpay *xpay = xpay_of(plugin);
 	const struct payment *payment;
 
 	list_for_each(&xpay->payments, payment, list) {
-		if (sha256_eq(&payment->payment_hash, payment_hash))
+		if (sha256_eq(&payment->payment_hash, payment_hash) &&
+		    payment->group_id == groupid)
 			return true;
 	}
 	return false;

@@ -159,7 +159,8 @@ static void add_new_entry(struct plugin *plugin,
 
 	if (pm->state & PAYMENT_COMPLETE)
 		json_add_string(ret, "status", "complete");
-	else if (pm->state & PAYMENT_PENDING || attempt_ongoing(plugin, pm->payment_hash))
+	else if (pm->state & PAYMENT_PENDING ||
+		 attempt_ongoing(plugin, pm->payment_hash, pm->sortkey.groupid))
 		json_add_string(ret, "status", "pending");
 	else
 		json_add_string(ret, "status", "failed");
