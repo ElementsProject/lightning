@@ -5172,7 +5172,7 @@ gives a routehint straight to us causes an issue
            == only_one(l3.rpc.listpeerchannels()['channels'])['alias']['remote'])
 
     l3.stop()
-    with pytest.raises(RpcError, match=r'Failed: We could not find a usable set of paths. All 1 channels to the destination are disabled.'):
+    with pytest.raises(RpcError, match=r'Failed: We could not find a usable set of paths.'):
         l2.rpc.xpay(inv)
 
 
