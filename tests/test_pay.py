@@ -5307,7 +5307,7 @@ def test_sendpay_grouping(node_factory, bitcoind):
     wait_for(lambda: only_one(l3.rpc.listpeers()['peers'])['connected'] is True)
     scid = l3.rpc.listpeerchannels()['channels'][0]['short_channel_id']
     wait_for(lambda: [c['active'] for c in l1.rpc.listchannels(scid)['channels']] == [True, True])
-    l1.rpc.pay(inv, amount_msat='10000msat')
+    l1.rpc.xpay(inv, amount_msat='10000msat')
 
     # And finally we should have all 3 attempts to pay the invoice
     pays = l1.rpc.listpays()['pays']
