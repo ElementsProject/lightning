@@ -11,10 +11,8 @@
       devShells = {
         default = pkgs.mkShell {
           inputsFrom = [ config.packages.default ];
-          buildInputs = [
-            pkgs.openssl
-            pkgs.uv
-          ];
+          buildInputs = [ pkgs.openssl ];
+          packages = [ pkgs.uv ];
           # On Linux, uv uses nixpkgs' Python: the Python uv downloads expects
           # an FHS dynamic loader, so it doesn't run on NixOS.
           # LD_LIBRARY_PATH fixes the following error when running uv pytest tests/:
@@ -28,11 +26,13 @@
         postgres = pkgs.mkShell {
           inputsFrom = [ config.packages.cln-postgres ];
           buildInputs = [ pkgs.openssl ];
+          packages = [ pkgs.uv ];
         };
         rust = pkgs.craneLib.devShell {
           checks = {
             inherit (self.checks.${system}) rust;
           };
+          packages = [ pkgs.uv ];
         };
       };
     };
