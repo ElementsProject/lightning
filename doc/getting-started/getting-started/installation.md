@@ -110,13 +110,16 @@ sudo apt install -y valgrind libpq-dev shellcheck cppcheck
 
 If you want to build the Rust plugins (cln-grpc, clnrest, cln-bip353 and wss-proxy) make sure that you have Rust 1.85+ installed (included on Ubuntu 25.10 or higher):
 ```shell
-sudo apt install -y cargo rustfmt protobuf-compiler
+sudo apt install -y cargo rustfmt
 ```
-For Ubuntu <25.10, all details about installing Rust can be found at https://rustup.rs/.
 
 > 📘
 >
-> If your build fails because of your Rust version, you might want to check out [rustup](https://rustup.rs/) to install a newer version
+> For Ubuntu <25.10, all details about installing Rust can be found at https://rustup.rs/.
+> In any case, Rust plugins require protocol buffers:
+```shell
+sudo apt install -y protobuf-compiler
+```
 
 There are two ways to build core lightning, and this depends on how you want use it.
 
