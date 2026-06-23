@@ -75,11 +75,11 @@ OS version: Ubuntu 22.04 or above
 Get dependencies:
 ```shell
 sudo apt update
-sudo ln -snf /usr/share/zoneinfo/UTC /etc/localtime && echo UTC > /etc/timezone
 sudo apt install -y \
   curl autoconf jq libsecp256k1-dev libsodium-dev automake build-essential git libtool libsqlite3-dev libffi-dev python3 python3-pip net-tools zlib1g-dev gettext pkg-config libssl-dev lowdown python3-mako
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
+If installation halts on tzdata configuration, finish the setup of your OS and try again.
 
 After installing uv, restart your shell or run `source ~/.local/bin/env` to ensure `uv` is in your PATH.
 
