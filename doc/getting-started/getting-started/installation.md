@@ -113,6 +113,7 @@ If you want to build the Rust plugins (cln-grpc, clnrest, cln-bip353 and wss-pro
 sudo apt install -y cargo rustfmt protobuf-compiler
 source ~/.cargo/env
 ```
+For Ubuntu <25.10, all details about installing Rust can be found at https://rustup.rs/.
 
 > 📘
 >
