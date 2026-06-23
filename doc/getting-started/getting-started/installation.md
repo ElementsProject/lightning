@@ -111,7 +111,6 @@ sudo apt install -y valgrind libpq-dev shellcheck cppcheck
 If you want to build the Rust plugins (cln-grpc, clnrest, cln-bip353 and wss-proxy) make sure that you have Rust 1.85+ installed (included on Ubuntu 25.10 or higher):
 ```shell
 sudo apt install -y cargo rustfmt protobuf-compiler
-source ~/.cargo/env
 ```
 For Ubuntu <25.10, all details about installing Rust can be found at https://rustup.rs/.
 
