@@ -9,4 +9,5 @@ def init(configuration, options, plugin):
     return {'disable': 'init saying disable'}
 
 
+# plugin.add_option('dummy-option', False, 'does nothing', opt_type='bool')
 plugin.run()
