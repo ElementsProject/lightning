@@ -2,6 +2,7 @@ use anyhow::anyhow;
 use futures::future::join_all;
 use reqwest::header::{HeaderMap, HeaderValue, USER_AGENT};
 use reqwest::{Client, Proxy};
+use rustls::ClientConfig;
 use serde_json::Value;
 use std::cmp::Reverse;
 use std::collections::HashMap;
@@ -254,9 +255,17 @@ impl BtcPriceOracle {
         let mut headers = HeaderMap::new();
         headers.insert(USER_AGENT, HeaderValue::from_static("cln-currencyrate"));
 
+        let root_store = rustls::RootCertStore {
+            roots: webpki_roots::TLS_SERVER_ROOTS.to_vec(),
+        };
+
+        let tls = ClientConfig::builder()
+            .with_root_certificates(root_store)
+            .with_no_client_auth();
+
         let mut client = Client::builder()
             .default_headers(headers)
-            .tls_backend_rustls()
+            .tls_backend_preconfigured(tls)
             .timeout(SOURCE_TIMEOUT_SECS)
             .pool_max_idle_per_host(5);
 
@@ -267,7 +276,9 @@ impl BtcPriceOracle {
             client = client.proxy(proxy);
         }
 
-        let client = client.build()?;
+        let client = client
+            .build()
+            .map_err(|e| anyhow!("HTTP client failed to build: {:?}", e.source()))?;
 
         let mut map = HashMap::new();
         for s in sources {
