@@ -125,7 +125,7 @@ ARG STRIP=${target_arch}-strip
 ARG TARGET=${target_arch_rust}
 ARG RUST_PROFILE=release
 ARG VERSION
-ENV VERSION=${VERSION}
+ARG MAKE_JOBS
 
 #TODO: set all the following cargo config options via env variables (https://doc.rust-lang.org/cargo/reference/environment-variables.html)
 RUN mkdir -p .cargo && tee .cargo/config.toml <<EOF
@@ -155,7 +155,11 @@ COPY .git/ .git/
 RUN git submodule update --init --recursive --jobs $(nproc) --depth 1
 
 RUN ./configure --prefix=/tmp/lightning_install --enable-static --disable-compat --disable-valgrind
-RUN uv run make install-program -j$(nproc)
+RUN if [ -n "${VERSION:-}" ]; then \
+        VERSION="${VERSION}" uv run make install-program -j"${MAKE_JOBS:-$(nproc)}"; \
+    else \
+        uv run make install-program -j"${MAKE_JOBS:-$(nproc)}"; \
+    fi
 
 RUN find /tmp/lightning_install -type f -executable -exec \
     file {} + | \
