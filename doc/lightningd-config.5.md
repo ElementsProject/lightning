@@ -555,9 +555,9 @@ network.
   Add a (taproot) fallback address to invoices produced by the `invoice`
 command, so they invoices can also be paid onchain.
 
-* **xpay-handle-pay**=*BOOL* [plugin `xpay`, *dynamic*]
+* **xpay-handle-pay**=*BOOL* [plugin `xpay`, *dynamic*] \(deprecated in v26.09\)
 
-  Setting this makes `xpay` intercept simply `pay` commands (default `false`).
+  Setting this makes `xpay` intercept simply `pay` commands (default `true`).
 
 * **xpay-slow-mode**=*BOOL* [plugin `xpay`, *dynamic*]
 
