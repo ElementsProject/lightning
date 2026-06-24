@@ -14,7 +14,16 @@ import time
 
 
 @pytest.fixture
-def node_cls():
+def node_cls(test_name: str):  # noqa: F811
+    # We always set the LLVM coverage destination, just in case
+    # `lightningd` was compiled with the correct instrumentation
+    # flags. This creates a `coverage` directory in the repository
+    # and puts all the files in it.
+    repo_root = Path(__file__).parent.parent
+    os.environ['LLVM_PROFILE_FILE'] = str(
+        repo_root / "coverage" / "raw" / f"{test_name}.%p.profraw"
+    )
+
     return LightningNode
 
 
