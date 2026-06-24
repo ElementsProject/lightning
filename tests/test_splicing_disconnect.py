@@ -69,7 +69,6 @@ def test_splice_disconnect_sig(node_factory, bitcoind):
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
-@pytest.mark.xfail(strict=True, reason="channel_ready wrongly retransmitted after splice until funding_tx_index detection")
 def test_splice_reconnect_after_lock_no_channel_ready(node_factory, bitcoind):
     # Once a splice locks, channel funding txid is updated to the splice txid.
     # On reconnect we must still recognise the peer's `my_current_funding_locked`
