@@ -68,7 +68,8 @@
                       "INTEGER",
                       "BLOB",
                       "TEXT",
-                      "REAL"
+                      "REAL",
+                      "SCID"
                     ],
                     "description": [
                       "The SQL type of the column."
@@ -188,15 +189,15 @@
               },
               {
                 "name": "short_channel_id",
-                "type": "TEXT"
+                "type": "SCID"
               },
               {
                 "name": "alias_local",
-                "type": "TEXT"
+                "type": "SCID"
               },
               {
                 "name": "alias_remote",
-                "type": "TEXT"
+                "type": "SCID"
               },
               {
                 "name": "opener",
