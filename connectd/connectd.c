@@ -1298,6 +1298,21 @@ static struct listen_fd *make_listen_fd(const tal_t *ctx,
 		status_unusual("Failed setting socket reuse: %s",
 			       strerror(errno));
 
+#ifdef IPV6_V6ONLY
+	/* Most Linux distros (Debian, Ubuntu) ship net.ipv6.bindv6only=1 in
+	 * sysctl, making IPv6 sockets IPv6-only by default, so a separate IPv4
+	 * wildcard socket can also bind.  macOS, Fedora, Arch and vanilla
+	 * kernels default to 0 (dual-stack): binding '::' also covers
+	 * '0.0.0.0', and the subsequent IPv4 bind fails with EADDRINUSE.
+	 * Explicitly set IPV6_V6ONLY=1 so both sockets always bind
+	 * independently, regardless of the system sysctl. */
+	if (domain == AF_INET6) {
+		if (setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &on, sizeof(on)))
+			status_unusual("Failed setting IPV6_V6ONLY: %s",
+				       strerror(errno));
+	}
+#endif
+
 	if (bind(fd, addr, len) != 0) {
 		const char *es = strerror(errno);
 		*errstr = tal_fmt(ctx, "Failed to bind socket for %s%s: %s",
@@ -1532,6 +1547,9 @@ setup_listeners(const tal_t *ctx,
 			} else if (!ipv6_ok) {
 				/* Both failed, return now, errstr set. */
 				return NULL;
+			} else {
+				/* IPv4 failed, but IPv6 (dual-stack) succeeded: discard errstr. */
+				*errstr = tal_free(*errstr);
 			}
 			continue;
 		}
