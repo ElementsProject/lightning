@@ -88,7 +88,7 @@ def canned_github_server(directory):
     yield
     # Delete requirements.txt from the testplugpass directory
     with open(requirements_file_path, 'w') as f:
-        f.write(f"pyln-client\n\n")
+        f.write("pyln-client\n\n")
     server.terminate()
 
 
@@ -100,7 +100,7 @@ class RecklessResult:
         self.stderr = stderr
 
     def __repr__(self):
-        return f'self.returncode, self.stdout, self.stderr'
+        return 'self.returncode, self.stdout, self.stderr'
 
     def search_stdout(self, regex):
         """return the matching regex line from reckless output."""
