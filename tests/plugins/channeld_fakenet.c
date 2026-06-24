@@ -1052,6 +1052,7 @@ static struct channel *handle_init(struct info *info, const u8 *init_msg)
 	struct ext_key final_ext_key;
 	u8 *fwd_msg;
 	u32 minimum_depth, lease_expiry;
+	u32 funding_tx_index;
 	struct secret last_remote_per_commit_secret;
 	struct penalty_base *pbases;
 	struct channel_type *channel_type;
@@ -1089,6 +1090,7 @@ static struct channel *handle_init(struct info *info, const u8 *init_msg)
 				    &channel_id,
 				    &funding,
 				    &funding_sats,
+				    &funding_tx_index,
 				    &minimum_depth,
 				    &info->current_block_height,
 				    &info->blockheight_states,
@@ -1141,6 +1143,7 @@ static struct channel *handle_init(struct info *info, const u8 *init_msg)
 	status_debug("Parsed init...");
 	channel = new_full_channel(info, &channel_id,
 				   &funding,
+				   funding_tx_index,
 				   minimum_depth,
 				   info->blockheight_states,
 				   lease_expiry,

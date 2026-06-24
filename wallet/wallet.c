@@ -1494,6 +1494,7 @@ void wallet_inflight_add(struct wallet *w, struct channel_inflight *inflight)
 				 "  channel_id"
 				 ", funding_tx_id"
 				 ", funding_tx_outnum"
+				 ", funding_tx_index"
 				 ", funding_feerate"
 				 ", funding_satoshi"
 				 ", our_funding_satoshi"
@@ -1515,11 +1516,12 @@ void wallet_inflight_add(struct wallet *w, struct channel_inflight *inflight)
 				 ", locked_scid"
 				 ", i_sent_sigs"
 				 ") VALUES ("
-				 "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
+				 "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
 
 	db_bind_u64(stmt, inflight->channel->dbid);
 	db_bind_txid(stmt, &inflight->funding->outpoint.txid);
 	db_bind_int(stmt, inflight->funding->outpoint.n);
+	db_bind_int(stmt, inflight->funding_tx_index);
 	db_bind_int(stmt, inflight->funding->feerate);
 	db_bind_amount_sat(stmt, inflight->funding->total_funds);
 	db_bind_amount_sat(stmt, inflight->funding->our_funds);
@@ -1714,6 +1716,7 @@ wallet_stmt2inflight(struct wallet *w, struct db_stmt *stmt,
 	i_sent_sigs = db_col_int(stmt, "i_sent_sigs");
 
 	inflight = new_inflight(chan, remote_funding, &funding,
+				db_col_int(stmt, "funding_tx_index"),
 				db_col_int(stmt, "funding_feerate"),
 				funding_sat,
 				our_funding_sat,
@@ -1765,6 +1768,7 @@ static bool wallet_channel_load_inflights(struct wallet *w,
 	stmt = db_prepare_v2(w->db, SQL("SELECT"
 					"  funding_tx_id"
 					", funding_tx_outnum"
+					", funding_tx_index"
 					", funding_feerate"
 					", funding_satoshi"
 					", our_funding_satoshi"
@@ -2132,6 +2136,7 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 			   db_col_u64(stmt, "next_index_remote"),
 			   db_col_u64(stmt, "next_htlc_id"),
 			   &funding,
+			   db_col_int(stmt, "funding_tx_index"),
 			   funding_sat,
 			   push_msat,
 			   our_funding_sat,
@@ -2379,6 +2384,7 @@ static bool wallet_channels_load_active(struct wallet *w)
 					", next_htlc_id"
 					", funding_tx_id"
 					", funding_tx_outnum"
+					", funding_tx_index"
 					", funding_satoshi"
 					", our_funding_satoshi"
 					", funding_locked_remote"
@@ -2680,6 +2686,7 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 					"  next_htlc_id=?,"
 					"  funding_tx_id=?,"
 					"  funding_tx_outnum=?,"
+					"  funding_tx_index=?,"
 					"  funding_satoshi=?,"
 					"  our_funding_satoshi=?,"
 					"  funding_locked_remote=?,"
@@ -2745,6 +2752,7 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 	db_bind_sha256d(stmt, &chan->funding.txid.shad);
 
 	db_bind_int(stmt, chan->funding.n);
+	db_bind_int(stmt, chan->funding_tx_index);
 	db_bind_amount_sat(stmt, chan->funding_sats);
 	db_bind_amount_sat(stmt, chan->our_funds);
 	db_bind_int(stmt, chan->remote_channel_ready);

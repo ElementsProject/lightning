@@ -171,6 +171,7 @@ struct channel_inflight *
 new_inflight(struct channel *channel,
 	     struct pubkey *remote_funding,
 	     const struct bitcoin_outpoint *funding_outpoint,
+	     u32 funding_tx_index,
 	     u32 funding_feerate,
 	     struct amount_sat total_funds,
 	     struct amount_sat our_funds,
@@ -199,6 +200,7 @@ new_inflight(struct channel *channel,
 	funding->splice_remote_funding = tal_steal(funding, remote_funding);
 
 	inflight->funding = funding;
+	inflight->funding_tx_index = funding_tx_index;
 	inflight->channel = channel;
 	inflight->remote_tx_sigs = false;
 	inflight->funding_psbt = tal_steal(inflight, psbt);
@@ -506,6 +508,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    u64 next_index_remote,
 			    u64 next_htlc_id,
 			    const struct bitcoin_outpoint *funding,
+			    u32 funding_tx_index,
 			    struct amount_sat funding_sats,
 			    struct amount_msat push,
 			    struct amount_sat our_funds,
@@ -612,6 +615,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->next_index[REMOTE] = next_index_remote;
 	channel->next_htlc_id = next_htlc_id;
 	channel->funding = *funding;
+	channel->funding_tx_index = funding_tx_index;
 	channel->funding_sats = funding_sats;
 	channel->funding_spend_watch = NULL;
 	channel->push = push;
@@ -1338,4 +1342,3 @@ const u8 *channel_update_for_error(const tal_t *ctx,
 
 	return channel_gossip_update_for_error(ctx, channel);
 }
-
