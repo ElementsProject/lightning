@@ -399,7 +399,7 @@ int main(int argc, char *argv[])
 
 	channel = new_full_channel(NULL,
 				   &cid,
-				   &funding, 1,
+				   &funding, 0, 1,
 				   take(new_height_states(NULL, fee_payer,
 							  &blockheight)),
 				   0, /* Defaults to no lease */
