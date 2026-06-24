@@ -39,6 +39,10 @@ struct channel {
 	/* Funding txid and output. */
 	struct bitcoin_outpoint funding;
 
+	/* Which funding tx this is: 0 for the original funding (incl. RBF
+	 * attempts), incrementing by 1 for each splice. */
+	u32 funding_tx_index;
+
 	/* Keys used to spend funding tx. */
 	struct pubkey funding_pubkey[NUM_SIDES];
 
@@ -88,6 +92,7 @@ struct channel {
  * @ctx: tal context to allocate return value from.
  * @cid: The channel's id.
  * @funding: The commitment transaction id/outnum
+ * @funding_tx_index: 0 for the original funding, +1 for each splice.
  * @minimum_depth: The minimum confirmations needed for funding transaction.
  * @height_states: The blockheight update states.
  * @lease_expiry: Block the lease expires.
@@ -109,6 +114,7 @@ struct channel {
 struct channel *new_initial_channel(const tal_t *ctx,
 				    const struct channel_id *cid,
 				    const struct bitcoin_outpoint *funding,
+				    u32 funding_tx_index,
 				    u32 minimum_depth,
 				    const struct height_states *height_states TAKES,
 				    u32 lease_expiry,
@@ -154,6 +160,7 @@ struct bitcoin_tx *initial_channel_tx(const tal_t *ctx,
  */
 const char *channel_update_funding(struct channel *channel,
 				   const struct bitcoin_outpoint *funding,
+				   u32 funding_tx_index,
 				   struct amount_sat funding_sats,
 				   s64 splice_amnt);
 

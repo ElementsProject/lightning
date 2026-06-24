@@ -58,6 +58,9 @@ struct channel_inflight {
 
 	/* Funding info */
 	const struct funding_info *funding;
+	/* Which funding tx this is: 0 for the original funding (incl. RBF
+	 * attempts), incrementing by 1 for each splice. */
+	u32 funding_tx_index;
 	struct wally_psbt *funding_psbt;
 	bool remote_tx_sigs;
 	bool tx_broadcast;
@@ -203,6 +206,9 @@ struct channel {
 
 	/* Funding outpoint and amount */
 	struct bitcoin_outpoint funding;
+	/* Which funding tx this is: 0 for the original funding (incl. RBF
+	 * attempts), incrementing by 1 for each splice. */
+	u32 funding_tx_index;
 	struct amount_sat funding_sats;
 
 	/* Watch we have on funding output. */
@@ -394,6 +400,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    u64 next_index_remote,
 			    u64 next_htlc_id,
 			    const struct bitcoin_outpoint *funding,
+			    u32 funding_tx_index,
 			    struct amount_sat funding_sats,
 			    struct amount_msat push,
 			    struct amount_sat our_funds,
@@ -458,6 +465,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 struct channel_inflight *new_inflight(struct channel *channel,
 	     struct pubkey *remote_funding STEALS,
 	     const struct bitcoin_outpoint *funding_outpoint,
+	     u32 funding_tx_index,
 	     u32 funding_feerate,
 	     struct amount_sat funding_sat,
 	     struct amount_sat our_funds,

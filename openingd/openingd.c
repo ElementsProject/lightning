@@ -590,6 +590,7 @@ static bool funder_finalize_channel_setup(struct state *state,
 	state->channel = new_initial_channel(state,
 					     &cid,
 					     &state->funding,
+					     0,
 					     state->minimum_depth,
 					     NULL, 0, /* No channel lease */
 					     state->funding_sats,
@@ -1156,6 +1157,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	state->channel = new_initial_channel(state,
 					     &state->channel_id,
 					     &state->funding,
+					     0,
 					     state->minimum_depth,
 					     NULL, 0, /* No channel lease */
 					     state->funding_sats,
