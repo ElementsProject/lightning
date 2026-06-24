@@ -80,7 +80,6 @@ def test_splice_disconnect_sig(node_factory, bitcoind):
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
-@pytest.mark.xfail(strict=True, reason="channel_ready wrongly retransmitted after splice until funding_tx_index detection")
 def test_splice_reconnect_after_lock_no_channel_ready(node_factory, bitcoind):
     # Once a splice locks, channel funding txid is updated to the splice txid.
     # On reconnect we must still recognise the peer's `my_current_funding_locked`
@@ -248,7 +247,6 @@ def test_splice_inflight_funding_tx_index(node_factory, bitcoind):
     l2.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
@@ -282,7 +280,6 @@ def test_splice_locked_one_side_no_channel_ready(node_factory, bitcoind):
     assert not l2.daemon.is_in_log(r'Retransmitting channel_ready')
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
