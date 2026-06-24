@@ -10,6 +10,9 @@
 struct inflight {
 	/* The new channel outpoint */
 	struct bitcoin_outpoint outpoint;
+	/* Which funding tx this is: 0 for the original funding (incl. RBF
+	 * attempts), incrementing by 1 for each splice. */
+	u32 funding_tx_index;
 	struct pubkey remote_funding;
 	struct amount_sat amnt;
 	bool remote_tx_sigs;

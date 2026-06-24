@@ -208,7 +208,7 @@ static void init_channels(const tal_t *ctx, const u8 **cursor, size_t *max,
 
 	derive_channel_id(&cid, funding);
 
-	*lchannel = new_full_channel(ctx, &cid, funding, 0,
+	*lchannel = new_full_channel(ctx, &cid, funding, 0, 0,
 				    take(new_height_states(NULL, LOCAL, blockheight)),
 				    0, *funding_amount, to_local,
 				    take(new_fee_states(NULL, LOCAL, &feerate_per_kw[LOCAL])),
@@ -216,7 +216,7 @@ static void init_channels(const tal_t *ctx, const u8 **cursor, size_t *max,
 				    &localbase, &remotebase,
 				    &local_funding_pubkey, &remote_funding_pubkey,
 				    take(channel_type_static_remotekey(NULL)), false, LOCAL);
-	*rchannel = new_full_channel(ctx, &cid, funding, 0,
+	*rchannel = new_full_channel(ctx, &cid, funding, 0, 0,
 				    take(new_height_states(NULL, REMOTE, blockheight)),
 				    0, *funding_amount, to_remote,
 				    take(new_fee_states(NULL, REMOTE, &feerate_per_kw[REMOTE])),

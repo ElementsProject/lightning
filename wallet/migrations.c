@@ -1224,6 +1224,22 @@ static const struct db_migration dbmigrations[] = {
 
     {SQL("ALTER TABLE forwards ADD reason INTEGER DEFAULT NULL"), NULL,
      SQL("ALTER TABLE forwards DROP COLUMN reason"), NULL},
+    /* Which funding tx this is: 0 for the original funding, incrementing
+     * by 1 for each splice.  Lets us tell a splice from the original
+     * funding on reestablish, once the channel funding txid has moved. */
+    {SQL("ALTER TABLE channel_funding_inflights ADD funding_tx_index INTEGER DEFAULT 0"), NULL,
+     SQL("ALTER TABLE channel_funding_inflights DROP COLUMN funding_tx_index"), NULL},
+    {SQL("ALTER TABLE channels ADD funding_tx_index INTEGER DEFAULT 0"), NULL,
+     SQL("ALTER TABLE channels DROP COLUMN funding_tx_index"), NULL},
+    /* A splice pending across the upgrade must not look like the original
+     * funding.  Only splice inflights record remote_funding, and they are
+     * one splice past the channel funding, which is 0 for everyone here.
+     * Channels which spliced before this have no record of it, so they
+     * stay 0. */
+    {SQL("UPDATE channel_funding_inflights SET funding_tx_index = 1"
+	 " WHERE remote_funding IS NOT NULL;"), NULL,
+     /* The revert drops the column */
+     NULL, NULL},
 };
 
 const struct db_migration *get_db_migrations(size_t *num)
