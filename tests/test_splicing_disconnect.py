@@ -69,7 +69,7 @@ def test_splice_disconnect_sig(node_factory, bitcoind):
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
-@pytest.mark.xfail(strict=True, reason="funding_tx_index tracking not yet implemented")
+@pytest.mark.xfail(strict=True, reason="channel_ready wrongly retransmitted after splice until funding_tx_index detection")
 def test_splice_reconnect_after_lock_no_channel_ready(node_factory, bitcoind):
     # Once a splice locks, channel funding txid is updated to the splice txid.
     # On reconnect we must still recognise the peer's `my_current_funding_locked`
@@ -170,7 +170,6 @@ def test_splice_disconnect_commit(node_factory, bitcoind, executor):
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
-@pytest.mark.xfail(strict=True, reason="funding_tx_index tracking not yet implemented")
 def test_splice_funding_tx_index_increments(node_factory, bitcoind):
     # funding_tx_index is 0 for the original funding and increments by 1 per
     # splice.  Two sequential splices must reach index 2 on the persisted
@@ -202,7 +201,6 @@ def test_splice_funding_tx_index_increments(node_factory, bitcoind):
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
-@pytest.mark.xfail(strict=True, reason="funding_tx_index tracking not yet implemented")
 def test_splice_inflight_funding_tx_index(node_factory, bitcoind):
     # A pending (not-yet-locked) splice inflight carries funding_tx_index == 1
     # (the open was index 0), and the value must survive a restart so the

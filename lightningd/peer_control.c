@@ -2296,6 +2296,7 @@ void update_channel_from_inflight(struct lightningd *ld,
 				  bool is_splice)
 {
 	channel->funding = inflight->funding->outpoint;
+	channel->funding_tx_index = inflight->funding_tx_index;
 	channel->funding_sats = inflight->funding->total_funds;
 
 	channel->our_funds = inflight->funding->our_funds;
