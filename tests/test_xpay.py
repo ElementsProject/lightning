@@ -527,7 +527,8 @@ def test_xpay_takeover_null_parms(node_factory, executor):
     """Test passing through RPC a list of parameters some of which have null
     json value."""
     l1, l2, l3 = node_factory.line_graph(
-        3, wait_for_announce=True, opts={"xpay-handle-pay": True}
+        3, wait_for_announce=True, opts={"xpay-handle-pay": True,
+                                         "allow-deprecated-apis": True}
     )
 
     # Amount argument is null.
