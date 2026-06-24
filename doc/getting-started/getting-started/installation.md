@@ -495,9 +495,44 @@ gmake install
 
 Install dependencies:
 ```shell
-pacman --sync autoconf automake gcc git make python-pip
-pip install --user poetry
+sudo pacman -Syu --noconfirm --needed \
+  base-devel \
+  clang \
+  gettext \
+  git \
+  gmp \
+  sqlite \
+  python \
+  python-pip \
+  python-setuptools \
+  net-tools \
+  valgrind \
+  wget \
+  jq \
+  zlib \
+  libsodium \
+  which \
+  sed \
+  protobuf \
+  postgresql-libs \
+  python-mako \
+  openssl \
+  lowdown
 ```
+
+Install Rust via rustup (required for Cargo lockfile v4 support). Use the default (full) profile, not the minimal one, as the full toolchain is needed to build the Rust plugins:
+```shell
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+```
+
+Install uv for Python dependency management:
+```shell
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+After installing uv, restart your shell or run `source ~/.bashrc` to ensure `uv` is in your PATH.
+
+Make sure you have [bitcoind](https://github.com/bitcoin/bitcoin) available to run.
 
 Clone Core Lightning:
 ```shell
@@ -505,16 +540,27 @@ git clone https://github.com/ElementsProject/lightning.git
 cd lightning
 ```
 
-Build Core Lightning:
+Checkout a release tag:
 ```shell
-python -m poetry install
-./configure
-python -m poetry run make
+git checkout v26.06.1
 ```
 
-Launch Core Lightning:
+Build and install Core Lightning:
+```shell
+uv sync --all-extras --all-groups --frozen
+./configure
+RUST_PROFILE=release uv run make -j$(nproc)
+sudo RUST_PROFILE=release make install
 ```
-./lightningd/lightningd
+
+> 📘
+>
+> If you want to disable Rust because you don't need it or its plugins (cln-grpc, clnrest, cln-bip353 or wss-proxy), you can use `./configure --disable-rust`.
+
+Launch Core Lightning:
+```shell
+bitcoind &
+lightningd --network=bitcoin
 ```
 
 ## To cross-compile for Android
