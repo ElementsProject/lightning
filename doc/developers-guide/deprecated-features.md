@@ -26,6 +26,7 @@ privacy:
 | renepaystatus                                      | Command            | v26.06           | v27.03         | Use `xpay` notifications and `listpays` or `listsendpays` instead.                                                        |
 | invokerune                                         | Command            | v26.12           | v27.09         | Alias for `createrune`: use `createrune` instead.                                                                         |
 | destroyrune                                        | Command            | v26.12           | v27.09         | Alias for `blacklistrune`: use `blacklistrune` instead.                                                                   |
+| xpay-handle-pay                                    | Config             | v26.12           | v27.03         | `pay` is being deprecated and `xpay` for all payments is the default.                                                     |
 
 Inevitably there are features which need to change: either to be generalized, or removed when they can no longer be supported.
 
