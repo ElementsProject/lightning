@@ -5463,9 +5463,13 @@ def test_bwatch_reorg_1_block(node_factory, bitcoind):
 
     # Mine a few blocks to establish history
     bitcoind.generate_block(5)
+    expected_height = bitcoind.rpc.getblockcount()
     # Wait for bwatch to fully catch up (important: bwatch must have the block
     # that will be reorged, otherwise it can't detect the reorg)
-    l1.daemon.wait_for_log(r'No block change')
+    l1.daemon.wait_for_log(rf'Added block {expected_height} to history', timeout=60)
+    wait_for(lambda: any(e['key'][-1] == f"{expected_height:010d}"
+                         for e in l1.rpc.listdatastore(['bwatch', 'block_history'])['datastore']),
+             timeout=60)
 
     # Get the actual number of blocks bwatch has stored before reorg
     ds_before = l1.rpc.listdatastore(['bwatch', 'block_history'])
