@@ -1206,32 +1206,32 @@ size_t layer_trim_constraints(struct layer *layer, u64 cutoff)
 	for (intelarr = channel_intel_hash_first(layer->channel_intels, &intelit);
 	     intelarr;
 	     intelarr = channel_intel_hash_next(layer->channel_intels, &intelit)) {
-		bool changed = false;
+		size_t count_old = 0;
+		/* We assume the array is sorted by timestamp */
 		for (size_t i = 0; i < tal_count(intelarr); i++) {
 			if (channel_intel_timestamp(&intelarr[i]) >= cutoff)
 				continue;
-			/* Remove from table before realloc! */
-			if (!changed)
-				channel_intel_hash_del(layer->channel_intels, intelarr);
 
+			count_old++;
 			/* The pointer inside channel_intel has to be freed. */
 			tal_steal(tmpctx, intelarr[i].impression);
 			tal_steal(tmpctx, intelarr[i].constraint);
-
-			tal_arr_remove(&intelarr, i);
-			changed = true;
-			num_removed++;
-			i--;
 		}
-		if (!changed)
-			continue;
+		num_removed += count_old;
+		if(count_old){
+			/* Remove from table before realloc! */
+			channel_intel_hash_del(layer->channel_intels, intelarr);
 
-		/* We emptied it, just free. */
-		if (tal_count(intelarr) == 0)
-			tal_free(intelarr);
-		else {
-			/* Still has members, put it back. */
-			channel_intel_hash_add(layer->channel_intels, intelarr);
+			tal_arr_remove_range(&intelarr, 0, count_old);
+
+			/* We emptied it, just free. */
+			if (tal_count(intelarr) == 0)
+				tal_free(intelarr);
+			else {
+				/* Still has members, put it back. */
+				channel_intel_hash_add(layer->channel_intels,
+						       intelarr);
+			}
 		}
 	}
 
