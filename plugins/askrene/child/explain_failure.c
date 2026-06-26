@@ -83,7 +83,13 @@ struct stat {
 };
 
 struct node_stats {
-	struct stat total, gossip_known, max_capacity_known, enabled;
+	/* Possible explanations to failure to send/receive funds.
+	 * These stats satisfy:
+	 * 	total >= gossip_known >= enabled >= known_usable
+	 * 	total >= max_capacity_known >= known_usable
+	 * so that when seeking the main cause we need to go from "total" down
+	 * to "known_usable". */
+	struct stat total, gossip_known, max_capacity_known, enabled, known_usable;
 };
 
 enum node_direction {
@@ -133,13 +139,6 @@ static const struct layer **node_stats(const tal_t *ctx,
 		if (node_direction == INTO_NODE)
 			scidd.dir = !scidd.dir;
 
-		add_stat(&stats->total, cap_msat);
-		if (gossmap_chan_set(c, scidd.dir)) {
-			add_stat(&stats->gossip_known, cap_msat);
-			if (c->half[scidd.dir].enabled)
-				add_stat(&stats->enabled, cap_msat);
-		}
-
 		min = AMOUNT_MSAT(0);
 		max = cap_msat;
 		constrainer = NULL;
@@ -151,7 +150,18 @@ static const struct layer **node_stats(const tal_t *ctx,
 		}
 		if (constrainer && !layer_in_array(most_constraining, constrainer))
 			tal_arr_expand(&most_constraining, constrainer);
+
+		add_stat(&stats->total, cap_msat);
 		add_stat(&stats->max_capacity_known, max);
+
+		if (gossmap_chan_set(c, scidd.dir)) {
+			add_stat(&stats->gossip_known, cap_msat);
+			if (c->half[scidd.dir].enabled) {
+				add_stat(&stats->enabled, cap_msat);
+				add_stat(&stats->known_usable, max);
+			}
+		}
+
 	}
 	return most_constraining;
 }
@@ -245,6 +255,17 @@ static const char *check_capacity(const tal_t *ctx,
 				 name,
 				 fmt_amount_msat(tmpctx, stats.enabled.capacity),
 				 fmt_amount_msat(tmpctx, stats.total.capacity));
+	}
+	if (amount_msat_greater(amount, stats.known_usable.capacity)) {
+		*total_capacity_failure = false;
+		return child_log(ctx, LOG_DBG,
+				 NO_USABLE_PATHS_STRING
+				 " We know from %s that %s has maximum usable capacity %s"
+				 " (in %zu channels).",
+				 format_layer_names(tmpctx, most_constraining),
+				 name,
+				 fmt_amount_msat(tmpctx, stats.known_usable.capacity),
+				 stats.known_usable.num_channels);
 	}
 	return NULL;
 }
