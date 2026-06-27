@@ -1,27 +1,58 @@
 #! /bin/sh
 
 VERBOSE=false
+MARKDOWN=false
 
-if [ x"$1" = x"--verbose" ]; then
-    VERBOSE=true
+while [ $# -gt 0 ]; do
+    case "$1" in
+    --verbose)
+	VERBOSE=true
+	;;
+    --markdown)
+	MARKDOWN=true
+	;;
+    -*)
+	echo "Usage: $0 [--verbose] [--markdown] <last-tag>" >&2
+	exit 1
+	;;
+    *)
+	if [ -n "$PREV_TAG" ]; then
+	    echo "Usage: $0 [--verbose] [--markdown] <last-tag>" >&2
+	    exit 1
+	fi
+	PREV_TAG="$1"
+	;;
+    esac
     shift
-fi
+done
 
-if [ "$#" != 1 ]; then
-    echo "Usage: $0 [--verbose] <last-tag>" >&2
+if [ -z "$PREV_TAG" ]; then
+    echo "Usage: $0 [--verbose] [--markdown] <last-tag>" >&2
     exit 1
 fi
-PREV_TAG="$1"
 
-if [ -z $(git tag -l "$PREV_TAG") ]; then
-    echo "Error: couldn't find tag '$PREV_TAG'!"
+if [ -z "$(git tag -l "$PREV_TAG")" ]; then
+    echo "Error: couldn't find tag '$PREV_TAG'!" >&2
     exit 1
 fi
+
+# Avoid ambiguity with branch names like v26.04.
+if git show-ref --tags --quiet --verify "refs/tags/$PREV_TAG"; then
+    PREV_TAG="refs/tags/$PREV_TAG"
+fi
+
 git log "$PREV_TAG".. --format="%an|%ae" | sort | uniq -c | sort -rn > /tmp/authors.$$
 sed -n 's/.*[Nn]amed by //p' < CHANGELOG.md | sed 's/(.*)//' | tr -dc '[:alnum:][:space:]' > /tmp/namers.$$
 git log "$PREV_TAG" --format="%an|%ae" | sort -u > /tmp/prev-authors.$$
 # Include aliases
 printf "Alex Myers\nShahanaFarooqui\nMatt Whitlock\nSangbida Chaudhuri\n" >> /tmp/namers.$$
+
+display_tag=${PREV_TAG#refs/tags/}
+if $MARKDOWN; then
+    MARKDOWN_OUT=/tmp/markdown.$$
+    HAS_NEWCOMMITTERS=false
+    : > "$MARKDOWN_OUT"
+fi
 
 NAMER=""
 BACKUP_NAMER=""
@@ -33,7 +64,7 @@ while read LINE; do
     NAME=${LINE%%|*}
     EMAIL=${LINE#*|}
     NOTES=""
-    if [ $(grep -ci -- "$NAME\|$EMAIL" /tmp/prev-authors.$$) = 0 ]; then
+    if [ "$(grep -ci -- "$NAME\|$EMAIL" /tmp/prev-authors.$$)" = 0 ]; then
 	NOTES="$NOTES""NEW COMMITTER "
     fi
     # ZmnSCPxj gave himself a surname!
@@ -49,13 +80,45 @@ while read LINE; do
 	    NOTES="$NOTES""*BACKUP NAMER* "
 	fi
     fi
-    if [ -n "$NOTES" ] || $VERBOSE; then
+    if $MARKDOWN; then
+	case "$EMAIL" in
+	*@users.noreply.github.com)
+	    HANDLE=$(echo "$EMAIL" | sed -n 's/.*+\([^@]*\)@users.noreply.github.com/\1/p')
+	    if [ -z "$HANDLE" ]; then
+		HANDLE=$(echo "$EMAIL" | sed 's/@users.noreply.github.com//')
+	    fi
+	    DISPLAY="@$HANDLE"
+	    ;;
+	*)
+	    DISPLAY="$NAME"
+	    ;;
+	esac
+	if echo "$NOTES" | grep -q "NEW COMMITTER"; then
+	    echo "- $DISPLAY ($COUNT commits, *)" >> "$MARKDOWN_OUT"
+	    HAS_NEWCOMMITTERS=true
+	else
+	    echo "- $DISPLAY ($COUNT commits)" >> "$MARKDOWN_OUT"
+	fi
+    elif [ -n "$NOTES" ] || $VERBOSE; then
 	echo " - $COUNT $NAME $EMAIL $NOTES"
     fi
 done < /tmp/authors.$$
 
 DAYS=$(( ( $(date +%s) - $(git log "$PREV_TAG" --format=%at | head -n1) ) / (3600*24) ))
 
-AUTHORS=$(cat /tmp/authors.$$ | wc -l)
-echo "$TOTAL commits in $DAYS days by $AUTHORS authors"
+AUTHORS=$(wc -l < /tmp/authors.$$ | tr -d ' ')
+if $MARKDOWN; then
+    echo "## Since **$display_tag** we've had $TOTAL commits in $DAYS days by $AUTHORS authors"
+    echo
+    echo "### Contributors (ordered from most to fewest commits)"
+    echo
+    cat "$MARKDOWN_OUT"
+    if $HAS_NEWCOMMITTERS; then
+	echo
+	echo "* Special thanks to our first-time contributors"
+    fi
+    rm "$MARKDOWN_OUT"
+else
+    echo "$TOTAL commits in $DAYS days by $AUTHORS authors"
+fi
 rm /tmp/authors.$$ /tmp/namers.$$ /tmp/prev-authors.$$
