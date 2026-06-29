@@ -849,6 +849,123 @@ def test_getroutes(node_factory):
                             'cltv_out': 99}]])
 
 
+def test_getroutes_circular(node_factory):
+    """Test getroutes for a circular (source == destination) self-rebalance.
+
+    source == destination is rejected as invalid input unless the
+    caller opts in with allow_circular=true.  When opted in, the
+    circular-askrene node-split splices a synthetic "us_in" node into
+    the gossmap so the MCF sees a regular source -> us_in flow.  Every
+    returned route KEEPS its trailing (peer -> us_in) hop: node_id_out
+    is the sentinel us_in id and amount_out_msat is the delivered
+    amount.  The caller recognises the sentinel scid + node_id_out and
+    replaces them with its chosen real closing channel + own node id
+    when building sendpay.
+
+    Topology -- a single deterministic cycle 0 -> 1 -> 2 -> (us_in):
+        chan A  0<->1 : only 0->1 enabled  (source's sole out edge)
+        chan B  1<->2 : 1->2 enabled       (middle hop)
+        chan C  2<->0 : only 2->0 enabled  (peer -> source, gets mirrored)
+    A's reverse (1->0) is disabled so there is no shorter 0 -> 1 -> us_in
+    cycle; C's reverse (0->2) is disabled so 0->1 is the only source out
+    edge.  Net result: exactly one path.
+
+    """
+    # circular_fake_us_in_id from plugins/askrene/askrene.c: byte 0 = 0x02,
+    # bytes 1..31 = 0x00, byte 32 = 0xff.
+    FAKE_US_IN = "02" + "00" * 31 + "ff"
+
+    gsfile, nodemap = generate_gossip_store(
+        [GenChannel(0, 1,
+                    forward=GenChannel.Half(enabled=True),
+                    reverse=GenChannel.Half(enabled=False)),
+         GenChannel(1, 2,
+                    forward=GenChannel.Half(enabled=True)),
+         GenChannel(2, 0,
+                    forward=GenChannel.Half(enabled=True),
+                    reverse=GenChannel.Half(enabled=False))])
+
+    l1 = node_factory.get_node(gossip_store_file=gsfile.name)
+
+    amount = 100000
+    final_cltv = 99
+
+    # Without allow_circular, source == destination is rejected outright.
+    with pytest.raises(RpcError, match=r"source and destination must be different"):
+        l1.rpc.getroutes(source=nodemap[0],
+                         destination=nodemap[0],
+                         amount_msat=amount,
+                         layers=[],
+                         maxfee_msat=100000,
+                         final_cltv=final_cltv)
+
+    res = l1.rpc.getroutes(source=nodemap[0],
+                           destination=nodemap[0],
+                           amount_msat=amount,
+                           layers=[],
+                           maxfee_msat=100000,
+                           final_cltv=final_cltv,
+                           allow_circular=True)
+
+    # One deterministic path; the whole amount is delivered back to us.
+    assert len(res['routes']) == 1
+    route = res['routes'][0]
+    assert route['amount_msat'] == amount
+    assert route['final_cltv'] == final_cltv
+
+    # Pin the path by node id, not by short_channel_id_dir: the synthetic
+    # scids generate_gossip_store assigns to the real hops (e.g. "2x2x1")
+    # are a harness-internal detail, not part of what the circular split is
+    # being tested for.
+    path = route['path']
+    assert len(path) == 3
+
+    # Hop 0: us -> peer 1 (our real outgoing channel).
+    assert path[0]['node_id_in'] == nodemap[0]
+    assert path[0]['node_id_out'] == nodemap[1]
+
+    # Hop 1: peer 1 -> peer 2 (real middle hop).
+    assert path[1]['node_id_in'] == nodemap[1]
+    assert path[1]['node_id_out'] == nodemap[2]
+
+    # Hop 2: the KEPT synthetic closing hop peer 2 -> us_in -- the crux of
+    # the circular split.  node_id_out is the sentinel us_in id, the scid is
+    # the first mirror (mk_short_channel_id(0, 0, 0) -> "0x0x0"), and
+    # amount_out_msat is the amount delivered back to us.
+    closing = path[2]
+    assert closing['node_id_in'] == nodemap[2]
+    assert closing['node_id_out'] == FAKE_US_IN
+    assert closing['short_channel_id_dir'].startswith('0x0x0/')
+    assert closing['amount_out_msat'] == amount
+    assert closing['cltv_out'] == final_cltv
+
+    # The mirror-scid allocator must step past occupied scids rather
+    # than corrupt the occupant: a layer-created channel squats on
+    # 0x0x0, and this synthetic store puts a REAL channel at 0x1x0
+    # (gossmap-compress assigns block = chan_index + node1, so channel
+    # A gets block 0).  The first free candidate is therefore 0x2x0.
+    # The squat channel has no channel updates, so it is disabled and
+    # cannot perturb the route itself.
+    l1.rpc.askrene_create_layer('squat')
+    l1.rpc.askrene_create_channel('squat',
+                                  nodemap[1],
+                                  nodemap[2],
+                                  '0x0x0',
+                                  '1000000sat')
+    res = l1.rpc.getroutes(source=nodemap[0],
+                           destination=nodemap[0],
+                           amount_msat=amount,
+                           layers=['squat'],
+                           maxfee_msat=100000,
+                           final_cltv=final_cltv,
+                           allow_circular=True)
+    assert len(res['routes']) == 1
+    closing = res['routes'][0]['path'][-1]
+    assert closing['node_id_out'] == FAKE_US_IN
+    assert closing['short_channel_id_dir'].startswith('0x2x0/')
+    assert closing['amount_out_msat'] == amount
+
+
 def test_getroutes_single_path(node_factory):
     """Test getroutes generating single path payments"""
     gsfile, nodemap = generate_gossip_store(
@@ -1599,6 +1716,97 @@ def test_real_data(node_factory, bitcoind, executor):
     assert (len(fees[best]), len(improved), total_first_fee, total_final_fee, percent_fee_reduction) == expected
     # askrene will have restricted how many we run
     assert l1.daemon.is_in_log(r"Too many running at once \(4 vs 4\): waiting")
+
+
+@pytest.mark.slow_test
+def test_real_data_circular(node_factory, bitcoind):
+    """Masked circular self-rebalance over a real mainnet gossmap snapshot.
+
+    Mask the source node down to a single drain (source-out) channel
+    and a single distinct fill (dest-in) channel, then ask getroutes
+    for a self-rebalance (source == destination, allow_circular=true).
+    The mask is the point -- without it the cheapest "cycle"
+    degenerates to an out-and-back on one channel; you have to
+    constrain BOTH the one out and the one in.
+
+    Because exactly one out and one in survive the mask, the route is
+    deterministic at the endpoints: every part must leave via the drain
+    channel and return via the (mirrored) fill channel, ending at the
+    synthetic us_in sentinel.  Run against several real hubs.
+
+    """
+    # circular_fake_us_in_id from plugins/askrene/askrene.c.
+    FAKE_US_IN = "02" + "00" * 31 + "ff"
+
+    outfile = tempfile.NamedTemporaryFile(prefix='gossip-store-')
+    nodeids = subprocess.check_output(['devtools/gossmap-compress',
+                                       'decompress',
+                                       'tests/data/gossip-store-2026-02-03.compressed',
+                                       outfile.name]).decode('utf-8').splitlines()
+
+    l1 = node_factory.get_node(gossip_store_file=outfile.name,
+                               allow_warning=True,
+                               options={'askrene-timeout': TIMEOUT})
+
+    AMOUNT = 10_000_000
+    WANT = 3
+    routed = 0
+    for n in range(min(50, len(nodeids))):
+        node = nodeids[n]
+        chans = l1.rpc.listchannels(source=node)['channels']
+        # Need two distinct channels: one to drain, one to fill.
+        if len(chans) < 2:
+            continue
+
+        src, dst = chans[0], chans[1]
+        layer = f'circular-{n}'
+        l1.rpc.askrene_create_layer(layer)
+
+        # Mask all but one source-out and one dest-in: a single if per
+        # direction inside the channel loop.  out_dir is node -> peer;
+        # 1 - out_dir is peer -> node (the direction askrene mirrors).
+        for c in chans:
+            scid = c['short_channel_id']
+            out_dir = c['direction']
+            if scid != src['short_channel_id']:
+                l1.rpc.askrene_update_channel(layer=layer,
+                                              short_channel_id_dir=f"{scid}/{out_dir}",
+                                              enabled=False)
+            if scid != dst['short_channel_id']:
+                l1.rpc.askrene_update_channel(layer=layer,
+                                              short_channel_id_dir=f"{scid}/{1 - out_dir}",
+                                              enabled=False)
+
+        try:
+            routes = l1.rpc.getroutes(source=node,
+                                      destination=node,
+                                      amount_msat=AMOUNT,
+                                      layers=[layer],
+                                      maxfee_msat=AMOUNT,
+                                      final_cltv=18,
+                                      allow_circular=True)
+        except RpcError:
+            # Drain peer can't reach fill peer within budget: try next node.
+            continue
+
+        routed += 1
+        delivered = 0
+        for r in routes['routes']:
+            # Forced to leave via the drain channel...
+            assert r['path'][0]['short_channel_id_dir'] == f"{src['short_channel_id']}/{src['direction']}"
+            assert r['path'][0]['node_id_in'] == node
+            assert r['path'][0]['node_id_out'] == src['destination']
+            # ...and return via the (mirrored) fill channel into us_in.
+            assert r['path'][-1]['node_id_out'] == FAKE_US_IN
+            assert r['path'][-1]['node_id_in'] == dst['destination']
+            delivered += r['path'][-1]['amount_out_msat']
+        # The parts together deliver the whole amount back to us.
+        assert delivered == AMOUNT
+
+        if routed >= WANT:
+            break
+
+    assert routed > 0
 
 
 @pytest.mark.slow_test
