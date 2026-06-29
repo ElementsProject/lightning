@@ -6,6 +6,7 @@ from utils import (
 )
 from pyln.testing.utils import FUNDAMOUNT
 
+from decimal import Decimal
 from pathlib import Path
 import os
 import pytest
@@ -3089,3 +3090,300 @@ def test_no_retransmit_confirmed_funding(node_factory):
     # Should not have attempted (and failed) to re-broadcast the funding tx.
     assert not l1.daemon.is_in_log('Failed to re-transmit funding tx')
     assert not l1.daemon.is_in_log('Successfully rexmitted funding tx')
+
+
+# Depth at which we treat the double-spend as final: buried this many
+# blocks, a reorg reversing it is not a practical concern.  100 is a
+# conservative choice (it also matches Bitcoin's coinbase-maturity rule).
+REORG_SAFE_DEPTH = 100
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="funder channel stays in CHANNELD_AWAITING_LOCKIN even after a funding input is double-spent and the spend is reorg-safe"
+)
+def test_funder_stuck_funding_inputs_double_spent(node_factory, bitcoind):
+    """Funder funds a channel, the funding never confirms, then a funding input is double-spent.
+
+    A user can be left with a channel wedged in a state that provably
+    will never resolve, with no transition to a sensible end state.  The
+    sequence:
+
+    - How it gets stuck: the node funds a channel and the funding tx is
+      broadcast, but it never confirms (rejected at broadcast for too
+      low a fee, evicted from the mempool, or never relayed).  The
+      channel sits in CHANNELD_AWAITING_LOCKIN.  CLN implements the
+      BOLT 2 fundee forget rule (2016 blocks) but has no funder-side
+      equivalent, and the funder always has funds at stake, so it cannot
+      simply time the channel out.
+
+    - Why the state is held until the double-spend: while the funding
+      inputs are unspent the funding tx can still confirm (e.g. if
+      rebroadcast at a higher fee), and if it does the channel becomes
+      live, so the channel must be kept until the funding is known dead.
+
+    - Why it is safe to clear once the double-spend is buried: when a
+      funding input is spent by another tx and that spend is buried deep
+      enough that a reorg will not reverse it, the funding tx can never
+      confirm.  The funding output will never exist, the channel can
+      never become live, and it can move to a clean end state.
+
+    To reproduce, after the channel reaches CHANNELD_AWAITING_LOCKIN we:
+
+      1. Capture the funding tx via the proxy mock (it never reaches
+         bitcoind's mempool).
+      2. Force-unreserve the funding inputs (the funding-tx reservation
+         is ~2016 blocks, so we explicitly pass a large reserve= value
+         to push reserved_til below current height).
+      3. Spend the same UTXOs in a separate withdraw tx that DOES land
+         on chain (the proxy mock forwards non-funding-tx broadcasts).
+      4. Mature the double-spend past REORG_SAFE_DEPTH.
+
+    The test asserts both edges: the channel stays in
+    CHANNELD_AWAITING_LOCKIN while the double-spend is shallow, and
+    reaches a resolved state once it is reorg-safe.
+
+    Marked xfail-strict because no fix yet exists; once fixed, the
+    marker should be removed.
+    """
+    l1, l2 = node_factory.line_graph(2, fundchannel=False)
+    l1.fundwallet(10**7)
+
+    # Capture-and-censor mock.  Stash the first sendrawtransaction (the
+    # funding tx) and censor any re-broadcast of the same hex.  Other
+    # sendrawtransaction calls (our double-spend withdraw) are forwarded
+    # to bitcoind so they land on chain.
+    captured = []
+
+    def censor(r):
+        raw = r['params'][0]
+        if not captured:
+            captured.append(raw)
+            return {'id': r['id'], 'result': {}}
+        if raw == captured[0]:
+            return {'id': r['id'], 'result': {}}
+        try:
+            txid = bitcoind.rpc.sendrawtransaction(raw)
+            return {'id': r['id'], 'result': txid, 'error': None}
+        except Exception as e:
+            return {'id': r['id'], 'error': {'code': -32603, 'message': str(e)}}
+    l1.daemon.rpcproxy.mock_rpc('sendrawtransaction', censor)
+
+    # Open the channel - funding tx is captured + censored.
+    l1.rpc.fundchannel(l2.info['id'], 10**6)
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['state']
+             == 'CHANNELD_AWAITING_LOCKIN')
+    wait_for(lambda: only_one(l2.rpc.listpeerchannels()['channels'])['state']
+             == 'CHANNELD_AWAITING_LOCKIN')
+    assert len(captured) > 0, "funding tx was not captured"
+
+    # Decode the captured funding tx to extract its inputs.
+    decoded = bitcoind.rpc.decoderawtransaction(captured[0])
+    funding_inputs = [f"{vin['txid']}:{vin['vout']}" for vin in decoded['vin']]
+
+    # The funding-tx reservation marks these UTXOs as reserved for ~2016
+    # blocks (the dual-open auto-unreserve interval), which blocks
+    # withdraw from selecting them.  Force-unreserve via a PSBT with the
+    # same inputs and a reserve value large enough to push reserved_til
+    # below the current block height.  The PSBT outputs are placeholders;
+    # only the input set matters for unreserveinputs.
+    psbt_inputs = [{'txid': vin['txid'], 'vout': vin['vout']}
+                   for vin in decoded['vin']]
+    total_sat = sum(
+        int(bitcoind.rpc.getrawtransaction(vin['txid'], True)
+            ['vout'][vin['vout']]['value'] * Decimal(100_000_000))
+        for vin in decoded['vin']
+    )
+    dummy = bitcoind.rpc.getnewaddress()
+    dummy_psbt = bitcoind.rpc.createpsbt(
+        psbt_inputs,
+        [{dummy: float(Decimal(total_sat - 1000) / Decimal(100_000_000))}],
+    )
+    l1.rpc.unreserveinputs(dummy_psbt, reserve=10_000)
+
+    # Spend the same UTXOs in a different tx.  This goes through the
+    # proxy's censor mock, which forwards non-funding-tx broadcasts to
+    # bitcoind so the double-spend actually lands.
+    addr = l1.rpc.newaddr('p2tr')['p2tr']
+    l1.rpc.withdraw(addr, "all", utxos=funding_inputs)
+
+    # Confirm the double-spend.
+    bitcoind.generate_block(1)
+    sync_blockheight(bitcoind, [l1])
+
+    # Safety property: with the double-spend only one block deep a reorg
+    # could still evict it, re-enabling the funding inputs and letting
+    # the funding tx confirm after all.  Resolving the channel now would
+    # be premature, so until the spend reaches a reorg-safe depth the
+    # channel should stay in CHANNELD_AWAITING_LOCKIN.
+    assert only_one(l1.rpc.listpeerchannels()['channels'])['state'] == 'CHANNELD_AWAITING_LOCKIN', (
+        "funder resolved the channel while the funding-input double-spend "
+        "was only one block deep; a reorg could still make the funding "
+        "confirmable"
+    )
+
+    # Mature the double-spend to a reorg-safe depth, so that a reorg
+    # reversing it is no longer a practical concern.
+    bitcoind.generate_block(REORG_SAFE_DEPTH)
+    sync_blockheight(bitcoind, [l1])
+
+    # Expected behaviour under fix: the funder's channel record has been
+    # cleaned up.  The funding tx can never confirm (a funding input is
+    # spent at a reorg-safe depth), so there is no reason to keep the
+    # channel record in CHANNELD_AWAITING_LOCKIN.  Any forward progress
+    # is enough; we do not prescribe a specific cleanup shape.
+    chans_l1 = l1.rpc.listpeerchannels()['channels']
+    assert all(c['state'] != 'CHANNELD_AWAITING_LOCKIN' for c in chans_l1), (
+        f"funder still has channel in CHANNELD_AWAITING_LOCKIN after "
+        f"funding inputs were double-spent and matured to "
+        f"{REORG_SAFE_DEPTH + 1} confirmations: "
+        f"{[c['state'] for c in chans_l1]}"
+    )
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="funder channel stays in AWAITING_UNILATERAL even after a funding input is double-spent and the spend is reorg-safe"
+)
+def test_funder_stuck_unilateral_funding_inputs_double_spent(node_factory, bitcoind):
+    """Funder closes an un-locked channel, the funding never confirms, then a funding input is double-spent.
+
+    A user can be left with a channel wedged in a state that provably
+    will never resolve, with no transition to a sensible end state.  The
+    sequence:
+
+    - How it gets stuck: the node funds a channel whose funding tx never
+      confirms, then issues close on the still-unlocked channel (an
+      operator, or an automation such as CLBOSS's spenderp, trying to
+      tidy up).  CLN drops to chain and moves to AWAITING_UNILATERAL,
+      trying to broadcast a commitment tx whose only input is the
+      funding output.  That output does not exist, so the commitment tx
+      can never confirm and the channel sits in AWAITING_UNILATERAL.
+
+    - Why the state is held until the double-spend: while the funding
+      inputs are unspent the funding tx can still confirm (e.g. if
+      rebroadcast at a higher fee), and if it does the commitment tx
+      becomes valid and the close resolves normally, so the channel must
+      be kept until the funding is known dead.
+
+    - Why it is safe to clear once the double-spend is buried: when a
+      funding input is spent by another tx and that spend is buried deep
+      enough that a reorg will not reverse it, the funding tx can never
+      confirm.  The funding output will never exist, the commitment tx
+      can never confirm, and the channel can move to a clean end state.
+
+    Same reproduction as test_funder_stuck_funding_inputs_double_spent,
+    but with a unilateral close before the double-spend, so the stuck
+    state is AWAITING_UNILATERAL rather than CHANNELD_AWAITING_LOCKIN.
+
+    Marked xfail-strict because no fix yet exists; once fixed, the
+    marker should be removed.
+    """
+    l1, l2 = node_factory.line_graph(2, fundchannel=False)
+    l1.fundwallet(10**7)
+
+    # Capture-and-censor mock.  Stash the first sendrawtransaction (the
+    # funding tx) and censor re-broadcasts of it.  The commitment tx the
+    # unilateral close produces spends the never-existing funding output,
+    # so it can never be valid either; drop it too.  Anything else (our
+    # double-spend withdraw) is forwarded to bitcoind so it lands.
+    captured = []
+    funding_txid = []
+
+    def censor(r):
+        raw = r['params'][0]
+        if not captured:
+            captured.append(raw)
+            funding_txid.append(bitcoind.rpc.decoderawtransaction(raw)['txid'])
+            return {'id': r['id'], 'result': {}}
+        if raw == captured[0]:
+            return {'id': r['id'], 'result': {}}
+        decoded = bitcoind.rpc.decoderawtransaction(raw)
+        if any(vin.get('txid') == funding_txid[0] for vin in decoded['vin']):
+            return {'id': r['id'], 'result': {}}
+        try:
+            txid = bitcoind.rpc.sendrawtransaction(raw)
+            return {'id': r['id'], 'result': txid, 'error': None}
+        except Exception as e:
+            return {'id': r['id'], 'error': {'code': -32603, 'message': str(e)}}
+    l1.daemon.rpcproxy.mock_rpc('sendrawtransaction', censor)
+
+    # Open the channel - funding tx is captured + censored.
+    l1.rpc.fundchannel(l2.info['id'], 10**6)
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['state']
+             == 'CHANNELD_AWAITING_LOCKIN')
+    wait_for(lambda: only_one(l2.rpc.listpeerchannels()['channels'])['state']
+             == 'CHANNELD_AWAITING_LOCKIN')
+    assert len(captured) > 0, "funding tx was not captured"
+
+    # Force a unilateral close.  Stopping l2 keeps a mutual close from
+    # racing in and landing us in CLOSINGD_COMPLETE instead.  The funder
+    # moves to AWAITING_UNILATERAL and produces a commitment tx spending
+    # the never-existing funding output (dropped by the mock above).
+    l2.stop()
+    l1.rpc.close(l2.info['id'], unilateraltimeout=1)
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['state']
+             == 'AWAITING_UNILATERAL')
+
+    # Decode the captured funding tx to extract its inputs.
+    decoded = bitcoind.rpc.decoderawtransaction(captured[0])
+    funding_inputs = [f"{vin['txid']}:{vin['vout']}" for vin in decoded['vin']]
+
+    # The funding-tx reservation marks these UTXOs as reserved for ~2016
+    # blocks (the dual-open auto-unreserve interval), which blocks
+    # withdraw from selecting them.  Force-unreserve via a PSBT with the
+    # same inputs and a reserve value large enough to push reserved_til
+    # below the current block height.  The PSBT outputs are placeholders;
+    # only the input set matters for unreserveinputs.
+    psbt_inputs = [{'txid': vin['txid'], 'vout': vin['vout']}
+                   for vin in decoded['vin']]
+    total_sat = sum(
+        int(bitcoind.rpc.getrawtransaction(vin['txid'], True)
+            ['vout'][vin['vout']]['value'] * Decimal(100_000_000))
+        for vin in decoded['vin']
+    )
+    dummy = bitcoind.rpc.getnewaddress()
+    dummy_psbt = bitcoind.rpc.createpsbt(
+        psbt_inputs,
+        [{dummy: float(Decimal(total_sat - 1000) / Decimal(100_000_000))}],
+    )
+    l1.rpc.unreserveinputs(dummy_psbt, reserve=10_000)
+
+    # Spend the same UTXOs in a different tx.  This goes through the
+    # proxy's censor mock, which forwards non-funding-tx broadcasts to
+    # bitcoind so the double-spend actually lands.
+    addr = l1.rpc.newaddr('p2tr')['p2tr']
+    l1.rpc.withdraw(addr, "all", utxos=funding_inputs)
+
+    # Confirm the double-spend.
+    bitcoind.generate_block(1)
+    sync_blockheight(bitcoind, [l1])
+
+    # Safety property: with the double-spend only one block deep a reorg
+    # could still evict it, re-enabling the funding inputs and letting
+    # the funding tx confirm after all.  Resolving the channel now would
+    # be premature, so until the spend reaches a reorg-safe depth the
+    # channel should stay in AWAITING_UNILATERAL.
+    assert only_one(l1.rpc.listpeerchannels()['channels'])['state'] == 'AWAITING_UNILATERAL', (
+        "funder resolved the channel while the funding-input double-spend "
+        "was only one block deep; a reorg could still make the funding "
+        "confirmable"
+    )
+
+    # Mature the double-spend to a reorg-safe depth, so that a reorg
+    # reversing it is no longer a practical concern.
+    bitcoind.generate_block(REORG_SAFE_DEPTH)
+    sync_blockheight(bitcoind, [l1])
+
+    # Expected behaviour under fix: the funder's channel record has been
+    # cleaned up.  The funding tx can never confirm (a funding input is
+    # spent at a reorg-safe depth), so there is no reason to keep the
+    # channel record in AWAITING_UNILATERAL.  Any forward progress is
+    # enough; we do not prescribe a specific cleanup shape.
+    chans_l1 = l1.rpc.listpeerchannels()['channels']
+    assert all(c['state'] != 'AWAITING_UNILATERAL' for c in chans_l1), (
+        f"funder still has channel in AWAITING_UNILATERAL after funding "
+        f"inputs were double-spent and matured to "
+        f"{REORG_SAFE_DEPTH + 1} confirmations: "
+        f"{[c['state'] for c in chans_l1]}"
+    )
