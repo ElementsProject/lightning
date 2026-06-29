@@ -359,7 +359,204 @@ struct getroutes_info {
 	/* Non-NULL if we are told to use "auto.localchans" */
 	struct layer *local_layer;
 	u32 maxparts;
+	/* Circular routing (self-rebalance) support.
+	 *
+	 * When the caller passes source == destination (and opts in via
+	 * allow_circular), we splice a node-split into this request's
+	 * per-request localmods:
+	 *   - Synthesise a fake "us_in" destination node.
+	 *   - For every (peer -> source) direction still enabled
+	 *     after the caller's layers have been applied, disable
+	 *     that real direction and add a mirror (peer -> us_in)
+	 *     channel with matching properties.
+	 *
+	 * The MCF then sees a regular s -> t flow problem with
+	 * source -> ... -> peer -> us_in.  No direct edge connects
+	 * source to us_in, so the algorithm has to traverse the
+	 * network.  Algorithms, flow extraction, and routing-cost
+	 * code run unchanged.
+	 *
+	 * After flow conversion the trailing (peer -> us_in) hop is
+	 * KEPT in each returned route: its amount_out_msat is the
+	 * actually-delivered amount, and its scid + node_id_out are
+	 * sentinel placeholders the caller replaces with the real
+	 * closing channel + their own node id when building sendpay.
+	 *
+	 * `circular` is set by inject_circular_fake().
+	 * Existing callers (source != destination) bypass all of
+	 * this -- inject_circular_fake() returns at its first line
+	 * and never touches localmods or info. */
+	bool circular;
 };
+
+/* Hardcoded fake "us_in" node id for circular routing.  Must not
+ * collide with any real Lightning node id likely to appear in
+ * gossmap.  Lives only in the per-request localmods; collision
+ * within a single request would be a real-world fluke.  Distinct
+ * from renepay's fake destination (which ends in 0x01). */
+static const struct node_id circular_fake_us_in_id = {{
+	0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0xff,
+}};
+
+/* Snapshot of a real (peer -> source) channel we want to mirror.
+ * Collected while the user's layers are applied to the gossmap, so
+ * we see the post-mask view and only mirror what the caller has
+ * left enabled. */
+struct circular_mirror {
+	/* The real (peer -> source) channel direction, to disable. */
+	struct short_channel_id_dir real_scidd;
+	/* Peer at the far end of the real channel. */
+	struct node_id peer_id;
+	/* Channel properties to copy onto the fake mirror. */
+	struct amount_msat capacity;
+	struct amount_msat htlc_min, htlc_max;
+	struct amount_msat base_fee;
+	u32 fee_proportional_millionths;
+	u16 cltv_delta;
+};
+
+/* If source == destination (a self-rebalance call), perform
+ * node-splitting at the gossmap layer:
+ *
+ *   1. Apply the caller's layers to the gossmap temporarily so we
+ *      see the post-mask view (i.e. which peer -> source channels
+ *      the caller has left enabled).
+ *   2. For each still-enabled (peer -> source) direction:
+ *        - Disable the real direction in localmods.
+ *        - Add a mirror (peer -> circular_fake_us_in_id) channel
+ *          with a unique fake scid and the real channel's
+ *          properties copied over.
+ *   3. Undo the temporary apply, leaving the augmented localmods
+ *      ready for the regular gossmap_apply_localmods() at the end
+ *      of do_getroutes.
+ *   4. Replace info->dest with circular_fake_us_in_id.
+ *
+ * Returns NULL on success, setting info->circular when activated
+ * (non-circular requests are untouched and exit at the first line),
+ * or an error string suitable for failing the command. */
+static const char *inject_circular_fake(struct getroutes_info *info,
+					struct gossmap *gossmap,
+					struct gossmap_localmods *localmods)
+{
+	if (!node_id_eq(&info->source, &info->dest))
+		return NULL;
+
+	/* Temporary apply so we can read the user's post-mask view. */
+	gossmap_apply_localmods(gossmap, localmods);
+
+	const struct gossmap_node *me =
+	    gossmap_find_node(gossmap, &info->source);
+
+	struct circular_mirror *mirrors =
+	    tal_arr(tmpctx, struct circular_mirror, 0);
+
+	if (me) {
+		for (size_t i = 0; i < me->num_chans; i++) {
+			int us_half;
+			const struct gossmap_chan *c =
+			    gossmap_nth_chan(gossmap, me, i, &us_half);
+			const int peer_to_us_dir = !us_half;
+
+			/* Skip directions the caller has masked off. */
+			if (!c->half[peer_to_us_dir].enabled)
+				continue;
+
+			struct circular_mirror m;
+			m.real_scidd.scid = gossmap_chan_scid(gossmap, c);
+			m.real_scidd.dir = peer_to_us_dir;
+
+			/* gossmap_nth_node(c, dir) returns the SENDER of
+			 * direction dir.  We want the peer at the far end
+			 * of the channel -- i.e. the sender of the
+			 * (peer -> us) direction.  Using us_half here
+			 * would return us, not the peer. */
+			const struct gossmap_node *peer =
+			    gossmap_nth_node(gossmap, c, peer_to_us_dir);
+			gossmap_node_get_id(gossmap, peer, &m.peer_id);
+
+			m.capacity = gossmap_chan_get_capacity(gossmap, c);
+			m.htlc_min =
+			    gossmap_chan_htlc_min(c, peer_to_us_dir);
+			m.htlc_max =
+			    gossmap_chan_htlc_max(c, peer_to_us_dir);
+			m.base_fee =
+			    amount_msat(c->half[peer_to_us_dir].base_fee);
+			m.fee_proportional_millionths =
+			    c->half[peer_to_us_dir].proportional_fee;
+			m.cltv_delta = c->half[peer_to_us_dir].delay;
+
+			tal_arr_expand(&mirrors, m);
+		}
+	}
+
+	/* Undo the temporary apply -- the next apply at do_getroutes
+	 * line ~620 will reapply with our augmentations included. */
+	gossmap_remove_localmods(gossmap, localmods);
+
+	/* Add disable + mirror entries to localmods. */
+	u32 fake_tx = 0;
+	for (size_t i = 0; i < tal_count(mirrors); i++) {
+		const struct circular_mirror *m = &mirrors[i];
+
+		/* Disable the real (peer -> source) direction: its inbound
+		 * flow now has to arrive via the mirror into us_in. */
+		const bool real_enabled = false;
+		gossmap_local_updatechan(localmods, &m->real_scidd,
+					 &real_enabled,
+					 NULL, NULL, NULL, NULL, NULL);
+
+		/* Fake scids count up from 0x0x0.  Block 0 cannot hold a
+		 * real mainnet channel, but synthetic gossmaps (and the
+		 * caller's layers, via created channels) can occupy any
+		 * scid, and a clash corrupts that channel instead of
+		 * creating the mirror.  Step past scids present in the
+		 * gossmap; gossmap_local_addchan refuses duplicates
+		 * within localmods, covering created channels. */
+		struct short_channel_id fake_scid;
+		bool added = false;
+		while (!added && fake_tx <= 0xFFFFFF) {
+			if (!mk_short_channel_id(&fake_scid, 0, fake_tx++, 0))
+				break;
+			if (gossmap_find_chan(gossmap, &fake_scid))
+				continue;
+			added = gossmap_local_addchan(localmods, &m->peer_id,
+						      &circular_fake_us_in_id,
+						      fake_scid, m->capacity,
+						      NULL);
+		}
+		if (!added)
+			return tal_fmt(tmpctx,
+				       "Could not allocate a fake scid to mirror %s",
+				       fmt_short_channel_id_dir(tmpctx,
+								&m->real_scidd));
+
+		const struct short_channel_id_dir mirror_scidd = {
+			.scid = fake_scid,
+			.dir = node_id_cmp(&m->peer_id,
+					   &circular_fake_us_in_id) < 0
+				? 0 : 1,
+		};
+		const bool mirror_enabled = true;
+		if (!gossmap_local_updatechan(localmods, &mirror_scidd,
+					      &mirror_enabled,
+					      &m->htlc_min, &m->htlc_max,
+					      &m->base_fee,
+					      &m->fee_proportional_millionths,
+					      &m->cltv_delta))
+			return tal_fmt(tmpctx,
+				       "Could not set mirror properties for %s",
+				       fmt_short_channel_id_dir(tmpctx,
+								&m->real_scidd));
+	}
+
+	info->dest = circular_fake_us_in_id;
+	info->circular = true;
+	return NULL;
+}
 
 static void add_layer(const struct layer ***layers,
 		      const struct layer *l,
@@ -615,6 +812,25 @@ static struct command_result *do_getroutes(struct command *cmd,
 	 * all the time! */
 	reserves_clear_capacities(askrene->reserved, askrene->gossmap,
 				  capacities);
+
+	/* Self-rebalance handling: when source == destination, splice
+	 * a fake "us_in" destination node into localmods and mirror
+	 * the still-enabled (peer -> source) directions onto it.
+	 * Algorithms see a regular s -> t flow problem and run
+	 * unchanged.  Must precede gossmap_apply_localmods so the
+	 * augmented mods are picked up by the apply below.  Only
+	 * reached for source == destination when the caller passed
+	 * allow_circular (json_getroutes rejects it otherwise). */
+	err = inject_circular_fake(info, askrene->gossmap, localmods);
+	if (err) {
+		/* localmods are not applied at this point, so fail
+		 * directly: the fail: path would try to remove them. */
+		return command_fail(cmd, PAY_ROUTE_NOT_FOUND, "%s", err);
+	}
+	if (info->circular)
+		cmd_log(tmpctx, cmd, LOG_DBG,
+			"Circular routing: spliced fake us_in destination "
+			"node, mirrored peer -> source channels into it");
 
 	/* we temporarily apply localmods */
 	gossmap_apply_localmods(askrene->gossmap, localmods);
@@ -908,6 +1124,7 @@ static struct command_result *json_getroutes(struct command *cmd,
 	u32 *finalcltv, *maxdelay;
 	enum algorithm *dev_algo;
 	u32 *maxparts;
+	bool *allow_circular;
 
 	if (!param_check(cmd, buffer, params,
 			 p_req("source", param_node_id, &source),
@@ -922,6 +1139,8 @@ static struct command_result *json_getroutes(struct command *cmd,
 				   default_maxparts),
 			 p_opt_dev("dev_algorithm", param_algorithm,
 				   &dev_algo, ALGO_DEFAULT),
+			 p_opt_def("allow_circular", param_bool, &allow_circular,
+				   false),
 			 NULL))
 		return command_param_failed();
 	plugin_log(cmd->plugin, LOG_TRACE, "%s called: %.*s", __func__,
@@ -943,9 +1162,16 @@ static struct command_result *json_getroutes(struct command *cmd,
 				    maxdelay_allowed);
 	}
 
-	if (node_id_eq(source, dest)) {
+	/* source == destination is invalid input for a normal route, and
+	 * we reject it as such -- unless the caller explicitly opts in to
+	 * circular (self-rebalance) routing, in which case we splice a
+	 * node-split in do_getroutes (see inject_circular_fake()) and
+	 * return a cycle back to source. */
+	if (node_id_eq(source, dest) && !*allow_circular) {
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "source and destination must be different");
+				    "source and destination must be different"
+				    " (pass allow_circular=true for a"
+				    " self-rebalance route)");
 	}
 
 	if (command_check_only(cmd))
@@ -961,6 +1187,10 @@ static struct command_result *json_getroutes(struct command *cmd,
 	info->dev_algo = *dev_algo;
 	info->additional_costs = new_htable(info, additional_cost_htable);
 	info->maxparts = *maxparts;
+	/* Default circular off; inject_circular_fake() flips this on for
+	 * source == destination requests (only reachable here when the
+	 * caller passed allow_circular). */
+	info->circular = false;
 
 	if (askrene->num_live_requests >= askrene->max_children) {
 		cmd_log(tmpctx, cmd, LOG_INFORM,

@@ -4689,6 +4689,8 @@ pub mod requests {
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct GetroutesRequest {
 	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub allow_circular: Option<bool>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub maxdelay: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub maxparts: Option<u32>,

@@ -4197,6 +4197,7 @@ message GetroutesRequest {
 	uint32 final_cltv = 7;
 	optional uint32 maxdelay = 8;
 	optional uint32 maxparts = 9;
+	optional bool allow_circular = 10;
 }
 
 message GetroutesResponse {
