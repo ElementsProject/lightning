@@ -52,6 +52,13 @@ struct xpay {
 	/* Suppress calls to askrene-age */
 	bool dev_no_age;
 	const char **user_layers;
+	/* We cannot initialize xpay with rpc_scan, we use instead asynchronous
+	 * requests to fetch the node_id, the blockheight and create the xpay
+	 * layer in askrene. Hence we need a flag to signal when we are ready
+	 * for processing payments otherwise we get a race condition: a payment
+	 * arrives and we don't know our own node_id yet, for example. In
+	 * practice this will be more useful for tests. */
+	bool ready;
 };
 
 static struct xpay *xpay_of(struct plugin *plugin)
@@ -2303,6 +2310,7 @@ static struct command_result *json_xpay_params(struct command *cmd,
 					       const jsmntok_t *params,
 					       bool as_pay)
 {
+	struct xpay *xpay = xpay_of(cmd->plugin);
 	struct amount_msat *msat, *maxfee, *partial;
 	const char *invstring;
 	const char **layers;
@@ -2329,6 +2337,8 @@ static struct command_result *json_xpay_params(struct command *cmd,
 			 p_opt_dev("dev_use_shadow", param_bool, &dev_use_shadow, true),
                          NULL))
 		return command_param_failed();
+	if (!xpay->ready)
+		return command_fail(cmd, PLUGIN_ERROR, "xpay is initializing");
 
 	/* Is this a one-shot vibe payment?  Kids these days! */
 	if (!as_pay && bolt12_has_offer_prefix(invstring)) {
@@ -2514,6 +2524,8 @@ bool attempt_ongoing(struct plugin *plugin, const struct sha256 *payment_hash,
 		     u64 groupid)
 {
 	struct xpay *xpay = xpay_of(plugin);
+	if (!xpay->ready)
+		return false;
 	const struct payment *payment;
 
 	list_for_each(&xpay->payments, payment, list) {
@@ -2817,6 +2829,7 @@ static struct command_result *json_sendamount(struct command *cmd,
 					      const char *buffer,
 					      const jsmntok_t *params)
 {
+	struct xpay *xpay = xpay_of(cmd->plugin);
 	struct amount_msat *send_msat, *maxfee;
 	struct amount_msat invoice_msat;
 	const char *invstring;
@@ -2839,6 +2852,8 @@ static struct command_result *json_sendamount(struct command *cmd,
 			 p_opt("label", param_label, &label),
 			 NULL))
 		return command_param_failed();
+	if (!xpay->ready)
+		return command_fail(cmd, PLUGIN_ERROR, "xpay is initializing");
 
 	// FIXME: why does xpay returns this only after
 	// preapproveinvoice_succeed?
@@ -2903,21 +2918,15 @@ static struct command_result *json_sendamount(struct command *cmd,
 			 label, NULL, false, false, send_msat);
 }
 
-static struct command_result *getchaininfo_done(struct command *aux_cmd,
-						const char *method,
-						const char *buf,
-						const jsmntok_t *result,
-						void *unused)
+static struct command_result *xpay_layer_created(struct command *aux_cmd,
+						 const char *method,
+						 const char *buf,
+						 const jsmntok_t *result,
+						 void *unused)
 {
 	struct xpay *xpay = xpay_of(aux_cmd->plugin);
-
-	/* We use headercount from the backend, in case we're still syncing */
-	if (!json_to_u32(buf, json_get_member(buf, result, "headercount"),
-			 &xpay->blockheight)) {
-		plugin_err(aux_cmd->plugin, "Bad getchaininfo '%.*s'",
-			   json_tok_full_len(result),
-			   json_tok_full(buf, result));
-	}
+	xpay->ready = true;
+	plugin_log(aux_cmd->plugin, LOG_INFORM, "xpay is ready");
 	return aux_command_done(aux_cmd);
 }
 
@@ -2929,6 +2938,7 @@ static struct command_result *getinfo_done(struct command *aux_cmd,
 {
 	struct xpay *xpay = xpay_of(aux_cmd->plugin);
 	const char *err;
+	struct out_req *req;
 
 	err = json_scan(tmpctx, buf, result,
 			"{id:%}", JSON_SCAN(json_to_pubkey, &xpay->local_id));
@@ -2938,7 +2948,35 @@ static struct command_result *getinfo_done(struct command *aux_cmd,
 			   json_tok_full(buf, result),
 			   err);
 	}
-	return aux_command_done(aux_cmd);
+
+	req = jsonrpc_request_start(aux_cmd, "askrene-create-layer",
+				    xpay_layer_created, plugin_broken_cb,
+				    "askrene-create-layer");
+	json_add_string(req->js, "layer", "xpay");
+	json_add_bool(req->js, "persistent", true);
+	return send_outreq(req);
+}
+
+static struct command_result *getchaininfo_done(struct command *aux_cmd,
+						const char *method,
+						const char *buf,
+						const jsmntok_t *result,
+						void *unused)
+{
+	struct xpay *xpay = xpay_of(aux_cmd->plugin);
+	struct out_req *req;
+
+	/* We use headercount from the backend, in case we're still syncing */
+	if (!json_to_u32(buf, json_get_member(buf, result, "headercount"),
+			 &xpay->blockheight)) {
+		plugin_err(aux_cmd->plugin, "Bad getchaininfo '%.*s'",
+			   json_tok_full_len(result),
+			   json_tok_full(buf, result));
+	}
+
+	req = jsonrpc_request_start(aux_cmd, "getinfo", getinfo_done,
+				    plugin_broken_cb, "getinfo");
+	return send_outreq(req);
 }
 
 static struct command_result *populate_private_layer(struct command *cmd,
@@ -2968,15 +3006,6 @@ static struct command_result *age_layer(struct command *cmd, struct payment *pay
 	json_add_string(req->js, "layer", "xpay");
 	json_add_u64(req->js, "cutoff", clock_time().ts.tv_sec - 3600);
 	return send_outreq(req);
-}
-
-static struct command_result *xpay_layer_created(struct command *aux_cmd,
-						 const char *method,
-						 const char *buf,
-						 const jsmntok_t *result,
-						 void *unused)
-{
-	return aux_command_done(aux_cmd);
 }
 
 static struct command_result *json_xkeysend(struct command *cmd,
@@ -3009,6 +3038,8 @@ static struct command_result *json_xkeysend(struct command *cmd,
 			 p_opt("extratlvs", param_extra_tlvs, &extra_fields),
 			 NULL))
 		return command_param_failed();
+	if (!xpay->ready)
+		return command_fail(cmd, PLUGIN_ERROR, "xpay is initializing");
 
 	randbytes(&preimage, sizeof(preimage));
 	sha256(&payment_hash, &preimage, sizeof(preimage));
@@ -3100,20 +3131,6 @@ static const char *init(struct command *init_cmd,
 				    plugin_broken_cb,
 				    "getchaininfo");
 	json_add_u32(req->js, "last_height", 0);
-	send_outreq(req);
-
-	req = jsonrpc_request_start(aux_command(init_cmd), "getinfo",
-				    getinfo_done,
-				    plugin_broken_cb,
-				    "getinfo");
-	send_outreq(req);
-
-	req = jsonrpc_request_start(aux_command(init_cmd), "askrene-create-layer",
-				    xpay_layer_created,
-				    plugin_broken_cb,
-				    "askrene-create-layer");
-	json_add_string(req->js, "layer", "xpay");
-	json_add_bool(req->js, "persistent", true);
 	send_outreq(req);
 
 	return NULL;
@@ -3410,6 +3427,7 @@ int main(int argc, char *argv[])
 	xpay->slow_mode = false;
 	xpay->dev_no_age = false;
 	xpay->user_layers = tal_arr(xpay, const char *, 0);
+	xpay->ready = false;
 	list_head_init(&xpay->payments);
 	plugin_main(argv, init, take(xpay),
 		    PLUGIN_RESTARTABLE, true, NULL,
