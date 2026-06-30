@@ -1,0 +1,43 @@
+---
+name: Test Email Notification
+on:
+  workflow_dispatch:
+  pull_request:
+
+jobs:
+  test-email:
+    name: "Test email on failure"
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Dummy step that fails
+        run: |
+          echo "STEP=Test dummy failure" >> "$GITHUB_ENV"
+          echo "This step will fail to trigger the email..."
+          exit 1
+
+      - name: Send email on failure
+        if: ${{ failure() }}
+        uses: dawidd6/action-send-mail@v17
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.EMAIL_PASSWORD }}
+          from: ${{ secrets.EMAIL_USERNAME }}
+          to: ${{ vars.DISTRIBUTION_LIST }}
+          subject: "TEST: CI Failure - Step ${{ env.STEP }}"
+          convert_markdown: true
+          html_body: |
+            <html>
+              <body>
+                <p><strong>THIS IS A TEST</strong> - GitHub Workflow ${{ github.workflow }} Failed!</p>
+                <p>This is a dummy test to verify the email notification system works.</p>
+                <p>Testing after replacing Alex with Timo and Nicolas in the distribution list.</p>
+                <strong>Failure Details:</strong><br/>
+                <strong>Event: </strong>${{ github.event_name }}<br/>
+                <strong>Job: </strong>${{ github.job }}<br/>
+                <strong>Step: </strong>${{ env.STEP }}<br/>
+                <strong>Action: </strong><a href="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}">${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}</a><br/>
+              </body>
+            </html>
