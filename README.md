@@ -1,6 +1,6 @@
 # Core Lightning (CLN): A specification compliant Lightning Network implementation in C
 
-Core Lightning (previously c-lightning) is a lightweight, highly customizable and [standard compliant][std] implementation of the Lightning Network protocol.
+Core Lightning (previously c-lightning) is a lightweight, highly customizable and [standard compliant][std] implementation of the Lightning Network protocol, developed and maintained by [Blockstream][blockstream]. Learn more about Blockstream's Lightning Network updates at [blockstream.com/lightning][blockstream-lightning].
 
 * [Getting Started](#getting-started)
     * [Installation](#installation)
@@ -22,6 +22,7 @@ Core Lightning (previously c-lightning) is a lightweight, highly customizable an
 [![Continuous Integration][actions-badge]][actions]
 [![Pull Requests Welcome][prs-badge]][prs]
 [![Documentation Status][docs-badge]][docs]
+[![Blockstream][blockstream-badge]][blockstream]
 [![Telegram][telegram-badge]][telegram]
 [![Discord][discord-badge]][discord]
 [![Irc][IRC-badge]][IRC]
@@ -206,6 +207,9 @@ If you encrypt your `hsm_secret`, you will have to pass the `--encrypted-hsm` st
 
 Developers wishing to contribute should start with the developer guide [here](doc/contribute-to-core-lightning/coding-style-guidelines.md).
 
+[blockstream]: https://blockstream.com/
+[blockstream-lightning]: https://blockstream.com/lightning/
+[blockstream-badge]: https://img.shields.io/badge/Blockstream-Company-blue
 [blockstream-store-blog]: https://blockstream.com/2018/01/16/en-lightning-charge/
 [std]: https://github.com/lightning/bolts
 [prs-badge]: https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat
