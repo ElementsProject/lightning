@@ -7,15 +7,16 @@ use cln_lsps::{
     },
     core::{
         lsps2::{
-            htlc::{Htlc, HtlcAcceptedHookHandler, HtlcDecision, Onion, RejectReason},
+            htlc::{Htlc, HtlcAcceptedHookHandler, HtlcDecision, HtlcError, Onion, RejectReason},
             service::Lsps2ServiceHandler,
         },
         server::LspsService,
     },
     proto::lsps0::{Msat, LSPS0_MESSAGE_TYPE},
+    proto::lsps2::failure_codes::TEMPORARY_CHANNEL_FAILURE,
 };
 use cln_plugin::{options, HookBuilder, HookFilter, Plugin};
-use log::{debug, error, trace};
+use log::{debug, error, trace, warn};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -190,14 +191,29 @@ async fn handle_htlc_inner(
             log_decision(&dec);
             decision_to_response(dec)?
         }
-        Err(e) => {
-            // Fixme: Should we log **BROKEN** here?
-            debug!("Htlc handler failed (continuing): {:#}", e);
-            return Ok(json_continue());
-        }
+        Err(e) => return Ok(handle_htlc_error(e)),
     };
 
     Ok(serde_json::to_value(&response)?)
+}
+
+fn handle_htlc_error(e: HtlcError) -> serde_json::Value {
+    match e {
+        HtlcError::FundChannel(ref cause) => {
+            warn!(
+                "LSPS2: Failed to open JIT channel (likely insufficient on-chain balance): {:#}. \
+                 Operator action required.",
+                cause
+            );
+        }
+        HtlcError::ChannelReadyCheck(ref cause) => {
+            warn!("LSPS2: Channel ready check failed: {:#}", cause);
+        }
+        HtlcError::CapacityQuery(ref cause) => {
+            error!("LSPS2: Capacity query failed: {:#}", cause);
+        }
+    }
+    json_fail(TEMPORARY_CHANNEL_FAILURE)
 }
 
 fn decision_to_response(decision: HtlcDecision) -> Result<serde_json::Value, anyhow::Error> {
