@@ -667,8 +667,13 @@ check-doc-examples: update-doc-examples
 check-wire-format: extract-bolt-csv
 	git diff --exit-code HEAD
 
+# SECURITY.md and doc/contribute-to-core-lightning/security-policy.md must be
+# synced. So far we do this manually.
+check-security:
+	@bash -lc 'diff -u <(tail -n +3 -- SECURITY.md) <(tail -n +9 -- doc/contribute-to-core-lightning/security-policy.md)'
+
 # This should NOT compile things!
-check-source: check-makefile check-whitespace check-spelling check-python-flake8 check-includes check-shellcheck check-setup_locale check-tmpctx check-discouraged-functions check-amount-access check-bad-sprintf check-wire-format check-source-bolt
+check-source: check-makefile check-whitespace check-spelling check-python-flake8 check-includes check-shellcheck check-setup_locale check-tmpctx check-discouraged-functions check-amount-access check-bad-sprintf check-wire-format check-source-bolt check-security
 
 full-check: check check-source
 
@@ -825,7 +830,7 @@ update-ccan:
 	cp ../ccan/tools/configurator/configurator.c ../ccan/doc/configurator.1 ccan/tools/configurator/
 	$(MAKE) ccan/config.h
 	grep -v '^CCAN version:' ccan.old/README > ccan/README
-	echo CCAN version: `git -C ../ccan describe` >> ccan/README
+	echo CCAN version: `git -C ../ccan rev-parse --short HEAD` >> ccan/README
 	$(RM) -r ccan.old
 	$(RM) -r ccan/ccan/hash/ ccan/ccan/tal/talloc/	# Unnecessary deps
 

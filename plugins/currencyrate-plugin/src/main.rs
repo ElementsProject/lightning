@@ -94,17 +94,27 @@ median from currencyrates results",
 
     let proxy = match check_proxy_config(&plugin).await {
         Ok(o) => o,
-        Err(e) => return plugin.disable(&e.to_string()).await,
+        Err(e) => {
+            return plugin.disable(&format!("Error in proxy config: {e}")).await;
+        }
     };
 
     let sources = match gather_sources(&plugin, proxy.is_some()) {
         Ok(o) => o,
-        Err(e) => return plugin.disable(&e.to_string()).await,
+        Err(e) => {
+            return plugin
+                .disable(&format!("Error in sources config: {e}"))
+                .await;
+        }
     };
 
     let price_oracle = match BtcPriceOracle::new(proxy, sources) {
         Ok(o) => o,
-        Err(e) => return plugin.disable(&e.to_string()).await,
+        Err(e) => {
+            return plugin
+                .disable(&format!("Error creating price oracle: {e}"))
+                .await;
+        }
     };
 
     let plugin_state = PluginState {

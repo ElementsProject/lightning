@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [26.06.2] - 2026-06-24: "Qantum-Resistant Lightning Channel III"
+
+This point release if recommended for all minimal OS setups, including docker images, that have no root certificates for TLS installed.
+
+### Fixed
+
+ - cln-currencyrate: include root certificates to fix the `builder error` on OS's without root certificates. ([#9252])
+
+[#9252]: https://github.com/ElementsProject/lightning/pull/9252
+[26.06.2]: https://github.com/ElementsProject/lightning/releases/tag/v26.06.2
+
 ## [26.06.1] - 2026-06-05: "Qantum-Resistant Lightning Channel II"
 
 This point release is recommended: it fixes the bwatch plugin failure at registration
@@ -114,6 +125,17 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 [#8922]: https://github.com/ElementsProject/lightning/pull/8922
 [#9136]: https://github.com/ElementsProject/lightning/pull/9136
 [26.06]: https://github.com/ElementsProject/lightning/releases/tag/v26.06
+
+## [26.04.2] - 2026-06-24: "Negative Routing Fees III"
+
+This point release if recommended for all minimal OS setups, including docker images, that have no root certificates for TLS installed.
+
+### Fixed
+
+ - cln-currencyrate: include root certificates to fix the `builder error` on OS's without root certificates. ([9251])
+
+[#9251]: https://github.com/ElementsProject/lightning/pull/9251
+[26.04.2]: https://github.com/ElementsProject/lightning/releases/tag/v26.04.2
 
 ## [26.04.1] - 2026-04-25: "Negative Routing Fees II"
 
