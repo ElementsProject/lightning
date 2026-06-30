@@ -788,12 +788,12 @@ static void wait_and_check_bitcoind(struct plugin *p)
 	needlessly. */
 	cmd = gather_args(bitcoind, NULL, "-rpcwait", "-rpcwaittimeout=1",
 			  "getnetworkinfo", NULL);
+	res = NULL;
 	for (i = 0; i < 30; i++) {
+		tal_free(res);            /* NULL-safe; frees previous attempt */
 		res = execute_bitcoin_cli(bitcoind, p, cmd, NULL);
 		if (res->exitstatus != 1)
 			break;
-		if (i != 29)
-			tal_free(res);
 	}
 
 	if (res->exitstatus == 1)
