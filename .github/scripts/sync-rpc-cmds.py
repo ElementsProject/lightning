@@ -4,8 +4,9 @@ import requests
 import re
 from enum import Enum
 
-# readme url
-BRANCH = "stable"
+# ReadMe version - use README_VERSION env var if set, otherwise default to "stable"
+BRANCH = os.environ.get("README_VERSION", "stable")
+print(f"📋 Using ReadMe version/branch: '{BRANCH}'")
 URL = f"https://api.readme.com/v2/branches/{BRANCH}"
 CATEGORY_SLUG = "JSON-RPC"
 NOTIFICATIONS_CATEGORY_SLUG = "Notifications"
