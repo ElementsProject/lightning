@@ -4,7 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [26.04.1] - 2026-04-25: "Negative Routing Fees II"
+## [26.04.2] - 2026-06-30: "Negative Routing Fees II"
+
+This point release is recommended for all minimal OS setups, including docker images, that have no root certificates for TLS installed. 
+
+### Fixed
+
+- **cln-currencyrate:** include root certificates to fix the `build error` on OS's without root certificates ([#9255])
+
+[#9255]: https://github.com/ElementsProject/lighting/pull/9255
+[26.04.2]: https://github.com/ElementsProject/lightning/releases/tag/v26.04.2
+
+## [26.04.1] - 2026-04-25: "Negative Routing Fees I"
 
 This point release is recommended: it fixes a build failure in some environments and a gossip protocol issue.
 
