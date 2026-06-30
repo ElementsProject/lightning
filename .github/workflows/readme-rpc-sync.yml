@@ -13,36 +13,119 @@ on:
       - 'doc/*.8.md'
       - 'doc/lightningd-*.7.md'
       - 'doc/reckless.7.md'
+    tags:
+      - 'v[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+[0-9a-z]+'
   workflow_dispatch:
 
 jobs:
-  rdme-rpc-sync:
-    runs-on: ubuntu-22.04
+  # Step 1: Determine version and create ReadMe version if needed
+  version:
+    name: Determine ReadMe Version
+    runs-on: ubuntu-24.04
+    outputs:
+      readme_version: ${{ steps.determine.outputs.readme_version }}
+      version_created: ${{ steps.create_version.outputs.readme_version_created }}
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v6
+      - name: Check out repo 📚
+        uses: actions/checkout@v6
 
-    - name: Set up Python
-      uses: actions/setup-python@v6
-      with:
-        python-version: 3.9
+      - name: Determine version from .version file
+        id: determine
+        run: |
+          FULL_VERSION=$(cat .version | tr -d ' \n')
+          VERSION="${FULL_VERSION#v}"
+          SHORT_VERSION=$(echo "$VERSION" | grep -oE '^[0-9]+\.[0-9]+')
+          echo "Full version: $FULL_VERSION"
+          echo "Short version: $SHORT_VERSION"
+          echo "readme_version=${SHORT_VERSION}" >> "$GITHUB_OUTPUT"
 
-    - name: Install python modules
-      run: |
-        python -m pip install requests mako grpcio-tools
+      - name: Create ReadMe version if needed
+        id: create_version
+        if: github.ref_type == 'tag'
+        run: |
+          bash .github/scripts/create-readme-version.sh "${{ steps.determine.outputs.readme_version }}"
+        env:
+          README_API_KEY: ${{ secrets.README_API_KEY }}
 
-    - name: Install uv
-      uses: astral-sh/setup-uv@v8.1.0
+  # Step 2: Build and sync RPC docs to the determined version
+  rdme-rpc-sync:
+    name: Sync RPC Docs to ReadMe
+    needs: version
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
 
-    - name: Install dependencies
-      run: bash -x .github/scripts/setup.sh
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: 3.9
 
-    - name: Build (including rpc .md files)
-      run: |
-        ./configure --enable-debugbuild
-        make -j $(nproc)
+      - name: Install python modules
+        run: |
+          python -m pip install requests mako grpcio-tools
 
-    - name: Set environment variable and run
-      env:
-        README_API_KEY: ${{ secrets.README_API_KEY }}
-      run: python .github/scripts/sync-rpc-cmds.py
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.1.0
+
+      - name: Install dependencies
+        run: bash -x .github/scripts/setup.sh
+
+      - name: Build (including rpc .md files)
+        run: |
+          ./configure --enable-debugbuild
+          make -j $(nproc)
+
+      - name: Determine ReadMe version for sync
+        id: sync_version
+        run: |
+          README_VERSION="${{ needs.version.outputs.readme_version }}"
+          if [ -z "$README_VERSION" ] || [ "$README_VERSION" = "null" ]; then
+            if [ -f .version ]; then
+              FULL_VERSION=$(cat .version | tr -d ' \n')
+              VERSION="${FULL_VERSION#v}"
+              README_VERSION=$(echo "$VERSION" | grep -oE '^[0-9]+\.[0-9]+')
+            else
+              README_VERSION="stable"
+            fi
+          fi
+          echo "Syncing RPC docs to ReadMe version: ${README_VERSION}"
+          echo "version=${README_VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Set environment variable and run
+        env:
+          README_API_KEY: ${{ secrets.README_API_KEY }}
+          README_VERSION: ${{ steps.sync_version.outputs.version }}
+        run: python .github/scripts/sync-rpc-cmds.py
+
+  # Step 3: Set as stable version after sync (for full releases, not RC)
+  promote:
+    name: Promote to Stable
+    needs:
+      - version
+      - rdme-rpc-sync
+    if: >
+      github.ref_type == 'tag' &&
+      needs.version.outputs.version_created == 'true' && !contains(github.ref_name, 'rc')
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out repo 📚
+        uses: actions/checkout@v6
+
+      - name: Promote version to stable
+        run: |
+          README_VERSION="${{ needs.version.outputs.readme_version }}"
+          echo "Promoting '${README_VERSION}' to stable..."
+
+          curl -s -X PUT "https://api.readme.com/v2/versions/${README_VERSION}" \
+            -H "Authorization: Bearer ${{ secrets.README_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "is_stable": true
+            }'
+
+          echo ""
+          echo "✅ Version '${README_VERSION}' promoted to stable!"
+
