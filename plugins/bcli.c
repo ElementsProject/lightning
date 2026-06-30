@@ -783,9 +783,10 @@ static void wait_and_check_bitcoind(struct plugin *p)
 	int i;
 
 	/* Special case: -rpcwait flags go on command line, not stdin */
-	/* We try 30 times one second rather than one time one second, because
-	we have seen cases bitcoind becomes available, but rpcwait still just hang
-	needlessly. */
+	/* We try 30 times one second rather than one time thirty seconds, because
+	 * we have seen cases bitcoind becomes available, but rpcwait still just hangs
+	 * needlessly.
+	 */
 	cmd = gather_args(bitcoind, NULL, "-rpcwait", "-rpcwaittimeout=1",
 			  "getnetworkinfo", NULL);
 	res = NULL;
