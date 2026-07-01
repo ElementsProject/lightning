@@ -24,7 +24,8 @@ import unittest
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 def test_pay(node_factory):
-    l1, l2 = node_factory.line_graph(2)
+    l1, l2 = node_factory.line_graph(2, opts={"allow-deprecated-apis": True,
+                                              "xpay-handle-pay": False})
 
     inv = l2.rpc.invoice(123000, 'test_pay', 'description')['bolt11']
     before = int(time.time())
@@ -84,8 +85,10 @@ def test_pay(node_factory):
     assert apys_1[0]['routed_in_msat'] == apys_2[0]['routed_out_msat']
 
 
-def test_pay_invstring(node_factory):
-    l1, l2 = node_factory.line_graph(2, opts={'allow-deprecated-apis': True})
+@pytest.mark.parametrize("xpay_handle_pay", [True, False])
+def test_pay_invstring(node_factory, xpay_handle_pay):
+    l1, l2 = node_factory.line_graph(2, opts={'allow-deprecated-apis': True,
+                                              "xpay-handle-pay": xpay_handle_pay})
 
     l1.rpc.check_request_schemas = False
     inv = l2.rpc.invoice(123000, 'test_pay_invstring', 'description')['bolt11']
@@ -2381,7 +2384,8 @@ def test_setchannel_routing(node_factory, bitcoind):
     assert 'warning_capacity' in inv
 
 
-def test_setchannel_zero(node_factory, bitcoind):
+@pytest.mark.parametrize("xpay_handle_pay", [True, False])
+def test_setchannel_zero(node_factory, bitcoind, xpay_handle_pay):
     # TEST SETUP
     #
     # [l1] <--default_fees--> [l2] <--specific_fees--> [l3]
@@ -2395,7 +2399,8 @@ def test_setchannel_zero(node_factory, bitcoind):
 
     l1, l2, l3 = node_factory.line_graph(
         3, announce_channels=True, wait_for_announce=True,
-        opts={'fee-base': DEF_BASE, 'fee-per-satoshi': DEF_PPM})
+        opts={'fee-base': DEF_BASE, 'fee-per-satoshi': DEF_PPM,
+              "allow-deprecated-apis": True, "xpay-handle-pay": xpay_handle_pay})
 
     # get short channel id for 2->3
     scid = l2.get_channel_scid(l3)
@@ -3428,13 +3433,16 @@ def test_reject_invalid_payload(node_factory):
     l2.daemon.wait_for_log(r'Failing HTLC because of an invalid payload')
 
 
-def test_excluded_adjacent_routehint(node_factory, bitcoind):
+@pytest.mark.parametrize("xpay_handle_pay", [True, False])
+def test_excluded_adjacent_routehint(node_factory, bitcoind, xpay_handle_pay):
     """Test case where we try have a routehint which leads to an adjacent
     node, but the result exceeds our maxfee; we crashed trying to find
     what part of the path was most expensive in that case
 
     """
-    l1, l2, l3 = node_factory.line_graph(3)
+    l1, l2, l3 = node_factory.line_graph(3, opts={"allow-deprecated-apis": True,
+                                                  "xpay-handle-pay":
+                                                  xpay_handle_pay})
 
     # Make sure l2->l3 is usable.
     wait_for(lambda: 'remote' in only_one(l3.rpc.listpeerchannels()['channels'])['updates'])
@@ -3446,7 +3454,10 @@ def test_excluded_adjacent_routehint(node_factory, bitcoind):
     wait_for(lambda: 'remote' in only_one(l1.rpc.listpeerchannels()['channels'])['updates'])
 
     # This will make it reject the routehint.
-    err = 'Failed: Could not find route without excessive cost'
+    if xpay_handle_pay:
+        err = 'Failed: Could not find route without excessive cost'
+    else:
+        err = 'Fee exceeds our fee budget: 1msat > 0msat'
     with pytest.raises(RpcError, match=err):
         l1.rpc.pay(bolt11=inv['bolt11'], maxfeepercent=0, exemptfee=0)
 
@@ -4837,13 +4848,13 @@ def test_recurrence_expired_offer(node_factory, bitcoind):
     ret = l1.rpc.fetchinvoice(offer=offer['bolt12'],
                               recurrence_counter=0,
                               recurrence_label='test_recurrence_expired_offer')
-    l1.rpc.pay(ret['invoice'], label='test_recurrence_expired_offer')
+    l1.rpc.xpay(ret['invoice'], label='test_recurrence_expired_offer')
 
     time.sleep(16)
     ret = l1.rpc.fetchinvoice(offer=offer['bolt12'],
                               recurrence_counter=1,
                               recurrence_label='test_recurrence_expired_offer')
-    l1.rpc.pay(ret['invoice'], label='test_recurrence_expired_offer')
+    l1.rpc.xpay(ret['invoice'], label='test_recurrence_expired_offer')
 
 
 def test_fetchinvoice_autoconnect(node_factory, bitcoind):
@@ -4921,7 +4932,8 @@ def test_fetchinvoice_disconnected_reply(node_factory, bitcoind):
     assert l3.rpc.listpeers(l1.info['id']) == {'peers': []}
 
 
-def test_pay_blockheight_mismatch(node_factory, bitcoind):
+@pytest.mark.parametrize("xpay_handle_pay", [True, False])
+def test_pay_blockheight_mismatch(node_factory, bitcoind, xpay_handle_pay):
     """Test that we can send a payment even if not caught up with the chain.
 
     We removed the requirement for the node to be fully synced up with
@@ -4935,7 +4947,11 @@ def test_pay_blockheight_mismatch(node_factory, bitcoind):
 
     send, direct, recv = node_factory.line_graph(3,
                                                  wait_for_announce=True,
-                                                 opts={'may_reconnect': True})
+                                                 opts={'may_reconnect': True,
+                                                       "allow-deprecated-apis":
+                                                       True,
+                                                       "xpay-handle-pay":
+                                                       xpay_handle_pay})
     sync_blockheight(bitcoind, [send, recv])
 
     height = bitcoind.rpc.getblockchaininfo()['blocks']
@@ -5611,7 +5627,8 @@ def test_self_sendpay(node_factory):
         l1.rpc.sendpay([], inv['payment_hash'], label='selfpay', bolt11=inv['bolt11'], payment_secret=inv['payment_secret'], amount_msat='100000sat')
 
 
-def test_strip_lightning_suffix_from_inv(node_factory):
+@pytest.mark.parametrize("xpay_handle_pay", [True, False])
+def test_strip_lightning_suffix_from_inv(node_factory, xpay_handle_pay):
     """
     Reproducer for [1] that pay an invoice with the `lightning:<bolt11|bolt12>`
     prefix and then, will check if core lightning is able to strip it during
@@ -5619,7 +5636,8 @@ def test_strip_lightning_suffix_from_inv(node_factory):
 
     [1] https://github.com/ElementsProject/lightning/issues/6207
     """
-    l1, l2 = node_factory.line_graph(2)
+    l1, l2 = node_factory.line_graph(2, opts={"allow-deprecated-apis": True,
+                                              "xpay-handle-pay": xpay_handle_pay})
     inv = l2.rpc.invoice(40, "strip-lightning-prefix", "test to be able to strip the `lightning:` prefix.")["bolt11"]
     wait_for(lambda: only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['state'] == 'CHANNELD_NORMAL')
 
