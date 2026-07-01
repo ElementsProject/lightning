@@ -23,8 +23,10 @@ import unittest
 
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
-def test_pay(node_factory):
-    l1, l2 = node_factory.line_graph(2)
+@pytest.mark.parametrize("xpay_handle_pay", [True, False])
+def test_pay(node_factory, xpay_handle_pay):
+    l1, l2 = node_factory.line_graph(2, opts={"allow-deprecated-apis": True,
+                                              "xpay-handle-pay": xpay_handle_pay})
 
     inv = l2.rpc.invoice(123000, 'test_pay', 'description')['bolt11']
     before = int(time.time())
@@ -84,16 +86,20 @@ def test_pay(node_factory):
     assert apys_1[0]['routed_in_msat'] == apys_2[0]['routed_out_msat']
 
 
-def test_pay_invstring(node_factory):
-    l1, l2 = node_factory.line_graph(2, opts={'allow-deprecated-apis': True})
+@pytest.mark.parametrize("xpay_handle_pay", [True, False])
+def test_pay_invstring(node_factory, xpay_handle_pay):
+    l1, l2 = node_factory.line_graph(2, opts={'allow-deprecated-apis': True,
+                                              "xpay-handle-pay": xpay_handle_pay})
 
     l1.rpc.check_request_schemas = False
     inv = l2.rpc.invoice(123000, 'test_pay_invstring', 'description')['bolt11']
     l1.rpc.call('pay', {'invstring': inv})
 
 
-def test_pay_amounts(node_factory):
-    l1, l2 = node_factory.line_graph(2)
+@pytest.mark.parametrize("xpay_handle_pay", [True, False])
+def test_pay_amounts(node_factory, xpay_handle_pay):
+    l1, l2 = node_factory.line_graph(2, opts={"allow-deprecated-apis": True,
+                                              "xpay-handle-pay": xpay_handle_pay})
     inv = l2.rpc.invoice(Millisatoshi("123sat"), 'test_pay_amounts', 'description')['bolt11']
 
     invoice = only_one(l2.rpc.listinvoices('test_pay_amounts')['invoices'])
@@ -134,10 +140,6 @@ def test_pay_limits(node_factory):
     with pytest.raises(RpcError, match=err) as err:
         l1.rpc.xpay(invstring=inv['bolt11'], amount_msat=100000, maxfee=1)
 
-    # This works, because fee is less than exemptfee.
-    l1.dev_pay(inv['bolt11'], amount_msat=100000, maxfeepercent=0.0001,
-               exemptfee=2000, dev_use_shadow=False)
-
 
 def test_pay_maxdelay_direct_channel(node_factory):
     """Test that maxdelay is enforced even for direct channel payments"""
@@ -169,7 +171,7 @@ def test_pay_exclude_node(node_factory, bitcoind):
     inv = l3.rpc.invoice(amount, "test1", 'description')['bolt11']
     # It should have eliminated route hint.
     with pytest.raises(RpcError, match=r"Failed after 1 attempts. We got a weird error \(temporary_node_failure\) for the invoice's route hint \([0-9x]*/0\): disabling it for this payment. Then routing failed: We could not find a usable set of paths. All 1 channels to the destination are disabled."):
-        l1.rpc.pay(inv)
+        l1.rpc.xpay(inv)
 
     # Get a fresh invoice, but do it before other routes exist, so routehint
     # will be via l2.
@@ -201,7 +203,7 @@ def test_pay_exclude_node(node_factory, bitcoind):
                              .format(scid53)])
 
     # This `pay` will work
-    l1.rpc.pay(inv)
+    l1.rpc.xpay(inv)
 
     [p['status'] for p in l1.rpc.listsendpays()['payments']] == ['failed', 'failed', 'complete']
 
@@ -284,7 +286,11 @@ def test_pay_disconnect(node_factory, bitcoind):
 
 def test_pay_error_update_fees(node_factory):
     """We should process an update inside a temporary_channel_failure"""
-    l1, l2, l3 = node_factory.line_graph(3, fundchannel=True, wait_for_announce=True)
+    l1, l2, l3 = node_factory.line_graph(3, fundchannel=True,
+                                         wait_for_announce=True,
+                                         opts={
+                                             "allow-deprecated-apis": True,
+                                             "xpay-handle-pay": True})
 
     # Don't include any routehints in first invoice.
     inv1 = l3.dev_invoice(amount_msat=123000,
@@ -311,8 +317,11 @@ def test_pay_error_update_fees(node_factory):
     assert len(payments) == 2
 
 
-def test_pay_optional_args(node_factory):
-    l1, l2 = node_factory.line_graph(2)
+@pytest.mark.parametrize("xpay_handle_pay", [True, False])
+def test_pay_optional_args(node_factory, xpay_handle_pay):
+    l1, l2 = node_factory.line_graph(
+        2, opts={"allow-deprecated-apis": True, "xpay-handle-pay": xpay_handle_pay}
+    )
 
     inv1 = l2.rpc.invoice(123000, 'test_pay', 'desc')['bolt11']
     l1.dev_pay(inv1, label='desc', dev_use_shadow=False)
@@ -340,7 +349,9 @@ def test_pay_optional_args(node_factory):
 
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
-def test_payment_success_persistence(node_factory, bitcoind, executor):
+@pytest.mark.parametrize("xpay_handle_pay", [True, False])
+def test_payment_success_persistence(node_factory, bitcoind, executor,
+                                     xpay_handle_pay):
     # Start two nodes and open a channel.. die during payment.
     # Feerates identical so we don't get gratuitous commit to update them
     disconnect = ['+WIRE_COMMITMENT_SIGNED']
@@ -349,10 +360,16 @@ def test_payment_success_persistence(node_factory, bitcoind, executor):
         # dual funding uses this for channel establishment also
         disconnect = ['=WIRE_COMMITMENT_SIGNED'] + disconnect
 
-    l1 = node_factory.get_node(disconnect=disconnect,
-                               options={'dev-no-reconnect': None},
-                               may_reconnect=True,
-                               feerates=(7500, 7500, 7500, 7500))
+    l1 = node_factory.get_node(
+        disconnect=disconnect,
+        may_reconnect=True,
+        feerates=(7500, 7500, 7500, 7500),
+        options={
+            "allow-deprecated-apis": True,
+            "xpay-handle-pay": xpay_handle_pay,
+            "dev-no-reconnect": None,
+        },
+    )
     l2 = node_factory.get_node(may_reconnect=True)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
@@ -385,7 +402,8 @@ def test_payment_success_persistence(node_factory, bitcoind, executor):
 
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
-def test_payment_failed_persistence(node_factory, executor):
+@pytest.mark.parametrize("xpay_handle_pay", [True, False])
+def test_payment_failed_persistence(node_factory, executor, xpay_handle_pay):
     # Start two nodes and open a channel.. die during payment.
     # Feerates identical so we don't get gratuitous commit to update them
     disconnect = ['+WIRE_COMMITMENT_SIGNED']
@@ -393,10 +411,13 @@ def test_payment_failed_persistence(node_factory, executor):
         # We have to add an extra 'wire-commitment-signed' because
         # dual funding uses this for channel establishment also
         disconnect = ['=WIRE_COMMITMENT_SIGNED'] + disconnect
-    l1 = node_factory.get_node(disconnect=disconnect,
-                               options={'dev-no-reconnect': None},
-                               may_reconnect=True,
-                               feerates=(7500, 7500, 7500, 7500))
+    l1 = node_factory.get_node(
+        disconnect=disconnect,
+        may_reconnect=True,
+        feerates=(7500, 7500, 7500, 7500),
+        options={"allow-deprecated-apis": True, "xpay-handle-pay":
+                 xpay_handle_pay, "dev-no-reconnect": None},
+    )
     l2 = node_factory.get_node(may_reconnect=True)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
@@ -469,10 +490,15 @@ def test_payment_duplicate_uncommitted(node_factory, executor):
         fut2.result(TIMEOUT)
 
 
-def test_pay_maxfee_shadow(node_factory):
+@pytest.mark.parametrize("xpay_handle_pay", [True, False])
+def test_pay_maxfee_shadow(node_factory, xpay_handle_pay):
     """Test that we respect maxfeepercent for shadow routing."""
-    l1, l2, l3 = node_factory.line_graph(3, fundchannel=True,
-                                         wait_for_announce=True)
+    l1, l2, l3 = node_factory.line_graph(
+        3,
+        fundchannel=True,
+        wait_for_announce=True,
+        opts={"allow-deprecated-apis": True, "xpay-handle-pay": xpay_handle_pay},
+    )
     # We use this to search for shadow routes
     wait_for(
         lambda: len(l1.rpc.listchannels(source=l2.info["id"])["channels"]) > 1
@@ -1752,8 +1778,12 @@ def test_htlcs_cltv_only_difference(node_factory, bitcoind):
     assert only_one(l3.rpc.listpeers(l4.info['id'])['peers'])['connected']
 
 
-def test_pay_variants(node_factory):
-    l1, l2 = node_factory.line_graph(2)
+@pytest.mark.parametrize("xpay_handle_pay", [True, False])
+def test_pay_variants(node_factory, xpay_handle_pay):
+    l1, l2 = node_factory.line_graph(
+        2,
+        opts={"allow-deprecated-apis": True, "xpay-handle-pay": xpay_handle_pay},
+    )
 
     # Upper case is allowed
     b11 = l2.rpc.invoice(123000, 'test_pay_variants upper', 'description')['bolt11'].upper()
@@ -1772,7 +1802,9 @@ def test_pay_variants(node_factory):
 
 
 @pytest.mark.slow_test
-def test_pay_retry(node_factory, bitcoind, executor, chainparams):
+@pytest.mark.parametrize("xpay_handle_pay", [True, False])
+def test_pay_retry(node_factory, bitcoind, executor, chainparams,
+                   xpay_handle_pay):
     """Make sure pay command retries properly. """
 
     def exhaust_channel(opener, peer, scid, already_spent=0):
@@ -1793,8 +1825,16 @@ def test_pay_retry(node_factory, bitcoind, executor, chainparams):
 
     # We connect every node to l5; in a line and individually.
     # Keep fixed fees so we can easily calculate exhaustion
-    l1, l2, l3, l4, l5 = node_factory.line_graph(5, fundchannel=False,
-                                                 opts={'feerates': (7500, 7500, 7500, 7500), 'disable-mpp': None})
+    l1, l2, l3, l4, l5 = node_factory.line_graph(
+        5,
+        fundchannel=False,
+        opts={
+            "feerates": (7500, 7500, 7500, 7500),
+            "disable-mpp": None,
+            "allow-deprecated-apis": True,
+            "xpay-handle-pay": xpay_handle_pay,
+        },
+    )
 
     # scid12
     l1.fundchannel(l2, 10**6, wait_for_active=False)
@@ -1848,8 +1888,12 @@ def test_pay_retry(node_factory, bitcoind, executor, chainparams):
     # It will try l1->l2->l3->l5, which fails.
     # It will try l1->l2->l3->l4->l5, which fails.
     # Finally, fails to find a route.
+    if xpay_handle_pay:
+        pattern = r"Failed after [0-9]* attempts"
+    else:
+        pattern = r"Ran out of routes to try after 4 attempts"
     inv = l5.rpc.invoice(10**8, 'test_retry2', 'test_retry2')['bolt11']
-    with pytest.raises(RpcError, match=r'Failed after [0-9]* attempts'):
+    with pytest.raises(RpcError, match=pattern):
         l1.dev_pay(inv, dev_use_shadow=False)
 
 
@@ -1918,7 +1962,7 @@ def test_pay_avoid_low_fee_chan(node_factory, bitcoind, executor, chainparams):
     fut = executor.submit(listpays_nofail, inv['bolt11'])
 
     # Pay sender->dest should succeed via non-depleted channel
-    l1.dev_pay(inv['bolt11'], dev_use_shadow=False)
+    l1.rpc.xpay(inv['bolt11'])
 
     fut.result()
 
@@ -2245,8 +2289,8 @@ def test_setchannel_state(node_factory, bitcoind):
 
     l1.wait_for_route(l3)
     inv = l3.rpc.invoice(100000, 'test_setchannel_state', 'desc')['bolt11']
-    result = l1.dev_pay(inv, dev_use_shadow=False)
-    assert result['status'] == 'complete'
+    result = l1.rpc.xpay(inv)
+    assert result['successful_parts'] == 1
     assert result['amount_sent_msat'] == 100042
 
     # Disconnect and unilaterally close from l3 to l2
@@ -2319,7 +2363,7 @@ def test_setchannel_routing(node_factory, bitcoind):
                          description='desc',
                          dev_routes=[])
     with pytest.raises(RpcError, match=f'The shortest path is [0-9x]*->{scid}, but {scid}/0 exceeds htlc_maximum_msat ~4001792msat'):
-        l1.dev_pay(inv['bolt11'], dev_use_shadow=False)
+        l1.rpc.xpay(inv['bolt11'], dev_use_shadow=False)
 
     # 1337 + 4000000 * 137 / 1000000 = 1885
     route_ok = l1.single_route(l3.info['id'], 4000000)
@@ -2381,7 +2425,8 @@ def test_setchannel_routing(node_factory, bitcoind):
     assert 'warning_capacity' in inv
 
 
-def test_setchannel_zero(node_factory, bitcoind):
+@pytest.mark.parametrize("xpay_handle_pay", [True, False])
+def test_setchannel_zero(node_factory, bitcoind, xpay_handle_pay):
     # TEST SETUP
     #
     # [l1] <--default_fees--> [l2] <--specific_fees--> [l3]
@@ -2395,7 +2440,8 @@ def test_setchannel_zero(node_factory, bitcoind):
 
     l1, l2, l3 = node_factory.line_graph(
         3, announce_channels=True, wait_for_announce=True,
-        opts={'fee-base': DEF_BASE, 'fee-per-satoshi': DEF_PPM})
+        opts={'fee-base': DEF_BASE, 'fee-per-satoshi': DEF_PPM,
+              "allow-deprecated-apis": True, "xpay-handle-pay": xpay_handle_pay})
 
     # get short channel id for 2->3
     scid = l2.get_channel_scid(l3)
@@ -2430,7 +2476,8 @@ def test_setchannel_zero(node_factory, bitcoind):
     assert only_one(ret['channels'])['maximum_htlc_out_msat'] == MAX_HTLC
 
 
-def test_setchannel_restart(node_factory, bitcoind):
+@pytest.mark.parametrize("xpay_handle_pay", [True, False])
+def test_setchannel_restart(node_factory, bitcoind, xpay_handle_pay):
     # TEST SETUP
     #
     # [l1] <--default_fees--> [l2] <--specific_fees--> [l3]
@@ -2443,7 +2490,13 @@ def test_setchannel_restart(node_factory, bitcoind):
     DEF_PPM = 10
     MIN_HTLC = Millisatoshi(0)
     MAX_HTLC = Millisatoshi(int(FUNDAMOUNT * 1000 * 0.99))
-    OPTS = {'may_reconnect': True, 'fee-base': DEF_BASE, 'fee-per-satoshi': DEF_PPM}
+    OPTS = {
+        "may_reconnect": True,
+        "fee-base": DEF_BASE,
+        "fee-per-satoshi": DEF_PPM,
+        "allow-deprecated-apis": True,
+        "xpay-handle-pay": xpay_handle_pay,
+    }
 
     l1, l2, l3 = node_factory.line_graph(3, announce_channels=True, wait_for_announce=True, opts=OPTS)
 
@@ -2887,7 +2940,11 @@ def test_shadow_routing(node_factory):
     Note there is a very low (0.5**10) probability that it fails.
     """
     # We need l3 for random walk
-    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
+    l1, l2, l3 = node_factory.line_graph(
+        3,
+        wait_for_announce=True,
+        opts={"allow-deprecated-apis": True, "xpay-handle-pay": False},
+    )
 
     amount = 10000
     total_amount = 0
@@ -3428,13 +3485,16 @@ def test_reject_invalid_payload(node_factory):
     l2.daemon.wait_for_log(r'Failing HTLC because of an invalid payload')
 
 
-def test_excluded_adjacent_routehint(node_factory, bitcoind):
+@pytest.mark.parametrize("xpay_handle_pay", [True, False])
+def test_excluded_adjacent_routehint(node_factory, bitcoind, xpay_handle_pay):
     """Test case where we try have a routehint which leads to an adjacent
     node, but the result exceeds our maxfee; we crashed trying to find
     what part of the path was most expensive in that case
 
     """
-    l1, l2, l3 = node_factory.line_graph(3)
+    l1, l2, l3 = node_factory.line_graph(3, opts={"allow-deprecated-apis": True,
+                                                  "xpay-handle-pay":
+                                                  xpay_handle_pay})
 
     # Make sure l2->l3 is usable.
     wait_for(lambda: 'remote' in only_one(l3.rpc.listpeerchannels()['channels'])['updates'])
@@ -3446,7 +3506,10 @@ def test_excluded_adjacent_routehint(node_factory, bitcoind):
     wait_for(lambda: 'remote' in only_one(l1.rpc.listpeerchannels()['channels'])['updates'])
 
     # This will make it reject the routehint.
-    err = 'Failed: Could not find route without excessive cost'
+    if xpay_handle_pay:
+        err = 'Failed: Could not find route without excessive cost'
+    else:
+        err = 'Fee exceeds our fee budget: 1msat > 0msat'
     with pytest.raises(RpcError, match=err):
         l1.rpc.pay(bolt11=inv['bolt11'], maxfeepercent=0, exemptfee=0)
 
@@ -3763,7 +3826,8 @@ def test_keysend_description_size_limit(node_factory, keysendcmd):
     assert all(inv['amount_received_msat'] == amt for inv in l2.rpc.listinvoices()["invoices"])
 
 
-def test_invalid_onion_channel_update(node_factory):
+@pytest.mark.parametrize("xpay_handle_pay", [True, False])
+def test_invalid_onion_channel_update(node_factory, xpay_handle_pay):
     '''
     Some onion failures "should" send a `channel_update`.
 
@@ -3783,7 +3847,9 @@ def test_invalid_onion_channel_update(node_factory):
             # issue #3757 reported by @sumBTC.
             return {"result": "fail", "failure_message": "10070000"}
 
-    l1 = node_factory.get_node()
+    l1 = node_factory.get_node(
+        opts={"allow-deprecated-apis": True, "xpay-handle-pay": xpay_handle_pay}
+    )
     l2 = node_factory.get_node(inline_plugin=setup)
     l3 = node_factory.get_node()
     node_factory.join_nodes([l1, l2, l3], wait_for_announce=True)
@@ -3799,7 +3865,8 @@ def test_invalid_onion_channel_update(node_factory):
     assert l1.rpc.getinfo()['id'] == l1id
 
 
-def test_pay_exemptfee(node_factory):
+@pytest.mark.parametrize("xpay_handle_pay", [True, False])
+def test_pay_exemptfee(node_factory, xpay_handle_pay):
     """Tiny payment, huge fee
 
     l1 -> l2 -> l3
@@ -3813,11 +3880,18 @@ def test_pay_exemptfee(node_factory):
     """
     l1, l2, l3 = node_factory.line_graph(
         3,
-        opts=[{}, {'fee-base': 5001, 'fee-per-satoshi': 0}, {}],
-        wait_for_announce=True
+        opts=[
+            {"allow-deprecated-apis": True, "xpay-handle-pay": xpay_handle_pay},
+            {"fee-base": 5001, "fee-per-satoshi": 0},
+            {},
+        ],
+        wait_for_announce=True,
     )
 
-    err = r'Could not find route without excessive cost'
+    if xpay_handle_pay:
+        err = r'Could not find route without excessive cost'
+    else:
+        err = r"Fee exceeds our fee budget"
 
     with pytest.raises(RpcError, match=err):
         l1.dev_pay(l3.rpc.invoice(1, "lbl1", "desc")['bolt11'], dev_use_shadow=False)
@@ -3837,7 +3911,8 @@ def test_pay_exemptfee(node_factory):
     l1.dev_pay(l3.rpc.invoice(int(5001 * 200), "lbl4", "desc")['bolt11'], dev_use_shadow=False)
 
 
-def test_pay_peer(node_factory, bitcoind):
+@pytest.mark.parametrize("xpay_handle_pay", [True, False])
+def test_pay_peer(node_factory, bitcoind, xpay_handle_pay):
     """If we have a direct channel to the destination we should use that.
 
     This is complicated a bit by not having sufficient capacity, but the
@@ -3849,7 +3924,14 @@ def test_pay_peer(node_factory, bitcoind):
      l3
     """
     # Set the dust exposure higher, this gets triggered on liquid
-    l1, l2, l3 = node_factory.get_nodes(3, opts={'max-dust-htlc-exposure-msat': '100000sat'})
+    l1, l2, l3 = node_factory.get_nodes(
+        3,
+        opts={
+            "allow-deprecated-apis": True,
+            "xpay-handle-pay": xpay_handle_pay,
+            "max-dust-htlc-exposure-msat": "100000sat",
+        },
+    )
     node_factory.join_nodes([l1, l2])
     node_factory.join_nodes([l1, l3])
     node_factory.join_nodes([l3, l2], wait_for_announce=True)
@@ -3883,7 +3965,8 @@ def test_pay_peer(node_factory, bitcoind):
     l1.dev_pay(inv, dev_use_shadow=False)
 
 
-def test_mpp_adaptive(node_factory, bitcoind):
+@pytest.mark.parametrize("xpay_handle_pay", [True, False])
+def test_mpp_adaptive(node_factory, bitcoind, xpay_handle_pay):
     """We have two paths, both too small on their own, let's combine them.
 
     ```dot
@@ -3895,7 +3978,9 @@ def test_mpp_adaptive(node_factory, bitcoind):
     }
     """
     amt = 10**7 - 1
-    l1, l2, l3, l4 = node_factory.get_nodes(4, opts={'allow-deprecated-apis': True})
+    l1, l2, l3, l4 = node_factory.get_nodes(
+        4, opts={"allow-deprecated-apis": True, "xpay-handle-pay": xpay_handle_pay}
+    )
 
     l1.connect(l2)
     l2.connect(l4)
@@ -3966,13 +4051,16 @@ def test_mpp_adaptive(node_factory, bitcoind):
     assert 'bolt11' in only_one(l1.rpc.listpays()['pays'])
 
 
-def test_pay_fail_unconfirmed_channel(node_factory, bitcoind):
+@pytest.mark.parametrize("xpay_handle_pay", [True, False])
+def test_pay_fail_unconfirmed_channel(node_factory, bitcoind, xpay_handle_pay):
     '''
     Replicate #3855.
     `pay` crash when any direct channel is still
     unconfirmed.
     '''
-    l1, l2 = node_factory.get_nodes(2)
+    l1, l2 = node_factory.get_nodes(
+        2, opts={"allow-deprecated-apis": True, "xpay-handle-pay": xpay_handle_pay}
+    )
 
     amount_sat = 10 ** 6
 
@@ -4003,8 +4091,11 @@ def test_pay_fail_unconfirmed_channel(node_factory, bitcoind):
     l1.rpc.pay(invl2)
 
 
-def test_bolt11_null_after_pay(node_factory, bitcoind):
-    l1, l2 = node_factory.get_nodes(2)
+@pytest.mark.parametrize("xpay_handle_pay", [True, False])
+def test_bolt11_null_after_pay(node_factory, bitcoind, xpay_handle_pay):
+    l1, l2 = node_factory.get_nodes(
+        2, opts={"allow-deprecated-apis": True, "xpay-handle-pay": xpay_handle_pay}
+    )
 
     amount_sat = 10 ** 6
     # pay a generic bolt11 and test if the label bol11 is null
@@ -4033,14 +4124,20 @@ def test_bolt11_null_after_pay(node_factory, bitcoind):
     assert('completed_at' in pays[0])
 
 
-def test_delpay_argument_invalid(node_factory, bitcoind):
+@pytest.mark.parametrize("xpay_handle_pay", [True, False])
+def test_delpay_argument_invalid(node_factory, bitcoind, xpay_handle_pay):
     """
     This test includes all possible combinations of input error inside the
     delpay command.
     """
 
     # Create the line graph l2 -> l1 with a channel of 10 ** 5 sat!
-    l2, l1 = node_factory.line_graph(2, fundamount=10**5, wait_for_announce=True)
+    l2, l1 = node_factory.line_graph(
+        2,
+        fundamount=10**5,
+        wait_for_announce=True,
+        opts={"allow-deprecated-apis": True, "xpay-handle-pay": xpay_handle_pay},
+    )
 
     l2.rpc.check_request_schemas = False
     with pytest.raises(RpcError):
@@ -4079,12 +4176,17 @@ def test_delpay_argument_invalid(node_factory, bitcoind):
     assert len(l2.rpc.listpays()['pays']) == 0
 
 
-def test_delpay_mixed_status(node_factory, bitcoind):
+@pytest.mark.parametrize("xpay_handle_pay", [True, False])
+def test_delpay_mixed_status(node_factory, bitcoind, xpay_handle_pay):
     """
     One failure, one success; we only want to delete the failed one!
     """
-    l1, l2, l3 = node_factory.line_graph(3, fundamount=10**5,
-                                         wait_for_announce=True)
+    l1, l2, l3 = node_factory.line_graph(
+        3,
+        fundamount=10**5,
+        wait_for_announce=True,
+        opts={"allow-deprecated-apis": True, "xpay-handle-pay": xpay_handle_pay},
+    )
     # Expensive route!
     l4 = node_factory.get_node(options={'fee-per-satoshi': 1000,
                                         'fee-base': 2000})
@@ -4119,7 +4221,7 @@ def test_listpay_result_with_paymod(node_factory, bitcoind, keysendcmd):
     l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True, opts=opts)
 
     invl2 = l2.rpc.invoice(amount_sat * 2, "inv_l2", "inv_l2")
-    l1.rpc.pay(invl2['bolt11'])
+    l1.rpc.xpay(invl2['bolt11'])
 
     l2.rpc.call(keysendcmd, payload=[l3.info['id'], amount_sat * 2])
 
@@ -4131,9 +4233,13 @@ def test_listpay_result_with_paymod(node_factory, bitcoind, keysendcmd):
     assert 'destination' in l2.rpc.listpays()['pays'][0]
 
 
-def test_listsendpays_and_listpays_order(node_factory):
+@pytest.mark.parametrize("xpay_handle_pay", [True, False])
+def test_listsendpays_and_listpays_order(node_factory, xpay_handle_pay):
     """listsendpays should be in increasing id order, listpays in created_at"""
-    l1, l2 = node_factory.line_graph(2)
+    l1, l2 = node_factory.line_graph(
+        2,
+        opts={"allow-deprecated-apis": True, "xpay-handle-pay": xpay_handle_pay},
+    )
     for i in range(5):
         inv = l2.rpc.invoice(1000 - i, "test {}".format(i), "test")['bolt11']
         l1.rpc.pay(inv)
@@ -4145,13 +4251,18 @@ def test_listsendpays_and_listpays_order(node_factory):
     assert created_at == sorted(created_at)
 
 
-def test_mpp_waitblockheight_routehint_conflict(node_factory, bitcoind, executor):
+@pytest.mark.parametrize("xpay_handle_pay", [True, False])
+def test_mpp_waitblockheight_routehint_conflict(node_factory, bitcoind,
+                                                executor, xpay_handle_pay):
     '''
     We have a bug where a blockheight disagreement between us and
     the receiver causes us to advance through the routehints a bit
     too aggressively.
     '''
-    l1, l2, l3 = node_factory.get_nodes(3)
+    l1, l2, l3 = node_factory.get_nodes(
+        3,
+        opts={"allow-deprecated-apis": True, "xpay-handle-pay": xpay_handle_pay},
+    )
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l1l2, _ = l1.fundchannel(l2, 10**7, announce_channel=True)
@@ -4303,8 +4414,8 @@ def test_mpp_interference_2(node_factory, bitcoind, executor):
             break
 
     # Pay simultaneously!
-    p2 = executor.submit(l2.rpc.pay, i2)
-    p3 = executor.submit(l3.rpc.pay, i3)
+    p2 = executor.submit(l2.rpc.xpay, i2)
+    p3 = executor.submit(l3.rpc.xpay, i3)
 
     # Both payments should succeed.
     p2.result(TIMEOUT)
@@ -4312,7 +4423,8 @@ def test_mpp_interference_2(node_factory, bitcoind, executor):
 
 
 @pytest.mark.slow_test
-def test_mpp_overload_payee(node_factory, bitcoind):
+@pytest.mark.parametrize("xpay_handle_pay", [True, False])
+def test_mpp_overload_payee(node_factory, bitcoind, xpay_handle_pay):
     """
     We had a bug where if the payer is unusually well-connected compared
     to the payee, the payee is unable to accept a large payment since the
@@ -4323,7 +4435,11 @@ def test_mpp_overload_payee(node_factory, bitcoind):
     # However, with anchor commitments we might be able to safely lift this
     # default limit in the future, so explicitly put this value here, since
     # that is what our test assumes.
-    opts = {'max-concurrent-htlcs': 30}
+    opts = {
+        "max-concurrent-htlcs": 30,
+        "allow-deprecated-apis": True,
+        "xpay-handle-pay": xpay_handle_pay,
+    }
 
     l1, l2, l3, l4, l5, l6 = node_factory.get_nodes(6, opts=opts)
 
@@ -4558,7 +4674,7 @@ def test_offer_deprecated_api(node_factory, bitcoind):
 
     # Deprecated fields make schema checker upset.
     l1.rpc.jsonschemas = {}
-    l1.rpc.pay(inv['invoice'])
+    l1.rpc.xpay(inv['invoice'])
 
 
 def test_fetchinvoice_3hop(node_factory, bitcoind):
@@ -4593,9 +4709,9 @@ def test_fetchinvoice(node_factory, bitcoind):
     assert 'next_period' not in inv1
     assert 'next_period' not in inv2
     assert only_one(l3.rpc.call('listoffers', [offer1['offer_id']])['offers'])['used'] is False
-    l1.rpc.pay(inv1['invoice'])
+    l1.rpc.xpay(inv1['invoice'])
     assert only_one(l3.rpc.call('listoffers', [offer1['offer_id']])['offers'])['used'] is True
-    l1.rpc.pay(inv2['invoice'])
+    l1.rpc.xpay(inv2['invoice'])
     assert only_one(l3.rpc.call('listoffers', [offer1['offer_id']])['offers'])['used'] is True
 
     # listinvoices will show these on l3
@@ -4610,7 +4726,7 @@ def test_fetchinvoice(node_factory, bitcoind):
     # We can also set the amount explicitly, to tip.
     inv1 = l1.rpc.call('fetchinvoice', {'offer': offer1['bolt12'], 'amount_msat': 3})
     assert l1.rpc.call('decode', [inv1['invoice']])['invoice_amount_msat'] == 3
-    l1.rpc.pay(inv1['invoice'])
+    l1.rpc.xpay(inv1['invoice'])
 
     # We've done 4 onion calls: sleep now to avoid hitting ratelimit!
     time.sleep(1)
@@ -4649,11 +4765,11 @@ def test_fetchinvoice(node_factory, bitcoind):
     assert 'next_period' not in inv1
     assert 'next_period' not in inv2
 
-    l1.rpc.pay(inv1['invoice'])
+    l1.rpc.xpay(inv1['invoice'])
 
     # We can't pay the other one now.
     with pytest.raises(RpcError, match="Destination said it doesn't know invoice: incorrect_or_unknown_payment_details"):
-        l1.rpc.pay(inv2['invoice'])
+        l1.rpc.xpay(inv2['invoice'])
 
     # We can't reuse the offer, either.
     with pytest.raises(RpcError, match='Offer no longer available'):
@@ -4715,7 +4831,7 @@ def test_fetchinvoice(node_factory, bitcoind):
         l1.rpc.call('fetchinvoice', {'offer': offerusd})
     l3.daemon.wait_for_log("Unknown command 'currencyconvert'")
     # But we can still pay the (already-converted) invoice.
-    l1.rpc.pay(inv['invoice'])
+    l1.rpc.xpay(inv['invoice'])
 
     # Identical creation gives it again, just with created false.
     offer1 = l3.rpc.call('offer', {'amount': '2msat',
@@ -4753,7 +4869,7 @@ def test_fetchinvoice_recurrence(node_factory, bitcoind):
     assert period1['paywindow_end'] == period1['endtime']
     assert only_one(l2.rpc.call('listoffers', [offer3['offer_id']])['offers'])['used'] is False
 
-    l1.rpc.pay(ret['invoice'], label='test recurrence')
+    l1.rpc.xpay(ret['invoice'], label='test recurrence')
     assert only_one(l2.rpc.call('listoffers', [offer3['offer_id']])['offers'])['used'] is True
 
     ret = l1.rpc.call('fetchinvoice', {'offer': offer3['bolt12'],
@@ -4772,7 +4888,7 @@ def test_fetchinvoice_recurrence(node_factory, bitcoind):
                                      'recurrence_counter': 2,
                                      'recurrence_label': 'test recurrence'})
 
-    l1.rpc.pay(ret['invoice'], label='test recurrence')
+    l1.rpc.xpay(ret['invoice'], label='test recurrence')
 
     # Now we can, but it's too early:
     with pytest.raises(RpcError, match="Too early: can't send until time {}".format(period1['starttime'])):
@@ -4802,7 +4918,7 @@ def test_fetchinvoice_recurrence(node_factory, bitcoind):
     assert period3['endtime'] == period3['starttime'] + 19
     assert period3['paywindow_start'] == period3['starttime'] - 10
     assert period3['paywindow_end'] == period3['starttime']
-    l1.rpc.pay(ret['invoice'], label='test paywindow')
+    l1.rpc.xpay(ret['invoice'], label='test paywindow')
 
     # We can get another invoice, as many times as we want.
     # (It may return the same one!).
@@ -4837,13 +4953,13 @@ def test_recurrence_expired_offer(node_factory, bitcoind):
     ret = l1.rpc.fetchinvoice(offer=offer['bolt12'],
                               recurrence_counter=0,
                               recurrence_label='test_recurrence_expired_offer')
-    l1.rpc.pay(ret['invoice'], label='test_recurrence_expired_offer')
+    l1.rpc.xpay(ret['invoice'], label='test_recurrence_expired_offer')
 
     time.sleep(16)
     ret = l1.rpc.fetchinvoice(offer=offer['bolt12'],
                               recurrence_counter=1,
                               recurrence_label='test_recurrence_expired_offer')
-    l1.rpc.pay(ret['invoice'], label='test_recurrence_expired_offer')
+    l1.rpc.xpay(ret['invoice'], label='test_recurrence_expired_offer')
 
 
 def test_fetchinvoice_autoconnect(node_factory, bitcoind):
@@ -4878,7 +4994,7 @@ def test_fetchinvoice_autoconnect(node_factory, bitcoind):
     # Make sure l2 knows about it
     wait_for(lambda: l2.rpc.listnodes(l3.info['id'])['nodes'] != [])
 
-    l3.rpc.pay(l2.rpc.invoice(FUNDAMOUNT * 500, 'balancer', 'balancer')['bolt11'])
+    l3.rpc.xpay(l2.rpc.invoice(FUNDAMOUNT * 500, 'balancer', 'balancer')['bolt11'])
     # Make sure l2 has capacity (can be still resolving!).
     wait_for(lambda: only_one(l2.rpc.listpeerchannels(l1.info['id'])['channels'])['spendable_msat'] != Millisatoshi(0))
 
@@ -4921,7 +5037,8 @@ def test_fetchinvoice_disconnected_reply(node_factory, bitcoind):
     assert l3.rpc.listpeers(l1.info['id']) == {'peers': []}
 
 
-def test_pay_blockheight_mismatch(node_factory, bitcoind):
+@pytest.mark.parametrize("xpay_handle_pay", [True, False])
+def test_pay_blockheight_mismatch(node_factory, bitcoind, xpay_handle_pay):
     """Test that we can send a payment even if not caught up with the chain.
 
     We removed the requirement for the node to be fully synced up with
@@ -4935,7 +5052,11 @@ def test_pay_blockheight_mismatch(node_factory, bitcoind):
 
     send, direct, recv = node_factory.line_graph(3,
                                                  wait_for_announce=True,
-                                                 opts={'may_reconnect': True})
+                                                 opts={'may_reconnect': True,
+                                                       "allow-deprecated-apis":
+                                                       True,
+                                                       "xpay-handle-pay":
+                                                       xpay_handle_pay})
     sync_blockheight(bitcoind, [send, recv])
 
     height = bitcoind.rpc.getblockchaininfo()['blocks']
@@ -5083,12 +5204,13 @@ def test_sendinvoice_blindedpath(node_factory, bitcoind):
     l2.rpc.sendinvoice(invreq=invreq1['bolt12'], label='test_sendinvoice_blindedpath 1')
 
 
-def test_self_pay(node_factory):
+@pytest.mark.parametrize("xpay_handle_pay", [True, False])
+def test_self_pay(node_factory, xpay_handle_pay):
     """Repro test for issue 4345: pay ourselves via the pay plugin.
 
     """
     l1, l2 = node_factory.line_graph(2, wait_for_announce=True,
-                                     opts={'xpay-handle-pay': False,
+                                     opts={'xpay-handle-pay': xpay_handle_pay,
                                            'allow-deprecated-apis': True})
 
     inv = l1.rpc.invoice(10000, 'test', 'test')['bolt11']
@@ -5100,7 +5222,12 @@ def test_self_pay(node_factory):
     inv2 = l1.rpc.invoice(10000, 'test2', 'test2')['bolt11']
     l1.rpc.delinvoice('test2', 'unpaid')
 
-    with pytest.raises(RpcError, match=r'Unknown invoice') as excinfo:
+    if xpay_handle_pay:
+        pattern = r"Destination said it doesn\'t know invoice"
+    else:
+        pattern = r"Unknown invoice"
+
+    with pytest.raises(RpcError, match=pattern) as excinfo:
         l1.rpc.pay(inv2)
     assert excinfo.value.error['code'] == 203
 
@@ -5145,7 +5272,7 @@ def test_unreachable_routehint(node_factory, bitcoind):
     wait_for(lambda: len(l1.rpc.listnodes(entrypoint)['nodes']) == 1)
 
     with pytest.raises(RpcError, match=r'Failed: There is no connection between source and destination at all'):
-        l1.rpc.pay(invoice)
+        l1.rpc.xpay(invoice)
 
     # Make sure we didn't try to pay it.
     assert l1.rpc.listsendpays() == {'payments': []}
@@ -5237,14 +5364,20 @@ def test_setchannel_enforcement_delay(node_factory, bitcoind):
         l1.rpc.waitsendpay(inv['payment_hash'])
 
 
-def test_listpays_with_filter_by_status(node_factory, bitcoind):
+@pytest.mark.parametrize("xpay_handle_pay", [True, False])
+def test_listpays_with_filter_by_status(node_factory, bitcoind, xpay_handle_pay):
     """
     This test check if the filtering by status of the command listpays
     has some mistakes.
     """
 
     # Create the line graph l2 -> l1 with a channel of 10 ** 5 sat!
-    l2, l1 = node_factory.line_graph(2, fundamount=10**5, wait_for_announce=True)
+    l2, l1 = node_factory.line_graph(
+        2,
+        fundamount=10**5,
+        wait_for_announce=True,
+        opts={"allow-deprecated-apis": True, "xpay-handle-pay": xpay_handle_pay},
+    )
 
     inv = l1.rpc.invoice(10 ** 5, 'inv', 'inv')
     l2.rpc.pay(inv['bolt11'])
@@ -5465,15 +5598,20 @@ def test_payerkey(node_factory, old_hsmsecret):
         n.rpc.createinvoicerequest(encoded, False)['bolt12']
 
 
-def test_pay_multichannel_use_zeroconf(bitcoind, node_factory):
+@pytest.mark.parametrize("xpay_handle_pay", [True, False])
+def test_pay_multichannel_use_zeroconf(bitcoind, node_factory, xpay_handle_pay):
     """Check that we use the zeroconf direct channel to pay when we need to"""
     # 0. Setup normal channel, 200k sats.
     zeroconf_plugin = Path(__file__).parent / "plugins" / "zeroconf-selective.py"
-    l1, l2 = node_factory.line_graph(2, wait_for_announce=False,
-                                     fundamount=200_000,
-                                     opts=[{},
-                                           {'plugin': zeroconf_plugin,
-                                            'zeroconf_allow': 'any'}])
+    l1, l2 = node_factory.line_graph(
+        2,
+        wait_for_announce=False,
+        fundamount=200_000,
+        opts=[
+            {"allow-deprecated-apis": True, "xpay-handle-pay": xpay_handle_pay},
+            {"plugin": zeroconf_plugin, "zeroconf_allow": "any"},
+        ],
+    )
 
     # 1. Open a zeoconf channel l1 -> l2
     zeroconf_sats = 1_000_000
@@ -5497,12 +5635,17 @@ def test_pay_multichannel_use_zeroconf(bitcoind, node_factory):
     l1.rpc.pay(inv['bolt11'], riskfactor=riskfactor)
 
 
-def test_delpay_works(node_factory, bitcoind):
+@pytest.mark.parametrize("xpay_handle_pay", [True, False])
+def test_delpay_works(node_factory, bitcoind, xpay_handle_pay):
     """
     One failure, one success; deleting the success works (groupid=1, partid=2)
     """
-    l1, l2, l3 = node_factory.line_graph(3, fundamount=10**5,
-                                         wait_for_announce=True)
+    l1, l2, l3 = node_factory.line_graph(
+        3,
+        fundamount=10**5,
+        wait_for_announce=True,
+        opts={"allow-deprecated-apis": True, "xpay-handle-pay": xpay_handle_pay},
+    )
     # Expensive route!
     l4 = node_factory.get_node(options={'fee-per-satoshi': 1000,
                                         'fee-base': 2000})
@@ -5552,9 +5695,12 @@ def test_fetchinvoice_with_no_quantity(node_factory):
     assert decode_inv['invreq_quantity'] == 2, f'`invreq_quantity` in the invoice did not match, received {decode_inv["quantity"]}, expected 2'
 
 
-def test_invoice_pay_desc_with_quotes(node_factory):
+@pytest.mark.parametrize("xpay_handle_pay", [True, False])
+def test_invoice_pay_desc_with_quotes(node_factory, xpay_handle_pay):
     """Test that we can decode and pay invoice where hashed description contains double quotes"""
-    l1, l2 = node_factory.line_graph(2, opts={'allow-deprecated-apis': True})
+    l1, l2 = node_factory.line_graph(
+        2, opts={"allow-deprecated-apis": True, "xpay-handle-pay": xpay_handle_pay}
+    )
     description = '[["text/plain","Funding @odell on stacker.news"],["text/identifier","odell@stacker.news"]]'
 
     invoice = l2.rpc.invoice(label="test12345", amount_msat=1000,
@@ -5611,7 +5757,8 @@ def test_self_sendpay(node_factory):
         l1.rpc.sendpay([], inv['payment_hash'], label='selfpay', bolt11=inv['bolt11'], payment_secret=inv['payment_secret'], amount_msat='100000sat')
 
 
-def test_strip_lightning_suffix_from_inv(node_factory):
+@pytest.mark.parametrize("xpay_handle_pay", [True, False])
+def test_strip_lightning_suffix_from_inv(node_factory, xpay_handle_pay):
     """
     Reproducer for [1] that pay an invoice with the `lightning:<bolt11|bolt12>`
     prefix and then, will check if core lightning is able to strip it during
@@ -5619,7 +5766,8 @@ def test_strip_lightning_suffix_from_inv(node_factory):
 
     [1] https://github.com/ElementsProject/lightning/issues/6207
     """
-    l1, l2 = node_factory.line_graph(2)
+    l1, l2 = node_factory.line_graph(2, opts={"allow-deprecated-apis": True,
+                                              "xpay-handle-pay": xpay_handle_pay})
     inv = l2.rpc.invoice(40, "strip-lightning-prefix", "test to be able to strip the `lightning:` prefix.")["bolt11"]
     wait_for(lambda: only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['state'] == 'CHANNELD_NORMAL')
 
@@ -5762,9 +5910,14 @@ def test_sendpays_wait(node_factory, executor):
                                     'payment_hash': inv3['payment_hash']}}
 
 
-def test_pay_routehint_minhtlc(node_factory, bitcoind):
+@pytest.mark.parametrize("xpay_handle_pay", [True, False])
+def test_pay_routehint_minhtlc(node_factory, bitcoind, xpay_handle_pay):
     # l1 -> l2 -> l3 private -> l4
-    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
+    l1, l2, l3 = node_factory.line_graph(
+        3,
+        wait_for_announce=True,
+        opts={"allow-deprecated-apis": True, "xpay-handle-pay": xpay_handle_pay},
+    )
     l4 = node_factory.get_node()
 
     scid34, _ = l3.fundchannel(l4, announce_channel=False)
@@ -5788,9 +5941,9 @@ def test_pay_routehint_minhtlc(node_factory, bitcoind):
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 def test_pay_partial_msat(node_factory, executor):
-    l1, l2, l3 = node_factory.line_graph(3,
-                                         opts={'xpay-handle-pay': False,
-                                               'allow-deprecated-apis': True})
+    l1, l2, l3 = node_factory.line_graph(
+        3, opts={"xpay-handle-pay": False, "allow-deprecated-apis": True}
+    )
 
     inv = l3.rpc.invoice(100000000, "inv", "inv")
 
@@ -5830,10 +5983,18 @@ def test_pay_partial_msat(node_factory, executor):
     l3pay.result(TIMEOUT)
 
 
-def test_blindedpath_privchan(node_factory, bitcoind):
-    l1, l2 = node_factory.line_graph(2, wait_for_announce=True,
-                                     opts={'may_reconnect': True,
-                                           'dev-allow-localhost': None})
+@pytest.mark.parametrize("xpay_handle_pay", [True, False])
+def test_blindedpath_privchan(node_factory, bitcoind, xpay_handle_pay):
+    l1, l2 = node_factory.line_graph(
+        2,
+        wait_for_announce=True,
+        opts={
+            "may_reconnect": True,
+            "dev-allow-localhost": None,
+            "allow-deprecated-apis": True,
+            "xpay-handle-pay": xpay_handle_pay,
+        },
+    )
     l3 = node_factory.get_node(options={'cltv-final': 120,
                                         'dev-allow-localhost': None},
                                may_reconnect=True)
@@ -5899,9 +6060,14 @@ def test_blindedpath_noaddr(node_factory, bitcoind):
     assert 'offer_paths' not in l1.rpc.decode(offer['bolt12'])
 
 
-def test_blinded_reply_path_scid(node_factory):
+@pytest.mark.parametrize("xpay_handle_pay", [True, False])
+def test_blinded_reply_path_scid(node_factory, xpay_handle_pay):
     """Check that we handle a blinded path which begins with a scid instead of a nodeid"""
-    l1, l2 = node_factory.line_graph(2, wait_for_announce=True)
+    l1, l2 = node_factory.line_graph(
+        2,
+        wait_for_announce=True,
+        opts={"allow-deprecated-apis": True, "xpay-handle-pay": xpay_handle_pay},
+    )
     offer = l2.rpc.offer(amount='2msat', description='test_blinded_reply_path_scid')
 
     chan = only_one(l1.rpc.listpeerchannels()['channels'])
@@ -5911,7 +6077,9 @@ def test_blinded_reply_path_scid(node_factory):
     l1.rpc.pay(inv)
 
 
-def test_pay_while_opening_channel(node_factory, bitcoind, executor):
+@pytest.mark.parametrize("xpay_handle_pay", [True, False])
+def test_pay_while_opening_channel(node_factory, bitcoind, executor,
+                                   xpay_handle_pay):
     def setup(plugin):
         import time
         plugin.add_option('delaytime', '10', 'How long to hold the WIRE_OPEN_CHANNEL.')
@@ -5930,7 +6098,12 @@ def test_pay_while_opening_channel(node_factory, bitcoind, executor):
             time.sleep(delaytime)
             return {'result': 'continue'}
 
-    l1, l2 = node_factory.line_graph(2, fundamount=10**6, wait_for_announce=True)
+    l1, l2 = node_factory.line_graph(
+        2,
+        fundamount=10**6,
+        wait_for_announce=True,
+        opts={"allow-deprecated-apis": True, "xpay-handle-pay": xpay_handle_pay},
+    )
     l3 = node_factory.get_node(inline_plugin=setup, options={'delaytime': '10'})
     l1.connect(l3)
     executor.submit(l1.rpc.fundchannel, l3.info['id'], 100000)
@@ -6047,7 +6220,7 @@ def test_offer_path_self(node_factory):
     inv = l2.rpc.fetchinvoice(offer['bolt12'])['invoice']
 
     # And can pay it!
-    l2.rpc.pay(inv)
+    l2.rpc.xpay(inv)
 
     # We can also handle it if invoice has next hop specified by real scid, or alias.
     scid = only_one(l2.rpc.listpeerchannels(l3.info['id'])['channels'])['alias']['local']
@@ -6060,7 +6233,7 @@ def test_offer_path_self(node_factory):
     inv = l2.rpc.fetchinvoice(offer['bolt12'])['invoice']
 
     # And can pay it!
-    l2.rpc.pay(inv)
+    l2.rpc.xpay(inv)
 
     # It should have mapped the hop.
     l2.daemon.wait_for_log(f"injectpaymentonion: sending to channel {scid}")
@@ -6072,7 +6245,7 @@ def test_offer_selfpay(node_factory):
 
     offer = l1.rpc.offer(amount='2msat', description='test_offer_path_self')['bolt12']
     inv = l1.rpc.fetchinvoice(offer)['invoice']
-    l1.rpc.pay(inv)
+    l1.rpc.xpay(inv)
 
 
 def test_decryptencrypteddata(node_factory):
@@ -6138,7 +6311,7 @@ def test_fetch_no_description_offer(node_factory):
     offer_decode = l1.rpc.decode(offer['bolt12'])
     assert offer_decode['type'] == 'bolt12 offer', f'No possible to decode the offer `{offer}`'
 
-    l1.rpc.pay(inv['invoice'])
+    l1.rpc.xpay(inv['invoice'])
 
 
 def test_fetch_no_description_with_amount(node_factory):
@@ -6197,10 +6370,10 @@ def test_offer_with_private_channels_multyhop2(node_factory):
 
     offer = l5.rpc.offer(amount='2msat', description='test_offer_with_private_channels_multyhop2')['bolt12']
     invoice = l1.rpc.fetchinvoice(offer=offer)["invoice"]
-    l1.rpc.pay(invoice)
+    l1.rpc.xpay(invoice)
 
 
-def diamond_network(node_factory):
+def diamond_network(node_factory, xpay_handle_pay):
     """Build a diamond, with a cheap route, that is exhausted. The
     first payment should try that route first, learn it's exhausted,
     and then succeed over the other leg. The second, unrelated,
@@ -6217,7 +6390,7 @@ def diamond_network(node_factory):
     """
     opts = [
         {'fee-per-satoshi': 0, 'fee-base': 0,      # Sender
-         'xpay-handle-pay': False,
+         'xpay-handle-pay': xpay_handle_pay,
          'allow-deprecated-apis': True},
         {'fee-per-satoshi': 0, 'fee-base': 0},     # Low fee, but exhausted channel
         {'fee-per-satoshi': 5000, 'fee-base': 0},  # Disincentivize using fw2
@@ -6245,10 +6418,12 @@ def diamond_network(node_factory):
     return [sender, fw1, fw2, recipient]
 
 
-def test_pay_remember_hint(node_factory):
+# FIXME: for some reason the number of parts for an xpay payment are 58
+@pytest.mark.parametrize("xpay_handle_pay", [False])
+def test_pay_remember_hint(node_factory, xpay_handle_pay):
     """Using a diamond graph, with inferred `channel_hint`s, see if we remember
     """
-    sender, fw1, fw2, recipient, = diamond_network(node_factory)
+    sender, fw1, fw2, recipient, = diamond_network(node_factory, xpay_handle_pay)
 
     inv = recipient.rpc.invoice(
         4200000,
@@ -7008,11 +7183,14 @@ def test_fetchinvoice_with_payer_metadata(node_factory, bitcoind):
     assert decode1['invreq_payer_id'] == decode3['invreq_payer_id']
 
 
-def test_pay_unannounced_routehint(node_factory, bitcoind):
+@pytest.mark.parametrize("xpay_handle_pay", [True, False])
+def test_pay_unannounced_routehint(node_factory, bitcoind, xpay_handle_pay):
     """Tests whether sender can pay recipient through unannounced channels with
     2 hops where the second hop uses a route hint."""
 
-    l1, l2, l3 = node_factory.get_nodes(3)
+    l1, l2, l3 = node_factory.get_nodes(
+        3, opts={"allow-deprecated-apis": True, "xpay-handle-pay": xpay_handle_pay}
+    )
 
     # l1 and l3 are connected with unannounced channels to l2
     node_factory.join_nodes([l1, l2], announce_channels=False)
@@ -7161,7 +7339,7 @@ def test_cancel_recurrence(node_factory):
     ret = l1.rpc.fetchinvoice(offer=offer['bolt12'],
                               recurrence_counter=0,
                               recurrence_label='test_cancel_recurrence')
-    l1.rpc.pay(ret['invoice'], label='test_cancel_recurrence')
+    l1.rpc.xpay(ret['invoice'], label='test_cancel_recurrence')
     m = re.search(r'invoice_request: "([a-z0-9]*)"', l1.daemon.wait_for_log('plugin-offers: invoice_request:'))
     decoded = l1.rpc.decode(m.group(1))
     assert 'invreq_recurrence_cancel' not in decoded

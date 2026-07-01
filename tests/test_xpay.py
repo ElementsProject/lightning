@@ -802,7 +802,7 @@ lightning-cli pay lni1qqgv5nalmz08ukj4av074kyk6pepq93pqvvhnlnvurnfanndnxjtcjnmxr
     sync_blockheight(bitcoind, [l1])
 
     # This works.
-    l1.rpc.pay(inv)
+    l1.rpc.xpay(inv)
     # CLTV is blockheight (110) + 1 + 100 + 200 + 400
     l1.daemon.wait_for_log(f'Adding HTLC 0 amount=15002msat cltv={110 + 1 + 100 + 200 + 400}')
 
@@ -1178,9 +1178,7 @@ def test_xpay_blockheight_mismatch(node_factory, bitcoind, executor):
 
 
 def test_xpay_user_layers(node_factory):
-    l1, l2, l3, l4 = node_factory.get_nodes(
-        4, opts={"may_reconnect": True, "xpay-handle-pay": True}
-    )
+    l1, l2, l3, l4 = node_factory.get_nodes(4, opts={"may_reconnect": True})
     node_factory.join_nodes([l1, l2, l3], wait_for_announce=True)
     node_factory.join_nodes([l2, l4], wait_for_announce=True)
 
@@ -1213,7 +1211,7 @@ def test_xpay_user_layers(node_factory):
         RpcError,
         match="We could not find a usable set of paths. All 1 channels to the destination are disabled.",
     ):
-        l1.rpc.pay(inv3)
+        l1.rpc.xpay(inv3)
     inv4 = l4.rpc.invoice(1000, "test-xpay-user-layer", "test-xpay-user-layer")[
         "bolt11"
     ]
@@ -1221,7 +1219,7 @@ def test_xpay_user_layers(node_factory):
         RpcError,
         match="We could not find a usable set of paths. All 1 channels to the destination are disabled.",
     ):
-        l1.rpc.pay(inv4)
+        l1.rpc.xpay(inv4)
 
     # Without those layers, the same payments should go through
     l1.stop()
@@ -1229,8 +1227,8 @@ def test_xpay_user_layers(node_factory):
     l1.start()
     l1.rpc.connect(l2.info["id"], "localhost", l2.port)
     l1.daemon.wait_for_log(f"channeld.*: billboard: Channel ready for use")
-    l1.rpc.pay(inv3)
-    l1.rpc.pay(inv4)
+    l1.rpc.xpay(inv3)
+    l1.rpc.xpay(inv4)
 
 
 def test_xpay_get_error_with_update(node_factory):
