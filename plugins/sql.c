@@ -168,6 +168,11 @@ struct sql {
 	struct command *waitcmd;
 };
 
+static void destroy_sql(struct sql *sql)
+{
+	strmap_clear(&sql->tablemap);
+}
+
 static struct sql *sql_of(struct plugin *plugin)
 {
 	return plugin_get_data(plugin, struct sql);
@@ -2213,6 +2218,7 @@ int main(int argc, char *argv[])
 	}
 
 	sql = tal(NULL, struct sql);
+	tal_add_destructor(sql, destroy_sql);
 	sql->dbfilename = NULL;
 	sql->gosstore_fd = -1;
 	sql->gosstore_nodes_off = sql->gosstore_channels_off = 0;
