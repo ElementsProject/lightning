@@ -220,7 +220,7 @@ def test_script_splice_msat(node_factory, bitcoind, chainparams):
     sent_msats = 1111
     # purposely pay in msats
     inv = l2.rpc.invoice(sent_msats, '1', 'no_1')
-    l1.rpc.pay(inv['bolt11'])
+    l1.rpc.xpay(inv['bolt11'])
     initial_channel_balance -= sent_msats
 
     l1.rpc.splice(f"wallet -> {withdraw_amt}; {spliceamt} -> *:?", debug_log=True)
@@ -325,7 +325,7 @@ def test_script_splice_msat_roundup(node_factory, bitcoind, chainparams):
     sent_msats = 1999
     # purposely pay in msats
     inv = l2.rpc.invoice(sent_msats, '1', 'no_1')
-    l1.rpc.pay(inv['bolt11'])
+    l1.rpc.xpay(inv['bolt11'])
     initial_channel_balance -= sent_msats
 
     l1.rpc.splice(f"wallet -> {withdraw_amt}; {spliceamt} -> *:?", debug_log=True)
@@ -432,12 +432,12 @@ def test_script_two_chan_splice_in(node_factory, bitcoind):
 
     # l2 should now have funds on their side to pay l1
     inv = l1.rpc.invoice(10000, '1', 'no_1')
-    l2.rpc.pay(inv['bolt11'])
+    l2.rpc.xpay(inv['bolt11'])
 
     # l2 spliced extra funds into chan with l3 (but l3 still has 0 on their side)
     # Send a payment l2->l3 just to check for channel stability
     inv = l3.rpc.invoice(10000, '2', 'no_2')
-    l2.rpc.pay(inv['bolt11'])
+    l2.rpc.xpay(inv['bolt11'])
 
 
 @pytest.mark.openchannel('v1')
@@ -448,7 +448,7 @@ def test_script_two_chan_splice_out(node_factory, bitcoind):
 
     # We need to get funds into l1 -> l2 channel so we can splice it out
     inv = l2.rpc.invoice(100000000, '1', 'no_1')
-    l1.rpc.pay(inv['bolt11'])
+    l1.rpc.xpay(inv['bolt11'])
 
     chan_id1 = l2.get_channel_id(l1)
     chan_id2 = l2.get_channel_id(l3)
@@ -472,10 +472,10 @@ def test_script_two_chan_splice_out(node_factory, bitcoind):
 
     # no extra funds in channels but do some simple payments to test stability
     inv = l2.rpc.invoice(10000, '2', 'no_2')
-    l1.rpc.pay(inv['bolt11'])
+    l1.rpc.xpay(inv['bolt11'])
 
     inv = l3.rpc.invoice(10000, '3', 'no_3')
-    l2.rpc.pay(inv['bolt11'])
+    l2.rpc.xpay(inv['bolt11'])
 
 
 @pytest.mark.openchannel('v1')
@@ -507,12 +507,12 @@ def test_script_two_chan_splice_inout(node_factory, bitcoind):
 
     # l2 should now have funds on their side to pay l1
     inv = l1.rpc.invoice(10000, '2', 'no_2')
-    l2.rpc.pay(inv['bolt11'])
+    l2.rpc.xpay(inv['bolt11'])
 
     # l2 spliced extra funds into chan with l3 (but l3 still has 0 on their side)
     # Send a payment l2->l3 just to check for channel stability
     inv = l3.rpc.invoice(10000, '3', 'no_3')
-    l2.rpc.pay(inv['bolt11'])
+    l2.rpc.xpay(inv['bolt11'])
 
 
 @pytest.mark.openchannel('v1')
