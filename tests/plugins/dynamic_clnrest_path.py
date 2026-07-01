@@ -41,7 +41,7 @@ def init(options, configuration, plugin):
             "dynamic-clnrest-method",
             "POST",
             True,
-            {"method": "pay"},
+            {"method": "xpay"},
         ],
     )
     plugin.rpc.call(
@@ -51,7 +51,7 @@ def init(options, configuration, plugin):
             "dynamic-clnrest-method-2",
             "PATCH",
             True,
-            {"method": "pay"},
+            {"method": "xpay"},
         ],
     )
     plugin.rpc.call(
@@ -61,7 +61,7 @@ def init(options, configuration, plugin):
             "dynamic-clnrest-method",
             "DELETE",
             True,
-            {"method": "pay"},
+            {"method": "xpay"},
         ],
     )
     plugin.rpc.call(
