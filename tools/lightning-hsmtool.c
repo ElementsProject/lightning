@@ -280,12 +280,11 @@ static void print_secret(const char *hsm_secret_path, const char *id, bool must_
 	case HSM_SECRET_ENCRYPTED:
 		errx(ERROR_USAGE, "Encrypted hsm_secret");
 	case HSM_SECRET_MNEMONIC_NO_PASS:
+	case HSM_SECRET_MNEMONIC_WITH_PASS:
 		if (must_be_oldstyle)
 			errx(ERROR_USAGE, "Cannot use getcodexsecret with modern nodes: use getsecret");
 		printf("%s\n", hsms->mnemonic);
 		return;
-	case HSM_SECRET_MNEMONIC_WITH_PASS:
-		errx(ERROR_USAGE, "hsm_secret with passphrase");
 	case HSM_SECRET_PLAIN:
 		if (id == NULL)
 			errx(ERROR_USAGE, "Must set 'id' for a codex32 secret");
