@@ -299,19 +299,19 @@ automatically by `lightningd`.
   This option supports both legacy 32-byte `hsm_secret` files (where the passphrase
   encrypts the secret) and new BIP39 mnemonic-based secrets (where the passphrase
   is used as additional entropy during seed derivation according to the BIP39 standard).
-  
+
   Note that once you set a passphrase, this option will be mandatory for
-  `lightningd` to start. If there is no HSM secret yet, `lightningd` will create 
+  `lightningd` to start. If there is no HSM secret yet, `lightningd` will create
   a new mnemonic-based secret that will be secured with your passphrase following
   BIP39 specifications.
-  
+
   For legacy users: If you have an existing encrypted `hsm_secret` that was created
   with the deprecated `encrypted-hsm` option, this will continue to work seamlessly.
-  
+
   For new mnemonic-based secrets: The passphrase becomes part of the seed derivation
-  process as specified in BIP39, providing an additional factor of security. The 
+  process as specified in BIP39, providing an additional factor of security. The
   mnemonic words alone are not sufficient to derive the seed without the passphrase.
-  
+
   If you have an unencrypted legacy `hsm_secret` you want to encrypt, or need to
   manage your HSM secrets, see lightning-hsmtool(8).
 
@@ -339,7 +339,7 @@ connections. Default is 9736.
 * **recover**=*mnemonic*
 
   Restore the node from a mnemonic.  For pre-25.12 nodes (which didn't have a mnemonic), use a 32-byte secret encoded as either a codex32 secret string or a 64-character hex string.
-  
+
   This will fail if the `hsm_secret` file exists.  Your node will start the node in offline mode, for manual recovery.  The secret can be extracted from the `hsm_secret` using lightning-hsmtool(8)'s `getsecret`.
 
 * **alias**=*NAME*
@@ -870,6 +870,12 @@ allowing both parties to contribute funds to a channel. The decision
 about whether to add funds or not to a proposed channel is handled
 automatically by a plugin that implements the appropriate logic for
 your needs. The default behavior is to not contribute funds.
+
+* **experimental-simple-close**
+
+  Specifying this enables support for the simplified mutual close protocol
+([bolt][bolt] #2), where each peer independently builds and broadcasts its
+own closing transaction rather than iteratively negotiating a single agreed fee.
 
 * **experimental-splicing**
 

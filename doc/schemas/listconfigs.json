@@ -528,6 +528,31 @@
               }
             }
           },
+          "experimental-simple-close": {
+            "added": "v26.09",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "set",
+              "source"
+            ],
+            "properties": {
+              "set": {
+                "added": "v26.09",
+                "type": "boolean",
+                "description": [
+                  "`true` if set in config or cmdline."
+                ]
+              },
+              "source": {
+                "added": "v26.09",
+                "type": "string",
+                "description": [
+                  "Source of configuration setting."
+                ]
+              }
+            }
+          },
           "experimental-splicing": {
             "added": "v23.08",
             "deprecated": [
@@ -1942,6 +1967,10 @@
           "experimental-dual-fund": {
             "set": true,
             "source": "cmdline"
+          },
+          "experimental-simple-close": {
+            "set": false,
+            "source": "default"
           },
           "experimental-quiesce": {
             "set": false,

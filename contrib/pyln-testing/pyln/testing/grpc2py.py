@@ -2431,6 +2431,13 @@ def listconfigs_configs_experimental_shutdown_wrong_funding2py(m):
     })
 
 
+def listconfigs_configs_experimental_simple_close2py(m):
+    return remove_default({
+        "set": m.set,  # PrimitiveField in generate_composite
+        "source": m.source,  # PrimitiveField in generate_composite
+    })
+
+
 def listconfigs_configs_experimental_splicing2py(m):
     return remove_default({
         "set": m.set,  # PrimitiveField in generate_composite

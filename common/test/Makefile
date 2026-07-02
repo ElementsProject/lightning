@@ -166,4 +166,13 @@ common/test/run-wireaddr: wire/towire.o wire/fromwire.o
 
 common/test/run-jsonrpc_io: common/json_parse_simple.o
 
+common/test/run-close_tx:			\
+	common/amount.o					\
+	common/close_tx.o				\
+	common/permute_tx.o				\
+	common/psbt_keypath.o			\
+	common/pseudorand.o				\
+	wire/fromwire.o					\
+	wire/towire.o
+
 check-units: $(COMMON_TEST_PROGRAMS:%=unittest/%)

@@ -23,6 +23,14 @@
 
 /* We still allow them to specify an old-style P2PKH or P2SH (though we
  * never will send such a thing!) if they're not using anchors. */
+/* BOLT #2:
+ * 4. if (and only if) `option_simple_close` is negotiated:
+ *    * `OP_RETURN` followed by one of:
+ *      * `6` to `75` inclusive followed by exactly that many bytes
+ *      * `76` followed by `76` to `80` followed by exactly that many bytes
+ */
+bool is_valid_op_return(const u8 *scriptpubkey, size_t scriptpubkey_len);
+
 bool valid_shutdown_scriptpubkey(const u8 *scriptpubkey,
 				 bool anysegwit,
 				 bool allow_oldstyle,

@@ -113,16 +113,16 @@ struct feature_set *feature_set_dup(const tal_t *ctx,
  * | 16/17 | `basic_mpp`                       |... IN9 ...
  * | 18/19 | `option_support_large_channel`    |... IN ...
  * | 22/23 | `option_anchors`                  |... INT ...
- * | 24/25 | `option_route_blinding`           |...IN9 ...
+ * | 24/25 | `option_route_blinding`           |... IN9 ...
  * | 26/27 | `option_shutdown_anysegwit`       |... IN ...
  * | 28/29 | `option_dual_fund`                |... IN ...
  * | 34/35 | `option_quiesce`                  |... IN ...
  * | 38/39 | `option_onion_messages`           |... IN ...
  * | 42/43 | `option_provide_storage`          |... IN ...
  * | 44/45 | `option_channel_type`             |... ASSUMED ...
- * | 46/47 | `option_scid_alias`               | ... INT ...
- * | 48/49 | `option_payment_metadata`         |...  9 ...
- * | 50/51 | `option_zeroconf`                 | ... INT ...
+ * | 46/47 | `option_scid_alias`               |... INT ...
+ * | 48/49 | `option_payment_metadata`         |... 9 ...
+ * | 50/51 | `option_zeroconf`                 |... INT ...
  * | 60/61 | `option_simple_close`             |... IN ...
  */
 /* BOLT-splice #9:
@@ -130,30 +130,31 @@ struct feature_set *feature_set_dup(const tal_t *ctx,
  */
 #define OPT_DATA_LOSS_PROTECT			0
 #define OPT_UPFRONT_SHUTDOWN_SCRIPT		4
-#define OPT_GOSSIP_QUERIES			6
-#define OPT_VAR_ONION				8
+#define OPT_GOSSIP_QUERIES				6
+#define OPT_VAR_ONION					8
 #define OPT_GOSSIP_QUERIES_EX			10
 #define OPT_STATIC_REMOTEKEY			12
-#define OPT_PAYMENT_SECRET			14
-#define OPT_BASIC_MPP				16
-#define OPT_LARGE_CHANNELS			18
+#define OPT_PAYMENT_SECRET				14
+#define OPT_BASIC_MPP					16
+#define OPT_LARGE_CHANNELS				18
 /* FIXME: Update name to OPT_ANCHORS once old anchors is removed! */
-#define OPT_ANCHORS_ZERO_FEE_HTLC_TX		22
-#define OPT_ROUTE_BLINDING 			24
+#define OPT_ANCHORS_ZERO_FEE_HTLC_TX	22
+#define OPT_ROUTE_BLINDING 				24
 #define OPT_SHUTDOWN_ANYSEGWIT			26
-#define OPT_DUAL_FUND 				28
-#define OPT_QUIESCE 				34
-#define OPT_ONION_MESSAGES			38
-#define OPT_PROVIDE_STORAGE			42
-#define OPT_CHANNEL_TYPE			44
-#define OPT_SCID_ALIAS				46
+#define OPT_DUAL_FUND 					28
+#define OPT_QUIESCE 					34
+#define OPT_ONION_MESSAGES				38
+#define OPT_PROVIDE_STORAGE				42
+#define OPT_CHANNEL_TYPE				44
+#define OPT_SCID_ALIAS					46
 #define OPT_PAYMENT_METADATA			48
-#define OPT_ZEROCONF				50
-#define OPT_SPLICE				62
+#define OPT_ZEROCONF					50
+#define OPT_SIMPLE_CLOSE				60
+#define OPT_SPLICE						62
 
 /* The old pre-zero-fee-anchors were deprecated, and we never supported them
  * outside experimental options */
-#define OPT_ANCHOR_OUTPUTS_DEPRECATED		20
+#define OPT_ANCHOR_OUTPUTS_DEPRECATED	20
 
 #define OPT_SHUTDOWN_WRONG_FUNDING		104
 
