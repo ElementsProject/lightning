@@ -1,4 +1,5 @@
 #include "config.h"
+#include <bitcoin/tx.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/htable/htable_type.h>
@@ -21,6 +22,7 @@
 #include <common/pseudorand.h>
 #include <common/randbytes.h>
 #include <common/route.h>
+#include <common/trace.h>
 #include <common/wireaddr.h>
 #include <errno.h>
 #include <inttypes.h>
@@ -1223,6 +1225,8 @@ static struct command_result *injectpaymentonion_failed(struct command *aux_cmd,
 {
 	struct payment *payment = attempt->payment;
 	struct amount_msat amount = attempt->amount;
+	trace_span_resume(attempt);
+	trace_span_end(attempt);
 
 	payment->num_failures++;
 
@@ -1306,6 +1310,8 @@ static struct command_result *injectpaymentonion_succeeded(struct command *aux_c
 {
 	struct preimage preimage;
 	struct payment *payment = attempt->payment;
+	trace_span_resume(attempt);
+	trace_span_end(attempt);
 
 	if (!json_to_preimage(buf,
 			      json_get_member(buf, result, "payment_preimage"),
@@ -1471,6 +1477,12 @@ static struct command_result *do_inject(struct command *aux_cmd,
 
 	outgoing_notify_start(attempt);
 	attempt->start_time = time_mono();
+	trace_span_resume(attempt->payment); // payment is the parent span
+	trace_span_start("xpay/injectpaymentonion", attempt);
+	trace_span_tag(attempt, "partid",
+		       tal_fmt(attempt, "%d", (int)(attempt->partid)));
+	trace_span_suspend(attempt);
+	trace_span_suspend(attempt->payment);
 
 	req = jsonrpc_request_start(aux_cmd,
 				    "injectpaymentonion",
@@ -1604,16 +1616,24 @@ static void add_cltv_shadow(struct payment *payment,
 	}
 }
 
+/* Just a wrapper around payment so that we can trace the execution time of a
+ * getroutes request. */
+struct getroutes_request {
+	struct payment *payment;
+};
+
 static struct command_result *getroutes_done(struct command *aux_cmd,
 					     const char *method,
 					     const char *buf,
 					     const jsmntok_t *result,
-					     struct payment *payment)
+					     struct getroutes_request *getroutes_request)
 {
 	const jsmntok_t *t, *routes;
 	size_t i;
 	struct amount_msat needs_routing, was_routing;
+	struct payment *payment = getroutes_request->payment;
 	struct gossmap *gossmap = get_gossmap(xpay_of(payment->plugin));
+	tal_free(getroutes_request);
 
 	payment_log(payment, LOG_DBG, "getroutes_done: %s",
 		    payment->cmd ? "continuing" : "ignoring");
@@ -1724,8 +1744,10 @@ static struct command_result *getroutes_done_err(struct command *aux_cmd,
 						 const char *method,
 						 const char *buf,
 						 const jsmntok_t *error,
-						 struct payment *payment)
+						 struct getroutes_request *getroutes_request)
 {
+	struct payment *payment = getroutes_request->payment;
+	tal_free(getroutes_request);
 	int code;
 	const char *msg, *complaint;
 
@@ -1854,10 +1876,17 @@ static struct command_result *getroutes_for(struct command *aux_cmd,
 		maxfee = AMOUNT_MSAT(0);
 	}
 
+	struct getroutes_request *getroutes_request =
+	    tal(payment, struct getroutes_request);
+	getroutes_request->payment = payment;
+	trace_span_resume(payment); // payment is the parent span
+	trace_span_start("xpay/getroutes", getroutes_request);
+	trace_span_suspend_may_free(getroutes_request);
+	trace_span_suspend(payment);
 	req = jsonrpc_request_start(aux_cmd, "getroutes",
 				    getroutes_done,
 				    getroutes_done_err,
-				    payment);
+				    getroutes_request);
 
 	json_add_pubkey(req->js, "source", &xpay->local_id);
 	json_add_pubkey(req->js, "destination", dst);
@@ -2231,6 +2260,9 @@ invoice_fetched(struct command *cmd,
 		struct xpay_params *params)
 {
 	const char *inv;
+	trace_span_resume(params);
+	trace_span_tag(params, "status", "success");
+	trace_span_end(params);
 
 	inv = json_strdup(tmpctx, buf, json_get_member(buf, result, "invoice"));
 	inv = to_canonical_invstr(NULL, inv);
@@ -2241,6 +2273,26 @@ invoice_fetched(struct command *cmd,
 			 params->includefees_msat);
 }
 
+/* A wrapper around the possibility of an invoice fetch failure, just to put a
+ * trace_span_end. */
+static struct command_result *invoice_fetched_failed(struct command_result *ret,
+						     struct xpay_params *params)
+{
+	trace_span_resume(params);
+	trace_span_tag(params, "status", "failed");
+	trace_span_end(params);
+	return ret;
+}
+
+static struct command_result *
+invoice_fetched_rpcerror(struct command *cmd, const char *method,
+			 const char *buf, const jsmntok_t *error,
+			 struct xpay_params *params)
+{
+	return invoice_fetched_failed(
+	    forward_error(cmd, method, buf, error, params), params);
+}
+
 static struct command_result *
 do_fetchinvoice(struct command *cmd, const char *offerstr, struct xpay_params *xparams)
 {
@@ -2248,7 +2300,7 @@ do_fetchinvoice(struct command *cmd, const char *offerstr, struct xpay_params *x
 
 	req = jsonrpc_request_start(cmd, "fetchinvoice",
 				    invoice_fetched,
-				    forward_error,
+				    invoice_fetched_rpcerror,
 				    xparams);
 	json_add_string(req->js, "offer", offerstr);
 	if (xparams->msat)
@@ -2280,11 +2332,13 @@ bip353_fetched(struct command *cmd,
 			break;
 	}
 
-	if (!offertok)
-		return command_fail(cmd, PAY_UNSPECIFIED_ERROR,
+	if (!offertok) {
+		ret = command_fail(cmd, PAY_UNSPECIFIED_ERROR,
 				    "BIP353 response did not contain an offer (%.*s)",
 				    json_tok_full_len(result),
 				    json_tok_full(buf, result));
+		goto failed;
+	}
 	offerstr = json_strdup(tmpctx, buf, offertok);
 
 	if (xparams->includefees_msat)
@@ -2293,9 +2347,12 @@ bip353_fetched(struct command *cmd,
 		ret = check_offer_payable(cmd, offerstr, xparams->msat);
 
 	if (ret)
-		return ret;
+		goto failed;
 
 	return do_fetchinvoice(cmd, offerstr, xparams);
+
+failed:
+	return invoice_fetched_failed(ret, xparams);
 }
 
 static struct command_result *json_xpay_params(struct command *cmd,
@@ -2350,6 +2407,8 @@ static struct command_result *json_xpay_params(struct command *cmd,
 			return command_check_done(cmd);
 
 		xparams = tal(cmd, struct xpay_params);
+		trace_span_start("xpay/fetchinvoice", xparams);
+		trace_span_suspend(xparams);
 		xparams->msat = msat;
 		xparams->maxfee = maxfee;
 		xparams->partial = partial;
@@ -2378,6 +2437,8 @@ static struct command_result *json_xpay_params(struct command *cmd,
 			return command_check_done(cmd);
 
 		xparams = tal(cmd, struct xpay_params);
+		trace_span_start("xpay/fetchinvoice", xparams);
+		trace_span_suspend(xparams);
 		xparams->msat = msat;
 		xparams->maxfee = maxfee;
 		xparams->partial = partial;
@@ -2391,7 +2452,7 @@ static struct command_result *json_xpay_params(struct command *cmd,
 
 		req = jsonrpc_request_start(cmd, "fetchbip353",
 					    bip353_fetched,
-					    forward_error, xparams);
+					    invoice_fetched_rpcerror, xparams);
 		json_add_string(req->js, "address", invstring);
 		return send_outreq(req);
 	}
@@ -2438,6 +2499,11 @@ static struct payment *new_payment(const tal_t *ctx,
 {
 	struct xpay *xpay = xpay_of(cmd->plugin);
 	struct payment *payment = tal(ctx, struct payment);
+	/* Start tracing the payment until it is destroyed. */
+	trace_span_start("xpay/payment", payment);
+	trace_span_tag(payment, "payment_hash",
+		       fmt_sha256(payment, payment_hash));
+	trace_span_suspend_may_free(payment);
 
 	payment->plugin = cmd->plugin;
 	payment->deadline = timemono_add(time_mono(), time_from_sec(retryfor));
