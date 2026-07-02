@@ -23,7 +23,7 @@ use cln_rpc::{
         },
         responses::ListdatastoreResponse,
     },
-    primitives::{Amount, AmountOrAll, ChannelState, Sha256, ShortChannelId},
+    primitives::{AmountSat, AmountSatOrAll, ChannelState, Sha256, ShortChannelId},
 };
 use core::fmt;
 use serde::Serialize;
@@ -68,7 +68,7 @@ impl LightningProvider for ClnApiRpc {
                 reserve: None,
                 channel_type: Some(vec![12, 46, 50]),
                 utxos: None,
-                amount: AmountOrAll::Amount(Amount::from_msat(amount.msat())),
+                amount: AmountSatOrAll::AmountSat(AmountSat::from_msat(amount.msat())?),
                 id: peer_id.to_owned(),
             })
             .await

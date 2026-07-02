@@ -247,7 +247,7 @@ fn test_getinfo() {
 	    "version": "v0.10.2-509-ged26651-modded",
 	    "blockheight": 103,
 	    "network": "regtest",
-	    "fees_collected_msat": "0msat", "lightning-dir": "/tmp/ltests-20irp76f/test_pay_variants_1/lightning-1/regtest",
+	    "fees_collected_msat": 0, "lightning-dir": "/tmp/ltests-20irp76f/test_pay_variants_1/lightning-1/regtest",
 	    "our_features": {"init": "8808226aa2", "node": "80008808226aa2", "channel": "", "invoice": "024200"}});
     let u: cln_rpc::model::responses::GetinfoResponse = serde_json::from_value(j.clone()).unwrap();
     let _g: GetinfoResponse = u.into();
@@ -307,10 +307,10 @@ fn test_keysend() {
 	"payment_hash": "e74b03a98453dcb5a7ed5406b97ec3566dde4be85ef71685110f4c0ebc600592",
 	"created_at": 1648222556.498,
 	"parts": 1,
-	"msatoshi": 10000,
-	"amount_msat": "10000msat",
+	"msatoshi": 1000,
+	"amount_msat": 10000,
 	"msatoshi_sent": 10001,
-	"amount_sent_msat": "10001msat",
+	"amount_sent_msat": 10001,
 	"payment_preimage": "e56c22b9ed85560b021e1577daad5742502d25c0c2f636b817f5c0c7580a66a8",
 	"status": "complete"
     }"#;
@@ -320,6 +320,46 @@ fn test_keysend() {
 
     let v: serde_json::Value = serde_json::to_value(u.clone()).unwrap();
     let g: cln_rpc::model::responses::KeysendResponse = u.into();
+    let v2 = serde_json::to_value(g).unwrap();
+    assert_eq!(v, v2);
+}
+
+#[cfg(feature = "server")]
+#[test]
+fn test_xkeysend() {
+    use std::collections::HashMap;
+
+    let g = XkeysendRequest {
+        destination: hex::decode(
+            "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
+        )
+        .unwrap(),
+        amount_msat: Some(Amount { msat: 10000 }),
+
+        label: Some("hello".to_string()),
+        maxdelay: None,
+        retry_for: None,
+        extratlvs: HashMap::new(),
+        maxfee: None,
+        layers: vec!["xpay".to_owned()],
+    };
+
+    let u: cln_rpc::model::requests::XkeysendRequest = g.into();
+    let _ser = serde_json::to_string(&u);
+
+    let j = r#"{
+	"failed_parts": 1,
+	"amount_msat": 10000,
+	"amount_sent_msat": 10001,
+	"payment_preimage": "e56c22b9ed85560b021e1577daad5742502d25c0c2f636b817f5c0c7580a66a8",
+	"successful_parts": 1
+    }"#;
+    let u: cln_rpc::model::responses::XkeysendResponse = serde_json::from_str(j).unwrap();
+    let g: XkeysendResponse = u.clone().into();
+    println!("{:?}", g);
+
+    let v: serde_json::Value = serde_json::to_value(u.clone()).unwrap();
+    let g: cln_rpc::model::responses::XkeysendResponse = u.into();
     let v2 = serde_json::to_value(g).unwrap();
     assert_eq!(v, v2);
 }
@@ -344,12 +384,12 @@ fn test_balance_snapshot() {
         "accounts": [
             {
                 "account_id": "wallet",
-                "balance_msat": "500000000msat",
+                "balance_msat": 500000000,
                 "coin_type": "bcrt"
             },
             {
                 "account_id": "44b77a6d66ca54f0c365c84b13a95fbde462415a0549228baa25ee1bb1dfef66",
-                "balance_msat": "1000000000msat",
+                "balance_msat": 1000000000,
                 "coin_type": "bcrt"
             }
         ]
@@ -371,14 +411,14 @@ fn test_coin_movement() {
         "type": "channel_mvt",
         "account_id": "44b77a6d66ca54f0c365c84b13a95fbde462415a0549228baa25ee1bb1dfef66",
         "created_index": 1,
-        "credit_msat": "100000000msat",
-        "debit_msat": "0msat",
+        "credit_msat": 100000000,
+        "debit_msat": 0,
         "timestamp": 1648222556,
         "primary_tag": "invoice",
         "payment_hash": "d17a42c4f7f49648064a0ce7ce848bd92c4c50f24d35fe5c3d1f3a7a9bf474b2",
         "part_id": 0,
         "group_id": 1,
-        "fees_msat": "1001msat",
+        "fees_msat": 1001,
         "peer_id": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
         "extra_tags": ["keysend"]
     });
@@ -403,14 +443,14 @@ fn test_coin_movement() {
         "type": "chain_mvt",
         "account_id": "wallet",
         "created_index": 2,
-        "credit_msat": "0msat",
-        "debit_msat": "50000000msat",
+        "credit_msat": 0,
+        "debit_msat": 50000000,
         "timestamp": 1648222600,
         "primary_tag": "withdrawal",
         "utxo": "9e76017c75baab960aa7aad24f3b7b0a9708f2dbfdc9544a5cfa72fc44206a00:0",
         "blockheight": 110,
         "spending_txid": "67efdfb11bee25aa8b2249055a4162e4bd5fa9134bc865c3f054ca666d7ab744",
-        "output_msat": "49000000msat",
+        "output_msat": 49000000,
         "output_count": 2
     });
     let u2: cln_rpc::notifications::CoinMovementNotification = serde_json::from_value(j2).unwrap();
@@ -474,11 +514,11 @@ fn test_forward_event() {
         "status": "settled",
         "in_channel": "103x1x0",
         "in_htlc_id": 0,
-        "in_msat": "100001001msat",
+        "in_msat": 100001001,
         "out_channel": "103x2x1",
         "out_htlc_id": 0,
-        "out_msat": "100000000msat",
-        "fee_msat": "1001msat",
+        "out_msat": 100000000,
+        "fee_msat": 1001,
         "payment_hash": "d17a42c4f7f49648064a0ce7ce848bd92c4c50f24d35fe5c3d1f3a7a9bf474b2",
         "received_time": 1648222556.498,
         "resolved_time": 1648222557.123,
@@ -502,7 +542,7 @@ fn test_forward_event() {
         "status": "local_failed",
         "in_channel": "103x1x0",
         "in_htlc_id": 1,
-        "in_msat": "50000000msat",
+        "in_msat": 50000000,
         "payment_hash": "d17a42c4f7f49648064a0ce7ce848bd92c4c50f24d35fe5c3d1f3a7a9bf474b2",
         "received_time": 1648222600.0,
         "failcode": 16399,
@@ -532,8 +572,8 @@ fn test_sendpay_failure() {
             "updated_index": 1,
             "partid": 0,
             "destination": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
-            "amount_msat": "10000msat",
-            "amount_sent_msat": "10001msat",
+            "amount_msat": 10000,
+            "amount_sent_msat": 10001,
             "created_at": 1648222556,
             "completed_at": 1648222557,
             "status": "failed",
@@ -568,8 +608,8 @@ fn test_sendpay_success() {
         "updated_index": 1,
         "partid": 0,
         "destination": "035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d",
-        "amount_msat": "10000msat",
-        "amount_sent_msat": "10001msat",
+        "amount_msat": 10000,
+        "amount_sent_msat": 10001,
         "created_at": 1648222556,
         "completed_at": 1648222557,
         "status": "complete",

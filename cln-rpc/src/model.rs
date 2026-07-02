@@ -661,7 +661,7 @@ pub mod requests {
 	    pub initialpsbt: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub locktime: Option<u32>,
-	    pub satoshi: Amount,
+	    pub satoshi: AmountSat,
 	}
 
 	impl From<AddpsbtoutputRequest> for Request {
@@ -1807,7 +1807,7 @@ pub mod requests {
 	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
 	    pub utxos: Option<Vec<Outpoint>>,
 	    pub destination: String,
-	    pub satoshi: AmountOrAll,
+	    pub satoshi: AmountSatOrAll,
 	}
 
 	impl From<WithdrawRequest> for Request {
@@ -1894,7 +1894,7 @@ pub mod requests {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub reserve: Option<u32>,
 	    pub feerate: Feerate,
-	    pub satoshi: AmountOrAll,
+	    pub satoshi: AmountSatOrAll,
 	    pub startweight: u32,
 	}
 
@@ -1978,7 +1978,7 @@ pub mod requests {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub reservedok: Option<bool>,
 	    pub feerate: Feerate,
-	    pub satoshi: AmountOrAll,
+	    pub satoshi: AmountSatOrAll,
 	    pub startweight: u32,
 	    pub utxos: Vec<Outpoint>,
 	}
@@ -2538,14 +2538,14 @@ pub mod requests {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub push_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub request_amt: Option<Amount>,
+	    pub request_amt: Option<AmountSat>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub reserve: Option<Amount>,
+	    pub reserve: Option<AmountSat>,
 	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
 	    pub channel_type: Option<Vec<u32>>,
 	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
 	    pub utxos: Option<Vec<Outpoint>>,
-	    pub amount: AmountOrAll,
+	    pub amount: AmountSatOrAll,
 	    pub id: PublicKey,
 	}
 
@@ -2579,10 +2579,10 @@ pub mod requests {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub push_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub reserve: Option<Amount>,
+	    pub reserve: Option<AmountSat>,
 	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
 	    pub channel_type: Option<Vec<u32>>,
-	    pub amount: Amount,
+	    pub amount: AmountSat,
 	    pub id: PublicKey,
 	}
 
@@ -3124,10 +3124,10 @@ pub mod requests {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub push_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub request_amt: Option<Amount>,
+	    pub request_amt: Option<AmountSat>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub reserve: Option<Amount>,
-	    pub amount: AmountOrAll,
+	    pub reserve: Option<AmountSat>,
+	    pub amount: AmountSatOrAll,
 	    pub id: String,
 	}
 
@@ -3265,7 +3265,7 @@ pub mod requests {
 	pub struct OpenchannelBumpRequest {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub funding_feerate: Option<Feerate>,
-	    pub amount: Amount,
+	    pub amount: AmountSat,
 	    pub channel_id: Sha256,
 	    pub initialpsbt: String,
 	}
@@ -3300,10 +3300,10 @@ pub mod requests {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub funding_feerate: Option<Feerate>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub request_amt: Option<Amount>,
+	    pub request_amt: Option<AmountSat>,
 	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
 	    pub channel_type: Option<Vec<u32>>,
-	    pub amount: Amount,
+	    pub amount: AmountSat,
 	    pub id: PublicKey,
 	    pub initialpsbt: String,
 	}
