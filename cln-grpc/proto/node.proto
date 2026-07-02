@@ -425,7 +425,7 @@ message AddgossipResponse {
 }
 
 message AddpsbtoutputRequest {
-	Amount satoshi = 1;
+	AmountSat satoshi = 1;
 	optional uint32 locktime = 2;
 	optional string initialpsbt = 3;
 	optional string destination = 4;
@@ -1276,7 +1276,7 @@ message NewaddrResponse {
 
 message WithdrawRequest {
 	string destination = 1;
-	AmountOrAll satoshi = 2;
+	AmountSatOrAll satoshi = 2;
 	optional uint32 minconf = 3;
 	repeated Outpoint utxos = 4;
 	optional Feerate feerate = 5;
@@ -1318,7 +1318,7 @@ message KeysendResponse {
 }
 
 message FundpsbtRequest {
-	AmountOrAll satoshi = 1;
+	AmountSatOrAll satoshi = 1;
 	Feerate feerate = 2;
 	uint32 startweight = 3;
 	optional uint32 minconf = 4;
@@ -1367,7 +1367,7 @@ message SignpsbtResponse {
 }
 
 message UtxopsbtRequest {
-	AmountOrAll satoshi = 1;
+	AmountSatOrAll satoshi = 1;
 	Feerate feerate = 2;
 	uint32 startweight = 3;
 	repeated Outpoint utxos = 4;
@@ -2128,18 +2128,18 @@ message FundchannelCompleteResponse {
 }
 
 message FundchannelRequest {
-	AmountOrAll amount = 1;
+	AmountSatOrAll amount = 1;
 	optional Feerate feerate = 2;
 	optional bool announce = 3;
 	optional Amount push_msat = 5;
 	optional string close_to = 6;
-	optional Amount request_amt = 7;
+	optional AmountSat request_amt = 7;
 	optional string compact_lease = 8;
 	bytes id = 9;
 	optional uint32 minconf = 10;
 	repeated Outpoint utxos = 11;
 	optional uint32 mindepth = 12;
-	optional Amount reserve = 13;
+	optional AmountSat reserve = 13;
 	repeated uint32 channel_type = 14;
 }
 
@@ -2160,13 +2160,13 @@ message FundchannelChannelType {
 
 message FundchannelStartRequest {
 	bytes id = 1;
-	Amount amount = 2;
+	AmountSat amount = 2;
 	optional Feerate feerate = 3;
 	optional bool announce = 4;
 	optional string close_to = 5;
 	optional Amount push_msat = 6;
 	optional uint32 mindepth = 7;
-	optional Amount reserve = 8;
+	optional AmountSat reserve = 8;
 	repeated uint32 channel_type = 9;
 }
 
@@ -2495,14 +2495,14 @@ message MultifundchannelResponse {
 
 message MultifundchannelDestinations {
 	string id = 1;
-	AmountOrAll amount = 2;
+	AmountSatOrAll amount = 2;
 	optional bool announce = 3;
 	optional Amount push_msat = 4;
 	optional string close_to = 5;
-	optional Amount request_amt = 6;
+	optional AmountSat request_amt = 6;
 	optional string compact_lease = 7;
 	optional uint32 mindepth = 8;
-	optional Amount reserve = 9;
+	optional AmountSat reserve = 9;
 }
 
 message MultifundchannelChannelIds {
@@ -2590,7 +2590,7 @@ message OpenchannelBumpRequest {
 	bytes channel_id = 1;
 	string initialpsbt = 2;
 	optional Feerate funding_feerate = 3;
-	Amount amount = 4;
+	AmountSat amount = 4;
 }
 
 message OpenchannelBumpResponse {
@@ -2614,10 +2614,10 @@ message OpenchannelInitRequest {
 	optional Feerate funding_feerate = 4;
 	optional bool announce = 5;
 	optional string close_to = 6;
-	optional Amount request_amt = 7;
+	optional AmountSat request_amt = 7;
 	optional bytes compact_lease = 8;
 	repeated uint32 channel_type = 9;
-	Amount amount = 10;
+	AmountSat amount = 10;
 }
 
 message OpenchannelInitResponse {

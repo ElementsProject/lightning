@@ -10,11 +10,12 @@ macro_rules! assert_serde_roundtrip {
 }
 
 use crate::{
+    ClnRpc, Notification, RpcError,
     codec::JsonCodec,
     hooks::{actions::*, events::*},
+    model::requests::FundchannelRequest,
     notifications::{BlockAddedNotification, CustomMsgNotification},
-    primitives::{Amount, JsonObjectOrArray, JsonScalar},
-    ClnRpc, Notification, RpcError,
+    primitives::{Amount, AmountSat, AmountSatOrAll, JsonObjectOrArray, JsonScalar},
 };
 
 use super::*;
@@ -1090,4 +1091,23 @@ fn test_onionmessage_recv_secret() {
         "0a020d0de"
     );
     assert_serde_roundtrip!(d, OnionMessageRecvSecretEvent);
+}
+
+#[test]
+fn test_fundchannel_rpc() {
+    let r = serde_json::json!({
+        "id": "02df5ffe895c778e10f7742a6c5b8a0cefbe9465df58b92fadeb883752c8107c8f",
+        "amount": 100_000
+    });
+
+    let d: FundchannelRequest = serde_json::from_value(r).unwrap();
+    assert_eq!(
+        d.id.to_string(),
+        "02df5ffe895c778e10f7742a6c5b8a0cefbe9465df58b92fadeb883752c8107c8f"
+    );
+    assert_eq!(
+        d.amount,
+        AmountSatOrAll::AmountSat(AmountSat::from_sat(100_000))
+    );
+    assert_serde_roundtrip!(d, FundchannelRequest);
 }

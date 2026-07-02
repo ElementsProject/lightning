@@ -241,7 +241,7 @@ def test_lsps2_buyjitchannel_mpp_fixed_invoice(node_factory, bitcoind):
     amt = 10_000_000
     inv = l1.rpc.lsps_lsps2_invoice(
         lsp_id=l2.info["id"],
-        amount_msat=f"{amt}msat",
+        amount_msat=amt,
         description="lsp-jit-channel-0",
         label="lsp-jit-channel-0",
     )

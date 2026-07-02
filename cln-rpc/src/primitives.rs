@@ -12,6 +12,9 @@ use std::string::ToString;
 pub use bitcoin::hashes::sha256::Hash as Sha256;
 pub use bitcoin::secp256k1::PublicKey;
 
+const MSAT_PER_SAT: u64 = 1000;
+const MSAT_PER_BTC: u64 = 100_000_000_000;
+
 #[derive(Copy, Clone, Serialize, Deserialize, Debug, PartialEq, Eq)]
 #[allow(non_camel_case_types)]
 pub enum ChannelState {
@@ -151,6 +154,216 @@ impl TryFrom<i32> for PluginSubcommand {
     }
 }
 
+macro_rules! amount {
+    ($name:ident, $field:ident, $from_fn:ident, 1) => {
+        amount!(@common $name, $field, $from_fn, 1);
+        amount!(@from_msat_infallible $name, $field);
+    };
+
+    ($name:ident, $field:ident, $from_fn:ident, $msat_per_unit:expr) => {
+        amount!(@common $name, $field, $from_fn, $msat_per_unit);
+        amount!(@from_msat_fallible $name, $field, $msat_per_unit);
+    };
+
+    (@common $name:ident, $field:ident, $from_fn:ident, $msat_per_unit:expr) => {
+        #[doc = concat!("Amount type for ", stringify!($field))]
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+        pub struct $name {
+            $field: u64,
+        }
+        #[allow(dead_code)]
+        impl $name {
+            pub fn from_sat(sat: u64) -> $name {
+                $name {
+                    $field: MSAT_PER_SAT / $msat_per_unit * sat,
+                }
+            }
+
+            pub fn from_btc(btc: u64) -> $name {
+                $name {
+                    $field: MSAT_PER_BTC / $msat_per_unit * btc,
+                }
+            }
+
+            pub fn $field(&self) -> u64 {
+                self.$field
+            }
+
+            fn checked_add(self, rhs: Self) -> Option<Self> {
+                self.$field.checked_add(rhs.$field).map($name::$from_fn)
+            }
+
+            fn checked_sub(self, rhs: Self) -> Option<Self> {
+                self.$field.checked_sub(rhs.$field).map($name::$from_fn)
+            }
+        }
+
+        impl std::ops::Add for $name {
+            type Output = Self;
+
+            fn add(self, rhs: Self) -> Self {
+                Self {
+                    $field: self.$field + rhs.$field,
+                }
+            }
+        }
+
+        impl std::ops::Sub for $name {
+            type Output = Self;
+
+            fn sub(self, rhs: Self) -> Self::Output {
+                Self {
+                    $field: self.$field - rhs.$field,
+                }
+            }
+        }
+
+        impl<'de> Deserialize<'de> for $name {
+            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+            where
+                D: Deserializer<'de>,
+            {
+                use serde::de::Error;
+
+                let amt = u64::deserialize(deserializer)
+                    .map_err(|_| Error::custom("could not parse amount"))?;
+
+                Ok($name { $field: amt })
+            }
+        }
+
+        impl Serialize for $name {
+            fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+            where
+                S: Serializer,
+            {
+                serializer.serialize_u64(self.$field)
+            }
+        }
+
+        impl std::fmt::Display for $name {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(f, "{}{}", self.$field, stringify!($field))
+            }
+        }
+
+        impl From<$name> for u64 {
+            fn from(a: $name) -> u64 {
+                a.$field
+            }
+        }
+
+
+        impl TryFrom<String> for $name {
+            type Error = Error;
+            fn try_from(s: String) -> Result<$name> {
+                let number: u64 = s
+                    .parse()
+                    .context(format!("Unable to parse amount from string: {s}"))?;
+
+                Ok($name::$from_fn(number))
+            }
+        }
+    };
+
+    (@from_msat_fallible $name:ident, $field:ident, $msat_per_unit:expr) => {
+        impl $name {
+            /// # Errors
+            ///
+            /// Will return `Err` if `msat` does not fit into unit.
+            pub fn from_msat(msat: u64) -> Result<$name, anyhow::Error> {
+                if msat % $msat_per_unit == 0 {
+                    return Ok($name {
+                        $field: msat / $msat_per_unit,
+                    });
+                }
+                Err(anyhow!(
+                    "msat amount does not fit into {} unit: {}",
+                    stringify!($field),
+                    msat
+                ))
+            }
+        }
+    };
+
+    (@from_msat_infallible $name:ident, $field:ident) => {
+        impl $name {
+            pub fn from_msat(msat: u64) -> $name {
+                $name { $field: msat }
+            }
+        }
+    };
+}
+
+amount!(AmountSat, sat, from_sat, MSAT_PER_SAT);
+amount!(Amount, msat, from_msat, 1);
+
+macro_rules! amount_or_all {
+    ($name:ident, $amt_name:ident, $field:ident, $from_fn:ident) => {
+        /// An amount that can also be `all`. Useful for cases where you want
+        /// to delegate the amount computation to the cln node.
+        #[derive(Debug, Copy, Clone, PartialEq, Eq)]
+        pub enum $name {
+            $amt_name($amt_name),
+            All,
+        }
+
+        impl Display for $name {
+            fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+                match self {
+                    $name::$amt_name(a) => write!(f, "{}{}", a.$field, stringify!($field)),
+                    $name::All => write!(f, "all"),
+                }
+            }
+        }
+        impl Serialize for $name {
+            fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+            where
+                S: Serializer,
+            {
+                match self {
+                    $name::$amt_name(a) => serializer.serialize_u64(a.$field),
+                    $name::All => serializer.serialize_str("all"),
+                }
+            }
+        }
+        impl<'de> Deserialize<'de> for $name {
+            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+            where
+                D: Deserializer<'de>,
+            {
+                use serde::de::Error;
+
+                let value = serde_json::Value::deserialize(deserializer)?;
+
+                match value {
+                    serde_json::Value::String(s) => {
+                        if s.eq_ignore_ascii_case("all") {
+                            Ok($name::All)
+                        } else {
+                            Ok($name::$amt_name(
+                                s.try_into()
+                                    .map_err(|_| Error::custom("could not parse amount"))?,
+                            ))
+                        }
+                    }
+                    serde_json::Value::Number(n) => {
+                        let msat = n
+                            .as_u64()
+                            .ok_or_else(|| Error::custom("could not parse amount"))?;
+
+                        Ok($name::$amt_name($amt_name::$from_fn(msat)))
+                    }
+                    _ => Err(Error::custom("could not parse amount")),
+                }
+            }
+        }
+    };
+}
+
+amount_or_all!(AmountSatOrAll, AmountSat, sat, from_sat);
+amount_or_all!(AmountOrAll, Amount, msat, from_msat);
+
 /// An `Amount` that can also be `any`. Useful for cases in which you
 /// want to delegate the Amount selection so someone else, e.g., an
 /// amountless invoice.
@@ -160,56 +373,19 @@ pub enum AmountOrAny {
     Any,
 }
 
-/// An amount that can also be `all`. Useful for cases where you want
-/// to delegate the amount computation to the cln node.
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub enum AmountOrAll {
-    Amount(Amount),
-    All,
-}
-
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub struct Amount {
-    msat: u64,
-}
-
-impl Amount {
-    pub fn from_msat(msat: u64) -> Amount {
-        Amount { msat }
-    }
-
-    pub fn from_sat(sat: u64) -> Amount {
-        Amount { msat: 1_000 * sat }
-    }
-
-    pub fn from_btc(btc: u64) -> Amount {
-        Amount {
-            msat: 100_000_000_000 * btc,
-        }
-    }
-
-    pub fn msat(&self) -> u64 {
-        self.msat
+impl From<AmountSat> for Amount {
+    fn from(a: AmountSat) -> Amount {
+        Amount::from_sat(a.sat)
     }
 }
 
-impl std::ops::Add for Amount {
-    type Output = Amount;
-
-    fn add(self, rhs: Self) -> Self::Output {
-        Amount {
-            msat: self.msat + rhs.msat,
-        }
-    }
-}
-
-impl std::ops::Sub for Amount {
-    type Output = Amount;
-
-    fn sub(self, rhs: Self) -> Self::Output {
-        Amount {
-            msat: self.msat - rhs.msat,
-        }
+impl TryFrom<Amount> for AmountSat {
+    type Error = anyhow::Error;
+    /// # Errors
+    ///
+    /// Will return `Err` if `msat` is not evenly divisible by 1000.
+    fn try_from(a: Amount) -> Result<AmountSat, Self::Error> {
+        AmountSat::from_msat(a.msat)
     }
 }
 
@@ -588,57 +764,11 @@ impl Display for HtlcState {
     }
 }
 
-impl<'de> Deserialize<'de> for Amount {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        use serde::de::Error;
-
-        let any: serde_json::Value = Deserialize::deserialize(deserializer)?;
-
-        // Amount fields used to be a string with the unit "msat" or
-        // "sat" as a suffix. The great consolidation in PR #5306
-        // changed that to always be a `u64`, but for backwards
-        // compatibility we need to handle both cases.
-        let ires: Option<u64> = any.as_u64();
-        // TODO(cdecker): Remove string parsing support once the great msat purge is complete
-        let sres: Option<&str> = any.as_str();
-
-        match (ires, sres) {
-            (Some(i), _) => {
-                // Notice that this assumes the field is denominated in `msat`
-                Ok(Amount::from_msat(i))
-            }
-            (_, Some(s)) => s
-                .try_into()
-                .map_err(|_e| Error::custom("could not parse amount")),
-            (None, _) => {
-                // We reuse the integer parsing error as that's the
-                // default after the great msat purge of 2022.
-                Err(Error::custom("could not parse amount"))
-            }
-        }
-    }
-}
-
-impl Serialize for Amount {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_str(&format!("{}msat", self.msat))
-    }
-}
-
-impl Serialize for AmountOrAll {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
+impl Display for AmountOrAny {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            AmountOrAll::Amount(a) => serializer.serialize_str(&format!("{}msat", a.msat)),
-            AmountOrAll::All => serializer.serialize_str("all"),
+            AmountOrAny::Amount(a) => write!(f, "{}msat", a.msat),
+            AmountOrAny::Any => write!(f, "any"),
         }
     }
 }
@@ -649,7 +779,7 @@ impl Serialize for AmountOrAny {
         S: Serializer,
     {
         match self {
-            AmountOrAny::Amount(a) => serializer.serialize_str(&format!("{}msat", a.msat)),
+            AmountOrAny::Amount(a) => serializer.serialize_u64(a.msat),
             AmountOrAny::Any => serializer.serialize_str("any"),
         }
     }
@@ -660,63 +790,29 @@ impl<'de> Deserialize<'de> for AmountOrAny {
     where
         D: Deserializer<'de>,
     {
-        let s: String = Deserialize::deserialize(deserializer)?;
-        Ok(match s.to_lowercase().as_ref() {
-            "any" => AmountOrAny::Any,
-            v => AmountOrAny::Amount(
-                v.try_into()
-                    .map_err(|_e| serde::de::Error::custom("could not parse amount"))?,
-            ),
-        })
-    }
-}
+        use serde::de::Error;
 
-impl<'de> Deserialize<'de> for AmountOrAll {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let s: String = Deserialize::deserialize(deserializer)?;
-        Ok(match s.to_lowercase().as_ref() {
-            "all" => AmountOrAll::All,
-            v => AmountOrAll::Amount(
-                v.try_into()
-                    .map_err(|_e| serde::de::Error::custom("could not parse amount"))?,
-            ),
-        })
-    }
-}
+        let value = serde_json::Value::deserialize(deserializer)?;
 
-impl TryFrom<&str> for Amount {
-    type Error = Error;
-    fn try_from(s: &str) -> Result<Amount> {
-        let number: u64 = s
-            .chars()
-            .map(|c| c.to_digit(10))
-            .take_while(|opt| opt.is_some())
-            .fold(0, |acc, digit| acc * 10 + (digit.unwrap() as u64));
+        match value {
+            serde_json::Value::String(s) => {
+                if s.eq_ignore_ascii_case("any") {
+                    Ok(AmountOrAny::Any)
+                } else {
+                    Ok(AmountOrAny::Amount(
+                        s.try_into()
+                            .map_err(|_| Error::custom("could not parse amount"))?,
+                    ))
+                }
+            }
+            serde_json::Value::Number(n) => {
+                let msat = n
+                    .as_u64()
+                    .ok_or_else(|| Error::custom("could not parse amount"))?;
 
-        let s = s.to_lowercase();
-        if s.ends_with("msat") {
-            Ok(Amount::from_msat(number))
-        } else if s.ends_with("sat") {
-            Ok(Amount::from_sat(number))
-        } else if s.ends_with("btc") {
-            Ok(Amount::from_btc(number))
-        } else {
-            Err(anyhow!("Unable to parse amount from string: {}", s))
-        }
-    }
-}
-
-impl From<Amount> for String {
-    fn from(a: Amount) -> String {
-        // Best effort msat to sat conversion, for methods that accept
-        // sats but not msats
-        if a.msat % 1000 == 0 {
-            format!("{}sat", a.msat / 1000)
-        } else {
-            format!("{}msat", a.msat)
+                Ok(AmountOrAny::Amount(Amount::from_msat(msat)))
+            }
+            _ => Err(Error::custom("could not parse amount")),
         }
     }
 }
@@ -806,14 +902,14 @@ mod test {
         }
 
         let tests = vec![
-            ("{\"amount\": \"10msat\"}", Amount { msat: 10 }, "10msat"),
-            ("{\"amount\": \"42sat\"}", Amount { msat: 42_000 }, "42sat"),
+            ("{\"amount\": 10}", Amount { msat: 10 }, 10),
+            ("{\"amount\": 42000}", Amount { msat: 42_000 }, 42000),
             (
-                "{\"amount\": \"31337btc\"}",
+                "{\"amount\": 3133700000000000}",
                 Amount {
                     msat: 3_133_700_000_000_000,
                 },
-                "3133700000000sat",
+                3133700000000000,
             ),
         ];
 
@@ -822,14 +918,14 @@ mod test {
             let parsed: T = serde_json::from_str(req).unwrap();
             assert_eq!(res, parsed.amount);
 
-            let serialized: String = parsed.amount.into();
+            let serialized: u64 = parsed.amount.into();
             assert_eq!(s, serialized);
         }
     }
 
     #[test]
     fn test_amount_all_any() {
-        let t = r#"{"any": "any", "all": "all", "not_any": "42msat", "not_all": "31337msat"}"#;
+        let t = r#"{"any": "any", "all": "all", "not_any": 42, "not_all": 31337}"#;
 
         #[derive(Serialize, Deserialize, Debug, PartialEq)]
         struct T {
@@ -852,7 +948,7 @@ mod test {
         let serialized: String = serde_json::to_string(&parsed).unwrap();
         assert_eq!(
             serialized,
-            r#"{"all":"all","not_all":"31337msat","any":"any","not_any":"42msat"}"#
+            r#"{"all":"all","not_all":31337,"any":"any","not_any":42}"#
         );
     }
 
@@ -876,7 +972,7 @@ mod test {
 
     #[test]
     fn test_parse_output_desc() {
-        let a = r#"{"address":"1234msat"}"#;
+        let a = r#"{"address":1234}"#;
         let od = serde_json::from_str(a).unwrap();
 
         assert_eq!(
@@ -932,6 +1028,57 @@ mod test {
 
         let p: FundchannelResponse = serde_json::from_value(r).unwrap();
         assert_eq!(p.channel_type.bits, vec![1, 3, 5]);
+    }
+
+    #[test]
+    #[allow(clippy::many_single_char_names)]
+    fn test_amount_arithmetic() {
+        let a = Amount { msat: 10 };
+        let b = Amount { msat: 100 };
+        let c = a + b;
+        assert_eq!(c, Amount { msat: 110 });
+        let d = b - a;
+        assert_eq!(d, Amount { msat: 90 });
+        let e = a.checked_sub(b);
+        assert_eq!(e, None);
+        let f = b.checked_sub(a);
+        assert_eq!(f, Some(Amount { msat: 90 }));
+        let g = a.checked_add(b);
+        assert_eq!(g, Some(Amount { msat: 110 }));
+        let h = b.checked_add(a);
+        assert_eq!(h, Some(Amount { msat: 110 }));
+        let i = Amount { msat: u64::MAX };
+        let j = i.checked_add(a);
+        assert_eq!(j, None);
+    }
+
+    #[test]
+    #[should_panic(expected = "attempt to subtract with overflow")]
+    fn test_amount_sub_overflow() {
+        let a = Amount { msat: 1 };
+        let _ = a - Amount { msat: 2 };
+    }
+
+    #[test]
+    #[should_panic(expected = "attempt to add with overflow")]
+    fn test_amount_add_overflow() {
+        let a = Amount { msat: u64::MAX };
+        let _ = a + Amount { msat: 1 };
+    }
+
+    #[test]
+    #[allow(clippy::many_single_char_names)]
+    fn test_interunit_arithmetic() {
+        let a = Amount { msat: 1000 };
+        let b = AmountSat { sat: 10 };
+        let c = a + Amount::from(b);
+        assert_eq!(c, Amount { msat: 11000 });
+        let d = b + AmountSat::try_from(a).unwrap();
+        assert_eq!(d, AmountSat { sat: 11 });
+        let e = Amount::from(b) - a;
+        assert_eq!(e, Amount { msat: 9000 });
+        let f = b - AmountSat::try_from(a).unwrap();
+        assert_eq!(f, AmountSat { sat: 9 });
     }
 }
 
