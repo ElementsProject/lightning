@@ -2,9 +2,9 @@
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
   "rpc": "reckless",
-  "title": "Issue a command to the reckless plugin manager utility",
+  "title": "Reckless, a plugin manager",
   "description": [
-    "The **reckless** RPC starts a reckless process with the *command* and *target* provided.  Node configuration, network, and lightning direrctory are automatically passed to the reckless utility."
+    "The **reckless** RPC lets you manage plugins. It has multiple commands available, best described in the **help** command."
   ],
   "request": {
     "required": [
@@ -16,45 +16,77 @@
         "type": "string",
         "enum": [
           "install",
+          "update",
           "uninstall",
-          "search",
+          "listavailable",
+          "listinstalled",
           "enable",
           "disable",
           "source",
-          "--version"
+          "tip",
+          "help"
         ],
         "description": [
           "Determines which command to pass to reckless",
           "  - *command* **install** takes a *plugin_name* to search for and install a named plugin.",
           "  - *command* **uninstall** takes a *plugin_name* and attempts to uninstall a plugin of the same name.",
-          "  - *command* **search** takes a *plugin_name* to search for a named plugin.",
+          "  - *command* **help** takes a *command* to display help for (plain text).",
           "..."
         ]
       },
-      "target/subcommand": {
-        "oneOf": [
-          {
-            "type": "string"
-          },
-          {
-            "type": "array"
-          }
+      "subcommand": {
+        "type": "string",
+        "enum": [
+          "add",
+          "list",
+          "remove"
         ],
         "description": [
-          "Target of a reckless command or a subcommand."
+          "A subcommand. Only in combination with *command* **source**."
         ]
       },
       "target": {
-        "oneOf": [
-          {
-            "type": "string"
-          },
-          {
-            "type": "array"
-          }
-        ],
+        "type": "string",
         "description": [
-          "*name* of a plugin to install/uninstall/search/enable/disable or source to add/remove."
+          "*name* of a plugin to install/update/uninstall/listavailable/enable/disable or source to add/remove. Can also have a git ref added with `<name>@<ref>` to install a specific version."
+        ]
+      },
+      "options": {
+        "type": "array",
+        "added": "v26.09",
+        "items": {
+          "type": "string"
+        },
+        "description": [
+          "Plugin options to be used with the commands **install**/**update**/**enable** in the form of `key=value`."
+        ]
+      },
+      "amount_msat": {
+        "type": "msat",
+        "added": "v26.09",
+        "description": [
+          "The amount of msat to send when using the *command* **tip**."
+        ]
+      },
+      "payer_note": {
+        "type": "string",
+        "added": "v26.09",
+        "description": [
+          "A message that a payer is willing to send to a payee when using the *command* **tip**."
+        ]
+      },
+      "verbose": {
+        "type": "boolean",
+        "added": "v26.09",
+        "description": [
+          "Verbose output for all logging outputs for this command."
+        ]
+      },
+      "developer": {
+        "type": "boolean",
+        "added": "v26.09",
+        "description": [
+          "Build plugins in debug mode and do not clean up build files where applicable."
         ]
       }
     }
@@ -69,7 +101,267 @@
       "result": {
         "type": "array",
         "items": {
-          "type": "string"
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "plugin_name": {
+                  "type": "string",
+                  "description": [
+                    "The name of the plugin that was installed or updated."
+                  ]
+                },
+                "enabled": {
+                  "type": "boolean",
+                  "description": [
+                    "Whether the plugin was enabled or not."
+                  ]
+                },
+                "installed_commit": {
+                  "type": "string",
+                  "description": [
+                    "The git ref that was installed or updated to. Only present if source is a remote git repository."
+                  ]
+                }
+              },
+              "required": [
+                "plugin_name",
+                "enabled"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "plugin_name": {
+                  "type": "string",
+                  "description": [
+                    "The name of the plugin that was uninstalled/enabled/disabled."
+                  ]
+                }
+              },
+              "required": [
+                "plugin_name"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "plugin_name": {
+                  "type": "string",
+                  "description": [
+                    "The name of the plugin that was listed."
+                  ]
+                },
+                "installer": {
+                  "type": "string",
+                  "enum": [
+                    "PythonUv",
+                    "PythonUvShebang",
+                    "PythonUvLegacy",
+                    "PoetryVenv",
+                    "PyprojectViaPip",
+                    "Python",
+                    "Nodejs",
+                    "Rust",
+                    "Go",
+                    "Custom"
+                  ],
+                  "description": [
+                    "The name of the plugin installer that is used."
+                  ]
+                },
+                "manifest": {
+                  "type": "object",
+                  "properties": {
+                    "short_description": {
+                      "type": "string",
+                      "description": [
+                        "A short description of the plugin."
+                      ]
+                    },
+                    "long_description": {
+                      "type": "string",
+                      "description": [
+                        "A long description of the plugin."
+                      ]
+                    },
+                    "entrypoint": {
+                      "type": "string",
+                      "description": [
+                        "The entrypoint for the plugin."
+                      ]
+                    },
+                    "dependencies": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": [
+                        "Programs needed to install this plugin."
+                      ]
+                    },
+                    "install_cmd": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": [
+                        "Custom commands needed to install this plugin, if the default installers do not work."
+                      ]
+                    },
+                    "required_options": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": [
+                        "Options needed to install this plugin."
+                      ]
+                    },
+                    "offer": {
+                      "type": "string",
+                      "description": [
+                        "An offer for users to tip for this plugin."
+                      ]
+                    },
+                    "installable": {
+                      "type": "boolean",
+                      "description": [
+                        "Whether this plugin is reckless-installable."
+                      ]
+                    }
+                  },
+                  "required": [
+                    "entrypoint"
+                  ],
+                  "additionalProperties": false
+                },
+                "origin": {
+                  "type": "string",
+                  "description": [
+                    "The origin of the plugin."
+                  ]
+                }
+              },
+              "required": [
+                "plugin_name",
+                "installer",
+                "manifest",
+                "origin"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "plugin_name": {
+                  "type": "string",
+                  "description": [
+                    "The name of the plugin that was listed."
+                  ]
+                },
+                "installation_date": {
+                  "type": "string",
+                  "description": [
+                    "The date the plugin was installed."
+                  ]
+                },
+                "installation_time": {
+                  "type": "number",
+                  "description": [
+                    "The timestamp the plugin was installed."
+                  ]
+                },
+                "original_source": {
+                  "type": "string",
+                  "description": [
+                    "The original source of the plugin."
+                  ]
+                },
+                "requested_commit": {
+                  "type": "string",
+                  "description": [
+                    "The git ref that was requested to be installed."
+                  ]
+                },
+                "installed_commit": {
+                  "type": "string",
+                  "description": [
+                    "The git ref that was installed."
+                  ]
+                }
+              },
+              "required": [
+                "plugin_name",
+                "installation_date",
+                "installation_time",
+                "original_source"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "sources": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": [
+                    "The list of current sources."
+                  ]
+                }
+              },
+              "required": [
+                "sources"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "payment_preimage": {
+                  "type": "secret",
+                  "description": [
+                    "The proof of payment: SHA256 of this **payment_hash**."
+                  ]
+                },
+                "failed_parts": {
+                  "type": "u64",
+                  "description": [
+                    "How many separate payment parts failed."
+                  ]
+                },
+                "successful_parts": {
+                  "type": "u64",
+                  "description": [
+                    "How many separate payment parts succeeded (or are anticipated to succeed).  This will be at least one."
+                  ]
+                },
+                "amount_msat": {
+                  "type": "msat",
+                  "description": [
+                    "Amount the recipient received."
+                  ]
+                },
+                "amount_sent_msat": {
+                  "type": "msat",
+                  "description": [
+                    "Total amount we sent (including fees)."
+                  ]
+                }
+              },
+              "required": [
+                "payment_preimage",
+                "failed_parts",
+                "successful_parts",
+                "amount_msat",
+                "amount_sent_msat"
+              ]
+            }
+          ]
         },
         "description": [
           "Output of the requested reckless command."
@@ -81,7 +373,7 @@
           "type": "string"
         },
         "description": [
-          "Verbose log entries of the requested reckless command."
+          "Log entries of the requested reckless command."
         ]
       }
     }

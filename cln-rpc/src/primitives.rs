@@ -627,7 +627,7 @@ impl Serialize for Amount {
     where
         S: Serializer,
     {
-        serializer.serialize_str(&format!("{}msat", self.msat))
+        serializer.serialize_u64(self.msat)
     }
 }
 
@@ -637,7 +637,7 @@ impl Serialize for AmountOrAll {
         S: Serializer,
     {
         match self {
-            AmountOrAll::Amount(a) => serializer.serialize_str(&format!("{}msat", a.msat)),
+            AmountOrAll::Amount(a) => serializer.serialize_u64(a.msat),
             AmountOrAll::All => serializer.serialize_str("all"),
         }
     }
@@ -649,7 +649,7 @@ impl Serialize for AmountOrAny {
         S: Serializer,
     {
         match self {
-            AmountOrAny::Amount(a) => serializer.serialize_str(&format!("{}msat", a.msat)),
+            AmountOrAny::Amount(a) => serializer.serialize_u64(a.msat),
             AmountOrAny::Any => serializer.serialize_str("any"),
         }
     }

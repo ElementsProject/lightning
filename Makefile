@@ -460,8 +460,7 @@ ALL_NONGEN_SRCFILES := $(ALL_NONGEN_HEADERS) $(ALL_NONGEN_SOURCES)
 BIN_PROGRAMS = \
 	       cli/lightning-cli \
 	       lightningd/lightningd \
-	       tools/lightning-hsmtool\
-	       tools/reckless
+	       tools/lightning-hsmtool
 PKGLIBEXEC_PROGRAMS = \
 	       lightningd/lightning_channeld \
 	       lightningd/lightning_closingd \
@@ -872,7 +871,7 @@ clean: obsclean
 
 # See doc/contribute-to-core-lightning/contributor-workflow.md
 PYLNS=client proto testing
-update-versions: update-pyln-versions update-reckless-version update-dot-version # FIXME: update-doc-examples
+update-versions: update-pyln-versions update-dot-version # FIXME: update-doc-examples
 	@uv lock
 
 update-pyln-versions: $(PYLNS:%=update-pyln-version-%)
@@ -909,11 +908,6 @@ pyln-build-all: pyln-build pyln-build-bolts pyln-build-grpc-proto pyln-build-wss
 
 update-lock:
 	uv sync --all-extras --all-groups
-
-update-reckless-version:
-	@if [ -z "$(NEW_VERSION)" ]; then echo "Set NEW_VERSION!" >&2; exit 1; fi
-	@echo "Updating tools/reckless to $(NEW_VERSION)"
-	@$(SED) -i.bak "s/__VERSION__ = '.*'/__VERSION__ = '$(NEW_VERSION)'/" tools/reckless && rm tools/reckless.bak
 
 update-dot-version:
 	@if [ -z "$(NEW_VERSION)" ]; then echo "Set NEW_VERSION!" >&2; exit 1; fi
