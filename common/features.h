@@ -157,4 +157,9 @@ struct feature_set *feature_set_dup(const tal_t *ctx,
 
 #define OPT_SHUTDOWN_WRONG_FUNDING		104
 
+/* BOLT-fetch-bolt11 #9:
+ * | 2/3 | `option_bolt11_request` | Invoice request for a bolt11 invoice | 2 | | [BOLT #12][bolt12-bolt11-req] |
+ */
+#define OPT_BOLT11_REQUEST			2
+
 #endif /* LIGHTNING_COMMON_FEATURES_H */

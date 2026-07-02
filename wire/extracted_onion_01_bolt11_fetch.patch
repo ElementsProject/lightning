@@ -1,0 +1,10 @@
+diff --git a/wire/onion_wire.csv b/wire/onion_wire.csv
+index e3f313cf6a..6c49cd8d06 100644
+--- a/wire/onion_wire.csv
++++ b/wire/onion_wire.csv
+@@ -102,3 +102,5 @@ tlvtype,onionmsg_tlv,invoice,66
+ tlvdata,onionmsg_tlv,invoice,inv,tlv_invoice,
+ tlvtype,onionmsg_tlv,invoice_error,68
+ tlvdata,onionmsg_tlv,invoice_error,inverr,tlv_invoice_error,
++tlvtype,onionmsg_tlv,bolt11_invoice,70
++tlvdata,onionmsg_tlv,bolt11_invoice,bolt11,utf8,...

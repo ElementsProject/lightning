@@ -6076,6 +6076,7 @@ impl From<requests::FetchinvoiceRequest> for pb::FetchinvoiceRequest {
         Self {
             amount_msat: c.amount_msat.map(|f| f.into()), // Rule #2 for type msat?
             bip353: c.bip353, // Rule #2 for type string?
+            bolt11: c.bolt11, // Rule #2 for type boolean?
             offer: c.offer, // Rule #2 for type string
             payer_metadata: c.payer_metadata, // Rule #2 for type string?
             payer_note: c.payer_note, // Rule #2 for type string?
@@ -8170,6 +8171,7 @@ impl From<pb::FetchinvoiceRequest> for requests::FetchinvoiceRequest {
         Self {
             amount_msat: c.amount_msat.map(|a| a.into()), // Rule #1 for type msat?
             bip353: c.bip353, // Rule #1 for type string?
+            bolt11: c.bolt11, // Rule #1 for type boolean?
             offer: c.offer, // Rule #1 for type string
             payer_metadata: c.payer_metadata, // Rule #1 for type string?
             payer_note: c.payer_note, // Rule #1 for type string?

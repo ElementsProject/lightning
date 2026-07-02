@@ -354,6 +354,8 @@ pub mod events{
     #[derive(Clone, Debug, Deserialize, Serialize)]
     pub struct OnionMessageRecvOnionMessage {
         #[serde(skip_serializing_if = "Option::is_none")]
+        pub bolt11_invoice: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
         pub invoice: Option<String>,
         #[serde(skip_serializing_if = "Option::is_none")]
         pub invoice_error: Option<String>,
@@ -398,6 +400,8 @@ pub mod events{
 
     #[derive(Clone, Debug, Deserialize, Serialize)]
     pub struct OnionMessageRecvSecretOnionMessage {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub bolt11_invoice: Option<String>,
         #[serde(skip_serializing_if = "Option::is_none")]
         pub invoice: Option<String>,
         #[serde(skip_serializing_if = "Option::is_none")]

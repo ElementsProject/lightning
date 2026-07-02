@@ -113,6 +113,13 @@
               "BOLT #12 `invoice` payload."
             ]
           },
+          "bolt11_invoice": {
+            "type": "string",
+            "added": "v26.09",
+            "description": [
+              "BOLT #11 invoice payload."
+            ]
+          },
           "invoice_error": {
             "type": "hex",
             "description": [

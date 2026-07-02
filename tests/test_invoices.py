@@ -131,6 +131,25 @@ def test_invoice_weirdstring(node_factory):
     l1.rpc.delinvoice(weird_label, "unpaid")
 
 
+def test_invoice_long_label(node_factory):
+    """We used to reject labels over 128 bytes, but bolt11-serving of
+    (simple) offers generates 'sha256-pubkey-counter' labels which are
+    longer than that (Bad invoice error ... 'Label ... over 128 bytes')."""
+    l1 = node_factory.get_node()
+
+    # This is the exact shape of a bolt11-from-offer label: 133 bytes.
+    long_label = ('c4f9d891047a770bb96953886ad9536cd4eb43f0dd4423dcd9a7b4952a615a8c'
+                  '-031f952d09872d0c45bfc81e3fb1d9c193647c176362f290f104c1d719547b044b'
+                  '-0')
+    assert len(long_label) > 128
+
+    l1.rpc.invoice(123000, long_label, 'description')
+
+    # Can find it by that label.
+    inv = only_one(l1.rpc.listinvoices(long_label)['invoices'])
+    assert inv['label'] == long_label
+
+
 def test_invoice_preimage(node_factory):
     """Test explicit invoice 'preimage'.
     """

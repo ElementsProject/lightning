@@ -171,17 +171,42 @@ static struct command_result *handle_invreq_response(struct command *cmd,
 	u64 *expected_amount;
 	const struct recurrence *recurrence;
 
-	invtok = json_get_member(buf, om, "invoice");
+	/* Handle bolt11 case separately */
+	const char *invfield = sent->invreq->invreq_bolt11 ? "bolt11_invoice" : "invoice";
+	invtok = json_get_member(buf, om, invfield);
 	if (!invtok) {
 		plugin_log(cmd->plugin, LOG_UNUSUAL,
-			   "Neither invoice nor invoice_request_failed in reply %.*s",
+			   "Neither %s nor invoice_request_failed in reply %.*s",
+			   invfield,
 			   json_tok_full_len(om),
 			   json_tok_full(buf, om));
 		discard_result(command_fail(sent->cmd,
 					    OFFER_BAD_INVREQ_REPLY,
-					    "Neither invoice nor invoice_request_failed in reply %.*s",
+					    "Neither %s nor invoice_request_failed in reply %.*s",
+					    invfield,
 					    json_tok_full_len(om),
 					    json_tok_full(buf, om)));
+		return command_hook_success(cmd);
+	}
+
+	if (sent->invreq->invreq_bolt11) {
+		const char *bolt11, *err;
+
+		/* Sanity check that they sent us a valid reply */
+		bolt11 = json_strdup(tmpctx, buf, invtok);
+		if (!bolt11_decode(tmpctx, bolt11,
+				   plugin_feature_set(cmd->plugin),
+				   NULL,
+				   chainparams,
+				   &err)) {
+			badfield = tal_fmt(tmpctx, "invoice: %s", err);
+			goto badinv;
+		}
+		out = jsonrpc_stream_success(sent->cmd);
+		json_add_string(out, "invoice", bolt11);
+		json_object_start(out, "changes");
+		json_object_end(out);
+		discard_result(command_finished(sent->cmd, out));
 		return command_hook_success(cmd);
 	}
 
@@ -929,6 +954,7 @@ struct command_result *json_fetchinvoice(struct command *cmd,
 	u32 *timeout;
 	u64 *quantity;
 	u32 *recurrence_counter, *recurrence_start;
+	bool *bolt11;
 
 	if (!param_check(cmd, buffer, params,
 			 p_req("offer", param_offer, &sent->offer),
@@ -941,6 +967,7 @@ struct command_result *json_fetchinvoice(struct command *cmd,
 			 p_opt("payer_note", param_string, &payer_note),
 			 p_opt("payer_metadata", param_bin_from_hex, &payer_metadata),
 			 p_opt("bip353", param_bip353, &bip353),
+			 p_opt_def("bolt11", param_bool, &bolt11, false),
 			 p_opt("dev_path_use_scidd", param_dev_scidd, &sent->dev_path_use_scidd),
 			 p_opt("dev_reply_path", param_dev_reply_path, &sent->dev_reply_path),
 		   NULL))
@@ -1147,6 +1174,13 @@ struct command_result *json_fetchinvoice(struct command *cmd,
 							payer_note,
 							strlen(payer_note),
 							0);
+
+	if (*bolt11) {
+		if (!feature_offered(invreq->offer_features, OPT_BOLT11_REQUEST))
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Cannot request bolt11: offer does not implement it");
+		invreq->invreq_bolt11 = tal(invreq, struct tlv_invoice_request_invreq_bolt11);
+	}
 
 	/* If only checking, we're done now */
 	if (command_check_only(cmd))
