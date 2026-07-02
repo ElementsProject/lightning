@@ -17,6 +17,7 @@ enum dstore_layer_type {
 	DSTORE_DISABLED_NODE = 5,
 	DSTORE_CHANNEL_BIAS_V2 = 6,
 	DSTORE_NODE_BIAS = 7,
+	DSTORE_CHANNEL_IMPRESSION = 8,
 };
 
 bool fromwire_dstore_channel(const u8 **cursor, size_t *len,
@@ -59,6 +60,16 @@ void towire_dstore_channel_constraint(u8 **data,
 				      u64 timestamp,
 				      const struct amount_msat *min,
 				      const struct amount_msat *max);
+
+bool fromwire_dstore_channel_impression(const tal_t *ctx,
+					const u8 **cursor, size_t *len,
+					struct short_channel_id_dir *scidd,
+					u64 *timestamp,
+					struct amount_msat *amount);
+void towire_dstore_channel_impression(u8 **data,
+				      const struct short_channel_id_dir *scidd,
+				      u64 timestamp,
+				      struct amount_msat amount);
 
 bool fromwire_dstore_channel_bias(const tal_t *ctx,
 				  const u8 **cursor, size_t *len,

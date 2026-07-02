@@ -2,6 +2,7 @@
 #define LIGHTNING_PLUGINS_ASKRENE_CHILD_EXPLAIN_FAILURE_H
 #include "config.h"
 #include <common/amount.h>
+#include <common/jsonrpc_errors.h>
 
 struct route_query;
 struct gossmap_node;
@@ -11,6 +12,7 @@ const char *explain_failure(const tal_t *ctx,
 			    const struct route_query *rq,
 			    const struct gossmap_node *srcnode,
 			    const struct gossmap_node *dstnode,
-			    struct amount_msat amount);
+			    struct amount_msat amount,
+			    enum jsonrpc_errcode *ecode);
 
 #endif /* LIGHTNING_PLUGINS_ASKRENE_CHILD_EXPLAIN_FAILURE_H */

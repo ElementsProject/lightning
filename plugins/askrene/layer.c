@@ -45,6 +45,15 @@ struct constraint {
 	struct amount_msat max;
 };
 
+/* An impression reflects something we did to a channel (successful payments) */
+struct impression {
+	/* This is the direction of the payment, but it affects both ways */
+	struct short_channel_id_dir scidd;
+	/* Time this constraint was last updated */
+	u64 timestamp;
+	struct amount_msat amount;
+};
+
 /* A bias, for special-effects (user-controlled) */
 struct bias {
 	struct short_channel_id_dir scidd;
@@ -60,20 +69,29 @@ struct node_bias {
 	u64 timestamp;
 };
 
-static const struct short_channel_id_dir *
-constraint_scidd(const struct constraint *c)
+/* A timestamp-ordered list of impresssion and constraint */
+struct channel_intel {
+	/* Only one is set */
+	const struct impression *impression;
+	const struct constraint *constraint;
+};
+
+static struct short_channel_id
+channel_intel_scid(const struct channel_intel *intelarr)
 {
-	return &c->scidd;
+	if (intelarr[0].impression)
+		return intelarr[0].impression->scidd.scid;
+	return intelarr[0].constraint->scidd.scid;
 }
 
-static inline bool constraint_eq_scidd(const struct constraint *c,
-				       const struct short_channel_id_dir *scidd)
+static inline bool channel_intel_eq_scid(const struct channel_intel *intelarr,
+					 struct short_channel_id scid)
 {
-	return short_channel_id_dir_eq(scidd, &c->scidd);
+	return short_channel_id_eq(scid, channel_intel_scid(intelarr));
 }
 
-HTABLE_DEFINE_DUPS_TYPE(struct constraint, constraint_scidd, hash_scidd,
-			constraint_eq_scidd, constraint_hash);
+HTABLE_DEFINE_NODUPS_TYPE(struct channel_intel, channel_intel_scid, hash_scid,
+			  channel_intel_eq_scid, channel_intel_hash);
 
 static struct short_channel_id
 local_channel_scid(const struct local_channel *lc)
@@ -155,8 +173,8 @@ struct layer {
 	/* Modifications to channels, indexed by scidd */
 	struct local_update_hash *local_updates;
 
-	/* Additional info, indexed by scid+dir */
-	struct constraint_hash *constraints;
+	/* Constraints and impressions, indexed by scid */
+	struct channel_intel_hash *channel_intels;
 
 	/* Bias, indexed by scid+dir */
 	struct bias_hash *biases;
@@ -196,7 +214,7 @@ struct layer *new_temp_layer(const tal_t *ctx, struct askrene *askrene, const ch
 	l->persistent = false;
 	l->local_channels = new_htable(l, local_channel_hash);
 	l->local_updates = new_htable(l, local_update_hash);
-	l->constraints = new_htable(l, constraint_hash);
+	l->channel_intels = new_htable(l, channel_intel_hash);
 	l->biases = new_htable(l, bias_hash);
 	l->node_biases = new_htable(l, node_bias_hash);
 	l->disabled_nodes = tal_arr(l, struct node_id, 0);
@@ -293,13 +311,59 @@ static struct local_update *add_update_channel(struct layer *layer,
 	return lu;
 }
 
+static u64 channel_intel_timestamp(const struct channel_intel *intel)
+{
+	if (intel->constraint)
+		return intel->constraint->timestamp;
+	return intel->impression->timestamp;
+}
+
+/* Insert this constraint/impression in htable, maintaining timestamp order */
+static void add_channel_intel(struct layer *layer,
+			      const struct constraint *constraint STEALS,
+			      const struct impression *impression STEALS)
+{
+	struct channel_intel intel, *intelarr;
+
+	intel.impression = impression;
+	intel.constraint = constraint;
+	/* Exactly one is set */
+	if (constraint)
+		assert(!impression);
+	else
+		assert(impression);
+
+	intelarr = channel_intel_hash_get(layer->channel_intels, channel_intel_scid(&intel));
+	if (!intelarr) {
+		intelarr = tal_dup(layer->channel_intels, struct channel_intel, &intel);
+		goto done;
+	}
+
+	/* Insert in timestamp order, then insertion order.  Realloc
+	 * mean we have to delete, readd */
+	channel_intel_hash_del(layer->channel_intels, intelarr);
+	for (size_t i = 0; i < tal_count(intelarr); i++) {
+		if (channel_intel_timestamp(&intel) < channel_intel_timestamp(&intelarr[i])) {
+			tal_arr_insert(&intelarr, i, intel);
+			goto done;
+		}
+	}
+	tal_arr_expand(&intelarr, intel);
+
+done:
+	channel_intel_hash_add(layer->channel_intels, intelarr);
+	/* Make sure array owns the impression/constraint, to avoid memleak */
+	tal_steal(intelarr, intel.impression);
+	tal_steal(intelarr, intel.constraint);
+}
+
 static const struct constraint *add_constraint(struct layer *layer,
 					       const struct short_channel_id_dir *scidd,
 					       u64 timestamp,
 					       const struct amount_msat *min,
 					       const struct amount_msat *max)
 {
-	struct constraint *c = tal(layer, struct constraint);
+	struct constraint *c = tal(NULL, struct constraint);
 	c->scidd = *scidd;
 
 	if (min)
@@ -312,8 +376,22 @@ static const struct constraint *add_constraint(struct layer *layer,
 		c->max = AMOUNT_MSAT(UINT64_MAX);
 	c->timestamp = timestamp;
 
-	constraint_hash_add(layer->constraints, c);
+	add_channel_intel(layer, c, NULL);
 	return c;
+}
+
+static const struct impression *add_impression(struct layer *layer,
+					       const struct short_channel_id_dir *scidd,
+					       u64 timestamp,
+					       struct amount_msat amount)
+{
+	struct impression *imp = tal(NULL, struct impression);
+	imp->scidd = *scidd;
+	imp->amount = amount;
+	imp->timestamp = timestamp;
+
+	add_channel_intel(layer, NULL, imp);
+	return imp;
 }
 
 static const struct bias *set_bias(struct layer *layer,
@@ -565,6 +643,38 @@ static void load_channel_constraint(struct plugin *plugin,
 		add_constraint(layer, &scidd, timestamp, min, max);
 }
 
+static void towire_save_channel_impression(u8 **data, const struct impression *imp)
+{
+	towire_dstore_channel_impression(data, &imp->scidd, imp->timestamp, imp->amount);
+}
+
+static void save_channel_impression(struct layer *layer, const struct impression *imp)
+{
+	u8 *data;
+
+	if (!layer->persistent)
+		return;
+
+	data = tal_arr(tmpctx, u8, 0);
+	towire_save_channel_impression(&data, imp);
+	append_layer_datastore(layer, data);
+}
+
+static void load_channel_impression(struct plugin *plugin,
+				    struct layer *layer,
+				    const u8 **cursor,
+				    size_t *len)
+{
+	struct short_channel_id_dir scidd;
+	struct amount_msat amount;
+	u64 timestamp;
+
+	if (fromwire_dstore_channel_impression(tmpctx, cursor, len,
+						     &scidd, &timestamp,
+						     &amount))
+		add_impression(layer, &scidd, timestamp, amount);
+}
+
 static void towire_save_channel_bias(u8 **data, const struct bias *bias)
 {
 	towire_dstore_channel_bias_v2(data,
@@ -700,8 +810,8 @@ static void save_complete_layer(struct layer *layer)
 	const struct local_channel *lc;
 	const struct local_update *lu;
 	struct local_update_hash_iter luit;
-	struct constraint_hash_iter conit;
-	const struct constraint *c;
+	const struct channel_intel *intelarr;
+	struct channel_intel_hash_iter intelit;
 	struct bias_hash_iter biasit;
 	const struct bias *b;
 	struct node_bias_hash_iter nbiasit;
@@ -726,13 +836,19 @@ static void save_complete_layer(struct layer *layer)
 	     lu = local_update_hash_next(layer->local_updates, &luit)) {
 		towire_save_channel_update(&data, lu);
 	}
-	for (c = constraint_hash_first(layer->constraints, &conit);
-	     c;
-	     c = constraint_hash_next(layer->constraints, &conit)) {
-		/* Don't save ones we generated internally */
-		if (c->timestamp == UINT64_MAX)
-			continue;
-		towire_save_channel_constraint(&data, c);
+	for (intelarr = channel_intel_hash_first(layer->channel_intels, &intelit);
+	     intelarr;
+	     intelarr = channel_intel_hash_next(layer->channel_intels, &intelit)) {
+		for (size_t i = 0; i < tal_count(intelarr); i++) {
+			if (intelarr[i].constraint) {
+				/* Don't save ones we generated internally */
+				if (intelarr[i].constraint->timestamp == UINT64_MAX)
+					continue;
+				towire_save_channel_constraint(&data, intelarr[i].constraint);
+			} else {
+				towire_save_channel_impression(&data, intelarr[i].impression);
+			}
+		}
 	}
 	for (b = bias_hash_first(layer->biases, &biasit);
 	     b;
@@ -793,6 +909,9 @@ static void populate_layer(struct askrene *askrene,
 			continue;
 		case DSTORE_NODE_BIAS:
 			load_node_bias(askrene->plugin, layer, &data, &len);
+			continue;
+		case DSTORE_CHANNEL_IMPRESSION:
+			load_channel_impression(askrene->plugin, layer, &data, &len);
 			continue;
 		}
 		plugin_err(askrene->plugin, "Invalid type %i in datastore: layer %s %s",
@@ -998,15 +1117,33 @@ void layer_apply_constraints(const struct layer *layer,
 			     struct amount_msat *min,
 			     struct amount_msat *max)
 {
-	struct constraint *c;
-	struct constraint_hash_iter cit;
+	const struct channel_intel *intelarr;
 
-	/* We can have more than one: apply them all! */
-	for (c = constraint_hash_getfirst(layer->constraints, scidd, &cit);
-	     c;
-	     c = constraint_hash_getnext(layer->constraints, scidd, &cit)) {
-		*min = amount_msat_max(*min, c->min);
-		*max = amount_msat_min(*max, c->max);
+	/* Apply any intel we have, in order */
+	intelarr = channel_intel_hash_get(layer->channel_intels, scidd->scid);
+	for (size_t i = 0; i < tal_count(intelarr); i++) {
+		if (intelarr[i].constraint) {
+			const struct constraint *c = intelarr[i].constraint;
+			if (c->scidd.dir == scidd->dir) {
+				*min = amount_msat_max(*min, c->min);
+				*max = amount_msat_min(*max, c->max);
+			}
+		} else {
+			const struct impression *imp = intelarr[i].impression;
+			/* We made payment along this channel?  Capacity has reduced */
+			if (imp->scidd.dir == scidd->dir) {
+				if (!amount_msat_sub(min, *min, imp->amount))
+					*min = AMOUNT_MSAT(0);
+				if (!amount_msat_sub(max, *max, imp->amount))
+					*max = AMOUNT_MSAT(0);
+			} else {
+				/* We made the other way?  Capacity has increased */
+				if (!amount_msat_add(min, *min, imp->amount))
+					*min = AMOUNT_MSAT(-1ULL);
+				if (!amount_msat_add(max, *max, imp->amount))
+					*max = AMOUNT_MSAT(-1ULL);
+			}
+		}
 	}
 }
 
@@ -1023,17 +1160,30 @@ const struct constraint *layer_add_constraint(struct layer *layer,
 	return c;
 }
 
+const struct impression *layer_add_impression(struct layer *layer,
+					      const struct short_channel_id_dir *scidd,
+					      u64 timestamp,
+					      struct amount_msat amount)
+{
+	const struct impression *imp;
+
+	imp = add_impression(layer, scidd, timestamp, amount);
+	save_channel_impression(layer, imp);
+	return imp;
+}
+
 void layer_clear_overridden_capacities(const struct layer *layer,
 				       const struct gossmap *gossmap,
 				       fp16_t *capacities)
 {
-	struct constraint_hash_iter conit;
-	struct constraint *con;
+	struct channel_intel_hash_iter intelit;
+	const struct channel_intel *intelarr;
 
-	for (con = constraint_hash_first(layer->constraints, &conit);
-	     con;
-	     con = constraint_hash_next(layer->constraints, &conit)) {
-		struct gossmap_chan *c = gossmap_find_chan(gossmap, &con->scidd.scid);
+	for (intelarr = channel_intel_hash_first(layer->channel_intels, &intelit);
+	     intelarr;
+	     intelarr = channel_intel_hash_next(layer->channel_intels, &intelit)) {
+		const struct short_channel_id scid = channel_intel_scid(intelarr);
+		struct gossmap_chan *c = gossmap_find_chan(gossmap, &scid);
 		size_t idx;
 		if (!c)
 			continue;
@@ -1046,20 +1196,42 @@ void layer_clear_overridden_capacities(const struct layer *layer,
 size_t layer_trim_constraints(struct layer *layer, u64 cutoff)
 {
 	size_t num_removed = 0;
-	struct constraint_hash_iter conit;
-	struct constraint *con;
+	struct channel_intel_hash_iter intelit;
+	const struct channel_intel *intelarr;
 	struct bias_hash_iter biasit;
 	struct bias *bias;
 	struct node_bias_hash_iter node_it;
 	struct node_bias *node_bias;
 
-	for (con = constraint_hash_first(layer->constraints, &conit);
-	     con;
-	     con = constraint_hash_next(layer->constraints, &conit)) {
-		if (con->timestamp < cutoff) {
-			constraint_hash_delval(layer->constraints, &conit);
-			tal_free(con);
-			num_removed++;
+	for (intelarr = channel_intel_hash_first(layer->channel_intels, &intelit);
+	     intelarr;
+	     intelarr = channel_intel_hash_next(layer->channel_intels, &intelit)) {
+		size_t count_old = 0;
+		/* We assume the array is sorted by timestamp */
+		for (size_t i = 0; i < tal_count(intelarr); i++) {
+			if (channel_intel_timestamp(&intelarr[i]) >= cutoff)
+				continue;
+
+			count_old++;
+			/* The pointer inside channel_intel has to be freed. */
+			tal_steal(tmpctx, intelarr[i].impression);
+			tal_steal(tmpctx, intelarr[i].constraint);
+		}
+		num_removed += count_old;
+		if(count_old){
+			/* Remove from table before realloc! */
+			channel_intel_hash_del(layer->channel_intels, intelarr);
+
+			tal_arr_remove_range(&intelarr, 0, count_old);
+
+			/* We emptied it, just free. */
+			if (tal_count(intelarr) == 0)
+				tal_free(intelarr);
+			else {
+				/* Still has members, put it back. */
+				channel_intel_hash_add(layer->channel_intels,
+						       intelarr);
+			}
 		}
 	}
 
@@ -1216,6 +1388,20 @@ void json_add_constraint(struct json_stream *js,
 	json_object_end(js);
 }
 
+void json_add_impression(struct json_stream *js,
+			 const char *fieldname,
+			 const struct impression *imp,
+			 const struct layer *layer)
+{
+	json_object_start(js, fieldname);
+	if (layer)
+		json_add_string(js, "layer", layer->name);
+	json_add_short_channel_id_dir(js, "short_channel_id_dir", imp->scidd);
+	json_add_u64(js, "timestamp", imp->timestamp);
+	json_add_amount_msat(js, "amount_msat", imp->amount);
+	json_object_end(js);
+}
+
 void json_add_bias(struct json_stream *js,
 		   const char *fieldname,
 		   const struct bias *b,
@@ -1257,8 +1443,8 @@ static void json_add_layer(struct json_stream *js,
 	const struct local_channel *lc;
 	const struct local_update *lu;
 	struct local_update_hash_iter luit;
-	struct constraint_hash_iter conit;
-	const struct constraint *c;
+	struct channel_intel_hash_iter intelit;
+	const struct channel_intel *intelarr;
 	struct bias_hash_iter biasit;
 	const struct bias *b;
 	struct node_bias_hash_iter node_it;
@@ -1286,13 +1472,28 @@ static void json_add_layer(struct json_stream *js,
 	}
 	json_array_end(js);
 	json_array_start(js, "constraints");
-	for (c = constraint_hash_first(layer->constraints, &conit);
-	     c;
-	     c = constraint_hash_next(layer->constraints, &conit)) {
-		/* Don't show ones we generated internally */
-		if (c->timestamp == UINT64_MAX)
-			continue;
-		json_add_constraint(js, NULL, c, NULL);
+	for (intelarr = channel_intel_hash_first(layer->channel_intels, &intelit);
+	     intelarr;
+	     intelarr = channel_intel_hash_next(layer->channel_intels, &intelit)) {
+		for (size_t i = 0; i < tal_count(intelarr); i++) {
+			if (!intelarr[i].constraint)
+				continue;
+			/* Don't show ones we generated internally */
+			if (intelarr[i].constraint->timestamp == UINT64_MAX)
+				continue;
+			json_add_constraint(js, NULL, intelarr[i].constraint, NULL);
+		}
+	}
+	json_array_end(js);
+	json_array_start(js, "impressions");
+	for (intelarr = channel_intel_hash_first(layer->channel_intels, &intelit);
+	     intelarr;
+	     intelarr = channel_intel_hash_next(layer->channel_intels, &intelit)) {
+		for (size_t i = 0; i < tal_count(intelarr); i++) {
+			if (!intelarr[i].impression)
+				continue;
+			json_add_impression(js, NULL, intelarr[i].impression, NULL);
+		}
 	}
 	json_array_end(js);
 	json_array_start(js, "biases");

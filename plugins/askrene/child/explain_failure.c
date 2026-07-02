@@ -83,7 +83,13 @@ struct stat {
 };
 
 struct node_stats {
-	struct stat total, gossip_known, enabled;
+	/* Possible explanations to failure to send/receive funds.
+	 * These stats satisfy:
+	 * 	total >= gossip_known >= enabled >= known_usable
+	 * 	total >= max_capacity_known >= known_usable
+	 * so that when seeking the main cause we need to go from "total" down
+	 * to "known_usable". */
+	struct stat total, gossip_known, max_capacity_known, enabled, known_usable;
 };
 
 enum node_direction {
@@ -99,42 +105,108 @@ static void add_stat(struct stat *stat,
 		abort();
 }
 
-static void node_stats(const struct route_query *rq,
-		       const struct gossmap_node *node,
-		       enum node_direction node_direction,
-		       struct node_stats *stats)
+static bool layer_in_array(const struct layer **layers,
+			   const struct layer *layer)
 {
+	for (size_t i = 0; i < tal_count(layers); i++) {
+		if (layers[i] == layer)
+			return true;
+	}
+	return false;
+}
+
+/* Returns most constraining layers, if any */
+static const struct layer **node_stats(const tal_t *ctx,
+				       const struct route_query *rq,
+				       const struct gossmap_node *node,
+				       enum node_direction node_direction,
+				       const struct layer **layers,
+				       struct node_stats *stats)
+{
+	const struct layer **most_constraining = tal_arr(ctx, const struct layer *, 0);
+
 	memset(stats, 0, sizeof(*stats));
 	for (size_t i = 0; i < node->num_chans; i++) {
-		int dir;
+		struct short_channel_id_dir scidd;
 		struct gossmap_chan *c;
-		struct amount_msat cap_msat;
+		struct amount_msat min, max, cap_msat;
+		const struct layer *constrainer;
 
-		c = gossmap_nth_chan(rq->gossmap, node, i, &dir);
+		c = gossmap_nth_chan(rq->gossmap, node, i, &scidd.dir);
+		scidd.scid = gossmap_chan_scid(rq->gossmap, c);
 		cap_msat = gossmap_chan_get_capacity(rq->gossmap, c);
 
 		if (node_direction == INTO_NODE)
-			dir = !dir;
+			scidd.dir = !scidd.dir;
+
+		min = AMOUNT_MSAT(0);
+		max = cap_msat;
+		constrainer = NULL;
+		for (size_t j = 0; j < tal_count(layers); j++) {
+			struct amount_msat old_max = max;
+			layer_apply_constraints(layers[j], &scidd, &min, &max);
+			if (!amount_msat_eq(max, old_max))
+				constrainer = layers[j];
+		}
+		if (constrainer && !layer_in_array(most_constraining, constrainer))
+			tal_arr_expand(&most_constraining, constrainer);
 
 		add_stat(&stats->total, cap_msat);
-		if (gossmap_chan_set(c, dir))
+		add_stat(&stats->max_capacity_known, max);
+
+		if (gossmap_chan_set(c, scidd.dir)) {
 			add_stat(&stats->gossip_known, cap_msat);
-		if (c->half[dir].enabled)
-			add_stat(&stats->enabled, cap_msat);
+			if (c->half[scidd.dir].enabled) {
+				add_stat(&stats->enabled, cap_msat);
+				add_stat(&stats->known_usable, max);
+			}
+		}
+
 	}
+	return most_constraining;
 }
 
+static const char *format_layer_names(const tal_t *ctx, const struct layer **layers)
+{
+	char *ret;
+
+	/* Shouldn't happen! */
+	if (tal_count(layers) == 0)
+		return "UNKNOWN";
+	if (tal_count(layers) == 1)
+		return layer_name(layers[0]);
+
+	ret = tal_strdup(ctx, "layers");
+
+	for (size_t i = 0; i < tal_count(layers); i++) {
+		const char *prefix;
+		if (i == 0)
+			prefix = " ";
+		else if (i + 1 == tal_count(layers))
+			prefix = " and ";
+		else
+			prefix = ", ";
+		tal_append_fmt(&ret, "%s%s", prefix, layer_name(layers[i]));
+	}
+	return ret;
+}
+
+/* On non-NULL return, *total_capacity_failure is true if there's not
+ * sufficient capacity at all to make this payment */
 static const char *check_capacity(const tal_t *ctx,
 				  const struct route_query *rq,
 				  const struct gossmap_node *node,
 				  enum node_direction node_direction,
 				  struct amount_msat amount,
-				  const char *name)
+				  const char *name,
+				  bool *total_capacity_failure)
 {
 	struct node_stats stats;
+	const struct layer **most_constraining;
 
-	node_stats(rq, node, node_direction, &stats);
+	most_constraining = node_stats(tmpctx, rq, node, node_direction, rq->layers, &stats);
 	if (amount_msat_greater(amount, stats.total.capacity)) {
+		*total_capacity_failure = true;
 		return child_log(ctx, LOG_DBG,
 				 NO_USABLE_PATHS_STRING
 				 " Total %s capacity is only %s"
@@ -143,7 +215,19 @@ static const char *check_capacity(const tal_t *ctx,
 				 fmt_amount_msat(tmpctx, stats.total.capacity),
 				 stats.total.num_channels);
 	}
+	if (amount_msat_greater(amount, stats.max_capacity_known.capacity)) {
+		*total_capacity_failure = true;
+		return child_log(ctx, LOG_DBG,
+				 NO_USABLE_PATHS_STRING
+				 " We know from %s that %s has maximum capacity %s"
+				 " (in %zu channels).",
+				 format_layer_names(tmpctx, most_constraining),
+				 name,
+				 fmt_amount_msat(tmpctx, stats.max_capacity_known.capacity),
+				 stats.max_capacity_known.num_channels);
+	}
 	if (amount_msat_greater(amount, stats.gossip_known.capacity)) {
+		*total_capacity_failure = false;
 		return child_log(ctx, LOG_DBG,
 				 NO_USABLE_PATHS_STRING
 				 " Missing gossip for %s: only known %zu/%zu channels, leaving capacity only %s of %s.",
@@ -154,6 +238,7 @@ static const char *check_capacity(const tal_t *ctx,
 				 fmt_amount_msat(tmpctx, stats.total.capacity));
 	}
 	if (amount_msat_greater(amount, stats.enabled.capacity)) {
+		*total_capacity_failure = false;
 		/* Common case: one channel, disabled */
 		if (stats.enabled.num_channels == 0) {
 			return child_log(ctx, LOG_DBG,
@@ -170,6 +255,17 @@ static const char *check_capacity(const tal_t *ctx,
 				 name,
 				 fmt_amount_msat(tmpctx, stats.enabled.capacity),
 				 fmt_amount_msat(tmpctx, stats.total.capacity));
+	}
+	if (amount_msat_greater(amount, stats.known_usable.capacity)) {
+		*total_capacity_failure = false;
+		return child_log(ctx, LOG_DBG,
+				 NO_USABLE_PATHS_STRING
+				 " We know from %s that %s has maximum usable capacity %s"
+				 " (in %zu channels).",
+				 format_layer_names(tmpctx, most_constraining),
+				 name,
+				 fmt_amount_msat(tmpctx, stats.known_usable.capacity),
+				 stats.known_usable.num_channels);
 	}
 	return NULL;
 }
@@ -219,7 +315,8 @@ const char *explain_failure(const tal_t *ctx,
 			    const struct route_query *rq,
 			    const struct gossmap_node *srcnode,
 			    const struct gossmap_node *dstnode,
-			    struct amount_msat amount)
+			    struct amount_msat amount,
+			    enum jsonrpc_errcode *ecode)
 {
 	const struct route_hop *hops;
 	const struct dijkstra *dij;
@@ -230,18 +327,28 @@ const char *explain_failure(const tal_t *ctx,
 	struct gossmap_chan *c;
 	struct amount_msat rolling_amount;
 	struct amount_msat *path_amount;
+	bool total_capacity_failure;
+
+	/* The default answer */
+	*ecode = PAY_ROUTE_NOT_FOUND;
 
 	/* Do we have enough funds? */
 	cap_check = check_capacity(ctx, rq, srcnode, OUT_OF_NODE,
-				   amount, "source");
-	if (cap_check)
+				   amount, "source", &total_capacity_failure);
+	if (cap_check) {
+		if (total_capacity_failure)
+			*ecode = PAY_INSUFFICIENT_FUNDS;
 		return cap_check;
+	}
 
 	/* Does destination have enough capacity? */
 	cap_check = check_capacity(ctx, rq, dstnode, INTO_NODE,
-				   amount, "destination");
-	if (cap_check)
+				   amount, "destination", &total_capacity_failure);
+	if (cap_check) {
+		if (total_capacity_failure)
+			*ecode = PAY_DESTINATION_INSUFFICIENT_CAPACITY;
 		return cap_check;
+	}
 
 	/* OK, fall back to telling them why didn't shortest path
 	 * work.  This covers the "but I have a direct channel!"

@@ -4,6 +4,7 @@
 #include <ccan/json_out/json_out.h>
 #include <ccan/str/str.h>
 #include <ccan/tal/str/str.h>
+#include <common/hash_str.h>
 #include <common/memleak.h>
 #include <common/mkdatastorekey.h>
 #include <common/node_id.h>
@@ -13,11 +14,6 @@
 #include <plugins/bkpr/recorder.h>
 #include <plugins/libplugin.h>
 #include <wire/wire.h>
-
-static size_t hash_str(const char *str)
-{
-	return siphash24(siphash_seed(), str, strlen(str));
-}
 
 static const char *account_key(const struct account *account)
 {

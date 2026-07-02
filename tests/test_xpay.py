@@ -199,11 +199,32 @@ def test_xpay_simple(node_factory):
 
     # Failure from l3 (with routehint)
     l4.stop()
-    with pytest.raises(RpcError, match=r"Failed after 1 attempts\. We got temporary_channel_failure for the invoice's route hint \([0-9x]*/[01]\), assuming it can't carry 10000msat\. Then routing failed: We could not find a usable set of paths\. The shortest path is [0-9x]*->[0-9x]*->[0-9x]*, but [0-9x]*/[01]\ layer xpay-15 says max is 9999msat"):
+    with pytest.raises(
+        RpcError,
+        match=(
+            r"Failed after 1 attempts\. "
+            r"We got temporary_channel_failure for the invoice's route hint \([0-9x]*/[01]\), "
+            r"assuming it can't carry 10000msat\. "
+            r"Then routing failed: We could not find a usable set of paths\. "
+            r"We know from xpay-15 that destination has maximum "
+            r"capacity 9999msat \(in 1 channels\)\."
+        ),
+    ):
         l1.rpc.xpay(b11)
 
     # Failure from l3 (with blinded path)
-    with pytest.raises(RpcError, match=r"Failed after 1 attempts. We got an error from inside the blinded path 0x0x0/1: we assume it means insufficient capacity. Then routing failed: We could not find a usable set of paths. The shortest path is [0-9x]*->[0-9x]*->0x0x0, but 0x0x0/1 layer xpay-17 says max is 99999msat"):
+    with pytest.raises(
+        RpcError,
+        match=(
+            r"Failed after 1 attempts\. "
+            r"We got an error from inside the blinded path 0x0x0/1: "
+            r"we assume it means insufficient capacity\. "
+            r"Then routing failed: "
+            r"We could not find a usable set of paths\. "
+            r"We know from xpay-17 that destination has maximum "
+            r"capacity 99999msat \(in 1 channels\)\."
+        ),
+    ):
         l1.rpc.xpay(b12)
 
     # Restart, try pay already paid one again.
@@ -289,6 +310,10 @@ def test_xpay_fake_channeld(node_factory, bitcoind, chainparams, slow_mode):
                                        f"amount={AMOUNT}msat"]).decode('utf-8').strip()
         assert l1.rpc.decode(inv)['payee'] == nodeids[n]
         failed_parts.append(l1.rpc.xpay(inv)['failed_parts'])
+        # FIXME: We fail on #10, due mainly to a buildup of usage on 0x2134x0/0:
+        # Failed: We could not find a usable set of paths. The shortest path is 103x1x0->0x2134x0->1725x11x1725, but 0x2134x0/0 exceeds htlc_maximum_msat ~1000448msat
+        # So we "age" the xpay layer to forget old successful payments.
+        l1.rpc.askrene_age('xpay', 1)
 
     # Should be no reservations left (clean up happens after return though)
     wait_for(lambda: l1.rpc.askrene_listreservations() == {'reservations': []})
@@ -1410,6 +1435,23 @@ def test_sendamount(node_factory):
     b12 = l1.rpc.fetchinvoice(offer, "100sat")["invoice"]
     with pytest.raises(RpcError, match=r"Invalid bolt12 offer: unexpected prefix lni"):
         ret = l1.rpc.sendamount(b12, "100sat")
+
+
+def test_xpay_informs_askrene_on_success(node_factory):
+    """After a successful payment, xpay should add an impression to the xpay askrene layer."""
+    l1, l2, l3 = node_factory.get_nodes(3)
+    node_factory.join_nodes([l1, l2, l3], wait_for_announce=True)
+
+    inv = l3.rpc.invoice(100000, "test-inform", "test inform")["bolt11"]
+    l1.rpc.xpay(inv)
+
+    # xpay skips the local channel (hops[0]), so only the l2->l3 hop gets an impression
+    scid23dir = first_scidd(l2, l3)
+    layers = l1.rpc.askrene_listlayers('xpay')['layers']
+    impressions = only_one(layers)['impressions']
+    assert len(impressions) == 1
+    assert impressions[0]['short_channel_id_dir'] == scid23dir
+    assert impressions[0]['amount_msat'] == 100000
 
 
 def test_sendamount_bip353(node_factory):

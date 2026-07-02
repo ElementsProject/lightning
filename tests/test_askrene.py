@@ -81,7 +81,7 @@ def test_reserve(node_factory):
     time.sleep(2)
 
     # Reservations can be in either order.
-    with pytest.raises(RpcError, match=rf'We could not find a usable set of paths. The shortest path is {scid12}->{scid23}, but {scid12dir} already reserved 10000000*msat by command ".*" \([0-9]* seconds ago\), 10000000*msat by command ".*" \([0-9]* seconds ago\)'):
+    with pytest.raises(RpcError, match=rf'We could not find a usable set of paths. The shortest path is {scid12}->{scid23}, but {scid12dir} already reserved 10000000*msat by command [-/#:a-zA-Z0-9]* \([0-9]* seconds ago\), 10000000*msat by command [-/#:a-zA-Z0-9]* \([0-9]* seconds ago\)'):
         l1.rpc.getroutes(source=l1.info['id'],
                          destination=l3.info['id'],
                          amount_msat=1000000,
@@ -144,6 +144,7 @@ def test_layers(node_factory):
               'created_channels': [],
               'channel_updates': [],
               'constraints': [],
+              'impressions': [],
               'biases': [],
               'node_biases': []}
     l2.rpc.askrene_create_layer('test_layers')
@@ -272,6 +273,29 @@ def test_layers(node_factory):
     listlayers = l2.rpc.askrene_listlayers('test_layers')
     assert listlayers == {'layers': [expect]}
 
+    # Test succeeded inform creates an impression (not a constraint).
+    first_timestamp = int(time.time())
+    r = l2.rpc.askrene_inform_channel('test_layers', scid12dir, 50000, 'succeeded')
+    last_timestamp = int(time.time()) + 1
+    assert r['constraints'] == []
+    assert len(r['impressions']) == 1
+    assert r['impressions'][0]['amount_msat'] == 50000
+
+    listlayers = l2.rpc.askrene_listlayers('test_layers')
+    ts_imp = only_one(only_one(listlayers['layers'])['impressions'])['timestamp']
+    assert first_timestamp <= ts_imp <= last_timestamp
+    expect['impressions'] = [{'short_channel_id_dir': scid12dir,
+                              'timestamp': ts_imp,
+                              'amount_msat': 50000}]
+    assert listlayers == {'layers': [expect]}
+
+    # Impression aging: ts_imp does nothing.
+    assert l2.rpc.askrene_age('test_layers', ts_imp) == {'layer': 'test_layers', 'num_removed': 0}
+    # ts_imp+1 removes it.
+    assert l2.rpc.askrene_age('test_layers', ts_imp + 1) == {'layer': 'test_layers', 'num_removed': 1}
+    expect['impressions'] = []
+    assert l2.rpc.askrene_listlayers('test_layers') == {'layers': [expect]}
+
     with pytest.raises(RpcError, match="Unknown layer"):
         l2.rpc.askrene_remove_layer('test_layers_unknown')
 
@@ -347,6 +371,7 @@ def test_node_bias_rpc(node_factory):
         "created_channels": [],
         "channel_updates": [],
         "constraints": [],
+        "impressions": [],
         "biases": [],
         "node_biases": [],
     }
@@ -455,6 +480,7 @@ def test_node_bias_persistence(node_factory):
         "created_channels": [],
         "channel_updates": [],
         "constraints": [],
+        "impressions": [],
         "biases": [],
         "node_biases": [],
     }
@@ -579,6 +605,7 @@ def test_layer_persistence(node_factory):
               'created_channels': [],
               'channel_updates': [],
               'constraints': [],
+              'impressions': [],
               'biases': [],
               'node_biases': []}
     assert l1.rpc.askrene_listlayers('test_layer_persistence') == {'layers': [expect]}
@@ -620,6 +647,10 @@ def test_layer_persistence(node_factory):
                                   short_channel_id_dir=scid12dir,
                                   amount_msat=12341235,
                                   inform='constrained')
+    l1.rpc.askrene_inform_channel(layer='test_layer_persistence',
+                                  short_channel_id_dir=scid12dir,
+                                  amount_msat=50000,
+                                  inform='succeeded')
 
     expect = l1.rpc.askrene_listlayers('test_layer_persistence')
 
@@ -2708,3 +2739,120 @@ def test_bad_user_entries(node_factory):
             maxfee_msat=2000,
             final_cltv=5,
         )
+
+
+def test_explain_source_dest_failures(node_factory, bitcoind):
+    """askrene should give intelligent failure reasons when source or destination don't have
+    capacity"""
+    # l1 --100k--> l2 --200k--> l3
+    #               |
+    #              50k
+    #               v
+    #              l4
+    l1, l2, l3, l4 = node_factory.get_nodes(4)
+    node_factory.join_nodes([l1, l2], fundamount=100000)
+    node_factory.join_nodes([l2, l3], fundamount=200000)
+    node_factory.join_nodes([l2, l4], fundamount=50000)
+
+    # Make sure everyone knows everything
+    bitcoind.generate_block(5)
+    wait_for(lambda: all([len(n.rpc.listchannels()['channels']) == 6 for n in [l1, l2, l3, l4]]))
+
+    # We can't afford this
+    with pytest.raises(RpcError,
+                       match=r"We could not find a usable set of paths. Total source capacity is only 100000000msat \(in 1 channels\)"):
+        l1.rpc.getroutes(source=l1.info['id'],
+                         destination=l3.info['id'],
+                         amount_msat='100001sat',
+                         layers=['auto.localchans', 'auto.sourcefree'],
+                         maxfee_msat=10000,
+                         final_cltv=5)
+
+    # They can't afford this
+    with pytest.raises(RpcError,
+                       match=r"We could not find a usable set of paths. Total destination capacity is only 50000000msat \(in 1 channels\)"):
+        l1.rpc.getroutes(source=l1.info['id'],
+                         destination=l4.info['id'],
+                         amount_msat='50001sat',
+                         layers=['auto.localchans', 'auto.sourcefree'],
+                         maxfee_msat=10000,
+                         final_cltv=5)
+
+    # Add some information, and we should know that too.
+    l1.rpc.xpay(l4.rpc.invoice('30000sat', 'test_explain_simple_failures2', 'test_explain_simple_failures2')['bolt11'])
+
+    # This is actually just auto.localchans knowing the capacity!
+    with pytest.raises(RpcError,
+                       match=r"We could not find a usable set of paths. We know from auto.localchans that source has maximum capacity [0-9]*msat \(in 1 channels\)") as err:
+        l1.rpc.getroutes(source=l1.info['id'],
+                         destination=l3.info['id'],
+                         amount_msat='80001sat',
+                         layers=['auto.localchans', 'auto.sourcefree', 'xpay'],
+                         maxfee_msat=10000,
+                         final_cltv=5)
+    PAY_INSUFFICIENT_FUNDS = 215
+    assert err.value.error['code'] == PAY_INSUFFICIENT_FUNDS
+
+    # This is the impression in the xpay layer telling us 30,000sat is already gone (of 50,000).
+    with pytest.raises(RpcError,
+                       match=r"We could not find a usable set of paths. We know from xpay that destination has maximum capacity [0-9]*msat \(in 1 channels\)") as err:
+        l1.rpc.getroutes(source=l1.info['id'],
+                         destination=l4.info['id'],
+                         amount_msat='20001sat',
+                         layers=['auto.localchans', 'auto.sourcefree', 'xpay'],
+                         maxfee_msat=10000,
+                         final_cltv=5)
+
+    PAY_DESTINATION_INSUFFICIENT_CAPACITY = 220
+    assert err.value.error['code'] == PAY_DESTINATION_INSUFFICIENT_CAPACITY
+
+
+def test_constraint_impression_ordering(node_factory):
+    """Constraints and impressions must be applied in timestamp order.
+
+    An impression at T1 (older) followed by a constraint at T2 (newer) means
+    the constraint supersedes the impression: the impression is applied on the
+    unconstrained capacity and the constraint then clamps the result.  A
+    constraint at T1 followed by an impression at T2 means the impression
+    reduces the constrained capacity.
+    """
+    # Single channel 0->1 with 1000 sat capacity
+    cap_msat = 1_000_000
+    gsfile, nodemap = generate_gossip_store([GenChannel(0, 1, capacity_sats=cap_msat // 1000)])
+    l1 = node_factory.get_node(gossip_store_file=gsfile.name, opts={'disable-plugin': 'cln-xpay'})
+
+    chan_dir = scid_dir(nodemap, 0, 1, 0)
+
+    # --- Case 1: impression (T1, older) then tighter constraint (T2, newer) ---
+    # Impression says 300k was sent.  Constraint says max is 600k (newer info).
+    # Correct ordering: impression applied to unconstrained ∞, then constraint
+    # clamps to 600k.  Routing 400k should succeed.
+    l1.rpc.askrene_create_layer('test_ordering')
+    l1.rpc.askrene_inform_channel('test_ordering', chan_dir, 300_000, 'succeeded')
+    time.sleep(2)
+    l1.rpc.askrene_inform_channel('test_ordering', chan_dir, 600_001, 'constrained')
+
+    # Should succeed: effective max is 600k (constraint is newer, wins over impression)
+    routes = l1.rpc.getroutes(source=nodemap[0], destination=nodemap[1],
+                              amount_msat=400_000, layers=['test_ordering'],
+                              maxfee_msat=100_000, final_cltv=5)
+    assert routes['probability_ppm'] > 0
+
+    l1.rpc.askrene_remove_layer('test_ordering')
+
+    # --- Case 2: tighter constraint (T3, older) then impression (T4, newer) ---
+    # Constraint says max is 600k.  Impression says 300k was sent after that.
+    # Correct ordering: constraint applied first (max=600k), impression then
+    # reduces it to 300k.  Routing 400k should fail.
+    l1.rpc.askrene_create_layer('test_ordering')
+    l1.rpc.askrene_inform_channel('test_ordering', chan_dir, 600_001, 'constrained')
+    time.sleep(2)
+    l1.rpc.askrene_inform_channel('test_ordering', chan_dir, 300_000, 'succeeded')
+
+    # Should fail: effective max is 300k (impression is newer, reduces constrained capacity)
+    with pytest.raises(RpcError, match=r"We could not find a usable set of paths"):
+        l1.rpc.getroutes(source=nodemap[0], destination=nodemap[1],
+                         amount_msat=400_000, layers=['test_ordering'],
+                         maxfee_msat=100_000, final_cltv=5)
+
+    l1.rpc.askrene_remove_layer('test_ordering')

@@ -29,6 +29,8 @@ struct offers_data {
 	bool dev_invoice_bpath_scid;
 	/* --dev-invoice-internal-scid */
 	struct short_channel_id *dev_invoice_internal_scid;
+	/* --dev-currency-expiry: max invoice expiry for currency offers (default 600) */
+	u32 dev_currency_expiry;
 	/* Use get_gossmap() to access this! */
 	struct gossmap *global_gossmap_;
 };
