@@ -82,6 +82,11 @@ pub struct ActorInboxHandle {
 }
 
 impl ActorInboxHandle {
+    /// Whether both handles point to the same actor inbox.
+    pub fn same_handle(&self, other: &ActorInboxHandle) -> bool {
+        self.tx.same_channel(&other.tx)
+    }
+
     pub async fn add_part(&self, part: PaymentPart) -> Result<HtlcResponse> {
         let (reply_tx, rx) = oneshot::channel();
         self.tx.send(ActorInput::AddPart { part, reply_tx }).await?;
