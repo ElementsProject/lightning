@@ -62,11 +62,18 @@ impl<D: DatastoreProvider + 'static, A: ActionExecutor + Send + Sync + 'static>
 
         for (scid, entry) in entries {
             let payment_hash = entry.payment_hash.as_deref().and_then(|s| s.parse::<PaymentHash>().ok());
-            if let Some(handle) = self.recover_session(scid, entry, &recovery).await? {
-                if let Some(hash) = payment_hash {
-                    self.sessions.lock().await.insert(hash, handle);
-                } else {
-                    warn!("recovered session for scid={scid} has no payment_hash, dropping handle");
+            // A broken entry must not abort recovery of the others.
+            match self.recover_session(scid, entry, &recovery).await {
+                Ok(Some(handle)) => {
+                    if let Some(hash) = payment_hash {
+                        self.sessions.lock().await.insert(hash, handle);
+                    } else {
+                        warn!("recovered session for scid={scid} has no payment_hash, dropping handle");
+                    }
+                }
+                Ok(None) => {}
+                Err(e) => {
+                    warn!("failed to recover session for scid={scid}: {e:#}");
                 }
             }
         }
@@ -891,8 +898,11 @@ mod tests {
         }
         async fn get_channel_recovery_info(
             &self,
-            _channel_id: &str,
+            channel_id: &str,
         ) -> anyhow::Result<ChannelRecoveryInfo> {
+            if channel_id == "err-channel" {
+                anyhow::bail!("rpc error");
+            }
             Ok(ChannelRecoveryInfo {
                 exists: self.channel_exists,
                 withheld: true,
@@ -905,6 +915,40 @@ mod tests {
         ) -> anyhow::Result<()> {
             Ok(())
         }
+    }
+
+    #[tokio::test]
+    async fn recover_continues_past_broken_entry() {
+        // A single malformed entry or failing RPC call must not abort
+        // recovery of all other sessions.
+        let mut ds = MockDatastore::new();
+        ds.entries.clear();
+
+        let mut bad = test_datastore_entry();
+        bad.channel_id = Some("err-channel".to_string());
+        bad.funding_psbt = Some("psbt-bad".to_string());
+        ds.entries.insert(test_scid().to_string(), bad);
+
+        let mut good = test_datastore_entry();
+        good.channel_id = Some("channel-1".to_string());
+        good.funding_psbt = Some("psbt-1".to_string());
+        good.payment_hash = Some(test_payment_hash(1).to_string());
+        ds.entries.insert(test_scid_2().to_string(), good);
+
+        let mgr = Arc::new(SessionManager::new(
+            Arc::new(ds),
+            Arc::new(MockExecutor::new(true)),
+            SessionConfig::default(),
+            Arc::new(NoopEventSink),
+        ));
+
+        let recovery = Arc::new(MockRecoveryProvider {
+            channel_exists: true,
+            forward_activity: ForwardActivity::Offered,
+        });
+
+        mgr.recover(recovery).await.unwrap();
+        assert_eq!(mgr.session_count().await, 1);
     }
 
     #[tokio::test]
