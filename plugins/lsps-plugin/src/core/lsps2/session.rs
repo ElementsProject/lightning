@@ -81,8 +81,9 @@ pub enum SessionInput {
     },
     /// The initial payment was successfull
     PaymentSettled,
-    /// The inital payment failed
-    PaymentFailed,
+    /// A forwarded part failed downstream. `htlc_id` identifies the failed
+    /// part when known; `None` means the whole payment failed.
+    PaymentFailed { htlc_id: Option<HtlcId> },
     /// Funding tx was broadcasted
     FundingBroadcasted,
     /// A new block has been mined.
@@ -521,7 +522,7 @@ impl Session {
                 SessionState::Collecting { .. },
                 ref input @ (SessionInput::ChannelReady { .. }
                 | SessionInput::PaymentSettled
-                | SessionInput::PaymentFailed
+                | SessionInput::PaymentFailed { .. }
                 | SessionInput::FundingBroadcasted
                 | SessionInput::FundingFailed
                 | SessionInput::ChannelClosed { .. }),
@@ -674,7 +675,7 @@ impl Session {
             (
                 SessionState::AwaitingChannelReady { .. },
                 ref input @ (SessionInput::PaymentSettled
-                | SessionInput::PaymentFailed
+                | SessionInput::PaymentFailed { .. }
                 | SessionInput::FundingBroadcasted
                 | SessionInput::ChannelClosed { .. }),
             ) => Ok(ApplyResult::unusual_input(&self.state, input)),
@@ -757,16 +758,35 @@ impl Session {
             }
             (
                 SessionState::AwaitingSettlement {
+                    forwarded_parts,
+                    forwarded_amount_msat,
+                    deducted_fee_msat,
                     channel_id,
                     funding_psbt,
-                    ..
                 },
-                SessionInput::PaymentFailed,
+                SessionInput::PaymentFailed { htlc_id },
             ) => {
+                // A single failed part (e.g. one exceeding the channel's
+                // max_accepted_htlcs) must not tear down the session while
+                // other forwarded parts are still offered and settleable.
+                // Only abandon once no forwarded parts remain, or when the
+                // failed part is unknown (recovered sessions don't
+                // reconstruct their parts).
+                if let Some(id) = htlc_id {
+                    if let Some(pos) = forwarded_parts.iter().position(|p| p.htlc_id == id) {
+                        let p = forwarded_parts.remove(pos);
+                        *forwarded_amount_msat = forwarded_amount_msat.saturating_sub(p.forward_msat);
+                        *deducted_fee_msat = deducted_fee_msat.saturating_sub(p.fee_msat);
+                    }
+                    if !forwarded_parts.is_empty() {
+                        return Ok(ApplyResult::default());
+                    }
+                }
+
                 let channel_id = std::mem::take(channel_id);
                 let funding_psbt = std::mem::take(funding_psbt);
 
-                // Parts are already forwarded so we can't do anything here.
+                // No forwarded parts left that could still settle.
                 // Abandon session.
 
                 self.state = SessionState::Abandoned;
@@ -876,7 +896,7 @@ impl Session {
                 | SessionInput::ChannelReady { .. }
                 | SessionInput::PaymentSettled
                 | SessionInput::FundingFailed
-                | SessionInput::PaymentFailed
+                | SessionInput::PaymentFailed { .. }
                 | SessionInput::ChannelClosed { .. }
                 | SessionInput::NewBlock { .. }),
             ) => Ok(ApplyResult::unusual_input(&self.state, input)),
@@ -2098,7 +2118,7 @@ mod tests {
             })
             .unwrap();
 
-        let res = s.apply(SessionInput::PaymentFailed).unwrap();
+        let res = s.apply(SessionInput::PaymentFailed { htlc_id: None }).unwrap();
 
         assert_eq!(s.state, SessionState::Abandoned);
         assert_eq!(
@@ -2114,6 +2134,58 @@ mod tests {
         assert_eq!(
             res.events,
             vec![SessionEvent::PaymentFailed, SessionEvent::SessionAbandoned]
+        );
+    }
+
+    #[test]
+    fn awaiting_settlement_single_part_failure_keeps_session_alive() {
+        // With multiple forwarded parts, one part failing (e.g. exceeding
+        // max_accepted_htlcs) must not abandon the session: the client can
+        // still settle the remaining offered parts. Only when no forwarded
+        // parts remain is the session abandoned.
+        let mut s = session(4, Some(2_000), 1);
+        let _ = s
+            .apply(SessionInput::AddPart {
+                part: part(1, 1_000),
+            })
+            .unwrap();
+        let _ = s
+            .apply(SessionInput::AddPart {
+                part: part(2, 1_000),
+            })
+            .unwrap();
+        let _ = s
+            .apply(SessionInput::ChannelReady {
+                channel_id: "chan-1".to_owned(),
+                funding_psbt: "psbt-1".to_owned(),
+            })
+            .unwrap();
+
+        // Part 1 fails; part 2 is still offered.
+        let res = s
+            .apply(SessionInput::PaymentFailed {
+                htlc_id: Some(htlc_id(1)),
+            })
+            .unwrap();
+        assert!(matches!(s.state, SessionState::AwaitingSettlement { .. }));
+        assert!(res.actions.is_empty());
+
+        // Last remaining part fails: now abandon.
+        let res = s
+            .apply(SessionInput::PaymentFailed {
+                htlc_id: Some(htlc_id(2)),
+            })
+            .unwrap();
+        assert_eq!(s.state, SessionState::Abandoned);
+        assert_eq!(
+            res.actions,
+            vec![
+                SessionAction::AbandonSession {
+                    channel_id: "chan-1".to_owned(),
+                    funding_psbt: "psbt-1".to_owned(),
+                },
+                SessionAction::Disconnect,
+            ]
         );
     }
 
@@ -2174,7 +2246,7 @@ mod tests {
         for input in [
             SessionInput::CollectTimeout,
             SessionInput::FundingFailed,
-            SessionInput::PaymentFailed,
+            SessionInput::PaymentFailed { htlc_id: None },
             SessionInput::NewBlock { height: 100 },
         ] {
             let res = s.apply(input).unwrap();
@@ -2236,7 +2308,7 @@ mod tests {
             None,
             opening_fee_params(1_000, 0),
         );
-        let result = session.apply(SessionInput::PaymentFailed).unwrap();
+        let result = session.apply(SessionInput::PaymentFailed { htlc_id: None }).unwrap();
         assert!(matches!(
             result.actions.as_slice(),
             [SessionAction::AbandonSession { .. }, SessionAction::Disconnect]

@@ -1,6 +1,6 @@
 use super::actor::{ActionExecutor, ActorInboxHandle, HtlcResponse};
 use super::provider::{DatastoreProvider, ForwardActivity, RecoveryProvider};
-use super::session::{PaymentPart, Session};
+use super::session::{HtlcId, PaymentPart, Session};
 use crate::core::lsps2::actor::SessionActor;
 use crate::core::lsps2::event_sink::EventSink;
 use crate::proto::lsps0::ShortChannelId;
@@ -253,6 +253,7 @@ impl<D: DatastoreProvider + 'static, A: ActionExecutor + Send + Sync + 'static>
         &self,
         payment_hash: PaymentHash,
         updated_index: Option<u64>,
+        failed_htlc: Option<HtlcId>,
     ) -> Result<(), ManagerError> {
         let handle = {
             let sessions = self.sessions.lock().await;
@@ -265,7 +266,7 @@ impl<D: DatastoreProvider + 'static, A: ActionExecutor + Send + Sync + 'static>
             }
         };
 
-        match handle.payment_failed(updated_index).await {
+        match handle.payment_failed(updated_index, failed_htlc).await {
             Ok(()) => Ok(()),
             Err(_) => {
                 self.remove_session_handle(&payment_hash, &handle).await;
@@ -833,7 +834,7 @@ mod tests {
     #[tokio::test(flavor = "current_thread", start_paused = true)]
     async fn payment_failed_unknown_hash_is_ok() {
         let mgr = test_manager(true);
-        let result = mgr.on_payment_failed(test_payment_hash(99), None).await;
+        let result = mgr.on_payment_failed(test_payment_hash(99), None, None).await;
         assert!(result.is_ok());
     }
 
@@ -850,7 +851,7 @@ mod tests {
         assert!(matches!(resp, HtlcResponse::Forward { .. }));
 
         // Fail payment — session is in AwaitingSettlement.
-        let result = mgr.on_payment_failed(hash, None).await;
+        let result = mgr.on_payment_failed(hash, None, None).await;
         assert!(result.is_ok());
     }
 
@@ -1128,7 +1129,7 @@ mod tests {
         mgr.recover(recovery).await.unwrap();
         assert_eq!(mgr.session_count().await, 1);
 
-        let result = mgr.on_payment_failed(test_payment_hash(1), None).await;
+        let result = mgr.on_payment_failed(test_payment_hash(1), None, None).await;
         assert!(result.is_ok());
         // Handle is pruned lazily, not on delivery of the failure.
         assert_eq!(mgr.session_count().await, 1);
