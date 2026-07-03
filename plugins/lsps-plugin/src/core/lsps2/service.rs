@@ -289,11 +289,6 @@ mod tests {
             self
         }
 
-        fn with_buy_error(self) -> Self {
-            *self.buy_error.lock().unwrap() = true;
-            self
-        }
-
         fn stored_requests(&self) -> Vec<StoredBuyRequest> {
             self.stored_requests.lock().unwrap().clone()
         }

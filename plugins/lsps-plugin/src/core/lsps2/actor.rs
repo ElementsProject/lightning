@@ -162,7 +162,10 @@ impl<A: ActionExecutor + Clone + Send + 'static, D: DatastoreProvider + Clone + 
         datastore: D,
         event_sink: Arc<dyn EventSink>,
     ) -> ActorInboxHandle {
-        let (tx, inbox) = mpsc::channel(128); // Should we use max_htlcs?
+        // Senders use backpressure (`send().await`), so nothing is lost if
+        // the buffer fills; it just needs to cover the expected in-flight
+        // inputs (max_parts HTLCs plus a handful of control events).
+        let (tx, inbox) = mpsc::channel(128);
         let actor = SessionActor {
             session,
             entry,
@@ -194,6 +197,7 @@ impl<A: ActionExecutor + Clone + Send + 'static, D: DatastoreProvider + Clone + 
         let (tx, inbox) = mpsc::channel(128);
         let handle = ActorInboxHandle { tx: tx.clone() };
 
+        let peer_id = entry.peer_id.to_string();
         let actor = SessionActor {
             session,
             entry,
@@ -203,7 +207,7 @@ impl<A: ActionExecutor + Clone + Send + 'static, D: DatastoreProvider + Clone + 
             channel_poll_handle: None,
             self_send: tx,
             executor,
-            peer_id: String::new(),
+            peer_id,
             collect_timeout_secs: 0,
             scid,
             datastore,
@@ -399,26 +403,21 @@ impl<A: ActionExecutor + Clone + Send + 'static, D: DatastoreProvider + Clone + 
         // and htlc_accepted hook replays. AddPart must be handled: CLN
         // replays held-but-unresolved HTLCs on restart, and dropping the
         // reply would make the manager treat this actor as dead.
-        loop {
-            match self.inbox.recv().await {
-                Some(actor_input) => {
-                    let session_input = match &actor_input {
-                        ActorInput::AddPart { .. }
-                        | ActorInput::PaymentSettled { .. }
-                        | ActorInput::PaymentFailed { .. }
-                        | ActorInput::FundingBroadcasted { .. } => {
-                            self.convert_input(actor_input).await
-                        }
-                        _ => continue,
-                    };
-
-                    if let Some(input) = session_input {
-                        if self.apply_and_execute(input) {
-                            break;
-                        }
-                    }
+        while let Some(actor_input) = self.inbox.recv().await {
+            let session_input = match &actor_input {
+                ActorInput::AddPart { .. }
+                | ActorInput::PaymentSettled { .. }
+                | ActorInput::PaymentFailed { .. }
+                | ActorInput::FundingBroadcasted { .. } => {
+                    self.convert_input(actor_input).await
                 }
-                None => break,
+                _ => continue,
+            };
+
+            if let Some(input) = session_input {
+                if self.apply_and_execute(input) {
+                    break;
+                }
             }
         }
 
