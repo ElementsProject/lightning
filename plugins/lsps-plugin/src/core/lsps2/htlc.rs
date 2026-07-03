@@ -55,11 +55,11 @@ impl RejectReason {
 
 #[derive(Debug, Error)]
 pub enum HtlcError {
-    #[error("failed to query channel capacity: {0}")]
+    #[error("failed to query channel capacity: {0:#}")]
     CapacityQuery(#[source] anyhow::Error),
-    #[error("failed to fund channel: {0}")]
+    #[error("failed to fund channel: {0:#}")]
     FundChannel(#[source] anyhow::Error),
-    #[error("channel ready check failed: {0}")]
+    #[error("channel ready check failed: {0:#}")]
     ChannelReadyCheck(#[source] anyhow::Error),
 }
 
