@@ -1008,6 +1008,52 @@ mod tests {
     }
 
     #[tokio::test(flavor = "current_thread", start_paused = true)]
+    async fn recovered_actor_forwards_replayed_htlc() {
+        // On restart CLN replays htlc_accepted for HTLCs that were held but
+        // not resolved before the crash. A recovered session must forward
+        // them (fee already accounted for pre-crash) instead of dropping
+        // them, which would kill the session and strand the funding tx.
+        let mut ds = MockDatastore::new();
+        ds.entries.clear();
+        let mut entry = test_datastore_entry();
+        entry.channel_id = Some("channel-1".to_string());
+        entry.funding_psbt = Some("psbt-1".to_string());
+        entry.payment_hash = Some(test_payment_hash(1).to_string());
+        ds.entries.insert(test_scid().to_string(), entry);
+
+        let mgr = Arc::new(SessionManager::new(
+            Arc::new(ds),
+            Arc::new(MockExecutor { fund_succeeds: true }),
+            SessionConfig::default(),
+            Arc::new(NoopEventSink),
+        ));
+
+        let recovery = Arc::new(MockRecoveryProvider {
+            channel_exists: true,
+            forward_activity: ForwardActivity::Offered,
+        });
+
+        mgr.recover(recovery).await.unwrap();
+        assert_eq!(mgr.session_count().await, 1);
+
+        let resp = mgr
+            .on_part(test_payment_hash(1), test_scid(), part(1, 1_000))
+            .await
+            .unwrap();
+        match resp {
+            HtlcResponse::Forward { fee_msat, .. } => assert_eq!(fee_msat, 0),
+            other => panic!("expected Forward for replayed part, got {other:?}"),
+        }
+
+        // Session must survive; settlement must still be deliverable.
+        assert_eq!(mgr.session_count().await, 1);
+        let result = mgr
+            .on_payment_settled(test_payment_hash(1), Some("preimage123".to_string()), Some(1))
+            .await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test(flavor = "current_thread", start_paused = true)]
     async fn recovered_actor_settles_via_inbox() {
         let mut ds = MockDatastore::new();
         ds.entries.clear();
