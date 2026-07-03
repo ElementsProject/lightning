@@ -365,6 +365,7 @@ impl<A: ActionExecutor + Clone + Send + 'static, D: DatastoreProvider + Clone + 
             }
         }
 
+        self.cancel_channel_poll();
         self.release_pending_htlcs();
         Self::finalize(&self.session, &self.datastore, self.scid).await;
     }
@@ -431,9 +432,12 @@ impl<A: ActionExecutor + Clone + Send + 'static, D: DatastoreProvider + Clone + 
             }
             SessionAction::ForwardHtlcs { parts, channel_id } => {
                 // First time forwarding HTLCs, we mark the collect timeout as
-                // fired and start polling the channel for closure:
+                // fired and start polling the channel for closure. Later
+                // forwards (late parts) must not spawn additional pollers.
                 self.collect_fired = true;
-                self.start_channel_poll(channel_id.clone());
+                if self.channel_poll_handle.is_none() {
+                    self.start_channel_poll(channel_id.clone());
+                }
                 for part in &parts {
                     if let Some(reply_tx) = self.pending_htlcs.remove(&part.htlc_id) {
                         let _ = reply_tx.send(HtlcResponse::Forward {

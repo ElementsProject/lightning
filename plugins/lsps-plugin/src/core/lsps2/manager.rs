@@ -480,6 +480,16 @@ mod tests {
 
     struct MockExecutor {
         fund_succeeds: bool,
+        alive_calls: Arc<std::sync::atomic::AtomicUsize>,
+    }
+
+    impl MockExecutor {
+        fn new(fund_succeeds: bool) -> Self {
+            Self {
+                fund_succeeds,
+                alive_calls: Arc::new(std::sync::atomic::AtomicUsize::new(0)),
+            }
+        }
     }
 
     #[async_trait]
@@ -519,6 +529,8 @@ mod tests {
         }
 
         async fn is_channel_alive(&self, _channel_id: &str) -> anyhow::Result<bool> {
+            self.alive_calls
+                .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
             Ok(true)
         }
     }
@@ -526,7 +538,7 @@ mod tests {
     fn test_manager(fund_succeeds: bool) -> Arc<SessionManager<MockDatastore, MockExecutor>> {
         Arc::new(SessionManager::new(
             Arc::new(MockDatastore::new()),
-            Arc::new(MockExecutor { fund_succeeds }),
+            Arc::new(MockExecutor::new(fund_succeeds)),
             SessionConfig {
                 max_parts: 3,
                 ..SessionConfig::default()
@@ -672,7 +684,7 @@ mod tests {
 
         let mgr = Arc::new(SessionManager::new(
             Arc::new(ds),
-            Arc::new(MockExecutor { fund_succeeds: true }),
+            Arc::new(MockExecutor::new(true)),
             SessionConfig::default(),
             Arc::new(NoopEventSink),
         ));
@@ -713,6 +725,42 @@ mod tests {
             other => panic!("expected Forward for late part, got {other:?}"),
         }
         assert_eq!(mgr.session_count().await, 1);
+    }
+
+    #[tokio::test(flavor = "current_thread", start_paused = true)]
+    async fn late_parts_do_not_spawn_extra_channel_polls() {
+        // Every ForwardHtlcs action used to start another 5s channel-poll
+        // task without stopping the previous one, leaking a poller per
+        // late-arriving part.
+        let executor = Arc::new(MockExecutor::new(true));
+        let mgr = Arc::new(SessionManager::new(
+            Arc::new(MockDatastore::new()),
+            executor.clone(),
+            SessionConfig {
+                max_parts: 3,
+                ..SessionConfig::default()
+            },
+            Arc::new(NoopEventSink),
+        ));
+        let hash = test_payment_hash(1);
+
+        // Threshold reached: channel funded, HTLC forwarded, poll started.
+        let resp = mgr
+            .on_part(hash, test_scid(), part(1, 1_000))
+            .await
+            .unwrap();
+        assert!(matches!(resp, HtlcResponse::Forward { .. }));
+
+        // Late part triggers another ForwardHtlcs in AwaitingSettlement.
+        let resp = mgr.on_part(hash, test_scid(), part(2, 500)).await.unwrap();
+        assert!(matches!(resp, HtlcResponse::Forward { .. }));
+
+        // One 5s poll interval elapses: exactly one poller must tick.
+        tokio::time::sleep(Duration::from_secs(6)).await;
+        assert_eq!(
+            executor.alive_calls.load(std::sync::atomic::Ordering::SeqCst),
+            1
+        );
     }
 
     #[tokio::test(flavor = "current_thread", start_paused = true)]
@@ -870,7 +918,7 @@ mod tests {
 
         let mgr = Arc::new(SessionManager::new(
             Arc::new(ds),
-            Arc::new(MockExecutor { fund_succeeds: true }),
+            Arc::new(MockExecutor::new(true)),
             SessionConfig::default(),
             Arc::new(NoopEventSink),
         ));
@@ -886,7 +934,7 @@ mod tests {
         let ds = MockDatastore::new(); // entries have valid_until in future
         let mgr = Arc::new(SessionManager::new(
             Arc::new(ds),
-            Arc::new(MockExecutor { fund_succeeds: true }),
+            Arc::new(MockExecutor::new(true)),
             SessionConfig::default(),
             Arc::new(NoopEventSink),
         ));
@@ -914,7 +962,7 @@ mod tests {
 
         let mgr = Arc::new(SessionManager::new(
             Arc::new(ds),
-            Arc::new(MockExecutor { fund_succeeds: true }),
+            Arc::new(MockExecutor::new(true)),
             SessionConfig::default(),
             Arc::new(NoopEventSink),
         ));
@@ -939,7 +987,7 @@ mod tests {
 
         let mgr = Arc::new(SessionManager::new(
             Arc::new(ds),
-            Arc::new(MockExecutor { fund_succeeds: true }),
+            Arc::new(MockExecutor::new(true)),
             SessionConfig::default(),
             Arc::new(NoopEventSink),
         ));
@@ -964,7 +1012,7 @@ mod tests {
 
         let mgr = Arc::new(SessionManager::new(
             Arc::new(ds),
-            Arc::new(MockExecutor { fund_succeeds: true }),
+            Arc::new(MockExecutor::new(true)),
             SessionConfig::default(),
             Arc::new(NoopEventSink),
         ));
@@ -990,7 +1038,7 @@ mod tests {
 
         let mgr = Arc::new(SessionManager::new(
             Arc::new(ds),
-            Arc::new(MockExecutor { fund_succeeds: true }),
+            Arc::new(MockExecutor::new(true)),
             SessionConfig::default(),
             Arc::new(NoopEventSink),
         ));
@@ -1023,7 +1071,7 @@ mod tests {
 
         let mgr = Arc::new(SessionManager::new(
             Arc::new(ds),
-            Arc::new(MockExecutor { fund_succeeds: true }),
+            Arc::new(MockExecutor::new(true)),
             SessionConfig::default(),
             Arc::new(NoopEventSink),
         ));
@@ -1054,7 +1102,7 @@ mod tests {
 
         let mgr = Arc::new(SessionManager::new(
             Arc::new(ds),
-            Arc::new(MockExecutor { fund_succeeds: true }),
+            Arc::new(MockExecutor::new(true)),
             SessionConfig::default(),
             Arc::new(NoopEventSink),
         ));
@@ -1080,7 +1128,7 @@ mod tests {
 
         let mgr = Arc::new(SessionManager::new(
             Arc::new(ds),
-            Arc::new(MockExecutor { fund_succeeds: true }),
+            Arc::new(MockExecutor::new(true)),
             SessionConfig::default(),
             Arc::new(NoopEventSink),
         ));
@@ -1113,7 +1161,7 @@ mod tests {
 
         let mgr = Arc::new(SessionManager::new(
             Arc::new(ds),
-            Arc::new(MockExecutor { fund_succeeds: true }),
+            Arc::new(MockExecutor::new(true)),
             SessionConfig::default(),
             Arc::new(NoopEventSink),
         ));
@@ -1155,7 +1203,7 @@ mod tests {
 
         let mgr = Arc::new(SessionManager::new(
             Arc::new(ds),
-            Arc::new(MockExecutor { fund_succeeds: true }),
+            Arc::new(MockExecutor::new(true)),
             SessionConfig::default(),
             Arc::new(NoopEventSink),
         ));
