@@ -78,6 +78,9 @@ def test_plugin_start(node_factory):
     assert not l1.rpc.listconfigs("test-dynamic-option")["configs"]["test-dynamic-option"]["value_bool"]
     wait_for(lambda: l1.daemon.is_in_log(r'cln-plugin-startup: Got dynamic option change: test-dynamic-option "false"'))
 
+    with pytest.raises(RpcError, match="context given: .* Unknown command"):
+        l1.rpc.test_error()
+
 
 def test_plugin_options_handle_defaults(node_factory):
     """Start a minimal plugin and ensure it is well-behaved

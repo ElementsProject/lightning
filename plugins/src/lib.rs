@@ -2,8 +2,8 @@ use crate::codec::{JsonCodec, JsonRpcCodec};
 pub use anyhow::anyhow;
 use anyhow::{Context, Result};
 use futures::sink::SinkExt;
-use serde::de::DeserializeOwned;
 use serde::Serialize;
+use serde::de::DeserializeOwned;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 extern crate log;
 use log::trace;
@@ -973,7 +973,7 @@ where
                                     .send(json!({
                                     "jsonrpc": "2.0",
                                     "id": id,
-                                    "error": parse_error(e.to_string()),
+                                    "error": parse_error(&e),
                                     }))
                                     .await
                                     .context("returning custom error"),
@@ -1112,14 +1112,20 @@ struct RpcError {
     pub message: String,
     pub data: Option<serde_json::Value>,
 }
-fn parse_error(error: String) -> RpcError {
-    match serde_json::from_str::<RpcError>(&error) {
-        Ok(o) => o,
-        Err(_) => RpcError {
+fn parse_error(error: &anyhow::Error) -> RpcError {
+    if let Ok(o) = serde_json::from_str::<RpcError>(&error.to_string()) {
+        o
+    } else {
+        let message = error
+            .chain()
+            .map(std::string::ToString::to_string)
+            .collect::<Vec<_>>()
+            .join(": ");
+        RpcError {
             code: Some(-32700),
-            message: error,
+            message,
             data: None,
-        },
+        }
     }
 }
 
@@ -1132,5 +1138,20 @@ mod test {
         let state = ();
         let builder = Builder::new(tokio::io::stdin(), tokio::io::stdout());
         let _ = builder.start(state);
+    }
+    #[test]
+    fn parse_error_includes_full_anyhow_chain() {
+        let err = anyhow!("No such file or directory (os error 2)")
+            .context("config file missing")
+            .context("failed to load config");
+
+        let rpc_error = parse_error(&err);
+
+        assert_eq!(rpc_error.code, Some(-32700));
+        assert_eq!(
+            rpc_error.message,
+            "failed to load config: config file missing: No such file or directory (os error 2)"
+        );
+        assert_eq!(rpc_error.data, None);
     }
 }
