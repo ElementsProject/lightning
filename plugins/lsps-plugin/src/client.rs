@@ -290,7 +290,7 @@ async fn on_lsps_lsps2_approve(
 ) -> Result<serde_json::Value, anyhow::Error> {
     let req: ClnRpcLsps2Approve = serde_json::from_value(v)?;
     let ds_rec = DatastoreRecord {
-        jit_channel_scid: req.jit_channel_scid.clone(),
+        jit_channel_scid: req.jit_channel_scid,
         client_trusts_lsp: req.client_trusts_lsp.unwrap_or_default(),
     };
     let ds_rec_json = serde_json::to_string(&ds_rec)?;
@@ -732,7 +732,7 @@ async fn on_openchannel(
         }
         // Fixme: Check that we actually use client-trusts-LSP mode - can be
         // found in the ds record.
-        return Ok(openchannel_jit_response(p.option(&OPTION_ZERO_RESERVE)?));
+        Ok(openchannel_jit_response(p.option(&OPTION_ZERO_RESERVE)?))
     } else {
         // Not a requested JIT-channel opening, continue.
         Ok(serde_json::json!({"result": "continue"}))
@@ -873,11 +873,6 @@ macro_rules! ok_or_continue {
             }
         }
     };
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-struct LspsBuyJitChannelResponse {
-    bolt11: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

@@ -27,6 +27,12 @@ pub enum Error {
 
 type Result<T> = std::result::Result<T, Error>;
 
+// Amount conventions in this module: values that cross the LSPS2 wire or
+// come from CLN (part amounts, payment_size, channel capacity) use the
+// `Msat` newtype; internally derived bookkeeping (opening fee, forward/fee
+// splits) is raw `u64` millisatoshis; aggregations that could exceed u64
+// (sums over per-part capacities) escalate to `u128`.
+
 /// Number of blocks before the earliest held HTLC's cltv_expiry at which we
 /// give up on the session and fail its HTLCs off-chain. Failing only at (or
 /// after) expiry is too late: the upstream peer is then entitled to
@@ -630,13 +636,13 @@ impl Session {
                     funding_psbt: funding_psbt.clone(),
                 };
 
-                return Ok(ApplyResult {
+                Ok(ApplyResult {
                     actions: vec![SessionAction::ForwardHtlcs {
                         parts: forwards,
                         channel_id,
                     }],
                     events,
-                });
+                })
             }
             (
                 SessionState::AwaitingChannelReady { .. },
@@ -905,7 +911,7 @@ impl Session {
             // Terminal states.
             //
             (SessionState::Failed | SessionState::Abandoned | SessionState::Succeeded, input) => {
-                return Err(Error::InvalidTransition {
+                Err(Error::InvalidTransition {
                     state: self.state.clone(),
                     input,
                 })
