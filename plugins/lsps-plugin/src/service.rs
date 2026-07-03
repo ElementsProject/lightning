@@ -381,10 +381,23 @@ async fn on_forward_event(p: Plugin<State>, v: serde_json::Value) -> Result<(), 
             }
         }
         Some("failed") | Some("local_failed") => {
+            // Identify the failed part when possible so the session can
+            // keep waiting on its other, still-offered parts.
+            let failed_htlc = match (
+                event
+                    .get("in_channel")
+                    .and_then(|v| v.as_str())
+                    .and_then(|s| s.parse::<ShortChannelId>().ok()),
+                event.get("in_htlc_id").and_then(|v| v.as_u64()),
+            ) {
+                (Some(scid), Some(id)) => Some(HtlcId { scid, id }),
+                _ => None,
+            };
+
             if let Err(e) = p
                 .state()
                 .session_manager
-                .on_payment_failed(payment_hash, updated_index)
+                .on_payment_failed(payment_hash, updated_index, failed_htlc)
                 .await
             {
                 debug!("on_payment_failed error: {e:#}");

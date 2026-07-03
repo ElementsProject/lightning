@@ -46,6 +46,7 @@ enum ActorInput {
     },
     PaymentFailed {
         updated_index: Option<u64>,
+        htlc_id: Option<HtlcId>,
     },
     FundingBroadcasted { txid: String },
     NewBlock {
@@ -107,10 +108,17 @@ impl ActorInboxHandle {
             .await?)
     }
 
-    pub async fn payment_failed(&self, updated_index: Option<u64>) -> Result<()> {
+    pub async fn payment_failed(
+        &self,
+        updated_index: Option<u64>,
+        htlc_id: Option<HtlcId>,
+    ) -> Result<()> {
         Ok(self
             .tx
-            .send(ActorInput::PaymentFailed { updated_index })
+            .send(ActorInput::PaymentFailed {
+                updated_index,
+                htlc_id,
+            })
             .await?)
     }
 
@@ -265,14 +273,17 @@ impl<A: ActionExecutor + Clone + Send + 'static, D: DatastoreProvider + Clone + 
                 }
                 Some(SessionInput::PaymentSettled)
             }
-            ActorInput::PaymentFailed { updated_index } => {
+            ActorInput::PaymentFailed {
+                updated_index,
+                htlc_id,
+            } => {
                 if let Some(index) = updated_index {
                     self.entry.forwards_updated_index = Some(index);
                     if let Err(e) = self.datastore.save_session(&self.scid, &self.entry).await {
                         warn!("save_session failed on PaymentFailed: {e}");
                     }
                 }
-                Some(SessionInput::PaymentFailed)
+                Some(SessionInput::PaymentFailed { htlc_id })
             }
             ActorInput::FundingBroadcasted { txid } => {
                 self.entry.funding_txid = Some(txid);
