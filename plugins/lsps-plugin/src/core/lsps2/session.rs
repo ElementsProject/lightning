@@ -29,6 +29,12 @@ pub enum Error {
 
 type Result<T> = std::result::Result<T, Error>;
 
+/// Number of blocks before the earliest held HTLC's cltv_expiry at which we
+/// give up on the session and fail its HTLCs off-chain. Failing only at (or
+/// after) expiry is too late: the upstream peer is then entitled to
+/// force-close to claim the timeout on-chain.
+pub const CLTV_SAFETY_BUFFER: u32 = 6;
+
 /// Identifies an incoming HTLC. The protocol numbers HTLCs per channel, so
 /// MPP parts arriving over different incoming channels can carry the same
 /// `id`; the incoming channel's scid is needed to disambiguate them.
@@ -326,7 +332,7 @@ impl Session {
         height: u32,
     ) -> Option<ApplyResult> {
         let min = cltv_min(parts)?;
-        if height > min {
+        if height.saturating_add(CLTV_SAFETY_BUFFER) >= min {
             self.state = SessionState::Failed;
             Some(ApplyResult {
                 actions: vec![
@@ -1887,11 +1893,44 @@ mod tests {
             })
             .unwrap();
 
-        let res = s.apply(SessionInput::NewBlock { height: 49 }).unwrap();
+        // More than CLTV_SAFETY_BUFFER blocks left until expiry: safe.
+        let res = s
+            .apply(SessionInput::NewBlock {
+                height: 50 - CLTV_SAFETY_BUFFER - 1,
+            })
+            .unwrap();
 
         assert!(matches!(s.state, SessionState::Collecting { .. }));
         assert!(res.actions.is_empty());
         assert!(res.events.is_empty());
+    }
+
+    #[test]
+    fn new_block_collecting_fails_within_safety_buffer() {
+        // HTLCs must be failed off-chain BEFORE their expiry: at expiry the
+        // upstream peer is entitled to force-close to claim the timeout.
+        let mut s = session(3, Some(2_000), 1);
+
+        let _ = s
+            .apply(SessionInput::AddPart {
+                part: part_with_cltv(1, 1_000, 50),
+            })
+            .unwrap();
+
+        let height = 50 - CLTV_SAFETY_BUFFER;
+        let res = s.apply(SessionInput::NewBlock { height }).unwrap();
+
+        assert_eq!(s.state, SessionState::Failed);
+        assert_eq!(
+            res.events,
+            vec![
+                SessionEvent::UnsafeHtlcTimeout {
+                    height,
+                    cltv_min: 50,
+                },
+                SessionEvent::SessionFailed,
+            ]
+        );
     }
 
     #[test]
