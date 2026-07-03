@@ -42,10 +42,10 @@ def lsps2_policy_getpolicy(request):
     }
 
 
-@plugin.method("lsps2-policy-getchannelcapacity")
-def lsps2_policy_getchannelcapacity(request, init_payment_size, scid, opening_fee_params):
-    """Returns an opening fee menu for the LSPS2 plugin."""
-    return {"channel_capacity_msat": 100000000}
+@plugin.method("lsps2-policy-buy")
+def lsps2_policy_buy(request, opening_fee_params, payment_size_msat=None):
+    """Returns the channel capacity for a buy request."""
+    return {"channel_capacity_msat": "100000000"}
 
 
 plugin.run()

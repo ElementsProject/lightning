@@ -7,9 +7,14 @@ use chrono::Utc;
 use log::debug;
 use serde::{Deserialize, Serialize};
 
+/// BOLT4 onion failure codes, hex-encoded as expected by the
+/// `htlc_accepted` hook's `failure_message` field.
 pub mod failure_codes {
+    /// UPDATE|7.
     pub const TEMPORARY_CHANNEL_FAILURE: &'static str = "1007";
-    pub const UNKNOWN_NEXT_PEER: &'static str = "4010";
+    /// PERM|10. Permanent: senders may blocklist the channel, so this is
+    /// reserved for the cases where LSPS2 mandates it.
+    pub const UNKNOWN_NEXT_PEER: &'static str = "400a";
 }
 
 // Lsps2 specific error codes defined in BLIP-52.
@@ -113,7 +118,7 @@ impl core::fmt::Display for PromiseError {
 
 impl core::error::Error for PromiseError {}
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Eq)]
 #[serde(try_from = "String")]
 pub struct Promise(pub String);
 
@@ -161,7 +166,7 @@ impl core::fmt::Display for Promise {
 
 /// Represents a set of parameters for calculating the opening fee for a JIT
 /// channel.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)] // LSPS2 requires the client to fail if a field is unrecognized.
 pub struct OpeningFeeParams {
     pub min_fee_msat: Msat,
@@ -217,6 +222,15 @@ impl OpeningFeeParams {
         //           public network to be able to receive at least
         //           payment_size_msat.
         if let Some(payment_size_msat) = payment_size_msat {
+            // The LSP MUST validate that the payment_size_msat is within
+            // the previous min_payment_size_msat and max_payment_size_msat.
+            if payment_size_msat < self.min_payment_size_msat {
+                return Err(Error::PaymentSizeTooSmall);
+            }
+            if payment_size_msat > self.max_payment_size_msat {
+                return Err(Error::PaymentSizeTooLarge);
+            }
+
             let opening_fee = compute_opening_fee(
                 payment_size_msat.msat(),
                 self.min_fee_msat.msat(),
@@ -280,15 +294,14 @@ pub struct Lsps2PolicyGetInfoResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct Lsps2PolicyGetChannelCapacityRequest {
+pub struct Lsps2PolicyBuyRequest {
     pub opening_fee_params: OpeningFeeParams,
-    pub init_payment_size: Msat,
-    pub scid: ShortChannelId,
+    pub payment_size_msat: Option<Msat>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct Lsps2PolicyGetChannelCapacityResponse {
-    pub channel_capacity_msat: Option<u64>,
+pub struct Lsps2PolicyBuyResponse {
+    pub channel_capacity_msat: Option<Msat>,
 }
 
 /// An internal representation of a policy of parameters for calculating the
@@ -338,10 +351,46 @@ impl PolicyOpeningFeeParams {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct DatastoreEntry {
-    pub peer_id: cln_rpc::primitives::PublicKey,
+    pub peer_id: bitcoin::secp256k1::PublicKey,
     pub opening_fee_params: OpeningFeeParams,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expected_payment_size: Option<Msat>,
+    pub channel_capacity_msat: Msat,
+    pub created_at: DateTime,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    pub channel_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    pub funding_psbt: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    pub funding_txid: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    pub preimage: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    pub forwards_updated_index: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    pub payment_hash: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum SessionOutcome {
+    Succeeded,
+    Abandoned,
+    Failed,
+    Timeout,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct FinalizedDatastoreEntry {
+    #[serde(flatten)]
+    pub entry: DatastoreEntry,
+    pub outcome: SessionOutcome,
+    pub finalized_at: DateTime,
 }
 
 /// Computes the opening fee in millisatoshis as described in LSPS2.
@@ -370,6 +419,45 @@ mod tests {
     use chrono::Duration;
 
     use super::*;
+
+    #[test]
+    fn datastore_entry_tolerates_missing_optional_fields() {
+        // Entries persisted by an older version may lack fields that were
+        // added later. Loading them must not fail: recovery silently drops
+        // entries that fail to deserialize, stranding their sessions.
+        let json = r#"{
+            "peer_id": "0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+            "opening_fee_params": {
+                "min_fee_msat": 1000,
+                "proportional": 1000,
+                "valid_until": "2100-01-01T00:00:00Z",
+                "min_lifetime": 144,
+                "max_client_to_self_delay": 2016,
+                "min_payment_size_msat": 1,
+                "max_payment_size_msat": 100000000,
+                "promise": "abc"
+            },
+            "channel_capacity_msat": 100000000,
+            "created_at": "2026-01-01T00:00:00Z"
+        }"#;
+
+        let entry: DatastoreEntry = serde_json::from_str(json).unwrap();
+        assert_eq!(entry.channel_id, None);
+        assert_eq!(entry.funding_psbt, None);
+        assert_eq!(entry.funding_txid, None);
+        assert_eq!(entry.preimage, None);
+        assert_eq!(entry.payment_hash, None);
+    }
+
+    #[test]
+    fn failure_codes_match_bolt4_wire_values() {
+        // Per BOLT4: temporary_channel_failure = UPDATE|7 = 0x1007,
+        // unknown_next_peer = PERM|10 = 0x400a. These strings are sent
+        // verbatim as the hex-encoded `failure_message` of the
+        // htlc_accepted hook response.
+        assert_eq!(failure_codes::TEMPORARY_CHANNEL_FAILURE, "1007");
+        assert_eq!(failure_codes::UNKNOWN_NEXT_PEER, "400a");
+    }
 
     // Helper struct for testing Serde
     #[derive(Serialize, Deserialize, Debug, PartialEq)]
