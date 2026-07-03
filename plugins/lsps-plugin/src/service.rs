@@ -15,7 +15,7 @@ use cln_lsps::{
         lsps2::{
             actor::HtlcResponse,
             event_sink::NoopEventSink,
-            manager::{PaymentHash, SessionConfig, SessionManager},
+            manager::{ManagerError, PaymentHash, SessionConfig, SessionManager},
             provider::{DatastoreProvider, RecoveryProvider},
             service::Lsps2ServiceHandler,
             session::{HtlcId, PaymentPart},
@@ -25,7 +25,10 @@ use cln_lsps::{
     },
     proto::{
         lsps0::{LSPS0_MESSAGE_TYPE, Msat, ShortChannelId},
-        lsps2::{SessionOutcome, failure_codes::UNKNOWN_NEXT_PEER},
+        lsps2::{
+            SessionOutcome,
+            failure_codes::{TEMPORARY_CHANNEL_FAILURE, UNKNOWN_NEXT_PEER},
+        },
     },
 };
 use cln_plugin::{HookBuilder, HookFilter, Plugin, options};
@@ -275,7 +278,14 @@ async fn handle_session_htlc(
         ),
         Err(e) => {
             debug!("session manager error: {e:#}");
-            Ok(json_continue())
+            match e {
+                // The scid points at us but no session can serve this part
+                // right now; tell the payer it may retry.
+                ManagerError::SessionTerminated | ManagerError::SessionAlreadyFunded => {
+                    Ok(json_fail(TEMPORARY_CHANNEL_FAILURE))
+                }
+                ManagerError::DatastoreLookup(_) => Ok(json_continue()),
+            }
         }
     }
 }

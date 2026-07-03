@@ -16,6 +16,8 @@ use tokio::sync::Mutex;
 pub enum ManagerError {
     #[error("session terminated")]
     SessionTerminated,
+    #[error("a channel was already funded for this session")]
+    SessionAlreadyFunded,
     #[error("datastore lookup failed: {0}")]
     DatastoreLookup(#[source] anyhow::Error),
 }
@@ -192,9 +194,22 @@ impl<D: DatastoreProvider + 'static, A: ActionExecutor + Send + Sync + 'static>
         match handle.add_part(part).await {
             Ok(resp) => Ok(resp),
             Err(_) => {
-                self.sessions.lock().await.remove(&payment_hash);
+                self.remove_session_handle(&payment_hash, &handle).await;
                 Err(ManagerError::SessionTerminated)
             }
+        }
+    }
+
+    /// Remove the map entry for `payment_hash`, but only if it still refers
+    /// to `handle` — a concurrent caller may have replaced it with a fresh
+    /// session that must not be torn down.
+    async fn remove_session_handle(&self, payment_hash: &PaymentHash, handle: &ActorInboxHandle) {
+        let mut sessions = self.sessions.lock().await;
+        if sessions
+            .get(payment_hash)
+            .is_some_and(|h| h.same_handle(handle))
+        {
+            sessions.remove(payment_hash);
         }
     }
 
@@ -204,10 +219,13 @@ impl<D: DatastoreProvider + 'static, A: ActionExecutor + Send + Sync + 'static>
         preimage: Option<String>,
         updated_index: Option<u64>,
     ) -> Result<(), ManagerError> {
+        // Keep the handle registered: the actor stays alive to broadcast the
+        // funding tx and to forward late-arriving parts for this payment
+        // hash. Dead handles are pruned lazily (on_part, on_new_block).
         let handle = {
-            let mut sessions = self.sessions.lock().await;
-            match sessions.remove(&payment_hash) {
-                Some(handle) => handle,
+            let sessions = self.sessions.lock().await;
+            match sessions.get(&payment_hash) {
+                Some(handle) => handle.clone(),
                 None => {
                     debug!("on_payment_settled: no session for {payment_hash}");
                     return Ok(());
@@ -217,7 +235,10 @@ impl<D: DatastoreProvider + 'static, A: ActionExecutor + Send + Sync + 'static>
 
         match handle.payment_settled(preimage, updated_index).await {
             Ok(()) => Ok(()),
-            Err(_) => Err(ManagerError::SessionTerminated),
+            Err(_) => {
+                self.remove_session_handle(&payment_hash, &handle).await;
+                Err(ManagerError::SessionTerminated)
+            }
         }
     }
 
@@ -227,9 +248,9 @@ impl<D: DatastoreProvider + 'static, A: ActionExecutor + Send + Sync + 'static>
         updated_index: Option<u64>,
     ) -> Result<(), ManagerError> {
         let handle = {
-            let mut sessions = self.sessions.lock().await;
-            match sessions.remove(&payment_hash) {
-                Some(handle) => handle,
+            let sessions = self.sessions.lock().await;
+            match sessions.get(&payment_hash) {
+                Some(handle) => handle.clone(),
                 None => {
                     debug!("on_payment_failed: no session for {payment_hash}");
                     return Ok(());
@@ -239,7 +260,10 @@ impl<D: DatastoreProvider + 'static, A: ActionExecutor + Send + Sync + 'static>
 
         match handle.payment_failed(updated_index).await {
             Ok(()) => Ok(()),
-            Err(_) => Err(ManagerError::SessionTerminated),
+            Err(_) => {
+                self.remove_session_handle(&payment_hash, &handle).await;
+                Err(ManagerError::SessionTerminated)
+            }
         }
     }
 
@@ -274,6 +298,12 @@ impl<D: DatastoreProvider + 'static, A: ActionExecutor + Send + Sync + 'static>
             .get_buy_request(scid)
             .await
             .map_err(ManagerError::DatastoreLookup)?;
+
+        // A channel was already funded for this jit scid; a fresh Collecting
+        // session would fund a second one.
+        if entry.channel_id.is_some() {
+            return Err(ManagerError::SessionAlreadyFunded);
+        }
 
         entry.payment_hash = Some(payment_hash.to_string());
         self.datastore
@@ -629,6 +659,63 @@ mod tests {
     }
 
     #[tokio::test(flavor = "current_thread", start_paused = true)]
+    async fn on_part_refuses_new_session_for_already_funded_entry() {
+        // If the active datastore entry already carries a channel_id, a
+        // channel was funded for this jit scid. Starting a fresh Collecting
+        // session would fund a second channel for the same buy.
+        let mut ds = MockDatastore::new();
+        ds.entries.clear();
+        let mut entry = test_datastore_entry();
+        entry.channel_id = Some("channel-1".to_string());
+        entry.funding_psbt = Some("psbt-1".to_string());
+        ds.entries.insert(test_scid().to_string(), entry);
+
+        let mgr = Arc::new(SessionManager::new(
+            Arc::new(ds),
+            Arc::new(MockExecutor { fund_succeeds: true }),
+            SessionConfig::default(),
+            Arc::new(NoopEventSink),
+        ));
+
+        let err = mgr
+            .on_part(test_payment_hash(1), test_scid(), part(1, 1_000))
+            .await
+            .unwrap_err();
+
+        assert!(matches!(err, ManagerError::SessionAlreadyFunded));
+        assert_eq!(mgr.session_count().await, 0);
+    }
+
+    #[tokio::test(flavor = "current_thread", start_paused = true)]
+    async fn late_part_after_settlement_is_forwarded_not_resessioned() {
+        // A part arriving after the payment settled (payer retry, late relay)
+        // must be forwarded verbatim by the still-live actor instead of
+        // spinning up a second session for the same payment hash.
+        let mgr = test_manager(true);
+        let hash = test_payment_hash(1);
+
+        let resp = mgr
+            .on_part(hash, test_scid(), part(1, 1_000))
+            .await
+            .unwrap();
+        assert!(matches!(resp, HtlcResponse::Forward { .. }));
+
+        mgr.on_payment_settled(hash, Some("preimage123".to_string()), Some(1))
+            .await
+            .unwrap();
+
+        let resp = mgr.on_part(hash, test_scid(), part(2, 500)).await.unwrap();
+        match resp {
+            HtlcResponse::Forward { fee_msat, forward_msat, .. } => {
+                assert_eq!(fee_msat, 0);
+                assert_eq!(forward_msat, 500);
+            }
+            other => panic!("expected Forward for late part, got {other:?}"),
+        }
+        assert_eq!(mgr.session_count().await, 1);
+    }
+
+    #[tokio::test(flavor = "current_thread", start_paused = true)]
     async fn datastore_lookup_failure() {
         let mgr = test_manager(true);
 
@@ -919,7 +1006,9 @@ mod tests {
         assert_eq!(mgr.session_count().await, 1);
         let result = mgr.on_payment_settled(test_payment_hash(1), None, None).await;
         assert!(result.is_ok());
-        assert_eq!(mgr.session_count().await, 0);
+        // The handle stays registered so late parts can still be forwarded;
+        // dead handles are pruned lazily.
+        assert_eq!(mgr.session_count().await, 1);
     }
 
     #[tokio::test]
@@ -949,7 +1038,8 @@ mod tests {
 
         let result = mgr.on_payment_failed(test_payment_hash(1), None).await;
         assert!(result.is_ok());
-        assert_eq!(mgr.session_count().await, 0);
+        // Handle is pruned lazily, not on delivery of the failure.
+        assert_eq!(mgr.session_count().await, 1);
     }
 
     #[tokio::test]
@@ -1078,10 +1168,11 @@ mod tests {
         mgr.recover(recovery).await.unwrap();
         assert_eq!(mgr.session_count().await, 1);
 
-        // Simulate forward_event delivering settlement.
+        // Simulate forward_event delivering settlement. The handle stays
+        // registered (late parts must remain routable); pruning is lazy.
         let result = mgr.on_payment_settled(test_payment_hash(1), Some("preimage123".to_string()), Some(1)).await;
         assert!(result.is_ok());
-        assert_eq!(mgr.session_count().await, 0);
+        assert_eq!(mgr.session_count().await, 1);
 
         // Give the actor time to finalize.
         tokio::time::sleep(std::time::Duration::from_secs(1)).await;
