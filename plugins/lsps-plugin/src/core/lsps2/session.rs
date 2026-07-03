@@ -11,8 +11,6 @@ use crate::proto::{
 
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum Error {
-    #[error("opening fee computation overflow")]
-    FeeOverflow,
     #[error("invalid state transition")]
     InvalidTransition {
         state: SessionState,
@@ -417,12 +415,26 @@ impl Session {
                 };
 
                 if threshold_reached {
-                    let opening_fee_msat = compute_opening_fee(
+                    // LSPS2: an overflowing opening fee computation MUST
+                    // fail with unknown_next_peer. Fail the session right
+                    // away instead of leaving the HTLCs hanging.
+                    let Some(opening_fee_msat) = compute_opening_fee(
                         parts_sum.msat(),
                         self.opening_fee_params.min_fee_msat.msat(),
                         self.opening_fee_params.proportional.ppm() as u64,
-                    )
-                    .ok_or(Error::FeeOverflow)?;
+                    ) else {
+                        self.state = SessionState::Failed;
+                        events.push(SessionEvent::SessionFailed);
+                        return Ok(ApplyResult {
+                            actions: vec![
+                                SessionAction::FailHtlcs {
+                                    failure_code: UNKNOWN_NEXT_PEER,
+                                },
+                                SessionAction::FailSession,
+                            ],
+                            events,
+                        });
+                    };
 
                     // LSPS2 mandates unknown_next_peer when the payment
                     // cannot cover the opening fee.
@@ -1278,16 +1290,29 @@ mod tests {
     }
 
     #[test]
-    fn collecting_fee_overflow_returns_fee_overflow() {
+    fn collecting_fee_overflow_fails_session_with_unknown_next_peer() {
+        // LSPS2: if the opening fee computation overflows, the LSP MUST
+        // fail with unknown_next_peer. The HTLCs must be failed promptly,
+        // not left hanging until the collect timeout.
         let mut s = session(3, Some(u64::MAX), 1);
         s.opening_fee_params.proportional = Ppm::from_ppm(u32::MAX);
 
-        let err = s
+        let res = s
             .apply(SessionInput::AddPart {
                 part: part(1, u64::MAX),
             })
-            .unwrap_err();
-        assert_eq!(err, Error::FeeOverflow);
+            .unwrap();
+
+        assert_eq!(s.state, SessionState::Failed);
+        assert_eq!(
+            res.actions,
+            vec![
+                SessionAction::FailHtlcs {
+                    failure_code: UNKNOWN_NEXT_PEER,
+                },
+                SessionAction::FailSession,
+            ]
+        );
     }
 
     #[test]
