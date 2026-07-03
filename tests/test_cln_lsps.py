@@ -754,8 +754,9 @@ def test_lsps2_session_newblock_unsafe_htlc_timeout(node_factory, bitcoind):
         partid=1,
     )
 
-    # Mine blocks past cltv_expiry (current_height + 10).
-    # height becomes current_height + 11 > current_height + 10.
+    # Mine blocks into the CLTV safety buffer of cltv_expiry
+    # (current_height + 10). The FSM fails held HTLCs once fewer than
+    # CLTV_SAFETY_BUFFER blocks remain before expiry.
     bitcoind.generate_block(11)
 
     # The HTLC should be failed back by the FSM.
