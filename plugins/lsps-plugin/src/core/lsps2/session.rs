@@ -1,7 +1,7 @@
 //! Lsps2 Service FSM
 
 use crate::proto::{
-    lsps0::Msat,
+    lsps0::{Msat, ShortChannelId},
     lsps2::{
         compute_opening_fee,
         failure_codes::{TEMPORARY_CHANNEL_FAILURE, UNKNOWN_NEXT_PEER},
@@ -29,16 +29,25 @@ pub enum Error {
 
 type Result<T> = std::result::Result<T, Error>;
 
+/// Identifies an incoming HTLC. The protocol numbers HTLCs per channel, so
+/// MPP parts arriving over different incoming channels can carry the same
+/// `id`; the incoming channel's scid is needed to disambiguate them.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct HtlcId {
+    pub scid: ShortChannelId,
+    pub id: u64,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PaymentPart {
-    pub htlc_id: u64,
+    pub htlc_id: HtlcId,
     pub amount_msat: Msat,
     pub cltv_expiry: u32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ForwardPart {
-    pub htlc_id: u64,
+    pub htlc_id: HtlcId,
     pub fee_msat: u64,
     pub forward_msat: u64,
 }
@@ -902,17 +911,24 @@ mod tests {
     use crate::proto::lsps2::Promise;
     use chrono::{Duration, Utc};
 
-    fn part(htlc_id: u64, amount_msat: u64) -> PaymentPart {
+    fn htlc_id(id: u64) -> HtlcId {
+        HtlcId {
+            scid: ShortChannelId::from(100u64 << 40 | 1u64 << 16),
+            id,
+        }
+    }
+
+    fn part(id: u64, amount_msat: u64) -> PaymentPart {
         PaymentPart {
-            htlc_id,
+            htlc_id: htlc_id(id),
             amount_msat: Msat::from_msat(amount_msat),
             cltv_expiry: 100,
         }
     }
 
-    fn part_with_cltv(htlc_id: u64, amount_msat: u64, cltv_expiry: u32) -> PaymentPart {
+    fn part_with_cltv(id: u64, amount_msat: u64, cltv_expiry: u32) -> PaymentPart {
         PaymentPart {
-            htlc_id,
+            htlc_id: htlc_id(id),
             amount_msat: Msat::from_msat(amount_msat),
             cltv_expiry,
         }
@@ -1452,12 +1468,12 @@ mod tests {
             forwards,
             vec![
                 ForwardPart {
-                    htlc_id: 1,
+                    htlc_id: htlc_id(1),
                     fee_msat: 999,
                     forward_msat: 1,
                 },
                 ForwardPart {
-                    htlc_id: 2,
+                    htlc_id: htlc_id(2),
                     fee_msat: 999,
                     forward_msat: 1,
                 },

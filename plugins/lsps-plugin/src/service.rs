@@ -18,7 +18,7 @@ use cln_lsps::{
             manager::{PaymentHash, SessionConfig, SessionManager},
             provider::{DatastoreProvider, RecoveryProvider},
             service::Lsps2ServiceHandler,
-            session::PaymentPart,
+            session::{HtlcId, PaymentPart},
         },
         server::LspsService,
         tlv::{TLV_FORWARD_AMT, TlvStream},
@@ -252,7 +252,12 @@ async fn handle_session_htlc(
 ) -> Result<serde_json::Value, anyhow::Error> {
     let payment_hash = PaymentHash::from_byte_array(req.htlc.payment_hash.as_slice().try_into()?);
     let part = PaymentPart {
-        htlc_id: req.htlc.id,
+        // HTLC ids are per-channel; key by the incoming channel too so MPP
+        // parts arriving over different channels cannot collide.
+        htlc_id: HtlcId {
+            scid: req.htlc.short_channel_id.into(),
+            id: req.htlc.id,
+        },
         amount_msat: Msat::from_msat(req.htlc.amount_msat.msat()),
         cltv_expiry: req.htlc.cltv_expiry,
     };
