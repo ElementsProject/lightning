@@ -415,11 +415,21 @@ impl Session {
                 };
 
                 if threshold_reached {
+                    // The fee was promised against payment_size_msat and the
+                    // client verifies the deducted extra_fees against that,
+                    // so compute it from the negotiated size when we have
+                    // one; the payer may overpay (parts_sum > payment_size).
+                    // In var-invoice mode the fee is based on the value of
+                    // the first (only) incoming HTLC.
+                    let fee_base_msat = match self.payment_size_msat {
+                        Some(size) => size.msat(),
+                        None => parts_sum.msat(),
+                    };
                     // LSPS2: an overflowing opening fee computation MUST
                     // fail with unknown_next_peer. Fail the session right
                     // away instead of leaving the HTLCs hanging.
                     let Some(opening_fee_msat) = compute_opening_fee(
-                        parts_sum.msat(),
+                        fee_base_msat,
                         self.opening_fee_params.min_fee_msat.msat(),
                         self.opening_fee_params.proportional.ppm() as u64,
                     ) else {
@@ -1286,6 +1296,35 @@ mod tests {
             assert_eq!(opening_fee_msat, 10_000);
         } else {
             panic!("expected AwaitingChannelReady, got {:?}", s.state);
+        }
+    }
+
+    #[test]
+    fn overpaying_parts_charge_fee_on_payment_size() {
+        // Payers may overpay (parts_sum > payment_size, permitted by BOLT4).
+        // The opening fee is promised against payment_size_msat and the
+        // client verifies the deducted extra_fees against that promise, so
+        // the fee must be computed from the negotiated payment size, not
+        // from the amount actually delivered.
+        let mut s = session(3, Some(2_000), 1);
+
+        let _ = s
+            .apply(SessionInput::AddPart {
+                part: part(1, 1_500),
+            })
+            .unwrap();
+        let _ = s
+            .apply(SessionInput::AddPart {
+                part: part(2, 1_500),
+            })
+            .unwrap();
+
+        // proportional = 1_000 ppm: fee(2_000) = 2, while fee(3_000) = 3.
+        match &s.state {
+            SessionState::AwaitingChannelReady {
+                opening_fee_msat, ..
+            } => assert_eq!(*opening_fee_msat, 2),
+            other => panic!("expected AwaitingChannelReady, got {other:?}"),
         }
     }
 

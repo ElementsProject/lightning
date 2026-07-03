@@ -306,7 +306,11 @@ fn session_response_to_json(
             payload.set_tu64(TLV_FORWARD_AMT, forward_msat);
 
             let mut extra_tlvs = extra_tlvs.clone().unwrap_or_default();
-            extra_tlvs.set_u64(65537, fee_msat);
+            // LSPS2: the extra_fee TLV MUST NOT be included on parts that
+            // have no fee deducted.
+            if fee_msat > 0 {
+                extra_tlvs.set_u64(65537, fee_msat);
+            }
 
             let forward_to = hex::decode(&channel_id)?;
 
@@ -413,4 +417,54 @@ fn json_fail(failure_code: &str) -> serde_json::Value {
         "result": "fail",
         "failure_message": failure_code
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const EXTRA_FEE_TLV_TYPE: u64 = 65537;
+
+    fn forward_response(fee_msat: u64) -> HtlcResponse {
+        HtlcResponse::Forward {
+            channel_id: "ab".repeat(32),
+            fee_msat,
+            forward_msat: 1_000,
+        }
+    }
+
+    fn extra_tlvs_of(resp: &serde_json::Value) -> TlvStream {
+        let hex_str = resp.get("extra_tlvs").unwrap().as_str().unwrap();
+        TlvStream::from_bytes(&hex::decode(hex_str).unwrap()).unwrap()
+    }
+
+    #[test]
+    fn forward_with_fee_sets_extra_fee_tlv() {
+        let resp = session_response_to_json(
+            forward_response(5_000),
+            &TlvStream::default(),
+            1_000,
+            &None,
+        )
+        .unwrap();
+
+        let tlvs = extra_tlvs_of(&resp);
+        assert_eq!(tlvs.get_u64(EXTRA_FEE_TLV_TYPE).unwrap(), Some(5_000));
+    }
+
+    #[test]
+    fn forward_without_fee_omits_extra_fee_tlv() {
+        // LSPS2: the LSP MUST NOT include the extra_fee TLV if the part
+        // does not have fees deducted.
+        let resp = session_response_to_json(
+            forward_response(0),
+            &TlvStream::default(),
+            1_000,
+            &None,
+        )
+        .unwrap();
+
+        let tlvs = extra_tlvs_of(&resp);
+        assert!(!tlvs.contains(EXTRA_FEE_TLV_TYPE));
+    }
 }
