@@ -2541,6 +2541,7 @@
             "ListConfigs.configs.experimental-onion-messages": 23,
             "ListConfigs.configs.experimental-peer-storage": 26,
             "ListConfigs.configs.experimental-shutdown-wrong-funding": 25,
+            "ListConfigs.configs.experimental-simple-close": 76,
             "ListConfigs.configs.experimental-splicing": 22,
             "ListConfigs.configs.fee-base": 39,
             "ListConfigs.configs.fee-per-satoshi": 41,
@@ -2729,6 +2730,10 @@
         "ListconfigsConfigsExperimental-shutdown-wrong-funding": {
             "ListConfigs.configs.experimental-shutdown-wrong-funding.set": 1,
             "ListConfigs.configs.experimental-shutdown-wrong-funding.source": 2
+        },
+        "ListconfigsConfigsExperimental-simple-close": {
+            "ListConfigs.configs.experimental-simple-close.set": 1,
+            "ListConfigs.configs.experimental-simple-close.source": 2
         },
         "ListconfigsConfigsExperimental-splicing": {
             "ListConfigs.configs.experimental-splicing.set": 1,
@@ -10162,6 +10167,18 @@
         },
         "ListConfigs.configs.experimental-shutdown-wrong-funding.source": {
             "added": "v23.08",
+            "deprecated": null
+        },
+        "ListConfigs.configs.experimental-simple-close": {
+            "added": "v26.09",
+            "deprecated": null
+        },
+        "ListConfigs.configs.experimental-simple-close.set": {
+            "added": "v26.09",
+            "deprecated": null
+        },
+        "ListConfigs.configs.experimental-simple-close.source": {
+            "added": "v26.09",
             "deprecated": null
         },
         "ListConfigs.configs.experimental-splicing": {

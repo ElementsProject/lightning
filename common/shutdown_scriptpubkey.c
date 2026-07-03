@@ -10,7 +10,7 @@
  *      * `6` to `75` inclusive followed by exactly that many bytes
  *      * `76` followed by `76` to `80` followed by exactly that many bytes
  */
-static bool is_valid_op_return(const u8 *scriptpubkey, size_t scriptpubkey_len)
+bool is_valid_op_return(const u8 *scriptpubkey, size_t scriptpubkey_len)
 {
 	u8 v;
 

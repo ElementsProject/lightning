@@ -140,6 +140,10 @@ static const struct feature_style feature_styles[] = {
 	{ OPT_PROVIDE_STORAGE,
 	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
 			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT } },
+	{ OPT_SIMPLE_CLOSE,
+	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
+			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT,
+			  [CHANNEL_FEATURE] = FEATURE_DONT_REPRESENT } },
 	{ OPT_SPLICE,
 	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
 			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT,
@@ -434,7 +438,7 @@ const char *feature_name(const tal_t *ctx, size_t f)
 		"option_keysend",
 		"option_trampoline_routing", /* https://github.com/lightning/bolts/pull/836 */
 		NULL,
-		NULL, /* 60/61 */
+		"option_simple_close", /* 60/61 */
 		"option_splice",
 		NULL,
 		NULL,

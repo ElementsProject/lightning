@@ -3,7 +3,9 @@
 #include <ccan/cast/cast.h>
 #include <ccan/tal/str/str.h>
 #include <channeld/channeld_wiregen.h>
+#include <closingd/simpleclosed_wiregen.h>
 #include <common/daemon.h>
+#include <common/features.h>
 #include <common/json_command.h>
 #include <common/psbt_open.h>
 #include <common/shutdown_scriptpubkey.h>
@@ -22,6 +24,7 @@
 #include <lightningd/notification.h>
 #include <lightningd/peer_fd.h>
 #include <lightningd/peer_htlcs.h>
+#include <lightningd/simple_close_control.h>
 #include <unistd.h>
 
 struct stfu_result
@@ -1387,6 +1390,7 @@ static void peer_start_closingd_after_shutdown(struct channel *channel,
 					       const int *fds)
 {
 	struct peer_fd *peer_fd;
+	struct lightningd *ld = channel->peer->ld;
 
 	if (!fromwire_channeld_shutdown_complete(msg)) {
 		channel_internal_error(channel, "bad shutdown_complete: %s",
@@ -1394,6 +1398,21 @@ static void peer_start_closingd_after_shutdown(struct channel *channel,
 		return;
 	}
 	peer_fd = new_peer_fd_arr(msg, fds);
+
+	/* If both sides negotiated option_simple_close, use the simple close
+	 * daemon instead of the legacy iterative fee negotiation daemon. */
+	if (feature_negotiated(ld->our_features,
+			       channel->peer->their_features,
+			       OPT_SIMPLE_CLOSE)) {
+		peer_start_simpleclosed(channel, peer_fd);
+		if (channel->state == CHANNELD_SHUTTING_DOWN)
+			channel_set_state(channel,
+					  CHANNELD_SHUTTING_DOWN,
+					  CLOSINGD_SIGEXCHANGE,
+					  REASON_UNKNOWN,
+					  "Start simpleclosed");
+		return;
+	}
 
 	/* This sets channel->owner, closes down channeld. */
 	peer_start_closingd(channel, peer_fd);

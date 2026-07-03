@@ -5211,14 +5211,14 @@ static void peer_in(struct peer *peer, const u8 *msg)
 	case WIRE_TX_ABORT:
 		check_tx_abort(peer, msg, NULL);
 		return;
+	case WIRE_CLOSING_COMPLETE:
+	case WIRE_CLOSING_SIG:
 	case WIRE_INIT:
 	case WIRE_OPEN_CHANNEL:
 	case WIRE_ACCEPT_CHANNEL:
 	case WIRE_FUNDING_CREATED:
 	case WIRE_FUNDING_SIGNED:
 	case WIRE_CLOSING_SIGNED:
-	case WIRE_CLOSING_COMPLETE:
-	case WIRE_CLOSING_SIG:
 	case WIRE_TX_ADD_INPUT:
 	case WIRE_TX_REMOVE_INPUT:
 	case WIRE_TX_ADD_OUTPUT:
@@ -5226,6 +5226,11 @@ static void peer_in(struct peer *peer, const u8 *msg)
 	case WIRE_TX_COMPLETE:
 	case WIRE_OPEN_CHANNEL2:
 	case WIRE_ACCEPT_CHANNEL2:
+		peer_failed_warn(peer->pps, &peer->channel_id,
+				 "Peer sent unexpected message %s",
+				 peer_wire_name(type));
+		return;
+
 	case WIRE_TX_SIGNATURES:
 		handle_unexpected_tx_sigs(peer, msg);
 		return;
