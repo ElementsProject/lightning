@@ -706,7 +706,14 @@ jobs:
           TEST_DEBUG: 1
           PYTEST_OPTS: ${{ env.PYTEST_OPTS_BASE }} --test-group-random-seed=42
         run: |
-          VALGRIND=1 sg wireshark "uv run eatmydata pytest tests/ -n $(($(nproc) + 1)) ${PYTEST_OPTS} --test-group=${{ matrix.GROUP }} --test-group-count=${{ matrix.GROUP_COUNT }}"
+          # -n $(nproc) rather than $(nproc)+1: one fewer parallel node-cluster
+          # keeps peak RSS under the 16GB hosted-runner ceiling.
+          VALGRIND=1 sg wireshark "uv run eatmydata pytest tests/ -n $(nproc) ${PYTEST_OPTS} --test-group=${{ matrix.GROUP }} --test-group-count=${{ matrix.GROUP_COUNT }}"
+      - name: Report OOM kills
+        if: failure()
+        run: |
+          echo "=== dmesg (OOM) ==="; sudo dmesg | grep -i -E 'oom|out of memory|killed process' || echo "no OOM lines in dmesg"
+          echo "=== kernel log ==="; sudo journalctl -k --no-pager | tail -n 50 || true
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v7
@@ -770,7 +777,14 @@ jobs:
         env:
           PYTEST_OPTS: ${{ env.PYTEST_OPTS_BASE }} --test-group-random-seed=42
         run: |
-          sg wireshark "uv run eatmydata pytest tests/ -n $(($(nproc) + 1)) ${PYTEST_OPTS} --test-group=${{ matrix.GROUP }} --test-group-count=${{ matrix.GROUP_COUNT }}"
+          # -n $(nproc) rather than $(nproc)+1: one fewer parallel node-cluster
+          # keeps ASan peak RSS under the 16GB hosted-runner ceiling.
+          sg wireshark "uv run eatmydata pytest tests/ -n $(nproc) ${PYTEST_OPTS} --test-group=${{ matrix.GROUP }} --test-group-count=${{ matrix.GROUP_COUNT }}"
+      - name: Report OOM kills
+        if: failure()
+        run: |
+          echo "=== dmesg (OOM) ==="; sudo dmesg | grep -i -E 'oom|out of memory|killed process' || echo "no OOM lines in dmesg"
+          echo "=== kernel log ==="; sudo journalctl -k --no-pager | tail -n 50 || true
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v7
