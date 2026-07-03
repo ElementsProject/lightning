@@ -7,9 +7,14 @@ use chrono::Utc;
 use log::debug;
 use serde::{Deserialize, Serialize};
 
+/// BOLT4 onion failure codes, hex-encoded as expected by the
+/// `htlc_accepted` hook's `failure_message` field.
 pub mod failure_codes {
+    /// UPDATE|7.
     pub const TEMPORARY_CHANNEL_FAILURE: &'static str = "1007";
-    pub const UNKNOWN_NEXT_PEER: &'static str = "4010";
+    /// PERM|10. Permanent: senders may blocklist the channel, so this is
+    /// reserved for the cases where LSPS2 mandates it.
+    pub const UNKNOWN_NEXT_PEER: &'static str = "400a";
 }
 
 // Lsps2 specific error codes defined in BLIP-52.
@@ -402,6 +407,16 @@ mod tests {
     use chrono::Duration;
 
     use super::*;
+
+    #[test]
+    fn failure_codes_match_bolt4_wire_values() {
+        // Per BOLT4: temporary_channel_failure = UPDATE|7 = 0x1007,
+        // unknown_next_peer = PERM|10 = 0x400a. These strings are sent
+        // verbatim as the hex-encoded `failure_message` of the
+        // htlc_accepted hook response.
+        assert_eq!(failure_codes::TEMPORARY_CHANNEL_FAILURE, "1007");
+        assert_eq!(failure_codes::UNKNOWN_NEXT_PEER, "400a");
+    }
 
     // Helper struct for testing Serde
     #[derive(Serialize, Deserialize, Debug, PartialEq)]

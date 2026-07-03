@@ -361,13 +361,17 @@ impl Session {
                 let threshold_reached = match self.payment_size_msat {
                     None => {
                         if n_parts > 1 {
+                            // Retryable: the payer can retry as a single
+                            // part, so use a temporary failure instead of
+                            // the permanent unknown_next_peer (LSPS2 only
+                            // says we MAY use the latter).
                             self.state = SessionState::Failed;
                             events.push(SessionEvent::TooManyParts { n_parts });
                             events.push(SessionEvent::SessionFailed);
                             return Ok(ApplyResult {
                                 actions: vec![
                                     SessionAction::FailHtlcs {
-                                        failure_code: UNKNOWN_NEXT_PEER,
+                                        failure_code: TEMPORARY_CHANNEL_FAILURE,
                                     },
                                     SessionAction::FailSession,
                                 ],
@@ -378,13 +382,15 @@ impl Session {
                     }
                     Some(_) => {
                         if n_parts > self.max_parts {
+                            // Retryable: the payer can retry with fewer
+                            // parts, see above.
                             self.state = SessionState::Failed;
                             events.push(SessionEvent::TooManyParts { n_parts });
                             events.push(SessionEvent::SessionFailed);
                             return Ok(ApplyResult {
                                 actions: vec![
                                     SessionAction::FailHtlcs {
-                                        failure_code: UNKNOWN_NEXT_PEER,
+                                        failure_code: TEMPORARY_CHANNEL_FAILURE,
                                     },
                                     SessionAction::FailSession,
                                 ],
@@ -403,6 +409,8 @@ impl Session {
                     )
                     .ok_or(Error::FeeOverflow)?;
 
+                    // LSPS2 mandates unknown_next_peer when the payment
+                    // cannot cover the opening fee.
                     if opening_fee_msat >= parts_sum.msat()
                         || !is_deductible(parts, opening_fee_msat)
                     {
@@ -523,7 +531,8 @@ impl Session {
                     funding_psbt: funding_psbt.clone(),
                 }];
 
-                // Fail if we have too many parts.
+                // Fail if we have too many parts. Retryable with fewer
+                // parts, so temporary failure.
                 if n_parts > self.max_parts {
                     self.state = SessionState::Abandoned;
                     events.push(SessionEvent::TooManyParts { n_parts });
@@ -531,7 +540,7 @@ impl Session {
                     return Ok(ApplyResult {
                         actions: vec![
                             SessionAction::FailHtlcs {
-                                failure_code: UNKNOWN_NEXT_PEER,
+                                failure_code: TEMPORARY_CHANNEL_FAILURE,
                             },
                             SessionAction::Disconnect,
                             SessionAction::AbandonSession {
@@ -552,7 +561,7 @@ impl Session {
                     return Ok(ApplyResult {
                         actions: vec![
                             SessionAction::FailHtlcs {
-                                failure_code: UNKNOWN_NEXT_PEER,
+                                failure_code: TEMPORARY_CHANNEL_FAILURE,
                             },
                             SessionAction::Disconnect,
                             SessionAction::AbandonSession {
@@ -601,11 +610,16 @@ impl Session {
                 Ok(ApplyResult::unusual_input(&self.state, input))
             }
             (SessionState::AwaitingChannelReady { .. }, SessionInput::FundingFailed) => {
+                // LSPS2: a client disconnect before funding_signed MUST be
+                // failed with temporary_channel_failure so the payer knows
+                // it can retry. We can't currently distinguish an explicit
+                // client reject (which LSPS2 fails with unknown_next_peer)
+                // from other funding errors, so prefer the retryable code.
                 self.state = SessionState::Failed;
                 Ok(ApplyResult {
                     actions: vec![
                         SessionAction::FailHtlcs {
-                            failure_code: UNKNOWN_NEXT_PEER,
+                            failure_code: TEMPORARY_CHANNEL_FAILURE,
                         },
                         SessionAction::Disconnect,
                         SessionAction::FailSession,
@@ -1027,7 +1041,7 @@ mod tests {
             res.actions,
             vec![
                 SessionAction::FailHtlcs {
-                    failure_code: UNKNOWN_NEXT_PEER
+                    failure_code: TEMPORARY_CHANNEL_FAILURE
                 },
                 SessionAction::FailSession
             ]
@@ -1543,12 +1557,45 @@ mod tests {
             res.actions,
             vec![
                 SessionAction::FailHtlcs {
-                    failure_code: UNKNOWN_NEXT_PEER,
+                    failure_code: TEMPORARY_CHANNEL_FAILURE,
                 },
                 SessionAction::Disconnect,
                 SessionAction::AbandonSession {
                     channel_id: "chan-overflow".to_owned(),
                     funding_psbt: "psbt-overflow".to_owned(),
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn channel_ready_with_unallocatable_fee_abandons_with_temporary_failure() {
+        let mut s = session(5, Some(2_000), 1);
+        // Force a state where the opening fee can no longer be deducted from
+        // the collected parts (fee exceeds the parts sum).
+        s.state = SessionState::AwaitingChannelReady {
+            parts: vec![part(1, 1)],
+            opening_fee_msat: 5_000,
+        };
+
+        let res = s
+            .apply(SessionInput::ChannelReady {
+                channel_id: "chan-1".to_owned(),
+                funding_psbt: "psbt-1".to_owned(),
+            })
+            .unwrap();
+
+        assert_eq!(s.state, SessionState::Abandoned);
+        assert_eq!(
+            res.actions,
+            vec![
+                SessionAction::FailHtlcs {
+                    failure_code: TEMPORARY_CHANNEL_FAILURE,
+                },
+                SessionAction::Disconnect,
+                SessionAction::AbandonSession {
+                    channel_id: "chan-1".to_owned(),
+                    funding_psbt: "psbt-1".to_owned(),
                 },
             ]
         );
@@ -1709,7 +1756,7 @@ mod tests {
             res.actions,
             vec![
                 SessionAction::FailHtlcs {
-                    failure_code: UNKNOWN_NEXT_PEER,
+                    failure_code: TEMPORARY_CHANNEL_FAILURE,
                 },
                 SessionAction::Disconnect,
                 SessionAction::FailSession,
