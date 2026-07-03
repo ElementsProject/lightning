@@ -54,6 +54,14 @@ pub const OPTION_COLLECT_TIMEOUT: options::DefaultIntegerConfigOption =
         "Timeout in seconds for collecting MPP parts (default: 90)",
     );
 
+/// Opt-in: require no channel reserve from the client on JIT channels.
+/// Left unset by default as some implementations cannot handle an explicit
+/// zero reserve.
+pub const OPTION_ZERO_RESERVE: options::FlagConfigOption = options::ConfigOption::new_flag(
+    "experimental-lsps2-zero-reserve",
+    "Require no channel reserve from the client on JIT channels",
+);
+
 #[derive(Clone)]
 struct State {
     lsps_service: Arc<LspsService>,
@@ -65,12 +73,17 @@ struct State {
 }
 
 impl State {
-    pub fn new(rpc_path: PathBuf, promise_secret: &[u8; 32], collect_timeout_secs: u64) -> Self {
+    pub fn new(
+        rpc_path: PathBuf,
+        promise_secret: &[u8; 32],
+        collect_timeout_secs: u64,
+        zero_reserve: bool,
+    ) -> Self {
         let rpc = ClnRpcClient::new(rpc_path.clone());
         let sender = ClnSender::new(rpc_path);
         let datastore = Arc::new(ClnDatastore::new(rpc.clone()));
         let policy = Arc::new(ClnPolicyProvider::new(rpc.clone()));
-        let executor = Arc::new(ClnActionExecutor::new(rpc.clone()));
+        let executor = Arc::new(ClnActionExecutor::new(rpc.clone(), zero_reserve));
         let recovery = Arc::new(ClnRecoveryProvider::new(rpc));
         let lsps2_handler = Arc::new(Lsps2ServiceHandler::new(
             datastore.clone(),
@@ -114,6 +127,7 @@ async fn main() -> Result<(), anyhow::Error> {
         .option(OPTION_ENABLED)
         .option(OPTION_PROMISE_SECRET)
         .option(OPTION_COLLECT_TIMEOUT)
+        .option(OPTION_ZERO_RESERVE)
         // FIXME: Temporarily disabled lsp feature to please test cases, this is
         // ok as the feature is optional per spec.
         // We need to ensure that `connectd` only starts after all plugins have
@@ -169,7 +183,8 @@ async fn main() -> Result<(), anyhow::Error> {
                 };
 
                 let collect_timeout_secs = plugin.option(&OPTION_COLLECT_TIMEOUT)? as u64;
-                let state = State::new(rpc_path, &secret, collect_timeout_secs);
+                let zero_reserve = plugin.option(&OPTION_ZERO_RESERVE)?;
+                let state = State::new(rpc_path, &secret, collect_timeout_secs, zero_reserve);
 
                 // Recover in-flight sessions before processing replayed HTLCs
                 let recovery: Arc<dyn RecoveryProvider> = state.recovery.clone();
