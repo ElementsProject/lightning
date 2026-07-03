@@ -379,12 +379,15 @@ impl<A: ActionExecutor + Clone + Send + 'static, D: DatastoreProvider + Clone + 
         }
 
         // Main loop: process inbox events from forward_event notifications
+        // and htlc_accepted hook replays. AddPart must be handled: CLN
+        // replays held-but-unresolved HTLCs on restart, and dropping the
+        // reply would make the manager treat this actor as dead.
         loop {
             match self.inbox.recv().await {
                 Some(actor_input) => {
-                    // Only process settlement/failure/broadcast events
                     let session_input = match &actor_input {
-                        ActorInput::PaymentSettled { .. }
+                        ActorInput::AddPart { .. }
+                        | ActorInput::PaymentSettled { .. }
                         | ActorInput::PaymentFailed { .. }
                         | ActorInput::FundingBroadcasted { .. } => {
                             self.convert_input(actor_input).await
@@ -402,6 +405,7 @@ impl<A: ActionExecutor + Clone + Send + 'static, D: DatastoreProvider + Clone + 
             }
         }
 
+        self.release_pending_htlcs();
         Self::finalize(&self.session, &self.datastore, self.scid).await;
     }
 
