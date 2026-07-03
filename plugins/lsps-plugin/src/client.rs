@@ -46,7 +46,27 @@ const OPTION_ENABLED: options::FlagConfigOption = options::ConfigOption::new_fla
     "Enables an LSPS client on the node.",
 );
 
+/// Opt-in: do not require the LSP to maintain a channel reserve on JIT
+/// channels. Left unset by default as some LSPs (e.g. Megalithic) cannot
+/// handle a zero reserve.
+const OPTION_ZERO_RESERVE: options::FlagConfigOption = options::ConfigOption::new_flag(
+    "experimental-lsps-client-zero-reserve",
+    "Do not require the LSP to maintain a channel reserve on JIT channels.",
+);
+
 const DEFAULT_REQUEST_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(60);
+
+/// Hook response accepting a zero-conf JIT channel from the LSP.
+fn openchannel_jit_response(zero_reserve: bool) -> serde_json::Value {
+    let mut resp = serde_json::json!({
+        "result": "continue",
+        "mindepth": 0,
+    });
+    if zero_reserve {
+        resp["reserve"] = 0.into();
+    }
+    resp
+}
 
 #[derive(Clone)]
 pub struct State {
@@ -87,6 +107,7 @@ async fn main() -> Result<(), anyhow::Error> {
                 .filters(vec![HookFilter::Int(i64::from(LSPS0_MESSAGE_TYPE))]),
         )
         .option(OPTION_ENABLED)
+        .option(OPTION_ZERO_RESERVE)
         .rpcmethod(
             "lsps-listprotocols",
             "list protocols supported by lsp",
@@ -711,11 +732,7 @@ async fn on_openchannel(
         }
         // Fixme: Check that we actually use client-trusts-LSP mode - can be
         // found in the ds record.
-        return Ok(serde_json::json!({
-            "result": "continue",
-            "mindepth": 0,
-            "reserve": 0,
-        }));
+        return Ok(openchannel_jit_response(p.option(&OPTION_ZERO_RESERVE)?));
     } else {
         // Not a requested JIT-channel opening, continue.
         Ok(serde_json::json!({"result": "continue"}))
@@ -921,4 +938,20 @@ struct ClnRpcLsps2Approve {
 struct DatastoreRecord {
     jit_channel_scid: ShortChannelId,
     client_trusts_lsp: bool,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn openchannel_jit_response_reserve_is_opt_in() {
+        let resp = openchannel_jit_response(false);
+        assert_eq!(resp["result"], "continue");
+        assert_eq!(resp["mindepth"], 0);
+        assert!(resp.get("reserve").is_none());
+
+        let resp = openchannel_jit_response(true);
+        assert_eq!(resp["reserve"], 0);
+    }
 }

@@ -358,10 +358,13 @@ pub struct DatastoreEntry {
     pub channel_capacity_msat: Msat,
     pub created_at: DateTime,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub channel_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub funding_psbt: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub funding_txid: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
@@ -416,6 +419,35 @@ mod tests {
     use chrono::Duration;
 
     use super::*;
+
+    #[test]
+    fn datastore_entry_tolerates_missing_optional_fields() {
+        // Entries persisted by an older version may lack fields that were
+        // added later. Loading them must not fail: recovery silently drops
+        // entries that fail to deserialize, stranding their sessions.
+        let json = r#"{
+            "peer_id": "0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+            "opening_fee_params": {
+                "min_fee_msat": 1000,
+                "proportional": 1000,
+                "valid_until": "2100-01-01T00:00:00Z",
+                "min_lifetime": 144,
+                "max_client_to_self_delay": 2016,
+                "min_payment_size_msat": 1,
+                "max_payment_size_msat": 100000000,
+                "promise": "abc"
+            },
+            "channel_capacity_msat": 100000000,
+            "created_at": "2026-01-01T00:00:00Z"
+        }"#;
+
+        let entry: DatastoreEntry = serde_json::from_str(json).unwrap();
+        assert_eq!(entry.channel_id, None);
+        assert_eq!(entry.funding_psbt, None);
+        assert_eq!(entry.funding_txid, None);
+        assert_eq!(entry.preimage, None);
+        assert_eq!(entry.payment_hash, None);
+    }
 
     #[test]
     fn failure_codes_match_bolt4_wire_values() {

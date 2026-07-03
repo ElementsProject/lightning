@@ -177,14 +177,22 @@ fn msat_to_sat_ceil(msat: u64) -> u64 {
     msat.div_ceil(1000)
 }
 
+/// Reserve to require from the client on a JIT channel. `None` keeps
+/// lightningd's default; an explicit zero reserve breaks implementations
+/// that cannot handle it (e.g. Megalithic), so it is opt-in.
+fn jit_channel_reserve(zero_reserve: bool) -> Option<Amount> {
+    zero_reserve.then(|| Amount::from_sat(0))
+}
+
 #[derive(Clone)]
 pub struct ClnActionExecutor {
     rpc: ClnRpcClient,
+    zero_reserve: bool,
 }
 
 impl ClnActionExecutor {
-    pub fn new(rpc: ClnRpcClient) -> Self {
-        Self { rpc }
+    pub fn new(rpc: ClnRpcClient, zero_reserve: bool) -> Self {
+        Self { rpc, zero_reserve }
     }
 
     async fn cleanup_failed_funding(&self, peer_id: &PublicKey, psbt: &str) {
@@ -235,7 +243,7 @@ impl ActionExecutor for ClnActionExecutor {
                 close_to: None,
                 feerate: None,
                 push_msat: None,
-                reserve: Some(Amount::from_sat(0)),
+                reserve: jit_channel_reserve(self.zero_reserve),
             })
             .await
             .with_context(|| "calling fundchannel_start")?;
@@ -959,4 +967,17 @@ where
     Err(DsError::MissingValue {
         key: ds.key.clone(),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn jit_channel_reserve_defaults_to_lightningd() {
+        // Explicit zero reserve breaks LSP/client implementations that
+        // cannot handle it (e.g. Megalithic), so it is opt-in.
+        assert_eq!(jit_channel_reserve(false), None);
+        assert_eq!(jit_channel_reserve(true), Some(Amount::from_sat(0)));
+    }
 }
