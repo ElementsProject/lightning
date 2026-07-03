@@ -222,6 +222,15 @@ impl OpeningFeeParams {
         //           public network to be able to receive at least
         //           payment_size_msat.
         if let Some(payment_size_msat) = payment_size_msat {
+            // The LSP MUST validate that the payment_size_msat is within
+            // the previous min_payment_size_msat and max_payment_size_msat.
+            if payment_size_msat < self.min_payment_size_msat {
+                return Err(Error::PaymentSizeTooSmall);
+            }
+            if payment_size_msat > self.max_payment_size_msat {
+                return Err(Error::PaymentSizeTooLarge);
+            }
+
             let opening_fee = compute_opening_fee(
                 payment_size_msat.msat(),
                 self.min_fee_msat.msat(),

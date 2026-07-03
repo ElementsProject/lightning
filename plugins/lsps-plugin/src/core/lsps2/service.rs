@@ -154,9 +154,13 @@ where
             jit_channel_scid: jit_scid,
             // We can make this configurable if necessary.
             lsp_cltv_expiry_delta: DEFAULT_CLTV_EXPIRY_DELTA,
-            // We can implement the other mode later on as we might have to do
-            // some additional work on core-lightning to enable this.
-            client_trusts_lsp: false,
+            // We withhold the funding transaction until the client releases
+            // the preimage, which per LSPS2 requires the client to trust the
+            // LSP. Advertising `false` here would deadlock clients that wait
+            // for the funding tx in their mempool before settling.
+            // Implementing the LSP-trusts-client mode (broadcast on
+            // channel_ready) can lift this later.
+            client_trusts_lsp: true,
         })
     }
 }
@@ -512,7 +516,9 @@ mod tests {
         let response = result.unwrap();
         assert!(response.jit_channel_scid.to_u64() > 0);
         assert_eq!(response.lsp_cltv_expiry_delta, DEFAULT_CLTV_EXPIRY_DELTA);
-        assert!(!response.client_trusts_lsp);
+        // We withhold the funding tx until the preimage is revealed, which
+        // is the client-trusts-LSP model and must be advertised as such.
+        assert!(response.client_trusts_lsp);
 
         // Verify stored
         let stored = api.stored_requests();
@@ -577,22 +583,33 @@ mod tests {
 
     #[tokio::test]
     async fn buy_rejects_payment_below_min() {
-        let api = MockApi::new();
+        // Fully configured mock so the request can only fail on the
+        // payment-size range validation itself.
+        let api = MockApi::new()
+            .with_blockheight(800_000)
+            .with_store_result(true)
+            .with_buy_capacity(100_000_000);
         let h = handler(api);
 
+        // Above min_fee (2_000) so the opening-fee check cannot mask the
+        // range check, but below min_payment_size_msat (1_000_000).
         let request = Lsps2BuyRequest {
             opening_fee_params: test_opening_fee_params(&test_secret()),
-            payment_size_msat: Some(Msat(100)), // Below min_payment_size_msat
+            payment_size_msat: Some(Msat(500_000)),
         };
 
         let result = h.handle_buy(test_peer_id(), request).await;
 
-        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert_eq!(err.code, 202); // payment_size_too_small
     }
 
     #[tokio::test]
     async fn buy_rejects_payment_above_max() {
-        let api = MockApi::new();
+        let api = MockApi::new()
+            .with_blockheight(800_000)
+            .with_store_result(true)
+            .with_buy_capacity(100_000_000);
         let h = handler(api);
 
         let request = Lsps2BuyRequest {
@@ -602,7 +619,8 @@ mod tests {
 
         let result = h.handle_buy(test_peer_id(), request).await;
 
-        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert_eq!(err.code, 203); // payment_size_too_large
     }
 
     #[tokio::test]
