@@ -2,7 +2,7 @@ use crate::{
     core::lsps2::{
         event_sink::{EventSink, SessionEventEnvelope},
         provider::DatastoreProvider,
-        session::{PaymentPart, Session, SessionAction, SessionEvent, SessionInput},
+        session::{HtlcId, PaymentPart, Session, SessionAction, SessionEvent, SessionInput},
     },
     proto::{
         lsps0::{Msat, ShortChannelId},
@@ -124,7 +124,7 @@ pub struct SessionActor<A, D> {
     session: Session,
     entry: DatastoreEntry,
     inbox: mpsc::Receiver<ActorInput>,
-    pending_htlcs: HashMap<u64, oneshot::Sender<HtlcResponse>>,
+    pending_htlcs: HashMap<HtlcId, oneshot::Sender<HtlcResponse>>,
     collect_fired: bool,
     channel_poll_handle: Option<tokio::task::JoinHandle<()>>,
     self_send: mpsc::Sender<ActorInput>,
@@ -225,8 +225,7 @@ impl<A: ActionExecutor + Clone + Send + 'static, D: DatastoreProvider + Clone + 
     async fn convert_input(&mut self, input: ActorInput) -> Option<SessionInput> {
         match input {
             ActorInput::AddPart { part, reply_tx } => {
-                let htlc_id = part.htlc_id;
-                self.pending_htlcs.insert(htlc_id, reply_tx);
+                self.pending_htlcs.insert(part.htlc_id, reply_tx);
                 Some(SessionInput::AddPart { part })
             }
             ActorInput::ChannelReady {

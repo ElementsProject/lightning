@@ -399,6 +399,72 @@ def test_lsps2_session_mpp_two_parts(node_factory, bitcoind):
     assert l1.rpc.listdatastore(["lsps"]) == {"datastore": []}
 
 
+def test_lsps2_mpp_two_upstream_chans(node_factory, bitcoind):
+    """MPP parts arriving over different upstream channels must not collide.
+
+    HTLC ids are a per-channel counter, so the first HTLC on each upstream
+    channel carries id 0. The session must track parts by (channel, id) and
+    forward both.
+    """
+    l1, l2, l3, chanid3 = setup_lsps2_network(node_factory, bitcoind)
+
+    # Second payer with its own channel to the LSP. Both parts below are the
+    # first HTLC on their respective channels, i.e. both have HTLC id 0.
+    l4 = node_factory.get_node()
+    node_factory.join_nodes([l4, l2], fundchannel=True, wait_for_announce=True)
+    chanid4 = only_one(l4.rpc.listpeerchannels(l2.info["id"])["channels"])[
+        "short_channel_id"
+    ]
+
+    amt = 10_000_000
+    dec, inv = buy_and_invoice(l1, l2, amt)
+    routehint = only_one(only_one(dec["routes"]))
+
+    def route_via(chan):
+        return [
+            {
+                "amount_msat": amt // 2,
+                "id": l2.info["id"],
+                "delay": routehint["cltv_expiry_delta"] + 6,
+                "channel": chan,
+            },
+            {
+                "amount_msat": amt // 2,
+                "id": l1.info["id"],
+                "delay": 6,
+                "channel": routehint["short_channel_id"],
+            },
+        ]
+
+    l3.rpc.sendpay(
+        route_via(chanid3),
+        dec["payment_hash"],
+        payment_secret=inv["payment_secret"],
+        bolt11=inv["bolt11"],
+        amount_msat=f"{amt}msat",
+        groupid=1,
+        partid=1,
+    )
+    l4.rpc.sendpay(
+        route_via(chanid4),
+        dec["payment_hash"],
+        payment_secret=inv["payment_secret"],
+        bolt11=inv["bolt11"],
+        amount_msat=f"{amt}msat",
+        groupid=1,
+        partid=2,
+    )
+
+    res3 = l3.rpc.waitsendpay(dec["payment_hash"], partid=1, groupid=1)
+    res4 = l4.rpc.waitsendpay(dec["payment_hash"], partid=2, groupid=1)
+    assert res3["payment_preimage"]
+    assert res4["payment_preimage"]
+
+    # l1 should have exactly one JIT channel.
+    chs = l1.rpc.listpeerchannels()["channels"]
+    assert len(chs) == 1
+
+
 def test_lsps2_session_mpp_single_part(node_factory, bitcoind):
     """Fixed-amount invoice paid with a single part.
 

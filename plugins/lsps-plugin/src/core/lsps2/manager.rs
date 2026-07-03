@@ -312,6 +312,7 @@ impl<D: DatastoreProvider + 'static, A: ActionExecutor + Send + Sync + 'static>
 mod tests {
     use super::*;
     use crate::core::lsps2::event_sink::NoopEventSink;
+    use crate::core::lsps2::session::HtlcId;
     use crate::core::lsps2::provider::{ChannelRecoveryInfo, ForwardActivity, RecoveryProvider};
     use crate::proto::lsps0::{Msat, Ppm};
     use crate::proto::lsps2::{DatastoreEntry, OpeningFeeParams, Promise, SessionOutcome};
@@ -371,9 +372,17 @@ mod tests {
         }
     }
 
-    fn part(htlc_id: u64, amount_msat: u64) -> PaymentPart {
+    fn part(id: u64, amount_msat: u64) -> PaymentPart {
+        part_via(test_scid(), id, amount_msat)
+    }
+
+    /// A part arriving over the given upstream (incoming) channel.
+    fn part_via(upstream_scid: ShortChannelId, id: u64, amount_msat: u64) -> PaymentPart {
         PaymentPart {
-            htlc_id,
+            htlc_id: HtlcId {
+                scid: upstream_scid,
+                id,
+            },
             amount_msat: Msat::from_msat(amount_msat),
             cltv_expiry: 100,
         }
@@ -530,6 +539,46 @@ mod tests {
             other => panic!("expected Forward, got {other:?}"),
         }
 
+        assert_eq!(mgr.session_count().await, 1);
+    }
+
+    #[tokio::test(flavor = "current_thread", start_paused = true)]
+    async fn parts_with_same_htlc_id_from_different_channels_do_not_collide() {
+        // MPP parts of one payment routinely arrive over different upstream
+        // channels, and HTLC ids are a per-channel counter, so two parts can
+        // share the same id. Both must be tracked and forwarded.
+        let mgr = test_manager(true);
+        let hash = test_payment_hash(1);
+
+        let upstream_a = ShortChannelId::from(300u64 << 40 | 3u64 << 16);
+        let upstream_b = ShortChannelId::from(400u64 << 40 | 4u64 << 16);
+
+        // First part (500 of expected 1000) blocks awaiting the threshold.
+        let mgr2 = mgr.clone();
+        let h1 = tokio::spawn(async move {
+            mgr2.on_part(hash, test_scid(), part_via(upstream_a, 0, 500))
+                .await
+        });
+        tokio::task::yield_now().await;
+
+        // Second part with the SAME htlc id but over a different channel
+        // reaches the threshold; both parts must get a Forward response.
+        let resp2 = mgr
+            .on_part(hash, test_scid(), part_via(upstream_b, 0, 500))
+            .await
+            .unwrap();
+        let resp1 = h1.await.unwrap().unwrap();
+
+        assert!(
+            matches!(resp1, HtlcResponse::Forward { .. }),
+            "first part must be forwarded, got {resp1:?}"
+        );
+        assert!(
+            matches!(resp2, HtlcResponse::Forward { .. }),
+            "second part must be forwarded, got {resp2:?}"
+        );
+
+        // The session must still be alive and registered.
         assert_eq!(mgr.session_count().await, 1);
     }
 
