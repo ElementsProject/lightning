@@ -963,3 +963,92 @@ def test_splicescript_multi_open(node_factory, bitcoind, chainparams):
 
     wait_for(lambda: len(l1.rpc.listfunds()['channels']) == 3)
 
+
+def assert_no_serial_id_errors(nodes):
+    for n in nodes:
+        assert not n.daemon.is_in_log('Invalid serial_id rcvd')
+        assert not n.daemon.is_in_log('Duplicate serial_id rcvd')
+
+
+FUNDER_MATCH_OPTS = {'experimental-dual-fund': None,
+                     'funder-policy': 'match',
+                     'funder-policy-mod': 100,
+                     'funder-fuzz-percent': 0,
+                     'funder-lease-requests-only': False}
+
+
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_splicescript_open_with_contribution(node_factory, bitcoind):
+    """Splice into a new channel whose peer contributes its own inputs.
+
+    The peer's contributions carry accepter (odd) serial ids that must
+    not leak into the splice negotiation on the existing channel, and
+    the peer's tx_signatures must reach the splice leg before it can
+    complete. Also covers splicing and opening with the SAME peer in
+    one transaction."""
+    l1, l2 = node_factory.line_graph(2, fundamount=10000000,
+                                     wait_for_announce=True,
+                                     opts=[{'experimental-dual-fund': None},
+                                           FUNDER_MATCH_OPTS])
+    l2.fundwallet(2000000)
+
+    l1.daemon.wait_for_log(r'DUALOPEND_AWAITING_LOCKIN to CHANNELD_NORMAL')
+
+    print (l1.rpc.splice("peer(first).chan(first) -> 1M+fee; "
+                         "1M -> peer(first).new()"))
+
+    bitcoind.generate_block(6, wait_for_mempool=1)
+
+    l1.daemon.wait_for_log(r'DUALOPEND_AWAITING_LOCKIN to CHANNELD_NORMAL')
+
+    wait_for(lambda: len(l1.rpc.listfunds()['channels']) == 2)
+
+    # l2 matched our 1M contribution, so the new channel is ~2M
+    chans = l1.rpc.listfunds()['channels']
+    assert any(Millisatoshi(1_500_000_000) < Millisatoshi(c['amount_msat'])
+               <= Millisatoshi(2_000_000_000) for c in chans)
+
+    assert_no_serial_id_errors([l1, l2])
+
+
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_splicescript_multi_open_with_contributions(node_factory, bitcoind):
+    """One splice funding two channel opens where BOTH peers contribute
+    their own inputs, each with accepter (odd) serial ids minted
+    independently in their own negotiations."""
+    l1, l2 = node_factory.line_graph(2, fundamount=10000000,
+                                     wait_for_announce=True,
+                                     opts=[{'experimental-dual-fund': None},
+                                           FUNDER_MATCH_OPTS])
+    l3 = node_factory.get_node(options=FUNDER_MATCH_OPTS)
+
+    l2.fundwallet(2000000)
+    l3.fundwallet(2000000)
+
+    l1.rpc.connect(l3.info['id'], 'localhost', l3.port)
+
+    l1.daemon.wait_for_log(r'DUALOPEND_AWAITING_LOCKIN to CHANNELD_NORMAL')
+
+    print (l1.rpc.splice("peer(first).chan(first) -> 2.2M+fee; "
+                         "1M -> peer(first).new(); "
+                         "1M -> peer({}).new()".format(l3.info['id'])))
+
+    bitcoind.generate_block(6, wait_for_mempool=1)
+
+    l1.daemon.wait_for_log(r'DUALOPEND_AWAITING_LOCKIN to CHANNELD_NORMAL')
+
+    wait_for(lambda: len(l1.rpc.listfunds()['channels']) == 3)
+
+    # Both peers matched our 1M contributions, so both new channels are ~2M
+    chans = l1.rpc.listfunds()['channels']
+    matched = [c for c in chans
+               if Millisatoshi(1_500_000_000) < Millisatoshi(c['amount_msat'])
+               <= Millisatoshi(2_000_000_000)]
+    assert len(matched) == 2
+
+    assert_no_serial_id_errors([l1, l2, l3])
+
