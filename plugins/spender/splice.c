@@ -1173,22 +1173,19 @@ static struct command_result *open_update_get_result(struct command *cmd,
 
 	/* DTODO: juggle serial ids correctly for cross-channel splice */
 	tok = json_get_member(buf, result, "psbt");
+	if (!tok)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "openchannel_update didn't have a psbt");
 	psbt = json_to_psbt(splice_cmd, buf, tok);
-
-	plugin_log(cmd->plugin, LOG_DBG, "OpenUpdateGetResult Witness Size: %d", (int)tal_count(psbt_input_get_witscript(tmpctx, psbt, 0)));
-
-	plugin_log(cmd->plugin, LOG_DBG, "psbt num sigs: %d",
-		   (int)psbt->inputs[0].signatures.num_items);
-
-	plugin_log(cmd->plugin, LOG_DBG, "splice_cmd->psbt num sigs: %d",
-		   (int)splice_cmd->psbt->inputs[0].signatures.num_items);
+	if (!psbt)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "openchannel_update returned invalid psbt");
 
 	if (psbt_contribs_changed(splice_cmd->psbt, psbt))
 		for (size_t i = 0; i < tal_count(splice_cmd->states); i++)
 			if (splice_cmd->actions[i]->channel_id)
 				splice_cmd->states[i]->state = SPLICE_CMD_UPDATE_NEEDS_CHANGES;
 
-	assert(psbt);
 	tal_free(splice_cmd->psbt);
 	splice_cmd->psbt = tal_steal(splice_cmd, psbt);
 
@@ -1219,9 +1216,6 @@ static struct command_result *open_update(struct command *cmd,
 	plugin_log(cmd->plugin, LOG_DBG,
 		   "open_update(channel_id:%s)",
 		   fmt_channel_id(tmpctx, action->channel_id));
-
-	plugin_log(cmd->plugin, LOG_DBG, "psbt num sigs: %d",
-		   (int)splice_cmd->psbt->inputs[0].signatures.num_items);
 
 	req = jsonrpc_request_start(cmd, "openchannel_update",
 				    open_update_get_result, splice_error_pkg,
@@ -1373,9 +1367,6 @@ static struct command_result *splice_signed(struct command *cmd,
 	plugin_log(cmd->plugin, LOG_DBG,
 		   "splice_signed(channel_id:%s)",
 		   fmt_channel_id(tmpctx, action->channel_id));
-
-	plugin_log(cmd->plugin, LOG_DBG, "psbt num sigs: %d",
-		   (int)splice_cmd->psbt->inputs[0].signatures.num_items);
 
 	pkg = tal(cmd->plugin, struct splice_index_pkg);
 	pkg->splice_cmd = splice_cmd;
