@@ -433,7 +433,6 @@ void *io_loop(struct timers *timers, struct timer **expired)
 
 		fairness_counter++;
 		for (size_t rotation = 0; rotation < num_fds && !io_loop_return; rotation++) {
-			socklen_t errno_len = sizeof(errno);
 			struct io_conn *c;
 			int events;
 
@@ -475,13 +474,20 @@ void *io_loop(struct timers *timers, struct timer **expired)
 				 * POLLHUP|POLLERR or POLLOUT|POLLHUP depending
 				 * on version, setting the socket error to
 				 * ECONNREFUSED. */
+				int sock_err;
+				socklen_t err_len = sizeof(sock_err);
+
 				r--;
 				/* Get fd's specific error to find Mac's
-				 * ECONNREFUSED, among others */
-				if(getsockopt(fds[i]->fd, SOL_SOCKET, SO_ERROR,
-					      &errno, &errno_len) == -1) {
+				 * ECONNREFUSED, among others.  Keep the old
+				 * EBADF contract when there is no pending
+				 * socket error (e.g. plain POLLHUP). */
+				if (getsockopt(fds[i]->fd, SOL_SOCKET,
+					       SO_ERROR, &sock_err,
+					       &err_len) == 0 && sock_err != 0)
+					errno = sock_err;
+				else
 					errno = EBADF;
-				}
 				io_close(c);
 			}
 		}
