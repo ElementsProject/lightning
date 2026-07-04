@@ -12,6 +12,7 @@
 #include <common/psbt_open.h>
 #include <common/splice_script.h>
 #include <inttypes.h>
+#include <plugins/spender/psbt_multiview.h>
 #include <plugins/spender/splice.h>
 
 struct abort_pkg {
@@ -19,6 +20,41 @@ struct abort_pkg {
 	enum jsonrpc_errcode code;
 	char *str;
 };
+
+/* Active splice commands, so openchannel_peer_sigs notifications can
+ * be routed to the command whose funding tx they belong to */
+static struct list_head splice_cmds;
+
+static void destroy_splice_cmd(struct splice_cmd *splice_cmd)
+{
+	list_del(&splice_cmd->list);
+}
+
+static void register_splice_cmd(struct splice_cmd *splice_cmd)
+{
+	list_add_tail(&splice_cmds, &splice_cmd->list);
+	tal_add_destructor(splice_cmd, &destroy_splice_cmd);
+}
+
+void splice_plugin_init(void)
+{
+	list_head_init(&splice_cmds);
+}
+
+static struct splice_cmd_action_state *
+new_action_state(struct splice_cmd_action_state **states)
+{
+	struct splice_cmd_action_state *state;
+
+	state = tal(states, struct splice_cmd_action_state);
+	state->state = SPLICE_CMD_NONE;
+	state->psbt = NULL;
+	state->preserve_in_serials = NULL;
+	state->preserve_out_serials = NULL;
+	state->peer_sigs_received = false;
+
+	return state;
+}
 
 static const char *cmd_state_string(enum splice_cmd_state state)
 {
@@ -968,9 +1004,12 @@ static struct command_result *splice_init_get_result(struct command *cmd,
 						     const char *methodname,
 						     const char *buf,
 						     const jsmntok_t *result,
-						     struct splice_cmd *splice_cmd)
+						     struct splice_index_pkg *pkg)
 {
+	struct splice_cmd *splice_cmd = pkg->splice_cmd;
 	const jsmntok_t *tok = json_get_member(buf, result, "psbt");
+
+	tal_free(pkg);
 
 	tal_free(splice_cmd->psbt);
 	splice_cmd->psbt = json_to_psbt(splice_cmd, buf, tok);
@@ -985,10 +1024,14 @@ static struct command_result *splice_init(struct command *cmd,
 	struct splice_script_result *action = splice_cmd->actions[index];
 	struct splice_cmd_action_state *state = splice_cmd->states[index];
 	struct out_req *req;
+	struct splice_index_pkg *pkg = tal(cmd, struct splice_index_pkg);
+
+	pkg->splice_cmd = splice_cmd;
+	pkg->index = index;
 
 	req = jsonrpc_request_start(cmd, "splice_init",
-				    splice_init_get_result, splice_error,
-				    splice_cmd);
+				    splice_init_get_result, splice_error_pkg,
+				    pkg);
 
 	json_add_channel_id(req->js, "channel_id", action->channel_id);
 	if (!amount_sat_is_zero(action->in_sat)) {
@@ -2358,11 +2401,9 @@ static struct command_result *listpeerchannels_get_result(struct command *cmd,
 					     struct splice_cmd_action_state*,
 					     tal_count(splice_cmd->actions));
 
-		for (i = 0; i < tal_count(splice_cmd->states); i++) {
-			splice_cmd->states[i] = tal(splice_cmd->states,
-						    struct splice_cmd_action_state);
-			splice_cmd->states[i]->state = SPLICE_CMD_NONE;
-		}
+		for (i = 0; i < tal_count(splice_cmd->states); i++)
+			splice_cmd->states[i] =
+				new_action_state(splice_cmd->states);
 	}
 
 	assert(splice_cmd->actions);
@@ -2419,7 +2460,9 @@ json_splice(struct command *cmd, const char *buf, const jsmntok_t *params)
 	splice_cmd->debug_log = *debug_log ? tal_strdup(splice_cmd, "") : NULL;
 	splice_cmd->debug_counter = 0;
 	splice_cmd->needed_funds = AMOUNT_SAT(0);
+	splice_cmd->waiting_peer_sigs = false;
 	memset(&splice_cmd->final_txid, 0, sizeof(splice_cmd->final_txid));
+	register_splice_cmd(splice_cmd);
 
 	/* If script validates as json, parse it as json instead */
 	if (json) {
@@ -2432,11 +2475,9 @@ json_splice(struct command *cmd, const char *buf, const jsmntok_t *params)
 					     struct splice_cmd_action_state*,
 					     tal_count(splice_cmd->actions));
 
-		for (size_t i = 0; i < tal_count(splice_cmd->states); i++) {
-			splice_cmd->states[i] = tal(splice_cmd->states,
-						    struct splice_cmd_action_state);
-			splice_cmd->states[i]->state = SPLICE_CMD_NONE;
-		}
+		for (size_t i = 0; i < tal_count(splice_cmd->states); i++)
+			splice_cmd->states[i] =
+				new_action_state(splice_cmd->states);
 	}
 
 	req = jsonrpc_request_start(cmd, "listpeerchannels",
@@ -2480,7 +2521,9 @@ json_splicein(struct command *cmd, const char *buf, const jsmntok_t *params)
 	splice_cmd->debug_log = NULL;
 	splice_cmd->debug_counter = 0;
 	splice_cmd->needed_funds = AMOUNT_SAT(0);
+	splice_cmd->waiting_peer_sigs = false;
 	memset(&splice_cmd->final_txid, 0, sizeof(splice_cmd->final_txid));
+	register_splice_cmd(splice_cmd);
 
 	req = jsonrpc_request_start(cmd, "listpeerchannels",
 				    listpeerchannels_get_result,
@@ -2530,7 +2573,9 @@ json_spliceout(struct command *cmd, const char *buf, const jsmntok_t *params)
 	splice_cmd->debug_log = NULL;
 	splice_cmd->debug_counter = 0;
 	splice_cmd->needed_funds = AMOUNT_SAT(0);
+	splice_cmd->waiting_peer_sigs = false;
 	memset(&splice_cmd->final_txid, 0, sizeof(splice_cmd->final_txid));
+	register_splice_cmd(splice_cmd);
 
 	req = jsonrpc_request_start(cmd, "listpeerchannels",
 				    listpeerchannels_get_result,

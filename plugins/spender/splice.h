@@ -8,6 +8,9 @@
 extern const struct plugin_command splice_commands[];
 extern const size_t num_splice_commands;
 
+/* Call once at plugin init */
+void splice_plugin_init(void);
+
 enum splice_cmd_state {
 	SPLICE_CMD_NONE = 0,
 	SPLICE_CMD_INIT,
@@ -21,19 +24,40 @@ enum splice_cmd_state {
 
 struct splice_cmd_action_state {
 	enum splice_cmd_state state;
+	/* Node view of this action's negotiation (channel/peer actions
+	 * only): the psbt as that negotiation last saw it, in its own
+	 * serial space (this peer's contributions keep their odd
+	 * serials; other peers' are masked even on the parent). */
+	struct wally_psbt *psbt;
+	/* Even serials the daemon minted at *_init which must be copied
+	 * onto the parent verbatim: a splice leg's old-funding input,
+	 * and every leg's new funding output. */
+	u64 *preserve_in_serials;
+	u64 *preserve_out_serials;
+	/* Open legs: peer's tx_signatures have been combined into the
+	 * parent psbt */
+	bool peer_sigs_received;
 };
 
 struct splice_cmd {
 	/* The plugin-level command.  */
 	struct command *cmd;
+	/* In the active splice command registry (for routing
+	 * openchannel_peer_sigs notifications) */
+	struct list_node list;
 	/* Script input by user */
 	const char *script;
 	/* The result of parsing the script or json */
 	struct splice_script_result **actions;
 	/* The states of actions at the same index */
 	struct splice_cmd_action_state **states;
-	/* The active psbt */
+	/* The parent psbt: union of all negotiations, with every peer
+	 * contribution's serial even-pair normalized (see
+	 * plugins/spender/psbt_multiview.h) */
 	struct wally_psbt *psbt;
+	/* Parked in continue_splice until a peer's tx_signatures
+	 * arrive via openchannel_peer_sigs */
+	bool waiting_peer_sigs;
 	/* Output result but don't do any action */
 	bool dryrun;
 	/* Execute the splice and abort at the last moment */
