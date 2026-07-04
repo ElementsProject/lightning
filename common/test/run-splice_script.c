@@ -52,8 +52,11 @@ static void set_node_id(struct splice_script_chan *chan, const char *hexstr)
 
 static void set_chan_id(struct splice_script_chan *chan, const char *hexstr)
 {
-	int result = hex_decode(hexstr, strlen(hexstr), &chan->chan_id,
-				sizeof(chan->chan_id));
+	int result;
+
+	chan->chan_id = tal(chan, struct channel_id);
+	result = hex_decode(hexstr, strlen(hexstr), chan->chan_id,
+			    sizeof(*chan->chan_id));
 	assert(result);
 }
 
@@ -242,7 +245,7 @@ int main(int argc, char *argv[])
 		"10.0003%->peer(all).chan(all);\n" /* K, L */
 		"50k -> peer(0399).new.lease(4.91M @ 4%).private.commit_feerate(40000).close_to(bcrt1pp5ygqjg0q3mmv8ng8ceu59kl5a3etlf2vvryvnnyumvdyr8a77tqx507vk);";
 
-	expect = tal_arr(tmpctx, struct splice_script_result, 16);
+	expect = tal_arrz(tmpctx, struct splice_script_result, 16);
 	i = 0;
 	expect[i].lease_sat = AMOUNT_SAT(0);
 	expect[i].lease_max_ppm = 0;
@@ -452,6 +455,38 @@ int main(int argc, char *argv[])
 	printf("Expected Result:\n%.*s\n\n", (int)len, str);
 
 	verify_result(run_script(script, channels), expect, i);
+
+	/* Leading-dot decimals must parse as numbers, not dot operators */
+	script = "0->chan(f4699c).lease(1M@.5%);";
+
+	expect = tal_arrz(tmpctx, struct splice_script_result, 1);
+	expect[0].lease_sat = AMOUNT_SAT(1000000);
+	expect[0].lease_max_ppm = 5000;
+	expect[0].in_sat = AMOUNT_SAT(0);
+	expect[0].out_sat = AMOUNT_SAT(0);
+	expect[0].channel_id = channels[7]->chan_id;
+
+	verify_result(run_script(script, channels), expect, 1);
+
+	/* Two channel opens in one script: one via peer(first), one via an
+	 * explicit node id that has no channels yet. */
+	channels = tal_arr(tmpctx, struct splice_script_chan*, 0);
+	tal_arr_expand(&channels, tal(channels, struct splice_script_chan));
+	set_node_id(channels[0], "0399069f1693fd89a453f0caf03ee36b6f6c8abaa7ef778d3e2bcc7c2b44120100");
+	set_chan_id(channels[0], "f5699c3d5302e4486c83ef9d0f2d12a969ab41ccc9301bd042c50760a87b2700");
+
+	script = "peer(first).chan(first) -> 2.2M+fee;"
+		 "1M -> peer(first).new();"
+		 "1M -> peer(0393069f1693fd89a453f0caf03ee36b6f6c8abaa7ef778d3e2bcc7c2b44120101).new();";
+
+	printf("multi-open parse gave %zu results\n",
+	       tal_count(run_script(script, channels)));
+
+	/* Legacy colon-query syntax must keep working */
+	script = "*:? -> 100000; 100%-fee -> wallet";
+
+	printf("legacy syntax parse gave %zu results\n",
+	       tal_count(run_script(script, channels)));
 
 	common_shutdown();
 

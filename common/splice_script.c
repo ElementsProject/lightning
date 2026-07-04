@@ -9,7 +9,6 @@
 #include <common/splice_script.h>
 #include <errno.h>
 #include <inttypes.h>
-#include <stdio.h>
 
 #define SCRIPT_DUMP_TOKENS 0
 #define SCRIPT_DUMP_SEGMENTS 0
@@ -40,10 +39,10 @@
 
 /* Complex primitve regexes */
 #define PERCENT_REGEX "^([0-9]*)[.]?([0-9]*)%$"
-#define Q_REGEX "^\\?|any|first|one$"
-#define WILD_REGEX "^\\*|all$"
+#define Q_REGEX "^(\\?|any|first|one)$"
+#define WILD_REGEX "^(\\*|all)$"
 #define CHANID_REGEX "^[0-9A-Fa-f]{64}$"
-#define NODEID_REGEX "^0[23][0-9A-Fa-f]{62}$"
+#define NODEID_REGEX "^0[23][0-9A-Fa-f]{64}$"
 #define WALLET_REGEX "^wallet$"
 #define FEE_REGEX "^" FEE_SYMBOL "$"
 #define SATM_REGEX "^([0-9]*)[.]?([0-9]*)[Mm]$"
@@ -1302,9 +1301,9 @@ static bool autocomplete_chan_id(struct token *token,
 	*multiple_chans = false;
 	*node_id_overmatch = false;
 
-	if (strlen(token->str) < NODEID_MIN_CHARS)
+	if (strlen(token->str) < CHANID_MIN_CHARS)
 		return false;
-	if (len > PUBKEY_CMPR_LEN)
+	if (len > sizeof(candidate.id))
 		return false;
 	if (!hex_decode(token->str, len * 2,
 			candidate.id, len))
@@ -1406,10 +1405,12 @@ static struct splice_script_error *process_paren_dot_separators(const tal_t *ctx
 				    	itr++;
 					continue;
 				}
-				/* Turn off dot parsing on numbers */
+				/* Turn off dot parsing on numbers (a digit on
+				 * either side makes it a decimal point, as in
+				 * "4.91M" or ".5%") */
 				if (token_type == TOK_DOT
-				    && itr > start
-				    && is_digit(itr[-1])) {
+				    && ((itr > start && is_digit(itr[-1]))
+					|| is_digit(itr[1]))) {
 					itr++;
 					continue;
 				}
@@ -1429,8 +1430,9 @@ static struct splice_script_error *process_paren_dot_separators(const tal_t *ctx
 					tal_arr_expand(&tokens, token);
 				}
 
-				/* One character forward for matching token */
-				script_index++;
+				/* The matching token's own position */
+				script_index = input[i]->script_index
+					+ (itr - input[i]->str);
 
 				/* Add the matching token */
 				tal_arr_expand(&tokens,
@@ -1444,6 +1446,8 @@ static struct splice_script_error *process_paren_dot_separators(const tal_t *ctx
 
 			/* Add any remaining string to result */
 			if (itr > start) {
+				script_index = input[i]->script_index
+					+ (start - input[i]->str);
 				token = new_token(tokens,
 						  TOK_STR,
 						  script_index);
@@ -1619,9 +1623,11 @@ static struct splice_script_error *type_data(const tal_t *ctx,
 					return new_error(ctx, INVALID_PERCENT,
 							 input[i],
 							 "type_data");
-			} else if (tal_strreg(ctx, input[i]->str, Q_REGEX)) {
+			} else if (tal_strreg(ctx, input[i]->str, Q_REGEX,
+					      NULL)) {
 				input[i]->type = TOK_QUESTION;
-			} else if (tal_strreg(ctx, input[i]->str, WILD_REGEX)) {
+			} else if (tal_strreg(ctx, input[i]->str, WILD_REGEX,
+					      NULL)) {
 				input[i]->type = TOK_WILDCARD;
 			} else if (tal_strreg(ctx, input[i]->str,
 					      NODEID_REGEX)) {
@@ -2057,6 +2063,8 @@ static struct channel_id **unused_chans(const tal_t *ctx,
 
 	for (size_t i = 0; i < tal_count(channels); i++) {
 		bool used = false;
+		if (!channels[i]->chan_id)
+			continue;
 		for (size_t j = 0; j < a_size; j++)
 			if (matches_chan_id(tokensA[j], channels[i]->chan_id))
 				used = true;
@@ -2087,6 +2095,8 @@ static struct channel_id **unused_chans_for_node(const tal_t *ctx,
 
 	for (size_t i = 0; i < tal_count(channels); i++) {
 		bool used = false;
+		if (!channels[i]->chan_id)
+			continue;
 		if (!node_id_eq(&node_id, &channels[i]->node_id))
 			continue;
 		for (size_t j = 0; j < a_size; j++)
@@ -2388,11 +2398,18 @@ static struct splice_script_error *process_peer_token(const tal_t *ctx,
 	}
 
 	if (token->middle && token->middle->type == TOK_QUESTION)
-			token->node_id = node_at_index(token, channels, 0);
+		token->node_id = node_at_index(token, channels, 0);
+	else if (token->middle && token->middle->node_id)
+		token->node_id = tal_dup(token, struct node_id,
+					 token->middle->node_id);
 
 	/* node().new will be handled later after node id processing phase */
-	if (token->right->type == TOK_NEW)
+	if (token->right->type == TOK_NEW) {
+		if (!token->node_id)
+			return new_error(ctx, NODEID_NOT_FOUND, token,
+					 "process_peer_token");
 		return NULL;
+	}
 
 	return new_error(ctx, NODE_UNRECOGNIZED_RIGHT, token,
 		"process_peer_token");
@@ -2458,6 +2475,7 @@ static struct splice_script_error *resolve_peer_and_chan(const tal_t *ctx,
 		case TOK_BTCADDR:
 		case TOK_LEASEREQ:
 		case TOK_DELIMITER:
+		case TOK_CHANQUERY: /* From legacy "nodeid:query" syntax */
 			tokens[n++] = tal_steal(tokens, token);
 			break;
 		case TOK_PEER:
@@ -2474,7 +2492,6 @@ static struct splice_script_error *resolve_peer_and_chan(const tal_t *ctx,
 			break;
 		case TOK_MULTI_CHANID:
 		case TOK_SEGMENT:
-		case TOK_CHANQUERY:
 			return new_error(ctx, INVALID_TOKEN, token,
 					 "resolve_peer_and_chan..");
 		}
@@ -2792,8 +2809,9 @@ static struct splice_script_error *compress_parens_and_dots(const tal_t *ctx,
 		case TOK_CLOSE_TO:
 		case TOK_COMMIT_FEERATE:
 		case TOK_LEASE:
+		case TOK_CHANQUERY: /* From legacy "nodeid:query" syntax */
 			if (close_paren) {
-				/* If we're inside parens, save this token for 
+				/* If we're inside parens, save this token for
 				 * processing when we get to the final paren */
 				if (paren_content)
 					return new_error(ctx,
@@ -2883,7 +2901,6 @@ static struct splice_script_error *compress_parens_and_dots(const tal_t *ctx,
 			break;
 		case TOK_ATSYM:
 		case TOK_COLON:
-		case TOK_CHANQUERY:
 		case TOK_MULTI_CHANID:
 		case TOK_FEERATE:
 		case TOK_LEASERATE:
@@ -3086,7 +3103,8 @@ static bool valid_channel_id(struct channel_id *chan_id,
 			     struct splice_script_chan **channels)
 {
 	for (size_t i = 0; i < tal_count(channels); i++)
-		if (channel_id_eq(chan_id, channels[i]->chan_id))
+		if (channels[i]->chan_id
+		    && channel_id_eq(chan_id, channels[i]->chan_id))
 			return true;
 
 	return false;
@@ -3255,7 +3273,7 @@ static struct splice_script_error *validate_and_clean(const tal_t *ctx,
 				if (feerate->right->type != TOK_SATS)
 					return new_error(ctx, MISSING_AMOUNT_OP,
 							 feerate,
-							 "validate_and_clean'");
+							 "validate_and_clean");
 				fee->amount_sat = feerate->right->amount_sat;
 				fee->str = feerate->right->str;
 			}
@@ -3591,7 +3609,7 @@ struct splice_script_error *parse_splice_script(const tal_t *ctx,
 		return error;
 
 #if SCRIPT_DUMP_TOKENS
-	// return debug_dump(ctx, tokens);
+	return debug_dump(ctx, tokens);
 #endif
 #if SCRIPT_DUMP_SEGMENTS
 	return dump_segments(ctx, tokens);
