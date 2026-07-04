@@ -9,6 +9,7 @@
 #include <inttypes.h>
 #include <plugins/spender/multifundchannel.h>
 #include <plugins/spender/openchannel.h>
+#include <plugins/spender/psbt_multiview.h>
 
 static struct list_head mfc_commands;
 
@@ -41,291 +42,6 @@ find_dest_by_channel_id(struct channel_id *cid)
 	}
 
 	return NULL;
-}
-
-/* There's a few ground rules here about how we store/keep
- * the PSBT input/outputs in such a way that we can Do The
- * Right Thing for each of our peers.
- *
- * Core Lightning will make sure that our peer isn't removing/adding
- * any updates that it's not allowed to (i.e. ours or a different
- * node's that we're pretending are 'ours').
- *
- * The parent copy of the PSBT has all of the inputs/outputs added to it,
- * but the serial_ids are decremented by one to the even-pair, e.g. a
- * serial_id of 3 -> 2; 17 -> 16; etc.
- *
- * If the even-pair of a provided serial_id is taken/occupied,
- * the update is rejected (the parent is unmodified and the
- * function returns false).
- *
- * The peer's inputs/outputs updates are then copied to the parent psbt.
- */
-static bool update_parent_psbt(const tal_t *ctx,
-			       struct multifundchannel_destination *dest,
-			       struct wally_psbt *old_node_psbt,
-			       struct wally_psbt *new_node_psbt,
-			       struct wally_psbt **parent_psbt)
-{
-	struct psbt_changeset *changes;
-	struct wally_psbt *clone, *new_node_copy;
-
-	/* Clone the parent, so we don't make any changes to it
-	 * until we've succesfully done everything */
-
-	/* Only failure is alloc, should we even check? */
-	tal_wally_start();
-	if (wally_psbt_clone_alloc(*parent_psbt, 0, &clone) != WALLY_OK)
-		abort();
-	tal_wally_end_onto(ctx, clone, struct wally_psbt);
-
-	/* This makes it such that we can reparent/steal added
-	 * inputs/outputs without impacting the 'original'. We
-	 * could avoid this if there was a 'wally_psbt_input_clone_into'
-	 * function, or the like */
-	tal_wally_start();
-	if (wally_psbt_clone_alloc(new_node_psbt, 0, &new_node_copy)
-			!= WALLY_OK)
-		abort();
-	/* copy is cleaned up below, but we need parts we steal from it
-	 * owned by the clone.  */
-	tal_wally_end(clone);
-
-	changes = psbt_get_changeset(NULL, old_node_psbt,
-				     new_node_copy);
-	/* Inputs */
-	for (size_t i = 0; i < tal_count(changes->added_ins); i++) {
-		u64 serial;
-		int s_idx;
-		const struct wally_psbt_input *in =
-			&changes->added_ins[i].input;
-		size_t idx = clone->num_inputs;
-
-		if (!psbt_get_serial_id(&in->unknowns, &serial))
-			goto fail;
-
-		/* Ignore any input that's ours */
-		if (serial % 2 == TX_INITIATOR)
-			continue;
-
-		/* Check that serial does not exist on parent already */
-		s_idx = psbt_find_serial_input(clone, serial - 1);
-		if (s_idx != -1)
-			goto fail;
-
-		const struct wally_psbt_input *input = &changes->added_ins[i].input;
-		struct bitcoin_outpoint outpoint;
-		wally_psbt_input_get_outpoint(input, &outpoint);
-		psbt_append_input(clone,
-					&outpoint,
-                    input->sequence,
-                    NULL /* scriptSig */,
-                    NULL /* input_wscript */,
-                    NULL /* redeemscript */);
-
-		/* Move the input over */
-		clone->inputs[idx] = *in;
-
-		/* Update the added serial on the clone to the correct
-		 * position */
-		psbt_input_set_serial_id(clone, &clone->inputs[idx],
-					 serial - 1);
-	}
-
-	for (size_t i = 0; i < tal_count(changes->rm_ins); i++) {
-		u64 serial;
-		int s_idx;
-		const struct wally_psbt_input *in =
-			&changes->rm_ins[i].input;
-
-		if (!psbt_get_serial_id(&in->unknowns, &serial))
-			goto fail;
-
-		/* If it's ours, that's a whoops */
-		if (serial % 2 == TX_INITIATOR)
-			goto fail;
-
-		/* Check that serial exists on parent already */
-		s_idx = psbt_find_serial_input(clone, serial - 1);
-		if (s_idx == -1)
-			goto fail;
-
-		/* Remove input */
-		if (wally_psbt_remove_input(clone, s_idx) != WALLY_OK)
-			goto fail;
-	}
-
-	/* Outputs */
-	for (size_t i = 0; i < tal_count(changes->added_outs); i++) {
-		u64 serial, parent_serial;
-		const struct wally_psbt_output *out =
-			&changes->added_outs[i].output;
-		int s_idx;
-		size_t idx = clone->num_outputs;
-
-		if (!psbt_get_serial_id(&out->unknowns, &serial))
-			goto fail;
-
-		if (serial % 2 == TX_INITIATOR) {
-			/* If it's the funding output, we add it */
-			if (serial == dest->funding_serial) {
-				parent_serial = dest->funding_serial;
-			} else
-				continue;
-		} else
-			parent_serial = serial - 1;
-
-		/* Check that serial does not exist on parent already */
-		s_idx = psbt_find_serial_output(clone, parent_serial);
-		if (s_idx != -1)
-			goto fail;
-
-		const struct wally_psbt_output *output = &changes->added_outs[i].output;
-		psbt_append_output(clone, output->script, amount_sat(output->amount));
-
-		/* Move output over */
-		clone->outputs[idx] = *out;
-
-		/* Update the added serial on the clone to the correct
-		 * position */
-		psbt_output_set_serial_id(clone, &clone->outputs[idx],
-					  parent_serial);
-	}
-
-	for (size_t i = 0; i < tal_count(changes->rm_outs); i++) {
-		u64 serial;
-		int s_idx;
-		const struct wally_psbt_output *out =
-			&changes->rm_outs[i].output;
-
-		if (!psbt_get_serial_id(&out->unknowns, &serial))
-			goto fail;
-
-		/* If it's ours, that's a whoops */
-		if (serial % 2 == TX_INITIATOR)
-			goto fail;
-
-		/* Check that serial exists on parent already */
-		s_idx = psbt_find_serial_output(clone, serial - 1);
-		if (s_idx == -1)
-			goto fail;
-
-		/* Remove output */
-		if (wally_psbt_remove_output(clone, s_idx) != WALLY_OK)
-			goto fail;
-	}
-
-	/* We want to preserve the memory bits associated with
-	 * the inputs/outputs we just copied over when we free
-	 * the copy, so remove ones the *added* from the copy.
-	 * We go from the back since this will modify the indexes */
-	for (size_t i = tal_count(changes->added_ins) - 1;
-	     i > -1;
-	     i--) {
-		psbt_rm_input(new_node_copy,
-			      changes->added_ins[i].idx);
-	}
-	for (size_t i = tal_count(changes->added_outs) - 1;
-	     i > -1;
-	     i--) {
-		psbt_rm_output(new_node_copy,
-			      changes->added_outs[i].idx);
-	}
-
-	tal_free(changes);
-	tal_free(new_node_copy);
-
-	tal_free(*parent_psbt);
-	*parent_psbt = clone;
-	return true;
-
-fail:
-	tal_free(changes);
-	tal_free(new_node_copy);
-	tal_free(clone);
-	return false;
-}
-
-/* After all of the changes have been applied to the parent psbt,
- * we update each node_psbt with the changes from every *other* peer.
- *
- * This updated node_psbt is the one that we should pass to
- * openchannel_update for the next round.
- *
- * We do update rounds until every peer returns "commitment_secured:true",
- * which will happen at the same round (as it requires us passing in
- * an identical PSBT as the previous round).
- */
-static bool update_node_psbt(const tal_t *ctx,
-			     const struct wally_psbt *parent_psbt,
-			     struct wally_psbt **node_psbt)
-{
-	/* How to update this? We could do a comparison.
-	 * More easily, we simply clone the parent and update
-	 * the correct serial_ids for the node_psbt */
-	struct wally_psbt *clone;
-
-	tal_wally_start();
-	/* Only failure is alloc */
-	if (wally_psbt_clone_alloc(parent_psbt, 0, &clone) != WALLY_OK)
-		abort();
-	tal_wally_end_onto(ctx, clone, struct wally_psbt);
-
-	/* For every peer's input/output, flip the serial id
-	 * on the clone. They should all be present. */
-	for (size_t i = 0; i < (*node_psbt)->num_inputs; i++) {
-		u64 serial_id;
-		int input_index;
-		if (!psbt_get_serial_id(&(*node_psbt)->inputs[i].unknowns,
-					&serial_id)) {
-			tal_wally_end(tal_free(clone));
-			return false;
-		}
-
-		/* We're the initiator here. If it's not the peer's
-		 * input, skip it */
-		if (serial_id % 2 == TX_INITIATOR)
-			continue;
-		/* Down one, as that's where it'll be on the parent */
-		input_index = psbt_find_serial_input(clone, serial_id - 1);
-		/* Must exist */
-		assert(input_index != -1);
-		/* Update the cloned input serial to match the node's
-		 * view */
-		psbt_input_set_serial_id(clone, &clone->inputs[input_index],
-					 serial_id);
-
-	}
-
-	for (size_t i = 0; i < (*node_psbt)->num_outputs; i++) {
-		u64 serial_id;
-		int output_index;
-		if (!psbt_get_serial_id(&(*node_psbt)->outputs[i].unknowns,
-					&serial_id)) {
-			tal_wally_end(tal_free(clone));
-			return false;
-		}
-		/* We're the initiator here. If it's not the peer's
-		 * output, skip it */
-		if (serial_id % 2 == TX_INITIATOR)
-			continue;
-
-		/* Down one, as that's where it'll be on the parent */
-		output_index = psbt_find_serial_output(clone,
-						       serial_id - 1);
-		/* Must exist */
-		assert(output_index != -1);
-
-		/* Update the cloned input serial to match the node's
-		 * view */
-		psbt_output_set_serial_id(clone, &clone->outputs[output_index],
-					  serial_id);
-
-	}
-
-	tal_free(*node_psbt);
-	*node_psbt = clone;
-	return true;
 }
 
 /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*
@@ -471,8 +187,8 @@ perform_openchannel_signed(struct multifundchannel_command *mfc)
 			continue;
 		/* We need to 'port' all of the sigs down to the
 		 * destination PSBTs */
-		update_node_psbt(mfc, mfc->psbt,
-				 &mfc->destinations[i].psbt);
+		psbt_multiview_rebuild_node(mfc, mfc->psbt,
+					    &mfc->destinations[i].psbt);
 		openchannel_signed_dest(&mfc->destinations[i]);
 	}
 
@@ -844,9 +560,12 @@ perform_openchannel_update(struct multifundchannel_command *mfc)
 		if (!is_v2(dest))
 			continue;
 
-		if (!update_parent_psbt(mfc, dest, dest->psbt,
-					dest->updated_psbt,
-					&mfc->psbt)) {
+		u64 *preserve_out = tal_arr(tmpctx, u64, 1);
+		preserve_out[0] = dest->funding_serial;
+		if (!psbt_multiview_merge(mfc, dest->psbt,
+					  dest->updated_psbt,
+					  NULL, preserve_out, NULL,
+					  &mfc->psbt)) {
 			fail_destination_msg(dest, FUNDING_PSBT_INVALID,
 					     "Unable to update parent "
 					     "with node's PSBT");
@@ -872,7 +591,8 @@ perform_openchannel_update(struct multifundchannel_command *mfc)
 		if (!is_v2(dest))
 			continue;
 
-		if (!update_node_psbt(mfc, mfc->psbt, &dest->psbt)) {
+		if (!psbt_multiview_rebuild_node(mfc, mfc->psbt,
+						 &dest->psbt)) {
 			fail_destination_msg(dest, FUNDING_PSBT_INVALID,
 					     "Unable to update peer's PSBT"
 					     " with parent PSBT");
@@ -913,6 +633,7 @@ openchannel_init_ok(struct command *cmd,
 {
 	struct multifundchannel_command *mfc = dest->mfc;
 	const char *err;
+	u64 *preserve_out;
 
 	plugin_log(mfc->cmd->plugin, LOG_DBG,
 		   "mfc %"PRIu64", dest %u: openchannel_init %s done.",
@@ -938,8 +659,11 @@ openchannel_init_ok(struct command *cmd,
 	dest->state = MULTIFUNDCHANNEL_STARTED;
 
 	/* Port any updates onto 'parent' PSBT */
-	if (!update_parent_psbt(dest->mfc, dest, dest->psbt,
-				dest->updated_psbt, &mfc->psbt)) {
+	preserve_out = tal_arr(tmpctx, u64, 1);
+	preserve_out[0] = dest->funding_serial;
+	if (!psbt_multiview_merge(dest->mfc, dest->psbt,
+				  dest->updated_psbt,
+				  NULL, preserve_out, NULL, &mfc->psbt)) {
 		fail_destination_msg(dest, FUNDING_PSBT_INVALID,
 				     "Unable to update parent"
 				     " with node's PSBT");

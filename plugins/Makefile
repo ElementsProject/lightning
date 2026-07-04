@@ -67,6 +67,7 @@ PLUGIN_SPENDER_SRC :=				\
 	plugins/spender/multifundchannel.c	\
 	plugins/spender/multiwithdraw.c		\
 	plugins/spender/openchannel.c		\
+	plugins/spender/psbt_multiview.c	\
 	plugins/spender/splice.c
 PLUGIN_SPENDER_HEADER :=			\
 	plugins/spender/multifundchannel.h	\
@@ -74,6 +75,7 @@ PLUGIN_SPENDER_HEADER :=			\
 	plugins/spender/fundchannel.h		\
 	plugins/spender/multifundchannel.h	\
 	plugins/spender/openchannel.h		\
+	plugins/spender/psbt_multiview.h	\
 	plugins/spender/splice.h
 PLUGIN_SPENDER_OBJS := $(PLUGIN_SPENDER_SRC:.c=.o)
 
