@@ -2968,6 +2968,18 @@ static struct command_result *json_openchannel_update(struct command *cmd,
 		inflight = find_inprogress_inflight(channel, psbt);
 
 		if (inflight) {
+			/* This is externally provided, so check it hasn't
+			 * lost any required info (e.g. a signer stripping
+			 * our proprietary serial_id fields) before we let
+			 * it replace what we have stored. */
+			if (!psbt_has_required_fields(psbt))
+				return command_fail(cmd, FUNDING_PSBT_INVALID,
+						    "PSBT is missing required fields %s",
+						    fmt_wally_psbt(tmpctx, psbt));
+
+			if (command_check_only(cmd))
+				return command_check_done(cmd);
+
 			/* Update the inflight's psbt to what the user provided. This
 			 * could happen if signatures were added for instance. */
 			tal_free(inflight->funding_psbt);
