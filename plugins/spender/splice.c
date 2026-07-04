@@ -1007,12 +1007,68 @@ static struct command_result *splice_init_get_result(struct command *cmd,
 						     struct splice_index_pkg *pkg)
 {
 	struct splice_cmd *splice_cmd = pkg->splice_cmd;
+	struct splice_cmd_action_state *state = splice_cmd->states[pkg->index];
 	const jsmntok_t *tok = json_get_member(buf, result, "psbt");
+	struct wally_psbt *returned;
+	struct psbt_changeset *changes;
+	u64 serial;
 
 	tal_free(pkg);
 
-	tal_free(splice_cmd->psbt);
-	splice_cmd->psbt = json_to_psbt(splice_cmd, buf, tok);
+	if (!tok)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "splice_init didn't have a psbt");
+	returned = json_to_psbt(splice_cmd, buf, tok);
+	if (!returned)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "splice_init returned invalid psbt");
+
+	/* channeld appended the old-funding input and the new funding
+	 * output and gave them initiator (even) serials; those must go
+	 * onto the parent verbatim. No peer contributions can exist at
+	 * init time, so anything else in the diff is unexpected. */
+	changes = psbt_get_changeset(tmpctx, state->psbt, returned);
+
+	if (tal_count(changes->rm_ins) || tal_count(changes->rm_outs))
+		return do_fail(cmd, splice_cmd, JSONRPC2_INVALID_PARAMS,
+			       "splice_init removed entries from the PSBT");
+
+	state->preserve_in_serials = tal_arr(state, u64, 0);
+	state->preserve_out_serials = tal_arr(state, u64, 0);
+
+	for (size_t i = 0; i < tal_count(changes->added_ins); i++) {
+		if (!psbt_get_serial_id(&changes->added_ins[i].input.unknowns,
+					&serial)
+		    || serial % 2 != TX_INITIATOR)
+			return do_fail(cmd, splice_cmd,
+				       JSONRPC2_INVALID_PARAMS,
+				       "splice_init added an input with"
+				       " missing or non-initiator serial");
+		tal_arr_expand(&state->preserve_in_serials, serial);
+	}
+	for (size_t i = 0; i < tal_count(changes->added_outs); i++) {
+		if (!psbt_get_serial_id(&changes->added_outs[i].output.unknowns,
+					&serial)
+		    || serial % 2 != TX_INITIATOR)
+			return do_fail(cmd, splice_cmd,
+				       JSONRPC2_INVALID_PARAMS,
+				       "splice_init added an output with"
+				       " missing or non-initiator serial");
+		tal_arr_expand(&state->preserve_out_serials, serial);
+	}
+
+	if (!psbt_multiview_merge(splice_cmd, state->psbt, returned,
+				  state->preserve_in_serials,
+				  state->preserve_out_serials,
+				  NULL, &splice_cmd->psbt))
+		return do_fail(cmd, splice_cmd, JSONRPC2_INVALID_PARAMS,
+			       "Unable to merge splice_init result into"
+			       " shared PSBT (serial collision or illegal"
+			       " change)");
+	psbt_sort_by_serial_id(splice_cmd->psbt);
+
+	tal_free(state->psbt);
+	state->psbt = tal_steal(state, returned);
 
 	return continue_splice(splice_cmd->cmd, splice_cmd);
 }
@@ -1049,6 +1105,11 @@ static struct command_result *splice_init(struct command *cmd,
 	json_add_bool(req->js, "skip_stfu", true);
 	json_add_bool(req->js, "force_feerate", splice_cmd->force_feerate);
 
+	/* Snapshot what this negotiation is being started from, so we
+	 * can diff its result against it */
+	tal_free(state->psbt);
+	state->psbt = clone_psbt(state, splice_cmd->psbt);
+
 	state->state = SPLICE_CMD_INIT;
 
 	return send_outreq(req);
@@ -1062,11 +1123,15 @@ static struct command_result *open_init_get_result(struct command *cmd,
 {
 	struct splice_cmd *splice_cmd = pkg->splice_cmd;
 	struct splice_script_result *action = splice_cmd->actions[pkg->index];
+	struct splice_cmd_action_state *state = splice_cmd->states[pkg->index];
+	struct wally_psbt *returned;
+	u64 funding_serial;
 
 	tal_free(pkg);
 
 	const jsmntok_t *psbt_tok = json_get_member(buf, result, "psbt");
 	const jsmntok_t *chanid_tok = json_get_member(buf, result, "channel_id");
+	const jsmntok_t *fs_tok = json_get_member(buf, result, "funding_serial");
 
 	if (!psbt_tok)
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
@@ -1074,9 +1139,32 @@ static struct command_result *open_init_get_result(struct command *cmd,
 	if (!chanid_tok)
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "open_init didn't have a channel_id");
+	if (!fs_tok || !json_to_u64(buf, fs_tok, &funding_serial))
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "open_init didn't have a funding_serial");
 
-	tal_free(splice_cmd->psbt);
-	splice_cmd->psbt = json_to_psbt(splice_cmd, buf, psbt_tok);
+	returned = json_to_psbt(splice_cmd, buf, psbt_tok);
+	if (!returned)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "open_init returned invalid psbt");
+
+	/* The funding output dualopend minted must go onto the parent
+	 * verbatim; remember it for every future merge of this leg */
+	state->preserve_out_serials = tal_arr(state, u64, 1);
+	state->preserve_out_serials[0] = funding_serial;
+
+	if (!psbt_multiview_merge(splice_cmd, state->psbt, returned,
+				  state->preserve_in_serials,
+				  state->preserve_out_serials,
+				  NULL, &splice_cmd->psbt))
+		return do_fail(cmd, splice_cmd, JSONRPC2_INVALID_PARAMS,
+			       "Unable to merge openchannel_init result"
+			       " into shared PSBT (serial collision or"
+			       " illegal change)");
+	psbt_sort_by_serial_id(splice_cmd->psbt);
+
+	tal_free(state->psbt);
+	state->psbt = tal_steal(state, returned);
 
 	assert(!action->channel_id);
 	action->channel_id = tal(action, struct channel_id);
@@ -1126,6 +1214,11 @@ static struct command_result *open_init(struct command *cmd,
 	/* DTODO: Add lease after lease spec rework, fields request_amt
 	 * & compact_lease. */
 
+	/* Snapshot what this negotiation is being started from, so we
+	 * can diff its result against it */
+	tal_free(state->psbt);
+	state->psbt = clone_psbt(state, splice_cmd->psbt);
+
 	state->state = SPLICE_CMD_INIT;
 
 	return send_outreq(req);
@@ -1144,21 +1237,52 @@ static struct command_result *splice_update_get_result(struct command *cmd,
 	struct wally_psbt *psbt;
 	enum splice_cmd_state old_state = state->state;
 	bool got_sigs;
+	bool parent_changed;
 
 	tal_free(pkg);
 
-	/* DTODO: juggle serial ids correctly for cross-channel splice */
 	tok = json_get_member(buf, result, "psbt");
+	if (!tok)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "splice_update didn't have a psbt");
 	psbt = json_to_psbt(splice_cmd, buf, tok);
+	if (!psbt)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "splice_update returned invalid psbt");
 
-	if (psbt_contribs_changed(splice_cmd->psbt, psbt))
+	/* Fold the peer's changes into the parent (even-pair
+	 * normalized); everyone else re-updates if anything changed */
+	if (!psbt_multiview_merge(splice_cmd, state->psbt, psbt,
+				  state->preserve_in_serials,
+				  state->preserve_out_serials,
+				  &parent_changed, &splice_cmd->psbt))
+		return do_fail(cmd, splice_cmd, JSONRPC2_INVALID_PARAMS,
+			       "Unable to merge splice_update result into"
+			       " shared PSBT (serial collision or illegal"
+			       " change)");
+	psbt_sort_by_serial_id(splice_cmd->psbt);
+
+	/* The merge covers added/removed entries; signatures and
+	 * witnesses channeld attached to existing inputs (e.g. when the
+	 * peer's tx_signatures arrived) only show up as content changes,
+	 * so combine those onto the parent too. Unknown-map dupes are
+	 * ignored, keeping the parent's normalized serials. */
+	tal_wally_start();
+	if (wally_psbt_combine(splice_cmd->psbt, psbt) != WALLY_OK) {
+		tal_wally_end(splice_cmd->psbt);
+		return do_fail(cmd, splice_cmd, JSONRPC2_INVALID_PARAMS,
+			       "Unable to combine splice_update psbt into"
+			       " shared PSBT");
+	}
+	tal_wally_end(splice_cmd->psbt);
+
+	if (parent_changed)
 		for (size_t i = 0; i < tal_count(splice_cmd->states); i++)
 			if (splice_cmd->actions[i]->channel_id)
 				splice_cmd->states[i]->state = SPLICE_CMD_UPDATE_NEEDS_CHANGES;
 
-	assert(psbt);
-	tal_free(splice_cmd->psbt);
-	splice_cmd->psbt = tal_steal(splice_cmd, psbt);
+	tal_free(state->psbt);
+	state->psbt = tal_steal(state, psbt);
 
 	tok = json_get_member(buf, result, "signatures_secured");
 	if (!json_to_bool(buf, tok, &got_sigs))
@@ -1178,6 +1302,7 @@ static struct command_result *splice_update(struct command *cmd,
 					    size_t index)
 {
 	struct splice_script_result *action = splice_cmd->actions[index];
+	struct splice_cmd_action_state *state = splice_cmd->states[index];
 	struct out_req *req;
 	struct splice_index_pkg *pkg = tal(cmd->plugin, struct splice_index_pkg);
 
@@ -1192,8 +1317,16 @@ static struct command_result *splice_update(struct command *cmd,
 				    splice_update_get_result, splice_error_pkg,
 				    pkg);
 
+	/* Send this negotiation's view of the parent: its own peer's
+	 * serials restored, other peers' contributions masked as ours */
+	if (!psbt_multiview_rebuild_node(state, splice_cmd->psbt,
+					 &state->psbt))
+		return do_fail(cmd, splice_cmd, JSONRPC2_INVALID_PARAMS,
+			       "Unable to rebuild node view for"
+			       " splice_update");
+
 	json_add_channel_id(req->js, "channel_id", action->channel_id);
-	json_add_psbt(req->js, "psbt", splice_cmd->psbt);
+	json_add_psbt(req->js, "psbt", state->psbt);
 
 	return send_outreq(req);
 }
@@ -1211,10 +1344,10 @@ static struct command_result *open_update_get_result(struct command *cmd,
 	struct wally_psbt *psbt;
 	enum splice_cmd_state old_state = state->state;
 	bool got_sigs;
+	bool parent_changed;
 
 	tal_free(pkg);
 
-	/* DTODO: juggle serial ids correctly for cross-channel splice */
 	tok = json_get_member(buf, result, "psbt");
 	if (!tok)
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
@@ -1224,13 +1357,25 @@ static struct command_result *open_update_get_result(struct command *cmd,
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "openchannel_update returned invalid psbt");
 
-	if (psbt_contribs_changed(splice_cmd->psbt, psbt))
+	/* Fold the peer's changes into the parent (even-pair
+	 * normalized); everyone else re-updates if anything changed */
+	if (!psbt_multiview_merge(splice_cmd, state->psbt, psbt,
+				  state->preserve_in_serials,
+				  state->preserve_out_serials,
+				  &parent_changed, &splice_cmd->psbt))
+		return do_fail(cmd, splice_cmd, JSONRPC2_INVALID_PARAMS,
+			       "Unable to merge openchannel_update result"
+			       " into shared PSBT (serial collision or"
+			       " illegal change)");
+	psbt_sort_by_serial_id(splice_cmd->psbt);
+
+	if (parent_changed)
 		for (size_t i = 0; i < tal_count(splice_cmd->states); i++)
 			if (splice_cmd->actions[i]->channel_id)
 				splice_cmd->states[i]->state = SPLICE_CMD_UPDATE_NEEDS_CHANGES;
 
-	tal_free(splice_cmd->psbt);
-	splice_cmd->psbt = tal_steal(splice_cmd, psbt);
+	tal_free(state->psbt);
+	state->psbt = tal_steal(state, psbt);
 
 	tok = json_get_member(buf, result, "commitments_secured");
 	if (!json_to_bool(buf, tok, &got_sigs))
@@ -1250,6 +1395,7 @@ static struct command_result *open_update(struct command *cmd,
 					    size_t index)
 {
 	struct splice_script_result *action = splice_cmd->actions[index];
+	struct splice_cmd_action_state *state = splice_cmd->states[index];
 	struct out_req *req;
 	struct splice_index_pkg *pkg = tal(cmd->plugin, struct splice_index_pkg);
 
@@ -1264,8 +1410,16 @@ static struct command_result *open_update(struct command *cmd,
 				    open_update_get_result, splice_error_pkg,
 				    pkg);
 
+	/* Send this negotiation's view of the parent: its own peer's
+	 * serials restored, other peers' contributions masked as ours */
+	if (!psbt_multiview_rebuild_node(state, splice_cmd->psbt,
+					 &state->psbt))
+		return do_fail(cmd, splice_cmd, JSONRPC2_INVALID_PARAMS,
+			       "Unable to rebuild node view for"
+			       " openchannel_update");
+
 	json_add_channel_id(req->js, "channel_id", action->channel_id);
-	json_add_psbt(req->js, "psbt", splice_cmd->psbt);
+	json_add_psbt(req->js, "psbt", state->psbt);
 
 	return send_outreq(req);
 }
@@ -1360,12 +1514,28 @@ static struct command_result *splice_signed_get_result(struct command *cmd,
 	size_t index = pkg->index;
 	struct splice_cmd *splice_cmd = pkg->splice_cmd;
 	const jsmntok_t *tok;
+	struct wally_psbt *psbt;
 
 	tal_free(pkg);
 
 	tok = json_get_member(buf, result, "psbt");
-	tal_free(splice_cmd->psbt);
-	splice_cmd->psbt = json_to_psbt(splice_cmd, buf, tok);
+	psbt = json_to_psbt(tmpctx, buf, tok);
+	if (!psbt)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "splice_signed returned invalid psbt");
+
+	/* Fold the returned witnesses (the shared funding input's and
+	 * this peer's contributed inputs') into the parent. Unknown-map
+	 * dupes are ignored on combine, so the parent's even-pair
+	 * normalized serials persist. */
+	tal_wally_start();
+	if (wally_psbt_combine(splice_cmd->psbt, psbt) != WALLY_OK) {
+		tal_wally_end(splice_cmd->psbt);
+		return do_fail(cmd, splice_cmd, JSONRPC2_INVALID_PARAMS,
+			       "Unable to combine splice_signed psbt into"
+			       " shared PSBT");
+	}
+	tal_wally_end(splice_cmd->psbt);
 
 	tok = json_get_member(buf, result, "txid");
 	if (!json_to_txid(buf, tok, &splice_cmd->final_txid))
@@ -1404,6 +1574,7 @@ static struct command_result *splice_signed(struct command *cmd,
 					    size_t index)
 {
 	struct splice_script_result *action = splice_cmd->actions[index];
+	struct splice_cmd_action_state *state = splice_cmd->states[index];
 	struct out_req *req;
 	struct splice_index_pkg *pkg;
 
@@ -1420,8 +1591,17 @@ static struct command_result *splice_signed(struct command *cmd,
 				    splice_signed_error_pkg,
 				    pkg);
 
+	/* channeld decides which inputs need whose witnesses by serial
+	 * parity, so it must get this negotiation's view (its own
+	 * peer's entries odd, everyone else's masked as ours) */
+	if (!psbt_multiview_rebuild_node(state, splice_cmd->psbt,
+					 &state->psbt))
+		return do_fail(cmd, splice_cmd, JSONRPC2_INVALID_PARAMS,
+			       "Unable to rebuild node view for"
+			       " splice_signed");
+
 	json_add_channel_id(req->js, "channel_id", action->channel_id);
-	json_add_psbt(req->js, "psbt", splice_cmd->psbt);
+	json_add_psbt(req->js, "psbt", state->psbt);
 
 	return send_outreq(req);
 }
@@ -1453,6 +1633,7 @@ static struct command_result *open_signed(struct command *cmd,
 					    size_t index)
 {
 	struct splice_script_result *action = splice_cmd->actions[index];
+	struct splice_cmd_action_state *state = splice_cmd->states[index];
 	struct out_req *req;
 	struct splice_index_pkg *pkg;
 
@@ -1465,8 +1646,16 @@ static struct command_result *open_signed(struct command *cmd,
 				    splice_signed_error_pkg,
 				    pkg);
 
+	/* dualopend checks our side of this negotiation's view is
+	 * finalized by serial parity, so it must get the node view */
+	if (!psbt_multiview_rebuild_node(state, splice_cmd->psbt,
+					 &state->psbt))
+		return do_fail(cmd, splice_cmd, JSONRPC2_INVALID_PARAMS,
+			       "Unable to rebuild node view for"
+			       " openchannel_signed");
+
 	json_add_channel_id(req->js, "channel_id", action->channel_id);
-	json_add_psbt(req->js, "signed_psbt", splice_cmd->psbt);
+	json_add_psbt(req->js, "signed_psbt", state->psbt);
 
 	return send_outreq(req);
 }
