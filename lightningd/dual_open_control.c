@@ -2747,10 +2747,47 @@ json_openchannel_signed(struct command *cmd,
 				    "Commitments for this channel not "
 				    "yet secured, see `openchannel_update`");
 
-	if (inflight->funding_psbt && psbt_is_finalized(inflight->funding_psbt))
-		return command_fail(cmd, FUNDING_STATE_INVALID,
-				    "Already have a finalized PSBT for "
-				    "this channel");
+	if (inflight->funding_psbt && psbt_is_finalized(inflight->funding_psbt)) {
+		struct wally_tx *wtx;
+		struct json_stream *response;
+
+		/* A sibling channel's flow sharing this funding tx (eg. a
+		 * splice, or another channel opened in the same tx) already
+		 * completed our side's signatures and possibly broadcast the
+		 * tx. We still need dualopend to send our tx_sigs to the
+		 * peer, then we can report the result. */
+		if (command_check_only(cmd))
+			return command_check_done(cmd);
+
+		if (!channel->owner)
+			return command_fail(cmd, FUNDING_PEER_NOT_CONNECTED,
+					    "Peer not connected");
+
+		subd_send_msg(channel->owner,
+			      take(towire_dualopend_send_tx_sigs(NULL,
+								 inflight->funding_psbt)));
+
+		if (!inflight->tx_broadcast) {
+			/* Broadcast on tx_sigs_sent will resolve this cmd */
+			channel->openchannel_signed_cmd = tal_steal(channel,
+								    cmd);
+			return command_still_pending(cmd);
+		}
+
+		wtx = psbt_final_tx(tmpctx, inflight->funding_psbt);
+		if (!wtx)
+			return command_fail(cmd, LIGHTNINGD,
+					    "Unable to extract final tx from"
+					    " PSBT %s",
+					    fmt_wally_psbt(tmpctx,
+							   inflight->funding_psbt));
+
+		response = json_stream_success(cmd);
+		json_add_hex_talarr(response, "tx", linearize_wtx(tmpctx, wtx));
+		json_add_txid(response, "txid", &txid);
+		json_add_channel_id(response, "channel_id", &channel->cid);
+		return command_success(cmd, response);
+	}
 
 	/* Go ahead and try to finalize things, or what we can */
 	psbt_finalize(psbt);

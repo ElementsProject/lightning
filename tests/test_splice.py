@@ -939,3 +939,27 @@ def test_splicescript_open(node_factory, bitcoind, chainparams):
 
     wait_for(lambda: len(l1.rpc.listfunds()['channels']) == 2)
 
+
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_splicescript_multi_open(node_factory, bitcoind, chainparams):
+    l1, l2 = node_factory.line_graph(2, fundamount=10000000, wait_for_announce=True, opts={'experimental-dual-fund': None})
+    l3 = node_factory.get_node(options={'experimental-dual-fund': None})
+
+    l1.rpc.connect(l3.info['id'], 'localhost', l3.port)
+
+    l1.daemon.wait_for_log(r'DUALOPEND_AWAITING_LOCKIN to CHANNELD_NORMAL')
+
+    print ("Performing the two channel open splice script")
+
+    print (l1.rpc.splice("peer(first).chan(first) -> 2.2M+fee; "
+                         "1M -> peer(first).new(); "
+                         "1M -> peer({}).new()".format(l3.info['id'])))
+
+    bitcoind.generate_block(6, wait_for_mempool=1)
+
+    l1.daemon.wait_for_log(r'DUALOPEND_AWAITING_LOCKIN to CHANNELD_NORMAL')
+
+    wait_for(lambda: len(l1.rpc.listfunds()['channels']) == 3)
+
