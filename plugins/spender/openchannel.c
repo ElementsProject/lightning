@@ -10,6 +10,7 @@
 #include <plugins/spender/multifundchannel.h>
 #include <plugins/spender/openchannel.h>
 #include <plugins/spender/psbt_multiview.h>
+#include <plugins/spender/splice.h>
 
 static struct list_head mfc_commands;
 
@@ -277,12 +278,9 @@ static struct command_result *json_peer_sigs(struct command *cmd,
 	/* Find the destination that's got this channel_id on it! */
 	dest = find_dest_by_channel_id(&cid);
 	if (!dest) {
-		/* if there's no pending destination... whatever */
-		plugin_log(cmd->plugin, LOG_DBG,
-			   "mfc ??: `openchannel_peer_sigs` no "
-			   "pending dest found for channel_id %s",
-			   fmt_channel_id(tmpctx, &cid));
-		return notification_handled(cmd);
+		/* Not one of ours; might belong to a splice-script
+		 * channel open */
+		return splice_handle_peer_sigs(cmd, &cid, psbt);
 	}
 
 	plugin_log(cmd->plugin, LOG_DBG,

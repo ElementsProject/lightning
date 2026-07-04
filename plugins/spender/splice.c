@@ -1484,6 +1484,39 @@ static struct command_result *signpsbt(struct command *cmd,
 	return send_outreq(req);
 }
 
+/* Does this node view contain any peer-contributed (odd serial)
+ * input? */
+static bool has_accepter_input(const struct wally_psbt *psbt)
+{
+	u64 serial;
+
+	for (size_t i = 0; i < psbt->num_inputs; i++)
+		if (psbt_get_serial_id(&psbt->inputs[i].unknowns, &serial)
+		    && serial % 2 == TX_ACCEPTER)
+			return true;
+
+	return false;
+}
+
+/* How many splice legs (existing channels) have peer-contributed
+ * inputs in their negotiation? */
+static size_t count_contributing_splice_legs(struct splice_cmd *splice_cmd)
+{
+	size_t count = 0;
+
+	for (size_t i = 0; i < tal_count(splice_cmd->actions); i++) {
+		struct splice_script_result *action = splice_cmd->actions[i];
+		struct splice_cmd_action_state *state = splice_cmd->states[i];
+
+		if (action->peer_id || !action->channel_id)
+			continue;
+		if (state->psbt && has_accepter_input(state->psbt))
+			count++;
+	}
+
+	return count;
+}
+
 static struct splice_script_result *requires_our_sigs(struct splice_cmd *splice_cmd,
 						      size_t *index,
 						      bool *multiple_require_sigs)
@@ -2180,6 +2213,35 @@ static struct command_result *continue_splice(struct command *cmd,
 	if (splice_cmd->wallet_inputs_to_signed)
 		return signpsbt(cmd, splice_cmd);
 
+	/* channeld holds a splice peer's contributed-input witnesses
+	 * until that leg's own splice_signed, so with two such legs
+	 * neither leg's tx can ever complete. Fail clearly instead. */
+	if (count_contributing_splice_legs(splice_cmd) > 1)
+		return do_fail(cmd, splice_cmd, JSONRPC2_INVALID_PARAMS,
+			       "Splicing two channels whose peers both"
+			       " contribute inputs into one transaction is"
+			       " not supported yet");
+
+	/* An open-leg peer's contributed inputs masquerade as ours in
+	 * every other negotiation, so no *_signed can succeed until
+	 * that peer's witnesses are folded into the parent. Such peers
+	 * send tx_signatures without waiting for ours (they contribute
+	 * less than our side, which includes the old channel funding),
+	 * so park until the openchannel_peer_sigs notification lands. */
+	for (size_t i = 0; i < tal_count(splice_cmd->actions); i++) {
+		action = splice_cmd->actions[i];
+		state = splice_cmd->states[i];
+		if (!action->peer_id || state->state == SPLICE_CMD_DONE)
+			continue;
+		if (state->peer_sigs_received || !state->psbt)
+			continue;
+		if (has_accepter_input(state->psbt)) {
+			add_to_debug_log(splice_cmd, "waiting_peer_sigs");
+			splice_cmd->waiting_peer_sigs = true;
+			return command_still_pending(cmd);
+		}
+	}
+
 	if (requires_our_sigs(splice_cmd, &index, &multiple_require_sigs)) {
 		if (splice_cmd->actions[index]->peer_id)
 			return open_signed(cmd, splice_cmd, index);
@@ -2218,6 +2280,67 @@ static struct command_result *continue_splice(struct command *cmd,
 		json_array_end(response);
 	}
 	return command_finished(cmd, response);
+}
+
+struct command_result *splice_handle_peer_sigs(struct command *cmd,
+					       const struct channel_id *cid,
+					       const struct wally_psbt *psbt)
+{
+	struct splice_cmd *splice_cmd;
+
+	list_for_each(&splice_cmds, splice_cmd, list) {
+		for (size_t i = 0; i < tal_count(splice_cmd->actions); i++) {
+			struct splice_script_result *action
+				= splice_cmd->actions[i];
+			struct splice_cmd_action_state *state
+				= splice_cmd->states[i];
+
+			/* Only open legs get openchannel_peer_sigs */
+			if (!action->peer_id || !action->channel_id)
+				continue;
+			if (!channel_id_eq(action->channel_id, cid))
+				continue;
+
+			plugin_log(cmd->plugin, LOG_DBG,
+				   "splice: `openchannel_peer_sigs` received"
+				   " for channel %s",
+				   fmt_channel_id(tmpctx, cid));
+
+			/* Fold the peer's witnesses into the parent.
+			 * Unknown-map dupes are ignored on combine, so
+			 * the parent's even-pair normalized serials
+			 * persist. */
+			tal_wally_start();
+			if (wally_psbt_combine(splice_cmd->psbt,
+					       psbt) != WALLY_OK) {
+				tal_wally_end(splice_cmd->psbt);
+				do_fail(splice_cmd->cmd, splice_cmd,
+					JSONRPC2_INVALID_PARAMS,
+					"Unable to combine peer sigs into"
+					" shared PSBT");
+				return notification_handled(cmd);
+			}
+			tal_wally_end(splice_cmd->psbt);
+
+			state->peer_sigs_received = true;
+
+			if (splice_cmd->waiting_peer_sigs) {
+				splice_cmd->waiting_peer_sigs = false;
+				/* Resume the parked state machine; its
+				 * result belongs to the splice command */
+				continue_splice(splice_cmd->cmd, splice_cmd);
+			}
+
+			return notification_handled(cmd);
+		}
+	}
+
+	plugin_log(cmd->plugin, LOG_DBG,
+		   "splice: `openchannel_peer_sigs` no pending splice for"
+		   " channel_id %s",
+		   fmt_channel_id(tmpctx, cid));
+
+	return notification_handled(cmd);
 }
 
 static struct command_result *execute_splice(struct command *cmd,

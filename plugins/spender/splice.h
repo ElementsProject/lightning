@@ -11,6 +11,14 @@ extern const size_t num_splice_commands;
 /* Call once at plugin init */
 void splice_plugin_init(void);
 
+/* An openchannel_peer_sigs notification that no mfc destination
+ * claimed: route it to the splice command whose funding tx it belongs
+ * to (combining the peer's witnesses into that command's parent psbt),
+ * or just mark the notification handled. */
+struct command_result *splice_handle_peer_sigs(struct command *cmd,
+					       const struct channel_id *cid,
+					       const struct wally_psbt *psbt);
+
 enum splice_cmd_state {
 	SPLICE_CMD_NONE = 0,
 	SPLICE_CMD_INIT,
