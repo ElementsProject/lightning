@@ -653,8 +653,10 @@ DOC_EXAMPLES_PATH = $(CURDIR)/lightningd:$(CURDIR)/cli:$(CURDIR)/tools:$(PATH)
 
 repeat-doc-examples:
 	@for i in $$(seq 1 $(n)); do \
+		PORT_OFFSET=$$((i * 100)); \
+		BASE_PORTNUM=$$((30000 + PORT_OFFSET)); \
 		echo "----------------------------------" >> tests/autogenerate-examples-repeat.log; \
-		echo "Iteration $$i" >> tests/autogenerate-examples-repeat.log; \
+		echo "Iteration $$i on Base Port $$BASE_PORTNUM" >> tests/autogenerate-examples-repeat.log; \
 		echo "----------------------------------" >> tests/autogenerate-examples-repeat.log; \
 		PATH="$(DOC_EXAMPLES_PATH)" TEST_DEBUG=1 VALGRIND=0 GENERATE_EXAMPLES=1 CLN_NEXT_VERSION=$(CLN_NEXT_VERSION) BASE_PORTNUM=$$BASE_PORTNUM pytest -vvv --timeout=1200 tests/autogenerate-rpc-examples.py; \
 		git diff >> tests/autogenerate-examples-repeat.log; \
