@@ -2744,15 +2744,15 @@ def test_bad_user_entries(node_factory):
 def test_explain_source_dest_failures(node_factory, bitcoind):
     """askrene should give intelligent failure reasons when source or destination don't have
     capacity"""
-    # l1 --100k--> l2 --200k--> l3
+    # l1 --1000k--> l2 --2000k--> l3
     #               |
-    #              50k
+    #              500k
     #               v
     #              l4
     l1, l2, l3, l4 = node_factory.get_nodes(4)
-    node_factory.join_nodes([l1, l2], fundamount=100000)
-    node_factory.join_nodes([l2, l3], fundamount=200000)
-    node_factory.join_nodes([l2, l4], fundamount=50000)
+    node_factory.join_nodes([l1, l2], fundamount=1000000)
+    node_factory.join_nodes([l2, l3], fundamount=2000000)
+    node_factory.join_nodes([l2, l4], fundamount=500000)
 
     # Make sure everyone knows everything
     bitcoind.generate_block(5)
@@ -2760,45 +2760,45 @@ def test_explain_source_dest_failures(node_factory, bitcoind):
 
     # We can't afford this
     with pytest.raises(RpcError,
-                       match=r"We could not find a usable set of paths. Total source capacity is only 100000000msat \(in 1 channels\)"):
+                       match=r"We could not find a usable set of paths. Total source capacity is only 1000000000msat \(in 1 channels\)"):
         l1.rpc.getroutes(source=l1.info['id'],
                          destination=l3.info['id'],
-                         amount_msat='100001sat',
+                         amount_msat='1000001sat',
                          layers=['auto.localchans', 'auto.sourcefree'],
                          maxfee_msat=10000,
                          final_cltv=5)
 
     # They can't afford this
     with pytest.raises(RpcError,
-                       match=r"We could not find a usable set of paths. Total destination capacity is only 50000000msat \(in 1 channels\)"):
+                       match=r"We could not find a usable set of paths. Total destination capacity is only 500000000msat \(in 1 channels\)"):
         l1.rpc.getroutes(source=l1.info['id'],
                          destination=l4.info['id'],
-                         amount_msat='50001sat',
+                         amount_msat='500001sat',
                          layers=['auto.localchans', 'auto.sourcefree'],
                          maxfee_msat=10000,
                          final_cltv=5)
 
     # Add some information, and we should know that too.
-    l1.rpc.xpay(l4.rpc.invoice('30000sat', 'test_explain_simple_failures2', 'test_explain_simple_failures2')['bolt11'])
+    l1.rpc.xpay(l4.rpc.invoice('300000sat', 'test_explain_simple_failures2', 'test_explain_simple_failures2')['bolt11'])
 
     # This is actually just auto.localchans knowing the capacity!
     with pytest.raises(RpcError,
                        match=r"We could not find a usable set of paths. We know from auto.localchans that source has maximum capacity [0-9]*msat \(in 1 channels\)") as err:
         l1.rpc.getroutes(source=l1.info['id'],
                          destination=l3.info['id'],
-                         amount_msat='80001sat',
+                         amount_msat='700001sat',
                          layers=['auto.localchans', 'auto.sourcefree', 'xpay'],
                          maxfee_msat=10000,
                          final_cltv=5)
     PAY_INSUFFICIENT_FUNDS = 215
     assert err.value.error['code'] == PAY_INSUFFICIENT_FUNDS
 
-    # This is the impression in the xpay layer telling us 30,000sat is already gone (of 50,000).
+    # This is the impression in the xpay layer telling us 300,000sat is already gone (of 500,000).
     with pytest.raises(RpcError,
                        match=r"We could not find a usable set of paths. We know from xpay that destination has maximum capacity [0-9]*msat \(in 1 channels\)") as err:
         l1.rpc.getroutes(source=l1.info['id'],
                          destination=l4.info['id'],
-                         amount_msat='20001sat',
+                         amount_msat='200001sat',
                          layers=['auto.localchans', 'auto.sourcefree', 'xpay'],
                          maxfee_msat=10000,
                          final_cltv=5)
