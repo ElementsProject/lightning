@@ -228,6 +228,7 @@ def test_xpay_selfpay(node_factory):
 canned_gossmap_badnodes = [19, 53, 69, 72, 86]
 
 
+@pytest.mark.skip(reason="channeld_fakenet needs updating")
 @pytest.mark.slow_test
 @unittest.skipIf(TEST_NETWORK != 'regtest', '29-way split for node 17 is too dusty on elements')
 @pytest.mark.parametrize("slow_mode", [False, True])
