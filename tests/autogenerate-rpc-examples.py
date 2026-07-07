@@ -24,10 +24,8 @@ import ast
 import subprocess
 
 CWD = os.getcwd()
-CLN_VERSION = 'v'
-with open(os.path.join('.version'), 'r') as f:
-    CLN_VERSION = CLN_VERSION + f.read().strip()
-
+BASE_PORTNUM = int(os.environ.get('BASE_PORTNUM', 30000))
+CLN_NEXT_VERSION = os.environ.get('CLN_NEXT_VERSION', 'v' + open(os.path.join('.version'), 'r').read().strip())
 FUND_WALLET_AMOUNT_SAT = 200000000
 FUND_CHANNEL_AMOUNT_SAT = 10**6
 REGENERATING_RPCS = []
@@ -35,7 +33,6 @@ ALL_RPC_EXAMPLES = {}
 EXAMPLES_JSON = {}
 LOG_FILE = './tests/autogenerate-examples-status.log'
 IGNORE_RPCS_LIST = ['dev-splice', 'reckless', 'sql-template']
-BASE_PORTNUM = 30000
 
 if os.path.exists(LOG_FILE):
     open(LOG_FILE, 'w').close()
@@ -138,7 +135,7 @@ def rewrite_examples(examples: Dict[str, Any]):
         # Getinfo is version dependent and path dependent
         Rewriter("getinfo",
                  "example:getinfo#1",
-                 [{"alias": "SILENTARTIST-" + os.getenv('CLN_NEXT_VERSION')},
+                 [{"alias": "SILENTARTIST-" + CLN_NEXT_VERSION},
                   {"version": os.getenv('CLN_NEXT_VERSION')},
                   {"lightning-dir": "/home/rusty/.lightning/regtest"}]),
         # Logs are high-variance
@@ -150,7 +147,7 @@ def rewrite_examples(examples: Dict[str, Any]):
         Rewriter("listconfigs",
                  "example:listconfigs#3",
                  [{"configs": {"lightning-dir": {"value_str": "/home/rusty/.lightning/regtest"}}},
-                  {"configs": {"alias": {"value_str": "SILENTARTIST-" + os.getenv('CLN_NEXT_VERSION')}}},
+                  {"configs": {"alias": {"value_str": "SILENTARTIST-" + CLN_NEXT_VERSION}}},
                   {"configs": {"autoclean-expiredinvoices-age": {"source": "/home/rusty/.lightning/regtest/config.setconfig:2"}}},
                   {"configs": {"pid-file": {"value_str": "/home/rusty/.lightning/lightningd-regtest.pid"}}},
                   {"configs": {"min-capacity-sat": {"source": "/home/rusty/.lightning/regtest/config.setconfig:3"}}},
@@ -169,13 +166,13 @@ def rewrite_examples(examples: Dict[str, Any]):
         # listnodes' aliases are version dependent
         Rewriter("listnodes",
                  "example:listnodes#1",
-                 [{"nodes": [{"alias": "HOPPINGFIRE-" + os.getenv('CLN_NEXT_VERSION')}]}]),
+                 [{"nodes": [{"alias": "HOPPINGFIRE-" + CLN_NEXT_VERSION}]}]),
         Rewriter("listnodes",
                  "example:listnodes#2",
-                 [{"nodes": [{"alias": "SILENTARTIST-" + os.getenv('CLN_NEXT_VERSION')},
-                             {"alias": "JUNIORBEAM-" + os.getenv('CLN_NEXT_VERSION')},
-                             {"alias": "HOPPINGFIRE-" + os.getenv('CLN_NEXT_VERSION')},
-                             {"alias": "JUNIORFELONY-" + os.getenv('CLN_NEXT_VERSION')}]}]),
+                 [{"nodes": [{"alias": "SILENTARTIST-" + CLN_NEXT_VERSION},
+                             {"alias": "JUNIORBEAM-" + CLN_NEXT_VERSION},
+                             {"alias": "HOPPINGFIRE-" + CLN_NEXT_VERSION},
+                             {"alias": "JUNIORFELONY-" + CLN_NEXT_VERSION}]}]),
         # Ephemeral ports used when they connect to us
         Rewriter("listpeers",
                  "example:listpeers#2",
@@ -281,12 +278,12 @@ def setup_test_nodes(node_factory, bitcoind, regenerate_blockchain):
         l11, l12 for low level openchannel examples (added later)
         l13 for recover (added later)
         l1->l2, l2->l3, l3->l4, l2->l5 (unannounced), l9->l10, l11->l12
-        l1.info['id']: 0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518
-        l2.info['id']: 022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59
-        l3.info['id']: 035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d
-        l4.info['id']: 0382ce59ebf18be7d84677c2e35f23294b9992ceca95491fcf8a56c6cb2d9de199
-        l5.info['id']: 032cf15d1ad9c4a08d26eab1918f732d8ef8fdc6abb9640bf3db174372c491304e
-        l6.info['id']: 0265b6ab5ec860cd257865d61ef0bbf5b3339c36cbda8b26b74e7f1dca490b6518
+        l1.info['id']: 038194b5f32bdf0aa59812c86c4ef7ad2f294104fa027d1ace9b469bb6f88cf37b
+        l2.info['id']: 033845802d25b4e074ccfd7cd8b339a41dc75bf9978a034800444b51d42b07799a
+        l3.info['id']: 03cecbfdc68544cc596223b68ce0710c9e5d2c9cb317ee07822d95079acc703d31
+        l4.info['id']: 02287bfac8b99b35477ebe9334eede1e32b189e24644eb701c079614712331cec0
+        l5.info['id']: 0258f3ff3e0853ccc09f6fe89823056d7c0c55c95fab97674df5e1ad97a72f6265
+        l6.info['id']: 02186115cb7e93e2cb4d9d9fe7a9cf5ff7a5784bfdda4f164ff041655e4bcd4fd0
     """
     try:
         options = [
@@ -311,9 +308,9 @@ def setup_test_nodes(node_factory, bitcoind, regenerate_blockchain):
         # Write the data/p2sh_wallet_hsm_secret to the hsm_path, so node can spend funds at p2sh_wrapped_addr
         p2sh_wrapped_addr = '2N2V4ee2vMkiXe5FSkRqFjQhiS9hKqNytv3'
         update_example(node=l1, method='upgradewallet', params={})
-        txid = bitcoind.send_and_mine_block(p2sh_wrapped_addr, 20000000)
+        bitcoind.send_and_mine_block(p2sh_wrapped_addr, 20000000)
+        bitcoind.generate_block(6)
         sync_blockheight(bitcoind, [l1, l2, l3, l4, l5, l6])
-        l1.daemon.wait_for_log('Owning output .* txid {} CONFIRMED'.format(txid))
         # Doing it with 'reserved ok' should have 1. We use a big feerate so we can get over the RBF hump
         update_example(node=l1, method='upgradewallet', params={'feerate': 'urgent', 'reservedok': True})
 
@@ -901,8 +898,8 @@ def generate_splice_examples(node_factory, bitcoind, regenerate_blockchain):
         # Splice out
         funds_result_2 = l7.rpc.addpsbtoutput(100000)
 
-        # Pay with fee by subtracting 5000 from channel balance
-        spinit_res2 = update_example(node=l7, method='splice_init', params=[chan_id_78, -105000, funds_result_2['psbt']])
+        # Pay with fee by subtracting 10000 from channel balance
+        spinit_res2 = update_example(node=l7, method='splice_init', params=[chan_id_78, -110000, funds_result_2['psbt']])
         spupdate1_res2 = l7.rpc.splice_update(chan_id_78, spinit_res2['psbt'])
         assert(spupdate1_res2['commitments_secured'] is False)
         spupdate2_res2 = update_example(node=l7, method='splice_update', params=[chan_id_78, spupdate1_res2['psbt']])
@@ -911,7 +908,7 @@ def generate_splice_examples(node_factory, bitcoind, regenerate_blockchain):
         bitcoind.generate_block(1, wait_for_mempool=1)
         sync_blockheight(bitcoind, [l7, l8])
         update_example(node=l7, method='stop', params={})
-
+        l8.rpc.stop()
         logger.info('Splice Done!')
     except Exception as e:
         logger.error(f'Error in generating splicing examples: {e}')
@@ -970,6 +967,8 @@ def generate_channels_examples(node_factory, bitcoind, l1, l3, l4, l5, regenerat
         update_example(node=l9, method='fundchannel_complete', params={'id': l10.info['id'], 'psbt': tx_prep_4['psbt']})
         update_example(node=l9, method='txsend', params={'txid': tx_prep_4['txid']})
         l9.rpc.close(l10.info['id'])
+        l9.rpc.stop()
+        l10.rpc.stop()
 
         # Basic setup for l11->l12 for openchannel examples
         options = [
@@ -1102,7 +1101,7 @@ def generate_channels_examples(node_factory, bitcoind, l1, l3, l4, l5, regenerat
 
         destinations_2 = [
             {
-                'id': f'03a389b3a2f7aa6f9f4ccc19f2bd7a2eba83596699e86b715caaaa147fc37f3144@127.0.0.1:{l3.port}',
+                'id': f'{l3.info["id"]}@127.0.0.1:{l3.port}',
                 'amount': 50000
             },
             {
@@ -1123,6 +1122,8 @@ def generate_channels_examples(node_factory, bitcoind, l1, l3, l4, l5, regenerat
         l1.rpc.disconnect(l5.info['id'], True)
         bitcoind.generate_block(1, wait_for_mempool=2)
         sync_blockheight(bitcoind, [l1, l3, l4, l5])
+        l11.rpc.stop()
+        l12.rpc.stop()        
         logger.info('Channels Done!')
     except Exception as e:
         logger.error(f'Error in generating fundchannel and openchannel examples: {e}')
