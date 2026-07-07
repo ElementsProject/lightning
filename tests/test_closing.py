@@ -4358,11 +4358,14 @@ def test_simple_close_delay_broadcast(node_factory, bitcoind, executor):
              == 'CLOSINGD_COMPLETE')
     assert not l2.daemon.is_in_log('Simple close: delaying broadcast')
 
-    # l2 broadcasts immediately; wait until its tx is confirmed.
-    # We wait for the broadcast log rather than polling getrawmempool(),
-    # which can miss a just-submitted tx under the rpcproxy timing.
+    # l2 broadcasts immediately; wait until its tx is actually in the mempool
+    # before mining.  The 'Broadcasting txid' log only means CLN *called*
+    # sendrawtransaction, not that bitcoind accepted the tx: mining on the log
+    # alone can produce an empty block under rpcproxy timing, leaving the
+    # funding output unspent so MUTUAL_CLOSE never resolves.  generate_block's
+    # wait_for_mempool polls until the tx appears, so it can't miss it.
     l2.daemon.wait_for_log('Broadcasting txid')
-    bitcoind.generate_block(1)
+    bitcoind.generate_block(1, wait_for_mempool=1)
     l1.daemon.wait_for_log('Resolved FUNDING_TRANSACTION/FUNDING_OUTPUT by MUTUAL_CLOSE')
     l2.daemon.wait_for_log('Resolved FUNDING_TRANSACTION/FUNDING_OUTPUT by MUTUAL_CLOSE')
     fut.result(timeout=10)
