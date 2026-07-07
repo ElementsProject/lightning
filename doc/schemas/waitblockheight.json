@@ -68,7 +68,7 @@
         }
       },
       "response": {
-        "blockheight": 130
+        "blockheight": 137
       }
     },
     {
@@ -79,12 +79,12 @@
         "id": "example:waitblockheight#2",
         "method": "waitblockheight",
         "params": {
-          "blockheight": 131,
+          "blockheight": 138,
           "timeout": 600
         }
       },
       "response": {
-        "blockheight": 131
+        "blockheight": 138
       }
     }
   ]

@@ -90,8 +90,8 @@
         "id": "example:commando#1",
         "method": "commando",
         "params": {
-          "peer_id": "nodeid020202020202020202020202020202020202020202020202020202020202",
-          "rune": "zFMd1fjhrAYxUeFA54TjloZqOt8JrA_i_nYwIgXkag49MA==",
+          "peer_id": "033845802d25b4e074ccfd7cd8b339a41dc75bf9978a034800444b51d42b07799a",
+          "rune": "7cKJyALVY0_LLVV-AB9oetXjipOdyt0EhOuYrSS42fM9MA==",
           "method": "newaddr",
           "params": {
             "addresstype": "p2tr"
@@ -99,7 +99,7 @@
         }
       },
       "response": {
-        "p2tr": "bcrt1p338x07070707070707070707070707070707070707070707070707070707"
+        "p2tr": "bcrt1p5vr5t873cpcw4hss4hfhgeyv734a2gcyz70nz0cw25h5jy7k036s6tat8g"
       }
     },
     {
@@ -107,24 +107,24 @@
         "id": "example:commando#2",
         "method": "commando",
         "params": {
-          "peer_id": "nodeid020202020202020202020202020202020202020202020202020202020202",
-          "rune": "RXgu0DD_i0wSPEZkIDyZIWL0bSAGdhvJ_GHOQdTg04A9MSZpZF4wMjY2ZTQ1OThkMWQzYzQxNWY1NyZtZXRob2Q9bGlzdHBlZXJz",
+          "peer_id": "033845802d25b4e074ccfd7cd8b339a41dc75bf9978a034800444b51d42b07799a",
+          "rune": "UcVH186Z5ldtHgscIaNAZ_fdUstCR6OCwiVV7CPx_q09MSZpZF4wMzgxOTRiNWYzMmJkZjBhYTU5OCZtZXRob2Q9bGlzdHBlZXJz",
           "method": "listpeers",
           "params": [
-            "nodeid030303030303030303030303030303030303030303030303030303030303"
+            "03cecbfdc68544cc596223b68ce0710c9e5d2c9cb317ee07822d95079acc703d31"
           ]
         }
       },
       "response": {
         "peers": [
           {
-            "id": "nodeid030303030303030303030303030303030303030303030303030303030303",
+            "id": "03cecbfdc68544cc596223b68ce0710c9e5d2c9cb317ee07822d95079acc703d31",
             "connected": true,
             "num_channels": 2,
             "netaddr": [
-              "127.0.0.1:19736"
+              "127.0.0.1:30005"
             ],
-            "features": "0898882a8a59a1"
+            "features": "800898882a8a59a1"
           }
         ]
       }
@@ -134,24 +134,24 @@
         "id": "example:commando#3",
         "method": "commando",
         "params": {
-          "peer_id": "nodeid020202020202020202020202020202020202020202020202020202020202",
-          "rune": "QUJEYMLGgiaJvMDv_MhR2hiMKIBTbq-PrL-KxcIlirQ9MiZtZXRob2Q9cGF5JnBuYW1lYW1vdW50bXNhdDwxMDAwMA==",
+          "peer_id": "033845802d25b4e074ccfd7cd8b339a41dc75bf9978a034800444b51d42b07799a",
+          "rune": "a0noy2CAu8-s2xSgJuBW09hqB_YsqLkwIDy5qkftGMk9MiZtZXRob2Q9cGF5JnBuYW1lYW1vdW50bXNhdDwxMDAwMA==",
           "method": "pay",
           "params": {
-            "bolt11": "lnbcrt100n1pnt2bolt11invl020300000000bolt11invl020300000000bolt11invl020300000000bolt11invl020300000000bolt11invl020300000000bolt11invl020300000000bolt11invl020300000000bolt11invl020300000000bolt11invl020300000000bolt11invl020300000000",
+            "bolt11": "lnbcrt1pne035qsp5r0wdx7ur2ksfqp3m20sdy2yleawgnkc6zu0ua3qek25zr280rjfspp5gtsy37aeh4vz7alehxl88yak5234edpyp58780hztrw9ysyxpkwsdqcdserxgryv4ekxunfwp6xjmmwxqyjw5qcqp99qxpqysgq092sevrrqgr60s7v248nxhyqlfdktu9rdeg728j2eduafqh8wqd3jycamqf84n0rpempvyhacvkaqjtkqrqqu3fy9vmcl503mjzkfksqtz6mm3",
             "amount_msat": 9900
           }
         }
       },
       "response": {
-        "destination": "nodeid020202020202020202020202020202020202020202020202020202020202",
-        "payment_hash": "paymenthashcmdpycp10cp10cp10cp10cp10cp10cp10cp10cp10cp10cp10cp10",
-        "created_at": 1738000000,
-        "parts": 1,
+        "payment_preimage": "09e7f193a0100ea609e7f193a0100ea609e7f193a0100ea609e7f193a0100ea6",
         "amount_msat": 9900,
         "amount_sent_msat": 9900,
-        "payment_preimage": "paymentpreimagec010101010101010101010101010101010101010101010101",
-        "status": "complete"
+        "parts": 1,
+        "destination": "033845802d25b4e074ccfd7cd8b339a41dc75bf9978a034800444b51d42b07799a",
+        "payment_hash": "42e048fbb9bd582f77f9b9be7393b6a2a35cb4240d0fe3bee258dc5240860d9d",
+        "status": "complete",
+        "created_at": 1738000000.0
       }
     }
   ]

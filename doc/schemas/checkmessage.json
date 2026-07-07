@@ -80,13 +80,13 @@
         "id": "example:checkmessage#1",
         "method": "checkmessage",
         "params": {
-          "message": "testcase to check new rpc error",
-          "zbase": "d66bqz3qsku5fxtqsi37j11pci47ydxa95iusphutggz9ezaxt56neh77kxe5hyr41kwgkncgiu94p9ecxiexgpgsz8daoq4tw8kj8yx",
-          "pubkey": "03be3b0e9992153b1d5a6e1623670b6c3663f72ce6cf2e0dd39c0a373a7de5a3b7"
+          "message": "message for you",
+          "zbase": "rnu3qotbr47u7uzgodtq51fraszhp47xfen4yxbzhsisrekqwzshysu7sq4f74g5jobnh35fsh1a3ysoa7who6cqbti47qkxp6w1qwan",
+          "pubkey": "033845802d25b4e074ccfd7cd8b339a41dc75bf9978a034800444b51d42b07799a"
         }
       },
       "response": {
-        "pubkey": "03be3b0e9992153b1d5a6e1623670b6c3663f72ce6cf2e0dd39c0a373a7de5a3b7",
+        "pubkey": "033845802d25b4e074ccfd7cd8b339a41dc75bf9978a034800444b51d42b07799a",
         "verified": true
       }
     },
@@ -96,11 +96,11 @@
         "method": "checkmessage",
         "params": {
           "message": "this is a test!",
-          "zbase": "d6tqaeuonjhi98mmont9m4wag7gg4krg1f4txonug3h31e9h6p6k6nbwjondnj46dkyausobstnk7fhyy998bhgc1yr98dfmhb4k54d7"
+          "zbase": "d63t8j9xmusnx6f6j3tauwoewi1g3a94t9xrastmou8i5rzn3gm9nuahkx6zfnm9ry145w4j88ctteim4mtxc7qreyity55zq63sj6n5"
         }
       },
       "response": {
-        "pubkey": "nodeid010101010101010101010101010101010101010101010101010101010101",
+        "pubkey": "033845802d25b4e074ccfd7cd8b339a41dc75bf9978a034800444b51d42b07799a",
         "verified": true
       }
     }

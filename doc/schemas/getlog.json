@@ -240,36 +240,45 @@
         }
       },
       "response": {
-        "created_at": 1738000000,
-        "bytes_used": 1630000,
-        "bytes_max": 10485760,
+        "created_at": "1738000000.000000000",
+        "bytes_used": 3271748,
+        "bytes_max": 16777216,
         "log": [
           {
-            "type": "SKIPPED",
-            "num_skipped": 144
-          },
-          {
             "type": "UNUSUAL",
-            "time": "71.800000000",
+            "time": "0.000000000",
             "source": "plugin-bookkeeper",
-            "log": "topic 'utxo_deposit' is not a known notification topic"
+            "log": "topic 'utxo_deposit' is not a known notification topic",
+            "num_skipped": 177
           },
           {
             "type": "UNUSUAL",
-            "time": "72.800000000",
+            "time": "0.000000000",
             "source": "plugin-bookkeeper",
             "log": "topic 'utxo_spend' is not a known notification topic"
           },
           {
-            "type": "SKIPPED",
-            "num_skipped": 147
+            "type": "UNUSUAL",
+            "time": "0.000000000",
+            "node_id": "038194b5f32bdf0aa59812c86c4ef7ad2f294104fa027d1ace9b469bb6f88cf37b",
+            "source": "chan#1",
+            "log": "No peer channel with scid=7984345x7385111x15166",
+            "num_skipped": 4562
           },
           {
             "type": "UNUSUAL",
-            "time": "74.800000000",
-            "node_id": "nodeid010101010101010101010101010101010101010101010101010101010101",
-            "source": "chan#1",
-            "log": "No peer channel with scid=228x1x1"
+            "time": "0.000000000",
+            "node_id": "03cecbfdc68544cc596223b68ce0710c9e5d2c9cb317ee07822d95079acc703d31",
+            "source": "chan#2",
+            "log": "Peer permanent failure in CLOSINGD_COMPLETE: Funding transaction spent: onchain txid dc446777a9b3d6d5962f502f5d22f66b01452389c1bbe8460491e7376f44a1eb (reason=unknown)",
+            "num_skipped": 4554
+          },
+          {
+            "type": "UNUSUAL",
+            "time": "0.000000000",
+            "node_id": "03cecbfdc68544cc596223b68ce0710c9e5d2c9cb317ee07822d95079acc703d31",
+            "source": "chan#2",
+            "log": "Not dropping our unilateral close onchain since we already saw dc446777a9b3d6d5962f502f5d22f66b01452389c1bbe8460491e7376f44a1eb confirm."
           }
         ]
       }

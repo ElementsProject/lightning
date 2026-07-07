@@ -399,9 +399,9 @@
         "params": {}
       },
       "response": {
-        "id": "nodeid020202020202020202020202020202020202020202020202020202020202",
-        "alias": "SILENTARTIST",
-        "color": "022d22",
+        "id": "033845802d25b4e074ccfd7cd8b339a41dc75bf9978a034800444b51d42b07799a",
+        "alias": "SILENTARTIST-v26.09",
+        "color": "033845",
         "num_peers": 0,
         "num_pending_channels": 0,
         "num_active_channels": 0,
@@ -411,17 +411,17 @@
           {
             "type": "ipv4",
             "address": "127.0.0.1",
-            "port": 19735
+            "port": 30003
           }
         ],
-        "version": "v25.05",
-        "blockheight": 110,
+        "version": "v26.09",
+        "blockheight": 114,
         "network": "regtest",
         "fees_collected_msat": 0,
-        "lightning-dir": "/tmp/.lightning/regtest",
+        "lightning-dir": "/home/rusty/.lightning/regtest",
         "our_features": {
-          "init": "0898882a8a59a1",
-          "node": "8898882a8a59a1",
+          "init": "800898882a8a59a1",
+          "node": "808898882a8a59a1",
           "channel": "",
           "invoice": "02000002024100"
         }

@@ -162,11 +162,11 @@
         "id": "example:xpay#1",
         "method": "xpay",
         "params": [
-          "lnbcrt100n1pnt2bolt11invl040100000000bolt11invl040100000000bolt11invl040100000000bolt11invl040100000000bolt11invl040100000000bolt11invl040100000000bolt11invl040100000000bolt11invl040100000000bolt11invl040100000000bolt11invl040100000000"
+          "lnbcrt100n1pne035qsp54v5a0x3w0r3mjdnhe8fz2cugz0pqanee8rdep0sszpg3zyxvvwxqpp5ulnc8tpdywe6dh23xh2l83j3qw3ghl2x7rytl5lvza58k42mkeesdp9w3jhxazl0pcxz72lwd5k6urvv5sxymmvwscnzxqyjw5qcqp9rzjq08vhlwxs4zvcktzywmgecr3pj096tyukvt7upuz9k2s0xkvwq7nzqqq0qqqqqgqqqqqqqqpqqqqqzsqqc9qxpqysgqtquasyh7spka4ayjvawr6awq0f47h4zmz9zgm75s6xd22vq5ngsy73gjqszr3leq7j9hr27fserwxh8w4hqfxk3qawhpxexgjhmwt9qpqkmhat"
         ]
       },
       "response": {
-        "payment_preimage": "paymentpreimgxp1010101010101010101010101010101010101010101010101",
+        "payment_preimage": "5dd460dcbf1508705dd460dcbf1508705dd460dcbf1508705dd460dcbf150870",
         "amount_msat": 10000,
         "amount_sent_msat": 10002,
         "failed_parts": 0,
@@ -178,12 +178,11 @@
         "id": "example:xpay#2",
         "method": "xpay",
         "params": {
-          "invstring": "lni1qqg0qe03030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303",
-          "payer_note": "Coffee payment"
+          "invstring": "lni1qqgvzkzz5jrhmdd0c9vy9fy80k667q3qqc3xu3s3rg94nj40zfsy866mhu5vxne6tcej5878k2mneuvgjy83pmsr8pzcqtf9kns8fn8a0nvtxwdyrhr4h7vh3gp5sqzyfdgag2c80xdq9suvcgw0ak2nh6cfxctfaxlfqv2j6dxypj76nt4jqdxyxaghf60kqgp95yw73zw4mx4y9x5y8rgqklrrawg5wpgts0ds4d3zrer77dujk3cqxwl6p5xkg8gf52vy2krjk3qy0dhemyhaksl7um6twxj6z8jya95pqmw30ryplhasydxkuxk9nr8gf92e2rms9lvtz4xyrufjpf7pfkrscaffkr5pghzsxgqfq8d2vuwxy3ezxujgqqerr0780hu3rttqw9xw86q7cdazyx4lsv8er3kz04phkfnryecqhgg0r2sdsymull88w0dv9tux7a48tk8pvggrsx2ttuetmu92txqjepkyaaad9u55zp86qf734n5mg6dmd7yv7da4qgqxyfhyvyg6pdvu4tcjvpp7kkal9rp57wj7xv4pl3ajku70rzy3pafqyqlg2sq9sggrg4456065qg26pfm5leyrjuxu5afjhw8a22g3csgyml8pvqhh4xt6pxqrsx2ttuetmu92txqjepkyaaad9u55zp86qf734n5mg6dmd7yv7dasxy7wjuavm7474t7690qx5h5kzn5f9ywfvrqu02dg3kycneq8tatzqyptztevlxahrqt54dq0k9qe587yuuka27d5u00226p9xg3ksng5xngqxt68v6474rcnve4qdzd6264qsxspa9jvxrpud6djpz3mdtnm6qj6ske9w02t8ajsxvnya5edtukyxw4gdz3pcqqqqqqqqqqqqqqq2qqqqqqqqqqqqqwjfvkl43fqqqqqqzjqgeuhc6q2sgy6wttfekcsyx7v8ztcqqlzkzvs6qkhjl5suyw0n44tyg8vx9y6y64qyqlg4cpsyqqqkqss8qv5khejhhc25kvp9jrvfmm66tefgyz05qnart8fk35mkmugeumm7pqxu3dsad7ve5j37g30mkpcspnx90z5gq07kpm9ne5t92g9smua8z98j8lyyx4jtmr2q9379708sasd3vf60ue5ezyuka9x29jdxx6m5u"
         }
       },
       "response": {
-        "payment_preimage": "paymentpreimgxp2020202020202020202020202020202020202020202020202",
+        "payment_preimage": "c15842a4877dc166c15842a4877dc166c15842a4877dc166c15842a4877dc166",
         "amount_msat": 1000,
         "amount_sent_msat": 1000,
         "failed_parts": 0,

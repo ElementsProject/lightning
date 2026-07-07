@@ -2960,13 +2960,13 @@
         "id": "example:decode#1",
         "method": "decode",
         "params": [
-          "zFMd1fjhrAYxUeFA54TjloZqOt8JrA_i_nYwIgXkag49MA=="
+          "7cKJyALVY0_LLVV-AB9oetXjipOdyt0EhOuYrSS42fM9MA=="
         ]
       },
       "response": {
         "type": "rune",
         "unique_id": "0",
-        "string": "cc531dd5f8e1ac063151e140e784e396866a3adf09ac0fe2fe76302205e46a0e:=0",
+        "string": "edc289c802d5634fcb2d557e001f687ad5e38a939dcadd0484eb98ad24b8d9f3:=0",
         "restrictions": [],
         "valid": true
       }
@@ -2976,7 +2976,7 @@
         "id": "example:decode#2",
         "method": "decode",
         "params": [
-          "lnbcrt100n1pnt2bolt11invl020200000000bolt11invl020200000000bolt11invl020200000000bolt11invl020200000000bolt11invl020200000000bolt11invl020200000000bolt11invl020200000000bolt11invl020200000000bolt11invl020200000000bolt11invl020200000000"
+          "lnbcrt2u1pne035qsp5syt0v2w9nsa7xnu9neq9np0ln5c7e25mnurjppqzwktwtkr830sqpp50efh2wgkgp2ftp6spsdl5pwsgmjf6cncm793a8yck764rnmh35gqdqcdserygryv4ekxunfwp6xjmmwxqyjw5qcqp9rzjq08vhlwxs4zvcktzywmgecr3pj096tyukvt7upuz9k2s0xkvwq7nzqqqwcqqqqgqqqqqqqqpqqqqqzsqqc9qxpqysgq2ysc0ll0du4pgdz0l8xt9uu47t72k3chdxvxnrj9vj6arxecvej4cmh2x3uwe9xye2mpm2df5xfuh9xgcc0um4uwnc69x5yu5glqfgcqac9wfd"
         ]
       },
       "response": {
@@ -2984,25 +2984,25 @@
         "currency": "bcrt",
         "created_at": 1738000000,
         "expiry": 604800,
-        "payee": "nodeid020202020202020202020202020202020202020202020202020202020202",
+        "payee": "033845802d25b4e074ccfd7cd8b339a41dc75bf9978a034800444b51d42b07799a",
         "amount_msat": 200000,
         "description": "l22 description",
         "min_final_cltv_expiry": 5,
-        "payment_secret": "paymentsecretinvl00220002200022000220002200022000220002200022000",
+        "payment_secret": "8116f629c59c3be34f859e405985ff9d31ecaa9b9f072084027596e5d8678be0",
         "features": "02024100",
         "routes": [
           [
             {
-              "pubkey": "nodeid030303030303030303030303030303030303030303030303030303030303",
-              "short_channel_id": "111x1x1",
+              "pubkey": "03cecbfdc68544cc596223b68ce0710c9e5d2c9cb317ee07822d95079acc703d31",
+              "short_channel_id": "118x1x0",
               "fee_base_msat": 1,
               "fee_proportional_millionths": 10,
               "cltv_expiry_delta": 6
             }
           ]
         ],
-        "payment_hash": "paymenthashinvl0220022002200220022002200220022002200220022002200",
-        "signature": "dcde30c4bb50bed221009d010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101",
+        "payment_hash": "7e5375391640549587500c1bfa05d046e49d6278df8b1e9c98b7b551cf778d10",
+        "signature": "30440220512187ffef6f2a14344ff9ccb2f395f2fcab47176998698e4564b5d19b38666502205c6eea3478ec94c4cab61da9a9a193cb94c8c61fcdd78e9e3453509ca23e04a3",
         "valid": true
       }
     }

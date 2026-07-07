@@ -360,67 +360,98 @@
       "response": {
         "outputs": [
           {
-            "txid": "txid000010000100001000010000100001000010000100001000010000100001",
-            "output": 2,
-            "amount_msat": 26000000,
-            "scriptpubkey": "scriptpubkey01010101010101010101010101010101010101010101010101010101",
-            "address": "bcrt1p0004040404040404040404040404040404040404040404040404040404",
-            "status": "confirmed",
-            "blockheight": 160,
+            "txid": "9860f25fc55272e7250d4829e0ebf37f524c3a57ef6841e9585a2132c19b0f06",
+            "output": 0,
+            "amount_msat": 497105000,
+            "scriptpubkey": "512073c774833ecca0547ce8ecd2ffc856ac1f7889f15ac1cf80b13aa3cc61601ca0",
+            "address": "bcrt1pw0rhfqe7ejs9gl8ganf0ljzk4s0h3z03ttqulq93823ucctqrjsq4ew6qm",
+            "status": "unconfirmed",
             "reserved": false
           },
           {
-            "txid": "txid000020000200002000020000200002000020000200002000020000200002",
-            "output": 3,
-            "amount_msat": 27000000,
-            "scriptpubkey": "scriptpubkey02020202020202020202020202020202020202020202020202020202",
-            "address": "bcrt1p0004040404040404040404040404040404040404040404040404040404",
+            "txid": "df0d67b5c14dc69c1f7dea24111e4557aaa9a01bca5c683cd81efda21f12031f",
+            "output": 1,
+            "amount_msat": 995073000,
+            "scriptpubkey": "512083dbe98bf7a7bfae203d7f09ffe645aa105138793b05935f3c332566c399be29",
+            "address": "bcrt1ps0d7nzlh57l6ugpa0uyllej94gg9zwre8vzexheuxvjkdsuehc5s3940ps",
             "status": "confirmed",
-            "blockheight": 160,
+            "blockheight": 168,
             "reserved": false
           },
           {
-            "txid": "txid000030000300003000030000300003000030000300003000030000300003",
-            "output": 4,
-            "amount_msat": 28000000,
-            "scriptpubkey": "scriptpubkey03030303030303030303030303030303030303030303030303030303",
-            "address": "bcrt1p0004040404040404040404040404040404040404040404040404040404",
+            "txid": "d3a6d332f7ce629300e973ea2ebd3536a3bf523459a408d45b3fbd3b09d168d1",
+            "output": 0,
+            "amount_msat": 497105000,
+            "scriptpubkey": "5120c0a2f19bd78ecf3cdfa39e07bead69530099f4739c6d68c07f84cdcf45e31f82",
+            "address": "bcrt1pcz30rx7h3m8neharncrmattf2vqfnarnn3kk3srlsnxu730rr7pqnxrf7d",
             "status": "confirmed",
-            "blockheight": 160,
+            "blockheight": 167,
+            "reserved": false
+          },
+          {
+            "txid": "085495a1f868a8422b5d6797209e3a6a1972438cd18bc7663e010f7b3b52d2df",
+            "output": 1,
+            "amount_msat": 203398803000,
+            "scriptpubkey": "5120d2d0f24d9a3e596e2fbc0819e8894c83c5c583eb862d90156a5e129239194dd5",
+            "address": "bcrt1p6tg0ynv68evkutaupqv73z2vs0zutqltsckeq9t2tcffywgefh2syue8tv",
+            "status": "confirmed",
+            "blockheight": 148,
+            "reserved": false
+          },
+          {
+            "txid": "085495a1f868a8422b5d6797209e3a6a1972438cd18bc7663e010f7b3b52d2df",
+            "output": 6,
+            "amount_msat": 1000000,
+            "scriptpubkey": "0014295f94257ef514dec3ed7d4549c4ee263ae16e84",
+            "address": "bcrt1q990egft7752dasld04z5n38wycawzm5yxkv7ra",
+            "status": "confirmed",
+            "blockheight": 148,
+            "reserved": false
+          },
+          {
+            "txid": "085495a1f868a8422b5d6797209e3a6a1972438cd18bc7663e010f7b3b52d2df",
+            "output": 8,
+            "amount_msat": 25000000,
+            "scriptpubkey": "5120182af728bb638b6402708b0031f4aa2544e94acdd63d1381eb7e207d6ba8d998",
+            "address": "bcrt1prq40w29mvw9kgqns3vqrra92y4zwjjkd6c738q0t0cs866agmxvqc307xy",
+            "status": "confirmed",
+            "blockheight": 148,
             "reserved": false
           }
         ],
         "channels": [
           {
-            "peer_id": "nodeid020202020202020202020202020202020202020202020202020202020202",
+            "peer_id": "02287bfac8b99b35477ebe9334eede1e32b189e24644eb701c079614712331cec0",
+            "connected": false,
+            "state": "CLOSINGD_COMPLETE",
+            "channel_id": "473851bb98a42329724d897b5ea85fcda29e9973b70e4e7b2bbce82ff996c601",
+            "short_channel_id": "168x1x0",
+            "our_amount_msat": 500000000,
+            "amount_msat": 1000000000,
+            "funding_txid": "df0d67b5c14dc69c1f7dea24111e4557aaa9a01bca5c683cd81efda21f12031f",
+            "funding_output": 0
+          },
+          {
+            "peer_id": "038194b5f32bdf0aa59812c86c4ef7ad2f294104fa027d1ace9b469bb6f88cf37b",
             "connected": true,
             "state": "CHANNELD_NORMAL",
-            "channel_id": "channelid0120000120000120000120000120000120000120000120000120000",
-            "short_channel_id": "109x1x1",
-            "our_amount_msat": 36000000,
-            "amount_msat": 11000000,
-            "funding_txid": "txid010010100101001010010100101001010010100101001010010100101001",
+            "channel_id": "2c383675809577b343f57acbea98d51dd913817874a3b621173f3fe2ea519c45",
+            "short_channel_id": "116x1x1",
+            "our_amount_msat": 609507210,
+            "amount_msat": 1000000000,
+            "funding_txid": "6958d6b2c23a79254dfd48b9b3d2a357c8c12c52a8bbd90bf48bd04e55996368",
             "funding_output": 1
           },
           {
-            "peer_id": "nodeid050505050505050505050505050505050505050505050505050505050505",
-            "connected": false,
-            "state": "ONCHAIN",
-            "channel_id": "channelid1300013000130001300013000130001300013000130001300013000",
-            "our_amount_msat": 37000000,
-            "amount_msat": 12000000,
-            "funding_txid": "txid010020100201002010020100201002010020100201002010020100201002",
-            "funding_output": 2
-          },
-          {
-            "peer_id": "nodeid030303030303030303030303030303030303030303030303030303030303",
-            "connected": false,
-            "state": "ONCHAIN",
-            "channel_id": "channelid1100011000110001100011000110001100011000110001100011000",
-            "our_amount_msat": 38000000,
-            "amount_msat": 13000000,
-            "funding_txid": "txid010030100301003010030100301003010030100301003010030100301003",
-            "funding_output": 3
+            "peer_id": "03cecbfdc68544cc596223b68ce0710c9e5d2c9cb317ee07822d95079acc703d31",
+            "connected": true,
+            "state": "CHANNELD_NORMAL",
+            "channel_id": "60a870b5b9d8a5a59213cb7b3ad81b3548ed107d0d627c3615746097b1374b55",
+            "short_channel_id": "130x1x0",
+            "our_amount_msat": 899996000,
+            "amount_msat": 1000000000,
+            "funding_txid": "88c5963d6e1b0790375d5ce51c7fdd58b9b241c104754d2b704aee8cbdc5e7b5",
+            "funding_output": 0
           }
         ]
       }

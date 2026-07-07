@@ -196,124 +196,129 @@
         "method": "plugin",
         "params": {
           "subcommand": "start",
-          "plugin": "/root/lightning/tests/plugins/allow_even_msgs.py"
+          "plugin": "/usr/local/libexec/plugins/allow_even_msgs.py"
         }
       },
       "response": {
         "command": "start",
         "plugins": [
           {
-            "name": "/root/lightning/plugins/autoclean",
+            "name": "/usr/local/libexec/plugins/autoclean",
             "active": true,
             "dynamic": false
           },
           {
-            "name": "/root/lightning/plugins/chanbackup",
+            "name": "/usr/local/libexec/plugins/chanbackup",
             "active": true,
             "dynamic": false
           },
           {
-            "name": "/root/lightning/plugins/bcli",
+            "name": "/usr/local/libexec/plugins/bcli",
             "active": true,
             "dynamic": false
           },
           {
-            "name": "/root/lightning/plugins/commando",
+            "name": "/usr/local/libexec/plugins/cln-bwatch",
+            "active": true,
+            "dynamic": true
+          },
+          {
+            "name": "/usr/local/libexec/plugins/commando",
             "active": true,
             "dynamic": false
           },
           {
-            "name": "/root/lightning/plugins/funder",
+            "name": "/usr/local/libexec/plugins/funder",
             "active": true,
             "dynamic": true
           },
           {
-            "name": "/root/lightning/plugins/topology",
+            "name": "/usr/local/libexec/plugins/topology",
             "active": true,
             "dynamic": false
           },
           {
-            "name": "/root/lightning/plugins/exposesecret",
+            "name": "/usr/local/libexec/plugins/exposesecret",
             "active": true,
             "dynamic": true
           },
           {
-            "name": "/root/lightning/plugins/keysend",
+            "name": "/usr/local/libexec/plugins/keysend",
             "active": true,
             "dynamic": false
           },
           {
-            "name": "/root/lightning/plugins/offers",
+            "name": "/usr/local/libexec/plugins/offers",
             "active": true,
             "dynamic": true
           },
           {
-            "name": "/root/lightning/plugins/pay",
+            "name": "/usr/local/libexec/plugins/pay",
             "active": true,
             "dynamic": true
           },
           {
-            "name": "/root/lightning/plugins/recklessrpc",
+            "name": "/usr/local/libexec/plugins/recklessrpc",
             "active": true,
             "dynamic": true
           },
           {
-            "name": "/root/lightning/plugins/recover",
+            "name": "/usr/local/libexec/plugins/recover",
             "active": true,
             "dynamic": false
           },
           {
-            "name": "/root/lightning/plugins/txprepare",
+            "name": "/usr/local/libexec/plugins/txprepare",
             "active": true,
             "dynamic": true
           },
           {
-            "name": "/root/lightning/plugins/cln-renepay",
+            "name": "/usr/local/libexec/plugins/cln-renepay",
             "active": true,
             "dynamic": true
           },
           {
-            "name": "/root/lightning/plugins/cln-xpay",
+            "name": "/usr/local/libexec/plugins/cln-xpay",
             "active": true,
             "dynamic": true
           },
           {
-            "name": "/root/lightning/plugins/spenderp",
+            "name": "/usr/local/libexec/plugins/spenderp",
             "active": true,
             "dynamic": false
           },
           {
-            "name": "/root/lightning/plugins/cln-askrene",
+            "name": "/usr/local/libexec/plugins/cln-askrene",
             "active": true,
             "dynamic": true
           },
           {
-            "name": "/root/lightning/plugins/sql",
+            "name": "/usr/local/libexec/plugins/sql",
             "active": true,
             "dynamic": true
           },
           {
-            "name": "/root/lightning/plugins/cln-grpc",
+            "name": "/usr/local/libexec/plugins/cln-grpc",
             "active": true,
             "dynamic": false
           },
           {
-            "name": "/root/lightning/plugins/cln-lsps-client",
-            "active": true,
-            "dynamic": false
-          },
-          {
-            "name": "/root/lightning/plugins/cln-bip353",
+            "name": "/usr/local/libexec/plugins/cln-bip353",
             "active": true,
             "dynamic": true
           },
           {
-            "name": "/root/lightning/plugins/bookkeeper",
+            "name": "/usr/local/libexec/plugins/cln-currencyrate",
+            "active": true,
+            "dynamic": true
+          },
+          {
+            "name": "/usr/local/libexec/plugins/bookkeeper",
             "active": true,
             "dynamic": false
           },
           {
-            "name": "/root/lightning/tests/plugins/allow_even_msgs.py",
+            "name": "/usr/local/libexec/plugins/allow_even_msgs.py",
             "active": true,
             "dynamic": true
           }
@@ -326,7 +331,7 @@
         "method": "plugin",
         "params": {
           "subcommand": "stop",
-          "plugin": "/root/lightning/tests/plugins/allow_even_msgs.py"
+          "plugin": "/usr/local/libexec/plugins/allow_even_msgs.py"
         }
       },
       "response": {
@@ -346,112 +351,117 @@
         "command": "list",
         "plugins": [
           {
-            "name": "/root/lightning/plugins/autoclean",
+            "name": "/usr/local/libexec/plugins/autoclean",
             "active": true,
             "dynamic": false
           },
           {
-            "name": "/root/lightning/plugins/chanbackup",
+            "name": "/usr/local/libexec/plugins/chanbackup",
             "active": true,
             "dynamic": false
           },
           {
-            "name": "/root/lightning/plugins/bcli",
+            "name": "/usr/local/libexec/plugins/bcli",
             "active": true,
             "dynamic": false
           },
           {
-            "name": "/root/lightning/plugins/commando",
+            "name": "/usr/local/libexec/plugins/cln-bwatch",
+            "active": true,
+            "dynamic": true
+          },
+          {
+            "name": "/usr/local/libexec/plugins/commando",
             "active": true,
             "dynamic": false
           },
           {
-            "name": "/root/lightning/plugins/funder",
+            "name": "/usr/local/libexec/plugins/funder",
             "active": true,
             "dynamic": true
           },
           {
-            "name": "/root/lightning/plugins/topology",
+            "name": "/usr/local/libexec/plugins/topology",
             "active": true,
             "dynamic": false
           },
           {
-            "name": "/root/lightning/plugins/exposesecret",
+            "name": "/usr/local/libexec/plugins/exposesecret",
             "active": true,
             "dynamic": true
           },
           {
-            "name": "/root/lightning/plugins/keysend",
+            "name": "/usr/local/libexec/plugins/keysend",
             "active": true,
             "dynamic": false
           },
           {
-            "name": "/root/lightning/plugins/offers",
+            "name": "/usr/local/libexec/plugins/offers",
             "active": true,
             "dynamic": true
           },
           {
-            "name": "/root/lightning/plugins/pay",
+            "name": "/usr/local/libexec/plugins/pay",
             "active": true,
             "dynamic": true
           },
           {
-            "name": "/root/lightning/plugins/recklessrpc",
+            "name": "/usr/local/libexec/plugins/recklessrpc",
             "active": true,
             "dynamic": true
           },
           {
-            "name": "/root/lightning/plugins/recover",
+            "name": "/usr/local/libexec/plugins/recover",
             "active": true,
             "dynamic": false
           },
           {
-            "name": "/root/lightning/plugins/txprepare",
+            "name": "/usr/local/libexec/plugins/txprepare",
             "active": true,
             "dynamic": true
           },
           {
-            "name": "/root/lightning/plugins/cln-renepay",
+            "name": "/usr/local/libexec/plugins/cln-renepay",
             "active": true,
             "dynamic": true
           },
           {
-            "name": "/root/lightning/plugins/cln-xpay",
+            "name": "/usr/local/libexec/plugins/cln-xpay",
             "active": true,
             "dynamic": true
           },
           {
-            "name": "/root/lightning/plugins/spenderp",
+            "name": "/usr/local/libexec/plugins/spenderp",
             "active": true,
             "dynamic": false
           },
           {
-            "name": "/root/lightning/plugins/cln-askrene",
+            "name": "/usr/local/libexec/plugins/cln-askrene",
             "active": true,
             "dynamic": true
           },
           {
-            "name": "/root/lightning/plugins/sql",
+            "name": "/usr/local/libexec/plugins/sql",
             "active": true,
             "dynamic": true
           },
           {
-            "name": "/root/lightning/plugins/cln-grpc",
+            "name": "/usr/local/libexec/plugins/cln-grpc",
             "active": true,
             "dynamic": false
           },
           {
-            "name": "/root/lightning/plugins/cln-lsps-client",
-            "active": true,
-            "dynamic": false
-          },
-          {
-            "name": "/root/lightning/plugins/cln-bip353",
+            "name": "/usr/local/libexec/plugins/cln-bip353",
             "active": true,
             "dynamic": true
           },
           {
-            "name": "/root/lightning/plugins/bookkeeper",
+            "name": "/usr/local/libexec/plugins/cln-currencyrate",
+            "active": true,
+            "dynamic": true
+          },
+          {
+            "name": "/usr/local/libexec/plugins/bookkeeper",
             "active": true,
             "dynamic": false
           }

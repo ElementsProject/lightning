@@ -266,23 +266,23 @@
         "id": "example:bkpr-editdescriptionbypaymentid#1",
         "method": "bkpr-editdescriptionbypaymentid",
         "params": {
-          "payment_id": "paymentid0000202020202020202020202020202020202020202020202020202",
+          "payment_id": "8fad68e532db4edf02984be14e59dc5e8ffbbdf0f7c4e8cfa26a6bb8f9fe4c41",
           "description": "edited invoice description from description send some sats l2 to l3"
         }
       },
       "response": {
         "updated": [
           {
-            "account": "channelid0230000230000230000230000230000230000230000230000230000",
+            "account": "c51daaf63cd67a9092a021076a8b3def61b38dea85019b0a074ddada3e1a4e6c",
             "type": "channel",
             "tag": "invoice",
             "credit_msat": 500000000,
             "debit_msat": 0,
             "currency": "bcrt",
-            "payment_id": "paymentid0000202020202020202020202020202020202020202020202020202",
+            "payment_id": "8fad68e532db4edf02984be14e59dc5e8ffbbdf0f7c4e8cfa26a6bb8f9fe4c41",
             "part_id": 0,
-            "timestamp": 1738520000,
             "description": "edited invoice description from description send some sats l2 to l3",
+            "timestamp": 1738000007,
             "is_rebalance": false
           }
         ]

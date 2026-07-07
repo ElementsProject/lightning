@@ -124,7 +124,7 @@
         "method": "askrene-bias-channel",
         "params": {
           "layer": "test_layers",
-          "short_channel_id_dir": "109x1x1/1",
+          "short_channel_id_dir": "116x1x1/1",
           "bias": 1
         }
       },
@@ -132,8 +132,9 @@
         "biases": [
           {
             "layer": "test_layers",
-            "short_channel_id_dir": "109x1x1/1",
-            "bias": 1
+            "short_channel_id_dir": "116x1x1/1",
+            "bias": 1,
+            "timestamp": 1738000000
           }
         ]
       }
@@ -144,7 +145,7 @@
         "method": "askrene-bias-channel",
         "params": [
           "test_layers",
-          "109x1x1/1",
+          "116x1x1/1",
           -5,
           "bigger bias"
         ]
@@ -153,9 +154,10 @@
         "biases": [
           {
             "layer": "test_layers",
-            "short_channel_id_dir": "109x1x1/1",
+            "short_channel_id_dir": "116x1x1/1",
             "description": "bigger bias",
-            "bias": -5
+            "bias": -5,
+            "timestamp": 1738000000
           }
         ]
       }

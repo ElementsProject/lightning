@@ -538,7 +538,7 @@
           },
           "succeededpays": {
             "enabled": false,
-            "cleaned": 7
+            "cleaned": 0
           },
           "failedpays": {
             "enabled": false,
@@ -551,6 +551,11 @@
           "expiredinvoices": {
             "enabled": true,
             "age": 300,
+            "cleaned": 0
+          },
+          "networkevents": {
+            "enabled": true,
+            "age": 2592000,
             "cleaned": 0
           }
         }
