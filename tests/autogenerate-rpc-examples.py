@@ -65,7 +65,7 @@ def wait_for_htlcs_settled(nodes, timeout=10):
     view rather than racing the payment(s) that were just fired off.
     """
     active_states = {'SENT_ADD_HTLC', 'RCVD_ADD_HTLC', 'SENT_ADD_COMMIT',
-                      'RCVD_ADD_COMMIT', 'SENT_ADD_REVOCATION', 'RCVD_ADD_REVOCATION'}
+                     'RCVD_ADD_COMMIT', 'SENT_ADD_REVOCATION', 'RCVD_ADD_REVOCATION'}
 
     def _settled():
         for n in nodes:
@@ -185,13 +185,13 @@ def rewrite_examples(examples: Dict[str, Any]):
                    "000000000000000509eb55872cd9039ecd08281af756e23b15aad4129fd6a9bcd71b472114ebf43a0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518017f000001970c64ed91a21c10208d715b59801b12b4a6eff9ea9e4e7d45971c298b62d90ece8e00000000000000000000c35000034010000000009b010c000100000000000000000000038402e885f38e784050b386fb32d20935acc61059d8b02b6bec0ac2bfc8b2c5cf7f3103ae69dbfc6511ba0781c13113e16e1557a875b910cb1cb1fe1ef95a7edb36135a03758d5faa8515942873911e21869b1b90a4be72af14b394bc064da6ba518b087003750b588cd1fb8d60276c12c1c3eef7e302e3772414234404289db8c10f5731320501010702a5f8"]
 
     canned_txs = ["02000000000101b8b4d0e0e51fdf02fa8ca958a3a44d2a2d38fcd405637d1ad8d00c118b0f08cb0100000000fdffffff0240420f00000000002200202bdf62cf77ca8d331ee03e40d1eb7fa14bb8078c3427d7714f271e37468645e866dad40b000000002251205f5ccf17471f681b995a3eadb89503818769d6be3f30c72584b60200a525ac3001409125e6c73c236127175f78daecea1dde07bd51f700a546b09cae1fe4c2ba0e7be798f1ba74d03bce5fb771ba6365b928743c3bd6a36a40ae0632c1d571569831a2000000",
-                   "02000000000101fe42843e56bcbaa0b6c0180d60bf6d06a8b2e83ce8c6960fb7b3f68956a80a250100000000fdffffff01cbb3eb0b00000000220020c895be991f0db9ca781fca2b5d2b141e9320f1d559bc950df5c613a1f3f266490247304402201833d557338fbcf25bdb5c4be8e1b46a9ca1754fbfa52e31a54f67df725e99d0022048160e4384af6cd905759b2f4ef6836c4cf53edf4d1bb83df7e62ff04f0fa2b201210287eb973cfdd54b2e639261f95bf06a57318d1272961eccdb373853e33a591b72a2000000",
-                   "020000000001078a2fd3ea26b70933064e0ce65c5fc96aa5b391cd4f3f77cf72a6025f384c44230200000000fdffffffde94f5eceb44e4009d4db17d86a2db3627b169ed4e1c372dbe2d6d1241f160680700000000fdffffff8a2fd3ea26b70933064e0ce65c5fc96aa5b391cd4f3f77cf72a6025f384c44230100000000fdffffffde94f5eceb44e4009d4db17d86a2db3627b169ed4e1c372dbe2d6d1241f160680600000000fdffffffde94f5eceb44e4009d4db17d86a2db3627b169ed4e1c372dbe2d6d1241f160680200000000fdffffff998ec03e55c570e7ec377381ccc25169330dc9d73063e12984d92a882157edfe0100000000fdffffff51c5c742b33aae881a536b973802a22466822a2fc68fbee79f2e73669d2972140000000000fdffffff02e8a1fa0b00000000160014c9096d43f408ea526020262ccdad7c8516b92a81a86100000000000022512036880784b15bfe1c53eb538108a248411759245c6610913c96dba41ea2a153fc02473044022022fddae81906617aecb331bd8b10bf5f071a20615bbb557b12dd5713d1b66dea02204a2fa399f2b4f8f31176ae72b61856674815c40095c65f6e91e6a0c8807dac3901210370eb10c2b3f30d1481ce0802a97c1345ca927cac5637831214f4b431436e57c501404d57e331e207b379ccd10aa9042d6fbd04d91a704ee4abf6c83b4cb8b0662b29701d7d39f8fb8bd1bae4a77b4403ef311d320a9dbb22b6d6b4a88add1dd44d030247304402203c99eb4e474ab2ea76cb3ebca70fc72e53c43bc105339a47fe85c64772c8df8202202ecaab4661a7150269ad90384f67a1eb7bfb81a20308b611633c34f7659ed985012102d89a2b5862744b39a15a6ab316b3e1aab0ebc1d63c610c17015ba1a9f8568fd40247304402206ed1e73c2eb02bc62fd007ba38885ab16f1c70ee12d148bee3ec82f0b77b6371022010c1394938da025e8b91af5578d9b15b3fd30d252d14a747080b26ad06be45af012103c93e0fee95a1c62556d78bab9591b8c3178ad669b94587710314293c70d7c6d8024730440220542f5306e35e361f58296d06e75e58ad12f1284dae0b818f1cdb3a779d049f5f02205a3201149afccc71e31af42fb9fc36b246d420b61a42269004f0bc23d34176580121028ebd2158aec94a0dcdba681f97dd634c5eacbde5b92721bf7724fe072e0199a80247304402205db7bd87654010e0b6ceecab7b3106db7a942dac5bf991717b959525f0a0d6ec022018190651b46317d17321bda5e0868accba3289b0d491fde9c1ea1c1e55ea364601210314f64072d89c7e1b0a3a339eb539d4878fbb065b89a26a2cf1dd55618de713ad014025ef526f9a442f151b07c6c9c8854c951f3bb6706beb50ae62da26d4c4aa6fbf7cc186a11d2aac0fb39366cbe4635cda06a6d1d5127b1e3e581b48b24722212a00000000"]
+                  "02000000000101fe42843e56bcbaa0b6c0180d60bf6d06a8b2e83ce8c6960fb7b3f68956a80a250100000000fdffffff01cbb3eb0b00000000220020c895be991f0db9ca781fca2b5d2b141e9320f1d559bc950df5c613a1f3f266490247304402201833d557338fbcf25bdb5c4be8e1b46a9ca1754fbfa52e31a54f67df725e99d0022048160e4384af6cd905759b2f4ef6836c4cf53edf4d1bb83df7e62ff04f0fa2b201210287eb973cfdd54b2e639261f95bf06a57318d1272961eccdb373853e33a591b72a2000000",
+                  "020000000001078a2fd3ea26b70933064e0ce65c5fc96aa5b391cd4f3f77cf72a6025f384c44230200000000fdffffffde94f5eceb44e4009d4db17d86a2db3627b169ed4e1c372dbe2d6d1241f160680700000000fdffffff8a2fd3ea26b70933064e0ce65c5fc96aa5b391cd4f3f77cf72a6025f384c44230100000000fdffffffde94f5eceb44e4009d4db17d86a2db3627b169ed4e1c372dbe2d6d1241f160680600000000fdffffffde94f5eceb44e4009d4db17d86a2db3627b169ed4e1c372dbe2d6d1241f160680200000000fdffffff998ec03e55c570e7ec377381ccc25169330dc9d73063e12984d92a882157edfe0100000000fdffffff51c5c742b33aae881a536b973802a22466822a2fc68fbee79f2e73669d2972140000000000fdffffff02e8a1fa0b00000000160014c9096d43f408ea526020262ccdad7c8516b92a81a86100000000000022512036880784b15bfe1c53eb538108a248411759245c6610913c96dba41ea2a153fc02473044022022fddae81906617aecb331bd8b10bf5f071a20615bbb557b12dd5713d1b66dea02204a2fa399f2b4f8f31176ae72b61856674815c40095c65f6e91e6a0c8807dac3901210370eb10c2b3f30d1481ce0802a97c1345ca927cac5637831214f4b431436e57c501404d57e331e207b379ccd10aa9042d6fbd04d91a704ee4abf6c83b4cb8b0662b29701d7d39f8fb8bd1bae4a77b4403ef311d320a9dbb22b6d6b4a88add1dd44d030247304402203c99eb4e474ab2ea76cb3ebca70fc72e53c43bc105339a47fe85c64772c8df8202202ecaab4661a7150269ad90384f67a1eb7bfb81a20308b611633c34f7659ed985012102d89a2b5862744b39a15a6ab316b3e1aab0ebc1d63c610c17015ba1a9f8568fd40247304402206ed1e73c2eb02bc62fd007ba38885ab16f1c70ee12d148bee3ec82f0b77b6371022010c1394938da025e8b91af5578d9b15b3fd30d252d14a747080b26ad06be45af012103c93e0fee95a1c62556d78bab9591b8c3178ad669b94587710314293c70d7c6d8024730440220542f5306e35e361f58296d06e75e58ad12f1284dae0b818f1cdb3a779d049f5f02205a3201149afccc71e31af42fb9fc36b246d420b61a42269004f0bc23d34176580121028ebd2158aec94a0dcdba681f97dd634c5eacbde5b92721bf7724fe072e0199a80247304402205db7bd87654010e0b6ceecab7b3106db7a942dac5bf991717b959525f0a0d6ec022018190651b46317d17321bda5e0868accba3289b0d491fde9c1ea1c1e55ea364601210314f64072d89c7e1b0a3a339eb539d4878fbb065b89a26a2cf1dd55618de713ad014025ef526f9a442f151b07c6c9c8854c951f3bb6706beb50ae62da26d4c4aa6fbf7cc186a11d2aac0fb39366cbe4635cda06a6d1d5127b1e3e581b48b24722212a00000000"]
 
     canned_txids = ["eaa3e5f498b0d3de22f2e3b1dd5cad96952bdcb4da2cdac4f152ffad049ab062",
-                   "bc2d63e50c4715cd46f2d1b0785aed3bca65666a81618a070efac4216b15238d",
-                   "3dcebc39a0912b60b2b59892c7994ef0b05f0d05ce2194a2c423de6f74a9120b"]
-    
+                    "bc2d63e50c4715cd46f2d1b0785aed3bca65666a81618a070efac4216b15238d",
+                    "3dcebc39a0912b60b2b59892c7994ef0b05f0d05ce2194a2c423de6f74a9120b"]
+
     canned_psbts = ["cHNidP8BAP1zAQIAAAAHmY7APlXFcOfsN3OBzMJRaTMNydcwY+EphNkqiCFX7f4BAAAAAP3////elPXs60TkAJ1NsX2Gots2J7Fp7U4cNy2+LW0SQfFgaAIAAAAA/f///1HFx0KzOq6IGlNrlzgCoiRmgiovxo++558uc2adKXIUAAAAAAD9////ii/T6ia3CTMGTgzmXF/JaqWzkc1PP3fPcqYCXzhMRCMCAAAAAP3///+KL9PqJrcJMwZODOZcX8lqpbORzU8/d89ypgJfOExEIwEAAAAA/f///96U9ezrROQAnU2xfYai2zYnsWntThw3Lb4tbRJB8WBoBwAAAAD9////3pT17OtE5ACdTbF9hqLbNiexae1OHDctvi1tEkHxYGgGAAAAAP3///8CqGEAAAAAAAAiUSA2iAeEsVv+HFPrU4EIokhBF1kkXGYQkTyW26QeoqFT/Oih+gsAAAAAFgAUyQltQ/QI6lJgICYsza18hRa5KoEAAAAAAAEAiAIAAAABhSSP6eaHCYvgaZmYWCNd4LJmybru0g0xxBpi/orQrKkAAAAAFxYAFGCjCF4ZBkdMDYHidYX7XKkyDUZ0/f///wLNAekcAQAAABYAFLc4/LyfFqzeoTrzsC51yOSHadKXAMLrCwAAAAAWABQyxrjvGDyiWPMICWBUHgWZHV4jQm0AAAABAR8AwusLAAAAABYAFDLGuO8YPKJY8wgJYFQeBZkdXiNCIgIDFPZActicfhsKOjOetTnUh4+7BluJomos8d1VYY3nE61HMEQCIGOwf5U1PotTZDj4Bpr2gSefAaWHsULx2ftEepOn5t7ZAiBn4risxlDZijYKJOldED1DtuA7SxAqTLNmP715Vj75TAEiBgMU9kBy2Jx+Gwo6M561OdSHj7sGW4miaizx3VVhjecTrQgyxrjvAAAAAAABAP2jAQIAAAACii/T6ia3CTMGTgzmXF/JaqWzkc1PP3fPcqYCXzhMRCMAAAAAAP3///+KL9PqJrcJMwZODOZcX8lqpbORzU8/d89ypgJfOExEIwMAAAAA/f///wn6nh8MAAAAACJRINLQ8k2aPlluL7wIGeiJTIPFxYPrhi2QFWpeEpI5GU3V6AMAAAAAAAAiUSAJWN7r3IrgH0rywqGrBUI+Mgq6SYY9DkN2vUoc2UWgkegDAAAAAAAAFgAUwT35ign2KH3je+ALTalOZlE4QgDoAwAAAAAAABYAFCtypky/Hpgo4jezIFa/JmOKsnlC6AMAAAAAAAAWABShQDqn3mp6eeiZRfbZL5Epf3nXJOgDAAAAAAAAFgAUKV+UJX71FN7D7X1FScTuJjrhboToAwAAAAAAABYAFOTniVos32znefXGICyZ3j47Ozbo6AMAAAAAAAAiUSBto+278RAYnqDrfJXhjU6s4addGMVXgTtVdFu4Ys7LeqhhAAAAAAAAIlEgGCr3KLtji2QCcIsAMfSqJUTpSs3WPROB634gfWuo2ZiTAAAAAQEf6AMAAAAAAAAWABTBPfmKCfYofeN74AtNqU5mUThCACICAo69IViuyUoNzbpoH5fdY0xerL3luSchv3ck/gcuAZmoRzBEAiAtHGZEYCAPz8sFDkG7SA39qVhqjWPEWXAN06Es2wpjxwIgEqYLCz/j5RJpEIJ6Z7ttrhTeHzTaCN88DajDlIenTfsBIgYCjr0hWK7JSg3Numgfl91jTF6sveW5JyG/dyT+By4BmagIwT35igAAAAAAAQCJAgAAAAFMaoSGBm0uh490LK8y0ma2q8u9Gij/Ffpl4KvFR2P5MgEAAAAA/f///wIBLw8AAAAAACJRIBcTnZ/KtybH5s8Ffk5yQ77aO1Nyevd45N8FklU9axJ6QEIPAAAAAAAiACALnWQcigT56xGDZYnG+KG16PvQ+NSAMQedhLDkzwupa3MAAAABASsBLw8AAAAAACJRIBcTnZ/KtybH5s8Ffk5yQ77aO1Nyevd45N8FklU9axJ6ARNA1Ft+QWltOal7hGEcn3sxCT49KxCb3nm7Zs6hVjFy7pmxq93R0sOEDgEhffrvw11thnkDWwzkbTpbZdKLfdL55iEWcN50m+dEhiKRiZ2yn8o7mBketdhsPFVJWDGiGeSsvkIJANN1CAMAAAAAAAEA/WsBAgAAAAX8hZWMZ/xZH+pX1UKzsq98DWLeg84+d+lnLSZYTa9bEwEAAAAA/f////+BQym8PHp6TfDeTN2kNtTxKA53eDMgOONNdplRD2crAQAAAAD9////0rvxwZmzWkGfLxAar68dwKs9V8AUmiE17qFnZT1vyqEBAAAAAP3///+5XXRkjjH7bQwiAv8PhG0KzwhhC4Cpsk+oUk2u6tjUtwAAAAAA/f///9g4gxx9weRP9c1nUweKfcHQylWPXFJel2i3pSr97oLEAAAAAAD9////BFnvHwwAAAAAIlEgKrOtuIBRmlcyRylh4TkGlrgDSJGb/RmeLfL3Kx+FkEIFDQAAAAAAABYAFA1ppsDG0hunKR15qmvch8V+HL6brggAAAAAAAAWABScK0hX0t8TWYBn6KzXlQignVipnqhhAAAAAAAAIlEgbPHbppaaHevaBRdDa3cTBSboL2J0sL5Y15OlnZPCpvmCAAAAAQEfrggAAAAAAAAWABScK0hX0t8TWYBn6KzXlQignVipniICA3DrEMKz8w0Ugc4IAql8E0XKknysVjeDEhT0tDFDblfFRzBEAiBZPel9Z07o5XrMjvCoHmGtGJYfzLi9jjWeR9Yde+g5QAIgcBjQtFfakSh0rwol1TQd0USRVwSljfC4qqPPtqoFbpgBIgYDcOsQwrPzDRSBzggCqXwTRcqSfKxWN4MSFPS0MUNuV8UInCtIVwAAAAAAAQD9awECAAAABfyFlYxn/Fkf6lfVQrOyr3wNYt6Dzj536WctJlhNr1sTAQAAAAD9/////4FDKbw8enpN8N5M3aQ21PEoDnd4MyA44012mVEPZysBAAAAAP3////Su/HBmbNaQZ8vEBqvrx3Aqz1XwBSaITXuoWdlPW/KoQEAAAAA/f///7lddGSOMfttDCIC/w+EbQrPCGELgKmyT6hSTa7q2NS3AAAAAAD9////2DiDHH3B5E/1zWdTB4p9wdDKVY9cUl6XaLelKv3ugsQAAAAAAP3///8EWe8fDAAAAAAiUSAqs624gFGaVzJHKWHhOQaWuANIkZv9GZ4t8vcrH4WQQgUNAAAAAAAAFgAUDWmmwMbSG6cpHXmqa9yHxX4cvpuuCAAAAAAAABYAFJwrSFfS3xNZgGforNeVCKCdWKmeqGEAAAAAAAAiUSBs8dumlpod69oFF0NrdxMFJugvYnSwvljXk6Wdk8Km+YIAAAABAR8FDQAAAAAAABYAFA1ppsDG0hunKR15qmvch8V+HL6bIgIC2JorWGJ0SzmhWmqzFrPhqrDrwdY8YQwXAVuhqfhWj9RHMEQCICr1tMIp8JS/04pVv2SzFoTjjnzi24K4aWjMPHW6O3e3AiAjayLCUVeSpy3Swp14k5GKZusw4ACB0Q471MtjdNvemwEiBgLYmitYYnRLOaFaarMWs+GqsOvB1jxhDBcBW6Gp+FaP1AgNaabAAAAAAAABAP2jAQIAAAACii/T6ia3CTMGTgzmXF/JaqWzkc1PP3fPcqYCXzhMRCMAAAAAAP3///+KL9PqJrcJMwZODOZcX8lqpbORzU8/d89ypgJfOExEIwMAAAAA/f///wn6nh8MAAAAACJRINLQ8k2aPlluL7wIGeiJTIPFxYPrhi2QFWpeEpI5GU3V6AMAAAAAAAAiUSAJWN7r3IrgH0rywqGrBUI+Mgq6SYY9DkN2vUoc2UWgkegDAAAAAAAAFgAUwT35ign2KH3je+ALTalOZlE4QgDoAwAAAAAAABYAFCtypky/Hpgo4jezIFa/JmOKsnlC6AMAAAAAAAAWABShQDqn3mp6eeiZRfbZL5Epf3nXJOgDAAAAAAAAFgAUKV+UJX71FN7D7X1FScTuJjrhboToAwAAAAAAABYAFOTniVos32znefXGICyZ3j47Ozbo6AMAAAAAAAAiUSBto+278RAYnqDrfJXhjU6s4addGMVXgTtVdFu4Ys7LeqhhAAAAAAAAIlEgGCr3KLtji2QCcIsAMfSqJUTpSs3WPROB634gfWuo2ZiTAAAAAQEr6AMAAAAAAAAiUSBto+278RAYnqDrfJXhjU6s4addGMVXgTtVdFu4Ys7LegETQAEgNUF2llCAdY65fzDPFoegIh4zmpu7S6a4bVJaMjiIjg1sflk2T96Rau7mPqS7f4Z97TpMojuPvAmE8Frolr8hFrWBYzYNC2C6QrpVHtYFPjLo/7D7qyc9X9cW8UuOmSVCCQBslnTLAAAAAAABAP2jAQIAAAACii/T6ia3CTMGTgzmXF/JaqWzkc1PP3fPcqYCXzhMRCMAAAAAAP3///+KL9PqJrcJMwZODOZcX8lqpbORzU8/d89ypgJfOExEIwMAAAAA/f///wn6nh8MAAAAACJRINLQ8k2aPlluL7wIGeiJTIPFxYPrhi2QFWpeEpI5GU3V6AMAAAAAAAAiUSAJWN7r3IrgH0rywqGrBUI+Mgq6SYY9DkN2vUoc2UWgkegDAAAAAAAAFgAUwT35ign2KH3je+ALTalOZlE4QgDoAwAAAAAAABYAFCtypky/Hpgo4jezIFa/JmOKsnlC6AMAAAAAAAAWABShQDqn3mp6eeiZRfbZL5Epf3nXJOgDAAAAAAAAFgAUKV+UJX71FN7D7X1FScTuJjrhboToAwAAAAAAABYAFOTniVos32znefXGICyZ3j47Ozbo6AMAAAAAAAAiUSBto+278RAYnqDrfJXhjU6s4addGMVXgTtVdFu4Ys7LeqhhAAAAAAAAIlEgGCr3KLtji2QCcIsAMfSqJUTpSs3WPROB634gfWuo2ZiTAAAAAQEf6AMAAAAAAAAWABTk54laLN9s53n1xiAsmd4+Ozs26CICA8k+D+6VocYlVteLq5WRuMMXitZpuUWHcQMUKTxw18bYRzBEAiALg+JgYCsW7eNPSayO37G7t8x8LeZ0OKt0+bXk/WNZeQIgRNVl4lmOKCYtHRAMhY3DwgLXGogmlUtfsXqOlVlQr1IBIgYDyT4P7pWhxiVW14urlZG4wxeK1mm5RYdxAxQpPHDXxtgI5OeJWgAAAAAAIQf1sINiFW8CBgONa2VBOJw/VqHaxLvRKxxM6SSYxCdPaAkAqPFzMQ8AAAAAAA=="]
 
     rewrites = [
@@ -224,13 +224,13 @@ def rewrite_examples(examples: Dict[str, Any]):
         # Connect is port dependent, so we clean it up.
         Rewriter("connect",
                  "example:connect#1",
-                [{"port": 30003}],
-                [{"address": {"port": 30003}}]),
+                 [{"port": 30003}],
+                 [{"address": {"port": 30003}}]),
         # Connect is port dependent, so we clean it up.
         Rewriter("connect",
                  "example:connect#2",
-                [{"port": 30005}],
-                [{"address": {"port": 30005}}]),
+                 [{"port": 30005}],
+                 [{"address": {"port": 30005}}]),
         # Logs are high-variance
         Rewriter("getlog",
                  "example:getlog#1",
@@ -310,36 +310,36 @@ def rewrite_examples(examples: Dict[str, Any]):
                  [],
                  [{"closedchannels": [{"last_stable_connection": 1738000000}, {}]}]),
         Rewriter("fundchannel",
-                "example:fundchannel#1",
-                [],
-                [{"tx": canned_txs[0]},
-                {"txid": canned_txids[0]}]),
+                 "example:fundchannel#1",
+                 [],
+                 [{"tx": canned_txs[0]},
+                  {"txid": canned_txids[0]}]),
         Rewriter("fundchannel",
-                "example:fundchannel#2",
-                [],
-                [{"tx": canned_txs[1]},
-                {"txid": canned_txids[1]}]),
+                 "example:fundchannel#2",
+                 [],
+                 [{"tx": canned_txs[1]},
+                  {"txid": canned_txids[1]}]),
         Rewriter("multifundchannel",
-                "example:multifundchannel#1",
-                [{"destinations": [
-                    {"id": "03cecbfdc68544cc596223b68ce0710c9e5d2c9cb317ee07822d95079acc703d31@127.0.0.1:30005"},
-                    {"id": "02287bfac8b99b35477ebe9334eede1e32b189e24644eb701c079614712331cec0@127.0.0.1:30007"},
-                    {"id": "0258f3ff3e0853ccc09f6fe89823056d7c0c55c95fab97674df5e1ad97a72f6265@127.0.0.1:30009"},
-                ]}],
-                []),
+                 "example:multifundchannel#1",
+                 [{"destinations": [
+                     {"id": "03cecbfdc68544cc596223b68ce0710c9e5d2c9cb317ee07822d95079acc703d31@127.0.0.1:30005"},
+                     {"id": "02287bfac8b99b35477ebe9334eede1e32b189e24644eb701c079614712331cec0@127.0.0.1:30007"},
+                     {"id": "0258f3ff3e0853ccc09f6fe89823056d7c0c55c95fab97674df5e1ad97a72f6265@127.0.0.1:30009"},
+                 ]}],
+                 []),
         Rewriter("multifundchannel",
-                "example:multifundchannel#2",
-                [{"destinations": [
-                    {"id": "03cecbfdc68544cc596223b68ce0710c9e5d2c9cb317ee07822d95079acc703d31@127.0.0.1:30005"},
-                    {"id": "02287bfac8b99b35477ebe9334eede1e32b189e24644eb701c079614712331cec0@127.0.0.1:30007"},
-                    {"id": "038194b5f32bdf0aa59812c86c4ef7ad2f294104fa027d1ace9b469bb6f88cf37b@127.0.0.1:30001"},
-                ]}],
-                []),
+                 "example:multifundchannel#2",
+                 [{"destinations": [
+                     {"id": "03cecbfdc68544cc596223b68ce0710c9e5d2c9cb317ee07822d95079acc703d31@127.0.0.1:30005"},
+                     {"id": "02287bfac8b99b35477ebe9334eede1e32b189e24644eb701c079614712331cec0@127.0.0.1:30007"},
+                     {"id": "038194b5f32bdf0aa59812c86c4ef7ad2f294104fa027d1ace9b469bb6f88cf37b@127.0.0.1:30001"},
+                 ]}],
+                 []),
         Rewriter("sendpsbt",
-                "example:sendpsbt#1",
-                [{"psbt": canned_psbts[0]}],
-                [{"tx": canned_txs[2]},
-                {"txid": canned_txids[2]}]),
+                 "example:sendpsbt#1",
+                 [{"psbt": canned_psbts[0]}],
+                 [{"tx": canned_txs[2]},
+                  {"txid": canned_txids[2]}]),
     ]
 
     # Canonicalize recover_channel request:
@@ -349,16 +349,121 @@ def rewrite_examples(examples: Dict[str, Any]):
     lc_response = examples['listconfigs']['examples'][2]['response']
     lc_response['configs'] = fixup_listconfigs(lc_response['configs'])
 
-    # Sort by scid as an arbitrary field.
-    lpc_response = examples['listpeerchannels']['examples'][1]['response']
-    lpc_response['channels'].sort(key=lambda c: c['short_channel_id'])
-
     for rw in rewrites:
         rewrite_example(examples, rw)
 
 
+def sort_examples(examples: Dict[str, Any]):
+    """Some examples are non-deterministic in their ordering, so we sort them to make the output stable across runs."""
+    # Sort lists whose internal order races across runs.
+
+    # Sort by scid as an arbitrary field.
+    lpc_response = examples['listpeerchannels']['examples'][1]['response']
+    lpc_response['channels'].sort(key=lambda c: c['short_channel_id'])
+
+    bklae = examples['bkpr-listaccountevents']['examples'][1]['response']
+    events = bklae['events']
+
+    def channel_key(e):
+        # 'account' identifies the channel directly; 'external' entries
+        # use 'origin' to point back at the channel that produced them.
+        return e.get('account') if e.get('account') != 'external' else e.get('origin', '')
+
+    clusters = {}
+    order = []
+    for e in events:
+        k = channel_key(e)
+        if k not in clusters:
+            clusters[k] = []
+            order.append(k)
+        clusters[k].append(e)
+
+    # Order clusters by the stable channel key itself
+    new_events = []
+    for k in sorted(order):
+        new_events.extend(clusters[k])
+
+    base_ts = events[0].get('timestamp', 1738000019) if events else 1738000019
+    for i, e in enumerate(new_events):
+        e['timestamp'] = base_ts + i
+
+    bklae['events'] = new_events
+
+    # bkpr-listincome#1 and #2: same race, same fix -- group income events
+    # by the channel's stable account/origin id.
+    for idx in (0, 1):
+        bkli = examples['bkpr-listincome']['examples'][idx]['response']
+        income_events = bkli['income_events']
+        income_clusters, income_order = {}, []
+        for e in income_events:
+            k = e.get('account') if e.get('account') != 'external' else e.get('origin', '')
+            income_clusters.setdefault(k, [])
+            if k not in income_order:
+                income_order.append(k)
+            income_clusters[k].append(e)
+        new_income_events = []
+        for k in sorted(income_order):
+            new_income_events.extend(income_clusters[k])
+        base_ts = income_events[0].get('timestamp', 1738000019) if income_events else 1738000019
+        for i, e in enumerate(new_income_events):
+            e['timestamp'] = base_ts + i
+        bkli['income_events'] = new_income_events
+
+    # listtransactions#1: transaction ordering is non-deterministic and keeping last 5 txs.
+    lt = examples['listtransactions']['examples'][0]['response']
+    lt['transactions'] = lt['transactions'][-5:]
+    lt['transactions'].sort(key=lambda t: (t.get('blockheight', 0), t.get('txindex', 0), t.get('hash', '')))
+
+    # listchannels#2: gossip propagation order varies.
+    lc = examples['listchannels']['examples'][1]['response']
+    lc['channels'].sort(key=lambda c: (c.get('short_channel_id', ''), c.get('source', '')))
+
+    # listchannelmoves#1: debit/credit lines for one forward are posted by two
+    # racing hooks (even timestamp order isn't fixed). Group by payment_hash.
+    lcm = examples['listchannelmoves']['examples'][0]['response']
+    moves = lcm['channelmoves']
+
+    # Stable-sort by payment_hash (preserves cross-forward order).
+    moves_by_hash = {}
+    order = []
+    for m in moves:
+        h = m.get('payment_hash', '')
+        if h not in moves_by_hash:
+            moves_by_hash[h] = []
+            order.append(h)
+        moves_by_hash[h].append(m)
+
+    new_moves = []
+    for h in order:
+        group = sorted(moves_by_hash[h], key=lambda m: m.get('account_id', ''))
+        new_moves.extend(group)
+
+    base_ts = moves[0].get('timestamp', 1738000000) if moves else 1738000000
+    for i, mv in enumerate(new_moves):
+        mv['created_index'] = i + 1
+        mv['timestamp'] = base_ts + i
+
+    lcm['channelmoves'] = new_moves
+
+    # listforwards#2: a local_failed attempt and a settled forward race for
+    # created_index. Sort by in_htlc_id, which is fixed per-HTLC.
+    lf = examples['listforwards']['examples'][1]['response']
+    lf['forwards'].sort(key=lambda f: (f.get('in_channel', ''), f.get('in_htlc_id', 0)))
+    for i, fwd in enumerate(lf['forwards']):
+        fwd['created_index'] = i + 1
+
+    # listhtlcs#1: two HTLCs on the same channel settle out of order (ADD/REMOVE
+    # revocation race). Sort by HTLC id, then renumber created_index to match.
+    lh = examples['listhtlcs']['examples'][0]['response']
+    lh['htlcs'].sort(key=lambda h: h.get('id', 0))
+    base_idx = min(h.get('created_index', 0) for h in lh['htlcs']) if lh['htlcs'] else 0
+    for i, htlc in enumerate(lh['htlcs']):
+        htlc['created_index'] = base_idx + i
+
+
 def update_examples_in_schema_files():
     """Update examples in JSON schema files"""
+    sort_examples(EXAMPLES_JSON)
     rewrite_examples(EXAMPLES_JSON)
     try:
         updated_examples = {}
@@ -1300,7 +1405,7 @@ def generate_channels_examples(node_factory, bitcoind, l1, l3, l4, l5, regenerat
         bitcoind.generate_block(1, wait_for_mempool=2)
         sync_blockheight(bitcoind, [l1, l3, l4, l5])
         l11.rpc.stop()
-        l12.rpc.stop()        
+        l12.rpc.stop()
         logger.info('Channels Done!')
     except Exception as e:
         logger.error(f'Error in generating fundchannel and openchannel examples: {e}')
