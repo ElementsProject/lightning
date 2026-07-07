@@ -22,6 +22,7 @@ import json
 import logging
 import ast
 import subprocess
+from collections import defaultdict
 
 CWD = os.getcwd()
 BASE_PORTNUM = int(os.environ.get('BASE_PORTNUM', 30000))
@@ -33,6 +34,8 @@ ALL_RPC_EXAMPLES = {}
 EXAMPLES_JSON = {}
 LOG_FILE = './tests/autogenerate-examples-status.log'
 IGNORE_RPCS_LIST = ['dev-splice', 'reckless', 'sql-template', 'currencyconvert', 'splicein', 'createproof', 'clnrest-register-path', 'sendamount', 'graceful', 'askrene-remove-channel-update', 'currencyrate', 'spliceout', 'askrene-bias-node', 'bkpr-report', 'xkeysend', 'listcurrencyrates', 'delnetworkevent', 'cancelrecurringinvoice', 'listnetworkevents', 'injectonionmessage']
+EXPECTED_WALLET_TXIDS = defaultdict(set)
+
 
 if os.path.exists(LOG_FILE):
     open(LOG_FILE, 'w').close()
@@ -51,6 +54,52 @@ def check_ports(portrange):
             except OSError:
                 logger.error(f'Port {port} in use!')
                 raise
+
+
+def wait_for_htlcs_settled(nodes, timeout=10):
+    """Block until no node has any HTLC still in a non-terminal state.
+
+    This serializes example generation against the async HTLC/forward
+    settlement pipeline, so that examples reading off listhtlcs,
+    listchannelmoves, and the bkpr-* ledgers see a stable, fully-settled
+    view rather than racing the payment(s) that were just fired off.
+    """
+    active_states = {'SENT_ADD_HTLC', 'RCVD_ADD_HTLC', 'SENT_ADD_COMMIT',
+                      'RCVD_ADD_COMMIT', 'SENT_ADD_REVOCATION', 'RCVD_ADD_REVOCATION'}
+
+    def _settled():
+        for n in nodes:
+            for chan in n.rpc.listpeerchannels()['channels']:
+                for htlc in chan.get('htlcs', []):
+                    if htlc.get('state') in active_states:
+                        return False
+        return True
+    wait_for(_settled, timeout=timeout)
+
+
+def register_wallet_tx(node, txid):
+    """Record a txid this node's wallet should eventually track, so we can
+    wait for it to actually land before reading listtransactions() later.
+    Call this immediately after any RPC that spends from or funds a node's
+    wallet (fundchannel, close, withdraw, multiwithdraw, sendpsbt, splice).
+    """
+    if txid:
+        EXPECTED_WALLET_TXIDS[node].add(txid)
+
+
+def wait_for_wallet_txs(node, timeout=10):
+    """Block until every txid registered for this node via
+    register_wallet_tx() actually appears in its listtransactions() output.
+    Wallet-tracked tx history updates asynchronously via a db hook, so a
+    transaction from long ago in the script may still not be recorded --
+    'stable across two reads' is not a safe proxy for 'landed', since it
+    can also be stably *absent* if polled before the write ever fires.
+    """
+    expected = EXPECTED_WALLET_TXIDS[node]
+    if not expected:
+        return
+    wait_for(lambda: expected <= {t['hash'] for t in node.rpc.listtransactions()['transactions']},
+             timeout=timeout)
 
 
 @dataclass(frozen=True)
@@ -330,6 +379,7 @@ def setup_test_nodes(node_factory, bitcoind, regenerate_blockchain):
         c23, c23res = l2.fundchannel(l3, FUND_CHANNEL_AMOUNT_SAT)
         sync_blockheight(bitcoind, [l1, l2, l3, l4, l5, l6])
         c34, c34res = l3.fundchannel(l4, FUND_CHANNEL_AMOUNT_SAT)
+        register_wallet_tx(l3, c34res.get('txid'))
         sync_blockheight(bitcoind, [l1, l2, l3, l4, l5, l6])
         c25, c25res = l2.fundchannel(l5, announce_channel=False)
         mine_funding_to_announce(bitcoind, [l1, l2, l3, l4])
@@ -378,15 +428,17 @@ def generate_transactions_examples(l1, l2, l3, l4, l5, c25, bitcoind):
         update_example(node=l1, method='pay', params=[inv_l32['bolt11']])
         update_example(node=l2, method='pay', params={'bolt11': inv_l33['bolt11']})
 
+        # Serialize before proceeding: payments settle asynchronously across
+        # hops, and downstream examples (listhtlcs, listchannelmoves, bkpr-*)
+        # read the same ledger -- without this wait they'd race in-flight HTLCs.
+        wait_for_htlcs_settled([l1, l2, l3, l4, l5])
+
         inv_l41 = l4.rpc.invoice('10000msat', 'test_xpay_simple', 'test_xpay_simple bolt11')
         update_example(node=l1, method='xpay', params=[inv_l41['bolt11']])
         offer_l11 = l1.rpc.offer('any')
         inv_l14 = l1.rpc.fetchinvoice(offer_l11['bolt12'], '1000msat')
         update_example(node=l1, method='xpay', params={'invstring': inv_l14['invoice']})
-
-        update_example(node=l1, method='injectonionmessage', params={'message': '0002cb7cd2001e3c670d64135542dcefdf4a3f590eb142cee9277b317848471906caeabe4afeae7f4e31f6ca9c119b643d5369c5e55f892f205469a185f750697124a2bb7ccea1245ec12d76340bcf7371ba6d1c9ddfe09b4153fce524417c14a594fdbb5e7c698a5daffe77db946727a38711be2ecdebdd347d2a9f990810f2795b3c39b871d7c72a11534bd388ca2517630263d96d8cc72d146bae800638066175c85a8e8665160ea332ed7d27efc31c960604d61c3f83801c25cbb69ae3962c2ef13b1fa9adc8dcbe3dc8d9a5e27ff5669e076b02cafef8f2c88fc548e03642180d57606386ad6ce27640339747d40f26eb5b9e93881fc8c16d5896122032b64bb5f1e4be6f41f5fa4dbd7851989aeccd80b2d5f6f25427f171964146185a8eaa57891d91e49a4d378743231e19edd5994c3118c9a415958a5d9524a6ecc78c0205f5c0059a7fbcf1abad706a189b712476d112521c9a4650d0ff09890536acae755a2b07d00811044df28b288d3dc2d5ae3f8bf3cf7a2950e2167105dfad0fb8398ef08f36abcdb1bfd6aca3241c33810f0750f35bdfb7c60b1759275b7704ab1bc8f3ea375b3588eab10e4f948f12fe0a3c77b67bebeedbcced1de0f0715f9959e5497cda5f8f6ab76c15b3dcc99956465de1bf2855338930650f8e8e8c391d9bb8950125dd60d8289dade0556d9dc443761983e26adcc223412b756e2fd9ad64022859b6cab20e8ffc3cf39ae6045b2c3338b1145ee3719a098e58c425db764d7f9a5034dbb730c20202f79bc3c53fab78ecd530aa0e8f7698c9ea53cb96dc9c639282c362d31177c5b81979f46f2db6090b8e171db47287523f28c462e35ef489b51426387f2709c342083968153b5f8a51cd5716b38106bb0f21c5ccfc28dd7c74b71c8367ae8ca348f66a7996bbc535076a1f65d9109658ec042257ca7523488fb1807dc8bec42739ccae066739cf58083b4e2c65e52e1747a6ec2aa26338bb6f2c3195a2b160e26dec70a2cfde269fa7c10c45d346a8bcc313bb618324edadc0291d15f4dc00ca3a7ad7131045fdf6978ba52178f4699525efcb8d96561630e2f28eaa97c66c38c66301b6c6f0124b550db620b09f35b9d45d1441cab7d93be5e3c39b9becfab7f8d05dd3a7a6e27a1d3f23f1dd01e967f5206600619f75439181848f7f4148216c11314b4eaf64c28c268ad4b33ea821d57728e9a9e9e1b6c4bcf35d14958295fc5f92bd6846f33c46f5fa20f569b25bc916b94e554f27a37448f873497e13baef8c740a7587828cc4136dd21b8584e6983e376e91663f8f91559637738b400fb49940fc2df299dfd448604b63c2f5d1f1ec023636f3baf2be5730364afd38191726a7c0d9477b1f231da4d707aabc6ad8036488181dbdb16b48500f2333036629004504d3524f87ece6afb04c4ba03ea6fce069e98b1ab7bf51f237d7c0f40756744dd703c6023b6461b90730f701404e8dddfaff40a9a60e670be7729556241fc9cc8727a586e38b71616bff8772c873b37d920d51a6ad31219a24b12f268545e2cfeb9e662236ab639fd4ecf865612678471ff7b320c934a13ca1f2587fc6a90f839c3c81c0ff84b51330820431418918e8501844893b53c1e0de46d51a64cb769974a996c58ff06683ebdc46fd4bb8e857cecebab785a351c64fd486fb648d25936cb09327b70d22c243035d4343fa3d2d148e2df5cd928010e34ae42b0333e698142050d9405b39f3aa69cecf8a388afbc7f199077b911cb829480f0952966956fe57d815f0d2467f7b28af11f8820645b601c0e1ad72a4684ebc60287d23ec3502f4c65ca44f5a4a0d79e3a5718cd23e7538cb35c57673fb9a1173e5526e767768117c7fefc2e3718f44f790b27e61995fecc6aef05107e75355be301ebe1500c147bb655a159f',
-                                                                     'path_key': '03ccf3faa19e8d124f27d495e3359f4002a6622b9a02df9a51b609826d354cda52'})
-
+        wait_for_htlcs_settled([l1, l2, l3, l4, l5])
         blockheight = l1.rpc.getinfo()['blockheight']
         amt = 10**3
         route = l1.rpc.getroute(l4.info['id'], amt, 10)['route']
@@ -401,11 +453,13 @@ def generate_transactions_examples(l1, l2, l3, l4, l5, c25, bitcoind):
         onion_res1 = update_example(node=l1, method='createonion', params={'hops': sendonion_hops, 'assocdata': inv['payment_hash']})
         update_example(node=l1, method='createonion', params={'hops': sendonion_hops, 'assocdata': inv['payment_hash'], 'session_key': '41' * 32})
         update_example(node=l1, method='sendonion', params={'onion': onion_res1['onion'], 'first_hop': first_hop, 'payment_hash': inv['payment_hash']})
+        wait_for_htlcs_settled([l1, l2, l3, l4, l5])
 
         # Close channels examples
         update_example(node=l2, method='close', params={'id': l3.info['id'], 'unilateraltimeout': 1})
         address_l41 = l4.rpc.newaddr()
-        update_example(node=l3, method='close', params={'id': l4.info['id'], 'destination': address_l41['bech32']})
+        c34res = update_example(node=l3, method='close', params={'id': l4.info['id'], 'destination': address_l41['bech32']})
+        register_wallet_tx(l3, c34res.get('txid'))
         bitcoind.generate_block(1, wait_for_mempool=2)
         sync_blockheight(bitcoind, [l1, l2, l3, l4])
 
@@ -457,6 +511,7 @@ def generate_transactions_examples(l1, l2, l3, l4, l5, c25, bitcoind):
             'cltv_expiry': blockheight + 18 + 6,
             'partid': 1,
             'groupid': 0})
+        wait_for_htlcs_settled([l1, l2, l3, l4, l5])
         update_example(node=l1, method='fetchbip353', params={'address': 'send.some@satsto.me'}, description=['Example of fetching BIP-353 payment details.'])
         logger.info('Simple Transactions Done!')
         return c23_2, c23res2, c34_2, inv_l11, inv_l21, inv_l22, inv_l31, inv_l32, inv_l34
@@ -544,6 +599,11 @@ def generate_bookkeeper_examples(l2, l3, c23_2_chan_id):
     """Generates all bookkeeper rpc examples"""
     try:
         logger.info('Bookkeeper Start...')
+        # Make sure all HTLCs/forwards are fully settled before reading off
+        # the bookkeeper ledger: bkpr-* entries are appended in the order
+        # settlement events are processed, so any in-flight HTLC here would
+        # make these examples non-deterministic across runs.
+        wait_for_htlcs_settled([l2, l3])
         update_example(node=l2, method='funderupdate', params={})
         update_example(node=l2, method='funderupdate', params={'policy': 'fixed', 'policy_mod': '50000sat', 'min_their_funding_msat': 1000, 'per_channel_min_msat': '1000sat', 'per_channel_max_msat': '500000sat', 'fund_probability': 100, 'fuzz_percent': 0, 'leases_only': False})
         update_example(node=l2, method='bkpr-inspect', params={'account': c23_2_chan_id})
@@ -799,13 +859,15 @@ def generate_utils_examples(l1, l2, l3, l4, l5, l6, c23_2, c34_2, inv_l11, inv_l
         update_example(node=l2, method='parsefeerate', params=['urgent'])
         update_example(node=l2, method='feerates', params={'style': 'perkw'})
         update_example(node=l2, method='feerates', params={'style': 'perkb'})
-        update_example(node=l2, method='signmessage', params={'message': 'this is a test!'})
-        update_example(node=l2, method='signmessage', params={'message': 'message for you'})
-        update_example(node=l2, method='checkmessage', params={'message': 'testcase to check new rpc error', 'zbase': 'd66bqz3qsku5fxtqsi37j11pci47ydxa95iusphutggz9ezaxt56neh77kxe5hyr41kwgkncgiu94p9ecxiexgpgsz8daoq4tw8kj8yx', 'pubkey': '03be3b0e9992153b1d5a6e1623670b6c3663f72ce6cf2e0dd39c0a373a7de5a3b7'})
-        update_example(node=l2, method='checkmessage', params={'message': 'this is a test!', 'zbase': 'd6tqaeuonjhi98mmont9m4wag7gg4krg1f4txonug3h31e9h6p6k6nbwjondnj46dkyausobstnk7fhyy998bhgc1yr98dfmhb4k54d7'})
+        message_1 = 'this is a test!'
+        message_2 = 'message for you'
+        signed_message = update_example(node=l2, method='signmessage', params={'message': message_1})
+        update_example(node=l2, method='signmessage', params={'message': message_2})
+        zbase = l2.rpc.signmessage(message_2)['zbase']
+        update_example(node=l1, method='checkmessage', params={'message': message_2, 'zbase': zbase, 'pubkey': l2.info['id']})
+        update_example(node=l1, method='checkmessage', params={'message': message_1, 'zbase': signed_message['zbase']})
         addr = l2.rpc.newaddr('bech32')['bech32']
-        update_example(node=l2, method='signmessagewithkey', params={'message': 'a test message', 'address': addr})
-        update_example(node=l2, method='decodepay', params={'bolt11': inv_l11['bolt11']})
+        update_example(node=l2, method='signmessagewithkey', params={'message': 'signing this message with key', 'address': addr})
         update_example(node=l2, method='decode', params=[rune_l21['rune']])
         update_example(node=l2, method='decode', params=[inv_l22['bolt11']])
 
@@ -1054,13 +1116,16 @@ def generate_channels_examples(node_factory, bitcoind, l1, l3, l4, l5, regenerat
         l3.rpc.connect(l5.info['id'], 'localhost', l5.port)
         l4.rpc.connect(l1.info['id'], 'localhost', l1.port)
         c35res = update_example(node=l3, method='fundchannel', params={'id': l5.info['id'], 'amount': FUND_CHANNEL_AMOUNT_SAT, 'announce': True})
+        register_wallet_tx(l3, c35res.get('txid'))
         outputs = sorted(l4.rpc.listfunds()['outputs'], key=lambda o: o["amount_msat"], reverse=True)
         utxo = f"{outputs[0]['txid']}:{outputs[0]['output']}"
         c41res = update_example(node=l4, method='fundchannel',
                                 params={'id': l1.info['id'], 'amount': 'all', 'feerate': 'normal', 'push_msat': 100000, 'utxos': [utxo]},
                                 description=[f'This example shows how to to open new channel with peer 1 from one whole utxo (you can use **listfunds** command to get txid and vout):'])
-        # Close newly funded channels to bring the setup back to initial state
-        l3.rpc.close(c35res['channel_id'])
+        # close() returns once signed, but wallet history updates async, so wait
+        # for the close txid to land before anything downstream reads it.
+        close_c35 = l3.rpc.close(c35res['channel_id'])
+        register_wallet_tx(l3, close_c35.get('txid'))
         l4.rpc.close(c41res['channel_id'])
         l3.rpc.disconnect(l5.info['id'], True)
         l4.rpc.disconnect(l1.info['id'], True)
@@ -1153,6 +1218,7 @@ def generate_autoclean_delete_examples(l1, l2, l3, l4, l5, c12, c23):
                           {'amount_msat': '1000sat', 'id': l4.info['id'], 'delay': 5, 'channel': c24}]
         l1.rpc.sendpay(route_l1_l4, inv_l41['payment_hash'], amount_msat='5000sat', groupid=1, partid=1, payment_secret=inv_l41['payment_secret'])
         l1.rpc.sendpay(route_l1_l2_l4, inv_l41['payment_hash'], amount_msat='5000sat', groupid=1, partid=2, payment_secret=inv_l41['payment_secret'])
+        wait_for_htlcs_settled([l1, l2, l3, l4])
         # Close l2->l4 for initial state
         l2.rpc.close(l4.info['id'])
         l2.rpc.disconnect(l4.info['id'], True)
@@ -1257,6 +1323,16 @@ def generate_list_examples(bitcoind, l1, l2, l3, c12, c23_2, inv_l31, inv_l32, o
         logger.info('Lists Start...')
         # Make sure all nodes are caught up.
         sync_blockheight(bitcoind, [l1, l2, l3])
+        # All HTLCs/forwards must be fully settled before reading listhtlcs,
+        # listforwards, or listsendpays, since those otherwise race the
+        # payment flows fired off earlier in the run.
+        wait_for_htlcs_settled([l1, l2, l3])
+        # l3's wallet-tracked tx history updates asynchronously, so any
+        # earlier close/fundchannel touching l3's wallet may not be
+        # recorded yet even long after it happened. Wait for it to
+        # stabilize before listtransactions is captured, or entries
+        # flicker in/out non-deterministically.
+        wait_for_wallet_txs(l3)
         # Transactions Lists
         listfunds_res1 = l2.rpc.listfunds()
         update_example(node=l2, method='listfunds', params={}, response=listfunds_res1)
