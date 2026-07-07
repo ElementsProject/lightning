@@ -1311,22 +1311,20 @@ def generate_backup_recovery_examples(node_factory, l4, l5, l6, regenerate_block
         update_example(node=l5, method='emergencyrecover', params={}, response=emergencyrecover_res2)
 
         # Recover
-        def get_hsm_secret(n):
-            """Returns codex32 and hex"""
+        def get_hsm_mmnemonic(n):
+            """Returns 12 word mmnemonic"""
             try:
                 hsmfile = os.path.join(n.daemon.lightning_dir, TEST_NETWORK, "hsm_secret")
-                codex32 = subprocess.check_output(["tools/hsmtool", "getcodexsecret", hsmfile, "leet"]).decode('utf-8').strip()
-                with open(hsmfile, "rb") as f:
-                    hexhsm = f.read().hex()
-                return codex32, hexhsm
+                mmnemonic = subprocess.check_output(["lightning-hsmtool", "getsecret", hsmfile, "leet"]).decode('utf-8').strip()
+                return mmnemonic
             except Exception as e:
-                logger.error(f'Error in getting hsm secret: {e}')
+                logger.error(f'Error in getting mmnemonic: {e}')
                 raise
 
-        _, l6hex = get_hsm_secret(l6)
-        l13codex32, _ = get_hsm_secret(l13)
-        update_example(node=l6, method='recover', params={'hsmsecret': l6hex})
-        update_example(node=l13, method='recover', params={'hsmsecret': l13codex32})
+        l6mmnemonic = get_hsm_mmnemonic(l6)
+        l13mmnemonic = get_hsm_mmnemonic(l13)
+        update_example(node=l6, method='recover', params={'hsmsecret': l6mmnemonic})
+        update_example(node=l13, method='recover', params={'hsmsecret': l13mmnemonic})
         logger.info('Backup and Recovery Done!')
     except Exception as e:
         logger.error(f'Error in generating backup and recovery examples: {e}')
