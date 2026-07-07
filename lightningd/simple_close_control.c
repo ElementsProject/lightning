@@ -4,6 +4,7 @@
 #include <bitcoin/signature.h>
 #include <ccan/tal/str/str.h>
 #include <closingd/simpleclosed_wiregen.h>
+#include <common/features.h>
 #include <common/fee_states.h>
 #include <common/memleak.h>
 #include <common/shutdown_scriptpubkey.h>
@@ -55,11 +56,36 @@ static const char *close_tx_check(const tal_t *ctx,
 		}
 		const u8 *script = tal_dup_arr(ctx, u8,
 					       out->script, out->script_len, 0);
-		if (!scripteq(script, channel->shutdown_scriptpubkey[LOCAL])
-		    && !scripteq(script, channel->shutdown_scriptpubkey[REMOTE]))
-			return tal_fmt(ctx,
-				"output %zu goes to unknown script %s",
-				i, tal_hex(ctx, script));
+		if (scripteq(script, channel->shutdown_scriptpubkey[LOCAL]))
+			continue;
+		if (scripteq(script, channel->shutdown_scriptpubkey[REMOTE]))
+			continue;
+		/* Our own output is always paid to shutdown_scriptpubkey[LOCAL]
+		 * (master passes it to closingd verbatim); we never substitute
+		 * an OP_RETURN for it.  So an OP_RETURN output that matches
+		 * neither stored script can only be the peer's closer_scriptpubkey.
+		 * It is unspendable, so accepting it cannot redirect funds to a
+		 * third party; but we still require a zero value so it burns
+		 * nothing. */
+		/* BOLT #2:
+		 * 4. if (and only if) `option_simple_close` is negotiated:
+		 *    * `OP_RETURN` followed by one of:
+		 *      * `6` to `75` inclusive followed by exactly that many bytes
+		 *      * `76` followed by `76` to `80` followed by exactly that many bytes
+		 */
+		/* BOLT #2:
+		 *     - If it does, the output value MUST be set to zero so that all funds go to fees, as specified in [BOLT #3](03-transactions.md#closing-transaction).
+		 */
+		if (feature_negotiated(channel->peer->ld->our_features,
+				       channel->peer->their_features,
+				       OPT_SIMPLE_CLOSE)
+		    && is_valid_op_return(script, tal_bytelen(script))
+		    && amount_sat_eq(bitcoin_tx_output_get_amount_sat(tx, i),
+				     AMOUNT_SAT(0)))
+			continue;
+		return tal_fmt(ctx,
+			"output %zu goes to unknown script %s",
+			i, tal_hex(ctx, script));
 	}
 	return NULL;
 }
