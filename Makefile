@@ -439,6 +439,7 @@ GRPC_GEN = \
 	$(GRPC_PATH)/node_pb2_grpc.py \
 	$(GRPC_PATH)/primitives_pb2.py
 
+CLN_GRPC_GENALL += $(GRPC_GEN)
 ALL_TEST_GEN += $(GRPC_GEN)
 
 $(GRPC_GEN) &: cln-grpc/proto/node.proto cln-grpc/proto/primitives.proto
