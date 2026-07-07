@@ -77,6 +77,18 @@ def wait_for_htlcs_settled(nodes, timeout=10):
     wait_for(_settled, timeout=timeout)
 
 
+def pinned_utxos(node, key=None):
+    """Return this node's current UTXOs as 'txid:vout' strings, sorted by a
+    deterministic key, so RPCs that would otherwise auto-select coins
+    (fundpsbt, multiwithdraw, withdraw) don't race wallet-internal ordering.
+    """
+    if key is None:
+        def key(o):
+            return (o['txid'], o['output'])
+    outputs = sorted(node.rpc.listfunds()['outputs'], key=key)
+    return [f"{o['txid']}:{o['output']}" for o in outputs]
+
+
 def register_wallet_tx(node, txid):
     """Record a txid this node's wallet should eventually track, so we can
     wait for it to actually land before reading listtransactions() later.
@@ -864,8 +876,14 @@ def generate_utils_examples(l1, l2, l3, l4, l5, l6, c23_2, c34_2, inv_l11, inv_l
         withdraw_l22 = update_example(node=l2, method='withdraw', params={'destination': address_l22['p2tr'], 'satoshi': 'all', 'feerate': '20000perkb', 'minconf': 0, 'utxos': utxos})
         bitcoind.generate_block(4, wait_for_mempool=[withdraw_l22['txid']])
         sync_blockheight(bitcoind, [l2])
-        update_example(node=l2, method='multiwithdraw', params={'outputs': [{l1.rpc.newaddr()['bech32']: '2222000msat'}, {l1.rpc.newaddr()['bech32']: '3333000msat'}]})
-        update_example(node=l2, method='multiwithdraw', params={'outputs': [{l1.rpc.newaddr('p2tr')['p2tr']: 1000}, {l1.rpc.newaddr()['bech32']: 1000}, {l2.rpc.newaddr()['bech32']: 1000}, {l3.rpc.newaddr()['bech32']: 1000}, {l3.rpc.newaddr()['bech32']: 1000}, {l4.rpc.newaddr('p2tr')['p2tr']: 1000}, {l1.rpc.newaddr()['bech32']: 1000}]})
+        multiwithdraw_l21 = update_example(node=l2, method='multiwithdraw', params={'outputs': [{l1.rpc.newaddr()['bech32']: '2222000msat'}, {l1.rpc.newaddr()['bech32']: '3333000msat'}], 'utxos': pinned_utxos(l2)})
+        # Mine the first multiwithdraw tx immediately, per-tx, or a batched
+        # wait_for_mempool=1 check mines them together and later calls hang.
+        bitcoind.generate_block(1, wait_for_mempool=[multiwithdraw_l21['txid']])
+        sync_blockheight(bitcoind, [l2])
+        multiwithdraw_l22 = update_example(node=l2, method='multiwithdraw', params={'outputs': [{l1.rpc.newaddr('p2tr')['p2tr']: 1000}, {l1.rpc.newaddr()['bech32']: 1000}, {l2.rpc.newaddr()['bech32']: 1000}, {l3.rpc.newaddr()['bech32']: 1000}, {l3.rpc.newaddr()['bech32']: 1000}, {l4.rpc.newaddr('p2tr')['p2tr']: 1000}, {l1.rpc.newaddr()['bech32']: 1000}], 'utxos': pinned_utxos(l2)})
+        bitcoind.generate_block(1, wait_for_mempool=[multiwithdraw_l22['txid']])
+        sync_blockheight(bitcoind, [l2])
         l2.rpc.connect(l4.info['id'], 'localhost', l4.port)
         l2.rpc.connect(l5.info['id'], 'localhost', l5.port)
         update_example(node=l2, method='disconnect', params={'id': l4.info['id'], 'force': False})
@@ -900,8 +918,10 @@ def generate_utils_examples(l1, l2, l3, l4, l5, l6, c23_2, c34_2, inv_l11, inv_l
         l1.rpc.addpsbtoutput(amount2, psbtoutput_res2['psbt'], None, dest)
         update_example(node=l1, method='setpsbtversion', params=[psbtoutput_res2['psbt'], 2])
 
-        out_total = Millisatoshi(3000000 * 1000)
-        funding = l1.rpc.fundpsbt(satoshi=out_total, feerate=7500, startweight=42)
+        out_total = Millisatoshi(600000 * 1000)
+        # fundpsbt has no 'utxos' param and picks coins non-deterministically.
+        # utxopsbt takes an explicit list, so pin the full sorted UTXO set instead.
+        funding = l1.rpc.utxopsbt(satoshi=out_total, feerate=7500, startweight=42, utxos=pinned_utxos(l1), reservedok=True)
         psbt = bitcoind.rpc.decodepsbt(funding['psbt'])
         saved_input = psbt['tx']['vin'][0]
         l1.rpc.unreserveinputs(funding['psbt'])
@@ -1018,17 +1038,20 @@ def generate_channels_examples(node_factory, bitcoind, l1, l3, l4, l5, regenerat
         l9.fundwallet(amount + 10000000)
         wait_for(lambda: len(l9.rpc.listfunds()["outputs"]) != 0)
         l9.rpc.connect(l10.info['id'], 'localhost', l10.port)
+        # Pin UTXOs for deterministic txprepare behavior
+        outputs_l9 = sorted(l9.rpc.listfunds()['outputs'], key=lambda o: o['amount_msat'], reverse=True)
+        utxos_l9 = [f"{o['txid']}:{o['output']}" for o in outputs_l9]
 
         fund_start_res1 = update_example(node=l9, method='fundchannel_start', params=[l10.info['id'], amount])
         outputs_1 = [{fund_start_res1['funding_address']: amount}]
         [{'bcrt1p00' + ('02' * 28): amount}]
-        tx_prep_1 = update_example(node=l9, method='txprepare', params=[outputs_1])
+        tx_prep_1 = update_example(node=l9, method='txprepare', params={'outputs': outputs_1, 'utxos': utxos_l9})
         update_example(node=l9, method='fundchannel_cancel', params=[l10.info['id']])
         update_example(node=l9, method='txdiscard', params=[tx_prep_1['txid']])
         fund_start_res2 = update_example(node=l9, method='fundchannel_start', params={'id': l10.info['id'], 'amount': amount})
         outputs_2 = [{fund_start_res2['funding_address']: amount}]
         [{'bcrt1p00' + ('03' * 28): amount}]
-        tx_prep_2 = update_example(node=l9, method='txprepare', params={'outputs': outputs_2})
+        tx_prep_2 = update_example(node=l9, method='txprepare', params={'outputs': outputs_2, 'utxos': utxos_l9})
         update_example(node=l9, method='fundchannel_complete', params=[l10.info['id'], tx_prep_2['psbt']])
         update_example(node=l9, method='txsend', params=[tx_prep_2['txid']])
         l9.rpc.close(l10.info['id'])
@@ -1037,12 +1060,16 @@ def generate_channels_examples(node_factory, bitcoind, l1, l3, l4, l5, regenerat
         sync_blockheight(bitcoind, [l9, l10])
 
         amount = 1000000
+        # Pin UTXOs for the second round of l9 fundchannel operations
+        outputs_l9 = sorted(l9.rpc.listfunds()['outputs'], key=lambda o: o['amount_msat'], reverse=True)
+        utxos_l9 = [f"{o['txid']}:{o['output']}" for o in outputs_l9]
+
         fund_start_res3 = l9.rpc.fundchannel_start(l10.info['id'], amount)
-        tx_prep_3 = l9.rpc.txprepare([{fund_start_res3['funding_address']: amount}])
+        tx_prep_3 = l9.rpc.txprepare([{fund_start_res3['funding_address']: amount}], utxos=utxos_l9)
         update_example(node=l9, method='fundchannel_cancel', params={'id': l10.info['id']})
         update_example(node=l9, method='txdiscard', params={'txid': tx_prep_3['txid']})
         funding_addr = l9.rpc.fundchannel_start(l10.info['id'], amount)['funding_address']
-        tx_prep_4 = l9.rpc.txprepare([{funding_addr: amount}])
+        tx_prep_4 = l9.rpc.txprepare([{funding_addr: amount}], utxos=utxos_l9)
         update_example(node=l9, method='fundchannel_complete', params={'id': l10.info['id'], 'psbt': tx_prep_4['psbt']})
         update_example(node=l9, method='txsend', params={'txid': tx_prep_4['txid']})
         l9.rpc.close(l10.info['id'])
