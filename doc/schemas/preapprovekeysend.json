@@ -67,7 +67,7 @@
         "id": "example:preapprovekeysend#1",
         "method": "preapprovekeysend",
         "params": {
-          "destination": "nodeid020202020202020202020202020202020202020202020202020202020202",
+          "destination": "033845802d25b4e074ccfd7cd8b339a41dc75bf9978a034800444b51d42b07799a",
           "payment_hash": "0000000000000000000000000000000000000000000000000000000000000000",
           "amount_msat": 1000
         }
@@ -79,7 +79,7 @@
         "id": "example:preapprovekeysend#2",
         "method": "preapprovekeysend",
         "params": [
-          "nodeid050505050505050505050505050505050505050505050505050505050505",
+          "0258f3ff3e0853ccc09f6fe89823056d7c0c55c95fab97674df5e1ad97a72f6265",
           "0101010101010101010101010101010101010101010101010101010101010101",
           2000
         ]

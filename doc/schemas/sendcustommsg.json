@@ -65,7 +65,7 @@
         "id": "example:sendcustommsg#1",
         "method": "sendcustommsg",
         "params": {
-          "node_id": "nodeid030303030303030303030303030303030303030303030303030303030303",
+          "node_id": "03cecbfdc68544cc596223b68ce0710c9e5d2c9cb317ee07822d95079acc703d31",
           "msg": "77770012"
         }
       },

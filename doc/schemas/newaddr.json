@@ -70,7 +70,8 @@
         "params": {}
       },
       "response": {
-        "bech32": "bcrt1qwx6am26cuw38y4863pd6swrce2g8mzhaxr9xp8"
+        "bech32": "bcrt1qk5cc90rw0s7y6uqe4647snwdnkwxadgc5jppfu",
+        "p2tr": "bcrt1phwuqwz92xrfhztfan2qe9eevquhc85yedgr266n4dtx7lg9faf5s5vzakh"
       }
     },
     {
@@ -82,7 +83,7 @@
         }
       },
       "response": {
-        "p2tr": "bcrt1p2gppccw6ywewmg74qqxxmqfdpjds3rpr0mf22y9tm9xcc0muggwsea9nkf"
+        "p2tr": "bcrt1p0g5lhkgeksy4hdaya9ws8uxsdscqzgumx2pkvrvre4t2enr9z8es3ykvza"
       }
     }
   ]

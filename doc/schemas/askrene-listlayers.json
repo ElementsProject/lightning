@@ -323,12 +323,12 @@
             "layer": "test_layers",
             "persistent": false,
             "disabled_nodes": [
-              "nodeid010101010101010101010101010101010101010101010101010101010101"
+              "038194b5f32bdf0aa59812c86c4ef7ad2f294104fa027d1ace9b469bb6f88cf37b"
             ],
             "created_channels": [
               {
-                "source": "nodeid010101010101010101010101010101010101010101010101010101010101",
-                "destination": "nodeid030303030303030303030303030303030303030303030303030303030303",
+                "source": "038194b5f32bdf0aa59812c86c4ef7ad2f294104fa027d1ace9b469bb6f88cf37b",
+                "destination": "03cecbfdc68544cc596223b68ce0710c9e5d2c9cb317ee07822d95079acc703d31",
                 "short_channel_id": "0x0x1",
                 "capacity_msat": 1000000000
               }
@@ -352,19 +352,13 @@
             ],
             "biases": [
               {
-                "short_channel_id_dir": "109x1x1/1",
+                "short_channel_id_dir": "116x1x1/1",
                 "description": "bigger bias",
-                "bias": -5
+                "bias": -5,
+                "timestamp": 1738000000
               }
             ],
-            "node_biases": [
-              {
-                "node": "nodeid030303030303030303030303030303030303030303030303030303030303",
-                "description": "this node is unreliable",
-                "in_bias": 0,
-                "out_bias": -5
-              }
-            ]
+            "node_biases": []
           }
         ]
       }
@@ -381,12 +375,12 @@
             "layer": "test_layers",
             "persistent": false,
             "disabled_nodes": [
-              "nodeid010101010101010101010101010101010101010101010101010101010101"
+              "038194b5f32bdf0aa59812c86c4ef7ad2f294104fa027d1ace9b469bb6f88cf37b"
             ],
             "created_channels": [
               {
-                "source": "nodeid010101010101010101010101010101010101010101010101010101010101",
-                "destination": "nodeid030303030303030303030303030303030303030303030303030303030303",
+                "source": "038194b5f32bdf0aa59812c86c4ef7ad2f294104fa027d1ace9b469bb6f88cf37b",
+                "destination": "03cecbfdc68544cc596223b68ce0710c9e5d2c9cb317ee07822d95079acc703d31",
                 "short_channel_id": "0x0x1",
                 "capacity_msat": 1000000000
               }
@@ -410,19 +404,13 @@
             ],
             "biases": [
               {
-                "short_channel_id_dir": "109x1x1/1",
+                "short_channel_id_dir": "116x1x1/1",
                 "description": "bigger bias",
-                "bias": -5
+                "bias": -5,
+                "timestamp": 1738000000
               }
             ],
-            "node_biases": [
-              {
-                "node": "nodeid030303030303030303030303030303030303030303030303030303030303",
-                "description": "this node is unreliable",
-                "in_bias": 0,
-                "out_bias": -5
-              }
-            ]
+            "node_biases": []
           },
           {
             "layer": "xpay",

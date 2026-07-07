@@ -270,17 +270,17 @@
         "id": "example:listnodes#1",
         "method": "listnodes",
         "params": {
-          "id": "nodeid030303030303030303030303030303030303030303030303030303030303"
+          "id": "03cecbfdc68544cc596223b68ce0710c9e5d2c9cb317ee07822d95079acc703d31"
         }
       },
       "response": {
         "nodes": [
           {
-            "nodeid": "nodeid030303030303030303030303030303030303030303030303030303030303",
-            "alias": "HOPPINGFIRE",
-            "color": "035d2b",
+            "nodeid": "03cecbfdc68544cc596223b68ce0710c9e5d2c9cb317ee07822d95079acc703d31",
+            "alias": "HOPPINGFIRE-v26.09",
+            "color": "03cecb",
             "last_timestamp": 1738000000,
-            "features": "8898882a8a59a1",
+            "features": "808898882a8a59a1",
             "addresses": []
           }
         ]
@@ -295,35 +295,35 @@
       "response": {
         "nodes": [
           {
-            "nodeid": "nodeid020202020202020202020202020202020202020202020202020202020202",
-            "alias": "SILENTARTIST",
-            "color": "022d22",
+            "nodeid": "033845802d25b4e074ccfd7cd8b339a41dc75bf9978a034800444b51d42b07799a",
+            "alias": "SILENTARTIST-v26.09",
+            "color": "033845",
             "last_timestamp": 1738000000,
-            "features": "8898882a8a59a1",
+            "features": "808898882a8a59a1",
             "addresses": []
           },
           {
-            "nodeid": "nodeid010101010101010101010101010101010101010101010101010101010101",
-            "alias": "JUNIORBEAM",
-            "color": "0266e4",
-            "last_timestamp": 1738010000,
-            "features": "8898882a8a59a1",
+            "nodeid": "038194b5f32bdf0aa59812c86c4ef7ad2f294104fa027d1ace9b469bb6f88cf37b",
+            "alias": "JUNIORBEAM-v26.09",
+            "color": "038194",
+            "last_timestamp": 1738000000,
+            "features": "808898882a8a59a1",
             "addresses": []
           },
           {
-            "nodeid": "nodeid030303030303030303030303030303030303030303030303030303030303",
-            "alias": "HOPPINGFIRE",
-            "color": "035d2b",
-            "last_timestamp": 1738020000,
-            "features": "8898882a8a59a1",
+            "nodeid": "03cecbfdc68544cc596223b68ce0710c9e5d2c9cb317ee07822d95079acc703d31",
+            "alias": "HOPPINGFIRE-v26.09",
+            "color": "03cecb",
+            "last_timestamp": 1738000000,
+            "features": "808898882a8a59a1",
             "addresses": []
           },
           {
-            "nodeid": "nodeid040404040404040404040404040404040404040404040404040404040404",
-            "alias": "JUNIORFELONY",
-            "color": "0382ce",
-            "last_timestamp": 1738030000,
-            "features": "8898882a8a59a1",
+            "nodeid": "02287bfac8b99b35477ebe9334eede1e32b189e24644eb701c079614712331cec0",
+            "alias": "JUNIORFELONY-v26.09",
+            "color": "02287b",
+            "last_timestamp": 1738000000,
+            "features": "808898882a8a59a1",
             "addresses": []
           }
         ]

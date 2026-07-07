@@ -212,13 +212,13 @@
         "id": "example:fundchannel_start#1",
         "method": "fundchannel_start",
         "params": [
-          "nodeid101010101010101010101010101010101010101010101010101010101010",
+          "030c0906bee9e0af4cbeb29b436aa2c17ae2df3568bf9a8ec69cd508fee6af28d9",
           16777216
         ]
       },
       "response": {
-        "funding_address": "bcrt1p0002020202020202020202020202020202020202020202020202020202",
-        "scriptpubkey": "scriptpubkey01010101010101010101010101010101010101010101010101010101",
+        "funding_address": "bcrt1qsxdxcrmq7rqp2e2l690k0rgc722yzkv49exkx2uwkkk6yevxlygq3lv4xs",
+        "scriptpubkey": "0020819a6c0f60f0c015655fd15f678d18f2944159952e4d632b8eb5ada26586f910",
         "channel_type": {
           "bits": [
             12,
@@ -237,13 +237,13 @@
         "id": "example:fundchannel_start#2",
         "method": "fundchannel_start",
         "params": {
-          "id": "nodeid101010101010101010101010101010101010101010101010101010101010",
+          "id": "030c0906bee9e0af4cbeb29b436aa2c17ae2df3568bf9a8ec69cd508fee6af28d9",
           "amount": 16777216
         }
       },
       "response": {
-        "funding_address": "bcrt1p0003030303030303030303030303030303030303030303030303030303",
-        "scriptpubkey": "scriptpubkey02020202020202020202020202020202020202020202020202020202",
+        "funding_address": "bcrt1qr4pftsergepzf2jrkzvyw5evsspdl7kyxplp6chv7226xwnszjnsy0rzpl",
+        "scriptpubkey": "00201d4295c323464224aa43b09847532c8402dffac4307e1d62ecf295a33a7014a7",
         "channel_type": {
           "bits": [
             12,

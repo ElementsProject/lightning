@@ -140,7 +140,15 @@
                 "type": "INTEGER"
               },
               {
+                "name": "force_paths",
+                "type": "INTEGER"
+              },
+              {
                 "name": "bolt12",
+                "type": "TEXT"
+              },
+              {
+                "name": "description",
                 "type": "TEXT"
               },
               {
@@ -228,6 +236,14 @@
               },
               {
                 "name": "funding_outnum",
+                "type": "INTEGER"
+              },
+              {
+                "name": "funding_psbt",
+                "type": "TEXT"
+              },
+              {
+                "name": "funding_withheld",
                 "type": "INTEGER"
               },
               {
