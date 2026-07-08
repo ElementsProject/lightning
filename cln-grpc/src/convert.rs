@@ -3758,6 +3758,16 @@ impl From<responses::ListconfigsConfigsProxy> for pb::ListconfigsConfigsProxy {
 }
 
 #[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsRecklessdir> for pb::ListconfigsConfigsRecklessdir {
+    fn from(c: responses::ListconfigsConfigsRecklessdir) -> Self {
+        Self {
+            source: c.source, // Rule #2 for type string
+            value_str: c.value_str, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::ListconfigsConfigsRecover> for pb::ListconfigsConfigsRecover {
     fn from(c: responses::ListconfigsConfigsRecover) -> Self {
         Self {
@@ -3959,6 +3969,7 @@ impl From<responses::ListconfigsConfigs> for pb::ListconfigsConfigs {
             plugin: c.plugin.map(|v| v.into()),
             plugin_dir: c.plugin_dir.map(|v| v.into()),
             proxy: c.proxy.map(|v| v.into()),
+            reckless_dir: c.reckless_dir.map(|v| v.into()),
             recover: c.recover.map(|v| v.into()),
             regtest: c.regtest.map(|v| v.into()),
             require_confirmed_inputs: c.require_confirmed_inputs.map(|v| v.into()),
@@ -5046,6 +5057,136 @@ impl From<responses::GracefulResponse> for pb::GracefulResponse {
 }
 
 #[allow(unused_variables)]
+impl From<responses::RecklessDisable> for pb::RecklessDisable {
+    fn from(c: responses::RecklessDisable) -> Self {
+        Self {
+            plugin_name: c.plugin_name, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::RecklessEnable> for pb::RecklessEnable {
+    fn from(c: responses::RecklessEnable) -> Self {
+        Self {
+            plugin_name: c.plugin_name, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::RecklessInstall> for pb::RecklessInstall {
+    fn from(c: responses::RecklessInstall) -> Self {
+        Self {
+            enabled: c.enabled, // Rule #2 for type boolean
+            installed_commit: c.installed_commit, // Rule #2 for type string?
+            plugin_name: c.plugin_name, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::RecklessListavailableManifest> for pb::RecklessListavailableManifest {
+    fn from(c: responses::RecklessListavailableManifest) -> Self {
+        Self {
+            // Field: Reckless.listavailable[].manifest.dependencies[]
+            dependencies: c.dependencies.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
+            entrypoint: c.entrypoint, // Rule #2 for type string
+            // Field: Reckless.listavailable[].manifest.install_cmd[]
+            install_cmd: c.install_cmd.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
+            installable: c.installable, // Rule #2 for type boolean?
+            long_description: c.long_description, // Rule #2 for type string?
+            offer: c.offer, // Rule #2 for type string?
+            // Field: Reckless.listavailable[].manifest.required_options[]
+            required_options: c.required_options.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
+            short_description: c.short_description, // Rule #2 for type string?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::RecklessListavailable> for pb::RecklessListavailable {
+    fn from(c: responses::RecklessListavailable) -> Self {
+        Self {
+            installer: c.installer as i32,
+            manifest: Some(c.manifest.into()),
+            origin: c.origin, // Rule #2 for type string
+            plugin_name: c.plugin_name, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::RecklessListintalled> for pb::RecklessListintalled {
+    fn from(c: responses::RecklessListintalled) -> Self {
+        Self {
+            installation_date: c.installation_date, // Rule #2 for type string
+            installation_time: c.installation_time, // Rule #2 for type number
+            installed_commit: c.installed_commit, // Rule #2 for type string?
+            original_source: c.original_source, // Rule #2 for type string
+            plugin_name: c.plugin_name, // Rule #2 for type string
+            requested_commit: c.requested_commit, // Rule #2 for type string?
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::RecklessTip> for pb::RecklessTip {
+    fn from(c: responses::RecklessTip) -> Self {
+        Self {
+            amount_msat: Some(c.amount_msat.into()), // Rule #2 for type msat
+            amount_sent_msat: Some(c.amount_sent_msat.into()), // Rule #2 for type msat
+            failed_parts: c.failed_parts, // Rule #2 for type u64
+            payment_preimage: c.payment_preimage.to_vec(), // Rule #2 for type secret
+            successful_parts: c.successful_parts, // Rule #2 for type u64
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::RecklessUninstall> for pb::RecklessUninstall {
+    fn from(c: responses::RecklessUninstall) -> Self {
+        Self {
+            plugin_name: c.plugin_name, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::RecklessUpdate> for pb::RecklessUpdate {
+    fn from(c: responses::RecklessUpdate) -> Self {
+        Self {
+            enabled: c.enabled, // Rule #2 for type boolean
+            installed_commit: c.installed_commit, // Rule #2 for type string?
+            plugin_name: c.plugin_name, // Rule #2 for type string
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::RecklessResponse> for pb::RecklessResponse {
+    fn from(c: responses::RecklessResponse) -> Self {
+        Self {
+            disable: c.disable.map(|v| v.into()),
+            enable: c.enable.map(|v| v.into()),
+            install: c.install.map(|v| v.into()),
+            // Field: Reckless.listavailable[]
+            listavailable: c.listavailable.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
+            // Field: Reckless.listintalled[]
+            listintalled: c.listintalled.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
+            // Field: Reckless.log[]
+            log: c.log.into_iter().map(|i| i.into()).collect(), // Rule #3 for type string
+            // Field: Reckless.sources[]
+            sources: c.sources.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
+            tip: c.tip.map(|v| v.into()),
+            uninstall: c.uninstall.map(|v| v.into()),
+            // Field: Reckless.update[]
+            update: c.update.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<notifications::BalanceSnapshotAccounts> for pb::BalanceSnapshotAccounts {
     fn from(c: notifications::BalanceSnapshotAccounts) -> Self {
         Self {
@@ -5446,6 +5587,18 @@ impl From<notifications::PayPartStartNotification> for pb::PayPartStartNotificat
             partid: c.partid, // Rule #2 for type u64
             payment_hash: <Sha256 as AsRef<[u8]>>::as_ref(&c.payment_hash).to_vec(), // Rule #2 for type hash
             total_payment_msat: Some(c.total_payment_msat.into()), // Rule #2 for type msat
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<notifications::RecklessLogNotification> for pb::RecklessLogNotification {
+    fn from(c: notifications::RecklessLogNotification) -> Self {
+        Self {
+            level: c.level as i32,
+            log: c.log, // Rule #2 for type string
+            time: c.time, // Rule #2 for type string
+            timestamp: c.timestamp, // Rule #2 for type string
         }
     }
 }
@@ -7391,6 +7544,23 @@ impl From<requests::GracefulRequest> for pb::GracefulRequest {
 }
 
 #[allow(unused_variables)]
+impl From<requests::RecklessRequest> for pb::RecklessRequest {
+    fn from(c: requests::RecklessRequest) -> Self {
+        Self {
+            amount_msat: c.amount_msat.map(|f| f.into()), // Rule #2 for type msat?
+            command: c.command as i32,
+            developer: c.developer, // Rule #2 for type boolean?
+            // Field: Reckless.options[]
+            options: c.options.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
+            payer_note: c.payer_note, // Rule #2 for type string?
+            subcommand: c.subcommand.map(|v| v as i32),
+            target: c.target, // Rule #2 for type string?
+            verbose: c.verbose, // Rule #2 for type boolean?
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<notifications::requests::StreamBalanceSnapshotRequest> for pb::StreamBalanceSnapshotRequest {
     fn from(c: notifications::requests::StreamBalanceSnapshotRequest) -> Self {
         Self {
@@ -7577,6 +7747,14 @@ impl From<notifications::requests::StreamPayPartEndRequest> for pb::StreamPayPar
 #[allow(unused_variables)]
 impl From<notifications::requests::StreamPayPartStartRequest> for pb::StreamPayPartStartRequest {
     fn from(c: notifications::requests::StreamPayPartStartRequest) -> Self {
+        Self {
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<notifications::requests::StreamRecklessLogRequest> for pb::StreamRecklessLogRequest {
+    fn from(c: notifications::requests::StreamRecklessLogRequest) -> Self {
         Self {
         }
     }
@@ -9447,6 +9625,22 @@ impl From<pb::GracefulRequest> for requests::GracefulRequest {
 }
 
 #[allow(unused_variables)]
+impl From<pb::RecklessRequest> for requests::RecklessRequest {
+    fn from(c: pb::RecklessRequest) -> Self {
+        Self {
+            amount_msat: c.amount_msat.map(|a| a.into()), // Rule #1 for type msat?
+            command: c.command.try_into().unwrap(),
+            developer: c.developer, // Rule #1 for type boolean?
+            options: Some(c.options.into_iter().map(|s| s.into()).collect()), // Rule #4
+            payer_note: c.payer_note, // Rule #1 for type string?
+            subcommand: c.subcommand.map(|v| v.try_into().unwrap()),
+            target: c.target, // Rule #1 for type string?
+            verbose: c.verbose, // Rule #1 for type boolean?
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<pb::StreamBalanceSnapshotRequest> for notifications::requests::StreamBalanceSnapshotRequest {
     fn from(c: pb::StreamBalanceSnapshotRequest) -> Self {
         Self {
@@ -9633,6 +9827,14 @@ impl From<pb::StreamPayPartEndRequest> for notifications::requests::StreamPayPar
 #[allow(unused_variables)]
 impl From<pb::StreamPayPartStartRequest> for notifications::requests::StreamPayPartStartRequest {
     fn from(c: pb::StreamPayPartStartRequest) -> Self {
+        Self {
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<pb::StreamRecklessLogRequest> for notifications::requests::StreamRecklessLogRequest {
+    fn from(c: pb::StreamRecklessLogRequest) -> Self {
         Self {
         }
     }

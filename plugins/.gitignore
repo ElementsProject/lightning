@@ -17,9 +17,9 @@ sql
 cln-renepay
 recover
 cln-askrene
-recklessrpc
 exposesecret
 cln-xpay
 cln-lsps-client
 cln-lsps-service
 cln-bwatch
+cln-reckless

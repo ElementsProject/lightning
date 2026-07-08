@@ -210,6 +210,7 @@ pub enum Request {
 	CreateProof(requests::CreateproofRequest),
 	Xkeysend(requests::XkeysendRequest),
 	Graceful(requests::GracefulRequest),
+	Reckless(requests::RecklessRequest),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -408,6 +409,7 @@ pub enum Response {
 	CreateProof(responses::CreateproofResponse),
 	Xkeysend(responses::XkeysendResponse),
 	Graceful(responses::GracefulResponse),
+	Reckless(responses::RecklessResponse),
 }
 
 
@@ -5472,6 +5474,139 @@ pub mod requests {
 
 	    fn method(&self) -> &str {
 	        "graceful"
+	    }
+	}
+	/// ['A subcommand. Only in combination with *command* **source**.']
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+	#[allow(non_camel_case_types)]
+	pub enum RecklessSubcommand {
+	    #[serde(rename = "add")]
+	    ADD = 0,
+	    #[serde(rename = "list")]
+	    LIST = 1,
+	    #[serde(rename = "remove")]
+	    REMOVE = 2,
+	}
+
+	impl TryFrom<i32> for RecklessSubcommand {
+	    type Error = anyhow::Error;
+	    fn try_from(c: i32) -> Result<RecklessSubcommand, anyhow::Error> {
+	        match c {
+	    0 => Ok(RecklessSubcommand::ADD),
+	    1 => Ok(RecklessSubcommand::LIST),
+	    2 => Ok(RecklessSubcommand::REMOVE),
+	            o => Err(anyhow::anyhow!("Unknown variant {} for enum RecklessSubcommand", o)),
+	        }
+	    }
+	}
+
+	impl ToString for RecklessSubcommand {
+	    fn to_string(&self) -> String {
+	        match self {
+	            RecklessSubcommand::ADD => "ADD",
+	            RecklessSubcommand::LIST => "LIST",
+	            RecklessSubcommand::REMOVE => "REMOVE",
+	        }.to_string()
+	    }
+	}
+
+	/// ['Determines which command to pass to reckless', '  - *command* **install** takes a *plugin_name* to search for and install a named plugin.', '  - *command* **uninstall** takes a *plugin_name* and attempts to uninstall a plugin of the same name.', '  - *command* **help** takes a *command* to display help for (plain text).', '...']
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+	#[allow(non_camel_case_types)]
+	pub enum RecklessCommand {
+	    #[serde(rename = "install")]
+	    INSTALL = 0,
+	    #[serde(rename = "update")]
+	    UPDATE = 1,
+	    #[serde(rename = "uninstall")]
+	    UNINSTALL = 2,
+	    #[serde(rename = "listavailable")]
+	    LISTAVAILABLE = 3,
+	    #[serde(rename = "listinstalled")]
+	    LISTINSTALLED = 4,
+	    #[serde(rename = "enable")]
+	    ENABLE = 5,
+	    #[serde(rename = "disable")]
+	    DISABLE = 6,
+	    #[serde(rename = "source")]
+	    SOURCE = 7,
+	    #[serde(rename = "tip")]
+	    TIP = 8,
+	    #[serde(rename = "help")]
+	    HELP = 9,
+	}
+
+	impl TryFrom<i32> for RecklessCommand {
+	    type Error = anyhow::Error;
+	    fn try_from(c: i32) -> Result<RecklessCommand, anyhow::Error> {
+	        match c {
+	    0 => Ok(RecklessCommand::INSTALL),
+	    1 => Ok(RecklessCommand::UPDATE),
+	    2 => Ok(RecklessCommand::UNINSTALL),
+	    3 => Ok(RecklessCommand::LISTAVAILABLE),
+	    4 => Ok(RecklessCommand::LISTINSTALLED),
+	    5 => Ok(RecklessCommand::ENABLE),
+	    6 => Ok(RecklessCommand::DISABLE),
+	    7 => Ok(RecklessCommand::SOURCE),
+	    8 => Ok(RecklessCommand::TIP),
+	    9 => Ok(RecklessCommand::HELP),
+	            o => Err(anyhow::anyhow!("Unknown variant {} for enum RecklessCommand", o)),
+	        }
+	    }
+	}
+
+	impl ToString for RecklessCommand {
+	    fn to_string(&self) -> String {
+	        match self {
+	            RecklessCommand::INSTALL => "INSTALL",
+	            RecklessCommand::UPDATE => "UPDATE",
+	            RecklessCommand::UNINSTALL => "UNINSTALL",
+	            RecklessCommand::LISTAVAILABLE => "LISTAVAILABLE",
+	            RecklessCommand::LISTINSTALLED => "LISTINSTALLED",
+	            RecklessCommand::ENABLE => "ENABLE",
+	            RecklessCommand::DISABLE => "DISABLE",
+	            RecklessCommand::SOURCE => "SOURCE",
+	            RecklessCommand::TIP => "TIP",
+	            RecklessCommand::HELP => "HELP",
+	        }.to_string()
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct RecklessRequest {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub amount_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub developer: Option<bool>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub payer_note: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub subcommand: Option<RecklessSubcommand>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub target: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub verbose: Option<bool>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub options: Option<Vec<String>>,
+	    // Path `Reckless.command`
+	    pub command: RecklessCommand,
+	}
+
+	impl From<RecklessRequest> for Request {
+	    fn from(r: RecklessRequest) -> Self {
+	        Request::Reckless(r)
+	    }
+	}
+
+	impl IntoRequest for RecklessRequest {
+	    type Response = super::responses::RecklessResponse;
+	}
+
+	impl TypedRequest for RecklessRequest {
+	    type Response = super::responses::RecklessResponse;
+
+	    fn method(&self) -> &str {
+	        "reckless"
 	    }
 	}
 }
@@ -11355,6 +11490,12 @@ pub mod responses {
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsRecklessdir {
+	    pub source: String,
+	    pub value_str: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListconfigsConfigsRequireconfirmedinputs {
 	    pub source: String,
 	    pub value_bool: bool,
@@ -11697,6 +11838,9 @@ pub mod responses {
 	    #[serde(rename = "plugin-dir")]
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub plugin_dir: Option<ListconfigsConfigsPlugindir>,
+	    #[serde(rename = "reckless-dir")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub reckless_dir: Option<ListconfigsConfigsRecklessdir>,
 	    #[serde(rename = "require-confirmed-inputs")]
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub require_confirmed_inputs: Option<ListconfigsConfigsRequireconfirmedinputs>,
@@ -13411,6 +13555,182 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::Graceful(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct RecklessDisable {
+	    pub plugin_name: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct RecklessEnable {
+	    pub plugin_name: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct RecklessInstall {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub installed_commit: Option<String>,
+	    pub enabled: bool,
+	    pub plugin_name: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct RecklessTip {
+	    pub amount_msat: Amount,
+	    pub amount_sent_msat: Amount,
+	    pub failed_parts: u64,
+	    pub payment_preimage: Secret,
+	    pub successful_parts: u64,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct RecklessUninstall {
+	    pub plugin_name: String,
+	}
+
+	/// ['The name of the plugin installer that will be used.']
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+	#[allow(non_camel_case_types)]
+	pub enum RecklessListavailableInstaller {
+	    #[serde(rename = "PythonUv")]
+	    PYTHONUV = 0,
+	    #[serde(rename = "PythonUvShebang")]
+	    PYTHONUVSHEBANG = 1,
+	    #[serde(rename = "PythonUvLegacy")]
+	    PYTHONUVLEGACY = 2,
+	    #[serde(rename = "PoetryVenv")]
+	    POETRYVENV = 3,
+	    #[serde(rename = "PyprojectViaPip")]
+	    PYPROJECTVIAPIP = 4,
+	    #[serde(rename = "Python")]
+	    PYTHON = 5,
+	    #[serde(rename = "Nodejs")]
+	    NODEJS = 6,
+	    #[serde(rename = "Rust")]
+	    RUST = 7,
+	    #[serde(rename = "Go")]
+	    GO = 8,
+	    #[serde(rename = "Custom")]
+	    CUSTOM = 9,
+	}
+
+	impl TryFrom<i32> for RecklessListavailableInstaller {
+	    type Error = anyhow::Error;
+	    fn try_from(c: i32) -> Result<RecklessListavailableInstaller, anyhow::Error> {
+	        match c {
+	    0 => Ok(RecklessListavailableInstaller::PYTHONUV),
+	    1 => Ok(RecklessListavailableInstaller::PYTHONUVSHEBANG),
+	    2 => Ok(RecklessListavailableInstaller::PYTHONUVLEGACY),
+	    3 => Ok(RecklessListavailableInstaller::POETRYVENV),
+	    4 => Ok(RecklessListavailableInstaller::PYPROJECTVIAPIP),
+	    5 => Ok(RecklessListavailableInstaller::PYTHON),
+	    6 => Ok(RecklessListavailableInstaller::NODEJS),
+	    7 => Ok(RecklessListavailableInstaller::RUST),
+	    8 => Ok(RecklessListavailableInstaller::GO),
+	    9 => Ok(RecklessListavailableInstaller::CUSTOM),
+	            o => Err(anyhow::anyhow!("Unknown variant {} for enum RecklessListavailableInstaller", o)),
+	        }
+	    }
+	}
+
+	impl ToString for RecklessListavailableInstaller {
+	    fn to_string(&self) -> String {
+	        match self {
+	            RecklessListavailableInstaller::PYTHONUV => "PYTHONUV",
+	            RecklessListavailableInstaller::PYTHONUVSHEBANG => "PYTHONUVSHEBANG",
+	            RecklessListavailableInstaller::PYTHONUVLEGACY => "PYTHONUVLEGACY",
+	            RecklessListavailableInstaller::POETRYVENV => "POETRYVENV",
+	            RecklessListavailableInstaller::PYPROJECTVIAPIP => "PYPROJECTVIAPIP",
+	            RecklessListavailableInstaller::PYTHON => "PYTHON",
+	            RecklessListavailableInstaller::NODEJS => "NODEJS",
+	            RecklessListavailableInstaller::RUST => "RUST",
+	            RecklessListavailableInstaller::GO => "GO",
+	            RecklessListavailableInstaller::CUSTOM => "CUSTOM",
+	        }.to_string()
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct RecklessListavailableManifest {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub installable: Option<bool>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub long_description: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub offer: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub short_description: Option<String>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub dependencies: Option<Vec<String>>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub install_cmd: Option<Vec<String>>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub required_options: Option<Vec<String>>,
+	    pub entrypoint: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct RecklessListavailable {
+	    // Path `Reckless.listavailable[].installer`
+	    pub installer: RecklessListavailableInstaller,
+	    pub manifest: RecklessListavailableManifest,
+	    pub origin: String,
+	    pub plugin_name: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct RecklessListintalled {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub installed_commit: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub requested_commit: Option<String>,
+	    pub installation_date: String,
+	    pub installation_time: f64,
+	    pub original_source: String,
+	    pub plugin_name: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct RecklessUpdate {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub installed_commit: Option<String>,
+	    pub enabled: bool,
+	    pub plugin_name: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct RecklessResponse {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub disable: Option<RecklessDisable>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub enable: Option<RecklessEnable>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub install: Option<RecklessInstall>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub tip: Option<RecklessTip>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub uninstall: Option<RecklessUninstall>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub listavailable: Option<Vec<RecklessListavailable>>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub listintalled: Option<Vec<RecklessListintalled>>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub sources: Option<Vec<String>>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub update: Option<Vec<RecklessUpdate>>,
+	    pub log: Vec<String>,
+	}
+
+	impl TryFrom<Response> for RecklessResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::Reckless(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }

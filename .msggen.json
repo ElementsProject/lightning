@@ -556,6 +556,43 @@
             "startdir": 3,
             "stop": 1
         },
+        "RecklessCommand": {
+            "disable": 6,
+            "enable": 5,
+            "help": 9,
+            "install": 0,
+            "listavailable": 3,
+            "listinstalled": 4,
+            "source": 7,
+            "tip": 8,
+            "uninstall": 2,
+            "update": 1
+        },
+        "RecklessListavailableInstaller": {
+            "Custom": 9,
+            "Go": 8,
+            "Nodejs": 6,
+            "PoetryVenv": 3,
+            "PyprojectViaPip": 4,
+            "Python": 5,
+            "PythonUv": 0,
+            "PythonUvLegacy": 2,
+            "PythonUvShebang": 1,
+            "Rust": 7
+        },
+        "RecklessLogLevel": {
+            "broken": 5,
+            "debug": 2,
+            "info": 3,
+            "io": 0,
+            "trace": 1,
+            "unusual": 4
+        },
+        "RecklessSubcommand": {
+            "add": 0,
+            "list": 1,
+            "remove": 2
+        },
         "RecoverResult": {
             "Recovery restart in progress": 0
         },
@@ -2576,6 +2613,7 @@
             "ListConfigs.configs.plugin": 10,
             "ListConfigs.configs.plugin-dir": 11,
             "ListConfigs.configs.proxy": 52,
+            "ListConfigs.configs.reckless-dir": 85,
             "ListConfigs.configs.recover": 84,
             "ListConfigs.configs.regtest": 6,
             "ListConfigs.configs.require-confirmed-inputs": 68,
@@ -2880,6 +2918,10 @@
         "ListconfigsConfigsProxy": {
             "ListConfigs.configs.proxy.source": 2,
             "ListConfigs.configs.proxy.value_str": 1
+        },
+        "ListconfigsConfigsReckless-dir": {
+            "ListConfigs.configs.reckless-dir.source": 1,
+            "ListConfigs.configs.reckless-dir.value_str": 2
         },
         "ListconfigsConfigsRecover": {
             "ListConfigs.configs.recover.source": 1,
@@ -3916,6 +3958,84 @@
             "PreApproveKeysend.amount_msat": 3,
             "PreApproveKeysend.destination": 1,
             "PreApproveKeysend.payment_hash": 2
+        },
+        "RecklessDisable": {
+            "Reckless.disable.plugin_name": 1
+        },
+        "RecklessEnable": {
+            "Reckless.enable.plugin_name": 1
+        },
+        "RecklessInstall": {
+            "Reckless.install.enabled": 1,
+            "Reckless.install.installed_commit": 2,
+            "Reckless.install.plugin_name": 3
+        },
+        "RecklessListavailable": {
+            "Reckless.listavailable[].installer": 1,
+            "Reckless.listavailable[].manifest": 2,
+            "Reckless.listavailable[].origin": 3,
+            "Reckless.listavailable[].plugin_name": 4
+        },
+        "RecklessListavailableManifest": {
+            "Reckless.listavailable[].manifest.dependencies[]": 1,
+            "Reckless.listavailable[].manifest.entrypoint": 2,
+            "Reckless.listavailable[].manifest.install_cmd[]": 3,
+            "Reckless.listavailable[].manifest.installable": 4,
+            "Reckless.listavailable[].manifest.long_description": 5,
+            "Reckless.listavailable[].manifest.offer": 6,
+            "Reckless.listavailable[].manifest.required_options[]": 7,
+            "Reckless.listavailable[].manifest.short_description": 8
+        },
+        "RecklessListintalled": {
+            "Reckless.listintalled[].installation_date": 1,
+            "Reckless.listintalled[].installation_time": 2,
+            "Reckless.listintalled[].installed_commit": 3,
+            "Reckless.listintalled[].original_source": 4,
+            "Reckless.listintalled[].plugin_name": 5,
+            "Reckless.listintalled[].requested_commit": 6
+        },
+        "RecklessLogNotification": {
+            "reckless_log.level": 1,
+            "reckless_log.log": 2,
+            "reckless_log.time": 3,
+            "reckless_log.timestamp": 4
+        },
+        "RecklessRequest": {
+            "Reckless.amount_msat": 1,
+            "Reckless.command": 2,
+            "Reckless.developer": 3,
+            "Reckless.options[]": 4,
+            "Reckless.payer_note": 5,
+            "Reckless.subcommand": 6,
+            "Reckless.target": 7,
+            "Reckless.verbose": 8
+        },
+        "RecklessResponse": {
+            "Reckless.disable": 1,
+            "Reckless.enable": 2,
+            "Reckless.install": 3,
+            "Reckless.listavailable[]": 4,
+            "Reckless.listintalled[]": 5,
+            "Reckless.log[]": 6,
+            "Reckless.sources[]": 7,
+            "Reckless.tip": 8,
+            "Reckless.uninstall": 9,
+            "Reckless.update[]": 10
+        },
+        "RecklessTip": {
+            "Reckless.tip.amount_msat": 1,
+            "Reckless.tip.amount_sent_msat": 2,
+            "Reckless.tip.failed_parts": 3,
+            "Reckless.tip.payment_preimage": 4,
+            "Reckless.tip.successful_parts": 5
+        },
+        "RecklessUninstall": {
+            "Reckless.uninstall.plugin_name": 1
+        },
+        "RecklessUpdate": {
+            "Reckless.update[].enabled": 1,
+            "Reckless.update[].installed_commit": 2,
+            "Reckless.update[].plugin_name": 3
         },
         "RecoverRequest": {
             "Recover.hsmsecret": 1
@@ -10637,6 +10757,18 @@
             "added": "v23.08",
             "deprecated": null
         },
+        "ListConfigs.configs.reckless-dir": {
+            "added": "v26.09",
+            "deprecated": null
+        },
+        "ListConfigs.configs.reckless-dir.source": {
+            "added": "v26.09",
+            "deprecated": null
+        },
+        "ListConfigs.configs.reckless-dir.value_str": {
+            "added": "v26.09",
+            "deprecated": null
+        },
         "ListConfigs.configs.recover": {
             "added": "v23.11",
             "deprecated": null
@@ -13451,6 +13583,210 @@
         },
         "PreApproveKeysend.payment_hash": {
             "added": "v23.02",
+            "deprecated": null
+        },
+        "Reckless": {
+            "added": "v22.11",
+            "deprecated": null
+        },
+        "Reckless.amount_msat": {
+            "added": "v26.09",
+            "deprecated": null
+        },
+        "Reckless.command": {
+            "added": "v22.11",
+            "deprecated": null
+        },
+        "Reckless.developer": {
+            "added": "v26.09",
+            "deprecated": null
+        },
+        "Reckless.disable": {
+            "added": "v26.09",
+            "deprecated": null
+        },
+        "Reckless.disable.plugin_name": {
+            "added": "v26.09",
+            "deprecated": null
+        },
+        "Reckless.enable": {
+            "added": "v26.09",
+            "deprecated": null
+        },
+        "Reckless.enable.plugin_name": {
+            "added": "v26.09",
+            "deprecated": null
+        },
+        "Reckless.install": {
+            "added": "v26.09",
+            "deprecated": null
+        },
+        "Reckless.install.enabled": {
+            "added": "v26.09",
+            "deprecated": null
+        },
+        "Reckless.install.installed_commit": {
+            "added": "v26.09",
+            "deprecated": null
+        },
+        "Reckless.install.plugin_name": {
+            "added": "v26.09",
+            "deprecated": null
+        },
+        "Reckless.listavailable[]": {
+            "added": "v26.09",
+            "deprecated": null
+        },
+        "Reckless.listavailable[].installer": {
+            "added": "v26.09",
+            "deprecated": null
+        },
+        "Reckless.listavailable[].manifest": {
+            "added": "v26.09",
+            "deprecated": null
+        },
+        "Reckless.listavailable[].manifest.dependencies[]": {
+            "added": "v26.09",
+            "deprecated": null
+        },
+        "Reckless.listavailable[].manifest.entrypoint": {
+            "added": "v26.09",
+            "deprecated": null
+        },
+        "Reckless.listavailable[].manifest.install_cmd[]": {
+            "added": "v26.09",
+            "deprecated": null
+        },
+        "Reckless.listavailable[].manifest.installable": {
+            "added": "v26.09",
+            "deprecated": null
+        },
+        "Reckless.listavailable[].manifest.long_description": {
+            "added": "v26.09",
+            "deprecated": null
+        },
+        "Reckless.listavailable[].manifest.offer": {
+            "added": "v26.09",
+            "deprecated": null
+        },
+        "Reckless.listavailable[].manifest.required_options[]": {
+            "added": "v26.09",
+            "deprecated": null
+        },
+        "Reckless.listavailable[].manifest.short_description": {
+            "added": "v26.09",
+            "deprecated": null
+        },
+        "Reckless.listavailable[].origin": {
+            "added": "v26.09",
+            "deprecated": null
+        },
+        "Reckless.listavailable[].plugin_name": {
+            "added": "v26.09",
+            "deprecated": null
+        },
+        "Reckless.listintalled[]": {
+            "added": "v26.09",
+            "deprecated": null
+        },
+        "Reckless.listintalled[].installation_date": {
+            "added": "v26.09",
+            "deprecated": null
+        },
+        "Reckless.listintalled[].installation_time": {
+            "added": "v26.09",
+            "deprecated": null
+        },
+        "Reckless.listintalled[].installed_commit": {
+            "added": "v26.09",
+            "deprecated": null
+        },
+        "Reckless.listintalled[].original_source": {
+            "added": "v26.09",
+            "deprecated": null
+        },
+        "Reckless.listintalled[].plugin_name": {
+            "added": "v26.09",
+            "deprecated": null
+        },
+        "Reckless.listintalled[].requested_commit": {
+            "added": "v26.09",
+            "deprecated": null
+        },
+        "Reckless.log[]": {
+            "added": "v22.11",
+            "deprecated": null
+        },
+        "Reckless.options[]": {
+            "added": "v26.09",
+            "deprecated": null
+        },
+        "Reckless.payer_note": {
+            "added": "v26.09",
+            "deprecated": null
+        },
+        "Reckless.sources[]": {
+            "added": "v26.09",
+            "deprecated": null
+        },
+        "Reckless.subcommand": {
+            "added": "v22.11",
+            "deprecated": null
+        },
+        "Reckless.target": {
+            "added": "v22.11",
+            "deprecated": null
+        },
+        "Reckless.tip": {
+            "added": "v26.09",
+            "deprecated": null
+        },
+        "Reckless.tip.amount_msat": {
+            "added": "v26.09",
+            "deprecated": null
+        },
+        "Reckless.tip.amount_sent_msat": {
+            "added": "v26.09",
+            "deprecated": null
+        },
+        "Reckless.tip.failed_parts": {
+            "added": "v26.09",
+            "deprecated": null
+        },
+        "Reckless.tip.payment_preimage": {
+            "added": "v26.09",
+            "deprecated": null
+        },
+        "Reckless.tip.successful_parts": {
+            "added": "v26.09",
+            "deprecated": null
+        },
+        "Reckless.uninstall": {
+            "added": "v26.09",
+            "deprecated": null
+        },
+        "Reckless.uninstall.plugin_name": {
+            "added": "v26.09",
+            "deprecated": null
+        },
+        "Reckless.update[]": {
+            "added": "v26.09",
+            "deprecated": null
+        },
+        "Reckless.update[].enabled": {
+            "added": "v26.09",
+            "deprecated": null
+        },
+        "Reckless.update[].installed_commit": {
+            "added": "v26.09",
+            "deprecated": null
+        },
+        "Reckless.update[].plugin_name": {
+            "added": "v26.09",
+            "deprecated": null
+        },
+        "Reckless.verbose": {
+            "added": "v26.09",
             "deprecated": null
         },
         "Recover": {
@@ -16723,6 +17059,26 @@
         },
         "rbf_channel.result": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "reckless_log": {
+            "added": "v26.09",
+            "deprecated": null
+        },
+        "reckless_log.level": {
+            "added": "v26.09",
+            "deprecated": null
+        },
+        "reckless_log.log": {
+            "added": "v26.09",
+            "deprecated": null
+        },
+        "reckless_log.time": {
+            "added": "v26.09",
+            "deprecated": null
+        },
+        "reckless_log.timestamp": {
+            "added": "v26.09",
             "deprecated": null
         },
         "recover_hook": {

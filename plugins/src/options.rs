@@ -132,8 +132,7 @@
 //!     Ok(())
 //! }
 //! ```
-use serde::Serialize;
-use serde::ser::{SerializeSeq, Serializer};
+use serde::{Deserialize, Serialize};
 
 pub mod config_type {
     #[derive(Clone, Debug)]
@@ -435,7 +434,7 @@ impl<'a> OptionType<'a> for config_type::Boolean {
     }
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ValueType {
     #[serde(rename = "string")]
     String,
@@ -447,40 +446,14 @@ pub enum ValueType {
     Flag,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
+#[serde(untagged)]
 pub enum Value {
     String(String),
     Integer(i64),
     Boolean(bool),
     StringArray(Vec<String>),
     IntegerArray(Vec<i64>),
-}
-
-impl Serialize for Value {
-    fn serialize<S>(&self, serializer: S) -> std::prelude::v1::Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        match self {
-            Value::String(s) => serializer.serialize_str(s),
-            Value::Integer(i) => serializer.serialize_i64(*i),
-            Value::Boolean(b) => serializer.serialize_bool(*b),
-            Value::StringArray(sa) => {
-                let mut seq = serializer.serialize_seq(Some(sa.len()))?;
-                for element in sa {
-                    seq.serialize_element(element)?;
-                }
-                seq.end()
-            }
-            Value::IntegerArray(sa) => {
-                let mut seq = serializer.serialize_seq(Some(sa.len()))?;
-                for element in sa {
-                    seq.serialize_element(element)?;
-                }
-                seq.end()
-            }
-        }
-    }
 }
 
 impl Value {
