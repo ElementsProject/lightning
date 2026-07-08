@@ -133,6 +133,7 @@ nav:
           - "lightning-pay": "lightning-pay.7.md"
           - "lightning-ping": "lightning-ping.7.md"
           - "lightning-plugin": "lightning-plugin.7.md"
+          - "lightning-reckless": "lightning-reckless.7.md"
           - "lightning-recoverchannel": "lightning-recoverchannel.7.md"
           - "lightning-reserveinputs": "lightning-reserveinputs.7.md"
           - "lightning-sendcustommsg": "lightning-sendcustommsg.7.md"
@@ -159,7 +160,6 @@ nav:
           - "lightningd-config": "lightningd-config.5.md"
           - "lightningd-rpc": "lightningd-rpc.7.md"
           - "lightningd": "lightningd.8.md"
-          - "reckless": "reckless.7.md"
           # block_end manpages
   - About:
       - Changelog: "CHANGELOG.md"
