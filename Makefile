@@ -648,23 +648,26 @@ check-amount-access:
 	@! (git grep -nE "(->|\.)(milli)?satoshis" -- "*.c" "*.h" ":(exclude)common/amount.*" ":(exclude)*/test/*" ":(exclude)tests/fuzz/*" | grep -v '/* Raw:')
 	@! git grep -nE "\\(struct amount_(m)?sat\\)" -- "*.c" "*.h" ":(exclude)common/amount.*" ":(exclude)*/test/*" ":(exclude)tests/fuzz/*" | grep -vE "sizeof.struct amount_(m)?sat."
 
+# Examples must be generated with this tree's binaries to use plugins and tools
+DOC_EXAMPLES_PATH = $(CURDIR)/lightningd:$(CURDIR)/cli:$(CURDIR)/tools:$(PATH)
+
 repeat-doc-examples:
 	@for i in $$(seq 1 $(n)); do \
 		echo "----------------------------------" >> tests/autogenerate-examples-repeat.log; \
 		echo "Iteration $$i" >> tests/autogenerate-examples-repeat.log; \
 		echo "----------------------------------" >> tests/autogenerate-examples-repeat.log; \
-		VALGRIND=0 TIMEOUT=40 TEST_DEBUG=1 GENERATE_EXAMPLES=1 CLN_NEXT_VERSION=$(CLN_NEXT_VERSION) pytest -vvv tests/autogenerate-rpc-examples.py; \
+		PATH="$(DOC_EXAMPLES_PATH)" TEST_DEBUG=1 VALGRIND=0 GENERATE_EXAMPLES=1 CLN_NEXT_VERSION=$(CLN_NEXT_VERSION) BASE_PORTNUM=$$BASE_PORTNUM pytest -vvv --timeout=1200 tests/autogenerate-rpc-examples.py; \
 		git diff >> tests/autogenerate-examples-repeat.log; \
 		git reset --hard; \
 		echo "----------------------------------" >> tests/autogenerate-examples-repeat.log; \
 	done
 
 update-doc-examples:
-	TEST_DEBUG=1 VALGRIND=0 GENERATE_EXAMPLES=1 CLN_NEXT_VERSION=$(CLN_NEXT_VERSION) $(PYTEST) $(PYTEST_OPTS) --timeout=1200 tests/autogenerate-rpc-examples.py && $(MAKE) $(MSGGEN_GEN_ALL)
+	PATH="$(DOC_EXAMPLES_PATH)" TEST_DEBUG=1 VALGRIND=0 GENERATE_EXAMPLES=1 CLN_NEXT_VERSION=$(CLN_NEXT_VERSION) $(PYTEST) $(PYTEST_OPTS) --timeout=1200 tests/autogenerate-rpc-examples.py && $(MAKE) $(MSGGEN_GEN_ALL)
 
 # If you changed tests/autogenerate-rpc-examples.py to require new blocks, you have to run this:
 update-doc-examples-newchain:
-	TEST_DEBUG=1 VALGRIND=0 GENERATE_EXAMPLES=1 CLN_NEXT_VERSION=$(CLN_NEXT_VERSION) REGENERATE_BLOCKCHAIN=1 $(PYTEST) $(PYTEST_OPTS) --timeout=1200 tests/autogenerate-rpc-examples.py && $(MAKE) $(MSGGEN_GEN_ALL)
+	PATH="$(DOC_EXAMPLES_PATH)" TEST_DEBUG=1 VALGRIND=0 GENERATE_EXAMPLES=1 CLN_NEXT_VERSION=$(CLN_NEXT_VERSION) REGENERATE_BLOCKCHAIN=1 $(PYTEST) $(PYTEST_OPTS) --timeout=1200 tests/autogenerate-rpc-examples.py && $(MAKE) $(MSGGEN_GEN_ALL)
 
 check-doc-examples: update-doc-examples
 	git diff --exit-code HEAD -- doc
