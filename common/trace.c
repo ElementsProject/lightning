@@ -10,6 +10,7 @@
 #include <common/json_stream.h>
 #include <common/memleak.h>
 #include <common/pseudorand.h>
+#include <common/randbytes.h>
 #include <common/trace.h>
 #include <fcntl.h>
 #include <inttypes.h>
@@ -104,6 +105,20 @@ static struct span fixed_spans[8];
 static struct span_htable *spans = NULL;
 static struct span *current;
 
+/* Span/trace ids are observability metadata: when the deterministic
+ * RNG override is active (CLN_DEV_ENTROPY_SEED), don't draw them from
+ * the deterministic stream, or builds with tracing active (HAVE_USDT,
+ * CLN_DEV_TRACE_FILE, CLN_TRACE_SOCKET) shift every later draw and
+ * produce different transactions than builds without. */
+static u64 trace_rand_u64(void)
+{
+	static u64 counter;
+
+	if (randbytes_overridden())
+		return ++counter;
+	return pseudorand_u64();
+}
+
 static void init_span(struct span *s, size_t key, const char *name,
 		      struct span *parent)
 {
@@ -111,7 +126,7 @@ static void init_span(struct span *s, size_t key, const char *name,
 	    time_now(); /* discouraged: but tracing wants non-dev time */
 
 	s->key = key;
-	s->id = pseudorand_u64();
+	s->id = trace_rand_u64();
 	s->start_time = (now.ts.tv_sec * 1000000) + now.ts.tv_nsec / 1000;
 	s->parent = parent;
 	s->name = name;
@@ -122,8 +137,8 @@ static void init_span(struct span *s, size_t key, const char *name,
 	/* If this is a new root span we also need to associate a new
 	 * trace_id with it. */
 	if (!s->parent) {
-		s->trace_id_hi = pseudorand_u64();
-		s->trace_id_lo = pseudorand_u64();
+		s->trace_id_hi = trace_rand_u64();
+		s->trace_id_lo = trace_rand_u64();
 	} else {
 		s->trace_id_hi = current->trace_id_hi;
 		s->trace_id_lo = current->trace_id_lo;
