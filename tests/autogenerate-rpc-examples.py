@@ -174,6 +174,19 @@ def fixup_listconfigs(configvars: Dict[str, Dict[str, Any]]) -> Dict[str, Dict[s
                        key=lambda kv: (1, kv[1]["plugin"], kv[0]) if "plugin" in kv[1] else (0, "", "")))
 
 
+def fixup_plugin(examples: List[Dict[str, Any]]):
+    # Boutique: plugin paths contain the build directory: change them to /usr/local/libexec/plugins/
+    def canonical(path: str) -> str:
+        return "/usr/local/libexec/plugins/" + path.split('/')[-1]
+
+    for ex in examples:
+        params = ex['request'].get('params')
+        if isinstance(params, dict) and 'plugin' in params:
+            params['plugin'] = canonical(params['plugin'])
+        for p in ex['response'].get('plugins', []):
+            p['name'] = canonical(p['name'])
+
+
 def rewrite_examples(examples: Dict[str, Any]):
     """Despite being deterministic, some thing still need fixing up"""
 
@@ -348,6 +361,9 @@ def rewrite_examples(examples: Dict[str, Any]):
     # Canonicalize plugin paths, order of plugin options
     lc_response = examples['listconfigs']['examples'][2]['response']
     lc_response['configs'] = fixup_listconfigs(lc_response['configs'])
+
+    # Canonicalize plugin paths in plugin start/stop/list examples
+    fixup_plugin(examples['plugin']['examples'])
 
     for rw in rewrites:
         rewrite_example(examples, rw)
