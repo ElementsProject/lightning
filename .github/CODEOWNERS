@@ -4,22 +4,27 @@
 # also can optionally require approval from a code owner before the
 # author can merge a pull request in the repository.
 
-cln-grpc/               @cdecker
-cln-rpc/                @cdecker
-plugins/src/            @cdecker
-plugins/grpc-plugin/    @cdecker
-contrib/reprobuild/     @cdecker
-contrib/msggen/         @cdecker
-contrib/pyln-client/    @cdecker
-contrib/pyln-testing/   @cdecker
+cln-grpc/                   @cdecker
+cln-rpc/                    @cdecker
+plugins/src/                @cdecker
+plugins/grpc-plugin/        @cdecker
+contrib/reprobuild/         @cdecker
+contrib/msggen/             @cdecker
+contrib/pyln-client/        @cdecker
+contrib/pyln-testing/       @cdecker
 # Needed to ensure hsmd wire compatibility between releases
-hsmd/hsmd_wire.csv      @cdecker @ksedgwic @devrandom
-plugins/xpay/           @Lagrang3
-plugins/askrene/        @Lagrang3
-plugins/renepay/        @Lagrang3
-tests/test_xpay.py      @Lagrang3
-tests/test_askrene.py   @Lagrang3
-tests/test_renepay.py   @Lagrang3
+hsmd/hsmd_wire.csv          @cdecker @ksedgwic @devrandom
+plugins/xpay/               @Lagrang3
+plugins/askrene/            @Lagrang3
+plugins/renepay/            @Lagrang3
+tests/test_xpay.py          @Lagrang3
+tests/test_askrene.py       @Lagrang3
+tests/test_renepay.py       @Lagrang3
+plugins/bip353-plugin       @daywalker90
+plugins/currencyrate-plugin @daywalker90
+plugins/rest-plugin         @daywalker90
+tests/test_clnrest.py       @daywalker90
+tests/test_currencyrate.py  @daywalker90
 
 # See https://help.github.com/articles/about-codeowners/ for more
 # information
