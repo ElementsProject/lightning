@@ -334,6 +334,11 @@ connections. Default is 9736.
   them over grpc. If buffer overflow occurs some notifications will not
   be delivered.
 
+* **reckless-dir**=*DIR*
+
+  Set the working directory for reckless, where repositories, metadata, reckless-installed
+  plugins, and a reckless-installed config is stored. Defaults to `lightning-dir/../reckless`
+
 ### Lightning node customization options
 
 * **recover**=*mnemonic*
