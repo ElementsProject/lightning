@@ -838,11 +838,57 @@ jobs:
           find . -type f -print0 | xargs -0 touch -d yesterday
           tar xaf cln-${{ matrix.CFG }}.tar.gz
 
+      - name: Debug check-doc-examples inputs
+        run: |
+          echo "== lightning-hsmtool =="
+          which lightning-hsmtool || echo "NOT ON PATH"
+          find . -name "lightning-hsmtool*" -not -path "./.git/*" 2>/dev/null
+
+          echo "== autogenerate-bitcoind-wallet.dat =="
+          ls -la tests/data/autogenerate-bitcoind-wallet.dat 2>&1
+
+          echo "== autogenerate-bitcoin-blocks.json =="
+          ls -la tests/data/autogenerate-bitcoin-blocks.json 2>&1
+          echo "-- number of blocks --"
+          python3 -c "import json; print(len(json.load(open('tests/data/autogenerate-bitcoin-blocks.json'))))" 2>&1
+          echo "-- first 300 chars --"
+          head -c 300 tests/data/autogenerate-bitcoin-blocks.json
+          echo ""
+
+          echo "== environment fingerprint =="
+          # Determinism discriminators: HAVE_USDT toggles tracing, which
+          # must not perturb the deterministic RNG stream.
+          grep -E 'HAVE_USDT|HAVE_SQLITE3' config.vars || true
+          bitcoind --version | head -1 || true
+          dpkg -l systemtap-sdt-dev 2>/dev/null | tail -1 || true
+
       - name: Test
         env:
           PYTEST_OPTS: ${{ env.PYTEST_OPTS_BASE }}
         run: |
           uv run eatmydata make -j $(($(nproc) + 1)) check-doc-examples CARGO=false CC=devtools/cc-nobuild SUPPRESS_GENERATION=1
+      - name: Save doc diff on failure
+        if: failure()
+        run: |
+          git diff -- doc > doc-examples.patch || true
+          git status --short -- doc
+      - name: Collect node logs on failure
+        if: failure()
+        run: |
+          mkdir -p ltests-debug
+          # pyln-testing leaves /tmp/ltests-* behind on failure: grab every
+          # node's daemon log and config (skip databases and sockets).
+          find /tmp/ltests-* -type f \( -name 'log' -o -name '*.log' -o -name 'config' \) \
+            -exec cp --parents -t ltests-debug {} + 2>/dev/null || true
+      - name: Upload debug artifacts
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: doc-examples-debug
+          path: |
+            doc-examples.patch
+            ltests-debug/
+          if-no-files-found: ignore
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v7
