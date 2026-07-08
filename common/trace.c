@@ -91,6 +91,12 @@ static size_t span_keyof(const struct span *span) { return span->key; }
 
 static size_t span_key_hash(size_t key)
 {
+	/* Tracing must never touch the RNG: siphash_seed() draws its
+	 * seed from the randbytes stream on first use, and with the
+	 * deterministic override active that would shift every later
+	 * draw in the process (see trace_rand_u64 below). */
+	if (randbytes_overridden())
+		return key * 0x9E3779B97F4A7C15ULL;
 	return siphash24(siphash_seed(), &key, sizeof(key));
 }
 
