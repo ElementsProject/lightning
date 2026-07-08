@@ -1962,6 +1962,31 @@
                 ]
               }
             }
+          },
+          "reckless-dir": {
+            "added": "v26.09",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "value_str",
+              "source"
+            ],
+            "properties": {
+              "value_str": {
+                "added": "v26.09",
+                "type": "string",
+                "description": [
+                  "Field from config or cmdline, or default."
+                ]
+              },
+              "source": {
+                "added": "v26.09",
+                "type": "string",
+                "description": [
+                  "Source of configuration setting."
+                ]
+              }
+            }
           }
         }
       }
