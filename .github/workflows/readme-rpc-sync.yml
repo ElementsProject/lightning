@@ -12,7 +12,6 @@ on:
       - 'doc/*.5.md'
       - 'doc/*.8.md'
       - 'doc/lightningd-*.7.md'
-      - 'doc/reckless.7.md'
   workflow_dispatch:
 
 jobs:
