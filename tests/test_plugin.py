@@ -2245,8 +2245,7 @@ def test_bcli_concurrent(node_factory, bitcoind, executor):
 
     def mock_getblock(r):
         if getblockfrompeer_count >= retry_count:
-            conf_file = os.path.join(bitcoind.bitcoin_dir, "bitcoin.conf")
-            brpc = RawProxy(btc_conf_file=conf_file)
+            brpc = RawProxy(btc_conf_file=bitcoind.conf_file)
             return {
                 "result": brpc._call(r["method"], *r["params"]),
                 "error": None,
