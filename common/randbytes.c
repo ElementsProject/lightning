@@ -9,6 +9,7 @@
 #include <common/utils.h>
 #include <sodium/randombytes.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 static bool used = false;
@@ -48,15 +49,23 @@ void randbytes_(void *bytes, size_t num_bytes, u64 *offset)
 }
 
 /* We want different seeds for each plugin (hence argv0), and for each
- * lightmingd instance, (hence seed from environment) */
+ * lightningd instance, (hence seed from environment) */
 void dev_override_randbytes(const char *argv0, long int seed)
 {
 	struct siphash_seed hashseed;
+	const char *base;
 	assert(!used);
+
+	/* Hash only the basename: binaries still get distinct seeds, but
+	* the stream no longer depends on the checkout path. Plugins and
+	* subdaemons are exec'd with absolute paths: hash only the basename,
+	* so the stream doesn't depend on where the source tree lives */
+	base = strrchr(argv0, '/');
+	base = base ? base + 1 : argv0;
 
 	hashseed.u.u64[0] = seed;
 	hashseed.u.u64[1] = 0;
 
-	dev_seed = siphash24(&hashseed, argv0, strlen(argv0));
+	dev_seed = siphash24(&hashseed, base, strlen(base));
 	assert(randbytes_overridden());
 }
