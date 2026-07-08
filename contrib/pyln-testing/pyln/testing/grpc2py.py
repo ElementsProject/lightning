@@ -2211,6 +2211,13 @@ def wait2py(m):
     })
 
 
+def listconfigs_configs_accept_htlc_tlv_type2py(m):
+    return remove_default({
+        "sources": [m.sources for i in m.sources],  # ArrayField[primitive] in generate_composite
+        "values_int": [m.values_int for i in m.values_int],  # ArrayField[primitive] in generate_composite
+    })
+
+
 def listconfigs_configs_addr2py(m):
     return remove_default({
         "sources": [m.sources for i in m.sources],  # ArrayField[primitive] in generate_composite
@@ -2481,6 +2488,13 @@ def listconfigs_configs_funding_confirms2py(m):
     })
 
 
+def listconfigs_configs_hsm_passphrase2py(m):
+    return remove_default({
+        "set": m.set,  # PrimitiveField in generate_composite
+        "source": m.source,  # PrimitiveField in generate_composite
+    })
+
+
 def listconfigs_configs_htlc_maximum_msat2py(m):
     return remove_default({
         "source": m.source,  # PrimitiveField in generate_composite
@@ -2495,6 +2509,13 @@ def listconfigs_configs_htlc_minimum_msat2py(m):
     })
 
 
+def listconfigs_configs_i_promise_to_fix_broken_api_user2py(m):
+    return remove_default({
+        "sources": [m.sources for i in m.sources],  # ArrayField[primitive] in generate_composite
+        "values_str": [m.values_str for i in m.values_str],  # ArrayField[primitive] in generate_composite
+    })
+
+
 def listconfigs_configs_ignore_fee_limits2py(m):
     return remove_default({
         "source": m.source,  # PrimitiveField in generate_composite
@@ -2506,6 +2527,13 @@ def listconfigs_configs_important_plugin2py(m):
     return remove_default({
         "sources": [m.sources for i in m.sources],  # ArrayField[primitive] in generate_composite
         "values_str": [m.values_str for i in m.values_str],  # ArrayField[primitive] in generate_composite
+    })
+
+
+def listconfigs_configs_invoices_onchain_fallback2py(m):
+    return remove_default({
+        "set": m.set,  # PrimitiveField in generate_composite
+        "source": m.source,  # PrimitiveField in generate_composite
     })
 
 
@@ -2572,11 +2600,32 @@ def listconfigs_configs_max_dust_htlc_exposure_msat2py(m):
     })
 
 
+def listconfigs_configs_max_locktime_blocks2py(m):
+    return remove_default({
+        "source": m.source,  # PrimitiveField in generate_composite
+        "value_int": m.value_int,  # PrimitiveField in generate_composite
+    })
+
+
+def listconfigs_configs_message_padding2py(m):
+    return remove_default({
+        "source": m.source,  # PrimitiveField in generate_composite
+        "value_bool": m.value_bool,  # PrimitiveField in generate_composite
+    })
+
+
 def listconfigs_configs_min_capacity_sat2py(m):
     return remove_default({
         "dynamic": m.dynamic,  # PrimitiveField in generate_composite
         "source": m.source,  # PrimitiveField in generate_composite
         "value_int": m.value_int,  # PrimitiveField in generate_composite
+    })
+
+
+def listconfigs_configs_min_emergency_msat2py(m):
+    return remove_default({
+        "source": m.source,  # PrimitiveField in generate_composite
+        "value_msat": amount2msat(m.value_msat),  # PrimitiveField in generate_composite
     })
 
 
@@ -2591,6 +2640,13 @@ def listconfigs_configs_offline2py(m):
     return remove_default({
         "set": m.set,  # PrimitiveField in generate_composite
         "source": m.source,  # PrimitiveField in generate_composite
+    })
+
+
+def listconfigs_configs_payment_fronting_node2py(m):
+    return remove_default({
+        "sources": [m.sources for i in m.sources],  # ArrayField[primitive] in generate_composite
+        "values_str": [m.values_str for i in m.values_str],  # ArrayField[primitive] in generate_composite
     })
 
 
@@ -2616,6 +2672,13 @@ def listconfigs_configs_plugin_dir2py(m):
 
 
 def listconfigs_configs_proxy2py(m):
+    return remove_default({
+        "source": m.source,  # PrimitiveField in generate_composite
+        "value_str": m.value_str,  # PrimitiveField in generate_composite
+    })
+
+
+def listconfigs_configs_recover2py(m):
     return remove_default({
         "source": m.source,  # PrimitiveField in generate_composite
         "value_str": m.value_str,  # PrimitiveField in generate_composite

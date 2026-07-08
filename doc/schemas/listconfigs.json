@@ -368,6 +368,37 @@
               }
             }
           },
+          "i-promise-to-fix-broken-api-user": {
+            "added": "v24.02",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "values_str",
+              "sources"
+            ],
+            "properties": {
+              "values_str": {
+                "added": "v24.02",
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "description": [
+                    "Field from config or cmdline."
+                  ]
+                }
+              },
+              "sources": {
+                "added": "v24.02",
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "description": [
+                    "Source of configuration setting."
+                  ]
+                }
+              }
+            }
+          },
           "rpc-file": {
             "type": "object",
             "additionalProperties": false,
@@ -604,6 +635,10 @@
           },
           "experimental-peer-storage": {
             "added": "v23.02",
+            "deprecated": [
+              "v25.05",
+              "v25.12"
+            ],
             "type": "object",
             "additionalProperties": false,
             "required": [
@@ -628,6 +663,10 @@
           "experimental-anchors": {
             "type": "object",
             "added": "v23.08",
+            "deprecated": [
+              "v24.02",
+              "v25.02"
+            ],
             "additionalProperties": false,
             "required": [
               "set",
@@ -762,6 +801,33 @@
           },
           "watchtime-blocks": {
             "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "value_int",
+              "source"
+            ],
+            "properties": {
+              "value_int": {
+                "type": "u32",
+                "description": [
+                  "Field from config or cmdline, or default."
+                ]
+              },
+              "source": {
+                "type": "string",
+                "description": [
+                  "Source of configuration setting."
+                ]
+              }
+            }
+          },
+          "max-locktime-blocks": {
+            "type": "object",
+            "added": "pre-v0.10.1",
+            "deprecated": [
+              "v24.05",
+              "v24.11"
+            ],
             "additionalProperties": false,
             "required": [
               "value_int",
@@ -1024,6 +1090,118 @@
               }
             }
           },
+          "accept-htlc-tlv-type": {
+            "added": "v23.08",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "values_int",
+              "sources"
+            ],
+            "properties": {
+              "values_int": {
+                "added": "v23.08",
+                "type": "array",
+                "items": {
+                  "type": "u32",
+                  "description": [
+                    "HTLC TLV type to accept and ignore."
+                  ]
+                }
+              },
+              "sources": {
+                "added": "v23.08",
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "description": [
+                    "Source of configuration setting."
+                  ]
+                }
+              }
+            }
+          },
+          "min-emergency-msat": {
+            "added": "v23.08",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "value_msat",
+              "source"
+            ],
+            "properties": {
+              "value_msat": {
+                "added": "v23.08",
+                "type": "msat",
+                "description": [
+                  "Amount of funds to keep in the wallet to close anchor channels."
+                ]
+              },
+              "source": {
+                "added": "v23.08",
+                "type": "string",
+                "description": [
+                  "Source of configuration setting."
+                ]
+              }
+            }
+          },
+          "payment-fronting-node": {
+            "added": "v26.04",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "values_str",
+              "sources"
+            ],
+            "properties": {
+              "values_str": {
+                "added": "v26.04",
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "description": [
+                    "Node ID to use as entry point for invoices and offers."
+                  ]
+                }
+              },
+              "sources": {
+                "added": "v26.04",
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "description": [
+                    "Source of configuration setting."
+                  ]
+                }
+              }
+            }
+          },
+          "invoices-onchain-fallback": {
+            "added": "v23.11",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "set",
+              "source"
+            ],
+            "properties": {
+              "set": {
+                "added": "v23.11",
+                "type": "boolean",
+                "description": [
+                  "`true` if set in config or cmdline."
+                ]
+              },
+              "source": {
+                "added": "v23.11",
+                "type": "string",
+                "description": [
+                  "Source of configuration setting."
+                ]
+              }
+            }
+          },
           "min-capacity-sat": {
             "type": "object",
             "additionalProperties": false,
@@ -1279,6 +1457,10 @@
             }
           },
           "encrypted-hsm": {
+            "deprecated": [
+              "v25.12",
+              "v26.12"
+            ],
             "type": "object",
             "additionalProperties": false,
             "required": [
@@ -1293,6 +1475,56 @@
                 ]
               },
               "source": {
+                "type": "string",
+                "description": [
+                  "Source of configuration setting."
+                ]
+              }
+            }
+          },
+          "hsm-passphrase": {
+            "added": "v25.12",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "set",
+              "source"
+            ],
+            "properties": {
+              "set": {
+                "added": "v25.12",
+                "type": "boolean",
+                "description": [
+                  "`true` if set in config or cmdline."
+                ]
+              },
+              "source": {
+                "added": "v25.12",
+                "type": "string",
+                "description": [
+                  "Source of configuration setting."
+                ]
+              }
+            }
+          },
+          "recover": {
+            "added": "v23.11",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "value_str",
+              "source"
+            ],
+            "properties": {
+              "value_str": {
+                "added": "v23.11",
+                "type": "string",
+                "description": [
+                  "Mnemonic or hex secret to restore the node."
+                ]
+              },
+              "source": {
+                "added": "v23.11",
                 "type": "string",
                 "description": [
                   "Source of configuration setting."
@@ -1702,6 +1934,31 @@
                 "added": "v26.04",
                 "description": [
                   "Plugin which registered this configuration setting."
+                ]
+              }
+            }
+          },
+          "message-padding": {
+            "added": "v26.04",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "value_bool",
+              "source"
+            ],
+            "properties": {
+              "value_bool": {
+                "added": "v26.04",
+                "type": "boolean",
+                "description": [
+                  "Field from config or cmdline, or default."
+                ]
+              },
+              "source": {
+                "added": "v26.04",
+                "type": "string",
+                "description": [
+                  "Source of configuration setting."
                 ]
               }
             }

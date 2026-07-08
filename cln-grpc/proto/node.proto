@@ -3191,14 +3191,15 @@ message ListconfigsConfigs {
 	optional ListconfigsConfigsExperimentaldualfund experimental_dual_fund = 21;
 	optional ListconfigsConfigsExperimentalsplicing experimental_splicing = 22 [deprecated = true];
 	optional ListconfigsConfigsExperimentalshutdownwrongfunding experimental_shutdown_wrong_funding = 25;
-	optional ListconfigsConfigsExperimentalpeerstorage experimental_peer_storage = 26;
-	optional ListconfigsConfigsExperimentalanchors experimental_anchors = 27;
+	optional ListconfigsConfigsExperimentalpeerstorage experimental_peer_storage = 26 [deprecated = true];
+	optional ListconfigsConfigsExperimentalanchors experimental_anchors = 27 [deprecated = true];
 	optional ListconfigsConfigsDatabaseupgrade database_upgrade = 28;
 	optional ListconfigsConfigsRgb rgb = 29;
 	optional ListconfigsConfigsAlias alias = 30;
 	optional ListconfigsConfigsPidfile pid_file = 31;
 	optional ListconfigsConfigsIgnorefeelimits ignore_fee_limits = 32;
 	optional ListconfigsConfigsWatchtimeblocks watchtime_blocks = 33;
+	optional ListconfigsConfigsMaxlocktimeblocks max_locktime_blocks = 34 [deprecated = true];
 	optional ListconfigsConfigsFundingconfirms funding_confirms = 35;
 	optional ListconfigsConfigsCltvdelta cltv_delta = 36;
 	optional ListconfigsConfigsCltvfinal cltv_final = 37;
@@ -3220,7 +3221,7 @@ message ListconfigsConfigs {
 	optional ListconfigsConfigsDisabledns disable_dns = 53;
 	optional ListconfigsConfigsAnnounceaddrdiscovered announce_addr_discovered = 54;
 	optional ListconfigsConfigsAnnounceaddrdiscoveredport announce_addr_discovered_port = 55;
-	optional ListconfigsConfigsEncryptedhsm encrypted_hsm = 56;
+	optional ListconfigsConfigsEncryptedhsm encrypted_hsm = 56 [deprecated = true];
 	optional ListconfigsConfigsRpcfilemode rpc_file_mode = 57;
 	optional ListconfigsConfigsLoglevel log_level = 58;
 	optional ListconfigsConfigsLogprefix log_prefix = 59;
@@ -3238,6 +3239,19 @@ message ListconfigsConfigs {
 	optional ListconfigsConfigsCurrencyrateaddsource currencyrate_add_source = 74;
 	optional ListconfigsConfigsCurrencyratedisablesource currencyrate_disable_source = 75;
 	optional ListconfigsConfigsExperimentalsimpleclose experimental_simple_close = 76;
+	optional ListconfigsConfigsAccepthtlctlvtype accept_htlc_tlv_type = 77;
+	optional ListconfigsConfigsHsmpassphrase hsm_passphrase = 78;
+	optional ListconfigsConfigsIpromisetofixbrokenapiuser i_promise_to_fix_broken_api_user = 79;
+	optional ListconfigsConfigsInvoicesonchainfallback invoices_onchain_fallback = 80;
+	optional ListconfigsConfigsMessagepadding message_padding = 81;
+	optional ListconfigsConfigsMinemergencymsat min_emergency_msat = 82;
+	optional ListconfigsConfigsPaymentfrontingnode payment_fronting_node = 83;
+	optional ListconfigsConfigsRecover recover = 84;
+}
+
+message ListconfigsConfigsAccepthtlctlvtype {
+	repeated string sources = 1;
+	repeated uint32 values_int = 2;
 }
 
 message ListconfigsConfigsAddr {
@@ -3384,13 +3398,13 @@ message ListconfigsConfigsDisableplugin {
 }
 
 message ListconfigsConfigsEncryptedhsm {
-	bool set = 1;
-	string source = 2;
+	bool set = 1 [deprecated = true];
+	string source = 2 [deprecated = true];
 }
 
 message ListconfigsConfigsExperimentalanchors {
-	bool set = 1;
-	string source = 2;
+	bool set = 1 [deprecated = true];
+	string source = 2 [deprecated = true];
 }
 
 message ListconfigsConfigsExperimentaldualfund {
@@ -3399,8 +3413,8 @@ message ListconfigsConfigsExperimentaldualfund {
 }
 
 message ListconfigsConfigsExperimentalpeerstorage {
-	bool set = 1;
-	string source = 2;
+	bool set = 1 [deprecated = true];
+	string source = 2 [deprecated = true];
 }
 
 message ListconfigsConfigsExperimentalshutdownwrongfunding {
@@ -3444,6 +3458,11 @@ message ListconfigsConfigsFundingconfirms {
 	string source = 2;
 }
 
+message ListconfigsConfigsHsmpassphrase {
+	bool set = 1;
+	string source = 2;
+}
+
 message ListconfigsConfigsHtlcmaximummsat {
 	Amount value_msat = 1;
 	string source = 2;
@@ -3454,6 +3473,11 @@ message ListconfigsConfigsHtlcminimummsat {
 	string source = 2;
 }
 
+message ListconfigsConfigsIpromisetofixbrokenapiuser {
+	repeated string sources = 1;
+	repeated string values_str = 2;
+}
+
 message ListconfigsConfigsIgnorefeelimits {
 	bool value_bool = 1;
 	string source = 2;
@@ -3462,6 +3486,11 @@ message ListconfigsConfigsIgnorefeelimits {
 message ListconfigsConfigsImportantplugin {
 	repeated string values_str = 1;
 	repeated string sources = 2;
+}
+
+message ListconfigsConfigsInvoicesonchainfallback {
+	bool set = 1;
+	string source = 2;
 }
 
 message ListconfigsConfigsLargechannels {
@@ -3509,10 +3538,25 @@ message ListconfigsConfigsMaxdusthtlcexposuremsat {
 	string source = 2;
 }
 
+message ListconfigsConfigsMaxlocktimeblocks {
+	uint32 value_int = 1 [deprecated = true];
+	string source = 2 [deprecated = true];
+}
+
+message ListconfigsConfigsMessagepadding {
+	string source = 1;
+	bool value_bool = 2;
+}
+
 message ListconfigsConfigsMincapacitysat {
 	uint64 value_int = 1;
 	string source = 2;
 	optional bool dynamic = 3;
+}
+
+message ListconfigsConfigsMinemergencymsat {
+	string source = 1;
+	Amount value_msat = 2;
 }
 
 message ListconfigsConfigsNetwork {
@@ -3523,6 +3567,11 @@ message ListconfigsConfigsNetwork {
 message ListconfigsConfigsOffline {
 	bool set = 1;
 	string source = 2;
+}
+
+message ListconfigsConfigsPaymentfrontingnode {
+	repeated string sources = 1;
+	repeated string values_str = 2;
 }
 
 message ListconfigsConfigsPidfile {
@@ -3543,6 +3592,11 @@ message ListconfigsConfigsPlugindir {
 message ListconfigsConfigsProxy {
 	string value_str = 1;
 	string source = 2;
+}
+
+message ListconfigsConfigsRecover {
+	string source = 1;
+	string value_str = 2;
 }
 
 message ListconfigsConfigsRegtest {

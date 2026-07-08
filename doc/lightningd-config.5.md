@@ -889,20 +889,20 @@ of the prior channel balance and the new one.
 
   (deprecated in v26.04)
 
-* **experimental-lsps-client**
+* **experimental-lsps-client** [plugin `cln-lsps-client`]
 
   Specifying this enables client side support for the lsps protocol
 ([blip][blip] #50). Core-Lightning only supports the lsps2 ([blip][blip] #52)
 subprotocol describing the creation of just-in-time-channel (JIT-channels)
 between a LSP and this client.
 
-* **experimental-lsps2-service**
+* **experimental-lsps2-service** [plugin `cln-lsps-service`]
 
   Specifying this enables a LSP JIT-Channel service according to the lsps
 protocol ([blip][blip] #52). It requires a LSP-Policy plugin to be available and
 a *experimental-lsps2-promise-secret* to be set.
 
-* **experimental-lsps2-promise-secret**=*promisesecret*
+* **experimental-lsps2-promise-secret**=*promisesecret* [plugin `cln-lsps-service`]
 
   Sets a `promisesecret` for the LSP JIT-Channel service. Is a 64-character hex
  string that acts as the secret for promises according to ([blip][blip] #52).
