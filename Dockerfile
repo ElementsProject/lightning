@@ -57,8 +57,7 @@ RUN apt-get update && \
         flex \
         jq \
         libtool \
-        gettext \
-        protobuf-compiler
+        gettext
 
 WORKDIR /opt
 
