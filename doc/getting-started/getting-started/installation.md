@@ -82,7 +82,7 @@ pip3 install --upgrade pip
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-After installing uv, restart your shell or run `source ~/.bashrc` to ensure `uv` is in your PATH.
+After installing uv, restart your shell or run the command shown by the install output (usually `source $HOME/.local/bin/env`) to ensure `uv` is in your PATH.
 
 If you don't have Bitcoin installed locally you'll need to install that as well. It's now available via [snapd](https://snapcraft.io/bitcoin-core).
 ```shell
@@ -493,9 +493,11 @@ gmake install
 
 Install dependencies:
 ```shell
-pacman --sync autoconf automake gcc git make python-pip
-pip install --user poetry
+pacman -Sy autoconf automake gcc git make python-pip which libtool lowdown jq libsodium
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
+
+After installing uv, restart your shell or run the command shown by the install output (usually `source $HOME/.local/bin/env`) to ensure `uv` is in your PATH.
 
 Clone Core Lightning:
 ```shell
@@ -503,16 +505,22 @@ git clone https://github.com/ElementsProject/lightning.git
 cd lightning
 ```
 
+If you want to build the Rust plugins (cln-grpc, clnrest, cln-bip353 and wss-proxy):
+```shell
+pacman -Sy cargo rustfmt
+```
+
 Build Core Lightning:
 ```shell
-python -m poetry install
+uv sync --all-extras --all-groups --frozen
 ./configure
-python -m poetry run make
+RUST_PROFILE=release uv run make
+sudo RUST_PROFILE=release make install
 ```
 
 Launch Core Lightning:
 ```
-./lightningd/lightningd
+lightningd
 ```
 
 ## To cross-compile for Android
@@ -645,9 +653,3 @@ Install runtime dependencies:
 ```shell
 apk add libgcc libsodium sqlite-libs zlib
 ```
-
-## Python plugins
-
-Python plugins will be installed with the `poetry install` step mentioned above from development setup.
-
-Other users will need some Python packages if python plugins are used. Unfortunately there are some Python packages which are not packaged in Ubuntu, and so forced installation will be needed (Flag `--user` is recommended which will install them in user's own .local directory, so at least the risk of breaking Python globally can be avoided!).
