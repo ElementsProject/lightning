@@ -4301,11 +4301,22 @@ def test_simple_close_dust_output_omitted(node_factory, bitcoind):
     # Every closing tx in the mempool must have exactly 1 output: the dust
     # output is omitted in all variants.  Elements appends an explicit fee
     # output (scriptPubKey type 'fee') which must not be counted here.
-    for txid in bitcoind.rpc.getrawmempool():
-        tx = bitcoind.rpc.getrawtransaction(txid, True)
-        real_vouts = [v for v in tx['vout'] if v['scriptPubKey'].get('type') != 'fee']
-        assert len(real_vouts) == 1, \
-            f"tx {txid} has {len(tx['vout'])} outputs; expected 1 (dust omitted)"
+    # Both sides broadcast conflicting closer txs, and l1's higher-fee tx
+    # can RBF-replace l2's between our getrawmempool() snapshot and the
+    # getrawtransaction() call (bitcoind error -5), so retry with a fresh
+    # snapshot until we see a consistent one.
+    def closing_txs_have_single_output():
+        try:
+            for txid in bitcoind.rpc.getrawmempool():
+                tx = bitcoind.rpc.getrawtransaction(txid, True)
+                real_vouts = [v for v in tx['vout'] if v['scriptPubKey'].get('type') != 'fee']
+                assert len(real_vouts) == 1, \
+                    f"tx {txid} has {len(tx['vout'])} outputs; expected 1 (dust omitted)"
+        except bitcoin.rpc.InvalidAddressOrKeyError:
+            return False
+        return True
+
+    wait_for(closing_txs_have_single_output)
 
 
 def test_simple_close_restart(node_factory, bitcoind):
