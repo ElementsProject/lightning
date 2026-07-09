@@ -384,11 +384,9 @@ struct getroutes_info {
 	 * sentinel placeholders the caller replaces with the real
 	 * closing channel + their own node id when building sendpay.
 	 *
-	 * `circular` is set by inject_circular_fake().
 	 * Existing callers (source != destination) bypass all of
-	 * this -- inject_circular_fake() returns at its first line
-	 * and never touches localmods or info. */
-	bool circular;
+	 * this -- do_getroutes only calls inject_circular_fake()
+	 * for source == destination. */
 };
 
 /* Hardcoded fake "us_in" node id for circular routing.  Must not
@@ -437,16 +435,13 @@ struct circular_mirror {
  *      of do_getroutes.
  *   4. Replace info->dest with circular_fake_us_in_id.
  *
- * Returns NULL on success, setting info->circular when activated
- * (non-circular requests are untouched and exit at the first line),
- * or an error string suitable for failing the command. */
+ * Only called for source == destination (do_getroutes guards the
+ * call).  Returns NULL on success, or an error string suitable for
+ * failing the command. */
 static const char *inject_circular_fake(struct getroutes_info *info,
 					struct gossmap *gossmap,
 					struct gossmap_localmods *localmods)
 {
-	if (!node_id_eq(&info->source, &info->dest))
-		return NULL;
-
 	/* Temporary apply so we can read the user's post-mask view. */
 	gossmap_apply_localmods(gossmap, localmods);
 
@@ -556,7 +551,6 @@ static const char *inject_circular_fake(struct getroutes_info *info,
 	}
 
 	info->dest = circular_fake_us_in_id;
-	info->circular = true;
 	return NULL;
 }
 
@@ -826,19 +820,25 @@ static struct command_result *do_getroutes(struct command *cmd,
 	 * Algorithms see a regular s -> t flow problem and run
 	 * unchanged.  Must precede gossmap_apply_localmods so the
 	 * augmented mods are picked up by the apply below.  Only
-	 * reached for source == destination when the caller passed
-	 * the auto.allow_circular layer (json_getroutes rejects it
+	 * reachable when the caller passed the auto.allow_circular
+	 * layer (json_getroutes rejects source == destination
 	 * otherwise). */
-	err = inject_circular_fake(info, askrene->gossmap, localmods);
-	if (err) {
-		/* localmods are not applied at this point, so fail
-		 * directly: the fail: path would try to remove them. */
-		return command_fail(cmd, PAY_ROUTE_NOT_FOUND, "%s", err);
-	}
-	if (info->circular)
+	if (node_id_eq(&info->source, &info->dest)) {
+		cmd_log(tmpctx, cmd, LOG_DBG,
+			"source == destination: circular (self-rebalance) "
+			"route requested");
+		err = inject_circular_fake(info, askrene->gossmap, localmods);
+		if (err) {
+			/* localmods are not applied at this point, so fail
+			 * directly: the fail: path would try to remove
+			 * them. */
+			return command_fail(cmd, PAY_ROUTE_NOT_FOUND,
+					    "%s", err);
+		}
 		cmd_log(tmpctx, cmd, LOG_DBG,
 			"Circular routing: spliced fake us_in destination "
 			"node, mirrored peer -> source channels into it");
+	}
 
 	/* we temporarily apply localmods */
 	gossmap_apply_localmods(askrene->gossmap, localmods);
@@ -1193,10 +1193,6 @@ static struct command_result *json_getroutes(struct command *cmd,
 	info->dev_algo = *dev_algo;
 	info->additional_costs = new_htable(info, additional_cost_htable);
 	info->maxparts = *maxparts;
-	/* Default circular off; inject_circular_fake() flips this on for
-	 * source == destination requests (only reachable here when the
-	 * caller passed the auto.allow_circular layer). */
-	info->circular = false;
 
 	if (askrene->num_live_requests >= askrene->max_children) {
 		cmd_log(tmpctx, cmd, LOG_INFORM,
