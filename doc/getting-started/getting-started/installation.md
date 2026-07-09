@@ -112,7 +112,7 @@ sudo apt-get install -y valgrind libpq-dev shellcheck cppcheck \
 
 If you want to build the Rust plugins (cln-grpc, clnrest, cln-bip353 and wss-proxy):
 ```shell
-sudo apt-get install -y cargo rustfmt protobuf-compiler
+sudo apt-get install -y cargo rustfmt
 ```
 
 > 📘
@@ -177,8 +177,6 @@ sudo dnf update -y && \
                 libsodium-devel \
                 which \
                 sed \
-                protobuf-compiler \
-                protobuf-devel \
                 postgresql-devel \
                 python3-mako && \
         sudo dnf clean all
@@ -352,7 +350,7 @@ You are using brew in Intel compatibility mode. The simplest solution is to remo
 
 Install dependencies:
 ```shell
-brew install autoconf automake libtool python3 gnu-sed gettext libsodium protobuf lowdown pkgconf openssl make
+brew install autoconf automake libtool python3 gnu-sed gettext libsodium lowdown pkgconf openssl make
 export PATH="/opt/homebrew/opt/:$PATH"
 export CPATH=/opt/homebrew/include
 export LIBRARY_PATH=/opt/homebrew/lib
@@ -429,7 +427,7 @@ Assuming you have Xcode and Homebrew installed.
 
 Install dependencies:
 ```shell
-brew install autoconf automake libtool python3 gnu-sed gettext libsodium protobuf lowdown pkgconf openssl make
+brew install autoconf automake libtool python3 gnu-sed gettext libsodium lowdown pkgconf openssl make
 export PATH="/usr/local/opt/:$PATH"
 export CPATH=/usr/local/include
 export LIBRARY_PATH=/usr/local/lib

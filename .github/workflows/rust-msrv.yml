@@ -16,9 +16,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: protoc
-        uses: arduino/setup-protoc@v3
-
       - name: Install cargo-hack
         uses: taiki-e/install-action@cargo-hack
 

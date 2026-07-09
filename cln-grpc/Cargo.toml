@@ -33,3 +33,4 @@ serde_json = "1.0.72"
 
 [build-dependencies]
 tonic-prost-build = "0.14"
+protoc-bin-vendored = "3"
