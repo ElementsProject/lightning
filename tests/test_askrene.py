@@ -853,7 +853,7 @@ def test_getroutes_circular(node_factory):
     """Test getroutes for a circular (source == destination) self-rebalance.
 
     source == destination is rejected as invalid input unless the
-    caller opts in with allow_circular=true.  When opted in, the
+    caller opts in with the auto.allow_circular layer.  When opted in, the
     circular-askrene node-split splices a synthetic "us_in" node into
     the gossmap so the MCF sees a regular source -> us_in flow.  Every
     returned route KEEPS its trailing (peer -> us_in) hop: node_id_out
@@ -890,7 +890,8 @@ def test_getroutes_circular(node_factory):
     amount = 100000
     final_cltv = 99
 
-    # Without allow_circular, source == destination is rejected outright.
+    # Without the auto.allow_circular layer, source == destination is
+    # rejected outright.
     with pytest.raises(RpcError, match=r"source and destination must be different"):
         l1.rpc.getroutes(source=nodemap[0],
                          destination=nodemap[0],
@@ -902,10 +903,9 @@ def test_getroutes_circular(node_factory):
     res = l1.rpc.getroutes(source=nodemap[0],
                            destination=nodemap[0],
                            amount_msat=amount,
-                           layers=[],
+                           layers=['auto.allow_circular'],
                            maxfee_msat=100000,
-                           final_cltv=final_cltv,
-                           allow_circular=True)
+                           final_cltv=final_cltv)
 
     # One deterministic path; the whole amount is delivered back to us.
     assert len(res['routes']) == 1
@@ -955,10 +955,9 @@ def test_getroutes_circular(node_factory):
     res = l1.rpc.getroutes(source=nodemap[0],
                            destination=nodemap[0],
                            amount_msat=amount,
-                           layers=['squat'],
+                           layers=['squat', 'auto.allow_circular'],
                            maxfee_msat=100000,
-                           final_cltv=final_cltv,
-                           allow_circular=True)
+                           final_cltv=final_cltv)
     assert len(res['routes']) == 1
     closing = res['routes'][0]['path'][-1]
     assert closing['node_id_out'] == FAKE_US_IN
@@ -1724,7 +1723,7 @@ def test_real_data_circular(node_factory, bitcoind):
 
     Mask the source node down to a single drain (source-out) channel
     and a single distinct fill (dest-in) channel, then ask getroutes
-    for a self-rebalance (source == destination, allow_circular=true).
+    for a self-rebalance (source == destination, auto.allow_circular).
     The mask is the point -- without it the cheapest "cycle"
     degenerates to an out-and-back on one channel; you have to
     constrain BOTH the one out and the one in.
@@ -1781,10 +1780,9 @@ def test_real_data_circular(node_factory, bitcoind):
             routes = l1.rpc.getroutes(source=node,
                                       destination=node,
                                       amount_msat=AMOUNT,
-                                      layers=[layer],
+                                      layers=[layer, 'auto.allow_circular'],
                                       maxfee_msat=AMOUNT,
-                                      final_cltv=18,
-                                      allow_circular=True)
+                                      final_cltv=18)
         except RpcError:
             # Drain peer can't reach fill peer within budget: try next node.
             continue

@@ -7081,7 +7081,6 @@ impl From<requests::AskreneageRequest> for pb::AskreneageRequest {
 impl From<requests::GetroutesRequest> for pb::GetroutesRequest {
     fn from(c: requests::GetroutesRequest) -> Self {
         Self {
-            allow_circular: c.allow_circular, // Rule #2 for type boolean?
             amount_msat: Some(c.amount_msat.into()), // Rule #2 for type msat
             destination: c.destination.serialize().to_vec(), // Rule #2 for type pubkey
             final_cltv: c.final_cltv, // Rule #2 for type u32
@@ -9143,7 +9142,6 @@ impl From<pb::AskreneageRequest> for requests::AskreneageRequest {
 impl From<pb::GetroutesRequest> for requests::GetroutesRequest {
     fn from(c: pb::GetroutesRequest) -> Self {
         Self {
-            allow_circular: c.allow_circular, // Rule #1 for type boolean?
             amount_msat: c.amount_msat.unwrap().into(), // Rule #1 for type msat
             destination: PublicKey::from_slice(&c.destination).unwrap(), // Rule #1 for type pubkey
             final_cltv: c.final_cltv, // Rule #1 for type u32

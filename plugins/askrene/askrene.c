@@ -115,7 +115,8 @@ static struct command_result *param_layer_names(struct command *cmd,
 		/* Must be a known layer name */
 		if (streq((*arr)[i], "auto.localchans")
 		    || streq((*arr)[i], "auto.sourcefree")
-		    || streq((*arr)[i], "auto.include_fees"))
+		    || streq((*arr)[i], "auto.include_fees")
+		    || streq((*arr)[i], "auto.allow_circular"))
 			continue;
 
 		if (streq((*arr)[i], "auto.no_mpp_support")
@@ -362,7 +363,8 @@ struct getroutes_info {
 	/* Circular routing (self-rebalance) support.
 	 *
 	 * When the caller passes source == destination (and opts in via
-	 * allow_circular), we splice a node-split into this request's
+	 * the auto.allow_circular layer), we splice a node-split into this
+	 * request's
 	 * per-request localmods:
 	 *   - Synthesise a fake "us_in" destination node.
 	 *   - For every (peer -> source) direction still enabled
@@ -599,6 +601,11 @@ static const struct layer **apply_layers(const tal_t *ctx,
 				/* This layer takes effect when converting flows
 				 * into routes. */
 				continue;
+			} else if (streq(layernames[i], "auto.allow_circular")) {
+				/* This layer takes effect at request setup
+				 * (see inject_circular_fake); nothing to
+				 * apply to the gossmap here. */
+				continue;
 			} else {
 				assert(streq(layernames[i], "auto.sourcefree"));
 				cmd_log(tmpctx, cmd, LOG_DBG, "Adding auto.sourcefree");
@@ -820,7 +827,8 @@ static struct command_result *do_getroutes(struct command *cmd,
 	 * unchanged.  Must precede gossmap_apply_localmods so the
 	 * augmented mods are picked up by the apply below.  Only
 	 * reached for source == destination when the caller passed
-	 * allow_circular (json_getroutes rejects it otherwise). */
+	 * the auto.allow_circular layer (json_getroutes rejects it
+	 * otherwise). */
 	err = inject_circular_fake(info, askrene->gossmap, localmods);
 	if (err) {
 		/* localmods are not applied at this point, so fail
@@ -1124,7 +1132,6 @@ static struct command_result *json_getroutes(struct command *cmd,
 	u32 *finalcltv, *maxdelay;
 	enum algorithm *dev_algo;
 	u32 *maxparts;
-	bool *allow_circular;
 
 	if (!param_check(cmd, buffer, params,
 			 p_req("source", param_node_id, &source),
@@ -1139,8 +1146,6 @@ static struct command_result *json_getroutes(struct command *cmd,
 				   default_maxparts),
 			 p_opt_dev("dev_algorithm", param_algorithm,
 				   &dev_algo, ALGO_DEFAULT),
-			 p_opt_def("allow_circular", param_bool, &allow_circular,
-				   false),
 			 NULL))
 		return command_param_failed();
 	plugin_log(cmd->plugin, LOG_TRACE, "%s called: %.*s", __func__,
@@ -1164,14 +1169,15 @@ static struct command_result *json_getroutes(struct command *cmd,
 
 	/* source == destination is invalid input for a normal route, and
 	 * we reject it as such -- unless the caller explicitly opts in to
-	 * circular (self-rebalance) routing, in which case we splice a
-	 * node-split in do_getroutes (see inject_circular_fake()) and
-	 * return a cycle back to source. */
-	if (node_id_eq(source, dest) && !*allow_circular) {
+	 * circular (self-rebalance) routing via the auto.allow_circular
+	 * layer, in which case we splice a node-split in do_getroutes
+	 * (see inject_circular_fake()) and return a cycle back to source. */
+	if (node_id_eq(source, dest)
+	    && !have_layer(info->layers, "auto.allow_circular")) {
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "source and destination must be different"
-				    " (pass allow_circular=true for a"
-				    " self-rebalance route)");
+				    " (add the auto.allow_circular layer for"
+				    " a self-rebalance route)");
 	}
 
 	if (command_check_only(cmd))
@@ -1189,7 +1195,7 @@ static struct command_result *json_getroutes(struct command *cmd,
 	info->maxparts = *maxparts;
 	/* Default circular off; inject_circular_fake() flips this on for
 	 * source == destination requests (only reachable here when the
-	 * caller passed allow_circular). */
+	 * caller passed the auto.allow_circular layer). */
 	info->circular = false;
 
 	if (askrene->num_live_requests >= askrene->max_children) {
