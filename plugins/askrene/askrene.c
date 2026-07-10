@@ -379,14 +379,20 @@ struct getroutes_info {
 	 * code run unchanged.
 	 *
 	 * After flow conversion the trailing (peer -> us_in) hop is
-	 * KEPT in each returned route: its amount_out_msat is the
-	 * actually-delivered amount, and its scid + node_id_out are
-	 * sentinel placeholders the caller replaces with the real
-	 * closing channel + their own node id when building sendpay.
+	 * KEPT in each returned route -- its amount_out_msat is the
+	 * actually-delivered amount -- and is translated back to real
+	 * terms at serialization time via `circular_unsplit` below:
+	 * the caller sees the real (peer -> source) return channel
+	 * and their own node id, ready for building sendpay.
 	 *
 	 * Existing callers (source != destination) bypass all of
 	 * this -- do_getroutes only calls inject_circular_fake()
 	 * for source == destination. */
+
+	/* Fake-mirror-scid -> real-channel translation table, built by
+	 * inject_circular_fake() and applied by the solver child when
+	 * serializing routes.  NULL for normal requests. */
+	struct circular_unsplit *circular_unsplit;
 };
 
 /* Hardcoded fake "us_in" node id for circular routing.  Must not
@@ -434,6 +440,10 @@ struct circular_mirror {
  *      ready for the regular gossmap_apply_localmods() at the end
  *      of do_getroutes.
  *   4. Replace info->dest with circular_fake_us_in_id.
+ *   5. Record each fake scid -> real channel mapping in
+ *      info->circular_unsplit so the solver child translates the
+ *      final hop of each route back to real terms when
+ *      serializing (see struct circular_unsplit in child/child.h).
  *
  * Only called for source == destination (do_getroutes guards the
  * call).  Returns NULL on success, or an error string suitable for
@@ -494,7 +504,13 @@ static const char *inject_circular_fake(struct getroutes_info *info,
 	 * line ~620 will reapply with our augmentations included. */
 	gossmap_remove_localmods(gossmap, localmods);
 
-	/* Add disable + mirror entries to localmods. */
+	/* Add disable + mirror entries to localmods, recording each
+	 * fake scid -> real channel mapping so the solver child can
+	 * translate the final hop back when serializing routes. */
+	struct circular_unsplit *unsplit = tal(info, struct circular_unsplit);
+	unsplit->source = info->source;
+	unsplit->entries = tal_arr(unsplit, struct circular_unsplit_entry, 0);
+
 	u32 fake_tx = 0;
 	for (size_t i = 0; i < tal_count(mirrors); i++) {
 		const struct circular_mirror *m = &mirrors[i];
@@ -548,9 +564,16 @@ static const char *inject_circular_fake(struct getroutes_info *info,
 				       "Could not set mirror properties for %s",
 				       fmt_short_channel_id_dir(tmpctx,
 								&m->real_scidd));
+
+		const struct circular_unsplit_entry entry = {
+			.fake_scid = fake_scid,
+			.real = m->real_scidd,
+		};
+		tal_arr_expand(&unsplit->entries, entry);
 	}
 
 	info->dest = circular_fake_us_in_id;
+	info->circular_unsplit = unsplit;
 	return NULL;
 }
 
@@ -946,6 +969,7 @@ static struct command_result *do_getroutes(struct command *cmd,
 			  include_next_node_id,
 			  include_amount_msat,
 			  include_delay,
+			  info->circular_unsplit,
 			  replyfds[1]);
 		abort();
 	}
@@ -1193,6 +1217,8 @@ static struct command_result *json_getroutes(struct command *cmd,
 	info->dev_algo = *dev_algo;
 	info->additional_costs = new_htable(info, additional_cost_htable);
 	info->maxparts = *maxparts;
+	/* Set by inject_circular_fake() for circular requests. */
+	info->circular_unsplit = NULL;
 
 	if (askrene->num_live_requests >= askrene->max_children) {
 		cmd_log(tmpctx, cmd, LOG_INFORM,

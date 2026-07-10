@@ -17109,7 +17109,7 @@
         "",
         "Circular (self-rebalance) routing: normally *source* and *destination* must differ, and *source* == *destination* is rejected as invalid input.  If the *auto.allow_circular* layer is included in *layers*, *source* == *destination* is instead treated as a request for a self-rebalance cycle: a route that leaves *source*, traverses the network, and returns to *source*.  This is intended for moving liquidity between one's own channels.  Combine it with a layer that disables every (*source* -> peer) direction except the channels you want the cycle to drain, and every (peer -> *source*) direction except the channels you want it to fill, to pin both ends of the cycle.",
         "",
-        "In a circular result, the final hop of each route is a *sentinel* closing hop rather than a real channel: its *short_channel_id_dir* and *node_id_out* are placeholders for a synthetic internal node, not a real channel or peer.  The caller must replace them with the real closing channel and their own node id when building the payment.  Its *amount_out_msat*, *cltv_out*, and the fees it implies are real and describe the closing hop the caller is expected to construct, so the cycle balances."
+        "In a circular result, the final hop of each route is the real return channel: its *short_channel_id_dir* is the (peer -> *source*) channel direction the cycle returns through, its *node_id_out* is *source* itself, and its *amount_out_msat* is the amount delivered back to *source*.  Routes are directly usable for building the payment; no placeholder substitution is required."
       ],
       "categories": [
         "readonly"

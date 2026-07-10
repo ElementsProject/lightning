@@ -139,12 +139,33 @@ static struct route **convert_flows_to_routes(const tal_t *ctx,
 	return routes;
 }
 
+/* Circular requests route to a synthetic destination over fake mirror
+ * channels (see struct circular_unsplit in child.h): rewrite such a
+ * hop to the real (peer -> source) channel and the real source id.
+ * Only final hops can match, by construction. */
+static void maybe_unsplit_hop(const struct circular_unsplit *unsplit,
+			      struct short_channel_id_dir *scidd,
+			      struct node_id *node_out)
+{
+	if (!unsplit)
+		return;
+	for (size_t i = 0; i < tal_count(unsplit->entries); i++) {
+		if (!short_channel_id_eq(scidd->scid,
+					 unsplit->entries[i].fake_scid))
+			continue;
+		*scidd = unsplit->entries[i].real;
+		*node_out = unsplit->source;
+		return;
+	}
+}
+
 static void json_add_getroutes(struct json_stream *js,
 			       struct route **routes,
 			       double probability,
 			       bool include_next_node_id,
 			       bool include_amount_msat,
-			       bool include_delay)
+			       bool include_delay,
+			       const struct circular_unsplit *unsplit)
 {
 	json_add_u64(js, "probability_ppm", (u64)(probability * 1000000));
 	json_array_start(js, "routes");
@@ -158,18 +179,22 @@ static void json_add_getroutes(struct json_stream *js,
 		json_array_start(js, "path");
 		for (size_t j = 0; j < tal_count(routes[i]->hops); j++) {
 			const struct hop *hop = &routes[i]->hops[j];
+			struct short_channel_id_dir scidd = hop->scidd;
+			struct node_id node_out = hop->node_out;
+
+			maybe_unsplit_hop(unsplit, &scidd, &node_out);
 			json_object_start(js, NULL);
 			json_add_short_channel_id_dir(
-			    js, "short_channel_id_dir", hop->scidd);
+			    js, "short_channel_id_dir", scidd);
 			json_add_node_id(js, "node_id_in", &hop->node_in);
-			json_add_node_id(js, "node_id_out", &hop->node_out);
+			json_add_node_id(js, "node_id_out", &node_out);
 			json_add_amount_msat(js, "amount_in_msat", hop->amount_in);
 			json_add_amount_msat(js, "amount_out_msat", hop->amount_out);
 			json_add_u32(js, "cltv_in", hop->cltv_value_in);
 			json_add_u32(js, "cltv_out", hop->cltv_value_out);
 
 			if (include_next_node_id)
-				json_add_node_id(js, "next_node_id", &hop->node_out);
+				json_add_node_id(js, "next_node_id", &node_out);
 			if (include_amount_msat)
 				json_add_amount_msat(js, "amount_msat", hop->amount_in);
 			if (include_delay)
@@ -226,6 +251,7 @@ void run_child(const struct gossmap *gossmap,
 	       bool include_next_node_id,
 	       bool include_amount_msat,
 	       bool include_delay,
+	       const struct circular_unsplit *unsplit,
 	       int replyfd)
 {
 	double probability;
@@ -276,7 +302,8 @@ void run_child(const struct gossmap *gossmap,
 	json_add_getroutes(js, routes, probability,
 			   include_next_node_id,
 			   include_amount_msat,
-			   include_delay);
+			   include_delay,
+			   unsplit);
 
 	/* Detach filter before it complains about closing object it never saw */
 	if (cmd_filter) {
