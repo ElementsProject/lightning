@@ -1026,6 +1026,37 @@ def test_getroutes_circular_multi_inbound(node_factory):
     assert delivered == amount
 
 
+def test_getroutes_circular_layer_noop(node_factory):
+    """auto.allow_circular grants permission, it does not change behavior:
+    a normal (source != destination) request must return the identical
+    result with and without the layer."""
+    gsfile, nodemap = generate_gossip_store(
+        [GenChannel(0, 1,
+                    forward=GenChannel.Half(enabled=True),
+                    reverse=GenChannel.Half(enabled=False)),
+         GenChannel(1, 2,
+                    forward=GenChannel.Half(enabled=True)),
+         GenChannel(2, 0,
+                    forward=GenChannel.Half(enabled=True),
+                    reverse=GenChannel.Half(enabled=False))])
+
+    l1 = node_factory.get_node(gossip_store_file=gsfile.name)
+
+    without_layer = l1.rpc.getroutes(source=nodemap[0],
+                                     destination=nodemap[2],
+                                     amount_msat=100000,
+                                     layers=[],
+                                     maxfee_msat=100000,
+                                     final_cltv=99)
+    with_layer = l1.rpc.getroutes(source=nodemap[0],
+                                  destination=nodemap[2],
+                                  amount_msat=100000,
+                                  layers=['auto.allow_circular'],
+                                  maxfee_msat=100000,
+                                  final_cltv=99)
+    assert with_layer == without_layer
+
+
 def test_getroutes_single_path(node_factory):
     """Test getroutes generating single path payments"""
     gsfile, nodemap = generate_gossip_store(
