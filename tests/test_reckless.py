@@ -2,7 +2,7 @@ from fixtures import *  # noqa: F401,F403
 import subprocess
 from pathlib import PosixPath, Path
 import socket
-from pyln.testing.utils import VALGRIND
+from pyln.testing.utils import TIMEOUT, VALGRIND
 import pytest
 import os
 import re
@@ -85,6 +85,21 @@ def canned_github_server(directory):
     del my_env['GIT_INDEX_FILE']
     # We also need the github api data for the repo which will be served via http
     shutil.copyfile(str(FILE_PATH / 'data/recklessrepo/rkls_api_lightningd_plugins.json'), os.path.join(directory, 'rkls_api_lightningd_plugins.json'))
+
+    # Flask can be slow to start listening under CI load; make sure the
+    # first reckless invocation doesn't race it and get connection refused.
+    start = time.time()
+    while True:
+        assert server.poll() is None, "canned github server died"
+        try:
+            with socket.create_connection(('127.0.0.1', int(free_port)),
+                                          timeout=5):
+                break
+        except OSError:
+            if time.time() >= start + TIMEOUT:
+                server.terminate()
+                raise RuntimeError("canned github server never started listening")
+            time.sleep(0.2)
     yield
     # Delete requirements.txt from the testplugpass directory
     with open(requirements_file_path, 'w') as f:
