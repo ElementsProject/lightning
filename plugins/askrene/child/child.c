@@ -4,7 +4,6 @@
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/tal/str/str.h>
 #include <common/json_stream.h>
-#include <common/node_id.h>
 #include <common/utils.h>
 #include <plugins/askrene/child/child.h>
 #include <plugins/askrene/child/child_log.h>
