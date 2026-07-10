@@ -2275,6 +2275,9 @@ void peer_sending_commitsig(struct channel *channel, const u8 *msg)
 	/* Tell it we've got it, and to go ahead with commitment_signed. */
 	subd_send_msg(channel->owner,
 		      take(towire_channeld_sending_commitsig_reply(msg)));
+
+	/* Maybe graceful wants to know? */
+	check_graceful_shutdown(ld);
 }
 
 static bool channel_added_their_htlc(struct channel *channel,
@@ -2542,6 +2545,9 @@ void peer_got_commitsig(struct channel *channel, const u8 *msg)
 	/* Tell it we've committed, and to go ahead with revoke. */
 	msg = towire_channeld_got_commitsig_reply(msg);
 	subd_send_msg(channel->owner, take(msg));
+
+	/* Maybe graceful wants to know? */
+	check_graceful_shutdown(ld);
 }
 
 /* Shuffle them over, forgetting the ancient one. */
@@ -2722,6 +2728,9 @@ void peer_got_revoke(struct channel *channel, const u8 *msg)
 					     : fromwire_peektype(failmsgs[i]));
 	}
 	wallet_channel_save(ld->wallet, channel);
+
+	/* Maybe graceful wants to know? */
+	check_graceful_shutdown(ld);
 
 	if (penalty_tx == NULL)
 		return;
