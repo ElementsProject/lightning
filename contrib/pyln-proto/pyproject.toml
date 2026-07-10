@@ -11,13 +11,20 @@ requires-python = ">=3.10,<4.0"
 dependencies = [
     "base58>=2.1.1",
     "bitstring>=4.3.0",
-    "coincurve",
+    "coincurve>=21",
     "cryptography>=46",
     "PySocks>=1"
 ]
 
+[[tool.uv.index]]
+name = "coincurve-cp314-fix"
+url = "https://daywalker90.github.io/coincurve/"
+explicit = true
+
 [tool.uv.sources]
-coincurve = { git = "https://github.com/ofek/coincurve.git", rev = "7829b29c08ebb1cc80386a1cdaf8c2243c4ef5c5" }
+coincurve = [
+  { index = "coincurve-cp314-fix", marker = "python_version == '3.14'" },
+]
 
 [dependency-groups]
 dev = [
