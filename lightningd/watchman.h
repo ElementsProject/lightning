@@ -27,9 +27,10 @@ struct watchman {
 /**
  * watch_found_fn - Handler for watch_found notifications (tx-based watches)
  * @ld: lightningd instance
- * @suffix: the owner string after the prefix (e.g. "42" for wallet/p2wpkh/42,
- *          or "100x1x0" for gossip/100x1x0); the handler is responsible for
- *          parsing whatever identifier it stored in that suffix
+ * @suffix: the owner string after the prefix (e.g. "42/p2tr" for
+ *          wallet/spk/42/p2tr, or "100x1x0" for gossip/100x1x0); the handler
+ *          is responsible for parsing whatever identifier it stored in that
+ *          suffix
  * @tx: the transaction that matched
  * @outnum: which output matched (for scriptpubkey watches) or input for outpoint watches
  * @blockheight: the block height where tx was found
