@@ -1085,6 +1085,44 @@ static const struct db_migration dbmigrations[] = {
     {SQL("ALTER TABLE offers ADD COLUMN force_paths INTEGER DEFAULT 0;"), NULL,
      SQL("ALTER TABLE offers DROP COLUMN force_paths"), NULL},
     /* ^v26.04 */
+
+    /* Parallel wallet tables without the blocks(height) FK that
+     * utxoset/transactions carry, so bwatch-driven writes don't need a
+     * blocks table.  Legacy tables stay for one release to keep downgrade
+     * working.
+     *
+     * Sentinels instead of NULLs wherever 0 is unambiguous:
+     * blockheight 0 = unconfirmed, txindex 0 = unconfirmed/unknown
+     * (a *confirmed* txindex of 0 means coinbase), reserved_til 0 = not
+     * reserved.  NULL remains only where it carries meaning a sentinel
+     * can't: spendheight (NULL = unspent), channel_dbid (NULL = HD wallet
+     * output, set = channel-close output owned via the channel columns),
+     * commitment_point (NULL = option_static_remotekey). */
+    {SQL("CREATE TABLE our_outputs ("
+	 "  txid BLOB NOT NULL,"
+	 "  outnum INTEGER NOT NULL,"
+	 "  blockheight INTEGER NOT NULL,"
+	 "  txindex INTEGER NOT NULL DEFAULT 0,"
+	 "  scriptpubkey BLOB NOT NULL,"
+	 "  satoshis BIGINT NOT NULL,"
+	 "  spendheight INTEGER,"
+	 "  keyindex INTEGER,"
+	 "  reserved_til INTEGER NOT NULL DEFAULT 0,"
+	 "  channel_dbid BIGINT,"
+	 "  peer_id BLOB,"
+	 "  commitment_point BLOB,"
+	 "  option_anchors INTEGER,"
+	 "  csv INTEGER,"
+	 "  PRIMARY KEY (txid, outnum)"
+	 ")"), NULL,
+     SQL("DROP TABLE our_outputs"), NULL},
+    {SQL("CREATE TABLE our_txs ("
+	 "  txid BLOB NOT NULL PRIMARY KEY,"
+	 "  blockheight INTEGER NOT NULL,"
+	 "  txindex INTEGER NOT NULL DEFAULT 0,"
+	 "  rawtx BLOB"
+	 ")"), NULL,
+     SQL("DROP TABLE our_txs"), NULL},
 };
 
 const struct db_migration *get_db_migrations(size_t *num)
