@@ -16,14 +16,17 @@
 #include <db/common.h>
 #include <db/exec.h>
 #include <db/utils.h>
+#include <lightningd/chaintopology.h>
 #include <lightningd/channel.h>
 #include <lightningd/channel_gossip.h>
 #include <lightningd/closed_channel.h>
 #include <lightningd/coin_mvts.h>
 #include <lightningd/hsm_control.h>
+#include <lightningd/invoice.h>
 #include <lightningd/notification.h>
 #include <lightningd/peer_htlcs.h>
 #include <lightningd/runes.h>
+#include <lightningd/watchman.h>
 #include <onchaind/onchaind_wiregen.h>
 #include <wallet/datastore.h>
 #include <wallet/invoices.h>
@@ -7896,4 +7899,365 @@ void migrate_remove_chain_moves_duplicates(struct lightningd *ld, struct db *db)
 		db_bind_u64(stmt, to_delete[i]);
 		db_exec_prepared_v2(take(stmt));
 	}
+}
+
+/* ====================================================================
+ * bwatch-driven wallet recording.
+ *
+ * When bwatch reports that a wallet-owned scriptpubkey appeared in a block
+ * (or that a previously-seen output was reorged away), the dispatch table
+ * in lightningd/watchman calls into the helpers below.  They write to the
+ * `our_outputs` and `our_txs` tables, which are independent of the
+ * `utxoset` / `transactions` tables populated by the legacy chaintopology
+ * path.  Both sets of tables coexist for one release so a node can
+ * downgrade cleanly.
+ * ==================================================================== */
+
+/* Map a wallet output script to its address type.  Returns false if it's
+ * not a form the wallet issues. */
+static bool addrtype_from_script(const u8 *script, size_t script_len,
+				 enum addrtype *addrtype)
+{
+	if (is_p2wpkh(script, script_len, NULL))
+		*addrtype = ADDR_BECH32;
+	else if (is_p2tr(script, script_len, NULL))
+		*addrtype = ADDR_P2TR;
+	else if (is_p2sh(script, script_len, NULL))
+		*addrtype = ADDR_P2SH_SEGWIT;
+	else
+		return false;
+	return true;
+}
+
+/* Owner-string form component for a concrete (single-form) addrtype. */
+static const char *spk_owner_form(enum addrtype addrtype)
+{
+	switch (addrtype) {
+	case ADDR_BECH32:
+		return "p2wpkh";
+	case ADDR_P2TR:
+		return "p2tr";
+	case ADDR_P2SH_SEGWIT:
+		return "p2sh_p2wpkh";
+	case ADDR_ALL:
+		break;
+	}
+	abort();
+}
+
+/* Arm a scriptpubkey watch for an HD key under its wallet/spk/<keyidx>/<form>
+ * owner.  The form comes from the script itself: one key can be watched in
+ * several forms at once, and each needs a distinct owner because watchman
+ * keeps at most one pending op per owner.  start_block tells bwatch where to
+ * (re)scan from; UINT32_MAX means a perennial watch */
+void wallet_add_bwatch_scriptpubkey(struct lightningd *ld,
+				    u64 keyindex,
+				    u32 start_block,
+				    const u8 *script,
+				    size_t script_len)
+{
+	enum addrtype addrtype;
+
+	if (!addrtype_from_script(script, script_len, &addrtype)) {
+		log_broken(ld->wallet->log,
+			   "Not watching unrecognized wallet script %s (keyindex %"PRIu64")",
+			   tal_hexstr(tmpctx, script, script_len), keyindex);
+		return;
+	}
+
+	watchman_watch_scriptpubkey(ld,
+				    owner_wallet_spk(tmpctx, keyindex,
+						     spk_owner_form(addrtype)),
+				    script, script_len, start_block);
+}
+
+/* Insert a wallet-owned UTXO row into our_outputs.  If the outpoint was
+ * previously inserted unconfirmed (blockheight=0) and we now have a real
+ * blockheight, promote the row so coin selection can treat it as
+ * spendable. */
+void wallet_add_our_output(struct wallet *w,
+			   const struct bitcoin_outpoint *outpoint,
+			   u32 blockheight, u32 txindex,
+			   const u8 *script, size_t script_len,
+			   struct amount_sat sat,
+			   u32 keyindex)
+{
+	struct db_stmt *stmt;
+
+	stmt = db_prepare_v2(w->db,
+		SQL("INSERT INTO our_outputs "
+		    "(txid, outnum, blockheight, txindex, scriptpubkey, satoshis, keyindex) "
+		    "VALUES (?, ?, ?, ?, ?, ?, ?) "
+		    "ON CONFLICT(txid,outnum) DO NOTHING;"));
+	db_bind_txid(stmt, &outpoint->txid);
+	db_bind_int(stmt, outpoint->n);
+	db_bind_int(stmt, blockheight);
+	db_bind_int(stmt, txindex);
+	db_bind_blob(stmt, script, script_len);
+	db_bind_amount_sat(stmt, sat);
+	db_bind_int(stmt, keyindex);
+	db_exec_prepared_v2(take(stmt));
+
+	if (blockheight != 0) {
+		stmt = db_prepare_v2(w->db,
+			SQL("UPDATE our_outputs SET blockheight = ?, txindex = ? "
+			    "WHERE txid = ? AND outnum = ? AND blockheight < ?;"));
+		db_bind_int(stmt, blockheight);
+		db_bind_int(stmt, txindex);
+		db_bind_txid(stmt, &outpoint->txid);
+		db_bind_int(stmt, outpoint->n);
+		db_bind_int(stmt, blockheight);
+		db_exec_prepared_v2(take(stmt));
+	}
+}
+
+/* Insert (or replace) a wallet-relevant transaction in our_txs. */
+void wallet_add_our_tx(struct wallet *w, const struct wally_tx *tx,
+		       u32 blockheight, u32 txindex)
+{
+	struct db_stmt *stmt;
+	struct bitcoin_txid txid;
+
+	wally_txid(tx, &txid);
+
+	stmt = db_prepare_v2(w->db,
+			     SQL("INSERT OR REPLACE INTO our_txs "
+				 "(txid, blockheight, txindex, rawtx) VALUES (?, ?, ?, ?);"));
+	db_bind_txid(stmt, &txid);
+	db_bind_int(stmt, blockheight);
+	db_bind_int(stmt, txindex);
+	db_bind_talarr(stmt, linearize_wtx(tmpctx, tx));
+	db_exec_prepared_v2(take(stmt));
+}
+
+/* Everything the scriptpubkey handler needs from its matching output.
+ * Keeping extraction and validation together makes it explicit that no
+ * wallet state is changed until the outnum and (on Elements) asset have
+ * both been checked. */
+struct wallet_watch_output {
+	const struct wally_tx_output *txout;
+	struct bitcoin_outpoint outpoint;
+	struct amount_sat amount;
+};
+
+static bool wallet_watch_get_output(struct wallet *w,
+				    const struct bitcoin_tx *tx,
+				    size_t outnum,
+				    struct wallet_watch_output *output)
+{
+	struct amount_asset asset;
+
+	if (outnum >= tx->wtx->num_outputs) {
+		log_broken(w->log, "Invalid outnum %zu for tx with %zu outputs",
+			   outnum, tx->wtx->num_outputs);
+		return false;
+	}
+
+	output->txout = &tx->wtx->outputs[outnum];
+	asset = wally_tx_output_get_amount(output->txout);
+
+	/* Elements outputs can hold arbitrary assets.  Only the chain's main
+	 * asset belongs in our bitcoin-denominated wallet tables. */
+	if (!amount_asset_is_main(&asset)) {
+		log_debug(w->log, "Ignoring non-main asset output");
+		return false;
+	}
+
+	bitcoin_txid(tx, &output->outpoint.txid);
+	output->outpoint.n = outnum;
+	output->amount = amount_asset_to_sat(&asset);
+	return true;
+}
+
+static enum utxotype utxotype_from_addrtype(enum addrtype addrtype)
+{
+	/* No default: adding an address type should force this mapping to be
+	 * considered.  ADDR_ALL is a selector, never a concrete output type. */
+	switch (addrtype) {
+	case ADDR_P2SH_SEGWIT:
+		return UTXO_P2SH_P2WPKH;
+	case ADDR_BECH32:
+		return UTXO_P2WPKH;
+	case ADDR_P2TR:
+		return UTXO_P2TR;
+	case ADDR_ALL:
+		break;
+	}
+	abort();
+}
+
+/* Record a freshly-discovered wallet output: insert it into our_outputs,
+ * arm bwatch to notify us when it's spent, and (if confirmed) emit a
+ * deposit coin movement.  Bwatch counterpart to the legacy got_utxo()
+ * defined earlier in this file; the legacy one is removed (and this one
+ * renamed) once the chaintopology code path goes away. */
+static void bwatch_got_utxo(struct wallet *w,
+			    u64 keyindex,
+			    enum addrtype addrtype,
+			    const struct wallet_watch_output *output,
+			    bool is_coinbase,
+			    u32 blockheight,
+			    u32 txindex)
+{
+	enum utxotype utxotype = utxotype_from_addrtype(addrtype);
+	u32 start_block;
+
+	log_debug(w->log, "Owning output %u %s (%s) txid %s%s%s",
+		  output->outpoint.n,
+		  fmt_amount_sat(tmpctx, output->amount),
+		  utxotype_to_str(utxotype),
+		  fmt_bitcoin_txid(tmpctx, &output->outpoint.txid),
+		  blockheight ? " CONFIRMED" : "",
+		  is_coinbase ? " COINBASE" : "");
+
+	/* Coin movements describe final ledger history, so an unconfirmed
+	 * discovery is persisted below but does not emit one yet. */
+	if (blockheight)
+		wallet_save_chain_mvt(
+			w->ld,
+			new_coin_wallet_deposit(tmpctx, &output->outpoint,
+						blockheight, output->amount,
+						mk_mvt_tags(MVT_DEPOSIT)));
+
+	wallet_add_our_output(w, &output->outpoint,
+			      blockheight, txindex, output->txout->script,
+			      output->txout->script_len, output->amount, keyindex);
+
+	/* Start at the containing block when confirmed.  For a mempool
+	 * discovery, start at today's tip so a later spend cannot be missed. */
+	start_block = blockheight
+		? blockheight : get_block_height(w->ld->topology);
+	watchman_watch_outpoint(w->ld,
+				owner_wallet_utxo(tmpctx, &output->outpoint),
+				&output->outpoint, start_block);
+
+	/* Unconfirmed: keep watching the scriptpubkey so bwatch tells us when
+	 * the output confirms.  UINT32_MAX = perennial watch: never skip on
+	 * reorg, never rescan. */
+	if (!blockheight)
+		wallet_add_bwatch_scriptpubkey(w->ld, keyindex, UINT32_MAX,
+					       output->txout->script,
+					       output->txout->script_len);
+}
+
+/* A wallet/spk watch owner suffix is "<keyindex>/<form>", as written by
+ * owner_wallet_spk().  Only the keyindex is recovered here: the form is
+ * rederived from the matched script.  Validated like
+ * utxo_watch_suffix_to_outpoint: these strings round-trip through bwatch
+ * (and its persisted state), so don't trust them blindly. */
+static bool spk_watch_suffix_to_keyindex(const char *suffix, u32 *keyindex)
+{
+	char *end;
+	unsigned long long val;
+
+	/* The keyindex is the decimal number before the '/'. */
+	val = strtoull(suffix, &end, 10);
+
+	/* There must be at least one digit... */
+	if (end == suffix)
+		return false;
+	/* ...then the '/' separator and a non-empty form... */
+	if (end[0] != '/' || end[1] == '\0')
+		return false;
+	/* ...and BIP32 key indexes fit in 32 bits. */
+	if (val > UINT32_MAX)
+		return false;
+
+	*keyindex = val;
+	return true;
+}
+
+/* watch_found handler for wallet/spk/<keyidx>/<form>: a wallet HD address
+ * received funds.  Cross-checks the matched output against any pending
+ * invoice, records the transaction, and stores the new UTXO. */
+void wallet_watch_spk(struct lightningd *ld,
+		      const char *suffix,
+		      const struct bitcoin_tx *tx,
+		      size_t outnum,
+		      u32 blockheight,
+		      u32 txindex)
+{
+	struct wallet *w = ld->wallet;
+	u32 keyindex;
+	struct wallet_watch_output output;
+	enum addrtype addrtype;
+	bool is_coinbase = blockheight != 0 && txindex == 0;
+
+	if (!spk_watch_suffix_to_keyindex(suffix, &keyindex)) {
+		log_broken(w->log, "wallet/spk watch_found: invalid suffix %s",
+			   suffix);
+		return;
+	}
+
+	if (!wallet_watch_get_output(w, tx, outnum, &output))
+		return;
+
+	if (!addrtype_from_script(output.txout->script,
+				  output.txout->script_len, &addrtype)) {
+		log_broken(w->log, "wallet/spk watch_found: unrecognized script %s",
+			   tal_hex(tmpctx, output.txout->script));
+		return;
+	}
+
+	/* Invoice accounting and wallet persistence are separate consumers of
+	 * the same discovery.  Check the invoice before recording the output,
+	 * matching the ordering in the legacy scan path. */
+	invoice_check_onchain_payment(ld, output.txout->script, output.amount,
+				      &output.outpoint);
+
+	/* Store the full transaction before the output that refers to it. */
+	wallet_add_our_tx(w, tx->wtx, blockheight, txindex);
+
+	/* Record the owned output, its deposit metadata and its spend watch. */
+	bwatch_got_utxo(w, keyindex, addrtype, &output, is_coinbase,
+			blockheight, txindex);
+}
+
+/* Demote outputs discovered by this key in the disconnected block back to
+ * unconfirmed, along with their transactions.
+ *
+ * A key can be watched in several address forms.  Reverting one form demotes
+ * them all at this height, since the entire block was disconnected.  Later
+ * revert notifications for the other forms therefore have nothing to do.
+ *
+ * Demote, never delete: the rows carry state a rediscovery cannot restore
+ * (reserved_til, close metadata), and the still-armed watches re-promote
+ * them if the tx confirms again.  Only our_outputs/our_txs are touched:
+ * the legacy rows keep their historical reorg semantics, demoted by their
+ * blocks(height) foreign keys when chaintopology removes the disconnected
+ * block.  Coin movements and invoice state remain: those records are
+ * append-only. */
+void wallet_scriptpubkey_watch_revert(struct lightningd *ld,
+				      const char *suffix,
+				      u32 blockheight)
+{
+	struct wallet *w = ld->wallet;
+	struct db_stmt *stmt;
+	u32 keyindex;
+
+	if (!spk_watch_suffix_to_keyindex(suffix, &keyindex)) {
+		log_broken(w->log, "wallet/spk watch_revert: invalid suffix %s",
+			   suffix);
+		return;
+	}
+
+	/* The tx confirmed at this height, so demote it wherever some
+	 * output of it was recorded for this key.  Do this before the
+	 * our_outputs demotion below wipes the height we match on. */
+	stmt = db_prepare_v2(w->db,
+		SQL("UPDATE our_txs SET blockheight = 0, txindex = 0 "
+		    "WHERE blockheight = ? "
+		    "AND txid IN (SELECT txid FROM our_outputs "
+		    "             WHERE keyindex = ? AND blockheight = ?)"));
+	db_bind_int(stmt, blockheight);
+	db_bind_int(stmt, keyindex);
+	db_bind_int(stmt, blockheight);
+	db_exec_prepared_v2(take(stmt));
+
+	stmt = db_prepare_v2(w->db,
+		SQL("UPDATE our_outputs SET blockheight = 0, txindex = 0 "
+		    "WHERE keyindex = ? AND blockheight = ?"));
+	db_bind_int(stmt, keyindex);
+	db_bind_int(stmt, blockheight);
+	db_exec_prepared_v2(take(stmt));
 }
