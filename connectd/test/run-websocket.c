@@ -77,5 +77,29 @@ int main(int argc, char *argv[])
 		     "Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=\r\n"
 		     "\r\n"));
 
+	/* Header names are case-insensitive (RFC 9110 5.1) and the Upgrade
+	 * and Connection values are ASCII case-insensitive (RFC 6455 4.2.1).
+	 * Node's built-in WebSocket sends lowercased header names. */
+	hdr = "GET /chat HTTP/1.1\r\n"
+		"host: server.example.com\r\n"
+		"upgrade: WebSocket\r\n"
+		"connection: upgrade\r\n"
+		"sec-websocket-key: dGhlIHNhbXBsZSBub25jZQ==\r\n"
+		"origin: http://example.com\r\n"
+		"sec-websocket-protocol: chat, superchat\r\n"
+		"sec-websocket-version: 13\r\n\r\n";
+
+	my_rbuf = tal_strdup(tmpctx, hdr);
+	my_rbuf_off = 0;
+	my_wbuf = tal_arr(tmpctx, char, 0);
+
+	http_upgrade(STDIN_FILENO);
+	assert(streq(tal_strndup(tmpctx, my_wbuf, tal_bytelen(my_wbuf)),
+		     "HTTP/1.1 101 Switching Protocols\r\n"
+		     "Upgrade: websocket\r\n"
+		     "Connection: Upgrade\r\n"
+		     "Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=\r\n"
+		     "\r\n"));
+
 	common_shutdown();
 }
