@@ -415,9 +415,21 @@ RPC call lightning-setchannel(7).
 
 * **htlc-maximum-msat**=*MILLISATOSHI*
 
-  Default: unset (no limit). Sets the maximum allowed HTLC value for newly created
-channels. If you want to change the `htlc_maximum_msat` for existing channels,
-use the RPC call lightning-setchannel(7).
+  Sets the maximum allowed HTLC value for newly created channels. If unset
+(the default), public channels advertise 25% of the channel capacity: a
+maximum well below the publicly-known capacity makes it harder to probe for
+where payments are flowing. Private channels, whose capacity is not public,
+advertise the full amount they can send. Either way this is capped at what we
+can actually send, and an explicit value here overrides the default (up to
+that cap). If you want to change the `htlc_maximum_msat` for existing
+channels, use the RPC call lightning-setchannel(7), for example:
+
+        lightning-cli listpeerchannels | \
+          jq -r '.channels[] | select(.private == false and .short_channel_id) |
+                 "\(.short_channel_id) \((.total_msat // 0) / 4 | floor)"' | \
+          while read scid max; do
+            lightning-cli setchannel "$scid" htlcmax="${max}msat"
+          done
 
 * **announce-addr-discovered**=*BOOL*
 
