@@ -1002,6 +1002,11 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx, bool bi
 
 	memset(&u, 0, sizeof(u));
 	u.amount = AMOUNT_SAT(1);
+	u.scriptPubkey = tal_arr(w, u8, BITCOIN_SCRIPTPUBKEY_P2SH_LEN);
+	u.scriptPubkey[0] = OP_HASH160;
+	u.scriptPubkey[1] = 20;
+	memset(u.scriptPubkey + 2, 0, 20);
+	u.scriptPubkey[22] = OP_EQUAL;
 	pubkey_from_der(tal_hexdata(w, "02a1633cafcc01ebfb6d78e39f687a1f0995c62fc95f51ead10a02ee0be551b5dc", 66), 33, &pk);
 	node_id_from_pubkey(&id, &pk);
 
@@ -1024,6 +1029,7 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx, bool bi
 	u.close_info->peer_id = id;
 	u.close_info->commitment_point = &pk;
 	u.close_info->option_anchors = false;
+	u.close_info->csv = 1;
 	/* P2WSH */
 	u.scriptPubkey = tal_arr(w, u8, BITCOIN_SCRIPTPUBKEY_P2WSH_LEN);
 	u.scriptPubkey[0] = OP_0;
@@ -1084,6 +1090,7 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx, bool bi
 	u.close_info->peer_id = id;
 	u.close_info->commitment_point = NULL;
 	u.close_info->option_anchors = true;
+	u.close_info->csv = 1;
 	/* The blockheight has to be set for an option_anchor_output
 	 * closed UTXO to be spendable */
 	u32 *blockheight = tal(w, u32);
