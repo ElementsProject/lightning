@@ -2028,8 +2028,8 @@ void migrate_setup_coinmoves(struct lightningd *ld, struct db *db);
  * These functions are invoked from lightningd/watchman's dispatch table
  * when bwatch reports activity on a wallet-owned scriptpubkey.  They
  * persist outputs and transactions in the `our_outputs` and `our_txs`
- * tables, which run in parallel to the legacy `utxoset` / `transactions`
- * tables so a node can downgrade cleanly for one release.
+ * tables, mirroring every write into the legacy `outputs` /
+ * `transactions` tables so a node can downgrade cleanly for one release.
  * ==================================================================== */
 
 /* Insert a wallet-owned UTXO row into our_outputs.  If the same outpoint

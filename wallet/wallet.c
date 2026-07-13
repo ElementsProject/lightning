@@ -273,6 +273,47 @@ static u64 move_accounts_id(struct db *db, const char *name, bool create)
 	return db_last_insert_id_v2(take(stmt));
 }
 
+/* Every writer to our_outputs also mirrors the change into the legacy
+ * `outputs` table so a downgraded binary (which reads only `outputs`)
+ * finds it up to date.  The mirroring goes away when chaintopology is
+ * removed and the legacy tables freeze wholesale. */
+static void legacy_outputs_mark_spent(struct wallet *w,
+				      const struct bitcoin_outpoint *outpoint,
+				      u32 blockheight)
+{
+	/* spend_height references blocks(height), which only chaintopology
+	 * populates, and bwatch can be ahead of it.  If the block isn't
+	 * known yet, record NULL: the status column already excludes the
+	 * row from coin selection, and chaintopology's own spend pass
+	 * (wallet_outpoint_spend) re-runs this once it processes that
+	 * block, filling in the height.  Same race guard as
+	 * confirmation_height in wallet_add_our_output. */
+	struct db_stmt *stmt = db_prepare_v2(w->db,
+		SQL("UPDATE outputs SET "
+		    "spend_height = (SELECT height FROM blocks WHERE height = ?), "
+		    "status = ? "
+		    "WHERE prev_out_tx = ? AND prev_out_index = ?"));
+	db_bind_int(stmt, blockheight);
+	db_bind_int(stmt, output_status_in_db(OUTPUT_STATE_SPENT));
+	db_bind_txid(stmt, &outpoint->txid);
+	db_bind_int(stmt, outpoint->n);
+	db_exec_prepared_v2(take(stmt));
+}
+
+/* Mirror of the reorg case: the spend was reverted, so the output is
+ * unspent again. */
+static void legacy_outputs_mark_unspent(struct wallet *w,
+					const struct bitcoin_outpoint *outpoint)
+{
+	struct db_stmt *stmt = db_prepare_v2(w->db,
+		SQL("UPDATE outputs SET spend_height = NULL, status = ? "
+		    "WHERE prev_out_tx = ? AND prev_out_index = ?"));
+	db_bind_int(stmt, output_status_in_db(OUTPUT_STATE_AVAILABLE));
+	db_bind_txid(stmt, &outpoint->txid);
+	db_bind_int(stmt, outpoint->n);
+	db_exec_prepared_v2(take(stmt));
+}
+
 /**
  * wallet_add_utxo - Register an UTXO which we (partially) own
  *
@@ -7947,10 +7988,10 @@ void migrate_remove_chain_moves_duplicates(struct lightningd *ld, struct db *db)
  * When bwatch reports that a wallet-owned scriptpubkey appeared in a block
  * (or that a previously-seen output was reorged away), the dispatch table
  * in lightningd/watchman calls into the helpers below.  They write to the
- * `our_outputs` and `our_txs` tables, which are independent of the
- * `utxoset` / `transactions` tables populated by the legacy chaintopology
- * path.  Both sets of tables coexist for one release so a node can
- * downgrade cleanly.
+ * `our_outputs` and `our_txs` tables; every write is also mirrored into
+ * the legacy `outputs` / `transactions` tables so a downgraded binary
+ * finds them up to date.  The mirroring (and the legacy tables) go away
+ * once chaintopology does.
  * ==================================================================== */
 
 /* Map a wallet output script to its address type.  Returns false if it's
@@ -8046,6 +8087,56 @@ void wallet_add_our_output(struct wallet *w,
 		db_bind_int(stmt, txindex);
 		db_bind_txid(stmt, &outpoint->txid);
 		db_bind_int(stmt, outpoint->n);
+		db_bind_int(stmt, blockheight);
+		db_exec_prepared_v2(take(stmt));
+	}
+
+	/* Mirror into legacy `outputs` for downgrade (see
+	 * legacy_outputs_mark_spent).  Bwatch may be ahead of chaintopology,
+	 * so only set the FK-backed confirmation_height once blocks has it;
+	 * chaintopology's later pass promotes the row.  Coinbase convention
+	 * matches ours: confirmed at txindex 0. */
+	stmt = db_prepare_v2(w->db,
+		SQL("INSERT INTO outputs ("
+		    "  prev_out_tx"
+		    ", prev_out_index"
+		    ", value"
+		    ", type"
+		    ", status"
+		    ", keyindex"
+		    ", confirmation_height"
+		    ", spend_height"
+		    ", scriptpubkey"
+		    ", is_in_coinbase"
+		    ") VALUES (?, ?, ?, ?, ?, ?, "
+		    "(SELECT height FROM blocks WHERE height = ?), ?, ?, ?) "
+		    "ON CONFLICT(prev_out_tx,prev_out_index) DO NOTHING;"));
+	db_bind_txid(stmt, &outpoint->txid);
+	db_bind_int(stmt, outpoint->n);
+	db_bind_amount_sat(stmt, sat);
+	db_bind_int(stmt, wallet_output_type_in_db(
+			    is_p2sh(script, script_len, NULL)
+			    ? WALLET_OUTPUT_P2SH_WPKH
+			    : WALLET_OUTPUT_OUR_CHANGE));
+	db_bind_int(stmt, output_status_in_db(OUTPUT_STATE_AVAILABLE));
+	db_bind_int(stmt, keyindex);
+	db_bind_int(stmt, blockheight);
+	db_bind_null(stmt);
+	db_bind_blob(stmt, script, script_len);
+	db_bind_int(stmt, blockheight != 0 && txindex == 0);
+	db_exec_prepared_v2(take(stmt));
+
+	if (blockheight != 0) {
+		stmt = db_prepare_v2(w->db,
+			SQL("UPDATE outputs SET confirmation_height = ? "
+			    "WHERE prev_out_tx = ? AND prev_out_index = ? "
+			    "AND EXISTS (SELECT 1 FROM blocks WHERE height = ?) "
+			    "AND (confirmation_height IS NULL "
+			    "     OR confirmation_height < ?);"));
+		db_bind_int(stmt, blockheight);
+		db_bind_txid(stmt, &outpoint->txid);
+		db_bind_int(stmt, outpoint->n);
+		db_bind_int(stmt, blockheight);
 		db_bind_int(stmt, blockheight);
 		db_exec_prepared_v2(take(stmt));
 	}
@@ -8390,6 +8481,8 @@ void wallet_utxo_spent_watch_found(struct lightningd *ld,
 	db_bind_int(stmt, outpoint.n);
 	db_exec_prepared_v2(take(stmt));
 
+	legacy_outputs_mark_spent(ld->wallet, &outpoint, blockheight);
+
 	/* The spending tx is wallet-relevant, so it goes into our_txs (like
 	 * the legacy transactions table) for listtransactions. */
 	wallet_add_our_tx(ld->wallet, tx->wtx, blockheight, txindex);
@@ -8419,6 +8512,8 @@ void wallet_utxo_spent_watch_revert(struct lightningd *ld,
 	db_bind_txid(stmt, &outpoint.txid);
 	db_bind_int(stmt, outpoint.n);
 	db_exec_prepared_v2(take(stmt));
+
+	legacy_outputs_mark_unspent(ld->wallet, &outpoint);
 
 	/* The withdrawal movement recorded by watch_found stays: coin
 	 * movements are append-only, and wallet_save_chain_mvt won't record
