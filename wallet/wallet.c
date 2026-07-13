@@ -341,6 +341,56 @@ static bool wallet_add_utxo(struct wallet *w,
 	}
 	tal_free(stmt);
 
+	/* our_outputs is the live table. */
+	stmt = db_prepare_v2(
+		w->db, SQL("INSERT INTO our_outputs ("
+			   "  txid"
+			   ", outnum"
+			   ", blockheight"
+			   ", txindex"
+			   ", scriptpubkey"
+			   ", satoshis"
+			   ", spendheight"
+			   ", keyindex"
+			   ", reserved_til"
+			   ", channel_dbid"
+			   ", peer_id"
+			   ", commitment_point"
+			   ", option_anchors"
+			   ", csv"
+			   ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
+	db_bind_txid(stmt, &utxo->outpoint.txid);
+	db_bind_int(stmt, utxo->outpoint.n);
+	db_bind_int(stmt, utxo->blockheight ? *utxo->blockheight : 0);
+	db_bind_int(stmt, utxo->is_in_coinbase ? 0 : 1);
+	db_bind_blob(stmt, utxo->scriptPubkey,
+		     tal_bytelen(utxo->scriptPubkey));
+	db_bind_amount_sat(stmt, utxo->amount);
+	if (utxo->spendheight)
+		db_bind_int(stmt, *utxo->spendheight);
+	else
+		db_bind_null(stmt);
+	db_bind_int(stmt, utxo->keyindex);
+	db_bind_int(stmt, utxo->reserved_til);
+	if (utxo->close_info) {
+		db_bind_u64(stmt, utxo->close_info->channel_id);
+		db_bind_node_id(stmt, &utxo->close_info->peer_id);
+		if (utxo->close_info->commitment_point)
+			db_bind_pubkey(stmt, utxo->close_info->commitment_point);
+		else
+			db_bind_null(stmt);
+		db_bind_int(stmt, utxo->close_info->option_anchors);
+		db_bind_int(stmt, utxo->close_info->csv);
+	} else {
+		db_bind_null(stmt);
+		db_bind_null(stmt);
+		db_bind_null(stmt);
+		db_bind_null(stmt);
+		db_bind_null(stmt);
+	}
+	db_exec_prepared_v2(take(stmt));
+
+	/* Mirror the same output into legacy `outputs` for downgrade. */
 	stmt = db_prepare_v2(
 	    w->db, SQL("INSERT INTO outputs ("
 		       "  prev_out_tx"
@@ -763,6 +813,16 @@ static void db_set_utxo(struct db *db, const struct utxo *utxo)
 	else
 		assert(!utxo->reserved_til);
 
+	/* our_outputs derives status from spendheight and reserved_til. */
+	stmt = db_prepare_v2(
+		db, SQL("UPDATE our_outputs SET reserved_til = ? "
+			"WHERE txid = ? AND outnum = ?"));
+	db_bind_int(stmt, utxo->reserved_til);
+	db_bind_txid(stmt, &utxo->outpoint.txid);
+	db_bind_int(stmt, utxo->outpoint.n);
+	db_exec_prepared_v2(take(stmt));
+
+	/* Mirror the reservation into legacy `outputs` for downgrade. */
 	stmt = db_prepare_v2(
 		db, SQL("UPDATE outputs SET status=?, reserved_til=? "
 			"WHERE prev_out_tx=? AND prev_out_index=?"));
@@ -1023,6 +1083,39 @@ bool wallet_add_onchaind_utxo(struct wallet *w,
 	}
 	tal_free(stmt);
 
+	/* Store the channel-close output in the live table.  We do not know
+	 * its real tx position here; 1 means "confirmed, not coinbase". */
+	stmt = db_prepare_v2(w->db,
+		SQL("INSERT INTO our_outputs ("
+		    "  txid"
+		    ", outnum"
+		    ", blockheight"
+		    ", txindex"
+		    ", scriptpubkey"
+		    ", satoshis"
+		    ", channel_dbid"
+		    ", peer_id"
+		    ", commitment_point"
+		    ", option_anchors"
+		    ", csv"
+		    ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
+	db_bind_txid(stmt, &outpoint->txid);
+	db_bind_int(stmt, outpoint->n);
+	db_bind_int(stmt, blockheight);
+	db_bind_int(stmt, blockheight ? 1 : 0);
+	db_bind_blob(stmt, scriptpubkey, tal_bytelen(scriptpubkey));
+	db_bind_amount_sat(stmt, amount);
+	db_bind_u64(stmt, channel->dbid);
+	db_bind_node_id(stmt, &channel->peer->id);
+	if (commitment_point)
+		db_bind_pubkey(stmt, commitment_point);
+	else
+		db_bind_null(stmt);
+	db_bind_int(stmt, channel_type_has_anchors(channel->type));
+	db_bind_int(stmt, csv_lock);
+	db_exec_prepared_v2(take(stmt));
+
+	/* Mirror the same output into legacy `outputs` for downgrade. */
 	stmt = db_prepare_v2(
 	    w->db, SQL("INSERT INTO outputs ("
 		       "  prev_out_tx"
@@ -1052,17 +1145,14 @@ bool wallet_add_onchaind_utxo(struct wallet *w,
 		db_bind_pubkey(stmt, commitment_point);
 	else
 		db_bind_null(stmt);
-
-	db_bind_int(stmt,
-		    channel_type_has_anchors(channel->type));
-	db_bind_int(stmt, blockheight);
-
-	/* spendheight */
+	db_bind_int(stmt, channel_type_has_anchors(channel->type));
+	if (blockheight)
+		db_bind_int(stmt, blockheight);
+	else
+		db_bind_null(stmt);
 	db_bind_null(stmt);
 	db_bind_blob(stmt, scriptpubkey, tal_bytelen(scriptpubkey));
-
 	db_bind_int(stmt, csv_lock);
-
 	db_exec_prepared_v2(take(stmt));
 	return true;
 }
@@ -3307,6 +3397,15 @@ void wallet_confirm_tx(struct wallet *w,
 {
 	struct db_stmt *stmt;
 	assert(confirmation_height > 0);
+
+	stmt = db_prepare_v2(w->db, SQL("UPDATE our_outputs "
+					"SET blockheight = ? "
+					"WHERE txid = ?"));
+	db_bind_int(stmt, confirmation_height);
+	db_bind_txid(stmt, txid);
+	db_exec_prepared_v2(take(stmt));
+
+	/* Mirror the confirmation into legacy `outputs` for downgrade. */
 	stmt = db_prepare_v2(w->db, SQL("UPDATE outputs "
 					"SET confirmation_height = ? "
 					"WHERE prev_out_tx = ?"));
@@ -4990,19 +5089,15 @@ bool wallet_outpoint_spend(const tal_t *ctx, struct wallet *w, const u32 blockhe
 	struct db_stmt *stmt;
 	bool our_spend;
 	if (outpointfilter_matches(w->owned_outpoints, outpoint)) {
-		stmt = db_prepare_v2(w->db, SQL("UPDATE outputs "
-						"SET spend_height = ?, "
-						" status = ? "
-						"WHERE prev_out_tx = ?"
-						" AND prev_out_index = ?"));
-
+		stmt = db_prepare_v2(w->db,
+			SQL("UPDATE our_outputs SET spendheight = ? "
+			    "WHERE txid = ? AND outnum = ?"));
 		db_bind_int(stmt, blockheight);
-		db_bind_int(stmt, output_status_in_db(OUTPUT_STATE_SPENT));
 		db_bind_txid(stmt, &outpoint->txid);
 		db_bind_int(stmt, outpoint->n);
-
 		db_exec_prepared_v2(take(stmt));
 
+		legacy_outputs_mark_spent(w, outpoint, blockheight);
 		our_spend = true;
 	} else
 		our_spend = false;
