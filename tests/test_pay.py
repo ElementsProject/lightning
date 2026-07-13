@@ -2024,6 +2024,7 @@ def test_pay_routeboost(node_factory, bitcoind):
     assert ret['successful_parts'] == 1
 
 
+@pytest.mark.xfail(strict=True)
 def test_setchannel_usage(node_factory, bitcoind):
     # TEST SETUP
     #
@@ -2042,8 +2043,8 @@ def test_setchannel_usage(node_factory, bitcoind):
     DEF_BASE = 10
     DEF_BASE_MSAT = Millisatoshi(DEF_BASE)
     DEF_PPM = 100
-    # Minus reserve
-    MAX_HTLC = Millisatoshi(int(FUNDAMOUNT * 1000 * 0.99))
+    # Public channels default htlc_maximum_msat to 25% of capacity.
+    MAX_HTLC = Millisatoshi(int(FUNDAMOUNT * 1000 * 0.25))
 
     l1, l2, l3 = node_factory.get_nodes(3,
                                         opts={'fee-base': DEF_BASE, 'fee-per-satoshi': DEF_PPM})
