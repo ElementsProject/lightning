@@ -489,6 +489,34 @@ struct amount_msat htlc_max_possible_send(const struct channel *channel)
 	return lower_bound_msat;
 }
 
+struct amount_msat channel_htlc_maximum_default(const struct channel *channel,
+						struct amount_msat configured_max)
+{
+	struct amount_msat cap = htlc_max_possible_send(channel);
+	struct amount_msat deflt;
+
+	/* If the operator set --htlc-maximum-msat, honour it (the sentinel
+	 * AMOUNT_MSAT(-1ULL) means "unset").  Otherwise pick a default. */
+	if (!amount_msat_eq(configured_max, AMOUNT_MSAT(-1ULL)))
+		deflt = configured_max;
+	else if (channel->channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL) {
+		/* Oakland privacy proposal (Lightning Dev Summit): probing for
+		 * where payments went is much harder if the htlc maximum is
+		 * well below the channel capacity.  For public channels the
+		 * capacity is known from the funding output, so default to 25%
+		 * of it.  The spec only requires htlc_maximum_msat <= capacity. */
+		if (!amount_sat_to_msat(&deflt, channel->funding_sats))
+			return cap;
+		deflt = amount_msat_div(deflt, 4);
+	} else
+		/* Private channels have no publicly-known capacity to correlate
+		 * against, so we advertise the full amount we can send. */
+		deflt = cap;
+
+	/* Never advertise more than we could actually send. */
+	return amount_msat_min(deflt, cap);
+}
+
 struct channel *new_channel(struct peer *peer, u64 dbid,
 			    /* NULL or stolen */
 			    struct wallet_shachain *their_shachain,
@@ -567,7 +595,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    bool withheld)
 {
 	struct channel *channel = tal(peer->ld, struct channel);
-	struct amount_msat htlc_min, htlc_max;
+	struct amount_msat htlc_min;
 
 	bool anysegwit = !chainparams->is_elements && feature_negotiated(peer->ld->our_features,
                         peer->their_features,
@@ -694,11 +722,8 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 		channel->htlc_minimum_msat = htlc_min;
 	else
 		channel->htlc_minimum_msat = htlc_minimum_msat;
-	htlc_max = htlc_max_possible_send(channel);
-	if (amount_msat_less(htlc_max, htlc_maximum_msat))
-		channel->htlc_maximum_msat = htlc_max;
-	else
-		channel->htlc_maximum_msat = htlc_maximum_msat;
+	channel->htlc_maximum_msat = channel_htlc_maximum_default(channel,
+								  htlc_maximum_msat);
 
 	list_add_tail(&peer->channels, &channel->list);
 	channel->rr_number = peer->ld->rr_counter++;
@@ -1350,4 +1375,3 @@ const u8 *channel_update_for_error(const tal_t *ctx,
 
 	return channel_gossip_update_for_error(ctx, channel);
 }
-

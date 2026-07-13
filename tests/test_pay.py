@@ -2051,7 +2051,6 @@ def test_pay_routeboost(node_factory, bitcoind):
     assert ret['successful_parts'] == 1
 
 
-@pytest.mark.xfail(strict=True)
 def test_setchannel_usage(node_factory, bitcoind):
     # TEST SETUP
     #
@@ -2307,7 +2306,8 @@ def test_setchannel_routing(node_factory, bitcoind):
     # - htlc max is honored
     DEF_BASE = 1
     DEF_PPM = 10
-    MAX_HTLC = Millisatoshi(int(FUNDAMOUNT * 1000 * 0.99))
+    # Public channels default htlc_maximum_msat to 25% of capacity.
+    MAX_HTLC = Millisatoshi(int(FUNDAMOUNT * 1000 * 0.25))
     MIN_HTLC = Millisatoshi(0)
 
     l1, l2, l3 = node_factory.line_graph(
@@ -2419,6 +2419,8 @@ def test_setchannel_zero(node_factory, bitcoind):
     # - payment can be done using zero fees
     DEF_BASE = 1
     DEF_PPM = 10
+    # This is the cap (capacity minus reserve) that setchannel clamps to,
+    # not the default: below we try to set htlcmax above it.
     MAX_HTLC = Millisatoshi(int(FUNDAMOUNT * 1000 * 0.99))
 
     l1, l2, l3 = node_factory.line_graph(
@@ -2470,7 +2472,8 @@ def test_setchannel_restart(node_factory, bitcoind):
     DEF_BASE = 1
     DEF_PPM = 10
     MIN_HTLC = Millisatoshi(0)
-    MAX_HTLC = Millisatoshi(int(FUNDAMOUNT * 1000 * 0.99))
+    # Public channels default htlc_maximum_msat to 25% of capacity.
+    MAX_HTLC = Millisatoshi(int(FUNDAMOUNT * 1000 * 0.25))
     OPTS = {'may_reconnect': True, 'fee-base': DEF_BASE, 'fee-per-satoshi': DEF_PPM}
 
     l1, l2, l3 = node_factory.line_graph(3, announce_channels=True, wait_for_announce=True, opts=OPTS)
@@ -2581,7 +2584,6 @@ def test_setchannel_startup_opts(node_factory, bitcoind):
     assert result[1]['htlc_maximum_msat'] == Millisatoshi(5)
 
 
-@pytest.mark.xfail(strict=True)
 def test_htlc_maximum_msat_default(node_factory, bitcoind):
     """Public channels default htlc_maximum_msat to 25% of capacity, private
     channels to everything we can send"""

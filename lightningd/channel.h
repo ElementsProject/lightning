@@ -977,6 +977,13 @@ const u8 *channel_update_for_error(const tal_t *ctx,
 
 struct amount_msat htlc_max_possible_send(const struct channel *channel);
 
+/* Default htlc_maximum_msat to advertise for a new channel, given the
+ * configured --htlc-maximum-msat (AMOUNT_MSAT(-1ULL) if unset).  Public
+ * channels default to 25% of capacity for privacy; private channels and an
+ * explicit setting use the full amount, all capped at what we can send. */
+struct amount_msat channel_htlc_maximum_default(const struct channel *channel,
+						struct amount_msat configured_max);
+
 /* Given features, what channel_type do we want? */
 struct channel_type *desired_channel_type(const tal_t *ctx,
 					  const struct feature_set *our_features,
