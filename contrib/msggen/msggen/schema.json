@@ -22180,7 +22180,11 @@
                 "value_bool": false,
                 "source": "default",
                 "plugin": "/root/lightning/plugins/cln-xpay",
-                "dynamic": true
+                "dynamic": true,
+                "deprecated": [
+                  "v26.09",
+                  "v27.03"
+                ]
               },
               "xpay-slow-mode": {
                 "value_bool": false,

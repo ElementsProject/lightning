@@ -2244,15 +2244,25 @@ static void ld_command_handle(struct plugin *plugin,
 		else
 			val = "true";
 
-		problem = popt->handle(cmd, val, check_only, popt->arg);
-		if (problem)
+		if (!deprecated_ok(plugin->deprecated_ok, popt->name,
+				   popt->depr_start, popt->depr_end,
+				   plugin->beglist, NULL, NULL)) {
 			ret = command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					   "%s", problem);
-		else {
-			if (check_only)
-				ret = command_check_done(cmd);
-			else
-				ret = command_finished(cmd, jsonrpc_stream_success(cmd));
+					    "Configuration %s is deprecated",
+					    popt->name);
+		} else {
+
+			problem = popt->handle(cmd, val, check_only, popt->arg);
+			if (problem)
+				ret = command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+						   "%s", problem);
+			else {
+				if (check_only)
+					ret = command_check_done(cmd);
+				else
+					ret = command_finished(
+					    cmd, jsonrpc_stream_success(cmd));
+			}
 		}
 		assert(ret == &complete);
 		return;
