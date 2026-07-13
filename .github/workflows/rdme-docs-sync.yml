@@ -1,4 +1,4 @@
-name: ReadMe Sync
+name: ReadMe Docs Sync
 
 on:
   push:
@@ -6,36 +6,95 @@ on:
       - 'master'
     paths:
       - 'doc/**'
+    tags:
+      - 'v[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+[0-9a-z]+'
   workflow_dispatch:
 
 jobs:
-  rdme-docs-sync:  
-    runs-on: ubuntu-22.04
+  # Step 1: Determine version and create ReadMe version if needed
+  version:
+    name: Determine ReadMe Version
+    runs-on: ubuntu-24.04
+    outputs:
+      readme_version: ${{ steps.determine.outputs.readme_version }}
+      version_created: ${{ steps.create_version.outputs.readme_version_created }}
     steps:
       - name: Check out repo 📚
         uses: actions/checkout@v6
 
+      - name: Determine version from .version file
+        id: determine
+        run: |
+          if [ -f .version ]; then
+            FULL_VERSION=$(cat .version | tr -d ' \n')
+            VERSION="${FULL_VERSION#v}"
+            SHORT_VERSION=$(echo "$VERSION" | grep -oE '^[0-9]+\.[0-9]+')
+            echo "Full version: $FULL_VERSION"
+            echo "Short version: $SHORT_VERSION"
+            echo "readme_version=${SHORT_VERSION}" >> "$GITHUB_OUTPUT"
+          else
+            echo "No .version file found, using 'stable'"
+            echo "readme_version=stable" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create ReadMe version if needed
+        id: create_version
+        if: github.ref_type == 'tag'
+        run: |
+          bash .github/scripts/create-readme-version.sh "${{ steps.determine.outputs.readme_version }}"
+        env:
+          README_API_KEY: ${{ secrets.README_API_KEY }}
+
+  # Step 2: Sync docs to the determined version
+  rdme-docs-sync:
+    name: Sync Docs to ReadMe
+    needs: version
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out repo 📚
+        uses: actions/checkout@v6
+
+      - name: Read version for sync
+        id: sync_version
+        run: |
+          README_VERSION="${{ needs.version.outputs.readme_version }}"
+          if [ -z "$README_VERSION" ] || [ "$README_VERSION" = "null" ]; then
+            if [ -f .version ]; then
+              FULL_VERSION=$(cat .version | tr -d ' \n')
+              VERSION="${FULL_VERSION#v}"
+              README_VERSION=$(echo "$VERSION" | grep -oE '^[0-9]+\.[0-9]+')
+            else
+              README_VERSION="stable"
+            fi
+          fi
+          echo "Syncing to ReadMe version: ${README_VERSION}"
+          echo "version=${README_VERSION}" >> "$GITHUB_OUTPUT"
       - name: Sync doc/getting-started/ 🚀
         uses: readmeio/rdme@v10
         with:
-          rdme: docs upload ./doc/getting-started --key=${{ secrets.README_API_KEY }} --branch=1
-            
+          rdme: docs upload ./doc/getting-started --key=${{ secrets.README_API_KEY }} --branch=${{ steps.sync_version.outputs.version }}
+      
       - name: Sync doc/beginners-guide/ 🚀
         uses: readmeio/rdme@v10
         with:
-          rdme: docs upload ./doc/beginners-guide --key=${{ secrets.README_API_KEY }} --branch=1
+          rdme: docs upload ./doc/beginners-guide --key=${{ secrets.README_API_KEY }} --branch=${{ steps.sync_version.outputs.version }}
       
       - name: Sync doc/node-operators-guide/ 🚀
         uses: readmeio/rdme@v10
         with:
-          rdme: docs upload ./doc/node-operators-guide --key=${{ secrets.README_API_KEY }} --branch=1
+          rdme: docs upload ./doc/node-operators-guide --key=${{ secrets.README_API_KEY }} --branch=${{ steps.sync_version.outputs.version }}
       
       - name: Sync doc/developers-guide/ 🚀
         uses: readmeio/rdme@v10
         with:
-          rdme: docs upload ./doc/developers-guide --key=${{ secrets.README_API_KEY }} --branch=1
-      
+          rdme: docs upload ./doc/developers-guide --key=${{ secrets.README_API_KEY }} --branch=${{ steps.sync_version.outputs.version }}
+
       - name: Sync doc/contributing-to-core-lightning/ 🚀
         uses: readmeio/rdme@v10
         with:
-          rdme: docs upload ./doc/contribute-to-core-lightning --key=${{ secrets.README_API_KEY }} --branch=1
+          rdme: docs upload ./doc/contribute-to-core-lightning --key=${{ secrets.README_API_KEY }} --branch=${{ steps.sync_version.outputs.version }}
+
+  # Note: Promotion to stable is handled in readme-rpc-sync.yml to avoid race
+  # conditions between the two workflows publishing to the same ReadMe project.
