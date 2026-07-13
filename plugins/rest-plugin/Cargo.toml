@@ -15,7 +15,7 @@ log = { version = "0.4", features = ['std'] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_yaml_ng = "0.10.0"
-quick-xml = { version = "0.40", features = ["serialize"] }
+quick-xml = { version = "0.41", features = ["serialize"] }
 roxmltree_to_serde = "0.6"
 serde_qs = "1"
 tokio-util = { version = "0.7", features = ["codec"] }
@@ -42,7 +42,7 @@ futures-util = { version = "0.3", default-features = false, features = [
 rcgen = "0.14"
 hyper = "1"
 tower = "0.5"
-tower-http = { version = "0.6", features = ["cors", "set-header"] }
+tower-http = { version = "0.7", features = ["cors", "set-header"] }
 utoipa = { version = "5", features = ['axum_extras'] }
 
 log-panics = "2"
