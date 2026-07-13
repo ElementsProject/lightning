@@ -2051,6 +2051,7 @@ def test_pay_routeboost(node_factory, bitcoind):
     assert ret['successful_parts'] == 1
 
 
+@pytest.mark.xfail(strict=True)
 def test_setchannel_usage(node_factory, bitcoind):
     # TEST SETUP
     #
@@ -2069,8 +2070,8 @@ def test_setchannel_usage(node_factory, bitcoind):
     DEF_BASE = 10
     DEF_BASE_MSAT = Millisatoshi(DEF_BASE)
     DEF_PPM = 100
-    # Minus reserve
-    MAX_HTLC = Millisatoshi(int(FUNDAMOUNT * 1000 * 0.99))
+    # Public channels default htlc_maximum_msat to 25% of capacity.
+    MAX_HTLC = Millisatoshi(int(FUNDAMOUNT * 1000 * 0.25))
 
     l1, l2, l3 = node_factory.get_nodes(3,
                                         opts={'fee-base': DEF_BASE, 'fee-per-satoshi': DEF_PPM})
@@ -2089,7 +2090,7 @@ def test_setchannel_usage(node_factory, bitcoind):
     db_fees = l1.db_query('SELECT feerate_base, feerate_ppm, htlc_maximum_msat FROM channels;')
     assert(db_fees[0]['feerate_base'] == DEF_BASE)
     assert(db_fees[0]['feerate_ppm'] == DEF_PPM)
-    # This will be the capacity - reserves:
+    # This will be 25% of the capacity:
     assert(db_fees[0]['htlc_maximum_msat'] == MAX_HTLC)
     # this is also what listpeers should return
     channel = only_one(l1.rpc.listpeerchannels()['channels'])
@@ -2578,6 +2579,29 @@ def test_setchannel_startup_opts(node_factory, bitcoind):
     assert result[1]['fee_per_millionth'] == 3
     assert result[1]['htlc_minimum_msat'] == Millisatoshi(4)
     assert result[1]['htlc_maximum_msat'] == Millisatoshi(5)
+
+
+@pytest.mark.xfail(strict=True)
+def test_htlc_maximum_msat_default(node_factory, bitcoind):
+    """Public channels default htlc_maximum_msat to 25% of capacity, private
+    channels to everything we can send"""
+    # A public channel's capacity is known from the funding output, so we
+    # advertise well below it to make probing harder.
+    PUBLIC_MAX = Millisatoshi(int(FUNDAMOUNT * 1000 * 0.25))
+    l1, l2 = node_factory.line_graph(2, wait_for_announce=True)
+
+    scid = only_one(l1.rpc.listpeerchannels()['channels'])['short_channel_id']
+    assert only_one(l1.rpc.listpeerchannels()['channels'])['maximum_htlc_out_msat'] == PUBLIC_MAX
+    # Both directions default the same way.
+    wait_for(lambda: [c['htlc_maximum_msat'] for c in l1.rpc.listchannels(scid)['channels']] == [PUBLIC_MAX, PUBLIC_MAX])
+
+    # A private channel has no publicly-known capacity to correlate against,
+    # so we advertise everything we can send: capacity minus their reserve.
+    PRIVATE_MAX = Millisatoshi(int(FUNDAMOUNT * 1000 * 0.99))
+    l3, l4 = node_factory.line_graph(2, announce_channels=False)
+
+    assert only_one(l3.rpc.listpeerchannels()['channels'])['maximum_htlc_out_msat'] == PRIVATE_MAX
+    assert only_one(l4.rpc.listpeerchannels()['channels'])['maximum_htlc_out_msat'] == PRIVATE_MAX
 
 
 @pytest.mark.parametrize("anchors", [False, True])
