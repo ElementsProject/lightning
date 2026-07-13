@@ -987,56 +987,107 @@ static struct wallet *create_test_wallet(struct lightningd *ld, const tal_t *ctx
 	return w;
 }
 
+static void test_set_p2sh_script(const tal_t *ctx, struct utxo *u, u8 fill)
+{
+	u->scriptPubkey = tal_arr(ctx, u8, BITCOIN_SCRIPTPUBKEY_P2SH_LEN);
+	u->scriptPubkey[0] = OP_HASH160;
+	u->scriptPubkey[1] = 20;
+	memset(u->scriptPubkey + 2, fill, 20);
+	u->scriptPubkey[22] = OP_EQUAL;
+}
+
+static void test_set_p2wpkh_script(const tal_t *ctx, struct utxo *u, u8 fill)
+{
+	u->scriptPubkey = tal_arr(ctx, u8, BITCOIN_SCRIPTPUBKEY_P2WPKH_LEN);
+	u->scriptPubkey[0] = OP_0;
+	u->scriptPubkey[1] = 20;
+	memset(u->scriptPubkey + 2, fill, 20);
+}
+
+static void test_set_p2wsh_script(const tal_t *ctx, struct utxo *u, u8 fill)
+{
+	u->scriptPubkey = tal_arr(ctx, u8, BITCOIN_SCRIPTPUBKEY_P2WSH_LEN);
+	u->scriptPubkey[0] = OP_0;
+	u->scriptPubkey[1] = 32;
+	memset(u->scriptPubkey + 2, fill, 32);
+}
+
+/* Like the old wallet_add_utxo for HD-wallet outputs. */
+static bool test_add_hd_output(struct wallet *w, const struct utxo *u)
+{
+	u32 blockheight = u->blockheight ? *u->blockheight : 0;
+
+	if (wallet_utxo_get(w, w, &u->outpoint))
+		return false;
+
+	wallet_add_our_output(w, &u->outpoint, blockheight, 1,
+			      u->scriptPubkey, tal_bytelen(u->scriptPubkey),
+			      u->amount, u->keyindex);
+	return true;
+}
+
+static void test_init_channel(struct lightningd *ld,
+			      struct channel *channel,
+			      const struct node_id *id,
+			      u64 dbid,
+			      struct channel_type *type)
+{
+	struct wireaddr_internal addr;
+
+	assert(parse_wireaddr_internal(tmpctx, "localhost:1234", 0, false,
+				       &addr) == NULL);
+	if (!channel->peer)
+		channel->peer = new_peer(ld, 0, id, &addr, NULL, NULL, false);
+	channel->dbid = dbid;
+	channel->type = type;
+}
+
 static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx, bool bip86)
 {
 	struct wallet *w = create_test_wallet(ld, ctx, bip86);
 	struct utxo u;
 	struct pubkey pk;
 	struct node_id id;
-	struct wireaddr_internal addr;
 	struct block block;
 	struct channel channel;
-	struct utxo *one_utxo;
+	struct utxo *one_utxo, *res_utxo;
 	const struct utxo **utxos;
 	CHECK(w);
 
+	memset(&channel, 0, sizeof(channel));
+
 	memset(&u, 0, sizeof(u));
 	u.amount = AMOUNT_SAT(1);
-	u.scriptPubkey = tal_arr(w, u8, BITCOIN_SCRIPTPUBKEY_P2SH_LEN);
-	u.scriptPubkey[0] = OP_HASH160;
-	u.scriptPubkey[1] = 20;
-	memset(u.scriptPubkey + 2, 0, 20);
-	u.scriptPubkey[22] = OP_EQUAL;
+	u.keyindex = 0;
+	test_set_p2sh_script(w, &u, 0);
 	pubkey_from_der(tal_hexdata(w, "02a1633cafcc01ebfb6d78e39f687a1f0995c62fc95f51ead10a02ee0be551b5dc", 66), 33, &pk);
 	node_id_from_pubkey(&id, &pk);
 
 	db_begin_transaction(w->db);
 
 	/* Should work, it's the first time we add it */
-	CHECK_MSG(wallet_add_utxo(w, &u, WALLET_OUTPUT_P2SH_WPKH),
-		  "wallet_add_utxo failed on first add");
+	CHECK_MSG(test_add_hd_output(w, &u),
+		  "test_add_hd_output failed on first add");
 	CHECK_MSG(!wallet_err, wallet_err);
 
 	/* Should fail, we already have that UTXO */
-	CHECK_MSG(!wallet_add_utxo(w, &u, WALLET_OUTPUT_P2SH_WPKH),
-		  "wallet_add_utxo succeeded on second add");
+	CHECK_MSG(!test_add_hd_output(w, &u),
+		  "test_add_hd_output succeeded on second add");
 	CHECK_MSG(!wallet_err, wallet_err);
 
 	/* Attempt to save an UTXO with close_info set */
 	memset(&u.outpoint, 1, sizeof(u.outpoint));
-	u.close_info = tal(w, struct unilateral_close_info);
-	u.close_info->channel_id = 42;
-	u.close_info->peer_id = id;
-	u.close_info->commitment_point = &pk;
-	u.close_info->option_anchors = false;
-	u.close_info->csv = 1;
-	/* P2WSH */
-	u.scriptPubkey = tal_arr(w, u8, BITCOIN_SCRIPTPUBKEY_P2WSH_LEN);
-	u.scriptPubkey[0] = OP_0;
-	u.scriptPubkey[1] = sizeof(struct sha256);
-	memset(u.scriptPubkey + 2, 1, sizeof(struct sha256));
-	CHECK_MSG(wallet_add_utxo(w, &u, WALLET_OUTPUT_OUR_CHANGE),
-		  "wallet_add_utxo with close_info");
+	test_set_p2wsh_script(w, &u, 1);
+	test_init_channel(ld, &channel, &id, 42,
+			  channel_type_static_remotekey(tmpctx));
+	CHECK_MSG(wallet_add_onchaind_utxo(w, &u.outpoint,
+					   u.scriptPubkey,
+					   0,
+					   u.amount,
+					   &channel,
+					   &pk,
+					   0),
+		  "wallet_add_onchaind_utxo with close_info");
 
 	/* Now select them */
 	utxos = tal_arr(w, const struct utxo *, 0);
@@ -1059,38 +1110,37 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx, bool bi
 	      u.close_info->option_anchors == false);
 
 	/* Attempt to reserve the utxo */
-	CHECK_MSG(wallet_update_output_status(w, &u.outpoint,
-					      OUTPUT_STATE_AVAILABLE,
-					      OUTPUT_STATE_RESERVED),
+	res_utxo = wallet_utxo_get(w, w, &u.outpoint);
+	CHECK(res_utxo);
+	CHECK_MSG(wallet_reserve_utxo(w, res_utxo, 100, 1000),
 		  "could not reserve available output");
 
-	/* Reserving twice should fail */
-	CHECK_MSG(!wallet_update_output_status(w, &u.outpoint,
-					       OUTPUT_STATE_AVAILABLE,
-					       OUTPUT_STATE_RESERVED),
-		  "could reserve already reserved output");
+	/* Reserving again extends the reservation */
+	CHECK_MSG(wallet_reserve_utxo(w, res_utxo, 100, 1000),
+		  "could not extend reservation");
 
 	/* Un-reserving should work */
-	CHECK_MSG(wallet_update_output_status(w, &u.outpoint,
-					      OUTPUT_STATE_RESERVED,
-					      OUTPUT_STATE_AVAILABLE),
+	wallet_unreserve_utxo(w, res_utxo, 1100, 1000);
+	CHECK_MSG(res_utxo->status == OUTPUT_STATE_AVAILABLE,
 		  "could not unreserve reserved output");
 
-	/* Switching from any to something else */
-	CHECK_MSG(wallet_update_output_status(w, &u.outpoint,
-					      OUTPUT_STATE_ANY,
-					      OUTPUT_STATE_SPENT),
-		  "could not change output state ignoring oldstate");
+	/* Mark it spent */
+	{
+		struct db_stmt *stmt;
+
+		stmt = db_prepare_v2(w->db,
+			SQL("UPDATE our_outputs SET spendheight = ? "
+			    "WHERE txid = ? AND outnum = ?;"));
+		db_bind_int(stmt, 101);
+		db_bind_txid(stmt, &res_utxo->outpoint.txid);
+		db_bind_int(stmt, res_utxo->outpoint.n);
+		db_exec_prepared_v2(take(stmt));
+	}
+	tal_free(res_utxo);
 
 	/* Attempt to save an UTXO with close_info set, no commitment_point */
 	memset(&u.outpoint, 2, sizeof(u.outpoint));
 	u.amount = AMOUNT_SAT(5);
-	u.close_info = tal(w, struct unilateral_close_info);
-	u.close_info->channel_id = 42;
-	u.close_info->peer_id = id;
-	u.close_info->commitment_point = NULL;
-	u.close_info->option_anchors = true;
-	u.close_info->csv = 1;
 	/* The blockheight has to be set for an option_anchor_output
 	 * closed UTXO to be spendable */
 	u32 *blockheight = tal(w, u32);
@@ -1103,20 +1153,23 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx, bool bi
 	CHECK_MSG(!wallet_err, wallet_err);
 
 	u.blockheight = blockheight;
-	u.scriptPubkey = tal_arr(w, u8, BITCOIN_SCRIPTPUBKEY_P2WPKH_LEN);
-	u.scriptPubkey[0] = OP_0;
-	u.scriptPubkey[1] = sizeof(struct ripemd160);
-	memset(u.scriptPubkey + 2, 1, sizeof(struct ripemd160));
-	CHECK_MSG(wallet_add_utxo(w, &u, WALLET_OUTPUT_P2SH_WPKH),
-		  "wallet_add_utxo with close_info no commitment_point");
+	test_set_p2wpkh_script(w, &u, 1);
+	test_init_channel(ld, &channel, &id, 42,
+			  channel_type_anchors_zero_fee_htlc(tmpctx));
+	CHECK_MSG(wallet_add_onchaind_utxo(w, &u.outpoint,
+					   u.scriptPubkey,
+					   *u.blockheight,
+					   u.amount,
+					   &channel,
+					   NULL,
+					   1),
+		  "wallet_add_onchaind_utxo with close_info no commitment_point");
 	CHECK_MSG(!wallet_err, wallet_err);
 
 	/* Add another utxo that's CSV-locked for 5 blocks */
-	assert(parse_wireaddr_internal(tmpctx, "localhost:1234", 0, false, &addr) == NULL);
-	channel.peer = new_peer(ld, 0, &id, &addr, NULL, NULL, false);
-	channel.dbid = 1;
-	channel.type = channel_type_anchors_zero_fee_htlc(tmpctx);
 	memset(&u.outpoint, 3, sizeof(u.outpoint));
+	test_init_channel(ld, &channel, &id, 1,
+			  channel_type_anchors_zero_fee_htlc(tmpctx));
 	CHECK_MSG(wallet_add_onchaind_utxo(w, &u.outpoint,
 					   u.scriptPubkey,
 					   *u.blockheight,
@@ -1124,9 +1177,8 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx, bool bi
 					   &channel,
 					   NULL,
 					   5),
-		  "wallet_add_utxo with close_info and csv > 1");
+		  "wallet_add_onchaind_utxo with close_info and csv > 1");
 	CHECK_MSG(!wallet_err, wallet_err);
-	/* Normally freed by destroy_channel, but we don't call that */
 	tal_free(channel.peer);
 
 	/* Select everything but 5 csv-locked utxo */
@@ -1175,7 +1227,7 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx, bool bi
 
 	/* Check that nonwrapped flag works */
 	utxos = tal_arr(w, const struct utxo *, 0);
-	while ((one_utxo = wallet_find_utxo(w, w, 100, NULL, 253,
+	while ((one_utxo = wallet_find_utxo(w, w, 99, NULL, 253,
 					    0 /* no confirmations required */,
 					    true,
 					    utxos)) != NULL) {
@@ -1188,12 +1240,12 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx, bool bi
 	/* So we add one... */
 	memset(&u.outpoint, 4, sizeof(u.outpoint));
 	u.amount = AMOUNT_SAT(4);
-	u.close_info = tal_free(u.close_info);
-	CHECK_MSG(wallet_add_utxo(w, &u, WALLET_OUTPUT_P2WPKH),
-		  "wallet_add_utxo failed, p2wpkh");
+	test_set_p2wpkh_script(w, &u, 4);
+	CHECK_MSG(test_add_hd_output(w, &u),
+		  "test_add_hd_output failed, p2wpkh");
 
 	utxos = tal_arr(w, const struct utxo *, 0);
-	while ((one_utxo = wallet_find_utxo(w, w, 100, NULL, 253,
+	while ((one_utxo = wallet_find_utxo(w, w, 99, NULL, 253,
 					    0 /* no confirmations required */,
 					    true,
 					    utxos)) != NULL) {
