@@ -6,6 +6,8 @@ networkdatadir="${LIGHTNINGD_DATA}/${LIGHTNINGD_NETWORK}"
 
 set -m
 lightningd --network="${LIGHTNINGD_NETWORK}" "$@" &
+LIGHTNINGD_PID=$!
+trap 'kill -TERM "$LIGHTNINGD_PID" 2>/dev/null' TERM INT
 
 echo "Core-Lightning starting"
 while read -r i; do if [ "$i" = "lightning-rpc" ]; then break; fi; done \
@@ -24,4 +26,7 @@ if [ -d "$LIGHTNINGD_DATA"/lightning-poststart.d ]; then
     done
 fi
 
-fg %-
+wait "$LIGHTNINGD_PID"
+trap - TERM INT
+wait "$LIGHTNINGD_PID"
+exit $?
