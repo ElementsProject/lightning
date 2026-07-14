@@ -344,7 +344,8 @@ static const char *json_id(const tal_t *ctx, struct plugin *plugin,
 			   const char *method, const char *prefix)
 {
 	/* Don't create weird IDs, they will get escaped and we won't match the reply. */
-	if (json_escape_needed(method, strlen(method)))
+	if (json_escape_needed(method, strlen(method)) ||
+	    json_escape_needed(prefix, strlen(prefix)))
 		method = "!weird!";
 	return tal_fmt(ctx, "%s/%s:%s#%"PRIu64,
 		       prefix, plugin->id, method, plugin->next_outreq_id++);
