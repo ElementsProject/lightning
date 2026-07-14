@@ -533,6 +533,15 @@ static void opening_fundee_finished(struct subd *openingd,
 
 	derive_channel_id(&cid, &funding);
 
+	/* A funding outpoint funds at most one channel; don't accept a second
+	 * channel reusing one we already have.  Drop the connection so the
+	 * peer's open fails cleanly instead of waiting for funding_signed. */
+	if (find_channel_by_funding_outpoint(uc->peer, &funding)) {
+		force_peer_disconnect(ld, uc->peer,
+				      "Funding outpoint already in use");
+		return;
+	}
+
 	/* old_remote_per_commit not valid yet, copy valid one. */
 	channel_info.old_remote_per_commit = channel_info.remote_per_commit;
 

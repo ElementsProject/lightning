@@ -918,6 +918,11 @@ struct channel *channel_by_cid(struct lightningd *ld,
 struct channel *find_channel_by_id(const struct peer *peer,
 				   const struct channel_id *cid);
 
+/* Find a channel with this funding outpoint within peer (an outpoint
+ * funds at most one channel). */
+struct channel *find_channel_by_funding_outpoint(const struct peer *peer,
+						 const struct bitcoin_outpoint *outpoint);
+
 /* Find this channel within peer */
 struct channel *find_channel_by_scid(const struct peer *peer,
 				     struct short_channel_id scid);
