@@ -129,9 +129,21 @@
       "response": {
         "report": [
           "Date,Tag,Account,Description,Credit,Debit,BTC/USD,Credit (USD),Debit(USD)",
-          "2026-04-02 12:42:03,deposit,wallet,Onchain output 37562cf0b3a5d6783ae02925bcc486bb89afe156abf15e692736e5da9a060018:1,+0.02000000000,0,67140.89,$1342.81,$0.00",
-          "2026-04-02 12:42:04,invoice,9b3114c8003dc8dedbcf3b7bc9fb04e1575a1112aea33be8369ae9670aff64f4,Invoice description test_bkpr_report_invoice,0,-0.00000123456,67140.89,$0.00,$0.08",
-          "2026-04-02 12:42:04,onchain_fee,9b3114c8003dc8dedbcf3b7bc9fb04e1575a1112aea33be8369ae9670aff64f4,Onchain transaction f464ff0a67e99a36e83ba3ae12115a57e104fbc97b3bcfdbdec83d00c814319b,0,-0.00004927000,67140.89,$0.00,$3.30"
+          "2025-01-27 18:46:41,deposit,wallet,Invoice description edited utxo description,+2.00000000000,0,,$,$",
+          "2025-01-27 18:46:43,deposit,wallet,Onchain output 130def5c51ac7024c2d21c9b45c91e63fd0f9b1081c9f30de18a5eb3f7ffc86d:0,+0.02000000000,0,,$,$",
+          "2025-01-27 18:46:47,invoice,c51daaf63cd67a9092a021076a8b3def61b38dea85019b0a074ddada3e1a4e6c,Invoice description edited invoice description from description send some sats l2 to l3,+0.00500000000,0,,$,$",
+          "2025-01-27 18:46:48,invoice,f8f6216a51c6d73e2a759d1de6f675c3780f42957e27bd2f7d8bd0fb373b9006,Invoice description description send some sats l3 to l4,0,-0.00500000000,,$,$",
+          "2025-01-27 18:46:49,invoice,c51daaf63cd67a9092a021076a8b3def61b38dea85019b0a074ddada3e1a4e6c,Invoice description Invoice description l31,+0.00000010000,0,,$,$",
+          "2025-01-27 18:46:50,invoice,c51daaf63cd67a9092a021076a8b3def61b38dea85019b0a074ddada3e1a4e6c,Invoice description keysend,+0.00000010000,0,,$,$",
+          "2025-01-27 18:46:51,routed,f8f6216a51c6d73e2a759d1de6f675c3780f42957e27bd2f7d8bd0fb373b9006,,+0.00000000101,0,,$,$",
+          "2025-01-27 18:46:53,invoice,c51daaf63cd67a9092a021076a8b3def61b38dea85019b0a074ddada3e1a4e6c,Invoice description keysend,+0.00000010000,0,,$,$",
+          "2025-01-27 18:46:54,invoice,c51daaf63cd67a9092a021076a8b3def61b38dea85019b0a074ddada3e1a4e6c,Invoice description l32 description,+0.00000050000,0,,$,$",
+          "2025-01-27 18:46:55,invoice,c51daaf63cd67a9092a021076a8b3def61b38dea85019b0a074ddada3e1a4e6c,Invoice description l33 description,+0.00000100000,0,,$,$",
+          "2025-01-27 18:46:56,routed,f8f6216a51c6d73e2a759d1de6f675c3780f42957e27bd2f7d8bd0fb373b9006,,+0.00000000001,0,,$,$",
+          "2025-01-27 18:47:04,deposit,wallet,Onchain output c8035875a93de7342073e9ff85a3ae70fe346f634cda125d4fbce1714cc64b4d:1,+0.02000000000,0,,$,$",
+          "2025-01-27 18:47:07,onchain_fee,16e2e64cfffd6603c0697aa9df4f99c769e6697400d4c28acf7ad25a72fe5429,Onchain transaction 23c5b3b5733c26f6cfa450e27d9ac122a626b36626fa0ced8206f488cc8e310a,0,-0.00004927000,,$,$",
+          "2025-01-27 18:46:46,onchain_fee,f8f6216a51c6d73e2a759d1de6f675c3780f42957e27bd2f7d8bd0fb373b9006,Onchain transaction 7e4d853f75800aac4e510424ca030027b1e1192c0b6ba51d221452b39a8f57e2,0,-0.00004927000,,$,$",
+          "2025-01-27 18:47:01,onchain_fee,c51daaf63cd67a9092a021076a8b3def61b38dea85019b0a074ddada3e1a4e6c,Onchain transaction dc446777a9b3d6d5962f502f5d22f66b01452389c1bbe8460491e7376f44a1eb,0,-0.00000000102,,$,$"
         ],
         "format-hint": "simple"
       }

@@ -33,7 +33,7 @@ REGENERATING_RPCS = []
 ALL_RPC_EXAMPLES = {}
 EXAMPLES_JSON = {}
 LOG_FILE = './tests/autogenerate-examples-status.log'
-IGNORE_RPCS_LIST = ['dev-splice', 'reckless', 'sql-template', 'currencyconvert', 'splicein', 'createproof', 'clnrest-register-path', 'sendamount', 'graceful', 'askrene-remove-channel-update', 'currencyrate', 'spliceout', 'askrene-bias-node', 'bkpr-report', 'xkeysend', 'listcurrencyrates', 'delnetworkevent', 'cancelrecurringinvoice', 'listnetworkevents', 'injectonionmessage']
+IGNORE_RPCS_LIST = ['dev-splice', 'reckless', 'sql-template', 'currencyconvert', 'splicein', 'createproof', 'clnrest-register-path', 'sendamount', 'graceful', 'askrene-remove-channel-update', 'currencyrate', 'spliceout', 'askrene-bias-node', 'xkeysend', 'listcurrencyrates', 'delnetworkevent', 'cancelrecurringinvoice', 'listnetworkevents', 'injectonionmessage']
 EXPECTED_WALLET_TXIDS = defaultdict(set)
 
 
@@ -866,6 +866,12 @@ def generate_bookkeeper_examples(l2, l3, c23_2_chan_id):
         update_example(node=l3, method='bkpr-listincome', params={'consolidate_fees': False}, response=bkprlistincome_res1)
         bkprlistincome_res2 = l3.rpc.bkpr_listincome()
         update_example(node=l3, method='bkpr-listincome', params={}, response=bkprlistincome_res2)
+        bkprreport_res = l3.rpc.bkpr_report(headers=["Date,Tag,Account,Description,Credit,Debit,BTC/USD,Credit (USD),Debit(USD)"],
+                                            format="{localtime},{tag},{account},{description?Invoice description {description}:{outpoint?Onchain output {outpoint}:{txid?Onchain transaction {txid}}}},{credit?+{credit}:0},{debit?-{debit}:0},{currencyrate},${currencycredit},${currencydebit}",
+                                            escape="csv")
+        update_example(node=l3, method='bkpr-report', params={'headers': ["Date,Tag,Account,Description,Credit,Debit,BTC/USD,Credit (USD),Debit(USD)"],
+                                                              'format': "{localtime},{tag},{account},{description?Invoice description {description}:{outpoint?Onchain output {outpoint}:{txid?Onchain transaction {txid}}}},{credit?+{credit}:0},{debit?-{debit}:0},{currencyrate},${currencycredit},${currencydebit}",
+                                                              'escape': 'csv'}, response=bkprreport_res)
         logger.info('Bookkeeper Done!')
     except Exception as e:
         logger.error(f'Error in generating bookkeeper examples: {e}')
