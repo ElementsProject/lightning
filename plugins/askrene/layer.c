@@ -1198,11 +1198,13 @@ size_t layer_trim_constraints(struct layer *layer, u64 cutoff)
 	size_t num_removed = 0;
 	struct channel_intel_hash_iter intelit;
 	const struct channel_intel *intelarr;
+	const struct channel_intel **modified_intelarr;
 	struct bias_hash_iter biasit;
 	struct bias *bias;
 	struct node_bias_hash_iter node_it;
 	struct node_bias *node_bias;
 
+	modified_intelarr = tal_arr(tmpctx, const struct channel_intel *, 0);
 	for (intelarr = channel_intel_hash_first(layer->channel_intels, &intelit);
 	     intelarr;
 	     intelarr = channel_intel_hash_next(layer->channel_intels, &intelit)) {
@@ -1219,7 +1221,9 @@ size_t layer_trim_constraints(struct layer *layer, u64 cutoff)
 		}
 		num_removed += count_old;
 		if(count_old){
-			/* Remove from table before realloc! */
+			/* Remove from table before realloc!
+			 * Removing elements from the table is safe during
+			 * iteration. */
 			channel_intel_hash_del(layer->channel_intels, intelarr);
 
 			tal_arr_remove_range(&intelarr, 0, count_old);
@@ -1228,12 +1232,21 @@ size_t layer_trim_constraints(struct layer *layer, u64 cutoff)
 			if (tal_count(intelarr) == 0)
 				tal_free(intelarr);
 			else {
-				/* Still has members, put it back. */
-				channel_intel_hash_add(layer->channel_intels,
-						       intelarr);
+				/* Still has members, put it back.
+				 * Inserting new elements in the table may
+				 * modify the table's internal disposition of
+				 * elements leading to missed elements during
+				 * iteration. We add them later. */
+				tal_arr_expand(&modified_intelarr, intelarr);
 			}
 		}
 	}
+
+	for (size_t i = 0; i < tal_count(modified_intelarr); i++) {
+		channel_intel_hash_add(layer->channel_intels,
+				       modified_intelarr[i]);
+	}
+	tal_free(modified_intelarr);
 
 	for (bias = bias_hash_first(layer->biases, &biasit); bias;
 	     bias = bias_hash_next(layer->biases, &biasit)) {
