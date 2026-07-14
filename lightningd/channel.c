@@ -879,6 +879,18 @@ struct channel *find_channel_by_id(const struct peer *peer,
 	return NULL;
 }
 
+struct channel *find_channel_by_funding_outpoint(const struct peer *peer,
+						 const struct bitcoin_outpoint *outpoint)
+{
+	struct channel *c;
+
+	list_for_each(&peer->channels, c, list) {
+		if (bitcoin_outpoint_eq(&c->funding, outpoint))
+			return c;
+	}
+	return NULL;
+}
+
 struct channel *find_channel_by_scid(const struct peer *peer,
 				     struct short_channel_id scid)
 {
