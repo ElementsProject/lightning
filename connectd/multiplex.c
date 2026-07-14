@@ -1729,7 +1729,16 @@ void peer_connect_subd(struct daemon *daemon, const u8 *msg, int fd)
 						       fmt_node_id(tmpctx, &id)));
 	}
 
-	assert(!subd->conn);
+	/* We only keep one connection per channel_id.  If one is already
+	 * attached for this channel_id, drop this fd rather than replacing
+	 * it. */
+	if (subd->conn) {
+		status_peer_debug(&id,
+				  "Already have a subd for channel_id %s: ignoring",
+				  fmt_channel_id(tmpctx, &channel_id));
+		close(fd);
+		return;
+	}
 
 	/* This sets subd->conn inside subd_conn_init, and reparents subd! */
 	io_new_conn(peer, fd, subd_conn_init, subd);
