@@ -13,7 +13,7 @@ contrib/msggen/             @cdecker
 contrib/pyln-client/        @cdecker
 contrib/pyln-testing/       @cdecker
 # Needed to ensure hsmd wire compatibility between releases
-hsmd/hsmd_wire.csv          @cdecker @ksedgwic @devrandom
+hsmd/hsmd_wire.csv          @cdecker @ksedgwic
 plugins/xpay/               @Lagrang3
 plugins/askrene/            @Lagrang3
 plugins/renepay/            @Lagrang3
