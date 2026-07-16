@@ -33,7 +33,7 @@ REGENERATING_RPCS = []
 ALL_RPC_EXAMPLES = {}
 EXAMPLES_JSON = {}
 LOG_FILE = './tests/autogenerate-examples-status.log'
-IGNORE_RPCS_LIST = ['dev-splice', 'reckless', 'sql-template', 'currencyconvert', 'splicein', 'createproof', 'clnrest-register-path', 'sendamount', 'graceful', 'askrene-remove-channel-update', 'currencyrate', 'spliceout', 'askrene-bias-node', 'xkeysend', 'listcurrencyrates', 'delnetworkevent', 'cancelrecurringinvoice', 'injectonionmessage']
+IGNORE_RPCS_LIST = ['dev-splice', 'reckless', 'sql-template', 'splicein', 'createproof', 'clnrest-register-path', 'sendamount', 'graceful', 'askrene-remove-channel-update', 'spliceout', 'askrene-bias-node', 'xkeysend', 'delnetworkevent', 'cancelrecurringinvoice', 'injectonionmessage']
 EXPECTED_WALLET_TXIDS = defaultdict(set)
 
 
@@ -1657,6 +1657,23 @@ def generate_list_examples(bitcoind, l1, l2, l3, c12, c23_2, c34_2, inv_l31, inv
         raise
 
 
+def generate_currencyrate_examples(l3):
+    """Generates plugin currencyrate examples"""
+    try:
+        logger.info('Currencyrate Start...')
+        list_currencies_res1 = l3.rpc.listcurrencyrates(currency='USD')
+        update_example(node=l3, method='listcurrencyrates', params={'currency': 'USD'}, response=list_currencies_res1)
+        currencyconvert_res1 = l3.rpc.currencyconvert(amount=100, currency='USD')
+        update_example(node=l3, method='currencyconvert', params={'amount': 100, 'currency': 'USD'}, response=currencyconvert_res1)
+        currencyrate_res1 = l3.rpc.currencyrate(currency="USD")
+        update_example(node=l3, method='currencyrate', params={'currency': 'USD'}, description=["Get the median BTC/USD rate across all configured sources:"], response=currencyrate_res1)
+        currencyrate_res2 = l3.rpc.currencyrate(currency='USD', source='binance')
+        update_example(node=l3, method='currencyrate', params={'currency': 'USD', 'source': 'binance'}, description=["Get the BTC/USD rate from the Binance source only:"], response=currencyrate_res2)
+        logger.info('Currencyrate Done!')
+    except Exception as e:
+        logger.error(f'Error in generating currencyrate examples: {e}')
+
+
 @pytest.fixture(autouse=True)
 def setup_logging():
     logger.setLevel(logging.DEBUG)
@@ -1773,7 +1790,8 @@ def test_generate_examples(node_factory, bitcoind, executor):
         generate_channels_examples(node_factory, bitcoind, l1, l3, l4, l5, regenerate_blockchain)
         generate_autoclean_delete_examples(l1, l2, l3, l4, l5, c12, c23)
         generate_backup_recovery_examples(node_factory, l4, l5, l6, regenerate_blockchain)
-        generate_list_examples(bitcoind, l1, l2, l3, c12, c23_2, c34_2, inv_l31, inv_l32, offer_l23, inv_req_l1_l22, address_l22)
+        generate_list_examples(bitcoind, l1, l2, l3, c12, c23_2, inv_l31, inv_l32, offer_l23, inv_req_l1_l22, address_l22)
+        generate_currencyrate_examples(l3)
         update_examples_in_schema_files()
         logger.info('All Done!!!')
     except Exception as e:
