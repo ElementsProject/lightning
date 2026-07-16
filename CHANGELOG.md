@@ -4,9 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [26.06.4] - 2026-07-16: "Quantum-Resistant Lightning Channel IV"
+
+This point release supersedes 26.06.3 for all users, especially release builders and package distributors.
+
+### Fixed 
+
+Updated the Ubuntu 24.04 reproducible-build dependencies to restore release artifact builds. 
+
+[26.06.4]: https://github.com/ElementsProject/lightning/releases/tag/v26.06.4
+
 ## [26.06.3] - 2026-07-16: "Quantum-Resistant Lightning Channel III"
 
-This point release is recommended for all users. It updates pyln-proto's coincurve dependency for newer Python build environments and includess a channel validation improvement.
+This point release updates pyln-proto's coincurve dependency for newer Python build environments and includess a channel validation improvement.
 
 ### Fixed
 
