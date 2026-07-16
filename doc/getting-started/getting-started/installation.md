@@ -510,7 +510,12 @@ If you want to build the Rust plugins (cln-grpc, clnrest, cln-bip353 and wss-pro
 pacman -Sy cargo rustfmt
 ```
 
-Build Core Lightning:
+Checkout a release tag:
+```shell
+git checkout v26.06.1
+```
+
+Build and install Core Lightning:
 ```shell
 uv sync --all-extras --all-groups --frozen
 ./configure
@@ -518,8 +523,12 @@ RUST_PROFILE=release uv run make
 sudo RUST_PROFILE=release make install
 ```
 
+> 📘
+>
+> If you want to disable Rust because you don't need it or its plugins (cln-grpc, clnrest, cln-bip353 or wss-proxy), you can use `./configure --disable-rust`.
+
 Launch Core Lightning:
-```
+```shell
 lightningd
 ```
 
