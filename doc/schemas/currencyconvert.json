@@ -52,5 +52,20 @@
   ],
   "resources": [
     "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
+  ],
+  "examples": [
+    {
+      "request": {
+        "id": "example:currencyconvert#1",
+        "method": "currencyconvert",
+        "params": {
+          "amount": 100,
+          "currency": "USD"
+        }
+      },
+      "response": {
+        "msat": 155974480
+      }
+    }
   ]
 }
