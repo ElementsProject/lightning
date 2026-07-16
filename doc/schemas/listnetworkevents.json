@@ -149,5 +149,122 @@
   ],
   "resources": [
     "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
+  ],
+  "examples": [
+    {
+      "request": {
+        "id": "example:listnetworkevents#1",
+        "method": "listnetworkevents",
+        "params": {}
+      },
+      "response": {
+        "networkevents": [
+          {
+            "created_index": 1,
+            "peer_id": "038194b5f32bdf0aa59812c86c4ef7ad2f294104fa027d1ace9b469bb6f88cf37b",
+            "type": "connect",
+            "timestamp": 1738000000
+          },
+          {
+            "created_index": 2,
+            "peer_id": "03cecbfdc68544cc596223b68ce0710c9e5d2c9cb317ee07822d95079acc703d31",
+            "type": "connect",
+            "timestamp": 1738000000,
+            "reason": "connect command \"pytest:connect#22\"",
+            "duration_nsec": 2331000
+          },
+          {
+            "created_index": 3,
+            "peer_id": "0258f3ff3e0853ccc09f6fe89823056d7c0c55c95fab97674df5e1ad97a72f6265",
+            "type": "connect",
+            "timestamp": 1738000000,
+            "reason": "connect command \"pytest:connect#24\"",
+            "duration_nsec": 1476000
+          },
+          {
+            "created_index": 4,
+            "peer_id": "038194b5f32bdf0aa59812c86c4ef7ad2f294104fa027d1ace9b469bb6f88cf37b",
+            "type": "ping",
+            "timestamp": 1738000000,
+            "duration_nsec": 327000
+          },
+          {
+            "created_index": 5,
+            "peer_id": "02287bfac8b99b35477ebe9334eede1e32b189e24644eb701c079614712331cec0",
+            "type": "connect",
+            "timestamp": 1738000000,
+            "reason": "connect command \"pytest:connect#420\"",
+            "duration_nsec": 2546000
+          },
+          {
+            "created_index": 6,
+            "peer_id": "02287bfac8b99b35477ebe9334eede1e32b189e24644eb701c079614712331cec0",
+            "type": "disconnect",
+            "timestamp": 1738000000,
+            "duration_nsec": 8447000
+          },
+          {
+            "created_index": 7,
+            "peer_id": "0258f3ff3e0853ccc09f6fe89823056d7c0c55c95fab97674df5e1ad97a72f6265",
+            "type": "disconnect",
+            "timestamp": 1738000000,
+            "duration_nsec": 81968678000
+          },
+          {
+            "created_index": 8,
+            "peer_id": "0258f3ff3e0853ccc09f6fe89823056d7c0c55c95fab97674df5e1ad97a72f6265",
+            "type": "connect",
+            "timestamp": 1738000000,
+            "reason": "reconnect by timer",
+            "duration_nsec": 4035000
+          },
+          {
+            "created_index": 9,
+            "peer_id": "02287bfac8b99b35477ebe9334eede1e32b189e24644eb701c079614712331cec0",
+            "type": "connect",
+            "timestamp": 1738000000,
+            "reason": "connect command \"pytest:connect#462\"",
+            "duration_nsec": 918000
+          },
+          {
+            "created_index": 10,
+            "peer_id": "02287bfac8b99b35477ebe9334eede1e32b189e24644eb701c079614712331cec0",
+            "type": "disconnect",
+            "timestamp": 1738000000,
+            "duration_nsec": 6087454000
+          },
+          {
+            "created_index": 11,
+            "peer_id": "0258f3ff3e0853ccc09f6fe89823056d7c0c55c95fab97674df5e1ad97a72f6265",
+            "type": "disconnect",
+            "timestamp": 1738000000,
+            "duration_nsec": 58975900000
+          }
+        ]
+      }
+    },
+    {
+      "request": {
+        "id": "example:listnetworkevents#2",
+        "method": "listnetworkevents",
+        "params": {
+          "id": "03cecbfdc68544cc596223b68ce0710c9e5d2c9cb317ee07822d95079acc703d31",
+          "index": "created",
+          "limit": 3
+        }
+      },
+      "response": {
+        "networkevents": [
+          {
+            "created_index": 2,
+            "peer_id": "03cecbfdc68544cc596223b68ce0710c9e5d2c9cb317ee07822d95079acc703d31",
+            "type": "connect",
+            "timestamp": 1738000000,
+            "reason": "connect command \"pytest:connect#22\"",
+            "duration_nsec": 2331000
+          }
+        ]
+      }
+    }
   ]
 }

@@ -33,7 +33,7 @@ REGENERATING_RPCS = []
 ALL_RPC_EXAMPLES = {}
 EXAMPLES_JSON = {}
 LOG_FILE = './tests/autogenerate-examples-status.log'
-IGNORE_RPCS_LIST = ['dev-splice', 'reckless', 'sql-template', 'currencyconvert', 'splicein', 'createproof', 'clnrest-register-path', 'sendamount', 'graceful', 'askrene-remove-channel-update', 'currencyrate', 'spliceout', 'askrene-bias-node', 'xkeysend', 'listcurrencyrates', 'delnetworkevent', 'cancelrecurringinvoice', 'listnetworkevents', 'injectonionmessage']
+IGNORE_RPCS_LIST = ['dev-splice', 'reckless', 'sql-template', 'currencyconvert', 'splicein', 'createproof', 'clnrest-register-path', 'sendamount', 'graceful', 'askrene-remove-channel-update', 'currencyrate', 'spliceout', 'askrene-bias-node', 'xkeysend', 'listcurrencyrates', 'delnetworkevent', 'cancelrecurringinvoice', 'injectonionmessage']
 EXPECTED_WALLET_TXIDS = defaultdict(set)
 
 
@@ -1647,6 +1647,10 @@ def generate_list_examples(bitcoind, l1, l2, l3, c12, c23_2, c34_2, inv_l31, inv
         update_example(node=l2, method='listinvoicerequests', params={}, response=listinvoicerequests_res2)
         update_example(node=l2, method='listaddresses', params=[address_l22['p2tr']])
         update_example(node=l2, method='listaddresses', params={'start': 6, 'limit': 2})
+        listnetworkevents_res1 = l2.rpc.listnetworkevents()
+        update_example(node=l3, method='listnetworkevents', params={}, response=listnetworkevents_res1)
+        listnetworkevents_res2 = l2.rpc.listnetworkevents(id=l3.info['id'], index='created', limit=3)
+        update_example(node=l2, method='listnetworkevents', params={'id': l3.info['id'], 'index': 'created', 'limit': 3}, response=listnetworkevents_res2)
         logger.info('Lists Done!')
     except Exception as e:
         logger.error(f'Error in generating lists examples: {e}')
