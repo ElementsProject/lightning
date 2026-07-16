@@ -33,7 +33,7 @@ REGENERATING_RPCS = []
 ALL_RPC_EXAMPLES = {}
 EXAMPLES_JSON = {}
 LOG_FILE = './tests/autogenerate-examples-status.log'
-IGNORE_RPCS_LIST = ['dev-splice', 'reckless', 'sql-template', 'splicein', 'createproof', 'clnrest-register-path', 'sendamount', 'graceful', 'askrene-remove-channel-update', 'spliceout', 'askrene-bias-node', 'xkeysend', 'delnetworkevent', 'cancelrecurringinvoice', 'injectonionmessage']
+IGNORE_RPCS_LIST = ['dev-splice', 'reckless', 'sql-template', 'splicein', 'createproof', 'clnrest-register-path', 'graceful', 'askrene-remove-channel-update', 'spliceout', 'askrene-bias-node', 'xkeysend', 'delnetworkevent', 'cancelrecurringinvoice', 'injectonionmessage']
 EXPECTED_WALLET_TXIDS = defaultdict(set)
 
 
@@ -731,6 +731,9 @@ def generate_transactions_examples(l1, l2, l3, l4, l5, c25, bitcoind):
             'groupid': 0})
         wait_for_htlcs_settled([l1, l2, l3, l4, l5])
         update_example(node=l1, method='fetchbip353', params={'address': 'send.some@satsto.me'}, description=['Example of fetching BIP-353 payment details.'])
+        offer_l43 = l4.rpc.offer(amount='any', description='Simple test sendamount')
+        send_amt = l3.rpc.sendamount(invstring=offer_l43['bolt12'], amount_msat='1000sat')
+        update_example(node=l3, method='sendamount', params={'invstring': offer_l43['bolt12'], 'amount_msat': '1000sat'}, response=send_amt)
         logger.info('Simple Transactions Done!')
         return c23_2, c23res2, c34_2, inv_l11, inv_l21, inv_l22, inv_l31, inv_l32, inv_l34
     except Exception as e:
