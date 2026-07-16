@@ -493,7 +493,7 @@ gmake install
 
 Install dependencies:
 ```shell
-pacman -Sy autoconf automake gcc git make python-pip which libtool lowdown jq libsodium
+pacman -Syu base-devel git which sqlite gmp libsodium lowdown jq python-pip protobuf pkgconf
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
@@ -507,7 +507,7 @@ cd lightning
 
 If you want to build the Rust plugins (cln-grpc, clnrest, cln-bip353 and wss-proxy):
 ```shell
-pacman -Sy cargo rustfmt
+pacman -Syu cargo rustfmt
 ```
 
 Checkout a release tag:
