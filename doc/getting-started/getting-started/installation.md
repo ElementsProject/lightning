@@ -517,6 +517,7 @@ git checkout v26.06.1
 
 Build and install Core Lightning:
 ```shell
+UV_PYTHON=3.12
 uv sync --all-extras --all-groups --frozen
 ./configure
 RUST_PROFILE=release uv run make
