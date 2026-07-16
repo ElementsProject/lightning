@@ -110,7 +110,7 @@ cc3f9f7a1e576173fb59c36652c0a67c6426feae752b352404ba92dfcb1b26c9  /var/cache/apt
 5ae9a98e73545002cd891f028859941af2a3c760cb6190e635c7ef36953912de  /var/cache/apt/archives/automake_1%3a1.16.5-1.3ubuntu1_all.deb
 0e0bb8b25153ed1c44ab92bc219eed469fcb5820c5c0bc6454b2fd366a33d3ee  /var/cache/apt/archives/gcc_4%3a13.2.0-7ubuntu1_amd64.deb
 bd3e8cd6ab8cf731d8a8a15333831b9081a94ebefe22236fc8713975fe7a6d3a  /var/cache/apt/archives/libsodium-dev_1.0.18-1ubuntu0.24.04.1_amd64.deb
-5131ce3d7cdb7193bcef1b402741a0e0f436e25a50e65443fffcc7064e2cd780  /var/cache/apt/archives/libsqlite3-dev_3.45.1-1ubuntu2.5_amd64.deb
+cedcfbc1f186bcacf08ac9d792c684bb1365874503929edac054db2e4b5a76d7  /var/cache/apt/archives/libsqlite3-dev_3.45.1-1ubuntu2.6_amd64.deb
 9d1d707179675d38e024bb13613b1d99e0d33fa6c45e5f3bcba19340781781d3  /var/cache/apt/archives/libtool_2.4.7-7build1_all.deb
 1fe6a815b56c7b6e9ce4086a363f09444bbd0a0d30e230c453d0b78e44b57a99  /var/cache/apt/archives/make_4.3-4.1build2_amd64.deb
 023cbe9dbf0af87f10e54e342c67571874e412b9950d89c6cd7b010be2e67c3c  /var/cache/apt/archives/zlib1g-dev_1%3a1.3.dfsg-3.1ubuntu2.1_amd64.deb
@@ -122,7 +122,7 @@ EOF
 1a443abf03a5af97f4493405e22eba52fd6935a8b0583ac32fb88b3727563e53  /var/cache/apt/archives/automake_1%3a1.18.1-3build1_all.deb
 d780844418b745c432a5d6c85f055625f37e27523b026baee0c87d386a0aab0a  /var/cache/apt/archives/gcc_4%3a15.2.0-5ubuntu1_amd64.deb
 34e8337b30160458f44bada750c9e94ec18ec5ac087e2428043ddb04625226cc  /var/cache/apt/archives/libsodium-dev_1.0.18-2_amd64.deb
-0f57948b8c1d4f369f14dc3897d4985227020d57b798a7ddd1b9acb2a8ea430d  /var/cache/apt/archives/libsqlite3-dev_3.46.1-9_amd64.deb
+ea8ff998a8a40b6d9b7f2237d3ca0ad306d194ef1986c651f0ed26f837e85eb0  /var/cache/apt/archives/libsqlite3-dev_3.46.1-9ubuntu0.1_amd64.deb
 5b3146cd9d380e4725fc5b5e54795ae1f72d165d93e68ce29076b69762661fd4  /var/cache/apt/archives/libtool_2.5.4-9_all.deb
 a86f39d57a32b7c919c0ad721fc2f17ab533a42fda348c8d81a4eea1577a014f  /var/cache/apt/archives/make_4.4.1-3_amd64.deb
 601b9f92a04ea9ff7de6f60f60c34f2e2743f9c478125ac9e413f29a1fa728d9  /var/cache/apt/archives/zlib1g-dev_1%3a1.3.dfsg+really1.3.1-1ubuntu3_amd64.deb
