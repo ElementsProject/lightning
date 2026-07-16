@@ -101,7 +101,7 @@ cd lightning
 
 Checkout a release tag:
 ```shell
-git checkout v25.02
+git checkout v26.09
 ```
 
 For development or running tests, get additional dependencies:
@@ -212,7 +212,7 @@ cd lightning
 
 Checkout a release tag:
 ```shell
-git checkout v24.05
+git checkout v26.09
 ```
 
 Build and install lightning:
@@ -386,7 +386,7 @@ cd lightning
 
 Checkout a release tag:
 ```shell
-git checkout v24.05
+git checkout v26.09
 ```
 
 Build lightning:
@@ -463,7 +463,7 @@ cd lightning
 
 Checkout a release tag:
 ```shell
-git checkout v24.05
+git checkout v26.09
 ```
 
 Build lightning:
@@ -625,8 +625,36 @@ A working example that compiles both bitcoind and Core Lightning for Armbian can
 Get dependencies:
 ```shell
 apk update
-apk add --virtual .build-deps ca-certificates alpine-sdk autoconf automake git libtool \
-sqlite-dev python3 py3-mako net-tools zlib-dev libsodium gettext
+```
+
+Install the runtime dependencies (these must stay installed to run `lightningd`):
+```shell
+apk add --no-cache libgcc libsodium sqlite-libs zlib libpq
+```
+
+Install the build dependencies as a virtual package so they can be removed later:
+```shell
+apk add --no-cache --virtual .build-deps \
+  alpine-sdk autoconf automake libtool gmp-dev sqlite-dev python3 python3-dev \
+  py3-pip py3-mako net-tools zlib-dev libsodium-dev gettext gettext-dev \
+  musl-dev gcc git jq curl wget bash ca-certificates protobuf protobuf-dev \
+  postgresql-dev lowdown
+```
+
+Install Rust via rustup (required for Cargo):
+```shell
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+. $HOME/.cargo/env
+```
+
+> 📘
+>
+> The `rust`/`cargo` packages shipped by some Alpine releases can be older than Core Lightning's minimum supported Rust version (1.85.0), so installing the toolchain via rustup is recommended.
+
+Install uv for Python dependency management:
+```shell
+curl -LsSf https://astral.sh/uv/install.sh | sh
+export PATH="$HOME/.local/bin:$PATH"
 ```
 
 Clone lightning:
@@ -636,20 +664,26 @@ cd lightning
 git submodule update --init --recursive
 ```
 
-Build and install:
+Checkout a release tag:
 ```shell
-./configure
-make
-make install
+git checkout v26.09
 ```
 
-Clean up:
+Build and install:
+```shell
+uv sync --all-extras --all-groups --frozen
+./configure
+RUST_PROFILE=release uv run make -j$(nproc)
+RUST_PROFILE=release make install
+```
+
+> 📘
+>
+> If you want to disable Rust because you don't need it or its plugins (cln-grpc, clnrest, cln-bip353 or wss-proxy), you can use `./configure --disable-rust` and skip the rustup step above.
+
+Clean up (recommended to keep a minimal Alpine image):
 ```shell
 cd .. && rm -rf lightning
 apk del .build-deps
-```
-
-Install runtime dependencies:
-```shell
-apk add libgcc libsodium sqlite-libs zlib
+rm -rf "$HOME/.rustup" "$HOME/.cargo" "$HOME/.local/share/uv" "$HOME/.cache/uv"
 ```
