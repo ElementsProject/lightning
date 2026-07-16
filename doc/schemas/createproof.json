@@ -160,5 +160,38 @@
   ],
   "resources": [
     "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
+  ],
+  "examples": [
+    {
+      "request": {
+        "id": "example:createproof#1",
+        "method": "createproof",
+        "params": {
+          "invstring": "lno1qgsqvgnwgcg35z6ee2h3yczraddm72xrfua9uve2rlrm9deu7xyfzrc2zegxz7tdv4h8ggrjv4ch26tjv4ejqurjdahkv93pqg58h7kghxdn23m7h6fnfmk7rcetrz0zgezwkuquq7tpgufrx88vq"
+        }
+      },
+      "response": {
+        "proofs": [
+          {
+            "bolt12": "lnp1pgt9qcted4jkuapqwfjhzatfwfjhxgrswfhk7eskyypzs7l6ezuekd2806lfxd8wmc0r9vvfufryf6msrsrev9r3yvcuaszcyypyzanz3eyn5zgclm7wpz20wcq0e4ykpsuugryk95lvgv2gy6dy9r4yq3ne035q4qs8s5r64x52g8drh6sfvl3eudl3crjy7spfg0t56sch67h5weq8fsa2qvr6zg9wqvpqqq9syypzs7l6ezuekd2806lfxd8wmc0r9vvfufryf6msrsrev9r3yvcuas8sgp5ytk6gtg9uwn7m5scae2rctte4y7c2sl030tvepsyygw77wxm7460ne9s3d93cg3x76mdsu5xzyz4j3ph825dp6ve5n78ynz0fx9nl79qxq25pz0xdmh8qjj9yg2avdrplmppqvq0gne3tk0gz5y27y69vzf9vquk8j2k7mq7w9u99zm9vd5dwvz4c7nf4324sgehn0q3yynyuzn7s86fq2shrw7ffu5d2y4pwxaujneg65f2zudme98j34gj59cmhj209r2306ql2qcq3wxqet9d06qltsp8977rjak289nv62vujc0fpm5lh4rywk3zh4lmq7d36esq20fm24pkmtzjw4085srpgxwcxh8yqs3weexndsed53q8vrymuvxjxhr9jpnszuw3fdplrfwyjyemect2dzx8vxhgmlx7zw567ucd3gq9v37hkyacdps886zge3q6a2xcdk42dmezhm7uqtzrapawhrca06rf74chaq0k06qgqcazxey889hytdkl58r4z77y4psut06ckhdnerkck2fr54h09jgxv9zpfyxc7vqkpymzsx558p9kcxnu6rnn094vjn5t8l2te453hqezvrj0s2wxuvdn7g4a02ctntty0hy83nypvwhr8dkwg54tj9zx69ahs8zd23hczsc39cfq6yyn0mp702p273cakgfk5j9dg4rqsukcrpanhtwh7pzy4x9q5cvykg68d7rqg2e7wysgt7007pzy9qpk238l2g0xskct9ynva35tey440dxlpe4m3e4qk6yllqakmzf745xt9ps4jajk7kj2dr56atazvlvhcf2lzv8rsvdracjd4452z2wkdv0zdepl90z3pvx2h5kyqtvntqp680a7kyhgvmpfhcfqcjdlksx29r30cey",
+            "offer_fields_included": [
+              "offer_description",
+              "offer_issuer_id"
+            ],
+            "invreq_fields_included": [
+              "invreq_payer_id"
+            ],
+            "invoice_fields_included": [
+              "invoice_created_at",
+              "invoice_payment_hash",
+              "invoice_amount",
+              "invoice_features",
+              "invoice_node_id",
+              "signature"
+            ]
+          }
+        ]
+      }
+    }
   ]
 }

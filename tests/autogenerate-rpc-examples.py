@@ -1103,6 +1103,10 @@ def generate_utils_examples(l1, l2, l3, l4, l5, l6, c23_2, c34_2, inv_l11, inv_l
         update_example(node=l2, method='signmessagewithkey', params={'message': 'signing this message with key', 'address': addr})
         update_example(node=l2, method='decode', params=[rune_l21['rune']])
         update_example(node=l2, method='decode', params=[inv_l22['bolt11']])
+        inv_req = l4.rpc.offer(amount='any', description='Payment requires proof')
+        l3.rpc.sendamount(invstring=inv_req['bolt12'], amount_msat='1000sat')
+        res_inv_req = l3.rpc.createproof(invstring=inv_req['bolt12'])
+        update_example(node=l3, method='createproof', params={'invstring': inv_req['bolt12']}, response=res_inv_req)
 
         # PSBT
         amount1 = 1000000
