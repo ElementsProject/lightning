@@ -33,7 +33,7 @@ REGENERATING_RPCS = []
 ALL_RPC_EXAMPLES = {}
 EXAMPLES_JSON = {}
 LOG_FILE = './tests/autogenerate-examples-status.log'
-IGNORE_RPCS_LIST = ['dev-splice', 'reckless', 'sql-template', 'splicein', 'createproof', 'clnrest-register-path', 'graceful', 'askrene-remove-channel-update', 'spliceout', 'askrene-bias-node', 'xkeysend', 'cancelrecurringinvoice', 'injectonionmessage']
+IGNORE_RPCS_LIST = ['dev-splice', 'reckless', 'sql-template', 'splicein', 'createproof', 'clnrest-register-path', 'graceful', 'askrene-remove-channel-update', 'spliceout', 'askrene-bias-node', 'xkeysend', 'injectonionmessage']
 EXPECTED_WALLET_TXIDS = defaultdict(set)
 
 
@@ -1107,6 +1107,11 @@ def generate_utils_examples(l1, l2, l3, l4, l5, l6, c23_2, c34_2, inv_l11, inv_l
         l3.rpc.sendamount(invstring=inv_req['bolt12'], amount_msat='1000sat')
         res_inv_req = l3.rpc.createproof(invstring=inv_req['bolt12'])
         update_example(node=l3, method='createproof', params={'invstring': inv_req['bolt12']}, response=res_inv_req)
+
+        offer_rec = update_example(node=l4, method='offer', params={'amount': '1000sat', 'description': 'Recurring subscription', 'recurrence': '1minutes'})
+        rec_inv_l3 = l3.rpc.fetchinvoice(offer=offer_rec['bolt12'], recurrence_counter=0, recurrence_label='subscription l3')
+        l3.rpc.pay(rec_inv_l3['invoice'], label='subscription l3')
+        update_example(node=l3, method='cancelrecurringinvoice', params={'offer': offer_rec['bolt12'], 'recurrence_counter': 1, 'recurrence_label': 'subscription l3', 'payer_note': 'Cancelling subscription'})
 
         # PSBT
         amount1 = 1000000
