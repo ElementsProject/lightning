@@ -876,7 +876,6 @@ def test_unannounced(node_factory):
     assert ret["status"] == "complete"
 
 
-@pytest.mark.xfail(strict=True)
 def test_cltv_value(node_factory, bitcoind):
     cltv_delta = 5
     l1, l2, l3 = node_factory.line_graph(
