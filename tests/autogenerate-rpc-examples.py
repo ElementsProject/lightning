@@ -1548,7 +1548,7 @@ def generate_backup_recovery_examples(node_factory, l4, l5, l6, regenerate_block
         raise
 
 
-def generate_list_examples(bitcoind, l1, l2, l3, c12, c23_2, inv_l31, inv_l32, offer_l23, inv_req_l1_l22, address_l22):
+def generate_list_examples(bitcoind, l1, l2, l3, c12, c23_2, c34_2, inv_l31, inv_l32, offer_l23, inv_req_l1_l22, address_l22):
     """Generates lists rpc examples"""
     try:
         logger.info('Lists Start...')
@@ -1612,6 +1612,10 @@ def generate_list_examples(bitcoind, l1, l2, l3, c12, c23_2, inv_l31, inv_l32, o
         update_example(node=l2, method='listpeerchannels', params={}, response=listpeerchannels_res2)
 
         update_example(node=l1, method='listchannels', params={'short_channel_id': c12})
+        # l4's database was deleted for the recoverchannel example, so l3 will
+        # disable its side of their channel; that channel_update is emitted
+        # lazily, so wait for it or the listchannels snapshot below races it.
+        wait_for(lambda: [c['active'] for c in l3.rpc.listchannels(c34_2)['channels'] if c['source'] == l3.info['id']] == [False])
         update_example(node=l3, method='listchannels', params={})
 
         listnodes_res1 = l2.rpc.listnodes(l3.info['id'])
@@ -1759,7 +1763,7 @@ def test_generate_examples(node_factory, bitcoind, executor):
         generate_channels_examples(node_factory, bitcoind, l1, l3, l4, l5, regenerate_blockchain)
         generate_autoclean_delete_examples(l1, l2, l3, l4, l5, c12, c23)
         generate_backup_recovery_examples(node_factory, l4, l5, l6, regenerate_blockchain)
-        generate_list_examples(bitcoind, l1, l2, l3, c12, c23_2, inv_l31, inv_l32, offer_l23, inv_req_l1_l22, address_l22)
+        generate_list_examples(bitcoind, l1, l2, l3, c12, c23_2, c34_2, inv_l31, inv_l32, offer_l23, inv_req_l1_l22, address_l22)
         update_examples_in_schema_files()
         logger.info('All Done!!!')
     except Exception as e:
