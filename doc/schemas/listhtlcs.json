@@ -314,7 +314,7 @@
             "updated_index": 113,
             "short_channel_id": "116x1x1",
             "id": 11,
-            "expiry": 281,
+            "expiry": 143,
             "direction": "out",
             "amount_msat": 400000,
             "payment_hash": "3fe5289854b8924b4ebb3f61cd8f5a29f8f509cc781919230f7ee95ec2fa7c46",
