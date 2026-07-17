@@ -874,3 +874,31 @@ def test_unannounced(node_factory):
     b12 = l1.rpc.fetchinvoice(offer, "21sat")["invoice"]
     ret = l1.rpc.call("renepay", {"invstring": b12})
     assert ret["status"] == "complete"
+
+
+@pytest.mark.xfail(strict=True)
+def test_cltv_value(node_factory, bitcoind):
+    cltv_delta = 5
+    l1, l2, l3 = node_factory.line_graph(
+        3,
+        wait_for_announce=True,
+        opts={
+            "allow-deprecated-apis": True,
+            "cltv-delta": cltv_delta,
+            "fee-base": 0,
+            "fee-per-satoshi": 0,
+        },
+    )
+    blockheight = l1.rpc.waitblockheight(0)["blockheight"]
+    # BOLT-11 direct peer
+    b11 = l3.rpc.invoice(
+        "100sat", "test_renepay_expiry_too_far", "test_renepay_expiry_too_far"
+    )["bolt11"]
+    decoded_b11 = l1.rpc.decode(b11)
+    final_cltv = decoded_b11["min_final_cltv_expiry"]
+    ret = l1.rpc.call("renepay", {"invstring": b11})
+    assert ret["status"] == "complete"
+    pattern = r"Adding HTLC 0 amount=100000msat cltv=(\d+)"
+    line = l1.daemon.wait_for_log(pattern)
+    cltv = int(re.search(pattern, line).group(1))
+    assert cltv == (blockheight + 1) + cltv_delta + final_cltv
