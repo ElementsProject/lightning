@@ -11,19 +11,9 @@ requires-python = ">=3.10,<4.0"
 dependencies = [
     "base58>=2.1.1",
     "bitstring>=4.3.0",
-    "coincurve>=21",
+    "coincurve-cp314-fix>=22.0.1",
     "cryptography>=46",
     "PySocks>=1"
-]
-
-[[tool.uv.index]]
-name = "coincurve-cp314-fix"
-url = "https://daywalker90.github.io/coincurve/"
-explicit = true
-
-[tool.uv.sources]
-coincurve = [
-  { index = "coincurve-cp314-fix", marker = "python_version == '3.14'" },
 ]
 
 [dependency-groups]
