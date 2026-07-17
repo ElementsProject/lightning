@@ -15,11 +15,11 @@ from utils import (
 )
 from pyln.testing.utils import VALGRIND, EXPERIMENTAL_DUAL_FUND, FUNDAMOUNT, RUST, SLOW_MACHINE
 
-import math
 import os
 import pytest
 import random
 import re
+import statistics
 import time
 import unittest
 import websocket
@@ -4653,12 +4653,12 @@ def test_private_channel_no_reconnect(node_factory):
 def test_no_delay(node_factory):
     """Disabling Nagle for critical messages should speed up payment round-trips.
 
-    This is timing-based, so we compare it statistically: time N round-trips
-    with and without Nagle and compare the per-trip means with a K=3
-    standard-error margin (a spurious result is then a ~3-sigma, ~0.1% event).
-    The speedup only exists where the TCP Nagle timer is real (~200ms on Linux);
-    macOS loopback has no measurable timer, so there we only assert that
-    disabling Nagle isn't slower.
+    The Nagle stall ends when the peer's delayed ACK fires: a 40ms quantum
+    on Linux.  Trip times on loaded CI runners are heavy-tailed, which makes
+    mean/standard-error comparisons unstable (#9218, #9329); the stall shifts
+    the whole distribution instead, so we compare medians, with half the
+    quantum as margin.  macOS loopback has no measurable stall, so there we
+    only assert that disabling Nagle isn't slower.
     """
     l1, l2 = node_factory.line_graph(2, opts={'dev-keep-nagle': None,
                                               'may_reconnect': True})
@@ -4683,14 +4683,6 @@ def test_no_delay(node_factory):
             times.append(time.time() - start)
         return times
 
-    def mean(xs):
-        return sum(xs) / len(xs)
-
-    def variance(xs):
-        # Sample variance (Bessel-corrected).
-        m = mean(xs)
-        return sum((x - m) ** 2 for x in xs) / (len(xs) - 1)
-
     N = 100
 
     nagle_trips = do_round_trips(N)
@@ -4705,26 +4697,24 @@ def test_no_delay(node_factory):
     normal_trips = do_round_trips(N)
     normal_time = sum(normal_trips)
 
-    mean_nagle = mean(nagle_trips)
-    mean_normal = mean(normal_trips)
-    se_diff = math.sqrt(variance(nagle_trips) / len(nagle_trips)
-                        + variance(normal_trips) / len(normal_trips))
+    med_nagle = statistics.median(nagle_trips)
+    med_normal = statistics.median(normal_trips)
 
-    # Margin = K standard errors of the difference of the per-trip means.
-    K = 3
-    margin = K * se_diff
+    # The Linux Nagle stall is one delayed-ACK quantum: HZ/25 jiffies = 40ms.
+    DELACK_QUANTUM = 0.040
 
-    print(f"Nagle: mean trip {mean_nagle * 1000:.1f}ms with vs "
-          f"{mean_normal * 1000:.1f}ms without; saving "
-          f"{(mean_nagle - mean_normal) * 1000:.1f}ms, {K}-sigma margin "
-          f"{margin * 1000:.1f}ms (totals {nagle_time:.1f}s vs {normal_time:.1f}s)")
+    print(f"Nagle: median trip {med_nagle * 1000:.1f}ms with vs "
+          f"{med_normal * 1000:.1f}ms without; median saving "
+          f"{(med_nagle - med_normal) * 1000:.1f}ms "
+          f"(totals {nagle_time:.1f}s vs {normal_time:.1f}s)")
 
     if sys.platform.startswith('linux'):
-        # Linux has the ~200ms Nagle timer: disabling it should be significantly faster.
-        assert mean_normal < mean_nagle - margin
+        # The stall shifts the whole distribution, so the median must move
+        # by about the full quantum; requiring half tolerates median noise.
+        assert med_normal < med_nagle - DELACK_QUANTUM / 2
     else:
-        # No measurable timer (e.g. macOS loopback): just assert it's not slower.
-        assert mean_normal <= mean_nagle + margin
+        # No measurable stall (e.g. macOS loopback): just assert it's not slower.
+        assert med_normal <= med_nagle + DELACK_QUANTUM / 2
 
 
 def test_listpeerchannels_by_scid(node_factory):
