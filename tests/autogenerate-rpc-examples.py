@@ -33,7 +33,7 @@ REGENERATING_RPCS = []
 ALL_RPC_EXAMPLES = {}
 EXAMPLES_JSON = {}
 LOG_FILE = './tests/autogenerate-examples-status.log'
-IGNORE_RPCS_LIST = ['dev-splice', 'reckless', 'sql-template', 'splicein', 'createproof', 'clnrest-register-path', 'graceful', 'askrene-remove-channel-update', 'spliceout', 'askrene-bias-node', 'xkeysend', 'delnetworkevent', 'cancelrecurringinvoice', 'injectonionmessage']
+IGNORE_RPCS_LIST = ['dev-splice', 'reckless', 'sql-template', 'splicein', 'createproof', 'clnrest-register-path', 'graceful', 'askrene-remove-channel-update', 'spliceout', 'askrene-bias-node', 'xkeysend', 'cancelrecurringinvoice', 'injectonionmessage']
 EXPECTED_WALLET_TXIDS = defaultdict(set)
 
 
@@ -1493,6 +1493,10 @@ def generate_autoclean_delete_examples(l1, l2, l3, l4, l5, c12, c23):
         if len(failed_forwards) > 0 and 'in_htlc_id' in failed_forwards[0]:
             update_example(node=l2, method='delforward', params={'in_channel': c12, 'in_htlc_id': failed_forwards[0]['in_htlc_id'], 'status': 'failed'})
         update_example(node=l2, method='dev-forget-channel', params={'id': l3.info['id'], 'short_channel_id': c23, 'force': True}, description=[f'Forget a channel by short channel id when peer has multiple channels:'])
+
+        # Delnetworkevent
+        dl_nwk_res1 = l2.rpc.listnetworkevents(id=l3.info['id'], index='created', limit=3)
+        update_example(node=l2, method='delnetworkevent', params={'created_index': dl_nwk_res1['networkevents'][-1]['created_index']})
 
         # Autoclean
         update_example(node=l2, method='autoclean-once', params=['failedpays', 1])
