@@ -5407,7 +5407,6 @@ def test_tracing_socket(node_factory):
         assert span["localEndpoint"] == {"serviceName": "lightningd"}
 
 
-@pytest.mark.xfail(strict=True)
 def test_long_logs(node_factory):
     """A plugin that creates a very long log entry. Lightningd should truncate
     the output and not crash."""
@@ -5421,4 +5420,3 @@ def test_long_logs(node_factory):
 
     l1 = node_factory.get_node(inline_plugin=setup)
     l1.rpc.call("produce-log")
-
