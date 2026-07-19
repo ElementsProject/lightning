@@ -264,20 +264,23 @@ static void del_front_log(struct log_book *log)
 }
 
 /* We truncate genuinely giant messages */
-static char *cap_header(const tal_t *ctx, struct log_hdr *hdr, const char *msg)
+static char *cap_header(const tal_t *ctx, struct log_hdr *hdr, const char *msg TAKES)
 {
 	const size_t max = sizeof(((struct log_book *)0)->ringbuf) / 64;
+	const char *origmsg = msg;
 	if (hdr->msglen > max) {
 		msg = tal_fmt(ctx, "[TRUNCATED message from %zu bytes]: %.*s",
 			      hdr->msglen, (int)max, msg);
-		hdr->msglen = strlen(msg);
+		hdr->msglen = tal_count(msg) - 1;
 	}
 	if (hdr->iolen > max) {
 		msg = tal_fmt(ctx, "[TRUNCATED IO from %zu bytes]: %.*s",
 			      hdr->iolen, (int)hdr->msglen, msg);
-		hdr->msglen = strlen(msg);
+		hdr->msglen = tal_count(msg) - 1;
 		hdr->iolen = max;
 	}
+	if (taken(origmsg) && msg != origmsg)
+		tal_free(origmsg);
 	return cast_const(char *, msg);
 }
 
@@ -660,12 +663,8 @@ void logv(struct logger *log, enum log_level level,
 	size_t log_len;
 	char *logmsg;
 
-	/* This is WARN_UNUSED_RESULT, because everyone should somehow deal
-	 * with OOM, even though nobody does. */
-	if (vasprintf(&logmsg, fmt, ap) == -1)
-		abort();
-
-	log_len = strlen(logmsg);
+	logmsg = tal_vfmt(tmpctx, fmt, ap);
+	log_len = tal_count(logmsg) - 1;
 
 	/* Sanitize any non-printable characters, and replace with '?' */
 	for (size_t i=0; i<log_len; i++)
@@ -676,7 +675,7 @@ void logv(struct logger *log, enum log_level level,
 	maybe_print(log, &l, logmsg, NULL);
 	maybe_notify_log(log, &l, logmsg);
 
-	logmsg = cap_header(tmpctx, &l, logmsg);
+	logmsg = cap_header(tmpctx, &l, take(logmsg));
 	add_entry(log->log_book, &l, logmsg, NULL);
 
 	if (call_notifier)
@@ -685,8 +684,8 @@ void logv(struct logger *log, enum log_level level,
 			       l.time,
 			       l.prefix->prefix,
 			       logmsg);
-	free(logmsg);
 
+	tal_free(logmsg);
 	errno = save_errno;
 }
 
@@ -700,20 +699,26 @@ void log_io(struct logger *log, enum log_level dir,
 
 	assert(dir == LOG_IO_IN || dir == LOG_IO_OUT);
 
-	init_log_hdr(log, &l, dir, node_id, strlen(str), len);
+	size_t str_len = strlen(str);
+	init_log_hdr(log, &l, dir, node_id, str_len, len);
 
 	if (l.level >= log->print_level)
 		log_to_files(log->log_book->prefix, log->prefix->prefix, l.level,
 			     l.nc ? &l.nc->node_id : NULL,
 			     log->need_refiltering ? &log->log_book->print_filters : NULL,
-			     &l.time, str, strlen(str),
+			     &l.time, str, str_len,
 			     data, len,
 			     log->log_book->print_timestamps,
 			     log->log_book->default_print_level,
 			     log->log_book->log_files);
 
-	str = cap_header(tmpctx, &l, str);
+	bool str_taken = is_taken(str);
+	str = cap_header(tmpctx, &l, str/*TAKES*/);
 	add_entry(log->log_book, &l, str, data);
+	if (str_taken)
+		tal_free(str);
+	if (taken(data))
+		tal_free(data);
 	errno = save_errno;
 }
 
