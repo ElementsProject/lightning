@@ -33,7 +33,7 @@ REGENERATING_RPCS = []
 ALL_RPC_EXAMPLES = {}
 EXAMPLES_JSON = {}
 LOG_FILE = './tests/autogenerate-examples-status.log'
-IGNORE_RPCS_LIST = ['dev-splice', 'reckless', 'sql-template', 'splicein', 'createproof', 'clnrest-register-path', 'graceful', 'askrene-remove-channel-update', 'spliceout', 'xkeysend', 'injectonionmessage']
+IGNORE_RPCS_LIST = ['dev-splice', 'reckless', 'sql-template', 'splicein', 'createproof', 'clnrest-register-path', 'graceful', 'askrene-remove-channel-update', 'spliceout', 'xkeysend']
 EXPECTED_WALLET_TXIDS = defaultdict(set)
 
 
@@ -1035,7 +1035,7 @@ def generate_wait_examples(l1, l2, bitcoind, executor):
         raise
 
 
-def generate_utils_examples(l1, l2, l3, l4, l5, l6, c23_2, c34_2, inv_l11, inv_l22, rune_l21, bitcoind):
+def generate_utils_examples(l1, l2, l3, l4, l5, l6, c23_2, c34_2, inv_l11, inv_l22, rune_l21, bitcoind, executor):
     """Generates other utilities examples"""
     try:
         logger.info('General Utils Start...')
@@ -1114,6 +1114,24 @@ def generate_utils_examples(l1, l2, l3, l4, l5, l6, c23_2, c34_2, inv_l11, inv_l
         rec_inv_l3 = l3.rpc.fetchinvoice(offer=offer_rec['bolt12'], recurrence_counter=0, recurrence_label='subscription l3')
         l3.rpc.pay(rec_inv_l3['invoice'], label='subscription l3')
         update_example(node=l3, method='cancelrecurringinvoice', params={'offer': offer_rec['bolt12'], 'recurrence_counter': 1, 'recurrence_label': 'subscription l3', 'payer_note': 'Cancelling subscription'})
+
+        # We need a real onion message, and nothing hands one out: but a node
+        # which cannot forward one dumps it (raw, plus its path_key) into an
+        # onionmessage_forward_fail notification, which --dev-save-plugin-io
+        # saves for us.  So disconnect l2 from l3, let l1's fetchinvoice stall
+        # at l2, then reconnect and inject it, completing the fetchinvoice.
+        offer_l3 = l3.rpc.offer(amount='2000sat', description='Onion message offer')
+        l2.rpc.disconnect(l3.info['id'], force=True)
+        fetch_l1 = executor.submit(l1.rpc.fetchinvoice, offer_l3['bolt12'])
+        iodir = os.path.join(l2.daemon.lightning_dir, 'plugin-io')
+        prefix = 'notification_out-onionmessage_forward_fail-'
+        wait_for(lambda: any(f.startswith(prefix) for f in os.listdir(iodir)))
+        with open(os.path.join(iodir, next(f for f in os.listdir(iodir) if f.startswith(prefix))), 'r', encoding='utf-8') as f:
+            fwd_fail = json.load(f)['params']['onionmessage_forward_fail']
+        l2.rpc.connect(fwd_fail['next_node_id'], 'localhost', l3.port)
+        update_example(node=l2, method='injectonionmessage', params={'path_key': fwd_fail['path_key'], 'message': fwd_fail['incoming']})
+        fetch_l1.result(timeout=10)
+        wait_for(lambda: all(c['peer_connected'] for c in l2.rpc.listpeerchannels(l3.info['id'])['channels']))
 
         # PSBT
         amount1 = 1000000
@@ -1803,7 +1821,7 @@ def test_generate_examples(node_factory, bitcoind, executor):
         offer_l23, inv_req_l1_l22 = generate_offers_renepay_examples(l1, l2, inv_l21, inv_l34)
         generate_askrene_examples(l1, l2, l3, c12, c23_2)
         generate_wait_examples(l1, l2, bitcoind, executor)
-        address_l22 = generate_utils_examples(l1, l2, l3, l4, l5, l6, c23_2, c34_2, inv_l11, inv_l22, rune_l21, bitcoind)
+        address_l22 = generate_utils_examples(l1, l2, l3, l4, l5, l6, c23_2, c34_2, inv_l11, inv_l22, rune_l21, bitcoind, executor)
         generate_splice_examples(node_factory, bitcoind, regenerate_blockchain)
         generate_channels_examples(node_factory, bitcoind, l1, l3, l4, l5, regenerate_blockchain)
         generate_autoclean_delete_examples(l1, l2, l3, l4, l5, c12, c23)
