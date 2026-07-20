@@ -37680,7 +37680,7 @@
       "rpc": "spliceout",
       "title": "Command to splice funds out of a channel",
       "description": [
-        "`spliceout` is the command to move funds into a channel."
+        "`spliceout` is the command to move funds out of a channel."
       ],
       "request": {
         "required": [
@@ -37738,7 +37738,7 @@
         }
       },
       "usage": [
-        "`spliceout` is the command take funds from a channel. It takes `amount` funds from the specified `channel` and puts them somewhere.",
+        "`spliceout` is the command to take funds from a channel. It takes `amount` funds from the specified `channel` and puts them somewhere.",
         "",
         "The default destination is your onchain wallet.",
         "By specifying the `destination` as a bitcoin address, the funds will be sent to the specified address",
