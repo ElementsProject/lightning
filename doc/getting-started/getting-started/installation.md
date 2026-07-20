@@ -70,23 +70,22 @@ You will also need a version of bitcoind with segregated witness and `estimatesm
 
 ## To Build on Ubuntu
 
-OS version: Ubuntu 15.10 or above
+OS version: Ubuntu 22.04 or above
 
 Get dependencies:
 ```shell
-sudo apt-get update
-sudo apt-get install -y \
-  jq autoconf automake build-essential git libtool libsqlite3-dev libffi-dev \
-  python3 python3-pip net-tools zlib1g-dev libsodium-dev gettext lowdown
-pip3 install --upgrade pip
+sudo apt update
+sudo apt install -y \
+  curl autoconf jq libsecp256k1-dev libsodium-dev automake build-essential git libtool libsqlite3-dev libffi-dev python3 python3-pip net-tools zlib1g-dev gettext libssl-dev lowdown python3-mako
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
+If installation halts on tzdata configuration, finish the setup of your OS and try again.
 
-After installing uv, restart your shell or run the command shown by the install output (usually `source $HOME/.local/bin/env`) to ensure `uv` is in your PATH.
+After installing uv, restart your shell or run `source ~/.local/bin/env` to ensure `uv` is in your PATH.
 
 If you don't have Bitcoin installed locally you'll need to install that as well. It's now available via [snapd](https://snapcraft.io/bitcoin-core).
 ```shell
-sudo apt-get install snapd
+sudo apt install snapd
 sudo snap install bitcoin-core
 # Snap does some weird things with binary names; you'll
 # want to add a link to them so everything works as expected
@@ -99,25 +98,28 @@ git clone https://github.com/ElementsProject/lightning.git
 cd lightning
 ```
 
-Checkout a release tag:
+Checkout a release tag (optional):
 ```shell
-git checkout v25.02
+git checkout v26.06
 ```
+> 📘
+>
+> Note that docs are valid for the commit they are checked out with. If you checkout a release tag that had a different version of this document, please refer to that instead.
 
 For development or running tests, get additional dependencies:
 ```shell
-sudo apt-get install -y valgrind libpq-dev shellcheck cppcheck \
-  libsecp256k1-dev lowdown
+sudo apt install -y valgrind libpq-dev shellcheck cppcheck
 ```
 
-If you want to build the Rust plugins (cln-grpc, clnrest, cln-bip353 and wss-proxy):
+If you want to build the Rust plugins (cln-grpc, clnrest, cln-bip353 and wss-proxy) make sure that you have Rust 1.85+ installed (included on Ubuntu 25.10 or higher):
 ```shell
-sudo apt-get install -y cargo rustfmt
+sudo apt install -y cargo rustfmt
 ```
 
 > 📘
 >
-> If your build fails because of your Rust version, you might want to check out [rustup](https://rustup.rs/) to install a newer version
+> For Ubuntu <25.10, all details about installing Rust can be found at https://rustup.rs/.
+
 
 There are two ways to build core lightning, and this depends on how you want use it.
 
@@ -218,10 +220,13 @@ git clone https://github.com/ElementsProject/lightning.git
 cd lightning
 ```
 
-Checkout a release tag:
+Checkout a release tag (optional):
 ```shell
-git checkout v26.04
+git checkout v26.06
 ```
+> 📘
+>
+> Note that docs are valid for the commit they are checked out with. If you checkout a release tag that had a different version of this document, please refer to that instead.
 
 Build and install lightning:
 ```shell
@@ -420,10 +425,13 @@ git clone https://github.com/ElementsProject/lightning.git
 cd lightning
 ```
 
-Checkout a release tag:
+Checkout a release tag (optional):
 ```shell
-git checkout v24.05
+git checkout v26.06
 ```
+> 📘
+>
+> Note that docs are valid for the commit they are checked out with. If you checkout a release tag that had a different version of this document, please refer to that instead.
 
 Build lightning:
 ```shell
@@ -497,10 +505,13 @@ git clone https://github.com/ElementsProject/lightning.git
 cd lightning
 ```
 
-Checkout a release tag:
+Checkout a release tag (optional):
 ```shell
-git checkout v24.05
+git checkout v26.06
 ```
+> 📘
+>
+> Note that docs are valid for the commit they are checked out with. If you checkout a release tag that had a different version of this document, please refer to that instead.
 
 Build lightning:
 ```shell
