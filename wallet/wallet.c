@@ -4351,7 +4351,8 @@ void wallet_payment_get_failinfo(const tal_t *ctx,
 				 struct short_channel_id **failchannel,
 				 u8 **failupdate,
 				 char **faildetail,
-				 int *faildirection)
+				 int *faildirection,
+				 u8 **failmsg)
 {
 	struct db_stmt *stmt;
 	bool resb;
@@ -4361,6 +4362,7 @@ void wallet_payment_get_failinfo(const tal_t *ctx,
 				 ", failindex, failcode"
 				 ", failnode, failscid"
 				 ", failupdate, faildetail, faildirection"
+				 ", failmsg"
 				 "  FROM payments"
 				 " WHERE payment_hash=? AND partid=? AND groupid=?;"));
 	db_bind_sha256(stmt, payment_hash);
@@ -4395,6 +4397,10 @@ void wallet_payment_get_failinfo(const tal_t *ctx,
 		*faildetail = db_col_strdup(ctx, stmt, "faildetail");
 	else
 		*faildetail = NULL;
+	if (db_col_is_null(stmt, "failmsg"))
+		*failmsg = NULL;
+	else
+		*failmsg = db_col_arr(ctx, stmt, "failmsg", u8);
 
 	tal_free(stmt);
 }
@@ -4410,7 +4416,8 @@ void wallet_payment_set_failinfo(struct wallet *wallet,
 				 const struct short_channel_id *failchannel,
 				 const u8 *failupdate /*tal_arr*/,
 				 const char *faildetail,
-				 int faildirection)
+				 int faildirection,
+				 const u8 *failmsg /*tal_arr*/)
 {
 	struct db_stmt *stmt;
 
@@ -4424,6 +4431,7 @@ void wallet_payment_set_failinfo(struct wallet *wallet,
 					     "     , faildirection=?"
 					     "     , failupdate=?"
 					     "     , faildetail=?"
+					     "     , failmsg=?"
 					     " WHERE payment_hash=?"
 					     " AND partid=?;"));
 	if (failonionreply)
@@ -4453,6 +4461,8 @@ void wallet_payment_set_failinfo(struct wallet *wallet,
 		db_bind_text(stmt, faildetail);
 	else
 		db_bind_null(stmt);
+
+	db_bind_talarr(stmt, failmsg);
 
 	db_bind_sha256(stmt, payment_hash);
 	db_bind_u64(stmt, partid);

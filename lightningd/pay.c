@@ -652,7 +652,8 @@ void payment_failed(struct lightningd *ld,
 				    fail ? fail->erring_channel : NULL,
 				    NULL,
 				    failstr,
-				    fail ? fail->channel_dir : 0);
+				    fail ? fail->channel_dir : 0,
+				    fail ? fail->msg : NULL);
 
 	tell_waiters_failed(ld, payment_hash, payment, pay_errcode,
 			    failonion, fail, failstr);
@@ -675,6 +676,7 @@ static struct command_result *wait_payment(struct lightningd *ld,
 	struct short_channel_id *failchannel;
 	u8 *failupdate;
 	char *faildetail;
+	u8 *failmsg;
 	struct routing_failure *fail;
 	int faildirection;
 	enum jsonrpc_errcode rpcerrorcode;
@@ -715,7 +717,8 @@ static struct command_result *wait_payment(struct lightningd *ld,
 					    &failchannel,
 					    &failupdate,
 					    &faildetail,
-					    &faildirection);
+					    &faildirection,
+					    &failmsg);
 		/* Old DB might not save failure information */
 		if (!failonionreply && !failnode) {
 			return command_fail(cmd, PAY_UNSPECIFIED_ERROR,
@@ -745,8 +748,7 @@ static struct command_result *wait_payment(struct lightningd *ld,
 				fail->erring_channel = NULL;
 			}
 
-			/* FIXME: We don't store this! */
-			fail->msg = NULL;
+			fail->msg = tal_dup_talarr(fail, u8, failmsg);
 
 			/* Peers which fail directly can hit this! */
 			if (failcode & BADONION)
@@ -1530,7 +1532,7 @@ static struct command_result *self_payment(struct lightningd *ld,
 					    fail->failcode, fail->erring_node,
 					    NULL, NULL,
 					    err,
-					    0);
+					    0, NULL);
 		/* We do this even though there really can't be any waiters,
 		 * since we didn't block. */
 		tell_waiters_failed(ld, rhash, payment, PAY_DESTINATION_PERM_FAIL,
