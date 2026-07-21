@@ -56,6 +56,10 @@ struct wallet {
 
 	/* How many keys should we look ahead at most? */
 	u64 keyscan_gap;
+
+	/* Address lookahead max index. */
+	u64 bip32_max_index;
+	u64 bip86_max_index;
 };
 
 static inline enum output_status output_status_in_db(enum output_status s)

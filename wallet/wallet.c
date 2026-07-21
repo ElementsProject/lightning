@@ -231,6 +231,9 @@ struct wallet *wallet_new(struct lightningd *ld, struct timers *timers)
 	our_addresses_init(wallet);
 	trace_span_end(wallet);
 
+	wallet->bip32_max_index = db_get_intvar(wallet->db, "bip32_max_index", 0);
+	wallet->bip86_max_index = db_get_intvar(wallet->db, "bip86_max_index", 0);
+
 	db_commit_transaction(wallet->db);
 	return wallet;
 }
@@ -1030,9 +1033,8 @@ bool wallet_can_spend(struct wallet *w, const u8 *script, size_t script_len,
 	const struct wallet_address *waddr;
 	struct script_with_len scriptwl = {script, script_len};
 
-	/* Update hash table if we need to */
-	bip32_max_index = db_get_intvar(w->db, "bip32_max_index", 0);
-	bip86_max_index = db_get_intvar(w->db, "bip86_max_index", 0);
+	bip32_max_index = w->bip32_max_index;
+	bip86_max_index = w->bip86_max_index;
 
 	/* Scan both BIP32 and BIP86 addresses */
 	u64 max_index = (bip32_max_index > bip86_max_index) ? bip32_max_index : bip86_max_index;
@@ -1047,12 +1049,16 @@ bool wallet_can_spend(struct wallet *w, const u8 *script, size_t script_len,
 	 * remember that. */
 	if (w->ld->bip86_base) {
 		/* BIP86-based wallet: all addresses use BIP86 derivation */
-		if (waddr->index > bip86_max_index)
+		if (waddr->index > bip86_max_index) {
+			w->bip86_max_index = waddr->index;
 			db_set_intvar(w->db, "bip86_max_index", waddr->index);
+		}
 	} else {
 		/* Legacy wallet: all addresses use BIP32 derivation */
-		if (waddr->index > bip32_max_index)
+		if (waddr->index > bip32_max_index) {
 			db_set_intvar(w->db, "bip32_max_index", waddr->index);
+			w->bip32_max_index = waddr->index;
+		}
 	}
 
 	*index = waddr->index;
