@@ -271,22 +271,18 @@ static char *cap_header(const tal_t *ctx, struct log_hdr *hdr, const char *msg T
 		char *new;
 		new = tal_fmt(ctx, "[TRUNCATED message from %zu bytes]: %.*s",
 			      hdr->msglen, (int)max, msg);
-		if (taken(msg)) {
+		if (taken(msg))
 			tal_free(msg);
-			take(new);
-		}
-		msg = new;
+		msg = take(new);
 		hdr->msglen = tal_count(msg) - 1;
 	}
 	if (hdr->iolen > max) {
 		char *new;
 		new = tal_fmt(ctx, "[TRUNCATED IO from %zu bytes]: %.*s",
 			      hdr->iolen, (int)hdr->msglen, msg);
-		if (taken(msg)) {
+		if (taken(msg))
 			tal_free(msg);
-			take(new);
-		}
-		msg = new;
+		msg = take(new);
 		hdr->msglen = tal_count(msg) - 1;
 		hdr->iolen = max;
 	}
