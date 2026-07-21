@@ -12,6 +12,7 @@ from pyln.client import LightningRpc
 from pyln.client import Millisatoshi
 from pyln.client import NodeVersion
 from pyln.client import Plugin
+from pyln.client.plugin import PluginLogHandler
 
 import ephemeral_port_reserve  # type: ignore
 import tempfile
@@ -2012,6 +2013,26 @@ class NodeFactory(object):
         return not unexpected_fail, err_msgs
 
 
+class _NoPylnInternalsFilter(logging.Filter):
+    """Drop log records generated inside the pyln packages themselves.
+
+    An inline plugin's Plugin() lives in the test process, so its
+    PluginLogHandler on the root logger would forward pyln's own machinery
+    logs into the node's log.  wait_for_logs()'s 'Waiting for [pattern]'
+    announcement embeds the pattern verbatim, lands in the very log being
+    scanned, and matches itself, silently reducing the wait to a no-op.
+    Only records from outside pyln (i.e. the plugin author's own logging)
+    may be forwarded.
+    """
+    PYLN_DIRS = tuple(
+        os.path.dirname(os.path.abspath(f)) + os.sep
+        for f in (__file__,
+                  sys.modules[PluginLogHandler.__module__].__file__))
+
+    def filter(self, record):
+        return not os.path.abspath(record.pathname).startswith(self.PYLN_DIRS)
+
+
 def _inline_plugin(node, setup_fn):
     """Set up an inline plugin serve thread for a not-yet-started node.
 
@@ -2031,10 +2052,27 @@ def _inline_plugin(node, setup_fn):
     """
     sock_path = os.path.join(node.daemon.lightning_dir, TEST_NETWORK, 'inline-plugin.sock')
     srv = socket.socket(socket.AF_UNIX)
-    srv.bind(sock_path)
+    try:
+        srv.bind(sock_path)
+    except OSError as e:
+        # Linux caps an AF_UNIX path at 108 bytes, and the node dir embeds
+        # the (possibly long) test name.  Bind via a directory fd alias,
+        # the bind-side analogue of UnixSocket.connect's workaround; the
+        # socket file still lands at sock_path, where the shim's
+        # cwd-relative connect expects it.
+        if e.args[0] != "AF_UNIX path too long" or os.uname()[0] != "Linux":
+            raise
+        dirfd = os.open(os.path.dirname(sock_path), os.O_DIRECTORY | os.O_RDONLY)
+        try:
+            srv.bind("/proc/self/fd/%d/%s" % (dirfd, os.path.basename(sock_path)))
+        finally:
+            os.close(dirfd)
     srv.listen(1)
 
     plugin = Plugin(autopatch=False)
+    for handler in logging.getLogger().handlers:
+        if isinstance(handler, PluginLogHandler) and handler.plugin is plugin:
+            handler.addFilter(_NoPylnInternalsFilter())
     setup_fn(plugin)
 
     def serve():
