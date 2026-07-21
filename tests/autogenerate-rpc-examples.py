@@ -33,7 +33,7 @@ REGENERATING_RPCS = []
 ALL_RPC_EXAMPLES = {}
 EXAMPLES_JSON = {}
 LOG_FILE = './tests/autogenerate-examples-status.log'
-IGNORE_RPCS_LIST = ['dev-splice', 'reckless', 'sql-template', 'splicein', 'createproof', 'clnrest-register-path', 'graceful', 'askrene-remove-channel-update', 'spliceout', 'xkeysend']
+IGNORE_RPCS_LIST = ['dev-splice', 'reckless', 'sql-template', 'splicein', 'clnrest-register-path', 'graceful', 'askrene-remove-channel-update', 'spliceout']
 EXPECTED_WALLET_TXIDS = defaultdict(set)
 
 
@@ -629,6 +629,11 @@ def generate_transactions_examples(l1, l2, l3, l4, l5, c25, bitcoind):
         update_example(node=l1, method='waitsendpay', params={'payment_hash': inv_l31['payment_hash']})
         update_example(node=l1, method='keysend', params={'destination': l3.info['id'], 'amount_msat': 10000})
         update_example(node=l1, method='keysend', params={'destination': l4.info['id'], 'amount_msat': 10000000, 'extratlvs': {'133773310': '68656c6c6f776f726c64', '133773312': '66696c7465726d65'}})
+        # l3->l4 rather than l1->l4: it rides their direct channel, so it adds
+        # no HTLC to c12 and no forward to l2, leaving listhtlcs' fixed-length
+        # rewrite patch (and _merge_list's assert on it) intact.  It does add
+        # channel moves to l3's ledger, which bkpr-* regenerate on their own.
+        update_example(node=l3, method='xkeysend', params={'destination': l4.info['id'], 'amount_msat': 10000000, 'label': 'This is an xkeysend amount', 'maxfee': '500sat'})
         scid = only_one([channel for channel in l2.rpc.listpeerchannels()['channels'] if channel['peer_id'] == l3.info['id']])['alias']['remote']
         routehints = [[{
             'scid': scid,
