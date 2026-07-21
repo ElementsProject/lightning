@@ -80,30 +80,30 @@ static const char *convert_layer_data(const tal_t *ctx,
 		case DSTORE_CHANNEL:
 			if (fromwire_dstore_channel(&data_in, &len,
 						    &n, &n, &scid, &msat))
-				copy_data(&out, data_in, olddata - data_in);
+				copy_data(&out, olddata, data_in - olddata);
 			continue;
 		case DSTORE_CHANNEL_UPDATE:
 			if (fromwire_dstore_channel_update(tmpctx, &data_in, &len,
 							   &scidd, &bool_ptr,
 							   &msat_ptr, &msat_ptr, &msat_ptr,
 							   &u32_ptr, &u16_ptr))
-				copy_data(&out, data_in, olddata - data_in);
+				copy_data(&out, olddata, data_in - olddata);
 			continue;
 		case DSTORE_CHANNEL_CONSTRAINT:
 			if (fromwire_dstore_channel_constraint(tmpctx, &data_in, &len,
 							       &scidd, &timestamp,
 							       &msat_ptr, &msat_ptr))
-				copy_data(&out, data_in, olddata - data_in);
+				copy_data(&out, olddata, data_in - olddata);
 			continue;
 		case DSTORE_CHANNEL_BIAS:
 			if (fromwire_dstore_channel_bias(tmpctx, &data_in, &len,
 							 &scidd, &bias,
 							 &string))
-				copy_data(&out, data_in, olddata - data_in);
+				copy_data(&out, olddata, data_in - olddata);
 			continue;
 		case DSTORE_DISABLED_NODE:
 			if (fromwire_dstore_disabled_node(&data_in, &len, &n))
-				copy_data(&out, data_in, olddata - data_in);
+				copy_data(&out, olddata, data_in - olddata);
 			continue;
 
 		/* Convert back, lose timestamp */
@@ -114,7 +114,7 @@ static const char *convert_layer_data(const tal_t *ctx,
 				if (convert_bias)
 					towire_dstore_channel_bias(&out, &scidd, bias, string);
 				else
-					copy_data(&out, data_in, olddata - data_in);
+					copy_data(&out, olddata, data_in - olddata);
 			}
 			continue;
 
@@ -123,7 +123,7 @@ static const char *convert_layer_data(const tal_t *ctx,
 				return "Askrene has a node bias, which is not supported in v25.09";
 			if (fromwire_dstore_node_bias(tmpctx, &data_in, &len,
 						      &n, &string, &bias, &bias, &timestamp))
-				copy_data(&out, data_in, olddata - data_in);
+				copy_data(&out, olddata, data_in - olddata);
 			continue;
 
 		case DSTORE_CHANNEL_IMPRESSION:
@@ -131,7 +131,7 @@ static const char *convert_layer_data(const tal_t *ctx,
 							       &scidd, &timestamp, &msat)) {
 				/* We don't convert, just omit these */
 				if (!convert_impression)
-					copy_data(&out, data_in, olddata - data_in);
+					copy_data(&out, olddata, data_in - olddata);
 			}
 			continue;
 		}
