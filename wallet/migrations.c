@@ -1182,6 +1182,7 @@ static const struct db_migration dbmigrations[] = {
      * writes stop in the release that removes chaintopology, freezing all
      * the legacy tables at the same height. */
     {NULL, migrate_backfill_bwatch_tables, NULL, NULL},
+    /* ^v26.09 */
 };
 
 const struct db_migration *get_db_migrations(size_t *num)
