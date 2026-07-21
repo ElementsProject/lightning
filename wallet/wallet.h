@@ -1049,7 +1049,10 @@ void wallet_payment_set_status(struct wallet *wallet,
  * `payment_hash`.
  *
  * Data is allocated as children of the given context. *faildirection
- * is only set if *failchannel is set non-NULL.
+ * is only set if *failchannel is set non-NULL. *failmsg is NULL when
+ * no raw onion failure message was recorded (local and self-payment
+ * failures, or payments that failed before the failmsg column
+ * existed).
  */
 void wallet_payment_get_failinfo(const tal_t *ctx,
 				 struct wallet *wallet,
@@ -1065,7 +1068,8 @@ void wallet_payment_get_failinfo(const tal_t *ctx,
 				 struct short_channel_id **failchannel,
 				 u8 **failupdate,
 				 char **faildetail,
-				 int *faildirection);
+				 int *faildirection,
+				 u8 **failmsg);
 /**
  * wallet_payment_set_failinfo - Set failure information for a given
  * `payment_hash`.
@@ -1081,7 +1085,8 @@ void wallet_payment_set_failinfo(struct wallet *wallet,
 				 const struct short_channel_id *failchannel,
 				 const u8 *failupdate,
 				 const char *faildetail,
-				 int faildirection);
+				 int faildirection,
+				 const u8 *failmsg);
 
 /**
  * payments_first: get first payment, optionally filtering by status

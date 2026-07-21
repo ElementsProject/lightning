@@ -1182,6 +1182,10 @@ static const struct db_migration dbmigrations[] = {
      * writes stop in the release that removes chaintopology, freezing all
      * the legacy tables at the same height. */
     {NULL, migrate_backfill_bwatch_tables, NULL, NULL},
+    /* Raw BOLT4 failure message, so waitsendpay can report it even
+     * after the failure was recorded (issue #9341). */
+    {SQL("ALTER TABLE payments ADD failmsg BLOB;"), NULL,
+     SQL("ALTER TABLE payments DROP COLUMN failmsg"), NULL},
     /* ^v26.09 */
 };
 
