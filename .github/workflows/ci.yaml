@@ -465,6 +465,7 @@ jobs:
           LIGHTNINGD_POSTGRES_NO_VACUUM: 1
           VALGRIND: ${{ matrix.VALGRIND }}
           PREV_LIGHTNINGD: old-cln/usr/bin/lightningd
+          CLN_PREV_VERSION: v26.06
           PYTEST_OPTS: ${{ env.PYTEST_OPTS_BASE }}
         run: |
           env
