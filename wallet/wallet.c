@@ -1026,18 +1026,40 @@ bool wallet_add_onchaind_utxo(struct wallet *w,
 	return true;
 }
 
+/* ADDR_P2TR counts in the bip86 index, everything else in the bip32 one. */
+static u64 wallet_max_addr_index(struct wallet *w, enum addrtype addrtype)
+{
+	if (addrtype == ADDR_P2TR)
+		return w->bip86_max_index;
+	return w->bip32_max_index;
+}
+
+/* The max index is cached in struct wallet, and the db intvar is only
+ * read back at startup, so all updates must go through here. */
+static void wallet_set_max_addr_index(struct wallet *w, enum addrtype addrtype,
+				      u64 index)
+{
+	if (addrtype == ADDR_P2TR) {
+		w->bip86_max_index = index;
+		db_set_intvar(w->db, "bip86_max_index", index);
+	} else {
+		w->bip32_max_index = index;
+		db_set_intvar(w->db, "bip32_max_index", index);
+	}
+}
+
 bool wallet_can_spend(struct wallet *w, const u8 *script, size_t script_len,
 		      u32 *index, enum addrtype *addrtype)
 {
-	u64 bip32_max_index, bip86_max_index;
 	const struct wallet_address *waddr;
 	struct script_with_len scriptwl = {script, script_len};
-
-	bip32_max_index = w->bip32_max_index;
-	bip86_max_index = w->bip86_max_index;
+	/* BIP86-based wallets derive all addresses via BIP86, legacy
+	 * wallets via BIP32, regardless of the individual addrtype. */
+	enum addrtype index_type = w->ld->bip86_base ? ADDR_P2TR : ADDR_BECH32;
 
 	/* Scan both BIP32 and BIP86 addresses */
-	u64 max_index = (bip32_max_index > bip86_max_index) ? bip32_max_index : bip86_max_index;
+	u64 max_index = (w->bip32_max_index > w->bip86_max_index)
+		? w->bip32_max_index : w->bip86_max_index;
 	while (w->our_addresses_maxindex < max_index + w->keyscan_gap)
 		our_addresses_add_for_index(w, ++w->our_addresses_maxindex);
 
@@ -1047,19 +1069,8 @@ bool wallet_can_spend(struct wallet *w, const u8 *script, size_t script_len,
 
 	/* If we found a used key in the keyscan_gap we should
 	 * remember that. */
-	if (w->ld->bip86_base) {
-		/* BIP86-based wallet: all addresses use BIP86 derivation */
-		if (waddr->index > bip86_max_index) {
-			w->bip86_max_index = waddr->index;
-			db_set_intvar(w->db, "bip86_max_index", waddr->index);
-		}
-	} else {
-		/* Legacy wallet: all addresses use BIP32 derivation */
-		if (waddr->index > bip32_max_index) {
-			db_set_intvar(w->db, "bip32_max_index", waddr->index);
-			w->bip32_max_index = waddr->index;
-		}
-	}
+	if (waddr->index > wallet_max_addr_index(w, index_type))
+		wallet_set_max_addr_index(w, index_type, waddr->index);
 
 	*index = waddr->index;
 	if (addrtype)
@@ -1071,21 +1082,16 @@ s64 wallet_get_newindex(struct lightningd *ld, enum addrtype addrtype)
 {
 	struct db_stmt *stmt;
 	u64 newidx;
-	const char *index_var;
+	/* Choose index based on wallet type, not on the addrtype being
+	 * issued: there is a single index space per wallet. */
+	enum addrtype index_type = ld->bip86_base ? ADDR_P2TR : ADDR_BECH32;
 
-	/* Choose index variable based on wallet type */
-	if (ld->bip86_base) {
-		index_var = "bip86_max_index";
-	} else {
-		index_var = "bip32_max_index";
-	}
-
-	newidx = db_get_intvar(ld->wallet->db, index_var, 0) + 1;
+	newidx = wallet_max_addr_index(ld->wallet, index_type) + 1;
 
 	if (newidx == BIP32_INITIAL_HARDENED_CHILD)
 		return -1;
 
-	db_set_intvar(ld->wallet->db, index_var, newidx);
+	wallet_set_max_addr_index(ld->wallet, index_type, newidx);
 	stmt = db_prepare_v2(ld->wallet->db,
 			     SQL("INSERT INTO addresses ("
 				 "  keyidx"
