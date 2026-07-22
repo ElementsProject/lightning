@@ -33,7 +33,7 @@ REGENERATING_RPCS = []
 ALL_RPC_EXAMPLES = {}
 EXAMPLES_JSON = {}
 LOG_FILE = './tests/autogenerate-examples-status.log'
-IGNORE_RPCS_LIST = ['dev-splice', 'reckless', 'sql-template', 'splicein', 'clnrest-register-path', 'graceful', 'askrene-remove-channel-update', 'spliceout']
+IGNORE_RPCS_LIST = ['dev-splice', 'reckless', 'sql-template', 'clnrest-register-path', 'graceful', 'askrene-remove-channel-update']
 EXPECTED_WALLET_TXIDS = defaultdict(set)
 
 
@@ -1212,6 +1212,18 @@ def generate_splice_examples(node_factory, bitcoind, regenerate_blockchain):
         mine_funding_to_announce(bitcoind, [l7, l8])
         l7.wait_channel_active(c78)
         chan_id_78 = l7.get_channel_id(l8)
+        l7.daemon.wait_for_log(' to CHANNELD_NORMAL')
+
+        update_example(node=l7, method='splicein', params={'channel': chan_id_78, 'amount': '5000'})
+        bitcoind.generate_block(1, wait_for_mempool=1)
+        sync_blockheight(bitcoind, [l7, l8])
+        l7.daemon.wait_for_log(' to CHANNELD_NORMAL')
+
+        update_example(node=l7, method='spliceout', params={'channel': chan_id_78, 'amount': '5000'})
+        bitcoind.generate_block(6, wait_for_mempool=1)
+        sync_blockheight(bitcoind, [l7, l8])
+        l7.daemon.wait_for_log(' to CHANNELD_NORMAL')
+
         # Splice
         funds_result_1 = l7.rpc.fundpsbt('109000sat', 'slow', 166, excess_as_change=True)
         spinit_res1 = update_example(node=l7, method='splice_init', params={'channel_id': chan_id_78, 'relative_amount': 100000, 'initialpsbt': funds_result_1['psbt']})
@@ -1499,6 +1511,12 @@ def generate_autoclean_delete_examples(l1, l2, l3, l4, l5, c12, c23):
         l2.rpc.close(l4.info['id'])
         l2.rpc.disconnect(l4.info['id'], True)
 
+        # Reconnect, then force l2 to re-broadcast an enabled
+        # channel_update (setchannel), and wait for l1 to see it as routable.
+        l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
+        wait_for(lambda: all(c['peer_connected'] for c in l2.rpc.listpeerchannels(l3.info['id'])['channels']))
+        wait_for(lambda: any(c['source'] == l2.info['id'] and c['active'] for c in l1.rpc.listchannels(destination=l3.info['id'])['channels']))
+
         # Delinvoice
         l1.rpc.pay(inv_l35['bolt11'])
         l1.rpc.pay(inv_l37['bolt11'])
@@ -1659,9 +1677,13 @@ def generate_list_examples(bitcoind, l1, l2, l3, c12, c23_2, c34_2, inv_l31, inv
         update_example(node=l2, method='listpeerchannels', params={}, response=listpeerchannels_res2)
 
         update_example(node=l1, method='listchannels', params={'short_channel_id': c12})
-        # l4's database was deleted for the recoverchannel example, so l3 will
-        # disable its side of their channel; that channel_update is emitted
-        # lazily, so wait for it or the listchannels snapshot below races it.
+        # l4's database was deleted for the recoverchannel example, so it only
+        # has a channel stub now and the l3<->l4 channel can never resume.  A
+        # node only disables its side of a channel once it is *closing* (a
+        # channel stuck in CHANNELD_NORMAL is only ever re-enabled), so close it
+        # from l3 to deterministically disable l3's side.  Do not mine: we want
+        # it "closing" (disabled but still in gossip), not swept onchain (gone).
+        l3.rpc.close(c34_2, unilateraltimeout=1)
         wait_for(lambda: [c['active'] for c in l3.rpc.listchannels(c34_2)['channels'] if c['source'] == l3.info['id']] == [False])
         update_example(node=l3, method='listchannels', params={})
 
@@ -1827,12 +1849,12 @@ def test_generate_examples(node_factory, bitcoind, executor):
         generate_askrene_examples(l1, l2, l3, c12, c23_2)
         generate_wait_examples(l1, l2, bitcoind, executor)
         address_l22 = generate_utils_examples(l1, l2, l3, l4, l5, l6, c23_2, c34_2, inv_l11, inv_l22, rune_l21, bitcoind, executor)
-        generate_splice_examples(node_factory, bitcoind, regenerate_blockchain)
         generate_channels_examples(node_factory, bitcoind, l1, l3, l4, l5, regenerate_blockchain)
         generate_autoclean_delete_examples(l1, l2, l3, l4, l5, c12, c23)
         generate_backup_recovery_examples(node_factory, l4, l5, l6, regenerate_blockchain)
-        generate_list_examples(bitcoind, l1, l2, l3, c12, c23_2, inv_l31, inv_l32, offer_l23, inv_req_l1_l22, address_l22)
+        generate_list_examples(bitcoind, l1, l2, l3, c12, c23_2, c34_2, inv_l31, inv_l32, offer_l23, inv_req_l1_l22, address_l22)
         generate_currencyrate_examples(l3)
+        generate_splice_examples(node_factory, bitcoind, regenerate_blockchain)
         update_examples_in_schema_files()
         logger.info('All Done!!!')
     except Exception as e:
