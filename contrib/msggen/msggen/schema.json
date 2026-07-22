@@ -578,7 +578,7 @@
             "method": "askrene-bias-node",
             "params": {
               "layer": "test_layers",
-              "node": "nodeid030303030303030303030303030303030303030303030303030303030303",
+              "node": "03cecbfdc68544cc596223b68ce0710c9e5d2c9cb317ee07822d95079acc703d31",
               "direction": "out",
               "bias": 1
             }
@@ -587,9 +587,10 @@
             "node_biases": [
               {
                 "layer": "test_layers",
-                "node": "nodeid030303030303030303030303030303030303030303030303030303030303",
+                "node": "03cecbfdc68544cc596223b68ce0710c9e5d2c9cb317ee07822d95079acc703d31",
                 "in_bias": 0,
-                "out_bias": 1
+                "out_bias": 1,
+                "timestamp": 1738000000
               }
             ]
           }
@@ -598,22 +599,23 @@
           "request": {
             "id": "example:askrene-bias-node#2",
             "method": "askrene-bias-node",
-            "params": [
-              "test_layers",
-              "nodeid030303030303030303030303030303030303030303030303030303030303",
-              "out",
-              -5,
-              "this node is unreliable"
-            ]
+            "params": {
+              "layer": "test_layers",
+              "node": "03cecbfdc68544cc596223b68ce0710c9e5d2c9cb317ee07822d95079acc703d31",
+              "direction": "out",
+              "bias": -5,
+              "description": "This node is unreliable"
+            }
           },
           "response": {
             "node_biases": [
               {
                 "layer": "test_layers",
-                "node": "nodeid030303030303030303030303030303030303030303030303030303030303",
-                "description": "this is node is unreliable",
+                "node": "03cecbfdc68544cc596223b68ce0710c9e5d2c9cb317ee07822d95079acc703d31",
+                "description": "This node is unreliable",
                 "in_bias": 0,
-                "out_bias": -5
+                "out_bias": -5,
+                "timestamp": 1738000000
               }
             ]
           }
@@ -5902,9 +5904,21 @@
           "response": {
             "report": [
               "Date,Tag,Account,Description,Credit,Debit,BTC/USD,Credit (USD),Debit(USD)",
-              "2026-04-02 12:42:03,deposit,wallet,Onchain output 37562cf0b3a5d6783ae02925bcc486bb89afe156abf15e692736e5da9a060018:1,+0.02000000000,0,67140.89,$1342.81,$0.00",
-              "2026-04-02 12:42:04,invoice,9b3114c8003dc8dedbcf3b7bc9fb04e1575a1112aea33be8369ae9670aff64f4,Invoice description test_bkpr_report_invoice,0,-0.00000123456,67140.89,$0.00,$0.08",
-              "2026-04-02 12:42:04,onchain_fee,9b3114c8003dc8dedbcf3b7bc9fb04e1575a1112aea33be8369ae9670aff64f4,Onchain transaction f464ff0a67e99a36e83ba3ae12115a57e104fbc97b3bcfdbdec83d00c814319b,0,-0.00004927000,67140.89,$0.00,$3.30"
+              "2025-01-27 18:46:41,deposit,wallet,Invoice description edited utxo description,+2.00000000000,0,,$,$",
+              "2025-01-27 18:46:43,deposit,wallet,Onchain output 130def5c51ac7024c2d21c9b45c91e63fd0f9b1081c9f30de18a5eb3f7ffc86d:0,+0.02000000000,0,,$,$",
+              "2025-01-27 18:46:47,invoice,c51daaf63cd67a9092a021076a8b3def61b38dea85019b0a074ddada3e1a4e6c,Invoice description edited invoice description from description send some sats l2 to l3,+0.00500000000,0,,$,$",
+              "2025-01-27 18:46:48,invoice,f8f6216a51c6d73e2a759d1de6f675c3780f42957e27bd2f7d8bd0fb373b9006,Invoice description description send some sats l3 to l4,0,-0.00500000000,,$,$",
+              "2025-01-27 18:46:49,invoice,c51daaf63cd67a9092a021076a8b3def61b38dea85019b0a074ddada3e1a4e6c,Invoice description Invoice description l31,+0.00000010000,0,,$,$",
+              "2025-01-27 18:46:50,invoice,c51daaf63cd67a9092a021076a8b3def61b38dea85019b0a074ddada3e1a4e6c,Invoice description keysend,+0.00000010000,0,,$,$",
+              "2025-01-27 18:46:51,routed,f8f6216a51c6d73e2a759d1de6f675c3780f42957e27bd2f7d8bd0fb373b9006,,+0.00000000101,0,,$,$",
+              "2025-01-27 18:46:53,invoice,c51daaf63cd67a9092a021076a8b3def61b38dea85019b0a074ddada3e1a4e6c,Invoice description keysend,+0.00000010000,0,,$,$",
+              "2025-01-27 18:46:54,invoice,c51daaf63cd67a9092a021076a8b3def61b38dea85019b0a074ddada3e1a4e6c,Invoice description l32 description,+0.00000050000,0,,$,$",
+              "2025-01-27 18:46:55,invoice,c51daaf63cd67a9092a021076a8b3def61b38dea85019b0a074ddada3e1a4e6c,Invoice description l33 description,+0.00000100000,0,,$,$",
+              "2025-01-27 18:46:56,routed,f8f6216a51c6d73e2a759d1de6f675c3780f42957e27bd2f7d8bd0fb373b9006,,+0.00000000001,0,,$,$",
+              "2025-01-27 18:47:04,deposit,wallet,Onchain output c8035875a93de7342073e9ff85a3ae70fe346f634cda125d4fbce1714cc64b4d:1,+0.02000000000,0,,$,$",
+              "2025-01-27 18:47:07,onchain_fee,16e2e64cfffd6603c0697aa9df4f99c769e6697400d4c28acf7ad25a72fe5429,Onchain transaction 23c5b3b5733c26f6cfa450e27d9ac122a626b36626fa0ced8206f488cc8e310a,0,-0.00004927000,,$,$",
+              "2025-01-27 18:46:46,onchain_fee,f8f6216a51c6d73e2a759d1de6f675c3780f42957e27bd2f7d8bd0fb373b9006,Onchain transaction 7e4d853f75800aac4e510424ca030027b1e1192c0b6ba51d221452b39a8f57e2,0,-0.00004927000,,$,$",
+              "2025-01-27 18:47:01,onchain_fee,c51daaf63cd67a9092a021076a8b3def61b38dea85019b0a074ddada3e1a4e6c,Onchain transaction dc446777a9b3d6d5962f502f5d22f66b01452389c1bbe8460491e7376f44a1eb,0,-0.00000000102,,$,$"
             ],
             "format-hint": "simple"
           }
@@ -6171,6 +6185,23 @@
       ],
       "resources": [
         "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
+      ],
+      "examples": [
+        {
+          "request": {
+            "id": "example:cancelrecurringinvoice#1",
+            "method": "cancelrecurringinvoice",
+            "params": {
+              "offer": "lno1qgsqvgnwgcg35z6ee2h3yczraddm72xrfua9uve2rlrm9deu7xyfzrcgqv85ysq2zefx2cm4wfexjmn8ypeh2cnnvdexjur5d9hku93pqg58h7kghxdn23m7h6fnfmk7rcetrz0zgezwkuquq7tpgufrx88vpl3mnt9psqsq8s",
+              "recurrence_counter": 1,
+              "recurrence_label": "subscription l3",
+              "payer_note": "Cancelling subscription"
+            }
+          },
+          "response": {
+            "bolt12": "lnr1qqsquux3chfhckgak29er5ljyamfzyln7uka69lf6fddl7te7k20w0gzyqrzymjxzydqkkw24ufxqslttwlj3s608f0rx2slc7etw0833zgs7zqrpapyqzsk2fjkxatjwf5kueeqwd6kyumrwf5hqarfdahpvggz9pal4j9env65wl47jv6wahs7x2ccncjxgn4hq8q8jc28zge3emq9qgqxyfhyvyg6pdvu4tcjvpp7kkal9rp57wj7xv4pl3ajku70rzy3pa2qqkppqtpdhn70ts2jyn6f0x8zf7p3sqfrglh2v4s7zqg5pxlfq8gs8f9dckghgdskucm9d3kxjmn8ypeh2cnnvdexjur5d9hkauzqthdkt4nhqfewafy75t27xycdfgmyak7wsfpjwu6wc3l9r3dqspfnjzeda9xslw7q8k9c6wzxcsyzegn49rl43ykntut4x0dktle4re878wdv5xqzqq70uae4j3wqzq07wu6eghsq"
+          }
+        }
       ]
     },
     "check.json": {
@@ -7781,6 +7812,39 @@
       ],
       "resources": [
         "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
+      ],
+      "examples": [
+        {
+          "request": {
+            "id": "example:createproof#1",
+            "method": "createproof",
+            "params": {
+              "invstring": "lno1qgsqvgnwgcg35z6ee2h3yczraddm72xrfua9uve2rlrm9deu7xyfzrc2zegxz7tdv4h8ggrjv4ch26tjv4ejqurjdahkv93pqg58h7kghxdn23m7h6fnfmk7rcetrz0zgezwkuquq7tpgufrx88vq"
+            }
+          },
+          "response": {
+            "proofs": [
+              {
+                "bolt12": "lnp1pgt9qcted4jkuapqwfjhzatfwfjhxgrswfhk7eskyypzs7l6ezuekd2806lfxd8wmc0r9vvfufryf6msrsrev9r3yvcuaszcyypyzanz3eyn5zgclm7wpz20wcq0e4ykpsuugryk95lvgv2gy6dy9r4yq3ne035q4qs8s5r64x52g8drh6sfvl3eudl3crjy7spfg0t56sch67h5weq8fsa2qvr6zg9wqvpqqq9syypzs7l6ezuekd2806lfxd8wmc0r9vvfufryf6msrsrev9r3yvcuas8sgp5ytk6gtg9uwn7m5scae2rctte4y7c2sl030tvepsyygw77wxm7460ne9s3d93cg3x76mdsu5xzyz4j3ph825dp6ve5n78ynz0fx9nl79qxq25pz0xdmh8qjj9yg2avdrplmppqvq0gne3tk0gz5y27y69vzf9vquk8j2k7mq7w9u99zm9vd5dwvz4c7nf4324sgehn0q3yynyuzn7s86fq2shrw7ffu5d2y4pwxaujneg65f2zudme98j34gj59cmhj209r2306ql2qcq3wxqet9d06qltsp8977rjak289nv62vujc0fpm5lh4rywk3zh4lmq7d36esq20fm24pkmtzjw4085srpgxwcxh8yqs3weexndsed53q8vrymuvxjxhr9jpnszuw3fdplrfwyjyemect2dzx8vxhgmlx7zw567ucd3gq9v37hkyacdps886zge3q6a2xcdk42dmezhm7uqtzrapawhrca06rf74chaq0k06qgqcazxey889hytdkl58r4z77y4psut06ckhdnerkck2fr54h09jgxv9zpfyxc7vqkpymzsx558p9kcxnu6rnn094vjn5t8l2te453hqezvrj0s2wxuvdn7g4a02ctntty0hy83nypvwhr8dkwg54tj9zx69ahs8zd23hczsc39cfq6yyn0mp702p273cakgfk5j9dg4rqsukcrpanhtwh7pzy4x9q5cvykg68d7rqg2e7wysgt7007pzy9qpk238l2g0xskct9ynva35tey440dxlpe4m3e4qk6yllqakmzf745xt9ps4jajk7kj2dr56atazvlvhcf2lzv8rsvdracjd4452z2wkdv0zdepl90z3pvx2h5kyqtvntqp680a7kyhgvmpfhcfqcjdlksx29r30cey",
+                "offer_fields_included": [
+                  "offer_description",
+                  "offer_issuer_id"
+                ],
+                "invreq_fields_included": [
+                  "invreq_payer_id"
+                ],
+                "invoice_fields_included": [
+                  "invoice_created_at",
+                  "invoice_payment_hash",
+                  "invoice_amount",
+                  "invoice_features",
+                  "invoice_node_id",
+                  "signature"
+                ]
+              }
+            ]
+          }
+        }
       ]
     },
     "createrune.json": {
@@ -8271,6 +8335,21 @@
       ],
       "resources": [
         "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
+      ],
+      "examples": [
+        {
+          "request": {
+            "id": "example:currencyconvert#1",
+            "method": "currencyconvert",
+            "params": {
+              "amount": 100,
+              "currency": "USD"
+            }
+          },
+          "response": {
+            "msat": 155974480
+          }
+        }
       ]
     },
     "currencyrate.json": {
@@ -8361,7 +8440,7 @@
             }
           },
           "response": {
-            "rate": 67889.825
+            "rate": 64113.052
           }
         },
         {
@@ -8377,7 +8456,7 @@
             }
           },
           "response": {
-            "rate": 67931.9
+            "rate": 64130.09
           }
         }
       ]
@@ -12318,6 +12397,18 @@
       ],
       "resources": [
         "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
+      ],
+      "examples": [
+        {
+          "request": {
+            "id": "example:delnetworkevent#1",
+            "method": "delnetworkevent",
+            "params": {
+              "created_index": 2
+            }
+          },
+          "response": {}
+        }
       ]
     },
     "delpay.json": {
@@ -17622,8 +17713,8 @@
             "id": "example:injectonionmessage#1",
             "method": "injectonionmessage",
             "params": {
-              "message": "0002cb7cd2001e3c670d64135542dcefdf4a3f590eb142cee9277b317848471906caeabe4afeae7f4e31f6ca9c119b643d5369c5e55f892f205469a185f750697124a2bb7ccea1245ec12d76340bcf7371ba6d1c9ddfe09b4153fce524417c14a594fdbb5e7c698a5daffe77db946727a38711be2ecdebdd347d2a9f990810f2795b3c39b871d7c72a11534bd388ca2517630263d96d8cc72d146bae800638066175c85a8e8665160ea332ed7d27efc31c960604d61c3f83801c25cbb69ae3962c2ef13b1fa9adc8dcbe3dc8d9a5e27ff5669e076b02cafef8f2c88fc548e03642180d57606386ad6ce27640339747d40f26eb5b9e93881fc8c16d5896122032b64bb5f1e4be6f41f5fa4dbd7851989aeccd80b2d5f6f25427f171964146185a8eaa57891d91e49a4d378743231e19edd5994c3118c9a415958a5d9524a6ecc78c0205f5c0059a7fbcf1abad706a189b712476d112521c9a4650d0ff09890536acae755a2b07d00811044df28b288d3dc2d5ae3f8bf3cf7a2950e2167105dfad0fb8398ef08f36abcdb1bfd6aca3241c33810f0750f35bdfb7c60b1759275b7704ab1bc8f3ea375b3588eab10e4f948f12fe0a3c77b67bebeedbcced1de0f0715f9959e5497cda5f8f6ab76c15b3dcc99956465de1bf2855338930650f8e8e8c391d9bb8950125dd60d8289dade0556d9dc443761983e26adcc223412b756e2fd9ad64022859b6cab20e8ffc3cf39ae6045b2c3338b1145ee3719a098e58c425db764d7f9a5034dbb730c20202f79bc3c53fab78ecd530aa0e8f7698c9ea53cb96dc9c639282c362d31177c5b81979f46f2db6090b8e171db47287523f28c462e35ef489b51426387f2709c342083968153b5f8a51cd5716b38106bb0f21c5ccfc28dd7c74b71c8367ae8ca348f66a7996bbc535076a1f65d9109658ec042257ca7523488fb1807dc8bec42739ccae066739cf58083b4e2c65e52e1747a6ec2aa26338bb6f2c3195a2b160e26dec70a2cfde269fa7c10c45d346a8bcc313bb618324edadc0291d15f4dc00ca3a7ad7131045fdf6978ba52178f4699525efcb8d96561630e2f28eaa97c66c38c66301b6c6f0124b550db620b09f35b9d45d1441cab7d93be5e3c39b9becfab7f8d05dd3a7a6e27a1d3f23f1dd01e967f5206600619f75439181848f7f4148216c11314b4eaf64c28c268ad4b33ea821d57728e9a9e9e1b6c4bcf35d14958295fc5f92bd6846f33c46f5fa20f569b25bc916b94e554f27a37448f873497e13baef8c740a7587828cc4136dd21b8584e6983e376e91663f8f91559637738b400fb49940fc2df299dfd448604b63c2f5d1f1ec023636f3baf2be5730364afd38191726a7c0d9477b1f231da4d707aabc6ad8036488181dbdb16b48500f2333036629004504d3524f87ece6afb04c4ba03ea6fce069e98b1ab7bf51f237d7c0f40756744dd703c6023b6461b90730f701404e8dddfaff40a9a60e670be7729556241fc9cc8727a586e38b71616bff8772c873b37d920d51a6ad31219a24b12f268545e2cfeb9e662236ab639fd4ecf865612678471ff7b320c934a13ca1f2587fc6a90f839c3c81c0ff84b51330820431418918e8501844893b53c1e0de46d51a64cb769974a996c58ff06683ebdc46fd4bb8e857cecebab785a351c64fd486fb648d25936cb09327b70d22c243035d4343fa3d2d148e2df5cd928010e34ae42b0333e698142050d9405b39f3aa69cecf8a388afbc7f199077b911cb829480f0952966956fe57d815f0d2467f7b28af11f8820645b601c0e1ad72a4684ebc60287d23ec3502f4c65ca44f5a4a0d79e3a5718cd23e7538cb35c57673fb9a1173e5526e767768117c7fefc2e3718f44f790b27e61995fecc6aef05107e75355be301ebe1500c147bb655a159f",
-              "path_key": "03ccf3faa19e8d124f27d495e3359f4002a6622b9a02df9a51b609826d354cda52"
+              "path_key": "02b7507b1cbe3157a04fb547f4134cca096705bf80235c316de2c9eccca4c5315f",
+              "message": "0003db1051e79dd872ca81532d3aa7ea19f26a3697930e4d7cd8061ed0fa241cde83fcd35e60a106a48bc2db31090422705a1ca521ec706dcb25dccddbf06db0283635ec4d9bcffd70d5431bae798fd7562c5c05caa8b80b9a0c24c11eaa4d9e361fb469259bf84718487d4c70c36fccfc570eb51f90891f2547813bf1c478fd9ae6adc33ed4d10054de07b048ec32488c7a98a7bf6697ad27a4be1672fcc8d9a8735d6484425e24e78bd1fd5b82a139c9c6d93adf3cee7db9f8f41c2c5d5b09c221aaa4d33ba88ec40023ec2a07f5c70946a0275cd519b1e4fbf773b627f8572e1dc9737b6e7a63636c34a0f029179b15a2aef07c1c8ccb74ee622b89a588ae535455e89189b7baf7d8dee9aba6ab5a4f840486e03f5c8d33c92904ef239ce924b4d004e8cc9e77e9cca9d8cb5145e6906f4c468bddcc71e489b496e8d40a2d54db37e018489a6b9a2305661456587a64b1cb84db14147a5f393d4bfe27254f5c1f780cf219b846cd79d316ffd9130c5ed94eec041de944dc62c55995653dcc0e7f704bb4378f0a01901f40b81ee41103ca094c566dd6ba3cd13aff2f1a826e97ef216b28462b4cdce0c31e4ffdf1286eb9950dc09369bb5afa7848d240c29c6ca451e1442786ff03b2d2ea4fb1806d97109600ea50ee9d8be3d31bd3eb4610257b955840f35ab34ce164359ad78e4bb0823a58d80607083c17322ef8b1231c9a4d6b93b72bcbc3441481719340b64d11e9b6d2a3c9f2f80981d9e54d87dafc2893005712481d01e794c8beeb4bc74748e8c68d55a9a9dd34596fc92fe8f9f039710a6592baa9e6c35a8cfbc062482edbbd2170fa7685b11f201e051ae74939530e5da7463a576c49348590e9d93839c36c8bbb06edab40c9428b34b2f999416fed57959fa1fa0113b258802e87a0552174340dbed7eec4c0692c7ebddbf64a43324bae09c8568207aa37b86ecc3c9726ea1ef93e04c3d39ff00343df5b5b75596853b81f9ce5307a2e8ce6124158d917346069b1dbe20f71002a63bffd1d1bc4be996ab678b2003d1ecf6c9b5099468c675bfefc18b42227d591b3741bc7a33e68feb3fd82dc4b77643a17409030e471f42c6a425eaa07c6e4689a36279b8cb26f7cfa7f55f61d0c94d2f4773272c6a23e961132eb99201f6de456c53ed11444fa9bf0298ea0e8e94b628209d5ad0f1589b4718e261377cb3395d01023ff381ca8fe7477bfc186c79a5b452af8bce1a575f1c1ad9ab8499a2e9a4dfe9b4a2423391d9ac09035d51f991c9f34d83334d17a2988726f0a7aeabadba05719a7ff379e97a41483af6747f524341a7d2069550ef05dba6f9c3272fd5800b1f3a6fde94266ea564c99a7e32c83576a56bedce9ed6e4b58ab9dccb45a15220181a13f1a637138f740620f788381a1dbd371ee6dbb84e9c34f38355f89b1b316cf90a6ae691faba3f2a01b8152eab58e9409aa15a4f06aa358ef5cc10a9f7524dc9c1f541d4fc15cfdbe84aedf5f6126626758ec8ba993016e7e1c857e3222dc4dba1237b0f0cf0782da5bd842ac758de04053e0f44163ac580805b3f2430ed3d0a3be425241f99237b1ce522562daf795b479457860b3832b840a6e2ccbaabf50796833e8473325cde428febcc865c4a0402ea8d1d2723d8b5f9885ca3656438fe76ef67c0266e146b154b0f973f58f89dfdc7fb3a20dc66d38279fd502b9532f142fb87704ab1f0f944ccf1b5db983d76c4f5738c4f91d7bb14789c9c1510d6fb5cf78e378c61641ebbdbd3d151d3f56911adeeca205bc6fad589f0b50e900f6fe76fc5ba4797838ed4700cc92055d8e2f361bda62ac432bdcac68cc8ebc4e929f8fe3943a9a994456263dcf64323449325963d28e6f7a3dc1d32521ca304f0ab5995d3cb18b14828e0272821bdd60614eb1821bbcea38b5"
             }
           },
           "response": {}
@@ -23068,6 +23159,45 @@
       ],
       "resources": [
         "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
+      ],
+      "examples": [
+        {
+          "request": {
+            "id": "example:listcurrencyrates#1",
+            "method": "listcurrencyrates",
+            "params": {
+              "currency": "USD"
+            }
+          },
+          "response": {
+            "currencyrates": [
+              {
+                "amount": 64130.09,
+                "source": "binance"
+              },
+              {
+                "amount": 64099.33,
+                "source": "blockchain.info"
+              },
+              {
+                "amount": 64117.405,
+                "source": "coinbase"
+              },
+              {
+                "amount": 64117.67,
+                "source": "bitstamp"
+              },
+              {
+                "amount": 64108.7,
+                "source": "kraken"
+              },
+              {
+                "amount": 64103.0,
+                "source": "coingecko"
+              }
+            ]
+          }
+        }
       ]
     },
     "listdatastore.json": {
@@ -25596,6 +25726,123 @@
       ],
       "resources": [
         "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
+      ],
+      "examples": [
+        {
+          "request": {
+            "id": "example:listnetworkevents#1",
+            "method": "listnetworkevents",
+            "params": {}
+          },
+          "response": {
+            "networkevents": [
+              {
+                "created_index": 1,
+                "peer_id": "038194b5f32bdf0aa59812c86c4ef7ad2f294104fa027d1ace9b469bb6f88cf37b",
+                "type": "connect",
+                "timestamp": 1738000000
+              },
+              {
+                "created_index": 2,
+                "peer_id": "03cecbfdc68544cc596223b68ce0710c9e5d2c9cb317ee07822d95079acc703d31",
+                "type": "connect",
+                "timestamp": 1738000000,
+                "reason": "connect command \"pytest:connect#22\"",
+                "duration_nsec": 1477000
+              },
+              {
+                "created_index": 3,
+                "peer_id": "0258f3ff3e0853ccc09f6fe89823056d7c0c55c95fab97674df5e1ad97a72f6265",
+                "type": "connect",
+                "timestamp": 1738000000,
+                "reason": "connect command \"pytest:connect#24\"",
+                "duration_nsec": 949000
+              },
+              {
+                "created_index": 4,
+                "peer_id": "038194b5f32bdf0aa59812c86c4ef7ad2f294104fa027d1ace9b469bb6f88cf37b",
+                "type": "ping",
+                "timestamp": 1738000000,
+                "duration_nsec": 364000
+              },
+              {
+                "created_index": 5,
+                "peer_id": "02287bfac8b99b35477ebe9334eede1e32b189e24644eb701c079614712331cec0",
+                "type": "connect",
+                "timestamp": 1738000000,
+                "reason": "connect command \"pytest:connect#416\"",
+                "duration_nsec": 1844000
+              },
+              {
+                "created_index": 6,
+                "peer_id": "02287bfac8b99b35477ebe9334eede1e32b189e24644eb701c079614712331cec0",
+                "type": "disconnect",
+                "timestamp": 1738000000,
+                "duration_nsec": 7947000
+              },
+              {
+                "created_index": 7,
+                "peer_id": "0258f3ff3e0853ccc09f6fe89823056d7c0c55c95fab97674df5e1ad97a72f6265",
+                "type": "disconnect",
+                "timestamp": 1738000000,
+                "duration_nsec": 78635382000
+              },
+              {
+                "created_index": 8,
+                "peer_id": "0258f3ff3e0853ccc09f6fe89823056d7c0c55c95fab97674df5e1ad97a72f6265",
+                "type": "connect",
+                "timestamp": 1738000000,
+                "reason": "reconnect by timer",
+                "duration_nsec": 3529000
+              },
+              {
+                "created_index": 9,
+                "peer_id": "02287bfac8b99b35477ebe9334eede1e32b189e24644eb701c079614712331cec0",
+                "type": "connect",
+                "timestamp": 1738000000,
+                "reason": "connect command \"pytest:connect#458\"",
+                "duration_nsec": 633000
+              },
+              {
+                "created_index": 10,
+                "peer_id": "02287bfac8b99b35477ebe9334eede1e32b189e24644eb701c079614712331cec0",
+                "type": "disconnect",
+                "timestamp": 1738000000,
+                "duration_nsec": 6094786000
+              },
+              {
+                "created_index": 11,
+                "peer_id": "0258f3ff3e0853ccc09f6fe89823056d7c0c55c95fab97674df5e1ad97a72f6265",
+                "type": "disconnect",
+                "timestamp": 1738000000,
+                "duration_nsec": 58905461000
+              }
+            ]
+          }
+        },
+        {
+          "request": {
+            "id": "example:listnetworkevents#2",
+            "method": "listnetworkevents",
+            "params": {
+              "id": "03cecbfdc68544cc596223b68ce0710c9e5d2c9cb317ee07822d95079acc703d31",
+              "index": "created",
+              "limit": 3
+            }
+          },
+          "response": {
+            "networkevents": [
+              {
+                "created_index": 2,
+                "peer_id": "03cecbfdc68544cc596223b68ce0710c9e5d2c9cb317ee07822d95079acc703d31",
+                "type": "connect",
+                "timestamp": 1738000000,
+                "reason": "connect command \"pytest:connect#22\"",
+                "duration_nsec": 1477000
+              }
+            ]
+          }
+        }
       ]
     },
     "listnodes.json": {
@@ -34542,7 +34789,25 @@
       "resources": [
         "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
       ],
-      "examples": []
+      "examples": [
+        {
+          "request": {
+            "id": "example:sendamount#1",
+            "method": "sendamount",
+            "params": {
+              "invstring": "lno1qgsqvgnwgcg35z6ee2h3yczraddm72xrfua9uve2rlrm9deu7xyfzrc2zefkjmtsd3jjqar9wd6zqum9dejxzmt0w4h8g93pqg58h7kghxdn23m7h6fnfmk7rcetrz0zgezwkuquq7tpgufrx88vq",
+              "amount_msat": "1000sat"
+            }
+          },
+          "response": {
+            "payment_preimage": "542e377929e51aa1542e377929e51aa1542e377929e51aa1542e377929e51aa1",
+            "amount_msat": 1000000,
+            "amount_sent_msat": 1000000,
+            "failed_parts": 0,
+            "successful_parts": 1
+          }
+        }
+      ]
     },
     "sendcustommsg.json": {
       "$schema": "../rpc-schema-draft.json",
@@ -41022,6 +41287,27 @@
       ],
       "resources": [
         "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
+      ],
+      "examples": [
+        {
+          "request": {
+            "id": "example:xkeysend#1",
+            "method": "xkeysend",
+            "params": {
+              "destination": "02287bfac8b99b35477ebe9334eede1e32b189e24644eb701c079614712331cec0",
+              "amount_msat": 10000000,
+              "label": "This is an xkeysend amount",
+              "maxfee": "500sat"
+            }
+          },
+          "response": {
+            "payment_preimage": "89e9e34dd8db1abd89e9e34dd8db1abd89e9e34dd8db1abd89e9e34dd8db1abd",
+            "amount_msat": 10000000,
+            "amount_sent_msat": 10000000,
+            "failed_parts": 0,
+            "successful_parts": 1
+          }
+        }
       ]
     },
     "xpay.json": {
