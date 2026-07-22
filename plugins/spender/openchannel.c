@@ -1078,10 +1078,6 @@ static struct command_result *signpsbt_done(struct command *aux_cmd,
 	return send_outreq(req);
 }
 
-/* Delay startup recovery so slow wallet signing does not block other
- * important plugins from completing their init handshake. */
-#define AWAITING_CHANNELS_RECOVERY_DELAY 180
-
 /* If there are any channels with unsigned PSBTs in AWAITING_LOCKIN,
  * sign them now (assume we crashed) */
 static struct command_result *list_awaiting_channels(struct command *timer_cmd,
@@ -1138,7 +1134,7 @@ void openchannel_init(struct command *init_cmd, const char *b, const jsmntok_t *
 	 * Signing can be slow on large wallets, and doing it during init can block
 	 * other important builtins from completing their startup handshake. */
 	global_timer(init_cmd->plugin,
-		     time_from_sec(AWAITING_CHANNELS_RECOVERY_DELAY),
+		     time_from_sec(0),
 		     list_awaiting_channels, NULL);
 }
 
