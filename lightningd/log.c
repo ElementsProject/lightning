@@ -267,22 +267,21 @@ static void del_front_log(struct log_book *log)
 static char *cap_header(const tal_t *ctx, struct log_hdr *hdr, const char *msg TAKES)
 {
 	const size_t max = sizeof(((struct log_book *)0)->ringbuf) / 64;
+	msg = tal_strdup(ctx, msg);
 	if (hdr->msglen > max) {
 		char *new;
 		new = tal_fmt(ctx, "[TRUNCATED message from %zu bytes]: %.*s",
 			      hdr->msglen, (int)max, msg);
-		if (taken(msg))
-			tal_free(msg);
-		msg = take(new);
+		tal_free(msg);
+		msg = new;
 		hdr->msglen = tal_count(msg) - 1;
 	}
 	if (hdr->iolen > max) {
 		char *new;
 		new = tal_fmt(ctx, "[TRUNCATED IO from %zu bytes]: %.*s",
 			      hdr->iolen, (int)hdr->msglen, msg);
-		if (taken(msg))
-			tal_free(msg);
-		msg = take(new);
+		tal_free(msg);
+		msg = new;
 		hdr->msglen = tal_count(msg) - 1;
 		hdr->iolen = max;
 	}
@@ -690,8 +689,7 @@ void logv(struct logger *log, enum log_level level,
 			       l.prefix->prefix,
 			       logmsg);
 
-	if (taken(logmsg))
-		tal_free(logmsg);
+	tal_free(logmsg);
 	errno = save_errno;
 }
 
@@ -720,10 +718,8 @@ void log_io(struct logger *log, enum log_level dir,
 
 	str = cap_header(tmpctx, &l, str);
 	add_entry(log->log_book, &l, str, data);
-	if (taken(str))
-		tal_free(str);
-	if (taken(data))
-		tal_free(data);
+	tal_free(str);
+	tal_free_if_taken(data);
 	errno = save_errno;
 }
 

@@ -707,7 +707,7 @@ void json_stream_log_suppress_for_cmd(struct json_stream *js,
 {
 	const char *nm = cmd->json_cmd->name;
 	const char *s = tal_fmt(tmpctx, "Suppressing logging of %s command", nm);
-	log_io(cmd->jcon->log, LOG_IO_OUT, NULL, s, NULL, 0);
+	log_io(cmd->jcon->log, LOG_IO_OUT, NULL, take(s), NULL, 0);
 
 	/* Really shouldn't be used for anything else */
 	assert(streq(nm, "getlog"));
