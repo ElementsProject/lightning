@@ -661,7 +661,7 @@ pub mod requests {
 	    pub initialpsbt: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub locktime: Option<u32>,
-	    pub satoshi: Amount,
+	    pub satoshi: AmountSat,
 	}
 
 	impl From<AddpsbtoutputRequest> for Request {
@@ -1807,7 +1807,7 @@ pub mod requests {
 	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
 	    pub utxos: Option<Vec<Outpoint>>,
 	    pub destination: String,
-	    pub satoshi: AmountOrAll,
+	    pub satoshi: AmountSatOrAll,
 	}
 
 	impl From<WithdrawRequest> for Request {
@@ -1894,7 +1894,7 @@ pub mod requests {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub reserve: Option<u32>,
 	    pub feerate: Feerate,
-	    pub satoshi: AmountOrAll,
+	    pub satoshi: AmountSatOrAll,
 	    pub startweight: u32,
 	}
 
@@ -1978,7 +1978,7 @@ pub mod requests {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub reservedok: Option<bool>,
 	    pub feerate: Feerate,
-	    pub satoshi: AmountOrAll,
+	    pub satoshi: AmountSatOrAll,
 	    pub startweight: u32,
 	    pub utxos: Vec<Outpoint>,
 	}
@@ -2538,14 +2538,14 @@ pub mod requests {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub push_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub request_amt: Option<Amount>,
+	    pub request_amt: Option<AmountSat>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub reserve: Option<Amount>,
+	    pub reserve: Option<AmountSat>,
 	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
 	    pub channel_type: Option<Vec<u32>>,
 	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
 	    pub utxos: Option<Vec<Outpoint>>,
-	    pub amount: AmountOrAll,
+	    pub amount: AmountSatOrAll,
 	    pub id: PublicKey,
 	}
 
@@ -2579,10 +2579,10 @@ pub mod requests {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub push_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub reserve: Option<Amount>,
+	    pub reserve: Option<AmountSat>,
 	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
 	    pub channel_type: Option<Vec<u32>>,
-	    pub amount: Amount,
+	    pub amount: AmountSat,
 	    pub id: PublicKey,
 	}
 
@@ -3124,10 +3124,10 @@ pub mod requests {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub push_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub request_amt: Option<Amount>,
+	    pub request_amt: Option<AmountSat>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub reserve: Option<Amount>,
-	    pub amount: AmountOrAll,
+	    pub reserve: Option<AmountSat>,
+	    pub amount: AmountSatOrAll,
 	    pub id: String,
 	}
 
@@ -3265,7 +3265,7 @@ pub mod requests {
 	pub struct OpenchannelBumpRequest {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub funding_feerate: Option<Feerate>,
-	    pub amount: Amount,
+	    pub amount: AmountSat,
 	    pub channel_id: Sha256,
 	    pub initialpsbt: String,
 	}
@@ -3300,10 +3300,10 @@ pub mod requests {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub funding_feerate: Option<Feerate>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub request_amt: Option<Amount>,
+	    pub request_amt: Option<AmountSat>,
 	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
 	    pub channel_type: Option<Vec<u32>>,
-	    pub amount: Amount,
+	    pub amount: AmountSat,
 	    pub id: PublicKey,
 	    pub initialpsbt: String,
 	}
@@ -10964,6 +10964,33 @@ pub mod responses {
 	    }
 	}
 
+	#[deprecated = "deprecated since CLN v25.12"]
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsEncryptedhsm {
+	    #[deprecated]
+	    pub set: bool,
+	    #[deprecated]
+	    pub source: String,
+	}
+
+	#[deprecated = "deprecated since CLN v24.02"]
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsExperimentalanchors {
+	    #[deprecated]
+	    pub set: bool,
+	    #[deprecated]
+	    pub source: String,
+	}
+
+	#[deprecated = "deprecated since CLN v25.05"]
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsExperimentalpeerstorage {
+	    #[deprecated]
+	    pub set: bool,
+	    #[deprecated]
+	    pub source: String,
+	}
+
 	#[deprecated = "deprecated since CLN v26.04"]
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListconfigsConfigsExperimentalsplicing {
@@ -10971,6 +10998,21 @@ pub mod responses {
 	    pub set: bool,
 	    #[deprecated]
 	    pub source: String,
+	}
+
+	#[deprecated = "deprecated since CLN v24.05"]
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsMaxlocktimeblocks {
+	    #[deprecated]
+	    pub source: String,
+	    #[deprecated]
+	    pub value_int: u32,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsAccepthtlctlvtype {
+	    pub sources: Vec<String>,
+	    pub values_int: Vec<u32>,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -11135,25 +11177,7 @@ pub mod responses {
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
-	pub struct ListconfigsConfigsEncryptedhsm {
-	    pub set: bool,
-	    pub source: String,
-	}
-
-	#[derive(Clone, Debug, Deserialize, Serialize)]
-	pub struct ListconfigsConfigsExperimentalanchors {
-	    pub set: bool,
-	    pub source: String,
-	}
-
-	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListconfigsConfigsExperimentaldualfund {
-	    pub set: bool,
-	    pub source: String,
-	}
-
-	#[derive(Clone, Debug, Deserialize, Serialize)]
-	pub struct ListconfigsConfigsExperimentalpeerstorage {
 	    pub set: bool,
 	    pub source: String,
 	}
@@ -11203,6 +11227,12 @@ pub mod responses {
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsHsmpassphrase {
+	    pub set: bool,
+	    pub source: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListconfigsConfigsHtlcmaximummsat {
 	    pub source: String,
 	    pub value_msat: Amount,
@@ -11215,6 +11245,12 @@ pub mod responses {
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsIpromisetofixbrokenapiuser {
+	    pub sources: Vec<String>,
+	    pub values_str: Vec<String>,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListconfigsConfigsIgnorefeelimits {
 	    pub source: String,
 	    pub value_bool: bool,
@@ -11224,6 +11260,12 @@ pub mod responses {
 	pub struct ListconfigsConfigsImportantplugin {
 	    pub sources: Vec<String>,
 	    pub values_str: Vec<String>,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsInvoicesonchainfallback {
+	    pub set: bool,
+	    pub source: String,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -11275,11 +11317,29 @@ pub mod responses {
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsMessagepadding {
+	    pub source: String,
+	    pub value_bool: bool,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListconfigsConfigsMincapacitysat {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub dynamic: Option<bool>,
 	    pub source: String,
 	    pub value_int: u64,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsMinemergencymsat {
+	    pub source: String,
+	    pub value_msat: Amount,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsPaymentfrontingnode {
+	    pub sources: Vec<String>,
+	    pub values_str: Vec<String>,
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -11418,6 +11478,12 @@ pub mod responses {
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsRecover {
+	    pub source: String,
+	    pub value_str: String,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListconfigsConfigsRegtest {
 	    pub set: bool,
 	    pub source: String,
@@ -11462,9 +11528,28 @@ pub mod responses {
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListconfigsConfigs {
 	    #[deprecated]
+	    #[serde(rename = "encrypted-hsm")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub encrypted_hsm: Option<ListconfigsConfigsEncryptedhsm>,
+	    #[deprecated]
+	    #[serde(rename = "experimental-anchors")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub experimental_anchors: Option<ListconfigsConfigsExperimentalanchors>,
+	    #[deprecated]
+	    #[serde(rename = "experimental-peer-storage")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub experimental_peer_storage: Option<ListconfigsConfigsExperimentalpeerstorage>,
+	    #[deprecated]
 	    #[serde(rename = "experimental-splicing")]
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub experimental_splicing: Option<ListconfigsConfigsExperimentalsplicing>,
+	    #[deprecated]
+	    #[serde(rename = "max-locktime-blocks")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub max_locktime_blocks: Option<ListconfigsConfigsMaxlocktimeblocks>,
+	    #[serde(rename = "accept-htlc-tlv-type")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub accept_htlc_tlv_type: Option<ListconfigsConfigsAccepthtlctlvtype>,
 	    #[serde(rename = "allow-deprecated-apis")]
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub allow_deprecated_apis: Option<ListconfigsConfigsAllowdeprecatedapis>,
@@ -11525,18 +11610,9 @@ pub mod responses {
 	    #[serde(rename = "disable-plugin")]
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub disable_plugin: Option<ListconfigsConfigsDisableplugin>,
-	    #[serde(rename = "encrypted-hsm")]
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub encrypted_hsm: Option<ListconfigsConfigsEncryptedhsm>,
-	    #[serde(rename = "experimental-anchors")]
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub experimental_anchors: Option<ListconfigsConfigsExperimentalanchors>,
 	    #[serde(rename = "experimental-dual-fund")]
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub experimental_dual_fund: Option<ListconfigsConfigsExperimentaldualfund>,
-	    #[serde(rename = "experimental-peer-storage")]
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub experimental_peer_storage: Option<ListconfigsConfigsExperimentalpeerstorage>,
 	    #[serde(rename = "experimental-shutdown-wrong-funding")]
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub experimental_shutdown_wrong_funding: Option<ListconfigsConfigsExperimentalshutdownwrongfunding>,
@@ -11558,18 +11634,27 @@ pub mod responses {
 	    #[serde(rename = "funding-confirms")]
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub funding_confirms: Option<ListconfigsConfigsFundingconfirms>,
+	    #[serde(rename = "hsm-passphrase")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub hsm_passphrase: Option<ListconfigsConfigsHsmpassphrase>,
 	    #[serde(rename = "htlc-maximum-msat")]
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub htlc_maximum_msat: Option<ListconfigsConfigsHtlcmaximummsat>,
 	    #[serde(rename = "htlc-minimum-msat")]
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub htlc_minimum_msat: Option<ListconfigsConfigsHtlcminimummsat>,
+	    #[serde(rename = "i-promise-to-fix-broken-api-user")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub i_promise_to_fix_broken_api_user: Option<ListconfigsConfigsIpromisetofixbrokenapiuser>,
 	    #[serde(rename = "ignore-fee-limits")]
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub ignore_fee_limits: Option<ListconfigsConfigsIgnorefeelimits>,
 	    #[serde(rename = "important-plugin")]
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub important_plugin: Option<ListconfigsConfigsImportantplugin>,
+	    #[serde(rename = "invoices-onchain-fallback")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub invoices_onchain_fallback: Option<ListconfigsConfigsInvoicesonchainfallback>,
 	    #[serde(rename = "large-channels")]
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub large_channels: Option<ListconfigsConfigsLargechannels>,
@@ -11594,9 +11679,18 @@ pub mod responses {
 	    #[serde(rename = "max-dust-htlc-exposure-msat")]
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub max_dust_htlc_exposure_msat: Option<ListconfigsConfigsMaxdusthtlcexposuremsat>,
+	    #[serde(rename = "message-padding")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub message_padding: Option<ListconfigsConfigsMessagepadding>,
 	    #[serde(rename = "min-capacity-sat")]
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub min_capacity_sat: Option<ListconfigsConfigsMincapacitysat>,
+	    #[serde(rename = "min-emergency-msat")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub min_emergency_msat: Option<ListconfigsConfigsMinemergencymsat>,
+	    #[serde(rename = "payment-fronting-node")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub payment_fronting_node: Option<ListconfigsConfigsPaymentfrontingnode>,
 	    #[serde(rename = "pid-file")]
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub pid_file: Option<ListconfigsConfigsPidfile>,
@@ -11640,6 +11734,8 @@ pub mod responses {
 	    pub plugin: Option<ListconfigsConfigsPlugin>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub proxy: Option<ListconfigsConfigsProxy>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub recover: Option<ListconfigsConfigsRecover>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub regtest: Option<ListconfigsConfigsRegtest>,
 	    #[serde(skip_serializing_if = "Option::is_none")]

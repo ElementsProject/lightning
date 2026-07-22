@@ -1,6 +1,20 @@
 version = 1
 revision = 3
 requires-python = ">=3.10, <4.0"
+resolution-markers = [
+    "python_full_version == '3.14.*' and platform_machine == 'x86_64' and sys_platform == 'linux'",
+    "python_full_version != '3.14.*' and platform_machine == 'x86_64' and sys_platform == 'linux'",
+    "python_full_version == '3.14.*' and platform_machine == 'aarch64' and sys_platform == 'linux'",
+    "python_full_version != '3.14.*' and platform_machine == 'aarch64' and sys_platform == 'linux'",
+    "python_full_version == '3.14.*' and platform_machine == 'x86_64' and sys_platform == 'darwin'",
+    "python_full_version != '3.14.*' and platform_machine == 'x86_64' and sys_platform == 'darwin'",
+    "python_full_version == '3.14.*' and platform_machine == 'arm64' and sys_platform == 'darwin'",
+    "python_full_version != '3.14.*' and platform_machine == 'arm64' and sys_platform == 'darwin'",
+    "python_full_version == '3.14.*' and platform_machine == 'AMD64' and sys_platform == 'win32'",
+    "python_full_version != '3.14.*' and platform_machine == 'AMD64' and sys_platform == 'win32'",
+    "(python_full_version == '3.14.*' and platform_machine != 'arm64' and platform_machine != 'x86_64' and sys_platform == 'darwin') or (python_full_version == '3.14.*' and platform_machine != 'aarch64' and platform_machine != 'x86_64' and sys_platform == 'linux') or (python_full_version == '3.14.*' and platform_machine != 'AMD64' and sys_platform == 'win32') or (python_full_version == '3.14.*' and sys_platform != 'darwin' and sys_platform != 'linux' and sys_platform != 'win32')",
+    "(python_full_version != '3.14.*' and platform_machine != 'arm64' and platform_machine != 'x86_64' and sys_platform == 'darwin') or (python_full_version != '3.14.*' and platform_machine != 'aarch64' and platform_machine != 'x86_64' and sys_platform == 'linux') or (python_full_version != '3.14.*' and platform_machine != 'AMD64' and sys_platform == 'win32') or (python_full_version != '3.14.*' and sys_platform != 'darwin' and sys_platform != 'linux' and sys_platform != 'win32')",
+]
 
 [manifest]
 members = [
@@ -14,15 +28,6 @@ members = [
     "pyln-proto",
     "pyln-testing",
     "pytest-trackflaky",
-]
-
-[[package]]
-name = "asn1crypto"
-version = "1.5.1"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/de/cf/d547feed25b5244fcb9392e288ff9fdc3280b10260362fc45d37a798a6ee/asn1crypto-1.5.1.tar.gz", hash = "sha256:13ae38502be632115abf8a24cbe5f4da52e3b5231990aff31123c805306ccb9c", size = 121080, upload-time = "2022-03-15T14:46:52.889Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/c9/7f/09065fd9e27da0eda08b4d6897f1c13535066174cc023af248fc2a8d5e5a/asn1crypto-1.5.1-py2.py3-none-any.whl", hash = "sha256:db4e40728b728508912cbb3d44f19ce188f218e9eba635821bb4b68564f8fd67", size = 105045, upload-time = "2022-03-15T14:46:51.055Z" },
 ]
 
 [[package]]
@@ -467,45 +472,51 @@ dev = [
 ]
 
 [[package]]
-name = "coincurve"
-version = "20.0.0"
+name = "coincurve-cp314-fix"
+version = "22.0.1"
 source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "asn1crypto" },
-    { name = "cffi" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/d9/4c/9e5e51e6c12cec6444c86697992f9c6ccffa19f84d042ff939c8b89206ff/coincurve-20.0.0.tar.gz", hash = "sha256:872419e404300302e938849b6b92a196fabdad651060b559dc310e52f8392829", size = 122865, upload-time = "2024-06-02T18:15:50.787Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/bd/f9/e9d3c502369933915d3e72d596a1ddf81b3d5ae986f5bd65bc5ada52e6b9/coincurve_cp314_fix-22.0.1.tar.gz", hash = "sha256:b68397f902a73ba15ab5652fae712f6ba85625e382026be2a5c5e698845a79f4", size = 129346, upload-time = "2026-07-17T14:49:10.202Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/14/0c/f6a8b06f461089aeab441824134ea5d5824dba3acaac0a9dbf8444cbe1d6/coincurve-20.0.0-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:d559b22828638390118cae9372a1bb6f6594f5584c311deb1de6a83163a0919b", size = 1255634, upload-time = "2024-06-02T18:14:26.381Z" },
-    { url = "https://files.pythonhosted.org/packages/62/c2/0dbabd2c6648f49f730fdcbba84c53b5ffaf452fca85c750633141fe049c/coincurve-20.0.0-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:33d7f6ebd90fcc550f819f7f2cce2af525c342aac07f0ccda46ad8956ad9d99b", size = 1255532, upload-time = "2024-06-02T18:14:28.792Z" },
-    { url = "https://files.pythonhosted.org/packages/f5/77/c4fa50f8cb5d050a9bcab806503acdd1705b0dfb5c554eed15cc18bc12e8/coincurve-20.0.0-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:22d70dd55d13fd427418eb41c20fde0a20a5e5f016e2b1bb94710701e759e7e0", size = 1191928, upload-time = "2024-06-02T18:14:30.874Z" },
-    { url = "https://files.pythonhosted.org/packages/a3/11/6254ea354a32a3a1d70722daf58f2ebf0f689f0940eaced5127233416553/coincurve-20.0.0-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:46f18d481eaae72c169f334cde1fd22011a884e0c9c6adc3fdc1fd13df8236a3", size = 1194364, upload-time = "2024-06-02T18:14:32.684Z" },
-    { url = "https://files.pythonhosted.org/packages/a7/a9/d8717d41eb02688691adc30d7348f7c5fdc78e977f4cea83ee84622050b5/coincurve-20.0.0-cp310-cp310-manylinux_2_5_i686.manylinux1_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:9de1ec57f43c3526bc462be58fb97910dc1fdd5acab6c71eda9f9719a5bd7489", size = 1204658, upload-time = "2024-06-02T18:14:33.919Z" },
-    { url = "https://files.pythonhosted.org/packages/55/13/40923832d99c18fb01a00f83e5f6f702156e71cc0eb5d6281535eee662af/coincurve-20.0.0-cp310-cp310-musllinux_1_1_aarch64.whl", hash = "sha256:a6f007c44c726b5c0b3724093c0d4fb8e294f6b6869beb02d7473b21777473a3", size = 1215298, upload-time = "2024-06-02T18:14:35.318Z" },
-    { url = "https://files.pythonhosted.org/packages/4d/87/646462a7a7810c7a3dcadae8969e1b78d535bcff072c26b17588e93a39b8/coincurve-20.0.0-cp310-cp310-musllinux_1_1_i686.whl", hash = "sha256:0ff1f3b81330db5092c24da2102e4fcba5094f14945b3eb40746456ceabdd6d9", size = 1204504, upload-time = "2024-06-02T18:14:36.567Z" },
-    { url = "https://files.pythonhosted.org/packages/01/58/fbb9a312d559aee701491435b691e409fb0efa12eabf269ff651d537fed4/coincurve-20.0.0-cp310-cp310-musllinux_1_1_x86_64.whl", hash = "sha256:82f7de97694d9343f26bd1c8e081b168e5f525894c12445548ce458af227f536", size = 1209298, upload-time = "2024-06-02T18:14:38.384Z" },
-    { url = "https://files.pythonhosted.org/packages/ee/d0/1d5679c000b31f3b32512632d98571f2bb752cd25c127d6f5bf3711b6eae/coincurve-20.0.0-cp310-cp310-win_amd64.whl", hash = "sha256:e905b4b084b4f3b61e5a5d58ac2632fd1d07b7b13b4c6d778335a6ca1dafd7a3", size = 1198934, upload-time = "2024-06-02T18:14:39.788Z" },
-    { url = "https://files.pythonhosted.org/packages/a3/f6/8c1499f730fac49ec13740fb1c015ce8082fa6b917790056988559f22212/coincurve-20.0.0-cp310-cp310-win_arm64.whl", hash = "sha256:3657bb5ed0baf1cf8cf356e7d44aa90a7902cc3dd4a435c6d4d0bed0553ad4f7", size = 1193319, upload-time = "2024-06-02T18:14:41.165Z" },
-    { url = "https://files.pythonhosted.org/packages/24/a7/d60a41b3f0a546854c9b7ca65ab99a5fdf1c9e158ae264a580de8f23fd1c/coincurve-20.0.0-cp311-cp311-macosx_10_9_x86_64.whl", hash = "sha256:44087d1126d43925bf9a2391ce5601bf30ce0dba4466c239172dc43226696018", size = 1255635, upload-time = "2024-06-02T18:14:42.483Z" },
-    { url = "https://files.pythonhosted.org/packages/b7/4a/727fab66c0fbecfd7beeb38467910bd3652a77df649565e30160a9d2bae2/coincurve-20.0.0-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:5ccf0ba38b0f307a9b3ce28933f6c71dc12ef3a0985712ca09f48591afd597c8", size = 1255536, upload-time = "2024-06-02T18:14:44.077Z" },
-    { url = "https://files.pythonhosted.org/packages/0f/8b/25d4ae5bb60665023e6d71681fada88ee95b5010dae6fc0b44d8b23b8df1/coincurve-20.0.0-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:566bc5986debdf8572b6be824fd4de03d533c49f3de778e29f69017ae3fe82d8", size = 1191928, upload-time = "2024-06-02T18:14:45.739Z" },
-    { url = "https://files.pythonhosted.org/packages/0d/86/8c32c512fa27bfe7cfe70329fd43ebac23c0c8cec202cf6e4f52854e7ce3/coincurve-20.0.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:f4d70283168e146f025005c15406086513d5d35e89a60cf4326025930d45013a", size = 1194365, upload-time = "2024-06-02T18:14:47.008Z" },
-    { url = "https://files.pythonhosted.org/packages/fe/74/fefbe512f54df7d02a7ea4821b87cf199a91b3565cdf0c94448b3f6b1af1/coincurve-20.0.0-cp311-cp311-manylinux_2_5_i686.manylinux1_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:763c6122dd7d5e7a81c86414ce360dbe9a2d4afa1ca6c853ee03d63820b3d0c5", size = 1204658, upload-time = "2024-06-02T18:14:48.348Z" },
-    { url = "https://files.pythonhosted.org/packages/09/68/05b29f881f628ce8e8468f5f7420f6c4d7c129f43964e81d15bf388ae67a/coincurve-20.0.0-cp311-cp311-musllinux_1_1_aarch64.whl", hash = "sha256:f00c361c356bcea386d47a191bb8ac60429f4b51c188966a201bfecaf306ff7f", size = 1215301, upload-time = "2024-06-02T18:14:49.84Z" },
-    { url = "https://files.pythonhosted.org/packages/ee/5d/d91549cf5a163797b0724dc2dcd551b908b6beddb6598b37743df7f6f3ec/coincurve-20.0.0-cp311-cp311-musllinux_1_1_i686.whl", hash = "sha256:4af57bdadd2e64d117dd0b33cfefe76e90c7a6c496a7b034fc65fd01ec249b15", size = 1204505, upload-time = "2024-06-02T18:14:51.816Z" },
-    { url = "https://files.pythonhosted.org/packages/37/0f/898022e08760fb57d281f3695576e859b0f8a8ac629670223d9066c3f60d/coincurve-20.0.0-cp311-cp311-musllinux_1_1_x86_64.whl", hash = "sha256:a26437b7cbde13fb6e09261610b788ca2a0ca2195c62030afd1e1e0d1a62e035", size = 1209305, upload-time = "2024-06-02T18:14:53.39Z" },
-    { url = "https://files.pythonhosted.org/packages/57/b9/643567d3f680ddf8d1bf10a56112ae7755296500d8eaaef498be637a8533/coincurve-20.0.0-cp311-cp311-win_amd64.whl", hash = "sha256:ed51f8bba35e6c7676ad65539c3dbc35acf014fc402101fa24f6b0a15a74ab9e", size = 1198932, upload-time = "2024-06-02T18:14:54.751Z" },
-    { url = "https://files.pythonhosted.org/packages/b3/3a/898f5c12469b292042608dd0702bcb0420ec32bac6b1ca2a0dd790f922bd/coincurve-20.0.0-cp311-cp311-win_arm64.whl", hash = "sha256:594b840fc25d74118407edbbbc754b815f1bba9759dbf4f67f1c2b78396df2d3", size = 1193318, upload-time = "2024-06-02T18:14:55.981Z" },
-    { url = "https://files.pythonhosted.org/packages/8f/24/e1bf259dd57186fbdc7cec51909db320884162cfad5ec72cbaa63573ff9d/coincurve-20.0.0-cp312-cp312-macosx_10_9_x86_64.whl", hash = "sha256:4df4416a6c0370d777aa725a25b14b04e45aa228da1251c258ff91444643f688", size = 1255671, upload-time = "2024-06-02T18:14:57.863Z" },
-    { url = "https://files.pythonhosted.org/packages/0a/c5/1817f87d1cd5ff50d8537fe60fb96f66b76dd02da885d970952e6189a801/coincurve-20.0.0-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:1ccc3e4db55abf3fc0e604a187fdb05f0702bc5952e503d9a75f4ae6eeb4cb3a", size = 1255565, upload-time = "2024-06-02T18:14:59.128Z" },
-    { url = "https://files.pythonhosted.org/packages/90/9f/35e15f993717ed1dcc4c26d9771f073a1054af26808a0f421783bb4cd7e0/coincurve-20.0.0-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:ac8335b1658a2ef5b3eb66d52647742fe8c6f413ad5b9d5310d7ea6d8060d40f", size = 1191953, upload-time = "2024-06-02T18:15:01.047Z" },
-    { url = "https://files.pythonhosted.org/packages/4a/3d/6a9bc32e69b738b5e05f5027bace1da6722352a4a447e495d3c03a601d99/coincurve-20.0.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:c7ac025e485a0229fd5394e0bf6b4a75f8a4f6cee0dcf6f0b01a2ef05c5210ff", size = 1194425, upload-time = "2024-06-02T18:15:02.919Z" },
-    { url = "https://files.pythonhosted.org/packages/1a/a6/15424973dc47fc7c87e3c0f8859f6f1b1032582ee9f1b85fdd5d1e33d630/coincurve-20.0.0-cp312-cp312-manylinux_2_5_i686.manylinux1_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:e46e3f1c21b3330857bcb1a3a5b942f645c8bce912a8a2b252216f34acfe4195", size = 1204678, upload-time = "2024-06-02T18:15:04.308Z" },
-    { url = "https://files.pythonhosted.org/packages/6a/e7/71ddb4d66c11c4ad13e729362f8852e048ae452eba3dfcf57751842bb292/coincurve-20.0.0-cp312-cp312-musllinux_1_1_aarch64.whl", hash = "sha256:df9ff9b17a1d27271bf476cf3fa92df4c151663b11a55d8cea838b8f88d83624", size = 1215395, upload-time = "2024-06-02T18:15:05.701Z" },
-    { url = "https://files.pythonhosted.org/packages/b9/7d/03e0a19cfff1d86f5d019afc69cfbff02caada701ed5a4a50abc63d4261c/coincurve-20.0.0-cp312-cp312-musllinux_1_1_i686.whl", hash = "sha256:4155759f071375699282e03b3d95fb473ee05c022641c077533e0d906311e57a", size = 1204552, upload-time = "2024-06-02T18:15:07.107Z" },
-    { url = "https://files.pythonhosted.org/packages/07/cd/e9bd4ca7d931653a35c74194da04191a9aecc54b8f48a554cd538dc810e4/coincurve-20.0.0-cp312-cp312-musllinux_1_1_x86_64.whl", hash = "sha256:0530b9dd02fc6f6c2916716974b79bdab874227f560c422801ade290e3fc5013", size = 1209392, upload-time = "2024-06-02T18:15:08.663Z" },
-    { url = "https://files.pythonhosted.org/packages/99/54/260053f14f74b99b645084231e1c76994134ded49407a3bba23a8ffc0ff6/coincurve-20.0.0-cp312-cp312-win_amd64.whl", hash = "sha256:eacf9c0ce8739c84549a89c083b1f3526c8780b84517ee75d6b43d276e55f8a0", size = 1198932, upload-time = "2024-06-02T18:15:10.786Z" },
-    { url = "https://files.pythonhosted.org/packages/b4/b5/c465e09345dd38b9415f5d47ae7683b3f461db02fcc03e699b6b5687ab2b/coincurve-20.0.0-cp312-cp312-win_arm64.whl", hash = "sha256:52a67bfddbd6224dfa42085c88ad176559801b57d6a8bd30d92ee040de88b7b3", size = 1193324, upload-time = "2024-06-02T18:15:12.511Z" },
+    { url = "https://files.pythonhosted.org/packages/af/ca/ec5e2c4ba1df02844e1087e58636ecc78a096fa7e7dfd85cab286c0c1c31/coincurve_cp314_fix-22.0.1-cp310-cp310-macosx_10_15_x86_64.whl", hash = "sha256:9fec35946bfe7784e92aaa656b298b3b67f0a093f52c7970496dde4621bbe6c0", size = 1388687, upload-time = "2026-07-17T14:48:04.925Z" },
+    { url = "https://files.pythonhosted.org/packages/a2/01/5c0435325516a6d7ce2958e90e4d050652d105465a187ff8e983a1271370/coincurve_cp314_fix-22.0.1-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:f5f4abc2e639a4007ca212b7029ea9fc549dc1e1207348f1c8729e34b6e0a94c", size = 1383962, upload-time = "2026-07-17T14:48:06.636Z" },
+    { url = "https://files.pythonhosted.org/packages/4c/93/d9ea4c7955a1f67740e492adca7d8ffdb7b9434c2ddc9628e578d37552bb/coincurve_cp314_fix-22.0.1-cp310-cp310-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:e2dc1deb3cec48571fa05064fa8dad3488a0d63e3f16fa731c7815f3f204a2cb", size = 1371893, upload-time = "2026-07-17T14:48:08.247Z" },
+    { url = "https://files.pythonhosted.org/packages/d6/0c/eec3262ad43b0f40203656d1a1e52377d603a47f76de6352dd15659285bc/coincurve_cp314_fix-22.0.1-cp310-cp310-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:d5b60d06533f4820023a4e91679c2181ccc29a23193d55fc51e6d55874186b67", size = 1370994, upload-time = "2026-07-17T14:48:09.9Z" },
+    { url = "https://files.pythonhosted.org/packages/36/9c/733843a2423ec759ccdd78338dba53f9bb9093f011ea8b31feab07e510cc/coincurve_cp314_fix-22.0.1-cp310-cp310-musllinux_1_2_aarch64.whl", hash = "sha256:01428e65cfac5bedbeb7a6c1e146970d8aa8a384a7dc39f0c45c38350c6960cc", size = 1377492, upload-time = "2026-07-17T14:48:11.756Z" },
+    { url = "https://files.pythonhosted.org/packages/33/e1/6c8bca371a395b32ddd86b2bcbae146789984b0bdf329524f6e85a73846e/coincurve_cp314_fix-22.0.1-cp310-cp310-musllinux_1_2_x86_64.whl", hash = "sha256:b787b23c80501e1af903bfe4f89a07c51ccc02e2333913e152f4e4c2cdbf644f", size = 1374123, upload-time = "2026-07-17T14:48:13.33Z" },
+    { url = "https://files.pythonhosted.org/packages/d7/52/e9a7a1c82d615e9f4060ac77509bae9d95e1c9a4ad24941abca9f356d091/coincurve_cp314_fix-22.0.1-cp310-cp310-win_amd64.whl", hash = "sha256:6b02bca3564e795a945c0a2a7f575d3af7d6e3c0e84133c610ca84cf0b824d21", size = 1329759, upload-time = "2026-07-17T14:48:14.845Z" },
+    { url = "https://files.pythonhosted.org/packages/5f/55/c858d0ce0a2a3ec590463838af052492680debae92ca38b071ee459f351c/coincurve_cp314_fix-22.0.1-cp310-cp310-win_arm64.whl", hash = "sha256:c2a0afd16f410f0b9932cc2123ba1adceca8676cffd649c4a5c1fe344d3a55df", size = 1320063, upload-time = "2026-07-17T14:48:16.294Z" },
+    { url = "https://files.pythonhosted.org/packages/74/d9/6e191269f241861ed25ce193bb1d24e8758eb83276a0bc28d7f929704d45/coincurve_cp314_fix-22.0.1-cp311-cp311-macosx_10_15_x86_64.whl", hash = "sha256:c7beead9480fc1e47b3727172af2279f1043bacc68f1a7226af7687bd893058e", size = 1388699, upload-time = "2026-07-17T14:48:18.13Z" },
+    { url = "https://files.pythonhosted.org/packages/d3/1e/a330eba734c262182bd7d35595c1e4b72a32cced388b649ab826b8b93d47/coincurve_cp314_fix-22.0.1-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:a3a710296ef735bb96434a152101bcdef9bdabbec291305eb0e6cc864935e7db", size = 1383919, upload-time = "2026-07-17T14:48:19.759Z" },
+    { url = "https://files.pythonhosted.org/packages/52/ef/fa17567e5044fdbe958534191b31e461affc2019df6e21f6644981bc2cb1/coincurve_cp314_fix-22.0.1-cp311-cp311-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:d8bb83a3ea92906d5fe1623c3554c4973c0b51cb7f3a5e10dae549eec9b1b1eb", size = 1371952, upload-time = "2026-07-17T14:48:21.412Z" },
+    { url = "https://files.pythonhosted.org/packages/5c/d1/b6cbf61dcbb11b053891d593d82fb976e5cc44092fef09d0787c8edb7071/coincurve_cp314_fix-22.0.1-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:c9d88f8faf7156fddad08dbd032671d6bb2427a262fc57e81be5fc4f9d1357aa", size = 1370118, upload-time = "2026-07-17T14:48:23.358Z" },
+    { url = "https://files.pythonhosted.org/packages/99/f5/8d629287c7c2e7b9efca2cab3cfa95a02c2312881551b39875cb81671edc/coincurve_cp314_fix-22.0.1-cp311-cp311-musllinux_1_2_aarch64.whl", hash = "sha256:8a41bd1c4012d8ff480a3972cc9300400530edb8e7f0d16617e0f241fe0b72d2", size = 1377513, upload-time = "2026-07-17T14:48:24.923Z" },
+    { url = "https://files.pythonhosted.org/packages/d6/ca/8aac5adcd9616dd73095a2c4a707b30bc31674fae8522de44992309d34df/coincurve_cp314_fix-22.0.1-cp311-cp311-musllinux_1_2_x86_64.whl", hash = "sha256:b9083d1e5042866a1e28e91e9d5c8fdcf51629dd2a273f6b405059e7c95945fb", size = 1373226, upload-time = "2026-07-17T14:48:26.512Z" },
+    { url = "https://files.pythonhosted.org/packages/dd/98/1b4f2f26d6980bdd17a8f2864832f9dff895b032a49234b51389ab58596d/coincurve_cp314_fix-22.0.1-cp311-cp311-win_amd64.whl", hash = "sha256:918b4ad4d1e4f4cf38c11aa39b9d842418987f898caccc6114b45aa081ae2c90", size = 1329815, upload-time = "2026-07-17T14:48:27.899Z" },
+    { url = "https://files.pythonhosted.org/packages/4a/e1/21f17125e8b9160dd5f6db3f92da6e18b1f4cdececfc3a154f023a7f9ad7/coincurve_cp314_fix-22.0.1-cp311-cp311-win_arm64.whl", hash = "sha256:ab926906a2718de26a3e23955103e41e39cb316e5cbb68489405d4a2bc2011c3", size = 1320212, upload-time = "2026-07-17T14:48:29.473Z" },
+    { url = "https://files.pythonhosted.org/packages/4a/32/24fef91a512c51b57b5980207bdf4974ab6e998aefde3c50abb565b4f346/coincurve_cp314_fix-22.0.1-cp312-cp312-macosx_10_15_x86_64.whl", hash = "sha256:b077081c058338aaab7fe634275da0248fe59b469be9ec2bfa598e6e328fc5d1", size = 1389725, upload-time = "2026-07-17T14:48:31.19Z" },
+    { url = "https://files.pythonhosted.org/packages/a6/7a/24b3079bee4bd2f081865e28a08eb13b909470c7d8ce3a8c4ac9aae80727/coincurve_cp314_fix-22.0.1-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:0ed7e6c3434333ecc17b00834f17effa5f48fc89b3e130d19157e3b18e0bd149", size = 1384501, upload-time = "2026-07-17T14:48:32.942Z" },
+    { url = "https://files.pythonhosted.org/packages/41/26/7a4fbaff523784b9339f247a315056f99439fe671705d92bd9df01612e59/coincurve_cp314_fix-22.0.1-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:b72535b8303d45bfc47bb27e7b1b898cfba11ddb9ca6db9e528f0e23360da5f3", size = 1375639, upload-time = "2026-07-17T14:48:34.777Z" },
+    { url = "https://files.pythonhosted.org/packages/82/2e/c6f93f5bbbe6c050f5425b9e1ebb1fc8a28e3074b4ebe6542c91be186e27/coincurve_cp314_fix-22.0.1-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:9a56ec57a1ce4116db6281703c5c64d35a9fbcb4ed2ab65ac38109c412afb3b6", size = 1374117, upload-time = "2026-07-17T14:48:37.179Z" },
+    { url = "https://files.pythonhosted.org/packages/a8/f0/911d0295ed3a199c7a4eb43d2f8ffff1d1dcca39f2128fe5fc7f1fe52c17/coincurve_cp314_fix-22.0.1-cp312-cp312-musllinux_1_2_aarch64.whl", hash = "sha256:0501e49a206b5ab4105f65daeb338dcf3559bd7d5392a03afc3f31db83f661fc", size = 1381644, upload-time = "2026-07-17T14:48:39.018Z" },
+    { url = "https://files.pythonhosted.org/packages/be/68/b3ecefd5edccd3202f24c0cfb696aff0756e6095db9f7c67da78aff57f27/coincurve_cp314_fix-22.0.1-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:7a5d93127fea898e53882ac106535fbc39ff4f2a26e9c5f23e1efae716bcf6a6", size = 1377529, upload-time = "2026-07-17T14:48:40.608Z" },
+    { url = "https://files.pythonhosted.org/packages/57/54/be427f7e8b037b14b94eb97e22fab08b8d41535075dd1b1d7a668fc1d4dc/coincurve_cp314_fix-22.0.1-cp312-cp312-win_amd64.whl", hash = "sha256:07fcc0a4b6c86566462c9918f6c68303e3699820c4df595daef9a8d131584f29", size = 1330618, upload-time = "2026-07-17T14:48:42.12Z" },
+    { url = "https://files.pythonhosted.org/packages/c4/0b/1833d9b75a8d0dabba52db6a4e665cd0bf24401c513a062f82c8fc4f56a2/coincurve_cp314_fix-22.0.1-cp312-cp312-win_arm64.whl", hash = "sha256:f7b282d27d234b96e064e6bf061d56a4148a4e4fb14f0309fdcc555206892ab6", size = 1320184, upload-time = "2026-07-17T14:48:43.588Z" },
+    { url = "https://files.pythonhosted.org/packages/93/9f/2d2576282a16fcddd4bacaae9767852203bc6fe6a851a2410b0dffb0bc87/coincurve_cp314_fix-22.0.1-cp313-cp313-macosx_10_15_x86_64.whl", hash = "sha256:227158f4cbd329f0b75780198ab312ac72d697b2ec28daade45d0c3d8aa7ae3a", size = 1389695, upload-time = "2026-07-17T14:48:45.298Z" },
+    { url = "https://files.pythonhosted.org/packages/9b/6a/fc8e76c2f6d62af177960a719b5987e644412b13fd673175dea4f2696370/coincurve_cp314_fix-22.0.1-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:6cde6eda5348115cd46555aae8e5fc8a1329cdd34560293a371a3e8394390c16", size = 1384517, upload-time = "2026-07-17T14:48:46.86Z" },
+    { url = "https://files.pythonhosted.org/packages/63/f1/f3a62079cb2d4205712545d70e7bd221b276b0b379329d844ed825076014/coincurve_cp314_fix-22.0.1-cp313-cp313-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:155c9364dcea3b4028fc03d02b5ac4c1d791c7989c54ea8d73ff52600fa9bab1", size = 1375601, upload-time = "2026-07-17T14:48:48.388Z" },
+    { url = "https://files.pythonhosted.org/packages/ac/1c/d4769d938a000d14ce99f08c42148e8fda85b5b243943e804a5f27e4d951/coincurve_cp314_fix-22.0.1-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:7ccf73b280220759fa02251f09300d85af54ff23631da3e95c14eef30cba7408", size = 1374082, upload-time = "2026-07-17T14:48:49.852Z" },
+    { url = "https://files.pythonhosted.org/packages/fd/88/246bad1924267d0064a7a6092d10851f66765caefe9a0010be8c25c94a6c/coincurve_cp314_fix-22.0.1-cp313-cp313-musllinux_1_2_aarch64.whl", hash = "sha256:5eb5a6aa08e8e07d2edb3a6b8e6602f0dc94a1b0fbf4d83138df749b921fe8b2", size = 1381599, upload-time = "2026-07-17T14:48:51.33Z" },
+    { url = "https://files.pythonhosted.org/packages/2d/e0/08dbec75aced7f23dba7dc52f1294f30e862de33cc9112bd01ccf3b3f50d/coincurve_cp314_fix-22.0.1-cp313-cp313-musllinux_1_2_x86_64.whl", hash = "sha256:0bde261973270d2313bf82d526a6a395d084faa74f514d98c2dfe96bcb3d331f", size = 1377435, upload-time = "2026-07-17T14:48:53.016Z" },
+    { url = "https://files.pythonhosted.org/packages/28/ac/ff86fc78fa9dcf4792f57e0675030dd21701e0f121c165801a2434598e20/coincurve_cp314_fix-22.0.1-cp313-cp313-win_amd64.whl", hash = "sha256:07ab4f37249dab54d3dc02e35dd82f0309c9995a1656f91ab1c8efebf7c35ed4", size = 1330553, upload-time = "2026-07-17T14:48:54.539Z" },
+    { url = "https://files.pythonhosted.org/packages/1f/17/5f27565dd86fff04636b5a4a7a5450f6f35474b3c02ad6832852ce98e134/coincurve_cp314_fix-22.0.1-cp313-cp313-win_arm64.whl", hash = "sha256:8d0d6057895da2d4fb7da49463c08ccbc3399a57df5b1ae18b296edcfe724cae", size = 1320215, upload-time = "2026-07-17T14:48:56.047Z" },
+    { url = "https://files.pythonhosted.org/packages/5b/60/721383a5cc7079360afa5a235c8bbddbdf09505f39cc315d5eafba90f638/coincurve_cp314_fix-22.0.1-cp314-cp314-macosx_10_15_x86_64.whl", hash = "sha256:6b18156408e60b12b87810ae323ef0b483251c33f05f172e344c325a034014e5", size = 1389892, upload-time = "2026-07-17T14:48:57.533Z" },
+    { url = "https://files.pythonhosted.org/packages/fd/f2/9f8518e3b138256d80d40ccdb3cb8edb78dd01846ff221da3d212f6c44b9/coincurve_cp314_fix-22.0.1-cp314-cp314-macosx_11_0_arm64.whl", hash = "sha256:15c9257f42a42c14e098e0f37b8b5fc32371854c84f3bebe2448a307ca674b3e", size = 1384743, upload-time = "2026-07-17T14:48:58.999Z" },
+    { url = "https://files.pythonhosted.org/packages/44/40/913a7a3f02678bc1990e508fba9fa156d643a788cceb611d8c35b99a4436/coincurve_cp314_fix-22.0.1-cp314-cp314-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:5c04475afd71244fb6e04af2d8f2e2ad98264f6b6f549826560ea96925425f33", size = 1375586, upload-time = "2026-07-17T14:49:00.759Z" },
+    { url = "https://files.pythonhosted.org/packages/46/6d/21c2888ac918199cedd9b438a2bb5cd9e1746bff4cccbdf27f35c646b94d/coincurve_cp314_fix-22.0.1-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:e2e1066e72ac20310fb2359f0c7bdcc7d09f796eb3d316b3e03b3c5e59fab349", size = 1373843, upload-time = "2026-07-17T14:49:02.524Z" },
+    { url = "https://files.pythonhosted.org/packages/61/64/d1ae34a2843dc76e69f65ef6c611fd3f09bc6a11924a56c555b6aea9339e/coincurve_cp314_fix-22.0.1-cp314-cp314-musllinux_1_2_aarch64.whl", hash = "sha256:0a629e282b8a9d531b882ee1735a6ce1cfc0c8c37531583131ade5c4ca5d08b1", size = 1381502, upload-time = "2026-07-17T14:49:03.993Z" },
+    { url = "https://files.pythonhosted.org/packages/06/ad/1c0b90430feefd17594fda215880137a40bb7858dde62bb60c4b58cf0771/coincurve_cp314_fix-22.0.1-cp314-cp314-musllinux_1_2_x86_64.whl", hash = "sha256:7f7697cc7d75de9b9e34e041cfe7dd903db2141a4c31c92ec420674f937c3af8", size = 1377090, upload-time = "2026-07-17T14:49:05.59Z" },
+    { url = "https://files.pythonhosted.org/packages/7c/20/1267eb8492b9d2d7a904739476eebc7d4d3921d13e716621ca99128e25cb/coincurve_cp314_fix-22.0.1-cp314-cp314-win_amd64.whl", hash = "sha256:56ddf3b2340c23c22fe16fbf171e18219de291cf2c26f75805c92640ec5ef8c8", size = 1334976, upload-time = "2026-07-17T14:49:07.092Z" },
+    { url = "https://files.pythonhosted.org/packages/e6/e7/9765c390984195f79c6b0d3ab299cc17749f57a9856651db30065cc66264/coincurve_cp314_fix-22.0.1-cp314-cp314-win_arm64.whl", hash = "sha256:acfcd79081fc04e4f699731973c41165dfeee85b855dc352ee2d46250dd46f6e", size = 1327417, upload-time = "2026-07-17T14:49:08.695Z" },
 ]
 
 [[package]]
@@ -676,7 +687,7 @@ name = "exceptiongroup"
 version = "1.3.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
+    { name = "typing-extensions" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/50/79/66800aadf48771f6b62f7eb014e352e5d06856655206165d775e675a02c9/exceptiongroup-1.3.1.tar.gz", hash = "sha256:8b412432c6055b0b7d14c310000ae93352ed6754f70fa8f7c34141f91c4e3219", size = 30371, upload-time = "2025-11-21T23:01:54.787Z" }
 wheels = [
@@ -1392,7 +1403,7 @@ dev = [{ name = "pyln-proto", editable = "contrib/pyln-proto" }]
 
 [[package]]
 name = "pyln-client"
-version = "26.6.2"
+version = "26.6.6"
 source = { editable = "contrib/pyln-client" }
 dependencies = [
     { name = "pyln-bolt7" },
@@ -1450,12 +1461,12 @@ dev = [
 
 [[package]]
 name = "pyln-proto"
-version = "26.6.2"
+version = "26.6.6"
 source = { editable = "contrib/pyln-proto" }
 dependencies = [
     { name = "base58" },
     { name = "bitstring" },
-    { name = "coincurve" },
+    { name = "coincurve-cp314-fix" },
     { name = "cryptography" },
     { name = "pysocks" },
 ]
@@ -1469,7 +1480,7 @@ dev = [
 requires-dist = [
     { name = "base58", specifier = ">=2.1.1" },
     { name = "bitstring", specifier = ">=4.3.0" },
-    { name = "coincurve", specifier = "==20.0.0" },
+    { name = "coincurve-cp314-fix", specifier = ">=22.0.1" },
     { name = "cryptography", specifier = ">=46" },
     { name = "pysocks", specifier = ">=1" },
 ]
@@ -1479,7 +1490,7 @@ dev = [{ name = "pytest", specifier = ">=8.0.0" }]
 
 [[package]]
 name = "pyln-testing"
-version = "26.6.2"
+version = "26.6.6"
 source = { editable = "contrib/pyln-testing" }
 dependencies = [
     { name = "cheroot" },

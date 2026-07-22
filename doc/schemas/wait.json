@@ -780,17 +780,11 @@
       "response": {
         "subsystem": "sendpays",
         "created": 18,
-        "details": {
-          "status": "pending",
-          "partid": 0,
-          "groupid": 1,
-          "payment_hash": "paymenthashwtspct20101010101010101010101010101010101010101010101"
-        },
         "sendpays": {
           "status": "pending",
           "partid": 0,
           "groupid": 1,
-          "payment_hash": "paymenthashwtspct20101010101010101010101010101010101010101010101"
+          "payment_hash": "65fc42d3b3f31bbd55195022f72851337e8df95572e6638402e3ec429cea80fe"
         }
       }
     },
@@ -807,17 +801,11 @@
       "response": {
         "subsystem": "sendpays",
         "updated": 18,
-        "details": {
-          "status": "complete",
-          "partid": 0,
-          "groupid": 1,
-          "payment_hash": "paymenthashwtspct20101010101010101010101010101010101010101010101"
-        },
         "sendpays": {
           "status": "complete",
           "partid": 0,
           "groupid": 1,
-          "payment_hash": "paymenthashwtspct20101010101010101010101010101010101010101010101"
+          "payment_hash": "65fc42d3b3f31bbd55195022f72851337e8df95572e6638402e3ec429cea80fe"
         }
       }
     }

@@ -30,9 +30,7 @@ RUN dnf update -y && \
 		python3-devel \
 		python3-pip \
 		python3-poetry \
-		postgresql-devel \
-		protobuf-compiler \
-		protobuf-devel && \
+		postgresql-devel && \
 	dnf clean all
 
 # Install Rust via rustup (for lockfile v4 support)

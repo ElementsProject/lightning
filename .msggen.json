@@ -2505,6 +2505,7 @@
             "ListClosedChannels.closedchannels[]": 1
         },
         "ListconfigsConfigs": {
+            "ListConfigs.configs.accept-htlc-tlv-type": 77,
             "ListConfigs.configs.accept-htlc-tlv-types": 65,
             "ListConfigs.configs.add-source": 72,
             "ListConfigs.configs.addr": 47,
@@ -2548,10 +2549,13 @@
             "ListConfigs.configs.fetchinvoice-noconnect": 64,
             "ListConfigs.configs.force-feerates": 62,
             "ListConfigs.configs.funding-confirms": 35,
+            "ListConfigs.configs.hsm-passphrase": 78,
             "ListConfigs.configs.htlc-maximum-msat": 44,
             "ListConfigs.configs.htlc-minimum-msat": 43,
+            "ListConfigs.configs.i-promise-to-fix-broken-api-user": 79,
             "ListConfigs.configs.ignore-fee-limits": 32,
             "ListConfigs.configs.important-plugin": 9,
+            "ListConfigs.configs.invoices-onchain-fallback": 80,
             "ListConfigs.configs.large-channels": 20,
             "ListConfigs.configs.lightning-dir": 12,
             "ListConfigs.configs.log-file": 60,
@@ -2562,13 +2566,17 @@
             "ListConfigs.configs.max-concurrent-htlcs": 42,
             "ListConfigs.configs.max-dust-htlc-exposure-msat": 45,
             "ListConfigs.configs.max-locktime-blocks": 34,
+            "ListConfigs.configs.message-padding": 81,
             "ListConfigs.configs.min-capacity-sat": 46,
+            "ListConfigs.configs.min-emergency-msat": 82,
             "ListConfigs.configs.network": 13,
             "ListConfigs.configs.offline": 50,
+            "ListConfigs.configs.payment-fronting-node": 83,
             "ListConfigs.configs.pid-file": 31,
             "ListConfigs.configs.plugin": 10,
             "ListConfigs.configs.plugin-dir": 11,
             "ListConfigs.configs.proxy": 52,
+            "ListConfigs.configs.recover": 84,
             "ListConfigs.configs.regtest": 6,
             "ListConfigs.configs.require-confirmed-inputs": 68,
             "ListConfigs.configs.rescan": 40,
@@ -2581,6 +2589,10 @@
             "ListConfigs.configs.tor-service-password": 66,
             "ListConfigs.configs.wallet": 19,
             "ListConfigs.configs.watchtime-blocks": 33
+        },
+        "ListconfigsConfigsAccept-htlc-tlv-type": {
+            "ListConfigs.configs.accept-htlc-tlv-type.sources[]": 1,
+            "ListConfigs.configs.accept-htlc-tlv-type.values_int[]": 2
         },
         "ListconfigsConfigsAccept-htlc-tlv-types": {
             "ListConfigs.configs.accept-htlc-tlv-types.source": 2,
@@ -2760,6 +2772,10 @@
             "ListConfigs.configs.funding-confirms.source": 2,
             "ListConfigs.configs.funding-confirms.value_int": 1
         },
+        "ListconfigsConfigsHsm-passphrase": {
+            "ListConfigs.configs.hsm-passphrase.set": 1,
+            "ListConfigs.configs.hsm-passphrase.source": 2
+        },
         "ListconfigsConfigsHtlc-maximum-msat": {
             "ListConfigs.configs.htlc-maximum-msat.source": 2,
             "ListConfigs.configs.htlc-maximum-msat.value_msat": 1
@@ -2768,6 +2784,10 @@
             "ListConfigs.configs.htlc-minimum-msat.source": 2,
             "ListConfigs.configs.htlc-minimum-msat.value_msat": 1
         },
+        "ListconfigsConfigsI-promise-to-fix-broken-api-user": {
+            "ListConfigs.configs.i-promise-to-fix-broken-api-user.sources[]": 1,
+            "ListConfigs.configs.i-promise-to-fix-broken-api-user.values_str[]": 2
+        },
         "ListconfigsConfigsIgnore-fee-limits": {
             "ListConfigs.configs.ignore-fee-limits.source": 2,
             "ListConfigs.configs.ignore-fee-limits.value_bool": 1
@@ -2775,6 +2795,10 @@
         "ListconfigsConfigsImportant-plugin": {
             "ListConfigs.configs.important-plugin.sources[]": 2,
             "ListConfigs.configs.important-plugin.values_str[]": 1
+        },
+        "ListconfigsConfigsInvoices-onchain-fallback": {
+            "ListConfigs.configs.invoices-onchain-fallback.set": 1,
+            "ListConfigs.configs.invoices-onchain-fallback.source": 2
         },
         "ListconfigsConfigsLarge-channels": {
             "ListConfigs.configs.large-channels.set": 1,
@@ -2816,10 +2840,18 @@
             "ListConfigs.configs.max-locktime-blocks.source": 2,
             "ListConfigs.configs.max-locktime-blocks.value_int": 1
         },
+        "ListconfigsConfigsMessage-padding": {
+            "ListConfigs.configs.message-padding.source": 1,
+            "ListConfigs.configs.message-padding.value_bool": 2
+        },
         "ListconfigsConfigsMin-capacity-sat": {
             "ListConfigs.configs.min-capacity-sat.dynamic": 3,
             "ListConfigs.configs.min-capacity-sat.source": 2,
             "ListConfigs.configs.min-capacity-sat.value_int": 1
+        },
+        "ListconfigsConfigsMin-emergency-msat": {
+            "ListConfigs.configs.min-emergency-msat.source": 1,
+            "ListConfigs.configs.min-emergency-msat.value_msat": 2
         },
         "ListconfigsConfigsNetwork": {
             "ListConfigs.configs.network.source": 2,
@@ -2828,6 +2860,10 @@
         "ListconfigsConfigsOffline": {
             "ListConfigs.configs.offline.set": 1,
             "ListConfigs.configs.offline.source": 2
+        },
+        "ListconfigsConfigsPayment-fronting-node": {
+            "ListConfigs.configs.payment-fronting-node.sources[]": 1,
+            "ListConfigs.configs.payment-fronting-node.values_str[]": 2
         },
         "ListconfigsConfigsPid-file": {
             "ListConfigs.configs.pid-file.source": 2,
@@ -2844,6 +2880,10 @@
         "ListconfigsConfigsProxy": {
             "ListConfigs.configs.proxy.source": 2,
             "ListConfigs.configs.proxy.value_str": 1
+        },
+        "ListconfigsConfigsRecover": {
+            "ListConfigs.configs.recover.source": 1,
+            "ListConfigs.configs.recover.value_str": 2
         },
         "ListconfigsConfigsRegtest": {
             "ListConfigs.configs.regtest.set": 1,
@@ -9717,6 +9757,18 @@
             "added": "v23.08",
             "deprecated": null
         },
+        "ListConfigs.configs.accept-htlc-tlv-type": {
+            "added": "v23.08",
+            "deprecated": null
+        },
+        "ListConfigs.configs.accept-htlc-tlv-type.sources[]": {
+            "added": "v23.08",
+            "deprecated": null
+        },
+        "ListConfigs.configs.accept-htlc-tlv-type.values_int[]": {
+            "added": "v23.08",
+            "deprecated": null
+        },
         "ListConfigs.configs.accept-htlc-tlv-types": {
             "added": "pre-v0.10.1",
             "deprecated": null
@@ -10087,27 +10139,27 @@
         },
         "ListConfigs.configs.encrypted-hsm": {
             "added": "v23.08",
-            "deprecated": null
+            "deprecated": "v25.12"
         },
         "ListConfigs.configs.encrypted-hsm.set": {
             "added": "v23.08",
-            "deprecated": null
+            "deprecated": "v25.12"
         },
         "ListConfigs.configs.encrypted-hsm.source": {
             "added": "v23.08",
-            "deprecated": null
+            "deprecated": "v25.12"
         },
         "ListConfigs.configs.experimental-anchors": {
             "added": "v23.08",
-            "deprecated": null
+            "deprecated": "v24.02"
         },
         "ListConfigs.configs.experimental-anchors.set": {
             "added": "v23.08",
-            "deprecated": null
+            "deprecated": "v24.02"
         },
         "ListConfigs.configs.experimental-anchors.source": {
             "added": "v23.08",
-            "deprecated": null
+            "deprecated": "v24.02"
         },
         "ListConfigs.configs.experimental-dual-fund": {
             "added": "v23.08",
@@ -10147,15 +10199,15 @@
         },
         "ListConfigs.configs.experimental-peer-storage": {
             "added": "v23.02",
-            "deprecated": null
+            "deprecated": "v25.05"
         },
         "ListConfigs.configs.experimental-peer-storage.set": {
             "added": "v23.02",
-            "deprecated": null
+            "deprecated": "v25.05"
         },
         "ListConfigs.configs.experimental-peer-storage.source": {
             "added": "v23.02",
-            "deprecated": null
+            "deprecated": "v25.05"
         },
         "ListConfigs.configs.experimental-shutdown-wrong-funding": {
             "added": "v23.08",
@@ -10257,6 +10309,18 @@
             "added": "v23.08",
             "deprecated": null
         },
+        "ListConfigs.configs.hsm-passphrase": {
+            "added": "v25.12",
+            "deprecated": null
+        },
+        "ListConfigs.configs.hsm-passphrase.set": {
+            "added": "v25.12",
+            "deprecated": null
+        },
+        "ListConfigs.configs.hsm-passphrase.source": {
+            "added": "v25.12",
+            "deprecated": null
+        },
         "ListConfigs.configs.htlc-maximum-msat": {
             "added": "v23.08",
             "deprecated": null
@@ -10281,6 +10345,18 @@
             "added": "v23.08",
             "deprecated": null
         },
+        "ListConfigs.configs.i-promise-to-fix-broken-api-user": {
+            "added": "v24.02",
+            "deprecated": null
+        },
+        "ListConfigs.configs.i-promise-to-fix-broken-api-user.sources[]": {
+            "added": "v24.02",
+            "deprecated": null
+        },
+        "ListConfigs.configs.i-promise-to-fix-broken-api-user.values_str[]": {
+            "added": "v24.02",
+            "deprecated": null
+        },
         "ListConfigs.configs.ignore-fee-limits": {
             "added": "v23.08",
             "deprecated": null
@@ -10303,6 +10379,18 @@
         },
         "ListConfigs.configs.important-plugin.values_str[]": {
             "added": "v23.08",
+            "deprecated": null
+        },
+        "ListConfigs.configs.invoices-onchain-fallback": {
+            "added": "v23.11",
+            "deprecated": null
+        },
+        "ListConfigs.configs.invoices-onchain-fallback.set": {
+            "added": "v23.11",
+            "deprecated": null
+        },
+        "ListConfigs.configs.invoices-onchain-fallback.source": {
+            "added": "v23.11",
             "deprecated": null
         },
         "ListConfigs.configs.large-channels": {
@@ -10419,10 +10507,22 @@
         },
         "ListConfigs.configs.max-locktime-blocks.source": {
             "added": "pre-v0.10.1",
-            "deprecated": null
+            "deprecated": "v24.05"
         },
         "ListConfigs.configs.max-locktime-blocks.value_int": {
             "added": "pre-v0.10.1",
+            "deprecated": "v24.05"
+        },
+        "ListConfigs.configs.message-padding": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "ListConfigs.configs.message-padding.source": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "ListConfigs.configs.message-padding.value_bool": {
+            "added": "v26.04",
             "deprecated": null
         },
         "ListConfigs.configs.min-capacity-sat": {
@@ -10438,6 +10538,18 @@
             "deprecated": null
         },
         "ListConfigs.configs.min-capacity-sat.value_int": {
+            "added": "v23.08",
+            "deprecated": null
+        },
+        "ListConfigs.configs.min-emergency-msat": {
+            "added": "v23.08",
+            "deprecated": null
+        },
+        "ListConfigs.configs.min-emergency-msat.source": {
+            "added": "v23.08",
+            "deprecated": null
+        },
+        "ListConfigs.configs.min-emergency-msat.value_msat": {
             "added": "v23.08",
             "deprecated": null
         },
@@ -10463,6 +10575,18 @@
         },
         "ListConfigs.configs.offline.source": {
             "added": "v23.08",
+            "deprecated": null
+        },
+        "ListConfigs.configs.payment-fronting-node": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "ListConfigs.configs.payment-fronting-node.sources[]": {
+            "added": "v26.04",
+            "deprecated": null
+        },
+        "ListConfigs.configs.payment-fronting-node.values_str[]": {
+            "added": "v26.04",
             "deprecated": null
         },
         "ListConfigs.configs.pid-file": {
@@ -10511,6 +10635,18 @@
         },
         "ListConfigs.configs.proxy.value_str": {
             "added": "v23.08",
+            "deprecated": null
+        },
+        "ListConfigs.configs.recover": {
+            "added": "v23.11",
+            "deprecated": null
+        },
+        "ListConfigs.configs.recover.source": {
+            "added": "v23.11",
+            "deprecated": null
+        },
+        "ListConfigs.configs.recover.value_str": {
+            "added": "v23.11",
             "deprecated": null
         },
         "ListConfigs.configs.regtest": {

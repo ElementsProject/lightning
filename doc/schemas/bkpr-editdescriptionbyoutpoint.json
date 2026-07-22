@@ -272,7 +272,7 @@
         "id": "example:bkpr-editdescriptionbyoutpoint#1",
         "method": "bkpr-editdescriptionbyoutpoint",
         "params": {
-          "outpoint": "txidbk0101010101010101010101010101010101010101010101010101010101:1",
+          "outpoint": "e3ece679d27d3629ff2b141786a0bd69eea3d6c91c2d7f331cb40f91bf45bced:0",
           "description": "edited utxo description"
         }
       },
@@ -285,9 +285,9 @@
             "credit_msat": 200000000000,
             "debit_msat": 0,
             "currency": "bcrt",
-            "outpoint": "txidbk0101010101010101010101010101010101010101010101010101010101:1",
-            "timestamp": 1738510000,
-            "blockheight": 110,
+            "outpoint": "e3ece679d27d3629ff2b141786a0bd69eea3d6c91c2d7f331cb40f91bf45bced:0",
+            "timestamp": 1738000001,
+            "blockheight": 112,
             "description": "edited utxo description"
           }
         ]

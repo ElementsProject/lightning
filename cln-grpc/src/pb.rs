@@ -10,8 +10,9 @@ mod convert {
 
     use cln_rpc::primitives::{
         Amount as JAmount, AmountOrAll as JAmountOrAll, AmountOrAny as JAmountOrAny,
-        Feerate as JFeerate, JsonObjectOrArray as JJsonObjectOrArray, JsonScalar as JJsonScalar,
-        Outpoint as JOutpoint, OutputDesc as JOutputDesc, ProofField as JProofField,
+        AmountSat as JAmountSat, AmountSatOrAll as JAmountSatOrAll, Feerate as JFeerate,
+        JsonObjectOrArray as JJsonObjectOrArray, JsonScalar as JJsonScalar, Outpoint as JOutpoint,
+        OutputDesc as JOutputDesc, ProofField as JProofField,
     };
 
     impl From<JAmount> for Amount {
@@ -23,6 +24,18 @@ mod convert {
     impl From<Amount> for JAmount {
         fn from(a: Amount) -> Self {
             JAmount::from_msat(a.msat)
+        }
+    }
+
+    impl From<JAmountSat> for AmountSat {
+        fn from(a: JAmountSat) -> Self {
+            AmountSat { sat: a.sat() }
+        }
+    }
+
+    impl From<AmountSat> for JAmountSat {
+        fn from(a: AmountSat) -> Self {
+            JAmountSat::from_sat(a.sat)
         }
     }
 
@@ -112,6 +125,31 @@ mod convert {
         }
     }
 
+    impl From<JAmountSatOrAll> for AmountSatOrAll {
+        fn from(a: JAmountSatOrAll) -> Self {
+            match a {
+                JAmountSatOrAll::AmountSat(a) => AmountSatOrAll {
+                    value: Some(amount_sat_or_all::Value::AmountSat(a.into())),
+                },
+                JAmountSatOrAll::All => AmountSatOrAll {
+                    value: Some(amount_sat_or_all::Value::All(true)),
+                },
+            }
+        }
+    }
+
+    impl From<AmountSatOrAll> for JAmountSatOrAll {
+        fn from(a: AmountSatOrAll) -> Self {
+            match a.value {
+                Some(amount_sat_or_all::Value::AmountSat(a)) => {
+                    JAmountSatOrAll::AmountSat(a.into())
+                }
+                Some(amount_sat_or_all::Value::All(_)) => JAmountSatOrAll::All,
+                None => panic!("AmountSatOrAll is neither amount nor all: {:?}", a),
+            }
+        }
+    }
+
     impl From<JAmountOrAny> for AmountOrAny {
         fn from(a: JAmountOrAny) -> Self {
             match a {
@@ -129,7 +167,7 @@ mod convert {
             match a.value {
                 Some(amount_or_any::Value::Amount(a)) => JAmountOrAny::Amount(a.into()),
                 Some(amount_or_any::Value::Any(_)) => JAmountOrAny::Any,
-                None => panic!("AmountOrAll is neither amount nor any: {:?}", a),
+                None => panic!("AmountOrAny is neither amount nor any: {:?}", a),
             }
         }
     }

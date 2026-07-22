@@ -90,8 +90,8 @@
         "id": "example:checkrune#1",
         "method": "checkrune",
         "params": {
-          "nodeid": "nodeid020202020202020202020202020202020202020202020202020202020202",
-          "rune": "_RWaZZRI7wAYU2hqlFBmYgC_dFczcpAdI_9O87YbDpg9MCZtZXRob2RebGlzdHxtZXRob2ReZ2V0fG1ldGhvZD1zdW1tYXJ5Jm1ldGhvZC9saXN0ZGF0YXN0b3Jl",
+          "nodeid": "033845802d25b4e074ccfd7cd8b339a41dc75bf9978a034800444b51d42b07799a",
+          "rune": "0VIVf0M4jMlGNIwNM3sTpBextINe4_VBGZnBMM82kR49MCZtZXRob2RebGlzdHxtZXRob2ReZ2V0fG1ldGhvZD1zdW1tYXJ5Jm1ldGhvZC9saXN0ZGF0YXN0b3Jl",
           "method": "listpeers",
           "params": {}
         }
@@ -105,8 +105,8 @@
         "id": "example:checkrune#2",
         "method": "checkrune",
         "params": {
-          "nodeid": "nodeid020202020202020202020202020202020202020202020202020202020202",
-          "rune": "QUJEYMLGgiaJvMDv_MhR2hiMKIBTbq-PrL-KxcIlirQ9MiZtZXRob2Q9cGF5JnBuYW1lYW1vdW50bXNhdDwxMDAwMA==",
+          "nodeid": "033845802d25b4e074ccfd7cd8b339a41dc75bf9978a034800444b51d42b07799a",
+          "rune": "a0noy2CAu8-s2xSgJuBW09hqB_YsqLkwIDy5qkftGMk9MiZtZXRob2Q9cGF5JnBuYW1lYW1vdW50bXNhdDwxMDAwMA==",
           "method": "pay",
           "params": {
             "amount_msat": 9999

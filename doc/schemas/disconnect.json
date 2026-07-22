@@ -52,7 +52,7 @@
         "id": "example:disconnect#1",
         "method": "disconnect",
         "params": {
-          "id": "nodeid040404040404040404040404040404040404040404040404040404040404",
+          "id": "02287bfac8b99b35477ebe9334eede1e32b189e24644eb701c079614712331cec0",
           "force": false
         }
       },
@@ -63,7 +63,7 @@
         "id": "example:disconnect#2",
         "method": "disconnect",
         "params": {
-          "id": "nodeid050505050505050505050505050505050505050505050505050505050505",
+          "id": "0258f3ff3e0853ccc09f6fe89823056d7c0c55c95fab97674df5e1ad97a72f6265",
           "force": true
         }
       },

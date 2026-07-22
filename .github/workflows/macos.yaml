@@ -37,7 +37,7 @@ jobs:
         run: |
           export PATH="/usr/local/opt:/Users/runner/.local/bin:/opt/homebrew/bin/python3.10/bin:$PATH"
 
-          brew install gnu-sed autoconf automake libtool protobuf openssl lowdown libsodium make
+          brew install gnu-sed autoconf automake libtool openssl lowdown libsodium make
 
           # https://github.com/grpc/grpc/issues/31737#issuecomment-1323796842
           export GRPC_PYTHON_BUILD_SYSTEM_OPENSSL=1
@@ -52,23 +52,15 @@ jobs:
           uv run ./configure --disable-valgrind --disable-compat
           uv run gmake
           uv run gmake check-gen-updated
+          sudo gmake install
 
-      - name: Start bitcoind in regtest mode
+      - name: Run pytest
+        env:
+          SLOW_MACHINE: 1
+          PYTEST_OPTS: "-vvv --timeout=1800 --durations=10"
+          PYTEST_TESTS: |
+            tests/test_misc.py::test_ipv4_and_ipv6
+            tests/test_connection.py::test_websocket
+            tests/test_connection.py::test_wss_proxy
         run: |
-          bitcoind -regtest -daemon
-          sleep 5
-
-      - name: Generate initial block
-        run: |
-          bitcoin-cli -regtest createwallet default_wallet
-          bitcoin-cli -regtest generatetoaddress 1 $(bitcoin-cli -regtest getnewaddress)
-          sleep 2
-
-      - name: Start CLN in regtest mode
-        run: |
-          lightningd/lightningd --network=regtest --log-file=/tmp/l1.log --daemon
-          sleep 5
-
-      - name: Verify CLN is running
-        run: |
-          cli/lightning-cli --regtest getinfo
+          VALGRIND=0 uv run pytest $PYTEST_TESTS -n $(sysctl -n hw.ncpu) ${PYTEST_OPTS}

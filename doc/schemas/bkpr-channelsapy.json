@@ -215,7 +215,7 @@
       "response": {
         "channels_apy": [
           {
-            "account": "channelid0120000120000120000120000120000120000120000120000120000",
+            "account": "2c383675809577b343f57acbea98d51dd913817874a3b621173f3fe2ea519c45",
             "routed_out_msat": 1000000,
             "routed_in_msat": 510091208,
             "lease_fee_paid_msat": 0,
@@ -235,8 +235,8 @@
             "apy_total": "0.0160%"
           },
           {
-            "account": "channelid0230000230000230000230000230000230000230000230000230000",
-            "routed_out_msat": 510190102,
+            "account": "58073dac0d6d0e06d167ce2cfa1e134fe8d76ac2689567b5415ca8fef8e8a998",
+            "routed_out_msat": 500000000,
             "routed_in_msat": 0,
             "lease_fee_paid_msat": 0,
             "lease_fee_earned_msat": 0,
@@ -244,7 +244,7 @@
             "pushed_in_msat": 0,
             "our_start_balance_msat": 1000000000,
             "channel_start_balance_msat": 1000000000,
-            "fees_out_msat": 106,
+            "fees_out_msat": 0,
             "fees_in_msat": 0,
             "utilization_out": "31.7060%",
             "utilization_out_initial": "51.5591%",
@@ -256,8 +256,8 @@
             "apy_total_initial": "0.0161%"
           },
           {
-            "account": "channelid0250000250000250000250000250000250000250000250000250000",
-            "routed_out_msat": 500000000,
+            "account": "c51daaf63cd67a9092a021076a8b3def61b38dea85019b0a074ddada3e1a4e6c",
+            "routed_out_msat": 510190102,
             "routed_in_msat": 0,
             "lease_fee_paid_msat": 0,
             "lease_fee_earned_msat": 0,
@@ -265,7 +265,7 @@
             "pushed_in_msat": 0,
             "our_start_balance_msat": 1000000000,
             "channel_start_balance_msat": 1000000000,
-            "fees_out_msat": 0,
+            "fees_out_msat": 106,
             "fees_in_msat": 0,
             "utilization_out": "32.7060%",
             "utilization_out_initial": "52.5591%",

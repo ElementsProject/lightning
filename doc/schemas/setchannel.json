@@ -176,16 +176,16 @@
         "id": "example:setchannel#1",
         "method": "setchannel",
         "params": {
-          "id": "123x1x1",
+          "id": "130x1x0",
           "ignorefeelimits": true
         }
       },
       "response": {
         "channels": [
           {
-            "peer_id": "nodeid030303030303030303030303030303030303030303030303030303030303",
-            "channel_id": "channelid0230200230200230200230200230200230200230200230200230200",
-            "short_channel_id": "123x1x1",
+            "peer_id": "03cecbfdc68544cc596223b68ce0710c9e5d2c9cb317ee07822d95079acc703d31",
+            "channel_id": "60a870b5b9d8a5a59213cb7b3ad81b3548ed107d0d627c3615746097b1374b55",
+            "short_channel_id": "130x1x0",
             "fee_base_msat": 1,
             "fee_proportional_millionths": 10,
             "minimum_htlc_out_msat": 0,
@@ -200,7 +200,7 @@
         "id": "example:setchannel#2",
         "method": "setchannel",
         "params": {
-          "id": "115x1x1",
+          "id": "122x1x1",
           "feebase": 4000,
           "feeppm": 300,
           "enforcedelay": 0
@@ -209,9 +209,9 @@
       "response": {
         "channels": [
           {
-            "peer_id": "nodeid050505050505050505050505050505050505050505050505050505050505",
-            "channel_id": "channelid0250000250000250000250000250000250000250000250000250000",
-            "short_channel_id": "115x1x1",
+            "peer_id": "0258f3ff3e0853ccc09f6fe89823056d7c0c55c95fab97674df5e1ad97a72f6265",
+            "channel_id": "58073dac0d6d0e06d167ce2cfa1e134fe8d76ac2689567b5415ca8fef8e8a998",
+            "short_channel_id": "122x1x1",
             "fee_base_msat": 4000,
             "fee_proportional_millionths": 300,
             "minimum_htlc_out_msat": 0,

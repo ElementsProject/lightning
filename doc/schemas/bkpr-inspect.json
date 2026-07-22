@@ -213,19 +213,19 @@
         "id": "example:bkpr-inspect#1",
         "method": "bkpr-inspect",
         "params": {
-          "account": "channelid0230200230200230200230200230200230200230200230200230200"
+          "account": "60a870b5b9d8a5a59213cb7b3ad81b3548ed107d0d627c3615746097b1374b55"
         }
       },
       "response": {
         "txs": [
           {
-            "txid": "channeltxid230200230200230200230200230200230200230200230200230200",
-            "blockheight": 123,
-            "fees_paid_msat": 5020000,
+            "txid": "88c5963d6e1b0790375d5ce51c7fdd58b9b241c104754d2b704aee8cbdc5e7b5",
+            "blockheight": 130,
+            "fees_paid_msat": 4927000,
             "outputs": [
               {
-                "account": "channelid0230200230200230200230200230200230200230200230200230200",
-                "outnum": 1,
+                "account": "60a870b5b9d8a5a59213cb7b3ad81b3548ed107d0d627c3615746097b1374b55",
+                "outnum": 0,
                 "output_tag": "channel_open",
                 "output_value_msat": 1000000000,
                 "credit_msat": 1000000000,

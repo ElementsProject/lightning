@@ -2,6 +2,7 @@
 #include <common/amount.h>
 #include <common/json_param.c>
 #include <common/json_parse_simple.c>
+#include <common/randbytes.h>
 #include <common/setup.h>
 #include <stdio.h>
 #include <wire/wire.h>

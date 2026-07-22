@@ -10,6 +10,7 @@
 #include "../wire/fromwire.c"
 #include "../wire/towire.c"
 #include <ccan/err/err.h>
+#include <common/randbytes.h>
 #include <common/setup.h>
 #include <stdio.h>
 

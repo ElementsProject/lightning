@@ -2,12 +2,14 @@
 //! plugins using the Rust API against Core Lightning.
 #[macro_use]
 extern crate serde_json;
+use anyhow::Context;
 use cln_plugin::options::{
     self, BooleanConfigOption, DefaultIntegerArrayConfigOption, DefaultIntegerConfigOption,
     DefaultStringArrayConfigOption, IntegerArrayConfigOption, IntegerConfigOption,
     StringArrayConfigOption,
 };
 use cln_plugin::{Builder, Error, HookBuilder, Plugin, messages};
+use cln_rpc::ClnRpc;
 
 const TEST_NOTIF_TAG: &str = "test_custom_notification";
 
@@ -77,6 +79,7 @@ async fn main() -> Result<(), anyhow::Error> {
             test_send_custom_notification,
         )
         .rpcmethod("test-log-levels", "send on all log levels", test_log_levels)
+        .rpcmethod("test-error", "test error with context", test_error)
         .subscribe("connect", connect_handler)
         .subscribe("test_custom_notification", test_receive_custom_notification)
         .hook_from_builder(
@@ -178,4 +181,13 @@ async fn test_log_levels(
     log::warn!("log::warn! working");
     log::error!("log::error! working");
     Ok(json!({}))
+}
+
+async fn test_error(p: Plugin<()>, _v: serde_json::Value) -> Result<serde_json::Value, Error> {
+    let mut rpc = ClnRpc::new(p.configuration().rpc_file).await?;
+    let gi: serde_json::Value = rpc
+        .call_raw("00000000000", &json!({}))
+        .await
+        .context("context given")?;
+    Ok(gi)
 }

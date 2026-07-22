@@ -174,8 +174,7 @@ def test_bitcoin_pruned(node_factory, bitcoind):
         nonlocal fetched_peerblock
         if fetched_peerblock:
             fetched_peerblock = False
-            conf_file = os.path.join(bitcoind.bitcoin_dir, "bitcoin.conf")
-            brpc = RawProxy(btc_conf_file=conf_file)
+            brpc = RawProxy(btc_conf_file=bitcoind.conf_file)
             return {
                 "result": brpc._call(r["method"], *r["params"]),
                 "error": None,
@@ -270,8 +269,7 @@ def test_lightningd_still_loading(node_factory, bitcoind, executor):
 
     # This is slow enough that we're going to notice.
     def mock_getblock(r):
-        conf_file = os.path.join(bitcoind.bitcoin_dir, 'bitcoin.conf')
-        brpc = RawProxy(btc_conf_file=conf_file)
+        brpc = RawProxy(btc_conf_file=bitcoind.conf_file)
         if r['params'][0] == slow_blockid:
             mock_release.wait(TIMEOUT)
         return {
@@ -1842,10 +1840,10 @@ def test_ipv4_and_ipv6(node_factory):
         assert bind[1]['address'] == '0.0.0.0'
         assert int(bind[1]['port']) == port
     else:
-        # Assume we're IPv4 only...
+        # Either IPv4-only, or IPv6 dual-stack (covers IPv4 too, so no separate IPv4 socket)
         assert len(bind) == 1
-        assert bind[0]['type'] == 'ipv4'
-        assert bind[0]['address'] == '0.0.0.0'
+        assert bind[0]['type'] in ('ipv4', 'ipv6')
+        assert bind[0]['address'] in ('0.0.0.0', '::')
         assert int(bind[0]['port']) == port
 
 

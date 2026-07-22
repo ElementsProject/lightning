@@ -313,48 +313,12 @@
       "response": {
         "closedchannels": [
           {
-            "peer_id": "nodeid030303030303030303030303030303030303030303030303030303030303",
-            "channel_id": "channelid0230000230000230000230000230000230000230000230000230000",
-            "short_channel_id": "111x1x1",
+            "peer_id": "0258f3ff3e0853ccc09f6fe89823056d7c0c55c95fab97674df5e1ad97a72f6265",
+            "channel_id": "58073dac0d6d0e06d167ce2cfa1e134fe8d76ac2689567b5415ca8fef8e8a998",
+            "short_channel_id": "122x1x1",
             "alias": {
-              "local": "121x131x141",
-              "remote": "151x161x171"
-            },
-            "opener": "local",
-            "closer": "local",
-            "private": false,
-            "channel_type": {
-              "bits": [
-                12,
-                22
-              ],
-              "names": [
-                "static_remotekey/even",
-                "anchors/even"
-              ]
-            },
-            "total_local_commitments": 16,
-            "total_remote_commitments": 16,
-            "total_htlcs_sent": 8,
-            "funding_txid": "fundingtxid00202020202020202020202020202020202020202020202020202",
-            "funding_outnum": 1,
-            "leased": false,
-            "total_msat": 1000000000,
-            "final_to_us_msat": 489809898,
-            "min_to_us_msat": 489809898,
-            "max_to_us_msat": 1000000000,
-            "last_commitment_txid": "txidcloselastcommitment00000100001000010000100001000010000100001",
-            "last_commitment_fee_msat": 2895000,
-            "close_cause": "user",
-            "last_stable_connection": 1738500000
-          },
-          {
-            "peer_id": "nodeid050505050505050505050505050505050505050505050505050505050505",
-            "channel_id": "channelid0250000250000250000250000250000250000250000250000250000",
-            "short_channel_id": "115x1x1",
-            "alias": {
-              "local": "122x132x142",
-              "remote": "152x162x172"
+              "local": "13698576x10523633x59145",
+              "remote": "10279693x15972246x42665"
             },
             "opener": "local",
             "closer": "local",
@@ -372,17 +336,57 @@
             "total_local_commitments": 2,
             "total_remote_commitments": 2,
             "total_htlcs_sent": 1,
-            "funding_txid": "fundingtxid00101010101010101010101010101010101010101010101010101",
+            "funding_txid": "2f9fb60aa8427f5156b098bc9c3fbfb64355ef4c1d5e18aacbc457da48893a9b",
             "funding_outnum": 1,
             "leased": false,
+            "funding_psbt": "cHNidP8BAgQCAAAAAQMEeQAAAAEEAQIBBQECAQYBAwH7BAIAAAAAAQCJAgAAAAG+Os8O6kq8jE2QeQ/Scfyo3hkMRlh88crmalD1mk5q/wEAAAAA/f///wJAQg8AAAAAACIAIKaK3xoMicL2G1HPJBhXdu0IrE9ucf4PtG1x61TQBhDzAS8PAAAAAAAiUSCbsKD9AVfHrRSChJWQeDPAJu6kaLPVeANUnmfusWyC+HUAAAABASsBLw8AAAAAACJRIJuwoP0BV8etFIKElZB4M8Am7qRos9V4A1SeZ+6xbIL4AQhCAUDHM2PF2rk836n+8i14IDSYo+EVZFGr/6tlwzNRdJS6EhQmRq6oTLOKLgxw0ElokmkHIDxInwPY9n3/atc6OuTTAQ4gPkYqbgkwPSSrP40q1xVD7OCEG+WUmKbiUuafoFJJ7jEBDwQBAAAAARAE/f///wz8CWxpZ2h0bmluZwICAAEM/AlsaWdodG5pbmcBCG3xkv58JhsCAAEAcQIAAAABbcj/97NeiuEN88mBEJsP/WMeyUWbHNLCJHCsUVzvDRMBAAAAAP3///8CgIQeAAAAAAAWABSiG7/8hfbc8OOzut+K6OjWowW4IWXjv+wAAAAAFgAUPIIk+t2a3ceYKhBfJc/688BnzSx4AAAAAQEfgIQeAAAAAAAWABSiG7/8hfbc8OOzut+K6OjWowW4IQEIawJHMEQCIGOgCwEgw9/A+tZJJ6ZXHlFyvI2lflfxxBZRavMcr6YEAiB9TNCFQWWApq4/NDiuEvAzqR0OozBaoiEWv5MCPtNs6QEhArCTKsiyQvvnHtwxdk0jtjJ0uX3lSTLS01U8pCEeOAIAAQ4gR/ZjAa8yF3rJD/jPunQNZV02m0TVvdqngSWsK/SlliYBDwQAAAAAARAE/f///wz8CWxpZ2h0bmluZwICAAEM/AlsaWdodG5pbmcBCG/xkv58JhsCAAEDCEVXHgAAAAAAAQQiUSDF0lmFDKY6GQWdC1FfKcjDf8KkRl1lVOTB99fjt2pqTiEH8R7qYI1IYCEd+Q0LLoVd+vnbpro542z6XXt3HMWq9gQJAJJFwoUHAAAADPwJbGlnaHRuaW5nAQhx8ZL+fCYbAgABAwhAQg8AAAAAAAEEIgAgsgmNbInyyLjdmGbKFDS8yQUi03jaET+I7ZkSqTdAJCwM/AlsaWdodG5pbmcBCL2ZDqDNL6nyAA==",
+            "funding_withheld": false,
             "total_msat": 1000000000,
             "final_to_us_msat": 500000000,
             "min_to_us_msat": 500000000,
             "max_to_us_msat": 1000000000,
-            "last_commitment_txid": "txidcloselastcommitment00000200002000020000200002000020000200002",
+            "last_commitment_txid": "d3a6d332f7ce629300e973ea2ebd3536a3bf523459a408d45b3fbd3b09d168d1",
+            "last_commitment_fee_msat": 2895000,
+            "close_cause": "user",
+            "last_stable_connection": 1738000000
+          },
+          {
+            "peer_id": "03cecbfdc68544cc596223b68ce0710c9e5d2c9cb317ee07822d95079acc703d31",
+            "channel_id": "c51daaf63cd67a9092a021076a8b3def61b38dea85019b0a074ddada3e1a4e6c",
+            "short_channel_id": "118x1x0",
+            "alias": {
+              "local": "13633040x10523633x59145",
+              "remote": "7984345x7385111x15166"
+            },
+            "opener": "local",
+            "closer": "local",
+            "private": false,
+            "channel_type": {
+              "bits": [
+                12,
+                22
+              ],
+              "names": [
+                "static_remotekey/even",
+                "anchors/even"
+              ]
+            },
+            "total_local_commitments": 16,
+            "total_remote_commitments": 16,
+            "total_htlcs_sent": 8,
+            "funding_txid": "31ee4952a09fe652e2a69894e51b84e0ec4315d72a8d3fab243d30096e2a463e",
+            "funding_outnum": 0,
+            "leased": false,
+            "funding_psbt": "cHNidP8BAgQCAAAAAQMEdQAAAAEEAQEBBQECAQYBAwH7BAIAAAAAAQBxAgAAAAGYYeEN4n2h8Va+YxffukUgKq6nBrDU881tTpAcDhoCNgEAAAAA/f///wJ/7fzsAAAAABYAFGAnhvHz0QrwCcBryMXpb+5FgCDfgIQeAAAAAAAWABQHk53ggkbnTRHdwXMw5jqI5JhdHnQAAAABAR+AhB4AAAAAABYAFAeTneCCRudNEd3BczDmOojkmF0eAQhrAkcwRAIgInLAMfbfZArD60Oypx06mIBhy/34iVRvGu7EXZNphgQCICENC17cJc36hGmhaKivn20VcDEuNHO39VUUiKMsRDyOASEC+avMUxfzlpbDtGiUjYVU0ypXfYsZW7GRpb6FMLfhnI4BDiC+Os8O6kq8jE2QeQ/Scfyo3hkMRlh88crmalD1mk5q/wEPBAEAAAABEAT9////DPwJbGlnaHRuaW5nAgIAAQz8CWxpZ2h0bmluZwEIafGS/nwmGwIAAQMIQEIPAAAAAAABBCIAIKaK3xoMicL2G1HPJBhXdu0IrE9ucf4PtG1x61TQBhDzDPwJbGlnaHRuaW5nAQgbPq2d4OCUigABAwgBLw8AAAAAAAEEIlEgm7Cg/QFXx60UgoSVkHgzwCbupGiz1XgDVJ5n7rFsgvghB0ynXOVrZ0P+tmA8HWMr/Ei5UhRCRloiwD2nC7thqZofCQC07fzWBAAAAAz8CWxpZ2h0bmluZwEIa/GS/nwmGwIA",
+            "funding_withheld": false,
+            "total_msat": 1000000000,
+            "final_to_us_msat": 489809898,
+            "min_to_us_msat": 489809898,
+            "max_to_us_msat": 1000000000,
+            "last_commitment_txid": "dc446777a9b3d6d5962f502f5d22f66b01452389c1bbe8460491e7376f44a1eb",
             "last_commitment_fee_msat": 2896000,
             "close_cause": "user",
-            "last_stable_connection": 1738500000
+            "last_stable_connection": 1738000000
           }
         ]
       }

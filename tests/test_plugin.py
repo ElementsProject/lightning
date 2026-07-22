@@ -2245,8 +2245,7 @@ def test_bcli_concurrent(node_factory, bitcoind, executor):
 
     def mock_getblock(r):
         if getblockfrompeer_count >= retry_count:
-            conf_file = os.path.join(bitcoind.bitcoin_dir, "bitcoin.conf")
-            brpc = RawProxy(btc_conf_file=conf_file)
+            brpc = RawProxy(btc_conf_file=bitcoind.conf_file)
             return {
                 "result": brpc._call(r["method"], *r["params"]),
                 "error": None,
@@ -4359,6 +4358,11 @@ def test_sql(node_factory, bitcoind):
 
     # Make sure we have a node_announcement for l1
     wait_for(lambda: l2.rpc.listnodes(l1.info['id'])['nodes'] != [])
+
+    # Under valgrind, the senders can still be digesting the blocks
+    # above and pick a stale blockheight for the payments below, which
+    # the caught-up peers reject as expiry_too_soon.
+    sync_blockheight(bitcoind, [l1, l2, l3])
 
     # This should create a forward through l2
     l1.rpc.xpay(l3.rpc.invoice(amount_msat=12300, label='inv1', description='description')['bolt11'])

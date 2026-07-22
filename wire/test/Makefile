@@ -17,6 +17,7 @@ WIRE_TEST_COMMON_OBJS :=		\
 	common/utils.o			\
 	common/wireaddr.o
 
+# run-tlvstream.c and run-peer-wire.c provide their own mocks for randbytes_ and randbytes_overridden
 # run-tlvstream.c needs to reach into bitcoin/pubkey for SUPERVERBOSE
 $(WIRE_TEST_PROGRAMS): $(WIRE_TEST_COMMON_OBJS) $(filter-out bitcoin/pubkey.o bitcoin/chainparams.o,$(BITCOIN_OBJS))
 
@@ -25,3 +26,4 @@ $(WIRE_TEST_OBJS): $(WIRE_HEADERS) $(WIRE_SRC) $(WIRE_PRINT_SRC) wire/test/Makef
 wire-tests: $(WIRE_TEST_PROGRAMS:%=unittest/%)
 
 wire/test/run-peer-wire: wire/peer_wiregen.o common/bigsize.o
+

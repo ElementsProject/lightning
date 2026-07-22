@@ -69,7 +69,7 @@
         "id": "example:ping#1",
         "method": "ping",
         "params": {
-          "id": "nodeid010101010101010101010101010101010101010101010101010101010101",
+          "id": "038194b5f32bdf0aa59812c86c4ef7ad2f294104fa027d1ace9b469bb6f88cf37b",
           "len": 128,
           "pongbytes": 128
         }
@@ -83,7 +83,7 @@
         "id": "example:ping#2",
         "method": "ping",
         "params": {
-          "id": "nodeid030303030303030303030303030303030303030303030303030303030303",
+          "id": "03cecbfdc68544cc596223b68ce0710c9e5d2c9cb317ee07822d95079acc703d31",
           "len": 1000,
           "pongbytes": 65535
         }

@@ -90,14 +90,14 @@
         "id": "example:listaddresses#1",
         "method": "listaddresses",
         "params": [
-          "bcrt1p2gppccw6ywewmg74qqxxmqfdpjds3rpr0mf22y9tm9xcc0muggwsea9nkf"
+          "bcrt1p0g5lhkgeksy4hdaya9ws8uxsdscqzgumx2pkvrvre4t2enr9z8es3ykvza"
         ]
       },
       "response": {
         "addresses": [
           {
             "keyidx": 14,
-            "p2tr": "bcrt1p2gppccw6ywewmg74qqxxmqfdpjds3rpr0mf22y9tm9xcc0muggwsea9nkf"
+            "p2tr": "bcrt1p0g5lhkgeksy4hdaya9ws8uxsdscqzgumx2pkvrvre4t2enr9z8es3ykvza"
           }
         ]
       }
@@ -115,11 +115,11 @@
         "addresses": [
           {
             "keyidx": 6,
-            "bech32": "bcrt1qkpw662yvzdy5ttdg8nw4eh4el0uc7m2ythw0h3"
+            "bech32": "bcrt1q5gdmlly97mw0pcanht0c468g663stwpp9mygty"
           },
           {
             "keyidx": 7,
-            "p2tr": "bcrt1pn45xgkyj54usdu98plm4zgcp4c5jvvfxmyexwcm5kc3gyfsrjmasd6ctsf"
+            "p2tr": "bcrt1pchf9npgv5capjpvapdg472wgcdlu9fzxt4j4fexp7lt78dm2df8qlrvze3"
           }
         ]
       }

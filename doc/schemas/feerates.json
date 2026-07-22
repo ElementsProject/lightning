@@ -425,7 +425,7 @@
           "unilateral_close": 44000,
           "unilateral_anchor_close": 15000,
           "penalty": 30000,
-          "splice": 30005,
+          "splice": 30020,
           "min_acceptable": 7500,
           "max_acceptable": 600000,
           "floor": 1012,

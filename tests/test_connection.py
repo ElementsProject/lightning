@@ -19,11 +19,13 @@ import os
 import pytest
 import random
 import re
+import statistics
 import time
 import unittest
 import websocket
 import signal
 import ssl
+import sys
 
 
 def test_connect_basic(node_factory):
@@ -1376,7 +1378,7 @@ def test_funding_external_wallet_corners(node_factory, bitcoind):
     try:
         l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     except RpcError as err:
-        assert "disconnected during connection" in err.error
+        assert "disconnected during connection" in err.error['message']
 
     l1.daemon.wait_for_log('Responded to reestablish for long-closed channel')
     wait_for(lambda: len(l1.rpc.listpeers()['peers']) == 0)
@@ -4649,7 +4651,15 @@ def test_private_channel_no_reconnect(node_factory):
 
 @pytest.mark.slow_test
 def test_no_delay(node_factory):
-    """Is our Nagle disabling for critical messages working?"""
+    """Disabling Nagle for critical messages should speed up payment round-trips.
+
+    The Nagle stall ends when the peer's delayed ACK fires: a 40ms quantum
+    on Linux.  Trip times on loaded CI runners are heavy-tailed, which makes
+    mean/standard-error comparisons unstable (#9218, #9329); the stall shifts
+    the whole distribution instead, so we compare medians, with half the
+    quantum as margin.  macOS loopback has no measurable stall, so there we
+    only assert that disabling Nagle isn't slower.
+    """
     l1, l2 = node_factory.line_graph(2, opts={'dev-keep-nagle': None,
                                               'may_reconnect': True})
 
@@ -4662,22 +4672,21 @@ def test_no_delay(node_factory):
     }
 
     def do_round_trips(n):
-        start = time.time()
+        """Return the list of per-trip durations (seconds) for n round-trips."""
+        times = []
         for _ in range(n):
             phash = random.randbytes(32).hex()
+            start = time.time()
             l1.rpc.sendpay([routestep], phash)
             with pytest.raises(RpcError, match="WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS"):
                 l1.rpc.waitsendpay(phash)
-        return time.time() - start
+            times.append(time.time() - start)
+        return times
 
-    # Probe the actual per-RTT Nagle overhead on this platform with a small
-    # sample (10 trips), then scale up for the full run.  Linux's TCP Nagle
-    # timer fires after ~200ms; macOS/loopback may be much shorter.
-    PROBE = 10
-    probe_nagle = do_round_trips(PROBE)
+    N = 100
 
-    # Test with nagle (full run)
-    nagle_time = do_round_trips(100)
+    nagle_trips = do_round_trips(N)
+    nagle_time = sum(nagle_trips)
 
     del l1.daemon.opts['dev-keep-nagle']
     del l2.daemon.opts['dev-keep-nagle']
@@ -4685,33 +4694,27 @@ def test_no_delay(node_factory):
     l2.restart()
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
-    # Probe without nagle
-    probe_normal = do_round_trips(PROBE)
+    normal_trips = do_round_trips(N)
+    normal_time = sum(normal_trips)
 
-    # Test without nagle (full run)
-    normal_time = do_round_trips(100)
+    med_nagle = statistics.median(nagle_trips)
+    med_normal = statistics.median(normal_trips)
 
-    # Estimate the per-RTT Nagle delay from the probe; average delay is half
-    # the timer period.  Use half again as variance margin (same logic as the
-    # original 200ms assumption).  If the platform shows no measurable Nagle
-    # effect (e.g. macOS loopback with a very short timer) the expected saving
-    # rounds down to zero and we only assert directional ordering.
-    per_rtt_delay = max(0.0, (probe_nagle - probe_normal) / PROBE)
-    expected_saving = 100 * per_rtt_delay / 2
+    # The Linux Nagle stall is one delayed-ACK quantum: HZ/25 jiffies = 40ms.
+    DELACK_QUANTUM = 0.040
 
-    print(f"Nagle probe: {probe_nagle:.3f}s nagle, {probe_normal:.3f}s normal, "
-          f"per-RTT overhead ~{per_rtt_delay * 1000:.1f}ms, "
-          f"expected saving {expected_saving:.2f}s")
+    print(f"Nagle: median trip {med_nagle * 1000:.1f}ms with vs "
+          f"{med_normal * 1000:.1f}ms without; median saving "
+          f"{(med_nagle - med_normal) * 1000:.1f}ms "
+          f"(totals {nagle_time:.1f}s vs {normal_time:.1f}s)")
 
-    if expected_saving > 0.5:
-        # Platform shows a meaningful Nagle effect: assert at least half the saving.
-        # The 10-sample probe can overestimate per-RTT delay by ~2x due to variance,
-        # so apply an extra safety factor here.
-        assert normal_time < nagle_time - expected_saving / 2
+    if sys.platform.startswith('linux'):
+        # The stall shifts the whole distribution, so the median must move
+        # by about the full quantum; requiring half tolerates median noise.
+        assert med_normal < med_nagle - DELACK_QUANTUM / 2
     else:
-        # Platform Nagle delay is too small to measure reliably (e.g. macOS);
-        # just assert that disabling Nagle is not slower.
-        assert normal_time <= nagle_time + 1.0
+        # No measurable stall (e.g. macOS loopback): just assert it's not slower.
+        assert med_normal <= med_nagle + DELACK_QUANTUM / 2
 
 
 def test_listpeerchannels_by_scid(node_factory):

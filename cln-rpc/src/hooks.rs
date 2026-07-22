@@ -632,7 +632,7 @@ pub mod actions{
         #[serde(skip_serializing_if = "Option::is_none")]
         pub mindepth: Option<u32>,
         #[serde(skip_serializing_if = "Option::is_none")]
-        pub reserve: Option<Amount>,
+        pub reserve: Option<AmountSat>,
         // Path `openchannel.result`
         pub result: OpenchannelResult,
     }

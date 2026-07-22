@@ -146,31 +146,8 @@
       "response": {
         "accounts": [
           {
-            "account": "wallet",
-            "balances": [
-              {
-                "balance_msat": 202050000000,
-                "coin_type": "bcrt"
-              }
-            ]
-          },
-          {
-            "account": "channelid0230000230000230000230000230000230000230000230000230000",
-            "peer_id": "nodeid020202020202020202020202020202020202020202020202020202020202",
-            "we_opened": false,
-            "account_closed": true,
-            "account_resolved": true,
-            "resolved_at_block": 121,
-            "balances": [
-              {
-                "balance_msat": 0,
-                "coin_type": "bcrt"
-              }
-            ]
-          },
-          {
-            "account": "channelid0340000340000340000340000340000340000340000340000340000",
-            "peer_id": "nodeid040404040404040404040404040404040404040404040404040404040404",
+            "account": "f8f6216a51c6d73e2a759d1de6f675c3780f42957e27bd2f7d8bd0fb373b9006",
+            "peer_id": "02287bfac8b99b35477ebe9334eede1e32b189e24644eb701c079614712331cec0",
             "we_opened": true,
             "account_closed": true,
             "account_resolved": false,
@@ -182,8 +159,22 @@
             ]
           },
           {
-            "account": "channelid0230200230200230200230200230200230200230200230200230200",
-            "peer_id": "nodeid020202020202020202020202020202020202020202020202020202020202",
+            "account": "c51daaf63cd67a9092a021076a8b3def61b38dea85019b0a074ddada3e1a4e6c",
+            "peer_id": "033845802d25b4e074ccfd7cd8b339a41dc75bf9978a034800444b51d42b07799a",
+            "we_opened": false,
+            "account_closed": true,
+            "account_resolved": true,
+            "resolved_at_block": 128,
+            "balances": [
+              {
+                "balance_msat": 0,
+                "coin_type": "bcrt"
+              }
+            ]
+          },
+          {
+            "account": "60a870b5b9d8a5a59213cb7b3ad81b3548ed107d0d627c3615746097b1374b55",
+            "peer_id": "033845802d25b4e074ccfd7cd8b339a41dc75bf9978a034800444b51d42b07799a",
             "we_opened": false,
             "account_closed": false,
             "account_resolved": false,
@@ -195,14 +186,23 @@
             ]
           },
           {
-            "account": "channelid0340200340200340200340200340200340200340200340200340200",
-            "peer_id": "nodeid040404040404040404040404040404040404040404040404040404040404",
+            "account": "16e2e64cfffd6603c0697aa9df4f99c769e6697400d4c28acf7ad25a72fe5429",
+            "peer_id": "02287bfac8b99b35477ebe9334eede1e32b189e24644eb701c079614712331cec0",
             "we_opened": true,
             "account_closed": false,
             "account_resolved": false,
             "balances": [
               {
                 "balance_msat": 1000000000,
+                "coin_type": "bcrt"
+              }
+            ]
+          },
+          {
+            "account": "wallet",
+            "balances": [
+              {
+                "balance_msat": 202500336000,
                 "coin_type": "bcrt"
               }
             ]

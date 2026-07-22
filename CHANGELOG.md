@@ -4,7 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [26.06.2] - 2026-06-24: "Qantum-Resistant Lightning Channel II"
+## [26.06.6] - 2026-07-20: "Quantum-Resistant Lightning Channel III"
+
+v26.06.3, v26.06.4, and v26.06.5 had issues during publishing with the pypi releases and were deleted.
+
+### Fixed
+
+ - update pyln-proto's coincurve to a v21 fork to fix Python build environments ([#9325])
+ - reject a channel that reuses an existing funding outpoint ([#9318])
+
+[#9297]: https://github.com/ElementsProject/lightning/pull/9325
+[#9318]: https://github.com/ElementsProject/lightning/pull/9318
+
+## [26.06.2] - 2026-06-29: "Quantum-Resistant Lightning Channel II"
 
 This point release if recommended for all minimal OS setups, including docker images, that have no root certificates for TLS installed.
 

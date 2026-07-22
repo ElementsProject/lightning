@@ -5,9 +5,20 @@ message Amount {
 	uint64 msat = 1;
 }
 
+message AmountSat {
+	uint64 sat = 1;
+}
+
 message AmountOrAll {
 	oneof value {
 		Amount amount = 1;
+		bool all = 2;
+	}
+}
+
+message AmountSatOrAll {
+	oneof value {
+		AmountSat amount_sat = 1;
 		bool all = 2;
 	}
 }

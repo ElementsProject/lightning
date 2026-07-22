@@ -1725,6 +1725,77 @@ def test_penalty_rbf_normal(node_factory, bitcoind, executor, chainparams, ancho
     check_utxos_channel(l2, [channel_id], expected_2)
 
 
+def test_onchain_rbf_stops_after_confirmation(node_factory, bitcoind):
+    """Penalty tx RBF stops once the replacement tx is confirmed."""
+
+    to_self_delay = 10
+    opts = {'watchtime-blocks': to_self_delay, 'dev-force-features': "-23"}
+
+    # l1 is the thief; allow it to fail.
+    l1 = node_factory.get_node(options=opts, may_fail=True)
+    l2 = node_factory.get_node(options=opts)
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.fundchannel(l2, 10**7)
+
+    # Save l1's current commitment before it is revoked.
+    theft_tx = l1.rpc.dev_sign_last_tx(l2.info['id'])['tx']
+
+    # Advance the commitment state — the saved commitment is now revoked.
+    l1.pay(l2, 1000000)
+    l1.rpc.stop()
+
+    # Censor l2 so the penalty tx never reaches miners.
+    def censoring_sendrawtx(r):
+        return {'id': r['id'], 'result': {}}
+    l2.daemon.rpcproxy.mock_rpc('sendrawtransaction', censoring_sendrawtx)
+
+    # l1 broadcasts the revoked commitment.
+    bitcoind.rpc.sendrawtransaction(theft_tx)
+    bitcoind.generate_block(1)
+    l2.daemon.wait_for_log(' to ONCHAIN')
+
+    _, txid, blocks = l2.wait_for_onchaind_tx('OUR_PENALTY_TX',
+                                              'THEIR_REVOKED_UNILATERAL/DELAYED_CHEAT_OUTPUT_TO_THEM')
+    assert blocks == 0  # penalty tx is immediately broadcastable
+
+    # Each block brings the deadline (close_blockheight + to_self_delay) closer
+    # so feerate_for_target() returns a higher fee and onchaind emits INFO-level "RBF onchain txid".
+    for _ in range(3):
+        bitcoind.generate_block(1)
+        l2.daemon.wait_for_log('RBF onchain txid')
+
+    # Stop censoring.  Generate a block to trigger rebroadcast (the penalty tx
+    # enters bitcoind's mempool) but filter it out so the next block mines it.
+    l2.daemon.rpcproxy.mock_rpc('sendrawtransaction', None)
+    bitcoind.generate_block(1, needfeerate=10000000)
+    l2.daemon.wait_for_log('RBF onchain txid')
+
+    # Mine the penalty tx (single output, no in-flight HTLCs).
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    sync_blockheight(bitcoind, [l2])
+
+    l2.daemon.wait_for_log('Resolved THEIR_REVOKED_UNILATERAL/DELAYED_CHEAT_OUTPUT_TO_THEM'
+                           ' by our proposal OUR_PENALTY_TX')
+
+    # Record log position right after confirmation.
+    log_pos = l2.daemon.logsearch_start
+
+    # Bump feerate: any spurious rebroadcast would compute a higher fee
+    # (newfee > info->fee) and emit "RBF onchain txid" at INFO level.
+    # Without the fix: wallet_transaction_height(original_txid) returns 0
+    # because the stale original txid was never mined (only the replacement
+    # was), so consider_onchain_rebroadcast keeps firing indefinitely.
+    l2.set_feerates([10000] * 4, False)
+
+    # rebroadcast_txs() fires on every new block (chaintopology.c ~line 854).
+    bitcoind.generate_block(2)
+    sync_blockheight(bitcoind, [l2])
+
+    assert not l2.daemon.is_in_log('RBF onchain txid', start=log_pos), \
+        "node kept RBF-ing penalty tx after the replacement was confirmed"
+
+
 def test_onchain_first_commit(node_factory, bitcoind):
     """Onchain handling where opener immediately drops to chain"""
 
@@ -4230,11 +4301,22 @@ def test_simple_close_dust_output_omitted(node_factory, bitcoind):
     # Every closing tx in the mempool must have exactly 1 output: the dust
     # output is omitted in all variants.  Elements appends an explicit fee
     # output (scriptPubKey type 'fee') which must not be counted here.
-    for txid in bitcoind.rpc.getrawmempool():
-        tx = bitcoind.rpc.getrawtransaction(txid, True)
-        real_vouts = [v for v in tx['vout'] if v['scriptPubKey'].get('type') != 'fee']
-        assert len(real_vouts) == 1, \
-            f"tx {txid} has {len(tx['vout'])} outputs; expected 1 (dust omitted)"
+    # Both sides broadcast conflicting closer txs, and l1's higher-fee tx
+    # can RBF-replace l2's between our getrawmempool() snapshot and the
+    # getrawtransaction() call (bitcoind error -5), so retry with a fresh
+    # snapshot until we see a consistent one.
+    def closing_txs_have_single_output():
+        try:
+            for txid in bitcoind.rpc.getrawmempool():
+                tx = bitcoind.rpc.getrawtransaction(txid, True)
+                real_vouts = [v for v in tx['vout'] if v['scriptPubKey'].get('type') != 'fee']
+                assert len(real_vouts) == 1, \
+                    f"tx {txid} has {len(tx['vout'])} outputs; expected 1 (dust omitted)"
+        except bitcoin.rpc.InvalidAddressOrKeyError:
+            return False
+        return True
+
+    wait_for(closing_txs_have_single_output)
 
 
 def test_simple_close_restart(node_factory, bitcoind):
@@ -4358,11 +4440,14 @@ def test_simple_close_delay_broadcast(node_factory, bitcoind, executor):
              == 'CLOSINGD_COMPLETE')
     assert not l2.daemon.is_in_log('Simple close: delaying broadcast')
 
-    # l2 broadcasts immediately; wait until its tx is confirmed.
-    # We wait for the broadcast log rather than polling getrawmempool(),
-    # which can miss a just-submitted tx under the rpcproxy timing.
+    # l2 broadcasts immediately; wait until its tx is actually in the mempool
+    # before mining.  The 'Broadcasting txid' log only means CLN *called*
+    # sendrawtransaction, not that bitcoind accepted the tx: mining on the log
+    # alone can produce an empty block under rpcproxy timing, leaving the
+    # funding output unspent so MUTUAL_CLOSE never resolves.  generate_block's
+    # wait_for_mempool polls until the tx appears, so it can't miss it.
     l2.daemon.wait_for_log('Broadcasting txid')
-    bitcoind.generate_block(1)
+    bitcoind.generate_block(1, wait_for_mempool=1)
     l1.daemon.wait_for_log('Resolved FUNDING_TRANSACTION/FUNDING_OUTPUT by MUTUAL_CLOSE')
     l2.daemon.wait_for_log('Resolved FUNDING_TRANSACTION/FUNDING_OUTPUT by MUTUAL_CLOSE')
     fut.result(timeout=10)

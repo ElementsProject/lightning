@@ -214,10 +214,11 @@
         }
       },
       "response": {
-        "offer_id": "offeridl21000002100000210000021000002100000210000021000002100000",
+        "offer_id": "c5cde0292d56941940f8b10a4c9bdd1f8846d6041a61b3f7e0f87e105aa88121",
         "active": true,
         "single_use": false,
-        "bolt12": "lno1qgsq000bolt210002100021000210002100021000210002100021000210002100021000210002100021000210002100021000210002100021000210002100021000",
+        "bolt12": "lno1qgsqvgnwgcg35z6ee2h3yczraddm72xrfua9uve2rlrm9deu7xyfzrcgqgn3qzs2ge5hx6pqwdskcefpzcssxwz9sqkjtd8qwnx06lxckvu6g8w8t0ue0zsrfqqygj636s4sw7v6",
+        "force_paths": false,
         "used": false,
         "created": true
       }
@@ -233,10 +234,11 @@
         }
       },
       "response": {
-        "offer_id": "offeridl22000002200000220000022000002200000220000022000002200000",
+        "offer_id": "aea02a1d36d3f00c681656dd938d3431a44d932ff880e09197b55e966ed806e2",
         "active": true,
         "single_use": false,
-        "bolt12": "lno1qgsq000bolt220002200022000220002200022000220002200022000220002200022000220002200022000220002200022000220002200022000220002200022000",
+        "bolt12": "lno1qgsqvgnwgcg35z6ee2h3yczraddm72xrfua9uve2rlrm9deu7xyfzrcgqv85ysq2qepk7enxv4j3gqg2zcssxwz9sqkjtd8qwnx06lxckvu6g8w8t0ue0zsrfqqygj636s4sw7v6",
+        "force_paths": false,
         "used": false,
         "created": true
       }

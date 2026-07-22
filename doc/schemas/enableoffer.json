@@ -113,16 +113,17 @@
         "id": "example:enableoffer#1",
         "method": "enableoffer",
         "params": {
-          "offer_id": "offeridl23000002300000230000023000002300000230000023000002300000"
+          "offer_id": "f26c3b52dc94122dbbff0051ea6bf9a3f99cf127781ea6fc8923ef8428b5fe99"
         }
       },
       "response": {
-        "offer_id": "offeridl23000002300000230000023000002300000230000023000002300000",
+        "offer_id": "f26c3b52dc94122dbbff0051ea6bf9a3f99cf127781ea6fc8923ef8428b5fe99",
         "active": true,
         "single_use": false,
-        "bolt12": "lno1qgsq000bolt230002300023000230002300023000230002300023000230002300023000230002300023000230002300023000230002300023000230002300023000",
-        "description": "Movie ticket",
-        "used": false
+        "bolt12": "lno1qgsqvgnwgcg35z6ee2h3yczraddm72xrfua9uve2rlrm9deu7xyfzrcgqv0gfqq2zp8kven9wgs8gmeqg35hxctzd3j3vggr8pzcqtf9kns8fn8a0nvtxwdyrhr4h7vh3gp5sqzyfdgag2c80xdq",
+        "force_paths": false,
+        "used": false,
+        "description": "Offer to Disable"
       }
     }
   ]

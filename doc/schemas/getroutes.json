@@ -259,8 +259,8 @@
         "id": "example:getroutes#1",
         "method": "getroutes",
         "params": {
-          "source": "nodeid010101010101010101010101010101010101010101010101010101010101",
-          "destination": "nodeid030303030303030303030303030303030303030303030303030303030303",
+          "source": "038194b5f32bdf0aa59812c86c4ef7ad2f294104fa027d1ace9b469bb6f88cf37b",
+          "destination": "03cecbfdc68544cc596223b68ce0710c9e5d2c9cb317ee07822d95079acc703d31",
           "amount_msat": 1250000,
           "layers": [],
           "maxfee_msat": 125000,
@@ -276,14 +276,26 @@
             "final_cltv": 0,
             "path": [
               {
-                "short_channel_id_dir": "109x1x1/1",
-                "next_node_id": "nodeid020202020202020202020202020202020202020202020202020202020202",
+                "short_channel_id_dir": "116x1x1/1",
+                "node_id_in": "038194b5f32bdf0aa59812c86c4ef7ad2f294104fa027d1ace9b469bb6f88cf37b",
+                "node_id_out": "033845802d25b4e074ccfd7cd8b339a41dc75bf9978a034800444b51d42b07799a",
+                "amount_in_msat": 1250026,
+                "amount_out_msat": 1250013,
+                "cltv_in": 12,
+                "cltv_out": 6,
+                "next_node_id": "033845802d25b4e074ccfd7cd8b339a41dc75bf9978a034800444b51d42b07799a",
                 "amount_msat": 1250026,
                 "delay": 12
               },
               {
-                "short_channel_id_dir": "123x1x1/0",
-                "next_node_id": "nodeid030303030303030303030303030303030303030303030303030303030303",
+                "short_channel_id_dir": "130x1x0/0",
+                "node_id_in": "033845802d25b4e074ccfd7cd8b339a41dc75bf9978a034800444b51d42b07799a",
+                "node_id_out": "03cecbfdc68544cc596223b68ce0710c9e5d2c9cb317ee07822d95079acc703d31",
+                "amount_in_msat": 1250013,
+                "amount_out_msat": 1250000,
+                "cltv_in": 6,
+                "cltv_out": 0,
+                "next_node_id": "03cecbfdc68544cc596223b68ce0710c9e5d2c9cb317ee07822d95079acc703d31",
                 "amount_msat": 1250013,
                 "delay": 6
               }

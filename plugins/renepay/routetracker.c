@@ -449,8 +449,7 @@ struct command_result *route_sendpay_request(struct command *cmd,
 		json_add_amount_msat(req->js, "amount_msat", hop->amount);
 		json_add_node_id(req->js, "id", &hop->node_id);
 		json_add_short_channel_id(req->js, "channel", hop->scid);
-		json_add_num(req->js, "delay",
-			     hop->delay + payment->blockheight);
+		json_add_num(req->js, "delay", hop->delay);
 		json_object_end(req->js);
 
 		// FIXME: No localinvreqid is provided
