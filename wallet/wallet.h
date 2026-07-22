@@ -57,7 +57,9 @@ struct wallet {
 	/* How many keys should we look ahead at most? */
 	u64 keyscan_gap;
 
-	/* Address lookahead max index. */
+	/* Address lookahead max index: in-memory copy of the
+	 * bip32_max_index/bip86_max_index db vars, all updates must go
+	 * through wallet_set_max_addr_index. */
 	u64 bip32_max_index;
 	u64 bip86_max_index;
 };
