@@ -1,3 +1,4 @@
+from decimal import Decimal
 from fixtures import *  # noqa: F401,F403
 from pyln.client import RpcError, Millisatoshi
 from shutil import copyfile
@@ -3728,6 +3729,188 @@ def test_close_twice(node_factory, executor):
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     assert fut.result(TIMEOUT)['type'] == 'mutual'
     assert fut2.result(TIMEOUT)['type'] == 'mutual'
+
+
+# Depth at which we treat the double-spend as final: buried this many
+# blocks, a reorg reversing it is not a practical concern.  100 is a
+# conservative choice (it also matches Bitcoin's coinbase-maturity rule).
+REORG_SAFE_DEPTH = 100
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="channel stays in CLOSINGD_COMPLETE even after a funding input is double-spent and the spend is reorg-safe"
+)
+def test_closingd_complete_stuck_funding_inputs_double_spent(node_factory, bitcoind):
+    """Mutual close before lockin, then a funding input is double-spent.
+
+    A user can be left with a channel wedged in a state that provably
+    will never resolve, with no transition to a sensible end state.  The
+    sequence:
+
+    - How it gets stuck: BOLT 2 permits `shutdown` before
+      `channel_ready`, so both sides can finish a mutual close and store
+      a signed close tx while still in CHANNELD_AWAITING_LOCKIN; the
+      channel reaches CLOSINGD_COMPLETE.  That close tx spends the
+      funding output, so it only becomes usable once the funding tx
+      confirms.  If the funding tx never confirms, the channel stays in
+      CLOSINGD_COMPLETE.
+
+    - Why the state is held until the double-spend: while the funding
+      inputs are unspent the funding tx can still confirm (e.g. on
+      rebroadcast), and if it does the stored close resolves the channel
+      normally, so the channel must be kept until the funding is known
+      dead.
+
+    - Why it is safe to clear once the double-spend is buried: when a
+      funding input is spent by another tx and that spend is buried deep
+      enough that a reorg will not reverse it, the funding tx can never
+      confirm.  The funding output will never exist, the channel can
+      never resolve on chain, and it can move to a clean end state.
+
+    To reproduce, after both sides reach CLOSINGD_COMPLETE we:
+
+      1. Capture the funding tx via the proxy mock (it never reaches
+         bitcoind's mempool).
+      2. Force-unreserve the funding inputs (the funding-tx reservation
+         is ~2016 blocks, so we explicitly pass a large reserve= value
+         to push reserved_til below current height).
+      3. Spend the same UTXOs in a separate withdraw tx that DOES land
+         on chain (the proxy mock forwards non-funding-tx broadcasts).
+      4. Mature the double-spend past REORG_SAFE_DEPTH.
+
+    The test asserts both edges: the channel stays in CLOSINGD_COMPLETE
+    while the double-spend is shallow, and reaches a resolved state once
+    it is reorg-safe.
+
+    Marked xfail-strict because no fix yet exists; once fixed, the
+    marker should be removed.
+    """
+    l1, l2 = node_factory.line_graph(2, fundchannel=False)
+    l1.fundwallet(10**7)
+
+    # Capture-and-censor mock.  Stash the first sendrawtransaction
+    # (the funding tx) and censor any re-broadcast of the same hex.
+    # Other sendrawtransaction calls (the close tx CLN may attempt to
+    # broadcast, and our double-spend withdraw) are forwarded to
+    # bitcoind so they land on chain when valid.
+    captured = []
+
+    def censor(r):
+        raw = r['params'][0]
+        if not captured:
+            captured.append(raw)
+            return {'id': r['id'], 'result': {}}
+        if raw == captured[0]:
+            return {'id': r['id'], 'result': {}}
+        try:
+            txid = bitcoind.rpc.sendrawtransaction(raw)
+            return {'id': r['id'], 'result': txid, 'error': None}
+        except Exception as e:
+            return {'id': r['id'], 'error': {'code': -32603, 'message': str(e)}}
+    l1.daemon.rpcproxy.mock_rpc('sendrawtransaction', censor)
+
+    # Open the channel — funding tx is captured + censored.
+    l1.rpc.fundchannel(l2.info['id'], 10**6)
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['state']
+             == 'CHANNELD_AWAITING_LOCKIN')
+    wait_for(lambda: only_one(l2.rpc.listpeerchannels()['channels'])['state']
+             == 'CHANNELD_AWAITING_LOCKIN')
+    assert len(captured) > 0, "funding tx was not captured"
+
+    # Initiate mutual close while still in CHANNELD_AWAITING_LOCKIN
+    # (BOLT 2 §"Closing Initiation: shutdown" permits this).
+    l1.rpc.close(l2.info['id'])
+
+    # Both sides should reach CLOSINGD_COMPLETE
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['state']
+             == 'CLOSINGD_COMPLETE')
+    wait_for(lambda: only_one(l2.rpc.listpeerchannels()['channels'])['state']
+             == 'CLOSINGD_COMPLETE')
+
+    # Decode the captured funding tx to extract its inputs.
+    decoded = bitcoind.rpc.decoderawtransaction(captured[0])
+    funding_inputs = [f"{vin['txid']}:{vin['vout']}" for vin in decoded['vin']]
+
+    # The funding-tx reservation marks these UTXOs as reserved for
+    # ~2016 blocks (the dual-open auto-unreserve interval), which
+    # blocks withdraw from selecting them.  Force-unreserve via a
+    # PSBT with the same inputs and a `reserve` value large enough
+    # to push reserved_til back below the current block height.
+    # This mirrors what would happen naturally after 2016 blocks
+    # pass, but compresses the test runtime.  The PSBT outputs are
+    # placeholders; only the input set matters for unreserveinputs.
+    psbt_inputs = [{'txid': vin['txid'], 'vout': vin['vout']}
+                   for vin in decoded['vin']]
+    total_sat = sum(
+        int(bitcoind.rpc.getrawtransaction(vin['txid'], True)
+            ['vout'][vin['vout']]['value'] * Decimal(100_000_000))
+        for vin in decoded['vin']
+    )
+    dummy = bitcoind.rpc.getnewaddress()
+    dummy_psbt = bitcoind.rpc.createpsbt(
+        psbt_inputs,
+        [{dummy: float(Decimal(total_sat - 1000) / Decimal(100_000_000))}],
+    )
+    l1.rpc.unreserveinputs(dummy_psbt, reserve=10_000)
+
+    # Now spend the same UTXOs in a different tx.  This goes through
+    # the proxy's censor mock, which forwards non-funding-tx
+    # broadcasts to bitcoind so the double-spend actually lands.
+    addr = l1.rpc.newaddr('p2tr')['p2tr']
+    l1.rpc.withdraw(addr, "all", utxos=funding_inputs)
+
+    # Confirm the double-spend.
+    bitcoind.generate_block(1)
+    sync_blockheight(bitcoind, [l1, l2])
+
+    # Safety property: with the double-spend only one block deep a
+    # reorg could still evict it, re-enabling the funding inputs and
+    # letting the funding tx confirm after all.  Resolving the channel
+    # now would be premature, so until the spend reaches a reorg-safe
+    # depth the channel should stay in CLOSINGD_COMPLETE on both sides.
+    state_l1 = only_one(l1.rpc.listpeerchannels()['channels'])['state']
+    state_l2 = only_one(l2.rpc.listpeerchannels()['channels'])['state']
+    assert state_l1 == 'CLOSINGD_COMPLETE', (
+        "l1 resolved the channel while the funding-input double-spend "
+        "was only one block deep; a reorg could still make the funding "
+        "confirmable"
+    )
+    assert state_l2 == 'CLOSINGD_COMPLETE', (
+        "l2 resolved the channel while the funding-input double-spend "
+        "was only one block deep; a reorg could still make the funding "
+        "confirmable"
+    )
+
+    # Mature the double-spend to a reorg-safe depth, so that a reorg
+    # reversing it is no longer a practical concern.
+    bitcoind.generate_block(REORG_SAFE_DEPTH)
+    sync_blockheight(bitcoind, [l1, l2])
+
+    # Sanity: funding really never confirmed
+    assert l1.rpc.listpeerchannels()['channels'][0].get('short_channel_id') is None
+    assert l2.rpc.listpeerchannels()['channels'][0].get('short_channel_id') is None
+
+    # Expected behavior under fix: the channel record has been
+    # cleaned up on both sides.  The funding tx is provably impossible
+    # to confirm (its inputs are spent at a reorg-safe depth), so
+    # there is no reason to keep the channel record in
+    # CLOSINGD_COMPLETE.  Any forward progress is enough; we do not
+    # prescribe a specific cleanup shape.
+    chans_l1 = l1.rpc.listpeerchannels()['channels']
+    chans_l2 = l2.rpc.listpeerchannels()['channels']
+    assert all(c['state'] != 'CLOSINGD_COMPLETE' for c in chans_l1), (
+        f"l1 still has channel in CLOSINGD_COMPLETE after funding "
+        f"inputs were double-spent and matured to "
+        f"{REORG_SAFE_DEPTH + 1} confirmations: "
+        f"{[c['state'] for c in chans_l1]}"
+    )
+    assert all(c['state'] != 'CLOSINGD_COMPLETE' for c in chans_l2), (
+        f"l2 still has channel in CLOSINGD_COMPLETE after funding "
+        f"inputs were double-spent and matured to "
+        f"{REORG_SAFE_DEPTH + 1} confirmations: "
+        f"{[c['state'] for c in chans_l2]}"
+    )
 
 
 def test_close_weight_estimate(node_factory, bitcoind):
