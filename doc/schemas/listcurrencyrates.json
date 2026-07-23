@@ -76,28 +76,28 @@
       "response": {
         "currencyrates": [
           {
-            "amount": 64130.09,
-            "source": "binance"
-          },
-          {
-            "amount": 64099.33,
-            "source": "blockchain.info"
-          },
-          {
-            "amount": 64117.405,
+            "amount": 65554.035,
             "source": "coinbase"
           },
           {
-            "amount": 64117.67,
+            "amount": 65529.0,
+            "source": "coingecko"
+          },
+          {
+            "amount": 65568.79,
             "source": "bitstamp"
           },
           {
-            "amount": 64108.7,
+            "amount": 65574.0,
             "source": "kraken"
           },
           {
-            "amount": 64103.0,
-            "source": "coingecko"
+            "amount": 65526.35,
+            "source": "binance"
+          },
+          {
+            "amount": 65529.57,
+            "source": "blockchain.info"
           }
         ]
       }

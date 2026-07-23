@@ -358,7 +358,15 @@
                 "timestamp": 1738000000
               }
             ],
-            "node_biases": []
+            "node_biases": [
+              {
+                "node": "03cecbfdc68544cc596223b68ce0710c9e5d2c9cb317ee07822d95079acc703d31",
+                "description": "This node is unreliable",
+                "in_bias": 0,
+                "out_bias": -5,
+                "timestamp": 1738000000
+              }
+            ]
           }
         ]
       }
@@ -410,7 +418,15 @@
                 "timestamp": 1738000000
               }
             ],
-            "node_biases": []
+            "node_biases": [
+              {
+                "node": "03cecbfdc68544cc596223b68ce0710c9e5d2c9cb317ee07822d95079acc703d31",
+                "description": "This node is unreliable",
+                "in_bias": 0,
+                "out_bias": -5,
+                "timestamp": 1738000000
+              }
+            ]
           },
           {
             "layer": "xpay",

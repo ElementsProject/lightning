@@ -242,6 +242,26 @@
         "used": false,
         "created": true
       }
+    },
+    {
+      "request": {
+        "id": "example:offer#3",
+        "method": "offer",
+        "params": {
+          "amount": "1000sat",
+          "description": "Recurring subscription",
+          "recurrence": "1minutes"
+        }
+      },
+      "response": {
+        "offer_id": "cde367077506f651b99cb8c871db6be694cf39ebdc7f13c00fc1558fd6645b7c",
+        "active": true,
+        "single_use": false,
+        "bolt12": "lno1qgsqvgnwgcg35z6ee2h3yczraddm72xrfua9uve2rlrm9deu7xyfzrcgqv85ysq2zefx2cm4wfexjmn8ypeh2cnnvdexjur5d9hku93pqg58h7kghxdn23m7h6fnfmk7rcetrz0zgezwkuquq7tpgufrx88vpl3mnt9psqsq8s",
+        "force_paths": false,
+        "used": false,
+        "created": true
+      }
     }
   ]
 }

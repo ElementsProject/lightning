@@ -360,46 +360,7 @@
       "response": {
         "outputs": [
           {
-            "txid": "9860f25fc55272e7250d4829e0ebf37f524c3a57ef6841e9585a2132c19b0f06",
-            "output": 0,
-            "amount_msat": 497105000,
-            "scriptpubkey": "512073c774833ecca0547ce8ecd2ffc856ac1f7889f15ac1cf80b13aa3cc61601ca0",
-            "address": "bcrt1pw0rhfqe7ejs9gl8ganf0ljzk4s0h3z03ttqulq93823ucctqrjsq4ew6qm",
-            "status": "unconfirmed",
-            "reserved": false
-          },
-          {
-            "txid": "df0d67b5c14dc69c1f7dea24111e4557aaa9a01bca5c683cd81efda21f12031f",
-            "output": 1,
-            "amount_msat": 995073000,
-            "scriptpubkey": "512083dbe98bf7a7bfae203d7f09ffe645aa105138793b05935f3c332566c399be29",
-            "address": "bcrt1ps0d7nzlh57l6ugpa0uyllej94gg9zwre8vzexheuxvjkdsuehc5s3940ps",
-            "status": "confirmed",
-            "blockheight": 168,
-            "reserved": false
-          },
-          {
-            "txid": "d3a6d332f7ce629300e973ea2ebd3536a3bf523459a408d45b3fbd3b09d168d1",
-            "output": 0,
-            "amount_msat": 497105000,
-            "scriptpubkey": "5120c0a2f19bd78ecf3cdfa39e07bead69530099f4739c6d68c07f84cdcf45e31f82",
-            "address": "bcrt1pcz30rx7h3m8neharncrmattf2vqfnarnn3kk3srlsnxu730rr7pqnxrf7d",
-            "status": "confirmed",
-            "blockheight": 167,
-            "reserved": false
-          },
-          {
-            "txid": "085495a1f868a8422b5d6797209e3a6a1972438cd18bc7663e010f7b3b52d2df",
-            "output": 1,
-            "amount_msat": 203398803000,
-            "scriptpubkey": "5120d2d0f24d9a3e596e2fbc0819e8894c83c5c583eb862d90156a5e129239194dd5",
-            "address": "bcrt1p6tg0ynv68evkutaupqv73z2vs0zutqltsckeq9t2tcffywgefh2syue8tv",
-            "status": "confirmed",
-            "blockheight": 148,
-            "reserved": false
-          },
-          {
-            "txid": "085495a1f868a8422b5d6797209e3a6a1972438cd18bc7663e010f7b3b52d2df",
+            "txid": "970be7130db099b9e3d4019d5b28cdc14c8bf686db6fafac253d3fe7982c096f",
             "output": 6,
             "amount_msat": 1000000,
             "scriptpubkey": "0014295f94257ef514dec3ed7d4549c4ee263ae16e84",
@@ -409,13 +370,52 @@
             "reserved": false
           },
           {
-            "txid": "085495a1f868a8422b5d6797209e3a6a1972438cd18bc7663e010f7b3b52d2df",
+            "txid": "970be7130db099b9e3d4019d5b28cdc14c8bf686db6fafac253d3fe7982c096f",
             "output": 8,
             "amount_msat": 25000000,
             "scriptpubkey": "5120182af728bb638b6402708b0031f4aa2544e94acdd63d1381eb7e207d6ba8d998",
             "address": "bcrt1prq40w29mvw9kgqns3vqrra92y4zwjjkd6c738q0t0cs866agmxvqc307xy",
             "status": "confirmed",
             "blockheight": 148,
+            "reserved": false
+          },
+          {
+            "txid": "2a21a27b97f7384ab5c00880be9acf7d362e647b43acbb833f26b85524def388",
+            "output": 0,
+            "amount_msat": 2000000000,
+            "scriptpubkey": "00140478d022342cf2b99ff5ede2d256cbd0a593eb6d",
+            "address": "bcrt1qq3udqg359netn8l4ah3dy4kt6zje86mdlylrt3",
+            "status": "confirmed",
+            "blockheight": 157,
+            "reserved": false
+          },
+          {
+            "txid": "0ddf2206bb3b4a3d471b4c19d74e0377eb4dd679f002ae52716261c05dc760e2",
+            "output": 0,
+            "amount_msat": 497105000,
+            "scriptpubkey": "512073c774833ecca0547ce8ecd2ffc856ac1f7889f15ac1cf80b13aa3cc61601ca0",
+            "address": "bcrt1pw0rhfqe7ejs9gl8ganf0ljzk4s0h3z03ttqulq93823ucctqrjsq4ew6qm",
+            "status": "unconfirmed",
+            "reserved": false
+          },
+          {
+            "txid": "e3be9473b548e3e7f6e366face489d4671e5f885188bbcb9b80a058c8b7163ed",
+            "output": 0,
+            "amount_msat": 497105000,
+            "scriptpubkey": "5120c0a2f19bd78ecf3cdfa39e07bead69530099f4739c6d68c07f84cdcf45e31f82",
+            "address": "bcrt1pcz30rx7h3m8neharncrmattf2vqfnarnn3kk3srlsnxu730rr7pqnxrf7d",
+            "status": "confirmed",
+            "blockheight": 157,
+            "reserved": false
+          },
+          {
+            "txid": "830d880d1b4bf06d4dbf6143a2640638d1054b66a6ce4fa7fa8f3243eec45eef",
+            "output": 1,
+            "amount_msat": 202394183000,
+            "scriptpubkey": "512083dbe98bf7a7bfae203d7f09ffe645aa105138793b05935f3c332566c399be29",
+            "address": "bcrt1ps0d7nzlh57l6ugpa0uyllej94gg9zwre8vzexheuxvjkdsuehc5s3940ps",
+            "status": "confirmed",
+            "blockheight": 158,
             "reserved": false
           }
         ],
@@ -425,10 +425,10 @@
             "connected": false,
             "state": "CLOSINGD_COMPLETE",
             "channel_id": "473851bb98a42329724d897b5ea85fcda29e9973b70e4e7b2bbce82ff996c601",
-            "short_channel_id": "168x1x0",
+            "short_channel_id": "158x1x0",
             "our_amount_msat": 500000000,
             "amount_msat": 1000000000,
-            "funding_txid": "df0d67b5c14dc69c1f7dea24111e4557aaa9a01bca5c683cd81efda21f12031f",
+            "funding_txid": "830d880d1b4bf06d4dbf6143a2640638d1054b66a6ce4fa7fa8f3243eec45eef",
             "funding_output": 0
           },
           {
@@ -439,7 +439,7 @@
             "short_channel_id": "116x1x1",
             "our_amount_msat": 609507210,
             "amount_msat": 1000000000,
-            "funding_txid": "6958d6b2c23a79254dfd48b9b3d2a357c8c12c52a8bbd90bf48bd04e55996368",
+            "funding_txid": "bf1c405e20fab7b8945d6e8fa363e665faca210bc7f77b2bbf9cf9ae08a1698f",
             "funding_output": 1
           },
           {
@@ -450,7 +450,7 @@
             "short_channel_id": "130x1x0",
             "our_amount_msat": 899996000,
             "amount_msat": 1000000000,
-            "funding_txid": "88c5963d6e1b0790375d5ce51c7fdd58b9b241c104754d2b704aee8cbdc5e7b5",
+            "funding_txid": "713a023034f58d25b76e2a15c40b50db4a58455e707b9e671f97f255eea1d9cf",
             "funding_output": 0
           }
         ]
