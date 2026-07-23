@@ -48,7 +48,7 @@
         "id": "example:delnetworkevent#1",
         "method": "delnetworkevent",
         "params": {
-          "created_index": 2
+          "created_index": 9
         }
       },
       "response": {}

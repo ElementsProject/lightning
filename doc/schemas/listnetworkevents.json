@@ -171,7 +171,7 @@
             "type": "connect",
             "timestamp": 1738000000,
             "reason": "connect command \"pytest:connect#22\"",
-            "duration_nsec": 1477000
+            "duration_nsec": 1381000
           },
           {
             "created_index": 3,
@@ -179,66 +179,73 @@
             "type": "connect",
             "timestamp": 1738000000,
             "reason": "connect command \"pytest:connect#24\"",
-            "duration_nsec": 949000
+            "duration_nsec": 1064000
           },
           {
             "created_index": 4,
             "peer_id": "038194b5f32bdf0aa59812c86c4ef7ad2f294104fa027d1ace9b469bb6f88cf37b",
             "type": "ping",
             "timestamp": 1738000000,
-            "duration_nsec": 364000
+            "duration_nsec": 405000
           },
           {
             "created_index": 5,
             "peer_id": "02287bfac8b99b35477ebe9334eede1e32b189e24644eb701c079614712331cec0",
             "type": "connect",
             "timestamp": 1738000000,
-            "reason": "connect command \"pytest:connect#416\"",
-            "duration_nsec": 1844000
+            "reason": "connect command \"pytest:connect#424\"",
+            "duration_nsec": 2055000
           },
           {
             "created_index": 6,
             "peer_id": "02287bfac8b99b35477ebe9334eede1e32b189e24644eb701c079614712331cec0",
             "type": "disconnect",
             "timestamp": 1738000000,
-            "duration_nsec": 7947000
+            "duration_nsec": 10201000
           },
           {
             "created_index": 7,
             "peer_id": "0258f3ff3e0853ccc09f6fe89823056d7c0c55c95fab97674df5e1ad97a72f6265",
             "type": "disconnect",
             "timestamp": 1738000000,
-            "duration_nsec": 78635382000
+            "duration_nsec": 78986070000
           },
           {
             "created_index": 8,
+            "peer_id": "03cecbfdc68544cc596223b68ce0710c9e5d2c9cb317ee07822d95079acc703d31",
+            "type": "disconnect",
+            "timestamp": 1738000000,
+            "duration_nsec": 79174254000
+          },
+          {
+            "created_index": 10,
             "peer_id": "0258f3ff3e0853ccc09f6fe89823056d7c0c55c95fab97674df5e1ad97a72f6265",
             "type": "connect",
             "timestamp": 1738000000,
             "reason": "reconnect by timer",
-            "duration_nsec": 3529000
-          },
-          {
-            "created_index": 9,
-            "peer_id": "02287bfac8b99b35477ebe9334eede1e32b189e24644eb701c079614712331cec0",
-            "type": "connect",
-            "timestamp": 1738000000,
-            "reason": "connect command \"pytest:connect#458\"",
-            "duration_nsec": 633000
-          },
-          {
-            "created_index": 10,
-            "peer_id": "02287bfac8b99b35477ebe9334eede1e32b189e24644eb701c079614712331cec0",
-            "type": "disconnect",
-            "timestamp": 1738000000,
-            "duration_nsec": 6094786000
+            "duration_nsec": 3751000
           },
           {
             "created_index": 11,
+            "peer_id": "02287bfac8b99b35477ebe9334eede1e32b189e24644eb701c079614712331cec0",
+            "type": "connect",
+            "timestamp": 1738000000,
+            "reason": "connect command \"pytest:connect#474\"",
+            "duration_nsec": 773000
+          },
+          {
+            "created_index": 12,
+            "peer_id": "02287bfac8b99b35477ebe9334eede1e32b189e24644eb701c079614712331cec0",
+            "type": "disconnect",
+            "timestamp": 1738000000,
+            "duration_nsec": 8115258000
+          },
+          {
+            "created_index": 13,
             "peer_id": "0258f3ff3e0853ccc09f6fe89823056d7c0c55c95fab97674df5e1ad97a72f6265",
             "type": "disconnect",
             "timestamp": 1738000000,
-            "duration_nsec": 58905461000
+            "duration_nsec": 35981421000
           }
         ]
       }
@@ -261,7 +268,14 @@
             "type": "connect",
             "timestamp": 1738000000,
             "reason": "connect command \"pytest:connect#22\"",
-            "duration_nsec": 1477000
+            "duration_nsec": 1381000
+          },
+          {
+            "created_index": 8,
+            "peer_id": "03cecbfdc68544cc596223b68ce0710c9e5d2c9cb317ee07822d95079acc703d31",
+            "type": "disconnect",
+            "timestamp": 1738000000,
+            "duration_nsec": 79174254000
           }
         ]
       }
