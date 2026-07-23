@@ -1,0 +1,48 @@
+name: PyPI build
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        type: string
+        required: true
+
+jobs:
+  build:
+    name: Build ${{ matrix.PACKAGE }} 🐍
+    runs-on: ubuntu-22.04
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - PACKAGE: pyln-client
+          - PACKAGE: pyln-testing
+          - PACKAGE: pyln-proto
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v6
+      with:
+        fetch-depth: 0
+
+    - name: Set up Python
+      uses: actions/setup-python@v6
+      with:
+        python-version: '3.10'
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v8.1.0
+
+    - name: Update pyln versions
+      run: |
+        make update-pyln-versions NEW_VERSION=${{ inputs.version }}
+
+    - name: Build distribution 📦
+      run: uv build --package ${{ matrix.PACKAGE }}
+
+    - name: Upload distribution artifact
+      uses: actions/upload-artifact@v7
+      with:
+        name: dist-${{ matrix.PACKAGE }}
+        path: dist/
+        if-no-files-found: error

@@ -1,0 +1,86 @@
+name: Docker build
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        type: string
+        required: true
+      dh-repository-owner:
+        type: string
+        required: true
+      platforms-to-build:
+        type: string
+        required: true
+
+jobs:
+  # Turn the comma-separated platforms-to-build input into a JSON matrix array,
+  # so we can fan out per-platform without hardcoding the list twice.
+  plan:
+    name: Plan platform matrix
+    runs-on: ubuntu-24.04
+    outputs:
+      platforms: ${{ steps.plan.outputs.platforms }}
+    steps:
+      - id: plan
+        run: |
+          IFS=',' read -ra ARR <<< "${{ inputs.platforms-to-build }}"
+          JSON=$(printf '%s\n' "${ARR[@]}" | jq -R . | jq -sc .)
+          echo "platforms=$JSON" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: Build ${{ matrix.target == 'lightningd-vls-signer' && 'vls' || 'normal' }} / ${{ matrix.platform }}
+    needs: plan
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - lightningd
+          - lightningd-vls-signer
+        platform: ${{ fromJson(needs.plan.outputs.platforms) }}
+    runs-on: ${{ matrix.platform == 'linux/arm64' && 'ubuntu-22.04-arm' || 'ubuntu-22.04' }}
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v6
+      with:
+        fetch-depth: 0
+
+    - name: Set up QEMU
+      if: matrix.platform == 'linux/arm/v7'
+      uses: docker/setup-qemu-action@v4
+
+    - name: Setup Docker Buildx
+      uses: docker/setup-buildx-action@v4
+
+    - name: Log in to Docker Hub
+      uses: docker/login-action@v4
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+
+    - name: Build single-platform image, push by digest
+      id: build
+      uses: docker/build-push-action@v7
+      with:
+        context: .
+        file: ./Dockerfile
+        target: ${{ matrix.target }}
+        platforms: ${{ matrix.platform }}
+        build-args: |
+          VERSION=${{ inputs.version }}
+        outputs: type=image,name=${{ inputs.dh-repository-owner }}/lightningd,push-by-digest=true,name-canonical=true,push=true
+        cache-from: type=gha,scope=${{ matrix.target }}-${{ matrix.platform }}
+        cache-to: type=gha,mode=max,scope=${{ matrix.target }}-${{ matrix.platform }}
+
+    - name: Save digest
+      run: |
+        mkdir -p /tmp/digests
+        echo "${{ steps.build.outputs.digest }}" > /tmp/digests/digest.txt
+
+    - name: Upload digest
+      uses: actions/upload-artifact@v7
+      with:
+        name: digest_${{ matrix.target }}_${{ strategy.job-index }}
+        path: /tmp/digests/digest.txt
+        if-no-files-found: error
+        retention-days: 1
