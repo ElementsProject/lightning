@@ -1,0 +1,67 @@
+name: Release binaries build
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        type: string
+        required: true
+      skip_validation:
+        type: boolean
+        required: true
+
+jobs:
+  releases:
+    name: Releases
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - 'bin-Fedora'
+          - 'bin-Ubuntu-jammy'
+          - 'bin-Ubuntu-noble'
+          - 'bin-Ubuntu-resolute'
+    steps:
+      - name: Git checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Build environment setup
+        run: |
+          distribution=$(echo ${{ matrix.target }} | cut -d'-' -f3)
+          sudo docker run --rm -v $(pwd):/build ubuntu:${distribution} bash -c "\
+              apt-get update && \
+              apt-get install -y debootstrap && \
+              debootstrap ${distribution} /build/${distribution}"
+          sudo tar -C ${distribution} -c . | docker import - ${distribution}
+          docker build -t cl-repro-${distribution} - < contrib/reprobuild/Dockerfile.${distribution}
+        if: contains(matrix.target, 'Ubuntu')
+
+      - name: Build release
+        run: |
+          if [[ "${{ inputs.skip_validation }}" == "true" ]]; then
+            tools/build-release.sh ${{ matrix.target }} --force-version "${{ inputs.version }}" --force-unclean --force-mtime "$(date +%Y-%m-%d)"
+          else
+            tools/build-release.sh ${{ matrix.target }}
+          fi
+
+      - name: Upload target artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          path: release/
+          name: ${{ matrix.target }}
+          if-no-files-found: error
+
+  artifact:
+    name: Construct release artifact
+    needs: releases
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Merge artifacts
+        uses: actions/upload-artifact/merge@v7
+        with:
+          name: c-lightning-${{ inputs.version }}
+          pattern: bin-*
+          delete-merged: true
