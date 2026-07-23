@@ -94,6 +94,10 @@ tlvdata,invoice_request,invreq_recurrence_counter,counter,tu32,
 tlvtype,invoice_request,invreq_recurrence_start,2000000093
 tlvdata,invoice_request,invreq_recurrence_start,period_offset,tu32,
 tlvtype,invoice_request,invreq_recurrence_cancel,2000000094
+tlvtype,invoice_request,invreq_contact_secret,2000001729
+tlvdata,invoice_request,invreq_contact_secret,secret,sha256,
+tlvtype,invoice_request,invreq_payer_offer,2000001731
+tlvdata,invoice_request,invreq_payer_offer,offer_data,byte,...
 tlvtype,invoice_request,signature,240
 tlvdata,invoice_request,signature,sig,bip340sig,
 subtype,bip_353_name
@@ -155,6 +159,10 @@ tlvtype,invoice,invreq_recurrence_counter,2000000092
 tlvdata,invoice,invreq_recurrence_counter,counter,tu32,
 tlvtype,invoice,invreq_recurrence_start,2000000093
 tlvdata,invoice,invreq_recurrence_start,period_offset,tu32,
+tlvtype,invoice,invreq_contact_secret,2000001729
+tlvdata,invoice,invreq_contact_secret,secret,sha256,
+tlvtype,invoice,invreq_payer_offer,2000001731
+tlvdata,invoice,invreq_payer_offer,offer_data,byte,...
 tlvtype,invoice,invoice_paths,160
 tlvdata,invoice,invoice_paths,paths,blinded_path,...
 tlvtype,invoice,invoice_blindedpay,162
