@@ -20,6 +20,7 @@ from tests.test_wallet import HsmTool, write_all, WAIT_TIMEOUT
 import ast
 import copy
 import json
+import logging
 import os
 import pytest
 import random
@@ -1798,6 +1799,38 @@ def test_sendpay_notifications_nowaiter(node_factory):
     results = l1.rpc.call('listsendpays_plugin')
     assert len(results['sendpay_success']) == 1
     assert len(results['sendpay_failure']) == 1
+
+
+def test_inline_plugin_wait_for_log_no_selfmatch(node_factory):
+    """On inline-plugin nodes the test process's logging is forwarded into
+    the node's log.  wait_for_log()'s own 'Waiting for [pattern]'
+    announcement embeds the pattern, so with test logging at DEBUG it used
+    to land in the scanned log and match itself, reducing the wait to a
+    no-op (#9343).  A pattern that never appears must genuinely time out.
+    """
+    def setup(plugin):
+        @plugin.method('inline_ping')
+        def inline_ping(plugin):
+            logging.info("AUTHOR_LOG_MARKER_9343")
+            return {'pong': True}
+
+    l1 = node_factory.get_node(inline_plugin=setup)
+
+    root = logging.getLogger()
+    old_level = root.level
+    root.setLevel(logging.DEBUG)
+    try:
+        # The plugin author's own logging must still be forwarded...
+        assert l1.rpc.call('inline_ping') == {'pong': True}
+        l1.daemon.wait_for_log('AUTHOR_LOG_MARKER_9343')
+        # ...but pyln's internal announcements must not be, so a pattern
+        # that never appears genuinely times out instead of matching the
+        # forwarded 'Waiting for [pattern]' line.
+        with pytest.raises(TimeoutError):
+            l1.daemon.wait_for_log('SELFMATCH_SENTINEL_NEVER_LOGGED',
+                                   timeout=5)
+    finally:
+        root.setLevel(old_level)
 
 
 def test_rpc_command_hook(node_factory):
