@@ -33,7 +33,7 @@ REGENERATING_RPCS = []
 ALL_RPC_EXAMPLES = {}
 EXAMPLES_JSON = {}
 LOG_FILE = './tests/autogenerate-examples-status.log'
-IGNORE_RPCS_LIST = ['dev-splice', 'reckless', 'sql-template', 'clnrest-register-path', 'graceful', 'askrene-remove-channel-update']
+IGNORE_RPCS_LIST = ['dev-splice', 'reckless', 'sql-template', 'graceful', 'askrene-remove-channel-update']
 EXPECTED_WALLET_TXIDS = defaultdict(set)
 
 
@@ -1737,6 +1737,29 @@ def generate_currencyrate_examples(l3):
         logger.error(f'Error in generating currencyrate examples: {e}')
 
 
+def generate_clnrest_examples(node_factory):
+    """Generate clnrest plugin examples (needs a node with clnrest enabled)"""
+    try:
+        logger.info('Clnrest starts...')
+        rest_port = str(node_factory.get_unused_port())
+        rest_protocol = 'http'
+        rest_certs = node_factory.directory + '/clnrest-certs'
+        l_rest = node_factory.get_node(options={'clnrest-port': rest_port, 'clnrest-protocol': rest_protocol, 'clnrest-certs': rest_certs})
+        base_url = f'{rest_protocol}://127.0.0.1:{rest_port}'
+        l_rest.daemon.logsearch_start = 0
+        l_rest.daemon.wait_for_log(r'plugin-clnrest: REST server running at ' + base_url)
+        update_example(node=l_rest, method='clnrest-register-path',
+                       params={'path': '/custom/endpoint/{user}', 'rpc_method': 'custom-rpc-method',
+                               'http_method': 'GET', 'rune_required': False})
+        update_example(node=l_rest, method='clnrest-register-path',
+                       params={'path': '/v1/superpay', 'rpc_method': 'superpay',
+                               'http_method': 'POST', 'rune_required': True,
+                               'rune_restrictions': {'method': 'pay'}})
+        logger.info('Clnrest Done!')
+    except Exception as e:
+        logger.error(f'Error in generating clnrest examples: {e}')
+
+
 @pytest.fixture(autouse=True)
 def setup_logging():
     logger.setLevel(logging.DEBUG)
@@ -1855,6 +1878,7 @@ def test_generate_examples(node_factory, bitcoind, executor):
         generate_list_examples(bitcoind, l1, l2, l3, c12, c23_2, c34_2, inv_l31, inv_l32, offer_l23, inv_req_l1_l22, address_l22)
         generate_currencyrate_examples(l3)
         generate_splice_examples(node_factory, bitcoind, regenerate_blockchain)
+        generate_clnrest_examples(node_factory)
         update_examples_in_schema_files()
         logger.info('All Done!!!')
     except Exception as e:
