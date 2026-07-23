@@ -46,7 +46,7 @@ static void test_channel_update_funding(struct channel *channel, const u8 **curs
 	funding_sats.satoshis %= MAX_SATS; /* Raw: fuzzing */
 	splice_amnt = fromwire_s64(cursor, max) % MAX_SATS;
 
-	channel_update_funding(channel, &funding, funding_sats, splice_amnt);
+	channel_update_funding(channel, &funding, 0, funding_sats, splice_amnt);
 }
 
 void run(const uint8_t *data, size_t size)
@@ -98,6 +98,7 @@ void run(const uint8_t *data, size_t size)
 
 	for (enum side opener = 0; opener < NUM_SIDES; opener++) {
 		channel = new_initial_channel(tmpctx, &cid, &funding,
+					      0,
 					      minimum_depth,
 					      take(new_height_states(NULL, opener,
 								     &blockheight)),
