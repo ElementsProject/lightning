@@ -3084,6 +3084,12 @@ def test_self_disable(node_factory):
     with pytest.raises(RpcError, match="Disabled via selfdisable option"):
         l1.rpc.plugin_start(p2, selfdisable=True)
 
+    with pytest.raises(RpcError, match="init saying disable"):
+        l1.rpc.plugin_start(pydisable)
+
+    with pytest.raises(RpcError, match="init saying disable"):
+        l1.rpc.plugin_start(pydisable, **{"dummy-option": True})
+
 
 def test_restart_on_update(node_factory):
     """Tests if plugin rescan restarts modified plugins
