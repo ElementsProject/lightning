@@ -2861,6 +2861,15 @@ def test_error_returns_blockheight(node_factory, bitcoind):
     assert (err.value.error['data']['raw_message']
             == '400f{:016x}{:08x}'.format(100, bitcoind.rpc.getblockcount()))
 
+    # A second waitsendpay replays the failure from the database (the
+    # path a waitsendpay racing the failure takes): raw_message must
+    # survive that round trip too.
+    with pytest.raises(RpcError, match=r"INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS.*'erring_index': 1") as err:
+        l1.rpc.waitsendpay('00' * 32, TIMEOUT)
+
+    assert (err.value.error['data']['raw_message']
+            == '400f{:016x}{:08x}'.format(100, bitcoind.rpc.getblockcount()))
+
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "Invoice is network specific")
 def test_pay_no_secret(node_factory, bitcoind):

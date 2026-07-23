@@ -1085,6 +1085,11 @@ static const struct db_migration dbmigrations[] = {
     {SQL("ALTER TABLE offers ADD COLUMN force_paths INTEGER DEFAULT 0;"), NULL,
      SQL("ALTER TABLE offers DROP COLUMN force_paths"), NULL},
     /* ^v26.04 */
+
+    /* Raw BOLT4 failure message, so waitsendpay can report it even
+     * after the failure was recorded (issue #9341). */
+    {SQL("ALTER TABLE payments ADD failmsg BLOB;"), NULL,
+     SQL("ALTER TABLE payments DROP COLUMN failmsg"), NULL},
 };
 
 const struct db_migration *get_db_migrations(size_t *num)
