@@ -1,0 +1,56 @@
+name: Check release tag
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        type: string
+        required: false
+      skip_validation:
+        type: boolean
+        default: false
+    outputs:
+      version:
+        description: "Resolved release version"
+        value: ${{ jobs.check.outputs.version }}
+
+jobs:
+  check:
+    name: Validate tag against .version file and release content
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Validate tag matches .version file
+        id: resolve
+        run: |
+          if [[ "${{ github.ref_type }}" != "tag" ]]; then
+            echo "::notice::Not triggered by a tag push (ref_type=${{ github.ref_type }}); skipping .version check."
+            echo "version=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [[ ! -f .version ]]; then
+            echo "::error::.version file not found in repository root."
+            exit 1
+          fi
+
+          FILE_VERSION="$(tr -d '[:space:]' < .version)"
+          TAG_VERSION="${{ github.ref_name }}"
+
+          if [[ "$TAG_VERSION" != "$FILE_VERSION" ]]; then
+            echo "::error::Tag '$TAG_VERSION' does not match version in .version file ('$FILE_VERSION'). Refusing to release."
+            exit 1
+          fi
+
+          echo "Tag '$TAG_VERSION' matches .version file."
+          echo "version=$TAG_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Validate release
+        if: ${{ !inputs.skip_validation }}
+        run: tools/check-release.sh --version=${{ steps.resolve.outputs.version }}

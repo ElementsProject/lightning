@@ -1,0 +1,69 @@
+name: Release publish
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        type: string
+        required: true
+      create_release:
+        type: boolean
+        required: true
+
+jobs:
+  release:
+    name: Sign and prepare release draft
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Git checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Download artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: c-lightning-${{ inputs.version }}
+          path: release/
+
+      - name: Import GPG keys
+        id: gpg
+        uses: crazy-max/ghaction-import-gpg@v7
+        with:
+          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+          passphrase: ${{ secrets.GPG_PASSPHRASE }}
+          trust_level: 5
+
+      - name: Set default GPG key
+        run: echo "default-key ${{ steps.gpg.outputs.keyid }}" >> ~/.gnupg/gpg.conf
+
+      - name: Sign release
+        run: tools/build-release.sh --without-zip sign
+
+      - name: Upload signed artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: c-lightning-${{ inputs.version }}
+          overwrite: true
+          path: release/
+
+      - name: Determine release data
+        id: release_data
+        run: |
+          CHANGELOG_VERSION=${VERSION#v}
+          VERSION="${{ inputs.version }}"
+          CHANGELOG_VERSION=${VERSION#v}
+          CHANGELOG_TITLE=$(grep "## \[${CHANGELOG_VERSION}\]" CHANGELOG.md)
+          RELEASE_TITLE=$(echo $CHANGELOG_TITLE | cut -d'"' -f2)
+          echo "release_title=$RELEASE_TITLE" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare release draft
+        if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.create_release) }}
+        uses: softprops/action-gh-release@v3
+        with:
+          name: "${{ inputs.version }} ${{ steps.release_data.outputs.release_title }}"
+          tag_name: ${{ inputs.version }}
+          draft: true
+          prerelease: contains(inputs.version, "-rc")
+          files: release/*
+          fail_on_unmatched_files: true
