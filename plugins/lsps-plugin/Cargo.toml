@@ -12,6 +12,10 @@ path = "src/client.rs"
 name = "cln-lsps-service"
 path = "src/service.rs"
 
+[[bin]]
+name = "cln-lsps-policy"
+path = "src/policy.rs"
+
 [dependencies]
 anyhow = "1.0"
 async-trait = "0.1"
