@@ -406,13 +406,14 @@ stop_nodes() {
 }
 
 stop_ln() {
-	stop_nodes "$@"
-	test ! -f "$BITCOIN_DIR/regtest/bitcoind.pid" || \
-		(kill "$(cat "$BITCOIN_DIR/regtest/bitcoind.pid")"; \
-		rm "$BITCOIN_DIR/regtest/bitcoind.pid")
+	network=${1:-regtest}
+	stop_nodes "$network"
+	test ! -f "$BITCOIN_DIR/$network/bitcoind.pid" || \
+		(kill "$(cat "$BITCOIN_DIR/$network/bitcoind.pid")"; \
+		rm "$BITCOIN_DIR/$network/bitcoind.pid")
 
 	unset LN_NODES
-	unalias bt-cli
+	unalias bt-cli 2>/dev/null || true
 }
 
 node_info() {
@@ -427,6 +428,14 @@ node_info() {
 }
 
 destroy_ln() {
+	if [ -n "$LN_NODES" ]; then
+		printf "Nodes are still running. Stop them now with stop_ln? [y/N] "
+		read -r yn
+		case "$yn" in
+			[Yy]*) stop_ln ;;
+			*) echo "Aborting. Call stop_ln before destroy_ln."; return 1 ;;
+		esac
+	fi
 	rm -rf "$LIGHTNING_DIR"/l[0-9]*
 }
 
