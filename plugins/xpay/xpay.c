@@ -1,4 +1,5 @@
 #include "config.h"
+#include <bitcoin/tx.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/htable/htable_type.h>
@@ -21,6 +22,7 @@
 #include <common/pseudorand.h>
 #include <common/randbytes.h>
 #include <common/route.h>
+#include <common/trace.h>
 #include <common/wireaddr.h>
 #include <errno.h>
 #include <inttypes.h>
@@ -1494,7 +1496,14 @@ static struct command_result *do_inject(struct command *aux_cmd,
 		json_add_sha256(req->js, "localinvreqid", attempt->payment->localinvreqid);
 	if (attempt->payment->label)
 		json_add_escaped_string(req->js, "label", attempt->payment->label);
-	return send_payment_req(aux_cmd, attempt->payment, req);
+
+	/* Libplugin already creates traces for jsonrpc requests, we only need
+	 * to attach them to this payment instance. */
+	trace_span_resume(attempt->payment);
+	struct command_result *result =
+	    send_payment_req(aux_cmd, attempt->payment, req);
+	trace_span_suspend(attempt->payment);
+	return result;
 }
 
 static struct command_result *reserve_done(struct command *aux_cmd,
@@ -1895,7 +1904,12 @@ static struct command_result *getroutes_for(struct command *aux_cmd,
 		json_add_u32(req->js, "maxparts", payment->maxparts - count_pending);
 	}
 
-	return send_payment_req(aux_cmd, payment, req);
+	/* Libplugin already creates traces for jsonrpc requests, we only need
+	 * to attach them to this payment instance. */
+	trace_span_resume(payment);
+	struct command_result *result = send_payment_req(aux_cmd, payment, req);
+	trace_span_suspend(payment);
+	return result;
 }
 
 /* First time, we ask getroutes for the entire payment */
@@ -2438,6 +2452,11 @@ static struct payment *new_payment(const tal_t *ctx,
 {
 	struct xpay *xpay = xpay_of(cmd->plugin);
 	struct payment *payment = tal(ctx, struct payment);
+	/* Start tracing the payment until it is destroyed. */
+	trace_span_start("xpay/payment", payment);
+	trace_span_tag(payment, "payment_hash",
+		       fmt_sha256(payment, payment_hash));
+	trace_span_suspend_may_free(payment);
 
 	payment->plugin = cmd->plugin;
 	payment->deadline = timemono_add(time_mono(), time_from_sec(retryfor));
