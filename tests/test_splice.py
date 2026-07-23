@@ -919,3 +919,23 @@ def test_easy_splice_out_into_channel(node_factory, bitcoind, chainparams):
 
     end_chan1_balance = Millisatoshi(bkpr_account_balance(l2, chan1))
     assert initial_chan1_balance + Millisatoshi(spliceamt * 1000) == end_chan1_balance
+
+
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_splicescript_open(node_factory, bitcoind, chainparams):
+    l1, l2 = node_factory.line_graph(2, fundamount=10000000, wait_for_announce=True, opts={'experimental-dual-fund': None})
+
+    l1.daemon.wait_for_log(r'DUALOPEND_AWAITING_LOCKIN to CHANNELD_NORMAL')
+
+    print ("Performing the channel open splice script")
+
+    print (l1.rpc.splice("peer(first).chan(first) -> 1M+fee; 1M -> peer(first).new()"))
+
+    bitcoind.generate_block(6, wait_for_mempool=1)
+
+    l1.daemon.wait_for_log(r'DUALOPEND_AWAITING_LOCKIN to CHANNELD_NORMAL')
+
+    wait_for(lambda: len(l1.rpc.listfunds()['channels']) == 2)
+
