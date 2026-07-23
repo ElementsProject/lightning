@@ -259,6 +259,8 @@ def test_xpay_fake_channeld(node_factory, bitcoind, chainparams, slow_mode):
                                            {'allow_bad_gossip': True,
                                             'log-level': 'info',
                                             }])
+    l1.daemon.logsearch_start = 0
+    l1.daemon.wait_for_log('xpay is ready')
 
     # l1 needs to know l2's shaseed for the channel so it can make revocations
     hsmfile = os.path.join(l2.daemon.lightning_dir, TEST_NETWORK, "hsm_secret")
