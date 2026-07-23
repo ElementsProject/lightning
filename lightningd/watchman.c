@@ -4,7 +4,6 @@
 #include <bitcoin/short_channel_id.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/str/str.h>
-#include <ccan/tal/str/str.h>
 #include <common/autodata.h>
 #include <common/json_command.h>
 #include <common/json_param.h>
@@ -38,7 +37,7 @@
 
 /* A pending operation - method and params to send to bwatch */
 struct pending_op {
-	/* "{method}:{owner}", e.g. "addscriptpubkeywatch:wallet/p2wpkh/42".
+	/* "{method}:{owner}", e.g. "addscriptpubkeywatch:wallet/spk/42/p2tr".
 	 * Method and owner are recoverable from this without a separate field. */
 	const char *op_id;
 	const char *json_params; /* JSON params to send to bwatch */
@@ -181,7 +180,7 @@ struct watchman *watchman_new(const tal_t *ctx, struct lightningd *ld)
  * callback never needs to parse the JSON-RPC response id. */
 struct bwatch_ack_arg {
 	struct watchman *wm;
-	const char *op_id; /* "{method}:{owner}", e.g. "addscriptpubkeywatch:wallet/p2wpkh/42" */
+	const char *op_id; /* "{method}:{owner}", e.g. "addscriptpubkeywatch:wallet/spk/42/p2tr" */
 };
 
 /* Response callback for bwatch RPC requests; handles both success and error. */
@@ -218,7 +217,7 @@ static const char *method_from_op_id(const tal_t *ctx, const char *op_id)
 }
 
 /* Send an RPC request to the bwatch plugin.
- * op_id must be "{method}:{owner}", e.g. "addscriptpubkeywatch:wallet/p2wpkh/42". */
+ * op_id must be "{method}:{owner}", e.g. "addscriptpubkeywatch:wallet/spk/42/p2tr". */
 static void send_to_bwatch(struct watchman *wm, const char *method,
 			   const char *op_id, const char *json_params)
 {
@@ -287,7 +286,13 @@ static void watchman_add(struct lightningd *ld, const char *method,
 			 const char *owner, const char *json_params)
 {
 	struct watchman *wm = ld->watchman;
-	char *op_id = tal_fmt(tmpctx, "%s:%s", method, owner);
+	char *op_id;
+
+	/* No-op unless --experimental-bwatch stood up the watchman. */
+	if (!wm)
+		return;
+
+	op_id = tal_fmt(tmpctx, "%s:%s", method, owner);
 
 	/* Remove any existing add for this owner */
 	watchman_ack(ld, op_id);
@@ -305,12 +310,18 @@ static void watchman_del(struct lightningd *ld, const char *method,
 			 const char *owner, const char *json_params)
 {
 	struct watchman *wm = ld->watchman;
-	char *op_id = tal_fmt(tmpctx, "%s:%s", method, owner);
+	char *op_id, *add_op_id;
+
+	/* No-op unless --experimental-bwatch stood up the watchman. */
+	if (!wm)
+		return;
+
+	op_id = tal_fmt(tmpctx, "%s:%s", method, owner);
 
 	/* Cancel any pending add for this owner.  All del-methods are named
 	 * "del<suffix>" and their paired add-method is "add<suffix>" */
 	assert(strstarts(method, "del"));
-	char *add_op_id = tal_fmt(tmpctx, "add%s:%s", method + strlen("del"), owner);
+	add_op_id = tal_fmt(tmpctx, "add%s:%s", method + strlen("del"), owner);
 	watchman_ack(ld, add_op_id);
 	enqueue_op(wm, method, op_id, json_params);
 }
@@ -320,12 +331,15 @@ static void watchman_del(struct lightningd *ld, const char *method,
  *
  * Called when bwatch confirms it has processed an add/del operation.
  * Removes the operation from the pending queue and datastore.
- * op_id must be the bare stored id (e.g. "add:wallet/p2wpkh/0"), not the
- * full JSON-RPC response id.
+ * op_id must be the bare stored id (e.g. "addscriptpubkeywatch:wallet/spk/0/p2wpkh"),
+ * not the full JSON-RPC response id.
  */
 void watchman_ack(struct lightningd *ld, const char *op_id)
 {
 	struct watchman *wm = ld->watchman;
+
+	if (!wm)
+		return;
 
 	for (size_t i = 0; i < tal_count(wm->pending_ops); i++) {
 		if (streq(wm->pending_ops[i]->op_id, op_id)) {
@@ -346,6 +360,9 @@ void watchman_ack(struct lightningd *ld, const char *op_id)
 void watchman_replay_pending(struct lightningd *ld)
 {
 	struct watchman *wm = ld->watchman;
+
+	if (!wm)
+		return;
 
 	for (size_t i = 0; i < tal_count(wm->pending_ops); i++) {
 		struct pending_op *op = wm->pending_ops[i];
@@ -466,7 +483,12 @@ static const struct watch_dispatch {
 	watch_found_fn handler;
 	watch_revert_fn revert;
 } watch_handlers[] = {
-	/* Entries added in subsequent commits alongside their handler functions. */
+	{ "wallet/utxo/", wallet_utxo_spent_watch_found, wallet_utxo_spent_watch_revert },
+	/* wallet/spk/<keyidx>/<form>: WATCH_SCRIPTPUBKEY, fires when an
+	 * address form (p2wpkh/p2tr/p2sh_p2wpkh) of this HD key receives
+	 * funds.  One dispatch entry serves all forms: the handler parses the
+	 * keyindex and recovers the form from the matched output script. */
+	{ "wallet/spk/", wallet_watch_spk, wallet_scriptpubkey_watch_revert },
 	{ NULL, NULL, NULL },
 };
 
@@ -800,6 +822,9 @@ static struct command_result *json_chaininfo(struct command *cmd,
 		   p_req("ibd", param_bool, &ibd),
 		   NULL))
 		return command_param_failed();
+
+	if (!cmd->ld->watchman)
+		return command_fail(cmd, LIGHTNINGD, "Watchman not initialized");
 
 	if (!streq(chain, chainparams->bip70_name))
 		fatal("Wrong network! Our Bitcoin backend is running on '%s',"

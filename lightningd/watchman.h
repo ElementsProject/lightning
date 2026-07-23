@@ -3,7 +3,9 @@
 
 #include "config.h"
 #include <bitcoin/tx.h>
+#include <ccan/tal/str/str.h>
 #include <ccan/tal/tal.h>
+#include <inttypes.h>
 
 struct lightningd;
 struct pending_op;
@@ -25,9 +27,10 @@ struct watchman {
 /**
  * watch_found_fn - Handler for watch_found notifications (tx-based watches)
  * @ld: lightningd instance
- * @suffix: the owner string after the prefix (e.g. "42" for wallet/p2wpkh/42,
- *          or "100x1x0" for gossip/100x1x0); the handler is responsible for
- *          parsing whatever identifier it stored in that suffix
+ * @suffix: the owner string after the prefix (e.g. "42/p2tr" for
+ *          wallet/spk/42/p2tr, or "100x1x0" for gossip/100x1x0); the handler
+ *          is responsible for parsing whatever identifier it stored in that
+ *          suffix
  * @tx: the transaction that matched
  * @outnum: which output matched (for scriptpubkey watches) or input for outpoint watches
  * @blockheight: the block height where tx was found
@@ -143,5 +146,26 @@ void watchman_watch_blockdepth(struct lightningd *ld,
 void watchman_unwatch_blockdepth(struct lightningd *ld,
 				 const char *owner,
 				 u32 confirm_height);
+
+/*
+ * Owner string constructors.
+ *
+ * Always use these instead of raw tal_fmt() to build owner strings.  Sharing
+ * one constructor between watchman_watch_* and watchman_unwatch_* guarantees
+ * the strings are identical and the unwatch can never silently fail due to a
+ * format mismatch (e.g. %u vs PRIu64).
+ */
+
+/* wallet/ owners */
+static inline const char *owner_wallet_utxo(const tal_t *ctx,
+					    const struct bitcoin_outpoint *op)
+{ return tal_fmt(ctx, "wallet/utxo/%s", fmt_bitcoin_outpoint(ctx, op)); }
+
+/* One owner per (HD keyindex, address form) pair, e.g. "wallet/spk/42/p2tr".
+ * A single key can be watched in several forms at once (p2wpkh, p2tr and
+ * legacy p2sh-p2wpkh). */
+static inline const char *owner_wallet_spk(const tal_t *ctx, u64 keyidx,
+					   const char *form)
+{ return tal_fmt(ctx, "wallet/spk/%"PRIu64"/%s", keyidx, form); }
 
 #endif /* LIGHTNING_LIGHTNINGD_WATCHMAN_H */

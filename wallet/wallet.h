@@ -2028,4 +2028,79 @@ void wallet_datastore_save_payment_description(struct db *db,
 					       const char *desc);
 void migrate_setup_coinmoves(struct lightningd *ld, struct db *db);
 
+/* ====================================================================
+ * bwatch-driven wallet recording.
+ *
+ * These functions are invoked from lightningd/watchman's dispatch table
+ * when bwatch reports activity on a wallet-owned scriptpubkey.  They
+ * persist outputs and transactions in the `our_outputs` and `our_txs`
+ * tables, mirroring every write into the legacy `outputs` /
+ * `transactions` tables so a node can downgrade cleanly for one release.
+ * ==================================================================== */
+
+/* Insert a wallet-owned UTXO row into our_outputs.  If the same outpoint
+ * was previously inserted unconfirmed (blockheight=0), the row is updated
+ * to the new confirmed blockheight so coin selection can spend it. */
+void wallet_add_our_output(struct wallet *w,
+			   const struct bitcoin_outpoint *outpoint,
+			   u32 blockheight, u32 txindex,
+			   const u8 *script, size_t script_len,
+			   struct amount_sat sat,
+			   u32 keyindex);
+
+/* watch_found handler for the wallet/spk/<keyidx>/<form> dispatch entry:
+ * fires when an address form (p2wpkh/p2tr/p2sh_p2wpkh) of this HD key
+ * receives funds.  The keyindex is parsed from @suffix; the address type is
+ * recovered from the matched output script. */
+void wallet_watch_spk(struct lightningd *ld,
+		      const char *suffix,
+		      const struct bitcoin_tx *tx,
+		      size_t outnum,
+		      u32 blockheight,
+		      u32 txindex);
+
+/* Revert handler for the wallet/spk dispatch entry: demotes every output
+ * (and its tx) recorded at @suffix's keyindex and @blockheight back to
+ * unconfirmed. */
+void wallet_scriptpubkey_watch_revert(struct lightningd *ld,
+				      const char *suffix,
+				      u32 blockheight);
+
+/* Record the wallet debit for a spent owned output.  The watch notification
+ * identifies the outpoint but not its amount, so reload the persisted UTXO
+ * before creating the movement. */
+void wallet_record_spend(struct lightningd *ld,
+			 const struct bitcoin_outpoint *outpoint,
+			 const struct bitcoin_txid *txid,
+			 u32 blockheight);
+
+/* watch_found handler for wallet/utxo/<txid>:<outnum>: an output we own was
+ * spent.  Marks it spent in our_outputs, stores the spending tx in our_txs,
+ * and records the withdrawal coin movement. */
+void wallet_utxo_spent_watch_found(struct lightningd *ld,
+				   const char *suffix,
+				   const struct bitcoin_tx *tx,
+				   size_t innum,
+				   u32 blockheight,
+				   u32 txindex);
+
+/* watch_revert handler: a reorg undid that spend; mark the UTXO unspent. */
+void wallet_utxo_spent_watch_revert(struct lightningd *ld,
+				    const char *suffix,
+				    u32 blockheight);
+
+/* Arm a scriptpubkey watch for an HD key under its wallet/spk/<keyidx>/<form>
+ * owner; the form is derived from @script.  No-op (logs broken) if the script
+ * isn't a form the wallet issues. */
+void wallet_add_bwatch_scriptpubkey(struct lightningd *ld,
+				    u64 keyindex,
+				    u32 start_block,
+				    const u8 *script,
+				    size_t script_len);
+
+/* Register a bwatch watch for every scriptpubkey wallet_can_spend
+ * recognizes: every HD key up through {bip32,bip86}_max_index plus the
+ * keyscan_gap lookahead, in the address forms actually issued. */
+void init_wallet_scriptpubkey_watches(struct wallet *w);
+
 #endif /* LIGHTNING_WALLET_WALLET_H */
