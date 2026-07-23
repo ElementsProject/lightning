@@ -1,0 +1,55 @@
+---
+name: CLN static dev resources
+on:
+  schedule:
+    - cron: "37 23 * * *"
+  workflow_dispatch:
+
+# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
+# However, do NOT cancel in-progress runs as we want to allow these production deployments to complete.
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  gen-n-upload:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+        fetchLocal: ["master"]
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Rebase locally
+        run: git rebase master 20240102-coverage
+
+      - name: Generate coverage report
+        run: |
+          make distclean coverage-clean
+          ./configure --enable-coverage --disable-valgrind CC=clang
+          make -j $(nproc)
+          PYTEST_PAR=$(nproc) make pytest || true
+          make coverage
+
+      - name: Collect static webpage
+        run: |
+          mkdir -p site
+          mv coverage/html site/coverage
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: 'site'
+
+      - name: Upload to `gh-pages`
+        id: deployment
+        uses: actions/deploy-pages@v4
