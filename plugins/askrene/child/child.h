@@ -1,11 +1,13 @@
 #ifndef LIGHTNING_PLUGINS_ASKRENE_CHILD_CHILD_H
 #define LIGHTNING_PLUGINS_ASKRENE_CHILD_CHILD_H
 #include "config.h"
+#include <bitcoin/short_channel_id.h>
 #include <ccan/compiler/compiler.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/time/time.h>
 #include <common/amount.h>
 #include <common/fp16.h>
+#include <common/node_id.h>
 #include <stdbool.h>
 
 struct additional_cost_htable;
@@ -14,6 +16,26 @@ struct gossmap_node;
 struct json_filter;
 struct layer;
 struct reserve_htable;
+
+/* For circular (self-rebalance) requests the parent splits the source
+ * node in two before forking (see inject_circular_fake in askrene.c):
+ * each still-enabled (peer -> source) channel direction is disabled
+ * and mirrored, under a fake scid, into a synthetic destination node.
+ * This table maps the synthetic side back to reality when serializing
+ * routes: a hop over a mirror's fake scid is rewritten to the real
+ * (peer -> source) channel, and its node_id_out becomes the real
+ * source id.  NULL for normal (non-circular) requests. */
+struct circular_unsplit_entry {
+	struct short_channel_id fake_scid;
+	struct short_channel_id_dir real;
+};
+
+struct circular_unsplit {
+	/* The real source (== destination) node id. */
+	struct node_id source;
+	/* tal array: one entry per mirrored channel direction. */
+	struct circular_unsplit_entry *entries;
+};
 
 /* This is the child.  Do the thing. */
 void run_child(const struct gossmap *gossmap,
@@ -34,6 +56,7 @@ void run_child(const struct gossmap *gossmap,
 	       bool include_next_node_id,
 	       bool include_amount_msat,
 	       bool include_delay,
+	       const struct circular_unsplit *unsplit,
 	       int reply_fd) NORETURN;
 
 #endif /* LIGHTNING_PLUGINS_ASKRENE_CHILD_CHILD_H */
