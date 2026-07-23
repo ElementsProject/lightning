@@ -408,6 +408,7 @@ include doc/Makefile
 include contrib/msggen/Makefile
 include devtools/Makefile
 include tools/Makefile
+include contrib/libbolt12/Makefile
 ifneq ($(RUST),0)
 include cln-rpc/Makefile
 include cln-grpc/Makefile
