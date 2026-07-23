@@ -87,6 +87,17 @@ bool tal_arr_eq_(const void *a, const void *b, size_t unused);
 void tal_arr_remove_(void *p, size_t elemsize, size_t n);
 
 /**
+ * Remove a range of element from an array
+ *
+ * This will shift the elements past the removed elements, changing
+ * their position in memory, so only use this for simple arrays.
+ */
+#define tal_arr_remove_range(p, position, count)                               \
+	tal_arr_remove_range_((p), sizeof(**p) * (position),                   \
+			      sizeof(**p) * (count))
+void tal_arr_remove_range_(void *p, size_t position, size_t chunk_size);
+
+/**
  * Insert an element in an array
  */
 #define tal_arr_insert(p, n, v) \
@@ -118,6 +129,9 @@ static inline void tal_free_if_taken(const tal_t *p)
 
 void tal_arr_append_(void *p, const void *append TAKES);
 void tal_arr_appendn_(void *p, const void *append TAKES, size_t bytes);
+
+/* Parse a decimal u64 from exactly buflen bytes; false on bad chars or overflow */
+bool str_to_u64(const char *buf, size_t buflen, u64 *num);
 
 /* Check for valid UTF-8 */
 bool utf8_check(const void *buf, size_t buflen);

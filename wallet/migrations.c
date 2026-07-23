@@ -1085,6 +1085,12 @@ static const struct db_migration dbmigrations[] = {
     {SQL("ALTER TABLE offers ADD COLUMN force_paths INTEGER DEFAULT 0;"), NULL,
      SQL("ALTER TABLE offers DROP COLUMN force_paths"), NULL},
     /* ^v26.04 */
+    /* In v26.09 the datastore has a new field for askrene *impressions*. We add
+     * a new dummy migration entry here to signal the downgrade tool to do
+     * something to the datastore otherwise it will see that the versions are
+     * the same and it will not remove the impressions from the datastore. */
+    {NULL, NULL, NULL, NULL},
+    /* ^v26.09 */
 };
 
 const struct db_migration *get_db_migrations(size_t *num)

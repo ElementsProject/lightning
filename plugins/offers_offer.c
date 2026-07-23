@@ -13,87 +13,27 @@
 #include <plugins/offers.h>
 #include <plugins/offers_offer.h>
 
-static bool msat_or_any(const char *buffer,
-			const jsmntok_t *tok,
-			struct tlv_offer *offer)
-{
-	struct amount_msat msat;
-	if (json_tok_streq(buffer, tok, "any"))
-		return true;
-
-	if (!parse_amount_msat(&msat,
-			       buffer + tok->start, tok->end - tok->start))
-		return false;
-
-	offer->offer_amount = tal_dup(offer, u64,
-				&msat.millisatoshis); /* Raw: other currencies */
-	return true;
-}
-
 static struct command_result *param_amount(struct command *cmd,
 					   const char *name,
 					   const char *buffer,
 					   const jsmntok_t *tok,
 					   struct tlv_offer *offer)
 {
+	const char *err;
 	const struct iso4217_name_and_divisor *isocode;
-	jsmntok_t number, whole, frac;
-	u64 cents;
 
-	if (msat_or_any(buffer, tok, offer))
-		return NULL;
+	err = parse_currency_amount(offer,
+				    buffer + tok->start,
+				    tok->end - tok->start,
+				    &isocode,
+				    &offer->offer_amount);
+	if (err)
+		return command_fail_badparam(cmd, name, buffer, tok, err);
 
-	offer->offer_amount = tal(offer, u64);
-
-	/* BOLT #12:
-	 *
-	 * - MUST specify `offer_currency` `iso4217` as an ISO 4217 three-letter code.
-	 * - MUST specify `offer_amount` in the currency unit adjusted by the ISO 4217
-	 *   exponent (e.g. USD cents).
-	 */
-	if (tok->end - tok->start < ISO4217_NAMELEN)
-		return command_fail_badparam(cmd, name, buffer, tok,
-					     "should be 'any', msatoshis or <amount>[.<amount>]<ISO-4217>");
-
-	isocode = find_iso4217(buffer + tok->end - ISO4217_NAMELEN, ISO4217_NAMELEN);
-	if (!isocode)
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "Unknown currency suffix %.*s",
-				    ISO4217_NAMELEN,
-				    buffer + tok->end - ISO4217_NAMELEN);
-
-	offer->offer_currency
-		= tal_dup_arr(offer, utf8, isocode->name, ISO4217_NAMELEN, 0);
-
-	number = *tok;
-	number.end -= ISO4217_NAMELEN;
-	if (!split_tok(buffer, &number, '.', &whole, &frac)) {
-		whole = number;
-		cents = 0;
-	} else {
-		if (frac.end - frac.start != isocode->minor_unit)
-			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "Currency %s requires %u minor units",
-					    isocode->name, isocode->minor_unit);
-		if (!json_to_u64(buffer, &frac, &cents))
-			return command_fail_badparam(cmd, name, buffer,
-						     &number,
-						     "Bad minor units");
+	if (isocode) {
+		offer->offer_currency
+			= tal_dup_arr(offer, utf8, isocode->name, ISO4217_NAMELEN, 0);
 	}
-
-	if (!json_to_u64(buffer, &whole, offer->offer_amount))
-		return command_fail_badparam(cmd, name, buffer, tok,
-					     "should be 'any', msatoshis or <ISO-4217><amount>[.<amount>]");
-
-	for (size_t i = 0; i < isocode->minor_unit; i++) {
-		if (mul_overflows_u64(*offer->offer_amount, 10))
-			return command_fail_badparam(cmd, name, buffer,
-						     &whole,
-						     "excessively large value");
-		*offer->offer_amount *= 10;
-	}
-
-	*offer->offer_amount += cents;
 	return NULL;
 }
 
@@ -667,7 +607,7 @@ static struct command_result *call_createinvoicerequest(struct command *cmd,
 	json_add_bool(req->js, "savetodb", true);
 	json_add_bool(req->js, "single_use", single_use);
 	if (label)
-		json_add_string(req->js, "recurrence_label", label);
+		json_add_string(req->js, "label", label);
 	return send_outreq(req);
 }
 

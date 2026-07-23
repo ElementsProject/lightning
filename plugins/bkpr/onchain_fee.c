@@ -6,6 +6,7 @@
 #include <ccan/intmap/intmap.h>
 #include <ccan/json_out/json_out.h>
 #include <ccan/tal/str/str.h>
+#include <common/hash_str.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>
 #include <common/mkdatastorekey.h>
@@ -57,11 +58,6 @@ struct ordered_ofees {
 	struct onchain_fee **ofs;
 };
 
-static size_t hash_acctname(const char *str)
-{
-	return siphash24(siphash_seed(), str, strlen(str));
-}
-
 static const char *onchain_fees_keyof(const struct ordered_ofees *ofees)
 {
 	return ofees->ofs[0]->acct_name;
@@ -75,7 +71,7 @@ static bool onchain_account_eq(const struct ordered_ofees *ofees,
 
 HTABLE_DEFINE_NODUPS_TYPE(struct ordered_ofees,
 			  onchain_fees_keyof,
-			  hash_acctname,
+			  hash_str,
 			  onchain_account_eq,
 			  ofees_hash);
 
