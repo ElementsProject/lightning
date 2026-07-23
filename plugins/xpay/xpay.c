@@ -1496,7 +1496,14 @@ static struct command_result *do_inject(struct command *aux_cmd,
 		json_add_sha256(req->js, "localinvreqid", attempt->payment->localinvreqid);
 	if (attempt->payment->label)
 		json_add_escaped_string(req->js, "label", attempt->payment->label);
-	return send_payment_req(aux_cmd, attempt->payment, req);
+
+	/* Libplugin already creates traces for jsonrpc requests, we only need
+	 * to attach them to this payment instance. */
+	trace_span_resume(attempt->payment);
+	struct command_result *result =
+	    send_payment_req(aux_cmd, attempt->payment, req);
+	trace_span_suspend(attempt->payment);
+	return result;
 }
 
 static struct command_result *reserve_done(struct command *aux_cmd,
@@ -1897,7 +1904,12 @@ static struct command_result *getroutes_for(struct command *aux_cmd,
 		json_add_u32(req->js, "maxparts", payment->maxparts - count_pending);
 	}
 
-	return send_payment_req(aux_cmd, payment, req);
+	/* Libplugin already creates traces for jsonrpc requests, we only need
+	 * to attach them to this payment instance. */
+	trace_span_resume(payment);
+	struct command_result *result = send_payment_req(aux_cmd, payment, req);
+	trace_span_suspend(payment);
+	return result;
 }
 
 /* First time, we ask getroutes for the entire payment */
