@@ -33,7 +33,7 @@ REGENERATING_RPCS = []
 ALL_RPC_EXAMPLES = {}
 EXAMPLES_JSON = {}
 LOG_FILE = './tests/autogenerate-examples-status.log'
-IGNORE_RPCS_LIST = ['dev-splice', 'reckless', 'sql-template', 'graceful', 'askrene-remove-channel-update']
+IGNORE_RPCS_LIST = ['dev-splice', 'reckless', 'sql-template', 'askrene-remove-channel-update']
 EXPECTED_WALLET_TXIDS = defaultdict(set)
 
 
@@ -1252,7 +1252,7 @@ def generate_splice_examples(node_factory, bitcoind, regenerate_blockchain):
         bitcoind.generate_block(1, wait_for_mempool=1)
         sync_blockheight(bitcoind, [l7, l8])
         update_example(node=l7, method='stop', params={})
-        l8.rpc.stop()
+        update_example(node=l8, method='graceful', params={})
         logger.info('Splice Done!')
     except Exception as e:
         logger.error(f'Error in generating splicing examples: {e}')
