@@ -702,3 +702,44 @@ def test_strict_mode_with_old_database(node_factory, bitcoind):
         "WHERE typeof(faildetail) = 'blob'"
     )
     assert result[0]['count'] == 0, "Found BLOB-typed faildetail after migration"
+
+
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "Direct SQLite manipulation required")
+def test_fee_overflow_migrated_forward(node_factory):
+    """Regression test: deleted_forward_fees corruption causes crash-loop on getinfo."""
+    l1, l2, l3 = node_factory.line_graph(
+        3, wait_for_announce=True,
+        opts=[{},
+              {'may_fail': True,
+               'broken_log': 'Adding forward fees.*overflowed'},
+              {}]
+    )
+
+    inv = l3.rpc.invoice(amount_msat=100000, label='test', description='test')
+    l1.rpc.pay(inv['bolt11'])
+    wait_for(lambda: len(l2.rpc.listforwards(status='settled')['forwards']) == 1)
+
+    fees_before = l2.rpc.getinfo()['fees_collected_msat']
+    assert fees_before > 0
+
+    l2.stop()
+
+    # Inject the corrupted deleted_forward_fees value directly into the vars table.
+    #
+    # In production, this value is written by wallet_forward_delete() when it
+    # processes a settled forward whose out_msatoshi > in_msatoshi (e.g. an
+    # orphaned row from the instroduction of `forwards` migration where amounts
+    # were copied as-is from forwarded_payments with an older storage schema).
+    #
+    # The chain that produces -1 in the DB:
+    #   SQL: SUM(in_msatoshi - out_msatoshi) = -1   (s64 from SQLite)
+    #   db_sqlite3_column_u64: reinterprets s64 -1 as u64 2^64-1
+    #   db_set_intvar(s64): 2^64-1 cast to s64 = -1  -> stored as -1
+    #
+    # On next getinfo, wallet_total_forward_fees reads -1 back as u64 2^64-1
+    # and amount_msat_accumulate(real_fees + 2^64-1) overflows -> db_fatal.
+    l2.db.execute(
+        "INSERT OR REPLACE INTO vars (name, intval) VALUES ('deleted_forward_fees', -1)"
+    )
+
+    l2.start()
