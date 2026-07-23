@@ -1745,8 +1745,13 @@ def test_onchain_rbf_stops_after_confirmation(node_factory, bitcoind):
     l1.pay(l2, 1000000)
     l1.rpc.stop()
 
-    # Censor l2 so the penalty tx never reaches miners.
+    # Censor l2 so the penalty tx never reaches miners.  Count the swallowed
+    # broadcasts: each 'RBF onchain txid' log line precedes the corresponding
+    # broadcast, so un-mocking is only safe once none is in flight.
+    censored = []
+
     def censoring_sendrawtx(r):
+        censored.append(r)
         return {'id': r['id'], 'result': {}}
     l2.daemon.rpcproxy.mock_rpc('sendrawtransaction', censoring_sendrawtx)
 
@@ -1765,8 +1770,13 @@ def test_onchain_rbf_stops_after_confirmation(node_factory, bitcoind):
         bitcoind.generate_block(1)
         l2.daemon.wait_for_log('RBF onchain txid')
 
-    # Stop censoring.  Generate a block to trigger rebroadcast (the penalty tx
-    # enters bitcoind's mempool) but filter it out so the next block mines it.
+    # Stop censoring — but only once all four censored broadcasts (initial
+    # penalty tx plus three replacements) have reached the proxy: un-mocking
+    # while one is in flight lets an old version into bitcoind's real mempool,
+    # where it gets mined in place of the version the node tracks (#9347).
+    # Then generate a block to trigger rebroadcast (the penalty tx enters
+    # bitcoind's mempool) but filter it out so the next block mines it.
+    wait_for(lambda: len(censored) >= 4)
     l2.daemon.rpcproxy.mock_rpc('sendrawtransaction', None)
     bitcoind.generate_block(1, needfeerate=10000000)
     l2.daemon.wait_for_log('RBF onchain txid')
