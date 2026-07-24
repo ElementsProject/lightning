@@ -13683,7 +13683,7 @@ pub mod responses {
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
-	pub struct RecklessListintalled {
+	pub struct RecklessListinstalled {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub installed_commit: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -13717,7 +13717,7 @@ pub mod responses {
 	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
 	    pub listavailable: Option<Vec<RecklessListavailable>>,
 	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
-	    pub listintalled: Option<Vec<RecklessListintalled>>,
+	    pub listinstalled: Option<Vec<RecklessListinstalled>>,
 	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
 	    pub sources: Option<Vec<String>>,
 	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
