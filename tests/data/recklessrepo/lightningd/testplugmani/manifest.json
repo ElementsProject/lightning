@@ -1,0 +1,8 @@
+{
+    "entrypoint": "run.py",
+    "install_cmd": [
+        "uv venv --clear",
+        "uv pip install --python .venv -r reqs.txt"
+    ],
+    "offer": ""
+}

@@ -161,6 +161,7 @@ service Node {
 	rpc CreateProof(CreateproofRequest) returns (CreateproofResponse) {}
 	rpc Xkeysend(XkeysendRequest) returns (XkeysendResponse) {}
 	rpc Graceful(GracefulRequest) returns (GracefulResponse) {}
+	rpc Reckless(RecklessRequest) returns (RecklessResponse) {}
 
 	rpc SubscribeBalanceSnapshot(StreamBalanceSnapshotRequest) returns (stream BalanceSnapshotNotification) {}
 	rpc SubscribeBlockAdded(StreamBlockAddedRequest) returns (stream BlockAddedNotification) {}
@@ -186,6 +187,7 @@ service Node {
 	rpc SubscribeWarning(StreamWarningRequest) returns (stream WarningNotification) {}
 	rpc SubscribePayPartEnd(StreamPayPartEndRequest) returns (stream PayPartEndNotification) {}
 	rpc SubscribePayPartStart(StreamPayPartStartRequest) returns (stream PayPartStartNotification) {}
+	rpc SubscribeRecklessLog(StreamRecklessLogRequest) returns (stream RecklessLogNotification) {}
 }
 
 message GetinfoRequest {
@@ -3247,6 +3249,7 @@ message ListconfigsConfigs {
 	optional ListconfigsConfigsMinemergencymsat min_emergency_msat = 82;
 	optional ListconfigsConfigsPaymentfrontingnode payment_fronting_node = 83;
 	optional ListconfigsConfigsRecover recover = 84;
+	optional ListconfigsConfigsRecklessdir reckless_dir = 85;
 }
 
 message ListconfigsConfigsAccepthtlctlvtype {
@@ -3592,6 +3595,11 @@ message ListconfigsConfigsPlugindir {
 message ListconfigsConfigsProxy {
 	string value_str = 1;
 	string source = 2;
+}
+
+message ListconfigsConfigsRecklessdir {
+	string source = 1;
+	string value_str = 2;
 }
 
 message ListconfigsConfigsRecover {
@@ -4633,6 +4641,121 @@ message GracefulResponse {
 	repeated bytes pending_peers = 2;
 }
 
+message RecklessRequest {
+	// Reckless.command
+	enum RecklessCommand {
+		INSTALL = 0;
+		UPDATE = 1;
+		UNINSTALL = 2;
+		LISTAVAILABLE = 3;
+		LISTINSTALLED = 4;
+		ENABLE = 5;
+		DISABLE = 6;
+		SOURCE = 7;
+		TIP = 8;
+		HELP = 9;
+	}
+	// Reckless.subcommand
+	enum RecklessSubcommand {
+		ADD = 0;
+		LIST = 1;
+		REMOVE = 2;
+	}
+	optional Amount amount_msat = 1;
+	RecklessCommand command = 2;
+	optional bool developer = 3;
+	repeated string options = 4;
+	optional string payer_note = 5;
+	optional RecklessSubcommand subcommand = 6;
+	optional string target = 7;
+	optional bool verbose = 8;
+}
+
+message RecklessResponse {
+	optional RecklessDisable disable = 1;
+	optional RecklessEnable enable = 2;
+	optional RecklessInstall install = 3;
+	repeated RecklessListavailable listavailable = 4;
+	repeated RecklessListinstalled listinstalled = 5;
+	repeated string log = 6;
+	repeated string sources = 7;
+	optional RecklessTip tip = 8;
+	optional RecklessUninstall uninstall = 9;
+	repeated RecklessUpdate update = 10;
+}
+
+message RecklessDisable {
+	string plugin_name = 1;
+}
+
+message RecklessEnable {
+	string plugin_name = 1;
+}
+
+message RecklessInstall {
+	bool enabled = 1;
+	optional string installed_commit = 2;
+	string plugin_name = 3;
+}
+
+message RecklessListavailable {
+	// Reckless.listavailable[].installer
+	enum RecklessListavailableInstaller {
+		PYTHONUV = 0;
+		PYTHONUVSHEBANG = 1;
+		PYTHONUVLEGACY = 2;
+		POETRYVENV = 3;
+		PYPROJECTVIAPIP = 4;
+		PYTHON = 5;
+		NODEJS = 6;
+		RUST = 7;
+		GO = 8;
+		CUSTOM = 9;
+	}
+	RecklessListavailableInstaller installer = 1;
+	RecklessListavailableManifest manifest = 2;
+	string origin = 3;
+	string plugin_name = 4;
+}
+
+message RecklessListavailableManifest {
+	repeated string dependencies = 1;
+	string entrypoint = 2;
+	repeated string install_cmd = 3;
+	optional bool installable = 4;
+	optional string long_description = 5;
+	optional string offer = 6;
+	repeated string required_options = 7;
+	optional string short_description = 8;
+}
+
+message RecklessListinstalled {
+	string installation_date = 1;
+	double installation_time = 2;
+	optional string installed_commit = 3;
+	string original_source = 4;
+	string plugin_name = 5;
+	optional string requested_commit = 6;
+}
+
+message RecklessTip {
+	Amount amount_msat = 1;
+	Amount amount_sent_msat = 2;
+	uint64 failed_parts = 3;
+	bytes payment_preimage = 4;
+	uint64 successful_parts = 5;
+}
+
+message RecklessUninstall {
+	string plugin_name = 1;
+}
+
+message RecklessUpdate {
+	bool enabled = 1;
+	optional string installed_commit = 2;
+	string plugin_name = 3;
+}
+
 message StreamBalanceSnapshotRequest {
 }
 
@@ -5054,4 +5177,23 @@ message PayPartStartHops {
 	uint32 direction = 3;
 	Amount channel_in_msat = 4;
 	Amount channel_out_msat = 5;
+}
+
+message StreamRecklessLogRequest {
+}
+
+message RecklessLogNotification {
+	// reckless_log.level
+	enum RecklessLogLevel {
+		IO = 0;
+		TRACE = 1;
+		DEBUG = 2;
+		INFO = 3;
+		UNUSUAL = 4;
+		BROKEN = 5;
+	}
+	RecklessLogLevel level = 1;
+	string log = 2;
+	string time = 3;
+	string timestamp = 4;
 }

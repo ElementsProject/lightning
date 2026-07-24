@@ -2678,6 +2678,13 @@ def listconfigs_configs_proxy2py(m):
     })
 
 
+def listconfigs_configs_reckless_dir2py(m):
+    return remove_default({
+        "source": m.source,  # PrimitiveField in generate_composite
+        "value_str": m.value_str,  # PrimitiveField in generate_composite
+    })
+
+
 def listconfigs_configs_recover2py(m):
     return remove_default({
         "source": m.source,  # PrimitiveField in generate_composite
@@ -3526,6 +3533,92 @@ def graceful2py(m):
     return remove_default({
         "pending_htlc_expiries": [m.pending_htlc_expiries for i in m.pending_htlc_expiries],  # ArrayField[primitive] in generate_composite
         "pending_peers": [hexlify(m.pending_peers) for i in hexlify(m.pending_peers)],  # ArrayField[primitive] in generate_composite
+    })
+
+
+def reckless_disable2py(m):
+    return remove_default({
+        "plugin_name": m.plugin_name,  # PrimitiveField in generate_composite
+    })
+
+
+def reckless_enable2py(m):
+    return remove_default({
+        "plugin_name": m.plugin_name,  # PrimitiveField in generate_composite
+    })
+
+
+def reckless_install2py(m):
+    return remove_default({
+        "enabled": m.enabled,  # PrimitiveField in generate_composite
+        "installed_commit": m.installed_commit,  # PrimitiveField in generate_composite
+        "plugin_name": m.plugin_name,  # PrimitiveField in generate_composite
+    })
+
+
+def reckless_listavailable_manifest2py(m):
+    return remove_default({
+        "dependencies": [m.dependencies for i in m.dependencies],  # ArrayField[primitive] in generate_composite
+        "install_cmd": [m.install_cmd for i in m.install_cmd],  # ArrayField[primitive] in generate_composite
+        "required_options": [m.required_options for i in m.required_options],  # ArrayField[primitive] in generate_composite
+        "entrypoint": m.entrypoint,  # PrimitiveField in generate_composite
+        "installable": m.installable,  # PrimitiveField in generate_composite
+        "long_description": m.long_description,  # PrimitiveField in generate_composite
+        "offer": m.offer,  # PrimitiveField in generate_composite
+        "short_description": m.short_description,  # PrimitiveField in generate_composite
+    })
+
+
+def reckless_listavailable2py(m):
+    return remove_default({
+        "installer": str(m.installer),  # EnumField in generate_composite
+        "origin": m.origin,  # PrimitiveField in generate_composite
+        "plugin_name": m.plugin_name,  # PrimitiveField in generate_composite
+    })
+
+
+def reckless_listinstalled2py(m):
+    return remove_default({
+        "installation_date": m.installation_date,  # PrimitiveField in generate_composite
+        "installation_time": m.installation_time,  # PrimitiveField in generate_composite
+        "installed_commit": m.installed_commit,  # PrimitiveField in generate_composite
+        "original_source": m.original_source,  # PrimitiveField in generate_composite
+        "plugin_name": m.plugin_name,  # PrimitiveField in generate_composite
+        "requested_commit": m.requested_commit,  # PrimitiveField in generate_composite
+    })
+
+
+def reckless_tip2py(m):
+    return remove_default({
+        "amount_msat": amount2msat(m.amount_msat),  # PrimitiveField in generate_composite
+        "amount_sent_msat": amount2msat(m.amount_sent_msat),  # PrimitiveField in generate_composite
+        "failed_parts": m.failed_parts,  # PrimitiveField in generate_composite
+        "payment_preimage": hexlify(m.payment_preimage),  # PrimitiveField in generate_composite
+        "successful_parts": m.successful_parts,  # PrimitiveField in generate_composite
+    })
+
+
+def reckless_uninstall2py(m):
+    return remove_default({
+        "plugin_name": m.plugin_name,  # PrimitiveField in generate_composite
+    })
+
+
+def reckless_update2py(m):
+    return remove_default({
+        "enabled": m.enabled,  # PrimitiveField in generate_composite
+        "installed_commit": m.installed_commit,  # PrimitiveField in generate_composite
+        "plugin_name": m.plugin_name,  # PrimitiveField in generate_composite
+    })
+
+
+def reckless2py(m):
+    return remove_default({
+        "listavailable": [reckless_listavailable2py(i) for i in m.listavailable],  # ArrayField[composite] in generate_composite
+        "listinstalled": [reckless_listinstalled2py(i) for i in m.listinstalled],  # ArrayField[composite] in generate_composite
+        "log": [m.log for i in m.log],  # ArrayField[primitive] in generate_composite
+        "sources": [m.sources for i in m.sources],  # ArrayField[primitive] in generate_composite
+        "update": [reckless_update2py(i) for i in m.update],  # ArrayField[composite] in generate_composite
     })
 
 

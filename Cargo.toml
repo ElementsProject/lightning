@@ -20,6 +20,7 @@ members = [
     "plugins/wss-proxy-plugin",
     "plugins/bip353-plugin",
     "plugins/currencyrate-plugin",
+    "plugins/reckless-plugin",
 ]
 
 [workspace.dependencies]

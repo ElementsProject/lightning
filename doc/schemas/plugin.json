@@ -258,11 +258,6 @@
             "dynamic": true
           },
           {
-            "name": "/usr/local/libexec/plugins/recklessrpc",
-            "active": true,
-            "dynamic": true
-          },
-          {
             "name": "/usr/local/libexec/plugins/recover",
             "active": true,
             "dynamic": false
@@ -309,6 +304,11 @@
           },
           {
             "name": "/usr/local/libexec/plugins/cln-currencyrate",
+            "active": true,
+            "dynamic": true
+          },
+          {
+            "name": "/usr/local/libexec/plugins/cln-reckless",
             "active": true,
             "dynamic": true
           },
@@ -406,11 +406,6 @@
             "dynamic": true
           },
           {
-            "name": "/usr/local/libexec/plugins/recklessrpc",
-            "active": true,
-            "dynamic": true
-          },
-          {
             "name": "/usr/local/libexec/plugins/recover",
             "active": true,
             "dynamic": false
@@ -457,6 +452,11 @@
           },
           {
             "name": "/usr/local/libexec/plugins/cln-currencyrate",
+            "active": true,
+            "dynamic": true
+          },
+          {
+            "name": "/usr/local/libexec/plugins/cln-reckless",
             "active": true,
             "dynamic": true
           },

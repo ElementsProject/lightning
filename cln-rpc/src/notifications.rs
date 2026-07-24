@@ -55,6 +55,8 @@ pub enum Notification {
     PayPartEnd(PayPartEndNotification),
     #[serde(rename = "pay_part_start")]
     PayPartStart(PayPartStartNotification),
+    #[serde(rename = "reckless_log")]
+    RecklessLog(RecklessLogNotification),
 }
 
 
@@ -938,6 +940,61 @@ pub struct PayPartStartNotification {
     pub total_payment_msat: Amount,
 }
 
+/// ['The log level of the emitted message.']
+#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[allow(non_camel_case_types)]
+pub enum RecklessLogLevel {
+    #[serde(rename = "io")]
+    IO = 0,
+    #[serde(rename = "trace")]
+    TRACE = 1,
+    #[serde(rename = "debug")]
+    DEBUG = 2,
+    #[serde(rename = "info")]
+    INFO = 3,
+    #[serde(rename = "unusual")]
+    UNUSUAL = 4,
+    #[serde(rename = "broken")]
+    BROKEN = 5,
+}
+
+impl TryFrom<i32> for RecklessLogLevel {
+    type Error = anyhow::Error;
+    fn try_from(c: i32) -> Result<RecklessLogLevel, anyhow::Error> {
+        match c {
+    0 => Ok(RecklessLogLevel::IO),
+    1 => Ok(RecklessLogLevel::TRACE),
+    2 => Ok(RecklessLogLevel::DEBUG),
+    3 => Ok(RecklessLogLevel::INFO),
+    4 => Ok(RecklessLogLevel::UNUSUAL),
+    5 => Ok(RecklessLogLevel::BROKEN),
+            o => Err(anyhow::anyhow!("Unknown variant {} for enum RecklessLogLevel", o)),
+        }
+    }
+}
+
+impl ToString for RecklessLogLevel {
+    fn to_string(&self) -> String {
+        match self {
+            RecklessLogLevel::IO => "IO",
+            RecklessLogLevel::TRACE => "TRACE",
+            RecklessLogLevel::DEBUG => "DEBUG",
+            RecklessLogLevel::INFO => "INFO",
+            RecklessLogLevel::UNUSUAL => "UNUSUAL",
+            RecklessLogLevel::BROKEN => "BROKEN",
+        }.to_string()
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct RecklessLogNotification {
+    // Path `reckless_log.level`
+    pub level: RecklessLogLevel,
+    pub log: String,
+    pub time: String,
+    pub timestamp: String,
+}
+
 pub mod requests{
 use serde::{Serialize, Deserialize};
 
@@ -1035,6 +1092,10 @@ use serde::{Serialize, Deserialize};
 
     #[derive(Clone, Debug, Deserialize, Serialize)]
     pub struct StreamPayPartStartRequest {
+    }
+
+    #[derive(Clone, Debug, Deserialize, Serialize)]
+    pub struct StreamRecklessLogRequest {
     }
 
 }

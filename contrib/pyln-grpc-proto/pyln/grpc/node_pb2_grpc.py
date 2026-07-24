@@ -799,6 +799,11 @@ class NodeStub(object):
                 request_serializer=node__pb2.GracefulRequest.SerializeToString,
                 response_deserializer=node__pb2.GracefulResponse.FromString,
                 _registered_method=True)
+        self.Reckless = channel.unary_unary(
+                '/cln.Node/Reckless',
+                request_serializer=node__pb2.RecklessRequest.SerializeToString,
+                response_deserializer=node__pb2.RecklessResponse.FromString,
+                _registered_method=True)
         self.SubscribeBalanceSnapshot = channel.unary_stream(
                 '/cln.Node/SubscribeBalanceSnapshot',
                 request_serializer=node__pb2.StreamBalanceSnapshotRequest.SerializeToString,
@@ -918,6 +923,11 @@ class NodeStub(object):
                 '/cln.Node/SubscribePayPartStart',
                 request_serializer=node__pb2.StreamPayPartStartRequest.SerializeToString,
                 response_deserializer=node__pb2.PayPartStartNotification.FromString,
+                _registered_method=True)
+        self.SubscribeRecklessLog = channel.unary_stream(
+                '/cln.Node/SubscribeRecklessLog',
+                request_serializer=node__pb2.StreamRecklessLogRequest.SerializeToString,
+                response_deserializer=node__pb2.RecklessLogNotification.FromString,
                 _registered_method=True)
 
 
@@ -1842,6 +1852,12 @@ class NodeServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def Reckless(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def SubscribeBalanceSnapshot(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -1981,6 +1997,12 @@ class NodeServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def SubscribePayPartStart(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SubscribeRecklessLog(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -2754,6 +2776,11 @@ def add_NodeServicer_to_server(servicer, server):
                     request_deserializer=node__pb2.GracefulRequest.FromString,
                     response_serializer=node__pb2.GracefulResponse.SerializeToString,
             ),
+            'Reckless': grpc.unary_unary_rpc_method_handler(
+                    servicer.Reckless,
+                    request_deserializer=node__pb2.RecklessRequest.FromString,
+                    response_serializer=node__pb2.RecklessResponse.SerializeToString,
+            ),
             'SubscribeBalanceSnapshot': grpc.unary_stream_rpc_method_handler(
                     servicer.SubscribeBalanceSnapshot,
                     request_deserializer=node__pb2.StreamBalanceSnapshotRequest.FromString,
@@ -2873,6 +2900,11 @@ def add_NodeServicer_to_server(servicer, server):
                     servicer.SubscribePayPartStart,
                     request_deserializer=node__pb2.StreamPayPartStartRequest.FromString,
                     response_serializer=node__pb2.PayPartStartNotification.SerializeToString,
+            ),
+            'SubscribeRecklessLog': grpc.unary_stream_rpc_method_handler(
+                    servicer.SubscribeRecklessLog,
+                    request_deserializer=node__pb2.StreamRecklessLogRequest.FromString,
+                    response_serializer=node__pb2.RecklessLogNotification.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -7017,6 +7049,33 @@ class Node(object):
             _registered_method=True)
 
     @staticmethod
+    def Reckless(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/cln.Node/Reckless',
+            node__pb2.RecklessRequest.SerializeToString,
+            node__pb2.RecklessResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
     def SubscribeBalanceSnapshot(request,
             target,
             options=(),
@@ -7654,6 +7713,33 @@ class Node(object):
             '/cln.Node/SubscribePayPartStart',
             node__pb2.StreamPayPartStartRequest.SerializeToString,
             node__pb2.PayPartStartNotification.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SubscribeRecklessLog(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/cln.Node/SubscribeRecklessLog',
+            node__pb2.StreamRecklessLogRequest.SerializeToString,
+            node__pb2.RecklessLogNotification.FromString,
             options,
             channel_credentials,
             insecure,
