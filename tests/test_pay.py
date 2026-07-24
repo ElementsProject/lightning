@@ -691,6 +691,33 @@ def test_wait_sendpay(node_factory, executor):
     l1.rpc.waitsendpay(inv['payment_hash'])['payment_preimage']
 
 
+def test_sendpay_onion_overflow(node_factory):
+    """A route whose per-hop payloads exceed the 1300-byte onion must
+    fail cleanly: create_onionpacket returns NULL and send_payment
+    used it unchecked, crashing lightningd (SIGSEGV in
+    serialize_onionpacket)."""
+    l1, l2 = node_factory.line_graph(2, fundamount=10**6)
+
+    amt = 1000
+    inv = l2.rpc.invoice(amt, 'onionoverflow', 'desc')
+
+    # Each TLV hop costs ~50 onion bytes at these amounts; 30 hops
+    # cannot fit in the 1300-byte onion no matter how small the
+    # encodings.  Only the first hop must be a live channel: the
+    # onion is built before anything is sent.
+    hop = {
+        'amount_msat': amt,
+        'id': l2.info['id'],
+        'delay': 5,
+        'channel': first_scid(l1, l2)
+    }
+    route = [copy.deepcopy(hop) for _ in range(30)]
+
+    with pytest.raises(RpcError, match='Could not create onion packet'):
+        l1.rpc.sendpay(route, inv['payment_hash'],
+                       payment_secret=inv['payment_secret'])
+
+
 @unittest.skipIf(TEST_NETWORK != 'regtest', "The reserve computation is bitcoin specific")
 @pytest.mark.parametrize("anchors", [False, True])
 def test_sendpay_cant_afford(node_factory, anchors):
