@@ -15,6 +15,7 @@ from pyln.client import Plugin
 
 import ephemeral_port_reserve  # type: ignore
 import tempfile
+import errno
 import json
 import logging
 import lzma
@@ -213,6 +214,40 @@ def cleanup_stale_port_locks():
                 pass
     except Exception:
         pass  # best-effort, never crash the test run over cleanup
+
+
+def wait_for_port_released(port, timeout=TIMEOUT):
+    """Wait until 127.0.0.1:port can be bound again.
+
+    A stopped node's connectd holds the listen socket until it exits,
+    which can be several seconds after lightningd itself is gone
+    (subdaemons are separate processes, and die slowly under valgrind).
+    Restarting the node before the port is released makes the new
+    connectd fail with 'Address already in use'.
+    """
+    start_time = time.time()
+    while True:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # Match connectd's SO_REUSEADDR, so sockets lingering in
+        # TIME_WAIT don't count as "still in use".
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            s.bind(('127.0.0.1', port))
+            break
+        except OSError as e:
+            if e.errno != errno.EADDRINUSE:
+                raise
+            if time.time() - start_time > timeout:
+                raise TimeoutError(
+                    "Port {} was not released within {} seconds"
+                    .format(port, timeout))
+        finally:
+            s.close()
+        time.sleep(0.1)
+
+    waited = time.time() - start_time
+    if waited >= 1:
+        logging.info("Port %d took %.1fs to be released", port, waited)
 
 
 class TailableProc(object):
@@ -848,6 +883,9 @@ class LightningD(TailableProc):
 
     def start(self, stdin=None, wait_for_initialized=True, stderr_redir=False):
         self.opts['bitcoin-rpcport'] = self.rpcproxy.rpcport
+        # On restart, the previous incarnation's connectd may still be
+        # dying and holding our listen port: don't launch until it's free.
+        wait_for_port_released(self.port)
         TailableProc.start(self, stdin, stdout_redir=False, stderr_redir=stderr_redir)
         if wait_for_initialized:
             self.wait_for_log("Server started with public key")
