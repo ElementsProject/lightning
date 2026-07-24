@@ -3986,13 +3986,13 @@
             "Reckless.listavailable[].manifest.required_options[]": 7,
             "Reckless.listavailable[].manifest.short_description": 8
         },
-        "RecklessListintalled": {
-            "Reckless.listintalled[].installation_date": 1,
-            "Reckless.listintalled[].installation_time": 2,
-            "Reckless.listintalled[].installed_commit": 3,
-            "Reckless.listintalled[].original_source": 4,
-            "Reckless.listintalled[].plugin_name": 5,
-            "Reckless.listintalled[].requested_commit": 6
+        "RecklessListinstalled": {
+            "Reckless.listinstalled[].installation_date": 1,
+            "Reckless.listinstalled[].installation_time": 2,
+            "Reckless.listinstalled[].installed_commit": 3,
+            "Reckless.listinstalled[].original_source": 4,
+            "Reckless.listinstalled[].plugin_name": 5,
+            "Reckless.listinstalled[].requested_commit": 6
         },
         "RecklessLogNotification": {
             "reckless_log.level": 1,
@@ -4015,7 +4015,7 @@
             "Reckless.enable": 2,
             "Reckless.install": 3,
             "Reckless.listavailable[]": 4,
-            "Reckless.listintalled[]": 5,
+            "Reckless.listinstalled[]": 5,
             "Reckless.log[]": 6,
             "Reckless.sources[]": 7,
             "Reckless.tip": 8,
@@ -13685,31 +13685,31 @@
             "added": "v26.09",
             "deprecated": null
         },
-        "Reckless.listintalled[]": {
+        "Reckless.listinstalled[]": {
             "added": "v26.09",
             "deprecated": null
         },
-        "Reckless.listintalled[].installation_date": {
+        "Reckless.listinstalled[].installation_date": {
             "added": "v26.09",
             "deprecated": null
         },
-        "Reckless.listintalled[].installation_time": {
+        "Reckless.listinstalled[].installation_time": {
             "added": "v26.09",
             "deprecated": null
         },
-        "Reckless.listintalled[].installed_commit": {
+        "Reckless.listinstalled[].installed_commit": {
             "added": "v26.09",
             "deprecated": null
         },
-        "Reckless.listintalled[].original_source": {
+        "Reckless.listinstalled[].original_source": {
             "added": "v26.09",
             "deprecated": null
         },
-        "Reckless.listintalled[].plugin_name": {
+        "Reckless.listinstalled[].plugin_name": {
             "added": "v26.09",
             "deprecated": null
         },
-        "Reckless.listintalled[].requested_commit": {
+        "Reckless.listinstalled[].requested_commit": {
             "added": "v26.09",
             "deprecated": null
         },

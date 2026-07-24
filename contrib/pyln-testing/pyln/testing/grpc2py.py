@@ -3577,7 +3577,7 @@ def reckless_listavailable2py(m):
     })
 
 
-def reckless_listintalled2py(m):
+def reckless_listinstalled2py(m):
     return remove_default({
         "installation_date": m.installation_date,  # PrimitiveField in generate_composite
         "installation_time": m.installation_time,  # PrimitiveField in generate_composite
@@ -3615,7 +3615,7 @@ def reckless_update2py(m):
 def reckless2py(m):
     return remove_default({
         "listavailable": [reckless_listavailable2py(i) for i in m.listavailable],  # ArrayField[composite] in generate_composite
-        "listintalled": [reckless_listintalled2py(i) for i in m.listintalled],  # ArrayField[composite] in generate_composite
+        "listinstalled": [reckless_listinstalled2py(i) for i in m.listinstalled],  # ArrayField[composite] in generate_composite
         "log": [m.log for i in m.log],  # ArrayField[primitive] in generate_composite
         "sources": [m.sources for i in m.sources],  # ArrayField[primitive] in generate_composite
         "update": [reckless_update2py(i) for i in m.update],  # ArrayField[composite] in generate_composite

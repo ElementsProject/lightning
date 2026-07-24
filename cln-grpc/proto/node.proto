@@ -4676,7 +4676,7 @@ message RecklessResponse {
 	optional RecklessEnable enable = 2;
 	optional RecklessInstall install = 3;
 	repeated RecklessListavailable listavailable = 4;
-	repeated RecklessListintalled listintalled = 5;
+	repeated RecklessListinstalled listinstalled = 5;
 	repeated string log = 6;
 	repeated string sources = 7;
 	optional RecklessTip tip = 8;
@@ -4729,7 +4729,7 @@ message RecklessListavailableManifest {
 	optional string short_description = 8;
 }
 
-message RecklessListintalled {
+message RecklessListinstalled {
 	string installation_date = 1;
 	double installation_time = 2;
 	optional string installed_commit = 3;

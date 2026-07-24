@@ -5117,8 +5117,8 @@ impl From<responses::RecklessListavailable> for pb::RecklessListavailable {
 }
 
 #[allow(unused_variables)]
-impl From<responses::RecklessListintalled> for pb::RecklessListintalled {
-    fn from(c: responses::RecklessListintalled) -> Self {
+impl From<responses::RecklessListinstalled> for pb::RecklessListinstalled {
+    fn from(c: responses::RecklessListinstalled) -> Self {
         Self {
             installation_date: c.installation_date, // Rule #2 for type string
             installation_time: c.installation_time, // Rule #2 for type number
@@ -5172,8 +5172,8 @@ impl From<responses::RecklessResponse> for pb::RecklessResponse {
             install: c.install.map(|v| v.into()),
             // Field: Reckless.listavailable[]
             listavailable: c.listavailable.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
-            // Field: Reckless.listintalled[]
-            listintalled: c.listintalled.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
+            // Field: Reckless.listinstalled[]
+            listinstalled: c.listinstalled.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
             // Field: Reckless.log[]
             log: c.log.into_iter().map(|i| i.into()).collect(), // Rule #3 for type string
             // Field: Reckless.sources[]

@@ -319,7 +319,7 @@
           "additionalProperties": false
         }
       },
-      "listintalled": {
+      "listinstalled": {
         "type": "array",
         "added": "v26.09",
         "items": {
