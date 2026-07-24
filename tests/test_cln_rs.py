@@ -82,6 +82,36 @@ def test_plugin_start(node_factory):
         l1.rpc.test_error()
 
 
+def test_plugin_bad_json(node_factory):
+    bin_path = Path.cwd() / "target" / RUST_PROFILE / "examples" / "cln-plugin-startup"
+    l1 = node_factory.get_node(options={"plugin": str(bin_path)})
+
+    names = [p["name"] for p in l1.rpc.plugin_list()["plugins"]]
+    assert any("cln-plugin-startup" in n for n in names)
+
+    cli_cmd = [
+        "cli/lightning-cli",
+        f"--lightning-dir={l1.daemon.lightning_dir}",
+        f"--network={l1.daemon.opts.get('network', 'regtest')}",
+        "-k",
+        "testmethod",
+        "channels=[123456x1x0]",  # unquoted scid in array -> malformed JSON
+    ]
+    result = subprocess.run(cli_cmd, capture_output=True, text=True, check=False)
+
+    # We don't care whether this particular call succeeds -- a parse
+    # error for the bad request is fine. We care that it doesn't take
+    # the plugin down.
+    assert "Plugin terminated before replying" not in result.stdout + result.stderr
+
+    # Plugin must still be alive and answering ordinary requests.
+    names_after = [p["name"] for p in l1.rpc.plugin_list()["plugins"]]
+    assert any("cln-plugin-startup" in n for n in names_after)
+    assert l1.rpc.call("testmethod", {"channels": []}) is not None
+
+    assert not l1.daemon.is_in_log(r"Killing plugin.*exited during normal operation")
+
+
 def test_plugin_options_handle_defaults(node_factory):
     """Start a minimal plugin and ensure it is well-behaved
     """
