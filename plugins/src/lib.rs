@@ -1030,6 +1030,10 @@ where
                         };
                         Ok(())
                     }
+                    messages::JsonRpc::Error(rpc_error) => {
+                        plugin.sender.send(rpc_error).await?;
+                        Ok(())
+                    }
                 }
             }
             Some(Err(e)) => Err(anyhow!("Error reading command: {}", e)),
