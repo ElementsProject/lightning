@@ -39,6 +39,9 @@ struct htlc_in {
 	/* Otherwise, this contains the failure message to send. */
 	const struct onionreply *failonion;
 
+	/* This contains attribution data for the update_fulfill_htlc message. */
+	struct onionreply *fulfill_onion;
+
 	/* If they fulfilled, here's the preimage. */
 	struct preimage *preimage;
 
@@ -84,6 +87,9 @@ struct htlc_out {
 	/* For a remote error. */
 	const struct onionreply *failonion;
 
+	/* For attribution data. */
+	struct attribution_data *fulfill_attr;
+
 	/* If we fulfilled, here's the preimage. */
 	/* FIXME: This is basically unused, except as a bool! */
 	struct preimage *preimage;
@@ -112,6 +118,8 @@ struct htlc_out {
 
 	/* Extra tlvs that are extended to the update_add_htlc_tlvs */
 	struct tlv_field *extra_tlvs;
+
+	struct timeabs send_timestamp;
 };
 
 static inline const struct htlc_key *keyof_htlc_in(const struct htlc_in *in)
@@ -180,7 +188,8 @@ struct htlc_out *new_htlc_out(const tal_t *ctx,
 			      struct amount_msat final_msat,
 			      u64 partid,
 			      u64 groupid,
-			      struct htlc_in *in);
+			      struct htlc_in *in,
+			      struct timeabs send_timestamp);
 
 void connect_htlc_in(struct htlc_in_map *map, struct htlc_in *hin);
 void connect_htlc_out(struct htlc_out_map *map, struct htlc_out *hout);
