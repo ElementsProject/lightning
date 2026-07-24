@@ -178,14 +178,15 @@ async fn remove_source(
                 }
             }
 
-            match fs::read_dir(&repo_dir).await {
+            let owner_dir = repo_dir
+                .parent()
+                .ok_or_else(|| anyhow!("source repo has no owner directory"))?;
+
+            match fs::read_dir(&owner_dir).await {
                 Ok(mut entries) => {
                     if entries.next_entry().await?.is_none() {
-                        let owner_dir = repo_dir
-                            .parent()
-                            .ok_or_else(|| anyhow!("source repo has no owner directory"))?;
                         let line = format!(
-                            "also removing emppty repository owner directory: {}",
+                            "also removing empty repository owner directory: {}",
                             owner_dir.display()
                         );
                         logger.log(&line, LogLevel::INFO).await?;
@@ -194,10 +195,10 @@ async fn remove_source(
                 }
                 Err(e) => {
                     let line = format!(
-                        "failed to read source directory: {} {e}",
-                        repo_dir.display()
+                        "could not read repository owner directory: {} {e}",
+                        owner_dir.display()
                     );
-                    return Err(anyhow!(line));
+                    logger.log(&line, LogLevel::UNUSUAL).await?;
                 }
             }
         }
