@@ -278,7 +278,7 @@
           "feerate": "normal",
           "push_msat": 100000,
           "utxos": [
-            "dc40d6b9b940b76b26a9c4463239926b745cd7a9383291299972a4f9b3a21868:1"
+            "97b6a0f5ee7732ee7d903472170575749e73af7050c9257f62af64e0bd09819c:1"
           ]
         }
       },
