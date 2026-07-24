@@ -99,6 +99,7 @@ pub(crate) enum JsonRpc<N, R> {
     Notification(N),
     CustomRequest(serde_json::Value, Value),
     CustomNotification(Value),
+    Error(serde_json::Value),
 }
 
 /// This function disentangles the various cases:
