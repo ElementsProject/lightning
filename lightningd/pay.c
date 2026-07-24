@@ -1259,6 +1259,9 @@ send_payment(struct lightningd *ld,
 		channels[i] = route[i].scid;
 
 	packet = create_onionpacket(tmpctx, path, ROUTING_INFO_SIZE, &path_secrets);
+	if (!packet)
+		return command_fail(cmd, LIGHTNINGD,
+				    "Could not create onion packet");
 	return send_payment_core(ld, cmd, rhash, partid, group, &route[0],
 				 msat, total_msat,
 				 label, invstring, description,
