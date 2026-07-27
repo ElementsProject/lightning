@@ -248,6 +248,13 @@ static bool setup_channel_funder(struct state *state)
 		return false;
 	}
 
+	if (amount_sat_greater(state->funding_sats, chainparams->max_supply)) {
+		status_failed(STATUS_FAIL_MASTER_IO,
+			      "funding_satoshis %s exceeds maximum Bitcoin supply",
+			      fmt_amount_sat(tmpctx, state->funding_sats));
+		return false;
+	}
+
 	return true;
 }
 
@@ -936,6 +943,19 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 		negotiation_failed(state,
 				   "funding_satoshis %s too large",
 				   fmt_amount_sat(tmpctx, state->funding_sats));
+		return NULL;
+	}
+
+	/* BOLT #2:
+	 *
+	 * The receiving node MUST fail the channel if:
+	 *...
+	 * - `funding_satoshis` is greater than the maximum Bitcoin supply.
+	 */
+	if (amount_sat_greater(state->funding_sats, chainparams->max_supply)) {
+		peer_failed_err(state->pps, &state->channel_id,
+				"funding_satoshis %s exceeds maximum Bitcoin supply",
+				fmt_amount_sat(tmpctx, state->funding_sats));
 		return NULL;
 	}
 
