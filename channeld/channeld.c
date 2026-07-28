@@ -4417,6 +4417,12 @@ static void splice_initiator(struct peer *peer, const u8 *inmsg)
 
 	type = fromwire_peektype(inmsg);
 
+	if (!peer->splicing) {
+		peer_failed_warn(peer->pps, &peer->channel_id,
+				 "Received %s without an active splice session",
+				 peer_wire_name(type));
+	}
+
 	if (type == WIRE_SPLICE_ACK) {
 		struct tlv_splice_ack_tlvs *splice_ack_tlvs;
 		if (!fromwire_splice_ack(tmpctx, inmsg,
