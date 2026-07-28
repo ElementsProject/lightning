@@ -5848,9 +5848,6 @@ def test_bwatch_listwatch(node_factory, bitcoind):
     """Test that listwatch RPC returns all active watches"""
     l1 = node_factory.get_node(options=BWATCH_OPTS)
 
-    # Record the baseline — the wallet registers scriptpubkey watches on startup.
-    initial_count = len(l1.rpc.listwatch()['watches'])
-
     # Add an outpoint watch — clearly not a real UTXO.
     test_outpoint_a_txid = "a" * 64
     test_outpoint_a = f"{test_outpoint_a_txid}:0"
@@ -5868,11 +5865,20 @@ def test_bwatch_listwatch(node_factory, bitcoind):
     # Add a second owner to the first outpoint watch
     l1.rpc.addoutpointwatch(owner='wallet/p2tr/0', outpoint=test_outpoint_a, start_block=50)
 
+    # The wallet registers its own scriptpubkey watches at startup, and on a
+    # slow machine that registration can land at any point during the test,
+    # so a total-count baseline races it.  Count only this test's watches,
+    # which no background registration can perturb.
+    def our_watches(watches):
+        return [w for w in watches
+                if w.get('outpoint') in (test_outpoint_a, test_outpoint_c)
+                or w.get('scriptpubkey') == test_scriptpubkey]
+
     result = l1.rpc.listwatch()
     watches = result['watches']
 
-    # 3 new unique watches added on top of the wallet's initial set
-    assert len(watches) == initial_count + 3
+    # 3 unique watches: the two adds for the same outpoint merged into one
+    assert len(our_watches(watches)) == 3
 
     # Find each test watch by its unique identifier
     outpoint_a_watch = next((w for w in watches if w.get('outpoint') == test_outpoint_a), None)
@@ -5902,7 +5908,7 @@ def test_bwatch_listwatch(node_factory, bitcoind):
     l1.rpc.deloutpointwatch(owner='wallet/p2wpkh/0', outpoint=test_outpoint_a)
 
     watches = l1.rpc.listwatch()['watches']
-    assert len(watches) == initial_count + 3
+    assert len(our_watches(watches)) == 3
     outpoint_a_watch = next(w for w in watches if w.get('outpoint') == test_outpoint_a)
     assert len(outpoint_a_watch['owners']) == 1
     assert outpoint_a_watch['owners'][0] == 'wallet/p2tr/0'
@@ -5911,7 +5917,7 @@ def test_bwatch_listwatch(node_factory, bitcoind):
     l1.rpc.deloutpointwatch(owner='wallet/p2tr/0', outpoint=test_outpoint_a)
 
     watches = l1.rpc.listwatch()['watches']
-    assert len(watches) == initial_count + 2
+    assert len(our_watches(watches)) == 2
     assert not any(w.get('outpoint') == test_outpoint_a for w in watches)
 
 
