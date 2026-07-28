@@ -755,7 +755,7 @@ static struct command_result *json_block_processed(struct command *cmd,
 	json_add_u32(response, "blockheight", *blockheight);
 	if (wm->last_processed_height > 0)
 		json_add_string(response, "blockhash",
-				fmt_bitcoin_blkid(response, &wm->last_processed_hash));
+				fmt_bitcoin_blkid(tmpctx, &wm->last_processed_hash));
 	return command_success(cmd, response);
 }
 
@@ -789,7 +789,7 @@ static struct command_result *json_getwatchmanheight(struct command *cmd,
 	json_add_u32(response, "height", height);
 	if (wm && wm->last_processed_height > 0)
 		json_add_string(response, "blockhash",
-				fmt_bitcoin_blkid(response, &wm->last_processed_hash));
+				fmt_bitcoin_blkid(tmpctx, &wm->last_processed_hash));
 	return command_success(cmd, response);
 }
 
