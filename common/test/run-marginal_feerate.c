@@ -127,5 +127,12 @@ int main(int argc, char *argv[])
 	u32 half = (45000 + 253)/2;
 	assert(marginal_feerate(half) == (u32)(half * 1.55));
 
+	/* These values straddle the case where adding 10% exceeds UINT32_MAX.
+	 * No overflow should occur. */
+	assert(marginal_feerate(3904515722) == UINT32_MAX - 1);
+	assert(marginal_feerate(3904515723) == UINT32_MAX);
+	assert(marginal_feerate(3904515724) == UINT32_MAX);
+	assert(marginal_feerate(UINT32_MAX) == UINT32_MAX);
+
 	common_shutdown();
 }

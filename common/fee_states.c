@@ -175,8 +175,12 @@ u32 marginal_feerate(u32 current_feerate)
 	/* This could happen in future if we celebrate sub-sat summer! */
 	if (current_feerate < minfeerate)
 		current_feerate = minfeerate;
-	if (current_feerate > maxfeerate)
-		return current_feerate * 1.1;
+	if (current_feerate > maxfeerate) {
+		u64 marginal = ((u64)current_feerate * 11) / 10;
+		if (marginal > UINT32_MAX)
+			return UINT32_MAX;
+		return marginal;
+	}
 
 	/* min gives 1, max gives 0.1 */
 	double proportion = 1.0 - ((double)current_feerate - minfeerate) / (maxfeerate - minfeerate) * 0.9;
