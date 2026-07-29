@@ -1,6 +1,5 @@
 use anyhow::bail;
 use bitcoin::hashes::Hash;
-use chrono::Utc;
 use cln_lsps::{
     cln_adapters::{
         hooks::service_custommsg_hook,
@@ -25,10 +24,7 @@ use cln_lsps::{
     },
     proto::{
         lsps0::{LSPS0_MESSAGE_TYPE, Msat, ShortChannelId},
-        lsps2::{
-            SessionOutcome,
-            failure_codes::{TEMPORARY_CHANNEL_FAILURE, UNKNOWN_NEXT_PEER},
-        },
+        lsps2::failure_codes::{TEMPORARY_CHANNEL_FAILURE, UNKNOWN_NEXT_PEER},
     },
 };
 use cln_plugin::{HookBuilder, HookFilter, Plugin, options};
@@ -242,22 +238,17 @@ async fn handle_htlc_inner(
         }
     };
 
-    // Decide path: look up buy request to check for MPP.
-    let ds_rec = match p.state().datastore.get_buy_request(&short_channel_id).await {
-        Ok(rec) => rec,
-        Err(_) => {
-            trace!("SCID not ours, continue.");
-            return Ok(json_continue());
-        }
-    };
-
-    if Utc::now() >= ds_rec.opening_fee_params.valid_until {
-        let _ = p
-            .state()
-            .datastore
-            .finalize_session(&short_channel_id, SessionOutcome::Timeout)
-            .await;
-        return Ok(json_fail(UNKNOWN_NEXT_PEER));
+    // Probe: an scid we have no buy request for is not ours. Everything
+    // else about the entry — expiry included — is the session manager's
+    // call, so that it can tell a stale offer from a live session.
+    if p.state()
+        .datastore
+        .get_buy_request(&short_channel_id)
+        .await
+        .is_err()
+    {
+        trace!("SCID not ours, continue.");
+        return Ok(json_continue());
     }
 
     handle_session_htlc(p, &req, short_channel_id).await
@@ -299,6 +290,8 @@ async fn handle_session_htlc(
                 ManagerError::SessionTerminated | ManagerError::SessionAlreadyFunded => {
                     Ok(json_fail(TEMPORARY_CHANNEL_FAILURE))
                 }
+                // The offer is past valid_until: permanent for this scid.
+                ManagerError::OfferExpired => Ok(json_fail(UNKNOWN_NEXT_PEER)),
                 ManagerError::DatastoreLookup(_) => Ok(json_continue()),
             }
         }

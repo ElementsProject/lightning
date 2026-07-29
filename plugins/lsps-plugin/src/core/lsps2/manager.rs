@@ -18,6 +18,8 @@ pub enum ManagerError {
     SessionTerminated,
     #[error("a channel was already funded for this session")]
     SessionAlreadyFunded,
+    #[error("the opening fee offer has expired")]
+    OfferExpired,
     #[error("datastore lookup failed: {0}")]
     DatastoreLookup(#[source] anyhow::Error),
 }
@@ -313,6 +315,19 @@ impl<D: DatastoreProvider + 'static, A: ActionExecutor + Send + Sync + 'static>
             return Err(ManagerError::SessionAlreadyFunded);
         }
 
+        // The offer is stale. This lives here rather than in the
+        // htlc_accepted hook so it can only ever reject a session that does
+        // not exist yet: finalizing the entry of a live session would move
+        // the channel_id and funding_psbt out of the active list that
+        // recovery reads.
+        if entry.opening_fee_params.valid_until <= Utc::now() {
+            let _ = self
+                .datastore
+                .finalize_session(scid, SessionOutcome::Timeout)
+                .await;
+            return Err(ManagerError::OfferExpired);
+        }
+
         entry.payment_hash = Some(payment_hash.to_string());
         self.datastore
             .save_session(scid, &entry)
@@ -428,6 +443,7 @@ mod tests {
 
     struct MockDatastore {
         entries: HashMap<String, DatastoreEntry>,
+        finalized: std::sync::Mutex<Vec<(String, SessionOutcome)>>,
     }
 
     impl MockDatastore {
@@ -435,7 +451,19 @@ mod tests {
             let mut entries = HashMap::new();
             entries.insert(test_scid().to_string(), test_datastore_entry());
             entries.insert(test_scid_2().to_string(), test_datastore_entry());
-            Self { entries }
+            Self {
+                entries,
+                finalized: std::sync::Mutex::new(Vec::new()),
+            }
+        }
+
+        fn finalized_scids(&self) -> Vec<String> {
+            self.finalized
+                .lock()
+                .unwrap()
+                .iter()
+                .map(|(scid, _)| scid.clone())
+                .collect()
         }
     }
 
@@ -469,9 +497,13 @@ mod tests {
 
         async fn finalize_session(
             &self,
-            _scid: &ShortChannelId,
-            _outcome: SessionOutcome,
+            scid: &ShortChannelId,
+            outcome: SessionOutcome,
         ) -> anyhow::Result<()> {
+            self.finalized
+                .lock()
+                .unwrap()
+                .push((scid.to_string(), outcome));
             Ok(())
         }
 
@@ -853,6 +885,91 @@ mod tests {
         // Fail payment — session is in AwaitingSettlement.
         let result = mgr.on_payment_failed(hash, None, None).await;
         assert!(result.is_ok());
+    }
+
+    #[tokio::test(flavor = "current_thread", start_paused = true)]
+    async fn part_on_expired_offer_is_rejected_and_finalized() {
+        let mut ds = MockDatastore::new();
+        let mut entry = test_datastore_entry();
+        entry.opening_fee_params.valid_until = Utc::now() - ChronoDuration::hours(1);
+        ds.entries.insert(test_scid().to_string(), entry);
+        let ds = Arc::new(ds);
+
+        let mgr = Arc::new(SessionManager::new(
+            ds.clone(),
+            Arc::new(MockExecutor::new(true)),
+            SessionConfig::default(),
+            Arc::new(NoopEventSink),
+        ));
+
+        let err = mgr
+            .on_part(test_payment_hash(1), test_scid(), part(1, 1_000))
+            .await
+            .unwrap_err();
+
+        assert!(matches!(err, ManagerError::OfferExpired));
+        assert_eq!(mgr.session_count().await, 0);
+        assert_eq!(ds.finalized_scids(), vec![test_scid().to_string()]);
+    }
+
+    #[tokio::test(flavor = "current_thread", start_paused = true)]
+    async fn late_part_on_live_session_never_finalizes_entry() {
+        // A part arriving after valid_until for a session that already
+        // forwarded HTLCs must not finalize the active datastore entry:
+        // that entry holds the channel_id/funding_psbt recovery needs.
+        let ds = Arc::new(MockDatastore::new());
+        let mgr = Arc::new(SessionManager::new(
+            ds.clone(),
+            Arc::new(MockExecutor::new(true)),
+            SessionConfig {
+                max_parts: 3,
+                ..SessionConfig::default()
+            },
+            Arc::new(NoopEventSink),
+        ));
+        let hash = test_payment_hash(1);
+
+        // expected_payment_size is 1_000, so this reaches the threshold and
+        // moves the session to AwaitingSettlement.
+        let resp = mgr
+            .on_part(hash, test_scid(), part(1, 1_000))
+            .await
+            .unwrap();
+        assert!(matches!(resp, HtlcResponse::Forward { .. }));
+
+        // A late part for the same payment hash is forwarded, not rejected,
+        // and leaves the datastore entry alone.
+        let late = mgr.on_part(hash, test_scid(), part(2, 500)).await.unwrap();
+        assert!(matches!(late, HtlcResponse::Forward { .. }));
+        assert!(ds.finalized_scids().is_empty());
+    }
+
+    #[tokio::test(flavor = "current_thread", start_paused = true)]
+    async fn funded_session_is_not_finalized_by_expiry() {
+        // channel_id set and offer expired: SessionAlreadyFunded must win,
+        // so the entry that still holds channel_id/funding_psbt survives.
+        let mut ds = MockDatastore::new();
+        let mut entry = test_datastore_entry();
+        entry.opening_fee_params.valid_until = Utc::now() - ChronoDuration::hours(1);
+        entry.channel_id = Some("channel-id-1".to_string());
+        entry.funding_psbt = Some("psbt-1".to_string());
+        ds.entries.insert(test_scid().to_string(), entry);
+        let ds = Arc::new(ds);
+
+        let mgr = Arc::new(SessionManager::new(
+            ds.clone(),
+            Arc::new(MockExecutor::new(true)),
+            SessionConfig::default(),
+            Arc::new(NoopEventSink),
+        ));
+
+        let err = mgr
+            .on_part(test_payment_hash(1), test_scid(), part(1, 1_000))
+            .await
+            .unwrap_err();
+
+        assert!(matches!(err, ManagerError::SessionAlreadyFunded));
+        assert!(ds.finalized_scids().is_empty());
     }
 
     #[tokio::test(flavor = "current_thread", start_paused = true)]
