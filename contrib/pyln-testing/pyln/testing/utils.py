@@ -12,6 +12,7 @@ from pyln.client import LightningRpc
 from pyln.client import Millisatoshi
 from pyln.client import NodeVersion
 from pyln.client import Plugin
+from pyln.client.plugin import PluginLogHandler
 
 import ephemeral_port_reserve  # type: ignore
 import tempfile
@@ -2050,6 +2051,26 @@ class NodeFactory(object):
         return not unexpected_fail, err_msgs
 
 
+class _NoPylnInternalsFilter(logging.Filter):
+    """Drop log records generated inside the pyln packages themselves.
+
+    An inline plugin's Plugin() lives in the test process, so its
+    PluginLogHandler on the root logger would forward pyln's own machinery
+    logs into the node's log.  wait_for_logs()'s 'Waiting for [pattern]'
+    announcement embeds the pattern verbatim, lands in the very log being
+    scanned, and matches itself, silently reducing the wait to a no-op.
+    Only records from outside pyln (i.e. the plugin author's own logging)
+    may be forwarded.
+    """
+    PYLN_DIRS = tuple(
+        os.path.dirname(os.path.abspath(f)) + os.sep
+        for f in (__file__,
+                  sys.modules[PluginLogHandler.__module__].__file__))
+
+    def filter(self, record):
+        return not os.path.abspath(record.pathname).startswith(self.PYLN_DIRS)
+
+
 def _inline_plugin(node, setup_fn):
     """Set up an inline plugin serve thread for a not-yet-started node.
 
@@ -2069,10 +2090,33 @@ def _inline_plugin(node, setup_fn):
     """
     sock_path = os.path.join(node.daemon.lightning_dir, TEST_NETWORK, 'inline-plugin.sock')
     srv = socket.socket(socket.AF_UNIX)
-    srv.bind(sock_path)
+    try:
+        srv.bind(sock_path)
+    except OSError as e:
+        # AF_UNIX caps the bind path (108 bytes on Linux, 104 on macOS),
+        # and the node dir embeds the (possibly long) test name.  Bind
+        # through a short symlink alias to the socket's directory -- the
+        # bind-side analogue of UnixSocket.connect's Darwin workaround
+        # (bind can't go through a dangling final-component symlink, so
+        # alias the directory rather than the socket).  The socket file
+        # still lands at sock_path, where the shim's cwd-relative connect
+        # expects it.
+        if e.args[0] != "AF_UNIX path too long":
+            raise
+        alias_dir = tempfile.mkdtemp(prefix='pyln-sock-')
+        alias = os.path.join(alias_dir, 'd')
+        os.symlink(os.path.dirname(sock_path), alias)
+        try:
+            srv.bind(os.path.join(alias, os.path.basename(sock_path)))
+        finally:
+            os.unlink(alias)
+            os.rmdir(alias_dir)
     srv.listen(1)
 
     plugin = Plugin(autopatch=False)
+    for handler in logging.getLogger().handlers:
+        if isinstance(handler, PluginLogHandler) and handler.plugin is plugin:
+            handler.addFilter(_NoPylnInternalsFilter())
     setup_fn(plugin)
 
     def serve():
