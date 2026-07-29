@@ -33,7 +33,7 @@ use cln_rpc::{
     primitives::{AmountSat, AmountSatOrAll, ChannelState, Feerate, Sha256},
 };
 use core::fmt;
-use log::warn;
+use log::{debug, warn};
 use serde::Serialize;
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -83,6 +83,21 @@ impl ClnRpcClient {
             }
             tokio::time::sleep(interval).await;
         }
+    }
+
+    /// The channel's current state, or `None` if the node does not know it.
+    pub async fn channel_state(&self, channel_id: &Sha256) -> Result<Option<ChannelState>> {
+        let mut rpc = self.create_rpc().await?;
+        let r = rpc
+            .call_typed(&ListpeerchannelsRequest {
+                channel_id: Some(*channel_id),
+                id: None,
+                short_channel_id: None,
+            })
+            .await
+            .with_context(|| "calling listpeerchannels")?;
+
+        Ok(r.channels.first().map(|ch| ch.state))
     }
 
     pub async fn check_channel_normal(&self, channel_id: &Sha256) -> Result<bool> {
@@ -175,6 +190,26 @@ impl ClnRpcClient {
 /// Converts msat to sat, rounding up to avoid underfunding.
 fn msat_to_sat_ceil(msat: u64) -> u64 {
     msat.div_ceil(1000)
+}
+
+/// Whether a JIT channel in this state is still worth closing. States that
+/// are already shutting down, closing, or onchain need no second close; the
+/// funding tx of an abandoned session is never broadcast, so anything still
+/// open must be torn down explicitly.
+fn should_close(state: Option<ChannelState>) -> bool {
+    matches!(
+        state,
+        Some(
+            ChannelState::OPENINGD
+                | ChannelState::CHANNELD_AWAITING_LOCKIN
+                | ChannelState::CHANNELD_NORMAL
+                | ChannelState::CHANNELD_AWAITING_SPLICE
+                | ChannelState::DUALOPEND_OPEN_INIT
+                | ChannelState::DUALOPEND_AWAITING_LOCKIN
+                | ChannelState::DUALOPEND_OPEN_COMMITTED
+                | ChannelState::DUALOPEND_OPEN_COMMIT_READY
+        )
+    )
 }
 
 /// Reserve to require from the client on a JIT channel. `None` keeps
@@ -378,42 +413,53 @@ impl ActionExecutor for ClnActionExecutor {
         channel_id: String,
         funding_psbt: String,
     ) -> anyhow::Result<()> {
-        // Idempotency: check if channel still exists.
-        if !self.is_channel_alive(&channel_id).await.unwrap_or(false) {
-            // Channel already gone — no-op.
-            // TODO: Belt-and-suspenders: scan listpeerchannels for
-            // orphaned withheld channels not claimed by any session.
-            return Ok(());
-        }
+        // TODO: Belt-and-suspenders: scan listpeerchannels for
+        // orphaned withheld channels not claimed by any session.
+        let sha = channel_id
+            .parse::<Sha256>()
+            .with_context(|| format!("parsing channel_id '{channel_id}'"))?;
 
-        let close_res = {
+        // Not `is_channel_alive`: the dominant caller is the poller reporting
+        // that the channel left CHANNELD_NORMAL, so gating cleanup on NORMAL
+        // skipped exactly the case that needs it.
+        let state = self.rpc.channel_state(&sha).await.unwrap_or(None);
+
+        let close_res = if should_close(state) {
             let mut rpc = self.rpc.create_rpc().await?;
-            rpc.call_typed(&CloseRequest {
-                destination: None,
-                fee_negotiation_step: None,
-                force_lease_closed: None,
-                unilateraltimeout: Some(1), // We didn't even broadcast the channel yet.
-                wrong_funding: None,
-                feerange: None,
-                id: channel_id.clone(),
-            })
-            .await
-            .with_context(|| format!("calling close for channel_id={channel_id}"))
+            let res = rpc
+                .call_typed(&CloseRequest {
+                    destination: None,
+                    fee_negotiation_step: None,
+                    force_lease_closed: None,
+                    unilateraltimeout: Some(1), // We didn't even broadcast the channel yet.
+                    wrong_funding: None,
+                    feerange: None,
+                    id: channel_id.clone(),
+                })
+                .await
+                .with_context(|| format!("calling close for channel_id={channel_id}"))
+                .map(|_| ());
+            if let Err(e) = &res {
+                warn!("abandon_session: close failed for channel_id={channel_id}: {e}");
+            }
+            res
+        } else {
+            debug!("abandon_session: channel_id={channel_id} in state {state:?}, no close needed");
+            Ok(())
         };
 
-        if let Err(e) = &close_res {
-            warn!("abandon_session: close failed for channel_id={channel_id}: {e}");
-        }
-
+        // Always unreserve: unreserveinputs skips inputs that are not
+        // reserved and still succeeds, so this is safe to repeat, and the
+        // reservation outlives the channel otherwise.
         let unreserve_res = self.rpc.unreserve_inputs(&funding_psbt).await;
         if let Err(e) = &unreserve_res {
             warn!("abandon_session: unreserveinputs failed for funding_psbt={funding_psbt}: {e}");
         }
 
         match (close_res, unreserve_res) {
-            (Ok(_), Ok(())) => Ok(()),
+            (Ok(()), Ok(())) => Ok(()),
             (Err(close_err), Ok(())) => Err(close_err),
-            (Ok(_), Err(unreserve_err)) => Err(unreserve_err),
+            (Ok(()), Err(unreserve_err)) => Err(unreserve_err),
             (Err(close_err), Err(unreserve_err)) => Err(anyhow::anyhow!(
                 "abandon_session failed for channel_id={channel_id}: close failed: {close_err}; unreserveinputs failed for funding_psbt={funding_psbt}: {unreserve_err}"
             )),
@@ -852,28 +898,33 @@ impl RecoveryProvider for ClnRecoveryProvider {
         let sha = channel_id
             .parse::<Sha256>()
             .with_context(|| format!("parsing channel_id '{channel_id}'"))?;
-        if !self.rpc.check_channel_normal(&sha).await.unwrap_or(false) {
-            return Ok(());
-        }
+        let state = self.rpc.channel_state(&sha).await.unwrap_or(None);
 
-        let close_res = {
+        let close_res = if should_close(state) {
             let mut rpc = self.rpc.create_rpc().await?;
-            rpc.call_typed(&CloseRequest {
-                destination: None,
-                fee_negotiation_step: None,
-                force_lease_closed: None,
-                unilateraltimeout: Some(1),
-                wrong_funding: None,
-                feerange: None,
-                id: channel_id.to_string(),
-            })
-            .await
-            .with_context(|| format!("calling close for channel_id={channel_id}"))
+            let res = rpc
+                .call_typed(&CloseRequest {
+                    destination: None,
+                    fee_negotiation_step: None,
+                    force_lease_closed: None,
+                    unilateraltimeout: Some(1),
+                    wrong_funding: None,
+                    feerange: None,
+                    id: channel_id.to_string(),
+                })
+                .await
+                .with_context(|| format!("calling close for channel_id={channel_id}"))
+                .map(|_| ());
+            if let Err(e) = &res {
+                warn!("close_and_unreserve: close failed for channel_id={channel_id}: {e}");
+            }
+            res
+        } else {
+            debug!(
+                "close_and_unreserve: channel_id={channel_id} in state {state:?}, no close needed"
+            );
+            Ok(())
         };
-
-        if let Err(e) = &close_res {
-            warn!("close_and_unreserve: close failed for channel_id={channel_id}: {e}");
-        }
 
         let unreserve_res = self.rpc.unreserve_inputs(funding_psbt).await;
         if let Err(e) = &unreserve_res {
@@ -881,9 +932,9 @@ impl RecoveryProvider for ClnRecoveryProvider {
         }
 
         match (close_res, unreserve_res) {
-            (Ok(_), Ok(())) => Ok(()),
+            (Ok(()), Ok(())) => Ok(()),
             (Err(e), Ok(())) => Err(e),
-            (Ok(_), Err(e)) => Err(e),
+            (Ok(()), Err(e)) => Err(e),
             (Err(ce), Err(ue)) => Err(anyhow::anyhow!(
                 "close_and_unreserve failed: close: {ce}; unreserve: {ue}"
             )),
@@ -981,6 +1032,40 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn should_close_covers_live_states_only() {
+        // Anything still openable/open gets a close attempt...
+        for state in [
+            ChannelState::OPENINGD,
+            ChannelState::CHANNELD_AWAITING_LOCKIN,
+            ChannelState::CHANNELD_NORMAL,
+            ChannelState::CHANNELD_AWAITING_SPLICE,
+            ChannelState::DUALOPEND_OPEN_INIT,
+            ChannelState::DUALOPEND_AWAITING_LOCKIN,
+            ChannelState::DUALOPEND_OPEN_COMMITTED,
+            ChannelState::DUALOPEND_OPEN_COMMIT_READY,
+        ] {
+            assert!(should_close(Some(state)), "{state:?} should be closed");
+        }
+
+        // ...anything already going away does not, so we don't re-force-close
+        // a channel that is mid-close.
+        for state in [
+            ChannelState::CHANNELD_SHUTTING_DOWN,
+            ChannelState::CLOSINGD_SIGEXCHANGE,
+            ChannelState::CLOSINGD_COMPLETE,
+            ChannelState::AWAITING_UNILATERAL,
+            ChannelState::FUNDING_SPEND_SEEN,
+            ChannelState::ONCHAIN,
+            ChannelState::CLOSED,
+        ] {
+            assert!(!should_close(Some(state)), "{state:?} should be left alone");
+        }
+
+        // Unknown channel: nothing to close.
+        assert!(!should_close(None));
+    }
 
     #[test]
     fn jit_channel_reserve_defaults_to_lightningd() {
