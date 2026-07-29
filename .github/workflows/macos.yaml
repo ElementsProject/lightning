@@ -62,5 +62,6 @@ jobs:
             tests/test_misc.py::test_ipv4_and_ipv6
             tests/test_connection.py::test_websocket
             tests/test_connection.py::test_wss_proxy
+            tests/test_plugin.py::test_inline_plugin_wait_for_log_no_selfmatch
         run: |
           VALGRIND=0 uv run pytest $PYTEST_TESTS -n $(sysctl -n hw.ncpu) ${PYTEST_OPTS}
