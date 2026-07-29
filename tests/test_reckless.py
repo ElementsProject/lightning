@@ -478,3 +478,24 @@ def test_update(node_factory):
 
     version = node.rpc.gettestplugversion()
     assert version == "v2"
+
+
+@unittest.skipIf(VALGRIND, "virtual environment triggers memleak detection")
+def test_listinstalled(node_factory):
+    "install a plugin and list installed plugins"
+    node = node_factory.get_node(options={})
+
+    r = node.rpc.call("reckless", ["listinstalled", "-v"])
+    assert len(r["listinstalled"]) == 0
+
+    node.rpc.call("reckless", ["install", "-v", "testplugpass@v2"])
+
+    r = node.rpc.call("reckless", ["listinstalled", "-v"])
+    assert len(r["listinstalled"]) == 1
+    assert r["listinstalled"][0]["plugin_name"] == "testplugpass"
+    assert r["listinstalled"][0]["requested_commit"] == "v2"
+    assert r["listinstalled"][0]["installed_commit"] == "v2"
+    assert (
+        r["listinstalled"][0]["original_source"]
+        == "https://github.com/lightningd/plugins"
+    )
