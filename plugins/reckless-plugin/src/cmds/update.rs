@@ -141,7 +141,7 @@ pub async fn handle_update(
 
     if update_results.is_empty() {
         let line = "No updates succeeded";
-        logger.log(line, LogLevel::BROKEN).await?;
+        logger.log(line, LogLevel::UNUSUAL).await?;
         return Err(anyhow!(line));
     }
 
