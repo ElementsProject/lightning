@@ -366,6 +366,8 @@ pub async fn install_poetry_plugin(
 
     set_executable(&wrapper_path).await?;
 
+    remove_pycache(rl_plugin).await?;
+
     Ok(wrapper_path)
 }
 
@@ -391,6 +393,8 @@ pub async fn install_uv_plugin(
     fs::write(&wrapper_path, wrapper).await?;
 
     set_executable(&wrapper_path).await?;
+
+    remove_pycache(rl_plugin).await?;
 
     Ok(wrapper_path)
 }
@@ -454,6 +458,8 @@ pub async fn install_uv_legacy_plugin(
 
     set_executable(&wrapper_path).await?;
 
+    remove_pycache(rl_plugin).await?;
+
     Ok(wrapper_path)
 }
 
@@ -500,7 +506,17 @@ pub async fn install_python_plugin(
 
     set_executable(&wrapper_path).await?;
 
+    remove_pycache(rl_plugin).await?;
+
     Ok(wrapper_path)
+}
+
+async fn remove_pycache(rl_plugin: &RecklessPlugin) -> Result<(), anyhow::Error> {
+    let pycache = rl_plugin.source_path().join("__pycache__");
+    if pycache.exists() {
+        fs::remove_dir_all(pycache).await?;
+    }
+    Ok(())
 }
 
 async fn create_venv(
