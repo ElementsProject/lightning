@@ -68,6 +68,9 @@ pub async fn list_installed(
     plugin: Plugin<PluginState>,
 ) -> Result<HashMap<String, Metadata>, anyhow::Error> {
     let mut result: HashMap<String, Metadata> = HashMap::new();
+    if !plugin.state().reckless_dir.exists() {
+        return Ok(result);
+    }
     let mut entries = fs::read_dir(&plugin.state().reckless_dir).await?;
     while let Ok(Some(entry)) = entries.next_entry().await {
         let Ok(file_type) = entry.file_type().await else {
