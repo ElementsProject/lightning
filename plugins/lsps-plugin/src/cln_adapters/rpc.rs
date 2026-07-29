@@ -626,18 +626,27 @@ impl DatastoreProvider for ClnDatastore {
             DS_FINALIZED_KEY.to_string(),
             scid.to_string(),
         ];
-        rpc.call_typed(&DatastoreRequest {
-            generation: None,
-            hex: None,
-            mode: Some(DatastoreMode::MUST_CREATE),
-            string: Some(json_str),
-            key,
-        })
-        .await
-        .with_context(|| "calling datastore for finalize_session")?;
+        // CREATE_OR_REPLACE, not MUST_CREATE: a crash between this write and
+        // the delete below leaves the active entry in place, and the next
+        // startup re-finalizes it. With MUST_CREATE that retry fails forever
+        // and the entry is re-recovered on every restart.
+        let write_res = rpc
+            .call_typed(&DatastoreRequest {
+                generation: None,
+                hex: None,
+                mode: Some(DatastoreMode::CREATE_OR_REPLACE),
+                string: Some(json_str),
+                key,
+            })
+            .await
+            .with_context(|| "calling datastore for finalize_session");
 
-        self.del_buy_request(scid).await?;
-        Ok(())
+        // Drop the active entry even if the write failed: leaving it behind
+        // means recovery keeps resurrecting a session we already gave up on.
+        let del_res = self.del_buy_request(scid).await;
+
+        write_res?;
+        del_res
     }
 
     async fn list_active_sessions(&self) -> Result<Vec<(ShortChannelId, DatastoreEntry)>> {
