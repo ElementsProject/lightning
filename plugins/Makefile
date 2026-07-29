@@ -287,7 +287,7 @@ $(RUST_TARGET_DIR)/cln-bip353: ${CLN_BIP353_PLUGIN_SRC} ${CLN_PLUGIN_SRC}
 	$(CARGO) build ${CARGO_OPTS} --bin cln-bip353
 $(RUST_TARGET_DIR)/cln-currencyrate: ${CLN_CURRENCYRATE_PLUGIN_SRC} ${CLN_RPC_SOURCES} ${CLN_PLUGIN_SRC}
 	$(CARGO) build ${CARGO_OPTS} --bin cln-currencyrate
-$(RUST_TARGET_DIR)/cln-reckless: ${CLN_RECKLESS_PLUGIN_SRC}
+$(RUST_TARGET_DIR)/cln-reckless: ${CLN_RECKLESS_PLUGIN_SRC} ${CLN_RPC_SOURCES} ${CLN_PLUGIN_SRC}
 	$(CARGO) build ${CARGO_OPTS} --bin cln-reckless
 
 ifneq ($(RUST),0)
