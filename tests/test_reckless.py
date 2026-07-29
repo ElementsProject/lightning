@@ -455,3 +455,26 @@ def test_reckless_manifest(node_factory):
         "Successfully sent 1000msat to testplugmani author!" in line
         for line in r["log"]
     )
+
+
+@unittest.skipIf(VALGRIND, "virtual environment triggers memleak detection")
+def test_update(node_factory):
+    "install a plugin from an old tag and update it"
+    node = node_factory.get_node(options={})
+    r = node.rpc.call("reckless", ["install", "-v", "testPlugPass@v1"])
+    assert r["install"]["enabled"]
+    assert r["install"]["plugin_name"] == "testplugpass"
+
+    version = node.rpc.gettestplugversion()
+    assert version == "v1"
+
+    # testplugpass was pinned during install and a general update call will skip it
+    with pytest.raises(RpcError, match="No updates succeeded"):
+        node.rpc.call("reckless", ["update", "-v"])
+
+    # a specific update call for testplugpass should ignore the pinned version and update
+    r = node.rpc.call("reckless", ["update", "-v", "testplugpass"])
+    assert r["update"][0]["plugin_name"] == "testplugpass"
+
+    version = node.rpc.gettestplugversion()
+    assert version == "v2"
