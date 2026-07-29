@@ -659,6 +659,78 @@ def test_lsps2_session_datastore_has_funding_fields(node_factory, bitcoind):
     assert active["datastore"] == []
 
 
+def test_lsps2_finalize_twice_clears_active(node_factory, bitcoind):
+    """Finalizing twice must not strand the active datastore entry.
+
+    finalize_session writes the finalized entry and then deletes the active
+    one. A crash between the two leaves both keys in place. If the finalized
+    write is MUST_CREATE, every later attempt fails before reaching the
+    delete, so the active entry is never removed and recovery resurrects the
+    session on every restart. Simulate the post-crash state by pre-seeding
+    the finalized key, then drive a session to a finalize.
+    """
+    l1, l2, l3, chanid = setup_lsps2_network(node_factory, bitcoind)
+
+    amt = 10_000_000
+    dec, inv = buy_and_invoice(l1, l2, amt)
+
+    # The buy request created the active entry; its last key element is the
+    # jit scid this session is keyed by.
+    active = l2.rpc.listdatastore(["lsps", "lsps2", "sessions", "active"])
+    scid_key = only_one(active["datastore"])["key"][-1]
+
+    # Stand in for the entry a crashed finalize would have left behind.
+    l2.rpc.datastore(
+        key=["lsps", "lsps2", "sessions", "finalized", scid_key],
+        string="left-over-from-a-crashed-finalize",
+        mode="must-create",
+    )
+
+    # One part of a ten-part payment: the session never reaches the
+    # threshold and the collect timeout (5s in tests) fails it, which is
+    # the cheapest path to a finalize_session call.
+    routehint = only_one(only_one(dec["routes"]))
+    route = [
+        {
+            "amount_msat": amt // 10,
+            "id": l2.info["id"],
+            "delay": routehint["cltv_expiry_delta"] + 6,
+            "channel": chanid,
+        },
+        {
+            "amount_msat": amt // 10,
+            "id": l1.info["id"],
+            "delay": 6,
+            "channel": routehint["short_channel_id"],
+        },
+    ]
+    l3.rpc.sendpay(
+        route,
+        dec["payment_hash"],
+        payment_secret=inv["payment_secret"],
+        bolt11=inv["bolt11"],
+        amount_msat=f"{amt}msat",
+        groupid=1,
+        partid=1,
+    )
+
+    with pytest.raises(Exception):
+        l3.rpc.waitsendpay(dec["payment_hash"], partid=1, groupid=1, timeout=30)
+
+    # The active entry is gone despite the pre-existing finalized key.
+    wait_for(
+        lambda: l2.rpc.listdatastore(["lsps", "lsps2", "sessions", "active"])[
+            "datastore"
+        ]
+        == []
+    )
+
+    # ...and the placeholder was replaced by the real finalized entry.
+    ds = l2.rpc.listdatastore(["lsps", "lsps2", "sessions", "finalized", scid_key])
+    entry = json.loads(only_one(ds["datastore"])["string"])
+    assert entry["outcome"] == "Failed"
+
+
 def test_lsps2_session_payment_failed_abandoned(node_factory, bitcoind):
     """MPP payment fails after HTLCs are forwarded — session ends as Abandoned.
 
