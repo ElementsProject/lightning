@@ -923,16 +923,10 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 		return NULL;
 	}
 
-	/* BOLT #2:
-	 *
-	 * The receiving node MUST fail the channel if:
-	 *...
-	 * - `funding_satoshis` is greater than or equal to 2^24 and the receiver does not support
-	 *   `option_support_large_channel`. */
-	/* We choose to require *negotiation*, not just support! */
-	if (!feature_negotiated(state->our_features, state->their_features,
-				OPT_LARGE_CHANNELS)
-	    && amount_sat_greater(state->funding_sats, chainparams->max_funding)) {
+	/* Check that funding doesn't exceed allowed channel capacity */
+	if (amount_sat_greater(state->funding_sats,
+			       max_channel_funding(state->our_features,
+						   state->their_features))) {
 		negotiation_failed(state,
 				   "funding_satoshis %s too large",
 				   fmt_amount_sat(tmpctx, state->funding_sats));

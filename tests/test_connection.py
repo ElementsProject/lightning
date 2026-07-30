@@ -20,6 +20,7 @@ import pytest
 import random
 import re
 import statistics
+import struct
 import time
 import unittest
 import websocket
@@ -4927,3 +4928,169 @@ def test_constant_packet_size(node_factory, tcp_capture):
 
     # Padding pings don't elicit a response
     assert not l2.daemon.is_in_log("connectd: Unexpected pong")
+
+
+# Feature bits (see common/features.h)
+OPT_STATIC_REMOTEKEY = 12
+OPT_LARGE_CHANNELS = 18
+OPT_ANCHORS_ZERO_FEE_HTLC_TX = 22
+
+WIRE_WARNING = 1
+WIRE_INIT = 16
+WIRE_ERROR = 17
+WIRE_OPEN_CHANNEL = 32
+WIRE_ACCEPT_CHANNEL = 33
+WIRE_FUNDING_CREATED = 34
+
+# bitcoin/chainparams.c: max_supply, which is also libwally's WALLY_SATOSHI_MAX.
+MAX_SUPPLY_SAT = 2100000000000000
+
+
+def featurebits(*bits):
+    """Encode feature bits BOLT-style: big-endian, bit 0 is the last byte's LSB."""
+    if not bits:
+        return b''
+    nbytes = max(bits) // 8 + 1
+    arr = bytearray(nbytes)
+    for b in bits:
+        arr[nbytes - 1 - b // 8] |= 1 << (b % 8)
+    return bytes(arr)
+
+
+def feature_offered(bits, b):
+    """True if feature bit b (or its odd/compulsory twin) is set."""
+    for x in (b, b ^ 1):
+        idx = len(bits) - 1 - x // 8
+        if 0 <= idx < len(bits) and bits[idx] & (1 << (x % 8)):
+            return True
+    return False
+
+
+def raw_peer_connect(node):
+    """Handshake to node as a raw peer, echoing back its own features.
+
+    Returns the connection and a channel_type the node will accept.
+    """
+    lconn = wire.connect(wire.PrivateKey(bytes([0x11] * 32)),
+                         wire.PublicKey(bytes.fromhex(node.info['id'])),
+                         '127.0.0.1', node.port)
+
+    # Echo their features back, so we never require one they lack.
+    msg = lconn.read_message()
+    assert int.from_bytes(msg[0:2], 'big') == WIRE_INIT, "expected init"
+    payload = msg[2:]
+
+    glen = struct.unpack('>H', payload[0:2])[0]
+    flen = struct.unpack('>H', payload[2 + glen:4 + glen])[0]
+    theirs = payload[4 + glen:4 + glen + flen]
+
+    lconn.send_message(struct.pack('>HH', WIRE_INIT, 0)
+                       + struct.pack('>H', len(theirs)) + theirs)
+
+    # Without option_support_large_channel the 2^24 cap applies, and we never
+    # reach the commitment transaction code this test is about.
+    assert feature_offered(theirs, OPT_LARGE_CHANNELS), "peer does not offer wumbo"
+
+    ctype = featurebits(*[b for b in (OPT_STATIC_REMOTEKEY,
+                                      OPT_ANCHORS_ZERO_FEE_HTLC_TX)
+                          if feature_offered(theirs, b)])
+    return lconn, ctype
+
+
+def send_open_channel(lconn, chain_hash, temp_chan_id, funding_sat, push_msat,
+                      feerate_per_kw, channel_type):
+    # Six distinct valid points; they only have to parse.
+    keys = [wire.PrivateKey(bytes([i + 1] * 32)).public_key().serializeCompressed()
+            for i in range(6)]
+
+    msg = struct.pack('>H', WIRE_OPEN_CHANNEL)
+    msg += chain_hash
+    msg += temp_chan_id
+    msg += struct.pack('>Q', funding_sat)       # funding_satoshis
+    msg += struct.pack('>Q', push_msat)         # push_msat
+    msg += struct.pack('>Q', 546)               # dust_limit_satoshis
+    msg += struct.pack('>Q', 0xFFFFFFFFFFFF)    # max_htlc_value_in_flight_msat
+    msg += struct.pack('>Q', 10000)             # channel_reserve_satoshis
+    msg += struct.pack('>Q', 0)                 # htlc_minimum_msat
+    msg += struct.pack('>I', feerate_per_kw)    # feerate_per_kw
+    msg += struct.pack('>H', 144)               # to_self_delay
+    msg += struct.pack('>H', 483)               # max_accepted_htlcs
+    for k in keys:
+        msg += k
+    msg += struct.pack('>B', 0)                 # channel_flags
+    msg += bytes([1, len(channel_type)]) + channel_type   # TLV 1: channel_type
+
+    lconn.send_message(msg)
+
+
+def read_channel_reply(lconn):
+    """Read past gossip chatter to openingd's answer to our open_channel."""
+    for _ in range(20):
+        msg = lconn.read_message()
+        mtype = int.from_bytes(msg[0:2], 'big')
+        if mtype in (WIRE_ACCEPT_CHANNEL, WIRE_WARNING, WIRE_ERROR):
+            return mtype
+    raise AssertionError("no reply to open_channel")
+
+
+def send_funding_created(lconn, temp_chan_id):
+    """Drive the open to the point where we build the commitment transaction.
+
+    openingd builds (and asserts on) the commitment transaction before it
+    validates our signature, so a dummy signature is enough to get there.
+    """
+    msg = struct.pack('>H', WIRE_FUNDING_CREATED)
+    msg += temp_chan_id
+    msg += bytes(32)                            # funding_txid
+    msg += struct.pack('>H', 0)                 # funding_output_index
+    msg += bytes(64)                            # signature
+    lconn.send_message(msg)
+
+
+@pytest.mark.openchannel('v1')
+def test_open_channel_funding_above_max_supply(node_factory, bitcoind):
+    """Huge funding_satoshis must not crash openingd.
+
+    The peer can choose absurdly-high values for funding_satoshis, and openingd
+    should gracefully reject such channels without assertion-crashing.
+    """
+    l1 = node_factory.get_node()
+
+    chain_hash = bytes.fromhex(bitcoind.rpc.getblockhash(0))[::-1]
+    # Use the node's own opening feerate, so we're inside its accepted range.
+    feerate = l1.rpc.feerates('perkw')['perkw']['opening']
+
+    for funding_sat, push_msat in ((MAX_SUPPLY_SAT + 1, 0),
+                                   (MAX_SUPPLY_SAT * 2, 0),
+                                   (0xFFFFFFFFFFFFFFFF, 0),
+                                   (MAX_SUPPLY_SAT + 200000, (MAX_SUPPLY_SAT + 100) * 1000),
+                                   (MAX_SUPPLY_SAT + 200000, 300000 * 1000)):
+        lconn, channel_type = raw_peer_connect(l1)
+        temp_chan_id = os.urandom(32)
+        send_open_channel(lconn, chain_hash, temp_chan_id, funding_sat,
+                          push_msat, feerate, channel_type)
+
+        mtype = read_channel_reply(lconn)
+
+        if mtype == WIRE_ACCEPT_CHANNEL:
+            # Not rejected.  Drive it on to the commitment transaction build,
+            # which is where the unguarded assertions live.
+            send_funding_created(lconn, temp_chan_id)
+            try:
+                lconn.read_message()
+            except Exception:
+                pass
+
+        assert mtype in (WIRE_WARNING, WIRE_ERROR), \
+            "funding_satoshis {} / push_msat {} was not rejected (got msgtype {})".format(
+                funding_sat, push_msat, mtype)
+
+        # lightningd survives even when openingd dies, so check openingd too.
+        assert not l1.daemon.is_in_log('Owning subdaemon openingd died'), \
+            "openingd crashed on funding_satoshis {} / push_msat {}".format(
+                funding_sat, push_msat)
+        assert not l1.daemon.is_in_log('assertion failed'), \
+            "assertion failed on funding_satoshis {} / push_msat {}".format(
+                funding_sat, push_msat)
+
+    assert l1.rpc.getinfo()['id'] == l1.info['id']
