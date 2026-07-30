@@ -983,13 +983,12 @@ def test_sign_signed_psbt(node_factory, bitcoind, chainparams):
     psbt = l1.rpc.txprepare([{l1.rpc.newaddr('bech32')['bech32']: 10000}])['psbt']
     signed_psbt = l1.rpc.signpsbt(psbt)['signed_psbt']
 
-    if TEST_NETWORK != 'liquid-regtest':
-        # FIXME: ideally this would succeed, as a noop.  But it shouldn't crash
-        with pytest.raises(RpcError):
-            l1.rpc.signpsbt(signed_psbt)['signed_psbt']
-    else:
-        # Non-taproot works fine.
-        assert l1.rpc.signpsbt(signed_psbt)['signed_psbt'] == signed_psbt
+    # libwally >= 1.5.2 ignores duplicate taproot keypath entries
+    # (issue: ElementsProject/libwally-core#509,
+    # commit with fix: ElementsProject/libwally-core#7e483c049b0a4405801f010e60c9f0335d2a617f),
+    # so re-signing an already signed PSBT input is now a noop
+    # rather than an error, on both bitcoin and liquid.
+    assert l1.rpc.signpsbt(signed_psbt)['signed_psbt'] == signed_psbt
 
 
 def test_psbt_version(node_factory, bitcoind, chainparams):
