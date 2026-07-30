@@ -1,6 +1,8 @@
 #include "config.h"
+#include <bitcoin/chainparams.h>
 #include <ccan/ccan/tal/str/str.h>
 #include <common/channel_config.h>
+#include <common/features.h>
 #include <common/initial_commit_tx.h>
 #include <common/shutdown_scriptpubkey.h>
 #include <common/status.h>
@@ -202,6 +204,27 @@ bool anchors_negotiated(struct feature_set *our_features,
 		|| feature_negotiated(our_features,
 				      their_features,
 				      OPT_ANCHORS_ZERO_FEE_HTLC_TX);
+}
+
+/* The largest channel we're prepared to talk about. */
+struct amount_sat max_channel_funding(const struct feature_set *our_features,
+				      const u8 *their_features)
+{
+	/* BOLT #2:
+	 *
+	 * The receiving node MUST fail the channel if:
+	 *...
+	 * - `funding_satoshis` is greater than or equal to 2^24 and the receiver does not support
+	 *   `option_support_large_channel`. */
+	/* We choose to require *negotiation*, not just support! */
+	if (!feature_negotiated(our_features, their_features,
+				OPT_LARGE_CHANNELS))
+		return chainparams->max_funding;
+
+	/* libwally refuses to build a transaction with an amount larger than
+	 * the total 21M Bitcoin supply, and we assert on libwally errors, so we
+	 * must reject funding amounts that exceed this limit. */
+	return chainparams->max_supply;
 }
 
 char *validate_remote_upfront_shutdown(const tal_t *ctx,

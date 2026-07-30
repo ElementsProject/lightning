@@ -2558,17 +2558,10 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 		return;
 	}
 
-	/* BOLT #2:
-	 *
-	 * The receiving node MUST fail the channel if:
-	 *...
-	 * - `funding_satoshis` is greater than or equal to 2^24 and the receiver does not support
-	 *   `option_support_large_channel`. */
-	/* We choose to require *negotiation*, not just support! */
-	if (!feature_negotiated(state->our_features, state->their_features,
-				OPT_LARGE_CHANNELS)
-	    && amount_sat_greater(tx_state->opener_funding,
-				  chainparams->max_funding)) {
+	/* Check that opener's funding doesn't exceed allowed channel capacity */
+	if (amount_sat_greater(tx_state->opener_funding,
+			       max_channel_funding(state->our_features,
+						   state->their_features))) {
 		negotiation_failed(state,
 				   "opener's funding_satoshis %s too large",
 				   fmt_amount_sat(tmpctx,
@@ -2699,16 +2692,9 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 	}
 
 	/* Check that total funding doesn't exceed allowed channel capacity */
-	/* BOLT #2:
-	 *
-	 * The receiving node MUST fail the channel if:
-	 *...
-	 * - `funding_satoshis` is greater than or equal to 2^24 and the receiver does not support
-	 *   `option_support_large_channel`. */
-	/* We choose to require *negotiation*, not just support! */
-	if (!feature_negotiated(state->our_features, state->their_features,
-				OPT_LARGE_CHANNELS)
-	    && amount_sat_greater(total, chainparams->max_funding)) {
+	if (amount_sat_greater(total,
+			       max_channel_funding(state->our_features,
+						   state->their_features))) {
 		negotiation_failed(state, "total funding_satoshis %s too large",
 				   fmt_amount_sat(tmpctx, total));
 		return;
@@ -3340,16 +3326,9 @@ static void opener_start(struct state *state, u8 *msg)
 	}
 
 	/* Check that total funding doesn't exceed allowed channel capacity */
-	/* BOLT #2:
-	 *
-	 * The receiving node MUST fail the channel if:
-	 *...
-	 * - `funding_satoshis` is greater than or equal to 2^24 and
-	 *    the receiver does not support `option_support_large_channel`. */
-	/* We choose to require *negotiation*, not just support! */
-	if (!feature_negotiated(state->our_features, state->their_features,
-				OPT_LARGE_CHANNELS)
-	    && amount_sat_greater(total, chainparams->max_funding)) {
+	if (amount_sat_greater(total,
+			       max_channel_funding(state->our_features,
+						   state->their_features))) {
 		negotiation_failed(state,
 				   "total funding_satoshis %s too large",
 				   fmt_amount_sat(tmpctx, total));
@@ -3663,16 +3642,9 @@ static void rbf_local_start(struct state *state, u8 *msg)
 		return;
 	}
 	/* Check that total funding doesn't exceed allowed channel capacity */
-	/* BOLT #2:
-	 *
-	 * The receiving node MUST fail the channel if:
-	 *...
-	 * - `funding_satoshis` is greater than or equal to 2^24 and the receiver does not support
-	 *   `option_support_large_channel`. */
-	/* We choose to require *negotiation*, not just support! */
-	if (!feature_negotiated(state->our_features, state->their_features,
-				OPT_LARGE_CHANNELS)
-	    && amount_sat_greater(total, chainparams->max_funding)) {
+	if (amount_sat_greater(total,
+			       max_channel_funding(state->our_features,
+						   state->their_features))) {
 		open_abort(state, "Total funding_satoshis %s too large",
 			   fmt_amount_sat(tmpctx, total));
 		return;
@@ -3868,16 +3840,9 @@ static void rbf_remote_start(struct state *state, const u8 *rbf_msg)
 	}
 
 	/* Check that total funding doesn't exceed allowed channel capacity */
-	/* BOLT #2:
-	 *
-	 * The receiving node MUST fail the channel if:
-	 *...
-	 * - `funding_satoshis` is greater than or equal to 2^24 and the receiver does not support
-	 *   `option_support_large_channel`. */
-	/* We choose to require *negotiation*, not just support! */
-	if (!feature_negotiated(state->our_features, state->their_features,
-				OPT_LARGE_CHANNELS)
-	    && amount_sat_greater(total, chainparams->max_funding)) {
+	if (amount_sat_greater(total,
+			       max_channel_funding(state->our_features,
+						   state->their_features))) {
 		open_abort(state, "Total funding_satoshis %s too large",
 			   fmt_amount_sat(tmpctx, total));
 		goto free_rbf_ctx;
