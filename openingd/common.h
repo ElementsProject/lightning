@@ -23,6 +23,9 @@ bool check_config_bounds(const tal_t *ctx,
 bool anchors_negotiated(struct feature_set *our_features,
 			const u8 *their_features);
 
+struct amount_sat max_channel_funding(const struct feature_set *our_features,
+				      const u8 *their_features);
+
 u8 *no_upfront_shutdown_script(const tal_t *ctx,
 			       bool developer,
 			       struct feature_set *our_features,
