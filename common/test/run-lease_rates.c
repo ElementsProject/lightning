@@ -97,7 +97,7 @@ static void check_lease_rate_commitment_hash(void)
 
 static void check_lease_rate_fees(void)
 {
-	/* BOLT- #2:
+	/* BOLT-liquidity-ads #2:
 	 * E.g.
 	 * An node requests 1_000_000sats at a feerate of 2500perkw. They
 	 * are contributing 500_000sats. Their weight contribution to the

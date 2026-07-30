@@ -773,7 +773,7 @@ static void handle_peer_blockheight_change(struct peer *peer, const u8 *msg)
 				 "Bad update_blockheight %s",
 				 tal_hex(msg, msg));
 
-	/* BOLT- #2:
+	/* BOLT-liquidity-ads #2:
 	 * A receiving node:
 	 *   ...
 	 *   - if the sender is not the initiator:
@@ -790,7 +790,7 @@ static void handle_peer_blockheight_change(struct peer *peer, const u8 *msg)
 		     " our current height %u",
 		     blockheight, current, peer->our_blockheight);
 
-	/* BOLT- #2:
+	/* BOLT-liquidity-ads #2:
 	 * A receiving node:
 	 *   - if the `update_blockheight` is less than the last
 	 *     received `blockheight`:
@@ -814,7 +814,7 @@ static void handle_peer_blockheight_change(struct peer *peer, const u8 *msg)
 				 "update_blockheight %u older than previous %u",
 				 blockheight, current);
 
-	/* BOLT- #2:
+	/* BOLT-liquidity-ads #2:
 	 * A receiving node:
 	 *    ...
 	 *   - if `blockheight` is more than 1008 blocks behind
@@ -6541,7 +6541,7 @@ static void handle_blockheight(struct peer *peer, const u8 *inmsg)
 		u32 peer_height = get_blockheight(peer->channel->blockheight_states,
 						  peer->channel->opener,
 						  REMOTE);
-		/* BOLT- #2:
+		/* BOLT-liquidity-ads #2:
 		 * The node _not responsible_ for initiating the channel:
 		 *   ...
 		 *   - if last received `blockheight` is > 1008 behind
