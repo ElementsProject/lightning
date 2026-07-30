@@ -1,0 +1,4 @@
+[sources.bolt]
+format = "markdown"
+dir = "../.tmp.lightningrfc"
+pattern = "{id:02d}-*.md"
