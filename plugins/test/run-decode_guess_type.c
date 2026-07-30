@@ -247,7 +247,7 @@ int main(int argc, char *argv[])
 	common_setup(argv[0]);
 
 	static const struct likely_test tests[] = {
-		/* BOLT-12 */
+		/* From BOLT-12: */
 		{ "lno1qqqqqq",        LIKELY_BOLT12_OFFER },
 		{ "LNO1QQQQQQ",        LIKELY_BOLT12_OFFER },
 		{ "lni1abcd",          LIKELY_BOLT12_INV },
@@ -261,7 +261,7 @@ int main(int argc, char *argv[])
 		{ "clnemerg1foo",      LIKELY_EMERGENCY_RECOVER },
 		{ "CLNEMERG1FOO",      LIKELY_EMERGENCY_RECOVER },
 
-		/* BOLT-11 (lower + upper, amount + no amount) */
+		/* From BOLT-11: (lower + upper, amount + no amount) */
 		{ "lnbc1qqqqqq",       LIKELY_BOLT11 },
 		{ "LNBC1QQQQQQ",       LIKELY_BOLT11 },
 		{ "lnbc10u1qqqqqq",    LIKELY_BOLT11 },
