@@ -428,6 +428,15 @@ node_info() {
 }
 
 destroy_ln() {
+	network=${1:-regtest}
+	if [ -n "$LN_NODES" ]; then
+		printf "Nodes are still running. Stop them now with stop_ln? [y/N] "
+		read -r yn
+		case "$yn" in
+			[Yy]*) stop_ln "$network" ;;
+			*) echo "Aborting. Call stop_ln before destroy_ln."; return 1 ;;
+		esac
+	fi
 	rm -rf "$LIGHTNING_DIR"/l[0-9]*
 }
 
