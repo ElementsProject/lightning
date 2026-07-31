@@ -167,6 +167,25 @@
 // cost function arcs.
 static const double CHANNEL_PIVOTS[]={0,0.5,0.8,0.95};
 
+/* MCF preserves flow at intermediate hops, therefore fees do not contribute to
+ * flows or flows costs. We can exceed capacity limits once fees are added
+ * and/or discover very high probability costs triggered by them. To mitigate
+ * this we scale down the min/max limits by this factor assuming a worst case
+ * fee of 1% of the flow amount. This works because multiplying the flow by g
+ * produces the same cost than multiplying the min/max bounds by 1/g.
+ *
+ * We want a new cost function
+ * 	C'(x) = C(x + fees) where x+fees = x*(1+0.01)= x*g
+ *
+ * C'(x) = C(x*g) =
+ * 	case x*g <= a, same as x <= a/g: 0
+ * 	case x*g >= b, same as x >= b/g: infinity
+ * 	case a<=x*g<b, same as a/g<=x<b/g: -log(1-(x*g-a)/(b-a)) = -log(1-(x-a/g)/(b/g-a/g))
+ * */
+/* FIXME: This could prevent us from finding flows that fit tightly through
+ * channel capacities. */
+static const double FLOW_FEE_ADJUSTMENT = 1.01;
+
 static const s64 INFINITE = INT64_MAX;
 static const s64 MU_MAX = 100;
 
@@ -368,6 +387,18 @@ static void linearize_channel(const struct pay_parameters *params,
 	/* Assume if min > max, min is wrong */
 	if (amount_msat_greater(mincap, maxcap))
 		mincap = maxcap;
+
+	/* Allow space for fees at 1% */
+	if (!amount_msat_scale(&mincap, mincap, 1 / FLOW_FEE_ADJUSTMENT)) {
+		child_log(tmpctx, LOG_UNUSUAL,
+			  "%s: Couldn't scale down mincap=%s by %lf", __func__,
+			  fmt_amount_msat(tmpctx, mincap), FLOW_FEE_ADJUSTMENT);
+	}
+	if (!amount_msat_scale(&maxcap, maxcap, 1 / FLOW_FEE_ADJUSTMENT)) {
+		child_log(tmpctx, LOG_UNUSUAL,
+			  "%s: Couldn't scale down maxcap=%s by %lf", __func__,
+			  fmt_amount_msat(tmpctx, maxcap), FLOW_FEE_ADJUSTMENT);
+	}
 
 	u64 a = amount_msat_ratio_floor(mincap, params->accuracy),
 	    b = 1 + amount_msat_ratio_floor(maxcap, params->accuracy);
