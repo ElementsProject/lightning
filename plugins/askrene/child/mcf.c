@@ -291,6 +291,26 @@ struct pay_parameters {
 	// how much we pay
 	struct amount_msat amount;
 
+	/* Introducing flow_fee_adjustment (here 1/g)
+	 *
+	 * MCF preserves flow at intermediate hops, therefore fees do not
+	 * contribute to flows or flows costs.  We can exceed capacity limits
+	 * once fees are added and/or hit very high probability costs
+	 * triggered by them.  To mitigate this we scale down the min/max limits
+	 * by this factor.  This works because multiplying the flow by g produces the same cost
+	 * than multiplying the min/max bounds by 1/g.
+	 *
+	 * We want a new cost function, assume fees = 1% of total amount
+	 * 	C'(x) = C(x + fees) where x+fees = x*(1+0.01)= x*g
+	 *
+	 * C'(x) = C(x*g) =
+	 * 	case x*g <= a, same as x <= a/g: 0
+	 * 	case x*g >= b, same as x >= b/g: infinity
+	 * 	case a<=x*g<b, same as a/g<=x<b/g: -log(1-(x*g-a)/(b-a)) =
+	 * -log(1-(x-a/g)/(b/g-a/g))
+	 * */
+	double flow_fee_adjustment;
+
 	/* base unit for computation, ie. accuracy */
 	struct amount_msat accuracy;
 
@@ -360,7 +380,8 @@ static double pickhardt_richter_probability(struct amount_msat low,
 /* Split a directed channel into parts with linear cost function. */
 static void linearize_channel(const struct pay_parameters *params,
 			      const struct gossmap_chan *c, const int dir,
-			      s64 *capacity, double *cost)
+			      s64 *capacity, double *cost,
+			      double flow_fee_adjustment)
 {
 	struct amount_msat mincap, maxcap;
 
@@ -370,6 +391,18 @@ static void linearize_channel(const struct pay_parameters *params,
 	/* Assume if min > max, min is wrong */
 	if (amount_msat_greater(mincap, maxcap))
 		mincap = maxcap;
+
+	/* Allow headroom for fees */
+	if (!amount_msat_scale(&mincap, mincap, flow_fee_adjustment)) {
+		child_log(tmpctx, LOG_UNUSUAL,
+			  "%s: Couldn't scale down mincap=%s by %lf", __func__,
+			  fmt_amount_msat(tmpctx, mincap), flow_fee_adjustment);
+	}
+	if (!amount_msat_scale(&maxcap, maxcap, flow_fee_adjustment)) {
+		child_log(tmpctx, LOG_UNUSUAL,
+			  "%s: Couldn't scale down maxcap=%s by %lf", __func__,
+			  fmt_amount_msat(tmpctx, maxcap), flow_fee_adjustment);
+	}
 
 	u64 a = amount_msat_ratio_floor(mincap, params->accuracy),
 	    b = 1 + amount_msat_ratio_floor(maxcap, params->accuracy);
@@ -659,7 +692,8 @@ static void init_linear_network(const tal_t *ctx,
 
 			// split this channel direction to obtain the arcs
 			// that are outgoing to `node`
-			linearize_channel(params, c, half, capacity, prob_cost);
+			linearize_channel(params, c, half, capacity, prob_cost,
+					  params->flow_fee_adjustment);
 
 			/* linear fee_cost per unit of flow */
 			const double fee_cost = linear_fee_cost(
@@ -1024,6 +1058,7 @@ static struct flow **minflow(const tal_t *ctx,
 			     const struct gossmap_node *source,
 			     const struct gossmap_node *target,
 			     struct amount_msat amount,
+			     double flow_fee_adjustment,
 			     double mu,
 			     double delay_dial,
 			     double per_hop_dial,
@@ -1040,6 +1075,7 @@ static struct flow **minflow(const tal_t *ctx,
 	params->source = source;
 	params->target = target;
 	params->amount = amount;
+	params->flow_fee_adjustment = flow_fee_adjustment;
 	/* -> We reduce the granularity of the flow by limiting the subdivision
 	 * of the payment amount into 1000 units of flow. That reduces the
 	 * computational burden for algorithms that depend on it, eg. "capacity
@@ -1250,6 +1286,7 @@ static void init_linear_network_single_path(
  * @source: the source to start from
  * @target: the target to pay
  * @amount: the amount we want to reach @target
+ * @maxfee: fee constraint
  * @mu: 0 = corresponds to only probabilities, 1 corresponds to only fee.
  * @delay_dial: same as mu but for delays.
  * @prob_dial: same as mu but for probabilities.
@@ -1260,6 +1297,7 @@ static struct flow **single_path_flow(const tal_t *ctx, const struct route_query
 				      const struct gossmap_node *source,
 				      const struct gossmap_node *target,
 				      struct amount_msat amount,
+				      double flow_fee_adjustment UNUSED,
 				      double mu,
 				      double delay_dial,
 				      double per_hop_dial,
@@ -1464,6 +1502,7 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 				      double,
 				      double,
 				      double,
+				      double,
 				      double))
 {
 	/* Almost 1 to limit the dials' iterations. */
@@ -1472,6 +1511,7 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 	const char *error_message;
 	struct amount_msat amount_to_deliver = amount;
 	struct amount_msat feebudget = maxfee;
+	struct amount_msat amount_and_fees;
 
 	/* These are the cost dials for the feature costs we combine.
 	 * Each one must be a number between 0 and 1, and the sum of all must be
@@ -1480,6 +1520,29 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 	double delay_dial = 0.001;
 	double per_hop_dial = 0.001;
 	double prob_dial = 0.988;
+
+	if (!amount_msat_add(&amount_and_fees, amount, maxfee)) {
+		child_log(tmpctx, LOG_BROKEN,
+			  "%s: Couldn't compute amount (%s) + maxfee (%s)",
+			  __func__, fmt_amount_msat(tmpctx, amount),
+			  fmt_amount_msat(tmpctx, maxfee));
+		/* fallback to only the amount */
+		amount_and_fees = amount;
+	}
+
+	double flow_fee_adjustment = amount_msat_ratio(amount, amount_and_fees);
+
+	/* The user might set maxfee to a very high value which reduces our
+	 * flow_fee_adjustment (1/g) limiting channel's effective capacity.
+	 * We prevent that by adding a lower cap to flow_fee_adjustment
+	 * at 0.99, which if roughly equivalent to a ceil on the user's fee
+	 * input at 1%.
+	 * For small payments the actual fees could be more than 100%, but still
+	 * being small payments the fee adjustment is not important, so 1.0 or
+	 * 0.99 flow_fee_adjustment doesn't make a difference. */
+	if (flow_fee_adjustment < 0.99)
+		flow_fee_adjustment = 0.99;
+	assert(flow_fee_adjustment <= 1.0);
 
 	/* Counters to keep a record of how many times the dials have been
 	 * updated. */
@@ -1557,6 +1620,7 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 						     srcnode,
 						     dstnode,
 						     amount_to_deliver,
+						     flow_fee_adjustment,
 						     mu,
 						     delay_dial,
 						     per_hop_dial,
@@ -1568,6 +1632,7 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 					   srcnode,
 					   dstnode,
 					   amount_to_deliver,
+					   flow_fee_adjustment,
 					   mu,
 					   delay_dial,
 					   per_hop_dial,
@@ -1576,6 +1641,17 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 		}
 
 		if (!new_flows) {
+			/* Could not find a solution, is this due to a very low
+			 * flow_fee_adjustment? */
+			if (flow_fee_adjustment < near_one) {
+				flow_fee_adjustment = 1;
+				child_log(tmpctx, LOG_INFORM,
+					  "Could not find routes with enough "
+					  "capacity, retrying without a "
+					  "flow_fee_adjustment");
+				continue;
+			}
+
 			error_message = explain_failure(
 				ctx, rq, srcnode, dstnode, amount_to_deliver, ecode);
 			goto fail;
