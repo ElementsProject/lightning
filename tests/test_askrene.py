@@ -1759,10 +1759,10 @@ def test_real_biases(node_factory, bitcoind, executor):
     # CI, it's slow.
     if SLOW_MACHINE:
         limit = 25
-        expected = ({1: 5, 2: 6, 4: 13, 8: 16, 16: 22, 32: 24, 64: 24, 100: 24}, 0)
+        expected = ({1: 5, 2: 7, 4: 13, 8: 16, 16: 22, 32: 24, 64: 24, 100: 24}, 0)
     else:
         limit = 100
-        expected = ({1: 23, 2: 32, 4: 52, 8: 64, 16: 89, 32: 95, 64: 95, 100: 95}, 0)
+        expected = ({1: 23, 2: 34, 4: 52, 8: 64, 16: 89, 32: 95, 64: 95, 100: 95}, 0)
 
     l1.rpc.askrene_create_layer('biases')
     num_changed = {}
@@ -3329,7 +3329,6 @@ def test_bias_aging(node_factory):
     assert l1.rpc.askrene_listlayers("test_layers") == {"layers": [expect]}
 
 
-@pytest.mark.xfail(strict=True)
 def test_flows_account_for_fees(node_factory):
     """A probability function that neglects the fees together with the flows
     would fail this test producing a far from optimal flow partition."""
@@ -3445,3 +3444,49 @@ def test_flows_account_for_fees(node_factory):
 
         # the optimal solution is when prob_fail01 is near prob_fail02
         assert abs(prob_fail01 - prob_fail02) < 0.02
+
+
+def test_flow_fee_adjustment_fallback(node_factory, bitcoind):
+    """When flow_fee_adjustment reduces too much the available liquidity for a
+    payment that needs to squeeze its amount through a tight channel we should
+    fallback to flow_fee_adjustment=1 (no adjustment at all)."""
+    gsfile, nodemap = generate_gossip_store(
+        [
+            GenChannel(0, 1, capacity_sats=10_000, forward=GenChannel.Half(propfee=0)),
+            GenChannel(0, 1, capacity_sats=10_000, forward=GenChannel.Half(propfee=0)),
+        ]
+    )
+    l1 = node_factory.get_node(gossip_store_file=gsfile.name)
+
+    routes = l1.rpc.getroutes(
+        source=nodemap[0],
+        destination=nodemap[1],
+        amount_msat=19_000_000,
+        layers=[],
+        # a big maxfee produces the biggest capacity adjustment
+        maxfee_msat=20_000_000,
+        final_cltv=10,
+    )
+
+    dir01 = direction(nodemap[0], nodemap[1])
+    check_route_as_expected(
+        routes["routes"],
+        [
+            [
+                {
+                    "short_channel_id_dir": f"0x1x0/{dir01}",
+                    "amount_in_msat": 9_500_000,
+                    "cltv_in": 10 + 6,
+                }
+            ],
+            [
+                {
+                    "short_channel_id_dir": f"1x1x1/{dir01}",
+                    "amount_in_msat": 9_500_000,
+                    "cltv_in": 10 + 6,
+                }
+            ],
+        ],
+    )
+    msg = "Could not find routes with enough capacity, retrying without a flow_fee_adjustment"
+    assert l1.daemon.is_in_log(msg, start=0)
