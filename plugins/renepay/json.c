@@ -90,7 +90,7 @@ static bool get_data_details_onionreply(struct payment_result *result,
 		goto fail;
 	onionreply = new_onionreply(
 	    this_ctx,
-	    take(json_tok_bin_from_hex(this_ctx, buffer, onionreplytok)));
+	    take(json_tok_bin_from_hex(this_ctx, buffer, onionreplytok)), NULL);
 	assert(onionreply);
 	/* FIXME: It seems that lightningd will unwrap top portion of the
 	 * onionreply for us before serializing it, while unwrap_onionreply will
@@ -101,7 +101,7 @@ static bool get_data_details_onionreply(struct payment_result *result,
 	wonionreply = wrap_onionreply(this_ctx, &shared_secrets[0], onionreply);
 	replymsg = unwrap_onionreply(this_ctx, shared_secrets,
 				     tal_count(shared_secrets),
-				     wonionreply, &index);
+				     wonionreply, &index, NULL);
 	if (replymsg) {
 		result->failcode = tal(result, enum onion_wire);
 		*result->failcode = fromwire_peektype(replymsg);

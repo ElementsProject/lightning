@@ -230,7 +230,7 @@ static void run_unit_tests(void)
 		assert(memcmp(reply->contents, intermediates[i], tal_count(reply->contents)) == 0);
 	}
 
-	oreply = unwrap_onionreply(tmpctx, ss, 5, reply, &origin_index);
+	oreply = unwrap_onionreply(tmpctx, ss, 5, reply, &origin_index, NULL);
 	printf("unwrapped %s\n", tal_hex(tmpctx, oreply));
 	assert(tal_arr_eq(raw, oreply));
 	assert(origin_index == 4);

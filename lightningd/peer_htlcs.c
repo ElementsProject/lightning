@@ -1153,7 +1153,7 @@ static bool htlc_accepted_hook_deserialize(struct htlc_accepted_hook_payload *re
 					   " Ignoring 'failure_message'.");
 
 			fail_in_htlc(hin, take(new_onionreply(NULL,
-							      failonion)));
+							      failonion, NULL)));
 			return false;
 		}
 		if (!failmsgtok) {
