@@ -7,20 +7,21 @@ struct update_fulfill_htlc {
 	struct channel_id channel_id;
 	u64 id;
 	struct preimage payment_preimage;
+	struct tlv_update_fulfill_htlc_tlvs *tlvs;
 };
 
 static void *encode(const tal_t *ctx, const struct update_fulfill_htlc *s)
 {
 	return towire_update_fulfill_htlc(ctx, &s->channel_id, s->id,
-					  &s->payment_preimage);
+					  &s->payment_preimage, s->tlvs);
 }
 
 static struct update_fulfill_htlc *decode(const tal_t *ctx, const void *p)
 {
 	struct update_fulfill_htlc *s = tal(ctx, struct update_fulfill_htlc);
 
-	if (fromwire_update_fulfill_htlc(p, &s->channel_id, &s->id,
-					 &s->payment_preimage))
+	if (fromwire_update_fulfill_htlc(s, p, &s->channel_id, &s->id,
+					 &s->payment_preimage, &s->tlvs))
 		return s;
 	return tal_free(s);
 }
@@ -28,7 +29,8 @@ static struct update_fulfill_htlc *decode(const tal_t *ctx, const void *p)
 static bool equal(const struct update_fulfill_htlc *x,
 		  const struct update_fulfill_htlc *y)
 {
-	return memcmp(x, y, sizeof(*x)) == 0;
+	size_t upto_tlvs = (uintptr_t)&x->tlvs - (uintptr_t)x;
+	return memcmp(x, y, upto_tlvs) == 0;
 }
 
 void run(const u8 *data, size_t size)
