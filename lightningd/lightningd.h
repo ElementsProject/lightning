@@ -350,6 +350,10 @@ struct lightningd {
 	/* Tell channeld to disable commits after this many. */
 	int dev_disable_commit;
 
+	/* Tell channeld to flip a byte of outgoing update_fail_htlc
+	 * attribution_data (for testing attribution failure detection). */
+	bool dev_corrupt_attribution;
+
 	/* Tell channeld not to worry about pings. */
 	bool dev_no_ping_timer;
 

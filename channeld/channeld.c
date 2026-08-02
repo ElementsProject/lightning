@@ -167,6 +167,9 @@ struct peer {
 	/* If set, don't fire commit counter when this hits 0 */
 	u32 *dev_disable_commit;
 
+	/* If set, flip a byte of outgoing update_fail_htlc attribution_data. */
+	bool dev_corrupt_attribution;
+
 	/* Information used for reestablishment. */
 	bool last_was_revoke;
 	struct changed_htlc *last_sent_commit;
@@ -5346,8 +5349,12 @@ static void send_fail_or_fulfill(struct peer *peer, const struct htlc *h)
 				attribution_data_pack(f->onion->attr_data,
 						      fail_tlvs->attribution_data->htlc_hold_times,
 						      fail_tlvs->attribution_data->truncated_hmacs);
-			msg = towire_update_fail_htlc(peer, &peer->channel_id, h->id,
-						      f->onion->contents);
+				/* Test-only: flip byte 0 to simulate an
+				 * attribution-corrupting relay. */
+				if (peer->dev_corrupt_attribution) {
+					fail_tlvs->attribution_data->htlc_hold_times[0] ^= 1;
+					status_debug("dev-corrupt-attribution: flipped htlc_hold_times[0]");
+				}
 			}
 			msg = towire_update_fail_htlc(NULL, &peer->channel_id, h->id,
 						      f->onion->contents, fail_tlvs);
@@ -6974,6 +6981,7 @@ static void init_channel(struct peer *peer)
 				    &peer->remote_upfront_shutdown_script,
 				    &channel_type,
 				    &peer->dev_disable_commit,
+				    &peer->dev_corrupt_attribution,
 				    &pbases,
 				    &peer->splice_state->inflights,
 				    &peer->local_alias)) {

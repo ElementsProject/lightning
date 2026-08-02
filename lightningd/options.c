@@ -870,6 +870,10 @@ static void dev_register_opts(struct lightningd *ld)
 		       opt_set_intval, opt_show_intval,
 		       &ld->dev_disable_commit,
 		       "Disable commit timer after this many commits");
+	clnopt_noarg("--dev-corrupt-attribution", OPT_DEV,
+		     opt_set_bool,
+		     &ld->dev_corrupt_attribution,
+		     "Flip a byte of outgoing update_fail_htlc attribution_data (test only)");
 	clnopt_noarg("--dev-no-ping-timer", OPT_DEV,
 		     opt_set_bool,
 		     &ld->dev_no_ping_timer,
