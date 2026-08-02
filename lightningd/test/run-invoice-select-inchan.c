@@ -291,7 +291,7 @@ bool fromwire_connectd_peer_disconnected(const void *p UNNEEDED, struct node_id 
 bool fromwire_connectd_peer_reconnected(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct node_id *id UNNEEDED, u64 *prev_counter UNNEEDED, u64 *counter UNNEEDED, struct wireaddr_internal *addr UNNEEDED, struct wireaddr **remote_addr UNNEEDED, bool *incoming UNNEEDED, u8 **features UNNEEDED, u64 *connected_time_nsec UNNEEDED)
 { fprintf(stderr, "fromwire_connectd_peer_reconnected called!\n"); abort(); }
 /* Generated stub for fromwire_connectd_peer_spoke */
-bool fromwire_connectd_peer_spoke(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct node_id *id UNNEEDED, u64 *counter UNNEEDED, u16 *msgtype UNNEEDED, struct channel_id *channel_id UNNEEDED, wirestring **error UNNEEDED)
+bool fromwire_connectd_peer_spoke(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct node_id *id UNNEEDED, u64 *counter UNNEEDED, u64 *spoke_id UNNEEDED, u16 *msgtype UNNEEDED, struct channel_id *channel_id UNNEEDED, wirestring **error UNNEEDED)
 { fprintf(stderr, "fromwire_connectd_peer_spoke called!\n"); abort(); }
 /* Generated stub for fromwire_dualopend_dev_memleak_reply */
 bool fromwire_dualopend_dev_memleak_reply(const void *p UNNEEDED, bool *leak UNNEEDED)
@@ -636,6 +636,9 @@ u8 *towire_connectd_disconnect_peer(const tal_t *ctx UNNEEDED, const struct node
 /* Generated stub for towire_connectd_peer_connect_subd */
 u8 *towire_connectd_peer_connect_subd(const tal_t *ctx UNNEEDED, const struct node_id *id UNNEEDED, u64 counter UNNEEDED, const struct channel_id *channel_id UNNEEDED)
 { fprintf(stderr, "towire_connectd_peer_connect_subd called!\n"); abort(); }
+/* Generated stub for towire_connectd_peer_no_subd */
+u8 *towire_connectd_peer_no_subd(const tal_t *ctx UNNEEDED, const struct node_id *id UNNEEDED, u64 counter UNNEEDED, u64 spoke_id UNNEEDED)
+{ fprintf(stderr, "towire_connectd_peer_no_subd called!\n"); abort(); }
 /* Generated stub for towire_connectd_peer_send_msg */
 u8 *towire_connectd_peer_send_msg(const tal_t *ctx UNNEEDED, const struct node_id *id UNNEEDED, u64 counter UNNEEDED, const u8 *msg UNNEEDED)
 { fprintf(stderr, "towire_connectd_peer_send_msg called!\n"); abort(); }

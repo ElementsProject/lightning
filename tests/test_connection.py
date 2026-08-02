@@ -3160,6 +3160,62 @@ def test_dataloss_protection(node_factory, bitcoind):
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "sqlite3-specific DB rollback")
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
+def test_dataloss_protection_still_reads(node_factory, bitcoind, executor):
+    """Ensure we keep servicing the peer connection after data-loss recovery.
+
+    l2 comes back with an old database, so l1's channeld sends a warning and
+    deliberately exits *without* disconnecting so that l2 can send an error and
+    have l1 force close for them.  By the time l2 sends the error, l1 has no
+    subd for the channel, so connectd creates one, sends connectd_peer_spoke and
+    parks the peer read until lightningd answers.  lightningd's
+    handle_peer_spoke() must fail the channel and respond with
+    connectd_peer_no_subd, so that connectd continues to service the peer
+    connection."""
+    l1 = node_factory.get_node(may_reconnect=True, allow_warning=True,
+                               feerates=(7500, 7500, 7500, 7500),
+                               options={'dev-force-features': -7})
+    l2 = node_factory.get_node(may_reconnect=True,
+                               broken_log='Cannot broadcast our commitment tx: they have a future one',
+                               feerates=(7500, 7500, 7500, 7500),
+                               options={'dev-force-features': -7})
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.fundchannel(l2, 10**6)
+    l2.stop()
+
+    # Save copy of the db, then move on.
+    dbpath = os.path.join(l2.daemon.lightning_dir, TEST_NETWORK, "lightningd.sqlite3")
+    orig_db = Path(dbpath).read_bytes()
+    l2.start()
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.pay(l2, 200000000)
+
+    # Make sure both sides consider it completely settled.
+    l1.daemon.wait_for_logs(["peer_in WIRE_REVOKE_AND_ACK"] * 2)
+    l2.daemon.wait_for_logs(["peer_in WIRE_REVOKE_AND_ACK"] * 2)
+
+    # Now, move l2 back in time.
+    l2.stop()
+    Path(dbpath).write_bytes(orig_db)
+    l2.start()
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    # l2 freaks out and sends an error; l1 takes handle_peer_spoke()'s errmsg
+    # exit and never creates the requested subdaemon.
+    l1.daemon.wait_for_log("They sent ERROR.*Awaiting unilateral close")
+
+    # connectd made a subd for that error and is waiting on lightningd's
+    # response.
+    assert l1.daemon.is_in_log('Activating for message WIRE_ERROR')
+
+    # l1 must still be reading from l2. Ensure l1 responds to l2's ping message.
+    fut = executor.submit(l2.rpc.ping, l1.info['id'])
+    fut.result(20)
+
+
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "sqlite3-specific DB rollback")
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
 def test_dataloss_protection_no_broadcast(node_factory, bitcoind):
     # If l2 sends an old version, but *doesn't* send an error, l1 should not broadcast tx.
     # (https://github.com/lightning/bolts/issues/934)

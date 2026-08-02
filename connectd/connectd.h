@@ -291,6 +291,10 @@ struct daemon {
 	/* Counter from which we derive connection identifiers. */
 	u64 connection_counter;
 
+	/* Counter from which we derive connectd_peer_spoke identifiers, so
+	 * lightningd's answer can be matched to the subd it is about. */
+	u64 spoke_counter;
+
 	/* Base for timeout timers, and how long to wait for init msg */
 	struct timers timers;
 	u32 timeout_secs;

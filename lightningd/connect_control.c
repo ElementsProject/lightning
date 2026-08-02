@@ -548,6 +548,7 @@ static unsigned connectd_msg(struct subd *connectd, const u8 *msg, const int *fd
 	case WIRE_CONNECTD_DEV_REPORT_FDS:
 	case WIRE_CONNECTD_PEER_SEND_MSG:
 	case WIRE_CONNECTD_PEER_CONNECT_SUBD:
+	case WIRE_CONNECTD_PEER_NO_SUBD:
 	case WIRE_CONNECTD_PING:
 	case WIRE_CONNECTD_SEND_ONIONMSG:
 	case WIRE_CONNECTD_INJECT_ONIONMSG:

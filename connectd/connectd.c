@@ -2016,6 +2016,27 @@ static void peer_disconnect(struct daemon *daemon, const u8 *msg)
 	disconnect_peer(peer);
 }
 
+/* lightningd tells us it's not attaching a subd for a peer_spoke we sent. */
+static void peer_no_subd(struct daemon *daemon, const u8 *msg)
+{
+	struct node_id id;
+	u64 counter, spoke_id;
+	struct peer *peer;
+
+	if (!fromwire_connectd_peer_no_subd(msg, &id, &counter, &spoke_id))
+		master_badmsg(WIRE_CONNECTD_PEER_NO_SUBD, msg);
+
+	peer = peer_htable_get(daemon->peers, &id);
+	if (!peer)
+		return;
+
+	/* If it's reconnected already, that subd is long gone. */
+	if (peer->counter != counter)
+		return;
+
+	discard_pending_subd(peer, spoke_id);
+}
+
 /* lightningd tells us a peer is no longer "important". */
 static void peer_downgrade(struct daemon *daemon, const u8 *msg)
 {
@@ -2408,6 +2429,10 @@ static struct io_plan *recv_req(struct io_conn *conn,
 		return daemon_conn_read_with_fd(conn, daemon->master,
 						recv_peer_connect_subd, daemon);
 
+	case WIRE_CONNECTD_PEER_NO_SUBD:
+		peer_no_subd(daemon, msg);
+		goto out;
+
 	case WIRE_CONNECTD_START_SHUTDOWN:
 		start_shutdown(daemon, msg);
 		goto out;
@@ -2537,6 +2562,7 @@ int main(int argc, char *argv[])
 	daemon = tal(NULL, struct daemon);
 	daemon->developer = developer;
 	daemon->connection_counter = 1;
+	daemon->spoke_counter = 1;
 	/* htable_new is our helper which allocates a htable, initializes it
 	 * and set up the memleak callback so our memleak code can see objects
 	 * inside it */
