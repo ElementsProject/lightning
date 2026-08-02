@@ -5412,3 +5412,68 @@ def test_tracing_socket(node_factory):
         for key in ("id", "name", "timestamp", "duration", "traceId"):
             assert key in span, f"Missing key {key} in span {span}"
         assert span["localEndpoint"] == {"serviceName": "lightningd"}
+
+
+# Test for attributable errors: one for the honest-failure case (sender's log
+# confirms attribution HMACs verify at every hop) and one for the
+# corruption case (sender identifies the misbehaving hop by pubkey and
+# scid). The corruption test uses --dev-corrupt-attribution, a
+# DEVELOPER-only channeld option that flips a byte of the outgoing
+# update_fail_htlc's attribution_data on the misbehaving node.
+def test_attribution_verified_on_honest_failure(node_factory):
+    """3-hop path L1->L2->L3. L1 sends to a random payment_hash, so L3
+    honestly returns incorrect_or_unknown_payment_details. L2 and L3 both
+    attribute correctly. L1's log should show all attribution HMACs verified.
+    """
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
+
+    route = only_one(l1.rpc.getroutes(source=l1.info['id'],
+                                      destination=l3.info['id'],
+                                      amount_msat=10000,
+                                      layers=["auto.sourcefree"],
+                                      maxfee_msat=10000000,
+                                      final_cltv=9,
+                                      maxparts=1)['routes'])['path']
+    l1.rpc.sendpay(route, '00' * 32, payment_secret='00' * 32)
+
+    with pytest.raises(RpcError):
+        l1.rpc.waitsendpay('00' * 32, TIMEOUT)
+
+    # numhops from L1's perspective is 2 (L2 then L3).
+    l1.daemon.wait_for_log(r"Attribution verified for all 2 hops")
+
+
+def test_attribution_identifies_faulty_hop(node_factory):
+    """4-hop path L1->L2->L3->L4. L3 runs with --dev-corrupt-attribution and
+    flips a byte of the outgoing update_fail_htlc's attribution_data. From
+    L1's perspective the source-first hop indices are:
+
+        hop 0 = L2 (adjacent)
+        hop 1 = L3 (corrupter)
+        hop 2 = L4 (destination that fails the HTLC)
+
+    Sender L1 should identify hop 1 as the attribution failure point and
+    the log line should include L3's pubkey and the L2<->L3 scid.
+    """
+    opts = [{}, {}, {'dev-corrupt-attribution': None}, {}]
+    l1, l2, l3, l4 = node_factory.line_graph(4, wait_for_announce=True, opts=opts)
+
+    route = only_one(l1.rpc.getroutes(source=l1.info['id'],
+                                      destination=l4.info['id'],
+                                      amount_msat=10000,
+                                      layers=["auto.sourcefree"],
+                                      maxfee_msat=10000000,
+                                      final_cltv=9,
+                                      maxparts=1)['routes'])['path']
+    l1.rpc.sendpay(route, '00' * 32, payment_secret='00' * 32)
+
+    with pytest.raises(RpcError):
+        l1.rpc.waitsendpay('00' * 32, TIMEOUT)
+
+    l3_id = l3.info['id']
+    # scid of the channel L2 uses to reach L3 (hop 1's channel from L1's view).
+    l2_l3_scid = l2.get_channel_scid(l3)
+
+    l1.daemon.wait_for_log(
+        r"Attribution failed at hop 1 \(node {}, scid {}\)".format(
+            l3_id, l2_l3_scid))
