@@ -1622,14 +1622,14 @@ static u8 *make_revocation_msg(const struct peer *peer, u64 revoke_index,
 static void marshall_htlc_info(const tal_t *ctx,
 			       const struct htlc **changed_htlcs,
 			       struct changed_htlc **changed,
-			       struct fulfilled_htlc **fulfilled,
+			       const struct fulfilled_htlc ***fulfilled,
 			       const struct failed_htlc ***failed,
 			       const struct added_htlc ***added)
 {
 	*changed = tal_arr(ctx, struct changed_htlc, 0);
 	*added = tal_arr(ctx, const struct added_htlc *, 0);
 	*failed = tal_arr(ctx, const struct failed_htlc *, 0);
-	*fulfilled = tal_arr(ctx, struct fulfilled_htlc, 0);
+	*fulfilled = tal_arr(ctx, const struct fulfilled_htlc *, 0);
 
 	for (size_t i = 0; i < tal_count(changed_htlcs); i++) {
 		const struct htlc *htlc = changed_htlcs[i];
@@ -1651,10 +1651,10 @@ static void marshall_htlc_info(const tal_t *ctx,
 			tal_arr_expand(added, a);
 		} else if (htlc->state == RCVD_REMOVE_COMMIT) {
 			if (htlc->r) {
-				struct fulfilled_htlc f;
+				struct fulfilled_htlc *f = tal(*fulfilled, struct fulfilled_htlc);
 				assert(!htlc->failed);
-				f.id = htlc->id;
-				f.payment_preimage = *htlc->r;
+				f->id = htlc->id;
+				f->payment_preimage = *htlc->r;
 				tal_arr_expand(fulfilled, f);
 			} else {
 				assert(!htlc->r);
@@ -1682,7 +1682,7 @@ static void send_revocation(struct peer *peer,
 			    const struct commitsig **splice_commitsigs)
 {
 	struct changed_htlc *changed;
-	struct fulfilled_htlc *fulfilled;
+	const struct fulfilled_htlc **fulfilled;
 	const struct failed_htlc **failed;
 	const struct added_htlc **added;
 	const u8 *msg;
@@ -6571,15 +6571,15 @@ static void handle_blockheight(struct peer *peer, const u8 *inmsg)
 
 static void handle_preimage(struct peer *peer, const u8 *inmsg)
 {
-	struct fulfilled_htlc fulfilled_htlc;
+	struct fulfilled_htlc *fulfilled_htlc;
 	struct htlc *h;
 
-	if (!fromwire_channeld_fulfill_htlc(inmsg, &fulfilled_htlc))
+	if (!fromwire_channeld_fulfill_htlc(tmpctx, inmsg, &fulfilled_htlc))
 		master_badmsg(WIRE_CHANNELD_FULFILL_HTLC, inmsg);
 
 	switch (channel_fulfill_htlc(peer->channel, REMOTE,
-				     fulfilled_htlc.id,
-				     &fulfilled_htlc.payment_preimage,
+				     fulfilled_htlc->id,
+				     &fulfilled_htlc->payment_preimage,
 				     &h)) {
 	case CHANNEL_ERR_REMOVE_OK:
 		send_fail_or_fulfill(peer, h);
@@ -6595,7 +6595,7 @@ static void handle_preimage(struct peer *peer, const u8 *inmsg)
 	case CHANNEL_ERR_BAD_PREIMAGE:
 		status_failed(STATUS_FAIL_MASTER_IO,
 			      "HTLC %"PRIu64" preimage failed",
-			      fulfilled_htlc.id);
+			      fulfilled_htlc->id);
 	}
 	abort();
 }

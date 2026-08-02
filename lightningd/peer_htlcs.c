@@ -448,6 +448,7 @@ void fulfill_htlc(struct htlc_in *hin, const struct preimage *preimage)
 		struct fulfilled_htlc fulfilled_htlc;
 		fulfilled_htlc.id = hin->key.id;
 		fulfilled_htlc.payment_preimage = *preimage;
+		fulfilled_htlc.attr_data = NULL;
 		msg = towire_channeld_fulfill_htlc(hin, &fulfilled_htlc);
 	}
 	subd_send_msg(channel->owner, take(msg));
@@ -2373,7 +2374,7 @@ static bool channel_added_their_htlc(struct channel *channel,
  * step to receiving commitsig */
 static bool peer_sending_revocation(struct channel *channel,
 				    struct added_htlc **added,
-				    struct fulfilled_htlc *fulfilled,
+				    struct fulfilled_htlc **fulfilled,
 				    struct failed_htlc **failed,
 				    struct changed_htlc *changed)
 {
@@ -2384,7 +2385,7 @@ static bool peer_sending_revocation(struct channel *channel,
 			return false;
 	}
 	for (i = 0; i < tal_count(fulfilled); i++) {
-		if (!update_out_htlc(channel, fulfilled[i].id,
+		if (!update_out_htlc(channel, fulfilled[i]->id,
 				     SENT_REMOVE_REVOCATION))
 			return false;
 	}
@@ -2428,7 +2429,7 @@ void peer_got_commitsig(struct channel *channel, const u8 *msg)
 	struct height_states *blockheight_states;
 	struct bitcoin_signature commit_sig, *htlc_sigs;
 	struct added_htlc **added;
-	struct fulfilled_htlc *fulfilled;
+	struct fulfilled_htlc **fulfilled;
 	struct failed_htlc **failed;
 	struct changed_htlc *changed;
 	struct bitcoin_tx *tx;
@@ -2508,7 +2509,7 @@ void peer_got_commitsig(struct channel *channel, const u8 *msg)
 
 	/* Save information now for fulfilled & failed HTLCs */
 	for (i = 0; i < tal_count(fulfilled); i++) {
-		if (!peer_fulfilled_our_htlc(channel, &fulfilled[i]))
+		if (!peer_fulfilled_our_htlc(channel, fulfilled[i]))
 			return;
 	}
 

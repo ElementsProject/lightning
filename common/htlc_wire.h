@@ -40,6 +40,7 @@ struct existing_htlc {
 struct fulfilled_htlc {
 	u64 id;
 	struct preimage payment_preimage;
+	struct attribution_data *attr_data;
 };
 
 struct failed_htlc {
@@ -90,8 +91,8 @@ struct added_htlc *fromwire_added_htlc(const tal_t *ctx, const u8 **cursor,
 				       size_t *max);
 struct existing_htlc *fromwire_existing_htlc(const tal_t *ctx,
 					     const u8 **cursor, size_t *max);
-void fromwire_fulfilled_htlc(const u8 **cursor, size_t *max,
-			     struct fulfilled_htlc *fulfilled);
+struct fulfilled_htlc *fromwire_fulfilled_htlc(const tal_t *ctx, const u8 **cursor,
+						size_t *max);
 struct failed_htlc *fromwire_failed_htlc(const tal_t *ctx, const u8 **cursor,
 					 size_t *max);
 void fromwire_changed_htlc(const u8 **cursor, size_t *max,
