@@ -5,6 +5,7 @@
 #include <channeld/channeld_wiregen.h>
 #include <common/amount.h>
 #include <common/blinding.h>
+#include <common/clock_time.h>
 #include <common/ecdh.h>
 #include <common/json_command.h>
 #include <common/json_parse.h>
@@ -279,6 +280,11 @@ void local_fail_in_htlc(struct htlc_in *hin, const u8 *failmsg TAKES)
 
 	tal_free_if_taken(failmsg);
 
+	/* The erring node MUST initialize attribution_data
+	 * so downstream hops can verify their slot in the triangle
+	 * when the failure is propagated back upstream. */
+	update_attributable_data(failonion, 0, hin->shared_secret);
+
 	fail_in_htlc(hin, take(failonion));
 }
 
@@ -290,6 +296,26 @@ const u8 *failmsg_incorrect_or_unknown(const tal_t *ctx,
 	return towire_incorrect_or_unknown_payment_details(
 		ctx, msat,
 		get_block_height(ld->topology));
+}
+
+/* htlc_hold_time is reported in units of 100 ms. Nodes lacking
+ * accurate timing information may report zero.  We treat a zero send_timestamp
+ * (e.g. an htlc_out reloaded from the db, which does not persist it) as
+ * "no timing info". */
+static u32 htlc_hold_time_100ms(const struct htlc_out *hout)
+{
+	struct timerel delta;
+	u64 total_ms;
+
+	if (hout->send_timestamp.ts.tv_sec == 0
+	    && hout->send_timestamp.ts.tv_nsec == 0)
+		return 0;
+
+	delta = time_between(clock_time(), hout->send_timestamp);
+	total_ms = (u64)delta.ts.tv_sec * 1000 + delta.ts.tv_nsec / 1000000;
+	if (total_ms / 100 > UINT32_MAX)
+		return UINT32_MAX;
+	return total_ms / 100;
 }
 
 /* localfail are for handing to the local payer if it's local. */
@@ -308,16 +334,21 @@ static void fail_out_htlc(struct htlc_out *hout, const char *localfail)
 			       hout->failmsg,
 			       localfail);
 	} else if (hout->in) {
-		const struct onionreply *failonion;
+		struct onionreply *failonion;
+		u32 hold_time = htlc_hold_time_100ms(hout);
 
 		/* If we have an onion, simply copy it. */
 		if (hout->failonion)
-			failonion = hout->failonion;
+			failonion = dup_onionreply(hout, hout->failonion);
+
 		/* Otherwise, we need to onionize this local error. */
 		else
 			failonion = create_onionreply(hout,
 						      hout->in->shared_secret,
 						      hout->failmsg);
+
+		update_attributable_data(failonion, hold_time, hout->in->shared_secret);
+
 		fail_in_htlc(hout->in, failonion);
 	} else {
 		log_broken(hout->key.channel->log, "Neither origin nor in?");
@@ -743,7 +774,7 @@ const u8 *send_htlc_out(const tal_t *ctx,
 			      path_key, extra_tlvs,
 			      in == NULL,
 			      final_msat,
-			      partid, groupid, in);
+			      partid, groupid, in, clock_time());
 	tal_add_destructor(*houtp, destroy_hout_subd_died);
 
 	/* Give channel 30 seconds to commit this htlc. */
