@@ -170,11 +170,12 @@ register_close_command(struct lightningd *ld,
 			     &close_command_timeout, cc);
 }
 
-static struct amount_sat calc_tx_fee(struct amount_sat sat_in,
-				     const struct bitcoin_tx *tx)
+static bool calc_tx_fee(struct channel *channel,
+			const struct bitcoin_tx *tx,
+			struct amount_sat *fee_result)
 {
 	struct amount_asset amt;
-	struct amount_sat fee = sat_in;
+	struct amount_sat sat_in = channel->funding_sats;
 
 	for (size_t i = 0; i < tx->wtx->num_outputs; i++) {
 		const struct wally_tx_output *txout = &tx->wtx->outputs[i];
@@ -187,12 +188,18 @@ static struct amount_sat calc_tx_fee(struct amount_sat sat_in,
 		if (!amount_asset_is_main(&amt))
 			continue;
 
-		if (!amount_sat_sub(&fee, fee, amount_asset_to_sat(&amt)))
-			fatal("Tx spends more than input %s? %s",
-			      fmt_amount_sat(tmpctx, sat_in),
-			      fmt_bitcoin_tx(tmpctx, tx));
+		if (!amount_sat_sub(&sat_in, sat_in, amount_asset_to_sat(&amt))) {
+			/* Important we dont abort here incase we're force
+			 * closing due to things going wrong. */
+			log_unusual(channel->log,
+				   "Tx spends more than input %s? %s",
+				   fmt_amount_sat(tmpctx, sat_in),
+				   fmt_bitcoin_tx(tmpctx, tx));
+			return false;
+		}
 	}
-	return fee;
+	*fee_result = sat_in;
+	return true;
 }
 
 static u32 calc_max_close_feerate(struct lightningd *ld,
@@ -222,8 +229,11 @@ static bool closing_fee_is_acceptable(struct lightningd *ld,
 	u64 weight;
 
 	/* Calculate actual fee (adds in eliminated outputs) */
-	fee = calc_tx_fee(channel->funding_sats, tx);
-	last_fee = calc_tx_fee(channel->funding_sats, channel->last_tx);
+	if (!calc_tx_fee(channel, tx, &fee))
+		return false;
+
+	if (!calc_tx_fee(channel, channel->last_tx, &last_fee))
+		return false;
 
 	/* Weight once we add in sigs. */
 	assert(!tx->wtx->inputs[0].witness
