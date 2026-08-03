@@ -30,3 +30,6 @@ clap = { version = "4", features = ["derive"] }
 
 cln-plugin = { workspace = true }
 cln-rpc = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"
