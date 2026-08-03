@@ -18,6 +18,17 @@ struct command;
 struct layer;
 struct json_stream;
 
+/* A constraint reflects something we learned about a channel */
+struct constraint {
+	struct short_channel_id_dir scidd;
+	/* Time this constraint was last updated */
+	u64 timestamp;
+	/* Non-zero means set */
+	struct amount_msat min;
+	/* Non-0xFFFFF.... means set */
+	struct amount_msat max;
+};
+
 /* Create a layer hash table */
 struct layer_name_hash *new_layer_name_hash(const tal_t *ctx);
 
@@ -101,6 +112,13 @@ void layer_apply_constraints(const struct layer *layer,
 			     struct amount_msat *min,
 			     struct amount_msat *max)
 	NO_NULL_ARGS;
+
+/* Fetches from this layer all constraints entries that match the scidd
+ * provided. */
+struct constraint *
+layer_get_constraints(const tal_t *ctx, const struct layer *layer,
+		      const struct short_channel_id_dir *scidd,
+		      struct constraint *in_constraints TAKES);
 
 /* Apply biases from a layer. */
 void layer_apply_biases(const struct layer *layer,

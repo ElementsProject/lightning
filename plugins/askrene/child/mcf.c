@@ -357,9 +357,9 @@ static bool channel_is_available(const struct route_query *rq,
  * @low: the liquidity is known to be greater or equal than "low"
  * @high: the liquidity is known to be less than "high"
  * @amount: how much is required to forward */
-static double pickhardt_richter_probability(struct amount_msat low,
-					    struct amount_msat high,
-					    struct amount_msat amount)
+double pickhardt_richter_probability(struct amount_msat low,
+				     struct amount_msat high,
+				     struct amount_msat amount)
 {
 	struct amount_msat all_states, good_states;
 	if (amount_msat_greater_eq(amount, high))

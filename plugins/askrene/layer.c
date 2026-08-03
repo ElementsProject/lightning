@@ -34,17 +34,6 @@ struct local_update {
 	const struct amount_msat *htlc_min, *htlc_max;
 };
 
-/* A constraint reflects something we learned about a channel */
-struct constraint {
-	struct short_channel_id_dir scidd;
-	/* Time this constraint was last updated */
-	u64 timestamp;
-	/* Non-zero means set */
-	struct amount_msat min;
-	/* Non-0xFFFFF.... means set */
-	struct amount_msat max;
-};
-
 /* A bias, for special-effects (user-controlled) */
 struct bias {
 	struct short_channel_id_dir scidd;
@@ -1008,6 +997,24 @@ void layer_apply_constraints(const struct layer *layer,
 		*min = amount_msat_max(*min, c->min);
 		*max = amount_msat_min(*max, c->max);
 	}
+}
+
+struct constraint *
+layer_get_constraints(const tal_t *ctx, const struct layer *layer,
+		      const struct short_channel_id_dir *scidd,
+		      struct constraint *in_constraints TAKES)
+{
+	struct constraint *c;
+	struct constraint_hash_iter cit;
+	struct constraint *constraints =
+	    tal_dup_talarr(ctx, struct constraint, in_constraints);
+
+	/* We can have more than one: apply them all! */
+	for (c = constraint_hash_getfirst(layer->constraints, scidd, &cit); c;
+	     c = constraint_hash_getnext(layer->constraints, scidd, &cit)) {
+		tal_arr_expand(&constraints, *c);
+	}
+	return constraints;
 }
 
 const struct constraint *layer_add_constraint(struct layer *layer,

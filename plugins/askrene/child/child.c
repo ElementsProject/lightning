@@ -204,6 +204,7 @@ static struct route_query *new_route_query(const tal_t *ctx,
 	rq->disabled_chans =
 	    tal_arrz(rq, bitmap,
 		     2 * BITMAP_NWORDS(gossmap_max_chan_idx(gossmap)));
+	rq->current_unixtime = clock_time().ts.tv_sec;
 
 	return rq;
 }
