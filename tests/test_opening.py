@@ -1465,6 +1465,137 @@ def test_rbf_non_last_mined(node_factory, bitcoind, chainparams):
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @pytest.mark.openchannel('v2')
+def test_rbf_reconnect_non_last_mined(node_factory, bitcoind, chainparams):
+    """
+    Deterministic version of the race in test_rbf_non_last_mined.
+
+    When a non-tip RBF candidate is mined, we identify the mined
+    inflight while processing its block, but only record it on the
+    channel once we have finished catching up with the chain.  A peer
+    reconnecting inside that window reestablishes against the *newest*
+    inflight, locking the channel in with a funding tx that was never
+    mined.
+
+    We hold the window open deterministically: stall l1's fetch of the
+    block after the funding block, so l1 has seen the funding confirm
+    (its scid is set) but never finishes catching up, then reconnect.
+    """
+    l1, l2 = node_factory.get_nodes(2,
+                                    opts={'allow_warning': True,
+                                          'may_reconnect': True})
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    amount = 2**24
+    chan_amount = 100000
+    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['p2tr'], amount / 10**8 + 0.01)
+    bitcoind.generate_block(1)
+    # Wait for it to arrive.
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) > 0)
+
+    res = l1.rpc.fundchannel(l2.info['id'], chan_amount, feerate='7500perkw')
+    chan_id = res['channel_id']
+    vins = bitcoind.rpc.decoderawtransaction(res['tx'])['vin']
+    assert only_one(vins)
+    prev_utxos = ["{}:{}".format(vins[0]['txid'], vins[0]['vout'])]
+
+    # Check that we're waiting for lockin
+    l1.daemon.wait_for_log(' to DUALOPEND_AWAITING_LOCKIN')
+    inflights = only_one(l1.rpc.listpeerchannels()['channels'])['inflight']
+    assert inflights[-1]['funding_txid'] in bitcoind.rpc.getrawmempool()
+
+    def run_retry():
+        startweight = 42 + 173
+        rate = int(find_next_feerate(l1, l2)[:-5])
+        # We 2x the feerate to beat the min-relay fee
+        next_feerate = '{}perkw'.format(rate * 2)
+        initpsbt = l1.rpc.utxopsbt(chan_amount, next_feerate, startweight,
+                                   prev_utxos, reservedok=True,
+                                   excess_as_change=True)
+
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+        bump = l1.rpc.openchannel_bump(chan_id, chan_amount, initpsbt['psbt'])
+        update = l1.rpc.openchannel_update(chan_id, bump['psbt'])
+        assert update['commitments_secured']
+
+        return l1.rpc.signpsbt(update['psbt'])['signed_psbt']
+
+    # Make a second inflight
+    signed_psbt = run_retry()
+    l1.rpc.openchannel_signed(chan_id, signed_psbt)
+
+    # Make it such that l1 and l2 cannot broadcast transactions
+    # (mimics failing to reach the miner with replacement)
+    def censoring_sendrawtx(r):
+        return {'id': r['id'], 'result': {}}
+
+    l1.daemon.rpcproxy.mock_rpc('sendrawtransaction', censoring_sendrawtx)
+    l2.daemon.rpcproxy.mock_rpc('sendrawtransaction', censoring_sendrawtx)
+
+    # Make a 3rd inflight that won't make it into the mempool
+    signed_psbt = run_retry()
+    last = len(l1.daemon.logs)
+    l1.rpc.openchannel_signed(chan_id, signed_psbt)
+
+    wait_for(lambda: l1.daemon.is_in_log("plugin-bcli: sendrawtx exit 0", start=last))
+    time.sleep(.05)
+
+    l1.daemon.rpcproxy.mock_rpc('sendrawtransaction', None)
+    l2.daemon.rpcproxy.mock_rpc('sendrawtransaction', None)
+
+    # We fetch out our inflights list
+    inflights = only_one(l1.rpc.listpeerchannels()['channels'])['inflight']
+    assert len(inflights) == 3
+
+    # l2 goes offline (as in the race, l1's dualopend dies with it)
+    l2.stop()
+
+    # Stall l1's fetch of the block *after* the funding block.  The
+    # mock must hang, not error: an error makes bcli report "no block
+    # yet", which lets l1 conclude it has caught up.  Returning None
+    # passes the request through to the real bitcoind.
+    height = bitcoind.rpc.getblockcount()
+    release_block = threading.Event()
+
+    def stalling_getblockhash(r):
+        if r['params'][0] == height + 2:
+            release_block.wait(timeout=180)
+        return None
+
+    l1.daemon.rpcproxy.mock_rpc('getblockhash', stalling_getblockhash)
+
+    # The 2nd inflight (the mempool tx) gets mined in block height+1.
+    bitcoind.generate_block(2, wait_for_mempool=1)
+
+    # l1 has seen the funding confirm (scid is set), but is wedged
+    # fetching block height+2, so it has not yet recorded *which*
+    # inflight was mined.
+    wait_for(lambda: 'short_channel_id'
+             in only_one(l1.rpc.listpeerchannels()['channels']))
+
+    # l2 comes back fully synced, and reconnects to wedged l1.
+    l2.start()
+    sync_blockheight(bitcoind, [l2])
+    l2.rpc.connect(l1.info['id'], 'localhost', l1.port)
+
+    l1.daemon.wait_for_log(r'to CHANNELD_NORMAL')
+    l2.daemon.wait_for_log(r'to CHANNELD_NORMAL')
+
+    # Let l1 finish catching up before we look at the result.
+    release_block.set()
+    l1.daemon.rpcproxy.mock_rpc('getblockhash', None)
+    sync_blockheight(bitcoind, [l1])
+
+    # The mined inflight (the 2nd) must be the one locked in -- on
+    # both sides, and with its commitment tx.
+    channel = only_one(l1.rpc.listpeerchannels()['channels'])
+    assert channel['funding_txid'] == inflights[1]['funding_txid']
+    assert channel['scratch_txid'] == inflights[1]['scratch_txid']
+    l2_channel = only_one(l2.rpc.listpeerchannels()['channels'])
+    assert l2_channel['funding_txid'] == inflights[1]['funding_txid']
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+@pytest.mark.openchannel('v2')
 def test_funder_options(node_factory, bitcoind):
     l1, l2, l3 = node_factory.get_nodes(3)
     l1.fundwallet(10**7)
