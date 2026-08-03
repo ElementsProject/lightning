@@ -1038,6 +1038,14 @@ static void dual_funding_found(struct lightningd *ld,
 				 loc))
 		return;
 
+	/* This inflight is the one the chain chose: record it now, so
+	 * anyone consulting the channel before we finish catching up
+	 * with the chain (e.g. a reconnecting peer) sees the mined
+	 * funding tx, not the latest RBF attempt. */
+	if (inflight->channel->state == DUALOPEND_AWAITING_LOCKIN)
+		update_channel_from_inflight(ld, inflight->channel,
+					     inflight, false);
+
 	/* Otherwise, watch for block depth increases (we'll immediately expect one) */
 	watch_blockdepth(inflight, ld->topology, loc->blkheight,
 			 opening_depth_cb,
@@ -4285,7 +4293,15 @@ bool peer_restart_dualopend(struct peer *peer,
 		       &max_to_self_delay,
 		       &min_effective_htlc_capacity);
 
-	inflight = channel_current_inflight(channel);
+	/* If a funding tx already confirmed, it is not necessarily the
+	 * latest inflight: reestablish using the one the chain chose. */
+	if (channel->scid)
+		inflight = channel_inflight_find(channel,
+						 &channel->funding.txid);
+	else
+		inflight = NULL;
+	if (!inflight)
+		inflight = channel_current_inflight(channel);
 	assert(inflight);
 	blockheight = get_blockheight(channel->blockheight_states,
 				      channel->opener, LOCAL);
