@@ -49,7 +49,7 @@
         "id": "example:preapproveinvoice#1",
         "method": "preapproveinvoice",
         "params": {
-          "bolt11": "lnbcrt1230n1pne035qsp5c4pc7nl4ukagxle38wa5m9nk0xs4jmrg8hr90688jdlq0rwalrdqpp5zwqy8dm39czyvn8n00z5vkej8hvc48yu939vd35nyek8wylcjltqdqlv3jhxcmjd9c8g6t0dcsxjmnktakrydqcqp99qxpqysgq7v70d8y5eyal72pacatzjykw73wvsnnvwza2y2jqkvgch07az8q5zauvyk9fknmf8a9aljauxs695u4vkhugl4n2fh9dw0a6j8m6q3cpgduknc"
+          "bolt11": "lnbcrt1230n1pne035qsp5c4pc7nl4ukagxle38wa5m9nk0xs4jmrg8hr90688jdlq0rwalrdqpp5zwqy8dm39czyvn8n00z5vkej8hvc48yu939vd35nyek8wylcjltqdqlv3jhxcmjd9c8g6t0dcsxjmnktakrydqcqp99qgyqpqysgqxxhq44xf7pne6544h09uverh4csq5wfnjkv3z3d3rzv3azg86sj4acjggk8stwcy3knm7flasar77xk9h3scf3ny0swtynzd79wkzrcqpupes0"
         }
       },
       "response": {}
@@ -59,7 +59,7 @@
         "id": "example:preapproveinvoice#2",
         "method": "preapproveinvoice",
         "params": [
-          "lnbcrt1240n1pne035qsp5qvf0u5c7ep5u8q5s8me9kuqcag07jz8u99eec2uc6l80ykplujzspp5suezpf7aawchx7rz0e5xy2ha97gkylnuwfr20uhs5e3csmh763jsdqlv3jhxcmjd9c8g6t0dcsxjmnktakrydgcqp99qxpqysgqfuazhz0h8tq89k06pt3xkxl72r2jqwwujev2c0vpnrqhj0x53mnxwwexz6kq0ym4vy9sz9j7pruk0dcuzjvpc3yxxm477mq5fwrf54spj6lu39"
+          "lnbcrt1240n1pne035qsp5qvf0u5c7ep5u8q5s8me9kuqcag07jz8u99eec2uc6l80ykplujzspp5suezpf7aawchx7rz0e5xy2ha97gkylnuwfr20uhs5e3csmh763jsdqlv3jhxcmjd9c8g6t0dcsxjmnktakrydgcqp99qgyqpqysgq9lhn5phvsh3ferus275zkj9te9vdhjpv3ssplk97qevaj5plutexyyqucqs9tq3vzqg9x5n9thxcqnp0rcrdnaqfjgrfuc8yv3uqd9cp4rjnqe"
         ]
       },
       "response": {}

@@ -2540,6 +2540,7 @@ def test_list_features_only(node_factory):
                 'option_route_blinding/odd',
                 'option_shutdown_anysegwit/odd',
                 'option_quiesce/odd',
+                'option_attribution_data/odd',
                 'option_onion_messages/odd',
                 'option_provide_storage/odd',
                 'option_channel_type/even',

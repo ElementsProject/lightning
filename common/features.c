@@ -124,6 +124,11 @@ static const struct feature_style feature_styles[] = {
 	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
 			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT,
 			  [CHANNEL_FEATURE] = FEATURE_DONT_REPRESENT } },
+	{ OPT_ATTRIBUTION_DATA,
+	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
+			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT,
+			  [BOLT11_FEATURE] = FEATURE_REPRESENT,
+			  [CHANNEL_FEATURE] = FEATURE_DONT_REPRESENT } },
 	{ OPT_PAYMENT_METADATA,
 	  .copy_style = { [INIT_FEATURE] = FEATURE_DONT_REPRESENT,
 			  [NODE_ANNOUNCE_FEATURE] = FEATURE_DONT_REPRESENT,
@@ -426,7 +431,7 @@ const char *feature_name(const tal_t *ctx, size_t f)
 		"option_amp", /* 30/31 */ /* https://github.com/lightning/bolts/pull/658 */
 		NULL,
 		"option_quiesce", /* https://github.com/lightning/bolts/pull/869 */
-		NULL,
+		"option_attribution_data", /* https://github.com/lightning/bolts/pull/1044 */
 		"option_onion_messages",  /* https://github.com/lightning/bolts/pull/759 */
 		NULL,
 		"option_provide_storage",

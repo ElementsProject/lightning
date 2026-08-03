@@ -2976,7 +2976,7 @@
         "id": "example:decode#2",
         "method": "decode",
         "params": [
-          "lnbcrt2u1pne035qsp5syt0v2w9nsa7xnu9neq9np0ln5c7e25mnurjppqzwktwtkr830sqpp50efh2wgkgp2ftp6spsdl5pwsgmjf6cncm793a8yck764rnmh35gqdqcdserygryv4ekxunfwp6xjmmwxqyjw5qcqp9rzjq08vhlwxs4zvcktzywmgecr3pj096tyukvt7upuz9k2s0xkvwq7nzqqqwcqqqqgqqqqqqqqpqqqqqzsqqc9qxpqysgq2ysc0ll0du4pgdz0l8xt9uu47t72k3chdxvxnrj9vj6arxecvej4cmh2x3uwe9xye2mpm2df5xfuh9xgcc0um4uwnc69x5yu5glqfgcqac9wfd"
+          "lnbcrt2u1pne035qsp5syt0v2w9nsa7xnu9neq9np0ln5c7e25mnurjppqzwktwtkr830sqpp50efh2wgkgp2ftp6spsdl5pwsgmjf6cncm793a8yck764rnmh35gqdqcdserygryv4ekxunfwp6xjmmwxqyjw5qcqp9rzjq08vhlwxs4zvcktzywmgecr3pj096tyukvt7upuz9k2s0xkvwq7nzqqqwcqqqqgqqqqqqqqpqqqqqzsqqc9qgyqpqysgqsaw2stysdpjjwzzqg560dpe36wkjkwsaq7k5r7nrqw6y57hr3smjh6tns2nsr428vx3cd8qg7lxza8geycd7jg84g3xfp40lsw7q5cqpvd5k6j"
         ]
       },
       "response": {
@@ -2989,7 +2989,7 @@
         "description": "l22 description",
         "min_final_cltv_expiry": 5,
         "payment_secret": "8116f629c59c3be34f859e405985ff9d31ecaa9b9f072084027596e5d8678be0",
-        "features": "02024100",
+        "features": "2002024100",
         "routes": [
           [
             {
@@ -3002,7 +3002,7 @@
           ]
         ],
         "payment_hash": "7e5375391640549587500c1bfa05d046e49d6278df8b1e9c98b7b551cf778d10",
-        "signature": "30440220512187ffef6f2a14344ff9ccb2f395f2fcab47176998698e4564b5d19b38666502205c6eea3478ec94c4cab61da9a9a193cb94c8c61fcdd78e9e3453509ca23e04a3",
+        "signature": "3045022100875ca82c9068652708404534f68731d3ad2b3a1d07ad41fa6303b44a7ae38c3702202be97382a701d54761a3869c08f7cc2e9d19261be920f5444c90d5ff83bc0a60",
         "valid": true
       }
     }

@@ -199,7 +199,7 @@
       },
       "response": {
         "id": "033845802d25b4e074ccfd7cd8b339a41dc75bf9978a034800444b51d42b07799a",
-        "features": "800898882a8a59a1",
+        "features": "800898a82a8a59a1",
         "direction": "out",
         "address": {
           "type": "ipv4",
@@ -220,7 +220,7 @@
       },
       "response": {
         "id": "03cecbfdc68544cc596223b68ce0710c9e5d2c9cb317ee07822d95079acc703d31",
-        "features": "800898882a8a59a1",
+        "features": "800898a82a8a59a1",
         "direction": "out",
         "address": {
           "type": "ipv4",
