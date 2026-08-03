@@ -86,7 +86,10 @@ pub async fn enable_plugin(
     if running_plugins.contains(&entry_file) {
         let line = format!("Plugin {} is already running", rl_plugin.name());
         logger.log(&line, LogLevel::INFO).await?;
-    } else if !running_plugins.contains(&entry_file) && plugin_manifest.is_dynamic() {
+        return Err(anyhow!(line));
+    }
+
+    if plugin_manifest.is_dynamic() {
         cln_start_plugin(
             plugin.clone(),
             rl_plugin.name(),
@@ -95,7 +98,7 @@ pub async fn enable_plugin(
             logger,
         )
         .await?;
-    } else if !plugin_manifest.is_dynamic() {
+    } else {
         let line = format!(
             "{} is not dynamic and will be started the next time the node starts",
             rl_plugin.name()
