@@ -6,7 +6,7 @@ from utils import (
     sync_blockheight, wait_for, only_one, first_channel_id, TIMEOUT
 )
 
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 import csv
 import io
@@ -1582,25 +1582,41 @@ def test_bkpr_report_lightning_cli_csv(node_factory):
 def test_bkpr_report_utctime(node_factory):
     """Test {utctime} format tag.
 
-    {utctime} is the UTC counterpart of {localtime}. Verify it produces valid
-    "YYYY-MM-DD HH:MM:SS" strings and that its tag column matches {localtime}.
+    {utctime} and {localtime} render the same event timestamp via gmtime_r and
+    localtime_r respectively, so they must denote the same instant, offset by
+    the node's local timezone. Verify that consistency, forcing a fixed non-UTC zone so the two genuinely differ.
     """
-    l1, l2 = node_factory.line_graph(2)
+    # POSIX TZ string (sign inverted): "IST-5:30" == UTC+05:30, no DST, and
+    # needs no zoneinfo database on either the node or the test side.
+    tz_posix = "IST-5:30"
+    tz_offset = timezone(timedelta(hours=5, minutes=30))
+    old_tz = os.environ.get("TZ")
+    os.environ["TZ"] = tz_posix
+    try:
+        l1, l2 = node_factory.line_graph(2)
+    finally:
+        if old_tz is None:
+            os.environ.pop("TZ", None)
+        else:
+            os.environ["TZ"] = old_tz
 
     inv = l2.rpc.invoice(100000, "test_bkpr_report_utctime", "desc")
     l1.rpc.pay(inv["bolt11"])
     wait_for(lambda: only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['htlcs'] == [])
 
-    # Fetch both timestamps in a single call to avoid a race between two
-    # separate bkpr-report calls where a background event could land in between.
     lines = l1.rpc.bkpr_report(format="{utctime}|{localtime}|{tag}")['report']
 
     assert lines
     for line in lines:
         u_ts_str, l_ts_str, tag = line.split('|')
         # Both must produce valid "YYYY-MM-DD HH:MM:SS" strings.
-        datetime.strptime(u_ts_str, "%Y-%m-%d %H:%M:%S")
-        datetime.strptime(l_ts_str, "%Y-%m-%d %H:%M:%S")
+        u_ts = datetime.strptime(u_ts_str, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+        l_ts = datetime.strptime(l_ts_str, "%Y-%m-%d %H:%M:%S").replace(tzinfo=tz_offset)
+        # The forced +05:30 offset must make the two renderings differ; if they
+        # match, either TZ didn't take effect or {utctime} is reusing {localtime}.
+        assert u_ts_str != l_ts_str
+        # In their respective zones, they must be the same instant.
+        assert u_ts == l_ts
 
 
 def test_bkpr_report_fees(node_factory):
@@ -1697,7 +1713,8 @@ def test_bkpr_report_empty_window(node_factory, bitcoind):
 
     bitcoind.rpc.sendtoaddress(addr, 0.01)
     bitcoind.generate_block(1, wait_for_mempool=1)
-    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 1)
+
+    wait_for(lambda: len(l1.rpc.bkpr_report(format="{tag},{creditdebit}")['report']) >= 1)
 
     future = int(time.time()) + 10_000_000
     report = l1.rpc.bkpr_report(
