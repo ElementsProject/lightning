@@ -53,6 +53,7 @@ impl<'a> RecklessLogger<'a> {
             verbose,
         }
     }
+    #[allow(clippy::cast_precision_loss)]
     pub async fn log(&mut self, line: &str, log_level: LogLevel) -> Result<(), anyhow::Error> {
         if !self.verbose
             && (log_level == LogLevel::IO
@@ -92,7 +93,7 @@ impl<'a> RecklessLogger<'a> {
             if let RecklessTopic::Install = self.topic {
                 let now = Utc::now();
 
-                let unix_timestamp = f64::from(now.timestamp_subsec_millis()) / 1_000.0;
+                let unix_timestamp = now.timestamp_millis() as f64 / 1_000.0;
                 let iso8601 = now.to_rfc3339();
                 self.plugin
                     .send_custom_notification(
