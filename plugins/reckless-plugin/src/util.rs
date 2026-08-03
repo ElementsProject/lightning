@@ -978,7 +978,7 @@ pub fn normalized_eq(a: &str, b: &str) -> bool {
     a.replace('-', "_").eq(&b.replace('-', "_"))
 }
 
-fn normalized_line(line: &str) -> &str {
+fn uncomment_config_line(line: &str) -> &str {
     line.trim_start_matches('#').trim_start()
 }
 
@@ -1001,11 +1001,11 @@ pub async fn update_config_file(
     let mut plugin_enabled = false;
 
     for line in &mut lines {
-        let normalized_line = normalized_line(line);
+        let uncommented_line = uncomment_config_line(line);
 
-        if normalized_line == plugin_line {
+        if uncommented_line == plugin_line {
             if removing && !line.starts_with('#') {
-                *line = format!("#{normalized_line}");
+                *line = format!("#{uncommented_line}");
                 changed = true;
             } else if !removing && line.starts_with('#') {
                 plugin_line.clone_into(line);
@@ -1017,10 +1017,9 @@ pub async fn update_config_file(
             continue;
         }
 
-        if let Some(pos) = option_lines
-            .iter()
-            .position(|(name, _)| normalized_line.starts_with(name))
-        {
+        let (line_name, line_value) = parse_key_val(uncommented_line).unwrap();
+
+        if let Some(pos) = option_lines.iter().position(|(name, _)| line_name.eq(name)) {
             let (name, expected) = option_lines[pos].clone();
 
             if *line != expected {
@@ -1035,10 +1034,10 @@ pub async fn update_config_file(
         }
 
         for name in remove_options.iter() {
-            if line.starts_with(name) {
-                *line = format!("#{line}");
+            if line_name.eq(name) && !line.starts_with('#') {
+                *line = format!("#{uncommented_line}");
                 changed = true;
-                old_options.push(parse_key_val(line).unwrap());
+                old_options.push((line_name, line_value));
                 break;
             }
         }
@@ -1453,4 +1452,135 @@ async fn include_reckless_config(plugin: Plugin<PluginState>) -> Result<(), anyh
         .await?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashSet;
+
+    use super::update_config_file;
+
+    // when disabling a plugin (e.g. during `reckless update`),
+    // the option lines that were found in the config file must be reported back
+    // under their *clean* name. They are later fed into `parse_options`, which
+    // looks the option up by exact name, so a `#`-prefixed key is never found
+    // and the plugin silently stays disabled after an update.
+    #[tokio::test]
+    async fn update_config_file_remove_returns_clean_old_option_keys() {
+        let tmp = tempfile::tempdir().unwrap();
+        let conf = tmp.path().join("config");
+        let plugin_line = "plugin=/data/foo/foo";
+        tokio::fs::write(&conf, format!("{plugin_line}\nrequired-opt=foo\n"))
+            .await
+            .unwrap();
+
+        let mut option_lines: Vec<(String, String)> = Vec::new();
+        let mut remove_options = HashSet::from(["required-opt".to_string()]);
+        let mut old_options: Vec<(String, Option<String>)> = Vec::new();
+
+        let enabled = update_config_file(
+            &conf,
+            plugin_line,
+            /* removing = */ true,
+            &mut option_lines,
+            &mut remove_options,
+            &mut old_options,
+        )
+        .await
+        .unwrap();
+
+        assert!(enabled);
+        assert_eq!(
+            old_options,
+            vec![("required-opt".to_string(), Some("foo".to_string()))],
+            "old option key must not be `#`-prefixed, \
+             `parse_options` looks it up by exact name and will fail to find it"
+        );
+    }
+
+    // adding a plugin option must only replace config lines
+    // that belong to that option, never an unrelated line that merely shares
+    // a name prefix with it (e.g. plugin option `fee` vs config `fee-per-satoshi`).
+    #[tokio::test]
+    async fn update_config_file_add_does_not_clobber_unrelated_prefix_config() {
+        let tmp = tempfile::tempdir().unwrap();
+        let conf = tmp.path().join("config");
+        let plugin_line = "plugin=/data/foo/foo";
+        // `fee-per-satoshi` is unrelated to the plugin's `fee` option.
+        tokio::fs::write(&conf, "fee-per-satoshi=1000\n")
+            .await
+            .unwrap();
+
+        let mut option_lines = vec![("fee".to_string(), "fee=6".to_string())];
+        let mut remove_options = HashSet::new();
+        let mut old_options = Vec::new();
+
+        update_config_file(
+            &conf,
+            plugin_line,
+            /* removing = */ false,
+            &mut option_lines,
+            &mut remove_options,
+            &mut old_options,
+        )
+        .await
+        .unwrap();
+
+        let contents = tokio::fs::read_to_string(&conf).await.unwrap();
+        let lines: Vec<&str> = contents.lines().collect();
+        assert!(
+            lines.contains(&"fee-per-satoshi=1000"),
+            "unrelated config line was overwritten by the `fee` option:\n{contents}"
+        );
+        assert!(
+            !lines.contains(&"fee=6"),
+            "plugin option `fee` was set:\n{contents}"
+        );
+    }
+
+    // disabling a plugin must only comment out config lines
+    // that belong to its options, never an unrelated line that merely shares
+    // a name prefix with one of them.
+    #[tokio::test]
+    async fn update_config_file_remove_does_not_comment_unrelated_prefix_config() {
+        let tmp = tempfile::tempdir().unwrap();
+        let conf = tmp.path().join("config");
+        let plugin_line = "plugin=/data/foo/foo";
+        tokio::fs::write(
+            &conf,
+            format!("{plugin_line}\nfee=100\nfee-per-satoshi=1000\n"),
+        )
+        .await
+        .unwrap();
+
+        let mut option_lines: Vec<(String, String)> = Vec::new();
+        let mut remove_options = HashSet::from(["fee".to_string()]);
+        let mut old_options = Vec::new();
+
+        update_config_file(
+            &conf,
+            plugin_line,
+            /* removing = */ true,
+            &mut option_lines,
+            &mut remove_options,
+            &mut old_options,
+        )
+        .await
+        .unwrap();
+
+        let contents = tokio::fs::read_to_string(&conf).await.unwrap();
+        let lines: Vec<&str> = contents.lines().collect();
+        assert!(
+            lines.contains(&"#fee=100"),
+            "plugin option `fee` should be commented out:\n{contents}"
+        );
+        assert!(
+            !lines.contains(&"#fee-per-satoshi=1000"),
+            "unrelated config line must not be commented out:\n{contents}"
+        );
+        assert!(
+            lines.contains(&"fee-per-satoshi=1000"),
+            "unrelated config line must not be commented out:\n{contents}"
+        );
+    }
 }
