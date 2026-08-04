@@ -1242,7 +1242,9 @@ pub async fn search_sources(
         rl_plugins.extend(
             find_plugin_locs(
                 &plugin.state().reckless_dir,
-                path.to_str().unwrap().to_owned(),
+                path.to_str()
+                    .ok_or_else(|| anyhow!("non-UTF-8 paths are not supported"))?
+                    .to_owned(),
                 path,
                 3,
                 logger,
