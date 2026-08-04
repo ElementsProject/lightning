@@ -124,7 +124,7 @@
             "netaddr": [
               "127.0.0.1:30005"
             ],
-            "features": "800898882a8a59a1"
+            "features": "800898a82a8a59a1"
           }
         ]
       }
@@ -138,7 +138,7 @@
           "rune": "a0noy2CAu8-s2xSgJuBW09hqB_YsqLkwIDy5qkftGMk9MiZtZXRob2Q9cGF5JnBuYW1lYW1vdW50bXNhdDwxMDAwMA==",
           "method": "pay",
           "params": {
-            "bolt11": "lnbcrt1pne035qsp5r0wdx7ur2ksfqp3m20sdy2yleawgnkc6zu0ua3qek25zr280rjfspp5gtsy37aeh4vz7alehxl88yak5234edpyp58780hztrw9ysyxpkwsdqcdserxgryv4ekxunfwp6xjmmwxqyjw5qcqp99qxpqysgq092sevrrqgr60s7v248nxhyqlfdktu9rdeg728j2eduafqh8wqd3jycamqf84n0rpempvyhacvkaqjtkqrqqu3fy9vmcl503mjzkfksqtz6mm3",
+            "bolt11": "lnbcrt1pne035qsp5r0wdx7ur2ksfqp3m20sdy2yleawgnkc6zu0ua3qek25zr280rjfspp5gtsy37aeh4vz7alehxl88yak5234edpyp58780hztrw9ysyxpkwsdqcdserxgryv4ekxunfwp6xjmmwxqyjw5qcqp99qgyqpqysgqguvadxe2ly38wew38w2f5n04r5ua6ju9uh4szhndepflvle3945rpa53euvz2gkfv7kjm8drdkfgf8kw0gcjmvkkt4jjfruj7zlpc9cpus97ph",
             "amount_msat": 9900
           }
         }

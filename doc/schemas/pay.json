@@ -253,7 +253,7 @@
         "id": "example:pay#1",
         "method": "pay",
         "params": [
-          "lnbcrt500n1pne035qsp5u7rlqwcjaqjakspx7xh269gt3tpfaqa5ldqavdjsq7dwuvx82p0spp5cjmk7py3a5rqaceusx45a2x9y0lpgxnzcc3tugd65wafa4yzry8qdqcdsenygryv4ekxunfwp6xjmmwxqyjw5qcqp9rzjqvuytqpdyk6wqaxvl47d3vee5swuwklej79qxjqqg394r4ptqaue5qqqwcqqqqgqqqqqqqqpqqqqqzsqqc9qxpqysgqmrjmv3td6esfy3nhgue24q6uy9a6sas6v6sjnkx5unhf6x5uhg95tjrzj2v6rapml5nqx4t4nu72gchnmk324kntyh0ulnew5mx9h7cp2mvl48"
+          "lnbcrt500n1pne035qsp5u7rlqwcjaqjakspx7xh269gt3tpfaqa5ldqavdjsq7dwuvx82p0spp5cjmk7py3a5rqaceusx45a2x9y0lpgxnzcc3tugd65wafa4yzry8qdqcdsenygryv4ekxunfwp6xjmmwxqyjw5qcqp9rzjqvuytqpdyk6wqaxvl47d3vee5swuwklej79qxjqqg394r4ptqaue5qqqwcqqqqgqqqqqqqqpqqqqqzsqqc9qgyqpqysgqfrgvne6k87eyz8vnj49wphrhyzrshzd7652zac53v896j8wgs3c5g668p28r2u9tayh8wupfg37l5h6kxftywa8ep9xcsuptf97zxxgqqdaepl"
         ]
       },
       "response": {
@@ -272,7 +272,7 @@
         "id": "example:pay#2",
         "method": "pay",
         "params": {
-          "bolt11": "lnbcrt1u1pne035qsp50wwzp4l0e57nzgdnzzs06ppe04fexc8uk6wyhpmemhrs4dw64ncqpp5aej395fh9p2598azcahaxj2uhj6mw2y8e9eg7kawer5wzck6ntysdqcdsenxgryv4ekxunfwp6xjmmwxqyjw5qcqp9rzjqvuytqpdyk6wqaxvl47d3vee5swuwklej79qxjqqg394r4ptqaue5qqqwcqqqqgqqqqqqqqpqqqqqzsqqc9qxpqysgqx73ypkrpve6n4vjcwavpzaenw9ufz43e79ppz4uuwzsh2wr2mppnv6nfzt54ecl5pv9jghcwckkrnmzmsdycyp44y66ukn97yjw3r6cp3zhxd0"
+          "bolt11": "lnbcrt1u1pne035qsp50wwzp4l0e57nzgdnzzs06ppe04fexc8uk6wyhpmemhrs4dw64ncqpp5aej395fh9p2598azcahaxj2uhj6mw2y8e9eg7kawer5wzck6ntysdqcdsenxgryv4ekxunfwp6xjmmwxqyjw5qcqp9rzjqvuytqpdyk6wqaxvl47d3vee5swuwklej79qxjqqg394r4ptqaue5qqqwcqqqqgqqqqqqqqpqqqqqzsqqc9qgyqpqysgqhq6aru669a0tprp5c0r42atq08yp6wle0cw5xx098rnrtyzvhtpre3fcd2rqrfvf9k58d9cnnuyeee0xxad5kutlh0axvq4mwjppqmqqdpwlr5"
         }
       },
       "response": {

@@ -608,10 +608,30 @@ void payment_failed(struct lightningd *ld,
 		failstr = "reply from remote";
 		/* Try to parse reply. */
 		struct secret *path_secrets = payment->path_secrets;
+		int attribution_failed_hop;
 
 		failmsg = unwrap_onionreply(tmpctx, path_secrets,
 					    tal_count(path_secrets),
-					    failonion, &origin_index);
+					    failonion, &origin_index,
+					    &attribution_failed_hop);
+		if (attribution_failed_hop == -1) {
+			log_debug(log,
+				  "Attribution verified for all %zu hops",
+				  tal_count(path_secrets));
+		} else if (payment->route_nodes
+			   && attribution_failed_hop < tal_count(payment->route_nodes)) {
+			log_info(log,
+				 "Attribution failed at hop %d (node %s, scid %s)",
+				 attribution_failed_hop,
+				 fmt_node_id(tmpctx,
+					     &payment->route_nodes[attribution_failed_hop]),
+				 fmt_short_channel_id(tmpctx,
+						      payment->route_channels[attribution_failed_hop]));
+		} else {
+			log_info(log,
+				 "Attribution failed at hop %d",
+				 attribution_failed_hop);
+		}
 		if (!failmsg) {
 			log_info(log,
 				 "htlc failed with bad reply (%s)",

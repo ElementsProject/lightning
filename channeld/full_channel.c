@@ -640,6 +640,7 @@ static enum channel_add_err add_htlc(struct channel *channel,
 	htlc->amount = amount;
 	htlc->state = state;
 	htlc->fail_immediate = false;
+	htlc->attr_data = NULL;
 
 	htlc->rhash = *payment_hash;
 	htlc->path_key = tal_dup_or_null(htlc, struct pubkey, path_key);

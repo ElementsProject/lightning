@@ -5,6 +5,7 @@
 #include <channeld/channeld_wiregen.h>
 #include <common/amount.h>
 #include <common/blinding.h>
+#include <common/clock_time.h>
 #include <common/ecdh.h>
 #include <common/json_command.h>
 #include <common/json_parse.h>
@@ -279,6 +280,11 @@ void local_fail_in_htlc(struct htlc_in *hin, const u8 *failmsg TAKES)
 
 	tal_free_if_taken(failmsg);
 
+	/* The erring node MUST initialize attribution_data
+	 * so downstream hops can verify their slot in the triangle
+	 * when the failure is propagated back upstream. */
+	update_attributable_data(failonion, 0, hin->shared_secret);
+
 	fail_in_htlc(hin, take(failonion));
 }
 
@@ -290,6 +296,26 @@ const u8 *failmsg_incorrect_or_unknown(const tal_t *ctx,
 	return towire_incorrect_or_unknown_payment_details(
 		ctx, msat,
 		get_block_height(ld->topology));
+}
+
+/* htlc_hold_time is reported in units of 100 ms. Nodes lacking
+ * accurate timing information may report zero.  We treat a zero send_timestamp
+ * (e.g. an htlc_out reloaded from the db, which does not persist it) as
+ * "no timing info". */
+static u32 htlc_hold_time_100ms(const struct htlc_out *hout)
+{
+	struct timerel delta;
+	u64 total_ms;
+
+	if (hout->send_timestamp.ts.tv_sec == 0
+	    && hout->send_timestamp.ts.tv_nsec == 0)
+		return 0;
+
+	delta = time_between(clock_time(), hout->send_timestamp);
+	total_ms = (u64)delta.ts.tv_sec * 1000 + delta.ts.tv_nsec / 1000000;
+	if (total_ms / 100 > UINT32_MAX)
+		return UINT32_MAX;
+	return total_ms / 100;
 }
 
 /* localfail are for handing to the local payer if it's local. */
@@ -308,16 +334,21 @@ static void fail_out_htlc(struct htlc_out *hout, const char *localfail)
 			       hout->failmsg,
 			       localfail);
 	} else if (hout->in) {
-		const struct onionreply *failonion;
+		struct onionreply *failonion;
+		u32 hold_time = htlc_hold_time_100ms(hout);
 
 		/* If we have an onion, simply copy it. */
 		if (hout->failonion)
-			failonion = hout->failonion;
+			failonion = dup_onionreply(hout, hout->failonion);
+
 		/* Otherwise, we need to onionize this local error. */
 		else
 			failonion = create_onionreply(hout,
 						      hout->in->shared_secret,
 						      hout->failmsg);
+
+		update_attributable_data(failonion, hold_time, hout->in->shared_secret);
+
 		fail_in_htlc(hout->in, failonion);
 	} else {
 		log_broken(hout->key.channel->log, "Neither origin nor in?");
@@ -417,6 +448,7 @@ void fulfill_htlc(struct htlc_in *hin, const struct preimage *preimage)
 		struct fulfilled_htlc fulfilled_htlc;
 		fulfilled_htlc.id = hin->key.id;
 		fulfilled_htlc.payment_preimage = *preimage;
+		fulfilled_htlc.attr_data = NULL;
 		msg = towire_channeld_fulfill_htlc(hin, &fulfilled_htlc);
 	}
 	subd_send_msg(channel->owner, take(msg));
@@ -743,7 +775,7 @@ const u8 *send_htlc_out(const tal_t *ctx,
 			      path_key, extra_tlvs,
 			      in == NULL,
 			      final_msat,
-			      partid, groupid, in);
+			      partid, groupid, in, clock_time());
 	tal_add_destructor(*houtp, destroy_hout_subd_died);
 
 	/* Give channel 30 seconds to commit this htlc. */
@@ -1153,7 +1185,7 @@ static bool htlc_accepted_hook_deserialize(struct htlc_accepted_hook_payload *re
 					   " Ignoring 'failure_message'.");
 
 			fail_in_htlc(hin, take(new_onionreply(NULL,
-							      failonion)));
+							      failonion, NULL)));
 			return false;
 		}
 		if (!failmsgtok) {
@@ -2345,7 +2377,7 @@ static bool channel_added_their_htlc(struct channel *channel,
  * step to receiving commitsig */
 static bool peer_sending_revocation(struct channel *channel,
 				    struct added_htlc **added,
-				    struct fulfilled_htlc *fulfilled,
+				    struct fulfilled_htlc **fulfilled,
 				    struct failed_htlc **failed,
 				    struct changed_htlc *changed)
 {
@@ -2356,7 +2388,7 @@ static bool peer_sending_revocation(struct channel *channel,
 			return false;
 	}
 	for (i = 0; i < tal_count(fulfilled); i++) {
-		if (!update_out_htlc(channel, fulfilled[i].id,
+		if (!update_out_htlc(channel, fulfilled[i]->id,
 				     SENT_REMOVE_REVOCATION))
 			return false;
 	}
@@ -2400,7 +2432,7 @@ void peer_got_commitsig(struct channel *channel, const u8 *msg)
 	struct height_states *blockheight_states;
 	struct bitcoin_signature commit_sig, *htlc_sigs;
 	struct added_htlc **added;
-	struct fulfilled_htlc *fulfilled;
+	struct fulfilled_htlc **fulfilled;
 	struct failed_htlc **failed;
 	struct changed_htlc *changed;
 	struct bitcoin_tx *tx;
@@ -2480,7 +2512,7 @@ void peer_got_commitsig(struct channel *channel, const u8 *msg)
 
 	/* Save information now for fulfilled & failed HTLCs */
 	for (i = 0; i < tal_count(fulfilled); i++) {
-		if (!peer_fulfilled_our_htlc(channel, &fulfilled[i]))
+		if (!peer_fulfilled_our_htlc(channel, fulfilled[i]))
 			return;
 	}
 

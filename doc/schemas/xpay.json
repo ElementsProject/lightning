@@ -162,7 +162,7 @@
         "id": "example:xpay#1",
         "method": "xpay",
         "params": [
-          "lnbcrt100n1pne035qsp54v5a0x3w0r3mjdnhe8fz2cugz0pqanee8rdep0sszpg3zyxvvwxqpp5ulnc8tpdywe6dh23xh2l83j3qw3ghl2x7rytl5lvza58k42mkeesdp9w3jhxazl0pcxz72lwd5k6urvv5sxymmvwscnzxqyjw5qcqp9rzjq08vhlwxs4zvcktzywmgecr3pj096tyukvt7upuz9k2s0xkvwq7nzqqq0qqqqqgqqqqqqqqpqqqqqzsqqc9qxpqysgqtquasyh7spka4ayjvawr6awq0f47h4zmz9zgm75s6xd22vq5ngsy73gjqszr3leq7j9hr27fserwxh8w4hqfxk3qawhpxexgjhmwt9qpqkmhat"
+          "lnbcrt100n1pne035qsp54v5a0x3w0r3mjdnhe8fz2cugz0pqanee8rdep0sszpg3zyxvvwxqpp5ulnc8tpdywe6dh23xh2l83j3qw3ghl2x7rytl5lvza58k42mkeesdp9w3jhxazl0pcxz72lwd5k6urvv5sxymmvwscnzxqyjw5qcqp9rzjq08vhlwxs4zvcktzywmgecr3pj096tyukvt7upuz9k2s0xkvwq7nzqqq0qqqqqgqqqqqqqqpqqqqqzsqqc9qgyqpqysgqlujexhcwe3ncvpmxknpwl7de9h4vn0dg0a4wj7xyh879eaf6yykrn4fuk0xs7f3kpa784xnud6jg83wsrz4vnmn600w3wdhtvv59regpvwk48j"
         ]
       },
       "response": {

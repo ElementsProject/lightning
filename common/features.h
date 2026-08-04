@@ -143,6 +143,7 @@ struct feature_set *feature_set_dup(const tal_t *ctx,
 #define OPT_SHUTDOWN_ANYSEGWIT			26
 #define OPT_DUAL_FUND 					28
 #define OPT_QUIESCE 					34
+#define OPT_ATTRIBUTION_DATA			36
 #define OPT_ONION_MESSAGES				38
 #define OPT_PROVIDE_STORAGE				42
 #define OPT_CHANNEL_TYPE				44

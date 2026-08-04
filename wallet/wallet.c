@@ -3691,6 +3691,9 @@ static bool wallet_stmt2htlc_out(struct wallet *wallet,
 
 	out->in = NULL;
 	out->fees = db_col_amount_msat(stmt, "fees_msat");
+	/* send_timestamp is not persisted; leave zero so
+	 * htlc_hold_time_100ms() reports 0 per the spec. */
+	out->send_timestamp = (struct timeabs){{0, 0}};
 
 	if (!db_col_is_null(stmt, "origin_htlc")) {
 		u64 in_id = db_col_u64(stmt, "origin_htlc");

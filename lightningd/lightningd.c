@@ -142,6 +142,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->dev_low_prio_anchor_blocks = 2016;
 	ld->dev_ignore_modern_onion = false;
 	ld->dev_disable_commit = -1;
+	ld->dev_corrupt_attribution = false;
 	ld->dev_no_ping_timer = false;
 	ld->dev_any_channel_type = false;
 	ld->dev_allow_shutdown_destination_change = false;
@@ -929,6 +930,7 @@ static struct feature_set *default_features(const tal_t *ctx)
 		OPTIONAL_FEATURE(OPT_SCID_ALIAS),
 		OPTIONAL_FEATURE(OPT_ZEROCONF),
 		OPTIONAL_FEATURE(OPT_QUIESCE),
+		OPTIONAL_FEATURE(OPT_ATTRIBUTION_DATA),
 		OPTIONAL_FEATURE(OPT_ONION_MESSAGES),
 		COMPULSORY_FEATURE(OPT_CHANNEL_TYPE),
 		OPTIONAL_FEATURE(OPT_ROUTE_BLINDING),

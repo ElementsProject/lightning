@@ -235,7 +235,7 @@
       },
       "response": {
         "label": "lbl balance l1 to l2",
-        "bolt11": "lnbcrt5m1pne035qsp5f7fj3w9sqj6974p0gnpd7snqr2qfezav2mp26e20nx3vty5cweaqpp5r9rj6sc3p7m56lpfg6934mqf45hsp2gl4aa3kwt56pmrphh7w6ssdpcv3jhxcmjd9c8g6t0dcs8xetwvss8xmmdv5s8xct5wvsxcvfqw3hjqmpjxqyjw5qcqp9rzjq08vhlwxs4zvcktzywmgecr3pj096tyukvt7upuz9k2s0xkvwq7nzqqqwcqqqqgqqqqqqqqpqqqqqzsqqc9qxpqysgqxjn3ms2m2xm65w5pf0ulf7km28ma0luz2whhgpajnt5ecmwhp2x3ks3qzwxr907fc9g5l3quwn97u8tf0gkm5ppfvxh2dndy3z6up0cqyk54qc",
+        "bolt11": "lnbcrt5m1pne035qsp5f7fj3w9sqj6974p0gnpd7snqr2qfezav2mp26e20nx3vty5cweaqpp5r9rj6sc3p7m56lpfg6934mqf45hsp2gl4aa3kwt56pmrphh7w6ssdpcv3jhxcmjd9c8g6t0dcs8xetwvss8xmmdv5s8xct5wvsxcvfqw3hjqmpjxqyjw5qcqp9rzjq08vhlwxs4zvcktzywmgecr3pj096tyukvt7upuz9k2s0xkvwq7nzqqqwcqqqqgqqqqqqqqpqqqqqzsqqc9qgyqpqysgqqmty9p997rgedesj0sa636965v9pknztz4fz7j7kg5zcsze8qwsjmpprfmz8v9mr8jxy2nxfmgs2uaqfnn3gx7nx642zt0wg8c85gnsqm084kc",
         "payment_hash": "19472d43110fb74d7c29468b1aec09ad2f00a91faf7b1b3974d07630defe76a1",
         "amount_msat": 500000000,
         "status": "paid",
@@ -260,7 +260,7 @@
       },
       "response": {
         "label": "test_injectpaymentonion1",
-        "bolt11": "lnbcrt10n1pne035qsp5mt93g3n37t0rp9pq8my8cafesa8m3u3e5zcvs0tu67n3x5esl6tqpp58u5g36uzcl7sx433jmfgmdlydrd8rzhhd2ft3cy3846lxjt0gt5sdp6w3jhxapqd9hx5etrw3cxz7tdv4h8gmmwd9hkuvfqv3jhxcmjd9c8g6t0dcxqyjw5qcqp99qxpqysgqvy0vk8yrft3ym47d36hxz4y43ch6nfcxtycn25lh25fdlwacpq0rmzqk59p8rmakfvzay7lhvsvpsvuh5vemf7s9e4a65dg3cklcr8cq7grtgs",
+        "bolt11": "lnbcrt10n1pne035qsp5mt93g3n37t0rp9pq8my8cafesa8m3u3e5zcvs0tu67n3x5esl6tqpp58u5g36uzcl7sx433jmfgmdlydrd8rzhhd2ft3cy3846lxjt0gt5sdp6w3jhxapqd9hx5etrw3cxz7tdv4h8gmmwd9hkuvfqv3jhxcmjd9c8g6t0dcxqyjw5qcqp99qgyqpqysgquljnn02gfrla62unq7ws0kpysx7zvjwcvy332dvunsq7e5643snrq9emzp40xcydhy7eygw6x6ej4a345flxa50g3g3k6vm02ackp9sphkfn7v",
         "payment_hash": "3f2888eb82c7fd03563196d28db7e468da718af76a92b8e0913d75f3496f42e9",
         "amount_msat": 1000,
         "status": "paid",

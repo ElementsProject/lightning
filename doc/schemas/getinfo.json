@@ -420,10 +420,10 @@
         "fees_collected_msat": 0,
         "lightning-dir": "/home/rusty/.lightning/regtest",
         "our_features": {
-          "init": "800898882a8a59a1",
-          "node": "808898882a8a59a1",
+          "init": "800898a82a8a59a1",
+          "node": "808898a82a8a59a1",
           "channel": "",
-          "invoice": "02000002024100"
+          "invoice": "02002002024100"
         }
       }
     }

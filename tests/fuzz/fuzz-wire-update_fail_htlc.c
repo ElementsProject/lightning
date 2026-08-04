@@ -9,18 +9,19 @@ struct update_fail_htlc {
 	struct channel_id channel_id;
 	u64 id;
 	u8 *reason;
+	struct tlv_update_fail_htlc_tlvs *tlvs;
 };
 
 static void *encode(const tal_t *ctx, const struct update_fail_htlc *s)
 {
-	return towire_update_fail_htlc(ctx, &s->channel_id, s->id, s->reason);
+	return towire_update_fail_htlc(ctx, &s->channel_id, s->id, s->reason, s->tlvs);
 }
 
 static struct update_fail_htlc *decode(const tal_t *ctx, const void *p)
 {
 	struct update_fail_htlc *s = tal(ctx, struct update_fail_htlc);
 
-	if (fromwire_update_fail_htlc(s, p, &s->channel_id, &s->id, &s->reason))
+	if (fromwire_update_fail_htlc(s, p, &s->channel_id, &s->id, &s->reason, &s->tlvs))
 		return s;
 	return tal_free(s);
 }

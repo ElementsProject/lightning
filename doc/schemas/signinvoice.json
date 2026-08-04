@@ -61,11 +61,11 @@
         "id": "example:signinvoice#1",
         "method": "signinvoice",
         "params": {
-          "invstring": "lnbcrt10n1pne035qsp5v62x9u4qwffe0yfx4r552jsms9x420d0chacf9qfxx4cpfk6d3mqpp5la8tyxvn5k23w0dmm4ps6skl88h5zcxe2hwxdxc2nxxfqtdtuyasdqlv3jhxcmjd9c8g6t0dcsxjmnktakrzvsxqyjw5qcqp9rzjqvuytqpdyk6wqaxvl47d3vee5swuwklej79qxjqqg394r4ptqaue5qqqwsqqqqgqqyqqqqqpqqqqqzsqqc9qxpqysgqhssr6gyl9qv8rl6r3sr7f46mz9yj0rlf88fjxjwdu0ujcyyn7rhpmdylw0nv3wpsxhfksmd7ujf9kqxufg5w4ws82nm9uncfatp5w4sqgqgvyy"
+          "invstring": "lnbcrt10n1pne035qsp5v62x9u4qwffe0yfx4r552jsms9x420d0chacf9qfxx4cpfk6d3mqpp5la8tyxvn5k23w0dmm4ps6skl88h5zcxe2hwxdxc2nxxfqtdtuyasdqlv3jhxcmjd9c8g6t0dcsxjmnktakrzvsxqyjw5qcqp9rzjqvuytqpdyk6wqaxvl47d3vee5swuwklej79qxjqqg394r4ptqaue5qqqwsqqqqgqqyqqqqqpqqqqqzsqqc9qgyqpqysgqd6k7sjzcgnz57d39f3g2cznegcu8l3q4h6jw9r4wutash6kxgrwjf8ww36s03jh8wdn0pauzssygpud4heh4cuxusx8g4645czkxh7sqd8lawm"
         }
       },
       "response": {
-        "bolt11": "lnbcrt10n1pne035qsp5v62x9u4qwffe0yfx4r552jsms9x420d0chacf9qfxx4cpfk6d3mqpp5la8tyxvn5k23w0dmm4ps6skl88h5zcxe2hwxdxc2nxxfqtdtuyasdqlv3jhxcmjd9c8g6t0dcsxjmnktakrzvsxqyjw5qcqp9rzjqvuytqpdyk6wqaxvl47d3vee5swuwklej79qxjqqg394r4ptqaue5qqqwsqqqqgqqyqqqqqpqqqqqzsqqc9qxpqysgq3akl3umq4j928ag8mxylmv4l3hlsp6x8egcl59le0jasg2rmjzrjyut2rc8r78x207s8kk59xpxp9yfawplqx66wxqcxm754l0gv5ycqlcrhv9"
+        "bolt11": "lnbcrt10n1pne035qsp5v62x9u4qwffe0yfx4r552jsms9x420d0chacf9qfxx4cpfk6d3mqpp5la8tyxvn5k23w0dmm4ps6skl88h5zcxe2hwxdxc2nxxfqtdtuyasdqlv3jhxcmjd9c8g6t0dcsxjmnktakrzvsxqyjw5qcqp9rzjqvuytqpdyk6wqaxvl47d3vee5swuwklej79qxjqqg394r4ptqaue5qqqwsqqqqgqqyqqqqqpqqqqqzsqqc9qgyqpqysgqlppkajn0xgap55ruj76qztdxjrhyzlv3g462lgmafxxu64vngxfjsv6sw688gkq6xyl6v5h9jdw9vmuhz097h4l46hpzq6hq7hgdgxspxc57q7"
       }
     },
     {
@@ -73,11 +73,11 @@
         "id": "example:signinvoice#2",
         "method": "signinvoice",
         "params": [
-          "lnbcrt1250n1pne035qsp5uw7znumc5ws0prryyhqr6thc9gzq60uetf482yfve6le2eaw47cqpp5hc0f7s8v5tr80z5dv260m38cxtjvgpmzct4pq92up6n9ym0vxz3qdqlv3jhxcmjd9c8g6t0dcsxjmnktakrydscqp99qxpqysgq6ktj0mny4c77ta4rhrnu6vuduukzmc6z02cl92ddj098szvh87gpvj93eyy8aad879srkatl3xfendw263llyhkdcw49v60jwc76vgcp4cauu3"
+          "lnbcrt1250n1pne035qsp5uw7znumc5ws0prryyhqr6thc9gzq60uetf482yfve6le2eaw47cqpp5hc0f7s8v5tr80z5dv260m38cxtjvgpmzct4pq92up6n9ym0vxz3qdqlv3jhxcmjd9c8g6t0dcsxjmnktakrydscqp99qgyqpqysgqmv7d0q7tsdtuz65epacqwl20aun05clqew874fzyjpysa9z8ye6nqvx2wf4zwnmxz54pcpllp7lctzs9famt093vksgdzvhg3x42wjgp2d8p8v"
         ]
       },
       "response": {
-        "bolt11": "lnbcrt1250n1pne035qsp5uw7znumc5ws0prryyhqr6thc9gzq60uetf482yfve6le2eaw47cqpp5hc0f7s8v5tr80z5dv260m38cxtjvgpmzct4pq92up6n9ym0vxz3qdqlv3jhxcmjd9c8g6t0dcsxjmnktakrydscqp99qxpqysgqgxhj9cksvl3m7xkjmhhkf4jm0h9ahd3tt9e70zc8f86mpmah9g6z6yypdylytydwwyuqxjfc7kq0uky2qpef4ysnu9axrf02gpwdvxgq3xlg99"
+        "bolt11": "lnbcrt1250n1pne035qsp5uw7znumc5ws0prryyhqr6thc9gzq60uetf482yfve6le2eaw47cqpp5hc0f7s8v5tr80z5dv260m38cxtjvgpmzct4pq92up6n9ym0vxz3qdqlv3jhxcmjd9c8g6t0dcsxjmnktakrydscqp99qgyqpqysgqy0ph74k44lh0g5f3ya3chngvjzqef08et43ntjkmckvdam0flez3wt9qqvxe62dkrk00nttljefkl296e5w9cxac6tg6a30f556s08gphc0rum"
       }
     }
   ]

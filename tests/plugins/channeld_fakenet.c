@@ -509,7 +509,8 @@ static void succeed(struct info *info,
 		    const struct preimage *preimage)
 {
 	struct changed_htlc *changed;
-	struct fulfilled_htlc *fulfilled;
+	const struct fulfilled_htlc **fulfilled;
+	struct fulfilled_htlc *f;
 	u8 *msg;
 	enum channel_remove_err err;
 
@@ -521,9 +522,12 @@ static void succeed(struct info *info,
 	status_debug("channel_fulfill_htlc = %i", err);
 	assert(err == CHANNEL_ERR_REMOVE_OK);
 
-	fulfilled = tal_arr(tmpctx, struct fulfilled_htlc, 1);
-	fulfilled->id = htlc->htlc_id;
-	fulfilled->payment_preimage = *preimage;
+	fulfilled = tal_arr(tmpctx, const struct fulfilled_htlc *, 1);
+	f = tal(fulfilled, struct fulfilled_htlc);
+	f->id = htlc->htlc_id;
+	f->payment_preimage = *preimage;
+	f->attr_data = NULL;
+	fulfilled[0] = f;
 
 	msg = towire_channeld_got_commitsig(NULL,
 					    info->commit_num,
@@ -1074,6 +1078,7 @@ static struct channel *handle_init(struct info *info, const u8 *init_msg)
 	u8 *their_features;
 	u8 *remote_upfront_shutdown_script;
 	u32 *dev_disable_commit;
+	bool dev_corrupt_attribution;
 	struct inflight **inflights;
 	struct short_channel_id local_alias;
 	struct channel *channel;
@@ -1133,6 +1138,7 @@ static struct channel *handle_init(struct info *info, const u8 *init_msg)
 				    &remote_upfront_shutdown_script,
 				    &channel_type,
 				    &dev_disable_commit,
+				    &dev_corrupt_attribution,
 				    &pbases,
 				    &inflights,
 				    &local_alias))

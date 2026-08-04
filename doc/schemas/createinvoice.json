@@ -211,14 +211,14 @@
         "id": "example:createinvoice#1",
         "method": "createinvoice",
         "params": {
-          "invstring": "lnbcrt1u1pne035qsp5j9w8t9p2y6an5se63n3vkpp8c20vdsthtn78sv5t2lmt57l742wqpp5wtxkappzcsrlkmgfs6g0zyct0hkhashh7hsaxz7e65slq9fkx7fsdqcdscnxgryv4ekxunfwp6xjmmwxqyjw5qcqp9rzjqvuytqpdyk6wqaxvl47d3vee5swuwklej79qxjqqg394r4ptqaue5qqqwsqqqqgqqyqqqqqpqqqqqzsqqc9qxpqysgq5lem7pan063777cxw3grnc0wk0g8fc9ae9f5megyh532caqsc3cjh2ggl79dkq5ltzwcs930gwznt94alnwwnmsum2d7ewq0xye9ymspes6h5h",
+          "invstring": "lnbcrt1u1pne035qsp5j9w8t9p2y6an5se63n3vkpp8c20vdsthtn78sv5t2lmt57l742wqpp5wtxkappzcsrlkmgfs6g0zyct0hkhashh7hsaxz7e65slq9fkx7fsdqcdscnxgryv4ekxunfwp6xjmmwxqyjw5qcqp9rzjqvuytqpdyk6wqaxvl47d3vee5swuwklej79qxjqqg394r4ptqaue5qqqwsqqqqgqqyqqqqqpqqqqqzsqqc9qgyqpqysgqvgxh734hkk5s53ea7fvyjapf33wk50fpuq9dquf83jjh542xk6es53d2nqa78lwy3wscspsfugerdstnj4jznxhg842l5fk3rcu0vdgppgr76a",
           "label": "lbl_l13",
           "preimage": "0101010101010101010101010101010101010101010101010101010101010101"
         }
       },
       "response": {
         "label": "lbl_l13",
-        "bolt11": "lnbcrt1u1pne035qsp5j9w8t9p2y6an5se63n3vkpp8c20vdsthtn78sv5t2lmt57l742wqpp5wtxkappzcsrlkmgfs6g0zyct0hkhashh7hsaxz7e65slq9fkx7fsdqcdscnxgryv4ekxunfwp6xjmmwxqyjw5qcqp9rzjqvuytqpdyk6wqaxvl47d3vee5swuwklej79qxjqqg394r4ptqaue5qqqwsqqqqgqqyqqqqqpqqqqqzsqqc9qxpqysgqqaemjv2lvc6zfl6zjt320drsvqx2g2ewlcv6cja38vzqwd45vy7y4w2u2wxxydtukl4uplukq7a70q638r6nv32c2j0jdw8clf5k2gsp32pee4",
+        "bolt11": "lnbcrt1u1pne035qsp5j9w8t9p2y6an5se63n3vkpp8c20vdsthtn78sv5t2lmt57l742wqpp5wtxkappzcsrlkmgfs6g0zyct0hkhashh7hsaxz7e65slq9fkx7fsdqcdscnxgryv4ekxunfwp6xjmmwxqyjw5qcqp9rzjqvuytqpdyk6wqaxvl47d3vee5swuwklej79qxjqqg394r4ptqaue5qqqwsqqqqgqqyqqqqqpqqqqqzsqqc9qgyqpqysgq4nkgpjapuk9wsktkyhp6q59n2h2pju5p8p6s9kdtnu9g0gek3v2rw07ak6klrlzh8eghct2vwcscmd42tgwz88dg92hju9m7xy7qc6gprl79eu",
         "payment_hash": "72cd6e8422c407fb6d098690f1130b7ded7ec2f7f5e1d30bd9d521f015363793",
         "amount_msat": 100000,
         "status": "unpaid",
