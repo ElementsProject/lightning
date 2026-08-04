@@ -492,7 +492,7 @@ int main(int argc, const char *argv[])
 	feerate_per_kw[LOCAL] = feerate_per_kw[REMOTE] = 15000;
 	derive_channel_id(&cid, &funding);
 	lchannel = new_full_channel(tmpctx, &cid,
-				    &funding, 0,
+				    &funding, 0, 0,
 				    take(new_height_states(NULL, LOCAL, &blockheight)),
 				    0, /* No channel lease */
 				    funding_amount, to_local,
@@ -505,7 +505,7 @@ int main(int argc, const char *argv[])
 				    &remote_funding_pubkey,
 				    take(channel_type_static_remotekey(NULL)), false, LOCAL);
 	rchannel = new_full_channel(tmpctx, &cid,
-				    &funding, 0,
+				    &funding, 0, 0,
 				    take(new_height_states(NULL, REMOTE, &blockheight)),
 				    0, /* No channel lease */
 				    funding_amount, to_remote,

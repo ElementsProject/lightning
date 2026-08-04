@@ -1705,6 +1705,7 @@ static bool test_channel_inflight_crud(struct lightningd *ld, const tal_t *ctx, 
 			   8, false, false, &our_config,
 			   101, 1, 1, 1,
 			   &outpoint,
+			   0,
 			   funding_sats, AMOUNT_MSAT(0),
 			   our_sats,
 			   0, NULL,
@@ -1755,7 +1756,7 @@ static bool test_channel_inflight_crud(struct lightningd *ld, const tal_t *ctx, 
 	memset(&outpoint, 1, sizeof(outpoint));
 	mempat(&sig.s, sizeof(sig.s));
 
-	inflight = new_inflight(chan, NULL, &outpoint, 253,
+	inflight = new_inflight(chan, NULL, &outpoint, 0, 253,
 				funding_sats,
 				our_sats,
 				funding_psbt,
@@ -1791,7 +1792,7 @@ static bool test_channel_inflight_crud(struct lightningd *ld, const tal_t *ctx, 
 	our_sats = AMOUNT_SAT(555555);
 	memset(&outpoint, 2, sizeof(outpoint));
 	mempat(&sig.s, sizeof(sig.s));
-	inflight = new_inflight(chan, NULL, &outpoint, 300,
+	inflight = new_inflight(chan, NULL, &outpoint, 0, 300,
 				funding_sats,
 				our_sats,
 				funding_psbt,

@@ -9,6 +9,7 @@ struct inflight *fromwire_inflight(const tal_t *ctx, const u8 **cursor, size_t *
 	struct inflight *inflight = tal(ctx, struct inflight);
 
 	fromwire_bitcoin_outpoint(cursor, max, &inflight->outpoint);
+	inflight->funding_tx_index = fromwire_u32(cursor, max);
 	fromwire_pubkey(cursor, max, &inflight->remote_funding);
 	inflight->amnt = fromwire_amount_sat(cursor, max);
 	inflight->remote_tx_sigs = fromwire_bool(cursor, max);
@@ -41,6 +42,7 @@ struct inflight *fromwire_inflight(const tal_t *ctx, const u8 **cursor, size_t *
 void towire_inflight(u8 **pptr, const struct inflight *inflight)
 {
 	towire_bitcoin_outpoint(pptr, &inflight->outpoint);
+	towire_u32(pptr, inflight->funding_tx_index);
 	towire_pubkey(pptr, &inflight->remote_funding);
 	towire_amount_sat(pptr, inflight->amnt);
 	towire_bool(pptr, inflight->remote_tx_sigs);

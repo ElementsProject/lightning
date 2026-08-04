@@ -36,6 +36,7 @@ struct existing_htlc;
 struct channel *new_full_channel(const tal_t *ctx,
 				 const struct channel_id *cid,
 				 const struct bitcoin_outpoint *funding,
+				 u32 funding_tx_index,
 				 u32 minimum_depth,
 				 const struct height_states *blockheight_states,
 				 u32 lease_expiry,

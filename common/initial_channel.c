@@ -12,6 +12,7 @@
 struct channel *new_initial_channel(const tal_t *ctx,
 				    const struct channel_id *cid,
 				    const struct bitcoin_outpoint *funding,
+				    u32 funding_tx_index,
 				    u32 minimum_depth,
 				    const struct height_states *height_states TAKES,
 				    u32 lease_expiry,
@@ -46,6 +47,7 @@ struct channel *new_initial_channel(const tal_t *ctx,
 
 	channel->cid = *cid;
 	channel->funding = *funding;
+	channel->funding_tx_index = funding_tx_index;
 	channel->funding_sats = funding_sats;
 	channel->minimum_depth = minimum_depth;
 	channel->lease_expiry = lease_expiry;
@@ -156,6 +158,7 @@ struct bitcoin_tx *initial_channel_tx(const tal_t *ctx,
 
 const char *channel_update_funding(struct channel *channel,
 				   const struct bitcoin_outpoint *funding,
+				   u32 funding_tx_index,
 				   struct amount_sat funding_sats,
 				   s64 splice_amnt)
 {
@@ -164,6 +167,7 @@ const char *channel_update_funding(struct channel *channel,
 
 	channel->funding = *funding;
 	channel->funding_sats = funding_sats;
+	channel->funding_tx_index = funding_tx_index;
 
 	if (splice_amnt * 1000 + channel->view[LOCAL].owed[LOCAL].millisatoshis < 0) /* Raw: splicing */
 		return tal_fmt(tmpctx, "Channel funding update would make local"
