@@ -1,16 +1,16 @@
 import json
-
-from pyln.client.lightning import RpcError
-
-from fixtures import *  # noqa: F401,F403
-import subprocess
-from pathlib import Path
-from pyln.testing.utils import VALGRIND
 import os
 import re
+import subprocess
 import time
 import unittest
+from datetime import datetime
+from pathlib import Path
+
 import pytest
+from fixtures import *  # noqa: F401,F403
+from pyln.client.lightning import RpcError
+from pyln.testing.utils import VALGRIND
 
 
 @pytest.fixture(autouse=True)
@@ -139,6 +139,8 @@ SUBCOMMANDS = [
     "update",
     "listinstalled",
 ]
+
+LOG_LEVELS = ["io", "trace", "debug", "info", "unusual", "broken"]
 
 
 def test_help(node_factory):
@@ -528,3 +530,28 @@ def test_listinstalled(node_factory):
         r["listinstalled"][0]["original_source"]
         == "https://github.com/lightningd/plugins"
     )
+
+
+@unittest.skipIf(VALGRIND, "virtual environment triggers memleak detection")
+def test_notification(node_factory):
+    "install a plugin and list installed plugins"
+
+    notifs = []
+
+    def notif(plugin):
+        @plugin.subscribe("reckless_log")
+        def emit_notif(plugin, reckless_log, **kwargs):
+            notifs.append(reckless_log)
+
+    node = node_factory.get_node(inline_plugin=notif, options={})
+
+    r = node.rpc.call("reckless", ["install", "-v", "testplugpass"])
+    assert r["install"]["enabled"]
+    assert r["install"]["plugin_name"] == "testplugpass"
+
+    assert len(notifs) >= 1
+    assert notifs[0]["level"] in LOG_LEVELS
+    assert len(notifs[0]["log"]) >= 1
+    assert float(notifs[0]["time"]) > 1785849336.0
+    assert float(notifs[0]["time"]) < 17858493360.0
+    datetime.fromisoformat(notifs[0]["timestamp"].replace("Z", "+00:00"))
