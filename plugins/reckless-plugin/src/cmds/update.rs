@@ -266,7 +266,10 @@ async fn update(
         let line = format!(
             "updating {} from {} to {ref_to_be_installed}",
             old_rl_plugin.name(),
-            old_rl_plugin.metadata().installed_commit().unwrap()
+            old_rl_plugin
+                .metadata()
+                .installed_commit()
+                .ok_or_else(|| anyhow!("corrupted metadata: missing installed commit"))?
         );
         logger.log(&line, LogLevel::INFO).await?;
 
