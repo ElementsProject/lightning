@@ -31,6 +31,9 @@
 
 #define PREIMAGE_TLV_TYPE 5482373484
 
+/* Entries older than 1 week are thrown away. */
+#define XPAY_AGE_TIME_SECS 604800
+
 /* For the whole plugin */
 struct xpay {
 	/* This is me. */
@@ -2966,7 +2969,7 @@ static struct command_result *age_layer(struct command *cmd, struct payment *pay
 				    plugin_broken_cb,
 				    payment);
 	json_add_string(req->js, "layer", "xpay");
-	json_add_u64(req->js, "cutoff", clock_time().ts.tv_sec - 3600);
+	json_add_u64(req->js, "cutoff", clock_time().ts.tv_sec - XPAY_AGE_TIME_SECS);
 	return send_outreq(req);
 }
 
