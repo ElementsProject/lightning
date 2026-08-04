@@ -104,14 +104,6 @@ pub async fn handle_source_remove(
 
     let del_source = PluginOrigin::new(&target)?;
 
-    match remove_source(&plugin, &del_source, &mut logger).await {
-        Ok(res) => res,
-        Err(e) => {
-            logger.log(&e.to_string(), LogLevel::BROKEN).await?;
-            return Err(e);
-        }
-    }
-
     let Ok(mut file_handle) = OpenOptions::new()
         .write(true)
         .truncate(true)
@@ -139,6 +131,13 @@ pub async fn handle_source_remove(
 
     if let Some(i) = remove_index {
         sources.remove(i);
+        match remove_source(&plugin, &del_source, &mut logger).await {
+            Ok(res) => res,
+            Err(e) => {
+                logger.log(&e.to_string(), LogLevel::BROKEN).await?;
+                return Err(e);
+            }
+        }
     } else {
         return Err(anyhow!("source {target} not found"));
     }
