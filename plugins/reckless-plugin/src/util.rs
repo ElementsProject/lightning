@@ -1259,7 +1259,7 @@ pub async fn search_sources(
     for (plugin_name, rl_plugin) in &rl_plugins {
         if search_name
             .as_ref()
-            .is_some_and(|search| plugin_name.contains(search))
+            .is_some_and(|search| plugin_name.to_lowercase().contains(&search.to_lowercase()))
         {
             if !found_match {
                 let line = format!("Plugins matching '{}':", search_name.as_ref().unwrap());
@@ -1274,7 +1274,7 @@ pub async fn search_sources(
     for (plugin_name, rl_plugin) in rl_plugins {
         if search_name
             .as_ref()
-            .is_none_or(|search| normalized_eq(&plugin_name, search))
+            .is_none_or(|search| normalized_eq(&plugin_name.to_lowercase(), &search.to_lowercase()))
         {
             let line = format!("found {plugin_name} in source: {}", rl_plugin.origin());
             logger.log(&line, LogLevel::INFO).await?;

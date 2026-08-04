@@ -222,6 +222,12 @@ def test_list_partial_match(node_factory):
     # Search for something that doesn't exist
     r = n.rpc.call("reckless", ["listavailable", "-v", "nonexistent"])
     assert "INFO: Search exhausted all sources" in r["log"]
+    assert all("nonexistent" not in plugin for plugin in r["log"])
+
+    # Test case insensitive
+    r = n.rpc.call("reckless", ["listavailable", "-v", "TestPlugPass"])
+    assert len(r["listavailable"]) == 1
+    assert r["listavailable"][0]["plugin_name"] == "testplugpass"
 
 
 @unittest.skipIf(VALGRIND, "virtual environment triggers memleak detection")
