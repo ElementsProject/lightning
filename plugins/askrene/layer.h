@@ -18,6 +18,35 @@ struct command;
 struct layer;
 struct json_stream;
 
+/* A constraint reflects something we learned about a channel */
+struct constraint {
+	struct short_channel_id_dir scidd;
+	/* Time this constraint was last updated */
+	u64 timestamp;
+	/* Non-zero means set */
+	struct amount_msat min;
+	/* Non-0xFFFFF.... means set */
+	struct amount_msat max;
+};
+
+/* An impression reflects something we did to a channel (successful payments) */
+struct impression {
+	/* This is the direction of the payment, but it affects both ways */
+	struct short_channel_id_dir scidd;
+	/* Time this constraint was last updated */
+	u64 timestamp;
+	struct amount_msat amount;
+};
+
+/* FIXME: constraints (min/max) and impressions are basically the same data
+ * type, use an enum to differentiate one from the other. */
+/* A timestamp-ordered list of impresssion and constraint */
+struct channel_intel {
+	/* Only one is set */
+	const struct impression *impression;
+	const struct constraint *constraint;
+};
+
 /* Create a layer hash table */
 struct layer_name_hash *new_layer_name_hash(const tal_t *ctx);
 
@@ -101,6 +130,16 @@ void layer_apply_constraints(const struct layer *layer,
 			     struct amount_msat *min,
 			     struct amount_msat *max)
 	NO_NULL_ARGS;
+
+/* The layer hands over the list of channel intels to the caller.
+ * @ctx: tal context to allocate the result,
+ * @layer: layer to query the intels from,
+ * @scidd: for a channel identified by this short channel id and dir,
+ * @in_intelarr: NULL or an existing array to append the result to. */
+struct channel_intel *layer_collect_channel_intels(const tal_t *ctx,
+						   const struct layer *layer,
+						   const struct short_channel_id_dir *scidd,
+						   struct channel_intel *in_intelarr TAKES);
 
 /* Apply biases from a layer. */
 void layer_apply_biases(const struct layer *layer,
