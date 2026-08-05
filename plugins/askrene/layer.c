@@ -284,13 +284,6 @@ static struct local_update *add_update_channel(struct layer *layer,
 	return lu;
 }
 
-static u64 channel_intel_timestamp(const struct channel_intel *intel)
-{
-	if (intel->constraint)
-		return intel->constraint->timestamp;
-	return intel->impression->timestamp;
-}
-
 /* Insert this constraint/impression in htable, maintaining timestamp order */
 static void add_channel_intel(struct layer *layer,
 			      const struct constraint *constraint STEALS,

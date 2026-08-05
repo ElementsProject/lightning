@@ -47,6 +47,13 @@ struct channel_intel {
 	const struct constraint *constraint;
 };
 
+static inline u64 channel_intel_timestamp(const struct channel_intel *intel)
+{
+	if (intel->constraint)
+		return intel->constraint->timestamp;
+	return intel->impression->timestamp;
+}
+
 /* Create a layer hash table */
 struct layer_name_hash *new_layer_name_hash(const tal_t *ctx);
 
