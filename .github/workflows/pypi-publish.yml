@@ -30,9 +30,11 @@ jobs:
 
     - name: Determine PyPI distribution location
       id: set-values
-      run: |
-        if [[ "${{ inputs.dist-location }}" != "" ]]; then
-          DISTLOCATION="${{ inputs.dist-location }}"
+      env:
+          DIST_LOCATION: ${{ inputs.dist-location }}
+        run: |
+        if [[ -n "$DIST_LOCATION" ]]; then
+          DISTLOCATION="$DIST_LOCATION"
         elif [[ "${{ github.ref_type }}" == "tag" ]] && [[ ! "${{ inputs.version }}" =~ rc ]]; then
           DISTLOCATION="prod"
         else

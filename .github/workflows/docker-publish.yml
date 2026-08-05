@@ -43,25 +43,34 @@ jobs:
         merge-multiple: false
 
     - name: Set up values
+      env:
+        DH_REPOSITORY_OWNER: ${{ inputs.dh-repository-owner }}
+        PUSH_LATEST: ${{ inputs.push-latest }}
+        VERSION: ${{ inputs.version }}
+        REF_TYPE: ${{ github.ref_type }}
       run: |
         DIGEST_REFS=""
         for f in /tmp/digests/*/digest.txt; do
           D=$(cat "$f")
-          DIGEST_REFS="$DIGEST_REFS ${{ inputs.dh-repository-owner }}/lightningd@${D}"
+          DIGEST_REFS="$DIGEST_REFS ${DH_REPOSITORY_OWNER}/lightningd@${D}"
         done
         echo "DIGEST_REFS=$DIGEST_REFS" >> $GITHUB_ENV
 
-        if [[ "${{ inputs.push-latest }}" == "true" ]] ||
-          ([[ "${{ github.ref_type }}" == "tag" ]] && [[ ! "${{ inputs.version }}" =~ rc ]]); then
+        if [[ "$PUSH_LATEST" == "true" ]] ||
+          ([[ "$REF_TYPE" == "tag" ]] && [[ ! "$VERSION" =~ rc ]]); then
           echo "PUSHLATEST=true" >> $GITHUB_ENV
         else
           echo "PUSHLATEST=false" >> $GITHUB_ENV
         fi
 
     - name: Create and push real tag(s)
+      env:
+        DH_REPOSITORY_OWNER: ${{ inputs.dh-repository-owner }}
+        VERSION: ${{ inputs.version }}
+        TAG_SUFFIX: ${{ matrix.tag_suffix }}
       run: |
-        TAG_ARGS=(-t "${{ inputs.dh-repository-owner }}/lightningd:${{ inputs.version }}${{ matrix.tag_suffix }}")
+        TAG_ARGS=(-t "${DH_REPOSITORY_OWNER}/lightningd:${VERSION}${TAG_SUFFIX}")
         if [[ "$PUSHLATEST" == "true" ]]; then
-          TAG_ARGS+=(-t "${{ inputs.dh-repository-owner }}/lightningd:latest${{ matrix.tag_suffix }}")
+          TAG_ARGS+=(-t "${DH_REPOSITORY_OWNER}/lightningd:latest${TAG_SUFFIX}")
         fi
         docker buildx imagetools create "${TAG_ARGS[@]}" $DIGEST_REFS
