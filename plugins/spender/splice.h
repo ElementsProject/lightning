@@ -38,7 +38,7 @@ struct splice_cmd {
 	bool dryrun;
 	/* Execute the splice and abort at the last moment */
 	bool wetrun;
-	/* Feerate queried from lightningd */
+	/* Feerate provided, otherwise queried from lightningd */
 	u32 feerate_per_kw;
 	/* Override max feerate */
 	bool force_feerate;

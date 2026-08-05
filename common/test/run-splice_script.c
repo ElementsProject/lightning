@@ -58,20 +58,114 @@ static void set_chan_id(struct splice_script_chan *chan, const char *hexstr)
 	assert(result);
 }
 
+static struct splice_script_result **static_to_dynamic(const tal_t *ctx, struct splice_script_result *input)
+{
+	struct splice_script_result **result = tal_arr(ctx, struct splice_script_result*, tal_count(input));
+
+	for (size_t i = 0; i < tal_count(input); i++)
+		result[i] = &input[i];
+
+	return result;
+}
+
+static const char *result_to_str(const tal_t *ctx, struct splice_script_result **result, size_t *len)
+{
+	const char *str;
+	struct json_stream *js = new_json_stream(ctx, NULL, NULL);
+
+	splice_to_json(tmpctx, result, js);
+
+	str = json_out_contents(js->jout, len);
+	assert(str);
+
+	str = tal_steal(ctx, str);
+	tal_free(js);
+
+	return str;
+}
+
+static struct splice_script_result **run_script(const char *script,
+						struct splice_script_chan **channels)
+{
+	struct splice_script_error *error;
+	struct splice_script_result **result;
+	struct splice_script_result **final;
+	jsmntok_t *toks;
+	const char *str;
+	size_t len;
+
+	static int script_count = 0;
+
+	printf("(%d) Running Script:\n%s\n", script_count, script);
+	error = parse_splice_script(tmpctx, script, channels, &result);
+
+	if (error) {
+		printf("\n\n%s\n", fmt_splice_script_compiler_error(tmpctx,
+								    script,
+								    error));
+		common_shutdown();
+		abort();
+	}
+
+	str = result_to_str(tmpctx, result, &len);
+	printf("(%d) Script Result:\n%.*s\n\n", script_count, (int)len, str);
+
+	toks = json_parse_simple(tmpctx, str, len);
+
+	assert(toks);
+
+	assert(json_to_splice(tmpctx, str, toks, &final));
+
+	return final;
+}
+
+static void verify_result(struct splice_script_result **final,
+			  struct splice_script_result *expect,
+			  size_t size)
+{
+	assert(tal_count(final) == size);
+
+	for (size_t i = 0; i < size; i++) {
+		assert(amount_sat_eq(final[i]->lease_sat, expect[i].lease_sat));
+		assert(final[i]->lease_max_ppm == expect[i].lease_max_ppm);
+		assert(amount_sat_eq(final[i]->in_sat, expect[i].in_sat));
+		assert(final[i]->in_ppm == expect[i].in_ppm);
+		if (final[i]->channel_id != expect[i].channel_id)
+			assert(channel_id_eq(final[i]->channel_id,
+					     expect[i].channel_id));
+		if (final[i]->peer_id != expect[i].peer_id)
+			assert(node_id_eq(final[i]->peer_id,
+					  expect[i].peer_id));
+		if (final[i]->bitcoin_address != expect[i].bitcoin_address)
+			assert(!strcmp(final[i]->bitcoin_address,
+				       expect[i].bitcoin_address));
+		assert(final[i]->onchain_wallet == expect[i].onchain_wallet);
+		assert(amount_sat_eq(final[i]->out_sat, expect[i].out_sat));
+		assert(final[i]->out_ppm == expect[i].out_ppm);
+		assert(final[i]->balance_ppm == expect[i].balance_ppm);
+		assert(final[i]->commit_feerate_per_kw == expect[i].commit_feerate_per_kw);
+		assert(final[i]->private_channel == expect[i].private_channel);
+		if (final[i]->close_to_address != expect[i].close_to_address)
+			assert(!strcmp(final[i]->close_to_address,
+				       expect[i].close_to_address));
+		if (expect[i].pays_fee)
+			assert(final[i]->pays_fee);
+		else
+			assert(!final[i]->pays_fee);
+		assert(final[i]->feerate_per_kw == expect[i].feerate_per_kw);
+	}
+}
 
 int main(int argc, char *argv[])
 {
-	size_t i, len;
-	const char *str;
-	struct splice_script_error *error;
-	struct splice_script_result **result, **final;
-	jsmntok_t *toks;
 	struct splice_script_chan **channels;
-	const char *script;
 	struct splice_script_result *expect;
+	const char *script;
+	size_t i;
 
 	common_setup(argv[0]);
 
+	/* Test massive many channel splice script */
 	i = 0;
 	channels = tal_arr(tmpctx, struct splice_script_chan*, 0);
 	/* A */
@@ -136,25 +230,26 @@ int main(int argc, char *argv[])
 	i++;
 
 	script = ""
-		"0->0399:0->3M;\n" /* A */
+		"0->peer(0399).chan(first)->3M;\n" /* A */
 		"3.000001M->bcrt1pp5ygqjg0q3mmv8ng8ceu59kl5a3etlf2vvryvnnyumvdyr8a77tqx507vk;\n"
 		"wallet->1M;\n"
-		"0->f4699c->3M;\n" /* H */
-		"0->0393069f1693fd89a453f0caf03ee36b6f6c8abaa7ef778d3e2bcc7c2b44120101:0->*;\n" /* B */
-		"0->0393069f1693fd89a453f0caf03ee36b6f6c8abaa7ef778d3e2bcc7c2b44120101:?->12M;\n" /* C */
-		"0->03930:*->*\n" /* D, E, F */
-		"|4.91M@2%->*:?;\n" /* G */
-		"25.010%|100K->*:?;\n" /* I */
-		"*:?->+fee@40000;\n" /* J */
-		"10.0003%->*:*;\n"; /* K, L */
+		"0->chan(f4699c)->3M;\n" /* H */
+		"0->peer(0393069f1693fd89a453f0caf03ee36b6f6c8abaa7ef778d3e2bcc7c2b44120101).chan(0)->all;\n" /* B */
+		"0->peer(0393069f1693fd89a453f0caf03ee36b6f6c8abaa7ef778d3e2bcc7c2b44120101).chan(?)->12M;\n" /* C */
+		"peer(03930).chan(all) -> all\n" /* D, E, F */
+		"0->peer(all).chan(any).lease(4.91M @ 2%);\n" /* G */
+		"25.010%.lease(100K@2%)->peer(all).chan(first);\n" /* I */
+		"peer(all).chan(one)->0+fee@40000;\n" /* J */
+		"10.0003%->peer(all).chan(all);\n" /* K, L */
+		"50k -> peer(0399).new.lease(4.91M @ 4%).private.commit_feerate(40000).close_to(bcrt1pp5ygqjg0q3mmv8ng8ceu59kl5a3etlf2vvryvnnyumvdyr8a77tqx507vk);";
 
-	expect = tal_arr(tmpctx, struct splice_script_result, 15);
+	expect = tal_arr(tmpctx, struct splice_script_result, 16);
 	i = 0;
 	expect[i].lease_sat = AMOUNT_SAT(0);
 	expect[i].lease_max_ppm = 0;
 	expect[i].in_sat = AMOUNT_SAT(0);
 	expect[i].in_ppm = 0;
-	expect[i].channel_id = &channels[0]->chan_id;
+	expect[i].channel_id = channels[0]->chan_id;
 	expect[i].bitcoin_address = 0;
 	expect[i].onchain_wallet = 0;
 	expect[i].out_sat = AMOUNT_SAT(3000000);
@@ -190,7 +285,7 @@ int main(int argc, char *argv[])
 	expect[i].lease_max_ppm = 0;
 	expect[i].in_sat = AMOUNT_SAT(0);
 	expect[i].in_ppm = 0;
-	expect[i].channel_id = &channels[7]->chan_id;
+	expect[i].channel_id = channels[7]->chan_id;
 	expect[i].bitcoin_address = 0;
 	expect[i].onchain_wallet = 0;
 	expect[i].out_sat = AMOUNT_SAT(3000000);
@@ -202,7 +297,7 @@ int main(int argc, char *argv[])
 	expect[i].lease_max_ppm = 0;
 	expect[i].in_sat = AMOUNT_SAT(0);
 	expect[i].in_ppm = 0;
-	expect[i].channel_id = &channels[1]->chan_id;
+	expect[i].channel_id = channels[1]->chan_id;
 	expect[i].bitcoin_address = 0;
 	expect[i].onchain_wallet = 0;
 	expect[i].out_sat = AMOUNT_SAT(0);
@@ -214,7 +309,7 @@ int main(int argc, char *argv[])
 	expect[i].lease_max_ppm = 0;
 	expect[i].in_sat = AMOUNT_SAT(0);
 	expect[i].in_ppm = 0;
-	expect[i].channel_id = &channels[2]->chan_id;
+	expect[i].channel_id = channels[2]->chan_id;
 	expect[i].bitcoin_address = 0;
 	expect[i].onchain_wallet = 0;
 	expect[i].out_sat = AMOUNT_SAT(12000000);
@@ -226,7 +321,7 @@ int main(int argc, char *argv[])
 	expect[i].lease_max_ppm = 0;
 	expect[i].in_sat = AMOUNT_SAT(0);
 	expect[i].in_ppm = 0;
-	expect[i].channel_id = &channels[3]->chan_id;
+	expect[i].channel_id = channels[3]->chan_id;
 	expect[i].bitcoin_address = 0;
 	expect[i].onchain_wallet = 0;
 	expect[i].out_sat = AMOUNT_SAT(0);
@@ -238,7 +333,7 @@ int main(int argc, char *argv[])
 	expect[i].lease_max_ppm = 0;
 	expect[i].in_sat = AMOUNT_SAT(0);
 	expect[i].in_ppm = 0;
-	expect[i].channel_id = &channels[4]->chan_id;
+	expect[i].channel_id = channels[4]->chan_id;
 	expect[i].bitcoin_address = 0;
 	expect[i].onchain_wallet = 0;
 	expect[i].out_sat = AMOUNT_SAT(0);
@@ -250,7 +345,7 @@ int main(int argc, char *argv[])
 	expect[i].lease_max_ppm = 0;
 	expect[i].in_sat = AMOUNT_SAT(0);
 	expect[i].in_ppm = 0;
-	expect[i].channel_id = &channels[5]->chan_id;
+	expect[i].channel_id = channels[5]->chan_id;
 	expect[i].bitcoin_address = 0;
 	expect[i].onchain_wallet = 0;
 	expect[i].out_sat = AMOUNT_SAT(0);
@@ -262,7 +357,7 @@ int main(int argc, char *argv[])
 	expect[i].lease_max_ppm = 20000;
 	expect[i].in_sat = AMOUNT_SAT(0);
 	expect[i].in_ppm = 0;
-	expect[i].channel_id = &channels[6]->chan_id;
+	expect[i].channel_id = channels[6]->chan_id;
 	expect[i].bitcoin_address = 0;
 	expect[i].onchain_wallet = 0;
 	expect[i].out_sat = AMOUNT_SAT(0);
@@ -271,10 +366,10 @@ int main(int argc, char *argv[])
 	expect[i].feerate_per_kw = 0;
 	i++;
 	expect[i].lease_sat = AMOUNT_SAT(100000);
-	expect[i].lease_max_ppm = 0;
+	expect[i].lease_max_ppm = 20000;
 	expect[i].in_sat = AMOUNT_SAT(0);
 	expect[i].in_ppm = 250100;
-	expect[i].channel_id = &channels[8]->chan_id;
+	expect[i].channel_id = channels[8]->chan_id;
 	expect[i].bitcoin_address = 0;
 	expect[i].onchain_wallet = 0;
 	expect[i].out_sat = AMOUNT_SAT(0);
@@ -286,7 +381,7 @@ int main(int argc, char *argv[])
 	expect[i].lease_max_ppm = 0;
 	expect[i].in_sat = AMOUNT_SAT(0);
 	expect[i].in_ppm = 0;
-	expect[i].channel_id = &channels[9]->chan_id;
+	expect[i].channel_id = channels[9]->chan_id;
 	expect[i].bitcoin_address = 0;
 	expect[i].onchain_wallet = 0;
 	expect[i].out_sat = AMOUNT_SAT(0);
@@ -298,7 +393,7 @@ int main(int argc, char *argv[])
 	expect[i].lease_max_ppm = 0;
 	expect[i].in_sat = AMOUNT_SAT(0);
 	expect[i].in_ppm = 50001;
-	expect[i].channel_id = &channels[10]->chan_id;
+	expect[i].channel_id = channels[10]->chan_id;
 	expect[i].bitcoin_address = 0;
 	expect[i].onchain_wallet = 0;
 	expect[i].out_sat = AMOUNT_SAT(0);
@@ -310,7 +405,7 @@ int main(int argc, char *argv[])
 	expect[i].lease_max_ppm = 0;
 	expect[i].in_sat = AMOUNT_SAT(0);
 	expect[i].in_ppm = 50002;
-	expect[i].channel_id = &channels[11]->chan_id;
+	expect[i].channel_id = channels[11]->chan_id;
 	expect[i].bitcoin_address = 0;
 	expect[i].onchain_wallet = 0;
 	expect[i].out_sat = AMOUNT_SAT(0);
@@ -318,6 +413,24 @@ int main(int argc, char *argv[])
 	expect[i].pays_fee = 0;
 	expect[i].feerate_per_kw = 0;
 	i++;
+	expect[i].lease_sat = AMOUNT_SAT(4910000);
+	expect[i].lease_max_ppm = 40000;
+	expect[i].in_sat = AMOUNT_SAT(50000);
+	expect[i].in_ppm = 0;
+	expect[i].channel_id = 0;
+	expect[i].peer_id = &channels[0]->node_id;
+	expect[i].bitcoin_address = 0;
+	expect[i].onchain_wallet = 0;
+	expect[i].out_sat = AMOUNT_SAT(0);
+	expect[i].out_ppm = 0;
+	expect[i].private_channel = true;
+	expect[i].commit_feerate_per_kw = 40000;
+	expect[i].close_to_address = "bcrt1pp5ygqjg0q3mmv8ng8ceu59kl5a3etlf2vvryvnnyumvdyr8a77tqx507vk";
+	expect[i].pays_fee = 0;
+	expect[i].feerate_per_kw = 0;
+	i++;
+
+	/* Final onchain wallet deposit is assumed. */
 	expect[i].lease_sat = AMOUNT_SAT(0);
 	expect[i].lease_max_ppm = 0;
 	expect[i].in_sat = AMOUNT_SAT(0);
@@ -335,51 +448,11 @@ int main(int argc, char *argv[])
 
 	chainparams = chainparams_for_network("regtest");
 
-	error = parse_splice_script(tmpctx, script, channels, &result);
+	size_t len;
+	const char *str = result_to_str(tmpctx, static_to_dynamic(tmpctx, expect), &len);
+	printf("Expected Result:\n%.*s\n\n", (int)len, str);
 
-	if (error) {
-		printf("%s\n", fmt_splice_script_compiler_error(tmpctx, script,
-								error));
-		common_shutdown();
-		abort();
-	}
-
-	struct json_stream *js = new_json_stream(tmpctx, NULL, NULL);
-
-	splice_to_json(tmpctx, result, js);
-
-	str = json_out_contents(js->jout, &len);
-	assert(str);
-	printf("%.*s\n", (int)len, str);
-
-	toks = json_parse_simple(tmpctx, str, len);
-
-	assert(toks);
-
-	assert(json_to_splice(tmpctx, str, toks, &final));
-
-	assert(tal_count(final) == tal_count(expect));
-
-	for (i = 0; i < tal_count(expect); i++) {
-		assert(amount_sat_eq(final[i]->lease_sat, expect[i].lease_sat));
-		assert(final[i]->lease_max_ppm == expect[i].lease_max_ppm);
-		assert(amount_sat_eq(final[i]->in_sat, expect[i].in_sat));
-		assert(final[i]->in_ppm == expect[i].in_ppm);
-		if (final[i]->channel_id != expect[i].channel_id)
-			assert(channel_id_eq(final[i]->channel_id, expect[i].channel_id));
-		if (final[i]->bitcoin_address != expect[i].bitcoin_address)
-			assert(!strcmp(final[i]->bitcoin_address, expect[i].bitcoin_address));
-		assert(final[i]->onchain_wallet == expect[i].onchain_wallet);
-		assert(amount_sat_eq(final[i]->out_sat, expect[i].out_sat));
-		assert(final[i]->out_ppm == expect[i].out_ppm);
-		if (expect[i].pays_fee)
-			assert(final[i]->pays_fee);
-		else
-			assert(!final[i]->pays_fee);
-		assert(final[i]->feerate_per_kw == expect[i].feerate_per_kw);
-	}
-
-	printf("DRY RUN:\n%s", splicearr_to_string(tmpctx, final));
+	verify_result(run_script(script, channels), expect, i);
 
 	common_shutdown();
 

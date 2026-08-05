@@ -965,10 +965,10 @@ static size_t calc_weight(struct splice_cmd *splice_cmd,
 }
 
 static struct command_result *splice_init_get_result(struct command *cmd,
-			    const char *methodname,
-			    const char *buf,
-			    const jsmntok_t *result,
-			    struct splice_cmd *splice_cmd)
+						     const char *methodname,
+						     const char *buf,
+						     const jsmntok_t *result,
+						     struct splice_cmd *splice_cmd)
 {
 	const jsmntok_t *tok = json_get_member(buf, result, "psbt");
 
@@ -1011,11 +1011,88 @@ static struct command_result *splice_init(struct command *cmd,
 	return send_outreq(req);
 }
 
+static struct command_result *open_init_get_result(struct command *cmd,
+						   const char *methodname,
+						   const char *buf,
+						   const jsmntok_t *result,
+						   struct splice_index_pkg *pkg)
+{
+	struct splice_cmd *splice_cmd = pkg->splice_cmd;
+	struct splice_script_result *action = splice_cmd->actions[pkg->index];
+
+	tal_free(pkg);
+
+	const jsmntok_t *psbt_tok = json_get_member(buf, result, "psbt");
+	const jsmntok_t *chanid_tok = json_get_member(buf, result, "channel_id");
+
+	if (!psbt_tok)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "open_init didn't have a psbt");
+	if (!chanid_tok)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "open_init didn't have a channel_id");
+
+	tal_free(splice_cmd->psbt);
+	splice_cmd->psbt = json_to_psbt(splice_cmd, buf, psbt_tok);
+
+	assert(!action->channel_id);
+	action->channel_id = tal(action, struct channel_id);
+	if (!json_to_channel_id(buf, chanid_tok, action->channel_id))
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "open_init didn't have a valid channel_id");
+
+	plugin_log(cmd->plugin, LOG_DBG,
+		   "open_init_get_result(peer_id:%s,channel_id:%s)",
+		   fmt_node_id(tmpctx, action->peer_id),
+		   fmt_channel_id(tmpctx, action->channel_id));
+
+	return continue_splice(splice_cmd->cmd, splice_cmd);
+}
+
+static struct command_result *open_init(struct command *cmd,
+					struct splice_cmd *splice_cmd,
+					size_t index)
+{
+	struct splice_script_result *action = splice_cmd->actions[index];
+	struct splice_cmd_action_state *state = splice_cmd->states[index];
+	struct out_req *req;
+	struct splice_index_pkg *pkg = tal(cmd, struct splice_index_pkg);
+
+	pkg->splice_cmd = splice_cmd;
+	pkg->index = index;
+
+	plugin_log(cmd->plugin, LOG_DBG,
+		   "open_init(peer_id:%s)",
+		   fmt_node_id(tmpctx, action->peer_id));
+
+	req = jsonrpc_request_start(cmd, "openchannel_init",
+				    open_init_get_result, splice_error_pkg,
+				    pkg);
+
+	json_add_node_id(req->js, "id", action->peer_id);
+	json_add_sats(req->js, "amount", action->in_sat);
+	json_add_psbt(req->js, "initialpsbt", splice_cmd->psbt);
+	json_add_u32(req->js, "commitment_feerate",
+		     action->commit_feerate_per_kw);
+	json_add_u32(req->js, "funding_feerate", splice_cmd->feerate_per_kw);
+	json_add_bool(req->js, "announce", !action->private_channel);
+
+	if (action->close_to_address)
+		json_add_string(req->js, "close_to", action->close_to_address);
+
+	/* DTODO: Add lease after lease spec rework, fields request_amt
+	 * & compact_lease. */
+
+	state->state = SPLICE_CMD_INIT;
+
+	return send_outreq(req);
+}
+
 static struct command_result *splice_update_get_result(struct command *cmd,
-			      const char *methodname,
-			      const char *buf,
-			      const jsmntok_t *result,
-			      struct splice_index_pkg *pkg)
+						       const char *methodname,
+						       const char *buf,
+						       const jsmntok_t *result,
+						       struct splice_index_pkg *pkg)
 {
 	size_t index = pkg->index;
 	struct splice_cmd *splice_cmd = pkg->splice_cmd;
@@ -1070,6 +1147,84 @@ static struct command_result *splice_update(struct command *cmd,
 
 	req = jsonrpc_request_start(cmd, "splice_update",
 				    splice_update_get_result, splice_error_pkg,
+				    pkg);
+
+	json_add_channel_id(req->js, "channel_id", action->channel_id);
+	json_add_psbt(req->js, "psbt", splice_cmd->psbt);
+
+	return send_outreq(req);
+}
+
+static struct command_result *open_update_get_result(struct command *cmd,
+			      const char *methodname,
+			      const char *buf,
+			      const jsmntok_t *result,
+			      struct splice_index_pkg *pkg)
+{
+	size_t index = pkg->index;
+	struct splice_cmd *splice_cmd = pkg->splice_cmd;
+	struct splice_cmd_action_state *state = splice_cmd->states[index];
+	const jsmntok_t *tok;
+	struct wally_psbt *psbt;
+	enum splice_cmd_state old_state = state->state;
+	bool got_sigs;
+
+	tal_free(pkg);
+
+	/* DTODO: juggle serial ids correctly for cross-channel splice */
+	tok = json_get_member(buf, result, "psbt");
+	psbt = json_to_psbt(splice_cmd, buf, tok);
+
+	plugin_log(cmd->plugin, LOG_DBG, "OpenUpdateGetResult Witness Size: %d", (int)tal_count(psbt_input_get_witscript(tmpctx, psbt, 0)));
+
+	plugin_log(cmd->plugin, LOG_DBG, "psbt num sigs: %d",
+		   (int)psbt->inputs[0].signatures.num_items);
+
+	plugin_log(cmd->plugin, LOG_DBG, "splice_cmd->psbt num sigs: %d",
+		   (int)splice_cmd->psbt->inputs[0].signatures.num_items);
+
+	if (psbt_contribs_changed(splice_cmd->psbt, psbt))
+		for (size_t i = 0; i < tal_count(splice_cmd->states); i++)
+			if (splice_cmd->actions[i]->channel_id)
+				splice_cmd->states[i]->state = SPLICE_CMD_UPDATE_NEEDS_CHANGES;
+
+	assert(psbt);
+	tal_free(splice_cmd->psbt);
+	splice_cmd->psbt = tal_steal(splice_cmd, psbt);
+
+	tok = json_get_member(buf, result, "commitments_secured");
+	if (!json_to_bool(buf, tok, &got_sigs))
+		return command_fail_badparam(cmd, "commitments_secured", buf,
+					     tok, "invalid bool");
+
+	if (old_state != SPLICE_CMD_UPDATE)
+		state->state = SPLICE_CMD_UPDATE;
+	else
+		state->state = got_sigs ? SPLICE_CMD_RECVED_SIGS : SPLICE_CMD_UPDATE_DONE;
+
+	return continue_splice(splice_cmd->cmd, splice_cmd);
+}
+
+static struct command_result *open_update(struct command *cmd,
+					    struct splice_cmd *splice_cmd,
+					    size_t index)
+{
+	struct splice_script_result *action = splice_cmd->actions[index];
+	struct out_req *req;
+	struct splice_index_pkg *pkg = tal(cmd->plugin, struct splice_index_pkg);
+
+	pkg->splice_cmd = splice_cmd;
+	pkg->index = index;
+
+	plugin_log(cmd->plugin, LOG_DBG,
+		   "open_update(channel_id:%s)",
+		   fmt_channel_id(tmpctx, action->channel_id));
+
+	plugin_log(cmd->plugin, LOG_DBG, "psbt num sigs: %d",
+		   (int)splice_cmd->psbt->inputs[0].signatures.num_items);
+
+	req = jsonrpc_request_start(cmd, "openchannel_update",
+				    open_update_get_result, splice_error_pkg,
 				    pkg);
 
 	json_add_channel_id(req->js, "channel_id", action->channel_id);
@@ -1215,6 +1370,13 @@ static struct command_result *splice_signed(struct command *cmd,
 	struct out_req *req;
 	struct splice_index_pkg *pkg;
 
+	plugin_log(cmd->plugin, LOG_DBG,
+		   "splice_signed(channel_id:%s)",
+		   fmt_channel_id(tmpctx, action->channel_id));
+
+	plugin_log(cmd->plugin, LOG_DBG, "psbt num sigs: %d",
+		   (int)splice_cmd->psbt->inputs[0].signatures.num_items);
+
 	pkg = tal(cmd->plugin, struct splice_index_pkg);
 	pkg->splice_cmd = splice_cmd;
 	pkg->index = index;
@@ -1226,6 +1388,51 @@ static struct command_result *splice_signed(struct command *cmd,
 
 	json_add_channel_id(req->js, "channel_id", action->channel_id);
 	json_add_psbt(req->js, "psbt", splice_cmd->psbt);
+
+	return send_outreq(req);
+}
+
+static struct command_result *open_signed_get_result(struct command *cmd,
+			      const char *methodname,
+			      const char *buf,
+			      const jsmntok_t *result,
+			      struct splice_index_pkg *pkg)
+{
+	size_t index = pkg->index;
+	struct splice_cmd *splice_cmd = pkg->splice_cmd;
+	const jsmntok_t *tok;
+
+	tal_free(pkg);
+
+	tok = json_get_member(buf, result, "txid");
+	if (!json_to_txid(buf, tok, &splice_cmd->final_txid))
+		return command_fail_badparam(cmd, "txid", buf,
+					     tok, "invalid txid");
+
+	splice_cmd->states[index]->state = SPLICE_CMD_DONE;
+
+	return continue_splice(splice_cmd->cmd, splice_cmd);
+}
+
+static struct command_result *open_signed(struct command *cmd,
+					    struct splice_cmd *splice_cmd,
+					    size_t index)
+{
+	struct splice_script_result *action = splice_cmd->actions[index];
+	struct out_req *req;
+	struct splice_index_pkg *pkg;
+
+	pkg = tal(cmd->plugin, struct splice_index_pkg);
+	pkg->splice_cmd = splice_cmd;
+	pkg->index = index;
+
+	req = jsonrpc_request_start(cmd, "openchannel_signed",
+				    open_signed_get_result,
+				    splice_signed_error_pkg,
+				    pkg);
+
+	json_add_channel_id(req->js, "channel_id", action->channel_id);
+	json_add_psbt(req->js, "signed_psbt", splice_cmd->psbt);
 
 	return send_outreq(req);
 }
@@ -1705,20 +1912,28 @@ static struct command_result *continue_splice(struct command *cmd,
 		state = splice_cmd->states[i];
 		if (state->state != SPLICE_CMD_NONE)
 			continue;
-		if (!action->channel_id)
+		if (action->peer_id)
+			return open_init(cmd, splice_cmd, i);
+		else if (action->channel_id)
+			return splice_init(cmd, splice_cmd, i);
+		else
 			return do_fail(cmd, splice_cmd, JSONRPC2_INVALID_PARAMS,
 					    "Internal error; should not get"
 					    " here with non-channels with state"
 					    " NONE");
-		return splice_init(cmd, splice_cmd, i);
 	}
 
 	for (size_t i = 0; i < tal_count(splice_cmd->actions); i++) {
 		action = splice_cmd->actions[i];
 		state = splice_cmd->states[i];
 		if (state->state == SPLICE_CMD_INIT
-			|| state->state == SPLICE_CMD_UPDATE_NEEDS_CHANGES)
-			return splice_update(cmd, splice_cmd, i);
+			|| state->state == SPLICE_CMD_UPDATE_NEEDS_CHANGES) {
+
+			if (action->peer_id)
+				return open_update(cmd, splice_cmd, i);
+			else if (action->channel_id)
+				return splice_update(cmd, splice_cmd, i);
+		}
 	}
 
 	/* It is possible to receive a signature when we do splice_update with
@@ -1730,16 +1945,24 @@ static struct command_result *continue_splice(struct command *cmd,
 	for (size_t i = 0; i < tal_count(splice_cmd->actions); i++) {
 		action = splice_cmd->actions[i];
 		state = splice_cmd->states[i];
-		if (state->state == SPLICE_CMD_UPDATE)
-			return splice_update(cmd, splice_cmd, i);
+		if (state->state == SPLICE_CMD_UPDATE) {
+			if (action->peer_id)
+				return open_update(cmd, splice_cmd, i);
+			else if (action->channel_id)
+				return splice_update(cmd, splice_cmd, i);
+		}
 	}
 
 	/* The signpsbt operation also adds channel_ids to psbt */
 	if (splice_cmd->wallet_inputs_to_signed)
 		return signpsbt(cmd, splice_cmd);
 
-	if (requires_our_sigs(splice_cmd, &index, &multiple_require_sigs))
-		return splice_signed(cmd, splice_cmd, index);
+	if (requires_our_sigs(splice_cmd, &index, &multiple_require_sigs)) {
+		if (splice_cmd->actions[index]->peer_id)
+			return open_signed(cmd, splice_cmd, index);
+		else if (splice_cmd->actions[index]->channel_id)
+			return splice_signed(cmd, splice_cmd, index);
+	}
 
 	if (multiple_require_sigs)
 		return do_fail(cmd, splice_cmd, JSONRPC2_INVALID_PARAMS,
@@ -1750,8 +1973,12 @@ static struct command_result *continue_splice(struct command *cmd,
 	for (size_t i = 0; i < tal_count(splice_cmd->actions); i++) {
 		action = splice_cmd->actions[i];
 		state = splice_cmd->states[i];
-		if (i != index && state->state == SPLICE_CMD_RECVED_SIGS)
-			return splice_signed(cmd, splice_cmd, i);
+		if (i != index && state->state == SPLICE_CMD_RECVED_SIGS) {
+			if (action->peer_id)
+				return open_signed(cmd, splice_cmd, i);
+			else if (action->channel_id)
+				return splice_signed(cmd, splice_cmd, i);
+		}
 	}
 
 	for (size_t i = 0; i < tal_count(splice_cmd->actions); i++)
@@ -1803,6 +2030,8 @@ static struct command_result *execute_splice(struct command *cmd,
 		if (splice_cmd->actions[i]->bitcoin_address)
 			dest_count++;
 		if (splice_cmd->actions[i]->onchain_wallet)
+			dest_count++;
+		if (splice_cmd->actions[i]->peer_id)
 			dest_count++;
 		if (dest_count < 1)
 			return do_fail(cmd, splice_cmd, JSONRPC2_INVALID_PARAMS,
@@ -2020,9 +2249,17 @@ static struct command_result *handle_splice_cmd(struct command *cmd,
 						struct splice_cmd *splice_cmd)
 {
 	struct out_req *req;
+	int channels = 0;
 
 	if (splice_cmd->dryrun)
 		return splice_dryrun(cmd, splice_cmd);
+
+	for (size_t i = 0; i < tal_count(splice_cmd->actions); i++)
+		if (splice_cmd->actions[i]->channel_id)
+			channels++;
+
+	if (!channels)
+		return execute_splice(splice_cmd->cmd, splice_cmd);
 
 	req = jsonrpc_request_start(cmd, "stfu_channels",
 				    stfu_channels_get_result,
@@ -2091,12 +2328,14 @@ static struct command_result *listpeerchannels_get_result(struct command *cmd,
 		tal_arr_expand(&channels, tal(channels,
 					      struct splice_script_chan));
 
+		channels[i]->chan_id = tal(channels[i], struct channel_id);
+
 		err = json_scan(tmpctx, buf, jchannel,
 				"{peer_id?:%,channel_id?:%}",
 				JSON_SCAN(json_to_node_id,
 					  &channels[i]->node_id),
 				JSON_SCAN(json_to_channel_id,
-					  &channels[i]->chan_id));
+					  channels[i]->chan_id));
 		if (err)
 			errx(1, "Bad listpeerchannels.channels %zu: %s",
 			     i, err);

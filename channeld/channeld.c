@@ -3901,7 +3901,7 @@ static void resume_splice_negotiation(struct peer *peer,
 	txsig_tlvs = tlv_tx_signatures_tlvs_new(tmpctx);
 	txsig_tlvs->shared_input_signature = &splice_sig.s;
 
-	/* DTODO: is this finalize call required? */
+	/* This will delete the signatures from psbt and fill the witness if they're valid */
 	psbt_finalize(current_psbt);
 
 	outws = psbt_to_witnesses(tmpctx, current_psbt,
