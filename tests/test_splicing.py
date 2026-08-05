@@ -584,3 +584,53 @@ def test_splice_unannounced(node_factory, bitcoind):
     l1.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
     bitcoind.generate_block(1)
     sync_blockheight(bitcoind, [l1, l2])
+
+
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_splice_abort_after_sigs_sent(node_factory, bitcoind):
+    """tx_abort must not tear down an inflight we have already signed.
+
+    Whoever contributes less to the splice sends tx_signatures first, so with
+    l1 contributing every input it is l2 that signs first.  Once l2 has sent
+    tx_signatures the shared funding input carries its signature, and the
+    inflight -- along with its last_tx/last_sig pair and the splice watcher --
+    has to stay put until the splice resolves one way or the other.
+
+    splice_abort() already enforces this for aborts we initiate; check that
+    the remote-initiated path agrees.
+    """
+    l1, l2 = node_factory.line_graph(2, fundamount=1000000,
+                                     wait_for_announce=True,
+                                     opts={'may_reconnect': True,
+                                           'allow_warning': True})
+
+    chan_id = l1.get_channel_id(l2)
+
+    funds_result = l1.rpc.fundpsbt("109000sat", 0, 0, excess_as_change=True)
+
+    result = l1.rpc.splice_init(chan_id, 100000, funds_result['psbt'])
+    result = l1.rpc.splice_update(chan_id, result['psbt'])
+    assert result['commitments_secured'] is False
+    result = l1.rpc.splice_update(chan_id, result['psbt'])
+    assert result['commitments_secured'] is True
+
+    # l2 contributed nothing so it signs first.  These two lines bracket that:
+    # it has sent tx_signatures and is now waiting for l1's.
+    l2.daemon.wait_for_logs([r'peer_out WIRE_TX_SIGNATURES',
+                             r'Splice: Awaiting signature message'])
+    assert l2.db_query("SELECT count(*) as c FROM channel_funding_inflights;")[0]['c'] == 1
+
+    # l1 hasn't signed, so its own abort guard lets this through; l2 is the
+    # side that has to refuse it.
+    l1.rpc.abort_channels([chan_id])
+
+    # Either way l2's channeld goes away here: it either refuses the abort, or
+    # it honours it and lightningd tears the inflight down first.  Both lines
+    # land after that decision, so the count below isn't racing it.
+    l2.daemon.wait_for_log(r'Restarting channeld after tx_abort'
+                           r'|Peer permanent failure')
+
+    assert l2.db_query("SELECT count(*) as c FROM channel_funding_inflights;")[0]['c'] == 1, \
+        "inflight dropped by tx_abort after we had already sent our signature"

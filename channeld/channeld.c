@@ -1884,7 +1884,7 @@ static void check_tx_abort(struct peer *peer, const u8 *msg, struct bitcoin_txid
 		struct inflight *itr = peer->splice_state->inflights[i];
 		if (!bitcoin_txid_eq(&itr->outpoint.txid, txid))
 			continue;
-		if (have_i_signed_inflight(peer, inflight)) {
+		if (have_i_signed_inflight(peer, itr) || itr->i_sent_sigs) {
 			peer_failed_err(peer->pps, &peer->channel_id, "tx_abort"
 				        " is not allowed after I have sent my"
 				        " signature. msg: %s txid: %s",
