@@ -2,6 +2,7 @@
 #include <ccan/asort/asort.h>
 #include <common/gossmap.h>
 #include <common/utils.h>
+#include <math.h>
 #include <plugins/askrene/child/additional_costs.h>
 #include <plugins/askrene/child/mcf.h>
 #include <plugins/askrene/child/route_query.h>
@@ -12,6 +13,59 @@
  * liquidity bound that we adjust when we find a failure. The smaller it is the
  * more we trust previous knowledge. Similar to a "learning velocity" for AI. */
 #define ASKRENE_FAILURE_RELAX_FRACTION 0.5
+
+/* Lifetime of liquidity bounds is one day. "Lifetime" in the sense of the
+ * exponential time decay: the time it takes for the liquidity lower bound to be
+ * reduced by half is "lifetime" times ln(2) ~ 16 hours. */
+#define ASKRENE_RELAX_TIME_SECS 86400
+
+/* Like a capacitor discharging, this is the physical process of information
+ * getting older and entropy increasing. It satisfies the semigroup property so
+ * it is a well defined Markovian time evolution operation. Same for the
+ * "charge" operation.
+ *
+ * Definition:
+ * 	Dicharge(x, t) = x * exp(-t/lifetime)
+ * 	Charge(x, t) = C - (C -x) * exp(-t/lifetime)
+ *
+ * Semigroup composition rule:
+ * 	Discharge(x, t1+t2) = Discharge(Discharge(x, t1), t2),
+ * 	Charge(x, t1+t2) = Charge(Charge(x, t1), t2),
+ *
+ * @min: apply discharge to it,
+ * @max: apply charge to it,
+ * @capacity: "capacitor"'s capacity,
+ * @time_delta: time interval in seconds, 0-> nothing changes, infinity->full
+ * charge/discharge
+ * @lifetime: characteristic time of the system in seconds, ie. min is reduced
+ * by half after ln(2)*lifetime seconds.
+ */
+// FIXME: unit test
+static void exponential_time_charge_discharge(struct amount_msat *min,
+					      struct amount_msat *max,
+					      const struct amount_msat capacity,
+					      const u64 time_delta,
+					      const u64 lifetime)
+{
+	double factor = exp((-1.0 * time_delta) / lifetime);
+	struct amount_msat residual;
+
+	if (!amount_msat_scale(min, *min, factor))
+		goto fail;
+
+	if (!amount_msat_sub(&residual, capacity, *max))
+		goto fail;
+	if (!amount_msat_scale(&residual, residual, factor))
+		goto fail;
+	if (!amount_msat_sub(max, capacity, residual))
+		goto fail;
+
+	return;
+fail:
+	/* It should not fail, but if it does, we default to 0 knowledge. */
+	*min = AMOUNT_MSAT(0);
+	*max = capacity;
+}
 
 struct amount_msat get_additional_per_htlc_cost(const struct route_query *rq,
 						const struct short_channel_id_dir *scidd)
@@ -172,8 +226,10 @@ static void get_bounds_adaptively(struct channel_intel *intelarr,
 				  const struct amount_msat capacity,
 				  struct amount_msat *min,
 				  struct amount_msat *max,
-				  int dir)
+				  int dir,
+				  const u64 current_unixtime)
 {
+	u64 last_timestamp = 0, delta, this_timestamp;
 	const struct constraint *constraint;
 	const struct impression *impression;
 
@@ -185,6 +241,23 @@ static void get_bounds_adaptively(struct channel_intel *intelarr,
 			/* a constraint */
 			assert(!intelarr[i].impression);
 			constraint = intelarr[i].constraint;
+
+			/* Constraints created internally have UINT64_MAX in the
+			 * timestamp, we should treat them as if they belong to
+			 * the present. */
+			this_timestamp = constraint->timestamp == UINT64_MAX
+					     ? current_unixtime
+					     : constraint->timestamp;
+			assert(this_timestamp >= last_timestamp);
+			delta = this_timestamp - last_timestamp;
+			last_timestamp = this_timestamp;
+
+			/* time relax the bounds we carry */
+			if (delta > 0)
+				exponential_time_charge_discharge(
+				    min, max, capacity, delta,
+				    ASKRENE_RELAX_TIME_SECS);
+
 			if (amount_msat_greater(constraint->min,
 						AMOUNT_MSAT(0))) {
 				/* this is an "unconstrained" event, a min value
@@ -206,10 +279,28 @@ static void get_bounds_adaptively(struct channel_intel *intelarr,
 			/* an impression */
 			assert(intelarr[i].impression);
 			impression = intelarr[i].impression;
+
+			/* we don't have impressions created internally */
+			assert(impression->timestamp < UINT64_MAX);
+
+			assert(impression->timestamp >= last_timestamp);
+			delta = impression->timestamp - last_timestamp;
+			last_timestamp = impression->timestamp;
+
+			/* time relax the bounds we carry */
+			exponential_time_charge_discharge(
+			    min, max, capacity, delta, ASKRENE_RELAX_TIME_SECS);
+
 			bounds_by_impression(impression->amount, capacity, min,
 					     max, dir != impression->scidd.dir);
 		}
 	}
+
+	/* Finally time relax the bounds we carry to the current time. */
+	if (current_unixtime > last_timestamp)
+		exponential_time_charge_discharge(
+		    min, max, capacity, current_unixtime - last_timestamp,
+		    ASKRENE_RELAX_TIME_SECS);
 }
 
 void get_constraints(const struct route_query *rq,
@@ -245,7 +336,8 @@ void get_constraints(const struct route_query *rq,
 		intelarr = layer_collect_channel_intels(tmpctx, rq->layers[i],
 							&scidd, take(intelarr));
 
-	get_bounds_adaptively(intelarr, capacity, min, max, dir);
+	get_bounds_adaptively(intelarr, capacity, min, max, dir,
+			      rq->current_unixtime);
 	tal_free(intelarr);
 	/* Finally, if any is in use, subtract that! */
 	reserve_sub(rq->reserved, &scidd, rq->layers, min);
