@@ -4862,6 +4862,25 @@ def test_setconfig_dynamic_multi_option(node_factory, bitcoind):
     assert l1.rpc.call('dynamic-multi-report')['test-multi-dynamic'] == ['persist1', 'persist2']
 
 
+def test_setconfig_after_plugin_drops_option(node_factory, bitcoind):
+    """A stopped plugin unregisters its options, but a configvar from an
+    earlier setconfig remains: the next setconfig (of any option) must
+    not crash on it."""
+    pluginpath = os.path.join(os.getcwd(), 'tests/plugins/dynamic_option.py')
+    l1 = node_factory.get_node()
+
+    l1.rpc.plugin_start(pluginpath)
+    l1.rpc.setconfig(config='test-dynamic-config', val='soothing')
+
+    # The upgraded plugin no longer has this option (here: it's simply
+    # stopped), but the configvar naming it is still in memory.
+    l1.rpc.plugin_stop(pluginpath)
+
+    # This used to crash lightningd with SIGSEGV.
+    l1.rpc.setconfig(config='min-capacity-sat', val=100000)
+    assert l1.rpc.listconfigs('min-capacity-sat')['configs']['min-capacity-sat']['value_int'] == 100000
+
+
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "deletes database, which is assumed sqlite3")
 @pytest.mark.parametrize("old_hsmsecret", [False, True])
 def test_recover_command(node_factory, bitcoind, old_hsmsecret):

@@ -107,6 +107,11 @@ void configvar_finalize_overrides(struct configvar **cvs)
 	opts = tal_arr(tmpctx, const struct opt_table *, tal_count(cvs));
 	for (size_t i = 0; i < tal_count(cvs); i++) {
 		opts[i] = opt_find_long(cvs[i]->optvar, NULL);
+		/* A stopped plugin unregisters its options, but
+		 * configvars it didn't own (e.g. from a config file or
+		 * setconfig) remain: they don't override anything. */
+		if (!opts[i])
+			continue;
 		/* If you're allowed multiple, they don't override...
 		 * unless transient values exist, which override non-transient. */
 		if (opts[i]->type & OPT_MULTI) {
