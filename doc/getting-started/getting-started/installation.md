@@ -391,11 +391,13 @@ You are using brew in Intel compatibility mode. The simplest solution is to remo
 
 Install dependencies:
 ```shell
-brew install autoconf automake libtool python3 gnu-sed gettext libsodium lowdown pkgconf openssl make
-export PATH="/opt/homebrew/opt/:$PATH"
+brew install autoconf automake libtool python3 gnu-sed gettext libsodium lowdown pkgconf openssl make gpatch
+export PATH="/opt/homebrew/opt/make/libexec/gnubin:/opt/homebrew/opt/gpatch/libexec/gnubin:$PATH"
 export CPATH=/opt/homebrew/include
 export LIBRARY_PATH=/opt/homebrew/lib
 ```
+
+The build requires GNU Make >= 4.3 and some targets (such as `make check-source`) require GNU patch; the `make` and `patch` shipped with macOS are too old. The `PATH` export above makes the Homebrew versions take precedence, so consider adding it to your `~/.zshrc`.
 
 If you need SQLite (or get a SQLite mismatch build error):
 ```shell
@@ -471,11 +473,13 @@ Assuming you have Xcode and Homebrew installed.
 
 Install dependencies:
 ```shell
-brew install autoconf automake libtool python3 gnu-sed gettext libsodium lowdown pkgconf openssl make
-export PATH="/usr/local/opt/:$PATH"
+brew install autoconf automake libtool python3 gnu-sed gettext libsodium lowdown pkgconf openssl make gpatch
+export PATH="/usr/local/opt/make/libexec/gnubin:/usr/local/opt/gpatch/libexec/gnubin:$PATH"
 export CPATH=/usr/local/include
 export LIBRARY_PATH=/usr/local/lib
 ```
+
+The build requires GNU Make >= 4.3 and some targets (such as `make check-source`) require GNU patch; the `make` and `patch` shipped with macOS are too old. The `PATH` export above makes the Homebrew versions take precedence, so consider adding it to your `~/.zshrc`.
 
 If you need SQLite (or get a SQLite mismatch build error):
 ```shell
