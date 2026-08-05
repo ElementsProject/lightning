@@ -23,8 +23,10 @@ jobs:
       platforms: ${{ steps.plan.outputs.platforms }}
     steps:
       - id: plan
+        env:
+          PLATFORMS_TO_BUILD: ${{ inputs.platforms-to-build }}
         run: |
-          IFS=',' read -ra ARR <<< "${{ inputs.platforms-to-build }}"
+          IFS=',' read -ra ARR <<< "$PLATFORMS_TO_BUILD"
           JSON=$(printf '%s\n' "${ARR[@]}" | jq -R . | jq -sc .)
           echo "platforms=$JSON" >> "$GITHUB_OUTPUT"
 
