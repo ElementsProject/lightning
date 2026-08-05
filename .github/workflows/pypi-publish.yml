@@ -31,17 +31,20 @@ jobs:
     - name: Determine PyPI distribution location
       id: set-values
       env:
-          DIST_LOCATION: ${{ inputs.dist-location }}
-        run: |
+        DIST_LOCATION: ${{ inputs.dist-location }}
+        REF_TYPE: ${{ github.ref_type }}
+        VERSION: ${{ inputs.version }}
+        EVENT_DIST_LOCATION: ${{ github.event.inputs.dist-location }}
+      run: |
         if [[ -n "$DIST_LOCATION" ]]; then
           DISTLOCATION="$DIST_LOCATION"
-        elif [[ "${{ github.ref_type }}" == "tag" ]] && [[ ! "${{ inputs.version }}" =~ rc ]]; then
+        elif [[ "$REF_TYPE" == "tag" ]] && [[ ! "$VERSION" =~ rc ]]; then
           DISTLOCATION="prod"
         else
           DISTLOCATION="test"
         fi
         echo "DISTLOCATION=$DISTLOCATION" >> "$GITHUB_OUTPUT"
-        echo "EVENT DISTLOCATION: ${{ github.event.inputs.dist-location }}"
+        echo "EVENT DISTLOCATION: $EVENT_DIST_LOCATION"
         echo "Resolved dist-location: $DISTLOCATION"
 
     - name: Install uv
