@@ -2160,6 +2160,17 @@ static struct command_result *check_offer_payable(struct command *cmd,
 	if (!b12offer)
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "Invalid bolt12 offer: %s", err);
+	/* BOLT #12:
+	 *     - if `offer_amount` is not present:
+	 *       - MUST specify `invreq_amount`.
+	 *     - otherwise:
+	 *       - MAY omit `invreq_amount`.
+	 *       - if it sets `invreq_amount`:
+	 *         - MUST specify `invreq_amount`.`msat` as greater or equal to amount expected by `offer_amount` (and, if present, `offer_currency` and `invreq_quantity`).
+	 */
+	/* We can't work out the expected amount without a conversion rate, so we
+	 * refuse currency offers here.  We also require the exact offer amount,
+	 * which is stricter than the "greater or equal" the spec allows. */
 	/* We will only one-shot if we know amount!  (FIXME: Convert!) */
 	if (b12offer->offer_currency)
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
@@ -2579,6 +2590,13 @@ static struct command_result *xpay_core(struct command *cmd,
  		if (amount_msat_is_zero(amount_msat(*b12inv->invoice_amount)))
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "Invalid bolt12 invoice with zero amount");
+		/* BOLT #12:
+		 *   - if `invoice_relative_expiry` is present:
+		 *     - MUST reject the invoice if the current time since 1970-01-01 UTC is greater than `invoice_created_at` plus `seconds_from_creation`.
+		 *   - otherwise:
+		 *     - MUST reject the invoice if the current time since 1970-01-01 UTC is greater than `invoice_created_at` plus 7200.
+		 */
+		/* invoice_expiry() applies the 7200 second default for us. */
 		invexpiry = invoice_expiry(b12inv);
 		invoice_msat = amount_msat(*b12inv->invoice_amount);
 
