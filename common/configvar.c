@@ -107,6 +107,11 @@ void configvar_finalize_overrides(struct configvar **cvs)
 	opts = tal_arr(tmpctx, const struct opt_table *, tal_count(cvs));
 	for (size_t i = 0; i < tal_count(cvs); i++) {
 		opts[i] = opt_find_long(cvs[i]->optvar, NULL);
+		/* The plugin which registered this option may have
+		 * disabled itself since: leave the stale configvar alone,
+		 * it can still be reused if that plugin is started again. */
+		if (!opts[i])
+			continue;
 		/* If you're allowed multiple, they don't override...
 		 * unless transient values exist, which override non-transient. */
 		if (opts[i]->type & OPT_MULTI) {
