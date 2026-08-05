@@ -527,7 +527,13 @@ async fn create_venv(
     let line = format!("creating venv at: {}", venv_dir.display());
     logger.log(&line, LogLevel::INFO).await?;
 
-    let mut command = Command::new("python");
+    let mut command = if cfg!(windows) {
+        let mut cmd = Command::new("py");
+        cmd.arg("-3");
+        cmd
+    } else {
+        Command::new("python3")
+    };
     command
         .arg("-m")
         .arg("venv")
