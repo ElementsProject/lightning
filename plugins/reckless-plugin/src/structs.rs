@@ -116,7 +116,13 @@ impl<'a> RecklessLogger<'a> {
 #[command(name = "reckless", no_binary_name = true, disable_help_flag = true)]
 #[allow(clippy::struct_excessive_bools)]
 pub struct RecklessArgs {
-    #[arg(short = 'v', long, default_value_t = false, global = true)]
+    #[arg(
+        short = 'v',
+        long,
+        default_value_t = false,
+        global = true,
+        help = "increase log verbosity from INFO to IO"
+    )]
     pub verbose: bool,
 
     #[command(subcommand)]
@@ -134,16 +140,16 @@ pub enum RecklessCmd {
     /// List plugins available from the sources list
     Listavailable(ListArgs),
 
-    /// Dynamically enable a plugin and update config
+    /// Enable a plugin, start it and update config
     Enable(EnableArgs),
 
-    /// Disable a plugin, remove it from the config, but keep the plugin files
+    /// Stop a plugin, disable it, remove it from the config, but keep the plugin files
     Disable(TargetArgs),
 
     /// Manage plugin search sources
     Source(SourceArgs),
 
-    /// Update plugins to latest version
+    /// Update one or all plugins, supports git references
     Update(UpdateArgs),
 
     /// List reckless-installed plugins
@@ -156,11 +162,13 @@ pub enum RecklessCmd {
 /// Shared args for commands that take one or more plugin name targets
 #[derive(Args, Debug, Deserialize, PartialEq)]
 pub struct TargetArgs {
+    #[arg(help = "name of the plugin")]
     pub target: String,
 }
 
 #[derive(Args, Debug, Deserialize, PartialEq)]
 pub struct ListArgs {
+    #[arg(help = "name of the plugin")]
     pub target: Option<String>,
 }
 
@@ -179,7 +187,7 @@ pub struct InstallArgs {
     #[arg(long, help = "build plugins in debug mode and keep build files")]
     pub developer: bool,
 
-    #[arg(value_parser = parse_key_val)]
+    #[arg(value_parser = parse_key_val, help = "plugin config options in key=value format")]
     pub options: Vec<(String, Option<String>)>,
 }
 
@@ -191,16 +199,16 @@ pub struct UpdateArgs {
     #[arg(long, help = "build plugins in debug mode and keep build files")]
     pub developer: bool,
 
-    #[arg(value_parser = parse_key_val)]
+    #[arg(value_parser = parse_key_val, help = "plugin config options in key=value format")]
     pub options: Vec<(String, Option<String>)>,
 }
 
 #[derive(Args, Debug, Deserialize, PartialEq)]
 pub struct EnableArgs {
-    #[arg(help = "name of plugin to install")]
+    #[arg(help = "name of plugin to enable")]
     pub target: String,
 
-    #[arg(value_parser = parse_key_val)]
+    #[arg(value_parser = parse_key_val, help = "plugin config options in key=value format")]
     pub options: Vec<(String, Option<String>)>,
 }
 
@@ -215,7 +223,7 @@ pub fn parse_key_val(s: &str) -> Result<(String, Option<String>), String> {
 
 #[derive(Args, Debug, Deserialize, PartialEq)]
 pub struct TipArgs {
-    #[arg(help = "plugin name which author to tip")]
+    #[arg(help = "plugin name whose author to tip")]
     pub target: String,
 
     #[arg(help = "tip amount in msat")]
