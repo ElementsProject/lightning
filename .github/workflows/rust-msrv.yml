@@ -5,6 +5,9 @@ on:
       - '**/*.rs'
       - '**/Cargo.toml'
       - '**/Cargo.lock'
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 jobs:
   msrv-test:
     name: Rust MSRV verification test
