@@ -554,4 +554,9 @@ def test_notification(node_factory):
     assert len(notifs[0]["log"]) >= 1
     assert float(notifs[0]["time"]) > 1785849336.0
     assert float(notifs[0]["time"]) < 17858493360.0
-    datetime.fromisoformat(notifs[0]["timestamp"].replace("Z", "+00:00"))
+
+    ts = notifs[0]["timestamp"]
+    # python 3.10 iso parser doesn't support nanosecond precision
+    datetime.fromisoformat(
+        re.sub(r"\.(\d{6})\d+([+-]\d{2}:\d{2}|Z)$", r".\1\2", ts).replace("Z", "+00:00")
+    )
