@@ -1281,12 +1281,13 @@ pub async fn add_plugin_to_config(
                     options::Value::String(s) => Some(s.clone()),
                     options::Value::Integer(i) => Some(i.to_string()),
                     options::Value::Boolean(b) => Some(b.to_string()),
-                    _ => return Err(anyhow!("Unsupported value type")),
+                    _ => return Err(anyhow!("Unsupported value type for option: {value:?}")),
                 },
+                // Flags don't have a value and must have just the option name in the config file
                 None => None,
             };
             let line = match value_str {
-                Some(v) => format!("{name}={v}"),
+                Some(v_str) => format!("{name}={v_str}"),
                 None => name.to_owned(),
             };
             Ok((name.clone(), line))

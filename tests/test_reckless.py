@@ -445,6 +445,52 @@ def test_install_plugin_requiring_opts(node_factory):
     assert node.rpc.listconfigs("flag-opt")["configs"]["flag-opt"]["set"]
 
 
+@unittest.skipIf(VALGRIND, "virtual environment triggers memleak detection")
+def test_plugin_options_persist(node_factory):
+    """A plugin installed with options should persist them to the reckless config file"""
+    node = node_factory.get_node(options={})
+    r = node.rpc.call(
+        "reckless",
+        [
+            "install",
+            "-v",
+            "testplugreqopts",
+            "required-opt=foo",
+            "int-opt=10",
+            "bool-opt=true",
+            "flag-opt",
+        ],
+    )
+    assert r["install"]["enabled"]
+
+    def check_rpc(node):
+        r = node.rpc.get_opts()
+        assert r == {
+            "required-opt": "foo",
+            "int-opt": 10,
+            "bool-opt": True,
+            "flag-opt": None,
+        }
+
+    def check_listconfigs(node):
+        r = node.rpc.listconfigs("required-opt")["configs"]
+        assert r["required-opt"]["value_str"] == "foo"
+        r = node.rpc.listconfigs("int-opt")["configs"]
+        assert r["int-opt"]["value_int"] == 10
+        r = node.rpc.listconfigs("bool-opt")["configs"]
+        assert r["bool-opt"]["value_bool"] is True
+        r = node.rpc.listconfigs("flag-opt")["configs"]
+        assert r["flag-opt"]["set"] is True
+
+    check_rpc(node)
+    check_listconfigs(node)
+
+    node.restart()
+
+    check_rpc(node)
+    check_listconfigs(node)
+
+
 # Note: uv timeouts from the GH network seem to happen?
 @pytest.mark.slow_test
 @pytest.mark.flaky(max_runs=3, min_passes=1)
