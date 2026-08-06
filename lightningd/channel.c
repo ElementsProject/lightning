@@ -378,6 +378,10 @@ struct channel *new_unsaved_channel(struct peer *peer,
 	channel->next_index[REMOTE] = 1;
 	channel->next_htlc_id = 0;
 	channel->funding_spend_watch = NULL;
+	/* Original funding: splices increment this.  channel->funding itself
+	 * isn't known until commit, but we save the channel then, so this
+	 * must be set now. */
+	channel->funding_tx_index = 0;
 	/* FIXME: remove push when v1 deprecated */
 	channel->push = AMOUNT_MSAT(0);
 	channel->closing_fee_negotiation_step = 50;

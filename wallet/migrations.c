@@ -1183,11 +1183,13 @@ static const struct db_migration dbmigrations[] = {
      * the legacy tables at the same height. */
     {NULL, migrate_backfill_bwatch_tables, NULL, NULL},
 
-	/* Add fields for funding transaction indices to channel_funding_inflights and channels tables.
-	 * This is 0 for the original funding transaction, and is incremented for each splice transaction.
-	 * This allows us to track the funding transaction index for each channel, which is important for splicing and other operations. */
-    {SQL("ALTER TABLE channel_funding_inflights ADD funding_tx_index INTEGER DEFAULT 0"), NULL},
-    {SQL("ALTER TABLE channels ADD funding_tx_index INTEGER DEFAULT 0"), NULL},
+    /* Which funding tx this is: 0 for the original funding, incrementing
+     * by 1 for each splice.  Lets us tell a splice from the original
+     * funding on reestablish, once the channel funding txid has moved. */
+    {SQL("ALTER TABLE channel_funding_inflights ADD funding_tx_index INTEGER DEFAULT 0"), NULL,
+     SQL("ALTER TABLE channel_funding_inflights DROP COLUMN funding_tx_index"), NULL},
+    {SQL("ALTER TABLE channels ADD funding_tx_index INTEGER DEFAULT 0"), NULL,
+     SQL("ALTER TABLE channels DROP COLUMN funding_tx_index"), NULL},
 };
 
 const struct db_migration *get_db_migrations(size_t *num)
