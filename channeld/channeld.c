@@ -12,6 +12,7 @@
  */
 #include "config.h"
 #include <bitcoin/script.h>
+#include <ccan/array_size/array_size.h>
 #include <ccan/asort/asort.h>
 #include <ccan/cast/cast.h>
 #include <ccan/mem/mem.h>
@@ -5650,21 +5651,49 @@ static bool capture_premature_msg(const u8 ***shit_lnd_says, const u8 *msg)
 	return true;
 }
 
-/* Returns the funding_tx_index of the funding tx with this txid: the current
- * channel funding, or a pending splice inflight.  Returns 0 (the original
- * funding) if unknown.
- */
-static u32 funding_tx_index_for_txid(const struct peer *peer,
-				     const struct bitcoin_txid *txid)
+/* Is this txid a splice transaction?  funding_tx_index is 0 for the original
+ * funding (including RBF attempts) and increments by 1 for each splice, so it
+ * answers this regardless of whether the splice has already become the current
+ * channel funding.  We check the channel funding and any pending splice
+ * inflight; an unrecognized txid is treated as a splice, which is the
+ * conservative choice for a reestablish we can't account for. */
+static bool txid_is_splice(const struct peer *peer,
+			   const struct bitcoin_txid *txid)
 {
 	if (bitcoin_txid_eq(txid, &peer->channel->funding.txid))
-		return peer->channel->funding_tx_index;
+		return peer->channel->funding_tx_index > 0;
 	for (size_t i = 0; i < tal_count(peer->splice_state->inflights); i++) {
 		const struct inflight *inf = peer->splice_state->inflights[i];
 		if (bitcoin_txid_eq(txid, &inf->outpoint.txid))
-			return inf->funding_tx_index;
+			return inf->funding_tx_index > 0;
 	}
-	return 0;
+	return true;
+}
+
+/* "none of those `channel_reestablish` messages contain
+ * `my_current_funding_locked` or `next_funding` for a splice transaction":
+ * checks both the message we sent and the one we received. */
+static bool reestablish_mentions_splice(const struct peer *peer,
+					const struct tlv_channel_reestablish_tlvs *send_tlvs,
+					const struct tlv_channel_reestablish_tlvs *recv_tlvs)
+{
+	const struct tlv_channel_reestablish_tlvs *tlvs[] = {
+		send_tlvs, recv_tlvs
+	};
+
+	for (size_t i = 0; i < ARRAY_SIZE(tlvs); i++) {
+		if (!tlvs[i])
+			continue;
+		/* `next_funding` means an interactive tx construction hasn't
+		 * finished; past `channel_ready` that is always a splice. */
+		if (tlvs[i]->next_funding)
+			return true;
+		if (tlvs[i]->my_current_funding_locked
+		    && txid_is_splice(peer,
+				      &tlvs[i]->my_current_funding_locked->my_current_funding_locked_txid))
+			return true;
+	}
+	return false;
 }
 
 static void peer_reconnect(struct peer *peer,
@@ -6007,17 +6036,7 @@ static void peer_reconnect(struct peer *peer,
 	if (peer->channel_ready[LOCAL]
 	    && peer->next_index[LOCAL] == 1
 	    && next_commitment_number == 1
-	    /* "none of those channel_reestablish messages contain
-	     * my_current_funding_locked or next_funding for a splice
-	     * transaction": a funding_tx_index of 1 or more means the txid came
-	     * from a splice (0 is the original funding). */
-	    && !local_next_funding
-	    && !peer->splice_state->locked_ready[LOCAL]
-	    && !remote_next_funding
-	    && !(recv_tlvs
-		 && recv_tlvs->my_current_funding_locked
-		 && funding_tx_index_for_txid(peer,
-			&recv_tlvs->my_current_funding_locked->my_current_funding_locked_txid) > 0)) {
+	    && !reestablish_mentions_splice(peer, send_tlvs, recv_tlvs)) {
 		struct tlv_channel_ready_tlvs *tlvs = tlv_channel_ready_tlvs_new(tmpctx);
 
 		tlvs->short_channel_id = &peer->local_alias;
