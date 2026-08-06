@@ -975,6 +975,46 @@ def test_xpay_offer(node_factory):
     l1.rpc.xpay(offer2, 5000)
 
 
+@pytest.mark.xfail(strict=True)
+def test_xpay_offer_invoice_amount_mismatch(node_factory):
+    """xpay must not pay an invoice whose amount isn't the one we asked for.
+
+    invoice_amount is not one of the fields the invoice has to echo from our
+    invoice_request, so the payee sets it independently.  BOLT #12 requires us
+    to reject the invoice if it doesn't equal the invreq_amount we sent, in
+    either direction.
+    """
+    plugin = Path(__file__).parent / "plugins" / "xpay_mismatched_invoice_amount.py"
+    l1, l2 = node_factory.line_graph(2, wait_for_announce=True,
+                                     opts=[{'plugin': str(plugin)}, {}])
+
+    offer = l2.rpc.offer('any')['bolt12']
+
+    # Genuine, validly-signed invoices from l2, for amounts we won't ask for.
+    # Fetch both before arming the plugin, since it intercepts fetchinvoice.
+    larger = l1.rpc.fetchinvoice(offer, 10000000)['invoice']
+    smaller = l1.rpc.fetchinvoice(offer, 50000)['invoice']
+
+    before = only_one(l1.rpc.listpeerchannels()['channels'])['to_us_msat']
+    for inv, amount_msat in ((larger, 10000000), (smaller, 50000)):
+        l1.rpc.call('setinvoiceamount', {'invoice': inv,
+                                         'amount_msat': amount_msat})
+        with pytest.raises(RpcError, match=r"Invoice amount"):
+            l1.rpc.xpay(offer, 100000)
+        after = only_one(l1.rpc.listpeerchannels()['channels'])['to_us_msat']
+        assert before == after
+
+    # We send no invreq_amount when the offer has its own amount, so here the
+    # offer amount is what we authorized.
+    fixed = l2.rpc.offer('100000msat', 'fixed amount offer')['bolt12']
+    l1.rpc.call('setinvoiceamount', {'invoice': larger,
+                                     'amount_msat': 10000000})
+    with pytest.raises(RpcError, match=r"Invoice amount"):
+        l1.rpc.xpay(fixed)
+    after = only_one(l1.rpc.listpeerchannels()['channels'])['to_us_msat']
+    assert before == after
+
+
 def test_xpay_circular_routehint(node_factory):
     """Test that xpay gracefully skips a circular bolt11 routehint (src == dst)."""
     l1, l2 = node_factory.line_graph(2)
