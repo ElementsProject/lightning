@@ -2147,9 +2147,11 @@ preapproveinvoice_succeed(struct command *cmd,
 	return populate_private_layer(cmd, payment);
 }
 
+/* If it returns NULL, *authorized is the most we agreed to pay. */
 static struct command_result *check_offer_payable(struct command *cmd,
 						  const char *offerstr,
-						  const struct amount_msat *msat)
+						  const struct amount_msat *msat,
+						  struct amount_msat *authorized)
 {
 	const char *err;
 	struct tlv_offer *b12offer = offer_decode(tmpctx,
@@ -2193,6 +2195,11 @@ static struct command_result *check_offer_payable(struct command *cmd,
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "Cannot xpay recurring offers");
 
+	if (msat)
+		*authorized = *msat;
+	else
+		*authorized = amount_msat(*b12offer->offer_amount);
+
 	return NULL;
 }
 
@@ -2227,6 +2234,10 @@ check_offer_sendamount_payable(struct command *cmd, const char *offerstr)
 
 struct xpay_params {
 	struct amount_msat *msat, *maxfee, *partial, *includefees_msat;
+	/* What we agreed to pay, if we're paying an offer: the amount we sent
+	 * as invreq_amount, or the offer amount if we sent none.  NULL for
+	 * sendamount, where xpay_core demands the invoice match *msat. */
+	struct amount_msat *authorized_msat;
 	const char **layers;
 	unsigned int retryfor;
 	u32 maxdelay;
@@ -2242,11 +2253,51 @@ invoice_fetched(struct command *cmd,
 		const jsmntok_t *result,
 		struct xpay_params *params)
 {
-	const char *inv;
+	const char *inv, *err;
 
 	inv = json_strdup(tmpctx, buf, json_get_member(buf, result, "invoice"));
-	inv = to_canonical_invstr(NULL, inv);
-	return xpay_core(cmd, take(inv),
+	inv = to_canonical_invstr(tmpctx, inv);
+
+	/* BOLT #12:
+	 *   - if `invreq_amount` is present:
+	 *     - MUST reject the invoice if `invoice_amount` is not equal to `invreq_amount`
+	 *   - otherwise:
+	 *     - SHOULD confirm authorization if `invoice_amount`.`msat` is not within
+	 *       the amount range authorized.
+	 */
+	/* invoice_amount is not one of the fields the invoice must copy from our
+	 * invoice_request, so it is set independently of what we asked for and
+	 * has to be checked here.  We set invreq_amount iff we were given an
+	 * amount, which selects which of the two rules above applies. */
+	if (params->authorized_msat) {
+		struct amount_msat invoice_msat;
+		struct tlv_invoice *b12inv
+			= invoice_decode(tmpctx, inv, strlen(inv),
+					 plugin_feature_set(cmd->plugin),
+					 chainparams, &err);
+		if (!b12inv)
+			return command_fail(cmd, OFFER_BAD_INVREQ_REPLY,
+					    "Invalid bolt12 invoice: %s", err);
+		/* invoice_decode() has already insisted on invoice_amount. */
+		invoice_msat = amount_msat(*b12inv->invoice_amount);
+		if (params->msat) {
+			if (!amount_msat_eq(invoice_msat, *params->authorized_msat))
+				return command_fail(cmd, OFFER_BAD_INVREQ_REPLY,
+						    "Invoice amount is %s, but we asked for %s",
+						    fmt_amount_msat(tmpctx, invoice_msat),
+						    fmt_amount_msat(tmpctx,
+								    *params->authorized_msat));
+		} else if (amount_msat_greater(invoice_msat,
+					       *params->authorized_msat)) {
+			return command_fail(cmd, OFFER_BAD_INVREQ_REPLY,
+					    "Invoice amount is %s, more than the %s we authorized",
+					    fmt_amount_msat(tmpctx, invoice_msat),
+					    fmt_amount_msat(tmpctx,
+							    *params->authorized_msat));
+		}
+	}
+
+	return xpay_core(cmd, inv,
 			 NULL, params->maxfee, params->layers,
 			 params->retryfor, params->partial, params->maxdelay,
 			 params->label, NULL, false, false,
@@ -2301,8 +2352,15 @@ bip353_fetched(struct command *cmd,
 
 	if (xparams->includefees_msat)
 		ret = check_offer_sendamount_payable(cmd, offerstr);
-	else
-		ret = check_offer_payable(cmd, offerstr, xparams->msat);
+	else {
+		struct amount_msat authorized;
+		ret = check_offer_payable(cmd, offerstr, xparams->msat,
+					  &authorized);
+		if (!ret)
+			xparams->authorized_msat
+				= tal_dup(xparams, struct amount_msat,
+					  &authorized);
+	}
 
 	if (ret)
 		return ret;
@@ -2345,8 +2403,9 @@ static struct command_result *json_xpay_params(struct command *cmd,
 	/* Is this a one-shot vibe payment?  Kids these days! */
 	if (!as_pay && bolt12_has_offer_prefix(invstring)) {
 		struct command_result *ret;
+		struct amount_msat authorized;
 
-		ret = check_offer_payable(cmd, invstring, msat);
+		ret = check_offer_payable(cmd, invstring, msat, &authorized);
 		if (ret)
 			return ret;
 
@@ -2372,6 +2431,8 @@ static struct command_result *json_xpay_params(struct command *cmd,
                 xparams->payer_note = payer_note;
 		xparams->label = label;
                 xparams->includefees_msat = NULL;
+		xparams->authorized_msat = tal_dup(xparams, struct amount_msat,
+						   &authorized);
 
 		return do_fetchinvoice(cmd, invstring, xparams);
 	}
@@ -2400,6 +2461,8 @@ static struct command_result *json_xpay_params(struct command *cmd,
                 xparams->payer_note = payer_note;
 		xparams->label = label;
                 xparams->includefees_msat = NULL;
+		/* Set once bip353_fetched() knows the offer. */
+		xparams->authorized_msat = NULL;
 
 		req = jsonrpc_request_start(cmd, "fetchbip353",
 					    bip353_fetched,
@@ -2889,6 +2952,8 @@ static struct command_result *json_sendamount(struct command *cmd,
 		xparams->bip353 = NULL;
 		xparams->payer_note = payer_note;
 		xparams->label = label;
+		/* xpay_core() insists the invoice match *msat exactly here. */
+		xparams->authorized_msat = NULL;
 
 		return do_fetchinvoice(cmd, invstring, xparams);
 	}
@@ -2907,6 +2972,8 @@ static struct command_result *json_sendamount(struct command *cmd,
 		xparams->bip353 = invstring;
 		xparams->payer_note = payer_note;
 		xparams->label = label;
+		/* xpay_core() insists the invoice match *msat exactly here. */
+		xparams->authorized_msat = NULL;
 
 		req = jsonrpc_request_start(cmd, "fetchbip353", bip353_fetched,
 					    forward_error, xparams);

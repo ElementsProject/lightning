@@ -975,7 +975,6 @@ def test_xpay_offer(node_factory):
     l1.rpc.xpay(offer2, 5000)
 
 
-@pytest.mark.xfail(strict=True)
 def test_xpay_offer_invoice_amount_mismatch(node_factory):
     """xpay must not pay an invoice whose amount isn't the one we asked for.
 
