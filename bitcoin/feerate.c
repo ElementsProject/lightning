@@ -12,8 +12,15 @@ u32 feerate_from_style(u32 feerate, enum feerate_style style)
 		return feerate;
 	case FEERATE_PER_KBYTE:
 		/* Everyone uses satoshi per kbyte, but we use satoshi per ksipa
-		 * (don't round down to zero though)! */
-		return (feerate + 3) / 4;
+		 * (don't round down to zero though)!
+		 *
+		 * Widen before rounding up: on a u32 the +3 wraps for the top
+		 * three values, turning an absurd feerate into 0 or 1 perkw.
+		 * That is the dangerous direction (it underpays our unilateral
+		 * close), and it slips under every bound we check afterwards,
+		 * since those are applied to the converted value.  The result
+		 * always fits a u32: (UINT_MAX + 3) / 4 < UINT_MAX. */
+		return ((u64)feerate + 3) / 4;
 	}
 	abort();
 }
