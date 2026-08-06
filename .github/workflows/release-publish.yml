@@ -49,9 +49,10 @@ jobs:
 
       - name: Determine release data
         id: release_data
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
         run: |
-          CHANGELOG_VERSION=${VERSION#v}
-          VERSION="${{ inputs.version }}"
+          VERSION="$INPUT_VERSION"
           CHANGELOG_VERSION=${VERSION#v}
           CHANGELOG_TITLE=$(grep "## \[${CHANGELOG_VERSION}\]" CHANGELOG.md)
           RELEASE_TITLE=$(echo $CHANGELOG_TITLE | cut -d'"' -f2)
