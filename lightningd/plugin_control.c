@@ -1,4 +1,5 @@
 #include "config.h"
+#include <ccan/json_escape/json_escape.h>
 #include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
 #include <common/json_command.h>
@@ -84,6 +85,59 @@ plugin_dynamic_start(struct plugin_command *pcmd, const char *plugin_path,
 
 	/* This will come back via plugin_cmd_killed or plugin_cmd_succeeded */
 	return command_still_pending(pcmd->cmd);
+}
+
+/* Returns true if params is an object with keys other than the fixed
+ * subcommand/plugin/options. */
+static bool plugin_has_extra_params(const char *buffer,
+				    const jsmntok_t *params)
+{
+	size_t i;
+	const jsmntok_t *t;
+
+	json_for_each_obj(i, t, params)
+		if (!json_tok_streq(buffer, t, "subcommand")
+		    && !json_tok_streq(buffer, t, "plugin")
+		    && !json_tok_streq(buffer, t, "options"))
+			return true;
+	return false;
+}
+
+/* Build an object of name/value pairs from an "options" array of
+ * "keyword=value" strings, suitable for plugin_add_params().  An element
+ * without an '=' is treated as a boolean flag. */
+static jsmntok_t *plugin_start_params(const tal_t *ctx, const char *buffer,
+				      const jsmntok_t *options, char **parambuf)
+{
+	size_t i;
+	const jsmntok_t *t;
+	char *newbuf = tal_strdup(ctx, "{");
+	bool first = true;
+
+	json_for_each_arr(i, t, options) {
+		const char *opt = json_strdup(tmpctx, buffer, t);
+		const char *eq = strchr(opt, '=');
+		struct json_escape *esc;
+
+		if (!first)
+			tal_append_fmt(&newbuf, ",");
+		first = false;
+		if (eq) {
+			esc = json_escape(tmpctx,
+					  take(tal_strndup(tmpctx, opt, eq - opt)));
+			tal_append_fmt(&newbuf, "\"%s\":", esc->s);
+			esc = json_escape(tmpctx, eq + 1);
+			tal_append_fmt(&newbuf, "\"%s\"", esc->s);
+		} else {
+			/* Boolean flags are given without a value. */
+			esc = json_escape(tmpctx, opt);
+			tal_append_fmt(&newbuf, "\"%s\":true", esc->s);
+		}
+	}
+
+	tal_append_fmt(&newbuf, "}");
+	*parambuf = newbuf;
+	return json_parse_simple(ctx, newbuf, strlen(newbuf));
 }
 
 /**
@@ -235,23 +289,54 @@ static struct command_result *json_plugin_control(struct command *cmd,
 		return plugin_dynamic_stop(cmd, plugin_name);
 	} else if (streq(subcmd, "start")) {
 		const char *plugin_path;
+		const jsmntok_t *options = NULL;
+		char *mod_buffer;
 		jsmntok_t *mod_params;
 
 		if (!param_check(cmd, buffer, params,
 				 p_req("subcommand", param_ignore, cmd),
 				 p_req("plugin", param_string, &plugin_path),
+				 p_opt("options", param_array, &options),
 				 p_opt_any(),
 				 NULL))
 			return command_param_failed();
 
+		/* The "options" array is documented as containing keyword=value
+		 * strings: reject anything else before we mangle it. */
+		if (options) {
+			size_t i;
+			const jsmntok_t *t;
+
+			json_for_each_arr(i, t, options)
+				if (t->type != JSMN_STRING)
+					return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+							    "options array entries must be strings");
+		}
+
 		/* Manually parse any remaining options (only for objects,
 		 * since plugin options must be explicitly named!). */
 		if (params->type == JSMN_ARRAY) {
-			if (params->size != 2)
+			if (params->size > (options ? 3 : 2))
 				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 						    "Extra parameters must be in object");
-			mod_params = NULL;
+			if (options) {
+				mod_params = plugin_start_params(cmd, buffer,
+								options, &mod_buffer);
+			} else {
+				mod_buffer = NULL;
+				mod_params = NULL;
+			}
+		} else if (options) {
+			/* Either flattened keyword options or an explicit
+			 * "options" array, never both. */
+			if (plugin_has_extra_params(buffer, params))
+				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+						    "Cannot mix 'options' array "
+						    "with keyword options");
+			mod_params = plugin_start_params(cmd, buffer,
+							options, &mod_buffer);
 		} else {
+			mod_buffer = NULL;
 			mod_params = json_tok_copy(cmd, params);
 
 			json_tok_remove(&mod_params, mod_params,
@@ -271,7 +356,9 @@ static struct command_result *json_plugin_control(struct command *cmd,
 		if (command_check_only(cmd))
 			return command_check_done(cmd);
 
-		return plugin_dynamic_start(pcmd, plugin_path, buffer, mod_params);
+		return plugin_dynamic_start(pcmd, plugin_path,
+					    mod_buffer ? mod_buffer : buffer,
+					    mod_params);
 	} else if (streq(subcmd, "startdir")) {
 		const char *dir_path;
 
