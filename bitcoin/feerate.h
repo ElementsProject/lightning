@@ -33,6 +33,16 @@
  */
 #define FEERATE_FLOOR 253
 
+/*
+ * Sanity ceiling on any feerate estimate entering lightningd (sat/kw).
+ * This is a sanity bound rather than a policy limit: an estimate above it
+ * means a broken fee source rather than an expensive mempool, so it sits
+ * far above anything the real chain has ever seen (4000 sat/vB, several
+ * times the historical peak).  Clamping on the way in keeps every
+ * downstream feerate calculation working on a plausible number.
+ */
+#define FEERATE_CEILING 1000000
+
 enum feerate_style {
 	FEERATE_PER_KSIPA,
 	FEERATE_PER_KBYTE
