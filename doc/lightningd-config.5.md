@@ -381,7 +381,10 @@ falls below this.
 
 * **ignore-fee-limits**=*BOOL*
 
-  Allow nodes which establish channels to us to set any fee they want.
+  Allow nodes which establish channels to us to set any fee they want,
+short of a sanity ceiling of 1000000perkw (4000 sat/vB) which we refuse
+regardless: a feerate above that means a broken fee estimator rather
+than a busy mempool.
 This may result in a channel which cannot be closed, should fees
 increase, but make channels far more reliable since we never close it
 due to unreasonable fees.  Note that this can be set on a per-channel

@@ -347,6 +347,9 @@ static struct state *fromwire_new_state(const tal_t *ctx)
 	state->minimum_depth = fromwire_u32(cursor, max);
 	state->min_feerate = fromwire_u32(cursor, max);
 	state->max_feerate = fromwire_u32(cursor, max);
+	/* Take this from the input too, so we explore both the bounded and the
+	 * ignore-fee-limits path through fundee_channel(). */
+	state->ignore_fee_limits = fromwire_bool(cursor, max);
 	state->our_funding_pubkey = dummy_pubkey;
 
 	/* Set developer options to false. */
