@@ -62,7 +62,8 @@ static u32 default_feerate(struct lightningd *ld, const struct channel *channel,
 	if (!feerate)
 		return 0;
 
-	max_feerate = feerate_max(ld, NULL);
+	/* We only clamp the feerate we propose here, and the opener pays it. */
+	max_feerate = our_feerate_max(ld, NULL);
 
 	/* The channel opener should use a slightly higher than minimal feerate
 	 * in order to avoid excessive feerate disagreements */
@@ -78,7 +79,8 @@ static u32 default_feerate(struct lightningd *ld, const struct channel *channel,
 void channel_update_feerates(struct lightningd *ld, const struct channel *channel)
 {
 	u8 *msg;
-	u32 min_feerate, max_feerate;
+	u32 min_feerate, max_feerate, our_max_feerate;
+	bool ignore_fee_limits;
 	bool anchors = channel_type_has_anchors(channel->type);
 	u32 feerate = default_feerate(ld, channel, (channel->opener == LOCAL));
 	u32 feerate_splice = splice_feerate(ld->topology, ld);
@@ -92,26 +94,30 @@ void channel_update_feerates(struct lightningd *ld, const struct channel *channe
 		min_feerate = get_feerate_floor(ld->topology);
 	else
 		min_feerate = feerate_min(ld, NULL);
+	/* max_feerate is what we'll tolerate from them, our_max_feerate what
+	 * we're prepared to pay ourselves. */
 	max_feerate = feerate_max(ld, NULL);
-
-	if (channel->ignore_fee_limits || ld->config.ignore_fee_limits) {
-		min_feerate = 1;
-		max_feerate = 0xFFFFFFFF;
-	}
+	our_max_feerate = our_feerate_max(ld, NULL);
+	ignore_fee_limits = channel->ignore_fee_limits
+		|| ld->config.ignore_fee_limits;
 
 	log_debug(ld->log,
-		  "update_feerates: feerate = %u, min=%u, max=%u, penalty=%u,"
-		  " opening=%u, splicing: %u",
+		  "update_feerates: feerate = %u, min=%u, max=%u, our_max=%u,"
+		  " penalty=%u, opening=%u, splicing: %u%s",
 		  feerate,
 		  min_feerate,
-		  feerate_max(ld, NULL),
+		  max_feerate,
+		  our_max_feerate,
 		  penalty_feerate(ld->topology),
 		  opening_feerate(ld->topology),
-		  feerate_splice);
+		  feerate_splice,
+		  ignore_fee_limits ? " (limits ignored)" : "");
 
 	msg = towire_channeld_feerates(NULL, feerate,
 				       min_feerate,
 				       max_feerate,
+				       our_max_feerate,
+				       ignore_fee_limits,
 				       penalty_feerate(ld->topology),
 				       opening_feerate(ld->topology),
 				       feerate_splice);
@@ -1744,7 +1750,9 @@ bool peer_start_channeld(struct channel *channel,
 	const struct config *cfg = &ld->config;
 	struct secret last_remote_per_commit_secret;
 	struct penalty_base *pbases;
-	u32 feerate_splice, min_feerate, max_feerate, curr_blockheight;
+	u32 feerate_splice, min_feerate, max_feerate, our_max_feerate;
+	u32 curr_blockheight;
+	bool ignore_fee_limits;
 	struct channel_inflight *inflight;
 	struct inflight **inflights;
 	struct bitcoin_txid txid;
@@ -1846,12 +1854,14 @@ bool peer_start_channeld(struct channel *channel,
 		min_feerate = get_feerate_floor(ld->topology);
 	else
 		min_feerate = feerate_min(ld, NULL);
+	/* max_feerate is what we'll tolerate from them, our_max_feerate what
+	 * we're prepared to pay ourselves. */
 	max_feerate = feerate_max(ld, NULL);
+	our_max_feerate = our_feerate_max(ld, NULL);
 
-	if (channel->ignore_fee_limits || ld->config.ignore_fee_limits) {
-		min_feerate = 1;
-		max_feerate = 0xFFFFFFFF;
-	}
+	/* channeld applies this: the bounds above stay honest on the wire. */
+	ignore_fee_limits = channel->ignore_fee_limits
+		|| ld->config.ignore_fee_limits;
 
 	/* Make sure we don't go backsards on blockheights */
 	curr_blockheight = get_block_height(ld->topology);
@@ -1924,6 +1934,8 @@ bool peer_start_channeld(struct channel *channel,
 				       feerate_splice,
 				       min_feerate,
 				       max_feerate,
+				       our_max_feerate,
+				       ignore_fee_limits,
 				       penalty_feerate(ld->topology),
 				       opening_feerate(ld->topology),
 				       &channel->last_sig,
@@ -2722,6 +2734,9 @@ static struct command_result *json_dev_feerate(struct command *cmd,
 	msg = towire_channeld_feerates(NULL, *feerate,
 				       feerate_min(cmd->ld, NULL),
 				       feerate_max(cmd->ld, NULL),
+				       our_feerate_max(cmd->ld, NULL),
+				       channel->ignore_fee_limits
+				       || cmd->ld->config.ignore_fee_limits,
 				       penalty_feerate(cmd->ld->topology),
 				       opening_feerate(cmd->ld->topology),
 				       splice_feerate(cmd->ld->topology, cmd->ld));

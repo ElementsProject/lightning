@@ -57,7 +57,7 @@
         "added": "v23.08",
         "type": "boolean",
         "description": [
-          "If set to True means to allow the peer to set the commitment transaction fees (or closing transaction fees) to any value they want. This is dangerous: they could set an exorbitant fee (so HTLCs are unenforcable), or a tiny fee (so that commitment transactions cannot be relayed), but avoids channel breakage in case of feerate disagreements. (Note: the global `ignore_fee_limits` setting overrides this)."
+          "If set to True means to allow the peer to set the commitment transaction fees (or closing transaction fees) to any value they want, up to a maximum of 1000000perkw (4000 sat/vB). This is dangerous: they could set an exorbitant fee (so HTLCs are unenforcable), or a tiny fee (so that commitment transactions cannot be relayed), but avoids channel breakage in case of feerate disagreements. (Note: the global `ignore_fee_limits` setting overrides this)."
         ]
       }
     }

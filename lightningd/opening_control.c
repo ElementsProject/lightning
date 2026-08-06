@@ -1003,13 +1003,9 @@ bool peer_start_openingd(struct peer *peer, struct peer_fd *peer_fd)
 		       &max_to_self_delay,
 		       &min_effective_htlc_capacity);
 
-	if (peer->ld->config.ignore_fee_limits) {
-		minrate = 1;
-		maxrate = 0xFFFFFFFF;
-	} else {
-		minrate = feerate_min(peer->ld, NULL);
-		maxrate = feerate_max(peer->ld, NULL);
-	}
+	/* openingd applies ignore_fee_limits itself, so these stay honest. */
+	minrate = feerate_min(peer->ld, NULL);
+	maxrate = feerate_max(peer->ld, NULL);
 
 	msg = towire_openingd_init(NULL,
 				   chainparams,
@@ -1022,6 +1018,7 @@ bool peer_start_openingd(struct peer *peer, struct peer_fd *peer_fd)
 				   &uc->local_funding_pubkey,
 				   uc->minimum_depth,
 				   minrate, maxrate,
+				   peer->ld->config.ignore_fee_limits,
 				   peer->ld->dev_force_tmp_channel_id,
 				   peer->ld->config.allowdustreserve,
 				   peer->ld->dev_any_channel_type);

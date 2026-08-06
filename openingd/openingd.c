@@ -8,6 +8,7 @@
  * commit to the database once openingd succeeds.
  */
 #include "config.h"
+#include <bitcoin/feerate.h>
 #include <bitcoin/script.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/breakpoint/breakpoint.h>
@@ -49,6 +50,8 @@ struct state {
 	/* Constraints on a channel they open. */
 	u32 minimum_depth;
 	u32 min_feerate, max_feerate;
+	/* Drop the policy bounds above (never the sanity ceiling). */
+	bool ignore_fee_limits;
 	struct amount_msat min_effective_htlc_capacity;
 
 	/* Limits on what remote config we accept. */
@@ -845,6 +848,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	struct tlv_accept_channel_tlvs *accept_tlvs;
 	struct tlv_open_channel_tlvs *open_tlvs;
 	struct amount_sat *reserve;
+	u32 min_feerate, max_feerate;
 
 	/* BOLT #2:
 	 *
@@ -961,17 +965,24 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	 *  - it considers `feerate_per_kw` too small for timely processing or
 	 *    unreasonably large.
 	 */
-	if (state->feerate_per_kw < state->min_feerate) {
+	/* Even ignoring the limits we refuse 0: that is not a feerate any
+	 * commitment could be relayed at, and it is what we would store. */
+	min_feerate = state->ignore_fee_limits ? 1 : state->min_feerate;
+	if (state->feerate_per_kw < min_feerate) {
 		negotiation_failed(state,
 				   "feerate_per_kw %u below minimum %u",
-				   state->feerate_per_kw, state->min_feerate);
+				   state->feerate_per_kw, min_feerate);
 		return NULL;
 	}
 
-	if (state->feerate_per_kw > state->max_feerate) {
+	/* Even ignoring the limits we refuse the absurd: this is the feerate
+	 * we would go on to store. */
+	max_feerate = state->ignore_fee_limits
+		? FEERATE_CEILING : state->max_feerate;
+	if (state->feerate_per_kw > max_feerate) {
 		negotiation_failed(state,
 				   "feerate_per_kw %u above maximum %u",
-				   state->feerate_per_kw, state->max_feerate);
+				   state->feerate_per_kw, max_feerate);
 		return NULL;
 	}
 
@@ -1458,6 +1469,7 @@ int main(int argc, char *argv[])
 				    &state->our_funding_pubkey,
 				    &state->minimum_depth,
 				    &state->min_feerate, &state->max_feerate,
+				    &state->ignore_fee_limits,
 				    &state->dev_force_tmp_channel_id,
 				    &state->allowdustreserve,
 				    &state->dev_accept_any_channel_type))

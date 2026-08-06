@@ -43,6 +43,19 @@
  */
 #define FEERATE_CEILING 1000000
 
+/*
+ * The most we are ever willing to pay ourselves (sat/kw).
+ *
+ * Unlike FEERATE_CEILING this *is* a policy limit, and the two are
+ * deliberately an order of magnitude apart because they answer different
+ * questions.  FEERATE_CEILING bounds what we let a peer drive us to: their
+ * estimator being broken is not by itself worth dropping a channel over, so
+ * it only has to exclude the absurd.  This one bounds what we propose with
+ * our own money, where we can simply decline: 400 sat/vB is around 0.011 BTC
+ * for a bare anchor commitment, which we would rather not spend by accident.
+ */
+#define MAX_OUR_FEERATE_PER_KW 100000
+
 enum feerate_style {
 	FEERATE_PER_KSIPA,
 	FEERATE_PER_KBYTE

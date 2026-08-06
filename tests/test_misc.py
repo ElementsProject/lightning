@@ -1816,7 +1816,8 @@ def test_feerates(node_factory, anchors):
     feerates = l1.rpc.feerates('perkw')
     assert feerates['warning_missing_feerates'] == 'Some fee estimates unavailable: bitcoind startup?'
     assert 'perkb' not in feerates
-    assert feerates['perkw']['max_acceptable'] == 2**32 - 1
+    # No estimates: falls back to the ceiling, as min falls back to the floor.
+    assert feerates['perkw']['max_acceptable'] == 1000000
     assert feerates['perkw']['min_acceptable'] == 253
     assert feerates['perkw']['min_acceptable'] == 253
     assert feerates['perkw']['floor'] == 253
@@ -1827,7 +1828,7 @@ def test_feerates(node_factory, anchors):
     feerates = l1.rpc.feerates('perkb')
     assert feerates['warning_missing_feerates'] == 'Some fee estimates unavailable: bitcoind startup?'
     assert 'perkw' not in feerates
-    assert feerates['perkb']['max_acceptable'] == (2**32 - 1)
+    assert feerates['perkb']['max_acceptable'] == 1000000 * 4
     assert feerates['perkb']['min_acceptable'] == 253 * 4
     # Note: This is floored at the FEERATE_FLOOR constant (253)
     assert feerates['perkb']['floor'] == 1012
@@ -4930,8 +4931,11 @@ def test_set_feerate_offset(node_factory, bitcoind):
     else:
         feerate = 11100
         min_feerate = 1875
+    # our_max is what we're willing to pay ourselves (MAX_OUR_FEERATE_PER_KW),
+    # as opposed to max, which is what we'll tolerate from the peer.
     l1.daemon.wait_for_log(f'lightningd: update_feerates: feerate = {feerate}, '
-                           f'min={min_feerate}, max=150000, penalty=7500')
+                           f'min={min_feerate}, max=150000, our_max=100000, '
+                           f'penalty=7500')
     l2.daemon.wait_for_log(f'peer updated fee to {feerate}')
     l2.pay(l1, 100000000)
 

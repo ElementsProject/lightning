@@ -11,6 +11,7 @@
  *    limits, unlikely as that is.
  */
 #include "config.h"
+#include <bitcoin/feerate.h>
 #include <bitcoin/script.h>
 #include <ccan/asort/asort.h>
 #include <ccan/cast/cast.h>
@@ -81,6 +82,14 @@ struct peer {
 
 	/* Tolerable amounts for feerate (only relevant for fundee). */
 	u32 feerate_min, feerate_max;
+
+	/* The most we're prepared to pay ourselves: stricter than
+	 * feerate_max, which is what we'll tolerate from them. */
+	u32 our_feerate_max;
+
+	/* Set by --ignore-fee-limits or dev-ignore-fee-limits: drop the
+	 * policy bounds above (but never the sanity ceiling). */
+	bool ignore_fee_limits;
 
 	/* Feerate to be used when creating penalty transactions. */
 	u32 feerate_penalty;
@@ -706,6 +715,32 @@ static void handle_peer_add_htlc(struct peer *peer, const u8 *msg)
 				 channel_add_err_name(add_err));
 }
 
+/* Ignoring the fee limits drops the policy bounds, but never the sanity
+ * ceiling: a feerate above that means a broken fee source, and whatever we
+ * accept here we go on to store. */
+static u32 accepted_feerate_min(const struct peer *peer)
+{
+	if (peer->ignore_fee_limits)
+		return 1;
+	return peer->feerate_min;
+}
+
+static u32 accepted_feerate_max(const struct peer *peer)
+{
+	if (peer->ignore_fee_limits)
+		return FEERATE_CEILING;
+	return peer->feerate_max;
+}
+
+/* The most we'll pay ourselves, as opposed to what we'll put up with
+ * from them. */
+static u32 proposed_feerate_max(const struct peer *peer)
+{
+	if (peer->ignore_fee_limits)
+		return FEERATE_CEILING;
+	return peer->our_feerate_max;
+}
+
 /* We don't get upset if they're outside the range, as long as they're
  * improving (or at least, not getting worse!). */
 static bool feerate_same_or_better(const struct channel *channel,
@@ -744,7 +779,8 @@ static void handle_peer_feechange(struct peer *peer, const u8 *msg)
 				 "update_fee from non-opener?");
 
 	status_debug("update_fee %u, range %u-%u",
-		     feerate, peer->feerate_min, peer->feerate_max);
+		     feerate, accepted_feerate_min(peer),
+		     accepted_feerate_max(peer));
 
 	/* BOLT #2:
 	 *
@@ -755,12 +791,14 @@ static void handle_peer_feechange(struct peer *peer, const u8 *msg)
 	 *       `error` and fail the channel.
 	 */
 	if (!feerate_same_or_better(peer->channel, feerate,
-				    peer->feerate_min, peer->feerate_max))
+				    accepted_feerate_min(peer),
+				    accepted_feerate_max(peer)))
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "update_fee %u outside range %u-%u"
 				 " (currently %u)",
 				 feerate,
-				 peer->feerate_min, peer->feerate_max,
+				 accepted_feerate_min(peer),
+				 accepted_feerate_max(peer),
 				 channel_feerate(peer->channel, LOCAL));
 
 	/* BOLT #2:
@@ -1944,8 +1982,10 @@ static void check_tx_abort(struct peer *peer, const u8 *msg, struct bitcoin_txid
 	exit(0);
 }
 
-static void splice_abort(struct peer *peer, struct inflight *inflight,
-			 const char *fmt, ...)
+/* Sends tx_abort, waits for their ack, tells master, and exits: callers rely
+ * on this not returning (check_balances falls through to further checks). */
+static NORETURN void splice_abort(struct peer *peer, struct inflight *inflight,
+				  const char *fmt, ...)
 {
 	struct bitcoin_outpoint *outpoint;
 	u8 *msg;
@@ -3625,10 +3665,18 @@ static struct amount_sat check_balances(struct peer *peer,
 
 	/* As a safeguard max feerate is checked (only) locally, if it's
 	 * particularly high we fail and tell the user but allow them to
-	 * override with `splice_force_feerate` */
-	max_accepter_fee = amount_tx_fee(peer->feerate_max,
+	 * override with `splice_force_feerate`.
+	 *
+	 * Whichever side is ours is held to what we're prepared to pay; the
+	 * other side is their money, so it only has to clear the looser
+	 * bound we apply to anything they propose. */
+	max_accepter_fee = amount_tx_fee(opener
+					 ? accepted_feerate_max(peer)
+					 : proposed_feerate_max(peer),
 					 calc_weight(TX_ACCEPTER, psbt, false));
-	max_initiator_fee = amount_tx_fee(peer->feerate_max,
+	max_initiator_fee = amount_tx_fee(opener
+					  ? proposed_feerate_max(peer)
+					  : accepted_feerate_max(peer),
 					  calc_weight(TX_INITIATOR, psbt, opener));
 
 	if (opener) {
@@ -4301,9 +4349,27 @@ static void splice_accepter(struct peer *peer, const u8 *inmsg)
 		       &peer->channel->funding_pubkey[REMOTE]))
 		status_info("Splice peer is rotating funding pubkey");
 
-	if (funding_feerate_perkw < peer->feerate_min)
+	/* They initiated, so it's their fee: the looser bound applies.
+	 *
+	 * We disconnect rather than tx_abort here.  A tx_abort has to be
+	 * acked, and splice_abort() blocks reading until it is: a peer that
+	 * proposes a nonsense feerate and then goes silent would leave us
+	 * parked in that read with the channel quiesced in STFU.  Since the
+	 * bound is FEERATE_CEILING, a peer reaching it is not disagreeing
+	 * with us about the mempool, they are broken. */
+	if (funding_feerate_perkw < accepted_feerate_min(peer))
 		peer_failed_warn(peer->pps, &peer->channel_id,
-				 "Splice feerate_perkw is too low");
+				 "Splice feerate_perkw %u is below our"
+				 " minimum %u",
+				 funding_feerate_perkw,
+				 accepted_feerate_min(peer));
+
+	if (funding_feerate_perkw > accepted_feerate_max(peer))
+		peer_failed_warn(peer->pps, &peer->channel_id,
+				 "Splice feerate_perkw %u is above our"
+				 " maximum %u",
+				 funding_feerate_perkw,
+				 accepted_feerate_max(peer));
 
 	/* TODO: Add plugin hook for user to adjust accepter amount */
 	peer->splicing->accepter_relative = 0;
@@ -5040,14 +5106,30 @@ static void handle_splice_init(struct peer *peer, const u8 *inmsg)
 		wire_sync_write(MASTER_FD, take(msg));
 		return;
 	}
-	if (peer->splicing->feerate_per_kw < peer->feerate_min) {
+	if (peer->splicing->feerate_per_kw < accepted_feerate_min(peer)) {
 		msg = towire_channeld_splice_state_error(NULL, tal_fmt(tmpctx,
 							 "Feerate %u is too"
 							 " low. Lower than"
 							 " channel feerate_min"
 							 " %u",
 							 peer->splicing->feerate_per_kw,
-							 peer->feerate_min));
+							 accepted_feerate_min(peer)));
+		wire_sync_write(MASTER_FD, take(msg));
+		return;
+	}
+	/* We initiated, so this is our money: hold it to what we're
+	 * prepared to pay, not to what we'd tolerate from them.  Like the
+	 * fee check in check_balances, `force_feerate` is the user saying
+	 * they meant it: this is a policy limit, not a safety one. */
+	if (!peer->splicing->force_feerate
+	    && peer->splicing->feerate_per_kw > proposed_feerate_max(peer)) {
+		msg = towire_channeld_splice_state_error(NULL, tal_fmt(tmpctx,
+						 "Feerate %u is too"
+						 " high. Higher than the most"
+						 " we'll pay ourselves"
+						 " %u",
+						 peer->splicing->feerate_per_kw,
+						 proposed_feerate_max(peer)));
 		wire_sync_write(MASTER_FD, take(msg));
 		return;
 	}
@@ -6505,6 +6587,8 @@ static void handle_feerates(struct peer *peer, const u8 *inmsg)
 					&feerate,
 				        &peer->feerate_min,
 				        &peer->feerate_max,
+				        &peer->our_feerate_max,
+				        &peer->ignore_fee_limits,
 				        &peer->feerate_penalty,
 				        &peer->feerate_opening,
 				        &peer->feerate_splice))
@@ -6878,6 +6962,8 @@ static void init_channel(struct peer *peer)
 				    &peer->feerate_splice,
 				    &peer->feerate_min,
 				    &peer->feerate_max,
+				    &peer->our_feerate_max,
+				    &peer->ignore_fee_limits,
 				    &peer->feerate_penalty,
 				    &peer->feerate_opening,
 				    &peer->their_commit_sig,
@@ -6969,7 +7055,7 @@ static void init_channel(struct peer *peer)
 		     peer->next_index[LOCAL], peer->next_index[REMOTE],
 		     peer->revocations_received,
 		     fmt_fee_states(tmpctx, fee_states),
-		     peer->feerate_min, peer->feerate_max,
+		     accepted_feerate_min(peer), accepted_feerate_max(peer),
 		     fmt_height_states(tmpctx, blockheight_states),
 		     peer->our_blockheight);
 

@@ -268,7 +268,7 @@ The [`listconfigs`](ref:listconfigs) command will output a valid configuration f
 
 - **ignore-fee-limits**=_BOOL_
 
-  Allow nodes which establish channels to us to set any fee they want. This may result in a channel which cannot be closed, should fees increase, but make channels far more reliable since we never close it due to unreasonable fees.
+  Allow nodes which establish channels to us to set any fee they want, up to a maximum of 1000000perkw (4000 sat/vB). This may result in a channel which cannot be closed, should fees increase, but make channels far more reliable since we never close it due to unreasonable fees.
 
 - **commit-time**=_MILLISECONDS_
 

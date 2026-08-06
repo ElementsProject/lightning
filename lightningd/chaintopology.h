@@ -194,6 +194,11 @@ bool unknown_feerates(const struct chain_topology *topo);
 u32 feerate_min(struct lightningd *ld, bool *unknown);
 u32 feerate_max(struct lightningd *ld, bool *unknown);
 
+/* Same, but the most we're willing to *pay*, which is stricter than what
+ * we'll tolerate from a peer (see MAX_OUR_FEERATE_PER_KW).  Use this
+ * wherever the feerate comes out of our own funds. */
+u32 our_feerate_max(struct lightningd *ld, bool *unknown);
+
 /* These return 0 if unknown */
 u32 opening_feerate(struct chain_topology *topo);
 u32 splice_feerate(struct chain_topology *topo, struct lightningd *ld);

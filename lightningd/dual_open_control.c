@@ -2600,6 +2600,16 @@ json_openchannel_bump(struct command *cmd,
 				    next_feerate_min,
 				    *info->feerate_per_kw_funding);
 
+	/* We fund this, so it's our money: don't let the 25/24 escalation
+	 * (or an ambitious caller) carry us past the most we'll pay. */
+	if (*info->feerate_per_kw_funding > our_feerate_max(cmd->ld, NULL))
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Feerate %u is above the most we'll pay"
+				    " (%u); the last attempt was at %u",
+				    *info->feerate_per_kw_funding,
+				    our_feerate_max(cmd->ld, NULL),
+				    last_feerate_perkw);
+
 	/* BOLT #2:
 	 *  - if both nodes advertised `option_support_large_channel`:
 	 *    - MAY set `funding_satoshis` greater than or equal to 2^24 satoshi.
