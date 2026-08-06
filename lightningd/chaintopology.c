@@ -616,10 +616,19 @@ static struct rate_conversion conversions[] = {
 
 u32 opening_feerate(struct chain_topology *topo)
 {
+	u32 rate;
+
+	/* An explicitly forced feerate is the operator saying they meant
+	 * it, so we don't second-guess it. */
 	if (topo->ld->force_feerates)
 		return topo->ld->force_feerates[FEERATE_OPENING];
-	return feerate_for_deadline(topo,
+
+	rate = feerate_for_deadline(topo,
 				    conversions[FEERATE_OPENING].blockcount);
+	/* We fund the opening tx, so this is our money. */
+	if (rate > our_feerate_max(topo->ld, NULL))
+		rate = our_feerate_max(topo->ld, NULL);
+	return rate;
 }
 
 u32 splice_feerate(struct chain_topology *topo, struct lightningd *ld)
@@ -628,8 +637,9 @@ u32 splice_feerate(struct chain_topology *topo, struct lightningd *ld)
 	if (!rate)
 		return 0;
 	rate += ld->config.feerate_offset;
-	if (rate > feerate_max(ld, NULL))
-		rate = feerate_max(ld, NULL);
+	/* We pay for the splice we initiate. */
+	if (rate > our_feerate_max(ld, NULL))
+		rate = our_feerate_max(ld, NULL);
 	return rate;
 }
 
@@ -1184,6 +1194,15 @@ u32 feerate_min(struct lightningd *ld, bool *unknown)
 	/* FIXME: This is what bcli used to do: halve the slow feerate! */
 	min /= 2;
 
+	/* Never demand more than we would ever propose ourselves.  We cap what
+	 * we offer at MAX_OUR_FEERATE_PER_KW (see our_feerate_max), so anything
+	 * above that would have us refuse a peer the very feerate we would have
+	 * sent them, which costs us the channel for nothing.  A broken fee
+	 * source clamped to FEERATE_CEILING puts this at FEERATE_CEILING/2,
+	 * five times that cap. */
+	if (min > MAX_OUR_FEERATE_PER_KW)
+		min = MAX_OUR_FEERATE_PER_KW;
+
 	/* We can't allow less than feerate_floor, since that won't relay */
 	if (min < get_feerate_floor(topo))
 		return get_feerate_floor(topo);
@@ -1194,6 +1213,7 @@ u32 feerate_max(struct lightningd *ld, bool *unknown)
 {
 	const struct chain_topology *topo = ld->topology;
 	u32 max = 0;
+	u64 scaled;
 
 	if (unknown)
 		*unknown = false;
@@ -1208,9 +1228,35 @@ u32 feerate_max(struct lightningd *ld, bool *unknown)
 	if (!max) {
 		if (unknown)
 			*unknown = true;
-		return UINT_MAX;
+		/* No estimates: fall back to the ceiling, exactly as
+		 * feerate_min falls back to the floor.  Returning UINT_MAX
+		 * here would be a sentinel meaning "no bound at all", and
+		 * that bound is what a peer's proposal gets measured
+		 * against and what we then store: a value that large
+		 * overflows the 25/24 RBF calculation. */
+		return FEERATE_CEILING;
 	}
-	return max * topo->ld->config.max_fee_multiplier;
+	/* Estimates are clamped to FEERATE_CEILING on the way in, but the
+	 * multiplier is settable, so widen before multiplying. */
+	scaled = (u64)max * topo->ld->config.max_fee_multiplier;
+
+	/* Don't let the multiplier carry us past the sanity ceiling: above
+	 * that a peer is not congested, their fee source is broken. */
+	if (scaled > FEERATE_CEILING)
+		return FEERATE_CEILING;
+	return scaled;
+}
+
+u32 our_feerate_max(struct lightningd *ld, bool *unknown)
+{
+	u32 max = feerate_max(ld, unknown);
+
+	/* We are stricter with ourselves than with a peer: this is our
+	 * money, and declining to propose a feerate costs us nothing, where
+	 * refusing a peer's costs us the channel. */
+	if (max > MAX_OUR_FEERATE_PER_KW)
+		return MAX_OUR_FEERATE_PER_KW;
+	return max;
 }
 
 u32 default_locktime(const struct chain_topology *topo)
