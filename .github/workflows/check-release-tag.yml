@@ -28,10 +28,14 @@ jobs:
 
       - name: Validate tag matches .version file
         id: resolve
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          INPUT_VERSION: ${{ inputs.version }}
+          REF_NAME: ${{ github.ref_name }}
         run: |
-          if [[ "${{ github.ref_type }}" != "tag" ]]; then
-            echo "::notice::Not triggered by a tag push (ref_type=${{ github.ref_type }}); skipping .version check."
-            echo "version=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+          if [[ "$REF_TYPE" != "tag" ]]; then
+            echo "::notice::Not triggered by a tag push (ref_type=$REF_TYPE); skipping .version check."
+            echo "version=$INPUT_VERSION" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -41,7 +45,7 @@ jobs:
           fi
 
           FILE_VERSION="$(tr -d '[:space:]' < .version)"
-          TAG_VERSION="${{ github.ref_name }}"
+          TAG_VERSION="$REF_NAME"
 
           if [[ "$TAG_VERSION" != "$FILE_VERSION" ]]; then
             echo "::error::Tag '$TAG_VERSION' does not match version in .version file ('$FILE_VERSION'). Refusing to release."
@@ -53,4 +57,6 @@ jobs:
 
       - name: Validate release
         if: ${{ !inputs.skip_validation }}
-        run: tools/check-release.sh --version=${{ steps.resolve.outputs.version }}
+        env:
+          RESOLVED_VERSION: ${{ steps.resolve.outputs.version }}
+        run: tools/check-release.sh "--version=$RESOLVED_VERSION"

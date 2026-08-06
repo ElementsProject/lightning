@@ -40,9 +40,12 @@ jobs:
         if: contains(matrix.target, 'Ubuntu')
 
       - name: Build release
+        env:
+          SKIP_VALIDATION: ${{ inputs.skip_validation }}
+          INPUT_VERSION: ${{ inputs.version }}
         run: |
-          if [[ "${{ inputs.skip_validation }}" == "true" ]]; then
-            tools/build-release.sh ${{ matrix.target }} --force-version "${{ inputs.version }}" --force-unclean --force-mtime "$(date +%Y-%m-%d)"
+          if [[ "$SKIP_VALIDATION" == "true" ]]; then
+            tools/build-release.sh ${{ matrix.target }} --force-version "$INPUT_VERSION" --force-unclean --force-mtime "$(date +%Y-%m-%d)"
           else
             tools/build-release.sh ${{ matrix.target }}
           fi

@@ -34,8 +34,10 @@ jobs:
       uses: astral-sh/setup-uv@v8.1.0
 
     - name: Update pyln versions
+      env:
+        INPUT_VERSION: ${{ inputs.version }}
       run: |
-        make update-pyln-versions NEW_VERSION=${{ inputs.version }}
+        make update-pyln-versions NEW_VERSION="$INPUT_VERSION"
 
     - name: Build distribution 📦
       run: uv build --package ${{ matrix.PACKAGE }}
