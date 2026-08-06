@@ -4,7 +4,7 @@ import unittest
 import time
 from pyln.testing.utils import EXPERIMENTAL_DUAL_FUND
 from utils import (
-    TEST_NETWORK
+    TEST_NETWORK, wait_for
 )
 
 
@@ -100,9 +100,11 @@ def test_splice_reconnect_after_lock_no_channel_ready(node_factory, bitcoind):
     l1.daemon.wait_for_log(r'peer_in WIRE_CHANNEL_REESTABLISH')
     l2.daemon.wait_for_log(r'peer_in WIRE_CHANNEL_REESTABLISH')
 
-    # The locked splice must have been persisted with funding_tx_index == 1...
-    rows = l1.db_query("SELECT funding_tx_index FROM channels;")
-    assert max(r['funding_tx_index'] for r in rows) == 1
+    # The locked splice must have been persisted with funding_tx_index == 1.
+    # The db transaction commits after the state-change log we waited for, so
+    # poll rather than reading once.
+    wait_for(lambda: max(r['funding_tx_index'] for r in
+                         l1.db_query("SELECT funding_tx_index FROM channels;")) == 1)
 
     # Drive a payment so both peers finish reestablish; this guarantees any
     # erroneous channel_ready retransmit is already logged before we assert it
@@ -188,13 +190,16 @@ def test_splice_funding_tx_index_increments(node_factory, bitcoind):
         rows = l1.db_query("SELECT funding_tx_index FROM channels;")
         return max(r['funding_tx_index'] for r in rows)
 
+    # The db transaction commits after the state-change log do_splice() waits
+    # for, so poll rather than reading once.
+
     # First splice: 0 -> 1
     do_splice(100000)
-    assert channel_funding_tx_index() == 1
+    wait_for(lambda: channel_funding_tx_index() == 1)
 
     # Second splice: 1 -> 2
     do_splice(50000)
-    assert channel_funding_tx_index() == 2
+    wait_for(lambda: channel_funding_tx_index() == 2)
 
 
 @pytest.mark.openchannel('v1')
@@ -211,17 +216,19 @@ def test_splice_inflight_funding_tx_index(node_factory, bitcoind):
 
     l1.rpc.splicein(chan_id, "100000")
 
-    # The pending splice inflight is index 1.
-    inflights = l1.db_query("SELECT funding_tx_index FROM"
-                            " channel_funding_inflights;")
-    assert [r['funding_tx_index'] for r in inflights] == [1]
+    def inflight_funding_tx_indexes():
+        rows = l1.db_query("SELECT funding_tx_index FROM"
+                           " channel_funding_inflights;")
+        return [r['funding_tx_index'] for r in rows]
+
+    # The pending splice inflight is index 1.  The db transaction commits
+    # after the RPC returns, so poll rather than reading once.
+    wait_for(lambda: inflight_funding_tx_indexes() == [1])
 
     # Restart l1: the inflight (and its index) must reload from the DB.
     l1.restart()
     l1.daemon.wait_for_log(r'peer_in WIRE_CHANNEL_REESTABLISH')
-    inflights = l1.db_query("SELECT funding_tx_index FROM"
-                            " channel_funding_inflights;")
-    assert [r['funding_tx_index'] for r in inflights] == [1]
+    assert inflight_funding_tx_indexes() == [1]
 
     # And the splice still completes after the restart.
     bitcoind.generate_block(6, wait_for_mempool=1)
