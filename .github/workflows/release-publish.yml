@@ -35,7 +35,9 @@ jobs:
           trust_level: 5
 
       - name: Set default GPG key
-        run: echo "default-key ${{ steps.gpg.outputs.keyid }}" >> ~/.gnupg/gpg.conf
+        env:
+          GPG_KEYID: ${{ steps.gpg.outputs.keyid }}
+        run: echo "default-key $GPG_KEYID" >> ~/.gnupg/gpg.conf
 
       - name: Sign release
         run: tools/build-release.sh --without-zip sign
