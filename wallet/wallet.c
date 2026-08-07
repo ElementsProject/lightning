@@ -1271,6 +1271,9 @@ static bool wallet_shachain_load(struct wallet *wallet, u64 id,
 
 	while (db_step(stmt)) {
 		int pos = db_col_int(stmt, "pos");
+		if (pos < 0 || pos >= ARRAY_SIZE(chain->chain.known))
+			db_fatal(wallet->db,
+				 "shachain_known pos %i out of range", pos);
 		chain->chain.known[pos].index = db_col_u64(stmt, "idx");
 		db_col_sha256(stmt, "hash", &chain->chain.known[pos].hash);
 	}
