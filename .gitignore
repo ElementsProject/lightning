@@ -41,6 +41,8 @@ monkeytype.sqlite3
 !*/test/exp-run-*.c
 */*/test/run-*
 !*/*/test/run-*.c
+*/*/*/test/run-*
+!*/*/*/test/run-*.c
 devtools/check-bolt
 tools/lightning-downgrade
 test/test_protocol
