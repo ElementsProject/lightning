@@ -120,6 +120,7 @@ struct peer {
 
 	struct timers timers;
 	struct oneshot *commit_timer;
+	struct oneshot *stfu_timer;
 	u32 commit_msec;
 
 	/* The feerate we want. */
@@ -239,7 +240,14 @@ static void end_stfu_mode(struct peer *peer)
 	peer->stfu_wait_single_msg = false;
 	peer->on_stfu_success = NULL;
 
+	peer->stfu_timer = tal_free(peer->stfu_timer);
+
 	status_debug("Left STFU mode.");
+}
+
+static void stfu_did_timeout(struct peer *peer)
+{
+	peer_failed_warn(peer->pps, &peer->channel_id, "STFU mode timed out.");
 }
 
 static bool maybe_send_stfu(struct peer *peer)
@@ -279,6 +287,14 @@ static bool maybe_send_stfu(struct peer *peer)
 		status_unusual("STFU complete: we are quiescent");
 		wire_sync_write(MASTER_FD,
 				towire_channeld_dev_quiesce_reply(tmpctx));
+
+		if (peer->stfu_timer)
+			peer_failed_warn(peer->pps, &peer->channel_id,
+					 "Double STFU issue detected");
+
+		peer->stfu_timer = new_reltimer(&peer->timers, peer,
+						time_from_sec(10 * 60),
+						stfu_did_timeout, peer);
 
 		peer->stfu_wait_single_msg = true;
 		status_unusual("STFU complete: setting stfu_wait_single_msg = true");
@@ -7011,6 +7027,7 @@ int main(int argc, char *argv[])
 	peer->developer = developer;
 	timers_init(&peer->timers, time_mono());
 	peer->commit_timer = NULL;
+	peer->stfu_timer = NULL;
 	peer->from_master = msg_queue_new(peer, true);
 	peer->shutdown_sent[LOCAL] = false;
 	peer->shutdown_wrong_funding = NULL;
