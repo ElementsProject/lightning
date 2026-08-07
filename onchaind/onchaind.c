@@ -838,11 +838,25 @@ static u64 unmask_commit_number(const struct tx_parts *tx,
 }
 
 static bool is_mutual_close(const struct tx_parts *tx,
+			    uint32_t locktime,
 			    const u8 *local_scriptpubkey,
 			    const u8 *remote_scriptpubkey)
 {
 	size_t i;
 	bool local_matched = false, remote_matched = false;
+
+	/* BOLT #3:
+	 *
+	 * * locktime: upper 8 bits are 0x20, lower 24 bits are the lower 24 bits of the obscured commitment number
+	 *...
+	 * * `txin[0]` sequence: upper 8 bits are 0x80, lower 24 bits are upper 24 bits of the obscured commitment number
+	 */
+	/* A commitment transaction carries this obscured commitment number; a
+	 * closing transaction does not (locktime 0/negotiated, sequence
+	 * 0xFFFFFFF[DF]).  Classify by structure so we don't confuse the two. */
+	if ((locktime >> 24) == 0x20
+	    && (tx->inputs[0]->sequence >> 24) == 0x80)
+		return false;
 
 	for (i = 0; i < tal_count(tx->outputs); i++) {
 		/* To be paranoid, we only let each one match once. */
@@ -3486,7 +3500,7 @@ int main(int argc, char *argv[])
 	 * without any pending payments) and publish it on the blockchain (see
 	 * [BOLT #2: Channel Close](02-peer-protocol.md#channel-close)).
 	 */
-	if (is_mutual_close(tx, scriptpubkey[LOCAL], scriptpubkey[REMOTE])) {
+	if (is_mutual_close(tx, locktime, scriptpubkey[LOCAL], scriptpubkey[REMOTE])) {
 		record_mutual_close(tx, scriptpubkey[REMOTE],
 				    tx_blockheight);
 		handle_mutual_close(outs, tx);

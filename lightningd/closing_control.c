@@ -1,5 +1,6 @@
 #include "config.h"
 #include <bitcoin/script.h>
+#include <bitcoin/tx.h>
 #include <ccan/tal/str/str.h>
 #include <channeld/channeld_wiregen.h>
 #include <closingd/closingd_wiregen.h>
@@ -7,6 +8,7 @@
 #include <common/json_command.h>
 #include <common/shutdown_scriptpubkey.h>
 #include <common/timeout.h>
+#include <common/utils.h>
 #include <errno.h>
 #include <hsmd/permissions.h>
 #include <inttypes.h>
@@ -239,6 +241,62 @@ static bool closing_fee_is_acceptable(struct lightningd *ld,
 	return true;
 }
 
+/* By policy we don't trust our subdaemons (much): before we store a
+ * closing transaction as the channel's last tx and broadcast it, check it
+ * really is a well-formed close of this channel.  It must spend exactly our
+ * funding outpoint, be shaped like a close rather than a commitment, and
+ * every output must go to a known shutdown script. */
+const char *close_tx_check(const tal_t *ctx,
+			   const struct channel *channel,
+			   const struct bitcoin_tx *tx)
+{
+	bool local_matched = false, remote_matched = false;
+
+	if (tx->wtx->num_inputs != 1)
+		return tal_fmt(ctx, "expected 1 input, got %zu",
+			tx->wtx->num_inputs);
+
+	if (!wally_tx_input_spends(&tx->wtx->inputs[0], &channel->funding))
+		return tal_fmt(ctx, "does not spend funding outpoint %s",
+			fmt_bitcoin_outpoint(ctx, &channel->funding));
+
+	/* A closing transaction has a standard nLockTime/nSequence (locktime
+	 * 0 or the negotiated value, sequence 0xFFFFFFF[DF]).  Anything shaped
+	 * like the commitment transactions we hand out - upper locktime byte
+	 * 0x20 and upper sequence byte 0x80 - is not a close, no
+	 * matter how its outputs happen to look. */
+	if ((tx->wtx->locktime >> 24) == 0x20
+	    && (tx->wtx->inputs[0].sequence >> 24) == 0x80)
+		return tal_fmt(ctx, "is not shaped like a closing transaction");
+
+	for (size_t i = 0; i < tx->wtx->num_outputs; i++) {
+		const struct wally_tx_output *out = &tx->wtx->outputs[i];
+		/* Elements has an explicit fee output with no script. */
+		if (out->script_len == 0) {
+			if (chainparams->is_elements)
+				continue;
+			return tal_fmt(ctx, "output %zu has no script", i);
+		}
+		const u8 *script = tal_dup_arr(ctx, u8,
+					       out->script, out->script_len, 0);
+		/* Only let each side's output match once. */
+		if (scripteq(script, channel->shutdown_scriptpubkey[LOCAL])
+		    && !local_matched) {
+			local_matched = true;
+			continue;
+		}
+		if (scripteq(script, channel->shutdown_scriptpubkey[REMOTE])
+		    && !remote_matched) {
+			remote_matched = true;
+			continue;
+		}
+		return tal_fmt(ctx,
+			"output %zu goes to unknown script %s",
+			i, tal_hex(ctx, script));
+	}
+	return NULL;
+}
+
 static void peer_received_closing_signature(struct channel *channel,
 					    const u8 *msg)
 {
@@ -255,6 +313,14 @@ static void peer_received_closing_signature(struct channel *channel,
 		return;
 	}
 	tx->chainparams = chainparams;
+
+	const char *err = close_tx_check(tmpctx, channel, tx);
+	if (err) {
+		channel_internal_error(channel,
+				       "Bad closing_received_signature: %s",
+				       err);
+		return;
+	}
 
 	funding_wscript = bitcoin_redeem_2of2(tmpctx,
 				       	      &channel->local_funding_pubkey,
