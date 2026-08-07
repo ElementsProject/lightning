@@ -7,7 +7,7 @@
 #include <stdio.h>
 
 #define ASKRENE_UNITTEST
-#include "../child/algorithm.c"
+#include "../algorithm.c"
 
 #define MAX_NODES 256
 #define MAX_ARCS 256
