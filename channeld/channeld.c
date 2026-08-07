@@ -4406,11 +4406,17 @@ static void splice_initiator(struct peer *peer, const u8 *inmsg)
 	const u8 *wit_script, *new_wit_script;
 	u8 *outmsg;
 	struct bitcoin_tx *prev_tx;
-	struct wally_psbt *psbt = peer->splicing->current_psbt;
+	struct wally_psbt *psbt;
 	u32 sequence = 0;
 	u8 *scriptPubkey;
 	enum peer_wire type;
 	struct tlv_tx_ack_rbf_tlvs *ack_rbf_tlvs;
+
+	if (!peer->splicing)
+		peer_failed_warn(peer->pps, &peer->channel_id,
+				 "Cannot resume splice that we havent started");
+
+	psbt = peer->splicing->current_psbt;
 
 	type = fromwire_peektype(inmsg);
 
