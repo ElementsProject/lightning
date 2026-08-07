@@ -2606,6 +2606,20 @@ def test_htlc_maximum_msat_default(node_factory, bitcoind):
     assert only_one(l4.rpc.listpeerchannels()['channels'])['maximum_htlc_out_msat'] == PRIVATE_MAX
 
 
+@pytest.mark.xfail(strict=True)
+def test_htlc_maximum_msat_not_below_minimum(node_factory, bitcoind):
+    """BOLT #7 requires htlc_maximum_msat >= htlc_minimum_msat, so the 25%
+    public default must not undercut a higher htlc-minimum-msat"""
+    # 25% of capacity is 250000000msat, so this minimum sits above the default.
+    HTLC_MIN = Millisatoshi(300000000)
+    l1, l2 = node_factory.line_graph(2, opts={'htlc-minimum-msat': HTLC_MIN})
+
+    for n in (l1, l2):
+        chan = only_one(n.rpc.listpeerchannels()['channels'])
+        assert chan['minimum_htlc_out_msat'] == HTLC_MIN
+        assert chan['maximum_htlc_out_msat'] >= chan['minimum_htlc_out_msat']
+
+
 @pytest.mark.parametrize("anchors", [False, True])
 def test_channel_spendable(node_factory, bitcoind, anchors):
     """Test that spendable_msat is accurate"""
