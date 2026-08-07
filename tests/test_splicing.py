@@ -557,6 +557,35 @@ def test_route_by_old_scid(node_factory, bitcoind):
     l1.rpc.waitsendpay(inv2['payment_hash'])
 
 
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_splice_sent_sigs_flag(node_factory, bitcoind):
+    l1, l2 = node_factory.line_graph(2, fundamount=1000000,
+                                     wait_for_announce=True,
+                                     opts={'may_reconnect': True,
+                                           'allow_warning': True})
+
+    chan_id = l1.get_channel_id(l2)
+
+    funds_result = l1.rpc.fundpsbt("109000sat", 0, 0, excess_as_change=True)
+
+    result = l1.rpc.splice_init(chan_id, 100000, funds_result['psbt'])
+    result = l1.rpc.splice_update(chan_id, result['psbt'])
+    assert result['commitments_secured'] is False
+    result = l1.rpc.splice_update(chan_id, result['psbt'])
+    assert result['commitments_secured'] is True
+
+    # l2 contributed nothing so it signs first.  These two lines bracket that:
+    # it has sent tx_signatures and is now waiting for l1's.
+    l2.daemon.wait_for_logs([r'peer_out WIRE_TX_SIGNATURES',
+                             r'Splice: Awaiting signature message'])
+    assert l2.db_query("SELECT count(*) as c FROM channel_funding_inflights;")[0]['c'] == 1
+
+    assert l1.db_query("SELECT i_sent_sigs FROM channel_funding_inflights;")[0]['i_sent_sigs'] == 0
+    assert l2.db_query("SELECT i_sent_sigs FROM channel_funding_inflights;")[0]['i_sent_sigs'] == 1
+
+
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')

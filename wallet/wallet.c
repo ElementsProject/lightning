@@ -1604,6 +1604,7 @@ void wallet_inflight_save(struct wallet *w,
 				 ", last_tx=?"
 				 ", last_sig=?"
 				 ", locked_scid=?"
+				 ", i_sent_sigs=?"
 				 " WHERE"
 				 "  channel_id=?"
 				 " AND funding_tx_id=?"
@@ -1621,6 +1622,7 @@ void wallet_inflight_save(struct wallet *w,
 		db_bind_short_channel_id(stmt, *inflight->locked_scid);
 	else
 		db_bind_null(stmt);
+	db_bind_int(stmt, inflight->i_sent_sigs);
 	db_bind_u64(stmt, inflight->channel->dbid);
 	db_bind_txid(stmt, &inflight->funding->outpoint.txid);
 	db_bind_int(stmt, inflight->funding->outpoint.n);
