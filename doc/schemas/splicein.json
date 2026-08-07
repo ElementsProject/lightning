@@ -21,7 +21,7 @@
         ]
       },
       "amount": {
-        "type": "string",
+        "type": "sat",
         "description": [
           "Amount in satoshis taken from the internal wallet and add to the channel. Format is the same as is used in `dev-splice`."
         ]

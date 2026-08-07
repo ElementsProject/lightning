@@ -2850,13 +2850,15 @@ json_spliceout(struct command *cmd, const char *buf, const jsmntok_t *params)
 	struct out_req *req;
 	const char *channel, *amount, *destination;
 	struct splice_cmd *splice_cmd;
-	bool *force_feerate;
+	bool *reduce_amount_by_fee, *force_feerate;
 	char *script;
 
 	if (!param(cmd, buf, params,
 		   p_req("channel", param_string, &channel),
 		   p_req("amount", param_string, &amount),
 		   p_opt("destination", param_string, &destination),
+		   p_opt_def("reduce_amount_by_fee", param_bool,
+		   	     &reduce_amount_by_fee, false),
 		   p_opt_def("force_feerate", param_bool, &force_feerate,
 		   	     false),
 		   NULL))
@@ -2865,9 +2867,15 @@ json_spliceout(struct command *cmd, const char *buf, const jsmntok_t *params)
 	if (!destination)
 		destination = "wallet";
 
-	script = tal_fmt(NULL,
-			 "%s -> %s + fee; 100%% -> %s",
-			 channel, amount, destination);
+	if (reduce_amount_by_fee) {
+		script = tal_fmt(NULL,
+				 "%s -> %s; 100%% -> %s - fee",
+				 channel, amount, destination);
+	} else {
+		script = tal_fmt(NULL,
+				 "%s -> %s + fee; 100%% -> %s",
+				 channel, amount, destination);
+	}
 
 	splice_cmd = tal(cmd, struct splice_cmd);
 

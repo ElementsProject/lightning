@@ -1273,12 +1273,13 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("splicein", payload)
 
-    def spliceout(self, channel, amount, destination=None, force_feerate=None):
+    def spliceout(self, channel, amount, destination=None, reduce_amount_by_fee=False, force_feerate=None):
         """ Execute a splice out """
         payload = {
             "channel": channel,
             "amount": amount,
             "destination": destination,
+            "reduce_amount_by_fee": reduce_amount_by_fee,
             "force_feerate": force_feerate,
         }
         return self.call("spliceout", payload)

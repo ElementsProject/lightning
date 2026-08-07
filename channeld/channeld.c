@@ -3374,9 +3374,13 @@ static struct amount_sat calc_balance(struct peer *peer)
 				 "Unable to calculate starting channel amount");
 
 	if (!amount_msat_add_sat_s64(&funding_amount, funding_amount,
-				peer->splicing->opener_relative))
+				     peer->splicing->opener_relative))
 		peer_failed_warn(peer->pps, &peer->channel_id,
-				 "Unable to add opener funding");
+				 "Unable to add opener funding,"
+				 " funding_amount: %s,"
+				 " opener_relative: %"PRId64,
+				 fmt_amount_m_as_sat(tmpctx, funding_amount),
+				 peer->splicing->opener_relative);
 
 	if (!amount_msat_add_sat_s64(&funding_amount, funding_amount,
 				peer->splicing->accepter_relative))

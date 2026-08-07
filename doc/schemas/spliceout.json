@@ -21,7 +21,7 @@
         ]
       },
       "amount": {
-        "type": "string",
+        "type": "sat",
         "description": [
           "Amount in satoshis taken from the channel. Format is the same as is used in `dev-splice`."
         ]
@@ -30,6 +30,12 @@
         "type": "string",
         "description": [
           "Where to send the funds to. Defaults to `wallet` which sends the funds to your onchain wallet. Specify a bitcoin address to send funds to that address or specify a channel identifier to send funds to another channel. Format is the same as is used in `dev-splice`."
+        ]
+      },
+      "reduce_amount_by_fee": {
+        "type": "boolean",
+        "description": [
+          "By ddefault the onchain fee is taken from channel balance. Set this to true to instead reduce the sent amount by the needed onchain fee."
         ]
       },
       "force_feerate": {
