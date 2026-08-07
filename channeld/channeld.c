@@ -2512,6 +2512,16 @@ static void handle_peer_start_batch(struct peer *peer, const u8 *msg)
 		return;
 	}
 
+	/* Bolt #2
+	 * A sending node:
+	 *  - MUST set batch_size to a value strictly greater than 1.
+	 */
+	if (batch_size < 2) {
+		peer_failed_warn(peer->pps, &peer->channel_id,
+				 "Don't send a start_batch with batch size"
+				 "below 2");
+	}
+
 	handle_peer_commit_sig_batch(peer, peer_read(tmpctx, peer->pps),
 				     peer->channel->funding_pubkey[REMOTE],
 				     NULL, 0, 0,
