@@ -5506,6 +5506,12 @@ static void check_future_dataloss_fields(struct peer *peer,
 
 	assert(next_revocation_number > peer->next_index[LOCAL] - 1);
 
+	if (next_revocation_number - 1 >= (1ULL << SHACHAIN_BITS)) {
+		peer_failed_err(peer->pps,
+				&peer->channel_id,
+				"Invalid next_revocation_number value");
+	}
+
 	msg = towire_hsmd_check_future_secret(NULL,
 					     next_revocation_number - 1,
 					     last_local_per_commit_secret);
