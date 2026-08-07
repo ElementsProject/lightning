@@ -1,14 +1,15 @@
 # Note that these actually #include everything they need, except ccan/ and bitcoin/.
 # That allows for unit testing of statics, and special effects.
-PLUGIN_ASKRENE_TEST_SRC := $(wildcard plugins/askrene/test/run-*.c)
+ASKRENE_TEST_PREFIX := plugins/askrene/child/test
+PLUGIN_ASKRENE_TEST_SRC := $(wildcard $(ASKRENE_TEST_PREFIX)/run-*.c)
 PLUGIN_ASKRENE_TEST_OBJS := $(PLUGIN_ASKRENE_TEST_SRC:.c=.o)
 PLUGIN_ASKRENE_TEST_PROGRAMS := $(PLUGIN_ASKRENE_TEST_OBJS:.o=)
 
 ALL_C_SOURCES += $(PLUGIN_ASKRENE_TEST_SRC)
 ALL_TEST_PROGRAMS += $(PLUGIN_ASKRENE_TEST_PROGRAMS)
-$(PLUGIN_RENEPAY_TEST_OBJS): $(PLUGIN_ASKRENE_SRC) plugins/askrene/test/Makefile
+$(PLUGIN_ASKRENE_TEST_OBJS): $(PLUGIN_ASKRENE_SRC) $(ASKRENE_TEST_PREFIX)/Makefile
 
-plugins/askrene/test/run-bfs plugins/askrene/test/run-dijkstra plugins/askrene/test/run-flow plugins/askrene/test/run-mcf plugins/askrene/test/run-mcf-large: \
+$(ASKRENE_TEST_PREFIX)/run-bfs $(ASKRENE_TEST_PREFIX)/run-dijkstra $(ASKRENE_TEST_PREFIX)/run-flow $(ASKRENE_TEST_PREFIX)/run-mcf $(ASKRENE_TEST_PREFIX)/run-mcf-large: \
 	plugins/askrene/child/priorityqueue.o \
 	plugins/askrene/child/graph.o
 
