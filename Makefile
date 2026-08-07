@@ -674,7 +674,8 @@ update-doc-examples-newchain:
 check-doc-examples: update-doc-examples
 	git diff --exit-code HEAD -- doc
 
-check-wire-format: extract-bolt-csv
+check-wire-format: bolt-precheck
+	@if [ -d .tmp.lightningrfc ]; then $(MAKE) extract-bolt-csv; else echo "Not checking BOLTs: BOLTDIR $(BOLTDIR) does not exist" >&2; fi
 	git diff --exit-code HEAD -- wire
 
 # SECURITY.md and doc/contribute-to-core-lightning/security-policy.md must be
