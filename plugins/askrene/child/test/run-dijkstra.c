@@ -7,7 +7,7 @@
 #include <stdio.h>
 
 #define ASKRENE_UNITTEST
-#include "../child/algorithm.c"
+#include "../algorithm.c"
 
 // 1->2 7
 // 1->3 9
