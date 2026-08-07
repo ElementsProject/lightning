@@ -195,6 +195,24 @@ static struct amount_sat calc_tx_fee(struct amount_sat sat_in,
 	return fee;
 }
 
+static u32 calc_max_close_feerate(struct lightningd *ld,
+				  struct channel *channel)
+{
+	u32 max_feerate;
+
+	/* Aim for reasonable max, but use final if we don't know. */
+	max_feerate = unilateral_feerate(ld->topology, false);
+	if (!max_feerate)
+		max_feerate = get_feerate(channel->fee_states,
+					  channel->opener, LOCAL);
+
+	/* If they specified feerates in `close`, they apply now! */
+	if (channel->closing_feerate_range)
+		max_feerate = channel->closing_feerate_range[1];
+
+	return max_feerate;
+}
+
 /* Assess whether a proposed closing fee is acceptable. */
 static bool closing_fee_is_acceptable(struct lightningd *ld,
 				      struct channel *channel,
@@ -219,11 +237,12 @@ static bool closing_fee_is_acceptable(struct lightningd *ld,
 		  weight);
 
 	if (!channel->ignore_fee_limits && !ld->config.ignore_fee_limits) {
-		struct amount_sat min_fee;
-		u32 min_feerate;
+		struct amount_sat min_fee, max_fee;
+		u32 min_feerate, max_feerate;
 
 		/* If we don't have a feerate estimate, this gives feerate_floor */
 		min_feerate = feerate_min(ld, NULL);
+		max_feerate = calc_max_close_feerate(ld, channel);
 
 		min_fee = amount_tx_fee(min_feerate, weight);
 		if (amount_sat_less(fee, min_fee)) {
@@ -231,6 +250,14 @@ static bool closing_fee_is_acceptable(struct lightningd *ld,
 				  " for weight %"PRIu64" at feerate %u",
 				  fmt_amount_sat(tmpctx, min_fee),
 				  weight, min_feerate);
+			return false;
+		}
+		max_fee = amount_tx_fee(max_feerate, weight);
+		if (channel->opener == LOCAL && amount_sat_less(max_fee, fee)) {
+			log_debug(channel->log, "... That's above our max %s"
+				  " for weight %"PRIu64" at feerate %u",
+				  fmt_amount_sat(tmpctx, max_fee),
+				  weight, max_feerate);
 			return false;
 		}
 	}
@@ -485,17 +512,13 @@ void peer_start_closingd(struct channel *channel, struct peer_fd *peer_fd)
 			feerate = get_feerate_floor(ld->topology);
 	}
 
-	/* Aim for reasonable max, but use final if we don't know. */
-	max_feerate = unilateral_feerate(ld->topology, false);
-	if (!max_feerate)
-		max_feerate = final_commit_feerate;
+	max_feerate = calc_max_close_feerate(ld, channel);
 
 	min_feerate = feerate_min(ld, NULL);
 
 	/* If they specified feerates in `close`, they apply now! */
 	if (channel->closing_feerate_range) {
 		min_feerate = channel->closing_feerate_range[0];
-		max_feerate = channel->closing_feerate_range[1];
 	}
 
 	/* BOLT #3:
