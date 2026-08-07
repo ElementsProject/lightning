@@ -283,6 +283,14 @@ static void peer_received_closing_signature(struct channel *channel,
 	}
 	tx->chainparams = chainparams;
 
+	const char *err = close_tx_check(tmpctx, channel, tx);
+	if (err) {
+		channel_internal_error(channel,
+				       "Bad closing_received_signature: %s",
+				       err);
+		return;
+	}
+
 	funding_wscript = bitcoin_redeem_2of2(tmpctx,
 				       	      &channel->local_funding_pubkey,
 				       	      &channel->channel_info.remote_fundingkey);

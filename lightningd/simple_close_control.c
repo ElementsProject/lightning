@@ -32,12 +32,18 @@
  * heuristic in handle_simpleclosed_complete). */
 #define SIMPLE_CLOSE_BROADCAST_DELAY_SECS 3600 /* 1 hour */
 
-/* Check that tx spends exactly our funding outpoint and every output goes
- * to a known shutdown script.  Returns an error string, or NULL on success. */
-static const char *close_tx_check(const tal_t *ctx,
-				   const struct channel *channel,
-				   const struct bitcoin_tx *tx)
+/* By policy we don't trust our subdaemons (much): before we store a
+ * closing transaction as the channel's last tx and broadcast it, check it
+ * really is a well-formed close of this channel.  It must spend
+ * exactly our funding outpoint, and every output must go to a known shutdown
+ * script (or, with option_simple_close, the peer's zero-value OP_RETURN
+ * closer_scriptpubkey).  Returns an error string, or NULL on success. */
+const char *close_tx_check(const tal_t *ctx,
+			   const struct channel *channel,
+			   const struct bitcoin_tx *tx)
 {
+	bool local_matched = false, remote_matched = false;
+
 	if (tx->wtx->num_inputs != 1)
 		return tal_fmt(ctx, "expected 1 input, got %zu",
 			tx->wtx->num_inputs);
@@ -45,6 +51,15 @@ static const char *close_tx_check(const tal_t *ctx,
 	if (!wally_tx_input_spends(&tx->wtx->inputs[0], &channel->funding))
 		return tal_fmt(ctx, "does not spend funding outpoint %s",
 			fmt_bitcoin_outpoint(ctx, &channel->funding));
+
+	/* A closing transaction has a standard nLockTime/nSequence (locktime
+	 * 0 or the negotiated value, sequence 0xFFFFFFF[DF]).  Anything shaped
+	 * like the commitment transactions we hand out - upper locktime byte
+	 * 0x20 and upper sequence byte 0x80 - is not a close, no
+	 * matter how its outputs happen to look. */
+	if ((tx->wtx->locktime >> 24) == 0x20
+	    && (tx->wtx->inputs[0].sequence >> 24) == 0x80)
+		return tal_fmt(ctx, "is not shaped like a closing transaction");
 
 	for (size_t i = 0; i < tx->wtx->num_outputs; i++) {
 		const struct wally_tx_output *out = &tx->wtx->outputs[i];
@@ -56,10 +71,17 @@ static const char *close_tx_check(const tal_t *ctx,
 		}
 		const u8 *script = tal_dup_arr(ctx, u8,
 					       out->script, out->script_len, 0);
-		if (scripteq(script, channel->shutdown_scriptpubkey[LOCAL]))
+		/* Only let each side's output match once. */
+		if (scripteq(script, channel->shutdown_scriptpubkey[LOCAL])
+		    && !local_matched) {
+			local_matched = true;
 			continue;
-		if (scripteq(script, channel->shutdown_scriptpubkey[REMOTE]))
+		}
+		if (scripteq(script, channel->shutdown_scriptpubkey[REMOTE])
+		    && !remote_matched) {
+			remote_matched = true;
 			continue;
+		}
 		/* Our own output is always paid to shutdown_scriptpubkey[LOCAL]
 		 * (master passes it to closingd verbatim); we never substitute
 		 * an OP_RETURN for it.  So an OP_RETURN output that matches
