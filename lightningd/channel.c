@@ -504,14 +504,37 @@ struct amount_msat channel_htlc_maximum_default(const struct channel *channel,
 		 * where payments went is much harder if the htlc maximum is
 		 * well below the channel capacity.  For public channels the
 		 * capacity is known from the funding output, so default to 25%
-		 * of it.  The spec only requires htlc_maximum_msat <= capacity. */
+		 * of it. */
 		if (!amount_sat_to_msat(&deflt, channel->funding_sats))
-			return cap;
-		deflt = amount_msat_div(deflt, 4);
+			deflt = cap;
+		else
+			deflt = amount_msat_div(deflt, 4);
 	} else
 		/* Private channels have no publicly-known capacity to correlate
 		 * against, so we advertise the full amount we can send. */
 		deflt = cap;
+
+	/* BOLT #7:
+	 *
+	 * - MUST set `htlc_maximum_msat` to the maximum value it will send through this channel for a single HTLC.
+	 *   - MUST set this to less than or equal to the channel capacity.
+	 *   - MUST set this to less than or equal to `max_htlc_value_in_flight_msat` it received from the peer.
+	 *   - MUST set this to greater than or equal to `htlc_minimum_msat`.
+	 */
+	/* A quarter of the capacity can land below a high htlc_minimum_msat:
+	 * a routable channel beats the stronger privacy margin. */
+	if (amount_msat_less(deflt, channel->htlc_minimum_msat))
+		deflt = channel->htlc_minimum_msat;
+
+	/* htlc_max_possible_send() covers both upper bounds above.  If it is
+	 * itself below htlc_minimum_msat then no value satisfies the spec, so
+	 * say so rather than advertising an unroutable channel silently. */
+	if (amount_msat_less(cap, channel->htlc_minimum_msat))
+		log_unusual(channel->log,
+			    "htlc_minimum_msat %s exceeds the most we can send"
+			    " (%s): channel_update will not be routable",
+			    fmt_amount_msat(tmpctx, channel->htlc_minimum_msat),
+			    fmt_amount_msat(tmpctx, cap));
 
 	/* Never advertise more than we could actually send. */
 	return amount_msat_min(deflt, cap);

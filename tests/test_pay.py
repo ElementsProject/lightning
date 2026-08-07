@@ -2606,7 +2606,6 @@ def test_htlc_maximum_msat_default(node_factory, bitcoind):
     assert only_one(l4.rpc.listpeerchannels()['channels'])['maximum_htlc_out_msat'] == PRIVATE_MAX
 
 
-@pytest.mark.xfail(strict=True)
 def test_htlc_maximum_msat_not_below_minimum(node_factory, bitcoind):
     """BOLT #7 requires htlc_maximum_msat >= htlc_minimum_msat, so the 25%
     public default must not undercut a higher htlc-minimum-msat"""

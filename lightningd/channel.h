@@ -980,7 +980,9 @@ struct amount_msat htlc_max_possible_send(const struct channel *channel);
 /* Default htlc_maximum_msat to advertise for a new channel, given the
  * configured --htlc-maximum-msat (AMOUNT_MSAT(-1ULL) if unset).  Public
  * channels default to 25% of capacity for privacy; private channels and an
- * explicit setting use the full amount, all capped at what we can send. */
+ * explicit setting use the full amount, all capped at what we can send and
+ * floored at channel->htlc_minimum_msat (which must therefore already be
+ * set). */
 struct amount_msat channel_htlc_maximum_default(const struct channel *channel,
 						struct amount_msat configured_max);
 

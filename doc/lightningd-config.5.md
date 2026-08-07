@@ -421,7 +421,9 @@ maximum well below the publicly-known capacity makes it harder to probe for
 where payments are flowing. Private channels, whose capacity is not public,
 advertise the full amount they can send. Either way this is capped at what we
 can actually send, and an explicit value here overrides the default (up to
-that cap). If you want to change the `htlc_maximum_msat` for existing
+that cap). It is also raised to `htlc_minimum_msat` where that is higher,
+since the spec requires the maximum to be at least the minimum. If you want
+to change the `htlc_maximum_msat` for existing
 channels, use the RPC call lightning-setchannel(7), for example:
 
         lightning-cli listpeerchannels | \
