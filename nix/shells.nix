@@ -7,12 +7,21 @@
       system,
       ...
     }:
+    let
+      gsed = pkgs.writeShellScriptBin "gsed" ''
+        exec ${pkgs.gnused}/bin/sed "$@"
+      '';
+      devTools = [
+        pkgs.uv
+        gsed
+      ];
+    in
     {
       devShells = {
         default = pkgs.mkShell {
           inputsFrom = [ config.packages.default ];
           buildInputs = [ pkgs.openssl ];
-          packages = [ pkgs.uv ];
+          packages = devTools;
           # On Linux, uv uses nixpkgs' Python: the Python uv downloads expects
           # an FHS dynamic loader, so it doesn't run on NixOS.
           # LD_LIBRARY_PATH fixes the following error when running uv pytest tests/:
@@ -26,13 +35,13 @@
         postgres = pkgs.mkShell {
           inputsFrom = [ config.packages.cln-postgres ];
           buildInputs = [ pkgs.openssl ];
-          packages = [ pkgs.uv ];
+          packages = devTools;
         };
         rust = pkgs.craneLib.devShell {
           checks = {
             inherit (self.checks.${system}) rust;
           };
-          packages = [ pkgs.uv ];
+          packages = devTools;
         };
       };
     };
