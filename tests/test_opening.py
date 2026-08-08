@@ -4230,10 +4230,6 @@ def test_duplicate_channel_id_in_db(node_factory, bitcoind):
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @pytest.mark.openchannel('v2')
-@pytest.mark.xfail(
-    reason="Issue #8902 is not fixed at this commit",
-    strict=True,
-)
 def test_inflight_disconnect_commitment_v2(node_factory, bitcoind):
     """Disconnect during dual-fund commitment signing should not trigger spurious BROKEN messages.
     """
