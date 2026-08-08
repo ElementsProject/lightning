@@ -218,6 +218,55 @@ def test_v2_open_sigs_reconnect_1(node_factory, bitcoind):
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @pytest.mark.openchannel('v2')
+def test_v2_open_reestablish_unknown_channel(node_factory, bitcoind):
+    """ Reconnect loop from #8822.
+
+    l1 drops the last tx_complete on the floor *after* dualopend has decided
+    the commitment is ready, so l1 saves the channel in
+    DUALOPEND_OPEN_COMMIT_READY while l2 is still waiting and throws its
+    unsaved channel away.  On reconnect l1 reestablishes a channel l2 has
+    never heard of.
+
+    l2 answers with an error and stays connected: that's what lets l1's
+    dualopend actually read the error and forget the channel.  When we hung
+    up instead, the error raced the disconnect on l1's side, and whenever it
+    lost that race l1 reestablished again on every reconnect.
+    """
+    l1, l2 = node_factory.get_nodes(2,
+                                    opts=[{'disconnect': ['-WIRE_TX_COMPLETE'],
+                                           'may_reconnect': True,
+                                           'dev-no-reconnect': None},
+                                          {'may_reconnect': True,
+                                           'dev-no-reconnect': None}])
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['p2tr'], (2**24) / 10**8 + 0.01)
+    bitcoind.generate_block(1)
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) > 0)
+
+    with pytest.raises(RpcError):
+        l1.rpc.fundchannel(l2.info['id'], 100000)
+
+    # We saved it, they didn't.
+    wait_for(lambda: [c['state'] for c in l1.rpc.listpeerchannels()['channels']]
+             == ['DUALOPEND_OPEN_COMMIT_READY'])
+    wait_for(lambda: l2.rpc.listpeerchannels()['channels'] == [])
+
+    # One reconnect has to be enough: l2 tells us it doesn't know the channel
+    # and we forget it.
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l2.daemon.wait_for_log('Unknown channel .* for WIRE_CHANNEL_REESTABLISH')
+    l1.daemon.wait_for_log('peer_in WIRE_ERROR')
+    wait_for(lambda: l1.rpc.listpeerchannels()['channels'] == [])
+
+    # Neither side hung up over it: that's the whole point, an error we send
+    # after hanging up may never be read.
+    assert only_one(l1.rpc.listpeers()['peers'])['connected']
+    assert only_one(l2.rpc.listpeers()['peers'])['connected']
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+@pytest.mark.openchannel('v2')
 def test_v2_open_sigs_out_of_order(node_factory, bitcoind):
     """ Test what happens if the tx-sigs get sent "before" commitment signed """
     disconnects = ['$WIRE_COMMITMENT_SIGNED']
