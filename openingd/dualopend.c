@@ -552,6 +552,32 @@ static void handle_failure_fatal(struct state *state, u8 *msg)
 	open_err_fatal(state, "%s", err);
 }
 
+static bool check_accepter_error(struct state *state,
+                                 u8 *msg,
+                                 char *err_reason)
+{
+	if (!msg) {
+		if (err_reason)
+			negotiation_failed(state, "%s", err_reason);
+                else
+                        /* FIXME: what do we do here?? */
+		return false;
+	}
+
+        /* `msg` could be a failure message */
+	if (fromwire_peektype(msg) == WIRE_DUALOPEND_FAIL) {
+                handle_failure_fatal(state, msg);
+		return false;
+	}
+
+	if (fromwire_peektype(msg) != WIRE_DUALOPEND_SEND_TX_SIGS) {
+		master_badmsg(WIRE_DUALOPEND_SEND_TX_SIGS, msg);
+                return false;
+        }
+
+        return true;
+}
+
 static void check_channel_id(struct state *state,
 			     struct channel_id *id_in,
 			     struct channel_id *orig_id)
@@ -2305,9 +2331,6 @@ static u8 *accepter_commits(struct state *state,
 	wire_sync_write(REQ_FD, take(msg));
 	msg = wire_sync_read(tmpctx, REQ_FD);
 
-	if (fromwire_peektype(msg) != WIRE_DUALOPEND_SEND_TX_SIGS)
-		master_badmsg(WIRE_DUALOPEND_SEND_TX_SIGS, msg);
-
 	return msg;
 }
 
@@ -2751,11 +2774,8 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 	}
 
 	msg = accepter_commits(state, tx_state, total, &err_reason);
-	if (!msg) {
-		if (err_reason)
-			negotiation_failed(state, "%s", err_reason);
-		return;
-	}
+        if (!check_accepter_error(state, msg, err_reason))
+                return;
 
 	/* Finally, send our funding tx sigs */
 	handle_send_tx_sigs(state, msg);
@@ -3462,19 +3482,25 @@ static void rbf_wrap_up(struct state *state,
 	else
 		msg = opener_commits(state, tx_state, total, &err_reason);
 
-	if (!msg) {
-		if (err_reason)
-			open_abort(state, "%s", err_reason);
-		else
-			open_abort(state, "%s", "Unable to commit");
-		/* We need to 'reset' the channel to what it
-		 * was before we did this. */
-		return;
-	}
+        /* in TX_ACCEPTER case, `msg` could be a failure message */
+	if (msg && (fromwire_peektype(msg) == WIRE_DUALOPEND_FAIL)) {
+                if (fromwire_dualopend_fail(msg, msg, &err_reason))
+                        msg = tal_free(msg);
+        }
 
-	if (state->our_role == TX_ACCEPTER)
+        if (!msg) {
+                if (err_reason)
+                        open_abort(state, "%s", err_reason);
+                else
+                        open_abort(state, "%s", "Unable to commit");
+                /* We need to 'reset' the channel to what it
+                 * was before we did this. */
+                return;
+        }
+
+	if (state->our_role == TX_ACCEPTER) {
 		handle_send_tx_sigs(state, msg);
-	else
+	} else
 		wire_sync_write(REQ_FD, take(msg));
 }
 
