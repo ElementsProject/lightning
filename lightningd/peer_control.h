@@ -65,6 +65,11 @@ struct peer {
 	/* If we open a channel our direction will be this */
 	u8 direction;
 
+	/* How many channel_reestablish for channels we don't know have we seen
+	 * on this connection?  We answer those with an error and stay
+	 * connected, so we bound it to keep it from being a spam lever. */
+	u32 unknown_channel_reestablishes;
+
 	/* Swallow incoming HTLCs (for testing) */
 	bool dev_ignore_htlcs;
 };
