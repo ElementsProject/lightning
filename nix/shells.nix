@@ -11,7 +11,12 @@
       gsed = pkgs.writeShellScriptBin "gsed" ''
         exec ${pkgs.gnused}/bin/sed "$@"
       '';
+      libeatmydata = pkgs.libeatmydata.overrideAttrs (_: {
+        doCheck = false;
+        nativeCheckInputs = [ ];
+      });
       devTools = [
+        libeatmydata
         pkgs.uv
         gsed
       ];
