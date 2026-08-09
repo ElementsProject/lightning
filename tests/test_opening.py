@@ -1553,12 +1553,14 @@ def test_rbf_non_last_mined(node_factory, bitcoind, chainparams):
 
     # Make a 3rd inflight that won't make it into the mempool
     signed_psbt = run_retry()
-    last = len(l1.daemon.logs)
+    last_l1 = len(l1.daemon.logs)
+    last_l2 = len(l2.daemon.logs)
     l1.rpc.openchannel_signed(chan_id, signed_psbt)
 
-    wait_for(lambda: l1.daemon.is_in_log("plugin-bcli: sendrawtx exit 0", start=last))
-    import time
-    time.sleep(.05)
+    wait_for(lambda: l1.daemon.is_in_log("plugin-bcli: sendrawtx exit 0",
+                                         start=last_l1)
+             and l2.daemon.is_in_log("plugin-bcli: sendrawtx exit 0",
+                                     start=last_l2))
 
     l1.daemon.rpcproxy.mock_rpc('sendrawtransaction', None)
     l2.daemon.rpcproxy.mock_rpc('sendrawtransaction', None)
