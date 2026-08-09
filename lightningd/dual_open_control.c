@@ -13,6 +13,7 @@
 #include <common/json_command.h>
 #include <common/psbt_open.h>
 #include <common/shutdown_scriptpubkey.h>
+#include <common/timeout.h>
 #include <common/wire_error.h>
 #include <connectd/connectd_wiregen.h>
 #include <errno.h>
@@ -27,6 +28,7 @@
 #include <lightningd/hsm_control.h>
 #include <lightningd/notification.h>
 #include <lightningd/opening_common.h>
+#include <lightningd/peer_control.h>
 #include <lightningd/peer_fd.h>
 #include <lightningd/plugin_hook.h>
 #include <openingd/dualopend_wiregen.h>
@@ -2477,6 +2479,20 @@ static char *restart_dualopend(const tal_t *ctx, const struct lightningd *ld,
 	return NULL;
 }
 
+static void restart_dualopend_after_abort(struct channel *channel)
+{
+	char *err;
+
+	/* A disconnect or another restart may have happened after the abort. */
+	if (channel->owner || channel->peer->connected != PEER_CONNECTED)
+		return;
+
+	err = restart_dualopend(tmpctx, channel->peer->ld, channel, true);
+	if (err)
+		log_broken(channel->log,
+			   "Unable to restart dualopend after abort: %s", err);
+}
+
 struct openchannel_bump_info {
 	struct command *cmd;
 	struct channel_id *cid;
@@ -4063,7 +4079,6 @@ static void dualopen_errmsg(struct channel *channel,
 		if (maybe_cleanup_last_inflight(channel))
 			log_debug(channel->log, "Cleaned up incomplete inflight");
 
-
 		if (!disconnect) {
 			if (channel_state_open_uncommitted(channel->state)) {
 				log_info(channel->log, "%s", "Commit ready peer can't reconnect."
@@ -4071,13 +4086,13 @@ static void dualopen_errmsg(struct channel *channel,
 				delete_channel(channel, false);
 				return;
 			}
-			char *err = restart_dualopend(tmpctx,
-						      channel->peer->ld,
-						      channel, true);
-			if (err)
-				log_broken(channel->log,
-					   "Unable to restart dualopend"
-					   " after abort: %s", err);
+			/* We are called while the old dualopend's terminal
+			 * status is still being handled.  Defer replacement
+			 * until it has been destroyed and its HSM client has
+			 * gone away. */
+			new_reltimer(channel->peer->ld->timers,
+				     channel, time_from_msec(0),
+				     restart_dualopend_after_abort, channel);
 		}
 
 		return;
