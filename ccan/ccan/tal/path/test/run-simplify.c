@@ -6,7 +6,7 @@ int main(void)
 {
 	char cwd[1024], *path, *ctx = tal_strdup(NULL, "ctx");
 
-	plan_tests(85);
+	plan_tests(95);
 
 	if (!getcwd(cwd, sizeof(cwd)))
 		abort();
@@ -224,6 +224,33 @@ int main(void)
 
 	path = path_simplify(ctx, "/tmp/../tmp/.");
 	ok1(streq(path, "/tmp"));
+	ok1(tal_parent(path) == ctx);
+	tal_free(path);
+
+	/* Don't trace back over a symlink: keep ".." literally. */
+	path = path_simplify(ctx, "run-simplify-link/..");
+	ok1(streq(path, "run-simplify-link/.."));
+	ok1(tal_parent(path) == ctx);
+	tal_free(path);
+
+	path = path_simplify(ctx, "run-simplify-link/../");
+	ok1(streq(path, "run-simplify-link/.."));
+	ok1(tal_parent(path) == ctx);
+	tal_free(path);
+
+	path = path_simplify(ctx, "run-simplify-link/../x");
+	ok1(streq(path, "run-simplify-link/../x"));
+	ok1(tal_parent(path) == ctx);
+	tal_free(path);
+
+	path = path_simplify(ctx, "run-simplify-link/../../foo");
+	ok1(streq(path, "run-simplify-link/../../foo"));
+	ok1(tal_parent(path) == ctx);
+	tal_free(path);
+
+	/* Nonexistent path: can't prove it's a real dir, keep "..". */
+	path = path_simplify(ctx, "run-simplify-nosuch/..");
+	ok1(streq(path, "run-simplify-nosuch/.."));
 	ok1(tal_parent(path) == ctx);
 	tal_free(path);
 

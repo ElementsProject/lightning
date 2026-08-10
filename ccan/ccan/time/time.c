@@ -2,6 +2,17 @@
 #include <ccan/time/time.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <limits.h>
+
+/* Largest representable tv_sec (time_t is signed). */
+#define TIMEREL_SEC_MAX \
+	((time_t)((~(uint64_t)0) >> (64 - sizeof(time_t)*CHAR_BIT + 1)))
+
+static struct timerel timerel_max(void)
+{
+	struct timerel max = { { TIMEREL_SEC_MAX, 999999999 } };
+	return max;
+}
 
 #if !HAVE_CLOCK_GETTIME
 #include <sys/time.h>
@@ -58,6 +69,11 @@ struct timerel time_divide(struct timerel t, unsigned long div)
 		/* FIXME: fp is cheating! */
 		double nsec = rem * 1000000000.0 + t.ts.tv_nsec;
 		res.ts.tv_nsec = nsec / div;
+		/* Rounding can give exactly 1e9; renormalize. */
+		if (res.ts.tv_nsec >= 1000000000) {
+			res.ts.tv_nsec -= 1000000000;
+			res.ts.tv_sec++;
+		}
 	} else {
 		ns = rem * 1000000000 + t.ts.tv_nsec;
 		res.ts.tv_nsec = ns / div;
@@ -69,11 +85,16 @@ struct timerel time_multiply(struct timerel t, unsigned long mult)
 {
 	struct timerel res;
 
+	(void)TIMEREL_CHECK(t);
+
 	/* Are we going to overflow if we multiply nsec? */
 	if (mult & ~((1UL << 30) - 1)) {
 		/* FIXME: fp is cheating! */
 		double nsec = (double)t.ts.tv_nsec * mult;
 
+		/* Saturate rather than overflow time_t. */
+		if (nsec >= (double)TIMEREL_SEC_MAX * 1000000000.0)
+			return timerel_max();
 		res.ts.tv_sec = nsec / 1000000000.0;
 		res.ts.tv_nsec = nsec - (res.ts.tv_sec * 1000000000.0);
 	} else {
@@ -82,7 +103,12 @@ struct timerel time_multiply(struct timerel t, unsigned long mult)
 		res.ts.tv_nsec = nsec % 1000000000;
 		res.ts.tv_sec = nsec / 1000000000;
 	}
-	res.ts.tv_sec += TIMEREL_CHECK(t).ts.tv_sec * mult;
+
+	/* The seconds multiply can overflow too: saturate. */
+	if (mult != 0
+	    && t.ts.tv_sec > (time_t)((TIMEREL_SEC_MAX - res.ts.tv_sec) / mult))
+		return timerel_max();
+	res.ts.tv_sec += t.ts.tv_sec * mult;
 	return TIMEREL_CHECK(res);
 }
 

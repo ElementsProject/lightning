@@ -34,11 +34,15 @@
 #include <string.h>
 #include <stdbool.h>
 
+/* Vendored glibc code uses GNU void * arithmetic. */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpointer-arith"
+
 /* glibc-internal type, mapped to ccan's equivalent. */
 typedef _total_order_cb __compar_d_fn_t;
 
 /* glibc-internal helpers, not available outside glibc. */
-static inline void *__mempcpy(void *dst, const void *src, size_t n)
+static inline void *asort_mempcpy(void *dst, const void *src, size_t n)
 {
   return (char *) memcpy (dst, src, n) + n;
 }
@@ -54,8 +58,8 @@ __memswap (void *__restrict p1, void *__restrict p2, size_t n)
   while (n > SWAP_GENERIC_SIZE)
     {
       memcpy (tmp, p1, SWAP_GENERIC_SIZE);
-      p1 = __mempcpy (p1, p2, SWAP_GENERIC_SIZE);
-      p2 = __mempcpy (p2, tmp, SWAP_GENERIC_SIZE);
+      p1 = asort_mempcpy (p1, p2, SWAP_GENERIC_SIZE);
+      p2 = asort_mempcpy (p2, tmp, SWAP_GENERIC_SIZE);
       n -= SWAP_GENERIC_SIZE;
     }
   while (n > 0)
@@ -316,13 +320,13 @@ msort_with_tmp (const struct msort_param *p, void *b, size_t n)
 	{
 	  if (cmp (b1, b2, arg) <= 0)
 	    {
-	      tmp = (char *) __mempcpy (tmp, b1, s);
+	      tmp = (char *) asort_mempcpy (tmp, b1, s);
 	      b1 += s;
 	      --n1;
 	    }
 	  else
 	    {
-	      tmp = (char *) __mempcpy (tmp, b2, s);
+	      tmp = (char *) asort_mempcpy (tmp, b2, s);
 	      b2 += s;
 	      --n2;
 	    }
@@ -451,5 +455,7 @@ _asort (void *const pbase, size_t total_elems, size_t size,
 	heapsort_r (pbase, total_elems - 1, size, cmp, arg);
     }
 }
+
+#pragma GCC diagnostic pop
 
 #endif /* !HAVE_QSORT_R_PRIVATE_LAST */

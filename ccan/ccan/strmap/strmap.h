@@ -5,6 +5,7 @@
 #include <ccan/typesafe_cb/typesafe_cb.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 /**
  * struct strmap - representation of a string map
@@ -203,6 +204,75 @@ void strmap_clear_(struct strmap *map);
 void strmap_iterate_(const struct strmap *map,
 		     bool (*handle)(const char *, void *, void *),
 		     const void *data);
+
+#ifndef STRMAP_NUM_ITER_PARENTS
+#define STRMAP_NUM_ITER_PARENTS 16
+#endif
+
+/**
+ * struct strmap_iter - state for strmap_iter_first/strmap_iter_next.
+ *
+ * This is exposed so you can declare it on the stack.  It holds up to
+ * STRMAP_NUM_ITER_PARENTS deferred subtrees; in trees deeper than
+ * that, iteration falls back to re-descending from the root (an
+ * O(depth) successor search per step), so memory use stays bounded
+ * for arbitrarily deep trees.
+ */
+struct strmap_iter {
+	struct strmap *parents[STRMAP_NUM_ITER_PARENTS];
+	uint16_t num_parents;
+	bool dropped;
+	bool slow_mode;
+};
+
+/**
+ * strmap_iter_first - begin an ordered iteration over a map.
+ * @it: the iterator to initialize.
+ * @map: the typed strmap to iterate.
+ * @valuep: a pointer to a value to fill in.
+ *
+ * Returns the first member, and sets *@valuep, or returns NULL if the
+ * map is empty.  You should not alter the map during iteration!
+ *
+ * Example:
+ *	static void dump_map_iter(const STRMAP(int *) *map)
+ *	{
+ *		struct strmap_iter it;
+ *		const char *m;
+ *		int *v;
+ *
+ *		for (m = strmap_iter_first(&it, map, &v);
+ *		     m;
+ *		     m = strmap_iter_next(&it, map, m, &v))
+ *			printf("%s=>%i\n", m, *v);
+ *	}
+ */
+#define strmap_iter_first(it, map, valuep)				\
+	strmap_iter_first_((it),					\
+			   tcon_unwrap(tcon_check_ptr((map), canary,	\
+						      (valuep))),	\
+			   (void *)(valuep))
+const char *strmap_iter_first_(struct strmap_iter *it,
+			       const struct strmap *map, void **valuep);
+
+/**
+ * strmap_iter_next - continue an ordered iteration.
+ * @it: the iterator, initialized by strmap_iter_first().
+ * @map: the typed strmap.
+ * @cur: the member the iteration is currently on.
+ * @valuep: a pointer to a value to fill in.
+ *
+ * Returns the next member, and sets *@valuep, or NULL at the end of
+ * the map.
+ */
+#define strmap_iter_next(it, map, cur, valuep)				\
+	strmap_iter_next_((it),						\
+			  tcon_unwrap(tcon_check_ptr((map), canary,	\
+						     (valuep))),	\
+			  (cur), (void *)(valuep))
+const char *strmap_iter_next_(struct strmap_iter *it,
+			      const struct strmap *map, const char *cur,
+			      void **valuep);
 
 /**
  * strmap_prefix - return a submap matching a prefix

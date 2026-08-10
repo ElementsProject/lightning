@@ -310,6 +310,18 @@ static bool handle_always(void)
 	return false;
 }
 
+/* Is there an always plan we can actually run right now? */
+static bool always_runnable(void)
+{
+	size_t i;
+
+	for (i = 0; i < num_always; i++) {
+		if (!num_exclusive || *exclusive(always[i]))
+			return true;
+	}
+	return false;
+}
+
 bool backend_set_exclusive(struct io_plan *plan, bool excl)
 {
 	bool *excl_ptr = exclusive(plan);
@@ -374,7 +386,7 @@ void *io_loop(struct timers *timers, struct timer **expired)
 {
 	void *ret;
 	/* This ensures we don't always service lower fds first */
-	static int fairness_counter;
+	static size_t fairness_counter;
 
 	/* if timers is NULL, expired must be.  If not, not. */
 	assert(!timers == !expired);
@@ -415,7 +427,7 @@ void *io_loop(struct timers *timers, struct timer **expired)
 		}
 
 		/* Don't wait if we have always requests pending! */
-		if (num_always != 0)
+		if (always_runnable())
 			ms_timeout = 0;
 
 		/* We do this temporarily, assuming exclusive is unusual */
