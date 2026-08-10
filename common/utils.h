@@ -139,6 +139,13 @@ bool utf8_check(const void *buf, size_t buflen);
 /* Check it's UTF-8, return copy (or same if TAKES), or NULL if not valid. */
 char *utf8_str(const tal_t *ctx, const u8 *buf TAKES, size_t buflen);
 
+/* Like utf8_check(), but also reject codepoints in Unicode general
+ * categories Cc/Cf/Co/Cn (control, format, private-use, unassigned) */
+bool utf8_check_text(const void *buf, size_t buflen);
+
+/* Like utf8_str(), but using utf8_check_text() instead of utf8_check(). */
+char *utf8_str_text(const tal_t *ctx, const u8 *buf TAKES, size_t buflen);
+
 /* Strdup, or pass through NULL */
 char *tal_strdup_or_null(const tal_t *ctx, const char *str);
 
