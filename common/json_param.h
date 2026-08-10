@@ -193,10 +193,23 @@ struct command_result *param_escaped_string(struct command *cmd,
 					    const jsmntok_t *tok,
 					    const char **str);
 
+
+struct command_result *param_escaped_utf8_string(struct command *cmd,
+						  const char *name,
+						  const char *buffer,
+						  const jsmntok_t *tok,
+						  const char **str);
+
 /* Extract a string */
 struct command_result *param_string(struct command *cmd, const char *name,
 				    const char * buffer, const jsmntok_t *tok,
 				    const char **str);
+
+/* Extract a string, and reject it if it contains characters banned
+ * from protocol text fields - see param_escaped_utf8_string() above!! */
+struct command_result *param_utf8_string(struct command *cmd, const char *name,
+					 const char * buffer, const jsmntok_t *tok,
+					 const char **str);
 
 struct str_or_arr
 {
