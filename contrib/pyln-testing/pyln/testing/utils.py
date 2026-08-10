@@ -14,7 +14,6 @@ from pyln.client import NodeVersion
 from pyln.client import Plugin
 from pyln.client.plugin import PluginLogHandler
 
-import ephemeral_port_reserve  # type: ignore
 import tempfile
 import errno
 import json
@@ -178,12 +177,96 @@ def get_tx_p2wsh_outnum(bitcoind, tx, amount):
 _PORT_LOCK_DIR = Path(tempfile.gettempdir()) / "pyln-testing-ports"
 _PORT_LOCK_DIR.mkdir(exist_ok=True)
 
+# If we never hand out this many ports, something is wrong with our
+# ephemeral-range detection, and allocating from the OS range is a risky
+# fallback we'd rather fail loudly about.
+_MIN_RESERVED_PORTS = 2048
+
+
+def ephemeral_port_range():
+    """Return the (lo, hi) of the OS ephemeral source-port range, or None.
+
+    The kernel only ever assigns *source* ports from this range, so a listen
+    socket bound to a port *outside* it can never collide with an active
+    OS-assigned connection.  Linux/BSD expose it via /proc; macOS via sysctl.
+    """
+    try:
+        with open('/proc/sys/net/ipv4/ip_local_port_range') as f:
+            lo, hi = (int(x) for x in f.read().split())
+            return lo, hi
+    except OSError:
+        pass
+    try:
+        import subprocess
+        lo = int(subprocess.check_output(
+            ['sysctl', '-n', 'net.inet.ip.portrange.first']).strip())
+        hi = int(subprocess.check_output(
+            ['sysctl', '-n', 'net.inet.ip.portrange.last']).strip())
+        return lo, hi
+    except Exception:
+        # Unknown platform: assume the Linux default.
+        return None
+
+
+def _reserved_port_pool():
+    """Return (lo, hi) of the port range we may bind.
+
+    We prefer the region strictly below the OS ephemeral floor (which is never
+    used for source ports, so a test's listen port cannot be stolen by a
+    *binding* foreign process either, except a deliberate one).  If a machine
+    runs with a very low ephemeral floor we fall back to above the ceiling,
+    and finally to the ephemeral range itself as a best effort.
+    """
+    rng = ephemeral_port_range()
+    if rng is None:
+        lo, hi = 32768, 60999
+    else:
+        lo, hi = rng
+
+    if lo > 1024 and lo - 1024 >= _MIN_RESERVED_PORTS:
+        return 1024, lo - 1
+    if hi < 65535 and 65535 - hi >= _MIN_RESERVED_PORTS:
+        return hi + 1, 65535
+    # No room anywhere else: e.g. an ephemeral range covering everything.
+    return lo, hi
+
+
+def _port_is_free(port):
+    """Return True if 127.0.0.1:port can be bound right now.
+
+    This is an actual bind() test (like the old ephemeral_port_reserve), so we
+    never hand out a port that is genuinely claimed *right now*, as opposed to
+    merely reserved via lockfile.  We use SO_REUSEADDR to match the daemons, so
+    a lingering TIME_WAIT socket doesn't count as "in use".
+    """
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    try:
+        s.bind(('127.0.0.1', port))
+        return True
+    except OSError as e:
+        if e.errno != errno.EADDRINUSE:
+            raise
+        return False
+    finally:
+        s.close()
+
 
 def reserve_unused_port():
-    """Get an unused port: avoids handing out the same port unless it's been
-    returned"""
+    """Get an unused port from the non-ephemeral pool.
+
+    We test-bind the candidate so a port claimed by anything at all right now
+    is skipped, then take the filesystem lock so our *own* workers never pick
+    the same genuinely free port concurrently.  Note the lockfile only
+    coordinates our own allocations: the real protection against the OS
+    stealing a port via source-port assignment is that the pool lies outside
+    the ephemeral source-port range.
+    """
+    pool_lo, pool_hi = _reserved_port_pool()
     while True:
-        port = ephemeral_port_reserve.reserve()
+        port = random.randint(pool_lo, pool_hi)
+        if not _port_is_free(port):
+            continue
 
         lock_path = _PORT_LOCK_DIR / f"{port}.lock"
         try:
@@ -227,23 +310,11 @@ def wait_for_port_released(port, timeout=TIMEOUT):
     connectd fail with 'Address already in use'.
     """
     start_time = time.time()
-    while True:
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        # Match connectd's SO_REUSEADDR, so sockets lingering in
-        # TIME_WAIT don't count as "still in use".
-        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        try:
-            s.bind(('127.0.0.1', port))
-            break
-        except OSError as e:
-            if e.errno != errno.EADDRINUSE:
-                raise
-            if time.time() - start_time > timeout:
-                raise TimeoutError(
-                    "Port {} was not released within {} seconds"
-                    .format(port, timeout))
-        finally:
-            s.close()
+    while not _port_is_free(port):
+        if time.time() - start_time > timeout:
+            raise TimeoutError(
+                "Port {} was not released within {} seconds"
+                .format(port, timeout))
         time.sleep(0.1)
 
     waited = time.time() - start_time
@@ -564,6 +635,8 @@ class BitcoinD(TailableProc):
 
         self.cleanup_files()
         drop_unused_port(self.rpcport)
+        for p in self.proxies:
+            drop_unused_port(p.rpcport)
 
     def start(self, wallet_file=None):
         if not self.port_setup:
@@ -594,7 +667,7 @@ class BitcoinD(TailableProc):
         return TailableProc.stop(self)
 
     def get_proxy(self):
-        proxy = BitcoinRpcProxy(self)
+        proxy = BitcoinRpcProxy(self, rpcport=reserve_unused_port())
         self.proxies.append(proxy)
         proxy.start()
         return proxy
