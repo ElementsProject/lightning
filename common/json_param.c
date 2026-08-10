@@ -463,7 +463,7 @@ struct command_result *param_escaped_utf8_string(struct command *cmd,
 	if (ret)
 		return ret;
 
-	if (!utf8_check(*str, strlen(*str)))
+	if (!utf8_check_text(*str, strlen(*str)))
 		return command_fail_badparam(cmd, name, buffer, tok,
 					     "should not contain control, format, private-use or unassigned Unicode characters");
 	return NULL;
@@ -486,7 +486,7 @@ struct command_result *param_utf8_string(struct command *cmd, const char *name,
 	if (ret)
 		return ret;
 
-	if (!utf8_check(*str, strlen(*str)))
+	if (!utf8_check_text(*str, strlen(*str)))
 		return command_fail_badparam(cmd, name, buffer, tok,
 					     "should not contain control, format, private-use or unassigned Unicode characters");
 	return NULL;
