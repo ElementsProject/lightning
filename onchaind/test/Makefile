@@ -22,6 +22,7 @@ onchaind/test/run-grind_feerate-bug:		\
 	common/psbt_keypath.o			\
 	common/pseudorand.o			\
 	common/setup.o				\
+	common/unicode_category.o		\
 	common/utils.o
 
 # Test objects depend on ../ src and headers.
