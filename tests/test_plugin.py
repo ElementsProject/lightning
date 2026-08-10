@@ -2700,7 +2700,7 @@ def test_important_plugin(node_factory):
     l1 = node_factory.get_node(options={"important-plugin": os.path.join(pluginsdir, "nonexistent")},
                                may_fail=True, expect_fail=True,
                                # Other plugins can complain as lightningd stops suddenly:
-                               broken_log='Plugin marked as important, shutting down lightningd|Reading sync lightningd: Connection reset by peer|Lost connection to the RPC socket|Plugin terminated before replying to RPC call|plugin-cln-xpay: askrene-create-layer failed with.*Unknown command',
+                               broken_log='Plugin marked as important, shutting down lightningd|Reading sync lightningd: Connection reset by peer|Reading sync lightningd: Bad file descriptor|Lost connection to the RPC socket|Plugin terminated before replying to RPC call|plugin-cln-xpay: askrene-create-layer failed with.*Unknown command',
                                start=False)
 
     l1.daemon.start(wait_for_initialized=False, stderr_redir=True)
