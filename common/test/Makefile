@@ -8,6 +8,7 @@ COMMON_TEST_COMMON_OBJS :=				\
 	common/randbytes.o				\
 	common/clock_time.o				\
 	common/setup.o					\
+	common/unicode_category.o			\
 	common/utils.o
 
 $(COMMON_TEST_PROGRAMS): $(COMMON_TEST_COMMON_OBJS) $(BITCOIN_OBJS)
