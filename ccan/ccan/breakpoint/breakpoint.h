@@ -10,13 +10,20 @@
 void breakpoint_init(void) COLD;
 extern bool breakpoint_initialized;
 extern bool breakpoint_under_debug;
+extern pid_t breakpoint_pid;
 
 /**
  * breakpoint - stop if running under the debugger.
+ *
+ * The first call detects the debugger via a SIGTRAP probe.  This is
+ * not thread-safe: either call breakpoint_init() explicitly at
+ * program start (before creating threads), or don't let first use
+ * race.
  */
 static inline void breakpoint(void)
 {
-	if (!breakpoint_initialized)
+	/* Detection state doesn't carry across fork(). */
+	if (!breakpoint_initialized || breakpoint_pid != getpid())
 		breakpoint_init();
 	if (breakpoint_under_debug)
 		kill(getpid(), SIGTRAP);

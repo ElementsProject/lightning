@@ -86,6 +86,12 @@ void htable_init(struct htable *ht,
 	ht->table = &ht->common_bits;
 }
 
+/* Number of buckets in the table. */
+static inline size_t ht_size(const struct htable *ht)
+{
+	return (size_t)1 << ht->bits;
+}
+
 /* Fill to 87.5% */
 static inline size_t ht_max(const struct htable *ht)
 {
@@ -95,7 +101,7 @@ static inline size_t ht_max(const struct htable *ht)
 /* Clean deleted if we're full, and more than 12.5% deleted */
 static inline size_t ht_max_deleted(const struct htable *ht)
 {
-	return ((size_t)1 << ht->bits) / 8;
+	return ht_size(ht) / 8;
 }
 
 bool htable_init_sized(struct htable *ht,
@@ -108,11 +114,15 @@ bool htable_init_sized(struct htable *ht,
 	for (ht->bits = 1; ht_max(ht) < expect; ht->bits++) {
 		if (ht->bits == 30)
 			break;
+		/* Stop before the allocation size wraps (eg. 32-bit). */
+		if ((sizeof(size_t) << (ht->bits + 1)) == 0)
+			break;
 	}
 
 	ht->table = htable_alloc(ht, sizeof(size_t) << ht->bits);
 	if (!ht->table) {
 		ht->table = &ht->common_bits;
+		ht->bits = 0;
 		return false;
 	}
 	(void)htable_debug(ht, HTABLE_LOC);
@@ -153,7 +163,7 @@ void htable_unlock(struct htable *ht)
 
 static size_t hash_bucket(const struct htable *ht, size_t h)
 {
-	return h & ((1 << ht->bits)-1);
+	return h & (ht_size(ht)-1);
 }
 
 static void *htable_val(const struct htable *ht,
@@ -166,7 +176,7 @@ static void *htable_val(const struct htable *ht,
 			if (get_extra_ptr_bits(ht, ht->table[i->off]) == h2)
 				return get_raw_ptr(ht, ht->table[i->off]);
 		}
-		i->off = (i->off + 1) & ((1 << ht->bits)-1);
+		i->off = (i->off + 1) & (ht_size(ht)-1);
 		h2 &= ~perfect;
 	}
 	return NULL;
@@ -182,13 +192,13 @@ void *htable_firstval_(const struct htable *ht,
 void *htable_nextval_(const struct htable *ht,
 		      struct htable_iter *i, size_t hash)
 {
-	i->off = (i->off + 1) & ((1 << ht->bits)-1);
+	i->off = (i->off + 1) & (ht_size(ht)-1);
 	return htable_val(ht, i, hash, 0);
 }
 
 void *htable_first_(const struct htable *ht, struct htable_iter *i)
 {
-	for (i->off = 0; i->off < (size_t)1 << ht->bits; i->off++) {
+	for (i->off = 0; i->off < ht_size(ht); i->off++) {
 		if (entry_is_valid(ht->table[i->off]))
 			return get_raw_ptr(ht, ht->table[i->off]);
 	}
@@ -197,7 +207,7 @@ void *htable_first_(const struct htable *ht, struct htable_iter *i)
 
 void *htable_next_(const struct htable *ht, struct htable_iter *i)
 {
-	for (i->off++; i->off < (size_t)1 << ht->bits; i->off++) {
+	for (i->off++; i->off < ht_size(ht); i->off++) {
 		if (entry_is_valid(ht->table[i->off]))
 			return get_raw_ptr(ht, ht->table[i->off]);
 	}
@@ -243,7 +253,7 @@ static COLD void fixup_table_common(struct htable *ht, uintptr_t maskdiff)
 again:
 	bitsdiff = ht->common_bits & maskdiff;
 
-	for (i = 0; i < (size_t)1 << ht->bits; i++) {
+	for (i = 0; i < ht_size(ht); i++) {
 		uintptr_t e;
 		if (!entry_is_valid(e = ht->table[i]))
 			continue;
@@ -296,7 +306,7 @@ static void ht_add(struct htable *ht, const void *new, size_t h)
 
 	while (entry_is_valid(ht->table[i])) {
 		perfect = 0;
-		i = (i + 1) & ((1 << ht->bits)-1);
+		i = (i + 1) & (ht_size(ht)-1);
 	}
 	ht->table[i] = make_hval(ht, new, get_hash_ptr_bits(ht, h)|perfect);
 	if (!entry_is_valid(ht->table[i]))
@@ -306,11 +316,16 @@ static void ht_add(struct htable *ht, const void *new, size_t h)
 static COLD bool double_table(struct htable *ht)
 {
 	unsigned int i;
-	size_t oldnum = (size_t)1 << ht->bits;
+	size_t oldnum = ht_size(ht);
+	size_t newsize = sizeof(size_t) << (ht->bits+1);
 	uintptr_t *oldtable, e;
 
+	/* 32-bit: doubling can wrap the allocation size to 0. */
+	if (newsize == 0)
+		return false;
+
 	oldtable = ht->table;
-	ht->table = htable_alloc(ht, sizeof(size_t) << (ht->bits+1));
+	ht->table = htable_alloc(ht, newsize);
 	if (!ht->table) {
 		ht->table = oldtable;
 		return false;
@@ -350,8 +365,8 @@ static COLD void rehash_table(struct htable *ht)
 	/* Beware wrap cases: we need to start from first empty bucket. */
 	for (start = 0; ht->table[start]; start++);
 
-	for (i = 0; i < (size_t)1 << ht->bits; i++) {
-		size_t h = (i + start) & ((1 << ht->bits)-1);
+	for (i = 0; i < ht_size(ht); i++) {
+		size_t h = (i + start) & (ht_size(ht)-1);
 		e = ht->table[h];
 		if (!e)
 			continue;
@@ -427,7 +442,7 @@ bool htable_del_(struct htable *ht, size_t h, const void *p)
 
 void htable_delval_(struct htable *ht, struct htable_iter *i)
 {
-	assert(i->off < (size_t)1 << ht->bits);
+	assert(i->off < ht_size(ht));
 	assert(entry_is_valid(ht->table[i->off]));
 
 	ht->elems--;
@@ -446,7 +461,7 @@ void *htable_pick_(const struct htable *ht, size_t seed, struct htable_iter *i)
 
 	if (!i)
 		i = &unwanted;
-	i->off = seed % ((size_t)1 << ht->bits);
+	i->off = seed % ht_size(ht);
 	e = htable_next(ht, i);
 	if (!e)
 		e = htable_first(ht, i);

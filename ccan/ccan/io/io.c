@@ -33,6 +33,11 @@ struct io_listener *io_new_listener_(const tal_t *ctx, int fd,
 	l->ctx = ctx;
 	if (!add_listener(l))
 		return tal_free(l);
+
+	/* Keep accept() async: a connection which vanishes between
+	 * poll() and accept() (eg. peer RST) must not block the loop. */
+	io_fd_block(fd, false);
+
 	return l;
 }
 
