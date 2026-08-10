@@ -75,6 +75,7 @@
 #else
 #define CONST_FUNCTION
 #endif
+#endif
 
 #ifndef PURE_FUNCTION
 #if HAVE_ATTRIBUTE_PURE
@@ -87,7 +88,6 @@
 #define PURE_FUNCTION __attribute__((__pure__))
 #else
 #define PURE_FUNCTION
-#endif
 #endif
 #endif
 
@@ -199,7 +199,7 @@
  *	// Use inline if compiler knows answer.  Otherwise call function
  *	// to avoid copies of the same code everywhere.
  *	#define greek_name(g)						\
- *		 (IS_COMPILE_CONSTANT(greek) ? _greek_name(g) : greek_name(g))
+ *		 (IS_COMPILE_CONSTANT(g) ? _greek_name(g) : greek_name(g))
  */
 #define IS_COMPILE_CONSTANT(expr) __builtin_constant_p(expr)
 #else
@@ -230,6 +230,7 @@
 #endif
 
 
+#ifndef WARN_DEPRECATED
 #if HAVE_ATTRIBUTE_DEPRECATED
 /**
  * WARN_DEPRECATED - warn that a function/type/variable is deprecated when used.
@@ -243,8 +244,9 @@
 #else
 #define WARN_DEPRECATED
 #endif
+#endif
 
-
+#ifndef NO_NULL_ARGS
 #if HAVE_ATTRIBUTE_NONNULL
 /**
  * NO_NULL_ARGS - specify that no arguments to this function can be NULL.
@@ -255,7 +257,13 @@
  * NO_NULL_ARGS char *my_copy(char *buf);
  */
 #define NO_NULL_ARGS __attribute__((__nonnull__))
+#else
+#define NO_NULL_ARGS
+#endif
+#endif
 
+#ifndef NON_NULL_ARGS
+#if HAVE_ATTRIBUTE_NONNULL
 /**
  * NON_NULL_ARGS - specify that some arguments to this function can't be NULL.
  * @...: 1-based argument numbers for which args can't be NULL.
@@ -267,10 +275,11 @@
  */
 #define NON_NULL_ARGS(...) __attribute__((__nonnull__(__VA_ARGS__)))
 #else
-#define NO_NULL_ARGS
 #define NON_NULL_ARGS(...)
 #endif
+#endif
 
+#ifndef RETURNS_NONNULL
 #if HAVE_ATTRIBUTE_RETURNS_NONNULL
 /**
  * RETURNS_NONNULL - specify that this function cannot return NULL.
@@ -284,7 +293,9 @@
 #else
 #define RETURNS_NONNULL
 #endif
+#endif
 
+#ifndef LAST_ARG_NULL
 #if HAVE_ATTRIBUTE_SENTINEL
 /**
  * LAST_ARG_NULL - specify the last argument of a variadic function must be NULL.
@@ -298,7 +309,9 @@
 #else
 #define LAST_ARG_NULL
 #endif
+#endif
 
+#ifndef cpu_supports
 #if HAVE_BUILTIN_CPU_SUPPORTS
 /**
  * cpu_supports - test if current CPU supports the named feature.
@@ -313,5 +326,6 @@
 #else
 #define cpu_supports(x) 0
 #endif /* HAVE_BUILTIN_CPU_SUPPORTS */
+#endif
 
 #endif /* CCAN_COMPILER_H */

@@ -10,7 +10,7 @@ void _callback(void (*fn)(void *arg), void *arg)
 /* Callback is set up to warn if arg isn't a pointer (since it won't
  * pass cleanly to _callback's second arg. */
 #define callback(fn, arg)						\
-	_callback(typesafe_cb(void, (fn), (arg)), (arg))
+	_callback(typesafe_cb(void, void *, (fn), (arg)), (arg))
 
 void my_callback(int something);
 void my_callback(int something)
@@ -23,6 +23,9 @@ int main(void)
 #ifdef FAIL
 	/* This fails due to arg, not due to cast. */
 	callback(my_callback, 100);
+#if !HAVE_TYPEOF||!HAVE_BUILTIN_CHOOSE_EXPR||!HAVE_BUILTIN_TYPES_COMPATIBLE_P
+#error "Unfortunately we don't fail if typesafe_cb is a noop."
+#endif
 #endif
 	return 0;
 }

@@ -4,6 +4,7 @@
 #include <errno.h>
 #include <string.h>
 #include <sys/types.h>
+#include <unistd.h>
 
 bool fdpass_send(int sockout, int fd)
 {
@@ -71,11 +72,24 @@ int fdpass_recv(int sockin)
 		return -1;
 
 	cmsg = CMSG_FIRSTHDR(&msg);
-        if (!cmsg
-	    || cmsg->cmsg_len != CMSG_LEN(sizeof(fd))
+	if (!cmsg
 	    || cmsg->cmsg_level != SOL_SOCKET
 	    || cmsg->cmsg_type != SCM_RIGHTS) {
-		errno = -EINVAL;
+		errno = EINVAL;
+		return -1;
+	}
+
+	if (cmsg->cmsg_len != CMSG_LEN(sizeof(fd))) {
+		/* The kernel already installed any fds the message
+		 * carried; don't leak them. */
+		if (cmsg->cmsg_len >= CMSG_LEN(0)
+		    && cmsg->cmsg_len <= msg.msg_controllen) {
+			int *fds = (int *)CMSG_DATA(cmsg);
+			size_t i, nfds = (cmsg->cmsg_len - CMSG_LEN(0)) / sizeof(int);
+			for (i = 0; i < nfds; i++)
+				close(fds[i]);
+		}
+		errno = EINVAL;
 		return -1;
 	}
 

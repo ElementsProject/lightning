@@ -219,6 +219,9 @@ static inline bool memends_str(const void *a, size_t al, const char *s)
  * @al: length of first memory range
  * @b: pointer to second memory range
  * @al: length of second memory range
+ *
+ * Note that a zero-length range counts as overlapping any range that
+ * straddles its address.
  */
 CONST_FUNCTION
 static inline bool memoverlaps(const void *a_, size_t al,

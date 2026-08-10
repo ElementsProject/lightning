@@ -62,8 +62,14 @@ void *rbuf_fill_all(struct rbuf *rbuf)
 void *rbuf_fill(struct rbuf *rbuf)
 {
 	if (!rbuf_len(rbuf)) {
-		if (get_more(rbuf) < 0)
+		ssize_t r = get_more(rbuf);
+		if (r < 0)
 			return NULL;
+		/* EOF: documented NULL with errno 0. */
+		if (r == 0) {
+			errno = 0;
+			return NULL;
+		}
 	}
 	return rbuf_start(rbuf);
 }

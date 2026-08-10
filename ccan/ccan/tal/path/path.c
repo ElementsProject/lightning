@@ -321,7 +321,8 @@ fail_take_to:
 			break;
 		}
 
-		if (!tal_resize(&ret, maxlen *= 2 + 1))
+		maxlen = maxlen * 2 + 1;
+		if (!tal_resize(&ret, maxlen))
 			goto fail;
 	}
 
@@ -393,8 +394,12 @@ char *path_simplify(const tal_t *ctx, const char *path)
 						j = sep - ret + 1;
 					else
 						j = 0;
+					continue;
 				}
-				continue;
+				/* Symlink or nonexistent: can't safely step
+				 * back, so keep the ".." literally. */
+				ret[j-1] = PATH_SEP;
+				goto copy;
 			} else if (start) {
 				/* /.. => / */
 				j = 1;
@@ -436,20 +441,27 @@ char *path_basename(const tal_t *ctx, const char *path)
 
 	/* Trailing slashes need to be trimmed. */
 	if (!sep[1]) {
-		const char *end;
+		size_t end, sep_off;
 
-		for (end = sep; end != path; end--)
-			if (*end != PATH_SEP)
+		for (end = sep - path; end != 0; end--)
+			if (path[end] != PATH_SEP)
 				break;
 
-		/* Find *previous* / */
-		for (sep = end; sep >= path && *sep != PATH_SEP; sep--);
+		/* Find *previous* / ((size_t)-1 if there is none) */
+		for (sep_off = end; ; sep_off--) {
+			if (path[sep_off] == PATH_SEP)
+				break;
+			if (sep_off == 0) {
+				sep_off = (size_t)-1;
+				break;
+			}
+		}
 
 		/* All /?  Just return / */
-		if (end == sep)
+		if (end == sep_off)
 			ret = tal_strdup(ctx, PATH_SEP_STR);
 		else
-			ret = tal_strndup(ctx, sep+1, end - sep);
+			ret = tal_strndup(ctx, path + (sep_off + 1), end - sep_off);
 	} else
 		ret = tal_strdup(ctx, sep + 1);
 
