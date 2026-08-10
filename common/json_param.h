@@ -193,7 +193,9 @@ struct command_result *param_escaped_string(struct command *cmd,
 					    const jsmntok_t *tok,
 					    const char **str);
 
-
+/* Extract an escaped string (and unescape it), and reject it if it
+ * contains characters banned from protocol text fields - see
+ * param_utf8_string() below. */
 struct command_result *param_escaped_utf8_string(struct command *cmd,
 						  const char *name,
 						  const char *buffer,
