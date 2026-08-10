@@ -1,5 +1,6 @@
 #include "config.h"
 #include <assert.h>
+#include <ccan/array_size/array_size.h>
 #include <common/amount.h>
 #include <common/pseudorand.h>
 #include <common/setup.h>
@@ -106,6 +107,7 @@ void towire_u8_array(u8 **pptr UNNEEDED, const u8 *arr UNNEEDED, size_t num UNNE
 static void test_valid(void)
 {
 	assert(utf8_check("hello world", strlen("hello world")));
+	assert(utf8_check_text("hello world", strlen("hello world")));
 
 	{
 		static const u8 nansensu[] = {
@@ -113,32 +115,50 @@ static void test_valid(void)
 			0xbb, 0xe3, 0x83, 0xb3, 0xe3, 0x82, 0xb9
 		};
 		assert(utf8_check(nansensu, sizeof(nansensu)));
+		assert(utf8_check_text(nansensu, sizeof(nansensu)));
 	}
 
 	assert(utf8_check("", 0));
+	assert(utf8_check_text("", 0));
 }
 
-static void test_banned(void)
+/* NUL, surrogates and overlong encodings are rejected by ccan/utf8
+ * itself (utf8_decode()), regardless of category filtering - even
+ * plain utf8_check() rejects those */
+static void test_encoding_banned(void)
 {
 	static const u8 embedded_nul[] = { 'a', 0x00, 'b' };
 	assert(!utf8_check(embedded_nul, sizeof(embedded_nul)));
+	assert(!utf8_check_text(embedded_nul, sizeof(embedded_nul)));
+}
 
-	assert(!utf8_check("a\tb", 3));
-
+/* Codepoints in Unicode categories Cc/Cf/Co/Cn are valid UTF-8
+ * encoding (plain utf8_check() accepts them - it's used for general
+ * JSON-RPC input, datastore, which shouldn't be restricted this
+ * way), but utf8_check_text() must reject them for protocol text
+ * fields */
+static void test_text_banned(void)
+{
+	static const u8 tab[] = { 'a', '\t', 'b' };
 	static const u8 del[] = { 'a', 0x7f, 'b' };
-	assert(!utf8_check(del, sizeof(del)));
-
 	static const u8 c1_control[] = { 'a', 0xc2, 0x85, 'b' };
-	assert(!utf8_check(c1_control, sizeof(c1_control)));
-
 	static const u8 rtl_override[] = { 'a', 0xe2, 0x80, 0xae, 'b' };
-	assert(!utf8_check(rtl_override, sizeof(rtl_override)));
-
 	static const u8 private_use[] = { 'a', 0xee, 0x80, 0x80, 'b' };
-	assert(!utf8_check(private_use, sizeof(private_use)));
-
 	static const u8 unassigned[] = { 'a', 0xcd, 0xb8, 'b' };
-	assert(!utf8_check(unassigned, sizeof(unassigned)));
+	static const u8 *cases[] = {
+		tab, del, c1_control, rtl_override, private_use, unassigned
+	};
+	static const size_t lens[] = {
+		sizeof(tab), sizeof(del), sizeof(c1_control),
+		sizeof(rtl_override), sizeof(private_use), sizeof(unassigned)
+	};
+
+	for (size_t i = 0; i < ARRAY_SIZE(cases); i++) {
+		/* Plain utf8_check() stays permissive - valid encoding */
+		assert(utf8_check(cases[i], lens[i]));
+		/* utf8_check_text() rejects the banned category */
+		assert(!utf8_check_text(cases[i], lens[i]));
+	}
 }
 
 int main(int argc, char *argv[])
@@ -146,7 +166,8 @@ int main(int argc, char *argv[])
 	common_setup(argv[0]);
 
 	test_valid();
-	test_banned();
+	test_encoding_banned();
+	test_text_banned();
 
 	common_shutdown();
 }
