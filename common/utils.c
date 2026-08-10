@@ -7,6 +7,7 @@
 #include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/utf8/utf8.h>
+#include <common/unicode_category.h>
 #include <common/utils.h>
 #include <errno.h>
 #include <locale.h>
@@ -194,6 +195,8 @@ bool utf8_check(const void *vbuf, size_t buflen)
 		}
 		need_more = false;
 		if (errno != 0)
+			return false;
+		if (unicode_is_banned_codepoint(utf8_state.c))
 			return false;
 	}
 	return !need_more;
