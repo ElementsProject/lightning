@@ -236,7 +236,7 @@ usage()
     set_defaults
     DEFAULT_COPTFLAGS="$(default_coptflags $DEBUGBUILD)"
     # We assume we have a modern gcc.
-    DEFAULT_CWARNFLAGS="$(default_cwarnflags ""$DEFAULT_COPTFLAGS"" 1 1 ""$DEBUGBUILD"")"
+    DEFAULT_CWARNFLAGS="$(default_cwarnflags "$DEFAULT_COPTFLAGS" 1 1 "$DEBUGBUILD")"
     usage_with_default "CC" "$CC"
     usage_with_default "CWARNFLAGS" "$DEFAULT_CWARNFLAGS"
     usage_with_default "COPTFLAGS" "$DEFAULT_COPTFLAGS"
