@@ -208,6 +208,9 @@ struct channel {
 	/* Watch we have on funding output. */
 	struct txowatch *funding_spend_watch;
 
+	/* Watch we have on inflights. */
+	struct txowatch **inflight_spend_watches;
+
 	/* If we're doing a replay for onchaind, here are the txids it's watching */
 	struct replay_tx_hash *onchaind_replay_watches;
 	/* Number of outstanding onchaind_spent calls */

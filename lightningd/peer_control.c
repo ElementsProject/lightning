@@ -2610,6 +2610,21 @@ void channel_watch_funding_out(struct lightningd *ld, struct channel *channel)
 						 funding_spent);
 }
 
+void channel_watch_inflight_outs(struct lightningd *ld, struct channel *channel)
+{
+	struct channel_inflight *inflight;
+
+	tal_free(channel->inflight_spend_watches);
+	channel->inflight_spend_watches = tal_arr(channel, struct txowatch*, 0);
+
+	list_for_each(&channel->inflights, inflight, list)
+		tal_arr_expand(&channel->inflight_spend_watches,
+			       watch_txo(channel->inflight_spend_watches,
+			       		 ld->topology, channel,
+					 &inflight->funding->outpoint,
+					 funding_spent));
+}
+
 void channel_watch_funding(struct lightningd *ld, struct channel *channel)
 {
 	log_debug(channel->log, "Watching for funding txid: %s",
@@ -2974,6 +2989,8 @@ static void setup_peer(struct peer *peer)
 			connect = true;
 		if (channel_important_filter(channel, NULL))
 			important = true;
+
+		channel_watch_inflight_outs(ld, channel);
 	}
 
 	/* Make sure connectd knows to try reconnecting (unless

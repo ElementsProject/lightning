@@ -455,6 +455,7 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 
 	/* Watch for funding confirms */
 	channel_watch_funding(ld, channel);
+	channel_watch_inflight_outs(ld, channel);
 
 	if (pbase)
 		wallet_penalty_base_add(ld->wallet, channel->dbid, pbase);
@@ -572,6 +573,7 @@ static void opening_fundee_finished(struct subd *openingd,
 				 &channel->funding.txid));
 
 	channel_watch_funding(ld, channel);
+	channel_watch_inflight_outs(ld, channel);
 
 	/* Tell plugins about the success */
 	notify_channel_opened(ld, &channel->peer->id, &channel->funding_sats,
@@ -1778,6 +1780,7 @@ static struct command_result *json_recoverchannel(struct command *cmd,
 
 		/* Watch the Funding */
 		channel_watch_funding(ld, channel);
+		channel_watch_inflight_outs(ld, channel);
 
 		json_add_channel_id(response, NULL, &scb_chan->cid);
 	}

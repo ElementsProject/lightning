@@ -941,6 +941,8 @@ static void handle_add_inflight(struct lightningd *ld,
 
 	wallet_inflight_add(ld->wallet, inflight);
 
+	channel_watch_inflight_outs(ld, channel);
+
 	subd_send_msg(channel->owner, take(towire_channeld_got_inflight(NULL)));
 }
 
@@ -1004,6 +1006,8 @@ static void handle_update_inflight(struct lightningd *ld,
 
 	psbt_finalize(inflight->funding_psbt);
 	wallet_inflight_save(ld->wallet, inflight);
+
+	channel_watch_inflight_outs(ld, channel);
 }
 
 static void channel_record_splice(struct channel *channel,
