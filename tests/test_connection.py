@@ -23,7 +23,9 @@ import time
 import unittest
 import websocket
 import signal
+import socket
 import ssl
+import threading
 
 
 def test_connect_basic(node_factory):
@@ -4918,3 +4920,85 @@ def test_constant_packet_size(node_factory, tcp_capture):
 
     # Padding pings don't elicit a response
     assert not l2.daemon.is_in_log("connectd: Unexpected pong")
+
+
+@pytest.mark.xfail(strict=True)
+def test_connect_proxy_maxlen_hostname(node_factory):
+    """A maximum-length hostname must produce a well-formed SOCKS5 request.
+
+    The request is assembled in a fixed buffer, and the hostname was copied
+    into it without checking that it fit, which overran the buffer and
+    corrupted the adjacent length field.  That length was then used for the
+    write, so the proxy got a wildly oversized read of connectd's memory
+    instead of the request (and connectd died on the way).
+
+    A gossiped DNS address reaches the same builder, so this covers that
+    path too.
+    """
+    # A minimal SOCKS5 server: accept the "no authentication" greeting,
+    # then collect whatever request connectd sends us.
+    received = []
+    listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    listener.bind(('127.0.0.1', 0))
+    listener.listen(1)
+    proxyport = listener.getsockname()[1]
+
+    def serve():
+        data = b''
+        conn, _ = listener.accept()
+        with conn:
+            try:
+                conn.settimeout(TIMEOUT)
+                conn.recv(len(b'\x05\x01\x00'))
+                conn.sendall(b'\x05\x00')
+                # Deliberately ask for far more than the largest legal
+                # request (262 bytes), so an oversized write is visible
+                # here rather than silently truncated by us.  We stop on the
+                # timeout, once connectd has finished writing and is waiting
+                # for a reply we're never going to send.
+                conn.settimeout(2)
+                while len(data) < 65536:
+                    more = conn.recv(65536)
+                    if not more:
+                        break
+                    data += more
+            except OSError:
+                pass
+        received.append(data)
+
+    server = threading.Thread(target=serve, daemon=True)
+    server.start()
+
+    l1 = node_factory.get_node(options={'proxy': '127.0.0.1:{}'.format(proxyport),
+                                        'always-use-proxy': 'true'},
+                               # Without the fix connectd dies here, and we
+                               # want that to be a test failure rather than
+                               # a teardown error.
+                               may_fail=True, broken_log='.*')
+
+    # unresolved.name[256] is what limits us: 255 is the longest we can ask for.
+    hostname = 'a' * (255 - len('.example.com')) + '.example.com'
+    assert len(hostname) == 255
+
+    # There's nothing on the far side of the proxy, so this fails: it just
+    # must not take connectd down with it.
+    # Any valid pubkey will do: we never get far enough to talk to it.
+    nodeid = '0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798'
+    with pytest.raises(RpcError, match="All addresses failed"):
+        l1.rpc.connect(nodeid, hostname, 1234)
+
+    server.join(TIMEOUT)
+    listener.close()
+
+    # connectd is still there, and so is the node.
+    assert not l1.daemon.is_in_log('FATAL SIGNAL')
+    l1.rpc.getinfo()
+
+    # And the proxy got exactly the request it should have: version, CONNECT,
+    # reserved, "domain name", length, the name itself, then the port.
+    request = only_one(received)
+    assert request == (b'\x05\x01\x00\x03'
+                       + bytes([len(hostname)])
+                       + hostname.encode('ascii')
+                       + (1234).to_bytes(2, 'big'))
