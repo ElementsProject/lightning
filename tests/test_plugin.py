@@ -5827,6 +5827,11 @@ def test_bwatch_spk_watch_reorg_demotes_outputs(node_factory, bitcoind):
             == [{'blockheight': deposit_height}])
     assert l1.db_query('SELECT COUNT(*) AS c FROM outputs')[0]['c'] == 1
 
+    # bwatch must have observed the deposit block before we reorg it away:
+    # if it's height-based fetch grabs the replacement block instead, it never
+    # sees a reorg.
+    l1.daemon.wait_for_log(rf'Added block {deposit_height} to history', timeout=60)
+
     # Reorg the deposit block away.  Deprioritize the returned mempool tx
     # (same trick as simple_reorg) so the replacement blocks don't just
     # re-confirm it.
