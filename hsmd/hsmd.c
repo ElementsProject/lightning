@@ -102,31 +102,15 @@ static bool is_lightningd(const struct client *client)
 /* Pre-declare this, due to mutual recursion */
 static struct io_plan *handle_client(struct io_conn *conn, struct client *c);
 
-/*~ ccan/compiler.h defines PRINTF_FMT as the gcc compiler hint so it will
- * check that fmt and other trailing arguments really are the correct type.
+/*~ Tell lightningd a client sent a bad request.  This should never
+ * happen, of course, but we definitely want to log if it does.
  *
- * This is a convenient helper to tell lightningd we've received a bad request
- * and closes the client connection.  This should never happen, of course, but
- * we definitely want to log if it does.
- */
-static struct io_plan *bad_req_fmt(struct io_conn *conn,
-				   struct client *c,
-				   const u8 *msg_in,
-				   const char *fmt, ...)
-	PRINTF_FMT(4,5);
-
-static struct io_plan *bad_req_fmt(struct io_conn *conn,
-				   struct client *c,
-				   const u8 *msg_in,
-				   const char *fmt, ...)
+ * Does not close the connection: the caller decides.  bad_req_fmt
+ * closes immediately; hsmd_status_bad_request returns NULL and
+ * handle_client closes, so we don't io_close/free conn before
+ * handle_client can return. */
+static void report_bad_req(struct client *c, const u8 *msg_in, const char *str)
 {
-	va_list ap;
-	char *str;
-
-	va_start(ap, fmt);
-	str = tal_vfmt(tmpctx, fmt, ap);
-	va_end(ap);
-
 	/*~ If the client was actually lightningd, it's Game Over; we actually
 	 * fail in this case, and it will too. */
 	if (is_lightningd(c)) {
@@ -148,6 +132,33 @@ static struct io_plan *bad_req_fmt(struct io_conn *conn,
 								  &c->id,
 								  str,
 								  msg_in)));
+}
+
+/*~ ccan/compiler.h defines PRINTF_FMT as the gcc compiler hint so it will
+ * check that fmt and other trailing arguments really are the correct type.
+ *
+ * This is a convenient helper to tell lightningd we've received a bad request
+ * and closes the client connection.
+ */
+static struct io_plan *bad_req_fmt(struct io_conn *conn,
+				   struct client *c,
+				   const u8 *msg_in,
+				   const char *fmt, ...)
+	PRINTF_FMT(4,5);
+
+static struct io_plan *bad_req_fmt(struct io_conn *conn,
+				   struct client *c,
+				   const u8 *msg_in,
+				   const char *fmt, ...)
+{
+	va_list ap;
+	char *str;
+
+	va_start(ap, fmt);
+	str = tal_vfmt(tmpctx, fmt, ap);
+	va_end(ap);
+
+	report_bad_req(c, msg_in, str);
 
 	/*~ The way ccan/io works is that you return the "plan" for what to do
 	 * next (eg. io_read).  io_close() is special: it means to close the
@@ -658,10 +669,11 @@ u8 *hsmd_status_bad_request(struct hsmd_client *client, const u8 *msg, const cha
 	/* Extract the pointer to the hsmd representation of the
 	 * client which has access to the underlying connection. */
 	struct client *c = (struct client*)client->extra;
-	bad_req_fmt(c->conn, c, msg, "%s", error);
+
+	report_bad_req(c, msg, error);
 
 	/* We often use `return hsmd_status_bad_request` to drop out, and NULL
-	 * means we encountered an error. */
+	 * means we encountered an error.  handle_client then io_close's. */
 	return NULL;
 }
 
@@ -802,11 +814,13 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 	case WIRE_HSMD_SIGN_ANY_REMOTE_HTLC_TO_US:
 	case WIRE_HSMD_SIGN_ANY_LOCAL_HTLC_TX:
 	case WIRE_HSMD_SIGN_ANCHORSPEND:
-	case WIRE_HSMD_SIGN_HTLC_TX_MINGLE:
-		/* Hand off to libhsmd for processing */
-		return req_reply(conn, c,
-				 take(hsmd_handle_client_message(
-				     tmpctx, c->hsmd_client, c->msg_in)));
+	case WIRE_HSMD_SIGN_HTLC_TX_MINGLE: {
+		u8 *reply = hsmd_handle_client_message(tmpctx, c->hsmd_client,
+						       c->msg_in);
+		if (!reply)
+			return io_close(conn);
+		return req_reply(conn, c, take(reply));
+	}
 
 	case WIRE_HSMD_ECDH_RESP:
 	case WIRE_HSMD_CANNOUNCEMENT_SIG_REPLY:
