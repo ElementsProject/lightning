@@ -1507,7 +1507,7 @@ static void handle_preimage(struct tracked_output **outs,
 				status_broken("HTLC already resolved by %s"
 					      " when we found preimage",
 					      tx_type_name(outs[i]->resolved->tx_type));
-				return;
+				continue;
 			}
 		}
 
@@ -1517,6 +1517,7 @@ static void handle_preimage(struct tracked_output **outs,
 		/* Discard any previous resolution.  Could be a timeout,
 		 * could be due to multiple identical rhashes in tx. */
 		outs[i]->proposal = tal_free(outs[i]->proposal);
+		outs[i]->resolved = tal_free(outs[i]->resolved);
 
 		/* BOLT #5:
 		 *
