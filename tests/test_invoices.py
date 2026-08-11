@@ -888,6 +888,44 @@ def test_unified_invoices(node_factory, bitcoind):
     assert(txid == res['paid_outpoint']['txid'])
 
 
+@pytest.mark.xfail(strict=True)
+def test_unified_invoices_any_amount(node_factory, bitcoind):
+    """An onchain payment to the fallback of an amountless invoice must not crash us"""
+    # We expect the daemon to die (and log a fatal signal) until this is fixed.
+    l1 = node_factory.get_node(options={'invoices-onchain-fallback': None},
+                               may_fail=True,
+                               broken_log=r'FATAL SIGNAL')
+
+    amount_sat = 1000
+    inv = l1.rpc.invoice('any', "inv1", "test_unified_invoices_any_amount")
+    b11 = l1.rpc.decode(inv['bolt11'])
+
+    # Amountless invoices get a fallback address just like the others.
+    assert len(b11['fallbacks']) == 1
+    assert b11['fallbacks'][0]['type'] == 'P2TR'
+    assert 'amount_msat' not in b11
+
+    # Pay invoice on-chain
+    addr = b11['fallbacks'][0]['addr']
+
+    # save txid
+    txid = bitcoind.rpc.sendtoaddress(addr, amount_sat / 10**8)
+
+    # confirm spend: here we used to deref details->msat, which is NULL.
+    bitcoind.generate_block(1)
+
+    # An amountless invoice accepts any amount, so this must be paid.
+    # (Don't block forever in waitinvoice if we silently dropped it).
+    wait_for(lambda: only_one(l1.rpc.listinvoices('inv1')['invoices'])['status'] == 'paid')
+    res = l1.rpc.waitinvoice('inv1')
+
+    assert(txid == res['paid_outpoint']['txid'])
+
+    # Startup rescans the last blocks, so a crash here would repeat forever.
+    l1.restart()
+    assert only_one(l1.rpc.listinvoices('inv1')['invoices'])['status'] == 'paid'
+
+
 def test_expiry_startup_crash(node_factory, bitcoind):
     """We crash trying to expire invoice on startup"""
     l1 = node_factory.get_node()
