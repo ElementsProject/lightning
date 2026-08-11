@@ -232,7 +232,7 @@ static u8 *hsmd_status_bad_request_fmt(struct hsmd_client *client,
 	char *str;
 
 	va_start(ap, fmt);
-	str = tal_fmt(tmpctx, fmt, ap);
+	str = tal_vfmt(tmpctx, fmt, ap);
 	va_end(ap);
 	return hsmd_status_bad_request(client, msg, str);
 }
