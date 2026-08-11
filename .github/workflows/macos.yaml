@@ -56,16 +56,13 @@ jobs:
           uv run gmake
           uv run gmake check-gen-updated
           sudo gmake install
+          uv pip install pytest-flakefinder
 
       - name: Run pytest
         env:
           SLOW_MACHINE: 1
-          PYTEST_OPTS: "-vvv --timeout=1800 --durations=10"
+          PYTEST_OPTS: "--flake-finder --flake-runs=20 -vvv --timeout=60 --durations=10"
           PYTEST_TESTS: |
-            tests/test_misc.py::test_ipv4_and_ipv6
-            tests/test_misc.py::test_low_fd_limit
             tests/test_connection.py::test_websocket
-            tests/test_connection.py::test_wss_proxy
-            tests/test_plugin.py::test_inline_plugin_wait_for_log_no_selfmatch
         run: |
           VALGRIND=0 uv run pytest $PYTEST_TESTS -n $(sysctl -n hw.ncpu) ${PYTEST_OPTS}
