@@ -65,6 +65,22 @@ enum fromwireaddr_ret fromwire_wireaddr(const u8 **cursor, size_t *max, struct w
 	/* FIXME: This seems universal? */
 	if (addr->port == 0)
 		return FROMWIREADDR_IGNORE;
+
+	/* BOLT #7:
+	 *   * `5`: DNS hostname; data = `[1:hostname_len][hostname_len:hostname][2:port]` (length up to 258)
+	 *       * `hostname` bytes MUST be ASCII characters.
+	 */
+	/* Don't let a malformed name loose in the rest of the daemon: it
+	 * ends up in log messages, in connect requests, and in whatever a
+	 * plugin does with it. */
+	if (addr->type == ADDR_TYPE_DNS) {
+		char hostname[DNS_ADDRLEN + 1];
+
+		memcpy(hostname, addr->addr, addr->addrlen);
+		hostname[addr->addrlen] = '\0';
+		if (!is_dnsaddr(hostname))
+			return FROMWIREADDR_IGNORE;
+	}
 	return FROMWIREADDR_OK;
 }
 
