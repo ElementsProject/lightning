@@ -1697,17 +1697,43 @@ void onchain_fulfilled_htlc(struct channel *channel,
 		if (hout->key.channel != channel)
 			continue;
 
-		/* It's possible that we failed some and succeeded one,
-		 * if we got multiple errors. */
-		if (hout->failmsg || hout->failonion)
-			continue;
-
 		if (!sha256_eq(&hout->payment_hash, &payment_hash))
 			continue;
+
+		/* BOLT #2:
+		 *   - upon receiving an `update_fulfill_htlc` for an outgoing
+		 *     HTLC, OR upon discovering the `payment_preimage` from an
+		 *     on-chain HTLC spend:
+		 *     - MUST fulfill the incoming HTLC that corresponds to
+		 *       that outgoing HTLC.
+		 */
+		/* A failure which isn't irrevocably committed yet doesn't
+		 * count: remove_htlc_out() frees hout once we reach
+		 * RCVD_REMOVE_ACK_REVOCATION, so any hout we still have with
+		 * failmsg/failonion set is one whose removal isn't final.  We
+		 * can only lose here if we already resolved the incoming HTLC
+		 * as failed, which is what this check was originally for. */
+		if (hout->in
+		    && (hout->in->failonion || hout->in->badonion)) {
+			/* We can be told this more than once, and
+			 * fulfill_our_htlc_out() complains itself if we
+			 * already knew the preimage. */
+			if (!hout->preimage)
+				log_broken(channel->log,
+					   "FUNDS LOSS of %s: peer took funds"
+					   " onchain with preimage, but we"
+					   " already failed the incoming HTLC",
+					   fmt_amount_msat(tmpctx, hout->msat));
+			continue;
+		}
 
 		/* We may have already fulfilled before going onchain, or
 		 * we can fulfill onchain multiple times. */
 		if (!hout->preimage) {
+			/* The preimage wins over any pending failure, and
+			 * htlc_out_check() doesn't allow both. */
+			hout->failonion = tal_free(hout->failonion);
+			hout->failmsg = tal_free(hout->failmsg);
 			/* Force state to something which allows a preimage */
 			hout->hstate = RCVD_REMOVE_HTLC;
 			fulfill_our_htlc_out(channel, hout, preimage);
