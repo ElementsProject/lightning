@@ -73,11 +73,10 @@ static inline bool utxo_is_csv_locked(const struct utxo *utxo, u32 current_heigh
 {
 	if (!utxo->close_info)
 		return false;
-	/* BOLT #3:
-	 * If `option_anchors` applies to the commitment transaction, the
-	 * `to_remote` output is encumbered by a one block csv lock.
-	 */
-	if (!utxo->blockheight && utxo->close_info->option_anchors)
+	/* An unconfirmed close output is unavailable regardless of channel
+	 * type: the wallet may retain close metadata (e.g. after a reorg)
+	 * even when the block height is gone. */
+	if (!utxo->blockheight)
 		return true;
 	assert(*utxo->blockheight + utxo->close_info->csv > *utxo->blockheight);
 	return *utxo->blockheight + utxo->close_info->csv > current_height;

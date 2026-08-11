@@ -1952,6 +1952,52 @@ static bool test_wallet_payment_status_enum(void)
 	return true;
 }
 
+/* A reorged close output retains close_info but loses its blockheight.
+ * utxo_is_csv_locked() must treat that as locked for both anchor and
+ * non-anchor close outputs, and never dereference a missing height. */
+static bool test_utxo_csv_locked(void)
+{
+	struct utxo u;
+	struct unilateral_close_info ci;
+	u32 bh = 100;
+
+	memset(&u, 0, sizeof(u));
+	memset(&ci, 0, sizeof(ci));
+
+	/* Unconfirmed non-anchor close output: the SIGSEGV path before the
+	 * fix; must be reported as locked without touching blockheight. */
+	ci.csv = 5;
+	ci.option_anchors = false;
+	u.close_info = &ci;
+	u.blockheight = NULL;
+	CHECK(utxo_is_csv_locked(&u, 100));
+
+	/* Unconfirmed anchor close output: already locked, keep that. */
+	ci.option_anchors = true;
+	CHECK(utxo_is_csv_locked(&u, 100));
+
+	/* No close metadata: never csv-locked, even unconfirmed. */
+	u.close_info = NULL;
+	CHECK(!utxo_is_csv_locked(&u, 100));
+
+	/* Confirmed non-anchor close output, csv 5: locked until height+5. */
+	ci.csv = 5;
+	ci.option_anchors = false;
+	u.close_info = &ci;
+	u.blockheight = &bh;
+	CHECK(utxo_is_csv_locked(&u, 100));
+	CHECK(utxo_is_csv_locked(&u, 104));
+	CHECK(!utxo_is_csv_locked(&u, 105));
+
+	/* Confirmed anchor close output, csv 1: locked until height+1. */
+	ci.csv = 1;
+	ci.option_anchors = true;
+	CHECK(utxo_is_csv_locked(&u, 100));
+	CHECK(!utxo_is_csv_locked(&u, 101));
+
+	return true;
+}
+
 int main(int argc, const char *argv[])
 {
 	common_setup(argv[0]);
@@ -1984,6 +2030,8 @@ int main(int argc, const char *argv[])
 	closed_channel_map_init(ld->closed_channels);
 	ld->channels_by_dbid = tal(ld, struct channel_dbid_map);
 	channel_dbid_map_init(ld->channels_by_dbid);
+
+	ok &= test_utxo_csv_locked();
 
 	/* We do a runtime test here, so we still check compile! */
 	if (HAVE_SQLITE3) {
