@@ -6,6 +6,7 @@
 #include <common/htlc_tx.h>
 #include <common/memleak.h>
 #include <common/psbt_keypath.h>
+#include <common/timeout.h>
 #include <db/exec.h>
 #include <errno.h>
 #include <hsmd/hsmd_wiregen.h>
@@ -176,6 +177,9 @@ static void onchain_tx_depth(struct channel *channel,
 	subd_send_msg(channel->owner, take(msg));
 }
 
+/* Deferred restart of onchaind after a reorg: see onchain_tx_watched() */
+static void reorg_restart_onchaind(struct channel *channel);
+
 /**
  * Entrypoint for the txwatch callback, calls onchain_tx_depth.
  */
@@ -202,6 +206,15 @@ static enum watch_result onchain_tx_watched(struct lightningd *ld,
 	if (depth == 0) {
 		log_unusual(channel->log, "Chain reorganization!");
 		channel_set_owner(channel, NULL);
+
+		/* That freed every watch we had on this channel (they all
+		 * hang off the owner: see watch_tx_and_outputs()), so we have
+		 * to start onchaind again to rebuild them.  We can't do that
+		 * here: we're called from remove_tip() while it iterates the
+		 * txwatch table, and relaunching adds to it.  The timer hangs
+		 * off the channel, so it's gone if the channel is. */
+		new_reltimer(ld->timers, channel, time_from_sec(0),
+			     reorg_restart_onchaind, channel);
 
 		/* We will most likely be freed, so this is a noop */
 		return KEEP_WATCHING;
@@ -407,6 +420,16 @@ static void replay_block(struct bitcoind *bitcoind,
 	/* If we're shutting down, this can happen! */
 	if (!channel->owner)
 		return;
+
+	/* There's no such block: the chain got shorter than the tip we were
+	 * replaying towards (a reorg while we replay).  We've seen everything
+	 * there is, so go live. */
+	if (!blk) {
+		log_debug(channel->log,
+			  "Replay reached end of chain at block %u", height);
+		convert_replay_txs(channel);
+		return;
+	}
 
 	/* Tell onchaind that all existing txs have reached a new depth */
 	replay_tx_hash_lock(channel->onchaind_replay_watches);
@@ -1910,6 +1933,69 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 	return KEEP_WATCHING;
 }
 
+/* Relaunch onchaind from the funding spend we recorded, and replay the chain
+ * from there to rebuild its state and its watches.  Returns false if there's
+ * nothing to do (no confirmed funding spend) or we couldn't launch it. */
+static bool onchaind_restart(struct channel *channel)
+{
+	struct lightningd *ld = channel->peer->ld;
+	struct bitcoin_tx *tx;
+	u32 blockheight;
+
+	/* If the funding spend itself isn't in a block (never was, or was
+	 * reorged out) there's nothing to replay: the funding output watch
+	 * calls us via onchaind_funding_spent() once it's mined. */
+	tx = wallet_get_funding_spend(tmpctx, ld->wallet, channel->dbid,
+				      &blockheight);
+	if (!tx)
+		return false;
+
+	log_info(channel->log,
+		 "Restarting onchaind (%s): closed in block %u",
+		 channel_state_name(channel), blockheight);
+
+	/* We're in replay mode (discard any left by an aborted one) */
+	tal_free(channel->onchaind_replay_watches);
+	channel->onchaind_replay_watches = new_htable(channel, replay_tx_hash);
+	channel->onchaind_replay_height = blockheight;
+	/* Any replies we were waiting for died with the previous onchaind. */
+	channel->num_onchain_spent_calls = 0;
+
+	onchaind_funding_spent(channel, tx, blockheight);
+
+	/* It logs the reason itself.  Don't leave the channel in replay mode,
+	 * or a later launch would never watch anything. */
+	if (!channel->owner) {
+		channel->onchaind_replay_watches
+			= tal_free(channel->onchaind_replay_watches);
+		return false;
+	}
+
+	onchaind_replay(channel);
+	return true;
+}
+
+/* A tx onchaind was watching was reorged out, so onchain_tx_watched() killed
+ * onchaind and every watch which hung off it.  Bring it all back. */
+static void reorg_restart_onchaind(struct channel *channel)
+{
+	struct lightningd *ld = channel->peer->ld;
+
+	/* Something already relaunched it: eg. another watched tx was reorged
+	 * out too, or the funding spend was re-mined elsewhere. */
+	if (channel->owner)
+		return;
+
+	if (ld->state == LD_STATE_SHUTDOWN)
+		return;
+
+	/* If the funding spend was reorged out too, we do nothing: its watch
+	 * restarts us when it's mined again. */
+	if (!onchaind_restart(channel))
+		log_debug(channel->log,
+			  "Chain reorganization: did not restart onchaind");
+}
+
 void onchaind_replay_channels(struct lightningd *ld)
 {
 	struct peer *peer;
@@ -1925,27 +2011,10 @@ void onchaind_replay_channels(struct lightningd *ld)
 		struct channel *channel;
 
 		list_for_each(&peer->channels, channel, list) {
-			struct bitcoin_tx *tx;
-			u32 blockheight;
-
 			if (channel_state_uncommitted(channel->state))
 				continue;
 
-			tx = wallet_get_funding_spend(tmpctx, ld->wallet, channel->dbid,
-						      &blockheight);
-			if (!tx)
-				continue;
-
-			log_info(channel->log,
-				 "Restarting onchaind (%s): closed in block %u",
-				 channel_state_name(channel), blockheight);
-
-			/* We're in replay mode */
-			channel->onchaind_replay_watches = new_htable(channel, replay_tx_hash);
-			channel->onchaind_replay_height = blockheight;
-
-			onchaind_funding_spent(channel, tx, blockheight);
-			onchaind_replay(channel);
+			onchaind_restart(channel);
 		}
 	}
 	db_commit_transaction(ld->wallet->db);

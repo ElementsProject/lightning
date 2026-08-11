@@ -2083,7 +2083,6 @@ def test_onchain_timeout(node_factory, bitcoind, executor, chainparams, anchors)
         check_utxos_channel(l2, [channel_id], expected_2, tags)
 
 
-@pytest.mark.xfail(strict=True)
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'must be able to invalidate blocks')
 def test_onchaind_reorg_child_tx(node_factory, bitcoind):
     """onchaind must keep watching after a tx it was watching is reorged out.
