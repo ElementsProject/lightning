@@ -888,13 +888,9 @@ def test_unified_invoices(node_factory, bitcoind):
     assert(txid == res['paid_outpoint']['txid'])
 
 
-@pytest.mark.xfail(strict=True)
 def test_unified_invoices_any_amount(node_factory, bitcoind):
     """An onchain payment to the fallback of an amountless invoice must not crash us"""
-    # We expect the daemon to die (and log a fatal signal) until this is fixed.
-    l1 = node_factory.get_node(options={'invoices-onchain-fallback': None},
-                               may_fail=True,
-                               broken_log=r'FATAL SIGNAL')
+    l1 = node_factory.get_node(options={'invoices-onchain-fallback': None})
 
     amount_sat = 1000
     inv = l1.rpc.invoice('any', "inv1", "test_unified_invoices_any_amount")

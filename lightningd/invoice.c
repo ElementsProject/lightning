@@ -970,7 +970,8 @@ void invoice_check_onchain_payment(struct lightningd *ld,
 
 	details = invoices_get_details(tmpctx, ld->wallet->invoices, inv_dbid);
 
-	if (amount_msat_less(msat, *details->msat)) {
+	/* details->msat is NULL if they specified "any": any amount will do. */
+	if (details->msat && amount_msat_less(msat, *details->msat)) {
 		// notify_underpaid_onchain_invoice();
 		return;
 	}
