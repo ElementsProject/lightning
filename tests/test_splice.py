@@ -919,3 +919,43 @@ def test_easy_splice_out_into_channel(node_factory, bitcoind, chainparams):
 
     end_chan1_balance = Millisatoshi(bkpr_account_balance(l2, chan1))
     assert initial_chan1_balance + Millisatoshi(spliceamt * 1000) == end_chan1_balance
+
+
+@pytest.mark.xfail(strict=True)
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+@pytest.mark.parametrize("restart_node", [False, True])
+def test_splice_aggravated_close(node_factory, bitcoind, chainparams, restart_node):
+    # Using the $ before message simply *drops* the packet (no disconnect occurs).
+    disconnects = ['$WIRE_SPLICE_LOCKED']
+    l1, l2 = node_factory.line_graph(2, fundamount=1000000, wait_for_announce=True,
+                                     opts=[{}, {'disconnect': disconnects}])  # L2 will never send the SPLICE_LOCKED
+
+    # Any splice will do
+    l1.rpc.spliceout("*:?", "100000")
+
+    bitcoind.generate_block(6, wait_for_mempool=1)
+    # l2 completes splice locked, but l1 should not
+    l2.daemon.wait_for_log(r'lightningd, splice_locked clearing inflights')
+
+    # Confirm l1 never completed the splice but l2 did.
+    p1 = only_one(l1.rpc.listpeerchannels(peer_id=l2.info['id'])['channels'])
+    p2 = only_one(l2.rpc.listpeerchannels(l1.info['id'])['channels'])
+    assert 'inflight' in p1
+    assert 'inflight' not in p2
+
+    # Now have l2 disconnect and unilateral close on the post-splice channel
+    l2.rpc.disconnect(l1.info['id'], True)
+    l2.rpc.close(l1.info['id'], 1)
+
+    if restart_node:
+        l1.restart()
+
+    # Mine the post-splice channel close
+    bitcoind.generate_block(6, wait_for_mempool=1)
+
+    # l2 will process it easily
+    l2.daemon.wait_for_log(r'State changed from AWAITING_UNILATERAL to FUNDING_SPEND_SEEN')
+    # l1 has to work harder to process it, so we check it last
+    l1.daemon.wait_for_log(r'State changed from AWAITING_UNILATERAL to FUNDING_SPEND_SEEN')
