@@ -4922,7 +4922,6 @@ def test_constant_packet_size(node_factory, tcp_capture):
     assert not l2.daemon.is_in_log("connectd: Unexpected pong")
 
 
-@pytest.mark.xfail(strict=True)
 def test_connect_proxy_maxlen_hostname(node_factory):
     """A maximum-length hostname must produce a well-formed SOCKS5 request.
 
