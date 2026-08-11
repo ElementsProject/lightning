@@ -3868,18 +3868,18 @@ def test_multichan_stress(node_factory, executor, bitcoind):
               'channel': scid23}]
 
     def send_many_payments():
-        passes = 0
-        fails = 0
-        # Make sure we try many times, and get at least one pass and fail.
-        while passes == 0 or fails == 0 or passes + fails < 30:
-            inv = l3.rpc.invoice(100, "label-" + str(passes + fails), "desc")
+        # Whether each payment succeeds or fails depends on whether the
+        # l2-l3 connection happens to be up when the HTLC is forwarded
+        # (reconnects are fast), so we can't rely on getting either.
+        # Send a bounded number while the reconnects run, and let the
+        # payments below verify the channels work afterwards.
+        for i in range(50):
+            inv = l3.rpc.invoice(100, "label-" + str(i), "desc")
             l1.rpc.sendpay(route, inv['payment_hash'], payment_secret=inv['payment_secret'])
             time.sleep(0.05)
             try:
                 l1.rpc.waitsendpay(inv['payment_hash'])
-                passes += 1
             except RpcError:
-                fails += 1
                 pass
 
     # Send a heap of payments, while reconnecting...
