@@ -5140,7 +5140,6 @@ def test_open_channel_funding_above_max_supply(node_factory, bitcoind):
     assert l1.rpc.getinfo()['id'] == l1.info['id']
 
 
-@pytest.mark.xfail(strict=True)
 def test_connect_proxy_maxlen_hostname(node_factory):
     """A maximum-length hostname must produce a well-formed SOCKS5 request.
 
