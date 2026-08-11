@@ -17,7 +17,6 @@
 #define SOCKS_TYP_IPV6		4
 #define SOCKS_V5            5
 
-#define MAX_SIZE_OF_SOCKS5_REQ_OR_RESP 255
 #define SIZE_OF_RESPONSE 		4
 #define SIZE_OF_REQUEST 		3
 #define SIZE_OF_IPV4_RESPONSE 	6
@@ -25,6 +24,14 @@
 #define SOCK_REQ_METH_LEN		3
 #define SOCK_REQ_V5_LEN			5
 #define SOCK_REQ_V5_HEADER_LEN	7
+
+/* The domain name in a SOCKS5 request is preceded by a single length
+ * byte, so it can never be longer than this. */
+#define MAX_SIZE_OF_SOCKS5_DOMAIN	255
+/* The largest thing we ever put in the buffer is a domain-name CONNECT
+ * request: the header plus a maximum-length domain name. */
+#define MAX_SIZE_OF_SOCKS5_REQ_OR_RESP	(SOCK_REQ_V5_HEADER_LEN		\
+					 + MAX_SIZE_OF_SOCKS5_DOMAIN)
 
 /* some crufts can not forward ipv6 */
 #undef BIND_FIRST_TO_IPV6
@@ -154,6 +161,21 @@ static struct io_plan *io_tor_connect_after_resp_to_connect(struct io_conn
 	if (connect->buffer[1] == '\0') {
 		/* make the V5 request */
 		connect->hlen = strlen(connect->host);
+
+		/* The length is carried in a single byte, and the whole
+		 * request has to fit in our buffer: refuse rather than
+		 * build a request we can't represent. */
+		if (connect->hlen > MAX_SIZE_OF_SOCKS5_DOMAIN) {
+			const char *msg = tal_fmt(tmpctx,
+				     "Connected out for %s error: hostname too long for socks5 request",
+				     connect->host);
+			status_debug("%s", msg);
+			add_errors_to_error_list(connect->connect, msg);
+
+			errno = ECONNREFUSED;
+			return io_close(conn);
+		}
+
 		connect->buffer[0] = SOCKS_V5;
 		connect->buffer[1] = SOCKS_CONNECT;
 		connect->buffer[2] = 0;
@@ -161,7 +183,7 @@ static struct io_plan *io_tor_connect_after_resp_to_connect(struct io_conn
 		connect->buffer[4] = connect->hlen;
 
 		memcpy(connect->buffer + SOCK_REQ_V5_LEN, connect->host, connect->hlen);
-		memcpy(connect->buffer + SOCK_REQ_V5_LEN + strlen(connect->host),
+		memcpy(connect->buffer + SOCK_REQ_V5_LEN + connect->hlen,
 				&(connect->port), sizeof connect->port);
 
 		status_io(LOG_IO_OUT, NULL, "proxy", connect->buffer,
