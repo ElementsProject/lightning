@@ -141,6 +141,10 @@ void channel_unwatch_funding(struct lightningd *ld, struct channel *channel);
 /* Watch for spend of funding tx. */
 void channel_watch_funding_out(struct lightningd *ld, struct channel *channel);
 
+/* Watch for spend of inflight tx's. */
+void channel_watch_inflight_outs(struct lightningd *ld, struct channel *channel);
+
+
 /* Watch block that funding tx is in */
 void channel_watch_depth(struct lightningd *ld,
 			 u32 blockheight,
