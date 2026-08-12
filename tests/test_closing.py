@@ -4545,3 +4545,72 @@ def test_onchain_close_no_p2tr(node_factory, bitcoind):
 
     # We should see the output.
     assert len(l1.rpc.listfunds()['outputs']) == 2
+
+
+def test_htlc_timeout_during_stfu(node_factory, bitcoind):
+    # Originally authored by claude-fable-5 v2.1.228 (Claude Code)
+
+    """An HTLC that hits its deadline while the channel is quiescent (STFU)
+    must still force-close and get timed out onchain."""
+    plugin = os.path.join(os.getcwd(), 'tests/plugins/hold_htlcs.py')
+
+    # Pin feerates so no update_fee sneaks in and blocks quiescence.
+    # l2 holds any incoming HTLC (hook sleeps), so it stays committed
+    # but unresolved while we mine past its expiry.
+    l1, l2 = node_factory.line_graph(2, opts=[{'dev-no-reconnect': None,
+                                               'feerates': (7500, 7500, 7500, 7500)},
+                                              {'dev-no-reconnect': None,
+                                               'feerates': (7500, 7500, 7500, 7500),
+                                               'plugin': plugin,
+                                               'hold-time': 10000,
+                                               'hold-result': 'continue'}])
+
+    amt = 200000000
+    inv = l2.rpc.invoice(amt, 'stfu_timeout', 'desc')
+
+    # Explicit route: fixed delay, no shadow-route randomness.
+    route = [{'amount_msat': amt,
+              'id': l2.info['id'],
+              'delay': 10,
+              'channel': first_scid(l1, l2)}]
+    l1.rpc.sendpay(route, inv['payment_hash'],
+                   payment_secret=inv['payment_secret'])
+
+    # htlc_accepted hook fires only once the HTLC is irrevocably
+    # committed on both sides, so this means it's fully locked in.
+    l2.daemon.wait_for_log('Holding onto an incoming htlc')
+
+    # Now go quiescent.  A committed-but-unresolved HTLC is not a
+    # "pending update", so STFU completes.
+    l1.rpc.call('dev-quiesce', [l2.info['id']])
+    l1.daemon.wait_for_log('STFU complete: we are quiescent')
+    l2.daemon.wait_for_log('STFU complete: we are quiescent')
+
+    # lightningd fails the channel at height == expiry + 1 (htlc_out_deadline).
+    htlc = only_one(l1.rpc.listhtlcs()['htlcs'])
+    deadline = htlc['expiry'] + 1
+
+    # One block short of the deadline: still quiet.
+    bitcoind.generate_block(deadline - bitcoind.rpc.getblockcount() - 1)
+    sync_blockheight(bitcoind, [l1, l2])
+    time.sleep(3)
+    assert not l1.daemon.is_in_log('hit deadline')
+    assert only_one(l1.rpc.listpeerchannels()['channels'])['state'] == 'CHANNELD_NORMAL'
+
+    # The deadline block: l1 drops to chain despite being in STFU.
+    bitcoind.generate_block(1)
+    l1.daemon.wait_for_log('Offered HTLC 0 SENT_ADD_ACK_REVOCATION cltv {} hit deadline'
+                           .format(htlc['expiry']))
+    l1.daemon.wait_for_log('sendrawtx exit 0')
+
+    # Mine the commitment (anchors may add a CPFP tx alongside it).
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    l1.daemon.wait_for_log(' to ONCHAIN')
+    l2.daemon.wait_for_log(' to ONCHAIN')
+
+    # We're already past expiry, so onchaind times the HTLC out immediately.
+    _, txid, blocks = l1.wait_for_onchaind_tx('OUR_HTLC_TIMEOUT_TX',
+                                              'OUR_UNILATERAL/OUR_HTLC')
+    assert blocks <= 0
+    bitcoind.generate_block(1, wait_for_mempool=txid)
+    l1.daemon.wait_for_log('Resolved OUR_UNILATERAL/OUR_HTLC by our proposal OUR_HTLC_TIMEOUT_TX')
