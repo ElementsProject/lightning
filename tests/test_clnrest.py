@@ -27,6 +27,7 @@ def http_session_with_retry():
     retry = Retry(connect=10, backoff_factor=0.5)
     adapter = HTTPAdapter(max_retries=retry)
     http_session.mount('https://', adapter)
+    http_session.mount('http://', adapter)
     return http_session
 
 
@@ -131,7 +132,7 @@ def test_generate_certificate(node_factory):
     assert [c[0] != c[1] for c in zip(contents, contents_2)] == [True] * len(files)
 
 
-def start_node_with_clnrest(node_factory, plugin=None):
+def start_node_with_clnrest(node_factory, plugin=None, protocol='https'):
     """Start a node with the clnrest plugin, whose options are the default options.
     Return:
     - the node,
@@ -139,11 +140,12 @@ def start_node_with_clnrest(node_factory, plugin=None):
     - the certificate authority path used for the self-signed certificates."""
     rest_port = str(node_factory.get_unused_port())
     rest_certs = node_factory.directory + '/clnrest-certs'
-    options = {'clnrest-port': rest_port, 'clnrest-certs': rest_certs}
+    options = {'clnrest-port': rest_port, 'clnrest-certs': rest_certs,
+               'clnrest-protocol': protocol}
     if plugin is not None:
         options['plugin'] = plugin
     l1 = node_factory.get_node(options=options)
-    base_url = 'https://127.0.0.1:' + rest_port
+    base_url = f'{protocol}://127.0.0.1:' + rest_port
     # This might happen really early!
     l1.daemon.logsearch_start = 0
     l1.daemon.wait_for_log(r'plugin-clnrest: REST server running at ' + base_url)
@@ -882,3 +884,22 @@ def test_dynamic_path_rune(node_factory):
     dynamic_res.raise_for_status()
     dynamic_json = dynamic_res.json()
     assert dynamic_json["test-dynamic-clnrest"] == "success"
+
+
+def test_large_request_body(node_factory):
+    """Test large request bodies getting rejected without a crash.
+
+    Run over plain HTTP: with TLS, a client that sends the whole body before
+    reading the response can only see a connection reset instead of the 413,
+    depending on the OpenSSL version.
+    """
+    l1, base_url, _ = start_node_with_clnrest(node_factory, protocol='http')
+    http_session = http_session_with_retry()
+
+    body = b'{"pad":"' + b"B" * (32 * 1024 * 1024) + b'"}'
+    response = http_session.post(base_url + "/v1/getinfo", data=body)
+    assert response.status_code == 413
+    assert response.json()["code"] == -32600
+    assert "Request body exceeds the maximum allowed size" in response.json()["message"]
+
+    l1.rpc.getinfo()
