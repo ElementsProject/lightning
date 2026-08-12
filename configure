@@ -227,7 +227,7 @@ have_function_sections()
     TMPCFILE=$CONFIG_VAR_FILE.$$.c
     TMPOBJFILE=$CONFIG_VAR_FILE.$$.o
     
-    echo "int foo(void); int foo(void) { return 0; }" > $TMPCFILE
+    echo "int main(void); int main(void) { return 0; }" > $TMPCFILE
     # We *want* this to fail if we get a warning, hence use -Werror.
     $1 $2 -Werror -ffunction-sections -Wl,--gc-sections $TMPCFILE -o $TMPOBJFILE
 }
