@@ -11,6 +11,7 @@
 #include <bitcoin/script.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/breakpoint/breakpoint.h>
+#include <ccan/io/io.h>
 #include <ccan/tal/str/str.h>
 #include <common/fee_states.h>
 #include <common/initial_channel.h>
@@ -1433,6 +1434,11 @@ static u8 *handle_master_in(struct state *state)
 int main(int argc, char *argv[])
 {
 	setup_locale();
+
+	/* Synchronous HSM I/O below must not spuriously EAGAIN on macOS, where
+	 * the HSM socketpair's O_NONBLOCK flag can be shared with hsmd's io
+	 * loop; on Linux this is already blocking so it's a no-op. */
+	io_fd_block(HSM_FD, true);
 
 	u8 *msg;
 	struct pollfd pollfd[2];
