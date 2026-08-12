@@ -387,14 +387,23 @@ static void log_to_files(const char *log_prefix,
 {
 	char tstamp[sizeof("YYYY-mm-ddTHH:MM:SS.nnnZ ")];
 	char *entry, nodestr[hex_str_size(PUBKEY_CMPR_LEN)];
-	char buf[sizeof("%s%s%s %s-%s: %s\n")
+	/* Entries are usually small, so a stack buffer is fine; but a
+	 * peer can make us log arbitrarily large strings (e.g. clnrest
+	 * logging unauthenticated request parameters), which must not
+	 * be allocated on the stack! */
+	char sbuf[1024];
+	char *buf = sbuf;
+	size_t buf_len = sizeof("%s%s%s %s-%s: %s\n")
 		 + strlen(log_prefix)
 		 + sizeof(tstamp)
 		 + strlen(level_prefix(level))
 		 + sizeof(nodestr)
 		 + strlen(entry_prefix)
-		 + str_len];
+		 + str_len;
 	bool filtered;
+
+	if (buf_len > sizeof(sbuf))
+		buf = tal_arr(tmpctx, char, buf_len);
 
 	if (print_timestamps) {
 		char iso8601_msec_fmt[sizeof("YYYY-mm-ddTHH:MM:SS.%03dZ ")];
@@ -424,15 +433,15 @@ static void log_to_files(const char *log_prefix,
 		size_t len;
 		entry = buf;
 		if (!node_id)
-			len = snprintf(buf, sizeof(buf),
+			len = snprintf(buf, buf_len,
 				       "%s%s%s %s: %.*s\n",
 				       log_prefix, tstamp, level_prefix(level), entry_prefix, (int)str_len, str);
 		else
-			len = snprintf(buf, sizeof(buf), "%s%s%s %s-%s: %.*s\n",
+			len = snprintf(buf, buf_len, "%s%s%s %s-%s: %.*s\n",
 				       log_prefix, tstamp, level_prefix(level),
 				       nodestr,
 				       entry_prefix, (int)str_len, str);
-		assert(len < sizeof(buf));
+		assert(len < buf_len);
 	}
 
 	/* In complex configurations, we tell loggers to overshare: then we
