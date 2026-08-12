@@ -882,3 +882,17 @@ def test_dynamic_path_rune(node_factory):
     dynamic_res.raise_for_status()
     dynamic_json = dynamic_res.json()
     assert dynamic_json["test-dynamic-clnrest"] == "success"
+
+
+def test_large_request_body(node_factory):
+    """Test large request bodies getting rejected without a crash."""
+    l1, base_url, ca_cert = start_node_with_clnrest(node_factory)
+    http_session = http_session_with_retry()
+
+    body = b'{"pad":"' + b"B" * (32 * 1024 * 1024) + b'"}'
+    response = http_session.post(base_url + "/v1/getinfo", data=body, verify=ca_cert)
+    assert response.status_code == 413
+    assert response.json()["code"] == -32600
+    assert "Request body exceeds the maximum allowed size" in response.json()["message"]
+
+    l1.rpc.getinfo()
