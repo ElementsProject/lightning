@@ -41,6 +41,7 @@ futures-util = { version = "0.3", default-features = false, features = [
 ] }
 rcgen = "0.14"
 hyper = "1"
+http-body-util = "0.1"
 tower = "0.5"
 tower-http = { version = "0.6", features = ["cors", "set-header"] }
 utoipa = { version = "5", features = ['axum_extras'] }

@@ -545,6 +545,7 @@ dependencies = [
  "cln-plugin",
  "cln-rpc",
  "futures-util",
+ "http-body-util",
  "hyper 1.10.1",
  "log",
  "log-panics",

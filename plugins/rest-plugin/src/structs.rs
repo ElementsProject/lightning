@@ -31,6 +31,7 @@ pub enum AppError {
     MethodNotAllowed(RpcError),
     InternalServerError(RpcError),
     NotAcceptable(RpcError),
+    PayloadTooLarge(RpcError),
 }
 
 impl IntoResponse for AppError {
@@ -42,6 +43,7 @@ impl IntoResponse for AppError {
             AppError::MethodNotAllowed(err) => (StatusCode::METHOD_NOT_ALLOWED, err),
             AppError::InternalServerError(err) => (StatusCode::INTERNAL_SERVER_ERROR, err),
             AppError::NotAcceptable(err) => (StatusCode::NOT_ACCEPTABLE, err),
+            AppError::PayloadTooLarge(err) => (StatusCode::PAYLOAD_TOO_LARGE, err),
         };
 
         let body = Json(json!(error_message));
@@ -58,6 +60,7 @@ impl std::fmt::Display for AppError {
             AppError::MethodNotAllowed(err) => write!(f, "Method not allowed: {err}"),
             AppError::InternalServerError(err) => write!(f, "Internal Server Error: {err}"),
             AppError::NotAcceptable(err) => write!(f, "Not Acceptable: {err}"),
+            AppError::PayloadTooLarge(err) => write!(f, "Payload Too Large: {err}"),
         }
     }
 }

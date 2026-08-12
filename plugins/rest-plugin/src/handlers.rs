@@ -23,6 +23,10 @@ use crate::{
     structs::{AppError, CheckRuneParams, ClnrestMap, PluginState},
 };
 
+/// Maximum size (in bytes) of an accepted request body.
+/// Oversized bodies are rejected with 413.
+pub const MAX_BODY_SIZE: usize = 2 * 1024 * 1024; // 2 MiB
+
 /* Handler for list-methods */
 #[utoipa::path(
     get,
@@ -115,11 +119,20 @@ pub async fn call_rpc_method(
         .and_then(|v| v.to_str().ok())
         .map(String::from);
 
-    let request_bytes = match to_bytes(body.into_body(), usize::MAX).await {
+    let request_bytes = match to_bytes(body.into_body(), MAX_BODY_SIZE).await {
         Ok(o) => o,
         Err(e) => {
+            if is_body_too_large(&e) {
+                return Err(AppError::PayloadTooLarge(RpcError {
+                    code: Some(-32600),
+                    data: None,
+                    message: format!(
+                        "Request body exceeds the maximum allowed size of {MAX_BODY_SIZE} bytes"
+                    ),
+                }));
+            }
             return Err(AppError::InternalServerError(RpcError {
-                code: None,
+                code: Some(-32700),
                 data: None,
                 message: format!("Could not read request body: {}", e),
             }));
@@ -158,6 +171,21 @@ pub async fn call_rpc_method(
     };
 
     convert_json_to_response(headers, &rest_map.rpc_method, cln_result)
+}
+
+fn is_body_too_large(e: &axum::Error) -> bool {
+    fn inner(e: &(dyn std::error::Error + 'static)) -> bool {
+        if e.downcast_ref::<http_body_util::LengthLimitError>()
+            .is_some()
+        {
+            return true;
+        }
+        match e.source() {
+            Some(src) => inner(src),
+            None => false,
+        }
+    }
+    inner(e)
 }
 
 fn fill_rune_restrictions(
