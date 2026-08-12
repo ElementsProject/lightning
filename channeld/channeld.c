@@ -210,12 +210,18 @@ const u8 *hsm_req(const tal_t *ctx, const u8 *req TAKES)
 	u8 *msg;
 
 	/* hsmd goes away at shutdown.  That's OK. */
-	if (!wire_sync_write(HSM_FD, req))
+	if (!wire_sync_write(HSM_FD, req)) {
+		status_broken("hsm_req: write to HSM failed (fd %i): %s",
+			      HSM_FD, strerror(errno));
 		exit(0);
+	}
 
 	msg = wire_sync_read(ctx, HSM_FD);
-	if (!msg)
+	if (!msg) {
+		status_broken("hsm_req: read from HSM failed (fd %i): %s",
+			      HSM_FD, strerror(errno));
 		exit(0);
+	}
 
 	return msg;
 }

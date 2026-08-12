@@ -44,13 +44,13 @@ static const u8 *hsm_req(const tal_t *ctx, const u8 *req TAKES)
 	u8 *msg;
 	if (!wire_sync_write(HSM_FD, req))
 		status_failed(STATUS_FAIL_HSM_IO,
-			"Writing to HSM: %s",
-			strerror(errno));
+			"Writing to HSM (fd %i): %s",
+			HSM_FD, strerror(errno));
 	msg = wire_sync_read(ctx, HSM_FD);
 	if (!msg)
 		status_failed(STATUS_FAIL_HSM_IO,
-			"Reading from HSM: %s",
-			strerror(errno));
+			"Reading from HSM (fd %i): %s",
+			HSM_FD, strerror(errno));
 	return msg;
 }
 

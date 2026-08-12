@@ -176,6 +176,11 @@ static struct io_plan *client_read_next(struct io_conn *conn, struct client *c)
  * closed by the other end. */
 static void destroy_client(struct client *c)
 {
+	/* Temporary diagnosis of the macOS flake: log when a subdaemon's HSM
+	 * client connection goes away, so we can tell whether hsmd drops it
+	 * (subdaemon then sees EOF on its HSM fd). */
+	status_debug("Destroying client %"PRIu64, c->dbid);
+
 	if (!uintmap_del(&clients, c->dbid))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Failed to remove client dbid %"PRIu64, c->dbid);
