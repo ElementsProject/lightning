@@ -6,10 +6,18 @@ We have a 3 month release cycle, and the last two versions are supported.
 
 ## Reporting a Vulnerability
 
-To report security vulnerabilities, please send an email to:
-- `security@blockstream.com`
+To report security vulnerabilities, you can either:
 
-Note: This email address is exclusively for vulnerability reporting.
+- **Use GitHub private vulnerability reporting** (preferred): click
+  ["Report a vulnerability"](https://github.com/ElementsProject/lightning/security/advisories/new)
+  in the [Security](https://github.com/ElementsProject/lightning/security) tab.
+  This creates a private draft security advisory that is only visible to
+  you and the maintainers, and gives us a single place to discuss the
+  issue, collaborate on a fix, and coordinate disclosure (including
+  requesting a CVE).
+- **Send an email** to `security@blockstream.com` (GPG key below).
+
+Note: The email address is exclusively for vulnerability reporting.
 
 For all other inquiries/communication, please refer to the [Reach Out to Us](https://github.com/ElementsProject/lightning?tab=readme-ov-file#reach-out-to-us) section in our README.
 
