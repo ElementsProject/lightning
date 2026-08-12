@@ -3,7 +3,6 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/asort/asort.h>
 #include <ccan/cast/cast.h>
-#include <ccan/io/io.h>
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
 #include <common/htlc_tx.h>
@@ -3390,11 +3389,6 @@ found:
 int main(int argc, char *argv[])
 {
 	setup_locale();
-
-	/* Synchronous HSM I/O below must not spuriously EAGAIN on macOS, where
-	 * the HSM socketpair's O_NONBLOCK flag can be shared with hsmd's io
-	 * loop; on Linux this is already blocking so it's a no-op. */
-	io_fd_block(HSM_FD, true);
 
 	const tal_t *ctx = tal(NULL, char);
 	u8 *msg;
