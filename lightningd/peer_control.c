@@ -41,6 +41,13 @@
 #include <openingd/openingd_wiregen.h>
 #include <unistd.h>
 
+/* Maximum simultaneous channel opens we'll negotiate with a single peer,
+ * counting both single- (open_channel) and dual-funded (open_channel2)
+ * attempts.  Each in-flight open holds an uncommitted/unsaved channel, HSM
+ * state, descriptors and an openingd/dualopend subdaemon, so we bound how many
+ * a peer may keep open at once. */
+#define MAX_INFLIGHT_OPENS 3
+
 /* FIXME: Reorder! */
 static void peer_disconnected(struct lightningd *ld,
 			      const struct node_id *id,
@@ -1998,6 +2005,50 @@ static void send_reestablish(struct peer *peer,
 							 msg)));
 }
 
+/* Is this a dual-funded open which has not reached the funding transaction
+ * yet?  All of these still own a dualopend, and none of them have a funding
+ * tx we could rely on to bound the peer's efforts. */
+static bool channel_state_opening(enum channel_state state)
+{
+	switch (state) {
+	case DUALOPEND_OPEN_INIT:
+	case DUALOPEND_OPEN_COMMIT_READY:
+	case DUALOPEND_OPEN_COMMITTED:
+		return true;
+	case CHANNELD_AWAITING_LOCKIN:
+	case DUALOPEND_AWAITING_LOCKIN:
+	case CHANNELD_NORMAL:
+	case CHANNELD_AWAITING_SPLICE:
+	case CLOSINGD_SIGEXCHANGE:
+	case CHANNELD_SHUTTING_DOWN:
+	case CLOSINGD_COMPLETE:
+	case AWAITING_UNILATERAL:
+	case FUNDING_SPEND_SEEN:
+	case ONCHAIN:
+	case CLOSED:
+		return false;
+	}
+	abort();
+}
+
+/* Count in-flight channel opens for this peer: the single-funded opening
+ * channel (if any) plus every dual-funded open which has not yet got a
+ * funding transaction. */
+static size_t num_inflight_opens(const struct peer *peer)
+{
+	struct channel *c;
+	size_t n = 0;
+
+	if (peer->uncommitted_channel)
+		n++;
+
+	list_for_each(&peer->channels, c, list) {
+		if (channel_state_opening(c->state))
+			n++;
+	}
+	return n;
+}
+
 /* connectd tells us a peer has a message and we've not already attached
  * a subd.  Normally this is a race, but it happens for real when opening
  * a new channel, or referring to a channel we no longer want to talk to
@@ -2145,6 +2196,26 @@ void handle_peer_spoke(struct lightningd *ld, const u8 *msg)
 						"Didn't negotiate OPT_DUAL_FUND: cannot use open_channel2");
 			goto send_error;
 		}
+
+		/* Bound the number of concurrent opens from this peer.  We
+		 * reject before allocating any channel, HSM state or subdaemon,
+		 * keeping per-peer resource use bounded.  We disconnect rather
+		 * than just failing this open: connectd has already allocated a
+		 * subd for the temporary channel id and we have no way to make
+		 * it drop one, so leaving the connection up would let the peer
+		 * accumulate orphaned subds. */
+		if (num_inflight_opens(peer) >= MAX_INFLIGHT_OPENS) {
+			log_peer_debug(ld->log, &peer->id,
+				       "Rejecting open_channel2 %s: too many"
+				       " inflight opens (%zu)",
+				       fmt_channel_id(tmpctx, &channel_id),
+				       num_inflight_opens(peer));
+			error = towire_errorfmt(tmpctx, &channel_id,
+						"Too many inflight channel opens (max %u)",
+						MAX_INFLIGHT_OPENS);
+			goto send_error;
+		}
+
 		channel = new_unsaved_channel(peer,
 					      peer->ld->config.fee_base,
 					      peer->ld->config.fee_per_satoshi);
