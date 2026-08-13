@@ -60,4 +60,9 @@ bool depthcb_update_scid(struct channel *channel,
 			 const struct bitcoin_outpoint *outpoint,
 			 const struct txlocator *loc);
 
+/* As above, but for a scid we worked out (and stashed) earlier. */
+void channel_apply_scid(struct channel *channel,
+			const struct bitcoin_outpoint *outpoint,
+			struct short_channel_id scid);
+
 #endif /* LIGHTNING_LIGHTNINGD_CHANNEL_CONTROL_H */

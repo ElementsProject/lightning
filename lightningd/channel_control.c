@@ -846,28 +846,15 @@ static void change_scid(struct channel *channel,
 	channel_gossip_scid_changed(channel);
 }
 
-bool depthcb_update_scid(struct channel *channel,
-			 const struct bitcoin_outpoint *outpoint,
-			 const struct txlocator *loc)
+void channel_apply_scid(struct channel *channel,
+			const struct bitcoin_outpoint *outpoint,
+			struct short_channel_id scid)
 {
 	struct lightningd *ld = channel->peer->ld;
-	struct short_channel_id scid;
-
-	/* What scid is this giving us? */
-	if (!mk_short_channel_id(&scid,
-				 loc->blkheight, loc->index,
-				 outpoint->n)) {
-		channel_fail_permanent(channel,
-				       REASON_LOCAL,
-				       "Invalid funding scid %u:%u:%u",
-				       loc->blkheight, loc->index,
-				       outpoint->n);
-		return false;
-	}
 
 	/* No change?  Great. */
 	if (channel->scid && short_channel_id_eq(*channel->scid, scid))
-		return true;
+		return;
 
 	if (!channel->scid) {
 		wallet_annotate_txout(ld->wallet, outpoint,
@@ -888,6 +875,27 @@ bool depthcb_update_scid(struct channel *channel,
 	}
 
 	scid_updated(channel);
+}
+
+bool depthcb_update_scid(struct channel *channel,
+			 const struct bitcoin_outpoint *outpoint,
+			 const struct txlocator *loc)
+{
+	struct short_channel_id scid;
+
+	/* What scid is this giving us? */
+	if (!mk_short_channel_id(&scid,
+				 loc->blkheight, loc->index,
+				 outpoint->n)) {
+		channel_fail_permanent(channel,
+				       REASON_LOCAL,
+				       "Invalid funding scid %u:%u:%u",
+				       loc->blkheight, loc->index,
+				       outpoint->n);
+		return false;
+	}
+
+	channel_apply_scid(channel, outpoint, scid);
 	return true;
 }
 
