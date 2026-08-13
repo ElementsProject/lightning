@@ -563,10 +563,13 @@ static struct command_result *check_period(struct command *cmd,
 		u64 end = offer_period_start(basetime, period_idx + 1,
 					     invreq_recurrence(ir->invreq));
 
-		if (*ir->inv->invoice_created_at > start) {
+		assert(end > start);
+		if (*ir->inv->invoice_created_at >= end) {
+			*ir->inv->invoice_amount = 1;
+		} else if (*ir->inv->invoice_created_at > start) {
 			*ir->inv->invoice_amount
-				*= (double)((*ir->inv->invoice_created_at - start)
-					    / (end - start));
+				*= ((double)end - *ir->inv->invoice_created_at)
+					    / (end - start);
 			/* Round up to make it non-zero if necessary. */
 			if (*ir->inv->invoice_amount == 0)
 				*ir->inv->invoice_amount = 1;
