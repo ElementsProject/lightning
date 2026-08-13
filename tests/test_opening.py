@@ -3018,3 +3018,114 @@ def test_zeroconf_withhold_htlc_failback(node_factory, bitcoind):
 
     # l1's channel to l2 is still normal — no force-close
     assert only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['state'] == 'CHANNELD_NORMAL'
+
+
+@pytest.mark.openchannel('v2')
+def test_openchannel2_inflight_limit(node_factory, bitcoind):
+    """In-flight open_channel2 negotiations are bounded per peer.
+
+    Each open_channel2 attempt allocates an unsaved channel, HSM state,
+    descriptors and a lightning_dualopend subdaemon. We cap the number of
+    simultaneous in-flight opens per peer (MAX_INFLIGHT_OPENS == 3) and reject
+    the excess with an error, then hang up.
+    """
+    import hashlib
+    import socket
+    import struct
+    import pyln.proto.wire as wire
+    from coincurve import PrivateKey as CCPrivateKey
+
+    MAX_INFLIGHT_OPENS = 3
+
+    def pubkey(index):
+        return CCPrivateKey(index.to_bytes(32, "big")).public_key.format(compressed=True)
+
+    def open_channel2(index, chain_hash):
+        keys = [pubkey(index * 7 + offset + 1) for offset in range(7)]
+        temporary_channel_id = hashlib.sha256(bytes(33) + keys[1]).digest()
+        fixed = b"".join([
+            struct.pack(">H", 64),                     # type: open_channel2
+            chain_hash,
+            temporary_channel_id,
+            struct.pack(">IIQQQQHHI", 253, 253, 100_000, 546,
+                        100_000_000, 0, 6, 30, 0),
+            *keys,
+            b"\x00",                                   # channel_flags
+        ])
+        # opening_tlvs: type 1 channel_type = static_remotekey + anchors.
+        return temporary_channel_id, fixed + bytes.fromhex("0103401000")
+
+    class SocketConn:
+        def __init__(self, host, port):
+            self.sock = socket.create_connection((host, port))
+            self.sock.settimeout(30)
+            self.buf = b""
+
+        def send(self, data):
+            self.sock.sendall(data)
+
+        def recv(self, maxlen):
+            while len(self.buf) < maxlen:
+                chunk = self.sock.recv(maxlen - len(self.buf))
+                if not chunk:
+                    raise ConnectionError("peer closed connection")
+                self.buf += chunk
+            ret, self.buf = self.buf[:maxlen], self.buf[maxlen:]
+            return ret
+
+    # dualopend doesn't listen for the disconnect, so connectd has to force it.
+    l1 = node_factory.get_node(broken_log='Subd did not close, forcing close')
+    chain_hash = bytes.fromhex(bitcoind.rpc.getblockhash(0))[::-1]
+
+    # Speak the transport directly so we can inject raw open_channel2 messages.
+    conn = SocketConn("127.0.0.1", l1.port)
+    lconn = wire.LightningConnection(
+        conn,
+        wire.PublicKey(bytes.fromhex(l1.info["id"])),
+        wire.PrivateKey(bytes([7] * 32)),
+        is_initiator=True,
+    )
+    lconn.shake()
+
+    # Echo l1's init back so OPT_DUAL_FUND negotiates in both directions.
+    init = lconn.read_message()
+    assert int.from_bytes(init[0:2], "big") == 16
+    lconn.send_message(init)
+
+    # Fill the budget, and wait for each open to be accepted before starting
+    # the next: that way every dualopend has finished its openchannel2 hook
+    # roundtrip and is parked, so the count is stable when we overrun it.
+    cids = []
+    for index in range(MAX_INFLIGHT_OPENS):
+        cid, msg = open_channel2(index, chain_hash)
+        cids.append(cid)
+        lconn.send_message(msg)
+        while True:
+            reply = lconn.read_message()
+            if int.from_bytes(reply[0:2], "big") == 65:  # accept_channel2
+                assert reply[2:34] == cid
+                break
+
+    # One more open is over the cap: it must be refused with an error.
+    over_cid, msg = open_channel2(MAX_INFLIGHT_OPENS, chain_hash)
+    lconn.send_message(msg)
+
+    rejected = False
+    for _ in range(50):
+        reply = lconn.read_message()
+        if int.from_bytes(reply[0:2], "big") == 17:  # error
+            assert reply[2:34] == over_cid
+            assert "Too many inflight channel opens" in reply[36:].decode("ascii", "replace")
+            rejected = True
+            break
+    assert rejected, "over-cap open_channel2 was not rejected"
+
+    # And we hang up on them: connectd has already allocated a subd for the
+    # rejected temporary channel id, and dropping the connection is the only
+    # way to reclaim it.
+    with pytest.raises(ConnectionError):
+        for _ in range(50):
+            lconn.read_message()
+
+    # The node itself is still up.
+    assert l1.daemon.proc.poll() is None
