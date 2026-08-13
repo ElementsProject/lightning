@@ -426,11 +426,6 @@ const char *wait_index_name(enum wait_index index UNNEEDED)
 /* Generated stub for wait_subsystem_name */
 const char *wait_subsystem_name(enum wait_subsystem subsystem UNNEEDED)
 { fprintf(stderr, "wait_subsystem_name called!\n"); abort(); }
-/* Generated stub for watchman_unwatch_outpoint */
-void watchman_unwatch_outpoint(struct lightningd *ld UNNEEDED,
-			       const char *owner UNNEEDED,
-			       const struct bitcoin_outpoint *outpoint UNNEEDED)
-{ fprintf(stderr, "watchman_unwatch_outpoint called!\n"); abort(); }
 /* Generated stub for watchman_watch_outpoint */
 void watchman_watch_outpoint(struct lightningd *ld UNNEEDED,
 			     const char *owner UNNEEDED,

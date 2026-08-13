@@ -100,7 +100,7 @@ struct subd *new_channel_subd_(const tal_t *ctx UNNEEDED,
 					     const u8 *err_for_them UNNEEDED,
 					     bool disconnect UNNEEDED,
 					     bool warning) UNNEEDED,
-			       void (*billboardcb)(void *billboardcb_channel UNNEEDED, bool perm UNNEEDED,
+			       void (*billboardcb)(void *bollboardcb_channel UNNEEDED, bool perm UNNEEDED,
 						   const char *happenings) UNNEEDED,
 			       ...)
 { fprintf(stderr, "new_channel_subd_ called!\n"); abort(); }
