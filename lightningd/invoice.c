@@ -273,7 +273,8 @@ invoice_payment_hooks_done(struct invoice_payment_hook_payload *payload STEALS)
 	/* If invoice gets paid meanwhile (plugin responds out-of-order?) then
 	 * we can also fail */
 	if (!invoices_find_by_label(ld->wallet->invoices, &inv_dbid, payload->label)) {
-		htlc_set_fail(payload->set, NULL);
+		if (payload->set)
+			htlc_set_fail(payload->set, NULL);
 		return;
 	}
 

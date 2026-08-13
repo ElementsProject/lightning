@@ -888,6 +888,52 @@ def test_unified_invoices(node_factory, bitcoind):
     assert(txid == res['paid_outpoint']['txid'])
 
 
+def test_onchain_invoice_delinvoice_during_payment_hook(node_factory, bitcoind):
+    """delinvoice while onchain invoice_payment hook is pending must not crash."""
+    # Absolute path: inline plugins run in the test process (not lightning-dir).
+    unhold = [None]
+
+    def setup(plugin):
+        @plugin.hook("invoice_payment")
+        def on_payment(payment, plugin, **kwargs):
+            plugin.log("holding invoice_payment for label={}".format(payment["label"]))
+            while not os.path.exists(unhold[0]):
+                time.sleep(0.1)
+            plugin.log(
+                "releasing invoice_payment for label={}".format(payment["label"])
+            )
+            return {"result": "continue"}
+
+    l1 = node_factory.get_node(
+        options={"invoices-onchain-fallback": None}, inline_plugin=setup
+    )
+    unhold[0] = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "unhold")
+    amount_sat = 1000
+    inv = l1.rpc.invoice(
+        amount_sat * 1000, "inv1", "test_onchain_invoice_delinvoice_during_payment_hook"
+    )
+    b11 = l1.rpc.decode(inv["bolt11"])
+    assert len(b11["fallbacks"]) == 1
+    addr = b11["fallbacks"][0]["addr"]
+
+    # Pay the on-chain fallback while the hook holds resolution.
+    bitcoind.rpc.sendtoaddress(addr, amount_sat / 10**8)
+    bitcoind.generate_block(1)
+
+    l1.daemon.wait_for_log(r"holding invoice_payment for label=inv1")
+    assert only_one(l1.rpc.listinvoices("inv1")["invoices"])["status"] == "unpaid"
+
+    # Delete the unpaid invoice while the hook is still pending.
+    l1.rpc.delinvoice("inv1", "unpaid")
+
+    # Let the hook finish; lightningd must survive the stale reply.
+    open(unhold[0], "w").close()
+    l1.daemon.wait_for_log(r"releasing invoice_payment for label=inv1")
+
+    # RPC still works => no restartable crash from invoice_payment_hooks_done.
+    assert l1.rpc.listinvoices("inv1") == {"invoices": []}
+
+
 def test_expiry_startup_crash(node_factory, bitcoind):
     """We crash trying to expire invoice on startup"""
     l1 = node_factory.get_node()
