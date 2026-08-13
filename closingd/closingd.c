@@ -142,12 +142,21 @@ static void send_offer(struct per_peer_state *pps,
 		       struct amount_sat our_dust_limit,
 		       struct amount_sat fee_to_offer,
 		       const struct bitcoin_outpoint *wrong_funding,
-		       const struct tlv_closing_signed_tlvs_fee_range *tlv_fees)
+		       const struct tlv_closing_signed_tlvs_fee_range *tlv_fees,
+		       struct amount_sat max_fee_to_accept)
 {
 	struct bitcoin_tx *tx;
 	struct bitcoin_signature our_sig;
 	struct tlv_closing_signed_tlvs *close_tlvs;
 	u8 *msg;
+
+	/* We can arrive here in multiple ways, so add a final sanity check
+	 * that we did not go over our max fee */
+	if (amount_sat_greater(fee_to_offer, max_fee_to_accept))
+		peer_failed_warn(pps, channel_id, "Fee %s became larger than our"
+				 " max fee %s",
+				 fmt_amount_sat(tmpctx, fee_to_offer),
+				 fmt_amount_sat(tmpctx, max_fee_to_accept));
 
 	/* BOLT #2:
 	 *
@@ -731,7 +740,8 @@ static void do_quickclose(struct amount_sat offer[NUM_SIDES],
 				   our_dust_limit,
 				   offer[LOCAL],
 				   wrong_funding,
-				   our_feerange);
+				   our_feerange,
+				   our_feerange->max_fee_satoshis);
 		}
 	} else {
 		/* BOLT #2:
@@ -767,7 +777,8 @@ static void do_quickclose(struct amount_sat offer[NUM_SIDES],
 			   our_dust_limit,
 			   offer[LOCAL],
 			   wrong_funding,
-			   our_feerange);
+			   our_feerange,
+			   our_feerange->max_fee_satoshis);
 
 		/* They will reply unless we completely agreed. */
 		if (!amount_sat_eq(offer[LOCAL], offer[REMOTE])) {
@@ -941,7 +952,8 @@ int main(int argc, char *argv[])
 				   our_dust_limit,
 				   offer[LOCAL],
 				   wrong_funding,
-				   our_feerange);
+				   our_feerange,
+				   max_fee_to_accept);
 		} else {
 			if (i == 0)
 				peer_billboard(false, "Waiting for their initial"
@@ -1011,7 +1023,8 @@ int main(int argc, char *argv[])
 				   our_dust_limit,
 				   offer[LOCAL],
 				   wrong_funding,
-				   our_feerange);
+				   our_feerange,
+				   max_fee_to_accept);
 		} else {
 			peer_billboard(false, "Waiting for another"
 				       " closing fee offer:"
