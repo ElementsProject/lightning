@@ -52,7 +52,7 @@ jobs:
           export CPATH=/opt/homebrew/include
           export LIBRARY_PATH=/opt/homebrew/lib
 
-          uv run ./configure --disable-valgrind --disable-compat
+          uv run ./configure --disable-valgrind --disable-compat --disable-rust
           uv run gmake
           uv run gmake check-gen-updated
           sudo gmake install
