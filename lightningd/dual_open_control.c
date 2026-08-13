@@ -1007,16 +1007,29 @@ static enum watch_result opening_depth_cb(struct lightningd *ld,
 					  unsigned int depth,
 					  struct channel_inflight *inflight)
 {
+	struct channel *channel = inflight->channel;
+
 	/* Usually, we're here because we're awaiting a lockin, but
 	 * we could also mutual shutdown */
-	if (inflight->channel->state != DUALOPEND_AWAITING_LOCKIN)
+	if (channel->state != DUALOPEND_AWAITING_LOCKIN)
 		return DELETE_WATCH;
 
-	if (depth >= inflight->channel->minimum_depth)
-		update_channel_from_inflight(ld, inflight->channel, inflight,
-					     false);
+	/*~ Now we commit the channel to *this* candidate.  Both halves have to
+	 * move together: the scid says "we're confirmed", channel->funding says
+	 * "and this is the tx we confirmed".  We used to set the scid the
+	 * instant we saw the tx in a block (inline, while the block was being
+	 * processed) but only get here -- and so only update channel->funding --
+	 * once we'd caught up on every queued block.  A reconnect landing in
+	 * between saw a mixed state and happily locked in whatever RBF candidate
+	 * was last negotiated, which may never have been mined at all. */
+	if (depth >= channel->minimum_depth) {
+		assert(inflight->scid);
+		update_channel_from_inflight(ld, channel, inflight, false);
+		channel_apply_scid(channel, &inflight->funding->outpoint,
+				   *inflight->scid);
+	}
 
-	dualopend_tell_depth(inflight->channel, &inflight->funding->outpoint.txid, depth);
+	dualopend_tell_depth(channel, &inflight->funding->outpoint.txid, depth);
 	return KEEP_WATCHING;
 }
 
@@ -1024,6 +1037,7 @@ static enum watch_result opening_reorged_cb(struct lightningd *ld, struct channe
 {
 	/* Reorged out?  OK, we're not committed yet. */
 	log_info(inflight->channel->log, "Candidate funding tx was in a block, now reorged out");
+	inflight->scid = tal_free(inflight->scid);
 	return DELETE_WATCH;
 }
 
@@ -1033,19 +1047,27 @@ static void dual_funding_found(struct lightningd *ld,
 			       const struct txlocator *loc,
 			       struct channel_inflight *inflight)
 {
-	/* Kill it if the channel funding isn't a valid scid */
-	if (!depthcb_update_scid(inflight->channel,
-				 &inflight->funding->outpoint,
-				 loc))
+	/*~ Record where *this* candidate landed, but deliberately don't touch
+	 * channel->scid yet: while we're catching up on blocks this runs inline
+	 * per-block, whereas the blockdepth callbacks below don't run until
+	 * we've run out of blocks to fetch.  Publishing a scid on the channel
+	 * here would advertise "funding confirmed" while channel->funding still
+	 * named a different (possibly never-mined) RBF candidate.  We may be
+	 * called again for the same inflight after a reorg, so don't assert it's
+	 * unset. */
+	tal_free(inflight->scid);
+	inflight->scid = tal(inflight, struct short_channel_id);
+	if (!mk_short_channel_id(inflight->scid,
+				 loc->blkheight, loc->index,
+				 inflight->funding->outpoint.n)) {
+		inflight->scid = tal_free(inflight->scid);
+		channel_fail_permanent(inflight->channel,
+				       REASON_LOCAL,
+				       "Invalid funding scid %u:%u:%u",
+				       loc->blkheight, loc->index,
+				       inflight->funding->outpoint.n);
 		return;
-
-	/* This inflight is the one the chain chose: record it now, so
-	 * anyone consulting the channel before we finish catching up
-	 * with the chain (e.g. a reconnecting peer) sees the mined
-	 * funding tx, not the latest RBF attempt. */
-	if (inflight->channel->state == DUALOPEND_AWAITING_LOCKIN)
-		update_channel_from_inflight(ld, inflight->channel,
-					     inflight, false);
+	}
 
 	/* Otherwise, watch for block depth increases (we'll immediately expect one) */
 	watch_blockdepth(inflight, ld->topology, loc->blkheight,
@@ -1964,6 +1986,23 @@ static void handle_channel_locked(struct subd *dualopend,
 
 	assert(channel->scid);
 	assert(channel->remote_channel_ready);
+
+	/*~ Belt-and-braces: below we throw away every inflight, and with them
+	 * the commitment tx for whichever candidate actually got mined.  That's
+	 * not recoverable, so refuse if the tx we're about to commit to isn't
+	 * one we've actually seen on-chain.  (Zeroconf legitimately locks in
+	 * before any confirmation, but dualopend never sets minimum_depth to 0
+	 * today.) */
+	if (channel->minimum_depth != 0
+	    && get_tx_depth(dualopend->ld->topology,
+			    &channel->funding.txid) == 0) {
+		channel_internal_error(channel,
+				       "Tried to lock in funding tx %s which we"
+				       " have not seen mined",
+				       fmt_bitcoin_txid(tmpctx,
+							&channel->funding.txid));
+		return;
+	}
 
 	log_debug(channel->log, "Lockin complete state %s",
 		  channel_state_name(channel));
@@ -4353,13 +4392,13 @@ bool peer_restart_dualopend(struct peer *peer,
 		       &max_to_self_delay,
 		       &min_effective_htlc_capacity);
 
-	/* If a funding tx already confirmed, it is not necessarily the
-	 * latest inflight: reestablish using the one the chain chose. */
-	if (channel->scid)
-		inflight = channel_inflight_find(channel,
-						 &channel->funding.txid);
-	else
-		inflight = NULL;
+	/*~ Once we've committed to a candidate (ie. it was mined deep enough),
+	 * channel->funding names it, and that's what we have to reinit dualopend
+	 * with -- not whatever RBF attempt happens to be last in the list.  Note
+	 * we can't just take the list tail and hope: inflights are reloaded
+	 * ORDER BY funding_feerate, so across a restart the tail is the
+	 * highest-feerate attempt regardless of which one got mined. */
+	inflight = channel_inflight_find(channel, &channel->funding.txid);
 	if (!inflight)
 		inflight = channel_current_inflight(channel);
 	assert(inflight);
