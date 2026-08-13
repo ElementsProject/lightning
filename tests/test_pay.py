@@ -7506,3 +7506,245 @@ def test_createproof_include(node_factory, bitcoind):
     # Unknown name is an error.
     with pytest.raises(RpcError, match=r'Unknown field name'):
         l1.rpc.call('createproof', {'invstring': inv, 'include': ['no_such_field']})
+
+
+def test_blinded_forward_policy(node_factory):
+    """Test that an intermediate nodes in a blinded path verify that the
+    encrypted_recipient_data it receives matches its own relay policy."""
+    FEE_PPM = 1000
+    FINAL_AMT = 1000000
+
+    def bad_topology(plugin):
+        """A plugin that sets an arbitary fee for incoming channels. Helper to
+        test encrypted recepient data handling."""
+
+        @plugin.init()
+        def init(configuration, options, plugin):
+            plugin.incoming = None
+
+        @plugin.hook("rpc_command")
+        def on_rpc_command(plugin, rpc_command, **kwargs):
+            if rpc_command["method"] == "listincoming" and plugin.incoming:
+                plugin.log(
+                    "Producing fake listincoming with {}".format(plugin.incoming)
+                )
+                return {"return": {"result": {"incoming": [plugin.incoming]}}}
+            return {"result": "continue"}
+
+        @plugin.method("setincoming")
+        def setincoming(plugin, channel):
+            plugin.incoming = channel
+
+    def get_onion(
+        rpc, invoice, blockheight, my_node, entry_point, scid, in_amount, final_amount
+    ):
+        assert len(invoice["invoice_paths"]) == 1
+        assert invoice["invoice_paths"][0]["first_node_id"] == entry_point
+        path = invoice["invoice_paths"][0]["path"]
+        path_key = invoice["invoice_paths"][0]["first_path_key"]
+        assert len(path) == 2
+
+        final_tlvs = TlvPayload()
+        final_tlvs.add_field(2, tu64_encode(final_amount))
+        final_tlvs.add_field(4, tu64_encode(blockheight + 18))
+        final_tlvs.add_field(10, bytes.fromhex(path[1]["encrypted_recipient_data"]))
+        final_tlvs.add_field(18, tu64_encode(final_amount))
+
+        mid_tlvs = TlvPayload()
+        mid_tlvs.add_field(10, bytes.fromhex(path[0]["encrypted_recipient_data"]))
+        mid_tlvs.add_field(12, bytes.fromhex(path_key))
+
+        hops = [
+            {
+                "pubkey": my_node,
+                "payload": serialize_payload_tlv(
+                    in_amount, 18 + 6 + 6, scid, blockheight
+                ).hex(),
+            },
+            {"pubkey": entry_point, "payload": mid_tlvs.to_bytes().hex()},
+            {
+                "pubkey": path[1]["blinded_node_id"],
+                "payload": final_tlvs.to_bytes().hex(),
+            },
+        ]
+
+        return rpc.createonion(hops=hops, assocdata=invoice["invoice_payment_hash"])[
+            "onion"
+        ]
+
+    l1, l2 = node_factory.line_graph(
+        2,
+        wait_for_announce=True,
+        opts=[
+            {"fee-per-satoshi": 0, "fee-base": 0, "dev-allow-localhost": None},
+            {"dev-allow-localhost": None, "fee-per-satoshi": FEE_PPM, "fee-base": 0},
+        ],
+    )
+    l3 = node_factory.get_node(
+        options={"cltv-final": 18, "dev-allow-localhost": None},
+        may_reconnect=True,
+        inline_plugin=bad_topology,
+    )
+    node_factory.join_nodes([l2, l3], announce_channels=False)
+    # Make sure l3 knows about l1-l2, so will add route hint.
+    wait_for(lambda: l3.rpc.listnodes(l1.info["id"]) != {"nodes": []})
+
+    offer = l3.rpc.offer(FINAL_AMT, "test_pay_blindedpath_privchan")
+    l1.rpc.decode(offer["bolt12"])
+
+    chan = only_one(l3.rpc.listpeerchannels(l2.info["id"])["channels"])
+    incoming = {
+        "id": l2.info["id"],
+        "short_channel_id": chan["short_channel_id"],
+        "fee_base_msat": chan["updates"]["remote"]["fee_base_msat"],
+        "fee_proportional_millionths": chan["updates"]["remote"][
+            "fee_proportional_millionths"
+        ],
+        "htlc_min_msat": chan["updates"]["remote"]["htlc_minimum_msat"],
+        "htlc_max_msat": chan["updates"]["remote"]["htlc_maximum_msat"],
+        "cltv_expiry_delta": chan["updates"]["remote"]["cltv_expiry_delta"],
+        "incoming_capacity_msat": chan["receivable_msat"],
+        "public": False,
+        "enabled": True,
+        "peer_features": l2.info["our_features"]["node"],
+    }
+
+    blockheight = l1.rpc.getinfo()["blockheight"]
+    scid = first_scid(l1, l2)
+
+    # l3 sets a payment_relay in the encrypted_recipient_data for l2 that
+    # matches l2's policy
+    fee_ppm = FEE_PPM
+    hop_amt = (fee_ppm * FINAL_AMT) // 1000000 + FINAL_AMT
+    incoming["fee_proportional_millionths"] = fee_ppm
+    l3.rpc.call("setincoming", {"channel": incoming})
+    inv = l1.rpc.fetchinvoice(offer["bolt12"])
+    decoded = l1.rpc.decode(inv["invoice"])
+
+    onion = get_onion(
+        l1.rpc,
+        decoded,
+        blockheight,
+        l1.info["id"],
+        l2.info["id"],
+        scid,
+        hop_amt,
+        FINAL_AMT,
+    )
+
+    l1.rpc.injectpaymentonion(
+        onion=onion,
+        payment_hash=decoded["invoice_payment_hash"],
+        amount_msat=hop_amt,
+        cltv_expiry=blockheight + 18 + 6,
+        partid=1,
+        groupid=0,
+        invstring=inv["invoice"],
+    )
+
+    # l3 sets a payment_relay in the encrypted_recipient_data for l2 that
+    # pays more than l2 asks
+    fee_ppm = 2 * FEE_PPM
+    hop_amt = (fee_ppm * FINAL_AMT) // 1000000 + FINAL_AMT
+    incoming["fee_proportional_millionths"] = fee_ppm
+    l3.rpc.call("setincoming", {"channel": incoming})
+    inv = l1.rpc.fetchinvoice(offer["bolt12"])
+    decoded = l1.rpc.decode(inv["invoice"])
+
+    onion = get_onion(
+        l1.rpc,
+        decoded,
+        blockheight,
+        l1.info["id"],
+        l2.info["id"],
+        scid,
+        hop_amt,
+        FINAL_AMT,
+    )
+
+    l1.rpc.injectpaymentonion(
+        onion=onion,
+        payment_hash=decoded["invoice_payment_hash"],
+        amount_msat=hop_amt,
+        cltv_expiry=blockheight + 18 + 6,
+        partid=1,
+        groupid=0,
+        invstring=inv["invoice"],
+    )
+
+    # l3 sets a payment_relay in the encrypted_recipient_data for l2 that
+    # doesn't pay enough fees to l2, l2 should refuse to forward
+    fee_ppm = FEE_PPM - 1
+    hop_amt = (fee_ppm * FINAL_AMT) // 1000000 + FINAL_AMT
+    incoming["fee_proportional_millionths"] = fee_ppm
+    l3.rpc.call("setincoming", {"channel": incoming})
+    inv = l1.rpc.fetchinvoice(offer["bolt12"])
+    decoded = l1.rpc.decode(inv["invoice"])
+
+    onion = get_onion(
+        l1.rpc,
+        decoded,
+        blockheight,
+        l1.info["id"],
+        l2.info["id"],
+        scid,
+        hop_amt,
+        FINAL_AMT,
+    )
+
+    with pytest.raises(RpcError) as err:
+        l1.rpc.injectpaymentonion(
+            onion=onion,
+            payment_hash=decoded["invoice_payment_hash"],
+            amount_msat=hop_amt,
+            cltv_expiry=blockheight + 18 + 6,
+            partid=1,
+            groupid=0,
+            invstring=inv["invoice"],
+        )
+    assert "onionreply" in err.value.error["data"]
+    # l2 refused: payment_relay fees too low vs its real channel policy
+    l2.daemon.wait_for_log(r"incorrect amount")
+    fwd = only_one(
+        [
+            f
+            for f in l2.rpc.listforwards()["forwards"]
+            if f.get("status") == "local_failed"
+        ]
+    )
+    assert fwd["failreason"] == "WIRE_FEE_INSUFFICIENT"
+
+    # l3 sets a payment_relay in the encrypted_recipient_data for l2 with a big
+    # number,
+    fee_ppm = FEE_PPM
+    hop_amt = (fee_ppm * FINAL_AMT) // 1000000 + FINAL_AMT
+    incoming["fee_proportional_millionths"] = 4293967296
+    l3.rpc.call("setincoming", {"channel": incoming})
+    inv = l1.rpc.fetchinvoice(offer["bolt12"])
+    decoded = l1.rpc.decode(inv["invoice"])
+
+    onion = get_onion(
+        l1.rpc,
+        decoded,
+        blockheight,
+        l1.info["id"],
+        l2.info["id"],
+        scid,
+        hop_amt,
+        FINAL_AMT,
+    )
+
+    with pytest.raises(RpcError) as err:
+        l1.rpc.injectpaymentonion(
+            onion=onion,
+            payment_hash=decoded["invoice_payment_hash"],
+            amount_msat=hop_amt,
+            cltv_expiry=blockheight + 18 + 6,
+            partid=1,
+            groupid=0,
+            invstring=inv["invoice"],
+        )
+    assert "onionreply" in err.value.error["data"]
+    # l2 is fine with it, down the route the last node complains it did not get
+    # the expected amount
+    l3.daemon.wait_for_log(r"final incorrect amount: 234msat in, 1000000msat expected")
