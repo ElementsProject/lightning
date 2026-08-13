@@ -213,6 +213,13 @@ def test_layers(node_factory):
     expect['channel_updates'] = []
     assert l2.rpc.askrene_listlayers('test_layers') == {'layers': [expect]}
 
+    # askrene should reject invalid inform channel types
+    with pytest.raises(RpcError, match=r"invalid token"):
+        l2.rpc.askrene_inform_channel('test_layers',
+                                      '0x0x1/1',
+                                      100000,
+                                      'imadethisup')
+
     # We can tell it about made up channels...
     first_timestamp = int(time.time())
     l2.rpc.askrene_inform_channel('test_layers',
