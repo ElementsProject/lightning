@@ -856,7 +856,7 @@ class LightningRpc(UnixDomainSocketRpc):
 
     def getlog(self, level=None):
         """
-        Show logs, with optional log {level} (info|unusual|debug|io).
+        Show logs, with optional log {level} (info|unusual|debug|trace).
         """
         payload = {
             "level": level

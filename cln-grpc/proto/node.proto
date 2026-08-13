@@ -2191,7 +2191,6 @@ message GetlogRequest {
 		UNUSUAL = 1;
 		INFO = 2;
 		DEBUG = 3;
-		IO = 4;
 		TRACE = 5;
 	}
 	optional GetlogLevel level = 1;
