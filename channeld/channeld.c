@@ -220,6 +220,7 @@ const u8 *hsm_req(const tal_t *ctx, const u8 *req TAKES)
 	if (!msg) {
 		status_broken("hsm_req: read from HSM failed (fd %i): %s",
 			      HSM_FD, strerror(errno));
+		diag_hsm_socket(HSM_FD);
 		exit(0);
 	}
 

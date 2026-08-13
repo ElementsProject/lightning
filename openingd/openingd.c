@@ -1488,10 +1488,13 @@ int main(int argc, char *argv[])
 	msg = wire_sync_read(tmpctx, HSM_FD);
 	if (!fromwire_hsmd_get_per_commitment_point_reply(tmpctx, msg,
 							 &state->first_per_commitment_point[LOCAL],
-							 &none))
+							 &none)) {
+		diag_hsm_socket(HSM_FD);
 		status_failed(STATUS_FAIL_HSM_IO,
 			      "Bad get_per_commitment_point_reply %s",
 			      tal_hex(tmpctx, msg));
+	}
+
 	/*~ The HSM gives us the N-2'th per-commitment secret when we get the
 	 * N'th per-commitment point.  But since N=0, it won't give us one. */
 	assert(none == NULL);

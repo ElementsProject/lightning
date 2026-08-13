@@ -96,4 +96,9 @@ void status_send_fd(int fd);
 /* Print BROKEN status: callback for dump_memleak. */
 void memleak_status_broken(void *unused, const char *fmt, ...);
 
+/* macOS flake diagnosis: log the socket identity (st_dev:st_ino) of an HSM
+ * fd.  Both ends of a socketpair share st_ino, so we can tell whether the
+ * subdaemon's HSM_FD and hsmd's client are really the same socket. */
+void diag_hsm_socket(int fd);
+
 #endif /* LIGHTNING_COMMON_STATUS_H */

@@ -10,6 +10,8 @@
 #include <common/utils.h>
 #include <common/version.h>
 #include <errno.h>
+#include <inttypes.h>
+#include <sys/stat.h>
 #include <wire/peer_wire.h>
 #include <wire/wire_sync.h>
 
@@ -181,6 +183,18 @@ void status_send_fd(int fd)
 {
 	assert(!status_conn);
 	fdpass_send(status_fd, fd);
+}
+
+void diag_hsm_socket(int fd)
+{
+	struct stat st;
+
+	if (fstat(fd, &st) == 0)
+		status_debug("hsm diag: fd %i st_dev=%ju st_ino=%ju",
+			     fd, (uintmax_t)st.st_dev, (uintmax_t)st.st_ino);
+	else
+		status_debug("hsm diag: fd %i fstat failed: %s",
+			     fd, strerror(errno));
 }
 
 void status_send_fatal(const u8 *msg TAKES)

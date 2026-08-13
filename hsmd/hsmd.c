@@ -182,6 +182,7 @@ static void destroy_client(struct client *c)
 	status_debug("Destroying client %"PRIu64", conn fd %i, for %s",
 		     c->dbid, io_conn_fd(c->conn),
 		     node_id_valid(&c->id) ? fmt_node_id(tmpctx, &c->id) : "(none)");
+	diag_hsm_socket(io_conn_fd(c->conn));
 
 	if (!uintmap_del(&clients, c->dbid))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
@@ -631,6 +632,7 @@ static struct io_plan *pass_client_hsmfd(struct io_conn *conn,
 	status_debug("hsmfd pair for dbid %"PRIu64": hsmd fds[0]=%i fds[1]=%i",
 		     dbid, fds[0], fds[1]);
 	new_client(c, c->chainparams, &id, dbid, capabilities, fds[0]);
+	diag_hsm_socket(fds[0]);
 
 	/*~ We stash this in a global, because we need to get both the fd and
 	 * the client pointer to the callback.  The other way would be to
