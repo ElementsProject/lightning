@@ -2214,6 +2214,84 @@ def test_onchain_middleman_simple(node_factory, bitcoind, chainparams, anchors):
         check_utxos_channel(l1, [channel_id, chan2_id], expected_1, tags)
 
 
+def test_onchain_middleman_fulfill_after_fail(node_factory, bitcoind):
+    """An onchain preimage beats a failure we haven't finished removing.
+
+    l3 gets two HTLCs with the same payment hash and fails one of them, but
+    disconnects before that removal is irrevocably committed, so its
+    commitment still contains both.  It then drops onchain, and claims them
+    once it learns the preimage: l2 must fulfill both incoming HTLCs.
+    """
+    hold_plugin = os.path.join(os.getcwd(), 'tests/plugins/htlc_accepted-hold.py')
+
+    # l3 disconnects as it sends the commitment_signed containing the
+    # failure: it sends one for each HTLC it's given, then that one.
+    l1, l2, l3 = node_factory.get_nodes(3,
+                                        opts=[{}, {},
+                                              {'plugin': hold_plugin,
+                                               'disconnect': ['+WIRE_COMMITMENT_SIGNED*3']}])
+
+    l2.rpc.connect(l1.info['id'], 'localhost', l1.port)
+    l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
+    l2.fundchannel(l1, 10**6)
+    c23, _ = l2.fundchannel(l3, 10**6)
+
+    # l3 needs funds of its own to pay for its onchain claims.
+    l3.fundwallet(10**6)
+
+    # Make sure routes finalized.
+    mine_funding_to_announce(bitcoind, [l1, l2, l3])
+    l1.wait_channel_active(c23)
+
+    # Give l1 some money to play with.
+    l2.pay(l1, 4 * 10**8)
+
+    # Must be bigger than dust, and different so we can tell them apart.
+    amt1, amt2 = 10**8, 9 * 10**7
+    preimage = '00' * 31 + '01'
+    inv = l3.rpc.invoice(amt1 + amt2, 'middleman', 'desc', preimage=preimage)
+    rhash = inv['payment_hash']
+
+    # l3 holds onto this one: we choose when it learns the preimage.
+    l1.rpc.sendpay(l1.single_route(l3.info['id'], amt1), rhash,
+                   amount_msat=amt1 + amt2,
+                   payment_secret=inv['payment_secret'],
+                   partid=1, groupid=1)
+    l3.daemon.wait_for_log('holding htlc {}'.format(rhash))
+
+    # And it fails this one.
+    l1.rpc.sendpay(l1.single_route(l3.info['id'], amt2), rhash,
+                   amount_msat=amt1 + amt2,
+                   payment_secret=inv['payment_secret'],
+                   partid=2, groupid=1)
+    l3.daemon.wait_for_log('failing htlc {}'.format(rhash))
+    l3.daemon.wait_for_log(r'dev_disconnect: \+WIRE_COMMITMENT_SIGNED')
+
+    # l2 has the failure, but can't pass it on: both HTLCs are still live.
+    l2.daemon.wait_for_log('peer_in WIRE_UPDATE_FAIL_HTLC')
+    wait_for(lambda: len(only_one(l2.rpc.listpeerchannels(l3.info['id'])['channels'])['htlcs']) == 2)
+
+    # l3 drops its commitment, which still contains both HTLCs.
+    l3.rpc.close(l2.info['id'], 1)
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    l2.daemon.wait_for_log(' to ONCHAIN')
+    l3.daemon.wait_for_log(' to ONCHAIN')
+
+    # Now l3 learns the preimage, and spends what it's owed.
+    l3.rpc.releasehtlc(preimage)
+    _, txid, _ = l3.wait_for_onchaind_tx('OUR_HTLC_SUCCESS_TX',
+                                         'OUR_UNILATERAL/THEIR_HTLC')
+    bitcoind.generate_block(1, wait_for_mempool=[txid])
+    l2.daemon.wait_for_log('THEIR_UNILATERAL/OUR_HTLC gave us preimage')
+
+    # Both payments must succeed, including the one l3 said it failed.
+    l1.rpc.waitsendpay(rhash, TIMEOUT, partid=1)
+    l1.rpc.waitsendpay(rhash, TIMEOUT, partid=2)
+
+    forwards = l2.rpc.listforwards()['forwards']
+    assert [f['status'] for f in forwards] == ['settled', 'settled']
+
+
 @pytest.mark.parametrize("anchors", [False, True])
 def test_onchain_middleman_their_unilateral_in(node_factory, bitcoind, chainparams, anchors):
     """ This is the same as test_onchain_middleman, except that
