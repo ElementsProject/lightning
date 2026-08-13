@@ -1217,6 +1217,30 @@ struct command_result *param_loglevel(struct command *cmd,
 				     "'unusual'");
 }
 
+/* The io log contains raw JSON-RPC and plugin traffic, which can contain
+ * secrets (such as runes), and getlog returns the entire log book: so we
+ * don't serve io here.  It's still available in the log file, for those who
+ * run with --log-level=io. */
+static struct command_result *param_getloglevel(struct command *cmd,
+						const char *name,
+						const char *buffer,
+						const jsmntok_t *tok,
+						enum log_level **level)
+{
+	struct command_result *ret;
+
+	ret = param_loglevel(cmd, name, buffer, tok, level);
+	if (ret)
+		return ret;
+
+	if (**level == LOG_IO_IN || **level == LOG_IO_OUT)
+		return command_fail_badparam(cmd, name, buffer, tok,
+					     "io logs are not available here:"
+					     " use --log-level=io and read the"
+					     " log file");
+	return NULL;
+}
+
 static struct command_result *json_getlog(struct command *cmd,
 					  const char *buffer,
 					  const jsmntok_t *obj UNNEEDED,
@@ -1227,7 +1251,7 @@ static struct command_result *json_getlog(struct command *cmd,
 	struct log_book *log_book = cmd->ld->log_book;
 
 	if (!param(cmd, buffer, params,
-		   p_opt_def("level", param_loglevel, &minlevel, LOG_INFORM),
+		   p_opt_def("level", param_getloglevel, &minlevel, LOG_INFORM),
 		   NULL))
 		return command_param_failed();
 

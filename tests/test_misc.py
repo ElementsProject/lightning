@@ -3797,11 +3797,10 @@ def test_getlog(node_factory):
     logs = l1.rpc.getlog()['log']
     assert [l for l in logs if l['type'] not in ("BROKEN", "UNUSUAL", "INFO")] == []
 
-    logs = l1.rpc.getlog(level='io')['log']
-    assert [l for l in logs if l['type'] not in ("BROKEN", "UNUSUAL", "INFO", "DEBUG", "TRACE", "IO_IN", "IO_OUT")] == []
+    logs = l1.rpc.getlog(level='trace')['log']
+    assert [l for l in logs if l['type'] not in ("BROKEN", "UNUSUAL", "INFO", "DEBUG", "TRACE")] == []
 
 
-@pytest.mark.xfail(strict=True)
 def test_getlog_no_io(node_factory):
     """getlog must not hand out io logs: they contain the raw JSON-RPC and
     plugin traffic, which includes secrets such as runes."""

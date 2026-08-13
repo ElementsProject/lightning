@@ -2603,7 +2603,7 @@ pub mod requests {
 	        "fundchannel_start"
 	    }
 	}
-	/// ['A string that represents the log level.']
+	/// ['A string that represents the log level. Note that *io* is not accepted here; io logs are available only in the log file, via *log-level=io*.']
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	#[allow(non_camel_case_types)]
 	pub enum GetlogLevel {
@@ -2615,8 +2615,6 @@ pub mod requests {
 	    INFO = 2,
 	    #[serde(rename = "debug")]
 	    DEBUG = 3,
-	    #[serde(rename = "io")]
-	    IO = 4,
 	    #[serde(rename = "trace")]
 	    TRACE = 5,
 	}
@@ -2629,7 +2627,6 @@ pub mod requests {
 	    1 => Ok(GetlogLevel::UNUSUAL),
 	    2 => Ok(GetlogLevel::INFO),
 	    3 => Ok(GetlogLevel::DEBUG),
-	    4 => Ok(GetlogLevel::IO),
 	    5 => Ok(GetlogLevel::TRACE),
 	            o => Err(anyhow::anyhow!("Unknown variant {} for enum GetlogLevel", o)),
 	        }
@@ -2644,7 +2641,6 @@ pub mod requests {
 	            GetlogLevel::INFO => "INFO",
 	            GetlogLevel::DEBUG => "DEBUG",
 	            GetlogLevel::TRACE => "TRACE",
-	            GetlogLevel::IO => "IO",
 	        }.to_string()
 	    }
 	}

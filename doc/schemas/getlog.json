@@ -20,11 +20,10 @@
           "unusual",
           "info",
           "debug",
-          "trace",
-          "io"
+          "trace"
         ],
         "description": [
-          "A string that represents the log level."
+          "A string that represents the log level. Note that *io* is not accepted here; io logs are available only in the log file, via *log-level=io*."
         ],
         "default": "*info*"
       }
