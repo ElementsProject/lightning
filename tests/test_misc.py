@@ -3801,6 +3801,27 @@ def test_getlog(node_factory):
     assert [l for l in logs if l['type'] not in ("BROKEN", "UNUSUAL", "INFO", "DEBUG", "TRACE", "IO_IN", "IO_OUT")] == []
 
 
+@pytest.mark.xfail(strict=True)
+def test_getlog_no_io(node_factory):
+    """getlog must not hand out io logs: they contain the raw JSON-RPC and
+    plugin traffic, which includes secrets such as runes."""
+    l1 = node_factory.get_node(options={'log-level': 'io'})
+
+    rune = l1.rpc.createrune()['rune']
+
+    # The schema doesn't allow it, but lightningd must refuse it too.
+    l1.rpc.check_request_schemas = False
+    with pytest.raises(RpcError, match='io logs are not available'):
+        l1.rpc.getlog(level='io')
+    l1.rpc.check_request_schemas = True
+
+    # Nor do the other levels expose raw traffic.
+    for level in ('trace', 'debug', 'info', 'unusual', 'broken'):
+        for entry in l1.rpc.getlog(level=level)['log']:
+            assert 'data' not in entry
+            assert rune not in entry.get('log', '')
+
+
 def test_log_filter(node_factory):
     """Test the log-level option with subsystem filters"""
     # This actually suppresses debug!
