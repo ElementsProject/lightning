@@ -1393,11 +1393,18 @@ static const char *plugin_rpcmethod_add(struct plugin *plugin,
 	if (!jsonrpc_command_add(plugin->plugins->ld->jsonrpc, cmd, usage)) {
 		struct plugin *p =
 		    find_plugin_for_command(plugin->plugins->ld, cmd->name);
-		return tal_fmt(
-		    plugin,
-		    "Could not register method \"%s\", a method with "
-		    "that name is already registered by plugin %s",
-		    cmd->name, p->cmd);
+		if (p)
+			return tal_fmt(
+			    plugin,
+			    "Could not register method \"%s\", a method with "
+			    "that name is already registered by plugin %s",
+			    cmd->name, p->cmd);
+		else
+			return tal_fmt(plugin,
+				       "Could not register method \"%s\", a "
+				       "builtin method with "
+				       "that name is already registered",
+				       cmd->name);
 	}
 	tal_arr_expand(&plugin->methods, cmd->name);
 	return NULL;
