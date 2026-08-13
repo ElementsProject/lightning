@@ -105,6 +105,9 @@ static struct connecting *find_connecting(struct daemon *daemon,
 /*~ When we free a peer, we remove it from the daemon's hashtable. */
 static void destroy_peer(struct peer *peer)
 {
+	/* macOS flake diagnosis: log every peer we drop, so we can correlate
+	 * a subdaemon's peer-EOF with connectd tearing down that peer. */
+	status_peer_debug(&peer->id, "connectd dropping peer");
 	if (!peer_htable_del(peer->daemon->peers, peer))
 		abort();
 }

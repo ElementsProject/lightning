@@ -5,6 +5,8 @@
 #include <common/per_peer_state.h>
 #include <common/status.h>
 #include <wire/wire_sync.h>
+#include <errno.h>
+#include <string.h>
 
 void peer_write(struct per_peer_state *pps, const void *msg TAKES)
 {
@@ -18,8 +20,14 @@ void peer_write(struct per_peer_state *pps, const void *msg TAKES)
 u8 *peer_read(const tal_t *ctx, struct per_peer_state *pps)
 {
 	u8 *msg = wire_sync_read(ctx, pps->peer_fd);
-	if (!msg)
+	if (!msg) {
+		/* macOS flake diagnosis: capture why the peer connection died
+		 * (errno 0 = EOF, i.e. the other end was closed). */
+		int err = errno;
+		status_debug("peer_read failed on peer_fd %i: %s (errno %i)",
+			     pps->peer_fd, strerror(err), err);
 		peer_failed_connection_lost();
+	}
 
 	status_peer_io(LOG_IO_IN, NULL, msg);
 
