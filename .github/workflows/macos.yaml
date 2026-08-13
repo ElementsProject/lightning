@@ -61,10 +61,10 @@ jobs:
       - name: Run pytest
         env:
           SLOW_MACHINE: 1
-          PYTEST_OPTS: "--flake-finder --flake-runs=20 -vvv --timeout=60 --durations=10"
+          PYTEST_OPTS: "--flake-finder --flake-runs=30 -vvv --timeout=60 --durations=10"
           PYTEST_TESTS: |
             tests/test_connection.py::test_websocket
         run: |
           # delete_me: serial (-n 1) to test whether the flake is load/concurrency
           # dependent; 20 sequential attempts, new diagnostics capture errno/fd.
-          VALGRIND=0 uv run pytest $PYTEST_TESTS -n 1 ${PYTEST_OPTS}
+          VALGRIND=0 uv run pytest $PYTEST_TESTS -n $(sysctl -n hw.ncpu) ${PYTEST_OPTS}
