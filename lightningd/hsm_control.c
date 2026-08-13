@@ -13,8 +13,8 @@
 #include <lightningd/hsm_control.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
+#include <lightningd/log.h>
 #include <lightningd/subd.h>
-#include <common/status.h>
 #include <inttypes.h>
 #include <wally_bip32.h>
 #include <wire/wire_sync.h>
@@ -36,8 +36,8 @@ static int hsm_get_fd(struct lightningd *ld,
 	 * subdaemon's HSM_FD (suspect fd cross-wiring on macOS). */
 	{
 		int recvfd = fdpass_recv(ld->hsm_fd);
-		status_debug("hsm_get_fd: dbid %"PRIu64" received fd %i",
-			     dbid, recvfd);
+		log_debug(ld->log, "hsm_get_fd: dbid %"PRIu64" received fd %i",
+			  dbid, recvfd);
 		return recvfd;
 	}
 }
