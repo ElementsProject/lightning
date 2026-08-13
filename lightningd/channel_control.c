@@ -1781,6 +1781,11 @@ bool peer_start_channeld(struct channel *channel,
 				      "Failed to get hsm fd");
 		return false;
 	}
+	/* macOS flake diagnosis: log the fd numbers handed to channeld at the
+	 * openingd->channeld handoff, so we can spot an fd collision with
+	 * the old (openingd) HSM fd being torn down. */
+	log_debug(channel->log, "spawning channeld: hsmfd %i, peer_fd %i",
+		  hsmfd, peer_fd->fd);
 
 	/* At this point, we can forward via alias scid, at least. */
 	tell_connectd_scid(ld, *channel->alias[LOCAL], &channel->peer->id);

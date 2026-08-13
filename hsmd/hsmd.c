@@ -179,7 +179,9 @@ static void destroy_client(struct client *c)
 	/* Temporary diagnosis of the macOS flake: log when a subdaemon's HSM
 	 * client connection goes away, so we can tell whether hsmd drops it
 	 * (subdaemon then sees EOF on its HSM fd). */
-	status_debug("Destroying client %"PRIu64, c->dbid);
+	status_debug("Destroying client %"PRIu64", conn fd %i, for %s",
+		     c->dbid, io_conn_fd(c->conn),
+		     node_id_valid(&c->id) ? fmt_node_id(tmpctx, &c->id) : "(none)");
 
 	if (!uintmap_del(&clients, c->dbid))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
@@ -240,8 +242,11 @@ static struct client *new_client(const tal_t *ctx,
 		struct client *old_client = uintmap_get(&clients, dbid);
 
 		/* Close conn and free any old client of this dbid. */
-		if (old_client)
+		if (old_client) {
+			status_debug("new_client dbid %"PRIu64": closing old client conn fd %i",
+				     dbid, io_conn_fd(old_client->conn));
 			io_close(old_client->conn);
+		}
 
 		if (!uintmap_add(&clients, dbid, c))
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
@@ -623,6 +628,8 @@ static struct io_plan *pass_client_hsmfd(struct io_conn *conn,
 			      strerror(errno));
 
 	status_debug("new_client: %"PRIu64, dbid);
+	status_debug("hsmfd pair for dbid %"PRIu64": hsmd fds[0]=%i fds[1]=%i",
+		     dbid, fds[0], fds[1]);
 	new_client(c, c->chainparams, &id, dbid, capabilities, fds[0]);
 
 	/*~ We stash this in a global, because we need to get both the fd and
