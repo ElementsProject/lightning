@@ -5874,3 +5874,20 @@ def test_bwatch_blockdepth_watch_no_fire_before_start_block(node_factory, bitcoi
 
     # Clean up
     l1.rpc.delblockdepthwatch(owner=owner, start_block=future_start)
+
+
+def test_huge_log_entry(node_factory):
+    """A single log entry larger than any stack buffer must not crash us.
+
+    log_to_files() used to size its buffer with a variable-length array
+    derived from the entry length, so a caller which could influence that
+    length could run the stack out.  Nothing bounds an entry: a plugin can
+    hand us one of any size, which is what this drives.
+    """
+    plugin_path = os.path.join(os.getcwd(), 'tests/plugins/hugelog.py')
+    l1 = node_factory.get_node(options={'plugin': plugin_path})
+
+    assert l1.rpc.call('hugelog', {'bytelen': 8 * 1024 * 1024})['logged'] == 8 * 1024 * 1024
+
+    # Still alive, and still answering.
+    assert l1.rpc.getinfo()['id'] == l1.info['id']
