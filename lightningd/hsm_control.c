@@ -14,6 +14,8 @@
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/subd.h>
+#include <common/status.h>
+#include <inttypes.h>
 #include <wally_bip32.h>
 #include <wire/wire_sync.h>
 
@@ -29,7 +31,15 @@ static int hsm_get_fd(struct lightningd *ld,
 	if (!fromwire_hsmd_client_hsmfd_reply(msg))
 		fatal("Bad reply from HSM: %s", tal_hex(tmpctx, msg));
 
-	return fdpass_recv(ld->hsm_fd);
+	/* macOS flake diagnosis: the fd lightningd actually received for this
+	 * client, so we can reconcile it against hsmd's fds[1] and the
+	 * subdaemon's HSM_FD (suspect fd cross-wiring on macOS). */
+	{
+		int recvfd = fdpass_recv(ld->hsm_fd);
+		status_debug("hsm_get_fd: dbid %"PRIu64" received fd %i",
+			     dbid, recvfd);
+		return recvfd;
+	}
 }
 
 int hsm_get_client_fd(struct lightningd *ld,
