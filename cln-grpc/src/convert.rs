@@ -2266,6 +2266,7 @@ impl From<responses::ListforwardsForwards> for pb::ListforwardsForwards {
             created_index: c.created_index, // Rule #2 for type u64
             failcode: c.failcode, // Rule #2 for type u32?
             failreason: c.failreason, // Rule #2 for type string?
+            failure_reason: c.failure_reason.map(|v| v as i32),
             fee_msat: c.fee_msat.map(|f| f.into()), // Rule #2 for type msat?
             in_channel: c.in_channel.to_string(), // Rule #2 for type short_channel_id
             in_htlc_id: c.in_htlc_id, // Rule #2 for type u64?
