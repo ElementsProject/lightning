@@ -108,6 +108,11 @@ struct subd *new_channel_subd_(const tal_t *ctx UNNEEDED,
 void resolve_close_command(struct lightningd *ld UNNEEDED, struct channel *channel UNNEEDED,
 			   bool cooperative UNNEEDED, const struct bitcoin_tx **close_txs UNNEEDED)
 { fprintf(stderr, "resolve_close_command called!\n"); abort(); }
+/* Generated stub for sign_and_broadcast_their_closing */
+void sign_and_broadcast_their_closing(struct channel *channel UNNEEDED,
+				      struct bitcoin_tx *tx UNNEEDED,
+				      const struct bitcoin_signature *their_sig UNNEEDED)
+{ fprintf(stderr, "sign_and_broadcast_their_closing called!\n"); abort(); }
 /* Generated stub for simpleclosed_wire_name */
 const char *simpleclosed_wire_name(int e UNNEEDED)
 { fprintf(stderr, "simpleclosed_wire_name called!\n"); abort(); }

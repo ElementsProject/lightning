@@ -129,6 +129,11 @@ void drop_to_chain(struct lightningd *ld, struct channel *channel,
 		   bool cooperative,
 		   const struct bitcoin_tx *unilateral_tx);
 
+/* Special case of sending their mutual close */
+void sign_and_broadcast_their_closing(struct channel *channel,
+				      struct bitcoin_tx *tx,
+				      const struct bitcoin_signature *their_sig);
+
 void update_channel_from_inflight(struct lightningd *ld,
 				  struct channel *channel,
 				  const struct channel_inflight *inflight,
