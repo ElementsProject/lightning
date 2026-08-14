@@ -19,4 +19,7 @@ def init(options, configuration, plugin, **kwargs):
 
 
 plugin.add_option("required-opt", None, "required option")
+plugin.add_option("int-opt", None, "int option", opt_type="int")
+plugin.add_option("bool-opt", None, "bool option", opt_type="bool")
+plugin.add_flag_option("flag-opt", "flag option")
 plugin.run()
