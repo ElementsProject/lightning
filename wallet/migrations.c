@@ -1187,6 +1187,8 @@ static const struct db_migration dbmigrations[] = {
     {SQL("ALTER TABLE payments ADD failmsg BLOB;"), NULL,
      SQL("ALTER TABLE payments DROP COLUMN failmsg"), NULL},
     /* ^v26.09 */
+
+    {SQL("ALTER TABLE forwards ADD reason INTEGER DEFAULT NULL"), NULL},
 };
 
 const struct db_migration *get_db_migrations(size_t *num)
