@@ -242,6 +242,21 @@
         "ListconfigsConfigsConfSource": {
             "cmdline": 0
         },
+        "ListforwardsForwardsFailureReason": {
+            "channel_failed_permanent": 11,
+            "cltv_expiry_too_far": 8,
+            "cltv_expiry_too_soon": 7,
+            "cltv_incorrect": 6,
+            "dust_limit": 2,
+            "fee_insufficient": 5,
+            "htlc_above_maximum": 4,
+            "htlc_below_minimum": 3,
+            "insufficient_outgoing_liquidity": 0,
+            "invalid_onion": 12,
+            "outgoing_peer_offline": 10,
+            "too_many_htlcs": 1,
+            "unknown_next_peer": 9
+        },
         "ListforwardsForwardsStatus": {
             "failed": 3,
             "local_failed": 2,
@@ -3066,6 +3081,7 @@
             "ListForwards.forwards[].created_index": 12,
             "ListForwards.forwards[].failcode": 15,
             "ListForwards.forwards[].failreason": 16,
+            "ListForwards.forwards[].failure_reason": 17,
             "ListForwards.forwards[].fee_msat": 7,
             "ListForwards.forwards[].in_channel": 1,
             "ListForwards.forwards[].in_htlc_id": 10,
@@ -11153,6 +11169,10 @@
             "deprecated": null
         },
         "ListForwards.forwards[].failreason": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListForwards.forwards[].failure_reason": {
             "added": "pre-v0.10.1",
             "deprecated": null
         },

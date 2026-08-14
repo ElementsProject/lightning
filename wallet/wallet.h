@@ -1323,7 +1323,8 @@ void wallet_forwarded_payment_add(struct wallet *w, const struct htlc_in *in,
 				  const struct short_channel_id *scid_out,
 				  const struct htlc_out *out,
 				  enum forward_status state,
-				  enum onion_wire failcode);
+				  enum onion_wire failcode,
+				  enum forward_failure_reason reason);
 
 /**
  * Retrieve summary of successful forwarded payments' fees
