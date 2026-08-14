@@ -153,6 +153,7 @@ static const u8 op_return_burn[] = {
 /* Build a channel that only populates the fields close_tx_check reads. */
 static struct channel *make_channel(const tal_t *ctx,
 				    const struct bitcoin_outpoint *funding,
+				    struct amount_sat our_amt,
 				    const u8 *local_script, size_t local_len,
 				    const u8 *remote_script, size_t remote_len,
 				    bool simple_close_negotiated)
@@ -180,17 +181,22 @@ static struct channel *make_channel(const tal_t *ctx,
 		= tal_dup_arr(channel, u8, local_script, local_len, 0);
 	channel->shutdown_scriptpubkey[REMOTE]
 		= tal_dup_arr(channel, u8, remote_script, remote_len, 0);
+	if (!amount_sat_to_msat(&channel->our_msat, our_amt))
+		abort();
 	return channel;
 }
 
+/* closer gets 600k sat minus fee, closee gets 400ksat */
 static struct bitcoin_tx *close_tx_with_scripts(const tal_t *ctx,
 						const struct bitcoin_outpoint *funding,
 						const u8 *closer_script,
-						const u8 *closee_script)
+						const u8 *closee_script,
+						u32 feerate)
 {
 	struct pubkey pk1, pk2;
 	const u8 *funding_wscript;
 	struct bitcoin_tx *tx;
+	struct amount_sat to_closer;
 
 	assert(pubkey_from_hexstr("034fede2c619f647fe7c01d40ae22e4c285291ca2ffb47937bbfb7d6e8285a081f",
 				  2 * PUBKEY_CMPR_LEN, &pk1));
@@ -198,9 +204,13 @@ static struct bitcoin_tx *close_tx_with_scripts(const tal_t *ctx,
 				  2 * PUBKEY_CMPR_LEN, &pk2));
 	funding_wscript = bitcoin_redeem_2of2(ctx, &pk1, &pk2);
 
+	to_closer = AMOUNT_SAT(600000);
+	if (!amount_sat_sub(&to_closer, to_closer,
+			    amount_sat((u64)feerate * SIMPLE_CLOSE_WEIGHT / 1000)))
+		abort();
 	tx = create_simple_close_tx(ctx, NULL, NULL, closer_script, closee_script,
 		funding_wscript, funding, AMOUNT_SAT(1000000),
-		AMOUNT_SAT(600000), AMOUNT_SAT(400000), 0);
+		to_closer, AMOUNT_SAT(400000), 0);
 	assert(tx != NULL);
 	tx->chainparams = chainparams;
 	return tx;
@@ -218,12 +228,12 @@ static void test_op_return_closer_accepted(void)
 	const u8 *closee = tal_dup_arr(tmpctx, u8, p2wpkh_local, sizeof(p2wpkh_local), 0);
 
 	memset(&funding, 0, sizeof(funding));
-	channel = make_channel(tmpctx, &funding,
+	channel = make_channel(tmpctx, &funding, AMOUNT_SAT(400000),
 			       p2wpkh_local, sizeof(p2wpkh_local),
 			       p2wpkh_remote, sizeof(p2wpkh_remote), true);
-	tx = close_tx_with_scripts(tmpctx, &funding, closer, closee);
+	tx = close_tx_with_scripts(tmpctx, &funding, closer, closee, 0);
 
-	assert(close_tx_check(tmpctx, channel, tx) == NULL);
+	assert(close_tx_check(tmpctx, channel, tx, 0) == NULL);
 }
 
 /* Same tx, but option_simple_close was NOT negotiated: the OP_RETURN is not
@@ -237,12 +247,12 @@ static void test_op_return_rejected_without_feature(void)
 	const u8 *closee = tal_dup_arr(tmpctx, u8, p2wpkh_local, sizeof(p2wpkh_local), 0);
 
 	memset(&funding, 0, sizeof(funding));
-	channel = make_channel(tmpctx, &funding,
+	channel = make_channel(tmpctx, &funding, AMOUNT_SAT(600000),
 			       p2wpkh_local, sizeof(p2wpkh_local),
 			       p2wpkh_remote, sizeof(p2wpkh_remote), false);
-	tx = close_tx_with_scripts(tmpctx, &funding, closer, closee);
+	tx = close_tx_with_scripts(tmpctx, &funding, closer, closee, 0);
 
-	assert(close_tx_check(tmpctx, channel, tx) != NULL);
+	assert(close_tx_check(tmpctx, channel, tx, 0) != NULL);
 }
 
 /* A valid OP_RETURN script but with a non-zero value burns real funds; BOLT #2
@@ -256,10 +266,10 @@ static void test_op_return_nonzero_value_rejected(void)
 	const u8 *closee = tal_dup_arr(tmpctx, u8, p2wpkh_local, sizeof(p2wpkh_local), 0);
 
 	memset(&funding, 0, sizeof(funding));
-	channel = make_channel(tmpctx, &funding,
+	channel = make_channel(tmpctx, &funding, AMOUNT_SAT(600000),
 			       p2wpkh_local, sizeof(p2wpkh_local),
 			       p2wpkh_remote, sizeof(p2wpkh_remote), true);
-	tx = close_tx_with_scripts(tmpctx, &funding, closer, closee);
+	tx = close_tx_with_scripts(tmpctx, &funding, closer, closee, 0);
 
 	/* create_simple_close_tx forces the OP_RETURN value to zero; override it
 	 * to simulate a peer (or compromised subd) burning real funds. */
@@ -269,7 +279,7 @@ static void test_op_return_nonzero_value_rejected(void)
 			tx->wtx->outputs[i].satoshi = 12345;
 	}
 
-	assert(close_tx_check(tmpctx, channel, tx) != NULL);
+	assert(close_tx_check(tmpctx, channel, tx, 0) != NULL);
 }
 
 /* A non-OP_RETURN output that matches neither stored script is still an
@@ -283,12 +293,12 @@ static void test_unknown_script_rejected(void)
 	const u8 *closee = tal_dup_arr(tmpctx, u8, p2wpkh_local, sizeof(p2wpkh_local), 0);
 
 	memset(&funding, 0, sizeof(funding));
-	channel = make_channel(tmpctx, &funding,
+	channel = make_channel(tmpctx, &funding, AMOUNT_SAT(600000),
 			       p2wpkh_local, sizeof(p2wpkh_local),
 			       p2wpkh_remote, sizeof(p2wpkh_remote), true);
-	tx = close_tx_with_scripts(tmpctx, &funding, closer, closee);
+	tx = close_tx_with_scripts(tmpctx, &funding, closer, closee, 0);
 
-	assert(close_tx_check(tmpctx, channel, tx) != NULL);
+	assert(close_tx_check(tmpctx, channel, tx, 0) != NULL);
 }
 
 /* Ordinary close: both outputs go to the agreed shutdown scripts. */
@@ -301,12 +311,31 @@ static void test_known_scripts_accepted(void)
 	const u8 *closee = tal_dup_arr(tmpctx, u8, p2wpkh_local, sizeof(p2wpkh_local), 0);
 
 	memset(&funding, 0, sizeof(funding));
-	channel = make_channel(tmpctx, &funding,
+	channel = make_channel(tmpctx, &funding, AMOUNT_SAT(400000),
 			       p2wpkh_local, sizeof(p2wpkh_local),
 			       p2wpkh_remote, sizeof(p2wpkh_remote), true);
-	tx = close_tx_with_scripts(tmpctx, &funding, closer, closee);
+	tx = close_tx_with_scripts(tmpctx, &funding, closer, closee, 0);
 
-	assert(close_tx_check(tmpctx, channel, tx) == NULL);
+	assert(close_tx_check(tmpctx, channel, tx, 0) == NULL);
+}
+
+static void test_fee_too_high(void)
+{
+	struct bitcoin_outpoint funding;
+	struct channel *channel;
+	struct bitcoin_tx *tx;
+	const u8 *closee = tal_dup_arr(tmpctx, u8, p2wpkh_remote, sizeof(p2wpkh_remote), 0);
+	const u8 *closer = tal_dup_arr(tmpctx, u8, p2wpkh_local, sizeof(p2wpkh_local), 0);
+
+	memset(&funding, 0, sizeof(funding));
+	channel = make_channel(tmpctx, &funding, AMOUNT_SAT(600000),
+			       p2wpkh_local, sizeof(p2wpkh_local),
+			       p2wpkh_remote, sizeof(p2wpkh_remote), true);
+	tx = close_tx_with_scripts(tmpctx, &funding, closer, closee, 200);
+
+	assert(close_tx_check(tmpctx, channel, tx, 0) != NULL);
+	assert(close_tx_check(tmpctx, channel, tx, 199) != NULL);
+	assert(close_tx_check(tmpctx, channel, tx, 200) == NULL);
 }
 
 int main(int argc, char *argv[])
@@ -319,6 +348,7 @@ int main(int argc, char *argv[])
 	test_op_return_nonzero_value_rejected();
 	test_unknown_script_rejected();
 	test_known_scripts_accepted();
+	test_fee_too_high();
 
 	common_shutdown();
 	return 0;

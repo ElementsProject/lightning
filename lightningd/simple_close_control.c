@@ -8,6 +8,7 @@
 #include <common/fee_states.h>
 #include <common/memleak.h>
 #include <common/shutdown_scriptpubkey.h>
+#include <common/simple_close_weight.h>
 #include <common/timeout.h>
 #include <errno.h>
 #include <hsmd/permissions.h>
@@ -35,9 +36,13 @@
 /* Check that tx spends exactly our funding outpoint and every output goes
  * to a known shutdown script.  Returns an error string, or NULL on success. */
 static const char *close_tx_check(const tal_t *ctx,
-				   const struct channel *channel,
-				   const struct bitcoin_tx *tx)
+				  const struct channel *channel,
+				  const struct bitcoin_tx *tx,
+				  u32 max_feerate_wepay)
 {
+	bool our_output_exists = false, our_output_ok = false;
+	struct amount_sat expected_amt_tous;
+
 	if (tx->wtx->num_inputs != 1)
 		return tal_fmt(ctx, "expected 1 input, got %zu",
 			tx->wtx->num_inputs);
@@ -45,6 +50,13 @@ static const char *close_tx_check(const tal_t *ctx,
 	if (!wally_tx_input_spends(&tx->wtx->inputs[0], &channel->funding))
 		return tal_fmt(ctx, "does not spend funding outpoint %s",
 			fmt_bitcoin_outpoint(ctx, &channel->funding));
+
+	/* Lowest amount we expect: must match simpleclosed's heuristic */
+	expected_amt_tous = amount_msat_to_sat_round_down(channel->our_msat);
+	if (!amount_sat_sub(&expected_amt_tous,
+			    expected_amt_tous,
+			    amount_sat((u64)max_feerate_wepay * SIMPLE_CLOSE_WEIGHT / 1000)))
+		expected_amt_tous = AMOUNT_SAT(0);
 
 	for (size_t i = 0; i < tx->wtx->num_outputs; i++) {
 		const struct wally_tx_output *out = &tx->wtx->outputs[i];
@@ -56,8 +68,15 @@ static const char *close_tx_check(const tal_t *ctx,
 		}
 		const u8 *script = tal_dup_arr(ctx, u8,
 					       out->script, out->script_len, 0);
-		if (scripteq(script, channel->shutdown_scriptpubkey[LOCAL]))
+
+		/* In case they match our output, we check if *any* output to us is good */
+		if (scripteq(script, channel->shutdown_scriptpubkey[LOCAL])) {
+			our_output_exists = true;
+			if (amount_sat_greater_eq(bitcoin_tx_output_get_amount_sat(tx, i),
+						  expected_amt_tous))
+				our_output_ok = true;
 			continue;
+		}
 		if (scripteq(script, channel->shutdown_scriptpubkey[REMOTE]))
 			continue;
 		/* Our own output is always paid to shutdown_scriptpubkey[LOCAL]
@@ -87,7 +106,33 @@ static const char *close_tx_check(const tal_t *ctx,
 			"output %zu goes to unknown script %s",
 			i, tal_hex(ctx, script));
 	}
+
+	/* If we expected an output, make sure it was ok. */
+	if (amount_sat_greater_eq(expected_amt_tous,
+				  channel->our_config.dust_limit)) {
+		if (!our_output_exists)
+			return tal_fmt(ctx,
+				       "No output pays to us, and we expect at least %s",
+				       fmt_amount_sat(tmpctx, expected_amt_tous));
+		if (!our_output_ok)
+			return tal_fmt(ctx,
+				       "Output to us doesn't pay enough (we expected at least %s)",
+				       fmt_amount_sat(tmpctx, expected_amt_tous));
+	}
 	return NULL;
+}
+
+static u32 feerate_for_close(const struct channel *channel)
+{
+	struct lightningd *ld = channel->peer->ld;
+	u32 feerate_perkw = mutual_close_feerate(ld->topology);
+	if (!feerate_perkw) {
+		feerate_perkw = get_feerate(channel->fee_states,
+					    channel->opener, LOCAL) / 2;
+		if (feerate_perkw < get_feerate_floor(ld->topology))
+			feerate_perkw = get_feerate_floor(ld->topology);
+	}
+	return feerate_perkw;
 }
 
 /* Master receives simpleclosed_got_sig: validate remote sig, store mutual
@@ -107,7 +152,8 @@ static void handle_simpleclosed_our_closing_tx(struct channel *channel, const u8
 	}
 	tx->chainparams = chainparams;
 
-	const char *err = close_tx_check(tmpctx, channel, tx);
+	const char *err = close_tx_check(tmpctx, channel, tx,
+					 feerate_for_close(channel));
 	if (err) {
 		channel_internal_error(channel,
 			"bad simpleclosed_got_sig: %s",
@@ -157,7 +203,8 @@ static void handle_simpleclosed_their_closing_tx(struct channel *channel,
 	}
 	tx->chainparams = chainparams;
 
-	const char *err = close_tx_check(tmpctx, channel, tx);
+	/* Their tx, we don't pay any fee */
+	const char *err = close_tx_check(tmpctx, channel, tx, 0);
 	if (err) {
 		channel_internal_error(channel,
 			"bad simpleclosed_their_closing_tx: %s",
@@ -264,7 +311,6 @@ static unsigned int simpleclosed_msg(struct subd *sd, const u8 *msg,
 void peer_start_simpleclosed(struct channel *channel, struct peer_fd *peer_fd)
 {
 	u8 *initmsg;
-	u32 feerate_perkw;
 	struct amount_msat their_msat;
 	int hsmfd;
 	struct lightningd *ld = channel->peer->ld;
@@ -318,14 +364,6 @@ void peer_start_simpleclosed(struct channel *channel, struct peer_fd *peer_fd)
 		return;
 	}
 
-	feerate_perkw = mutual_close_feerate(ld->topology);
-	if (!feerate_perkw) {
-		feerate_perkw = get_feerate(channel->fee_states,
-			channel->opener, LOCAL) / 2;
-		if (feerate_perkw < get_feerate_floor(ld->topology))
-			feerate_perkw = get_feerate_floor(ld->topology);
-	}
-
 	/* Wallet key for our output. */
 	if (wallet_can_spend(ld->wallet,
 			     channel->shutdown_scriptpubkey[LOCAL],
@@ -348,7 +386,7 @@ void peer_start_simpleclosed(struct channel *channel, struct peer_fd *peer_fd)
 		&channel->channel_info.remote_fundingkey,
 		amount_msat_to_sat_round_down(channel->our_msat),
 		amount_msat_to_sat_round_down(their_msat),
-		channel->our_config.dust_limit, feerate_perkw, local_wallet_index,
+		channel->our_config.dust_limit, feerate_for_close(channel), local_wallet_index,
 		local_wallet_ext_key, channel->shutdown_scriptpubkey[LOCAL],
 		channel->shutdown_scriptpubkey[REMOTE], channel->opener);
 
