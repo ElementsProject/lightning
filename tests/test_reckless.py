@@ -410,12 +410,39 @@ def test_install_plugin_requiring_opts(node_factory):
     assert not plugin_path.exists()
 
     r = node.rpc.call(
-        "reckless", ["install", "-v", "testplugreqopts", "required-opt=foo"]
+        "reckless",
+        [
+            "install",
+            "-v",
+            "testplugreqopts",
+            "required-opt=foo",
+            "int-opt=1",
+            "bool-opt=true",
+            "flag-opt",
+        ],
     )
     assert r["install"]["enabled"]
     assert r["install"]["plugin_name"] == "testplugreqopts"
     assert any("plugin installed:" in line for line in r["log"])
     assert any("testplugreqopts enabled" in line for line in r["log"])
+
+    assert (
+        node.rpc.listconfigs("required-opt")["configs"]["required-opt"]["value_str"]
+        == "foo"
+    )
+    assert node.rpc.listconfigs("int-opt")["configs"]["int-opt"]["value_int"] == 1
+    assert node.rpc.listconfigs("bool-opt")["configs"]["bool-opt"]["value_bool"]
+    assert node.rpc.listconfigs("flag-opt")["configs"]["flag-opt"]["set"]
+
+    node.restart()
+
+    assert (
+        node.rpc.listconfigs("required-opt")["configs"]["required-opt"]["value_str"]
+        == "foo"
+    )
+    assert node.rpc.listconfigs("int-opt")["configs"]["int-opt"]["value_int"] == 1
+    assert node.rpc.listconfigs("bool-opt")["configs"]["bool-opt"]["value_bool"]
+    assert node.rpc.listconfigs("flag-opt")["configs"]["flag-opt"]["set"]
 
 
 # Note: uv timeouts from the GH network seem to happen?
