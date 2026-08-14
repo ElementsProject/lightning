@@ -229,8 +229,11 @@
           "returned here with its own shared secret (and key type `ammag`) before returning it to the previous hop.",
           "",
           "",
-          "`resolve` instructs lightningd to claim the HTLC by providing the preimage matching the `payment_hash` presented in the call.",
-          "Notice that the plugin must ensure that the `payment_key` really matches the `payment_hash` since lightningd will not check and the wrong value could result in the channel being closed."
+          "`resolve` instructs lightningd to claim the HTLC. The plugin gives the `payment_key`, which is the preimage for the `payment_hash` in the call.",
+          "lightningd hashes the `payment_key` and compares the result with the `payment_hash`. If the values do not match, lightningd fails the HTLC with `incorrect_or_unknown_payment_details`.",
+          "When the plugin resolves, lightningd skips the normal checks for a final node. These checks include the amount and the CLTV expiry.",
+          "The plugin must make sure that these values are correct. Otherwise it can accept the payment for the wrong amount.",
+          "If the plugin resolves without a `payment_key`, or with an invalid `payment_key`, lightningd stops with a fatal error."
         ]
       },
       "payload": {
