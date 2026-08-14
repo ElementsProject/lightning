@@ -9,9 +9,7 @@ use std::{
 use anyhow::anyhow;
 use cln_plugin::{Plugin, options};
 use cln_rpc::{
-    codec::MultiLineCodec,
-    model::{requests::PluginRequest, responses::PluginResponse},
-    notifications::LogLevel,
+    codec::MultiLineCodec, model::requests::PluginRequest, notifications::LogLevel,
     primitives::PluginSubcommand,
 };
 use futures::StreamExt;
@@ -1105,57 +1103,30 @@ pub async fn cln_start_plugin(
             Some(v) => format!("{k}={v}"),
             None => k.clone(),
         })
-        .collect::<Vec<_>>()
-        .join(", ");
+        .collect::<Vec<_>>();
     let line = if options.is_empty() {
         format!("Starting {plugin_name}")
     } else {
-        format!("Starting {plugin_name} with options: {options_str}")
+        format!(
+            "Starting {plugin_name} with options: {}",
+            options_str.join(", ")
+        )
     };
     logger.log(&line, LogLevel::INFO).await?;
 
-    // Can not pass options with cln-rpc because of
-    // <https://github.com/ElementsProject/lightning/issues/9171>
-    // so we use .call_raw
-    let mut obj = serde_json::Map::new();
-
-    obj.insert(
-        "subcommand".to_owned(),
-        serde_json::Value::String("start".to_owned()),
-    );
-    obj.insert(
-        "plugin".to_owned(),
-        serde_json::Value::String(
-            plugin_entry
-                .to_str()
-                .ok_or_else(|| anyhow!("plugin path invalid: {}", plugin_entry.display()))?
-                .to_string(),
-        ),
-    );
-
-    let options_val = options
-        .iter()
-        .map(|(k, v)| Ok((k.clone(), serde_json::to_value(v)?)))
-        .collect::<Result<Vec<_>, serde_json::Error>>()?;
-
-    obj.extend(options_val);
-
-    let line = format!("{obj:#?}");
-    logger.log(&line, LogLevel::TRACE).await?;
-
     let mut rpc = plugin.state().rpc.lock().await;
     match rpc
-        // .call_typed(&PluginRequest {
-        //     directory: None,
-        //     plugin: Some(
-        //         path.to_str()
-        //             .ok_or_else(|| anyhow!("plugin path invalid: {}", path.display()))?
-        //             .to_string(),
-        //     ),
-        //     options: Some(options),
-        //     subcommand: PluginSubcommand::START,
-        // })
-        .call_raw::<PluginResponse, serde_json::Value>("plugin", &serde_json::Value::Object(obj))
+        .call_typed(&PluginRequest {
+            directory: None,
+            plugin: Some(
+                plugin_entry
+                    .to_str()
+                    .ok_or_else(|| anyhow!("plugin path invalid: {}", plugin_entry.display()))?
+                    .to_string(),
+            ),
+            options: Some(options_str),
+            subcommand: PluginSubcommand::START,
+        })
         .await
     {
         Ok(_) => {
@@ -1307,14 +1278,17 @@ pub async fn add_plugin_to_config(
         .map(|(name, value)| {
             let value_str = match value {
                 Some(v) => match v {
-                    options::Value::String(s) => s.clone(),
-                    options::Value::Integer(i) => i.to_string(),
-                    options::Value::Boolean(b) => b.to_string(),
-                    _ => panic!("Unsupported value type"),
+                    options::Value::String(s) => Some(s.clone()),
+                    options::Value::Integer(i) => Some(i.to_string()),
+                    options::Value::Boolean(b) => Some(b.to_string()),
+                    _ => return Err(anyhow!("Unsupported value type")),
                 },
-                None => name.clone(),
+                None => None,
             };
-            let line = format!("{name}={value_str}");
+            let line = match value_str {
+                Some(v) => format!("{name}={v}"),
+                None => name.to_owned(),
+            };
             Ok((name.clone(), line))
         })
         .collect::<anyhow::Result<_>>()?;
