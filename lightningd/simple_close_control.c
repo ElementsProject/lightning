@@ -92,7 +92,7 @@ static const char *close_tx_check(const tal_t *ctx,
 
 /* Master receives simpleclosed_got_sig: validate remote sig, store mutual
  * close tx, and reply with txid.  drop_to_chain handles broadcast. */
-static void handle_simpleclosed_got_sig(struct channel *channel, const u8 *msg)
+static void handle_simpleclosed_our_closing_tx(struct channel *channel, const u8 *msg)
 {
 	struct lightningd *ld = channel->peer->ld;
 	struct bitcoin_tx *tx;
@@ -100,7 +100,7 @@ static void handle_simpleclosed_got_sig(struct channel *channel, const u8 *msg)
 	struct bitcoin_signature sig;
 	const u8 *funding_wscript;
 
-	if (!fromwire_simpleclosed_got_sig(tmpctx, msg, &tx, &sig)) {
+	if (!fromwire_simpleclosed_our_closing_tx(tmpctx, msg, &tx, &sig)) {
 		channel_internal_error(channel, "bad simpleclosed_got_sig: %s",
 			tal_hex(msg, msg));
 		return;
@@ -135,12 +135,12 @@ static void handle_simpleclosed_got_sig(struct channel *channel, const u8 *msg)
 		fmt_bitcoin_txid(tmpctx, &txid));
 
 	subd_send_msg(channel->owner,
-		take(towire_simpleclosed_got_sig_reply(NULL, &txid)));
+		      take(towire_simpleclosed_our_closing_tx_reply(NULL, &txid)));
 }
 
-/* Master receives simpleclosed_closee_broadcast: validate remote sig and
+/* Master receives simpleclosed_their_closing_tx: validate remote sig and
  * store the mutual close tx.  drop_to_chain handles broadcast. */
-static void handle_simpleclosed_closee_broadcast(struct channel *channel,
+static void handle_simpleclosed_their_closing_tx(struct channel *channel,
 						 const u8 *msg)
 {
 	struct lightningd *ld = channel->peer->ld;
@@ -149,9 +149,9 @@ static void handle_simpleclosed_closee_broadcast(struct channel *channel,
 	struct bitcoin_signature sig;
 	const u8 *funding_wscript;
 
-	if (!fromwire_simpleclosed_closee_broadcast(tmpctx, msg, &tx, &sig)) {
+	if (!fromwire_simpleclosed_their_closing_tx(tmpctx, msg, &tx, &sig)) {
 		channel_internal_error(channel,
-			"bad simpleclosed_closee_broadcast: %s",
+			"bad simpleclosed_their_closing_tx: %s",
 			tal_hex(msg, msg));
 		return;
 	}
@@ -160,7 +160,7 @@ static void handle_simpleclosed_closee_broadcast(struct channel *channel,
 	const char *err = close_tx_check(tmpctx, channel, tx);
 	if (err) {
 		channel_internal_error(channel,
-			"bad simpleclosed_closee_broadcast: %s",
+			"bad simpleclosed_their_closing_tx: %s",
 			err);
 		return;
 	}
@@ -171,7 +171,7 @@ static void handle_simpleclosed_closee_broadcast(struct channel *channel,
 	if (!check_tx_sig(tx, 0, NULL, funding_wscript,
 			&channel->channel_info.remote_fundingkey, &sig)) {
 		channel_internal_error(channel,
-			"bad simpleclosed_closee_broadcast: invalid sig: %s",
+			"bad simpleclosed_their_closing_tx: invalid sig: %s",
 			tal_hex(msg, msg));
 		return;
 	}
@@ -242,11 +242,11 @@ static unsigned int simpleclosed_msg(struct subd *sd, const u8 *msg,
 	enum simpleclosed_wire t = fromwire_peektype(msg);
 
 	switch (t) {
-	case WIRE_SIMPLECLOSED_GOT_SIG:
-		handle_simpleclosed_got_sig(sd->channel, msg);
+	case WIRE_SIMPLECLOSED_OUR_CLOSING_TX:
+		handle_simpleclosed_our_closing_tx(sd->channel, msg);
 		return 0;
-	case WIRE_SIMPLECLOSED_CLOSEE_BROADCAST:
-		handle_simpleclosed_closee_broadcast(sd->channel, msg);
+	case WIRE_SIMPLECLOSED_THEIR_CLOSING_TX:
+		handle_simpleclosed_their_closing_tx(sd->channel, msg);
 		return 0;
 	case WIRE_SIMPLECLOSED_COMPLETE:
 		handle_simpleclosed_complete(sd->channel, msg);
@@ -254,7 +254,7 @@ static unsigned int simpleclosed_msg(struct subd *sd, const u8 *msg,
 
 	/* Inbound-only (master→daemon) — should not be received here. */
 	case WIRE_SIMPLECLOSED_INIT:
-	case WIRE_SIMPLECLOSED_GOT_SIG_REPLY:
+	case WIRE_SIMPLECLOSED_OUR_CLOSING_TX_REPLY:
 		break;
 	}
 

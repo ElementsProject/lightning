@@ -55,15 +55,15 @@ void force_peer_disconnect(struct lightningd *ld UNNEEDED,
 			   const struct peer *peer UNNEEDED,
 			   const char *why UNNEEDED)
 { fprintf(stderr, "force_peer_disconnect called!\n"); abort(); }
-/* Generated stub for fromwire_simpleclosed_closee_broadcast */
-bool fromwire_simpleclosed_closee_broadcast(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct bitcoin_tx **tx UNNEEDED, struct bitcoin_signature *sig UNNEEDED)
-{ fprintf(stderr, "fromwire_simpleclosed_closee_broadcast called!\n"); abort(); }
 /* Generated stub for fromwire_simpleclosed_complete */
 bool fromwire_simpleclosed_complete(const void *p UNNEEDED, bool *delay_broadcast UNNEEDED)
 { fprintf(stderr, "fromwire_simpleclosed_complete called!\n"); abort(); }
-/* Generated stub for fromwire_simpleclosed_got_sig */
-bool fromwire_simpleclosed_got_sig(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct bitcoin_tx **tx UNNEEDED, struct bitcoin_signature *sig UNNEEDED)
-{ fprintf(stderr, "fromwire_simpleclosed_got_sig called!\n"); abort(); }
+/* Generated stub for fromwire_simpleclosed_our_closing_tx */
+bool fromwire_simpleclosed_our_closing_tx(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct bitcoin_tx **tx UNNEEDED, struct bitcoin_signature *their_sig UNNEEDED)
+{ fprintf(stderr, "fromwire_simpleclosed_our_closing_tx called!\n"); abort(); }
+/* Generated stub for fromwire_simpleclosed_their_closing_tx */
+bool fromwire_simpleclosed_their_closing_tx(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct bitcoin_tx **tx UNNEEDED, struct bitcoin_signature *their_sig UNNEEDED)
+{ fprintf(stderr, "fromwire_simpleclosed_their_closing_tx called!\n"); abort(); }
 /* Generated stub for get_feerate_floor */
 u32 get_feerate_floor(const struct chain_topology *topo UNNEEDED)
 { fprintf(stderr, "get_feerate_floor called!\n"); abort(); }
@@ -114,12 +114,12 @@ const char *simpleclosed_wire_name(int e UNNEEDED)
 /* Generated stub for subd_send_msg */
 void subd_send_msg(struct subd *sd UNNEEDED, const u8 *msg_out UNNEEDED)
 { fprintf(stderr, "subd_send_msg called!\n"); abort(); }
-/* Generated stub for towire_simpleclosed_got_sig_reply */
-u8 *towire_simpleclosed_got_sig_reply(const tal_t *ctx UNNEEDED, const struct bitcoin_txid *closing_txid UNNEEDED)
-{ fprintf(stderr, "towire_simpleclosed_got_sig_reply called!\n"); abort(); }
 /* Generated stub for towire_simpleclosed_init */
 u8 *towire_simpleclosed_init(const tal_t *ctx UNNEEDED, const struct chainparams *chainparams UNNEEDED, const struct channel_id *channel_id UNNEEDED, const struct bitcoin_outpoint *funding UNNEEDED, struct amount_sat funding_satoshi UNNEEDED, const struct pubkey *local_fundingkey UNNEEDED, const struct pubkey *remote_fundingkey UNNEEDED, struct amount_sat local_sat UNNEEDED, struct amount_sat remote_sat UNNEEDED, struct amount_sat our_dust_limit UNNEEDED, u32 feerate_perkw UNNEEDED, u32 *local_wallet_index UNNEEDED, const struct ext_key *local_wallet_ext_key UNNEEDED, const u8 *local_scriptpubkey UNNEEDED, const u8 *remote_scriptpubkey UNNEEDED, enum side opener UNNEEDED)
 { fprintf(stderr, "towire_simpleclosed_init called!\n"); abort(); }
+/* Generated stub for towire_simpleclosed_our_closing_tx_reply */
+u8 *towire_simpleclosed_our_closing_tx_reply(const tal_t *ctx UNNEEDED, const struct bitcoin_txid *closing_txid UNNEEDED)
+{ fprintf(stderr, "towire_simpleclosed_our_closing_tx_reply called!\n"); abort(); }
 /* Generated stub for wallet_can_spend */
 bool wallet_can_spend(struct wallet *w UNNEEDED,
 		      const u8 *script UNNEEDED,
