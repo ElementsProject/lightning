@@ -305,7 +305,7 @@ bool fromwire_channeld_got_commitsig(const tal_t *ctx UNNEEDED, const void *p UN
 bool fromwire_channeld_got_revoke(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u64 *revokenum UNNEEDED, struct secret *per_commitment_secret UNNEEDED, struct pubkey *next_per_commit_point UNNEEDED, struct fee_states **fee_states UNNEEDED, struct height_states **blockheight_states UNNEEDED, struct changed_htlc **changed UNNEEDED, struct penalty_base **pbase UNNEEDED, struct bitcoin_tx **penalty_tx UNNEEDED)
 { fprintf(stderr, "fromwire_channeld_got_revoke called!\n"); abort(); }
 /* Generated stub for fromwire_channeld_offer_htlc_reply */
-bool fromwire_channeld_offer_htlc_reply(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u64 *id UNNEEDED, u8 **failuremsg UNNEEDED, wirestring **failurestr UNNEEDED)
+bool fromwire_channeld_offer_htlc_reply(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u64 *id UNNEEDED, u8 **failuremsg UNNEEDED, wirestring **failurestr UNNEEDED, u8 *reason UNNEEDED)
 { fprintf(stderr, "fromwire_channeld_offer_htlc_reply called!\n"); abort(); }
 /* Generated stub for fromwire_channeld_sending_commitsig */
 bool fromwire_channeld_sending_commitsig(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u64 *commitnum UNNEEDED, struct penalty_base **pbase UNNEEDED, struct fee_states **fee_states UNNEEDED, struct height_states **blockheight_states UNNEEDED, struct changed_htlc **changed UNNEEDED)
@@ -545,6 +545,7 @@ void notify_forward_event(struct lightningd *ld UNNEEDED,
 			  const struct amount_msat *amount_out UNNEEDED,
 			  enum forward_status state UNNEEDED,
 			  enum onion_wire failcode UNNEEDED,
+			  enum forward_failure_reason reason UNNEEDED,
 			  struct timeabs *resolved_time UNNEEDED,
 			  enum forward_style forward_style UNNEEDED,
 			  u64 created_index UNNEEDED,

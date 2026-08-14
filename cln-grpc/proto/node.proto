@@ -2358,6 +2358,22 @@ message ListforwardsForwards {
 		LEGACY = 0;
 		TLV = 1;
 	}
+	// ListForwards.forwards[].failure_reason
+	enum ListforwardsForwardsFailureReason {
+		INSUFFICIENT_OUTGOING_LIQUIDITY = 0;
+		TOO_MANY_HTLCS = 1;
+		DUST_LIMIT = 2;
+		HTLC_BELOW_MINIMUM = 3;
+		HTLC_ABOVE_MAXIMUM = 4;
+		FEE_INSUFFICIENT = 5;
+		CLTV_INCORRECT = 6;
+		CLTV_EXPIRY_TOO_SOON = 7;
+		CLTV_EXPIRY_TOO_FAR = 8;
+		UNKNOWN_NEXT_PEER = 9;
+		OUTGOING_PEER_OFFLINE = 10;
+		CHANNEL_FAILED_PERMANENT = 11;
+		INVALID_ONION = 12;
+	}
 	string in_channel = 1;
 	Amount in_msat = 2;
 	ListforwardsForwardsStatus status = 3;
@@ -2373,6 +2389,7 @@ message ListforwardsForwards {
 	optional double resolved_time = 14;
 	optional uint32 failcode = 15;
 	optional string failreason = 16;
+	optional ListforwardsForwardsFailureReason failure_reason = 17;
 }
 
 message ListoffersRequest {
