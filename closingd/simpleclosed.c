@@ -17,6 +17,7 @@
 #include <common/per_peer_state.h>
 #include <common/read_peer_msg.h>
 #include <common/shutdown_scriptpubkey.h>
+#include <common/simple_close_weight.h>
 #include <common/status.h>
 #include <common/subdaemon.h>
 #include <common/utils.h>
@@ -33,11 +34,6 @@
 #define REQ_FD STDIN_FILENO
 #define PEER_FD 3
 #define HSM_FD 4
-
-/* Approx weight of a simple-close tx with both outputs (vbytes * 4 for weight).
- * Input: 41vb, witness: ~222wu/4=55.5vb, outputs: ~65vb each, overhead: 11vb
- * Total ~236 vbytes = ~704 weight + witness ~222 = ~926wu, round to 900. */
-#define SIMPLE_CLOSE_WEIGHT 900
 
 static const u8 *hsm_req(const tal_t *ctx, const u8 *req TAKES)
 {
