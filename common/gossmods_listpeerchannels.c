@@ -143,6 +143,11 @@ gossmods_from_listpeerchannels_(const tal_t *ctx,
 		if (scidd.scid.u64 == 0)
 			continue;
 
+		/* Recovery stubs all use the placeholder 1x1x1 SCID.  They are
+		 * deliberately not unique and cannot be used for routing. */
+		if (is_stub_scid(scidd.scid))
+			continue;
+
 		/* Disable if in bad state (it's already false if not connected) */
 		if (!streq(state, "CHANNELD_NORMAL")
 		      && !streq(state, "CHANNELD_AWAITING_SPLICE"))
@@ -178,4 +183,3 @@ gossmods_from_listpeerchannels_(const tal_t *ctx,
 
 	return mods;
 }
-
