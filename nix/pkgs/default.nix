@@ -12,6 +12,19 @@ let
     p.grpcio-tools
     p.mako
   ]);
+  # lowdown uses sandbox_init(3) on Darwin, which fails when invoked from
+  # within Nix's existing build sandbox. Disable the redundant inner sandbox
+  # for this build-only lowdown dependency.
+  lowdownForBuild =
+    if stdenv.isDarwin then
+      lowdown.overrideAttrs (old: {
+        postPatch = (old.postPatch or "") + ''
+          substituteInPlace main.c \
+            --replace-fail '#elif HAVE_SANDBOX_INIT' '#elif 0 /* Already sandboxed by Nix. */'
+        '';
+      })
+    else
+      lowdown;
 in
 stdenv.mkDerivation {
   name = "cln";
@@ -33,7 +46,7 @@ stdenv.mkDerivation {
     gettext
     gitMinimal
     libtool
-    lowdown
+    lowdownForBuild
     pkgconf
     py3
     unzip
