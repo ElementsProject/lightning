@@ -77,11 +77,6 @@ stdenv.mkDerivation {
 
   configureFlags = [ "--disable-valgrind" ];
 
-  # ./configure detects Python via `uv` (configure:default_python), which is not
-  # part of this derivation. Point it at the python3 we already provide so the
-  # codegen steps that call $(PYTHON) (e.g. devtools/blockreplace.py) work.
-  preConfigure = "export PYTHON=python3";
-
   enableParallelBuilding = true;
 
   # workaround for build issue, happens only x86_64-darwin, not aarch64-darwin
