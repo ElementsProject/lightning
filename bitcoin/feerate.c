@@ -38,6 +38,30 @@ u32 feerate_to_style(u32 feerate_perkw, enum feerate_style style)
 	abort();
 }
 
+bool next_funding_feerate(u32 last_feerate, u32 *next_feerate)
+{
+	u64 next;
+
+	/* Not a feerate we could ever have proposed, and 25/24 of it is
+	 * still 0. */
+	if (last_feerate == 0)
+		return false;
+
+	/* Widen: anything above UINT_MAX/25 overflows a u32 here, and that
+	 * is exactly the range a broken fee estimator can leave in the db. */
+	next = (u64)last_feerate * 25 / 24;
+	if (next > UINT_MAX)
+		return false;
+
+	/* Rounding down means feerates below 24 map back onto themselves,
+	 * and the rule requires strictly more to be a valid bump. */
+	if (next <= last_feerate)
+		return false;
+
+	*next_feerate = next;
+	return true;
+}
+
 const char *feerate_style_name(enum feerate_style style)
 {
 	switch (style) {
