@@ -669,6 +669,10 @@ const char *gossmap_manage_channel_announcement(const tal_t *ctx,
 	if (!bitcoin_blkid_eq(&chain_hash, &chainparams->genesis_blockhash))
 		return NULL;
 
+	/* Immediately discard claims of ancient channels */
+	if (short_channel_id_blocknum(scid) < chainparams->when_lightning_became_cool)
+		return tal_fmt(ctx, "Unknown UTXO %s", fmt_short_channel_id(tmpctx, scid));
+
 	/* If a prior txout lookup failed there is little point it trying
 	 * again. Just drop the announcement and walk away whistling.
 	 *
