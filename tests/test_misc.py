@@ -1948,6 +1948,35 @@ def test_feerates(node_factory, anchors):
     assert htlc_success_cost == htlc_feerate * 703 // 1000
 
 
+@unittest.skipIf(TEST_NETWORK == 'liquid-regtest', "Fees on elements are different")
+def test_feerate_ceiling(node_factory):
+    """A broken fee source can't feed absurd feerates into the daemon."""
+    l1 = node_factory.get_node()
+
+    # bcli trims anything wider than a u32 of perkb down to exactly
+    # 0xFFFFFFFF.  That is also the interesting value for the conversion:
+    # (0xFFFFFFFF + 3) / 4 wraps to 0 on a u32, so before the conversion was
+    # widened this arrived as 0perkw and was quietly raised to the floor,
+    # i.e. an absurd fee source produced an absurdly *low* feerate and the
+    # ceiling never saw it.
+    def absurd_feerate(r):
+        return {'id': r['id'], 'error': None,
+                'result': {'feerate': Decimal(900000)}}
+
+    l1.daemon.rpcproxy.mock_rpc('estimatesmartfee', absurd_feerate)
+    l1.restart()
+
+    l1.daemon.wait_for_log(r'is above sanity ceiling \(1000000\): clamping!')
+
+    feerates = l1.rpc.feerates('perkw')['perkw']
+    assert [e['feerate'] for e in feerates['estimates']] == [1000000] * 4
+    # max_fee_multiplier can't carry max_acceptable past the ceiling either.
+    assert feerates['max_acceptable'] == 1000000
+    # And what we're prepared to pay ourselves stays well under it.
+    assert feerates['opening'] <= 100000
+    assert feerates['splice'] <= 100000
+
+
 def test_logging(node_factory):
     # Since we redirect, node.start() will fail: do manually.
     l1 = node_factory.get_node(options={'log-file': 'logfile'}, start=False)

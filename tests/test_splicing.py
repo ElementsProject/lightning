@@ -1,6 +1,7 @@
 from fixtures import *  # noqa: F401,F403
 from pyln.client import RpcError
 import pytest
+import threading
 import unittest
 import time
 from utils import (
@@ -45,6 +46,110 @@ def test_splice(node_factory, bitcoind):
     # Check that the splice doesn't generate a unilateral close transaction
     time.sleep(5)
     assert l1.db_query("SELECT count(*) as c FROM channeltxs;")[0]['c'] == 0
+
+
+def _splice_to_inflight(l1, chan_id, amount=100000):
+    """Drive a splice as far as an inflight in the db, and return its txid."""
+    funds_result = l1.rpc.fundpsbt("111722sat", 0, 0, excess_as_change=True)
+    result = l1.rpc.splice_init(chan_id, amount, funds_result['psbt'])
+    result = l1.rpc.splice_update(chan_id, result['psbt'])
+    result = l1.rpc.splice_update(chan_id, result['psbt'])
+    assert result['commitments_secured'] is True
+    result = l1.rpc.signpsbt(result['psbt'])
+    result = l1.rpc.splice_signed(chan_id, result['signed_psbt'])
+    l1.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
+    return result['txid']
+
+
+@pytest.mark.openchannel('v1')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+# -1 is how lightningd itself stored a u32 above INT_MAX (db_bind_int); the
+# positive form is what you get writing the same value by hand.
+@pytest.mark.parametrize("poison,repaired", [(4294967295, 1000000),
+                                             (-1, 1000000),
+                                             (2000000, 1000000),
+                                             (0, 253)])
+def test_splice_stored_feerate_repaired_on_upgrade(node_factory, bitcoind,
+                                                   poison, repaired):
+    """An out-of-range stored funding feerate is repaired when we upgrade.
+
+    Nothing used to bound what got written to
+    channel_funding_inflights.funding_feerate, and json_add_channel then
+    asserted on it: the BOLT #2 25/24 RBF bump overflows a u32 above
+    UINT_MAX/25, and 0 tripped the assert right above it.  Since plugins call
+    listpeerchannels at startup, a single bad row crash-looped the node with
+    no RPC left to repair it with, which is what the migration is for.
+    """
+    l1, l2 = node_factory.line_graph(2, fundamount=1000000,
+                                     wait_for_announce=True)
+    chan_id = l1.get_channel_id(l2)
+    _splice_to_inflight(l1, chan_id)
+
+    l1.stop()
+    l1.db_manip("UPDATE channel_funding_inflights"
+                " SET funding_feerate = {}".format(poison))
+
+    # Rewind past the two clamping migrations so they run again over the row
+    # we just planted, which is the upgrade an attacked node goes through.
+    # They are plain idempotent UPDATEs, so re-running them is safe.
+    l1.db_manip("UPDATE version SET version = version - 2")
+    l1.daemon.opts['database-upgrade'] = 'true'
+    l1.start()
+
+    assert l1.daemon.is_in_log(r'Updating database from version')
+
+    row = l1.db_query("SELECT funding_feerate AS f"
+                      " FROM channel_funding_inflights;")[0]
+    assert row['f'] == repaired
+
+    # And the read path, which used to abort here, agrees.
+    chan = only_one(l1.rpc.listpeerchannels()['channels'])
+    assert chan['last_feerate'] == '{}perkw'.format(repaired)
+    assert chan['next_feerate'] == '{}perkw'.format(repaired * 25 // 24)
+
+
+@pytest.mark.openchannel('v1')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_splice_feerate_too_high(node_factory, bitcoind):
+    """We refuse a splice a peer proposes at an absurd feerate.
+
+    The fee comes out of the initiator's balance, so we gain nothing by
+    signing it; they lose the difference to a broken fee estimator of theirs.
+    Before this there was no upper bound on the accepter side at all.
+    """
+    l1, l2 = node_factory.line_graph(2, fundamount=1000000,
+                                     wait_for_announce=True,
+                                     opts={'allow_warning': True,
+                                           'may_reconnect': True})
+    chan_id = l1.get_channel_id(l2)
+
+    # Both sides agree feerate_max is 15000 * max_fee_multiplier.
+    assert l2.rpc.feerates('perkw')['perkw']['max_acceptable'] == 150000
+
+    # force_feerate gets us past *our* check on what we're willing to pay,
+    # which leaves l2's bound as the thing under test.
+    funds_result = l1.rpc.fundpsbt("111722sat", 0, 0, excess_as_change=True)
+
+    # l2 refuses on receipt of splice_init, so the splice_ack l1 is waiting
+    # for never arrives: run it in a daemon thread so the test can proceed.
+    def _splice():
+        try:
+            # force_feerate isn't in the pyln-client wrapper, so call directly.
+            l1.rpc.call('splice_init',
+                        {'channel_id': chan_id,
+                         'relative_amount': 100000,
+                         'initialpsbt': funds_result['psbt'],
+                         # param_feerate reads a bare number as perkb, and
+                         # the schema only allows a bare number here:
+                         # 800000perkb == 200000perkw.
+                         'feerate_per_kw': 800000,
+                         'force_feerate': True})
+        except Exception:
+            pass
+
+    threading.Thread(target=_splice, daemon=True).start()
+
+    l2.daemon.wait_for_log(r'Splice feerate_perkw 200000 is above our maximum 150000')
 
 
 @pytest.mark.openchannel('v1')
