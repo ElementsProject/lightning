@@ -3124,4 +3124,15 @@ def test_inflight_disconnect_commitment_v2(node_factory, bitcoind):
 
     opener.daemon.wait_for_log(r'dev_disconnect: .WIRE_COMMITMENT_SIGNED')
     opener.rpc.connect(funder.info['id'], 'localhost', funder.port)
-    fut.result(timeout=TIMEOUT)
+
+    # The disconnect kills the opener's dualopend mid-commitment. Depending on
+    # timing, the opener's `fundchannel` (via spenderp) either completes the
+    # open over the reconnected link, or fails: both are acceptable. The
+    # regression we guard against here is the funder going BROKEN (#8902).
+    try:
+        fut.result(timeout=TIMEOUT)
+    except RpcError:
+        pass
+
+    # The funder must not have gone BROKEN.
+    assert not funder.daemon.is_in_log('BROKEN')
