@@ -553,29 +553,27 @@ static void handle_failure_fatal(struct state *state, u8 *msg)
 }
 
 static bool check_accepter_error(struct state *state,
-                                 u8 *msg,
-                                 char *err_reason)
+				 u8 *msg,
+				 char *err_reason)
 {
 	if (!msg) {
 		if (err_reason)
 			negotiation_failed(state, "%s", err_reason);
-                else
-                        /* FIXME: what do we do here?? */
 		return false;
 	}
 
-        /* `msg` could be a failure message */
+	/* `msg` could be a failure message */
 	if (fromwire_peektype(msg) == WIRE_DUALOPEND_FAIL) {
-                handle_failure_fatal(state, msg);
+		handle_failure_fatal(state, msg);
 		return false;
 	}
 
 	if (fromwire_peektype(msg) != WIRE_DUALOPEND_SEND_TX_SIGS) {
 		master_badmsg(WIRE_DUALOPEND_SEND_TX_SIGS, msg);
-                return false;
-        }
+		return false;
+	}
 
-        return true;
+	return true;
 }
 
 static void check_channel_id(struct state *state,
@@ -3482,21 +3480,21 @@ static void rbf_wrap_up(struct state *state,
 	else
 		msg = opener_commits(state, tx_state, total, &err_reason);
 
-        /* in TX_ACCEPTER case, `msg` could be a failure message */
+	/* in TX_ACCEPTER case, `msg` could be a failure message */
 	if (msg && (fromwire_peektype(msg) == WIRE_DUALOPEND_FAIL)) {
-                if (fromwire_dualopend_fail(msg, msg, &err_reason))
-                        msg = tal_free(msg);
-        }
+		if (fromwire_dualopend_fail(msg, msg, &err_reason))
+			msg = tal_free(msg);
+	}
 
-        if (!msg) {
-                if (err_reason)
-                        open_abort(state, "%s", err_reason);
-                else
-                        open_abort(state, "%s", "Unable to commit");
-                /* We need to 'reset' the channel to what it
-                 * was before we did this. */
-                return;
-        }
+	if (!msg) {
+		if (err_reason)
+			open_abort(state, "%s", err_reason);
+		else
+			open_abort(state, "%s", "Unable to commit");
+		/* We need to 'reset' the channel to what it
+		 * was before we did this. */
+		return;
+	}
 
 	if (state->our_role == TX_ACCEPTER) {
 		handle_send_tx_sigs(state, msg);
