@@ -57,7 +57,7 @@ static bool unique_id_num(const struct rune *rune, u64 *num)
 
 	if (!rune->unique_id)
 		return false;
-	l = strtoull(rune->unique_id, &end, 0);
+	l = strtoull(rune->unique_id, &end, 10);
 	if (*end)
 		return false;
 

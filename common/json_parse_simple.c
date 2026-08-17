@@ -72,7 +72,9 @@ bool json_to_s64(const char *buffer, const jsmntok_t *tok, s64 *num)
 	long long l;
 
 	errno = 0;
-	l = strtoll(tmpbuf, &end, 0);
+	/* From json.org: "A number is very much like a C or Java number,
+	 * except that the octal and hexadecimal formats are not used." */
+	l = strtoll(tmpbuf, &end, 10);
 	if (tmpbuf[0] == '\0' || *end != '\0')
 		return false;
 
