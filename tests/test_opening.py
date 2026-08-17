@@ -141,6 +141,40 @@ def p2wsh(wscript):
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @pytest.mark.openchannel('v2')
+def test_v2_open_feerate_out_of_range(node_factory, bitcoind):
+    """We refuse an open_channel2 whose feerates are outside our bounds.
+
+    dualopend was never given min_feerate/max_feerate at all, and the
+    openchannel2 hook only *reports* our limits, so with no plugin hooked
+    nothing enforced them: the opener could name any feerate in either
+    direction and we would sign for it and store it.
+    """
+    # l1 has expensive estimates, l2 has cheap ones, so what l1 proposes is
+    # well above what l2 will put up with.
+    l1 = node_factory.get_node(feerates=(50000, 50000, 50000, 50000))
+    l2 = node_factory.get_node(feerates=(3000, 3000, 3000, 3000),
+                               allow_warning=True)
+
+    assert l2.rpc.feerates('perkw')['perkw']['max_acceptable'] == 30000
+
+    l1.fundwallet(10**7)
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    # The abort has to name the channel we're opening, or the opener can't
+    # match it up and answers "Unknown channel" instead of failing the open.
+    with pytest.raises(RpcError, match=r'funding_feerate_perkw 50000 above maximum 30000'):
+        l1.rpc.fundchannel(l2.info['id'], 500000)
+
+    l2.daemon.wait_for_log(r'funding_feerate_perkw 50000 above maximum 30000')
+    assert not l1.daemon.is_in_log(r'Unknown channel for WIRE_TX_ABORT')
+
+    # No channel, and nothing stored to trip over later.
+    assert l2.rpc.listpeerchannels()['channels'] == []
+    assert l2.db_query("SELECT count(*) AS c FROM channel_funding_inflights;")[0]['c'] == 0
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+@pytest.mark.openchannel('v2')
 def test_queryrates(node_factory, bitcoind):
 
     opts = {'dev-no-reconnect': None}

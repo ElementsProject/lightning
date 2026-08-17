@@ -4218,6 +4218,7 @@ bool peer_start_dualopend(struct peer *peer,
 	/* FIXME: We should override this to 0 in the openchannel2 hook of we want zeroconf*/
 	channel->minimum_depth = peer->ld->config.funding_confirms;
 
+	/* dualopend applies ignore_fee_limits itself, so these stay honest. */
 	msg = towire_dualopend_init(NULL, chainparams,
 				    peer->ld->our_features,
 				    peer->their_features,
@@ -4227,6 +4228,10 @@ bool peer_start_dualopend(struct peer *peer,
 				    &channel->local_basepoints,
 				    &channel->local_funding_pubkey,
 				    channel->minimum_depth,
+				    feerate_min(peer->ld, NULL),
+				    feerate_max(peer->ld, NULL),
+				    channel->ignore_fee_limits
+				    || peer->ld->config.ignore_fee_limits,
 				    peer->ld->config.require_confirmed_inputs,
 				    *channel->alias[LOCAL],
 				    peer->ld->dev_any_channel_type);
@@ -4326,6 +4331,10 @@ bool peer_restart_dualopend(struct peer *peer,
 				      &channel->local_funding_pubkey,
 				      &channel->channel_info.remote_fundingkey,
 				      channel->minimum_depth,
+				      feerate_min(peer->ld, NULL),
+				      feerate_max(peer->ld, NULL),
+				      channel->ignore_fee_limits
+				      || peer->ld->config.ignore_fee_limits,
 				      &inflight->funding->outpoint,
 				      inflight->funding->feerate,
 				      channel->funding_sats,

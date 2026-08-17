@@ -12,6 +12,7 @@
  * contribute inputs to the transaction
  */
 #include "config.h"
+#include <bitcoin/feerate.h>
 #include <bitcoin/script.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/cast/cast.h>
@@ -162,6 +163,9 @@ struct state {
 
 	/* Constraints on a channel they open. */
 	u32 minimum_depth;
+	u32 min_feerate, max_feerate;
+	/* Drop the policy bounds above (never the sanity ceiling). */
+	bool ignore_fee_limits;
 	struct amount_msat min_effective_htlc_capacity;
 
 	/* Limits on what remote config we accept. */
@@ -422,6 +426,48 @@ static void negotiation_failed(struct state *state,
 	va_end(ap);
 
 	open_abort(state, "You gave bad parameters: %s", errmsg);
+}
+
+/* Ignoring the fee limits drops the policy bounds, but never the sanity
+ * ceiling: a feerate above that means a broken fee source, and whatever we
+ * accept here is what we go on to store. */
+static u32 accepted_feerate_min(const struct state *state)
+{
+	if (state->ignore_fee_limits)
+		return 1;
+	return state->min_feerate;
+}
+
+static u32 accepted_feerate_max(const struct state *state)
+{
+	if (state->ignore_fee_limits)
+		return FEERATE_CEILING;
+	return state->max_feerate;
+}
+
+/* Both feerates in an open (or an RBF of one) come straight off the wire from
+ * the opener, and nothing downstream bounds them: the openchannel2 hook only
+ * *reports* our limits, so with no plugin hooked nothing enforces them, and
+ * check_funding_feerate() governs only the lower 25/24 RBF step.  Returns
+ * false having already failed the negotiation.
+ *
+ * The two feerates want different floors, hence min_feerate: see the callers. */
+static bool feerate_in_range(struct state *state, const char *name,
+			     u32 feerate, u32 min_feerate)
+{
+	if (feerate < min_feerate) {
+		negotiation_failed(state, "%s %u below minimum %u",
+				   name, feerate, min_feerate);
+		return false;
+	}
+
+	if (feerate > accepted_feerate_max(state)) {
+		negotiation_failed(state, "%s %u above maximum %u",
+				   name, feerate, accepted_feerate_max(state));
+		return false;
+	}
+
+	return true;
 }
 
 static void billboard_update(struct state *state)
@@ -2427,6 +2473,28 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 				fmt_channel_id(tmpctx, &cid));
 	}
 
+	/* Now state->channel_id is set, so an abort is one the opener can
+	 * match up, check the feerates: do it before anything else we might
+	 * commit to, as these are what we would go on to sign for and store.
+	 *
+	 * The funding feerate only has to be relayable.  If the opener picks a
+	 * slow one that is their problem, and RBF is the remedy, so holding it
+	 * to our *policy* minimum would refuse perfectly good opens.  But 0 is
+	 * not a feerate, and it is precisely the value that leaves no valid
+	 * next RBF step downstream, so the relay floor is the right bound. */
+	if (!feerate_in_range(state, "funding_feerate_perkw",
+			      tx_state->feerate_per_kw_funding,
+			      FEERATE_FLOOR))
+		return;
+
+	/* The commitment feerate is a different matter: too low and the
+	 * commitment we are signing cannot be relayed when we need it.  Same
+	 * bounds openingd applies to open_channel. */
+	if (!feerate_in_range(state, "commitment_feerate_perkw",
+			      state->feerate_per_kw_commitment,
+			      accepted_feerate_min(state)))
+		return;
+
 	/* BOLT #2:
 	 * The receiving node MUST fail the channel if:
 	 *...
@@ -3735,6 +3803,13 @@ static void rbf_remote_start(struct state *state, const u8 *rbf_msg)
 		goto free_rbf_ctx;
 	}
 
+	/* check_funding_feerate() only enforces the 25/24 step upwards, so
+	 * without this an RBF can walk the feerate up without limit. */
+	if (!feerate_in_range(state, "funding_feerate_perkw",
+			      tx_state->feerate_per_kw_funding,
+			      FEERATE_FLOOR))
+		goto free_rbf_ctx;
+
 	/* We ask master if this is ok */
 	msg = towire_dualopend_got_rbf_offer(NULL,
 					     &state->channel_id,
@@ -4364,6 +4439,9 @@ int main(int argc, char *argv[])
 				    &state->our_points,
 				    &state->our_funding_pubkey,
 				    &state->minimum_depth,
+				    &state->min_feerate,
+				    &state->max_feerate,
+				    &state->ignore_fee_limits,
 				    &state->require_confirmed_inputs[LOCAL],
 				    &state->local_alias,
 				    &state->dev_accept_any_channel_type)) {
@@ -4403,6 +4481,9 @@ int main(int argc, char *argv[])
 					     &state->our_funding_pubkey,
 					     &state->their_funding_pubkey,
 					     &state->minimum_depth,
+					     &state->min_feerate,
+					     &state->max_feerate,
+					     &state->ignore_fee_limits,
 					     &state->tx_state->funding,
 					     &state->tx_state->feerate_per_kw_funding,
 					     &total_funding,
