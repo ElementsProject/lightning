@@ -65,7 +65,11 @@ bool json_to_u64(const char *buffer, const jsmntok_t *tok, u64 *num)
 	unsigned long long l;
 
 	errno = 0;
-	l = strtoull(buffer + tok->start, &end, 0);
+	/* Decimal only, as for json_to_s64 below; and strtoull would
+	 * happily negate a leading '-', which is not an unsigned number. */
+	if (tok->start == tok->end || buffer[tok->start] == '-')
+		return false;
+	l = strtoull(buffer + tok->start, &end, 10);
 	if (end != buffer + tok->end)
 		return false;
 
@@ -88,8 +92,10 @@ bool json_to_s64(const char *buffer, const jsmntok_t *tok, s64 *num)
 	long long l;
 
 	errno = 0;
-	l = strtoll(buffer + tok->start, &end, 0);
-	if (end != buffer + tok->end)
+	/* From json.org: "A number is very much like a C or Java number,
+	 * except that the octal and hexadecimal formats are not used." */
+	l = strtoll(buffer + tok->start, &end, 10);
+	if (tok->start == tok->end || end != buffer + tok->end)
 		return false;
 
 	BUILD_ASSERT(sizeof(l) >= sizeof(*num));

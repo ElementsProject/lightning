@@ -726,7 +726,7 @@ static u64 get_offer_type(const char *name)
 	}
 
 	/* Numeric value */
-	val = strtoul(name, &endptr, 0);
+	val = strtoul(name, &endptr, 10);
 	if (*endptr)
 		errx(1, "Unknown value %s", name);
 	return val;
