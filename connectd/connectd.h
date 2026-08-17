@@ -7,6 +7,7 @@
 #include <ccan/timer/timer.h>
 #include <common/bigsize.h>
 #include <common/crypto_state.h>
+#include <common/gossip_constants.h>
 #include <common/node_id.h>
 #include <common/wireaddr.h>
 #include <connectd/handshake.h>
@@ -141,6 +142,15 @@ struct peer {
 	/* Are there outstanding node_announcements from scid_queries? */
 	struct node_id *scid_query_nodes;
 	size_t scid_query_nodes_idx;
+
+	/* Non-NULL (even if empty) iff we're trickling out a reply to a
+	 * query_channel_range. */
+	const struct short_channel_id *range_scids;
+	size_t range_scid_off;
+	/* first_blocknum/number_of_blocks of the *remaining* reply. */
+	u32 range_first_blocknum;
+	u32 range_blocks_remaining;
+	enum query_option_flags range_query_option_flags;
 };
 
 /* We gain one token per msec, and each msg uses 250 tokens. */

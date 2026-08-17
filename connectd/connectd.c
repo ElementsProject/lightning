@@ -151,6 +151,11 @@ static struct peer *new_peer(struct daemon *daemon,
 	peer->scid_query_idx = 0;
 	peer->scid_query_nodes = NULL;
 	peer->scid_query_nodes_idx = 0;
+	peer->range_scids = NULL;
+	peer->range_scid_off = 0;
+	peer->range_first_blocknum = 0;
+	peer->range_blocks_remaining = 0;
+	peer->range_query_option_flags = 0;
 	peer->onionmsg_incoming_tokens = ONION_MSG_TOKENS_MAX;
 	peer->onionmsg_last_incoming = time_mono();
 	peer->onionmsg_limit_warned = false;
