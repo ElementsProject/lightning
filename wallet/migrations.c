@@ -1085,6 +1085,40 @@ static const struct db_migration dbmigrations[] = {
     {SQL("ALTER TABLE offers ADD COLUMN force_paths INTEGER DEFAULT 0;"), NULL,
      SQL("ALTER TABLE offers DROP COLUMN force_paths"), NULL},
     /* ^v26.04 */
+    /* Nothing used to bound the feerate we record for an inflight funding
+     * transaction, so a broken fee estimator (ours or a peer's) could get an
+     * absurd value in here.  That is not merely cosmetic: the BOLT #2 rule
+     * that the next RBF attempt pays 25/24 times the last feerate is computed
+     * on a u32, so anything above UINT_MAX/25 overflows and trips the
+     * assert(next_feerate > last_feerate) in listpeerchannels, which plugins
+     * call at startup: the node crash-loops with no way out but to rewrite the
+     * stored value.  A stored 0 trips the assert immediately above it.
+     *
+     * The preceding commits close every path such a value could arrive on.
+     * This repairs what is already there, so that from here the bounds hold
+     * for stored feerates too and the read path can rely on them.
+     *
+     * We write the feerate with db_bind_int(), so a u32 above INT_MAX reads
+     * back negative; those are exactly the values that overflow, hence the
+     * second clause below.
+     *
+     * The bounds are spelled out rather than written as FEERATE_CEILING and
+     * FEERATE_FLOOR on purpose: a migration has to keep doing exactly what it
+     * did on the day it shipped, so it must not move when those constants do.
+     *
+     * Rewriting is safe: this feerate only sanity checks the fee the funding
+     * transaction already pays, and tells the user what the next RBF must
+     * beat.  It never feeds anything we have signed. */
+    {SQL("UPDATE channel_funding_inflights"
+	 " SET funding_feerate = 1000000"
+	 " WHERE funding_feerate > 1000000 OR funding_feerate < 0;"), NULL,
+     /* Clamping is idempotent, so no revert needed */
+     NULL, NULL},
+    {SQL("UPDATE channel_funding_inflights"
+	 " SET funding_feerate = 253"
+	 " WHERE funding_feerate = 0 OR funding_feerate IS NULL;"), NULL,
+     /* Clamping is idempotent, so no revert needed */
+     NULL, NULL},
 };
 
 const struct db_migration *get_db_migrations(size_t *num)
