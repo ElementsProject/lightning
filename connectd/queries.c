@@ -367,64 +367,6 @@ void handle_query_short_channel_ids(struct peer *peer, const u8 *msg)
 	io_wake(peer->peer_outq);
 }
 
-/*~ We can send multiple replies when the peer queries for all channels in
- * a given range of blocks; each one indicates the range of blocks it covers. */
-static void send_reply_channel_range(struct peer *peer,
-				     u32 first_blocknum, u32 number_of_blocks,
-				     const struct short_channel_id *scids,
-				     const struct channel_update_timestamps *tstamps,
-				     const struct channel_update_checksums *csums,
-				     size_t num_scids,
-				     bool final)
-{
-	/* BOLT #7:
-	 *
-	 * - MUST respond with one or more `reply_channel_range`:
-	 *   - MUST set with `chain_hash` equal to that of `query_channel_range`,
-	 *   - MUST limit `number_of_blocks` to the maximum number of blocks
-	 *     whose results could fit in `encoded_short_ids`
-	 */
-	u8 *encoded_scids = encoding_start(tmpctx, true);
-	u8 *encoded_timestamps = encoding_start(tmpctx, false);
- 	struct tlv_reply_channel_range_tlvs *tlvs
- 		= tlv_reply_channel_range_tlvs_new(tmpctx);
-
-	/* Encode them all */
-	for (size_t i = 0; i < num_scids; i++)
-		encoding_add_short_channel_id(&encoded_scids, scids[i]);
-	encoding_end(encoded_scids, tal_bytelen(encoded_scids));
-
-	if (tstamps) {
-		for (size_t i = 0; i < num_scids; i++)
-			encoding_add_timestamps(&encoded_timestamps, &tstamps[i]);
-
-		tlvs->timestamps_tlv = tal(tlvs, struct tlv_reply_channel_range_tlvs_timestamps_tlv);
-		tlvs->timestamps_tlv->encoding_type = ARR_UNCOMPRESSED;
-		encoding_end(encoded_timestamps,
-			     tal_bytelen(encoded_timestamps));
-		tlvs->timestamps_tlv->encoded_timestamps
-			= tal_steal(tlvs, encoded_timestamps);
-	}
-
-	/* Must be a tal object! */
-	if (csums)
-		tlvs->checksums_tlv = tal_dup_arr(tlvs,
-						  struct channel_update_checksums,
-						  csums, num_scids, 0);
-
-	/* BOLT #7:
-	 *
-	 * - MUST set `sync_complete` to `false` if this is not the final
-	 *   `reply_channel_range`.
-	 */
-	u8 *msg = towire_reply_channel_range(NULL,
-					     &chainparams->genesis_blockhash,
-					     first_blocknum,
-					     number_of_blocks,
-					     final, encoded_scids, tlvs);
-	inject_peer_msg(peer, take(msg));
-}
-
 /* Helper to get non-signature, non-timestamp parts of (valid!) channel_update */
 static void get_cupdate_parts(const u8 *channel_update,
 			      const u8 *parts[2],
@@ -508,6 +450,63 @@ static u32 get_checksum(struct gossmap *gossmap,
 	return crc32_of_update(cupdate);
 }
 
+/*~ We can send multiple replies when the peer queries for all channels in
+ * a given range of blocks; each one indicates the range of blocks it covers. */
+static void send_reply_channel_range(struct peer *peer,
+				     u32 first_blocknum, u32 number_of_blocks,
+				     const struct short_channel_id *scids,
+				     const struct channel_update_timestamps *tstamps,
+				     const struct channel_update_checksums *csums,
+				     size_t num_scids,
+				     bool final)
+{
+	/* BOLT #7:
+	 *
+	 * - MUST respond with one or more `reply_channel_range`:
+	 *   - MUST set with `chain_hash` equal to that of `query_channel_range`,
+	 *   - MUST limit `number_of_blocks` to the maximum number of blocks
+	 *     whose results could fit in `encoded_short_ids`
+	 */
+	u8 *encoded_scids = encoding_start(tmpctx, true);
+	u8 *encoded_timestamps = encoding_start(tmpctx, false);
+ 	struct tlv_reply_channel_range_tlvs *tlvs
+ 		= tlv_reply_channel_range_tlvs_new(tmpctx);
+
+	/* Encode them all */
+	for (size_t i = 0; i < num_scids; i++)
+		encoding_add_short_channel_id(&encoded_scids, scids[i]);
+	encoding_end(encoded_scids, tal_bytelen(encoded_scids));
+
+	if (tstamps) {
+		for (size_t i = 0; i < num_scids; i++)
+			encoding_add_timestamps(&encoded_timestamps, &tstamps[i]);
+
+		tlvs->timestamps_tlv = tal(tlvs, struct tlv_reply_channel_range_tlvs_timestamps_tlv);
+		tlvs->timestamps_tlv->encoding_type = ARR_UNCOMPRESSED;
+		encoding_end(encoded_timestamps,
+			     tal_bytelen(encoded_timestamps));
+		tlvs->timestamps_tlv->encoded_timestamps
+			= tal_steal(tlvs, encoded_timestamps);
+	}
+
+	/* Must be a tal object! */
+	if (csums)
+		tlvs->checksums_tlv = tal_dup_arr(tlvs,
+						  struct channel_update_checksums,
+						  csums, num_scids, 0);
+
+	/* BOLT #7:
+	 *
+	 * - MUST set `sync_complete` to `false` if this is not the final
+	 *   `reply_channel_range`.
+	 */
+	u8 *msg = towire_reply_channel_range(NULL,
+					     &chainparams->genesis_blockhash,
+					     first_blocknum,
+					     number_of_blocks,
+					     final, encoded_scids, tlvs);
+	inject_peer_msg(peer, take(msg));
+}
 
 /* FIXME: This assumes that the tlv type encodes into 1 byte! */
 static size_t tlv_overhead(size_t num_entries, size_t size)
