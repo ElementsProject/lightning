@@ -35,6 +35,8 @@ struct gossip_state {
 	size_t bytes_rcvd_this_second;
 	/* Bytes sent to peer in the last second. */
 	size_t bytes_this_second;
+	/* CPU time spent on their behalf in the last second. */
+	u64 cpu_usec_this_second;
 };
 
 /*~ We need to know if we were expecting a pong, and why */
@@ -334,6 +336,9 @@ struct daemon {
 
 	/* How much incomign traffic do we allow per peer every second (bytes) */
 	size_t incoming_stream_limit;
+
+	/* Total CPU time to spend across all peers for gossip_queries etc */
+	u64 cpu_budget_usec_limit;
 
 	/* We support use of a SOCKS5 proxy (e.g. Tor) */
 	struct addrinfo *proxyaddr;

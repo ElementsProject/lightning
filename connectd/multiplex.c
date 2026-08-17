@@ -289,6 +289,7 @@ void setup_peer_gossip_store(struct peer *peer,
 	peer->gs.window_start = time_mono();
 	peer->gs.bytes_rcvd_this_second = 0;
 	peer->gs.bytes_this_second = 0;
+	peer->gs.cpu_usec_this_second = 0;
 
 	/* BOLT #7:
 	 *
@@ -632,6 +633,7 @@ static void maybe_reset_usage_window(struct peer *peer)
 	peer->gs.window_start = now;
 	peer->gs.bytes_rcvd_this_second = 0;
 	peer->gs.bytes_this_second = 0;
+	peer->gs.cpu_usec_this_second = 0;
 }
 
 /* Gossip response or something from gossip store */
@@ -1428,6 +1430,7 @@ static struct io_plan *read_body_from_peer_done(struct io_conn *peer_conn,
        struct channel_id channel_id;
        struct subd *subd;
        enum peer_wire type;
+       struct timemono handled_start;
        struct io_plan *(*next_read)(struct io_conn *peer_conn,
 				    struct peer *peer) = read_hdr_from_peer;
 
@@ -1464,7 +1467,11 @@ static struct io_plan *read_body_from_peer_done(struct io_conn *peer_conn,
 	       return next_read(peer_conn, peer);
 
        /* If we swallow this, just try again. */
+       handled_start = time_mono();
+       /* Count the CPU time for local messages (esp. gossip queries) */
        if (handle_message_locally(peer, decrypted)) {
+	       peer->gs.cpu_usec_this_second
+		       += time_to_usec(timemono_between(time_mono(), handled_start));
 	       /* Make sure to update peer->peer_in_lastmsg so we blame correct msg! */
 	       goto out;
        }
@@ -1572,17 +1579,25 @@ static void recv_throttle_timeout(struct peer *peer)
 static struct io_plan *read_hdr_from_peer(struct io_conn *peer_conn,
 					  struct peer *peer)
 {
+	u64 cpu_budget;
 	assert(peer->to_peer == peer_conn);
 
 	maybe_reset_usage_window(peer);
 
-	/* You sent too much this second? */
-	if (peer->gs.bytes_rcvd_this_second > peer->daemon->incoming_stream_limit) {
+	/* Each peer gets its "fair share" of our local-message CPU */
+	cpu_budget = peer->daemon->cpu_budget_usec_limit
+		/ peer_htable_count(peer->daemon->peers);
+
+	/* You sent too much this second, or cost us too much CPU? */
+	if (peer->gs.bytes_rcvd_this_second > peer->daemon->incoming_stream_limit
+	    || peer->gs.cpu_usec_this_second > cpu_budget) {
 		status_unusual_once(&peer->throttle_warned,
 				    CI_UNEXPECTED
 				    "Throttling incoming peer %s:"
-				    " too much traffic",
-				    fmt_node_id(tmpctx, &peer->id));
+				    " too much %s",
+				    fmt_node_id(tmpctx, &peer->id),
+				    peer->gs.bytes_rcvd_this_second > peer->daemon->incoming_stream_limit
+				    ? "traffic" : "CPU");
 
 		/* Set timer for next second (if not already) */
 		if (!peer->recv_timer) {

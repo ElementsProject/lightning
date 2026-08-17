@@ -1761,10 +1761,11 @@ static void connect_init(struct daemon *daemon, const u8 *msg)
 		daemon->dev_disconnect_fd = -1;
 	}
 
-	/* 500 bytes per second, not 1M per second */
+	/* 500 bytes, and 500usec of CPU, per second: not 1M/500k */
 	if (dev_throttle_gossip) {
 		daemon->gossip_stream_limit = 500;
 		daemon->incoming_stream_limit = 500;
+		daemon->cpu_budget_usec_limit = 500;
 	}
 
 	if (dev_limit_connections_inflight)
@@ -2538,6 +2539,8 @@ int main(int argc, char *argv[])
 	/* We generally allow 1MB per second per peer, except for dev testing */
 	daemon->gossip_stream_limit = 1000000;
 	daemon->incoming_stream_limit = 1000000;
+	/* Half a CPU-second/sec, total, split across however many peers we have */
+	daemon->cpu_budget_usec_limit = 500000;
 	daemon->scid_htable = new_htable(daemon, scid_htable);
 
 	/* stdin == control */
