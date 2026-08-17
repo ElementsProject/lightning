@@ -290,6 +290,7 @@ void setup_peer_gossip_store(struct peer *peer,
 	peer->gs.bytes_rcvd_this_second = 0;
 	peer->gs.bytes_this_second = 0;
 	peer->gs.cpu_usec_this_second = 0;
+	peer->gs.throttle_warned = false;
 
 	/* BOLT #7:
 	 *
@@ -640,14 +641,29 @@ static void maybe_reset_usage_window(struct peer *peer)
 static const u8 *maybe_gossip_msg(const tal_t *ctx, struct peer *peer)
 {
 	const u8 *msg;
+	struct timemono query_start;
 	struct gossmap *gossmap;
 	u32 timestamp;
 	const u8 **msgs;
+	u64 cpu_budget;
 
 	maybe_reset_usage_window(peer);
 
-	/* Sent too much this second? */
-	if (peer->gs.bytes_this_second > peer->daemon->gossip_stream_limit) {
+	/* Each peer gets its "fair share" of our query-answering CPU */
+	cpu_budget = peer->daemon->cpu_budget_usec_limit
+		/ peer_htable_count(peer->daemon->peers);
+
+	/* Sent too much this second, or cost us too much CPU answering queries? */
+	if (peer->gs.bytes_this_second > peer->daemon->gossip_stream_limit
+	    || peer->gs.cpu_usec_this_second > cpu_budget) {
+		status_unusual_once(&peer->gs.throttle_warned,
+				    CI_UNEXPECTED
+				    "Throttling outgoing peer %s:"
+				    " too much %s",
+				    fmt_node_id(tmpctx, &peer->id),
+				    peer->gs.bytes_this_second > peer->daemon->gossip_stream_limit
+				    ? "traffic" : "CPU");
+
 		/* Replace normal timer with a timer after throttle. */
 		peer->gs.active = false;
 		tal_free(peer->gs.gossip_timer);
@@ -662,8 +678,13 @@ static const u8 *maybe_gossip_msg(const tal_t *ctx, struct peer *peer)
 
 	gossmap = get_gossmap(peer->daemon);
 
-	/* This can return more than one. */
+	/* This can return more than one: it's the expensive part (gossmap
+	 * walks, checksum/timestamp lookups), so it's what we charge for
+	 * cpu_usec_this_second above. */
+	query_start = time_mono();
 	msgs = maybe_create_query_responses(tmpctx, peer, gossmap);
+	peer->gs.cpu_usec_this_second
+		+= time_to_usec(timemono_between(time_mono(), query_start));
 	if (tal_count(msgs) > 0) {
 		/* We return the first one for immediate sending, and queue
 		 * others for future.  We add all the lengths now though! */

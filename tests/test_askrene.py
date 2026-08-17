@@ -1558,7 +1558,7 @@ def test_real_data(node_factory, bitcoind, executor):
                                      opts=[{'gossip_store_file': outfile.name,
                                             'allow_warning': True,
                                             'dev-throttle-gossip': None,
-                                            'broken_log': 'Throttling incoming peer',
+                                            'broken_log': 'Throttling (incoming|outgoing) peer',
                                             # This can be slow!
                                             'askrene-timeout': TIMEOUT},
                                            {'allow_warning': True}])
@@ -1669,7 +1669,7 @@ def test_real_biases(node_factory, bitcoind, executor):
     l1, l2 = node_factory.line_graph(2, fundamount=AMOUNT,
                                      opts=[{'gossip_store_file': outfile.name,
                                             'allow_warning': True,
-                                            'broken_log': 'Throttling incoming peer',
+                                            'broken_log': 'Throttling (incoming|outgoing) peer',
                                             'dev-throttle-gossip': None},
                                            {'allow_warning': True}])
 
@@ -1783,7 +1783,7 @@ def test_askrene_fake_channeld(node_factory, bitcoind):
                                      opts=[{'gossip_store_file': outfile.name,
                                             'subdaemon': 'channeld:../tests/plugins/channeld_fakenet',
                                             'allow_warning': True,
-                                            'broken_log': 'Throttling incoming peer',
+                                            'broken_log': 'Throttling (incoming|outgoing) peer',
                                             'dev-throttle-gossip': None},
                                            {'allow_bad_gossip': True}])
 
