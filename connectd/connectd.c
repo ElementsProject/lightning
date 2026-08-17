@@ -1761,11 +1761,14 @@ static void connect_init(struct daemon *daemon, const u8 *msg)
 		daemon->dev_disconnect_fd = -1;
 	}
 
-	/* 500 bytes, and 500usec of CPU, per second: not 1M/500k */
+	/* 1000 bytes, and 1500usec of CPU, per second: not 1M/500k.
+	 * (These need to be enough that ordinary message handling doesn't
+	 * blow the budget by a huge multiple: since overage is no longer
+	 * capped, that would mean a very long test wait!) */
 	if (dev_throttle_gossip) {
-		daemon->gossip_stream_limit = 500;
-		daemon->incoming_stream_limit = 500;
-		daemon->cpu_budget_usec_limit = 500;
+		daemon->gossip_stream_limit = 1000;
+		daemon->incoming_stream_limit = 1000;
+		daemon->cpu_budget_usec_limit = 1500;
 	}
 
 	if (dev_limit_connections_inflight)
