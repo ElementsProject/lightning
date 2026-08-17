@@ -80,4 +80,16 @@ u32 feerate_from_style(u32 feerate, enum feerate_style style);
 u32 feerate_to_style(u32 feerate_perkw, enum feerate_style style);
 const char *feerate_style_name(enum feerate_style style);
 
+/* Sets *next_feerate to the smallest feerate which satisfies the BOLT #2
+ * rule that the next funding transaction pays 25/24 times the feerate of
+ * the previously constructed one, rounded down, and returns true.  Returns
+ * false, leaving *next_feerate untouched, if last_feerate admits no such
+ * value: it is 0, or 25/24 of it does not fit a u32, or rounding down lands
+ * back on last_feerate.
+ *
+ * last_feerate is generally read back out of the database, where a broken
+ * fee estimator (ours or a peer's) may have left something absurd, so
+ * callers must handle false rather than assume it away. */
+bool next_funding_feerate(u32 last_feerate, u32 *next_feerate);
+
 #endif /* LIGHTNING_BITCOIN_FEERATE_H */

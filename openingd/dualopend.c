@@ -3439,10 +3439,10 @@ static bool check_funding_feerate(u32 proposed_next_feerate,
 	 *     - the `feerate` is not greater than or equal to 25/24 times `feerate`
 	 *       of the last successfully constructed transaction
 	 */
-	u32 next_min = last_feerate * 25 / 24;
+	u32 next_min;
 
-	if (next_min < last_feerate) {
-		status_broken("Overflow calculating next feerate. last %u",
+	if (!next_funding_feerate(last_feerate, &next_min)) {
+		status_broken("Can't calculate next feerate. last %u",
 			      last_feerate);
 		return false;
 	}

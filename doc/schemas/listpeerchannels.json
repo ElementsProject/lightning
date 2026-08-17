@@ -359,7 +359,7 @@
             "next_feerate": {
               "type": "string",
               "description": [
-                "For inflight opens, the next feerate we'll use for the channel open."
+                "For inflight opens, the next feerate we'll use for the channel open. Omitted if *last_feerate* admits no valid next feerate."
               ]
             },
             "next_fee_step": {
@@ -1325,8 +1325,7 @@
                 "additionalProperties": false,
                 "required": [
                   "initial_feerate",
-                  "last_feerate",
-                  "next_feerate"
+                  "last_feerate"
                 ],
                 "properties": {
                   "state": {},
@@ -1420,7 +1419,7 @@
                   "next_feerate": {
                     "type": "string",
                     "description": [
-                      "The minimum feerate for the next funding transaction in per-1000-weight, with `kpw` appended."
+                      "The minimum feerate for the next funding transaction in per-1000-weight, with `kpw` appended. Omitted if *last_feerate* admits no valid next feerate."
                     ]
                   }
                 }

@@ -3,6 +3,7 @@
  * saves and funding tx watching for a channel open */
 
 #include "config.h"
+#include <bitcoin/feerate.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/cast/cast.h>
 #include <ccan/mem/mem.h>
@@ -2587,8 +2588,14 @@ json_openchannel_bump(struct command *cmd,
 	 *     down.
 	 */
 	last_feerate_perkw = channel_last_funding_feerate(channel);
-	next_feerate_min = last_feerate_perkw * 25 / 24;
-	assert(next_feerate_min > last_feerate_perkw);
+	/* Whatever is stored could be absurd, in which case there is no next
+	 * feerate to bump to.  Fail the command rather than the daemon. */
+	if (!next_funding_feerate(last_feerate_perkw, &next_feerate_min))
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Can't calculate the next feerate: the"
+				    " last funding feerate recorded for this"
+				    " channel (%u) is out of range",
+				    last_feerate_perkw);
 	if (!info->feerate_per_kw_funding) {
 		info->feerate_per_kw_funding = tal(info, u32);
 		*info->feerate_per_kw_funding = next_feerate_min;

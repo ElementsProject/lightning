@@ -1054,14 +1054,13 @@ static void NON_NULL_ARGS(1, 2, 4, 5) json_add_channel(struct command *cmd,
 		initial = list_top(&channel->inflights,
 				   struct channel_inflight, list);
 		json_add_string(response, "initial_feerate",
-			        tal_fmt(tmpctx, "%d%s",
+			        tal_fmt(tmpctx, "%u%s",
 					initial->funding->feerate,
 					feerate_style_name(FEERATE_PER_KSIPA)));
 
 		last_feerate = channel_last_funding_feerate(channel);
-		assert(last_feerate > 0);
 		json_add_string(response, "last_feerate",
-				tal_fmt(tmpctx, "%d%s", last_feerate,
+				tal_fmt(tmpctx, "%u%s", last_feerate,
 					feerate_style_name(FEERATE_PER_KSIPA)));
 
 		/* BOLT #2:
@@ -1069,11 +1068,21 @@ static void NON_NULL_ARGS(1, 2, 4, 5) json_add_channel(struct command *cmd,
 		 * times the `feerate` of the previously constructed
 		 * transaction, rounded down.
 		 */
-		next_feerate = last_feerate * 25 / 24;
-		assert(next_feerate > last_feerate);
-		json_add_string(response, "next_feerate",
-				tal_fmt(tmpctx, "%d%s", next_feerate,
-					feerate_style_name(FEERATE_PER_KSIPA)));
+		/* The bounds and the migration together keep last_feerate in
+		 * range, so this holds; we used to assert it.  But this is
+		 * read-only introspection that plugins call at startup, and
+		 * aborting here would turn one bad row into a crash-loop with
+		 * no RPC left to repair it with. */
+		if (next_funding_feerate(last_feerate, &next_feerate)) {
+			json_add_string(response, "next_feerate",
+					tal_fmt(tmpctx, "%u%s", next_feerate,
+						feerate_style_name(FEERATE_PER_KSIPA)));
+		} else {
+			log_broken(channel->log,
+				   "Funding feerate %u leaves no valid next"
+				   " feerate: omitting next_feerate",
+				   last_feerate);
+		}
 
 		/* List the inflights */
 		json_array_start(response, "inflight");
@@ -1088,7 +1097,7 @@ static void NON_NULL_ARGS(1, 2, 4, 5) json_add_channel(struct command *cmd,
 			json_add_num(response, "funding_outnum",
 				     inflight->funding->outpoint.n);
 			json_add_string(response, "feerate",
-					tal_fmt(tmpctx, "%d%s",
+					tal_fmt(tmpctx, "%u%s",
 						inflight->funding->feerate,
 						feerate_style_name(
 							FEERATE_PER_KSIPA)));
