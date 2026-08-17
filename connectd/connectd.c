@@ -128,8 +128,6 @@ static struct peer *new_peer(struct daemon *daemon,
 	peer->cs = *cs;
 	peer->subds = tal_arr(peer, struct subd *, 0);
 	peer->peer_in = NULL;
-	peer->bytes_rcvd_this_second = 0;
-	peer->bytes_rcvd_start_time = time_mono();
 	peer->recv_timer = NULL;
 	peer->throttle_warned = false;
 	membuf_init(&peer->encrypted_peer_out,

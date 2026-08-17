@@ -286,8 +286,9 @@ void setup_peer_gossip_store(struct peer *peer,
 
 	peer->gs.grf = new_gossip_rcvd_filter(peer);
 	peer->gs.iter = gossmap_iter_new(peer, gossmap);
+	peer->gs.window_start = time_mono();
+	peer->gs.bytes_rcvd_this_second = 0;
 	peer->gs.bytes_this_second = 0;
-	peer->gs.bytes_start_time = time_mono();
 
 	/* BOLT #7:
 	 *
@@ -618,21 +619,30 @@ static void wake_gossip(struct peer *peer)
 	peer->gs.gossip_timer = gossip_stream_timer(peer);
 }
 
+/* peer->gs's per-second budget: read_hdr_from_peer() and maybe_gossip_msg()
+ * both call this, so whichever notices the window has expired resets it
+ * for both. */
+static void maybe_reset_usage_window(struct peer *peer)
+{
+	struct timemono now = time_mono();
+
+	if (time_to_sec(timemono_between(now, peer->gs.window_start)) <= 0)
+		return;
+
+	peer->gs.window_start = now;
+	peer->gs.bytes_rcvd_this_second = 0;
+	peer->gs.bytes_this_second = 0;
+}
+
 /* Gossip response or something from gossip store */
 static const u8 *maybe_gossip_msg(const tal_t *ctx, struct peer *peer)
 {
 	const u8 *msg;
-	struct timemono now;
 	struct gossmap *gossmap;
 	u32 timestamp;
 	const u8 **msgs;
 
-	/* If it's been over a second, make a fresh start. */
-	now = time_mono();
-	if (time_to_sec(timemono_between(now, peer->gs.bytes_start_time)) > 0) {
-		peer->gs.bytes_start_time = now;
-		peer->gs.bytes_this_second = 0;
-	}
+	maybe_reset_usage_window(peer);
 
 	/* Sent too much this second? */
 	if (peer->gs.bytes_this_second > peer->daemon->gossip_stream_limit) {
@@ -642,7 +652,7 @@ static const u8 *maybe_gossip_msg(const tal_t *ctx, struct peer *peer)
 		peer->gs.gossip_timer
 			= new_abstimer(&peer->daemon->timers,
 				       peer,
-				       timemono_add(peer->gs.bytes_start_time,
+				       timemono_add(peer->gs.window_start,
 						    time_from_sec(1)),
 				       wake_gossip, peer);
 		return NULL;
@@ -1429,7 +1439,7 @@ static struct io_plan *read_body_from_peer_done(struct io_conn *peer_conn,
                return io_close(peer_conn);
        }
 
-       peer->bytes_rcvd_this_second += tal_bytelen(peer->peer_in);
+       peer->gs.bytes_rcvd_this_second += tal_bytelen(peer->peer_in);
        tal_free(peer->peer_in);
 
        type = fromwire_peektype(decrypted);
@@ -1546,7 +1556,7 @@ static struct io_plan *read_body_from_peer(struct io_conn *peer_conn,
        if (!cryptomsg_decrypt_header(&peer->cs, peer->peer_in, &len))
                return io_close(peer_conn);
 
-       peer->bytes_rcvd_this_second += tal_bytelen(peer->peer_in);
+       peer->gs.bytes_rcvd_this_second += tal_bytelen(peer->peer_in);
 
        tal_resize(&peer->peer_in, (u32)len + CRYPTOMSG_BODY_OVERHEAD);
        return io_read(peer_conn, peer->peer_in, tal_count(peer->peer_in),
@@ -1562,17 +1572,12 @@ static void recv_throttle_timeout(struct peer *peer)
 static struct io_plan *read_hdr_from_peer(struct io_conn *peer_conn,
 					  struct peer *peer)
 {
-	struct timemono now = time_mono();
 	assert(peer->to_peer == peer_conn);
 
-	/* If it's been over a second, make a fresh start. */
-	if (time_to_sec(timemono_between(now, peer->bytes_rcvd_start_time)) > 0) {
-		peer->bytes_rcvd_start_time = now;
-		peer->bytes_rcvd_this_second = 0;
-	}
+	maybe_reset_usage_window(peer);
 
 	/* You sent too much this second? */
-	if (peer->bytes_rcvd_this_second > peer->daemon->incoming_stream_limit) {
+	if (peer->gs.bytes_rcvd_this_second > peer->daemon->incoming_stream_limit) {
 		status_unusual_once(&peer->throttle_warned,
 				    CI_UNEXPECTED
 				    "Throttling incoming peer %s:"
@@ -1583,7 +1588,7 @@ static struct io_plan *read_hdr_from_peer(struct io_conn *peer_conn,
 		if (!peer->recv_timer) {
 			peer->recv_timer = new_abstimer(&peer->daemon->timers,
 							peer,
-							timemono_add(peer->bytes_rcvd_start_time,
+							timemono_add(peer->gs.window_start,
 								     time_from_sec(1)),
 							recv_throttle_timeout,
 							peer);

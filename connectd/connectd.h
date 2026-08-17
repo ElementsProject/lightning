@@ -28,10 +28,13 @@ struct gossip_state {
 	struct gossip_rcvd_filter *grf;
 	/* Offset within the gossip_store file */
 	struct gossmap_iter *iter;
-	/* Bytes sent in the last second. */
+
+	/* This peer's per-second budget. */
+	struct timemono window_start;
+	/* Bytes received from peer in the last second. */
+	size_t bytes_rcvd_this_second;
+	/* Bytes sent to peer in the last second. */
 	size_t bytes_this_second;
-	/* When that second starts */
-	struct timemono bytes_start_time;
 };
 
 /*~ We need to know if we were expecting a pong, and why */
@@ -86,11 +89,7 @@ struct peer {
 	/* Input buffer. */
 	u8 *peer_in;
 
-	/* Bytes received in the last second. */
-	size_t bytes_rcvd_this_second;
-	/* When that second starts */
-	struct timemono bytes_rcvd_start_time;
-	/* Timer when we're throttling input */
+	/* Timer when we're throttling input (budgets are in peer->gs) */
 	struct oneshot *recv_timer;
 	/* Only send message once if peer gets throttled */
 	bool throttle_warned;
