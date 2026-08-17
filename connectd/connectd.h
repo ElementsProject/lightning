@@ -37,6 +37,8 @@ struct gossip_state {
 	size_t bytes_this_second;
 	/* CPU time spent on their behalf in the last second. */
 	u64 cpu_usec_this_second;
+	/* Only log throttling once */
+	bool throttle_warned;
 };
 
 /*~ We need to know if we were expecting a pong, and why */
