@@ -637,6 +637,51 @@ static void maybe_reset_usage_window(struct peer *peer)
 	peer->gs.cpu_usec_this_second = 0;
 }
 
+/* usage/limit, in usec: e.g. usage == 3*limit means "3 seconds worth
+ * of quota burned in one go." */
+static u64 usec_over_budget(u64 usage, u64 limit)
+{
+	if (limit == 0)
+		return 0;
+	return usage * (u64)1000000 / limit;
+}
+
+/* Checks two (usage, limit) pairs (e.g. bytes and CPU usec): if
+ * neither is over, returns 0.  Otherwise logs it (once) and returns
+ * how many usec to wait before retrying: how long, averaging the
+ * burn in over the time since window_start, until we're back under
+ * budget.  No cap: a peer who burns 4 seconds worth of quota in one
+ * go waits ~4 seconds, not just 1.  But always at least 1 second, as
+ * a flat penalty even for a marginal overage. */
+static u64 maybe_throttle_usec(struct peer *peer, bool *warned, const char *direction,
+			       u64 usage1, u64 limit1,
+			       u64 usage2, u64 limit2)
+{
+	u64 need, need2, elapsed, wait;
+
+	if (usage1 <= limit1 && usage2 <= limit2)
+		return 0;
+
+	status_unusual_once(warned,
+			    CI_UNEXPECTED
+			    "Throttling %s peer %s: too much %s",
+			    direction,
+			    fmt_node_id(tmpctx, &peer->id),
+			    usage1 > limit1 ? "traffic" : "CPU");
+
+	need = usec_over_budget(usage1, limit1);
+	need2 = usec_over_budget(usage2, limit2);
+	if (need2 > need)
+		need = need2;
+
+	elapsed = time_to_usec(timemono_between(time_mono(), peer->gs.window_start));
+	wait = (need > elapsed) ? need - elapsed : 0;
+	if (wait < 1000000)
+		wait = 1000000;
+
+	return wait;
+}
+
 /* Gossip response or something from gossip store */
 static const u8 *maybe_gossip_msg(const tal_t *ctx, struct peer *peer)
 {
@@ -645,7 +690,7 @@ static const u8 *maybe_gossip_msg(const tal_t *ctx, struct peer *peer)
 	struct gossmap *gossmap;
 	u32 timestamp;
 	const u8 **msgs;
-	u64 cpu_budget;
+	u64 cpu_budget, wait_usec;
 
 	maybe_reset_usage_window(peer);
 
@@ -653,25 +698,17 @@ static const u8 *maybe_gossip_msg(const tal_t *ctx, struct peer *peer)
 	cpu_budget = peer->daemon->cpu_budget_usec_limit
 		/ peer_htable_count(peer->daemon->peers);
 
-	/* Sent too much this second, or cost us too much CPU answering queries? */
-	if (peer->gs.bytes_this_second > peer->daemon->gossip_stream_limit
-	    || peer->gs.cpu_usec_this_second > cpu_budget) {
-		status_unusual_once(&peer->gs.throttle_warned,
-				    CI_UNEXPECTED
-				    "Throttling outgoing peer %s:"
-				    " too much %s",
-				    fmt_node_id(tmpctx, &peer->id),
-				    peer->gs.bytes_this_second > peer->daemon->gossip_stream_limit
-				    ? "traffic" : "CPU");
-
+	wait_usec = maybe_throttle_usec(peer, &peer->gs.throttle_warned, "outgoing",
+					peer->gs.bytes_this_second, peer->daemon->gossip_stream_limit,
+					peer->gs.cpu_usec_this_second, cpu_budget);
+	if (wait_usec) {
 		/* Replace normal timer with a timer after throttle. */
 		peer->gs.active = false;
 		tal_free(peer->gs.gossip_timer);
 		peer->gs.gossip_timer
 			= new_abstimer(&peer->daemon->timers,
 				       peer,
-				       timemono_add(peer->gs.window_start,
-						    time_from_sec(1)),
+				       timemono_add(time_mono(), time_from_usec(wait_usec)),
 				       wake_gossip, peer);
 		return NULL;
 	}
@@ -1600,7 +1637,7 @@ static void recv_throttle_timeout(struct peer *peer)
 static struct io_plan *read_hdr_from_peer(struct io_conn *peer_conn,
 					  struct peer *peer)
 {
-	u64 cpu_budget;
+	u64 cpu_budget, wait_usec;
 	assert(peer->to_peer == peer_conn);
 
 	maybe_reset_usage_window(peer);
@@ -1609,23 +1646,15 @@ static struct io_plan *read_hdr_from_peer(struct io_conn *peer_conn,
 	cpu_budget = peer->daemon->cpu_budget_usec_limit
 		/ peer_htable_count(peer->daemon->peers);
 
-	/* You sent too much this second, or cost us too much CPU? */
-	if (peer->gs.bytes_rcvd_this_second > peer->daemon->incoming_stream_limit
-	    || peer->gs.cpu_usec_this_second > cpu_budget) {
-		status_unusual_once(&peer->throttle_warned,
-				    CI_UNEXPECTED
-				    "Throttling incoming peer %s:"
-				    " too much %s",
-				    fmt_node_id(tmpctx, &peer->id),
-				    peer->gs.bytes_rcvd_this_second > peer->daemon->incoming_stream_limit
-				    ? "traffic" : "CPU");
-
-		/* Set timer for next second (if not already) */
+	wait_usec = maybe_throttle_usec(peer, &peer->throttle_warned, "incoming",
+					peer->gs.bytes_rcvd_this_second, peer->daemon->incoming_stream_limit,
+					peer->gs.cpu_usec_this_second, cpu_budget);
+	if (wait_usec) {
+		/* Set timer for when we'll be back under quota (if not already) */
 		if (!peer->recv_timer) {
 			peer->recv_timer = new_abstimer(&peer->daemon->timers,
 							peer,
-							timemono_add(peer->gs.window_start,
-								     time_from_sec(1)),
+							timemono_add(time_mono(), time_from_usec(wait_usec)),
 							recv_throttle_timeout,
 							peer);
 		}
