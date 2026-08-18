@@ -4255,7 +4255,6 @@ def test_anchorspend_using_to_remote(node_factory, bitcoind, anchors):
     bitcoind.generate_block(1, wait_for_mempool=2)
 
 
-@pytest.mark.xfail(strict=True)
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd anchors not supported')
 def test_anchorspend_ignores_immature_coinbase(node_factory, bitcoind, executor):
     """Fee rescue must not select an immature coinbase: spending one is

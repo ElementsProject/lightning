@@ -684,6 +684,11 @@ struct utxo **wallet_utxo_boost(const tal_t *ctx,
 		if (utxo_is_csv_locked(utxo, blockheight))
 			continue;
 
+		/* Don't add immature coinbase outputs: spending them is
+		 * consensus-invalid. */
+		if (utxo_is_immature(utxo, blockheight))
+			continue;
+
 		/* UTXOs must be sane amounts */
 		if (!amount_sat_add(&new_excess_sats,
 				    excess_sats, utxo->amount))
