@@ -271,6 +271,17 @@ static void record_external_deposit(const struct tracked_output *out,
 	record_external_output(&out->outpoint, out->sat, blockheight, tags);
 }
 
+/* An HTLC they offered us has ended up back with them.  Only call this once
+ * that's final: the bookkeeper has no way of taking it back, and a preimage
+ * can revive an abandoned HTLC right up until we exit. */
+static void record_htlc_to_them(struct tracked_output *out)
+{
+	assert(out->fate != THEIR_HTLC_THEIRS);
+	record_external_deposit(out, out->tx_blockheight,
+				mk_mvt_tags(MVT_HTLC_TIMEOUT));
+	out->fate = THEIR_HTLC_THEIRS;
+}
+
 static void record_mutual_close(const struct tx_parts *tx,
 				const u8 *remote_scriptpubkey,
 				u32 blockheight)
@@ -1253,7 +1264,7 @@ static bool output_spent(struct tracked_output ***outs,
 			if (out->output_type == THEIR_HTLC
 			    && out->resolved->tx_type == SELF
 			    && out->fate == THEIR_HTLC_ABANDONED)
-				out->fate = THEIR_HTLC_THEIRS;
+				record_htlc_to_them(out);
 			continue;
 		}
 
@@ -1310,7 +1321,8 @@ static bool output_spent(struct tracked_output ***outs,
 				 * forever.  (out->fate stops handle_preimage
 				 * undoing this again). */
 				ignore_output(out);
-				out->fate = THEIR_HTLC_THEIRS;
+				if (out->fate != THEIR_HTLC_THEIRS)
+					record_htlc_to_them(out);
 			}
 			break;
 
@@ -1485,11 +1497,10 @@ static void tx_new_depth(struct tracked_output **outs,
 		if (outs[i]->proposal
 		    && depth >= outs[i]->proposal->depth_required
 		    && !outs[i]->proposal->welements) {
+			/* Note: we don't tell the bookkeeper an HTLC went
+			 * back to them here!  A preimage can still turn up
+			 * and let us claim it: see record_htlc_to_them(). */
 			ignore_output(outs[i]);
-
-			if (outs[i]->proposal->tx_type == THEIR_HTLC_TIMEOUT_TO_THEM)
-				record_external_deposit(outs[i], outs[i]->tx_blockheight,
-							mk_mvt_tags(MVT_HTLC_TIMEOUT));
 		}
 	}
 }
@@ -1769,6 +1780,13 @@ static void wait_for_resolved(struct tracked_output **outs)
 		billboard_update(outs);
 		tal_free(msg);
 		clean_tmpctx();
+	}
+
+	/* We're done: no preimage can arrive now, so any HTLC we abandoned
+	 * really did go back to them.  Tell the bookkeeper. */
+	for (size_t i = 0; i < tal_count(outs); i++) {
+		if (outs[i]->fate == THEIR_HTLC_ABANDONED)
+			record_htlc_to_them(outs[i]);
 	}
 
 	wire_sync_write(REQ_FD,
