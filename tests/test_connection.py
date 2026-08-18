@@ -3220,7 +3220,6 @@ def test_dataloss_protection_no_broadcast(node_factory, bitcoind):
 
 
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "sqlite3-specific DB rollback")
-@pytest.mark.xfail(strict=True)
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 def test_channel_error_not_lost_while_channeld_exits(node_factory, bitcoind):
