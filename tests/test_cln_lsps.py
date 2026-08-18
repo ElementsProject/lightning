@@ -366,7 +366,7 @@ def test_lsps2_session_mpp_happy_path(node_factory, bitcoind):
 
     # Funding tx should eventually be broadcast (session reached Succeeded).
     # Mine a block so the funding confirms.
-    bitcoind.generate_block(1)
+    bitcoind.generate_block(1, wait_for_mempool=1)
     wait_for(
         lambda: (
             only_one(l1.rpc.listpeerchannels()["channels"]).get("short_channel_id")
@@ -623,7 +623,7 @@ def test_lsps2_session_datastore_has_funding_fields(node_factory, bitcoind):
     assert res["payment_preimage"]
 
     # Mine a block so the funding confirms and session reaches Succeeded.
-    bitcoind.generate_block(1)
+    bitcoind.generate_block(1, wait_for_mempool=1)
     wait_for(
         lambda: (
             only_one(l1.rpc.listpeerchannels()["channels"]).get("short_channel_id")
@@ -992,7 +992,7 @@ def test_lsps2_restart_collecting_htlcs_replayed(node_factory, bitcoind):
     assert len(chs) == 1
 
     # Mine a block so the funding confirms.
-    bitcoind.generate_block(1)
+    bitcoind.generate_block(1, wait_for_mempool=1)
     wait_for(
         lambda: (
             only_one(l1.rpc.listpeerchannels()["channels"]).get("short_channel_id")
@@ -1129,7 +1129,7 @@ def test_lsps2_restart_awaiting_settlement_payment_completes(node_factory, bitco
     assert len(chs) == 1
 
     # Mine a block so the funding confirms.
-    bitcoind.generate_block(1)
+    bitcoind.generate_block(1, wait_for_mempool=1)
     wait_for(
         lambda: (
             only_one(l1.rpc.listpeerchannels()["channels"]).get("short_channel_id")
