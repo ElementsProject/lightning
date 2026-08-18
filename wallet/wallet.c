@@ -1515,8 +1515,9 @@ void wallet_inflight_add(struct wallet *w, struct channel_inflight *inflight)
 				 ", remote_funding"
 				 ", locked_scid"
 				 ", i_sent_sigs"
+				 ", funding_tx_status"
 				 ") VALUES ("
-				 "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
+				 "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
 
 	db_bind_u64(stmt, inflight->channel->dbid);
 	db_bind_txid(stmt, &inflight->funding->outpoint.txid);
@@ -1564,6 +1565,7 @@ void wallet_inflight_add(struct wallet *w, struct channel_inflight *inflight)
 	else
 		db_bind_null(stmt);
 	db_bind_int(stmt, inflight->i_sent_sigs);
+	db_bind_int(stmt, inflight->funding_tx_status);
 
 	db_exec_prepared_v2(stmt);
 	assert(!stmt->error);
@@ -1591,7 +1593,8 @@ void wallet_inflight_save(struct wallet *w,
 {
 	struct db_stmt *stmt;
 	/* Update inflight PSBT (to add sigs), last_tx/last_sig,
-	 * locked_scid, and i_sent_sigs. */
+	 * locked_scid, i_sent_sigs, and funding_tx_status (once we
+	 * observe the tx broadcast). */
 	stmt = db_prepare_v2(w->db,
 			     SQL("UPDATE channel_funding_inflights SET"
 				 "  funding_psbt=?"
@@ -1600,6 +1603,7 @@ void wallet_inflight_save(struct wallet *w,
 				 ", last_sig=?"
 				 ", locked_scid=?"
 				 ", i_sent_sigs=?"
+				 ", funding_tx_status=?"
 				 " WHERE"
 				 "  channel_id=?"
 				 " AND funding_tx_id=?"
@@ -1618,6 +1622,7 @@ void wallet_inflight_save(struct wallet *w,
 	else
 		db_bind_null(stmt);
 	db_bind_int(stmt, inflight->i_sent_sigs);
+	db_bind_int(stmt, inflight->funding_tx_status);
 	db_bind_u64(stmt, inflight->channel->dbid);
 	db_bind_txid(stmt, &inflight->funding->outpoint.txid);
 	db_bind_int(stmt, inflight->funding->outpoint.n);
@@ -1755,6 +1760,7 @@ wallet_stmt2inflight(struct wallet *w, struct db_stmt *stmt,
 
 	/* Pull out the serialized tx-sigs-received-ness */
 	inflight->remote_tx_sigs = db_col_int(stmt, "funding_tx_remote_sigs_received");
+	inflight->funding_tx_status = db_col_int(stmt, "funding_tx_status");
 	return inflight;
 }
 
@@ -1787,6 +1793,7 @@ static bool wallet_channel_load_inflights(struct wallet *w,
 					", remote_funding"
 					", locked_scid"
 					", i_sent_sigs"
+					", funding_tx_status"
 					" FROM channel_funding_inflights"
 					" WHERE channel_id = ?"
 					" ORDER BY funding_feerate"));
@@ -2186,7 +2193,8 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 			   &stats,
 			   state_changes,
 			   funding_psbt,
-			   db_col_int(stmt, "withheld"));
+			   db_col_int(stmt, "withheld"),
+			   db_col_int(stmt, "funding_tx_status"));
 
 	if (!wallet_channel_load_inflights(w, chan)) {
 		tal_free(chan);
@@ -2450,6 +2458,7 @@ static bool wallet_channels_load_active(struct wallet *w)
 					", close_attempt_height"
 					", funding_psbt"
 					", withheld"
+					", funding_tx_status"
 					" FROM channels"
                                         " WHERE state != ?;")); //? 0
 	db_bind_int(stmt, CLOSED);
@@ -2730,7 +2739,8 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 					"  require_confirm_inputs_remote=?,"
 					"  close_attempt_height=?,"
 					"  funding_psbt=?,"
-					"  withheld=?"
+					"  withheld=?,"
+					"  funding_tx_status=?"
 					" WHERE id=?"));
 	db_bind_u64(stmt, chan->their_shachain.id);
 	if (chan->scid)
@@ -2833,6 +2843,7 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 	else
 		db_bind_null(stmt);
 	db_bind_int(stmt, chan->withheld);
+	db_bind_int(stmt, chan->funding_tx_status);
 	db_bind_u64(stmt, chan->dbid);
 	db_exec_prepared_v2(take(stmt));
 
