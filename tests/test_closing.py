@@ -4255,6 +4255,55 @@ def test_anchorspend_using_to_remote(node_factory, bitcoind, anchors):
     bitcoind.generate_block(1, wait_for_mempool=2)
 
 
+@pytest.mark.xfail(strict=True)
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd anchors not supported')
+def test_anchorspend_ignores_immature_coinbase(node_factory, bitcoind, executor):
+    """Fee rescue must not select an immature coinbase: spending one is
+    consensus-invalid, so the resulting anchor spend would be rejected."""
+    # l1 stops responding once it has the fulfill, so l2 has to go onchain
+    # to claim before the incoming HTLC expires.
+    l1, l2 = node_factory.get_nodes(2,
+                                    opts=[{'disconnect': ['-WIRE_REVOKE_AND_ACK*2'],
+                                           'dev-no-reconnect': None,
+                                           'feerates': (1000,) * 4},
+                                          {'feerates': (1000,) * 4}])
+
+    # l2's only wallet output is a block reward it just mined: immature, and
+    # thus unspendable, for the next 100 blocks.
+    coinbase_block = only_one(bitcoind.rpc.generatetoaddress(1, l2.rpc.newaddr('bech32')['bech32']))
+    sync_blockheight(bitcoind, [l1, l2])
+    coinbase_txid = bitcoind.rpc.getblock(coinbase_block)['tx'][0]
+    assert only_one([o for o in l2.rpc.listfunds()['outputs']
+                     if o['txid'] == coinbase_txid])['status'] == 'immature'
+
+    # l1 funds the channel, so l2 acquires no other wallet output.
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.fundchannel(l2, 1000000)
+
+    inv = l2.rpc.invoice(200000000, 'stuck', 'stuck')
+    executor.submit(l1.rpc.xpay, inv['bolt11'])
+    l1.daemon.wait_for_log('dev_disconnect: -WIRE_REVOKE_AND_ACK')
+
+    # Now make the commitment tx feerate inadequate, so the close needs a
+    # wallet-funded boost, and mine until l2 hits the HTLC deadline.
+    l2.set_feerates((7500,) * 4)
+    for _ in range(20):
+        bitcoind.generate_block(1)
+        sync_blockheight(bitcoind, [l2])
+        if only_one(l2.rpc.listpeerchannels()['channels'])['state'] == 'AWAITING_UNILATERAL':
+            break
+    wait_for(lambda: only_one(l2.rpc.listpeerchannels()['channels'])['state'] == 'AWAITING_UNILATERAL')
+
+    # The immature coinbase is the only candidate, so there is nothing to
+    # boost with: l2 must say so rather than build an invalid rescue.
+    l2.daemon.wait_for_log('No utxos to bump commit_tx')
+    assert not l2.daemon.is_in_log('Creating anchor spend for local commit tx')
+
+    # And it's still sitting there, unspent.
+    assert only_one([o for o in l2.rpc.listfunds()['outputs']
+                     if o['txid'] == coinbase_txid])['status'] == 'immature'
+
+
 def test_onchain_reestablish_reply(node_factory, bitcoind, executor):
     l1, l2, l3 = node_factory.line_graph(3, opts={'may_reconnect': True,
                                                   'dev-no-reconnect': None})
