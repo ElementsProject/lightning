@@ -6084,6 +6084,12 @@ static void peer_reconnect(struct peer *peer,
 	 *       `channel_ready` with a different `short_channel_id`
 	 *       `alias` field.
 	 */
+	if (next_commitment_number == 0)
+		peer_failed_err(peer->pps,
+				&peer->channel_id,
+				"bad reestablish commitment_number: %"PRIu64,
+				next_commitment_number);
+
 	if (peer->channel_ready[LOCAL]
 	    && peer->next_index[LOCAL] == 1
 	    && next_commitment_number == 1) {
@@ -6194,14 +6200,6 @@ static void peer_reconnect(struct peer *peer,
 	 *       `commitment_signed`.
 	 */
 	if (next_commitment_number == peer->next_index[REMOTE] - 1) {
-		/* We completed opening, we don't re-transmit that one! */
-		if (next_commitment_number == 0)
-			peer_failed_err(peer->pps,
-					 &peer->channel_id,
-					 "bad reestablish commitment_number: %"
-					 PRIu64,
-					 next_commitment_number);
-
 		if (!recv_tlvs || !recv_tlvs->next_funding)
 			retransmit_commitment_signed = true;
 		else
