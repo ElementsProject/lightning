@@ -94,6 +94,21 @@ struct resolution {
 	enum tx_type tx_type;
 };
 
+/* What we currently believe about an HTLC they offered us.  This is
+ * deliberately separate from tracked_output->resolved, which cannot express
+ * "we've written it off, but it could still become ours": a preimage can
+ * arrive at any time until we exit, and we only tell the bookkeeper where
+ * the money went once that can no longer change. */
+enum their_htlc_fate {
+	/* We may still claim it (also: it's not a THEIR_HTLC at all). */
+	THEIR_HTLC_UNDECIDED,
+	/* It timed out, so we stopped trying: nothing recorded yet, and a
+	 * preimage still revives it. */
+	THEIR_HTLC_ABANDONED,
+	/* Final: it's theirs, and we've told the bookkeeper. */
+	THEIR_HTLC_THEIRS,
+};
+
 struct tracked_output {
 	enum tx_type tx_type;
 	struct bitcoin_outpoint outpoint;
@@ -115,6 +130,9 @@ struct tracked_output {
 
 	/* If it is resolved. */
 	struct resolution *resolved;
+
+	/* For a THEIR_HTLC: where we currently think it's going. */
+	enum their_htlc_fate fate;
 
 	/* stashed so we can pass it along to the coin ledger */
 	struct sha256 payment_hash;
@@ -598,6 +616,7 @@ new_tracked_output(struct tracked_output ***outs,
 	out->output_type = output_type;
 	out->proposal = NULL;
 	out->resolved = NULL;
+	out->fate = THEIR_HTLC_UNDECIDED;
 	if (htlc)
 		out->htlc = *htlc;
 	out->wscript = tal_steal(out, wscript);
@@ -705,6 +724,11 @@ static void propose_ignore(struct tracked_output *out,
 
 	out->proposal = new_proposed_resolution(out, block_required, tx_type);
 	out->proposal->welements = NULL;
+
+	/* We've given up on this one, though a preimage can still revive it:
+	 * see handle_preimage(). */
+	if (tx_type == THEIR_HTLC_TIMEOUT_TO_THEM)
+		out->fate = THEIR_HTLC_ABANDONED;
 
 	/* Can we immediately ignore? */
 	if (out->proposal->depth_required == 0)
@@ -1222,8 +1246,16 @@ static bool output_spent(struct tracked_output ***outs,
 
 		interesting = true;
 
-		if (out->resolved)
+		if (out->resolved) {
+			/* If we'd abandoned this HTLC (assuming it would go
+			 * back to them), this spend proves it: it's really
+			 * theirs now, and no preimage can change that. */
+			if (out->output_type == THEIR_HTLC
+			    && out->resolved->tx_type == SELF
+			    && out->fate == THEIR_HTLC_ABANDONED)
+				out->fate = THEIR_HTLC_THEIRS;
 			continue;
+		}
 
 		/* Was this our resolution? */
 		if (resolved_by_proposal(out, tx_parts)) {
@@ -1266,11 +1298,19 @@ static bool output_spent(struct tracked_output ***outs,
 					      THEIR_HTLC_TIMEOUT_TO_THEM,
 					      &htlc_outpoint);
 			} else {
-				/* We ignore this timeout tx, since we should
-				 * resolve by ignoring once we reach depth. */
 				onchain_annotate_txout(
 				    &htlc_outpoint,
 				    TX_CHANNEL_HTLC_TIMEOUT | TX_THEIRS);
+
+				/* They took it back.  We usually resolve this
+				 * by ignoring it once we reach depth, but if
+				 * a preimage arrived we replaced that
+				 * proposal with a spend which can now never
+				 * happen: resolve it here, or we'd wait
+				 * forever.  (out->fate stops handle_preimage
+				 * undoing this again). */
+				ignore_output(out);
+				out->fate = THEIR_HTLC_THEIRS;
 			}
 			break;
 
@@ -1499,14 +1539,22 @@ static void handle_preimage(struct tracked_output **outs,
 		if (!ripemd160_eq(&outs[i]->htlc.ripemd, &ripemd))
 			continue;
 
+		/* The only reason not to try to claim it is that we can't:
+		 * they spent it, so there's nothing left to spend. */
+		if (outs[i]->fate == THEIR_HTLC_THEIRS) {
+			status_unusual("HTLC already went to them"
+				       " when we found preimage");
+			continue;
+		}
+
 		/* If HTLC has timed out, we will already have
 		 * proposed a "ignore this, it's their problem".  But
 		 * now try this proposal instead! */
 		if (outs[i]->resolved) {
 			if (outs[i]->resolved->tx_type != SELF) {
-				status_broken("HTLC already resolved by %s"
-					      " when we found preimage",
-					      tx_type_name(outs[i]->resolved->tx_type));
+				status_unusual("HTLC already resolved by %s"
+					       " when we found preimage",
+					       tx_type_name(outs[i]->resolved->tx_type));
 				continue;
 			}
 		}
@@ -1518,6 +1566,8 @@ static void handle_preimage(struct tracked_output **outs,
 		 * could be due to multiple identical rhashes in tx. */
 		outs[i]->proposal = tal_free(outs[i]->proposal);
 		outs[i]->resolved = tal_free(outs[i]->resolved);
+		/* It's up for grabs again! */
+		outs[i]->fate = THEIR_HTLC_UNDECIDED;
 
 		/* BOLT #5:
 		 *
