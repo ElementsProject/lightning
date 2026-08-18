@@ -49,6 +49,13 @@ struct hsmd_client {
 u8 *hsmd_init(const u8 *secret_data, size_t secret_len, const u64 hsmd_version,
 	      struct bip32_key_version bip32_key_version, u8 hsm_secret_type);
 
+/* Release the secrets hsmd_init() cached.
+ *
+ * hsmd itself never needs this: it holds the seed for the life of the process
+ * and exits with it.  Unit tests do, since they return from main() and a
+ * process-lifetime allocation still shows up as a leak under valgrind. */
+void hsmd_deinit(void);
+
 struct hsmd_client *hsmd_client_new_main(const tal_t *ctx, u64 capabilities,
 					 void *extra);
 

@@ -2593,3 +2593,11 @@ u8 *hsmd_init(const u8 *secret_data, size_t secret_len, const u64 hsmd_version,
 		    &node_id, &secretstuff.bip32,
 		    &bolt12, tlvs));
 }
+
+void hsmd_deinit(void)
+{
+	/* Frees off NULL, so it also fires the mlock_tal_memory destructor
+	 * which wipes and munlocks it. */
+	secretstuff.bip32_seed = tal_free(secretstuff.bip32_seed);
+	initialized = false;
+}
