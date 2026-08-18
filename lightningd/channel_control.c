@@ -1812,7 +1812,6 @@ bool peer_start_channeld(struct channel *channel,
 	bool ignore_fee_limits;
 	struct channel_inflight *inflight;
 	struct inflight **inflights;
-	struct bitcoin_txid txid;
 
 	hsmfd = hsm_get_client_fd(ld, &channel->peer->id,
 				  channel->dbid,
@@ -2052,14 +2051,18 @@ bool peer_start_channeld(struct channel *channel,
 	if (!reconnected)
 		channel_gossip_channel_reestablished(channel, false);
 
-	/* FIXME: DTODO: Use a pointer to a txid instead of zero'ing one out. */
-	memset(&txid, 0, sizeof(txid));
-
-	/* Artificial confirmation event for zeroconf */
-	subd_send_msg(channel->owner,
-		      take(towire_channeld_funding_depth(
-			   NULL, channel->scid, 0, false,
-			   &txid)));
+	if (channel->funding_tx_status >= FUNDING_TX_STATUS_MEMPOOL) {
+		subd_send_msg(channel->owner,
+			      take(towire_channeld_funding_depth(
+				   NULL, channel->scid, 0, false,
+				   &channel->funding.txid)));
+	} else {
+		log_unusual(channel->log,
+			    "Not sending artificial zeroconf depth event:"
+			    " funding transaction %s has never been observed"
+			    " broadcast",
+			    fmt_bitcoin_txid(tmpctx, &channel->funding.txid));
+	}
 	return true;
 }
 
