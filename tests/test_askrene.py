@@ -473,7 +473,6 @@ def test_node_bias_rpc(node_factory):
     assert listlayers == {"layers": [expect]}
 
 
-@pytest.mark.xfail(strict=True)
 def test_node_bias_persistence(node_factory):
     """Test node bias persistence."""
     # remove xpay, since it creates a layer!
