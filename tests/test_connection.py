@@ -3050,6 +3050,48 @@ def test_opener_simple_reconnect(node_factory, bitcoind):
     l1.pay(l2, 200000000)
 
 
+def test_reestablish_zero_commitment_number(node_factory, bitcoind):
+    """BOLT #2: next_commitment_number 0 must fail the channel."""
+    l2priv = '12' * 32
+    l1, l2 = node_factory.get_nodes(2, opts=[{'may_reconnect': True},
+                                             {'dev-force-privkey': l2priv}])
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.fundchannel(l2, 10**6)
+
+    # Advance so next_index[REMOTE] > 1; otherwise 0 is the
+    # "we completed opening" case already handled in-tree.
+    l1.pay(l2, 10**8)
+
+    channel_id = first_channel_id(l1, l2)
+    l2_id = l2.info['id']
+    l2.stop()
+    wait_for(lambda: l1.rpc.getpeer(l2_id)['connected'] is False)
+
+    lc = wire.connect(wire.PrivateKey(bytes.fromhex(l2priv)),
+                      wire.PublicKey(bytes.fromhex(l1.info['id'])),
+                      '127.0.0.1', l1.port)
+    init = lc.read_message()
+    assert int.from_bytes(init[:2], 'big') == 16
+    lc.send_message(init)
+
+    while True:
+        msg = lc.read_message()
+        if int.from_bytes(msg[:2], 'big') == 136:
+            break
+
+    # channel_reestablish: both numbers 0, dummy secret and point.
+    lc.send_message(bytes.fromhex('0088')
+                    + bytes.fromhex(channel_id)
+                    + (0).to_bytes(8, 'big')
+                    + (0).to_bytes(8, 'big')
+                    + bytes(32)
+                    + bytes.fromhex(l2_id))
+
+    l1.daemon.wait_for_log('bad reestablish commitment_number: 0')
+    l1.daemon.wait_for_log('State changed from CHANNELD_NORMAL to AWAITING_UNILATERAL')
+    l1.wait_for_channel_onchain(l2_id)
+
+
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "sqlite3-specific DB rollback")
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
