@@ -211,7 +211,7 @@ new_inflight(struct channel *channel,
 	inflight->remote_tx_sigs = false;
 	inflight->funding_psbt = tal_steal(inflight, psbt);
 	inflight->last_tx = NULL;
-	inflight->tx_broadcast = false;
+	inflight->funding_tx_status = FUNDING_TX_STATUS_UNKNOWN;
 	inflight->scid = NULL;
 
 	/* Channel lease infos */
@@ -579,7 +579,8 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    const struct channel_stats *stats,
 			    struct channel_state_change **state_changes STEALS,
 			    const struct wally_psbt *funding_psbt STEALS,
-			    bool withheld)
+			    bool withheld,
+			    enum funding_tx_status funding_tx_status)
 {
 	struct channel *channel = tal(peer->ld, struct channel);
 	struct amount_msat htlc_min, htlc_max;
@@ -631,6 +632,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->funding = *funding;
 	channel->funding_tx_index = funding_tx_index;
 	channel->funding_sats = funding_sats;
+	channel->funding_tx_status = funding_tx_status;
 	channel->funding_spend_watch = NULL;
 	channel->inflight_spend_watches = NULL;
 	channel->push = push;
