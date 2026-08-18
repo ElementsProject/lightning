@@ -249,6 +249,7 @@
             "cltv_incorrect": 6,
             "dust_limit": 2,
             "fee_insufficient": 5,
+            "funding_not_broadcast": 13,
             "htlc_above_maximum": 4,
             "htlc_below_minimum": 3,
             "insufficient_outgoing_liquidity": 0,

@@ -36,6 +36,9 @@ enum forward_failure_reason {
 	FORWARD_FAIL_CHANNEL_FAILED_PERMANENT = 12,
 	/* Onion could not be parsed/decoded */
 	FORWARD_FAIL_INVALID_ONION = 13,
+	/* Outgoing channel is a zero-conf channel whose funding transaction
+	 * has never been observed broadcast (mempool or confirmed) */
+	FORWARD_FAIL_FUNDING_NOT_BROADCAST = 14,
 };
 
 /* Returns NULL for FORWARD_FAIL_UNKNOWN - it is never serialized */
@@ -70,6 +73,8 @@ static inline const char *forward_failure_reason_name(enum forward_failure_reaso
 		return "channel_failed_permanent";
 	case FORWARD_FAIL_INVALID_ONION:
 		return "invalid_onion";
+	case FORWARD_FAIL_FUNDING_NOT_BROADCAST:
+		return "funding_not_broadcast";
 	}
 	abort();
 }

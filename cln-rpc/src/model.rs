@@ -9379,6 +9379,8 @@ pub mod responses {
 	    CHANNEL_FAILED_PERMANENT = 11,
 	    #[serde(rename = "invalid_onion")]
 	    INVALID_ONION = 12,
+	    #[serde(rename = "funding_not_broadcast")]
+	    FUNDING_NOT_BROADCAST = 13,
 	}
 
 	impl TryFrom<i32> for ListforwardsForwardsFailureReason {
@@ -9398,6 +9400,7 @@ pub mod responses {
 	    10 => Ok(ListforwardsForwardsFailureReason::OUTGOING_PEER_OFFLINE),
 	    11 => Ok(ListforwardsForwardsFailureReason::CHANNEL_FAILED_PERMANENT),
 	    12 => Ok(ListforwardsForwardsFailureReason::INVALID_ONION),
+	    13 => Ok(ListforwardsForwardsFailureReason::FUNDING_NOT_BROADCAST),
 	            o => Err(anyhow::anyhow!("Unknown variant {} for enum ListforwardsForwardsFailureReason", o)),
 	        }
 	    }
@@ -9419,6 +9422,7 @@ pub mod responses {
 	            ListforwardsForwardsFailureReason::OUTGOING_PEER_OFFLINE => "OUTGOING_PEER_OFFLINE",
 	            ListforwardsForwardsFailureReason::CHANNEL_FAILED_PERMANENT => "CHANNEL_FAILED_PERMANENT",
 	            ListforwardsForwardsFailureReason::INVALID_ONION => "INVALID_ONION",
+	            ListforwardsForwardsFailureReason::FUNDING_NOT_BROADCAST => "FUNDING_NOT_BROADCAST",
 	        }.to_string()
 	    }
 	}

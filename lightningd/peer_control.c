@@ -2427,6 +2427,11 @@ static enum watch_result funding_depth_cb(struct lightningd *ld,
 		  fmt_bitcoin_txid(tmpctx, &channel->funding.txid),
 		  depth, channel->minimum_depth);
 
+	if (depth >= 1 && channel->funding_tx_status != FUNDING_TX_STATUS_CONFIRMED) {
+		channel->funding_tx_status = FUNDING_TX_STATUS_CONFIRMED;
+		wallet_channel_save(ld->wallet, channel);
+	}
+
 	switch (channel->state) {
 	/* We should not be in the callback! */
 	case DUALOPEND_AWAITING_LOCKIN:

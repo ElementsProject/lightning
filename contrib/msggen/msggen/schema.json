@@ -23756,7 +23756,8 @@
                           "unknown_next_peer",
                           "outgoing_peer_offline",
                           "channel_failed_permanent",
-                          "invalid_onion"
+                          "invalid_onion",
+                          "funding_not_broadcast"
                         ],
                         "description": [
                           "The root cause of the local failure, more specific than *failcode*/*failreason* (not always known)."

@@ -736,8 +736,15 @@ const u8 *send_htlc_out(const tal_t *ctx,
 	if (!channel_state_can_add_htlc(out->state)) {
 		log_info(out->log, "Attempt to send HTLC but not ready (%s)",
 			 channel_state_name(out));
-		if (reason)
-			*reason = FORWARD_FAIL_UNKNOWN_NEXT_PEER;
+		if (reason) {
+			if ((out->state == CHANNELD_AWAITING_LOCKIN
+			     || out->state == DUALOPEND_AWAITING_LOCKIN)
+			    && out->minimum_depth == 0
+			    && out->funding_tx_status == FUNDING_TX_STATUS_UNKNOWN)
+				*reason = FORWARD_FAIL_FUNDING_NOT_BROADCAST;
+			else
+				*reason = FORWARD_FAIL_UNKNOWN_NEXT_PEER;
+		}
 		return towire_unknown_next_peer(ctx);
 	}
 
@@ -860,13 +867,22 @@ static void forward_htlc(struct htlc_in *hin,
 
 	/* Unknown peer, or peer not ready. */
 	if (!next || !channel_state_can_add_htlc(next->state)) {
+		enum forward_failure_reason unready_reason = FORWARD_FAIL_UNKNOWN_NEXT_PEER;
+
+		if (next
+		    && (next->state == CHANNELD_AWAITING_LOCKIN
+			|| next->state == DUALOPEND_AWAITING_LOCKIN)
+		    && next->minimum_depth == 0
+		    && next->funding_tx_status == FUNDING_TX_STATUS_UNKNOWN)
+			unready_reason = FORWARD_FAIL_FUNDING_NOT_BROADCAST;
+
 		local_fail_in_htlc(hin, take(towire_unknown_next_peer(NULL)));
 		wallet_forwarded_payment_add(hin->key.channel->peer->ld->wallet,
 					 hin, FORWARD_STYLE_TLV,
 					 forward_scid, NULL,
 					 FORWARD_LOCAL_FAILED,
 					 WIRE_UNKNOWN_NEXT_PEER,
-					 FORWARD_FAIL_UNKNOWN_NEXT_PEER);
+					 unready_reason);
 		return;
 	}
 

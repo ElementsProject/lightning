@@ -1745,7 +1745,8 @@ static bool test_channel_inflight_crud(struct lightningd *ld, const tal_t *ctx, 
 			   stats,
 			   tal_arr(NULL, struct channel_state_change *, 0),
 			   NULL,
-			   false);
+			   false,
+			   FUNDING_TX_STATUS_UNKNOWN);
 	db_begin_transaction(w->db);
 	CHECK(!wallet_err);
 	wallet_channel_insert(w, chan);
