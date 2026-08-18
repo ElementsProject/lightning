@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 /// `htlc_accepted` hook's `failure_message` field.
 pub mod failure_codes {
     /// UPDATE|7.
-    pub const TEMPORARY_CHANNEL_FAILURE: &'static str = "1007";
+    pub const TEMPORARY_CHANNEL_FAILURE: &'static str = "10070000";
     /// PERM|10. Permanent: senders may blocklist the channel, so this is
     /// reserved for the cases where LSPS2 mandates it.
     pub const UNKNOWN_NEXT_PEER: &'static str = "400a";
@@ -455,7 +455,7 @@ mod tests {
         // unknown_next_peer = PERM|10 = 0x400a. These strings are sent
         // verbatim as the hex-encoded `failure_message` of the
         // htlc_accepted hook response.
-        assert_eq!(failure_codes::TEMPORARY_CHANNEL_FAILURE, "1007");
+        assert_eq!(failure_codes::TEMPORARY_CHANNEL_FAILURE, "10070000");
         assert_eq!(failure_codes::UNKNOWN_NEXT_PEER, "400a");
     }
 
