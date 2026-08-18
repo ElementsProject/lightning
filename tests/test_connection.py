@@ -21,6 +21,7 @@ import random
 import re
 import statistics
 import time
+import threading
 import unittest
 import websocket
 import signal
@@ -3216,6 +3217,99 @@ def test_dataloss_protection_no_broadcast(node_factory, bitcoind):
     # All is forgiven
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l1.pay(l2, 200000000)
+
+
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "sqlite3-specific DB rollback")
+@pytest.mark.xfail(strict=True)
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+def test_channel_error_not_lost_while_channeld_exits(node_factory, bitcoind):
+    """A channel-scoped error must fail the channel even if channeld is exiting.
+
+    BOLT #1: upon receiving a channel-scoped `error`, the node MUST fail
+    that channel.  connectd used to enqueue the error to the existing
+    channeld; if that subd was already dying (or not reading) the error
+    was lost and the channel stayed open.
+    """
+    opts = {'dev-no-reconnect': None, 'disable-plugin': 'cln-grpc'}
+    l1 = node_factory.get_node(may_reconnect=True,
+                               allow_warning=True,
+                               feerates=(7500, 7500, 7500, 7500),
+                               options=opts,
+                               start=False)
+    # Freezing channeld makes lightningd SIGKILL it later; do not abort.
+    del l1.daemon.opts['dev-fail-on-subdaemon-fail']
+    l1.start()
+    l2 = node_factory.get_node(may_reconnect=True,
+                               feerates=(7500, 7500, 7500, 7500),
+                               broken_log='Cannot broadcast our commitment tx: they have a future one',
+                               options=opts)
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.fundchannel(l2, 10**6)
+
+    dbpath = os.path.join(l2.daemon.lightning_dir, TEST_NETWORK, "lightningd.sqlite3")
+    orig_db = Path(dbpath).read_bytes()
+
+    l1.pay(l2, 200000000)
+    l1.daemon.wait_for_logs(["peer_in WIRE_REVOKE_AND_ACK"] * 2)
+    l2.daemon.wait_for_logs(["peer_in WIRE_REVOKE_AND_ACK"] * 2)
+
+    # l2 is now behind.
+    l2.stop()
+    Path(dbpath).write_bytes(orig_db)
+    l2.start()
+
+    # Hold l2's lightningd so it cannot start channeld (or send error)
+    # until l1 has sent reestablish and we have frozen that channeld.
+    # l2's connectd still completes the handshake.
+    l1.daemon.logsearch_start = len(l1.daemon.logs)
+    l2_ld = l2.daemon.proc.pid
+    os.kill(l2_ld, signal.SIGSTOP)
+    l1_pid = None
+    connect_err = []
+
+    def do_connect():
+        try:
+            l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+        except Exception as e:
+            connect_err.append(e)
+
+    connector = threading.Thread(target=do_connect)
+    connector.start()
+    try:
+        l1.daemon.wait_for_log('peer_out WIRE_CHANNEL_REESTABLISH')
+        l1_pid = int(l1.subd_pid('channeld'))
+        os.kill(l1_pid, signal.SIGSTOP)
+    finally:
+        try:
+            os.kill(l2_ld, signal.SIGCONT)
+        except ProcessLookupError:
+            pass
+
+    try:
+        connector.join(TIMEOUT)
+        if connector.is_alive():
+            raise TimeoutError('connect did not finish')
+        if connect_err:
+            raise connect_err[0]
+
+        l2.daemon.wait_for_logs(["Peer permanent failure in CHANNELD_NORMAL:.*Awaiting unilateral close",
+                                 'peer_out WIRE_ERROR'])
+
+        # BOLT #1: l1 MUST fail the channel referred to by the error.
+        # This fails if connectd only queued the error to a channeld
+        # that cannot read it.
+        wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['state']
+                 == 'AWAITING_UNILATERAL')
+        l1.daemon.wait_for_log("They sent ERROR.*Awaiting unilateral close")
+        l1.wait_for_channel_onchain(l2.info['id'])
+    finally:
+        if l1_pid is not None:
+            try:
+                os.kill(l1_pid, signal.SIGCONT)
+            except ProcessLookupError:
+                pass
 
 
 def test_restart_multi_htlc_rexmit(node_factory, bitcoind, executor):
