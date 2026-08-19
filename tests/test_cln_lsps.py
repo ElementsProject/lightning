@@ -1464,3 +1464,99 @@ def test_lsps2_var_invoice_above_max_payment_size_rejected(node_factory, bitcoin
 
     # The oversized payment must not open a channel.
     assert len(l1.rpc.listpeerchannels()["channels"]) == 0
+
+
+def test_lsps2_channel_ready_wait_is_bounded(node_factory, bitcoind):
+    """LN-CLN-062: a client that funds a JIT channel then withholds
+    channel_ready must not hang the LSP forever.
+
+    FSM path: Collecting -> AwaitingChannelReady -> (never receives
+    channel_ready) -> HTLC-expiry / funding-deadline -> Failed.
+
+    The LSP funds the zero-conf JIT channel (fundchannel_complete, funding
+    withheld). The client (l1) drops every channel_ready before sending it,
+    so the channel never reaches CHANNELD_NORMAL. Pre-fix the service polled
+    is_channel_ready with no deadline and kept the htlc_accepted hook
+    retained indefinitely. The fix bounds the wait two ways: the session FSM
+    fails the held HTLC before its CLTV expiry, and fund_channel's
+    poll_channel_ready gives up after a deadline and runs a recovery path
+    (unreserveinputs + fundchannel_cancel).
+
+    This is the regression guard for that unbounded wait: the held HTLC must
+    be failed back, the session finalized, and the reserved funding UTXO
+    released.
+    """
+    # l1, the JIT client, drops every channel_ready before it is sent, so the
+    # LSP's newly funded channel never reaches CHANNELD_NORMAL. Repeat the
+    # directive so it keeps withholding across the automatic reconnects.
+    l1, l2, l3, chanid = setup_lsps2_network(
+        node_factory,
+        bitcoind,
+        client_opts={
+            "disconnect": ["-WIRE_CHANNEL_READY"] * 50,
+            "allow_warning": True,
+        },
+        may_reconnect=True,
+    )
+
+    amt = 10_000_000
+    dec, inv = buy_and_invoice(l1, l2, amt)
+
+    # A single part already covers the opening fee, so the LSP funds the JIT
+    # channel right away and moves to AwaitingChannelReady.
+    parts = 1
+    send_mpp(l3, l2.info["id"], l1.info["id"], chanid, dec, inv, amt, parts)
+
+    # The LSP funds the channel, but it never reaches CHANNELD_NORMAL because
+    # l1 keeps dropping channel_ready. This is the "funded but not ready"
+    # state the CVE gets stuck in.
+    wait_for(
+        lambda: (
+            len(l2.rpc.listpeerchannels(l1.info["id"])["channels"]) == 1
+            and only_one(l2.rpc.listpeerchannels(l1.info["id"])["channels"])["state"]
+            != "CHANNELD_NORMAL"
+        )
+    )
+
+    # The funding inputs are reserved while the LSP waits; the recovery path
+    # must release them.
+    assert any(o["reserved"] for o in l2.rpc.listfunds()["outputs"])
+
+    # Mine into the incoming HTLC's CLTV safety buffer (the JIT delta is 144).
+    # The FSM must fail the held HTLC before expiry rather than poll forever.
+    bitcoind.generate_block(150)
+
+    # The held HTLC is failed back to the payer within a bounded time instead
+    # of remaining pending forever (the pre-fix behaviour).
+    def part_failed():
+        payments = l3.rpc.listsendpays(payment_hash=dec["payment_hash"])["payments"]
+        part = only_one([p for p in payments if p["partid"] == 1])
+        return part["status"] == "failed"
+
+    wait_for(part_failed, timeout=180)
+
+    # The session is finalized as Failed and the active entry is cleaned up.
+    wait_for(
+        lambda: (
+            len(
+                l2.rpc.listdatastore(["lsps", "lsps2", "sessions", "finalized"])[
+                    "datastore"
+                ]
+            )
+            > 0
+        )
+    )
+    ds = l2.rpc.listdatastore(["lsps", "lsps2", "sessions", "finalized"])
+    entry = json.loads(only_one(ds["datastore"])["string"])
+    assert entry["outcome"] == "Failed"
+
+    active = l2.rpc.listdatastore(["lsps", "lsps2", "sessions", "active"])
+    assert active["datastore"] == []
+
+    # The channel-readiness deadline fires and its recovery path unreserves
+    # the funding inputs, so no LSP funds stay locked. Generous timeout: the
+    # poll deadline is on the order of two minutes.
+    wait_for(
+        lambda: not any(o["reserved"] for o in l2.rpc.listfunds()["outputs"]),
+        timeout=180,
+    )
