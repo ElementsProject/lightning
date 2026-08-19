@@ -5895,6 +5895,7 @@ impl From<requests::ListsendpaysRequest> for pb::ListsendpaysRequest {
         Self {
             bolt11: c.bolt11, // Rule #2 for type string?
             index: c.index.map(|v| v as i32),
+            label: c.label, // Rule #2 for type string?
             limit: c.limit, // Rule #2 for type u32?
             payment_hash: c.payment_hash.map(|v| <Sha256 as AsRef<[u8]>>::as_ref(&v).to_vec()), // Rule #2 for type hash?
             start: c.start, // Rule #2 for type u64?
@@ -6425,6 +6426,7 @@ impl From<requests::ListpaysRequest> for pb::ListpaysRequest {
         Self {
             bolt11: c.bolt11, // Rule #2 for type string?
             index: c.index.map(|v| v as i32),
+            label: c.label, // Rule #2 for type string?
             limit: c.limit, // Rule #2 for type u32?
             payment_hash: c.payment_hash.map(|v| <Sha256 as AsRef<[u8]>>::as_ref(&v).to_vec()), // Rule #2 for type hash?
             start: c.start, // Rule #2 for type u64?
@@ -8017,6 +8019,7 @@ impl From<pb::ListsendpaysRequest> for requests::ListsendpaysRequest {
         Self {
             bolt11: c.bolt11, // Rule #1 for type string?
             index: c.index.map(|v| v.try_into().unwrap()),
+            label: c.label, // Rule #1 for type string?
             limit: c.limit, // Rule #1 for type u32?
             payment_hash: c.payment_hash.map(|v| Sha256::from_slice(&v).unwrap()), // Rule #1 for type hash?
             start: c.start, // Rule #1 for type u64?
@@ -8508,6 +8511,7 @@ impl From<pb::ListpaysRequest> for requests::ListpaysRequest {
         Self {
             bolt11: c.bolt11, // Rule #1 for type string?
             index: c.index.map(|v| v.try_into().unwrap()),
+            label: c.label, // Rule #1 for type string?
             limit: c.limit, // Rule #1 for type u32?
             payment_hash: c.payment_hash.map(|v| Sha256::from_slice(&v).unwrap()), // Rule #1 for type hash?
             start: c.start, // Rule #1 for type u64?

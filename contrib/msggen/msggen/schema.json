@@ -26239,7 +26239,7 @@
       "rpc": "listpays",
       "title": "Command for querying payment status",
       "description": [
-        "The **listpays** RPC command gets the status of all *pay* commands (by combining results from listsendpays which lists every payment part), or a single one if either *bolt11* or *payment_hash* was specified."
+        "The **listpays** RPC command gets the status of all *pay* commands (by combining results from listsendpays which lists every payment part), or a single one if *bolt11*, *payment_hash* or *label* was specified."
       ],
       "categories": [
         "readonly"
@@ -26297,6 +26297,13 @@
               "If `index` is specified, `limit` can be used to specify the maximum number of entries to return.",
               "NOTE: if this is used, `amount_sent_msat` and `number_of_parts` fields may be lower than expected, as not all payment parts will be considered",
               "NOTE: the actual number returned may be less than the limit, as individual payment parts are combined together"
+            ]
+          },
+          "label": {
+            "type": "string",
+            "added": "v26.09",
+            "description": [
+              "Limits results to payments with this label (as given to pay or sendpay). Cannot be used with *bolt11* or *payment_hash*."
             ]
           }
         }
@@ -29006,7 +29013,7 @@
       "rpc": "listsendpays",
       "title": "Low-level command for querying sendpay status",
       "description": [
-        "The **listsendpays** RPC command gets the status of all *sendpay* commands (which is also used by the *pay* command), or with *bolt11* or *payment_hash* limits results to that specific payment. You cannot specify both. It is possible to filter the payments also by *status*.",
+        "The **listsendpays** RPC command gets the status of all *sendpay* commands (which is also used by the *pay* command), or with *bolt11*, *payment_hash* or *label* limits results to that specific payment. You can only specify one of them. It is possible to filter the payments also by *status*.",
         "",
         "Note that there may be more than one concurrent *sendpay* command per *pay*, so this command should be used with caution."
       ],
@@ -29063,6 +29070,13 @@
             "added": "v23.11",
             "description": [
               "If `index` is specified, `limit` can be used to specify the maximum number of entries to return."
+            ]
+          },
+          "label": {
+            "type": "string",
+            "added": "v26.09",
+            "description": [
+              "Limits results to payments with this label (as given to sendpay). Cannot be used with *bolt11* or *payment_hash*."
             ]
           }
         },

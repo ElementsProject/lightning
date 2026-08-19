@@ -3276,6 +3276,7 @@
         "ListpaysRequest": {
             "ListPays.bolt11": 1,
             "ListPays.index": 4,
+            "ListPays.label": 7,
             "ListPays.limit": 6,
             "ListPays.payment_hash": 2,
             "ListPays.start": 5,
@@ -3570,6 +3571,7 @@
         "ListsendpaysRequest": {
             "ListSendPays.bolt11": 1,
             "ListSendPays.index": 4,
+            "ListSendPays.label": 7,
             "ListSendPays.limit": 6,
             "ListSendPays.payment_hash": 2,
             "ListSendPays.start": 5,
@@ -11728,6 +11730,10 @@
             "added": "v24.11",
             "deprecated": null
         },
+        "ListPays.label": {
+            "added": "v26.09",
+            "deprecated": null
+        },
         "ListPays.limit": {
             "added": "v24.11",
             "deprecated": null
@@ -12666,6 +12672,10 @@
         },
         "ListSendPays.index": {
             "added": "v23.11",
+            "deprecated": null
+        },
+        "ListSendPays.label": {
+            "added": "v26.09",
             "deprecated": null
         },
         "ListSendPays.limit": {
