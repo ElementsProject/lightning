@@ -1175,9 +1175,10 @@ def test_lsps2_restart_awaiting_settlement_payment_completes(node_factory, bitco
     assert active["datastore"] == []
 
 
-def test_lsps2_restart_awaiting_settlement_payment_fails_abandoned(
-    node_factory, bitcoind
-):
+# Keep this name well under 62 chars: pyln's postgres provider appends
+# "_{node_id}_{nonce}" and postgres truncates identifiers to 63 bytes, so a
+# long name collapses all nodes' db names into one → DuplicateDatabase.
+def test_lsps2_restart_settlement_fails_abandoned(node_factory, bitcoind):
     """Restart while HTLCs are held, payment fails — session Abandoned.
 
     Recovery path: funded session with OFFERED forwards → recover as
