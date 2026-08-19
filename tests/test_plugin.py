@@ -3118,11 +3118,12 @@ def test_commando(node_factory, executor):
     assert 'totlen' in ret
 
     # Now, reply will go over a multiple messages!
+    l1.rpc.datastore(key='bigstring', string='X' * 100000)
     ret = l2.rpc.call(method='commando',
                       payload={'peer_id': l1.info['id'],
                                'rune': rune,
-                               'method': 'getlog',
-                               'params': {'level': 'io'}})
+                               'method': 'listdatastore',
+                               'params': {'key': 'bigstring'}})
 
     assert len(json.dumps(ret)) > 65535
 
