@@ -2213,6 +2213,7 @@ int main(int argc, char *argv[])
 
 		printf("The following tables are currently supported:\n");
 		strmap_iterate(&tablemap, print_one_table, NULL);
+		strmap_clear(&tablemap);
 		common_shutdown();
 		return 0;
 	}
