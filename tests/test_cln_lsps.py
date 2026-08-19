@@ -5,15 +5,20 @@ import unittest
 
 import pytest
 from fixtures import *  # noqa: F401,F403
-from pyln.testing.utils import RUST, wait_for
+from pyln.client import RpcError
+from pyln.testing.utils import RUST, TIMEOUT, wait_for
 from utils import only_one
 
 RUST_PROFILE = os.environ.get("RUST_PROFILE", "debug")
 POLICY_PLUGIN = os.path.join(os.path.dirname(__file__), "plugins/lsps2_policy.py")
+# The collect timer runs from the first part hitting the htlc_accepted hook
+# until the session leaves Collecting. A short value races MPP part delivery
+# on slow (valgrind/CI) runs, so default to the environment-scaled TIMEOUT;
+# tests that need the timer to actually fire pin a short value themselves.
 LSP_OPTS = {
     "experimental-lsps2-service": None,
     "experimental-lsps2-promise-secret": "0" * 64,
-    "dev-lsps2-collect-timeout": 5,
+    "dev-lsps2-collect-timeout": TIMEOUT,
     "plugin": POLICY_PLUGIN,
     "fee-base": 0,
     "fee-per-satoshi": 0,
@@ -493,7 +498,12 @@ def test_lsps2_session_mpp_collection_timeout(node_factory, bitcoind):
     Exercises SessionFailed event. The HTLCs should be failed back with
     TEMPORARY_CHANNEL_FAILURE.
     """
-    l1, l2, l3, chanid = setup_lsps2_network(node_factory, bitcoind)
+    # This test needs the collect timer to actually fire, so pin it short.
+    l1, l2, l3, chanid = setup_lsps2_network(
+        node_factory,
+        bitcoind,
+        lsp_opts={**LSP_OPTS, "dev-lsps2-collect-timeout": 5},
+    )
 
     # Invoice for 10M msat but we'll only send 1 part of 1M.
     amt = 10_000_000
@@ -669,7 +679,12 @@ def test_lsps2_finalize_twice_clears_active(node_factory, bitcoind):
     session on every restart. Simulate the post-crash state by pre-seeding
     the finalized key, then drive a session to a finalize.
     """
-    l1, l2, l3, chanid = setup_lsps2_network(node_factory, bitcoind)
+    # This test needs the collect timer to actually fire, so pin it short.
+    l1, l2, l3, chanid = setup_lsps2_network(
+        node_factory,
+        bitcoind,
+        lsp_opts={**LSP_OPTS, "dev-lsps2-collect-timeout": 5},
+    )
 
     amt = 10_000_000
     dec, inv = buy_and_invoice(l1, l2, amt)
@@ -831,9 +846,11 @@ def test_lsps2_session_newblock_unsafe_htlc_timeout(node_factory, bitcoind):
     # CLTV_SAFETY_BUFFER blocks remain before expiry.
     bitcoind.generate_block(11)
 
-    # The HTLC should be failed back by the FSM.
+    # The HTLC should be failed back by the FSM. The generous collect
+    # timeout no longer fails the session first, so the failure has to come
+    # from the NewBlock CLTV check — give slow runs room to process blocks.
     with pytest.raises(Exception):
-        l3.rpc.waitsendpay(dec["payment_hash"], partid=1, groupid=1, timeout=30)
+        l3.rpc.waitsendpay(dec["payment_hash"], partid=1, groupid=1, timeout=60)
 
     # No JIT channel should have been created.
     chs = l1.rpc.listpeerchannels()["channels"]
@@ -1214,7 +1231,15 @@ def test_lsps2_restart_awaiting_settlement_payment_fails_abandoned(
     # Restart l2 while HTLCs are held.
     l2.restart()
     l2.connect(l3)
-    l2.connect(l1)
+    try:
+        l2.connect(l1)
+    except RpcError:
+        # On a slow run the 15s hold expires during the restart. l1's queued
+        # HTLC failures are then delivered on the automatic reconnect,
+        # abandoning the session, whose Disconnect action can kill this
+        # explicit connect mid-handshake. The session already got all it
+        # needed from the connection, so the failure is fine.
+        pass
 
     # Hold expires → l1 rejects (no invoice) → forwards fail → Abandoned.
     for partid in range(1, parts + 1):
