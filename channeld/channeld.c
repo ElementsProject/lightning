@@ -4289,8 +4289,11 @@ static void splice_accepter(struct peer *peer, const u8 *inmsg)
 	struct tlv_tx_init_rbf_tlvs *init_rbf_tlvs;
 	struct tlv_tx_ack_rbf_tlvs *ack_rbf_tlvs;
 
-	/* Can't start a splice with another splice still active */
-	assert(!peer->splicing);
+	if (peer->splicing)
+		peer_failed_warn(peer->pps, &peer->channel_id, "You can't start"
+				 " a splice while we have one pending. Did you"
+				 " mean to send SPLICE_ACK?");
+
 	peer->splicing = splicing_new(peer);
 
 	ictx = new_interactivetx_context(tmpctx, our_role,
