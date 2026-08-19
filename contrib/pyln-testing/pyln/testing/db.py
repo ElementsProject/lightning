@@ -149,6 +149,9 @@ class SqliteDbProvider(object):
 
 
 class PostgresDbProvider(object):
+    # Postgres truncates identifiers at NAMEDATALEN - 1 bytes.
+    MAX_IDENTIFIER_LEN = 63
+
     def __init__(self, directory):
         self.directory = directory
         self.port = None
@@ -223,10 +226,21 @@ class PostgresDbProvider(object):
         # Required for CREATE DATABASE to work
         self.conn.set_isolation_level(psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT)
 
+    @staticmethod
+    def db_name(testname: str, node_id: int, nonce: str) -> str:
+        """Build the database name for a node of a test.
+
+        Truncates the testname, not the suffix: postgres would otherwise
+        cut off the node_id and the nonce, making the names of
+        long-named tests collide and fail with `DuplicateDatabase`.
+        """
+        suffix = "_{}_{}".format(node_id, nonce)
+        return testname[:PostgresDbProvider.MAX_IDENTIFIER_LEN - len(suffix)] + suffix
+
     def get_db(self, node_directory, testname, node_id):
         # Random suffix to avoid collisions on repeated tests
         nonce = ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(8))
-        dbname = "{}_{}_{}".format(testname, node_id, nonce)
+        dbname = self.db_name(testname, node_id, nonce)
 
         cur = self.conn.cursor()
         cur.execute("CREATE DATABASE {};".format(dbname))
