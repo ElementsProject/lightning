@@ -127,7 +127,7 @@ static const char *convert_layer_data(const tal_t *ctx,
 			continue;
 
 		case DSTORE_CHANNEL_IMPRESSION:
-			if (fromwire_dstore_channel_impression(tmpctx, &data_in, &len,
+			if (fromwire_dstore_channel_impression(&data_in, &len,
 							       &scidd, &timestamp, &msat)) {
 				/* We don't convert, just omit these */
 				if (!convert_impression)

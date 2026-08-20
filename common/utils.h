@@ -87,7 +87,7 @@ bool tal_arr_eq_(const void *a, const void *b, size_t unused);
 void tal_arr_remove_(void *p, size_t elemsize, size_t n);
 
 /**
- * Remove a range of element from an array
+ * Remove a range of elements from an array
  *
  * This will shift the elements past the removed elements, changing
  * their position in memory, so only use this for simple arrays.

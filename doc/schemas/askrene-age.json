@@ -44,7 +44,7 @@
       "num_removed": {
         "type": "u64",
         "description": [
-          "The number of constraints removed from *layer*"
+          "The number of constraints and impressions removed from *layer*"
         ]
       }
     }
