@@ -6242,3 +6242,21 @@ def test_bwatch_blockdepth_watch_no_fire_before_start_block(node_factory, bitcoi
 
     # Clean up
     l1.rpc.delblockdepthwatch(owner=owner, start_block=future_start)
+
+
+def test_command_collision(node_factory):
+    def xpay_duplicate(plugin):
+        @plugin.method("xpay")
+        def on_xpay(plugin):
+            return {}
+    l1 = node_factory.get_node(inline_plugin=xpay_duplicate)
+    l1.daemon.logsearch_start = 0
+    l1.daemon.wait_for_log("a method with that name is already registered by plugin")
+
+    def builtin_duplicate(plugin):
+        @plugin.method("getinfo")
+        def on_getinfo(plugin):
+            return {}
+    l2 = node_factory.get_node(inline_plugin=builtin_duplicate)
+    l2.daemon.logsearch_start = 0
+    l2.daemon.wait_for_log("a builtin method with that name is already registered")
