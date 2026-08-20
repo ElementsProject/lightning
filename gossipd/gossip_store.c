@@ -19,7 +19,10 @@
 /* Obsolete ZOMBIE bit */
 #define GOSSIP_STORE_ZOMBIE_BIT_V13 0x1000U
 
-#define GOSSIP_STORE_TEMP_FILENAME "gossip_store.tmp"
+#ifndef GOSSIP_STORE_FUZZ_OVERRIDE
+#define GOSSIP_STORE_TEMP_FILENAME GOSSIP_STORE_FILENAME ".tmp"
+#define GOSSIP_STORE_CORRUPT_FILENAME GOSSIP_STORE_FILENAME ".corrupt"
+#endif
 /* We write it as major version 0, minor version 16 */
 #define GOSSIP_STORE_VER ((0 << 5) | 16)
 
@@ -413,9 +416,9 @@ upgrade_failed:
 
 void gossip_store_corrupt(void)
 {
-	status_broken("gossip_store: Moving to %s.corrupt",
-		      GOSSIP_STORE_FILENAME);
-	rename(GOSSIP_STORE_FILENAME, GOSSIP_STORE_FILENAME ".corrupt");
+	status_broken("gossip_store: Moving to %s",
+		      GOSSIP_STORE_CORRUPT_FILENAME);
+	rename(GOSSIP_STORE_FILENAME, GOSSIP_STORE_CORRUPT_FILENAME);
 }
 
 struct gossip_store *gossip_store_new(const tal_t *ctx,
