@@ -1,0 +1,137 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "type": "object",
+  "rpc": "listrepeatpays",
+  "title": "Command for viewing regular payments for a recurring BOLT12 offer",
+  "description": [
+    "The **listrepeatpays** RPC command is used to view payments made with the **repeatpay** command."
+  ],
+  "request": {
+    "additionalProperties": false,
+    "properties": {
+      "label": {
+        "type": "string",
+        "description": [
+          "Only show repeat payments for this label."
+        ]
+      }
+    }
+  },
+  "response": {
+    "required": [
+      "repeatpays"
+    ],
+    "additionalProperties": false,
+    "properties": {
+      "repeatpays": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "offer",
+            "maxamount_msat",
+            "label",
+            "status",
+            "payments_made",
+            "log"
+          ],
+          "properties": {
+            "offer": {
+              "type": "string",
+              "description": [
+                "The offer we are paying (same as the bolt12 parameter to repeatpay)."
+              ]
+            },
+            "maxamount_msat": {
+              "type": "msat",
+              "description": [
+                "The maximum millisatoshi amount we are authorized to pay per payment."
+              ]
+            },
+            "maxamount_currency": {
+              "type": "string",
+              "description": [
+                "The original currency amount specified by the user (e.g. '100.00USD'), if a currency was given."
+              ]
+            },
+            "label": {
+              "type": "string",
+              "description": [
+                "Unique label to identify this recurring payment."
+              ]
+            },
+            "payer_id": {
+              "type": "pubkey",
+              "description": [
+                "The transient id we have used to identify ourselves as a (repeat) payer."
+              ]
+            },
+            "payer_metadata": {
+              "type": "hex",
+              "description": [
+                "The random data we use to derive our payer_id."
+              ]
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "ongoing",
+                "ongoing_making_payment",
+                "ongoing_failing_amount",
+                "ongoing_failing_balance",
+                "ongoing_failing_invoice",
+                "ongoing_failing_payment",
+                "complete_finished",
+                "complete_cancelled",
+                "complete_cancel_pending",
+                "complete_failed"
+              ],
+              "description": [
+                "Current status of the recurring payment:",
+                "- ongoing: normal state, we're just waiting for the next time to start a payment",
+                "- ongoing_making_payment: actually attempting a payment right now",
+                "- ongoing_failing_amount: the invoice we received for the next payment exceeded the `maxamount` (which you change with `amendrepeatpay`).  We will retry.",
+                "- ongoing_failing_balance: insufficient funds to make the next payment.  We will retry.",
+                "- ongoing_failing_invoice: we could not fetch the next invoice.  We will retry.",
+                "- ongoing_failing_payment: we could not pay the next invoice.  We will retry.",
+                "- complete_finished: the offer specified a limited number of payments, and they're all done",
+                "- complete_cancelled: no more payments being made because cancelrepeatpay was called",
+                "- complete_cancel_pending: someone called cancelrepeatpay, but we're waiting until the next period to tell the issuer",
+                "- complete_failed: after one or more failures, we gave up"
+              ]
+            },
+            "payments_made": {
+              "type": "u64",
+              "description": [
+                "Number of payments successfully completed so far."
+              ]
+            },
+            "log": {
+              "type": "array",
+              "description": [
+                "Log of status transitions and notable events."
+              ],
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "author": [
+    "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-repeatpay(7)",
+    "lightning-cancelrepeatpay(7)",
+    "lightning-amendrepeatpay(7)",
+    "lightning-offer(7)",
+    "lightning-xpay(7)"
+  ],
+  "resources": [
+    "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
+  ]
+}
