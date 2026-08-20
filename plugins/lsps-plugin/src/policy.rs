@@ -73,6 +73,97 @@ struct State {
     channel_capacity_msat: u64,
 }
 
+#[allow(clippy::too_many_arguments)]
+fn build_state(
+    min_fee_msat: i64,
+    proportional: i64,
+    valid_until_hours: i64,
+    min_lifetime: i64,
+    max_client_to_self_delay: i64,
+    min_payment_size_msat: i64,
+    max_payment_size_msat: i64,
+    channel_capacity_msat: i64,
+) -> Result<State, anyhow::Error> {
+    if min_fee_msat < 0 {
+        bail!(
+            "`{}` must be non-negative, got {}",
+            OPTION_MIN_FEE_MSAT.name,
+            min_fee_msat
+        );
+    }
+    if proportional < 0 || proportional > 1_000_000 {
+        bail!(
+            "`{}` must be between 0 and 1000000, got {}",
+            OPTION_PROPORTIONAL_PPM.name,
+            proportional
+        );
+    }
+    if valid_until_hours <= 0 {
+        bail!(
+            "`{}` must be positive, got {}",
+            OPTION_VALID_UNTIL_HOURS.name,
+            valid_until_hours
+        );
+    }
+    if min_lifetime < 0 || min_lifetime > i64::from(u32::MAX) {
+        bail!(
+            "`{}` must be between 0 and {}, got {}",
+            OPTION_MIN_LIFETIME.name,
+            u32::MAX,
+            min_lifetime
+        );
+    }
+    if max_client_to_self_delay < 0 || max_client_to_self_delay > i64::from(u32::MAX) {
+        bail!(
+            "`{}` must be between 0 and {}, got {}",
+            OPTION_MAX_CLIENT_TO_SELF_DELAY.name,
+            u32::MAX,
+            max_client_to_self_delay
+        );
+    }
+    if min_payment_size_msat < 0 {
+        bail!(
+            "`{}` must be non-negative, got {}",
+            OPTION_MIN_PAYMENT_SIZE_MSAT.name,
+            min_payment_size_msat
+        );
+    }
+    if max_payment_size_msat <= min_payment_size_msat {
+        bail!(
+            "`{}` must be greater than `{}`, got {} <= {}",
+            OPTION_MAX_PAYMENT_SIZE_MSAT.name,
+            OPTION_MIN_PAYMENT_SIZE_MSAT.name,
+            max_payment_size_msat,
+            min_payment_size_msat
+        );
+    }
+    if channel_capacity_msat <= 0 {
+        bail!(
+            "`{}` must be positive, got {}",
+            OPTION_CHANNEL_CAPACITY_MSAT.name,
+            channel_capacity_msat
+        );
+    }
+    if channel_capacity_msat % 1_000 != 0 {
+        bail!(
+            "`{}` must be divisible by 1000 (whole satoshis), got {}",
+            OPTION_CHANNEL_CAPACITY_MSAT.name,
+            channel_capacity_msat
+        );
+    }
+
+    Ok(State {
+        min_fee_msat: Msat::from_msat(min_fee_msat as u64),
+        proportional: Ppm::from_ppm(proportional as u32),
+        valid_until_hours,
+        min_lifetime: min_lifetime as u32,
+        max_client_to_self_delay: max_client_to_self_delay as u32,
+        min_payment_size_msat: Msat::from_msat(min_payment_size_msat as u64),
+        max_payment_size_msat: Msat::from_msat(max_payment_size_msat as u64),
+        channel_capacity_msat: channel_capacity_msat as u64,
+    })
+}
+
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
     if let Some(plugin) = cln_plugin::Builder::new(tokio::io::stdin(), tokio::io::stdout())
@@ -97,93 +188,16 @@ async fn main() -> Result<(), anyhow::Error> {
         .configure()
         .await?
     {
-        let min_fee_msat = plugin.option(&OPTION_MIN_FEE_MSAT)?;
-        let proportional = plugin.option(&OPTION_PROPORTIONAL_PPM)?;
-        let valid_until_hours = plugin.option(&OPTION_VALID_UNTIL_HOURS)?;
-        let min_lifetime = plugin.option(&OPTION_MIN_LIFETIME)?;
-        let max_client_to_self_delay = plugin.option(&OPTION_MAX_CLIENT_TO_SELF_DELAY)?;
-        let min_payment_size_msat = plugin.option(&OPTION_MIN_PAYMENT_SIZE_MSAT)?;
-        let max_payment_size_msat = plugin.option(&OPTION_MAX_PAYMENT_SIZE_MSAT)?;
-        let channel_capacity_msat = plugin.option(&OPTION_CHANNEL_CAPACITY_MSAT)?;
-
-        if min_fee_msat < 0 {
-            bail!(
-                "`{}` must be non-negative, got {}",
-                OPTION_MIN_FEE_MSAT.name,
-                min_fee_msat
-            );
-        }
-        if proportional < 0 || proportional > 1_000_000 {
-            bail!(
-                "`{}` must be between 0 and 1000000, got {}",
-                OPTION_PROPORTIONAL_PPM.name,
-                proportional
-            );
-        }
-        if valid_until_hours <= 0 {
-            bail!(
-                "`{}` must be positive, got {}",
-                OPTION_VALID_UNTIL_HOURS.name,
-                valid_until_hours
-            );
-        }
-        if min_lifetime < 0 || min_lifetime > i64::from(u32::MAX) {
-            bail!(
-                "`{}` must be between 0 and {}, got {}",
-                OPTION_MIN_LIFETIME.name,
-                u32::MAX,
-                min_lifetime
-            );
-        }
-        if max_client_to_self_delay < 0 || max_client_to_self_delay > i64::from(u32::MAX) {
-            bail!(
-                "`{}` must be between 0 and {}, got {}",
-                OPTION_MAX_CLIENT_TO_SELF_DELAY.name,
-                u32::MAX,
-                max_client_to_self_delay
-            );
-        }
-        if min_payment_size_msat < 0 {
-            bail!(
-                "`{}` must be non-negative, got {}",
-                OPTION_MIN_PAYMENT_SIZE_MSAT.name,
-                min_payment_size_msat
-            );
-        }
-        if max_payment_size_msat <= min_payment_size_msat {
-            bail!(
-                "`{}` must be greater than `{}`, got {} <= {}",
-                OPTION_MAX_PAYMENT_SIZE_MSAT.name,
-                OPTION_MIN_PAYMENT_SIZE_MSAT.name,
-                max_payment_size_msat,
-                min_payment_size_msat
-            );
-        }
-        if channel_capacity_msat <= 0 {
-            bail!(
-                "`{}` must be positive, got {}",
-                OPTION_CHANNEL_CAPACITY_MSAT.name,
-                channel_capacity_msat
-            );
-        }
-        if channel_capacity_msat % 1_000 != 0 {
-            bail!(
-                "`{}` must be divisible by 1000 (whole satoshis), got {}",
-                OPTION_CHANNEL_CAPACITY_MSAT.name,
-                channel_capacity_msat
-            );
-        }
-
-        let state = State {
-            min_fee_msat: Msat::from_msat(min_fee_msat as u64),
-            proportional: Ppm::from_ppm(proportional as u32),
-            valid_until_hours,
-            min_lifetime: min_lifetime as u32,
-            max_client_to_self_delay: max_client_to_self_delay as u32,
-            min_payment_size_msat: Msat::from_msat(min_payment_size_msat as u64),
-            max_payment_size_msat: Msat::from_msat(max_payment_size_msat as u64),
-            channel_capacity_msat: channel_capacity_msat as u64,
-        };
+        let state = build_state(
+            plugin.option(&OPTION_MIN_FEE_MSAT)?,
+            plugin.option(&OPTION_PROPORTIONAL_PPM)?,
+            plugin.option(&OPTION_VALID_UNTIL_HOURS)?,
+            plugin.option(&OPTION_MIN_LIFETIME)?,
+            plugin.option(&OPTION_MAX_CLIENT_TO_SELF_DELAY)?,
+            plugin.option(&OPTION_MIN_PAYMENT_SIZE_MSAT)?,
+            plugin.option(&OPTION_MAX_PAYMENT_SIZE_MSAT)?,
+            plugin.option(&OPTION_CHANNEL_CAPACITY_MSAT)?,
+        )?;
 
         let plugin = plugin.start(state).await?;
         plugin.join().await
