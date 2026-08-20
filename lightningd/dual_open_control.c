@@ -1035,9 +1035,27 @@ static enum watch_result opening_depth_cb(struct lightningd *ld,
 
 static enum watch_result opening_reorged_cb(struct lightningd *ld, struct channel_inflight *inflight)
 {
+	struct channel *channel = inflight->channel;
+
 	/* Reorged out?  OK, we're not committed yet. */
-	log_info(inflight->channel->log, "Candidate funding tx was in a block, now reorged out");
+	log_info(channel->log, "Candidate funding tx was in a block, now reorged out");
 	inflight->scid = tal_free(inflight->scid);
+
+	/*~ If this candidate had already been promoted to *the* channel's
+	 * funding (ie. it was deep enough), the reorg un-promotes it: clear
+	 * the scid (it named the block that just went away, and its mere
+	 * presence makes reestablish claim local_channel_ready) and fall the
+	 * channel back to the newest candidate, exactly as if the promotion
+	 * never happened.  If the reorged one re-mines, dual_funding_found
+	 * simply promotes it again. */
+	if (channel->scid
+	    && bitcoin_outpoint_eq(&channel->funding,
+				   &inflight->funding->outpoint)) {
+		channel_set_scid(channel, NULL);
+		update_channel_from_inflight(ld, channel,
+					     channel_current_inflight(channel),
+					     false);
+	}
 	return DELETE_WATCH;
 }
 
@@ -1987,23 +2005,15 @@ static void handle_channel_locked(struct subd *dualopend,
 	assert(channel->scid);
 	assert(channel->remote_channel_ready);
 
-	/*~ Belt-and-braces: below we throw away every inflight, and with them
-	 * the commitment tx for whichever candidate actually got mined.  That's
-	 * not recoverable, so refuse if the tx we're about to commit to isn't
-	 * one we've actually seen on-chain.  (Zeroconf legitimately locks in
-	 * before any confirmation, but dualopend never sets minimum_depth to 0
-	 * today.) */
-	if (channel->minimum_depth != 0
-	    && get_tx_depth(dualopend->ld->topology,
-			    &channel->funding.txid) == 0) {
-		channel_internal_error(channel,
-				       "Tried to lock in funding tx %s which we"
-				       " have not seen mined",
-				       fmt_bitcoin_txid(tmpctx,
-							&channel->funding.txid));
-		return;
-	}
-
+	/*~ We deliberately don't cross-check channel->funding against the
+	 * chain here: during the startup rescan our_txs.blockheight is
+	 * zeroed for the whole rescan window while peer reestablish runs
+	 * concurrently, so "have we seen this tx mined" is transiently
+	 * unanswerable exactly when this function runs.  The scid/funding
+	 * pair only ever moves together (opening_depth_cb), and a reorg of
+	 * the promoted candidate un-promotes it (opening_reorged_cb), so by
+	 * the time both sides are ready, channel->funding names a tx we did
+	 * see mined. */
 	log_debug(channel->log, "Lockin complete state %s",
 		  channel_state_name(channel));
 	/* This can happen if we missed their sigs, for some reason */
