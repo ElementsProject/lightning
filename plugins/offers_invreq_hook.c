@@ -791,8 +791,18 @@ static struct command_result *handle_amount_and_recurrence(struct command *cmd,
 
 	/* Don't allow invoices past expiry of offer. */
 	if (ir->invreq->offer_absolute_expiry) {
-		u64 until = *ir->invreq->offer_absolute_expiry
-			- *ir->inv->invoice_created_at;
+		u64 until;
+
+		/* listoffers_done checked *ir->invreq->offer_absolute_expiry > now,
+		 * then invreq_for_invreq set *ir->inv->invoice_created_at = now.
+		 * Time could change between those, so set a minimum */
+		if (*ir->invreq->offer_absolute_expiry
+		    > *ir->inv->invoice_created_at)
+			until = *ir->invreq->offer_absolute_expiry
+				- *ir->inv->invoice_created_at;
+		else
+			/* Not 0: we use that for cancelled invoices! */
+			until = 1;
 		if (until < rel_expiry)
 			rel_expiry = until;
 	}
