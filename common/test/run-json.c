@@ -226,6 +226,49 @@ static void test_json_bad_utf8(void)
 	assert(json_parse_simple(tmpctx, buf, strlen(buf)));
 }
 
+static void test_json_deep_nesting(void)
+{
+	char *buf;
+	size_t d, i;
+
+	/* Arrays nested exactly at the limit still parse. */
+	d = JSON_MAX_NESTING;
+	buf = tal_arr(tmpctx, char, 2 * d + 2);
+	memset(buf, '[', d);
+	buf[d] = '0';
+	memset(buf + d + 1, ']', d);
+	buf[2 * d + 1] = '\0';
+	assert(json_parse_simple(tmpctx, buf, 2 * d + 1));
+
+	/* One level deeper is rejected, not crashed. */
+	d = JSON_MAX_NESTING + 1;
+	buf = tal_arr(tmpctx, char, 2 * d + 2);
+	memset(buf, '[', d);
+	buf[d] = '0';
+	memset(buf + d + 1, ']', d);
+	buf[2 * d + 1] = '\0';
+	assert(!json_parse_simple(tmpctx, buf, 2 * d + 1));
+
+	/* A pathologically deep array is rejected iteratively, without
+	 * overflowing the stack. */
+	d = 100000;
+	buf = tal_arr(tmpctx, char, 2 * d + 2);
+	memset(buf, '[', d);
+	buf[d] = '0';
+	memset(buf + d + 1, ']', d);
+	buf[2 * d + 1] = '\0';
+	assert(!json_parse_simple(tmpctx, buf, 2 * d + 1));
+
+	/* Same for deeply nested objects. */
+	buf = tal_strdup(tmpctx, "");
+	for (i = 0; i < 100000; i++)
+		tal_append_fmt(&buf, "{\"a\":");
+	tal_append_fmt(&buf, "1");
+	for (i = 0; i < 100000; i++)
+		tal_append_fmt(&buf, "}");
+	assert(!json_parse_simple(tmpctx, buf, strlen(buf)));
+}
+
 int main(int argc, char *argv[])
 {
 	common_setup(argv[0]);
@@ -234,6 +277,7 @@ int main(int argc, char *argv[])
 	test_json_tok_bitcoin_amount();
 	test_json_tok_millionths();
 	test_json_bad_utf8();
+	test_json_deep_nesting();
 
 	common_shutdown();
 }
