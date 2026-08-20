@@ -2430,14 +2430,16 @@ json_openchannel_abort(struct command *cmd,
 		if (list_empty(&channel->inflights))
 			return command_fail(cmd, FUNDING_STATE_INVALID,
 					    "Channel open not in progress");
-		return command_fail(cmd, FUNDING_STATE_INVALID,
-				    "Sigs already exchanged, can't cancel");
-	}
-
-	if (channel->open_attempt->cmd)
+		/* Commitments may already be stored; we can still abort
+		 * until we have sent tx_signatures. */
+		if (channel_funding_sigs_sent(channel))
+			return command_fail(cmd, FUNDING_STATE_INVALID,
+					    "Already sent sigs, can't cancel");
+	} else if (channel->open_attempt->cmd) {
 		return command_fail(cmd, FUNDING_STATE_INVALID,
 				    "Another openchannel command"
 				    " is in progress");
+	}
 
 	if (channel->openchannel_signed_cmd)
 		return command_fail(cmd, FUNDING_STATE_INVALID,
@@ -2445,6 +2447,12 @@ json_openchannel_abort(struct command *cmd,
 
 	if (command_check_only(cmd))
 		return command_check_done(cmd);
+
+	/* If commitments were already exchanged there's no open_attempt;
+	 * make one to park the command on, so we respond with the actual
+	 * outcome once the abort completes. */
+	if (!channel->open_attempt)
+		channel->open_attempt = new_channel_open_attempt(channel);
 
 	/* Mark it as aborted so when we clean-up, we send the
 	 * correct response */

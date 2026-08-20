@@ -447,6 +447,38 @@ def test_v2_fail_second(node_factory, bitcoind):
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @pytest.mark.openchannel('v2')
+def test_v2_abort_after_accepter_tx_sigs(node_factory, bitcoind):
+    """Opener aborts after the accepter has sent tx_signatures.
+
+    Per the BOLT #2 tx_abort receiver rule, the accepter must not forget
+    the channel until an input of the negotiated funding transaction is
+    spent.
+    """
+    l1, l2 = node_factory.get_nodes(2)
+
+    l1.fundwallet(10**6)
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    amount = 100000
+    psbt = l1.rpc.fundpsbt(amount, '253perkw', 250, reserve=0)['psbt']
+    start = l1.rpc.openchannel_init(l2.info['id'], amount, psbt)
+    update = l1.rpc.openchannel_update(start['channel_id'], start['psbt'])
+    assert update['commitments_secured']
+
+    l2.daemon.wait_for_log(r'peer_out WIRE_TX_SIGNATURES')
+
+    # Legal for the opener: they have not sent tx_signatures yet.
+    l1.rpc.openchannel_abort(start['channel_id'])
+
+    l2.daemon.wait_for_log(r'tx-abort rcvd after we sent tx-sigs'
+                           r'|Already sent tx_signatures, remembering channel')
+
+    chans = l2.rpc.listpeerchannels(l1.info['id'])['channels']
+    assert any(c['channel_id'] == start['channel_id'] for c in chans)
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+@pytest.mark.openchannel('v2')
 def test_v2_open_sigs_restart_while_dead(node_factory, bitcoind):
     # Same thing as above, except the transaction mines
     # while we're asleep
