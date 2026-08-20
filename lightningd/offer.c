@@ -377,7 +377,6 @@ static struct command_result *json_createinvoicerequest(struct command *cmd,
 	struct tlv_invoice_request *invreq;
 	struct json_escape *label;
 	struct json_stream *response;
-	u64 *prev_basetime = NULL;
 	struct sha256 merkle;
 	bool *save, *single_use;
 	enum offer_status status;
@@ -448,8 +447,6 @@ static struct command_result *json_createinvoicerequest(struct command *cmd,
 			     b12str,
 			     label,
 			     status);
-	if (prev_basetime)
-		json_add_u64(response, "previous_basetime", *prev_basetime);
 	return command_success(cmd, response);
 }
 
