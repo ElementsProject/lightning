@@ -38,6 +38,14 @@ BOLTVERSION := $(DEFAULT_BOLTVERSION)
 
 -include config.vars
 
+# Save flags inherited from environment (or config.vars) before we start munging them
+CFLAGS_FROM_ENV := $(CFLAGS)
+CFLAGS =
+CPPFLAGS_FROM_ENV := $(CPPFLAGS)
+CPPFLAGS =
+LDFLAGS_FROM_ENV := $(LDFLAGS)
+LDFLAGS =
+
 # Homebrew lives in /opt/homebrew on Apple Silicon and /usr/local on Intel.
 # Ask brew rather than guessing, and use nothing from it if it isn't found
 # (e.g. in a nix build), so we don't pick up stray headers and tools.
@@ -305,8 +313,10 @@ endif
 endif
 endif
 
-CPPFLAGS += -DCLN_NEXT_VERSION="\"$(CLN_NEXT_VERSION)\"" -DPKGLIBEXECDIR="\"$(pkglibexecdir)\"" -DBINDIR="\"$(bindir)\"" -DPLUGINDIR="\"$(plugindir)\"" -DCCAN_TAL_NEVER_RETURN_NULL=1
-CFLAGS = $(CPPFLAGS) $(CWARNFLAGS) $(CDEBUGFLAGS) $(COPTFLAGS) -I $(CCANDIR) $(EXTERNAL_INCLUDE_FLAGS) -I . $(CPATH_CFLAGS) $(SQLITE3_CFLAGS) $(SODIUM_CFLAGS) $(POSTGRES_INCLUDE) $(FEATURES) $(COVFLAGS) $(DEV_CFLAGS) -DSHACHAIN_BITS=48 -DJSMN_PARENT_LINKS $(PIE_CFLAGS) $(COMPAT_CFLAGS) $(CSANFLAGS)
+# Put the environment-inherited flags *last* so the user has the final say.
+CPPFLAGS += -DCLN_NEXT_VERSION="\"$(CLN_NEXT_VERSION)\"" -DPKGLIBEXECDIR="\"$(pkglibexecdir)\"" -DBINDIR="\"$(bindir)\"" -DPLUGINDIR="\"$(plugindir)\"" -DCCAN_TAL_NEVER_RETURN_NULL=1 $(CPPFLAGS_FROM_ENV)
+CFLAGS = $(CPPFLAGS) $(CWARNFLAGS) $(CDEBUGFLAGS) $(COPTFLAGS) -I $(CCANDIR) $(EXTERNAL_INCLUDE_FLAGS) -I . $(CPATH_CFLAGS) $(SQLITE3_CFLAGS) $(SODIUM_CFLAGS) $(POSTGRES_INCLUDE) $(FEATURES) $(COVFLAGS) $(DEV_CFLAGS) -DSHACHAIN_BITS=48 -DJSMN_PARENT_LINKS $(PIE_CFLAGS) $(COMPAT_CFLAGS) $(CSANFLAGS) $(CFLAGS_FROM_ENV)
+LDFLAGS += $(PIE_LDFLAGS) $(CSANFLAGS) $(COPTFLAGS) $(LDFLAGS_FROM_ENV)
 
 # If CFLAGS is already set in the environment of make (to whatever value, it
 # does not matter) then it would export it to subprocesses with the above value
@@ -318,8 +328,6 @@ unexport CFLAGS
 # We can get configurator to run a different compile cmd to cross-configure.
 CONFIGURATOR_CC := $(CC)
 
-LDFLAGS += $(PIE_LDFLAGS) $(CSANFLAGS) $(COPTFLAGS)
-
 ifeq ($(STATIC),1)
 # For MacOS, Jacob Rapoport <jacob@rumblemonkey.com> changed this to:
 #  -L/usr/local/lib -lsqlite3 -lz -Wl,-lm -lpthread -ldl $(COVFLAGS)
@@ -327,10 +335,6 @@ ifeq ($(STATIC),1)
 LDLIBS = $(LIBRARY_PATH_LDFLAGS) -Wl,-dn $(SQLITE3_LDLIBS) -Wl,-dy -lm -lpthread -ldl $(COVFLAGS)
 else
 LDLIBS = $(LIBRARY_PATH_LDFLAGS) -lm $(SQLITE3_LDLIBS) $(COVFLAGS)
-endif
-
-ifeq ($(HAVE_FUNCTION_SECTIONS),1)
-LDLIBS += -Wl,--gc-sections
 endif
 
 # If we have the postgres client library we need to link against it as well
