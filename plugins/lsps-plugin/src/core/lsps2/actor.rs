@@ -98,6 +98,12 @@ impl ActorInboxHandle {
         self.scid
     }
 
+    /// Whether the actor behind this handle has stopped (its inbox is closed).
+    /// A dead handle may still linger in the session map until pruned.
+    pub fn is_closed(&self) -> bool {
+        self.tx.is_closed()
+    }
+
     pub async fn add_part(&self, part: PaymentPart) -> Result<HtlcResponse> {
         let (reply_tx, rx) = oneshot::channel();
         self.tx.send(ActorInput::AddPart { part, reply_tx }).await?;

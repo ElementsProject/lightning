@@ -289,7 +289,8 @@ async fn handle_session_htlc(
                 // right now; tell the payer it may retry.
                 ManagerError::SessionTerminated
                 | ManagerError::SessionAlreadyFunded
-                | ManagerError::ScidMismatch => Ok(json_fail(TEMPORARY_CHANNEL_FAILURE)),
+                | ManagerError::ScidMismatch
+                | ManagerError::FundingInProgress => Ok(json_fail(TEMPORARY_CHANNEL_FAILURE)),
                 // The offer is past valid_until: permanent for this scid.
                 ManagerError::OfferExpired => Ok(json_fail(UNKNOWN_NEXT_PEER)),
                 ManagerError::DatastoreLookup(_) => Ok(json_continue()),

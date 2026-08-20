@@ -20,6 +20,8 @@ pub enum ManagerError {
     SessionAlreadyFunded,
     #[error("part arrived on a scid that does not own this payment hash's session")]
     ScidMismatch,
+    #[error("a channel is already being funded for this jit scid")]
+    FundingInProgress,
     #[error("the opening fee offer has expired")]
     OfferExpired,
     #[error("datastore lookup failed: {0}")]
@@ -203,6 +205,18 @@ impl<D: DatastoreProvider + 'static, A: ActionExecutor + Send + Sync + 'static>
                 }
                 handle.clone()
             } else {
+                // One funding per jit scid. `channel_id` is only persisted
+                // once funding completes, so the datastore guard leaves a
+                // window in which a second HTLC with a different payment hash
+                // on the same scid could open a second channel. Reject it
+                // while another live session already owns this scid. Dead
+                // handles (pruned lazily) must not block, so skip closed ones.
+                if sessions
+                    .values()
+                    .any(|h| h.scid() == scid && !h.is_closed())
+                {
+                    return Err(ManagerError::FundingInProgress);
+                }
                 let handle = self.create_session(&scid, &payment_hash).await?;
                 sessions.insert(payment_hash, handle.clone());
                 handle
@@ -657,6 +671,63 @@ mod tests {
         assert!(matches!(err, ManagerError::ScidMismatch));
 
         assert_eq!(mgr.session_count().await, 1);
+    }
+
+    #[tokio::test(flavor = "current_thread", start_paused = true)]
+    async fn second_payment_hash_on_same_scid_is_refused_while_funding() {
+        // A jit scid funds at most one channel. `channel_id` is only persisted
+        // after funding completes, so the datastore guard alone leaves a
+        // window in which a second HTLC with a *different* payment hash on the
+        // same scid would open a second channel. Reject it while the first
+        // session is still live.
+        let mgr = test_manager(true);
+
+        // First partial part: session for hash 1 stays Collecting (no
+        // channel_id persisted yet) and blocks awaiting more parts.
+        let mgr2 = mgr.clone();
+        let h1 = tokio::spawn(async move {
+            mgr2.on_part(test_payment_hash(1), test_scid(), part(1, 500))
+                .await
+        });
+        while mgr.session_count().await == 0 {
+            tokio::task::yield_now().await;
+        }
+
+        // A different payment hash on the SAME scid must be refused, not open
+        // a second channel.
+        let err = mgr
+            .on_part(test_payment_hash(2), test_scid(), part(2, 1_000))
+            .await
+            .unwrap_err();
+        assert!(matches!(err, ManagerError::FundingInProgress));
+        assert_eq!(mgr.session_count().await, 1);
+
+        h1.abort();
+    }
+
+    #[tokio::test(flavor = "current_thread", start_paused = true)]
+    async fn dead_session_does_not_block_new_funding_on_same_scid() {
+        // The one-funding-per-scid guard must key on *live* sessions only. A
+        // terminated session left in the map (pruned lazily) must not
+        // permanently block a fresh, legitimate funding on that scid.
+        let mgr = test_manager(true);
+
+        // First partial part times out; its session dies but lingers in the map.
+        let mgr2 = mgr.clone();
+        let h1 = tokio::spawn(async move {
+            mgr2.on_part(test_payment_hash(1), test_scid(), part(1, 500))
+                .await
+        });
+        tokio::time::sleep(Duration::from_secs(91)).await;
+        let resp1 = h1.await.unwrap().unwrap();
+        assert!(matches!(resp1, HtlcResponse::Fail { .. }));
+
+        // A fresh payment on the same scid must be allowed to fund.
+        let resp2 = mgr
+            .on_part(test_payment_hash(2), test_scid(), part(2, 1_000))
+            .await
+            .unwrap();
+        assert!(matches!(resp2, HtlcResponse::Forward { .. }));
     }
 
     #[tokio::test(flavor = "current_thread", start_paused = true)]
