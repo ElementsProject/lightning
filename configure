@@ -174,10 +174,10 @@ set_defaults()
     # Note that ":-" means substitute if empty or unset, "-" means only if unset
     # which matters since you might explicitly set of these blank.
     PREFIX=${PREFIX:-/usr/local}
-    CC=${CC:-cc}
     # A more compact way of setting the default value of a variable.
     # Similar to the above, ":=" means assign if empty or unset; "=" means assign only if unset.
     # The quotes suppress the globbing that would otherwise occur after variable expansion.
+    : "${CC:=${HOST:+$HOST-}cc}"
     : "${CPPFLAGS=-std=gnu11}"
             # Detect macOS and use appropriate debug flags for libbacktrace compatibility
     if [ "$(uname -s)" = "Darwin" ]; then
@@ -220,6 +220,17 @@ set_defaults()
     PYTEST=${PYTEST-$(default_pytest $PYTHON)}
     COPTFLAGS=${COPTFLAGS-$(default_coptflags "$DEBUGBUILD")}
     CONFIGURATOR_CC=${CONFIGURATOR_CC-$CC}
+    if [ "x$BUILD" = "x$HOST" ]; then
+	: "${CC_FOR_BUILD:=$CC}"
+	: "${CFLAGS_FOR_BUILD=$CFLAGS}"
+	: "${CPPFLAGS_FOR_BUILD=$CPPFLAGS}"
+	: "${LDFLAGS_FOR_BUILD=$LDFLAGS}"
+    else
+	: "${CC_FOR_BUILD:=${BUILD:+$BUILD-}cc}"
+	: "${CFLAGS_FOR_BUILD=-O1}"
+	: "${CPPFLAGS_FOR_BUILD=-std=gnu11}"
+	: "${LDFLAGS_FOR_BUILD=}"
+    fi
     VALGRIND=${VALGRIND:-$(default_valgrind_setting)}
     TEST_NETWORK=${TEST_NETWORK:-regtest}
     RUST=${RUST:-$(default_rust_setting)}
@@ -258,11 +269,23 @@ usage()
     fi
     usage_with_default "CONFIGURATOR_CC" "${CONFIGURATOR_CC:-$CC}"
     echo "    To override compile line for configurator itself"
+    usage_with_default "CC_FOR_BUILD" "$CC_FOR_BUILD"
+    echo "    To set compiler driver for build system when cross-compiling"
+    usage_with_default "CFLAGS_FOR_BUILD" "$CFLAGS_FOR_BUILD"
+    echo "    To set compiler flags for build system when cross-compiling"
+    usage_with_default "CPPFLAGS_FOR_BUILD" "$CPPFLAGS_FOR_BUILD"
+    echo "    To set preprocessor flags for build system when cross-compiling"
+    usage_with_default "LDFLAGS_FOR_BUILD" "$LDFLAGS_FOR_BUILD"
+    echo "    To set linker flags for build system when cross-compiling"
     usage_with_default "PYTEST" "$PYTEST"
     usage_with_default "VALGRIND" "$VALGRIND"
     usage_with_default "SED" "$SED"
 
     echo "Options include:"
+    usage_with_default "--host=" "$HOST"
+    echo "    Compile to execute on host machine tuple"
+    usage_with_default "--build=" "$BUILD"
+    echo "    Compile on build machine tuple"
     usage_with_default "--prefix=" "$PREFIX"
     echo "    Prefix for make install"
     usage_with_default "--enable/disable-debugbuild" "$DEBUGBUILD" "enable" "disable"
@@ -329,7 +352,13 @@ for opt in "$@"; do
 	CFLAGS=*) CFLAGS="${opt#CFLAGS=}";;
 	CPPFLAGS=*) CPPFLAGS="${opt#CPPFLAGS=}";;
 	LDFLAGS=*) LDFLAGS="${opt#LDFLAGS=}";;
+	CC_FOR_BUILD=*) CC_FOR_BUILD="${opt#*=}";;
+	CFLAGS_FOR_BUILD=*) CFLAGS_FOR_BUILD="${opt#*=}";;
+	CPPFLAGS_FOR_BUILD=*) CPPFLAGS_FOR_BUILD="${opt#*=}";;
+	LDFLAGS_FOR_BUILD=*) LDFLAGS_FOR_BUILD="${opt#*=}";;
 	PYTEST=*) PYTEST="${opt#PYTEST=}";;
+	--host=*) HOST="${opt#*=}";;
+	--build=*) BUILD="${opt#*=}";;
 	--prefix=*) PREFIX="${opt#--prefix=}";;
 	--enable-debugbuild) DEBUGBUILD=1;;
 	--disable-debugbuild) DEBUGBUILD=0;;
@@ -387,16 +416,29 @@ fi
 
 # We call this first, so we can make sure configurator runs with it as a sanity check!
 if have_function_sections $CC "${CWARNFLAGS-$BASE_WARNFLAGS} $CDEBUGFLAGS $COPTFLAGS $CFLAGS $CPPFLAGS"; then
+    case " $CFLAGS " in
+	*' -ffunction-sections '*) ;;
+	*) CFLAGS="-ffunction-sections $CFLAGS" ;;
+    esac
     case "$LDFLAGS" in
 	*'--gc-sections'*) ;;
 	*) LDFLAGS="-Wl,--gc-sections $LDFLAGS";;
     esac
-    COPTFLAGS="$COPTFLAGS -ffunction-sections"
+    if [ "x$CC_FOR_BUILD" = "x$CC" ]; then
+	case " $CFLAGS_FOR_BUILD " in
+	    *' -ffunction-sections '*) ;;
+	    *) CFLAGS_FOR_BUILD="-ffunction-sections $CFLAGS_FOR_BUILD";;
+	esac
+	case "$LDFLAGS_FOR_BUILD" in
+	    *'--gc-sections'*) ;;
+	    *) LDFLAGS_FOR_BUILD="-Wl,--gc-sections $LDFLAGS_FOR_BUILD";;
+	esac
+    fi
 fi
 
 # We assume warning flags don't affect congfigurator that much!
 printf 'Compiling %s...' "${CONFIGURATOR}" >&2
-$CC ${CWARNFLAGS-$BASE_WARNFLAGS} $CDEBUGFLAGS $COPTFLAGS $CFLAGS $CPPFLAGS $LDFLAGS -o $CONFIGURATOR $CONFIGURATOR.c
+$CC_FOR_BUILD $CFLAGS_FOR_BUILD $CPPFLAGS_FOR_BUILD $LDFLAGS_FOR_BUILD -o $CONFIGURATOR $CONFIGURATOR.c
 echo "done" >&2
 
 if [ "$CLANG_COVERAGE" = "1" ]; then
@@ -630,6 +672,8 @@ if [ -z ${CWARNFLAGS+x} ]; then
 		    "$DEBUGBUILD")
 fi
 
+add_var HOST "$HOST"
+add_var BUILD "$BUILD"
 add_var PREFIX "$PREFIX"
 add_var CC "$CC"
 add_var CONFIGURATOR_CC "$CONFIGURATOR_CC"
@@ -639,6 +683,10 @@ add_var COPTFLAGS "$COPTFLAGS"
 add_var CFLAGS "$CFLAGS"
 add_var CPPFLAGS "$CPPFLAGS"
 add_var LDFLAGS "$LDFLAGS"
+add_var CC_FOR_BUILD "$CC_FOR_BUILD"
+add_var CFLAGS_FOR_BUILD "$CFLAGS_FOR_BUILD"
+add_var CPPFLAGS_FOR_BUILD "$CPPFLAGS_FOR_BUILD"
+add_var LDFLAGS_FOR_BUILD "$LDFLAGS_FOR_BUILD"
 if [ -n "${SDKROOT:-}" ]; then
     add_var SDKROOT "$SDKROOT"
 fi
