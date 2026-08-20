@@ -488,6 +488,10 @@ mod tests {
                 .map(|(scid, _)| scid.clone())
                 .collect()
         }
+
+        fn finalized_outcomes(&self) -> Vec<(String, SessionOutcome)> {
+            self.finalized.lock().unwrap().clone()
+        }
     }
 
     #[async_trait]
@@ -543,13 +547,19 @@ mod tests {
 
     struct MockExecutor {
         fund_succeeds: bool,
+        channel_alive: bool,
         alive_calls: Arc<std::sync::atomic::AtomicUsize>,
     }
 
     impl MockExecutor {
         fn new(fund_succeeds: bool) -> Self {
+            Self::new_with_channel_alive(fund_succeeds, true)
+        }
+
+        fn new_with_channel_alive(fund_succeeds: bool, channel_alive: bool) -> Self {
             Self {
                 fund_succeeds,
+                channel_alive,
                 alive_calls: Arc::new(std::sync::atomic::AtomicUsize::new(0)),
             }
         }
@@ -594,7 +604,7 @@ mod tests {
         async fn is_channel_alive(&self, _channel_id: &str) -> anyhow::Result<bool> {
             self.alive_calls
                 .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-            Ok(true)
+            Ok(self.channel_alive)
         }
     }
 
@@ -1242,6 +1252,53 @@ mod tests {
 
         mgr.recover(recovery).await.unwrap();
         assert_eq!(mgr.session_count().await, 0);
+    }
+
+    #[tokio::test(flavor = "current_thread", start_paused = true)]
+    async fn recovered_session_abandons_when_channel_dies() {
+        // A session recovered into AwaitingSettlement must poll its channel
+        // and abandon when it dies. run_recovered previously dropped
+        // ChannelClosed and never started the poll, so a recovered session
+        // could never notice its channel going away.
+        let mut ds = MockDatastore::new();
+        ds.entries.clear();
+        let mut entry = test_datastore_entry();
+        entry.channel_id = Some("channel-1".to_string());
+        entry.funding_psbt = Some("psbt-1".to_string());
+        entry.payment_hash = Some(test_payment_hash(1).to_string());
+        ds.entries.insert(test_scid().to_string(), entry);
+        let ds = Arc::new(ds);
+
+        // Channel reports as dead so the poll produces ChannelClosed.
+        let mgr = Arc::new(SessionManager::new(
+            ds.clone(),
+            Arc::new(MockExecutor::new_with_channel_alive(true, false)),
+            SessionConfig::default(),
+            Arc::new(NoopEventSink),
+        ));
+
+        let recovery = Arc::new(MockRecoveryProvider {
+            channel_exists: true,
+            forward_activity: ForwardActivity::Offered,
+        });
+        mgr.recover(recovery).await.unwrap();
+        assert_eq!(mgr.session_count().await, 1);
+
+        // Advance past the 5s poll interval, then let the actor process the
+        // resulting ChannelClosed and finalize.
+        tokio::time::sleep(Duration::from_secs(6)).await;
+        for _ in 0..100 {
+            tokio::task::yield_now().await;
+        }
+
+        let outcomes = ds.finalized_outcomes();
+        assert!(
+            outcomes
+                .iter()
+                .any(|(scid, o)| *scid == test_scid().to_string()
+                    && matches!(o, SessionOutcome::Abandoned)),
+            "recovered session should finalize as Abandoned, got {outcomes:?}"
+        );
     }
 
     #[tokio::test]

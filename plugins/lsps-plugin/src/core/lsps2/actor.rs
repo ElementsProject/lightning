@@ -418,16 +418,30 @@ impl<A: ActionExecutor + Clone + Send + 'static, D: DatastoreProvider + Clone + 
             return;
         }
 
+        // A recovered session skips the Collecting -> ForwardHtlcs path that
+        // normally starts the channel poll, so start it here for a session
+        // that already has a channel. Without it a recovered session never
+        // notices its channel closing.
+        if self.channel_poll_handle.is_none() {
+            if let Some(channel_id) = self.entry.channel_id.clone() {
+                self.start_channel_poll(channel_id);
+            }
+        }
+
         // Main loop: process inbox events from forward_event notifications
         // and htlc_accepted hook replays. AddPart must be handled: CLN
         // replays held-but-unresolved HTLCs on restart, and dropping the
-        // reply would make the manager treat this actor as dead.
+        // reply would make the manager treat this actor as dead. NewBlock and
+        // ChannelClosed must be handled too, so a recovered session still gets
+        // its CLTV check and abandons on channel death.
         while let Some(actor_input) = self.inbox.recv().await {
             let session_input = match &actor_input {
                 ActorInput::AddPart { .. }
                 | ActorInput::PaymentSettled { .. }
                 | ActorInput::PaymentFailed { .. }
-                | ActorInput::FundingBroadcasted { .. } => {
+                | ActorInput::FundingBroadcasted { .. }
+                | ActorInput::NewBlock { .. }
+                | ActorInput::ChannelClosed { .. } => {
                     self.convert_input(actor_input).await
                 }
                 _ => continue,
@@ -440,6 +454,7 @@ impl<A: ActionExecutor + Clone + Send + 'static, D: DatastoreProvider + Clone + 
             }
         }
 
+        self.cancel_channel_poll();
         self.release_pending_htlcs();
         Self::finalize(&self.session, &self.datastore, self.scid).await;
     }

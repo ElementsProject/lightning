@@ -1334,3 +1334,84 @@ def test_lsps2_part_on_foreign_scid_is_rejected(node_factory, bitcoind):
 
     # No jit channel was opened for the client.
     assert len(l1.rpc.listpeerchannels()["channels"]) == 0
+
+
+def test_lsps2_restart_settlement_channel_force_close_abandoned(node_factory, bitcoind):
+    """A recovered AwaitingSettlement session abandons when its channel dies.
+
+    After restart the session is recovered into AwaitingSettlement. The
+    recovery path must start the channel poll for it; when blocks are mined
+    past the outgoing HTLC's CLTV deadline CLN force-closes the JIT channel,
+    and the recovered session's poll must detect the closure and abandon.
+    Without the poll a recovered session would never notice the channel dying.
+    """
+    hold_plugin = os.path.join(os.path.dirname(__file__), "plugins/hold_htlcs.py")
+    l1, l2, l3, chanid = setup_lsps2_network(
+        node_factory,
+        bitcoind,
+        client_opts={"plugin": hold_plugin, "hold-time": 10000},
+        may_reconnect=True,
+    )
+    # JIT channels can trigger bookkeeper "Unable to calculate fees" on restart.
+    l2.broken_log = r"Unable to calculate fees collected"
+
+    amt = 10_000_000
+    dec, inv = buy_and_invoice(l1, l2, amt)
+    parts = 2
+    send_mpp(l3, l2.info["id"], l1.info["id"], chanid, dec, inv, amt, parts)
+
+    # Wait for l1 to hold HTLCs (channel funded, forwards offered).
+    l1.daemon.wait_for_log("Holding onto an incoming htlc for 10000 seconds")
+    wait_for(
+        lambda: (
+            len(
+                l2.rpc.listdatastore(["lsps", "lsps2", "sessions", "active"])[
+                    "datastore"
+                ]
+            )
+            > 0
+            and json.loads(
+                only_one(
+                    l2.rpc.listdatastore(["lsps", "lsps2", "sessions", "active"])[
+                        "datastore"
+                    ]
+                )["string"]
+            ).get("channel_id")
+            is not None
+        )
+    )
+
+    # Restart l2 → session recovered into AwaitingSettlement with its channel.
+    l2.restart()
+    l2.connect(l3)
+    try:
+        l2.connect(l1)
+    except RpcError:
+        pass
+
+    # Mine past the outgoing HTLC's CLTV deadline → l2 force-closes the JIT
+    # channel. The recovered session's poll must detect it and abandon.
+    bitcoind.generate_block(8)
+    l2.daemon.wait_for_log(
+        r"Peer permanent failure in CHANNELD_NORMAL.*cltv.*hit deadline"
+    )
+
+    wait_for(
+        lambda: (
+            len(
+                l2.rpc.listdatastore(["lsps", "lsps2", "sessions", "finalized"])[
+                    "datastore"
+                ]
+            )
+            > 0
+        )
+    )
+    ds = l2.rpc.listdatastore(["lsps", "lsps2", "sessions", "finalized"])
+    entry = json.loads(only_one(ds["datastore"])["string"])
+    assert entry["outcome"] == "Abandoned"
+
+    active = l2.rpc.listdatastore(["lsps", "lsps2", "sessions", "active"])
+    assert active["datastore"] == []
+
+    wait_for(lambda: len(l2.rpc.listpeerchannels(l1.info["id"])["channels"]) == 0)
+    assert not any(o["reserved"] for o in l2.rpc.listfunds()["outputs"])
