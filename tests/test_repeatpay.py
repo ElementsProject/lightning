@@ -136,6 +136,45 @@ def test_repeatpay_currency_budget(node_factory):
     assert not any([i['status'] == 'paid' for i in l2.rpc.listinvoices()['invoices']])
 
 
+def test_repeatpay_persistence(node_factory):
+    """Verify that repeatpay state survives a node restart and payments continue."""
+    l1, l2 = node_factory.line_graph(2, opts={'may_reconnect': True})
+
+    # 30-second recurrence so period 0 completes long before period 1 triggers,
+    # giving a clean restart window between the two payments.
+    offer = l2.rpc.call('offer', {'amount': '1msat',
+                                  'description': 'persist',
+                                  'recurrence': '30seconds',
+                                  'recurrence_limit': 4})['bolt12']
+
+    l1.rpc.repeatpay(bolt12=offer, maxamount='1000msat', label='persist')
+
+    # Wait for at least one payment AND status=ongoing (timer running, no payment
+    # in-flight).  Restarting during making_payment would replay the in-flight
+    # period after reload (the FIXME double-pay case).
+    def ready_to_restart():
+        r = only_one(l1.rpc.listrepeatpays(label='persist')['repeatpays'])
+        return r['payments_made'] >= 1 and r['status'] == 'ongoing'
+    wait_for(ready_to_restart, timeout=TIMEOUT)
+
+    before = only_one(l1.rpc.listrepeatpays(label='persist')['repeatpays'])
+    l1.restart()
+    # Reconnect so onion-message-based fetchinvoice can reach the offer node.
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    # After restart the entry must be present with stable fields intact.
+    after = only_one(l1.rpc.listrepeatpays(label='persist')['repeatpays'])
+    assert after['offer'] == before['offer']
+    assert after['label'] == before['label']
+    assert after['maxamount_msat'] == before['maxamount_msat']
+    assert after['payments_made'] >= before['payments_made']
+
+    # Payments must continue: wait for at least one more payment beyond pre-restart count.
+    wait_for(lambda: only_one(l1.rpc.listrepeatpays(label='persist')['repeatpays'])['payments_made']
+             > before['payments_made'],
+             timeout=30 + TIMEOUT)
+
+
 def test_recurring_currency_invoice_refresh(node_factory):
     """After currency-expiry seconds, a new invoice request gets a fresh invoice at
     the current rate; a request within that window returns the cached invoice."""
