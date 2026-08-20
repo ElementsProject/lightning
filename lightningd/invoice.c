@@ -1125,7 +1125,6 @@ static struct command_result *json_invoice(struct command *cmd,
 	struct jsonrpc_request *req;
 	struct plugin *plugin;
 	bool *hashonly;
-	const size_t inv_max_label_len = 128;
 	const jsmntok_t *dev_routes;
 
 	info = tal(cmd, struct invoice_info);
@@ -1150,11 +1149,6 @@ static struct command_result *json_invoice(struct command *cmd,
 	if (dev_routes && !cmd->ld->developer)
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "dev-routes requires --developer");
-
-	if (strlen(info->label->s) > inv_max_label_len) {
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "Label '%s' over %zu bytes", info->label->s, inv_max_label_len);
-	}
 
 	if (strlen(desc_val) > BOLT11_FIELD_BYTE_LIMIT && !*hashonly) {
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
