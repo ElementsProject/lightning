@@ -498,7 +498,7 @@ def test_node_bias_persistence(node_factory):
     ]
     assert l1.rpc.askrene_listlayers("mylayer") == {"layers": [expect]}
     # restarting the node we see the same data again
-    l2.restart()
+    l1.restart()
     assert l1.rpc.askrene_listlayers("mylayer") == {"layers": [expect]}
 
     r = l1.rpc.askrene_bias_node(
@@ -521,7 +521,7 @@ def test_node_bias_persistence(node_factory):
     assert l1.rpc.askrene_listlayers("mylayer") == {"layers": [expect]}
 
     # restarting the node we see the same data again
-    l2.restart()
+    l1.restart()
     assert l1.rpc.askrene_listlayers("mylayer") == {"layers": [expect]}
 
 

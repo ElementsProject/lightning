@@ -773,10 +773,10 @@ static void load_node_bias(struct plugin *plugin,
 				      &in_bias,
 				      &out_bias,
 				      &timestamp)) {
-		set_node_bias(layer, &node, take(description), in_bias,
+		set_node_bias(layer, &node, description, in_bias,
 			      /* relative = */ false,
 			      /* out dir = */ false, timestamp);
-		set_node_bias(layer, &node, take(description), out_bias,
+		set_node_bias(layer, &node, description, out_bias,
 			      /* relative = */ false,
 			      /* out dir = */ true, timestamp);
 	}
