@@ -1415,3 +1415,52 @@ def test_lsps2_restart_settlement_channel_force_close_abandoned(node_factory, bi
 
     wait_for(lambda: len(l2.rpc.listpeerchannels(l1.info["id"])["channels"]) == 0)
     assert not any(o["reserved"] for o in l2.rpc.listfunds()["outputs"])
+
+
+def test_lsps2_var_invoice_above_max_payment_size_rejected(node_factory, bitcoind):
+    """A variable-amount payment above the policy's max_payment_size is refused.
+
+    A variable-amount buy fixes no payment size at buy time, so the bound is
+    enforced against the actual first HTLC. A payment above the policy menu's
+    max_payment_size_msat must be failed, not funded.
+    """
+    l1, l2, l3, chanid = setup_lsps2_network(node_factory, bitcoind)
+
+    inv = l1.rpc.lsps_lsps2_invoice(
+        lsp_id=l2.info["id"],
+        amount_msat="any",
+        description="lsp-jit-var",
+        label=f"lsp-jit-var-{time.monotonic_ns()}",
+    )
+    dec = l3.rpc.decode(inv["bolt11"])
+    routehint = only_one(only_one(dec["routes"]))
+
+    # Above every menu option's max_payment_size_msat (largest is 100_000_000),
+    # so it is out of range whichever param the client selected.
+    amt = 200_000_000
+    route = [
+        {
+            "amount_msat": amt,
+            "id": l2.info["id"],
+            "delay": routehint["cltv_expiry_delta"] + 6,
+            "channel": chanid,
+        },
+        {
+            "amount_msat": amt,
+            "id": l1.info["id"],
+            "delay": 6,
+            "channel": routehint["short_channel_id"],
+        },
+    ]
+    l3.rpc.sendpay(
+        route,
+        dec["payment_hash"],
+        payment_secret=inv["payment_secret"],
+        bolt11=inv["bolt11"],
+        partid=0,
+    )
+    with pytest.raises(RpcError):
+        l3.rpc.waitsendpay(dec["payment_hash"], timeout=60)
+
+    # The oversized payment must not open a channel.
+    assert len(l1.rpc.listpeerchannels()["channels"]) == 0

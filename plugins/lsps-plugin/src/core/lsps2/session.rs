@@ -398,6 +398,25 @@ impl Session {
                                 events,
                             });
                         }
+                        // A variable-amount buy fixes no payment_size at buy
+                        // time, so the policy's payment-size bounds were never
+                        // checked against it. The effective size is this
+                        // HTLC's amount; enforce the bounds now.
+                        if parts_sum < self.opening_fee_params.min_payment_size_msat
+                            || parts_sum > self.opening_fee_params.max_payment_size_msat
+                        {
+                            self.state = SessionState::Failed;
+                            events.push(SessionEvent::SessionFailed);
+                            return Ok(ApplyResult {
+                                actions: vec![
+                                    SessionAction::FailHtlcs {
+                                        failure_code: UNKNOWN_NEXT_PEER,
+                                    },
+                                    SessionAction::FailSession,
+                                ],
+                                events,
+                            });
+                        }
                         true
                     }
                     Some(_) => {
@@ -1027,6 +1046,44 @@ mod tests {
                 n_parts: 1,
                 parts_sum: Msat::from_msat(1_000),
             }]
+        );
+    }
+
+    #[test]
+    fn variable_amount_above_max_payment_size_fails() {
+        // A variable-amount buy fixes no payment_size at buy time, so the
+        // policy's max_payment_size_msat is never enforced against it there.
+        // The first HTLC's amount must be bounded here, or a payment larger
+        // than the sized capacity is accepted.
+        let mut params = opening_fee_params(1, 1_000);
+        params.max_payment_size_msat = Msat::from_msat(50_000_000);
+        let mut s = Session {
+            state: SessionState::Collecting { parts: vec![] },
+            max_parts: 3,
+            opening_fee_params: params,
+            payment_size_msat: None,
+            channel_capacity_msat: Msat::from_msat(100_000_000),
+            peer_id: "peer-1".to_owned(),
+        };
+
+        let res = s
+            .apply(SessionInput::AddPart {
+                part: part(1, 60_000_000),
+            })
+            .unwrap();
+
+        assert!(
+            matches!(s.state, SessionState::Failed),
+            "over-max variable payment must fail the session, got {:?}",
+            s.state
+        );
+        assert!(
+            res.actions.iter().any(|a| matches!(
+                a,
+                SessionAction::FailHtlcs { failure_code } if *failure_code == UNKNOWN_NEXT_PEER
+            )),
+            "must fail HTLCs with unknown_next_peer, got {:?}",
+            res.actions
         );
     }
 
