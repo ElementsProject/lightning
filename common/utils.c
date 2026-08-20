@@ -137,7 +137,7 @@ void clean_tmpctx(void)
 
 void tal_arr_remove_(void *p, size_t elemsize, size_t n)
 {
-    // p is a pointer-to-pointer for tal_resize.
+    /* p is a pointer-to-pointer for tal_resize. */
     char *objp = *(char **)p;
     size_t len = tal_bytelen(objp);
     assert(len % elemsize == 0);
@@ -149,7 +149,7 @@ void tal_arr_remove_(void *p, size_t elemsize, size_t n)
 
 void tal_arr_remove_range_(void *p, size_t position, size_t chunk_size)
 {
-	// p is a pointer-to-pointer for tal_resize.
+	/* p is a pointer-to-pointer for tal_resize. */
 	char *objp = *(char **)p;
 	size_t len = tal_bytelen(objp);
 	assert(chunk_size + position <= len);
