@@ -153,18 +153,21 @@ $(shell test -d plugins/clnrest && $(RM) -r plugins/clnrest || true)
 $(shell test -d plugins/wss-proxy && $(RM) -r plugins/wss-proxy || true)
 
 ifneq ($(RUST),0)
-RUST_PLUGIN_NAMES := cln-grpc clnrest cln-lsps-client cln-lsps-service cln-lsps-policy wss-proxy cln-bip353 cln-currencyrate
+RUST_PLUGIN_NAMES := cln-grpc clnrest cln-lsps-client cln-lsps-service wss-proxy cln-bip353 cln-currencyrate
+
+RUST_OPTIONAL_PLUGIN_NAMES := cln-lsps-policy
 
 # Builtin plugins must be in this plugins dir to work when we're executed
 # *without* make install.
 RUST_PLUGINS := $(addprefix plugins/,$(RUST_PLUGIN_NAMES))
-$(RUST_PLUGINS): plugins/%: $(RUST_TARGET_DIR)/%
+RUST_OPTIONAL_PLUGINS := $(addprefix plugins/,$(RUST_OPTIONAL_PLUGIN_NAMES))
+$(RUST_PLUGINS) $(RUST_OPTIONAL_PLUGINS): plugins/%: $(RUST_TARGET_DIR)/%
 	@cp $< $@
 
 PLUGINS += $(RUST_PLUGINS)
 
 # You don't need the originals if you have the final ones.
-.INTERMEDIATE: $(RUST_PLUGIN_NAMES:%=$(RUST_TARGET_DIR)/%)
+.INTERMEDIATE: $(RUST_PLUGIN_NAMES:%=$(RUST_TARGET_DIR)/%) $(RUST_OPTIONAL_PLUGIN_NAMES:%=$(RUST_TARGET_DIR)/%)
 endif # RUST
 
 include plugins/askrene/Makefile
@@ -304,7 +307,7 @@ endif
 
 clean: plugins-clean
 plugins-clean:
-	$(RM) $(PLUGINS) $(CLN_PLUGIN_EXAMPLES)
+	$(RM) $(PLUGINS) $(CLN_PLUGIN_EXAMPLES) $(RUST_OPTIONAL_PLUGINS)
 	$(RM) plugins/sql-schema_gen.h
 
 include plugins/test/Makefile
