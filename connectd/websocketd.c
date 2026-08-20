@@ -90,7 +90,7 @@ bad_http(int fd, const char *fmt, ...)
 static const char *get_http_hdr(const tal_t *ctx, const u8 *buf, size_t buflen,
 				const char *hdrname)
 {
-	size_t hdrlen;
+	size_t hdrlen, hdrnamelen = strlen(hdrname);
 
 	for (;;) {
 		const u8 *end = memmem(buf, buflen, "\r\n", 2);
@@ -99,16 +99,18 @@ static const char *get_http_hdr(const tal_t *ctx, const u8 *buf, size_t buflen,
 		/* Empty line?  End of headers. */
 		if (hdrlen == 0)
 			return NULL;
-		/* header name followed by : */
-		if (memstarts(buf, hdrlen, hdrname, strlen(hdrname))
-		    && buf[strlen(hdrname)] == ':')
+		/* Header name (ASCII case-insensitive, RFC 9110 #5.1)
+		 * followed by ':'. */
+		if (hdrlen > hdrnamelen
+		    && strncasecmp((const char *)buf, hdrname, hdrnamelen) == 0
+		    && buf[hdrnamelen] == ':')
 			break;
 		buf = end + 2;
 		buflen -= hdrlen + 2;
 	}
 
-	buf += strlen(hdrname) + 1;
-	hdrlen -= strlen(hdrname) + 1;
+	buf += hdrnamelen + 1;
+	hdrlen -= hdrnamelen + 1;
 
 	/* Ignore leading whitespace (technically, they can split
 	 * fields over multiple lines, but that's silly for the fields
@@ -160,10 +162,10 @@ static void http_respond(int fd, const u8 *buf, size_t len)
 	   6.   A |Sec-WebSocket-Version| header field, with a value of 13.
 	*/
 	hdr = get_http_hdr(tmpctx, buf, len, "Upgrade");
-	if (!hdr || !strstr(hdr, "websocket"))
+	if (!hdr || !strcasestr(hdr, "websocket"))
 		bad_http(fd, "Upgrade: websocket missing");
 	hdr = get_http_hdr(tmpctx, buf, len, "Connection");
-	if (!hdr || !strstr(hdr, "Upgrade"))
+	if (!hdr || !strcasestr(hdr, "Upgrade"))
 		bad_http(fd, "Connection: Upgrade missing");
 	hdr = get_http_hdr(tmpctx, buf, len, "Sec-WebSocket-Version");
 	if (!hdr || !streq(hdr, "13"))
