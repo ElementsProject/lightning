@@ -1023,8 +1023,29 @@ static enum watch_result opening_depth_cb(struct lightningd *ld,
 	 * between saw a mixed state and happily locked in whatever RBF candidate
 	 * was last negotiated, which may never have been mined at all. */
 	if (depth >= channel->minimum_depth) {
+		struct amount_msat our_msat;
+
 		assert(inflight->scid);
 		update_channel_from_inflight(ld, channel, inflight, false);
+
+		/*~ Balances only ever move with the *latest* RBF attempt:
+		 * wallet_update_channel() writes our_msat/msat_to_us_min/
+		 * msat_to_us_max whenever a new attempt is negotiated.  If a
+		 * non-last candidate is the one that got mined, they'd name a
+		 * different contribution than the funding we just promoted to,
+		 * and peer_start_channeld() would hand channeld a balance the
+		 * peer doesn't agree with.  Recompute them from the promoted
+		 * inflight's contribution; a fresh channel has no payment
+		 * history, so min == max == our_msat. */
+		if (!amount_sat_to_msat(&our_msat, channel->our_funds)) {
+			channel_internal_error(channel,
+					       "Unable to convert funds");
+			return DELETE_WATCH;
+		}
+		channel->our_msat = our_msat;
+		channel->msat_to_us_min = our_msat;
+		channel->msat_to_us_max = our_msat;
+
 		channel_apply_scid(channel, &inflight->funding->outpoint,
 				   *inflight->scid);
 	}
@@ -1041,20 +1062,16 @@ static enum watch_result opening_reorged_cb(struct lightningd *ld, struct channe
 	log_info(channel->log, "Candidate funding tx was in a block, now reorged out");
 	inflight->scid = tal_free(inflight->scid);
 
-	/*~ If this candidate had already been promoted to *the* channel's
-	 * funding (ie. it was deep enough), the reorg un-promotes it: clear
-	 * the scid (it named the block that just went away, and its mere
-	 * presence makes reestablish claim local_channel_ready) and fall the
-	 * channel back to the newest candidate, exactly as if the promotion
-	 * never happened.  If the reorged one re-mines, dual_funding_found
-	 * simply promotes it again. */
+	/*~ If this candidate had been promoted (ie. it was deep enough),
+	 * un-promote it: the scid is what makes reestablish claim
+	 * local_channel_ready.  Leave channel->funding alone, it names the
+	 * only candidate we ever saw mined.  channel_set_scid doesn't
+	 * persist, so save explicitly. */
 	if (channel->scid
 	    && bitcoin_outpoint_eq(&channel->funding,
 				   &inflight->funding->outpoint)) {
 		channel_set_scid(channel, NULL);
-		update_channel_from_inflight(ld, channel,
-					     channel_current_inflight(channel),
-					     false);
+		wallet_channel_save(ld->wallet, channel);
 	}
 	return DELETE_WATCH;
 }
@@ -2002,7 +2019,25 @@ static void handle_channel_locked(struct subd *dualopend,
 	}
 	peer_fd = new_peer_fd_arr(tmpctx, fds);
 
-	assert(channel->scid);
+	/*~ If the promoted candidate was reorged out, our scid is NULL again,
+	 * but dualopend still carried the (pre-reorg) local ready bit: it just
+	 * combined it with their re-arriving channel_ready and exited having
+	 * "locked in" -- which without a restart would leave the channel stuck
+	 * awaiting lockin forever.  Restart it over the peer fd it handed us,
+	 * seeded with the truth (local ready is scid != NULL, remote ready is
+	 * the latch).  from_abort=true skips the reestablish dance since we're
+	 * still connected; when a candidate re-mines the depth callback fires
+	 * DEPTH_REACHED and this time CHANNEL_LOCKED lands with a scid. */
+	if (!channel->scid) {
+		log_unusual(channel->log,
+			    "Peer locked in, but our scid is gone (candidate"
+			    " reorged); restarting dualopend to await re-mine");
+		if (!peer_restart_dualopend(channel->peer, peer_fd, channel,
+					    /*from_abort=*/true))
+			log_broken(channel->log,
+				   "Lockin deferred, but dualopend restart failed");
+		return;
+	}
 	assert(channel->remote_channel_ready);
 
 	/*~ We deliberately don't cross-check channel->funding against the
