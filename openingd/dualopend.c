@@ -103,6 +103,9 @@ struct tx_state {
 	/* Have we gotten the peer's tx-sigs yet? */
 	bool remote_funding_sigs_rcvd;
 
+	/* Have we sent our tx_signatures to the peer? */
+	bool local_funding_sigs_sent;
+
 	/* Have we gotten the peer's commitments yet? */
 	bool has_commitments;
 
@@ -133,6 +136,7 @@ static struct tx_state *new_tx_state(const tal_t *ctx)
 	struct tx_state *tx_state = tal(ctx, struct tx_state);
 	tx_state->psbt = NULL;
 	tx_state->remote_funding_sigs_rcvd = false;
+	tx_state->local_funding_sigs_sent = false;
 	tx_state->has_commitments = false;
 
 	tx_state->lease_expiry = 0;
@@ -1472,6 +1476,7 @@ static void handle_send_tx_sigs(struct state *state, const u8 *msg)
 	/*  Send our sigs to peer */
 	msg = psbt_to_tx_sigs_msg(tmpctx, state, tx_state->psbt);
 	peer_write(state->pps, take(msg));
+	tx_state->local_funding_sigs_sent = true;
 
 	/* Notify lightningd that we've sent sigs */
 	wire_sync_write(REQ_FD, take(towire_dualopend_tx_sigs_sent(NULL)));
@@ -4112,6 +4117,7 @@ static void do_reconnect_dance(struct state *state)
 			if (send_our_sigs && psbt_side_finalized(tx_state->psbt, state->our_role)) {
 				msg = psbt_to_tx_sigs_msg(NULL, state, tx_state->psbt);
 				peer_write(state->pps, take(msg));
+				tx_state->local_funding_sigs_sent = true;
 
 				/* Notify lightningd that we've (re)sent sigs */
 				wire_sync_write(REQ_FD, take(towire_dualopend_tx_sigs_sent(NULL)));
@@ -4477,7 +4483,8 @@ int main(int argc, char *argv[])
 					     &state->channel_type,
 					     &state->require_confirmed_inputs[LOCAL],
 					     &state->require_confirmed_inputs[REMOTE],
-					     &state->local_alias)) {
+					     &state->local_alias,
+					     &state->tx_state->local_funding_sigs_sent)) {
 
 		bool ok;
 

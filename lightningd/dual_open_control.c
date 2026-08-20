@@ -4393,7 +4393,8 @@ bool peer_restart_dualopend(struct peer *peer,
 				      channel->type,
 				      channel->req_confirmed_ins[LOCAL],
 				      channel->req_confirmed_ins[REMOTE],
-				      *channel->alias[LOCAL]);
+				      *channel->alias[LOCAL],
+				      inflight->i_sent_sigs);
 
 	subd_send_msg(channel->owner, take(msg));
 	return true;

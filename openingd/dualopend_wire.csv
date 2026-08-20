@@ -86,6 +86,7 @@ msgdata,dualopend_reinit,channel_type,channel_type,
 msgdata,dualopend_reinit,we_require_confirmed_inputs,bool,
 msgdata,dualopend_reinit,they_require_confirmed_inputs,bool,
 msgdata,dualopend_reinit,local_alias,short_channel_id,
+msgdata,dualopend_reinit,local_funding_sigs_sent,bool,
 
 # dualopend->master: they offered channel, should we continue?
 msgtype,dualopend_got_offer,7005
