@@ -3089,3 +3089,77 @@ def test_no_retransmit_confirmed_funding(node_factory):
     # Should not have attempted (and failed) to re-broadcast the funding tx.
     assert not l1.daemon.is_in_log('Failed to re-transmit funding tx')
     assert not l1.daemon.is_in_log('Successfully rexmitted funding tx')
+
+
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_signpsbt_taproot_no_outputs_does_not_crash(node_factory, bitcoind):
+    """signpsbt on an output-less PSBT must fail the RPC, not kill the node.
+
+    utxopsbt(satoshi="all") hands back a template with inputs but no
+    outputs. A taproot sighash commits to the outputs, so libwally cannot
+    sign it (expected). What is not expected is that hsmd turns
+    that refusal into hsmd_status_failed(), which takes the whole node down.
+
+    The number of inputs is irrelevant here: one taproot input is enough.
+    """
+    l1 = node_factory.get_node()
+
+    amount = 200000
+    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr('all')['p2tr'], amount / 10 ** 8)
+    bitcoind.generate_block(1)
+
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 1)
+    bitcoind.generate_block(6)
+
+    tx_list = ["{}:{}".format(o['txid'], o['output'])
+               for o in l1.rpc.listfunds()['outputs']]
+
+    psbt = l1.rpc.utxopsbt("all", "300perkw", 1000, tx_list)['psbt']
+
+    # Don't match on the message: depending on which failure wins the race
+    # we see either "Connection to RPC server lost" or "HSM gave bad
+    # sign_withdrawal_reply".
+    with pytest.raises(RpcError):
+        l1.rpc.signpsbt(psbt)
+
+    # FIXME: hsmd hits a wally_err in sign_our_inputs() and calls
+    # hsmd_status_failed(STATUS_FAIL_INTERNAL_ERROR), so the node is gone by
+    # now and this raises instead of returning.  It should have rejected the
+    # PSBT and stayed up.
+    assert l1.rpc.getinfo()['id'] is not None
+
+
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_signpsbt_multiple_taproot_inputs(node_factory, bitcoind):
+    """signpsbt must produce a valid signature for every taproot input."""
+    l1 = node_factory.get_node()
+
+    amount = 200000
+    bitcoind.rpc.sendmany("",
+                          {l1.rpc.newaddr('all')['p2tr']: amount / 10 ** 8,
+                           l1.rpc.newaddr('all')['p2tr']: amount / 10 ** 8})
+    bitcoind.generate_block(1)
+
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 2)
+    bitcoind.generate_block(6)
+
+    tx_list = ["{}:{}".format(o['txid'], o['output'])
+               for o in l1.rpc.listfunds()['outputs']]
+
+    # Leave the excess as a change output
+    psbt = l1.rpc.utxopsbt(amount // 2, "300perkw", 1000, tx_list,
+                           excess_as_change=True)['psbt']
+    signed = l1.rpc.signpsbt(psbt)['signed_psbt']
+
+    # Every input must actually carry a taproot key-path signature
+    decoded = bitcoind.rpc.decodepsbt(l1.rpc.setpsbtversion(signed, 0)['psbt'])
+    assert len(decoded['inputs']) == 2
+    for inp in decoded['inputs']:
+        assert 'taproot_key_path_sig' in inp
+
+    l1.rpc.sendpsbt(signed)
+    bitcoind.generate_block(1, wait_for_mempool=1)
