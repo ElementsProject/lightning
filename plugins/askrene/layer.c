@@ -669,7 +669,7 @@ static void load_channel_impression(struct plugin *plugin,
 	struct amount_msat amount;
 	u64 timestamp;
 
-	if (fromwire_dstore_channel_impression(tmpctx, cursor, len,
+	if (fromwire_dstore_channel_impression(cursor, len,
 						     &scidd, &timestamp,
 						     &amount))
 		add_impression(layer, &scidd, timestamp, amount);

@@ -216,8 +216,7 @@ void towire_dstore_channel_constraint(u8 **data,
 	towire_opt_amount_msat(data, max);
 }
 
-bool fromwire_dstore_channel_impression(const tal_t *ctx,
-					const u8 **cursor, size_t *len,
+bool fromwire_dstore_channel_impression(const u8 **cursor, size_t *len,
 					struct short_channel_id_dir *scidd,
 					u64 *timestamp,
 					struct amount_msat *amount)
