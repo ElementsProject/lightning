@@ -1,10 +1,11 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
+  "added": "v22.11",
   "rpc": "reckless",
-  "title": "Issue a command to the reckless plugin manager utility",
+  "title": "Reckless, a plugin manager",
   "description": [
-    "The **reckless** RPC starts a reckless process with the *command* and *target* provided.  Node configuration, network, and lightning direrctory are automatically passed to the reckless utility."
+    "The **reckless** RPC lets you manage plugins. It has multiple commands available, best described in the **help** command."
   ],
   "request": {
     "required": [
@@ -16,63 +17,411 @@
         "type": "string",
         "enum": [
           "install",
+          "update",
           "uninstall",
-          "search",
+          "listavailable",
+          "listinstalled",
           "enable",
           "disable",
           "source",
-          "--version"
+          "tip",
+          "help"
         ],
         "description": [
           "Determines which command to pass to reckless",
           "  - *command* **install** takes a *plugin_name* to search for and install a named plugin.",
           "  - *command* **uninstall** takes a *plugin_name* and attempts to uninstall a plugin of the same name.",
-          "  - *command* **search** takes a *plugin_name* to search for a named plugin.",
+          "  - *command* **help** takes a *command* to display help for (plain text).",
           "..."
         ]
       },
-      "target/subcommand": {
-        "oneOf": [
-          {
-            "type": "string"
-          },
-          {
-            "type": "array"
-          }
+      "subcommand": {
+        "type": "string",
+        "enum": [
+          "add",
+          "list",
+          "remove"
         ],
         "description": [
-          "Target of a reckless command or a subcommand."
+          "A subcommand. Only in combination with *command* **source**."
         ]
       },
       "target": {
-        "oneOf": [
-          {
-            "type": "string"
-          },
-          {
-            "type": "array"
-          }
-        ],
+        "type": "string",
         "description": [
-          "*name* of a plugin to install/uninstall/search/enable/disable or source to add/remove."
+          "*name* of a plugin to install/update/uninstall/listavailable/enable/disable or source to add/remove. Can also have a git ref added with `<name>@<ref>` to install a specific version."
+        ]
+      },
+      "options": {
+        "type": "array",
+        "added": "v26.09",
+        "items": {
+          "type": "string"
+        },
+        "description": [
+          "Plugin options to be used with the commands **install**/**update**/**enable** in the form of `key=value`."
+        ]
+      },
+      "amount_msat": {
+        "type": "msat",
+        "added": "v26.09",
+        "description": [
+          "The amount of msat to send when using the *command* **tip**."
+        ]
+      },
+      "payer_note": {
+        "type": "string",
+        "added": "v26.09",
+        "description": [
+          "A message that a payer is willing to send to a payee when using the *command* **tip**."
+        ]
+      },
+      "verbose": {
+        "type": "boolean",
+        "added": "v26.09",
+        "description": [
+          "Verbose output for all logging outputs for this command."
+        ]
+      },
+      "developer": {
+        "type": "boolean",
+        "added": "v26.09",
+        "description": [
+          "Build plugins in debug mode and do not clean up build files where applicable."
         ]
       }
     }
   },
   "response": {
     "required": [
-      "log",
-      "result"
+      "log"
     ],
     "additionalProperties": false,
     "properties": {
-      "result": {
+      "install": {
+        "type": "object",
+        "added": "v26.09",
+        "properties": {
+          "plugin_name": {
+            "type": "string",
+            "description": [
+              "The name of the plugin that was installed."
+            ]
+          },
+          "enabled": {
+            "type": "boolean",
+            "description": [
+              "Whether the plugin was enabled or not."
+            ]
+          },
+          "installed_commit": {
+            "type": "string",
+            "description": [
+              "The git ref that was installed. Only present if source is a remote git repository."
+            ]
+          }
+        },
+        "required": [
+          "plugin_name",
+          "enabled"
+        ],
+        "additionalProperties": false
+      },
+      "update": {
         "type": "array",
+        "added": "v26.09",
+        "items": {
+          "type": "object",
+          "properties": {
+            "plugin_name": {
+              "type": "string",
+              "description": [
+                "The name of the plugin that was updated."
+              ]
+            },
+            "enabled": {
+              "type": "boolean",
+              "description": [
+                "Whether the plugin was enabled or not."
+              ]
+            },
+            "installed_commit": {
+              "type": "string",
+              "description": [
+                "The git ref that the plugin was updated to. Only present if source is a remote git repository."
+              ]
+            }
+          },
+          "required": [
+            "plugin_name",
+            "enabled"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "uninstall": {
+        "type": "object",
+        "added": "v26.09",
+        "properties": {
+          "plugin_name": {
+            "type": "string",
+            "description": [
+              "The name of the plugin that was uninstalled."
+            ]
+          }
+        },
+        "required": [
+          "plugin_name"
+        ],
+        "additionalProperties": false
+      },
+      "enable": {
+        "type": "object",
+        "added": "v26.09",
+        "properties": {
+          "plugin_name": {
+            "type": "string",
+            "description": [
+              "The name of the plugin that was enabled."
+            ]
+          }
+        },
+        "required": [
+          "plugin_name"
+        ],
+        "additionalProperties": false
+      },
+      "disable": {
+        "type": "object",
+        "added": "v26.09",
+        "properties": {
+          "plugin_name": {
+            "type": "string",
+            "description": [
+              "The name of the plugin that was disabled."
+            ]
+          }
+        },
+        "required": [
+          "plugin_name"
+        ],
+        "additionalProperties": false
+      },
+      "listavailable": {
+        "type": "array",
+        "added": "v26.09",
+        "items": {
+          "type": "object",
+          "properties": {
+            "plugin_name": {
+              "type": "string",
+              "description": [
+                "The name of the plugin that was listed."
+              ]
+            },
+            "installer": {
+              "type": "string",
+              "enum": [
+                "PythonUv",
+                "PythonUvShebang",
+                "PythonUvLegacy",
+                "PoetryVenv",
+                "PyprojectViaPip",
+                "Python",
+                "Nodejs",
+                "Rust",
+                "Go",
+                "Custom"
+              ],
+              "description": [
+                "The name of the plugin installer that will be used."
+              ]
+            },
+            "manifest": {
+              "type": "object",
+              "properties": {
+                "short_description": {
+                  "type": "string",
+                  "description": [
+                    "A short description of the plugin."
+                  ]
+                },
+                "long_description": {
+                  "type": "string",
+                  "description": [
+                    "A long description of the plugin."
+                  ]
+                },
+                "entrypoint": {
+                  "type": "string",
+                  "description": [
+                    "The entrypoint for the plugin."
+                  ]
+                },
+                "dependencies": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": [
+                    "Programs needed to install this plugin."
+                  ]
+                },
+                "install_cmd": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": [
+                    "Custom commands needed to install this plugin, if the default installers do not work."
+                  ]
+                },
+                "required_options": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": [
+                    "Options needed to install this plugin."
+                  ]
+                },
+                "offer": {
+                  "type": "string",
+                  "description": [
+                    "An offer for users to tip for this plugin."
+                  ]
+                },
+                "installable": {
+                  "type": "boolean",
+                  "description": [
+                    "Whether this plugin is reckless-installable."
+                  ]
+                }
+              },
+              "required": [
+                "entrypoint"
+              ],
+              "additionalProperties": false
+            },
+            "origin": {
+              "type": "string",
+              "description": [
+                "The origin of the plugin."
+              ]
+            }
+          },
+          "required": [
+            "plugin_name",
+            "installer",
+            "manifest",
+            "origin"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "listinstalled": {
+        "type": "array",
+        "added": "v26.09",
+        "items": {
+          "type": "object",
+          "properties": {
+            "plugin_name": {
+              "type": "string",
+              "description": [
+                "The name of the plugin that was listed."
+              ]
+            },
+            "installation_date": {
+              "type": "string",
+              "description": [
+                "The date the plugin was installed."
+              ]
+            },
+            "installation_time": {
+              "type": "number",
+              "description": [
+                "The timestamp the plugin was installed."
+              ]
+            },
+            "original_source": {
+              "type": "string",
+              "description": [
+                "The original source of the plugin."
+              ]
+            },
+            "requested_commit": {
+              "type": "string",
+              "description": [
+                "The git ref that was requested to be installed."
+              ]
+            },
+            "installed_commit": {
+              "type": "string",
+              "description": [
+                "The git ref that was installed."
+              ]
+            }
+          },
+          "required": [
+            "plugin_name",
+            "installation_date",
+            "installation_time",
+            "original_source"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "sources": {
+        "type": "array",
+        "added": "v26.09",
         "items": {
           "type": "string"
         },
         "description": [
-          "Output of the requested reckless command."
+          "The list of current sources."
+        ]
+      },
+      "tip": {
+        "type": "object",
+        "added": "v26.09",
+        "properties": {
+          "payment_preimage": {
+            "type": "secret",
+            "description": [
+              "The proof of payment: SHA256 of this **payment_hash**."
+            ]
+          },
+          "failed_parts": {
+            "type": "u64",
+            "description": [
+              "How many separate payment parts failed."
+            ]
+          },
+          "successful_parts": {
+            "type": "u64",
+            "description": [
+              "How many separate payment parts succeeded (or are anticipated to succeed).  This will be at least one."
+            ]
+          },
+          "amount_msat": {
+            "type": "msat",
+            "description": [
+              "Amount the recipient received."
+            ]
+          },
+          "amount_sent_msat": {
+            "type": "msat",
+            "description": [
+              "Total amount we sent (including fees)."
+            ]
+          }
+        },
+        "required": [
+          "payment_preimage",
+          "failed_parts",
+          "successful_parts",
+          "amount_msat",
+          "amount_sent_msat"
         ]
       },
       "log": {
@@ -81,13 +430,14 @@
           "type": "string"
         },
         "description": [
-          "Verbose log entries of the requested reckless command."
+          "Log entries of the requested reckless command."
         ]
       }
     }
   },
   "author": [
-    "Alex Myers [alex@endothermic.dev](mailto:alex@endothermic.dev) is mainly responsible."
+    "Alex Myers [alex@endothermic.dev](mailto:alex@endothermic.dev) is mainly responsible for the original python reckless.",
+    "daywalker90 [daywalker990@gmx.de](mailto:daywalker990@gmx.de) is mainly responsible for the current rust reckless."
   ],
   "see_also": [
     "reckless(1)"
@@ -101,90 +451,82 @@
         "id": "example:reckless#1",
         "method": "reckless",
         "params": {
-          "command": "search",
-          "target/subcommand": "backup"
+          "command": "install",
+          "target": "summary"
         }
       },
       "response": {
-        "result": [
-          "https://github.com/lightningd/plugins"
-        ],
+        "install": {
+          "enabled": false,
+          "installed_commit": "002761088174c151237e8a847c50603db20d5abf",
+          "plugin_name": "summary"
+        },
         "log": [
-          "DEBUG: Warning: Reckless requires write access",
-          "DEBUG: fetching from gh API: https://api.github.com/repos/lightningd/plugins/contents/",
-          "DEBUG: fetching from gh API: https://api.github.com/repos/lightningd/plugins/git/trees/294f93d7060799439c994daa84f534c4d1458325",
-          "INFO: found backup in source: https://github.com/lightningd/plugins",
-          "DEBUG: entry: None",
-          "DEBUG: sub-directory: backup"
+          "INFO: running command: `git clone --recursive https://github.com/lightningd/plugins /tmp/ltests-88arihe3/test_generate_examples_1/lightning-1/reckless/lightningd/plugins`",
+          "<snip>",
+          "INFO: running command: `git submodule sync --recursive` (cwd: /tmp/ltests-88arihe3/test_generate_examples_1/lightning-1/reckless/lightningd/plugins)",
+          "<snip>",
+          "INFO: running command: `git submodule update --init --recursive` (cwd: /tmp/ltests-88arihe3/test_generate_examples_1/lightning-1/reckless/lightningd/plugins)",
+          "WARNING: could not detect installer for /tmp/ltests-88arihe3/test_generate_examples_1/lightning-1/reckless/lightningd/plugins: entryfile not found",
+          "INFO: Plugins matching 'summary':",
+          "INFO:   summary (https://github.com/lightningd/plugins)",
+          "INFO: found summary in source: https://github.com/lightningd/plugins",
+          "INFO: running command: `git pull --ff-only` (cwd: /tmp/ltests-88arihe3/test_generate_examples_1/lightning-1/reckless/lightningd/plugins)",
+          "INFO: Already up to date.",
+          "INFO: running command: `git submodule sync --recursive` (cwd: /tmp/ltests-88arihe3/test_generate_examples_1/lightning-1/reckless/lightningd/plugins)",
+          "<snip>",
+          "INFO: running command: `git submodule update --init --recursive` (cwd: /tmp/ltests-88arihe3/test_generate_examples_1/lightning-1/reckless/lightningd/plugins)",
+          "INFO: running command: `git checkout HEAD` (cwd: /tmp/ltests-88arihe3/test_generate_examples_1/lightning-1/reckless/lightningd/plugins/summary)",
+          "INFO: Your branch is up to date with 'origin/master'.",
+          "INFO: using installer pythonuvshebang",
+          "INFO: running command: `git rev-parse HEAD` (cwd: /tmp/ltests-88arihe3/test_generate_examples_1/lightning-1/reckless/lightningd/plugins/summary)",
+          "INFO: 002761088174c151237e8a847c50603db20d5abf",
+          "INFO: plugin installed: /tmp/ltests-88arihe3/test_generate_examples_1/lightning-1/reckless/summary/summary.py",
+          "WARNING: plugin exited before sending getmanifest response",
+          "WARNING: summary failed to start, it may require options, read the logs!"
         ]
       }
     },
     {
       "request": {
-        "id": "example:reckless#2",
+        "id": "example:reckless#1",
         "method": "reckless",
         "params": {
-          "command": "install",
-          "target/subcommand": [
-            "summars",
-            "currecyrate"
-          ]
+          "command": "tip",
+          "target": "summary",
+          "amount_msat": 1000,
+          "payer_note": "thanks!"
         }
       },
       "response": {
-        "result": [
-          "/tmp/l1/reckless/summars",
-          "/tmp/l1/reckless/currencyrate"
-        ],
+        "tip": {
+          "amount_msat": 1000,
+          "amount_sent_msat": 1000,
+          "failed_parts": 0,
+          "payment_preimage": "940148d45ce964205c289a215d2b45e7bad32caa4318eb1977184fe424d04a00",
+          "successful_parts": 1
+        },
         "log": [
-          "DEBUG: Searching for summars",
-          "DEBUG: fetching from gh API: https://api.github.com/repos/lightningd/plugins/contents/",
-          "DEBUG: fetching from gh API: https://api.github.com/repos/lightningd/plugins/git/trees/294f93d7060799439c994daa84f534c4d1458325",
-          "INFO: found summars in source: https://github.com/lightningd/plugins",
-          "DEBUG: entry: None",
-          "DEBUG: sub-directory: summars",
-          "DEBUG: Retrieving summars from https://github.com/lightningd/plugins",
-          "DEBUG: Install requested from InstInfo(summars, https://github.com/lightningd/plugins, None, None, None, summars).",
-          "INFO: cloning Source.GITHUB_REPO InstInfo(summars, https://github.com/lightningd/plugins, None, None, None, summars)",
-          "DEBUG: cloned_src: InstInfo(summars, /tmp/reckless-726255950dyifh_fh/clone, None, Cargo.toml, Cargo.toml, summars/summars)",
-          "DEBUG: using latest commit of default branch",
-          "DEBUG: checked out HEAD: 5e449468bd57db7d0f33178fe0dc867e0da94133",
-          "DEBUG: using installer rust",
-          "DEBUG: creating /tmp/l1/reckless/summars",
-          "DEBUG: creating /tmp/l1/reckless/summars/source",
-          "DEBUG: copying /tmp/reckless-726255950dyifh_fh/clone/summars/summars tree to /tmp/l1/reckless/summars/source/summars",
-          "DEBUG: linking source /tmp/l1/reckless/summars/source/summars/Cargo.toml to /tmp/l1/reckless/summars/Cargo.toml",
-          "DEBUG: InstInfo(summars, /tmp/l1/reckless/summars, None, Cargo.toml, Cargo.toml, source/summars)",
-          "DEBUG: cargo installing from /tmp/l1/reckless/summars/source/summars",
-          "DEBUG: rust project compiled successfully",
-          "INFO: plugin installed: /tmp/l1/reckless/summars",
-          "DEBUG: activating summars",
-          "INFO: summars enabled",
-          "DEBUG: Searching for currencyrate",
-          "DEBUG: fetching from gh API: https://api.github.com/repos/lightningd/plugins/contents/",
-          "DEBUG: fetching from gh API: https://api.github.com/repos/lightningd/plugins/git/trees/294f93d7060799439c994daa84f534c4d1458325",
-          "INFO: found currencyrate in source: https://github.com/lightningd/plugins",
-          "DEBUG: entry: None",
-          "DEBUG: sub-directory: currencyrate",
-          "DEBUG: Retrieving currencyrate from https://github.com/lightningd/plugins",
-          "DEBUG: Install requested from InstInfo(currencyrate, https://github.com/lightningd/plugins, None, None, None, currencyrate).",
-          "INFO: cloning Source.GITHUB_REPO InstInfo(currencyrate, https://github.com/lightningd/plugins, None, None, None, currencyrate)",
-          "DEBUG: cloned_src: InstInfo(currencyrate, /tmp/reckless-192564272t478naxn/clone, None, currencyrate.py, requirements.txt, currencyrate/currencyrate)",
-          "DEBUG: using latest commit of default branch",
-          "DEBUG: checked out HEAD: 5e449468bd57db7d0f33178fe0dc867e0da94133",
-          "DEBUG: using installer python3venv",
-          "DEBUG: creating /tmp/l1/reckless/currencyrate",
-          "DEBUG: creating /tmp/l1/reckless/currencyrate/source",
-          "DEBUG: copying /tmp/reckless-192564272t478naxn/clone/currencyrate/currencyrate tree to /tmp/l1/reckless/currencyrate/source/currencyrate",
-          "DEBUG: linking source /tmp/l1/reckless/currencyrate/source/currencyrate/currencyrate.py to /tmp/l1/reckless/currencyrate/currencyrate.py",
-          "DEBUG: InstInfo(currencyrate, /tmp/l1/reckless/currencyrate, None, currencyrate.py, requirements.txt, source/currencyrate)",
-          "DEBUG: configuring a python virtual environment (pip) in /tmp/l1/reckless/currencyrate/.venv",
-          "DEBUG: virtual environment created in /tmp/l1/reckless/currencyrate/.venv.",
-          "INFO: dependencies installed successfully",
-          "DEBUG: virtual environment for cloned plugin: .venv",
-          "INFO: plugin installed: /tmp/l1/reckless/currencyrate",
-          "DEBUG: activating currencyrate",
-          "INFO: currencyrate enabled"
+          "WARNING: summary is not installed",
+          "INFO: summary not installed, searching in sources...",
+          "INFO: running command: `git remote set-head origin -a` (cwd: /tmp/l1/reckless/lightningd/plugins)",
+          "INFO: origin/HEAD set to master",
+          "INFO: running command: `git symbolic-ref refs/remotes/origin/HEAD --short` (cwd: /tmp/l1/reckless/lightningd/plugins)",
+          "INFO: origin/master",
+          "INFO: running command: `git checkout master` (cwd: /tmp/l1/reckless/lightningd/plugins)",
+          "WARNING: Already on 'master'",
+          "INFO: Your branch is up to date with 'origin/master'.",
+          "INFO: running command: `git pull --ff-only` (cwd: /tmp/l1/reckless/lightningd/plugins)",
+          "INFO: Already up to date.",
+          "INFO: running command: `git submodule sync --recursive` (cwd: /tmp/l1/reckless/lightningd/plugins)",
+          "<snip>",
+          "INFO: running command: `git submodule update --init --recursive` (cwd: /tmp/l1/reckless/lightningd/plugins)",
+          "WARNING: could not detect installer for /tmp/l1/reckless/lightningd/plugins: entryfile not found",
+          "INFO: Plugins matching 'summary':",
+          "INFO:   summary (/media/addonssd/dev/plugins/summary)",
+          "INFO: found summary in source: /media/addonssd/dev/plugins/summary",
+          "INFO: Sending 1000msat to summary author...",
+          "INFO: Successfully sent 1000msat to summary author!"
         ]
       }
     }

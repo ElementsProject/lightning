@@ -163,6 +163,7 @@ grpc_method_names = [
     "CreateProof",
     "Xkeysend",
     "Graceful",
+    "Reckless",
 ]
 
 grpc_notification_names = [
@@ -198,6 +199,7 @@ grpc_notification_names = [
         "schema_name": "xpay_pay_part_start",
         "typename": "PayPartStart",
     },
+    {"name": "reckless_log", "typename": "RecklessLog"},
 ]
 
 hook_names = [
