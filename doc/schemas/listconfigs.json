@@ -2467,12 +2467,6 @@
             "source": "default",
             "plugin": "/usr/local/libexec/plugins/cln-xpay"
           },
-          "xpay-handle-pay": {
-            "value_bool": true,
-            "source": "default",
-            "plugin": "/usr/local/libexec/plugins/cln-xpay",
-            "dynamic": true
-          },
           "xpay-slow-mode": {
             "value_bool": false,
             "source": "default",

@@ -128,7 +128,7 @@ def test_bookkeeping_splice_in(node_factory, bitcoind):
 
     # Verify channel can still operate after splice
     inv = l2.rpc.invoice(10000, 'post_splice', 'test after splice')
-    l1.rpc.pay(inv['bolt11'])
+    l1.rpc.xpay(inv['bolt11'])
 
     # Payment should be recorded
     wait_for(lambda: only_one(l1.rpc.listpays(inv['bolt11'])['pays'])['status'] == 'complete')
@@ -241,7 +241,7 @@ def test_bookkeeping_splice_out(node_factory, bitcoind):
 
     # Verify channel can still operate after splice
     inv = l2.rpc.invoice(10000, 'post_splice_out', 'test after splice out')
-    l1.rpc.pay(inv['bolt11'])
+    l1.rpc.xpay(inv['bolt11'])
 
     wait_for(lambda: only_one(l1.rpc.listpays(inv['bolt11'])['pays'])['status'] == 'complete')
 
