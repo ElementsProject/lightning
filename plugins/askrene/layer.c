@@ -34,26 +34,6 @@ struct local_update {
 	const struct amount_msat *htlc_min, *htlc_max;
 };
 
-/* A constraint reflects something we learned about a channel */
-struct constraint {
-	struct short_channel_id_dir scidd;
-	/* Time this constraint was last updated */
-	u64 timestamp;
-	/* Non-zero means set */
-	struct amount_msat min;
-	/* Non-0xFFFFF.... means set */
-	struct amount_msat max;
-};
-
-/* An impression reflects something we did to a channel (successful payments) */
-struct impression {
-	/* This is the direction of the payment, but it affects both ways */
-	struct short_channel_id_dir scidd;
-	/* Time this constraint was last updated */
-	u64 timestamp;
-	struct amount_msat amount;
-};
-
 /* A bias, for special-effects (user-controlled) */
 struct bias {
 	struct short_channel_id_dir scidd;
@@ -67,13 +47,6 @@ struct node_bias {
 	const char *description;
 	s8 in_bias, out_bias;
 	u64 timestamp;
-};
-
-/* A timestamp-ordered list of impresssion and constraint */
-struct channel_intel {
-	/* Only one is set */
-	const struct impression *impression;
-	const struct constraint *constraint;
 };
 
 static struct short_channel_id
@@ -309,13 +282,6 @@ static struct local_update *add_update_channel(struct layer *layer,
 		lu->delay = tal_dup(lu, u16, delay);
 	}
 	return lu;
-}
-
-static u64 channel_intel_timestamp(const struct channel_intel *intel)
-{
-	if (intel->constraint)
-		return intel->constraint->timestamp;
-	return intel->impression->timestamp;
 }
 
 /* Insert this constraint/impression in htable, maintaining timestamp order */
@@ -1145,6 +1111,26 @@ void layer_apply_constraints(const struct layer *layer,
 			}
 		}
 	}
+}
+
+struct channel_intel *layer_collect_channel_intels(const tal_t *ctx,
+						   const struct layer *layer,
+						   const struct short_channel_id_dir *scidd,
+						   struct channel_intel *in_intelarr TAKES)
+{
+	struct channel_intel *out_intelarr;
+	struct channel_intel *intelarr =
+	    channel_intel_hash_get(layer->channel_intels, scidd->scid);
+
+	if (in_intelarr) {
+		out_intelarr =
+		    tal_dup_talarr(ctx, struct channel_intel, in_intelarr);
+		tal_arr_append(&out_intelarr, intelarr);
+	} else {
+		out_intelarr =
+		    tal_dup_talarr(ctx, struct channel_intel, intelarr);
+	}
+	return out_intelarr;
 }
 
 const struct constraint *layer_add_constraint(struct layer *layer,
