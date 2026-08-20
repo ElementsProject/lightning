@@ -18,6 +18,8 @@ pub enum ManagerError {
     SessionTerminated,
     #[error("a channel was already funded for this session")]
     SessionAlreadyFunded,
+    #[error("part arrived on a scid that does not own this payment hash's session")]
+    ScidMismatch,
     #[error("the opening fee offer has expired")]
     OfferExpired,
     #[error("datastore lookup failed: {0}")]
@@ -192,6 +194,13 @@ impl<D: DatastoreProvider + 'static, A: ActionExecutor + Send + Sync + 'static>
         let handle = {
             let mut sessions = self.sessions.lock().await;
             if let Some(handle) = sessions.get(&payment_hash) {
+                // The map is keyed by payment_hash, which is public in the
+                // client's bolt11. Reject a part that arrived on a different
+                // jit scid than the one that owns this session, so a payment
+                // cannot be misdirected into another buy request's channel.
+                if handle.scid() != scid {
+                    return Err(ManagerError::ScidMismatch);
+                }
                 handle.clone()
             } else {
                 let handle = self.create_session(&scid, &payment_hash).await?;
@@ -620,6 +629,32 @@ mod tests {
             }
             other => panic!("expected Forward, got {other:?}"),
         }
+
+        assert_eq!(mgr.session_count().await, 1);
+    }
+
+    #[tokio::test(flavor = "current_thread", start_paused = true)]
+    async fn on_part_rejects_part_for_a_different_scid() {
+        // Sessions are keyed by payment_hash, but the payment hash is public
+        // in the client's bolt11. A part arriving on a *different* jit scid
+        // must not be merged into an existing session for another scid —
+        // otherwise a payment could be misdirected into the wrong peer's
+        // channel.
+        let mgr = test_manager(true);
+        let hash = test_payment_hash(1);
+
+        // First part reaches threshold and creates a session owned by
+        // test_scid().
+        let resp = mgr.on_part(hash, test_scid(), part(1, 1_000)).await.unwrap();
+        assert!(matches!(resp, HtlcResponse::Forward { .. }));
+
+        // A part for the same hash but a different jit scid must be rejected,
+        // not routed into the test_scid() session.
+        let err = mgr
+            .on_part(hash, test_scid_2(), part_via(test_scid_2(), 2, 500))
+            .await
+            .unwrap_err();
+        assert!(matches!(err, ManagerError::ScidMismatch));
 
         assert_eq!(mgr.session_count().await, 1);
     }

@@ -1269,3 +1269,68 @@ def test_lsps2_restart_settlement_fails_abandoned(node_factory, bitcoind):
 
     # UTXOs should be unreserved.
     assert not any(o["reserved"] for o in l2.rpc.listfunds()["outputs"])
+
+
+def test_lsps2_part_on_foreign_scid_is_rejected(node_factory, bitcoind):
+    """A part is routed by its jit scid, not by payment hash alone.
+
+    The payment hash is public in the client's bolt11. A part arriving on a
+    different jit scid than the one that owns the session must be rejected,
+    not merged into that session and forwarded to the wrong peer.
+    """
+    l1, l2, l3, chanid = setup_lsps2_network(node_factory, bitcoind)
+    amt = 10_000_000
+
+    # The same client buys twice, yielding two distinct jit scids.
+    dec1, inv1 = buy_and_invoice(l1, l2, amt)
+    dec2, _ = buy_and_invoice(l1, l2, amt)
+    routehint = only_one(only_one(dec1["routes"]))
+    scid1 = routehint["short_channel_id"]
+    scid2 = only_one(only_one(dec2["routes"]))["short_channel_id"]
+    ph = dec1["payment_hash"]
+
+    def route_via(scid):
+        return [
+            {
+                "amount_msat": amt // 2,
+                "id": l2.info["id"],
+                "delay": routehint["cltv_expiry_delta"] + 6,
+                "channel": chanid,
+            },
+            {
+                "amount_msat": amt // 2,
+                "id": l1.info["id"],
+                "delay": 6,
+                "channel": scid,
+            },
+        ]
+
+    # A partial part on scid1 creates a session for `ph` owned by scid1; it
+    # stays Collecting (below the threshold).
+    l3.rpc.sendpay(
+        route_via(scid1),
+        ph,
+        payment_secret=inv1["payment_secret"],
+        bolt11=inv1["bolt11"],
+        amount_msat=f"{amt}msat",
+        groupid=1,
+        partid=1,
+    )
+    l2.daemon.wait_for_log(r"PaymentPartAdded.*n_parts: 1")
+
+    # A part for the same hash on scid2 must be rejected, not attached to
+    # scid1's session and forwarded.
+    l3.rpc.sendpay(
+        route_via(scid2),
+        ph,
+        payment_secret=inv1["payment_secret"],
+        bolt11=inv1["bolt11"],
+        amount_msat=f"{amt}msat",
+        groupid=1,
+        partid=2,
+    )
+    with pytest.raises(RpcError):
+        l3.rpc.waitsendpay(ph, partid=2, groupid=1, timeout=60)
+
+    # No jit channel was opened for the client.
+    assert len(l1.rpc.listpeerchannels()["channels"]) == 0

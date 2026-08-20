@@ -80,12 +80,22 @@ pub trait ActionExecutor {
 #[derive(Debug, Clone)]
 pub struct ActorInboxHandle {
     tx: mpsc::Sender<ActorInput>,
+    /// The jit scid this session owns. A part must arrive on this scid; the
+    /// session map is keyed by payment_hash, which is public in the client's
+    /// bolt11, so this guards against routing a part into a session that
+    /// belongs to a different buy request.
+    scid: ShortChannelId,
 }
 
 impl ActorInboxHandle {
     /// Whether both handles point to the same actor inbox.
     pub fn same_handle(&self, other: &ActorInboxHandle) -> bool {
         self.tx.same_channel(&other.tx)
+    }
+
+    /// The jit scid this session owns.
+    pub fn scid(&self) -> ShortChannelId {
+        self.scid
     }
 
     pub async fn add_part(&self, part: PaymentPart) -> Result<HtlcResponse> {
@@ -182,7 +192,7 @@ impl<A: ActionExecutor + Clone + Send + 'static, D: DatastoreProvider + Clone + 
             event_sink,
         };
         tokio::spawn(actor.run());
-        ActorInboxHandle { tx }
+        ActorInboxHandle { tx, scid }
     }
 
     pub fn spawn_recovered_session_actor(
@@ -195,7 +205,10 @@ impl<A: ActionExecutor + Clone + Send + 'static, D: DatastoreProvider + Clone + 
         event_sink: Arc<dyn EventSink>,
     ) -> ActorInboxHandle {
         let (tx, inbox) = mpsc::channel(128);
-        let handle = ActorInboxHandle { tx: tx.clone() };
+        let handle = ActorInboxHandle {
+            tx: tx.clone(),
+            scid,
+        };
 
         let peer_id = entry.peer_id.to_string();
         let actor = SessionActor {
