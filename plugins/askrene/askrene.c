@@ -1167,7 +1167,7 @@ static struct command_result *param_inform(struct command *cmd,
 	else if (json_tok_streq(buffer, tok, "succeeded"))
 		**inform = INFORM_SUCCEEDED;
 	else
-		command_fail_badparam(cmd, name, buffer, tok,
+		return command_fail_badparam(cmd, name, buffer, tok,
 				      "must be constrained/unconstrained/succeeded");
 	return NULL;
 }
