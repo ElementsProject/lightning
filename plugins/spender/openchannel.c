@@ -215,24 +215,9 @@ static bool update_parent_psbt(const tal_t *ctx,
 			goto fail;
 	}
 
-	/* We want to preserve the memory bits associated with
-	 * the inputs/outputs we just copied over when we free
-	 * the copy, so remove ones the *added* from the copy.
-	 * We go from the back since this will modify the indexes */
-	for (size_t i = tal_count(changes->added_ins) - 1;
-	     i > -1;
-	     i--) {
-		psbt_rm_input(new_node_copy,
-			      changes->added_ins[i].idx);
-	}
-	for (size_t i = tal_count(changes->added_outs) - 1;
-	     i > -1;
-	     i--) {
-		psbt_rm_output(new_node_copy,
-			      changes->added_outs[i].idx);
-	}
-
 	tal_free(changes);
+	/* All those new_node_copy children are owned by clone
+	 * already, so shallow copying them above was fine. */
 	tal_free(new_node_copy);
 
 	tal_free(*parent_psbt);

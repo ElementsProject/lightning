@@ -19,9 +19,6 @@
 /* Hex-encoded SHA256 block hash length (32 bytes = 64 hex chars) */
 #define BLOCK_HASH_HEX_LEN 64
 
-/* Bitcoin Core version 23.0.0 introduced getblockfrompeer RPC */
-#define BITCOIND_VERSION_GETBLOCKFROMPEER 230000
-
 struct bitcoind {
 	/* eg. "bitcoin-cli" */
 	char *cli;
@@ -402,40 +399,37 @@ static struct command_result *getrawblockbyheight(struct command *cmd,
 					block_hash, bitcoind->retry_timeout), NULL);
 		}
 
-		/* Try fetching from peers if bitcoind >= 23.0.0 */
-		if (bitcoind->version >= BITCOIND_VERSION_GETBLOCKFROMPEER) {
-			if (!peers)
-				peers = get_fullnode_peers(cmd, cmd);
+		if (!peers)
+			peers = get_fullnode_peers(cmd, cmd);
 
-			if (tal_count(peers) > 0) {
-				int peer = peers[tal_count(peers) - 1];
-				tal_resize(&peers, tal_count(peers) - 1);
+		if (tal_count(peers) > 0) {
+			int peer = peers[tal_count(peers) - 1];
+			tal_resize(&peers, tal_count(peers) - 1);
 
-				res = run_bitcoin_cli(cmd, cmd->plugin,
-						      "getblockfrompeer",
-						      block_hash,
-						      tal_fmt(tmpctx, "%i", peer),
-						      NULL);
+			res = run_bitcoin_cli(cmd, cmd->plugin,
+					      "getblockfrompeer",
+					      block_hash,
+					      tal_fmt(tmpctx, "%i", peer),
+					      NULL);
 
-				if (res->exitstatus != 0) {
-					/* We still continue with the execution if we cannot fetch the
-					 * block from peer */
-					plugin_log(cmd->plugin, LOG_DBG,
-						   "failed to fetch block %s from peer %i, skip.",
-						   block_hash, peer);
-				} else {
-					plugin_log(cmd->plugin, LOG_DBG,
-						   "try to fetch block %s from peer %i.",
-						   block_hash, peer);
-				}
-			}
-
-			if (tal_count(peers) == 0) {
+			if (res->exitstatus != 0) {
+				/* We still continue with the execution if we cannot fetch the
+				 * block from peer */
 				plugin_log(cmd->plugin, LOG_DBG,
-					   "asked all known peers about block %s, retry",
-					   block_hash);
-				peers = tal_free(peers);
+					   "failed to fetch block %s from peer %i, skip.",
+					   block_hash, peer);
+			} else {
+				plugin_log(cmd->plugin, LOG_DBG,
+					   "try to fetch block %s from peer %i.",
+					   block_hash, peer);
 			}
+		}
+
+		if (tal_count(peers) == 0) {
+			plugin_log(cmd->plugin, LOG_DBG,
+				   "asked all known peers about block %s, retry",
+				   block_hash);
+			peers = tal_free(peers);
 		}
 
 		sleep(1);
@@ -743,7 +737,7 @@ static void parse_getnetworkinfo_result(struct plugin *p, const char *buf)
 {
 	const jsmntok_t *result;
 	bool tx_relay;
-	u32 min_version = 220000;
+	u32 min_version = 230000;
 	const char *err;
 
 	result = json_parse_simple(NULL, buf, strlen(buf));
