@@ -1689,6 +1689,7 @@ def test_forward_event_notification(node_factory, bitcoind, executor):
     expect = stats[2].copy()
     del expect['failcode']
     del expect['failreason']
+    del expect['failure_reason']
     del expect['out_htlc_id']
     del expect['updated_index']
     expect['status'] = 'offered'
@@ -3923,6 +3924,8 @@ def test_sql(node_factory, bitcoind):
                         {'name': 'failcode',
                          'type': 'u32'},
                         {'name': 'failreason',
+                         'type': 'string'},
+                        {'name': 'failure_reason',
                          'type': 'string'}]},
         'htlcs': {
             'indices': [['short_channel_id', 'id']],
