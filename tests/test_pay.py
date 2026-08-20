@@ -337,6 +337,18 @@ def test_pay_optional_args(node_factory):
     # Should see 3 completed transactions
     assert len(l1.rpc.listsendpays()['payments']) == 3
 
+    # Can filter by label.
+    assert len(l1.rpc.listsendpays(label='desc')['payments']) == 2
+    assert l1.rpc.listsendpays(label='no-such-label')['payments'] == []
+    pays = l1.rpc.listpays(label='desc')['pays']
+    assert len(pays) == 2
+    assert all(p['label'] == 'desc' for p in pays)
+    assert l1.rpc.listpays(label='no-such-label')['pays'] == []
+
+    # But not by label and bolt11/payment_hash at the same time.
+    with pytest.raises(RpcError, match=r'Can only specify one of'):
+        l1.rpc.listsendpays(bolt11=inv1, label='desc')
+
 
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
