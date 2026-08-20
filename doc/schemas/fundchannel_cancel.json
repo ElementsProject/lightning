@@ -69,7 +69,7 @@
         "id": "example:fundchannel_cancel#1",
         "method": "fundchannel_cancel",
         "params": [
-          "030c0906bee9e0af4cbeb29b436aa2c17ae2df3568bf9a8ec69cd508fee6af28d9"
+          "03b60c34c4ecedd620aa29a974995ac538cfc82f650f5c7c68a9cf9c40e6bd70f9"
         ]
       },
       "response": {
@@ -81,7 +81,7 @@
         "id": "example:fundchannel_cancel#2",
         "method": "fundchannel_cancel",
         "params": {
-          "id": "030c0906bee9e0af4cbeb29b436aa2c17ae2df3568bf9a8ec69cd508fee6af28d9"
+          "id": "03b60c34c4ecedd620aa29a974995ac538cfc82f650f5c7c68a9cf9c40e6bd70f9"
         }
       },
       "response": {

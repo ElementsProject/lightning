@@ -63,5 +63,44 @@
   ],
   "resources": [
     "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
+  ],
+  "examples": [
+    {
+      "request": {
+        "id": "example:listcurrencyrates#1",
+        "method": "listcurrencyrates",
+        "params": {
+          "currency": "USD"
+        }
+      },
+      "response": {
+        "currencyrates": [
+          {
+            "amount": 65554.035,
+            "source": "coinbase"
+          },
+          {
+            "amount": 65529.0,
+            "source": "coingecko"
+          },
+          {
+            "amount": 65568.79,
+            "source": "bitstamp"
+          },
+          {
+            "amount": 65574.0,
+            "source": "kraken"
+          },
+          {
+            "amount": 65526.35,
+            "source": "binance"
+          },
+          {
+            "amount": 65529.57,
+            "source": "blockchain.info"
+          }
+        ]
+      }
+    }
   ]
 }

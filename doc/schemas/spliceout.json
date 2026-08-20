@@ -80,5 +80,21 @@
   ],
   "resources": [
     "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
+  ],
+  "examples": [
+    {
+      "request": {
+        "id": "example:spliceout#1",
+        "method": "spliceout",
+        "params": {
+          "channel": "fadc04188edeaefe9bb52ea718f8be3965b4cb4d4f7b0fe3fb8f0a5a4fce2bca",
+          "amount": "5000"
+        }
+      },
+      "response": {
+        "psbt": "cHNidP8BAgQCAAAAAQQBAQEFAQIBBgEDAfsEAgAAAAABALICAAAAAoeguvjGlr6QL1a0l7PsPpqiyeof6dEvvEn08bxWMG10AQAAAAD9////+twEGI7erv6btS6nGPi+OWW0y01Pew/j+48KWk/OK8oAAAAAAAAAAAACZVIeAAAAAAAiUSBFeKIcf5du942nDoXwTJz+zililjvxaeOYlwNrTIw5KshVDwAAAAAAIgAgV3D5+sa1cBh62oBFkyD7sFAVcX4G8uj3GzcJMoLMxZIAAAAAAQEryFUPAAAAAAAiACBXcPn6xrVwGHragEWTIPuwUBVxfgby6PcbNwkygszFkgEI2gQARzBEAiAJ4q4f3hdl8tgSzWH32dFjpAslTP7Fwh6PaHE4N804WgIgc3FCQntff1NGUU3tHRLk1DKjMeyDe84cpl7FyDGWn2gBRzBEAiAJSWqYIRv+8y7RbjdwM2p9Ti0SpZ6tkg9GBLS0EYwMowIgN37609eE2cb3U12Wuw+kDRXnsf1Z8Jb1FMlj9jDT3JMBR1IhAkJIHxog6xn5K0Wuex6zLdrttWqKUSv8HylPrSzk7fdiIQMyatPZvWu8s7HxnHT5g+YlN31oM/rCL1rVKLEvkXtvPlKuAQ4gtAWCpp2LF9A7V1aKfkT3cRp/PnY8HlXPyncrrwXh//gBDwQBAAAAARAEAAAAAAz8CWxpZ2h0bmluZwEIwdfmo9Tzt2wAAQMIiBMAAAAAAAABBCJRIIfRq2KRZsa5V/gMyqE+uczizsmm+aPX+osrVxu5SHW6DPwJbGlnaHRuaW5nAQgw47WIYeA+NgABAwifKw8AAAAAAAEEIgAgV3D5+sa1cBh62oBFkyD7sFAVcX4G8uj3GzcJMoLMxZIM/AlsaWdodG5pbmcBCMPX5qPU87dsAA==",
+        "txid": "a674f870f615d5380aef2cfe4ffd5b99ce71a4e95e1e364f5a5a3d374cd06843"
+      }
+    }
   ]
 }
