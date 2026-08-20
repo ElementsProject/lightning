@@ -4379,7 +4379,7 @@ def test_simple_close_restart(node_factory, bitcoind):
 def test_simple_close_closee_path(node_factory, bitcoind):
     """Each node acts as both closer and closee simultaneously.  Verify that
     handle_simpleclosed_closee_broadcast runs on both nodes (confirmed by the
-    'stored closee tx' log) so the peer's closing tx is persisted.  Both
+    'stored closee tx' log), and that the peer's own closing tx is persisted.  Both
     nodes must claim their output from whichever tx wins the race."""
     opts = {'experimental-simple-close': None}
     l1, l2 = node_factory.line_graph(2, opts=opts)
@@ -4396,9 +4396,9 @@ def test_simple_close_closee_path(node_factory, bitcoind):
     # is received before closing_sig in the protocol), so use wait_for_logs to
     # find both in any order rather than two sequential wait_for_log calls.
     l1.daemon.wait_for_logs(['Simple close: stored closer tx',
-                             'Simple close: stored closee tx'])
+                             'Simple close: broadcast closee tx'])
     l2.daemon.wait_for_logs(['Simple close: stored closer tx',
-                             'Simple close: stored closee tx'])
+                             'Simple close: broadcast closee tx'])
 
     # One of the two conflicting txs confirms; both nodes must see their output.
     bitcoind.generate_block(1, wait_for_mempool=1)
@@ -4407,6 +4407,34 @@ def test_simple_close_closee_path(node_factory, bitcoind):
     sync_blockheight(bitcoind, [l1, l2])
     wait_for(lambda: confirmed_txid in {o['txid'] for o in l1.rpc.listfunds()['outputs']})
     wait_for(lambda: confirmed_txid in {o['txid'] for o in l2.rpc.listfunds()['outputs']})
+
+
+def test_simple_close_closee_only(node_factory, bitcoind, executor):
+    """l1 doesn't get the signature for its own close, but DOES NOT persist the peer's tx."""
+    # l2 has low fees, so txs are different.
+    opts = [{'experimental-simple-close': None},
+            {'experimental-simple-close': None,
+             'feerates': (1010, 1010, 1010, 1010, 1010),
+             'disconnect': ['-WIRE_CLOSING_SIG']}]
+    l1, l2 = node_factory.line_graph(2, opts=opts)
+
+    l1.pay(l2, 200000000)
+    wait_for(lambda: only_one(l2.rpc.listpeerchannels()['channels'])['htlcs'] == [])
+
+    # Get last tx now.
+    last_tx = only_one(l1.db_query("SELECT last_tx FROM channels;"))['last_tx']
+
+    # This won't exit yet.
+    executor.submit(l1.rpc.close, l2.info['id'])
+    l2.daemon.wait_for_log('dev_disconnect: -WIRE_CLOSING_SIG')
+
+    l1.daemon.wait_for_log('Simple close: broadcast their tx')
+    time.sleep(1)
+    assert not l1.daemon.is_in_log('Simple close: stored our tx')
+
+    # We do NOT update last_tx to their tx.
+    l1.stop()
+    assert only_one(l1.db_query("SELECT last_tx FROM channels;"))['last_tx'] == last_tx
 
 
 def test_simple_close_delay_broadcast(node_factory, bitcoind, executor):

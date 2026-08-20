@@ -125,7 +125,8 @@ COMMON_HEADERS_NOGEN := $(COMMON_SRC_NOGEN:.c=.h)	\
 	common/hsm_version.h				\
 	common/htlc.h					\
 	common/jsonrpc_errors.h				\
-	common/overflows.h
+	common/overflows.h				\
+	common/simple_close_weight.h
 
 COMMON_HEADERS_GEN := common/htlc_state_names_gen.h common/status_wiregen.h common/peer_status_wiregen.h common/scb_wiregen.h common/gossip_store_wiregen.h
 

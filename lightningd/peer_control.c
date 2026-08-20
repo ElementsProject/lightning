@@ -332,6 +332,29 @@ static struct bitcoin_tx *sign_and_send_last(const tal_t *ctx,
 	return tx;
 }
 
+/* Normally we only sign and broadcast our last_tx, but in the case of
+ * simple close, we want to broadcast theirs, but we don't bother
+ * saving it.  We'll close the channel if/when we see it onchain. */
+void sign_and_broadcast_their_closing(struct channel *channel,
+				      struct bitcoin_tx *tx,
+				      const struct bitcoin_signature *their_sig)
+{
+	struct lightningd *ld = channel->peer->ld;
+	struct bitcoin_tx *signed_tx;
+
+	/* We shouldn't get here, but in case we do. */
+	if (channel->withheld) {
+		log_broken(channel->log,
+			 "Withheld channel: should not have mutual close!");
+		return;
+	}
+
+	signed_tx = sign_last_tx(NULL, channel, tx, their_sig);
+	broadcast_tx(channel, ld->topology, channel, take(signed_tx),
+		     cmd_id_from_close_command(tmpctx, ld, channel),
+		     false, 0, NULL, NULL, NULL);
+}
+
 /* FIXME: reorder! */
 static enum watch_result funding_spent(struct channel *channel,
 				       const struct bitcoin_tx *tx,

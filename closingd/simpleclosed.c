@@ -17,6 +17,7 @@
 #include <common/per_peer_state.h>
 #include <common/read_peer_msg.h>
 #include <common/shutdown_scriptpubkey.h>
+#include <common/simple_close_weight.h>
 #include <common/status.h>
 #include <common/subdaemon.h>
 #include <common/utils.h>
@@ -33,11 +34,6 @@
 #define REQ_FD STDIN_FILENO
 #define PEER_FD 3
 #define HSM_FD 4
-
-/* Approx weight of a simple-close tx with both outputs (vbytes * 4 for weight).
- * Input: 41vb, witness: ~222wu/4=55.5vb, outputs: ~65vb each, overhead: 11vb
- * Total ~236 vbytes = ~704 weight + witness ~222 = ~926wu, round to 900. */
-#define SIMPLE_CLOSE_WEIGHT 900
 
 static const u8 *hsm_req(const tal_t *ctx, const u8 *req TAKES)
 {
@@ -57,13 +53,13 @@ static const u8 *hsm_req(const tal_t *ctx, const u8 *req TAKES)
 static struct per_peer_state *pps;
 
 /* Tell master we got peer's closing_sig for our tx; block for txid reply. */
-static struct bitcoin_txid master_got_sig(struct bitcoin_tx *tx,
-					  const struct bitcoin_signature *sig)
+static struct bitcoin_txid master_got_sig_ourtx(const struct bitcoin_tx *tx,
+						const struct bitcoin_signature *sig)
 {
 	struct bitcoin_txid txid;
 	u8 *msg;
 
-	msg = towire_simpleclosed_got_sig(tmpctx, tx, sig);
+	msg = towire_simpleclosed_our_closing_tx(tmpctx, tx, sig);
 	if (!wire_sync_write(REQ_FD, take(msg)))
 		status_failed(STATUS_FAIL_MASTER_IO,
 			"Writing got_sig: %s",
@@ -74,7 +70,7 @@ static struct bitcoin_txid master_got_sig(struct bitcoin_tx *tx,
 		status_failed(STATUS_FAIL_MASTER_IO,
 			"Reading got_sig_reply: %s",
 			strerror(errno));
-	if (!fromwire_simpleclosed_got_sig_reply(msg, &txid))
+	if (!fromwire_simpleclosed_our_closing_tx_reply(msg, &txid))
 		status_failed(STATUS_FAIL_MASTER_IO,
 			"Bad got_sig_reply: %s",
 			tal_hex(tmpctx, msg));
@@ -462,8 +458,8 @@ static struct bitcoin_tx *handle_closing_complete(
 
 	/* Tell master to validate, store, and handle broadcast. */
 	wire_sync_write(REQ_FD,
-			take(towire_simpleclosed_closee_broadcast(NULL,
-					chosen_tx, &their_sig)));
+			take(towire_simpleclosed_their_closing_tx(NULL,
+								  chosen_tx, &their_sig)));
 	return chosen_tx;
 }
 
@@ -686,7 +682,7 @@ int main(int argc, char *argv[])
 				local_wallet_index, local_wallet_ext_key, local_sat,
 				remote_sat, dust_limit, sent_closer_script, sent_closee_script,
 				sent_fee, sent_locktime, sent_tlvs, msg, &their_sig);
-			txid = master_got_sig(closing_tx, &their_sig);
+			txid = master_got_sig_ourtx(closing_tx, &their_sig);
 			status_debug("Closer tx stored by master: %s",
 				fmt_bitcoin_txid(tmpctx, &txid));
 			got_our_sig = true;
