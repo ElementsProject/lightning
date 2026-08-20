@@ -773,7 +773,7 @@ static void handle_peer_blockheight_change(struct peer *peer, const u8 *msg)
 				 "Bad update_blockheight %s",
 				 tal_hex(msg, msg));
 
-	/* BOLT- #2:
+	/* BOLT-liquidity-ads #2:
 	 * A receiving node:
 	 *   ...
 	 *   - if the sender is not the initiator:
@@ -790,7 +790,7 @@ static void handle_peer_blockheight_change(struct peer *peer, const u8 *msg)
 		     " our current height %u",
 		     blockheight, current, peer->our_blockheight);
 
-	/* BOLT- #2:
+	/* BOLT-liquidity-ads #2:
 	 * A receiving node:
 	 *   - if the `update_blockheight` is less than the last
 	 *     received `blockheight`:
@@ -814,7 +814,7 @@ static void handle_peer_blockheight_change(struct peer *peer, const u8 *msg)
 				 "update_blockheight %u older than previous %u",
 				 blockheight, current);
 
-	/* BOLT- #2:
+	/* BOLT-liquidity-ads #2:
 	 * A receiving node:
 	 *    ...
 	 *   - if `blockheight` is more than 1008 blocks behind
@@ -2043,13 +2043,13 @@ static struct commitsig_info *handle_peer_commit_sig(struct peer *peer,
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Bad commit_sig %s", tal_hex(msg, msg));
 
-	/* BOLT-f9fd539db6cc6f3e532fdc8cc1ebe8eb1a8fd717
+	/* BOLT #2:
 	 *  - If the sending node sent `start_batch` and we are processing a batch of
 	 *    `commitment_signed` messages:
 	 */
 	if (msg_batch && tal_count(msg_batch) > 1) {
 
-		/* BOLT-f9fd539db6cc6f3e532fdc8cc1ebe8eb1a8fd717
+		/* BOLT #2:
 		 *    - If `funding_txid` is missing in one of the `commitment_signed` messages:
 		 *      - MUST send an `error` and fail the channel.
 		 */
@@ -2058,7 +2058,7 @@ static struct commitsig_info *handle_peer_commit_sig(struct peer *peer,
 					"Must send funding_txid when sending"
 					" a commitment batch.");
 
-		/* BOLT-f9fd539db6cc6f3e532fdc8cc1ebe8eb1a8fd717
+		/* BOLT #2:
 		 *    - Otherwise (no pending splice transactions):
 		 *...
 		 *      - If `commitment_signed` is missing for the current funding transaction:
@@ -2073,7 +2073,7 @@ static struct commitsig_info *handle_peer_commit_sig(struct peer *peer,
 					fmt_bitcoin_txid(tmpctx, &peer->channel->funding.txid));
 	}
 
-	/* BOLT-f9fd539db6cc6f3e532fdc8cc1ebe8eb1a8fd717
+	/* BOLT #2:
 	 *    - If `funding_txid` is missing in one of the `commitment_signed` messages:
 	 *      - MUST send an `error` and fail the channel.
 	 */
@@ -2288,7 +2288,7 @@ static struct commitsig_info *handle_peer_commit_sig(struct peer *peer,
 				tal_count(peer->splice_state->inflights));
 
 	commitsigs = tal_arr(NULL, const struct commitsig*, 0);
-	/* BOLT-f9fd539db6cc6f3e532fdc8cc1ebe8eb1a8fd717
+	/* BOLT #2:
 	 *    - If there are pending splice transactions:
 	 *      - MUST validate each `commitment_signed` based on `funding_txid`.
 	 *      - If `commitment_signed` is missing for a funding transaction:
@@ -2415,7 +2415,7 @@ static struct commitsig_info *handle_peer_commit_sig_batch(struct peer *peer,
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Bad commit_sig %s", tal_hex(msg, msg));
 
-	/* BOLT-f9fd539db6cc6f3e532fdc8cc1ebe8eb1a8fd717
+	/* BOLT #2:
 	 *  - If there are pending splice transactions and the sending node did not
 	 *    send `start_batch` followed by a batch of `commitment_signed` messages:
 	 *    - MUST send an `error` and fail the channel.
@@ -2461,7 +2461,7 @@ static struct commitsig_info *handle_peer_commit_sig_batch(struct peer *peer,
 		msg_batch[i] = sub_msg;
 	}
 
-	/* BOLT-f9fd539db6cc6f3e532fdc8cc1ebe8eb1a8fd717
+	/* BOLT #2:
 	 *    - Otherwise (no pending splice transactions):
 	 *      - MUST ignore `commitment_signed` where `funding_txid` does not match
 	 *        the current funding transaction.
@@ -3677,7 +3677,7 @@ static struct amount_sat check_balances(struct peer *peer,
 				 fmt_amount_sat(tmpctx, max_accepter_fee));
 	}
 
-	/* BOLT-??? #2:
+	/* BOLT-FIXME #2:
 	 * - if either side has added an output other than the new channel
 	 *   funding output:
   	 *   - MUST fail the negotiation if the balance for that side is less
@@ -3861,9 +3861,10 @@ static void resume_splice_negotiation(struct peer *peer,
 	 * 2) other side sneakily adding other outputs we own
 	 */
 
-	/* BOLT-a8b9f495cac28124c69cc5ee429f9ef2bacb9921 #2:
-	 * Both nodes:
-	 *   - MUST sign the transaction using SIGHASH_ALL */
+	/* BOLT #2:
+	 * The sending node:
+	 *...
+	 *   - MUST use the `SIGHASH_ALL` (0x01) flag on each signature
 	splice_sig.sighash_type = SIGHASH_ALL;
 
 	bitcoin_tx = bitcoin_tx_with_psbt(tmpctx, current_psbt);
@@ -3994,9 +3995,10 @@ static void resume_splice_negotiation(struct peer *peer,
 
 		their_sig = tal(tmpctx, struct bitcoin_signature);
 
-		/* BOLT-a8b9f495cac28124c69cc5ee429f9ef2bacb9921 #2:
-		 * Both nodes:
-		 *   - MUST sign the transaction using SIGHASH_ALL */
+		/* BOLT #2:
+		 * The sending node:
+		 *...
+		 *   - MUST use the `SIGHASH_ALL` (0x01) flag on each signature
 		their_sig->sighash_type = SIGHASH_ALL;
 		their_sig->s = *their_txsigs_tlvs->shared_input_signature;
 
@@ -5707,7 +5709,7 @@ static void peer_reconnect(struct peer *peer,
 			send_tlvs->next_funding = talz(send_tlvs, struct tlv_channel_reestablish_tlvs_next_funding);
 			send_tlvs->next_funding->next_funding_txid = inflight->outpoint.txid;
 
-			/* BOLT-??? #2:
+			/* BOLT #2:
 			 * The `next_funding.retransmit_flags` bitfield is used to let the
 			 * receiving peer know which messages they must retransmit for the
 			 * corresponding `next_funding_txid` after the reconnection:
@@ -5720,7 +5722,7 @@ static void peer_reconnect(struct peer *peer,
 		}
 	}
 
-	/* BOLT-??? #2:
+	/* BOLT #2:
 	 *  - if `option_splice` was negotiated:
 	 */
 	if (feature_negotiated(peer->our_features, peer->their_features,
@@ -5740,7 +5742,7 @@ static void peer_reconnect(struct peer *peer,
 			}
 		}
 
-		/* BOLT-??? #2:
+		/* BOLT #2:
 		 *    - if a splice transaction reached acceptable depth while disconnected:
 		 *      - MUST include `my_current_funding_locked` with the txid of the latest such transaction.
 		 *    - otherwise, if it has already sent `splice_locked` for any transaction:
@@ -5755,7 +5757,7 @@ static void peer_reconnect(struct peer *peer,
 				     fmt_bitcoin_txid(tmpctx,
 				     		      &peer->splice_state->locked_txid));
 		}
-		/* BOLT-??? #2:
+		/* BOLT #2:
 		 *    - otherwise, if it has already sent `channel_ready`:
 		 *      - MUST include `my_current_funding_locked` with the txid of the channel funding transaction.
 		 */
@@ -5768,7 +5770,7 @@ static void peer_reconnect(struct peer *peer,
 				     fmt_bitcoin_txid(tmpctx,
 				     		      &peer->channel->funding.txid));
 		}
-		/* BOLT-??? #2:
+		/* BOLT #2:
 		 *    - otherwise (it has never sent `channel_ready` or `splice_locked`):
 		 *      - MUST NOT include `my_current_funding_locked`.
 		*/
@@ -6007,7 +6009,7 @@ static void peer_reconnect(struct peer *peer,
 		peer_write(peer->pps, take(msg));
 	}
 
-	/* BOLT-??? #2
+	/* BOLT #2:
 	 * A receiving node:
 	 *   - if splice transactions are pending and `my_current_funding_locked` matches one of
 	 *     those splice transactions, for which it hasn't received `splice_locked` yet:
@@ -6018,7 +6020,7 @@ static void peer_reconnect(struct peer *peer,
 			if (!bitcoin_txid_eq(&itr->outpoint.txid,
 					     &recv_tlvs->my_current_funding_locked->my_current_funding_locked_txid))
 				continue;
-			/* BOLT-??? #2
+			/* BOLT #2:
 			 *     - MUST process `my_current_funding_locked` as if it was receiving `splice_locked`
 			 *       for this `txid`.
 			 */
@@ -6160,13 +6162,13 @@ static void peer_reconnect(struct peer *peer,
 	if (retransmit_revoke_and_ack && peer->last_was_revoke)
 		resend_revoke(peer);
 
-	/* BOLT-splice #2
+	/* BOLT #2:
 	 *     1. type: 5 (`my_current_funding_locked`)
 	 *     2. data:
 	 *         * [`sha256`:`my_current_funding_locked_txid`]
 	 *         * [`byte`:`retransmit_flags`]
-	 *
-	 * The `retransmit_flags` bitfield is used to let our peer know which messages
+	 *...
+	 * The `my_current_funding_locked.retransmit_flags` bitfield is used to let our peer know which messages
 	 * we expect them to retransmit after the reconnection:
 	 *
 	 * | Bit Position  | Name                      |
@@ -6541,7 +6543,7 @@ static void handle_blockheight(struct peer *peer, const u8 *inmsg)
 		u32 peer_height = get_blockheight(peer->channel->blockheight_states,
 						  peer->channel->opener,
 						  REMOTE);
-		/* BOLT- #2:
+		/* BOLT-liquidity-ads #2:
 		 * The node _not responsible_ for initiating the channel:
 		 *   ...
 		 *   - if last received `blockheight` is > 1008 behind
