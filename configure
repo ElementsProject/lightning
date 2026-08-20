@@ -241,6 +241,9 @@ usage()
     usage_with_default "CWARNFLAGS" "$DEFAULT_CWARNFLAGS"
     usage_with_default "COPTFLAGS" "$DEFAULT_COPTFLAGS"
     usage_with_default "CDEBUGFLAGS" "$CDEBUGFLAGS"
+    usage_with_default "CFLAGS" "$CFLAGS"
+    usage_with_default "CPPFLAGS" "$CPPFLAGS"
+    usage_with_default "LDFLAGS" "$LDFLAGS"
     if [ "$(uname -s)" = "Darwin" ]; then
         echo "    Note: On macOS, -g is used instead of -g3 for libbacktrace compatibility"
     fi
@@ -314,6 +317,9 @@ for opt in "$@"; do
 	CWARNFLAGS=*) CWARNFLAGS="${opt#CWARNFLAGS=}";;
 	CDEBUGFLAGS=*) CDEBUGFLAGS="${opt#CDEBUGFLAGS=}";;
 	COPTFLAGS=*) COPTFLAGS="${opt#COPTFLAGS=}";;
+	CFLAGS=*) CFLAGS="${opt#CFLAGS=}";;
+	CPPFLAGS=*) CPPFLAGS="${opt#CPPFLAGS=}";;
+	LDFLAGS=*) LDFLAGS="${opt#LDFLAGS=}";;
 	PYTEST=*) PYTEST="${opt#PYTEST=}";;
 	--prefix=*) PREFIX="${opt#--prefix=}";;
 	--enable-debugbuild) DEBUGBUILD=1;;
@@ -371,18 +377,17 @@ EOF
 fi
 
 # We call this first, so we can make sure configurator runs with it as a sanity check!
-if have_function_sections $CC "${CWARNFLAGS-$BASE_WARNFLAGS} $CDEBUGFLAGS $COPTFLAGS"; then
-    HAVE_FUNCTION_SECTIONS=1
-    LDFLAGS="-Wl,--gc-sections"
+if have_function_sections $CC "${CWARNFLAGS-$BASE_WARNFLAGS} $CDEBUGFLAGS $COPTFLAGS $CFLAGS $CPPFLAGS"; then
+    case "$LDFLAGS" in
+	*'--gc-sections'*) ;;
+	*) LDFLAGS="-Wl,--gc-sections $LDFLAGS";;
+    esac
     COPTFLAGS="$COPTFLAGS -ffunction-sections"
-else
-    HAVE_FUNCTION_SECTIONS=0
-    LDFLAGS=
 fi
 
 # We assume warning flags don't affect congfigurator that much!
 printf 'Compiling %s...' "${CONFIGURATOR}" >&2
-$CC ${CWARNFLAGS-$BASE_WARNFLAGS} $CDEBUGFLAGS $COPTFLAGS $LDFLAGS -o $CONFIGURATOR $CONFIGURATOR.c
+$CC ${CWARNFLAGS-$BASE_WARNFLAGS} $CDEBUGFLAGS $COPTFLAGS $CFLAGS $CPPFLAGS $LDFLAGS -o $CONFIGURATOR $CONFIGURATOR.c
 echo "done" >&2
 
 if [ "$CLANG_COVERAGE" = "1" ]; then
@@ -432,7 +437,7 @@ fi
 # Clean up on exit.
 trap "rm -f $CONFIG_VAR_FILE.$$*" 0
 
-$CONFIGURATOR --extra-tests --autotools-style --var-file=$CONFIG_VAR_FILE.$$ --header-file=$CONFIG_HEADER.$$ --configurator-cc="$CONFIGURATOR_CC" --wrapper="$CONFIGURATOR_WRAPPER" "$CC" ${CWARNFLAGS-$BASE_WARNFLAGS} $CDEBUGFLAGS $COPTFLAGS $CSANFLAGS -I$CPATH -L$LIBRARY_PATH $SQLITE3_CFLAGS $SODIUM_CFLAGS $POSTGRES_INCLUDE <<EOF
+$CONFIGURATOR --extra-tests --autotools-style --var-file=$CONFIG_VAR_FILE.$$ --header-file=$CONFIG_HEADER.$$ --configurator-cc="$CONFIGURATOR_CC" --wrapper="$CONFIGURATOR_WRAPPER" "$CC" ${CWARNFLAGS-$BASE_WARNFLAGS} $CDEBUGFLAGS $COPTFLAGS $CSANFLAGS $SQLITE3_CFLAGS $SODIUM_CFLAGS $CFLAGS -I$CPATH $POSTGRES_INCLUDE $CPPFLAGS -L$LIBRARY_PATH $LDFLAGS <<EOF
 
 var=HAVE_ZLIB
 desc=zlib support
@@ -610,6 +615,9 @@ add_var CONFIGURATOR_CC "$CONFIGURATOR_CC"
 add_var CWARNFLAGS "$CWARNFLAGS"
 add_var CDEBUGFLAGS "$CDEBUGFLAGS"
 add_var COPTFLAGS "$COPTFLAGS"
+add_var CFLAGS "$CFLAGS"
+add_var CPPFLAGS "$CPPFLAGS"
+add_var LDFLAGS "$LDFLAGS"
 if [ -n "${SDKROOT:-}" ]; then
     add_var SDKROOT "$SDKROOT"
 fi
@@ -637,7 +645,6 @@ add_var FUZZING "$FUZZING"
 add_var RUST "$RUST"
 add_var PYTHON "$PYTHON"
 add_var SED "$SED"
-add_var HAVE_FUNCTION_SECTIONS "$HAVE_FUNCTION_SECTIONS"
 
 # Hack to avoid sha256 name clash with libwally: will be fixed when that
 # becomes a standalone shared lib.
