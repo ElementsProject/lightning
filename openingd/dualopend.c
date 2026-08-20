@@ -598,6 +598,20 @@ static void handle_failure_fatal(struct state *state, u8 *msg)
 	if (!fromwire_dualopend_fail(msg, msg, &err))
 		master_badmsg(fromwire_peektype(msg), msg);
 
+	/* BOLT #2:
+	 *
+	 * A sending node:
+	 *   - MUST NOT have already transmitted `tx_signatures`
+	 *   - SHOULD forget the current negotiation and reset their state.
+	 */
+	/* We can still cleanly abort (tx_abort) if we haven't
+	 * transmitted our tx_signatures; we'll finish up when the
+	 * peer echoes the abort back */
+	if (!state->tx_state->local_funding_sigs_sent) {
+		open_abort(state, "%s", err);
+		return;
+	}
+
 	/* We're gonna fail here */
 	open_err_fatal(state, "%s", err);
 }
