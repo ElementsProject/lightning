@@ -37,6 +37,10 @@ void set_custommsgs(struct daemon *daemon, const u8 *msg);
 /* Lightningd wants to talk to you. */
 void peer_connect_subd(struct daemon *daemon, const u8 *msg, int fd);
 
+/* Lightningd isn't attaching a subd for this spoke_id.  Drop the one we
+ * created, and start reading from the peer again. */
+void discard_pending_subd(struct peer *peer, u64 spoke_id);
+
 /* Disconnect peer: give outgoing msgs time to drain though. */
 void disconnect_peer(struct peer *peer);
 
