@@ -1215,6 +1215,41 @@ def test_getroutes_auto_localchans(node_factory):
                                  {'short_channel_id_dir': f'2x2x1/{dir12}', 'amount_in_msat': 101000, 'cltv_in': 99 + 6}]])
 
 
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3',
+                 "deletes database, which is assumed sqlite3")
+def test_getroutes_ignores_recovery_stubs(node_factory):
+    l1, l2, l3, l4 = node_factory.get_nodes(4)
+
+    # Three stubs guarantee that at least two have the same direction.  Since
+    # every recovery stub has SCID 1x1x1, askrene used to abort while adding
+    # the second such channel to its no-duplicates additional-cost table.
+    l1.fundchannel(l2, 100000)
+    l1.fundchannel(l3, 100000)
+    l1.fundchannel(l4, 100000)
+    scb = l1.rpc.staticbackup()['scb']
+
+    l2.stop()
+    l3.stop()
+    l4.stop()
+    l1.stop()
+    os.unlink(os.path.join(l1.daemon.lightning_dir,
+                           TEST_NETWORK,
+                           'lightningd.sqlite3'))
+    l1.start()
+    assert len(l1.rpc.recoverchannel(scb)['stubs']) == 3
+
+    with pytest.raises(RpcError):
+        l1.rpc.getroutes(source=l1.info['id'],
+                         destination=l2.info['id'],
+                         amount_msat=1000,
+                         layers=['auto.localchans'],
+                         maxfee_msat=1000,
+                         final_cltv=9)
+
+    # A route cannot be found, but the recovery stubs must not crash askrene.
+    assert l1.rpc.getinfo()['id'] == l1.info['id']
+
+
 def test_fees_dont_exceed_constraints(node_factory):
     msat = 100000000
     max_msat = int(msat * 0.45)
