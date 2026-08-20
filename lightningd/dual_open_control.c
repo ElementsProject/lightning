@@ -4044,7 +4044,8 @@ static void dualopen_errmsg(struct channel *channel,
 		delete_channel(channel, false);
 		return;
 	}
-	if ((warning || disconnect) && channel_state_open_uncommitted(channel->state)) {
+	if ((warning || disconnect) && channel_state_open_uncommitted(channel->state)
+	    && !channel_funding_sigs_sent(channel)) {
 		log_info(channel->log, "%s", "Commit ready peer failed."
 			 " Deleting channel.");
 		delete_channel(channel, false);
@@ -4088,12 +4089,16 @@ static void dualopen_errmsg(struct channel *channel,
 
 
 		if (!disconnect) {
-			if (channel_state_open_uncommitted(channel->state)) {
+			if (channel_state_open_uncommitted(channel->state)
+			    && !channel_funding_sigs_sent(channel)) {
 				log_info(channel->log, "%s", "Commit ready peer can't reconnect."
 					 " Deleting channel.");
 				delete_channel(channel, false);
 				return;
 			}
+			if (channel_funding_sigs_sent(channel))
+				log_info(channel->log,
+					 "Already sent tx_signatures, remembering channel");
 			char *err = restart_dualopend(tmpctx,
 						      channel->peer->ld,
 						      channel, true);
@@ -4136,7 +4141,8 @@ static void dualopen_errmsg(struct channel *channel,
 	/* FIXME: We don't close all channels */
 	/* We should immediately forget the channel if we receive error during
 	 * CHANNELD_AWAITING_LOCKIN if we are fundee. */
-	if (!err_for_them && channel_state_open_uncommitted(channel->state))
+	if (!err_for_them && channel_state_open_uncommitted(channel->state)
+	    && !channel_funding_sigs_sent(channel))
 		channel_fail_forget(channel, "%s: %s ERROR %s",
 				    channel->owner->name,
 				    err_for_them ? "sent" : "received", desc);

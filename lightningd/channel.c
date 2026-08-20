@@ -138,6 +138,11 @@ bool maybe_cleanup_last_inflight(struct channel *channel)
 	if (inflight->last_tx)
 		return false;
 
+	/* Don't drop an inflight we already signed (BOLT #2 tx_abort
+	 * receiver rule). */
+	if (inflight->i_sent_sigs)
+		return false;
+
 	/* Remove from database */
 	wallet_channel_inflight_cleanup_incomplete(
 			channel->peer->ld->wallet, channel->dbid);
@@ -1111,6 +1116,15 @@ static void channel_fail_perm(struct channel *channel,
 	/* FIXME: We only implement a subset of this; we keep waiting
 	 * as long as it was finished opening. */
 	if (channel_state_open_uncommitted(channel->state)) {
+		/* If we already sent tx_signatures we must not forget the
+		 * channel until an input of the negotiated tx is spent (the
+		 * BOLT #2 tx_abort receiver rule). */
+		if (channel_funding_sigs_sent(channel)) {
+			log_unusual(channel->log,
+				    "Already sent tx_signatures, remembering"
+				    " channel after permanent failure");
+			return;
+		}
 		delete_channel(channel, false);
 		return;
 	}

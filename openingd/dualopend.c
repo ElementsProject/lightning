@@ -1582,11 +1582,30 @@ static void handle_tx_abort(struct state *state, u8 *msg)
 	 * process without worrying about stale messages.
 	 */
 	if (!state->aborted_err) {
-		/* If they sent this after tx-sigs, it's a
-		 * protocol error */
+		/* If they sent this after their tx-sigs, it's a
+		 * protocol error (they MUST NOT send tx_abort after
+		 * transmitting tx_signatures). */
 		if (state->tx_state->remote_funding_sigs_rcvd)
 			open_err_fatal(state, "tx-abort rcvd after"
 				       " tx-sigs");
+
+		/* BOLT #2:
+		 *
+		 * A receiving node:
+		 *   - if they have already sent `tx_signatures` to the peer:
+		 *     - MUST NOT forget the channel until any inputs to the
+		 *       negotiated tx have been spent.
+		 *   - if they have not sent `tx_signatures`:
+		 *     - SHOULD forget the current negotiation and reset their
+		 *       state.
+		 */
+		/* We echo the abort either way; if we already sent our
+		 * signatures the peer may still broadcast, so lightningd
+		 * must remember the channel (it checks our sigs-sent flag
+		 * before deleting anything). */
+		if (state->tx_state->local_funding_sigs_sent)
+			status_unusual("tx-abort rcvd after we sent tx-sigs;"
+				       " remembering channel");
 
 		open_abort(state, "%s", "Rcvd tx-abort");
 		desc = tal_fmt(tmpctx, "They sent %s",
