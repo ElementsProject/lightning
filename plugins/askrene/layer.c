@@ -1139,9 +1139,9 @@ void layer_apply_constraints(const struct layer *layer,
 			} else {
 				/* We made the other way?  Capacity has increased */
 				if (!amount_msat_add(min, *min, imp->amount))
-					*min = AMOUNT_MSAT(-1ULL);
+					*min = AMOUNT_MSAT(UINT64_MAX);
 				if (!amount_msat_add(max, *max, imp->amount))
-					*max = AMOUNT_MSAT(-1ULL);
+					*max = AMOUNT_MSAT(UINT64_MAX);
 			}
 		}
 	}
@@ -1212,7 +1212,7 @@ size_t layer_trim_constraints(struct layer *layer, u64 cutoff)
 		/* We assume the array is sorted by timestamp */
 		for (size_t i = 0; i < tal_count(intelarr); i++) {
 			if (channel_intel_timestamp(&intelarr[i]) >= cutoff)
-				continue;
+				break;
 
 			count_old++;
 			/* The pointer inside channel_intel has to be freed. */
@@ -1220,7 +1220,7 @@ size_t layer_trim_constraints(struct layer *layer, u64 cutoff)
 			tal_steal(tmpctx, intelarr[i].constraint);
 		}
 		num_removed += count_old;
-		if(count_old){
+		if (count_old) {
 			/* Remove from table before realloc!
 			 * Removing elements from the table is safe during
 			 * iteration. */
