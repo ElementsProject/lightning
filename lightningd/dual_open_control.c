@@ -4096,6 +4096,17 @@ static void dualopen_errmsg(struct channel *channel,
 				delete_channel(channel, false);
 				return;
 			}
+			/* Negotiation was cleanly aborted after commitments
+			 * were exchanged, but before we sent tx_signatures:
+			 * safe to forget (BOLT #2 tx_abort sender rule). */
+			if (!warning
+			    && channel->state == DUALOPEND_OPEN_COMMITTED
+			    && !channel_funding_sigs_sent(channel)) {
+				log_info(channel->log, "%s", "Open aborted before we sent"
+					 " tx_signatures. Deleting channel.");
+				delete_channel(channel, false);
+				return;
+			}
 			if (channel_funding_sigs_sent(channel))
 				log_info(channel->log,
 					 "Already sent tx_signatures, remembering channel");
