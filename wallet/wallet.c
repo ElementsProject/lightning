@@ -1597,9 +1597,8 @@ void wallet_inflight_save(struct wallet *w,
 			  struct channel_inflight *inflight)
 {
 	struct db_stmt *stmt;
-	/* The *only* thing you can update on an
-	 * inflight is the funding PSBT (to add sigs)
-	 * and the last_tx/last_sig or locked_scid if this is for a splice */
+	/* Update inflight PSBT (to add sigs), last_tx/last_sig,
+	 * locked_scid, and i_sent_sigs. */
 	stmt = db_prepare_v2(w->db,
 			     SQL("UPDATE channel_funding_inflights SET"
 				 "  funding_psbt=?"
