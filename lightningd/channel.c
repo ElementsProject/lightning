@@ -1190,6 +1190,12 @@ channel_current_inflight(const struct channel *channel)
 			 struct channel_inflight, list);
 }
 
+bool channel_funding_sigs_sent(const struct channel *channel)
+{
+	struct channel_inflight *inflight = channel_current_inflight(channel);
+	return inflight && inflight->i_sent_sigs;
+}
+
 u32 channel_last_funding_feerate(const struct channel *channel)
 {
 	struct channel_inflight *inflight;

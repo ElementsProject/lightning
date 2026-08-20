@@ -500,6 +500,9 @@ struct channel_inflight *channel_inflight_find(struct channel *channel,
 struct channel_inflight *
 channel_current_inflight(const struct channel *channel);
 
+/* True if we have already sent tx_signatures for the current inflight. */
+bool channel_funding_sigs_sent(const struct channel *channel);
+
 /* What's the last feerate used for a funding tx on this channel? */
 u32 channel_last_funding_feerate(const struct channel *channel);
 
