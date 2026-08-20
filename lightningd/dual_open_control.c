@@ -1800,6 +1800,12 @@ static void handle_peer_tx_sigs_sent(struct subd *dualopend,
 		return;
 	}
 
+	/* Once we have sent tx_signatures we must not forget the channel
+	 * until an input of the negotiated tx is spent (BOLT #2 tx_abort
+	 * receiver rule). */
+	inflight->i_sent_sigs = true;
+	wallet_inflight_save(dualopend->ld->wallet, inflight);
+
 	/* Once we've sent our sigs to the peer, we're fine
 	 * to broadcast the transaction, even if they haven't
 	 * sent us their tx-sigs yet. They're not allowed to
