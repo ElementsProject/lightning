@@ -135,6 +135,12 @@ impl<D: DatastoreProvider + 'static, A: ActionExecutor + Send + Sync + 'static>
                 Ok(None)
             }
             ForwardActivity::AllFailed => {
+                // Every forward failed, so the withheld channel will never be
+                // used. Release it and its reserved inputs, as the live
+                // AbandonSession path does, before finalizing.
+                recovery
+                    .close_and_unreserve(&channel_id, &funding_psbt)
+                    .await?;
                 self.datastore
                     .finalize_session(&scid, SessionOutcome::Abandoned)
                     .await?;
@@ -1349,6 +1355,77 @@ mod tests {
 
         mgr.recover(recovery).await.unwrap();
         assert_eq!(mgr.session_count().await, 0);
+    }
+
+    #[tokio::test]
+    async fn recover_funded_all_failed_closes_and_unreserves() {
+        // The AllFailed recovery branch must release the withheld channel and
+        // its reserved inputs, like the NoForwards branch. Otherwise a restart
+        // where every forward failed leaves the channel open and the inputs
+        // reserved, with the active entry deleted so nothing revisits it.
+        struct RecordingRecovery {
+            close_calls: Arc<std::sync::atomic::AtomicUsize>,
+        }
+        #[async_trait]
+        impl RecoveryProvider for RecordingRecovery {
+            async fn get_forward_activity(
+                &self,
+                _channel_id: &str,
+            ) -> anyhow::Result<ForwardActivity> {
+                Ok(ForwardActivity::AllFailed)
+            }
+            async fn get_channel_recovery_info(
+                &self,
+                _channel_id: &str,
+            ) -> anyhow::Result<ChannelRecoveryInfo> {
+                Ok(ChannelRecoveryInfo {
+                    exists: true,
+                    withheld: true,
+                })
+            }
+            async fn close_and_unreserve(
+                &self,
+                _channel_id: &str,
+                _funding_psbt: &str,
+            ) -> anyhow::Result<()> {
+                self.close_calls
+                    .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                Ok(())
+            }
+        }
+
+        let mut ds = MockDatastore::new();
+        ds.entries.clear();
+        let mut entry = test_datastore_entry();
+        entry.channel_id = Some("channel-1".to_string());
+        entry.funding_psbt = Some("psbt-1".to_string());
+        ds.entries.insert(test_scid().to_string(), entry);
+        let ds = Arc::new(ds);
+
+        let mgr = Arc::new(SessionManager::new(
+            ds.clone(),
+            Arc::new(MockExecutor::new(true)),
+            SessionConfig::default(),
+            Arc::new(NoopEventSink),
+        ));
+
+        let close_calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let recovery = Arc::new(RecordingRecovery {
+            close_calls: close_calls.clone(),
+        });
+        mgr.recover(recovery).await.unwrap();
+
+        assert_eq!(
+            close_calls.load(std::sync::atomic::Ordering::SeqCst),
+            1,
+            "AllFailed recovery must close_and_unreserve the withheld channel"
+        );
+        assert!(
+            ds.finalized_outcomes().iter().any(|(scid, o)| *scid
+                == test_scid().to_string()
+                && matches!(o, SessionOutcome::Abandoned)),
+            "AllFailed recovery must still finalize as Abandoned"
+        );
     }
 
     #[tokio::test]
