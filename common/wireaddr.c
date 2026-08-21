@@ -579,6 +579,12 @@ const char *parse_wireaddr(const tal_t *ctx,
 		if (strlen(ip) > DNS_ADDRLEN)
 			return "DNS address too long";
 
+		/* fromwire_wireaddr() ignores a DNS descriptor which isn't a
+		 * hostname, so anything we announce that fails this is dropped
+		 * by every peer.  Say so here, where the operator can see it. */
+		if (!is_dnsaddr(ip))
+			return tal_fmt(ctx, "dns: '%s' is not a hostname", ip);
+
 		addr->addrlen = strlen(ip);
 		memcpy(addr->addr, ip, addr->addrlen);
 		addr->port = port;
