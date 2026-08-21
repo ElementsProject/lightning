@@ -2,6 +2,7 @@
  * SA_RESTART interrupts the parent's blocking read(execfail[0]);
  * pipecmdarr must not then report success for a command which does
  * not exist. */
+#include <unistd.h>
 #include <ccan/pipecmd/pipecmd.h>
 /* Include the C files directly. */
 #include <ccan/pipecmd/pipecmd.c>

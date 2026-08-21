@@ -4,6 +4,7 @@
  * a second time.  We force the fallback by undefining
  * HAVE_PROC_SELF_MAPS (same code path as /proc being unavailable).
  * Currently fails: not ok 2. */
+#include <unistd.h>
 #include <ccan/ptr_valid/ptr_valid.h>
 #undef HAVE_PROC_SELF_MAPS
 #define HAVE_PROC_SELF_MAPS 0

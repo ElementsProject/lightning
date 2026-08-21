@@ -473,7 +473,19 @@ void *io_loop(struct timers *timers, struct timer **expired)
 				if (events & POLLIN) {
 					accept_conn(l);
 					r--;
-				} else if (events & (POLLHUP|POLLNVAL|POLLERR)) {
+				} else if (events) {
+					/* We only ever ask for POLLIN here.
+					 * POLLHUP/POLLNVAL/POLLERR cover
+					 * Linux's hangup-on-shutdown case
+					 * (see run-22-POLLHUP-on-listening-
+					 * socket.c), but as with the
+					 * non-listener case below, macOS's
+					 * exact revents combination for
+					 * socket errors/shutdown is known to
+					 * differ from Linux's; don't risk
+					 * falling through both branches (and
+					 * thus never closing the listener) on
+					 * a combination we didn't predict. */
 					r--;
 					errno = EBADF;
 					io_close_listener(l);
@@ -489,12 +501,43 @@ void *io_loop(struct timers *timers, struct timer **expired)
 				 * ECONNREFUSED. */
 				r--;
 				/* Get fd's specific error to find Mac's
-				 * ECONNREFUSED, among others */
-				if(getsockopt(fds[i]->fd, SOL_SOCKET, SO_ERROR,
+				 * ECONNREFUSED, among others.  getsockopt()
+				 * doubles as its own error-value buffer here:
+				 * on success &errno receives the socket's
+				 * SO_ERROR; on failure, errno gets set as
+				 * usual by the failed call itself. */
+				if (getsockopt(fds[i]->fd, SOL_SOCKET, SO_ERROR,
 					      &errno, &errno_len) == -1) {
+					if (errno == ENOTSOCK) {
+						/* Not a socket at all (e.g. a
+						 * plain fd or /dev/null added
+						 * via io_new_conn()): there's
+						 * no SO_ERROR to learn here.
+						 * Give the connection's own
+						 * read/write a normal chance
+						 * to run and discover the real
+						 * outcome itself (EOF, a real
+						 * error, or nothing), instead
+						 * of inventing a misleading
+						 * EBADF and closing blind.
+						 *
+						 * events here is only the
+						 * error bits we matched this
+						 * branch on (by construction,
+						 * neither POLLIN nor POLLOUT);
+						 * io_ready() only acts on
+						 * those two bits, so pass what
+						 * we actually asked poll() for
+						 * instead, or it's a same-state
+						 * no-op that spins forever. */
+						io_ready(c, pollfds[i].events);
+						goto next_fd;
+					}
 					errno = EBADF;
 				}
 				io_close(c);
+			next_fd:
+				;
 			}
 		}
 	}

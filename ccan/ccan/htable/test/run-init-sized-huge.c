@@ -10,6 +10,7 @@
  * checks the requested size against the overflow-free computation, so it
  * fails on 32-bit before the fix and passes everywhere after it.
  */
+#include <unistd.h>
 #include <ccan/htable/htable.h>
 #include <ccan/htable/htable.c>
 #include <ccan/tap/tap.h>
