@@ -289,6 +289,22 @@ int main(int argc, char *argv[])
 					 &decoded_bad) == FROMWIREADDR_IGNORE);
 	}
 
+	/* ...and we don't produce one either: a dns: address which isn't a
+	 * hostname is rejected at parse time, rather than accepted here and
+	 * silently dropped by every peer we announce it to. */
+	for (size_t i = 0; i < ARRAY_SIZE(baddnsaddrs); i++) {
+		struct wireaddr parsed;
+		const char *arg = tal_fmt(tmpctx, "dns:%s", baddnsaddrs[i]);
+		assert(parse_wireaddr(tmpctx, arg, DEFAULT_PORT, NULL,
+				      &parsed) != NULL);
+	}
+
+	/* A real hostname still works. */
+	struct wireaddr good_dns;
+	assert(parse_wireaddr(tmpctx, "dns:example.com", DEFAULT_PORT, NULL,
+			      &good_dns) == NULL);
+	assert(good_dns.type == ADDR_TYPE_DNS);
+
 	tal_free(expect);
 	common_shutdown();
 }
