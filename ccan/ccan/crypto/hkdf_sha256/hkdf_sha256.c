@@ -13,7 +13,10 @@ void hkdf_sha256(void *okm, size_t okm_size,
 	struct hmac_sha256_ctx ctx;
 	unsigned char c;
 
-	assert(okm_size < 255 * sizeof(t));
+	assert(okm_size <= 255 * sizeof(t));
+
+	if (okm_size == 0)
+		return;
 
 	/* RFC 5869:
 	 *

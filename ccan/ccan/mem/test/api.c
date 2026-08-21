@@ -1,6 +1,7 @@
 #include "config.h"
 
 #include <assert.h>
+#include <stdint.h>
 
 #include <ccan/mem/mem.h>
 #include <ccan/tap/tap.h>
@@ -96,8 +97,11 @@ int main(void)
 			 haystack1 + sizeof(haystack1), 1));
 	ok1(!memoverlaps(haystack1 + sizeof(haystack1), 1,
 			 haystack1, sizeof(haystack1)));
-	ok1(!memoverlaps(haystack1, sizeof(haystack1), haystack1 - 1, 1));
-	ok1(!memoverlaps(haystack1 - 1, 1, haystack1, sizeof(haystack1)));
+	/* Forming haystack1 - 1 directly is UB; round-trip via uintptr_t. */
+	ok1(!memoverlaps(haystack1, sizeof(haystack1),
+			 (void *)((uintptr_t)haystack1 - 1), 1));
+	ok1(!memoverlaps((void *)((uintptr_t)haystack1 - 1), 1,
+			 haystack1, sizeof(haystack1)));
 	ok1(memoverlaps(haystack1, 5, haystack1 + 4, 7));
 	ok1(!memoverlaps(haystack1, 5, haystack1 + 5, 6));
 	ok1(memoverlaps(haystack1 + 4, 7, haystack1, 5));

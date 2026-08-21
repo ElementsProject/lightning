@@ -7,7 +7,7 @@
 /**
  * hkdf_sha256 - generate a derived key
  * @okm: where to output the key
- * @okm_size: the number of bytes pointed to by @okm (must be less than 255*32)
+ * @okm_size: the number of bytes pointed to by @okm (must be at most 255*32)
  * @s: salt
  * @ssize: the number of bytes pointed to by @s
  * @k: pointer to input key

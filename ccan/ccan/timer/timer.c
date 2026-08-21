@@ -153,6 +153,15 @@ static void timers_far_get(struct timers *timers,
 	}
 }
 
+/* Maximum time covered by levels 0..@level (from base); saturates
+ * once the range exceeds the representable 64 bits. */
+static uint64_t level_max_time(const struct timers *timers, unsigned int level)
+{
+	if ((level + 1) * TIMER_LEVEL_BITS >= 64)
+		return -1ULL;
+	return timers->base + (1ULL << ((level+1)*TIMER_LEVEL_BITS)) - 1;
+}
+
 static void add_level(struct timers *timers, unsigned int level)
 {
 	struct timer_level *l;
@@ -169,8 +178,7 @@ static void add_level(struct timers *timers, unsigned int level)
 	timers->level[level] = l;
 
 	list_head_init(&from_far);
-	timers_far_get(timers, &from_far,
-		       timers->base + (1ULL << ((level+1)*TIMER_LEVEL_BITS)) - 1);
+	timers_far_get(timers, &from_far, level_max_time(timers, level));
 
 	while ((t = list_pop(&from_far, struct timer, list)) != NULL)
 		timer_add_raw(timers, t);
@@ -313,8 +321,7 @@ static void timer_fast_forward(struct timers *timers, uint64_t time)
 		if (!timers->level[level]) {
 			/* We need any which belong on this level. */
 			timers_far_get(timers, &list,
-				       timers->base
-				       + (1ULL << ((level+1)*TIMER_LEVEL_BITS))-1);
+				       level_max_time(timers, level));
 			need_level = level;
 		} else {
 			unsigned src;
@@ -353,6 +360,9 @@ struct timer *timers_expire(struct timers *timers, struct timemono expire)
 		if (list_empty(&timers->far))
 			return NULL;
 		add_level(timers, 0);
+		/* Allocation failure: timers wait safely on the far list. */
+		if (!timers->level[0])
+			return NULL;
 	}
 
 	do {
@@ -448,8 +458,13 @@ struct timers *timers_check(const struct timers *timers, const char *abortstr)
 	}
 
 past_levels:
-	base = (timers->base & ~((1ULL << (TIMER_LEVEL_BITS * l)) - 1))
-		+ (1ULL << (TIMER_LEVEL_BITS * l)) - 1;
+	if (TIMER_LEVEL_BITS * l < 64) {
+		base = (timers->base & ~((1ULL << (TIMER_LEVEL_BITS * l)) - 1))
+			+ (1ULL << (TIMER_LEVEL_BITS * l)) - 1;
+	} else {
+		/* Levels cover all representable times: far must be empty. */
+		base = -1ULL;
+	}
 	if (!timer_list_check(&timers->far, base, -1ULL,
 			      timers->firsts[ARRAY_SIZE(timers->level)],
 			      abortstr))

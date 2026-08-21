@@ -60,8 +60,7 @@ char *opt_set_charp(const char *arg, char **p)
 	return NULL;
 }
 
-/* Set an integer value, various forms.
-   FIXME: set to 1 on arg == NULL ? */
+/* Set an integer value, various forms. */
 char *opt_set_intval(const char *arg, int *i)
 {
 	long l;

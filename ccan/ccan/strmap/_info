@@ -53,6 +53,7 @@ int main(int argc, char *argv[])
 
 	if (strcmp(argv[1], "depends") == 0) {
 		printf("ccan/ilog\n"
+		       "ccan/mem\n"
 		       "ccan/short_types\n"
 		       "ccan/str\n"
 		       "ccan/tcon\n"
