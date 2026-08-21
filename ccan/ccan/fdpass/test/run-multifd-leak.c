@@ -1,13 +1,11 @@
-/* Temporary auditor regression test (audit 2026-08-05).
- * Proves: when the peer sends TWO fds in ONE SCM_RIGHTS cmsg
- * (cmsg_len = CMSG_LEN(2*sizeof(int)), which fits the receiver's
- * CMSG_SPACE(sizeof(int)) control buffer), fdpass_recv rejects the
- * message but the kernel has already installed both fds into this
- * process; fdpass_recv never closes them -> fd leak (observed: 32 fds
- * leaked over 16 rejected recvs).  Repeatable by any non-fdpass peer;
- * resource-exhaustion DoS.
- * Currently FAILS; must pass after repair (reject path must close any
- * fds carried by a malformed SCM_RIGHTS cmsg). */
+/* Regression test: when the peer sends TWO fds in ONE SCM_RIGHTS cmsg
+ * (cmsg_len = CMSG_LEN(2*sizeof(int))), fdpass_recv must reject the
+ * message without leaking whatever fd(s) the kernel already installed
+ * into this process.  On some ABIs (notably 32-bit, where
+ * CMSG_SPACE(sizeof(int)) leaves room for only one fd's worth of
+ * ancillary data) the kernel truncates the message down to what looks
+ * like a legitimate single-fd receive, so the check can't rely on
+ * cmsg_len alone and must also honour MSG_CTRUNC. */
 #include <ccan/fdpass/fdpass.h>
 /* Include the C files directly. */
 #include <ccan/fdpass/fdpass.c>
@@ -23,7 +21,7 @@
 
 static int count_fds(void)
 {
-	DIR *d = opendir("/proc/self/fd");
+	DIR *d = opendir("/dev/fd");
 	struct dirent *de;
 	int n = 0;
 

@@ -12,6 +12,7 @@
  *
  * Fails against the current code (child killed by SIGTRAP).  Must pass
  * after repair. */
+#include <unistd.h>
 #include <ccan/breakpoint/breakpoint.h>
 #include <ccan/breakpoint/breakpoint.c>
 #include <ccan/tap/tap.h>

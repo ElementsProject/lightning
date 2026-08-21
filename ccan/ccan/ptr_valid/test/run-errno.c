@@ -1,6 +1,7 @@
 /* Regression test: ptr_valid.h documents "Sets errno to EFAULT on
  * failure", but the /proc/self/maps path and the alignment check
  * return false without setting errno.  Currently fails all 3 tests. */
+#include <unistd.h>
 #include <ccan/ptr_valid/ptr_valid.h>
 /* Include the C files directly. */
 #include <ccan/ptr_valid/ptr_valid.c>

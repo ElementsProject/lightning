@@ -13,8 +13,10 @@
  * uninitialized state, simulating many first-use races.  Fails against
  * the current code (a child is killed by SIGTRAP, usually in round 0).
  * Must pass after repair. */
+#include <unistd.h>
 #include <ccan/breakpoint/breakpoint.h>
 #include <ccan/breakpoint/breakpoint.c>
+#include <ccan/mem/mem.h>
 #include <ccan/tap/tap.h>
 #include <pthread.h>
 #include <stdlib.h>
@@ -38,6 +40,14 @@ static void *hammer(void *arg)
 int main(void)
 {
 	int round, crashed = 0;
+
+	/* Deliberately hammers a known, documented, unsynchronized
+	 * race (audit F2); valgrind's own instrumentation of it isn't
+	 * meaningful signal. */
+	if (mem_under_valgrind()) {
+		plan_skip_all("not meaningful under valgrind");
+		return exit_status();
+	}
 
 	alarm(60);
 	plan_tests(1);

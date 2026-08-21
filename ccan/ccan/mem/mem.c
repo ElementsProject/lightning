@@ -3,8 +3,21 @@
 #include "config.h"
 
 #include <assert.h>
+#include <stdlib.h>
 #include <string.h>
 #include <ccan/mem/mem.h>
+
+bool mem_under_valgrind(void)
+{
+	const char *e = getenv("RUNNING_ON_VALGRIND");
+	if (e && strcmp(e, "1") == 0)
+		return true;
+#if HAVE_VALGRIND_MEMCHECK_H
+	return RUNNING_ON_VALGRIND;
+#else
+	return false;
+#endif
+}
 
 #if !HAVE_MEMMEM
 void *memmem(const void *haystack, size_t haystacklen,

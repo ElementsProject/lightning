@@ -5,6 +5,7 @@
  * cannot distinguish "expands to nothing" from "absent", so this is
  * now the documented behavior (cppmagic.h CPPMAGIC_MAP doc note).
  * This test pins it. */
+#include <unistd.h>
 #include "config.h"
 
 #include <string.h>

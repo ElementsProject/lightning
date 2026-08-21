@@ -536,7 +536,7 @@ struct io_plan *io_halfclose(struct io_conn *conn);
  *
  * Example:
  * // Silly example to wait then close.
- * static struct io_plan *wait(struct io_conn *conn, void *b)
+ * static struct io_plan *wait_then_close(struct io_conn *conn, void *b)
  * {
  *	return io_wait(conn, b, io_close_cb, NULL);
  * }
