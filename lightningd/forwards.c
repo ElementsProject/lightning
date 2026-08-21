@@ -129,6 +129,10 @@ void json_add_forwarding_fields(struct json_stream *response,
 				onion_wire_name(cur->failcode));
 	}
 
+	if (cur->reason != FORWARD_FAIL_UNKNOWN)
+		json_add_string(response, "failure_reason",
+				forward_failure_reason_name(cur->reason));
+
 	/* Old forwards don't have this field */
 	if (cur->forward_style != FORWARD_STYLE_UNKNOWN)
 		json_add_string(response, "style",

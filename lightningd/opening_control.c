@@ -235,7 +235,8 @@ wallet_commit_channel(struct lightningd *ld,
 			      &zero_channel_stats,
 			      tal_arr(NULL, struct channel_state_change *, 0),
 			      funding_psbt,
-			      withheld);
+			      withheld,
+			      FUNDING_TX_STATUS_UNKNOWN);
 
 	/* Now we finally put it in the database. */
 	wallet_channel_insert(ld->wallet, channel);
@@ -1680,7 +1681,8 @@ static struct channel *stub_chan(struct command *cmd,
 			      &zero_channel_stats,
 			      tal_arr(NULL, struct channel_state_change *, 0),
 			      NULL,
-			      false);
+			      false,
+			      FUNDING_TX_STATUS_CONFIRMED);
 
 	/* We don't want to gossip about this, ever. */
 	channel->channel_gossip = tal_free(channel->channel_gossip);

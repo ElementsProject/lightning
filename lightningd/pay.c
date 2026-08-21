@@ -791,7 +791,8 @@ static const u8 *send_onion(const tal_t *ctx, struct lightningd *ld,
 	return send_htlc_out(ctx, channel, first_hop->amount,
 			     base_expiry + first_hop->delay,
 			     final_amount, payment_hash,
-			     path_key, NULL, partid, groupid, onion, NULL, hout);
+			     path_key, NULL, partid, groupid, onion, NULL, hout,
+			     NULL);
 	}
 
 static struct command_result *check_invoice_request_usage(struct command *cmd,
@@ -2114,7 +2115,7 @@ static struct command_result *json_injectpaymentonion(struct command *cmd,
 				payment_hash,
 				next_path_key, NULL, *partid, *groupid,
 				serialize_onionpacket(tmpctx, rs->next),
-				NULL, &hout);
+				NULL, &hout, NULL);
 	if (failmsg) {
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "Could not send to first peer: %s",

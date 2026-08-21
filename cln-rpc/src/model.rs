@@ -9350,6 +9350,83 @@ pub mod responses {
 	    }
 	}
 
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+	#[allow(non_camel_case_types)]
+	pub enum ListforwardsForwardsFailureReason {
+	    #[serde(rename = "insufficient_outgoing_liquidity")]
+	    INSUFFICIENT_OUTGOING_LIQUIDITY = 0,
+	    #[serde(rename = "too_many_htlcs")]
+	    TOO_MANY_HTLCS = 1,
+	    #[serde(rename = "dust_limit")]
+	    DUST_LIMIT = 2,
+	    #[serde(rename = "htlc_below_minimum")]
+	    HTLC_BELOW_MINIMUM = 3,
+	    #[serde(rename = "htlc_above_maximum")]
+	    HTLC_ABOVE_MAXIMUM = 4,
+	    #[serde(rename = "fee_insufficient")]
+	    FEE_INSUFFICIENT = 5,
+	    #[serde(rename = "cltv_incorrect")]
+	    CLTV_INCORRECT = 6,
+	    #[serde(rename = "cltv_expiry_too_soon")]
+	    CLTV_EXPIRY_TOO_SOON = 7,
+	    #[serde(rename = "cltv_expiry_too_far")]
+	    CLTV_EXPIRY_TOO_FAR = 8,
+	    #[serde(rename = "unknown_next_peer")]
+	    UNKNOWN_NEXT_PEER = 9,
+	    #[serde(rename = "outgoing_peer_offline")]
+	    OUTGOING_PEER_OFFLINE = 10,
+	    #[serde(rename = "channel_failed_permanent")]
+	    CHANNEL_FAILED_PERMANENT = 11,
+	    #[serde(rename = "invalid_onion")]
+	    INVALID_ONION = 12,
+	    #[serde(rename = "funding_not_broadcast")]
+	    FUNDING_NOT_BROADCAST = 13,
+	}
+
+	impl TryFrom<i32> for ListforwardsForwardsFailureReason {
+	    type Error = anyhow::Error;
+	    fn try_from(c: i32) -> Result<ListforwardsForwardsFailureReason, anyhow::Error> {
+	        match c {
+	    0 => Ok(ListforwardsForwardsFailureReason::INSUFFICIENT_OUTGOING_LIQUIDITY),
+	    1 => Ok(ListforwardsForwardsFailureReason::TOO_MANY_HTLCS),
+	    2 => Ok(ListforwardsForwardsFailureReason::DUST_LIMIT),
+	    3 => Ok(ListforwardsForwardsFailureReason::HTLC_BELOW_MINIMUM),
+	    4 => Ok(ListforwardsForwardsFailureReason::HTLC_ABOVE_MAXIMUM),
+	    5 => Ok(ListforwardsForwardsFailureReason::FEE_INSUFFICIENT),
+	    6 => Ok(ListforwardsForwardsFailureReason::CLTV_INCORRECT),
+	    7 => Ok(ListforwardsForwardsFailureReason::CLTV_EXPIRY_TOO_SOON),
+	    8 => Ok(ListforwardsForwardsFailureReason::CLTV_EXPIRY_TOO_FAR),
+	    9 => Ok(ListforwardsForwardsFailureReason::UNKNOWN_NEXT_PEER),
+	    10 => Ok(ListforwardsForwardsFailureReason::OUTGOING_PEER_OFFLINE),
+	    11 => Ok(ListforwardsForwardsFailureReason::CHANNEL_FAILED_PERMANENT),
+	    12 => Ok(ListforwardsForwardsFailureReason::INVALID_ONION),
+	    13 => Ok(ListforwardsForwardsFailureReason::FUNDING_NOT_BROADCAST),
+	            o => Err(anyhow::anyhow!("Unknown variant {} for enum ListforwardsForwardsFailureReason", o)),
+	        }
+	    }
+	}
+
+	impl ToString for ListforwardsForwardsFailureReason {
+	    fn to_string(&self) -> String {
+	        match self {
+	            ListforwardsForwardsFailureReason::INSUFFICIENT_OUTGOING_LIQUIDITY => "INSUFFICIENT_OUTGOING_LIQUIDITY",
+	            ListforwardsForwardsFailureReason::TOO_MANY_HTLCS => "TOO_MANY_HTLCS",
+	            ListforwardsForwardsFailureReason::DUST_LIMIT => "DUST_LIMIT",
+	            ListforwardsForwardsFailureReason::HTLC_BELOW_MINIMUM => "HTLC_BELOW_MINIMUM",
+	            ListforwardsForwardsFailureReason::HTLC_ABOVE_MAXIMUM => "HTLC_ABOVE_MAXIMUM",
+	            ListforwardsForwardsFailureReason::FEE_INSUFFICIENT => "FEE_INSUFFICIENT",
+	            ListforwardsForwardsFailureReason::CLTV_INCORRECT => "CLTV_INCORRECT",
+	            ListforwardsForwardsFailureReason::CLTV_EXPIRY_TOO_SOON => "CLTV_EXPIRY_TOO_SOON",
+	            ListforwardsForwardsFailureReason::CLTV_EXPIRY_TOO_FAR => "CLTV_EXPIRY_TOO_FAR",
+	            ListforwardsForwardsFailureReason::UNKNOWN_NEXT_PEER => "UNKNOWN_NEXT_PEER",
+	            ListforwardsForwardsFailureReason::OUTGOING_PEER_OFFLINE => "OUTGOING_PEER_OFFLINE",
+	            ListforwardsForwardsFailureReason::CHANNEL_FAILED_PERMANENT => "CHANNEL_FAILED_PERMANENT",
+	            ListforwardsForwardsFailureReason::INVALID_ONION => "INVALID_ONION",
+	            ListforwardsForwardsFailureReason::FUNDING_NOT_BROADCAST => "FUNDING_NOT_BROADCAST",
+	        }.to_string()
+	    }
+	}
+
 	/// ['Either a legacy onion format or a modern tlv format.']
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	#[allow(non_camel_case_types)]
@@ -9424,6 +9501,8 @@ pub mod responses {
 	    pub failcode: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub failreason: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub failure_reason: Option<ListforwardsForwardsFailureReason>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub fee_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]

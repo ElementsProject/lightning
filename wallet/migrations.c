@@ -1187,6 +1187,21 @@ static const struct db_migration dbmigrations[] = {
     {SQL("ALTER TABLE payments ADD failmsg BLOB;"), NULL,
      SQL("ALTER TABLE payments DROP COLUMN failmsg"), NULL},
     /* ^v26.09 */
+
+    {SQL("ALTER TABLE forwards ADD reason INTEGER DEFAULT NULL"), NULL},
+
+    {SQL("ALTER TABLE channels ADD COLUMN funding_tx_status INTEGER DEFAULT 0;"), NULL},
+    {SQL("ALTER TABLE channel_funding_inflights ADD COLUMN funding_tx_status INTEGER DEFAULT 0;"), NULL},
+    /* channels already past the pre-lockin dance obviously had
+     * their funding tx broadcast and confirmed already, so dont
+     * retroactively block them from forwarding. Excludes the states that
+     * mean "still negotiating/waiting for lockin" (enum channel_state in
+     * lightningd/channel_state.h - values are frozen)
+     * DUALOPEND_OPEN_INIT=1, CHANNELD_AWAITING_LOCKIN=2,
+     * DUALOPEND_OPEN_COMMITTED=10, DUALOPEND_AWAITING_LOCKIN=11,
+     * DUALOPEND_OPEN_COMMIT_READY=13. */
+    {SQL("UPDATE channels SET funding_tx_status=2"
+	 " WHERE state NOT IN (1, 2, 10, 11, 13);"), NULL},
 };
 
 const struct db_migration *get_db_migrations(size_t *num)
