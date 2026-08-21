@@ -10,6 +10,7 @@
  * After repair it must pass: result well-formed and equal to either
  * {0, 999999999} (truncation) or {1, 0} (correct round-up).
  */
+#include <unistd.h>
 #include <ccan/time/time.h>
 #include <ccan/time/time.c>
 #include <ccan/tap/tap.h>

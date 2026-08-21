@@ -11,6 +11,7 @@
  * Fails against the current code: the second ok1 fails
  * (breakpoint_under_debug == true) and the process is then killed by
  * SIGTRAP when the mask is restored.  Must pass after repair. */
+#include <unistd.h>
 #include <ccan/breakpoint/breakpoint.h>
 #include <ccan/breakpoint/breakpoint.c>
 #include <ccan/tap/tap.h>

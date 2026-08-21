@@ -3,6 +3,7 @@
  * We interpose malloc/realloc/free by macro (this file includes
  * ptr_valid.c directly) and inject a failure at each growth call.
  * Currently fails: not ok 1 and not ok 2. */
+#include <unistd.h>
 #include <ccan/ptr_valid/ptr_valid.h>
 #include <stdint.h>
 
@@ -83,7 +84,6 @@ int main(void)
 	int i;
 	struct ptr_valid_batch batch;
 
-	plan_tests(2);
 	alarm(20);
 
 	/* Silence "defined but not used" when ptr_valid.c's
@@ -94,14 +94,23 @@ int main(void)
 
 	/* Split a 1000-page mapping into alternating RO/RW VMAs so
 	 * /proc/self/maps exceeds grab()'s initial 16k buffer and has
-	 * more entries than add_map()'s initial 16 slots. */
+	 * more entries than add_map()'s initial 16 slots.
+	 *
+	 * Must resolve this (and plan accordingly) before the single
+	 * plan_tests()/plan_skip_all() call tap allows. */
 	region = mmap(NULL, 1000 * 4096, PROT_READ|PROT_WRITE,
 		      MAP_ANONYMOUS|MAP_PRIVATE, -1, 0);
-	if (region == MAP_FAILED)
+	if (region == MAP_FAILED) {
 		plan_skip_all("mmap failed");
+		return exit_status();
+	}
 	for (i = 0; i < 1000; i += 2)
-		if (mprotect(region + i * 4096, 4096, PROT_READ) != 0)
+		if (mprotect(region + i * 4096, 4096, PROT_READ) != 0) {
 			plan_skip_all("mprotect failed");
+			return exit_status();
+		}
+
+	plan_tests(2);
 
 	/* grab(): fail the 16384 -> 32768 buffer growth. */
 	fail_realloc_size = 32768 + 1;

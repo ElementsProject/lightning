@@ -258,6 +258,15 @@ static inline void *memcheck_(const void *data, size_t len)
 }
 #endif
 
+/**
+ * mem_under_valgrind - true if we're running under valgrind.
+ *
+ * Checks RUNNING_ON_VALGRIND() if available at compile time, and
+ * RUNNING_ON_VALGRIND=1 in the environment (set by ccanlint) either
+ * way.
+ */
+bool mem_under_valgrind(void);
+
 #if HAVE_TYPEOF
 /**
  * memcheck - check that a memory region is initialized
