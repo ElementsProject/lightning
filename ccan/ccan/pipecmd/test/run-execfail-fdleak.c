@@ -3,19 +3,21 @@
  * (b) pipe()/fcntl()/fork() fails after the command pipes were created.
  * Both paths only close par_close[] and forget tochild[1], fromchild[0]
  * and errfromchild[0]. */
+#include <unistd.h>
 #include <ccan/pipecmd/pipecmd.h>
 /* Include the C files directly. */
 #include <ccan/pipecmd/pipecmd.c>
 #include <ccan/tap/tap.h>
 #include <string.h>
 #include <dirent.h>
+#include <fcntl.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <sys/resource.h>
 
 static int count_fds(void)
 {
-	DIR *d = opendir("/proc/self/fd");
+	DIR *d = opendir("/dev/fd");
 	struct dirent *de;
 	int n = 0;
 
@@ -70,8 +72,23 @@ int main(void)
 	getrlimit(RLIMIT_NOFILE, &saved);
 	before = count_fds();
 	rl = saved;
-	/* Room for exactly the three command pipes (6 fds). */
-	rl.rlim_cur = before + 6;
+	{
+		/* A count of open fds isn't a safe basis for the limit:
+		 * if our fd table has gaps (e.g. the test harness holds
+		 * some higher-numbered fds open), pipecmdarr()'s opens
+		 * fill those gaps first and the count undercounts how
+		 * many low-numbered slots are actually free.  Probe the
+		 * fd number the kernel would hand out next instead, so
+		 * the limit leaves room for exactly the three command
+		 * pipes (6 fds). */
+		int next = open("/dev/null", O_RDONLY);
+		if (next < 0) {
+			ok(0, "probe open failed");
+			exit(1);
+		}
+		rl.rlim_cur = next + 6;
+		close(next);
+	}
 	if (setrlimit(RLIMIT_NOFILE, &rl) != 0) {
 		ok(0, "setrlimit failed");
 		exit(1);

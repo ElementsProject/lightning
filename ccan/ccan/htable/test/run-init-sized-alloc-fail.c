@@ -7,6 +7,7 @@
  * indexed up to (1<<bits)-1 buckets into a one-bucket "table" and wrote
  * out of bounds (ASan: stack/heap-buffer-overflow in ht_add()).
  */
+#include <unistd.h>
 #include <ccan/htable/htable.h>
 #include <ccan/htable/htable.c>
 #include <ccan/tap/tap.h>

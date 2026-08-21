@@ -414,6 +414,14 @@ static enum plan_result do_plan(struct io_conn *conn, struct io_plan *plan,
 			return EXHAUSTED;
 		if (errno == EPIPE && idle_on_epipe) {
 			plan->status = IO_UNSET;
+			/* Clear any exclusivity on this (now-idle) plan:
+			 * otherwise it stays counted, permanently
+			 * suppressing polling on the *other* direction too
+			 * (see exclude_pollfds()), even though nothing will
+			 * ever clear it since this plan isn't active to be
+			 * un-exclusived through the normal io_conn_*_exclusive()
+			 * call the caller would otherwise make. */
+			backend_set_exclusive(plan, false);
 			backend_new_plan(conn);
 			return UNINTERESTED;
 		}

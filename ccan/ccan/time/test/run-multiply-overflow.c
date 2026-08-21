@@ -9,6 +9,7 @@
  * repair (document the overflow precondition and/or clamp), it must
  * run UBSan-clean.
  */
+#include <unistd.h>
 #include <ccan/time/time.h>
 #include <ccan/time/time.c>
 #include <ccan/tap/tap.h>

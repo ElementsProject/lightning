@@ -1,4 +1,5 @@
 #define CCAN_LIKELY_DEBUG 1
+#include <unistd.h>
 #include <ccan/likely/likely.c>
 #include <ccan/likely/likely.h>
 #include <ccan/tap/tap.h>

@@ -90,7 +90,11 @@ static int make_listen_fd(const char *port)
 
 int main(void)
 {
-	struct sockaddr_in sa;
+	/* make_listen_fd() uses AF_UNSPEC, and getaddrinfo() commonly
+	 * resolves that to IPv6 on macOS (vs. IPv4 here) -- a fixed
+	 * sockaddr_in and a hardcoded AF_INET client socket below would
+	 * mismatch whichever family the listener actually got. */
+	struct sockaddr_storage sa;
 	socklen_t salen = sizeof(sa);
 	int flags, status;
 
@@ -110,8 +114,10 @@ int main(void)
 	fflush(stdout);
 	if (fork() == 0) {
 		alarm(5);
-		client_fd = socket(AF_INET, SOCK_STREAM, 0);
 		if (getsockname(listen_fd, (struct sockaddr *)&sa, &salen) != 0)
+			exit(1);
+		client_fd = socket(sa.ss_family, SOCK_STREAM, 0);
+		if (client_fd < 0)
 			exit(1);
 		if (connect(client_fd, (struct sockaddr *)&sa, salen) != 0)
 			exit(1);

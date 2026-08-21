@@ -3,6 +3,7 @@
  * ptr_valid_batch_write() claim the page is writable (and a cached
  * write failure makes ptr_valid_batch_read() claim it is unreadable).
  * Currently fails: not ok 2 and not ok 4. */
+#include <unistd.h>
 #include <ccan/ptr_valid/ptr_valid.h>
 /* Include the C files directly. */
 #include <ccan/ptr_valid/ptr_valid.c>

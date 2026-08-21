@@ -1,6 +1,7 @@
 /* Regression test: on exec failure the child calls exit(127) instead of
  * _exit(127), so it flushes the parent's inherited stdio buffers a second
  * time (and runs atexit handlers) when an output stream is preserved. */
+#include <unistd.h>
 #include <ccan/pipecmd/pipecmd.h>
 /* Include the C files directly. */
 #include <ccan/pipecmd/pipecmd.c>

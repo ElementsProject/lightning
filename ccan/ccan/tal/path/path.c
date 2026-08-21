@@ -15,6 +15,7 @@ char *path_cwd(const tal_t *ctx)
 {
 	size_t len = 64;
 	char *cwd;
+	int saved_errno = errno;
 
 	/* *This* is why people hate C. */
 	cwd = tal_arr(ctx, char, len);
@@ -22,6 +23,12 @@ char *path_cwd(const tal_t *ctx)
 		if (errno != ERANGE || !tal_resize(&cwd, len *= 2))
 			cwd = tal_free(cwd);
 	}
+	/* No guarantee callers get errno untouched on success, but no
+	 * reason to leave our own retry's stale ERANGE sitting there
+	 * either (cwd longer than our initial 64-byte guess is routine
+	 * under macOS's deep default $TMPDIR). */
+	if (cwd)
+		errno = saved_errno;
 	return cwd;
 }
 
@@ -113,10 +120,14 @@ struct path_pushd *path_pushd(const tal_t *ctx, const char *dir)
 	if (!old)
 		return NULL;
 
+	/* Check this before path_cwd(): we shouldn't be calling getcwd()
+	 * (and thus touching errno) at all when we're not going to do
+	 * anything. */
+	if (unlikely(!dir) && taken(dir))
+		return tal_free(old);
+
 	old->olddir = path_cwd(old);
 	if (unlikely(!old->olddir))
-		old = tal_free(old);
-	else if (unlikely(!dir) && is_taken(dir))
 		old = tal_free(old);
 	else if (chdir(dir) != 0)
 		old = tal_free(old);
