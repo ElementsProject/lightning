@@ -234,10 +234,20 @@ static bool is_entering_stfu(const struct peer *peer)
 
 static void end_stfu_mode(struct peer *peer)
 {
+	const u8 *msg;
+
 	peer->want_stfu = false;
 	peer->stfu_sent[LOCAL] = peer->stfu_sent[REMOTE] = false;
 	peer->stfu_wait_single_msg = false;
 	peer->on_stfu_success = NULL;
+
+	/* Move any pending messages onto from_master; the main
+	 * loop drains that queue via req_in. */
+	while ((msg = msg_dequeue(peer->update_queue))) {
+		status_debug("Requeueing quiescence-deferred %s onto from_master",
+			     channeld_wire_name(fromwire_peektype(msg)));
+		msg_enqueue(peer->from_master, msg);
+	}
 
 	status_debug("Left STFU mode.");
 }
