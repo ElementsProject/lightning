@@ -1249,7 +1249,8 @@ def test_rbf_to_chain_before_commit(node_factory, bitcoind, chainparams):
                    '-WIRE_COMMITMENT_SIGNED']
     l1, l2 = node_factory.get_nodes(2,
                                     opts=[{'may_reconnect': True,
-                                           'dev-no-reconnect': None},
+                                           'dev-no-reconnect': None,
+                                           'dual-open-disconnect-timeout': 3},
                                           {'disconnect': disconnects,
                                            'may_reconnect': True,
                                            'dev-no-reconnect': None}])
