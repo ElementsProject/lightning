@@ -1678,6 +1678,11 @@ def test_rbf_non_last_mined(node_factory, bitcoind, chainparams):
     # The funding transaction gets mined (should be the 2nd inflight)
     bitcoind.generate_block(6, wait_for_mempool=1)
 
+    # Make sure l1 has selected the mined inflight before l2 reconnects.  This
+    # test exercises a non-tip RBF transaction being mined; reconnecting while
+    # topology is still delivering those blocks is a separate race.
+    sync_blockheight(bitcoind, [l1])
+
     # l2 comes back up
     l2.start()
 
