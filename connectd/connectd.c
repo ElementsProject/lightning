@@ -2354,7 +2354,9 @@ static struct io_plan *recv_peer_connect_subd(struct io_conn *conn,
 					      int fd,
 					      struct daemon *daemon)
 {
-	peer_connect_subd(daemon, msg, fd);
+	peer_connect_subd(daemon, msg, fd,
+			  fromwire_peektype(msg)
+			  == WIRE_CONNECTD_PEER_CONNECT_SUBD_TRACKED);
 	return daemon_conn_read_next(conn, daemon->master);
 }
 
@@ -2404,9 +2406,14 @@ static struct io_plan *recv_req(struct io_conn *conn,
 		goto out;
 
 	case WIRE_CONNECTD_PEER_CONNECT_SUBD:
+	case WIRE_CONNECTD_PEER_CONNECT_SUBD_TRACKED:
 		/* This comes with an fd */
 		return daemon_conn_read_with_fd(conn, daemon->master,
 						recv_peer_connect_subd, daemon);
+
+	case WIRE_CONNECTD_PEER_RESUME_SUBD:
+		peer_resume_subd(daemon, msg);
+		goto out;
 
 	case WIRE_CONNECTD_START_SHUTDOWN:
 		start_shutdown(daemon, msg);
@@ -2470,6 +2477,7 @@ static struct io_plan *recv_req(struct io_conn *conn,
 	case WIRE_CONNECTD_CUSTOMMSG_IN:
 	case WIRE_CONNECTD_PEER_DISCONNECTED:
 	case WIRE_CONNECTD_PEER_RECONNECTED:
+	case WIRE_CONNECTD_PEER_CONNECT_SUBD_REPLY:
 	case WIRE_CONNECTD_START_SHUTDOWN_REPLY:
 	case WIRE_CONNECTD_INJECT_ONIONMSG_REPLY:
 	case WIRE_CONNECTD_ONIONMSG_FORWARD_FAIL:
