@@ -157,9 +157,9 @@ def test_v2_open_sigs_reconnect_2(node_factory, bitcoind):
     # Wait for it to arrive.
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) > 0)
 
-    # Fund the channel, should disconnect after getting l2's sigs
-    with pytest.raises(RpcError):
-        l1.rpc.fundchannel(l2.info['id'], chan_amount)
+    # Fund the channel.  The transport drops after getting l2's sigs, but the
+    # RPC is retained while dualopend reconnects and resends our signatures.
+    l1.rpc.fundchannel(l2.info['id'], chan_amount)
 
     # peer reconnects, and we resend our sigs
     l1.daemon.wait_for_log('Peer has reconnected, state DUALOPEND_OPEN_COMMITTED')
@@ -370,9 +370,9 @@ def test_v2_open_sigs_restart_while_dead(node_factory, bitcoind):
     # Wait for it to arrive.
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) > 0)
 
-    # Make a channel happen, with multiple disconnects!
-    with pytest.raises(RpcError):
-        l1.rpc.fundchannel(l2.info['id'], chan_amount)
+    # Make a channel happen, with multiple disconnects.  The RPC survives the
+    # reconnects and completes once the funding transaction is broadcast.
+    l1.rpc.fundchannel(l2.info['id'], chan_amount)
 
     l1.daemon.wait_for_log('Broadcasting funding tx')
     l1.daemon.wait_for_log('sendrawtx exit 0')
@@ -465,7 +465,15 @@ def test_v2_rbf_single(node_factory, bitcoind, chainparams):
     update = l1.rpc.openchannel_update(chan_id, bump['psbt'])
     assert update['commitments_secured']
     signed_psbt = l1.rpc.signpsbt(update['psbt'])['signed_psbt']
-    l1.rpc.openchannel_signed(chan_id, signed_psbt)
+    signed_fut = node_factory.executor.submit(l1.rpc.openchannel_signed,
+                                              chan_id, signed_psbt)
+    wait_for(lambda:
+             signed_fut.done()
+             or (not l1.rpc.getpeer(l2.info['id'])['connected']
+                 and not l2.rpc.getpeer(l1.info['id'])['connected']))
+    if not signed_fut.done():
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    signed_fut.result(timeout=TIMEOUT)
 
     bitcoind.generate_block(1)
     sync_blockheight(bitcoind, [l1])
@@ -1087,14 +1095,13 @@ def test_rbf_reconnect_tx_sigs(node_factory, bitcoind, chainparams):
     # Sign our inputs, and continue
     signed_psbt = l1.rpc.signpsbt(update['psbt'])['signed_psbt']
 
-    # First time we error when we send our sigs
-    with pytest.raises(RpcError):
-        l1.rpc.openchannel_signed(chan_id, signed_psbt)
+    # Sending our signatures triggers the disconnect sequence.  The RPC is
+    # retained while dualopend reconnects and completes the exchange.
+    l1.rpc.openchannel_signed(chan_id, signed_psbt)
 
     # Absolute chaos ensues as these guys disconnect/reconnect
     # when sending tx-sigs. By the end, both should have
     # broadcast a funding tx.
-    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l1.daemon.wait_for_log('Broadcasting funding tx')
     l2.daemon.wait_for_log('Broadcasting funding tx')
 
