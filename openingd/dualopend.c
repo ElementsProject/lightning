@@ -4316,9 +4316,18 @@ static void fetch_per_commitment_point(u32 point_count,
 	u8 *msg;
 	struct secret *none;
 
-	wire_sync_write(HSM_FD,
-			take(towire_hsmd_get_per_commitment_point(NULL, point_count)));
+	if (!wire_sync_write(HSM_FD,
+			     take(towire_hsmd_get_per_commitment_point(NULL,
+								 point_count))))
+		status_failed(STATUS_FAIL_HSM_IO,
+			      "Writing get_per_commitment_point: %s",
+			      strerror(errno));
+	errno = 0;
 	msg = wire_sync_read(tmpctx, HSM_FD);
+	if (!msg)
+		status_failed(STATUS_FAIL_HSM_IO,
+			      "Reading get_per_commitment_point reply: %s",
+			      errno == 0 ? "EOF" : strerror(errno));
 	if (!fromwire_hsmd_get_per_commitment_point_reply(tmpctx, msg,
 							  commit_point,
 							  &none))
