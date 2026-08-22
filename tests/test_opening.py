@@ -228,6 +228,110 @@ def test_v2_open_reconnect_next_funding_mismatch(node_factory, bitcoind):
     l2.daemon.wait_for_log(r"next_funding_txid .* doesn't match ours")
 
 
+def _v2_abort_after_tx_signatures(node_factory):
+    """Make a peer abort after we sent signatures for a publishable inflight."""
+    l1, l2 = node_factory.get_nodes(2, opts=[
+        {'may_reconnect': True, 'dev-no-reconnect': None},
+        {'disconnect': ['$WIRE_TX_SIGNATURES'], 'may_reconnect': True,
+         'dev-no-reconnect': None}
+    ])
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l2.fundwallet(2**24)
+
+    # l2's fundchannel RPC waits forever for the tx_signatures which its
+    # connectd deliberately drops.  Run it in the background so we can force
+    # the reconnect which generates tx_abort.
+    def _fund():
+        try:
+            l2.rpc.fundchannel(l1.info['id'], 100000)
+        except Exception:
+            pass
+
+    threading.Thread(target=_fund, daemon=True).start()
+
+    l1.daemon.wait_for_log(r'peer_out WIRE_TX_SIGNATURES')
+    l2.daemon.wait_for_log(r'dev_disconnect: \$WIRE_TX_SIGNATURES')
+
+    # Sending funding signatures is only possible after the commitment was
+    # secured, so this inflight must have a persisted last_tx.
+    rows = l1.db_query("SELECT funding_tx_id, last_tx "
+                       "FROM channel_funding_inflights")
+    assert len(rows) == 1
+    assert rows[0]['last_tx'] is not None
+    funding_txid = rows[0]['funding_tx_id'][::-1].hex()
+
+    l2.stop()
+    # Do not install the reconnect owners while l1 is still processing the
+    # deliberately terminated transport.  The late-abort scenario begins on
+    # the next connection generation; racing the old TCP teardown tests a
+    # different transition and can discard that new route before reestablish.
+    wait_for(lambda: l1.rpc.getpeer(l2.info['id'])['connected'] is False)
+    del l2.daemon.opts['dev-disconnect']
+    l2.db_manip("UPDATE channel_funding_inflights "
+                "SET funding_tx_id = X'{}'".format('01' * 32))
+    l2.start()
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    # l2 has our signatures and therefore does not advertise next_funding;
+    # the mismatching next_funding from l1 makes it send tx_abort naturally.
+    l2.daemon.wait_for_log(r'Sent next_funding_txid .* doesn.t match ours')
+    l1.daemon.wait_for_log(r'peer_in WIRE_TX_ABORT')
+    l1.daemon.wait_for_log(r'Rcvd tx-abort')
+    l1.daemon.wait_for_log(
+        r'Peer transient failure in DUALOPEND_OPEN_COMMITTED: dualopend ABORTED')
+
+    return l1, l2, funding_txid
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "sqlite3-specific DB manipulation")
+@pytest.mark.openchannel('v2')
+def test_v2_abort_after_tx_signatures_keeps_inflight(node_factory, bitcoind):
+    """A peer's tx_abort must not discard an inflight after we sent tx_signatures."""
+    l1, _, funding_txid = _v2_abort_after_tx_signatures(node_factory)
+
+    # BOLT #2 permits acknowledging the abort, but once our tx_signatures
+    # were sent we MUST retain the funding attempt until its inputs are spent.
+    rows = l1.db_query("SELECT funding_tx_id, last_tx "
+                       "FROM channel_funding_inflights")
+    assert len(rows) == 1
+    assert rows[0]['funding_tx_id'][::-1].hex() == funding_txid
+    assert rows[0]['last_tx'] is not None
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "sqlite3-specific DB manipulation")
+@pytest.mark.openchannel('v2')
+def test_v2_abort_after_tx_signatures_mined(node_factory, bitcoind):
+    """A retained signed inflight is force-closed if its funding tx confirms."""
+    l1, l2, funding_txid = _v2_abort_after_tx_signatures(node_factory)
+
+    channel = only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])
+    inflight = only_one(channel['inflight'])
+    assert inflight['funding_txid'] == funding_txid
+    assert funding_txid in bitcoind.rpc.getrawmempool()
+    commitment_txid = inflight['scratch_txid']
+
+    # The supposedly aborted funding transaction was publishable as soon as
+    # we sent our signatures.  Confirmation identifies the matching saved
+    # commitment, but cannot substitute for receiving the peer's signatures:
+    # fail the open and put that commitment on chain.
+    bitcoind.generate_block(1, wait_for_mempool=funding_txid)
+    sync_blockheight(bitcoind, [l1, l2])
+    l1.daemon.wait_for_log(
+        r'Funding transaction confirmed before receiving peer tx_signatures')
+    l1.daemon.wait_for_log('Broadcasting txid {}'.format(commitment_txid))
+
+    channel = only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])
+    assert channel['funding_txid'] == funding_txid
+    assert channel['scratch_txid'] == commitment_txid
+    assert channel['state'] == 'AWAITING_UNILATERAL'
+
+    bitcoind.generate_block(1, wait_for_mempool=commitment_txid)
+    l1.daemon.wait_for_log(r'to ONCHAIN')
+
+
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @pytest.mark.openchannel('v2')
 def test_v2_open_sigs_reconnect_1(node_factory, bitcoind):
