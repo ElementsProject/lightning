@@ -17,6 +17,7 @@
       });
       devTools = [
         libeatmydata
+        pkgs.shellcheck
         pkgs.uv
         gsed
       ];
