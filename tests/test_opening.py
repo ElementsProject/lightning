@@ -990,6 +990,32 @@ def test_rbf_reconnect_tx_add(node_factory, bitcoind, chainparams,
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @pytest.mark.openchannel('v2')
+def test_rbf_reconnect_tx_add_repeated_generations(node_factory, bitcoind,
+                                                   chainparams):
+    """A retained bump survives repeated owner and connection generations."""
+    generations = 4
+    fault = '-WIRE_TX_ADD_INPUT'
+    disconnects = ['=WIRE_TX_ADD_INPUT', '=WIRE_TX_ADD_OUTPUT*2'] \
+        + [fault] * generations
+    l1, l2, chan_amount, chan_id, initpsbt = \
+        _setup_rbf_reconnect_tx_add(node_factory, bitcoind, disconnects)
+
+    bump_fut = node_factory.executor.submit(l1.rpc.openchannel_bump,
+                                            chan_id, chan_amount,
+                                            initpsbt['psbt'])
+    for _ in range(generations):
+        l1.daemon.wait_for_log(r'dev_disconnect: ' + re.escape(fault))
+        wait_for(lambda:
+                 l1.rpc.getpeer(l2.info['id'])['connected'] is False
+                 and l2.rpc.getpeer(l1.info['id'])['connected'] is False)
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    bump = bump_fut.result(timeout=TIMEOUT)
+    assert bump['channel_id'] == chan_id
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+@pytest.mark.openchannel('v2')
 def test_rbf_reconnect_tx_construct(node_factory, bitcoind, chainparams):
     disconnects = ['=WIRE_TX_ADD_INPUT',  # Initial funding succeeds
                    '=WIRE_TX_COMPLETE',
