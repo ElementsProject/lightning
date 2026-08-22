@@ -3077,7 +3077,49 @@ def test_zeroconf_withhold(node_factory, bitcoind, stay_withheld, mutual_close):
     assert bitcoind.rpc.getrawmempool() == []
 
     if mutual_close:
-        l1.connect(l2)
+        # connect() only waits for the peer_connected hook.  A transport can
+        # still fail while the replacement channelds exchange reestablish, so
+        # retry that connection generation rather than queueing shutdown on a
+        # half-installed route.
+        established = False
+        for _ in range(3):
+            last_l1 = len(l1.daemon.logs)
+            last_l2 = len(l2.daemon.logs)
+
+            def reestablished():
+                return (
+                    l1.daemon.is_in_log(
+                        r'peer_in WIRE_CHANNEL_REESTABLISH', start=last_l1
+                    )
+                    and l2.daemon.is_in_log(
+                        r'peer_in WIRE_CHANNEL_REESTABLISH', start=last_l2
+                    )
+                )
+
+            l1.connect(l2)
+            try:
+                wait_for(lambda: reestablished()
+                         or not l1.rpc.getpeer(l2.info['id'])['connected']
+                         or not l2.rpc.getpeer(l1.info['id'])['connected'],
+                         timeout=5)
+            except ValueError:
+                # A failed route can leave both transports nominally
+                # connected without either channeld receiving reestablish.
+                pass
+            if reestablished():
+                established = True
+                break
+            # One connectd can retain its half of a failed generation after
+            # the other side has dropped.  Retire it before retrying, or it
+            # will reject/absorb the replacement transport.
+            if l1.rpc.getpeer(l2.info['id'])['connected']:
+                l1.rpc.disconnect(l2.info['id'], force=True)
+            if l2.rpc.getpeer(l1.info['id'])['connected']:
+                l2.rpc.disconnect(l1.info['id'], force=True)
+            wait_for(lambda:
+                     not l1.rpc.getpeer(l2.info['id'])['connected']
+                     and not l2.rpc.getpeer(l1.info['id'])['connected'])
+        assert established
 
     if not stay_withheld:
         # sendpsbt marks it as no longer withheld.
