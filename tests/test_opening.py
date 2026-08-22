@@ -216,6 +216,7 @@ def test_v2_open_reconnect_next_funding_mismatch(node_factory, bitcoind):
 
     # Corrupt l2's stored funding txid so it disagrees with l1's on reconnect.
     l2.stop()
+    wait_for(lambda: l1.rpc.getpeer(l2.info['id'])['connected'] is False)
     l2.db_manip("UPDATE channel_funding_inflights SET funding_tx_id = X'{}'".format('01' * 32))
     l2.start()
 
