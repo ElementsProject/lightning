@@ -20,13 +20,16 @@ PLUGIN_ASKRENE_CHILD_SRC := \
 PLUGIN_ASKRENE_SRC := $(PLUGIN_ASKRENE_PARENT_SRC) $(PLUGIN_ASKRENE_CHILD_SRC)
 PLUGIN_ASKRENE_HEADER := $(PLUGIN_ASKRENE_SRC:.c=.h) plugins/askrene/child/additional_costs.h
 
-PLUGIN_ASKRENE_OBJS := $(PLUGIN_ASKRENE_SRC:.c=.o)
+PLUGIN_ASKRENE_OBJS := $(PLUGIN_ASKRENE_SRC:%.c=$(BUILDDIR)/%.o)
 
 $(PLUGIN_ASKRENE_OBJS): $(PLUGIN_ASKRENE_HEADER) plugins/askrene/Makefile
 
 PLUGIN_ALL_SRC += $(PLUGIN_ASKRENE_SRC)
 PLUGIN_ALL_HEADER += $(PLUGIN_ASKRENE_HEADER)
 
-plugins/cln-askrene: $(PLUGIN_ASKRENE_OBJS) $(PLUGIN_LIB_OBJS) libcommon.a
+$(BUILDDIR)/plugins/cln-askrene: $(PLUGIN_ASKRENE_OBJS) $(PLUGIN_LIB_OBJS) $(BUILDDIR)/libcommon.a
+
+obsclean::
+	$(RM) plugins/askrene/*.o plugins/askrene/child/*.o
 
 include plugins/askrene/test/Makefile

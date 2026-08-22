@@ -1,17 +1,18 @@
 # Note that these actually #include everything they need, except ccan/ and bitcoin/.
 # That allows for unit testing of statics, and special effects.
 CHANNELD_TEST_SRC := $(wildcard channeld/test/run-*.c)
-CHANNELD_TEST_OBJS := $(CHANNELD_TEST_SRC:.c=.o)
+CHANNELD_TEST_OBJS := $(CHANNELD_TEST_SRC:%.c=$(BUILDDIR)/%.o)
 CHANNELD_TEST_PROGRAMS := $(CHANNELD_TEST_OBJS:.o=)
 
 ALL_C_SOURCES += $(CHANNELD_TEST_SRC)
 ALL_TEST_PROGRAMS += $(CHANNELD_TEST_PROGRAMS)
 
 # run-full_channel.o needs a special version of some common files!
-$(filter-out channeld/test/run-full_channel,$(CHANNELD_TEST_PROGRAMS)): libcommon.a
+$(filter-out channeld/test/run-full_channel,$(CHANNELD_TEST_PROGRAMS)): $(BUILDDIR)/libcommon.a
 
-channeld/test/run-full_channel:			\
+$(BUILDDIR)/channeld/test/run-full_channel:	\
 	$(BITCOIN_OBJS)				\
+	$(addprefix $(BUILDDIR)/,		\
 	wire/towire.o				\
 	wire/fromwire.o				\
 	common/amount.o				\
@@ -29,8 +30,12 @@ channeld/test/run-full_channel:			\
 	common/pseudorand.o			\
 	common/randbytes.o			\
 	common/setup.o				\
-	common/utils.o
+	common/utils.o				\
+	)
 
 $(CHANNELD_TEST_OBJS): $(CHANNELD_HEADERS) $(CHANNELD_SRC) channeld/test/Makefile
+
+obsclean::
+	$(RM) channeld/test/*.o
 
 check-units: $(CHANNELD_TEST_PROGRAMS:%=unittest/%)

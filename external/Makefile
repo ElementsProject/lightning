@@ -7,9 +7,6 @@ SUBMODULES =					\
 TOP := ../..
 ifdef BUILD
 CROSSCOMPILE_OPTS := --host="$(MAKE_HOST)" --build="$(BUILD)"
-TARGET_DIR := external/build-$(MAKE_HOST)
-else
-TARGET_DIR := external/build-$(shell ${CC} -dumpmachine)
 endif
 
 LIBWALLY_HEADERS := external/libwally-core/include/wally_bip32.h		\
@@ -24,7 +21,7 @@ GHEAP_HEADERS := external/gheap/gheap.h
 LIBBACKTRACE_HEADERS := external/libbacktrace/backtrace.h
 
 EXTERNAL_HEADERS := $(LIBWALLY_HEADERS) $(LIBSECP_HEADERS) $(JSMN_HEADERS) $(GHEAP_HEADERS) $(LIBBACKTRACE_HEADERS)
-EXTERNAL_LIBS := ${TARGET_DIR}/libwallycore.a ${TARGET_DIR}/libsecp256k1.a ${TARGET_DIR}/libjsmn.a ${TARGET_DIR}/libbacktrace.a
+EXTERNAL_LIBS := $(addprefix $(BUILDDIR)/external/,libwallycore.a libsecp256k1.a libjsmn.a libbacktrace.a)
 
 EXTERNAL_INCLUDE_FLAGS :=					\
 	-I external/libwally-core/include/			\
@@ -32,7 +29,7 @@ EXTERNAL_INCLUDE_FLAGS :=					\
 	-I external/jsmn/					\
 	-I external/libbacktrace/				\
 	-I external/gheap/					\
-	-I ${TARGET_DIR}/libbacktrace-build
+	-I $(BUILDDIR)/external/libbacktrace-build
 
 LDLIBS += $(SODIUM_LDLIBS)
 
@@ -40,7 +37,7 @@ ifeq ($(HAVE_ZLIB),1)
 LDLIBS += -lz
 endif
 
-EXTERNAL_LDLIBS := -L${TARGET_DIR} $(patsubst lib%.a,-l%,$(notdir $(EXTERNAL_LIBS)))
+EXTERNAL_LDLIBS := -L$(BUILDDIR)/external $(patsubst lib%.a,-l%,$(notdir $(EXTERNAL_LIBS)))
 
 .PHONY: submodcheck
 
@@ -54,20 +51,20 @@ $(EXTERNAL_HEADERS): submodcheck
 
 # libsecp included in libwally.
 # Wildcards here are magic.  See http://stackoverflow.com/questions/2973445/gnu-makefile-rule-generating-a-few-targets-from-a-single-source-file
-$(TARGET_DIR)/libsecp256k1.% $(TARGET_DIR)/libwallycore.%: $(TARGET_DIR)/libwally-core-build/src/secp256k1/libsecp256k1.la $(TARGET_DIR)/libwally-core-build/src/libwallycore.la
-	$(MAKE) -C $(TARGET_DIR)/libwally-core-build DESTDIR=$$(pwd)/$(TARGET_DIR) install-exec
+$(BUILDDIR)/external/libsecp256k1.% $(BUILDDIR)/external/libwallycore.%: $(BUILDDIR)/external/libwally-core-build/src/secp256k1/libsecp256k1.la $(BUILDDIR)/external/libwally-core-build/src/libwallycore.la
+	$(MAKE) -C $(BUILDDIR)/external/libwally-core-build DESTDIR=$$(pwd)/$(BUILDDIR)/external install-exec
 
 # Build libwally-core.
 ifeq ($(DEBUGBUILD),1)
 WALLY_OPTS=--enable-debug
 endif
 
-.INTERMEDIATE: $(TARGET_DIR)/libwally-core-build/src/secp256k1/libsecp256k1.la $(TARGET_DIR)/libwally-core-build/src/libwallycore.la
+.INTERMEDIATE: $(addprefix $(BUILDDIR)/external/libwally-core-build/src/,secp256k1/libsecp256k1.la libwallycore.la)
 
-$(TARGET_DIR)/libwally-core-build/src/libwallycore.% $(TARGET_DIR)/libwally-core-build/src/secp256k1/libsecp256k1.%: $(LIBWALLY_HEADERS) $(LIBSECP_HEADERS)
+$(BUILDDIR)/external/libwally-core-build/src/libwallycore.% $(BUILDDIR)/external/libwally-core-build/src/secp256k1/libsecp256k1.%: $(LIBWALLY_HEADERS) $(LIBSECP_HEADERS)
 	cd external/libwally-core && ./tools/autogen.sh
-	mkdir -p ${TARGET_DIR}/libwally-core-build
-	cd ${TARGET_DIR}/libwally-core-build \
+	$(MKDIR_P) $(BUILDDIR)/external/libwally-core-build
+	cd $(BUILDDIR)/external/libwally-core-build \
 	&& PYTHON_VERSION=3 CFLAGS="-std=c99 $(FUZZFLAGS)" LDFLAGS="$(FUZZFLAGS)" ${TOP}/libwally-core/configure CC="$(CC)" \
 		--enable-static=yes \
 		$(CROSSCOMPILE_OPTS) \
@@ -82,28 +79,28 @@ $(TARGET_DIR)/libwally-core-build/src/libwallycore.% $(TARGET_DIR)/libwally-core
 external/jsmn/jsmn.c: external/jsmn/jsmn.h
 	[ -f $@ ]
 
-$(TARGET_DIR)/jsmn-build/jsmn.o: external/jsmn/jsmn.c Makefile
+$(BUILDDIR)/external/jsmn-build/jsmn.o: external/jsmn/jsmn.c Makefile
 	@mkdir -p $(@D)
 	$(COMPILE.c) -DJSMN_STRICT=1 -o $@ $<
 
-$(TARGET_DIR)/libjsmn.a: $(TARGET_DIR)/jsmn-build/jsmn.o
+$(BUILDDIR)/external/libjsmn.a: $(BUILDDIR)/external/jsmn-build/jsmn.o
 	$(AR) rc $@ $<
 
-.INTERMEDIATE: $(TARGET_DIR)/jsmn-build/jsmn.o
+.INTERMEDIATE: $(BUILDDIR)/external/jsmn-build/jsmn.o
 
 # Need separate build dir: changes inside submodule make git think it's dirty.
-$(TARGET_DIR)/libbacktrace.a: external/libbacktrace/backtrace.h
-	mkdir -p $(TARGET_DIR)/libbacktrace-build
-	cd $(TARGET_DIR)/libbacktrace-build && $(TOP)/libbacktrace/configure CC="$(CC)" --enable-static=yes $(CROSSCOMPILE_OPTS) --enable-shared=no --prefix=/ --libdir=/ && $(MAKE)
-	$(MAKE) -C $(TARGET_DIR)/libbacktrace-build DESTDIR=$$(pwd)/$(TARGET_DIR) install-exec
+$(BUILDDIR)/external/libbacktrace.a: external/libbacktrace/backtrace.h
+	mkdir -p $(BUILDDIR)/external/libbacktrace-build
+	cd $(BUILDDIR)/external/libbacktrace-build && $(TOP)/libbacktrace/configure CC="$(CC)" --enable-static=yes $(CROSSCOMPILE_OPTS) --enable-shared=no --prefix=/ --libdir=/ && $(MAKE)
+	$(MAKE) -C $(BUILDDIR)/external/libbacktrace-build DESTDIR=$$(pwd)/$(BUILDDIR)/external install-exec
 
 distclean: external-distclean
 clean: external-clean
 
 external-clean:
 	$(RM) $(EXTERNAL_LIBS)
-	$(RM) -rf $(TARGET_DIR)
+	$(RM) -r $(BUILDDIR)/external
 
 external-distclean:
-	$(RM) -rf ${TARGET_DIR}/libbacktrace-build ${TARGET_DIR}/libsodium-build ${TARGET_DIR}/libwally-core-build ${TARGET_DIR}/jsmn-build
+	$(RM) -r $(addprefix $(BUILDDIR)/external/,libbacktrace-build libsodium-build libwally-core-build jsmn-build)
 	$(RM) -r `git status --ignored --porcelain external/libwally-core | grep '^!! ' | cut -c3-`

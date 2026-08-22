@@ -47,6 +47,16 @@ CPPFLAGS =
 LDFLAGS_FROM_ENV := $(LDFLAGS)
 LDFLAGS =
 
+# Look up the host machine tuple if not specified
+ifndef HOST
+HOST := $(shell $(CC) $(CFLAGS_FROM_ENV) -dumpmachine)
+endif
+
+# Set a default build directory if not specified
+ifndef BUILDDIR
+BUILDDIR := build/$(HOST)
+endif
+
 # Use Homebrew LLVM toolchain for fuzzing support on macOS
 ifeq ($(OS),Darwin)
 export PATH := /opt/homebrew/opt/llvm/bin:$(PATH)
@@ -108,136 +118,140 @@ PYTHON_GENERATED= \
 FEATURES :=
 
 CCAN_OBJS :=					\
-	ccan-asort.o				\
-	ccan-base64.o				\
-	ccan-bitmap.o				\
-	ccan-bitops.o				\
-	ccan-breakpoint.o			\
-	ccan-cdump.o				\
-	ccan-closefrom.o			\
-	ccan-crc32c.o				\
-	ccan-crypto-hmac.o			\
-	ccan-crypto-hkdf.o			\
-	ccan-crypto-ripemd160.o			\
-	ccan-crypto-sha256.o			\
-	ccan-crypto-shachain.o			\
-	ccan-crypto-siphash24.o			\
-	ccan-err.o				\
-	ccan-fdpass.o				\
-	ccan-htable.o				\
-	ccan-ilog.o				\
-	ccan-io-io.o				\
-	ccan-intmap.o				\
-	ccan-io-poll.o				\
-	ccan-io-fdpass.o			\
-	ccan-isaac.o				\
-	ccan-isaac64.o				\
-	ccan-json_escape.o			\
-	ccan-json_out.o				\
-	ccan-list.o				\
-	ccan-mem.o				\
-	ccan-membuf.o				\
-	ccan-noerr.o				\
-	ccan-opt-helpers.o			\
-	ccan-opt-parse.o			\
-	ccan-opt-usage.o			\
-	ccan-opt.o				\
-	ccan-pipecmd.o				\
-	ccan-ptr_valid.o			\
-	ccan-rbuf.o				\
-	ccan-read_write_all.o			\
-	ccan-rune-coding.o			\
-	ccan-rune-rune.o			\
-	ccan-str-base32.o			\
-	ccan-str-hex.o				\
-	ccan-str.o				\
-	ccan-strmap.o				\
-	ccan-strset.o				\
-	ccan-take.o				\
-	ccan-tal-grab_file.o			\
-	ccan-tal-link.o				\
-	ccan-tal-path.o				\
-	ccan-tal-str.o				\
-	ccan-tal.o				\
-	ccan-time.o				\
-	ccan-timer.o				\
-	ccan-utf8.o
+	$(addprefix $(BUILDDIR)/$(CCANDIR)/ccan/, \
+	asort/asort.o				\
+	base64/base64.o				\
+	bitmap/bitmap.o				\
+	bitops/bitops.o				\
+	breakpoint/breakpoint.o			\
+	cdump/cdump.o				\
+	closefrom/closefrom.o			\
+	crc32c/crc32c.o				\
+	crypto/hkdf_sha256/hkdf_sha256.o	\
+	crypto/hmac_sha256/hmac_sha256.o	\
+	crypto/ripemd160/ripemd160.o		\
+	crypto/sha256/sha256.o			\
+	crypto/shachain/shachain.o		\
+	crypto/siphash24/siphash24.o		\
+	err/err.o				\
+	fdpass/fdpass.o				\
+	htable/htable.o				\
+	ilog/ilog.o				\
+	intmap/intmap.o				\
+	io/fdpass/fdpass.o			\
+	io/io.o					\
+	io/poll.o				\
+	isaac/isaac.o				\
+	isaac/isaac64.o				\
+	json_escape/json_escape.o		\
+	json_out/json_out.o			\
+	list/list.o				\
+	mem/mem.o				\
+	membuf/membuf.o				\
+	noerr/noerr.o				\
+	opt/helpers.o				\
+	opt/opt.o				\
+	opt/parse.o				\
+	opt/usage.o				\
+	pipecmd/pipecmd.o			\
+	ptr_valid/ptr_valid.o			\
+	rbuf/rbuf.o				\
+	read_write_all/read_write_all.o		\
+	rune/coding.o				\
+	rune/rune.o				\
+	str/base32/base32.o			\
+	str/hex/hex.o				\
+	str/str.o				\
+	strmap/strmap.o				\
+	strset/strset.o				\
+	take/take.o				\
+	tal/grab_file/grab_file.o		\
+	tal/link/link.o				\
+	tal/path/path.o				\
+	tal/str/str.o				\
+	tal/tal.o				\
+	time/time.o				\
+	timer/timer.o				\
+	utf8/utf8.o				\
+	)
 
-CCAN_HEADERS :=						\
-	$(CCANDIR)/config.h				\
-	$(CCANDIR)/ccan/alignof/alignof.h		\
-	$(CCANDIR)/ccan/array_size/array_size.h		\
-	$(CCANDIR)/ccan/asort/asort.h			\
-	$(CCANDIR)/ccan/base64/base64.h			\
-	$(CCANDIR)/ccan/bitmap/bitmap.h			\
-	$(CCANDIR)/ccan/bitops/bitops.h			\
-	$(CCANDIR)/ccan/breakpoint/breakpoint.h		\
-	$(CCANDIR)/ccan/build_assert/build_assert.h	\
-	$(CCANDIR)/ccan/cast/cast.h			\
-	$(CCANDIR)/ccan/cdump/cdump.h			\
-	$(CCANDIR)/ccan/check_type/check_type.h		\
-	$(CCANDIR)/ccan/closefrom/closefrom.h		\
-	$(CCANDIR)/ccan/compiler/compiler.h		\
-	$(CCANDIR)/ccan/container_of/container_of.h	\
-	$(CCANDIR)/ccan/cppmagic/cppmagic.h		\
-	$(CCANDIR)/ccan/crc32c/crc32c.h			\
-	$(CCANDIR)/ccan/crypto/hkdf_sha256/hkdf_sha256.h \
-	$(CCANDIR)/ccan/crypto/hmac_sha256/hmac_sha256.h \
-	$(CCANDIR)/ccan/crypto/ripemd160/ripemd160.h	\
-	$(CCANDIR)/ccan/crypto/sha256/sha256.h		\
-	$(CCANDIR)/ccan/crypto/shachain/shachain.h	\
-	$(CCANDIR)/ccan/crypto/siphash24/siphash24.h	\
-	$(CCANDIR)/ccan/endian/endian.h			\
-	$(CCANDIR)/ccan/err/err.h			\
-	$(CCANDIR)/ccan/fdpass/fdpass.h			\
-	$(CCANDIR)/ccan/graphql/graphql.h		\
-	$(CCANDIR)/ccan/htable/htable.h			\
-	$(CCANDIR)/ccan/htable/htable_type.h		\
-	$(CCANDIR)/ccan/ilog/ilog.h			\
-	$(CCANDIR)/ccan/intmap/intmap.h			\
-	$(CCANDIR)/ccan/io/backend.h			\
-	$(CCANDIR)/ccan/io/fdpass/fdpass.h		\
-	$(CCANDIR)/ccan/io/io.h				\
-	$(CCANDIR)/ccan/io/io_plan.h			\
-	$(CCANDIR)/ccan/isaac/isaac.h			\
-	$(CCANDIR)/ccan/isaac/isaac64.h			\
-	$(CCANDIR)/ccan/json_escape/json_escape.h	\
-	$(CCANDIR)/ccan/json_out/json_out.h		\
-	$(CCANDIR)/ccan/likely/likely.h			\
-	$(CCANDIR)/ccan/list/list.h			\
-	$(CCANDIR)/ccan/lqueue/lqueue.h			\
-	$(CCANDIR)/ccan/mem/mem.h			\
-	$(CCANDIR)/ccan/membuf/membuf.h			\
-	$(CCANDIR)/ccan/noerr/noerr.h			\
-	$(CCANDIR)/ccan/opt/opt.h			\
-	$(CCANDIR)/ccan/opt/private.h			\
-	$(CCANDIR)/ccan/order/order.h			\
-	$(CCANDIR)/ccan/pipecmd/pipecmd.h		\
-	$(CCANDIR)/ccan/ptr_valid/ptr_valid.h		\
-	$(CCANDIR)/ccan/ptrint/ptrint.h			\
-	$(CCANDIR)/ccan/rbuf/rbuf.h			\
-	$(CCANDIR)/ccan/read_write_all/read_write_all.h	\
-	$(CCANDIR)/ccan/rune/internal.h			\
-	$(CCANDIR)/ccan/rune/rune.h			\
-	$(CCANDIR)/ccan/short_types/short_types.h	\
-	$(CCANDIR)/ccan/str/base32/base32.h		\
-	$(CCANDIR)/ccan/str/hex/hex.h			\
-	$(CCANDIR)/ccan/str/str.h			\
-	$(CCANDIR)/ccan/str/str_debug.h			\
-	$(CCANDIR)/ccan/strmap/strmap.h			\
-	$(CCANDIR)/ccan/strset/strset.h			\
-	$(CCANDIR)/ccan/structeq/structeq.h		\
-	$(CCANDIR)/ccan/take/take.h			\
-	$(CCANDIR)/ccan/tal/grab_file/grab_file.h	\
-	$(CCANDIR)/ccan/tal/link/link.h			\
-	$(CCANDIR)/ccan/tal/path/path.h			\
-	$(CCANDIR)/ccan/tal/str/str.h			\
-	$(CCANDIR)/ccan/tal/tal.h			\
-	$(CCANDIR)/ccan/tcon/tcon.h			\
-	$(CCANDIR)/ccan/time/time.h			\
-	$(CCANDIR)/ccan/timer/timer.h			\
-	$(CCANDIR)/ccan/typesafe_cb/typesafe_cb.h	\
-	$(CCANDIR)/ccan/utf8/utf8.h
+CCAN_HEADERS :=					\
+	$(CCANDIR)/config.h			\
+	$(addprefix $(CCANDIR)/ccan/,		\
+	alignof/alignof.h			\
+	array_size/array_size.h			\
+	asort/asort.h				\
+	base64/base64.h				\
+	bitmap/bitmap.h				\
+	bitops/bitops.h				\
+	breakpoint/breakpoint.h			\
+	build_assert/build_assert.h		\
+	cast/cast.h				\
+	cdump/cdump.h				\
+	check_type/check_type.h			\
+	closefrom/closefrom.h			\
+	compiler/compiler.h			\
+	container_of/container_of.h		\
+	cppmagic/cppmagic.h			\
+	crc32c/crc32c.h				\
+	crypto/hkdf_sha256/hkdf_sha256.h 	\
+	crypto/hmac_sha256/hmac_sha256.h	\
+	crypto/ripemd160/ripemd160.h		\
+	crypto/sha256/sha256.h			\
+	crypto/shachain/shachain.h		\
+	crypto/siphash24/siphash24.h		\
+	endian/endian.h				\
+	err/err.h				\
+	fdpass/fdpass.h				\
+	graphql/graphql.h			\
+	htable/htable.h				\
+	htable/htable_type.h			\
+	ilog/ilog.h				\
+	intmap/intmap.h				\
+	io/backend.h				\
+	io/fdpass/fdpass.h			\
+	io/io.h					\
+	io/io_plan.h				\
+	isaac/isaac.h				\
+	isaac/isaac64.h				\
+	json_escape/json_escape.h		\
+	json_out/json_out.h			\
+	likely/likely.h				\
+	list/list.h				\
+	lqueue/lqueue.h				\
+	mem/mem.h				\
+	membuf/membuf.h				\
+	noerr/noerr.h				\
+	opt/opt.h				\
+	opt/private.h				\
+	order/order.h				\
+	pipecmd/pipecmd.h			\
+	ptr_valid/ptr_valid.h			\
+	ptrint/ptrint.h				\
+	rbuf/rbuf.h				\
+	read_write_all/read_write_all.h		\
+	rune/internal.h				\
+	rune/rune.h				\
+	short_types/short_types.h		\
+	str/base32/base32.h			\
+	str/hex/hex.h				\
+	str/str.h				\
+	str/str_debug.h				\
+	strmap/strmap.h				\
+	strset/strset.h				\
+	structeq/structeq.h			\
+	take/take.h				\
+	tal/grab_file/grab_file.h		\
+	tal/link/link.h				\
+	tal/path/path.h				\
+	tal/str/str.h				\
+	tal/tal.h				\
+	tcon/tcon.h				\
+	time/time.h				\
+	timer/timer.h				\
+	typesafe_cb/typesafe_cb.h		\
+	utf8/utf8.h				\
+	)
 
 BOLT_GEN := tools/generate-wire.py
 WIRE_GEN := $(BOLT_GEN)
@@ -247,6 +261,7 @@ WIRE_GEN_DEPS := $(WIRE_GEN) $(wildcard tools/gen/*_template)
 
 # These are filled by individual Makefiles
 ALL_PROGRAMS :=
+ALL_BUILD_PROGRAMS :=
 ALL_TEST_PROGRAMS :=
 ALL_TEST_GEN :=
 ALL_FUZZ_TARGETS :=
@@ -298,7 +313,7 @@ endif
 endif
 
 # Put the environment-inherited flags *last* so the user has the final say.
-CPPFLAGS += -DCLN_NEXT_VERSION="\"$(CLN_NEXT_VERSION)\"" -DPKGLIBEXECDIR="\"$(pkglibexecdir)\"" -DBINDIR="\"$(bindir)\"" -DPLUGINDIR="\"$(plugindir)\"" -DCCAN_TAL_NEVER_RETURN_NULL=1 -I$(CCANDIR) $(EXTERNAL_INCLUDE_FLAGS) -I. -I$(CPATH) $(POSTGRES_INCLUDE) -DSHACHAIN_BITS=48 -DJSMN_PARENT_LINKS $(COMPAT_CFLAGS) $(CPPFLAGS_FROM_ENV)
+CPPFLAGS += -DCLN_NEXT_VERSION="\"$(CLN_NEXT_VERSION)\"" -DPKGLIBEXECDIR="\"$(pkglibexecdir)\"" -DBINDIR="\"$(bindir)\"" -DPLUGINDIR="\"$(plugindir)\"" -DCCAN_TAL_NEVER_RETURN_NULL=1 -I$(CCANDIR) $(EXTERNAL_INCLUDE_FLAGS) -I. -I$(BUILDDIR) -I$(CPATH) $(POSTGRES_INCLUDE) -DSHACHAIN_BITS=48 -DJSMN_PARENT_LINKS $(COMPAT_CFLAGS) $(CPPFLAGS_FROM_ENV)
 CFLAGS = $(CWARNFLAGS) $(CDEBUGFLAGS) $(COPTFLAGS) $(SQLITE3_CFLAGS) $(SODIUM_CFLAGS) $(FEATURES) $(COVFLAGS) $(DEV_CFLAGS) $(PIE_CFLAGS) $(CSANFLAGS) $(CFLAGS_FROM_ENV)
 LDFLAGS += $(PIE_LDFLAGS) $(LDFLAGS_FROM_ENV)
 
@@ -345,8 +360,10 @@ ccan/config.h config.vars &: configure ccan/tools/configurator/configurator.c
 %/:
 	@$(MKDIR_P) $(@D)
 
-%.o: %.c
-	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
+# Update all archive members using a single ar invocation. This un-breaks parallel Make.
+(%) : % ;
+%.a :
+	@$(call VERBOSE,"ar $@",$(AR) r $@ $?)
 
 # tools/update-mocks.sh does nasty recursive make, must not do this!
 ifeq ($(SUPPRESS_GENERATION),1)
@@ -360,6 +377,8 @@ SHA256STAMP_CHANGED = [ x"`$(SED) -n 's/.*SHA256STAMP:\([a-f0-9]*\).*/\1/p' $@ 2
 # Usage: $(call SHA256STAMP,commentprefix,commentpostfix)
 SHA256STAMP = echo "$(1) SHA256STAMP:"`cat $(sort $(filter-out FORCE,$^)) | $(SHA256SUM) | cut -c1-64`"$(2)" >> $@
 endif
+
+CDUMP_ENUMSTR := $(BUILDDIR)/ccan/ccan/cdump/tools/cdump-enumstr
 
 # generate-wire.py --page [header|impl] hdrfilename wirename < csv > file
 %_wiregen.h: %_wire.csv $(WIRE_GEN_DEPS)
@@ -466,11 +485,14 @@ ALL_NONGEN_SRCFILES := $(ALL_NONGEN_HEADERS) $(ALL_NONGEN_SOURCES)
 # TODO: $(EXEEXT) support for Windows?  Needs more coding for
 # the individual Makefiles, however.
 BIN_PROGRAMS = \
+	$(addprefix $(BUILDDIR)/, \
 	       cli/lightning-cli \
 	       lightningd/lightningd \
 	       tools/lightning-hsmtool\
+	) \
 	       tools/reckless
 PKGLIBEXEC_PROGRAMS = \
+	$(addprefix $(BUILDDIR)/, \
 	       lightningd/lightning_channeld \
 	       lightningd/lightning_closingd \
 	       lightningd/lightning_connectd \
@@ -480,7 +502,8 @@ PKGLIBEXEC_PROGRAMS = \
 	       lightningd/lightning_hsmd \
 	       lightningd/lightning_onchaind \
 	       lightningd/lightning_openingd \
-	       lightningd/lightning_websocketd
+	       lightningd/lightning_websocketd \
+	)
 
 mkdocs.yml: $(MANPAGES:=.md)
 	@$(call VERBOSE, "genidx $@", \
@@ -492,7 +515,7 @@ mkdocs.yml: $(MANPAGES:=.md)
 
 
 # Every single object file.
-ALL_OBJS := $(ALL_C_SOURCES:.c=.o)
+ALL_OBJS := $(ALL_C_SOURCES:%.c=$(BUILDDIR)/%.o)
 
 WIREGEN_FILES := $(filter %printgen.h %printgen.c %wiregen.h %wiregen.c, $(ALL_C_HEADERS) $(ALL_C_SOURCES))
 
@@ -764,11 +787,9 @@ TAGS:
 tags:
 	$(RM) tags; find * -name test -type d -prune -o \( -name '*.[ch]' -o -name '*.py' \) -print0 | xargs -0 ctags --append
 
-ccan/ccan/cdump/tools/cdump-enumstr: ccan/ccan/cdump/tools/cdump-enumstr.o libccan.a
-
-ALL_PROGRAMS += ccan/ccan/cdump/tools/cdump-enumstr
+ALL_BUILD_PROGRAMS += $(CDUMP_ENUMSTR)
 # Can't add to ALL_OBJS, as that makes a circular dep.
-ccan/ccan/cdump/tools/cdump-enumstr.o: $(CCAN_HEADERS) Makefile
+$(CDUMP_ENUMSTR).o: $(CCAN_HEADERS) Makefile
 
 # Without a working git, you can't generate this file, so assume if it exists
 # it is ok (fixes "sudo make install").
@@ -782,29 +803,27 @@ version_gen.h: $(FORCE)
 	@if cmp $@.new $@ >/dev/null 2>&1; then rm -f $@.new; else mv $@.new $@; $(ECHO) Version updated; fi
 endif
 
-# That forces this rule to be run every time, too.
-header_versions_gen.h: tools/headerversions $(FORCE)
-	@tools/headerversions $@
+header_versions_gen.h: $(BUILDDIR)/tools/headerversions $(FORCE)
+	@$< $@
 
 # Once you have libccan.a, you don't need these.
 .INTERMEDIATE: $(CCAN_OBJS)
 
 # We make a static library, this way linker can discard unused parts.
-libccan.a: $(CCAN_OBJS)
-	@$(call VERBOSE, "ar $@", $(AR) r $@ $(CCAN_OBJS))
+$(BUILDDIR)/libccan.a: $(BUILDDIR)/libccan.a($(CCAN_OBJS))
 
 # All binaries require the external libs, ccan and system library versions.
-$(ALL_PROGRAMS) $(ALL_TEST_PROGRAMS) $(ALL_FUZZ_TARGETS): $(EXTERNAL_LIBS) libccan.a
+$(ALL_PROGRAMS) $(ALL_TEST_PROGRAMS) $(ALL_FUZZ_TARGETS): $(EXTERNAL_LIBS) $(BUILDDIR)/libccan.a
 
-# Each test program depends on its own object.
-$(ALL_TEST_PROGRAMS) $(ALL_FUZZ_TARGETS): %: %.o
+# Each build-time program depends on its own object.
+$(ALL_BUILD_PROGRAMS) $(ALL_TEST_PROGRAMS) $(ALL_FUZZ_TARGETS): %: %.o
 
 # Without this rule, the (built-in) link line contains
 # external/libwallycore.a directly, which causes a symbol clash (it
 # uses some ccan modules internally).  We want to rely on -lwallycore etc.
 # (as per EXTERNAL_LDLIBS) so we filter them out here.  We have to put the other
 # .a files (if any) at the end of the link line.
-$(ALL_PROGRAMS) $(ALL_TEST_PROGRAMS):
+$(ALL_PROGRAMS) $(ALL_BUILD_PROGRAMS) $(ALL_TEST_PROGRAMS):
 	@$(call VERBOSE, "ld $@", $(LINK.c) $(filter-out %.a,$^) $(filter-out external/%,$(filter %.a,$^)) $(LOADLIBES) $(EXTERNAL_LDLIBS) $(LDLIBS) $($(@)_LDLIBS) -o $@)
 ifeq ($(OS),Darwin)
 	@$(call VERBOSE, "dsymutil $@", dsymutil $@)
@@ -826,7 +845,7 @@ endif
 endif
 
 $(ALL_FUZZ_TARGETS):
-	@$(call VERBOSE, "ld $@", $(LINK.c) $(filter-out %.a,$^) libcommon.a libccan.a $(LOADLIBES) $(EXTERNAL_LDLIBS) $(LDLIBS) $(FUZZ_LDFLAGS) -o $@)
+	@$(call VERBOSE, "ld $@", $(LINK.c) $(filter-out %.a,$^) $(addprefix $(BUILDDIR)/,libcommon.a libccan.a) $(LOADLIBES) $(EXTERNAL_LDLIBS) $(LDLIBS) $(FUZZ_LDFLAGS) -o $@)
 ifeq ($(OS),Darwin)
 	@$(call VERBOSE, "dsymutil $@", dsymutil $@)
 endif
@@ -868,19 +887,22 @@ maintainer-clean: distclean
 
 # We used to have gen_ files, now we have _gen files.
 # We used to generate doc/schemas/lightning-sql.json.
-obsclean:
+# Build products used to land inside the source tree.
+obsclean::
 	$(RM) gen_*.h */gen_*.[ch] */*/gen_*.[ch]
 	$(RM) doc/schemas/lightning-sql.json
+	$(RM) libccan.a
+	$(RM) ccan/ccan/cdump/tools/cdump-enumstr ccan/ccan/cdump/tools/cdump-enumstr.o
+	$(RM) $(ALL_OBJS:$(BUILDDIR)/%=%)
+	$(RM) $(ALL_PROGRAMS:$(BUILDDIR)/%=%)
+	$(RM) $(ALL_TEST_PROGRAMS:$(BUILDDIR)/%=%)
+	$(RM) $(ALL_FUZZ_TARGETS:$(BUILDDIR)/%=%)
 
 clean: obsclean
-	$(RM) libccan.a $(CCAN_OBJS) $(CDUMP_OBJS) $(ALL_OBJS)
+	$(RM) -r $(BUILDDIR)
 	$(RM) $(ALL_GEN_HEADERS) $(ALL_GEN_SOURCES)
-	$(RM) $(ALL_PROGRAMS)
-	$(RM) $(ALL_TEST_PROGRAMS)
-	$(RM) $(ALL_FUZZ_TARGETS)
 	$(RM) $(MSGGEN_GEN_ALL)
 	$(RM) ccan/tools/configurator/configurator
-	$(RM) ccan/ccan/cdump/tools/cdump-enumstr.o
 	find . -name '*gcda' -delete
 	find . -name '*gcno' -delete
 	find . -name '*.nccout' -delete
@@ -939,7 +961,7 @@ update-dot-version:
 
 update-mocks: $(ALL_TEST_PROGRAMS:%=update-mocks/%.c)
 
-$(ALL_TEST_PROGRAMS:%=update-mocks/%.c): $(ALL_GEN_HEADERS) $(EXTERNAL_LIBS) libccan.a ccan/ccan/cdump/tools/cdump-enumstr config.vars
+$(ALL_TEST_PROGRAMS:%=update-mocks/%.c): $(ALL_GEN_HEADERS) $(EXTERNAL_LIBS) $(BUILDDIR)/libccan.a $(CDUMP_ENUMSTR) config.vars
 
 update-mocks/%: % $(ALL_GEN_HEADERS) $(ALL_GEN_SOURCES)
 	@MAKE=$(MAKE) SED=$(SED) tools/update-mocks.sh "$*" $(SUPPRESS_OUTPUT)
@@ -1102,114 +1124,6 @@ clightning-$(VERSION)-$(DISTRO).tar.xz: install
 	trap "rm -rf opt" 0; tar cvfa $@ opt/
 endif
 
-ccan-breakpoint.o: $(CCANDIR)/ccan/breakpoint/breakpoint.c
-	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
-ccan-base64.o: $(CCANDIR)/ccan/base64/base64.c
-	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
-ccan-tal.o: $(CCANDIR)/ccan/tal/tal.c
-	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
-ccan-tal-str.o: $(CCANDIR)/ccan/tal/str/str.c
-	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
-ccan-tal-link.o: $(CCANDIR)/ccan/tal/link/link.c
-	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
-ccan-tal-path.o: $(CCANDIR)/ccan/tal/path/path.c
-	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
-ccan-tal-grab_file.o: $(CCANDIR)/ccan/tal/grab_file/grab_file.c
-	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
-ccan-take.o: $(CCANDIR)/ccan/take/take.c
-	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
-ccan-list.o: $(CCANDIR)/ccan/list/list.c
-	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
-ccan-asort.o: $(CCANDIR)/ccan/asort/asort.c
-	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
-ccan-ptr_valid.o: $(CCANDIR)/ccan/ptr_valid/ptr_valid.c
-	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
-ccan-read_write_all.o: $(CCANDIR)/ccan/read_write_all/read_write_all.c
-	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
-ccan-str.o: $(CCANDIR)/ccan/str/str.c
-	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
-ccan-opt.o: $(CCANDIR)/ccan/opt/opt.c
-	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
-ccan-opt-helpers.o: $(CCANDIR)/ccan/opt/helpers.c
-	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
-ccan-opt-parse.o: $(CCANDIR)/ccan/opt/parse.c
-	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
-ccan-opt-usage.o: $(CCANDIR)/ccan/opt/usage.c
-	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
-ccan-err.o: $(CCANDIR)/ccan/err/err.c
-	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
-ccan-noerr.o: $(CCANDIR)/ccan/noerr/noerr.c
-	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
-ccan-str-hex.o: $(CCANDIR)/ccan/str/hex/hex.c
-	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
-ccan-crc32c.o: $(CCANDIR)/ccan/crc32c/crc32c.c
-	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
-ccan-crypto-hmac.o: $(CCANDIR)/ccan/crypto/hmac_sha256/hmac_sha256.c
-	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
-ccan-crypto-hkdf.o: $(CCANDIR)/ccan/crypto/hkdf_sha256/hkdf_sha256.c
-	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
-ccan-crypto-shachain.o: $(CCANDIR)/ccan/crypto/shachain/shachain.c
-	@$(call VERBOSE, "cc $< -DSHACHAIN_BITS=48", $(COMPILE.c) -DSHACHAIN_BITS=48 -o $@ $<)
-ccan-crypto-sha256.o: $(CCANDIR)/ccan/crypto/sha256/sha256.c
-	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
-ccan-crypto-ripemd160.o: $(CCANDIR)/ccan/crypto/ripemd160/ripemd160.c
-	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
-ccan-cdump.o: $(CCANDIR)/ccan/cdump/cdump.c
-	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
-ccan-strmap.o: $(CCANDIR)/ccan/strmap/strmap.c
-	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
-ccan-strset.o: $(CCANDIR)/ccan/strset/strset.c
-	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
-ccan-crypto-siphash24.o: $(CCANDIR)/ccan/crypto/siphash24/siphash24.c
-	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
-ccan-htable.o: $(CCANDIR)/ccan/htable/htable.c
-	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
-ccan-ilog.o: $(CCANDIR)/ccan/ilog/ilog.c
-	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
-ccan-intmap.o: $(CCANDIR)/ccan/intmap/intmap.c
-	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
-ccan-isaac.o: $(CCANDIR)/ccan/isaac/isaac.c
-	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
-ccan-isaac64.o: $(CCANDIR)/ccan/isaac/isaac64.c
-	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
-ccan-time.o: $(CCANDIR)/ccan/time/time.c
-	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
-ccan-timer.o: $(CCANDIR)/ccan/timer/timer.c
-	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
-ccan-io-io.o: $(CCANDIR)/ccan/io/io.c
-	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
-ccan-io-poll.o: $(CCANDIR)/ccan/io/poll.c
-	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
-ccan-io-fdpass.o: $(CCANDIR)/ccan/io/fdpass/fdpass.c
-	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
-ccan-pipecmd.o: $(CCANDIR)/ccan/pipecmd/pipecmd.c
-	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
-ccan-mem.o: $(CCANDIR)/ccan/mem/mem.c
-	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
-ccan-fdpass.o: $(CCANDIR)/ccan/fdpass/fdpass.c
-	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
-ccan-bitops.o: $(CCANDIR)/ccan/bitops/bitops.c
-	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
-ccan-rbuf.o: $(CCANDIR)/ccan/rbuf/rbuf.c
-	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
-ccan-str-base32.o: $(CCANDIR)/ccan/str/base32/base32.c
-	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
-ccan-utf8.o: $(CCANDIR)/ccan/utf8/utf8.c
-	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
-ccan-bitmap.o: $(CCANDIR)/ccan/bitmap/bitmap.c
-	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
-ccan-membuf.o: $(CCANDIR)/ccan/membuf/membuf.c
-	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
-ccan-json_escape.o: $(CCANDIR)/ccan/json_escape/json_escape.c
-	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
-ccan-json_out.o: $(CCANDIR)/ccan/json_out/json_out.c
-	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
-ccan-closefrom.o: $(CCANDIR)/ccan/closefrom/closefrom.c
-	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
-ccan-rune-rune.o: $(CCANDIR)/ccan/rune/rune.c
-	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
-ccan-rune-coding.o: $(CCANDIR)/ccan/rune/coding.c
-	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
 
 canned-gossmap: devtools/gossmap-compress
 	DATE=`date +%Y-%m-%d` && devtools/gossmap-compress compress --output-node-map /tmp/gossip_store tests/data/gossip-store-$$DATE.compressed > tests/data/gossip-store-$$DATE-node-map && xz -9 tests/data/gossip-store-$$DATE-node-map && ls -l tests/data/gossip-store-$$DATE*
@@ -1219,3 +1133,9 @@ print-binary-sizes: $(ALL_PROGRAMS) $(ALL_TEST_PROGRAMS) $(BIN_PROGRAMS)
 	@size -t $(PKGLIBEXEC_PROGRAMS) $(filter-out tools/reckless,$(BIN_PROGRAMS)) $(PLUGINS)
 	@echo All programs:
 	@size -t $(ALL_PROGRAMS) $(ALL_TEST_PROGRAMS) | tail -n1
+
+.SECONDEXPANSION:
+# All rules beyond this point are subject to secondary expansion of their prerequisites!
+
+$(BUILDDIR)/%.o: %.c | $$(@D)/
+	@$(call VERBOSE,"cc $<",$(COMPILE.c) -o $@ $<)

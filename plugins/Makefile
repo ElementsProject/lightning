@@ -1,21 +1,21 @@
 PLUGIN_PAY_SRC := plugins/pay.c
 PLUGIN_PAY_HEADER :=
-PLUGIN_PAY_OBJS := $(PLUGIN_PAY_SRC:.c=.o)
+PLUGIN_PAY_OBJS := $(PLUGIN_PAY_SRC:%.c=$(BUILDDIR)/%.o)
 
 PLUGIN_AUTOCLEAN_SRC := plugins/autoclean.c
-PLUGIN_AUTOCLEAN_OBJS := $(PLUGIN_AUTOCLEAN_SRC:.c=.o)
+PLUGIN_AUTOCLEAN_OBJS := $(PLUGIN_AUTOCLEAN_SRC:%.c=$(BUILDDIR)/%.o)
 
 PLUGIN_chanbackup_SRC := plugins/chanbackup.c
-PLUGIN_chanbackup_OBJS := $(PLUGIN_chanbackup_SRC:.c=.o)
+PLUGIN_chanbackup_OBJS := $(PLUGIN_chanbackup_SRC:%.c=$(BUILDDIR)/%.o)
 
 PLUGIN_TOPOLOGY_SRC := plugins/topology.c
-PLUGIN_TOPOLOGY_OBJS := $(PLUGIN_TOPOLOGY_SRC:.c=.o)
+PLUGIN_TOPOLOGY_OBJS := $(PLUGIN_TOPOLOGY_SRC:%.c=$(BUILDDIR)/%.o)
 
 PLUGIN_TXPREPARE_SRC := plugins/txprepare.c
-PLUGIN_TXPREPARE_OBJS := $(PLUGIN_TXPREPARE_SRC:.c=.o)
+PLUGIN_TXPREPARE_OBJS := $(PLUGIN_TXPREPARE_SRC:%.c=$(BUILDDIR)/%.o)
 
 PLUGIN_BCLI_SRC := plugins/bcli.c
-PLUGIN_BCLI_OBJS := $(PLUGIN_BCLI_SRC:.c=.o)
+PLUGIN_BCLI_OBJS := $(PLUGIN_BCLI_SRC:%.c=$(BUILDDIR)/%.o)
 
 PLUGIN_BWATCH_SRC := plugins/bwatch/bwatch.c \
 	plugins/bwatch/bwatch_store.c \
@@ -27,17 +27,17 @@ PLUGIN_BWATCH_HEADER := plugins/bwatch/bwatch.h \
 	plugins/bwatch/bwatch_scanner.h \
 	plugins/bwatch/bwatch_interface.h \
 	plugins/bwatch/bwatch_wiregen.h
-PLUGIN_BWATCH_OBJS := $(PLUGIN_BWATCH_SRC:.c=.o)
+PLUGIN_BWATCH_OBJS := $(PLUGIN_BWATCH_SRC:%.c=$(BUILDDIR)/%.o)
 
 PLUGIN_COMMANDO_SRC := plugins/commando.c
-PLUGIN_COMMANDO_OBJS := $(PLUGIN_COMMANDO_SRC:.c=.o)
+PLUGIN_COMMANDO_OBJS := $(PLUGIN_COMMANDO_SRC:%.c=$(BUILDDIR)/%.o)
 
 PLUGIN_KEYSEND_SRC := plugins/keysend.c
-PLUGIN_KEYSEND_OBJS := $(PLUGIN_KEYSEND_SRC:.c=.o)
+PLUGIN_KEYSEND_OBJS := $(PLUGIN_KEYSEND_SRC:%.c=$(BUILDDIR)/%.o)
 
 PLUGIN_LIB_SRC := plugins/libplugin.c
 PLUGIN_LIB_HEADER := plugins/libplugin.h
-PLUGIN_LIB_OBJS := $(PLUGIN_LIB_SRC:.c=.o)
+PLUGIN_LIB_OBJS := $(PLUGIN_LIB_SRC:%.c=$(BUILDDIR)/%.o)
 
 PLUGIN_PAY_LIB_SRC := \
 	plugins/channel_hint.c \
@@ -47,19 +47,19 @@ PLUGIN_PAY_LIB_HEADER := \
 	plugins/channel_hint.h \
 	plugins/libplugin-pay.h
 
-PLUGIN_PAY_LIB_OBJS := $(PLUGIN_PAY_LIB_SRC:.c=.o)
+PLUGIN_PAY_LIB_OBJS := $(PLUGIN_PAY_LIB_SRC:%.c=$(BUILDDIR)/%.o)
 
 PLUGIN_OFFERS_SRC := plugins/offers.c plugins/offers_offer.c plugins/offers_invreq_hook.c plugins/offers_inv_hook.c plugins/establish_onion_path.c plugins/fetchinvoice.c plugins/offers_proof.c
-PLUGIN_OFFERS_OBJS := $(PLUGIN_OFFERS_SRC:.c=.o)
+PLUGIN_OFFERS_OBJS := $(PLUGIN_OFFERS_SRC:%.c=$(BUILDDIR)/%.o)
 PLUGIN_OFFERS_HEADER := $(PLUGIN_OFFERS_SRC:.c=.h)
 
 PLUGIN_SQL_SRC := plugins/sql.c
 PLUGIN_SQL_HEADER :=
-PLUGIN_SQL_OBJS := $(PLUGIN_SQL_SRC:.c=.o)
+PLUGIN_SQL_OBJS := $(PLUGIN_SQL_SRC:%.c=$(BUILDDIR)/%.o)
 
 PLUGIN_EXPOSESECRET_SRC := plugins/exposesecret.c
 PLUGIN_EXPOSESECRET_HEADER :=
-PLUGIN_EXPOSESECRET_OBJS := $(PLUGIN_EXPOSESECRET_SRC:.c=.o)
+PLUGIN_EXPOSESECRET_OBJS := $(PLUGIN_EXPOSESECRET_SRC:%.c=$(BUILDDIR)/%.o)
 
 PLUGIN_SPENDER_SRC :=				\
 	plugins/spender/fundchannel.c		\
@@ -75,20 +75,20 @@ PLUGIN_SPENDER_HEADER :=			\
 	plugins/spender/multifundchannel.h	\
 	plugins/spender/openchannel.h		\
 	plugins/spender/splice.h
-PLUGIN_SPENDER_OBJS := $(PLUGIN_SPENDER_SRC:.c=.o)
+PLUGIN_SPENDER_OBJS := $(PLUGIN_SPENDER_SRC:%.c=$(BUILDDIR)/%.o)
 
 PLUGIN_RECOVER_SRC := plugins/recover.c
-PLUGIN_RECOVER_OBJS := $(PLUGIN_RECOVER_SRC:.c=.o)
+PLUGIN_RECOVER_OBJS := $(PLUGIN_RECOVER_SRC:%.c=$(BUILDDIR)/%.o)
 
 PLUGIN_FUNDER_SRC :=				\
 	plugins/funder.c			\
 	plugins/funder_policy.c
 PLUGIN_FUNDER_HEADER :=				\
 	plugins/funder_policy.h
-PLUGIN_FUNDER_OBJS := $(PLUGIN_FUNDER_SRC:.c=.o)
+PLUGIN_FUNDER_OBJS := $(PLUGIN_FUNDER_SRC:%.c=$(BUILDDIR)/%.o)
 
 PLUGIN_RECKLESSRPC_SRC := plugins/recklessrpc.c
-PLUGIN_RECKLESSRPC_OBJS := $(PLUGIN_RECKLESSRPC_SRC:.c=.o)
+PLUGIN_RECKLESSRPC_OBJS := $(PLUGIN_RECKLESSRPC_SRC:%.c=$(BUILDDIR)/%.o)
 
 PLUGIN_ALL_SRC :=				\
 	$(PLUGIN_AUTOCLEAN_SRC)			\
@@ -119,6 +119,7 @@ PLUGIN_ALL_HEADER :=				\
 	$(PLUGIN_BWATCH_HEADER)
 
 C_PLUGINS :=					\
+	$(addprefix $(BUILDDIR)/,		\
 	plugins/autoclean			\
 	plugins/chanbackup			\
 	plugins/bcli				\
@@ -136,10 +137,11 @@ C_PLUGINS :=					\
 	plugins/cln-renepay			\
 	plugins/cln-xpay			\
 	plugins/spenderp			\
-	plugins/cln-askrene
+	plugins/cln-askrene			\
+	)
 
 ifeq ($(HAVE_SQLITE3),1)
-C_PLUGINS += plugins/sql
+C_PLUGINS += $(BUILDDIR)/plugins/sql
 PLUGIN_ALL_SRC += $(PLUGIN_SQL_SRC)
 PLUGIN_ALL_HEADER += $(PLUGIN_SQL_HEADER)
 endif
@@ -157,7 +159,7 @@ RUST_PLUGIN_NAMES := cln-grpc clnrest cln-lsps-client cln-lsps-service wss-proxy
 
 # Builtin plugins must be in this plugins dir to work when we're executed
 # *without* make install.
-RUST_PLUGINS := $(addprefix plugins/,$(RUST_PLUGIN_NAMES))
+RUST_PLUGINS := $(addprefix $(BUILDDIR)/plugins/,$(RUST_PLUGIN_NAMES))
 $(RUST_PLUGINS): plugins/%: $(RUST_TARGET_DIR)/%
 	@cp $< $@
 
@@ -177,48 +179,48 @@ ALL_C_SOURCES += $(PLUGIN_ALL_SRC)
 ALL_C_HEADERS += $(PLUGIN_ALL_HEADER)
 ALL_PROGRAMS += $(C_PLUGINS)
 
-PLUGIN_ALL_OBJS := $(PLUGIN_ALL_SRC:.c=.o)
+PLUGIN_ALL_OBJS := $(PLUGIN_ALL_SRC:%.c=$(BUILDDIR)/%.o)
 
 # Make all plugins depend on all plugin headers, for simplicity (and this file!)
 $(PLUGIN_ALL_OBJS): $(PLUGIN_ALL_HEADER) plugins/Makefile
 
-plugins/pay: $(PLUGIN_PAY_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_PAY_LIB_OBJS) libcommon.a
+$(BUILDDIR)/plugins/pay: $(PLUGIN_PAY_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_PAY_LIB_OBJS) $(BUILDDIR)/libcommon.a
 
-plugins/autoclean: $(PLUGIN_AUTOCLEAN_OBJS) $(PLUGIN_LIB_OBJS) libcommon.a
+$(BUILDDIR)/plugins/autoclean: $(PLUGIN_AUTOCLEAN_OBJS) $(PLUGIN_LIB_OBJS) $(BUILDDIR)/libcommon.a
 
-plugins/chanbackup: $(PLUGIN_chanbackup_OBJS) $(PLUGIN_LIB_OBJS) libcommon.a
+$(BUILDDIR)/plugins/chanbackup: $(PLUGIN_chanbackup_OBJS) $(PLUGIN_LIB_OBJS) $(BUILDDIR)/libcommon.a
 
-plugins/commando: $(PLUGIN_COMMANDO_OBJS) $(PLUGIN_LIB_OBJS) libcommon.a
+$(BUILDDIR)/plugins/commando: $(PLUGIN_COMMANDO_OBJS) $(PLUGIN_LIB_OBJS) $(BUILDDIR)/libcommon.a
 
 # Topology wants to decode node_announcement, and peer_wiregen which
 # pulls in some of bitcoin/.
-plugins/topology:  $(PLUGIN_TOPOLOGY_OBJS) $(PLUGIN_LIB_OBJS) libcommon.a
+$(BUILDDIR)/plugins/topology:  $(PLUGIN_TOPOLOGY_OBJS) $(PLUGIN_LIB_OBJS) $(BUILDDIR)/libcommon.a
 
-plugins/txprepare: $(PLUGIN_TXPREPARE_OBJS) $(PLUGIN_LIB_OBJS) libcommon.a
+$(BUILDDIR)/plugins/txprepare: $(PLUGIN_TXPREPARE_OBJS) $(PLUGIN_LIB_OBJS) $(BUILDDIR)/libcommon.a
 
-plugins/exposesecret: $(PLUGIN_EXPOSESECRET_OBJS) $(PLUGIN_LIB_OBJS) libcommon.a
+$(BUILDDIR)/plugins/exposesecret: $(PLUGIN_EXPOSESECRET_OBJS) $(PLUGIN_LIB_OBJS) $(BUILDDIR)/libcommon.a
 
-plugins/bcli: $(PLUGIN_BCLI_OBJS) $(PLUGIN_LIB_OBJS) libcommon.a
+$(BUILDDIR)/plugins/bcli: $(PLUGIN_BCLI_OBJS) $(PLUGIN_LIB_OBJS) $(BUILDDIR)/libcommon.a
 
-plugins/bwatch/bwatch.o: $(PLUGIN_BWATCH_HEADER)
-plugins/bwatch/bwatch_store.o: $(PLUGIN_BWATCH_HEADER)
-plugins/bwatch/bwatch_scanner.o: $(PLUGIN_BWATCH_HEADER)
-plugins/bwatch/bwatch_interface.o: $(PLUGIN_BWATCH_HEADER)
-plugins/bwatch/bwatch_wiregen.o: $(PLUGIN_BWATCH_HEADER)
-plugins/cln-bwatch: $(PLUGIN_BWATCH_OBJS) $(PLUGIN_LIB_OBJS) libcommon.a
+$(BUILDDIR)/plugins/bwatch/bwatch.o: $(PLUGIN_BWATCH_HEADER)
+$(BUILDDIR)/plugins/bwatch/bwatch_store.o: $(PLUGIN_BWATCH_HEADER)
+$(BUILDDIR)/plugins/bwatch/bwatch_scanner.o: $(PLUGIN_BWATCH_HEADER)
+$(BUILDDIR)/plugins/bwatch/bwatch_interface.o: $(PLUGIN_BWATCH_HEADER)
+$(BUILDDIR)/plugins/bwatch/bwatch_wiregen.o: $(PLUGIN_BWATCH_HEADER)
+$(BUILDDIR)/plugins/cln-bwatch: $(PLUGIN_BWATCH_OBJS) $(PLUGIN_LIB_OBJS) $(BUILDDIR)/libcommon.a
 
-plugins/keysend: $(PLUGIN_KEYSEND_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_PAY_LIB_OBJS) libcommon.a
-$(PLUGIN_KEYSEND_OBJS): $(PLUGIN_PAY_LIB_HEADER) libcommon.a
+$(BUILDDIR)/plugins/keysend: $(PLUGIN_KEYSEND_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_PAY_LIB_OBJS) $(BUILDDIR)/libcommon.a
+$(PLUGIN_KEYSEND_OBJS): $(PLUGIN_PAY_LIB_HEADER) $(BUILDDIR)/libcommon.a
 
-plugins/spenderp: $(PLUGIN_SPENDER_OBJS) $(PLUGIN_LIB_OBJS) libcommon.a
+$(BUILDDIR)/plugins/spenderp: $(PLUGIN_SPENDER_OBJS) $(PLUGIN_LIB_OBJS) $(BUILDDIR)/libcommon.a
 
-plugins/offers: $(PLUGIN_OFFERS_OBJS) $(PLUGIN_LIB_OBJS) libcommon.a
+$(BUILDDIR)/plugins/offers: $(PLUGIN_OFFERS_OBJS) $(PLUGIN_LIB_OBJS) $(BUILDDIR)/libcommon.a
 
-plugins/funder: $(PLUGIN_FUNDER_OBJS) $(PLUGIN_LIB_OBJS) libcommon.a
+$(BUILDDIR)/plugins/funder: $(PLUGIN_FUNDER_OBJS) $(PLUGIN_LIB_OBJS) $(BUILDDIR)/libcommon.a
 
-plugins/recover:  $(PLUGIN_RECOVER_OBJS) $(PLUGIN_LIB_OBJS) libcommon.a
+$(BUILDDIR)/plugins/recover:  $(PLUGIN_RECOVER_OBJS) $(PLUGIN_LIB_OBJS) $(BUILDDIR)/libcommon.a
 
-plugins/recklessrpc: $(PLUGIN_RECKLESSRPC_OBJS) $(PLUGIN_LIB_OBJS) libcommon.a
+$(BUILDDIR)/plugins/recklessrpc: $(PLUGIN_RECKLESSRPC_OBJS) $(PLUGIN_LIB_OBJS) $(BUILDDIR)/libcommon.a
 
 # This covers all the low-level list RPCs which return simple arrays
 SQL_LISTRPCS := listchannels listforwards listhtlcs listinvoices listnodes listoffers listpeers listpeerchannels listclosedchannels listtransactions listsendpays listchainmoves listchannelmoves bkpr-listaccountevents bkpr-listincome listnetworkevents
@@ -248,12 +250,12 @@ plugins/sql-schema_gen.h: $(SQL_SCHEMA_PARTS)
 		echo "}\"") | tr -d " \n" > $@ \
 	)
 
-plugins/sql.o: plugins/sql-schema_gen.h
-plugins/sql: $(PLUGIN_SQL_OBJS) $(PLUGIN_LIB_OBJS) libcommon.a
+$(BUILDDIR)/plugins/sql.o: plugins/sql-schema_gen.h
+$(BUILDDIR)/plugins/sql: $(PLUGIN_SQL_OBJS) $(PLUGIN_LIB_OBJS) $(BUILDDIR)/libcommon.a
 
 # Generated from PLUGINS definition in plugins/Makefile
 ALL_C_HEADERS += plugins/list_of_builtin_plugins_gen.h
-PLUGIN_BASES := $(PLUGINS:plugins/%=%) $(PY_PLUGINS:plugins/%=%)
+PLUGIN_BASES := $(PLUGINS:$(BUILDDIR)/plugins/%=%) $(PY_PLUGINS:plugins/%=%)
 
 plugins/list_of_builtin_plugins_gen.h: plugins/Makefile Makefile config.vars
 	@$(call VERBOSE,GEN $@,echo "static const char *list_of_builtin_plugins[] = { $(PLUGIN_BASES:%=\"%\",) NULL };" > $@)
@@ -297,12 +299,16 @@ $(RUST_TARGET_DIR)/cln-currencyrate: ${CLN_CURRENCYRATE_PLUGIN_SRC} ${CLN_RPC_SO
 ifneq ($(RUST),0)
 include plugins/rest-plugin/Makefile
 include plugins/wss-proxy-plugin/Makefile
-DEFAULT_TARGETS += $(CLN_PLUGIN_EXAMPLES) plugins/cln-grpc plugins/clnrest plugins/cln-lsps-client plugins/cln-lsps-service plugins/wss-proxy plugins/cln-bip353 plugins/cln-currencyrate
+DEFAULT_TARGETS += $(CLN_PLUGIN_EXAMPLES) $(addprefix $(BUILDDIR)/plugins/,cln-grpc clnrest cln-lsps-client cln-lsps-service wss-proxy cln-bip353 cln-currencyrate)
 endif
 
 clean: plugins-clean
+
+obsclean::
+	$(RM) $(PLUGINS:$(BUILDDIR)/%=%) plugins/*.o
+
 plugins-clean:
-	$(RM) $(PLUGINS) $(CLN_PLUGIN_EXAMPLES)
+	$(RM) $(CLN_PLUGIN_EXAMPLES)
 	$(RM) plugins/sql-schema_gen.h
 
 include plugins/test/Makefile
