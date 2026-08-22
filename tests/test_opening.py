@@ -1027,10 +1027,10 @@ def test_rbf_reconnect_tx_construct(node_factory, bitcoind, chainparams):
     l1, l2 = node_factory.get_nodes(2,
                                     opts=[{'disconnect': disconnects,
                                            'may_reconnect': True,
-                                           'dev-no-reconnect': None},
-                                          {'may_reconnect': True,
                                            'dev-no-reconnect': None,
-                                           'broken_log': 'dualopend daemon died before signed PSBT returned'}])
+                                           'dual-open-disconnect-timeout': 3},
+                                          {'may_reconnect': True,
+                                           'dev-no-reconnect': None}])
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     amount = 2**24
@@ -1060,20 +1060,17 @@ def test_rbf_reconnect_tx_construct(node_factory, bitcoind, chainparams):
                                prev_utxos, reservedok=True,
                                excess_as_change=True)
 
-    # Run through TX_ADD wires
-    for d in disconnects[1:-4]:
-        l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-        with pytest.raises(RpcError):
-            l1.rpc.openchannel_bump(chan_id, chan_amount, initpsbt['psbt'])
-        wait_for(lambda: l1.rpc.getpeer(l2.info['id'])['connected'] is False)
+    bump = l1.rpc.openchannel_bump(chan_id, chan_amount, initpsbt['psbt'])
 
     # The first TX_COMPLETE breaks
+    update_fut = node_factory.executor.submit(l1.rpc.openchannel_update,
+                                              chan_id, bump['psbt'])
+    wait_for(lambda:
+             l1.rpc.getpeer(l2.info['id'])['connected'] is False
+             and l2.rpc.getpeer(l1.info['id'])['connected'] is False)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-    bump = l1.rpc.openchannel_bump(chan_id, chan_amount, initpsbt['psbt'])
     with pytest.raises(RpcError):
-        update = l1.rpc.openchannel_update(chan_id, bump['psbt'])
-    wait_for(lambda: l1.rpc.getpeer(l2.info['id'])['connected'] is False)
-    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+        update_fut.result(timeout=TIMEOUT)
     # l1 should remember, l2 has forgotten
     # l2 should send tx-abort, to reset
     l2.daemon.wait_for_log(r'tx-abort: Sent next_funding_txid .* doesn\'t match ours .*')
@@ -1086,29 +1083,42 @@ def test_rbf_reconnect_tx_construct(node_factory, bitcoind, chainparams):
     # The next TX_COMPLETE break (both remember) + they break on the
     # COMMITMENT_SIGNED during the reconnect
     bump = l1.rpc.openchannel_bump(chan_id, chan_amount, initpsbt['psbt'])
-    with pytest.raises(RpcError):
-        update = l1.rpc.openchannel_update(chan_id, bump['psbt'])
-    wait_for(lambda: l1.rpc.getpeer(l2.info['id'])['connected'] is False)
+    update_fut = node_factory.executor.submit(l1.rpc.openchannel_update,
+                                              chan_id, bump['psbt'])
+    wait_for(lambda:
+             l1.rpc.getpeer(l2.info['id'])['connected'] is False
+             and l2.rpc.getpeer(l1.info['id'])['connected'] is False)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    with pytest.raises(RpcError):
+        update_fut.result(timeout=TIMEOUT)
     l2.daemon.wait_for_logs([r'Got dualopend reestablish',
                              r'No commitment, not sending our sigs'])
     l1.daemon.wait_for_logs([r'Got dualopend reestablish',
                              r'No commitment, not sending our sigs',
                              r'dev_disconnect: -WIRE_COMMITMENT_SIGNED',
                              'peer_disconnected'])
-    assert not l1.rpc.getpeer(l2.info['id'])['connected']
+    wait_for(lambda:
+             l1.rpc.getpeer(l2.info['id'])['connected'] is False
+             and l2.rpc.getpeer(l1.info['id'])['connected'] is False)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
     # COMMITMENT_SIGNED disconnects *during* the reconnect
     # We can't bump because the last negotiation is in the wrong state
+    bump_fut = node_factory.executor.submit(l1.rpc.openchannel_bump,
+                                            chan_id, chan_amount,
+                                            initpsbt['psbt'])
     with pytest.raises(RpcError, match=r'Funding sigs for this channel not secured'):
-        l1.rpc.openchannel_bump(chan_id, chan_amount, initpsbt['psbt'])
+        bump_fut.result(timeout=TIMEOUT)
     # l2 reconnects, but doesn't have l1's commitment
+    wait_for(lambda:
+             l1.rpc.getpeer(l2.info['id'])['connected'] is False
+             and l2.rpc.getpeer(l1.info['id'])['connected'] is False)
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l2.daemon.wait_for_logs([r'Got dualopend reestablish',
                              r'No commitment, not sending our sigs',
-                             # This is a BROKEN log, it's expected!
-                             r'dualopend daemon died before signed PSBT returned|dualopend: Owning subdaemon dualopend died',
-                             r'Owning subdaemon dualopend died'])
+                             # The injected transport failure retires this
+                             # owner cleanly; it is not a BROKEN condition.
+                             r'dualopend: Owning subdaemon dualopend died'])
 
     # If we received their commitment_signed first, we *will* have scratch!
     inflights = only_one(l1.rpc.listpeerchannels()['channels'])['inflight']
@@ -1118,9 +1128,25 @@ def test_rbf_reconnect_tx_construct(node_factory, bitcoind, chainparams):
     else:
         assert 'scratch_txid' not in inflights[1]
 
-    # After reconnecting, we have a scratch txid!
-    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-    wait_for(lambda: 'scratch_txid' in only_one(l1.rpc.listpeerchannels()['channels'])['inflight'][1])
+    # Depending on which commitment_signed arrives first, that reestablish
+    # owner may produce scratch state before its injected transport failure
+    # has finished disconnecting.  Wait for that owner to retire completely
+    # before installing its replacement.
+    def have_scratch_txid():
+        inflights = only_one(l1.rpc.listpeerchannels()['channels'])['inflight']
+        return len(inflights) > 1 and 'scratch_txid' in inflights[1]
+
+    l1.daemon.wait_for_logs([r'dev_disconnect: \+WIRE_COMMITMENT_SIGNED',
+                             'peer_disconnected'])
+    wait_for(lambda:
+             l1.rpc.getpeer(l2.info['id'])['connected']
+             == l2.rpc.getpeer(l1.info['id'])['connected'])
+    if not l1.rpc.getpeer(l2.info['id'])['connected']:
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    wait_for(lambda:
+             l1.rpc.getpeer(l2.info['id'])['connected']
+             and l2.rpc.getpeer(l1.info['id'])['connected'])
+    wait_for(have_scratch_txid)
 
     # We can call update again! It should short-circuit this time :)
     update = l1.rpc.openchannel_update(chan_id, bump['psbt'])
