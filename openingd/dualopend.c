@@ -2928,6 +2928,7 @@ static u8 *opener_commits(struct state *state,
 	msg = opening_negotiate_msg(tmpctx, state);
 	if (!msg) {
 		*err_reason = NULL;
+		tal_free(pbase);
 		revert_channel_state(state);
 		return NULL;
 	}
@@ -2937,6 +2938,7 @@ static u8 *opener_commits(struct state *state,
 					  &remote_sig);
 	if (error) {
 		*err_reason = tal_fmt(tmpctx, "Commit sig error: %s", error);
+		tal_free(pbase);
 		revert_channel_state(state);
 		return NULL;
 	}
