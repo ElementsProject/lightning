@@ -817,14 +817,19 @@ def test_v2_rbf_multi(node_factory, bitcoind, chainparams):
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @pytest.mark.openchannel('v2')
-def test_rbf_reconnect_init(node_factory, bitcoind, chainparams):
-    disconnects = ['-WIRE_TX_INIT_RBF',
-                   '+WIRE_TX_INIT_RBF']
+@pytest.mark.parametrize('disconnect', [
+    '-WIRE_TX_INIT_RBF',
+    '+WIRE_TX_INIT_RBF',
+])
+def test_rbf_reconnect_init(node_factory, bitcoind, chainparams, disconnect):
 
     l1, l2 = node_factory.get_nodes(2,
-                                    opts=[{'disconnect': disconnects,
-                                           'may_reconnect': True},
-                                          {'may_reconnect': True}])
+                                    opts=[{'disconnect': [disconnect],
+                                           'may_reconnect': True,
+                                           'dev-no-reconnect': None,
+                                           'dual-open-disconnect-timeout': 3},
+                                          {'may_reconnect': True,
+                                           'dev-no-reconnect': None}])
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     amount = 2**24
@@ -851,28 +856,36 @@ def test_rbf_reconnect_init(node_factory, bitcoind, chainparams):
                                prev_utxos, reservedok=True,
                                excess_as_change=True)
 
-    # Do the bump!?
-    for d in disconnects:
-        l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-        with pytest.raises(RpcError):
-            l1.rpc.openchannel_bump(chan_id, chan_amount, initpsbt['psbt'])
-        assert l1.rpc.getpeer(l2.info['id']) is not None
-
-    # This should succeed
+    # The serialized bump remains pending while dualopend and its transport
+    # are replaced.  Reconnect before the retained-command timeout and expect
+    # this same RPC, rather than a caller retry, to complete.
+    bump_fut = node_factory.executor.submit(l1.rpc.openchannel_bump,
+                                            chan_id, chan_amount,
+                                            initpsbt['psbt'])
+    l1.daemon.wait_for_log(r'dev_disconnect: ' + re.escape(disconnect))
+    wait_for(lambda:
+             l1.rpc.getpeer(l2.info['id'])['connected'] is False
+             and l2.rpc.getpeer(l1.info['id'])['connected'] is False)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-    l1.rpc.openchannel_bump(chan_id, chan_amount, initpsbt['psbt'])
+    bump = bump_fut.result(timeout=TIMEOUT)
+    assert bump['channel_id'] == chan_id
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @pytest.mark.openchannel('v2')
-def test_rbf_reconnect_ack(node_factory, bitcoind, chainparams):
-    disconnects = ['-WIRE_TX_ACK_RBF',
-                   '+WIRE_TX_ACK_RBF']
+@pytest.mark.parametrize('disconnect', [
+    '-WIRE_TX_ACK_RBF',
+    '+WIRE_TX_ACK_RBF',
+])
+def test_rbf_reconnect_ack(node_factory, bitcoind, chainparams, disconnect):
 
     l1, l2 = node_factory.get_nodes(2,
-                                    opts=[{'may_reconnect': True},
-                                          {'disconnect': disconnects,
-                                           'may_reconnect': True}])
+                                    opts=[{'may_reconnect': True,
+                                           'dev-no-reconnect': None,
+                                           'dual-open-disconnect-timeout': 3},
+                                          {'disconnect': [disconnect],
+                                           'may_reconnect': True,
+                                           'dev-no-reconnect': None}])
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     amount = 2**24
@@ -899,26 +912,87 @@ def test_rbf_reconnect_ack(node_factory, bitcoind, chainparams):
                                prev_utxos, reservedok=True,
                                excess_as_change=True)
 
-    # Do the bump!?
-    for d in disconnects:
-        l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-        with pytest.raises(RpcError):
-            l1.rpc.openchannel_bump(chan_id, chan_amount, initpsbt['psbt'])
-        assert l1.rpc.getpeer(l2.info['id']) is not None
-
-    # This should succeed
+    bump_fut = node_factory.executor.submit(l1.rpc.openchannel_bump,
+                                            chan_id, chan_amount,
+                                            initpsbt['psbt'])
+    l2.daemon.wait_for_log(r'dev_disconnect: ' + re.escape(disconnect))
+    wait_for(lambda:
+             l1.rpc.getpeer(l2.info['id'])['connected'] is False
+             and l2.rpc.getpeer(l1.info['id'])['connected'] is False)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-    l1.rpc.openchannel_bump(chan_id, chan_amount, initpsbt['psbt'])
+    bump = bump_fut.result(timeout=TIMEOUT)
+    assert bump['channel_id'] == chan_id
+
+
+def _setup_rbf_reconnect_tx_add(node_factory, bitcoind, disconnects):
+    """Open a channel and prepare an RBF for TX_ADD reconnect tests."""
+    l1, l2 = node_factory.get_nodes(2, opts=[
+        {'disconnect': disconnects,
+         'may_reconnect': True,
+         'dev-no-reconnect': None,
+         'dual-open-disconnect-timeout': 3},
+        {'may_reconnect': True,
+         'dev-no-reconnect': None}
+    ])
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    amount = 2**24
+    chan_amount = 100000
+    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['p2tr'],
+                               amount / 10**8 + 0.01)
+    bitcoind.generate_block(1)
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) > 0)
+
+    res = l1.rpc.fundchannel(l2.info['id'], chan_amount)
+    chan_id = res['channel_id']
+    vin = only_one(bitcoind.rpc.decoderawtransaction(res['tx'])['vin'])
+    prev_utxos = ["{}:{}".format(vin['txid'], vin['vout'])]
+    l1.daemon.wait_for_log(' to DUALOPEND_AWAITING_LOCKIN')
+
+    rate = int(find_next_feerate(l1, l2)[:-5])
+    initpsbt = l1.rpc.utxopsbt(chan_amount, '{}perkw'.format(rate * 4),
+                               42 + 172, prev_utxos, reservedok=True,
+                               excess_as_change=True)
+
+    return l1, l2, chan_amount, chan_id, initpsbt
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+@pytest.mark.openchannel('v2')
+@pytest.mark.parametrize('tx_add_disconnect', [
+    '-WIRE_TX_ADD_INPUT',
+    '+WIRE_TX_ADD_INPUT',
+    '-WIRE_TX_ADD_OUTPUT',
+    '+WIRE_TX_ADD_OUTPUT',
+])
+def test_rbf_reconnect_tx_add(node_factory, bitcoind, chainparams,
+                              tx_add_disconnect):
+    """A retained bump survives a disconnect at each interactive-tx add."""
+    # Consume the initial funding transaction's add messages before arming the
+    # fault for the later RBF construction.
+    disconnects = ['=WIRE_TX_ADD_INPUT', '=WIRE_TX_ADD_OUTPUT*2',
+                   tx_add_disconnect]
+    l1, l2, chan_amount, chan_id, initpsbt = \
+        _setup_rbf_reconnect_tx_add(node_factory, bitcoind, disconnects)
+
+    bump_fut = node_factory.executor.submit(l1.rpc.openchannel_bump,
+                                            chan_id, chan_amount,
+                                            initpsbt['psbt'])
+    l1.daemon.wait_for_log(r'dev_disconnect: '
+                           + re.escape(tx_add_disconnect))
+    wait_for(lambda:
+             l1.rpc.getpeer(l2.info['id'])['connected'] is False
+             and l2.rpc.getpeer(l1.info['id'])['connected'] is False)
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    bump = bump_fut.result(timeout=TIMEOUT)
+    assert bump['channel_id'] == chan_id
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @pytest.mark.openchannel('v2')
 def test_rbf_reconnect_tx_construct(node_factory, bitcoind, chainparams):
     disconnects = ['=WIRE_TX_ADD_INPUT',  # Initial funding succeeds
-                   '-WIRE_TX_ADD_INPUT',
-                   '+WIRE_TX_ADD_INPUT',
-                   '-WIRE_TX_ADD_OUTPUT',
-                   '+WIRE_TX_ADD_OUTPUT',
+                   '=WIRE_TX_COMPLETE',
                    '-WIRE_TX_COMPLETE',
                    '+WIRE_TX_COMPLETE',
                    '-WIRE_COMMITMENT_SIGNED',
