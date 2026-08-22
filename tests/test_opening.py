@@ -3297,5 +3297,8 @@ def test_inflight_disconnect_commitment_v2(node_factory, bitcoind):
                                        funder.info['id'], amount)
 
     opener.daemon.wait_for_log(r'dev_disconnect: .WIRE_COMMITMENT_SIGNED')
+    wait_for(lambda:
+             opener.rpc.getpeer(funder.info['id'])['connected'] is False
+             and funder.rpc.getpeer(opener.info['id'])['connected'] is False)
     opener.rpc.connect(funder.info['id'], 'localhost', funder.port)
     fut.result(timeout=TIMEOUT)
