@@ -342,6 +342,9 @@ ccan/config.h config.vars &: configure ccan/tools/configurator/configurator.c
 	@if [ ! -f config.vars ]; then echo 'File config.vars not found: you must run ./configure before running make.' >&2; exit 1; fi
 	./configure --reconfigure
 
+%/:
+	@$(MKDIR_P) $(@D)
+
 %.o: %.c
 	@$(call VERBOSE, "cc $<", $(COMPILE.c) -o $@ $<)
 
@@ -950,9 +953,43 @@ fuzzunittest/%: % bolt-precheck
 
 # Commands
 MKDIR_P = mkdir -p
+RMDIR_P = rmdir -p
+CP_A = cp -a
 INSTALL = install
 INSTALL_PROGRAM = $(INSTALL)
 INSTALL_DATA = $(INSTALL) -m 644
+
+# $(1) = install command
+# $(2) = installation source file
+# $(3) = installation target file
+define INSTALL_RULE_tmpl =
+$(3): $(2) | $(dir $(3))
+	@$$(call VERBOSE,"install $$@",$(1) $$< $$|)
+endef
+
+# $(1) = install command
+# $(2) = list of files to install to $(3)
+# $(3) = installation target directory
+install_targets = $(foreach f,$(2),$(let t,$(3)/$(notdir $(f)),$(eval $(call INSTALL_RULE_tmpl,$(1),$(f),$(t)))$(t)))
+
+# $(1) = list of files to install to $(2)
+# $(2) = installation target directory
+install_program_targets = $(call install_targets,$(INSTALL_PROGRAM),$(1),$(2))
+install_data_targets = $(call install_targets,$(INSTALL_DATA),$(1),$(2))
+
+# Defines a rule that touches $(1) whenever it is older than any file listed in $(2).
+define TOUCH_RULE_tmpl =
+$(1): $(2)
+	@touch $(1)
+endef
+
+# $(1) = list of files whose containing directories are to be installed to $(2)
+# $(2) = installation target directory
+# An installation target rule is defined for each distinct directory containing
+# any file listed in $(1). A containing directory will be touched whenever any
+# listed contained file is newer than it. The touched directory then will
+# trigger a re-installation of the whole directory.
+install_py_plugin_targets = $(foreach d,$(sort $(dir $(1))),$(let t,$(2)/$(notdir $(patsubst %/,%,$(d))),$(eval $(call TOUCH_RULE_tmpl,$(d),$(filter $(d)%,$(1))))$(eval $(call INSTALL_RULE_tmpl,$(RM) -r $$@ && $(CP_A),$(d),$(t)))$(t)))
 
 # Tags needed by some package systems.
 PRE_INSTALL = :
@@ -962,28 +999,26 @@ PRE_UNINSTALL = :
 NORMAL_UNINSTALL = :
 POST_UNINSTALL = :
 
-# Target to create directories.
-installdirs:
-	@$(NORMAL_INSTALL)
-	$(MKDIR_P) $(DESTDIR)$(bindir)
-	$(MKDIR_P) $(DESTDIR)$(pkglibexecdir)
-	$(MKDIR_P) $(DESTDIR)$(plugindir)
-	$(MKDIR_P) $(DESTDIR)$(man1dir)
-	$(MKDIR_P) $(DESTDIR)$(man5dir)
-	$(MKDIR_P) $(DESTDIR)$(man7dir)
-	$(MKDIR_P) $(DESTDIR)$(man8dir)
-	$(MKDIR_P) $(DESTDIR)$(docdir)
+$(DESTDIR)$(plugindir)/clnrest: uninstall-old-clnrest-plugin
+uninstall-old-clnrest-plugin:
+	@[ -d $(DESTDIR)$(plugindir)/clnrest ] && $(RM) -r $(DESTDIR)$(plugindir)/clnrest
+
+$(DESTDIR)$(plugindir)/wss-proxy: uninstall-old-wss-proxy-plugin
+uninstall-old-wss-proxy-plugin:
+	@[ -d $(DESTDIR)$(plugindir)/wss-proxy ] && $(RM) -r $(DESTDIR)$(plugindir)/wss-proxy
+
+.PHONY: uninstall-old-clnrest-plugin uninstall-old-wss-proxy-plugin
 
 # $(PLUGINS) is defined in plugins/Makefile.
 
-install-program: installdirs $(BIN_PROGRAMS) $(PKGLIBEXEC_PROGRAMS) $(PLUGINS) $(PY_PLUGINS)
+INSTALL_PROGRAM_TARGETS := \
+	$(call install_program_targets,$(BIN_PROGRAMS),$(DESTDIR)$(bindir)) \
+	$(call install_program_targets,$(PKGLIBEXEC_PROGRAMS),$(DESTDIR)$(pkglibexecdir)) \
+	$(call install_program_targets,$(PLUGINS),$(DESTDIR)$(plugindir)) \
+	$(call install_py_plugin_targets,$(PY_PLUGINS),$(DESTDIR)$(plugindir))
+
+install-program: $(INSTALL_PROGRAM_TARGETS)
 	@$(NORMAL_INSTALL)
-	$(INSTALL_PROGRAM) $(BIN_PROGRAMS) $(DESTDIR)$(bindir)
-	$(INSTALL_PROGRAM) $(PKGLIBEXEC_PROGRAMS) $(DESTDIR)$(pkglibexecdir)
-	@if [ -d "$(DESTDIR)$(plugindir)/clnrest" ]; then rm -rf $(DESTDIR)$(plugindir)/clnrest; fi
-	@if [ -d "$(DESTDIR)$(plugindir)/wss-proxy" ]; then rm -rf $(DESTDIR)$(plugindir)/wss-proxy; fi
-	[ -z "$(PLUGINS)" ] || $(INSTALL_PROGRAM) $(PLUGINS) $(DESTDIR)$(plugindir)
-	for PY in $(PY_PLUGINS); do DIR=`dirname $$PY`; DST=$(DESTDIR)$(plugindir)/`basename $$DIR`; if [ -d $$DST ]; then rm -rf $$DST; fi; $(INSTALL_PROGRAM) -d $$DIR; cp -a $$DIR $$DST ; done
 ifeq ($(OS),Darwin)
 	# Install dSYM bundles alongside binaries on macOS
 	for BIN in $(BIN_PROGRAMS); do if [ -d $$BIN.dSYM ]; then cp -a $$BIN.dSYM $(DESTDIR)$(bindir)/; fi; done
@@ -997,13 +1032,15 @@ MAN7PAGES = $(filter %.7,$(MANPAGES))
 MAN8PAGES = $(filter %.8,$(MANPAGES))
 DOC_DATA = README.md LICENSE
 
-install-data: installdirs $(MAN1PAGES) $(MAN5PAGES) $(MAN7PAGES) $(MAN8PAGES) $(DOC_DATA)
+INSTALL_DATA_TARGETS := \
+	$(call install_data_targets,$(MAN1PAGES),$(DESTDIR)$(man1dir)) \
+	$(call install_data_targets,$(MAN5PAGES),$(DESTDIR)$(man5dir)) \
+	$(call install_data_targets,$(MAN7PAGES),$(DESTDIR)$(man7dir)) \
+	$(call install_data_targets,$(MAN8PAGES),$(DESTDIR)$(man8dir)) \
+	$(call install_data_targets,$(DOC_DATA),$(DESTDIR)$(docdir))
+
+install-data: $(INSTALL_DATA_TARGETS)
 	@$(NORMAL_INSTALL)
-	$(INSTALL_DATA) $(MAN1PAGES) $(DESTDIR)$(man1dir)
-	$(INSTALL_DATA) $(MAN5PAGES) $(DESTDIR)$(man5dir)
-	$(INSTALL_DATA) $(MAN7PAGES) $(DESTDIR)$(man7dir)
-	$(INSTALL_DATA) $(MAN8PAGES) $(DESTDIR)$(man8dir)
-	$(INSTALL_DATA) $(DOC_DATA) $(DESTDIR)$(docdir)
 
 install: install-program install-data
 
@@ -1023,44 +1060,21 @@ TESTPACK_EXTRAS :=			\
 testpack.tar.gz: all-programs all-fuzz-programs all-test-programs default-targets
 	(find * -path external -prune -o -path target -prune -o -newer config.vars -type f -print; ls $(TESTPACK_EXTRAS)) | tar --verbatim-files-from -T- -c --format=posix -f - | gzip -5 > $@
 
-uninstall:
+uninstall-program:
 	@$(NORMAL_UNINSTALL)
-	@for f in $(BIN_PROGRAMS); do \
-	  $(ECHO) rm -f $(DESTDIR)$(bindir)/`basename $$f`; \
-	  rm -f $(DESTDIR)$(bindir)/`basename $$f`; \
-	done
-	@for f in $(PLUGINS); do \
-	  $(ECHO) rm -f $(DESTDIR)$(plugindir)/`basename $$f`; \
-	  rm -f $(DESTDIR)$(plugindir)/`basename $$f`; \
-	done
-	@for f in $(PY_PLUGINS); do \
-	  $(ECHO) rm -rf $(DESTDIR)$(plugindir)/$$(basename $$(dirname $$f)); \
-	  rm -rf $(DESTDIR)$(plugindir)/$$(basename $$(dirname $$f)); \
-	done
-	@for f in $(PKGLIBEXEC_PROGRAMS); do \
-	  $(ECHO) rm -f $(DESTDIR)$(pkglibexecdir)/`basename $$f`; \
-	  rm -f $(DESTDIR)$(pkglibexecdir)/`basename $$f`; \
-	done
-	@for f in $(MAN1PAGES); do \
-	  $(ECHO) rm -f $(DESTDIR)$(man1dir)/`basename $$f`; \
-	  rm -f $(DESTDIR)$(man1dir)/`basename $$f`; \
-	done
-	@for f in $(MAN5PAGES); do \
-	  $(ECHO) rm -f $(DESTDIR)$(man5dir)/`basename $$f`; \
-	  rm -f $(DESTDIR)$(man5dir)/`basename $$f`; \
-	done
-	@for f in $(MAN7PAGES); do \
-	  $(ECHO) rm -f $(DESTDIR)$(man7dir)/`basename $$f`; \
-	  rm -f $(DESTDIR)$(man7dir)/`basename $$f`; \
-	done
-	@for f in $(MAN8PAGES); do \
-	  $(ECHO) rm -f $(DESTDIR)$(man8dir)/`basename $$f`; \
-	  rm -f $(DESTDIR)$(man8dir)/`basename $$f`; \
-	done
-	@for f in $(DOC_DATA); do \
-	  $(ECHO) rm -f $(DESTDIR)$(docdir)/`basename $$f`; \
-	  rm -f $(DESTDIR)$(docdir)/`basename $$f`; \
-	done
+ifneq ($(strip $(INSTALL_PROGRAM_TARGETS)),)
+	$(RM) -r $(INSTALL_PROGRAM_TARGETS)
+	$(RMDIR_P) $(sort $(dir $(INSTALL_PROGRAM_TARGETS))) 2>/dev/null || :
+endif
+
+uninstall-data:
+	@$(NORMAL_UNINSTALL)
+ifneq ($(strip $(INSTALL_DATA_TARGETS)),)
+	$(RM) -r $(INSTALL_DATA_TARGETS)
+	$(RMDIR_P) $(sort $(dir $(INSTALL_DATA_TARGETS))) 2>/dev/null || :
+endif
+
+uninstall: uninstall-program uninstall-data
 
 installcheck: all-programs
 	@rm -rf testinstall || true
@@ -1076,7 +1090,7 @@ installcheck: all-programs
 version:
 	@echo ${VERSION}
 
-.PHONY: installdirs install-program install-data install uninstall \
+.PHONY: install-program install-data install uninstall-program uninstall-data uninstall \
 	installcheck ncc bin-tarball show-flags version
 
 # Make a tarball of opt/clightning/, optionally with label for distribution.
