@@ -306,8 +306,10 @@ static struct command_result *onion_message_recv(struct command *cmd,
 	replytok = json_get_member(buf, om, "reply_blindedpath");
 	if (replytok) {
 		reply_path = json_to_blinded_path(cmd, buf, replytok);
+		/* Remote-supplied: a bad reply path must not kill us. */
 		if (!reply_path)
-			plugin_err(cmd->plugin, "Invalid reply path %.*s?",
+			plugin_log(cmd->plugin, LOG_UNUSUAL,
+				   "Ignoring invalid reply path %.*s",
 				   json_tok_full_len(replytok),
 				   json_tok_full(buf, replytok));
 	}

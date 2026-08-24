@@ -133,6 +133,12 @@ void handle_onionmsg_to_us(struct lightningd *ld, const u8 *msg)
 	}
 	tal_free(submsg);
 
+	/* A reply path with no hops is unusable: treat it as absent. */
+	if (payload->reply_path && tal_count(payload->reply_path->path) == 0) {
+		log_debug(ld->log, "Ignoring reply path with no hops");
+		payload->reply_path = tal_free(payload->reply_path);
+	}
+
 	/* Make sure connectd gets this right. */
 	log_debug(ld->log, "Got onionmsg%s%s",
 		  payload->pathsecret ? " with pathsecret": "",
