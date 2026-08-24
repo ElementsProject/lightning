@@ -666,31 +666,51 @@ bool bolt12_has_prefix(const char *str)
 	       bolt12_has_request_prefix(str);
 }
 
-/* Inclusive span of tlv range >= minfield and <= maxfield */
+/* Byte length of the run of TLV records whose type is in [minfield, maxfield],
+ * storing its offset into tlvstream in *startp.  TLV records are ordered by
+ * type, so the wanted records are contiguous: we track two byte offsets into
+ * the stream, `start` (the first record at or above minfield) and `end` (just
+ * past the last record at or below maxfield), and return end - start.
+ *
+ * Offsets, not pointers: a pointer past the end of a range that was never
+ * entered would underflow to a near-SIZE_MAX length, which callers hash. */
 size_t tlv_span(const u8 *tlvstream, u64 minfield, u64 maxfield,
 		size_t *startp)
 {
 	const u8 *cursor = tlvstream;
 	size_t tlvlen = tal_bytelen(tlvstream);
-	const u8 *start, *end;
+	size_t start, end;
+	/* Distinguishes "start is offset 0" from "no in-range field seen". */
+	bool have_start = false;
 
-	start = end = NULL;
+	start = end = 0;
 	while (tlvlen) {
-		const u8 *before = cursor;
+		size_t before = cursor - tlvstream;
 		bigsize_t type = fromwire_bigsize(&cursor, &tlvlen);
 		bigsize_t len = fromwire_bigsize(&cursor, &tlvlen);
-		if (type >= minfield && start == NULL)
+		/* Truncated header: stop, keeping the span so far. */
+		if (!cursor)
+			break;
+		if (type >= minfield && !have_start) {
 			start = before;
+			have_start = true;
+		}
+		/* Past the range: later records are all higher, so we're done. */
 		if (type > maxfield)
 			break;
 		fromwire_pad(&cursor, &tlvlen, len);
-		end = cursor;
+		/* Truncated value: this record does not count. */
+		if (!cursor)
+			break;
+		end = cursor - tlvstream;
 	}
-	if (!start)
+	/* No in-range field, or the range opened only after the last record we
+	 * accepted: collapse to an empty span at end rather than a bogus length. */
+	if (!have_start || end < start)
 		start = end;
 
 	if (startp)
-		*startp = start - tlvstream;
+		*startp = start;
 	return end - start;
 }
 
