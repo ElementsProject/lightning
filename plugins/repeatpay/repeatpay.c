@@ -58,7 +58,7 @@ struct payment {
 
 	/* Maximum amount as specified by user (msat or currency) */
 	struct payment_max payment_max;
-	/* Converted amount (FIXME: refresh!) */
+	/* Converted amount */
 	struct amount_msat max_amount_msat;
 
 	/* Where are we up to in the sequence? */
@@ -990,6 +990,49 @@ static const char *fmt_approx_time(const tal_t *ctx, u64 sec)
 	abort();
 }
 
+static struct command_result *currencyconvert_done(struct command *aux_cmd,
+						   const char *method,
+						   const char *buf,
+						   const jsmntok_t *result,
+						   struct payment *payment)
+{
+	const char *err;
+
+	err = json_scan(tmpctx, buf, result,
+			"{msat:%}",
+			JSON_SCAN(json_to_msat, &payment->max_amount_msat));
+	/* Shouldn't happen */
+	if (err) {
+		payment_set_status(aux_cmd, payment,
+				   REPEATPAY_ONGOING_FAILING_INVOICE,
+				   "Bad currencyconvert return for %s%s: '%.*s'",
+				   fmt_amount_for_currency(tmpctx,
+							   &payment->payment_max),
+				   payment->payment_max.currency->name,
+				   json_tok_full_len(result),
+				   json_tok_full(buf, result));
+		return retry_payment_later(aux_cmd, payment);
+	}
+	return fetch_invoice(aux_cmd, payment, fetch_done, fetch_failed);
+}
+
+static struct command_result *currencyconvert_error(struct command *aux_cmd,
+						    const char *method,
+						    const char *buf,
+						    const jsmntok_t *err,
+						    struct payment *payment)
+{
+	payment_set_status(aux_cmd, payment,
+			   REPEATPAY_ONGOING_FAILING_INVOICE,
+			   "Bad currencyconvert return for %s%s: '%.*s'",
+			   fmt_amount_for_currency(tmpctx,
+						   &payment->payment_max),
+			   payment->payment_max.currency->name,
+			   json_tok_full_len(err),
+			   json_tok_full(buf, err));
+	return retry_payment_later(aux_cmd, payment);
+}
+
 static struct command_result *start_next_payment(struct command *aux_cmd,
 						 struct payment *payment)
 {
@@ -1027,6 +1070,21 @@ static struct command_result *start_next_payment(struct command *aux_cmd,
 					      timer_next_payment,
 					      payment);
 		return command_still_pending(aux_cmd);
+	}
+
+	/* Before fetching next invoice, ensure max is updated */
+	if (payment->payment_max.currency) {
+		struct out_req *req;
+
+		req = jsonrpc_request_start(aux_cmd, "currencyconvert",
+					    currencyconvert_done,
+					    currencyconvert_error,
+					    payment);
+		json_add_primitive(req->js, "amount",
+				   fmt_amount_for_currency(tmpctx,
+							   &payment->payment_max));
+		json_add_string(req->js, "currency", payment->payment_max.currency->name);
+		return send_outreq(req);
 	}
 
 	return fetch_invoice(aux_cmd, payment, fetch_done, fetch_failed);
