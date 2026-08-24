@@ -92,41 +92,43 @@ def write_source(path, header_path, ranges, unicode_version):
         f.write(HEADER_BANNER)
         f.write(f"/* Generated from Unicode {unicode_version} UnicodeData.txt */\n")
         f.write(
-        f'\n'
-        f'#include "config.h"\n'
-        f'#include <ccan/array_size/array_size.h>\n'
-        f'#include "{header_path}"\n'
-        f'#include <stddef.h>\n'
-        f'\n'
-        f'struct unicode_range {{\n'
-        f'\tu32 start, end;\n'
-        f'}};\n'
-        f'\n'
-        f'/* Sorted, non-overlapping, coalesced ranges banned as Cc/Cf/Co/Cn. */\n'
-        f'static const struct unicode_range banned_ranges[] = {{\n'
+            f"""
+#include "config.h"
+#include <ccan/array_size/array_size.h>
+#include <{header_path}>
+#include <stddef.h>
+
+struct unicode_range {{
+\tu32 start, end;
+}};
+
+/* Sorted, non-overlapping, coalesced ranges banned as Cc/Cf/Co/Cn. */
+static const struct unicode_range banned_ranges[] = {{
+"""
         )
         for start, end in ranges:
             f.write(f"\t{{ 0x{start:06X}, 0x{end:06X} }},\n")
         f.write(
-        '};\n'
-        '\n'
-        'bool unicode_is_banned_codepoint(u32 cp)\n'
-        '{\n'
-        '\tsize_t lo = 0, hi = ARRAY_SIZE(banned_ranges);\n'
-        '\n'
-        '\twhile (lo < hi) {\n'
-        '\t\tsize_t mid = lo + (hi - lo) / 2;\n'
-        '\t\tconst struct unicode_range *r = &banned_ranges[mid];\n'
-        '\n'
-        '\t\tif (cp < r->start)\n'
-        '\t\t\thi = mid;\n'
-        '\t\telse if (cp > r->end)\n'
-        '\t\t\tlo = mid + 1;\n'
-        '\t\telse\n'
-        '\t\t\treturn true;\n'
-        '\t}\n'
-        '\treturn false;\n'
-        '}\n'
+            """};
+
+bool unicode_is_banned_codepoint(u32 cp)
+{
+\tsize_t lo = 0, hi = ARRAY_SIZE(banned_ranges);
+
+\twhile (lo < hi) {
+\t\tsize_t mid = lo + (hi - lo) / 2;
+\t\tconst struct unicode_range *r = &banned_ranges[mid];
+
+\t\tif (cp < r->start)
+\t\t\thi = mid;
+\t\telse if (cp > r->end)
+\t\t\tlo = mid + 1;
+\t\telse
+\t\t\treturn true;
+\t}
+\treturn false;
+}
+"""
         )
 
 
