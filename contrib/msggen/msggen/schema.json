@@ -43966,6 +43966,13 @@
                   "BOLT #12 `invoice` payload."
                 ]
               },
+              "bolt11_invoice": {
+                "type": "string",
+                "added": "v26.12",
+                "description": [
+                  "BOLT #11 invoice payload."
+                ]
+              },
               "invoice_error": {
                 "type": "hex",
                 "description": [
@@ -44149,6 +44156,13 @@
                 "type": "hex",
                 "description": [
                   "BOLT #12 `invoice` payload."
+                ]
+              },
+              "bolt11_invoice": {
+                "type": "string",
+                "added": "v26.12",
+                "description": [
+                  "BOLT #11 invoice payload."
                 ]
               },
               "invoice_error": {

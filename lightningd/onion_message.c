@@ -59,6 +59,11 @@ static void onion_message_serialize(struct onion_message_hook_payload *payload,
 	if (payload->om->invoice)
 		json_add_hex_talarr(stream, "invoice", payload->om->invoice);
 
+	if (payload->om->bolt11_invoice)
+		json_add_stringn(stream, "bolt11_invoice",
+				 payload->om->bolt11_invoice,
+				 tal_bytelen(payload->om->bolt11_invoice));
+
 	if (payload->om->invoice_error)
 		json_add_hex_talarr(stream, "invoice_error",
 				    payload->om->invoice_error);
