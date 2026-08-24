@@ -756,20 +756,8 @@ static void restore_payments(struct command *init_cmd, struct repeatpay *rp)
 
 static const char *fmt_amount_for_currency(const tal_t *ctx,
 					   const struct payment_max *payment_max)
-
 {
-	u64 divisor = 1;
-
-	/* Format string according to minor_units. */
-	if (payment_max->currency->minor_unit == 0)
-		return tal_fmt(ctx, "%"PRIu64, payment_max->amount);
-
-	for (size_t i = 0; i < payment_max->currency->minor_unit; i++)
-		divisor *= 10;
-	return tal_fmt(ctx, "%"PRIu64".%0*"PRIu64,
-		       payment_max->amount / divisor,
-		       (int)payment_max->currency->minor_unit,
-		       payment_max->amount % divisor);
+	return fmt_iso4217_amount(ctx, payment_max->currency, payment_max->amount);
 }
 
 static struct command_result *fetch_invoice(struct command *cmd,

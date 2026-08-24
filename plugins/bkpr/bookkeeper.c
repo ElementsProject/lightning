@@ -62,26 +62,17 @@ const struct currencyrate *covering_currencyrate(const struct bkpr *bkpr,
 	return NULL;
 }
 
-static u64 ratefactor(const struct iso4217_name_and_divisor *currency)
-{
-	u64 mul = 1;
-	for (u32 i = 0; i < currency->minor_unit; i++)
-		mul *= 10;
-	return mul;
-}
-
 const char *currencyrate_str(const tal_t *ctx,
 			     const struct bkpr *bkpr,
 			     u64 timestamp,
 			     const struct amount_msat *msat)
 {
 	const struct currencyrate *crate;
-	u64 mul, intpart, fracpart, raw_rate;
+	u64 raw_rate;
 
 	crate = covering_currencyrate(bkpr, timestamp);
 	if (!crate)
 		return NULL;
-	mul = ratefactor(bkpr->currency);
 
 	if (msat) {
 		struct amount_msat res;
@@ -96,16 +87,7 @@ const char *currencyrate_str(const tal_t *ctx,
 		raw_rate = crate->raw_rate;
 	}
 
-	intpart = raw_rate / mul;
-	fracpart = raw_rate % mul;
-
-	if (bkpr->currency->minor_unit == 0)
-		return tal_fmt(ctx, "%"PRIu64, intpart);
-
-	return tal_fmt(ctx, "%"PRIu64".%0*"PRIu64,
-		       intpart,
-		       (int)bkpr->currency->minor_unit,
-		       fracpart);
+	return fmt_iso4217_amount(ctx, bkpr->currency, raw_rate);
 }
 
 void json_add_currencyrate(struct json_stream *result,
@@ -1276,7 +1258,7 @@ static struct command_result *currency_done(struct command *cmd,
 	} else if (bkpr->currency == ctime->currency) {
 		char *val;
 		const char **key;
-		u64 raw_rate = (u64)(rate * ratefactor(bkpr->currency));
+		u64 raw_rate = (u64)(rate * iso4217_divisor(bkpr->currency));
 		/* Can we extend previous entry */
 		u64 ts = ctime->timestamp + 1;
 		struct currencyrate *crate
