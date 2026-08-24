@@ -3,7 +3,9 @@ from fixtures import TEST_NETWORK
 from decimal import Decimal
 from pathlib import Path
 from pyln.client import RpcError, Millisatoshi
+from pyln.proto.onion import TlvPayload
 import pyln.proto.wire as wire
+from hashlib import sha256
 from utils import (
     only_one, wait_for, sync_blockheight, TIMEOUT,
     expected_peer_features, expected_node_features,
@@ -15,6 +17,8 @@ from utils import (
 )
 from pyln.testing.utils import VALGRIND, EXPERIMENTAL_DUAL_FUND, FUNDAMOUNT, RUST, SLOW_MACHINE
 
+import coincurve
+import hmac
 import os
 import pytest
 import random
@@ -4536,6 +4540,49 @@ def test_injectonionmessage(node_factory):
 
     # We should get a reply!
     l1.daemon.wait_for_log('lightningd: Got onionmsg with pathsecret')
+
+
+def test_onionmessage_reply_path_no_hops(node_factory):
+    """A reply_path with num_hops=0 must not take the node down.
+
+    The blinded reply_path's num_hops is a single attacker-supplied byte
+    with no lower bound; a zero-hop path serialises an empty "hops" array
+    to the offers plugin, which used to reject it via plugin_err and (as
+    an important builtin) stop lightningd.
+    """
+    l1, l2 = node_factory.line_graph(2)
+
+    def ecdh(privkey_bytes, pubkey_bytes):
+        priv = coincurve.PrivateKey(privkey_bytes)
+        return priv.ecdh(coincurve.PublicKey(pubkey_bytes).public_key)
+
+    # Build an onion message to l2 with a reply_path carrying no hops.
+    l2_pub = bytes.fromhex(l2.info['id'])
+    blinding = coincurve.PrivateKey()
+    path_key = blinding.public_key.format(True)
+
+    # Route-blinding tweak so the onion decrypts as l2's real key.
+    ss = ecdh(blinding.secret, l2_pub)
+    tweak = hmac.new(b'blinded_node_id', ss, sha256).digest()
+    blinded_pub = coincurve.PublicKey(l2_pub).multiply(tweak).format(True)
+
+    # blinded_path: first_node_id (point), first_path_key (point), num_hops=0
+    reply_path = l2_pub + path_key + b'\x00'
+    tlv = TlvPayload()
+    tlv.add_field(2, reply_path)
+
+    onion = l1.rpc.createonion(hops=[{'pubkey': blinded_pub.hex(),
+                                      'payload': tlv.to_bytes().hex()}],
+                               assocdata="")
+
+    l2.rpc.injectonionmessage(message=onion['onion'], path_key=path_key.hex())
+
+    # With the fix, lightningd drops the hopless reply path when it decodes
+    # the message (logged synchronously, before the offers hook runs), so the
+    # node stays up. Without the fix this log never appears: the offers plugin
+    # calls plugin_err and lightningd_exit takes the node down instead.
+    l2.daemon.wait_for_log('Ignoring reply path with no hops', timeout=30)
+    assert l2.rpc.getinfo()['id'] == l2.info['id']
 
 
 def test_connect_ratelimit(node_factory, bitcoind):
