@@ -668,6 +668,7 @@ void logv(struct logger *log, enum log_level level,
 	struct log_hdr l;
 	size_t log_len;
 	char *logmsg;
+	const char *capped;
 
 	/* This is WARN_UNUSED_RESULT, because everyone should somehow deal
 	 * with OOM, even though nobody does. */
@@ -685,15 +686,18 @@ void logv(struct logger *log, enum log_level level,
 	maybe_print(log, &l, logmsg, NULL);
 	maybe_notify_log(log, &l, logmsg);
 
-	logmsg = cap_header(tmpctx, &l, logmsg);
-	add_entry(log->log_book, &l, logmsg, NULL);
+	/* cap_header() hands back a tal allocation when it truncates, so
+	 * don't lose the malloc'd pointer: free() on tal memory corrupts
+	 * the heap.  Entries above sizeof(ringbuf)/64 hit this. */
+	capped = cap_header(tmpctx, &l, logmsg);
+	add_entry(log->log_book, &l, capped, NULL);
 
 	if (call_notifier)
 		notify_warning(log->log_book->ld,
 			       l.level,
 			       l.time,
 			       l.prefix->prefix,
-			       logmsg);
+			       capped);
 	free(logmsg);
 
 	errno = save_errno;
