@@ -287,6 +287,26 @@ static void save_payment_counter(struct command *aux_cmd,
 				     "create-or-replace", datastore_ok, NULL, NULL);
 }
 
+/* Store payment_max/max_amount_msat: called on creation, and on amend. */
+static void save_payment_max(struct command *aux_cmd, const struct payment *payment)
+{
+	jsonrpc_set_datastore_string(aux_cmd,
+				     payment_ds_key(tmpctx, payment->label, "max_amount_msat"),
+				     tal_fmt(tmpctx, "%"PRIu64,
+					     payment->max_amount_msat.millisatoshis), /* Raw: datastore */
+				     "create-or-replace", datastore_ok, NULL, NULL);
+	jsonrpc_set_datastore_string(aux_cmd,
+				     payment_ds_key(tmpctx, payment->label, "payment_max_amount"),
+				     tal_fmt(tmpctx, "%"PRIu64, payment->payment_max.amount),
+				     "create-or-replace", datastore_ok, NULL, NULL);
+	if (payment->payment_max.currency) {
+		jsonrpc_set_datastore_string(aux_cmd,
+					     payment_ds_key(tmpctx, payment->label, "payment_max_currency"),
+					     payment->payment_max.currency->name,
+					     "create-or-replace", datastore_ok, NULL, NULL);
+	}
+}
+
 /* Payment should now persist. */
 static void save_payment(struct repeatpay *rp, struct payment *payment)
 {
@@ -297,21 +317,7 @@ static void save_payment(struct repeatpay *rp, struct payment *payment)
 				     payment_ds_key(tmpctx, payment->label, "offer"),
 				     offer_encode(tmpctx, payment->offer),
 				     "create-or-replace", datastore_ok, NULL, NULL);
-	jsonrpc_set_datastore_string(rp->aux_cmd,
-				     payment_ds_key(tmpctx, payment->label, "max_amount_msat"),
-				     tal_fmt(tmpctx, "%"PRIu64,
-					     payment->max_amount_msat.millisatoshis), /* Raw: datastore */
-				     "create-or-replace", datastore_ok, NULL, NULL);
-	jsonrpc_set_datastore_string(rp->aux_cmd,
-				     payment_ds_key(tmpctx, payment->label, "payment_max_amount"),
-				     tal_fmt(tmpctx, "%"PRIu64, payment->payment_max.amount),
-				     "create-or-replace", datastore_ok, NULL, NULL);
-	if (payment->payment_max.currency) {
-		jsonrpc_set_datastore_string(rp->aux_cmd,
-					     payment_ds_key(tmpctx, payment->label, "payment_max_currency"),
-					     payment->payment_max.currency->name,
-					     "create-or-replace", datastore_ok, NULL, NULL);
-	}
+	save_payment_max(rp->aux_cmd, payment);
 	jsonrpc_set_datastore_string(rp->aux_cmd,
 				     payment_ds_key(tmpctx, payment->label, "recurrence_start"),
 				     tal_fmt(tmpctx, "%"PRIu32,
@@ -990,29 +996,29 @@ static const char *fmt_approx_time(const tal_t *ctx, u64 sec)
 	abort();
 }
 
+static void currencyconvert_result(struct command *cmd,
+				   const char *buf,
+				   const jsmntok_t *result,
+				   struct amount_msat *msat)
+{
+	const char *err = json_scan(tmpctx, buf, result,
+				    "{msat:%}",
+				    JSON_SCAN(json_to_msat, msat));
+	/* Shouldn't happen */
+	if (err)
+		plugin_err(cmd->plugin,
+			   "bad currencyconvert response '%.*s'",
+			   json_tok_full_len(result),
+			   json_tok_full(buf, result));
+}
+
 static struct command_result *currencyconvert_done(struct command *aux_cmd,
 						   const char *method,
 						   const char *buf,
 						   const jsmntok_t *result,
 						   struct payment *payment)
 {
-	const char *err;
-
-	err = json_scan(tmpctx, buf, result,
-			"{msat:%}",
-			JSON_SCAN(json_to_msat, &payment->max_amount_msat));
-	/* Shouldn't happen */
-	if (err) {
-		payment_set_status(aux_cmd, payment,
-				   REPEATPAY_ONGOING_FAILING_INVOICE,
-				   "Bad currencyconvert return for %s%s: '%.*s'",
-				   fmt_amount_for_currency(tmpctx,
-							   &payment->payment_max),
-				   payment->payment_max.currency->name,
-				   json_tok_full_len(result),
-				   json_tok_full(buf, result));
-		return retry_payment_later(aux_cmd, payment);
-	}
+	currencyconvert_result(aux_cmd, buf, result, &payment->max_amount_msat);
 	return fetch_invoice(aux_cmd, payment, fetch_done, fetch_failed);
 }
 
@@ -1090,6 +1096,17 @@ static struct command_result *start_next_payment(struct command *aux_cmd,
 	return fetch_invoice(aux_cmd, payment, fetch_done, fetch_failed);
 }
 
+/* Add group's representative message, prefixed with a repeat count if >1. */
+static void json_add_repeat_str(struct json_stream *result,
+				const char *msg,
+				size_t num_repeats)
+{
+	if (num_repeats)
+		json_add_str_fmt(result, NULL, "%zu times: %s", num_repeats + 1, msg);
+	else
+		json_add_string(result, NULL, msg);
+}
+
 static void json_add_payment(struct json_stream *result,
 			     const struct payment *payment)
 {
@@ -1116,32 +1133,23 @@ static void json_add_payment(struct json_stream *result,
 	num_repeats = 0;
 	for (size_t i = 0; i < tal_count(payment->logs); i++) {
 		const struct payment_log *log = payment->logs[i];
-		if (prev && log->status != prev->status) {
-			/* Flush the completed group using prev's message. */
-			if (num_repeats)
-				json_add_str_fmt(result, NULL,
-						 "%zu times: %s",
-						 num_repeats + 1, prev->msg);
-			else
-				json_add_string(result, NULL, prev->msg);
-			num_repeats = 0;
-			prev = log;
-		} else if (!prev) {
-			prev = log;
-		} else {
-			num_repeats++;
+
+		if (prev) {
+			if (log->status == prev->status) {
+				num_repeats++;
+			} else {
+				/* Flush the completed prev group. */
+				json_add_repeat_str(result, prev->msg,
+						    num_repeats);
+				num_repeats = 0;
+			}
 		}
+		prev = log;
 	}
 
 	/* Flush the last group. */
-	if (prev) {
-		if (num_repeats)
-			json_add_str_fmt(result, NULL,
-					 "%zu times: %s",
-					 num_repeats + 1, prev->msg);
-		else
-			json_add_string(result, NULL, prev->msg);
-	}
+	if (prev)
+		json_add_repeat_str(result, prev->msg, num_repeats);
 	json_array_end(result);
 }
 
@@ -1255,18 +1263,7 @@ static struct command_result *first_currencyconvert_done(struct command *cmd,
 							 const jsmntok_t *result,
 							 struct payment *payment)
 {
-	const char *err;
-
-	err = json_scan(tmpctx, buf, result,
-			"{msat:%}",
-			JSON_SCAN(json_to_msat, &payment->max_amount_msat));
-	if (err)
-		return command_fail(cmd, LIGHTNINGD,
-				    "currencyconvert weird: %.*s (%s)",
-				    json_tok_full_len(result),
-				    json_tok_full(buf, result),
-				    err);
-
+	currencyconvert_result(cmd, buf, result, &payment->max_amount_msat);
 	return fetch_first_invoice(cmd, payment);
 }
 
@@ -1404,6 +1401,73 @@ static struct command_result *json_listrepeatpays(struct command *cmd,
 	return command_finished(cmd, response);
 }
 
+static struct command_result *amend_currencyconvert_done(struct command *cmd,
+							 const char *method,
+							 const char *buf,
+							 const jsmntok_t *result,
+							 struct payment *payment)
+{
+	struct json_stream *response;
+
+	currencyconvert_result(cmd, buf, result, &payment->max_amount_msat);
+	save_payment_max(cmd, payment);
+
+	response = jsonrpc_stream_success(cmd);
+	json_add_payment(response, payment);
+	return command_finished(cmd, response);
+}
+
+static struct command_result *json_amendrepeatpay(struct command *cmd,
+						   const char *buffer,
+						   const jsmntok_t *params)
+{
+	struct repeatpay *rp = repeatpay_of(cmd->plugin);
+	struct json_escape *label;
+	struct payment_max max;
+	struct json_stream *response;
+	struct payment *payment;
+
+	if (!param_check(cmd, buffer, params,
+		   p_req("label", param_label, &label),
+		   p_req("maxamount", param_payment_max, &max),
+		   NULL))
+		return command_param_failed();
+
+	payment = payment_hash_get(rp->payments, label);
+	if (!payment)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Unknown label '%s'", label->s);
+	if (payment_terminated(payment->status))
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Payment already finished (%s)",
+				    repeatpay_status_str(payment->status));
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
+
+	payment->payment_max = max;
+
+	/* We could be lazy and update max_amount_msat later, but it's shown
+	 * in listrepeatpays, and we really should update it immediately even if
+	 * there's a fetch in flight */
+	if (max.currency) {
+		struct out_req *req;
+
+		req = jsonrpc_request_start(cmd, "currencyconvert",
+					    amend_currencyconvert_done,
+					    forward_error,
+					    payment);
+		json_add_primitive(req->js, "amount", fmt_amount_for_currency(tmpctx, &max));
+		json_add_string(req->js, "currency", max.currency->name);
+		return send_outreq(req);
+	}
+	payment->max_amount_msat = amount_msat(payment->payment_max.amount);
+	save_payment_max(cmd, payment);
+
+	response = jsonrpc_stream_success(cmd);
+	json_add_payment(response, payment);
+	return command_finished(cmd, response);
+}
+
 static const struct plugin_command commands[] = {
 	{
 		"repeatpay",
@@ -1412,6 +1476,10 @@ static const struct plugin_command commands[] = {
 	{
 		"listrepeatpays",
 		json_listrepeatpays,
+	},
+	{
+		"amendrepeatpay",
+		json_amendrepeatpay,
 	},
 };
 
