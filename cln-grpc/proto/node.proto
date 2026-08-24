@@ -2071,6 +2071,7 @@ message FetchinvoiceRequest {
 	optional string payer_note = 8;
 	optional string payer_metadata = 9;
 	optional string bip353 = 10;
+	optional bool bolt11 = 11;
 }
 
 message FetchinvoiceResponse {

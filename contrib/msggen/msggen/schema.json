@@ -14623,6 +14623,13 @@
             ],
             "added": "v25.02"
           },
+          "bolt11": {
+            "type": "boolean",
+            "description": [
+              "Indicates we should fetch a bolt11 invoice instead (EXPERIMENTAL)"
+            ],
+            "added": "v26.12"
+          },
           "dev_reply_path": {
             "hidden": true
           },
@@ -14641,7 +14648,7 @@
           "invoice": {
             "type": "string",
             "description": [
-              "The BOLT12 invoice we fetched."
+              "The BOLT12 invoice we fetched (or BOLT11 if `bolt11` parameter was set)."
             ]
           },
           "changes": {
@@ -43966,6 +43973,13 @@
                   "BOLT #12 `invoice` payload."
                 ]
               },
+              "bolt11_invoice": {
+                "type": "string",
+                "added": "v26.12",
+                "description": [
+                  "BOLT #11 invoice payload."
+                ]
+              },
               "invoice_error": {
                 "type": "hex",
                 "description": [
@@ -44149,6 +44163,13 @@
                 "type": "hex",
                 "description": [
                   "BOLT #12 `invoice` payload."
+                ]
+              },
+              "bolt11_invoice": {
+                "type": "string",
+                "added": "v26.12",
+                "description": [
+                  "BOLT #11 invoice payload."
                 ]
               },
               "invoice_error": {

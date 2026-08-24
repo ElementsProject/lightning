@@ -89,6 +89,7 @@ tlvtype,invoice_request,invreq_paths,90
 tlvdata,invoice_request,invreq_paths,paths,blinded_path,...
 tlvtype,invoice_request,invreq_bip_353_name,91
 tlvdata,invoice_request,invreq_bip_353_name,bip_353_name,bip_353_name,
+tlvtype,invoice_request,invreq_bolt11,92
 tlvtype,invoice_request,invreq_recurrence_counter,2000000092
 tlvdata,invoice_request,invreq_recurrence_counter,counter,tu32,
 tlvtype,invoice_request,invreq_recurrence_start,2000000093
