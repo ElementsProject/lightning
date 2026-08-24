@@ -752,7 +752,7 @@ class LightningRpc(UnixDomainSocketRpc):
 
     def fetchinvoice(self, offer, amount_msat=None, quantity=None, recurrence_counter=None,
                      recurrence_start=None, recurrence_label=None, timeout=None, payer_note=None,
-                     payer_metadata=None, bip353=None):
+                     payer_metadata=None, bip353=None, bolt11=None):
         """
         Fetch an invoice for an offer.
         """
@@ -767,6 +767,7 @@ class LightningRpc(UnixDomainSocketRpc):
             "payer_note": payer_note,
             "payer_metadata": payer_metadata,
             "bip353": bip353,
+            "bolt11": bolt11,
         }
         return self.call("fetchinvoice", payload)
 
