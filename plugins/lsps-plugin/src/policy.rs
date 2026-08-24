@@ -105,6 +105,13 @@ fn build_state(
             valid_until_hours
         );
     }
+    if Duration::try_hours(valid_until_hours).is_none() {
+        bail!(
+            "`{}` is out of range, got {}",
+            OPTION_VALID_UNTIL_HOURS.name,
+            valid_until_hours
+        );
+    }
     if min_lifetime < 0 || min_lifetime > i64::from(u32::MAX) {
         bail!(
             "`{}` must be between 0 and {}, got {}",
@@ -210,8 +217,7 @@ async fn on_getpolicy(
     p: cln_plugin::Plugin<State>,
     v: serde_json::Value,
 ) -> Result<serde_json::Value, anyhow::Error> {
-    let _req: Lsps2PolicyGetInfoRequest =
-        serde_json::from_value(v).unwrap_or(Lsps2PolicyGetInfoRequest { token: None });
+    let _req: Lsps2PolicyGetInfoRequest = serde_json::from_value(v)?;
 
     let s = p.state();
     let offset = Duration::try_hours(s.valid_until_hours)
@@ -241,10 +247,15 @@ async fn on_getchannelcapacity(
     p: cln_plugin::Plugin<State>,
     v: serde_json::Value,
 ) -> Result<serde_json::Value, anyhow::Error> {
-    let _req: Lsps2PolicyGetChannelCapacityRequest = serde_json::from_value(v)?;
+    let req: Lsps2PolicyGetChannelCapacityRequest = serde_json::from_value(v)?;
+
+    let capacity = p
+        .state()
+        .channel_capacity_msat
+        .max(req.init_payment_size.msat());
 
     let res = Lsps2PolicyGetChannelCapacityResponse {
-        channel_capacity_msat: Some(p.state().channel_capacity_msat),
+        channel_capacity_msat: Some(capacity),
     };
     Ok(serde_json::to_value(res)?)
 }
