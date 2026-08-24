@@ -6,7 +6,7 @@
 
 #include "config.h"
 #include <ccan/array_size/array_size.h>
-#include "common/unicode_category.h"
+#include <common/unicode_category.h>
 #include <stddef.h>
 
 struct unicode_range {
