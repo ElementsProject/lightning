@@ -27,7 +27,7 @@ reckless install plugin_name
 reckless will exit early in the event that:
 
 - the plugin is not found in any available source repositories
-- dependencies are not sucessfully installed
+- dependencies are not successfully installed
 - the plugin fails to execute
 
 Reckless-installed plugins reside in the 'reckless' subdirectory of the user's `.lightning` folder.  By default, plugins are activated on the `bitcoin` network (and use lightningd's bitcoin network config), but regtest may also be used.

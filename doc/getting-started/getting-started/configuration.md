@@ -379,7 +379,7 @@ Note that for simple setups, the implicit _autolisten_ option does the right thi
 
 Core Lightning also support IPv4/6 address discovery behind NAT routers. If your node detects an new public address, it will update its announcement. For this to work you need to forward the default TCP port 9735 to your node. IP discovery is only active if no other addresses are announced.
 
-You can instead use _addr_ to override this (eg. to change the port), or precisely control where to bind and what to announce with the _bind-addr_ and _announce-addr_ options. These will **disable** the _autolisten_ logic, so you must specifiy exactly what you want!
+You can instead use _addr_ to override this (eg. to change the port), or precisely control where to bind and what to announce with the _bind-addr_ and _announce-addr_ options. These will **disable** the _autolisten_ logic, so you must specify exactly what you want!
 
 - **addr**=_\[IPADDRESS[:PORT]]|autotor:TORIPADDRESS[:SERVICEPORT][/torport=TORPORT]|statictor:TORIPADDRESS[:SERVICEPORT]\[/torport=TORPORT]\[/torblob=[blob]]|DNS[:PORT]_
 
@@ -473,7 +473,7 @@ plugins along with any immediate subdirectories). You can specify additional pat
 
 - **clear-plugins**
 
-  This option clears all _plugin_, _important-plugin_, and _plugin-dir_ options preceeding it, including the default built-in plugin directory. You can still add _plugin-dir_, _plugin_, and _important-plugin_ options following this and they will have the normal effect.
+  This option clears all _plugin_, _important-plugin_, and _plugin-dir_ options preceding it, including the default built-in plugin directory. You can still add _plugin-dir_, _plugin_, and _important-plugin_ options following this and they will have the normal effect.
 
 - **disable-plugin**=_PLUGIN_
 
