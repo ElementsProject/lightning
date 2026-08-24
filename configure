@@ -20,14 +20,19 @@ LIBRARY_PATH=/usr/local/lib
 export PKG_CONFIG_PATH=${PKG_CONFIG_PATH}:/usr/local/opt/sqlite/lib/pkgconfig
 fi
 
-: ${PKG_CONFIG=pkg-config}
+: "${PKG_CONFIG=pkg-config}"
 
-# You can set PG_CONFIG in the environment to direct configure to call
-# a specific 'pg_config' binary. If you set it to an empty string, then
-# PostgreSQL support will be explicitly disabled, even if a 'pg_config'
-# binary exists in your PATH. If you leave it unset, then the following
-# line enables the automagic detection that most users want.
-: ${PG_CONFIG=pg_config}
+# You can set PG_CONFIG in the environment to direct configure to call a
+# specific 'pg_config' binary. If you set it to an empty string, then automagic
+# detection of PostgreSQL will be explicitly disabled even if a 'pg_config'
+# binary exists in your PATH. However, fallback detection will still happen.
+# You can disable PostgreSQL support entirely by setting POSTGRES_LDLIBS to an
+# empty string, or you can set POSTGRES_INCLUDE and POSTGRES_LDLIBS (which
+# specify options to pass to the C preprocessor and linker respectively) to
+# attempt to build against a specific PostgreSQL installation. If you leave
+# all three variables unset, then the following line enables the automagic
+# detection that most users want.
+: "${PG_CONFIG=pg_config}"
 
 usage_with_default()
 {
@@ -417,25 +422,37 @@ if [ "$FUZZING" = "1" ]; then
 fi
 
 
-SQLITE3_CFLAGS=""
-SQLITE3_LDLIBS="-lsqlite3"
-if command -v "${PKG_CONFIG}" >/dev/null; then
-    SQLITE3_CFLAGS="$("${PKG_CONFIG}" --silence-errors --cflags sqlite3 || :)"
-    SQLITE3_LDLIBS="$("${PKG_CONFIG}" --silence-errors --libs sqlite3 || :)"
+# Setting SQLITE3_CFLAGS or SQLITE3_LDLIBS in the environment (even to an empty
+# string) disables automagic detection via pkg-config as well as the fallback
+# default values.
+if [ -z "${SQLITE3_CFLAGS+x}" -a -z "${SQLITE3_LDLIBS+x}" ]; then
+    SQLITE3_LDLIBS="-lsqlite3"
+    if command -v "${PKG_CONFIG}" >/dev/null; then
+	SQLITE3_CFLAGS="$("${PKG_CONFIG}" --silence-errors --cflags sqlite3 || :)"
+	SQLITE3_LDLIBS="$("${PKG_CONFIG}" --silence-errors --libs sqlite3 || :)"
+    fi
 fi
 
-SODIUM_CFLAGS=""
-SODIUM_LDLIBS="-lsodium"
-if command -v "${PKG_CONFIG}" >/dev/null; then
-    SODIUM_CFLAGS="$("${PKG_CONFIG}" --silence-errors --cflags libsodium || :)"
-    SODIUM_LDLIBS="$("${PKG_CONFIG}" --silence-errors --libs libsodium || :)"
+# Setting SODIUM_CFLAGS or SODIUM_LDLIBS in the environment (even to an empty
+# string) disables automagic detection via pkg-config as well as the fallback
+# default values.
+if [ -z "${SODIUM_CFLAGS+x}" -a -z "${SODIUM_LDLIBS+x}" ]; then
+    SODIUM_LDLIBS="-lsodium"
+    if command -v "${PKG_CONFIG}" >/dev/null; then
+	SODIUM_CFLAGS="$("${PKG_CONFIG}" --silence-errors --cflags libsodium || :)"
+	SODIUM_LDLIBS="$("${PKG_CONFIG}" --silence-errors --libs libsodium || :)"
+    fi
 fi
 
-POSTGRES_INCLUDE=""
-POSTGRES_LDLIBS=""
-if command -v "${PG_CONFIG}" >/dev/null; then
-    POSTGRES_INCLUDE="-I$("${PG_CONFIG}" --includedir)"
-    POSTGRES_LDLIBS="-L$("${PG_CONFIG}" --libdir) -lpq"
+# Setting POSTGRES_INCLUDE or POSTGRES_LDLIBS in the environment (even to an
+# empty string) disables automagic detection via pg_config as well as the
+# fallback default values.
+if [ -z "${POSTGRES_INCLUDE+x}" -a -z "${POSTGRES_LDLIBS+x}" ]; then
+    POSTGRES_LDLIBS="-lpq"
+    if command -v "${PG_CONFIG}" >/dev/null; then
+	POSTGRES_INCLUDE="-I$("${PG_CONFIG}" --includedir)"
+	POSTGRES_LDLIBS="-L$("${PG_CONFIG}" --libdir) -lpq"
+    fi
 fi
 
 # Clean up on exit.
