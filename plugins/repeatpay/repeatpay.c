@@ -320,9 +320,13 @@ static void save_payment_max(struct command *aux_cmd, const struct payment *paym
 	}
 }
 
-/* Payment should now persist. */
-static void save_payment(struct repeatpay *rp, struct payment *payment)
+/* Payment should now persist.  Returns false if it's a dup (race). */
+static bool WARN_UNUSED_RESULT
+save_payment(struct repeatpay *rp, struct payment *payment)
 {
+	if (payment_hash_get(rp->payments, payment->label))
+		return false;
+
 	tal_steal(rp, payment);
 	payment_hash_add(rp->payments, payment);
 
@@ -359,6 +363,7 @@ static void save_payment(struct repeatpay *rp, struct payment *payment)
 	save_payment_cancel_reason(rp->aux_cmd, payment);
 	for (size_t i = 0; i < tal_count(payment->logs); i++)
 		save_payment_log(rp->aux_cmd, payment, payment->logs[i]->status, payment->logs[i]->msg);
+	return true;
 }
 
 /* forward declaration */
@@ -1261,18 +1266,17 @@ static struct command_result *first_fetch_succeeded(struct command *cmd,
 				    json_tok_full(buf, invtok));
 	}
 
-	/* We could have added the same one while we were fetching, so check
-	 * again! */
-	if (payment_hash_get(rp->payments, payment->label))
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "Raced with identical repeatpay label!");
-
 	/* Fill in remaining fields: now we have a payment! */
 	payment->payer_id = *inv->invreq_payer_id;
 	payment->basetime = *inv->invoice_recurrence_basetime;
 	payment->payer_metadata = tal_dup_talarr(payment, u8, inv->invreq_metadata);
 
-	save_payment(rp, payment);
+	/* We could have added the same one while we were fetching, so check
+	 * again! */
+	if (!save_payment(rp, payment)) {
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Raced with identical repeatpay label!");
+	}
 
 	/* Set deadline so retry_payment_later works if pay_invoice fails */
 	when_to_pay(rp, payment, &payment->deadline);
@@ -1320,7 +1324,11 @@ static struct command_result *fetch_first_invoice(struct command *cmd,
 			/* Make it clear this does not have payer_key yet. */
 			payment->payer_metadata = NULL;
 			payment->basetime = 0;
-			save_payment(rp, payment);
+			if (!save_payment(rp, payment)) {
+				return command_fail(cmd,
+						    JSONRPC2_INVALID_PARAMS,
+						    "Raced with identical repeatpay label!");
+			}
 
 			payment_set_status(rp->aux_cmd, payment,
 					   REPEATPAY_ONGOING,
