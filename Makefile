@@ -803,8 +803,10 @@ version_gen.h: $(FORCE)
 	@if cmp $@.new $@ >/dev/null 2>&1; then rm -f $@.new; else mv $@.new $@; $(ECHO) Version updated; fi
 endif
 
-header_versions_gen.h: $(BUILDDIR)/tools/headerversions $(FORCE)
-	@$< $@
+header_versions_gen.h: tools/header-versions.sh $(FORCE)
+	@HAVE_SQLITE3='$(HAVE_SQLITE3)' \
+		SQLITE3_CFLAGS='$(SQLITE3_CFLAGS)' \
+		$< $@
 
 # Once you have libccan.a, you don't need these.
 .INTERMEDIATE: $(CCAN_OBJS)
@@ -887,10 +889,12 @@ maintainer-clean: distclean
 
 # We used to have gen_ files, now we have _gen files.
 # We used to generate doc/schemas/lightning-sql.json.
+# headerversions used to be a compiled program.
 # Build products used to land inside the source tree.
 obsclean::
 	$(RM) gen_*.h */gen_*.[ch] */*/gen_*.[ch]
 	$(RM) doc/schemas/lightning-sql.json
+	$(RM) tools/headerversions tools/headerversions.o
 	$(RM) libccan.a
 	$(RM) ccan/ccan/cdump/tools/cdump-enumstr ccan/ccan/cdump/tools/cdump-enumstr.o
 	$(RM) $(ALL_OBJS:$(BUILDDIR)/%=%)
