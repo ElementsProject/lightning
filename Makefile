@@ -331,7 +331,7 @@ endif
 
 show-flags: config.vars
 	@$(ECHO) "CC: $(CC) $(CFLAGS) -c -o"
-	@$(ECHO) "LD: $(LINK.o) $(filter-out %.a,$^) $(LOADLIBES) $(EXTERNAL_LDLIBS) $(LDLIBS) -o"
+	@$(ECHO) "LD: $(LINK.o) $(LOADLIBES) $(EXTERNAL_LDLIBS) $(LDLIBS) -o"
 
 # We will re-generate, but we won't generate for the first time!
 ccan/config.h config.vars &: configure ccan/tools/configurator/configurator.c
