@@ -439,7 +439,7 @@ uv sync --all-extras --all-groups --frozen
 ./configure
 ```
 
-If you see `/usr/local` in the log, an Intel compatability dependency has been picked up. The simplest solution is to remove brew entirely, reinstall it, and start these instructions over.
+If you see `/usr/local` in the log, an Intel compatibility dependency has been picked up. The simplest solution is to remove brew entirely, reinstall it, and start these instructions over.
 ```shell
 uv run gmake
 ```

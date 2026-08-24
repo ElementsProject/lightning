@@ -138,7 +138,7 @@ docker run -it --rm --platform=linux/amd64 --network=host -v '/root/.lightning:/
 
 2. Start your `bitcoind` node on the local machine.
 
-3. Start `vlsd` locally with your prefered configuration. For example:
+3. Start `vlsd` locally with your preferred configuration. For example:
 
 ```shell
 export LIGHTNING_VLS_DIR=/root/.lightning
