@@ -39,6 +39,14 @@ BOLTVERSION := $(DEFAULT_BOLTVERSION)
 
 -include config.vars
 
+ifdef BUILD
+AR_FOR_BUILD ?= $(BUILD)-ar
+CC_FOR_BUILD ?= $(BUILD)-cc
+else
+AR_FOR_BUILD ?= ar
+CC_FOR_BUILD ?= cc
+endif
+
 # Save flags inherited from environment (or config.vars) before we start munging them
 CFLAGS_FROM_ENV := $(CFLAGS)
 CFLAGS =
@@ -46,15 +54,74 @@ CPPFLAGS_FROM_ENV := $(CPPFLAGS)
 CPPFLAGS =
 LDFLAGS_FROM_ENV := $(LDFLAGS)
 LDFLAGS =
+ifneq ($(origin CFLAGS_FOR_BUILD),undefined)
+CFLAGS_FOR_BUILD_FROM_ENV := $(CFLAGS_FOR_BUILD)
+endif
+CFLAGS_FOR_BUILD =
+ifneq ($(origin CPPFLAGS_FOR_BUILD),undefined)
+CPPFLAGS_FOR_BUILD_FROM_ENV := $(CPPFLAGS_FOR_BUILD)
+endif
+CPPFLAGS_FOR_BUILD =
+ifneq ($(origin LDFLAGS_FOR_BUILD),undefined)
+LDFLAGS_FOR_BUILD_FROM_ENV := $(LDFLAGS_FOR_BUILD)
+endif
+LDFLAGS_FOR_BUILD =
+
+# Determine whether we are cross-building
+CROSS_BUILD := 1
+ifeq ($(CC_FOR_BUILD),$(CC))
+CFLAGS_FOR_BUILD_FROM_ENV ?= $(CFLAGS_FROM_ENV)
+CPPFLAGS_FOR_BUILD_FROM_ENV ?= $(CPPFLAGS_FROM_ENV)
+LDFLAGS_FOR_BUILD_FROM_ENV ?= $(LDFLAGS_FROM_ENV)
+ifeq ($(CFLAGS_FOR_BUILD_FROM_ENV),$(CFLAGS_FROM_ENV))
+ifeq ($(CPPFLAGS_FOR_BUILD_FROM_ENV),$(CPPFLAGS_FROM_ENV))
+ifeq ($(LDFLAGS_FOR_BUILD_FROM_ENV),$(LDFLAGS_FROM_ENV))
+undefine CROSS_BUILD
+endif
+endif
+endif
+endif
 
 # Look up the host machine tuple if not specified
 ifndef HOST
 HOST := $(shell $(CC) $(CFLAGS_FROM_ENV) -dumpmachine)
 endif
 
-# Set a default build directory if not specified
+# Look up the build machine tuple if not specified
+ifndef BUILD
+ifdef CROSS_BUILD
+BUILD := $(shell $(CC_FOR_BUILD) $(CFLAGS_FOR_BUILD_FROM_ENV) -dumpmachine)
+else
+BUILD := $(HOST)
+endif
+endif
+
+# Set a default host-machine build directory if not specified
 ifndef BUILDDIR
 BUILDDIR := build/$(HOST)
+endif
+
+# Set a default build-machine build directory if not specified
+ifndef BUILDDIR_FOR_BUILD
+ifdef CROSS_BUILD
+ifneq ($(BUILD),$(HOST))
+BUILDDIR_FOR_BUILD := build/$(BUILD)
+else
+BUILDDIR_FOR_BUILD := $(BUILDDIR).build
+endif
+else
+BUILDDIR_FOR_BUILD := $(BUILDDIR)
+endif
+endif
+
+# Override toolchain when building targets for build machine
+ifdef CROSS_BUILD
+$(BUILDDIR_FOR_BUILD)/%: override CC = $(CC_FOR_BUILD)
+$(BUILDDIR_FOR_BUILD)/%: override CFLAGS = $(CFLAGS_FOR_BUILD)
+$(BUILDDIR_FOR_BUILD)/%: override CPPFLAGS = $(CPPFLAGS_FOR_BUILD)
+$(BUILDDIR_FOR_BUILD)/%: override LDFLAGS = $(LDFLAGS_FOR_BUILD)
+$(BUILDDIR_FOR_BUILD)/%: override LDLIBS = $(LDLIBS_FOR_BUILD)
+$(BUILDDIR_FOR_BUILD)/%: override EXTERNAL_LDLIBS = $(EXTERNAL_LDLIBS_FOR_BUILD)
 endif
 
 # Use Homebrew LLVM toolchain for fuzzing support on macOS
@@ -124,7 +191,6 @@ CCAN_OBJS :=					\
 	bitmap/bitmap.o				\
 	bitops/bitops.o				\
 	breakpoint/breakpoint.o			\
-	cdump/cdump.o				\
 	closefrom/closefrom.o			\
 	crc32c/crc32c.o				\
 	crypto/hkdf_sha256/hkdf_sha256.o	\
@@ -173,6 +239,18 @@ CCAN_OBJS :=					\
 	time/time.o				\
 	timer/timer.o				\
 	utf8/utf8.o				\
+	)
+
+CCAN_BUILD_OBJS :=				\
+	$(addprefix $(BUILDDIR_FOR_BUILD)/$(CCANDIR)/ccan/, \
+	cdump/cdump.o				\
+	list/list.o				\
+	noerr/noerr.o				\
+	strmap/strmap.o				\
+	take/take.o				\
+	tal/grab_file/grab_file.o		\
+	tal/str/str.o				\
+	tal/tal.o				\
 	)
 
 CCAN_HEADERS :=					\
@@ -317,6 +395,10 @@ CPPFLAGS += -DCLN_NEXT_VERSION="\"$(CLN_NEXT_VERSION)\"" -DPKGLIBEXECDIR="\"$(pk
 CFLAGS = $(CWARNFLAGS) $(CDEBUGFLAGS) $(COPTFLAGS) $(SQLITE3_CFLAGS) $(SODIUM_CFLAGS) $(FEATURES) $(COVFLAGS) $(DEV_CFLAGS) $(PIE_CFLAGS) $(CSANFLAGS) $(CFLAGS_FROM_ENV)
 LDFLAGS += $(PIE_LDFLAGS) $(LDFLAGS_FROM_ENV)
 
+CFLAGS_FOR_BUILD = $(CWARNFLAGS) $(CFLAGS_FOR_BUILD_FROM_ENV)
+CPPFLAGS_FOR_BUILD = -I$(CCANDIR) -I. $(CPPFLAGS_FOR_BUILD_FROM_ENV)
+LDFLAGS_FOR_BUILD = $(LDFLAGS_FOR_BUILD_FROM_ENV)
+
 # If CFLAGS is already set in the environment of make (to whatever value, it
 # does not matter) then it would export it to subprocesses with the above value
 # we set, including CWARNFLAGS which by default contains -Wall -Werror. This
@@ -378,7 +460,7 @@ SHA256STAMP_CHANGED = [ x"`$(SED) -n 's/.*SHA256STAMP:\([a-f0-9]*\).*/\1/p' $@ 2
 SHA256STAMP = echo "$(1) SHA256STAMP:"`cat $(sort $(filter-out FORCE,$^)) | $(SHA256SUM) | cut -c1-64`"$(2)" >> $@
 endif
 
-CDUMP_ENUMSTR := $(BUILDDIR)/ccan/ccan/cdump/tools/cdump-enumstr
+CDUMP_ENUMSTR := $(BUILDDIR_FOR_BUILD)/ccan/ccan/cdump/tools/cdump-enumstr
 
 # generate-wire.py --page [header|impl] hdrfilename wirename < csv > file
 %_wiregen.h: %_wire.csv $(WIRE_GEN_DEPS)
@@ -809,13 +891,17 @@ header_versions_gen.h: tools/header-versions.sh $(FORCE)
 		$< $@
 
 # Once you have libccan.a, you don't need these.
-.INTERMEDIATE: $(CCAN_OBJS)
+.INTERMEDIATE: $(CCAN_OBJS) $(CCAN_BUILD_OBJS)
 
 # We make a static library, this way linker can discard unused parts.
 $(BUILDDIR)/libccan.a: $(BUILDDIR)/libccan.a($(CCAN_OBJS))
+$(BUILDDIR_FOR_BUILD)/libccan.a: $(BUILDDIR_FOR_BUILD)/libccan.a($(CCAN_BUILD_OBJS))
 
-# All binaries require the external libs, ccan and system library versions.
+# All host-machine programs require the external libs and ccan.
 $(ALL_PROGRAMS) $(ALL_TEST_PROGRAMS) $(ALL_FUZZ_TARGETS): $(EXTERNAL_LIBS) $(BUILDDIR)/libccan.a
+
+# All build-machine programs require ccan built for the build machine.
+$(ALL_BUILD_PROGRAMS): $(BUILDDIR_FOR_BUILD)/libccan.a
 
 # Each build-time program depends on its own object.
 $(ALL_BUILD_PROGRAMS) $(ALL_TEST_PROGRAMS) $(ALL_FUZZ_TARGETS): %: %.o
@@ -854,7 +940,7 @@ endif
 
 
 # Everything depends on the CCAN headers, and Makefile
-$(CCAN_OBJS) $(CDUMP_OBJS): $(CCAN_HEADERS) Makefile ccan_compat.h
+$(CCAN_OBJS) $(CCAN_BUILD_OBJS): $(CCAN_HEADERS) Makefile ccan_compat.h
 
 # Except for CCAN, we treat everything else as dependent on external/ bitcoin/ common/ wire/ and all generated headers, and Makefile
 $(ALL_OBJS): $(BITCOIN_HEADERS) $(COMMON_HEADERS) $(CCAN_HEADERS) $(WIRE_HEADERS) $(ALL_GEN_HEADERS) $(EXTERNAL_HEADERS) Makefile
@@ -903,7 +989,7 @@ obsclean::
 	$(RM) $(ALL_FUZZ_TARGETS:$(BUILDDIR)/%=%)
 
 clean: obsclean
-	$(RM) -r $(BUILDDIR)
+	$(RM) -r $(BUILDDIR) $(BUILDDIR_FOR_BUILD)
 	$(RM) $(ALL_GEN_HEADERS) $(ALL_GEN_SOURCES)
 	$(RM) $(MSGGEN_GEN_ALL)
 	$(RM) ccan/tools/configurator/configurator
@@ -1142,4 +1228,7 @@ print-binary-sizes: $(ALL_PROGRAMS) $(ALL_TEST_PROGRAMS) $(BIN_PROGRAMS)
 # All rules beyond this point are subject to secondary expansion of their prerequisites!
 
 $(BUILDDIR)/%.o: %.c | $$(@D)/
+	@$(call VERBOSE,"cc $<",$(COMPILE.c) -o $@ $<)
+
+$(BUILDDIR_FOR_BUILD)/%.o: %.c | $$(@D)/
 	@$(call VERBOSE,"cc $<",$(COMPILE.c) -o $@ $<)

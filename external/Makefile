@@ -6,7 +6,7 @@ SUBMODULES =					\
 
 TOP := ../..
 ifdef BUILD
-CROSSCOMPILE_OPTS := --host="$(MAKE_HOST)" --build="$(BUILD)"
+CROSSCOMPILE_OPTS := --host="$(HOST)" --build="$(BUILD)"
 endif
 
 LIBWALLY_HEADERS := external/libwally-core/include/wally_bip32.h		\

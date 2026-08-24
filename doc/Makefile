@@ -201,20 +201,21 @@ NON_PREFIXED_MARKDOWNPAGES_WITH_EXT := $(NON_PREFIXED_MANPAGES:=.md)
 OLD_MARKDOWNPAGES_WITH_EXT := $(PREFIXED_MANPAGES:=.md)
 
 
+# Don't try to build sql.json tables with plugins/sql if we don't have sqlite3
+ifneq ($(HAVE_SQLITE3),0)
+# ...or if we're doing a cross build
+ifndef CROSS_BUILD
 # - Read the json template from schemas/sql-template.json
 # - Generate the tables schema via plugins/sql
 # - Merge both and generate final schemas/sql.json
 doc/schemas/sql.json: doc/schemas/sql-template.json $(BUILDDIR)/plugins/sql
 	@$(BUILDDIR)/plugins/sql --print-docs | jq --arg sqldata "$$(awk '{printf "%s\n", $$0}')" '.tables += [$$sqldata]' $< > "$@.tmp" && mv "$@.tmp" "$@";
+endif
+endif
 
 doc-all: $(MANPAGES) doc/index.rst
 
 SCHEMAS := $(wildcard doc/schemas/*.json) $(NOTIFICATION_SCHEMAS) $(HOOK_SCHEMAS)
-
-# Don't try to build sql.json tables with plugins/sql if we don't have sqlite3
-ifeq ($(HAVE_SQLITE3),0)
-SCHEMAS := $(filter-out doc/schemas/sql.json, $(SCHEMAS))
-endif
 
 check-fmt-schemas: $(SCHEMAS:%=check-fmt-schema/%)
 fmt-schemas: $(SCHEMAS:%=fmt-schema/%)
