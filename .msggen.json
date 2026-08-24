@@ -244,6 +244,7 @@
         },
         "ListforwardsForwardsFailureReason": {
             "channel_failed_permanent": 11,
+            "channel_shutting_down": 13,
             "cltv_expiry_too_far": 8,
             "cltv_expiry_too_soon": 7,
             "cltv_incorrect": 6,
@@ -253,6 +254,7 @@
             "htlc_below_minimum": 3,
             "insufficient_outgoing_liquidity": 0,
             "invalid_onion": 12,
+            "max_htlc_value_in_flight": 14,
             "outgoing_peer_offline": 10,
             "too_many_htlcs": 1,
             "unknown_next_peer": 9

@@ -12,8 +12,12 @@ enum channel_add_err {
 	CHANNEL_ERR_DUPLICATE,
 	/* Same ID, but otherwise different. */
 	CHANNEL_ERR_DUPLICATE_ID_DIFFERENT,
-	/* Would exceed the specified max_htlc_value_in_flight_msat */
+	/* A single HTLC exceeds the payment amount limit (or an internal
+	 * arithmetic-overflow guard tripped) */
 	CHANNEL_ERR_MAX_HTLC_VALUE_EXCEEDED,
+	/* Aggregate value of committed HTLCs would exceed the specified
+	 * max_htlc_value_in_flight_msat */
+	CHANNEL_ERR_MAX_HTLC_VALUE_IN_FLIGHT_EXCEEDED,
 	/* Can't afford it */
 	CHANNEL_ERR_CHANNEL_CAPACITY_EXCEEDED,
 	/* HTLC is below htlc_minimum_msat */

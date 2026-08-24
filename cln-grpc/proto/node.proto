@@ -2346,18 +2346,6 @@ message ListforwardsResponse {
 }
 
 message ListforwardsForwards {
-	// ListForwards.forwards[].status
-	enum ListforwardsForwardsStatus {
-		OFFERED = 0;
-		SETTLED = 1;
-		LOCAL_FAILED = 2;
-		FAILED = 3;
-	}
-	// ListForwards.forwards[].style
-	enum ListforwardsForwardsStyle {
-		LEGACY = 0;
-		TLV = 1;
-	}
 	// ListForwards.forwards[].failure_reason
 	enum ListforwardsForwardsFailureReason {
 		INSUFFICIENT_OUTGOING_LIQUIDITY = 0;
@@ -2373,6 +2361,20 @@ message ListforwardsForwards {
 		OUTGOING_PEER_OFFLINE = 10;
 		CHANNEL_FAILED_PERMANENT = 11;
 		INVALID_ONION = 12;
+		CHANNEL_SHUTTING_DOWN = 13;
+		MAX_HTLC_VALUE_IN_FLIGHT = 14;
+	}
+	// ListForwards.forwards[].status
+	enum ListforwardsForwardsStatus {
+		OFFERED = 0;
+		SETTLED = 1;
+		LOCAL_FAILED = 2;
+		FAILED = 3;
+	}
+	// ListForwards.forwards[].style
+	enum ListforwardsForwardsStyle {
+		LEGACY = 0;
+		TLV = 1;
 	}
 	string in_channel = 1;
 	Amount in_msat = 2;

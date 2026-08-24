@@ -23756,7 +23756,9 @@
                           "unknown_next_peer",
                           "outgoing_peer_offline",
                           "channel_failed_permanent",
-                          "invalid_onion"
+                          "invalid_onion",
+                          "channel_shutting_down",
+                          "max_htlc_value_in_flight"
                         ],
                         "description": [
                           "The root cause of the local failure, more specific than *failcode*/*failreason* (not always known)."

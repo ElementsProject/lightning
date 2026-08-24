@@ -897,10 +897,9 @@ static void forward_htlc(struct htlc_in *hin,
 			 "Allowing payment using older feerate");
 	}
 
-	if (amount_msat_greater(amt_to_forward, next->htlc_maximum_msat)
+	bool above_max = amount_msat_greater(amt_to_forward, next->htlc_maximum_msat);
+	if (above_max
 	    || amount_msat_less(amt_to_forward, next->htlc_minimum_msat)) {
-		bool above_max = amount_msat_greater(amt_to_forward, next->htlc_maximum_msat);
-
 		/* Are we in old-range grace-period? */
 		if (!timemono_before(time_mono(), next->old_feerate_timeout)
 		    || amount_msat_less(amt_to_forward, next->old_htlc_minimum_msat)
@@ -2758,10 +2757,10 @@ void peer_got_revoke(struct channel *channel, const u8 *msg)
 					   changed[i].id);
 			local_fail_in_htlc(hin, failmsgs[i]);
 			failtype = fromwire_peektype(failmsgs[i]);
-			
+
 			switch (failtype) {
 			case WIRE_PERMANENT_CHANNEL_FAILURE:
-				reason = FORWARD_FAIL_CHANNEL_FAILED_PERMANENT;
+				reason = FORWARD_FAIL_CHANNEL_SHUTTING_DOWN;
 				break;
 			case WIRE_INVALID_ONION_BLINDING:
 				reason = FORWARD_FAIL_INVALID_ONION;

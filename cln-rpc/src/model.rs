@@ -9350,6 +9350,7 @@ pub mod responses {
 	    }
 	}
 
+	/// ['The root cause of the local failure, more specific than *failcode*/*failreason* (not always known).']
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	#[allow(non_camel_case_types)]
 	pub enum ListforwardsForwardsFailureReason {
@@ -9379,6 +9380,10 @@ pub mod responses {
 	    CHANNEL_FAILED_PERMANENT = 11,
 	    #[serde(rename = "invalid_onion")]
 	    INVALID_ONION = 12,
+	    #[serde(rename = "channel_shutting_down")]
+	    CHANNEL_SHUTTING_DOWN = 13,
+	    #[serde(rename = "max_htlc_value_in_flight")]
+	    MAX_HTLC_VALUE_IN_FLIGHT = 14,
 	}
 
 	impl TryFrom<i32> for ListforwardsForwardsFailureReason {
@@ -9398,6 +9403,8 @@ pub mod responses {
 	    10 => Ok(ListforwardsForwardsFailureReason::OUTGOING_PEER_OFFLINE),
 	    11 => Ok(ListforwardsForwardsFailureReason::CHANNEL_FAILED_PERMANENT),
 	    12 => Ok(ListforwardsForwardsFailureReason::INVALID_ONION),
+	    13 => Ok(ListforwardsForwardsFailureReason::CHANNEL_SHUTTING_DOWN),
+	    14 => Ok(ListforwardsForwardsFailureReason::MAX_HTLC_VALUE_IN_FLIGHT),
 	            o => Err(anyhow::anyhow!("Unknown variant {} for enum ListforwardsForwardsFailureReason", o)),
 	        }
 	    }
@@ -9419,6 +9426,8 @@ pub mod responses {
 	            ListforwardsForwardsFailureReason::OUTGOING_PEER_OFFLINE => "OUTGOING_PEER_OFFLINE",
 	            ListforwardsForwardsFailureReason::CHANNEL_FAILED_PERMANENT => "CHANNEL_FAILED_PERMANENT",
 	            ListforwardsForwardsFailureReason::INVALID_ONION => "INVALID_ONION",
+	            ListforwardsForwardsFailureReason::CHANNEL_SHUTTING_DOWN => "CHANNEL_SHUTTING_DOWN",
+	            ListforwardsForwardsFailureReason::MAX_HTLC_VALUE_IN_FLIGHT => "MAX_HTLC_VALUE_IN_FLIGHT",
 	        }.to_string()
 	    }
 	}

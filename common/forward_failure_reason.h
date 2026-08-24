@@ -1,6 +1,8 @@
 #ifndef LIGHTNING_COMMON_FORWARD_FAILURE_REASON_H
 #define LIGHTNING_COMMON_FORWARD_FAILURE_REASON_H
 #include "config.h"
+#include <ccan/str/str.h>
+#include <stdio.h>
 
 /* This is a DB ENUM!!!, please do not change the numbering of any
  * already defined elements (adding is ok) */
@@ -36,11 +38,23 @@ enum forward_failure_reason {
 	FORWARD_FAIL_CHANNEL_FAILED_PERMANENT = 12,
 	/* Onion could not be parsed/decoded */
 	FORWARD_FAIL_INVALID_ONION = 13,
+	/* Incoming channel could not accept the htlc because it is
+	 * shutting down (not an outgoing/onchain failure) */
+	FORWARD_FAIL_CHANNEL_SHUTTING_DOWN = 14,
+	/* CHANNEL_ERR_MAX_HTLC_VALUE_IN_FLIGHT_EXCEEDED - aggregate value of
+	 * HTLCs already committed on the outgoing channel would exceed its
+	 * max_htlc_value_in_flight_msat */
+	FORWARD_FAIL_MAX_HTLC_VALUE_IN_FLIGHT = 15,
 };
 
-/* Returns NULL for FORWARD_FAIL_UNKNOWN - it is never serialized */
+/* Returns NULL for FORWARD_FAIL_UNKNOWN - it is never serialized
+ * r is persisted (db column, wire field), so may take a value this
+ * binary doesn't know about (after a downgrade) - fall back to
+ * a formatted placeholder instead of aborting */
 static inline const char *forward_failure_reason_name(enum forward_failure_reason r)
 {
+	static char invalidbuf[sizeof("unknown_reason_") + STR_MAX_CHARS(int)];
+
 	switch (r) {
 	case FORWARD_FAIL_UNKNOWN:
 		return NULL;
@@ -70,8 +84,14 @@ static inline const char *forward_failure_reason_name(enum forward_failure_reaso
 		return "channel_failed_permanent";
 	case FORWARD_FAIL_INVALID_ONION:
 		return "invalid_onion";
+	case FORWARD_FAIL_CHANNEL_SHUTTING_DOWN:
+		return "channel_shutting_down";
+	case FORWARD_FAIL_MAX_HTLC_VALUE_IN_FLIGHT:
+		return "max_htlc_value_in_flight";
 	}
-	abort();
+
+	snprintf(invalidbuf, sizeof(invalidbuf), "unknown_reason_%i", (int)r);
+	return invalidbuf;
 }
 
 #endif /* LIGHTNING_COMMON_FORWARD_FAILURE_REASON_H */

@@ -926,6 +926,11 @@ static void handle_offer_htlc(struct info *info, const u8 *inmsg)
 		failstr = "Mini mode: maximum value exceeded";
 		reason = FORWARD_FAIL_HTLC_ABOVE_MAXIMUM;
 		goto failed;
+	case CHANNEL_ERR_MAX_HTLC_VALUE_IN_FLIGHT_EXCEEDED:
+		failwiremsg = towire_temporary_channel_failure(inmsg, NULL);
+		failstr = "Aggregate value of committed HTLCs would exceed max_htlc_value_in_flight_msat";
+		reason = FORWARD_FAIL_MAX_HTLC_VALUE_IN_FLIGHT;
+		goto failed;
 	/* FIXME: Fuzz the boundaries a bit to avoid probing? */
 	case CHANNEL_ERR_CHANNEL_CAPACITY_EXCEEDED:
 		failwiremsg = towire_temporary_channel_failure(inmsg, NULL);
