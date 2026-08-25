@@ -107,6 +107,7 @@ def test_splice_stored_feerate_repaired_on_upgrade(node_factory, bitcoind,
     l1.db_manip("ALTER TABLE forwards DROP COLUMN reason")
     l1.db_manip("ALTER TABLE channel_funding_inflights DROP COLUMN funding_tx_index")
     l1.db_manip("ALTER TABLE channels DROP COLUMN funding_tx_index")
+    l1.db_manip("ALTER TABLE channel_funding_inflights DROP COLUMN superseded")
     l1.daemon.opts['database-upgrade'] = 'true'
     l1.start()
 

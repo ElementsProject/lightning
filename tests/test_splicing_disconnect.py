@@ -301,6 +301,7 @@ def test_splice_upgrade_with_pending_splice(node_factory, bitcoind):
     l1.stop()
     l1.db_manip("ALTER TABLE channel_funding_inflights DROP COLUMN funding_tx_index;")
     l1.db_manip("ALTER TABLE channels DROP COLUMN funding_tx_index;")
+    l1.db_manip("ALTER TABLE channel_funding_inflights DROP COLUMN superseded;")
     l1.db_manip("UPDATE version SET version = {}".format(PRE_FUNDING_TX_INDEX_DB_VERSION))
     l1.daemon.opts['database-upgrade'] = 'true'
     l1.start()

@@ -3439,6 +3439,7 @@
             "ListPeerChannels.channels[].inflight[].our_funding_msat": 5,
             "ListPeerChannels.channels[].inflight[].scratch_txid": 6,
             "ListPeerChannels.channels[].inflight[].splice_amount": 7,
+            "ListPeerChannels.channels[].inflight[].superseded": 8,
             "ListPeerChannels.channels[].inflight[].total_funding_msat": 4
         },
         "ListpeerchannelsChannelsStateChanges": {
@@ -7371,7 +7372,8 @@
             "4": "plain Amount",
             "5": "plain Amount",
             "6": "optional bytes",
-            "7": "plain sint64"
+            "7": "plain sint64",
+            "8": "optional bool"
         },
         "ListpeerchannelsChannelsStateChanges": {
             "1": "plain string",
@@ -15943,6 +15945,10 @@
         },
         "ListPeerChannels.channels[].inflight[].splice_amount": {
             "added": "v23.08",
+            "deprecated": null
+        },
+        "ListPeerChannels.channels[].inflight[].superseded": {
+            "added": "v26.12",
             "deprecated": null
         },
         "ListPeerChannels.channels[].inflight[].total_funding_msat": {
