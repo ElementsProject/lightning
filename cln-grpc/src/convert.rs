@@ -1311,6 +1311,7 @@ impl From<responses::ListpeerchannelsChannelsInflight> for pb::ListpeerchannelsC
             our_funding_msat: Some(c.our_funding_msat.into()), // Rule #2 for type msat
             scratch_txid: c.scratch_txid.map(|v| hex::decode(v).unwrap()), // Rule #2 for type txid?
             splice_amount: c.splice_amount, // Rule #2 for type integer
+            superseded: c.superseded, // Rule #2 for type boolean?
             total_funding_msat: Some(c.total_funding_msat.into()), // Rule #2 for type msat
         }
     }

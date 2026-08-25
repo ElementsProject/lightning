@@ -229,11 +229,30 @@ new_inflight(struct channel *channel,
 	inflight->locked_scid = NULL;
 	inflight->i_sent_sigs = i_sent_sigs;
 	inflight->splice_locked_memonly = false;
+	inflight->superseded = false;
 
 	list_add_tail(&channel->inflights, &inflight->list);
 	tal_add_destructor(inflight, destroy_inflight);
 
 	return inflight;
+}
+
+void channel_mark_inflights_superseded(struct lightningd *ld,
+				       struct channel *channel,
+				       const struct channel_inflight *winner)
+{
+	struct channel_inflight *inflight;
+
+	/* A reorg can un-promote the winner and promote another candidate
+	 * later, so this also clears the flag on the new winner. */
+	list_for_each(&channel->inflights, inflight, list) {
+		bool superseded = (inflight != winner);
+
+		if (inflight->superseded == superseded)
+			continue;
+		inflight->superseded = superseded;
+		wallet_inflight_save(ld->wallet, inflight);
+	}
 }
 
 void inflight_set_last_tx(struct channel_inflight *inflight,
