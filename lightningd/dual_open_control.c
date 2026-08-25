@@ -1081,6 +1081,18 @@ static enum watch_result opening_depth_cb(struct lightningd *ld,
 					  unsigned int depth,
 					  struct channel_inflight *inflight)
 {
+	/* If the peer publishes without giving us its funding signatures, the
+	 * confirmed outpoint identifies which saved commitment we must use, but
+	 * we cannot complete the open protocol: force-close it instead. */
+	if (inflight->channel->state == DUALOPEND_OPEN_COMMITTED) {
+		update_channel_from_inflight(ld, inflight->channel, inflight,
+					     false);
+		channel_fail_permanent(inflight->channel, REASON_PROTOCOL,
+				       "Funding transaction confirmed before "
+				       "receiving peer tx_signatures");
+		return DELETE_WATCH;
+	}
+
 	/* Usually, we're here because we're awaiting a lockin, but
 	 * we could also mutual shutdown */
 	if (inflight->channel->state != DUALOPEND_AWAITING_LOCKIN)
