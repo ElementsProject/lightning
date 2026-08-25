@@ -1220,6 +1220,11 @@ static const struct db_migration dbmigrations[] = {
 	 " WHERE funding_feerate = 0 OR funding_feerate IS NULL;"), NULL,
      /* Clamping is idempotent, so no revert needed */
      NULL, NULL},
+    /* Marks an RBF/splice candidate that's provably lost (a sibling
+     * inflight was confirmed instead), so we stop recomputing its
+     * commitment tx + HTLC sigs on every update */
+    {SQL("ALTER TABLE channel_funding_inflights ADD superseded INTEGER DEFAULT 0;"), NULL,
+     SQL("ALTER TABLE channel_funding_inflights DROP COLUMN superseded"), NULL},
     /* ^v26.09 */
 };
 

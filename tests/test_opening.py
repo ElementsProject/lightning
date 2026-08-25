@@ -1778,6 +1778,10 @@ def test_rbf_reconnect_non_last_mined(node_factory, bitcoind, chainparams):
     # l1 is up throughout, so it sees the right tx confirm.
     wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['funding_txid'] == mined['funding_txid'])
 
+    # Promoting the mined candidate marks every other one superseded.
+    for inflight in only_one(l1.rpc.listpeerchannels()['channels'])['inflight']:
+        assert inflight['superseded'] == (inflight['funding_txid'] != mined['funding_txid'])
+
     # Wedge l2's catch-up *after* it has processed the block holding the
     # funding tx, but before it runs out of blocks to fetch.  That is exactly
     # the window: scid set, inflight not yet promoted.

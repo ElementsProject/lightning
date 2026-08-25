@@ -4333,7 +4333,9 @@ def test_sql(node_factory, bitcoind):
                         {'name': 'our_funding_msat',
                          'type': 'msat'},
                         {'name': 'scratch_txid',
-                         'type': 'txid'}]},
+                         'type': 'txid'},
+                        {'name': 'superseded',
+                         'type': 'boolean'}]},
         'peerchannels_status': {
             'columns': [{'name': 'row',
                          'type': 'u64'},
