@@ -110,7 +110,6 @@ Core Lightning Documentation
    lightning-cli <lightning-cli.1.md>
    lightning-downgrade <lightning-downgrade.8.md>
    lightning-hsmtool <lightning-hsmtool.8.md>
-   lightning-reckless <lightning-reckless.1.md>
    lightningd <lightningd.8.md>
    lightningd-config <lightningd-config.5.md>
    lightningd-rpc <lightningd-rpc.7.md>
@@ -158,6 +157,7 @@ Core Lightning Documentation
    notification-openchannel_peer_sigs <notification-openchannel_peer_sigs.7.md>
    notification-plugin_started <notification-plugin_started.7.md>
    notification-plugin_stopped <notification-plugin_stopped.7.md>
+   notification-reckless_log <notification-reckless_log.7.md>
    notification-sendpay_failure <notification-sendpay_failure.7.md>
    notification-sendpay_success <notification-sendpay_success.7.md>
    notification-shutdown <notification-shutdown.7.md>

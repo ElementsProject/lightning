@@ -4983,6 +4983,38 @@ impl Node for Server
 
     }
 
+    async fn reckless(
+        &self,
+        request: tonic::Request<pb::RecklessRequest>,
+    ) -> Result<tonic::Response<pb::RecklessResponse>, tonic::Status> {
+        let req = request.into_inner();
+        let req: requests::RecklessRequest = req.into();
+        debug!("Client asked for reckless");
+        trace!("reckless request: {:?}", req);
+        let mut rpc = ClnRpc::new(&self.rpc_path)
+            .await
+            .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+        let result = rpc.call(Request::Reckless(req))
+            .await
+            .map_err(|e| Status::new(
+               Code::Unknown,
+               format!("Error calling method Reckless: {:?}", e)))?;
+        match result {
+            Response::Reckless(r) => {
+               trace!("reckless response: {:?}", r);
+               Ok(tonic::Response::new(r.into()))
+            },
+            r => Err(Status::new(
+                Code::Internal,
+                format!(
+                    "Unexpected result {:?} to method call Reckless",
+                    r
+                )
+            )),
+        }
+
+    }
+
 
 
     type SubscribeBalanceSnapshotStream = NotificationStream<pb::BalanceSnapshotNotification>;
@@ -5575,6 +5607,31 @@ impl Node for Server
             fn_filter_map : |x| {
                 match x {
                     Notification::PayPartStart(x) => {
+                        Some(x.into())
+                    }
+                    _ => None
+                }
+            }
+        };
+        Ok(tonic::Response::new(result))
+    }
+
+
+    type SubscribeRecklessLogStream = NotificationStream<pb::RecklessLogNotification>;
+
+    async fn subscribe_reckless_log(
+        &self,
+        _request : tonic::Request<pb::StreamRecklessLogRequest>
+    ) -> Result<tonic::Response<Self::SubscribeRecklessLogStream>, tonic::Status> {
+        let receiver = self.events.subscribe();
+        let stream = BroadcastStream::new(receiver);
+        let boxed = Box::pin(stream);
+
+        let result = NotificationStream {
+            inner : boxed,
+            fn_filter_map : |x| {
+                match x {
+                    Notification::RecklessLog(x) => {
                         Some(x.into())
                     }
                     _ => None
