@@ -215,6 +215,13 @@ struct state {
 
 	/* Did we send tx-abort? */
 	const char *aborted_err;
+	/* Set for the remainder of the current top-level dispatch after a
+	 * tx_abort handshake completes in place.  Nested callers must not start a
+	 * second abort while unwinding their old NORETURN assumptions. */
+	bool abort_completed;
+	/* While constructing an RBF, retain the last completed attempt so a
+	 * negotiated tx_abort can roll back without restarting this daemon. */
+	struct tx_state *previous_tx_state;
 
 	/* State of inflight funding transaction attempt */
 	struct tx_state *tx_state;
@@ -339,7 +346,33 @@ static bool shutdown_complete(const struct state *state)
 /* They failed the open with us */
 static void negotiation_aborted(struct state *state, const char *why, bool aborted)
 {
+	u8 *msg;
+
 	status_debug("aborted opening negotiation: %s", why);
+
+	/* A saved channel can continue on the same peer connection after the
+	 * tx_abort acknowledgement.  Rolling back here avoids handing both the
+	 * peer and HSM descriptors through a replacement process. */
+	/* A daemon created from an incomplete reconnect candidate has no prior
+	 * tx_state to restore.  If that candidate also lacks the peer's funding
+	 * signatures, let the established replacement path reload the preceding
+	 * durable inflight after lightningd removes the incomplete one. */
+	if (aborted && state->channel
+	    && (state->previous_tx_state
+		|| state->tx_state->remote_funding_sigs_rcvd)) {
+		msg = towire_dualopend_abort_complete(NULL, why);
+
+		if (state->previous_tx_state) {
+			tal_free(state->tx_state);
+			state->tx_state = state->previous_tx_state;
+			state->previous_tx_state = NULL;
+		}
+		state->aborted_err = tal_free(state->aborted_err);
+		state->abort_completed = true;
+		wire_sync_write(REQ_FD, take(msg));
+		peer_billboard(false, "RBF aborted, awaiting next attempt");
+		return;
+	}
 
 	/* Tell master that funding failed (don't disconnect if we aborted) */
 	peer_failed_received_errmsg(state->pps, !aborted, why);
@@ -354,6 +387,11 @@ static void open_abort(struct state *state,
 	va_list ap;
 	const char *errmsg;
 	u8 *msg;
+
+	/* A nested negotiation helper may still be unwinding after
+	 * negotiation_aborted() completed the handshake in place. */
+	if (state->abort_completed)
+		return;
 
 	va_start(ap, fmt);
 	errmsg = tal_vfmt(NULL, fmt, ap);
@@ -3483,6 +3521,18 @@ static void rbf_wrap_up(struct state *state,
 		handle_send_tx_sigs(state, msg);
 	} else
 		wire_sync_write(REQ_FD, take(msg));
+
+	/* The replacement attempt is now committed.  It is no longer possible
+	 * to return to the previous funding state with tx_abort. */
+	state->previous_tx_state = tal_free(state->previous_tx_state);
+}
+
+static void promote_rbf_tx_state(struct state *state,
+				 struct tx_state *tx_state)
+{
+	assert(!state->previous_tx_state);
+	state->previous_tx_state = state->tx_state;
+	state->tx_state = tal_steal(state, tx_state);
 }
 
 static void rbf_local_start(struct state *state, u8 *msg)
@@ -3641,9 +3691,9 @@ static void rbf_local_start(struct state *state, u8 *msg)
 		return;
 	}
 
-	/*  Promote tx_state */
-	tal_free(state->tx_state);
-	state->tx_state = tal_steal(state, tx_state);
+	/* Promote the candidate, but retain the last completed state until this
+	 * RBF commits: tx_abort must be able to return to it in place. */
+	promote_rbf_tx_state(state, tx_state);
 
 	/* Notify lightningd about require_confirmed state */
 	msg = towire_dualopend_update_require_confirmed(NULL,
@@ -3816,9 +3866,9 @@ static void rbf_remote_start(struct state *state, const u8 *rbf_msg)
 	peer_write(state->pps, msg);
 	peer_billboard(false, "channel rbf: ack sent, waiting for reply");
 
-	/*  Promote tx_state */
-	tal_free(state->tx_state);
-	state->tx_state = tal_steal(state, tx_state);
+	/* Promote the candidate, but retain the last completed state until this
+	 * RBF commits: tx_abort must be able to return to it in place. */
+	promote_rbf_tx_state(state, tx_state);
 
 	/* We merge with RBF's we've initiated now */
 	rbf_wrap_up(state, tx_state, total);
@@ -4125,6 +4175,8 @@ static u8 *handle_master_in(struct state *state)
 	case WIRE_DUALOPEND_RBF_INIT:
 		rbf_local_start(state, msg);
 		return NULL;
+	case WIRE_DUALOPEND_READY:
+		break;
 	case WIRE_DUALOPEND_SEND_TX_SIGS:
 		handle_send_tx_sigs(state, msg);
 		return NULL;
@@ -4150,6 +4202,8 @@ static u8 *handle_master_in(struct state *state)
 	case WIRE_DUALOPEND_VALIDATE_INPUTS_REPLY:
 
 		/* Messages we send */
+	case WIRE_DUALOPEND_INIT_READY:
+	case WIRE_DUALOPEND_ABORT_COMPLETE:
 	case WIRE_DUALOPEND_COMMIT_READY:
 	case WIRE_DUALOPEND_GOT_OFFER:
 	case WIRE_DUALOPEND_GOT_RBF_OFFER:
@@ -4364,6 +4418,8 @@ int main(int argc, char *argv[])
 
 	/* Init state to not aborted */
 	state->aborted_err = NULL;
+	state->abort_completed = false;
+	state->previous_tx_state = NULL;
 
 	/*~ The very first thing we read from lightningd is our init msg */
 	msg = wire_sync_read(tmpctx, REQ_FD);
@@ -4513,6 +4569,9 @@ int main(int argc, char *argv[])
 	 * so we might as well get the hsm daemon to generate it now. */
 	fetch_per_commitment_point(0, &state->first_per_commitment_point[LOCAL]);
 	fetch_per_commitment_point(1, &state->second_per_commitment_point[LOCAL]);
+	if (state->channel)
+		wire_sync_write(REQ_FD,
+				take(towire_dualopend_init_ready(NULL)));
 
 	/*~ We manually run a little poll() loop here.  With only two fds */
 	pollfd[0].fd = REQ_FD;
@@ -4525,6 +4584,8 @@ int main(int argc, char *argv[])
 		do_reconnect_dance(state);
 		state->reconnected = true;
 	}
+	if (state->channel)
+		wire_sync_write(REQ_FD, take(towire_dualopend_ready(NULL)));
 
 	/* We exit when we get a conclusion to write to lightningd: either
 	 * opening_funder_reply or opening_fundee. */
@@ -4545,6 +4606,10 @@ int main(int argc, char *argv[])
 		/* Second priority: messages from peer. */
 		else if (pollfd[1].revents & POLLIN)
 			msg = handle_peer_in(state);
+
+		/* In-place abort completion is only a guard while the current nested
+		 * handler unwinds.  A later event starts a fresh negotiation. */
+		state->abort_completed = false;
 
 		/* If we've shutdown, we're done */
 		if (shutdown_complete(state))
