@@ -1498,8 +1498,9 @@ void wallet_inflight_add(struct wallet *w, struct channel_inflight *inflight)
 				 ", remote_funding"
 				 ", locked_scid"
 				 ", i_sent_sigs"
+				 ", superseded"
 				 ") VALUES ("
-				 "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
+				 "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
 
 	db_bind_u64(stmt, inflight->channel->dbid);
 	db_bind_txid(stmt, &inflight->funding->outpoint.txid);
@@ -1547,6 +1548,7 @@ void wallet_inflight_add(struct wallet *w, struct channel_inflight *inflight)
 	else
 		db_bind_null(stmt);
 	db_bind_int(stmt, inflight->i_sent_sigs);
+	db_bind_int(stmt, inflight->superseded);
 
 	db_exec_prepared_v2(stmt);
 	assert(!stmt->error);
@@ -1573,9 +1575,10 @@ void wallet_inflight_save(struct wallet *w,
 			  struct channel_inflight *inflight)
 {
 	struct db_stmt *stmt;
-	/* The *only* thing you can update on an
-	 * inflight is the funding PSBT (to add sigs)
-	 * and the last_tx/last_sig or locked_scid if this is for a splice */
+	/* The *only* things you can update on an
+	 * inflight are the funding PSBT (to add sigs),
+	 * the last_tx/last_sig or locked_scid if this is for a splice,
+	 * and the superseded flag. */
 	stmt = db_prepare_v2(w->db,
 			     SQL("UPDATE channel_funding_inflights SET"
 				 "  funding_psbt=?"
@@ -1583,6 +1586,7 @@ void wallet_inflight_save(struct wallet *w,
 				 ", last_tx=?"
 				 ", last_sig=?"
 				 ", locked_scid=?"
+				 ", superseded=?"
 				 " WHERE"
 				 "  channel_id=?"
 				 " AND funding_tx_id=?"
@@ -1600,6 +1604,7 @@ void wallet_inflight_save(struct wallet *w,
 		db_bind_short_channel_id(stmt, *inflight->locked_scid);
 	else
 		db_bind_null(stmt);
+	db_bind_int(stmt, inflight->superseded);
 	db_bind_u64(stmt, inflight->channel->dbid);
 	db_bind_txid(stmt, &inflight->funding->outpoint.txid);
 	db_bind_int(stmt, inflight->funding->outpoint.n);
@@ -1715,6 +1720,7 @@ wallet_stmt2inflight(struct wallet *w, struct db_stmt *stmt,
 				i_sent_sigs);
 
 	inflight->locked_scid = db_col_optional_scid(inflight, stmt, "locked_scid");
+	inflight->superseded = db_col_int(stmt, "superseded");
 
 	/* last_tx is null for not yet committed
 	 * channels + static channel backup recoveries */
@@ -1769,6 +1775,7 @@ static bool wallet_channel_load_inflights(struct wallet *w,
 					", remote_funding"
 					", locked_scid"
 					", i_sent_sigs"
+					", superseded"
 					" FROM channel_funding_inflights"
 					" WHERE channel_id = ?"
 					" ORDER BY funding_feerate"));

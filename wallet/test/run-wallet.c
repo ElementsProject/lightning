@@ -1337,6 +1337,7 @@ static bool channel_inflightseq(struct channel_inflight *i1,
 		CHECK(memeq(i1->locked_scid, sizeof(*i1->locked_scid),
 			    i2->locked_scid, sizeof(*i2->locked_scid)));
 	CHECK(i1->splice_locked_memonly == i2->splice_locked_memonly);
+	CHECK(i1->superseded == i2->superseded);
 
 	return true;
 }
@@ -1767,6 +1768,7 @@ static bool test_channel_inflight_crud(struct lightningd *ld, const tal_t *ctx, 
 				false,
 				false);
 	inflight->splice_locked_memonly = true;
+	inflight->superseded = true;
 	inflight->locked_scid = tal(inflight, struct short_channel_id);
 	memset(inflight->locked_scid, 7, sizeof(struct short_channel_id));
 
@@ -1803,6 +1805,7 @@ static bool test_channel_inflight_crud(struct lightningd *ld, const tal_t *ctx, 
 				false,
 				false);
 	inflight->splice_locked_memonly = false;
+	inflight->superseded = false;
 	inflight->locked_scid = NULL;
 	inflight_set_last_tx(inflight, last_tx, sig);
 	wallet_inflight_add(w, inflight);

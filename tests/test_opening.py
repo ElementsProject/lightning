@@ -1572,6 +1572,13 @@ def test_rbf_reconnect_non_last_mined(node_factory, bitcoind, chainparams):
     wait_for(lambda: 'short_channel_id'
              in only_one(l1.rpc.listpeerchannels()['channels']))
 
+    post_race_inflights = only_one(l1.rpc.listpeerchannels()['channels'])['inflight']
+    for inflight in post_race_inflights:
+        if inflight['funding_txid'] == inflights[1]['funding_txid']:
+            assert inflight['superseded'] is False
+        else:
+            assert inflight['superseded'] is True
+
     # l2 comes back fully synced, and reconnects to wedged l1.
     l2.start()
     sync_blockheight(bitcoind, [l2])

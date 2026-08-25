@@ -2529,6 +2529,10 @@ void peer_got_commitsig(struct channel *channel, const u8 *msg)
 			continue;
 
 		commit = inflight_commit_sigs[i];
+		i++;
+
+		if (inflight->superseded)
+			continue;
 
 		tal_free(inflight->last_tx);
 		inflight->last_tx = clone_bitcoin_tx(inflight, commit->tx);
@@ -2539,7 +2543,6 @@ void peer_got_commitsig(struct channel *channel, const u8 *msg)
 		wallet_htlc_sigs_add(ld->wallet, channel->dbid,
 				     inflight->funding->outpoint,
 				     commit->htlc_signatures);
-		i++;
 	}
 
 	/* Tell it we've committed, and to go ahead with revoke. */

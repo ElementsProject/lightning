@@ -1186,6 +1186,11 @@ static const struct db_migration dbmigrations[] = {
      * after the failure was recorded (issue #9341). */
     {SQL("ALTER TABLE payments ADD failmsg BLOB;"), NULL,
      SQL("ALTER TABLE payments DROP COLUMN failmsg"), NULL},
+    /* Marks an RBF/splice candidate that's provably lost (a sibling
+     * inflight was confirmed instead), so we stop recomputing its
+     * commitment tx + HTLC sigs on every update */
+    {SQL("ALTER TABLE channel_funding_inflights ADD superseded INTEGER DEFAULT 0;"), NULL,
+     SQL("ALTER TABLE channel_funding_inflights DROP COLUMN superseded"), NULL},
     /* ^v26.09 */
 };
 
