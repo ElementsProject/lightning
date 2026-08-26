@@ -4,6 +4,50 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [26.06.7] - 2026-08-26: "Quantum-Resistant Lightning Channel IV"
+
+This point release is recommended for all users.
+
+### Changed
+
+ - JSON-RPC: `listpeerchannels`.`next_feerate` is now optional: it is omitted for an in-progress open whose stored feerate admits no valid next feerate.
+ - lightningd: we no longer propose a feerate above 100000perkw (400 sat/vB) of our own accord, for channel opens, splices, commitment updates and dual-fund RBFs.
+ - lightningd: `--ignore-fee-limits` and `setchannel`'s `ignorefeelimits` still drop our policy bounds, but no longer accept a feerate above 1000000perkw (4000 sat/vB).
+ - JSON-RPC: `feerates` reports `max_acceptable` as the feerate ceiling rather than 4294967295 when no fee estimates are available.
+ - lightningd: the maximum fee accepted for a mutual close is now bounded by the unilateral-close feerate.
+ - onchaind: closing transactions are now identified by structure rather than by their output scripts alone.
+ - JSON-RPC: `getlog` no longer accepts `level=io`; io logs are only available in the log file (`--log-level=io`).
+ - config: `dns:` addresses which are not valid hostnames are now rejected at startup instead of being silently ignored by peers.
+ - gossipd: DNS addresses in a node_announcement which are not valid hostnames are now ignored.
+
+### Fixed
+
+ - lightningd: restart `onchaind` after a reorg of a transaction it was watching, instead of leaving the channel unmonitored until restart.
+ - lightningd: `listpeerchannels` no longer aborts when a channel has an out-of-range funding feerate stored for an in-progress open.
+ - lightningd: nodes that stored an out-of-range feerate for an in-progress splice no longer crash-loop on `listpeerchannels`; the stored feerate is clamped on upgrade.
+ - dualopend: a peer opening a channel with `--experimental-dual-fund` can no longer name an arbitrary funding or commitment feerate; both are now bounded as other remote-proposed feerates are.
+ - channeld: a peer can no longer initiate a splice at an arbitrarily high feerate; it is now bounded like other remote-proposed feerates.
+ - lightningd: feerate estimates from the Bitcoin backend are now clamped to a sanity ceiling, so a misbehaving `estimatefees` plugin cannot feed absurd feerates into the rest of the daemon.
+ - lightningd: a feerate given in perkb near the top of the 32-bit range no longer wraps to a near-zero perkw feerate.
+ - plugins: `offers` no longer stops the node when an onion message carries a reply path with no hops.
+ - A crafted BOLT12 message could cause an out-of-bounds read while computing its identifier.
+ - clnrest: an unauthenticated user could crash the node with a large request body; bodies are now capped at 2MiB.
+ - wallet: an out-of-range shachain index in the database is now rejected at load instead of read out of bounds.
+ - offers: recurrence with proportional_amount now computes the correct invoice amount based on the time remaining
+ - lightningd: crash when an onchain payment arrived for the fallback address of an invoice created with amount_msat="any".
+ - lightningd: no longer aborts when a log entry exceeds 256KB.
+ - lightningd: logging a very large message no longer crashes the node (stack overflow).
+ - lightningd: a spend of a splice's in-flight funding output is now detected before the splice locks.
+ - JSON-RPC: reject excessively-nested JSON rather than risk a stack overflow.
+ - lightningd: fulfill the incoming HTLC when we learn the preimage onchain, even if the outgoing HTLC had an unfinished failure.
+ - print the commitment index in "bad commit secret" instead of a stack address
+ - askrene: askrene-inform-channel properly handle invalid "inform" field
+ - protocol: the number of in-flight channel opens per peer is now limited, and peers exceeding it are sent an error and disconnected.
+ - Wallet: anchor and HTLC fee rescue no longer select immature coinbase outputs, which produced a transaction bitcoind rejects
+ - wallet: Addressed a crash when attempting to spend a previously confirmed but reorged out close transaction output.
+ - xpay: check a fetched bolt12 invoice's amount is the one we asked for.
+ - connectd: a proxied connection to a very long hostname (including a gossiped DNS address) could crash the node.
+
 ## [26.06.6] - 2026-07-20: "Quantum-Resistant Lightning Channel III"
 
 v26.06.3, v26.06.4, and v26.06.5 had issues during publishing with the pypi releases and were deleted.
