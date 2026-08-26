@@ -237,6 +237,7 @@ struct state {
 	struct short_channel_id local_alias;
 
 	bool dev_accept_any_channel_type;
+	u32 lease_duration;
 };
 
 /* psbt_changeset_get_next - Get next message to send
@@ -2376,10 +2377,11 @@ static void accept_tlv_add_offer(struct tlv_accept_tlvs *a_tlv,
 				 struct tx_state *tx_state,
 				 struct lease_rates *rates,
 				 struct pubkey funding_pubkey,
-				 u32 blockheight)
+				 u32 blockheight,
+				 u32 lease_duration)
 {
 	u8 *msg;
-	u32 lease_expiry = blockheight + LEASE_RATE_DURATION;
+	u32 lease_expiry = blockheight + lease_duration;
 	tx_state->lease_commit_sig = tal(tx_state, secp256k1_ecdsa_signature);
 
 	/* Go get the signature for this lease offer from HSMD */
@@ -2636,7 +2638,7 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 	/* Add our fee to our amount now */
 	if (tx_state->rates) {
 		tx_state->lease_expiry
-			= tx_state->blockheight + LEASE_RATE_DURATION;
+			= tx_state->blockheight + state->lease_duration;
 
 		/* BOLT- #2:
 		 * The lease fee is added to the accepter's balance
@@ -2742,7 +2744,8 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 	if (open_tlv->request_funds && tx_state->rates)
 		accept_tlv_add_offer(a_tlv, tx_state, tx_state->rates,
 				     state->our_funding_pubkey,
-				     tx_state->blockheight);
+				     tx_state->blockheight,
+				     state->lease_duration);
 
 	/* BOLT #2:
 	 *
@@ -3242,7 +3245,7 @@ static void opener_start(struct state *state, u8 *msg)
 		}
 
 
-		tx_state->lease_expiry = tx_state->blockheight + LEASE_RATE_DURATION;
+		tx_state->lease_expiry = tx_state->blockheight + state->lease_duration;
 
 		msg = towire_dualopend_validate_lease(NULL,
 						      &a_tlv->will_fund->signature,
@@ -4435,7 +4438,8 @@ int main(int argc, char *argv[])
 				    &state->minimum_depth,
 				    &state->require_confirmed_inputs[LOCAL],
 				    &state->local_alias,
-				    &state->dev_accept_any_channel_type)) {
+				    &state->dev_accept_any_channel_type,
+				    &state->lease_duration)) {
 		/*~ Initially we're not associated with a channel, but
 		 * handle_peer_gossip_or_error compares this. */
 		memset(&state->channel_id, 0, sizeof(state->channel_id));

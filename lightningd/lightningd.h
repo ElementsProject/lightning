@@ -359,6 +359,9 @@ struct lightningd {
 	/* Tell openingd/dualopend to accept all, allow sending any. */
 	bool dev_any_channel_type;
 
+	/* Override the standard lease duration for accelerated tests. */
+	u32 dev_lease_duration;
+
 	/* Allow changing of shutdown output point even if dangerous */
 	bool dev_allow_shutdown_destination_change;
 

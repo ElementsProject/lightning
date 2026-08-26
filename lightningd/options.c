@@ -896,6 +896,10 @@ static void dev_register_opts(struct lightningd *ld)
 		     opt_set_bool,
 		     &ld->dev_any_channel_type,
 		     "Allow sending any channel type, and accept any");
+	clnopt_witharg("--dev-lease-duration", OPT_DEV|OPT_SHOWINT,
+		       opt_set_u32, opt_show_u32,
+		       &ld->dev_lease_duration,
+		       "Override the standard channel lease duration in blocks");
 	clnopt_noarg("--dev-allow-shutdown-destination-change", OPT_DEV,
 		     opt_set_bool,
 		     &ld->dev_allow_shutdown_destination_change,

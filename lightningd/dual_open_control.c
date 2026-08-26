@@ -4631,7 +4631,8 @@ bool peer_start_dualopend(struct peer *peer,
 				    channel->minimum_depth,
 				    peer->ld->config.require_confirmed_inputs,
 				    *channel->alias[LOCAL],
-				    peer->ld->dev_any_channel_type);
+				    peer->ld->dev_any_channel_type,
+				    peer->ld->dev_lease_duration);
 	subd_send_msg(channel->owner, take(msg));
 	/* Initial dualopend does not perform a reconnect dance.  Its init is
 	 * already queued before any later master request. */
