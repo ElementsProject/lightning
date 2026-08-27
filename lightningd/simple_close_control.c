@@ -177,7 +177,7 @@ static void handle_simpleclosed_our_closing_tx(struct channel *channel, const u8
 
 	bitcoin_txid(tx, &txid);
 	log_info(channel->log,
-		"Simple close: stored closer tx %s",
+		"Simple close: stored our tx %s",
 		fmt_bitcoin_txid(tmpctx, &txid));
 
 	subd_send_msg(channel->owner,
@@ -189,7 +189,6 @@ static void handle_simpleclosed_our_closing_tx(struct channel *channel, const u8
 static void handle_simpleclosed_their_closing_tx(struct channel *channel,
 						 const u8 *msg)
 {
-	struct lightningd *ld = channel->peer->ld;
 	struct bitcoin_tx *tx;
 	struct bitcoin_txid txid;
 	struct bitcoin_signature sig;
@@ -223,12 +222,12 @@ static void handle_simpleclosed_their_closing_tx(struct channel *channel,
 		return;
 	}
 
-	channel_set_last_tx(channel, tx, &sig);
-	wallet_channel_save(ld->wallet, channel);
+	/* We don't save their tx, we just broadcast it. */
+	sign_and_broadcast_their_closing(channel, tx, &sig);
 
 	bitcoin_txid(tx, &txid);
 	log_info(channel->log,
-		"Simple close: stored closee tx %s",
+		"Simple close: broadcast their tx %s",
 		fmt_bitcoin_txid(tmpctx, &txid));
 }
 
