@@ -165,7 +165,9 @@ struct onionreply *wrap_onionreply(const tal_t *ctx,
  * @shared_secrets: shared secrets from the forward path
  * @numhops: path length and number of shared_secrets provided
  * @reply: the incoming reply
- * @origin_index: the index in the path where the reply came from (-1 if unknown)
+ * @origin_index: the index in the path where the reply came from (-1 if unknown).
+ *     On success this is always in [0, numhops). Dummy-hop HMAC matches are
+ *     ignored so they cannot be reported as a route position.
  *
  * Reverses create_onionreply and wrap_onionreply.
  */

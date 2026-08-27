@@ -881,8 +881,16 @@ u8 *unwrap_onionreply(const tal_t *ctx,
 		if (hmac_eq(&hmac, &expected_hmac)) {
 			u16 msglen;
 			msglen = fromwire_u16(&cursor, &max);
-			ret = fromwire_tal_arrn(ctx, &cursor, &max, msglen);
-			*origin_index = i;
+			/* Dummy hops after the real path use a public
+			 * constant secret, so an HMAC match there does
+			 * not identify a hop.  Keep decrypting for
+			 * constant time, but only record a real origin. */
+			if (i < numhops) {
+				tal_free(ret);
+				ret = fromwire_tal_arrn(ctx, &cursor, &max,
+							msglen);
+				*origin_index = i;
+			}
 		}
 	}
 
