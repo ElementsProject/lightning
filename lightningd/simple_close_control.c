@@ -152,8 +152,9 @@ static void handle_simpleclosed_our_closing_tx(struct channel *channel, const u8
 	}
 	tx->chainparams = chainparams;
 
+	/* Check it is well-formed, didn't spend too much on fees */
 	const char *err = close_tx_check(tmpctx, channel, tx,
-					 feerate_for_close(channel));
+					 channel->simple_close_feerate);
 	if (err) {
 		channel_internal_error(channel,
 			"bad simpleclosed_got_sig: %s",
@@ -379,13 +380,14 @@ void peer_start_simpleclosed(struct channel *channel, struct peer_fd *peer_fd)
 		local_wallet_ext_key = &ext_key_val;
 	}
 
+	channel->simple_close_feerate = feerate_for_close(channel);
 	initmsg = towire_simpleclosed_init(tmpctx, chainparams, &channel->cid,
 		&channel->funding, channel->funding_sats,
 		&channel->local_funding_pubkey,
 		&channel->channel_info.remote_fundingkey,
 		amount_msat_to_sat_round_down(channel->our_msat),
 		amount_msat_to_sat_round_down(their_msat),
-		channel->our_config.dust_limit, feerate_for_close(channel), local_wallet_index,
+		channel->our_config.dust_limit, channel->simple_close_feerate, local_wallet_index,
 		local_wallet_ext_key, channel->shutdown_scriptpubkey[LOCAL],
 		channel->shutdown_scriptpubkey[REMOTE], channel->opener);
 
