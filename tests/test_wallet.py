@@ -2959,3 +2959,166 @@ def test_withdraw_unreserves_on_broadcast_failure(node_factory, bitcoind):
     bitcoind.generate_block(1)
     sync_blockheight(bitcoind, [l1])
     assert l1.db_query('SELECT COUNT(*) as c FROM our_outputs WHERE spendheight IS NULL AND reserved_til = 0')[0]['c'] == 0
+
+
+def test_utxopsbt_emergency_reserve_property(node_factory, bitcoind,
+                                             chainparams):
+    """Randomized walk over the emergency-reserve funding path (the
+    crash class above): seeded and deterministic.  Each round spins a
+    node with a random reserve, funds 1-3 selectable UTXOs plus a
+    rest-of-wallet UTXO near (or below) the reserve, then issues random
+    asks with/without excess_as_change.
+
+    Invariants on EVERY call:
+      1. the daemon survives (getinfo answers) — pre-fix this class
+         SIGABRTs whenever the shortfall is small and the excess lands
+         in the dust-capped window;
+      2. every call either raises a typed RpcError or funds;
+      3. oracle: when funding succeeded with excess_as_change and a
+         change output exists, that change must cover the remaining
+         shortfall (reserve minus the unselected wallet)."""
+    import random
+    rng = random.Random(9452)
+    rounds = int(os.getenv("EMERGENCY_PROPERTY_ROUNDS", "10"))
+    for i in range(rounds):
+        reserve_sat = rng.choice([10_000, 25_000, 50_000])
+        utxo_sats = [rng.choice([30_000, 40_000, 50_000, 70_000, 100_000])
+                     for _ in range(rng.randint(1, 3))]
+        rest_sat = rng.choice([0, reserve_sat - rng.randint(0, 800),
+                               reserve_sat - rng.randint(800, 5_000)])
+        l1 = node_factory.get_node(
+            options={'min-emergency-msat': reserve_sat * 1000})
+
+        def fund(sats):
+            addr = l1.rpc.newaddr('bech32')['bech32']
+            txid = bitcoind.rpc.sendtoaddress(addr, sats / 10**8)
+            vout = bitcoind.rpc.gettransaction(txid)['details'][0]['vout']
+            return '{}:{}'.format(txid, vout)
+
+        outpoints = [fund(s) for s in utxo_sats if s > 0]
+        if rest_sat > 0:
+            fund(rest_sat)  # unselected: this is the window opener
+        bitcoind.generate_block(1)
+        expected = len(outpoints) + (1 if rest_sat > 0 else 0)
+        wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == expected)
+        total_sat = sum(utxo_sats)
+
+        for j in range(3):
+            ask_hi = max(20_000, total_sat - reserve_sat - 3_000)
+            ask = rng.randint(15_000, max(15_001, ask_hi))
+            excess_as_change = rng.random() < 0.7
+            try:
+                f = l1.rpc.call('utxopsbt', {
+                    'satoshi': str(ask) + 'sat', 'feerate': '253perkw',
+                    'startweight': 100, 'utxos': outpoints, 'reserve': 0,
+                    'excess_as_change': excess_as_change,
+                    'opening_anchor_channel': True})
+            except RpcError:
+                f = None
+
+            # invariant 1: the daemon must still be answering
+            assert l1.rpc.getinfo()['id'], \
+                "daemon died on round %d ask %d" % (i, j)
+
+            if f is None or not excess_as_change \
+                    or 'change_outnum' not in f:
+                continue
+
+            psbt = bitcoind.rpc.decodepsbt(f['psbt'])
+            outputs = psbt['outputs'] if chainparams['elements'] \
+                else psbt['tx']['vout']
+            change_val = int(Decimal(
+                str(outputs[f['change_outnum']]['value'])) * 10**8)
+            shortfall = max(0, reserve_sat - rest_sat)
+            assert change_val >= shortfall, (
+                "change %d below the %d shortfall (round %d ask %d, "
+                "rest %d)" % (change_val, shortfall, i, j, rest_sat))
+
+        l1.stop()
+
+
+def test_utxopsbt_emergency_reserve_dust_shortfall(node_factory, bitcoind,
+                                                   chainparams):
+    """change_for_emergency must not abort when the reserve shortfall is
+    below the dust limit (crash observed live on v26.06: five lightningd
+    cores 2026-08-29, crash-loop on retry).
+
+    The window, exactly: wallet_has_funds() reduces `needed` to the
+    shortfall (emergency_sat minus the UNSELECTED wallet).  When that
+    shortfall is below the dust limit, the change output the split
+    branch promises cannot exist (change_amount() dust-caps it to 0),
+    and the old equality assert
+
+        assert(amount_sat_eq(change_amount(*change, ...), needed))
+
+    fails -> FATAL SIGNAL 6.  Note excess_as_change is irrelevant here
+    (it actually prevents the crash by zeroing the split's excess and
+    taking the typed 313 path); the crash combo is a plain call against
+    a wallet whose unselected part sits within dust of the reserve.
+
+    Wallet shape: selected 60k-sat UTXO, rest 24_900 sat against a 25k
+    reserve (shortfall 100 < dust 546).  Pre-fix the daemon SIGABRTs on
+    this call; post-fix it refuses with the typed
+    FUND_CANNOT_AFFORD_WITH_EMERGENCY (313) and the daemon survives.
+    """
+    emergency_sat = 25_000
+    rest_sat = 24_900
+    l1 = node_factory.get_node(
+        options={'min-emergency-msat': emergency_sat * 1000})
+
+    def fund(sats):
+        addr = l1.rpc.newaddr('bech32')['bech32']
+        txid = bitcoind.rpc.sendtoaddress(addr, sats / 10**8)
+        vout = bitcoind.rpc.gettransaction(txid)['details'][0]['vout']
+        return '{}:{}'.format(txid, vout)
+
+    selected = fund(60_000)
+    fund(rest_sat)  # stays UNSELECTED: shortfall = 100 < dust
+    bitcoind.generate_block(1)
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 2)
+
+    with pytest.raises(RpcError, match='min-emergency-msat'):
+        l1.rpc.call('utxopsbt', {
+            'satoshi': '59500sat', 'feerate': '253perkw',
+            'startweight': 100, 'utxos': [selected], 'reserve': 0,
+            'excess_as_change': False, 'opening_anchor_channel': True})
+
+    # the daemon survived the call
+    assert l1.rpc.getinfo()['id']
+
+def test_fundpsbt_emergency_reserve_dust_shortfall(node_factory, bitcoind,
+                                                    chainparams):
+    """Same crash class as test_utxopsbt_emergency_reserve_dust_shortfall,
+    reached through fundpsbt's own coin selection: CLN must select the
+    single sufficient UTXO, leave the near-reserve output unselected
+    (shortfall < dust), and previously aborted in change_for_emergency.
+    Post-fix: typed 313, daemon alive."""
+    emergency_sat = 25_000
+    l1 = node_factory.get_node(
+        options={'min-emergency-msat': emergency_sat * 1000})
+
+    def fund(sats):
+        addr = l1.rpc.newaddr('bech32')['bech32']
+        txid = bitcoind.rpc.sendtoaddress(addr, sats / 10**8)
+        vout = bitcoind.rpc.gettransaction(txid)['details'][0]['vout']
+        return '{}:{}'.format(txid, vout)
+
+    # rest-vs-selection split via minconf: the 60k output gets two
+    # confirmations, the 24.9k rest only one — fundpsbt(minconf=2)
+    # can select ONLY the 60k UTXO, while wallet_has_funds counts both
+    # (shortfall 100 < dust).  Two same-depth outputs would let the
+    # selector take both and mask the window.
+    fund(60_000)
+    bitcoind.generate_block(1)
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 1)
+    fund(24_900)
+    bitcoind.generate_block(1)
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 2)
+
+    with pytest.raises(RpcError, match='min-emergency-msat'):
+        l1.rpc.call('fundpsbt', {
+            'satoshi': '59500sat', 'feerate': '253perkw',
+            'startweight': 100, 'reserve': 0, 'minconf': 2,
+            'excess_as_change': False, 'opening_anchor_channel': True})
+
+    assert l1.rpc.getinfo()['id']

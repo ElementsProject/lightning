@@ -477,9 +477,22 @@ static bool change_for_emergency(struct lightningd *ld,
 	    || !amount_sat_add(change, *change, needed))
 		abort();
 
-	/* We *will* get a change output now! */
-	assert(amount_sat_eq(change_amount(*change, feerate_per_kw, weight),
-			     needed));
+	/* We promise a change output that covers `needed` after its own
+	 * fee.  Two reasons that promise can be hollow, both of which
+	 * previously hit the equality assert below and aborted lightningd:
+	 *
+	 *  1. the reserve shortfall itself is below the dust limit (the
+	 *     unselected wallet sits within dust of the reserve) — no
+	 *     change output can carry it, change_amount() dust-caps to 0;
+	 *  2. an entering change (excess_as_change) makes the final change
+	 *     cover c0 + needed, not needed exactly.
+	 *
+	 * Both are funding-availability corners: refuse with the caller's
+	 * typed FUND_CANNOT_AFFORD_WITH_EMERGENCY instead of crashing the
+	 * daemon (observed live on v26.06: crash-loop, five cores). */
+	if (amount_sat_less(change_amount(*change, feerate_per_kw, weight),
+			    needed))
+		return false;
 	return true;
 }
 
