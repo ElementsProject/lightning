@@ -444,8 +444,17 @@ def test_v2_fail_second(node_factory, bitcoind):
     l1.daemon.wait_for_log(r'peer_out WIRE_TX_ABORT')
     l2.daemon.wait_for_log(r'peer_out WIRE_TX_ABORT')
 
-    # Should be able to reattempt without reconnecting
+    # The abort RPC is also the owner/route teardown barrier: an immediate
+    # retry must be safe without waiting or reconnecting.
     assert l1.rpc.getpeer(l2.info['id'])['connected']
+    start = l1.rpc.openchannel_init(l2.info['id'], amount, psbt)
+    assert len(l1.rpc.listpeerchannels(l2.info['id'])['channels']) == 2
+
+    # Repeat the abort/retry sequence so a stale route from either generation
+    # cannot be mistaken for the current owner.
+    l1.rpc.openchannel_abort(start['channel_id'])
+    only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])
+
     start = l1.rpc.openchannel_init(l2.info['id'], amount, psbt)
     assert len(l1.rpc.listpeerchannels(l2.info['id'])['channels']) == 2
 
