@@ -4119,6 +4119,14 @@ static struct command_result *json_queryrates(struct command *cmd,
 	if (command_check_only(cmd))
 		return command_check_done(cmd);
 
+	/* Allocate the local transport before publishing an unsaved channel.  If
+	 * socketpair fails there is then no half-created channel to clean up. */
+	if (socketpair(AF_LOCAL, SOCK_STREAM, 0, fds) != 0) {
+		return command_fail(cmd, FUND_MAX_EXCEEDED,
+				    "Failed to create socketpair: %s",
+				    strerror(errno));
+	}
+
 	channel = new_unsaved_channel(peer,
 				      peer->ld->config.fee_base,
 				      peer->ld->config.fee_per_satoshi);
@@ -4172,12 +4180,6 @@ static struct command_result *json_queryrates(struct command *cmd,
 					   desired_channel_type(tmpctx, cmd->ld->our_features,
 								peer->their_features),
 					   NULL);
-
-	if (socketpair(AF_LOCAL, SOCK_STREAM, 0, fds) != 0) {
-		return command_fail(cmd, FUND_MAX_EXCEEDED,
-				    "Failed to create socketpair: %s",
-				    strerror(errno));
-	}
 
 	/* Start dualopend! */
 	if (!peer_start_dualopend(peer, new_peer_fd(cmd, fds[0]), channel)) {
