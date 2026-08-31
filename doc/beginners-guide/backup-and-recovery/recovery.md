@@ -16,7 +16,7 @@ privacy:
   - Copy the valid binary formatted `hsm_secret` into `$LIGHTNINGDIR` directory
   - Copy the latest `emergency.recover` backup file into the `$LIGHTNINGDIR` before starting up the node
   - Start `lightningd`
-  - Run `lightning-cli emergencyrecover` (RPC command)[https://docs.corelightning.org/reference/lightning-emergencyrecover] to recover all the channels on the node
+  - Run `lightning-cli emergencyrecover` (RPC command)[https://docs.corelightning.org/reference/emergencyrecover] to recover all the channels on the node
   - Wait until your peer force closes the channel and the node would automatically sweep the funds. This could take some time
 
 
@@ -29,11 +29,11 @@ privacy:
   - Run `lightning-cli emergencyrecover` (RPC command)[https://docs.corelightning.org/reference/lightning-emergencyrecover] to recover all the channels on the node
 
 
-> 🚧 
+> 🚧
 >
 > **Only** recover from database if you are sure that it is **latest**.
 >
-> Snapshot-style backups of the lightningd database is **discouraged**, as _any_ loss of state may result in permanent loss of funds. 
+> Snapshot-style backups of the lightningd database is **discouraged**, as _any_ loss of state may result in permanent loss of funds.
 >
 > See the  [penalty mechanism](https://github.com/lightning/bolts/blob/master/05-onchain.md#revoked-transaction-close-handling) for more details.
 
