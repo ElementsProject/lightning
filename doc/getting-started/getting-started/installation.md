@@ -322,7 +322,7 @@ Finally, build `c-lightning`:
 
 ## To Build on NixOS
 
-Core Lightning ships a [Nix flake](https://nixos.wiki/wiki/Flakes), so on NixOS
+Core Lightning ships a [Nix flake](https://wiki.nixos.org/wiki/Flakes), so on NixOS
 you don't need to install any build dependencies by hand. Make sure the
 `nix-command` and `flakes` features are enabled.
 
