@@ -17,7 +17,7 @@ Similarly, if you deprecate a field, add "deprecated": "VERSION" (where VERSION 
 ## How to Write a Schema
 
 Name the schema doc/schemas/`command`.json: the testsuite should pick it up and check all invocations of that command against it.
-The core lightning RPC commands use custom schema specification defined in [rpc-schema-draft](https://github.com/ElementsProject/lightning/doc/rpc-schema-draft.json).
+The core lightning RPC commands use custom schema specification defined in [rpc-schema-draft](https://github.com/ElementsProject/lightning/blob/master/doc/rpc-schema-draft.json).
 
 I recommend copying an existing one to start. If something goes wrong, try tools/fromscheme.py doc/schemas/`command`.json to see how far it got before it died.
 
