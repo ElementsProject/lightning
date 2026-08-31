@@ -1,3 +1,25 @@
+//! A library for writing Core Lightning plugins in Rust.
+//!
+//! # Logging
+//!
+//! Records emitted through the `log` and `tracing` facades are forwarded to
+//! `lightningd` as JSON-RPC `log` notifications, and appear in the node's log.
+//!
+//! Which records are forwarded is controlled by the `CLN_PLUGIN_LOG`
+//! environment variable, which accepts the same comma-separated directives as
+//! `RUST_LOG`. Directives that fail to parse are reported on `stderr` and
+//! ignored.
+//!
+//! If `CLN_PLUGIN_LOG` is unset or empty the filter defaults to `info`, so
+//! `info` and above are forwarded while `debug` and `trace` are dropped.
+//! Setting the variable *replaces* that default rather than adding to it, so
+//! `CLN_PLUGIN_LOG=cln_plugin=trace` also silences every other target; append
+//! a bare level, as in `cln_plugin=trace,warn`, to keep a fallback for the
+//! rest.
+//!
+//! `lightningd` applies its own `log-level` setting on top of this filter, so
+//! a record must pass both to be written to the node's log.
+
 use crate::codec::{JsonCodec, JsonRpcCodec};
 pub use anyhow::anyhow;
 use anyhow::{Context, Result};
