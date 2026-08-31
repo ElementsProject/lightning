@@ -4,8 +4,8 @@ slug: json-rpc
 privacy:
   view: public
 ---
-> 📘 
-> 
+> 📘
+>
 > Used for applications running on the same system as CLN.
 
 ## Using `lightning-cli`
@@ -38,9 +38,9 @@ This will add links to the library into your environment so changing the checked
 
 Check out the following recipes to learn how to use pyln-client in your applications.
 
-🦉 **[Write a program in Python to interact with lightningd](https://docs.corelightning.org/v1.0/recipes/write-a-program-in-python-to-interact-with-lightningd)**
+🦉 **[Write a program in Python to interact with lightningd](https://docs.corelightning.org/recipes/write-a-program-in-python-to-interact-with-lightningd)**
 
-🦉 **[Write a hello-world plugin in Python](https://docs.corelightning.org/v1.0/recipes/write-a-hello-world-plugin-in-python)**
+🦉 **[Write a hello-world plugin in Python](https://docs.corelightning.org/recipes/write-a-hello-world-plugin-in-python)**
 
 ## Using Rust
 
