@@ -23,7 +23,7 @@ sudo rm -R /usr/local/libexec/c-lightning/plugins # If you are upgrading run thi
 sudo tar -xvf <release>.tar.xz -C /usr/local --strip-components=2
 ```
 
-If you're on a different distribution or OS, you can compile the source by following the instructions from [Installing from Source](doc:installing-from-source).
+If you're on a different distribution or OS, you can compile the source by following the instructions from [Installing from Source](#installing-from-source).
 
 # Docker
 
