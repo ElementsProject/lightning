@@ -63,47 +63,34 @@ usdt:lightningd/lightningd:lightningd:span_start
 usdt:lightningd/lightningd:lightningd:span_suspend
 ```
 
-There is a sample exporter that can be used to instrument a single
-binary, batch the spans it receives and submit them as a batch to an
-`otelcol` or `tempo` instance in [contrib/cln-tracer][cln-tracer]
-using the zipkin format for spans and traces.
+There is a sample exporter that can be used to instrument a single binary, batch the spans it receives and submit them as a batch to an `otelcol` or `tempo` instance in [contrib/cln-tracer][cln-tracer] using the zipkin format for spans and traces.
 
 [cln-tracer]: https://github.com/ElementsProject/lightning/tree/master/contrib/cln-tracer
 
 
-Notice that due to a [limitation][bpftracer305] in the way the eBPF
-script is handled you'll at most get the first 495 bytes of the
-payload. This is due to the 512 byte limitation for eBPF programs out
-of the box.
+Notice that due to a [limitation][bpftracer305] in the way the eBPF script is handled you'll at most get the first 495 bytes of the payload. This is due to the 512 byte limitation for eBPF programs out of the box.
 
-[bpftracer]: https://github.com/iovisor/bpftrace/issues/305
+[bpftracer305]: https://github.com/bpftrace/bpftrace/issues/305
 
 ## Backend 2: Unix Domain Socket Datagrams
 
-The UDS backend sends completed spans as atomic datagrams to a Unix
-domain socket. This is designed for environments where kernel eBPF
-access is unavailable, such as Kubernetes pods.
+The UDS backend sends completed spans as atomic datagrams to a Unix domain socket. This is designed for environments where kernel eBPF access is unavailable, such as Kubernetes pods.
 
 ### How it works
 
-Set the `CLN_TRACE_SOCKET` environment variable to the filesystem path
-of a `SOCK_DGRAM` Unix domain socket:
+Set the `CLN_TRACE_SOCKET` environment variable to the filesystem path of a `SOCK_DGRAM` Unix domain socket:
 
 ```bash
 $ CLN_TRACE_SOCKET=/tmp/cln-traces.sock lightningd
 ```
 
-When a span completes, its Zipkin-format JSON payload is sent via
-`sendto()` to the specified socket. Key properties:
+When a span completes, its Zipkin-format JSON payload is sent via `sendto()` to the specified socket. Key properties:
 
-- **Atomic delivery**: Each datagram contains a complete, self-contained
-  JSON span payload. No framing or reassembly needed.
+- **Atomic delivery**: Each datagram contains a complete, self-contained JSON span payload. No framing or reassembly needed.
 - **Non-blocking**: The socket is set to `O_NONBLOCK`. If the collector
-  is down or the socket buffer is full, the `sendto()` silently fails
-  without affecting the node.
+  is down or the socket buffer is full, the `sendto()` silently fails without affecting the node.
 - **Multi-writer safe**: Multiple CLN daemons can write to the same
-  socket path concurrently. The kernel guarantees datagram boundaries
-  are preserved.
+  socket path concurrently. The kernel guarantees datagram boundaries are preserved.
 - **No USDT dependency**: Works on any system, regardless of whether
   `systemtap-sdt-dev` is installed or `HAVE_USDT` is set.
 
@@ -120,13 +107,11 @@ Each datagram is a Zipkin v2 JSON array containing a single span:
   "traceId":"4bf92f3577b34da6a3ce929d0e0e4736"}]
 ```
 
-Payloads are capped at 2048 bytes, well below the UDS datagram limit
-(~200KB on Linux).
+Payloads are capped at 2048 bytes, well below the UDS datagram limit (~200KB on Linux).
 
 ### Setting up a collector
 
-Any process that binds a `SOCK_DGRAM` Unix domain socket at the
-configured path can receive spans. A minimal Python collector:
+Any process that binds a `SOCK_DGRAM` Unix domain socket at the configured path can receive spans. A minimal Python collector:
 
 ```python
 import socket, os, json
@@ -185,6 +170,4 @@ Benchmark 1: common/test/run-trace
   Range (min … max):   546.5 ms … 598.9 ms    10 runs
 ```
 
-So depending on whether an exporter is attached, creating and emitting
-span without and with an exporter takes around 370ns and 560ns
-respectively.
+So depending on whether an exporter is attached, creating and emitting span without and with an exporter takes around 370ns and 560ns respectively.
