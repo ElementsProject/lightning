@@ -102,7 +102,7 @@ Notice that we override the expected SSL name with `cln`. This is required becau
 
 We then use the channel to instantiate the `NodeStub` representing the service and its methods, so we can finally call the `Getinfo` method with default arguments.
 
-### Generating custom certificates (optional)
+### Generating custom certificates
 
 The automatically generated mTLS certificate will not know about potential domains that it'll be served under, and will chose a number of other parameters by default. If you'd like to generate a server certificate with a custom domain, you can use the following:
 
