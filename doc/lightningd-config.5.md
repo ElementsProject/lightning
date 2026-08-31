@@ -939,6 +939,6 @@ Note: the modules in the ccan/ directory have their own licenses, but
 the rest of the code is covered by the BSD-style MIT license.
 
 [bolt]: https://github.com/lightning/bolts
-[bolt12]: https://github.com/rustyrussell/lightning-rfc/blob/guilt/offers/12-offer-encoding.md
+[bolt12]: https://github.com/lightning/bolts/blob/master/12-offer-encoding.md
 [pr4421]: https://github.com/ElementsProject/lightning/pull/4421
 [blip]: https://github.com/lightning/blips
