@@ -11,7 +11,7 @@ Core Lightning (previously c-lightning) is a lightweight, highly customizable an
 	* [Sending and Receiving Payments](#sending-and-receiving-payments)
 	* [Configuration File](#configuration-file)
 * [Further Information](#further-information)
-    * [FAQ](doc/FAQ.md)
+    * [FAQ](doc/node-operators-guide/faq.md)
     * [Pruning](#pruning)
     * [HD wallet encryption](#hd-wallet-encryption)
 	* [Developers](#developers)
