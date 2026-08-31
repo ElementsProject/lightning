@@ -1340,14 +1340,12 @@ bool jsonrpc_command_add(struct jsonrpc *rpc, struct json_command *command,
 	struct cmd_and_usage *cmd;
 
 	cmd = command_add(rpc, command);
-	if (!cmd)
-		return false;
-
-	cmd->usage = json_escape_unescape_len(cmd, usage, strlen(usage));
-	if (!cmd->usage) {
-		tal_free(cmd);
+	if (!cmd) {
+		tal_free_if_taken(usage);
 		return false;
 	}
+
+	cmd->usage = tal_strdup(cmd, usage);
 	tal_add_destructor2(command, destroy_json_command, rpc);
 	return true;
 }

@@ -1383,6 +1383,11 @@ static const char *plugin_rpcmethod_add(struct plugin *plugin,
 		return tal_fmt(plugin,
 			    "\"usage\" not provided by plugin");
 
+	usage = json_escape_unescape_len(tmpctx, take(usage), strlen(usage));
+	if (!usage)
+		return tal_fmt(plugin,
+			       "\"usage\" contains invalid escape sequences");
+
 	err = json_parse_deprecated(cmd, buffer, deprtok, &cmd->depr_start, &cmd->depr_end);
 	if (err)
 		return tal_steal(plugin, err);
@@ -1390,7 +1395,7 @@ static const char *plugin_rpcmethod_add(struct plugin *plugin,
 	cmd->dev_only = false;
 	cmd->dispatch = plugin_rpcmethod_dispatch;
 	cmd->check = plugin_rpcmethod_check;
-	if (!jsonrpc_command_add(plugin->plugins->ld->jsonrpc, cmd, usage)) {
+	if (!jsonrpc_command_add(plugin->plugins->ld->jsonrpc, cmd, take(usage))) {
 		struct plugin *p =
 		    find_plugin_for_command(plugin->plugins->ld, cmd->name);
 		if (p)
