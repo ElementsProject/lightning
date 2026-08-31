@@ -7,17 +7,17 @@ privacy:
 
 # CLNRest
 
-CLNRest is a lightweight Rust-based built-in Core Lightning plugin (from v23.08) that transforms RPC calls into a REST service. 
-It also broadcasts Core Lightning notifications to listeners connected to its websocket server. By generating REST API endpoints, 
+CLNRest is a lightweight Rust-based built-in Core Lightning plugin (from v23.08) that transforms RPC calls into a REST service.
+It also broadcasts Core Lightning notifications to listeners connected to its websocket server. By generating REST API endpoints,
 it enables the execution of Core Lightning's RPC methods behind the scenes and provides responses in JSON format.
 
 An online demo for the REST interface is available at [REST API REFERENCE](ref:get_list_methods_resource).
 
 > 📘 Pro-tip
-> 
+>
 > [REST API REFERENCE](ref:get_list_methods_resource) can also be tested with your own server.
 >
-> By default, the base URL is set to connect with the Blockstream-hosted regtest node. 
+> By default, the base URL is set to connect with the Blockstream-hosted regtest node.
 >
 > However, it can be configured to connect to your own cln node as described below:
 >
@@ -45,13 +45,13 @@ If `clnrest-port` is not specified, the plugin will disable itself.
 - --clnrest-certs: Defines the path for HTTPS cert & key. Default path is same as RPC file path to utilize gRPC's client certificate.
 If it is missing at the configured location, new identity will be generated.
 
-- --clnrest-csp: Creates a whitelist of trusted content sources that can run on a webpage and helps mitigate the risk of attacks. 
+- --clnrest-csp: Creates a whitelist of trusted content sources that can run on a webpage and helps mitigate the risk of attacks.
 Default CSP:
 `default-src 'self'; font-src 'self'; img-src 'self' data:; frame-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline';`
 Example CSP:
 `clnrest-csp=default-src 'self'; font-src 'self'; img-src 'self'; frame-src 'self'; style-src 'self'; script-src 'self';`.
 
-- --clnrest-cors-origins: Define multiple origins which are allowed to share resources on web pages to a domain different from the 
+- --clnrest-cors-origins: Define multiple origins which are allowed to share resources on web pages to a domain different from the
 one that served the web page. Default is `*` which allows all origins. Example to define multiple origins:
 
 ```
@@ -65,14 +65,14 @@ clnrest-cors-origins=https?://127.0.0.1:([0-9]{1,4}|[1-5][0-9]{4}|6[0-4][0-9]{3}
 
 ## Server
 
-With the default configurations, the Swagger user interface will be available at https://127.0.0.1:3010/. 
+With the default configurations, the Swagger user interface will be available at https://127.0.0.1:3010/.
 The POST method requires `rune` header for authorization.
 
-- A new `rune` can be created via [createrune](https://docs.corelightning.org/reference/lightning-createrune) or the list of 
-existing runes can be retrieved with [showrunes](https://docs.corelightning.org/reference/lightning-showrunes) command.
+- A new `rune` can be created via [createrune](https://docs.corelightning.org/reference/createrune) or the list of
+existing runes can be retrieved with [showrunes](https://docs.corelightning.org/reference/showrunes) command.
 
-Note: in version v23.08, a parameter `Nodeid` was required to be the id of the node we're talking to (see `id (pubkey)` received 
-from [getinfo](https://docs.corelightning.org/reference/lightning-getinfo)). You can still send this for backwards compatibility, 
+Note: in version v23.08, a parameter `Nodeid` was required to be the id of the node we're talking to (see `id (pubkey)` received
+from [getinfo](https://docs.corelightning.org/reference/getinfo)). You can still send this for backwards compatibility,
 but it is completely ignored.
 
 ### cURL
@@ -83,7 +83,7 @@ With `-k` or `--insecure` option curl proceeds with the connection even if the S
 This option should be used only when testing with self signed certificate.
 
 ## Websocket Server
-Websocket server is available at `https://127.0.0.1:3010`. clnrest broadcasts notifications to all listeners. 
+Websocket server is available at `https://127.0.0.1:3010`. clnrest broadcasts notifications to all listeners.
 
 This websocket server requires a `rune` with at least `readonly` access for authorization. The default method used
 for current validation is `listclnrest-notifications`. User can either provided a rune with minimum `readonly`
