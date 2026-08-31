@@ -36,6 +36,8 @@ enum dualopend_owner_state {
 	DUALOPEND_OWNER_REESTABLISHING,
 	DUALOPEND_OWNER_READY,
 	DUALOPEND_OWNER_RETIRING,
+	/* A terminal initial open is waiting for its owner and route to retire. */
+	DUALOPEND_OWNER_INITIAL_RELEASE_PENDING,
 };
 
 /* How a replacement dualopend joins the protocol on the current transport.
@@ -206,6 +208,12 @@ struct channel {
 	/* Set while an in-place tx_abort waits for connectd to reactivate the
 	 * existing route.  The aborting RPC completes only after that barrier. */
 	char *dualopend_abort_reason;
+	/* Initial-open teardown completes only after both sides of the local route
+	 * have gone. */
+	bool dualopend_initial_owner_exited;
+	bool dualopend_initial_route_released;
+	struct oneshot *dualopend_initial_release_timer;
+	char *dualopend_initial_release_reason;
 
 	/* A funding-depth callback ran before the replacement dualopend was
 	 * ready.  Re-evaluate against the current chain when it becomes ready. */

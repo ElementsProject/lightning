@@ -42,6 +42,8 @@ struct commit_rcvd {
 	struct uncommitted_channel *uc;
 };
 
+static void maybe_finish_initial_open_release(struct channel *channel);
+
 static void channel_disconnect(struct channel *channel,
 			       enum log_level level,
 			       bool reconnect,
@@ -61,6 +63,16 @@ void channel_unsaved_close_conn(struct channel *channel, const char *why)
 {
 	/* Gotta be unsaved */
 	assert(channel_state_uncommitted(channel->state));
+	/* The terminal completion path owns this channel until both its old owner and
+	 * connectd route are gone.  A simultaneous transport loss makes route
+	 * release trivially safe, but must not bypass the owner-exit barrier. */
+	if (channel->dualopend_owner_state
+	    == DUALOPEND_OWNER_INITIAL_RELEASE_PENDING) {
+		assert(!channel->owner);
+		channel->dualopend_initial_route_released = true;
+		maybe_finish_initial_open_release(channel);
+		return;
+	}
 	log_info(channel->log, "Unsaved peer failed."
 		 " Disconnecting and deleting channel. Reason: %s",
 		 why);
@@ -2652,6 +2664,7 @@ static struct command_result *openchannel_bump(struct openchannel_bump_info *inf
 	case DUALOPEND_OWNER_READY_PENDING_ROUTE:
 	case DUALOPEND_OWNER_REESTABLISHING:
 	case DUALOPEND_OWNER_RETIRING:
+	case DUALOPEND_OWNER_INITIAL_RELEASE_PENDING:
 		return command_still_pending(cmd);
 	}
 	abort();
@@ -4336,6 +4349,105 @@ void dual_open_owner_begin_retirement(struct channel *channel,
 			    channel);
 }
 
+static void request_initial_open_route_release(struct channel *channel)
+{
+	assert(channel->dualopend_owner_state
+	       == DUALOPEND_OWNER_INITIAL_RELEASE_PENDING);
+	assert(!channel->owner);
+
+	/* The old process and its exclusive HSM client are now gone.  Have connectd
+	 * remove the matching peer route before completing any waiting RPC. */
+	subd_send_msg(channel->peer->ld->connectd,
+		take(towire_connectd_peer_release_subd(
+			NULL, &channel->peer->id,
+			channel->dualopend_owner_connectd_counter,
+			&channel->cid)));
+}
+
+static void maybe_finish_initial_open_release(struct channel *channel)
+{
+	const char *reason;
+
+	if (channel->dualopend_owner_state
+	    != DUALOPEND_OWNER_INITIAL_RELEASE_PENDING
+	    || !channel->dualopend_initial_owner_exited
+	    || !channel->dualopend_initial_route_released)
+		return;
+
+	channel->dualopend_initial_release_timer
+		= tal_free(channel->dualopend_initial_release_timer);
+	reason = tal_strdup(tmpctx, channel->dualopend_initial_release_reason);
+	channel_cleanup_commands(channel, reason);
+	delete_channel(channel, false);
+}
+
+static void initial_open_release_timeout(struct channel *channel)
+{
+	channel->dualopend_initial_release_timer = NULL;
+	if (channel->dualopend_owner_state
+	    != DUALOPEND_OWNER_INITIAL_RELEASE_PENDING)
+		return;
+
+	/* A stuck retiring owner or connectd route must not strand the caller
+	 * forever.  Disconnecting this exact transport makes route release
+	 * unambiguous; normal peer/owner teardown still satisfies both barriers. */
+	log_unusual(channel->log,
+		    "Initial dual-open teardown exceeded %u seconds; disconnecting peer",
+		    channel->peer->ld->config.dual_open_disconnect_timeout_secs);
+	subd_send_msg(channel->peer->ld->connectd,
+		take(towire_connectd_disconnect_peer(
+			NULL, &channel->peer->id,
+			channel->dualopend_owner_connectd_counter)));
+}
+
+static void initial_open_owner_exited(struct subd *old_owner UNUSED,
+				      struct channel *channel)
+{
+	assert(channel->dualopend_owner_state
+	       == DUALOPEND_OWNER_INITIAL_RELEASE_PENDING);
+	channel->dualopend_initial_owner_exited = true;
+	if (!channel->dualopend_initial_route_released)
+		request_initial_open_route_release(channel);
+	maybe_finish_initial_open_release(channel);
+}
+
+static void begin_initial_open_release(struct channel *channel,
+				       struct peer_fd *peer_fd,
+				       const char *desc)
+{
+	struct subd *retiring_owner = channel->owner;
+
+	assert(channel_state_uncommitted(channel->state));
+	assert(channel->dualopend_owner_state
+	       != DUALOPEND_OWNER_INITIAL_RELEASE_PENDING);
+	channel->dualopend_initial_release_reason = tal_strdup(channel, desc);
+	channel->dualopend_owner_state
+		= DUALOPEND_OWNER_INITIAL_RELEASE_PENDING;
+	channel->dualopend_initial_owner_exited = false;
+	channel->dualopend_initial_route_released = false;
+	channel->dualopend_initial_release_timer
+		= new_reltimer(channel->peer->ld->timers, channel,
+			       time_from_sec(channel->peer->ld->config
+					     .dual_open_disconnect_timeout_secs),
+			       initial_open_release_timeout, channel);
+
+	/* A status_peer_error returns the endpoint before the subdaemon has exited;
+	 * its destructor is the owner barrier.  A NULL endpoint is the late callback
+	 * from destroy_subd, so the process has already been reaped. */
+	if (peer_fd) {
+		assert(retiring_owner);
+		tal_free(peer_fd);
+		tal_add_destructor2(retiring_owner,
+				    initial_open_owner_exited,
+				    channel);
+		channel_set_owner(channel, NULL);
+	} else {
+		channel_set_owner(channel, NULL);
+		channel->dualopend_initial_owner_exited = true;
+		request_initial_open_route_release(channel);
+	}
+}
+
 static void dualopen_errmsg(struct channel *channel,
 			    struct peer_fd *peer_fd,
 			    const char *desc,
@@ -4343,11 +4455,11 @@ static void dualopen_errmsg(struct channel *channel,
 			    bool disconnect,
 			    bool warning)
 {
+	/* Initial opens have no durable commitment to resume.  Every terminal path
+	 * uses the same teardown barrier: local/remote tx_abort, validation or hook
+	 * rejection, fatal peer error, and spontaneous owner death. */
 	if (channel_state_uncommitted(channel->state)) {
-		channel_cleanup_commands(channel, desc);
-		log_info(channel->log, "%s", "Unsaved peer failed."
-			 " Deleting channel.");
-		delete_channel(channel, false);
+		begin_initial_open_release(channel, peer_fd, desc);
 		return;
 	}
 
@@ -4753,6 +4865,29 @@ void dual_open_owner_route_result(struct lightningd *ld, const u8 *msg)
 		}
 		channel->dualopend_owner_state = DUALOPEND_OWNER_REESTABLISHING;
 	}
+}
+
+void dual_open_initial_release_result(struct lightningd *ld, const u8 *msg)
+{
+	struct node_id peer_id;
+	struct channel_id cid;
+	struct channel *channel;
+	u64 connectd_counter;
+	if (!fromwire_connectd_peer_release_subd_reply(msg, &peer_id,
+						       &connectd_counter, &cid))
+		fatal("Bad connectd_peer_release_subd_reply: %s", tal_hex(msg, msg));
+
+	channel = channel_by_cid(ld, &cid);
+	if (!channel || !node_id_eq(&channel->peer->id, &peer_id)
+	    || channel->dualopend_owner_state
+	       != DUALOPEND_OWNER_INITIAL_RELEASE_PENDING
+	    || channel->dualopend_owner_connectd_counter != connectd_counter)
+		return;
+
+	/* connectd emits this from the route destructor.  The owner may have exited
+	 * first or transport teardown may have raced ahead of it. */
+	channel->dualopend_initial_route_released = true;
+	maybe_finish_initial_open_release(channel);
 }
 
 bool peer_restart_dualopend(struct peer *peer,

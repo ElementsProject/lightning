@@ -134,6 +134,18 @@ msgdata,connectd_peer_resume_subd,id,node_id,
 msgdata,connectd_peer_resume_subd,counter,u64,
 msgdata,connectd_peer_resume_subd,channel_id,channel_id,
 
+# Master -> connectd: discard the retired route for a terminal initial open.
+# The reply is sent only after the old subd endpoint has been removed.
+msgtype,connectd_peer_release_subd,2019
+msgdata,connectd_peer_release_subd,id,node_id,
+msgdata,connectd_peer_release_subd,counter,u64,
+msgdata,connectd_peer_release_subd,channel_id,channel_id,
+
+msgtype,connectd_peer_release_subd_reply,2105
+msgdata,connectd_peer_release_subd_reply,id,node_id,
+msgdata,connectd_peer_release_subd_reply,counter,u64,
+msgdata,connectd_peer_release_subd_reply,channel_id,channel_id,
+
 # Connectd -> master: peer said something interesting
 msgtype,connectd_peer_spoke,2005
 msgdata,connectd_peer_spoke,id,node_id,

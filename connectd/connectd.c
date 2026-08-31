@@ -2414,6 +2414,9 @@ static struct io_plan *recv_req(struct io_conn *conn,
 	case WIRE_CONNECTD_PEER_RESUME_SUBD:
 		peer_resume_subd(daemon, msg);
 		goto out;
+	case WIRE_CONNECTD_PEER_RELEASE_SUBD:
+		peer_release_subd(daemon, msg);
+		goto out;
 
 	case WIRE_CONNECTD_START_SHUTDOWN:
 		start_shutdown(daemon, msg);
@@ -2478,6 +2481,7 @@ static struct io_plan *recv_req(struct io_conn *conn,
 	case WIRE_CONNECTD_PEER_DISCONNECTED:
 	case WIRE_CONNECTD_PEER_RECONNECTED:
 	case WIRE_CONNECTD_PEER_CONNECT_SUBD_REPLY:
+	case WIRE_CONNECTD_PEER_RELEASE_SUBD_REPLY:
 	case WIRE_CONNECTD_START_SHUTDOWN_REPLY:
 	case WIRE_CONNECTD_INJECT_ONIONMSG_REPLY:
 	case WIRE_CONNECTD_ONIONMSG_FORWARD_FAIL:

@@ -33,6 +33,9 @@ bool dual_open_attempt_waiting_for_owner(const struct channel *channel);
 /* Connectd accepted (or rejected) the pending dualopend peer route. */
 void dual_open_owner_route_result(struct lightningd *ld, const u8 *msg);
 
+/* Connectd has fully removed a terminal initial-open route. */
+void dual_open_initial_release_result(struct lightningd *ld, const u8 *msg);
+
 void NO_NULL_ARGS json_add_unsaved_channel(struct command *cmd,
 					   struct json_stream *response,
 					   const struct channel *channel,

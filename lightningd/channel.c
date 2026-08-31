@@ -392,6 +392,10 @@ struct channel *new_unsaved_channel(struct peer *peer,
 	channel->dualopend_connectd_fd = NULL;
 	channel->dualopend_restart_peer_fd = NULL;
 	channel->dualopend_abort_reason = NULL;
+	channel->dualopend_initial_owner_exited = false;
+	channel->dualopend_initial_route_released = false;
+	channel->dualopend_initial_release_timer = NULL;
+	channel->dualopend_initial_release_reason = NULL;
 	channel->dualopend_depth_needs_recheck = false;
 
 	channel->last_htlc_sigs = NULL;
@@ -614,6 +618,10 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->dualopend_connectd_fd = NULL;
 	channel->dualopend_restart_peer_fd = NULL;
 	channel->dualopend_abort_reason = NULL;
+	channel->dualopend_initial_owner_exited = false;
+	channel->dualopend_initial_route_released = false;
+	channel->dualopend_initial_release_timer = NULL;
+	channel->dualopend_initial_release_reason = NULL;
 	channel->dualopend_depth_needs_recheck = false;
 	channel->openchannel_signed_cmd = NULL;
 	if (their_shachain)

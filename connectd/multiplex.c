@@ -58,11 +58,20 @@ struct subd {
 	/* After we've told it to tx_abort, we don't send anything else. */
 	bool rcvd_tx_abort;
 	struct oneshot *abort_close_timer;
+	/* A retired initial open cannot reuse this route.  Acknowledge release only
+	 * from the route destructor, after a retry can no longer collide with it. */
+	bool release_pending;
+	u64 release_counter;
+	struct channel_id release_channel_id;
 };
 
 /* FIXME: reorder! */
 static bool is_urgent(enum peer_wire type);
 static void destroy_connected_subd(struct subd *subd);
+static void send_release_subd_reply(struct daemon *daemon,
+				    const struct node_id *id,
+				    u64 counter,
+				    const struct channel_id *channel_id);
 static struct io_plan *write_to_peer(struct io_conn *peer_conn,
 				     struct peer *peer);
 
@@ -1369,11 +1378,19 @@ static void destroy_connected_subd(struct subd *subd)
 {
 	struct peer *peer = subd->peer;
 	size_t pos;
+	bool release_pending = subd->release_pending;
+	u64 release_counter = subd->release_counter;
+	struct channel_id release_channel_id = subd->release_channel_id;
 
 	for (pos = 0; peer->subds[pos] != subd; pos++)
 		assert(pos < tal_count(peer->subds));
 
 	tal_arr_remove(&peer->subds, pos);
+
+	if (release_pending)
+		send_release_subd_reply(peer->daemon, &peer->id,
+					release_counter,
+					&release_channel_id);
 
 	/* Make sure we try to keep reading from peer (might
 	 * have been waiting for write_to_subd) */
@@ -1405,6 +1422,7 @@ static struct subd *new_subd(struct peer *peer,
 	subd->conn_pending = false;
 	subd->rcvd_tx_abort = false;
 	subd->abort_close_timer = NULL;
+	subd->release_pending = false;
 
 	/* Connect it to the peer */
 	tal_arr_expand(&peer->subds, subd);
@@ -1628,6 +1646,16 @@ static void send_connect_subd_reply(struct daemon *daemon,
 				 NULL, id, counter, channel_id, accepted)));
 }
 
+static void send_release_subd_reply(struct daemon *daemon,
+				    const struct node_id *id,
+				    u64 counter,
+				    const struct channel_id *channel_id)
+{
+	daemon_conn_send(daemon->master,
+			 take(towire_connectd_peer_release_subd_reply(
+				 NULL, id, counter, channel_id)));
+}
+
 static struct io_plan *subd_conn_ready(struct io_conn *subd_conn,
 				       struct subd *subd)
 {
@@ -1652,6 +1680,8 @@ static struct io_plan *subd_conn_init_untracked(struct io_conn *subd_conn,
 	subd->conn = subd_conn;
 	tal_steal(subd->conn, subd);
 	tal_add_destructor(subd, destroy_connected_subd);
+	if (subd->release_pending)
+		return io_close(subd_conn);
 	return io_duplex(subd_conn,
 			 read_from_subd(subd_conn, subd),
 			 write_to_subd(subd_conn, subd));
@@ -1667,6 +1697,8 @@ static struct io_plan *subd_conn_init_tracked(struct io_conn *subd_conn,
 	/* subd is a child of the conn: free when it closes! */
 	tal_steal(subd->conn, subd);
 	tal_add_destructor(subd, destroy_connected_subd);
+	if (subd->release_pending)
+		return io_close(subd_conn);
 
 	/* Defer the tracked acknowledgement until ccan/io has installed this
 	 * duplex plan, so lightningd cannot start a replacement owner against a
@@ -1884,6 +1916,54 @@ void peer_resume_subd(struct daemon *daemon, const u8 *msg)
 
 reply:
 	send_connect_subd_reply(daemon, &id, counter, &channel_id, accepted);
+}
+
+void peer_release_subd(struct daemon *daemon, const u8 *msg)
+{
+	struct node_id id;
+	u64 counter;
+	struct channel_id channel_id;
+	struct peer *peer;
+	struct subd *subd = NULL;
+
+	if (!fromwire_connectd_peer_release_subd(msg, &id, &counter,
+						&channel_id))
+		master_badmsg(WIRE_CONNECTD_PEER_RELEASE_SUBD, msg);
+
+	peer = peer_htable_get(daemon->peers, &id);
+	if (!peer || peer->counter != counter) {
+		/* A missing or replaced transport cannot retain the old route. */
+		send_release_subd_reply(daemon, &id, counter, &channel_id);
+		return;
+	}
+
+	for (size_t i = 0; i < tal_count(peer->subds); i++) {
+		struct subd *candidate = peer->subds[i];
+
+		if (channel_id_eq(&candidate->channel_id, &channel_id)
+		    || (candidate->temporary_channel_id
+			&& channel_id_eq(candidate->temporary_channel_id,
+					 &channel_id))) {
+			subd = candidate;
+			break;
+		}
+	}
+
+	/* EOF may have removed the retired route before this request arrived. */
+	if (!subd) {
+		send_release_subd_reply(daemon, &id, counter, &channel_id);
+		return;
+	}
+
+	assert(!subd->release_pending);
+	subd->release_pending = true;
+	subd->release_counter = counter;
+	subd->release_channel_id = channel_id;
+	subd->abort_close_timer = tal_free(subd->abort_close_timer);
+	/* io_new_conn installs the connection asynchronously.  Its init callback
+	 * observes release_pending and closes it if it is not installed yet. */
+	if (subd->conn)
+		io_close(subd->conn);
 }
 
 /* Lightningd says to send a ping */
