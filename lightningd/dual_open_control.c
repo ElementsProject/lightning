@@ -4036,6 +4036,27 @@ AUTODATA(json_command, &openchannel_signed_command);
 AUTODATA(json_command, &openchannel_bump_command);
 AUTODATA(json_command, &openchannel_abort_command);
 
+/* BOLT #2:
+ *
+ * A receiving node:
+ *   - if they have already sent `tx_signatures` to the peer:
+ *     - MUST NOT forget the channel until any inputs to the negotiated tx
+ *       have been spent.
+ *   - if they have not sent `tx_signatures`:
+ *     - SHOULD forget the current negotiation and reset their state.
+ */
+/* Every path in dualopen_errmsg which forgets a channel funnels through
+ * here, so the MUST NOT half of the rule above is enforced in a single
+ * place.  Does nothing if we've already sent our tx_signatures. */
+static void forget_channel_open(struct channel *channel, const char *why)
+{
+	if (channel_funding_sigs_sent(channel))
+		return;
+
+	log_info(channel->log, "%s. Deleting channel.", why);
+	delete_channel(channel, false);
+}
+
 static void dualopen_errmsg(struct channel *channel,
 			    struct peer_fd *peer_fd,
 			    const char *desc,
@@ -4046,17 +4067,16 @@ static void dualopen_errmsg(struct channel *channel,
 	/* Clean up any in-progress open attempts */
 	channel_cleanup_commands(channel, desc);
 
+	/* An unsaved channel has nothing to remember (and cannot have
+	 * sent tx_signatures). */
 	if (channel_state_uncommitted(channel->state)) {
-		log_info(channel->log, "%s", "Unsaved peer failed."
-			 " Deleting channel.");
-		delete_channel(channel, false);
+		forget_channel_open(channel, "Unsaved peer failed");
 		return;
 	}
-	if ((warning || disconnect) && channel_state_open_uncommitted(channel->state)
+	if ((warning || disconnect)
+	    && channel_state_open_uncommitted(channel->state)
 	    && !channel_funding_sigs_sent(channel)) {
-		log_info(channel->log, "%s", "Commit ready peer failed."
-			 " Deleting channel.");
-		delete_channel(channel, false);
+		forget_channel_open(channel, "Commit ready peer failed");
 		return;
 	}
 
@@ -4099,20 +4119,16 @@ static void dualopen_errmsg(struct channel *channel,
 		if (!disconnect) {
 			if (channel_state_open_uncommitted(channel->state)
 			    && !channel_funding_sigs_sent(channel)) {
-				log_info(channel->log, "%s", "Commit ready peer can't reconnect."
-					 " Deleting channel.");
-				delete_channel(channel, false);
+				forget_channel_open(channel,
+						    "Commit ready peer can't reconnect");
 				return;
 			}
-			/* Negotiation was cleanly aborted after commitments
-			 * were exchanged, but before we sent tx_signatures:
-			 * safe to forget (BOLT #2 tx_abort sender rule). */
 			if (!warning
 			    && channel->state == DUALOPEND_OPEN_COMMITTED
 			    && !channel_funding_sigs_sent(channel)) {
-				log_info(channel->log, "%s", "Open aborted before we sent"
-					 " tx_signatures. Deleting channel.");
-				delete_channel(channel, false);
+				forget_channel_open(channel,
+						    "Open aborted before we sent"
+						    " tx_signatures");
 				return;
 			}
 			if (channel_funding_sigs_sent(channel))
@@ -4134,16 +4150,6 @@ static void dualopen_errmsg(struct channel *channel,
 	 *
 	 * A sending node:
 	 *...
-	 *   - when sending `error`:
-	 *     - MUST fail the channel(s) referred to by the error message.
-	 *     - MAY set `channel_id` to all zero to indicate all channels.
-	 */
-	/* FIXME: Close if it's an all-channels error sent or rcvd */
-
-	/* BOLT #1:
-	 *
-	 * A sending node:
-	 *...
 	 *  - when sending `error`:
 	 *    - MUST fail the channel(s) referred to by the error message.
 	 *    - MAY set `channel_id` to all zero to indicate all channels.
@@ -4157,6 +4163,7 @@ static void dualopen_errmsg(struct channel *channel,
 	 *        sending node.
 	 */
 
+	/* FIXME: Close if it's an all-channels error sent or rcvd */
 	/* FIXME: We don't close all channels */
 	/* We should immediately forget the channel if we receive error during
 	 * CHANNELD_AWAITING_LOCKIN if we are fundee. */
