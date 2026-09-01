@@ -32,9 +32,9 @@ To install the Docker image for the latest stable release:
 docker pull elementsproject/lightningd:latest
 ```
 
-To install for a specific version, for example, 24.05:
+To install for a specific version, for example, v26.06.6:
 ```shell
-docker pull elementsproject/lightningd:v24.05
+docker pull elementsproject/lightningd:v26.06.6
 ```
 
 To run the Docker container:
