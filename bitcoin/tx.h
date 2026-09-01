@@ -350,6 +350,14 @@ size_t change_weight(void);
 struct amount_sat change_fee(u32 feerate_perkw,	size_t total_weight);
 
 /**
+ * min_change_amount - the minimum amount a change output can carry.
+ *
+ * Change script is P2TR for Bitcoin, P2WPKH for Elements: below these
+ * amounts change_amount() dust-caps the change to zero.
+ */
+struct amount_sat min_change_amount(void);
+
+/**
  * change_amount - Is it worth making a change output at this feerate?
  * @excess: input amount we have above the tx fee and other outputs.
  * @feerate_perkw: feerate.
