@@ -37,7 +37,7 @@ Don't hesitate to reach out to us on the implementation-specific [mailing list][
 
 ## Getting Started
 
-Core Lightning only works on Linux and macOS, and requires a locally (or remotely) running `bitcoind` (version 25.0 or above) that is fully caught up with the network you're running on, and relays transactions (ie with `blocksonly=0`).
+Core Lightning only works on Linux and macOS, and requires a locally (or remotely) running `bitcoind` (version 23.0 or above) that is fully caught up with the network you're running on, and relays transactions (ie with `blocksonly=0`).
 Pruning (`prune=n` option in `bitcoin.conf`) is partially supported, see [here](#pruning) for more details.
 
 ### Installation

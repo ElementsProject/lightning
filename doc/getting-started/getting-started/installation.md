@@ -66,7 +66,7 @@ For actually doing development and running the tests, you will also need:
 - pip3: to install python-bitcoinlib
 - valgrind: for extra debugging checks
 
-You will also need a version of bitcoind with segregated witness and `estimatesmartfee` with `ECONOMICAL` mode support. Version 0.16 or above should work.
+You will also need a version of bitcoind with segregated witness and `estimatesmartfee` with `ECONOMICAL` mode support. Version 23.0 or above should work.
 
 ## To Build on Ubuntu
 
