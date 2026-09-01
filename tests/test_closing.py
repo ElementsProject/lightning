@@ -4202,6 +4202,36 @@ def test_closing_anchorspend_htlc_tx_rbf(node_factory, bitcoind):
     assert bitcoind.rpc.getrawmempool() == []
 
 
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'Large BTC UTXO amounts are bitcoin-regtest specific')
+def test_htlc_timeout_boost_large_utxo(node_factory, bitcoind):
+    """A large wallet UTXO must not abort lightningd when boosting an HTLC timeout."""
+    l1, l2 = node_factory.get_nodes(2, opts=[{}, {'disconnect': ['-WIRE_UPDATE_FAIL_HTLC']}])
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    # Fund first so the channel open leaves a single huge change output.
+    l1.fundwallet(40 * 10**8)
+    l1.rpc.fundchannel(l2.info['id'], 10**5)
+
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    sync_blockheight(bitcoind, [l1, l2])
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['state'] == 'CHANNELD_NORMAL')
+    wait_for(lambda: only_one(l2.rpc.listpeerchannels()['channels'])['state'] == 'CHANNELD_NORMAL')
+
+    inv = l2.rpc.invoice(10**6, 'inv', 'desc')
+    l2.rpc.delinvoice('inv', 'unpaid')
+    l1.rpc.sendpay([{'amount_msat': 10**6, 'id': l2.info['id'], 'delay': 12,
+                     'channel': first_scid(l1, l2)}],
+                   inv['payment_hash'], payment_secret=inv['payment_secret'])
+    l2.daemon.wait_for_log('dev_disconnect')
+
+    l1.rpc.dev_fail(l2.info['id'])
+    l1.wait_for_channel_onchain(l2.info['id'])
+    bitcoind.generate_block(1, wait_for_mempool=1)
+
+    # Before the fix, calc_feerate() abort()ed here.
+    l1.wait_for_onchaind_tx('OUR_HTLC_TIMEOUT_TX', 'OUR_UNILATERAL/OUR_HTLC')
+
+
 @pytest.mark.parametrize("anchors", [False, True])
 def test_htlc_no_force_close(node_factory, bitcoind, anchors):
     """l2<->l3 force closes while an HTLC is in flight from l1, but l2 can't timeout because the feerate has spiked.  It should do so anyway."""
