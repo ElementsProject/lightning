@@ -12,9 +12,9 @@ Power up your Core Lightning node and tailor it for your business needs with com
 
 `reckless` is a plugin manager for Core Lightning that you can use to install and uninstall plugins with a single command.
 
-> 📘 
-> 
-> Reckless currently supports python plugins only. Additional language support will be provided in future releases. For plugins built by the community in other languages, see the complete list of plugins [here](https://github.com/lightningd/plugins).
+> 📘
+>
+> Reckless currently supports both python and rust plugins only. Additional language support will be provided in future releases. For plugins built by the community in other languages, see the complete list of plugins [here](https://github.com/lightningd/plugins).
 
 Typical plugin installation involves: finding the source plugin, copying, installing dependencies, testing, activating, and updating the lightningd config file. Reckless does all of these by invoking:
 
@@ -110,8 +110,8 @@ Available option flags:
 **-v**, **--verbose**  
 	request additional debug output
 
-> 📘 
-> 
+> 📘
+>
 > Running the first time will prompt the user that their lightningd's bitcoin config will be appended (or created) to inherit the reckless config file (this config is specific to bitcoin by default.) Management of plugins will subsequently modify this file.
 
 ## Troubleshooting
