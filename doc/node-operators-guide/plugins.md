@@ -14,7 +14,7 @@ Power up your Core Lightning node and tailor it for your business needs with com
 
 > 📘
 >
-> Reckless currently supports both python and rust plugins only. Additional language support will be provided in future releases. For plugins built by the community in other languages, see the complete list of plugins [here](https://github.com/lightningd/plugins).
+> Reckless currently supports python and rust plugins only. Additional language support will be provided in future releases. For plugins built by the community in other languages, see the complete list of plugins [here](https://github.com/lightningd/plugins).
 
 Typical plugin installation involves: finding the source plugin, copying, installing dependencies, testing, activating, and updating the lightningd config file. Reckless does all of these by invoking:
 
