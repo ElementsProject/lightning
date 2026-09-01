@@ -8,7 +8,7 @@ privacy:
 
 Check out a step-by-step recipe for building a simple `helloworld.py` example plugin based on [pyln-client](https://github.com/ElementsProject/lightning/tree/master/contrib/pyln-client).
 
-🦉 **[Write a hello-world plugin in Python](https://docs.corelightning.org/v1.0/recipes/write-a-hello-world-plugin-in-python)**
+🦉 **[Write a hello-world plugin in Python](https://docs.corelightning.org/recipes/write-a-hello-world-plugin-in-python)**
 
 You can also follow along the video below where Blockstream Engineer Rusty Russell walks you all the way from getting started with Core Lightning to building a plugin in Python.
 
