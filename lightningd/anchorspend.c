@@ -324,7 +324,7 @@ static struct wally_psbt *try_anchor_psbt(const tal_t *ctx,
 	if (!amount_sat_add(&fee, *fee_spent, anch->info.commitment_fee))
 		abort();
 	if (!amount_feerate(feerate, fee, *total_weight))
-		abort();
+		*feerate = UINT32_MAX;
 
 	return psbt;
 }
