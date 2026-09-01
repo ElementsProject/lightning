@@ -633,8 +633,10 @@ static u32 calc_feerate(struct amount_sat excess_sats,
 
 	if (!amount_sat_sub(&fee, excess_sats, output_sats_required))
 		return 0;
+	/* A legal wallet amount can imply more than UINT32_MAX sat/kw on a
+	 * small tx.  That is above every representable feerate_target. */
 	if (!amount_feerate(&feerate, fee, weight))
-		abort();
+		return UINT32_MAX;
 	return feerate;
 }
 
