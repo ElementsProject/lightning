@@ -9,7 +9,7 @@
 - Commits which fix crashes or bug MUST quote the bug for later searches: do not rely on being able to find the bug report in future!
 - Commits which create signficant user (not developer!) visible changes should have Changelog-(Added|Deprecated|Changed|Fixed|EXPERIMENTAL) for assembling CHANGELOG.md at release time.
 - Deprecations must use the deprecation infrastructure, and append to the table in doc/developers-guide/deprecated-features.md
-- Adding a new JSON-RPC command requires the most careful design: start with doc/schemas/NAME.json and add doc/NAME.json to MARKDOWNPAGES in doc/Makefile.  `make doc-all` will regen the rest.
+- Adding a new JSON-RPC command requires the most careful design: start with doc/schemas/NAME.json and add doc/NAME.7 to MARKDOWNPAGES in doc/Makefile.  `make doc-all` will regen the rest.
 - In pytest integration tests, name nodes l1, l2, etc in creation order.  This matches the log prefixes they use (`lightningd-1` etc) and on test failure the logs and other ephemera will in /tmp/ltests-*/TESTNAME*/lightning-1/.
 - In pytest, never assert that a command raises an exception without specifying *exactly what* it raises!  Use `with pytest.raises(RpcError, match='xxx'):`
 - tal_bytelen / tal_count of NULL are defined to be zero, and you may assume this.
