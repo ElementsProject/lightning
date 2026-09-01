@@ -101,7 +101,7 @@ Here's a checklist for the release process.
 
 1. Create a PR to update:
   * `Makefile`: variables CLN_NEXT_VERSION and CLN_PREV_VERSION (this may break tests as deprecated things are disabled!)
-  * `tools/lightningd-downgrade.c`: to downgrade to the just-released version.
+  * `tools/lightning-downgrade.c`: to downgrade to the just-released version.
   * `.github/workflows/ci.yaml`: change old-cln to download the just-released version.
   * `.github/PULL_REQUEST_TEMPLATE.md` for important dates for the next release.
 2. Look through PRs which were delayed for release and merge them.
