@@ -491,7 +491,7 @@ have to do that.
 
   Normally HTLC onions which contain unknown even fields are rejected.
 This option specifies that this type is to be accepted, and ignored.  Can be
-specified multuple times. (Added in v23.08).
+specified multiple times. (Added in v23.08).
 
 * **min-emergency-msat**=*msat*
 
@@ -835,7 +835,7 @@ load plugins which have been disabled, using lightning-plugin(7) `start`.
 
 * **important-plugin**=*PLUGIN*
 
-  Speciy a plugin to run as part of Core Lightning.
+  Specify a plugin to run as part of Core Lightning.
 This can be specified multiple times to add multiple plugins.
 Plugins specified via this option are considered so important, that if the
 plugin stops for any reason (including via lightning-plugin(7) `stop`),

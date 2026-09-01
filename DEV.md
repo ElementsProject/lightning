@@ -7,7 +7,7 @@
 - assert-based unit tests can "#include ../file.c", OR add objects to Makefile targets: `make update-mocks` will regenerate mocks for functions from link errors.
 - Commits should be reviewable, bisectable, and include tests.  Pattern: one commit adds a python test with @pytest.mark.xfail(strict=True), next commit fixes the problem and removes that line.
 - Commits which fix crashes or bug MUST quote the bug for later searches: do not rely on being able to find the bug report in future!
-- Commits which create signficant user (not developer!) visible changes should have Changelog-(Added|Deprecated|Changed|Fixed|EXPERIMENTAL) for assembling CHANGELOG.md at release time.
+- Commits which create significant user (not developer!) visible changes should have Changelog-(Added|Deprecated|Changed|Fixed|EXPERIMENTAL) for assembling CHANGELOG.md at release time.
 - Deprecations must use the deprecation infrastructure, and append to the table in doc/developers-guide/deprecated-features.md
 - Adding a new JSON-RPC command requires the most careful design: start with doc/schemas/NAME.json and add doc/NAME.7 to MARKDOWNPAGES in doc/Makefile.  `make doc-all` will regen the rest.
 - In pytest integration tests, name nodes l1, l2, etc in creation order.  This matches the log prefixes they use (`lightningd-1` etc) and on test failure the logs and other ephemera will in /tmp/ltests-*/TESTNAME*/lightning-1/.
