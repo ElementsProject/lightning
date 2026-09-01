@@ -71,7 +71,7 @@ Here's a checklist for the release process.
 7. Run `tools/build-release.sh bin-Fedora bin-Ubuntu sign` (with `--sudo` if you need root to run Docker) to:
    - Create reproducible zipfile
    - Build reproducible Fedora image
-   - Build reproducible Ubuntu-v20.04, Ubuntu-v22.04 and Ubuntu-v24.04 images. Follow [link](https://docs.corelightning.org/docs/repro#building-using-the-builder-image) for manually Building Ubuntu Images.
+   - Build reproducible Ubuntu-v22.04, Ubuntu-v24.04 and Ubuntu-v26.04 images. Follow [link](https://docs.corelightning.org/docs/repro#building-using-the-builder-image) for manually Building Ubuntu Images.
    - Build Docker images for amd64 and arm64v8. Follow [link](https://docs.corelightning.org/docs/docker-images) for more details on Docker publishing.
    - Create and sign checksums. Follow [link](https://docs.corelightning.org/docs/repro#co-signing-the-release-manifest) for manually signing the release.
 8. If you used `--sudo`, the tarballs may be owned by root, so revert ownership if necessary: `sudo chown ${USER}:${USER} *${VERSION}*`
