@@ -148,11 +148,13 @@ gpg -sb --armor SHA256SUMS
 4. Then send the resulting `release/SHA256SUMS.asc` file to the release captain so it can be merged with the other signatures into `SHASUMS.asc`.
 
 ## Manual
-Co-maintainers and contributors wishing to add their own signature verify that the `SHA256SUMS` and `SHA256SUMS.asc` files created by the release captain matches their binaries before also signing the manifest:
+Co-maintainers and contributors wishing to add their own signature verify that the `SHA256SUMS` and `SHA256SUMS.asc` files created by the release captain matches their binaries before also signing the manifest.
+
+Always pass **both** files to `gpg --verify`: the signature first, then the file it is supposed to cover. See [Verifying a reproducible build](#verifying-a-reproducible-build) below for why the single-argument form is not sufficient.
 
 ```shell
 cd release/
-gpg --verify SHA256SUMS.asc
+gpg --verify SHA256SUMS.asc SHA256SUMS
 sha256sum -c SHA256SUMS
 cat SHA256SUMS | gpg -sb --armor > SHA256SUMS.new
 ```
@@ -169,13 +171,14 @@ You can verify the reproducible build in two ways:
 Assuming you have downloaded the binaries, the manifest and the signatures into the same directory, you can verify the signatures with the following:
 
 ```shell
-gpg --verify SHA256SUMS.asc
+gpg --verify SHA256SUMS.asc SHA256SUMS
 ```
+
+Pass both filenames explicitly. With a single argument `gpg` picks its verification mode from the packet structure of the `.asc` file: for a genuine detached signature it guesses the sibling `SHA256SUMS`, but for an inline (clear-signed or embedded) message it verifies only the payload carried inside the `.asc` itself. It never reads `SHA256SUMS` in that case, and although it prints `WARNING: not a detached signature; file 'SHA256SUMS' was NOT verified!`, it still exits with status 0 — so the warning is easy to miss by eye and invisible to any script that only checks the exit code. Naming the manifest as the second argument forces `gpg` to check the signatures against that exact file, and to fail outright if the `.asc` is not a detached signature over it.
 
 And you should see a list of messages like the following:
 
 ```shell
-gpg: assuming signed data in 'SHA256SUMS'
 gpg: Signature made Fr 08 Mai 2020 07:46:38 CEST
 gpg:                using RSA key 15EE8D6CAB0E7F0CF999BFCBD9200E6CD1ADB8F1
 gpg: Good signature from "Rusty Russell <rusty@rustcorp.com.au>" [full]
