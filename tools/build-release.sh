@@ -276,8 +276,11 @@ if [ "$VERIFY_RELEASE" = "true" ]; then
         echo "Error: SHA256SUMS do NOT Match"
     exit 1
     fi
-    # verify release captain signature
-    gpg --verify "../SHA256SUMS-$VERSION.asc"
+    # Verify release captain signature. Pass the manifest explicitly: with only
+    # the .asc argument gpg picks its mode from the file's packet structure and
+    # would verify a payload embedded in an inline-signed .asc, exiting 0
+    # without ever reading the checksums we just compared.
+    gpg --verify "../SHA256SUMS-$VERSION.asc" "../SHA256SUMS-$VERSION"
     # create ASCII-armored detached signature
     gpg -sb --armor < SHA256SUMS > SHA256SUMS.new
     echo "Verified Successfully! Signature Updated in release/SHA256SUMS.new"
