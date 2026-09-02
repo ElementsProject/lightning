@@ -16102,7 +16102,8 @@
         "",
         "- -32602: If the given parameters are wrong.",
         "- -1: Catchall nonspecific error.",
-        "- 301: Insufficient UTXOs to meet *satoshi* value."
+        "- 301: Insufficient UTXOs to meet *satoshi* value.",
+        "- 313: The `min-emergency-msat` reserve could not be preserved (and we have or are opening anchor channels)."
       ],
       "author": [
         "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
@@ -30957,7 +30958,8 @@
         "",
         "- -1: Catchall nonspecific error.",
         "- 301: There are not enough funds in the internal wallet (including fees) to create the transaction.",
-        "- 302: The dust limit is not met."
+        "- 302: The dust limit is not met.",
+        "- 313: The `min-emergency-msat` reserve could not be preserved (and we have anchor channels)."
       ],
       "author": [
         "ZmnSCPxj [ZmnSCPxj@protonmail.com](mailto:ZmnSCPxj@protonmail.com) is mainly responsible."
@@ -38500,7 +38502,8 @@
         "",
         "- -1: Catchall nonspecific error.",
         "- 301: There are not enough funds in the internal wallet (including fees) to create the transaction.",
-        "- 302: The dust limit is not met."
+        "- 302: The dust limit is not met.",
+        "- 313: The `min-emergency-msat` reserve could not be preserved (and we have anchor channels)."
       ],
       "author": [
         "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
@@ -38872,6 +38875,13 @@
           }
         }
       },
+      "errors": [
+        "On failure, an error is reported and no transaction is created.",
+        "",
+        "- -1: Catchall nonspecific error.",
+        "- 301: There are not enough funds in the internal wallet (including fees) to create the transaction.",
+        "- 313: The `min-emergency-msat` reserve could not be preserved (and we have anchor channels)."
+      ],
       "usage": [
         "The caller is trying to buy a liquidity ad but the command keeps failing. They have funds in their wallet, but they're all P2SH-wrapped outputs.",
         "",
@@ -39107,7 +39117,8 @@
         "",
         "- -32602: If the given parameters are wrong.",
         "- -1: Catchall nonspecific error.",
-        "- 301: Insufficient UTXOs to meet *satoshi* value."
+        "- 301: Insufficient UTXOs to meet *satoshi* value.",
+        "- 313: The `min-emergency-msat` reserve could not be preserved (and we have or are opening anchor channels)."
       ],
       "author": [
         "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
