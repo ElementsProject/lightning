@@ -15008,7 +15008,7 @@
         "- 301: There are not enough funds in the internal wallet (including fees) to create the transaction.",
         "- 302: The output amount is too small, and would be considered dust.",
         "- 303: Broadcasting of the funding transaction failed, the internal call to bitcoin-cli returned with an error.",
-        "- 313: The `min-emergency-msat` reserve not be preserved (and we have or are opening anchor channels).",
+        "- 313: The `min-emergency-msat` reserve could not be preserved (and we have or are opening anchor channels).",
         "",
         "Failure may also occur if **lightningd** and the peer cannot agree on channel parameters (funding limits, channel reserves, fees, etc.)."
       ],
@@ -30692,7 +30692,7 @@
         "- 301: There are not enough funds in the internal wallet (including fees) to create the transaction.",
         "- 302: The output amount is too small, and would be considered dust.",
         "- 303: Broadcasting of the funding transaction failed, the internal call to bitcoin-cli returned with an error.",
-        "- 313: The `min-emergency-msat` reserve not be preserved (and we have or are opening anchor channels).",
+        "- 313: The `min-emergency-msat` reserve could not be preserved (and we have or are opening anchor channels).",
         "",
         "Failure may also occur if **lightningd** and the peer cannot agree on channel parameters (funding limits, channel reserves, fees, etc.). See lightning-fundchannel_start(7) and lightning-fundchannel_complete(7).",
         "",
@@ -40958,7 +40958,7 @@
         "- -1: Catchall nonspecific error.",
         "- 301: There are not enough funds in the internal wallet (including fees) to create the transaction.",
         "- 302: The dust limit is not met.",
-        "- 313: The `min-emergency-msat` reserve not be preserved (and we have anchor channels)."
+        "- 313: The `min-emergency-msat` reserve could not be preserved (and we have anchor channels)."
       ],
       "author": [
         "Felix [fixone@gmail.com](mailto:fixone@gmail.com) is mainly responsible."
