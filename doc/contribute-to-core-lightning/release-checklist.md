@@ -82,7 +82,7 @@ Here's a checklist for the release process.
    - Run `tools/build-release.sh --verify`. It will create reproducible images, verify checksums and sign.
    - Send your signatures from `release/SHA256SUMS-v<VERSION>.asc` to release captain.
    - Or follow [link](https://docs.corelightning.org/docs/repro#verifying-a-reproducible-build) for manual verification instructions.
-12. Append signatures shared by the team into the `SHA256SUMS-v<VERSION>.asc` file, verify with `gpg --verify SHA256SUMS-v<VERSION>.asc` and include the file in the draft release.
+12. Append signatures shared by the team into the `SHA256SUMS-v<VERSION>.asc` file, verify with `gpg --verify SHA256SUMS-v<VERSION>.asc SHA256SUMS-v<VERSION>` (always pass the manifest as the second argument, otherwise `gpg` may verify a payload embedded in the `.asc` and exit successfully without ever reading the checksums) and include the file in the draft release.
 13. The GitHub action `Publish Python 🐍 distributions 📦 to PyPI and TestPyPI` should upload the pyln modules to pypi.org. However, this can also be done manually by running `uv run make pyln-release`. This process requires keys for each of the `pyln-client`, `pyln-proto`, and `pyln-testing` modules to be accessible to uv. You can set the key as an environment variable and build and publish each pyln release independently:
     - `export UV_PUBLISH_TOKEN=<pyln-client token>`
     - `uv run make pyln-release-client`
@@ -124,7 +124,7 @@ Here's a checklist for the release process.
 10. Sign the release locally by running `tools/build-release.sh bin-Fedora bin-Ubuntu sign` which will sign the release contents and create `SHA256SUMS-v<VERSION>` and `SHA256SUMS-v<VERSION>.asc` in the release folder.
 11. Validate that your local checksums `SHA256SUMS-v<VERSION>` match the Draft release's, then add your signatures to the draft release's signature `SHA256SUMS-v<VERSION>.asc` file.
 12. Share the `SHA256SUMS-v<VERSION>` and `SHA256SUMS-v<VERSION>.asc` files with the team for verification and signing.
-13. Append the signatures received from the team to the `SHA256SUMS-v<VERSION>.asc` file. Verify the file using `gpg --verify SHA256SUMS-v<VERSION>.asc`. Then re-upload the file.
+13. Append the signatures received from the team to the `SHA256SUMS-v<VERSION>.asc` file. Verify the file using `gpg --verify SHA256SUMS-v<VERSION>.asc SHA256SUMS-v<VERSION>`; the manifest must be passed as the second argument, otherwise `gpg` may verify a payload embedded in the `.asc` and exit successfully without ever reading the checksums. Then re-upload the file.
 14. Finalize and publish the release (change it from draft to public).
 15. Ensure that the GitHub Actions for `Publish Python 🐍 distributions 📦 to PyPI and TestPyPI` and `Build and push multi-platform docker images` are functioning correctly. Check that the `PyPI` modules published on `https://pypi.org/project/pyln-*` and that the Docker image has been uploaded to Docker Hub.
 16. Create a PR to merge updates from `update-versions` and `CHANGELOG.md` into `master` to keep it up-to-date for the next release.
