@@ -81,7 +81,8 @@
             "payment_hash",
             "status",
             "created_at",
-            "created_index"
+            "created_index",
+            "amount_sent_msat"
           ],
           "properties": {
             "payment_hash": {
@@ -174,7 +175,6 @@
               "then": {
                 "additionalProperties": false,
                 "required": [
-                  "amount_sent_msat",
                   "preimage"
                 ],
                 "properties": {
@@ -230,9 +230,7 @@
               },
               "then": {
                 "additionalProperties": false,
-                "required": [
-                  "amount_sent_msat"
-                ],
+                "required": [],
                 "properties": {
                   "created_index": {},
                   "updated_index": {},

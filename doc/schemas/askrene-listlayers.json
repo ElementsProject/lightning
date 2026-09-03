@@ -37,7 +37,9 @@
             "created_channels",
             "channel_updates",
             "impressions",
-            "constraints"
+            "constraints",
+            "biases",
+            "node_biases"
           ],
           "properties": {
             "layer": {

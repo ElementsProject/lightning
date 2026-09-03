@@ -50,6 +50,7 @@
     "required": [
       "id",
       "created_index",
+      "groupid",
       "payment_hash",
       "status",
       "created_at",

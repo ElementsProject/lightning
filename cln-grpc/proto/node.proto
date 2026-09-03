@@ -271,7 +271,7 @@ message ListpeersPeers {
 	bool connected = 2;
 	repeated ListpeersPeersLog log = 3;
 	repeated string netaddr = 5;
-	optional bytes features = 6;
+	bytes features = 6;
 	optional string remote_addr = 7;
 	uint32 num_channels = 8;
 }
@@ -359,7 +359,7 @@ message SendpayResponse {
 		COMPLETE = 1;
 	}
 	uint64 id = 1;
-	optional uint64 groupid = 2;
+	uint64 groupid = 2;
 	bytes payment_hash = 3;
 	SendpayStatus status = 4;
 	optional Amount amount_msat = 5;
@@ -412,7 +412,7 @@ message ListchannelsChannels {
 	uint32 fee_per_millionth = 11;
 	uint32 delay = 12;
 	Amount htlc_minimum_msat = 13;
-	optional Amount htlc_maximum_msat = 14;
+	Amount htlc_maximum_msat = 14;
 	bytes features = 15;
 	uint32 direction = 16;
 }
@@ -636,7 +636,7 @@ message CreateinvoiceResponse {
 	bytes payment_hash = 4;
 	optional Amount amount_msat = 5;
 	CreateinvoiceStatus status = 6;
-	string description = 7;
+	optional string description = 7;
 	uint64 expires_at = 8;
 	optional uint64 pay_index = 9;
 	optional Amount amount_received_msat = 10;
@@ -670,8 +670,8 @@ message DatastoreRequest {
 }
 
 message DatastoreResponse {
-	optional uint64 generation = 2;
-	optional bytes hex = 3;
+	uint64 generation = 2;
+	bytes hex = 3;
 	optional string string = 4;
 	repeated string key = 5;
 }
@@ -712,8 +712,8 @@ message DeldatastoreRequest {
 }
 
 message DeldatastoreResponse {
-	optional uint64 generation = 2;
-	optional bytes hex = 3;
+	uint64 generation = 2;
+	bytes hex = 3;
 	optional string string = 4;
 	repeated string key = 5;
 }
@@ -842,7 +842,7 @@ message InvoiceResponse {
 
 message InvoicerequestRequest {
 	Amount amount = 1;
-	string description = 2;
+	optional string description = 2;
 	optional string issuer = 3;
 	optional string label = 4;
 	optional uint64 absolute_expiry = 5;
@@ -1113,7 +1113,7 @@ message PayResponse {
 		FAILED = 2 [deprecated = true];
 	}
 	bytes payment_preimage = 1 [deprecated = true];
-	optional bytes destination = 2 [deprecated = true];
+	bytes destination = 2 [deprecated = true];
 	bytes payment_hash = 3 [deprecated = true];
 	double created_at = 4 [deprecated = true];
 	uint32 parts = 5 [deprecated = true];
@@ -1242,7 +1242,7 @@ message WaitsendpayResponse {
 		COMPLETE = 0;
 	}
 	uint64 id = 1;
-	optional uint64 groupid = 2;
+	uint64 groupid = 2;
 	bytes payment_hash = 3;
 	WaitsendpayStatus status = 4;
 	optional Amount amount_msat = 5;
@@ -1443,7 +1443,7 @@ message ListpeerchannelsChannels {
 	bool peer_connected = 2;
 	ChannelState state = 3;
 	optional bytes scratch_txid = 4;
-	optional ListpeerchannelsChannelsChannelType channel_type = 5;
+	ListpeerchannelsChannelsChannelType channel_type = 5;
 	optional ListpeerchannelsChannelsFeerate feerate = 6;
 	optional string owner = 7;
 	optional string short_channel_id = 8;
@@ -1616,7 +1616,7 @@ message ListclosedchannelsClosedchannels {
 	ChannelSide opener = 5;
 	optional ChannelSide closer = 6;
 	bool private = 7;
-	optional ListclosedchannelsClosedchannelsChannelType channel_type = 8;
+	ListclosedchannelsClosedchannelsChannelType channel_type = 8;
 	uint64 total_local_commitments = 9;
 	uint64 total_remote_commitments = 10;
 	uint64 total_htlcs_sent = 11;
@@ -1919,7 +1919,7 @@ message DelpayPayments {
 	uint64 created_at = 9;
 	optional uint64 updated_index = 10;
 	optional uint64 completed_at = 11;
-	optional uint64 groupid = 12;
+	uint64 groupid = 12;
 	optional bytes payment_preimage = 13;
 	optional string label = 14;
 	optional string bolt11 = 15;
@@ -2002,7 +2002,7 @@ message FeeratesOnchainFeeEstimates {
 	uint64 unilateral_close_satoshis = 3;
 	uint64 htlc_timeout_satoshis = 4;
 	uint64 htlc_success_satoshis = 5;
-	optional uint64 unilateral_close_nonanchor_satoshis = 6;
+	uint64 unilateral_close_nonanchor_satoshis = 6;
 }
 
 message FeeratesPerkb {
@@ -2173,7 +2173,7 @@ message FundchannelStartRequest {
 message FundchannelStartResponse {
 	string funding_address = 1;
 	bytes scriptpubkey = 2;
-	optional FundchannelStartChannelType channel_type = 3;
+	FundchannelStartChannelType channel_type = 3;
 	optional bytes close_to = 4;
 	string warning_usage = 5;
 	optional uint32 mindepth = 6;
@@ -2434,7 +2434,7 @@ message ListpaysPays {
 	optional string bolt11 = 6;
 	optional string bolt12 = 7;
 	optional Amount amount_msat = 8;
-	optional Amount amount_sent_msat = 9;
+	Amount amount_sent_msat = 9;
 	optional bytes erroronion = 10;
 	optional string description = 11;
 	optional uint64 completed_at = 12;
@@ -2599,7 +2599,7 @@ message OpenchannelBumpResponse {
 	string psbt = 3;
 	bool commitments_secured = 4;
 	uint64 funding_serial = 5;
-	optional bool requires_confirmed_inputs = 6;
+	bool requires_confirmed_inputs = 6;
 }
 
 message OpenchannelBumpChannelType {
@@ -2626,7 +2626,7 @@ message OpenchannelInitResponse {
 	OpenchannelInitChannelType channel_type = 3;
 	bool commitments_secured = 4;
 	uint64 funding_serial = 5;
-	optional bool requires_confirmed_inputs = 6;
+	bool requires_confirmed_inputs = 6;
 }
 
 message OpenchannelInitChannelType {
@@ -2714,11 +2714,11 @@ message RenepaystatusPaystatus {
 	bytes payment_hash = 3 [deprecated = true];
 	double created_at = 4 [deprecated = true];
 	uint32 groupid = 5 [deprecated = true];
-	optional uint32 parts = 6 [deprecated = true];
+	uint32 parts = 6 [deprecated = true];
 	Amount amount_msat = 7 [deprecated = true];
 	optional Amount amount_sent_msat = 8 [deprecated = true];
 	RenepaystatusPaystatusStatus status = 9 [deprecated = true];
-	optional bytes destination = 10 [deprecated = true];
+	bytes destination = 10 [deprecated = true];
 	repeated string notes = 11 [deprecated = true];
 }
 
@@ -2748,10 +2748,10 @@ message RenepayResponse {
 	Amount amount_msat = 5 [deprecated = true];
 	Amount amount_sent_msat = 6 [deprecated = true];
 	RenepayStatus status = 7 [deprecated = true];
-	optional bytes destination = 8 [deprecated = true];
+	bytes destination = 8 [deprecated = true];
 	optional string bolt11 = 9 [deprecated = true];
 	optional string bolt12 = 10 [deprecated = true];
-	optional uint64 groupid = 11 [deprecated = true];
+	uint64 groupid = 11 [deprecated = true];
 }
 
 message ReserveinputsRequest {
@@ -2797,7 +2797,7 @@ message SendinvoiceResponse {
 		EXPIRED = 2;
 	}
 	string label = 1;
-	string description = 2;
+	optional string description = 2;
 	bytes payment_hash = 3;
 	SendinvoiceStatus status = 4;
 	uint64 expires_at = 5;
@@ -2902,7 +2902,7 @@ message SpliceInitResponse {
 }
 
 message SpliceSignedRequest {
-	bytes channel_id = 1;
+	optional bytes channel_id = 1;
 	string psbt = 2;
 	optional bool sign_first = 3;
 }
@@ -2910,7 +2910,7 @@ message SpliceSignedRequest {
 message SpliceSignedResponse {
 	bytes tx = 1;
 	bytes txid = 2;
-	optional uint32 outnum = 3;
+	uint32 outnum = 3;
 	string psbt = 4;
 }
 
@@ -2931,9 +2931,9 @@ message SpliceinRequest {
 }
 
 message SpliceinResponse {
-	optional string psbt = 1;
+	string psbt = 1;
 	optional string tx = 2;
-	optional string txid = 3;
+	string txid = 3;
 }
 
 message SpliceoutRequest {
@@ -2944,9 +2944,9 @@ message SpliceoutRequest {
 }
 
 message SpliceoutResponse {
-	optional string psbt = 1;
+	string psbt = 1;
 	optional string tx = 2;
-	optional string txid = 3;
+	string txid = 3;
 }
 
 message DevspliceRequest {
@@ -3164,7 +3164,7 @@ message ListconfigsRequest {
 }
 
 message ListconfigsResponse {
-	optional ListconfigsConfigs configs = 1;
+	ListconfigsConfigs configs = 1;
 }
 
 message ListconfigsConfigs {
@@ -3680,7 +3680,7 @@ message HelpResponse {
 		SIMPLE = 0;
 	}
 	repeated HelpHelp help = 1;
-	optional HelpFormathint format_hint = 2;
+	HelpFormathint format_hint = 2;
 }
 
 message HelpHelp {
@@ -3730,7 +3730,7 @@ message BkprchannelsapyChannelsApy {
 	Amount our_start_balance_msat = 8;
 	Amount channel_start_balance_msat = 9;
 	Amount fees_out_msat = 10;
-	optional Amount fees_in_msat = 11;
+	Amount fees_in_msat = 11;
 	string utilization_out = 12;
 	optional string utilization_out_initial = 13;
 	string utilization_in = 14;
@@ -3895,7 +3895,7 @@ message BkpreditdescriptionbypaymentidUpdated {
 	Amount debit_msat = 5;
 	string currency = 6;
 	uint32 timestamp = 7;
-	string description = 8;
+	optional string description = 8;
 	optional string outpoint = 9;
 	optional uint32 blockheight = 10;
 	optional string origin = 11;
@@ -3940,7 +3940,7 @@ message BkpreditdescriptionbyoutpointUpdated {
 }
 
 message BkprreportRequest {
-	optional string format = 1;
+	string format = 1;
 	repeated string headers = 2;
 	optional string escape = 3;
 	optional uint32 start_time = 4;

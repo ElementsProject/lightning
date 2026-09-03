@@ -29,7 +29,10 @@
     }
   },
   "response": {
-    "required": [],
+    "required": [
+      "psbt",
+      "txid"
+    ],
     "properties": {
       "psbt": {
         "type": "string",

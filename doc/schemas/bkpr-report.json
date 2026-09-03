@@ -10,7 +10,9 @@
     "It has the useful property that when used with `lightning-cli` and the `escape=csv` it can directly produce valid CSV files."
   ],
   "request": {
-    "required": [],
+    "required": [
+      "format"
+    ],
     "additionalProperties": false,
     "properties": {
       "format": {
@@ -97,6 +99,7 @@
   },
   "response": {
     "required": [
+      "format-hint",
       "report"
     ],
     "additionalProperties": false,

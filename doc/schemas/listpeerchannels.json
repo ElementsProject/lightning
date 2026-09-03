@@ -52,11 +52,12 @@
           "type": "object",
           "additionalProperties": true,
           "required": [
-            "state",
-            "opener",
-            "features",
+            "peer_id",
             "peer_connected",
-            "peer_id"
+            "state",
+            "channel_type",
+            "opener",
+            "features"
           ],
           "properties": {
             "peer_id": {

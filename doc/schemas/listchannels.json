@@ -61,6 +61,7 @@
             "fee_per_millionth",
             "delay",
             "htlc_minimum_msat",
+            "htlc_maximum_msat",
             "features"
           ],
           "properties": {
