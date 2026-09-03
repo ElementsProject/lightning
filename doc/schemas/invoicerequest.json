@@ -9,8 +9,7 @@
   ],
   "request": {
     "required": [
-      "amount",
-      "description"
+      "amount"
     ],
     "additionalProperties": false,
     "properties": {

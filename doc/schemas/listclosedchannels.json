@@ -37,6 +37,7 @@
             "channel_id",
             "opener",
             "private",
+            "channel_type",
             "total_msat",
             "total_local_commitments",
             "total_remote_commitments",

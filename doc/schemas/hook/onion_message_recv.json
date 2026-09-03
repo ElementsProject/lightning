@@ -20,6 +20,9 @@
       "onion_message": {
         "type": "object",
         "additionalProperties": false,
+        "required": [
+          "unknown_fields"
+        ],
         "properties": {
           "reply_blindedpath": {
             "type": "object",
@@ -30,6 +33,10 @@
               "If present, plugins must use this path if they construct a reply onion message."
             ],
             "additionalProperties": false,
+            "required": [
+              "first_path_key",
+              "hops"
+            ],
             "properties": {
               "first_node_id": {
                 "type": "pubkey",

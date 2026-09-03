@@ -788,12 +788,14 @@ async fn check_peer_lsp_status(
     };
 
     let connected = peer.connected;
-    let has_lsp_feature = if let Some(f_str) = &peer.features {
-        let feature_bits = hex::decode(f_str)
-            .map_err(|e| anyhow!("Invalid feature bits hex for peer {peer_id}, {f_str}: {e}"))?;
+    let has_lsp_feature = {
+        let feature_bits = hex::decode(&peer.features).map_err(|e| {
+            anyhow!(
+                "Invalid feature bits hex for peer {peer_id}, {}: {e}",
+                peer.features
+            )
+        })?;
         is_feature_bit_set_reversed(&feature_bits, LSP_FEATURE_BIT)
-    } else {
-        false
     };
 
     Ok(PeerLspStatus {

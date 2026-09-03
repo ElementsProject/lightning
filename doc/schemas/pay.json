@@ -123,6 +123,7 @@
   "response": {
     "required": [
       "payment_preimage",
+      "destination",
       "payment_hash",
       "created_at",
       "parts",

@@ -277,6 +277,7 @@
           "opening_channel_satoshis",
           "mutual_close_satoshis",
           "unilateral_close_satoshis",
+          "unilateral_close_nonanchor_satoshis",
           "htlc_timeout_satoshis",
           "htlc_success_satoshis"
         ],

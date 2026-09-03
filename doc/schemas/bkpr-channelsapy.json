@@ -48,6 +48,7 @@
             "our_start_balance_msat",
             "channel_start_balance_msat",
             "fees_out_msat",
+            "fees_in_msat",
             "utilization_out",
             "utilization_in",
             "apy_out",

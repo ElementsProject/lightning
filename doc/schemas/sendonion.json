@@ -142,6 +142,7 @@
     "required": [
       "created_index",
       "id",
+      "groupid",
       "payment_hash",
       "status",
       "created_at",
@@ -291,7 +292,9 @@
         },
         "then": {
           "additionalProperties": false,
-          "required": [],
+          "required": [
+            "message"
+          ],
           "properties": {
             "created_index": {},
             "id": {},

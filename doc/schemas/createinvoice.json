@@ -47,7 +47,6 @@
       "created_index",
       "payment_hash",
       "status",
-      "description",
       "expires_at"
     ],
     "additionalProperties": false,

@@ -89,7 +89,8 @@
       "psbt",
       "channel_type",
       "commitments_secured",
-      "funding_serial"
+      "funding_serial",
+      "requires_confirmed_inputs"
     ],
     "additionalProperties": false,
     "properties": {

@@ -21,7 +21,9 @@
     }
   },
   "response": {
-    "required": [],
+    "required": [
+      "perkw"
+    ],
     "additionalProperties": false,
     "properties": {
       "perkw": {

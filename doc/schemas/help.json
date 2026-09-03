@@ -22,7 +22,8 @@
   },
   "response": {
     "required": [
-      "help"
+      "help",
+      "format-hint"
     ],
     "additionalProperties": false,
     "properties": {

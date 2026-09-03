@@ -92,6 +92,7 @@
     "required": [
       "funding_address",
       "scriptpubkey",
+      "channel_type",
       "warning_usage"
     ],
     "additionalProperties": false,

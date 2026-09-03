@@ -126,6 +126,7 @@
       "single_use",
       "bolt12",
       "used",
+      "force_paths",
       "created"
     ],
     "additionalProperties": false,
