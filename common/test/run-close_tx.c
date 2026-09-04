@@ -7,7 +7,7 @@
 #include <common/close_tx.h>
 #include <common/setup.h>
 #include <common/utils.h>
-#include <external/libwally-core/include/wally_script.h>
+#include <wally_script.h>
 #include <stdio.h>
 
 static void test_create_simple_close_tx_basic(void)

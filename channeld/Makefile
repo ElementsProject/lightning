@@ -18,25 +18,30 @@ CHANNELD_SRC := channeld/channeld.c	\
 	channeld/channeld_wiregen.c		\
 	channeld/watchtower.c
 
-CHANNELD_OBJS := $(CHANNELD_SRC:.c=.o)
+CHANNELD_OBJS := $(CHANNELD_SRC:%.c=$(BUILDDIR)/%.o)
 $(CHANNELD_OBJS): $(CHANNELD_HEADERS)
 
 # Make sure these depend on everything.
 ALL_C_SOURCES += $(CHANNELD_SRC)
 ALL_C_HEADERS += $(CHANNELD_HEADERS)
-ALL_PROGRAMS += lightningd/lightning_channeld
+ALL_PROGRAMS += $(BUILDDIR)/lightningd/lightning_channeld
 
 # Here's what lightningd depends on
 LIGHTNINGD_CONTROL_HEADERS += \
 	channeld/channeld_wiregen.h \
 	channeld/inflight.h
-LIGHTNINGD_CONTROL_OBJS +=  \
+LIGHTNINGD_CONTROL_OBJS += \
+	$(addprefix $(BUILDDIR)/, \
 	channeld/channeld_wiregen.o \
-	channeld/inflight.o
+	channeld/inflight.o \
+	)
 
-channeld/full_channel_error_names_gen.h: channeld/full_channel_error.h ccan/ccan/cdump/tools/cdump-enumstr
-	ccan/ccan/cdump/tools/cdump-enumstr channeld/full_channel_error.h > $@
+channeld/full_channel_error_names_gen.h: channeld/full_channel_error.h $(CDUMP_ENUMSTR)
+	$(CDUMP_ENUMSTR) channeld/full_channel_error.h > $@
 
-lightningd/lightning_channeld: $(CHANNELD_OBJS) $(HSMD_CLIENT_OBJS) libcommon.a
+$(BUILDDIR)/lightningd/lightning_channeld: $(CHANNELD_OBJS) $(HSMD_CLIENT_OBJS) $(BUILDDIR)/libcommon.a
+
+obsclean::
+	$(RM) channeld/*.o
 
 include channeld/test/Makefile

@@ -32,16 +32,16 @@ BOOKKEEPER_HEADER := 				\
 	plugins/bkpr/recorder.h			\
 	plugins/bkpr/sql.h
 
-BOOKKEEPER_OBJS := $(BOOKKEEPER_SRC:.c=.o)
+BOOKKEEPER_OBJS := $(BOOKKEEPER_SRC:%.c=$(BUILDDIR)/%.o)
 
 $(BOOKKEEPER_OBJS): $(PLUGIN_LIB_HEADER) $(BOOKKEEPER_HEADER)
 
 PLUGIN_ALL_SRC += $(BOOKKEEPER_SRC)
 PLUGIN_ALL_HEADER += $(BOOKKEEPER_HEADER)
-C_PLUGINS += plugins/bookkeeper
-PLUGINS += plugins/bookkeeper
+C_PLUGINS += $(BUILDDIR)/plugins/bookkeeper
+PLUGINS += $(BUILDDIR)/plugins/bookkeeper
 
-plugins/bookkeeper: $(BOOKKEEPER_OBJS) $(PLUGIN_LIB_OBJS) libcommon.a
+$(BUILDDIR)/plugins/bookkeeper: $(BOOKKEEPER_OBJS) $(PLUGIN_LIB_OBJS) $(BUILDDIR)/libcommon.a
 
 maintainer-clean: clean
 clean: bkpr-maintainer-clean
@@ -49,5 +49,8 @@ bkpr-maintainer-clean:
 	$(RM) plugins/bkpr/statements.po
 	$(RM) plugins/bkpr/statements_gettextgen.po
 	$(RM) $(BOOKKEEPER_DB_QUERIES)
+
+obsclean::
+	$(RM) plugins/bkpr/*.o
 
 include plugins/bkpr/test/Makefile
