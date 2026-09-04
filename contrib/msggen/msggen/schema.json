@@ -17664,7 +17664,7 @@
           "response": {
             "help": [
               {
-                "command": "pay invstring [amount_msat] [label] [riskfactor] [maxfeepercent] [retry_for] [maxdelay] [exemptfee] [localinvreqid] [exclude] [maxfee] [description] [partial_msat] [dev_use_shadow]"
+                "command": "pay (DEPRECATED!) invstring [amount_msat] [label] [riskfactor] [maxfeepercent] [retry_for] [maxdelay] [exemptfee] [localinvreqid] [exclude] [maxfee] [description] [partial_msat] [dev_use_shadow]"
               }
             ],
             "format-hint": "simple"
@@ -23027,12 +23027,6 @@
                 "set": false,
                 "source": "default",
                 "plugin": "/usr/local/libexec/plugins/cln-xpay"
-              },
-              "xpay-handle-pay": {
-                "value_bool": true,
-                "source": "default",
-                "plugin": "/usr/local/libexec/plugins/cln-xpay",
-                "dynamic": true
               },
               "xpay-slow-mode": {
                 "value_bool": false,
