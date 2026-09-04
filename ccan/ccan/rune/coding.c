@@ -206,7 +206,8 @@ bool rune_condition_is_valid(enum rune_condition cond)
 size_t rune_altern_fieldname_len(const char *alternstr, size_t alternstrlen)
 {
 	for (size_t i = 0; i < alternstrlen; i++) {
-		if (cispunct(alternstr[i]) && alternstr[i] != '_')
+		if (cispunct(alternstr[i]) && alternstr[i] != '_'
+		    && alternstr[i] != '-' && alternstr[i] != '.')
 			return i;
 	}
 	return alternstrlen;

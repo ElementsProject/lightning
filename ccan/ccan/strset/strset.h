@@ -4,6 +4,7 @@
 #include <ccan/typesafe_cb/typesafe_cb.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 /**
  * struct strset - representation of a string set
@@ -140,6 +141,61 @@ void strset_clear(struct strset *set);
 			(arg))
 void strset_iterate_(const struct strset *set,
 		     bool (*handle)(const char *, void *), const void *data);
+
+#ifndef STRSET_NUM_ITER_PARENTS
+#define STRSET_NUM_ITER_PARENTS 16
+#endif
+
+/**
+ * struct strset_iter - state for strset_iter_first/strset_iter_next.
+ *
+ * This is exposed so you can declare it on the stack.  It holds up to
+ * STRSET_NUM_ITER_PARENTS deferred subtrees; in trees deeper than
+ * that, iteration falls back to re-descending from the root (an
+ * O(depth) successor search per step), so memory use stays bounded
+ * for arbitrarily deep trees.
+ */
+struct strset_iter {
+	struct strset *parents[STRSET_NUM_ITER_PARENTS];
+	uint16_t num_parents;
+	bool dropped;
+	bool slow_mode;
+};
+
+/**
+ * strset_iter_first - begin an ordered iteration over a set.
+ * @it: the iterator to initialize.
+ * @set: the set.
+ *
+ * Returns the first member, or NULL if the set is empty.
+ * You should not alter the set during iteration!
+ *
+ * Example:
+ *	static void dump_set_iter(const struct strset *set)
+ *	{
+ *		struct strset_iter it;
+ *		const char *m;
+ *
+ *		for (m = strset_iter_first(&it, set);
+ *		     m;
+ *		     m = strset_iter_next(&it, set, m))
+ *			printf("%s\n", m);
+ *	}
+ */
+const char *strset_iter_first(struct strset_iter *it,
+			      const struct strset *set);
+
+/**
+ * strset_iter_next - continue an ordered iteration.
+ * @it: the iterator, initialized by strset_iter_first().
+ * @set: the set.
+ * @cur: the member the iteration is currently on.
+ *
+ * Returns the next member, or NULL at the end of the set.
+ */
+const char *strset_iter_next(struct strset_iter *it,
+			     const struct strset *set,
+			     const char *cur);
 
 
 /**

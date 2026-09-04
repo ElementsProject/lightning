@@ -80,6 +80,7 @@ struct ptr_valid_batch {
 	int to_child, from_child;
 	void *last;
 	bool last_ok;
+	bool last_write;
 };
 
 /**

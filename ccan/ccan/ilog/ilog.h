@@ -131,7 +131,7 @@ int ilog64_nz(uint64_t _v) CONST_FUNCTION;
 #endif /* builtin_ilog32_nz */
 
 #ifdef builtin_ilog64_nz
-#define ilog32(_v) ((_v) ? builtin_ilog32_nz(_v) : 0)
+#define ilog64(_v) ((_v) ? builtin_ilog64_nz(_v) : 0)
 #define ilog64_nz(_v) builtin_ilog64_nz(_v)
 #else
 #define ilog64_nz(_v) ilog64(_v)
