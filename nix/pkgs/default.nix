@@ -35,6 +35,7 @@ stdenv.mkDerivation {
     libtool
     lowdown
     pkgconf
+    protobuf
     py3
     unzip
     which
@@ -52,6 +53,7 @@ stdenv.mkDerivation {
     gmp
     jq
     libsodium
+    openssl
     sqlite
     zlib
   ];
