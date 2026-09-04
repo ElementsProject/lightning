@@ -7,6 +7,7 @@
 #include <common/channel_id.h>
 #include <common/channel_type.h>
 #include <common/derive_basepoints.h>
+#include <common/funding_tx_status.h>
 #include <common/scb_wiregen.h>
 #include <common/tx_roles.h>
 #include <common/utils.h>
@@ -60,7 +61,7 @@ struct channel_inflight {
 	const struct funding_info *funding;
 	struct wally_psbt *funding_psbt;
 	bool remote_tx_sigs;
-	bool tx_broadcast;
+	enum funding_tx_status funding_tx_status;
 
 	/* Commitment tx and sigs */
 	struct bitcoin_tx *last_tx;
@@ -204,6 +205,10 @@ struct channel {
 	/* Funding outpoint and amount */
 	struct bitcoin_outpoint funding;
 	struct amount_sat funding_sats;
+
+	/* have we (or our peer, for a zero-conf channel we didnt fund)
+	 * ever observed the funding transaction broadcast/confirmed? */
+	enum funding_tx_status funding_tx_status;
 
 	/* Watch we have on funding output. */
 	struct txowatch *funding_spend_watch;
@@ -452,7 +457,8 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    const struct channel_stats *stats,
 			    struct channel_state_change **state_changes STEALS,
 			    const struct wally_psbt *funding_psbt STEALS,
-			    bool withheld);
+			    bool withheld,
+			    enum funding_tx_status funding_tx_status);
 
 /* new_inflight - Create a new channel_inflight for a channel */
 struct channel_inflight *new_inflight(struct channel *channel,

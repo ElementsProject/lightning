@@ -10,12 +10,14 @@
 #include <db/exec.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/channel.h>
+#include <lightningd/channel_control.h>
 #include <lightningd/coin_mvts.h>
 #include <lightningd/feerate.h>
 #include <lightningd/gossip_control.h>
 #include <lightningd/invoice.h>
 #include <lightningd/io_loop_with_timers.h>
 #include <lightningd/notification.h>
+#include <lightningd/peer_control.h>
 #include <math.h>
 #include <wallet/txfilter.h>
 
@@ -207,6 +209,72 @@ static void rebroadcast_txs(struct chain_topology *topo)
 	/* Nothing to broadcast?  Reset timer immediately */
 	if (*num_rebroadcast_remaining == 0)
 		rebroadcasts_complete(topo, num_rebroadcast_remaining);
+}
+
+/* Mutual recursion via timer */
+static void poll_zeroconf_unbroadcast_funding(struct chain_topology *topo);
+
+struct zeroconf_utxo_check {
+	struct channel *channel;
+};
+
+/* Non-NULL txout means the outpoint is unspent, so visible to our
+ * bitcoind (mempool or a block) - either is enough to call it "not never
+ * broadcast" any more */
+static void zeroconf_utxo_checked(struct bitcoind *bitcoind,
+				  const struct bitcoin_tx_output *txout,
+				  struct zeroconf_utxo_check *check)
+{
+	struct channel *channel = check->channel;
+
+	if (txout && channel->funding_tx_status == FUNDING_TX_STATUS_UNKNOWN) {
+		log_info(channel->log,
+			 "Funding tx %s now visible to our bitcoind"
+			 " (we are not the broadcaster of this zeroconf"
+			 " channel)",
+			 fmt_bitcoin_txid(tmpctx, &channel->funding.txid));
+		channel->funding_tx_status = FUNDING_TX_STATUS_MEMPOOL;
+		wallet_channel_save(bitcoind->ld->wallet, channel);
+		channeld_tell_depth(channel, &channel->funding.txid, 0);
+	}
+	tal_free(check);
+}
+
+static void poll_zeroconf_unbroadcast_funding(struct chain_topology *topo)
+{
+	struct peer *peer;
+	struct peer_node_id_map_iter it;
+
+	topo->zeroconf_poll_timer = tal_free(topo->zeroconf_poll_timer);
+
+	for (peer = peer_node_id_map_first(topo->ld->peers, &it);
+	     peer;
+	     peer = peer_node_id_map_next(topo->ld->peers, &it)) {
+		struct channel *channel;
+
+		list_for_each(&peer->channels, channel, list) {
+			struct zeroconf_utxo_check *check;
+
+			if (channel->state != CHANNELD_AWAITING_LOCKIN
+			    && channel->state != DUALOPEND_AWAITING_LOCKIN)
+				continue;
+			if (channel->minimum_depth != 0)
+				continue;
+			if (channel->funding_tx_status != FUNDING_TX_STATUS_UNKNOWN)
+				continue;
+
+			check = tal(topo, struct zeroconf_utxo_check);
+			check->channel = channel;
+			bitcoind_getutxout(check, topo->bitcoind,
+					   &channel->funding,
+					   zeroconf_utxo_checked, check);
+		}
+	}
+
+	topo->zeroconf_poll_timer = new_reltimer(topo->ld->timers, topo,
+						 time_from_sec(5),
+						 poll_zeroconf_unbroadcast_funding,
+						 topo);
 }
 
 static void destroy_outgoing_tx(struct outgoing_tx *otx, struct chain_topology *topo)
@@ -1270,6 +1338,7 @@ struct chain_topology *new_topology(struct lightningd *ld, struct logger *log)
 	topo->rebroadcast_timer = NULL;
 	topo->updatefee_timer = NULL;
 	topo->checkchain_timer = NULL;
+	topo->zeroconf_poll_timer = NULL;
 	topo->request_ctx = tal(topo, char);
 	list_head_init(topo->sync_waiters);
 
@@ -1604,6 +1673,8 @@ void begin_topology(struct chain_topology *topo)
 
 	if (topo->old_block_scan)
 		fixup_scan(topo);
+
+	poll_zeroconf_unbroadcast_funding(topo);
 }
 
 void stop_topology(struct chain_topology *topo)
@@ -1612,6 +1683,7 @@ void stop_topology(struct chain_topology *topo)
 	tal_free(topo->checkchain_timer);
 	tal_free(topo->extend_timer);
 	tal_free(topo->updatefee_timer);
+	tal_free(topo->zeroconf_poll_timer);
 
 	/* Don't handle responses to any existing requests. */
 	tal_free(topo->request_ctx);

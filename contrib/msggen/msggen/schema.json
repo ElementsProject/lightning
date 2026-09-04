@@ -23530,6 +23530,7 @@
                       "out_htlc_id": {},
                       "failcode": {},
                       "failreason": {},
+                      "failure_reason": {},
                       "fee_msat": {
                         "type": "msat",
                         "description": [
@@ -23560,6 +23561,7 @@
                       "resolved_time": {},
                       "failcode": {},
                       "failreason": {},
+                      "failure_reason": {},
                       "out_channel": {}
                     }
                   }
@@ -23600,6 +23602,7 @@
                       "out_msat": {},
                       "failcode": {},
                       "failreason": {},
+                      "failure_reason": {},
                       "resolved_time": {
                         "type": "number",
                         "description": [
@@ -23626,6 +23629,7 @@
                       "fee_msat": {},
                       "failcode": {},
                       "failreason": {},
+                      "failure_reason": {},
                       "out_msatoshi": {},
                       "out_msat": {}
                     }
@@ -23675,6 +23679,89 @@
                         "description": [
                           "The name of the onion code returned."
                         ]
+                      },
+                      "failure_reason": {}
+                    }
+                  },
+                  "else": {
+                    "additionalProperties": false,
+                    "required": [],
+                    "properties": {
+                      "created_index": {},
+                      "updated_index": {},
+                      "in_channel": {},
+                      "in_htlc_id": {},
+                      "in_msatoshi": {},
+                      "in_msat": {},
+                      "status": {},
+                      "style": {},
+                      "received_time": {},
+                      "out_channel": {},
+                      "out_htlc_id": {},
+                      "fee": {},
+                      "fee_msat": {},
+                      "out_msatoshi": {},
+                      "out_msat": {},
+                      "resolved_time": {},
+                      "failure_reason": {}
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "additionalProperties": true,
+                    "properties": {
+                      "status": {
+                        "type": "string",
+                        "enum": [
+                          "local_failed"
+                        ]
+                      }
+                    }
+                  },
+                  "then": {
+                    "additionalProperties": false,
+                    "required": [],
+                    "properties": {
+                      "created_index": {},
+                      "updated_index": {},
+                      "in_channel": {},
+                      "in_htlc_id": {},
+                      "in_msatoshi": {},
+                      "in_msat": {},
+                      "status": {},
+                      "style": {},
+                      "received_time": {},
+                      "out_channel": {},
+                      "out_htlc_id": {},
+                      "fee": {},
+                      "fee_msat": {},
+                      "out_msatoshi": {},
+                      "out_msat": {},
+                      "resolved_time": {},
+                      "failcode": {},
+                      "failreason": {},
+                      "failure_reason": {
+                        "type": "string",
+                        "enum": [
+                          "insufficient_outgoing_liquidity",
+                          "too_many_htlcs",
+                          "dust_limit",
+                          "htlc_below_minimum",
+                          "htlc_above_maximum",
+                          "fee_insufficient",
+                          "cltv_incorrect",
+                          "cltv_expiry_too_soon",
+                          "cltv_expiry_too_far",
+                          "unknown_next_peer",
+                          "outgoing_peer_offline",
+                          "channel_failed_permanent",
+                          "invalid_onion",
+                          "funding_not_broadcast"
+                        ],
+                        "description": [
+                          "The root cause of the local failure, more specific than *failcode*/*failreason* (not always known)."
+                        ]
                       }
                     }
                   },
@@ -23697,7 +23784,10 @@
                       "fee_msat": {},
                       "out_msatoshi": {},
                       "out_msat": {},
-                      "resolved_time": {}
+                      "resolved_time": {},
+                      "failcode": {},
+                      "failreason": {},
+                      "failure_reason": {}
                     }
                   }
                 }
