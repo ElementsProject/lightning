@@ -381,7 +381,7 @@ u8 *scriptpubkey_p2tr_derkey(const tal_t *ctx, const u8 inner_der[33])
  * block csv lock.
  *    <remotepubkey> OP_CHECKSIGVERIFY 1 OP_CHECKSEQUENCEVERIFY
  */
-/* BOLT- #3
+/* BOLT-liquidity-ads #3:
  * ##### Leased channel (`option_will_fund`)
  *
  * If a `lease` applies to the channel, the `to_remote` output
@@ -597,7 +597,7 @@ u8 **bitcoin_witness_sig_and_element(const tal_t *ctx,
  *     OP_ENDIF
  *     OP_CHECKSIG
  */
-/* BOLT- #3
+/* BOLT-liquidity-ads #3:
  * ##### Leased channel (`option_will_fund`)
  * If a `lease` applies to the channel, the `to_local` output of the `accepter`
  * ensures the `leasor` funds are not spendable until the lease expires.
