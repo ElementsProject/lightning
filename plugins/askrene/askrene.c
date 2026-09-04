@@ -773,6 +773,23 @@ static void add_localchan(struct gossmap_localmods *mods,
 	if (!layer_find_local_channel(info->local_layer, scidd->scid))
 		layer_add_local_channel(info->local_layer,
 					self, peer, scidd->scid, capacity_msat);
+	else {
+		/* FIXME: In theory if we know with 100% certainty the liquidity of
+		 * one half we can deduce with 100% certainty the liquidity of
+		 * the other half. Inserting both as separate channels
+		 * constraints shouldn't do no harm, at most it is redundant.
+		 * However, our model doesn't (yet) know how to treat channel
+		 * reserves therefore including both halves produces incoherent
+		 * liquidity bounds. eg. a channel with capacity 100k sat,
+		 * initially opened by us, listpeerchannels would say we can
+		 * spend 100k - reserves, assuming this is 95k sat, askrene
+		 * would think that there are 5k sat available in the opposite
+		 * direction, or believe that our min/max equals exactly 100k
+		 * (not 95k) because the other side has 0 sat spendable.
+		 * We avoid these troubles by submitting only our half of the
+		 * channel to local_layer. */
+		return;
+	}
 	layer_add_update_channel(info->local_layer, scidd,
 				 &enabled,
 				 &htlcmin, &htlcmax,
