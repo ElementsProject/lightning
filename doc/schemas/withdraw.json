@@ -84,7 +84,7 @@
     "- -1: Catchall nonspecific error.",
     "- 301: There are not enough funds in the internal wallet (including fees) to create the transaction.",
     "- 302: The dust limit is not met.",
-    "- 313: The `min-emergency-msat` reserve not be preserved (and we have anchor channels)."
+    "- 313: The `min-emergency-msat` reserve could not be preserved (and we have anchor channels)."
   ],
   "author": [
     "Felix [fixone@gmail.com](mailto:fixone@gmail.com) is mainly responsible."

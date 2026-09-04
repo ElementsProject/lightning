@@ -194,7 +194,8 @@
     "",
     "- -32602: If the given parameters are wrong.",
     "- -1: Catchall nonspecific error.",
-    "- 301: Insufficient UTXOs to meet *satoshi* value."
+    "- 301: Insufficient UTXOs to meet *satoshi* value.",
+    "- 313: The `min-emergency-msat` reserve could not be preserved (and we have or are opening anchor channels)."
   ],
   "author": [
     "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
