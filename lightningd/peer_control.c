@@ -1099,6 +1099,7 @@ static void NON_NULL_ARGS(1, 2, 4, 5) json_add_channel(struct command *cmd,
 			json_add_s64(response,
 				     "splice_amount",
 				     inflight->funding->splice_amnt);
+			json_add_bool(response, "superseded", inflight->superseded);
 			/* Add the expected commitment tx id also */
 			if (inflight->last_tx) {
 				bitcoin_txid(inflight->last_tx, &txid);

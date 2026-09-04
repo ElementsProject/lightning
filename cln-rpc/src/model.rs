@@ -7874,6 +7874,8 @@ pub mod responses {
 	pub struct ListpeerchannelsChannelsInflight {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub scratch_txid: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub superseded: Option<bool>,
 	    pub feerate: String,
 	    pub funding_outnum: u32,
 	    pub funding_txid: String,

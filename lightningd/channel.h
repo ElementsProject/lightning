@@ -103,6 +103,13 @@ struct channel_inflight {
 	 * moves the responsiblity of cleaning up the inflight to the watcher,
 	 * avoiding any potential race conditions. */
 	bool splice_locked_memonly;
+
+	/* Once a sibling RBF/splice candidate for this channel has been
+	 * confirmed as the winner, every other inflight is provably never
+	 * going to be used - so we mark them so we can stop recomputing and
+	 * persisting a fresh commitment tx + HTLC sigs for them on every
+	 * commitment update */
+	bool superseded;
 };
 
 struct open_attempt {
@@ -473,6 +480,10 @@ struct channel_inflight *new_inflight(struct channel *channel,
 	     bool i_am_initiator,
 	     bool force_sign_first,
 	     bool i_sent_sigs);
+
+void channel_mark_inflights_superseded(struct lightningd *ld,
+				       struct channel *channel,
+				       const struct channel_inflight *winner);
 
 struct channel_state_change *new_channel_state_change(const tal_t *ctx,
 						      struct timeabs timestamp,

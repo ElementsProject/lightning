@@ -1042,9 +1042,13 @@ static void dual_funding_found(struct lightningd *ld,
 	 * anyone consulting the channel before we finish catching up
 	 * with the chain (e.g. a reconnecting peer) sees the mined
 	 * funding tx, not the latest RBF attempt. */
-	if (inflight->channel->state == DUALOPEND_AWAITING_LOCKIN)
+	if (inflight->channel->state == DUALOPEND_AWAITING_LOCKIN) {
 		update_channel_from_inflight(ld, inflight->channel,
 					     inflight, false);
+
+		channel_mark_inflights_superseded(ld, inflight->channel,
+						  inflight);
+	}
 
 	/* Otherwise, watch for block depth increases (we'll immediately expect one) */
 	watch_blockdepth(inflight, ld->topology, loc->blkheight,

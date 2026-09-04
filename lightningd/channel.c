@@ -223,11 +223,26 @@ new_inflight(struct channel *channel,
 	inflight->locked_scid = NULL;
 	inflight->i_sent_sigs = i_sent_sigs;
 	inflight->splice_locked_memonly = false;
+	inflight->superseded = false;
 
 	list_add_tail(&channel->inflights, &inflight->list);
 	tal_add_destructor(inflight, destroy_inflight);
 
 	return inflight;
+}
+
+void channel_mark_inflights_superseded(struct lightningd *ld,
+				       struct channel *channel,
+				       const struct channel_inflight *winner)
+{
+	struct channel_inflight *inflight;
+
+	list_for_each(&channel->inflights, inflight, list) {
+		if (inflight == winner || inflight->superseded)
+			continue;
+		inflight->superseded = true;
+		wallet_inflight_save(ld->wallet, inflight);
+	}
 }
 
 void inflight_set_last_tx(struct channel_inflight *inflight,

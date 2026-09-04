@@ -1,6 +1,7 @@
 from fixtures import *  # noqa: F401,F403
 from pyln.client import RpcError
 import pytest
+import threading
 import unittest
 import time
 from utils import (
@@ -178,6 +179,102 @@ def test_splice_rbf(node_factory, bitcoind):
     # Check that the splice doesn't generate a unilateral close transaction
     time.sleep(5)
     assert l1.db_query("SELECT count(*) as c FROM channeltxs;")[0]['c'] == 0
+
+
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_splice_reconnect_non_last_mined(node_factory, bitcoind, chainparams):
+    l1, l2 = node_factory.line_graph(2, fundamount=1000000, wait_for_announce=True,
+                                     opts={'allow_warning': True, 'may_reconnect': True})
+
+    chan_id = l1.get_channel_id(l2)
+
+    # First splice candidate - goes to mempool, becomes the tip
+    funds_result = l1.rpc.addpsbtoutput(100000)
+    result = l1.rpc.splice_init(chan_id, -105801, funds_result['psbt'])
+    result = l1.rpc.splice_update(chan_id, result['psbt'])
+    assert result['commitments_secured'] is False
+    result = l1.rpc.splice_update(chan_id, result['psbt'])
+    assert result['commitments_secured'] is True
+    result = l1.rpc.splice_signed(chan_id, result['psbt'])
+
+    l2.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
+    l1.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
+
+    wait_for(lambda: len(list(bitcoind.rpc.getrawmempool(True).keys())) == 1)
+    first_txid = result['txid']
+    assert first_txid in bitcoind.rpc.getrawmempool()
+
+    # Censor broadcast so the RBF bump below never reaches the mempool - it
+    # exists only as an inflight, and never replaces the first tx there
+    def censoring_sendrawtx(r):
+        return {'id': r['id'], 'result': {}}
+
+    l1.daemon.rpcproxy.mock_rpc('sendrawtransaction', censoring_sendrawtx)
+    l2.daemon.rpcproxy.mock_rpc('sendrawtransaction', censoring_sendrawtx)
+
+    # RBF-bump the pending splice - a 2nd (latest) inflight that will never
+    # make it into the mempool
+    funds_result = l1.rpc.addpsbtoutput(100000)
+    result = l1.rpc.splice_init(chan_id, -111722, funds_result['psbt'])
+    result = l1.rpc.splice_update(chan_id, result['psbt'])
+    assert result['commitments_secured'] is False
+    result = l1.rpc.splice_update(chan_id, result['psbt'])
+    assert result['commitments_secured'] is True
+    last = len(l1.daemon.logs)
+    result = l1.rpc.splice_signed(chan_id, result['psbt'])
+
+    wait_for(lambda: l1.daemon.is_in_log("plugin-bcli: sendrawtx exit 0", start=last))
+    time.sleep(.05)
+
+    l1.daemon.rpcproxy.mock_rpc('sendrawtransaction', None)
+    l2.daemon.rpcproxy.mock_rpc('sendrawtransaction', None)
+
+    # The 1st tx is still the only one in the mempool - the RBF bump never made it there
+    assert list(bitcoind.rpc.getrawmempool(True).keys()) == [first_txid]
+
+    # l2 goes offline
+    l2.stop()
+
+    # Stall l1 fetch of the block *after* the funding block, so it sees
+    # the funding confirm but never finishes catching up
+    height = bitcoind.rpc.getblockcount()
+    release_block = threading.Event()
+
+    def stalling_getblockhash(r):
+        if r['params'][0] == height + 2:
+            release_block.wait(timeout=180)
+        return None
+
+    l1.daemon.rpcproxy.mock_rpc('getblockhash', stalling_getblockhash)
+
+    # The 1st (non-latest) inflight gets mined
+    bitcoind.generate_block(2, wait_for_mempool=1)
+
+    # l2 comes back fully synced, and reconnects to wedged l1
+    l2.start()
+    sync_blockheight(bitcoind, [l2])
+    l2.rpc.connect(l1.info['id'], 'localhost', l1.port)
+
+    l2.daemon.wait_for_log(r'Peer has reconnected, state CHANNELD_AWAITING_SPLICE')
+    bitcoind.generate_block(1)
+    sync_blockheight(bitcoind, [l2])
+
+    l1.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL', timeout=120)
+    l2.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL', timeout=120)
+
+    # Let l1 finish catching up before we look at the result
+    release_block.set()
+    l1.daemon.rpcproxy.mock_rpc('getblockhash', None)
+    sync_blockheight(bitcoind, [l1])
+
+    # The mined inflight (the 1st) must be the one locked in - on both
+    # sides, and with matching funding
+    channel = only_one(l1.rpc.listpeerchannels()['channels'])
+    assert channel['funding_txid'] == first_txid
+    l2_channel = only_one(l2.rpc.listpeerchannels()['channels'])
+    assert l2_channel['funding_txid'] == first_txid
 
 
 @pytest.mark.openchannel('v1')

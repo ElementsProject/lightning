@@ -27009,7 +27009,8 @@
                       "feerate",
                       "total_funding_msat",
                       "splice_amount",
-                      "our_funding_msat"
+                      "our_funding_msat",
+                      "superseded"
                     ],
                     "properties": {
                       "funding_txid": {
@@ -27053,6 +27054,13 @@
                         "type": "txid",
                         "description": [
                           "The commitment transaction txid we would use if we went onchain now."
+                        ]
+                      },
+                      "superseded": {
+                        "type": "boolean",
+                        "added": "v26.09",
+                        "description": [
+                          "Whether this candidate has provably lost: a sibling RBF/splice candidate for this channel has already been confirmed, so this one will never be used and its commitment is no longer being updated."
                         ]
                       }
                     }
