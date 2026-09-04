@@ -5,7 +5,7 @@
   "title": "Command to remove the DB entries from the database after a close",
   "warning": "For advanced users only",
   "description": [
-    "Never use any `dev` command, including this one, unless you know exactly what you are doing; and have checked with a developer that your understanding is correct. They are meant only as a means of last resort and have the potential to mess things up. You have been warned❗️",
+    "Never use any `dev` command, including this one, unless you know exactly what you are doing; and have checked with a developer that your understanding is correct. They are meant only as a means of last resort and have the potential to mess things up. You have been warned\u2757\ufe0f",
     "",
     "The **dev-forget-channel** forgets the channel with given details. It will perform additional checks on whether it is safe to forget the channel, and only then remove the channel from the DB. Notice that this command is only available if CLN was started with --developer.",
     "",
@@ -105,7 +105,7 @@
       "response": {
         "forced": false,
         "funding_unspent": false,
-        "funding_txid": "2f9fb60aa8427f5156b098bc9c3fbfb64355ef4c1d5e18aacbc457da48893a9b"
+        "funding_txid": "e73ee9202b48deab609b28f12083d7ddc1f0d081cad5f41cf2b94c199ef56bcd"
       }
     },
     {
@@ -124,7 +124,7 @@
       "response": {
         "forced": true,
         "funding_unspent": false,
-        "funding_txid": "31ee4952a09fe652e2a69894e51b84e0ec4315d72a8d3fab243d30096e2a463e"
+        "funding_txid": "854b0ebee408e34301960e6aea8022bc71377688cc1bd3a001f25f7eef479b07"
       }
     }
   ]

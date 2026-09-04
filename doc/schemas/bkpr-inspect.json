@@ -219,7 +219,7 @@
       "response": {
         "txs": [
           {
-            "txid": "88c5963d6e1b0790375d5ce51c7fdd58b9b241c104754d2b704aee8cbdc5e7b5",
+            "txid": "713a023034f58d25b76e2a15c40b50db4a58455e707b9e671f97f255eea1d9cf",
             "blockheight": 130,
             "fees_paid_msat": 4927000,
             "outputs": [

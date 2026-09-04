@@ -62,5 +62,21 @@
   ],
   "resources": [
     "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
+  ],
+  "examples": [
+    {
+      "request": {
+        "id": "example:splicein#1",
+        "method": "splicein",
+        "params": {
+          "channel": "fadc04188edeaefe9bb52ea718f8be3965b4cb4d4f7b0fe3fb8f0a5a4fce2bca",
+          "amount": "5000"
+        }
+      },
+      "response": {
+        "psbt": "cHNidP8BAgQCAAAAAQQBAgEFAQIBBgEDAfsEAgAAAAz8CWxpZ2h0bmluZwgg+twEGI7erv6btS6nGPi+OWW0y01Pew/j+48KWk/OK8oAAQBxAgAAAAEi0RvaWYHhRa6Aogue9LoNn1ZcN3nbtsWat7cgziB5FwAAAAAA/f///wIbn+nGAAAAABYAFEH2qr43Uir+9Co2IOMraXlFbxEwgIQeAAAAAAAWABTukIURbWbJNhN1q3oTP8Se2RBae58AAAABAR+AhB4AAAAAABYAFO6QhRFtZsk2E3WrehM/xJ7ZEFp7AQhrAkcwRAIgVo4U15VlxbYFISOFWxWg2eOvlqTRu2dvk0ZOgNDTdl0CIAwuFhPJOGSwYzuDh8gGI3cM7YoAyO7OzylpByIlgeuOASECpyiU0LV1IHRwE2m1lDUEY3NxJsKGjuwvEbgmCGL11VkBDiCHoLr4xpa+kC9WtJez7D6aosnqH+nRL7xJ9PG8VjBtdAEPBAEAAAABEAT9////DPwJbGlnaHRuaW5nAQgs47WIYeA+Ngz8CWxpZ2h0bmluZwICAAEAAQCJAgAAAAEi0RvaWYHhRa6Aogue9LoNn1ZcN3nbtsWat7cgziB5FwEAAAAA/f///wJAQg8AAAAAACIAIFdw+frGtXAYetqARZMg+7BQFXF+BvLo9xs3CTKCzMWSgWzcCwAAAAAiUSAt1+s/ASSCm2Y9gyhSl2Ca9xbWiqoy6YbloW5jrP73yaAAAAABAStAQg8AAAAAACIAIFdw+frGtXAYetqARZMg+7BQFXF+BvLo9xs3CTKCzMWSAQjaBABHMEQCIChWh/pAqf+cM27n5EDisslG0OnLi8ON2eZQuefIdBhPAiA3JpxqgIJ1+InYodwaqrMlKf4S23h7y7ruyBvly3gVEAFHMEQCICIS9Are2ApWJOggnDRaDynxpl4Ylg4ESUxIslLHu1R0AiB3WBauWG1oEwHfgEF6q0mpEUdxhPvfB3mEwrwyDpTIjgFHUiECQkgfGiDrGfkrRa57HrMt2u21aopRK/wfKU+tLOTt92IhAzJq09m9a7yzsfGcdPmD5iU3fWgz+sIvWtUosS+Re28+Uq4BDiD63AQYjt6u/pu1LqcY+L45ZbTLTU97D+P7jwpaT84rygEPBAAAAAABEAQAAAAADPwJbGlnaHRuaW5nAQi91+aj1PO3bAABAwhlUh4AAAAAAAEEIlEgRXiiHH+XbveNpw6F8Eyc/s4pYpY78WnjmJcDa0yMOSohB2noVfbXpXZQ12q3S1GlKuTRrWmRMUvS1lBCoOvEqo+xCQD1mn39BQAAAAz8CWxpZ2h0bmluZwEILuO1iGHgPjYAAQMIyFUPAAAAAAABBCIAIFdw+frGtXAYetqARZMg+7BQFXF+BvLo9xs3CTKCzMWSDPwJbGlnaHRuaW5nAQi/1+aj1PO3bAA=",
+        "txid": "f8ffe105af2b77cacf551e3c763e7f1a71f7447e8a56573bd0178b9da68205b4"
+      }
+    }
   ]
 }
