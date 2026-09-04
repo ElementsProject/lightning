@@ -117,17 +117,6 @@ static struct command_result *unreserve_psbt(struct command *cmd,
 	return command_still_pending(aux);
 }
 
-static void cleanup_peer_pending_opens(struct command *cmd,
-				       const struct node_id *id)
-{
-	struct pending_open *i, *next;
-	list_for_each_safe(&pending_opens, i, next, list) {
-		if (node_id_eq(&i->peer_id, id)) {
-			unreserve_psbt(cmd, i);
-		}
-	}
-}
-
 static struct command_result *
 command_hook_cont_psbt(struct command *cmd, struct wally_psbt *psbt)
 {
@@ -1086,32 +1075,6 @@ json_rbf_channel_call(struct command *cmd,
 	return send_outreq(req);
 }
 
-static struct command_result *json_disconnect(struct command *cmd,
-					      const char *buf,
-					      const jsmntok_t *params)
-{
-	struct node_id id;
-	const char *err;
-
-	err = json_scan(tmpctx, buf, params,
-			"{disconnect:{id:%}}",
-			JSON_SCAN(json_to_node_id, &id));
-	if (err)
-		plugin_err(cmd->plugin,
-			   "`disconnect` notification payload did not"
-			   " scan %s: %.*s",
-			   err, json_tok_full_len(params),
-			   json_tok_full(buf, params));
-
-	plugin_log(cmd->plugin, LOG_DBG,
-		   "Cleaning up inflights for peer id %s",
-		   fmt_node_id(tmpctx, &id));
-
-	cleanup_peer_pending_opens(cmd, &id);
-
-	return notification_handled(cmd);
-}
-
 static struct command_result *
 delete_channel_from_datastore(struct command *cmd,
 			      struct channel_id *cid)
@@ -1551,10 +1514,6 @@ const struct plugin_notification notifs[] = {
 	{
 		"channel_open_failed",
 		json_channel_open_failed,
-	},
-	{
-		"disconnect",
-		json_disconnect,
 	},
 	{
 		"channel_state_changed",
