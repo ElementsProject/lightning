@@ -157,7 +157,7 @@ struct peer {
 	/* After STFU mode is enabled, wait for a single message flag */
 	bool stfu_wait_single_msg;
 	/* Updates master asked, which we've deferred while quiescing */
-	struct msg_queue *update_queue;
+	struct msg_queue *stfu_pending_queue;
 	/* Callback for when when stfu is negotiated successfully */
 	void (*on_stfu_success)(struct peer*);
 
@@ -234,10 +234,20 @@ static bool is_entering_stfu(const struct peer *peer)
 
 static void end_stfu_mode(struct peer *peer)
 {
+	const u8 *msg;
+
 	peer->want_stfu = false;
 	peer->stfu_sent[LOCAL] = peer->stfu_sent[REMOTE] = false;
 	peer->stfu_wait_single_msg = false;
 	peer->on_stfu_success = NULL;
+
+	/* Move any pending messages onto from_master; the main
+	 * loop drains that queue via req_in. */
+	while ((msg = msg_dequeue(peer->stfu_pending_queue))) {
+		status_debug("Requeueing quiescence-deferred %s onto from_master",
+			     channeld_wire_name(fromwire_peektype(msg)));
+		msg_enqueue(peer->from_master, msg);
+	}
 
 	status_debug("Left STFU mode.");
 }
@@ -367,7 +377,7 @@ static void handle_stfu(struct peer *peer, const u8 *stfu)
 static bool handle_master_request_later(struct peer *peer, const u8 *msg)
 {
 	if (is_entering_stfu(peer)) {
-		msg_enqueue(peer->update_queue, take(msg));
+		msg_enqueue(peer->stfu_pending_queue, take(msg));
 		return true;
 	}
 	return false;
@@ -7039,7 +7049,7 @@ int main(int argc, char *argv[])
 	peer->stfu_sent[LOCAL] = peer->stfu_sent[REMOTE] = false;
 	peer->stfu_wait_single_msg = false;
 	peer->on_stfu_success = NULL;
-	peer->update_queue = msg_queue_new(peer, false);
+	peer->stfu_pending_queue = msg_queue_new(peer, false);
 	peer->splice_state = splice_state_new(peer);
 	peer->splicing = NULL;
 
