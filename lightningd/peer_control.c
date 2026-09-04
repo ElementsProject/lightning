@@ -172,8 +172,23 @@ void peer_channels_cleanup(struct peer *peer)
 	for (size_t i = 0; i < tal_count(channels); i++) {
 		c = channels[i];
 		if (channel_state_wants_peercomms(c->state)) {
-			channel_cleanup_commands(c, "Disconnected");
+			struct subd *retiring_owner = c->owner;
+
+			if (retiring_owner
+			    && (c->state == DUALOPEND_OPEN_COMMIT_READY
+				|| c->state == DUALOPEND_OPEN_COMMITTED
+				|| c->state == DUALOPEND_AWAITING_LOCKIN))
+				dual_open_owner_begin_retirement(c,
+							 retiring_owner);
+			/* Durable dual-funded operations are resumable.  Keep their
+			 * commands and PSBTs until dualopend reestablishes with the
+			 * peer. */
+			if (!channel_state_saved_dualopend(c->state)
+			    && !dual_open_attempt_waiting_for_owner(c)
+			    && !c->openchannel_signed_cmd)
+				channel_cleanup_commands(c, "Disconnected");
 			channel_fail_transient(c, true, "Disconnected");
+			dual_open_attempt_peer_disconnected(c);
 		} else if (channel_state_uncommitted(c->state)) {
 			channel_unsaved_close_conn(c, "Disconnected");
 		}
@@ -1399,6 +1414,15 @@ static void connect_activate_subd(struct lightningd *ld, struct channel *channel
 	struct peer_fd *pfd;
 	int other_fd;
 
+	/* The old dualopend can still deliver a terminal callback until its subd
+	 * object is destroyed.  Its destructor will install the replacement on
+	 * whichever peer transport is current at that point. */
+	if (channel->dualopend_owner_state == DUALOPEND_OWNER_RETIRING) {
+		log_debug(channel->log,
+			  "Deferring dualopend install until retiring owner exits");
+		return;
+	}
+
 	/* If we have a canned error for this channel, send it now */
 	if (channel->error) {
 		error = channel->error;
@@ -1430,8 +1454,14 @@ static void connect_activate_subd(struct lightningd *ld, struct channel *channel
 
 		if (peer_restart_dualopend(channel->peer,
 					   pfd,
-					   channel, false))
-			goto tell_connectd;
+					   channel,
+					   channel->dualopend_restart_mode
+					   == DUALOPEND_RESTART_AFTER_ABORT)) {
+			assert(!channel->dualopend_connectd_fd);
+			channel->dualopend_connectd_fd
+				= new_peer_fd(channel, other_fd);
+			return;
+		}
 		close(other_fd);
 		return;
 
@@ -2071,6 +2101,20 @@ void handle_peer_spoke(struct lightningd *ld, const u8 *msg)
 				return;
 			}
 
+			/* connectd retains this message until an owner is attached.  While
+			 * the peer_connected hooks are running, connect_activate_subd is
+			 * the designated owner installer; the abort path can likewise have
+			 * a selected replacement pending.  In either window, leave the
+			 * message queued instead of spawning a competing owner here. */
+			if (!channel->owner
+			    && (peer->connected == PEER_CONNECTING
+				|| channel->dualopend_owner_state
+				   != DUALOPEND_OWNER_NONE)) {
+				log_debug(channel->log,
+					  "Deferring peer message for pending owner install");
+				return;
+			}
+
 			/* If channel is active there are two possibilities:
 			 * 1. We have started subd, but channeld hasn't processed
 			 *    the connectd_peer_connect_subd message yet.
@@ -2101,7 +2145,9 @@ void handle_peer_spoke(struct lightningd *ld, const u8 *msg)
 				pfd = sockpair(tmpctx, channel, &other_fd, &error);
 				if (!pfd)
 					goto send_error;
-				if (peer_restart_dualopend(peer, pfd, channel, false))
+				if (peer_restart_dualopend(peer, pfd, channel,
+							  channel->dualopend_restart_mode
+							  == DUALOPEND_RESTART_AFTER_ABORT))
 					goto tell_connectd;
 				/* FIXME: Send informative error? */
 				close(other_fd);
@@ -2247,8 +2293,10 @@ static void peer_disconnected(struct lightningd *ld,
 
 		/* Note: we don't force subds to stop.  They should exit soon,
 		 * but if we get a (re)connection we'll force them to stop */
-		list_for_each(&p->channels, channel, list)
+		list_for_each(&p->channels, channel, list) {
 			channel_gossip_channel_disconnect(channel);
+			dual_open_attempt_peer_disconnected(channel);
+		}
 	}
 
 	/* If you were trying to connect, it failed. */

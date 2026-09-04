@@ -22,6 +22,21 @@ void channel_set_owner(struct channel *channel, struct subd *owner)
 {
 	struct subd *old_owner = channel->owner;
 	channel->owner = owner;
+	if (owner) {
+		if (channel->open_attempt)
+			channel->open_attempt->disconnect_timer
+				= tal_free(channel->open_attempt->disconnect_timer);
+	} else if (channel->open_attempt
+		   && channel->open_attempt->cmd
+		   && channel->open_attempt->open_msg) {
+		/* A command queued to the old owner was not necessarily delivered to
+		 * the peer.  Its replacement must replay the latest serialized step
+		 * after channel_reestablish. */
+		channel->open_attempt->open_msg_state = OPEN_ATTEMPT_MSG_UNSENT;
+	}
+	if (!owner)
+		channel->dualopend_connectd_fd
+			= tal_free(channel->dualopend_connectd_fd);
 
 	if (old_owner)
 		subd_release_channel(old_owner, channel);
@@ -252,6 +267,8 @@ struct open_attempt *new_channel_open_attempt(struct channel *channel)
 	oa->cmd = NULL;
 	oa->aborted = false;
 	oa->open_msg = NULL;
+	oa->open_msg_state = OPEN_ATTEMPT_MSG_UNSENT;
+	oa->disconnect_timer = NULL;
 
 	return oa;
 }
@@ -367,6 +384,15 @@ struct channel *new_unsaved_channel(struct peer *peer,
 
 	channel->our_config.id = 0;
 	channel->open_attempt = NULL;
+	channel->dualopend_owner_state = DUALOPEND_OWNER_NONE;
+	channel->dualopend_restart_mode = DUALOPEND_RESTART_REESTABLISH;
+	channel->dualopend_owner_connectd_counter = 0;
+	channel->dualopend_owner_install_retries = 0;
+	channel->owner_reinit_msg = NULL;
+	channel->dualopend_connectd_fd = NULL;
+	channel->dualopend_restart_peer_fd = NULL;
+	channel->dualopend_abort_reason = NULL;
+	channel->dualopend_depth_needs_recheck = false;
 
 	channel->last_htlc_sigs = NULL;
 	channel->remote_channel_ready = false;
@@ -580,6 +606,15 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->reestablished = false;
 	channel->error = NULL;
 	channel->open_attempt = NULL;
+	channel->dualopend_owner_state = DUALOPEND_OWNER_NONE;
+	channel->dualopend_restart_mode = DUALOPEND_RESTART_REESTABLISH;
+	channel->dualopend_owner_connectd_counter = 0;
+	channel->dualopend_owner_install_retries = 0;
+	channel->owner_reinit_msg = NULL;
+	channel->dualopend_connectd_fd = NULL;
+	channel->dualopend_restart_peer_fd = NULL;
+	channel->dualopend_abort_reason = NULL;
+	channel->dualopend_depth_needs_recheck = false;
 	channel->openchannel_signed_cmd = NULL;
 	if (their_shachain)
 		channel->their_shachain = *their_shachain;
@@ -1350,4 +1385,3 @@ const u8 *channel_update_for_error(const tal_t *ctx,
 
 	return channel_gossip_update_for_error(ctx, channel);
 }
-

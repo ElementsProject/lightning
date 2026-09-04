@@ -11,8 +11,10 @@
 #include <common/clock_time.h>
 #include <common/json_channel_type.h>
 #include <common/json_command.h>
+#include <common/memleak.h>
 #include <common/psbt_open.h>
 #include <common/shutdown_scriptpubkey.h>
+#include <common/timeout.h>
 #include <common/wire_error.h>
 #include <connectd/connectd_wiregen.h>
 #include <errno.h>
@@ -27,6 +29,7 @@
 #include <lightningd/hsm_control.h>
 #include <lightningd/notification.h>
 #include <lightningd/opening_common.h>
+#include <lightningd/peer_control.h>
 #include <lightningd/peer_fd.h>
 #include <lightningd/plugin_hook.h>
 #include <openingd/dualopend_wiregen.h>
@@ -69,21 +72,67 @@ void channel_unsaved_close_conn(struct channel *channel, const char *why)
 	delete_channel(channel, false);
 }
 
-static void channel_saved_err_broken_reconn(struct channel *channel,
-					    const char *fmt, ...)
+bool dual_open_attempt_waiting_for_owner(const struct channel *channel)
 {
-	va_list ap;
-	const char *errmsg;
+	return channel->open_attempt
+		&& channel->open_attempt->cmd
+		&& channel->open_attempt->open_msg;
+}
 
-	/* We only reconnect to 'saved' channel peers */
-	assert(!channel_state_uncommitted(channel->state));
+static void open_attempt_disconnect_timeout(struct channel *channel)
+{
+	struct open_attempt *oa = channel->open_attempt;
+	const char *why = "Peer did not reconnect before dual-open timeout";
 
-	va_start(ap, fmt);
-	errmsg = tal_vfmt(tmpctx, fmt, ap);
-	va_end(ap);
+	/* Installing a replacement owner cancels the timer.  These guards also
+	 * make expiry harmless if another completion path won the race. */
+	if (!oa)
+		return;
+	oa->disconnect_timer = NULL;
+	if (!oa->cmd || channel->owner)
+		return;
 
-	log_broken(channel->log, "%s", errmsg);
-	channel_disconnect(channel, LOG_INFORM, true, errmsg);
+	log_unusual(channel->log, "%s", why);
+	channel_cleanup_commands(channel, why);
+
+	/* No commitment signatures were exchanged in OPEN_COMMIT_READY, so this
+	 * persisted half-open is safe to forget.  Later states may have a
+	 * publishable inflight: fail only the RPC and retain the channel there. */
+	if (channel->state == DUALOPEND_OPEN_COMMIT_READY)
+		channel_fail_permanent(channel, REASON_LOCAL, "%s", why);
+}
+
+void dual_open_attempt_peer_disconnected(struct channel *channel)
+{
+	struct open_attempt *oa = channel->open_attempt;
+
+	if (!channel->owner
+	    && channel->peer->connected != PEER_CONNECTED
+	    && channel->dualopend_owner_state != DUALOPEND_OWNER_RETIRING) {
+		channel->owner_reinit_msg = tal_free(channel->owner_reinit_msg);
+		channel->dualopend_owner_state = DUALOPEND_OWNER_NONE;
+		channel->dualopend_restart_mode
+			= DUALOPEND_RESTART_REESTABLISH;
+	}
+
+	/* FIXME: This only bounds open_attempt RPCs while the peer is continuously
+	 * disconnected and no owner exists.  openchannel_signed_cmd and owners
+	 * stuck installing a route or reestablishing have no lifecycle deadline.
+	 * Use one timeout covering the entire retained dual-open recovery instead.
+	 * Any serialized dual-open command can be stranded while its peer is
+	 * absent, including an RBF request in AWAITING_LOCKIN. */
+	if (!oa || !oa->cmd || oa->disconnect_timer || channel->owner
+	    || channel->peer->connected == PEER_CONNECTED)
+		return;
+
+	log_debug(channel->log,
+		  "Arming dual-open disconnect timeout for %u seconds",
+		  channel->peer->ld->config.dual_open_disconnect_timeout_secs);
+	oa->disconnect_timer
+		= new_reltimer(channel->peer->ld->timers, oa,
+			       time_from_sec(channel->peer->ld->config
+					     .dual_open_disconnect_timeout_secs),
+			       open_attempt_disconnect_timeout, channel);
 }
 
 static void channel_err_broken(struct channel *channel,
@@ -967,16 +1016,9 @@ static void dualopend_tell_depth(struct channel *channel,
 	const u8 *msg;
 	u32 to_go;
 
-	if (!channel->owner) {
-		log_debug(channel->log,
-			  "Funding tx %s confirmed, but peer disconnected",
-			  fmt_bitcoin_txid(tmpctx, txid));
-		return;
-	}
-
 	log_debug(channel->log,
-		  "Funding tx %s confirmed, telling peer",
-		  fmt_bitcoin_txid(tmpctx, txid));
+		  "Funding tx %s confirmed at depth %u",
+		  fmt_bitcoin_txid(tmpctx, txid), depth);
 	if (depth < channel->minimum_depth) {
 		to_go = channel->minimum_depth - depth;
 	} else
@@ -987,6 +1029,17 @@ static void dualopend_tell_depth(struct channel *channel,
 		assert(channel->scid);
 		assert(bitcoin_txid_eq(&channel->funding.txid, txid));
 
+		if (!channel->owner
+		    || channel->dualopend_owner_state
+		       != DUALOPEND_OWNER_READY) {
+			log_debug(channel->log,
+				  "Funding depth reached before dualopend owner ready");
+			channel->dualopend_depth_needs_recheck = true;
+			return;
+		}
+
+		channel->dualopend_depth_needs_recheck = false;
+
 		channel_set_billboard(channel, false,
 				      tal_fmt(tmpctx, "Funding depth reached"
 					      " %d confirmations, alerting peer"
@@ -995,11 +1048,33 @@ static void dualopend_tell_depth(struct channel *channel,
 
 		msg = towire_dualopend_depth_reached(NULL, depth);
 		subd_send_msg(channel->owner, take(msg));
-	} else
+	} else {
+		channel->dualopend_depth_needs_recheck = false;
 		channel_set_billboard(channel, false,
 				      tal_fmt(tmpctx, "Funding needs %d more"
 					      " confirmations to be ready.",
 					      to_go));
+	}
+}
+
+static void dualopend_recheck_depth(struct channel *channel)
+{
+	u32 current_height, funding_height;
+
+	if (!channel->dualopend_depth_needs_recheck)
+		return;
+
+	channel->dualopend_depth_needs_recheck = false;
+	if (!channel->scid)
+		return;
+
+	funding_height = short_channel_id_blocknum(*channel->scid);
+	current_height = get_block_height(channel->peer->ld->topology);
+	if (current_height < funding_height)
+		return;
+
+	dualopend_tell_depth(channel, &channel->funding.txid,
+			      current_height - funding_height + 1);
 }
 
 static enum watch_result opening_depth_cb(struct lightningd *ld,
@@ -1023,6 +1098,7 @@ static enum watch_result opening_reorged_cb(struct lightningd *ld, struct channe
 {
 	/* Reorged out?  OK, we're not committed yet. */
 	log_info(inflight->channel->log, "Candidate funding tx was in a block, now reorged out");
+	inflight->channel->dualopend_depth_needs_recheck = false;
 	return DELETE_WATCH;
 }
 
@@ -1125,9 +1201,12 @@ openchannel2_sign_hook_cb(struct openchannel2_psbt_payload *payload STEALS)
 send_msg:
 	/* Peer's gone away, let's try reconnecting */
 	if (!payload->dualopend) {
-		channel_saved_err_broken_reconn(channel,
-						"dualopend daemon died"
-						" before signed PSBT returned");
+		/* The signed PSBT was saved above.  Owner retirement while the
+		 * asynchronous plugin hook was running is recoverable: its replacement
+		 * reloads this inflight during reinit.  The owner's error path is
+		 * responsible for retiring or reconnecting the peer transport. */
+		log_debug(channel->log,
+			  "Signed PSBT returned after dualopend owner retired");
 		tal_free(msg);
 		return;
 	}
@@ -2451,8 +2530,8 @@ json_openchannel_abort(struct command *cmd,
 	return command_still_pending(cmd);
 }
 
-static char *restart_dualopend(const tal_t *ctx, const struct lightningd *ld,
-			       struct channel *channel, bool from_abort)
+static char *restart_dualopend(const tal_t *ctx, struct channel *channel,
+			       bool from_abort)
 {
 	struct peer_fd *pfd;
 	int other_fd;
@@ -2468,13 +2547,25 @@ static char *restart_dualopend(const tal_t *ctx, const struct lightningd *ld,
 		close(other_fd);
 		return tal_fmt(ctx, "Peer not connected");
 	}
-	subd_send_msg(ld->connectd,
-		      take(towire_connectd_peer_connect_subd(NULL,
-							     &channel->peer->id,
-							     channel->peer->connectd_counter,
-							     &channel->cid)));
-	subd_send_fd(ld->connectd, other_fd);
+	assert(!channel->dualopend_connectd_fd);
+	channel->dualopend_connectd_fd = new_peer_fd(channel, other_fd);
 	return NULL;
+}
+
+static void send_pending_open_attempt(struct channel *channel)
+{
+	struct open_attempt *oa = channel->open_attempt;
+
+	if (!oa || !oa->cmd || !oa->open_msg || !channel->owner
+	    || channel->dualopend_owner_state != DUALOPEND_OWNER_READY
+	    || oa->open_msg_state == OPEN_ATTEMPT_MSG_SENT)
+		return;
+
+	/* Record this before queueing the message: teardown can run while
+	 * servicing the queue and must not cause a duplicate send. */
+	oa->open_msg_state = OPEN_ATTEMPT_MSG_SENT;
+	channel->dualopend_restart_mode = DUALOPEND_RESTART_REESTABLISH;
+	subd_send_msg(channel->owner, oa->open_msg);
 }
 
 struct openchannel_bump_info {
@@ -2511,26 +2602,47 @@ static struct command_result *openchannel_bump(struct openchannel_bump_info *inf
 				    "secured, see `openchannel_signed`");
 	}
 
-	/* It's possible that the last open failed/was aborted.
-	 * So now we restart the attempt! */
-	if (!channel->owner) {
-		char *err = restart_dualopend(cmd, cmd->ld, channel, false);
-		if (err)
-			return command_fail(cmd, FUNDING_PEER_NOT_CONNECTED,
-					    "%s", err);
-	}
+	if (channel->open_attempt && channel->open_attempt->cmd)
+		return command_fail(cmd, FUNDING_STATE_INVALID,
+				    "Another openchannel command is pending");
 
+	/* Serialize the request before deciding whether an owner is usable.  It
+	 * survives owner replacement and is sent only in OWNER_READY. */
 	channel->open_attempt = oa = new_channel_open_attempt(channel);
 	oa->funding = *info->amount;
 	oa->cmd = info->cmd;
 	oa->our_upfront_shutdown_script
 		= channel->shutdown_scriptpubkey[LOCAL];
+	oa->open_msg = towire_dualopend_rbf_init(oa, *info->amount,
+						 *info->feerate_per_kw_funding,
+						 info->psbt);
 
-	subd_send_msg(channel->owner,
-		      take(towire_dualopend_rbf_init(NULL, *info->amount,
-						     *info->feerate_per_kw_funding,
-						     info->psbt)));
-	return command_still_pending(cmd);
+	switch (channel->dualopend_owner_state) {
+	case DUALOPEND_OWNER_READY:
+		send_pending_open_attempt(channel);
+		return command_still_pending(cmd);
+
+	case DUALOPEND_OWNER_NONE: {
+		bool from_abort = channel->dualopend_restart_mode
+			== DUALOPEND_RESTART_AFTER_ABORT;
+		char *err = restart_dualopend(cmd, channel, from_abort);
+		if (err) {
+			oa->cmd = NULL;
+			channel->open_attempt = tal_free(channel->open_attempt);
+			return command_fail(cmd, FUNDING_PEER_NOT_CONNECTED,
+					    "%s", err);
+		}
+		return command_still_pending(cmd);
+	}
+
+	case DUALOPEND_OWNER_RESTART_PENDING:
+	case DUALOPEND_OWNER_ROUTE_PENDING:
+	case DUALOPEND_OWNER_READY_PENDING_ROUTE:
+	case DUALOPEND_OWNER_REESTABLISHING:
+	case DUALOPEND_OWNER_RETIRING:
+		return command_still_pending(cmd);
+	}
+	abort();
 }
 
 /* sync_waiter must return void, so we use a simple wrapper */
@@ -2795,18 +2907,19 @@ json_openchannel_signed(struct command *cmd,
 	channel->funding_psbt = clone_psbt(channel, inflight->funding_psbt);
 	wallet_channel_save(cmd->ld->wallet, channel);
 
-	/* Only after we've updated/saved our psbt do we check
-	 * for peer connected */
-	if (!channel->owner)
-		return command_fail(cmd, FUNDING_PEER_NOT_CONNECTED,
-				    "Peer not connected");
+	/* Keep the RPC after the signed PSBT is durable.  A replacement
+	 * dualopend loads it from reinit and the channel_reestablish dance
+	 * retransmits tx_signatures when required. */
+	channel->openchannel_signed_cmd = tal_steal(channel, cmd);
+	if (!channel->owner
+	    || channel->dualopend_owner_state != DUALOPEND_OWNER_READY)
+		return command_still_pending(cmd);
 
 	/* Send our tx_sigs to the peer */
 	subd_send_msg(channel->owner,
 		      take(towire_dualopend_send_tx_sigs(NULL,
 							 inflight->funding_psbt)));
 
-	channel->openchannel_signed_cmd = tal_steal(channel, cmd);
 	return command_still_pending(cmd);
 }
 
@@ -2878,10 +2991,17 @@ static void validate_input_unspent(struct bitcoind *bitcoind,
 
 static void openchannel_update_valid_psbt(struct psbt_validator *pv)
 {
+	struct open_attempt *oa = pv->channel->open_attempt;
 	u8 *msg;
-	assert(pv->cmd);
-	pv->channel->open_attempt->cmd = pv->cmd;
 
+	assert(pv->cmd);
+	oa->cmd = pv->cmd;
+
+	/* A PSBT update cannot be replayed blindly after channel_reestablish: the
+	 * peer may resolve a next_funding mismatch with tx_abort first.  Clear the
+	 * earlier rbf_init replay slot so disconnect cleanup fails this command and
+	 * leaves reconciliation to the reestablish/abort path. */
+	oa->open_msg = tal_free(oa->open_msg);
 	msg = towire_dualopend_psbt_updated(NULL, pv->psbt);
 	subd_send_msg(pv->channel->owner, take(msg));
 }
@@ -2966,13 +3086,11 @@ static struct command_result *json_openchannel_update(struct command *cmd,
 		return command_fail(cmd, FUNDING_UNKNOWN_CHANNEL,
 				    "Unknown channel %s",
 				    fmt_channel_id(tmpctx, cid));
-	if (!channel->owner)
-		return command_fail(cmd, FUNDING_PEER_NOT_CONNECTED,
-				    "Peer not connected");
-
 
 	if (!channel->open_attempt) {
-		/* Check if the last inflight for this matches? */
+		/* Check if the last inflight for this matches.  This is an
+		 * idempotent lookup and does not need a live owner: the result was
+		 * already made durable before the previous owner disconnected. */
 		inflight = find_inprogress_inflight(channel, psbt);
 		if (inflight) {
 			return command_success(cmd,
@@ -2981,6 +3099,10 @@ static struct command_result *json_openchannel_update(struct command *cmd,
 		return command_fail(cmd, FUNDING_STATE_INVALID,
 				    "Channel open not in progress");
 	}
+
+	if (!channel->owner)
+		return command_fail(cmd, FUNDING_PEER_NOT_CONNECTED,
+				    "Peer not connected");
 
 	if (channel->open_attempt->cmd)
 		return command_fail(cmd, FUNDING_STATE_INVALID,
@@ -3142,6 +3264,7 @@ static struct command_result *openchannel_init(struct command *cmd,
 	}
 
 	/* Go! */
+	channel->open_attempt->open_msg_state = OPEN_ATTEMPT_MSG_SENT;
 	subd_send_msg(channel->owner, channel->open_attempt->open_msg);
 
 	/* Tell connectd connect this to this channel id. */
@@ -3728,11 +3851,91 @@ static void handle_dualopend_got_announcement(struct subd *dualopend, const u8 *
 					     &remote_ann_bitcoin_sig);
 }
 
+static void handle_dualopend_abort_complete(struct subd *dualopend,
+					    const u8 *msg)
+{
+	struct channel *channel = dualopend->channel;
+	char *reason;
+
+	if (!fromwire_dualopend_abort_complete(tmpctx, msg, &reason)) {
+		channel_internal_error(channel,
+				       "bad dualopend_abort_complete %s",
+				       tal_hex(tmpctx, msg));
+		return;
+	}
+
+	/* dualopend retained its peer and HSM descriptors and restored the last
+	 * completed funding attempt.  Mirror that rollback in the wallet and
+	 * ask connectd to make the quarantined route usable again.  Do not finish
+	 * the RPC until connectd acknowledges that barrier: callers commonly begin
+	 * their retry immediately after openchannel_abort returns. */
+	if (maybe_cleanup_last_inflight(channel))
+		log_debug(channel->log, "Cleaned up incomplete inflight");
+	channel->dualopend_abort_reason = tal_steal(channel, reason);
+	channel->dualopend_owner_state = DUALOPEND_OWNER_READY_PENDING_ROUTE;
+	subd_send_msg(channel->peer->ld->connectd,
+		take(towire_connectd_peer_resume_subd(
+			NULL, &channel->peer->id,
+			channel->dualopend_owner_connectd_counter,
+			&channel->cid)));
+}
+
 static unsigned int dual_opend_msg(struct subd *dualopend,
 				   const u8 *msg, const int *fds)
 {
 	enum dualopend_wire t = fromwire_peektype(msg);
 	struct channel *channel = dualopend->channel;
+
+	if (t != WIRE_DUALOPEND_READY && t != WIRE_DUALOPEND_INIT_READY)
+		channel->dualopend_restart_mode
+			= DUALOPEND_RESTART_REESTABLISH;
+
+	if (t == WIRE_DUALOPEND_INIT_READY) {
+		struct peer_fd *connectd_fd = channel->dualopend_connectd_fd;
+		int fd;
+
+		/* Abort continuations inherit an already-attached route. */
+		if (!connectd_fd)
+			return 0;
+		channel->dualopend_connectd_fd = NULL;
+		fd = connectd_fd->fd;
+		connectd_fd->fd = -1;
+		subd_send_msg(channel->peer->ld->connectd,
+			take(towire_connectd_peer_connect_subd_tracked(
+				NULL, &channel->peer->id,
+				channel->dualopend_owner_connectd_counter,
+				&channel->cid)));
+		subd_send_fd(channel->peer->ld->connectd, fd);
+		tal_free(connectd_fd);
+		return 0;
+	}
+
+	if (t == WIRE_DUALOPEND_READY) {
+		/* This signal is emitted only after initialization and, for normal
+		 * reconnects, after channel_reestablish has completed.  An abort
+		 * restart is no longer special once it reaches this point: retaining
+		 * AFTER_ABORT would make a later transport failure look like a failed
+		 * abort installation and could start a competing owner. */
+		channel->dualopend_restart_mode
+			= DUALOPEND_RESTART_REESTABLISH;
+		if (channel->dualopend_owner_state
+		    == DUALOPEND_OWNER_ROUTE_PENDING) {
+			channel->dualopend_owner_state
+				= DUALOPEND_OWNER_READY_PENDING_ROUTE;
+			return 0;
+		}
+		if (channel->dualopend_owner_state
+		    != DUALOPEND_OWNER_REESTABLISHING) {
+			log_broken(channel->log,
+				   "dualopend ready in owner state %u",
+				   channel->dualopend_owner_state);
+			return 0;
+		}
+		channel->dualopend_owner_state = DUALOPEND_OWNER_READY;
+		dualopend_recheck_depth(channel);
+		send_pending_open_attempt(channel);
+		return 0;
+	}
 
 	switch (t) {
 		case WIRE_DUALOPEND_GOT_OFFER:
@@ -3793,6 +3996,9 @@ static unsigned int dual_opend_msg(struct subd *dualopend,
 		case WIRE_DUALOPEND_GOT_ANNOUNCEMENT:
 			handle_dualopend_got_announcement(dualopend, msg);
 			return 0;
+		case WIRE_DUALOPEND_ABORT_COMPLETE:
+			handle_dualopend_abort_complete(dualopend, msg);
+			return 0;
 		/* Messages we send */
 		case WIRE_DUALOPEND_INIT:
 		case WIRE_DUALOPEND_REINIT:
@@ -3811,6 +4017,8 @@ static unsigned int dual_opend_msg(struct subd *dualopend,
 		case WIRE_DUALOPEND_DEPTH_REACHED:
 		case WIRE_DUALOPEND_DEV_MEMLEAK:
 		case WIRE_DUALOPEND_DEV_MEMLEAK_REPLY:
+		case WIRE_DUALOPEND_INIT_READY:
+		case WIRE_DUALOPEND_READY:
 			break;
 	}
 
@@ -3954,6 +4162,7 @@ static struct command_result *json_queryrates(struct command *cmd,
 	}
 
 	/* Go! */
+	channel->open_attempt->open_msg_state = OPEN_ATTEMPT_MSG_SENT;
 	subd_send_msg(channel->owner, channel->open_attempt->open_msg);
 
 	/* Tell connectd connect this to this channel id. */
@@ -4005,6 +4214,116 @@ AUTODATA(json_command, &openchannel_signed_command);
 AUTODATA(json_command, &openchannel_bump_command);
 AUTODATA(json_command, &openchannel_abort_command);
 
+static void restart_dualopend_after_owner_exit(struct channel *channel)
+{
+	char *err;
+	bool from_abort;
+
+	/* Owner destruction can race either a same-transport abort continuation or
+	 * a new peer transport.  Decide the startup protocol only after both the
+	 * old owner and the peer connection have reached their current states. */
+	if (channel->dualopend_owner_state != DUALOPEND_OWNER_RETIRING
+	    || channel->owner) {
+		return;
+	}
+
+	if (channel->peer->connected != PEER_CONNECTED) {
+		channel->dualopend_restart_peer_fd
+			= tal_free(channel->dualopend_restart_peer_fd);
+		channel->dualopend_owner_state = DUALOPEND_OWNER_NONE;
+		dual_open_attempt_peer_disconnected(channel);
+		return;
+	}
+
+	from_abort = channel->dualopend_restart_mode
+		== DUALOPEND_RESTART_AFTER_ABORT
+		&& channel->dualopend_owner_connectd_counter
+		   == channel->peer->connectd_counter
+		&& channel->dualopend_restart_peer_fd != NULL;
+	if (!from_abort) {
+		channel->dualopend_restart_peer_fd
+			= tal_free(channel->dualopend_restart_peer_fd);
+		channel->dualopend_restart_mode
+			= DUALOPEND_RESTART_REESTABLISH;
+	}
+
+	if (from_abort) {
+		/* Keep the endpoint returned by the old owner.  connectd still owns
+		 * the other end of this exact abort-marked route; resume_subd is the
+		 * barrier which cancels its close timer and makes it routable again. */
+		channel->dualopend_owner_state = DUALOPEND_OWNER_RESTART_PENDING;
+		subd_send_msg(channel->peer->ld->connectd,
+			take(towire_connectd_peer_resume_subd(
+				NULL, &channel->peer->id,
+				channel->peer->connectd_counter,
+				&channel->cid)));
+		err = NULL;
+	} else {
+		err = restart_dualopend(tmpctx, channel, false);
+	}
+	if (err) {
+		channel->dualopend_owner_state = DUALOPEND_OWNER_NONE;
+		channel_cleanup_commands(channel,
+				 tal_fmt(tmpctx,
+					 "Unable to restart dualopend after owner exit: %s",
+					 err));
+		return;
+	}
+}
+
+/* A lost peer fd is different from tx_abort: connectd's transport-loss
+ * notification can arrive after the owning subdaemon has exited.  Never
+ * restart on the transport which just produced EOF merely because lightningd
+ * still labels it connected.  Whichever side of the owner-exit/disconnect
+ * race runs second completes retirement and arms any retained RPC timeout. */
+static void finish_dualopend_transport_loss(struct channel *channel)
+{
+	if (channel->dualopend_owner_state != DUALOPEND_OWNER_RETIRING
+	    || channel->owner)
+		return;
+
+	channel->dualopend_restart_mode = DUALOPEND_RESTART_REESTABLISH;
+	if (channel->peer->connected == PEER_CONNECTED) {
+		if (channel->dualopend_owner_connectd_counter
+		    == channel->peer->connectd_counter) {
+			channel->dualopend_owner_state
+				= DUALOPEND_OWNER_RESTART_PENDING;
+			return;
+		}
+		restart_dualopend_after_owner_exit(channel);
+		return;
+	}
+
+	channel->dualopend_owner_state = DUALOPEND_OWNER_NONE;
+	dual_open_attempt_peer_disconnected(channel);
+}
+
+/* A zero-length timer from dualopen_errmsg is not an owner-exit barrier: the
+ * timer can run before ccan/io has closed and destroyed the old subd.  In that
+ * case the replacement steals both the connectd route and the exclusive hsmd
+ * client while the old process is still unwinding.  Schedule the restart from
+ * the old subd's destructor instead, so both of those resources are genuinely
+ * released first. */
+static void restart_dualopend_after_owner_exit_cb(struct subd *old_owner UNUSED,
+						  struct channel *channel)
+{
+	restart_dualopend_after_owner_exit(channel);
+}
+
+void dual_open_owner_begin_retirement(struct channel *channel,
+				      struct subd *retiring_owner)
+{
+	/* The first path which notices retirement owns the destructor callback.
+	 * Later EOF/status callbacks from this same subdaemon must be inert. */
+	if (channel->dualopend_owner_state == DUALOPEND_OWNER_RETIRING)
+		return;
+
+	channel->dualopend_owner_state = DUALOPEND_OWNER_RETIRING;
+	tal_add_destructor2(retiring_owner,
+			    restart_dualopend_after_owner_exit_cb,
+			    channel);
+}
+
 static void dualopen_errmsg(struct channel *channel,
 			    struct peer_fd *peer_fd,
 			    const char *desc,
@@ -4012,15 +4331,93 @@ static void dualopen_errmsg(struct channel *channel,
 			    bool disconnect,
 			    bool warning)
 {
-	/* Clean up any in-progress open attempts */
-	channel_cleanup_commands(channel, desc);
-
 	if (channel_state_uncommitted(channel->state)) {
+		channel_cleanup_commands(channel, desc);
 		log_info(channel->log, "%s", "Unsaved peer failed."
 			 " Deleting channel.");
 		delete_channel(channel, false);
 		return;
 	}
+
+	/* No peer_fd means dualopend died or the transport disappeared.  A
+	 * saved dual-funded open can resume after reconnect, so retain its
+	 * command and PSBT. */
+	if (!peer_fd) {
+		struct subd *retiring_owner = channel->owner;
+
+		/* peer_channels_cleanup may already have retired this owner.  Its
+		 * eventual destructor, not this late status callback, owns restart. */
+		if (channel->dualopend_owner_state == DUALOPEND_OWNER_RETIRING)
+			return;
+
+		if (!warning && disconnect) {
+			channel->owner_reinit_msg
+				= tal_free(channel->owner_reinit_msg);
+			channel->dualopend_owner_state = DUALOPEND_OWNER_NONE;
+			channel_cleanup_commands(channel, desc);
+			channel_fail_permanent(channel,
+					       err_for_them ? REASON_LOCAL : REASON_PROTOCOL,
+					       "%s: %s ERROR %s",
+					       channel->owner->name,
+					       err_for_them ? "sent" : "received", desc);
+		} else {
+			u64 owner_connectd_counter
+				= channel->dualopend_owner_connectd_counter;
+			log_debug(channel->log,
+				  "Retiring failed dualopend transport counter %"PRIu64
+				  " (peer current %"PRIu64")",
+				  owner_connectd_counter,
+				  channel->peer->connectd_counter);
+
+			channel->owner_reinit_msg
+				= tal_free(channel->owner_reinit_msg);
+			assert(retiring_owner);
+			/* This callback is made by destroy_subd() after it has detached
+			 * itself from the channel.  It is too late to add another
+			 * destructor to retiring_owner: schedule the restart for the next
+			 * event-loop turn, after destroy_subd() has returned. */
+			channel->dualopend_owner_state = DUALOPEND_OWNER_RETIRING;
+			/* The dev-memleak RPC can run before this next-turn continuation.
+			 * It remains intentionally reachable from the timer list and is
+			 * cancelled automatically if the channel is freed. */
+			notleak(new_reltimer(channel->peer->ld->timers, channel,
+					     time_from_msec(0),
+					     finish_dualopend_transport_loss,
+					     channel));
+			if (!channel_state_saved_dualopend(channel->state)
+			    && !dual_open_attempt_waiting_for_owner(channel)
+			    && !channel->openchannel_signed_cmd)
+				channel_cleanup_commands(channel, desc);
+			/* No peer_fd means the owner's route to this transport has
+			 * disappeared.  Reusing that transport is unsafe: the old owner
+			 * may already have completed channel_reestablish, in which case a
+			 * replacement would wait forever for a second one.  Retire this
+			 * transport and let peer_connected install the replacement on the
+			 * next connection. */
+			channel_fail_transient(channel, false, "%s: %s",
+					       channel->owner->name, desc);
+
+			/* The peer may already have reconnected inside connectd, before
+			 * lightningd has processed PEER_RECONNECTED.  Disconnect only the
+			 * transport which owned this route; connectd ignores a stale
+			 * counter instead of tearing down its replacement. */
+			if (owner_connectd_counter != 0)
+				subd_send_msg(channel->peer->ld->connectd,
+					take(towire_connectd_disconnect_peer(NULL,
+						&channel->peer->id,
+						owner_connectd_counter)));
+			/* The transport-loss notification follows this callback.  Keep
+			 * RETIRING until peer_channels_cleanup observes PEER_DISCONNECTED;
+			 * otherwise a zero-length timer can install a replacement on the
+			 * transport which is still shutting down. */
+			dual_open_attempt_peer_disconnected(channel);
+		}
+		return;
+	}
+
+	/* Peer errors and explicit aborts finish any in-progress attempt. */
+	channel_cleanup_commands(channel, desc);
+
 	if ((warning || disconnect) && channel_state_open_uncommitted(channel->state)) {
 		log_info(channel->log, "%s", "Commit ready peer failed."
 			 " Deleting channel.");
@@ -4032,26 +4429,21 @@ static void dualopen_errmsg(struct channel *channel,
 	if (err_for_them && !channel->error && !warning)
 		channel->error = tal_dup_talarr(channel, u8, err_for_them);
 
-	/* No peer_fd means a subd crash or disconnection. */
-	if (!peer_fd) {
-		if (!warning && disconnect)
-			channel_fail_permanent(channel,
-					       err_for_them ? REASON_LOCAL : REASON_PROTOCOL,
-					       "%s: %s ERROR %s",
-					       channel->owner->name,
-					       err_for_them ? "sent" : "received", desc);
-		else
-			/* If the channel is unsaved, we forget it */
-			channel_fail_transient(channel, disconnect, "%s: %s",
-					       channel->owner->name, desc);
-		return;
-	}
-
 	/* Other implementations chose to ignore errors early on.  Not
 	 * surprisingly, they now spew out spurious errors frequently,
 	 * and we would close the channel on them.  We now support warnings
 	 * for this case. */
 	if (warning || !disconnect) {
+		struct subd *retiring_owner = channel->owner;
+
+		/* Claim the retiring state before releasing the old owner.  All other
+		 * owner installers defer while this transition is in progress. */
+		if (!disconnect && !channel_state_open_uncommitted(channel->state)) {
+			channel->dualopend_restart_mode
+				= DUALOPEND_RESTART_AFTER_ABORT;
+			dual_open_owner_begin_retirement(channel, retiring_owner);
+		}
+
 		/* We *don't* hang up if they aborted: that's fine! */
 		channel_fail_transient(channel, disconnect, "%s %s: %s",
 				       channel->owner->name,
@@ -4063,7 +4455,6 @@ static void dualopen_errmsg(struct channel *channel,
 		if (maybe_cleanup_last_inflight(channel))
 			log_debug(channel->log, "Cleaned up incomplete inflight");
 
-
 		if (!disconnect) {
 			if (channel_state_open_uncommitted(channel->state)) {
 				log_info(channel->log, "%s", "Commit ready peer can't reconnect."
@@ -4071,13 +4462,15 @@ static void dualopen_errmsg(struct channel *channel,
 				delete_channel(channel, false);
 				return;
 			}
-			char *err = restart_dualopend(tmpctx,
-						      channel->peer->ld,
-						      channel, true);
-			if (err)
-				log_broken(channel->log,
-					   "Unable to restart dualopend"
-					   " after abort: %s", err);
+			/* tx_abort hands the existing connectd endpoint back to lightningd.
+			 * Keep it for the replacement owner; the old owner's destructor is
+			 * the barrier which makes handing it on safe. */
+			assert(channel->dualopend_owner_state
+			       == DUALOPEND_OWNER_RETIRING);
+			assert(retiring_owner);
+			assert(!channel->dualopend_restart_peer_fd);
+			channel->dualopend_restart_peer_fd
+				= tal_steal(channel, peer_fd);
 		}
 
 		return;
@@ -4176,9 +4569,8 @@ bool peer_start_dualopend(struct peer *peer,
 				       strerror(errno));
 		return false;
 	}
-
 	dev_old_seed = dev_setup_dualopend_seed(tmpctx, peer->ld);
-	channel->owner = new_channel_subd(channel,
+	channel_set_owner(channel, new_channel_subd(channel,
 					  peer->ld,
 					  "lightning_dualopend",
 					  channel,
@@ -4189,7 +4581,7 @@ bool peer_start_dualopend(struct peer *peer,
 					  dualopen_errmsg,
 					  channel_set_billboard,
 					  take(&peer_fd->fd),
-					  take(&hsmfd), NULL);
+					  take(&hsmfd), NULL));
 	dev_restore_seed(dev_old_seed);
 
 	if (!channel->owner) {
@@ -4229,7 +4621,125 @@ bool peer_start_dualopend(struct peer *peer,
 				    *channel->alias[LOCAL],
 				    peer->ld->dev_any_channel_type);
 	subd_send_msg(channel->owner, take(msg));
+	/* Initial dualopend does not perform a reconnect dance.  Its init is
+	 * already queued before any later master request. */
+	channel->dualopend_owner_state = DUALOPEND_OWNER_READY;
+	channel->dualopend_restart_mode = DUALOPEND_RESTART_REESTABLISH;
+	channel->dualopend_owner_connectd_counter = peer->connectd_counter;
 	return true;
+}
+
+void dual_open_owner_route_result(struct lightningd *ld, const u8 *msg)
+{
+	struct node_id peer_id;
+	struct channel_id cid;
+	struct channel *channel;
+	u64 connectd_counter;
+	bool accepted;
+
+	if (!fromwire_connectd_peer_connect_subd_reply(msg, &peer_id,
+							&connectd_counter,
+							&cid,
+							&accepted))
+		fatal("Bad connectd_peer_connect_subd_reply: %s",
+		      tal_hex(msg, msg));
+
+	channel = channel_by_cid(ld, &cid);
+	if (!channel || !node_id_eq(&channel->peer->id, &peer_id))
+		return;
+
+	/* For an in-place tx_abort, this acknowledgement means connectd has
+	 * reactivated the abort-marked route.  Only now is it safe to attach the
+	 * returned endpoint to the replacement owner. */
+	if (channel->peer->connectd_counter == connectd_counter
+	    && channel->dualopend_owner_state
+	       == DUALOPEND_OWNER_RESTART_PENDING
+	    && channel->dualopend_restart_mode
+	       == DUALOPEND_RESTART_AFTER_ABORT) {
+		struct peer_fd *peer_fd;
+
+		if (!accepted) {
+			channel->dualopend_owner_state = DUALOPEND_OWNER_NONE;
+			dual_open_attempt_peer_disconnected(channel);
+			return;
+		}
+		peer_fd = channel->dualopend_restart_peer_fd;
+		channel->dualopend_restart_peer_fd = NULL;
+		if (!peer_fd
+		    || !peer_restart_dualopend(channel->peer, peer_fd,
+					      channel, true)) {
+			tal_free(peer_fd);
+			channel->dualopend_owner_state = DUALOPEND_OWNER_NONE;
+			channel_cleanup_commands(channel,
+					 "Unable to restart dualopend after abort");
+			return;
+		}
+		tal_free(peer_fd);
+		/* The route acknowledgement preceded owner creation, so initialize
+		 * immediately instead of waiting for a connect_subd reply. */
+		assert(channel->owner_reinit_msg);
+		subd_send_msg(channel->owner, take(channel->owner_reinit_msg));
+		channel->owner_reinit_msg = NULL;
+		channel->dualopend_owner_state = DUALOPEND_OWNER_REESTABLISHING;
+		return;
+	}
+
+	/* Initial owners do not wait on this reply, and a disconnect can retire a
+	 * route-pending owner before connectd's response is handled. */
+	if (channel->peer->connectd_counter != connectd_counter
+	    || (channel->dualopend_owner_state
+		!= DUALOPEND_OWNER_ROUTE_PENDING
+		&& channel->dualopend_owner_state
+		   != DUALOPEND_OWNER_READY_PENDING_ROUTE))
+		return;
+
+	if (!accepted) {
+		log_debug(channel->log, "Connectd rejected dualopend owner route");
+		/* The owner cannot service peer traffic without a connectd route.
+		 * Retire it now; the peer-disconnected/reconnected path will install
+		 * the owner for the next transport. */
+		channel->owner_reinit_msg = tal_free(channel->owner_reinit_msg);
+		channel->dualopend_owner_state = DUALOPEND_OWNER_NONE;
+		if (channel->dualopend_abort_reason) {
+			channel_cleanup_commands(channel,
+				channel->dualopend_abort_reason);
+			channel->dualopend_abort_reason
+				= tal_free(channel->dualopend_abort_reason);
+		}
+		channel_fail_transient(channel, false,
+				       "Connectd rejected owner route");
+		return;
+	}
+
+	if (!channel->owner)
+		return;
+
+	log_debug(channel->log, "Connectd accepted dualopend owner route");
+	if (channel->dualopend_owner_state
+	    == DUALOPEND_OWNER_READY_PENDING_ROUTE) {
+		channel->dualopend_owner_state = DUALOPEND_OWNER_READY;
+		if (channel->dualopend_abort_reason) {
+			log_info(channel->log, "RBF negotiation aborted: %s",
+				 channel->dualopend_abort_reason);
+			channel_cleanup_commands(channel,
+				channel->dualopend_abort_reason);
+			channel->dualopend_abort_reason
+				= tal_free(channel->dualopend_abort_reason);
+		}
+		dualopend_recheck_depth(channel);
+		send_pending_open_attempt(channel);
+	} else {
+		/* Normal reconnect owners are initialized before route attachment, so
+		 * they cannot receive a queued channel_reestablish while still waiting
+		 * for their master init.  Abort continuations retain their init until
+		 * connectd has reactivated the inherited route. */
+		if (channel->owner_reinit_msg) {
+			subd_send_msg(channel->owner,
+				      take(channel->owner_reinit_msg));
+			channel->owner_reinit_msg = NULL;
+		}
+		channel->dualopend_owner_state = DUALOPEND_OWNER_REESTABLISHING;
+	}
 }
 
 bool peer_restart_dualopend(struct peer *peer,
@@ -4263,7 +4773,6 @@ bool peer_restart_dualopend(struct peer *peer,
 				      "Failed to get hsm fd for dualopend");
 		return false;
 	}
-
 	dev_old_seed = dev_setup_dualopend_seed(tmpctx, peer->ld);
 	channel_set_owner(channel,
 			  new_channel_subd(channel, peer->ld,
@@ -4277,6 +4786,8 @@ bool peer_restart_dualopend(struct peer *peer,
 					   channel_set_billboard,
 					   take(&peer_fd->fd),
 					   take(&hsmfd), NULL));
+	assert(peer_fd->fd == -1);
+	assert(hsmfd == -1);
 	dev_restore_seed(dev_old_seed);
 
 	if (!channel->owner) {
@@ -4287,6 +4798,14 @@ bool peer_restart_dualopend(struct peer *peer,
 				      "Failed to create dualopend");
 		return false;
 	}
+	channel->dualopend_owner_state = DUALOPEND_OWNER_ROUTE_PENDING;
+	if (channel->dualopend_owner_connectd_counter
+	    != peer->connectd_counter)
+		channel->dualopend_owner_install_retries = 0;
+	channel->dualopend_owner_connectd_counter = peer->connectd_counter;
+	if (from_abort)
+		channel->dualopend_restart_mode
+			= DUALOPEND_RESTART_AFTER_ABORT;
 
 	/* Find the max self delay and min htlc capacity */
 	channel_config(peer->ld, &unused_config,
@@ -4363,6 +4882,16 @@ bool peer_restart_dualopend(struct peer *peer,
 				      channel->req_confirmed_ins[REMOTE],
 				      *channel->alias[LOCAL]);
 
-	subd_send_msg(channel->owner, take(msg));
+	if (from_abort) {
+		/* An inherited route remains abort-marked until connectd explicitly
+		 * resumes it. */
+		channel->owner_reinit_msg = tal_steal(channel, msg);
+	} else {
+		/* Initialize before attaching the route.  The peer fd buffers our
+		 * channel_reestablish until connectd installs its endpoint, and an
+		 * already-queued peer reestablish cannot race ahead of master init. */
+		subd_send_msg(channel->owner, take(msg));
+		channel->owner_reinit_msg = NULL;
+	}
 	return true;
 }
