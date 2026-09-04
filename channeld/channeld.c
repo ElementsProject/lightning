@@ -23,6 +23,7 @@
 #include <channeld/watchtower.h>
 #include <common/billboard.h>
 #include <common/ecdh_hsmd.h>
+#include <common/forward_failure_reason.h>
 #include <common/interactivetx.h>
 #include <common/key_derive.h>
 #include <common/memleak.h>
@@ -6370,6 +6371,7 @@ static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
 	enum channel_add_err e;
 	const u8 *failwiremsg;
 	const char *failstr;
+	enum forward_failure_reason reason = FORWARD_FAIL_UNKNOWN;
 	struct amount_sat htlc_fee;
 	struct pubkey *path_key;
 	struct tlv_field *extra_tlvs;
@@ -6432,13 +6434,14 @@ static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
 		start_commit_timer(peer);
 		/* Tell the master. */
 		msg = towire_channeld_offer_htlc_reply(NULL, peer->htlc_id,
-						      0, "");
+						      0, "", FORWARD_FAIL_UNKNOWN);
 		wire_sync_write(MASTER_FD, take(msg));
 		peer->htlc_id++;
 		return;
 	case CHANNEL_ERR_INVALID_EXPIRY:
 		failwiremsg = towire_incorrect_cltv_expiry(inmsg, cltv_expiry, NULL);
 		failstr = tal_fmt(inmsg, "Invalid cltv_expiry %u", cltv_expiry);
+		reason = FORWARD_FAIL_CLTV_INCORRECT;
 		goto failed;
 	case CHANNEL_ERR_DUPLICATE:
 	case CHANNEL_ERR_DUPLICATE_ID_DIFFERENT:
@@ -6448,21 +6451,30 @@ static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
 	case CHANNEL_ERR_MAX_HTLC_VALUE_EXCEEDED:
 		failwiremsg = towire_required_node_feature_missing(inmsg);
 		failstr = "Mini mode: maximum value exceeded";
+		reason = FORWARD_FAIL_HTLC_ABOVE_MAXIMUM;
+		goto failed;
+	case CHANNEL_ERR_MAX_HTLC_VALUE_IN_FLIGHT_EXCEEDED:
+		failwiremsg = towire_temporary_channel_failure(inmsg, NULL);
+		failstr = "Aggregate value of committed HTLCs would exceed max_htlc_value_in_flight_msat";
+		reason = FORWARD_FAIL_MAX_HTLC_VALUE_IN_FLIGHT;
 		goto failed;
 	/* FIXME: Fuzz the boundaries a bit to avoid probing? */
 	case CHANNEL_ERR_CHANNEL_CAPACITY_EXCEEDED:
 		failwiremsg = towire_temporary_channel_failure(inmsg, NULL);
 		failstr = tal_fmt(inmsg, "Capacity exceeded - HTLC fee: %s", fmt_amount_sat(inmsg, htlc_fee));
+		reason = FORWARD_FAIL_INSUFFICIENT_OUTGOING_LIQUIDITY;
 		goto failed;
 	case CHANNEL_ERR_HTLC_BELOW_MINIMUM:
 		failwiremsg = towire_amount_below_minimum(inmsg, amount, NULL);
 		failstr = tal_fmt(inmsg, "HTLC too small (%s minimum)",
 				  fmt_amount_msat(tmpctx,
 						  peer->channel->config[REMOTE].htlc_minimum));
+		reason = FORWARD_FAIL_HTLC_BELOW_MINIMUM;
 		goto failed;
 	case CHANNEL_ERR_TOO_MANY_HTLCS:
 		failwiremsg = towire_temporary_channel_failure(inmsg, NULL);
 		failstr = "Too many HTLCs";
+		reason = FORWARD_FAIL_TOO_MANY_HTLCS;
 		goto failed;
 	case CHANNEL_ERR_DUST_FAILURE:
 		/* BOLT-919 #2:
@@ -6473,6 +6485,7 @@ static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
 		 */
 		failwiremsg = towire_temporary_channel_failure(inmsg, NULL);
 		failstr = "HTLC too dusty, allowed dust limit reached";
+		reason = FORWARD_FAIL_DUST_LIMIT;
 		goto failed;
 	}
 	/* Shouldn't return anything else! */
@@ -6480,7 +6493,7 @@ static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
 
 failed:
 	/* lightningd appends update to this for us */
-	msg = towire_channeld_offer_htlc_reply(NULL, 0, failwiremsg, failstr);
+	msg = towire_channeld_offer_htlc_reply(NULL, 0, failwiremsg, failstr, reason);
 	wire_sync_write(MASTER_FD, take(msg));
 }
 

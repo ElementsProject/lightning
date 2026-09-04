@@ -107,6 +107,9 @@ msgdata,channeld_offer_htlc_reply,id,u64,
 msgdata,channeld_offer_htlc_reply,len,u16,
 msgdata,channeld_offer_htlc_reply,failuremsg,u8,len
 msgdata,channeld_offer_htlc_reply,failurestr,wirestring,
+# enum forward_failure_reason (common/forward_failure_reason.h) - root cause
+# of the failure, 0 (FORWARD_FAIL_UNKNOWN) on success or if unclassified
+msgdata,channeld_offer_htlc_reply,reason,u8,
 
 # Main daemon found out the preimage for an HTLC
 #include <bitcoin/preimage.h>

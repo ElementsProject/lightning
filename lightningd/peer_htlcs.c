@@ -583,6 +583,17 @@ static void destroy_hout_subd_died(struct htlc_out *hout)
 
 	fail_out_htlc(hout, "Outgoing subdaemon died");
 
+	if (!hout->am_origin && hout->in) {
+		struct short_channel_id scid
+			= channel_scid_or_local_alias(hout->key.channel);
+		wallet_forwarded_payment_add(hout->key.channel->peer->ld->wallet,
+					 hout->in, FORWARD_STYLE_TLV,
+					 &scid, NULL,
+					 FORWARD_LOCAL_FAILED,
+					 fromwire_peektype(hout->failmsg),
+					 FORWARD_FAIL_OUTGOING_PEER_OFFLINE);
+	}
+
 	if (!have_tx)
 		db_commit_transaction(db);
 }
@@ -594,17 +605,21 @@ static void rcvd_htlc_reply(struct subd *subd, const u8 *msg, const int *fds UNU
 {
 	u8 *failmsg;
 	char *failurestr;
+	u8 reason_raw;
+	enum forward_failure_reason reason;
 	struct lightningd *ld = subd->ld;
 
 	if (!fromwire_channeld_offer_htlc_reply(msg, msg,
 					       &hout->key.id,
 					       &failmsg,
-					       &failurestr)) {
+					       &failurestr,
+					       &reason_raw)) {
 		channel_internal_error(subd->channel,
 				       "Bad channel_offer_htlc_reply");
 		tal_free(hout);
 		return;
 	}
+	reason = reason_raw;
 
 	if (tal_count(failmsg)) {
 		/* BOLT #4:
@@ -653,7 +668,8 @@ static void rcvd_htlc_reply(struct subd *subd, const u8 *msg, const int *fds UNU
 					 FORWARD_STYLE_TLV,
 					 &scid, NULL,
 					 FORWARD_LOCAL_FAILED,
-						     fromwire_peektype(hout->failmsg));
+						     fromwire_peektype(hout->failmsg),
+						     reason);
 		}
 
 		/* Prevent hout from being failed twice. */
@@ -710,7 +726,8 @@ const u8 *send_htlc_out(const tal_t *ctx,
 			u64 groupid,
 			const u8 *onion_routing_packet,
 			struct htlc_in *in,
-			struct htlc_out **houtp)
+			struct htlc_out **houtp,
+			enum forward_failure_reason *reason)
 {
 	u8 *msg, *raw_tlvs = NULL;
 
@@ -719,12 +736,16 @@ const u8 *send_htlc_out(const tal_t *ctx,
 	if (!channel_state_can_add_htlc(out->state)) {
 		log_info(out->log, "Attempt to send HTLC but not ready (%s)",
 			 channel_state_name(out));
+		if (reason)
+			*reason = FORWARD_FAIL_UNKNOWN_NEXT_PEER;
 		return towire_unknown_next_peer(ctx);
 	}
 
 	if (!out->owner) {
 		log_info(out->log, "Attempt to send HTLC but unowned (%s)",
 			 channel_state_name(out));
+		if (reason)
+			*reason = FORWARD_FAIL_OUTGOING_PEER_OFFLINE;
 		return towire_temporary_channel_failure(ctx,
 							channel_update_for_error(tmpctx, in, out));
 	}
@@ -820,6 +841,7 @@ static void forward_htlc(struct htlc_in *hin,
 			 const struct tlv_field *extra_tlvs)
 {
 	const u8 *failmsg;
+	enum forward_failure_reason reason;
 	struct lightningd *ld = hin->key.channel->peer->ld;
 	struct channel *next;
 	struct htlc_out *hout = NULL;
@@ -843,7 +865,8 @@ static void forward_htlc(struct htlc_in *hin,
 					 hin, FORWARD_STYLE_TLV,
 					 forward_scid, NULL,
 					 FORWARD_LOCAL_FAILED,
-					 WIRE_UNKNOWN_NEXT_PEER);
+					 WIRE_UNKNOWN_NEXT_PEER,
+					 FORWARD_FAIL_UNKNOWN_NEXT_PEER);
 		return;
 	}
 
@@ -867,13 +890,15 @@ static void forward_htlc(struct htlc_in *hin,
 			failmsg = towire_fee_insufficient(tmpctx, hin->msat,
 							  channel_update_for_error(tmpctx,
 										   hin, next));
+			reason = FORWARD_FAIL_FEE_INSUFFICIENT;
 			goto fail;
 		}
 		log_info(hin->key.channel->log,
 			 "Allowing payment using older feerate");
 	}
 
-	if (amount_msat_greater(amt_to_forward, next->htlc_maximum_msat)
+	bool above_max = amount_msat_greater(amt_to_forward, next->htlc_maximum_msat);
+	if (above_max
 	    || amount_msat_less(amt_to_forward, next->htlc_minimum_msat)) {
 		/* Are we in old-range grace-period? */
 		if (!timemono_before(time_mono(), next->old_feerate_timeout)
@@ -881,6 +906,8 @@ static void forward_htlc(struct htlc_in *hin,
 		    || amount_msat_greater(amt_to_forward, next->old_htlc_maximum_msat)) {
 			failmsg = towire_temporary_channel_failure(tmpctx,
 								   channel_update_for_error(tmpctx, hin, next));
+			reason = above_max ? FORWARD_FAIL_HTLC_ABOVE_MAXIMUM
+					    : FORWARD_FAIL_HTLC_BELOW_MINIMUM;
 			goto fail;
 		}
 		log_info(hin->key.channel->log,
@@ -891,6 +918,7 @@ static void forward_htlc(struct htlc_in *hin,
 			ld->config.cltv_expiry_delta)) {
 		failmsg = towire_incorrect_cltv_expiry(tmpctx, cltv_expiry,
 						       channel_update_for_error(tmpctx, hin, next));
+		reason = FORWARD_FAIL_CLTV_INCORRECT;
 		goto fail;
 	}
 
@@ -910,6 +938,7 @@ static void forward_htlc(struct htlc_in *hin,
 			  get_block_height(ld->topology));
 		failmsg = towire_expiry_too_soon(tmpctx,
 						 channel_update_for_error(tmpctx, hin, next));
+		reason = FORWARD_FAIL_CLTV_EXPIRY_TOO_SOON;
 		goto fail;
 	}
 
@@ -926,6 +955,7 @@ static void forward_htlc(struct htlc_in *hin,
 			  get_block_height(ld->topology),
 			  ld->config.max_htlc_cltv);
 		failmsg = towire_expiry_too_far(tmpctx);
+		reason = FORWARD_FAIL_CLTV_EXPIRY_TOO_FAR;
 		goto fail;
 	}
 
@@ -933,7 +963,7 @@ static void forward_htlc(struct htlc_in *hin,
 				outgoing_cltv_value, AMOUNT_MSAT(0),
 				&hin->payment_hash,
 				next_path_key, extra_tlvs, 0 /* partid */, 0 /* groupid */,
-				next_onion, hin, &hout);
+				next_onion, hin, &hout, &reason);
 	if (!failmsg)
 		return;
 
@@ -942,7 +972,8 @@ fail:
 	wallet_forwarded_payment_add(ld->wallet,
 				 hin, FORWARD_STYLE_TLV, forward_scid, hout,
 				 FORWARD_LOCAL_FAILED,
-				 fromwire_peektype(failmsg));
+				 fromwire_peektype(failmsg),
+				 reason);
 }
 
 /**
@@ -1654,7 +1685,8 @@ static void fulfill_our_htlc_out(struct channel *channel, struct htlc_out *hout,
 			wallet_forwarded_payment_add(ld->wallet, hout->in,
 						     FORWARD_STYLE_TLV,
 						     &scid, hout,
-						     FORWARD_SETTLED, 0);
+						     FORWARD_SETTLED, 0,
+						     FORWARD_FAIL_UNKNOWN);
 		}
 	}
 }
@@ -1790,7 +1822,8 @@ static bool peer_failed_our_htlc(struct channel *channel,
 					     hout, FORWARD_FAILED,
 					     hout->failmsg
 					     ? fromwire_peektype(hout->failmsg)
-					     : 0);
+					     : 0,
+					     FORWARD_FAIL_UNKNOWN);
 	}
 
 	return true;
@@ -1939,7 +1972,8 @@ void onchain_failed_our_htlc(const struct channel *channel,
 					 FORWARD_LOCAL_FAILED,
 					 hout->failmsg
 					 ? fromwire_peektype(hout->failmsg)
-					 : 0);
+					 : 0,
+					 FORWARD_FAIL_CHANNEL_FAILED_PERMANENT);
 	} else {
 		/* This happens if we abandoned the incoming HTLC to avoid closure */
 		log_unusual(channel->log, "HTLC id %"PRIu64" is from nowhere: did we abandon it?",
@@ -2102,7 +2136,8 @@ static bool update_out_htlc(struct channel *channel,
 			wallet_forwarded_payment_add(ld->wallet, hout->in,
 						     FORWARD_STYLE_TLV,
 						     &scid, hout,
-						     FORWARD_OFFERED, 0);
+						     FORWARD_OFFERED, 0,
+						     FORWARD_FAIL_UNKNOWN);
 		}
 	}
 
@@ -2708,15 +2743,32 @@ void peer_got_revoke(struct channel *channel, const u8 *msg)
 	/* Now, any HTLCs we need to immediately fail? */
 	for (i = 0; i < tal_count(changed); i++) {
 		struct htlc_in *hin;
+		enum forward_failure_reason reason;
+		enum onion_wire failtype;
 
 		if (badonions[i]) {
 			hin = find_htlc_in(ld->htlcs_in, channel,
 					   changed[i].id);
 			local_fail_in_htlc_badonion(hin, badonions[i]);
+			failtype = badonions[i];
+			reason = FORWARD_FAIL_INVALID_ONION;
 		} else if (failmsgs[i]) {
 			hin = find_htlc_in(ld->htlcs_in, channel,
 					   changed[i].id);
 			local_fail_in_htlc(hin, failmsgs[i]);
+			failtype = fromwire_peektype(failmsgs[i]);
+
+			switch (failtype) {
+			case WIRE_PERMANENT_CHANNEL_FAILURE:
+				reason = FORWARD_FAIL_CHANNEL_SHUTTING_DOWN;
+				break;
+			case WIRE_INVALID_ONION_BLINDING:
+				reason = FORWARD_FAIL_INVALID_ONION;
+				break;
+			default:
+				reason = FORWARD_FAIL_UNKNOWN;
+				break;
+			}
 		} else
 			continue;
 
@@ -2724,8 +2776,7 @@ void peer_got_revoke(struct channel *channel, const u8 *msg)
 		wallet_forwarded_payment_add(ld->wallet,
 					 hin, FORWARD_STYLE_UNKNOWN, NULL, NULL,
 					 FORWARD_LOCAL_FAILED,
-					 badonions[i] ? badonions[i]
-					     : fromwire_peektype(failmsgs[i]));
+					 failtype, reason);
 	}
 	wallet_channel_save(ld->wallet, channel);
 

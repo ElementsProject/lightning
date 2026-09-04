@@ -1721,6 +1721,42 @@ def test_forward_local_failed_stats(node_factory, bitcoind, executor):
     assert [s.get('out_channel') for s in stats['forwards']] == [c23, c24, c25, None, c24]
 
 
+def test_forward_local_failed_reason(node_factory, bitcoind):
+    """
+    Check that we classify insufficient outgoing liquidity precisely
+    """
+    l1, l2, l3 = node_factory.get_nodes(3)
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
+    l1.fundchannel(l2, 10**7)
+    c23, _ = l2.fundchannel(l3, 3 * 10**6)
+
+    mine_funding_to_announce(bitcoind, [l1, l2, l3])
+    l1.wait_channel_active(c23)
+    wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 4)
+
+    # Drain most of l2's spendable balance on c23 over to l3
+    l1.pay(l3, 2_500_000_000, route=True)
+
+    # Now ask for more than l2 has left to spend on c23, but well within
+    # the channels advertised capacity/htlc_maximum_msat, so getroute()
+    # still finds it
+    amt = 2_000_000_000
+    inv = l3.rpc.invoice(amt, "insufficient_liquidity", "desc")
+    payment_hash = inv['payment_hash']
+    route = l1.rpc.getroute(l3.info['id'], amt, 1)['route']
+
+    with pytest.raises(RpcError):
+        l1.rpc.sendpay(route, payment_hash, payment_secret=inv['payment_secret'])
+        l1.rpc.waitsendpay(payment_hash)
+
+    wait_for(lambda: len(l2.rpc.listforwards(status='local_failed')['forwards']) == 1)
+
+    forward = only_one(l2.rpc.listforwards(status='local_failed')['forwards'])
+    assert forward['failure_reason'] == 'insufficient_outgoing_liquidity'
+
+
 @pytest.mark.slow_test
 def test_htlcs_cltv_only_difference(node_factory, bitcoind):
     # l1 -> l2 -> l3 -> l4
