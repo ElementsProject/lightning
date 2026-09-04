@@ -491,7 +491,7 @@ have to do that.
 
   Normally HTLC onions which contain unknown even fields are rejected.
 This option specifies that this type is to be accepted, and ignored.  Can be
-specified multuple times. (Added in v23.08).
+specified multiple times. (Added in v23.08).
 
 * **min-emergency-msat**=*msat*
 
@@ -683,7 +683,7 @@ announced addresses are public (e.g. not localhost).
   This option can be used multiple times to add more addresses, and
 its use disables autolisten.
 
-  Since v23.058, the `dns:` prefix can be used to indicate that this hostname and port should be announced as a DNS hostname entry.  Please note that most mainnet nodes do not yet use, read or propagate this information correctly.
+  Since v23.08, the `dns:` prefix can be used to indicate that this hostname and port should be announced as a DNS hostname entry.  Please note that most mainnet nodes do not yet use, read or propagate this information correctly.
 
 * **announce-addr-dns**=*BOOL* (deprecated in v23.08)
 
@@ -835,7 +835,7 @@ load plugins which have been disabled, using lightning-plugin(7) `start`.
 
 * **important-plugin**=*PLUGIN*
 
-  Speciy a plugin to run as part of Core Lightning.
+  Specify a plugin to run as part of Core Lightning.
 This can be specified multiple times to add multiple plugins.
 Plugins specified via this option are considered so important, that if the
 plugin stops for any reason (including via lightning-plugin(7) `stop`),
@@ -939,6 +939,6 @@ Note: the modules in the ccan/ directory have their own licenses, but
 the rest of the code is covered by the BSD-style MIT license.
 
 [bolt]: https://github.com/lightning/bolts
-[bolt12]: https://github.com/rustyrussell/lightning-rfc/blob/guilt/offers/12-offer-encoding.md
+[bolt12]: https://github.com/lightning/bolts/blob/master/12-offer-encoding.md
 [pr4421]: https://github.com/ElementsProject/lightning/pull/4421
 [blip]: https://github.com/lightning/blips

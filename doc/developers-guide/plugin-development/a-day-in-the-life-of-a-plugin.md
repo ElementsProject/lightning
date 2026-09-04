@@ -6,10 +6,10 @@ privacy:
 ---
 A plugin may be written in any language, and communicates with `lightningd` through the plugin's `stdin` and `stdout`. JSON-RPCv2 is used as protocol on top of the two streams, with the plugin acting as server and `lightningd` acting as client. The plugin file needs to be executable (e.g. use `chmod a+x plugin_name`).
 
-> 🚧 
-> 
+> 🚧
+>
 > As noted, `lightningd` uses `stdin` as an intake mechanism.  This can cause unexpected behavior if one is not careful.  To wit, care should be taken to ensure that debug/logging statements must be routed to `stderr` or directly to a file. Activities that are benign in other contexts (`println!`, `dbg!`, etc) will cause the plugin to be killed with an error along the lines of:
-> 
+>
 > `UNUSUAL plugin-cln-plugin-startup: Killing plugin: JSON-RPC message
 > does not contain "jsonrpc" field`
 
@@ -108,12 +108,12 @@ The `nonnumericids` indicates that the plugin can handle string JSON request `id
 The `dynamic` indicates if the plugin can be managed after `lightningd` has been started using the [lightning-plugin](ref:plugin) JSON-RPC command. Critical plugins that should not be stopped should set it to false. Plugin `options` can be passed to dynamic plugins as argument to the `plugin` command .
 
 If you can handle the `check` command on your commands, you should set `cancheck` to `true` and expect `lightningd` to pass through any user-requested `check` commands to you directly (without this, `check` currently always passes, which is not very useful!).
-  
+
 If a `disable` member exists, the plugin will be disabled and the contents of this member is the reason why.  This allows plugins to disable themselves if they are not supported in this configuration.
 
 The `hooks` array is either an array of hook names, or an array of objects with `name`, and optional `before` and `after` arrays specifying what the calling order is with respect to any other plugins (there's no problem if these plugins don't exist, but if they do we'll insist on obeying everyone's ordering constraints).  You can also specify a `filters` array to some hooks to avoid being called on every occurrence.
 
-The `featurebits` object allows the plugin to register featurebits that should be announced in a number of places in [the protocol](https://github.com/lightning/bolts/blob/master/09-features). They can be used to signal support for custom protocol extensions to direct peers, remote nodes and in invoices. Custom protocol extensions can be implemented for example using the `sendcustommsg` method and the `custommsg` hook, or the `sendonion` method and the `htlc_accepted` hook. The keys in the `featurebits` object are `node` for features that should be announced via the `node_announcement` to all nodes in the network, `init` for features that should be announced to direct peers during the connection setup, `channel` for features which should apply to `channel_announcement`, and `invoice` for features that should be announced to a potential sender of a payment in the invoice. The low range of featurebits is reserved for standardize features, so please pick random, high position bits for experiments. If you'd like to standardize your extension please reach out to the [specification repository][spec] to get a featurebit assigned.
+The `featurebits` object allows the plugin to register featurebits that should be announced in a number of places in [the protocol](https://github.com/lightning/bolts/blob/master/09-features.md). They can be used to signal support for custom protocol extensions to direct peers, remote nodes and in invoices. Custom protocol extensions can be implemented for example using the `sendcustommsg` method and the `custommsg` hook, or the `sendonion` method and the `htlc_accepted` hook. The keys in the `featurebits` object are `node` for features that should be announced via the `node_announcement` to all nodes in the network, `init` for features that should be announced to direct peers during the connection setup, `channel` for features which should apply to `channel_announcement`, and `invoice` for features that should be announced to a potential sender of a payment in the invoice. The low range of featurebits is reserved for standardize features, so please pick random, high position bits for experiments. If you'd like to standardize your extension please reach out to the [specification repository](https://github.com/lightning/bolts) to get a featurebit assigned.
 
 The `notifications` array allows plugins to announce which custom notifications they intend to send to `lightningd`. These custom notifications can then be subscribed to by other plugins, allowing them to communicate with each other via the existing publish-subscribe mechanism and react to events that happen in other plugins, or collect information based on the notification topics.
 

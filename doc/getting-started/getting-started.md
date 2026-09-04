@@ -26,7 +26,7 @@ The following steps will get you up and running with Core Lightning:
   For a thorough understanding of the best hardware setup for your usage / scenario, see guidance at [hardware considerations](doc:hardware-considerations).
 - [x] **Bitcoin Core**
 
-  Core Lightning requires a locally (or remotely) running `bitcoind` (version 0.16 or above) that is fully caught up with the network you're running on, and relays transactions (ie with `blocksonly=0`). Pruning (`prune=n` option in `bitcoin.conf`) is partially supported, see [here](doc:bitcoin-core#using-a-pruned-bitcoin-core-node) for more details. You can also connect your Core Lightning node to a remotely running Bitcoin Core, see [here](doc:bitcoin-core#connecting-to-bitcoin-core-remotely) to learn how.
+  Core Lightning requires a locally (or remotely) running `bitcoind` (version 23.0 or above) that is fully caught up with the network you're running on, and relays transactions (ie with `blocksonly=0`). Pruning (`prune=n` option in `bitcoin.conf`) is partially supported, see [here](doc:bitcoin-core#using-a-pruned-bitcoin-core-node) for more details. You can also connect your Core Lightning node to a remotely running Bitcoin Core, see [here](doc:bitcoin-core#connecting-to-bitcoin-core-remotely) to learn how.
 
 ## 2. [Install](doc:installation) Core Lightning
 
