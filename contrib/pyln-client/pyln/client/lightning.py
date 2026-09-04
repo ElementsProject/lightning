@@ -1043,17 +1043,18 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("listoffers", payload)
 
-    def listpays(self, bolt11=None, payment_hash=None, status=None, index=None, start=None, limit=None):
+    def listpays(self, bolt11=None, payment_hash=None, status=None, index=None, start=None, limit=None, label=None):
         """
-        Show outgoing payments, regarding {bolt11} or {payment_hash} if set
-        Can only specify one of {bolt11} or {payment_hash}. It is possible
-        filter the payments by {status}.
+        Show outgoing payments, regarding {bolt11}, {payment_hash} or
+        {label} if set. Can only specify one of {bolt11}, {payment_hash}
+        or {label}. It is possible filter the payments by {status}.
         """
         assert not (bolt11 and payment_hash)
         payload = {
             "bolt11": bolt11,
             "payment_hash": payment_hash,
             "status": status,
+            "label": label,
             "index": index,
             "start": start,
             "limit": limit,
@@ -1083,12 +1084,13 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("listpeerchannels", payload)
 
-    def listsendpays(self, bolt11=None, payment_hash=None, status=None, index=None, start=None, limit=None):
-        """Show all sendpays results, or only for `bolt11` or `payment_hash`."""
+    def listsendpays(self, bolt11=None, payment_hash=None, status=None, index=None, start=None, limit=None, label=None):
+        """Show all sendpays results, or only for `bolt11`, `payment_hash` or `label`."""
         payload = {
             "bolt11": bolt11,
             "payment_hash": payment_hash,
             "status": status,
+            "label": label,
             "index": index,
             "start": start,
             "limit": limit,

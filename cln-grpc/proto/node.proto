@@ -1017,6 +1017,7 @@ message ListsendpaysRequest {
 	optional ListsendpaysIndex index = 4;
 	optional uint64 start = 5;
 	optional uint32 limit = 6;
+	optional string label = 7;
 }
 
 message ListsendpaysResponse {
@@ -2413,6 +2414,7 @@ message ListpaysRequest {
 	optional ListpaysIndex index = 4;
 	optional uint64 start = 5;
 	optional uint32 limit = 6;
+	optional string label = 7;
 }
 
 message ListpaysResponse {

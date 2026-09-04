@@ -340,7 +340,7 @@ struct command_result *json_listpays(struct command *cmd,
 				     const char *buf,
 				     const jsmntok_t *params)
 {
-	const char *invstring, *status_str;
+	const char *invstring, *status_str, *label;
 	struct sha256 *payment_hash;
 	struct out_req *req;
 	const char *listindex;
@@ -356,6 +356,7 @@ struct command_result *json_listpays(struct command *cmd,
 		   p_opt("index", param_string, &listindex),
 		   p_opt_def("start", param_u64, &liststart, 0),
 		   p_opt("limit", param_u32, &listlimit),
+		   p_opt("label", param_string, &label),
 		   NULL))
 		return command_param_failed();
 
@@ -379,6 +380,9 @@ struct command_result *json_listpays(struct command *cmd,
 
 	if (status_str)
 		json_add_string(req->js, "status", status_str);
+
+	if (label)
+		json_add_string(req->js, "label", label);
 
 	if (listindex){
 		json_add_string(req->js, "index", listindex);
