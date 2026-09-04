@@ -112,6 +112,40 @@ msgdata,connectd_peer_connect_subd,id,node_id,
 msgdata,connectd_peer_connect_subd,counter,u64,
 msgdata,connectd_peer_connect_subd,channel_id,channel_id,
 
+# Master -> connectd: attach a replacement dualopend and acknowledge only once
+# its route is active (+ fd to subd).
+msgtype,connectd_peer_connect_subd_tracked,2018
+msgdata,connectd_peer_connect_subd_tracked,id,node_id,
+msgdata,connectd_peer_connect_subd_tracked,counter,u64,
+msgdata,connectd_peer_connect_subd_tracked,channel_id,channel_id,
+
+# Connectd -> master: the subd route was accepted or rejected.  A restarted
+# dualopend does not begin its peer protocol until the route is installed.
+msgtype,connectd_peer_connect_subd_reply,2104
+msgdata,connectd_peer_connect_subd_reply,id,node_id,
+msgdata,connectd_peer_connect_subd_reply,counter,u64,
+msgdata,connectd_peer_connect_subd_reply,channel_id,channel_id,
+msgdata,connectd_peer_connect_subd_reply,accepted,bool,
+
+# Master -> connectd: a replacement subd has inherited the endpoint returned
+# after tx_abort.  Reactivate that exact route and cancel its abort timer.
+msgtype,connectd_peer_resume_subd,2017
+msgdata,connectd_peer_resume_subd,id,node_id,
+msgdata,connectd_peer_resume_subd,counter,u64,
+msgdata,connectd_peer_resume_subd,channel_id,channel_id,
+
+# Master -> connectd: discard the retired route for a terminal initial open.
+# The reply is sent only after the old subd endpoint has been removed.
+msgtype,connectd_peer_release_subd,2019
+msgdata,connectd_peer_release_subd,id,node_id,
+msgdata,connectd_peer_release_subd,counter,u64,
+msgdata,connectd_peer_release_subd,channel_id,channel_id,
+
+msgtype,connectd_peer_release_subd_reply,2105
+msgdata,connectd_peer_release_subd_reply,id,node_id,
+msgdata,connectd_peer_release_subd_reply,counter,u64,
+msgdata,connectd_peer_release_subd_reply,channel_id,channel_id,
+
 # Connectd -> master: peer said something interesting
 msgtype,connectd_peer_spoke,2005
 msgdata,connectd_peer_spoke,id,node_id,

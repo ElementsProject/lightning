@@ -52,6 +52,7 @@
 #include <common/ecdh_hsmd.h>
 #include <common/errcode.h>
 #include <common/hsm_secret.h>
+#include <common/lease_rates.h>
 #include <common/memleak.h>
 #include <common/timeout.h>
 #include <common/trace.h>
@@ -144,6 +145,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->dev_disable_commit = -1;
 	ld->dev_no_ping_timer = false;
 	ld->dev_any_channel_type = false;
+	ld->dev_lease_duration = LEASE_RATE_DURATION;
 	ld->dev_allow_shutdown_destination_change = false;
 	ld->dev_hsmd_no_preapprove_check = false;
 	ld->dev_hsmd_fail_preapprove = false;
@@ -1199,6 +1201,7 @@ int main(int argc, char *argv[])
 
 	/*~ What happens in strange locales should stay there. */
 	setup_locale();
+	io_poll_protect_stale_fds();
 
 	/*~ This handles --dev-debug-self really early, which we otherwise ignore */
 	daemon_developer_mode(argv);

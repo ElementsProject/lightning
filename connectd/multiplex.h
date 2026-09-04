@@ -35,7 +35,14 @@ void custommsg_completed(struct daemon *daemon, const u8 *msg);
 void set_custommsgs(struct daemon *daemon, const u8 *msg);
 
 /* Lightningd wants to talk to you. */
-void peer_connect_subd(struct daemon *daemon, const u8 *msg, int fd);
+void peer_connect_subd(struct daemon *daemon, const u8 *msg, int fd,
+		       bool tracked);
+
+/* A replacement owner inherited an existing route after tx_abort. */
+void peer_resume_subd(struct daemon *daemon, const u8 *msg);
+
+/* Release a terminal initial-open route, replying after it is fully gone. */
+void peer_release_subd(struct daemon *daemon, const u8 *msg);
 
 /* Disconnect peer: give outgoing msgs time to drain though. */
 void disconnect_peer(struct peer *peer);
