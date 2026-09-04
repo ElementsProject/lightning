@@ -129,7 +129,8 @@
     "required": [
       "tx",
       "txid",
-      "channel_ids"
+      "channel_ids",
+      "failed"
     ],
     "additionalProperties": false,
     "properties": {

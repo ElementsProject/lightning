@@ -756,7 +756,9 @@
                 "created_channels",
                 "channel_updates",
                 "constraints",
-                "impressions"
+                "impressions",
+                "biases",
+                "node_biases"
               ],
               "properties": {
                 "layer": {
@@ -1359,7 +1361,9 @@
                 "created_channels",
                 "channel_updates",
                 "impressions",
-                "constraints"
+                "constraints",
+                "biases",
+                "node_biases"
               ],
               "properties": {
                 "layer": {
@@ -3258,6 +3262,7 @@
                 "our_start_balance_msat",
                 "channel_start_balance_msat",
                 "fees_out_msat",
+                "fees_in_msat",
                 "utilization_out",
                 "utilization_in",
                 "apy_out",
@@ -3977,8 +3982,7 @@
                 "credit_msat",
                 "debit_msat",
                 "currency",
-                "timestamp",
-                "description"
+                "timestamp"
               ],
               "properties": {
                 "account": {
@@ -5898,7 +5902,9 @@
         "It has the useful property that when used with `lightning-cli` and the `escape=csv` it can directly produce valid CSV files."
       ],
       "request": {
-        "required": [],
+        "required": [
+          "format"
+        ],
         "additionalProperties": false,
         "properties": {
           "format": {
@@ -5985,6 +5991,7 @@
       },
       "response": {
         "required": [
+          "format-hint",
           "report"
         ],
         "additionalProperties": false,
@@ -7384,7 +7391,6 @@
           "created_index",
           "payment_hash",
           "status",
-          "description",
           "expires_at"
         ],
         "additionalProperties": false,
@@ -8571,7 +8577,9 @@
       },
       "response": {
         "required": [
-          "key"
+          "key",
+          "generation",
+          "hex"
         ],
         "additionalProperties": false,
         "properties": {
@@ -9463,7 +9471,8 @@
                   ],
                   "required": [
                     "period",
-                    "time_unit"
+                    "time_unit",
+                    "compulsory_field"
                   ],
                   "additionalProperties": false,
                   "properties": {
@@ -10095,7 +10104,8 @@
                   ],
                   "required": [
                     "period",
-                    "time_unit"
+                    "time_unit",
+                    "compulsory_field"
                   ],
                   "additionalProperties": false,
                   "properties": {
@@ -11867,7 +11877,9 @@
       },
       "response": {
         "required": [
-          "key"
+          "key",
+          "generation",
+          "hex"
         ],
         "additionalProperties": false,
         "properties": {
@@ -12503,7 +12515,8 @@
                 "payment_hash",
                 "status",
                 "amount_sent_msat",
-                "created_at"
+                "created_at",
+                "groupid"
               ],
               "properties": {
                 "created_index": {
@@ -14244,6 +14257,7 @@
               "opening_channel_satoshis",
               "mutual_close_satoshis",
               "unilateral_close_satoshis",
+              "unilateral_close_nonanchor_satoshis",
               "htlc_timeout_satoshis",
               "htlc_success_satoshis"
             ],
@@ -15392,6 +15406,7 @@
         "required": [
           "funding_address",
           "scriptpubkey",
+          "channel_type",
           "warning_usage"
         ],
         "additionalProperties": false,
@@ -17607,7 +17622,8 @@
       },
       "response": {
         "required": [
-          "help"
+          "help",
+          "format-hint"
         ],
         "additionalProperties": false,
         "properties": {
@@ -18173,8 +18189,7 @@
       ],
       "request": {
         "required": [
-          "amount",
-          "description"
+          "amount"
         ],
         "additionalProperties": false,
         "properties": {
@@ -19797,6 +19812,7 @@
                 "fee_per_millionth",
                 "delay",
                 "htlc_minimum_msat",
+                "htlc_maximum_msat",
                 "features"
               ],
               "properties": {
@@ -20203,6 +20219,7 @@
                 "channel_id",
                 "opener",
                 "private",
+                "channel_type",
                 "total_msat",
                 "total_local_commitments",
                 "total_remote_commitments",
@@ -20583,7 +20600,9 @@
         }
       },
       "response": {
-        "required": [],
+        "required": [
+          "configs"
+        ],
         "additionalProperties": false,
         "properties": {
           "configs": {
@@ -26316,7 +26335,8 @@
                 "payment_hash",
                 "status",
                 "created_at",
-                "created_index"
+                "created_index",
+                "amount_sent_msat"
               ],
               "properties": {
                 "payment_hash": {
@@ -26409,7 +26429,6 @@
                   "then": {
                     "additionalProperties": false,
                     "required": [
-                      "amount_sent_msat",
                       "preimage"
                     ],
                     "properties": {
@@ -26465,9 +26484,7 @@
                   },
                   "then": {
                     "additionalProperties": false,
-                    "required": [
-                      "amount_sent_msat"
-                    ],
+                    "required": [],
                     "properties": {
                       "created_index": {},
                       "updated_index": {},
@@ -26679,11 +26696,12 @@
               "type": "object",
               "additionalProperties": true,
               "required": [
-                "state",
-                "opener",
-                "features",
+                "peer_id",
                 "peer_connected",
-                "peer_id"
+                "state",
+                "channel_type",
+                "opener",
+                "features"
               ],
               "properties": {
                 "peer_id": {
@@ -28669,7 +28687,8 @@
               "required": [
                 "id",
                 "connected",
-                "num_channels"
+                "num_channels",
+                "features"
               ],
               "properties": {
                 "id": {
@@ -30508,7 +30527,8 @@
         "required": [
           "tx",
           "txid",
-          "channel_ids"
+          "channel_ids",
+          "failed"
         ],
         "additionalProperties": false,
         "properties": {
@@ -31335,6 +31355,7 @@
           "single_use",
           "bolt12",
           "used",
+          "force_paths",
           "created"
         ],
         "additionalProperties": false,
@@ -31599,7 +31620,8 @@
           "channel_type",
           "psbt",
           "commitments_secured",
-          "funding_serial"
+          "funding_serial",
+          "requires_confirmed_inputs"
         ],
         "additionalProperties": false,
         "properties": {
@@ -31902,7 +31924,8 @@
           "psbt",
           "channel_type",
           "commitments_secured",
-          "funding_serial"
+          "funding_serial",
+          "requires_confirmed_inputs"
         ],
         "additionalProperties": false,
         "properties": {
@@ -32495,7 +32518,9 @@
         }
       },
       "response": {
-        "required": [],
+        "required": [
+          "perkw"
+        ],
         "additionalProperties": false,
         "properties": {
           "perkw": {
@@ -32694,6 +32719,7 @@
       "response": {
         "required": [
           "payment_preimage",
+          "destination",
           "payment_hash",
           "created_at",
           "parts",
@@ -33595,7 +33621,8 @@
       ],
       "request": {
         "required": [
-          "command"
+          "command",
+          "target/subcommand"
         ],
         "additionalProperties": false,
         "properties": {
@@ -34035,10 +34062,12 @@
           "payment_preimage",
           "payment_hash",
           "created_at",
+          "groupid",
           "parts",
           "amount_msat",
           "amount_sent_msat",
-          "status"
+          "status",
+          "destination"
         ],
         "additionalProperties": false,
         "properties": {
@@ -34254,8 +34283,10 @@
                 "payment_hash",
                 "created_at",
                 "groupid",
+                "parts",
                 "amount_msat",
-                "status"
+                "status",
+                "destination"
               ],
               "properties": {
                 "bolt11": {
@@ -34798,7 +34829,6 @@
       "response": {
         "required": [
           "label",
-          "description",
           "payment_hash",
           "status",
           "created_index",
@@ -35123,6 +35153,7 @@
         "required": [
           "created_index",
           "id",
+          "groupid",
           "payment_hash",
           "status",
           "created_at",
@@ -35272,7 +35303,9 @@
             },
             "then": {
               "additionalProperties": false,
-              "required": [],
+              "required": [
+                "message"
+              ],
               "properties": {
                 "created_index": {},
                 "id": {},
@@ -35506,6 +35539,7 @@
         "required": [
           "id",
           "created_index",
+          "groupid",
           "payment_hash",
           "status",
           "created_at",
@@ -37410,7 +37444,6 @@
       ],
       "request": {
         "required": [
-          "channel_id",
           "psbt"
         ],
         "additionalProperties": false,
@@ -37439,7 +37472,8 @@
         "required": [
           "tx",
           "txid",
-          "psbt"
+          "psbt",
+          "outnum"
         ],
         "additionalProperties": false,
         "properties": {
@@ -37760,7 +37794,10 @@
         }
       },
       "response": {
-        "required": [],
+        "required": [
+          "psbt",
+          "txid"
+        ],
         "properties": {
           "psbt": {
             "type": "string",
@@ -37838,7 +37875,10 @@
         }
       },
       "response": {
-        "required": [],
+        "required": [
+          "psbt",
+          "txid"
+        ],
         "properties": {
           "psbt": {
             "type": "string",
@@ -40664,6 +40704,7 @@
         "required": [
           "id",
           "created_index",
+          "groupid",
           "payment_hash",
           "status",
           "created_at",
@@ -41656,7 +41697,8 @@
           "credit_msat",
           "debit_msat",
           "timestamp",
-          "primary_tag"
+          "primary_tag",
+          "extra_tags"
         ],
         "properties": {
           "version": {
@@ -43751,11 +43793,11 @@
         "The plugin can:",
         "- accept the payment by returning `{\"result\": \"continue\"}`",
         "- reject the payment with a generic error using `{\"result\": \"reject\"}`",
-        "- reject the payment with a custom BOLT 4 failure message using the `failure_message` field",
+        "- reject the payment with a custom BOLT 4 failure message by returning only the `failure_message` field (i.e. without `result`)",
         "",
-        "If `failure_message` is provided, the payment will be failed with that message.",
-        "If result is \"reject\" and no `failure_message` is provided, the payment fails with `incorrect_or_unknown_payment_details`.",
-        "`failure_message` must NOT be provided when result is \"continue\".",
+        "If only `failure_message` is provided, the payment will be failed with that message.",
+        "If `result` is \"reject\"and no `failure_message` is provided, the payment fails with `incorrect_or_unknown_payment_details`.",
+        "`failure_message` is ignored if `result` is provided.",
         "",
         "Before version 23.11 the msat field was encoded as a string with an 'msat' suffix."
       ],
@@ -43802,9 +43844,7 @@
       },
       "response": {
         "additionalProperties": false,
-        "required": [
-          "result"
-        ],
+        "required": [],
         "properties": {
           "result": {
             "type": "string",
@@ -43815,35 +43855,39 @@
             "description": [
               "Controls whether the payment is accepted or rejected.",
               "\"continue\" accepts the payment.",
-              "\"reject\" fails the payment."
+              "\"reject\" fails the payment with `incorrect_or_unknown_payment_details`."
             ]
           },
           "failure_message": {
             "type": "hex",
             "description": [
               "Optional BOLT 4 failure message.",
-              "Used to provide a specific failure reason when rejecting the payment."
+              "Only used when `result` is absent: the payment is rejected with this failure message.",
+              "Ignored if `result` is present."
             ]
           }
         },
         "if": {
-          "properties": {
-            "result": {
-              "type": "string",
-              "enum": [
-                "reject"
-              ]
-            }
-          },
           "required": [
             "result"
           ]
         },
         "then": {
+          "additionalProperties": false,
+          "required": [],
           "properties": {
-            "failure_message": {
-              "type": "hex"
-            }
+            "result": {},
+            "failure_message": {}
+          }
+        },
+        "else": {
+          "additionalProperties": false,
+          "required": [
+            "failure_message"
+          ],
+          "properties": {
+            "result": {},
+            "failure_message": {}
           }
         }
       },
@@ -43873,6 +43917,9 @@
           "onion_message": {
             "type": "object",
             "additionalProperties": false,
+            "required": [
+              "unknown_fields"
+            ],
             "properties": {
               "reply_blindedpath": {
                 "type": "object",
@@ -43883,6 +43930,10 @@
                   "If present, plugins must use this path if they construct a reply onion message."
                 ],
                 "additionalProperties": false,
+                "required": [
+                  "first_path_key",
+                  "hops"
+                ],
                 "properties": {
                   "first_node_id": {
                     "type": "pubkey",
@@ -44046,7 +44097,8 @@
           "onion_message": {
             "type": "object",
             "required": [
-              "pathsecret"
+              "pathsecret",
+              "unknown_fields"
             ],
             "additionalProperties": false,
             "properties": {
@@ -44068,6 +44120,10 @@
                   "If present, plugins must use this path if they construct a reply onion message."
                 ],
                 "additionalProperties": false,
+                "required": [
+                  "first_path_key",
+                  "hops"
+                ],
                 "properties": {
                   "first_node_id": {
                     "type": "pubkey",

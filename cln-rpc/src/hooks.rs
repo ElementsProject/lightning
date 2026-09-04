@@ -341,8 +341,7 @@ pub mod events{
         pub first_scid: Option<ShortChannelId>,
         #[serde(skip_serializing_if = "Option::is_none")]
         pub first_scid_dir: Option<u32>,
-        #[serde(skip_serializing_if = "crate::is_none_or_empty")]
-        pub hops: Option<Vec<OnionMessageRecvOnionMessageReplyBlindedpathHops>>,
+        pub hops: Vec<OnionMessageRecvOnionMessageReplyBlindedpathHops>,
     }
 
     #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -361,8 +360,7 @@ pub mod events{
         pub invoice_request: Option<String>,
         #[serde(skip_serializing_if = "Option::is_none")]
         pub reply_blindedpath: Option<OnionMessageRecvOnionMessageReplyBlindedpath>,
-        #[serde(skip_serializing_if = "crate::is_none_or_empty")]
-        pub unknown_fields: Option<Vec<OnionMessageRecvOnionMessageUnknownFields>>,
+        pub unknown_fields: Vec<OnionMessageRecvOnionMessageUnknownFields>,
     }
 
     #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -386,8 +384,7 @@ pub mod events{
         pub first_scid: Option<ShortChannelId>,
         #[serde(skip_serializing_if = "Option::is_none")]
         pub first_scid_dir: Option<u32>,
-        #[serde(skip_serializing_if = "crate::is_none_or_empty")]
-        pub hops: Option<Vec<OnionMessageRecvSecretOnionMessageReplyBlindedpathHops>>,
+        pub hops: Vec<OnionMessageRecvSecretOnionMessageReplyBlindedpathHops>,
     }
 
     #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -406,9 +403,8 @@ pub mod events{
         pub invoice_request: Option<String>,
         #[serde(skip_serializing_if = "Option::is_none")]
         pub reply_blindedpath: Option<OnionMessageRecvSecretOnionMessageReplyBlindedpath>,
-        #[serde(skip_serializing_if = "crate::is_none_or_empty")]
-        pub unknown_fields: Option<Vec<OnionMessageRecvSecretOnionMessageUnknownFields>>,
         pub pathsecret: Secret,
+        pub unknown_fields: Vec<OnionMessageRecvSecretOnionMessageUnknownFields>,
     }
 
     #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -555,7 +551,7 @@ pub mod actions{
         pub result: DbWriteResult,
     }
 
-    /// ['Controls whether the payment is accepted or rejected.', '"continue" accepts the payment.', '"reject" fails the payment.']
+    /// ['Controls whether the payment is accepted or rejected.', '"continue" accepts the payment.', '"reject" fails the payment with `incorrect_or_unknown_payment_details`.']
     #[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
     #[allow(non_camel_case_types)]
     pub enum InvoicePaymentHookResult {
@@ -589,8 +585,8 @@ pub mod actions{
     pub struct InvoicePaymentHookAction {
         #[serde(skip_serializing_if = "Option::is_none")]
         pub failure_message: Option<String>,
-        // Path `invoice_payment_hook.result`
-        pub result: InvoicePaymentHookResult,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub result: Option<InvoicePaymentHookResult>,
     }
 
     /// ['Whether to accept or reject the channel opening request.']
