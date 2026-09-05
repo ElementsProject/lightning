@@ -442,6 +442,30 @@ def test_invoice_expiry(node_factory, executor):
     assert expiry >= start + 1 and expiry <= end + 1
 
 
+def test_invoice_expiry_too_large(node_factory):
+    """An expiry too large to be safe must be refused, not crash or wedge.
+
+    The `x` field is encoded by push_varlen_field(), which can only
+    express values of up to 60 bits and aborts the whole daemon for
+    anything larger.  Long before that, the invoice expiration timer's
+    nanosecond-based counter overflows and the expiry check busy-loops
+    forever, so anything beyond 2^32 seconds (~136 years) is refused.
+    """
+    l1 = node_factory.get_node()
+
+    # The exact boundary still works: 2^32 - 1 is ~136 years of headroom.
+    ok = l1.rpc.invoice(amount_msat=1000, label='expiry-boundary-ok',
+                        description='boundary', expiry=2**32 - 1)
+    assert ok['bolt11']
+
+    # One above the boundary: typed refusal, daemon stays alive.
+    with pytest.raises(RpcError, match='expiry must be below') as err:
+        l1.rpc.invoice(amount_msat=1000, label='expiry-too-large',
+                       description='too large', expiry=2**32)
+    assert err.value.error['code'] == -32602
+    assert l1.rpc.getinfo()['id']
+
+
 def test_waitinvoice(node_factory, executor):
     """Test waiting for one invoice will not return if another invoice is paid.
     """
