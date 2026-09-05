@@ -2593,20 +2593,12 @@ json_openchannel_bump(struct command *cmd,
 	 *   - MUST set `feerate` greater than or equal to 25/24 times the
 	 *     `feerate` of the previously constructed transaction, rounded
 	 *     down.
+	 *
+	 * The ramp is computed below, after the state gates: for any
+	 * channel without an inflight (every locally-opened V1 channel)
+	 * channel_last_funding_feerate() returns 0 and the 25/24 ramp
+	 * assert would fire before these honest typed errors.
 	 */
-	last_feerate_perkw = channel_last_funding_feerate(channel);
-	next_feerate_min = last_feerate_perkw * 25 / 24;
-	assert(next_feerate_min > last_feerate_perkw);
-	if (!info->feerate_per_kw_funding) {
-		info->feerate_per_kw_funding = tal(info, u32);
-		*info->feerate_per_kw_funding = next_feerate_min;
-	} else if (*info->feerate_per_kw_funding < next_feerate_min)
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "Next feerate must be at least 1/24th"
-				    " greater than the last. Min req %u,"
-				    " you proposed %u",
-				    next_feerate_min,
-				    *info->feerate_per_kw_funding);
 
 	/* BOLT #2:
 	 *  - if both nodes advertised `option_support_large_channel`:
@@ -2644,6 +2636,21 @@ json_openchannel_bump(struct command *cmd,
 		return command_fail(cmd, FUNDING_STATE_INVALID,
 				    "No inflight for this channel exists.");
 	}
+
+	/* Only now is last_feerate_perkw guaranteed nonzero. */
+	last_feerate_perkw = channel_last_funding_feerate(channel);
+	next_feerate_min = last_feerate_perkw * 25 / 24;
+	assert(next_feerate_min > last_feerate_perkw);
+	if (!info->feerate_per_kw_funding) {
+		info->feerate_per_kw_funding = tal(info, u32);
+		*info->feerate_per_kw_funding = next_feerate_min;
+	} else if (*info->feerate_per_kw_funding < next_feerate_min)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Next feerate must be at least 1/24th"
+				    " greater than the last. Min req %u,"
+				    " you proposed %u",
+				    next_feerate_min,
+				    *info->feerate_per_kw_funding);
 
 	if (!inflight->remote_tx_sigs) {
 		return command_fail(cmd, FUNDING_STATE_INVALID,

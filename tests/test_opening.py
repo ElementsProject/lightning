@@ -484,6 +484,30 @@ def test_v2_rbf_single(node_factory, bitcoind, chainparams):
     l1.daemon.wait_for_log('sendrawtx exit 0')
 
 
+def test_openchannel_bump_no_inflight(node_factory, bitcoind):
+    """openchannel_bump on a channel without an in-flight funding attempt
+    must return the typed error, not crash.
+
+    json_openchannel_bump used to compute the BOLT-2 25/24 feerate ramp
+    and assert next_feerate_min > last_feerate_perkw before the
+    channel-state gates: channel_last_funding_feerate() returns 0 when
+    no inflight exists, so the assert evaluated `0 > 0` and killed the
+    daemon.
+    """
+    l1, l2 = node_factory.line_graph(2, fundchannel=True)
+    cid = only_one(l1.rpc.listpeerchannels()['channels'])['channel_id']
+
+    # A well-formed request: the refusal must come from the channel
+    # state, not from malformed input.
+    psbt = l1.rpc.fundpsbt(satoshi='500000sat', feerate='253perkw',
+                           startweight=100)['psbt']
+
+    with pytest.raises(RpcError, match='not eligible|No inflight') as err:
+        l1.rpc.openchannel_bump(cid, '400000sat', psbt)
+    assert err.value.error['code'] == 312  # FUNDING_STATE_INVALID
+    assert l1.rpc.getinfo()['id']
+
+
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @pytest.mark.openchannel('v2')
 def test_v2_rbf_abort_retry(node_factory, bitcoind, chainparams):
