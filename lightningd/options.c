@@ -924,6 +924,12 @@ static void dev_register_opts(struct lightningd *ld)
 		     opt_set_bool,
 		     &ld->dev_throttle_gossip,
 		     "Throttle gossip right down, for testing");
+	clnopt_witharg("--dev-max-wake-delay-ms", OPT_DEV|OPT_SHOWINT,
+		       opt_set_u64, opt_show_u64,
+		       &ld->dev_max_wake_delay_ms,
+		       "Maximum msec a peer message may wait for its subdaemon "
+		       "to wake before connectd logs BROKEN (default 5000); "
+		       "raise for load-heavy tests (ElementsProject/lightning#9268)");
 	clnopt_noarg("--dev-limit-connections-inflight", OPT_DEV,
 		     opt_set_bool,
 		     &ld->dev_limit_connections_inflight,
