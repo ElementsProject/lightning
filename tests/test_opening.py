@@ -2266,6 +2266,27 @@ def test_zeroconf_multichan_forward(node_factory):
                                .format(normal_scid, zeroconf_scid))
 
 
+def test_dust_limit_above_reserve(node_factory, bitcoind):
+    """BOLT #2: the accept_channel sender MUST set dust_limit_satoshis
+    to less than or equal to channel_reserve_satoshis from the
+    open_channel message (ElementsProject/lightning#9439).
+
+    A stock opener self-bumps its reserve up to its own dust limit, so
+    the violating open is only reachable when the opener runs
+    --dev-allowdustreserve and sends its true sub-dust reserve: the
+    accepter's chainparams dust limit (546) then exceeds it, and the
+    accepter must fail the channel instead of replying accept_channel.
+    """
+    l1 = node_factory.get_node(options={'dev-allowdustreserve': True})
+    l2 = node_factory.get_node()
+
+    l1.fundwallet(10**7)
+    l1.connect(l2)
+
+    with pytest.raises(RpcError, match='would be above their reserve'):
+        l1.rpc.fundchannel(l2.info['id'], 10**5, reserve='354sat')
+
+
 def test_zeroreserve(node_factory, bitcoind):
     """Ensure we can set the reserves.
 
