@@ -1152,6 +1152,17 @@ static struct command_result *json_invoice(struct command *cmd,
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "dev-routes requires --developer");
 
+	/* Two hard limits on how far in the future an invoice can expire:
+	 * push_varlen_field() can only encode up to 60 bits (larger values
+	 * abort the daemon in bolt11_encode()), and the invoice expiration
+	 * timer overflows its u64 nanosecond-based grain count far below
+	 * that, leaving the expiry check looping forever.  2^32 seconds
+	 * (~136 years) keeps a wide margin under both. */
+	if (*expiry >= (u64)1 << 32)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "expiry must be below 2^32 seconds"
+				    " (~136 years)");
+
 	if (strlen(info->label->s) > inv_max_label_len) {
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "Label '%s' over %zu bytes", info->label->s, inv_max_label_len);
