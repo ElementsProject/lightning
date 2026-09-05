@@ -14,6 +14,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/fee_states.h>
 #include <common/initial_channel.h>
+#include <common/initial_commit_tx.h>
 #include <common/memleak.h>
 #include <common/peer_billboard.h>
 #include <common/peer_failed.h>
@@ -827,6 +828,38 @@ static u8 *funder_channel_complete(struct state *state)
 }
 
 /*~ The peer sent us an `open_channel`, that means we're the fundee. */
+/* Projected initial commitment balances at open_channel receipt: the
+ * funder's to_local is funding - push - fee (BOLT #3: the base fee and
+ * the two 330-sat anchor outputs come off the funder); the accepter's
+ * to_remote is push. Returns false and fills the (saturating) balances
+ * if NEITHER exceeds their channel_reserve_satoshis. */
+static bool initial_balances_exceed_reserve(struct amount_sat funding_sats,
+					    struct amount_msat push_msat,
+					    u32 feerate_per_kw,
+					    struct amount_sat their_reserve,
+					    bool anchors_zero_fee,
+					    struct amount_msat *funder_pay,
+					    struct amount_msat *accepter_pay)
+{
+	struct amount_sat base_fee;
+
+	base_fee = commit_tx_base_fee(feerate_per_kw, 0, false,
+				      anchors_zero_fee);
+	if (anchors_zero_fee
+	    && !amount_sat_add(&base_fee, base_fee, AMOUNT_SAT(660)))
+		return true;
+
+	*accepter_pay = push_msat;
+	if (!amount_sat_to_msat(funder_pay, funding_sats))
+		return true;
+	if (!amount_msat_sub(funder_pay, *funder_pay, push_msat)
+	    || !amount_msat_sub_sat(funder_pay, *funder_pay, base_fee))
+		*funder_pay = AMOUNT_MSAT(0);
+
+	return amount_msat_greater_sat(*funder_pay, their_reserve)
+		|| amount_msat_greater_sat(*accepter_pay, their_reserve);
+}
+
 static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 {
 	struct channel_id id_in;
@@ -1005,6 +1038,38 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 				 &err_reason)) {
 		negotiation_failed(state, "%s", err_reason);
 		return NULL;
+	}
+
+	/* BOLT #2:
+	 *
+	 * The receiving node MUST fail the channel if:
+	 *...
+	 * - both `to_local` and `to_remote` amounts for the initial
+	 *   commitment transaction are less than or equal to
+	 *   `channel_reserve_satoshis`.
+	 */
+	{
+		struct amount_msat funder_pay, accepter_pay;
+
+		if (!initial_balances_exceed_reserve(state->funding_sats,
+						     state->push_msat,
+						     state->feerate_per_kw,
+						     state->remoteconf.channel_reserve,
+						     channel_type_has(
+							 state->channel_type,
+							 OPT_ANCHORS_ZERO_FEE_HTLC_TX),
+						     &funder_pay,
+						     &accepter_pay)) {
+			negotiation_failed(state,
+					   "Their channel reserve %s is not "
+						   "exceeded by either initial "
+						   "balance (%s, %s)",
+					   fmt_amount_sat(tmpctx,
+							  state->remoteconf.channel_reserve),
+					   fmt_amount_msat(tmpctx, funder_pay),
+					   fmt_amount_msat(tmpctx, accepter_pay));
+			return NULL;
+		}
 	}
 
 	/* Check with lightningd that we can accept this?  In particular,
