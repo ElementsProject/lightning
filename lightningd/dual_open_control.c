@@ -2117,6 +2117,23 @@ static void rbf_got_offer(struct subd *dualopend, const u8 *msg)
 		return;
 	}
 
+	/*~ Same as for our own openchannel_bump: once a candidate is confirmed
+	 * deeply enough that we've committed the channel to it, there is nothing
+	 * left to replace, and accepting an attempt would only strand the scid
+	 * on one tx and channel->funding on another.  A reorg un-promotes and
+	 * clears the scid, which makes RBF available again. */
+	if (channel->scid) {
+		log_debug(channel->log,
+			  "RBF attempted after funding tx %s confirmed",
+			  fmt_bitcoin_txid(tmpctx, &channel->funding.txid));
+
+		subd_send_msg(dualopend,
+			      take(towire_dualopend_fail(NULL,
+					"Error. Funding transaction"
+					" already confirmed")));
+		return;
+	}
+
 	assert(channel_id_eq(&channel->cid, &payload->channel_id));
 	/* Fill in general channel info from channel */
 	payload->peer_id = channel->peer->id;
@@ -2749,6 +2766,21 @@ json_openchannel_bump(struct command *cmd,
 				    " Current state %s, expected state %s",
 				    channel_state_name(channel),
 				    channel_state_str(DUALOPEND_AWAITING_LOCKIN));
+
+	/*~ RBF is over once a candidate has confirmed deeply enough for us to
+	 * commit the channel to it: the scid and channel->funding now name that
+	 * candidate, and negotiating another attempt would move channel->funding
+	 * off it while the scid stayed behind -- the very mixed state we set out
+	 * to close, reached through the front door.  Promotion doesn't change
+	 * the channel state (lockin does), so the check above doesn't catch it.
+	 * If the candidate is later reorged out we un-promote it and clear the
+	 * scid, and RBF becomes available again. */
+	if (channel->scid)
+		return command_fail(cmd, FUNDING_STATE_INVALID,
+				    "Funding transaction %s is already"
+				    " confirmed, cannot RBF",
+				    fmt_bitcoin_txid(tmpctx,
+						     &channel->funding.txid));
 	if (channel->opener != LOCAL)
 		return command_fail(cmd, FUNDING_STATE_INVALID,
 				    "Only the channel opener can initiate an"
