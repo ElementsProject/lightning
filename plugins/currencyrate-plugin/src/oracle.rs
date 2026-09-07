@@ -133,6 +133,11 @@ fn extract_price_from_response(
         _ => return Err(anyhow!("Price is invalid json type")),
     };
 
+    if !price.is_finite() {
+        log::warn!("{name} returned a non-finite price for {currency}");
+        return Err(anyhow!("{name} returned a non-finite price for {currency}"));
+    }
+
     if price == 0.0 {
         log::warn!("{name} returned 0.0 as price for {currency}");
         return Err(anyhow!("{name} returned 0.0 as price for {currency}"));
@@ -595,7 +600,7 @@ impl BtcPriceOracle {
 
 fn get_median(source_results: Vec<SourceResult>) -> f64 {
     let mut prices: Vec<f64> = source_results.iter().map(|r| r.price).collect();
-    prices.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    prices.sort_by(f64::total_cmp);
     let mid = prices.len() / 2;
     if prices.len() % 2 == 1 {
         prices[mid]
@@ -763,4 +768,50 @@ fn test_sources() {
         .unwrap();
         assert_eq!(extracted_price, *price, "Failed for {}", source.name());
     }
+}
+
+#[test]
+fn test_rejects_non_finite_prices() {
+    use serde_json::json;
+    let source = Source::new("test", "https://example.com", vec!["price"]);
+    for price in ["NaN", "nan", "inf", "-inf", "Infinity", "-Infinity"] {
+        let response = json!({"price": price});
+        let result = extract_price_from_response(
+            &response,
+            &source.reply_members("usd", "USD"),
+            &source.name,
+            "USD",
+        );
+        assert!(result.is_err(), "Expected `{price}` to be rejected");
+    }
+
+    let response = json!({"price": "72732.0"});
+    let extracted_price = extract_price_from_response(
+        &response,
+        &source.reply_members("usd", "USD"),
+        &source.name,
+        "USD",
+    )
+    .unwrap();
+    assert_eq!(extracted_price, 72732.0);
+}
+
+#[test]
+fn test_get_median_sorts_non_finite_without_panicking() {
+    let result = |price: f64| SourceResult {
+        name: "test".to_owned(),
+        price,
+    };
+
+    let sorted_odd = get_median(vec![result(3.0), result(1.0), result(2.0)]);
+    assert_eq!(sorted_odd, 2.0);
+
+    let sorted_even = get_median(vec![result(4.0), result(1.0), result(3.0), result(2.0)]);
+    assert_eq!(sorted_even, 2.5);
+
+    let with_nan = get_median(vec![result(1.0), result(f64::NAN), result(2.0)]);
+    assert_eq!(with_nan, 2.0);
+
+    let with_inf = get_median(vec![result(1.0), result(f64::INFINITY), result(2.0)]);
+    assert_eq!(with_inf, 2.0);
 }
