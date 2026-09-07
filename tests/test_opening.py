@@ -1763,6 +1763,97 @@ def test_rbf_reconnect_non_last_mined(node_factory, bitcoind, chainparams):
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @pytest.mark.openchannel('v2')
+def test_rbf_refused_once_funding_confirmed(node_factory, bitcoind, chainparams):
+    """Once we've committed the channel to a mined candidate, RBF is over.
+
+    Promotion doesn't change the channel state -- lockin does -- so a channel
+    whose funding tx has confirmed deeply enough sits in
+    DUALOPEND_AWAITING_LOCKIN until the peer's channel_ready arrives.  An RBF
+    negotiated in there would point channel->funding at a fresh candidate
+    while the scid stayed behind on the mined one: the same mixed state, with
+    no reconnect and no catch-up involved.
+
+    A reorg that takes the confirmation away un-promotes the candidate and
+    clears the scid, and RBF has to become available again.
+    """
+    l1, l2 = node_factory.get_nodes(2,
+                                    opts={'allow_warning': True,
+                                          'may_reconnect': True,
+                                          'dev-no-reconnect': None})
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    chan_amount = 100000
+    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['p2tr'], 0.02)
+    bitcoind.generate_block(1)
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) > 0)
+
+    res = l1.rpc.fundchannel(l2.info['id'], chan_amount, feerate='7500perkw')
+    chan_id = res['channel_id']
+    vins = bitcoind.rpc.decoderawtransaction(res['tx'])['vin']
+    assert only_one(vins)
+    prev_utxos = ["{}:{}".format(vins[0]['txid'], vins[0]['vout'])]
+
+    l1.daemon.wait_for_log(' to DUALOPEND_AWAITING_LOCKIN')
+    l2.daemon.wait_for_log(' to DUALOPEND_AWAITING_LOCKIN')
+
+    def chan(n):
+        return only_one(n.rpc.listpeerchannels()['channels'])
+
+    def bump_psbt():
+        startweight = 42 + 173
+        rate = int(find_next_feerate(l1, l2)[:-5])
+        # We 2x the feerate to beat the min-relay fee
+        next_feerate = '{}perkw'.format(rate * 2)
+        return l1.rpc.utxopsbt(chan_amount, next_feerate, startweight,
+                               prev_utxos, reservedok=True,
+                               excess_as_change=True)['psbt']
+
+    # Build the replacement PSBT now: once the funding tx confirms, its
+    # input is a spent UTXO and utxopsbt won't hand it to us at all.
+    refused_psbt = bump_psbt()
+
+    # l2 goes offline, so the funding confirms with no channel_ready
+    # exchange: l1 promotes the candidate but stays awaiting lockin.
+    l2.stop()
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    mined_blockid = bitcoind.rpc.getblockhash(bitcoind.rpc.getblockcount())
+    sync_blockheight(bitcoind, [l1])
+    wait_for(lambda: chan(l1).get('short_channel_id') is not None)
+    assert chan(l1)['state'] == 'DUALOPEND_AWAITING_LOCKIN'
+
+    # We're committed to the tx that got mined, so there's nothing left to
+    # replace.
+    with pytest.raises(RpcError, match=r'already confirmed, cannot RBF'):
+        l1.rpc.openchannel_bump(chan_id, chan_amount, refused_psbt)
+
+    # Reorg the funding block out, and extend the competing branch with empty
+    # blocks so the funding tx stays unmined (it goes back to the mempool).
+    bitcoind.rpc.invalidateblock(mined_blockid)
+    empty_addr = bitcoind.rpc.getnewaddress()
+    bitcoind.rpc.generateblock(empty_addr, [])
+    bitcoind.rpc.generateblock(empty_addr, [])
+    sync_blockheight(bitcoind, [l1])
+
+    l1.daemon.wait_for_log('was in a block, now reorged out')
+    # Un-promoted: the scid is gone, so we're not committed to anything...
+    wait_for(lambda: chan(l1).get('short_channel_id') is None)
+    assert chan(l1)['state'] == 'DUALOPEND_AWAITING_LOCKIN'
+
+    # ... and RBF is possible again.
+    l2.start()
+    sync_blockheight(bitcoind, [l1, l2])
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    bump = l1.rpc.openchannel_bump(chan_id, chan_amount, bump_psbt())
+    update = l1.rpc.openchannel_update(chan_id, bump['psbt'])
+    assert update['commitments_secured']
+    signed_psbt = l1.rpc.signpsbt(update['psbt'])['signed_psbt']
+    l1.rpc.openchannel_signed(chan_id, signed_psbt)
+    assert len(chan(l1)['inflight']) == 2
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+@pytest.mark.openchannel('v2')
 def test_lockin_restart_rescan_race(node_factory, bitcoind, chainparams):
     """A reconnect landing inside the startup rescan window must not fail a
     healthy channel.
