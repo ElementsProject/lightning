@@ -958,13 +958,13 @@ def test_getroutes_single_path(node_factory):
         l1,
         nodemap[1],
         nodemap[2],
-        10000000,
+        9100000,
         [
             [
                 {
                     "short_channel_id_dir": "3x2x2/1",
                     "node_id_out": nodemap[2],
-                    "amount_in_msat": 10000010,
+                    "amount_in_msat": 9100009,
                     "cltv_in": 99 + 6,
                 }
             ]
@@ -991,19 +991,19 @@ def test_getroutes_single_path(node_factory):
         l1,
         nodemap[0],
         nodemap[2],
-        10000000,
+        9100000,
         [
             [
                 {
                     "short_channel_id_dir": "0x1x0/1",
                     "node_id_out": nodemap[1],
-                    "amount_in_msat": 10000020,
+                    "amount_in_msat": 9100018,
                     "cltv_in": 99 + 6 + 6,
                 },
                 {
                     "short_channel_id_dir": "3x2x2/1",
                     "node_id_out": nodemap[2],
-                    "amount_in_msat": 10000010,
+                    "amount_in_msat": 9100009,
                     "cltv_in": 99 + 6,
                 },
             ]
