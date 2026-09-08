@@ -68,6 +68,7 @@ int main(int argc, const char *argv[])
 	struct sha256_double merkle;
 	struct bitcoin_txid txid, expected_txid;
 	struct bitcoin_block *b;
+	size_t blocklen;
 
 	common_setup(argv[0]);
 	chainparams = chainparams_for_network("bitcoin");
@@ -103,6 +104,12 @@ int main(int argc, const char *argv[])
 	assert(bitcoin_txid_eq(&txid, &expected_txid));
 
 	tal_free(b);
+
+	/* Every truncation of a valid block must be refused, not crash. */
+	blocklen = strlen(block);
+	for (size_t i = 1; i < blocklen; i++)
+		assert(!bitcoin_block_from_hex(NULL, chainparams, block, i));
+
 	common_shutdown();
 	return 0;
 }
