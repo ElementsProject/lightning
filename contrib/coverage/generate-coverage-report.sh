@@ -56,3 +56,15 @@ llvm-cov report "${ARGS[@]}" \
     | tee coverage/summary.txt
 
 echo "✓ Summary: coverage/summary.txt"
+
+# Machine-readable export for tools that ingest lcov: Codecov, and
+# lcov_cobertura for GitLab's coverage visualization. Both match the paths in
+# the report against the repository tree, so strip the build directory off.
+llvm-cov export "${ARGS[@]}" \
+    -instr-profile="$PROFDATA" \
+    -format=lcov > coverage/coverage.lcov.tmp
+
+sed "s|^SF:$PWD/|SF:|" coverage/coverage.lcov.tmp > coverage/coverage.lcov
+rm -f coverage/coverage.lcov.tmp
+
+echo "✓ LCOV: coverage/coverage.lcov"
