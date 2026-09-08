@@ -1159,7 +1159,7 @@ static void encode_x(u5 **data, u64 expiry)
 	push_varlen_field(data, 'x', expiry);
 }
 
-static void encode_c(u5 **data, u16 min_final_cltv_expiry)
+static void encode_c(u5 **data, u32 min_final_cltv_expiry)
 {
 	if (dev_bolt11_omit_c_value)
 		return;
