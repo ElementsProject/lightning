@@ -45,6 +45,7 @@ mod options;
 mod parse;
 mod shared;
 mod structs;
+mod yaml;
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
