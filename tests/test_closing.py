@@ -4229,6 +4229,8 @@ def test_htlc_timeout_boost_large_utxo(node_factory, bitcoind):
     bitcoind.generate_block(1, wait_for_mempool=1)
 
     # Before the fix, calc_feerate() abort()ed here.
+    log_line = l1.daemon.wait_for_log("wallet_utxo_boost")
+    assert "got 1 UTXOs" in log_line
     l1.wait_for_onchaind_tx('OUR_HTLC_TIMEOUT_TX', 'OUR_UNILATERAL/OUR_HTLC')
 
 
@@ -4820,7 +4822,6 @@ def test_onchain_close_no_p2tr(node_factory, bitcoind):
 
 def test_htlc_timeout_during_stfu(node_factory, bitcoind):
     # Originally authored by claude-fable-5 v2.1.228 (Claude Code)
-
     """An HTLC that hits its deadline while the channel is quiescent (STFU)
     must still force-close and get timed out onchain."""
     plugin = os.path.join(os.getcwd(), 'tests/plugins/hold_htlcs.py')

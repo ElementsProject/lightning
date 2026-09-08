@@ -667,16 +667,8 @@ struct utxo **wallet_utxo_boost(const tal_t *ctx,
 		struct utxo *utxo = all_utxos[i];
 
 		/* Are we already happy? */
-		if (feerate >= feerate_target) {
-			log_debug(w->log, "wallet_utxo_boost: got %zu UTXOs, excess %s (needed %s), weight %zu, feerate %u >= %u",
-				  tal_count(utxos),
-				  fmt_amount_sat(tmpctx, excess_sats),
-				  fmt_amount_sat(tmpctx, output_sats_required),
-				  *weight, feerate, feerate_target);
-			if (insufficient)
-				*insufficient = false;
-			return utxos;
-		}
+		if (feerate >= feerate_target)
+			goto target_reached;
 
 		/* Don't add reserved ones */
 		if (utxo_is_reserved(utxo, blockheight))
@@ -710,10 +702,25 @@ struct utxo **wallet_utxo_boost(const tal_t *ctx,
 		tal_arr_expand(&utxos, tal_steal(utxos, utxo));
 	}
 
+	/* Are we already happy? */
+	if (feerate >= feerate_target)
+		goto target_reached;
+
 	log_debug(w->log, "wallet_utxo_boost: fell short, returning %zu UTXOs",
 		  tal_count(utxos));
 	if (insufficient)
 		*insufficient = true;
+	return utxos;
+
+target_reached:
+	log_debug(w->log,
+		  "wallet_utxo_boost: got %zu UTXOs, excess %s (needed %s), "
+		  "weight %zu, feerate %u >= %u",
+		  tal_count(utxos), fmt_amount_sat(tmpctx, excess_sats),
+		  fmt_amount_sat(tmpctx, output_sats_required), *weight,
+		  feerate, feerate_target);
+	if (insufficient)
+		*insufficient = false;
 	return utxos;
 }
 
