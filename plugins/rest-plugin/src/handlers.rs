@@ -357,7 +357,7 @@ fn request_body_to_rpc_params(
     }
 
     let body_rpc_params: serde_json::Map<String, serde_json::Value> = match format {
-        "yaml" => serde_yaml_ng::from_slice(&request_bytes).map_err(|e| {
+        "yaml" => crate::yaml::from_slice(&request_bytes).map_err(|e| {
             AppError::InternalServerError(RpcError {
                 code: None,
                 data: None,
