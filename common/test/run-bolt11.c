@@ -972,6 +972,46 @@ int main(int argc, char *argv[])
 		errx(1, "%s:%u:%s", __FILE__, __LINE__, fail);
 	assert(b11->min_final_cltv_expiry == 70000);
 
+	/* BOLT #11:
+	 * A reader:
+	 *...
+	 * - MUST fail the payment if neither a `d` field nor a `h` field is present, or if both are present.
+	 */
+	/* A writer would never include both, but check we reject an invoice
+	 * where a malicious signer has included both anyway */
+	msatoshi = AMOUNT_MSAT(20 * (1000ULL * 100000000) / 1000);
+	b11 = new_bolt11(tmpctx, &msatoshi);
+	b11->chain = chainparams_for_network("bitcoin");
+	b11->timestamp = 1496314658;
+	b11->payment_secret = tal(b11, struct secret);
+	memset(b11->payment_secret, 0x11, sizeof(*b11->payment_secret));
+	if (!hex_decode("0001020304050607080900010203040506070809000102030405060708090102",
+			strlen("0001020304050607080900010203040506070809000102030405060708090102"),
+			&b11->payment_hash, sizeof(b11->payment_hash)))
+		abort();
+	b11->receiver_id = node;
+	b11->description_hash = tal(b11, struct sha256);
+	if (!hex_decode("3925b6f67e2c340036ed12093dd44e0368df1b6ea26c53dbe4811f58fd5db8c1",
+			strlen("3925b6f67e2c340036ed12093dd44e0368df1b6ea26c53dbe4811f58fd5db8c1"),
+			b11->description_hash, sizeof(*b11->description_hash)))
+		abort();
+	set_feature_bit(&b11->features, 8);
+	set_feature_bit(&b11->features, 14);
+
+	/* The encoder only ever emits 'h' when description_hash is set, so
+	 * force an (empty, but valid) 'd' field in via extra_fields to simulate a signer who included both */
+	extra = tal(b11, struct bolt11_field);
+	extra->tag = 'd';
+	extra->data = tal_arr(extra, u5, 0);
+	list_add(&b11->extra_fields, &extra->list);
+
+	dev_bolt11_omit_c_value = true;
+	badstr = bolt11_encode(tmpctx, b11, false, test_sign, NULL);
+	dev_bolt11_omit_c_value = false;
+	assert(badstr);
+	assert(!bolt11_decode(tmpctx, badstr, NULL, NULL, NULL, &fail));
+	assert(streq(fail, "must not have both 'd' and 'h' fields"));
+
 	/* FIXME: Test the others! */
 	common_shutdown();
 }
