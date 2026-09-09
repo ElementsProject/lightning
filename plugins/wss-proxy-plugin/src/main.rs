@@ -8,11 +8,24 @@ use futures_util::{SinkExt, StreamExt};
 use options::{OPT_WSS_BIND_ADDR, OPT_WSS_CERTS_DIR, WssproxyOptions, parse_options};
 use rustls::ServerConfig;
 use tokio::net::{TcpListener, TcpStream};
+use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 use tokio_rustls::{TlsAcceptor, server::TlsStream};
-use tokio_tungstenite::{WebSocketStream, accept_async};
+use tokio_tungstenite::{
+    WebSocketStream, accept_async_with_config, tungstenite::protocol::WebSocketConfig,
+};
 
 mod certs;
 mod options;
+
+const MAX_WS_MESSAGE_SIZE: usize = 65569;
+
+const MAX_CONNECTIONS: usize = 1024;
+
+fn ws_config() -> WebSocketConfig {
+    WebSocketConfig::default()
+        .max_message_size(Some(MAX_WS_MESSAGE_SIZE))
+        .max_frame_size(Some(MAX_WS_MESSAGE_SIZE))
+}
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
@@ -98,9 +111,11 @@ async fn start_proxy(
     tls_config: ServerConfig,
 ) -> Result<(), anyhow::Error> {
     let listener = TcpListener::bind(wss_address).await?;
+    let connection_slots = Arc::new(Semaphore::new(MAX_CONNECTIONS));
     log::info!("Websocket Secure Server Started at {}", wss_address);
 
     loop {
+        let permit = connection_slots.clone().acquire_owned().await?;
         if let Ok((stream, _)) = listener.accept().await {
             let tls_acceptor = TlsAcceptor::from(Arc::new(tls_config.clone()));
             let tls_stream = match tls_acceptor.accept(stream).await {
@@ -110,7 +125,7 @@ async fn start_proxy(
                     continue;
                 }
             };
-            let wss_stream = match accept_async(tls_stream).await {
+            let wss_stream = match accept_async_with_config(tls_stream, Some(ws_config())).await {
                 Ok(o) => o,
                 Err(e) => {
                     log::debug!("Error upgrading to websocket: {}", e);
@@ -118,7 +133,7 @@ async fn start_proxy(
                 }
             };
             tokio::spawn(async move {
-                match relay_messages(wss_stream, wss_proxy_options.ws_address).await {
+                match relay_messages(wss_stream, wss_proxy_options.ws_address, permit).await {
                     Ok(_) => (),
                     Err(e) => log::info!("Error relaying messages: {}", e),
                 }
@@ -132,14 +147,20 @@ async fn start_proxy(
 async fn relay_messages(
     wss_stream: WebSocketStream<TlsStream<TcpStream>>,
     ws_address: SocketAddr,
+    _permit: OwnedSemaphorePermit,
 ) -> Result<(), anyhow::Error> {
-    let (ws_stream, _ws_response) =
-        tokio_tungstenite::connect_async(format!("ws://{}", ws_address)).await?;
+    let (ws_stream, _ws_response) = tokio_tungstenite::connect_async_with_config(
+        format!("ws://{}", ws_address),
+        Some(ws_config()),
+        false,
+    )
+    .await?;
     let (mut wss_sender, mut wss_receiver) = wss_stream.split();
     let (mut ws_sender, mut ws_receiver) = ws_stream.split();
 
     /* Relay from WSS to WS */
-    tokio::spawn(async move {
+    let mut relays = tokio::task::JoinSet::new();
+    relays.spawn(async move {
         while let Some(writer) = wss_receiver.next().await {
             if let Ok(msg) = writer {
                 if let Err(e) = ws_sender.send(msg.clone()).await {
@@ -151,7 +172,7 @@ async fn relay_messages(
     });
 
     /* Relay from WS to WSS */
-    tokio::spawn(async move {
+    relays.spawn(async move {
         while let Some(msg) = ws_receiver.next().await {
             if let Ok(msg) = msg {
                 if let Err(e) = wss_sender.send(msg.clone()).await {
@@ -161,6 +182,8 @@ async fn relay_messages(
             }
         }
     });
+
+    let _ = relays.join_next().await;
     Ok(())
 }
 
