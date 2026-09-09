@@ -701,6 +701,7 @@ static u32 error_blockheight(const u8 *errmsg)
 /* Return true if this contained a channel_update which (potentially) changed something. */
 static bool process_channel_update_from_onion_error(struct command *aux_cmd,
 						    struct attempt *attempt,
+						    size_t index,
 						    const u8 *onion_message,
 						    const char *errname)
 {
@@ -759,6 +760,16 @@ static bool process_channel_update_from_onion_error(struct command *aux_cmd,
 
 	scidd.dir = (channel_flags & ROUTING_FLAGS_DIRECTION);
 
+	if (!short_channel_id_dir_eq(&scidd, &attempt->hops[index].scidd)) {
+		attempt_log(attempt, LOG_UNUSUAL,
+			   "Ignoring channel_update for %s in error %s:"
+			   " does not match failing channel %s",
+			   fmt_short_channel_id_dir(tmpctx, &scidd),
+			   errname,
+			   fmt_short_channel_id_dir(tmpctx, &attempt->hops[index].scidd));
+		return false;
+	}
+
 	/* If this is substantially the same as the one we already have, ignore it. */
 	gossmap = get_gossmap(xpay_of(aux_cmd->plugin));
 	c = gossmap_find_chan(gossmap, &scidd.scid);
@@ -781,8 +792,8 @@ static bool process_channel_update_from_onion_error(struct command *aux_cmd,
 		    tal_hex(tmpctx, channel_update));
 
 	/* Update our local layer so it applies to this payment *only*.  We
-	 * don't bother checking the signature; we don't even check what
-	 * channel it is! */
+	 * dont bother checking the signature, but we know its for the
+	 * channel which actually failed (checked above) */
 	req = payment_ignored_req(aux_cmd, attempt, "askrene-update-channel");
 	json_add_string(req->js, "layer", attempt->payment->private_layer);
 	json_add_short_channel_id_dir(req->js,
@@ -1087,7 +1098,7 @@ static void update_knowledge_from_error(struct command *aux_cmd,
 		}
 	} else {
 		/* Non-final node */
-		if (process_channel_update_from_onion_error(aux_cmd, attempt,
+		if (process_channel_update_from_onion_error(aux_cmd, attempt, index,
 							    replymsg, errmsg)) {
 			add_result_summary(attempt, LOG_DBG,
 					   "We got %s for %s, containing a channel_update:"

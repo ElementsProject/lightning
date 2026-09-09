@@ -1,7 +1,7 @@
 from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
 from pyln.client import RpcError
-from pyln.testing.utils import FUNDAMOUNT, only_one
+from pyln.testing.utils import FUNDAMOUNT, only_one, scid_to_int
 from utils import (
     TIMEOUT, first_scid, first_scidd, GenChannel, generate_gossip_store, wait_for,
     sync_blockheight,
@@ -11,6 +11,7 @@ import ast
 import os
 import pytest
 import re
+import struct
 import subprocess
 import sys
 from hashlib import sha256
@@ -1304,6 +1305,52 @@ def test_xpay_error_update_fees(node_factory):
     assert ret["failed_parts"] == 1
     assert ret["successful_parts"] == 1
     l1.daemon.wait_for_log('We got fee_insufficient for .*, containing a channel_update: updating our map')
+
+
+def test_xpay_error_update_wrong_channel(node_factory):
+    plugin = os.path.join(os.path.dirname(__file__), 'plugins/htlc_accepted-failmessage.py')
+    l1, l2, l3, l4, l5 = node_factory.line_graph(
+        5, opts=[{}, {'plugin': plugin}, {}, {}, {}], wait_for_announce=True)
+
+    # this is the channel which will actually fail (l2 fails every HTLC it gets)
+    real_scidd = first_scidd(l2, l3)
+
+    # an innocent channel elsewhere in the graph, nowhere near this route
+    victim_scidd = first_scidd(l4, l5)
+    victim_scid, victim_dir = victim_scidd.split('/')
+
+    channel_update = (
+        struct.pack('>H', 258)  # WIRE_CHANNEL_UPDATE
+        + bytes(64)  # signature - we don't check it
+        + bytes(32)  # chain_hash - irrelevant here
+        + struct.pack('>Q', scid_to_int(victim_scid))
+        + struct.pack('>I', 1)  # timestamp
+        + struct.pack('>B', 1)  # message_flags
+        + struct.pack('>B', int(victim_dir))  # channel_flags - enabled, given direction
+        + struct.pack('>H', 40)  # cltv_expiry_delta
+        + struct.pack('>Q', 0)  # htlc_minimum_msat
+        + struct.pack('>I', 999000)  # fee_base_msat - high
+        + struct.pack('>I', 42)  # fee_proportional_millionths
+        + struct.pack('>Q', 1000000)  # htlc_maximum_msat
+    )
+    failmsg = (struct.pack('>H', 0x1007)  # WIRE_TEMPORARY_CHANNEL_FAILURE
+               + struct.pack('>H', len(channel_update))
+               + channel_update).hex()
+    l2.rpc.setfailmsg(msg=failmsg)
+
+    inv = l3.rpc.invoice(123000, 'test_xpay_error_update_wrong_channel', 'desc')['bolt11']
+
+    with pytest.raises(RpcError, match=r'temporary_channel_failure'):
+        l1.rpc.xpay(inv)
+
+    l1.daemon.wait_for_log(
+        r"Ignoring channel_update for {} in error temporary_channel_failure:"
+        r" does not match failing channel {}".format(re.escape(victim_scidd),
+                                                     re.escape(real_scidd)))
+
+    # and we must not have treated it as a legitimate update
+    assert not l1.daemon.is_in_log(
+        r'Got channel_update from error for {}'.format(re.escape(victim_scidd)))
 
 
 def test_error_messages(node_factory):
