@@ -48,7 +48,7 @@ Useful commands:
 - [connect](ref:connect): connect to another lightning node.
 - [fundchannel](ref:fundchannel): create a channel to another connected node.
 - [invoice](ref:invoice): create an invoice to get paid by another node.
-- [pay](ref:pay): pay someone else's invoice.
+- [xpay](ref:xpay): pay someone else's invoice.
 - [plugin](ref:plugin): commands to control extensions.
 
 ## Care And Feeding Of Your New Lightning Node
