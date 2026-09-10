@@ -5199,6 +5199,7 @@ def test_open_channel_funder_cannot_afford_fee(node_factory, bitcoind):
     assert not l1.daemon.is_in_log('Owning subdaemon openingd died')
 
 
+@unittest.skipIf(TEST_NETWORK != 'regtest', "Fee computation and limits are network specific")
 @pytest.mark.openchannel('v1')
 def test_open_channel_initial_fee_boundary(node_factory, bitcoind):
     """One-msat boundary around the funder affording the fee exactly.
@@ -5246,6 +5247,7 @@ def test_open_channel_initial_fee_boundary(node_factory, bitcoind):
     assert not l1.daemon.is_in_log('FATAL SIGNAL')
 
 
+@unittest.skipIf(TEST_NETWORK != 'regtest', "Fee computation and limits are network specific")
 @pytest.mark.openchannel('v1')
 def test_open_channel_reserve_too_high(node_factory, bitcoind):
     """Both initial balances at or below channel_reserve_satoshis must
