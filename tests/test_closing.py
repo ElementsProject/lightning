@@ -3045,10 +3045,21 @@ def test_onchain_all_dust(node_factory, bitcoind, executor):
     sync_blockheight(bitcoind, [l1, l2])
     assert not l2.daemon.is_in_log('onchaind complete, forgetting peer')
     assert not l1.daemon.is_in_log('onchaind complete, forgetting peer')
+
+    # l1 must rebuild its "we gave up on this, but it got mined anyway"
+    # state from replay: the bookkeeping must not double up and the depth
+    # must be measured from the spend's confirmation all the same.
+    l1.restart()
+
     bitcoind.generate_block(1)
     l2.daemon.wait_for_log('onchaind complete, forgetting peer')
 
-    # l1 does not wait for ignored payment.
+    # l1 does wait for the ignored-but-mined payment now: its 100 blocks
+    # count from when it was mined, not from the commitment tx, so it
+    # trails l2 by however long the lowball fee sat in the mempool.
+    assert not l1.daemon.is_in_log('onchaind complete, forgetting peer')
+    confs = bitcoind.rpc.getrawtransaction(txid, True)['confirmations']
+    bitcoind.generate_block(100 - confs)
     l1.daemon.wait_for_log('onchaind complete, forgetting peer')
 
     assert account_balance(l1, channel_id) == 0
