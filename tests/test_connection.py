@@ -5008,6 +5008,20 @@ def feature_offered(bits, b):
     return False
 
 
+def wire_chain_hash(bitcoind):
+    """The chain_hash an open_channel must carry for THIS network.
+
+    CLN's bitcoin chainparams store the genesis hash in internal byte
+    order and its elements ones in display order (bitcoin/chainparams.c),
+    so the wire form of getblockhash(0) flips per family: reversed for
+    bitcoin networks, as-is on liquid-regtest.
+    """
+    ch = bytes.fromhex(bitcoind.rpc.getblockhash(0))
+    if TEST_NETWORK == 'liquid-regtest':
+        return ch
+    return ch[::-1]
+
+
 def raw_peer_connect(node):
     """Handshake to node as a raw peer, echoing back its own features.
 
@@ -5125,7 +5139,7 @@ def test_open_channel_funding_above_max_supply(node_factory, bitcoind):
     """
     l1 = node_factory.get_node()
 
-    chain_hash = bytes.fromhex(bitcoind.rpc.getblockhash(0))[::-1]
+    chain_hash = wire_chain_hash(bitcoind)
     # Use the node's own opening feerate, so we're inside its accepted range.
     feerate = l1.rpc.feerates('perkw')['perkw']['opening']
 
@@ -5176,7 +5190,7 @@ def test_open_channel_funder_cannot_afford_fee(node_factory, bitcoind):
     """
     l1 = node_factory.get_node()
 
-    chain_hash = bytes.fromhex(bitcoind.rpc.getblockhash(0))[::-1]
+    chain_hash = wire_chain_hash(bitcoind)
     # Use the node's own opening feerate, so we're inside its accepted range.
     feerate = l1.rpc.feerates('perkw')['perkw']['opening']
     funding_sat = 16777216
@@ -5211,7 +5225,7 @@ def test_open_channel_initial_fee_boundary(node_factory, bitcoind):
     """
     l1 = node_factory.get_node()
 
-    chain_hash = bytes.fromhex(bitcoind.rpc.getblockhash(0))[::-1]
+    chain_hash = wire_chain_hash(bitcoind)
     feerate = l1.rpc.feerates('perkw')['perkw']['opening']
     funding_sat = 100000
 
@@ -5260,7 +5274,7 @@ def test_open_channel_reserve_too_high(node_factory, bitcoind):
     """
     l1 = node_factory.get_node()
 
-    chain_hash = bytes.fromhex(bitcoind.rpc.getblockhash(0))[::-1]
+    chain_hash = wire_chain_hash(bitcoind)
     feerate = l1.rpc.feerates('perkw')['perkw']['opening']
     funding_sat = 100000
     push_msat = 20000000
