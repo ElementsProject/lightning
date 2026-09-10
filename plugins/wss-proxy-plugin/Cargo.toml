@@ -19,6 +19,7 @@ tokio = { version = "1", features = [
     'sync',
     'macros',
     'io-util',
+    'time',
 ] }
 rcgen = "0.14"
 futures-util = { version = "0.3", default-features = false, features = [
