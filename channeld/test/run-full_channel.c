@@ -712,6 +712,21 @@ int main(int argc, const char *argv[])
 		txs_must_be_eq(txs, txs2);
 	}
 
+	/* a splice_amnt negative enough to take the local balance below zero must be rejected, not silently wrap it (the
+	 * comparison used to be done in an unsigned type, so this guard could never fire) */
+	{
+		struct amount_msat local_before = lchannel->view[LOCAL].owed[LOCAL];
+		s64 splice_amnt = -(s64)(local_before.millisatoshis / 1000) - 1000;
+		struct amount_sat new_funding_sats
+			= (struct amount_sat){lchannel->funding_sats.satoshis + splice_amnt};
+		const char *err;
+
+		err = channel_update_funding(lchannel, &funding, new_funding_sats,
+					      splice_amnt);
+		assert(err != NULL);
+		assert(amount_msat_eq(lchannel->view[LOCAL].owed[LOCAL], local_before));
+	}
+
 	common_shutdown();
 
 	/* FIXME: Do BOLT comparison! */
