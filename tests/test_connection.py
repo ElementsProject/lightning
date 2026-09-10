@@ -1473,7 +1473,12 @@ def test_funding_v2_corners(node_factory, bitcoind):
 @pytest.mark.slow_test
 @pytest.mark.openchannel('v1')
 def test_funding_cancel_race(node_factory, bitcoind, executor):
-    l1 = node_factory.get_node()
+    # 100+ nodes starve the scheduler: connectd's wake-delay watchdog
+    # fires BROKEN on the delayed WIRE_OPEN_CHANNEL this test produces
+    # on loaded CI runners (#9268) long before the funding-cancel race
+    # under test is affected. Raise the threshold for every node.
+    opts = {'dev-max-wake-delay-ms': 60000}
+    l1 = node_factory.get_node(options=opts)
 
     # make sure we can generate PSBTs.
     addr = l1.rpc.newaddr('bech32')['bech32']
@@ -1489,7 +1494,7 @@ def test_funding_cancel_race(node_factory, bitcoind, executor):
         num = 100
 
     # Allow the other nodes to log unexpected WIRE_FUNDING_CREATED messages
-    nodes = node_factory.get_nodes(num, opts={})
+    nodes = node_factory.get_nodes(num, opts=opts)
 
     num_complete = 0
     num_cancel = 0
