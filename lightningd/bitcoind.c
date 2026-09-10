@@ -446,7 +446,7 @@ getrawblockbyheight_callback(const char *buf, const jsmntok_t *toks,
 	}
 
 	err = json_scan(tmpctx, buf, resulttok, "{blockhash:%,block:%}",
-			JSON_SCAN(json_to_sha256, &blkid.shad.sha),
+			JSON_SCAN(json_to_bitcoin_blkid, &blkid),
 			JSON_SCAN_TAL(tmpctx, json_strdup, &block_str));
 	if (err)
 		bitcoin_plugin_error(call->bitcoind, buf, resulttok,
