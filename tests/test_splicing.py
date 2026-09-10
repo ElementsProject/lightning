@@ -993,7 +993,6 @@ def test_splice_candidate_spent_before_lock(node_factory, bitcoind):
     assert chan['funding_txid'] == splice_txid
 
 
-@pytest.mark.xfail
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(

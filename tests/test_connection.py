@@ -5659,7 +5659,6 @@ def read_tx_interactive_reply(lconn):
     raise AssertionError("no reply during interactive tx")
 
 
-@pytest.mark.xfail
 @pytest.mark.openchannel("v2")
 @unittest.skipIf(
     TEST_NETWORK != "regtest", "elementsd doesnt yet support PSBT features we need"
@@ -5731,7 +5730,6 @@ def test_open_channel2_tx_add_output_above_max_supply(node_factory, bitcoind):
     assert l1.rpc.getinfo()["id"] == l1.info["id"]
 
 
-@pytest.mark.xfail
 @pytest.mark.openchannel("v2")
 @unittest.skipIf(
     TEST_NETWORK != "regtest", "elementsd doesnt yet support PSBT features we need"
