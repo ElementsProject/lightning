@@ -1,4 +1,4 @@
-use std::{net::SocketAddr, process, sync::Arc};
+use std::{net::SocketAddr, process, sync::Arc, time::Duration};
 
 use anyhow::anyhow;
 use certs::get_tls_config;
@@ -112,30 +112,51 @@ async fn start_proxy(
 ) -> Result<(), anyhow::Error> {
     let listener = TcpListener::bind(wss_address).await?;
     let connection_slots = Arc::new(Semaphore::new(MAX_CONNECTIONS));
-    log::info!("Websocket Secure Server Started at {}", wss_address);
+    log::info!("Websocket Secure Server Started at {wss_address}");
+
+    let handshake_timeout = Duration::from_secs(10);
 
     loop {
         let permit = connection_slots.clone().acquire_owned().await?;
         if let Ok((stream, _)) = listener.accept().await {
-            let tls_acceptor = TlsAcceptor::from(Arc::new(tls_config.clone()));
-            let tls_stream = match tls_acceptor.accept(stream).await {
-                Ok(o) => o,
-                Err(e) => {
-                    log::debug!("Error upgrading to tls: {}", e);
-                    continue;
-                }
-            };
-            let wss_stream = match accept_async_with_config(tls_stream, Some(ws_config())).await {
-                Ok(o) => o,
-                Err(e) => {
-                    log::debug!("Error upgrading to websocket: {}", e);
-                    continue;
-                }
-            };
+            let tls_config_clone = tls_config.clone();
+            let ws_address = wss_proxy_options.ws_address;
             tokio::spawn(async move {
-                match relay_messages(wss_stream, wss_proxy_options.ws_address, permit).await {
-                    Ok(_) => (),
-                    Err(e) => log::info!("Error relaying messages: {}", e),
+                let tls_acceptor = TlsAcceptor::from(Arc::new(tls_config_clone));
+                let tls_stream = match tokio::time::timeout(
+                    handshake_timeout,
+                    tls_acceptor.accept(stream),
+                )
+                .await
+                {
+                    Ok(Ok(o)) => o,
+                    Ok(Err(e)) => {
+                        log::debug!("Error upgrading to tls: {e}");
+                        return;
+                    }
+                    Err(_) => {
+                        log::debug!("Timed out upgrading to tls");
+                        return;
+                    }
+                };
+                let wss_stream = match tokio::time::timeout(
+                    handshake_timeout,
+                    accept_async_with_config(tls_stream, Some(ws_config())),
+                )
+                .await
+                {
+                    Ok(Ok(o)) => o,
+                    Ok(Err(e)) => {
+                        log::debug!("Error upgrading to websocket: {e}");
+                        return;
+                    }
+                    Err(_) => {
+                        log::debug!("Timed out upgrading to websocket");
+                        return;
+                    }
+                };
+                if let Err(e) = relay_messages(wss_stream, ws_address, permit).await {
+                    log::info!("Error relaying messages: {e}");
                 }
             });
         } else {
