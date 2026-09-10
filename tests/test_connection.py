@@ -5252,7 +5252,6 @@ def read_tx_interactive_reply(lconn):
     raise AssertionError("no reply during interactive tx")
 
 
-@pytest.mark.xfail
 @pytest.mark.openchannel("v2")
 @unittest.skipIf(
     TEST_NETWORK != "regtest", "elementsd doesnt yet support PSBT features we need"

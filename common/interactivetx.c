@@ -679,6 +679,7 @@ char *process_interactivetx_updates(const tal_t *ctx,
 			u8 *scriptpubkey;
 			struct wally_psbt_output *out;
 			struct amount_sat amt;
+			struct amount_sat out_total;
 			if (!fromwire_tx_add_output(ctx, msg, &cid,
 						    &serial_id, &value,
 						    &scriptpubkey))
@@ -738,6 +739,40 @@ char *process_interactivetx_updates(const tal_t *ctx,
 					       " Max allowed %d",
 					       ictx->current_psbt->num_outputs + 1,
 					       MAX_FUNDING_OUTPUTS);
+
+			/* BOLT #2:
+			 * The receiving node: ...
+			 * - MUST fail the negotiation if: ...
+			 *  - the `sats` amount is greater than 2,100,000,000,000,000 (`MAX_MONEY`)
+			 */
+			out_total = AMOUNT_SAT(0);
+			for (size_t i = 0; i < ictx->current_psbt->num_outputs;
+			     i++) {
+				struct amount_sat output_amt =
+				    psbt_output_get_amount(ictx->current_psbt,
+							   i);
+				if (!amount_sat_add(&out_total, out_total,
+						    output_amt))
+					return tal_fmt(
+					    ctx,
+					    "Output amount total overflow "
+					    "(partial sum is %s, current "
+					    "output is %s at output number %d)",
+					    fmt_amount_sat(tmpctx, out_total),
+					    fmt_amount_sat(tmpctx, output_amt),
+					    (int)i);
+			}
+			if (!amount_sat_add(&out_total, out_total, amt) ||
+			    amount_sat_greater(out_total,
+					       chainparams->max_supply))
+				return tal_fmt(
+				    ctx,
+				    "Adding output amount %s would exceed max "
+				    "supply (current total is %s over %d "
+				    "outputs)",
+				    fmt_amount_sat(tmpctx, amt),
+				    fmt_amount_sat(tmpctx, out_total),
+				    (int)ictx->current_psbt->num_outputs);
 
 			out = psbt_append_output(ictx->current_psbt,
 						 scriptpubkey,

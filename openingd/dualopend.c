@@ -1930,6 +1930,7 @@ static bool run_tx_interactive(struct state *state,
 			u8 *scriptpubkey;
 			struct wally_psbt_output *out;
 			struct amount_sat amt;
+			struct amount_sat out_total;
 			if (!fromwire_tx_add_output(tmpctx, msg, &cid,
 						    &serial_id, &value,
 						    &scriptpubkey))
@@ -1984,6 +1985,41 @@ static bool run_tx_interactive(struct state *state,
 			 *   is non-standard */
 			if (!is_known_scripttype(scriptpubkey, tal_bytelen(scriptpubkey))) {
 				open_abort(state, "Script is not standard");
+				return false;
+			}
+
+			/* BOLT #2:
+			 * The receiving node: ...
+			 * - MUST fail the negotiation if: ...
+			 *  - the `sats` amount is greater than 2,100,000,000,000,000 (`MAX_MONEY`)
+			 */
+			out_total = AMOUNT_SAT(0);
+			for (size_t i = 0; i < psbt->num_outputs; i++) {
+				struct amount_sat output_amt =
+				    psbt_output_get_amount(psbt, i);
+				if (!amount_sat_add(&out_total, out_total,
+						    output_amt)) {
+					open_abort(
+					    state,
+					    "Output amount total overflow "
+					    "(partial sum is %s, current "
+					    "output is %s at output number %d)",
+					    fmt_amount_sat(tmpctx, out_total),
+					    fmt_amount_sat(tmpctx, output_amt),
+					    (int)i);
+					return false;
+				}
+			}
+			if (!amount_sat_add(&out_total, out_total, amt) ||
+			    amount_sat_greater(out_total,
+					       chainparams->max_supply)) {
+				open_abort(state,
+					   "Adding output amount %s would "
+					   "exceed max supply (current total "
+					   "is %s over %d outputs)",
+					   fmt_amount_sat(tmpctx, amt),
+					   fmt_amount_sat(tmpctx, out_total),
+					   (int)psbt->num_outputs);
 				return false;
 			}
 
