@@ -102,8 +102,9 @@ struct resolution {
 enum their_htlc_fate {
 	/* We may still claim it (also: it's not a THEIR_HTLC at all). */
 	THEIR_HTLC_UNDECIDED,
-	/* It timed out, so we stopped trying: nothing recorded yet, and a
-	 * preimage still revives it. */
+	/* We stopped trying to claim it (it timed out, or our claim wasn't
+	 * worth the fee): nothing recorded yet, and a preimage still
+	 * revives it. */
 	THEIR_HTLC_ABANDONED,
 	/* Final: it's theirs, and we've told the bookkeeper. */
 	THEIR_HTLC_THEIRS,
@@ -665,8 +666,16 @@ static void handle_spend_created(struct tracked_output *out, const u8 *msg)
 			      tal_steal(out->proposal, witness));
 
 	/* Did it decide it's not worth it?  Don't wait for it. */
-	if (!worthwhile)
+	if (!worthwhile) {
 		ignore_output(out);
+		/* If that was our claim on their HTLC, we've given up on it
+		 * just as if it had timed out: it's theirs unless a preimage
+		 * (or a better fee) turns up, and the bookkeeper hears
+		 * about it once that can't happen any more. */
+		if (out->output_type == THEIR_HTLC
+		    && out->fate == THEIR_HTLC_UNDECIDED)
+			out->fate = THEIR_HTLC_ABANDONED;
+	}
 }
 
 static struct proposed_resolution *new_proposed_resolution(struct tracked_output *out,
@@ -784,9 +793,9 @@ static bool onchain_witness_element_matches(const struct onchain_witness_element
 	return true;
 }
 
-/* This simple case: true if this was resolved by our proposal. */
-static bool resolved_by_proposal(struct tracked_output *out,
-				 const struct tx_parts *tx_parts)
+/* Does this tx spend the output the way our proposal would? */
+static bool spent_by_proposal(const struct tracked_output *out,
+			      const struct tx_parts *tx_parts)
 {
 	const struct wally_tx_input *input;
 
@@ -797,7 +806,14 @@ static bool resolved_by_proposal(struct tracked_output *out,
 	input = which_input_spends(tx_parts, &out->outpoint);
 	if (!input || !input->witness)
 		return false;
-	if (!onchain_witness_element_matches(out->proposal->welements, input))
+	return onchain_witness_element_matches(out->proposal->welements, input);
+}
+
+/* This simple case: true if this was resolved by our proposal. */
+static bool resolved_by_proposal(struct tracked_output *out,
+				 const struct tx_parts *tx_parts)
+{
+	if (!spent_by_proposal(out, tx_parts))
 		return false;
 
 	out->resolved = tal(out, struct resolution);
@@ -1262,13 +1278,43 @@ static bool output_spent(struct tracked_output ***outs,
 		interesting = true;
 
 		if (out->resolved) {
-			/* If we'd abandoned this HTLC (assuming it would go
-			 * back to them), this spend proves it: it's really
-			 * theirs now, and no preimage can change that. */
-			if (out->output_type == THEIR_HTLC
-			    && out->resolved->tx_type == SELF
-			    && out->fate == THEIR_HTLC_ABANDONED)
+			if (out->resolved->tx_type == SELF
+			    && out->proposal
+			    && spent_by_proposal(out, tx_parts)) {
+				/* We stopped waiting for this spend of our
+				 * own, since lightningd didn't think it worth
+				 * much (see handle_spend_created()), but it
+				 * confirmed anyway.  Book it as ours, and
+				 * re-anchor the resolution on this tx: it's
+				 * what actually resolved the output, so the
+				 * clock for irrevocable resolution restarts
+				 * from its confirmation, not the commitment's.
+				 * A lowball tx can mine long after the
+				 * commitment is 100 deep itself, and with
+				 * one confirmation it could still be
+				 * reorged out. */
+				status_debug("Resolved %s/%s by our lowballed"
+					     " proposal %s (%s) after all",
+					     tx_type_name(out->tx_type),
+					     output_type_name(out->output_type),
+					     tx_type_name(out->proposal->tx_type),
+					     fmt_bitcoin_txid(tmpctx,
+							      &tx_parts->txid));
+				out->resolved->tx_type = out->proposal->tx_type;
+				out->resolved->txid = tx_parts->txid;
+				out->resolved->depth = 0;
+				out->fate = THEIR_HTLC_UNDECIDED;
+				record_coin_movements(out, tx_blockheight,
+						      &tx_parts->txid);
+			} else if (out->output_type == THEIR_HTLC
+				   && out->resolved->tx_type == SELF
+				   && out->fate == THEIR_HTLC_ABANDONED) {
+				/* If we'd abandoned this HTLC (assuming it
+				 * would go back to them), this spend proves
+				 * it: it's really theirs now, and no preimage
+				 * can change that. */
 				record_htlc_to_them(out);
+			}
 			continue;
 		}
 
