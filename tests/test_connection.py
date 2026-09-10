@@ -5092,8 +5092,11 @@ def error_data(msg):
 def initial_commitment_fee_sat(feerate_per_kw, anchors):
     """Sats the funder pays for the initial commitment transaction
     (BOLT #3): base fee at the 1124 (anchors) or 724 base weight, plus
-    the two 330-sat anchor outputs when `option_anchors` applies."""
-    fee = (feerate_per_kw * (1124 if anchors else 724) + 999) // 1000
+    the two 330-sat anchor outputs when `option_anchors` applies.
+    Truncating division, like amount_tx_fee() (a ceiling here is one
+    sat over whenever feerate*weight isn't a multiple of 1000, and the
+    boundary cells go stale)."""
+    fee = feerate_per_kw * (1124 if anchors else 724) // 1000
     if anchors:
         fee += 660
     return fee
@@ -5278,7 +5281,12 @@ def test_open_channel_reserve_too_high(node_factory, bitcoind):
             assert mtype in (WIRE_WARNING, WIRE_ERROR), \
                 "reserve {} sat over funder balance {} sat was not rejected (got msgtype {})".format(
                     reserve, funder_sat, mtype)
-            assert b'not exceeded by either initial balance' in error_data(msg)
+            # The message cites the projected balances in order —
+            # pin them so a swap of the two cannot pass silently.
+            funder_msat = funding_sat * 1000 - push_msat - fee * 1000
+            assert ('not exceeded by either initial balance '
+                    '({}msat, {}msat)'.format(funder_msat, push_msat)
+                    ).encode() in error_data(msg)
         else:
             assert mtype == WIRE_ACCEPT_CHANNEL, \
                 "reserve {} sat below funder balance {} sat should be accepted (got msgtype {})".format(
