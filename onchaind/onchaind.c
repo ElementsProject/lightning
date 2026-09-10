@@ -927,12 +927,15 @@ static bool is_local_commitment(const struct bitcoin_txid *txid,
  * once the remote's *resolving* transaction is included in a block at least 100
  * deep, on the most-work blockchain.
  */
+#define IRREVOCABLY_RESOLVED_DEPTH 100
+
 static size_t num_not_irrevocably_resolved(struct tracked_output **outs)
 {
 	size_t i, num = 0;
 
 	for (i = 0; i < tal_count(outs); i++) {
-		if (!outs[i]->resolved || outs[i]->resolved->depth < 100)
+		if (!outs[i]->resolved
+		    || outs[i]->resolved->depth < IRREVOCABLY_RESOLVED_DEPTH)
 			num++;
 	}
 	return num;
@@ -998,8 +1001,9 @@ static void billboard_update(struct tracked_output **outs)
 			       "All outputs resolved:"
 			       " waiting %u more blocks before forgetting"
 			       " channel",
-			       best->resolved->depth < 100
-			       ? 100 - best->resolved->depth : 0);
+			       best->resolved->depth < IRREVOCABLY_RESOLVED_DEPTH
+			       ? IRREVOCABLY_RESOLVED_DEPTH - best->resolved->depth
+			       : 0);
 		return;
 	}
 
