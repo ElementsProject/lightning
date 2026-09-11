@@ -453,6 +453,13 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 		goto cleanup;
 	}
 
+	/* The peer endpoint is safely held by peer_fd now, and openingd has
+	 * completed its work.  Retire it before peer_start_channeld() asks hsmd
+	 * for another client with this dbid: hsmd deliberately will not create
+	 * that client until the previous owner has gone away. */
+	fc->uc->open_daemon = NULL;
+	subd_release_channel(openingd, fc->uc);
+
 	/* Watch for funding confirms */
 	channel_watch_funding(ld, channel);
 
@@ -566,6 +573,13 @@ static void opening_fundee_finished(struct subd *openingd,
 					       "Commit channel failed");
 		goto failed;
 	}
+
+	/* Establish an explicit owner-exit barrier before requesting channeld's
+	 * HSM client.  This is particularly important when several v1 opens
+	 * finish concurrently: waiting synchronously for one lingering openingd
+	 * must not delay processing another openingd's returned peer endpoint. */
+	uc->open_daemon = NULL;
+	subd_release_channel(openingd, uc);
 
 	log_debug(channel->log, "Watching funding tx %s",
 		  fmt_bitcoin_txid(reply,

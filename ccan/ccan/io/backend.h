@@ -11,6 +11,8 @@ struct fd {
 	/* We could put these in io_plan, but they pack nicely here */
 	bool exclusive[2];
 	size_t backend_info;
+	/* Stable while a poll result still refers to this registration. */
+	struct io_fd_registration *registration;
 };
 
 /* Listeners create connections. */
