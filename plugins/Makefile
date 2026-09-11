@@ -134,6 +134,7 @@ C_PLUGINS :=					\
 	plugins/recover				\
 	plugins/txprepare			\
 	plugins/cln-renepay			\
+	plugins/cln-repeatpay			\
 	plugins/cln-xpay			\
 	plugins/spenderp			\
 	plugins/cln-askrene
@@ -170,6 +171,7 @@ endif # RUST
 include plugins/askrene/Makefile
 include plugins/bkpr/Makefile
 include plugins/renepay/Makefile
+include plugins/repeatpay/Makefile
 include plugins/xpay/Makefile
 
 # Make sure these depend on everything.

@@ -1,0 +1,132 @@
+{
+  "$schema": "../rpc-schema-draft.json",
+  "type": "object",
+  "rpc": "amendrepeatpay",
+  "title": "Command for modifying regular payments for a recurring BOLT12 offer",
+  "description": [
+    "The **amendrepeatpay** RPC command is used to change the authorized `amount` for a repeatpay command."
+  ],
+  "request": {
+    "required": [
+      "label",
+      "maxamount"
+    ],
+    "additionalProperties": false,
+    "properties": {
+      "label": {
+        "type": "string",
+        "description": [
+          "Unique label to identify this recurring payment"
+        ]
+      },
+      "maxamount": {
+        "oneOf": [
+          {
+            "type": "msat"
+          },
+          {
+            "type": "currency"
+          }
+        ],
+        "description": [
+          "*maxamount* is the maximum amount to authorize per payment.  It is either in millisatoshi precision; it can be a whole number, or a whole number with suffix *msat* or *sat*, or a three decimal point number with suffix *sat*, or an 1 to 11 decimal point number suffixed by *btc*, or a number with an ISO 4217 postfix (e.g. USD), in which case currency conversion will need to be done for the invoice itself. A plugin is needed which provides the `currencyconvert` API for this currency, otherwise the repeatpay creation will fail."
+        ]
+      }
+    }
+  },
+  "response": {
+    "required": [
+      "offer",
+      "maxamount_msat",
+      "label",
+      "status",
+      "payments_made",
+      "log"
+    ],
+    "additionalProperties": false,
+    "properties": {
+      "offer": {
+        "type": "string",
+        "description": [
+          "The offer we are paying (same as the bolt12 parameter)."
+        ]
+      },
+      "maxamount_msat": {
+        "type": "msat",
+        "description": [
+          "The maximum millisatoshi amount we are authorized to pay per payment for the next invoice (it may change with each invoice, as we do further currency conversion)."
+        ]
+      },
+      "maxamount_currency": {
+        "type": "string",
+        "description": [
+          "The original currency amount specified by the amendpay (e.g. '100.00USD'), if a currency was given."
+        ]
+      },
+      "label": {
+        "type": "string",
+        "description": [
+          "Unique label to identify this recurring payment"
+        ]
+      },
+      "payer_id": {
+        "type": "pubkey",
+        "description": [
+          "The transient id we have used to identify ourselves as a (repeat) payer."
+        ]
+      },
+      "payer_metadata": {
+        "type": "hex",
+        "description": [
+          "The random data we use to derive our payer_id."
+        ]
+      },
+      "status": {
+        "type": "string",
+        "enum": [
+          "ongoing",
+          "ongoing_making_payment",
+          "ongoing_failing_amount",
+          "ongoing_failing_balance",
+          "ongoing_failing_invoice",
+          "ongoing_failing_payment",
+          "complete_finished",
+          "complete_cancelled",
+          "complete_cancel_pending",
+          "complete_failed"
+        ],
+        "description": [
+          "Current status of the recurring payment."
+        ]
+      },
+      "payments_made": {
+        "type": "u64",
+        "description": [
+          "Number of payments successfully completed so far."
+        ]
+      },
+      "log": {
+        "type": "array",
+        "description": [
+          "Log of status transitions and notable events."
+        ],
+        "items": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "author": [
+    "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
+  ],
+  "see_also": [
+    "lightning-repeatpay(7)",
+    "lightning-cancelrepeatpay(7)",
+    "lightning-listrepeatpays(7)",
+    "lightning-offer(7)",
+    "lightning-xpay(7)"
+  ],
+  "resources": [
+    "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
+  ]
+}
