@@ -48,9 +48,10 @@ static struct token *tokenize(const void *ctx, const char *code)
 		} else if (code[i] == '/' && code[i+1] == '*') {
 			/* Multi-line comment. */
 			const char *end = strstr(code+i+2, "*/");
-			len = (end + 2) - (code + i);
 			if (!end)
 				len = strlen(code + i);
+			else
+				len = (end + 2) - (code + i);
 			if (tok_start != -1U) {
 				add_token(&toks, code+tok_start, i - tok_start);
 				tok_start = -1U;
@@ -82,6 +83,10 @@ static struct token *tokenize(const void *ctx, const char *code)
 			start_of_line = false;
 	}
 
+	/* A trailing identifier running to EOF is still a token. */
+	if (tok_start != -1U)
+		add_token(&toks, code+tok_start, i - tok_start);
+
 	/* Add terminating NULL. */
 	tal_resizez(&toks, tal_count(toks) + 1);
 	return toks;
@@ -92,6 +97,7 @@ struct parse_state {
 	const struct token *toks;
 	struct cdump_definitions *defs;
 	char *complaints;
+	unsigned int depth;
 };
 
 static const struct token *tok_peek(const struct token **toks)
@@ -277,17 +283,28 @@ static void tok_take_unknown_statement(struct parse_state *ps)
 
 static bool tok_take_expr(struct parse_state *ps, const char *term)
 {
+	/* Recursion is one frame per nested ( or [: bound it. */
+	if (ps->depth++ == 100) {
+		complain(ps, "Expression nested too deeply");
+		goto fail;
+	}
 	while (!tok_is(&ps->toks, term)) {
 		if (tok_take_if(&ps->toks, "(")) {
 			if (!tok_take_expr(ps, ")"))
-				return false;
+				goto fail;
 		} else if (tok_take_if(&ps->toks, "[")) {
 			if (!tok_take_expr(ps, "]"))
-				return false;
+				goto fail;
 		} else if (!tok_take(&ps->toks))
-			return false;
+			goto fail;
 	}
-	return tok_take(&ps->toks);
+	if (!tok_take(&ps->toks))
+		goto fail;
+	ps->depth--;
+	return true;
+fail:
+	ps->depth--;
+	return false;
 }
 
 static char *tok_take_expr_str(const tal_t *ctx,
@@ -347,7 +364,12 @@ static bool tok_take_type(struct parse_state *ps, struct cdump_type **type)
 
 	/* Did we get some? */
 	if (ps->toks != types) {
-		name = string_of_toks(NULL, types, tok_peek(&ps->toks));
+		const struct token *until = tok_peek(&ps->toks);
+		if (!until) {
+			complain(ps, "EOF after type");
+			return false;
+		}
+		name = string_of_toks(NULL, types, until);
 		kind = CDUMP_UNKNOWN;
 	} else {
 		/* Try normal types (or simple typedefs, etc). */
@@ -654,6 +676,7 @@ struct cdump_definitions *cdump_extract(const tal_t *ctx, const char *code,
 	ps.defs = tal(ctx, struct cdump_definitions);
 	ps.complaints = tal_strdup(ctx, "");
 	ps.code = code;
+	ps.depth = 0;
 
 	strmap_init(&ps.defs->enums);
 	strmap_init(&ps.defs->structs);

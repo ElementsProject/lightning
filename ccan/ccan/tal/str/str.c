@@ -150,8 +150,11 @@ char **tal_strsplit_(const tal_t *ctx,
 		if (flags == STR_EMPTY_OK && dlen)
 			dlen = 1;
 		str += len + dlen;
-		if (++num == max && !tal_resize(&parts, max*=2 + 1))
-			goto fail;
+		if (++num == max) {
+			max = max * 2 + 1;
+			if (!tal_resize(&parts, max))
+				goto fail;
+		}
 	}
 	parts[num] = NULL;
 
@@ -214,33 +217,9 @@ fail:
 	goto out;
 }
 
-static size_t count_open_braces(const char *string)
-{
-#if 1
-	size_t num = 0, esc = 0;
-
-	while (*string) {
-		if (*string == '\\')
-			esc++;
-		else {
-			/* An odd number of \ means it's escaped. */
-			if (*string == '(' && (esc & 1) == 0)
-				num++;
-			esc = 0;
-		}
-		string++;
-	}
-	return num;
-#else
-	return strcount(string, "(");
-#endif
-}
-
 bool tal_strreg_(const tal_t *ctx, const char *string, const char *label,
 		 const char *regex, ...)
 {
-	size_t nmatch = 1 + count_open_braces(regex);
-	regmatch_t matches[nmatch];
 	regex_t r;
 	bool ret = false;
 	unsigned int i;
@@ -249,33 +228,39 @@ bool tal_strreg_(const tal_t *ctx, const char *string, const char *label,
 	if (regcomp(&r, regex, REG_EXTENDED) != 0)
 		goto fail_no_re;
 
-	if (regexec(&r, string, nmatch, matches, 0) != 0)
-		goto fail;
+	{
+		/* re_nsub counts real capture groups: unlike scanning the
+		 * regex text, it is not fooled by '(' inside bracket
+		 * expressions. */
+		size_t nmatch = 1 + r.re_nsub;
+		regmatch_t matches[nmatch];
 
-	ret = true;
-	va_start(ap, regex);
-	for (i = 1; i < nmatch; i++) {
-		char **arg = va_arg(ap, char **);
-		if (arg) {
-			/* eg. ([a-z])? can give "no match". */
-			if (matches[i].rm_so == -1)
-				*arg = NULL;
-			else {
-				*arg = tal_strndup_(ctx,
-						    string + matches[i].rm_so,
-						    matches[i].rm_eo
-						    - matches[i].rm_so,
-						    label);
-				/* FIXME: If we fail, we set some and leak! */
-				if (!*arg) {
-					ret = false;
-					break;
+		if (regexec(&r, string, nmatch, matches, 0) == 0) {
+			ret = true;
+			va_start(ap, regex);
+			for (i = 1; i < nmatch; i++) {
+				char **arg = va_arg(ap, char **);
+				if (arg) {
+					/* eg. ([a-z])? can give "no match". */
+					if (matches[i].rm_so == -1)
+						*arg = NULL;
+					else {
+						*arg = tal_strndup_(ctx,
+								    string + matches[i].rm_so,
+								    matches[i].rm_eo
+								    - matches[i].rm_so,
+								    label);
+						/* FIXME: If we fail, we set some and leak! */
+						if (!*arg) {
+							ret = false;
+							break;
+						}
+					}
 				}
 			}
+			va_end(ap);
 		}
 	}
-	va_end(ap);
-fail:
 	regfree(&r);
 fail_no_re:
 	if (taken(regex))

@@ -244,6 +244,9 @@ static void notify(const struct tal_hdr *ctx,
 						    EXTRA_ARG(n));
 				else
 					cb.destroy(from_tal_hdr(ctx));
+				/* Restore: object may have been rescued by a
+				 * tal_steal() from inside the destructor. */
+				n->u = cb;
 			} else
 				n->u.notifyfn(from_tal_hdr_or_null(ctx), type,
 					      (void *)info);
@@ -420,21 +423,25 @@ static bool add_child(struct tal_hdr *parent, struct tal_hdr *child)
 	return true;
 }
 
-static void del_tree(struct tal_hdr *t, const tal_t *orig, int saved_errno)
+static void del_tree(struct tal_hdr *t, const tal_t *orig, int saved_errno);
+
+/* Free t's children, properties and t itself.  The destroying bit is
+ * already set (by del_tree() or tal_free()). */
+static void del_tree_inner(struct tal_hdr *t, const tal_t *orig,
+			   int saved_errno)
 {
 	struct prop_hdr *prop;
 	char *ptr, *next;
 
 	assert(!taken(from_tal_hdr(t)));
 
-        /* Already being destroyed?  Don't loop. */
-        if (unlikely(get_destroying_bit(t->parent_child)))
-                return;
-
-        set_destroying_bit(&t->parent_child);
-
 	/* Call free notifiers. */
 	notify(t, TAL_NOTIFY_FREE, (tal_t *)orig, saved_errno);
+
+	/* A destructor/notifier can rescue the object by tal_steal()ing
+	 * it elsewhere: add_child() clears the destroying bit. */
+	if (!get_destroying_bit(t->parent_child))
+		return;
 
 	/* Now free children and groups. */
 	prop = find_property(t, CHILDREN);
@@ -454,6 +461,16 @@ static void del_tree(struct tal_hdr *t, const tal_t *orig, int saved_errno)
 		freefn(ptr);
         }
         freefn(t);
+}
+
+static void del_tree(struct tal_hdr *t, const tal_t *orig, int saved_errno)
+{
+        /* Already being destroyed?  Don't loop. */
+        if (unlikely(get_destroying_bit(t->parent_child)))
+                return;
+
+        set_destroying_bit(&t->parent_child);
+	del_tree_inner(t, orig, saved_errno);
 }
 
 /* Don't have compiler complain we're returning NULL if we promised not to! */
@@ -525,11 +542,21 @@ void *tal_free(const tal_t *ctx)
 		t = debug_tal(to_tal_hdr(ctx));
 		if (unlikely(get_destroying_bit(t->parent_child)))
 			return NULL;
+		/* Unlink and mark destroying before notifying the parent:
+		 * a notifier which (recursively) calls tal_free() on ctx
+		 * is then a no-op rather than unbounded recursion. */
+		list_del(&t->list);
+		set_destroying_bit(&t->parent_child);
 		if (notifiers)
 			notify(ignore_destroying_bit(t->parent_child)->parent,
 			       TAL_NOTIFY_DEL_CHILD, ctx, saved_errno);
-		list_del(&t->list);
-		del_tree(t, ctx, saved_errno);
+		/* A notifier can rescue ctx by tal_steal()ing it elsewhere:
+		 * add_child() clears the destroying bit. */
+		if (!get_destroying_bit(t->parent_child)) {
+			errno = saved_errno;
+			return NULL;
+		}
+		del_tree_inner(t, ctx, saved_errno);
 		errno = saved_errno;
 	}
 	return NULL;
@@ -543,11 +570,28 @@ void *tal_steal_(const tal_t *new_parent, const tal_t *ctx)
                 newpar = debug_tal(to_tal_hdr_or_null(new_parent));
                 t = debug_tal(to_tal_hdr(ctx));
 
-                /* Unlink it from old parent. */
-		list_del(&t->list);
+		/* Can't steal into a parent which is being destroyed:
+		 * we'd be linked into the list del_tree() is draining,
+		 * and freed (or looped on) anyway. */
+		if (unlikely(get_destroying_bit(newpar->parent_child)))
+			return NULL;
+
+                /* Unlink it from old parent (an object being destroyed
+		 * has already been unlinked: it can only be stolen as a
+		 * rescue from its destructor/notifier). */
+		if (!get_destroying_bit(t->parent_child))
+			list_del(&t->list);
 		old_parent = ignore_destroying_bit(t->parent_child)->parent;
 
                 if (unlikely(!add_child(newpar, t))) {
+			/* No fallback for a rescue from a destructor:
+			 * re-linking into the old parent would silently
+			 * keep the object (its destructor saw NULL), and if
+			 * the old parent is mid-del_tree it would re-enter
+			 * the list being drained.  Leave it unlinked and
+			 * destroying; the free proceeds. */
+			if (get_destroying_bit(t->parent_child))
+				return NULL;
 			/* We can always add to old parent, because it has a
 			 * children property already. */
 			if (!add_child(old_parent, t))
@@ -800,6 +844,12 @@ bool tal_expand_(tal_t **ctxp, const void *src, size_t size, size_t count)
 
 	old_len = debug_tal(to_tal_hdr(*ctxp))->bytelen;
 
+	/* Check for multiplicative overflow */
+	if (size && unlikely(count * size / size != count)) {
+		call_error("dup size overflow");
+		goto out;
+	}
+
 	/* Check for additive overflow */
 	if (old_len + count * size < old_len) {
 		call_error("dup size overflow");
@@ -810,7 +860,9 @@ bool tal_expand_(tal_t **ctxp, const void *src, size_t size, size_t count)
 	assert(src < *ctxp
 	       || (char *)src >= (char *)(*ctxp) + old_len);
 
-	if (!tal_resize_(ctxp, size, old_len/size + count, false))
+	/* Resize by raw length, so excess bytes are preserved and
+	 * tal_count() grows by exactly count. */
+	if (!tal_resize_(ctxp, 1, old_len + count * size, false))
 		goto out;
 
 	memcpy((char *)*ctxp + old_len, src, count * size);

@@ -6,6 +6,10 @@ int main(void)
 {
 	struct path_pushd *pd;
 	char path1[1024], path2[1024], *ctx = tal_strdup(NULL, "ctx");
+	/* /tmp can be a symlink (e.g. to /private/tmp on macOS): resolve it
+	 * so our getcwd() comparisons match.  NULL context: mustn't be a
+	 * child of ctx, since we check ctx has no leftover children below. */
+	const char *realtmp = path_canon(NULL, "/tmp");
 
 	/* This is how many tests you plan to run */
 	plan_tests(19);
@@ -37,7 +41,7 @@ int main(void)
 	if (!getcwd(path2, sizeof(path2)))
 		abort();
 
-	ok1(streq(path2, "/tmp"));
+	ok1(streq(path2, realtmp));
 	path_popd(pd);
 
 	if (!getcwd(path2, sizeof(path2)))
@@ -71,5 +75,6 @@ int main(void)
 #endif
 	ok1(!tal_first(ctx));
 	tal_free(ctx);
+	tal_free(realtmp);
 	return exit_status();
 }

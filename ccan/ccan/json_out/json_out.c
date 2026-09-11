@@ -115,13 +115,19 @@ static void unindent(struct json_out *jout, char type)
 	jout->empty = false;
 }
 
-/* Make sure jout->outbuf has room for len: return pointer */
+/* Make sure jout->outbuf has room for len: return pointer, or NULL
+ * if the allocation failed. */
 static char *mkroom(struct json_out *jout, size_t len)
 {
 	ptrdiff_t delta = membuf_prepare_space(&jout->outbuf, len);
 
 	if (delta && jout->move_cb)
 		jout->move_cb(jout, delta, jout->cb_arg);
+
+	/* membuf_prepare_space() documents checking membuf_num_space()
+	 * to detect allocation failure. */
+	if (membuf_num_space(&jout->outbuf) < len)
+		return NULL;
 
 	return membuf_space(&jout->outbuf);
 }
@@ -218,6 +224,7 @@ bool json_out_addv(struct json_out *jout,
 	size_t fmtlen, avail;
 	va_list ap2;
 	char *dst;
+	int vsnprintf_ret;
 
 	if (!json_out_member_direct(jout, fieldname, 0))
 		return false;
@@ -236,7 +243,12 @@ bool json_out_addv(struct json_out *jout,
 
 	/* Try printing in place first. */
 	dst = membuf_space(&jout->outbuf);
-	fmtlen = vsnprintf(dst + quote, avail, fmt, ap);
+	vsnprintf_ret = vsnprintf(dst + quote, avail, fmt, ap);
+	if (vsnprintf_ret < 0) {
+		dst = NULL;
+		goto out;
+	}
+	fmtlen = vsnprintf_ret;
 
 	/* Horrible subtlety: vsnprintf *will* NUL terminate, even if it means
 	 * chopping off the last character.  So if fmtlen ==
@@ -259,6 +271,10 @@ bool json_out_addv(struct json_out *jout,
 		if (json_escape_needed(dst + quote, fmtlen)) {
 			struct json_escape *e;
 			e = json_escape_len(NULL, dst + quote, fmtlen);
+			if (!e) {
+				dst = NULL;
+				goto out;
+			}
 			fmtlen = strlen(e->s);
 			dst = mkroom(jout, fmtlen + (int)quote*2);
 			if (!dst)
@@ -307,6 +323,8 @@ bool json_out_addstrn(struct json_out *jout,
 
 	if (json_escape_needed(str, len)) {
 		e = json_escape_len(NULL, str, len);
+		if (!e)
+			return false;
 		str = e->s;
 		len = strlen(str);
 	} else
@@ -328,11 +346,15 @@ bool json_out_add_splice(struct json_out *jout,
 {
 	const char *p;
 	size_t len;
+	char *dst;
 
 	p = json_out_contents(src, &len);
 	if (!p)
 		return false;
-	memcpy(json_out_member_direct(jout, fieldname, len), p, len);
+	dst = json_out_member_direct(jout, fieldname, len);
+	if (!dst)
+		return false;
+	memcpy(dst, p, len);
 	return true;
 }
 

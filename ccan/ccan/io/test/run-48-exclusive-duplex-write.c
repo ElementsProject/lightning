@@ -4,6 +4,7 @@
 #include <ccan/io/io.c>
 #include <ccan/tap/tap.h>
 #include <sys/wait.h>
+#include <sys/socket.h>
 #include <stdio.h>
 
 #define PORT "65048"
@@ -46,6 +47,46 @@ static struct io_plan *write_more(struct io_conn *conn, struct data *d)
 				write_done, d);
 }
 
+/* Once the write side idles, the read side correctly resumes: some
+ * prefix of pure writes (">"), then whatever the peer wrote arrives in
+ * "<...>"-marked chunks.  Two things vary across platforms, so neither
+ * can be asserted as one fixed outcome:
+ *  - Exact chunk boundaries depend on TCP/kernel delivery granularity.
+ *  - Whether the write side idles at all before the whole connection
+ *    closes depends on how the kernel reports the peer's close: EPIPE
+ *    (graceful; write idles, buffered peer data is then read) vs.
+ *    ECONNRESET (hard reset; io_close()s the whole conn directly, any
+ *    unread peer data is legitimately lost, same as Linux's TCP
+ *    generally does for this in-flight-data-on-close shape).
+ * So: writes must never follow a read (exclusivity actually held), and
+ * whatever *did* get read, concatenated across however many chunks,
+ * must be a prefix of what was sent -- empty (nothing read: hard
+ * reset) and the full string (graceful: all of it read) both count. */
+static bool exclusive_write_pattern_ok(const char *pattern, const char *expect)
+{
+	const char *p;
+	char *data;
+	size_t len = 0;
+	bool ok, seen_read = false;
+
+	for (p = pattern; *p; p++) {
+		if (*p == '<')
+			seen_read = true;
+		else if (*p == '>' && seen_read)
+			return false; /* write after a read: exclusivity lied */
+	}
+
+	data = malloc(strlen(pattern) + 1);
+	for (p = pattern; *p; p++) {
+		if (*p != '<' && *p != '>')
+			data[len++] = *p;
+	}
+	data[len] = '\0';
+	ok = (strncmp(data, expect, len) == 0);
+	free(data);
+	return ok;
+}
+
 static struct io_plan *write_priority_init(struct io_conn *conn, struct data *d)
 {
 	/* This should suppress the read */
@@ -55,8 +96,21 @@ static struct io_plan *write_priority_init(struct io_conn *conn, struct data *d)
 
 static struct io_plan *init_conn(struct io_conn *conn, struct data *d)
 {
+	int sndbuf = 1024;
+
 	/* Free listener so when conns close we exit io_loop */
 	io_close_listener(d->l);
+
+	/* We write 1 byte at a time in an exclusive (uninterruptible) loop
+	 * until the peer's close is noticed -- the peer here never reads,
+	 * so that only happens once the send buffer fills and write()
+	 * returns EAGAIN/EPIPE. Default buffer sizes vary a lot across
+	 * platforms/kernel versions (observed to be large enough on some
+	 * macOS configurations that this loop takes an unpredictably long
+	 * time -- not blocked, just very slow -- to naturally get there).
+	 * Force it small so this is fast and deterministic everywhere. */
+	setsockopt(io_conn_fd(conn), SOL_SOCKET, SO_SNDBUF,
+		  &sndbuf, sizeof(sndbuf));
 
 	return io_duplex(conn, read_more(conn, d), write_priority_init(conn, d));
 }
@@ -131,8 +185,9 @@ int main(void)
 
 	d.pattern = tal_arrz(NULL, char, 1);
 	ok1(io_loop(NULL, NULL) == NULL);
-	/* No trace of reads */
-	ok1(strspn(d.pattern, ">") == strlen(d.pattern));
+	/* Writes only until the write side idles; all of the peer's data
+	 * read after that, however it got chunked. */
+	ok1(exclusive_write_pattern_ok(d.pattern, "1hellothere1helloagain"));
 	tal_free(d.pattern);
 
 	ok1(wait(&status));

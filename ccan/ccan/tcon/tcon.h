@@ -127,6 +127,10 @@
  *
  * It evaluates to @x so you can chain it.
  *
+ * Note that a @expr of type void * silently passes against any
+ * canary (the comparison is legal C); the same applies to
+ * tcon_check_ptr().
+ *
  * Example:
  *	#define tlist_add(h, n, member) \
  *		list_add(&tcon_check((h), canary, (n))->raw, &(n)->member)
