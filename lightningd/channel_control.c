@@ -331,7 +331,7 @@ static void handle_splice_abort(struct lightningd *ld,
 	struct bitcoin_outpoint *outpoint;
 	struct channel_inflight *inflight;
 	char *reason;
-	const u8 *error;
+	const u8 *error = NULL;
 	struct peer_fd *pfd;
 	int other_fd;
 

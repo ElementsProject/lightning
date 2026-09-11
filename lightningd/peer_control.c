@@ -1395,7 +1395,7 @@ static bool ignore_idle_channel(const struct lightningd *ld,
 /* Talk to connectd about an active channel */
 static void connect_activate_subd(struct lightningd *ld, struct channel *channel)
 {
-	const u8 *error;
+	const u8 *error = NULL;
 	struct peer_fd *pfd;
 	int other_fd;
 
