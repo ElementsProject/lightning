@@ -563,7 +563,7 @@
             "created_index": 10,
             "in_channel": "116x1x1",
             "in_htlc_id": 18,
-            "out_channel": "168x1x0",
+            "out_channel": "158x1x0",
             "in_msat": 1000000,
             "status": "local_failed",
             "failcode": 4108,

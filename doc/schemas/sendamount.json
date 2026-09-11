@@ -133,5 +133,23 @@
   "resources": [
     "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
   ],
-  "examples": []
+  "examples": [
+    {
+      "request": {
+        "id": "example:sendamount#1",
+        "method": "sendamount",
+        "params": {
+          "invstring": "lno1qgsqvgnwgcg35z6ee2h3yczraddm72xrfua9uve2rlrm9deu7xyfzrc2zefkjmtsd3jjqar9wd6zqum9dejxzmt0w4h8g93pqg58h7kghxdn23m7h6fnfmk7rcetrz0zgezwkuquq7tpgufrx88vq",
+          "amount_msat": "1000sat"
+        }
+      },
+      "response": {
+        "payment_preimage": "542e377929e51aa1542e377929e51aa1542e377929e51aa1542e377929e51aa1",
+        "amount_msat": 1000000,
+        "amount_sent_msat": 1000000,
+        "failed_parts": 0,
+        "successful_parts": 1
+      }
+    }
+  ]
 }
