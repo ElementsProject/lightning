@@ -82,6 +82,12 @@ default_python()
                 echo "$p"
                 return
             fi
+            # uv may be unavailable or unable to reach the network
+            # (offline/sandboxed builds); fall back to the interpreter itself.
+            if $p --version 2>&1 | grep -q "Python 3."; then
+                echo "$p"
+                return
+            fi
         fi
     done
 }
@@ -344,6 +350,12 @@ done
 
 # Now fill in any unset vars.
 set_defaults
+
+if [ -z "$PYTHON" ]; then
+    echo "configure: no Python 3 interpreter found." >&2
+    echo "Install python3, or set it explicitly: ./configure PYTHON=/path/to/python3" >&2
+    exit 1
+fi
 
 if [ "$ASAN" = "1" ]; then
     if [ "$VALGRIND" = "1" ]; then

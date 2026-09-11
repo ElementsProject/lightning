@@ -189,11 +189,13 @@ macro_rules! amount {
                 self.$field
             }
 
-            fn checked_add(self, rhs: Self) -> Option<Self> {
+            /// Adds two amounts, returning `None` if the result overflows.
+            pub fn checked_add(self, rhs: Self) -> Option<Self> {
                 self.$field.checked_add(rhs.$field).map($name::$from_fn)
             }
 
-            fn checked_sub(self, rhs: Self) -> Option<Self> {
+            /// Subtracts two amounts, returning `None` if the result underflows.
+            pub fn checked_sub(self, rhs: Self) -> Option<Self> {
                 self.$field.checked_sub(rhs.$field).map($name::$from_fn)
             }
         }
@@ -202,9 +204,8 @@ macro_rules! amount {
             type Output = Self;
 
             fn add(self, rhs: Self) -> Self {
-                Self {
-                    $field: self.$field + rhs.$field,
-                }
+                self.checked_add(rhs)
+                    .expect("attempt to add with overflow")
             }
         }
 
@@ -212,9 +213,8 @@ macro_rules! amount {
             type Output = Self;
 
             fn sub(self, rhs: Self) -> Self::Output {
-                Self {
-                    $field: self.$field - rhs.$field,
-                }
+                self.checked_sub(rhs)
+                    .expect("attempt to subtract with overflow")
             }
         }
 
