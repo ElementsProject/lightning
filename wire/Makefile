@@ -20,7 +20,7 @@ WIRE_HEADERS :=	wire/onion_defs.h		\
 		wire/wire.h			\
 		$(WIRE_SRC:.c=.h)
 
-WIRE_OBJS := $(WIRE_SRC:.c=.o) $(WIRE_SRC_NOHDR:.c=.o)
+WIRE_OBJS := $(addprefix $(BUILDDIR)/,$(WIRE_SRC:.c=.o) $(WIRE_SRC_NOHDR:.c=.o))
 $(WIRE_OBJS): $(WIRE_HEADERS)
 
 ALL_C_SOURCES += $(WIRE_SRC) $(WIRE_SRC_NOHDR)

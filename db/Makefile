@@ -12,7 +12,7 @@ DB_DRIVERS :=			\
 DB_SRC := $(DB_LIB_SRC) $(DB_DRIVERS)
 DB_HEADERS := $(DB_LIB_SRC:.c=.h) db/common.h
 
-DB_OBJS := $(DB_LIB_SRC:.c=.o) $(DB_DRIVERS:.c=.o)
+DB_OBJS := $(addprefix $(BUILDDIR)/,$(DB_LIB_SRC:.c=.o) $(DB_DRIVERS:.c=.o))
 $(DB_OBJS): $(DB_HEADERS)
 
 # Make sure these depend on everything.

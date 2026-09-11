@@ -18,9 +18,10 @@ BITCOIN_SRC :=					\
 	bitcoin/tx_parts.c			\
 	bitcoin/varint.c
 
-BITCOIN_OBJS := $(BITCOIN_SRC:.c=.o)
+BITCOIN_OBJS := $(BITCOIN_SRC:%.c=$(BUILDDIR)/%.o)
 
-BITCOIN_HEADERS := bitcoin/address.h		\
+BITCOIN_HEADERS :=				\
+	bitcoin/address.h			\
 	bitcoin/base58.h			\
 	bitcoin/block.h				\
 	bitcoin/chainparams.h			\
@@ -57,9 +58,7 @@ check-bitcoin-makefile:
 
 check-whitespace: check-whitespace/bitcoin/Makefile
 
-clean: bitcoin-clean
-
-bitcoin-clean:
-	$(RM) $(BITCOIN_OBJS) $(BITCOIN_TEST_PROGRAMS) $(BITCOIN_TEST_OBJS)
+obsclean::
+	$(RM) bitcoin/*.o
 
 include bitcoin/test/Makefile
