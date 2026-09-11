@@ -1270,6 +1270,19 @@ static const struct db_migration dbmigrations[] = {
 	 " WHERE remote_funding IS NOT NULL;"), NULL,
      /* The revert drops the column */
      NULL, NULL},
+    {SQL("/*PSQL*/ALTER TABLE vars ALTER COLUMN intval TYPE BIGINT"), NULL,
+     SQL("/*PSQL*/ALTER TABLE vars ALTER COLUMN intval TYPE INTEGER"), NULL},
+    /* Older versions truncated intvars to 32 bits, so a node whose
+     * deleted_forward_fees passed INT_MAX stored it negative.  We can't
+     * recover whole 2^32 wraps, but this makes it a non-negative lower
+     * bound.  Must come after the BIGINT widening above on postgres. */
+    {SQL("UPDATE vars SET intval = intval + 4294967296"
+	 " WHERE name = 'deleted_forward_fees' AND intval < 0;"), NULL,
+     /* Wrap anything past INT_MAX back to 32 bits, as older versions did,
+      * so narrowing the postgres column (reverted next) can't overflow. */
+     SQL("UPDATE vars SET intval ="
+	 " ((intval + 2147483648) % 4294967296) - 2147483648"
+	 " WHERE intval > 2147483647;"), NULL},
 };
 
 const struct db_migration *get_db_migrations(size_t *num)
