@@ -81,6 +81,20 @@ msgdata,dualopend_reinit,we_require_confirmed_inputs,bool,
 msgdata,dualopend_reinit,they_require_confirmed_inputs,bool,
 msgdata,dualopend_reinit,local_alias,short_channel_id,
 
+# dualopend->master: initialization and any reconnect dance are complete, so
+# master requests may now be delivered to this owner.
+msgtype,dualopend_ready,7032
+
+# dualopend->master: a saved channel's tx_abort handshake is complete.  The
+# daemon has rolled back to the last completed funding attempt and remains the
+# owner of the peer and HSM connections.
+msgtype,dualopend_abort_complete,7035
+msgdata,dualopend_abort_complete,reason,wirestring,
+
+# dualopend->master: reinit and HSM setup are complete and the peer endpoint is
+# open in this process, so master may attach connectd's socketpair endpoint.
+msgtype,dualopend_init_ready,7034
+
 # dualopend->master: they offered channel, should we continue?
 msgtype,dualopend_got_offer,7005
 msgdata,dualopend_got_offer,channel_id,channel_id,

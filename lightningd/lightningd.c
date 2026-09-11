@@ -1199,6 +1199,7 @@ int main(int argc, char *argv[])
 
 	/*~ What happens in strange locales should stay there. */
 	setup_locale();
+	io_poll_protect_stale_fds();
 
 	/*~ This handles --dev-debug-self really early, which we otherwise ignore */
 	daemon_developer_mode(argv);

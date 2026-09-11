@@ -110,6 +110,20 @@ u64 channel_mvt_index_created(struct lightningd *ld UNNEEDED,
 /* Generated stub for channel_unsaved_close_conn */
 void channel_unsaved_close_conn(struct channel *channel UNNEEDED, const char *why UNNEEDED)
 { fprintf(stderr, "channel_unsaved_close_conn called!\n"); abort(); }
+/* Generated stub for dual_open_attempt_peer_disconnected */
+void dual_open_attempt_peer_disconnected(struct channel *channel UNNEEDED)
+{
+}
+/* Generated stub for dual_open_attempt_waiting_for_owner */
+bool dual_open_attempt_waiting_for_owner(const struct channel *channel UNNEEDED)
+{
+	return false;
+}
+/* Generated stub for dual_open_owner_begin_retirement */
+void dual_open_owner_begin_retirement(struct channel *channel UNNEEDED,
+				      struct subd *retiring_owner UNNEEDED)
+{
+}
 /* Generated stub for channel_update_details */
 bool channel_update_details(const u8 *channel_update UNNEEDED,
 			    u32 *timestamp UNNEEDED,

@@ -73,6 +73,9 @@ struct config {
 	/* How long before we give up waiting for INIT msg */
 	u32 connection_timeout_secs;
 
+	/* How long a pending saved dual-open may wait for its peer to reconnect. */
+	u32 dual_open_disconnect_timeout_secs;
+
 	/* Allow dust reserves (including 0) when being called via
 	 * `fundchannel` or in the `openchannel` hook. This is a
 	 * slight spec incompatibility, but implementations do this
