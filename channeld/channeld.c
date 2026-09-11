@@ -7032,6 +7032,7 @@ int main(int argc, char *argv[])
 	peer->commit_timer = NULL;
 	peer->from_master = msg_queue_new(peer, true);
 	peer->shutdown_sent[LOCAL] = false;
+	peer->tx_sigs_allowed = false;
 	peer->shutdown_wrong_funding = NULL;
 	peer->last_update_timestamp = 0;
 	peer->last_empty_commitment = 0;
