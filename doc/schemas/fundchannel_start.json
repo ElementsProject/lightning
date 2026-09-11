@@ -184,7 +184,6 @@
     "- -1: Catchall nonspecific error.",
     "- 300: The amount exceeded the maximum configured funding amount.",
     "- 301: The provided `push_msat` is greater than the provided `amount`.",
-    "- 304: Still syncing with bitcoin network",
     "- 305: Peer is not connected.",
     "- 306: Unknown peer id.",
     "- 312: Peer negotiated `option_dual_fund`, must use `openchannel_init` not `fundchannel_start`. (Only if ``experimental-dual-fund` is enabled)"

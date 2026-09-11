@@ -238,6 +238,7 @@
     "- 205: Unable to find a route.",
     "- 206: Route too expensive. Either the max_delay or maxfee_msat was exceeded.",
     "- 215: We don't have enough funds in all our channels to pay this.",
+    "- 217: The given *maxdelay* is larger than the maximum allowed.",
     "- 220: We can't find sufficient capacity into the destination."
   ],
   "author": [

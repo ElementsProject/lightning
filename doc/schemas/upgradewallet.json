@@ -68,6 +68,7 @@
     "",
     "- -1: Catchall nonspecific error.",
     "- 301: There are not enough funds in the internal wallet (including fees) to create the transaction.",
+    "- 304: Still syncing with bitcoin network.",
     "- 313: The `min-emergency-msat` reserve could not be preserved (and we have anchor channels)."
   ],
   "usage": [
