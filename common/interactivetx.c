@@ -574,7 +574,7 @@ char *process_interactivetx_updates(const tal_t *ctx,
 					       "Invalid tx outnum sent. %u",
 					       outpoint.n);
 			/*
-			 * BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
+			 * BOLT #2:
 			 * The receiving node: ...
 			 *   - MUST fail the negotiation if: ...
 			 *   - the `prevtx_out` input of `prevtx` is

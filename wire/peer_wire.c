@@ -397,7 +397,7 @@ bool extract_channel_id(const u8 *in_pkt, struct channel_id *channel_id)
 		 *     * [`channel_id`:`channel_id`]
 		 */
 	case WIRE_SPLICE_INIT:
-		/* BOLT-splice #2:
+		/* BOLT #2:
 		 * 1. type: 80 (`splice_init`)
 		 * 2. data:
 		 *     * [`channel_id`:`channel_id`]
@@ -407,7 +407,7 @@ bool extract_channel_id(const u8 *in_pkt, struct channel_id *channel_id)
 		 *     * [`point`:`funding_pubkey`]
 		 */
 	case WIRE_SPLICE_ACK:
-		/* BOLT-splice #2:
+		/* BOLT #2:
 		 * 1. type: 81 (`splice_ack`)
 		 * 2. data:
 		 *     * [`channel_id`:`channel_id`]
@@ -415,7 +415,7 @@ bool extract_channel_id(const u8 *in_pkt, struct channel_id *channel_id)
 		 *     * [`point`:`funding_pubkey`]
 		 */
 	case WIRE_SPLICE_LOCKED:
-		/* BOLT-splice #2:
+		/* BOLT #2:
 		 * 1. type: 77 (`splice_locked`)
 		 * 2. data:
 		 *     * [`channel_id`:`channel_id`]

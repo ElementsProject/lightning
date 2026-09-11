@@ -2212,7 +2212,7 @@ def test_scid_alias_private(node_factory, bitcoind):
     assert err.value.error['data']['erring_node'] == l2.info['id']
     assert err.value.error['data']['erring_channel'] == scid23
 
-    # BOLT #2
+    # BOLT #2:
     # - MUST always recognize the `alias` as a `short_channel_id` for incoming HTLCs to this channel.
     route[1]['channel'] = alias23
     l1.rpc.sendpay(route, inv['payment_hash'], payment_secret=inv['payment_secret'])
