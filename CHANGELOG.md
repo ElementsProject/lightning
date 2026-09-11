@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [Unreleased]
+
+### Fixed
+
+
+ - lightningd: stay connected when we send an error for an unknown channel_reestablish, fixing the reestablish reconnect loop ([#9427])
+
+[#9427]: https://github.com/ElementsProject/lightning/pull/9427
+
 ## [26.06.6] - 2026-07-20: "Quantum-Resistant Lightning Channel III"
 
 v26.06.3, v26.06.4, and v26.06.5 had issues during publishing with the pypi releases and were deleted.
