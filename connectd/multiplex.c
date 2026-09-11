@@ -1491,6 +1491,27 @@ static struct io_plan *read_body_from_peer_done(struct io_conn *peer_conn,
 	       return next_read(peer_conn, peer);
        }
 
+       /* BOLT #1:
+	*
+	* The receiving node:
+	*   - upon receiving `error`:
+	*     - if `channel_id` is all zero:
+	*       - MUST fail all channels with the sending node.
+	*     - otherwise:
+	*       - MUST fail the channel referred to by `channel_id`, if that channel is with the
+	*         sending node.
+	*/
+       /* channeld abort()s if it ever sees WIRE_ERROR. */
+       if (type == WIRE_ERROR) {
+	       daemon_conn_send(peer->daemon->master,
+				take(towire_connectd_peer_spoke(NULL, &peer->id,
+								peer->counter,
+								type,
+								&channel_id,
+								is_peer_error(tmpctx, decrypted))));
+	       return next_read(peer_conn, peer);
+       }
+
        /* If we don't find a subdaemon for this, create a new one. */
        subd = find_subd(peer, &channel_id);
        if (!subd) {
