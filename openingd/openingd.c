@@ -14,6 +14,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/fee_states.h>
 #include <common/initial_channel.h>
+#include <common/initial_commit_tx.h>
 #include <common/memleak.h>
 #include <common/peer_billboard.h>
 #include <common/peer_failed.h>
@@ -827,6 +828,83 @@ static u8 *funder_channel_complete(struct state *state)
 }
 
 /*~ The peer sent us an `open_channel`, that means we're the fundee. */
+/* Projected initial commitment balances at open_channel receipt: the
+ * funder's to_local is funding - push - fee (BOLT #3: the base fee and,
+ * with `option_anchors`, the two 330-sat anchor outputs come off the
+ * funder); the accepter's to_remote is push. */
+enum initial_balance_violation {
+	INITIAL_BALANCES_OK,
+	FUNDER_CANNOT_AFFORD_FEE,
+	NO_BALANCE_EXCEEDS_RESERVE,
+};
+
+/* Check the two BOLT #2 receiving-node MUSTs that initial_commit_tx()
+ * only enforces at funding_created, after accept_channel has gone out.
+ * Returns INITIAL_BALANCES_OK, or the violated MUST. Every path fills
+ * the out-params (with the projected post-fee balances) so the caller
+ * can print them. */
+static enum initial_balance_violation initial_balances_check(struct amount_sat funding_sats,
+							     struct amount_msat push_msat,
+							     u32 feerate_per_kw,
+							     struct amount_sat their_reserve,
+							     bool anchors_zero_fee,
+							     struct amount_msat *funder_pay,
+							     struct amount_msat *accepter_pay)
+{
+	struct amount_sat base_fee;
+
+	*funder_pay = AMOUNT_MSAT(0);
+	*accepter_pay = push_msat;
+
+	base_fee = commit_tx_base_fee(feerate_per_kw, 0, false,
+				      anchors_zero_fee);
+	if (anchors_zero_fee
+	    && !amount_sat_add(&base_fee, base_fee, AMOUNT_SAT(660)))
+		/* Absurd feerate (fee overflow): the funding_created
+		 * backstop in initial_commit_tx() ("Funder cannot afford
+		 * anchor outputs") decides; nothing to flag at receipt. */
+		return INITIAL_BALANCES_OK;
+
+	if (!amount_sat_to_msat(funder_pay, funding_sats))
+		/* Absurd funding (already capped by max_channel_funding):
+		 * the funding_created backstop decides. */
+		return INITIAL_BALANCES_OK;
+
+	/* The funder's to_local starts at funding - push (BOLT #2 caps
+	 * push at funding, so this saturates to zero at worst). */
+	if (!amount_msat_sub(funder_pay, *funder_pay, push_msat))
+		*funder_pay = AMOUNT_MSAT(0);
+
+	/* BOLT #2:
+	 *
+	 * The receiving node MUST fail the channel if:
+	 *...
+	 * - the funder's amount for the initial commitment transaction
+	 *   is not sufficient for full fee payment.
+	 */
+	/* We are the fundee (LOCAL), the peer is the funder (REMOTE):
+	 * try_subtract_fee(REMOTE, REMOTE, ...) takes the fee off the
+	 * funder's balance, saturating to 0 and returning false when it
+	 * cannot cover it in full. */
+	if (!try_subtract_fee(REMOTE, REMOTE, base_fee,
+			      funder_pay, accepter_pay))
+		return FUNDER_CANNOT_AFFORD_FEE;
+
+	/* BOLT #2:
+	 *
+	 * The receiving node MUST fail the channel if:
+	 *...
+	 * - both `to_local` and `to_remote` amounts for the initial
+	 *   commitment transaction are less than or equal to
+	 *   `channel_reserve_satoshis`.
+	 */
+	if (!amount_msat_greater_sat(*funder_pay, their_reserve)
+	    && !amount_msat_greater_sat(*accepter_pay, their_reserve))
+		return NO_BALANCE_EXCEEDS_RESERVE;
+
+	return INITIAL_BALANCES_OK;
+}
+
 static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 {
 	struct channel_id id_in;
@@ -1005,6 +1083,48 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 				 &err_reason)) {
 		negotiation_failed(state, "%s", err_reason);
 		return NULL;
+	}
+
+	/* BOLT #2:
+	 *
+	 * The receiving node MUST fail the channel if:
+	 *...
+	 * - the funder's amount for the initial commitment transaction
+	 *   is not sufficient for full fee payment.
+	 * - both `to_local` and `to_remote` amounts for the initial
+	 *   commitment transaction are less than or equal to
+	 *   `channel_reserve_satoshis`.
+	 */
+	{
+		struct amount_msat funder_pay, accepter_pay;
+
+		switch (initial_balances_check(state->funding_sats,
+					       state->push_msat,
+					       state->feerate_per_kw,
+					       state->remoteconf.channel_reserve,
+					       channel_type_has(
+						       state->channel_type,
+						       OPT_ANCHORS_ZERO_FEE_HTLC_TX),
+					       &funder_pay,
+					       &accepter_pay)) {
+		case FUNDER_CANNOT_AFFORD_FEE:
+			negotiation_failed(state,
+					   "Funder cannot afford fee on initial "
+						   "commitment transaction");
+			return NULL;
+		case NO_BALANCE_EXCEEDS_RESERVE:
+			negotiation_failed(state,
+					   "Their channel reserve %s is not "
+						   "exceeded by either initial "
+						   "balance (%s, %s)",
+					   fmt_amount_sat(tmpctx,
+							  state->remoteconf.channel_reserve),
+					   fmt_amount_msat(tmpctx, funder_pay),
+					   fmt_amount_msat(tmpctx, accepter_pay));
+			return NULL;
+		case INITIAL_BALANCES_OK:
+			break;
+		}
 	}
 
 	/* Check with lightningd that we can accept this?  In particular,
