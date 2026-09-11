@@ -23,7 +23,7 @@ gen_*.c
 gen_*.h
 wire/gen_*_csv
 cli/lightning-cli
-coverage
+/coverage
 # Coverage profiling data files
 *.profraw
 *.profdata

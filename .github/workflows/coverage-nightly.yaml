@@ -101,7 +101,8 @@ jobs:
         if: always()
         with:
           name: coverage-raw-${{ matrix.name }}
-          path: coverage-raw/*.profraw
+          # pyln-testing puts the profiles in per-test subdirectories
+          path: coverage-raw/
           if-no-files-found: error
 
   report:
@@ -114,13 +115,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      # The raw profile format has no compatibility guarantees across LLVM
+      # releases, so llvm-profdata has to come from the same release as the
+      # clang that produced the profiles: the distro default in both cases.
       - name: Install LLVM tools
         run: |
-          wget https://apt.llvm.org/llvm.sh
-          chmod +x llvm.sh
-          sudo ./llvm.sh 18
-          sudo ln -sf /usr/bin/llvm-profdata-18 /usr/bin/llvm-profdata
-          sudo ln -sf /usr/bin/llvm-cov-18 /usr/bin/llvm-cov
+          sudo apt-get update
+          sudo apt-get install -y llvm
 
       - name: Download build artifact
         uses: actions/download-artifact@v8
@@ -136,28 +137,18 @@ jobs:
           pattern: coverage-raw-*
           path: coverage-artifacts
 
+      # collect-coverage.sh walks the tree itself and rejects the profiles
+      # that crashed tests left half-written, so it gets the whole download.
       - name: Merge coverage data
-        run: |
-          mkdir -p coverage-raw coverage
-          find coverage-artifacts -name "*.profraw" -exec cp {} coverage-raw/ \;
-          PROFRAW_COUNT=$(ls -1 coverage-raw/*.profraw 2>/dev/null | wc -l)
-          echo "Found $PROFRAW_COUNT profile files"
-          if [ "$PROFRAW_COUNT" -eq 0 ]; then
-            echo "ERROR: No coverage data found"
-            exit 1
-          fi
-          chmod +x contrib/coverage/collect-coverage.sh
-          CLN_COVERAGE_DIR=coverage-raw ./contrib/coverage/collect-coverage.sh
+        run: ./contrib/coverage/collect-coverage.sh coverage-artifacts
 
       - name: Generate HTML report
-        run: |
-          chmod +x contrib/coverage/generate-coverage-report.sh
-          ./contrib/coverage/generate-coverage-report.sh
+        run: ./contrib/coverage/generate-coverage-report.sh
 
       - name: Upload to Codecov
         uses: codecov/codecov-action@v6
         with:
-          files: coverage/merged.profdata
+          files: coverage/coverage.lcov
           flags: integration-tests
           name: cln-nightly-coverage
           token: ${{ secrets.CODECOV_TOKEN }}
