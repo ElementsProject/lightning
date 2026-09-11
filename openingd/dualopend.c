@@ -20,6 +20,7 @@
 #include <common/billboard.h>
 #include <common/blockheight_states.h>
 #include <common/initial_channel.h>
+#include <common/interactivetx.h>
 #include <common/lease_rates.h>
 #include <common/memleak.h>
 #include <common/peer_billboard.h>
@@ -45,15 +46,6 @@
 /* stdin == lightningd, 3 == peer, 4 = hsmd */
 #define REQ_FD STDIN_FILENO
 #define HSM_FD 4
-
-/* tx_add_input, tx_add_output, tx_rm_input, tx_rm_output */
-#define NUM_TX_MSGS (TX_RM_OUTPUT + 1)
-enum tx_msgs {
-	TX_ADD_INPUT,
-	TX_ADD_OUTPUT,
-	TX_RM_INPUT,
-	TX_RM_OUTPUT,
-};
 
 /*
  * BOLT #2:
@@ -97,7 +89,7 @@ struct tx_state {
 	u64 funding_serial;
 
 	/* Track how many of each tx collab msg we receive */
-	u16 tx_msg_count[NUM_TX_MSGS];
+	u16 tx_msg_count[INTERACTIVETX_NUM_TX_MSGS];
 
 	/* Have we gotten the peer's tx-sigs yet? */
 	bool remote_funding_sigs_rcvd;
@@ -144,7 +136,7 @@ static struct tx_state *new_tx_state(const tal_t *ctx)
 	/* no max_htlc_dust_exposure on remoteconf, we exclusively use the local's */
 	tx_state->remoteconf.max_dust_htlc_exposure_msat = AMOUNT_MSAT(0);
 
-	for (size_t i = 0; i < NUM_TX_MSGS; i++)
+	for (size_t i = 0; i < INTERACTIVETX_NUM_TX_MSGS; i++)
 		tx_state->tx_msg_count[i] = 0;
 
 	return tx_state;
@@ -1930,6 +1922,7 @@ static bool run_tx_interactive(struct state *state,
 			u8 *scriptpubkey;
 			struct wally_psbt_output *out;
 			struct amount_sat amt;
+			const char *error;
 			if (!fromwire_tx_add_output(tmpctx, msg, &cid,
 						    &serial_id, &value,
 						    &scriptpubkey))
@@ -1984,6 +1977,18 @@ static bool run_tx_interactive(struct state *state,
 			 *   is non-standard */
 			if (!is_known_scripttype(scriptpubkey, tal_bytelen(scriptpubkey))) {
 				open_abort(state, "Script is not standard");
+				return false;
+			}
+
+			/* BOLT #2:
+			 * The receiving node: ...
+			 * - MUST fail the negotiation if: ...
+			 *  - the `sats` amount is greater than 2,100,000,000,000,000 (`MAX_MONEY`)
+			 */
+			error = interactive_tx_add_output_check_max_money(
+			    tmpctx, psbt, amt);
+			if (error) {
+				open_abort(state, error);
 				return false;
 			}
 
