@@ -1110,6 +1110,14 @@ static void init_linear_network_single_path(
 			if (amount_msat_greater_eq(params->amount, maxcap))
 				continue;
 
+			const double probability =
+			    pickhardt_richter_probability(mincap, maxcap,
+							  params->amount);
+
+			/* too unlikely it is not worth considering */
+			if (probability < 1e-6)
+				continue;
+
 			const u32 chan_id = gossmap_chan_idx(gossmap, c);
 
 			const struct gossmap_node *next =
@@ -1129,8 +1137,7 @@ static void init_linear_network_single_path(
 
 			(*arc_capacity)[arc.idx] = 1;
 			(*arc_prob_cost)[arc.idx] =
-			    (-1.0) * log(pickhardt_richter_probability(
-					 mincap, maxcap, params->amount));
+			    (-1.0) * log(probability);
 
 			struct amount_msat fee;
 			if (!amount_msat_fee(&fee, params->amount,
