@@ -896,6 +896,12 @@ of the prior channel balance and the new one.
 subprotocol describing the creation of just-in-time-channel (JIT-channels)
 between a LSP and this client.
 
+* **experimental-lsps-client-zero-reserve** [plugin `cln-lsps-client`]
+
+  Specifying this stops requiring the LSP to maintain a channel reserve on the
+JIT-channels it opens to this client. This is left unset by default, as some
+LSPs can not handle a zero reserve.
+
 * **experimental-lsps2-service** [plugin `cln-lsps-service`]
 
   Specifying this enables a LSP JIT-Channel service according to the lsps
@@ -907,6 +913,12 @@ a *experimental-lsps2-promise-secret* to be set.
   Sets a `promisesecret` for the LSP JIT-Channel service. Is a 64-character hex
  string that acts as the secret for promises according to ([blip][blip] #52).
  Is required if *experimental-lsps2-service* is set.
+
+* **experimental-lsps2-zero-reserve** [plugin `cln-lsps-service`]
+
+  Specifying this requires no channel reserve from the client on the
+JIT-channels this service opens. This is left unset by default, as some
+implementations can not handle an explicit zero reserve.
 
 BUGS
 ----
