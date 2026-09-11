@@ -446,7 +446,7 @@ static bool change_for_emergency(struct lightningd *ld,
 				 struct amount_sat *excess,
 				 struct amount_sat *change)
 {
-	struct amount_sat needed = ld->emergency_sat, fee;
+	struct amount_sat needed = ld->emergency_sat, fee, target;
 
 	/* Only needed for anchor channels */
 	if (!have_anchor_channel)
@@ -467,19 +467,38 @@ static bool change_for_emergency(struct lightningd *ld,
 				  needed))
 		return true;
 
-	/* Try splitting excess to add to change. */
+	/* We top the change up from excess so that, after paying its own
+	 * fee, the change output carries at least the reserve shortfall
+	 * `needed`.  But change_amount() dust-caps any change whose
+	 * post-fee value is under the chain's minimum viable output, so if
+	 * the natural target (entering change + shortfall) is below that
+	 * minimum, round UP to it: min-emergency-msat is a floor on what
+	 * the wallet retains, not an exact change-output target.  (The
+	 * pre-rounding code crashed lightningd here: a shortfall below the
+	 * dust limit made the promised change output unconstructible.) */
+	target = *change;
+	if (!amount_sat_add(&target, target, needed))
+		return false;
+	if (amount_sat_less(target, min_change_amount()))
+		target = min_change_amount();
+
+	/* The excess must cover the change itself plus the fee for adding
+	 * the output, minus whatever change already holds.  If it can't,
+	 * that's a funding-availability corner: the caller reports the
+	 * typed FUND_CANNOT_AFFORD_WITH_EMERGENCY, never an assert. */
 	fee = change_fee(feerate_per_kw, weight);
-	if (!amount_sat_sub(excess, *excess, fee)
-	    || !amount_sat_sub(excess, *excess, needed))
+	if (!amount_sat_add(&target, target, fee))
+		return false;
+	if (!amount_sat_sub(&target, target, *change))
+		return false;
+	if (!amount_sat_sub(excess, *excess, target))
+		return false;
+	if (!amount_sat_add(change, *change, target))
 		return false;
 
-	if (!amount_sat_add(change, *change, fee)
-	    || !amount_sat_add(change, *change, needed))
-		abort();
-
-	/* We *will* get a change output now! */
-	assert(amount_sat_eq(change_amount(*change, feerate_per_kw, weight),
-			     needed));
+	/* The change now carries >= min_change_amount() + fee, so
+	 * change_amount() will not dust-cap it, and its post-fee value
+	 * covers `needed`: the wallet keeps its emergency reserve. */
 	return true;
 }
 
