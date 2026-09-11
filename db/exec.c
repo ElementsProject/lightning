@@ -50,7 +50,7 @@ u32 db_data_version_get(struct db *db)
 	}
 	/* This fails on uninitialized db, so "0" */
 	if (db_step(stmt))
-		version = db_col_int(stmt, "intval");
+		version = db_col_s64(stmt, "intval");
 	else
 		version = 0;
 	tal_free(stmt);
@@ -61,7 +61,7 @@ void db_set_intvar(struct db *db, const char *varname, s64 val)
 {
 	size_t changes;
 	struct db_stmt *stmt = db_prepare_v2(db, SQL("UPDATE vars SET intval=? WHERE name=?;"));
-	db_bind_int(stmt, val);
+	db_bind_s64(stmt, val);
 	db_bind_text(stmt, varname);
 	db_exec_prepared_v2(stmt);
 	changes = db_count_changes(stmt);
@@ -70,7 +70,7 @@ void db_set_intvar(struct db *db, const char *varname, s64 val)
 	if (changes == 0) {
 		stmt = db_prepare_v2(db, SQL("INSERT INTO vars (name, intval) VALUES (?, ?);"));
 		db_bind_text(stmt, varname);
-		db_bind_int(stmt, val);
+		db_bind_s64(stmt, val);
 		db_exec_prepared_v2(stmt);
 		tal_free(stmt);
 	}
@@ -83,7 +83,7 @@ s64 db_get_intvar(struct db *db, const char *varname, s64 defval)
 	    db, SQL("SELECT intval FROM vars WHERE name= ? LIMIT 1"));
 	db_bind_text(stmt, varname);
 	if (db_query_prepared_canfail(stmt) && db_step(stmt))
-		res = db_col_int(stmt, "intval");
+		res = db_col_s64(stmt, "intval");
 
 	tal_free(stmt);
 	return res;
