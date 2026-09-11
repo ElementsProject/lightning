@@ -103,6 +103,9 @@ int main(int argc, const char *argv[])
 	assert(bitcoin_txid_eq(&txid, &expected_txid));
 
 	tal_free(b);
+	for (size_t i = 1; i < strlen(block); i++)
+		assert(!bitcoin_block_from_hex(NULL, chainparams, block, i));
+
 	common_shutdown();
 	return 0;
 }
