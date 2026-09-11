@@ -1186,6 +1186,17 @@ static const struct db_migration dbmigrations[] = {
      * after the failure was recorded (issue #9341). */
     {SQL("ALTER TABLE payments ADD failmsg BLOB;"), NULL,
      SQL("ALTER TABLE payments DROP COLUMN failmsg"), NULL},
+    /* Postgres does not index the referencing side of a foreign key, so
+     * removing a row from `blocks` scanned each of these tables in full. */
+    {SQL("CREATE INDEX transactions_blockheight_idx"
+	 " ON transactions (blockheight)"), NULL,
+     SQL("DROP INDEX transactions_blockheight_idx"), NULL},
+    {SQL("CREATE INDEX channeltxs_blockheight_idx"
+	 " ON channeltxs (blockheight)"), NULL,
+     SQL("DROP INDEX channeltxs_blockheight_idx"), NULL},
+    {SQL("CREATE INDEX outputs_spend_height_idx"
+	 " ON outputs (spend_height)"), NULL,
+     SQL("DROP INDEX outputs_spend_height_idx"), NULL},
     /* ^v26.09 */
 };
 
