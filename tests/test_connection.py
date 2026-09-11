@@ -3853,6 +3853,50 @@ def test_quiescence(node_factory, executor):
         pass
 
 
+def test_quiescence_end_delivers_pending_fulfill(node_factory, bitcoind, executor):
+    """While quiescent, a fulfill queued on stfu_pending_queue must be
+    delivered when quiescence ends (end_stfu_mode moves it to from_master).
+    """
+    hold_plugin = str(Path(__file__).parent / "plugins" / "hold_htlcs.py")
+    l1, l2 = node_factory.line_graph(2, fundamount=1000000,
+                                     opts={'plugin': [hold_plugin], 'hold-time': 5})
+    # l2 needs wallet UTXOs for the splice; l1 opened the channel.
+    addr = l2.rpc.newaddr('bech32')['bech32']
+    bitcoind.rpc.sendtoaddress(addr, 0.002)
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    wait_for(lambda: len(l2.rpc.listfunds()['outputs']) == 1)
+
+    # Balance so l2 can send.
+    inv = l2.rpc.invoice(250000000, 'balance', 'balance')
+    l1.rpc.xpay(inv['bolt11'])
+
+    inv = l1.rpc.invoice(10000000, 'qend', 'qend')
+    fut = executor.submit(l2.rpc.xpay, inv['bolt11'])
+    l1.daemon.wait_for_log('Holding onto an incoming htlc')
+
+    # Start the splice (enters quiescence); the hold plugin delays the
+    # fulfill past quiescence-entry, so the fulfill lands on
+    # stfu_pending_queue while l1 is at loop top.
+    funds = l2.rpc.fundpsbt("111722sat", 0, 0, excess_as_change=True)
+    r = l2.rpc.splice_init(l2.get_channel_id(l1), 100000, funds['psbt'])
+    l1.daemon.wait_for_log('STFU complete: we are quiescent')
+    l2.daemon.wait_for_log('STFU complete: we are quiescent')
+
+    # Hold expires: lightningd resolves the invoice, but the fulfill is
+    # queued (quiescent).  l1 marks the invoice paid.
+    wait_for(lambda: only_one(l1.rpc.listinvoices('qend')['invoices'])['status'] == 'paid')
+
+    # End quiescence by completing the in-flight splice; end_stfu_mode must
+    # move the queued fulfill onto from_master and deliver it.
+    r = l2.rpc.splice_update(l2.get_channel_id(l1), r['psbt'])
+    r = l2.rpc.splice_update(l2.get_channel_id(l1), r['psbt'])
+    r = l2.rpc.signpsbt(r['psbt'])
+    l2.rpc.splice_signed(l2.get_channel_id(l1), r['signed_psbt'])
+
+    # The payment completes: the queued fulfill was delivered.
+    fut.result(timeout=60)
+
+
 def test_htlc_failed_noclose(node_factory):
     """Test a bug where the htlc timeout would kick in even if the HTLC failed"""
     l1, l2 = node_factory.line_graph(2)
