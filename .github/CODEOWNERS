@@ -26,5 +26,8 @@ plugins/rest-plugin         @daywalker90
 tests/test_clnrest.py       @daywalker90
 tests/test_currencyrate.py  @daywalker90
 
+channeld/               @ddustin
+plugin/spender/         @ddustin
+
 # See https://help.github.com/articles/about-codeowners/ for more
 # information
