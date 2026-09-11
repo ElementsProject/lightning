@@ -629,6 +629,9 @@ void *plugin_get_data_(struct plugin *plugin);
 #define plugin_option_deprecated(name, type, description, depr_start, depr_end, set, jsonfmt, arg) \
 	plugin_option_((name), (type), (description), (set), (jsonfmt), (arg), false, (depr_start), (depr_end), false, false)
 
+#define plugin_option_deprecated_dynamic(name, type, description, depr_start, depr_end, set, jsonfmt, arg) \
+	plugin_option_((name), (type), (description), (set), (jsonfmt), (arg), false, (depr_start), (depr_end), true, false)
+
 #define plugin_option_multi(name, type, description, set, jsonfmt, arg)	\
 	plugin_option_((name), (type), (description), (set), (jsonfmt), (arg), false, NULL, NULL, false, true)
 
