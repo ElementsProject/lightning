@@ -142,6 +142,14 @@ def test_pay_fakenet(node_factory):
     l1.rpc.waitsendpay(payment_hash=hash2, timeout=TIMEOUT, partid=3)
 
 
+def test_xpay_1sat_invoice(node_factory):
+    l1, l2, l3 = node_factory.get_nodes(3, opts={'may_reconnect': True})
+    node_factory.join_nodes([l1, l2, l3], wait_for_announce=True)
+
+    b11 = l3.rpc.invoice('1sat', 'test_xpay_1sat_invoice', 'test_xpay_1sat_invoice bolt11')['bolt11']
+    l1.rpc.xpay(b11)
+
+
 def test_xpay_simple(node_factory):
     l1, l2, l3, l4 = node_factory.get_nodes(4, opts={'may_reconnect': True})
     node_factory.join_nodes([l1, l2, l3], wait_for_announce=True)
