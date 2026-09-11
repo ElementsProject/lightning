@@ -15,6 +15,7 @@ from utils import (
 )
 from pyln.testing.utils import VALGRIND, EXPERIMENTAL_DUAL_FUND, FUNDAMOUNT, RUST, SLOW_MACHINE
 
+import hashlib
 import os
 import pytest
 import random
@@ -4983,6 +4984,12 @@ WIRE_ERROR = 17
 WIRE_OPEN_CHANNEL = 32
 WIRE_ACCEPT_CHANNEL = 33
 WIRE_FUNDING_CREATED = 34
+WIRE_OPEN_CHANNEL2 = 64
+WIRE_ACCEPT_CHANNEL2 = 65
+WIRE_TX_ADD_INPUT = 66
+WIRE_TX_ADD_OUTPUT = 67
+WIRE_TX_COMPLETE = 70
+WIRE_TX_ABORT = 74
 
 # bitcoin/chainparams.c: max_supply, which is also libwally's WALLY_SATOSHI_MAX.
 MAX_SUPPLY_SAT = 2100000000000000
@@ -5136,3 +5143,175 @@ def test_open_channel_funding_above_max_supply(node_factory, bitcoind):
                 funding_sat, push_msat)
 
     assert l1.rpc.getinfo()['id'] == l1.info['id']
+
+
+def tlv_encode(type_num, value):
+    """Minimal bigsize TLV encode (type and length fit in one byte here)."""
+    assert type_num < 0xFD
+    assert len(value) < 0xFD
+    return bytes([type_num, len(value)]) + value
+
+
+def derive_tmp_channel_id(opener_revocation_basepoint):
+    """BOLT #2 temporary_channel_id for open_channel2 (zeroed accepter basepoint)."""
+    return hashlib.sha256(bytes(33) + opener_revocation_basepoint).digest()
+
+
+def derive_channel_id_v2(basepoint_a, basepoint_b):
+    """BOLT #2 v2 channel_id: SHA256(lesser-revocation-basepoint || greater...)."""
+    if basepoint_a < basepoint_b:
+        lesser, greater = basepoint_a, basepoint_b
+    else:
+        lesser, greater = basepoint_b, basepoint_a
+    return hashlib.sha256(lesser + greater).digest()
+
+
+def send_open_channel2(
+    lconn, chain_hash, funding_sat, feerate_per_kw, channel_type, keys
+):
+    """Send open_channel2; keys has 7 points (funding .. second_per_commitment).
+
+    keys[1] is our revocation basepoint (used for temporary_channel_id).
+    Returns temporary_channel_id.
+    """
+    revocation = keys[1]
+    temp_chan_id = derive_tmp_channel_id(revocation)
+
+    msg = struct.pack(">H", WIRE_OPEN_CHANNEL2)
+    msg += chain_hash
+    msg += temp_chan_id
+    msg += struct.pack(">I", feerate_per_kw)  # funding_feerate_perkw
+    msg += struct.pack(">I", feerate_per_kw)  # commitment_feerate_perkw
+    msg += struct.pack(">Q", funding_sat)  # funding_satoshis
+    msg += struct.pack(">Q", 546)  # dust_limit_satoshis
+    msg += struct.pack(">Q", 0xFFFFFFFFFFFF)  # max_htlc_value_in_flight_msat
+    msg += struct.pack(">Q", 0)  # htlc_minimum_msat
+    msg += struct.pack(">H", 144)  # to_self_delay
+    msg += struct.pack(">H", 483)  # max_accepted_htlcs
+    msg += struct.pack(">I", 0)  # locktime
+    for k in keys:
+        msg += k
+    msg += struct.pack(">B", 0)  # channel_flags
+    # opening_tlvs: type 1 channel_type
+    msg += tlv_encode(1, channel_type)
+
+    lconn.send_message(msg)
+    return temp_chan_id
+
+
+def read_accept_channel2(lconn):
+    """Read past gossip to dualopend's accept_channel2 (or failure).
+
+    Returns (mtype, msg_payload_after_type).
+    """
+    for _ in range(40):
+        msg = lconn.read_message()
+        mtype = int.from_bytes(msg[0:2], "big")
+        if mtype in (WIRE_ACCEPT_CHANNEL2, WIRE_WARNING, WIRE_ERROR, WIRE_TX_ABORT):
+            return mtype, msg[2:]
+    raise AssertionError("no reply to open_channel2")
+
+
+def parse_accept_channel2_revocation(payload):
+    """Extract accepter revocation_basepoint from accept_channel2 payload.
+
+    Layout after type:
+      channel_id(32) funding_satoshis(8) dust(8) max_in_flight(8) htlc_min(8)
+      min_depth(4) to_self_delay(2) max_htlcs(2)
+      funding_pubkey(33) revocation(33) ...
+    """
+    off = 32 + 8 + 8 + 8 + 8 + 4 + 2 + 2 + 33
+    return payload[off:off + 33]
+
+
+def send_tx_add_output(lconn, channel_id, serial_id, sats, script):
+    msg = struct.pack(">H", WIRE_TX_ADD_OUTPUT)
+    msg += channel_id
+    msg += struct.pack(">Q", serial_id)
+    msg += struct.pack(">Q", sats)
+    msg += struct.pack(">H", len(script))
+    msg += script
+    lconn.send_message(msg)
+
+
+def read_tx_interactive_reply(lconn):
+    """Read dualopend's response during interactive tx construction."""
+    for _ in range(40):
+        msg = lconn.read_message()
+        mtype = int.from_bytes(msg[0:2], "big")
+        # dualopend with empty local PSBT replies tx_complete, or aborts.
+        if mtype in (
+            WIRE_TX_COMPLETE,
+            WIRE_TX_ABORT,
+            WIRE_TX_ADD_OUTPUT,
+            WIRE_TX_ADD_INPUT,
+            WIRE_WARNING,
+            WIRE_ERROR,
+        ):
+            return mtype, msg
+    raise AssertionError("no reply during interactive tx")
+
+
+@pytest.mark.xfail
+@pytest.mark.openchannel("v2")
+@unittest.skipIf(
+    TEST_NETWORK != "regtest", "elementsd doesnt yet support PSBT features we need"
+)
+def test_open_channel2_tx_add_output_above_max_supply(node_factory, bitcoind):
+    """tx_add_output sats above MAX_MONEY must not crash dualopend.
+
+    Before the fix, dualopend passed oversized amounts straight to
+    psbt_append_output(); libwally then asserted.  BOLT #2 requires failing
+    the negotiation when sats > MAX_MONEY (or the running output total would
+    exceed max supply).
+    """
+    l1 = node_factory.get_node(options={"experimental-dual-fund": None})
+
+    chain_hash = bytes.fromhex(bitcoind.rpc.getblockhash(0))[::-1]
+    feerate = l1.rpc.feerates("perkw")["perkw"]["opening"]
+
+    # Standard P2WPKH scriptpubkey (contents only need to pass is_known_scripttype).
+    script = bytes([0x00, 0x14]) + bytes(range(20))
+
+    cases = (
+        MAX_SUPPLY_SAT + 1,
+        MAX_SUPPLY_SAT * 2,
+        0xFFFFFFFFFFFFFFFF,
+        MAX_SUPPLY_SAT + 200000,
+        (MAX_SUPPLY_SAT + 100) * 1000,
+    )
+
+    for sats in cases:
+        lconn, channel_type = raw_peer_connect(l1)
+
+        # Seven distinct valid compressed points for open_channel2 key fields.
+        keys = [
+            wire.PrivateKey(bytes([i + 2] * 32)).public_key().serializeCompressed()
+            for i in range(7)
+        ]
+
+        send_open_channel2(lconn, chain_hash, FUNDAMOUNT, feerate, channel_type, keys)
+
+        mtype, payload = read_accept_channel2(lconn)
+        assert mtype == WIRE_ACCEPT_CHANNEL2, (
+            "open_channel2 rejected before interactive tx (got msgtype {})".format(
+                mtype
+            )
+        )
+
+        their_revocation = parse_accept_channel2_revocation(payload)
+        # accept_channel2 is sent with the temporary id, but dualopend then
+        # switches to the final v2 channel_id for interactive tx messages.
+        channel_id = derive_channel_id_v2(keys[1], their_revocation)
+
+        # First message of interactive construction: oversized output.
+        # serial_id even => from initiator.
+        send_tx_add_output(lconn, channel_id, 0, sats, script)
+
+        mtype, msg = read_tx_interactive_reply(lconn)
+        assert mtype == WIRE_TX_ABORT, (
+            "tx_add_output sats={} was not aborted (got msgtype {})".format(sats, mtype)
+        )
+
+    # node is still up
+    assert l1.rpc.getinfo()["id"] == l1.info["id"]
