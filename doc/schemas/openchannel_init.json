@@ -189,7 +189,6 @@
     "- -1: Catchall nonspecific error.",
     "- 300: The amount exceeded the maximum configured funding amount.",
     "- 301: The provided PSBT cannot afford the funding amount.",
-    "- 304: Still syncing with bitcoin network",
     "- 305: Peer is not connected.",
     "- 306: Unknown peer id.",
     "- 309: PSBT missing required fields",

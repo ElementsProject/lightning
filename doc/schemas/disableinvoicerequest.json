@@ -77,6 +77,12 @@
       "Note: the returned object is the same format as **listinvoicerequests**."
     ]
   },
+  "errors": [
+    "On failure, one of the following error codes may be returned:",
+    "",
+    "- -32602: Error in given parameters.",
+    "- 1001: invoice_request is already disabled."
+  ],
   "author": [
     "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
   ],

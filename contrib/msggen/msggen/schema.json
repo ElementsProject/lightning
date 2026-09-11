@@ -133,6 +133,14 @@
           }
         }
       },
+      "errors": [
+        "On error the returned object will contain `code` and `message` properties, with `code` being one of the following:",
+        "",
+        "- -32602: If the given parameters are wrong.",
+        "- -1: Catchall nonspecific error.",
+        "- 302: The output amount is below the dust limit.",
+        "- 309: The given PSBT is invalid or could not be modified."
+      ],
       "author": [
         "Dusty [@dusty_daemon](mailto:@dustydaemon) is mainly responsible."
       ],
@@ -7532,7 +7540,8 @@
         "The following error codes may occur:",
         "",
         "- -1: Catchall nonspecific error.",
-        "- 900: An invoice with the given *label* already exists."
+        "- 900: An invoice with the given *label* already exists.",
+        "- 907: The offer associated with the invoice is not active."
       ],
       "author": [
         "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
@@ -12643,8 +12652,7 @@
         "The following error codes may occur:",
         "",
         "- -32602: Parameter missed or malformed;",
-        "- 211: Payment status mismatch. Check the correct status via **paystatus**;",
-        "- 208: Payment with payment_hash not found."
+        "- 208: Payment with payment_hash not found, or without the given status (and partid/groupid)."
       ],
       "author": [
         "Vincenzo Palazzo [vincenzo.palazzo@protonmail.com](mailto:vincenzo.palazzo@protonmail.com) is mainly responsible."
@@ -13456,6 +13464,12 @@
           "Note: the returned object is the same format as **listinvoicerequests**."
         ]
       },
+      "errors": [
+        "On failure, one of the following error codes may be returned:",
+        "",
+        "- -32602: Error in given parameters.",
+        "- 1001: invoice_request is already disabled."
+      ],
       "author": [
         "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
       ],
@@ -13578,6 +13592,12 @@
           "Note: the returned object is the same format as **listoffers**."
         ]
       },
+      "errors": [
+        "On failure, one of the following error codes may be returned:",
+        "",
+        "- -32602: Error in given parameters.",
+        "- 1001: offer is already disabled."
+      ],
       "author": [
         "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
       ],
@@ -13847,7 +13867,8 @@
         "On failure, one of the following error codes may be returned:",
         "",
         "- -32602: Error in given parameters.",
-        "- 1006: offer already enabled."
+        "- 1006: offer already enabled.",
+        "- 1007: offer is single-use and has already been used."
       ],
       "author": [
         "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
@@ -15022,6 +15043,7 @@
         "- 301: There are not enough funds in the internal wallet (including fees) to create the transaction.",
         "- 302: The output amount is too small, and would be considered dust.",
         "- 303: Broadcasting of the funding transaction failed, the internal call to bitcoin-cli returned with an error.",
+        "- 304: Still syncing with bitcoin network.",
         "- 313: The `min-emergency-msat` reserve could not be preserved (and we have or are opening anchor channels).",
         "",
         "Failure may also occur if **lightningd** and the peer cannot agree on channel parameters (funding limits, channel reserves, fees, etc.)."
@@ -15498,7 +15520,6 @@
         "- -1: Catchall nonspecific error.",
         "- 300: The amount exceeded the maximum configured funding amount.",
         "- 301: The provided `push_msat` is greater than the provided `amount`.",
-        "- 304: Still syncing with bitcoin network",
         "- 305: Peer is not connected.",
         "- 306: Unknown peer id.",
         "- 312: Peer negotiated `option_dual_fund`, must use `openchannel_init` not `fundchannel_start`. (Only if ``experimental-dual-fund` is enabled)"
@@ -16103,6 +16124,7 @@
         "- -32602: If the given parameters are wrong.",
         "- -1: Catchall nonspecific error.",
         "- 301: Insufficient UTXOs to meet *satoshi* value.",
+        "- 304: Still syncing with bitcoin network.",
         "- 313: The `min-emergency-msat` reserve could not be preserved (and we have or are opening anchor channels)."
       ],
       "author": [
@@ -17463,6 +17485,7 @@
         "- 205: Unable to find a route.",
         "- 206: Route too expensive. Either the max_delay or maxfee_msat was exceeded.",
         "- 215: We don't have enough funds in all our channels to pay this.",
+        "- 217: The given *maxdelay* is larger than the maximum allowed.",
         "- 220: We can't find sufficient capacity into the destination."
       ],
       "author": [
@@ -30713,6 +30736,7 @@
         "- 301: There are not enough funds in the internal wallet (including fees) to create the transaction.",
         "- 302: The output amount is too small, and would be considered dust.",
         "- 303: Broadcasting of the funding transaction failed, the internal call to bitcoin-cli returned with an error.",
+        "- 304: Still syncing with bitcoin network.",
         "- 313: The `min-emergency-msat` reserve could not be preserved (and we have or are opening anchor channels).",
         "",
         "Failure may also occur if **lightningd** and the peer cannot agree on channel parameters (funding limits, channel reserves, fees, etc.). See lightning-fundchannel_start(7) and lightning-fundchannel_complete(7).",
@@ -30959,6 +30983,7 @@
         "- -1: Catchall nonspecific error.",
         "- 301: There are not enough funds in the internal wallet (including fees) to create the transaction.",
         "- 302: The dust limit is not met.",
+        "- 304: Still syncing with bitcoin network.",
         "- 313: The `min-emergency-msat` reserve could not be preserved (and we have anchor channels)."
       ],
       "author": [
@@ -32026,7 +32051,6 @@
         "- -1: Catchall nonspecific error.",
         "- 300: The amount exceeded the maximum configured funding amount.",
         "- 301: The provided PSBT cannot afford the funding amount.",
-        "- 304: Still syncing with bitcoin network",
         "- 305: Peer is not connected.",
         "- 306: Unknown peer id.",
         "- 309: PSBT missing required fields",
@@ -33491,6 +33515,12 @@
         "additionalProperties": false,
         "properties": {}
       },
+      "errors": [
+        "On failure, one of the following error codes may be returned:",
+        "",
+        "- -32602: Error in given parameters.",
+        "- 213: The invoice was not preapproved."
+      ],
       "author": [
         "Ken Sedgwick [ken@bonsai.com](mailto:ken@bonsai.com) is mainly responsible."
       ],
@@ -33577,6 +33607,12 @@
         "additionalProperties": false,
         "properties": {}
       },
+      "errors": [
+        "On failure, one of the following error codes may be returned:",
+        "",
+        "- -32602: Error in given parameters.",
+        "- 214: The keysend payment was not preapproved."
+      ],
       "author": [
         "Ken Sedgwick [ken@bonsai.com](mailto:ken@bonsai.com) is mainly responsible."
       ],
@@ -33849,6 +33885,13 @@
           }
         }
       },
+      "errors": [
+        "On failure, one of the following error codes may be returned:",
+        "",
+        "- -32602: Error in given parameters.",
+        "- -1: Catchall nonspecific error.",
+        "- 1600: The node is not empty, or recovery is already in progress."
+      ],
       "author": [
         "Rusty Russell [rusty@blockstream.com](mailto:rusty@blockstream.com) is mainly responsible."
       ],
@@ -37356,6 +37399,21 @@
           }
         }
       },
+      "errors": [
+        "On error the returned object will contain `code` and `message` properties, with `code` being one of the following:",
+        "",
+        "- -32602: If the given parameters are wrong.",
+        "- -1: Catchall nonspecific error.",
+        "- 351: The channel is not owned by this node, or its owner is in an abnormal state.",
+        "- 352: Unknown channel.",
+        "- 353: The channel is not in a state which permits splicing.",
+        "- 354: The peer does not support splicing.",
+        "- 355: Another splice command is already in progress for this channel.",
+        "- 356: The splice PSBT is invalid.",
+        "- 358: The channel is not in a valid state to perform the requested splice operation.",
+        "- 362: The splice was aborted.",
+        "- 363: The channel was disconnected during the splice command."
+      ],
       "usage": [
         "Here is an example set of splice commands that will splice in 100,000 sats to the first channel that comes out of `listpeerchannels`.",
         "",
@@ -37506,6 +37564,22 @@
           }
         }
       },
+      "errors": [
+        "On error the returned object will contain `code` and `message` properties, with `code` being one of the following:",
+        "",
+        "- -32602: If the given parameters are wrong.",
+        "- -1: Catchall nonspecific error.",
+        "- 350: The splice transaction could not be broadcast.",
+        "- 351: The channel is not owned by this node, or its owner is in an abnormal state.",
+        "- 352: Unknown channel.",
+        "- 353: The channel is not in a state which permits splicing.",
+        "- 354: The peer does not support splicing.",
+        "- 355: Another splice command is already in progress for this channel.",
+        "- 356: The splice PSBT is invalid.",
+        "- 358: The channel is not in a valid state to perform the requested splice operation.",
+        "- 362: The splice was aborted.",
+        "- 363: The channel was disconnected during the splice command."
+      ],
       "usage": [
         "In this example we funded the psbt from our lightning node, so we can use the lightning node to sign for its funds.",
         "",
@@ -37667,6 +37741,24 @@
           }
         }
       },
+      "errors": [
+        "On error the returned object will contain `code` and `message` properties, with `code` being one of the following:",
+        "",
+        "- -32602: If the given parameters are wrong.",
+        "- -1: Catchall nonspecific error.",
+        "- 351: The channel is not owned by this node, or its owner is in an abnormal state.",
+        "- 352: Unknown channel.",
+        "- 353: The channel is not in a state which permits splicing.",
+        "- 354: The peer does not support splicing.",
+        "- 355: Another splice command is already in progress for this channel.",
+        "- 356: The splice PSBT is invalid.",
+        "- 357: The amount of funds provided for the splice was lower than the amount committed to the peer.",
+        "- 358: The channel is not in a valid state to perform the requested splice operation.",
+        "- 359: The splice feerate is lower than the minimum required.",
+        "- 360: The splice feerate is higher than the configured maximum (use `force_feerate` to override).",
+        "- 362: The splice was aborted.",
+        "- 363: The channel was disconnected during the splice command."
+      ],
       "usage": [
         "Here is an example way to call `splice_update`",
         "",
@@ -38503,6 +38595,7 @@
         "- -1: Catchall nonspecific error.",
         "- 301: There are not enough funds in the internal wallet (including fees) to create the transaction.",
         "- 302: The dust limit is not met.",
+        "- 304: Still syncing with bitcoin network.",
         "- 313: The `min-emergency-msat` reserve could not be preserved (and we have anchor channels)."
       ],
       "author": [
@@ -38880,6 +38973,7 @@
         "",
         "- -1: Catchall nonspecific error.",
         "- 301: There are not enough funds in the internal wallet (including fees) to create the transaction.",
+        "- 304: Still syncing with bitcoin network.",
         "- 313: The `min-emergency-msat` reserve could not be preserved (and we have anchor channels)."
       ],
       "usage": [
@@ -39118,6 +39212,7 @@
         "- -32602: If the given parameters are wrong.",
         "- -1: Catchall nonspecific error.",
         "- 301: Insufficient UTXOs to meet *satoshi* value.",
+        "- 304: Still syncing with bitcoin network.",
         "- 313: The `min-emergency-msat` reserve could not be preserved (and we have or are opening anchor channels)."
       ],
       "author": [
@@ -41010,6 +41105,7 @@
         "- -1: Catchall nonspecific error.",
         "- 301: There are not enough funds in the internal wallet (including fees) to create the transaction.",
         "- 302: The dust limit is not met.",
+        "- 304: Still syncing with bitcoin network.",
         "- 313: The `min-emergency-msat` reserve could not be preserved (and we have anchor channels)."
       ],
       "author": [
