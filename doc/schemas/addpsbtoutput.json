@@ -69,6 +69,14 @@
       }
     }
   },
+  "errors": [
+    "On error the returned object will contain `code` and `message` properties, with `code` being one of the following:",
+    "",
+    "- -32602: If the given parameters are wrong.",
+    "- -1: Catchall nonspecific error.",
+    "- 302: The output amount is below the dust limit.",
+    "- 309: The given PSBT is invalid or could not be modified."
+  ],
   "author": [
     "Dusty [@dusty_daemon](mailto:@dustydaemon) is mainly responsible."
   ],

@@ -34,6 +34,12 @@
     "additionalProperties": false,
     "properties": {}
   },
+  "errors": [
+    "On failure, one of the following error codes may be returned:",
+    "",
+    "- -32602: Error in given parameters.",
+    "- 213: The invoice was not preapproved."
+  ],
   "author": [
     "Ken Sedgwick [ken@bonsai.com](mailto:ken@bonsai.com) is mainly responsible."
   ],
