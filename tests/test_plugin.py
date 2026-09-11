@@ -898,6 +898,11 @@ def test_openchannel_hook_chaining(node_factory, bitcoind):
         l1.rpc.fundchannel(l2.info['id'], 100000)
     assert l2.daemon.wait_for_log(hook_msg + "reject on principle")
 
+    # Rejection is a terminal initial-open path.  Once the rejecting plugin is
+    # removed, an immediate retry must not collide with its retired peer route.
+    l2.rpc.plugin_stop('openchannel_hook_reject.py')
+    l1.fundchannel(l2, 100000)
+
 
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')

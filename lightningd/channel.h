@@ -15,7 +15,38 @@
 #include <wallet/wallet.h>
 
 struct uncommitted_channel;
+struct oneshot;
+struct peer_fd;
 struct wally_psbt;
+
+enum open_attempt_msg_state {
+	OPEN_ATTEMPT_MSG_UNSENT,
+	OPEN_ATTEMPT_MSG_SENT,
+};
+
+/* Local lifecycle of the subdaemon which owns a dual-funded open.  This is
+ * deliberately separate from enum channel_state: the latter describes the
+ * persisted wire protocol, while this describes installing its local owner. */
+enum dualopend_owner_state {
+	DUALOPEND_OWNER_NONE,
+	DUALOPEND_OWNER_RESTART_PENDING,
+	DUALOPEND_OWNER_ROUTE_PENDING,
+	/* from_abort owners can finish initialization before connectd replies. */
+	DUALOPEND_OWNER_READY_PENDING_ROUTE,
+	DUALOPEND_OWNER_REESTABLISHING,
+	DUALOPEND_OWNER_READY,
+	DUALOPEND_OWNER_RETIRING,
+	/* A terminal initial open is waiting for its owner and route to retire. */
+	DUALOPEND_OWNER_INITIAL_RELEASE_PENDING,
+};
+
+/* How a replacement dualopend joins the protocol on the current transport.
+ * This survives owner replacement: only a peer transport change resets an
+ * AFTER_ABORT continuation to a full channel_reestablish. */
+enum dualopend_restart_mode {
+	DUALOPEND_RESTART_REESTABLISH,
+	DUALOPEND_RESTART_AFTER_ABORT,
+};
 
 /* FIXME: Define serialization primitive for this? */
 struct channel_info {
@@ -119,6 +150,10 @@ struct open_attempt {
 
 	/* First msg to send to dualopend (to make it create channel) */
 	const u8 *open_msg;
+	enum open_attempt_msg_state open_msg_state;
+
+	/* Bounds how long cmd and its PSBT survive a continuous disconnect. */
+	struct oneshot *disconnect_timer;
 };
 
 /* Statistics for a channel */
@@ -150,6 +185,39 @@ struct channel {
 
 	/* Open attempt */
 	struct open_attempt *open_attempt;
+
+	/* Installation state and startup mode for the dualopend owner. */
+	enum dualopend_owner_state dualopend_owner_state;
+	enum dualopend_restart_mode dualopend_restart_mode;
+
+	/* Transport on which the current dualopend route was installed.  This is
+	 * intentionally owner state, not peer state: a replacement TCP connection
+	 * can reach connectd before lightningd handles PEER_RECONNECTED. */
+	u64 dualopend_owner_connectd_counter;
+	/* At most one local owner-install retry is allowed per transport. */
+	u8 dualopend_owner_install_retries;
+
+	/* Held while DUALOPEND_OWNER_ROUTE_PENDING. */
+	const u8 *owner_reinit_msg;
+	/* Connectd's socketpair endpoint is held until the replacement dualopend
+	 * confirms that it initialized with the peer endpoint open. */
+	struct peer_fd *dualopend_connectd_fd;
+	/* A tx_abort returns the existing connectd endpoint.  Retain it until the
+	 * retiring owner has exited, then give this same route to its replacement. */
+	struct peer_fd *dualopend_restart_peer_fd;
+	/* Set while an in-place tx_abort waits for connectd to reactivate the
+	 * existing route.  The aborting RPC completes only after that barrier. */
+	char *dualopend_abort_reason;
+	/* Initial-open teardown completes only after both sides of the local route
+	 * have gone. */
+	bool dualopend_initial_owner_exited;
+	bool dualopend_initial_route_released;
+	struct oneshot *dualopend_initial_release_timer;
+	char *dualopend_initial_release_reason;
+
+	/* A funding-depth callback ran before the replacement dualopend was
+	 * ready.  Re-evaluate against the current chain when it becomes ready. */
+	bool dualopend_depth_needs_recheck;
 
 	/* Database ID: 0 == not in db yet */
 	u64 dbid;
@@ -716,6 +784,31 @@ static inline bool channel_state_uncommitted(enum channel_state state)
  	case FUNDING_SPEND_SEEN:
  	case ONCHAIN:
  	case CLOSED:
+		return false;
+	}
+	abort();
+}
+
+/* A dual-funded open can resume its pending command after reconnection once
+ * the channel has been saved. */
+static inline bool channel_state_saved_dualopend(enum channel_state state)
+{
+	switch (state) {
+	case DUALOPEND_OPEN_COMMIT_READY:
+	case DUALOPEND_OPEN_COMMITTED:
+		return true;
+	case DUALOPEND_OPEN_INIT:
+	case DUALOPEND_AWAITING_LOCKIN:
+	case CHANNELD_AWAITING_LOCKIN:
+	case CHANNELD_NORMAL:
+	case CHANNELD_AWAITING_SPLICE:
+	case CLOSINGD_SIGEXCHANGE:
+	case CHANNELD_SHUTTING_DOWN:
+	case CLOSINGD_COMPLETE:
+	case AWAITING_UNILATERAL:
+	case FUNDING_SPEND_SEEN:
+	case ONCHAIN:
+	case CLOSED:
 		return false;
 	}
 	abort();

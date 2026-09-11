@@ -478,13 +478,12 @@ def test_disconnect(node_factory):
 
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
-# FIXME: https://github.com/ElementsProject/lightning/issues/8822
-@pytest.mark.flaky(reruns=1)
 def test_disconnect_opener(node_factory):
     # Now error on opener side during channel open.
     disconnects = ['-WIRE_OPEN_CHANNEL',
                    '+WIRE_OPEN_CHANNEL',
                    '-WIRE_FUNDING_CREATED']
+    failing_disconnects = disconnects
     if EXPERIMENTAL_DUAL_FUND:
         disconnects = ['-WIRE_OPEN_CHANNEL2',
                        '+WIRE_OPEN_CHANNEL2',
@@ -494,16 +493,20 @@ def test_disconnect_opener(node_factory):
                        '+WIRE_TX_ADD_OUTPUT',
                        '-WIRE_TX_COMPLETE',
                        '=WIRE_TX_COMPLETE']
+        # '=' consumes the directive without disconnecting.  It used to fail
+        # only because the preceding half-open was stranded by #8822.
+        failing_disconnects = disconnects[:-1]
 
     l1 = node_factory.get_node(disconnect=disconnects,
                                may_reconnect=EXPERIMENTAL_DUAL_FUND,
-                               options={'dev-no-reconnect': None})
+                               options={'dev-no-reconnect': None,
+                                        'dual-open-disconnect-timeout': 1})
     l2 = node_factory.get_node(may_reconnect=EXPERIMENTAL_DUAL_FUND,
                                options={'dev-no-reconnect': None})
 
     l1.fundwallet(2000000)
 
-    for d in disconnects:
+    for d in failing_disconnects:
         l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
         with pytest.raises(RpcError):
             l1.rpc.fundchannel(l2.info['id'], CHANNEL_SIZE)
@@ -621,22 +624,69 @@ def test_disconnect_half_signed(node_factory):
 
 @pytest.mark.openchannel('v2')
 def test_disconnect_half_signed_v2(node_factory):
-    # Now, these are the corner cases.
-    # L1 remembers the channel, L2 doesn't
+    # L1 remembers the channel and pending RPC during a reconnect grace
+    # period; L2 never received the final tx_complete and forgets it.
     disconnects = ['-WIRE_TX_COMPLETE']
-    l1 = node_factory.get_node(disconnect=disconnects)
+    l1 = node_factory.get_node(
+        disconnect=disconnects,
+        options={'dual-open-disconnect-timeout': 1})
     l2 = node_factory.get_node()
 
     l1.fundwallet(2000000)
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-    with pytest.raises(RpcError):
-        l1.rpc.fundchannel(l2.info['id'], CHANNEL_SIZE)
+    fund = node_factory.executor.submit(l1.rpc.fundchannel,
+                                        l2.info['id'], CHANNEL_SIZE)
 
     # Opener remembers, peer doesn't.
-    wait_for(lambda: l2.rpc.listpeers(l1.info['id'])['peers'] == [])
-    wait_for(lambda: only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['connected'] is False)
+    l1.daemon.wait_for_log('to DUALOPEND_OPEN_COMMIT_READY')
+    wait_for(lambda: l1.rpc.getpeer(l2.info['id'])['connected'] is False)
     assert len(l1.rpc.listpeerchannels(l2.info['id'])['channels']) == 1
+    assert l2.rpc.listpeerchannels(l1.info['id'])['channels'] == []
+
+    # With reconnection disabled by the harness, the grace period must bound
+    # both the RPC lifetime and retention of the safe-to-forget channel.
+    with pytest.raises(RpcError, match='did not reconnect'):
+        fund.result(timeout=TIMEOUT)
+    wait_for(lambda: l1.rpc.listpeerchannels(l2.info['id'])['channels'] == [])
+
+
+@pytest.mark.openchannel('v2')
+def test_disconnect_half_signed_v2_reconnect(node_factory):
+    """The saved opener must escape an unknown-channel reconnect loop (#8822)."""
+    l1, l2 = node_factory.get_nodes(2, opts=[
+        {'disconnect': ['-WIRE_TX_COMPLETE'],
+         'may_reconnect': True,
+         'dev-no-reconnect': None},
+        {'may_reconnect': True,
+         'dev-no-reconnect': None}
+    ])
+
+    l1.fundwallet(2000000)
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    fund = node_factory.executor.submit(l1.rpc.fundchannel,
+                                        l2.info['id'], CHANNEL_SIZE)
+
+    # l1 sent the final tx_complete and saved the channel; l2 did not receive
+    # it and discarded its unsaved channel when the connection failed.
+    l1.daemon.wait_for_log('to DUALOPEND_OPEN_COMMIT_READY')
+    wait_for(lambda: l1.rpc.getpeer(l2.info['id'])['connected'] is False)
+    assert len(l1.rpc.listpeerchannels(l2.info['id'])['channels']) == 1
+    assert l2.rpc.listpeerchannels(l1.info['id'])['channels'] == []
+
+    # l1 now sends channel_reestablish for a channel unknown to l2.  The error
+    # must reach l1 so it can forget the stale channel, rather than both peers
+    # repeatedly reconnecting and immediately disconnecting.
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l2.daemon.wait_for_log(r'Unknown channel .* for WIRE_CHANNEL_REESTABLISH')
+    wait_for(lambda: l1.rpc.listpeerchannels(l2.info['id'])['channels'] == [],
+             timeout=10)
+
+    # Once the stale channel is gone, a fresh transport should remain usable.
+    with pytest.raises(RpcError):
+        fund.result(timeout=TIMEOUT)
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    assert l1.rpc.getpeer(l2.info['id'])['connected']
 
 
 @pytest.mark.openchannel('v1')

@@ -2,7 +2,7 @@ from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
 from pyln.client import RpcError, Millisatoshi
 from utils import (
-    only_one, wait_for, sync_blockheight, first_channel_id, calc_lease_fee, check_coin_moves
+    TIMEOUT, only_one, wait_for, sync_blockheight, first_channel_id, calc_lease_fee, check_coin_moves
 )
 from pyln.testing.utils import FUNDAMOUNT
 
@@ -157,9 +157,9 @@ def test_v2_open_sigs_reconnect_2(node_factory, bitcoind):
     # Wait for it to arrive.
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) > 0)
 
-    # Fund the channel, should disconnect after getting l2's sigs
-    with pytest.raises(RpcError):
-        l1.rpc.fundchannel(l2.info['id'], chan_amount)
+    # Fund the channel.  The transport drops after getting l2's sigs, but the
+    # RPC is retained while dualopend reconnects and resends our signatures.
+    l1.rpc.fundchannel(l2.info['id'], chan_amount)
 
     # peer reconnects, and we resend our sigs
     l1.daemon.wait_for_log('Peer has reconnected, state DUALOPEND_OPEN_COMMITTED')
@@ -216,6 +216,7 @@ def test_v2_open_reconnect_next_funding_mismatch(node_factory, bitcoind):
 
     # Corrupt l2's stored funding txid so it disagrees with l1's on reconnect.
     l2.stop()
+    wait_for(lambda: l1.rpc.getpeer(l2.info['id'])['connected'] is False)
     l2.db_manip("UPDATE channel_funding_inflights SET funding_tx_id = X'{}'".format('01' * 32))
     l2.start()
 
@@ -225,6 +226,110 @@ def test_v2_open_reconnect_next_funding_mismatch(node_factory, bitcoind):
 
     l1.daemon.wait_for_log(r"next_funding_txid .* doesn't match ours")
     l2.daemon.wait_for_log(r"next_funding_txid .* doesn't match ours")
+
+
+def _v2_abort_after_tx_signatures(node_factory):
+    """Make a peer abort after we sent signatures for a publishable inflight."""
+    l1, l2 = node_factory.get_nodes(2, opts=[
+        {'may_reconnect': True, 'dev-no-reconnect': None},
+        {'disconnect': ['$WIRE_TX_SIGNATURES'], 'may_reconnect': True,
+         'dev-no-reconnect': None}
+    ])
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l2.fundwallet(2**24)
+
+    # l2's fundchannel RPC waits forever for the tx_signatures which its
+    # connectd deliberately drops.  Run it in the background so we can force
+    # the reconnect which generates tx_abort.
+    def _fund():
+        try:
+            l2.rpc.fundchannel(l1.info['id'], 100000)
+        except Exception:
+            pass
+
+    threading.Thread(target=_fund, daemon=True).start()
+
+    l1.daemon.wait_for_log(r'peer_out WIRE_TX_SIGNATURES')
+    l2.daemon.wait_for_log(r'dev_disconnect: \$WIRE_TX_SIGNATURES')
+
+    # Sending funding signatures is only possible after the commitment was
+    # secured, so this inflight must have a persisted last_tx.
+    rows = l1.db_query("SELECT funding_tx_id, last_tx "
+                       "FROM channel_funding_inflights")
+    assert len(rows) == 1
+    assert rows[0]['last_tx'] is not None
+    funding_txid = rows[0]['funding_tx_id'][::-1].hex()
+
+    l2.stop()
+    # Do not install the reconnect owners while l1 is still processing the
+    # deliberately terminated transport.  The late-abort scenario begins on
+    # the next connection generation; racing the old TCP teardown tests a
+    # different transition and can discard that new route before reestablish.
+    wait_for(lambda: l1.rpc.getpeer(l2.info['id'])['connected'] is False)
+    del l2.daemon.opts['dev-disconnect']
+    l2.db_manip("UPDATE channel_funding_inflights "
+                "SET funding_tx_id = X'{}'".format('01' * 32))
+    l2.start()
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    # l2 has our signatures and therefore does not advertise next_funding;
+    # the mismatching next_funding from l1 makes it send tx_abort naturally.
+    l2.daemon.wait_for_log(r'Sent next_funding_txid .* doesn.t match ours')
+    l1.daemon.wait_for_log(r'peer_in WIRE_TX_ABORT')
+    l1.daemon.wait_for_log(r'Rcvd tx-abort')
+    l1.daemon.wait_for_log(
+        r'Peer transient failure in DUALOPEND_OPEN_COMMITTED: dualopend ABORTED')
+
+    return l1, l2, funding_txid
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "sqlite3-specific DB manipulation")
+@pytest.mark.openchannel('v2')
+def test_v2_abort_after_tx_signatures_keeps_inflight(node_factory, bitcoind):
+    """A peer's tx_abort must not discard an inflight after we sent tx_signatures."""
+    l1, _, funding_txid = _v2_abort_after_tx_signatures(node_factory)
+
+    # BOLT #2 permits acknowledging the abort, but once our tx_signatures
+    # were sent we MUST retain the funding attempt until its inputs are spent.
+    rows = l1.db_query("SELECT funding_tx_id, last_tx "
+                       "FROM channel_funding_inflights")
+    assert len(rows) == 1
+    assert rows[0]['funding_tx_id'][::-1].hex() == funding_txid
+    assert rows[0]['last_tx'] is not None
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "sqlite3-specific DB manipulation")
+@pytest.mark.openchannel('v2')
+def test_v2_abort_after_tx_signatures_mined(node_factory, bitcoind):
+    """A retained signed inflight is force-closed if its funding tx confirms."""
+    l1, l2, funding_txid = _v2_abort_after_tx_signatures(node_factory)
+
+    channel = only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])
+    inflight = only_one(channel['inflight'])
+    assert inflight['funding_txid'] == funding_txid
+    assert funding_txid in bitcoind.rpc.getrawmempool()
+    commitment_txid = inflight['scratch_txid']
+
+    # The supposedly aborted funding transaction was publishable as soon as
+    # we sent our signatures.  Confirmation identifies the matching saved
+    # commitment, but cannot substitute for receiving the peer's signatures:
+    # fail the open and put that commitment on chain.
+    bitcoind.generate_block(1, wait_for_mempool=funding_txid)
+    sync_blockheight(bitcoind, [l1, l2])
+    l1.daemon.wait_for_log(
+        r'Funding transaction confirmed before receiving peer tx_signatures')
+    l1.daemon.wait_for_log('Broadcasting txid {}'.format(commitment_txid))
+
+    channel = only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])
+    assert channel['funding_txid'] == funding_txid
+    assert channel['scratch_txid'] == commitment_txid
+    assert channel['state'] == 'AWAITING_UNILATERAL'
+
+    bitcoind.generate_block(1, wait_for_mempool=commitment_txid)
+    l1.daemon.wait_for_log(r'to ONCHAIN')
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
@@ -339,8 +444,17 @@ def test_v2_fail_second(node_factory, bitcoind):
     l1.daemon.wait_for_log(r'peer_out WIRE_TX_ABORT')
     l2.daemon.wait_for_log(r'peer_out WIRE_TX_ABORT')
 
-    # Should be able to reattempt without reconnecting
+    # The abort RPC is also the owner/route teardown barrier: an immediate
+    # retry must be safe without waiting or reconnecting.
     assert l1.rpc.getpeer(l2.info['id'])['connected']
+    start = l1.rpc.openchannel_init(l2.info['id'], amount, psbt)
+    assert len(l1.rpc.listpeerchannels(l2.info['id'])['channels']) == 2
+
+    # Repeat the abort/retry sequence so a stale route from either generation
+    # cannot be mistaken for the current owner.
+    l1.rpc.openchannel_abort(start['channel_id'])
+    only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])
+
     start = l1.rpc.openchannel_init(l2.info['id'], amount, psbt)
     assert len(l1.rpc.listpeerchannels(l2.info['id'])['channels']) == 2
 
@@ -369,9 +483,9 @@ def test_v2_open_sigs_restart_while_dead(node_factory, bitcoind):
     # Wait for it to arrive.
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) > 0)
 
-    # Make a channel happen, with multiple disconnects!
-    with pytest.raises(RpcError):
-        l1.rpc.fundchannel(l2.info['id'], chan_amount)
+    # Make a channel happen, with multiple disconnects.  The RPC survives the
+    # reconnects and completes once the funding transaction is broadcast.
+    l1.rpc.fundchannel(l2.info['id'], chan_amount)
 
     l1.daemon.wait_for_log('Broadcasting funding tx')
     l1.daemon.wait_for_log('sendrawtx exit 0')
@@ -464,7 +578,15 @@ def test_v2_rbf_single(node_factory, bitcoind, chainparams):
     update = l1.rpc.openchannel_update(chan_id, bump['psbt'])
     assert update['commitments_secured']
     signed_psbt = l1.rpc.signpsbt(update['psbt'])['signed_psbt']
-    l1.rpc.openchannel_signed(chan_id, signed_psbt)
+    signed_fut = node_factory.executor.submit(l1.rpc.openchannel_signed,
+                                              chan_id, signed_psbt)
+    wait_for(lambda:
+             signed_fut.done()
+             or (not l1.rpc.getpeer(l2.info['id'])['connected']
+                 and not l2.rpc.getpeer(l1.info['id'])['connected']))
+    if not signed_fut.done():
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    signed_fut.result(timeout=TIMEOUT)
 
     bitcoind.generate_block(1)
     sync_blockheight(bitcoind, [l1])
@@ -808,14 +930,19 @@ def test_v2_rbf_multi(node_factory, bitcoind, chainparams):
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @pytest.mark.openchannel('v2')
-def test_rbf_reconnect_init(node_factory, bitcoind, chainparams):
-    disconnects = ['-WIRE_TX_INIT_RBF',
-                   '+WIRE_TX_INIT_RBF']
+@pytest.mark.parametrize('disconnect', [
+    '-WIRE_TX_INIT_RBF',
+    '+WIRE_TX_INIT_RBF',
+])
+def test_rbf_reconnect_init(node_factory, bitcoind, chainparams, disconnect):
 
     l1, l2 = node_factory.get_nodes(2,
-                                    opts=[{'disconnect': disconnects,
-                                           'may_reconnect': True},
-                                          {'may_reconnect': True}])
+                                    opts=[{'disconnect': [disconnect],
+                                           'may_reconnect': True,
+                                           'dev-no-reconnect': None,
+                                           'dual-open-disconnect-timeout': 3},
+                                          {'may_reconnect': True,
+                                           'dev-no-reconnect': None}])
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     amount = 2**24
@@ -842,28 +969,36 @@ def test_rbf_reconnect_init(node_factory, bitcoind, chainparams):
                                prev_utxos, reservedok=True,
                                excess_as_change=True)
 
-    # Do the bump!?
-    for d in disconnects:
-        l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-        with pytest.raises(RpcError):
-            l1.rpc.openchannel_bump(chan_id, chan_amount, initpsbt['psbt'])
-        assert l1.rpc.getpeer(l2.info['id']) is not None
-
-    # This should succeed
+    # The serialized bump remains pending while dualopend and its transport
+    # are replaced.  Reconnect before the retained-command timeout and expect
+    # this same RPC, rather than a caller retry, to complete.
+    bump_fut = node_factory.executor.submit(l1.rpc.openchannel_bump,
+                                            chan_id, chan_amount,
+                                            initpsbt['psbt'])
+    l1.daemon.wait_for_log(r'dev_disconnect: ' + re.escape(disconnect))
+    wait_for(lambda:
+             l1.rpc.getpeer(l2.info['id'])['connected'] is False
+             and l2.rpc.getpeer(l1.info['id'])['connected'] is False)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-    l1.rpc.openchannel_bump(chan_id, chan_amount, initpsbt['psbt'])
+    bump = bump_fut.result(timeout=TIMEOUT)
+    assert bump['channel_id'] == chan_id
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @pytest.mark.openchannel('v2')
-def test_rbf_reconnect_ack(node_factory, bitcoind, chainparams):
-    disconnects = ['-WIRE_TX_ACK_RBF',
-                   '+WIRE_TX_ACK_RBF']
+@pytest.mark.parametrize('disconnect', [
+    '-WIRE_TX_ACK_RBF',
+    '+WIRE_TX_ACK_RBF',
+])
+def test_rbf_reconnect_ack(node_factory, bitcoind, chainparams, disconnect):
 
     l1, l2 = node_factory.get_nodes(2,
-                                    opts=[{'may_reconnect': True},
-                                          {'disconnect': disconnects,
-                                           'may_reconnect': True}])
+                                    opts=[{'may_reconnect': True,
+                                           'dev-no-reconnect': None,
+                                           'dual-open-disconnect-timeout': 3},
+                                          {'disconnect': [disconnect],
+                                           'may_reconnect': True,
+                                           'dev-no-reconnect': None}])
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     amount = 2**24
@@ -890,26 +1025,113 @@ def test_rbf_reconnect_ack(node_factory, bitcoind, chainparams):
                                prev_utxos, reservedok=True,
                                excess_as_change=True)
 
-    # Do the bump!?
-    for d in disconnects:
-        l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-        with pytest.raises(RpcError):
-            l1.rpc.openchannel_bump(chan_id, chan_amount, initpsbt['psbt'])
-        assert l1.rpc.getpeer(l2.info['id']) is not None
-
-    # This should succeed
+    bump_fut = node_factory.executor.submit(l1.rpc.openchannel_bump,
+                                            chan_id, chan_amount,
+                                            initpsbt['psbt'])
+    l2.daemon.wait_for_log(r'dev_disconnect: ' + re.escape(disconnect))
+    wait_for(lambda:
+             l1.rpc.getpeer(l2.info['id'])['connected'] is False
+             and l2.rpc.getpeer(l1.info['id'])['connected'] is False)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-    l1.rpc.openchannel_bump(chan_id, chan_amount, initpsbt['psbt'])
+    bump = bump_fut.result(timeout=TIMEOUT)
+    assert bump['channel_id'] == chan_id
+
+
+def _setup_rbf_reconnect_tx_add(node_factory, bitcoind, disconnects):
+    """Open a channel and prepare an RBF for TX_ADD reconnect tests."""
+    l1, l2 = node_factory.get_nodes(2, opts=[
+        {'disconnect': disconnects,
+         'may_reconnect': True,
+         'dev-no-reconnect': None,
+         'dual-open-disconnect-timeout': 3},
+        {'may_reconnect': True,
+         'dev-no-reconnect': None}
+    ])
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    amount = 2**24
+    chan_amount = 100000
+    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['p2tr'],
+                               amount / 10**8 + 0.01)
+    bitcoind.generate_block(1)
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) > 0)
+
+    res = l1.rpc.fundchannel(l2.info['id'], chan_amount)
+    chan_id = res['channel_id']
+    vin = only_one(bitcoind.rpc.decoderawtransaction(res['tx'])['vin'])
+    prev_utxos = ["{}:{}".format(vin['txid'], vin['vout'])]
+    l1.daemon.wait_for_log(' to DUALOPEND_AWAITING_LOCKIN')
+
+    rate = int(find_next_feerate(l1, l2)[:-5])
+    initpsbt = l1.rpc.utxopsbt(chan_amount, '{}perkw'.format(rate * 4),
+                               42 + 172, prev_utxos, reservedok=True,
+                               excess_as_change=True)
+
+    return l1, l2, chan_amount, chan_id, initpsbt
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+@pytest.mark.openchannel('v2')
+@pytest.mark.parametrize('tx_add_disconnect', [
+    '-WIRE_TX_ADD_INPUT',
+    '+WIRE_TX_ADD_INPUT',
+    '-WIRE_TX_ADD_OUTPUT',
+    '+WIRE_TX_ADD_OUTPUT',
+])
+def test_rbf_reconnect_tx_add(node_factory, bitcoind, chainparams,
+                              tx_add_disconnect):
+    """A retained bump survives a disconnect at each interactive-tx add."""
+    # Consume the initial funding transaction's add messages before arming the
+    # fault for the later RBF construction.
+    disconnects = ['=WIRE_TX_ADD_INPUT', '=WIRE_TX_ADD_OUTPUT*2',
+                   tx_add_disconnect]
+    l1, l2, chan_amount, chan_id, initpsbt = \
+        _setup_rbf_reconnect_tx_add(node_factory, bitcoind, disconnects)
+
+    bump_fut = node_factory.executor.submit(l1.rpc.openchannel_bump,
+                                            chan_id, chan_amount,
+                                            initpsbt['psbt'])
+    l1.daemon.wait_for_log(r'dev_disconnect: '
+                           + re.escape(tx_add_disconnect))
+    wait_for(lambda:
+             l1.rpc.getpeer(l2.info['id'])['connected'] is False
+             and l2.rpc.getpeer(l1.info['id'])['connected'] is False)
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    bump = bump_fut.result(timeout=TIMEOUT)
+    assert bump['channel_id'] == chan_id
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+@pytest.mark.openchannel('v2')
+def test_rbf_reconnect_tx_add_repeated_generations(node_factory, bitcoind,
+                                                   chainparams):
+    """A retained bump survives repeated owner and connection generations."""
+    generations = 4
+    fault = '-WIRE_TX_ADD_INPUT'
+    disconnects = ['=WIRE_TX_ADD_INPUT', '=WIRE_TX_ADD_OUTPUT*2'] \
+        + [fault] * generations
+    l1, l2, chan_amount, chan_id, initpsbt = \
+        _setup_rbf_reconnect_tx_add(node_factory, bitcoind, disconnects)
+
+    bump_fut = node_factory.executor.submit(l1.rpc.openchannel_bump,
+                                            chan_id, chan_amount,
+                                            initpsbt['psbt'])
+    for _ in range(generations):
+        l1.daemon.wait_for_log(r'dev_disconnect: ' + re.escape(fault))
+        wait_for(lambda:
+                 l1.rpc.getpeer(l2.info['id'])['connected'] is False
+                 and l2.rpc.getpeer(l1.info['id'])['connected'] is False)
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    bump = bump_fut.result(timeout=TIMEOUT)
+    assert bump['channel_id'] == chan_id
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @pytest.mark.openchannel('v2')
 def test_rbf_reconnect_tx_construct(node_factory, bitcoind, chainparams):
     disconnects = ['=WIRE_TX_ADD_INPUT',  # Initial funding succeeds
-                   '-WIRE_TX_ADD_INPUT',
-                   '+WIRE_TX_ADD_INPUT',
-                   '-WIRE_TX_ADD_OUTPUT',
-                   '+WIRE_TX_ADD_OUTPUT',
+                   '=WIRE_TX_COMPLETE',
                    '-WIRE_TX_COMPLETE',
                    '+WIRE_TX_COMPLETE',
                    '-WIRE_COMMITMENT_SIGNED',
@@ -918,10 +1140,10 @@ def test_rbf_reconnect_tx_construct(node_factory, bitcoind, chainparams):
     l1, l2 = node_factory.get_nodes(2,
                                     opts=[{'disconnect': disconnects,
                                            'may_reconnect': True,
-                                           'dev-no-reconnect': None},
-                                          {'may_reconnect': True,
                                            'dev-no-reconnect': None,
-                                           'broken_log': 'dualopend daemon died before signed PSBT returned'}])
+                                           'dual-open-disconnect-timeout': 3},
+                                          {'may_reconnect': True,
+                                           'dev-no-reconnect': None}])
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     amount = 2**24
@@ -951,20 +1173,17 @@ def test_rbf_reconnect_tx_construct(node_factory, bitcoind, chainparams):
                                prev_utxos, reservedok=True,
                                excess_as_change=True)
 
-    # Run through TX_ADD wires
-    for d in disconnects[1:-4]:
-        l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-        with pytest.raises(RpcError):
-            l1.rpc.openchannel_bump(chan_id, chan_amount, initpsbt['psbt'])
-        wait_for(lambda: l1.rpc.getpeer(l2.info['id'])['connected'] is False)
+    bump = l1.rpc.openchannel_bump(chan_id, chan_amount, initpsbt['psbt'])
 
     # The first TX_COMPLETE breaks
+    update_fut = node_factory.executor.submit(l1.rpc.openchannel_update,
+                                              chan_id, bump['psbt'])
+    wait_for(lambda:
+             l1.rpc.getpeer(l2.info['id'])['connected'] is False
+             and l2.rpc.getpeer(l1.info['id'])['connected'] is False)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-    bump = l1.rpc.openchannel_bump(chan_id, chan_amount, initpsbt['psbt'])
     with pytest.raises(RpcError):
-        update = l1.rpc.openchannel_update(chan_id, bump['psbt'])
-    wait_for(lambda: l1.rpc.getpeer(l2.info['id'])['connected'] is False)
-    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+        update_fut.result(timeout=TIMEOUT)
     # l1 should remember, l2 has forgotten
     # l2 should send tx-abort, to reset
     l2.daemon.wait_for_log(r'tx-abort: Sent next_funding_txid .* doesn\'t match ours .*')
@@ -977,29 +1196,42 @@ def test_rbf_reconnect_tx_construct(node_factory, bitcoind, chainparams):
     # The next TX_COMPLETE break (both remember) + they break on the
     # COMMITMENT_SIGNED during the reconnect
     bump = l1.rpc.openchannel_bump(chan_id, chan_amount, initpsbt['psbt'])
-    with pytest.raises(RpcError):
-        update = l1.rpc.openchannel_update(chan_id, bump['psbt'])
-    wait_for(lambda: l1.rpc.getpeer(l2.info['id'])['connected'] is False)
+    update_fut = node_factory.executor.submit(l1.rpc.openchannel_update,
+                                              chan_id, bump['psbt'])
+    wait_for(lambda:
+             l1.rpc.getpeer(l2.info['id'])['connected'] is False
+             and l2.rpc.getpeer(l1.info['id'])['connected'] is False)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    with pytest.raises(RpcError):
+        update_fut.result(timeout=TIMEOUT)
     l2.daemon.wait_for_logs([r'Got dualopend reestablish',
                              r'No commitment, not sending our sigs'])
     l1.daemon.wait_for_logs([r'Got dualopend reestablish',
                              r'No commitment, not sending our sigs',
                              r'dev_disconnect: -WIRE_COMMITMENT_SIGNED',
                              'peer_disconnected'])
-    assert not l1.rpc.getpeer(l2.info['id'])['connected']
+    wait_for(lambda:
+             l1.rpc.getpeer(l2.info['id'])['connected'] is False
+             and l2.rpc.getpeer(l1.info['id'])['connected'] is False)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
     # COMMITMENT_SIGNED disconnects *during* the reconnect
     # We can't bump because the last negotiation is in the wrong state
+    bump_fut = node_factory.executor.submit(l1.rpc.openchannel_bump,
+                                            chan_id, chan_amount,
+                                            initpsbt['psbt'])
     with pytest.raises(RpcError, match=r'Funding sigs for this channel not secured'):
-        l1.rpc.openchannel_bump(chan_id, chan_amount, initpsbt['psbt'])
+        bump_fut.result(timeout=TIMEOUT)
     # l2 reconnects, but doesn't have l1's commitment
+    wait_for(lambda:
+             l1.rpc.getpeer(l2.info['id'])['connected'] is False
+             and l2.rpc.getpeer(l1.info['id'])['connected'] is False)
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l2.daemon.wait_for_logs([r'Got dualopend reestablish',
                              r'No commitment, not sending our sigs',
-                             # This is a BROKEN log, it's expected!
-                             r'dualopend daemon died before signed PSBT returned|dualopend: Owning subdaemon dualopend died',
-                             r'Owning subdaemon dualopend died'])
+                             # The injected transport failure retires this
+                             # owner cleanly; it is not a BROKEN condition.
+                             r'dualopend: Owning subdaemon dualopend died'])
 
     # If we received their commitment_signed first, we *will* have scratch!
     inflights = only_one(l1.rpc.listpeerchannels()['channels'])['inflight']
@@ -1009,9 +1241,25 @@ def test_rbf_reconnect_tx_construct(node_factory, bitcoind, chainparams):
     else:
         assert 'scratch_txid' not in inflights[1]
 
-    # After reconnecting, we have a scratch txid!
-    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-    wait_for(lambda: 'scratch_txid' in only_one(l1.rpc.listpeerchannels()['channels'])['inflight'][1])
+    # Depending on which commitment_signed arrives first, that reestablish
+    # owner may produce scratch state before its injected transport failure
+    # has finished disconnecting.  Wait for that owner to retire completely
+    # before installing its replacement.
+    def have_scratch_txid():
+        inflights = only_one(l1.rpc.listpeerchannels()['channels'])['inflight']
+        return len(inflights) > 1 and 'scratch_txid' in inflights[1]
+
+    l1.daemon.wait_for_logs([r'dev_disconnect: \+WIRE_COMMITMENT_SIGNED',
+                             'peer_disconnected'])
+    wait_for(lambda:
+             l1.rpc.getpeer(l2.info['id'])['connected']
+             == l2.rpc.getpeer(l1.info['id'])['connected'])
+    if not l1.rpc.getpeer(l2.info['id'])['connected']:
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    wait_for(lambda:
+             l1.rpc.getpeer(l2.info['id'])['connected']
+             and l2.rpc.getpeer(l1.info['id'])['connected'])
+    wait_for(have_scratch_txid)
 
     # We can call update again! It should short-circuit this time :)
     update = l1.rpc.openchannel_update(chan_id, bump['psbt'])
@@ -1086,14 +1334,13 @@ def test_rbf_reconnect_tx_sigs(node_factory, bitcoind, chainparams):
     # Sign our inputs, and continue
     signed_psbt = l1.rpc.signpsbt(update['psbt'])['signed_psbt']
 
-    # First time we error when we send our sigs
-    with pytest.raises(RpcError):
-        l1.rpc.openchannel_signed(chan_id, signed_psbt)
+    # Sending our signatures triggers the disconnect sequence.  The RPC is
+    # retained while dualopend reconnects and completes the exchange.
+    l1.rpc.openchannel_signed(chan_id, signed_psbt)
 
     # Absolute chaos ensues as these guys disconnect/reconnect
     # when sending tx-sigs. By the end, both should have
     # broadcast a funding tx.
-    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l1.daemon.wait_for_log('Broadcasting funding tx')
     l2.daemon.wait_for_log('Broadcasting funding tx')
 
@@ -1115,7 +1362,8 @@ def test_rbf_to_chain_before_commit(node_factory, bitcoind, chainparams):
                    '-WIRE_COMMITMENT_SIGNED']
     l1, l2 = node_factory.get_nodes(2,
                                     opts=[{'may_reconnect': True,
-                                           'dev-no-reconnect': None},
+                                           'dev-no-reconnect': None,
+                                           'dual-open-disconnect-timeout': 3},
                                           {'disconnect': disconnects,
                                            'may_reconnect': True,
                                            'dev-no-reconnect': None}])
@@ -1418,12 +1666,14 @@ def test_rbf_non_last_mined(node_factory, bitcoind, chainparams):
 
     # Make a 3rd inflight that won't make it into the mempool
     signed_psbt = run_retry()
-    last = len(l1.daemon.logs)
+    last_l1 = len(l1.daemon.logs)
+    last_l2 = len(l2.daemon.logs)
     l1.rpc.openchannel_signed(chan_id, signed_psbt)
 
-    wait_for(lambda: l1.daemon.is_in_log("plugin-bcli: sendrawtx exit 0", start=last))
-    import time
-    time.sleep(.05)
+    wait_for(lambda: l1.daemon.is_in_log("plugin-bcli: sendrawtx exit 0",
+                                         start=last_l1)
+             and l2.daemon.is_in_log("plugin-bcli: sendrawtx exit 0",
+                                     start=last_l2))
 
     l1.daemon.rpcproxy.mock_rpc('sendrawtransaction', None)
     l2.daemon.rpcproxy.mock_rpc('sendrawtransaction', None)
@@ -1436,6 +1686,11 @@ def test_rbf_non_last_mined(node_factory, bitcoind, chainparams):
 
     # The funding transaction gets mined (should be the 2nd inflight)
     bitcoind.generate_block(6, wait_for_mempool=1)
+
+    # Make sure l1 has selected the mined inflight before l2 reconnects.  This
+    # test exercises a non-tip RBF transaction being mined; reconnecting while
+    # topology is still delivering those blocks is a separate race.
+    sync_blockheight(bitcoind, [l1])
 
     # l2 comes back up
     l2.start()
@@ -3076,7 +3331,49 @@ def test_zeroconf_withhold(node_factory, bitcoind, stay_withheld, mutual_close):
     assert bitcoind.rpc.getrawmempool() == []
 
     if mutual_close:
-        l1.connect(l2)
+        # connect() only waits for the peer_connected hook.  A transport can
+        # still fail while the replacement channelds exchange reestablish, so
+        # retry that connection generation rather than queueing shutdown on a
+        # half-installed route.
+        established = False
+        for _ in range(3):
+            last_l1 = len(l1.daemon.logs)
+            last_l2 = len(l2.daemon.logs)
+
+            def reestablished():
+                return (
+                    l1.daemon.is_in_log(
+                        r'peer_in WIRE_CHANNEL_REESTABLISH', start=last_l1
+                    )
+                    and l2.daemon.is_in_log(
+                        r'peer_in WIRE_CHANNEL_REESTABLISH', start=last_l2
+                    )
+                )
+
+            l1.connect(l2)
+            try:
+                wait_for(lambda: reestablished()
+                         or not l1.rpc.getpeer(l2.info['id'])['connected']
+                         or not l2.rpc.getpeer(l1.info['id'])['connected'],
+                         timeout=5)
+            except ValueError:
+                # A failed route can leave both transports nominally
+                # connected without either channeld receiving reestablish.
+                pass
+            if reestablished():
+                established = True
+                break
+            # One connectd can retain its half of a failed generation after
+            # the other side has dropped.  Retire it before retrying, or it
+            # will reject/absorb the replacement transport.
+            if l1.rpc.getpeer(l2.info['id'])['connected']:
+                l1.rpc.disconnect(l2.info['id'], force=True)
+            if l2.rpc.getpeer(l1.info['id'])['connected']:
+                l2.rpc.disconnect(l1.info['id'], force=True)
+            wait_for(lambda:
+                     not l1.rpc.getpeer(l2.info['id'])['connected']
+                     and not l2.rpc.getpeer(l1.info['id'])['connected'])
+        assert established
 
     if not stay_withheld:
         # sendpsbt marks it as no longer withheld.
@@ -3220,3 +3517,42 @@ def test_no_retransmit_confirmed_funding(node_factory):
     # Should not have attempted (and failed) to re-broadcast the funding tx.
     assert not l1.daemon.is_in_log('Failed to re-transmit funding tx')
     assert not l1.daemon.is_in_log('Successfully rexmitted funding tx')
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+@pytest.mark.openchannel('v2')
+def test_inflight_disconnect_commitment_v2(node_factory, bitcoind):
+    """Disconnect during dual-fund commitment signing should not trigger spurious BROKEN messages.
+    """
+    disconnects = ["+WIRE_COMMITMENT_SIGNED"]
+
+    opts = [{'experimental-dual-fund': None, 'dev-no-reconnect': None,
+             'may_reconnect': True, 'disconnect': disconnects},
+            {'experimental-dual-fund': None, 'dev-no-reconnect': None,
+             'may_reconnect': True}]
+
+    opener, funder = node_factory.get_nodes(2, opts=opts)
+
+    amount = 500000
+    opener.fundwallet(20000000)
+    funder.fundwallet(20000000)
+
+    funder.rpc.call('funderupdate',
+                    {'policy': 'available',
+                     'policy_mod': 100,
+                     'per_channel_max_msat': '1btc',
+                     'reserve_tank_msat': '0msat',
+                     'fund_probability': 100,
+                     'fuzz_percent': 0,
+                     'leases_only': False})
+
+    opener.rpc.connect(funder.info['id'], 'localhost', funder.port)
+    fut = node_factory.executor.submit(opener.rpc.fundchannel,
+                                       funder.info['id'], amount)
+
+    opener.daemon.wait_for_log(r'dev_disconnect: .WIRE_COMMITMENT_SIGNED')
+    wait_for(lambda:
+             opener.rpc.getpeer(funder.info['id'])['connected'] is False
+             and funder.rpc.getpeer(opener.info['id'])['connected'] is False)
+    opener.rpc.connect(funder.info['id'], 'localhost', funder.port)
+    fut.result(timeout=TIMEOUT)

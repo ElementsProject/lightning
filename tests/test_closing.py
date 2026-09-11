@@ -821,10 +821,15 @@ def test_channel_lease_falls_behind(node_factory, bitcoind):
 def test_channel_lease_post_expiry(node_factory, bitcoind, chainparams):
 
     coin_mvt_plugin = os.path.join(os.getcwd(), 'tests/plugins/coin_movements.py')
+    # Keep the real pre/post-expiry transition, without making every backend
+    # process the protocol-standard 4032 blocks.  The two six-block advances
+    # below put the channel first before, then exactly at, lease expiry.
+    lease_duration = 12
     opts = {'funder-policy': 'match', 'funder-policy-mod': 100,
             'lease-fee-base-sat': '100sat', 'lease-fee-basis': 100,
             'may_reconnect': True, 'plugin': coin_mvt_plugin,
-            'dev-no-reconnect': None}
+            'dev-no-reconnect': None,
+            'dev-lease-duration': lease_duration}
 
     l1, l2, = node_factory.get_nodes(2, opts=opts)
 
@@ -873,17 +878,6 @@ def test_channel_lease_post_expiry(node_factory, bitcoind, chainparams):
     # make sure we're at the right place for the csv lock
     height = bitcoind.rpc.getblockchaininfo()['blocks']
     l2.daemon.wait_for_log(f'Blockheight: SENT_ADD_ACK_COMMIT->RCVD_ADD_ACK_REVOCATION LOCAL now {height}')
-
-    # We need to give l1-l2 time to update their blockheights
-    for i in range(0, 4000, 1000):
-        for _ in range(0, 1000, 200):
-            bitcoind.generate_block(200)
-        sync_blockheight(bitcoind, [l1, l2])
-        l1.daemon.wait_for_log('peer_out WIRE_UPDATE_BLOCKHEIGHT')
-
-    bitcoind.generate_block(32)
-    sync_blockheight(bitcoind, [l1, l2])
-    l1.daemon.wait_for_log('peer_out WIRE_UPDATE_BLOCKHEIGHT')
 
     # l1<->l2 mutual close should work
     chan = l1.get_channel_scid(l2)
