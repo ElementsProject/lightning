@@ -4325,8 +4325,9 @@ int main(int argc, char *argv[])
 	 * writing to REQ_FD */
 	status_setup_sync(REQ_FD);
 
-	/* Init state to not aborted */
+	/* Init state to not aborted, and not reconnected until we know better */
 	state->aborted_err = NULL;
+	state->reconnected = false;
 
 	/*~ The very first thing we read from lightningd is our init msg */
 	msg = wire_sync_read(tmpctx, REQ_FD);
