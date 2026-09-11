@@ -2,9 +2,9 @@
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
   "rpc": "setchannel",
-  "title": "Command for configuring fees / htlc range advertized for a channel",
+  "title": "Command for configuring fees / htlc range advertized for a channel, and upgrading private channels to public",
   "description": [
-    "The **setchannel** RPC command sets channel specific routing fees, and `htlc_minimum_msat` or `htlc_maximum_msat` as defined in BOLT #7. The channel has to be in normal or awaiting state. This can be checked by **listpeers** reporting a *state* of CHANNELD_NORMAL or CHANNELD_AWAITING_LOCKIN for the channel.",
+    "The **setchannel** RPC command sets channel specific routing fees, and `htlc_minimum_msat` or `htlc_maximum_msat` as defined in BOLT #7. It can also upgrade a private (unannounced) channel to a public (announced) channel using the *announce* parameter. The channel has to be in normal or awaiting state. This can be checked by **listpeers** reporting a *state* of CHANNELD_NORMAL or CHANNELD_AWAITING_LOCKIN for the channel.",
     "",
     "These changes (for a public channel) will be broadcast to the rest of the network (though many nodes limit the rate of such changes they will accept: we allow 2 a day, with a few extra occasionally)."
   ],
@@ -59,6 +59,13 @@
         "description": [
           "If set to True means to allow the peer to set the commitment transaction fees (or closing transaction fees) to any value they want. This is dangerous: they could set an exorbitant fee (so HTLCs are unenforcable), or a tiny fee (so that commitment transactions cannot be relayed), but avoids channel breakage in case of feerate disagreements. (Note: the global `ignore_fee_limits` setting overrides this)."
         ]
+      },
+      "announce": {
+        "added": "v25.05",
+        "type": "boolean",
+        "description": [
+          "If set to True, upgrades a private channel to a public channel. The channel will be announced to the network once both sides have exchanged announcement signatures and the funding transaction has at least 6 confirmations. Note: the peer must also independently set their side to public (e.g. via the same command) for the announcement to succeed. Cannot be set to false (public channels cannot be made private again)."
+        ]
       }
     }
   },
@@ -83,7 +90,8 @@
             "fee_proportional_millionths",
             "minimum_htlc_out_msat",
             "maximum_htlc_out_msat",
-            "ignore_fee_limits"
+            "ignore_fee_limits",
+            "announce"
           ],
           "properties": {
             "peer_id": {
@@ -146,6 +154,13 @@
               "description": [
                 "The requested htlcmax was greater than the channel capacity, so we set it to the channel capacity."
               ]
+            },
+            "announce": {
+              "type": "boolean",
+              "added": "v25.05",
+              "description": [
+                "Whether the channel is set to be announced to the network."
+              ]
             }
           }
         }
@@ -190,7 +205,8 @@
             "fee_proportional_millionths": 10,
             "minimum_htlc_out_msat": 0,
             "maximum_htlc_out_msat": 990000000,
-            "ignore_fee_limits": true
+            "ignore_fee_limits": true,
+            "announce": true
           }
         ]
       }
@@ -216,7 +232,8 @@
             "fee_proportional_millionths": 300,
             "minimum_htlc_out_msat": 0,
             "maximum_htlc_out_msat": 990000000,
-            "ignore_fee_limits": false
+            "ignore_fee_limits": false,
+            "announce": true
           }
         ]
       }
