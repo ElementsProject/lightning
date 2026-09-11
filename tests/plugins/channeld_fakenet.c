@@ -60,6 +60,31 @@ static bool node_cmp(const struct node *n, const struct node_id *node_id)
 }
 HTABLE_DEFINE_NODUPS_TYPE(struct node, node_key, node_id_hash, node_cmp, node_map);
 
+/* Keep a record of the state of the channels */
+struct fake_channel {
+	struct short_channel_id scid;
+	struct amount_msat liquidity; // on dir=0
+	// FIXME: we could save reservations here as well
+};
+
+static const struct short_channel_id channel_scid(const struct fake_channel *c)
+{
+	return c->scid;
+}
+
+static bool fake_channel_eq(const struct fake_channel *c,
+			    const struct short_channel_id scid)
+{
+	return short_channel_id_eq(c->scid, scid);
+}
+
+HTABLE_DEFINE_NODUPS_TYPE(struct fake_channel, channel_scid, hash_scid,
+			  fake_channel_eq, fake_channel_map);
+
+#define HTLC_SUCCEED 1
+#define HTLC_FAILED 2
+#define HTLC_PENDING 0
+
 struct info {
 	/* To talk to lightningd */
 	struct daemon_conn *dc;
@@ -83,6 +108,10 @@ struct info {
 	struct siphash_seed seed;
 	/* Currently used channels */
 	struct reservation **reservations;
+	/* Current channel liquidity */
+	struct fake_channel_map *fake_channels;
+	/* Keep a book of the final outcome of every htlc we see. */
+	u8 *htlc_status;
 
 	/* Fake stuff we feed into lightningd */
 	struct fee_states *fee_states;
@@ -125,6 +154,8 @@ struct multi_payment {
 struct reservation {
 	struct short_channel_id_dir scidd;
 	struct amount_msat amount;
+	/* which htlc is this reservation bound to */
+	u64 htlc_id;
 };
 
 /* Return deterministic value >= min < max for this channel */
@@ -371,6 +402,8 @@ static void fail(struct info *info,
 	struct changed_htlc *changed;
 	enum channel_remove_err err;
 
+	assert(tal_count(info->htlc_status) > htlc->htlc_id);
+	info->htlc_status[htlc->htlc_id] = HTLC_FAILED;
 	msg = tal_arr(tmpctx, u8, 0);
 	towire_u16(&msg, failcode);
 
@@ -513,6 +546,8 @@ static void succeed(struct info *info,
 	u8 *msg;
 	enum channel_remove_err err;
 
+	assert(tal_count(info->htlc_status) > htlc->htlc_id);
+	info->htlc_status[htlc->htlc_id] = HTLC_SUCCEED;
 	err = channel_fulfill_htlc(info->channel,
 				   LOCAL,
 				   htlc->htlc_id,
@@ -598,11 +633,33 @@ static void add_mpp(struct info *info,
 	tal_free(mp);
 }
 
+static void move_funds(struct info *info,
+		       const struct short_channel_id_dir scidd,
+		       struct amount_msat amount)
+{
+	struct fake_channel *fc;
+
+	fc = fake_channel_map_get(info->fake_channels, scidd.scid);
+	assert(fc);
+	if (scidd.dir == 0) {
+		if (!amount_msat_deduct(&fc->liquidity, amount))
+			abort();
+	} else {
+		if (!amount_msat_accumulate(&fc->liquidity, amount))
+			abort();
+	}
+}
+
 static void destroy_reservation(struct reservation *r,
 				struct info *info)
 {
 	for (size_t i = 0; i < tal_count(info->reservations); i++) {
 		if (info->reservations[i] == r) {
+			assert(tal_count(info->htlc_status) > r->htlc_id);
+			assert(info->htlc_status[r->htlc_id] == HTLC_SUCCEED ||
+			       info->htlc_status[r->htlc_id] == HTLC_FAILED);
+			if (info->htlc_status[r->htlc_id] == HTLC_SUCCEED)
+				move_funds(info, r->scidd, r->amount);
 			tal_arr_remove(&info->reservations, i);
 			return;
 		}
@@ -613,11 +670,13 @@ static void destroy_reservation(struct reservation *r,
 static void add_reservation(const tal_t *ctx,
 			    struct info *info,
 			    const struct short_channel_id_dir *scidd,
-			    struct amount_msat amount)
+			    struct amount_msat amount,
+			    const u64 htlc_id)
 {
 	struct reservation *r = tal(ctx, struct reservation);
 	r->scidd = *scidd;
 	r->amount = amount;
+	r->htlc_id = htlc_id;
 	tal_arr_expand(&info->reservations, r);
 	tal_add_destructor2(r, destroy_reservation, info);
 }
@@ -629,14 +688,28 @@ static struct amount_msat calc_capacity(struct info *info,
 					const struct gossmap_chan *c,
 					const struct short_channel_id_dir *scidd)
 {
+	struct fake_channel *fc;
 	struct short_channel_id_dir base_scidd;
 	struct amount_msat base_capacity, dynamic_capacity;
 
 	base_scidd.scid = scidd->scid;
 	base_scidd.dir = 0;
 	base_capacity = gossmap_chan_get_capacity(info->gossmap, c);
-	dynamic_capacity = amount_msat(channel_range(info, &base_scidd,
-						     0, base_capacity.millisatoshis)); /* Raw: rand function */
+
+	fc = fake_channel_map_get(info->fake_channels, scidd->scid);
+	if (!fc) {
+		/* first time we see it, create entry */
+
+		fc = tal(info->fake_channels, struct fake_channel);
+		fc->scid = scidd->scid;
+		fc->liquidity = amount_msat(channel_range(
+		    info, &base_scidd, 0,
+		    base_capacity.millisatoshis)); /* Raw: rand function */
+		fake_channel_map_add(info->fake_channels, fc);
+	}
+
+	dynamic_capacity = fc->liquidity;
+
 	/* Invert capacity if that is backwards */
 	if (scidd->dir != base_scidd.dir) {
 		if (!amount_msat_sub(&dynamic_capacity, base_capacity, dynamic_capacity))
@@ -818,7 +891,7 @@ found_next:
 	}
 
 	/* When we resolve the HTLC, we'll cancel the reservations */
-	add_reservation(htlc, info, &scidd, amount);
+	add_reservation(htlc, info, &scidd, amount, htlc->htlc_id);
 
 	if (payload->path_key) {
 		struct sha256 sha;
@@ -878,6 +951,7 @@ static void handle_offer_htlc(struct info *info, const u8 *inmsg)
 	struct pubkey *blinding;
 	static u64 htlc_id;
 	struct fake_htlc *htlc = tal(info, struct fake_htlc);
+	u8 htlc_status;
 
 	htlc->secrets = tal_arr(htlc, struct secret, 0);
 	htlc->htlc_id = htlc_id;
@@ -904,10 +978,14 @@ static void handle_offer_htlc(struct info *info, const u8 *inmsg)
 		/* Tell it it's locked in */
 		update_commitment_tx_added(info, htlc_id);
 
+		htlc_status = HTLC_PENDING;
+		tal_arr_expand(&info->htlc_status, htlc_status);
+
 		/* Handle it. */
 		forward_htlc(info, htlc, amount, cltv_expiry,
 			     onion_routing_packet, blinding, NULL);
 		htlc_id++;
+		assert(tal_count(info->htlc_status) == htlc_id);
 		return;
 	case CHANNEL_ERR_INVALID_EXPIRY:
 		failwiremsg = towire_incorrect_cltv_expiry(inmsg, cltv_expiry, NULL);
@@ -1290,6 +1368,8 @@ int main(int argc, char *argv[])
 	info->node_map = tal(info, struct node_map);
 	node_map_init(info->node_map);
 	populate_node_map(info->gossmap, info->node_map);
+	info->fake_channels = tal(info, struct fake_channel_map);
+	fake_channel_map_init(info->fake_channels);
 	info->peer = make_peer_node(info);
 	info->multi_payments = tal_arr(info, struct multi_payment *, 0);
 	info->reservations = tal_arr(info, struct reservation *, 0);
@@ -1298,6 +1378,7 @@ int main(int argc, char *argv[])
 	info->fakesig.sighash_type = SIGHASH_ALL;
 	memset(&info->fakesig.s, 0, sizeof(info->fakesig.s));
 	memset(&info->seed, 0, sizeof(info->seed));
+	info->htlc_status = tal_arr(info, u8, 0);
 
 	if (getenv("CHANNELD_FAKENET_SEED"))
 		info->seed.u.u64[0] = atol(getenv("CHANNELD_FAKENET_SEED"));

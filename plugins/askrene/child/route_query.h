@@ -30,6 +30,10 @@ struct route_query {
 
 	/* channels we disable during computation to meet constraints */
 	bitmap *disabled_chans;
+
+	/* Unix time when this request is made. It allows us to relax
+	 * constraints based on their age. */
+	u64 current_unixtime;
 };
 
 /* Given a gossmap channel, get the current known min/max */
