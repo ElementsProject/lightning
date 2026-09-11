@@ -188,7 +188,8 @@
     "The following error codes may occur:",
     "",
     "- -1: Catchall nonspecific error.",
-    "- 900: An invoice with the given *label* already exists."
+    "- 900: An invoice with the given *label* already exists.",
+    "- 907: The offer associated with the invoice is not active."
   ],
   "author": [
     "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."

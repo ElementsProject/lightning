@@ -65,6 +65,24 @@
       }
     }
   },
+  "errors": [
+    "On error the returned object will contain `code` and `message` properties, with `code` being one of the following:",
+    "",
+    "- -32602: If the given parameters are wrong.",
+    "- -1: Catchall nonspecific error.",
+    "- 351: The channel is not owned by this node, or its owner is in an abnormal state.",
+    "- 352: Unknown channel.",
+    "- 353: The channel is not in a state which permits splicing.",
+    "- 354: The peer does not support splicing.",
+    "- 355: Another splice command is already in progress for this channel.",
+    "- 356: The splice PSBT is invalid.",
+    "- 357: The amount of funds provided for the splice was lower than the amount committed to the peer.",
+    "- 358: The channel is not in a valid state to perform the requested splice operation.",
+    "- 359: The splice feerate is lower than the minimum required.",
+    "- 360: The splice feerate is higher than the configured maximum (use `force_feerate` to override).",
+    "- 362: The splice was aborted.",
+    "- 363: The channel was disconnected during the splice command."
+  ],
   "usage": [
     "Here is an example way to call `splice_update`",
     "",
