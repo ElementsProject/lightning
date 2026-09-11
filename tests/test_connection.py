@@ -1473,7 +1473,12 @@ def test_funding_v2_corners(node_factory, bitcoind):
 @pytest.mark.slow_test
 @pytest.mark.openchannel('v1')
 def test_funding_cancel_race(node_factory, bitcoind, executor):
-    l1 = node_factory.get_node()
+    # 100+ nodes starve the scheduler: connectd's wake-delay watchdog
+    # fires BROKEN on the delayed WIRE_OPEN_CHANNEL this test produces
+    # on loaded CI runners (#9268) long before the funding-cancel race
+    # under test is affected. Raise the threshold for every node.
+    opts = {'dev-max-wake-delay-ms': 60000}
+    l1 = node_factory.get_node(options=opts)
 
     # make sure we can generate PSBTs.
     addr = l1.rpc.newaddr('bech32')['bech32']
@@ -1489,7 +1494,7 @@ def test_funding_cancel_race(node_factory, bitcoind, executor):
         num = 100
 
     # Allow the other nodes to log unexpected WIRE_FUNDING_CREATED messages
-    nodes = node_factory.get_nodes(num, opts={})
+    nodes = node_factory.get_nodes(num, opts=opts)
 
     num_complete = 0
     num_cancel = 0
@@ -5136,3 +5141,28 @@ def test_open_channel_funding_above_max_supply(node_factory, bitcoind):
                 funding_sat, push_msat)
 
     assert l1.rpc.getinfo()['id'] == l1.info['id']
+
+
+def test_dev_max_wake_delay(node_factory, executor, bitcoind):
+    """connectd's wake-delay watchdog measures master scheduling latency
+    too; under heavy CI load the subdaemon spawn alone can exceed the
+    5s default (ElementsProject/lightning#9268). --dev-max-wake-delay-ms
+    lets load-heavy tests raise the threshold: the same freeze that
+    fires BROKEN by default passes cleanly with it raised."""
+    l2 = node_factory.get_node(options={'dev-max-wake-delay-ms': 60000})
+    l1 = node_factory.get_node()
+    addr = l1.rpc.newaddr('bech32')['bech32']
+    bitcoind.rpc.sendtoaddress(addr, 200000 / 10**8)
+    bitcoind.generate_block(1)
+    wait_for(lambda: len(l1.rpc.listfunds()["outputs"]) != 0)
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    # Freeze the accepter's master so openingd's spawn is delayed
+    # beyond the default threshold; the raised threshold must absorb it.
+    os.kill(l2.daemon.proc.pid, signal.SIGSTOP)
+    fut = executor.submit(l1.rpc.fundchannel_start, l2.info['id'], "100000sat")
+    time.sleep(7)
+    os.kill(l2.daemon.proc.pid, signal.SIGCONT)
+    fut.result(TIMEOUT)
+    time.sleep(5)
+    assert not l2.daemon.is_in_log(r"wake delay for WIRE_OPEN_CHANNEL")

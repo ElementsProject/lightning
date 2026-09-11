@@ -314,6 +314,7 @@ struct lightningd {
 	bool dev_fast_gossip;
 	bool dev_fast_gossip_prune;
 	bool dev_throttle_gossip;
+	u64 dev_max_wake_delay_ms;
 	bool dev_suppress_gossip;
 
 	/* How long to aim for low-priority commitment closes */
