@@ -10,6 +10,52 @@
 #include <common/utils.h>
 #include <inttypes.h>
 
+/* BOLT-payer_proof #12:
+ * A *marker number* is a `bigsize` in the ranges `1..239` or
+ * `1000000000..3999999999`.
+ *
+ * The *successor marker* of `prev`, written `next_marker(prev)`, is the
+ * smallest marker number strictly greater than `prev`.  So:
+ *
+ *   next_marker(0)          = 1
+ *   next_marker(1..238)     = prev + 1
+ *   next_marker(239)        = 1000000000
+ *   next_marker(>=240, <1000000000) = 1000000000 (jumps the reserved gap)
+ *   next_marker(1000000000..3999999998) = prev + 1
+ *
+ * Both the writer-side marker emission and the reader-side validation use
+ * this single helper, which resolves the writer/reader rule asymmetry
+ * raised on https://github.com/lightning/bolts/pull/1295#discussion_r3286972971
+ * by giving both sides one definition of "what comes after prev".
+ */
+static bigsize_t next_marker(bigsize_t prev)
+{
+	if (prev < 1)
+		return 1;
+	if (prev < 239)
+		return prev + 1;
+	if (prev < 1000000000)
+		return 1000000000;
+	/* prev is already in the high marker range. */
+	return prev + 1;
+}
+
+/* Is there an included non-signature TLV in `pptlv` whose successor marker
+ * is exactly `omitted`?  Used by the reader to accept a marker that follows
+ * an included TLV rather than the previous marker. */
+static bool find_included_marker_predecessor(const struct tlv_payer_proof *pptlv,
+					     bigsize_t omitted)
+{
+	for (size_t i = 0; i < tal_count(pptlv->fields); i++) {
+		const struct tlv_field *f = &pptlv->fields[i];
+		if (is_tlv_signature_field(f))
+			continue;
+		if (next_marker(f->numtype) == omitted)
+			return true;
+	}
+	return false;
+}
+
 struct creator {
 	size_t n_inv, n_included;
 	const struct tlv_invoice *inv;
@@ -102,17 +148,20 @@ struct tlv_payer_proof *make_unsigned_proof_(const tal_t *ctx,
 		/* BOLT-payer_proof #12:
 		 *   - otherwise, if the TLV type is not zero:
 		 *     - MUST append a *marker number* to `proof_omitted_tlvs`
-		 *       - If the previous TLV type was included:
-		 *         - The *marker number* is that previous tlv type,
-		 *           plus one.
-		 *       - Otherwise, if `proof_omitted_tlvs` is empty:
-		 *         - The *marker number* is 1.
-		 *       - Otherwise:
-		 *         - The *marker number* is one greater than the last
-		 *           `proof_omitted_tlvs` entry.
+		 *       - The *marker number* is `next_marker(prev)`, where
+		 *         `prev` is the previous included TLV type (if the
+		 *         previous non-signature TLV was included), the last
+		 *         `proof_omitted_tlvs` entry (otherwise), or 0 (if
+		 *         `proof_omitted_tlvs` is still empty).
+		 *
+		 * Using `next_marker` here keeps the writer and the reader in
+		 * lockstep across the `239 -> 1000000000` jump.  See
+		 *   https://github.com/lightning/bolts/pull/1295#discussion_r3286972971
 		 */
-		if (f->numtype != 0)
-			tal_arr_expand(&omitted, ++last_type);
+		if (f->numtype != 0) {
+			last_type = next_marker(last_type);
+			tal_arr_expand(&omitted, last_type);
+		}
 	}
 
 	/* Arg for next_field_create and add_merkle */
@@ -366,23 +415,27 @@ const char *check_payer_proof(const tal_t *ctx,
 		}
 		/* BOLT-payer_proof #12:
 		 *...
-		 *   - `proof_omitted_tlvs` is not one greater than:
-		 *      - an included TLV number, or
-		 *      - the previous `proof_omitted_tlvs` or 0 if it is the first
-		 *        number.
+		 *   - `proof_omitted_tlvs[i]` is not `next_marker(prev)`, where
+		 *     `prev` is either the previous `proof_omitted_tlvs` entry
+		 *     (or 0 if `i` is 0), or the TLV number of any included
+		 *     non-signature field.
+		 *
+		 * Mirroring the writer-side `next_marker` use removes the
+		 * 239 -> 1000000000 carve-out that previously lived only on the
+		 * writer.  See
+		 *   https://github.com/lightning/bolts/pull/1295#discussion_r3286972971
 		 */
 		if (i > 0)
 			prev_omitted = pptlv->proof_omitted_tlvs[i-1];
 		else
 			prev_omitted = 0;
 
-		if (omitted != prev_omitted + 1) {
-			/* O(n^2) but doesn't matter */
-			if (!find_tlv_num(pptlv, omitted - 1)) {
-				return tal_fmt(ctx, "proof_omitted_tlvs[%zi] is"
-					       " not one greater than the previous %"PRIu64" nor an included tlv entry",
-					       i, prev_omitted);
-			}
+		if (omitted != next_marker(prev_omitted)
+		    && !find_included_marker_predecessor(pptlv, omitted)) {
+			return tal_fmt(ctx, "proof_omitted_tlvs[%zi] = %"PRIu64
+				       " is not next_marker(previous=%"PRIu64
+				       ") nor next_marker of any included TLV",
+				       i, omitted, prev_omitted);
 		}
 	}
 
