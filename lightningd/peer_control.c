@@ -2021,8 +2021,9 @@ void handle_peer_spoke(struct lightningd *ld, const u8 *msg)
 	int other_fd;
 	struct peer_fd *pfd;
 	char *errmsg;
+	u64 spoke_id;
 
-	if (!fromwire_connectd_peer_spoke(msg, msg, &id, &connectd_counter, &msgtype, &channel_id, &errmsg))
+	if (!fromwire_connectd_peer_spoke(msg, msg, &id, &connectd_counter, &spoke_id, &msgtype, &channel_id, &errmsg))
 		fatal("Connectd gave bad CONNECTD_PEER_SPOKE message %s",
 		      tal_hex(msg, msg));
 
@@ -2068,7 +2069,7 @@ void handle_peer_spoke(struct lightningd *ld, const u8 *msg)
 			if (errmsg) {
 				channel_fail_permanent(channel, REASON_REMOTE,
 						       "They sent %s", errmsg);
-				return;
+				goto no_subd;
 			}
 
 			/* If channel is active there are two possibilities:
@@ -2077,7 +2078,7 @@ void handle_peer_spoke(struct lightningd *ld, const u8 *msg)
 			 * 2. subd exited */
 			if (channel->owner) {
 				/* We raced... */
-				return;
+				goto no_subd;
 			}
 
 			if (msgtype == WIRE_CHANNEL_REESTABLISH
@@ -2093,7 +2094,7 @@ void handle_peer_spoke(struct lightningd *ld, const u8 *msg)
 					      take(towire_connectd_peer_send_msg(NULL, &peer->id,
 										 peer->connectd_counter,
 										 error)));
-				return;
+				goto no_subd;
 			}
 
 			log_debug(channel->log, "channel already active");
@@ -2106,7 +2107,14 @@ void handle_peer_spoke(struct lightningd *ld, const u8 *msg)
 				/* FIXME: Send informative error? */
 				close(other_fd);
 			}
-			return;
+
+			/* We start subds for a new connection once the
+			 * peer_connected hooks return, so if they haven't
+			 * yet, one is on its way and connectd should continue
+			 * to wait. */
+			if (peer->connected != PEER_CONNECTED)
+				return;
+			goto no_subd;
 		}
 
 		/* Send generic error. */
@@ -2142,7 +2150,7 @@ void handle_peer_spoke(struct lightningd *ld, const u8 *msg)
 			goto tell_connectd;
 		/* FIXME: Send informative error? */
 		close(other_fd);
-		return;
+		goto no_subd;
 
 	case WIRE_OPEN_CHANNEL2:
 		if (!dual_fund) {
@@ -2162,7 +2170,7 @@ void handle_peer_spoke(struct lightningd *ld, const u8 *msg)
 			goto tell_connectd;
 		/* FIXME: Send informative error? */
 		close(other_fd);
-		return;
+		goto no_subd;
 
 	case WIRE_CHANNEL_REESTABLISH:
 		/* Maybe a previously closed channel? */
@@ -2200,6 +2208,17 @@ send_error:
 		      take(towire_connectd_disconnect_peer(NULL,
 							&peer->id,
 							peer->connectd_counter)));
+	return;
+
+no_subd:
+	/* connectd made a subd for this message and stopped reading from the
+	 * peer until we answer.  We're not attaching one, so tell it: nothing
+	 * else will ever wake it.  Use our own copies of id/counter, since
+	 * channel_fail_permanent() above may have freed peer and channel. */
+	subd_send_msg(ld->connectd,
+		      take(towire_connectd_peer_no_subd(NULL, &id,
+							connectd_counter,
+							spoke_id)));
 	return;
 
 tell_connectd:

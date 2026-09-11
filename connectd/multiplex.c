@@ -44,6 +44,11 @@ struct subd {
 	/* The actual connection to talk to it (NULL if it's not connected yet)  */
 	struct io_conn *conn;
 
+	/* Identifies the connectd_peer_spoke we sent for this subd, so
+	 * lightningd's connectd_peer_no_subd names this exact subd rather
+	 * than whatever happens to own channel_id by then. */
+	u64 spoke_id;
+
 	/* Input buffer */
 	u8 *in;
 
@@ -1383,6 +1388,41 @@ static void destroy_connected_subd(struct subd *subd)
 	}
 }
 
+/* Lightningd answered the connectd_peer_spoke we sent for spoke_id with "no
+ * subd for you".  Free the subd we optimistically created and start reading
+ * from the peer again.
+ *
+ * We match on spoke_id, not channel_id: by now maybe_update_channelid() may
+ * have re-keyed this subd, or a later message may have created a different
+ * subd for the same channel_id. */
+void discard_pending_subd(struct peer *peer, u64 spoke_id)
+{
+	/* If we're tearing down, we're not reading from the peer anyway. */
+	if (!peer->to_peer || peer->draining_state != NOT_DRAINING)
+		return;
+
+	for (size_t i = 0; i < tal_count(peer->subds); i++) {
+		struct subd *subd = peer->subds[i];
+
+		if (subd->spoke_id != spoke_id)
+			continue;
+
+		/* It got a conn after all: lightningd had already sent a
+		 * connectd_peer_connect_subd, and that reached us first, so
+		 * write_to_subd() wakes us in the normal way. */
+		if (subd->conn)
+			return;
+
+		status_peer_debug(&peer->id,
+				  "No subd for %s: resuming read",
+				  fmt_channel_id(tmpctx, &subd->channel_id));
+		tal_arr_remove(&peer->subds, i);
+		tal_free(subd);
+		io_wake(&peer->peer_in);
+		return;
+	}
+}
+
 static struct subd *new_subd(struct peer *peer,
 			     const struct channel_id *channel_id)
 {
@@ -1396,6 +1436,7 @@ static struct subd *new_subd(struct peer *peer,
 	subd->opener_revocation_basepoint = NULL;
 	subd->conn = NULL;
 	subd->rcvd_tx_abort = false;
+	subd->spoke_id = peer->daemon->spoke_counter++;
 
 	/* Connect it to the peer */
 	tal_arr_expand(&peer->subds, subd);
@@ -1506,10 +1547,13 @@ static struct io_plan *read_body_from_peer_done(struct io_conn *peer_conn,
 	       status_peer_debug(&peer->id, "Activating for message %s",
 				 peer_wire_name(t));
 	       subd = new_subd(peer, &channel_id);
-	       /* We tell lightningd to fire up a subdaemon to handle this! */
+	       /* We tell lightningd to fire up a subdaemon to handle this!
+		* It must answer with either connectd_peer_connect_subd or
+		* connectd_peer_no_subd: until it does, we stop reading. */
 	       daemon_conn_send(peer->daemon->master,
 				take(towire_connectd_peer_spoke(NULL, &peer->id,
 								peer->counter,
+								subd->spoke_id,
 								t,
 								&channel_id,
 								is_peer_error(tmpctx, decrypted))));
