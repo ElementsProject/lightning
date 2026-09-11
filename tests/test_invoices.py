@@ -442,6 +442,30 @@ def test_invoice_expiry(node_factory, executor):
     assert expiry >= start + 1 and expiry <= end + 1
 
 
+def test_invoice_expiry_too_large(node_factory):
+    """An expiry too large to be safe must be refused, not crash or wedge.
+
+    The `x` field is encoded by push_varlen_field(), which can only
+    express values of up to 60 bits and aborts the whole daemon for
+    anything larger.  Long before that, the invoice expiration timer's
+    nanosecond-based counter overflows and the expiry check busy-loops
+    forever, so anything beyond 2^32 seconds (~136 years) is refused.
+    """
+    l1 = node_factory.get_node()
+
+    # The exact boundary still works: 2^32 - 1 is ~136 years of headroom.
+    ok = l1.rpc.invoice(amount_msat=1000, label='expiry-boundary-ok',
+                        description='boundary', expiry=2**32 - 1)
+    assert ok['bolt11']
+
+    # One above the boundary: typed refusal, daemon stays alive.
+    with pytest.raises(RpcError, match='expiry must be below') as err:
+        l1.rpc.invoice(amount_msat=1000, label='expiry-too-large',
+                       description='too large', expiry=2**32)
+    assert err.value.error['code'] == -32602
+    assert l1.rpc.getinfo()['id']
+
+
 def test_waitinvoice(node_factory, executor):
     """Test waiting for one invoice will not return if another invoice is paid.
     """
@@ -1104,3 +1128,51 @@ def test_invoice_maxdesc(node_factory, chainparams):
     # This should succeed.
     inv = l1.rpc.invoice(123000, 'test_invoice_maxdesc3', maxdesc)
     assert l1.rpc.decode(inv['bolt11'])['description'] == maxdesc
+
+
+def test_createinvoice_expiry_too_large(node_factory):
+    """createinvoice must apply the same expiry bound as invoice.
+
+    A crafted bolt11 can carry an expiry past the invoice RPC's gate:
+    decode does not verify the signature, so the huge `x` value flows
+    into invoice creation -- where bolt11_encode() aborts past 60 bits
+    and the expiry timer busy-loops far below that.  Same bound, same
+    message as the invoice RPC.
+    """
+    import hashlib
+    import bitstring
+    from pyln.proto.invoice import tagged, tagged_bytes
+    from pyln.proto.bech32 import bech32_encode
+
+    def crafted_bolt11(payment_hash, expiry):
+        """A parseable-but-junk-signed bolt11: createinvoice decodes
+        without verifying the signature, so the 65 trailing bytes are
+        filler; every field the parser needs is real."""
+        data = bitstring.pack('uint:35', 12345678)
+        data += tagged_bytes('p', payment_hash)
+        data += tagged('d', bitstring.BitArray(b'crafted'))
+        xbits = bitstring.pack('uint:64', expiry)[4:]
+        while xbits.startswith('0b00000'):
+            xbits = xbits[5:]
+        while xbits.len % 5 != 0:
+            xbits.prepend('0b0')
+        data += tagged('x', xbits)
+        data += tagged_bytes('s', bytes(32))
+        data += bitstring.BitArray(bytes(65))
+        return bech32_encode(
+            'lnbcrt', bytes([data[i:i + 5].uint
+                             for i in range(0, data.len, 5)]))
+
+    l1 = node_factory.get_node()
+
+    with pytest.raises(RpcError, match='expiry must be below'):
+        l1.rpc.createinvoice(crafted_bolt11(bytes(32), 2**32),
+                             'label', '00' * 32)
+
+    # The exact boundary still works: a matching preimage and the
+    # largest in-bounds expiry recreate cleanly.
+    preimage = bytes(range(32))
+    ok = l1.rpc.createinvoice(
+        crafted_bolt11(hashlib.sha256(preimage).digest(), 2**32 - 1),
+        'boundary-label', preimage.hex())
+    assert ok['bolt11']
