@@ -607,6 +607,34 @@ static void advanced_fail(void)
 	}
 }
 
+static void utf8_param_fail(void)
+{
+	{
+		struct json *j = json_parse(cmd, "[ '\xee\x80\x80' ]");
+		const char *v;
+		assert(!param(cmd, j->buffer, j->toks,
+			      p_req("description", param_escaped_utf8_string, &v),
+			      NULL));
+		assert(check_fail());
+	}
+	{
+		struct json *j = json_parse(cmd, "[ '\xee\x80\x80' ]");
+		const char *v;
+		assert(!param(cmd, j->buffer, j->toks,
+			      p_req("payer_note", param_utf8_string, &v),
+			      NULL));
+		assert(check_fail());
+	}
+	{
+		struct json *j = json_parse(cmd, "[ 'hello world' ]");
+		const char *v;
+		assert(param(cmd, j->buffer, j->toks,
+			     p_req("description", param_escaped_utf8_string, &v),
+			     NULL));
+		assert(streq(v, "hello world"));
+	}
+}
+
 #define test_cb(cb, T, json_, value, pass) \
 { \
 	struct json *j = json_parse(cmd, json_); \
@@ -696,6 +724,7 @@ int main(int argc, char *argv[])
 	sendpay_nulltok();
 	advanced();
 	advanced_fail();
+	utf8_param_fail();
 	param_tests();
 	usage();
 	invalid_bech32m();

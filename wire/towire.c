@@ -142,7 +142,7 @@ void towire_u8_array(u8 **pptr, const u8 *arr, size_t num)
 
 void towire_utf8_array(u8 **pptr, const char *arr, size_t num)
 {
-	assert(utf8_check(arr, num));
+	assert(utf8_check_text(arr, num));
 	towire(pptr, arr, num);
 }
 

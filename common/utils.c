@@ -7,6 +7,7 @@
 #include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/utf8/utf8.h>
+#include <common/unicode_category.h>
 #include <common/utils.h>
 #include <errno.h>
 #include <locale.h>
@@ -180,8 +181,7 @@ void tal_arr_appendn_(void *p, const void *append TAKES, size_t bytes)
 	tal_arr_append_bytes(p, append, bytes);
 }
 
-/* Check for valid UTF-8 */
-bool utf8_check(const void *vbuf, size_t buflen)
+static bool utf8_check_(const void *vbuf, size_t buflen, bool reject_banned)
 {
 	const u8 *buf = vbuf;
 	struct utf8_state utf8_state = UTF8_STATE_INIT;
@@ -195,15 +195,29 @@ bool utf8_check(const void *vbuf, size_t buflen)
 		need_more = false;
 		if (errno != 0)
 			return false;
+		if (reject_banned && unicode_is_banned_codepoint(utf8_state.c))
+			return false;
 	}
 	return !need_more;
 }
 
-char *utf8_str(const tal_t *ctx, const u8 *buf TAKES, size_t buflen)
+/* Check for valid UTF-8 */
+bool utf8_check(const void *vbuf, size_t buflen)
+{
+	return utf8_check_(vbuf, buflen, false);
+}
+
+bool utf8_check_text(const void *vbuf, size_t buflen)
+{
+	return utf8_check_(vbuf, buflen, true);
+}
+
+static char *utf8_str_(const tal_t *ctx, const u8 *buf TAKES, size_t buflen,
+			bool reject_banned)
 {
 	char *ret;
 
-	if (!utf8_check(buf, buflen)) {
+	if (!utf8_check_(buf, buflen, reject_banned)) {
 		tal_free_if_taken(buf);
 		return NULL;
 	}
@@ -212,6 +226,16 @@ char *utf8_str(const tal_t *ctx, const u8 *buf TAKES, size_t buflen)
 	ret = tal_dup_arr(ctx, char, (const char *)buf, buflen, 1);
 	ret[buflen] = '\0';
 	return ret;
+}
+
+char *utf8_str(const tal_t *ctx, const u8 *buf TAKES, size_t buflen)
+{
+	return utf8_str_(ctx, buf, buflen, false);
+}
+
+char *utf8_str_text(const tal_t *ctx, const u8 *buf TAKES, size_t buflen)
+{
+	return utf8_str_(ctx, buf, buflen, true);
 }
 
 char *tal_strdup_or_null(const tal_t *ctx, const char *str)

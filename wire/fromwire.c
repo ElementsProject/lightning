@@ -232,7 +232,7 @@ void fromwire_u8_array(const u8 **cursor, size_t *max, u8 *arr, size_t num)
 void fromwire_utf8_array(const u8 **cursor, size_t *max, char *arr, size_t num)
 {
 	fromwire(cursor, max, arr, num);
-	if (!utf8_check(arr, num))
+	if (!utf8_check_text(arr, num))
 		fromwire_fail(cursor, max);
 }
 
