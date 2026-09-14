@@ -3,6 +3,7 @@
 #include "config.h"
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
+#include <common/amount.h>
 #include <common/htlc.h>
 
 /* The minimal info about an HTLC. */
@@ -11,6 +12,7 @@ struct htlc_stub {
 	u32 cltv_expiry;
 	u64 id;
 	struct ripemd160 ripemd;
+	struct amount_msat amount;
 };
 
 void towire_htlc_stub(u8 **pptr, const struct htlc_stub *htlc_stub);
