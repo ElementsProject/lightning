@@ -959,8 +959,9 @@ def test_makesecret_rune_master_secret(node_factory):
     # Only the exact label is reserved.
     l1.rpc.makesecret(string='commando2')
     l1.rpc.makesecret(string='command')
+
+
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "Direct database manipulation")
-@pytest.mark.xfail(strict=True, reason="runes beyond the blacklist range are never treated as blacklisted")
 def test_blacklistrune_out_of_range(node_factory):
     """blacklistrune cannot reach ids >= 100,000,000, so those must be refused"""
     l1 = node_factory.get_node()
