@@ -262,7 +262,7 @@ static void complain(struct parse_state *ps, const char *complaint)
 	unsigned int linenum;
 	const char *p = ps->code;
 
-	for (linenum = 1; p < ps->toks[0].p; linenum++) {
+	for (linenum = 1; ps->toks[0].p && p < ps->toks[0].p; linenum++) {
 		p = strchr(p+1, '\n');
 		if (!p)
 			break;
@@ -271,7 +271,7 @@ static void complain(struct parse_state *ps, const char *complaint)
 	tal_append_fmt(&ps->complaints,
 		       "Line %u: '%.*s': %s\n",
 		       linenum, (int)ps->toks[0].len,
-		       ps->toks[0].p, complaint);
+		       ps->toks[0].p ? ps->toks[0].p : "", complaint);
 }
 
 static void tok_take_unknown_statement(struct parse_state *ps)
