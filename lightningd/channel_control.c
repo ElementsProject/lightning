@@ -1208,17 +1208,10 @@ static void handle_peer_splice_locked(struct channel *channel, const u8 *msg)
 	/* Remember that we got the lockin */
 	wallet_channel_save(channel->peer->ld->wallet, channel);
 
-	log_debug(channel->log, "lightningd, splice_locked clearing inflights");
-
-	/* Take out the successful inflight from the list temporarily */
-	list_del(&inflight->list);
-
-	wallet_channel_clear_inflights(channel->peer->ld->wallet, channel);
-
 	/* Update the scid and tell everyone */
 	change_scid(channel, *inflight->locked_scid);
 
-	/* That freed watchers in inflights: now watch funding tx */
+	/* Now watch the new funding tx */
 	channel_watch_funding(channel->peer->ld, channel);
 
 	/* Log that funding output has been spent */
@@ -1231,13 +1224,13 @@ static void handle_peer_splice_locked(struct channel *channel, const u8 *msg)
 			      &locked_txid,
 			      inflight);
 
-	/* Put the successful inflight back in as a memory-only object.
-	 * peer_control's funding_spent function will pick this up and clean up
-	 * our inflight.
-	 *
-	 * This prevents any potential race conditions between us and them. */
-	inflight->splice_locked_memonly = true;
-	list_add_tail(&channel->inflights, &inflight->list);
+	/* The channel has everything it needs from the inflights now, so empty
+	 * them out, including the successful one (and their watchers).  We must
+	 * not keep that one: its last_tx is the commitment from the time of the
+	 * lock, which is revoked by the next update, and anything walking the
+	 * inflights (e.g. drop_to_chain) would use it. */
+	log_debug(channel->log, "lightningd, splice_locked clearing inflights");
+	wallet_channel_clear_inflights(channel->peer->ld->wallet, channel);
 
 	lockin_complete(channel, CHANNELD_AWAITING_SPLICE);
 }

@@ -471,9 +471,12 @@ void drop_to_chain(struct lightningd *ld, struct channel *channel,
 		const struct bitcoin_tx **txs = tal_arr(tmpctx, const struct bitcoin_tx*, 0);
 
 		/* We need to drop *every* commitment transaction to chain */
-		if (!cooperative && !list_empty(&channel->inflights)) {
+		if (!cooperative) {
 			list_for_each(&channel->inflights, inflight, list) {
-				if (!inflight->last_tx)
+				/* A locked splice's commitment is stale: it
+				 * was never updated after the lock. */
+				if (!inflight->last_tx
+				    || inflight->splice_locked_memonly)
 					continue;
 				tal_arr_expand(&txs, sign_and_send_last(tmpctx,
 									ld,
@@ -482,7 +485,9 @@ void drop_to_chain(struct lightningd *ld, struct channel *channel,
 									inflight->last_tx,
 									&inflight->last_sig));
 			}
-		} else
+		}
+
+		if (tal_count(txs) == 0)
 			tal_arr_expand(&txs, sign_and_send_last(tmpctx, ld,
 								channel, cmd_id,
 								channel->last_tx,
