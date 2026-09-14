@@ -1391,7 +1391,7 @@ static struct command_result *handle_fee_and_ppm(struct command *cmd,
 	size_t weight;
 	struct amount_sat extra_funds, missing_funds, non_wallet_demand, sat;
 	struct splice_script_result *funding_wallet_action = NULL;
-	size_t funding_wallet_index;
+	size_t funding_wallet_index COMPILER_WANTS_INIT("gcc 12.4.0 -O3");
 
 	funding_wallet_action = input_wallet(splice_cmd, &funding_wallet_index);
 
