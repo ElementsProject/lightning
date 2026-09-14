@@ -1,4 +1,5 @@
 /* This code is based on ccan/strset.c. */
+#include <ccan/compiler/compiler.h>
 #include <ccan/strmap/strmap.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/str/str.h>
@@ -216,7 +217,7 @@ static const char *iter_successor(const struct strmap *map,
 {
 	size_t len = strlen(cur);
 	const u8 *bytes = (const u8 *)cur;
-	struct strmap n, cand;
+	struct strmap n, cand COMPILER_WANTS_INIT({0}, "gcc-13 -O3");
 	bool have_cand = false;
 
 	n = *(struct strmap *)map;
