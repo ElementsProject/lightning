@@ -215,10 +215,12 @@ static void send_offer(struct per_peer_state *pps,
 	peer_write(pps, take(msg));
 }
 
-static void tell_master_their_offer(const struct bitcoin_signature *their_sig,
+/* Returns false if master says we must not agree to this offer. */
+static bool tell_master_their_offer(const struct bitcoin_signature *their_sig,
 				    const struct bitcoin_tx *tx,
 				    struct bitcoin_txid *tx_id)
 {
+	bool acceptable;
 	u8 *msg = towire_closingd_received_signature(NULL, their_sig, tx);
 	if (!wire_sync_write(REQ_FD, take(msg)))
 		status_failed(STATUS_FAIL_MASTER_IO,
@@ -227,9 +229,11 @@ static void tell_master_their_offer(const struct bitcoin_signature *their_sig,
 
 	/* Wait for master to ack, to make sure it's in db. */
 	msg = wire_sync_read(NULL, REQ_FD);
-	if (!fromwire_closingd_received_signature_reply(msg, tx_id))
+	if (!fromwire_closingd_received_signature_reply(msg, tx_id,
+							&acceptable))
 		master_badmsg(WIRE_CLOSINGD_RECEIVED_SIGNATURE_REPLY, msg);
 	tal_free(msg);
+	return acceptable;
 }
 
 /* Returns fee they offered. */
@@ -384,7 +388,15 @@ receive_offer(struct per_peer_state *pps,
 	/* Master sorts out what is best offer, we just tell it any above min */
 	if (amount_sat_greater_eq(received_fee, min_fee_to_accept)) {
 		status_debug("...offer is reasonable");
-		tell_master_their_offer(&their_sig, tx, closing_txid);
+		/* BOLT #2:
+		 *   - if the message contains a `fee_range`:
+		 *     - if there is no overlap between that and its own `fee_range`:
+		 *       - SHOULD send a warning
+		 */
+		if (!tell_master_their_offer(&their_sig, tx, closing_txid))
+			peer_failed_warn(pps, channel_id,
+					 "Closing fee %s is outside our fee limits",
+					 fmt_amount_sat(tmpctx, received_fee));
 	}
 
 	return received_fee;
