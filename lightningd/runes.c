@@ -165,8 +165,8 @@ struct runes *runes_early_init(struct lightningd *ld)
 	const u8 *data;
 	struct secret secret;
 
-	/* Runes came out of commando, hence the derivation key is 'commando' */
-	data = tal_dup_arr(tmpctx, u8, (u8 *)"commando", strlen("commando"), 0);
+	data = tal_dup_arr(tmpctx, u8, (u8 *)RUNES_SECRET_LABEL,
+			   strlen(RUNES_SECRET_LABEL), 0);
 	msg = hsm_sync_req(tmpctx, ld, towire_hsmd_derive_secret(tmpctx, data));
 	if (!fromwire_hsmd_derive_secret_reply(msg, &secret))
 		fatal("Bad reply from HSM: %s", tal_hex(tmpctx, msg));
