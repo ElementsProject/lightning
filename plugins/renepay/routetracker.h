@@ -7,6 +7,10 @@
 #include <plugins/renepay/route.h>
 
 struct routetracker{
+	/* Payment that owns this routetracker. Used to clean up the routes
+	 * that are still pending when the payment finishes. */
+	struct payment *payment;
+
 	/* Routes that we compute and are kept here before sending them. */
 	struct route **computed_routes;
 
