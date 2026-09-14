@@ -200,11 +200,6 @@ STRUCTEQ_DEF(sha256, 0, u);
 /* Define ripemd160_eq. */
 STRUCTEQ_DEF(ripemd160, 0, u);
 
-/* If gcc complains about 'may be uninitialized' even at -O3, and the code is
- * clear, use this to suppress it.  Argument should be gcc version it
- * complained on, so we can re-test as gcc evolves. */
-#define COMPILER_WANTS_INIT(compiler_versions) = 0
-
 /* Context which all wally allocations use (see common/setup.c) */
 extern const tal_t *wally_tal_ctx;
 

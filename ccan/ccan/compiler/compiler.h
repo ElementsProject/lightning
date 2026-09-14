@@ -328,4 +328,21 @@
 #endif /* HAVE_BUILTIN_CPU_SUPPORTS */
 #endif
 
+/**
+ * COMPILER_WANTS_INIT - helper to indicate initializer to suppress warnings.
+ *
+ * Sometimes compilers complain about 'may be uninitialized' depending on
+ * optimization level, but it's a false positive.
+ *
+ * Argument should be string describing compiler (and/or flags) which
+ * caused it, for future checks (compilers often improve).  You can
+ * use -DCOMPILER_NO_GRATUITOUS_INIT=1 to suppress these throughout
+ * the codebase, to check.
+ */
+#if defined(COMPILER_NO_GRATUITOUS_INIT) && COMPILER_NO_GRATUITOUS_INIT
+#define COMPILER_WANTS_INIT(init, compiler_versions)
+#else
+#define COMPILER_WANTS_INIT(init, compiler_versions) = init
+#endif
+
 #endif /* CCAN_COMPILER_H */

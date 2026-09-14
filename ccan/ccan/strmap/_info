@@ -52,7 +52,8 @@ int main(int argc, char *argv[])
 		return 1;
 
 	if (strcmp(argv[1], "depends") == 0) {
-		printf("ccan/ilog\n"
+		printf("ccan/compiler\n"
+		       "ccan/ilog\n"
 		       "ccan/mem\n"
 		       "ccan/short_types\n"
 		       "ccan/str\n"
