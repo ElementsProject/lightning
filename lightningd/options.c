@@ -801,6 +801,10 @@ static void dev_register_opts(struct lightningd *ld)
 		     opt_set_bool,
 		     &ld->dev_fast_reconnect,
 		     "Make max default reconnect delay 3 (not 300) seconds");
+	clnopt_noarg("--dev-reject-closing-fee", OPT_DEV,
+		     opt_set_bool,
+		     &ld->dev_reject_closing_fee,
+		     "Reject every closing fee the peer offers, as if outside our limits");
 
 	clnopt_noarg("--dev-fail-on-subdaemon-fail", OPT_DEV,
 		     opt_set_bool,
