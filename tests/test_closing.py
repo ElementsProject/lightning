@@ -4346,6 +4346,47 @@ def test_closing_minfee(node_factory, bitcoind):
     bitcoind.generate_block(1, wait_for_mempool=txid)
 
 
+@pytest.mark.xfail(strict=True, reason="lightningd rejects the rounded fee and broadcasts the commitment")
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd anchors not supportd')
+def test_closing_fee_rounding_at_ceiling(node_factory, bitcoind):
+    """A close pinned at the fee ceiling stays a mutual close.
+
+    With every estimate at the floor, the opener's closing fee range is
+    a single value.  Each output is rounded down to whole satoshis, so
+    the msat remainders end up in the fee and the transaction pays one
+    satoshi more than the agreed fee.  lightningd must still accept it
+    rather than fall back to broadcasting the commitment.
+    """
+    l1, l2 = node_factory.line_graph(2, opts={'feerates': (253, 253, 253, 253)})
+    chan = only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])
+    funding = int(Millisatoshi(chan['total_msat']).to_satoshi())
+
+    # Leave remainders which sum to exactly 1000msat: l1 keeps ...999msat,
+    # l2 gets ...001msat.  Rounding both down costs one satoshi of fee.
+    l1.pay(l2, 100000001)
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['htlcs'] == [])
+
+    fee = closing_fee(253, 2)
+    res = l1.rpc.close(l2.info['id'])
+    assert res['type'] == 'mutual'
+    tx = bitcoind.rpc.decoderawtransaction(only_one(res['txs']))
+
+    # A closing transaction, not the commitment.
+    assert len(tx['vout']) == 2
+    assert tx['locktime'] == 0
+
+    # The agreed fee plus the rounded-off remainders.
+    paid = funding - sum(int(round(o['value'] * 10**8)) for o in tx['vout'])
+    assert paid == fee + 1
+    billboard = only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['status']
+    assert billboard == ['CLOSINGD_SIGEXCHANGE:We agreed on a closing fee of {} satoshi for tx:{}'.format(fee, tx['txid'])]
+
+    bitcoind.generate_block(1, wait_for_mempool=tx['txid'])
+    wait_for(lambda: 'ONCHAIN:Tracking mutual close transaction' in only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['status'])
+    assert tx['txid'] in [o['txid'] for o in l1.rpc.listfunds()['outputs']]
+    assert tx['txid'] in [o['txid'] for o in l2.rpc.listfunds()['outputs']]
+
+
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd anchors not supportd')
 def test_peer_anchor_push(node_factory, bitcoind, executor, chainparams):
     """Test that we use anchor on peer's commit to CPFP tx"""
