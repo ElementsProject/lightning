@@ -4570,7 +4570,6 @@ def test_connect_transient_pending(node_factory, bitcoind, executor):
             fut2.result(TIMEOUT)
 
 
-@pytest.mark.xfail(strict=True, reason="uninitialised invreq_id formatted into invoice_error")
 def test_onionmessage_unknown_invoice_no_leak(node_factory):
     """An unsolicited invoice must not echo uninitialised memory back.
 
