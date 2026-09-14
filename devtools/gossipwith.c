@@ -278,6 +278,7 @@ static struct io_plan *handshake_success(struct io_conn *conn,
 			}
 			if (hex) {
 				printf("%s\n", tal_hex(msg, msg));
+				fflush(stdout);
 			} else {
 				belen = cpu_to_be16(tal_bytelen(msg));
 				if (!write_all(STDOUT_FILENO, &belen, sizeof(belen))
