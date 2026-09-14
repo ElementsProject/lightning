@@ -24,6 +24,7 @@ struct routetracker *new_routetracker(const tal_t *ctx, struct payment *payment)
 {
 	struct routetracker *rt = tal(ctx, struct routetracker);
 
+	rt->payment = payment;
 	rt->computed_routes = tal_arr(rt, struct route *, 0);
 	rt->finalized_routes = tal_arr(rt, struct route *, 0);
 
@@ -41,7 +42,31 @@ bool routetracker_have_results(struct routetracker *routetracker)
 
 void routetracker_cleanup(struct routetracker *routetracker)
 {
-	// TODO
+	assert(routetracker);
+	assert(routetracker->payment);
+
+	/* A payment may finish while some of its routes are still in flight,
+	 * eg. with MPP or when a retry succeeds before every previous part has
+	 * been resolved. Those routes are no longer needed, so remove them
+	 * from the global pending routes map and free them. Otherwise they
+	 * (and their onions) would be leaked at shutdown.
+	 *
+	 * We first collect the matching routes because freeing a route runs a
+	 * destructor that removes it from the map, which would invalidate the
+	 * iterator. */
+	struct route **stale = tal_arr(tmpctx, struct route *, 0);
+	struct route_map_iter it;
+	for (struct route *route =
+		 route_map_first(pay_plugin->pending_routes, &it);
+	     route; route = route_map_next(pay_plugin->pending_routes, &it)) {
+		if (sha256_eq(
+			&route->key.payment_hash,
+			&routetracker->payment->payment_info.payment_hash))
+			tal_arr_expand(&stale, route);
+	}
+
+	for (size_t i = 0; i < tal_count(stale); i++)
+		tal_free(stale[i]);
 }
 
 static void routetracker_add_to_final(struct routetracker *routetracker,
