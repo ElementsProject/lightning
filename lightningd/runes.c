@@ -328,7 +328,10 @@ static bool is_rune_blacklisted(const struct runes *runes, const struct rune *ru
 		return false;
 	}
 	uid = rune_unique_id(rune);
-	return uid < MAX_BLACKLIST_NUM && bitmap_test_bit(runes->blist_bitmap, uid);
+	/* blacklistrune cannot reach these, so we could never revoke them. */
+	if (uid >= MAX_BLACKLIST_NUM)
+		return true;
+	return bitmap_test_bit(runes->blist_bitmap, uid);
 }
 
 static void join_strings(char **base, const char *connector, char *append)
