@@ -394,7 +394,12 @@ def test_htlc_sig_persistence(node_factory, bitcoind, executor, chainparams):
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l1.fundchannel(l2, 10**6)
     f = executor.submit(l1.pay, l2, 31337000)
-    l1.daemon.wait_for_log(r'HTLC out 0 RCVD_ADD_ACK_COMMIT->SENT_ADD_ACK_REVOCATION')
+    # Wait until the executor thread is blocked in `waitsendpay` before we
+    # stop: if l1 goes down before that RPC connects, the executor raises
+    # ConnectionRefusedError instead of the RpcError we expect below.  Order
+    # is not guaranteed, since the thread can be delayed scheduling the RPC.
+    l1.daemon.wait_for_logs([r'Payment part [0-9]+/[0-9]+/[0-9]+ status',
+                             r'HTLC out 0 RCVD_ADD_ACK_COMMIT->SENT_ADD_ACK_REVOCATION'])
     l1.stop()
 
     # `pay` call is lost
