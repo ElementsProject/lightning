@@ -2655,7 +2655,6 @@ def test_channel_spendable(node_factory, bitcoind, anchors):
     l2.rpc.waitsendpay(payment_hash, TIMEOUT)
 
 
-@pytest.mark.xfail(strict=True, reason="extra HTLC set part during invoice_payment hook frees the set timer twice")
 def test_htlc_set_part_during_invoice_hook(node_factory):
     """An extra part arriving while the invoice_payment hook is pending
     must not re-dispatch the (already complete) HTLC set."""
