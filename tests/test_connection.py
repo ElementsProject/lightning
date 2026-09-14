@@ -4570,6 +4570,50 @@ def test_connect_transient_pending(node_factory, bitcoind, executor):
             fut2.result(TIMEOUT)
 
 
+@pytest.mark.xfail(strict=True, reason="uninitialised invreq_id formatted into invoice_error")
+def test_onionmessage_unknown_invoice_no_leak(node_factory):
+    """An unsolicited invoice must not echo uninitialised memory back.
+
+    Adapted from the reporter's PoC.  On a non-developer node, rejecting an
+    invoice with invreq_paths that did not arrive via a path formatted an
+    invreq_id which had not been set yet into the invoice_error text.
+    """
+    l1 = node_factory.get_node()
+    # Non-developer node: developer mode takes a different error branch.
+    l2 = node_factory.get_node(start=False)
+    l2.daemon.early_opts = [o for o in l2.daemon.early_opts if o != '--developer']
+    l2.daemon.opts = {k: v for k, v in l2.daemon.opts.items()
+                      if not k.startswith('dev-')}
+    l2.start()
+    l1.connect(l2)
+
+    # invoice with only invreq_paths: first_node_id (point), first_path_key,
+    # num_hops=0.
+    l2_pub = bytes.fromhex(l2.info['id'])
+    blinded_path = (l2_pub
+                    + coincurve.PrivateKey().public_key.format(True)
+                    + b'\x00')
+    invoice = TlvPayload()
+    invoice.add_field(90, blinded_path)
+    tlv = TlvPayload()
+    tlv.add_field(66, invoice.to_bytes(include_prefix=False))
+
+    # Route-blinding tweak so the onion decrypts as l2's real key.
+    blinding = coincurve.PrivateKey()
+    path_key = blinding.public_key.format(True)
+    ss = blinding.ecdh(coincurve.PublicKey(l2_pub).public_key)
+    tweak = hmac.new(b'blinded_node_id', ss, sha256).digest()
+    blinded_pub = coincurve.PublicKey(l2_pub).multiply(tweak).format(True)
+
+    onion = l1.rpc.createonion(hops=[{'pubkey': blinded_pub.hex(),
+                                      'payload': tlv.to_bytes().hex()}],
+                               assocdata="")
+    l2.rpc.injectonionmessage(message=onion['onion'], path_key=path_key.hex())
+
+    l2.daemon.wait_for_log(r'Unknown invoice_request')
+    assert not l2.daemon.is_in_log(r'Unknown invoice_request [0-9a-f]{64}')
+
+
 def test_injectonionmessage(node_factory):
     """Test for injectonionmessage API"""
     # Hardcoded onion message was created with old hsmsecret format
