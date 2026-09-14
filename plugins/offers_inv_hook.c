@@ -220,7 +220,7 @@ struct command_result *handle_invoice(struct command *cmd,
 {
 	const struct offers_data *od = get_offers_data(cmd->plugin);
 	size_t len = tal_count(invbin);
-	struct inv *inv = tal(cmd, struct inv);
+	struct inv *inv = talz(cmd, struct inv);
 	struct out_req *req;
 	int bad_feature;
 	u64 invexpiry;
@@ -253,8 +253,7 @@ struct command_result *handle_invoice(struct command *cmd,
 						tal_hex(tmpctx, path_secret),
 						fmt_secret(tmpctx, secret));
 			/* Normally, "I don't know what you're talking about!" */
-			return fail_inv(cmd, inv, "Unknown invoice_request %s",
-					fmt_sha256(tmpctx, &inv->invreq_id));
+			return fail_inv(cmd, inv, "Unknown invoice_request");
 		}
 	} else {
 		/* BOLT #12:
@@ -266,8 +265,7 @@ struct command_result *handle_invoice(struct command *cmd,
 			if (command_dev_apis(cmd))
 				return fail_inv(cmd, inv, "Expected to use invreq_path!");
 			/* Normally, "I don't know what you're talking about!" */
-			return fail_inv(cmd, inv, "Unknown invoice_request %s",
-					fmt_sha256(tmpctx, &inv->invreq_id));
+			return fail_inv(cmd, inv, "Unknown invoice_request");
 		}
 	}
 
