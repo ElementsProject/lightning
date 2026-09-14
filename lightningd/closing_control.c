@@ -266,6 +266,10 @@ static bool closing_fee_is_acceptable(struct lightningd *ld,
 
 		/* If we don't have a feerate estimate, this gives feerate_floor */
 		min_feerate = feerate_min(ld, NULL);
+		/* A feerange given to `close` is what closingd negotiated
+		 * within; its minimum is our floor too. */
+		if (channel->closing_feerate_range)
+			min_feerate = channel->closing_feerate_range[0];
 		max_feerate = calc_max_close_feerate(ld, channel);
 
 		min_fee = amount_tx_fee(min_feerate, weight);

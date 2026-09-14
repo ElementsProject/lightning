@@ -4283,7 +4283,6 @@ def test_closing_fee_rounding_at_ceiling(node_factory, bitcoind):
     assert tx['txid'] in [o['txid'] for o in l2.rpc.listfunds()['outputs']]
 
 
-@pytest.mark.xfail(strict=True, reason="lightningd rejects the fee below its estimate floor and broadcasts the commitment")
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd anchors not supportd')
 def test_closing_feerange_below_estimates(node_factory, bitcoind):
     """A close with a feerange below the estimate floor stays a mutual close.
