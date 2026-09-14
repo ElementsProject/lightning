@@ -2531,7 +2531,8 @@ def test_onchain_middleman_fulfill_after_fail(node_factory, bitcoind):
 
     forwards = l2.rpc.listforwards()['forwards']
     assert [f['status'] for f in forwards] == ['settled', 'settled']
-@pytest.mark.xfail(strict=True, reason="onchaind matches HTLC outputs without the amount")
+
+
 def test_onchain_middleman_trimmed_same_hash(node_factory, bitcoind):
     """A trimmed HTLC must not be mistaken for a live one with the same hash.
 
