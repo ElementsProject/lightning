@@ -959,3 +959,26 @@ def test_makesecret_rune_master_secret(node_factory):
     # Only the exact label is reserved.
     l1.rpc.makesecret(string='commando2')
     l1.rpc.makesecret(string='command')
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "Direct database manipulation")
+@pytest.mark.xfail(strict=True, reason="runes beyond the blacklist range are never treated as blacklisted")
+def test_blacklistrune_out_of_range(node_factory):
+    """blacklistrune cannot reach ids >= 100,000,000, so those must be refused"""
+    l1 = node_factory.get_node()
+
+    l1.rpc.createrune()
+    # The next unique_id is max(id) + 1: jump to the edge of the range.
+    l1.stop()
+    l1.db_manip("UPDATE runes SET id=99999999 WHERE id=0;")
+    l1.start()
+
+    rune = l1.rpc.createrune()
+    assert rune['unique_id'] == '100000000'
+
+    # Blacklist everything we are able to.
+    l1.rpc.blacklistrune(start=0, end=99_999_999)
+
+    with pytest.raises(RpcError, match='Not authorized: Blacklisted rune') as exc_info:
+        l1.rpc.checkrune(nodeid=l1.info['id'],
+                         rune=rune['rune'],
+                         method='getinfo')
+    assert exc_info.value.error['code'] == 0x5df
