@@ -294,27 +294,35 @@ def test_grpc_wrong_auth(node_factory):
         )
 
         channel = grpc.secure_channel(
-            f"localhost:{node.grpc_port}",
+            f"127.0.0.1:{node.grpc_port}",
             creds,
             options=(('grpc.ssl_target_name_override', 'cln'),)
         )
         return clnpb.NodeStub(channel)
 
+    # Calls get a deadline: without one, a connection that never completes
+    # its handshake blocks the test forever instead of failing it.
     stub = connect(l1)
     # This should work, it's the correct node
-    stub.Getinfo(clnpb.GetinfoRequest())
+    stub.Getinfo(clnpb.GetinfoRequest(), timeout=TIMEOUT)
 
+    # Start l2 on l1's gRPC port, so the old stub really talks to a different
+    # node rather than to a freed port.
     l1.stop()
+    l2.grpc_port = l1.grpc_port
+    l2.daemon.opts['grpc-port'] = l1.grpc_port
     l2.start()
     wait_for_grpc_start(l2)
 
-    # This should not work, it's a different node
-    with pytest.raises(Exception, match=r'Socket closed|StatusCode.UNAVAILABLE'):
-        stub.Getinfo(clnpb.GetinfoRequest())
+    # This should not work, it's a different node. Depending on timing the
+    # client either gives up on the rejected handshake or keeps retrying it
+    # until the deadline expires; both mean the old credentials are refused.
+    with pytest.raises(Exception, match=r'Socket closed|StatusCode.UNAVAILABLE|StatusCode.DEADLINE_EXCEEDED'):
+        stub.Getinfo(clnpb.GetinfoRequest(), timeout=10)
 
     # Now load the correct ones and we should be good to go
     stub = connect(l2)
-    stub.Getinfo(clnpb.GetinfoRequest())
+    stub.Getinfo(clnpb.GetinfoRequest(), timeout=TIMEOUT)
 
 
 def test_cln_plugin_reentrant(node_factory, executor):
