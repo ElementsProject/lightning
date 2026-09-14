@@ -933,7 +933,6 @@ def forge_rune(secret, unique_id):
     return base64.urlsafe_b64encode(authcode + restr).decode()
 
 
-@pytest.mark.xfail(strict=True, reason="makesecret hands out the rune master secret")
 def test_makesecret_rune_master_secret(node_factory):
     """Anyone allowed makesecret must not be able to mint runes of their own"""
     l1 = node_factory.get_node()
