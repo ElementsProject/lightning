@@ -744,6 +744,26 @@ def test_splice_abort_after_sigs_sent(node_factory, bitcoind):
 
     funds_result = l1.rpc.fundpsbt("109000sat", 0, 0, excess_as_change=True)
 
+@pytest.mark.parametrize("closer", ["initiator", "accepter"])
+@pytest.mark.xfail(strict=True, reason="force close after a locked splice broadcasts the stale lock-time commitment")
+def test_splice_locked_then_force_close(node_factory, bitcoind, closer):
+    """A force close after a locked splice must drop our current commitment.
+
+    Once the splice locked, the channel's last_tx moved on with every
+    commitment update, but the inflight kept the commitment from the moment
+    of the lock.  A unilateral close broadcast that stale inflight commitment
+    instead of channel->last_tx, and after any post-lock update it has been
+    revoked: our peer would sweep it with a penalty, and our own onchaind,
+    not recognising it, took it for a revoked commitment of theirs.
+    """
+    l1, l2 = node_factory.line_graph(2, fundamount=1000000,
+                                     wait_for_announce=True,
+                                     opts={'allow_warning': True})
+    victim, peer = (l1, l2) if closer == "initiator" else (l2, l1)
+
+    chan_id = l1.get_channel_id(l2)
+
+    funds_result = l1.rpc.fundpsbt("111722sat", 0, 0, excess_as_change=True)
     result = l1.rpc.splice_init(chan_id, 100000, funds_result['psbt'])
     result = l1.rpc.splice_update(chan_id, result['psbt'])
     assert result['commitments_secured'] is False
@@ -768,3 +788,42 @@ def test_splice_abort_after_sigs_sent(node_factory, bitcoind):
 
     assert l2.db_query("SELECT count(*) as c FROM channel_funding_inflights;")[0]['c'] == 1, \
         "inflight dropped by tx_abort after we had already sent our signature"
+    result = l1.rpc.signpsbt(result['psbt'])
+    result = l1.rpc.splice_signed(chan_id, result['signed_psbt'])
+
+    l2.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
+    l1.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
+
+    bitcoind.generate_block(6, wait_for_mempool=result['txid'])
+
+    l2.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
+    l1.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
+    lock_time = bitcoind.rpc.decoderawtransaction(
+        victim.rpc.dev_sign_last_tx(peer.info['id'])['tx'])['txid']
+
+    # Any commitment update after the lock revokes the lock-time commitment.
+    inv = l2.rpc.invoice(10**7, 'post-lock', 'post-lock')
+    l1.rpc.xpay(inv['bolt11'])
+    for n in (l1, l2):
+        wait_for(lambda: only_one(n.rpc.listpeerchannels()['channels'])['htlcs'] == [])
+
+    current = bitcoind.rpc.decoderawtransaction(
+        victim.rpc.dev_sign_last_tx(peer.info['id'])['tx'])['txid']
+
+    # Keep the peer from dropping its own commitment on our error, so ours is
+    # the only one that can confirm.
+    victim.rpc.disconnect(peer.info['id'], force=True)
+    victim.rpc.dev_fail(peer.info['id'])
+    victim.daemon.wait_for_log('Peer permanent failure in CHANNELD_NORMAL')
+    broadcast = victim.daemon.wait_for_log(r'Broadcasting txid [0-9a-f]{64}')
+    assert current != lock_time
+    assert lock_time not in broadcast, "broadcast the revoked lock-time commitment"
+    assert current in broadcast
+
+    bitcoind.generate_block(1, wait_for_mempool=current)
+
+    victim.daemon.wait_for_log(r'Resolved FUNDING_TRANSACTION/FUNDING_OUTPUT by OUR_UNILATERAL')
+    peer.daemon.wait_for_log(r'Resolved FUNDING_TRANSACTION/FUNDING_OUTPUT by THEIR_UNILATERAL')
+    assert not victim.daemon.is_in_log('THEIR_REVOKED_UNILATERAL')
+    assert not peer.daemon.is_in_log('THEIR_REVOKED_UNILATERAL')
+    assert not peer.daemon.is_in_log('OUR_PENALTY_TX')
