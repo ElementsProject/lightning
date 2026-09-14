@@ -4625,6 +4625,54 @@ def test_onionmessage_reply_path_no_hops(node_factory):
     # node stays up. Without the fix this log never appears: the offers plugin
     # calls plugin_err and lightningd_exit takes the node down instead.
     l2.daemon.wait_for_log('Ignoring reply path with no hops', timeout=30)
+def inject_onionmsg_tlv(sender, dest, tlv):
+    """Have `sender` build a one-hop onion message carrying `tlv` and inject
+    it into `dest` as if it had arrived from the network."""
+    dest_pub = bytes.fromhex(dest.info['id'])
+    blinding = coincurve.PrivateKey()
+    path_key = blinding.public_key.format(True)
+
+    # Route-blinding tweak so the onion decrypts as dest's real key.
+    ss = blinding.ecdh(coincurve.PublicKey(dest_pub).public_key)
+    tweak = hmac.new(b'blinded_node_id', ss, sha256).digest()
+    blinded_pub = coincurve.PublicKey(dest_pub).multiply(tweak).format(True)
+
+    onion = sender.rpc.createonion(hops=[{'pubkey': blinded_pub.hex(),
+                                          'payload': tlv.to_bytes().hex()}],
+                                   assocdata="")
+    dest.rpc.injectonionmessage(message=onion['onion'], path_key=path_key.hex())
+
+
+@pytest.mark.xfail(strict=True, reason="zero first_scid used as a sentinel for first_node_id")
+def test_onionmessage_reply_path_zero_scid(node_factory):
+    """A reply_path whose first hop is scid 0x0x0 must be used as that scid.
+
+    Adapted from the reporter's PoC.  A zero scid is valid on the wire, but
+    json_to_blinded_path used it as a sentinel for "a first_node_id was
+    given", and copied an uninitialised stack pubkey into the reply path.
+    No channel is needed, only a peer.
+    """
+    l1 = node_factory.get_node()
+    l2 = node_factory.get_node()
+    l1.connect(l2)
+
+    # blinded_path: first_node_id as sciddir (dir 0, scid 0x0x0),
+    # first_path_key, num_hops=1, one hop with empty encrypted data.
+    hop = coincurve.PrivateKey().public_key.format(True) + b'\x00\x00'
+    reply_path = (b'\x00' + bytes(8)
+                  + coincurve.PrivateKey().public_key.format(True)
+                  + b'\x01' + hop)
+    tlv = TlvPayload()
+    tlv.add_field(2, reply_path)
+    # An invalid invoice_request, so offers tries to reply with an error.
+    tlv.add_field(64, b'\xff')
+
+    inject_onionmsg_tlv(l1, l2, tlv)
+
+    # The reply must be routed via the zero scid (which cannot resolve),
+    # not via whatever pubkey happened to be on the stack.
+    l2.daemon.wait_for_log(r'Cannot resolve initial reply scidd 0x0x0/0')
+    assert not l2.daemon.is_in_log('Failed to connect for reply via')
     assert l2.rpc.getinfo()['id'] == l2.info['id']
 
 
