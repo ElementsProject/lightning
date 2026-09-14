@@ -2531,6 +2531,81 @@ def test_onchain_middleman_fulfill_after_fail(node_factory, bitcoind):
 
     forwards = l2.rpc.listforwards()['forwards']
     assert [f['status'] for f in forwards] == ['settled', 'settled']
+@pytest.mark.xfail(strict=True, reason="onchaind matches HTLC outputs without the amount")
+def test_onchain_middleman_trimmed_same_hash(node_factory, bitcoind):
+    """A trimmed HTLC must not be mistaken for a live one with the same hash.
+
+    l2 forwards two HTLCs to l3 with the same payment hash and cltv: one is
+    trimmed from the commitment, the other isn't.  Their output scripts are
+    identical, so only the amount tells them apart.  If l2 matches the live
+    output to the trimmed HTLC, it fails the large HTLC upstream as missing,
+    and l3 then takes the large output onchain with the preimage.
+    """
+    opts = {'max-dust-htlc-exposure-msat': '1000000sat'}
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True,
+                                         opts=[opts,
+                                               {**opts, 'dev-no-reconnect': None},
+                                               {**opts, 'dev-no-reconnect': None,
+                                                'disconnect': ['-WIRE_UPDATE_FULFILL_HTLC']}])
+
+    # l3 needs funds of its own to pay for its onchain claim.
+    l3.fundwallet(10**6)
+    # Both parts must get the same cltv.
+    sync_blockheight(bitcoind, [l1, l2, l3])
+
+    # The small part is below dust, the large one isn't.
+    small, large = 1000, 100_000_000
+    inv = l3.rpc.invoice(small + large, 'trimmed', 'desc')
+    rhash = inv['payment_hash']
+
+    for partid, amt in [(1, small), (2, large)]:
+        l1.rpc.sendpay(l1.single_route(l3.info['id'], amt), rhash,
+                       amount_msat=small + large,
+                       payment_secret=inv['payment_secret'],
+                       partid=partid, groupid=1)
+        wait_for(lambda: len(l2.rpc.listforwards()['forwards']) == partid)
+
+    # l3 has the whole payment, but doesn't tell l2 the preimage.
+    l3.daemon.wait_for_log('dev_disconnect: -WIRE_UPDATE_FULFILL_HTLC')
+    htlcs = only_one(l2.rpc.listpeerchannels(l3.info['id'])['channels'])['htlcs']
+    assert len(htlcs) == 2
+    assert len(set(h['expiry'] for h in htlcs)) == 1
+
+    # l3 drops to chain, then goes away so it can't reveal the preimage yet.
+    commitment = l3.rpc.dev_sign_last_tx(l2.info['id'])['tx']
+    outputs = bitcoind.rpc.decoderawtransaction(commitment)['vout']
+    values = [round(o['value'] * 10**8) for o in outputs]
+    assert large // 1000 in values
+    assert small // 1000 not in values
+    l3.stop()
+    bitcoind.rpc.sendrawtransaction(commitment)
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    l2.daemon.wait_for_log('Their unilateral tx')
+
+    # l2 can fail the trimmed HTLC upstream straight away, but not the live one.
+    def part_status():
+        return {p['partid']: p['status'] for p in l1.rpc.listsendpays(payment_hash=rhash)['payments']}
+
+    wait_for(lambda: 'failed' in part_status().values())
+    assert part_status() == {1: 'failed', 2: 'pending'}
+
+    # l3 comes back and takes the live output with the preimage.
+    l3.start()
+    _, txid, _ = l3.wait_for_onchaind_tx('OUR_HTLC_SUCCESS_TX',
+                                         'OUR_UNILATERAL/THEIR_HTLC')
+    blocks = bitcoind.generate_block(1, wait_for_mempool=txid)
+    l2.daemon.wait_for_log('THEIR_UNILATERAL/OUR_HTLC gave us preimage')
+
+    # Elements has no txindex: name the block the claim was mined in.
+    commitment_txid = bitcoind.rpc.decoderawtransaction(commitment)['txid']
+    claim = bitcoind.rpc.getrawtransaction(txid, True, blocks[0])
+    vin = only_one([i for i in claim['vin'] if i['txid'] == commitment_txid])
+    assert values[vin['vout']] == large // 1000
+
+    # So l2 must fulfill the large HTLC upstream.
+    l1.rpc.waitsendpay(rhash, TIMEOUT, partid=2)
+    forward = only_one(l2.rpc.listforwards(status='settled')['forwards'])
+    assert forward['out_msat'] == large
 
 
 @pytest.mark.parametrize("anchors", [False, True])
