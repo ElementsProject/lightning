@@ -4269,11 +4269,30 @@ def test_htlc_no_force_close(node_factory, bitcoind, anchors):
 
     # Now, surprise!  l3 fulfills htlc (l2 loses out!)
     assert htlc_txs != []
+    # l3 was watching its own (censored) commitment tx, so it takes a while
+    # before it notices l2's commitment is the one onchain and tries to fulfill
+    # the HTLC by spending its HTLC output.  Wait for that attempt before we
+    # release the censored txs, otherwise we only broadcast l3's own commitment
+    # txs, which conflict with l2's (already mined) commitment and are rejected.
+    commit_txid = only_one(l2.rpc.listpeerchannels(l3.info['id'])['channels'])['scratch_txid']
+    wait_for(lambda: any(vin['txid'] == commit_txid
+                         for tx in htlc_txs
+                         for vin in bitcoind.rpc.decoderawtransaction(tx)['vin']))
+
+    # l3 can try the fulfill more than once (it rebroadcasts the same tx, or
+    # RBFs it if the feerate estimate changed), so keep only the txs spending
+    # l2's commitment, deduped by txid and in capture order (so a later RBF
+    # version replaces an earlier one).  l3's own commitment txs conflict with
+    # l2's mined commitment and can never be mined, so don't bother releasing
+    # them.
+    fulfill_txs = {}
     for tx in htlc_txs:
-        try:
-            bitcoind.rpc.sendrawtransaction(tx)
-        except bitcoin.rpc.VerifyError:
-            pass
+        d = bitcoind.rpc.decoderawtransaction(tx)
+        if any(vin['txid'] == commit_txid for vin in d['vin']):
+            fulfill_txs[d['txid']] = tx
+
+    for tx in fulfill_txs.values():
+        bitcoind.rpc.sendrawtransaction(tx)
 
     # l2 should note this, but not crash, at least.
     bitcoind.generate_block(1, wait_for_mempool=1)
