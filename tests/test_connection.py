@@ -4643,7 +4643,6 @@ def inject_onionmsg_tlv(sender, dest, tlv):
     dest.rpc.injectonionmessage(message=onion['onion'], path_key=path_key.hex())
 
 
-@pytest.mark.xfail(strict=True, reason="zero first_scid used as a sentinel for first_node_id")
 def test_onionmessage_reply_path_zero_scid(node_factory):
     """A reply_path whose first hop is scid 0x0x0 must be used as that scid.
 
