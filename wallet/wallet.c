@@ -3911,7 +3911,7 @@ struct htlc_stub *wallet_htlc_stubs(const tal_t *ctx, struct wallet *wallet,
 
 	stmt = db_prepare_v2(wallet->db,
 			     SQL("SELECT channel_id, direction, cltv_expiry, "
-				 "channel_htlc_id, payment_hash "
+				 "channel_htlc_id, payment_hash, msatoshi "
 				 "FROM channel_htlcs WHERE channel_id = ? AND min_commit_num <= ? AND ((max_commit_num IS NULL) OR max_commit_num >= ?);"));
 
 	db_bind_u64(stmt, chan->dbid);
@@ -3930,6 +3930,7 @@ struct htlc_stub *wallet_htlc_stubs(const tal_t *ctx, struct wallet *wallet,
 		stub.owner = db_col_int(stmt, "direction")==DIRECTION_INCOMING?REMOTE:LOCAL;
 		stub.cltv_expiry = db_col_int(stmt, "cltv_expiry");
 		stub.id = db_col_u64(stmt, "channel_htlc_id");
+		stub.amount = db_col_amount_msat(stmt, "msatoshi");
 
 		db_col_sha256(stmt, "payment_hash", &payment_hash);
 		ripemd160(&stub.ripemd, payment_hash.u.u8, sizeof(payment_hash.u));
