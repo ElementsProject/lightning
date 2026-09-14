@@ -4346,7 +4346,6 @@ def test_closing_minfee(node_factory, bitcoind):
     bitcoind.generate_block(1, wait_for_mempool=txid)
 
 
-@pytest.mark.xfail(strict=True, reason="lightningd rejects the rounded fee and broadcasts the commitment")
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd anchors not supportd')
 def test_closing_fee_rounding_at_ceiling(node_factory, bitcoind):
     """A close pinned at the fee ceiling stays a mutual close.
