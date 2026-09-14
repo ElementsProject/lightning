@@ -320,6 +320,9 @@ struct lightningd {
 	/* Speedup reconnect delay, for testing. */
 	bool dev_fast_reconnect;
 
+	/* Reject every closing fee the peer offers. */
+	bool dev_reject_closing_fee;
+
 	/* This is the forced private key for the node. */
 	struct privkey *dev_force_privkey;
 

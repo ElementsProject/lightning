@@ -260,6 +260,11 @@ static bool closing_fee_is_acceptable(struct lightningd *ld,
 		  fmt_amount_sat(tmpctx, last_fee),
 		  weight);
 
+	if (ld->dev_reject_closing_fee) {
+		log_debug(channel->log, "... dev-reject-closing-fee");
+		return false;
+	}
+
 	if (!channel->ignore_fee_limits && !ld->config.ignore_fee_limits) {
 		struct amount_sat min_fee, max_fee;
 		u32 min_feerate, max_feerate;

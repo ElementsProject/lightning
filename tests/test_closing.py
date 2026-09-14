@@ -4318,6 +4318,31 @@ def test_closing_feerange_below_estimates(node_factory, bitcoind):
     assert tx['txid'] in [o['txid'] for o in l2.rpc.listfunds()['outputs']]
 
 
+@pytest.mark.xfail(strict=True, reason="closingd completes on a rejected fee and lightningd broadcasts the commitment")
+def test_closing_rejected_fee_fails_negotiation(node_factory, bitcoind):
+    """A closing fee lightningd rejects ends the negotiation.
+
+    closingd only learns the txid from lightningd's reply, never the
+    verdict, so it agrees to a rejected offer and lightningd broadcasts
+    the commitment as if it were the mutual close.  The known reasons for
+    a rejection are fixed, so --dev-reject-closing-fee forces one.
+    """
+    l1, l2 = node_factory.line_graph(2, opts=[{}, {'dev-reject-closing-fee': None}])
+    l1.pay(l2, 100000000)
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['htlcs'] == [])
+
+    # l2 refuses l1's offer, so nobody completes the negotiation and l1
+    # closes unilaterally when its timeout expires.
+    res = l1.rpc.close(l2.info['id'], unilateraltimeout=10)
+    assert res['type'] == 'unilateral'
+    assert not l2.daemon.is_in_log('We agreed on a closing fee')
+    l2.daemon.wait_for_log('outside our fee limits')
+
+    # The only transaction on the wire is that unilateral close.
+    txid = only_one(res['txids'])
+    wait_for(lambda: bitcoind.rpc.getrawmempool() == [txid])
+
+
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd anchors not supportd')
 def test_peer_anchor_push(node_factory, bitcoind, executor, chainparams):
     """Test that we use anchor on peer's commit to CPFP tx"""
