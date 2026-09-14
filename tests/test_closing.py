@@ -4361,6 +4361,42 @@ def test_closing_fee_rounding_at_ceiling(node_factory, bitcoind):
     assert tx['txid'] in [o['txid'] for o in l2.rpc.listfunds()['outputs']]
 
 
+@pytest.mark.xfail(strict=True, reason="lightningd rejects the fee below its estimate floor and broadcasts the commitment")
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd anchors not supportd')
+def test_closing_feerange_below_estimates(node_factory, bitcoind):
+    """A close with a feerange below the estimate floor stays a mutual close.
+
+    closingd negotiates within the feerange given to `close`, but
+    lightningd checked the agreed fee against the floor derived from its
+    fee estimates.  With estimates above the range, the agreed fee was
+    rejected as too low and the commitment was broadcast instead.
+    """
+    l1, l2 = node_factory.line_graph(2, opts={'feerates': (253, 253, 253, 253),
+                                              'may_reconnect': True})
+    l1.pay(l2, 100000000)
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['htlcs'] == [])
+
+    # l1's estimate floor becomes 1000perkw, well above the range.
+    l1.force_feerates(2000)
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    fee = closing_fee(253, 2)
+    res = l1.rpc.close(l2.info['id'], feerange=['253perkw', '253perkw'])
+    assert res['type'] == 'mutual'
+    tx = bitcoind.rpc.decoderawtransaction(only_one(res['txs']))
+
+    # A closing transaction at the agreed fee, not the commitment.
+    assert len(tx['vout']) == 2
+    assert tx['locktime'] == 0
+    billboard = only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['status']
+    assert 'CLOSINGD_SIGEXCHANGE:We agreed on a closing fee of {} satoshi for tx:{}'.format(fee, tx['txid']) in billboard
+
+    bitcoind.generate_block(1, wait_for_mempool=tx['txid'])
+    wait_for(lambda: 'ONCHAIN:Tracking mutual close transaction' in only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['status'])
+    assert tx['txid'] in [o['txid'] for o in l1.rpc.listfunds()['outputs']]
+    assert tx['txid'] in [o['txid'] for o in l2.rpc.listfunds()['outputs']]
+
+
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd anchors not supportd')
 def test_peer_anchor_push(node_factory, bitcoind, executor, chainparams):
     """Test that we use anchor on peer's commit to CPFP tx"""
