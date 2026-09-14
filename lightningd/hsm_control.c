@@ -1,6 +1,7 @@
 #include "config.h"
 #include <ccan/err/err.h>
 #include <ccan/fdpass/fdpass.h>
+#include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
 #include <common/bolt12_id.h>
 #include <common/errcode.h>
@@ -13,6 +14,7 @@
 #include <lightningd/hsm_control.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
+#include <lightningd/runes.h>
 #include <lightningd/subd.h>
 #include <wally_bip32.h>
 #include <wire/wire_sync.h>
@@ -340,6 +342,12 @@ static struct command_result *json_makesecret(struct command *cmd,
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "Must have either hex or string");
 	}
+
+	if (memeq(data, tal_bytelen(data),
+		  RUNES_SECRET_LABEL, strlen(RUNES_SECRET_LABEL)))
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "'%s' is reserved for internal use",
+				    RUNES_SECRET_LABEL);
 
 	if (command_check_only(cmd))
 		return command_check_done(cmd);
