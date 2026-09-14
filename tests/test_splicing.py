@@ -745,7 +745,6 @@ def test_splice_abort_after_sigs_sent(node_factory, bitcoind):
     funds_result = l1.rpc.fundpsbt("109000sat", 0, 0, excess_as_change=True)
 
 @pytest.mark.parametrize("closer", ["initiator", "accepter"])
-@pytest.mark.xfail(strict=True, reason="force close after a locked splice broadcasts the stale lock-time commitment")
 def test_splice_locked_then_force_close(node_factory, bitcoind, closer):
     """A force close after a locked splice must drop our current commitment.
 
