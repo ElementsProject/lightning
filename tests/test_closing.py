@@ -4396,7 +4396,6 @@ def test_closing_feerange_below_estimates(node_factory, bitcoind):
     assert tx['txid'] in [o['txid'] for o in l2.rpc.listfunds()['outputs']]
 
 
-@pytest.mark.xfail(strict=True, reason="closingd completes on a rejected fee and lightningd broadcasts the commitment")
 def test_closing_rejected_fee_fails_negotiation(node_factory, bitcoind):
     """A closing fee lightningd rejects ends the negotiation.
 

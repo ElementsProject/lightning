@@ -324,6 +324,7 @@ static void peer_received_closing_signature(struct channel *channel,
 	struct bitcoin_txid tx_id;
 	struct lightningd *ld = channel->peer->ld;
 	u8 *funding_wscript;
+	bool acceptable;
 
 	if (!fromwire_closingd_received_signature(msg, msg, &sig, &tx)) {
 		channel_internal_error(channel,
@@ -352,17 +353,23 @@ static void peer_received_closing_signature(struct channel *channel,
 		return;
 	}
 
-	if (closing_fee_is_acceptable(ld, channel, tx)) {
+	acceptable = closing_fee_is_acceptable(ld, channel, tx);
+	if (acceptable) {
 		channel_set_last_tx(channel, tx, &sig);
 		wallet_channel_save(ld->wallet, channel);
-	}
+	} else
+		log_unusual(channel->log,
+			    "Rejecting peer's closing fee offer:"
+			    " closingd must not agree to it");
 
-
-	// Send back the txid so we can update the billboard on selection.
+	/* Send back the txid so closingd can update the billboard, and
+	 * whether it may agree to this offer at all.  Without the verdict
+	 * a rejected offer would still complete the close, and last_tx,
+	 * still the commitment, would be broadcast as the mutual close. */
 	bitcoin_txid(channel->last_tx, &tx_id);
-	/* OK, you can continue now. */
 	subd_send_msg(channel->owner,
-		      take(towire_closingd_received_signature_reply(channel, &tx_id)));
+		      take(towire_closingd_received_signature_reply(channel, &tx_id,
+								    acceptable)));
 }
 
 static void peer_closing_complete(struct channel *channel, const u8 *msg)
