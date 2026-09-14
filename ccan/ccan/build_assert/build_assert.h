@@ -52,8 +52,11 @@
  *		  + BUILD_ASSERT_OR_ZERO(offsetof(struct foo, string) == 0))
  */
 #if HAVE_STATIC_ASSERT
+/* Union, not struct: gcc-13 -O3 warns "anonymous struct declared inside
+ * parameter list" when the expansion is embedded in a parameter list via
+ * typeof(), as typesafe_cb() does with its @arg. This works */
 #define BUILD_ASSERT_OR_ZERO(cond) \
-	(sizeof(struct { _Static_assert(cond, "BUILD_ASSERT_OR_ZERO"); char c; }) - 1)
+	(sizeof(union { _Static_assert(cond, "BUILD_ASSERT_OR_ZERO"); char c; }) - 1)
 #else
 #define BUILD_ASSERT_OR_ZERO(cond) \
 	(sizeof(char [1 - 2*!(cond)]) - 1)
