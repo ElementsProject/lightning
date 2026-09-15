@@ -2376,16 +2376,29 @@ def test_gossip_force_broadcast_channel_msgs(node_factory, bitcoind):
                                 '--no-gossip',
                                 '--hex',
                                 '--network={}'.format(TEST_NETWORK),
-                                '--max-messages={}'.format(7),
                                 '--handle-pings',
-                                '--timeout-after=30',
                                 '{}@localhost:{}'.format(l1.info['id'], l1.port)],
                                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    # Wait for the gossipwith peer to connect before mining the final block:
+    # the channel announcement is only force-broadcast to peers which are
+    # connected when it happens, so if we mine first it can be missed.
+    wait_for(lambda: len(l1.rpc.listpeers()['peers']) == 2
+             and all(p['connected'] for p in l1.rpc.listpeers()['peers']))
+    start = len(l1.daemon.logs)
     # Now do the final announcement
     bitcoind.generate_block(1)
 
-    stdout, stderr = process.communicate(timeout=30 + TIMEOUT)
-    assert process.returncode == 0, f"Exit failed: output = {stderr}"
+    # Wait until it has been force-broadcast to us.  We can't predict the
+    # exact number of noise messages (timestamp_filter, queries, pings), so
+    # keep reading for a fixed window rather than waiting for a message count.
+    wait_for(lambda: l1.daemon.is_in_log('Channel fully announced',
+                                         start=start),
+             timeout=30 + TIMEOUT)
+    try:
+        stdout, stderr = process.communicate(timeout=30)
+    except subprocess.TimeoutExpired:
+        process.terminate()
+        stdout, stderr = process.communicate()
 
     lines = stdout.decode('utf-8').splitlines()
     types = {'0100': 'channel_announce',
@@ -2408,8 +2421,13 @@ def test_gossip_force_broadcast_channel_msgs(node_factory, bitcoind):
     del tally['query_channel_range']
     del tally['ping']
     del tally['gossip_filter']
-    assert tally == {'channel_announce': 1,
-                     'channel_update': 1,
+    # We can get the channel_announcement twice: once when lightningd
+    # force-broadcasts our new gossip to connected peers, and once from
+    # connectd's stream (which sends our own channel_announcement regardless
+    # of the peer's timestamp filter).  Both are valid, so accept either.
+    assert tally['channel_announce'] in (1, 2)
+    del tally['channel_announce']
+    assert tally == {'channel_update': 1,
                      'node_announce': 1}
 
     # Make sure l1 sees l2's channel update
@@ -2421,16 +2439,25 @@ def test_gossip_force_broadcast_channel_msgs(node_factory, bitcoind):
     l1.start()
 
     # If we reconnect, we will get the four immediate messages, then
-    # a cupdate refresh (due to fast gossip).
-    lines = subprocess.run(['devtools/gossipwith',
-                            '--no-gossip',
-                            '--hex',
-                            '--network={}'.format(TEST_NETWORK),
-                            '--max-messages={}'.format(10),
-                            '--handle-pings',
-                            '{}@localhost:{}'.format(l1.info['id'], l1.port)],
-                           check=True,
-                           timeout=120 + TIMEOUT, stdout=subprocess.PIPE).stdout.decode('utf-8').split()
+    # a cupdate refresh (due to fast gossip).  We can't predict the exact
+    # number of messages we'll receive, so read until the refresh has been
+    # broadcast and then stop reading.
+    start = len(l1.daemon.logs)
+    process = subprocess.Popen(['devtools/gossipwith',
+                                '--no-gossip',
+                                '--hex',
+                                '--network={}'.format(TEST_NETWORK),
+                                '--handle-pings',
+                                '{}@localhost:{}'.format(l1.info['id'], l1.port)],
+                               stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    wait_for(lambda: l1.daemon.is_in_log('Sending keepalive channel_update',
+                                         start=start),
+             timeout=120 + TIMEOUT)
+    # Give connectd a moment to write the update to the peer.
+    time.sleep(2)
+    process.terminate()
+    stdout, stderr = process.communicate(timeout=TIMEOUT)
+    lines = stdout.decode('utf-8').split()
 
     tally = {key: 0 for key in types.values()}
     for l in lines:
