@@ -20,6 +20,19 @@ void watch_opening_inflight(struct lightningd *ld,
 /* Close connection to an unsaved channel */
 void channel_unsaved_close_conn(struct channel *channel, const char *why);
 
+/* Bound retention of a pending saved dual-open while its peer is absent. */
+void dual_open_attempt_peer_disconnected(struct channel *channel);
+
+/* Serialize replacement behind destruction of the current dualopend. */
+void dual_open_owner_begin_retirement(struct channel *channel,
+				      struct subd *retiring_owner);
+
+/* True when an RPC has been serialized but not delivered to a ready owner. */
+bool dual_open_attempt_waiting_for_owner(const struct channel *channel);
+
+/* Connectd accepted (or rejected) the pending dualopend peer route. */
+void dual_open_owner_route_result(struct lightningd *ld, const u8 *msg);
+
 void NO_NULL_ARGS json_add_unsaved_channel(struct command *cmd,
 					   struct json_stream *response,
 					   const struct channel *channel,

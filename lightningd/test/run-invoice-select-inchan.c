@@ -128,6 +128,20 @@ const char *channel_state_str(enum channel_state state UNNEEDED)
 /* Generated stub for channel_unsaved_close_conn */
 void channel_unsaved_close_conn(struct channel *channel UNNEEDED, const char *why UNNEEDED)
 { fprintf(stderr, "channel_unsaved_close_conn called!\n"); abort(); }
+/* Generated stub for dual_open_attempt_peer_disconnected */
+void dual_open_attempt_peer_disconnected(struct channel *channel UNNEEDED)
+{
+}
+/* Generated stub for dual_open_attempt_waiting_for_owner */
+bool dual_open_attempt_waiting_for_owner(const struct channel *channel UNNEEDED)
+{
+	return false;
+}
+/* Generated stub for dual_open_owner_begin_retirement */
+void dual_open_owner_begin_retirement(struct channel *channel UNNEEDED,
+				      struct subd *retiring_owner UNNEEDED)
+{
+}
 /* Generated stub for channel_update_feerates */
 void channel_update_feerates(struct lightningd *ld UNNEEDED, const struct channel *channel UNNEEDED)
 { fprintf(stderr, "channel_update_feerates called!\n"); abort(); }

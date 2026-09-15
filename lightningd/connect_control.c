@@ -548,6 +548,8 @@ static unsigned connectd_msg(struct subd *connectd, const u8 *msg, const int *fd
 	case WIRE_CONNECTD_DEV_REPORT_FDS:
 	case WIRE_CONNECTD_PEER_SEND_MSG:
 	case WIRE_CONNECTD_PEER_CONNECT_SUBD:
+	case WIRE_CONNECTD_PEER_CONNECT_SUBD_TRACKED:
+	case WIRE_CONNECTD_PEER_RESUME_SUBD:
 	case WIRE_CONNECTD_PING:
 	case WIRE_CONNECTD_SEND_ONIONMSG:
 	case WIRE_CONNECTD_INJECT_ONIONMSG:
@@ -564,6 +566,10 @@ static unsigned connectd_msg(struct subd *connectd, const u8 *msg, const int *fd
 	case WIRE_CONNECTD_DEV_MEMLEAK_REPLY:
 	case WIRE_CONNECTD_START_SHUTDOWN_REPLY:
 	case WIRE_CONNECTD_INJECT_ONIONMSG_REPLY:
+		break;
+
+	case WIRE_CONNECTD_PEER_CONNECT_SUBD_REPLY:
+		dual_open_owner_route_result(connectd->ld, msg);
 		break;
 
 	case WIRE_CONNECTD_PEER_CONNECTED:
