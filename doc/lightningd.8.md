@@ -148,9 +148,9 @@ confirmed deeply.
 
 Once the channel *state* is *CHANNELD\_NORMAL*, you can start paying
 merchants over Lightning. Acquire a Lightning invoice from your favorite
-merchant, and use lightning-pay(7) to pay it:
+merchant, and use lightning-xpay(7) to pay it:
 
-    $ lightning-cli pay $INVOICE
+    $ lightning-cli xpay $INVOICE
 
 ERRORS CODE
 ---
@@ -184,7 +184,7 @@ SEE ALSO
 lightningd-rpc(7),
 lightning-listconfigs(7), lightningd-config(5), lightning-cli(1),
 lightning-newaddr(7), lightning-listfunds(7), lightning-connect(7),
-lightning-fundchannel(7), lightning-listpeers(7), lightning-pay(7),
+lightning-fundchannel(7), lightning-listpeers(7), lightning-xpay(7),
 lightning-hsmtool(8)
 
 RESOURCES

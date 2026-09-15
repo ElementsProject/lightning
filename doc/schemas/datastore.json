@@ -72,7 +72,9 @@
   },
   "response": {
     "required": [
-      "key"
+      "key",
+      "generation",
+      "hex"
     ],
     "additionalProperties": false,
     "properties": {

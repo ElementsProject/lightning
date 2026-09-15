@@ -12,11 +12,11 @@
     "The plugin can:",
     "- accept the payment by returning `{\"result\": \"continue\"}`",
     "- reject the payment with a generic error using `{\"result\": \"reject\"}`",
-    "- reject the payment with a custom BOLT 4 failure message using the `failure_message` field",
+    "- reject the payment with a custom BOLT 4 failure message by returning only the `failure_message` field (i.e. without `result`)",
     "",
-    "If `failure_message` is provided, the payment will be failed with that message.",
-    "If result is \"reject\" and no `failure_message` is provided, the payment fails with `incorrect_or_unknown_payment_details`.",
-    "`failure_message` must NOT be provided when result is \"continue\".",
+    "If only `failure_message` is provided, the payment will be failed with that message.",
+    "If `result` is \"reject\"and no `failure_message` is provided, the payment fails with `incorrect_or_unknown_payment_details`.",
+    "`failure_message` is ignored if `result` is provided.",
     "",
     "Before version 23.11 the msat field was encoded as a string with an 'msat' suffix."
   ],
@@ -63,9 +63,7 @@
   },
   "response": {
     "additionalProperties": false,
-    "required": [
-      "result"
-    ],
+    "required": [],
     "properties": {
       "result": {
         "type": "string",
@@ -76,35 +74,39 @@
         "description": [
           "Controls whether the payment is accepted or rejected.",
           "\"continue\" accepts the payment.",
-          "\"reject\" fails the payment."
+          "\"reject\" fails the payment with `incorrect_or_unknown_payment_details`."
         ]
       },
       "failure_message": {
         "type": "hex",
         "description": [
           "Optional BOLT 4 failure message.",
-          "Used to provide a specific failure reason when rejecting the payment."
+          "Only used when `result` is absent: the payment is rejected with this failure message.",
+          "Ignored if `result` is present."
         ]
       }
     },
     "if": {
-      "properties": {
-        "result": {
-          "type": "string",
-          "enum": [
-            "reject"
-          ]
-        }
-      },
       "required": [
         "result"
       ]
     },
     "then": {
+      "additionalProperties": false,
+      "required": [],
       "properties": {
-        "failure_message": {
-          "type": "hex"
-        }
+        "result": {},
+        "failure_message": {}
+      }
+    },
+    "else": {
+      "additionalProperties": false,
+      "required": [
+        "failure_message"
+      ],
+      "properties": {
+        "result": {},
+        "failure_message": {}
       }
     }
   },

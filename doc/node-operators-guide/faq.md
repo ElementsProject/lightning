@@ -24,7 +24,7 @@ See the [listpeers](ref:listpeers) command.
 There are many reasons for a payment failure. The most common one is a [failure](https://github.com/lightning/bolts/blob/master/04-onion-routing.md#failure-messages)  
 along the route from you to the payee. The best (and most common) solution to a route failure problem is to open more channels, which should increase the available routes to the recipient and lower the probability of a failure.
 
-**Hint:** use the [`pay`](ref:pay) command which is will iterate through trying all possible routes,  
+**Hint:** use the [`xpay`](ref:xpay) command which is will iterate through trying all possible routes,
 instead of the low-level `sendpay` command which only tries the passed in route.
 
 ### How can I receive payments ?

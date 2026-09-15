@@ -887,8 +887,6 @@ fn test_onionmessage_recv() {
             .as_ref()
             .unwrap()
             .hops
-            .as_ref()
-            .unwrap()
             .len(),
         1
     );
@@ -898,8 +896,6 @@ fn test_onionmessage_recv() {
             .as_ref()
             .unwrap()
             .hops
-            .as_ref()
-            .unwrap()
             .first()
             .unwrap()
             .blinded_node_id
@@ -912,8 +908,6 @@ fn test_onionmessage_recv() {
             .as_ref()
             .unwrap()
             .hops
-            .as_ref()
-            .unwrap()
             .first()
             .unwrap()
             .encrypted_recipient_data,
@@ -925,25 +919,13 @@ fn test_onionmessage_recv() {
     );
     assert_eq!(d.onion_message.invoice.as_ref().unwrap(), "0a020d0dc");
     assert_eq!(d.onion_message.invoice_error.as_ref().unwrap(), "0a020d0dd");
-    assert_eq!(d.onion_message.unknown_fields.as_ref().unwrap().len(), 1);
+    assert_eq!(d.onion_message.unknown_fields.len(), 1);
     assert_eq!(
-        d.onion_message
-            .unknown_fields
-            .as_ref()
-            .unwrap()
-            .first()
-            .unwrap()
-            .number,
+        d.onion_message.unknown_fields.first().unwrap().number,
         12345
     );
     assert_eq!(
-        d.onion_message
-            .unknown_fields
-            .as_ref()
-            .unwrap()
-            .first()
-            .unwrap()
-            .value,
+        d.onion_message.unknown_fields.first().unwrap().value,
         "0a020d0de"
     );
     assert_serde_roundtrip!(d, OnionMessageRecvEvent);
@@ -1031,8 +1013,6 @@ fn test_onionmessage_recv_secret() {
             .as_ref()
             .unwrap()
             .hops
-            .as_ref()
-            .unwrap()
             .len(),
         1
     );
@@ -1042,8 +1022,6 @@ fn test_onionmessage_recv_secret() {
             .as_ref()
             .unwrap()
             .hops
-            .as_ref()
-            .unwrap()
             .first()
             .unwrap()
             .blinded_node_id
@@ -1056,8 +1034,6 @@ fn test_onionmessage_recv_secret() {
             .as_ref()
             .unwrap()
             .hops
-            .as_ref()
-            .unwrap()
             .first()
             .unwrap()
             .encrypted_recipient_data,
@@ -1069,25 +1045,13 @@ fn test_onionmessage_recv_secret() {
     );
     assert_eq!(d.onion_message.invoice.as_ref().unwrap(), "0a020d0dc");
     assert_eq!(d.onion_message.invoice_error.as_ref().unwrap(), "0a020d0dd");
-    assert_eq!(d.onion_message.unknown_fields.as_ref().unwrap().len(), 1);
+    assert_eq!(d.onion_message.unknown_fields.len(), 1);
     assert_eq!(
-        d.onion_message
-            .unknown_fields
-            .as_ref()
-            .unwrap()
-            .first()
-            .unwrap()
-            .number,
+        d.onion_message.unknown_fields.first().unwrap().number,
         12345
     );
     assert_eq!(
-        d.onion_message
-            .unknown_fields
-            .as_ref()
-            .unwrap()
-            .first()
-            .unwrap()
-            .value,
+        d.onion_message.unknown_fields.first().unwrap().value,
         "0a020d0de"
     );
     assert_serde_roundtrip!(d, OnionMessageRecvSecretEvent);

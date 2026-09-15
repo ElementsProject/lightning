@@ -95,10 +95,12 @@
       "payment_preimage",
       "payment_hash",
       "created_at",
+      "groupid",
       "parts",
       "amount_msat",
       "amount_sent_msat",
-      "status"
+      "status",
+      "destination"
     ],
     "additionalProperties": false,
     "properties": {

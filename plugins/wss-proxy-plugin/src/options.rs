@@ -81,7 +81,6 @@ pub async fn parse_options(
         })
         .await?
         .configs
-        .ok_or_else(|| anyhow!("Could not get configs object. CLN version too old?"))?
         .bind_addr;
 
     let mut ws_address: Option<SocketAddr> = None;

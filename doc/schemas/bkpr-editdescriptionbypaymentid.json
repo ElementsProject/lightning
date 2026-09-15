@@ -45,8 +45,7 @@
             "credit_msat",
             "debit_msat",
             "currency",
-            "timestamp",
-            "description"
+            "timestamp"
           ],
           "properties": {
             "account": {

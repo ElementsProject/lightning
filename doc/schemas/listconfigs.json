@@ -22,7 +22,9 @@
     }
   },
   "response": {
-    "required": [],
+    "required": [
+      "configs"
+    ],
     "additionalProperties": false,
     "properties": {
       "configs": {

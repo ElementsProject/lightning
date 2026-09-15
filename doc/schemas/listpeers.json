@@ -56,7 +56,8 @@
           "required": [
             "id",
             "connected",
-            "num_channels"
+            "num_channels",
+            "features"
           ],
           "properties": {
             "id": {

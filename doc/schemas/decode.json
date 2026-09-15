@@ -646,7 +646,8 @@
               ],
               "required": [
                 "period",
-                "time_unit"
+                "time_unit",
+                "compulsory_field"
               ],
               "additionalProperties": false,
               "properties": {
@@ -1278,7 +1279,8 @@
               ],
               "required": [
                 "period",
-                "time_unit"
+                "time_unit",
+                "compulsory_field"
               ],
               "additionalProperties": false,
               "properties": {

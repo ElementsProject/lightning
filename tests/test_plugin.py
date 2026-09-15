@@ -6242,3 +6242,32 @@ def test_bwatch_blockdepth_watch_no_fire_before_start_block(node_factory, bitcoi
 
     # Clean up
     l1.rpc.delblockdepthwatch(owner=owner, start_block=future_start)
+
+
+def test_command_collision(node_factory):
+    """We add a new method with the inline plugin. Then try to register the same
+    method with another dynamic plugin. lightningd should report back a name
+    collision."""
+
+    def some_plugin(plugin):
+        @plugin.method("myrpcmethod")
+        def on_mymethod(plugin):
+            return {}
+
+    l1 = node_factory.get_node(inline_plugin=some_plugin)
+
+    # try register plugin with "myrpcmethod" collision
+    with pytest.raises(
+        RpcError, match="a method with that name is already registered by plugin"
+    ):
+        l1.rpc.plugin_start(
+            plugin=os.path.join(os.getcwd(), "tests/plugins/method_collision.py")
+        )
+
+    # try register plugin with "getinfo" method which is builtin
+    with pytest.raises(
+        RpcError, match="a builtin method with that name is already registered"
+    ):
+        l1.rpc.plugin_start(
+            plugin=os.path.join(os.getcwd(), "tests/plugins/builtin_collision.py")
+        )

@@ -46,8 +46,10 @@
             "payment_hash",
             "created_at",
             "groupid",
+            "parts",
             "amount_msat",
-            "status"
+            "status",
+            "destination"
           ],
           "properties": {
             "bolt11": {

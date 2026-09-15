@@ -11,7 +11,6 @@
   ],
   "request": {
     "required": [
-      "channel_id",
       "psbt"
     ],
     "additionalProperties": false,
@@ -40,7 +39,8 @@
     "required": [
       "tx",
       "txid",
-      "psbt"
+      "psbt",
+      "outnum"
     ],
     "additionalProperties": false,
     "properties": {

@@ -4,7 +4,7 @@ reckless -- Issue a command to the reckless plugin manager utility
 SYNOPSIS
 --------
 
-**reckless** *command* [*target/subcommand*] [*target*] 
+**reckless** *command* *target/subcommand* [*target*] 
 
 DESCRIPTION
 -----------
@@ -16,7 +16,7 @@ The **reckless** RPC starts a reckless process with the *command* and *target* p
    - *command* **uninstall** takes a *plugin\_name* and attempts to uninstall a plugin of the same name.
    - *command* **search** takes a *plugin\_name* to search for a named plugin.
  ...
-- **target/subcommand** (one of, optional): Target of a reckless command or a subcommand.:
+- **target/subcommand** (one of): Target of a reckless command or a subcommand.:
   - (string)
   - (array)
 - **target** (one of, optional): *name* of a plugin to install/uninstall/search/enable/disable or source to add/remove.:

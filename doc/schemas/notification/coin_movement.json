@@ -20,7 +20,8 @@
       "credit_msat",
       "debit_msat",
       "timestamp",
-      "primary_tag"
+      "primary_tag",
+      "extra_tags"
     ],
     "properties": {
       "version": {
