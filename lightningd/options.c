@@ -896,6 +896,10 @@ static void dev_register_opts(struct lightningd *ld)
 		     opt_set_bool,
 		     &ld->dev_any_channel_type,
 		     "Allow sending any channel type, and accept any");
+	clnopt_witharg("--dev-lease-duration", OPT_DEV|OPT_SHOWINT,
+		       opt_set_u32, opt_show_u32,
+		       &ld->dev_lease_duration,
+		       "Override the standard channel lease duration in blocks");
 	clnopt_noarg("--dev-allow-shutdown-destination-change", OPT_DEV,
 		     opt_set_bool,
 		     &ld->dev_allow_shutdown_destination_change,
@@ -1017,6 +1021,9 @@ static const struct config testnet_config = {
 	/* 1 minute should be enough for anyone! */
 	.connection_timeout_secs = 60,
 
+	/* Longer than connectd's maximum reconnect backoff. */
+	.dual_open_disconnect_timeout_secs = 600,
+
 	.allowdustreserve = false,
 
 	.require_confirmed_inputs = false,
@@ -1094,6 +1101,9 @@ static const struct config mainnet_config = {
 
 	/* 1 minute should be enough for anyone! */
 	.connection_timeout_secs = 60,
+
+	/* Longer than connectd's maximum reconnect backoff. */
+	.dual_open_disconnect_timeout_secs = 600,
 
 	.allowdustreserve = false,
 
@@ -1536,6 +1546,10 @@ static void register_opts(struct lightningd *ld)
 	clnopt_witharg("--funding-confirms", OPT_SHOWINT, opt_set_u32, opt_show_u32,
 			 &ld->config.funding_confirms,
 			 "Confirmations required for funding transaction");
+	clnopt_witharg("--dual-open-disconnect-timeout", OPT_SHOWINT,
+		       opt_set_u32, opt_show_u32,
+		       &ld->config.dual_open_disconnect_timeout_secs,
+		       "Seconds to retain a pending v2 open while its peer is disconnected");
 	clnopt_witharg("--require-confirmed-inputs", OPT_SHOWBOOL,
 		       opt_set_bool_arg, opt_show_bool,
 		       &ld->config.require_confirmed_inputs,
