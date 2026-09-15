@@ -744,25 +744,6 @@ def test_splice_abort_after_sigs_sent(node_factory, bitcoind):
 
     funds_result = l1.rpc.fundpsbt("109000sat", 0, 0, excess_as_change=True)
 
-@pytest.mark.parametrize("closer", ["initiator", "accepter"])
-def test_splice_locked_then_force_close(node_factory, bitcoind, closer):
-    """A force close after a locked splice must drop our current commitment.
-
-    Once the splice locked, the channel's last_tx moved on with every
-    commitment update, but the inflight kept the commitment from the moment
-    of the lock.  A unilateral close broadcast that stale inflight commitment
-    instead of channel->last_tx, and after any post-lock update it has been
-    revoked: our peer would sweep it with a penalty, and our own onchaind,
-    not recognising it, took it for a revoked commitment of theirs.
-    """
-    l1, l2 = node_factory.line_graph(2, fundamount=1000000,
-                                     wait_for_announce=True,
-                                     opts={'allow_warning': True})
-    victim, peer = (l1, l2) if closer == "initiator" else (l2, l1)
-
-    chan_id = l1.get_channel_id(l2)
-
-    funds_result = l1.rpc.fundpsbt("111722sat", 0, 0, excess_as_change=True)
     result = l1.rpc.splice_init(chan_id, 100000, funds_result['psbt'])
     result = l1.rpc.splice_update(chan_id, result['psbt'])
     assert result['commitments_secured'] is False
@@ -787,6 +768,35 @@ def test_splice_locked_then_force_close(node_factory, bitcoind, closer):
 
     assert l2.db_query("SELECT count(*) as c FROM channel_funding_inflights;")[0]['c'] == 1, \
         "inflight dropped by tx_abort after we had already sent our signature"
+
+
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+@pytest.mark.parametrize("closer", ["initiator", "accepter"])
+def test_splice_locked_then_force_close(node_factory, bitcoind, closer):
+    """A force close after a locked splice must drop our current commitment.
+
+    Once the splice locked, the channel's last_tx moved on with every
+    commitment update, but the inflight kept the commitment from the moment
+    of the lock.  A unilateral close broadcast that stale inflight commitment
+    instead of channel->last_tx, and after any post-lock update it has been
+    revoked: our peer would sweep it with a penalty, and our own onchaind,
+    not recognising it, took it for a revoked commitment of theirs.
+    """
+    l1, l2 = node_factory.line_graph(2, fundamount=1000000,
+                                     wait_for_announce=True,
+                                     opts={'allow_warning': True})
+    victim, peer = (l1, l2) if closer == "initiator" else (l2, l1)
+
+    chan_id = l1.get_channel_id(l2)
+
+    funds_result = l1.rpc.fundpsbt("111722sat", 0, 0, excess_as_change=True)
+    result = l1.rpc.splice_init(chan_id, 100000, funds_result['psbt'])
+    result = l1.rpc.splice_update(chan_id, result['psbt'])
+    assert result['commitments_secured'] is False
+    result = l1.rpc.splice_update(chan_id, result['psbt'])
+    assert result['commitments_secured'] is True
     result = l1.rpc.signpsbt(result['psbt'])
     result = l1.rpc.splice_signed(chan_id, result['signed_psbt'])
 
