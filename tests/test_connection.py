@@ -3184,8 +3184,20 @@ def test_dataloss_protection(node_factory, bitcoind):
     assert not l2.daemon.is_in_log('sendrawtx exit 0',
                                    start=l2.daemon.logsearch_start)
 
-    # l1 should receive error and drop to chain
-    l1.daemon.wait_for_log("They sent ERROR.*Awaiting unilateral close")
+    # l1 should receive error and drop to chain.  Usually it arrives when l1
+    # has no channeld (so lightningd logs "They sent ERROR"), but if l1's
+    # channeld has not exited yet the error is routed to it and gets lost
+    # when it dies.  Reconnect to make l2 resend it: channel->error is sent
+    # again when the peer reconnects.
+    try:
+        l1.daemon.wait_for_log("They sent ERROR.*Awaiting unilateral close", timeout=10)
+    except TimeoutError:
+        # The peer may already have gone; connect() below is what matters.
+        try:
+            l1.rpc.disconnect(l2.info['id'], force=True)
+        except RpcError as err:
+            assert "Peer not connected" in err.error['message']
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l1.wait_for_channel_onchain(l2.info['id'])
 
     closetxid = only_one(bitcoind.rpc.getrawmempool(False))
