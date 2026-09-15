@@ -489,6 +489,57 @@ struct amount_msat htlc_max_possible_send(const struct channel *channel)
 	return lower_bound_msat;
 }
 
+struct amount_msat channel_htlc_maximum_default(const struct channel *channel,
+						struct amount_msat configured_max)
+{
+	struct amount_msat cap = htlc_max_possible_send(channel);
+	struct amount_msat deflt;
+
+	/* If the operator set --htlc-maximum-msat, honour it (the sentinel
+	 * AMOUNT_MSAT(-1ULL) means "unset").  Otherwise pick a default. */
+	if (!amount_msat_eq(configured_max, AMOUNT_MSAT(-1ULL)))
+		deflt = configured_max;
+	else if (channel->channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL) {
+		/* Oakland privacy proposal (Lightning Dev Summit): probing for
+		 * where payments went is much harder if the htlc maximum is
+		 * well below the channel capacity.  For public channels the
+		 * capacity is known from the funding output, so default to 25%
+		 * of it. */
+		if (!amount_sat_to_msat(&deflt, channel->funding_sats))
+			deflt = cap;
+		else
+			deflt = amount_msat_div(deflt, 4);
+	} else
+		/* Private channels have no publicly-known capacity to correlate
+		 * against, so we advertise the full amount we can send. */
+		deflt = cap;
+
+	/* BOLT #7:
+	 *
+	 * - MUST set `htlc_maximum_msat` to the maximum value it will send through this channel for a single HTLC.
+	 *   - MUST set this to less than or equal to the channel capacity.
+	 *   - MUST set this to less than or equal to `max_htlc_value_in_flight_msat` it received from the peer.
+	 *   - MUST set this to greater than or equal to `htlc_minimum_msat`.
+	 */
+	/* A quarter of the capacity can land below a high htlc_minimum_msat:
+	 * a routable channel beats the stronger privacy margin. */
+	if (amount_msat_less(deflt, channel->htlc_minimum_msat))
+		deflt = channel->htlc_minimum_msat;
+
+	/* htlc_max_possible_send() covers both upper bounds above.  If it is
+	 * itself below htlc_minimum_msat then no value satisfies the spec, so
+	 * say so rather than advertising an unroutable channel silently. */
+	if (amount_msat_less(cap, channel->htlc_minimum_msat))
+		log_unusual(channel->log,
+			    "htlc_minimum_msat %s exceeds the most we can send"
+			    " (%s): channel_update will not be routable",
+			    fmt_amount_msat(tmpctx, channel->htlc_minimum_msat),
+			    fmt_amount_msat(tmpctx, cap));
+
+	/* Never advertise more than we could actually send. */
+	return amount_msat_min(deflt, cap);
+}
+
 struct channel *new_channel(struct peer *peer, u64 dbid,
 			    /* NULL or stolen */
 			    struct wallet_shachain *their_shachain,
@@ -567,7 +618,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    bool withheld)
 {
 	struct channel *channel = tal(peer->ld, struct channel);
-	struct amount_msat htlc_min, htlc_max;
+	struct amount_msat htlc_min;
 
 	bool anysegwit = !chainparams->is_elements && feature_negotiated(peer->ld->our_features,
                         peer->their_features,
@@ -694,11 +745,8 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 		channel->htlc_minimum_msat = htlc_min;
 	else
 		channel->htlc_minimum_msat = htlc_minimum_msat;
-	htlc_max = htlc_max_possible_send(channel);
-	if (amount_msat_less(htlc_max, htlc_maximum_msat))
-		channel->htlc_maximum_msat = htlc_max;
-	else
-		channel->htlc_maximum_msat = htlc_maximum_msat;
+	channel->htlc_maximum_msat = channel_htlc_maximum_default(channel,
+								  htlc_maximum_msat);
 
 	list_add_tail(&peer->channels, &channel->list);
 	channel->rr_number = peer->ld->rr_counter++;
@@ -1350,4 +1398,3 @@ const u8 *channel_update_for_error(const tal_t *ctx,
 
 	return channel_gossip_update_for_error(ctx, channel);
 }
-
