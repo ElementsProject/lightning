@@ -2277,9 +2277,9 @@ def test_gossip_query_channel_range_cpu_throttle(node_factory, chainparams):
     l1, l2 = node_factory.get_nodes(
         2,
         opts=[{'gossip_store_file': gsfile.name,
-              'disable-plugin': unneeded_plugins},
+               'disable-plugin': unneeded_plugins},
               {'gossip_store_file': gsfile.name,
-              'disable-plugin': unneeded_plugins,
+               'disable-plugin': unneeded_plugins,
                'dev-throttle-gossip': None,
                'broken_log': 'Throttling (incoming|outgoing) peer'}])
 
@@ -2308,16 +2308,24 @@ def test_gossip_query_channel_range_cpu_throttle(node_factory, chainparams):
     # l2 (--dev-throttle-gossip): the query itself is small to read, but
     # *answering* it means walking the whole gossmap, which blows the
     # tiny CPU budget: throttled even though the reply is minuscule.
-    start = time.time()
+    # Ten queries down one connection, so we blow the budget by a wide
+    # margin rather than by a hair.  The earlier version asserted on wall
+    # clock after a single query, which only held while the budget stayed
+    # at its original value -- it was later tripled, leaving ~10% of margin
+    # and a test that passed or failed on how fast the machine was.  The
+    # throttle log is the real signal, so assert on that alone.  Don't
+    # wait for the replies either: the throttle we're provoking is exactly
+    # what delays them, and on a slow machine (or under valgrind) they can
+    # take longer than TIMEOUT to arrive.
     subprocess.run(['devtools/gossipwith',
                     '--no-gossip',
                     '--network={}'.format(TEST_NETWORK),
                     '--filter=264',
-                    '--max-messages=1',
-                    '{}@localhost:{}'.format(l2.info['id'], l2.port),
-                    query],
-                   check=True, timeout=TIMEOUT, stdout=subprocess.PIPE)
-    assert time.time() - start > 0.5
+                    '--max-messages=10',
+                    '--timeout-after=10',
+                    '{}@localhost:{}'.format(l2.info['id'], l2.port)]
+                   + [query] * 10,
+                   timeout=TIMEOUT, stdout=subprocess.PIPE)
 
     l2.daemon.wait_for_log(r'Throttling outgoing peer .*: too much CPU')
 
