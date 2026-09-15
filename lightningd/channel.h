@@ -326,6 +326,9 @@ struct channel {
 	/* Block height we saw closing tx at */
 	u32 *close_blockheight;
 
+	/* Feerate we gave to simpleclosed (so we can check tx). */
+	u32 simple_close_feerate;
+
 	/* Channeld said we've successfully exchanged reestablish. */
 	bool reestablished;
 

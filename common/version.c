@@ -27,10 +27,16 @@ void opt_register_version(void)
 		     "Print version and exit");
 }
 
-static bool cmp_release_version(const char *version) {
+static bool cmp_release_version(const char *version)
+{
 	if (version[0] != 'v')
 		return false;
-	return strspn(version+1, ".0123456789") == strlen(version+1);
+	/* FIXME:
+	 * Using version+1 here gets false positive on gcc-13 -O3 if VERSION is "":
+	 * In function ‘cmp_release_version.constprop’:
+	 * cc1: error: offset ‘1’ outside bounds of constant string [-Werror=array-bounds=]
+	 */
+	return strspn(version, "v.0123456789") == strlen(version);
 }
 
 /* Released versions are of form v[year].[month]?(.patch)* */

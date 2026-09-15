@@ -31,19 +31,19 @@ msgdata,simpleclosed_init,opener,enum side,
 
 # simpleclosed tells master it got a valid closing_sig for our closing_complete;
 # master should broadcast this tx.
-msgtype,simpleclosed_got_sig,3002
-msgdata,simpleclosed_got_sig,tx,bitcoin_tx,
-msgdata,simpleclosed_got_sig,sig,bitcoin_signature,
+msgtype,simpleclosed_our_closing_tx,3002
+msgdata,simpleclosed_our_closing_tx,tx,bitcoin_tx,
+msgdata,simpleclosed_our_closing_tx,their_sig,bitcoin_signature,
 
 # Master replies with the txid (after storing/broadcasting).
-msgtype,simpleclosed_got_sig_reply,3102
-msgdata,simpleclosed_got_sig_reply,closing_txid,bitcoin_txid,
+msgtype,simpleclosed_our_closing_tx_reply,3102
+msgdata,simpleclosed_our_closing_tx_reply,closing_txid,bitcoin_txid,
 
 # simpleclosed tells master it signed the peer's closing tx (as the closee);
 # master validates and stores, drop_to_chain handles broadcast.
-msgtype,simpleclosed_closee_broadcast,3003
-msgdata,simpleclosed_closee_broadcast,tx,bitcoin_tx,
-msgdata,simpleclosed_closee_broadcast,sig,bitcoin_signature,
+msgtype,simpleclosed_their_closing_tx,3003
+msgdata,simpleclosed_their_closing_tx,tx,bitcoin_tx,
+msgdata,simpleclosed_their_closing_tx,their_sig,bitcoin_signature,
 
 # Negotiations complete, exiting.
 msgtype,simpleclosed_complete,3004
