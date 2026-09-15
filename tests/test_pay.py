@@ -5746,15 +5746,29 @@ def test_self_sendpay(node_factory):
         l1.rpc.sendpay([], inv_expires['payment_hash'], label='selfpay-badimage', bolt11=inv_expires['bolt11'], payment_secret=inv['payment_secret'], amount_msat='1btc')
 
     # This one works!
-    l1.rpc.sendpay([], inv['payment_hash'], label='selfpay', bolt11=inv['bolt11'], payment_secret=inv['payment_secret'], amount_msat='100000sat')
+    self_groupid = 0
+    l1.rpc.sendpay([], inv['payment_hash'], label='selfpay',
+                   bolt11=inv['bolt11'], payment_secret=inv['payment_secret'],
+                   amount_msat='100000sat', groupid=self_groupid)
 
     assert only_one(l1.rpc.listinvoices(payment_hash=inv['payment_hash'])['invoices'])['status'] == 'paid'
     # Only one is complete.
     assert [p['status'] for p in l1.rpc.listsendpays()['payments'] if p['status'] != 'failed'] == ['complete']
 
-    # Can't pay paid one already paid!
-    with pytest.raises(RpcError, match="Already paid or expired invoice"):
-        l1.rpc.sendpay([], inv['payment_hash'], label='selfpay', bolt11=inv['bolt11'], payment_secret=inv['payment_secret'], amount_msat='100000sat')
+    # from sendpay documentation:
+    #   Calls to sendpay with the same payment_hash, amount_msat,
+    #   and destination as a previous successful payment
+    #   (even if a different route or partid) will return immediately with success.
+    l1.rpc.sendpay([], inv['payment_hash'], label='selfpay',
+                   bolt11=inv['bolt11'],
+                   payment_secret=inv['payment_secret'],
+                   amount_msat='100000sat')
+
+    l1.rpc.sendpay([], inv['payment_hash'], label='selfpay',
+                   bolt11=inv['bolt11'],
+                   payment_secret=inv['payment_secret'],
+                   amount_msat='100000sat',
+                   groupid=self_groupid)
 
 
 def test_strip_lightning_suffix_from_inv(node_factory):
