@@ -922,6 +922,12 @@ struct channel *any_channel_by_scid(struct lightningd *ld,
 struct channel *channel_by_cid(struct lightningd *ld,
 			       const struct channel_id *cid);
 
+/* Is this channel_id used by a channel with any peer (other than @ignore),
+ * or by a closed channel? */
+bool channel_id_in_use(struct lightningd *ld,
+		       const struct channel_id *cid,
+		       const struct channel *ignore);
+
 /* Find this channel within peer */
 struct channel *find_channel_by_id(const struct peer *peer,
 				   const struct channel_id *cid);

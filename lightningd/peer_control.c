@@ -2093,6 +2093,7 @@ void handle_peer_spoke(struct lightningd *ld, const u8 *msg)
 	u64 connectd_counter;
 	struct channel *channel;
 	struct closed_channel *closed_channel;
+	struct closed_channel_map_iter cc_it;
 	struct channel_id channel_id;
 	struct peer *peer;
 	bool dual_fund;
@@ -2265,7 +2266,8 @@ void handle_peer_spoke(struct lightningd *ld, const u8 *msg)
 
 	case WIRE_CHANNEL_REESTABLISH:
 		/* Maybe a previously closed channel? */
-		closed_channel = closed_channel_map_get(peer->ld->closed_channels, &channel_id);
+		closed_channel = closed_channel_map_getfirst(peer->ld->closed_channels,
+							     &channel_id, &cc_it);
 		if (closed_channel && closed_channel->their_shachain) {
 			send_reestablish(peer, &closed_channel->cid,
 					 closed_channel->their_shachain,

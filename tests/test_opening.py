@@ -4090,7 +4090,6 @@ def test_v2_lockin_single_spend_watch(node_factory, bitcoind):
         assert len([l for l in node.daemon.logs if state_change_re.search(l)]) == 1
 
 
-@pytest.mark.xfail(strict=True, reason="duplicate channel_ids in the db crash lightningd on close and on startup")
 @pytest.mark.openchannel('v1')
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "Uses db_manip on sqlite3")
 def test_duplicate_channel_id_in_db(node_factory, bitcoind):

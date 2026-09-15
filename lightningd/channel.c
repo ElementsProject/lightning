@@ -11,6 +11,7 @@
 #include <lightningd/channel.h>
 #include <lightningd/channel_gossip.h>
 #include <lightningd/channel_state_names_gen.h>
+#include <lightningd/closed_channel.h>
 #include <lightningd/connect_control.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/notification.h>
@@ -875,6 +876,27 @@ struct channel *channel_by_cid(struct lightningd *ld,
 		}
 	}
 	return NULL;
+}
+
+bool channel_id_in_use(struct lightningd *ld,
+		       const struct channel_id *cid,
+		       const struct channel *ignore)
+{
+	struct peer *p;
+	struct channel *channel;
+	struct peer_node_id_map_iter it;
+	struct closed_channel_map_iter cc_it;
+
+	for (p = peer_node_id_map_first(ld->peers, &it);
+	     p;
+	     p = peer_node_id_map_next(ld->peers, &it)) {
+		list_for_each(&p->channels, channel, list) {
+			if (channel != ignore && channel_id_eq(&channel->cid, cid))
+				return true;
+		}
+	}
+
+	return closed_channel_map_getfirst(ld->closed_channels, cid, &cc_it) != NULL;
 }
 
 struct channel *find_channel_by_id(const struct peer *peer,

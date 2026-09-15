@@ -46,7 +46,10 @@ static inline bool closed_channel_eq_cid(const struct closed_channel *cc, const 
 	return channel_id_eq(cid, &cc->cid);
 }
 
-HTABLE_DEFINE_NODUPS_TYPE(struct closed_channel, keyof_closed_channel, hash_cid, closed_channel_eq_cid,
-			  closed_channel_map);
+/* We refuse new channels whose channel_id is already in use, but older nodes
+ * may have committed several channels with the same channel_id to the db:
+ * we must still be able to load (and close) them all. */
+HTABLE_DEFINE_DUPS_TYPE(struct closed_channel, keyof_closed_channel, hash_cid, closed_channel_eq_cid,
+			closed_channel_map);
 
 #endif /* LIGHTNING_LIGHTNINGD_CLOSED_CHANNEL_H */
