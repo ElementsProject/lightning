@@ -5347,3 +5347,70 @@ def test_open_channel_funding_above_max_supply(node_factory, bitcoind):
                 funding_sat, push_msat)
 
     assert l1.rpc.getinfo()['id'] == l1.info['id']
+
+
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "rewinds the peers' dbs, which are assumed sqlite3")
+@pytest.mark.xfail(strict=True, reason="A peer reusing a resolved HTLC id takes us down with db_fatal")
+def test_peer_reuses_htlc_id(node_factory):
+    """A peer re-offering the id of an HTLC we have already resolved must be
+    rejected: channeld has forgotten it, but the db has not."""
+    peer_opts = {'may_reconnect': True,
+                 'allow_warning': True,
+                 # We rewind their db behind their back, so they complain.
+                 'broken_log': '.*'}
+    l1, l2, l3 = node_factory.get_nodes(3, opts=[peer_opts,
+                                                 {'may_reconnect': True,
+                                                  'allow_warning': True,
+                                                  # Without the fix lightningd
+                                                  # dies here, and we want
+                                                  # that to be a test failure
+                                                  # rather than a teardown
+                                                  # error.
+                                                  'may_fail': True,
+                                                  'broken_log': '.*'},
+                                                 peer_opts])
+    node_factory.join_nodes([l1, l2])
+    node_factory.join_nodes([l3, l2])
+
+    # l2 receives, and fully resolves, HTLC id 0 from each of them.
+    for peer in (l1, l3):
+        peer.pay(l2, 100000)
+        peer.wait_for_htlcs()
+    l2.wait_for_htlcs()
+
+    def rewind(peer):
+        # peer forgets it ever offered an HTLC, so it uses id 0 again.
+        peer.stop()
+        peer.db_manip("DELETE FROM channel_htlcs;")
+        peer.db_manip("UPDATE channels SET next_htlc_id=0;")
+
+    def reuse_id(peer, label):
+        peer.start()
+
+        def reestablished():
+            chan = only_one(peer.rpc.listpeerchannels(l2.info['id'])['channels'])
+            return any('Reconnected, and reestablished' in s for s in chan['status'])
+        wait_for(reestablished)
+
+        inv = l2.rpc.invoice(100000, label, 'desc')
+        route = [{'amount_msat': 100000, 'id': l2.info['id'], 'delay': 18,
+                  'channel': first_scid(peer, l2)}]
+        peer.rpc.sendpay(route, inv['payment_hash'],
+                         payment_secret=inv['payment_secret'])
+        line = l2.daemon.wait_for_log(r'{}-.*Bad peer_add_htlc: id 0 but expected 1|Error executing statement'.format(peer.info['id']))
+        assert 'Bad peer_add_htlc' in line
+        l2.rpc.getinfo()
+
+    # l2's channeld restarts on reconnect, lightningd tells it what to expect.
+    rewind(l1)
+    reuse_id(l1, 'reuse1')
+    # l1 committed to that HTLC, which l2 never accepts, so it's done.
+    l1.stop()
+
+    # Same again, but l2 has to work out what to expect from its db.
+    l2.stop()
+    rewind(l3)
+    l2.start()
+    reuse_id(l3, 'reuse2')
+
+    assert not l2.daemon.is_in_log(r'\*\*BROKEN\*\*')
