@@ -5400,10 +5400,7 @@ def test_sendpay_grouping(node_factory, bitcoind):
 
     We always use slightly decreasing values for the payment, in order
     to avoid having to adjust the channel_hints that are being
-    remembered across attempts. In case of a failure the
-    `channel_hint` will be `attempted amount - 1msat` so use that as
-    the next payment's amount.
-
+    remembered across attempts.
     """
     l1, l2, l3 = node_factory.line_graph(
         3,
@@ -5428,8 +5425,9 @@ def test_sendpay_grouping(node_factory, bitcoind):
     # After this one invocation we have one entry in `listpays`
     assert(len(l1.rpc.listpays()['pays']) == 1)
 
+    # try again with a smaller amount
     with pytest.raises(RpcError, match=r'Failed after 1 attempts'):
-        l1.rpc.xpay(inv, amount_msat='100001msat')
+        l1.rpc.xpay(inv, amount_msat='90000msat')
 
     # Surprise: we should have 2 entries after 2 invocations
     assert(len(l1.rpc.listpays()['pays']) == 2)
