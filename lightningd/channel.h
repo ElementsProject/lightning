@@ -200,6 +200,8 @@ struct channel {
 	/* Tracking commitment transaction numbers. */
 	u64 next_index[NUM_SIDES];
 	u64 next_htlc_id;
+	/* The id we expect for the next HTLC they offer. */
+	u64 next_their_htlc_id;
 
 	/* Funding outpoint and amount */
 	struct bitcoin_outpoint funding;
