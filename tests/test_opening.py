@@ -4088,3 +4088,47 @@ def test_v2_lockin_single_spend_watch(node_factory, bitcoind):
     state_change_re = re.compile(r'State changed from \S+ to FUNDING_SPEND_SEEN')
     for node in (l1, l2):
         assert len([l for l in node.daemon.logs if state_change_re.search(l)]) == 1
+
+
+@pytest.mark.xfail(strict=True, reason="duplicate channel_ids in the db crash lightningd on close and on startup")
+@pytest.mark.openchannel('v1')
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "Uses db_manip on sqlite3")
+def test_duplicate_channel_id_in_db(node_factory, bitcoind):
+    """Nodes which already committed two channels with the same channel_id
+    crashed when the second one was closed, and then on every restart."""
+    l1, l2 = node_factory.get_nodes(2, opts=[{}, {'may_fail': True, 'broken_log': 'lightningd: (FATAL SIGNAL|backtrace)'}])
+    l1.fundwallet(10**7)
+    l1.connect(l2)
+    amount = 10**6
+
+    # A channel l2 forgets, so it's in the closed channels.
+    funding_addr = l1.rpc.fundchannel_start(l2.info['id'], amount)['funding_address']
+    prep = l1.rpc.txprepare([{funding_addr: amount}])
+    l1.rpc.fundchannel_complete(l2.info['id'], prep['psbt'])
+    cid = only_one(l2.rpc.listpeerchannels(l1.info['id'])['channels'])['channel_id']
+    l1.rpc.fundchannel_cancel(l2.info['id'])
+    wait_for(lambda: l2.rpc.listpeerchannels(l1.info['id'])['channels'] == [])
+    l1.rpc.txdiscard(prep['txid'])
+
+    # Another one, still awaiting lockin.
+    funding_addr = l1.rpc.fundchannel_start(l2.info['id'], amount)['funding_address']
+    prep = l1.rpc.txprepare([{funding_addr: amount}])
+    l1.rpc.fundchannel_complete(l2.info['id'], prep['psbt'])
+    cid2 = only_one(l2.rpc.listpeerchannels(l1.info['id'])['channels'])['channel_id']
+
+    # Give the live channel the closed channel's channel_id, as old nodes
+    # may have done.
+    l1.stop()
+    l2.stop()
+    l2.db_manip(f"UPDATE channels SET full_channel_id = X'{cid}' WHERE full_channel_id = X'{cid2}';")
+    l2.start()
+    assert only_one(l2.rpc.listpeerchannels(l1.info['id'])['channels'])['channel_id'] == cid
+
+    # Closing it puts a second channel with that channel_id into closed channels.
+    l2.rpc.dev_forget_channel(l1.info['id'], True)
+    wait_for(lambda: l2.rpc.listpeerchannels(l1.info['id'])['channels'] == [])
+    assert [c['channel_id'] for c in l2.rpc.listclosedchannels()['closedchannels']] == [cid, cid]
+
+    # And we can still start with both in the db.
+    l2.restart()
+    assert [c['channel_id'] for c in l2.rpc.listclosedchannels()['closedchannels']] == [cid, cid]
