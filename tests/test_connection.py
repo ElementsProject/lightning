@@ -5298,7 +5298,6 @@ def test_connect_proxy_maxlen_hostname(node_factory):
 
 
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "rewinds the peers' dbs, which are assumed sqlite3")
-@pytest.mark.xfail(strict=True, reason="A peer reusing a resolved HTLC id takes us down with db_fatal")
 def test_peer_reuses_htlc_id(node_factory):
     """A peer re-offering the id of an HTLC we have already resolved must be
     rejected: channeld has forgotten it, but the db has not."""
