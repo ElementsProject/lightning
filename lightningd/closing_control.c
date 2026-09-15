@@ -223,6 +223,7 @@ static bool negotiated_close_fee(const struct channel *channel,
 				 struct amount_sat *fee)
 {
 	struct amount_sat ours = amount_msat_to_sat_round_down(channel->our_msat);
+	struct amount_sat out_amt;
 
 	for (size_t i = 0; i < tx->wtx->num_outputs; i++) {
 		const struct wally_tx_output *out = &tx->wtx->outputs[i];
@@ -230,8 +231,19 @@ static bool negotiated_close_fee(const struct channel *channel,
 					       out->script, out->script_len, 0);
 		if (!scripteq(script, channel->shutdown_scriptpubkey[LOCAL]))
 			continue;
-		return amount_sat_sub(fee, ours,
-				      bitcoin_tx_output_get_amount_sat(tx, i));
+		out_amt = bitcoin_tx_output_get_amount_sat(tx, i);
+		if (!amount_sat_sub(fee, ours, out_amt)) {
+			/* closingd built the tx from this same balance, so
+			 * this cannot underflow; count the whole fee if it
+			 * does. */
+			log_broken(channel->log,
+				   "Closing tx output %zu pays us %s,"
+				   " more than our balance %s",
+				   i, fmt_amount_sat(tmpctx, out_amt),
+				   fmt_amount_sat(tmpctx, ours));
+			return false;
+		}
+		return true;
 	}
 	/* Our output was trimmed: the fee is everything. */
 	return false;
