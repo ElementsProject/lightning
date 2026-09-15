@@ -12,6 +12,7 @@
 #include <common/json_command.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <lightningd/log.h>
 #include <lightningd/plugin.h>
 #include <unistd.h>
 
@@ -337,7 +338,8 @@ static void configvar_updated(struct lightningd *ld,
 	configvar_finalize_overrides(ld->configvars);
 }
 
-static size_t append_to_file(struct lightningd *ld,
+/* Returns 1-based line number, or -1 on error. */
+static ssize_t append_to_file(struct lightningd *ld,
 			     const char *fname,
 			     const char *str,
 			     bool must_exist)
@@ -348,18 +350,16 @@ static size_t append_to_file(struct lightningd *ld,
 	fd = open(fname, O_RDWR|O_APPEND);
 	if (fd < 0) {
 		if (errno != ENOENT || must_exist)
-			fatal("Could not write to config %s: %s",
-			      fname, strerror(errno));
+			goto fail;
 		fd = open(fname, O_RDWR|O_APPEND|O_CREAT, 0644);
 		if (fd < 0)
-			fatal("Could not create config file %s: %s",
-			      fname, strerror(errno));
+			goto fail;
 	}
 
 	/* Note: always nul terminates */
 	buffer = grab_fd_str(tmpctx, fd);
 	if (!buffer)
-		fatal("Error reading %s: %s", fname, strerror(errno));
+		goto fail;
 
 	/* If there's a last character and it's not \n, add one */
 	if (tal_bytelen(buffer) > 1
@@ -369,14 +369,20 @@ static size_t append_to_file(struct lightningd *ld,
 	/* Always append a \n ourselves */
 	str = tal_strcat(tmpctx, str, "\n");
 	if (write(fd, str, strlen(str)) != strlen(str))
-		fatal("Could not write to config file %s: %s",
-		      fname, strerror(errno));
+		goto fail;
 	if (fsync(fd) != 0)
-		fatal("Syncing %s: %s", fname, strerror(errno));
+		goto fail;
 	close(fd);
 
 	/* 1-based counter of where new stuff appeared */
 	return strcount(buffer, "\n") + 1;
+
+fail:
+	if (fd != -1)
+		close(fd);
+	log_unusual(ld->log, "Could not write to config %s: %s",
+		    fname, strerror(errno));
+	return -1;
 }
 
 static const char *grab_and_check(const tal_t *ctx,
@@ -478,7 +484,7 @@ static const char *base_conf_file(const tal_t *ctx,
 	}
 }
 
-static void create_setconfig_include(struct lightningd *ld)
+static bool create_setconfig_include(struct lightningd *ld)
 {
 	const char *lines;
 	time_t now = time(NULL);
@@ -493,24 +499,30 @@ static void create_setconfig_include(struct lightningd *ld)
 	lines = tal_fmt(tmpctx,
 			"# Inserted by setconfig %sinclude %s.setconfig",
 			ctime(&now), path_basename(tmpctx, fname));
-	append_to_file(ld, fname, lines, must_exist);
+	if (append_to_file(ld, fname, lines, must_exist) < 0)
+		return false;
 
 	/* This creates the file */
-	append_to_file(ld, ld->setconfig_file,
+	if (append_to_file(ld, ld->setconfig_file,
 		       "# Created and update by setconfig, but you can edit this manually when node is stopped.",
-		       false);
+		       false) < 0)
+		return false;
+
+	return true;
 }
 
-static void configvar_save(struct lightningd *ld,
+static bool configvar_save(struct lightningd *ld,
 			   const char **names,
 			   const char *confline)
 {
 	/* Simple case: set in a config file. */
 	struct configvar *oldcv;
-	size_t linenum;
+	ssize_t linenum;
 
-	if (!ld->setconfig_file)
-		create_setconfig_include(ld);
+	if (!ld->setconfig_file) {
+		if (!create_setconfig_include(ld))
+			return false;
+	}
 
 	/* Is it already set in the config? */
 	oldcv = configvar_first(ld->configvars, names);
@@ -525,22 +537,27 @@ static void configvar_save(struct lightningd *ld,
 	}
 
 	linenum = append_to_file(ld, ld->setconfig_file, confline, true);
+	if (linenum < 0)
+		return false;
 
 replaced:
 	configvar_updated(ld, CONFIGVAR_NETWORK_CONF,
 			  ld->setconfig_file, linenum, confline);
+	return true;
 }
 
 /* For multi options: remove all existing, add all new values */
-static void configvar_save_multi(struct lightningd *ld,
+static bool configvar_save_multi(struct lightningd *ld,
 				 const char **names,
 				 const char **conflines,
 				 size_t nvals)
 {
-	size_t linenum;
+	ssize_t linenum;
 
-	if (!ld->setconfig_file)
-		create_setconfig_include(ld);
+	if (!ld->setconfig_file) {
+		if (!create_setconfig_include(ld))
+			return false;
+	}
 
 	/* Comment out all file-based values, even overridden ones. */
 	for (size_t i = 0; i < tal_count(ld->configvars); i++) {
@@ -553,9 +570,12 @@ static void configvar_save_multi(struct lightningd *ld,
 
 	for (size_t i = 0; i < nvals; i++) {
 		linenum = append_to_file(ld, ld->setconfig_file, conflines[i], true);
+		if (linenum < 0)
+			return false;
 		configvar_updated(ld, CONFIGVAR_NETWORK_CONF,
 				  ld->setconfig_file, linenum, conflines[i]);
 	}
+	return true;
 }
 
 static struct command_result *setconfig_success(struct command *cmd,
@@ -582,7 +602,9 @@ static struct command_result *setconfig_success(struct command *cmd,
 				 CONFIGVAR_SETCONFIG_TRANSIENT, NULL);
 
 		if (!transient) {
-			configvar_save_multi(cmd->ld, names, conflines, nvals);
+			if (!configvar_save_multi(cmd->ld, names, conflines, nvals))
+				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+						    "Could not persist config change");
 		} else {
 			for (size_t i = 0; i < nvals; i++)
 				configvar_updated(cmd->ld, CONFIGVAR_SETCONFIG_TRANSIENT,
@@ -596,9 +618,11 @@ static struct command_result *setconfig_success(struct command *cmd,
 		else
 			confline = names[0];
 
-		if (!transient)
-			configvar_save(cmd->ld, names, confline);
-		else
+		if (!transient) {
+			if (!configvar_save(cmd->ld, names, confline))
+				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+						    "Could not persist config change");
+		} else
 			configvar_updated(cmd->ld, CONFIGVAR_SETCONFIG_TRANSIENT, NULL, 0, confline);
 	}
 
