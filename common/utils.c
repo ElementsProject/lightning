@@ -284,3 +284,41 @@ bool str_to_u64(const char *buf, size_t buflen, u64 *num)
 	*num = val;
 	return true;
 }
+
+bool str_to_s64(const char *buf, size_t buflen, s64 *num)
+{
+	s64 val = 0;
+	bool negative = false;
+	size_t start = 0;
+
+	if (buflen == 0)
+		return false;
+
+	if (buf[0] == '-') {
+		negative = true;
+		start = 1;
+	}
+
+	if (start == buflen)
+		return false;
+
+	for (size_t i = start; i < buflen; i++) {
+		s64 digit;
+		if (buf[i] < '0' || buf[i] > '9')
+			return false;
+		digit = buf[i] - '0';
+
+		if (negative) {
+			if (val < (INT64_MIN + digit) / 10)
+				return false;
+			val = val * 10 - digit;
+		} else {
+			if (val > (INT64_MAX - digit) / 10)
+				return false;
+			val = val * 10 + digit;
+		}
+	}
+
+	*num = val;
+	return true;
+}
