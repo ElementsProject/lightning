@@ -41,6 +41,13 @@
       }
     }
   },
+  "errors": [
+    "On failure, one of the following error codes may be returned:",
+    "",
+    "- -32602: Error in given parameters.",
+    "- -1: Catchall nonspecific error.",
+    "- 1600: The node is not empty, or recovery is already in progress."
+  ],
   "author": [
     "Rusty Russell [rusty@blockstream.com](mailto:rusty@blockstream.com) is mainly responsible."
   ],

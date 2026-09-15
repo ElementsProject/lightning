@@ -94,7 +94,8 @@
     "On failure, one of the following error codes may be returned:",
     "",
     "- -32602: Error in given parameters.",
-    "- 1006: offer already enabled."
+    "- 1006: offer already enabled.",
+    "- 1007: offer is single-use and has already been used."
   ],
   "author": [
     "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
