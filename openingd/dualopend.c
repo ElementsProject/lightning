@@ -434,11 +434,19 @@ static void negotiation_failed(struct state *state,
 
 /* Ignoring the fee limits drops the policy bounds, but never the sanity
  * ceiling: a feerate above that means a broken fee source, and whatever we
- * accept here is what we go on to store. */
-static u32 accepted_feerate_min(const struct state *state)
+ * accept here is what we go on to store.
+ *
+ * For anchor channels the commitment only has to relay: its fee gets topped
+ * up by the anchor spend when we actually need it onchain, so the relay floor
+ * is the real bound there.  Holding the opener to our *policy* minimum would
+ * refuse the very feerate we would propose ourselves, since lightningd also
+ * uses the floor for anchors (see update_feerates()). */
+static u32 accepted_commitment_feerate_min(const struct state *state)
 {
 	if (state->ignore_fee_limits)
 		return 1;
+	if (channel_type_has_anchors(state->channel_type))
+		return FEERATE_FLOOR;
 	return state->min_feerate;
 }
 
@@ -2525,14 +2533,6 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 			      FEERATE_FLOOR))
 		return;
 
-	/* The commitment feerate is a different matter: too low and the
-	 * commitment we are signing cannot be relayed when we need it.  Same
-	 * bounds openingd applies to open_channel. */
-	if (!feerate_in_range(state, "commitment_feerate_perkw",
-			      state->feerate_per_kw_commitment,
-			      accepted_feerate_min(state)))
-		return;
-
 	/* BOLT #2:
 	 * The receiving node MUST fail the channel if:
 	 *...
@@ -2563,6 +2563,16 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 			return;
 		}
 	}
+
+	/* The commitment feerate is a different matter: too low and the
+	 * commitment we are signing cannot be relayed when we need it.  This
+	 * has to wait for channel_type above, since what counts as too low
+	 * depends on whether we negotiated anchors.  Nothing between the two
+	 * commits us to anything. */
+	if (!feerate_in_range(state, "commitment_feerate_perkw",
+			      state->feerate_per_kw_commitment,
+			      accepted_commitment_feerate_min(state)))
+		return;
 
 	/* Since anchor outputs are optional, we
 	 * only support liquidity ads if those are enabled. */
