@@ -4794,3 +4794,47 @@ def test_onchain_close_no_p2tr(node_factory, bitcoind):
 
     # We should see the output.
     assert len(l1.rpc.listfunds()['outputs']) == 2
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', "Uses regtest addresses")
+def test_closing_anysegwit_lost_unilateral(node_factory, executor):
+    """Test close channel when peer stopps supporting option_shutdown_anysegwit.
+    `close` now refuses both ways, so there is no way to reach the unilateral
+    fallback."""
+    l1, l2 = node_factory.line_graph(2, opts=[{'may_reconnect': True,
+                                               'allow_warning': True},
+                                              {'may_reconnect': True,
+                                               'allow_warning': True}])
+
+    # l2 supports anysegwit, so our shutdown script is P2TR.
+    assert only_one(l1.rpc.listpeerchannels()['channels'])['close_to_addr'].startswith('bcrt1p')
+
+    # Peer vanishes, and we start (but cannot finish) a cooperative close.
+    # unilateraltimeout=0 means "wait forever", so this stays pending.
+    l2.stop()
+    fut = executor.submit(l1.rpc.close, l2.info['id'], 0)
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['state'] == 'CHANNELD_SHUTTING_DOWN')
+
+    # Now l2 comes back, but without option_shutdown_anysegwit.
+    l2.daemon.opts['dev-force-features'] = "-27"
+    l2.start()
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    # l1 has now learnt that the peer no longer offers it (bit 27).
+    def anysegwit_dropped():
+        feats = only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['features']
+        return not (int(feats, 16) >> 27) & 1
+    wait_for(anysegwit_dropped)
+
+    # We can't swap in a compatible script: it's already committed.
+    newaddr = l1.rpc.newaddr('bech32')['bech32']
+    with pytest.raises(RpcError, match=r'does not match already-sent shutdown script'):
+        l1.rpc.close(l2.info['id'], 1, destination=newaddr)
+
+    # And we can't reuse the committed one either, so `unilateraltimeout`
+    # never gets armed: the channel is stuck.  This is the bug.
+    with pytest.raises(RpcError, match=r'Peer does not allow v1\+ shutdown addresses'):
+        l1.rpc.close(l2.info['id'], 1)
+
+    assert only_one(l1.rpc.listpeerchannels()['channels'])['state'] == 'CHANNELD_SHUTTING_DOWN'
+    assert not fut.done()
