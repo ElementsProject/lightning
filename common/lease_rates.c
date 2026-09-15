@@ -22,7 +22,7 @@ void lease_rates_get_commitment(const struct pubkey *pubkey,
 {
 	struct sha256_ctx sctx = SHA256_INIT;
 	u8 der[PUBKEY_CMPR_LEN];
-	/* BOLT- #2:
+	/* BOLT-liquidity-ads #2:
 	 * - MUST set `signature` to the ECDSA signature of
 	 *   SHA256("option_will_fund"
 	 *          || `funding_pubkey`
@@ -47,7 +47,7 @@ bool lease_rates_calc_fee(const struct lease_rates *rates,
 			  struct amount_sat *fee)
 {
 	struct amount_sat lease_fee, basis_sat, tx_fee;
-	/* BOLT- #2:
+	/* BOLT-liquidity-ads #2:
 	 * The lease fee is calculated as:
 	 * `lease_fee_base_sat` +
 	 * min(`accept_channel2`.`funding_satoshis`, `open_channel2`.`requested_sats`) * `lease_fee_basis` / 10_000 +

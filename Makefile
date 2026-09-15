@@ -566,19 +566,19 @@ else
 CHECK_BOLT_COMMIT=--include-commit=$(BOLTVERSION)
 endif
 
-CHECK_QUOTES := devtools/check_quotes.py
+CHECK_QUOTES := greatspectate check --config devtools/specquotes.toml -k
 
 BOLT_COVERAGE_FLAGS=$(if $(COVERAGE_FILE),--coverage=$(COVERAGE_FILE),)
 
 # Any mention of BOLT# must be followed by an exact quote, modulo whitespace.
 bolt-check/%: % bolt-precheck
-	@if [ -d .tmp.lightningrfc ]; then uv run $(CHECK_QUOTES) -k $(CHECK_BOLT_COMMIT) --comment-start "/* " --comment-continue "*" --comment-end "*/" --boltdir .tmp.lightningrfc $(BOLT_COVERAGE_FLAGS) $<; else echo "Not checking BOLTs: BOLTDIR $(BOLTDIR) does not exist" >&2; fi
+	@if [ -d .tmp.lightningrfc ]; then uv run $(CHECK_QUOTES) -k $(CHECK_BOLT_COMMIT) --comment-start "/* " --comment-continue "*" --comment-end "*/" $(BOLT_COVERAGE_FLAGS) $<; else echo "Not checking BOLTs: BOLTDIR $(BOLTDIR) does not exist" >&2; fi
 
 bolt-check-py/%: % bolt-precheck
-	@if [ -d .tmp.lightningrfc ]; then uv run $(CHECK_QUOTES) -k $(CHECK_BOLT_COMMIT) --boltdir .tmp.lightningrfc $(BOLT_COVERAGE_FLAGS) $<; else echo "Not checking BOLTs: BOLTDIR $(BOLTDIR) does not exist" >&2; fi
+	@if [ -d .tmp.lightningrfc ]; then uv run $(CHECK_QUOTES) -k $(CHECK_BOLT_COMMIT) $(BOLT_COVERAGE_FLAGS) $<; else echo "Not checking BOLTs: BOLTDIR $(BOLTDIR) does not exist" >&2; fi
 
 bolt-check-rs/%: % bolt-precheck
-	@if [ -d .tmp.lightningrfc ]; then uv run $(CHECK_QUOTES) -k $(CHECK_BOLT_COMMIT) --comment-start "// " --comment-continue "//" --boltdir .tmp.lightningrfc $(BOLT_COVERAGE_FLAGS) $<; else echo "Not checking BOLTs: BOLTDIR $(BOLTDIR) does not exist" >&2; fi
+	@if [ -d .tmp.lightningrfc ]; then uv run $(CHECK_QUOTES) -k $(CHECK_BOLT_COMMIT) --comment-start "// " --comment-continue "//" $(BOLT_COVERAGE_FLAGS) $<; else echo "Not checking BOLTs: BOLTDIR $(BOLTDIR) does not exist" >&2; fi
 
 LOCAL_BOLTDIR=.tmp.lightningrfc
 
@@ -595,7 +595,7 @@ check-requirements-coverage: bolt-precheck
 	@f=/tmp/cln-bolt-coverage.$$$$; \
 	 rm -f $$f; \
 	 $(MAKE) check-source-bolt COVERAGE_FILE=$$f && \
-	 uv run devtools/bolt-coverage.py --coverage $$f --boltdir .tmp.lightningrfc; \
+	 uv run greatspectate coverage --config devtools/specquotes.toml --coverage $$f; \
 	 rc=$$?; rm -f $$f; exit $$rc
 
 check-whitespace/%: %
