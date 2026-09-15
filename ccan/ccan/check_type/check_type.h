@@ -45,7 +45,15 @@
  *		 ((encl_type *)						\
  *		  ((char *)(mbr_ptr) - offsetof(encl_type, mbr))))
  */
-#if HAVE_TYPEOF
+#if HAVE_TYPEOF && HAVE_BUILTIN_TYPES_COMPATIBLE_P
+#include <ccan/build_assert/build_assert.h>
+#define check_type(expr, type)			\
+	BUILD_ASSERT_OR_ZERO(__builtin_types_compatible_p(typeof(expr), type))
+
+#define check_types_match(expr1, expr2)				\
+	BUILD_ASSERT_OR_ZERO(__builtin_types_compatible_p(typeof(expr1), \
+							  typeof(expr2)))
+#elif HAVE_TYPEOF
 #define check_type(expr, type)			\
 	((typeof(expr) *)0 != (type *)0)
 

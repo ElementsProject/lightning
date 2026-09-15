@@ -23,6 +23,12 @@ _asort((base), (num), sizeof(*(base)),					\
        total_order_cast((cmp), *(base), (ctx)), (ctx))
 
 #if HAVE_QSORT_R_PRIVATE_LAST
+/* qsort_r is only declared under _GNU_SOURCE, which must precede the
+ * first libc include — we can't control our includers, so declare it
+ * ourselves (the configurator only sets this where this GNU signature
+ * was detected). */
+void qsort_r(void *base, size_t nmemb, size_t size,
+	     int (*compar)(const void *, const void *, void *), void *arg);
 #define _asort(b, n, s, cmp, ctx) qsort_r(b, n, s, cmp, ctx)
 #else
 void _asort(void *base, size_t nmemb, size_t size,
