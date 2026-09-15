@@ -1360,6 +1360,69 @@ wallet_update_channel(struct lightningd *ld,
 	return inflight;
 }
 
+/*~ An RBF attempt negotiated after opening_depth_cb() has already promoted
+ * a mined candidate.  The entry guards (rbf_got_offer, openchannel_bump)
+ * refuse new attempts once channel->scid is set, but one that was already
+ * in flight when the block arrived still completes: dualopend only reads
+ * the peer fd until commitment_signed is exchanged, and the peer decides
+ * when that is.  Record it on its own inflight only.  channel->funding,
+ * our_msat and last_tx stay with the promoted candidate; if this attempt
+ * is ever the one that gets mined (after a reorg), opening_depth_cb()
+ * promotes it from the inflight like any other. */
+static struct channel_inflight *
+wallet_add_inflight_attempt(struct lightningd *ld,
+			    struct channel *channel,
+			    const struct bitcoin_outpoint *funding,
+			    struct amount_sat total_funding,
+			    struct amount_sat our_funding,
+			    u32 funding_feerate,
+			    struct wally_psbt *psbt STEALS,
+			    const u32 lease_expiry,
+			    struct amount_sat lease_fee,
+			    const secp256k1_ecdsa_signature *lease_commit_sig,
+			    const u32 lease_chan_max_msat,
+			    const u16 lease_chan_max_ppt,
+			    const u32 lease_blockheight_start,
+			    struct amount_sat lease_amt)
+{
+	struct amount_msat lease_fee_msat;
+	struct channel_inflight *inflight;
+
+	if (!amount_sat_to_msat(&lease_fee_msat, lease_fee)) {
+		log_broken(channel->log, "Unable to convert 'lease_fee'");
+		return NULL;
+	}
+
+	assert(channel->scid);
+	log_info(channel->log,
+		 "RBF attempt %s completed after funding %s was promoted:"
+		 " recording it as an inflight only",
+		 fmt_bitcoin_txid(tmpctx, &funding->txid),
+		 fmt_bitcoin_txid(tmpctx, &channel->funding.txid));
+
+	inflight = new_inflight(channel,
+				NULL,
+				funding,
+				funding_feerate,
+				total_funding,
+				our_funding,
+				psbt,
+				lease_expiry,
+				lease_commit_sig,
+				lease_chan_max_msat,
+				lease_chan_max_ppt,
+				lease_blockheight_start,
+				lease_fee_msat,
+				lease_amt,
+				0,
+				false,
+				false,
+				false);
+	wallet_inflight_add(ld->wallet, inflight);
+
+	return inflight;
+}
+
 static bool
 wallet_update_channel_commit(struct lightningd *ld,
 			     struct channel *channel,
@@ -1367,9 +1430,24 @@ wallet_update_channel_commit(struct lightningd *ld,
 			     struct bitcoin_tx *remote_commit,
 			     struct bitcoin_signature *remote_commit_sig)
 {
-	channel_set_last_tx(channel,
-			    tal_steal(channel, remote_commit),
-			    remote_commit_sig);
+	/*~ Only the candidate channel->funding names gets to be the
+	 * channel's commitment.  Before promotion that is always the latest
+	 * attempt (wallet_update_channel moved channel->funding to it); after
+	 * promotion an attempt still completing belongs to its inflight only,
+	 * see wallet_add_inflight_attempt. */
+	if (bitcoin_outpoint_eq(&inflight->funding->outpoint,
+				&channel->funding)) {
+		channel_set_last_tx(channel,
+				    tal_steal(channel, remote_commit),
+				    remote_commit_sig);
+	} else {
+		log_info(channel->log,
+			 "Not updating channel commitment from RBF attempt %s:"
+			 " funding is %s",
+			 fmt_bitcoin_txid(tmpctx,
+					  &inflight->funding->outpoint.txid),
+			 fmt_bitcoin_txid(tmpctx, &channel->funding.txid));
+	}
 
 	/* We can't call channel_set_state here: channel isn't in db, so
 	 * really this is a "channel creation" event. */
@@ -3693,10 +3771,12 @@ static void handle_commit_ready(struct subd *dualopend,
 		return;
 	}
 
-	/* We need to update the channel reserve on the config */
-	channel_update_reserve(channel,
-			       &channel_info.their_config,
-			       total_funding);
+	/* We need to update the channel reserve on the config.  Not once
+	 * we're promoted: the reserve then belongs to the mined candidate. */
+	if (!channel->scid)
+		channel_update_reserve(channel,
+				       &channel_info.their_config,
+				       total_funding);
 
 	/* First time (not an RBF) */
 	if (channel->state == DUALOPEND_OPEN_INIT) {
@@ -3731,6 +3811,33 @@ static void handle_commit_ready(struct subd *dualopend,
 			return;
 		}
 
+	} else if (channel->scid) {
+		/* An RBF that was already in flight when a candidate got
+		 * promoted: keep it off the channel itself. */
+		assert(channel->state == DUALOPEND_AWAITING_LOCKIN);
+
+		if (!(inflight = wallet_add_inflight_attempt(ld, channel,
+							     &funding,
+							     total_funding,
+							     funding_ours,
+							     feerate_funding,
+							     psbt,
+							     lease_expiry,
+							     lease_fee,
+							     lease_commit_sig,
+							     lease_chan_max_msat,
+							     lease_chan_max_ppt,
+							     lease_blockheight_start,
+							     lease_amt))) {
+			channel_internal_error(channel,
+					       "wallet_add_inflight_attempt failed"
+					       " (chan %s)",
+					       fmt_channel_id(tmpctx,
+							      &channel->cid));
+			channel->open_attempt
+				= tal_free(channel->open_attempt);
+			return;
+		}
 	} else {
 		/* We're doing an RBF */
 		assert(channel->state == DUALOPEND_AWAITING_LOCKIN);
