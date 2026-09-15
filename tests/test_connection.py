@@ -4668,6 +4668,8 @@ def test_onionmessage_reply_path_no_hops(node_factory):
     # node stays up. Without the fix this log never appears: the offers plugin
     # calls plugin_err and lightningd_exit takes the node down instead.
     l2.daemon.wait_for_log('Ignoring reply path with no hops', timeout=30)
+
+
 def inject_onionmsg_tlv(sender, dest, tlv):
     """Have `sender` build a one-hop onion message carrying `tlv` and inject
     it into `dest` as if it had arrived from the network."""
@@ -5350,7 +5352,6 @@ def test_open_channel_funding_above_max_supply(node_factory, bitcoind):
 
 
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "rewinds the peers' dbs, which are assumed sqlite3")
-@pytest.mark.xfail(strict=True, reason="A peer reusing a resolved HTLC id takes us down with db_fatal")
 def test_peer_reuses_htlc_id(node_factory):
     """A peer re-offering the id of an HTLC we have already resolved must be
     rejected: channeld has forgotten it, but the db has not."""
