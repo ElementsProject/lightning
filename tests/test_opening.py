@@ -3892,16 +3892,24 @@ def test_zero_length_upfront_shutdown_script(node_factory, bitcoind):
             pass
     threading.Thread(target=do_close, daemon=True).start()
 
-    # l2 receives the shutdown, moves to SHUTTING_DOWN and persists the script.
+    # l2 receives the shutdown and persists the script.  Don't wait on
+    # CHANNELD_SHUTTING_DOWN: l2 answers with its own WIRE_SHUTDOWN, so if that
+    # gets out before l1's disconnect lands it goes straight on to
+    # CLOSINGD_SIGEXCHANGE, and under valgrind we reliably miss the window.
+    # The stored script is what we are actually here for, and unlike the state
+    # it does not move again.
     l1.daemon.wait_for_log('dev_disconnect: \\+WIRE_SHUTDOWN')
-    wait_for(lambda: only_one(l2.rpc.listpeerchannels()['channels'])['state']
-             == 'CHANNELD_SHUTTING_DOWN')
+
+    def l2_channel_row():
+        return only_one(l2.db_query(
+            "SELECT remote_upfront_shutdown_script, shutdown_scriptpubkey_remote"
+            " FROM channels;"))
+
+    wait_for(lambda: l2_channel_row()['shutdown_scriptpubkey_remote'] is not None)
 
     # Where did l2 store it?  A shutdown script lands in shutdown_scriptpubkey_
     # remote; remote_upfront_shutdown_script is the open-time TLV and stays NULL.
-    row = only_one(l2.db_query(
-        "SELECT remote_upfront_shutdown_script, shutdown_scriptpubkey_remote"
-        " FROM channels;"))
+    row = l2_channel_row()
     assert bytes(row['shutdown_scriptpubkey_remote']) == new_upfront_shutdown_script
     assert row['remote_upfront_shutdown_script'] is None
 
