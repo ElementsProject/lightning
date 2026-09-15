@@ -2555,7 +2555,9 @@ def test_zeroreserve_mixed(node_factory, bitcoind):
             'reserve': '0sat',
             'dev-allowdustreserve': True,
         }, {
-            'dev-allowdustreserve': False,
+            # l2 accepts l1's zero reserve, which is below l2's dust
+            # limit: spec-illegal unless allowed for testing.
+            'dev-allowdustreserve': True,
         }, {
             'dev-allowdustreserve': False,
         }
