@@ -1452,12 +1452,19 @@ def test_rbf_non_last_mined(node_factory, bitcoind, chainparams):
 
     # Make a 3rd inflight that won't make it into the mempool
     signed_psbt = run_retry()
-    last = len(l1.daemon.logs)
+    last1 = len(l1.daemon.logs)
+    last2 = len(l2.daemon.logs)
     l1.rpc.openchannel_signed(chan_id, signed_psbt)
 
-    wait_for(lambda: l1.daemon.is_in_log("plugin-bcli: sendrawtx exit 0", start=last))
+    # Both nodes broadcast the (censored) funding tx, and either request
+    # may still be in flight, so wait for both before unmocking: otherwise
+    # the still-mocked attempt would be forwarded for real and replace the
+    # 2nd inflight in the mempool.
+    wait_for(lambda: l1.daemon.is_in_log("plugin-bcli: sendrawtx exit 0", start=last1))
+    wait_for(lambda: l2.daemon.is_in_log("plugin-bcli: sendrawtx exit 0", start=last2))
     import time
-    time.sleep(.05)
+
+    time.sleep(0.05)
 
     l1.daemon.rpcproxy.mock_rpc('sendrawtransaction', None)
     l2.daemon.rpcproxy.mock_rpc('sendrawtransaction', None)
@@ -1567,11 +1574,17 @@ def test_rbf_reconnect_non_last_mined(node_factory, bitcoind, chainparams):
 
     # Make a 3rd inflight that won't make it into the mempool
     signed_psbt = run_retry()
-    last = len(l1.daemon.logs)
+    last1 = len(l1.daemon.logs)
+    last2 = len(l2.daemon.logs)
     l1.rpc.openchannel_signed(chan_id, signed_psbt)
 
-    wait_for(lambda: l1.daemon.is_in_log("plugin-bcli: sendrawtx exit 0", start=last))
-    time.sleep(.05)
+    # Both nodes broadcast the (censored) funding tx, and either request
+    # may still be in flight, so wait for both before unmocking: otherwise
+    # the still-mocked attempt would be forwarded for real and replace the
+    # 2nd inflight in the mempool.
+    wait_for(lambda: l1.daemon.is_in_log("plugin-bcli: sendrawtx exit 0", start=last1))
+    wait_for(lambda: l2.daemon.is_in_log("plugin-bcli: sendrawtx exit 0", start=last2))
+    time.sleep(0.05)
 
     l1.daemon.rpcproxy.mock_rpc('sendrawtransaction', None)
     l2.daemon.rpcproxy.mock_rpc('sendrawtransaction', None)
