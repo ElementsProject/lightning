@@ -5008,6 +5008,20 @@ def feature_offered(bits, b):
     return False
 
 
+def wire_chain_hash(bitcoind):
+    """The chain_hash an open_channel must carry for THIS network.
+
+    CLN's bitcoin chainparams store the genesis hash in internal byte
+    order and its elements ones in display order (bitcoin/chainparams.c),
+    so the wire form of getblockhash(0) flips per family: reversed for
+    bitcoin networks, as-is on liquid-regtest.
+    """
+    ch = bytes.fromhex(bitcoind.rpc.getblockhash(0))
+    if TEST_NETWORK == 'liquid-regtest':
+        return ch
+    return ch[::-1]
+
+
 def raw_peer_connect(node):
     """Handshake to node as a raw peer, echoing back its own features.
 
@@ -5040,7 +5054,7 @@ def raw_peer_connect(node):
 
 
 def send_open_channel(lconn, chain_hash, temp_chan_id, funding_sat, push_msat,
-                      feerate_per_kw, channel_type):
+                      feerate_per_kw, channel_type, channel_reserve=10000):
     # Six distinct valid points; they only have to parse.
     keys = [wire.PrivateKey(bytes([i + 1] * 32)).public_key().serializeCompressed()
             for i in range(6)]
@@ -5052,7 +5066,7 @@ def send_open_channel(lconn, chain_hash, temp_chan_id, funding_sat, push_msat,
     msg += struct.pack('>Q', push_msat)         # push_msat
     msg += struct.pack('>Q', 546)               # dust_limit_satoshis
     msg += struct.pack('>Q', 0xFFFFFFFFFFFF)    # max_htlc_value_in_flight_msat
-    msg += struct.pack('>Q', 10000)             # channel_reserve_satoshis
+    msg += struct.pack('>Q', channel_reserve)   # channel_reserve_satoshis
     msg += struct.pack('>Q', 0)                 # htlc_minimum_msat
     msg += struct.pack('>I', feerate_per_kw)    # feerate_per_kw
     msg += struct.pack('>H', 144)               # to_self_delay
@@ -5065,14 +5079,41 @@ def send_open_channel(lconn, chain_hash, temp_chan_id, funding_sat, push_msat,
     lconn.send_message(msg)
 
 
-def read_channel_reply(lconn):
-    """Read past gossip chatter to openingd's answer to our open_channel."""
+def read_channel_reply_msg(lconn):
+    """Read past gossip chatter to openingd's answer to our open_channel.
+
+    Returns the message type and the raw message."""
     for _ in range(20):
         msg = lconn.read_message()
         mtype = int.from_bytes(msg[0:2], 'big')
         if mtype in (WIRE_ACCEPT_CHANNEL, WIRE_WARNING, WIRE_ERROR):
-            return mtype
+            return mtype, msg
     raise AssertionError("no reply to open_channel")
+
+
+def read_channel_reply(lconn):
+    """Read past gossip chatter to openingd's answer to our open_channel."""
+    return read_channel_reply_msg(lconn)[0]
+
+
+def error_data(msg):
+    """Human-readable data of a WIRE_ERROR/WIRE_WARNING reply."""
+    if int.from_bytes(msg[0:2], 'big') == WIRE_ERROR:
+        return msg[36:]
+    return msg[34:]
+
+
+def initial_commitment_fee_sat(feerate_per_kw, anchors):
+    """Sats the funder pays for the initial commitment transaction
+    (BOLT #3): base fee at the 1124 (anchors) or 724 base weight, plus
+    the two 330-sat anchor outputs when `option_anchors` applies.
+    Truncating division, like amount_tx_fee() (a ceiling here is one
+    sat over whenever feerate*weight isn't a multiple of 1000, and the
+    boundary cells go stale)."""
+    fee = feerate_per_kw * (1124 if anchors else 724) // 1000
+    if anchors:
+        fee += 660
+    return fee
 
 
 def send_funding_created(lconn, temp_chan_id):
@@ -5098,7 +5139,7 @@ def test_open_channel_funding_above_max_supply(node_factory, bitcoind):
     """
     l1 = node_factory.get_node()
 
-    chain_hash = bytes.fromhex(bitcoind.rpc.getblockhash(0))[::-1]
+    chain_hash = wire_chain_hash(bitcoind)
     # Use the node's own opening feerate, so we're inside its accepted range.
     feerate = l1.rpc.feerates('perkw')['perkw']['opening']
 
@@ -5136,3 +5177,152 @@ def test_open_channel_funding_above_max_supply(node_factory, bitcoind):
                 funding_sat, push_msat)
 
     assert l1.rpc.getinfo()['id'] == l1.info['id']
+
+
+@pytest.mark.openchannel('v1')
+def test_open_channel_funder_cannot_afford_fee(node_factory, bitcoind):
+    """A funder left short of the commitment fee must be rejected.
+
+    BOLT 2: the receiving node MUST fail the channel if the funder's
+    amount for the initial commitment transaction is not sufficient
+    for full fee payment. CLN only noticed in initial_commit_tx(),
+    after accept_channel has gone out.
+    """
+    l1 = node_factory.get_node()
+
+    chain_hash = wire_chain_hash(bitcoind)
+    # Use the node's own opening feerate, so we're inside its accepted range.
+    feerate = l1.rpc.feerates('perkw')['perkw']['opening']
+    funding_sat = 16777216
+
+    # The funder pays the commitment fee out of its own balance, so pushing the
+    # balance away leaves it with nothing to pay from.
+    push_msat = funding_sat * 1000
+
+    lconn, channel_type = raw_peer_connect(l1)
+    temp_chan_id = os.urandom(32)
+    send_open_channel(lconn, chain_hash, temp_chan_id, funding_sat,
+                      push_msat, feerate, channel_type)
+
+    mtype, msg = read_channel_reply_msg(lconn)
+    assert mtype in (WIRE_WARNING, WIRE_ERROR), \
+        "funder left with {} sat to pay the commitment fee was not rejected (got msgtype {})".format(
+            funding_sat - push_msat // 1000, mtype)
+    assert b'Funder cannot afford fee' in error_data(msg)
+
+    assert not l1.daemon.is_in_log('Owning subdaemon openingd died')
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', "Fee computation and limits are network specific")
+@pytest.mark.openchannel('v1')
+def test_open_channel_initial_fee_boundary(node_factory, bitcoind):
+    """One-msat boundary around the funder affording the fee exactly.
+
+    BOLT #3 fee payment: the funder's to_local is funding - push -
+    base fee - 660 sats of anchors (option_anchors) or base fee alone
+    (static_remotekey). Affording the fee exactly is legal; one msat
+    short is a MUST-fail.
+    """
+    l1 = node_factory.get_node()
+
+    chain_hash = wire_chain_hash(bitcoind)
+    feerate = l1.rpc.feerates('perkw')['perkw']['opening']
+    funding_sat = 100000
+
+    for anchors in (True, False):
+        fee = initial_commitment_fee_sat(feerate, anchors)
+        exact_push = (funding_sat - fee) * 1000
+
+        for push_msat, rejected in ((exact_push, False),
+                                    (exact_push + 1, True)):
+            lconn, node_ctype = raw_peer_connect(l1)
+            if anchors:
+                channel_type = node_ctype
+            else:
+                channel_type = featurebits(OPT_STATIC_REMOTEKEY)
+            temp_chan_id = os.urandom(32)
+            send_open_channel(lconn, chain_hash, temp_chan_id, funding_sat,
+                              push_msat, feerate, channel_type)
+
+            mtype, msg = read_channel_reply_msg(lconn)
+            if rejected:
+                assert mtype in (WIRE_WARNING, WIRE_ERROR), \
+                    "push {} msat over a {} sat fee was not rejected (got msgtype {})".format(
+                        push_msat, fee, mtype)
+                assert b'Funder cannot afford fee' in error_data(msg)
+            else:
+                assert mtype == WIRE_ACCEPT_CHANNEL, \
+                    "push {} msat over a {} sat fee should be affordable (got msgtype {})".format(
+                        push_msat, fee, mtype)
+
+    # Accept cells abandon the negotiation on purpose: openingd exiting
+    # at the dropped connection is normal, assert only on crashes.
+    assert not l1.daemon.is_in_log('assertion failed')
+    assert not l1.daemon.is_in_log('FATAL SIGNAL')
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', "Fee computation and limits are network specific")
+@pytest.mark.openchannel('v1')
+def test_open_channel_reserve_too_high(node_factory, bitcoind):
+    """Both initial balances at or below channel_reserve_satoshis must
+    be rejected at open_channel receipt.
+
+    BOLT 2: the receiving node MUST fail the channel if both to_local
+    and to_remote of the initial commitment transaction are less than
+    or equal to the opener's channel_reserve_satoshis. CLN only
+    noticed in initial_commit_tx(), after accept_channel has gone out.
+    """
+    l1 = node_factory.get_node()
+
+    chain_hash = wire_chain_hash(bitcoind)
+    feerate = l1.rpc.feerates('perkw')['perkw']['opening']
+    funding_sat = 100000
+    push_msat = 20000000
+
+    fee = initial_commitment_fee_sat(feerate, anchors=True)
+    # Funder's projected to_local after fee; the accepter's to_remote is push.
+    funder_sat = funding_sat - push_msat // 1000 - fee
+
+    for reserve, rejected in ((funder_sat, True),
+                              (funder_sat - 1, False)):
+        lconn, channel_type = raw_peer_connect(l1)
+        temp_chan_id = os.urandom(32)
+        send_open_channel(lconn, chain_hash, temp_chan_id, funding_sat,
+                          push_msat, feerate, channel_type, channel_reserve=reserve)
+
+        mtype, msg = read_channel_reply_msg(lconn)
+        if rejected:
+            # funder == reserve and accepter (push) << reserve: both at
+            # or below the reserve.
+            assert mtype in (WIRE_WARNING, WIRE_ERROR), \
+                "reserve {} sat over funder balance {} sat was not rejected (got msgtype {})".format(
+                    reserve, funder_sat, mtype)
+            # The message cites the projected balances in order —
+            # pin them so a swap of the two cannot pass silently.
+            funder_msat = funding_sat * 1000 - push_msat - fee * 1000
+            assert ('not exceeded by either initial balance '
+                    '({}msat, {}msat)'.format(funder_msat, push_msat)
+                    ).encode() in error_data(msg)
+        else:
+            assert mtype == WIRE_ACCEPT_CHANNEL, \
+                "reserve {} sat below funder balance {} sat should be accepted (got msgtype {})".format(
+                    reserve, funder_sat, mtype)
+
+    # The static_remotekey (724-weight) path shifts the boundary by the
+    # fee difference; it must land on its own projection, not the
+    # anchors one.
+    fee = initial_commitment_fee_sat(feerate, anchors=False)
+    funder_sat = funding_sat - push_msat // 1000 - fee
+    lconn, _ = raw_peer_connect(l1)
+    send_open_channel(lconn, chain_hash, os.urandom(32), funding_sat,
+                      push_msat, feerate, featurebits(OPT_STATIC_REMOTEKEY),
+                      channel_reserve=funder_sat)
+    mtype, msg = read_channel_reply_msg(lconn)
+    assert mtype in (WIRE_WARNING, WIRE_ERROR), \
+        "static_remotekey reserve boundary was not rejected (got msgtype {})".format(mtype)
+    assert b'not exceeded by either initial balance' in error_data(msg)
+
+    # Accept cells abandon the negotiation on purpose: openingd exiting
+    # at the dropped connection is normal, assert only on crashes.
+    assert not l1.daemon.is_in_log('assertion failed')
+    assert not l1.daemon.is_in_log('FATAL SIGNAL')
