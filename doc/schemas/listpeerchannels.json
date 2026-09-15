@@ -1518,7 +1518,7 @@
             "short_channel_id": "116x1x1",
             "direction": 0,
             "channel_id": "2c383675809577b343f57acbea98d51dd913817874a3b621173f3fe2ea519c45",
-            "funding_txid": "6958d6b2c23a79254dfd48b9b3d2a357c8c12c52a8bbd90bf48bd04e55996368",
+            "funding_txid": "bf1c405e20fab7b8945d6e8fa363e665faca210bc7f77b2bbf9cf9ae08a1698f",
             "funding_outnum": 1,
             "close_to_addr": "bcrt1pra6c2rduuue0lqmwztg9mhccsxyamu4xtar6m5pumkyr8qgjqkxqtutu20",
             "close_to": "51201f75850dbce732ff836e12d05ddf188189ddf2a65f47add03cdd88338112058c",
@@ -1589,7 +1589,7 @@
                 "direction": "in",
                 "id": 17,
                 "amount_msat": 4000082,
-                "expiry": 190,
+                "expiry": 180,
                 "payment_hash": "917d0cb42f300c663e8fa4ec70db9ed8e8d1d715cde8b968e869ac45bba165ff",
                 "state": "RCVD_ADD_ACK_REVOCATION"
               }
@@ -1649,7 +1649,7 @@
             "short_channel_id": "116x1x1",
             "direction": 0,
             "channel_id": "2c383675809577b343f57acbea98d51dd913817874a3b621173f3fe2ea519c45",
-            "funding_txid": "6958d6b2c23a79254dfd48b9b3d2a357c8c12c52a8bbd90bf48bd04e55996368",
+            "funding_txid": "bf1c405e20fab7b8945d6e8fa363e665faca210bc7f77b2bbf9cf9ae08a1698f",
             "funding_outnum": 1,
             "close_to_addr": "bcrt1pra6c2rduuue0lqmwztg9mhccsxyamu4xtar6m5pumkyr8qgjqkxqtutu20",
             "close_to": "51201f75850dbce732ff836e12d05ddf188189ddf2a65f47add03cdd88338112058c",
@@ -1720,7 +1720,7 @@
                 "direction": "in",
                 "id": 17,
                 "amount_msat": 4000082,
-                "expiry": 190,
+                "expiry": 180,
                 "payment_hash": "917d0cb42f300c663e8fa4ec70db9ed8e8d1d715cde8b968e869ac45bba165ff",
                 "state": "RCVD_ADD_ACK_REVOCATION"
               }
@@ -1757,9 +1757,8 @@
                 "fee_proportional_millionths": 10
               }
             },
-            "last_stable_connection": 1738000000,
             "state": "CHANNELD_NORMAL",
-            "scratch_txid": "bcd70997bc9b5dbe3ade2472f4042aa60df29e4aff03019fdf9e181bcbe571d7",
+            "scratch_txid": "c2cc626e15b6642a621a632cc53bb898e91dbcb34e41fafc577db7af4c04b1bd",
             "last_tx_fee_msat": 4867000,
             "lost_state": false,
             "feerate": {
@@ -1770,7 +1769,7 @@
             "short_channel_id": "130x1x0",
             "direction": 0,
             "channel_id": "60a870b5b9d8a5a59213cb7b3ad81b3548ed107d0d627c3615746097b1374b55",
-            "funding_txid": "88c5963d6e1b0790375d5ce51c7fdd58b9b241c104754d2b704aee8cbdc5e7b5",
+            "funding_txid": "713a023034f58d25b76e2a15c40b50db4a58455e707b9e671f97f255eea1d9cf",
             "funding_outnum": 0,
             "close_to_addr": "bcrt1psf44655cjcww96w8eqted6n5nxx8xk6taluuq9jxtwjhg0t7h5ysd07wrp",
             "close_to": "5120826b5d5298961ce2e9c7c81796ea74998c735b4beff9c016465ba5743d7ebd09",
@@ -1788,7 +1787,7 @@
               "local_funds_msat": 1000000000,
               "remote_funds_msat": 0,
               "pushed_msat": 0,
-              "psbt": "cHNidP8BAgQCAAAAAQMEgQAAAAEEAQEBBQECAQYBAwH7BAIAAAAAAQBxAgAAAAFH9mMBrzIXeskP+M+6dA1lXTabRNW92qeBJawr9KWWJgEAAAAA/f///wJYXqHsAAAAABYAFFBiDmO0AnA6WCqLGNDX15ubqxVtgIQeAAAAAAAWABQidZPsYw0iumI+HpeDx/s5wBvEPYAAAAABAR+AhB4AAAAAABYAFCJ1k+xjDSK6Yj4el4PH+znAG8Q9AQhrAkcwRAIgVRCCmfgLBJrvJKIQxgLQo8PY7Us5x2vEGPGMbEbz1yoCIGFpRbPpjvr+1cAznqzTdu1WUBg8Iv8eKP+p/ZRSB0N8ASEC4hg4jl3U8A4qFtPRpOAXc0xXxK+eRV+LPkPA2XiuhdwBDiBhM4MOthZkVxabjomUBjC2hhQSdtMuVTFitVO8aAfKZwEPBAEAAAABEAT9////DPwJbGlnaHRuaW5nAgIAAQz8CWxpZ2h0bmluZwEIc/GS/nwmGwIAAQMIQEIPAAAAAAABBCIAIInGWyJT0WVMF987hzRQ8ITS4sL5K+AYMvMzXkSpcQJrDPwJbGlnaHRuaW5nAQg9wz2WbaJ2LAABAwgBLw8AAAAAAAEEIlEguDtremsFDfKGS01hC4irM9KaGniglgYpFMBxpHmJkHEhB+22JP7l2i9Ij9sZOjbB2LFUCyW6CATqqg+ZX6MP48beCQBJRVftCgAAAAz8CWxpZ2h0bmluZwEIdfGS/nwmGwIA",
+              "psbt": "cHNidP8BAgQCAAAAAQMEgQAAAAEEAQEBBQECAQYBAwH7BAIAAAAAAQBxAgAAAAE8qruO4OcNdBwkXbooE+hsqEFNEZBJiF4ppNO7niTpTQAAAAAA/f///wKAhB4AAAAAABYAFKIbv/yF9tzw47O634ro6NajBbghZeO/7AAAAAAWABQ8giT63Zrdx5gqEF8lz/rzwGfNLHgAAAABAR+AhB4AAAAAABYAFKIbv/yF9tzw47O634ro6NajBbghAQhrAkcwRAIgG+7rOpkiOdEl69PITbDyy6BixuSwj7w3UzxNJ9JSt9wCIApWn8lad/hj7tewvteffAarlw98XPTY1BZymPg9aPGmASECsJMqyLJC++ce3DF2TSO2MnS5feVJMtLTVTykIR44AgABDiCeN6P7EB93vBP7cjWUt1wjkMA5ufsq1Pm1PdlRiIZYxAEPBAAAAAABEAT9////DPwJbGlnaHRuaW5nAgIAAQz8CWxpZ2h0bmluZwEIcfGS/nwmGwIAAQMIQEIPAAAAAAABBCIAIInGWyJT0WVMF987hzRQ8ITS4sL5K+AYMvMzXkSpcQJrDPwJbGlnaHRuaW5nAQg9wz2WbaJ2LAABAwgBLw8AAAAAAAEEIlEguDtremsFDfKGS01hC4irM9KaGniglgYpFMBxpHmJkHEhB+22JP7l2i9Ij9sZOjbB2LFUCyW6CATqqg+ZX6MP48beCQBJRVftCgAAAAz8CWxpZ2h0bmluZwEIc/GS/nwmGwIA",
               "withheld": false
             },
             "to_us_msat": 899996000,
@@ -1827,6 +1826,7 @@
               }
             ],
             "status": [
+              "CHANNELD_NORMAL:Reconnected, and reestablished.",
               "CHANNELD_NORMAL:Channel ready for use."
             ],
             "in_payments_offered": 0,
@@ -1842,7 +1842,7 @@
                 "direction": "out",
                 "id": 1,
                 "amount_msat": 4000041,
-                "expiry": 184,
+                "expiry": 174,
                 "payment_hash": "917d0cb42f300c663e8fa4ec70db9ed8e8d1d715cde8b968e869ac45bba165ff",
                 "state": "SENT_ADD_ACK_REVOCATION"
               }
@@ -1878,17 +1878,17 @@
               }
             },
             "state": "CLOSINGD_COMPLETE",
-            "scratch_txid": "9860f25fc55272e7250d4829e0ebf37f524c3a57ef6841e9585a2132c19b0f06",
+            "scratch_txid": "0ddf2206bb3b4a3d471b4c19d74e0377eb4dd679f002ae52716261c05dc760e2",
             "last_tx_fee_msat": 2895000,
             "lost_state": false,
             "feerate": {
               "perkw": 3755,
               "perkb": 15020
             },
-            "short_channel_id": "168x1x0",
+            "short_channel_id": "158x1x0",
             "direction": 1,
             "channel_id": "473851bb98a42329724d897b5ea85fcda29e9973b70e4e7b2bbce82ff996c601",
-            "funding_txid": "df0d67b5c14dc69c1f7dea24111e4557aaa9a01bca5c683cd81efda21f12031f",
+            "funding_txid": "830d880d1b4bf06d4dbf6143a2640638d1054b66a6ce4fa7fa8f3243eec45eef",
             "funding_outnum": 0,
             "close_to_addr": "bcrt1pw0rhfqe7ejs9gl8ganf0ljzk4s0h3z03ttqulq93823ucctqrjsq4ew6qm",
             "close_to": "512073c774833ecca0547ce8ecd2ffc856ac1f7889f15ac1cf80b13aa3cc61601ca0",
@@ -1907,7 +1907,7 @@
               "local_funds_msat": 1000000000,
               "remote_funds_msat": 0,
               "pushed_msat": 0,
-              "psbt": "cHNidP8BAgQCAAAAAQMEpwAAAAEEAQEBBQECAQYBAwH7BAIAAAAAAQBxAgAAAAG9z15ZROhdfALPNFfbdqDnqEcsmBNxfGhZSGyXY/HlcgEAAAAA/f///wL5qenGAAAAABYAFEH2qr43Uir+9Co2IOMraXlFbxEwgIQeAAAAAAAWABQEeNAiNCzyuZ/17eLSVsvQpZPrbZ8AAAABAR+AhB4AAAAAABYAFAR40CI0LPK5n/Xt4tJWy9Clk+ttAQhrAkcwRAIgSAJzit1x5k6WwyDCd3R8S581xXDShD5m7ftrTIDUwxwCIEG5Ki4PLGt8P+p6ADP6pwQTU08qOgNphfDuGtOIeb3+ASECGNG4MMNa5MYOD/fdZTJ+xoTnIkT85j/UqdMVuqA58WEBDiAa7/m7uodyqEaU49qbQRxfTg3+F1oawamCcd9Plx6S9AEPBAEAAAABEAT9////DPwJbGlnaHRuaW5nAgIAAQz8CWxpZ2h0bmluZwEId/GS/nwmGwIAAQMIQEIPAAAAAAABBCIAIFslKnuvLGgDJ04mVARXSd1zCSS4fUWQ0bC4OtRmwiVXDPwJbGlnaHRuaW5nAQhFhW/k0bBNTAABAwgBLw8AAAAAAAEEIlEgg9vpi/env64gPX8J/+ZFqhBROHk7BZNfPDMlZsOZvikhB6sQt9KNdmWcidak5gvF7kxjfi55r5zH08mUxqMG5CBWCQC0TbHHFwAAAAz8CWxpZ2h0bmluZwEIefGS/nwmGwIA",
+              "psbt": "cHNidP8BAgQCAAAAAQMEnQAAAAEEAQEBBQECAQYBAwH7BAIAAAAAAQD9owECAAAAAm54uS842VUTFqPCfrePjtnm8iSHaqgI8Xx0BIdGRr7iAQAAAAD9////bni5LzjZVRMWo8J+t4+O2ebyJIdqqAjxfHQEh0ZGvuIDAAAAAP3///8J6AMAAAAAAAAiUSBto+278RAYnqDrfJXhjU6s4addGMVXgTtVdFu4Ys7LepOeHwwAAAAAIlEg0tDyTZo+WW4vvAgZ6IlMg8XFg+uGLZAVal4SkjkZTdXoAwAAAAAAACJRIAlY3uvciuAfSvLCoasFQj4yCrpJhj0OQ3a9ShzZRaCR6AMAAAAAAAAWABShQDqn3mp6eeiZRfbZL5Epf3nXJOgDAAAAAAAAFgAUwT35ign2KH3je+ALTalOZlE4QgDoAwAAAAAAABYAFCtypky/Hpgo4jezIFa/JmOKsnlC6AMAAAAAAAAWABQpX5QlfvUU3sPtfUVJxO4mOuFuhOgDAAAAAAAAFgAU5OeJWizfbOd59cYgLJnePjs7NuioYQAAAAAAACJRIBgq9yi7Y4tkAnCLADH0qiVE6UrN1j0Tget+IH1rqNmYkwAAAAEBK5OeHwwAAAAAIlEg0tDyTZo+WW4vvAgZ6IlMg8XFg+uGLZAVal4SkjkZTdUBCEIBQAlggVnsmc2EjfbAKK8VcRFZPotc5oW+mW91lwFFTIzJXHxl+WU2nrExtZPGNR6Ls2g0bzi6GAAftVULOpzRDbEBDiBvCSyY5z89Jayvb9uG9otMwc0oW50B1OO5mbANE+cLlwEPBAEAAAABEAT9////DPwJbGlnaHRuaW5nAgIAAQz8CWxpZ2h0bmluZwEIdfGS/nwmGwIAAQMIQEIPAAAAAAABBCIAIFslKnuvLGgDJ04mVARXSd1zCSS4fUWQ0bC4OtRmwiVXDPwJbGlnaHRuaW5nAQhFhW/k0bBNTAABAwhHShAMAAAAAAEEIlEgg9vpi/env64gPX8J/+ZFqhBROHk7BZNfPDMlZsOZvikhB6sQt9KNdmWcidak5gvF7kxjfi55r5zH08mUxqMG5CBWCQC0TbHHFwAAAAz8CWxpZ2h0bmluZwEId/GS/nwmGwIA",
               "withheld": false
             },
             "to_us_msat": 500000000,
@@ -1967,7 +1967,7 @@
               }
             ],
             "status": [
-              "CLOSINGD_SIGEXCHANGE:We agreed on a closing fee of 2895 satoshi for tx:9860f25fc55272e7250d4829e0ebf37f524c3a57ef6841e9585a2132c19b0f06"
+              "CLOSINGD_SIGEXCHANGE:We agreed on a closing fee of 2895 satoshi for tx:0ddf2206bb3b4a3d471b4c19d74e0377eb4dd679f002ae52716261c05dc760e2"
             ],
             "in_payments_offered": 0,
             "in_offered_msat": 0,
