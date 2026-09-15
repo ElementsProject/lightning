@@ -213,12 +213,48 @@ static u32 calc_max_close_feerate(struct lightningd *ld,
 	return max_feerate;
 }
 
+/* The fee closingd negotiated is what it took off our output (we only
+ * bound the fee when we are the opener, and the opener pays it).  The
+ * transaction itself pays more than that whenever the outputs' msat
+ * remainders were rounded away or an output was trimmed as dust: neither
+ * is a fee we chose, so neither counts against our maximum. */
+static bool negotiated_close_fee(const struct channel *channel,
+				 const struct bitcoin_tx *tx,
+				 struct amount_sat *fee)
+{
+	struct amount_sat ours = amount_msat_to_sat_round_down(channel->our_msat);
+	struct amount_sat out_amt;
+
+	for (size_t i = 0; i < tx->wtx->num_outputs; i++) {
+		const struct wally_tx_output *out = &tx->wtx->outputs[i];
+		const u8 *script = tal_dup_arr(tmpctx, u8,
+					       out->script, out->script_len, 0);
+		if (!scripteq(script, channel->shutdown_scriptpubkey[LOCAL]))
+			continue;
+		out_amt = bitcoin_tx_output_get_amount_sat(tx, i);
+		if (!amount_sat_sub(fee, ours, out_amt)) {
+			/* closingd built the tx from this same balance, so
+			 * this cannot underflow; count the whole fee if it
+			 * does. */
+			log_broken(channel->log,
+				   "Closing tx output %zu pays us %s,"
+				   " more than our balance %s",
+				   i, fmt_amount_sat(tmpctx, out_amt),
+				   fmt_amount_sat(tmpctx, ours));
+			return false;
+		}
+		return true;
+	}
+	/* Our output was trimmed: the fee is everything. */
+	return false;
+}
+
 /* Assess whether a proposed closing fee is acceptable. */
 static bool closing_fee_is_acceptable(struct lightningd *ld,
 				      struct channel *channel,
 				      const struct bitcoin_tx *tx)
 {
-	struct amount_sat fee, last_fee;
+	struct amount_sat fee, last_fee, negotiated;
 	u64 weight;
 
 	/* Calculate actual fee (adds in eliminated outputs) */
@@ -236,12 +272,21 @@ static bool closing_fee_is_acceptable(struct lightningd *ld,
 		  fmt_amount_sat(tmpctx, last_fee),
 		  weight);
 
+	if (ld->dev_reject_closing_fee) {
+		log_debug(channel->log, "... dev-reject-closing-fee");
+		return false;
+	}
+
 	if (!channel->ignore_fee_limits && !ld->config.ignore_fee_limits) {
 		struct amount_sat min_fee, max_fee;
 		u32 min_feerate, max_feerate;
 
 		/* If we don't have a feerate estimate, this gives feerate_floor */
 		min_feerate = feerate_min(ld, NULL);
+		/* A feerange given to `close` is what closingd negotiated
+		 * within; its minimum is our floor too. */
+		if (channel->closing_feerate_range)
+			min_feerate = channel->closing_feerate_range[0];
 		max_feerate = calc_max_close_feerate(ld, channel);
 
 		min_fee = amount_tx_fee(min_feerate, weight);
@@ -253,9 +298,14 @@ static bool closing_fee_is_acceptable(struct lightningd *ld,
 			return false;
 		}
 		max_fee = amount_tx_fee(max_feerate, weight);
-		if (channel->opener == LOCAL && amount_sat_less(max_fee, fee)) {
-			log_debug(channel->log, "... That's above our max %s"
-				  " for weight %"PRIu64" at feerate %u",
+		if (!negotiated_close_fee(channel, tx, &negotiated))
+			negotiated = fee;
+		if (channel->opener == LOCAL
+		    && amount_sat_less(max_fee, negotiated)) {
+			log_debug(channel->log, "... Negotiated fee %s is above"
+				  " our max %s for weight %"PRIu64
+				  " at feerate %u",
+				  fmt_amount_sat(tmpctx, negotiated),
 				  fmt_amount_sat(tmpctx, max_fee),
 				  weight, max_feerate);
 			return false;
@@ -332,6 +382,7 @@ static void peer_received_closing_signature(struct channel *channel,
 	struct bitcoin_txid tx_id;
 	struct lightningd *ld = channel->peer->ld;
 	u8 *funding_wscript;
+	bool acceptable;
 
 	if (!fromwire_closingd_received_signature(msg, msg, &sig, &tx)) {
 		channel_internal_error(channel,
@@ -360,17 +411,23 @@ static void peer_received_closing_signature(struct channel *channel,
 		return;
 	}
 
-	if (closing_fee_is_acceptable(ld, channel, tx)) {
+	acceptable = closing_fee_is_acceptable(ld, channel, tx);
+	if (acceptable) {
 		channel_set_last_tx(channel, tx, &sig);
 		wallet_channel_save(ld->wallet, channel);
-	}
+	} else
+		log_unusual(channel->log,
+			    "Rejecting peer's closing fee offer:"
+			    " closingd must not agree to it");
 
-
-	// Send back the txid so we can update the billboard on selection.
+	/* Send back the txid so closingd can update the billboard, and
+	 * whether it may agree to this offer at all.  Without the verdict
+	 * a rejected offer would still complete the close, and last_tx,
+	 * still the commitment, would be broadcast as the mutual close. */
 	bitcoin_txid(channel->last_tx, &tx_id);
-	/* OK, you can continue now. */
 	subd_send_msg(channel->owner,
-		      take(towire_closingd_received_signature_reply(channel, &tx_id)));
+		      take(towire_closingd_received_signature_reply(channel, &tx_id,
+								    acceptable)));
 }
 
 static void peer_closing_complete(struct channel *channel, const u8 *msg)

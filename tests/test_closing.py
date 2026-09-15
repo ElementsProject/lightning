@@ -4244,6 +4244,105 @@ def test_closing_minfee(node_factory, bitcoind):
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd anchors not supportd')
+def test_closing_fee_rounding_at_ceiling(node_factory, bitcoind):
+    """A close pinned at the fee ceiling stays a mutual close.
+
+    With every estimate at the floor, the opener's closing fee range is
+    a single value.  Each output is rounded down to whole satoshis, so
+    the msat remainders end up in the fee and the transaction pays one
+    satoshi more than the agreed fee.  lightningd must still accept it
+    rather than fall back to broadcasting the commitment.
+    """
+    l1, l2 = node_factory.line_graph(2, opts={'feerates': (253, 253, 253, 253)})
+    chan = only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])
+    funding = int(Millisatoshi(chan['total_msat']).to_satoshi())
+
+    # Leave remainders which sum to exactly 1000msat: l1 keeps ...999msat,
+    # l2 gets ...001msat.  Rounding both down costs one satoshi of fee.
+    l1.pay(l2, 100000001)
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['htlcs'] == [])
+
+    fee = closing_fee(253, 2)
+    res = l1.rpc.close(l2.info['id'])
+    assert res['type'] == 'mutual'
+    tx = bitcoind.rpc.decoderawtransaction(only_one(res['txs']))
+
+    # A closing transaction, not the commitment.
+    assert len(tx['vout']) == 2
+    assert tx['locktime'] == 0
+
+    # The agreed fee plus the rounded-off remainders.
+    paid = funding - sum(int(round(o['value'] * 10**8)) for o in tx['vout'])
+    assert paid == fee + 1
+    billboard = only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['status']
+    assert billboard == ['CLOSINGD_SIGEXCHANGE:We agreed on a closing fee of {} satoshi for tx:{}'.format(fee, tx['txid'])]
+
+    bitcoind.generate_block(1, wait_for_mempool=tx['txid'])
+    wait_for(lambda: 'ONCHAIN:Tracking mutual close transaction' in only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['status'])
+    assert tx['txid'] in [o['txid'] for o in l1.rpc.listfunds()['outputs']]
+    assert tx['txid'] in [o['txid'] for o in l2.rpc.listfunds()['outputs']]
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd anchors not supportd')
+def test_closing_feerange_below_estimates(node_factory, bitcoind):
+    """A close with a feerange below the estimate floor stays a mutual close.
+
+    closingd negotiates within the feerange given to `close`, but
+    lightningd checked the agreed fee against the floor derived from its
+    fee estimates.  With estimates above the range, the agreed fee was
+    rejected as too low and the commitment was broadcast instead.
+    """
+    l1, l2 = node_factory.line_graph(2, opts={'feerates': (253, 253, 253, 253),
+                                              'may_reconnect': True})
+    l1.pay(l2, 100000000)
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['htlcs'] == [])
+
+    # l1's estimate floor becomes 1000perkw, well above the range.
+    l1.force_feerates(2000)
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    fee = closing_fee(253, 2)
+    res = l1.rpc.close(l2.info['id'], feerange=['253perkw', '253perkw'])
+    assert res['type'] == 'mutual'
+    tx = bitcoind.rpc.decoderawtransaction(only_one(res['txs']))
+
+    # A closing transaction at the agreed fee, not the commitment.
+    assert len(tx['vout']) == 2
+    assert tx['locktime'] == 0
+    billboard = only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['status']
+    assert 'CLOSINGD_SIGEXCHANGE:We agreed on a closing fee of {} satoshi for tx:{}'.format(fee, tx['txid']) in billboard
+
+    bitcoind.generate_block(1, wait_for_mempool=tx['txid'])
+    wait_for(lambda: 'ONCHAIN:Tracking mutual close transaction' in only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['status'])
+    assert tx['txid'] in [o['txid'] for o in l1.rpc.listfunds()['outputs']]
+    assert tx['txid'] in [o['txid'] for o in l2.rpc.listfunds()['outputs']]
+
+
+def test_closing_rejected_fee_fails_negotiation(node_factory, bitcoind):
+    """A closing fee lightningd rejects ends the negotiation.
+
+    closingd only learns the txid from lightningd's reply, never the
+    verdict, so it agrees to a rejected offer and lightningd broadcasts
+    the commitment as if it were the mutual close.  The known reasons for
+    a rejection are fixed, so --dev-reject-closing-fee forces one.
+    """
+    l1, l2 = node_factory.line_graph(2, opts=[{}, {'dev-reject-closing-fee': None}])
+    l1.pay(l2, 100000000)
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['htlcs'] == [])
+
+    # l2 refuses l1's offer, so nobody completes the negotiation and l1
+    # closes unilaterally when its timeout expires.
+    res = l1.rpc.close(l2.info['id'], unilateraltimeout=10)
+    assert res['type'] == 'unilateral'
+    assert not l2.daemon.is_in_log('We agreed on a closing fee')
+    l2.daemon.wait_for_log('outside our fee limits')
+
+    # The only transaction on the wire is that unilateral close.
+    txid = only_one(res['txids'])
+    wait_for(lambda: bitcoind.rpc.getrawmempool() == [txid])
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd anchors not supportd')
 def test_peer_anchor_push(node_factory, bitcoind, executor, chainparams):
     """Test that we use anchor on peer's commit to CPFP tx"""
     l1, l2, l3 = node_factory.line_graph(3, opts=[{},
