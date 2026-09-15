@@ -1144,7 +1144,7 @@ def test_createinvoice_expiry_too_large(node_factory):
     from pyln.proto.invoice import tagged, tagged_bytes
     from pyln.proto.bech32 import bech32_encode
 
-    def crafted_bolt11(payment_hash, expiry):
+    def crafted_bolt11(hrp, payment_hash, expiry):
         """A parseable-but-junk-signed bolt11: createinvoice decodes
         without verifying the signature, so the 65 trailing bytes are
         filler; every field the parser needs is real."""
@@ -1160,19 +1160,24 @@ def test_createinvoice_expiry_too_large(node_factory):
         data += tagged_bytes('s', bytes(32))
         data += bitstring.BitArray(bytes(65))
         return bech32_encode(
-            'lnbcrt', bytes([data[i:i + 5].uint
-                             for i in range(0, data.len, 5)]))
+            hrp, bytes([data[i:i + 5].uint
+                        for i in range(0, data.len, 5)]))
 
     l1 = node_factory.get_node()
+    # The bech32 HRP is network-dependent (lnbcrt on regtest, another
+    # prefix on e.g. liquid-regtest): take it from a real invoice on
+    # THIS network instead of hardcoding it.
+    hrp = l1.rpc.invoice(1, 'hrp-probe', 'hrp')['bolt11'].split('1', 1)[0]
+
 
     with pytest.raises(RpcError, match='expiry must be below'):
-        l1.rpc.createinvoice(crafted_bolt11(bytes(32), 2**32),
+        l1.rpc.createinvoice(crafted_bolt11(hrp, bytes(32), 2**32),
                              'label', '00' * 32)
 
     # The exact boundary still works: a matching preimage and the
     # largest in-bounds expiry recreate cleanly.
     preimage = bytes(range(32))
     ok = l1.rpc.createinvoice(
-        crafted_bolt11(hashlib.sha256(preimage).digest(), 2**32 - 1),
+        crafted_bolt11(hrp, hashlib.sha256(preimage).digest(), 2**32 - 1),
         'boundary-label', preimage.hex())
     assert ok['bolt11']
