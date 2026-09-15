@@ -3814,6 +3814,16 @@ static void handle_commit_ready(struct subd *dualopend,
 
 	/* First time (not an RBF) */
 	if (channel->state == DUALOPEND_OPEN_INIT) {
+		/* Never commit a second channel with the same channel_id
+		 * (this frees the uncommitted channel). */
+		if (channel_id_in_use(ld, &channel->cid, channel)) {
+			channel_internal_error(channel,
+					       "channel_id %s already in use",
+					       fmt_channel_id(tmpctx,
+							      &channel->cid));
+			return;
+		}
+
 		/* Now we know if it's public or not, we can init channel_gossip */
 		assert(channel->channel_gossip == NULL);
 		channel_gossip_init(channel, NULL);

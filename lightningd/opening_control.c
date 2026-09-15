@@ -424,6 +424,14 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 	/* Saved with channel to disk */
 	derive_channel_id(&cid, &funding);
 
+	/* Refuse to reuse the funding outpoint of an existing (or closed)
+	 * channel: the channel_id would collide. */
+	if (channel_id_in_use(ld, &cid, NULL)) {
+		uncommitted_channel_disconnect(fc->uc, LOG_UNUSUAL,
+					       "Funding outpoint already in use");
+		goto cleanup;
+	}
+
 	/* old_remote_per_commit not valid yet, copy valid one. */
 	channel_info.old_remote_per_commit = channel_info.remote_per_commit;
 
@@ -535,9 +543,12 @@ static void opening_fundee_finished(struct subd *openingd,
 	derive_channel_id(&cid, &funding);
 
 	/* A funding outpoint funds at most one channel; don't accept a second
-	 * channel reusing one we already have.  Drop the connection so the
-	 * peer's open fails cleanly instead of waiting for funding_signed. */
-	if (find_channel_by_funding_outpoint(uc->peer, &funding)) {
+	 * channel reusing one we already have, with this or any other peer,
+	 * open or closed: the channel_id would collide.  Drop the connection
+	 * so the peer's open fails cleanly instead of waiting for
+	 * funding_signed. */
+	if (find_channel_by_funding_outpoint(uc->peer, &funding)
+	    || channel_id_in_use(ld, &cid, NULL)) {
 		force_peer_disconnect(ld, uc->peer,
 				      "Funding outpoint already in use");
 		return;
