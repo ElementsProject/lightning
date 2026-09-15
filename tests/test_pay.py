@@ -7477,6 +7477,10 @@ def test_createproof_note(node_factory, bitcoind):
     assert decoded2['valid'] is True
     assert 'proof_note' not in decoded2
 
+    with pytest.raises(RpcError, match=r'should not contain control'):
+        l1.rpc.call('createproof', {'invstring': inv, 'note': 'badnote'})
+    assert l1.rpc.getinfo()
+
 
 def test_createproof_include(node_factory, bitcoind):
     """Proof with custom include list: only requested fields appear."""

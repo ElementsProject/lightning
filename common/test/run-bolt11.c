@@ -950,6 +950,20 @@ int main(int argc, char *argv[])
 	assert(!bolt11_decode(tmpctx, "lnbc1qqygh9qpp50qzxqqqqqpqqrzjcqqqqqqqqqqqqqqqqqqqqqqqqqqcqpjqqqqqqrzjcqqqqqcqpjqqqqqqqqqqqqqqqqqqqqqqqqqcq9qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqdqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqlqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqlqqqqqqqqqqqqqqqqqqqqqqq4murj7", NULL, NULL, NULL, &fail));
 	assert(streq(fail, "r: hop 0 pubkey invalid"));
 
+	b11 = new_bolt11(tmpctx, NULL);
+	b11->chain = chainparams_for_network("bitcoin");
+	b11->timestamp = 1496314658;
+	if (!hex_decode("0001020304050607080900010203040506070809000102030405060708090102",
+			strlen("0001020304050607080900010203040506070809000102030405060708090102"),
+			&b11->payment_hash, sizeof(b11->payment_hash)))
+		abort();
+	b11->receiver_id = node;
+	b11->description = "private use \xee\x80\x80 codepoint";
+
+	badstr = bolt11_encode(tmpctx, b11, false, test_sign, NULL);
+	assert(!bolt11_decode(tmpctx, badstr, NULL, NULL, NULL, &fail));
+	assert(streq(fail, "d: invalid utf8"));
+
 	/* FIXME: Test the others! */
 	common_shutdown();
 }
