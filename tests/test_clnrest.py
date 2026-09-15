@@ -422,7 +422,8 @@ def test_numeric_msat_notification(node_factory):
     # create rune authorizing listclnrest-notifications method
     rune_clnrest_notifications = l2.rpc.createrune(restrictions=[["method=listclnrest-notifications"]])['rune']
     http_session.headers.update({"rune": rune_clnrest_notifications})
-    notifications = notifications_received_via_websocket(l1, base_url, http_session, 'pay', [inv['bolt11']])
+    notifications = notifications_received_via_websocket(l1, base_url,
+                                                         http_session, 'xpay', [inv['bolt11']])
     filtered_notifications = [n for n in notifications if 'invoice_payment' in n]
 
     assert isinstance(filtered_notifications[0]['invoice_payment']['msat'], int)
@@ -875,7 +876,7 @@ def test_dynamic_path_rune(node_factory):
         dynamic_res.json()["message"] == "Not permitted: method is not equal to notpay"
     )
 
-    rune = l1.rpc.createrune(restrictions=[["method=pay"]])["rune"]
+    rune = l1.rpc.createrune(restrictions=[["method=xpay"]])["rune"]
     dynamic_res = http_session.post(
         base_url + "/test/dynamic/clnrest", headers={"Rune": rune}, verify=ca_cert
     )
