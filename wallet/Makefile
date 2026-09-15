@@ -21,7 +21,7 @@ WALLET_DB_QUERIES  := 			\
 WALLET_SRC := $(WALLET_LIB_SRC) $(WALLET_LIB_SRC_NOHDR) $(WALLET_DB_QUERIES)
 WALLET_HDRS := $(WALLET_LIB_SRC:.c=.h)
 
-WALLET_OBJS := $(WALLET_SRC:.c=.o)
+WALLET_OBJS := $(WALLET_SRC:%.c=$(BUILDDIR)/%.o)
 
 # This really should be a subdir of lightningd/.  We depend on their headers!
 $(WALLET_OBJS): $(LIGHTNINGD_SRC:.c=.h)
@@ -63,5 +63,8 @@ wallet-maintainer-clean:
 	$(RM) wallet/statements.po
 	$(RM) wallet/statements_gettextgen.po
 	$(RM) $(WALLET_DB_QUERIES)
+
+obsclean::
+	$(RM) wallet/*.o
 
 include wallet/test/Makefile
