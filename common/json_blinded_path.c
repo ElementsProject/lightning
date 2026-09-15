@@ -8,7 +8,7 @@ struct blinded_path *
 json_to_blinded_path(const tal_t *ctx, const char *buffer, const jsmntok_t *tok)
 {
 	struct blinded_path *rpath;
-	const jsmntok_t *hops, *t;
+	const jsmntok_t *hops, *t, *node_id_tok, *scid_tok;
 	size_t i;
 	const char *err;
 	struct pubkey first_node_id;
@@ -17,6 +17,7 @@ json_to_blinded_path(const tal_t *ctx, const char *buffer, const jsmntok_t *tok)
 	rpath = tal(ctx, struct blinded_path);
 
 	/* It will give us either scid or node_id */
+	memset(&first_node_id, 0, sizeof(first_node_id));
 	memset(&first_scidd, 0, sizeof(first_scidd));
 	err = json_scan(tmpctx, buffer, tok,
 			"{first_path_key:%,"
@@ -31,7 +32,14 @@ json_to_blinded_path(const tal_t *ctx, const char *buffer, const jsmntok_t *tok)
 	if (err)
 		return tal_free(rpath);
 
-	if (first_scidd.scid.u64 != 0)
+	/* A zero scid is valid on the wire, so don't use it as a sentinel:
+	 * require exactly one of the two forms. */
+	node_id_tok = json_get_member(buffer, tok, "first_node_id");
+	scid_tok = json_get_member(buffer, tok, "first_scid");
+	if (!node_id_tok == !scid_tok)
+		return tal_free(rpath);
+
+	if (scid_tok)
 		sciddir_or_pubkey_from_scidd(&rpath->first_node_id, &first_scidd);
 	else
 		sciddir_or_pubkey_from_pubkey(&rpath->first_node_id, &first_node_id);
