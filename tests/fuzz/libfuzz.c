@@ -42,6 +42,11 @@ uint64_t pseudorand_(uint64_t max, uint64_t *offset)
 	return isaac64_next_uint(&isaac64, max);
 }
 
+uint64_t pseudorand_u64_(uint64_t *offset)
+{
+	return isaac64_next_uint64(&isaac64);
+}
+
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 	isaac64_init(&isaac64, NULL, 0);
 
