@@ -2532,6 +2532,7 @@ int main(int argc, char *argv[])
 
 	/* Common subdaemon setup code. */
 	developer = subdaemon_setup(argc, argv);
+	io_poll_protect_stale_fds();
 
 	/* Allocate and set up our simple top-level structure. */
 	daemon = tal(NULL, struct daemon);

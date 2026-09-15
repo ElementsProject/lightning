@@ -1,7 +1,10 @@
+CCAN_IO_TEST_SRC := ccan/ccan/io/test/run-49-stale-fd-readiness.c
 COMMON_TEST_SRC := $(wildcard common/test/run-*.c)
 
 COMMON_TEST_OBJS := $(COMMON_TEST_SRC:.c=.o)
 COMMON_TEST_PROGRAMS := $(COMMON_TEST_OBJS:.o=)
+CCAN_IO_TEST_OBJS := $(CCAN_IO_TEST_SRC:.c=.o)
+CCAN_IO_TEST_PROGRAMS := $(CCAN_IO_TEST_OBJS:.o=)
 
 COMMON_TEST_COMMON_OBJS :=				\
 	common/autodata.o				\
@@ -13,8 +16,8 @@ COMMON_TEST_COMMON_OBJS :=				\
 $(COMMON_TEST_PROGRAMS): $(COMMON_TEST_COMMON_OBJS) $(BITCOIN_OBJS)
 $(COMMON_TEST_OBJS): $(COMMON_HEADERS) $(WIRE_HEADERS) $(COMMON_SRC) common/test/Makefile
 
-ALL_C_SOURCES += $(COMMON_TEST_SRC)
-ALL_TEST_PROGRAMS += $(COMMON_TEST_PROGRAMS)
+ALL_C_SOURCES += $(COMMON_TEST_SRC) $(CCAN_IO_TEST_SRC)
+ALL_TEST_PROGRAMS += $(COMMON_TEST_PROGRAMS) $(CCAN_IO_TEST_PROGRAMS)
 
 # Make them all depend on common/ files, for simplicity (they directly #include some)
 $(COMMON_TEST_OBJS): $(COMMON_SRC)
@@ -178,4 +181,4 @@ common/test/run-close_tx:			\
 	wire/fromwire.o					\
 	wire/towire.o
 
-check-units: $(COMMON_TEST_PROGRAMS:%=unittest/%)
+check-units: $(COMMON_TEST_PROGRAMS:%=unittest/%) $(CCAN_IO_TEST_PROGRAMS:%=unittest/%)
