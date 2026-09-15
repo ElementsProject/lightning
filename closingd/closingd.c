@@ -388,11 +388,13 @@ receive_offer(struct per_peer_state *pps,
 	/* Master sorts out what is best offer, we just tell it any above min */
 	if (amount_sat_greater_eq(received_fee, min_fee_to_accept)) {
 		status_debug("...offer is reasonable");
-		/* BOLT #2:
-		 *   - if the message contains a `fee_range`:
-		 *     - if there is no overlap between that and its own `fee_range`:
-		 *       - SHOULD send a warning
-		 */
+		/* Our own closing_signed for this round has usually gone
+		 * out by now (the opener sends first), so if their fee
+		 * matched ours they hold both signatures and can broadcast
+		 * the close whatever we do here.  Refusing only keeps us
+		 * from recording the close as agreed.  lightningd checks
+		 * the fee against the same bounds we negotiate within, so
+		 * this is not expected to fire. */
 		if (!tell_master_their_offer(&their_sig, tx, closing_txid))
 			peer_failed_warn(pps, channel_id,
 					 "Closing fee %s is outside our fee limits",
