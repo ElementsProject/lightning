@@ -1069,7 +1069,7 @@ static struct channel *handle_init(struct info *info, const u8 *init_msg)
 	u8 channel_flags;
 	bool channel_ready[NUM_SIDES];
 	u64 next_index[NUM_SIDES];
-	u64 htlc_id;
+	u64 htlc_id, their_htlc_id;
 	struct bitcoin_signature their_commit_sig;
 	struct short_channel_id short_channel_ids[NUM_SIDES];
 	bool send_shutdown;
@@ -1122,6 +1122,7 @@ static struct channel *handle_init(struct info *info, const u8 *init_msg)
 				    &next_index[REMOTE],
 				    &revocations_received,
 				    &htlc_id,
+				    &their_htlc_id,
 				    &htlcs,
 				    &channel_ready[LOCAL],
 				    &channel_ready[REMOTE],

@@ -120,6 +120,9 @@ struct peer {
 	 */
 	u64 htlc_id;
 
+	/* The id we expect for the next HTLC they offer. */
+	u64 next_their_htlc_id;
+
 	struct channel_id channel_id;
 	struct channel *channel;
 
@@ -698,6 +701,18 @@ static void handle_peer_add_htlc(struct peer *peer, const u8 *msg)
 	 *  - MUST allow multiple HTLCs with the same `payment_hash`.
 	 */
 	/* We do: the key is the id, not the payment_hash */
+
+	/* BOLT #2:
+	 * - MUST increase the value of `id` by 1 for each successive offer.
+	 */
+	/* We must enforce this: channeld forgets HTLCs once they're resolved,
+	 * so otherwise they could reuse an id which is still in the db. */
+	if (id != peer->next_their_htlc_id)
+		peer_failed_warn(peer->pps, &peer->channel_id,
+				 "Bad peer_add_htlc: id %"PRIu64
+				 " but expected %"PRIu64,
+				 id, peer->next_their_htlc_id);
+
 	add_err = channel_add_htlc(peer->channel, REMOTE, id, amount,
 				   cltv_expiry, &payment_hash,
 				   onion_routing_packet,
@@ -713,6 +728,7 @@ static void handle_peer_add_htlc(struct peer *peer, const u8 *msg)
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Bad peer_add_htlc: %s",
 				 channel_add_err_name(add_err));
+	peer->next_their_htlc_id++;
 }
 
 /* Ignoring the fee limits drops the policy bounds, but never the sanity
@@ -6983,6 +6999,7 @@ static void init_channel(struct peer *peer)
 				    &peer->next_index[REMOTE],
 				    &peer->revocations_received,
 				    &peer->htlc_id,
+				    &peer->next_their_htlc_id,
 				    &htlcs,
 				    &peer->channel_ready[LOCAL],
 				    &peer->channel_ready[REMOTE],

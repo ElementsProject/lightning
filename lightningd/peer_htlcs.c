@@ -2329,6 +2329,16 @@ static bool channel_added_their_htlc(struct channel *channel,
 		return false;
 	}
 
+	/* channeld enforces ascending ids, but a reused one would violate
+	 * the db's UNIQUE constraint, so don't trust it blindly. */
+	if (added->id < channel->next_their_htlc_id) {
+		channel_internal_error(channel,
+				       "trying to add HTLC id %"PRIu64
+				       " but next id is %"PRIu64,
+				       added->id, channel->next_their_htlc_id);
+		return false;
+	}
+
 	/* Do the work of extracting shared secret now if possible. */
 	/* FIXME: We do this *again* in peer_accepted_htlc! */
 	op = parse_onionpacket(tmpctx, added->onion_routing_packet,
@@ -2430,6 +2440,7 @@ void peer_got_commitsig(struct channel *channel, const u8 *msg)
 	struct commitsig **inflight_commit_sigs;
 	struct channel_inflight *inflight;
 	size_t i;
+	u64 next_their_htlc_id;
 	struct lightningd *ld = channel->peer->ld;
 
 	if (!fromwire_channeld_got_commitsig(msg, msg,
@@ -2495,11 +2506,16 @@ void peer_got_commitsig(struct channel *channel, const u8 *msg)
 		return;
 	}
 
-	/* New HTLCs */
+	/* New HTLCs: these aren't in id order, so only advance
+	 * next_their_htlc_id once we've checked them all. */
+	next_their_htlc_id = channel->next_their_htlc_id;
 	for (i = 0; i < tal_count(added); i++) {
 		if (!channel_added_their_htlc(channel, added[i]))
 			return;
+		if (added[i]->id >= next_their_htlc_id)
+			next_their_htlc_id = added[i]->id + 1;
 	}
+	channel->next_their_htlc_id = next_their_htlc_id;
 
 	/* Save information now for fulfilled & failed HTLCs */
 	for (i = 0; i < tal_count(fulfilled); i++) {

@@ -380,6 +380,7 @@ struct channel *new_unsaved_channel(struct peer *peer,
 	channel->next_index[LOCAL] = 1;
 	channel->next_index[REMOTE] = 1;
 	channel->next_htlc_id = 0;
+	channel->next_their_htlc_id = 0;
 	channel->funding_spend_watch = NULL;
 	channel->inflight_spend_watches = NULL;
 	/* FIXME: remove push when v1 deprecated */
@@ -617,6 +618,8 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->next_index[LOCAL] = next_index_local;
 	channel->next_index[REMOTE] = next_index_remote;
 	channel->next_htlc_id = next_htlc_id;
+	/* Set by wallet_htlcs_load_in_for_channel */
+	channel->next_their_htlc_id = 0;
 	channel->funding = *funding;
 	channel->funding_sats = funding_sats;
 	channel->funding_spend_watch = NULL;

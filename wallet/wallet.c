@@ -3803,6 +3803,24 @@ bool wallet_htlcs_load_in_for_channel(struct wallet *wallet,
 	log_debug(chan->log,
 		  "Loading in HTLCs for channel %"PRIu64" (state=%s)",
 		  chan->dbid, channel_state_name(chan));
+
+	/* Resolved HTLCs aren't loaded, but they're still in the db, so
+	 * that's where we find the next id they may offer. */
+	stmt = db_prepare_v2(wallet->db, SQL("SELECT channel_htlc_id"
+					     " FROM channel_htlcs"
+					     " WHERE channel_id = ?"
+					     " AND direction = ?"
+					     " ORDER BY channel_htlc_id DESC"
+					     " LIMIT 1"));
+	db_bind_u64(stmt, chan->dbid);
+	db_bind_int(stmt, DIRECTION_INCOMING);
+	db_query_prepared(stmt);
+	if (db_step(stmt))
+		chan->next_their_htlc_id = db_col_u64(stmt, "channel_htlc_id") + 1;
+	else
+		chan->next_their_htlc_id = 0;
+	tal_free(stmt);
+
 	stmt = db_prepare_v2(wallet->db, SQL("SELECT"
 					     "  id"
 					     ", channel_htlc_id"
