@@ -993,6 +993,24 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 		return NULL;
 	}
 
+	/* BOLT #2:
+	 *
+	 * The sender:
+	 *...
+	 * - MUST set `dust_limit_satoshis` less than or equal to
+         *   `channel_reserve_satoshis` from the `open_channel` message.
+	 */
+	if (!state->allowdustreserve &&
+	    amount_sat_greater(state->localconf.dust_limit,
+			       state->remoteconf.channel_reserve)) {
+		negotiation_failed(state,
+				   "Our dust limit %s"
+				   " would be above their reserve %s",
+				   fmt_amount_sat(tmpctx, state->localconf.dust_limit),
+				   fmt_amount_sat(tmpctx, state->remoteconf.channel_reserve));
+		return NULL;
+	}
+
 	/* These checks are the same whether we're opener or accepter... */
 	if (!check_config_bounds(tmpctx, state->funding_sats,
 				 state->feerate_per_kw,
