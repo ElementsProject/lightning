@@ -1194,6 +1194,15 @@ u32 feerate_min(struct lightningd *ld, bool *unknown)
 	/* FIXME: This is what bcli used to do: halve the slow feerate! */
 	min /= 2;
 
+	/* Never demand more than we would ever propose ourselves.  We cap what
+	 * we offer at MAX_OUR_FEERATE_PER_KW (see our_feerate_max), so anything
+	 * above that would have us refuse a peer the very feerate we would have
+	 * sent them, which costs us the channel for nothing.  A broken fee
+	 * source clamped to FEERATE_CEILING puts this at FEERATE_CEILING/2,
+	 * five times that cap. */
+	if (min > MAX_OUR_FEERATE_PER_KW)
+		min = MAX_OUR_FEERATE_PER_KW;
+
 	/* We can't allow less than feerate_floor, since that won't relay */
 	if (min < get_feerate_floor(topo))
 		return get_feerate_floor(topo);
