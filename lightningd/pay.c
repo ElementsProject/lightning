@@ -1485,9 +1485,22 @@ static struct command_result *self_payment(struct lightningd *ld,
 					   const u8 *payment_metadata)
 {
 	struct wallet_payment *payment;
+	const struct wallet_payment *prev_payment;
 	const struct invoice_details *inv;
 	u64 inv_dbid;
 	const char *err;
+	struct command_result *ret;
+	assert(partid == 0);
+
+	/* Reconcile this with previous attempts */
+	ret = check_progress(ld, cmd, rhash, msat, msat, partid, groupid,
+			     &ld->our_nodeid, &prev_payment);
+	if (ret)
+		return ret;
+
+	/* Previous payment success is defined to be idempotent */
+	if (prev_payment)
+		return sendpay_success(cmd, prev_payment, NULL);
 
 	payment = wallet_add_payment(tmpctx,
 				     ld->wallet,
