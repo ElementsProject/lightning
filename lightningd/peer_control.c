@@ -2063,6 +2063,22 @@ static size_t num_inflight_opens(const struct peer *peer)
 	return n;
 }
 
+/* Does this peer have another channel which still wants peer comms,
+ * other than the one we're rejecting? */
+static bool peer_has_other_live_channel(const struct peer *peer,
+					const struct channel_id *except)
+{
+	struct channel *c;
+
+	list_for_each(&peer->channels, c, list) {
+		if (channel_id_eq(&c->cid, except))
+			continue;
+		if (channel_state_wants_peercomms(c->state))
+			return true;
+	}
+	return false;
+}
+
 /* connectd tells us a peer has a message and we've not already attached
  * a subd.  Normally this is a race, but it happens for real when opening
  * a new channel, or referring to a channel we no longer want to talk to
@@ -2271,11 +2287,23 @@ void handle_peer_spoke(struct lightningd *ld, const u8 *msg)
 send_error:
 	log_peer_debug(ld->log, &peer->id, "Telling connectd to send error %s",
 		       tal_hex(tmpctx, error));
-	/* Get connectd to send error and close. */
+	/* Get connectd to send error. */
 	subd_send_msg(ld->connectd,
 		      take(towire_connectd_peer_send_msg(NULL, &peer->id,
 							 peer->connectd_counter,
 							 error)));
+
+	/* An error is channel-scoped, so don't tear down the connection if
+	 * the peer has other channels which still want to talk to us: we
+	 * would discard their messages.  This matters when a node recovers
+	 * from a static channel backup: it reestablishes every channel it
+	 * recovered, including ones which closed since the backup, and the
+	 * reestablish reply for the dead one must not stop us replying to
+	 * its still-live siblings. */
+	if (msgtype == WIRE_CHANNEL_REESTABLISH
+	    && peer_has_other_live_channel(peer, &channel_id))
+		return;
+
 	subd_send_msg(ld->connectd,
 		      take(towire_connectd_disconnect_peer(NULL,
 							&peer->id,
