@@ -1854,6 +1854,51 @@ def test_rbf_refused_once_funding_confirmed(node_factory, bitcoind, chainparams)
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @pytest.mark.openchannel('v2')
+def test_v2_funding_spent_before_lockin(node_factory, bitcoind):
+    """A dual-funded funding output spent before lock-in must go to onchaind.
+
+    Before lock-in we only watched whether the funding tx confirmed and how
+    deep it was; the spend watch was armed at lock-in.  With funding-confirms
+    at 3 (the mainnet default) the opener can confirm the funding and close
+    on it in the next block, and we would sail on to CHANNELD_NORMAL with no
+    funding output, never noticing the spend or, later, the cheat.
+    """
+    l1, l2 = node_factory.get_nodes(2, opts={'funding-confirms': 3,
+                                             'allow_warning': True,
+                                             'may_reconnect': True})
+    # l2 opens; l1 is the accepter with nothing in the channel.
+    l2.fundwallet(10**7)
+    l2.rpc.connect(l1.info['id'], 'localhost', l1.port)
+    l2.rpc.fundchannel(l1.info['id'], 10**6)
+    l1.daemon.wait_for_log(' to DUALOPEND_AWAITING_LOCKIN')
+
+    # Funding confirms once; minimum_depth is 3, so no lock-in yet.
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    sync_blockheight(bitcoind, [l1, l2])
+    chan = only_one(l1.rpc.listpeerchannels()['channels'])
+    assert chan['state'] == 'DUALOPEND_AWAITING_LOCKIN'
+    funding_txid = chan['funding_txid']
+
+    # The opener drops its commitment to chain without telling us.
+    commit_tx = l2.rpc.dev_sign_last_tx(l1.info['id'])['tx']
+    assert only_one(bitcoind.rpc.decoderawtransaction(commit_tx)['vin'])['txid'] == funding_txid
+    l2.stop()
+    commit_txid = bitcoind.rpc.sendrawtransaction(commit_tx)
+    bitcoind.generate_block(1, wait_for_mempool=commit_txid)
+
+    # We must notice the spend and hand the channel to onchaind.
+    l1.daemon.wait_for_log('Funding transaction spent')
+    l1.daemon.wait_for_log('Resolved FUNDING_TRANSACTION/FUNDING_OUTPUT by THEIR_UNILATERAL')
+    assert only_one(l1.rpc.listpeerchannels()['channels'])['state'] == 'ONCHAIN'
+
+    # Reaching minimum_depth must not resurrect it.
+    bitcoind.generate_block(3)
+    sync_blockheight(bitcoind, [l1])
+    assert only_one(l1.rpc.listpeerchannels()['channels'])['state'] == 'ONCHAIN'
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+@pytest.mark.openchannel('v2')
 def test_lockin_restart_rescan_race(node_factory, bitcoind, chainparams):
     """A reconnect landing inside the startup rescan window must not fail a
     healthy channel.
@@ -4022,3 +4067,24 @@ def test_zero_length_upfront_shutdown_script(node_factory, bitcoind):
     assert l1_after == l1_before
     assert not any(o['address'] == sweep_addr
                    for o in l1.rpc.listfunds()['outputs'])
+
+
+@pytest.mark.openchannel('v2')
+def test_v2_lockin_single_spend_watch(node_factory, bitcoind):
+    """Lock-in must drop the candidate's spend watch, not stack a second one.
+
+    The funding output is watched from the moment a candidate is signed; at
+    lock-in the channel takes over that outpoint as its own.  If the candidate
+    watch survived, every later spend would fire funding_spent() twice.
+    """
+    l1, l2 = node_factory.line_graph(2, fundchannel=True,
+                                     opts={'may_reconnect': True})
+
+    l1.rpc.close(l2.info['id'], unilateraltimeout=1)
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    l2.daemon.wait_for_log(r'State changed from \S+ to FUNDING_SPEND_SEEN')
+    l1.daemon.wait_for_log(r'State changed from \S+ to FUNDING_SPEND_SEEN')
+
+    state_change_re = re.compile(r'State changed from \S+ to FUNDING_SPEND_SEEN')
+    for node in (l1, l2):
+        assert len([l for l in node.daemon.logs if state_change_re.search(l)]) == 1

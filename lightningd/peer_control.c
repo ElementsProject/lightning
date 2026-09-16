@@ -2592,15 +2592,74 @@ static void channel_funding_found(struct lightningd *ld,
 	}
 }
 
+/* The block scanner is iterating this outpoint's watches right now, and
+ * drop_to_chain() adds a funding_spend_watch if there is none: make the
+ * candidate watch that fired the channel's own instead of adding a second
+ * one on the same outpoint, which would fire funding_spent() again. */
+static void take_over_inflight_spend_watch(struct channel *channel,
+					   const struct bitcoin_outpoint *spent)
+{
+	size_t n = tal_count(channel->inflight_spend_watches);
+
+	for (size_t i = 0; i < n; i++) {
+		struct txowatch *w = channel->inflight_spend_watches[i];
+
+		if (!txowatch_eq(w, spent))
+			continue;
+		tal_free(channel->funding_spend_watch);
+		channel->funding_spend_watch = tal_steal(channel, w);
+		memmove(channel->inflight_spend_watches + i,
+			channel->inflight_spend_watches + i + 1,
+			(n - i - 1) * sizeof(*channel->inflight_spend_watches));
+		tal_resize(&channel->inflight_spend_watches, n - 1);
+		return;
+	}
+}
+
 static enum watch_result funding_spent(struct channel *channel,
 				       const struct bitcoin_tx *tx,
-				       size_t inputnum UNUSED,
+				       size_t inputnum,
 				       const struct block *block)
 {
 	struct bitcoin_txid txid;
 	struct channel_inflight *inflight;
 
 	bitcoin_txid(tx, &txid);
+
+	/* A dual-funding candidate spent before lock-in: whichever candidate
+	 * was spent is the one that got mined, so make it the channel's
+	 * funding (as opening_depth_cb would have) before onchaind sees it.
+	 * Otherwise onchaind is handed the latest attempt's commitment, which
+	 * spends an outpoint that may never exist. */
+	if (channel->state == DUALOPEND_AWAITING_LOCKIN) {
+		struct bitcoin_outpoint spent;
+
+		bitcoin_tx_input_get_outpoint(tx, inputnum, &spent);
+		take_over_inflight_spend_watch(channel, &spent);
+		if (!bitcoin_outpoint_eq(&spent, &channel->funding)) {
+			list_for_each(&channel->inflights, inflight, list) {
+				struct amount_msat our_msat;
+
+				if (!bitcoin_outpoint_eq(&spent,
+							 &inflight->funding->outpoint))
+					continue;
+				log_unusual(channel->log,
+					    "Candidate funding %s spent before"
+					    " lock-in; adopting it",
+					    fmt_bitcoin_outpoint(tmpctx, &spent));
+				update_channel_from_inflight(channel->peer->ld,
+							     channel, inflight,
+							     false);
+				if (amount_sat_to_msat(&our_msat,
+						       channel->our_funds)) {
+					channel->our_msat = our_msat;
+					channel->msat_to_us_min = our_msat;
+					channel->msat_to_us_max = our_msat;
+				}
+				break;
+			}
+		}
+	}
 
 	/* If we're doing a splice, we expect the funding transaction to be
 	 * spent, so don't freak out and just keep watching in that case */
@@ -2653,7 +2712,7 @@ void channel_watch_inflight_outs(struct lightningd *ld, struct channel *channel)
 	list_for_each(&channel->inflights, inflight, list)
 		tal_arr_expand(&channel->inflight_spend_watches,
 			       watch_txo(channel->inflight_spend_watches,
-			       		 ld->topology, channel,
+					 ld->topology, channel,
 					 &inflight->funding->outpoint,
 					 funding_spent));
 }

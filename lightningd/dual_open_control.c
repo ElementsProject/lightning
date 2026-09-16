@@ -1356,6 +1356,9 @@ wallet_update_channel(struct lightningd *ld,
 				false,
 				false);
 	wallet_inflight_add(ld->wallet, inflight);
+	/* Watch the candidate's output from the moment the peer could
+	 * broadcast it: it can confirm and close on it before lock-in. */
+	channel_watch_inflight_outs(ld, inflight->channel);
 
 	return inflight;
 }
@@ -1660,6 +1663,9 @@ wallet_commit_channel(struct lightningd *ld,
 				false,
 				false);
 	wallet_inflight_add(ld->wallet, inflight);
+	/* Watch the candidate's output from the moment the peer could
+	 * broadcast it: it can confirm and close on it before lock-in. */
+	channel_watch_inflight_outs(ld, inflight->channel);
 	return inflight;
 }
 
@@ -2143,10 +2149,12 @@ static void handle_channel_locked(struct subd *dualopend,
 			    short_channel_id_blocknum(*channel->scid),
 			    true);
 
-	/* Empty out the inflights */
+	/* Empty out the inflights, and drop the spend watches we armed on
+	 * them: the funding output is watched as the channel's own from
+	 * here, and a second watch would fire funding_spent() twice. */
 	wallet_channel_clear_inflights(dualopend->ld->wallet, channel);
+	channel_watch_inflight_outs(dualopend->ld, channel);
 
-	/* That freed watchers in inflights: now watch funding tx */
 	channel_watch_depth(dualopend->ld, short_channel_id_blocknum(*channel->scid), channel);
 	channel_watch_funding_out(dualopend->ld, channel);
 

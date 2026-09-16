@@ -158,12 +158,6 @@ bool command_deprecated_in_ok(struct command *cmd UNNEEDED,
 			      const char *depr_start UNNEEDED,
 			      const char *depr_end UNNEEDED)
 { fprintf(stderr, "command_deprecated_in_ok called!\n"); abort(); }
-/* Generated stub for command_deprecated_out_ok */
-bool command_deprecated_out_ok(struct command *cmd UNNEEDED,
-			       const char *fieldname UNNEEDED,
-			       const char *depr_start UNNEEDED,
-			       const char *depr_end UNNEEDED)
-{ fprintf(stderr, "command_deprecated_out_ok called!\n"); abort(); }
 /* Generated stub for command_dev_apis */
 bool command_dev_apis(const struct command *cmd UNNEEDED)
 { fprintf(stderr, "command_dev_apis called!\n"); abort(); }
@@ -665,6 +659,9 @@ u8 *towire_onchaind_dev_memleak(const tal_t *ctx UNNEEDED)
 /* Generated stub for towire_openingd_dev_memleak */
 u8 *towire_openingd_dev_memleak(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_openingd_dev_memleak called!\n"); abort(); }
+/* Generated stub for txowatch_eq */
+bool txowatch_eq(const struct txowatch *w UNNEEDED, const struct bitcoin_outpoint *out UNNEEDED)
+{ fprintf(stderr, "txowatch_eq called!\n"); abort(); }
 /* Generated stub for unwatch_scriptpubkey_ */
 bool unwatch_scriptpubkey_(const tal_t *ctx UNNEEDED,
 			   struct chain_topology *topo UNNEEDED,
