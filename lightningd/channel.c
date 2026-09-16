@@ -895,6 +895,9 @@ struct channel *find_channel_by_funding_outpoint(const struct peer *peer,
 	struct channel *c;
 
 	list_for_each(&peer->channels, c, list) {
+		/* Still negotiating: no funding outpoint yet. */
+		if (channel_state_open_uncommitted(c->state))
+			continue;
 		if (bitcoin_outpoint_eq(&c->funding, outpoint))
 			return c;
 	}
