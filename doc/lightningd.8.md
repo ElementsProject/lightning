@@ -121,7 +121,7 @@ which you can do by using dig(1) and querying *lseed.bitcoinstats.com*:
 
 This will give 25 IPv4 addresses, you can select any one of those. You
 will also need to learn the corresponding public key, which you can
-determine by searching the IP addrss on [https://1ml.com/](https://1ml.com/) . The public
+determine by searching the IP address on [https://1ml.com/](https://1ml.com/) . The public
 key is a long hex string, like so:
 *024772ee4fa461febcef09d5869e1238f932861f57be7a6633048514e3f56644a1*.
 (this example public key is not used as of this writing)

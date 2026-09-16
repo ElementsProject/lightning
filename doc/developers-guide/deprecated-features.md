@@ -46,7 +46,7 @@ Types of deprecation:
 For each deprecation:
 1. The deprecation is listed here, and in the CHANGELOG.md file.
 2. We try to give at least 2 versions before removal.
-3. Then one version where we issue a warning message if we detect a deprecated feature being used (not possible for deprecatred `Field` types).
+3. Then one version where we issue a warning message if we detect a deprecated feature being used (not possible for deprecated `Field` types).
 4. At least one version where the deprecated feature can be explicit re-enabled using `i-promise-to-fix-broken-api-user=FEATURENAME`.
 
 
