@@ -9,7 +9,7 @@ SYNOPSIS
 DESCRIPTION
 -----------
 
-The **reckless** RPC starts a reckless process with the *command* and *target* provided.  Node configuration, network, and lightning direrctory are automatically passed to the reckless utility.
+The **reckless** RPC starts a reckless process with the *command* and *target* provided.  Node configuration, network, and lightning directory are automatically passed to the reckless utility.
 
 - **command** (string) (one of "install", "uninstall", "search", "enable", "disable", "source", "--version"): Determines which command to pass to reckless
    - *command* **install** takes a *plugin\_name* to search for and install a named plugin.
