@@ -1240,6 +1240,12 @@ static void handle_peer_splice_locked(struct channel *channel, const u8 *msg)
 	log_debug(channel->log, "lightningd, splice_locked clearing inflights");
 	wallet_channel_clear_inflights(channel->peer->ld->wallet, channel);
 
+	/* The inflight spend watches are owned by the channel, not the
+	 * inflights: rebuild them from the (now empty) list so the watch on
+	 * what is now our funding outpoint does not linger alongside
+	 * funding_spend_watch. */
+	channel_watch_inflight_outs(channel->peer->ld, channel);
+
 	lockin_complete(channel, CHANNELD_AWAITING_SPLICE);
 }
 
