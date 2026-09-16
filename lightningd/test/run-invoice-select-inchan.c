@@ -669,6 +669,9 @@ u8 *towire_onchaind_dev_memleak(const tal_t *ctx UNNEEDED)
 /* Generated stub for towire_openingd_dev_memleak */
 u8 *towire_openingd_dev_memleak(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_openingd_dev_memleak called!\n"); abort(); }
+/* Generated stub for txowatch_eq */
+bool txowatch_eq(const struct txowatch *w UNNEEDED, const struct bitcoin_outpoint *out UNNEEDED)
+{ fprintf(stderr, "txowatch_eq called!\n"); abort(); }
 /* Generated stub for unwatch_scriptpubkey_ */
 bool unwatch_scriptpubkey_(const tal_t *ctx UNNEEDED,
 			   struct chain_topology *topo UNNEEDED,
