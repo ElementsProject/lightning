@@ -470,14 +470,29 @@ void drop_to_chain(struct lightningd *ld, struct channel *channel,
 	} else {
 		const struct bitcoin_tx **txs = tal_arr(tmpctx, const struct bitcoin_tx*, 0);
 
-		/* We need to drop *every* commitment transaction to chain */
+		/* We need to drop *every* commitment transaction to chain:
+		 * only one funding can end up confirmed, and until we know
+		 * which, each candidate's commitment is the one that would
+		 * close it.  Skipping channel->last_tx whenever an inflight
+		 * existed left the live channel's commitment unpublished when
+		 * the splice never confirmed, and let the peer settle that
+		 * branch on its own terms. */
 		if (!cooperative) {
+			bool have_current = false;
+			struct bitcoin_txid current_txid;
+
+			bitcoin_txid(channel->last_tx, &current_txid);
 			list_for_each(&channel->inflights, inflight, list) {
-				/* A locked splice's commitment is stale: it
-				 * was never updated after the lock. */
-				if (!inflight->last_tx
-				    || inflight->splice_locked_memonly)
+				struct bitcoin_txid txid;
+
+				if (!inflight->last_tx)
 					continue;
+				/* Before a dual-funding candidate is promoted,
+				 * channel->last_tx is the latest attempt's
+				 * commitment: don't send it twice. */
+				bitcoin_txid(inflight->last_tx, &txid);
+				if (bitcoin_txid_eq(&txid, &current_txid))
+					have_current = true;
 				tal_arr_expand(&txs, sign_and_send_last(tmpctx,
 									ld,
 									channel,
@@ -485,13 +500,17 @@ void drop_to_chain(struct lightningd *ld, struct channel *channel,
 									inflight->last_tx,
 									&inflight->last_sig));
 			}
-		}
-
-		if (tal_count(txs) == 0)
+			if (!have_current)
+				tal_arr_expand(&txs, sign_and_send_last(tmpctx, ld,
+									channel, cmd_id,
+									channel->last_tx,
+									&channel->last_sig));
+		} else {
 			tal_arr_expand(&txs, sign_and_send_last(tmpctx, ld,
 								channel, cmd_id,
 								channel->last_tx,
 								&channel->last_sig));
+		}
 
 		resolve_close_command(ld, channel, cooperative, txs);
 	}
