@@ -30,9 +30,9 @@ We have to stop somewhere.  The two tools here are extracting deeply-indented co
 }
 ```
 
-## Tabs and indentaion
+## Tabs and indentation
 
-The C code uses TAB charaters with a visual indentation of 8 whitespaces.  
+The C code uses TAB characters with a visual indentation of 8 whitespaces.  
 If you submit code for a review, make sure your editor knows this.
 
 When breaking a line with more than 80 characters, align parameters and arguments like so:
