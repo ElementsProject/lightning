@@ -958,3 +958,6 @@ def test_splice_aggravated_close(node_factory, bitcoind, chainparams, restart_no
     l2.daemon.wait_for_log(r'State changed from AWAITING_UNILATERAL to FUNDING_SPEND_SEEN')
     # l1 has to work harder to process it, so we check it last
     l1.daemon.wait_for_log(r'State changed from AWAITING_UNILATERAL to FUNDING_SPEND_SEEN')
+
+    state_change_re = re.compile(r'State changed from \S+ to FUNDING_SPEND_SEEN')
+    assert len([l for l in l2.daemon.logs if state_change_re.search(l)]) == 1
