@@ -36,6 +36,10 @@ ENV DEBIAN_FRONTEND=noninteractive \
 # Plus libclang-rt-18-dev: clang only Recommends its compiler-rt runtime, so
 # --no-install-recommends drops the ASan/UBSan libraries that GitHub's runner
 # image happens to preinstall.
+# Plus protobuf-compiler: cln-grpc vendors its own protoc as a
+# build-dependency, but only since 608f6952ea. Release and backport branches
+# cut from an older base still call the system one, which setup.sh never
+# installed either -- it too was relying on the runner image having it.
 # ubuntu:24.04 is a minimized image: dpkg drops man pages and /usr/bin/man is
 # a stub printing "This system has been minimized", which `lightning-cli help`
 # (test_cli_multiline_help) shows instead of the page. Undo both before
@@ -84,6 +88,7 @@ RUN apt-get update && \
         man-db \
         net-tools \
         postgresql \
+        protobuf-compiler \
         python3 \
         python3-dev \
         qemu-system \
