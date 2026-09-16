@@ -127,7 +127,12 @@ static const struct node_id *bias_nodeid(const struct node_bias *bias)
 
 static size_t hash_nodeid(const struct node_id *node)
 {
-	return *(size_t *)(node->k);
+	/* Reading the key through a size_t pointer was undefined (a u8
+	 * array is not a size_t), and at -O3 the load could be hoisted
+	 * above the `bias->node = *node` copy in set_node_bias(), so the
+	 * entry was stored under the hash of uninitialised memory and
+	 * later lookups missed it.  Hash the whole key instead. */
+	return siphash24(siphash_seed(), node->k, sizeof(node->k));
 }
 
 static bool bias_eq_nodeid(const struct node_bias *bias,
