@@ -3779,6 +3779,32 @@ static void handle_commit_ready(struct subd *dualopend,
 		return;
 	}
 
+	/* A funding outpoint funds at most one channel; refuse a second
+	 * channel (or candidate) reusing one we already have, as the
+	 * single-funded path does in opening_control.c.  Our funding pubkey
+	 * is derived per channel, so an honest negotiation cannot produce
+	 * this; refusing it keeps a duplicate outpoint out of the wallet. */
+	{
+		struct channel *other;
+
+		other = find_channel_by_funding_outpoint(channel->peer,
+							 &funding);
+		if (other && other != channel) {
+			channel_internal_error(channel,
+					       "Funding outpoint %s already"
+					       " in use by channel %s",
+					       fmt_bitcoin_outpoint(tmpctx,
+								    &funding),
+					       fmt_channel_id(tmpctx,
+							      &other->cid));
+			channel->open_attempt
+				= tal_free(channel->open_attempt);
+			notify_channel_open_failed(channel->peer->ld,
+						   &channel->cid);
+			return;
+		}
+	}
+
 	/* We need to update the channel reserve on the config.  Not once
 	 * we're promoted: the reserve then belongs to the mined candidate. */
 	if (!channel->scid)
