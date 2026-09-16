@@ -1608,15 +1608,17 @@ def test_funding_v2_cancel_race(node_factory, bitcoind, executor):
 
         for i, c in enumerate(completes):
             try:
+                # A command that fights over the shared command pointer hangs
+                # here until TIMEOUT raises TimeoutError (not an RpcError).
                 c[1].result(TIMEOUT)
                 completes[i] = (completes[i][0], True)
             except RpcError:
                 completes[i] = (completes[i][0], False)
 
-        # Only up to one should succeed.
-        num_successes = sum(c[1] is True for c in completes)
-        assert num_successes <= 1, f"Multiple successes in {completes}, cancels = {cancels}"
-        num_complete += num_successes
+        # openchannel_update is idempotent: repeating it once the
+        # commitments are secured just echoes the inflight back, so several
+        # of these calls may legitimately succeed.
+        num_complete += sum(c[1] is True for c in completes)
 
         for c in cancels:
             try:
@@ -1624,6 +1626,21 @@ def test_funding_v2_cancel_race(node_factory, bitcoind, executor):
                 num_cancel += 1
             except RpcError:
                 pass
+
+        # What must not happen is more than one commitment for this open.
+        # Check the node's own inflight records rather than comparing the
+        # returned PSBTs: the inflight's PSBT is mutated in place
+        # (wally_psbt_combine/psbt_finalize) once tx-signatures arrive, so
+        # two responses for the same commitment can serialize differently.
+        inflights = [
+            inf
+            for chan in l1.rpc.listpeerchannels(n.info["id"])["channels"]
+            for inf in chan.get("inflight", [])
+        ]
+        assert len(inflights) <= 1, (
+            f"Multiple inflights {inflights}, "
+            f"completes = {completes}, cancels = {cancels}"
+        )
         # Free up funds for next time
         l1.rpc.unreserveinputs(psbt)
 
