@@ -285,6 +285,69 @@ def test_splice_rbf(node_factory, bitcoind):
     assert l1.db_query("SELECT count(*) as c FROM channeltxs;")[0]['c'] == 0
 
 
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_splice_rbf_htlc_sigs(node_factory, bitcoind, executor):
+    """Once a splice-RBF candidate confirms, only its HTLC signatures become
+    the active set, even when the other candidates place the funding output
+    at the same index."""
+    l1, l2 = node_factory.line_graph(2, fundamount=1000000)
+    chan_id = l1.get_channel_id(l2)
+
+    def htlc_sig_rows(node):
+        return node.db_query("SELECT inflight_tx_id, inflight_tx_outnum"
+                             " FROM htlc_sigs;")
+
+    def fee_bump_splice(fee):
+        # No inputs and no extra outputs: the new funding output is the only
+        # output, so every candidate puts it at index 0.
+        result = l1.rpc.splice_init(chan_id, -fee)
+        result = l1.rpc.splice_update(chan_id, result['psbt'])
+        assert result['commitments_secured'] is False
+        result = l1.rpc.splice_update(chan_id, result['psbt'])
+        assert result['commitments_secured'] is True
+        return l1.rpc.splice_signed(chan_id, result['psbt'])
+
+    first = fee_bump_splice(5801)
+    l1.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
+    l2.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
+    wait_for(lambda: bitcoind.rpc.getrawmempool() == [first['txid']])
+
+    second = fee_bump_splice(11722)
+    l1.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_AWAITING_SPLICE')
+    l2.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_AWAITING_SPLICE')
+    wait_for(lambda: bitcoind.rpc.getrawmempool() == [second['txid']])
+
+    # The losing candidate differs from the winner only by txid.
+    assert first['txid'] != second['txid']
+    assert first['outnum'] == second['outnum'] == 0
+
+    # Leave one HTLC stuck on the channel. The commitment that adds it
+    # carries an HTLC signature for the active funding and for each
+    # candidate, which is what gets stored in htlc_sigs.
+    l2.rpc.dev_ignore_htlcs(id=l1.info['id'], ignore=True)
+    inv = l2.rpc.invoice(10000000, '1', 'no_1')
+    executor.submit(l1.rpc.xpay, inv['bolt11'])
+    l2.daemon.wait_for_log('their htlc 0 dev_ignore_htlcs')
+
+    # One active row plus one per candidate, on both sides.
+    for node in (l1, l2):
+        wait_for(lambda: len(htlc_sig_rows(node)) == 3)
+        rows = htlc_sig_rows(node)
+        assert len([r for r in rows if r['inflight_tx_id'] is None]) == 1
+        assert [r['inflight_tx_outnum'] for r in rows
+                if r['inflight_tx_id'] is not None] == [0, 0]
+
+    bitcoind.generate_block(6, wait_for_mempool=1)
+    l1.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
+    l2.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
+
+    # Only the confirmed candidate's signature survives, now active.
+    for node in (l1, l2):
+        rows = htlc_sig_rows(node)
+        assert len(rows) == 1, rows
+        assert rows[0]['inflight_tx_id'] is None
+
+
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')

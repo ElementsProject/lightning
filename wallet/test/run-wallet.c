@@ -1549,6 +1549,70 @@ static int count_inflights(struct wallet *w, u64 channel_dbid)
 	return count;
 }
 
+static int count_htlc_sigs(struct wallet *w, u64 channel_dbid)
+{
+	struct db_stmt *stmt;
+	int count;
+	stmt = db_prepare_v2(w->db, SQL("SELECT COUNT(1)"
+					" FROM htlc_sigs"
+					" WHERE channelid = ?;"));
+	db_bind_u64(stmt, channel_dbid);
+	db_query_prepared(stmt);
+	if (!db_step(stmt))
+		abort();
+	count = db_col_int(stmt, "COUNT(1)");
+	tal_free(stmt);
+	return count;
+}
+
+static bool test_htlcsigs_confirm_inflight(struct wallet *w,
+					   struct channel *chan)
+{
+	struct bitcoin_outpoint winner, same_txid, same_outnum, neither;
+	struct bitcoin_signature *active, *win, *lose, *loaded;
+
+	memset(&winner.txid, 1, sizeof(winner.txid));
+	winner.n = 0;
+	same_txid.txid = winner.txid;
+	same_txid.n = 1;
+	memset(&same_outnum.txid, 2, sizeof(same_outnum.txid));
+	same_outnum.n = winner.n;
+	memset(&neither.txid, 3, sizeof(neither.txid));
+	neither.n = 2;
+
+	/* Distinct sigs so we can tell which row was promoted */
+	active = tal_arrz(tmpctx, struct bitcoin_signature, 1);
+	memset(&active[0].s, 1, sizeof(active[0].s));
+	win = tal_arrz(tmpctx, struct bitcoin_signature, 1);
+	memset(&win[0].s, 2, sizeof(win[0].s));
+	lose = tal_arrz(tmpctx, struct bitcoin_signature, 1);
+	memset(&lose[0].s, 3, sizeof(lose[0].s));
+
+	wallet_htlc_sigs_save(w, chan->dbid, active);
+	wallet_htlc_sigs_add(w, chan->dbid, winner, win);
+	wallet_htlc_sigs_add(w, chan->dbid, same_txid, lose);
+	wallet_htlc_sigs_add(w, chan->dbid, same_outnum, lose);
+	wallet_htlc_sigs_add(w, chan->dbid, neither, lose);
+
+	/* The active set and all four inflight candidates were stored */
+	CHECK(count_htlc_sigs(w, chan->dbid) == 5);
+
+	wallet_htlcsigs_confirm_inflight(w, chan, &winner);
+
+	/* Winner's sigs are now the active set */
+	loaded = wallet_htlc_sigs_load(tmpctx, w, chan->dbid, false);
+	CHECK(tal_count(loaded) == 1);
+	CHECK(memeq(&loaded[0].s, sizeof(loaded[0].s), &win[0].s, sizeof(win[0].s)));
+
+	/* Old active set and losing inflights are gone */
+	CHECK(count_htlc_sigs(w, chan->dbid) == 1);
+
+	/* Leave the table matching chan so later load/compare checks in the
+	 * caller do not see our fixture rows. */
+	wallet_htlc_sigs_save(w, chan->dbid, chan->last_htlc_sigs);
+	return true;
+}
+
 static bool test_channel_inflight_crud(struct lightningd *ld, const tal_t *ctx, bool bip86)
 {
 	struct wallet *w = create_test_wallet(ld, ctx, bip86);
@@ -1658,6 +1722,7 @@ static bool test_channel_inflight_crud(struct lightningd *ld, const tal_t *ctx, 
 	db_begin_transaction(w->db);
 	CHECK(!wallet_err);
 	wallet_channel_insert(w, chan);
+	CHECK(test_htlcsigs_confirm_inflight(w, chan));
 
 	/* info for the inflight */
 	funding_sats = AMOUNT_SAT(222222);

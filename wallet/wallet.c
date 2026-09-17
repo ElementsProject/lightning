@@ -2659,7 +2659,7 @@ void wallet_htlcsigs_confirm_inflight(struct wallet *w, struct channel *chan,
 					" AND (inflight_tx_id is NULL"
 					     " OR ("
 						 " inflight_tx_id!=?"
-						 " AND "
+						 " OR "
 						 " inflight_tx_outnum!=?"
 						 ")"
 					     ")"));
