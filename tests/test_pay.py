@@ -6071,6 +6071,7 @@ def test_blindedpath_noaddr(node_factory, bitcoind):
 
     # If l2 is disconnected, l3 will *not* add a blinded path.
     l2.rpc.disconnect(l3.info['id'], force=True)
+    wait_for(lambda: only_one(l3.rpc.listpeers(l2.info['id'])['peers'])['connected'] is False)
     offer = l3.rpc.offer(1000, 'test_pay_blindedpath_nodeaddr2')
     assert 'offer_paths' not in l1.rpc.decode(offer['bolt12'])
 
