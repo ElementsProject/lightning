@@ -212,22 +212,28 @@ static u32 calc_max_close_feerate(struct lightningd *ld,
 }
 
 /* The fee closingd negotiated is what it took off our output (we only
- * bound the fee when we are the opener, and the opener pays it).  The
- * transaction itself pays more than that whenever the outputs' msat
- * remainders were rounded away or an output was trimmed as dust: neither
- * is a fee we chose, so neither counts against our maximum. */
+ * bound the fee when we are the opener, and the opener pays it), and
+ * closingd bounded it at the weight of the closing transaction before
+ * any fee came off, with our output still present.  The transaction
+ * itself pays more than that whenever the outputs' msat remainders were
+ * rounded away or the fee trimmed our output as dust: neither is a fee
+ * we chose, so neither counts against our maximum.  *weight is the
+ * transaction's weight on entry and the weight closingd bounded the fee
+ * at on return. */
 static bool negotiated_close_fee(const struct channel *channel,
 				 const struct bitcoin_tx *tx,
-				 struct amount_sat *fee)
+				 struct amount_sat *fee,
+				 u64 *weight)
 {
 	struct amount_sat ours = amount_msat_to_sat_round_down(channel->our_msat);
+	const u8 *our_script = channel->shutdown_scriptpubkey[LOCAL];
 	struct amount_sat out_amt;
 
 	for (size_t i = 0; i < tx->wtx->num_outputs; i++) {
 		const struct wally_tx_output *out = &tx->wtx->outputs[i];
 		const u8 *script = tal_dup_arr(tmpctx, u8,
 					       out->script, out->script_len, 0);
-		if (!scripteq(script, channel->shutdown_scriptpubkey[LOCAL]))
+		if (!scripteq(script, our_script))
 			continue;
 		out_amt = bitcoin_tx_output_get_amount_sat(tx, i);
 		if (!amount_sat_sub(fee, ours, out_amt)) {
@@ -243,8 +249,15 @@ static bool negotiated_close_fee(const struct channel *channel,
 		}
 		return true;
 	}
-	/* Our output was trimmed: the fee is everything. */
-	return false;
+
+	/* Our output was trimmed.  closingd drops it once the fee leaves
+	 * it below the dust limit, so the fee is at least our balance less
+	 * that, and the weight closingd bounded it at included the
+	 * output. */
+	if (!amount_sat_sub(fee, ours, channel->our_config.dust_limit))
+		*fee = AMOUNT_SAT(0);
+	*weight += bitcoin_tx_output_weight(tal_bytelen(our_script));
+	return true;
 }
 
 /* Assess whether a proposed closing fee is acceptable. */
@@ -253,7 +266,7 @@ static bool closing_fee_is_acceptable(struct lightningd *ld,
 				      const struct bitcoin_tx *tx)
 {
 	struct amount_sat fee, last_fee, negotiated;
-	u64 weight;
+	u64 weight, negotiated_weight;
 
 	/* Calculate actual fee (adds in eliminated outputs) */
 	fee = calc_tx_fee(channel->funding_sats, tx);
@@ -295,9 +308,11 @@ static bool closing_fee_is_acceptable(struct lightningd *ld,
 				  weight, min_feerate);
 			return false;
 		}
-		max_fee = amount_tx_fee(max_feerate, weight);
-		if (!negotiated_close_fee(channel, tx, &negotiated))
+		negotiated_weight = weight;
+		if (!negotiated_close_fee(channel, tx, &negotiated,
+					  &negotiated_weight))
 			negotiated = fee;
+		max_fee = amount_tx_fee(max_feerate, negotiated_weight);
 		if (channel->opener == LOCAL
 		    && amount_sat_less(max_fee, negotiated)) {
 			log_debug(channel->log, "... Negotiated fee %s is above"
@@ -305,7 +320,7 @@ static bool closing_fee_is_acceptable(struct lightningd *ld,
 				  " at feerate %u",
 				  fmt_amount_sat(tmpctx, negotiated),
 				  fmt_amount_sat(tmpctx, max_fee),
-				  weight, max_feerate);
+				  negotiated_weight, max_feerate);
 			return false;
 		}
 	}

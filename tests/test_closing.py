@@ -4361,7 +4361,6 @@ def test_closing_fee_rounding_at_ceiling(node_factory, bitcoind):
     assert tx['txid'] in [o['txid'] for o in l2.rpc.listfunds()['outputs']]
 
 
-@pytest.mark.xfail(strict=True, reason="lightningd bounds the trimmed close's whole fee at the one-output weight and closes unilaterally")
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd anchors not supportd')
 def test_closing_fee_trims_opener_output(node_factory, bitcoind):
     """A close whose fee leaves the opener's output below dust stays mutual.
