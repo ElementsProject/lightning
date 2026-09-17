@@ -486,11 +486,17 @@ static struct command_result *check_period(struct command *cmd,
 				   period_idx);
 	}
 
-	offer_period_paywindow(invreq_recurrence(ir->invreq),
-			       ir->invreq->offer_recurrence_paywindow,
-			       ir->invreq->offer_recurrence_base,
-			       basetime, period_idx,
-			       &paywindow_start, &paywindow_end);
+	if (!offer_period_paywindow(invreq_recurrence(ir->invreq),
+				    ir->invreq->offer_recurrence_paywindow,
+				    ir->invreq->offer_recurrence_base, basetime,
+				    period_idx, &paywindow_start,
+				    &paywindow_end)) {
+		return fail_invreq(cmd, ir,
+				   "pay window computation overflows, some "
+				   "values may be too big: basetime=%" PRIu64
+				   ", period_idx=%" PRIu64 "",
+				   basetime, period_idx);
+	}
 	if (*ir->inv->invoice_created_at < paywindow_start) {
 		return fail_invreq(cmd, ir,
 				   "period_index %"PRIu64
@@ -523,6 +529,14 @@ static struct command_result *check_period(struct command *cmd,
 		u64 end = offer_period_start(basetime, period_idx + 1,
 					     invreq_recurrence(ir->invreq));
 
+		if (start == 0 || end == 0) {
+			return fail_invreq(cmd, ir,
+					   "basetime %" PRIu64
+					   " and period_index %" PRIu64
+					   " are too great, the period start "
+					   "computation overflows",
+					   basetime, period_idx);
+		}
 		if (end <= start) {
 			return fail_invreq(cmd, ir,
 					   "period_index %"PRIu64" bad period",
