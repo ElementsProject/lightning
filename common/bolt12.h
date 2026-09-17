@@ -115,8 +115,9 @@ bool bolt12_chains_match(const struct bitcoin_blkid *chains,
 u64 offer_period_start(u64 basetime, size_t n,
 		       const struct recurrence *recurrence);
 
-/* Get the start and end of the payment window for period N. */
-void offer_period_paywindow(const struct recurrence *recurrence,
+/* Get the start and end of the payment window for period N.
+ * Returns a boolean to indicate success or failure. */
+bool offer_period_paywindow(const struct recurrence *recurrence,
 			    const struct recurrence_paywindow *recurrence_paywindow,
 			    const struct recurrence_base *recurrence_base,
 			    u64 basetime, u64 period_idx,

@@ -534,7 +534,7 @@ u64 offer_period_start(u64 basetime, size_t n,
 	}
 }
 
-void offer_period_paywindow(const struct recurrence *recurrence,
+bool offer_period_paywindow(const struct recurrence *recurrence,
 			    const struct recurrence_paywindow *recurrence_paywindow,
 			    const struct recurrence_base *recurrence_base,
 			    u64 basetime, u64 period_idx,
@@ -546,6 +546,10 @@ void offer_period_paywindow(const struct recurrence *recurrence,
 	if (recurrence_paywindow) {
 		u64 pstart = offer_period_start(basetime, period_idx,
 						recurrence);
+
+		/* we use the return value 0 to indicate an error */
+		if (pstart == 0)
+			return false;
 		/* BOLT-recurrence #12:
 		 * - if `recurrence_basetime` is present or
 		 *    `recurrence_counter` is non-zero:
@@ -554,15 +558,24 @@ void offer_period_paywindow(const struct recurrence *recurrence,
 		 *   - SHOULD NOT send an `invoice_request` for a period later
 		 *     than `seconds_after` seconds past that period start.
 		 */
+		if (pstart < recurrence_paywindow->seconds_before)
+			return false;
 		*start = pstart - recurrence_paywindow->seconds_before;
+
+		if (add_overflows_u64(pstart,
+				      recurrence_paywindow->seconds_after))
+			return false;
 		*end = pstart + recurrence_paywindow->seconds_after;
 
 		/* First payment without recurrence_base, we give
 		 * ourselves 60 seconds, since period will start
 		 * now */
-		if (!recurrence_base && period_idx == 0
-		    && recurrence_paywindow->seconds_after < 60)
+		if (!recurrence_base && period_idx == 0 &&
+		    recurrence_paywindow->seconds_after < 60) {
+			if (add_overflows_u64(pstart, 60))
+				return false;
 			*end = pstart + 60;
+		}
 	} else {
 		/* BOLT-recurrence #12:
 		 * - otherwise:
@@ -572,17 +585,29 @@ void offer_period_paywindow(const struct recurrence *recurrence,
 		 */
 		if (period_idx == 0)
 			*start = 0;
-		else
-			*start = offer_period_start(basetime, period_idx-1,
+		else {
+
+			/* we use the return value 0 to indicate an error */
+			*start = offer_period_start(basetime, period_idx - 1,
 						    recurrence);
+			if (*start == 0)
+				return false;
+		}
 
 		/* BOLT-recurrence #12:
 		 *     - SHOULD NOT send an `invoice_request` for a period which
 		 *       has already passed.
 		 */
-		*end = offer_period_start(basetime, period_idx+1,
-					  recurrence) - 1;
+
+		/* we use the return value 0 to indicate an error */
+		*end = offer_period_start(basetime, period_idx + 1, recurrence);
+		if (*end == 0)
+			return false;
+
+		/* the end of the current is the start of the next minus 1 */
+		*end -= 1;
 	}
+	return true;
 }
 
 struct tlv_invoice *invoice_decode(const tal_t *ctx,

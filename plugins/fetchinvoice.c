@@ -171,6 +171,9 @@ static struct command_result *handle_invreq_response(struct command *cmd,
 	const char *badfield;
 	u64 *expected_amount;
 	const struct recurrence *recurrence;
+	u64 starttime, endtime;
+	u64 next_counter, next_period_idx;
+	u64 paywindow_start, paywindow_end;
 
 	invtok = json_get_member(buf, om, "invoice");
 	if (!invtok) {
@@ -294,6 +297,53 @@ static struct command_result *handle_invreq_response(struct command *cmd,
 		goto badinv;
 	}
 
+	bool have_next_period = false;
+	if (recurrence) {
+		next_counter = *inv->invreq_recurrence_counter + 1;
+
+		if (inv->invreq_recurrence_start)
+			next_period_idx = *inv->invreq_recurrence_start
+				+ next_counter;
+		else
+			next_period_idx = next_counter;
+
+		if (!inv->offer_recurrence_limit ||
+		    next_period_idx <= *inv->offer_recurrence_limit) {
+			have_next_period = true;
+
+			starttime = offer_period_start(
+			    *inv->invoice_recurrence_basetime, next_period_idx,
+			    recurrence);
+			/* we use the return value 0 to indicate an error */
+			if (starttime == 0) {
+				badfield = "invoice_recurrence_basetime or "
+					   "next_period_idx";
+				goto badinv;
+			}
+			endtime = offer_period_start(
+			    *inv->invoice_recurrence_basetime,
+			    next_period_idx + 1, recurrence);
+			/* we use the return value 0 to indicate an error */
+			if (endtime == 0) {
+				badfield = "invoice_recurrence_basetime or "
+					   "next_period_idx";
+				goto badinv;
+			}
+			endtime -= 1;
+
+			if (!offer_period_paywindow(
+				recurrence, inv->offer_recurrence_paywindow,
+				inv->offer_recurrence_base,
+				*inv->invoice_recurrence_basetime,
+				next_period_idx, &paywindow_start,
+				&paywindow_end)) {
+				badfield = "invoice_recurrence_basetime or "
+					   "next_period_idx";
+				goto badinv;
+			}
+		}
+	}
+
 	out = jsonrpc_stream_success(sent->cmd);
 	json_add_string(out, "invoice", invoice_encode(tmpctx, inv));
 	json_object_start(out, "changes");
@@ -311,36 +361,14 @@ static struct command_result *handle_invreq_response(struct command *cmd,
 
 	/* We tell them about next period at this point, if any. */
 	if (recurrence) {
-		u64 next_counter, next_period_idx;
-		u64 paywindow_start, paywindow_end;
-
-		next_counter = *inv->invreq_recurrence_counter + 1;
-		if (inv->invreq_recurrence_start)
-			next_period_idx = *inv->invreq_recurrence_start
-				+ next_counter;
-		else
-			next_period_idx = next_counter;
-
 		/* If this was the last, don't tell them about a next! */
-		if (!inv->offer_recurrence_limit
-		    || next_period_idx <= *inv->offer_recurrence_limit) {
+		if (have_next_period) {
 			json_object_start(out, "next_period");
 			json_add_u64(out, "counter", next_counter);
-			json_add_u64(out, "starttime",
-				     offer_period_start(*inv->invoice_recurrence_basetime,
-							next_period_idx,
-							recurrence));
-			json_add_u64(out, "endtime",
-				     offer_period_start(*inv->invoice_recurrence_basetime,
-							next_period_idx + 1,
-							recurrence) - 1);
 
-			offer_period_paywindow(recurrence,
-					       inv->offer_recurrence_paywindow,
-					       inv->offer_recurrence_base,
-					       *inv->invoice_recurrence_basetime,
-					       next_period_idx,
-					       &paywindow_start, &paywindow_end);
+			json_add_u64(out, "starttime", starttime);
+			json_add_u64(out, "endtime", endtime);
+
 			json_add_u64(out, "paywindow_start", paywindow_start);
 			json_add_u64(out, "paywindow_end", paywindow_end);
 			json_object_end(out);
