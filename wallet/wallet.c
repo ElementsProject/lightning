@@ -7827,6 +7827,8 @@ void migrate_setup_coinmoves(struct lightningd *ld, struct db *db)
 					       *utxos[i]->blockheight,
 					       utxos[i]->amount,
 					       mk_mvt_tags(MVT_DEPOSIT));
+		/* Fixed timestamp, after channel_open but before journal. */
+		mvt->timestamp = base_timestamp + 1;
 		insert_chain_mvt(ld, db, mvt);
 	}
 
