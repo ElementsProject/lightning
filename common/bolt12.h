@@ -110,7 +110,8 @@ bool bolt12_chains_match(const struct bitcoin_blkid *chains,
 			 size_t max_num_chains,
 			 const struct chainparams *must_be_chain);
 
-/* Given a basetime, when does period N start? */
+/* Given a basetime, when does period N start?
+ * Returns the answer in UNIX time or 0 if it fails  */
 u64 offer_period_start(u64 basetime, size_t n,
 		       const struct recurrence *recurrence);
 
