@@ -7547,7 +7547,7 @@ def test_createproof_include(node_factory, bitcoind):
         l1.rpc.call('createproof', {'invstring': inv, 'include': ['no_such_field']})
 
 
-def test_blinded_forward_policy(node_factory):
+def test_blinded_forward_policy(node_factory, bitcoind):
     """Test that an intermediate nodes in a blinded path verify that the
     encrypted_recipient_data it receives matches its own relay policy."""
     FEE_PPM = 1000
@@ -7625,6 +7625,10 @@ def test_blinded_forward_policy(node_factory):
         inline_plugin=bad_topology,
     )
     node_factory.join_nodes([l2, l3], announce_channels=False)
+    # l1 is not part of that channel, so it may lag the funding block; the
+    # final CLTV we build only just meets l3's cltv-final, so being a block
+    # behind makes l3 reject it.  Get everyone onto the same block.
+    sync_blockheight(bitcoind, [l1, l2, l3])
     # Make sure l3 knows about l1-l2, so will add route hint.
     wait_for(lambda: l3.rpc.listnodes(l1.info["id"]) != {"nodes": []})
 
