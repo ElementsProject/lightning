@@ -8,6 +8,7 @@
 #include <common/overflows.h>
 #include <common/utils.h>
 #include <inttypes.h>
+#include <limits.h>
 #include <time.h>
 
 /* If chains is NULL, max_num_chains is ignored */
@@ -449,28 +450,45 @@ struct tlv_invoice *invoice_decode_minimal(const tal_t *ctx,
 	return invoice;
 }
 
-static void add_days(struct tm *tm, u32 number)
+static bool add_days(struct tm *tm, u32 number)
 {
-	tm->tm_mday += number;
+	s64 x = number + (s64)tm->tm_mday;
+	if (x > INT_MAX)
+		return false;
+	tm->tm_mday = (int)x;
+	return true;
 }
 
-static void add_months(struct tm *tm, u32 number)
+static bool add_months(struct tm *tm, u32 number)
 {
-	tm->tm_mon += number;
+	s64 x = number + (s64)tm->tm_mon;
+	if (x > INT_MAX)
+		return false;
+	tm->tm_mon = (int)x;
+	return true;
 }
 
 static u64 time_change(u64 prevstart, u32 number,
-		       void (*add_time)(struct tm *tm, u32 number),
+		       bool (*add_time)(struct tm *tm, u32 number),
 		       bool day_const)
 {
+	struct tm *tm_ptr;
 	struct tm tm;
 	time_t prev = prevstart, ret;
 
-	tm = *gmtime(&prev);
+	tm_ptr = gmtime(&prev);
+	/* Early exit, prev cannot be represented by struct tm. */
+	if (!tm_ptr)
+		return 0;
+	tm = *tm_ptr;
 
 	for (;;) {
 		struct tm new_tm = tm;
-		add_time(&new_tm, number);
+
+		/* The individual time components are int and can overflow. */
+		if (!add_time(&new_tm, number))
+			return 0;
+
 		ret = mktime(&new_tm);
 
 		if (ret == (time_t)-1)
@@ -491,13 +509,25 @@ u64 offer_period_start(u64 basetime, size_t n,
 	/* BOLT-recurrence #12:
 	 * 1. A `time_unit` defining 0 (seconds), 1 (days), 2 (months).
 	 */
+	u64 n_periods;
+	u32 n_periods_u32;
+	if (mul_overflows_u64(recur->period, n))
+		return 0;
+	n_periods = recur->period * (u64)n;
+
 	switch (recur->time_unit) {
 	case 0:
-		return basetime + recur->period * n;
+		if (add_overflows_u64(basetime, n_periods))
+			return 0;
+		return basetime + n_periods;
 	case 1:
-		return time_change(basetime, recur->period * n, add_days, false);
+		if (!assign_overflow_u32(&n_periods_u32, n_periods))
+			return 0;
+		return time_change(basetime, n_periods_u32, add_days, false);
 	case 2:
-		return time_change(basetime, recur->period * n, add_months, true);
+		if (!assign_overflow_u32(&n_periods_u32, n_periods))
+			return 0;
+		return time_change(basetime, n_periods_u32, add_months, true);
 	default:
 		/* This is our offer, how did we get here? */
 		return 0;
