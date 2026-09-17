@@ -4466,7 +4466,8 @@ def test_closing_rejected_fee_fails_negotiation(node_factory, bitcoind):
     assert not l2.daemon.is_in_log('We agreed on a closing fee')
     l2.daemon.wait_for_log('outside our fee limits')
 
-    # The only transaction on the wire is that unilateral close.
+    # The only transaction on the wire is that unilateral close: with no
+    # HTLCs at stake, nothing spends its anchor to hurry it along.
     txid = only_one(res['txids'])
     wait_for(lambda: bitcoind.rpc.getrawmempool() == [txid])
 
