@@ -7369,7 +7369,7 @@
           "invstring": {
             "type": "string",
             "description": [
-              "The bolt11/bolt12 invoice, but the final signature is ignored. Minimal sanity checks are done."
+              "The bolt11/bolt12 invoice, but the final signature is ignored. Minimal sanity checks are done. An `expiry` of 2^32 seconds (~136 years) or more in the invoice is refused."
             ]
           },
           "label": {
