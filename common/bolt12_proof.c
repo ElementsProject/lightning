@@ -157,7 +157,7 @@ struct tlv_payer_proof *make_unsigned_proof_(const tal_t *ctx,
 	if (note) {
 		/* Not nul-terminated! */
 		pptlv->proof_note = tal_dup_arr(pptlv, utf8, note, strlen(note), 0);
-		assert(utf8_check(pptlv->proof_note, tal_bytelen(pptlv->proof_note)));
+		assert(utf8_check_text(pptlv->proof_note, tal_bytelen(pptlv->proof_note)));
 	}
 
 	/* Make sure pptlv->fields correctly reflects values */
