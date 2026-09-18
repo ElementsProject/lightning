@@ -360,8 +360,8 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 				goto field_bad;
 		}
 
-		/* We stash path_id (if present and valid!) in payment_secret */
-		if (tal_bytelen(enc->path_id) == sizeof(*p->payment_secret)) {
+		/* We stash path_id (if present and valid!) in payment_secret for final hop */
+		if (p->final && tal_bytelen(enc->path_id) == sizeof(*p->payment_secret)) {
 			p->payment_secret = tal_steal(p,
 						      (struct secret *)enc->path_id);
 		} else
