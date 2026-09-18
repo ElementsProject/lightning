@@ -947,3 +947,45 @@ def test_splice_unconfirmed_force_close_publishes_current(node_factory, bitcoind
     # Both commitments are published, not just the inflight's.
     l1.daemon.wait_for_logs([r'Broadcasting txid {}'.format(current['txid']),
                              r'Broadcasting txid {}'.format(inflight['scratch_txid'])])
+
+
+@pytest.mark.xfail(strict=True)
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_splice_candidate_spent_before_lock(node_factory, bitcoind):
+    """A confirmed splice output spent before splice_locked must be adopted.
+
+    splice_locked needs both sides; a peer that never sends it and closes
+    on the confirmed splice output must still send us to onchaind on that
+    output, not on the funding the splice already spent.
+    """
+    l1, l2 = node_factory.line_graph(2, fundamount=1000000,
+                                     opts={'may_reconnect': True})
+    chan_id = l1.get_channel_id(l2)
+
+    # Fee-bump splice: no inputs, no payout, so the funding is output 0.
+    result = l1.rpc.splice_init(chan_id, -5801)
+    result = l1.rpc.splice_update(chan_id, result['psbt'])
+    assert result['commitments_secured'] is False
+    result = l1.rpc.splice_update(chan_id, result['psbt'])
+    assert result['commitments_secured'] is True
+    result = l1.rpc.splice_signed(chan_id, result['psbt'])
+    splice_txid = result['txid']
+    l1.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
+    l2.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
+    wait_for(lambda: bitcoind.rpc.getrawmempool() == [splice_txid])
+
+    # l1 is away while the splice confirms, so it never gets splice_locked.
+    l1.stop()
+    bitcoind.generate_block(1, wait_for_mempool=splice_txid)
+
+    # l2 closes on the confirmed splice output.
+    l2.rpc.close(l1.info['id'], unilateraltimeout=1)
+    l2.daemon.wait_for_log(r'to AWAITING_UNILATERAL')
+    bitcoind.generate_block(1, wait_for_mempool=1)
+
+    # l1 must go to onchaind on the splice output, not on the old funding.
+    l1.start()
+    l1.daemon.wait_for_log('Resolved FUNDING_TRANSACTION/FUNDING_OUTPUT by THEIR_UNILATERAL')
+    chan = only_one(l1.rpc.listpeerchannels()['channels'])
+    assert chan['state'] == 'ONCHAIN'
+    assert chan['funding_txid'] == splice_txid
