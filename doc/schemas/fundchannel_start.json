@@ -212,13 +212,13 @@
         "id": "example:fundchannel_start#1",
         "method": "fundchannel_start",
         "params": [
-          "030c0906bee9e0af4cbeb29b436aa2c17ae2df3568bf9a8ec69cd508fee6af28d9",
+          "03b60c34c4ecedd620aa29a974995ac538cfc82f650f5c7c68a9cf9c40e6bd70f9",
           16777216
         ]
       },
       "response": {
-        "funding_address": "bcrt1qsxdxcrmq7rqp2e2l690k0rgc722yzkv49exkx2uwkkk6yevxlygq3lv4xs",
-        "scriptpubkey": "0020819a6c0f60f0c015655fd15f678d18f2944159952e4d632b8eb5ada26586f910",
+        "funding_address": "bcrt1q48fr0q0u6wyx557ehxrc5260gvchcxqlna4du3yflgrpye80rqhstzxua5",
+        "scriptpubkey": "0020a9d23781fcd3886a53d9b9878a2b4f43317c181f9f6ade4489fa061264ef182f",
         "channel_type": {
           "bits": [
             12,
@@ -237,13 +237,13 @@
         "id": "example:fundchannel_start#2",
         "method": "fundchannel_start",
         "params": {
-          "id": "030c0906bee9e0af4cbeb29b436aa2c17ae2df3568bf9a8ec69cd508fee6af28d9",
+          "id": "03b60c34c4ecedd620aa29a974995ac538cfc82f650f5c7c68a9cf9c40e6bd70f9",
           "amount": 16777216
         }
       },
       "response": {
-        "funding_address": "bcrt1qr4pftsergepzf2jrkzvyw5evsspdl7kyxplp6chv7226xwnszjnsy0rzpl",
-        "scriptpubkey": "00201d4295c323464224aa43b09847532c8402dffac4307e1d62ecf295a33a7014a7",
+        "funding_address": "bcrt1qzqz825th6hu2aftyzellvxmms02sg2kmfcl5r9f6ahzny7mww4lsh6uymg",
+        "scriptpubkey": "00201004755177d5f8aea564167ff61b7b83d5042adb4e3f41953aedc5327b6e757f",
         "channel_type": {
           "bits": [
             12,
