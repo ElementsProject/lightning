@@ -15,6 +15,47 @@ struct feature_set;
  */
 #define BOLT12_DEFAULT_REL_EXPIRY 7200
 
+/* CLN recurrence policy limits: stricter than BOLT, keep values in a domain
+ * where period math (gmtime/mktime, u64 adds) stays well-defined and offers
+ * remain practical.  Overflow checks in offer_period_start remain as a
+ * fail-closed backstop. */
+
+/* Basetime must be gmtime-representable on typical platforms.  Stay under
+ * year 10000 UTC (well below the range where glibc gmtime returns NULL).
+ * MAX_BASETIME = 9999-12-31 23:59:59 */
+#define OFFER_RECURRENCE_MAX_BASETIME 253402300799ULL
+
+/* Cap on offer_recurrence_limit (max_period_index). */
+#define OFFER_RECURRENCE_MAX_LIMIT 1000000000ULL
+
+/* Cap on invreq_recurrence_counter / invreq_recurrence_start and their sum. */
+#define OFFER_RECURRENCE_MAX_PERIOD_IDX 1000000000ULL
+
+/* One recurrence period should not exceed ~10 years (per time_unit). */
+#define OFFER_RECURRENCE_MAX_PERIOD_SECONDS (10ULL * 365 * 24 * 3600)
+#define OFFER_RECURRENCE_MAX_PERIOD_DAYS    (10ULL * 365)
+#define OFFER_RECURRENCE_MAX_PERIOD_MONTHS (10ULL * 12)
+
+/* Pay window sides should not exceed ~1 year. */
+#define OFFER_RECURRENCE_MAX_PAYWINDOW_SECONDS (365ULL * 24 * 3600)
+
+/* CLN's policy on offers recurrence. This is stricter than the specification.
+ * It helps keep values inside a reasonable domain to avoid user footguns and
+ * internal value overflows.
+ *
+ * Returns NULL if OK, otherwise an allocated error string.
+ */
+char *offer_check_recurrence_policy(const tal_t *ctx,
+				    const struct tlv_offer *offer);
+
+/* Same policy applied to recurrence fields carried in an invoice_request */
+char *invreq_check_recurrence_policy(const tal_t *ctx,
+				     const struct tlv_invoice_request *invreq);
+
+/* Same policy applied to recurrence fields carried in an invoice */
+char *invoice_check_recurrence_policy(const tal_t *ctx,
+				      const struct tlv_invoice *invoice);
+
 /**
  * offer_encode - encode this complete bolt12 offer TLV into text.
  */

@@ -143,7 +143,7 @@ static struct command_result *param_recurrence(struct command *cmd,
 					       const jsmntok_t *tok,
 					       struct recurrence **recurrence)
 {
-	u32 mul;
+	u32 mul, period;
 	const struct time_string *ts;
 
 	ts = json_to_time(buffer, tok, &mul);
@@ -151,9 +151,14 @@ static struct command_result *param_recurrence(struct command *cmd,
 		return command_fail_badparam(cmd, name, buffer, tok,
 					     "not a valid time");
 
+	if (!assign_overflow_u32(&period, ts->mul * (u64)mul))
+		return command_fail_badparam(
+		    cmd, name, buffer, tok,
+		    "period is too large to fit in 32 bits");
+
 	*recurrence = tal(cmd, struct recurrence);
 	(*recurrence)->time_unit = ts->unit;
-	(*recurrence)->period = ts->mul * mul;
+	(*recurrence)->period = period;
 	return NULL;
 }
 
@@ -482,6 +487,7 @@ struct command_result *json_offer(struct command *cmd,
 	struct offer_info *offinfo = tal(cmd, struct offer_info);
 	struct path **paths;
 	bool *proportional, *optional_recurrence;
+	char *error;
 
 	offinfo->offer = offer = tlv_offer_new(offinfo);
 
@@ -585,6 +591,13 @@ struct command_result *json_offer(struct command *cmd,
 		/* Move compulsory to optional */
 		offer->offer_recurrence_optional = offer->offer_recurrence_compulsory;
 		offer->offer_recurrence_compulsory = NULL;
+	}
+
+	error = offer_check_recurrence_policy(tmpctx, offer);
+	if (error) {
+		return command_fail(
+		    cmd, JSONRPC2_INVALID_PARAMS,
+		    "offer doesn't satisfy CLN's recurrence policy: %s", error);
 	}
 
 	if (command_check_only(cmd))

@@ -1133,6 +1133,7 @@ struct command_result *handle_invoice_request(struct command *cmd,
 	size_t len = tal_count(invreqbin);
 	const u8 *cursor = invreqbin;
 	struct invreq *ir = tal(cmd, struct invreq);
+	char *err;
 
 	ir->reply_path = tal_steal(ir, reply_path);
 	ir->secret = tal_dup_or_null(ir, struct secret, secret);
@@ -1222,6 +1223,15 @@ struct command_result *handle_invoice_request(struct command *cmd,
 	/* FIXME-OFFERS: handle this! */
 	if (!ir->invreq->offer_issuer_id && !ir->invreq->offer_paths) {
 		return fail_invreq(cmd, ir, "Not based on an offer");
+	}
+
+	/* CLN policy: reject absurd recurrence values from remote peers early.
+	 */
+	err = invreq_check_recurrence_policy(tmpctx, ir->invreq);
+	if (err) {
+		return fail_invreq(
+		    cmd, ir,
+		    "invreq doesn't satisfy CLN's recurrence policy: %s", err);
 	}
 
 	/* BOLT #12:
