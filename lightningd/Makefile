@@ -63,26 +63,26 @@ LIGHTNINGD_HDRS :=				\
 	$(WALLET_HDRS)
 
 
-LIGHTNINGD_OBJS := $(LIGHTNINGD_SRC:.c=.o) $(LIGHTNINGD_SRC_NOHDR:.c=.o)
+LIGHTNINGD_OBJS := $(addprefix $(BUILDDIR)/,$(LIGHTNINGD_SRC:.c=.o) $(LIGHTNINGD_SRC_NOHDR:.c=.o))
 $(LIGHTNINGD_OBJS): $(LIGHTNINGD_HDRS) $(LIGHTNINGD_CONTROL_HEADERS)
 
 # Make sure these depend on everything.
 ALL_C_SOURCES += $(LIGHTNINGD_SRC) $(LIGHTNINGD_SRC_NOHDR)
 ALL_C_HEADERS += $(LIGHTNINGD_HDRS)
-ALL_PROGRAMS += lightningd/lightningd
+ALL_PROGRAMS += $(BUILDDIR)/lightningd/lightningd
 
 # We explicitly check header versions in lightningd.c
-lightningd/lightningd.o: header_versions_gen.h
+$(BUILDDIR)/lightningd/lightningd.o: header_versions_gen.h
 
 $(LIGHTNINGD_OBJS): $(LIGHTNINGD_HDRS)
 $(WALLET_OBJS): $(LIGHTNINGD_HDRS) $(DB_HEADERS)
 
 # Only the plugin component needs to depend on this header.
-lightningd/plugin.o: plugins/list_of_builtin_plugins_gen.h
+$(BUILDDIR)/lightningd/plugin.o: plugins/list_of_builtin_plugins_gen.h
 
-lightningd/channel_state_names_gen.h: lightningd/channel_state.h ccan/ccan/cdump/tools/cdump-enumstr
-	ccan/ccan/cdump/tools/cdump-enumstr lightningd/channel_state.h > $@
+lightningd/channel_state_names_gen.h: lightningd/channel_state.h $(CDUMP_ENUMSTR)
+	$(CDUMP_ENUMSTR) lightningd/channel_state.h > $@
 
-lightningd/lightningd: $(LIGHTNINGD_OBJS) $(WALLET_OBJS) $(LIGHTNINGD_CONTROL_OBJS) $(HSMD_CLIENT_OBJS) $(DB_OBJS) libcommon.a
+$(BUILDDIR)/lightningd/lightningd: $(LIGHTNINGD_OBJS) $(WALLET_OBJS) $(LIGHTNINGD_CONTROL_OBJS) $(HSMD_CLIENT_OBJS) $(DB_OBJS) $(BUILDDIR)/libcommon.a
 
 include lightningd/test/Makefile

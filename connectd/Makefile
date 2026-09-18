@@ -16,27 +16,30 @@ CONNECTD_HEADERS := connectd/connectd_wiregen.h		\
 
 CONNECTD_SRC := $(CONNECTD_HEADERS:.h=.c) connectd/connectd.c
 
-CONNECTD_OBJS := $(CONNECTD_SRC:.c=.o)
+CONNECTD_OBJS := $(CONNECTD_SRC:%.c=$(BUILDDIR)/%.o)
 $(CONNECTD_OBJS): $(CONNECTD_HEADERS)
 
 WEBSOCKETD_HEADERS := connectd/sha1.h
 WEBSOCKETD_SRC := $(WEBSOCKETD_HEADERS:.h=.c) connectd/websocketd.c
 
-WEBSOCKETD_OBJS := $(WEBSOCKETD_SRC:.c=.o)
+WEBSOCKETD_OBJS := $(WEBSOCKETD_SRC:%.c=$(BUILDDIR)/%.o)
 $(WEBSOCKETD_OBJS): $(WEBSOCKETD_HEADERS)
 
 # Make sure these depend on everything.
 ALL_C_SOURCES += $(CONNECTD_SRC) $(WEBSOCKETD_SRC)
 ALL_C_HEADERS += $(CONNECTD_HEADERS) $(WEBSOCKETD_HEADERS)
-ALL_PROGRAMS += lightningd/lightning_connectd
-ALL_PROGRAMS += lightningd/lightning_websocketd
+ALL_PROGRAMS += $(BUILDDIR)/lightningd/lightning_connectd
+ALL_PROGRAMS += $(BUILDDIR)/lightningd/lightning_websocketd
 
 # Here's what lightningd depends on
 LIGHTNINGD_CONTROL_HEADERS += connectd/connectd_wiregen.h
-LIGHTNINGD_CONTROL_OBJS += connectd/connectd_wiregen.o
+LIGHTNINGD_CONTROL_OBJS += $(BUILDDIR)/connectd/connectd_wiregen.o
 
-lightningd/lightning_connectd: $(CONNECTD_OBJS) $(HSMD_CLIENT_OBJS) gossipd/gossipd_wiregen.o libcommon.a
+$(BUILDDIR)/lightningd/lightning_connectd: $(CONNECTD_OBJS) $(HSMD_CLIENT_OBJS) $(addprefix $(BUILDDIR)/,gossipd/gossipd_wiregen.o libcommon.a)
 
-lightningd/lightning_websocketd: $(WEBSOCKETD_OBJS) libcommon.a
+$(BUILDDIR)/lightningd/lightning_websocketd: $(WEBSOCKETD_OBJS) $(BUILDDIR)/libcommon.a
+
+obsclean::
+	$(RM) connectd/*.o
 
 include connectd/test/Makefile
