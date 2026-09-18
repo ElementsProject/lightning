@@ -4269,6 +4269,16 @@ def test_htlc_no_force_close(node_factory, bitcoind, anchors):
 
     # Now, surprise!  l3 fulfills htlc (l2 loses out!)
     assert htlc_txs != []
+    # l3 was watching its own (censored) commitment tx, so it takes a while
+    # before it notices l2's commitment is the one onchain and tries to fulfill
+    # the HTLC by spending its HTLC output.  Wait for that attempt before we
+    # release the censored txs, otherwise we only broadcast l3's own commitment
+    # txs, which conflict with l2's (already mined) commitment and are rejected.
+    commit_txid = only_one(l2.rpc.listpeerchannels(l3.info['id'])['channels'])['scratch_txid']
+    wait_for(lambda: any(vin['txid'] == commit_txid
+                         for tx in htlc_txs
+                         for vin in bitcoind.rpc.decoderawtransaction(tx)['vin']))
+
     for tx in htlc_txs:
         try:
             bitcoind.rpc.sendrawtransaction(tx)
