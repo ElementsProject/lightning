@@ -35,13 +35,15 @@
       "recurrence_counter": {
         "type": "u64",
         "description": [
-          "Required if the offer specifies recurrence, otherwise it is not allowed. recurrence_counter should first be set to 0, and incremented for each successive invoice in a given series."
+          "Required if the offer specifies recurrence, otherwise it is not allowed. recurrence_counter should first be set to 0, and incremented for each successive invoice in a given series.",
+          "It should be a number no greater than 1000000000."
         ]
       },
       "recurrence_start": {
         "type": "number",
         "description": [
-          "Indicates what period number to start at (usually 0)."
+          "Indicates what period number to start at (usually 0).",
+          "It should be a number no greater than 1000000000."
         ]
       },
       "recurrence_label": {
