@@ -173,6 +173,7 @@ static struct command_result *handle_invreq_response(struct command *cmd,
 	u64 starttime, endtime;
 	u64 next_counter, next_period_idx;
 	u64 paywindow_start, paywindow_end;
+	bool have_next_period = false;
 
 	invtok = json_get_member(buf, om, "invoice");
 	if (!invtok) {
@@ -296,7 +297,6 @@ static struct command_result *handle_invreq_response(struct command *cmd,
 		goto badinv;
 	}
 
-	bool have_next_period = false;
 	if (recurrence) {
 		next_counter = *inv->invreq_recurrence_counter + 1;
 
@@ -310,20 +310,12 @@ static struct command_result *handle_invreq_response(struct command *cmd,
 		    next_period_idx <= *inv->offer_recurrence_limit) {
 			have_next_period = true;
 
-			starttime = offer_period_start(
-			    *inv->invoice_recurrence_basetime, next_period_idx,
-			    recurrence);
-			/* we use the return value 0 to indicate an error */
-			if (starttime == 0) {
-				badfield = "invoice_recurrence_basetime or "
-					   "next_period_idx";
-				goto badinv;
-			}
-			endtime = offer_period_start(
-			    *inv->invoice_recurrence_basetime,
-			    next_period_idx + 1, recurrence);
-			/* we use the return value 0 to indicate an error */
-			if (endtime == 0) {
+			if (!offer_period_start(
+				&starttime, *inv->invoice_recurrence_basetime,
+				next_period_idx, recurrence) ||
+			    !offer_period_start(
+				&endtime, *inv->invoice_recurrence_basetime,
+				next_period_idx + 1, recurrence)) {
 				badfield = "invoice_recurrence_basetime or "
 					   "next_period_idx";
 				goto badinv;

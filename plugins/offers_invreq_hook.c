@@ -524,12 +524,11 @@ static struct command_result *check_period(struct command *cmd,
 	 */
 	if (ir->invreq->offer_recurrence_base
 	    && ir->invreq->offer_recurrence_base->proportional_amount == 1) {
-		u64 start = offer_period_start(basetime, period_idx,
-					       invreq_recurrence(ir->invreq));
-		u64 end = offer_period_start(basetime, period_idx + 1,
-					     invreq_recurrence(ir->invreq));
-
-		if (start == 0 || end == 0) {
+		u64 start, end;
+		if (!offer_period_start(&start, basetime, period_idx,
+					invreq_recurrence(ir->invreq)) ||
+		    !offer_period_start(&end, basetime, period_idx + 1,
+					invreq_recurrence(ir->invreq))) {
 			return fail_invreq(cmd, ir,
 					   "basetime %" PRIu64
 					   " and period_index %" PRIu64

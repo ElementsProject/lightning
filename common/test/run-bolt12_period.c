@@ -201,7 +201,7 @@ int main(int argc, char *argv[])
 		struct recurrence recurrence;
 		int unit;
 		const jsmntok_t *exp;
-		u64 base, secs, n;
+		u64 base, secs, n, start;
 		time_t time;
 		char *timestring, *tstr, **tparts;
 
@@ -229,7 +229,8 @@ int main(int argc, char *argv[])
 		/* Now each part should appear. */
 		for (i = 0; tparts[i]; i++)
 			assert(strstr(timestring, tparts[i]));
-		assert(offer_period_start(base, n, &recurrence) == secs);
+		assert(offer_period_start(&start, base, n, &recurrence));
+		assert(start == secs);
 	}
 	common_shutdown();
 	return 0;
