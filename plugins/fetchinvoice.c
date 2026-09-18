@@ -175,6 +175,7 @@ static struct command_result *handle_invreq_response(struct command *cmd,
 	u64 next_counter, next_period_idx;
 	u64 paywindow_start, paywindow_end;
 	bool have_next_period = false;
+	char *error;
 
 	invtok = json_get_member(buf, om, "invoice");
 	if (!invtok) {
@@ -295,6 +296,26 @@ static struct command_result *handle_invreq_response(struct command *cmd,
 	 */
 	if (recurrence && !inv->invoice_recurrence_basetime) {
 		badfield = "invoice_recurrence_basetime";
+		goto badinv;
+	}
+
+	/* CLN's recurrence policy */
+	if (inv->invoice_recurrence_basetime &&
+	    *inv->invoice_recurrence_basetime > OFFER_RECURRENCE_MAX_BASETIME) {
+		plugin_log(cmd->plugin, LOG_DBG,
+			   "invoice_recurrence_basetime (%" PRIu64
+			   ") exceeds CLN maximum %" PRIu64,
+			   *inv->invoice_recurrence_basetime,
+			   (u64)OFFER_RECURRENCE_MAX_BASETIME);
+		badfield = "invoice_recurrence_basetime";
+		goto badinv;
+	}
+
+	error = invoice_check_recurrence_policy(tmpctx, inv);
+	if (error) {
+		plugin_log(cmd->plugin, LOG_DBG,
+			   "invoice recurrence policy check failed: %s", error);
+		badfield = "recurrence";
 		goto badinv;
 	}
 
@@ -885,6 +906,7 @@ struct command_result *json_fetchinvoice(struct command *cmd,
 	u32 *timeout;
 	u64 *quantity;
 	u32 *recurrence_counter, *recurrence_start;
+	char *error;
 
 	if (!param_check(cmd, buffer, params,
 			 p_req("offer", param_offer, &sent->offer),
@@ -901,6 +923,13 @@ struct command_result *json_fetchinvoice(struct command *cmd,
 			 p_opt("dev_reply_path", param_dev_reply_path, &sent->dev_reply_path),
 		   NULL))
 		return command_param_failed();
+
+	error = offer_check_recurrence_policy(tmpctx, sent->offer);
+	if (error) {
+		return command_fail(
+		    cmd, JSONRPC2_INVALID_PARAMS,
+		    "offer doesn't satisfy CLN's recurrence policy: %s", error);
+	}
 
 	sent->wait_timeout = *timeout;
 	sent->their_paths = sent->offer->offer_paths;
@@ -924,6 +953,32 @@ struct command_result *json_fetchinvoice(struct command *cmd,
 	    && clock_time().ts.tv_sec > *sent->offer->offer_absolute_expiry
 	    && (!recurrence_counter || *recurrence_counter == 0)) {
 		return command_fail(cmd, OFFER_EXPIRED, "Offer expired");
+	}
+
+	if (recurrence_counter &&
+	    *recurrence_counter > OFFER_RECURRENCE_MAX_PERIOD_IDX) {
+		return command_fail(
+		    cmd, JSONRPC2_INVALID_PARAMS,
+		    "recurrence_counter %u exceeds CLN maximum %" PRIu64,
+		    *recurrence_counter, (u64)OFFER_RECURRENCE_MAX_PERIOD_IDX);
+	}
+	if (recurrence_start &&
+	    *recurrence_start > OFFER_RECURRENCE_MAX_PERIOD_IDX) {
+		return command_fail(
+		    cmd, JSONRPC2_INVALID_PARAMS,
+		    "recurrence_start %u exceeds CLN maximum %" PRIu64,
+		    *recurrence_start, (u64)OFFER_RECURRENCE_MAX_PERIOD_IDX);
+	}
+	if (recurrence_counter && recurrence_start) {
+		u64 period_idx = *recurrence_counter + (u64)*recurrence_start;
+		if (period_idx > OFFER_RECURRENCE_MAX_PERIOD_IDX) {
+			return command_fail(
+			    cmd, JSONRPC2_INVALID_PARAMS,
+			    "recurrence_start (%u) + recurrence_counter (%u) "
+			    "exceeds CLN maximum %" PRIu64,
+			    *recurrence_start, *recurrence_counter,
+			    (u64)OFFER_RECURRENCE_MAX_PERIOD_IDX);
+		}
 	}
 
 	/* BOLT #12:
@@ -1035,6 +1090,14 @@ struct command_result *json_fetchinvoice(struct command *cmd,
 			= recurrence_invreq_metadata(invreq, invreq,
 						     &od->nodealias_base,
 						     rec_label);
+
+		error = invreq_check_recurrence_policy(tmpctx, invreq);
+		if (error) {
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "invoice request doesn't satisfy "
+					    "CLN's recurrence policy: %s",
+					    error);
+		}
 	} else {
 		/* BOLT-recurrence #12:
 		 * - otherwise:
@@ -1103,6 +1166,14 @@ struct command_result *json_fetchinvoice(struct command *cmd,
 							payer_note,
 							strlen(payer_note),
 							0);
+
+	error = invreq_check_recurrence_policy(tmpctx, invreq);
+	if (error) {
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Invoice request does not satisfy CLN "
+				    "recurrence policy: %s",
+				    error);
+	}
 
 	/* If only checking, we're done now */
 	if (command_check_only(cmd))

@@ -11,6 +11,216 @@
 #include <limits.h>
 #include <time.h>
 
+static char *check_recurrence_policy_fields(const tal_t *ctx,
+					    const struct recurrence *recurr,
+					    const struct recurrence_base *base,
+					    const struct recurrence_paywindow *paywindow,
+					    const u32 *limit)
+{
+	u64 max_period;
+
+	/* No recurrence -> nothing to check (BOLT already rejects stray
+	 * recurrence_* fields without a recurrence descriptor). */
+	if (!recurr)
+		return NULL;
+
+	/* time_unit / period==0 are BOLT MUST checks; still reject here so
+	 * create-path gets the same errors without going through decode. */
+	if (recurr->time_unit != 0 && recurr->time_unit != 1 &&
+	    recurr->time_unit != 2)
+		return tal_fmt(ctx, "invalid recurrence time_unit %u",
+			       recurr->time_unit);
+
+	if (recurr->period == 0)
+		return tal_fmt(ctx, "invalid recurrence period %u",
+			       recurr->period);
+
+	switch (recurr->time_unit) {
+	case 0:
+		max_period = OFFER_RECURRENCE_MAX_PERIOD_SECONDS;
+		break;
+	case 1:
+		max_period = OFFER_RECURRENCE_MAX_PERIOD_DAYS;
+		break;
+	case 2:
+		max_period = OFFER_RECURRENCE_MAX_PERIOD_MONTHS;
+		break;
+	default:
+		/* Unreachable given the check above. */
+		max_period = 0;
+		break;
+	}
+	if (recurr->period > max_period)
+		return tal_fmt(
+		    ctx,
+		    "recurrence period %u exceeds CLN maximum %" PRIu64
+		    " for time_unit %u",
+		    recurr->period, max_period, recurr->time_unit);
+
+	if (base && base->basetime > OFFER_RECURRENCE_MAX_BASETIME)
+		return tal_fmt(ctx,
+			       "recurrence_base basetime %" PRIu64
+			       " exceeds CLN maximum %" PRIu64,
+			       base->basetime,
+			       (u64)OFFER_RECURRENCE_MAX_BASETIME);
+
+	if (limit) {
+		if (*limit == 0)
+			return tal_fmt(ctx, "invalid recurrence limit %u",
+				       *limit);
+		if (*limit > OFFER_RECURRENCE_MAX_LIMIT)
+			return tal_fmt(
+			    ctx,
+			    "recurrence_limit %u exceeds CLN maximum %" PRIu64,
+			    *limit, (u64)OFFER_RECURRENCE_MAX_LIMIT);
+	}
+
+	if (paywindow) {
+		if (paywindow->seconds_before >
+		    OFFER_RECURRENCE_MAX_PAYWINDOW_SECONDS)
+			return tal_fmt(
+			    ctx,
+			    "recurrence_paywindow seconds_before %u exceeds "
+			    "CLN maximum %" PRIu64,
+			    paywindow->seconds_before,
+			    (u64)OFFER_RECURRENCE_MAX_PAYWINDOW_SECONDS);
+		if (paywindow->seconds_after >
+		    OFFER_RECURRENCE_MAX_PAYWINDOW_SECONDS)
+			return tal_fmt(
+			    ctx,
+			    "recurrence_paywindow seconds_after %u exceeds CLN "
+			    "maximum %" PRIu64,
+			    paywindow->seconds_after,
+			    (u64)OFFER_RECURRENCE_MAX_PAYWINDOW_SECONDS);
+	}
+
+	return NULL;
+}
+
+char *offer_check_recurrence_policy(const tal_t *ctx,
+				    const struct tlv_offer *offer)
+{
+	return check_recurrence_policy_fields(
+	    ctx, offer_recurrence(offer), offer->offer_recurrence_base,
+	    offer->offer_recurrence_paywindow, offer->offer_recurrence_limit);
+}
+
+char *invreq_check_recurrence_policy(const tal_t *ctx,
+				     const struct tlv_invoice_request *invreq)
+{
+	char *err;
+	u64 period_idx;
+
+	err = check_recurrence_policy_fields(
+	    ctx, invreq_recurrence(invreq), invreq->offer_recurrence_base,
+	    invreq->offer_recurrence_paywindow, invreq->offer_recurrence_limit);
+	if (err)
+		return err;
+
+	if (!invreq_recurrence(invreq))
+		return NULL;
+
+	/* Peer-controlled period index: counter [+ start]. */
+	period_idx = 0;
+	if (invreq->invreq_recurrence_counter) {
+		if (*invreq->invreq_recurrence_counter >
+		    OFFER_RECURRENCE_MAX_PERIOD_IDX)
+			return tal_fmt(ctx,
+				       "invreq_recurrence_counter %u exceeds "
+				       "CLN maximum %" PRIu64,
+				       *invreq->invreq_recurrence_counter,
+				       (u64)OFFER_RECURRENCE_MAX_PERIOD_IDX);
+		period_idx = *invreq->invreq_recurrence_counter;
+	}
+	if (invreq->invreq_recurrence_start) {
+		if (*invreq->invreq_recurrence_start >
+		    OFFER_RECURRENCE_MAX_PERIOD_IDX)
+			return tal_fmt(ctx,
+				       "invreq_recurrence_start %u exceeds CLN "
+				       "maximum %" PRIu64,
+				       *invreq->invreq_recurrence_start,
+				       (u64)OFFER_RECURRENCE_MAX_PERIOD_IDX);
+		if (add_overflows_u64(period_idx,
+				      *invreq->invreq_recurrence_start))
+			return tal_fmt(
+			    ctx,
+			    "invreq_recurrence_start (%u) + counter (%" PRIu64
+			    ") overflows",
+			    *invreq->invreq_recurrence_start, period_idx);
+		period_idx += *invreq->invreq_recurrence_start;
+	}
+	if (period_idx > OFFER_RECURRENCE_MAX_PERIOD_IDX)
+		return tal_fmt(
+		    ctx,
+		    "period index %" PRIu64 " exceeds CLN maximum %" PRIu64,
+		    period_idx, (u64)OFFER_RECURRENCE_MAX_PERIOD_IDX);
+
+	return NULL;
+}
+
+
+char *invoice_check_recurrence_policy(const tal_t *ctx,
+				      const struct tlv_invoice *invoice)
+{
+	char *err;
+	u64 period_idx;
+
+	err = check_recurrence_policy_fields(
+	    ctx, invoice_recurrence(invoice), invoice->offer_recurrence_base,
+	    invoice->offer_recurrence_paywindow, invoice->offer_recurrence_limit);
+	if (err)
+		return err;
+
+	if (!invoice_recurrence(invoice))
+		return NULL;
+
+	/* Copied from invreq (and matched on reply): counter [+ start]. */
+	period_idx = 0;
+	if (invoice->invreq_recurrence_counter) {
+		if (*invoice->invreq_recurrence_counter >
+		    OFFER_RECURRENCE_MAX_PERIOD_IDX)
+			return tal_fmt(ctx,
+				       "invreq_recurrence_counter %u exceeds "
+				       "CLN maximum %" PRIu64,
+				       *invoice->invreq_recurrence_counter,
+				       (u64)OFFER_RECURRENCE_MAX_PERIOD_IDX);
+		period_idx = *invoice->invreq_recurrence_counter;
+	}
+	if (invoice->invreq_recurrence_start) {
+		if (*invoice->invreq_recurrence_start >
+		    OFFER_RECURRENCE_MAX_PERIOD_IDX)
+			return tal_fmt(ctx,
+				       "invreq_recurrence_start %u exceeds CLN "
+				       "maximum %" PRIu64,
+				       *invoice->invreq_recurrence_start,
+				       (u64)OFFER_RECURRENCE_MAX_PERIOD_IDX);
+		if (add_overflows_u64(period_idx,
+				      *invoice->invreq_recurrence_start))
+			return tal_fmt(
+			    ctx,
+			    "invreq_recurrence_start (%u) + counter (%" PRIu64
+			    ") overflows",
+			    *invoice->invreq_recurrence_start, period_idx);
+		period_idx += *invoice->invreq_recurrence_start;
+	}
+	if (period_idx > OFFER_RECURRENCE_MAX_PERIOD_IDX)
+		return tal_fmt(
+		    ctx,
+		    "period index %" PRIu64 " exceeds CLN maximum %" PRIu64,
+		    period_idx, (u64)OFFER_RECURRENCE_MAX_PERIOD_IDX);
+
+	/* Issuer-chosen; outside invoice_matches_request ranges. */
+	if (invoice->invoice_recurrence_basetime &&
+	    *invoice->invoice_recurrence_basetime > OFFER_RECURRENCE_MAX_BASETIME)
+		return tal_fmt(ctx,
+			       "invoice_recurrence_basetime %" PRIu64
+			       " exceeds CLN maximum %" PRIu64,
+			       *invoice->invoice_recurrence_basetime,
+			       (u64)OFFER_RECURRENCE_MAX_BASETIME);
+
+	return NULL;
+}
+
 /* If chains is NULL, max_num_chains is ignored */
 bool bolt12_chains_match(const struct bitcoin_blkid *chains,
 			 size_t max_num_chains,
