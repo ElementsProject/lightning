@@ -1,6 +1,7 @@
 #include "config.h"
 #include <assert.h>
 #include <bitcoin/chainparams.h>
+#include <ccan/err/err.h>
 #include <ccan/list/list.h>
 #include <ccan/mem/mem.h>
 #include <ccan/str/hex/hex.h>
@@ -11,6 +12,7 @@
 #include <errno.h>
 #include <locale.h>
 #include <sodium.h>
+#include <string.h>
 
 const tal_t *wally_tal_ctx = NULL;
 secp256k1_context *secp256k1_ctx;
@@ -100,8 +102,21 @@ static void destroy_munlock(const tal_t *ptr)
 
 void mlock_tal_memory(const tal_t *ptr)
 {
-	if (sodium_mlock((void *)ptr, tal_bytelen(ptr)) != 0)
+	if (sodium_mlock((void *)ptr, tal_bytelen(ptr)) != 0) {
+		warnx("FATAL: could not lock %zu bytes of sensitive memory"
+		      " into RAM: %s\n"
+		      "Memory locking is required to keep secrets out of"
+		      " swap.\n"
+		      "If you are running in a container or jail, the"
+		      " privilege must be granted:\n"
+		      "  FreeBSD jail: set allow.mlock=1 for the jail\n"
+		      "  Linux: raise RLIMIT_MEMLOCK (ulimit -l), or grant"
+		      " the CAP_IPC_LOCK capability\n"
+		      "  Docker/Podman: --ulimit memlock=-1:-1 or"
+		      " --cap-add=IPC_LOCK",
+		      tal_bytelen(ptr), strerror(errno));
 		abort();
+	}
 	tal_add_destructor(ptr, destroy_munlock);
 }
 
