@@ -87,6 +87,9 @@ def test_block_backfill(node_factory, bitcoind, chainparams):
     heights = [r['height'] for r in l3.db_query("SELECT height FROM blocks")]
     assert(103 in heights)
 
+    stored_hash = only_one(l3.db_query("SELECT hash FROM blocks WHERE height = 103"))['hash']
+    assert bytes(stored_hash) == bytes.fromhex(bitcoind.rpc.getblockhash(103))[::-1]
+
     # Make sure we also have the needle we added to the haystack above
     assert(31337 in [r['satoshis'] for r in l3.db_query("SELECT satoshis FROM utxoset")])
 
