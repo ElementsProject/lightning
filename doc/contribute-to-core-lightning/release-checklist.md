@@ -20,7 +20,7 @@ Here's a checklist for the release process.
 
 1. Make sure any `CHANGELOG.md` changes from point releases have been imported.
 2. Use `devtools/changelog.py` to collect the changelog entries from pull request commit messages and merge them into the manually maintained `CHANGELOG.md`. This does API queries to GitHub, which are severely ratelimited unless you use an API token: set the `GH_TOKEN` environment variable to a Personal Access Token from https://github.com/settings/tokens
-3. Check that `CHANGELOG.md` is well formatted, ordered in areas, covers all signficant changes, and sub-ordered approximately by user impact & coolness.
+3. Check that `CHANGELOG.md` is well formatted, ordered in areas, covers all significant changes, and sub-ordered approximately by user impact & coolness.
 4. Manually remove any entries which were mentioned for in the previous point releases (they will be duplicates!)
 5. Create a new CHANGELOG.md heading to `v<VERSION>rc1`, and create a link at the bottom. Note that you should exactly copy the date and name format from a previous release, as the `build-release.sh` script relies on this.
 6. Update the package versions: `uv run make update-versions NEW_VERSION=v<VERSION>rc1`
@@ -71,7 +71,7 @@ Here's a checklist for the release process.
 7. Run `tools/build-release.sh bin-Fedora bin-Ubuntu sign` (with `--sudo` if you need root to run Docker) to:
    - Create reproducible zipfile
    - Build reproducible Fedora image
-   - Build reproducible Ubuntu-v20.04, Ubuntu-v22.04 and Ubuntu-v24.04 images. Follow [link](https://docs.corelightning.org/docs/repro#building-using-the-builder-image) for manually Building Ubuntu Images.
+   - Build reproducible Ubuntu-v22.04, Ubuntu-v24.04 and Ubuntu-v26.04 images. Follow [link](https://docs.corelightning.org/docs/repro#building-using-the-builder-image) for manually Building Ubuntu Images.
    - Build Docker images for amd64 and arm64v8. Follow [link](https://docs.corelightning.org/docs/docker-images) for more details on Docker publishing.
    - Create and sign checksums. Follow [link](https://docs.corelightning.org/docs/repro#co-signing-the-release-manifest) for manually signing the release.
 8. If you used `--sudo`, the tarballs may be owned by root, so revert ownership if necessary: `sudo chown ${USER}:${USER} *${VERSION}*`
@@ -101,7 +101,7 @@ Here's a checklist for the release process.
 
 1. Create a PR to update:
   * `Makefile`: variables CLN_NEXT_VERSION and CLN_PREV_VERSION (this may break tests as deprecated things are disabled!)
-  * `tools/lightningd-downgrade.c`: to downgrade to the just-released version.
+  * `tools/lightning-downgrade.c`: to downgrade to the just-released version.
   * `.github/workflows/ci.yaml`: change old-cln to download the just-released version.
   * `.github/PULL_REQUEST_TEMPLATE.md` for important dates for the next release.
 2. Look through PRs which were delayed for release and merge them.

@@ -11,7 +11,7 @@ DESCRIPTION
 
 lightningd(8) communicates via RPC, especially JSONRPC over the UNIX
 domain socket (by default **$HOME/.lightning/bitcoin/lightning-rpc**,
-but configuable with lightningd-config(5)).
+but configurable with lightningd-config(5)).
 
 
 JSON WIRE FORMAT
@@ -82,7 +82,7 @@ be added in future.  You should safely ignore any unknown fields.
 
 Any field name which starts with "warning" is a specific warning, and
 should be documented in the commands' manual page.  Each warning field
-has an associated human-readable string, but it's redudant, as each
+has an associated human-readable string, but it's redundant, as each
 separate warning should have a distinct field name
 (e.g. **warning\_offer\_unknown\_currency** and
 **warning\_offer\_missing\_description**).
@@ -105,7 +105,7 @@ referred to in addition to simple JSON types:
 * `pubkey`: a 66-character `hex` which is an SEC-1 encoded secp256k1 point (usually used as a public key).
 * `msat`: a `u64` which indicates an amount of millisatoshis.  Deprecated: may also be a string of the number, with "msat" appended.  As an input parameter, lightningd(8) will accept strings with suffixes (see below).
 * `txid`: a 64-character `hex` Bitcoin transaction identifier.
-* `signature`: a `hex` (144 bytes or less), which is a DER-encoded Bitcoin signature (without any sighash flags appended), 
+* `signature`: a `hex` (144 bytes or less), which is a DER-encoded Bitcoin signature (without any sighash flags appended),
 * `bip340sig`: a 128-character `hex` which is a BIP-340 (Schnorr) signature.
 * `point32`: a 64-character `hex` which represents an x-only pubkey.
 * `short_channel_id`: a string of form BLOCK "x" TXNUM "x" OUTNUM.
@@ -250,7 +250,7 @@ Note: `"filter"` doesn't change the order, just which fields are
 printed.  Any fields not explicitly mentioned are omitted from the
 output, but plugins which don't support filter (and some routines
 doing simple JSON transfers) may ignore `"filter"`, so you should treat
-it as an optimazation only).
+it as an optimization only).
 
 Note: if you specify an array where an object is specified or vice
 versa, the response may include a `warning_parameter_filter` field

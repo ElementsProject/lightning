@@ -65,10 +65,10 @@ Effort has been made to get `lightningd` running on Android, [see issue #3484](h
 
 ### How to forget about a channel?
 
-> 🚧 
-> 
+> 🚧
+>
 > Never use any `dev` command unless you know exactly what you are doing, and have checked with a developer that your understanding is correct. They are meant only as a means of last resort and have the potential to mess things up. You have been warned❗️
-> 
+>
 
 
 Channels may end up stuck during funding and never confirm on-chain. There is a variety of causes, the most common ones being that the funds have been double-spent, or the funding fee was too low to be confirmed. This is unlikely to happen in normal operation, as CLN tries to use sane defaults and prevents double-spends whenever possible, but using custom feerates or when the bitcoin backend has no good fee estimates it is still possible.
@@ -86,7 +86,7 @@ lightning-cli withdraw $ADDR all
 
 This step is not required if the funding transaction was already double-spent, however it is safe to do it anyway, just in case.
 
-Then wait for the transaction moving the funds to confirm. This ensures any pending funding transaction can no longer be confirmed. 
+Then wait for the transaction moving the funds to confirm. This ensures any pending funding transaction can no longer be confirmed.
 
 As an additional step you can also force-close the unconfirmed channel:
 
@@ -159,7 +159,7 @@ There are 3 types of 'rescans' you can make:
 
 ### Database corruption / channel state lost
 
-If you lose data (likely corrupted `lightningd.sqlite3`) about a channel **with `option_static_remotekey` enabled**, you can wait for your peer to unilateraly close the channel, then use `tools/lightning-hsmtool` with the `guesstoremote` command to attempt to recover your funds from the peer's published unilateral close transaction.
+If you lose data (likely corrupted `lightningd.sqlite3`) about a channel **with `option_static_remotekey` enabled**, you can wait for your peer to unilaterally close the channel, then use `tools/lightning-hsmtool` with the `guesstoremote` command to attempt to recover your funds from the peer's published unilateral close transaction.
 
 If `option_static_remotekey` was not enabled, you're probably out of luck. The keys for your funds in your peer's unilateral close transaction are derived from information you lost. Fortunately, since version `0.7.3` channels are created with `option_static_remotekey` by default if your peer supports it. Which is to say that channels created after block [598000](https://blockstream.info/block/0000000000000000000dd93b8fb5c622b9c903bf6f921ef48e266f0ead7faedb)  
 (short channel id starting with > 598000) have a high chance of supporting `option_static_remotekey`. You can verify it using the `features` field from the [`listpeers` command](ref:listpeers)'s result.

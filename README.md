@@ -11,7 +11,7 @@ Core Lightning (previously c-lightning) is a lightweight, highly customizable an
 	* [Sending and Receiving Payments](#sending-and-receiving-payments)
 	* [Configuration File](#configuration-file)
 * [Further Information](#further-information)
-    * [FAQ](doc/FAQ.md)
+    * [FAQ](doc/node-operators-guide/faq.md)
     * [Pruning](#pruning)
     * [HD wallet encryption](#hd-wallet-encryption)
 	* [Developers](#developers)
@@ -228,6 +228,5 @@ Developers wishing to contribute should start with the developer guide [here](do
 [releases]: https://github.com/ElementsProject/lightning/releases
 [dockerhub]: https://hub.docker.com/r/elementsproject/lightningd/
 [jsonrpcspec]: https://www.jsonrpc.org/specification
-[helpme-github]: https://github.com/lightningd/plugins/tree/master/helpme
 [actions-badge]: https://github.com/ElementsProject/lightning/workflows/Continuous%20Integration/badge.svg
 [actions]: https://github.com/ElementsProject/lightning/actions
