@@ -468,9 +468,9 @@ static bool add_months(struct tm *tm, u32 number)
 	return true;
 }
 
-static u64 time_change(u64 prevstart, u32 number,
-		       bool (*add_time)(struct tm *tm, u32 number),
-		       bool day_const)
+static bool time_change(u64 *new_start, u64 prevstart, u32 number,
+			bool (*add_time)(struct tm *tm, u32 number),
+			bool day_const)
 {
 	struct tm *tm_ptr;
 	struct tm tm;
@@ -479,7 +479,7 @@ static u64 time_change(u64 prevstart, u32 number,
 	tm_ptr = gmtime(&prev);
 	/* Early exit, prev cannot be represented by struct tm. */
 	if (!tm_ptr)
-		return 0;
+		return false;
 	tm = *tm_ptr;
 
 	for (;;) {
@@ -487,12 +487,12 @@ static u64 time_change(u64 prevstart, u32 number,
 
 		/* The individual time components are int and can overflow. */
 		if (!add_time(&new_tm, number))
-			return 0;
+			return false;
 
 		ret = mktime(&new_tm);
 
 		if (ret == (time_t)-1)
-			return 0;
+			return false;
 
 		/* If we overflowed that month, try one less. */
 		if (!day_const || new_tm.tm_mday == tm.tm_mday)
@@ -500,11 +500,12 @@ static u64 time_change(u64 prevstart, u32 number,
 		tm.tm_mday--;
 	}
 
-	return ret;
+	*new_start = ret;
+	return true;
 }
 
-u64 offer_period_start(u64 basetime, size_t n,
-		       const struct recurrence *recur)
+bool offer_period_start(u64 *start, u64 basetime, size_t n,
+			const struct recurrence *recur)
 {
 	/* BOLT-recurrence #12:
 	 * 1. A `time_unit` defining 0 (seconds), 1 (days), 2 (months).
@@ -512,26 +513,32 @@ u64 offer_period_start(u64 basetime, size_t n,
 	u64 n_periods;
 	u32 n_periods_u32;
 	if (mul_overflows_u64(recur->period, n))
-		return 0;
+		return false;
 	n_periods = recur->period * (u64)n;
 
 	switch (recur->time_unit) {
 	case 0:
 		if (add_overflows_u64(basetime, n_periods))
-			return 0;
-		return basetime + n_periods;
+			return false;
+		*start = basetime + n_periods;
+		break;
 	case 1:
-		if (!assign_overflow_u32(&n_periods_u32, n_periods))
-			return 0;
-		return time_change(basetime, n_periods_u32, add_days, false);
+		if (!assign_overflow_u32(&n_periods_u32, n_periods) ||
+		    !time_change(start, basetime, n_periods_u32, add_days,
+				 false))
+			return false;
+		break;
 	case 2:
-		if (!assign_overflow_u32(&n_periods_u32, n_periods))
-			return 0;
-		return time_change(basetime, n_periods_u32, add_months, true);
+		if (!assign_overflow_u32(&n_periods_u32, n_periods) ||
+		    !time_change(start, basetime, n_periods_u32, add_months,
+				 true))
+			return false;
+		break;
 	default:
 		/* This is our offer, how did we get here? */
-		return 0;
+		return false;
 	}
+	return true;
 }
 
 bool offer_period_paywindow(const struct recurrence *recurrence,
@@ -540,16 +547,15 @@ bool offer_period_paywindow(const struct recurrence *recurrence,
 			    u64 basetime, u64 period_idx,
 			    u64 *start, u64 *end)
 {
+	u64 pstart;
 	/* BOLT-recurrence #12:
 	 * - if `offer_recurrence_paywindow` is present:
 	 */
 	if (recurrence_paywindow) {
-		u64 pstart = offer_period_start(basetime, period_idx,
-						recurrence);
-
-		/* we use the return value 0 to indicate an error */
-		if (pstart == 0)
+		if (!offer_period_start(&pstart, basetime, period_idx,
+					recurrence))
 			return false;
+
 		/* BOLT-recurrence #12:
 		 * - if `recurrence_basetime` is present or
 		 *    `recurrence_counter` is non-zero:
@@ -588,9 +594,8 @@ bool offer_period_paywindow(const struct recurrence *recurrence,
 		else {
 
 			/* we use the return value 0 to indicate an error */
-			*start = offer_period_start(basetime, period_idx - 1,
-						    recurrence);
-			if (*start == 0)
+			if (!offer_period_start(start, basetime, period_idx - 1,
+						recurrence))
 				return false;
 		}
 
@@ -600,8 +605,8 @@ bool offer_period_paywindow(const struct recurrence *recurrence,
 		 */
 
 		/* we use the return value 0 to indicate an error */
-		*end = offer_period_start(basetime, period_idx + 1, recurrence);
-		if (*end == 0)
+		if (!offer_period_start(end, basetime, period_idx + 1,
+					recurrence))
 			return false;
 
 		/* the end of the current is the start of the next minus 1 */
