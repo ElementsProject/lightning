@@ -2392,7 +2392,7 @@ static void accept_tlv_add_offer(struct tlv_accept_tlvs *a_tlv,
 			      "Bad sign_option_will_fund_offer_reply %s",
 			      tal_hex(tmpctx, msg));
 
-	/* BOLT- #2:
+	/* BOLT-liquidity-ads #2:
 	 * The accepting node:
 	 * ...
 	 *   - MUST set `funding_fee_base_sat` to the base fee
@@ -2633,7 +2633,7 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 		}
 	}
 
-	/* BOLT- #2:
+	/* BOLT-liquidity-ads #2:
 	 *
 	 * - if they decide to accept the offer:
 	 *   ...
@@ -2655,7 +2655,7 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 		tx_state->lease_expiry
 			= tx_state->blockheight + LEASE_RATE_DURATION;
 
-		/* BOLT- #2:
+		/* BOLT-liquidity-ads #2:
 		 * The lease fee is added to the accepter's balance
 		 * in a channel, in addition to the `funding_satoshi`
 		 * that they are contributing. The channel initiator
@@ -2749,7 +2749,7 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 	 */
 	a_tlv->channel_type = state->channel_type->features;
 
-	/* BOLT- #2:
+	/* BOLT-liquidity-ads #2:
 	 * The accepting node:
 	 * ...
 	 * - if the `option_will_fund` tlv was sent in `open_channel2`:
@@ -3239,7 +3239,7 @@ static void opener_start(struct state *state, u8 *msg)
 		return;
 	}
 
-	/* BOLT- #2:
+	/* BOLT-liquidity-ads #2:
 	 * The accepting node:  ...
 	 *  - if they decide to accept the offer:
 	 *    - MUST include a `will_fund` tlv
@@ -3282,7 +3282,7 @@ static void opener_start(struct state *state, u8 *msg)
 			return;
 		}
 
-		/* BOLT- #2:
+		/* BOLT-liquidity-ads #2:
 		 * The lease fee is added to the accepter's balance
 		 * in a channel, in addition to the `funding_satoshi`
 		 * that they are contributing. The channel initiator
