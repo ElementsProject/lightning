@@ -145,6 +145,8 @@ static void NORETURN negotiation_failed(struct state *state,
 
 static void set_reserve_absolute(struct state * state, const struct amount_sat dust_limit, struct amount_sat reserve_sat)
 {
+	struct amount_sat floor;
+
 	status_debug("Setting their reserve to %s",
 		     fmt_amount_sat(tmpctx, reserve_sat));
 	if (state->allowdustreserve) {
@@ -156,13 +158,22 @@ static void set_reserve_absolute(struct state * state, const struct amount_sat d
 		 * ...
 		 * - MUST set `channel_reserve_satoshis` greater than or equal
 		 *   to `dust_limit_satoshis` from the `open_channel` message.
+		 *
+		 * Our own dust_limit_satoshis must also never exceed our
+		 * channel_reserve_satoshis, so floor against whichever dust
+		 * limit (ours or the caller-supplied one) is larger
 		 */
-		if (amount_sat_greater(dust_limit, reserve_sat)) {
-			status_debug("Their reserve is too small, bumping to "
+		if (amount_sat_greater(state->localconf.dust_limit, dust_limit))
+			floor = state->localconf.dust_limit;
+		else
+			floor = dust_limit;
+
+		if (amount_sat_greater(floor, reserve_sat)) {
+			status_debug("Reserve is too small, bumping to "
 				     "dust_limit: %s < %s",
 				     fmt_amount_sat(tmpctx, reserve_sat),
-				     fmt_amount_sat(tmpctx, dust_limit));
-			state->localconf.channel_reserve = dust_limit;
+				     fmt_amount_sat(tmpctx, floor));
+			state->localconf.channel_reserve = floor;
 		} else {
 			state->localconf.channel_reserve = reserve_sat;
 		}
