@@ -70,6 +70,10 @@ struct rune *rune_dup(const tal_t *ctx, const struct rune *rune TAKES)
 		return tal_steal(ctx, (struct rune *)rune);
 
 	dup = tal_dup(ctx, struct rune, rune);
+	if (rune->unique_id)
+		dup->unique_id = tal_strdup(dup, rune->unique_id);
+	if (rune->version)
+		dup->version = tal_strdup(dup, rune->version);
 	dup->restrs = tal_arr(dup, struct rune_restr *, tal_count(rune->restrs));
 	for (size_t i = 0; i < tal_count(rune->restrs); i++) {
 		dup->restrs[i] = rune_restr_dup(dup->restrs,
@@ -287,11 +291,16 @@ static int lexo_order(const char *fieldval_str,
 		      size_t fieldval_strlen,
 		      const char *alt)
 {
-	int ret = strncmp(fieldval_str, alt, fieldval_strlen);
+	size_t altlen = strlen(alt);
+	size_t minlen = fieldval_strlen < altlen ? fieldval_strlen : altlen;
+	int ret = memcmp(fieldval_str, alt, minlen);
 
-	/* If alt is same but longer, fieldval is < */
-	if (ret == 0 && strlen(alt) > fieldval_strlen)
-		ret = -1;
+	if (ret == 0) {
+		if (fieldval_strlen < altlen)
+			ret = -1;
+		else if (fieldval_strlen > altlen)
+			ret = 1;
+	}
 	return ret;
 }
 

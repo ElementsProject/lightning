@@ -569,6 +569,9 @@ struct timerel time_divide(struct timerel t, unsigned long div);
  * @t: a relative time.
  * @mult: number to multiply it by.
  *
+ * If the result would not fit in a timerel, the maximum representable
+ * time is returned.
+ *
  * Example:
  *	...
  *	printf("Time to do 100000 forks would be %u sec\n",

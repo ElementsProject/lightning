@@ -467,7 +467,8 @@ static inline void *sintmap_first_(const struct intmap *map,
 {
 	intmap_index_t i;
 	void *ret = intmap_first_(map, &i);
-	*indexp = SINTMAP_UNOFF(i);
+	if (ret)
+		*indexp = SINTMAP_UNOFF(i);
 	return ret;
 
 }
@@ -495,7 +496,8 @@ static inline void *sintmap_last_(const struct intmap *map,
 {
 	intmap_index_t i;
 	void *ret = intmap_last_(map, &i);
-	*indexp = SINTMAP_UNOFF(i);
+	if (ret)
+		*indexp = SINTMAP_UNOFF(i);
 	return ret;
 
 }

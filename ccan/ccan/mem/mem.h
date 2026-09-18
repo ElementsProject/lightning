@@ -219,6 +219,9 @@ static inline bool memends_str(const void *a, size_t al, const char *s)
  * @al: length of first memory range
  * @b: pointer to second memory range
  * @al: length of second memory range
+ *
+ * Note that a zero-length range counts as overlapping any range that
+ * straddles its address.
  */
 CONST_FUNCTION
 static inline bool memoverlaps(const void *a_, size_t al,
@@ -254,6 +257,15 @@ static inline void *memcheck_(const void *data, size_t len)
 	return (void *)data;
 }
 #endif
+
+/**
+ * mem_under_valgrind - true if we're running under valgrind.
+ *
+ * Checks RUNNING_ON_VALGRIND() if available at compile time, and
+ * RUNNING_ON_VALGRIND=1 in the environment (set by ccanlint) either
+ * way.
+ */
+bool mem_under_valgrind(void);
 
 #if HAVE_TYPEOF
 /**

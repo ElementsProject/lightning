@@ -30,7 +30,6 @@ int main(int argc, char *argv[])
 	/* Test err() in child */
 	if (pipe(pfd))
 		abort();
-	fflush(stdout);
 	if (fork()) {
 		char buffer[BUFFER_MAX+1];
 		unsigned int i;
@@ -63,7 +62,6 @@ int main(int argc, char *argv[])
 	/* Test errx() in child */
 	if (pipe(pfd))
 		abort();
-	fflush(stdout);
 	if (fork()) {
 		char buffer[BUFFER_MAX+1];
 		unsigned int i;
@@ -94,7 +92,6 @@ int main(int argc, char *argv[])
 	/* Test warn() in child */
 	if (pipe(pfd))
 		abort();
-	fflush(stdout);
 	if (fork()) {
 		char buffer[BUFFER_MAX+1];
 		unsigned int i;
@@ -127,7 +124,6 @@ int main(int argc, char *argv[])
 	/* Test warnx() in child */
 	if (pipe(pfd))
 		abort();
-	fflush(stdout);
 	if (fork()) {
 		char buffer[BUFFER_MAX+1];
 		unsigned int i;

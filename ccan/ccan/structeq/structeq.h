@@ -18,6 +18,10 @@
  * there isn't any, or how many we expect.  A negative number means
  * "up to or equal to that amount of padding", as padding can be
  * platform dependent.
+ *
+ * Note that members which are themselves structures or unions are
+ * compared with memcmp(), so any *internal* padding they contain can
+ * cause false negatives, just like top-level padding would.
  */
 #define STRUCTEQ_DEF(sname, padbytes, ...)				\
 static inline bool CPPMAGIC_GLUE2(sname, _eq)(const struct sname *_a, \
