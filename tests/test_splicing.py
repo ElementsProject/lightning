@@ -949,7 +949,6 @@ def test_splice_unconfirmed_force_close_publishes_current(node_factory, bitcoind
                              r'Broadcasting txid {}'.format(inflight['scratch_txid'])])
 
 
-@pytest.mark.xfail(strict=True)
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 def test_splice_candidate_spent_before_lock(node_factory, bitcoind):
     """A confirmed splice output spent before splice_locked must be adopted.

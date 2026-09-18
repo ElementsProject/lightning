@@ -2594,6 +2594,43 @@ static void channel_funding_found(struct lightningd *ld,
 	}
 }
 
+/* A dual-funding candidate was mined and spent before lock-in. */
+static void adopt_opening_candidate(struct channel *channel,
+				    const struct channel_inflight *inflight)
+{
+	struct amount_msat our_msat;
+
+	log_unusual(channel->log,
+		    "Candidate funding %s spent before lock-in; adopting it",
+		    fmt_bitcoin_outpoint(tmpctx, &inflight->funding->outpoint));
+	update_channel_from_inflight(channel->peer->ld, channel, inflight,
+				     false);
+	if (amount_sat_to_msat(&our_msat, channel->our_funds)) {
+		channel->our_msat = our_msat;
+		channel->msat_to_us_min = our_msat;
+		channel->msat_to_us_max = our_msat;
+	}
+}
+
+/* A splice candidate was mined and spent before splice_locked, which
+ * needs the peer: do what handle_peer_splice_locked() would have. */
+static void adopt_splice_candidate(struct channel *channel,
+				   const struct channel_inflight *inflight)
+{
+	s64 splice_amnt = inflight->funding->splice_amnt;
+
+	log_unusual(channel->log,
+		    "Splice candidate %s spent before splice_locked;"
+		    " adopting it",
+		    fmt_bitcoin_outpoint(tmpctx, &inflight->funding->outpoint));
+	update_channel_from_inflight(channel->peer->ld, channel, inflight,
+				     true);
+	channel->our_msat.millisatoshis += splice_amnt * 1000; /* Raw: splicing */
+	channel->msat_to_us_min.millisatoshis += splice_amnt * 1000; /* Raw: splicing */
+	channel->msat_to_us_max.millisatoshis += splice_amnt * 1000; /* Raw: splicing */
+	wallet_channel_save(channel->peer->ld->wallet, channel);
+}
+
 /* The block scanner is iterating this outpoint's watches right now, and
  * drop_to_chain() adds a funding_spend_watch if there is none: make the
  * candidate watch that fired the channel's own instead of adding a second
@@ -2624,42 +2661,31 @@ static enum watch_result funding_spent(struct channel *channel,
 				       const struct block *block)
 {
 	struct bitcoin_txid txid;
+	struct bitcoin_outpoint spent;
 	struct channel_inflight *inflight;
 
 	bitcoin_txid(tx, &txid);
 
-	/* A dual-funding candidate spent before lock-in: whichever candidate
+	/* A candidate spent before it was locked in: whichever candidate
 	 * was spent is the one that got mined, so make it the channel's
-	 * funding (as opening_depth_cb would have) before onchaind sees it.
-	 * Otherwise onchaind is handed the latest attempt's commitment, which
-	 * spends an outpoint that may never exist. */
-	if (channel->state == DUALOPEND_AWAITING_LOCKIN) {
-		struct bitcoin_outpoint spent;
-
-		bitcoin_tx_input_get_outpoint(tx, inputnum, &spent);
-		take_over_inflight_spend_watch(channel, &spent);
-		if (!bitcoin_outpoint_eq(&spent, &channel->funding)) {
-			list_for_each(&channel->inflights, inflight, list) {
-				struct amount_msat our_msat;
-
-				if (!bitcoin_outpoint_eq(&spent,
-							 &inflight->funding->outpoint))
-					continue;
-				log_unusual(channel->log,
-					    "Candidate funding %s spent before"
-					    " lock-in; adopting it",
-					    fmt_bitcoin_outpoint(tmpctx, &spent));
-				update_channel_from_inflight(channel->peer->ld,
-							     channel, inflight,
-							     false);
-				if (amount_sat_to_msat(&our_msat,
-						       channel->our_funds)) {
-					channel->our_msat = our_msat;
-					channel->msat_to_us_min = our_msat;
-					channel->msat_to_us_max = our_msat;
-				}
-				break;
-			}
+	 * funding (as opening_depth_cb or splice_locked would have) before
+	 * onchaind sees it.  Otherwise onchaind is handed a commitment for
+	 * the previous funding, or for an outpoint that may never exist.
+	 * This also covers our own force close with an inflight, where
+	 * drop_to_chain() publishes a commitment for every candidate. */
+	bitcoin_tx_input_get_outpoint(tx, inputnum, &spent);
+	take_over_inflight_spend_watch(channel, &spent);
+	if (!bitcoin_outpoint_eq(&spent, &channel->funding)) {
+		list_for_each(&channel->inflights, inflight, list) {
+			if (!bitcoin_outpoint_eq(&spent,
+						 &inflight->funding->outpoint))
+				continue;
+			/* No scid yet: this is a dual-funding candidate. */
+			if (channel->scid)
+				adopt_splice_candidate(channel, inflight);
+			else
+				adopt_opening_candidate(channel, inflight);
+			break;
 		}
 	}
 
