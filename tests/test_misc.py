@@ -3123,6 +3123,40 @@ def test_recoverchannel(node_factory):
     assert stubs[0] == "c3a7b9d74a174497122bc52d74d6d69836acadc77e0429c6d8b68b48d5c9139a"
 
 
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "deletes database, which is assumed sqlite3")
+def test_recoverchannel_closed_sibling(node_factory, bitcoind):
+    """Recovering an SCB with a channel that has since closed must still
+    let the peer close the channels that are still live."""
+    l1, l2 = node_factory.get_nodes(2, opts=[{'may_reconnect': True},
+                                             {'may_reconnect': True}])
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    # Open two channels, then close the first and settle it onchain.
+    c_dead, _ = l1.fundchannel(l2, 10**5)
+    c_live, _ = l1.fundchannel(l2, 10**5)
+    l1.rpc.close(c_dead)
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    sync_blockheight(bitcoind, [l1, l2])
+    wait_for(lambda: 'ONCHAIN' in [c['state'] for c in l1.rpc.listpeerchannels()['channels'] if c.get('short_channel_id') == c_dead])
+    wait_for(lambda: 'ONCHAIN' in [c['state'] for c in l2.rpc.listpeerchannels()['channels'] if c.get('short_channel_id') == c_dead])
+
+    scb = l2.rpc.staticbackup()['scb']
+
+    # Recover l2 from the backup.  It is fully synced, so it will not notice
+    # that the first channel is already spent (no new block is mined), and so
+    # reestablishes both it and the live channel.  l1 must reject the dead one
+    # without hanging up on the live one.
+    l2.stop()
+    os.unlink(os.path.join(l2.daemon.lightning_dir, TEST_NETWORK, 'lightningd.sqlite3'))
+    l2.start()
+    sync_blockheight(bitcoind, [l2])
+    l2.rpc.recoverchannel(scb)
+    l2.rpc.connect(l1.info['id'], 'localhost', l1.port)
+
+    wait_for(lambda: [c['state'] for c in l1.rpc.listpeerchannels()['channels']
+                      if c.get('short_channel_id') == c_live] == ['AWAITING_UNILATERAL'])
+
+
 def test_getemergencyrecoverdata(node_factory):
     """
     Test getemergencyrecoverdata
