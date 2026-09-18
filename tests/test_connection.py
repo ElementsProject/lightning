@@ -1606,17 +1606,26 @@ def test_funding_v2_cancel_race(node_factory, bitcoind, executor):
                                 executor.submit(l1.rpc.openchannel_abort,
                                                 start['channel_id'])))
 
+        secured = set()
         for i, c in enumerate(completes):
             try:
-                c[1].result(TIMEOUT)
+                # A command that fights over the shared command pointer hangs
+                # here until TIMEOUT raises TimeoutError (not an RpcError).
+                result = c[1].result(TIMEOUT)
                 completes[i] = (completes[i][0], True)
+                # openchannel_update is idempotent: repeating it once the
+                # commitments are secured just echoes the inflight back, so
+                # several of these calls may legitimately succeed.  Two
+                # *distinct* secured PSBTs would mean two commitments though.
+                if result["commitments_secured"]:
+                    secured.add(result["psbt"])
             except RpcError:
                 completes[i] = (completes[i][0], False)
 
-        # Only up to one should succeed.
-        num_successes = sum(c[1] is True for c in completes)
-        assert num_successes <= 1, f"Multiple successes in {completes}, cancels = {cancels}"
-        num_complete += num_successes
+        assert len(secured) <= 1, (
+            f"Multiple commitments in {completes}, cancels = {cancels}"
+        )
+        num_complete += sum(c[1] is True for c in completes)
 
         for c in cancels:
             try:
