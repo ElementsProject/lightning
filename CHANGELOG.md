@@ -4,6 +4,65 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [26.06.8] - 2026-09-19: "Quantum-Resistant Lightning Channel V"
+
+This point release is recommended for all users.
+
+### Changed
+
+ - JSON-RPC: `openchannel_abort` can now abort an open after commitments are secured, as long as `tx_signatures` has not been sent.
+ - Update libwally to v1.5.6
+
+### Fixed
+
+ - Protocol: dual-funding: reconnecting during block catch-up could lock in a channel with the latest RBF candidate rather than the one that was actually mined.
+ - Protocol: immediately fail the channel if channel_reestablish next_commitment_number is zero.
+ - askrene: node failed to start (`exited before replying to init`) when a persistent layer contains a node bias with a description
+ - askrene: setting an absolute bias value to zero on a persistent layer doesn't result on a NULL pointer dereference.
+ - JSON-RPC: `sendpay` with a route too long to fit the onion packet now fails cleanly instead of crashing lightningd.
+ - `openingd` no longer crashes when a peer opens a channel with a `funding_satoshis` value greater than the total bitcoin supply.
+ - JSON-RPC: `listpeerchannels` no longer derives `receivable_msat` from an overflowed fee estimate when the peer sets an absurd `feerate_per_kw`.
+ - plugins: fix crash when starting a plugin with start parameters after a previously-configured plugin option disabled itself
+ - connectd: fix intermittent "No hsmd ECDH response" crash on macOS under load.
+ - chaintopology: stop the on-chain RBF rebroadcast loop once a fee-bumped replacement transaction confirms; previously the loop kept firing on every new block forever.
+ - renepay: fix the computation of the CLTV for the first hop, it was double counting the current blockheight leading to too 900k blocks into the future.
+ - peer_control: initialize error pointer in handle_peer_spoke to NULL to prevent undefined behavior on error paths.
+ - lightningd: fix crash of lightningd on race condition between delinvoice and a returning invoice_payment hook for fallback onchain settlements
+ - lightningd: checks for rpc name collisions with builtin commands when registering plugin RPC methods
+ - Protocol: a peer receiving a payment can no longer crash the sender's node by returning a crafted error onion.
+ - lightningd: crash when forwarding onion message with path_id set.
+ - lightningd: a mutual close proposed after a splice left almost nothing in the channel no longer aborts the node; the invalid closing fee is rejected instead.
+ - Protocol: dual-fund: we now remember the channel when the peer sends `tx_abort` after we have already sent our `tx_signatures`, as required by BOLT #2.
+ - JSON-RPC: integer fields are parsed as decimal only; a leading `0` no longer means octal, and `0x` hex is rejected.
+ - `connectd`: throttle gossip queries which could take up a lot of CPU.
+ - clnrest: reject excessively-nested XML rather than risk a stack overflow.
+ - clnrest: an unauthenticated YAML request using anchors/aliases could exhaust memory and crash the plugin; YAML deserialization is now bounded.
+ - lightningd: fix crash (`FATAL SIGNAL 6`) and a 100% CPU busy-loop when calling `invoice` with an `expiry` too far in the future (now refused above 2^32 seconds).
+ - lightningd: refuse bolt11 `expiry` above 2^32 seconds in `createinvoice` too, instead of crashing or busy-looping.
+ - lightningd: avoid overpaying anchor fees when HTLC deadlines are duplicated.
+ - lightningd: a unilateral close after a splice locked could broadcast a revoked commitment, losing the channel funds to a penalty.
+ - lightningd: dual-funding channels no longer lock in an RBF candidate which was never mined if a reconnect arrives while catching up on blocks.
+ - lightningd: dual-funding RBF attempts are now refused once the funding transaction has confirmed, rather than leaving the channel naming one transaction and the short_channel_id another.
+ - Protocol: don't reject a peer over a feerate we would have proposed ourselves.
+ - dual-funding: accept an anchor channel open whose commitment feerate is below our policy minimum but still relayable.
+ - lightningd: a mutual close at the fee ceiling no longer falls back to broadcasting the commitment because of satoshi rounding.
+ - lightningd: `close` with a feerange below the fee estimates no longer falls back to broadcasting the commitment.
+ - lightningd: a closing fee lightningd rejects fails the negotiation instead of broadcasting the commitment as a mutual close.
+ - JSON-RPC: `signpsbt` on an already-signed PSBT with taproot paths now succeeds as a no-op instead of failing.
+ - onchaind: a trimmed HTLC with the same payment hash and cltv as a live one could be mistaken for it onchain, causing us to fail the live HTLC upstream while the peer could still claim it.
+ - lightningd: a payer sending an extra MPP part while the `invoice_payment` hook is pending could crash the node.
+ - plugins: `offers` no longer uses uninitialised memory as the reply destination for an onion message whose reply path starts with short channel id 0x0x0.
+ - plugins: `offers` no longer sends uninitialised memory to a remote node when rejecting an unsolicited invoice.
+ - Protocol: a peer reusing the id of an already-resolved HTLC no longer crashes the node.
+ - JSON-RPC: `makesecret` refuses to derive the secret used for the node's runes.
+ - lightningd: runes with a unique_id too large to be blacklisted are now refused rather than being impossible to revoke.
+ - askrene: node biases on a persistent layer were duplicated on every restart, and could abort the plugin when loading a layer.
+ - lightningd: a unilateral close while a splice is still unconfirmed now also publishes the commitment for the current funding, not only the splice's.
+ - dual-funding: a channel whose funding output is spent before lock-in is now handed to onchaind instead of being locked in and used.
+ - lightningd: a peer reusing a funding outpoint can no longer crash the node with a duplicate channel_id.
+ - wallet: keep only the confirmed splice candidate's HTLC signatures after a splice-RBF.
+ - splicing: a close on a confirmed splice output before splice_locked completed is now handled by onchaind on that output, on both sides.
+
 ## [26.06.7] - 2026-08-26: "Quantum-Resistant Lightning Channel IV"
 
 This point release is recommended for all users.
