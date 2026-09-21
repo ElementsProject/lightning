@@ -932,7 +932,7 @@ static struct command_result *json_getroutes(struct command *cmd,
 				    "amount must be non-zero");
 	}
 
-	if (maxparts == 0) {
+	if (*maxparts == 0) {
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "maxparts must be non-zero");
 	}
