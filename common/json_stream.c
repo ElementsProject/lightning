@@ -317,12 +317,12 @@ void json_add_hex(struct json_stream *js, const char *fieldname,
 {
 	/* Size without NUL term */
 	size_t hexlen = hex_str_size(len);
-	char str[hexlen];
+	char *str = tal_arr(js, char, hexlen);
 
 	if (!hex_encode(data, len, str, hexlen))
 		abort();
 
-	json_add_string(js, fieldname, str);
+	json_add_string(js, fieldname, take(str));
 }
 
 void json_add_hex_talarr(struct json_stream *result,
