@@ -2571,7 +2571,6 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 	 * The receiving node MUST fail the channel if:
 	 *...
 	 *   - the `channel_type` is not suitable.
-	 *   - the `channel_type` includes `option_zeroconf` and it does not trust the sender to open an unconfirmed channel.
 	 */
 	if (!open_tlv->channel_type) {
 		negotiation_failed(state,
@@ -2596,6 +2595,18 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 							   open_tlv->channel_type));
 			return;
 		}
+	}
+
+	/* BOLT #2:
+	 * The receiving node MUST fail the channel if:
+	 *...
+	 *   - the `channel_type` includes `option_zeroconf` and it does not trust the
+	 *     sender to open an unconfirmed channel.
+	 */
+	if (channel_type_has(state->channel_type, OPT_ZEROCONF) &&
+	    state->minimum_depth > 0) {
+		negotiation_failed(state, "You required zeroconf, but you're not on our allowlist");
+		return;
 	}
 
 	/* The commitment feerate is a different matter: too low and the
