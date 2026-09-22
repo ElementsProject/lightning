@@ -258,6 +258,7 @@ message ListpeersRequest {
 		INFO = 2;
 		UNUSUAL = 3;
 		TRACE = 4;
+		BROKEN = 5;
 	}
 	optional bytes id = 1;
 	optional ListpeersLevel level = 2;
@@ -280,7 +281,7 @@ message ListpeersPeers {
 message ListpeersPeersLog {
 	// ListPeers.peers[].log[].type
 	enum ListpeersPeersLogType {
-		SKIPPED = 0;
+		SKIPPED = 0 [deprecated = true];
 		BROKEN = 1;
 		UNUSUAL = 2;
 		INFO = 3;
@@ -290,7 +291,6 @@ message ListpeersPeersLog {
 		TRACE = 7;
 	}
 	ListpeersPeersLogType item_type = 1;
-	optional uint32 num_skipped = 2;
 	optional string time = 3;
 	optional string source = 4;
 	optional string log = 5;

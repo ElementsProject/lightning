@@ -467,6 +467,8 @@ pub mod requests {
 	    UNUSUAL = 3,
 	    #[serde(rename = "trace")]
 	    TRACE = 4,
+	    #[serde(rename = "broken")]
+	    BROKEN = 5,
 	}
 
 	impl TryFrom<i32> for ListpeersLevel {
@@ -478,6 +480,7 @@ pub mod requests {
 	    2 => Ok(ListpeersLevel::INFO),
 	    3 => Ok(ListpeersLevel::UNUSUAL),
 	    4 => Ok(ListpeersLevel::TRACE),
+	    5 => Ok(ListpeersLevel::BROKEN),
 	            o => Err(anyhow::anyhow!("Unknown variant {} for enum ListpeersLevel", o)),
 	        }
 	    }
@@ -491,6 +494,7 @@ pub mod requests {
 	            ListpeersLevel::DEBUG => "DEBUG",
 	            ListpeersLevel::INFO => "INFO",
 	            ListpeersLevel::UNUSUAL => "UNUSUAL",
+	            ListpeersLevel::BROKEN => "BROKEN",
 	        }.to_string()
 	    }
 	}
@@ -5642,8 +5646,6 @@ pub mod responses {
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	#[allow(non_camel_case_types)]
 	pub enum ListpeersPeersLogType {
-	    #[serde(rename = "SKIPPED")]
-	    SKIPPED = 0,
 	    #[serde(rename = "BROKEN")]
 	    BROKEN = 1,
 	    #[serde(rename = "UNUSUAL")]
@@ -5664,7 +5666,6 @@ pub mod responses {
 	    type Error = anyhow::Error;
 	    fn try_from(c: i32) -> Result<ListpeersPeersLogType, anyhow::Error> {
 	        match c {
-	    0 => Ok(ListpeersPeersLogType::SKIPPED),
 	    1 => Ok(ListpeersPeersLogType::BROKEN),
 	    2 => Ok(ListpeersPeersLogType::UNUSUAL),
 	    3 => Ok(ListpeersPeersLogType::INFO),
@@ -5680,7 +5681,6 @@ pub mod responses {
 	impl ToString for ListpeersPeersLogType {
 	    fn to_string(&self) -> String {
 	        match self {
-	            ListpeersPeersLogType::SKIPPED => "SKIPPED",
 	            ListpeersPeersLogType::BROKEN => "BROKEN",
 	            ListpeersPeersLogType::UNUSUAL => "UNUSUAL",
 	            ListpeersPeersLogType::INFO => "INFO",
@@ -5700,8 +5700,6 @@ pub mod responses {
 	    pub log: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub node_id: Option<PublicKey>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub num_skipped: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub source: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]

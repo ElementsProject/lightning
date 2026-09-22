@@ -28705,7 +28705,8 @@
               "trace",
               "debug",
               "info",
-              "unusual"
+              "unusual",
+              "broken"
             ]
           }
         }
@@ -28762,7 +28763,6 @@
                       "type": {
                         "type": "string",
                         "enum": [
-                          "SKIPPED",
                           "BROKEN",
                           "UNUSUAL",
                           "INFO",
@@ -28774,34 +28774,6 @@
                       }
                     },
                     "allOf": [
-                      {
-                        "if": {
-                          "additionalProperties": true,
-                          "properties": {
-                            "type": {
-                              "enum": [
-                                "SKIPPED"
-                              ]
-                            }
-                          }
-                        },
-                        "then": {
-                          "type": "object",
-                          "additionalProperties": false,
-                          "required": [
-                            "num_skipped"
-                          ],
-                          "properties": {
-                            "type": {},
-                            "num_skipped": {
-                              "type": "u32",
-                              "description": [
-                                "Number of deleted/omitted entries."
-                              ]
-                            }
-                          }
-                        }
-                      },
                       {
                         "if": {
                           "additionalProperties": true,
