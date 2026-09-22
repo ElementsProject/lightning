@@ -627,6 +627,11 @@ class BitcoinD(TailableProc):
         self.port_setup = True
 
     def kill(self):
+        # Never started: parametrize('bitcoind', [False], indirect=True).
+        if self.proc is None:
+            self.cleanup_files()
+            return
+
         try:
             self.stop()
         except Exception:
