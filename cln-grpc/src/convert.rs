@@ -7328,7 +7328,7 @@ impl From<requests::ListchainmovesRequest> for pb::ListchainmovesRequest {
 impl From<requests::ListnetworkeventsRequest> for pb::ListnetworkeventsRequest {
     fn from(c: requests::ListnetworkeventsRequest) -> Self {
         Self {
-            id: c.id, // Rule #2 for type string?
+            id: c.id.map(|v| v.serialize().to_vec()).map(hex::encode), // Rule #2 for type pubkey?
             index: c.index.map(|v| v as i32),
             limit: c.limit, // Rule #2 for type u32?
             start: c.start, // Rule #2 for type u64?
@@ -9587,7 +9587,7 @@ impl TryFrom<pb::ListnetworkeventsRequest> for requests::ListnetworkeventsReques
     type Error = tonic::Status;
     fn try_from(c: pb::ListnetworkeventsRequest) -> Result<Self, Self::Error> {
         Ok(Self {
-            id: c.id, // Rule #1 for type string?
+            id: (c.id.map(|v| hex::decode(v).map_err(|e| invalid_argument("id", e))).transpose()?).map(|v| PublicKey::from_slice(&v).map_err(|e| invalid_argument("id", e))).transpose()?, // Rule #1 for type pubkey?
             index: c.index.map(|v| v.try_into().map_err(|e| invalid_argument("index", e))).transpose()?,
             limit: c.limit, // Rule #1 for type u32?
             start: c.start, // Rule #1 for type u64?
