@@ -103,14 +103,14 @@
         "default": "2k sats"
       },
       "lease_fee_basis": {
-        "type": "u32",
+        "type": "u16",
         "description": [
           "A basis fee that's calculated as 1/10k of the total requested funds the peer is asking for. Node will receive the total of *lease_fee_basis* times requested funds / 10k satoshis added to their channel balance, paid by the opening node."
         ],
         "default": "0.65% (65 basis points)"
       },
       "funding_weight": {
-        "type": "u32",
+        "type": "u16",
         "description": [
           "To calculate the fee the peer will compensate your node for its contributing inputs to the funding transaction. The total fee is calculated as the `open_channel2`.`funding_feerate_perkw` times this *funding_weight* divided by 1000. Node will have this funding fee added to their channel balance, paid by the opening node."
         ],
@@ -124,7 +124,7 @@
         "default": "5k sats"
       },
       "channel_fee_max_proportional_thousandths": {
-        "type": "u32",
+        "type": "u16",
         "description": [
           "A commitment to a maximum `channel_fee_proportional_millionths` that your node will charge for routing payments over this leased channel during the lease duration. Note that it's denominated in 'thousandths'. A setting of `1` is equal to 1k ppm; `5` is 5k ppm, etc."
         ],
@@ -232,13 +232,13 @@
         ]
       },
       "lease_fee_basis": {
-        "type": "u32",
+        "type": "u16",
         "description": [
           "Proportional fee to charge for a channel lease, calculated as 1/10,000th of requested funds."
         ]
       },
       "funding_weight": {
-        "type": "u32",
+        "type": "u16",
         "description": [
           "Transaction weight the channel opener will pay us for a leased funding transaction."
         ]
@@ -250,7 +250,7 @@
         ]
       },
       "channel_fee_max_proportional_thousandths": {
-        "type": "u32",
+        "type": "u16",
         "description": [
           "Maximum channel_fee_proportional_millitionths we'll charge for routing funds leased on this channel, in thousandths."
         ]
