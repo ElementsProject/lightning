@@ -2708,19 +2708,19 @@ pub mod requests {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub channel_fee_max_base_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub channel_fee_max_proportional_thousandths: Option<u32>,
+	    pub channel_fee_max_proportional_thousandths: Option<u16>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub compact_lease: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub fund_probability: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub funding_weight: Option<u32>,
+	    pub funding_weight: Option<u16>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub fuzz_percent: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub lease_fee_base_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub lease_fee_basis: Option<u32>,
+	    pub lease_fee_basis: Option<u16>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub leases_only: Option<bool>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -9223,15 +9223,15 @@ pub mod responses {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub channel_fee_max_base_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub channel_fee_max_proportional_thousandths: Option<u32>,
+	    pub channel_fee_max_proportional_thousandths: Option<u16>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub compact_lease: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub funding_weight: Option<u32>,
+	    pub funding_weight: Option<u16>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub lease_fee_base_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub lease_fee_basis: Option<u32>,
+	    pub lease_fee_basis: Option<u16>,
 	    // Path `FunderUpdate.policy`
 	    pub policy: FunderupdatePolicy,
 	    pub fund_probability: u32,
