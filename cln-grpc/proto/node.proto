@@ -2949,7 +2949,6 @@ message SpliceoutRequest {
 
 message SpliceoutResponse {
 	string psbt = 1;
-	optional string tx = 2;
 	string txid = 3;
 }
 

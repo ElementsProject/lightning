@@ -37959,12 +37959,6 @@
               "The final psbt"
             ]
           },
-          "tx": {
-            "type": "string",
-            "description": [
-              "The final transaction in hex"
-            ]
-          },
           "txid": {
             "type": "string",
             "description": [

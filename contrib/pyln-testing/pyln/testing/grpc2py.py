@@ -2073,7 +2073,6 @@ def splicein2py(m):
 def spliceout2py(m):
     return remove_default({
         "psbt": m.psbt,  # PrimitiveField in generate_composite
-        "tx": m.tx,  # PrimitiveField in generate_composite
         "txid": m.txid,  # PrimitiveField in generate_composite
     })
 
