@@ -963,11 +963,11 @@ impl From<responses::ListnodesNodesOptionWillFund> for pb::ListnodesNodesOptionW
     fn from(c: responses::ListnodesNodesOptionWillFund) -> Self {
         Self {
             channel_fee_max_base_msat: Some(c.channel_fee_max_base_msat.into()), // Rule #2 for type msat
-            channel_fee_max_proportional_thousandths: c.channel_fee_max_proportional_thousandths, // Rule #2 for type u32
+            channel_fee_max_proportional_thousandths: c.channel_fee_max_proportional_thousandths.into(), // Rule #2 for type u16
             compact_lease: hex::decode(&c.compact_lease).unwrap(), // Rule #2 for type hex
-            funding_weight: c.funding_weight, // Rule #2 for type u32
+            funding_weight: c.funding_weight.into(), // Rule #2 for type u16
             lease_fee_base_msat: Some(c.lease_fee_base_msat.into()), // Rule #2 for type msat
-            lease_fee_basis: c.lease_fee_basis, // Rule #2 for type u32
+            lease_fee_basis: c.lease_fee_basis.into(), // Rule #2 for type u16
         }
     }
 }

@@ -7203,11 +7203,11 @@ pub mod responses {
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListnodesNodesOptionWillFund {
 	    pub channel_fee_max_base_msat: Amount,
-	    pub channel_fee_max_proportional_thousandths: u32,
+	    pub channel_fee_max_proportional_thousandths: u16,
 	    pub compact_lease: String,
-	    pub funding_weight: u32,
+	    pub funding_weight: u16,
 	    pub lease_fee_base_msat: Amount,
-	    pub lease_fee_basis: u32,
+	    pub lease_fee_basis: u16,
 	}
 
 	/// ['Type of connection (until 23.08, `websocket` was also allowed).']
