@@ -7312,7 +7312,7 @@ impl From<requests::ListchainmovesRequest> for pb::ListchainmovesRequest {
 impl From<requests::ListnetworkeventsRequest> for pb::ListnetworkeventsRequest {
     fn from(c: requests::ListnetworkeventsRequest) -> Self {
         Self {
-            id: c.id, // Rule #2 for type string?
+            id: c.id.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
             index: c.index.map(|v| v as i32),
             limit: c.limit, // Rule #2 for type u32?
             start: c.start, // Rule #2 for type u64?
@@ -9371,7 +9371,7 @@ impl From<pb::ListchainmovesRequest> for requests::ListchainmovesRequest {
 impl From<pb::ListnetworkeventsRequest> for requests::ListnetworkeventsRequest {
     fn from(c: pb::ListnetworkeventsRequest) -> Self {
         Self {
-            id: c.id, // Rule #1 for type string?
+            id: c.id.map(|v| PublicKey::from_slice(&v).unwrap()), // Rule #1 for type pubkey?
             index: c.index.map(|v| v.try_into().unwrap()),
             limit: c.limit, // Rule #1 for type u32?
             start: c.start, // Rule #1 for type u64?

@@ -5196,7 +5196,7 @@ pub mod requests {
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListnetworkeventsRequest {
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub id: Option<String>,
+	    pub id: Option<PublicKey>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub index: Option<ListnetworkeventsIndex>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
