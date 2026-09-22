@@ -1042,7 +1042,7 @@ message ListsendpaysPayments {
 	ListsendpaysPaymentsStatus status = 4;
 	optional Amount amount_msat = 5;
 	optional bytes destination = 6;
-	uint64 created_at = 7;
+	uint32 created_at = 7;
 	Amount amount_sent_msat = 8;
 	optional string label = 9;
 	optional string bolt11 = 10;
@@ -1053,7 +1053,7 @@ message ListsendpaysPayments {
 	optional uint64 partid = 15;
 	uint64 created_index = 16;
 	optional uint64 updated_index = 17;
-	optional uint64 completed_at = 18;
+	optional uint32 completed_at = 18;
 }
 
 message ListtransactionsRequest {
