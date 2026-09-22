@@ -1854,8 +1854,8 @@ impl From<responses::DelpayPayments> for pb::DelpayPayments {
             amount_sent_msat: Some(c.amount_sent_msat.into()), // Rule #2 for type msat
             bolt11: c.bolt11, // Rule #2 for type string?
             bolt12: c.bolt12, // Rule #2 for type string?
-            completed_at: c.completed_at, // Rule #2 for type u64?
-            created_at: c.created_at, // Rule #2 for type u64
+            completed_at: c.completed_at, // Rule #2 for type u32?
+            created_at: c.created_at, // Rule #2 for type u32
             created_index: c.created_index, // Rule #2 for type u64
             destination: c.destination.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
             erroronion: c.erroronion.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
