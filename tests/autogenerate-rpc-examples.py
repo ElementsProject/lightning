@@ -248,8 +248,7 @@ def rewrite_examples(examples: Dict[str, Any]):
         Rewriter("getlog",
                  "example:getlog#1",
                  [],
-                 [{"bytes_used": 3271748},
-                  {"log": [{"num_skipped": 177}, {}, {"num_skipped": 4562}, {"num_skipped": 4554}, {}]}]),
+                 [{"bytes_used": 3271748}]),
         # listconfigs exposes lightning-dir paths, aliases
         Rewriter("listconfigs",
                  "example:listconfigs#3",
@@ -356,7 +355,7 @@ def rewrite_examples(examples: Dict[str, Any]):
     ]
 
     # Canonicalize recover_channel request:
-    examples['listconfigs']['examples'][0]['request']['params']['scb'] = canned_scbs
+    examples['recoverchannel']['examples'][0]['request']['params']['scb'] = canned_scbs
 
     # Canonicalize plugin paths, order of plugin options
     lc_response = examples['listconfigs']['examples'][2]['response']
