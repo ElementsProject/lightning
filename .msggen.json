@@ -2014,18 +2014,22 @@
             "FetchInvoice.next_period": 3
         },
         "ForwardEventNotification": {
+            "forward_event.created_index": 13,
             "forward_event.failcode": 8,
             "forward_event.failreason": 9,
             "forward_event.fee_msat": 6,
             "forward_event.in_channel": 2,
+            "forward_event.in_htlc_id": 14,
             "forward_event.in_msat": 4,
             "forward_event.out_channel": 3,
             "forward_event.out_msat": 5,
             "forward_event.payment_hash": 1,
+            "forward_event.preimage": 15,
             "forward_event.received_time": 11,
             "forward_event.resolved_time": 12,
             "forward_event.status": 7,
-            "forward_event.style": 10
+            "forward_event.style": 10,
+            "forward_event.updated_index": 16
         },
         "FundchannelCancelRequest": {
             "FundChannel_Cancel.id": 1
@@ -6039,6 +6043,10 @@
             "10": "optional enum",
             "11": "plain double",
             "12": "optional double",
+            "13": "optional uint64",
+            "14": "optional uint64",
+            "15": "optional bytes",
+            "16": "optional uint64",
             "2": "plain string",
             "3": "optional string",
             "4": "plain Amount",
@@ -19575,6 +19583,10 @@
             "added": "pre-v0.10.1",
             "deprecated": null
         },
+        "forward_event.created_index": {
+            "added": "v23.11",
+            "deprecated": null
+        },
         "forward_event.failcode": {
             "added": "pre-v0.10.1",
             "deprecated": null
@@ -19588,6 +19600,10 @@
             "deprecated": null
         },
         "forward_event.in_channel": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "forward_event.in_htlc_id": {
             "added": "pre-v0.10.1",
             "deprecated": null
         },
@@ -19607,6 +19623,10 @@
             "added": "pre-v0.10.1",
             "deprecated": null
         },
+        "forward_event.preimage": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
         "forward_event.received_time": {
             "added": "pre-v0.10.1",
             "deprecated": null
@@ -19620,6 +19640,10 @@
             "deprecated": null
         },
         "forward_event.style": {
+            "added": "v23.11",
+            "deprecated": null
+        },
+        "forward_event.updated_index": {
             "added": "v23.11",
             "deprecated": null
         },
