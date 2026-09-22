@@ -811,7 +811,7 @@ impl From<responses::SendonionResponse> for pb::SendonionResponse {
             amount_sent_msat: Some(c.amount_sent_msat.into()), // Rule #2 for type msat
             bolt11: c.bolt11, // Rule #2 for type string?
             bolt12: c.bolt12, // Rule #2 for type string?
-            created_at: c.created_at, // Rule #2 for type u64
+            created_at: c.created_at, // Rule #2 for type u32
             created_index: c.created_index, // Rule #2 for type u64
             destination: c.destination.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
             id: c.id, // Rule #2 for type u64

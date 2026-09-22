@@ -987,7 +987,7 @@ message SendonionResponse {
 	SendonionStatus status = 3;
 	optional Amount amount_msat = 4;
 	optional bytes destination = 5;
-	uint64 created_at = 6;
+	uint32 created_at = 6;
 	Amount amount_sent_msat = 7;
 	optional string label = 8;
 	optional string bolt11 = 9;
