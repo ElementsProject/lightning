@@ -2452,9 +2452,9 @@ pub mod requests {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub payer_note: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub recurrence_start: Option<f64>,
+	    pub recurrence_start: Option<u32>,
 	    pub offer: String,
-	    pub recurrence_counter: u64,
+	    pub recurrence_counter: u32,
 	    pub recurrence_label: String,
 	}
 

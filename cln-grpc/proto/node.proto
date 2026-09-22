@@ -2097,9 +2097,9 @@ message FetchinvoiceNextPeriod {
 
 message CancelrecurringinvoiceRequest {
 	string offer = 1;
-	uint64 recurrence_counter = 2;
+	uint32 recurrence_counter = 2;
 	string recurrence_label = 3;
-	optional double recurrence_start = 4;
+	optional uint32 recurrence_start = 4;
 	optional string payer_note = 5;
 	optional string bip353 = 6;
 }

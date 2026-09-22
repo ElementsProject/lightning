@@ -6319,35 +6319,35 @@
             "deprecated": null
         },
         "CancelRecurringInvoice": {
-            "added": "v25.09",
+            "added": "v25.12",
             "deprecated": null
         },
         "CancelRecurringInvoice.bip353": {
-            "added": "v25.09",
+            "added": "v25.12",
             "deprecated": null
         },
         "CancelRecurringInvoice.bolt12": {
-            "added": "v25.09",
+            "added": "v25.12",
             "deprecated": null
         },
         "CancelRecurringInvoice.offer": {
-            "added": "v25.09",
+            "added": "v25.12",
             "deprecated": null
         },
         "CancelRecurringInvoice.payer_note": {
-            "added": "v25.09",
+            "added": "v25.12",
             "deprecated": null
         },
         "CancelRecurringInvoice.recurrence_counter": {
-            "added": "v25.09",
+            "added": "v25.12",
             "deprecated": null
         },
         "CancelRecurringInvoice.recurrence_label": {
-            "added": "v25.09",
+            "added": "v25.12",
             "deprecated": null
         },
         "CancelRecurringInvoice.recurrence_start": {
-            "added": "v25.09",
+            "added": "v25.12",
             "deprecated": null
         },
         "CheckMessage": {

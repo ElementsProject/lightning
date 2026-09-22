@@ -6264,9 +6264,9 @@ impl From<requests::CancelrecurringinvoiceRequest> for pb::Cancelrecurringinvoic
             bip353: c.bip353, // Rule #2 for type string?
             offer: c.offer, // Rule #2 for type string
             payer_note: c.payer_note, // Rule #2 for type string?
-            recurrence_counter: c.recurrence_counter, // Rule #2 for type u64
+            recurrence_counter: c.recurrence_counter, // Rule #2 for type u32
             recurrence_label: c.recurrence_label, // Rule #2 for type string
-            recurrence_start: c.recurrence_start, // Rule #2 for type number?
+            recurrence_start: c.recurrence_start, // Rule #2 for type u32?
         }
     }
 }
@@ -8358,9 +8358,9 @@ impl From<pb::CancelrecurringinvoiceRequest> for requests::Cancelrecurringinvoic
             bip353: c.bip353, // Rule #1 for type string?
             offer: c.offer, // Rule #1 for type string
             payer_note: c.payer_note, // Rule #1 for type string?
-            recurrence_counter: c.recurrence_counter, // Rule #1 for type u64
+            recurrence_counter: c.recurrence_counter, // Rule #1 for type u32
             recurrence_label: c.recurrence_label, // Rule #1 for type string
-            recurrence_start: c.recurrence_start, // Rule #1 for type number?
+            recurrence_start: c.recurrence_start, // Rule #1 for type u32?
         }
     }
 }
