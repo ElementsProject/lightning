@@ -3032,8 +3032,9 @@ message SpliceoutRequest {
 
 message SpliceoutResponse {
 	optional string psbt = 1;
-	optional string tx = 2;
 	optional string txid = 3;
+	reserved 2;
+	reserved "tx";
 }
 
 message DevspliceRequest {

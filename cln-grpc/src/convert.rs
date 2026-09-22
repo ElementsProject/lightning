@@ -2853,7 +2853,6 @@ impl From<responses::SpliceoutResponse> for pb::SpliceoutResponse {
     fn from(c: responses::SpliceoutResponse) -> Self {
         Self {
             psbt: Some(c.psbt), // Rule #2 for type string
-            tx: c.tx, // Rule #2 for type string?
             txid: Some(c.txid), // Rule #2 for type string
         }
     }
