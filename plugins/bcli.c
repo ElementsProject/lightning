@@ -491,7 +491,7 @@ static struct command_result *getchaininfo(struct command *cmd,
 	return command_finished(cmd, response);
 }
 
-/* Add a feerate, but don't publish one that bitcoind won't accept. */
+/* Add a feerate, respecting the floor within the supported u32 range. */
 static void json_add_feerate(struct json_stream *result, const char *fieldname,
 			     struct command *cmd,
 			     u64 perkb_floor,
@@ -543,6 +543,13 @@ static struct command_result *get_feerate_floor(struct command *cmd,
 		return command_err(cmd, res, tal_fmt(tmpctx, "bad JSON: %s", err));
 
 	*perkb_floor = max_u64(mempoolfee, relayfee);
+	/* Bound the floor before it can also raise the per-target feerates. */
+	if (*perkb_floor > 0xFFFFFFFF) {
+		plugin_log(cmd->plugin, LOG_UNUSUAL,
+			   "Feerate floor %"PRIu64" is ridiculous: trimming to 32 bits",
+			   *perkb_floor);
+		*perkb_floor = 0xFFFFFFFF;
+	}
 	return NULL;
 }
 
