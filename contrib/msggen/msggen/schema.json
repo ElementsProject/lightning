@@ -27051,12 +27051,6 @@
                     "For inflight opens, the next feerate we'll use for the channel open. Omitted if *last_feerate* admits no valid next feerate, which only a channel written by an older, unbounded version can do."
                   ]
                 },
-                "next_fee_step": {
-                  "type": "u32",
-                  "description": [
-                    "For inflight opens, the next feerate step we'll use for the channel open."
-                  ]
-                },
                 "inflight": {
                   "type": "array",
                   "description": [
@@ -27322,19 +27316,19 @@
                   ]
                 },
                 "their_to_self_delay": {
-                  "type": "u32",
+                  "type": "u16",
                   "description": [
                     "The number of blocks before they can take their funds if they unilateral close."
                   ]
                 },
                 "our_to_self_delay": {
-                  "type": "u32",
+                  "type": "u16",
                   "description": [
                     "The number of blocks before we can take our funds if we unilateral close."
                   ]
                 },
                 "max_accepted_htlcs": {
-                  "type": "u32",
+                  "type": "u16",
                   "description": [
                     "Maximum number of incoming HTLC we will accept at once."
                   ]

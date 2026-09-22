@@ -1460,7 +1460,6 @@ message ListpeerchannelsChannels {
 	optional string initial_feerate = 12;
 	optional string last_feerate = 13;
 	optional string next_feerate = 14;
-	optional uint32 next_fee_step = 15;
 	repeated ListpeerchannelsChannelsInflight inflight = 16;
 	optional bytes close_to = 17;
 	optional bool private = 18;
