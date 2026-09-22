@@ -139,10 +139,10 @@ pub mod events{
         pub funding_msat: Amount,
         pub htlc_minimum_msat: Amount,
         pub id: PublicKey,
-        pub max_accepted_htlcs: u32,
+        pub max_accepted_htlcs: u16,
         pub max_htlc_value_in_flight_msat: Amount,
         pub push_msat: Amount,
-        pub to_self_delay: u32,
+        pub to_self_delay: u16,
     }
 
     #[derive(Clone, Debug, Deserialize, Serialize)]

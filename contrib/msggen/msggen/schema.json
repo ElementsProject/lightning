@@ -44459,13 +44459,13 @@
                 ]
               },
               "to_self_delay": {
-                "type": "u32",
+                "type": "u16",
                 "description": [
                   "The number of blocks before they can take their funds if they unilateral close."
                 ]
               },
               "max_accepted_htlcs": {
-                "type": "u32",
+                "type": "u16",
                 "description": [
                   "Maximum number of HTLC's the remote is allowed to offer at once."
                 ]
