@@ -6968,7 +6968,7 @@ pub mod responses {
 	    // Path `SendOnion.status`
 	    pub status: SendonionStatus,
 	    pub amount_sent_msat: Amount,
-	    pub created_at: u64,
+	    pub created_at: u32,
 	    pub created_index: u64,
 	    pub id: u64,
 	    pub payment_hash: Sha256,
