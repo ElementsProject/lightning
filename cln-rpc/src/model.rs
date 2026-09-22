@@ -9530,7 +9530,7 @@ pub mod responses {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub bolt12: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub completed_at: Option<u64>,
+	    pub completed_at: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub created_index: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -9550,7 +9550,7 @@ pub mod responses {
 	    // Path `ListPays.pays[].status`
 	    pub status: ListpaysPaysStatus,
 	    pub amount_sent_msat: Amount,
-	    pub created_at: u64,
+	    pub created_at: u32,
 	    pub payment_hash: Sha256,
 	}
 
