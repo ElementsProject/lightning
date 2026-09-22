@@ -7482,7 +7482,7 @@ pub mod responses {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub bolt12: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub completed_at: Option<f64>,
+	    pub completed_at: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub destination: Option<PublicKey>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -7496,7 +7496,7 @@ pub mod responses {
 	    // Path `WaitSendPay.status`
 	    pub status: WaitsendpayStatus,
 	    pub amount_sent_msat: Amount,
-	    pub created_at: u64,
+	    pub created_at: u32,
 	    pub created_index: u64,
 	    pub groupid: u64,
 	    pub id: u64,
