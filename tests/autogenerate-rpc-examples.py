@@ -1507,7 +1507,11 @@ def generate_backup_recovery_examples(node_factory, l4, l5, l6, regenerate_block
         emergencyrecover_res1 = l4.rpc.emergencyrecover()
         emergencyrecover_res1['stubs'].sort()
         update_example(node=l4, method='emergencyrecover', params={}, response=emergencyrecover_res1)
-        update_example(node=l4, method='getemergencyrecoverdata', params={}, response='emergencyrecoverdata' + ('01' * 827))
+        update_example(node=l4, method='getemergencyrecoverdata', params={}, response={
+            'filedata': '01' * 827,
+            'can_create_penalty': True,
+            'backed_up_channel_ids': ['0000000000000000000000000000000000000000000000000000000000000000'],
+        })
         backup_l4 = update_example(node=l4, method='staticbackup', params={})
 
         # Recover channels
