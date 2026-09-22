@@ -12626,7 +12626,7 @@
                   ]
                 },
                 "created_at": {
-                  "type": "u64",
+                  "type": "u32",
                   "description": [
                     "The UNIX timestamp showing when this payment was initiated."
                   ]
@@ -12639,7 +12639,7 @@
                   ]
                 },
                 "completed_at": {
-                  "type": "u64",
+                  "type": "u32",
                   "description": [
                     "The UNIX timestamp showing when this payment was completed."
                   ]
