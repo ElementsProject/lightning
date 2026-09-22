@@ -46,7 +46,11 @@
                 "short_channel_id_dir",
                 "outpoint",
                 "feerate",
-                "outputdesc"
+                "outputdesc",
+                "string_map",
+                "json_object_or_array",
+                "json_scalar",
+                "proof_field"
             ]
         },
         "schemaArray": {
@@ -317,6 +321,15 @@
                 "properties": {
                     "$ref": "#/definitions/schemaObject"
                 },
+                "if": {
+                    "$ref": "#/definitions/schemaIfThenElse"
+                },
+                "then": {
+                    "$ref": "#/definitions/schemaIfThenElse"
+                },
+                "else": {
+                    "$ref": "#/definitions/schemaIfThenElse"
+                },
                 "allOf": {
                     "$ref": "#/definitions/schemaArray"
                 },
@@ -361,6 +374,9 @@
             "type": "string"
         },
         "notification": {
+            "type": "string"
+        },
+        "hook": {
             "type": "string"
         },
         "title": {
@@ -565,6 +581,17 @@
                 "$schema",
                 "type",
                 "notification",
+                "title",
+                "description",
+                "request",
+                "response"
+            ]
+        },
+        {
+            "required": [
+                "$schema",
+                "type",
+                "hook",
                 "title",
                 "description",
                 "request",
