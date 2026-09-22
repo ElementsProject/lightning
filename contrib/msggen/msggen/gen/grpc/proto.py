@@ -14,6 +14,7 @@ from msggen.model import (
     Field,
     CompositeField,
     EnumField,
+    EnumVariant,
     PrimitiveField,
     Service,
     MethodName,
@@ -78,13 +79,26 @@ class GrpcGenerator(IGenerator):
         for i, v in sorted_enumerated_values:
             yield (i, v)
 
+    @staticmethod
+    def enum_typename_key(typename) -> str:
+        """Canonical key for grpc-enum-map enum entries.
+
+        enumvar2number() and enumerate_enum() must derive this key the
+        same way.  TypeName.__str__() strips '-' and rewrites '/', so
+        don't use it here: the map keys have always been the raw
+        TypeName.name.
+        """
+        if isinstance(typename, TypeName):
+            return str(typename.name)
+        return str(typename)
+
     def enumvar2number(self, typename: TypeName, variant):
         """Find an existing variant number of generate a new one.
 
         If we don't have a variant number yet we'll just take the
         largest one assigned so far and increment it by 1."""
 
-        typename = str(typename.name)
+        typename = self.enum_typename_key(typename)
 
         m = self.meta["grpc-enum-map"]
         variant = str(variant)
@@ -102,10 +116,27 @@ class GrpcGenerator(IGenerator):
         return m[typename][variant]
 
     def enumerate_enum(self, typename, variants):
-        enumerated_values = [(self.enumvar2number(typename, v), v) for v in variants]
-        sorted_enumerated_values = sorted(enumerated_values, key=lambda x: x[0])
-        for i, v in sorted_enumerated_values:
-            yield (i, v)
+        """Yield (number, variant, deprecated) for each enum entry.
+
+        Entries that were previously assigned a number in grpc-enum-map
+        but are no longer in the schema are emitted as deprecated so
+        their wire values are never reassigned and proto3's zero-value
+        requirement is preserved.
+        """
+        variant_strs = {str(v) for v in variants}
+        enumerated_values = [(self.enumvar2number(typename, v), v, False)
+                             for v in variants]
+
+        persisted = self.meta["grpc-enum-map"].get(
+            self.enum_typename_key(typename), {})
+        for name, number in persisted.items():
+            if name not in variant_strs:
+                enumerated_values.append((number, EnumVariant(name), True))
+
+        sorted_enumerated_values = sorted(enumerated_values,
+                                          key=lambda x: x[0])
+        for i, v, removed in sorted_enumerated_values:
+            yield (i, v, removed)
 
     def gather_method_types(self, methods: List[Method]):
         """Gather all types that might need to be defined."""
@@ -171,10 +202,13 @@ class GrpcGenerator(IGenerator):
         self.write(f"{prefix}// {e.path}\n", False)
         self.write(f"{prefix}enum {typename_override(e.typename)} {{\n", False)
 
-        for i, v in self.enumerate_enum(typename_override(e.typename), e.variants):
+        for i, v, removed in self.enumerate_enum(typename_override(e.typename), e.variants):
             self.logger.debug(f"Generating enum variant {v}")
-            depri = " [deprecated = true]" if e.deprecated else ""
-            self.write(f"{prefix}\t{v.normalized()} = {i}{depri};\n", False)
+            if removed:
+                self.write(f"{prefix}\t{v.normalized()} = {i} [deprecated = true];\n", False)
+            else:
+                depri = " [deprecated = true]" if e.deprecated else ""
+                self.write(f"{prefix}\t{v.normalized()} = {i}{depri};\n", False)
 
         self.write(f"""{prefix}}}\n""", False)
 
