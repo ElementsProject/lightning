@@ -2452,9 +2452,9 @@ pub mod requests {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub payer_note: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub recurrence_start: Option<f64>,
+	    pub recurrence_start: Option<u32>,
 	    pub offer: String,
-	    pub recurrence_counter: u64,
+	    pub recurrence_counter: u32,
 	    pub recurrence_label: String,
 	}
 
@@ -5198,7 +5198,7 @@ pub mod requests {
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListnetworkeventsRequest {
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub id: Option<String>,
+	    pub id: Option<PublicKey>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub index: Option<ListnetworkeventsIndex>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -8158,7 +8158,7 @@ pub mod responses {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub last_commitment_fee_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub last_commitment_txid: Option<Sha256>,
+	    pub last_commitment_txid: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub last_stable_connection: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
