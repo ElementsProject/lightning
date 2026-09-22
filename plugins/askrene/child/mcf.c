@@ -951,7 +951,8 @@ static struct flow **minflow(const tal_t *ctx,
 			     const struct gossmap_node *target,
 			     struct amount_msat amount,
 			     u32 mu,
-			     double delay_feefactor)
+			     double delay_feefactor,
+			     size_t maxhops)
 {
 	struct flow **flow_paths;
 	/* We allocate everything off this, and free it at the end,
@@ -986,6 +987,7 @@ static struct flow **minflow(const tal_t *ctx,
 
 	params->delay_feefactor = delay_feefactor;
 	params->base_fee_penalty = base_fee_penalty_estimate(amount);
+	(void)maxhops;
 
 	// build the uncertainty network with linearization and residual arcs
 	struct graph *graph;
@@ -1171,7 +1173,7 @@ static struct flow **single_path_flow(const tal_t *ctx, const struct route_query
 				      const struct gossmap_node *source,
 				      const struct gossmap_node *target,
 				      struct amount_msat amount, u32 mu,
-				      double delay_feefactor)
+				      double delay_feefactor, size_t maxhops)
 {
 	struct flow **flow_paths;
 	/* We allocate everything off this, and free it at the end,
@@ -1216,7 +1218,7 @@ static struct flow **single_path_flow(const tal_t *ctx, const struct route_query
 	if (!dijkstra_path(working_ctx, graph, src, dst,
 			   /* prune = */ true, arc_capacity,
 			   /*threshold = */ 1, arc_cost, potential, prev,
-			   distance)) {
+			   distance, maxhops)) {
                 /* This might fail if we are unable to find a suitable route, it
                  * doesn't mean the plugin is broken, that's why we LOG_INFORM. */
 		child_log(tmpctx, LOG_INFORM,
@@ -1348,13 +1350,14 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 	      const struct gossmap_node *srcnode,
 	      const struct gossmap_node *dstnode, struct amount_msat amount,
 	      struct amount_msat maxfee, u32 finalcltv, u32 maxdelay,
-	      size_t maxparts,
+	      size_t maxparts, size_t maxhops,
 	      struct flow ***flows, double *probability,
 	      enum jsonrpc_errcode *ecode,
 	      struct flow **(*solver)(const tal_t *, const struct route_query *,
 				      const struct gossmap_node *,
 				      const struct gossmap_node *,
-				      struct amount_msat, u32, double))
+				      struct amount_msat, u32, double,
+				      size_t))
 {
 	const tal_t *working_ctx = tal(ctx, tal_t);
 	const char *error_message;
@@ -1399,11 +1402,13 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 					SINGLE_PATH_THRESHOLD)) {
 			new_flows = single_path_flow(working_ctx, rq, srcnode,
 						     dstnode, amount_to_deliver,
-						     mu, delay_feefactor);
+						     mu, delay_feefactor,
+						     maxhops);
 		} else {
 			new_flows =
 			    solver(working_ctx, rq, srcnode, dstnode,
-				   amount_to_deliver, mu, delay_feefactor);
+				   amount_to_deliver, mu, delay_feefactor,
+				   maxhops);
 		}
 
 		if (!new_flows) {
@@ -1502,6 +1507,26 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 				    fmt_amount_msat(tmpctx, all_fees),
 				    fmt_amount_msat(tmpctx, partial_feebudget),
 				    fmt_amount_msat(tmpctx, feebudget));
+			}
+		}
+
+		/* Caller asked for a hop cap.  Disable the first hop and retry. */
+		if (maxhops) {
+			bool too_long = false;
+			for (size_t i = 0; i < tal_count(new_flows); i++) {
+				if (tal_count(new_flows[i]->path) <= maxhops)
+					continue;
+				too_long = true;
+				bitmap_set_bit(rq->disabled_chans,
+					       gossmap_chan_idx(rq->gossmap,
+								new_flows[i]->path[0]) * 2
+					       + new_flows[i]->dirs[0]);
+			}
+			if (too_long) {
+				child_log(tmpctx, LOG_INFORM,
+					  "A flow exceeds maxhops %zu, disabling its first hop and retrying",
+					  maxhops);
+				continue;
 			}
 		}
 
@@ -1639,13 +1664,13 @@ const char *default_routes(const tal_t *ctx, struct route_query *rq,
 			   const struct gossmap_node *dstnode,
 			   struct amount_msat amount, struct amount_msat maxfee,
 			   u32 finalcltv, u32 maxdelay, size_t maxparts,
-			   struct flow ***flows,
+			   size_t maxhops, struct flow ***flows,
 			   double *probability,
 			   enum jsonrpc_errcode *ecode)
 {
 	return linear_routes(ctx, rq, deadline, srcnode, dstnode, amount, maxfee,
-			     finalcltv, maxdelay, maxparts, flows, probability, ecode,
-			     minflow);
+			     finalcltv, maxdelay, maxparts, maxhops, flows,
+			     probability, ecode, minflow);
 }
 
 const char *single_path_routes(const tal_t *ctx, struct route_query *rq,
@@ -1654,11 +1679,11 @@ const char *single_path_routes(const tal_t *ctx, struct route_query *rq,
 			       const struct gossmap_node *dstnode,
 			       struct amount_msat amount,
 			       struct amount_msat maxfee, u32 finalcltv,
-			       u32 maxdelay, struct flow ***flows,
-			       double *probability,
+			       u32 maxdelay, size_t maxhops,
+			       struct flow ***flows, double *probability,
 			       enum jsonrpc_errcode *ecode)
 {
 	return linear_routes(ctx, rq, deadline, srcnode, dstnode, amount, maxfee,
-			     finalcltv, maxdelay, 1, flows, probability, ecode,
-			     single_path_flow);
+			     finalcltv, maxdelay, 1, maxhops, flows, probability,
+			     ecode, single_path_flow);
 }

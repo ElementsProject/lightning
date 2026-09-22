@@ -75,9 +75,10 @@ bool dijkstra_path(const tal_t *ctx, const struct graph *graph,
 		   const struct node source, const struct node destination,
 		   bool prune, const s64 *capacity, const s64 cap_threshold,
 		   const s64 *cost, const s64 *potential, struct arc *prev,
-		   s64 *distance)
+		   s64 *distance, size_t max_hops)
 {
 	bool target_found = false;
+	u16 *hops;
 	assert(graph);
 	const size_t max_num_arcs = graph_max_num_arcs(graph);
 	const size_t max_num_nodes = graph_max_num_nodes(graph);
@@ -104,6 +105,14 @@ bool dijkstra_path(const tal_t *ctx, const struct graph *graph,
 
 	for (size_t i = 0; i < max_num_nodes; ++i)
 		prev[i].idx = INVALID_INDEX;
+
+	hops = NULL;
+	if (max_hops) {
+		hops = tal_arr(this_ctx, u16, max_num_nodes);
+		for (size_t i = 0; i < max_num_nodes; ++i)
+			hops[i] = UINT16_MAX;
+		hops[source.idx] = 0;
+	}
 
 	struct priorityqueue *q;
 	q = priorityqueue_new(this_ctx, max_num_nodes);
@@ -143,6 +152,9 @@ bool dijkstra_path(const tal_t *ctx, const struct graph *graph,
 			/* Dijkstra only works with non-negative weights */
 			assert(cij >= 0);
 
+			if (max_hops && hops[cur] >= max_hops)
+				continue;
+
 			if (dijkstra_distance[next.idx] <=
 			    dijkstra_distance[cur] + cij)
 				continue;
@@ -150,6 +162,8 @@ bool dijkstra_path(const tal_t *ctx, const struct graph *graph,
 			priorityqueue_update(q, next.idx,
 					     dijkstra_distance[cur] + cij);
 			prev[next.idx] = arc;
+			if (max_hops)
+				hops[next.idx] = hops[cur] + 1;
 		}
 	}
 	for (size_t i = 0; i < max_num_nodes; i++)
