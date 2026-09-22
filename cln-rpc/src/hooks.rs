@@ -242,7 +242,7 @@ pub mod events{
         pub extra_tlvs: Option<String>,
         pub amount_msat: Amount,
         pub cltv_expiry: u32,
-        pub cltv_expiry_relative: u32,
+        pub cltv_expiry_relative: i64,
         pub id: u64,
         pub payment_hash: Sha256,
         pub short_channel_id: ShortChannelId,
