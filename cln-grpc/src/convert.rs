@@ -5364,8 +5364,8 @@ impl From<notifications::SendpayFailureData> for pb::SendpayFailureData {
             amount_sent_msat: c.amount_sent_msat.map(|f| f.into()), // Rule #2 for type msat?
             bolt11: c.bolt11, // Rule #2 for type string?
             bolt12: c.bolt12, // Rule #2 for type string?
-            completed_at: c.completed_at, // Rule #2 for type u64?
-            created_at: c.created_at, // Rule #2 for type u64?
+            completed_at: c.completed_at, // Rule #2 for type u32?
+            created_at: c.created_at, // Rule #2 for type u32?
             created_index: c.created_index, // Rule #2 for type u64?
             description: c.description, // Rule #2 for type string?
             destination: c.destination.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?

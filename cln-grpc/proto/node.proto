@@ -4972,8 +4972,8 @@ message SendpayFailureData {
 	optional bytes destination = 7;
 	optional Amount amount_msat = 8;
 	optional Amount amount_sent_msat = 9;
-	optional uint64 created_at = 10;
-	optional uint64 completed_at = 11;
+	optional uint32 created_at = 10;
+	optional uint32 completed_at = 11;
 	optional SendpayFailureDataStatus status = 12;
 	optional bytes payment_preimage = 13;
 	optional string label = 14;
