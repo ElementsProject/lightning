@@ -176,8 +176,8 @@ impl From<responses::SendpayResponse> for pb::SendpayResponse {
             amount_sent_msat: Some(c.amount_sent_msat.into()), // Rule #2 for type msat
             bolt11: c.bolt11, // Rule #2 for type string?
             bolt12: c.bolt12, // Rule #2 for type string?
-            completed_at: c.completed_at, // Rule #2 for type u64?
-            created_at: c.created_at, // Rule #2 for type u64
+            completed_at: c.completed_at.map(u64::from), // Rule #2 for type u32?
+            created_at: u64::from(c.created_at), // Rule #2 for type u32
             created_index: c.created_index, // Rule #2 for type u64
             destination: c.destination.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
             groupid: Some(c.groupid), // Rule #2 for type u64
@@ -812,7 +812,7 @@ impl From<responses::SendonionResponse> for pb::SendonionResponse {
             amount_sent_msat: Some(c.amount_sent_msat.into()), // Rule #2 for type msat
             bolt11: c.bolt11, // Rule #2 for type string?
             bolt12: c.bolt12, // Rule #2 for type string?
-            created_at: c.created_at, // Rule #2 for type u64
+            created_at: u64::from(c.created_at), // Rule #2 for type u32
             created_index: c.created_index, // Rule #2 for type u64
             destination: c.destination.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
             id: c.id, // Rule #2 for type u64
@@ -835,8 +835,8 @@ impl From<responses::ListsendpaysPayments> for pb::ListsendpaysPayments {
             amount_sent_msat: Some(c.amount_sent_msat.into()), // Rule #2 for type msat
             bolt11: c.bolt11, // Rule #2 for type string?
             bolt12: c.bolt12, // Rule #2 for type string?
-            completed_at: c.completed_at, // Rule #2 for type u64?
-            created_at: c.created_at, // Rule #2 for type u64
+            completed_at: c.completed_at.map(u64::from), // Rule #2 for type u32?
+            created_at: u64::from(c.created_at), // Rule #2 for type u32
             created_index: c.created_index, // Rule #2 for type u64
             description: c.description, // Rule #2 for type string?
             destination: c.destination.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
@@ -1072,8 +1072,8 @@ impl From<responses::WaitsendpayResponse> for pb::WaitsendpayResponse {
             amount_sent_msat: Some(c.amount_sent_msat.into()), // Rule #2 for type msat
             bolt11: c.bolt11, // Rule #2 for type string?
             bolt12: c.bolt12, // Rule #2 for type string?
-            completed_at: c.completed_at, // Rule #2 for type number?
-            created_at: c.created_at, // Rule #2 for type u64
+            completed_at: c.completed_at.map(f64::from), // Rule #2 for type u32?
+            created_at: u64::from(c.created_at), // Rule #2 for type u32
             created_index: c.created_index, // Rule #2 for type u64
             destination: c.destination.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
             groupid: Some(c.groupid), // Rule #2 for type u64
@@ -1856,8 +1856,8 @@ impl From<responses::DelpayPayments> for pb::DelpayPayments {
             amount_sent_msat: Some(c.amount_sent_msat.into()), // Rule #2 for type msat
             bolt11: c.bolt11, // Rule #2 for type string?
             bolt12: c.bolt12, // Rule #2 for type string?
-            completed_at: c.completed_at, // Rule #2 for type u64?
-            created_at: c.created_at, // Rule #2 for type u64
+            completed_at: c.completed_at.map(u64::from), // Rule #2 for type u32?
+            created_at: u64::from(c.created_at), // Rule #2 for type u32
             created_index: c.created_index, // Rule #2 for type u64
             destination: c.destination.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
             erroronion: c.erroronion.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
@@ -2330,8 +2330,8 @@ impl From<responses::ListpaysPays> for pb::ListpaysPays {
             amount_sent_msat: Some(c.amount_sent_msat.into()), // Rule #2 for type msat
             bolt11: c.bolt11, // Rule #2 for type string?
             bolt12: c.bolt12, // Rule #2 for type string?
-            completed_at: c.completed_at, // Rule #2 for type u64?
-            created_at: c.created_at, // Rule #2 for type u64
+            completed_at: c.completed_at.map(u64::from), // Rule #2 for type u32?
+            created_at: u64::from(c.created_at), // Rule #2 for type u32
             created_index: Some(c.created_index), // Rule #2 for type u64
             description: c.description, // Rule #2 for type string?
             destination: c.destination.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
@@ -4812,8 +4812,8 @@ impl From<responses::AskrenelistreservationsResponse> for pb::Askrenelistreserva
 impl From<responses::InjectpaymentonionResponse> for pb::InjectpaymentonionResponse {
     fn from(c: responses::InjectpaymentonionResponse) -> Self {
         Self {
-            completed_at: c.completed_at, // Rule #2 for type u64
-            created_at: c.created_at, // Rule #2 for type u64
+            completed_at: u64::from(c.completed_at), // Rule #2 for type u32
+            created_at: u64::from(c.created_at), // Rule #2 for type u32
             created_index: c.created_index, // Rule #2 for type u64
             payment_preimage: c.payment_preimage.to_vec(), // Rule #2 for type secret
         }
@@ -5329,8 +5329,8 @@ impl From<notifications::SendpayFailureData> for pb::SendpayFailureData {
             amount_sent_msat: c.amount_sent_msat.map(|f| f.into()), // Rule #2 for type msat?
             bolt11: c.bolt11, // Rule #2 for type string?
             bolt12: c.bolt12, // Rule #2 for type string?
-            completed_at: c.completed_at, // Rule #2 for type u64?
-            created_at: c.created_at, // Rule #2 for type u64?
+            completed_at: c.completed_at.map(u64::from), // Rule #2 for type u32?
+            created_at: c.created_at.map(u64::from), // Rule #2 for type u32?
             created_index: c.created_index, // Rule #2 for type u64?
             description: c.description, // Rule #2 for type string?
             destination: c.destination.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
@@ -5374,8 +5374,8 @@ impl From<notifications::SendPaySuccessNotification> for pb::SendPaySuccessNotif
             amount_sent_msat: Some(c.amount_sent_msat.into()), // Rule #2 for type msat
             bolt11: c.bolt11, // Rule #2 for type string?
             bolt12: c.bolt12, // Rule #2 for type string?
-            completed_at: c.completed_at, // Rule #2 for type u64?
-            created_at: c.created_at, // Rule #2 for type u64
+            completed_at: c.completed_at.map(u64::from), // Rule #2 for type u32?
+            created_at: u64::from(c.created_at), // Rule #2 for type u32
             created_index: c.created_index, // Rule #2 for type u64
             description: c.description, // Rule #2 for type string?
             destination: c.destination.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
