@@ -12626,7 +12626,7 @@
                   ]
                 },
                 "created_at": {
-                  "type": "u64",
+                  "type": "u32",
                   "description": [
                     "The UNIX timestamp showing when this payment was initiated."
                   ]
@@ -12639,7 +12639,7 @@
                   ]
                 },
                 "completed_at": {
-                  "type": "u64",
+                  "type": "u32",
                   "description": [
                     "The UNIX timestamp showing when this payment was completed."
                   ]
@@ -17940,13 +17940,13 @@
         ],
         "properties": {
           "created_at": {
-            "type": "u64",
+            "type": "u32",
             "description": [
               "The UNIX timestamp showing when this payment was initiated."
             ]
           },
           "completed_at": {
-            "type": "u64",
+            "type": "u32",
             "description": [
               "The UNIX timestamp showing when this payment was completed."
             ]
@@ -26485,13 +26485,13 @@
                   ]
                 },
                 "created_at": {
-                  "type": "u64",
+                  "type": "u32",
                   "description": [
                     "The UNIX timestamp showing when this payment was initiated."
                   ]
                 },
                 "completed_at": {
-                  "type": "u64",
+                  "type": "u32",
                   "description": [
                     "The UNIX timestamp showing when this payment was completed."
                   ]
@@ -29296,7 +29296,7 @@
                   ]
                 },
                 "created_at": {
-                  "type": "u64",
+                  "type": "u32",
                   "description": [
                     "The UNIX timestamp showing when this payment was initiated."
                   ]
@@ -29369,7 +29369,7 @@
                       "description": {},
                       "bolt12": {},
                       "completed_at": {
-                        "type": "u64",
+                        "type": "u32",
                         "added": "pre-v0.10.1",
                         "description": [
                           "The UNIX timestamp showing when this payment was completed."
@@ -35354,7 +35354,7 @@
             ]
           },
           "created_at": {
-            "type": "u64",
+            "type": "u32",
             "description": [
               "The UNIX timestamp showing when this payment was initiated."
             ]
@@ -35753,13 +35753,13 @@
             ]
           },
           "created_at": {
-            "type": "u64",
+            "type": "u32",
             "description": [
               "The UNIX timestamp showing when this payment was initiated."
             ]
           },
           "completed_at": {
-            "type": "u64",
+            "type": "u32",
             "description": [
               "The UNIX timestamp showing when this payment was completed."
             ]
@@ -40842,7 +40842,7 @@
             ]
           },
           "created_at": {
-            "type": "u64",
+            "type": "u32",
             "description": [
               "The UNIX timestamp showing when this payment was initiated."
             ]
@@ -40855,7 +40855,7 @@
             ]
           },
           "completed_at": {
-            "type": "number",
+            "type": "u32",
             "description": [
               "The UNIX timestamp showing when this payment was completed."
             ]
@@ -42829,13 +42829,13 @@
                 ]
               },
               "created_at": {
-                "type": "u64",
+                "type": "u32",
                 "description": [
                   "The UNIX timestamp when this payment was initiated."
                 ]
               },
               "completed_at": {
-                "type": "u64",
+                "type": "u32",
                 "description": [
                   "The UNIX timestamp when this payment completed."
                 ]
@@ -43020,13 +43020,13 @@
             ]
           },
           "created_at": {
-            "type": "u64",
+            "type": "u32",
             "description": [
               "The UNIX timestamp when this payment was initiated."
             ]
           },
           "completed_at": {
-            "type": "u64",
+            "type": "u32",
             "description": [
               "The UNIX timestamp when this payment completed."
             ]
