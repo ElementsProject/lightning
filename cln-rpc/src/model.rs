@@ -9087,8 +9087,6 @@ pub mod responses {
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	#[allow(non_camel_case_types)]
 	pub enum GetlogLogType {
-	    #[serde(rename = "SKIPPED")]
-	    SKIPPED = 0,
 	    #[serde(rename = "BROKEN")]
 	    BROKEN = 1,
 	    #[serde(rename = "UNUSUAL")]
@@ -9109,7 +9107,6 @@ pub mod responses {
 	    type Error = anyhow::Error;
 	    fn try_from(c: i32) -> Result<GetlogLogType, anyhow::Error> {
 	        match c {
-	    0 => Ok(GetlogLogType::SKIPPED),
 	    1 => Ok(GetlogLogType::BROKEN),
 	    2 => Ok(GetlogLogType::UNUSUAL),
 	    3 => Ok(GetlogLogType::INFO),
@@ -9125,7 +9122,6 @@ pub mod responses {
 	impl ToString for GetlogLogType {
 	    fn to_string(&self) -> String {
 	        match self {
-	            GetlogLogType::SKIPPED => "SKIPPED",
 	            GetlogLogType::BROKEN => "BROKEN",
 	            GetlogLogType::UNUSUAL => "UNUSUAL",
 	            GetlogLogType::INFO => "INFO",
@@ -9145,8 +9141,6 @@ pub mod responses {
 	    pub log: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub node_id: Option<PublicKey>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub num_skipped: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub source: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
