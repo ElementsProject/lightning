@@ -71,7 +71,9 @@
             "ipv6": 2,
             "local socket": 0,
             "torv2": 3,
-            "torv3": 4
+            "torv3": 4,
+            "unresolved": 6,
+            "websocket": 5
         },
         "ConnectDirection": {
             "in": 0,
@@ -1385,6 +1387,7 @@
         },
         "ConnectAddress": {
             "Connect.address.address": 3,
+            "Connect.address.name": 5,
             "Connect.address.port": 4,
             "Connect.address.socket": 2,
             "Connect.address.type": 1,
@@ -6491,6 +6494,10 @@
             "deprecated": null
         },
         "Connect.address.address": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "Connect.address.name": {
             "added": "pre-v0.10.1",
             "deprecated": null
         },

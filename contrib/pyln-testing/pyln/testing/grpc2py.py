@@ -339,6 +339,7 @@ def connect_address2py(m):
     return remove_default({
         "type": str(m.item_type),  # EnumField in generate_composite
         "address": m.address,  # PrimitiveField in generate_composite
+        "name": m.name,  # PrimitiveField in generate_composite
         "port": m.port,  # PrimitiveField in generate_composite
         "socket": m.socket,  # PrimitiveField in generate_composite
     })
