@@ -2212,7 +2212,7 @@ message GetlogResponse {
 message GetlogLog {
 	// GetLog.log[].type
 	enum GetlogLogType {
-		SKIPPED = 0;
+		SKIPPED = 0 [deprecated = true];
 		BROKEN = 1;
 		UNUSUAL = 2;
 		INFO = 3;
@@ -2222,7 +2222,6 @@ message GetlogLog {
 		TRACE = 7;
 	}
 	GetlogLogType item_type = 1;
-	optional uint32 num_skipped = 2;
 	optional string time = 3;
 	optional string source = 4;
 	optional string log = 5;
