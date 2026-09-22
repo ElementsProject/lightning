@@ -117,11 +117,13 @@ def listfunds_outputs2py(m):
         "address": m.address,  # PrimitiveField in generate_composite
         "amount_msat": amount2msat(m.amount_msat),  # PrimitiveField in generate_composite
         "blockheight": m.blockheight,  # PrimitiveField in generate_composite
+        "csv_lock": m.csv_lock,  # PrimitiveField in generate_composite
         "output": m.output,  # PrimitiveField in generate_composite
         "redeemscript": hexlify(m.redeemscript),  # PrimitiveField in generate_composite
         "reserved": m.reserved,  # PrimitiveField in generate_composite
         "reserved_to_block": m.reserved_to_block,  # PrimitiveField in generate_composite
         "scriptpubkey": hexlify(m.scriptpubkey),  # PrimitiveField in generate_composite
+        "spendable_at": m.spendable_at,  # PrimitiveField in generate_composite
         "txid": hexlify(m.txid),  # PrimitiveField in generate_composite
     })
 

@@ -24086,6 +24086,18 @@
                   "description": [
                     "Whether this UTXO is currently reserved for an in-flight tx."
                   ]
+                },
+                "csv_lock": {
+                  "type": "u32",
+                  "description": [
+                    "The CSV locktime of this output, if it comes from a unilateral close and can only be spent after this many blocks."
+                  ]
+                },
+                "spendable_at": {
+                  "type": "u32",
+                  "description": [
+                    "The block height at which this output becomes spendable, if it is CSV-locked."
+                  ]
                 }
               },
               "allOf": [
@@ -24117,6 +24129,8 @@
                       "status": {},
                       "reserved": {},
                       "reserved_to_block": {},
+                      "csv_lock": {},
+                      "spendable_at": {},
                       "blockheight": {
                         "type": "u32",
                         "description": [
@@ -24153,6 +24167,8 @@
                       "redeemscript": {},
                       "status": {},
                       "blockheight": {},
+                      "csv_lock": {},
+                      "spendable_at": {},
                       "reserved": {},
                       "reserved_to_block": {
                         "type": "u32",

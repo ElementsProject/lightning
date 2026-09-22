@@ -5800,9 +5800,13 @@ pub mod responses {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub blockheight: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub csv_lock: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub redeemscript: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub reserved_to_block: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub spendable_at: Option<u32>,
 	    // Path `ListFunds.outputs[].status`
 	    pub status: ListfundsOutputsStatus,
 	    pub amount_msat: Amount,

@@ -337,6 +337,8 @@ message ListfundsOutputs {
 	optional uint32 blockheight = 8;
 	bool reserved = 9;
 	optional uint32 reserved_to_block = 10;
+	optional uint32 csv_lock = 11;
+	optional uint32 spendable_at = 12;
 }
 
 message SendpayRequest {

@@ -143,11 +143,13 @@ impl From<responses::ListfundsOutputs> for pb::ListfundsOutputs {
             address: c.address, // Rule #2 for type string?
             amount_msat: Some(c.amount_msat.into()), // Rule #2 for type msat
             blockheight: c.blockheight, // Rule #2 for type u32?
+            csv_lock: c.csv_lock, // Rule #2 for type u32?
             output: c.output, // Rule #2 for type u32
             redeemscript: c.redeemscript.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
             reserved: c.reserved, // Rule #2 for type boolean
             reserved_to_block: c.reserved_to_block, // Rule #2 for type u32?
             scriptpubkey: hex::decode(&c.scriptpubkey).unwrap(), // Rule #2 for type hex
+            spendable_at: c.spendable_at, // Rule #2 for type u32?
             status: c.status as i32,
             txid: hex::decode(&c.txid).unwrap(), // Rule #2 for type txid
         }
