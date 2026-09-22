@@ -219,6 +219,7 @@ message GetinfoAddress {
 		IPV6 = 2;
 		TORV2 = 3;
 		TORV3 = 4;
+		WEBSOCKET = 5 [deprecated = true];
 	}
 	GetinfoAddressType item_type = 1;
 	uint32 port = 2;
@@ -1152,6 +1153,7 @@ message ListnodesNodesAddresses {
 		IPV6 = 2;
 		TORV2 = 3;
 		TORV3 = 4;
+		WEBSOCKET = 5 [deprecated = true];
 	}
 	ListnodesNodesAddressesType item_type = 1;
 	uint32 port = 2;
@@ -2194,6 +2196,7 @@ message GetlogRequest {
 		UNUSUAL = 1;
 		INFO = 2;
 		DEBUG = 3;
+		IO = 4 [deprecated = true];
 		TRACE = 5;
 	}
 	optional GetlogLevel level = 1;
