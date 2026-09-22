@@ -3703,6 +3703,13 @@ static struct amount_sat check_balances(struct peer *peer,
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "amount_sat_less / amount_sat_sub mismtach");
 
+	/* feerate_per_kw must have been negotiated (accepter) or supplied by
+	 * the user (initiator) by this point: 0 would silently collapse the
+	 * fee floors below to zero and let a near-zero-fee splice through. */
+	if (peer->splicing->feerate_per_kw == 0)
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "check_balances called with unset splicing feerate_per_kw");
+
 	min_initiator_fee = amount_tx_fee(peer->splicing->feerate_per_kw,
 					  calc_weight(TX_INITIATOR, psbt, false));
 	min_accepter_fee = amount_tx_fee(peer->splicing->feerate_per_kw,
@@ -4424,6 +4431,8 @@ static void splice_accepter(struct peer *peer, const u8 *inmsg)
 				 " maximum %u",
 				 funding_feerate_perkw,
 				 accepted_feerate_max(peer));
+
+	peer->splicing->feerate_per_kw = funding_feerate_perkw;
 
 	/* TODO: Add plugin hook for user to adjust accepter amount */
 	peer->splicing->accepter_relative = 0;
