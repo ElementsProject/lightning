@@ -1492,7 +1492,7 @@ impl From<responses::ListclosedchannelsClosedchannels> for pb::Listclosedchannel
             funding_txid: hex::decode(&c.funding_txid).unwrap(), // Rule #2 for type txid
             funding_withheld: Some(c.funding_withheld), // Rule #2 for type boolean
             last_commitment_fee_msat: c.last_commitment_fee_msat.map(|f| f.into()), // Rule #2 for type msat?
-            last_commitment_txid: c.last_commitment_txid.map(|v| <Sha256 as AsRef<[u8]>>::as_ref(&v).to_vec()), // Rule #2 for type hash?
+            last_commitment_txid: c.last_commitment_txid.map(|v| hex::decode(v).unwrap()), // Rule #2 for type txid?
             last_stable_connection: c.last_stable_connection, // Rule #2 for type u64?
             leased: c.leased, // Rule #2 for type boolean
             max_to_us_msat: Some(c.max_to_us_msat.into()), // Rule #2 for type msat
@@ -6233,9 +6233,9 @@ impl From<requests::CancelrecurringinvoiceRequest> for pb::Cancelrecurringinvoic
             bip353: c.bip353, // Rule #2 for type string?
             offer: c.offer, // Rule #2 for type string
             payer_note: c.payer_note, // Rule #2 for type string?
-            recurrence_counter: c.recurrence_counter, // Rule #2 for type u64
+            recurrence_counter: u64::from(c.recurrence_counter), // Rule #2 for type u32
             recurrence_label: c.recurrence_label, // Rule #2 for type string
-            recurrence_start: c.recurrence_start, // Rule #2 for type number?
+            recurrence_start: c.recurrence_start.map(f64::from), // Rule #2 for type u32?
         }
     }
 }
@@ -7291,7 +7291,7 @@ impl From<requests::ListchainmovesRequest> for pb::ListchainmovesRequest {
 impl From<requests::ListnetworkeventsRequest> for pb::ListnetworkeventsRequest {
     fn from(c: requests::ListnetworkeventsRequest) -> Self {
         Self {
-            id: c.id, // Rule #2 for type string?
+            id: c.id.map(|v| v.serialize().to_vec()).map(hex::encode), // Rule #2 for type pubkey?
             index: c.index.map(|v| v as i32),
             limit: c.limit, // Rule #2 for type u32?
             start: c.start, // Rule #2 for type u64?
@@ -8452,9 +8452,9 @@ impl TryFrom<pb::CancelrecurringinvoiceRequest> for requests::Cancelrecurringinv
             bip353: c.bip353, // Rule #1 for type string?
             offer: c.offer, // Rule #1 for type string
             payer_note: c.payer_note, // Rule #1 for type string?
-            recurrence_counter: c.recurrence_counter, // Rule #1 for type u64
+            recurrence_counter: ((|v| u32::try_from(v).map_err(|e| invalid_argument("recurrence_counter", e)))(c.recurrence_counter)?), // Rule #1 for type u32
             recurrence_label: c.recurrence_label, // Rule #1 for type string
-            recurrence_start: c.recurrence_start, // Rule #1 for type number?
+            recurrence_start: (c.recurrence_start.map(|v| double_to_u32("recurrence_start", v)).transpose()?), // Rule #1 for type u32?
         })
     }
 }
@@ -9550,7 +9550,7 @@ impl TryFrom<pb::ListnetworkeventsRequest> for requests::ListnetworkeventsReques
     type Error = tonic::Status;
     fn try_from(c: pb::ListnetworkeventsRequest) -> Result<Self, Self::Error> {
         Ok(Self {
-            id: c.id, // Rule #1 for type string?
+            id: (c.id.map(|v| hex::decode(v).map_err(|e| invalid_argument("id", e))).transpose()?).map(|v| PublicKey::from_slice(&v).map_err(|e| invalid_argument("id", e))).transpose()?, // Rule #1 for type pubkey?
             index: c.index.map(|v| v.try_into().map_err(|e| invalid_argument("index", e))).transpose()?,
             limit: c.limit, // Rule #1 for type u32?
             start: c.start, // Rule #1 for type u64?
