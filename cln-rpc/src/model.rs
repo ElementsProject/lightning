@@ -8156,7 +8156,7 @@ pub mod responses {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub last_commitment_fee_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub last_commitment_txid: Option<Sha256>,
+	    pub last_commitment_txid: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub last_stable_connection: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
