@@ -12938,8 +12938,8 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct InjectpaymentonionResponse {
-	    pub completed_at: u64,
-	    pub created_at: u64,
+	    pub completed_at: u32,
+	    pub created_at: u32,
 	    pub created_index: u64,
 	    pub payment_preimage: Secret,
 	}

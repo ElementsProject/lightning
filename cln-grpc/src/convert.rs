@@ -4840,8 +4840,8 @@ impl From<responses::AskrenelistreservationsResponse> for pb::Askrenelistreserva
 impl From<responses::InjectpaymentonionResponse> for pb::InjectpaymentonionResponse {
     fn from(c: responses::InjectpaymentonionResponse) -> Self {
         Self {
-            completed_at: c.completed_at, // Rule #2 for type u64
-            created_at: c.created_at, // Rule #2 for type u64
+            completed_at: c.completed_at, // Rule #2 for type u32
+            created_at: c.created_at, // Rule #2 for type u32
             created_index: c.created_index, // Rule #2 for type u64
             payment_preimage: c.payment_preimage.to_vec(), // Rule #2 for type secret
         }
