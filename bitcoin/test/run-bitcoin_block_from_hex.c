@@ -60,6 +60,16 @@ static const char block[] =
 	"ac0eb82500000000001976a914e05655a7d90b01ba874d81beff57ee09610ca"
 	"3ce88ac00000000";
 
+/* Elements header whose challenge varint promises 80 bytes with none
+ * left in the block. */
+static const char elements_short_challenge[] =
+	"0000002000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000afdc6a5c6400000050";
+
+/* Dynafed header whose scriptPubKey varint promises 80 bytes with none
+ * left in the block. */
+static const char elements_short_dynafed[] =
+	"000000a000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000afdc6a5c640000000150";
+
 STRUCTEQ_DEF(sha256_double, 0, sha);
 
 int main(int argc, const char *argv[])
@@ -70,6 +80,14 @@ int main(int argc, const char *argv[])
 	struct bitcoin_block *b;
 
 	common_setup(argv[0]);
+	chainparams = chainparams_for_network("liquid-regtest");
+	assert(!bitcoin_block_from_hex(NULL, chainparams,
+				       elements_short_challenge,
+				       strlen(elements_short_challenge)));
+	assert(!bitcoin_block_from_hex(NULL, chainparams,
+				       elements_short_dynafed,
+				       strlen(elements_short_dynafed)));
+
 	chainparams = chainparams_for_network("bitcoin");
 	b = bitcoin_block_from_hex(NULL, chainparams,
 				   block, strlen(block));
