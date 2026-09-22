@@ -84,7 +84,6 @@ impl From<responses::ListpeersPeersLog> for pb::ListpeersPeersLog {
             data: c.data.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
             log: c.log, // Rule #2 for type string?
             node_id: c.node_id.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
-            num_skipped: c.num_skipped, // Rule #2 for type u32?
             source: c.source, // Rule #2 for type string?
             time: c.time, // Rule #2 for type string?
             item_type: c.item_type as i32,
@@ -2165,7 +2164,6 @@ impl From<responses::GetlogLog> for pb::GetlogLog {
             data: c.data.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
             log: c.log, // Rule #2 for type string?
             node_id: c.node_id.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
-            num_skipped: c.num_skipped, // Rule #2 for type u32?
             source: c.source, // Rule #2 for type string?
             time: c.time, // Rule #2 for type string?
             item_type: c.item_type as i32,
@@ -2846,7 +2844,6 @@ impl From<responses::SpliceinResponse> for pb::SpliceinResponse {
     fn from(c: responses::SpliceinResponse) -> Self {
         Self {
             psbt: Some(c.psbt), // Rule #2 for type string
-            tx: c.tx, // Rule #2 for type string?
             txid: Some(c.txid), // Rule #2 for type string
         }
     }
@@ -2857,7 +2854,6 @@ impl From<responses::SpliceoutResponse> for pb::SpliceoutResponse {
     fn from(c: responses::SpliceoutResponse) -> Self {
         Self {
             psbt: Some(c.psbt), // Rule #2 for type string
-            tx: c.tx, // Rule #2 for type string?
             txid: Some(c.txid), // Rule #2 for type string
         }
     }
