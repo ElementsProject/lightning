@@ -84,7 +84,6 @@ impl From<responses::ListpeersPeersLog> for pb::ListpeersPeersLog {
             data: c.data.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
             log: c.log, // Rule #2 for type string?
             node_id: c.node_id.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
-            num_skipped: c.num_skipped, // Rule #2 for type u32?
             source: c.source, // Rule #2 for type string?
             time: c.time, // Rule #2 for type string?
             item_type: c.item_type as i32,

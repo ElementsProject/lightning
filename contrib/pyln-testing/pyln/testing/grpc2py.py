@@ -73,7 +73,6 @@ def listpeers_peers_log2py(m):
         "data": hexlify(m.data),  # PrimitiveField in generate_composite
         "log": m.log,  # PrimitiveField in generate_composite
         "node_id": hexlify(m.node_id),  # PrimitiveField in generate_composite
-        "num_skipped": m.num_skipped,  # PrimitiveField in generate_composite
         "source": m.source,  # PrimitiveField in generate_composite
         "time": m.time,  # PrimitiveField in generate_composite
     })

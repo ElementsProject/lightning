@@ -417,6 +417,7 @@
             "OPENINGD": 0
         },
         "ListpeersLevel": {
+            "broken": 5,
             "debug": 1,
             "info": 2,
             "io": 0,
