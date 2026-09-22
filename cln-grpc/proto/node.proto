@@ -367,7 +367,7 @@ message SendpayResponse {
 	SendpayStatus status = 4;
 	optional Amount amount_msat = 5;
 	optional bytes destination = 6;
-	uint64 created_at = 7;
+	uint32 created_at = 7;
 	Amount amount_sent_msat = 8;
 	optional string label = 9;
 	optional uint64 partid = 10;
@@ -375,7 +375,7 @@ message SendpayResponse {
 	optional string bolt12 = 12;
 	optional bytes payment_preimage = 13;
 	optional string message = 14;
-	optional uint64 completed_at = 15;
+	optional uint32 completed_at = 15;
 	uint64 created_index = 16;
 	optional uint64 updated_index = 17;
 }
