@@ -42117,10 +42117,12 @@
                   "ipv6",
                   "torv2",
                   "torv3",
-                  "websocket"
+                  "websocket",
+                  "unresolved"
                 ],
                 "description": [
-                  "Type of connection (*torv2*/*torv3* only if **direction** is *out*)"
+                  "Type of connection (*torv2*/*torv3* only if **direction** is *out*).",
+                  "*unresolved* is used when the peer address was not resolved (e.g. with **always-use-proxy**)."
                 ]
               }
             },
@@ -42178,6 +42180,40 @@
                       "type": "string",
                       "description": [
                         "Address in expected format for **type**"
+                      ]
+                    },
+                    "port": {
+                      "type": "u16",
+                      "description": [
+                        "Port number"
+                      ]
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "unresolved"
+                      ]
+                    }
+                  }
+                },
+                "then": {
+                  "additionalProperties": false,
+                  "required": [
+                    "name",
+                    "port"
+                  ],
+                  "properties": {
+                    "type": {},
+                    "name": {
+                      "type": "string",
+                      "description": [
+                        "The unresolved name"
                       ]
                     },
                     "port": {

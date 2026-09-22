@@ -4741,11 +4741,13 @@ message PeerConnectAddress {
 		TORV2 = 3;
 		TORV3 = 4;
 		WEBSOCKET = 5;
+		UNRESOLVED = 6;
 	}
 	PeerConnectAddressType item_type = 1;
 	optional string socket = 2;
 	optional string address = 3;
 	optional uint32 port = 4;
+	optional string name = 5;
 }
 
 message StreamCoinMovementRequest {

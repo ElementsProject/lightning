@@ -536,6 +536,7 @@
             "local socket": 0,
             "torv2": 3,
             "torv3": 4,
+            "unresolved": 6,
             "websocket": 5
         },
         "PeerConnectDirection": {
@@ -1388,6 +1389,7 @@
             "Connect.address.socket": 2,
             "Connect.address.type": 1,
             "connect.address.address": 3,
+            "connect.address.name": 5,
             "connect.address.port": 4,
             "connect.address.socket": 2,
             "connect.address.type": 1
@@ -15649,6 +15651,10 @@
             "deprecated": null
         },
         "connect.address.address": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "connect.address.name": {
             "added": "pre-v0.10.1",
             "deprecated": null
         },
