@@ -856,15 +856,11 @@ pub mod actions{
     }
 
     #[derive(Clone, Debug, Deserialize, Serialize)]
-    pub struct RpcCommandReturnResult {
-    }
-
-    #[derive(Clone, Debug, Deserialize, Serialize)]
     pub struct RpcCommandReturn {
         #[serde(skip_serializing_if = "Option::is_none")]
         pub error: Option<RpcCommandReturnError>,
         #[serde(skip_serializing_if = "Option::is_none")]
-        pub result: Option<RpcCommandReturnResult>,
+        pub result: Option<JsonObjectOrArray>,
     }
 
     /// ['The JSON-RPC version.']

@@ -153,9 +153,9 @@
         "additionalProperties": false,
         "properties": {
           "result": {
-            "type": "object",
+            "type": "json_object_or_array",
             "description": [
-              "Custom result object to return to the caller."
+              "Custom result to return to the caller."
             ]
           },
           "error": {
