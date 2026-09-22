@@ -16380,11 +16380,31 @@
             "added": "pre-v0.10.1",
             "deprecated": null
         },
+        "openchannel2.channel_fee_max_base_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel2.channel_fee_max_proportional_thousandths": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
         "openchannel2.close_to": {
             "added": "pre-v0.10.1",
             "deprecated": null
         },
         "openchannel2.error_message": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel2.funding_weight": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel2.lease_fee_base_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel2.lease_fee_basis": {
             "added": "pre-v0.10.1",
             "deprecated": null
         },
