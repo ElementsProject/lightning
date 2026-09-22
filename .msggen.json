@@ -3113,11 +3113,13 @@
             "ListFunds.outputs[].address": 5,
             "ListFunds.outputs[].amount_msat": 3,
             "ListFunds.outputs[].blockheight": 8,
+            "ListFunds.outputs[].csv_lock": 11,
             "ListFunds.outputs[].output": 2,
             "ListFunds.outputs[].redeemscript": 6,
             "ListFunds.outputs[].reserved": 9,
             "ListFunds.outputs[].reserved_to_block": 10,
             "ListFunds.outputs[].scriptpubkey": 4,
+            "ListFunds.outputs[].spendable_at": 12,
             "ListFunds.outputs[].status": 7,
             "ListFunds.outputs[].txid": 1
         },
@@ -7047,6 +7049,8 @@
         "ListfundsOutputs": {
             "1": "plain bytes",
             "10": "optional uint32",
+            "11": "optional uint32",
+            "12": "optional uint32",
             "2": "plain uint32",
             "3": "plain Amount",
             "4": "plain bytes",
@@ -15152,6 +15156,10 @@
             "added": "pre-v0.10.1",
             "deprecated": null
         },
+        "ListFunds.outputs[].csv_lock": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
         "ListFunds.outputs[].output": {
             "added": "pre-v0.10.1",
             "deprecated": null
@@ -15169,6 +15177,10 @@
             "deprecated": null
         },
         "ListFunds.outputs[].scriptpubkey": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListFunds.outputs[].spendable_at": {
             "added": "pre-v0.10.1",
             "deprecated": null
         },
