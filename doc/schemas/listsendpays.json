@@ -154,7 +154,7 @@
               ]
             },
             "created_at": {
-              "type": "u64",
+              "type": "u32",
               "description": [
                 "The UNIX timestamp showing when this payment was initiated."
               ]
@@ -227,7 +227,7 @@
                   "description": {},
                   "bolt12": {},
                   "completed_at": {
-                    "type": "u64",
+                    "type": "u32",
                     "added": "pre-v0.10.1",
                     "description": [
                       "The UNIX timestamp showing when this payment was completed."
