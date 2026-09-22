@@ -7992,7 +7992,7 @@ pub mod responses {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub lost_state: Option<bool>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub max_accepted_htlcs: Option<u32>,
+	    pub max_accepted_htlcs: Option<u16>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub max_to_us_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -8004,15 +8004,13 @@ pub mod responses {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub minimum_htlc_out_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub next_fee_step: Option<u32>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub next_feerate: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub our_max_htlc_value_in_flight_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub our_reserve_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub our_to_self_delay: Option<u32>,
+	    pub our_to_self_delay: Option<u16>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub out_fulfilled_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -8040,7 +8038,7 @@ pub mod responses {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub their_reserve_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub their_to_self_delay: Option<u32>,
+	    pub their_to_self_delay: Option<u16>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub to_us_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
