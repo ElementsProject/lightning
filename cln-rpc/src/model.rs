@@ -10371,8 +10371,6 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct SpliceinResponse {
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub tx: Option<String>,
 	    pub psbt: String,
 	    pub txid: String,
 	}

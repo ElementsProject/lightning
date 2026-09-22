@@ -2937,7 +2937,6 @@ message SpliceinRequest {
 
 message SpliceinResponse {
 	string psbt = 1;
-	optional string tx = 2;
 	string txid = 3;
 }
 

@@ -2843,7 +2843,6 @@ impl From<responses::SpliceinResponse> for pb::SpliceinResponse {
     fn from(c: responses::SpliceinResponse) -> Self {
         Self {
             psbt: c.psbt, // Rule #2 for type string
-            tx: c.tx, // Rule #2 for type string?
             txid: c.txid, // Rule #2 for type string
         }
     }
