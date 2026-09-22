@@ -2708,19 +2708,19 @@ pub mod requests {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub channel_fee_max_base_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub channel_fee_max_proportional_thousandths: Option<u32>,
+	    pub channel_fee_max_proportional_thousandths: Option<u16>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub compact_lease: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub fund_probability: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub funding_weight: Option<u32>,
+	    pub funding_weight: Option<u16>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub fuzz_percent: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub lease_fee_base_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub lease_fee_basis: Option<u32>,
+	    pub lease_fee_basis: Option<u16>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub leases_only: Option<bool>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -7203,11 +7203,11 @@ pub mod responses {
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListnodesNodesOptionWillFund {
 	    pub channel_fee_max_base_msat: Amount,
-	    pub channel_fee_max_proportional_thousandths: u32,
+	    pub channel_fee_max_proportional_thousandths: u16,
 	    pub compact_lease: String,
-	    pub funding_weight: u32,
+	    pub funding_weight: u16,
 	    pub lease_fee_base_msat: Amount,
-	    pub lease_fee_basis: u32,
+	    pub lease_fee_basis: u16,
 	}
 
 	/// ['Type of connection (until 23.08, `websocket` was also allowed).']
@@ -7992,7 +7992,7 @@ pub mod responses {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub lost_state: Option<bool>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub max_accepted_htlcs: Option<u32>,
+	    pub max_accepted_htlcs: Option<u16>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub max_to_us_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -8004,15 +8004,13 @@ pub mod responses {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub minimum_htlc_out_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub next_fee_step: Option<u32>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub next_feerate: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub our_max_htlc_value_in_flight_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub our_reserve_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub our_to_self_delay: Option<u32>,
+	    pub our_to_self_delay: Option<u16>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub out_fulfilled_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -8040,7 +8038,7 @@ pub mod responses {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub their_reserve_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub their_to_self_delay: Option<u32>,
+	    pub their_to_self_delay: Option<u16>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub to_us_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -9218,15 +9216,15 @@ pub mod responses {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub channel_fee_max_base_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub channel_fee_max_proportional_thousandths: Option<u32>,
+	    pub channel_fee_max_proportional_thousandths: Option<u16>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub compact_lease: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub funding_weight: Option<u32>,
+	    pub funding_weight: Option<u16>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub lease_fee_base_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub lease_fee_basis: Option<u32>,
+	    pub lease_fee_basis: Option<u16>,
 	    // Path `FunderUpdate.policy`
 	    pub policy: FunderupdatePolicy,
 	    pub fund_probability: u32,

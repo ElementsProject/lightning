@@ -963,11 +963,11 @@ impl From<responses::ListnodesNodesOptionWillFund> for pb::ListnodesNodesOptionW
     fn from(c: responses::ListnodesNodesOptionWillFund) -> Self {
         Self {
             channel_fee_max_base_msat: Some(c.channel_fee_max_base_msat.into()), // Rule #2 for type msat
-            channel_fee_max_proportional_thousandths: c.channel_fee_max_proportional_thousandths, // Rule #2 for type u32
+            channel_fee_max_proportional_thousandths: c.channel_fee_max_proportional_thousandths.into(), // Rule #2 for type u16
             compact_lease: hex::decode(&c.compact_lease).unwrap(), // Rule #2 for type hex
-            funding_weight: c.funding_weight, // Rule #2 for type u32
+            funding_weight: c.funding_weight.into(), // Rule #2 for type u16
             lease_fee_base_msat: Some(c.lease_fee_base_msat.into()), // Rule #2 for type msat
-            lease_fee_basis: c.lease_fee_basis, // Rule #2 for type u32
+            lease_fee_basis: c.lease_fee_basis.into(), // Rule #2 for type u16
         }
     }
 }
@@ -1402,18 +1402,17 @@ impl From<responses::ListpeerchannelsChannels> for pb::ListpeerchannelsChannels 
             last_stable_connection: c.last_stable_connection, // Rule #2 for type u64?
             last_tx_fee_msat: c.last_tx_fee_msat.map(|f| f.into()), // Rule #2 for type msat?
             lost_state: c.lost_state, // Rule #2 for type boolean?
-            max_accepted_htlcs: c.max_accepted_htlcs, // Rule #2 for type u32?
+            max_accepted_htlcs: c.max_accepted_htlcs.map(|v| v.into()), // Rule #2 for type u16?
             max_to_us_msat: c.max_to_us_msat.map(|f| f.into()), // Rule #2 for type msat?
             maximum_htlc_out_msat: c.maximum_htlc_out_msat.map(|f| f.into()), // Rule #2 for type msat?
             min_to_us_msat: c.min_to_us_msat.map(|f| f.into()), // Rule #2 for type msat?
             minimum_htlc_in_msat: c.minimum_htlc_in_msat.map(|f| f.into()), // Rule #2 for type msat?
             minimum_htlc_out_msat: c.minimum_htlc_out_msat.map(|f| f.into()), // Rule #2 for type msat?
-            next_fee_step: c.next_fee_step, // Rule #2 for type u32?
             next_feerate: c.next_feerate, // Rule #2 for type string?
             opener: c.opener as i32,
             our_max_htlc_value_in_flight_msat: c.our_max_htlc_value_in_flight_msat.map(|f| f.into()), // Rule #2 for type msat?
             our_reserve_msat: c.our_reserve_msat.map(|f| f.into()), // Rule #2 for type msat?
-            our_to_self_delay: c.our_to_self_delay, // Rule #2 for type u32?
+            our_to_self_delay: c.our_to_self_delay.map(|v| v.into()), // Rule #2 for type u16?
             out_fulfilled_msat: c.out_fulfilled_msat.map(|f| f.into()), // Rule #2 for type msat?
             out_offered_msat: c.out_offered_msat.map(|f| f.into()), // Rule #2 for type msat?
             out_payments_fulfilled: c.out_payments_fulfilled, // Rule #2 for type u64?
@@ -1434,7 +1433,7 @@ impl From<responses::ListpeerchannelsChannels> for pb::ListpeerchannelsChannels 
             status: c.status.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
             their_max_htlc_value_in_flight_msat: c.their_max_htlc_value_in_flight_msat.map(|f| f.into()), // Rule #2 for type msat?
             their_reserve_msat: c.their_reserve_msat.map(|f| f.into()), // Rule #2 for type msat?
-            their_to_self_delay: c.their_to_self_delay, // Rule #2 for type u32?
+            their_to_self_delay: c.their_to_self_delay.map(|v| v.into()), // Rule #2 for type u16?
             to_us_msat: c.to_us_msat.map(|f| f.into()), // Rule #2 for type msat?
             total_msat: c.total_msat.map(|f| f.into()), // Rule #2 for type msat?
             updates: c.updates.map(|v| v.into()),
@@ -2192,13 +2191,13 @@ impl From<responses::FunderupdateResponse> for pb::FunderupdateResponse {
     fn from(c: responses::FunderupdateResponse) -> Self {
         Self {
             channel_fee_max_base_msat: c.channel_fee_max_base_msat.map(|f| f.into()), // Rule #2 for type msat?
-            channel_fee_max_proportional_thousandths: c.channel_fee_max_proportional_thousandths, // Rule #2 for type u32?
+            channel_fee_max_proportional_thousandths: c.channel_fee_max_proportional_thousandths.map(|v| v.into()), // Rule #2 for type u16?
             compact_lease: c.compact_lease.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
             fund_probability: c.fund_probability, // Rule #2 for type u32
-            funding_weight: c.funding_weight, // Rule #2 for type u32?
+            funding_weight: c.funding_weight.map(|v| v.into()), // Rule #2 for type u16?
             fuzz_percent: c.fuzz_percent, // Rule #2 for type u32
             lease_fee_base_msat: c.lease_fee_base_msat.map(|f| f.into()), // Rule #2 for type msat?
-            lease_fee_basis: c.lease_fee_basis, // Rule #2 for type u32?
+            lease_fee_basis: c.lease_fee_basis.map(|v| v.into()), // Rule #2 for type u16?
             leases_only: c.leases_only, // Rule #2 for type boolean
             max_their_funding_msat: Some(c.max_their_funding_msat.into()), // Rule #2 for type msat
             min_their_funding_msat: Some(c.min_their_funding_msat.into()), // Rule #2 for type msat
@@ -6320,13 +6319,13 @@ impl From<requests::FunderupdateRequest> for pb::FunderupdateRequest {
     fn from(c: requests::FunderupdateRequest) -> Self {
         Self {
             channel_fee_max_base_msat: c.channel_fee_max_base_msat.map(|f| f.into()), // Rule #2 for type msat?
-            channel_fee_max_proportional_thousandths: c.channel_fee_max_proportional_thousandths, // Rule #2 for type u32?
+            channel_fee_max_proportional_thousandths: c.channel_fee_max_proportional_thousandths.map(|v| v.into()), // Rule #2 for type u16?
             compact_lease: c.compact_lease.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
             fund_probability: c.fund_probability, // Rule #2 for type u32?
-            funding_weight: c.funding_weight, // Rule #2 for type u32?
+            funding_weight: c.funding_weight.map(|v| v.into()), // Rule #2 for type u16?
             fuzz_percent: c.fuzz_percent, // Rule #2 for type u32?
             lease_fee_base_msat: c.lease_fee_base_msat.map(|f| f.into()), // Rule #2 for type msat?
-            lease_fee_basis: c.lease_fee_basis, // Rule #2 for type u32?
+            lease_fee_basis: c.lease_fee_basis.map(|v| v.into()), // Rule #2 for type u16?
             leases_only: c.leases_only, // Rule #2 for type boolean?
             max_their_funding_msat: c.max_their_funding_msat.map(|f| f.into()), // Rule #2 for type msat?
             min_their_funding_msat: c.min_their_funding_msat.map(|f| f.into()), // Rule #2 for type msat?
@@ -8537,13 +8536,13 @@ impl TryFrom<pb::FunderupdateRequest> for requests::FunderupdateRequest {
     fn try_from(c: pb::FunderupdateRequest) -> Result<Self, Self::Error> {
         Ok(Self {
             channel_fee_max_base_msat: c.channel_fee_max_base_msat.map(|a| a.into()), // Rule #1 for type msat?
-            channel_fee_max_proportional_thousandths: c.channel_fee_max_proportional_thousandths, // Rule #1 for type u32?
+            channel_fee_max_proportional_thousandths: c.channel_fee_max_proportional_thousandths.map(|v| u16::try_from(v).map_err(|e| invalid_argument("channel_fee_max_proportional_thousandths", e))).transpose()?, // Rule #1 for type u16?
             compact_lease: c.compact_lease.map(|v| hex::encode(v)), // Rule #1 for type hex?
             fund_probability: c.fund_probability, // Rule #1 for type u32?
-            funding_weight: c.funding_weight, // Rule #1 for type u32?
+            funding_weight: c.funding_weight.map(|v| u16::try_from(v).map_err(|e| invalid_argument("funding_weight", e))).transpose()?, // Rule #1 for type u16?
             fuzz_percent: c.fuzz_percent, // Rule #1 for type u32?
             lease_fee_base_msat: c.lease_fee_base_msat.map(|a| a.into()), // Rule #1 for type msat?
-            lease_fee_basis: c.lease_fee_basis, // Rule #1 for type u32?
+            lease_fee_basis: c.lease_fee_basis.map(|v| u16::try_from(v).map_err(|e| invalid_argument("lease_fee_basis", e))).transpose()?, // Rule #1 for type u16?
             leases_only: c.leases_only, // Rule #1 for type boolean?
             max_their_funding_msat: c.max_their_funding_msat.map(|a| a.into()), // Rule #1 for type msat?
             min_their_funding_msat: c.min_their_funding_msat.map(|a| a.into()), // Rule #1 for type msat?

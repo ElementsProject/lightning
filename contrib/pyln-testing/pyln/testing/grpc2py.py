@@ -1033,7 +1033,6 @@ def listpeerchannels_channels2py(m):
         "min_to_us_msat": amount2msat(m.min_to_us_msat),  # PrimitiveField in generate_composite
         "minimum_htlc_in_msat": amount2msat(m.minimum_htlc_in_msat),  # PrimitiveField in generate_composite
         "minimum_htlc_out_msat": amount2msat(m.minimum_htlc_out_msat),  # PrimitiveField in generate_composite
-        "next_fee_step": m.next_fee_step,  # PrimitiveField in generate_composite
         "next_feerate": m.next_feerate,  # PrimitiveField in generate_composite
         "our_max_htlc_value_in_flight_msat": amount2msat(m.our_max_htlc_value_in_flight_msat),  # PrimitiveField in generate_composite
         "our_reserve_msat": amount2msat(m.our_reserve_msat),  # PrimitiveField in generate_composite
