@@ -4979,6 +4979,10 @@ message ForwardEventNotification {
 	double received_time = 11;
 	optional double resolved_time = 12;
 	optional ForwardEventFailureReason failure_reason = 13;
+	optional uint64 created_index = 14;
+	optional uint64 in_htlc_id = 15;
+	optional bytes preimage = 16;
+	optional uint64 updated_index = 17;
 }
 
 message StreamInvoiceCreationRequest {
