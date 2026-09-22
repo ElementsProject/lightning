@@ -4861,6 +4861,10 @@ message ForwardEventNotification {
 	optional ForwardEventStyle style = 10;
 	double received_time = 11;
 	optional double resolved_time = 12;
+	optional uint64 created_index = 13;
+	optional uint64 in_htlc_id = 14;
+	optional bytes preimage = 15;
+	optional uint64 updated_index = 16;
 }
 
 message StreamInvoiceCreationRequest {

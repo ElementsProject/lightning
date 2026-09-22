@@ -537,19 +537,27 @@ impl ToString for ForwardEventStatus {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ForwardEventNotification {
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub created_index: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub failcode: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub failreason: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub fee_msat: Option<Amount>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub in_htlc_id: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub out_channel: Option<ShortChannelId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub out_msat: Option<Amount>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub preimage: Option<Secret>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub resolved_time: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub style: Option<ForwardEventStyle>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_index: Option<u64>,
     // Path `forward_event.status`
     pub status: ForwardEventStatus,
     pub in_channel: ShortChannelId,

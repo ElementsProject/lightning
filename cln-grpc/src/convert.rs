@@ -5250,18 +5250,22 @@ impl From<notifications::DisconnectNotification> for pb::DisconnectNotification 
 impl From<notifications::ForwardEventNotification> for pb::ForwardEventNotification {
     fn from(c: notifications::ForwardEventNotification) -> Self {
         Self {
+            created_index: c.created_index, // Rule #2 for type u64?
             failcode: c.failcode, // Rule #2 for type u32?
             failreason: c.failreason, // Rule #2 for type string?
             fee_msat: c.fee_msat.map(|f| f.into()), // Rule #2 for type msat?
             in_channel: c.in_channel.to_string(), // Rule #2 for type short_channel_id
+            in_htlc_id: c.in_htlc_id, // Rule #2 for type u64?
             in_msat: Some(c.in_msat.into()), // Rule #2 for type msat
             out_channel: c.out_channel.map(|v| v.to_string()), // Rule #2 for type short_channel_id?
             out_msat: c.out_msat.map(|f| f.into()), // Rule #2 for type msat?
             payment_hash: <Sha256 as AsRef<[u8]>>::as_ref(&c.payment_hash).to_vec(), // Rule #2 for type hash
+            preimage: c.preimage.map(|v| v.to_vec()), // Rule #2 for type secret?
             received_time: c.received_time, // Rule #2 for type number
             resolved_time: c.resolved_time, // Rule #2 for type number?
             status: c.status as i32,
             style: c.style.map(|v| v as i32),
+            updated_index: c.updated_index, // Rule #2 for type u64?
         }
     }
 }
