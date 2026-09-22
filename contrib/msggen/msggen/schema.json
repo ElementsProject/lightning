@@ -23176,7 +23176,7 @@
     "listcurrencyrates.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
-      "rpc": "currencyrates",
+      "rpc": "listcurrencyrates",
       "added": "v26.04",
       "title": "Command to list millisatoshis-per-unit from each configured source",
       "description": [
