@@ -71,17 +71,6 @@
       }
     }
   },
-  "example_hooks": [
-    {
-      "method": "openchannel2_sign",
-      "params": {
-        "openchannel2_sign": {
-          "channel_id": "252d1b0a1e57895e841...",
-          "psbt": "cHNidP8BADMCAAAAAQ+yBipSVZr..."
-        }
-      }
-    }
-  ],
   "examples": [
     {
       "request": {
