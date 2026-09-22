@@ -24126,6 +24126,18 @@
                   "description": [
                     "Whether this UTXO is currently reserved for an in-flight tx."
                   ]
+                },
+                "csv_lock": {
+                  "type": "u32",
+                  "description": [
+                    "The CSV locktime of this output, if it comes from a unilateral close and can only be spent after this many blocks."
+                  ]
+                },
+                "spendable_at": {
+                  "type": "u32",
+                  "description": [
+                    "The block height at which this output becomes spendable, if it is CSV-locked."
+                  ]
                 }
               },
               "allOf": [
@@ -24157,6 +24169,8 @@
                       "status": {},
                       "reserved": {},
                       "reserved_to_block": {},
+                      "csv_lock": {},
+                      "spendable_at": {},
                       "blockheight": {
                         "type": "u32",
                         "description": [
@@ -24193,6 +24207,8 @@
                       "redeemscript": {},
                       "status": {},
                       "blockheight": {},
+                      "csv_lock": {},
+                      "spendable_at": {},
                       "reserved": {},
                       "reserved_to_block": {
                         "type": "u32",
@@ -42176,6 +42192,20 @@
           "received_time"
         ],
         "properties": {
+          "created_index": {
+            "type": "u64",
+            "added": "v23.11",
+            "description": [
+              "1-based index indicating order this forward was created in."
+            ]
+          },
+          "updated_index": {
+            "type": "u64",
+            "added": "v23.11",
+            "description": [
+              "1-based index indicating order this forward was changed (only present if it has changed since creation)."
+            ]
+          },
           "payment_hash": {
             "type": "hash",
             "description": [
@@ -42186,6 +42216,12 @@
             "type": "short_channel_id",
             "description": [
               "The inbound channel that received the HTLC."
+            ]
+          },
+          "in_htlc_id": {
+            "type": "u64",
+            "description": [
+              "The unique HTLC id the sender gave this (not present if incoming channel was closed before upgrade to v22.11)."
             ]
           },
           "out_channel": {
@@ -42283,6 +42319,12 @@
             "type": "number",
             "description": [
               "The UNIX timestamp when the HTLC was resolved, if it has been resolved."
+            ]
+          },
+          "preimage": {
+            "type": "secret",
+            "description": [
+              "The payment preimage, if the forward was settled."
             ]
           }
         }
