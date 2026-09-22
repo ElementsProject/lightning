@@ -17251,7 +17251,7 @@
       "title": "Command for routing a payment",
       "added": "v24.08",
       "description": [
-        "The **getroutes** RPC command attempts to find the best set of paths for the payment from *source* to *destination* of *amount_msat*, using the given *layers* on top of the gossip information.  The result is constrained by *maxfee*, and will arrive at the destination with *final_cltv*.",
+        "The **getroutes** RPC command attempts to find the best set of paths for the payment from *source* to *destination* of *amount_msat*, using the given *layers* on top of the gossip information.  The result is constrained by *maxfee*, and will arrive at the destination with *final_cltv*.  If *maxhops* is set, no returned path is longer than that.",
         "",
         "NOTE: The returned paths are a different format then *getroute*, being more appropriate for creating intermediary onion layers.",
         "",
@@ -17327,6 +17327,14 @@
               "Maximum number of routes in the solution."
             ],
             "default": "100"
+          },
+          "maxhops": {
+            "type": "u32",
+            "added": "v26.09",
+            "description": [
+              "Maximum hops in any returned path. 0 means no limit."
+            ],
+            "default": "0"
           }
         }
       },

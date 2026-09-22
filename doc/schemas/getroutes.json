@@ -84,7 +84,7 @@
       },
       "maxhops": {
         "type": "u32",
-        "added": "v26.06.7",
+        "added": "v26.09",
         "description": [
           "Maximum hops in any returned path. 0 means no limit."
         ],

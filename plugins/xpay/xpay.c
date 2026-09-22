@@ -18,11 +18,11 @@
 #include <common/json_stream.h>
 #include <common/memleak.h>
 #include <common/onion_encode.h>
-#include <common/sphinx.h>
 #include <common/onionreply.h>
 #include <common/pseudorand.h>
 #include <common/randbytes.h>
 #include <common/route.h>
+#include <common/sphinx.h>
 #include <common/trace.h>
 #include <common/wireaddr.h>
 #include <errno.h>
