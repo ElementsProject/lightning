@@ -738,7 +738,8 @@ void handle_query_channel_range(struct peer *peer, const u8 *msg)
 				  "query_channel_range with chainhash %s",
 				  fmt_bitcoin_blkid(tmpctx, &chain_hash));
 		u8 *end = towire_reply_channel_range(NULL, &chain_hash, first_blocknum,
-		                                     number_of_blocks, false, NULL, NULL);
+		                                     number_of_blocks, false,
+		                                     encoding_start(tmpctx, true), NULL);
 		inject_peer_msg(peer, take(end));
 		return;
 	}
