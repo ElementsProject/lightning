@@ -505,7 +505,7 @@ void bitcoind_getrawblockbyheight_(const tal_t *ctx,
 
 	trace_span_start("plugin/bitcoind", call);
 	trace_span_tag(call, "method", "getrawblockbyheight");
-	trace_span_suspend(call);
+	trace_span_suspend_may_free(call);
 	req = jsonrpc_request_start(call, "getrawblockbyheight", NULL,
 				    bitcoind->log,
 				    NULL,  getrawblockbyheight_callback,

@@ -1108,6 +1108,7 @@ static void get_new_block(struct bitcoind *bitcoind,
 			  struct bitcoin_block *blk,
 			  struct chain_topology *topo)
 {
+	trace_span_resume(topo);
 	if (!blkid && !blk) {
 		/* No such block, we're done. */
 		updates_complete(topo);
@@ -1139,6 +1140,7 @@ static void try_extend_tip(struct chain_topology *topo)
 {
 	topo->extend_timer = NULL;
 	trace_span_start("extend_tip", topo);
+	trace_span_suspend(topo);
 	bitcoind_getrawblockbyheight(topo->request_ctx, topo->bitcoind, topo->tip->height + 1,
 				     get_new_block, topo);
 }
@@ -1658,6 +1660,9 @@ void stop_topology(struct chain_topology *topo)
 	tal_free(topo->checkchain_timer);
 	tal_free(topo->extend_timer);
 	tal_free(topo->updatefee_timer);
+
+	/* Clean up in-flight extend_tip span if any. */
+	trace_span_destroy(topo);
 
 	/* Don't handle responses to any existing requests. */
 	tal_free(topo->request_ctx);

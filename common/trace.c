@@ -474,6 +474,13 @@ static void destroy_trace_span(const void *key)
 	trace_span_end(key);
 }
 
+void trace_span_destroy_(const void *key, const char *lbl)
+{
+	if (disable_trace)
+		return;
+	destroy_trace_span(key);
+}
+
 void trace_span_suspend_may_free_(const void *key, const char *lbl)
 {
 	if (disable_trace)
