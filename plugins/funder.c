@@ -22,6 +22,11 @@
 /* In-progress channel opens */
 static struct list_head pending_opens;
 
+/* openchannel2 requests evaluate policy against the wallet one at a time,
+ * so each sees the utxos reserved by the one before.  The head is in
+ * progress (from listfunds until fundpsbt returns), the rest wait. */
+static struct list_head funding_queue;
+
 /* Current set policy */
 static struct funder_policy *current_policy;
 
@@ -386,6 +391,10 @@ json_openchannel2_changed_call(struct command *cmd,
 
 /* Tiny struct to pass info to callback for fundpsbt */
 struct open_info {
+	/* openchannel2 only: our entry in funding_queue */
+	struct list_node list;
+	struct command *cmd;
+
 	struct channel_id cid;
 	struct node_id id;
 	struct amount_sat our_funding;
@@ -419,6 +428,37 @@ static struct open_info *new_open_info(const tal_t *ctx)
 	info->prev_outs = NULL;
 
 	return info;
+}
+
+static struct command_result *send_listfunds(struct command *cmd,
+					     struct open_info *info);
+
+static struct command_result *funding_queue_join(struct command *cmd,
+						 struct open_info *info)
+{
+	bool idle = list_empty(&funding_queue);
+
+	info->cmd = cmd;
+	list_add_tail(&funding_queue, &info->list);
+	if (!idle)
+		return command_still_pending(cmd);
+
+	return send_listfunds(cmd, info);
+}
+
+/* Our utxos are reserved (or we're not funding): let the next one go. */
+static void funding_queue_done(struct open_info *info)
+{
+	struct open_info *next;
+
+	/* RBF doesn't queue */
+	if (list_top(&funding_queue, struct open_info, list) != info)
+		return;
+
+	list_del_from(&funding_queue, &info->list);
+	next = list_top(&funding_queue, struct open_info, list);
+	if (next)
+		send_listfunds(next->cmd, next);
 }
 
 static struct command_result *
@@ -464,6 +504,7 @@ psbt_funded(struct command *cmd,
 	if (current_policy->rates && !amount_sat_is_zero(info->requested_lease))
 		json_add_lease_rates(response, current_policy->rates);
 
+	funding_queue_done(info);
 	return command_finished(cmd, response);
 }
 
@@ -486,6 +527,7 @@ psbt_fund_failed(struct command *cmd,
 		   json_tok_full_len(error),
 		   json_tok_full(buf, error));
 
+	funding_queue_done(info);
 	return command_hook_success(cmd);
 }
 
@@ -712,8 +754,10 @@ listfunds_success(struct command *cmd,
 		   fmt_amount_sat(tmpctx, info->our_funding),
 		   funding_err ? funding_err : "");
 
-	if (amount_sat_is_zero(info->our_funding))
+	if (amount_sat_is_zero(info->our_funding)) {
+		funding_queue_done(info);
 		return command_hook_success(cmd);
+	}
 
 	plugin_log(cmd->plugin, LOG_DBG,
 		   "Funding channel %s with %s (their input %s)",
@@ -777,7 +821,21 @@ listfunds_failed(struct command *cmd,
 		   json_tok_full_len(error),
 		   json_tok_full(buf, error));
 
+	funding_queue_done(info);
 	return command_hook_success(cmd);
+}
+
+static struct command_result *send_listfunds(struct command *cmd,
+					     struct open_info *info)
+{
+	struct out_req *req;
+
+	req = jsonrpc_request_start(cmd,
+				    "listfunds",
+				    &listfunds_success,
+				    &listfunds_failed,
+				    info);
+	return send_outreq(req);
 }
 
 static struct command_result *
@@ -792,7 +850,6 @@ json_openchannel2_call(struct command *cmd,
 	u32 to_self_delay, max_accepted_htlcs;
 	u16 channel_flags;
 	const char *err;
-	struct out_req *req;
 
 	err = json_scan(tmpctx, buf, params,
 			"{openchannel2:"
@@ -903,13 +960,7 @@ json_openchannel2_call(struct command *cmd,
 	}
 
 	/* Figure out what our funds are */
-	req = jsonrpc_request_start(cmd,
-				    "listfunds",
-				    &listfunds_success,
-				    &listfunds_failed,
-				    info);
-
-	return send_outreq(req);
+	return funding_queue_join(cmd, info);
 }
 
 static struct command_result *
@@ -919,8 +970,6 @@ datastore_list_fail(struct command *cmd,
 		    const jsmntok_t *error,
 		    struct open_info *info)
 {
-	struct out_req *req;
-
 	/* Oops, something's broken */
 	plugin_log(cmd->plugin, LOG_BROKEN,
 		   "`datastore` list failed: %.*s",
@@ -929,12 +978,7 @@ datastore_list_fail(struct command *cmd,
 
 	/* Figure out what our funds are... same flow
 	 * as with openchannel2 callback.  */
-	req = jsonrpc_request_start(cmd,
-				    "listfunds",
-				    &listfunds_success,
-				    &listfunds_failed,
-				    info);
-	return send_outreq(req);
+	return send_listfunds(cmd, info);
 }
 
 static struct command_result *
@@ -944,7 +988,6 @@ datastore_list_success(struct command *cmd,
 		       const jsmntok_t *result,
 		       struct open_info *info)
 {
-	struct out_req *req;
 	const char *key, *err;
 	const u8 *utxos_bin;
 	size_t len, i;
@@ -999,12 +1042,7 @@ datastore_list_success(struct command *cmd,
 		tal_arr_expand(&info->prev_outs, outpoint);
 	}
 
-	req = jsonrpc_request_start(cmd,
-				    "listfunds",
-				    &listfunds_success,
-				    &listfunds_failed,
-				    info);
-	return send_outreq(req);
+	return send_listfunds(cmd, info);
 }
 
 /* Peer has asked us to RBF */
@@ -1499,6 +1537,7 @@ static void tell_lightningd_lease_rates(struct command *init_cmd,
 static void memleak_mark(struct plugin *p, struct htable *memtable)
 {
 	memleak_scan_list_head(memtable, &pending_opens);
+	memleak_scan_list_head(memtable, &funding_queue);
 	memleak_scan_obj(memtable, current_policy);
 }
 
@@ -1508,6 +1547,7 @@ static const char *init(struct command *init_cmd, const char *b, const jsmntok_t
 	struct amount_msat msat;
 
 	list_head_init(&pending_opens);
+	list_head_init(&funding_queue);
 
 	err = funder_check_policy(current_policy);
 	if (err)
