@@ -532,6 +532,7 @@ impl DatastoreProvider for ClnDatastore {
         opening_fee_params: &OpeningFeeParams,
         expected_payment_size: &Option<Msat>,
         channel_capacity_msat: &Msat,
+        policy_id: Option<i64>,
     ) -> Result<DatastoreEntry> {
         let created_at = chrono::Utc::now();
         let mut rpc = self.rpc.create_rpc().await?;
@@ -555,6 +556,8 @@ impl DatastoreProvider for ClnDatastore {
             forwards_updated_index: &'a Option<u64>,
             #[serde(skip_serializing_if = "Option::is_none")]
             payment_hash: Option<String>,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            policy_id: Option<i64>,
         }
 
         let ds = BorrowedDatastoreEntry {
@@ -569,6 +572,7 @@ impl DatastoreProvider for ClnDatastore {
             preimage: None,
             forwards_updated_index: &None,
             payment_hash: None,
+            policy_id,
         };
         let json_str = serde_json::to_string(&ds)?;
 
@@ -604,6 +608,7 @@ impl DatastoreProvider for ClnDatastore {
             preimage: None,
             forwards_updated_index: None,
             payment_hash: None,
+            policy_id,
         })
     }
 

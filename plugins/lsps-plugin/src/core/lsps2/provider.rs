@@ -19,6 +19,7 @@ pub trait DatastoreProvider: Send + Sync {
         offer: &OpeningFeeParams,
         expected_payment_size: &Option<Msat>,
         channel_capacity_msat: &Msat,
+        policy_id: Option<i64>,
     ) -> Result<DatastoreEntry>;
 
     async fn get_buy_request(&self, scid: &ShortChannelId) -> Result<DatastoreEntry>;

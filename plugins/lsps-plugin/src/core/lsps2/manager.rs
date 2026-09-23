@@ -451,6 +451,7 @@ mod tests {
             preimage: None,
             forwards_updated_index: None,
             payment_hash: None,
+            policy_id: None,
         }
     }
 
@@ -509,6 +510,7 @@ mod tests {
             _offer: &OpeningFeeParams,
             _expected_payment_size: &Option<Msat>,
             _channel_capacity_msat: &Msat,
+            _policy_id: Option<i64>,
         ) -> anyhow::Result<DatastoreEntry> {
             self.get_buy_request(scid).await
         }

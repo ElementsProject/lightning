@@ -291,6 +291,8 @@ pub struct Lsps2PolicyGetInfoResponse {
     pub policy_opening_fee_params_menu: Vec<PolicyOpeningFeeParams>,
     #[serde(default)]
     pub client_rejected: bool,
+    #[serde(default)]
+    pub policy_id: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -302,6 +304,8 @@ pub struct Lsps2PolicyBuyRequest {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Lsps2PolicyBuyResponse {
     pub channel_capacity_msat: Option<Msat>,
+    #[serde(default)]
+    pub policy_id: Option<i64>,
 }
 
 /// An internal representation of a policy of parameters for calculating the
@@ -375,6 +379,9 @@ pub struct DatastoreEntry {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     pub payment_hash: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    pub policy_id: Option<i64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

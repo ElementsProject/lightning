@@ -146,6 +146,7 @@ where
                 &fee_params,
                 &request.payment_size_msat,
                 &channel_capacity_msat,
+                ch_cap_res.policy_id,
             )
             .await
             .map_err(|_| RpcError::internal_error("internal error"))?;
@@ -217,6 +218,7 @@ mod tests {
         blockheight: Arc<Mutex<Option<u32>>>,
         store_result: Arc<Mutex<Option<bool>>>,
         buy_response: Arc<Mutex<Option<Option<Msat>>>>,
+        buy_policy_id: Arc<Mutex<Option<i64>>>,
 
         // Errors
         offer_error: Arc<Mutex<bool>>,
@@ -232,6 +234,7 @@ mod tests {
     struct StoredBuyRequest {
         peer_id: PublicKey,
         payment_size: Option<Msat>,
+        policy_id: Option<i64>,
     }
 
     impl MockApi {
@@ -248,6 +251,7 @@ mod tests {
             self.with_offer(Lsps2PolicyGetInfoResponse {
                 policy_opening_fee_params_menu: menu,
                 client_rejected: false,
+                policy_id: None,
             })
         }
 
@@ -255,6 +259,7 @@ mod tests {
             *self.offer_response.lock().unwrap() = Some(Lsps2PolicyGetInfoResponse {
                 policy_opening_fee_params_menu: vec![],
                 client_rejected: true,
+                policy_id: None,
             });
             self
         }
@@ -286,6 +291,11 @@ mod tests {
 
         fn with_buy_capacity(self, capacity_msat: u64) -> Self {
             *self.buy_response.lock().unwrap() = Some(Some(Msat::from_msat(capacity_msat)));
+            self
+        }
+
+        fn with_buy_policy_id(self, policy_id: i64) -> Self {
+            *self.buy_policy_id.lock().unwrap() = Some(policy_id);
             self
         }
 
@@ -334,6 +344,7 @@ mod tests {
                 .ok_or_else(|| anyhow!("no buy response set"))?;
             Ok(Lsps2PolicyBuyResponse {
                 channel_capacity_msat: cap,
+                policy_id: *self.buy_policy_id.lock().unwrap(),
             })
         }
     }
@@ -347,6 +358,7 @@ mod tests {
             _fee_params: &OpeningFeeParams,
             payment_size: &Option<Msat>,
             _channel_capacity_msat: &Msat,
+            policy_id: Option<i64>,
         ) -> AnyResult<DatastoreEntry> {
             if *self.store_error.lock().unwrap() {
                 return Err(anyhow!("store error"));
@@ -355,6 +367,7 @@ mod tests {
             self.stored_requests.lock().unwrap().push(StoredBuyRequest {
                 peer_id: *peer_id,
                 payment_size: *payment_size,
+                policy_id,
             });
 
             if !self.store_result.lock().unwrap().unwrap_or(true) {
@@ -382,6 +395,7 @@ mod tests {
                 preimage: None,
                 forwards_updated_index: None,
                 payment_hash: None,
+                policy_id,
             })
         }
 
@@ -498,7 +512,8 @@ mod tests {
         let api = MockApi::new()
             .with_blockheight(800_000)
             .with_store_result(true)
-            .with_buy_capacity(100_000_000);
+            .with_buy_capacity(100_000_000)
+            .with_buy_policy_id(42);
         let h = handler(api.clone());
 
         let request = Lsps2BuyRequest {
@@ -520,6 +535,7 @@ mod tests {
         assert_eq!(stored.len(), 1);
         assert_eq!(stored[0].peer_id, test_peer_id());
         assert_eq!(stored[0].payment_size, Some(Msat(50_000_000)));
+        assert_eq!(stored[0].policy_id, Some(42));
     }
 
     #[tokio::test]
