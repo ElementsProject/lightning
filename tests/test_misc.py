@@ -5483,3 +5483,56 @@ def test_long_logs(node_factory):
 
     l1 = node_factory.get_node(inline_plugin=setup)
     l1.rpc.call("produce-log")
+
+
+def test_bitcoind_transient_failure_while_waiting(node_factory, bitcoind):
+    """lightningd must survive a transient bitcoind outage while polling
+    getchaininfo instead of fatal() (SIGABRT, issue #9573)."""
+    l1 = node_factory.get_node(may_fail=True)
+    bitcoind.generate_block(10)
+    sync_blockheight(bitcoind, [l1])
+    l1.stop()
+
+    # Shrink the chain: on restart the node must wait for bitcoind to
+    # catch up (wait_until_height_reached loop), polling getchaininfo.
+    for _ in range(40):
+        bitcoind.rpc.invalidateblock(bitcoind.rpc.getbestblockhash())
+
+    l1.daemon.start(wait_for_initialized=False)
+    l1.daemon.wait_for_log('bitcoind has gone backwards.*waiting')
+
+    # Transient backend outage mid-poll: must NOT kill lightningd.
+    bitcoind.stop()
+    time.sleep(20)
+    assert l1.daemon.is_running()
+
+    bitcoind.start()
+    bitcoind.generate_block(45)
+    sync_blockheight(bitcoind, [l1])
+    assert l1.rpc.getinfo()['blockheight'] == bitcoind.rpc.getblockcount()
+
+
+def test_bitcoind_transient_failure_during_sync_wait(node_factory, bitcoind):
+    """Same as above, but holding the retry_sync loop (sync-wait)."""
+    l1 = node_factory.get_node(may_fail=True)
+    bitcoind.generate_block(10)
+    sync_blockheight(bitcoind, [l1])
+    l1.stop()
+    for _ in range(40):
+        bitcoind.rpc.invalidateblock(bitcoind.rpc.getbestblockhash())
+
+    l1.daemon.start(wait_for_initialized=False)
+    l1.daemon.wait_for_log('bitcoind has gone backwards.*waiting')
+    # Let the node finish the height wait but stay behind the headers:
+    # it then sits in the sync-wait loop (retry_sync), polling getchaininfo.
+    bitcoind.generate_block(36)
+    l1.daemon.wait_for_log('Waiting for bitcoind to catch up')
+
+    bitcoind.stop()
+    time.sleep(25)
+    assert l1.daemon.is_running()
+
+    bitcoind.start()
+    bitcoind.generate_block(6)
+    sync_blockheight(bitcoind, [l1])
+    assert l1.rpc.getinfo()['blockheight'] == bitcoind.rpc.getblockcount()
