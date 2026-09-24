@@ -1,6 +1,7 @@
 use crate::codec::{JsonCodec, JsonRpcCodec};
 pub use anyhow::anyhow;
 use anyhow::{Context, Result};
+use futures::FutureExt;
 use futures::sink::SinkExt;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
@@ -228,7 +229,8 @@ where
 
     /// Add a hook subscription for `hookname` with typed request and response. The request is
     /// deserialized from JSON into `Req` and the response is serialized from `Resp` back to JSON
-    /// automatically. If deserialization of the request fails, the hook returns an error to CLN.
+    /// automatically. If deserialization of the request fails, an error is returned and handled
+    /// according to the hook fallback policy.
     /// Use [`Builder::hook_from_builder`] with [`HookBuilder::new_typed`] if you additionally need
     /// to configure `before`, `after`, or `filters`.
     pub fn hook_typed<C, F, Req, Resp>(mut self, hookname: &str, callback: C) -> Self
@@ -245,19 +247,18 @@ where
             Hook {
                 name: hookname.clone(),
                 callback: Box::new(move |p, r| {
-                    let typed_req = serde_json::from_value(r).unwrap_or_else(|e| {
-                        let error = format!(
-                            "cln-plugin: hook '{hookname}' received a request that doesn't match \
-                            the expected schema. Error: {e}"
-                        );
-                        println!(
-                            "{}",
-                            serde_json::json!({"jsonrpc": "2.0",
-                          "method": "log",
-                          "params": {"level":"warn", "message":error}})
-                        );
-                        std::process::exit(1);
-                    });
+                    let hookname = hookname.clone();
+                    let typed_req = match serde_json::from_value(r) {
+                        Ok(req) => req,
+                        Err(e) => {
+                            let error = format!(
+                                "cln-plugin: hook '{hookname}' received a request that doesn't \
+                                match the expected schema. Error: {e}"
+                            );
+                            log::warn!("{error}");
+                            return Box::pin(async move { Err(anyhow!("{error}")) });
+                        }
+                    };
                     let fut = callback(p, typed_req);
                     Box::pin(async move {
                         let typed_resp = fut.await?;
@@ -405,11 +406,10 @@ where
             }
         };
 
-        // TODO Split the two hashmaps once we fill in the hook
-        // payload structs in messages.rs
-        let mut rpcmethods: HashMap<String, AsyncCallback<S>> =
+        let rpcmethods: HashMap<String, AsyncCallback<S>> =
             HashMap::from_iter(self.rpcmethods.drain().map(|(k, v)| (k, v.callback)));
-        rpcmethods.extend(self.hooks.drain().map(|(k, v)| (k, v.callback)));
+        let hooks: HashMap<String, AsyncCallback<S>> =
+            HashMap::from_iter(self.hooks.drain().map(|(k, v)| (k, v.callback)));
 
         let subscriptions =
             HashMap::from_iter(self.subscriptions.drain().map(|(k, v)| (k, v.callback)));
@@ -430,7 +430,7 @@ where
             options: self.options,
             option_values: self.option_values,
             configuration,
-            hooks: HashMap::new(),
+            hooks,
         }))
     }
 
@@ -562,19 +562,18 @@ where
         Self {
             name: hookname.clone(),
             callback: Box::new(move |p, r| {
-                let typed_req = serde_json::from_value(r).unwrap_or_else(|e| {
-                    let error = format!(
-                        "cln-plugin: hook '{hookname}' received a request that doesn't match \
-                        the expected schema. Error: {e}"
-                    );
-                    println!(
-                        "{}",
-                        serde_json::json!({"jsonrpc": "2.0",
-                          "method": "log",
-                          "params": {"level":"warn", "message":error}})
-                    );
-                    std::process::exit(1);
-                });
+                let hookname = hookname.clone();
+                let typed_req = match serde_json::from_value(r) {
+                    Ok(req) => req,
+                    Err(e) => {
+                        let error = format!(
+                            "cln-plugin: hook '{hookname}' received a request that doesn't match \
+                            the expected schema. Error: {e}"
+                        );
+                        log::warn!("{error}");
+                        return Box::pin(async move { Err(anyhow!("{error}")) });
+                    }
+                };
                 let fut = callback(p, typed_req);
                 Box::pin(async move {
                     let typed_resp = fut.await?;
@@ -873,6 +872,29 @@ where
     }
 }
 
+fn hook_fallback(hookname: &str) -> Option<serde_json::Value> {
+    match hookname {
+        "htlc_accepted" => Some(json!({
+            "result": "fail",
+            "failure_message": "2002"
+        })),
+        "peer_connected"
+        | "invoice_payment"
+        | "rpc_command"
+        | "custommsg"
+        | "onion_message_recv"
+        | "onion_message_recv_secret"
+        | "recover" => Some(json!({"result": "continue"})),
+        "openchannel"
+        | "openchannel2"
+        | "openchannel2_changed"
+        | "openchannel2_sign"
+        | "rbf_channel" => Some(json!({"result": "reject"})),
+        // commitment_revocation and db_write cannot recover from failing, let lightningd crash
+        _ => None,
+    }
+}
+
 impl<S> PluginDriver<S>
 where
     S: Send + Clone,
@@ -939,46 +961,147 @@ where
                             .context("Missing 'method' in request")?
                             .as_str()
                             .context("'method' is not a string")?;
-                        let callback = match method {
-                            name if name.eq("setconfig") => {
-                                self.setconfig_callback.as_ref().ok_or_else(|| {
-                                    anyhow!("No handler for method '{}' registered", method)
-                                })?
-                            }
-                            _ => self.rpcmethods.get(method).with_context(|| {
-                                anyhow!("No handler for method '{}' registered", method)
-                            })?,
-                        };
                         let params = request
                             .get("params")
                             .context("Missing 'params' field in request")?
                             .clone();
 
                         let plugin = plugin.clone();
-                        let call = callback(plugin.clone(), params);
+                        let method_str = method.to_string();
 
-                        tokio::spawn(async move {
-                            match call.await {
-                                Ok(v) => plugin
-                                    .sender
-                                    .send(json!({
-                                    "jsonrpc": "2.0",
-                                    "id": id,
-                                    "result": v
-                                    }))
-                                    .await
-                                    .context("returning custom response"),
-                                Err(e) => plugin
-                                    .sender
-                                    .send(json!({
-                                    "jsonrpc": "2.0",
-                                    "id": id,
-                                    "error": parse_error(e.to_string()),
-                                    }))
-                                    .await
-                                    .context("returning custom error"),
-                            }
-                        });
+                        if let Some(callback) = self.hooks.get(method) {
+                            let call = callback(plugin.clone(), params);
+                            tokio::spawn(async move {
+                                let res = std::panic::AssertUnwindSafe(call).catch_unwind().await;
+                                match res {
+                                    Ok(Ok(v)) => {
+                                        let _ = plugin
+                                            .sender
+                                            .send(json!({
+                                                "jsonrpc": "2.0",
+                                                "id": id,
+                                                "result": v
+                                            }))
+                                            .await
+                                            .context("returning custom response");
+                                    }
+                                    Ok(Err(e)) => {
+                                        if let Some(fallback) = hook_fallback(&method_str) {
+                                            log::error!(
+                                                "Hook handler for '{method_str}' failed with \
+                                                error: {e}. Returning safe fallback response to \
+                                                avoid crashing the main daemon."
+                                            );
+                                            let _ = plugin
+                                                .sender
+                                                .send(json!({
+                                                    "jsonrpc": "2.0",
+                                                    "id": id,
+                                                    "result": fallback
+                                                }))
+                                                .await
+                                                .context("returning hook fallback response");
+                                        } else {
+                                            let _ = plugin
+                                                .sender
+                                                .send(json!({
+                                                    "jsonrpc": "2.0",
+                                                    "id": id,
+                                                    "error": parse_error(e.to_string()),
+                                                }))
+                                                .await
+                                                .context("returning custom error");
+                                        }
+                                    }
+                                    Err(_) => {
+                                        if let Some(fallback) = hook_fallback(&method_str) {
+                                            log::error!(
+                                                "Hook handler for '{method_str}' panicked. \
+                                                Returning safe fallback response to avoid hanging \
+                                                the main daemon."
+                                            );
+                                            let _ = plugin
+                                                .sender
+                                                .send(json!({
+                                                    "jsonrpc": "2.0",
+                                                    "id": id,
+                                                    "result": fallback
+                                                }))
+                                                .await
+                                                .context("returning hook fallback response");
+                                        } else {
+                                            log::error!(
+                                                "Hook handler for '{method_str}' panicked."
+                                            );
+                                            let err =
+                                                anyhow!("Hook handler for '{method_str}' panicked");
+                                            let _ = plugin
+                                                .sender
+                                                .send(json!({
+                                                    "jsonrpc": "2.0",
+                                                    "id": id,
+                                                    "error": parse_error(err.to_string()),
+                                                }))
+                                                .await
+                                                .context("returning hook panic error");
+                                        }
+                                    }
+                                }
+                            });
+                        } else {
+                            let callback = match method {
+                                name if name.eq("setconfig") => {
+                                    self.setconfig_callback.as_ref().ok_or_else(|| {
+                                        anyhow!("No handler for method '{method}' registered")
+                                    })?
+                                }
+                                _ => self.rpcmethods.get(method).with_context(|| {
+                                    anyhow!("No handler for method '{method}' registered")
+                                })?,
+                            };
+
+                            let call = callback(plugin.clone(), params);
+                            tokio::spawn(async move {
+                                let res = std::panic::AssertUnwindSafe(call).catch_unwind().await;
+                                match res {
+                                    Ok(Ok(v)) => {
+                                        let _ = plugin
+                                            .sender
+                                            .send(json!({
+                                                "jsonrpc": "2.0",
+                                                "id": id,
+                                                "result": v
+                                            }))
+                                            .await
+                                            .context("returning custom response");
+                                    }
+                                    Ok(Err(e)) => {
+                                        let _ = plugin
+                                            .sender
+                                            .send(json!({
+                                                "jsonrpc": "2.0",
+                                                "id": id,
+                                                "error": parse_error(e.to_string()),
+                                            }))
+                                            .await
+                                            .context("returning custom error");
+                                    }
+                                    Err(_) => {
+                                        log::error!("RPC handler for '{method_str}' panicked.");
+                                        let err = anyhow!("RPC method '{method_str}' panicked");
+                                        let _ = plugin
+                                            .sender
+                                            .send(json!({
+                                                "jsonrpc": "2.0",
+                                                "id": id,
+                                                "error": parse_error(err.to_string()),
+                                            }))
+                                            .await
+                                            .context("returning rpc panic error");
+                                    }
+                                }
+                            });
+                        }
                         Ok(())
                     }
                     messages::JsonRpc::CustomNotification(request) => {
@@ -996,17 +1119,20 @@ where
 
                         // Send to notification to the wildcard
                         // subscription "*" it it exists
-                        match &self.wildcard_subscription {
-                            Some(cb) => {
-                                let call = cb(plugin.clone(), params.clone());
-                                tokio::spawn(async move {
-                                    if let Err(e) = call.await {
-                                        log::warn!("Wildcard notification handler error: '{}'", e)
+                        if let Some(cb) = &self.wildcard_subscription {
+                            let call = cb(plugin.clone(), params.clone());
+                            tokio::spawn(async move {
+                                match std::panic::AssertUnwindSafe(call).catch_unwind().await {
+                                    Ok(Err(e)) => {
+                                        log::warn!("Wildcard notification handler error: '{e}'");
                                     }
-                                });
-                            }
-                            None => {}
-                        };
+                                    Err(_) => {
+                                        log::error!("Wildcard notification handler panicked");
+                                    }
+                                    Ok(Ok(())) => {}
+                                }
+                            });
+                        }
 
                         // Find the appropriate callback and process it
                         // We'll log a warning if no handler is defined
@@ -1014,8 +1140,16 @@ where
                             Some(cb) => {
                                 let call = cb(plugin.clone(), params.clone());
                                 tokio::spawn(async move {
-                                    if let Err(e) = call.await {
-                                        log::warn!("Notification handler error: '{}'", e)
+                                    match std::panic::AssertUnwindSafe(call).catch_unwind().await {
+                                        Ok(Err(e)) => {
+                                            log::warn!("Notification handler error: '{e}'");
+                                        }
+                                        Err(_) => {
+                                            log::error!(
+                                                "Notification handler error: handler panicked"
+                                            );
+                                        }
+                                        Ok(Ok(())) => {}
                                     }
                                 });
                             }
@@ -1132,5 +1266,276 @@ mod test {
         let state = ();
         let builder = Builder::new(tokio::io::stdin(), tokio::io::stdout());
         let _ = builder.start(state);
+    }
+
+    fn dummy_configuration() -> Configuration {
+        Configuration {
+            lightning_dir: "".into(),
+            rpc_file: "".into(),
+            startup: false,
+            network: "".into(),
+            feature_set: HashMap::new(),
+            proxy: None,
+            torv3_enabled: None,
+            always_use_proxy: None,
+        }
+    }
+
+    #[tokio::test]
+    async fn test_hook_error_returns_safe_fallback() {
+        let (mut client_write, server_read) = tokio::io::duplex(1024);
+        let mut framed_in = FramedRead::new(server_read, JsonRpcCodec::default());
+        let (sender, mut receiver) = tokio::sync::mpsc::channel(4);
+        let (wait_handle, _) = tokio::sync::broadcast::channel(1);
+
+        let plugin = Plugin {
+            state: (),
+            options: HashMap::new(),
+            option_values: Arc::new(std::sync::Mutex::new(HashMap::new())),
+            configuration: dummy_configuration(),
+            wait_handle,
+            sender,
+        };
+
+        let mut hooks: HashMap<String, AsyncCallback<()>> = HashMap::new();
+        hooks.insert(
+            "openchannel2".to_string(),
+            Box::new(|_p, _r| Box::pin(async { Err(anyhow!("something broke in openchannel2")) })),
+        );
+
+        let driver = PluginDriver {
+            plugin: plugin.clone(),
+            rpcmethods: HashMap::new(),
+            setconfig_callback: None,
+            hooks,
+            subscriptions: HashMap::new(),
+            wildcard_subscription: None,
+        };
+
+        client_write
+            .write_all(b"{\"jsonrpc\": \"2.0\", \"id\": 42, \"method\": \"openchannel2\", \"params\": {}}\n\n")
+            .await
+            .unwrap();
+
+        driver
+            .dispatch_one(&mut framed_in, &driver.plugin)
+            .await
+            .unwrap();
+
+        let response = receiver.recv().await.unwrap();
+        assert_eq!(response["id"], 42);
+        assert_eq!(response["result"], json!({"result": "reject"}));
+    }
+
+    #[tokio::test]
+    async fn test_hook_panic_returns_safe_fallback() {
+        let (mut client_write, server_read) = tokio::io::duplex(1024);
+        let mut framed_in = FramedRead::new(server_read, JsonRpcCodec::default());
+        let (sender, mut receiver) = tokio::sync::mpsc::channel(4);
+        let (wait_handle, _) = tokio::sync::broadcast::channel(1);
+
+        let plugin = Plugin {
+            state: (),
+            options: HashMap::new(),
+            option_values: Arc::new(std::sync::Mutex::new(HashMap::new())),
+            configuration: dummy_configuration(),
+            wait_handle,
+            sender,
+        };
+
+        let mut hooks: HashMap<String, AsyncCallback<()>> = HashMap::new();
+        hooks.insert(
+            "htlc_accepted".to_string(),
+            Box::new(|_p, _r| {
+                Box::pin(async {
+                    panic!("hook handler explicitly panicked!");
+                })
+            }),
+        );
+
+        let driver = PluginDriver {
+            plugin: plugin.clone(),
+            rpcmethods: HashMap::new(),
+            setconfig_callback: None,
+            hooks,
+            subscriptions: HashMap::new(),
+            wildcard_subscription: None,
+        };
+
+        client_write
+            .write_all(b"{\"jsonrpc\": \"2.0\", \"id\": 99, \"method\": \"htlc_accepted\", \"params\": {}}\n\n")
+            .await
+            .unwrap();
+
+        driver
+            .dispatch_one(&mut framed_in, &driver.plugin)
+            .await
+            .unwrap();
+
+        let response = receiver.recv().await.unwrap();
+        assert_eq!(response["id"], 99);
+        assert_eq!(
+            response["result"],
+            json!({"result": "fail", "failure_message": "2002"})
+        );
+    }
+
+    #[tokio::test]
+    async fn test_typed_hook_schema_mismatch_fallback() {
+        #[derive(serde::Deserialize)]
+        struct ExpectedPayload {
+            #[allow(dead_code)]
+            mandatory_field: String,
+        }
+
+        #[derive(serde::Serialize)]
+        struct DummyResponse {
+            result: String,
+        }
+
+        let builder = Builder::new(tokio::io::empty(), tokio::io::sink()).hook_typed(
+            "peer_connected",
+            |_p: Plugin<()>, _req: ExpectedPayload| async move {
+                Ok(DummyResponse {
+                    result: "continue".to_string(),
+                })
+            },
+        );
+
+        let (mut client_write, server_read) = tokio::io::duplex(1024);
+        let mut framed_in = FramedRead::new(server_read, JsonRpcCodec::default());
+        let (sender, mut receiver) = tokio::sync::mpsc::channel(4);
+        let (wait_handle, _) = tokio::sync::broadcast::channel(1);
+
+        let plugin = Plugin {
+            state: (),
+            options: HashMap::new(),
+            option_values: Arc::new(std::sync::Mutex::new(HashMap::new())),
+            configuration: dummy_configuration(),
+            wait_handle,
+            sender,
+        };
+
+        let hooks: HashMap<String, AsyncCallback<()>> =
+            HashMap::from_iter(builder.hooks.into_iter().map(|(k, v)| (k, v.callback)));
+
+        let driver = PluginDriver {
+            plugin: plugin.clone(),
+            rpcmethods: HashMap::new(),
+            setconfig_callback: None,
+            hooks,
+            subscriptions: HashMap::new(),
+            wildcard_subscription: None,
+        };
+
+        // Send invalid payload (missing mandatory_field)
+        client_write
+            .write_all(b"{\"jsonrpc\": \"2.0\", \"id\": 101, \"method\": \"peer_connected\", \"params\": {}}\n\n")
+            .await
+            .unwrap();
+
+        driver
+            .dispatch_one(&mut framed_in, &driver.plugin)
+            .await
+            .unwrap();
+
+        let response = receiver.recv().await.unwrap();
+        assert_eq!(response["id"], 101);
+        assert_eq!(response["result"], json!({"result": "continue"}));
+    }
+
+    #[tokio::test]
+    async fn test_crash_only_hook_returns_error() {
+        let (mut client_write, server_read) = tokio::io::duplex(1024);
+        let mut framed_in = FramedRead::new(server_read, JsonRpcCodec::default());
+        let (sender, mut receiver) = tokio::sync::mpsc::channel(4);
+        let (wait_handle, _) = tokio::sync::broadcast::channel(1);
+
+        let plugin = Plugin {
+            state: (),
+            options: HashMap::new(),
+            option_values: Arc::new(std::sync::Mutex::new(HashMap::new())),
+            configuration: dummy_configuration(),
+            wait_handle,
+            sender,
+        };
+
+        let mut hooks: HashMap<String, AsyncCallback<()>> = HashMap::new();
+        hooks.insert(
+            "db_write".to_string(),
+            Box::new(|_p, _r| Box::pin(async { Err(anyhow!("db disk full")) })),
+        );
+
+        let driver = PluginDriver {
+            plugin: plugin.clone(),
+            rpcmethods: HashMap::new(),
+            setconfig_callback: None,
+            hooks,
+            subscriptions: HashMap::new(),
+            wildcard_subscription: None,
+        };
+
+        client_write
+            .write_all(b"{\"jsonrpc\": \"2.0\", \"id\": 777, \"method\": \"db_write\", \"params\": {}}\n\n")
+            .await
+            .unwrap();
+
+        driver
+            .dispatch_one(&mut framed_in, &driver.plugin)
+            .await
+            .unwrap();
+
+        let response = receiver.recv().await.unwrap();
+        assert_eq!(response["id"], 777);
+        assert!(response.get("error").is_some());
+    }
+
+    #[tokio::test]
+    async fn test_rpc_method_named_recover_returns_error_not_fallback() {
+        let (mut client_write, server_read) = tokio::io::duplex(1024);
+        let mut framed_in = FramedRead::new(server_read, JsonRpcCodec::default());
+        let (sender, mut receiver) = tokio::sync::mpsc::channel(4);
+        let (wait_handle, _) = tokio::sync::broadcast::channel(1);
+
+        let plugin = Plugin {
+            state: (),
+            options: HashMap::new(),
+            option_values: Arc::new(std::sync::Mutex::new(HashMap::new())),
+            configuration: dummy_configuration(),
+            wait_handle,
+            sender,
+        };
+
+        let mut rpcmethods: HashMap<String, AsyncCallback<()>> = HashMap::new();
+        rpcmethods.insert(
+            "recover".to_string(),
+            Box::new(|_p, _r| Box::pin(async { Err(anyhow!("recover rpc failed")) })),
+        );
+
+        let driver = PluginDriver {
+            plugin: plugin.clone(),
+            rpcmethods,
+            setconfig_callback: None,
+            hooks: HashMap::new(),
+            subscriptions: HashMap::new(),
+            wildcard_subscription: None,
+        };
+
+        client_write
+            .write_all(
+                b"{\"jsonrpc\": \"2.0\", \"id\": 888, \"method\": \"recover\", \"params\": {}}\n\n",
+            )
+            .await
+            .unwrap();
+
+        driver
+            .dispatch_one(&mut framed_in, &driver.plugin)
+            .await
+            .unwrap();
+
+        let response = receiver.recv().await.unwrap();
+        assert_eq!(response["id"], 888);
+        assert!(response.get("error").is_some());
+        assert_eq!(response["error"]["message"], "recover rpc failed");
     }
 }
