@@ -1273,40 +1273,6 @@ void channel_gossip_channel_disconnect(struct channel *channel)
 	channel->reestablished = false;
 }
 
-/* We *could* send channel_updates for private channels, or
- * unannounced.  We do not */
-const u8 *channel_gossip_update_for_error(const tal_t *ctx,
-					  struct channel *channel)
-{
-	/* We cannot ask this about unsaved channels. */
-	struct channel_gossip *cg = channel->channel_gossip;
-
-	switch (cg->state) {
-	case CGOSSIP_CHANNEL_DEAD:
-	case CGOSSIP_CHANNEL_UNANNOUNCED_DYING:
-	case CGOSSIP_PRIVATE_WAITING_FOR_USABLE:
-	case CGOSSIP_PRIVATE:
-	case CGOSSIP_WAITING_FOR_USABLE:
-	case CGOSSIP_WAITING_FOR_SCID:
-	case CGOSSIP_WAITING_FOR_MATCHING_PEER_SIGS:
-	case CGOSSIP_WAITING_FOR_ANNOUNCE_DEPTH:
-		return NULL;
-	case CGOSSIP_CHANNEL_ANNOUNCED_DYING:
-	case CGOSSIP_CHANNEL_ANNOUNCED_DEAD:
-		return cg->cupdate;
-	case CGOSSIP_ANNOUNCED:
-		/* At this point we actually disable disconnected peers. */
-		if (update_channel_update(channel, channel_should_enable(channel, false))) {
-			broadcast_new_gossip(channel->peer->ld,
-					     cg->cupdate, NULL,
-					     "channel update");
-		}
-		check_channel_gossip(channel);
-		return cg->cupdate;
-	}
-	fatal("Bad channel_gossip_state %u", cg->state);
-}
-
 /* BOLT #7:
  *    - MUST set the `short_channel_id` to either an `alias` it has
  *      received from the peer, or the real channel `short_channel_id`.

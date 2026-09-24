@@ -283,8 +283,39 @@ def test_pay_disconnect(node_factory, bitcoind):
 
 
 def test_pay_error_update_fees(node_factory):
-    """We should process an update inside a temporary_channel_failure"""
-    l1, l2, l3 = node_factory.line_graph(3, fundchannel=True, wait_for_announce=True)
+    """We should process a channel_update inside an onion failure.
+
+    CLN no longer includes channel_update in failures (BOLT #1173), so
+    this simulates a peer that still does: l2 fails the first forward
+    with fee_insufficient carrying the updated channel_update.
+    """
+    import struct
+
+    # Mutable cell so the inline plugin (same process) sees the update
+    # once we've extracted it from l2's gossip_store.
+    upd_cell = {'hex': None}
+
+    def setup(plugin):
+        failed_hashes = set()
+
+        @plugin.hook("htlc_accepted")
+        def on_htlc_accepted(onion, htlc, plugin, **kwargs):
+            upd = upd_cell['hex']
+            ph = htlc['payment_hash']
+            if upd is None or ph in failed_hashes or 'short_channel_id' not in onion:
+                return {"result": "continue"}
+            failed_hashes.add(ph)
+            # fee_insufficient: type UPDATE|12, htlc_msat, len, channel_update
+            amount = int(str(htlc['amount_msat']).replace('msat', ''))
+            upd_bytes = bytes.fromhex(upd)
+            msg = struct.pack('>HQH', 0x100c, amount, len(upd_bytes)) + upd_bytes
+            return {"result": "fail", "failure_message": msg.hex()}
+
+    l1 = node_factory.get_node()
+    l2 = node_factory.get_node(inline_plugin=setup)
+    l3 = node_factory.get_node()
+    node_factory.join_nodes([l1, l2, l3], fundchannel=True,
+                            wait_for_announce=True)
 
     # Don't include any routehints in first invoice.
     inv1 = l3.dev_invoice(amount_msat=123000,
@@ -297,6 +328,40 @@ def test_pay_error_update_fees(node_factory):
     # Make sure l2 doesn't tell l1 directly that channel fee is changed.
     l2.rpc.dev_suppress_gossip()
     l2.rpc.setchannel(l3.info['id'], 1337, 137, enforcedelay=0)
+
+    # l2 still stores the new update in its gossip_store (addgossip happens
+    # even when peer broadcast is suppressed).  Extract it for the plugin.
+    scid = l2.get_channel_scid(l3)
+    # Direction of l2→l3: 0 if l2's id sorts before l3's (node_id_1).
+    l2_dir = 0 if l2.info['id'] < l3.info['id'] else 1
+    gs_path = os.path.join(l2.daemon.lightning_dir, TEST_NETWORK, 'gossip_store')
+
+    def get_new_update():
+        out = subprocess.run(['devtools/dump-gossipstore', gs_path],
+                             check=True, timeout=TIMEOUT,
+                             stdout=subprocess.PIPE)
+        for line in out.stdout.decode().splitlines():
+            # t=... channel_update(scid/dir): hex
+            if f'channel_update({scid}/{l2_dir})' not in line:
+                continue
+            upd_hex = line.rsplit(': ', 1)[-1].strip()
+            if not upd_hex.startswith('0102'):
+                continue
+            # fee_base is after type(2)+sig(64)+chain(32)+ts(4)+scid(8)
+            # +mflags(1)+cflags(1)+cltv(2)+htlc_min(8) = 122
+            fee_base = struct.unpack_from('>I', bytes.fromhex(upd_hex), 122)[0]
+            if fee_base == 1337:
+                return upd_hex
+        return None
+
+    # wait_for does not return the predicate value; stash it in the cell.
+    def wait_update():
+        upd = get_new_update()
+        if upd:
+            upd_cell['hex'] = upd
+        return upd
+
+    wait_for(wait_update)
 
     # Should bounce off and retry...
     ret = l1.rpc.pay(inv1['bolt11'])
