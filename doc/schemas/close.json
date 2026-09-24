@@ -66,7 +66,7 @@
           "type": "feerate"
         },
         "description": [
-          "An optional array [ *min*, *max* ], indicating the minimum and maximum feerates to offer: the peer will obey these if it supports the quick-close protocol. *slow* and *unilateral_close* are the defaults. Note that the maximum fee will be capped at the final commitment transaction fee (unless the experimental anchor-outputs option is negotiated)."
+          "An optional array [ *min*, *max* ], indicating the minimum and maximum feerates to offer (*min* must not exceed *max*): the peer will obey these if it supports the quick-close protocol. *slow* and *unilateral_close* are the defaults. Note that the maximum fee will be capped at the final commitment transaction fee (unless the experimental anchor-outputs option is negotiated)."
         ]
       }
     }
