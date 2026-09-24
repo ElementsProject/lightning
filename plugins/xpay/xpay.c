@@ -106,9 +106,9 @@ struct payment {
 	u32 maxdelay;
 	/* If non-zero: maximum number of payment routes that can be pending. */
 	u32 maxparts;
-	/* BOLT-11 payment secret (NULL for BOLT-12, it uses blinded paths) */
+	/* Payment secret for BOLT-11 (NULL for BOLT-12, it uses blinded paths) */
 	const struct secret *payment_secret;
-	/* BOLT-11 payment metadata (NULL for BOLT-12, it uses blinded paths) */
+	/* Payment metadata for BOLT-11 (NULL for BOLT-12, it uses blinded paths) */
 	const u8 *payment_metadata;
 	/* Final CLTV value */
 	u32 final_cltv;
