@@ -3219,7 +3219,6 @@ def test_dataloss_protection(node_factory, bitcoind):
 
 
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "sqlite3-specific DB rollback")
-@pytest.mark.xfail(strict=True)
 def test_dataloss_protection_reconnect(node_factory, bitcoind):
     """l2's first ERROR never hits the wire: reconnect must still work.
 
