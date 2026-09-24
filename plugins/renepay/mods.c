@@ -732,9 +732,23 @@ static struct command_result *compute_routes_cb(struct payment *payment)
 
 	gossmap_remove_localmods(pay_plugin->gossmap, payment->local_gossmods);
 
-	/* Couldn't feasible route, we stop. */
+	/* Couldn't find a feasible route.  If HTLCs or results are still in
+	 * flight, wait: sibling failures free capacity in the uncertainty
+	 * network and a later attempt may succeed. */
 	if (!routetracker->computed_routes ||
 	    tal_count(routetracker->computed_routes) == 0) {
+		if (!amount_msat_is_zero(payment->total_delivering) ||
+		    tal_count(routetracker->finalized_routes) > 0) {
+			plugin_log(
+			    pay_plugin->plugin, LOG_UNUSUAL,
+			    "%s: no route for remaining amount while %s "
+			    "pending "
+			    "or results uncollected, waiting instead of "
+			    "failing.",
+			    __func__,
+			    fmt_amount_msat(tmpctx, payment->total_delivering));
+			return payment_continue(payment);
+		}
 		if (err_msg == NULL)
 			err_msg = tal_fmt(
 			    tmpctx, "get_routes returned NULL error message");
