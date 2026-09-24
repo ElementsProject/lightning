@@ -454,3 +454,60 @@ def test_usage():
     assert "some_method" in usage
     assert "some_arg" in usage
     assert "some description" in usage
+
+
+def test_hook_fallbacks_and_exception_redaction():
+    from pyln.client.plugin import hook_fallbacks
+
+    # Test all hook fallbacks are defined properly
+    expected_hooks = {
+        'htlc_accepted': {'result': 'fail', 'failure_message': '2002'},
+        'peer_connected': {'result': 'continue'},
+        'invoice_payment': {'result': 'continue'},
+        'openchannel': {'result': 'reject'},
+        'rpc_command': {'result': 'continue'},
+        'custommsg': {'result': 'continue'},
+        'openchannel2': {'result': 'reject'},
+        'openchannel2_changed': {'result': 'reject'},
+        'openchannel2_sign': {'result': 'reject'},
+        'rbf_channel': {'result': 'reject'},
+        'onion_message_recv': {'result': 'continue'},
+        'onion_message_recv_secret': {'result': 'continue'},
+        'recover': {'result': 'continue'},
+    }
+    for hook, fallback in expected_hooks.items():
+        assert hook in hook_fallbacks
+        assert hook_fallbacks[hook] == fallback
+
+    # commitment_revocation and db_write must not have fallbacks (crash-only)
+    assert 'commitment_revocation' not in hook_fallbacks
+    assert 'db_write' not in hook_fallbacks
+
+    p = Plugin(autopatch=False)
+    results = {}
+
+    def fake_write_result(resultdict):
+        results['last'] = resultdict
+
+    for hook, fallback in expected_hooks.items():
+        @p.hook(hook)
+        def failing_hook(**kwargs):
+            raise RuntimeError("hook failure simulation")
+
+        req = Request(p, 1, hook, {})
+        req._write_result = fake_write_result
+        p._dispatch_request(req)
+        assert results['last']['result'] == fallback
+        del p.methods[hook]
+
+    # Verify an RPC method named 'recover' is treated as an RPC method, not a hook
+    @p.method("recover")
+    def rpc_recover():
+        raise RuntimeError("recover rpc failed")
+
+    req = Request(p, 3, "recover", {})
+    req._write_result = fake_write_result
+    p._dispatch_request(req)
+    assert 'error' in results['last']
+    assert 'traceback' not in results['last']['error']
+    assert results['last']['error']['code'] == -32600
