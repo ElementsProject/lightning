@@ -4347,6 +4347,16 @@ static void splice_accepter(struct peer *peer, const u8 *inmsg)
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Splice internal error: mismatched channelid");
 
+	/* The spec requires us to fail if they splice out more than their current channel balance */
+	if (!amount_msat_can_add_sat_s64(peer->channel->view->owed[REMOTE],
+					 peer->splicing->opener_relative))
+		peer_failed_warn(peer->pps, &peer->channel_id,
+				 "Splice contribution %"PRId64"sat exceeds"
+				 " peer balance %s",
+				 peer->splicing->opener_relative,
+				 fmt_amount_msat(tmpctx,
+						 peer->channel->view->owed[REMOTE]));
+
 	if (!pubkey_eq(&peer->splicing->remote_funding_pubkey,
 		       &peer->channel->funding_pubkey[REMOTE]))
 		status_info("Splice peer is rotating funding pubkey");
@@ -4551,6 +4561,16 @@ static void splice_initiator(struct peer *peer, const u8 *inmsg)
 	if (!channel_id_eq(&channel_id, &peer->channel_id))
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Splice[ACK] internal error: mismatched channelid");
+
+	/* The spec requires us to fail if they splice out more than their current channel balance */
+	if (!amount_msat_can_add_sat_s64(peer->channel->view->owed[REMOTE],
+					 peer->splicing->accepter_relative))
+		peer_failed_warn(peer->pps, &peer->channel_id,
+				 "Splice[ACK] contribution %"PRId64"sat exceeds"
+				 " peer balance %s",
+				 peer->splicing->accepter_relative,
+				 fmt_amount_msat(tmpctx,
+						 peer->channel->view->owed[REMOTE]));
 
 	if (!pubkey_eq(&peer->splicing->remote_funding_pubkey,
 		       &peer->channel->funding_pubkey[REMOTE]))
