@@ -683,6 +683,12 @@ static struct command_result *param_feerate_range(struct command *cmd,
 	if (ret)
 		return ret;
 	(*feerate_range)[1] = *rate;
+
+	/* closingd would silently lower min to max, but we check the
+	 * peer's closing tx against min: don't let them disagree. */
+	if ((*feerate_range)[0] > (*feerate_range)[1])
+		return command_fail_badparam(cmd, name, buffer, tok,
+					     "minimum feerate must not exceed maximum");
 	return NULL;
 }
 
