@@ -973,11 +973,6 @@ void channel_set_billboard(struct channel *channel, bool perm,
 struct htlc_in *channel_has_htlc_in(const struct channel *channel);
 struct htlc_out *channel_has_htlc_out(const struct channel *channel);
 
-/* hin can be NULL */
-const u8 *channel_update_for_error(const tal_t *ctx,
-				   const struct htlc_in *hin,
-				   struct channel *channel);
-
 struct amount_msat htlc_max_possible_send(const struct channel *channel);
 
 /* Given features, what channel_type do we want? */
