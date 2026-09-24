@@ -150,7 +150,7 @@ gpg -sb --armor SHA256SUMS
 ## Manual
 Co-maintainers and contributors wishing to add their own signature verify that the `SHA256SUMS` and `SHA256SUMS.asc` files created by the release captain matches their binaries before also signing the manifest.
 
-Always pass **both** files to `gpg --verify`: the signature first, then the file it is supposed to cover. See [Verifying a reproducible build](#verifying-a-reproducible-build) below for why the single-argument form is not sufficient.
+Always pass **both** files to `gpg --verify`: the signature first, then the file it is supposed to cover. See [Verifying a reproducible build](doc:repro#verifying-a-reproducible-build) below for why the single-argument form is not sufficient.
 
 ```shell
 cd release/
