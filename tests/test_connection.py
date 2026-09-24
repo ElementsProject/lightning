@@ -3219,6 +3219,72 @@ def test_dataloss_protection(node_factory, bitcoind):
 
 
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "sqlite3-specific DB rollback")
+@pytest.mark.xfail(strict=True)
+def test_dataloss_protection_reconnect(node_factory, bitcoind):
+    """l2's first ERROR never hits the wire: reconnect must still work.
+
+    Dropping the first ERROR with dev-disconnect makes losing it
+    deterministic, so we always exercise the resend path which
+    test_dataloss_protection only hits when the first error loses the
+    race with l1's channeld exiting.
+    """
+    l1 = node_factory.get_node(may_reconnect=True,
+                               allow_warning=True,
+                               feerates=(7500, 7500, 7500, 7500),
+                               options={'dev-no-reconnect': None})
+    l2 = node_factory.get_node(may_reconnect=True,
+                               broken_log='Cannot broadcast our commitment tx: they have a future one',
+                               disconnect=['-WIRE_ERROR'],
+                               feerates=(7500, 7500, 7500, 7500),
+                               options={'dev-no-reconnect': None})
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.fundchannel(l2, 10**6)
+    l2.stop()
+
+    # Save copy of the db.
+    dbpath = os.path.join(l2.daemon.lightning_dir, TEST_NETWORK, "lightningd.sqlite3")
+    orig_db = Path(dbpath).read_bytes()
+    l2.start()
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    # After an htlc, we should get different results (two more commits)
+    l1.rpc.xpay(l2.rpc.invoice(200000000, 'test', 'test')['bolt11'])
+
+    # Make sure both sides consider it completely settled (has received both
+    # REVOKE_AND_ACK)
+    l1.daemon.wait_for_logs(["peer_in WIRE_REVOKE_AND_ACK"] * 2)
+    l2.daemon.wait_for_logs(["peer_in WIRE_REVOKE_AND_ACK"] * 2)
+
+    # Now, move l2 back in time.
+    l2.stop()
+    Path(dbpath).write_bytes(orig_db)
+    l2.start()
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    # l2 freaks out, but its ERROR is dropped before it hits the wire.
+    # (The relative order of dev_disconnect vs lightningd's logs is a race.)
+    l2.daemon.wait_for_logs(["Peer permanent failure in CHANNELD_NORMAL:.*Awaiting unilateral close",
+                             "Cannot broadcast our commitment tx: they have a future one",
+                             'dev_disconnect: -WIRE_ERROR'])
+    assert not l2.daemon.is_in_log('sendrawtx exit 0',
+                                   start=l2.daemon.logsearch_start)
+
+    # l1 has seen no error, so it must not have gone onchain by itself.
+    time.sleep(1)
+    assert bitcoind.rpc.getrawmempool(False) == []
+
+    # Reconnect: l2 must resend channel->error (alone), so l1 drops to chain.
+    try:
+        l1.rpc.disconnect(l2.info['id'], force=True)
+    except RpcError as err:
+        assert "Peer not connected" in err.error['message']
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.wait_for_channel_onchain(l2.info['id'])
+
+
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "sqlite3-specific DB rollback")
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 def test_dataloss_protection_no_broadcast(node_factory, bitcoind):
