@@ -820,6 +820,7 @@ static struct channel *add_peer(struct lightningd *ld, int n,
 	list_head_init(&peer->channels);
 	peer_node_id_map_add(ld->peers, peer);
 	peer->ld = ld;
+	peer->connected = connected ? PEER_CONNECTED : PEER_DISCONNECTED;
 
 	c->state = state;
 	c->owner = connected ? (void *)peer : NULL;
