@@ -22,6 +22,7 @@
 #include <lightningd/subd.h>
 #include <onchaind/onchaind_wiregen.h>
 #include <wallet/txfilter.h>
+#include <wallet/wallet.h>
 
 /* If we're restarting, we keep a per-channel copy of watches, and replay */
 struct replay_tx {
@@ -666,6 +667,7 @@ struct onchain_signing_info {
 
 	/* Information for consider_onchain_htlc_tx_rebroadcast */
 	struct bitcoin_tx *raw_htlc_tx;
+	struct utxo **boost_utxos;
 
 	/* Tagged union (for sanity checking!) */
 	enum onchaind_wire msgtype;
@@ -752,6 +754,23 @@ static u32 slow_sweep_deadline(const struct chain_topology *topo,
 	return deadline;
 }
 
+static void unreserve_boost_utxos(struct onchain_signing_info *info)
+{
+	struct lightningd *ld = info->channel->peer->ld;
+
+	if (!info->boost_utxos)
+		return;
+	for (size_t i = 0; i < tal_count(info->boost_utxos); i++) {
+		struct utxo *u = wallet_utxo_get(tmpctx, ld->wallet,
+						&info->boost_utxos[i]->outpoint);
+		if (u && u->status == OUTPUT_STATE_RESERVED)
+			wallet_unreserve_utxo(ld->wallet, u,
+					      get_block_height(ld->topology),
+					      u->reserved_til);
+	}
+	info->boost_utxos = tal_free(info->boost_utxos);
+}
+
 static struct onchain_signing_info *new_signing_info(const tal_t *ctx,
 						     struct channel *channel,
 						     enum onchaind_wire msgtype)
@@ -759,6 +778,8 @@ static struct onchain_signing_info *new_signing_info(const tal_t *ctx,
 	struct onchain_signing_info *info = tal(ctx, struct onchain_signing_info);
 	info->channel = channel;
 	info->msgtype = msgtype;
+	info->boost_utxos = NULL;
+	tal_add_destructor(info, (void (*)(void *))unreserve_boost_utxos);
 	return info;
 }
 
@@ -1152,13 +1173,24 @@ static bool consider_onchain_htlc_tx_rebroadcast(struct channel *channel,
 		return true;
 	}
 
-	utxos = wallet_utxo_boost(tmpctx,
+	/* Release last round's selection so we can re-pick (and so a
+	 * concurrent HTLC claim doesn't see it as taken forever). */
+	unreserve_boost_utxos(info);
+
+	utxos = wallet_utxo_boost(info,
 				  ld->wallet,
 				  get_block_height(ld->topology),
 				  AMOUNT_SAT(0),
 				  bitcoin_tx_compute_fee(newtx),
 				  feerate,
 				  &weight, NULL);
+	for (size_t i = 0; i < tal_count(utxos); i++) {
+		if (!wallet_reserve_utxo(ld->wallet, utxos[i],
+					 get_block_height(ld->topology),
+					 1000))
+			fatal("UTXO not reservable?");
+	}
+	info->boost_utxos = utxos;
 
 	/* Add those to create a new PSBT */
 	psbt = psbt_using_utxos(tmpctx, ld->wallet, utxos, locktime,
