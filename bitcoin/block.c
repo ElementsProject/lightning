@@ -155,7 +155,7 @@ bitcoin_block_from_hex(const tal_t *ctx, const struct chainparams *chainparams,
 
 	/* De-hex the array. */
 	len = hex_data_size(hexlen);
-	p = linear_tx = tal_arr(ctx, u8, len);
+	p = linear_tx = tal_arr(b, u8, len);
 	if (!hex_decode(hex, hexlen, linear_tx, len))
 		return tal_free(b);
 
