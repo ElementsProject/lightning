@@ -4336,6 +4336,10 @@ static void splice_accepter(struct peer *peer, const u8 *inmsg)
 			peer_failed_warn(peer->pps, &peer->channel_id,
 					 "Can't tx_init_rbf because we have no"
 					 " pending splice");
+		/* The spec requires us to reject RBF of a splice the peer has already told us is locked */
+		if (peer->splice_state->remote_locked_txid)
+			peer_failed_warn(peer->pps, &peer->channel_id,
+					 "Can't tx_init_rbf after peer sent splice_locked");
 		peer->splicing->remote_funding_pubkey = last_inflight(peer)->remote_funding;
 	}
 
