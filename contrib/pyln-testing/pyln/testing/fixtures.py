@@ -764,7 +764,11 @@ def checkPluginJSON(node):
 
     for f in (Path(node.daemon.lightning_dir) / "plugin-io").iterdir():
         # e.g. hook_in-peer_connected-124567-358
-        io = json.loads(f.read_text())
+        try:
+            io = json.loads(f.read_text())
+        except json.JSONDecodeError:
+            # A kill mid-write leaves an empty or truncated file behind.
+            continue
         parts = f.name.split("-")
         if parts[0] == "hook_in":
             schema = hooks.get(parts[1])
