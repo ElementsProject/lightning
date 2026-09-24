@@ -1305,10 +1305,6 @@ static u8 *send_commit_part(const tal_t *ctx,
 				" for funding %s",
 				remote_index,
 				fmt_bitcoin_outpoint(tmpctx, funding));
-	htlc_sigs =
-	    calc_commitsigs(tmpctx, peer, txs, funding_wscript, htlc_map,
-			    remote_index, remote_per_commit, &commit_sig,
-			    remote_funding_pubkey);
 
 	if (direct_outputs[LOCAL] != NULL) {
 		pbase = penalty_base_new(tmpctx, remote_index,
@@ -1342,6 +1338,8 @@ static u8 *send_commit_part(const tal_t *ctx,
 	if (notify_master) {
 		status_debug("Telling master we're about to commit...");
 		/* Tell master to save this next commit to database, then wait.
+		 * This must happen before signing so stateful signers can retry
+		 * the same request after a crash.
 		 */
 		msg = sending_commitsig_msg(NULL, remote_index, pbase,
 					    peer->channel->fee_states,
@@ -1350,10 +1348,16 @@ static u8 *send_commit_part(const tal_t *ctx,
 		/* Message is empty; receiving it is the point. */
 		master_wait_sync_reply(tmpctx, peer, take(msg),
 				       WIRE_CHANNELD_SENDING_COMMITSIG_REPLY);
+	}
 
+	htlc_sigs =
+	    calc_commitsigs(tmpctx, peer, txs, funding_wscript, htlc_map,
+			    remote_index, remote_per_commit, &commit_sig,
+			    remote_funding_pubkey);
+
+	if (notify_master)
 		status_debug("Sending commit_sig with %zu htlc sigs",
 			     tal_count(htlc_sigs));
-	}
 
 	msg = towire_commitment_signed(ctx, &peer->channel_id,
 				       &commit_sig.s,
