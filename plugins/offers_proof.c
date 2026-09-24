@@ -478,7 +478,7 @@ struct command_result *json_createproof(struct command *cmd,
 	state = tal(cmd, struct createproof_state);
 	if (!param(cmd, buffer, params,
 		   p_req("invstring", param_bolt12_invstring, &state->invinfo),
-		   p_opt("note", param_string, &state->note),
+		   p_opt("note", param_utf8_string, &state->note),
 		   p_opt("include", param_include_types, &state->include_types),
 		   NULL))
 		return command_param_failed();
