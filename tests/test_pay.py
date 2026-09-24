@@ -457,16 +457,17 @@ def test_payment_duplicate_uncommitted(node_factory, executor):
     assert len(payments) == 1
     assert payments[0]['status'] == 'pending' and payments[0]['payment_hash'] == inv1['payment_hash']
 
-    # Second one will be stopped.
+    # Second one will be stopped: xpay only checks for a payment in
+    # progress when it calls injectpaymentonion, so wait for that to
+    # happen *before* the first payment can complete, otherwise it may
+    # see the first payment as complete and fail with "Already paid".
     fut2 = executor.submit(l1.rpc.xpay, inv1['bolt11'])
-
-    # Now, let it commit.
-    l1.rpc.dev_reenable_commit(l2.info['id'])
-
-    # First should succeed, second should be denied.
-    fut.result(TIMEOUT)
     with pytest.raises(RpcError, match="Payment with groupid=[0-9]* still in progress, cannot retry before that completes"):
         fut2.result(TIMEOUT)
+
+    # Now, let it commit: first should succeed.
+    l1.rpc.dev_reenable_commit(l2.info['id'])
+    fut.result(TIMEOUT)
 
 
 def test_pay_maxfee_shadow(node_factory):
