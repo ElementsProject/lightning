@@ -137,34 +137,37 @@ async fn fetch_payment_instructions(
     plugin: Plugin<()>,
     hrn: &HumanReadableName,
 ) -> Result<PaymentInstructions, anyhow::Error> {
-    let hrn_resolver = match get_proxy(plugin) {
-        Some(proxy_info) => {
-            let proxy = reqwest::Proxy::all(format!(
-                "socks5h://{}:{}",
-                proxy_info.address, proxy_info.port
-            ))?;
-            let client = reqwest::Client::builder()
-                .proxy(proxy)
-                .timeout(Duration::from_secs(30))
-                .build()?;
-            HTTPHrnResolver::with_client(client)
-        }
-        None => HTTPHrnResolver::new(),
-    };
+    let mut client = reqwest::Client::builder().timeout(Duration::from_secs(25));
+    if let Some(proxy_info) = get_proxy(plugin) {
+        let proxy = reqwest::Proxy::all(format!(
+            "socks5h://{}:{}",
+            proxy_info.address, proxy_info.port
+        ))?;
+        client = client.proxy(proxy);
+    }
+
+    let hrn_resolver = HTTPHrnResolver::with_client(client.build()?);
 
     log::debug!(
         "Trying to fetch payment instructions for `{}@{}`",
         hrn.user(),
         hrn.domain(),
     );
-    PaymentInstructions::parse(
-        &format!("{}@{}", hrn.user(), hrn.domain()),
-        bitcoin::Network::Bitcoin,
-        &hrn_resolver,
-        false,
+
+    match tokio::time::timeout(
+        Duration::from_secs(30),
+        PaymentInstructions::parse(
+            &format!("{}@{}", hrn.user(), hrn.domain()),
+            bitcoin::Network::Bitcoin,
+            &hrn_resolver,
+            false,
+        ),
     )
     .await
-    .map_err(|e| anyhow!("failed to fetch payment instructions: {:?}", e))
+    {
+        Ok(o) => o.map_err(|e| anyhow!("failed to fetch payment instructions: {e:?}")),
+        Err(_) => Err(anyhow!("timed out fetching payment instructions")),
+    }
 }
 
 fn parse_payment_instructions(
