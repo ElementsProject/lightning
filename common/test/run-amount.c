@@ -183,6 +183,28 @@ static void test_case_amount_div_ceil(u64 input, u64 div, u64 expected)
 	assert(amount_msat_eq(result_msat, expected_msat));
 }
 
+static void test_amount_add_sat_s64(void)
+{
+	struct amount_msat msat;
+	struct amount_sat sat;
+
+	assert(amount_msat_add_sat_s64(&msat, AMOUNT_MSAT(5000), -5));
+	assert(amount_msat_eq(msat, AMOUNT_MSAT(0)));
+	assert(!amount_msat_add_sat_s64(&msat, AMOUNT_MSAT(5000), -6));
+	assert(amount_msat_add_sat_s64(&msat, AMOUNT_MSAT(5000), 5));
+	assert(amount_msat_eq(msat, AMOUNT_MSAT(10000)));
+
+	assert(amount_sat_add_sat_s64(&sat, AMOUNT_SAT(5), -5));
+	assert(amount_sat_eq(sat, AMOUNT_SAT(0)));
+	assert(!amount_sat_add_sat_s64(&sat, AMOUNT_SAT(5), -6));
+
+	/* Negating INT64_MIN must not overflow */
+	assert(!amount_msat_can_add_sat_s64(AMOUNT_MSAT(UINT64_MAX), INT64_MIN));
+	assert(!amount_sat_add_sat_s64(&sat, AMOUNT_SAT(0), INT64_MIN));
+	assert(amount_sat_add_sat_s64(&sat, AMOUNT_SAT((u64)1 << 63), INT64_MIN));
+	assert(amount_sat_eq(sat, AMOUNT_SAT(0)));
+}
+
 static void test_amount_div(void)
 {
 	test_case_amount_div(1, 1, 1);
@@ -455,5 +477,6 @@ int main(int argc, char *argv[])
 
 	test_amount_with_fee();
 	test_amount_div();
+	test_amount_add_sat_s64();
 	common_shutdown();
 }
