@@ -117,7 +117,7 @@ static void NORETURN negotiation_aborted(struct state *state, const char *why)
 	 * each state, which can be used to indicate what went wrong in that
 	 * state (such as here), and a single transient area for current
 	 * status. */
-	peer_billboard(true, why);
+	peer_billboard(true, "%s", why);
 
 	/* Tell master that funding failed. */
 	wire_sync_write(REQ_FD, take(towire_openingd_failed(NULL, why)));

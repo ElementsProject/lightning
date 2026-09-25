@@ -1745,7 +1745,7 @@ static struct htlcs_info *init_reply(const tal_t *ctx, const char *what)
 	wire_sync_write(REQ_FD,
 			take(towire_onchaind_init_reply(NULL, commit_num)));
 
-	peer_billboard(true, what);
+	peer_billboard(true, "%s", what);
 
 	/* Read in htlcs (ignoring everything else for now) */
 	msg = queue_until_msg(tmpctx, WIRE_ONCHAIND_HTLCS);

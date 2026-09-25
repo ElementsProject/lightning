@@ -215,7 +215,7 @@ static void billboard_update(const struct peer *peer)
 					       peer->depth_togo,
 					       num_channel_htlcs(peer->channel));
 
-	peer_billboard(false, update);
+	peer_billboard(false, "%s", update);
 }
 
 const u8 *hsm_req(const tal_t *ctx, const u8 *req TAKES)
