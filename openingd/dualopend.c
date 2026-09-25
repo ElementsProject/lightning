@@ -1351,12 +1351,55 @@ static void handle_commit_signed(struct state *state, const u8 *msg)
 	wire_sync_write(REQ_FD, take(msg));
 }
 
+/* Minimal standard policy check. see bitcoin's src/policy/policy.h */
+/* same as MAX_STANDARD_P2WSH_STACK_ITEMS */
+#define MAX_WITNESS_STACK_ITEMS 100
+
+/* BOLT #2:
+ * The receiving node:
+ *   - MUST fail the negotiation if:
+ *     - the message contains an empty `witness`
+ * ...
+ *     - the `witnesses` are non-standard
+ *     - a signature uses a flag that is not `SIGHASH_ALL` (0x01)
+ */
+static const char *check_tx_signatures_witness(const tal_t *ctx,
+					       const struct witness *witness)
+{
+	size_t num_items;
+
+	if (!witness || !witness->witness_data ||
+	    tal_count(witness->witness_data) == 0)
+		return tal_fmt(ctx, "witness is empty");
+
+	if (!witness_stack_items(witness->witness_data, &num_items))
+		return tal_fmt(ctx, "witness unparseable stack count");
+
+	/* Empty stack, or explicit zero items. */
+	if (num_items == 0)
+		return tal_fmt(ctx, "witness is empty");
+
+	if (num_items > MAX_WITNESS_STACK_ITEMS)
+		return tal_fmt(ctx,
+			       "witness is non-standard: "
+			       "%zu stack items",
+			       num_items);
+
+	/* FIXME: to fully adhere to the specification we would have to
+	 * implement bitcoin's virtual machine for script. Alternatively we
+	 * could limit the types of outputs we accept to P2WPKH, P2WSH but
+	 * only well known scripts (eg. multisig zoo) and P2TR key path. */
+	return NULL;
+}
+
 static void handle_tx_sigs(struct state *state, const u8 *msg)
 {
 	struct channel_id cid;
 	struct bitcoin_txid txid;
 	const struct witness **witnesses;
 	struct tx_state *tx_state = state->tx_state;
+	size_t peer_input_count = 0;
+	const char *err;
 
 	struct tlv_tx_signatures_tlvs *txsig_tlvs = tlv_tx_signatures_tlvs_new(tmpctx);
 	if (!fromwire_tx_signatures(tmpctx, msg, &cid, &txid,
@@ -1413,8 +1456,18 @@ static void handle_tx_sigs(struct state *state, const u8 *msg)
 			       "tx_signatures sent before commitment sigs %s",
 			       tal_hex(msg, msg));
 
+	/* BOLT #2:
+	 * The receiving node:
+	 *   - MUST fail the negotiation if:
+	 *     - the message contains an empty `witness`
+	 *     - the number of `witnesses` does not equal the number of inputs
+	 *       added by the sending node
+	 *     - the `txid` does not match the txid of the transaction
+	 *     - the `witnesses` are non-standard
+	 *     - a signature uses a flag that is not `SIGHASH_ALL` (0x01)
+	 */
 	/* We put the PSBT + sigs all together */
-	for (size_t i = 0, j = 0; i < tx_state->psbt->num_inputs; i++) {
+	for (size_t i = 0, j; i < tx_state->psbt->num_inputs; i++) {
 		struct wally_psbt_input *in =
 			&tx_state->psbt->inputs[i];
 		u64 in_serial;
@@ -1427,14 +1480,31 @@ static void handle_tx_sigs(struct state *state, const u8 *msg)
 		}
 		if (in_serial % 2 != their_role(state))
 			continue;
+		peer_input_count++;
 
-		if (j == tal_count(witnesses))
+		if (peer_input_count > tal_count(witnesses))
 			open_err_warn(state, "Mismatched witness stack count %s",
 				      tal_hex(msg, msg));
 
+		j = peer_input_count - 1;
+
+		/* do some checks before handing the witness to wally */
+		err = check_tx_signatures_witness(tmpctx, witnesses[j]);
+		if (err)
+			open_err_warn(state,
+				      "Bad witness at position %zu: %s. "
+				      "Received tx_signatures: %s",
+				      j, err, tal_hex(msg, msg));
+
 		psbt_finalize_input(tx_state->psbt, in, witnesses[j]);
-		j++;
 	}
+
+	if (peer_input_count != tal_count(witnesses))
+		open_err_warn(state,
+			      "Mismatched witness stack count, expecting %zu, "
+			      "got %zu. Received tx_signatures: %s",
+			      peer_input_count, tal_count(witnesses),
+			      tal_hex(msg, msg));
 
 	tx_state->remote_funding_sigs_rcvd = true;
 	/* Send to the controller, who will broadcast the funding_tx
