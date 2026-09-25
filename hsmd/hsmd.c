@@ -73,6 +73,10 @@ struct client {
 
 	/* Client context to pass over to libhsmd for its calls. */
 	struct hsmd_client *hsmd_client;
+
+	/* Only for lightningd: the client end we last sent it, see
+	 * struct client_fd. */
+	struct client_fd *sent_fd;
 };
 
 /*~ We keep a map of nonzero dbid -> clients, mainly for leak detection.
@@ -202,6 +206,7 @@ static struct client *new_client(const tal_t *ctx,
 	struct client *c = tal(ctx, struct client);
 
 	c->msg_in = NULL;
+	c->sent_fd = NULL;
 
 	/*~ All-zero pubkey is used for the initial master connection */
 	if (id) {
@@ -577,24 +582,31 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 					    bip32_key_version, hsm_secret->type));
 }
 
-/*~ Since we process requests then service them in strict order, and because
- * only lightningd can request a new client fd, we can get away with a global
- * here!  But because we are being tricky, I set it to an invalid value when
- * not in use, and sprinkle assertions around. */
-static int pending_client_fd = -1;
+/*~ The client end of a new socketpair, on its way to lightningd.  On macOS, a
+ * socket whose only reference is in flight over SCM_RIGHTS can arrive unable
+ * to read, so we hold our copy until lightningd's next request: it waits for
+ * the fd before sending anything else, so that request means it has it.
+ * Freeing this closes the fd. */
+struct client_fd {
+	struct client *master;
+	int fd;
+};
+
+static void destroy_client_fd(struct client_fd *cfd)
+{
+	close(cfd->fd);
+}
 
 /*~ This is the callback from below: having sent the reply, we now send the
  * fd for the client end of the new socketpair. */
-static struct io_plan *send_pending_client_fd(struct io_conn *conn,
-					      struct client *master)
+static struct io_plan *send_client_fd(struct io_conn *conn,
+				      struct client_fd *cfd)
 {
-	int fd = pending_client_fd;
 	/* This must be the master. */
-	assert(is_lightningd(master));
-	assert(fd != -1);
-
-	/* This sanity check shouldn't be necessary, but it's cheap. */
-	pending_client_fd = -1;
+	assert(is_lightningd(cfd->master));
+	/* Its previous request freed the last one. */
+	assert(!cfd->master->sent_fd);
+	cfd->master->sent_fd = cfd;
 
 	/*~There's arcane UNIX magic to send an open file descriptor over a
 	 * UNIX domain socket.  There's no great way to autogenerate this
@@ -602,9 +614,9 @@ static struct io_plan *send_pending_client_fd(struct io_conn *conn,
 	 * manually immediately following the message.
 	 *
 	 * io_send_fd()'s third parameter is whether to close the local one
-	 * after sending; that saves us YA callback.
+	 * after sending; we don't, see struct client_fd.
 	 */
-	return io_send_fd(conn, fd, true, client_read_next, master);
+	return io_send_fd(conn, cfd->fd, false, client_read_next, cfd->master);
 }
 
 /*~ This is used by the master to create a new client connection (which
@@ -616,6 +628,7 @@ static struct io_plan *pass_client_hsmfd(struct io_conn *conn,
 	int fds[2];
 	u64 dbid, capabilities;
 	struct node_id id;
+	struct client_fd *cfd;
 
 	/* This must be lightningd itself. */
 	assert(is_lightningd(c));
@@ -631,12 +644,14 @@ static struct io_plan *pass_client_hsmfd(struct io_conn *conn,
 	status_debug("new_client: %"PRIu64, dbid);
 	new_client(c, c->chainparams, &id, dbid, capabilities, fds[0]);
 
-	/*~ We stash this in a global, because we need to get both the fd and
-	 * the client pointer to the callback.  The other way would be to
-	 * create a boutique structure and hand that, but we don't need to. */
-	pending_client_fd = fds[1];
+	/*~ The callback needs both the fd and the client, so they travel
+	 * together.  Owned by the client, so the fd closes with it too. */
+	cfd = tal(c, struct client_fd);
+	cfd->master = c;
+	cfd->fd = fds[1];
+	tal_add_destructor(cfd, destroy_client_fd);
 	return io_write_wire(conn, take(towire_hsmd_client_hsmfd_reply(NULL)),
-			     send_pending_client_fd, c);
+			     send_client_fd, cfd);
 }
 
 static struct io_plan *handle_memleak(struct io_conn *conn,
@@ -742,7 +757,9 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 {
 	enum hsmd_wire t = fromwire_peektype(c->msg_in);
 
-	if (!is_lightningd(c))
+	if (is_lightningd(c))
+		c->sent_fd = tal_free(c->sent_fd);
+	else
 		status_peer_debug(&c->id, "Got %s", hsmd_wire_name(t));
 
 	/* Before we do anything else, is this client allowed to do
