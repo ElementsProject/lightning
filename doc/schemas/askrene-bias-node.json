@@ -136,7 +136,7 @@
         "method": "askrene-bias-node",
         "params": {
           "layer": "test_layers",
-          "node": "nodeid030303030303030303030303030303030303030303030303030303030303",
+          "node": "03cecbfdc68544cc596223b68ce0710c9e5d2c9cb317ee07822d95079acc703d31",
           "direction": "out",
           "bias": 1
         }
@@ -145,9 +145,10 @@
         "node_biases": [
           {
             "layer": "test_layers",
-            "node": "nodeid030303030303030303030303030303030303030303030303030303030303",
+            "node": "03cecbfdc68544cc596223b68ce0710c9e5d2c9cb317ee07822d95079acc703d31",
             "in_bias": 0,
-            "out_bias": 1
+            "out_bias": 1,
+            "timestamp": 1738000000
           }
         ]
       }
@@ -156,22 +157,23 @@
       "request": {
         "id": "example:askrene-bias-node#2",
         "method": "askrene-bias-node",
-        "params": [
-          "test_layers",
-          "nodeid030303030303030303030303030303030303030303030303030303030303",
-          "out",
-          -5,
-          "this node is unreliable"
-        ]
+        "params": {
+          "layer": "test_layers",
+          "node": "03cecbfdc68544cc596223b68ce0710c9e5d2c9cb317ee07822d95079acc703d31",
+          "direction": "out",
+          "bias": -5,
+          "description": "This node is unreliable"
+        }
       },
       "response": {
         "node_biases": [
           {
             "layer": "test_layers",
-            "node": "nodeid030303030303030303030303030303030303030303030303030303030303",
-            "description": "this is node is unreliable",
+            "node": "03cecbfdc68544cc596223b68ce0710c9e5d2c9cb317ee07822d95079acc703d31",
+            "description": "This node is unreliable",
             "in_bias": 0,
-            "out_bias": -5
+            "out_bias": -5,
+            "timestamp": 1738000000
           }
         ]
       }
