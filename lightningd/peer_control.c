@@ -2127,10 +2127,14 @@ void handle_peer_spoke(struct lightningd *ld, const u8 *msg)
 				error = towire_warningfmt(tmpctx, &channel_id,
 							  "Trouble in paradise?");
 				goto send_error;
+			} else if (!channel->has_future_per_commitment_point) {
+				/* If we lost state our numbers are stale: the peer's
+				 * channeld warns and exits on them, then swallows the
+				 * error we're about to send, so it never force-closes. */
+				send_reestablish(peer, &channel->cid,
+						 &channel->their_shachain.chain,
+						 channel->next_index[LOCAL]);
 			}
-			send_reestablish(peer, &channel->cid,
-					 &channel->their_shachain.chain,
-					 channel->next_index[LOCAL]);
 		}
 
 		/* If we have a canned error for this channel, send it now */
