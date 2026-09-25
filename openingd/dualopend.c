@@ -375,7 +375,7 @@ static void open_abort(struct state *state,
 	 * each state, which can be used to indicate what went wrong in that
 	 * state (such as here), and a single transient area for current
 	 * status. */
-	peer_billboard(true, errmsg);
+	peer_billboard(true, "%s", errmsg);
 	msg = towire_tx_abort(NULL, &state->channel_id,
 			      (u8 *)tal_dup_arr(tmpctx, char, errmsg,
 						strlen(errmsg), 0));
@@ -489,7 +489,7 @@ static void billboard_update(struct state *state)
 					       state->shutdown_sent,
 					       0, /* Always zero? */
 					       0);
-	peer_billboard(false, update);
+	peer_billboard(false, "%s", update);
 }
 
 static void lock_signer_outpoint(const struct bitcoin_outpoint *outpoint)
