@@ -19,6 +19,9 @@ void channel_gossip_startup_done(struct lightningd *ld);
 /* Something about channel/blockchain changed: update if required */
 void channel_gossip_update(struct channel *channel);
 
+/* Upgrade a private channel to public (announce it on the network) */
+void channel_gossip_set_announce(struct channel *channel);
+
 /* Short channel id changed (splice, or reorg). */
 void channel_gossip_scid_changed(struct channel *channel);
 
