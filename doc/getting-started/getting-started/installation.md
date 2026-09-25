@@ -589,22 +589,10 @@ export LD=$target_host-ld
 export STRIP=$target_host-strip
 ```
 
-Two makefile targets should not be cross-compiled so we specify a native CC:
-```shell
-make CC=clang clean ccan/tools/configurator/configurator
-make clean -C ccan/ccan/cdump/tools \
-  && make CC=clang -C ccan/ccan/cdump/tools
-```
-
-Install the `qemu-user` package.
-
-This will allow you to properly configure the build for the target device environment.
-
 Build with:
 ```shell
-BUILD=x86_64 MAKE_HOST=arm-linux-androideabi \
-  make PIE=1 \
-  CONFIGURATOR_CC="arm-linux-androideabi-clang -static"
+./configure --host=$target_host
+make PIE=1
 ```
 
 ## To cross-compile for Raspberry Pi
@@ -622,13 +610,7 @@ export CC=$target_host-gcc
 export CXX=$target_host-g++
 export LD=$target_host-ld
 export STRIP=$target_host-strip
-```
-
-Install the `qemu-user` package. This will allow you to properly configure the build for the target device environment.
-
-Config the arm elf interpreter prefix:
-```shell
-export QEMU_LD_PREFIX=/path/to/raspberry/arm-bcm2708/arm-rpi-4.9.3-linux-gnueabihf/arm-linux-gnueabihf/sysroot/
+export SYSROOT=/usr/$target_host
 ```
 
 Obtain and install cross-compiled versions of sqlite3 and zlib:
@@ -638,7 +620,7 @@ Download and build zlib:
 wget https://zlib.net/fossils/zlib-1.2.13.tar.gz
 tar xvf zlib-1.2.13.tar.gz
 cd zlib-1.2.13
-./configure --prefix=$QEMU_LD_PREFIX
+./configure --prefix=$SYSROOT
 make
 make install
 ```
@@ -648,14 +630,16 @@ Download and build sqlite3:
 wget https://www.sqlite.org/2018/sqlite-src-3260000.zip
 unzip sqlite-src-3260000.zip
 cd sqlite-src-3260000
-./configure --enable-static --disable-readline --disable-threadsafe --disable-load-extension --host=$target_host --prefix=$QEMU_LD_PREFIX
+./configure --enable-static --disable-readline --disable-threadsafe --disable-load-extension --disable-tcl --host=$target_host --prefix=$SYSROOT
 make
 make install
 ```
 
 Then, build Core Lightning with the following commands:
 ```
-./configure
+export SQLITE3_CFLAGS=-I$SYSROOT/include
+export SQLITE3_LDLIBS=-lsqlite3
+./configure --host=$target_host
 make
 ```
 
