@@ -179,6 +179,54 @@ static struct command_result *sendpsbt_done(struct command *cmd,
 	return command_finished(cmd, out);
 }
 
+/* txsend has already removed utx from unreleased_txs, so if we fail after
+ * this point the user can no longer call txdiscard to release the inputs.
+ * We must unreserve them ourselves before reporting the error, otherwise
+ * they stay reserved until restart. */
+struct txsend_fail {
+	const char *errmsg;
+};
+
+static struct command_result *
+txsend_unreserve_done(struct command *cmd,
+		      const char *method UNUSED,
+		      const char *buf UNUSED,
+		      const jsmntok_t *result UNUSED,
+		      struct txsend_fail *fail)
+{
+	/* We don't care whether unreserveinputs succeeded or not: we
+	 * report the original failure to the user. */
+	return command_fail(cmd, LIGHTNINGD, "%s", fail->errmsg);
+}
+
+static struct command_result *
+txsend_fail_unreserve(struct command *cmd,
+		      struct unreleased_tx *utx,
+		      const char *fmt, ...)
+	PRINTF_FMT(3, 4);
+
+static struct command_result *
+txsend_fail_unreserve(struct command *cmd,
+		      struct unreleased_tx *utx,
+		      const char *fmt, ...)
+{
+	struct out_req *req;
+	struct txsend_fail *fail;
+	va_list ap;
+
+	fail = tal(cmd, struct txsend_fail);
+	va_start(ap, fmt);
+	fail->errmsg = tal_vfmt(fail, fmt, ap);
+	va_end(ap);
+
+	req = jsonrpc_request_start(cmd, "unreserveinputs",
+				    txsend_unreserve_done,
+				    txsend_unreserve_done,
+				    fail);
+	json_add_psbt(req->js, "psbt", utx->psbt);
+	return send_outreq(req);
+}
+
 /* Called after lightningd has signed the inputs. */
 static struct command_result *signpsbt_done(struct command *cmd,
 					    const char *method,
@@ -190,32 +238,34 @@ static struct command_result *signpsbt_done(struct command *cmd,
 	const jsmntok_t *psbttok = json_get_member(buf, result, "signed_psbt");
 	struct bitcoin_txid txid;
 
+	/* Replace with signed psbt. */
 	tal_free(utx->psbt);
 	utx->psbt = json_tok_psbt(utx, buf, psbttok);
+
 	/* Replace with signed tx. */
 	tal_free(utx->tx);
 
 	/* The txid from the signed PSBT should match our expectation. */
 	psbt_txid(NULL, utx->psbt, &txid, NULL);
 	if (!bitcoin_txid_eq(&txid, &utx->txid)) {
-		return command_fail(cmd, LIGHTNINGD,
-				    "Signed tx changed txid? Had '%s' now '%s'",
-				    fmt_bitcoin_txid(tmpctx, &utx->txid),
-				    fmt_bitcoin_txid(tmpctx, &txid));
+		return txsend_fail_unreserve(cmd, utx,
+					     "Signed tx changed txid? Had '%s' now '%s'",
+					     fmt_bitcoin_txid(tmpctx, &utx->txid),
+					     fmt_bitcoin_txid(tmpctx, &txid));
 	}
 
 	/* Finalize the signed PSBT and extract the fully signed tx,
 	 * so that utx->tx contains witness data for the response. */
 	if (!psbt_finalize(utx->psbt))
-		return command_fail(cmd, LIGHTNINGD,
-				    "Signed PSBT not finalizeable: %s",
-				    fmt_wally_psbt(tmpctx, utx->psbt));
+		return txsend_fail_unreserve(cmd, utx,
+					     "Signed PSBT not finalizeable: %s",
+					     fmt_wally_psbt(tmpctx, utx->psbt));
 
 	utx->tx = psbt_final_tx(utx, utx->psbt);
 	if (!utx->tx)
-		return command_fail(cmd, LIGHTNINGD,
-				    "Could not extract final tx: %s",
-				    fmt_wally_psbt(tmpctx, utx->psbt));
+		return txsend_fail_unreserve(cmd, utx,
+					     "Could not extract final tx: %s",
+					     fmt_wally_psbt(tmpctx, utx->psbt));
 
 	req = jsonrpc_request_start(cmd, "sendpsbt",
 				    sendpsbt_done,
