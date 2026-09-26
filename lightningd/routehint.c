@@ -187,8 +187,12 @@ routehint_candidates(const tal_t *ctx,
 			continue;
 		}
 
-		/* Is it offline?  Leave it if it's fronting. */
-		if (!is_fronting && candidate.c->owner == NULL) {
+		/* Is it offline?  Leave it if it's fronting.
+		 * Note that peer disconnect is recorded before channeld
+		 * exits, so we must check peer state, not just owner. */
+		if (!is_fronting
+		    && (candidate.c->owner == NULL
+			|| candidate.c->peer->connected != PEER_CONNECTED)) {
 			log_debug(ld->log, "%s: offline",
 				  fmt_short_channel_id(tmpctx,
 						       r->short_channel_id));
