@@ -161,7 +161,7 @@
             ]
           },
           "cltv_expiry_relative": {
-            "type": "u32",
+            "type": "integer",
             "description": [
               "Hints how much time we still have to claim the HTLC.",
               "It is the `cltv_expiry` minus the current blockheight and is passed along mainly to avoid the plugin having to look up the current blockheight."

@@ -467,6 +467,8 @@ pub mod requests {
 	    UNUSUAL = 3,
 	    #[serde(rename = "trace")]
 	    TRACE = 4,
+	    #[serde(rename = "broken")]
+	    BROKEN = 5,
 	}
 
 	impl TryFrom<i32> for ListpeersLevel {
@@ -478,6 +480,7 @@ pub mod requests {
 	    2 => Ok(ListpeersLevel::INFO),
 	    3 => Ok(ListpeersLevel::UNUSUAL),
 	    4 => Ok(ListpeersLevel::TRACE),
+	    5 => Ok(ListpeersLevel::BROKEN),
 	            o => Err(anyhow::anyhow!("Unknown variant {} for enum ListpeersLevel", o)),
 	        }
 	    }
@@ -491,6 +494,7 @@ pub mod requests {
 	            ListpeersLevel::DEBUG => "DEBUG",
 	            ListpeersLevel::INFO => "INFO",
 	            ListpeersLevel::UNUSUAL => "UNUSUAL",
+	            ListpeersLevel::BROKEN => "BROKEN",
 	        }.to_string()
 	    }
 	}
@@ -2452,9 +2456,9 @@ pub mod requests {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub payer_note: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub recurrence_start: Option<f64>,
+	    pub recurrence_start: Option<u32>,
 	    pub offer: String,
-	    pub recurrence_counter: u64,
+	    pub recurrence_counter: u32,
 	    pub recurrence_label: String,
 	}
 
@@ -2708,19 +2712,19 @@ pub mod requests {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub channel_fee_max_base_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub channel_fee_max_proportional_thousandths: Option<u32>,
+	    pub channel_fee_max_proportional_thousandths: Option<u16>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub compact_lease: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub fund_probability: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub funding_weight: Option<u32>,
+	    pub funding_weight: Option<u16>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub fuzz_percent: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub lease_fee_base_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub lease_fee_basis: Option<u32>,
+	    pub lease_fee_basis: Option<u16>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub leases_only: Option<bool>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -5196,7 +5200,7 @@ pub mod requests {
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListnetworkeventsRequest {
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub id: Option<String>,
+	    pub id: Option<PublicKey>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub index: Option<ListnetworkeventsIndex>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -5642,8 +5646,6 @@ pub mod responses {
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	#[allow(non_camel_case_types)]
 	pub enum ListpeersPeersLogType {
-	    #[serde(rename = "SKIPPED")]
-	    SKIPPED = 0,
 	    #[serde(rename = "BROKEN")]
 	    BROKEN = 1,
 	    #[serde(rename = "UNUSUAL")]
@@ -5664,7 +5666,6 @@ pub mod responses {
 	    type Error = anyhow::Error;
 	    fn try_from(c: i32) -> Result<ListpeersPeersLogType, anyhow::Error> {
 	        match c {
-	    0 => Ok(ListpeersPeersLogType::SKIPPED),
 	    1 => Ok(ListpeersPeersLogType::BROKEN),
 	    2 => Ok(ListpeersPeersLogType::UNUSUAL),
 	    3 => Ok(ListpeersPeersLogType::INFO),
@@ -5680,7 +5681,6 @@ pub mod responses {
 	impl ToString for ListpeersPeersLogType {
 	    fn to_string(&self) -> String {
 	        match self {
-	            ListpeersPeersLogType::SKIPPED => "SKIPPED",
 	            ListpeersPeersLogType::BROKEN => "BROKEN",
 	            ListpeersPeersLogType::UNUSUAL => "UNUSUAL",
 	            ListpeersPeersLogType::INFO => "INFO",
@@ -5700,8 +5700,6 @@ pub mod responses {
 	    pub log: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub node_id: Option<PublicKey>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub num_skipped: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub source: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -5800,9 +5798,13 @@ pub mod responses {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub blockheight: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub csv_lock: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub redeemscript: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub reserved_to_block: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub spendable_at: Option<u32>,
 	    // Path `ListFunds.outputs[].status`
 	    pub status: ListfundsOutputsStatus,
 	    pub amount_msat: Amount,
@@ -5868,7 +5870,7 @@ pub mod responses {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub bolt12: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub completed_at: Option<u64>,
+	    pub completed_at: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub destination: Option<PublicKey>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -5884,7 +5886,7 @@ pub mod responses {
 	    // Path `SendPay.status`
 	    pub status: SendpayStatus,
 	    pub amount_sent_msat: Amount,
-	    pub created_at: u64,
+	    pub created_at: u32,
 	    pub created_index: u64,
 	    pub groupid: u64,
 	    pub id: u64,
@@ -6240,7 +6242,7 @@ pub mod responses {
 	    }
 	}
 
-	/// ['Type of connection (*torv2*/*torv3* only if **direction** is *out*).']
+	/// ['Type of connection (*torv2*/*torv3* only if **direction** is *out*).', '*unresolved* is used when the peer address was not resolved (e.g. with **always-use-proxy**).']
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	#[allow(non_camel_case_types)]
 	pub enum ConnectAddressType {
@@ -6254,6 +6256,10 @@ pub mod responses {
 	    TORV2 = 3,
 	    #[serde(rename = "torv3")]
 	    TORV3 = 4,
+	    #[serde(rename = "websocket")]
+	    WEBSOCKET = 5,
+	    #[serde(rename = "unresolved")]
+	    UNRESOLVED = 6,
 	}
 
 	impl TryFrom<i32> for ConnectAddressType {
@@ -6265,6 +6271,8 @@ pub mod responses {
 	    2 => Ok(ConnectAddressType::IPV6),
 	    3 => Ok(ConnectAddressType::TORV2),
 	    4 => Ok(ConnectAddressType::TORV3),
+	    5 => Ok(ConnectAddressType::WEBSOCKET),
+	    6 => Ok(ConnectAddressType::UNRESOLVED),
 	            o => Err(anyhow::anyhow!("Unknown variant {} for enum ConnectAddressType", o)),
 	        }
 	    }
@@ -6278,6 +6286,8 @@ pub mod responses {
 	            ConnectAddressType::IPV6 => "IPV6",
 	            ConnectAddressType::TORV2 => "TORV2",
 	            ConnectAddressType::TORV3 => "TORV3",
+	            ConnectAddressType::WEBSOCKET => "WEBSOCKET",
+	            ConnectAddressType::UNRESOLVED => "UNRESOLVED",
 	        }.to_string()
 	    }
 	}
@@ -6286,6 +6296,8 @@ pub mod responses {
 	pub struct ConnectAddress {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub address: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub name: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub port: Option<u16>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -6956,7 +6968,7 @@ pub mod responses {
 	    // Path `SendOnion.status`
 	    pub status: SendonionStatus,
 	    pub amount_sent_msat: Amount,
-	    pub created_at: u64,
+	    pub created_at: u32,
 	    pub created_index: u64,
 	    pub id: u64,
 	    pub payment_hash: Sha256,
@@ -7016,7 +7028,7 @@ pub mod responses {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub bolt12: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub completed_at: Option<u64>,
+	    pub completed_at: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub description: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -7034,7 +7046,7 @@ pub mod responses {
 	    // Path `ListSendPays.payments[].status`
 	    pub status: ListsendpaysPaymentsStatus,
 	    pub amount_sent_msat: Amount,
-	    pub created_at: u64,
+	    pub created_at: u32,
 	    pub created_index: u64,
 	    pub groupid: u64,
 	    pub id: u64,
@@ -7189,11 +7201,11 @@ pub mod responses {
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListnodesNodesOptionWillFund {
 	    pub channel_fee_max_base_msat: Amount,
-	    pub channel_fee_max_proportional_thousandths: u32,
+	    pub channel_fee_max_proportional_thousandths: u16,
 	    pub compact_lease: String,
-	    pub funding_weight: u32,
+	    pub funding_weight: u16,
 	    pub lease_fee_base_msat: Amount,
-	    pub lease_fee_basis: u32,
+	    pub lease_fee_basis: u16,
 	}
 
 	/// ['Type of connection (until 23.08, `websocket` was also allowed).']
@@ -7470,7 +7482,7 @@ pub mod responses {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub bolt12: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub completed_at: Option<f64>,
+	    pub completed_at: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub destination: Option<PublicKey>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -7484,7 +7496,7 @@ pub mod responses {
 	    // Path `WaitSendPay.status`
 	    pub status: WaitsendpayStatus,
 	    pub amount_sent_msat: Amount,
-	    pub created_at: u64,
+	    pub created_at: u32,
 	    pub created_index: u64,
 	    pub groupid: u64,
 	    pub id: u64,
@@ -7978,7 +7990,7 @@ pub mod responses {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub lost_state: Option<bool>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub max_accepted_htlcs: Option<u32>,
+	    pub max_accepted_htlcs: Option<u16>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub max_to_us_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -7990,15 +8002,13 @@ pub mod responses {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub minimum_htlc_out_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub next_fee_step: Option<u32>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub next_feerate: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub our_max_htlc_value_in_flight_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub our_reserve_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub our_to_self_delay: Option<u32>,
+	    pub our_to_self_delay: Option<u16>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub out_fulfilled_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -8026,7 +8036,7 @@ pub mod responses {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub their_reserve_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub their_to_self_delay: Option<u32>,
+	    pub their_to_self_delay: Option<u16>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub to_us_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -8146,7 +8156,7 @@ pub mod responses {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub last_commitment_fee_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub last_commitment_txid: Option<Sha256>,
+	    pub last_commitment_txid: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub last_stable_connection: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -8694,7 +8704,7 @@ pub mod responses {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub bolt12: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub completed_at: Option<u64>,
+	    pub completed_at: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub destination: Option<PublicKey>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -8710,7 +8720,7 @@ pub mod responses {
 	    // Path `DelPay.payments[].status`
 	    pub status: DelpayPaymentsStatus,
 	    pub amount_sent_msat: Amount,
-	    pub created_at: u64,
+	    pub created_at: u32,
 	    pub created_index: u64,
 	    pub groupid: u64,
 	    pub id: u64,
@@ -9086,8 +9096,6 @@ pub mod responses {
 	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 	#[allow(non_camel_case_types)]
 	pub enum GetlogLogType {
-	    #[serde(rename = "SKIPPED")]
-	    SKIPPED = 0,
 	    #[serde(rename = "BROKEN")]
 	    BROKEN = 1,
 	    #[serde(rename = "UNUSUAL")]
@@ -9108,7 +9116,6 @@ pub mod responses {
 	    type Error = anyhow::Error;
 	    fn try_from(c: i32) -> Result<GetlogLogType, anyhow::Error> {
 	        match c {
-	    0 => Ok(GetlogLogType::SKIPPED),
 	    1 => Ok(GetlogLogType::BROKEN),
 	    2 => Ok(GetlogLogType::UNUSUAL),
 	    3 => Ok(GetlogLogType::INFO),
@@ -9124,7 +9131,6 @@ pub mod responses {
 	impl ToString for GetlogLogType {
 	    fn to_string(&self) -> String {
 	        match self {
-	            GetlogLogType::SKIPPED => "SKIPPED",
 	            GetlogLogType::BROKEN => "BROKEN",
 	            GetlogLogType::UNUSUAL => "UNUSUAL",
 	            GetlogLogType::INFO => "INFO",
@@ -9144,8 +9150,6 @@ pub mod responses {
 	    pub log: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub node_id: Option<PublicKey>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub num_skipped: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub source: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -9213,15 +9217,15 @@ pub mod responses {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub channel_fee_max_base_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub channel_fee_max_proportional_thousandths: Option<u32>,
+	    pub channel_fee_max_proportional_thousandths: Option<u16>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub compact_lease: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub funding_weight: Option<u32>,
+	    pub funding_weight: Option<u16>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub lease_fee_base_msat: Option<Amount>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub lease_fee_basis: Option<u32>,
+	    pub lease_fee_basis: Option<u16>,
 	    // Path `FunderUpdate.policy`
 	    pub policy: FunderupdatePolicy,
 	    pub fund_probability: u32,
@@ -9522,7 +9526,7 @@ pub mod responses {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub bolt12: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub completed_at: Option<u64>,
+	    pub completed_at: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub created_index: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -9542,7 +9546,7 @@ pub mod responses {
 	    // Path `ListPays.pays[].status`
 	    pub status: ListpaysPaysStatus,
 	    pub amount_sent_msat: Amount,
-	    pub created_at: u64,
+	    pub created_at: u32,
 	    pub payment_hash: Sha256,
 	}
 
@@ -10367,8 +10371,6 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct SpliceinResponse {
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub tx: Option<String>,
 	    pub psbt: String,
 	    pub txid: String,
 	}
@@ -10386,8 +10388,6 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct SpliceoutResponse {
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub tx: Option<String>,
 	    pub psbt: String,
 	    pub txid: String,
 	}
@@ -12934,8 +12934,8 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct InjectpaymentonionResponse {
-	    pub completed_at: u64,
-	    pub created_at: u64,
+	    pub completed_at: u32,
+	    pub created_at: u32,
 	    pub created_index: u64,
 	    pub payment_preimage: Secret,
 	}

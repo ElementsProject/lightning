@@ -48,7 +48,7 @@
     "daywalker90 is mainly responsible."
   ],
   "see_also": [
-    "lightning-currencyrates(7)"
+    "lightning-listcurrencyrates(7)"
   ],
   "resources": [
     "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"

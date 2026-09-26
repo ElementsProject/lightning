@@ -6225,7 +6225,7 @@
     "cancelrecurringinvoice.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
-      "added": "v25.09",
+      "added": "v25.12",
       "rpc": "cancelrecurringinvoice",
       "title": "Command for sending a cancel message for a recurring offer",
       "description": [
@@ -6248,7 +6248,7 @@
             ]
           },
           "recurrence_counter": {
-            "type": "u64",
+            "type": "u32",
             "description": [
               "One later than the last-specified recurrence_counter for the last invoice."
             ]
@@ -6260,7 +6260,7 @@
             ]
           },
           "recurrence_start": {
-            "type": "number",
+            "type": "u32",
             "description": [
               "Indicates what period number to start at (usually 0).  This will be the same as previous fetchinvoice calls."
             ]
@@ -7207,10 +7207,13 @@
                   "ipv4",
                   "ipv6",
                   "torv2",
-                  "torv3"
+                  "torv3",
+                  "websocket",
+                  "unresolved"
                 ],
                 "description": [
-                  "Type of connection (*torv2*/*torv3* only if **direction** is *out*)."
+                  "Type of connection (*torv2*/*torv3* only if **direction** is *out*).",
+                  "*unresolved* is used when the peer address was not resolved (e.g. with **always-use-proxy**)."
                 ]
               }
             },
@@ -7270,6 +7273,41 @@
                       "type": "string",
                       "description": [
                         "Address in expected format for **type**."
+                      ]
+                    },
+                    "port": {
+                      "type": "u16",
+                      "description": [
+                        "Port number."
+                      ]
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "additionalProperties": true,
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "unresolved"
+                      ]
+                    }
+                  }
+                },
+                "then": {
+                  "additionalProperties": false,
+                  "required": [
+                    "name",
+                    "port"
+                  ],
+                  "properties": {
+                    "type": {},
+                    "name": {
+                      "type": "string",
+                      "description": [
+                        "The unresolved name."
                       ]
                     },
                     "port": {
@@ -8397,7 +8435,7 @@
         "daywalker90 is mainly responsible."
       ],
       "see_also": [
-        "lightning-currencyrates(7)"
+        "lightning-listcurrencyrates(7)"
       ],
       "resources": [
         "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
@@ -12583,7 +12621,7 @@
                   ]
                 },
                 "created_at": {
-                  "type": "u64",
+                  "type": "u32",
                   "description": [
                     "The UNIX timestamp showing when this payment was initiated."
                   ]
@@ -12596,7 +12634,7 @@
                   ]
                 },
                 "completed_at": {
-                  "type": "u64",
+                  "type": "u32",
                   "description": [
                     "The UNIX timestamp showing when this payment was completed."
                   ]
@@ -12960,7 +12998,7 @@
       "additionalProperties": false,
       "added": "v24.11",
       "rpc": "dev-splice",
-      "title": "Command to initiate a channel to a peer",
+      "title": "Command to move funds into or out of a channel",
       "description": [
         "`splice` is the command to move funds into or out of a channel. Multiple actions can be combined together resulting in a single onchain transaction. Funds may be moved out of a channel and into another in a single batch enabling cross-channel movement."
       ],
@@ -15700,14 +15738,14 @@
             "default": "2k sats"
           },
           "lease_fee_basis": {
-            "type": "u32",
+            "type": "u16",
             "description": [
               "A basis fee that's calculated as 1/10k of the total requested funds the peer is asking for. Node will receive the total of *lease_fee_basis* times requested funds / 10k satoshis added to their channel balance, paid by the opening node."
             ],
             "default": "0.65% (65 basis points)"
           },
           "funding_weight": {
-            "type": "u32",
+            "type": "u16",
             "description": [
               "To calculate the fee the peer will compensate your node for its contributing inputs to the funding transaction. The total fee is calculated as the `open_channel2`.`funding_feerate_perkw` times this *funding_weight* divided by 1000. Node will have this funding fee added to their channel balance, paid by the opening node."
             ],
@@ -15721,7 +15759,7 @@
             "default": "5k sats"
           },
           "channel_fee_max_proportional_thousandths": {
-            "type": "u32",
+            "type": "u16",
             "description": [
               "A commitment to a maximum `channel_fee_proportional_millionths` that your node will charge for routing payments over this leased channel during the lease duration. Note that it's denominated in 'thousandths'. A setting of `1` is equal to 1k ppm; `5` is 5k ppm, etc."
             ],
@@ -15829,13 +15867,13 @@
             ]
           },
           "lease_fee_basis": {
-            "type": "u32",
+            "type": "u16",
             "description": [
               "Proportional fee to charge for a channel lease, calculated as 1/10,000th of requested funds."
             ]
           },
           "funding_weight": {
-            "type": "u32",
+            "type": "u16",
             "description": [
               "Transaction weight the channel opener will pay us for a leased funding transaction."
             ]
@@ -15847,7 +15885,7 @@
             ]
           },
           "channel_fee_max_proportional_thousandths": {
-            "type": "u32",
+            "type": "u16",
             "description": [
               "Maximum channel_fee_proportional_millitionths we'll charge for routing funds leased on this channel, in thousandths."
             ]
@@ -16244,7 +16282,13 @@
             "method": "getemergencyrecoverdata",
             "params": {}
           },
-          "response": "emergencyrecoverdata0101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101"
+          "response": {
+            "filedata": "0101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101",
+            "can_create_penalty": true,
+            "backed_up_channel_ids": [
+              "0000000000000000000000000000000000000000000000000000000000000000"
+            ]
+          }
         }
       ]
     },
@@ -16749,7 +16793,6 @@
                 "type": {
                   "type": "string",
                   "enum": [
-                    "SKIPPED",
                     "BROKEN",
                     "UNUSUAL",
                     "INFO",
@@ -16761,33 +16804,6 @@
                 }
               },
               "allOf": [
-                {
-                  "if": {
-                    "additionalProperties": true,
-                    "properties": {
-                      "type": {
-                        "enum": [
-                          "SKIPPED"
-                        ]
-                      }
-                    }
-                  },
-                  "then": {
-                    "additionalProperties": false,
-                    "required": [
-                      "num_skipped"
-                    ],
-                    "properties": {
-                      "type": {},
-                      "num_skipped": {
-                        "type": "u32",
-                        "description": [
-                          "Number of unprinted log entries (deleted or below *level* parameter)."
-                        ]
-                      }
-                    }
-                  }
-                },
                 {
                   "if": {
                     "additionalProperties": true,
@@ -16928,8 +16944,7 @@
                 "type": "UNUSUAL",
                 "time": "0.000000000",
                 "source": "plugin-bookkeeper",
-                "log": "topic 'utxo_deposit' is not a known notification topic",
-                "num_skipped": 177
+                "log": "topic 'utxo_deposit' is not a known notification topic"
               },
               {
                 "type": "UNUSUAL",
@@ -16942,16 +16957,14 @@
                 "time": "0.000000000",
                 "node_id": "038194b5f32bdf0aa59812c86c4ef7ad2f294104fa027d1ace9b469bb6f88cf37b",
                 "source": "chan#1",
-                "log": "No peer channel with scid=7984345x7385111x15166",
-                "num_skipped": 4562
+                "log": "No peer channel with scid=7984345x7385111x15166"
               },
               {
                 "type": "UNUSUAL",
                 "time": "0.000000000",
                 "node_id": "03cecbfdc68544cc596223b68ce0710c9e5d2c9cb317ee07822d95079acc703d31",
                 "source": "chan#2",
-                "log": "Peer permanent failure in CLOSINGD_COMPLETE: Funding transaction spent: onchain txid dc446777a9b3d6d5962f502f5d22f66b01452389c1bbe8460491e7376f44a1eb (reason=unknown)",
-                "num_skipped": 4554
+                "log": "Peer permanent failure in CLOSINGD_COMPLETE: Funding transaction spent: onchain txid dc446777a9b3d6d5962f502f5d22f66b01452389c1bbe8460491e7376f44a1eb (reason=unknown)"
               },
               {
                 "type": "UNUSUAL",
@@ -17887,13 +17900,13 @@
         ],
         "properties": {
           "created_at": {
-            "type": "u64",
+            "type": "u32",
             "description": [
               "The UNIX timestamp showing when this payment was initiated."
             ]
           },
           "completed_at": {
-            "type": "u64",
+            "type": "u32",
             "description": [
               "The UNIX timestamp showing when this payment was completed."
             ]
@@ -20458,7 +20471,7 @@
                   ]
                 },
                 "last_commitment_txid": {
-                  "type": "hash",
+                  "type": "txid",
                   "description": [
                     "The final commitment tx's txid (or mutual close, if we accepted it). Not present for some very old, small channels pre-0.7.0."
                   ]
@@ -22609,15 +22622,7 @@
             "id": "example:listconfigs#1",
             "method": "listconfigs",
             "params": {
-              "config": "network",
-              "scb": [
-                "0000000000000006f4e1de801de57374d5737da622611e3a1ad9f16d5df9c30fceecc11ce732eeeb022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59017f000001a95cbe3270e5e0998af5eb0a67f7bf6e8d5b3d3d43059b3e4cfbd1e4fca6152c51320000000100000000000f42400003401000000000eb015c0000fffffffffffe000000020000ffffffffffff3283fc1863a9702a8e188ed55475324e55485a8758d2068cfea35851418c55740000fffffffffffed00ec892b1739b55ddc0cca2988d8731eb33f2295c1fcc13fdbdfff9d3f85d6d038402a6939f0f9d5c7a41464169eb692b4d2d73266b3c46345cd036ca577a15bdeeaa027662682a646ce7671c3a091bf639176e87d3379022126b209ebadadae19ffc0e02c59668c64362eaeabf44ee4f10b98fc92412cbea74b6f3a917423dfdf3ca282602773e6c29472ab708e5b127e8ae1ce2d8b7f56b457299f93bb72bb73fdbcf91770501010702a5f8",
-                "000000000000000121bd30cac60f477f2c4267220b1702a6ec5780db34f9934fa94b8c0508bf3357035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d017f000001dcf8fdd5381f36008c3eac24cdde5ec0fea8f39240575ef0cb4406cb51ad419dd7810000000000000000000f424000034010000000011301840000fffffffffffa000000030000fffffffffffb8ff7d0df4eee78e558b4e07f82049aaa933f4f4932e13e1e7fee5cb103f7a0b50000fffffffffffa79176754ea338ffa080591b946a6ac1c47ff579ae7e45857bf01261ebe1c46ba0000fffffffffffcbdb924885293efdaa1ba8f556161f4fe525c19483def49b9af85c1623bc6d27b038402add69f29ad433cb7d4c9470f2d49d80245fd9e76a992197528a131e37711efac02c57de22185162001ffaf2e61b053b1d0e280d73ecec1b04916df2c65642d94a102cd4e1a07ee85714b6eada09d9cf81aeb15bfc72ddd003235530c58bbd0c0144902b10f36d2ebab3ce560abf15ceb1bef619491e0597a794fdafcfdf8708eec9e2d0501010702a5f8",
-                "00000000000000027512083907c74ed3a045e9bf772b3d72948eb93daf84a1cee57108800451aaf2035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d017f000001dcf80239a9c9f2a91e69ba01800baf71f55efe457677b2e5cbd640b888dc1c9375b40000000000000000000f42400003401000000000c301340000ffffffffffff000000010000ffffffffffff0e07b6188dd51f15bb5cb9027950bf487a612dca57e2928de3f28f6ee796978b03840330b7ddf07e5bc779ea468875371ea25b560491c5feaeeb5e229ded3820d1d69103620748b3796c4988dd0fc63b92ae011dc989f15c433a55ed38e24318a43b4c93021bfe48bb1aded55878b00a3f00c5c1bffa1010510d8ba1c6372012ac9c3205d20201604aa7056ab8926038a846014bdbe4874ceef7ce45141b8009b0e2f49e7ec70501010702a5f8",
-                "0000000000000003222d999f537e32e9458c5db17a63e012dcced61340de06fda5bc30566270b0aa0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518017f0000017531932479f6d82ee59c7aa67b99568de0a31c202f6a3ff18a6bdd1ec22683cf026500000000000000000bebb3cb00034010000000009b010c0001000000000000000000000384021f90b5f38e0c0ea50bccfcf70a32cd4395c8c544e70636b7cc41831fe33fb4ce03bcfb0d457dfa07f508f434e6a2f040dd3dd233e7002dbe1c1b5d86ed5d3efd76030a4ce755504748f47401fc016578a52e104cbbd28251f10b11e4b3e55d0fe1d303986bdd0842662b8d0d18147630a720e952a2cda624c63ef4903357d27e54f7920501000702a5f8",
-                "0000000000000004a4a379248e49d207cc984646e632e1a31105a85708b9d6d961a5018fdd489f5a0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518017f000001970c7f07a15ce1fe1519d46536c4036f1c13527fa8bf52f6a5299b860f982ba2ed7e00000001000000000000753000034010000000009b010c000100000000000000000000038402c8aabcf1224df10e9d803dc3918797892fe0abec56d3e06f121bcebbe9ab0a2c03bd181375d57b8b1d15def9c5f9007b3c3ff98a140c0a44c9dc5f54ac7ea4baf30310952e08f9960711d8142dfa171c0fc2348762acea003f3897397f6ace8454130382da2a229450c4a8e8cea70bbd147eaaf981184bff8c1d70b70c30a494d848420501010702a5f8",
-                "000000000000000509eb55872cd9039ecd08281af756e23b15aad4129fd6a9bcd71b472114ebf43a0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518017f000001970c64ed91a21c10208d715b59801b12b4a6eff9ea9e4e7d45971c298b62d90ece8e00000000000000000000c35000034010000000009b010c000100000000000000000000038402e885f38e784050b386fb32d20935acc61059d8b02b6bec0ac2bfc8b2c5cf7f3103ae69dbfc6511ba0781c13113e16e1557a875b910cb1cb1fe1ef95a7edb36135a03758d5faa8515942873911e21869b1b90a4be72af14b394bc064da6ba518b087003750b588cd1fb8d60276c12c1c3eef7e302e3772414234404289db8c10f5731320501010702a5f8"
-              ]
+              "config": "network"
             }
           },
           "response": {
@@ -23171,7 +23176,7 @@
     "listcurrencyrates.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",
-      "rpc": "currencyrates",
+      "rpc": "listcurrencyrates",
       "added": "v26.04",
       "title": "Command to list millisatoshis-per-unit from each configured source",
       "description": [
@@ -24081,6 +24086,18 @@
                   "description": [
                     "Whether this UTXO is currently reserved for an in-flight tx."
                   ]
+                },
+                "csv_lock": {
+                  "type": "u32",
+                  "description": [
+                    "The CSV locktime of this output, if it comes from a unilateral close and can only be spent after this many blocks."
+                  ]
+                },
+                "spendable_at": {
+                  "type": "u32",
+                  "description": [
+                    "The block height at which this output becomes spendable, if it is CSV-locked."
+                  ]
                 }
               },
               "allOf": [
@@ -24112,6 +24129,8 @@
                       "status": {},
                       "reserved": {},
                       "reserved_to_block": {},
+                      "csv_lock": {},
+                      "spendable_at": {},
                       "blockheight": {
                         "type": "u32",
                         "description": [
@@ -24148,6 +24167,8 @@
                       "redeemscript": {},
                       "status": {},
                       "blockheight": {},
+                      "csv_lock": {},
+                      "spendable_at": {},
                       "reserved": {},
                       "reserved_to_block": {
                         "type": "u32",
@@ -25628,7 +25649,7 @@
         "additionalProperties": false,
         "properties": {
           "id": {
-            "type": "string",
+            "type": "pubkey",
             "description": [
               "A node id: if set, only network events for this peer are returned"
             ]
@@ -25975,13 +25996,13 @@
                             ]
                           },
                           "lease_fee_basis": {
-                            "type": "u32",
+                            "type": "u16",
                             "description": [
                               "The proportional fee in basis points (parts per 10,000) for a lease."
                             ]
                           },
                           "funding_weight": {
-                            "type": "u32",
+                            "type": "u16",
                             "description": [
                               "The onchain weight you'll have to pay for a lease."
                             ]
@@ -25993,7 +26014,7 @@
                             ]
                           },
                           "channel_fee_max_proportional_thousandths": {
-                            "type": "u32",
+                            "type": "u16",
                             "description": [
                               "The maximum proportional routing fee this node will charge during the lease (in thousandths, not millionths like channel_update)."
                             ]
@@ -26386,13 +26407,13 @@
                   ]
                 },
                 "created_at": {
-                  "type": "u64",
+                  "type": "u32",
                   "description": [
                     "The UNIX timestamp showing when this payment was initiated."
                   ]
                 },
                 "completed_at": {
-                  "type": "u64",
+                  "type": "u32",
                   "description": [
                     "The UNIX timestamp showing when this payment was completed."
                   ]
@@ -27030,12 +27051,6 @@
                     "For inflight opens, the next feerate we'll use for the channel open. Omitted if *last_feerate* admits no valid next feerate, which only a channel written by an older, unbounded version can do."
                   ]
                 },
-                "next_fee_step": {
-                  "type": "u32",
-                  "description": [
-                    "For inflight opens, the next feerate step we'll use for the channel open."
-                  ]
-                },
                 "inflight": {
                   "type": "array",
                   "description": [
@@ -27301,19 +27316,19 @@
                   ]
                 },
                 "their_to_self_delay": {
-                  "type": "u32",
+                  "type": "u16",
                   "description": [
                     "The number of blocks before they can take their funds if they unilateral close."
                   ]
                 },
                 "our_to_self_delay": {
-                  "type": "u32",
+                  "type": "u16",
                   "description": [
                     "The number of blocks before we can take our funds if we unilateral close."
                   ]
                 },
                 "max_accepted_htlcs": {
-                  "type": "u32",
+                  "type": "u16",
                   "description": [
                     "Maximum number of incoming HTLC we will accept at once."
                   ]
@@ -28690,7 +28705,8 @@
               "trace",
               "debug",
               "info",
-              "unusual"
+              "unusual",
+              "broken"
             ]
           }
         }
@@ -28747,7 +28763,6 @@
                       "type": {
                         "type": "string",
                         "enum": [
-                          "SKIPPED",
                           "BROKEN",
                           "UNUSUAL",
                           "INFO",
@@ -28759,34 +28774,6 @@
                       }
                     },
                     "allOf": [
-                      {
-                        "if": {
-                          "additionalProperties": true,
-                          "properties": {
-                            "type": {
-                              "enum": [
-                                "SKIPPED"
-                              ]
-                            }
-                          }
-                        },
-                        "then": {
-                          "type": "object",
-                          "additionalProperties": false,
-                          "required": [
-                            "num_skipped"
-                          ],
-                          "properties": {
-                            "type": {},
-                            "num_skipped": {
-                              "type": "u32",
-                              "description": [
-                                "Number of deleted/omitted entries."
-                              ]
-                            }
-                          }
-                        }
-                      },
                       {
                         "if": {
                           "additionalProperties": true,
@@ -29197,7 +29184,7 @@
                   ]
                 },
                 "created_at": {
-                  "type": "u64",
+                  "type": "u32",
                   "description": [
                     "The UNIX timestamp showing when this payment was initiated."
                   ]
@@ -29270,7 +29257,7 @@
                       "description": {},
                       "bolt12": {},
                       "completed_at": {
-                        "type": "u64",
+                        "type": "u32",
                         "added": "pre-v0.10.1",
                         "description": [
                           "The UNIX timestamp showing when this payment was completed."
@@ -35246,7 +35233,7 @@
             ]
           },
           "created_at": {
-            "type": "u64",
+            "type": "u32",
             "description": [
               "The UNIX timestamp showing when this payment was initiated."
             ]
@@ -35645,13 +35632,13 @@
             ]
           },
           "created_at": {
-            "type": "u64",
+            "type": "u32",
             "description": [
               "The UNIX timestamp showing when this payment was initiated."
             ]
           },
           "completed_at": {
-            "type": "u64",
+            "type": "u32",
             "description": [
               "The UNIX timestamp showing when this payment was completed."
             ]
@@ -37897,12 +37884,6 @@
               "The final psbt"
             ]
           },
-          "tx": {
-            "type": "string",
-            "description": [
-              "The final transaction in hex"
-            ]
-          },
           "txid": {
             "type": "string",
             "description": [
@@ -37976,12 +37957,6 @@
             "type": "string",
             "description": [
               "The final psbt"
-            ]
-          },
-          "tx": {
-            "type": "string",
-            "description": [
-              "The final transaction in hex"
             ]
           },
           "txid": {
@@ -40863,7 +40838,7 @@
             ]
           },
           "created_at": {
-            "type": "u64",
+            "type": "u32",
             "description": [
               "The UNIX timestamp showing when this payment was initiated."
             ]
@@ -40876,7 +40851,7 @@
             ]
           },
           "completed_at": {
-            "type": "number",
+            "type": "u32",
             "description": [
               "The UNIX timestamp showing when this payment was completed."
             ]
@@ -42117,10 +42092,12 @@
                   "ipv6",
                   "torv2",
                   "torv3",
-                  "websocket"
+                  "websocket",
+                  "unresolved"
                 ],
                 "description": [
-                  "Type of connection (*torv2*/*torv3* only if **direction** is *out*)"
+                  "Type of connection (*torv2*/*torv3* only if **direction** is *out*).",
+                  "*unresolved* is used when the peer address was not resolved (e.g. with **always-use-proxy**)."
                 ]
               }
             },
@@ -42178,6 +42155,40 @@
                       "type": "string",
                       "description": [
                         "Address in expected format for **type**"
+                      ]
+                    },
+                    "port": {
+                      "type": "u16",
+                      "description": [
+                        "Port number"
+                      ]
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "unresolved"
+                      ]
+                    }
+                  }
+                },
+                "then": {
+                  "additionalProperties": false,
+                  "required": [
+                    "name",
+                    "port"
+                  ],
+                  "properties": {
+                    "type": {},
+                    "name": {
+                      "type": "string",
+                      "description": [
+                        "The unresolved name"
                       ]
                     },
                     "port": {
@@ -42296,6 +42307,20 @@
           "received_time"
         ],
         "properties": {
+          "created_index": {
+            "type": "u64",
+            "added": "v23.11",
+            "description": [
+              "1-based index indicating order this forward was created in."
+            ]
+          },
+          "updated_index": {
+            "type": "u64",
+            "added": "v23.11",
+            "description": [
+              "1-based index indicating order this forward was changed (only present if it has changed since creation)."
+            ]
+          },
           "payment_hash": {
             "type": "hash",
             "description": [
@@ -42306,6 +42331,12 @@
             "type": "short_channel_id",
             "description": [
               "The inbound channel that received the HTLC."
+            ]
+          },
+          "in_htlc_id": {
+            "type": "u64",
+            "description": [
+              "The unique HTLC id the sender gave this (not present if incoming channel was closed before upgrade to v22.11)."
             ]
           },
           "out_channel": {
@@ -42377,6 +42408,12 @@
             "type": "number",
             "description": [
               "The UNIX timestamp when the HTLC was resolved, if it has been resolved."
+            ]
+          },
+          "preimage": {
+            "type": "secret",
+            "description": [
+              "The payment preimage, if the forward was settled."
             ]
           }
         }
@@ -42807,13 +42844,13 @@
                 ]
               },
               "created_at": {
-                "type": "u64",
+                "type": "u32",
                 "description": [
                   "The UNIX timestamp when this payment was initiated."
                 ]
               },
               "completed_at": {
-                "type": "u64",
+                "type": "u32",
                 "description": [
                   "The UNIX timestamp when this payment completed."
                 ]
@@ -42998,13 +43035,13 @@
             ]
           },
           "created_at": {
-            "type": "u64",
+            "type": "u32",
             "description": [
               "The UNIX timestamp when this payment was initiated."
             ]
           },
           "completed_at": {
-            "type": "u64",
+            "type": "u32",
             "description": [
               "The UNIX timestamp when this payment completed."
             ]
@@ -43723,7 +43760,7 @@
                 ]
               },
               "cltv_expiry_relative": {
-                "type": "u32",
+                "type": "integer",
                 "description": [
                   "Hints how much time we still have to claim the HTLC.",
                   "It is the `cltv_expiry` minus the current blockheight and is passed along mainly to avoid the plugin having to look up the current blockheight."
@@ -44459,13 +44496,13 @@
                 ]
               },
               "to_self_delay": {
-                "type": "u32",
+                "type": "u16",
                 "description": [
                   "The number of blocks before they can take their funds if they unilateral close."
                 ]
               },
               "max_accepted_htlcs": {
-                "type": "u32",
+                "type": "u16",
                 "description": [
                   "Maximum number of HTLC's the remote is allowed to offer at once."
                 ]
@@ -44859,6 +44896,36 @@
               "This amount must NOT be included in any outputs in the provided PSBT.",
               "Change outputs must be included separately."
             ]
+          },
+          "lease_fee_base_msat": {
+            "type": "msat",
+            "description": [
+              "Flat fee to charge for a channel lease."
+            ]
+          },
+          "lease_fee_basis": {
+            "type": "u16",
+            "description": [
+              "Proportional fee to charge for a channel lease, calculated as 1/10,000th of requested funds."
+            ]
+          },
+          "funding_weight": {
+            "type": "u16",
+            "description": [
+              "Transaction weight the channel opener will pay us for a leased funding transaction."
+            ]
+          },
+          "channel_fee_max_base_msat": {
+            "type": "msat",
+            "description": [
+              "Maximum channel_fee_base_msat we'll charge for routing funds leased on this channel."
+            ]
+          },
+          "channel_fee_max_proportional_thousandths": {
+            "type": "u16",
+            "description": [
+              "Maximum channel_fee_proportional_millitionths we'll charge for routing funds leased on this channel, in thousandths."
+            ]
           }
         },
         "if": {
@@ -45056,17 +45123,6 @@
           }
         }
       },
-      "example_hooks": [
-        {
-          "method": "openchannel2_sign",
-          "params": {
-            "openchannel2_sign": {
-              "channel_id": "252d1b0a1e57895e841...",
-              "psbt": "cHNidP8BADMCAAAAAQ+yBipSVZr..."
-            }
-          }
-        }
-      ],
       "examples": [
         {
           "request": {
@@ -45541,9 +45597,9 @@
             "additionalProperties": false,
             "properties": {
               "result": {
-                "type": "object",
+                "type": "json_object_or_array",
                 "description": [
-                  "Custom result object to return to the caller."
+                  "Custom result to return to the caller."
                 ]
               },
               "error": {

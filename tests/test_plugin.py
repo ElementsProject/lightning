@@ -4116,8 +4116,6 @@ def test_sql(node_factory, bitcoind):
                          'type': 'string'},
                         {'name': 'next_feerate',
                          'type': 'string'},
-                        {'name': 'next_fee_step',
-                         'type': 'u32'},
                         {'name': 'close_to',
                          'type': 'hex'},
                         {'name': 'private',
