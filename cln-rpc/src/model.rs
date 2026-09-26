@@ -4688,6 +4688,8 @@ pub mod requests {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub maxdelay: Option<u32>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub maxhops: Option<u32>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub maxparts: Option<u32>,
 	    pub amount_msat: Amount,
 	    pub destination: PublicKey,

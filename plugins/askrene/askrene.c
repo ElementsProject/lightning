@@ -359,6 +359,8 @@ struct getroutes_info {
 	/* Non-NULL if we are told to use "auto.localchans" */
 	struct layer *local_layer;
 	u32 maxparts;
+	/* 0 means no hop limit. */
+	size_t maxhops;
 };
 
 static void add_layer(const struct layer ***layers,
@@ -717,7 +719,7 @@ static struct command_result *do_getroutes(struct command *cmd,
 			  info->dev_algo == ALGO_SINGLE_PATH,
 			  deadline, srcnode, dstnode, info->amount,
 			  info->maxfee, info->finalcltv, info->maxdelay, info->maxparts,
-			  include_fees,
+			  info->maxhops, include_fees,
 			  cmd->idstr, cmd->filter,
 			  include_next_node_id,
 			  include_amount_msat,
@@ -907,7 +909,7 @@ static struct command_result *json_getroutes(struct command *cmd,
 	struct amount_msat *amount, *maxfee;
 	u32 *finalcltv, *maxdelay;
 	enum algorithm *dev_algo;
-	u32 *maxparts;
+	u32 *maxparts, *maxhops;
 
 	if (!param_check(cmd, buffer, params,
 			 p_req("source", param_node_id, &source),
@@ -920,6 +922,7 @@ static struct command_result *json_getroutes(struct command *cmd,
 				   maxdelay_allowed),
 			 p_opt_def("maxparts", param_u32, &maxparts,
 				   default_maxparts),
+			 p_opt_def("maxhops", param_u32, &maxhops, 0),
 			 p_opt_dev("dev_algorithm", param_algorithm,
 				   &dev_algo, ALGO_DEFAULT),
 			 NULL))
@@ -961,6 +964,7 @@ static struct command_result *json_getroutes(struct command *cmd,
 	info->dev_algo = *dev_algo;
 	info->additional_costs = new_htable(info, additional_cost_htable);
 	info->maxparts = *maxparts;
+	info->maxhops = *maxhops;
 
 	if (askrene->num_live_requests >= askrene->max_children) {
 		cmd_log(tmpctx, cmd, LOG_INFORM,
