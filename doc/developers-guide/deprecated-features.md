@@ -31,6 +31,7 @@ privacy:
 | keysend                                            | Command            | v26.06           | v27.03         | Replaced by more powerful `xkeysend`.                                                                                     |
 | renepay                                            | Command            | v26.06           | v27.03         | Use `xpay` instead.                                                                                                       |
 | renepaystatus                                      | Command            | v26.06           | v27.03         | Use `xpay` notifications and `listpays` or `listsendpays` instead.                                                        |
+| xpay-handle-pay                                    | Config             | v26.09           | v27.03         | `pay` is being deprecated and `xpay` for all payments is the default.                                                     |
 
 Inevitably there are features which need to change: either to be generalized, or removed when they can no longer be supported.
 
