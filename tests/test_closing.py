@@ -2526,10 +2526,19 @@ def test_onchain_middleman_fulfill_after_fail(node_factory, bitcoind):
     l3.daemon.wait_for_log(' to ONCHAIN')
 
     # Now l3 learns the preimage, and spends what it's owed.
+    # Both HTLCs get a success tx; they share a wallet UTXO for fee boost
+    # so only one can enter the mempool at a time. Wait for either.
+    needle = l3.daemon.logsearch_start
     l3.rpc.releasehtlc(preimage)
-    _, txid, _ = l3.wait_for_onchaind_tx('OUR_HTLC_SUCCESS_TX',
-                                         'OUR_UNILATERAL/THEIR_HTLC')
-    bitcoind.generate_block(1, wait_for_mempool=[txid])
+    l3.daemon.wait_for_logs(['Broadcast for onchaind tx'] * 2)
+    txids = []
+    for line in l3.daemon.logs[needle:]:
+        m = re.search(r'Broadcast for onchaind tx ([0-9a-fA-F]+)', line)
+        if m:
+            txids.append(bitcoind.rpc.decoderawtransaction(m.group(1))['txid'])
+    assert len(txids) >= 2
+    wait_for(lambda: any(t in bitcoind.rpc.getrawmempool() for t in txids[-2:]))
+    bitcoind.generate_block(1)
     l2.daemon.wait_for_log('THEIR_UNILATERAL/OUR_HTLC gave us preimage')
 
     # Both payments must succeed, including the one l3 said it failed.
