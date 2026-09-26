@@ -3176,7 +3176,7 @@ void htlcs_resubmit(struct lightningd *ld,
 {
 	struct htlc_in *hin;
 	struct htlc_in_map_iter ini;
-	enum onion_wire badonion COMPILER_WANTS_INIT("gcc7.4.0 bad, 8.3 OK");
+	enum onion_wire badonion COMPILER_WANTS_INIT(0, "gcc7.4.0 bad, 8.3 OK");
 	u8 *failmsg;
 
 	/* Now retry any which were stuck. */

@@ -46,7 +46,7 @@
  *	expands to '1' if @a is '0', otherwise expands to '0'.
  */
 #define _CPPMAGIC_ISPROBE(...)		CPPMAGIC_2ND(__VA_ARGS__, 0)
-#define _CPPMAGIC_PROBE()		$, 1
+#define _CPPMAGIC_PROBE()		_cppmagic_probe, 1
 #define _CPPMAGIC_ISZERO_0		_CPPMAGIC_PROBE()
 #define CPPMAGIC_ISZERO(a_)		\
 	_CPPMAGIC_ISPROBE(CPPMAGIC_GLUE2(_CPPMAGIC_ISZERO_, a_))
@@ -139,6 +139,11 @@
  *
  * CPPMAGIC_MAP(@m, @a1, @a2, ... @an)
  *	expands to the expansion of @m(@a1) , @m(@a2) , ... , @m(@an)
+ *
+ * Note: an argument which expands to no tokens is not supported: it
+ * silently truncates the argument list at that point (before C23
+ * __VA_OPT__ there is no way to distinguish "expands to nothing"
+ * from "absent").
  */
 #define _CPPMAGIC_MAP_()		_CPPMAGIC_MAP
 #define _CPPMAGIC_MAP(m_, a_, ...)					\
@@ -158,6 +163,9 @@
  * CPPMAGIC_2MAP(@m, @a1, @b1, @a2, @b2, ..., @an, @bn)
  *	expands to the expansion of
  *		 @m(@a1, @b1) , @m(@a2, @b2) , ... , @m(@an, @bn)
+ *
+ * Note: an argument which expands to no tokens is not supported
+ * (see CPPMAGIC_MAP).
  */
 #define _CPPMAGIC_2MAP_()		_CPPMAGIC_2MAP
 #define _CPPMAGIC_2MAP(m_, a_, b_, ...)				\
@@ -176,6 +184,9 @@
  *
  * CPPMAGIC_JOIN(@d, @a1, @a2, ..., @an)
  *	expands to the expansion of @a1 @d @a2 @d ... @d @an
+ *
+ * Note: an argument which expands to no tokens is not supported
+ * (see CPPMAGIC_MAP).
  */
 #define _CPPMAGIC_JOIN_()		_CPPMAGIC_JOIN
 #define _CPPMAGIC_JOIN(d_, a_, ...)					\

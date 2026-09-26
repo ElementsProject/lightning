@@ -86,7 +86,16 @@ bool shachain_add_hash(struct shachain *chain,
 	/* You have to insert them in order! */
 	assert(index == shachain_next_index(chain));
 
+	/* Reject out-of-domain indices (SHACHAIN_BITS < 64 builds, and
+	 * the post-exhaustion wrap to UINT64_MAX). */
+	if (index > (UINT64_MAX >> (64 - SHACHAIN_BITS)))
+		return false;
+
 	pos = count_trailing_zeroes(index);
+
+	/* Beyond the chain domain (past exhaustion): no such slot. */
+	if (pos > SHACHAIN_BITS)
+		return false;
 
 	/* All derivable answers must be valid. */
 	/* FIXME: Is it sufficient to check just the next answer? */

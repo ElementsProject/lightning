@@ -17,9 +17,11 @@ static void *grab_fd_internal(const void *ctx, int fd, bool add_nul_term)
 
 	size = 0;
 
-	if (fstat(fd, &st) == 0 && S_ISREG(st.st_mode))
+	if (fstat(fd, &st) == 0 && S_ISREG(st.st_mode) && st.st_size != 0)
 		max = st.st_size;
 	else
+		/* Non-regular file, or one reporting a zero size despite
+		 * having content (eg. /proc, /sys): guess and grow. */
 		max = 16384;
 
 	buffer = tal_arr(ctx, char, max+add_nul_term);

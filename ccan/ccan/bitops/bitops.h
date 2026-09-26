@@ -26,7 +26,7 @@ static inline int bitops_ffs32(uint32_t u)
 /**
  * bitops_ffs64: find lowest set bit in a uint64_t
  *
- * Returns 1 for least significant bit, 32 for most significant bit, 0
+ * Returns 1 for least significant bit, 64 for most significant bit, 0
  * for no bits set.
  */
 static inline int bitops_ffs64(uint64_t u)
