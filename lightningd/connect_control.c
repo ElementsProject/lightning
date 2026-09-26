@@ -728,7 +728,8 @@ int connectd_init(struct lightningd *ld)
 				   !ld->reconnect,
 				   ld->dev_fast_reconnect,
 				   ld->dev_limit_connections_inflight,
-				   ld->dev_keep_nagle);
+				   ld->dev_keep_nagle,
+			   ld->dev_max_wake_delay_ms);
 
 	subd_req(ld->connectd, ld->connectd, take(msg), -1, 0,
 		 connect_init_done, NULL);
