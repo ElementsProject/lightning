@@ -5126,14 +5126,48 @@ def send_open_channel(lconn, chain_hash, temp_chan_id, funding_sat, push_msat,
     lconn.send_message(msg)
 
 
-def read_channel_reply(lconn):
-    """Read past gossip chatter to openingd's answer to our open_channel."""
+def read_channel_reply_payload(lconn):
+    """
+    Read past gossip chatter to openingd's answer to our open_channel
+    Returns (mtype, payload), so callers can inspect accept_channel's fields
+    """
     for _ in range(20):
         msg = lconn.read_message()
         mtype = int.from_bytes(msg[0:2], 'big')
         if mtype in (WIRE_ACCEPT_CHANNEL, WIRE_WARNING, WIRE_ERROR):
-            return mtype
+            return mtype, msg[2:]
     raise AssertionError("no reply to open_channel")
+
+
+def read_channel_reply(lconn):
+    mtype, _ = read_channel_reply_payload(lconn)
+    return mtype
+
+
+def send_open_channel_reserve(lconn, chain_hash, temp_chan_id, funding_sat, push_msat,
+                              dust_limit, channel_reserve, feerate_per_kw, channel_type):
+    """Like send_open_channel, but with a caller-chosen dust_limit / channel_reserve"""
+    keys = [wire.PrivateKey(bytes([i + 1] * 32)).public_key().serializeCompressed()
+            for i in range(6)]
+
+    msg = struct.pack('>H', WIRE_OPEN_CHANNEL)
+    msg += chain_hash
+    msg += temp_chan_id
+    msg += struct.pack('>Q', funding_sat) # funding_satoshis
+    msg += struct.pack('>Q', push_msat) # push_msat
+    msg += struct.pack('>Q', dust_limit) # dust_limit_satoshis
+    msg += struct.pack('>Q', 0xFFFFFFFFFFFF) # max_htlc_value_in_flight_msat
+    msg += struct.pack('>Q', channel_reserve) # channel_reserve_satoshis
+    msg += struct.pack('>Q', 0) # htlc_minimum_msat
+    msg += struct.pack('>I', feerate_per_kw) # feerate_per_kw
+    msg += struct.pack('>H', 144) # to_self_delay
+    msg += struct.pack('>H', 483) # max_accepted_htlcs
+    for k in keys:
+        msg += k
+    msg += struct.pack('>B', 0) # channel_flags
+    msg += bytes([1, len(channel_type)]) + channel_type # TLV 1: channel_type
+
+    lconn.send_message(msg)
 
 
 def send_funding_created(lconn, temp_chan_id):
@@ -5278,3 +5312,37 @@ def test_connect_proxy_maxlen_hostname(node_factory):
                        + bytes([len(hostname)])
                        + hostname.encode('ascii')
                        + (1234).to_bytes(2, 'big'))
+
+
+@pytest.mark.openchannel('v1')
+def test_accept_channel_reserve_below_our_dust_limit(node_factory, bitcoind):
+    """Our accept_channel must not set channel_reserve below our dust limit.
+
+    As fundee, openingd used to floor the 1% channel reserve at the peer's
+    dust_limit_satoshis only, never at our own.  A peer opening a small
+    channel with a low dust limit could get an accept_channel whose
+    dust_limit_satoshis (546, hardcoded) exceeded its own
+    channel_reserve_satoshis, violating BOLT #2.
+    """
+    l1 = node_factory.get_node()
+
+    chain_hash = bytes.fromhex(bitcoind.rpc.getblockhash(0))[::-1]
+    feerate = l1.rpc.feerates('perkw')['perkw']['opening']
+
+    lconn, channel_type = raw_peer_connect(l1)
+    # 1% of 30000 is 300sat, floored to our peer's 354sat dust limit -- still
+    # under our own hardcoded 546sat dust limit.  channel_reserve_satoshis=546
+    # keeps us clear of the separate issue #9439, and funding_sat is well
+    # clear of lightningd's default 10,000sat minimum effective capacity.
+    send_open_channel_reserve(lconn, chain_hash, os.urandom(32),
+                              funding_sat=30000, push_msat=0,
+                              dust_limit=354, channel_reserve=546,
+                              feerate_per_kw=feerate, channel_type=channel_type)
+    mtype, payload = read_channel_reply_payload(lconn)
+    assert mtype == WIRE_ACCEPT_CHANNEL
+
+    dust_limit = struct.unpack('>Q', payload[32:40])[0]
+    reserve = struct.unpack('>Q', payload[48:56])[0]
+    assert dust_limit <= reserve, \
+        "accept_channel dust_limit_satoshis {} exceeds its channel_reserve_satoshis {}".format(
+            dust_limit, reserve)
