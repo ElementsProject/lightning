@@ -7,10 +7,13 @@ requires-python = ">=3.10,<4.0"
 dependencies = [
   "Mako>=1.1.6",
   "websocket-client>=1.2.3",
-  "grpcio-tools==1.75.1",
-  "grpcio==1.75.1",
-  # We want a specific version of protobuf to match CI's .github/scripts/setup.sh
-  "protobuf==6.32.1",
+  # The checked-in grpc stubs assert grpcio >= 1.81.1 at import time, so that
+  # is our floor; bump it together with the regenerated stubs.
+  "grpcio-tools>=1.81.1",
+  "grpcio>=1.81.1",
+  # The checked-in gencode asserts runtime >= 6.33.5, so that is our floor.
+  # Any 6.x runtime at or above it works; bump when regenerating the protos.
+  "protobuf>=6.33.5,<7",
   "cryptography>=46",
   "pyln-client",
   "pyln-proto",

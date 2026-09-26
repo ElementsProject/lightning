@@ -6,10 +6,10 @@ authors = [{ name = "Christian Decker", email = "decker@blockstream.com" }]
 license = { text = "MIT" }
 readme = "README.md"
 requires-python = ">=3.10,<4.0"
-dependencies = ["grpcio==1.75.1", "protobuf==6.32.1"]
+dependencies = ["grpcio>=1.81.1", "protobuf>=6.33.5,<7"]
 
 [dependency-groups]
-dev = ["grpcio==1.75.1", "mypy-protobuf<4", "grpcio-tools==1.75.1"]
+dev = ["grpcio>=1.81.1", "mypy-protobuf>=3.6.0", "grpcio-tools>=1.81.1"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["pyln"]
