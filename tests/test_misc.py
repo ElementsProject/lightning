@@ -3156,7 +3156,9 @@ def test_recoverchannel_closed_sibling(node_factory, bitcoind):
     l2.start()
     sync_blockheight(bitcoind, [l2])
     l2.rpc.recoverchannel(scb)
-    l2.rpc.connect(l1.info['id'], 'localhost', l1.port)
+    # Connect from l1 (already autoreconnecting): dialing from l2 races that
+    # attempt and can hit a simultaneous-connect teardown.
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
     wait_for(lambda: [c['state'] for c in l1.rpc.listpeerchannels()['channels']
                       if c.get('short_channel_id') == c_live] == ['AWAITING_UNILATERAL'])
