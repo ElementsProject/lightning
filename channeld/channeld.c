@@ -4377,6 +4377,7 @@ static void splice_accepter(struct peer *peer, const u8 *inmsg)
 	peer->splicing->accepter_relative = 0;
 
 	if (type == WIRE_SPLICE_INIT) {
+		/* Same fixed local funding_pubkey as splice_init - see the comment there */
 		msg = towire_splice_ack(NULL,
 					&peer->channel_id,
 					peer->splicing->accepter_relative,
@@ -5031,6 +5032,9 @@ static void handle_splice_stfu_success(struct peer *peer)
 	u8 *msg;
 	struct tlv_tx_init_rbf_tlvs *init_rbf_tlvs;
 	if (!last_inflight(peer)) {
+		/* We only support the peer rotating their funding pubkey
+		 * (see remote_funding_pubkey) - our own funding_pubkey is
+		 * fixed for the channel's lifetime and is never rederived here */
 		msg = towire_splice_init(tmpctx,
 					 &peer->channel_id,
 					 peer->splicing->opener_relative,
