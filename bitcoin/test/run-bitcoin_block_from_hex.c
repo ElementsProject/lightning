@@ -70,6 +70,19 @@ static const char elements_short_challenge[] =
 static const char elements_short_dynafed[] =
 	"000000a000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000afdc6a5c640000000150";
 
+/* Block whose only transaction does not parse. */
+static const char bad_tx[] =
+	"000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001ff";
+
+/* Block claiming far more transactions than it has bytes. */
+static const char huge_tx_count[] =
+	"0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ffffffffffffffff7f";
+
+/* Dynafed header whose extension space claims far more entries than it
+ * has bytes. */
+static const char elements_huge_extension[] =
+	"000000800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000200000000000000ffffffffffffffff7f";
+
 STRUCTEQ_DEF(sha256_double, 0, sha);
 
 int main(int argc, const char *argv[])
@@ -87,8 +100,16 @@ int main(int argc, const char *argv[])
 	assert(!bitcoin_block_from_hex(NULL, chainparams,
 				       elements_short_dynafed,
 				       strlen(elements_short_dynafed)));
+	assert(!bitcoin_block_from_hex(NULL, chainparams,
+				       elements_huge_extension,
+				       strlen(elements_huge_extension)));
 
 	chainparams = chainparams_for_network("bitcoin");
+	assert(!bitcoin_block_from_hex(NULL, chainparams,
+				       bad_tx, strlen(bad_tx)));
+	assert(!bitcoin_block_from_hex(NULL, chainparams,
+				       huge_tx_count, strlen(huge_tx_count)));
+
 	b = bitcoin_block_from_hex(NULL, chainparams,
 				   block, strlen(block));
 

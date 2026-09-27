@@ -114,7 +114,7 @@ static void bitcoin_block_pull_dynafed_params(const u8 **cursor, size_t *len, st
 		/* extension space */
 		l2 = pull_varint(cursor, len);
 		sha256_varint(shactx, l2);
-		for (size_t i = 0; i < l2; i++) {
+		for (size_t i = 0; i < l2 && *cursor; i++) {
 			l1 = pull_varint(cursor, len);
 			sha256_varint(shactx, l1);
 			pull_and_hash(cursor, len, shactx, l1);
@@ -130,7 +130,7 @@ static void bitcoin_block_pull_dynafed_details(const u8 **cursor, size_t *len, s
 
 	/* Consume the signblock_witness */
 	u64 numwitnesses = pull_varint(cursor, len);
-	for (size_t i=0; i<numwitnesses; i++) {
+	for (size_t i=0; i<numwitnesses && *cursor; i++) {
 		u64 witsize = pull_varint(cursor, len);
 		pull(cursor, len, NULL, witsize);
 	}
@@ -207,10 +207,15 @@ bitcoin_block_from_hex(const tal_t *ctx, const struct chainparams *chainparams,
 	sha256_double_done(&shactx, &b->hdr.hash.shad);
 
 	num = pull_varint(&p, &len);
+	/* Every transaction takes at least one byte */
+	if (num > len)
+		return tal_free(b);
 	b->tx = tal_arr(b, struct bitcoin_tx *, num);
 	b->txids = tal_arr(b, struct bitcoin_txid, num);
 	for (i = 0; i < num; i++) {
 		b->tx[i] = pull_bitcoin_tx_only(b->tx, &p, &len);
+		if (!b->tx[i])
+			return tal_free(b);
 		b->tx[i]->chainparams = chainparams;
 		bitcoin_txid(b->tx[i], &b->txids[i]);
 	}
