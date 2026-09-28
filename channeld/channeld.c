@@ -2057,6 +2057,23 @@ static NORETURN void splice_abort(struct peer *peer, struct inflight *inflight,
 	exit(0);
 }
 
+/* lightningd keys inflights by funding txid, so a splice tx which
+ * reuses the txid of one we already have (e.g. an RBF that rebuilt an
+ * identical tx) cannot be recorded.  Abort the splice rather than hand
+ * lightningd a duplicate. */
+static void check_duplicate_inflight(struct peer *peer,
+				     const struct bitcoin_txid *txid)
+{
+	for (size_t i = 0; i < tal_count(peer->splice_state->inflights); i++) {
+		if (!bitcoin_txid_eq(&peer->splice_state->inflights[i]->outpoint.txid,
+				     txid))
+			continue;
+		splice_abort(peer, NULL,
+			     "Splice tx %s duplicates an existing inflight",
+			     fmt_bitcoin_txid(tmpctx, txid));
+	}
+}
+
 struct commitsig_info {
 	struct commitsig *commitsig;
 	struct secret *old_secret;
@@ -4476,6 +4493,7 @@ static void splice_accepter(struct peer *peer, const u8 *inmsg)
 	psbt_elements_normalize_fees(ictx->current_psbt);
 
 	psbt_txid(tmpctx, ictx->current_psbt, &outpoint.txid, NULL);
+	check_duplicate_inflight(peer, &outpoint.txid);
 
 	psbt_finalize(ictx->current_psbt);
 
@@ -4780,6 +4798,7 @@ static void splice_initiator_user_finalized(struct peer *peer)
 		     fmt_wally_psbt(tmpctx, ictx->current_psbt));
 
 	psbt_txid(tmpctx, ictx->current_psbt, &current_psbt_txid, NULL);
+	check_duplicate_inflight(peer, &current_psbt_txid);
 
 	outmsg = towire_channeld_add_inflight(tmpctx,
 					      &peer->splicing->remote_funding_pubkey,
