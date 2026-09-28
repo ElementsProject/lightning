@@ -3027,8 +3027,11 @@ void htlcs_notify_new_block(struct lightningd *ld)
 			if (height < htlc_out_deadline(hout))
 				continue;
 
-			/* Channel dying already? */
-			if (!channel_state_can_add_htlc(hout->key.channel->state)) {
+			/* Already going onchain?  Then onchaind is handling
+			 * it, and there is nothing to close: but a channel
+			 * merely shutting down still has channeld and the
+			 * HTLC, so it must fail like any other. */
+			if (channel_state_failing_onchain(hout->key.channel->state)) {
 				consider_failing_incoming(ld, height, hout);
 				continue;
 			}
