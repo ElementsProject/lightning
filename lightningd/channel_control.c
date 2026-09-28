@@ -929,6 +929,30 @@ static void handle_add_inflight(struct lightningd *ld,
 		return;
 	}
 
+	/* An RBF that rebuilds a byte-identical splice tx reuses the
+	 * funding txid.  Inserting a second inflight with the same
+	 * (channel_id, funding_tx_id) violates the primary key, and
+	 * the DB layer treats that as fatal and aborts the node.  A
+	 * peer can force it by RBF-ing into a tx we already recorded.
+	 * Fail the pending splice command and the channel instead. */
+	if (channel_inflight_find(channel, &outpoint.txid)) {
+		struct splice_command *cc;
+		const char *txid;
+
+		txid = fmt_bitcoin_txid(tmpctx, &outpoint.txid);
+		cc = splice_command_for_chan(ld, channel);
+		if (cc)
+			was_pending(command_fail(cc->cmd, SPLICE_CHANNEL_ERROR,
+						 "add_inflight: duplicate inflight"
+						 " funding txid %s",
+						 txid));
+		channel_internal_error(channel,
+				       "add_inflight: duplicate inflight funding"
+				       " txid %s",
+				       txid);
+		return;
+	}
+
 	inflight = new_inflight(channel,
 				remote_funding,
 				&outpoint,
