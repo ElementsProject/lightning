@@ -2928,7 +2928,9 @@ def test_unix_socket_path_length(node_factory, bitcoind, directory, executor, db
     db = db_provider.get_db(lightning_dir, "test_unix_socket_path_length", 1)
     db.provider = db_provider
 
-    l1 = LightningNode(1, lightning_dir, bitcoind, executor, VALGRIND, db=db, port=node_factory.get_unused_port())
+    l1 = LightningNode(1, lightning_dir, bitcoind, executor, VALGRIND, db=db,
+                       port=node_factory.get_unused_port(),
+                       grpc_port=node_factory.get_unused_port())
 
     # `LightningNode.start()` internally calls `LightningRpc.getinfo()` which
     # exercises the socket logic, and raises an issue if it fails.
