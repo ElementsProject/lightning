@@ -12,6 +12,7 @@
 #include <common/initial_commit_tx.h>
 #include <common/json_channel_type.h>
 #include <common/json_command.h>
+#include <common/memleak.h>
 #include <common/psbt_open.h>
 #include <common/timeout.h>
 #include <common/version.h>
@@ -2079,6 +2080,37 @@ static bool peer_has_other_live_channel(const struct peer *peer,
 	return false;
 }
 
+/* A peer's channeld exits on our reestablish reply, dropping a following error. */
+struct delayed_error {
+	struct peer *peer;
+	struct oneshot *timer;
+	u64 connectd_counter;
+	const u8 *error;
+	bool disconnect;
+};
+
+static void send_delayed_error(struct delayed_error *de)
+{
+	/* Peer may have reconnected. */
+	if (de->peer->connectd_counter != de->connectd_counter)
+		goto out;
+
+	log_peer_debug(de->peer->ld->log, &de->peer->id,
+		       "Telling connectd to send error %s",
+		       tal_hex(tmpctx, de->error));
+	subd_send_msg(de->peer->ld->connectd,
+		      take(towire_connectd_peer_send_msg(NULL, &de->peer->id,
+							 de->connectd_counter,
+							 de->error)));
+	if (de->disconnect)
+		subd_send_msg(de->peer->ld->connectd,
+			      take(towire_connectd_disconnect_peer(NULL,
+								&de->peer->id,
+								 de->connectd_counter)));
+out:
+	tal_free(de);
+}
+
 /* connectd tells us a peer has a message and we've not already attached
  * a subd.  Normally this is a race, but it happens for real when opening
  * a new channel, or referring to a channel we no longer want to talk to
@@ -2097,6 +2129,7 @@ void handle_peer_spoke(struct lightningd *ld, const u8 *msg)
 	int other_fd;
 	struct peer_fd *pfd;
 	char *errmsg;
+	bool sent_reestablish = false;
 
 	if (!fromwire_connectd_peer_spoke(msg, msg, &id, &connectd_counter, &msgtype, &channel_id, &errmsg))
 		fatal("Connectd gave bad CONNECTD_PEER_SPOKE message %s",
@@ -2131,6 +2164,7 @@ void handle_peer_spoke(struct lightningd *ld, const u8 *msg)
 			send_reestablish(peer, &channel->cid,
 					 &channel->their_shachain.chain,
 					 channel->next_index[LOCAL]);
+			sent_reestablish = true;
 		}
 
 		/* If we have a canned error for this channel, send it now */
@@ -2285,6 +2319,18 @@ void handle_peer_spoke(struct lightningd *ld, const u8 *msg)
 				"Unknown channel for %s", peer_wire_name(msgtype));
 
 send_error:
+	if (sent_reestablish) {
+		struct delayed_error *de = notleak(tal(peer, struct delayed_error));
+
+		de->peer = peer;
+		de->connectd_counter = peer->connectd_counter;
+		de->error = tal_dup_talarr(de, u8, error);
+		de->disconnect = !peer_has_other_live_channel(peer, &channel_id);
+		de->timer = notleak(new_reltimer(ld->timers, de, time_from_sec(1),
+						 send_delayed_error, de));
+		return;
+	}
+
 	log_peer_debug(ld->log, &peer->id, "Telling connectd to send error %s",
 		       tal_hex(tmpctx, error));
 	/* Get connectd to send error. */
