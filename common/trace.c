@@ -462,6 +462,7 @@ static void destroy_trace_span(const void *key)
 {
 	size_t numkey = trace_key(key);
 	struct span *span = trace_span_find(numkey);
+	struct span *saved = current;
 
 	/* It's usually ended normally. */
 	if (!span)
@@ -472,6 +473,15 @@ static void destroy_trace_span(const void *key)
 		fprintf(trace_to_file, "destroying span\n");
 	trace_span_resume(key);
 	trace_span_end(key);
+
+	current = saved;
+}
+
+void trace_span_destroy_(const void *key, const char *lbl)
+{
+	if (disable_trace)
+		return;
+	destroy_trace_span(key);
 }
 
 void trace_span_suspend_may_free_(const void *key, const char *lbl)
