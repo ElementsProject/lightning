@@ -10,6 +10,7 @@ import time
 import pytest
 import json
 import os
+import re
 
 # Skip the entire module if we don't have Rust.
 pytestmark = pytest.mark.skipif(
@@ -277,31 +278,46 @@ def notifications_received_via_websocket(l1, base_url, http_session, rpc_method=
     - if we couldn't connect to the websocket server, the notification list
       we return is empty."""
     http_session.headers.update({"upgrade": "websocket"})
-    sio = socketio.Client(http_session=http_session)
     notifications = []
     connection_error_msg = None
 
-    @sio.event
-    def message(data):
-        notifications.append(data)
+    def connect():
+        sio = socketio.Client(http_session=http_session, reconnection=False)
 
-    @sio.event
-    def connect_error(data):
-        nonlocal connection_error_msg
-        connection_error_msg = str(data)
+        @sio.event
+        def message(data):
+            notifications.append(data)
 
-    try:
-        sio.connect(base_url)
-    except socketio.exceptions.ConnectionError as e:
-        # Use the detailed error message if available
-        error_str = connection_error_msg if connection_error_msg else str(e)
+        @sio.event
+        def connect_error(data):
+            nonlocal connection_error_msg
+            connection_error_msg = str(data)
 
-        if expect_error and expect_error in error_str:
-            return notifications
-        else:
-            raise ValueError(f"Expected error code `{expect_error}`, got `{error_str}` instead")
-    except Exception:
-        raise
+        sio.connect(base_url, wait_timeout=10)
+        return sio
+
+    sio = None
+    for attempt in range(3):
+        try:
+            sio = connect()
+            break
+        except socketio.exceptions.ConnectionError:
+            if expect_error:
+                # If the CONNECT_ERROR packet arrived, check the text the
+                # server sent.  Otherwise it may have arrived after the
+                # client's connect timeout, so confirm the rejection from
+                # the node log instead.
+                if connection_error_msg is None:
+                    l1.daemon.wait_for_log(rf'verify_rune failed: .*{re.escape(expect_error)}')
+                elif expect_error not in connection_error_msg:
+                    raise ValueError(f"Expected error code `{expect_error}`, got `{connection_error_msg}` instead")
+                return notifications
+            # The namespace CONNECT reply is not always received before the
+            # client's connect timeout; give it another go.
+            if attempt == 2:
+                raise
+            time.sleep(1)
+    assert sio is not None
     if expect_error:
         raise Exception(f"did not raise expected error {expect_error}")
     time.sleep(2)
@@ -500,7 +516,7 @@ def test_websocket_upgrade_header(node_factory):
     http_session = http_session_with_retry()
     http_session.verify = ca_cert.as_posix()
 
-    sio = socketio.Client(http_session=http_session)
+    sio = socketio.Client(http_session=http_session, reconnection=False)
     notifications = []
     connection_error_msg = None
 
@@ -512,16 +528,20 @@ def test_websocket_upgrade_header(node_factory):
     def connect_error(data):
         nonlocal connection_error_msg
         connection_error_msg = str(data)
+
     try:
         sio.connect(base_url)
-    except socketio.exceptions.ConnectionError as e:
-        error_str = connection_error_msg if connection_error_msg else str(e)
-        expect_error = "Missing rune"
-
-        if expect_error not in error_str:
-            raise ValueError(f"Expected error code `{expect_error}`, got `{error_str}` instead")
-    except Exception:
-        raise
+    except socketio.exceptions.ConnectionError:
+        # If the CONNECT_ERROR packet arrived, check the text the server sent;
+        # otherwise it may have arrived after the client's connect timeout, so
+        # confirm the rejection from the node log instead.
+        if connection_error_msg is None:
+            l1.daemon.wait_for_log(r'verify_rune failed: .*Missing rune')
+        elif 'Missing rune' not in connection_error_msg:
+            raise ValueError(f"Expected error code `Missing rune`, got `{connection_error_msg}` instead")
+    else:
+        sio.disconnect()
+        raise Exception("did not raise expected error Missing rune")
 
     time.sleep(2)
     # trigger notification by calling method
