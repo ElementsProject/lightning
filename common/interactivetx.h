@@ -66,6 +66,12 @@ struct interactivetx_context {
 	struct psbt_changeset *change_set;
 };
 
+/* Sanity checks on the transaction outputs amount and the new value to be added
+ * so that MAX_MONEY (21M BTC) is not exceeded. */
+char *interactive_tx_add_output_check_max_money(const tal_t *ctx,
+						struct wally_psbt *psbt,
+						struct amount_sat amt);
+
 /* Builds a new default interactivetx context with default values */
 struct interactivetx_context *new_interactivetx_context(const tal_t *ctx,
 							enum tx_role our_role,
