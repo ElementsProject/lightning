@@ -196,7 +196,7 @@ static struct rune_blacklist *bitmap_to_blacklist(tal_t *ctx,
 	while ((i = bitmap_ffs(bitmap, i, nbits)) != nbits) {
 		struct rune_blacklist b;
 		b.start = b.end = i;
-		while (b.end < nbits && bitmap_test_bit(bitmap, b.end + 1))
+		while (b.end + 1 < nbits && bitmap_test_bit(bitmap, b.end + 1))
 			b.end++;
 		tal_arr_expand(&blist, b);
 		i = b.end + 1;
