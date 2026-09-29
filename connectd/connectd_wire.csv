@@ -116,6 +116,8 @@ msgdata,connectd_peer_connect_subd,channel_id,channel_id,
 msgtype,connectd_peer_spoke,2005
 msgdata,connectd_peer_spoke,id,node_id,
 msgdata,connectd_peer_spoke,counter,u64,
+# Identifies the subd we made for this: quote it back in connectd_peer_no_subd.
+msgdata,connectd_peer_spoke,spoke_id,u64,
 msgdata,connectd_peer_spoke,msgtype,u16,
 msgdata,connectd_peer_spoke,channel_id,channel_id,
 # If msgtype == WIRE_ERROR, this is the string.
@@ -129,6 +131,13 @@ msgdata,connectd_downgrade_peer,id,node_id,
 msgtype,connectd_disconnect_peer,2016
 msgdata,connectd_disconnect_peer,id,node_id,
 msgdata,connectd_disconnect_peer,counter,u64,
+
+# master -> connectd: no subd is coming for the connectd_peer_spoke you sent,
+# so discard the one you created and resume reading from the peer.
+msgtype,connectd_peer_no_subd,2017
+msgdata,connectd_peer_no_subd,id,node_id,
+msgdata,connectd_peer_no_subd,counter,u64,
+msgdata,connectd_peer_no_subd,spoke_id,u64,
 
 # master -> connectd: give message to peer.
 msgtype,connectd_peer_send_msg,2003
