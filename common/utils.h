@@ -133,6 +133,9 @@ void tal_arr_appendn_(void *p, const void *append TAKES, size_t bytes);
 /* Parse a decimal u64 from exactly buflen bytes; false on bad chars or overflow */
 bool str_to_u64(const char *buf, size_t buflen, u64 *num);
 
+/* Parse a decimal s64 from exactly buflen bytes; false on bad chars, overflow, or leading + */
+bool str_to_s64(const char *buf, size_t buflen, s64 *num);
+
 /* Check for valid UTF-8 */
 bool utf8_check(const void *buf, size_t buflen);
 
