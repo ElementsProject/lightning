@@ -6,6 +6,7 @@
 #include <ccan/opt/opt.h>
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/str/hex/hex.h>
+#include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
 #include <common/codex32.h>
@@ -23,6 +24,7 @@
 #include <lightningd/options.h>
 #include <lightningd/plugin.h>
 #include <lightningd/subd.h>
+#include <sodium/utils.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
@@ -1448,6 +1450,27 @@ static char *opt_set_hsm_secret(const char *arg, struct lightningd *ld)
 	return NULL;
 }
 
+/* The recover command re-execs us with the secret in this pipe */
+static char *opt_set_recover_fd(const char *arg, struct lightningd *ld)
+{
+	int fd;
+	char *secret, *err;
+
+	err = opt_set_intval(arg, &fd);
+	if (err)
+		return err;
+
+	secret = grab_fd_str(tmpctx, fd);
+	if (!secret)
+		return tal_fmt(tmpctx, "Reading recover secret from fd %i: %s",
+			       fd, strerror(errno));
+	close(fd);
+
+	err = opt_set_hsm_secret(secret, ld);
+	sodium_memzero(secret, strlen(secret));
+	return err;
+}
+
 static void register_opts(struct lightningd *ld)
 {
 	/* This happens before plugins started */
@@ -1502,6 +1525,8 @@ static void register_opts(struct lightningd *ld)
 		       ld,
 		       "Populate hsm_secret with the given codex32/hex/mnemonic secret"
 		       " and starts the node in `offline` mode.");
+	clnopt_witharg("--recover-fd", OPT_EARLY|OPT_CONCEAL,
+		       opt_set_recover_fd, NULL, ld, opt_hidden);
 
 	/* This affects our features, so set early. */
 	opt_register_early_noarg("--large-channels|--wumbo",

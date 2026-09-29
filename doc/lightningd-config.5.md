@@ -342,6 +342,8 @@ connections. Default is 9736.
 
   This will fail if the `hsm_secret` file exists.  Your node will start the node in offline mode, for manual recovery.  The secret can be extracted from the `hsm_secret` using lightning-hsmtool(8)'s `getsecret`.
 
+  Other users can see command line arguments (e.g. with `ps`) until `lightningd` wipes the secret at startup, and your shell may save it in its history.  The lightning-recover(7) command avoids both.
+
 * **alias**=*NAME*
 
   Up to 32 bytes of UTF-8 characters to tag your node. Completely silly, since

@@ -1222,6 +1222,8 @@ static char **reexec_args(const tal_t *ctx, int argc, char *argv[])
 		char *val;
 		size_t n = opt_args(argv, i, "--recover", &val);
 
+		if (!n)
+			n = opt_args(argv, i, "--recover-fd", &val);
 		if (n) {
 			recovered = true;
 			i += n - 1;
@@ -1248,6 +1250,27 @@ static void scrub_recover_secret(char *argv[])
 	}
 }
 
+/* The recover command's secret goes to our re-exec'd self through a pipe
+ * on this fd, which is free after closefrom(). */
+#define RECOVER_FD (STDERR_FILENO + 1)
+
+static void pipe_recover_secret(const char *secret)
+{
+	int fds[2];
+
+	if (pipe(fds) != 0)
+		err(1, "Creating pipe for recover");
+	/* Tiny, so it fits in the pipe */
+	if (!write_all(fds[1], secret, strlen(secret)))
+		err(1, "Writing recover secret");
+	close(fds[1]);
+	if (fds[0] != RECOVER_FD) {
+		if (dup2(fds[0], RECOVER_FD) != RECOVER_FD)
+			err(1, "Moving recover pipe");
+		close(fds[0]);
+	}
+}
+
 int main(int argc, char *argv[])
 {
 	struct lightningd *ld;
@@ -1260,6 +1283,7 @@ int main(int argc, char *argv[])
 	struct io_conn *sigchld_conn = NULL;
 	int exit_code = 0;
 	char **orig_argv, **args_to_scrub;
+	const char *recover_secret = NULL;
 	bool try_reexec;
 	size_t num_channels;
 
@@ -1642,11 +1666,16 @@ stop:
 	/* Gather these before we free ld! */
 	try_reexec = ld->try_reexec;
 	if (try_reexec) {
-		/* Maybe we reexec with --recover, due to recover command */
+		/* Maybe we reexec with the secret, due to recover command */
 		if (ld->recover_secret) {
-			tal_arr_insert(&orig_argv, argc,
-				       tal_fmt(orig_argv, "--recover=%s",
-					       ld->recover_secret));
+			/* Before the NULL: tal_arr_insert() evaluates this
+			 * after resizing */
+			size_t end = tal_count(orig_argv) - 1;
+
+			recover_secret = tal_steal(orig_argv, ld->recover_secret);
+			tal_arr_insert(&orig_argv, end,
+				       tal_fmt(orig_argv, "--recover-fd=%i",
+					       RECOVER_FD));
 		}
 		tal_steal(NULL, orig_argv);
 	}
@@ -1675,6 +1704,8 @@ stop:
 
 		/* Close all filedescriptors except stdin/stdout/stderr */
 		closefrom(STDERR_FILENO + 1);
+		if (recover_secret)
+			pipe_recover_secret(recover_secret);
 		execv(orig_argv[0], orig_argv);
 		err(1, "Failed to re-exec ourselves after version change/recover");
 	}
