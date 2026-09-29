@@ -22,9 +22,10 @@
 /* In-progress channel opens */
 static struct list_head pending_opens;
 
-/* openchannel2 requests evaluate policy against the wallet one at a time,
- * so each sees the utxos reserved by the one before.  The head is in
- * progress (from listfunds until fundpsbt returns), the rest wait. */
+/* openchannel2 and rbf_channel requests evaluate policy against the wallet
+ * one at a time, so each sees the utxos reserved by the one before.  The head
+ * is in progress (from listfunds until fundpsbt/utxopsbt returns), the rest
+ * wait. */
 static struct list_head funding_queue;
 
 /* Current set policy */
@@ -391,7 +392,7 @@ json_openchannel2_changed_call(struct command *cmd,
 
 /* Tiny struct to pass info to callback for fundpsbt */
 struct open_info {
-	/* openchannel2 only: our entry in funding_queue */
+	/* Our entry in funding_queue */
 	struct list_node list;
 	struct command *cmd;
 
@@ -451,10 +452,8 @@ static void funding_queue_done(struct open_info *info)
 {
 	struct open_info *next;
 
-	/* RBF doesn't queue */
-	if (list_top(&funding_queue, struct open_info, list) != info)
-		return;
-
+	/* Only the head of the queue gets this far. */
+	assert(list_top(&funding_queue, struct open_info, list) == info);
 	list_del_from(&funding_queue, &info->list);
 	next = list_top(&funding_queue, struct open_info, list);
 	if (next)
@@ -774,8 +773,8 @@ listfunds_success(struct command *cmd,
 					     committed_funds,
 					     avail_utxos);
 		json_add_bool(req->js, "reservedok", true);
-		/* We don't re-reserve any UTXOS :) */
-		json_add_num(req->js, "reserve", 0);
+		/* Reserve like fundpsbt: new utxos mustn't look free to the
+		 * next open, and unreserve_psbt() undoes the whole psbt. */
 	} else {
 		req = jsonrpc_request_start(cmd,
 					    "fundpsbt",
@@ -978,7 +977,7 @@ datastore_list_fail(struct command *cmd,
 
 	/* Figure out what our funds are... same flow
 	 * as with openchannel2 callback.  */
-	return send_listfunds(cmd, info);
+	return funding_queue_join(cmd, info);
 }
 
 static struct command_result *
@@ -1042,7 +1041,7 @@ datastore_list_success(struct command *cmd,
 		tal_arr_expand(&info->prev_outs, outpoint);
 	}
 
-	return send_listfunds(cmd, info);
+	return funding_queue_join(cmd, info);
 }
 
 /* Peer has asked us to RBF */
