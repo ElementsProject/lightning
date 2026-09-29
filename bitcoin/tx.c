@@ -977,6 +977,14 @@ struct amount_sat change_fee(u32 feerate_perkw,	size_t total_weight)
 	return fee;
 }
 
+struct amount_sat min_change_amount(void)
+{
+	/* Dust limit for the change output's script type (P2TR on
+	 * Bitcoin, P2WPKH on Elements).  amount_sat() not AMOUNT_SAT():
+	 * the latter demands a compile-time constant. */
+	return amount_sat(chainparams->is_elements ? 546 : 330);
+}
+
 struct amount_sat change_amount(struct amount_sat excess, u32 feerate_perkw,
 				size_t total_weight)
 {
@@ -985,13 +993,8 @@ struct amount_sat change_amount(struct amount_sat excess, u32 feerate_perkw,
 	if (!amount_sat_sub(&excess, excess, fee))
 		return AMOUNT_SAT(0);
 
-	if (chainparams->is_elements) {
-		if (!amount_sat_greater_eq(excess, AMOUNT_SAT(546)))
-			return AMOUNT_SAT(0);
-	} else {
-		if (!amount_sat_greater_eq(excess, AMOUNT_SAT(330)))
-			return AMOUNT_SAT(0);
-	}
+	if (!amount_sat_greater_eq(excess, min_change_amount()))
+		return AMOUNT_SAT(0);
 
 	return excess;
 }
