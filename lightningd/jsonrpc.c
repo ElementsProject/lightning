@@ -319,7 +319,7 @@ static struct command_result *json_recover(struct command *cmd,
 
 	move_prerecover_files(dir);
 
-	/* Top level with add --recover=... here */
+	/* Top level hands this to our re-exec'd self */
 	cmd->ld->recover_secret = tal_steal(cmd->ld, hsm_secret);
 	cmd->ld->try_reexec = true;
 	return prepare_stop_conn(cmd, "Recovery restart in progress");
