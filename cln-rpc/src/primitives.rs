@@ -1053,6 +1053,10 @@ mod test {
     }
 
     #[test]
+    #[cfg_attr(
+        not(debug_assertions),
+        ignore = "overflow checks are off in release builds"
+    )]
     #[should_panic(expected = "attempt to subtract with overflow")]
     fn test_amount_sub_overflow() {
         let a = Amount { msat: 1 };
@@ -1060,6 +1064,10 @@ mod test {
     }
 
     #[test]
+    #[cfg_attr(
+        not(debug_assertions),
+        ignore = "overflow checks are off in release builds"
+    )]
     #[should_panic(expected = "attempt to add with overflow")]
     fn test_amount_add_overflow() {
         let a = Amount { msat: u64::MAX };
