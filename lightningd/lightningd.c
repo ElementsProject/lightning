@@ -75,6 +75,7 @@
 #include <lightningd/plugin_hook.h>
 #include <lightningd/runes.h>
 #include <lightningd/subd.h>
+#include <sodium/utils.h>
 #include <sys/resource.h>
 #include <wallet/invoices.h>
 #include <wally_bip32.h>
@@ -1165,6 +1166,68 @@ static void setup_fd_limit(struct lightningd *ld, size_t num_channels)
 	}
 }
 
+/* Is argv[i] --name[=val]?  Returns how many args it takes (0-2). */
+static size_t opt_args(char *argv[], size_t i, const char *name, char **val)
+{
+	size_t len = strlen(name);
+
+	if (!strstarts(argv[i], name))
+		return 0;
+	if (argv[i][len] == '=') {
+		*val = argv[i] + len + 1;
+		return 1;
+	}
+	if (argv[i][len] != '\0')
+		return 0;
+	/* Same guess as initial_config_opts() */
+	if (argv[i+1] && !strstarts(argv[i+1], "-")) {
+		*val = argv[i+1];
+		return 2;
+	}
+	*val = NULL;
+	return 1;
+}
+
+/*~ We store a copy of our arguments before parsing mangles them, so we can
+ * re-exec if versions of subdaemons change.  Minus --recover, which would
+ * only fail now: we stay offline instead. */
+static char **reexec_args(const tal_t *ctx, int argc, char *argv[])
+{
+	char **args = tal_arr(ctx, char *, 0);
+	bool recovered = false, offline = false;
+
+	/*~ Turn argv[0] into an absolute path (if not already) */
+	tal_arr_expand(&args, path_join(args, take(path_cwd(NULL)), argv[0]));
+	for (size_t i = 1; i < argc; i++) {
+		char *val;
+		size_t n = opt_args(argv, i, "--recover", &val);
+
+		if (n) {
+			recovered = true;
+			i += n - 1;
+			continue;
+		}
+		if (streq(argv[i], "--offline"))
+			offline = true;
+		tal_arr_expand(&args, tal_strdup(args, argv[i]));
+	}
+	if (recovered && !offline)
+		tal_arr_expand(&args, tal_strdup(args, "--offline"));
+	tal_arr_expand(&args, NULL);
+	return args;
+}
+
+/* Anyone can read argv (e.g. ps), so wipe the secret once parsed. */
+static void scrub_recover_secret(char *argv[])
+{
+	for (size_t i = 1; argv[i]; i++) {
+		char *val;
+
+		if (opt_args(argv, i, "--recover", &val) && val)
+			sodium_memzero(val, strlen(val));
+	}
+}
+
 int main(int argc, char *argv[])
 {
 	struct lightningd *ld;
@@ -1176,7 +1239,7 @@ int main(int argc, char *argv[])
 	int sigchld_rfd;
 	struct io_conn *sigchld_conn = NULL;
 	int exit_code = 0;
-	char **orig_argv;
+	char **orig_argv, **args_to_scrub;
 	bool try_reexec;
 	size_t num_channels;
 
@@ -1217,17 +1280,9 @@ int main(int argc, char *argv[])
 	ld->state = LD_STATE_INITIALIZING;
 	log_info(ld->log, "%s", version());
 
-	/*~ We store an copy of our arguments before parsing mangles them, so
-	 * we can re-exec if versions of subdaemons change.  Note the use of
-	 * notleak() since our leak-detector can't find orig_argv on the
-	 * stack. */
-	orig_argv = notleak(tal_arr(ld, char *, argc + 1));
-	for (size_t i = 1; i < argc; i++)
-		orig_argv[i] = tal_strdup(orig_argv, argv[i]);
-
-	/*~ Turn argv[0] into an absolute path (if not already) */
-	orig_argv[0] = path_join(orig_argv, take(path_cwd(NULL)), argv[0]);
-	orig_argv[argc] = NULL;
+	/*~ Note the use of notleak() since our leak-detector can't find
+	 * orig_argv on the stack. */
+	orig_argv = notleak(reexec_args(ld, argc, argv));
 
 	/* Figure out where our subdaemons are first. */
 	find_subdaemons_and_plugins(ld, argv[0]);
@@ -1238,8 +1293,12 @@ int main(int argc, char *argv[])
 	/*~ Handle early options; this moves us into --lightning-dir.
 	 * Plugins may add new options, which is why we are splitting
 	 * between early args (including --plugin registration) and
-	 * non-early opts.  This also forks if they say --daemon. */
+	 * non-early opts.  This also forks if they say --daemon.
+	 * Parsing removes args from argv, so keep them to scrub after. */
+	args_to_scrub = tal_dup_arr(NULL, char *, argv, argc + 1, 0);
 	handle_early_opts(ld, argc, argv);
+	scrub_recover_secret(args_to_scrub);
+	tal_free(args_to_scrub);
 
 	/*~ Set the default portnum according to the used network
 	 * similarly to what Bitcoin Core does to ports by default. */
