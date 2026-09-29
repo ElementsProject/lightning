@@ -14,6 +14,7 @@ WIRE_TEST_COMMON_OBJS :=		\
 	common/base32.o			\
 	common/pseudorand.o		\
 	common/setup.o			\
+	common/unicode_category.o	\
 	common/utils.o			\
 	common/wireaddr.o
 

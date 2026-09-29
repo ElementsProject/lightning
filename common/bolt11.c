@@ -212,7 +212,7 @@ static const char *decode_d(struct bolt11 *b11,
 		return err;
 
 	*have_d = true;
-	b11->description = utf8_str(b11, take(desc), tal_bytelen(desc));
+	b11->description = utf8_str_text(b11, take(desc), tal_bytelen(desc));
 	if (b11->description)
 		return NULL;
 
