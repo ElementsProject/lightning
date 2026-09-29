@@ -1495,12 +1495,7 @@ static void connect_activate_subd(struct lightningd *ld, struct channel *channel
 	abort();
 
 tell_connectd:
-	subd_send_msg(ld->connectd,
-		      take(towire_connectd_peer_connect_subd(NULL,
-							     &channel->peer->id,
-							     channel->peer->connectd_counter,
-							     &channel->cid)));
-	subd_send_fd(ld->connectd, other_fd);
+	connectd_connect_subd(channel->peer, &channel->cid, other_fd);
 	return;
 
 send_error:
@@ -2336,11 +2331,7 @@ send_error:
 	return;
 
 tell_connectd:
-	subd_send_msg(ld->connectd,
-		      take(towire_connectd_peer_connect_subd(NULL, &id,
-							     peer->connectd_counter,
-							     &channel_id)));
-	subd_send_fd(ld->connectd, other_fd);
+	connectd_connect_subd(peer, &channel_id, other_fd);
 }
 
 struct disconnect_command {

@@ -2670,12 +2670,7 @@ static char *restart_dualopend(const tal_t *ctx, const struct lightningd *ld,
 		close(other_fd);
 		return tal_fmt(ctx, "Peer not connected");
 	}
-	subd_send_msg(ld->connectd,
-		      take(towire_connectd_peer_connect_subd(NULL,
-							     &channel->peer->id,
-							     channel->peer->connectd_counter,
-							     &channel->cid)));
-	subd_send_fd(ld->connectd, other_fd);
+	connectd_connect_subd(channel->peer, &channel->cid, other_fd);
 	return NULL;
 }
 
@@ -3378,12 +3373,7 @@ static struct command_result *openchannel_init(struct command *cmd,
 	subd_send_msg(channel->owner, channel->open_attempt->open_msg);
 
 	/* Tell connectd connect this to this channel id. */
-	subd_send_msg(peer->ld->connectd,
-		      take(towire_connectd_peer_connect_subd(NULL,
-							     &peer->id,
-							     peer->connectd_counter,
-							     &channel->cid)));
-	subd_send_fd(peer->ld->connectd, fds[1]);
+	connectd_connect_subd(peer, &channel->cid, fds[1]);
 	return command_still_pending(cmd);
 }
 
@@ -4255,12 +4245,7 @@ static struct command_result *json_queryrates(struct command *cmd,
 	subd_send_msg(channel->owner, channel->open_attempt->open_msg);
 
 	/* Tell connectd connect this to this channel id. */
-	subd_send_msg(peer->ld->connectd,
-		      take(towire_connectd_peer_connect_subd(NULL,
-							     &peer->id,
-							     peer->connectd_counter,
-							     &channel->cid)));
-	subd_send_fd(peer->ld->connectd, fds[1]);
+	connectd_connect_subd(peer, &channel->cid, fds[1]);
  	return command_still_pending(cmd);
  }
 

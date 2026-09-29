@@ -2340,6 +2340,8 @@ static struct io_plan *recv_peer_connect_subd(struct io_conn *conn,
 					      int fd,
 					      struct daemon *daemon)
 {
+	daemon_conn_send(daemon->master,
+			 take(towire_connectd_peer_connect_subd_reply(NULL)));
 	peer_connect_subd(daemon, msg, fd);
 	return daemon_conn_read_next(conn, daemon->master);
 }
@@ -2447,6 +2449,7 @@ static struct io_plan *recv_req(struct io_conn *conn,
 	/* We send these, we don't receive them */
 	case WIRE_CONNECTD_INIT_REPLY:
 	case WIRE_CONNECTD_ACTIVATE_REPLY:
+	case WIRE_CONNECTD_PEER_CONNECT_SUBD_REPLY:
 	case WIRE_CONNECTD_PEER_CONNECTED:
 	case WIRE_CONNECTD_PEER_SPOKE:
 	case WIRE_CONNECTD_CONNECT_FAILED:
