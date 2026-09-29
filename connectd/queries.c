@@ -67,6 +67,15 @@ static void warning_to_peer(struct peer *peer, const char *fmt, ...)
 	inject_peer_msg(peer, take(msg));
 }
 
+
+/* Helper for short_channel_id ordering according to block number x transaction
+ * index x output index. */
+static int scid_order(const struct short_channel_id *scid1,
+		      const struct short_channel_id *scid2, void *unused UNUSED)
+{
+	return scid1->u64 < scid2->u64 ? -1 : scid1->u64 > scid2->u64 ? 1 : 0;
+}
+
 /*~ Arbitrary ordering function of pubkeys.
  *
  * Note that we could use memcmp() here: even if they had somehow different
@@ -638,6 +647,16 @@ static struct short_channel_id *gather_range_scids(const tal_t *ctx,
 		tal_arr_expand(&scids, scid);
 	}
 
+	/* BOLT #7:
+	 * The receiver of `query_channel_range`:
+	 * ...
+	 *     - successive `reply_channel_range` message:
+	 *       - MUST have `first_blocknum` equal or greater than the previous `first_blocknum`.
+	 * */
+	/* Possibly a bucket sort here could be faster. But we are not dealing
+	 * with millions of channels anyways. */
+	asort(scids, tal_count(scids), scid_order, NULL);
+
 	return scids;
 }
 
@@ -655,8 +674,8 @@ static const u8 *maybe_create_range_response(const tal_t *ctx,
 					     struct gossmap *gossmap)
 {
 	size_t off, n, limit, num;
-	u32 this_num_blocks;
-	bool final;
+	u32 this_num_blocks, out_limit_block;
+	bool final, split_block;
 
 	if (!peer->range_scids)
 		return NULL;
@@ -666,31 +685,43 @@ static const u8 *maybe_create_range_response(const tal_t *ctx,
 	num = tal_count(peer->range_scids);
 	n = num - off;
 
+	/* In a range we may have the channels of several blocks and we
+	 * try to fit the blocks in a single range. But if the last
+	 * block doesn't fit the range limit we may split that block so
+	 * that some channels come with this range and the next range
+	 * starts at the same block. */
+	split_block = false;
+
 	if (n > limit) {
 		status_debug("reply_channel_range: splitting %zu-%zu of %zu",
 			     off, off + limit, num);
+
 		n = limit;
+		out_limit_block =
+		    short_channel_id_blocknum(peer->range_scids[off + limit]);
 
 		/* ... and reduce to a block boundary. */
-		while (short_channel_id_blocknum(peer->range_scids[off + n - 1])
-		       == short_channel_id_blocknum(peer->range_scids[off + limit])) {
-			/* We assume one block doesn't have limit #
-			 * channels.  If it does, we have to violate
-			 * spec and send over multiple blocks. */
-			if (n == 0) {
-				status_broken("reply_channel_range: "
-					      "could not fit %zu scids for %u!",
-					      limit,
-					      short_channel_id_blocknum(peer->range_scids[off + limit]));
-				n = limit;
-				break;
-			}
+		while (n > 0 &&
+		       short_channel_id_blocknum(
+			   peer->range_scids[off + n - 1]) == out_limit_block) {
 			n--;
 		}
+		/* We assume one block doesn't have limit #
+		 * channels.  If it does, we have to send over multiple
+		 * blocks.  It doesn't violate the spec though, we are
+		 * only required to send a monotinic sequence of
+		 * first_blocknum, and not strickly increasing. */
+		if (n == 0) {
+			status_debug("reply_channel_range: "
+				     "could not fit %zu scids for %u!",
+				     limit, out_limit_block);
+			n = limit;
+			split_block = true;
+		}
 		/* Get *next* channel, add num blocks */
-		this_num_blocks
-			= short_channel_id_blocknum(peer->range_scids[off + n])
-			- peer->range_first_blocknum;
+		this_num_blocks =
+		    short_channel_id_blocknum(peer->range_scids[off + n - 1]) -
+		    peer->range_first_blocknum + 1;
 		final = false;
 	} else {
 		/* Last one must end with correct total */
@@ -705,8 +736,13 @@ static const u8 *maybe_create_range_response(const tal_t *ctx,
 						 peer->range_query_option_flags,
 						 final);
 
-	peer->range_first_blocknum += this_num_blocks;
-	peer->range_blocks_remaining -= this_num_blocks;
+	if (split_block) {
+		peer->range_first_blocknum = out_limit_block;
+		peer->range_blocks_remaining -= (this_num_blocks - 1);
+	} else {
+		peer->range_first_blocknum += this_num_blocks;
+		peer->range_blocks_remaining -= this_num_blocks;
+	}
 	peer->range_scid_off += n;
 
 	/* We're done!  Clean up so we simply pass-through next time. */
