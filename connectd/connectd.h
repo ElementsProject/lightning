@@ -388,6 +388,7 @@ struct daemon {
 	bool dev_fast_reconnect;
 	/* Don't complain about lightningd being unresponsive. */
 	bool dev_lightningd_is_slow;
+	u64 dev_max_wake_delay_ms;
 	/* Don't set TCP_NODELAY */
 	bool dev_keep_nagle;
  };

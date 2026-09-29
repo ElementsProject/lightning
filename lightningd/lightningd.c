@@ -138,6 +138,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->dev_force_tmp_channel_id = NULL;
 	ld->dev_no_htlc_timeout = false;
 	ld->dev_no_version_checks = false;
+	ld->dev_max_wake_delay_ms = 5000;
 	ld->dev_max_funding_unconfirmed = 2016;
 	ld->dev_low_prio_anchor_blocks = 2016;
 	ld->dev_ignore_modern_onion = false;
