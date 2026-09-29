@@ -112,6 +112,9 @@ msgdata,connectd_peer_connect_subd,id,node_id,
 msgdata,connectd_peer_connect_subd,counter,u64,
 msgdata,connectd_peer_connect_subd,channel_id,channel_id,
 
+# Connectd -> master: got the fd, you can close your copy.
+msgtype,connectd_peer_connect_subd_reply,2104
+
 # Connectd -> master: peer said something interesting
 msgtype,connectd_peer_spoke,2005
 msgdata,connectd_peer_spoke,id,node_id,

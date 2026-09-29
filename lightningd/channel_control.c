@@ -395,12 +395,7 @@ static void handle_splice_abort(struct lightningd *ld,
 	}
 
 	if (peer_start_channeld(channel, pfd, NULL, false)) {
-		subd_send_msg(ld->connectd,
-			      take(towire_connectd_peer_connect_subd(NULL,
-			      					     &peer->id,
-								     peer->connectd_counter,
-								     &channel->cid)));
-		subd_send_fd(ld->connectd, other_fd);
+		connectd_connect_subd(peer, &channel->cid, other_fd);
 	} else {
 		log_info(channel->log, "peer_start_channeld failed");
 		close(other_fd);
