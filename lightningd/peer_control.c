@@ -2328,6 +2328,22 @@ void handle_peer_spoke(struct lightningd *ld, const u8 *msg)
 						"Channel is closed and forgotten");
 			goto send_error;
 		}
+		break;
+
+	/* BOLT #1:
+	 *
+	 *  - if no existing channel is referred to by `channel_id`:
+	 *    - MUST ignore the message.
+	 */
+	case WIRE_ERROR:
+	case WIRE_WARNING:
+		log_peer_debug(ld->log, &peer->id,
+			       "Ignoring %s for unknown channel %s%s%s",
+			       peer_wire_name(msgtype),
+			       fmt_channel_id(tmpctx, &channel_id),
+			       errmsg ? ": " : "",
+			       errmsg ? errmsg : "");
+		return;
 	}
 
 	/* Weird message?  Log and reply with error. */
