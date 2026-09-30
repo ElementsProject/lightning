@@ -3,6 +3,7 @@
 #include <ccan/json_out/json_out.h>
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/tal/str/str.h>
+#include <common/clock_time.h>
 #include <common/json_stream.h>
 #include <common/node_id.h>
 #include <common/utils.h>
@@ -204,6 +205,7 @@ static struct route_query *new_route_query(const tal_t *ctx,
 	rq->disabled_chans =
 	    tal_arrz(rq, bitmap,
 		     2 * BITMAP_NWORDS(gossmap_max_chan_idx(gossmap)));
+	rq->current_unixtime = clock_time().ts.tv_sec;
 
 	return rq;
 }
