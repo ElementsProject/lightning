@@ -3401,39 +3401,31 @@ relative_splice_balance_fundee(struct peer *peer,
 			       int chan_output_index,
 			       int chan_input_index)
 {
-	/* Relative fundee channel balance */
-	s64 push_value_sat;
-	struct amount_msat push_value_msat;
+	/* The fundee is the side that did not open the channel.  Pick its
+	 * contribution by channel role, not splice role: the splice
+	 * initiator is not necessarily the channel opener. */
+	enum side fundee_side = peer->channel->opener == LOCAL ? REMOTE : LOCAL;
+	bool fundee_is_splice_initiator =
+		(fundee_side == LOCAL) == (our_role == TX_INITIATOR);
+	s64 fundee_contribution = fundee_is_splice_initiator
+		? peer->splicing->opener_relative
+		: peer->splicing->accepter_relative;
 
-	/* We calculcate the `push_value` to send to the
-	 * hsmd, that is the remote amount in the channel
-	 * after the splice. */
-	switch (our_role) {
-	case TX_INITIATOR:
-		/* push_value is the fundee relative value so if we open the channel
-		 * fundee is the remote node. */
-		push_value_sat = peer->splicing->accepter_relative;
-		break;
-	case TX_ACCEPTER:
-		/* push_value is the fundee relative value so if the remote node open the channel
-		 * fundee in this case is the opener. */
-		push_value_sat = peer->splicing->opener_relative;
-		break;
-	default:
-		/* This should never happen. Help us to early catch the tx_role change */
-		abort();
-	}
+	/* hsmd_setup_channel's push_value is the fundee's balance at the
+	 * start of the new channel era: its pre-splice balance plus its
+	 * funding contribution.  opener_relative/accepter_relative are
+	 * satoshi amounts (everywhere else they feed
+	 * amount_msat_add_sat_s64); a negative contribution is a
+	 * splice-out and subtracts. */
+	struct amount_msat push_value_msat
+		= peer->channel->view[LOCAL].owed[fundee_side];
 
-	/* opener_relative and accepter_relative are satoshi contributions
-	 * (everywhere else they feed amount_msat_add_sat_s64), while the
-	 * hsmd_setup_channel field is amount_msat: convert, don't
-	 * reinterpret.  A negative contribution is never valid. */
-	if (push_value_sat < 0)
+	if (fundee_contribution == INT64_MIN ||
+	    !amount_msat_add_sat_s64(&push_value_msat, push_value_msat,
+				     fundee_contribution))
 		peer_failed_warn(peer->pps, &peer->channel_id,
-				 "splice funding contribution negative");
-	if (!amount_sat_to_msat(&push_value_msat, amount_sat(push_value_sat)))
-		peer_failed_warn(peer->pps, &peer->channel_id,
-				 "splice funding contribution overflow");
+				 "splice funding contribution out of range"
+				 " for fundee balance");
 
 	return push_value_msat;
 }
