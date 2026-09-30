@@ -4573,6 +4573,26 @@ def test_sql(node_factory, bitcoind):
     ret = l2.rpc.sql("SELECT in_htlc_id,out_msat,status,out_htlc_id FROM forwards WHERE in_htlc_id = 0;")
     assert only_one(ret['rows']) == [0, 12300, 'settled', 0]
 
+    # String scid literal is rewritten to scid() so the in_channel index is used.
+    fwd = only_one(l2.rpc.listforwards()['forwards'])
+    in_scid = fwd['in_channel']
+    ret = l2.rpc.sql("SELECT in_htlc_id FROM forwards WHERE in_channel = '{}';".format(in_scid))
+    assert only_one(only_one(ret['rows'])) == 0
+    plan = l2.rpc.sql("EXPLAIN QUERY PLAN SELECT in_htlc_id FROM forwards WHERE in_channel = '{}';".format(in_scid))
+    assert any('USING INDEX' in str(row) for row in plan['rows'])
+
+    # Already wrapped, and a non-scid literal, are left alone.
+    ret = l2.rpc.sql("SELECT in_htlc_id FROM forwards WHERE in_channel = scid('{}');".format(in_scid))
+    assert only_one(only_one(ret['rows'])) == 0
+    ret = l2.rpc.sql("SELECT in_htlc_id FROM forwards WHERE status = 'settled' AND in_channel = '{}';".format(in_scid))
+    assert only_one(only_one(ret['rows'])) == 0
+
+    # Not an scid: no rewrite, so the comparison matches nothing.
+    assert l2.rpc.sql("SELECT in_htlc_id FROM forwards WHERE in_channel = 'not-a-scid';") == {'rows': []}
+    # Malformed literal is not rewritten; scid() then rejects it.
+    with pytest.raises(RpcError, match='query failed'):
+        l2.rpc.sql("SELECT in_htlc_id FROM forwards WHERE in_channel = scid('1x2x');")
+
     with pytest.raises(RpcError, match='Unauthorized'):
         l2.rpc.sql("DELETE FROM forwards;")
 

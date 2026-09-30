@@ -503,6 +503,13 @@ static struct command_result *refresh_complete(struct command *cmd,
 
 	num_cols = sqlite3_column_count(dbq->stmt);
 
+	/* decltype is fixed for the statement, not per row. */
+	bool *is_scid = tal_arr(tmpctx, bool, num_cols);
+	for (int i = 0; i < num_cols; i++) {
+		const char *decltype = sqlite3_column_decltype(dbq->stmt, i);
+		is_scid[i] = decltype && streq(decltype, "SCID");
+	}
+
 	/* We normally hit an error immediately, so return a simple error then */
 	ret = NULL;
 	num_rows = 0;
@@ -521,8 +528,7 @@ static struct command_result *refresh_complete(struct command *cmd,
 			switch (sqlite3_column_type(dbq->stmt, i)) {
 			case SQLITE_INTEGER: {
 				s64 v = sqlite3_column_int64(dbq->stmt, i);
-				const char *decltype = sqlite3_column_decltype(dbq->stmt, i);
-				if (decltype && streq(decltype, "SCID")) {
+				if (is_scid[i]) {
 					struct short_channel_id scid;
 					scid.u64 = (u64)v;
 					json_add_string(ret, NULL,
@@ -1487,6 +1493,13 @@ static bool looks_like_scid(const char *str, size_t len)
 	return short_channel_id_from_str(str, len, &scid);
 }
 
+/* Copy [start, end) onto result in one append. */
+static void append_span(char **result, const char *start, const char *end)
+{
+	if (end > start)
+		tal_append_fmt(result, "%.*s", (int)(end - start), start);
+}
+
 /* Rewrite SQL query to wrap scid string literals with scid() function.
  * This transforms '735095x480x1' into scid('735095x480x1') so that
  * SQLite can use indexes on integer SCID columns. */
@@ -1494,44 +1507,46 @@ static const char *rewrite_scid_literals(const tal_t *ctx, const char *query)
 {
 	char *result = tal_strdup(ctx, "");
 	const char *p = query;
+	const char *span = query;
 
 	while (*p) {
-		/* Look for single-quoted string literals */
-		if (*p == '\'') {
-			const char *start = p + 1;
-			const char *end = strchr(start, '\'');
+		const char *start, *end;
 
-			if (!end) {
-				/* Unterminated quote, just copy rest */
-				tal_append_fmt(&result, "%s", p);
-				break;
-			}
-
-			if (looks_like_scid(start, end - start)) {
-				/* Check if already wrapped in scid() by looking
-				 * back for "scid(" before the quote */
-				bool already_wrapped = false;
-				if (p - query >= 5) {
-					const char *before = p - 5;
-					if (strncmp(before, "scid(", 5) == 0)
-						already_wrapped = true;
-				}
-				if (!already_wrapped) {
-					tal_append_fmt(&result, "scid('%.*s')",
-						       (int)(end - start), start);
-					p = end + 1;
-					continue;
-				}
-			}
-			/* Not a scid or already wrapped: copy quote and content */
-			tal_append_fmt(&result, "%.*s",
-				       (int)(end - p + 1), p);
-			p = end + 1;
-		} else {
-			tal_append_fmt(&result, "%c", *p);
+		/* Copy the non-quoted span in one append, not a byte at a time. */
+		if (*p != '\'') {
 			p++;
+			continue;
 		}
+		append_span(&result, span, p);
+		span = p;
+
+		start = p + 1;
+		end = strchr(start, '\'');
+		if (!end) {
+			/* Unterminated quote, copy the rest and stop. */
+			tal_append_fmt(&result, "%s", p);
+			return result;
+		}
+
+		if (looks_like_scid(start, end - start)) {
+			/* Already wrapped: scid('735095x480x1'). Leave it. */
+			bool already_wrapped = false;
+			if (p - query >= 5 && strncmp(p - 5, "scid(", 5) == 0)
+				already_wrapped = true;
+			if (!already_wrapped) {
+				tal_append_fmt(&result, "scid('%.*s')",
+					       (int)(end - start), start);
+				p = end + 1;
+				span = p;
+				continue;
+			}
+		}
+		/* Not a scid, or already wrapped: keep the quoted literal. */
+		p = end + 1;
+		append_span(&result, span, p);
+		span = p;
 	}
+	append_span(&result, span, p);
 
 	return result;
 }
