@@ -1600,6 +1600,18 @@ static struct io_plan *read_body_from_peer_done(struct io_conn *peer_conn,
 					 peer_wire_name(t));
 		       return io_close(peer_conn);
 	       }
+
+	       /* Don't allocate a subd for these: nobody would claim it. */
+	       if (t == WIRE_ERROR || t == WIRE_WARNING) {
+		       daemon_conn_send(peer->daemon->master,
+					take(towire_connectd_peer_spoke(NULL, &peer->id,
+									peer->counter,
+									t,
+									&channel_id,
+									is_peer_error(tmpctx, decrypted))));
+		       return next_read(peer_conn, peer);
+	       }
+
 	       status_peer_debug(&peer->id, "Activating for message %s",
 				 peer_wire_name(t));
 	       subd = new_subd(peer, &channel_id);
