@@ -816,6 +816,11 @@ struct timemono (*io_time_override(struct timemono (*now)(void)))(void);
  */
 int (*io_poll_override(int (*poll)(struct pollfd *fds, nfds_t nfds, int timeout)))(struct pollfd *, nfds_t, int);
 
+/* Protect daemons which replace connections inside readiness callbacks from
+ * delivering an old poll result to a newly registered fd object. */
+void io_poll_protect_stale_fds(void);
+
+
 /**
  * io_have_fd - do we own this file descriptor?
  * @fd: the file descriptor.

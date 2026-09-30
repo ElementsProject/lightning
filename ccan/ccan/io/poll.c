@@ -11,12 +11,57 @@
 #include <ccan/time/time.h>
 #include <ccan/timer/timer.h>
 
+struct io_fd_registration {
+	struct fd *fd;
+	size_t refs;
+};
+
+struct ready_fd {
+	/* NULL is the position at which to service an IO_ALWAYS plan. */
+	struct io_fd_registration *registration;
+	short revents;
+};
+
 static size_t num_fds = 0, max_fds = 0, num_waiting = 0, num_always = 0, max_always = 0, num_exclusive = 0;
 static struct pollfd *pollfds = NULL;
 static struct fd **fds = NULL;
+static bool protect_stale_fds = false;
 static struct io_plan **always = NULL;
 static struct timemono (*nowfn)(void) = time_mono;
 static int (*pollfn)(struct pollfd *fds, nfds_t nfds, int timeout) = poll;
+
+static struct io_fd_registration *new_registration(struct fd *fd)
+{
+	struct io_fd_registration *registration = malloc(sizeof(*registration));
+
+	if (!registration)
+		return NULL;
+	registration->fd = fd;
+	registration->refs = 1;
+	return registration;
+}
+
+static void registration_put(struct io_fd_registration *registration)
+{
+	assert(registration->refs != 0);
+	registration->refs--;
+	if (registration->refs == 0)
+		free(registration);
+}
+
+void io_poll_protect_stale_fds(void)
+{
+	if (protect_stale_fds)
+		return;
+
+	/* This can be enabled after callers have already registered fds. */
+	for (size_t i = 0; i < num_fds; i++) {
+		fds[i]->registration = new_registration(fds[i]);
+		if (!fds[i]->registration)
+			abort();
+	}
+	protect_stale_fds = true;
+}
 
 struct timemono (*io_time_override(struct timemono (*now)(void)))(void)
 {
@@ -54,6 +99,12 @@ static bool add_fd(struct fd *fd, short events)
 			return false;
 		max_fds = num;
 	}
+	if (protect_stale_fds) {
+		fd->registration = new_registration(fd);
+		if (!fd->registration)
+			return false;
+	} else
+		fd->registration = NULL;
 
 	pollfds[num_fds].events = events;
 	/* In case it's idle. */
@@ -75,6 +126,7 @@ static bool add_fd(struct fd *fd, short events)
 static void del_fd(struct fd *fd)
 {
 	size_t n = fd->backend_info;
+	struct io_fd_registration *registration = fd->registration;
 
 	assert(n != -1);
 	assert(n < num_fds);
@@ -98,6 +150,12 @@ static void del_fd(struct fd *fd)
 	}
 	num_fds--;
 	fd->backend_info = -1;
+	if (registration) {
+		assert(registration->fd == fd);
+		registration->fd = NULL;
+		fd->registration = NULL;
+		registration_put(registration);
+	}
 
 	if (fd->exclusive[IO_IN])
 		num_exclusive--;
@@ -369,10 +427,35 @@ static void restore_pollfds(void)
 	}
 }
 
+static void append_ready_fd(struct ready_fd **ready_fds,
+			    size_t *ready_fds_capacity,
+			    size_t *num_ready,
+			    struct io_fd_registration *registration,
+			    short revents)
+{
+	if (*num_ready == *ready_fds_capacity) {
+		size_t capacity = *ready_fds_capacity ? *ready_fds_capacity * 2 : 8;
+		struct ready_fd *new_ready_fds;
+
+		new_ready_fds = realloc(*ready_fds,
+					  sizeof(**ready_fds) * capacity);
+		if (!new_ready_fds)
+			abort();
+		*ready_fds = new_ready_fds;
+		*ready_fds_capacity = capacity;
+	}
+	(*ready_fds)[*num_ready].registration = registration;
+	(*ready_fds)[*num_ready].revents = revents;
+	(*num_ready)++;
+}
+
 /* This is the main loop. */
 void *io_loop(struct timers *timers, struct timer **expired)
 {
 	void *ret;
+	/* Callbacks can enter a nested io_loop, so snapshots cannot be global. */
+	struct ready_fd *ready_fds = NULL;
+	size_t ready_fds_capacity = 0;
 	/* This ensures we don't always service lower fds first */
 	static int fairness_counter;
 
@@ -431,6 +514,89 @@ void *io_loop(struct timers *timers, struct timer **expired)
 			break;
 		}
 
+		if (protect_stale_fds) {
+			size_t num_polled = num_fds;
+			size_t num_ready = 0;
+
+			if (r == 0) {
+				handle_always();
+				continue;
+			}
+
+			/* Preserve the old fairness order, but retain only ready fds and
+			 * the point where IO_ALWAYS work was interleaved. */
+			fairness_counter++;
+			for (size_t rotation = 0; rotation < num_polled; rotation++) {
+				struct io_fd_registration *registration;
+
+				i = (rotation + fairness_counter) % num_polled;
+				if (i == 0)
+					append_ready_fd(&ready_fds,
+							&ready_fds_capacity,
+							&num_ready, NULL, 0);
+
+				if (!pollfds[i].revents)
+					continue;
+				registration = fds[i]->registration;
+				assert(registration);
+				registration->refs++;
+				append_ready_fd(&ready_fds,
+						&ready_fds_capacity,
+						&num_ready, registration,
+						pollfds[i].revents);
+			}
+			for (size_t n = 0; n < num_polled; n++)
+				pollfds[n].revents = 0;
+
+			for (size_t n = 0; n < num_ready && !io_loop_return; n++) {
+				socklen_t errno_len = sizeof(errno);
+				struct io_fd_registration *registration;
+				struct fd *fd;
+				struct io_conn *c;
+				int events;
+
+				registration = ready_fds[n].registration;
+				if (!registration) {
+					if (handle_always())
+						break;
+					continue;
+				}
+				fd = registration->fd;
+				if (!fd)
+					continue;
+				events = ready_fds[n].revents;
+				c = (void *)fd;
+				if (fd->listener) {
+					struct io_listener *l = (void *)fd;
+					if (events & POLLIN) {
+						accept_conn(l);
+						r--;
+					} else if (events & (POLLHUP|POLLNVAL|POLLERR)) {
+						r--;
+						errno = EBADF;
+						io_close_listener(l);
+					}
+				} else if (events & (POLLIN|POLLOUT)) {
+					r--;
+					io_ready(c, events);
+				} else if (events & (POLLHUP|POLLNVAL|POLLERR)) {
+					r--;
+					if (getsockopt(fd->fd, SOL_SOCKET,
+						       SO_ERROR, &errno,
+						       &errno_len) == -1)
+						errno = EBADF;
+					io_close(c);
+				}
+			}
+			/* Callbacks can retire registrations, so release snapshot
+			 * references only after dispatch has stopped using the buffer. */
+			for (size_t n = 0; n < num_ready; n++) {
+				if (ready_fds[n].registration)
+					registration_put(ready_fds[n].registration);
+			}
+			continue;
+		}
+
 		fairness_counter++;
 		for (size_t rotation = 0; rotation < num_fds && !io_loop_return; rotation++) {
 			socklen_t errno_len = sizeof(errno);
@@ -486,9 +652,9 @@ void *io_loop(struct timers *timers, struct timer **expired)
 			}
 		}
 	}
-
 	ret = io_loop_return;
 	io_loop_return = NULL;
+	free(ready_fds);
 
 	return ret;
 }
