@@ -56,7 +56,11 @@ def test_apis(node_factory):
         except RpcError as e:
             LOGGER.warning(f"{source} reported error: {e}")
             msg = str(e)
-            assert "HTTP error 429" in msg or "HTTP error 401" in msg
+            # Keyless tiers get throttled: usually 429, but coingecko's
+            # CloudFront edge reports the same condition as 403.
+            assert ("HTTP error 429" in msg
+                    or "HTTP error 401" in msg
+                    or "HTTP error 403" in msg)
             continue
 
     rateslist = l1.rpc.call("listcurrencyrates", ["USD"])['currencyrates']
