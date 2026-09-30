@@ -40,15 +40,23 @@ static bigsize_t next_marker(bigsize_t prev)
 	return prev + 1;
 }
 
-/* Is there an included non-signature TLV in `pptlv` whose successor marker
+/* Is there an included invoice TLV in `pptlv` whose successor marker
  * is exactly `omitted`?  Used by the reader to accept a marker that follows
- * an included TLV rather than the previous marker. */
+ * an included TLV rather than the previous marker.
+ *
+ * Proof-only fields (signature range 1001..999999999, and the signature
+ * itself) are not invoice TLVs.  next_marker() of anything in that gap is
+ * 1000000000, so counting them would accept a lone 1000000000 marker with
+ * no type-239 field anywhere.  next_field_check() already skips this range.
+ */
 static bool find_included_marker_predecessor(const struct tlv_payer_proof *pptlv,
 					     bigsize_t omitted)
 {
 	for (size_t i = 0; i < tal_count(pptlv->fields); i++) {
 		const struct tlv_field *f = &pptlv->fields[i];
 		if (is_tlv_signature_field(f))
+			continue;
+		if (f->numtype >= 1001 && f->numtype <= 999999999)
 			continue;
 		if (next_marker(f->numtype) == omitted)
 			return true;

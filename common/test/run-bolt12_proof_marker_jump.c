@@ -29,6 +29,7 @@
  */
 #include "config.h"
 #include <stdio.h>
+#include <string.h>
 #include "../bolt12_proof.c"
 #include "../bolt12_merkle.c"
 #include "../bech32_util.c"
@@ -245,6 +246,24 @@ int main(int argc, char *argv[])
 		saw_1e9_after_239 ? "yes" : "no");
 	assert(saw_239);
 	assert(saw_1e9_after_239);
+
+	/* A lone 1000000000 marker, with no type-239 field anywhere, must
+	 * not pass just because a proof-only field (signature, range
+	 * 1001..999999999) has next_marker() == 1000000000. */
+	{
+		bigsize_t *only;
+		const char *bad;
+
+		only = tal_arr(tmpctx, bigsize_t, 1);
+		only[0] = 1000000000;
+		tal_free(proof->proof_omitted_tlvs);
+		proof->proof_omitted_tlvs = only;
+		bad = check_payer_proof(tmpctx, proof);
+		if (!bad)
+			fprintf(stderr, "lone 1000000000 marker was accepted\n");
+		assert(bad);
+		assert(strstr(bad, "1000000000"));
+	}
 
 	common_shutdown();
 	return 0;
