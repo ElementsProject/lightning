@@ -920,6 +920,18 @@ static const char *process_channel_update(const tal_t *ctx,
 		return NULL;
 	}
 
+	/* BOLT #7:
+	 * - if the channel output has been spent:
+	 *   - MUST ignore `channel_update`s, unless they have the `disable` bit set to 1.
+	 */
+	if (gossmap_chan_is_dying(gossmap, chan)
+	    && !(channel_flags & ROUTING_FLAGS_DISABLED)) {
+		status_peer_trace(source_peer,
+				  "Ignoring enabled update for dying channel %s",
+				  fmt_short_channel_id(tmpctx, scid));
+		return NULL;
+	}
+
 	/* Now we know node, we can check signature. */
 	gossmap_node_get_id(gossmap,
 			    gossmap_nth_node(gossmap, chan, dir),
