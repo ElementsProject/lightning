@@ -1838,7 +1838,6 @@ def test_xpay_maxhops_bolt11(node_factory, chainparams):
     assert ret["amount_sent_msat"] - amount > 1000
 
 
-@pytest.mark.xfail(strict=True)
 def test_xpay_unknown_next_peer_excludes_node(node_factory, bitcoind):
     """Issue 9590: repeated unknown_next_peer must exclude the next node.
 
