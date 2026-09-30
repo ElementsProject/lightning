@@ -1501,8 +1501,16 @@ static struct io_plan *read_body_from_peer_done(struct io_conn *peer_conn,
 	*       - MUST fail the channel referred to by `channel_id`, if that channel is with the
 	*         sending node.
 	*/
-       /* channeld abort()s if it ever sees WIRE_ERROR. */
+       /* channeld abort()s if it ever sees WIRE_ERROR ("swallowed by
+	* connectd").  Tell lightningd and do not enqueue, whether or not a
+	* subd exists: a dying channeld never reads the queue, so the channel
+	* would otherwise stay up.
+	*
+	* Log it here.  peer_read() in the subd is what normally emits
+	* "peer_in WIRE_ERROR", and tests wait on that line.
+	*/
        if (type == WIRE_ERROR) {
+	       status_peer_io(LOG_IO_IN, &peer->id, decrypted);
 	       daemon_conn_send(peer->daemon->master,
 				take(towire_connectd_peer_spoke(NULL, &peer->id,
 								peer->counter,
