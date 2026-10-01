@@ -1,7 +1,6 @@
 from utils import TEST_NETWORK, BITCOIND_CONFIG, VALGRIND  # noqa: F401,F403
-from pyln.testing.fixtures import directory, test_base_dir, test_name, chainparams, bitcoind, teardown_checks, db_provider, executor, setup_logging, jsonschemas  # noqa: F401,F403
+from pyln.testing.fixtures import directory, test_base_dir, test_name, chainparams, node_factory, bitcoind, teardown_checks, db_provider, executor, setup_logging, jsonschemas  # noqa: F401,F403
 from pyln.testing import utils
-from pyln.testing.utils import NodeFactory as _NodeFactory
 from utils import COMPAT
 from pathlib import Path
 
@@ -16,46 +15,9 @@ from pyln.testing.utils import env
 from vls import ValidatingLightningSignerD
 
 
-class NodeFactory(_NodeFactory):
-    """Make `use_vls` option reaches the `LightningNode.__init__` in
-    `NodeFactory` as node-level kwarg instead of being forwarded as a
-    lightningd CLI flag."""
-
-    def split_options(self, opts):
-        node_opts, cli_opts = super().split_options(opts)
-        if 'use_vls' in cli_opts:
-            node_opts['use_vls'] = cli_opts.pop('use_vls')
-        return node_opts, cli_opts
-
-
 @pytest.fixture
 def node_cls():
     return LightningNode
-
-# Override the default fixture to use the new `NodeFactory` which supports `use_vls` as a node-level option.
-
-
-@pytest.fixture
-def node_factory(request, directory, test_name, bitcoind, executor, db_provider, teardown_checks, node_cls, jsonschemas):  # noqa: F811
-    nf = NodeFactory(
-        request,
-        test_name,
-        bitcoind,
-        executor,
-        directory=directory,
-        db_provider=db_provider,
-        node_cls=node_cls,
-        jsonschemas=jsonschemas,
-    )
-
-    yield nf
-    ok, errs = nf.killall([not n.may_fail for n in nf.nodes])
-
-    for e in errs:
-        print(e.format())
-
-    if not ok:
-        raise Exception("At least one lightning exited with unexpected non-zero return code")
 
 
 @pytest.fixture
@@ -68,7 +30,11 @@ def use_vls(pytestconfig):
 
 
 class LightningNode(utils.LightningNode):
-    def __init__(self, *args, use_vls=False, **kwargs):
+    def __init__(self, *args, **kwargs):
+        options = dict(kwargs.get("options") or {})
+        use_vls = options.pop("use_vls", False)
+        kwargs["options"] = options
+
         # Yes, we really want to test the local development version, not
         # something in out path.
         kwargs["executable"] = "lightningd/lightningd"
