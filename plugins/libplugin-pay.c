@@ -1392,6 +1392,18 @@ nonerror:
 }
 
 
+/* gossipd ignores updates for dying channels: don't retry with stale ones */
+static void disable_if_dying(struct payment *p, const struct route_hop *errchan)
+{
+	const struct gossmap *gossmap = get_raw_gossmap(p);
+	const struct gossmap_chan *c = gossmap_find_chan(gossmap, &errchan->scid);
+
+	if (c && gossmap_chan_is_dying(gossmap, c))
+		channel_hints_update(p, errchan->scid, errchan->direction,
+				     false, false, NULL, errchan->capacity,
+				     NULL);
+}
+
 static struct command_result *
 handle_intermediate_failure(struct command *cmd,
 			    struct payment *p,
@@ -1460,6 +1472,7 @@ handle_intermediate_failure(struct command *cmd,
 
 	case WIRE_INCORRECT_CLTV_EXPIRY:
 		report_tampering(p, errchan - p->route, "cltv");
+		disable_if_dying(p, errchan);
 		goto error;
 
 	case WIRE_INVALID_ONION_VERSION:
@@ -1475,8 +1488,11 @@ handle_intermediate_failure(struct command *cmd,
 
 	case WIRE_AMOUNT_BELOW_MINIMUM:
 	case WIRE_FEE_INSUFFICIENT:
-	case WIRE_EXPIRY_TOO_FAR:
 	case WIRE_EXPIRY_TOO_SOON:
+		disable_if_dying(p, errchan);
+		goto error;
+
+	case WIRE_EXPIRY_TOO_FAR:
 		goto error;
 	}
 
