@@ -39,12 +39,31 @@ static struct peer *make_peer(const tal_t *ctx,
 	peer->channel->opener = opener;
 	peer->channel->view[LOCAL].owed[LOCAL].millisatoshis = owed_local_msat;
 	peer->channel->view[LOCAL].owed[REMOTE].millisatoshis = owed_remote_msat;
+	/* The real splice path always has a live htlc map; the total
+	 * iterates it (the check_balances pending_htlcs bucketing). */
+	peer->channel->htlcs = new_htable(peer->channel, htlc_map);
 
 	peer->splicing = tal(peer, struct splicing);
 	peer->splicing->opener_relative = opener_relative;
 	peer->splicing->accepter_relative = accepter_relative;
 	peer->pps = talz(peer, struct per_peer_state);
 	return peer;
+}
+
+/* Install a pending HTLC owned by `owner`.  Fully-acked states
+ * (SENT_ADD_ACK_REVOCATION -> LOCAL, RCVD_ADD_ACK_REVOCATION ->
+ * REMOTE) are what htlc_owner() buckets by; the enum's SENT/RCVD
+ * prefixes alone do NOT pick the owner. */
+static void add_pending_htlc(struct peer *peer, u64 id,
+			     struct amount_msat amount, enum side owner)
+{
+	struct htlc *htlc = talz(peer->channel, struct htlc);
+
+	htlc->id = id;
+	htlc->amount = amount;
+	htlc->state = owner == LOCAL ? SENT_ADD_ACK_REVOCATION
+				     : RCVD_ADD_ACK_REVOCATION;
+	htlc_map_add(peer->channel->htlcs, htlc);
 }
 
 /* Bits on the wire to hsmd are the raw millisatoshis integer: compare
@@ -139,6 +158,45 @@ int main(int argc, const char *argv[])
 	test_must_be(LOCAL, TX_INITIATOR, 0, 500000000, 0, -4000,
 		     500000000 - 4000000, "fundee with balance, splice-out");
 
+	/* HTLCs pending at setup and owned by the fundee are part of the
+	 * fundee's total (a failing-back fundee-owned HTLC raises the
+	 * fundee output above its settled balance); the other side's
+	 * pending HTLCs never count.  Fundee LOCAL: owed 300k sat +
+	 * fundee-owned pending 75k+25k sat + 100k sat contribution = 500k
+	 * sat (other side's 400k sat pending excluded). */
+	{
+		struct peer *peer = make_peer(tmpctx, REMOTE,
+					      300000000, 0, 100000, 0);
+		struct amount_msat got;
+
+		add_pending_htlc(peer, 0, amount_msat(75000000), LOCAL);
+		add_pending_htlc(peer, 1, amount_msat(25000000), LOCAL);
+		add_pending_htlc(peer, 2, amount_msat(400000000), REMOTE);
+		got = relative_splice_balance_fundee(peer, TX_INITIATOR,
+						     NULL, 0, 0);
+		if (got.millisatoshis != 500000000)
+			errx(1, "pending-term LOCAL: expected 500000000 msat,"
+			     " got %llu msat",
+			     (unsigned long long)got.millisatoshis);
+	}
+
+	/* Fundee REMOTE: owed 300k sat + fundee-owned pending 100k sat -
+	 * 50k sat withdrawal = 350k sat (other side's pending excluded). */
+	{
+		struct peer *peer = make_peer(tmpctx, LOCAL,
+					      0, 300000000, 0, -50000);
+		struct amount_msat got;
+
+		add_pending_htlc(peer, 0, amount_msat(100000000), REMOTE);
+		add_pending_htlc(peer, 1, amount_msat(400000000), LOCAL);
+		got = relative_splice_balance_fundee(peer, TX_INITIATOR,
+						     NULL, 0, 0);
+		if (got.millisatoshis != 350000000)
+			errx(1, "pending-term REMOTE: expected 350000000 msat,"
+			     " got %llu msat",
+			     (unsigned long long)got.millisatoshis);
+	}
+
 	/* The sat/msat wrap fingerprint: with zero pre-splice balance a
 	 * nonzero satoshi contribution must be reported as sat*1000 msat,
 	 * never as the raw satoshi number -- that equality is exactly the
@@ -167,6 +225,32 @@ int main(int argc, const char *argv[])
 			 "contribution INT64_MAX");
 	test_must_refuse(REMOTE, TX_INITIATOR, UINT64_MAX, 0, 1000, 7,
 			 "balance + contribution overflow");
+
+	/* A true negative TOTAL fails the peer even when pending HTLCs
+	 * cushion part of the withdrawal: owed 100k sat + fundee-owned
+	 * pending 200k sat - 400k sat withdrawal = -100k sat. */
+	{
+		pid_t child = fork();
+
+		if (child == 0) {
+			struct peer *peer;
+			alarm(30);
+			peer = make_peer(NULL, REMOTE, 100000000, 0, -400000, 0);
+			add_pending_htlc(peer, 0, amount_msat(200000000), LOCAL);
+			/* Must not return. */
+			relative_splice_balance_fundee(peer, TX_INITIATOR,
+						       NULL, 0, 0);
+			_exit(0);
+		} else {
+			int status;
+
+			if (waitpid(child, &status, 0) != child)
+				errx(1, "true-negative total: waitpid failed");
+			if (WIFEXITED(status) && WEXITSTATUS(status) == 0)
+				errx(1, "true-negative total: returned instead"
+				     " of failing peer");
+		}
+	}
 
 	common_shutdown();
 	return 0;
