@@ -133,10 +133,14 @@ class LightningNode(utils.LightningNode):
         )
 
     def stop(self, timeout: int = 10):
-        utils.LightningNode.stop(self, timeout=timeout)
-        if self.vlsd is not None:
-            rc = self.vlsd.stop(timeout=timeout)
-            print(f"VLSD2 exited with rc={rc}")
+        try:
+            return utils.LightningNode.stop(self, timeout=timeout)
+        finally:
+            # Stop the signer even if lightningd failed to stop (or never
+            # started), otherwise vlsd is left running.
+            if self.vlsd is not None and self.vlsd.proc is not None:
+                rc = self.vlsd.stop(timeout=timeout)
+                print(f"VLSD2 exited with rc={rc}")
 
 
 class CompatLevel(object):

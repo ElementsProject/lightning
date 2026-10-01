@@ -43,6 +43,18 @@ def pytest_configure(config):
                 'REMOTE_SIGNER_PATH and'
                 'VLS_AUTO_BUILD are mutually exclusive'
             )
+        # If a node's signer fails to start right away, its peers may
+        # still be starting and outlive the test.
+        if os.environ.get('REMOTE_SIGNER_PATH'):
+            vlsd = os.path.expanduser(os.environ['REMOTE_SIGNER_PATH'])
+            if os.path.isdir(vlsd):
+                vlsd = os.path.join(vlsd, 'vlsd')
+            socket = os.path.join(os.path.dirname(vlsd), 'remote_hsmd_socket')
+            for path in (vlsd, socket):
+                if not os.path.isfile(path):
+                    raise pytest.UsageError(
+                        f'REMOTE_SIGNER_PATH: {path} does not exist'
+                    )
 
 
 def pytest_runtest_setup(item):
