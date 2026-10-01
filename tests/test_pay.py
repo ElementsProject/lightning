@@ -51,10 +51,11 @@ def test_vls_simple_receive(node_factory, use_vls):
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 def test_vls_simple_route(node_factory, use_vls):
-    l1, l2, l3 = node_factory.line_graph(3, opts=[{}, {}, {'use_vls': use_vls}])
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True,
+                                         opts=[{}, {}, {'use_vls': use_vls}])
 
     inv = l3.rpc.invoice(123000, 'test_vls_simple', 'description')['bolt11']
-    details = l1.rpc.pay(inv, dev_use_shadow=False)
+    details = l1.dev_pay(inv, dev_use_shadow=False)
     assert details['status'] == 'complete'
     assert details['amount_msat'] == Millisatoshi(123000)
     assert details['destination'] == l3.info['id']
