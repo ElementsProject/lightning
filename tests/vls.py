@@ -48,11 +48,14 @@ class ValidatingLightningSignerD(TailableProc):
         self.datadir = (Path(lightning_dir) / "vlsd").resolve()
         self.datadir.mkdir(exist_ok=True, parents=True)
 
-        self.bin_dir = str(_resolve_executable(self.datadir))
-        self.executable = self.bin_dir / "vlsd"
+        executable = _resolve_executable(self.datadir)
+        if executable.is_dir():
+            executable = executable / "vlsd"
+        self.executable = str(executable)
+        self.bin_dir = executable.parent
         self.port = reserve_unused_port()
         self.rpc_port = reserve_unused_port()
-        self.remote_socket = (Path(self.bin_dir) / "remote_hsmd_socket").resolve()
+        self.remote_socket = (self.bin_dir / "remote_hsmd_socket").resolve()
         if not self.remote_socket.exists():
             raise RuntimeError(
                 f"remote_hsmd_socket binary not found next to vlsd at {self.remote_socket}"
