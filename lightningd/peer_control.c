@@ -2338,11 +2338,9 @@ void handle_peer_spoke(struct lightningd *ld, const u8 *msg)
 	case WIRE_ERROR:
 	case WIRE_WARNING:
 		log_peer_debug(ld->log, &peer->id,
-			       "Ignoring %s for unknown channel %s%s%s",
+			       "Ignoring %s for unknown channel %s",
 			       peer_wire_name(msgtype),
-			       fmt_channel_id(tmpctx, &channel_id),
-			       errmsg ? ": " : "",
-			       errmsg ? errmsg : "");
+			       fmt_channel_id(tmpctx, &channel_id));
 		return;
 	}
 
