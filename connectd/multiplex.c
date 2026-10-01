@@ -1603,6 +1603,10 @@ static struct io_plan *read_body_from_peer_done(struct io_conn *peer_conn,
 
 	       /* Don't allocate a subd for these: nobody would claim it. */
 	       if (t == WIRE_ERROR || t == WIRE_WARNING) {
+		       status_peer_io(LOG_IO_IN, &peer->id, decrypted);
+		       status_peer_debug(&peer->id, "Received %s: %s",
+					 peer_wire_name(t),
+					 sanitize_error(tmpctx, decrypted, NULL));
 		       daemon_conn_send(peer->daemon->master,
 					take(towire_connectd_peer_spoke(NULL, &peer->id,
 									peer->counter,
