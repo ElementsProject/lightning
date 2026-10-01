@@ -1168,7 +1168,8 @@ static const struct plugin_command commands[] = {
 	},
 	{
 		"pay",
-		json_pay
+		json_pay,
+		"v26.06", "v27.03",
 	},
 };
 
