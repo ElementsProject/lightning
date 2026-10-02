@@ -163,11 +163,47 @@ static bool blind_error_return(const struct htlc_in *hin)
 	return false;
 }
 
+/* We couldn't parse their onion, so we have no shared secret to wrap an
+ * error with: update_fail_malformed_htlc is the only reply we can give. */
+static enum onion_wire unparsable_onion_code(const struct htlc_in *hin)
+{
+	enum onion_wire failcode;
+
+	/* BOLT #2:
+	 *    - If `path_key` is set in the incoming `update_add_htlc`:
+	 *      - MUST send an `update_fail_malformed_htlc` error using the
+	 *        `invalid_onion_blinding` failure code for any local or downstream errors.
+	 */
+	if (hin->path_key)
+		return WIRE_INVALID_ONION_BLINDING;
+
+	if (parse_onionpacket(tmpctx, hin->onion_routing_packet,
+			      sizeof(hin->onion_routing_packet), &failcode))
+		/* Should not happen: we only lack a secret if this failed */
+		return WIRE_INVALID_ONION_VERSION;
+	return failcode;
+}
+
+static struct failed_htlc *mk_failed_htlc_badonion(const tal_t *ctx,
+						   const struct htlc_in *hin,
+						   enum onion_wire badonion);
+
 static struct failed_htlc *mk_failed_htlc(const tal_t *ctx,
 					  const struct htlc_in *hin,
 					  const struct onionreply *failonion)
 {
-	struct failed_htlc *f = tal(ctx, struct failed_htlc);
+	struct failed_htlc *f;
+
+	if (!hin->shared_secret) {
+		log_broken(hin->key.channel->log,
+			   "HTLC %"PRIu64" has no shared secret:"
+			   " failing it as malformed instead",
+			   hin->key.id);
+		return mk_failed_htlc_badonion(ctx, hin,
+					       unparsable_onion_code(hin));
+	}
+
+	f = tal(ctx, struct failed_htlc);
 
 	/* Inside a blinded path, override return */
 	if (blind_error_return(hin)) {
@@ -193,8 +229,9 @@ static struct failed_htlc *mk_failed_htlc_badonion(const tal_t *ctx,
 {
 	struct failed_htlc *f = tal(ctx, struct failed_htlc);
 
-	/* Inside a blinded path, override return */
-	if (blind_error_return(hin))
+	/* Inside a blinded path, override return (if we can: without a
+	 * shared secret, malformed is all we can send). */
+	if (blind_error_return(hin) && hin->shared_secret)
 		return mk_failed_htlc(ctx, hin, NULL);
 
 	f->id = hin->key.id;
@@ -273,10 +310,17 @@ static void local_fail_in_htlc_badonion(struct htlc_in *hin,
 /* This is used for cases where we can immediately fail the HTLC. */
 void local_fail_in_htlc(struct htlc_in *hin, const u8 *failmsg TAKES)
 {
-	struct onionreply *failonion = create_onionreply(NULL,
-							 hin->shared_secret,
-							 failmsg);
+	struct onionreply *failonion;
 
+	/* We failed it for another reason (shutting down, dust) before
+	 * noticing the onion was bad: we can only say it was malformed. */
+	if (!hin->shared_secret) {
+		tal_free_if_taken(failmsg);
+		local_fail_in_htlc_badonion(hin, unparsable_onion_code(hin));
+		return;
+	}
+
+	failonion = create_onionreply(NULL, hin->shared_secret, failmsg);
 	tal_free_if_taken(failmsg);
 
 	fail_in_htlc(hin, take(failonion));
@@ -1601,7 +1645,7 @@ static bool peer_accepted_htlc(const tal_t *ctx,
 
 fail:
 	/* In a blinded path, *all* failures are "invalid_onion_blinding" */
-	if (hin->path_key) {
+	if (hin && hin->path_key) {
 		struct sha256 hash;
 
 		*badonion = 0;
