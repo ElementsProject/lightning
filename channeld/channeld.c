@@ -6219,9 +6219,20 @@ static void peer_reconnect(struct peer *peer,
 	 *       `commitment_signed`.
 	 */
 	if (next_commitment_number == peer->next_index[REMOTE] - 1) {
-		if (!recv_tlvs || !recv_tlvs->next_funding)
+		if (!recv_tlvs || !recv_tlvs->next_funding) {
+			/* They only revoke the previous commitment once they
+			 * have our last commitment_signed, so they can't need
+			 * it again.  And re-signing it now would use the
+			 * per-commitment point of the one after. */
+			if (peer->revocations_received != peer->next_index[REMOTE] - 2)
+				peer_failed_err(peer->pps,
+						&peer->channel_id,
+						"bad reestablish commitment_number: %"
+						PRIu64" but you already revoked %"PRIu64,
+						next_commitment_number,
+						peer->revocations_received - 1);
 			retransmit_commitment_signed = true;
-		else
+		} else
 			retransmit_commitment_signed = false;
 
 	/* BOLT #2:
