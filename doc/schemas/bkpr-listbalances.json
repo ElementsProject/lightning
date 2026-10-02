@@ -193,7 +193,7 @@
             "account_resolved": false,
             "balances": [
               {
-                "balance_msat": 1000000000,
+                "balance_msat": 999000000,
                 "coin_type": "bcrt"
               }
             ]
@@ -202,7 +202,7 @@
             "account": "wallet",
             "balances": [
               {
-                "balance_msat": 202500336000,
+                "balance_msat": 202500643000,
                 "coin_type": "bcrt"
               }
             ]

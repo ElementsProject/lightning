@@ -33,7 +33,7 @@ REGENERATING_RPCS = []
 ALL_RPC_EXAMPLES = {}
 EXAMPLES_JSON = {}
 LOG_FILE = './tests/autogenerate-examples-status.log'
-IGNORE_RPCS_LIST = ['dev-splice', 'reckless', 'sql-template', 'currencyconvert', 'splicein', 'createproof', 'clnrest-register-path', 'sendamount', 'graceful', 'askrene-remove-channel-update', 'currencyrate', 'spliceout', 'askrene-bias-node', 'bkpr-report', 'xkeysend', 'listcurrencyrates', 'delnetworkevent', 'cancelrecurringinvoice', 'listnetworkevents', 'injectonionmessage']
+IGNORE_RPCS_LIST = ['dev-splice', 'reckless', 'sql-template']
 EXPECTED_WALLET_TXIDS = defaultdict(set)
 
 
@@ -629,6 +629,11 @@ def generate_transactions_examples(l1, l2, l3, l4, l5, c25, bitcoind):
         update_example(node=l1, method='waitsendpay', params={'payment_hash': inv_l31['payment_hash']})
         update_example(node=l1, method='keysend', params={'destination': l3.info['id'], 'amount_msat': 10000})
         update_example(node=l1, method='keysend', params={'destination': l4.info['id'], 'amount_msat': 10000000, 'extratlvs': {'133773310': '68656c6c6f776f726c64', '133773312': '66696c7465726d65'}})
+        # l3->l4 rather than l1->l4: it rides their direct channel, so it adds
+        # no HTLC to c12 and no forward to l2, leaving listhtlcs' fixed-length
+        # rewrite patch (and _merge_list's assert on it) intact.  It does add
+        # channel moves to l3's ledger, which bkpr-* regenerate on their own.
+        update_example(node=l3, method='xkeysend', params={'destination': l4.info['id'], 'amount_msat': 10000000, 'label': 'This is an xkeysend amount', 'maxfee': '500sat'})
         scid = only_one([channel for channel in l2.rpc.listpeerchannels()['channels'] if channel['peer_id'] == l3.info['id']])['alias']['remote']
         routehints = [[{
             'scid': scid,
@@ -731,6 +736,9 @@ def generate_transactions_examples(l1, l2, l3, l4, l5, c25, bitcoind):
             'groupid': 0})
         wait_for_htlcs_settled([l1, l2, l3, l4, l5])
         update_example(node=l1, method='fetchbip353', params={'address': 'send.some@satsto.me'}, description=['Example of fetching BIP-353 payment details.'])
+        offer_l43 = l4.rpc.offer(amount='any', description='Simple test sendamount')
+        send_amt = l3.rpc.sendamount(invstring=offer_l43['bolt12'], amount_msat='1000sat')
+        update_example(node=l3, method='sendamount', params={'invstring': offer_l43['bolt12'], 'amount_msat': '1000sat'}, response=send_amt)
         logger.info('Simple Transactions Done!')
         return c23_2, c23res2, c34_2, inv_l11, inv_l21, inv_l22, inv_l31, inv_l32, inv_l34
     except Exception as e:
@@ -866,6 +874,12 @@ def generate_bookkeeper_examples(l2, l3, c23_2_chan_id):
         update_example(node=l3, method='bkpr-listincome', params={'consolidate_fees': False}, response=bkprlistincome_res1)
         bkprlistincome_res2 = l3.rpc.bkpr_listincome()
         update_example(node=l3, method='bkpr-listincome', params={}, response=bkprlistincome_res2)
+        bkprreport_res = l3.rpc.bkpr_report(headers=["Date,Tag,Account,Description,Credit,Debit,BTC/USD,Credit (USD),Debit(USD)"],
+                                            format="{localtime},{tag},{account},{description?Invoice description {description}:{outpoint?Onchain output {outpoint}:{txid?Onchain transaction {txid}}}},{credit?+{credit}:0},{debit?-{debit}:0},{currencyrate},${currencycredit},${currencydebit}",
+                                            escape="csv")
+        update_example(node=l3, method='bkpr-report', params={'headers': ["Date,Tag,Account,Description,Credit,Debit,BTC/USD,Credit (USD),Debit(USD)"],
+                                                              'format': "{localtime},{tag},{account},{description?Invoice description {description}:{outpoint?Onchain output {outpoint}:{txid?Onchain transaction {txid}}}},{credit?+{credit}:0},{debit?-{debit}:0},{currencyrate},${currencycredit},${currencydebit}",
+                                                              'escape': 'csv'}, response=bkprreport_res)
         logger.info('Bookkeeper Done!')
     except Exception as e:
         logger.error(f'Error in generating bookkeeper examples: {e}')
@@ -936,10 +950,13 @@ def generate_askrene_examples(l1, l2, l3, c12, c23_2):
         update_example(node=l2, method='askrene-inform-channel', params={'layer': 'test_layers', 'short_channel_id_dir': '0x0x1/1', 'amount_msat': 100000, 'inform': 'unconstrained'})
         update_example(node=l2, method='askrene-bias-channel', params={'layer': 'test_layers', 'short_channel_id_dir': scid12dir, 'bias': 1})
         update_example(node=l2, method='askrene-bias-channel', params=['test_layers', scid12dir, -5, 'bigger bias'])
+        update_example(node=l2, method='askrene-bias-node', params={'layer': 'test_layers', 'node': l3.info['id'], 'direction': 'out', 'bias': 1})
+        update_example(node=l2, method='askrene-bias-node', params={'layer': 'test_layers', 'node': l3.info['id'], 'direction': 'out', 'bias': -5, 'description': 'This node is unreliable'})
         askrene_listlayers_res1 = update_example(node=l2, method='askrene-listlayers', params=['test_layers'])
         update_example(node=l2, method='askrene-listlayers', params={})
         ts1 = only_one(only_one(askrene_listlayers_res1['layers'])['constraints'])['timestamp']
         update_example(node=l2, method='askrene-age', params={'layer': 'test_layers', 'cutoff': ts1 + 1})
+        update_example(node=l2, method='askrene-remove-channel-update', params={'layer': 'test_layers', 'short_channel_id_dir': '0x0x1/0'})
         update_example(node=l2, method='askrene-remove-layer', params={'layer': 'test_layers'})
         update_example(node=l1, method='getroutes', params={'source': l1.info['id'], 'destination': l3.info['id'], 'amount_msat': 1250000, 'layers': [], 'maxfee_msat': 125000, 'final_cltv': 0})
         update_example(node=l1, method='askrene-reserve', params={'path': [{'short_channel_id_dir': scid12dir, 'amount_msat': 1250_000}, {'short_channel_id_dir': scid23dir, 'amount_msat': 1250_001}]})
@@ -1024,7 +1041,7 @@ def generate_wait_examples(l1, l2, bitcoind, executor):
         raise
 
 
-def generate_utils_examples(l1, l2, l3, l4, l5, l6, c23_2, c34_2, inv_l11, inv_l22, rune_l21, bitcoind):
+def generate_utils_examples(l1, l2, l3, l4, l5, l6, c23_2, c34_2, inv_l11, inv_l22, rune_l21, bitcoind, executor):
     """Generates other utilities examples"""
     try:
         logger.info('General Utils Start...')
@@ -1094,6 +1111,33 @@ def generate_utils_examples(l1, l2, l3, l4, l5, l6, c23_2, c34_2, inv_l11, inv_l
         update_example(node=l2, method='signmessagewithkey', params={'message': 'signing this message with key', 'address': addr})
         update_example(node=l2, method='decode', params=[rune_l21['rune']])
         update_example(node=l2, method='decode', params=[inv_l22['bolt11']])
+        inv_req = l4.rpc.offer(amount='any', description='Payment requires proof')
+        l3.rpc.sendamount(invstring=inv_req['bolt12'], amount_msat='1000sat')
+        res_inv_req = l3.rpc.createproof(invstring=inv_req['bolt12'])
+        update_example(node=l3, method='createproof', params={'invstring': inv_req['bolt12']}, response=res_inv_req)
+
+        offer_rec = update_example(node=l4, method='offer', params={'amount': '1000sat', 'description': 'Recurring subscription', 'recurrence': '1minutes'})
+        rec_inv_l3 = l3.rpc.fetchinvoice(offer=offer_rec['bolt12'], recurrence_counter=0, recurrence_label='subscription l3')
+        l3.rpc.pay(rec_inv_l3['invoice'], label='subscription l3')
+        update_example(node=l3, method='cancelrecurringinvoice', params={'offer': offer_rec['bolt12'], 'recurrence_counter': 1, 'recurrence_label': 'subscription l3', 'payer_note': 'Cancelling subscription'})
+
+        # We need a real onion message, and nothing hands one out: but a node
+        # which cannot forward one dumps it (raw, plus its path_key) into an
+        # onionmessage_forward_fail notification, which --dev-save-plugin-io
+        # saves for us.  So disconnect l2 from l3, let l1's fetchinvoice stall
+        # at l2, then reconnect and inject it, completing the fetchinvoice.
+        offer_l3 = l3.rpc.offer(amount='2000sat', description='Onion message offer')
+        l2.rpc.disconnect(l3.info['id'], force=True)
+        fetch_l1 = executor.submit(l1.rpc.fetchinvoice, offer_l3['bolt12'])
+        iodir = os.path.join(l2.daemon.lightning_dir, 'plugin-io')
+        prefix = 'notification_out-onionmessage_forward_fail-'
+        wait_for(lambda: any(f.startswith(prefix) for f in os.listdir(iodir)))
+        with open(os.path.join(iodir, next(f for f in os.listdir(iodir) if f.startswith(prefix))), 'r', encoding='utf-8') as f:
+            fwd_fail = json.load(f)['params']['onionmessage_forward_fail']
+        l2.rpc.connect(fwd_fail['next_node_id'], 'localhost', l3.port)
+        update_example(node=l2, method='injectonionmessage', params={'path_key': fwd_fail['path_key'], 'message': fwd_fail['incoming']})
+        fetch_l1.result(timeout=10)
+        wait_for(lambda: all(c['peer_connected'] for c in l2.rpc.listpeerchannels(l3.info['id'])['channels']))
 
         # PSBT
         amount1 = 1000000
@@ -1169,6 +1213,18 @@ def generate_splice_examples(node_factory, bitcoind, regenerate_blockchain):
         mine_funding_to_announce(bitcoind, [l7, l8])
         l7.wait_channel_active(c78)
         chan_id_78 = l7.get_channel_id(l8)
+        l7.daemon.wait_for_log(' to CHANNELD_NORMAL')
+
+        update_example(node=l7, method='splicein', params={'channel': chan_id_78, 'amount': '5000'})
+        bitcoind.generate_block(1, wait_for_mempool=1)
+        sync_blockheight(bitcoind, [l7, l8])
+        l7.daemon.wait_for_log(' to CHANNELD_NORMAL')
+
+        update_example(node=l7, method='spliceout', params={'channel': chan_id_78, 'amount': '5000'})
+        bitcoind.generate_block(6, wait_for_mempool=1)
+        sync_blockheight(bitcoind, [l7, l8])
+        l7.daemon.wait_for_log(' to CHANNELD_NORMAL')
+
         # Splice
         funds_result_1 = l7.rpc.fundpsbt('109000sat', 'slow', 166, excess_as_change=True)
         spinit_res1 = update_example(node=l7, method='splice_init', params={'channel_id': chan_id_78, 'relative_amount': 100000, 'initialpsbt': funds_result_1['psbt']})
@@ -1197,7 +1253,7 @@ def generate_splice_examples(node_factory, bitcoind, regenerate_blockchain):
         bitcoind.generate_block(1, wait_for_mempool=1)
         sync_blockheight(bitcoind, [l7, l8])
         update_example(node=l7, method='stop', params={})
-        l8.rpc.stop()
+        update_example(node=l8, method='graceful', params={})
         logger.info('Splice Done!')
     except Exception as e:
         logger.error(f'Error in generating splicing examples: {e}')
@@ -1456,6 +1512,12 @@ def generate_autoclean_delete_examples(l1, l2, l3, l4, l5, c12, c23):
         l2.rpc.close(l4.info['id'])
         l2.rpc.disconnect(l4.info['id'], True)
 
+        # Reconnect, then force l2 to re-broadcast an enabled
+        # channel_update (setchannel), and wait for l1 to see it as routable.
+        l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
+        wait_for(lambda: all(c['peer_connected'] for c in l2.rpc.listpeerchannels(l3.info['id'])['channels']))
+        wait_for(lambda: any(c['source'] == l2.info['id'] and c['active'] for c in l1.rpc.listchannels(destination=l3.info['id'])['channels']))
+
         # Delinvoice
         l1.rpc.pay(inv_l35['bolt11'])
         l1.rpc.pay(inv_l37['bolt11'])
@@ -1480,6 +1542,10 @@ def generate_autoclean_delete_examples(l1, l2, l3, l4, l5, c12, c23):
         if len(failed_forwards) > 0 and 'in_htlc_id' in failed_forwards[0]:
             update_example(node=l2, method='delforward', params={'in_channel': c12, 'in_htlc_id': failed_forwards[0]['in_htlc_id'], 'status': 'failed'})
         update_example(node=l2, method='dev-forget-channel', params={'id': l3.info['id'], 'short_channel_id': c23, 'force': True}, description=[f'Forget a channel by short channel id when peer has multiple channels:'])
+
+        # Delnetworkevent
+        dl_nwk_res1 = l2.rpc.listnetworkevents(id=l3.info['id'], index='created', limit=3)
+        update_example(node=l2, method='delnetworkevent', params={'created_index': dl_nwk_res1['networkevents'][-1]['created_index']})
 
         # Autoclean
         update_example(node=l2, method='autoclean-once', params=['failedpays', 1])
@@ -1612,9 +1678,13 @@ def generate_list_examples(bitcoind, l1, l2, l3, c12, c23_2, c34_2, inv_l31, inv
         update_example(node=l2, method='listpeerchannels', params={}, response=listpeerchannels_res2)
 
         update_example(node=l1, method='listchannels', params={'short_channel_id': c12})
-        # l4's database was deleted for the recoverchannel example, so l3 will
-        # disable its side of their channel; that channel_update is emitted
-        # lazily, so wait for it or the listchannels snapshot below races it.
+        # l4's database was deleted for the recoverchannel example, so it only
+        # has a channel stub now and the l3<->l4 channel can never resume.  A
+        # node only disables its side of a channel once it is *closing* (a
+        # channel stuck in CHANNELD_NORMAL is only ever re-enabled), so close it
+        # from l3 to deterministically disable l3's side.  Do not mine: we want
+        # it "closing" (disabled but still in gossip), not swept onchain (gone).
+        l3.rpc.close(c34_2, unilateraltimeout=1)
         wait_for(lambda: [c['active'] for c in l3.rpc.listchannels(c34_2)['channels'] if c['source'] == l3.info['id']] == [False])
         update_example(node=l3, method='listchannels', params={})
 
@@ -1641,10 +1711,54 @@ def generate_list_examples(bitcoind, l1, l2, l3, c12, c23_2, c34_2, inv_l31, inv
         update_example(node=l2, method='listinvoicerequests', params={}, response=listinvoicerequests_res2)
         update_example(node=l2, method='listaddresses', params=[address_l22['p2tr']])
         update_example(node=l2, method='listaddresses', params={'start': 6, 'limit': 2})
+        listnetworkevents_res1 = l2.rpc.listnetworkevents()
+        update_example(node=l3, method='listnetworkevents', params={}, response=listnetworkevents_res1)
+        listnetworkevents_res2 = l2.rpc.listnetworkevents(id=l3.info['id'], index='created', limit=3)
+        update_example(node=l2, method='listnetworkevents', params={'id': l3.info['id'], 'index': 'created', 'limit': 3}, response=listnetworkevents_res2)
         logger.info('Lists Done!')
     except Exception as e:
         logger.error(f'Error in generating lists examples: {e}')
         raise
+
+
+def generate_currencyrate_examples(l3):
+    """Generates plugin currencyrate examples"""
+    try:
+        logger.info('Currencyrate Start...')
+        list_currencies_res1 = l3.rpc.listcurrencyrates(currency='USD')
+        update_example(node=l3, method='listcurrencyrates', params={'currency': 'USD'}, response=list_currencies_res1)
+        currencyconvert_res1 = l3.rpc.currencyconvert(amount=100, currency='USD')
+        update_example(node=l3, method='currencyconvert', params={'amount': 100, 'currency': 'USD'}, response=currencyconvert_res1)
+        currencyrate_res1 = l3.rpc.currencyrate(currency="USD")
+        update_example(node=l3, method='currencyrate', params={'currency': 'USD'}, description=["Get the median BTC/USD rate across all configured sources:"], response=currencyrate_res1)
+        currencyrate_res2 = l3.rpc.currencyrate(currency='USD', source='binance')
+        update_example(node=l3, method='currencyrate', params={'currency': 'USD', 'source': 'binance'}, description=["Get the BTC/USD rate from the Binance source only:"], response=currencyrate_res2)
+        logger.info('Currencyrate Done!')
+    except Exception as e:
+        logger.error(f'Error in generating currencyrate examples: {e}')
+
+
+def generate_clnrest_examples(node_factory):
+    """Generate clnrest plugin examples (needs a node with clnrest enabled)"""
+    try:
+        logger.info('Clnrest starts...')
+        rest_port = str(node_factory.get_unused_port())
+        rest_protocol = 'http'
+        rest_certs = node_factory.directory + '/clnrest-certs'
+        l_rest = node_factory.get_node(options={'clnrest-port': rest_port, 'clnrest-protocol': rest_protocol, 'clnrest-certs': rest_certs})
+        base_url = f'{rest_protocol}://127.0.0.1:{rest_port}'
+        l_rest.daemon.logsearch_start = 0
+        l_rest.daemon.wait_for_log(r'plugin-clnrest: REST server running at ' + base_url)
+        update_example(node=l_rest, method='clnrest-register-path',
+                       params={'path': '/custom/endpoint/{user}', 'rpc_method': 'custom-rpc-method',
+                               'http_method': 'GET', 'rune_required': False})
+        update_example(node=l_rest, method='clnrest-register-path',
+                       params={'path': '/v1/superpay', 'rpc_method': 'superpay',
+                               'http_method': 'POST', 'rune_required': True,
+                               'rune_restrictions': {'method': 'pay'}})
+        logger.info('Clnrest Done!')
+    except Exception as e:
+        logger.error(f'Error in generating clnrest examples: {e}')
 
 
 @pytest.fixture(autouse=True)
@@ -1758,12 +1872,14 @@ def test_generate_examples(node_factory, bitcoind, executor):
         offer_l23, inv_req_l1_l22 = generate_offers_renepay_examples(l1, l2, inv_l21, inv_l34)
         generate_askrene_examples(l1, l2, l3, c12, c23_2)
         generate_wait_examples(l1, l2, bitcoind, executor)
-        address_l22 = generate_utils_examples(l1, l2, l3, l4, l5, l6, c23_2, c34_2, inv_l11, inv_l22, rune_l21, bitcoind)
-        generate_splice_examples(node_factory, bitcoind, regenerate_blockchain)
+        address_l22 = generate_utils_examples(l1, l2, l3, l4, l5, l6, c23_2, c34_2, inv_l11, inv_l22, rune_l21, bitcoind, executor)
         generate_channels_examples(node_factory, bitcoind, l1, l3, l4, l5, regenerate_blockchain)
         generate_autoclean_delete_examples(l1, l2, l3, l4, l5, c12, c23)
         generate_backup_recovery_examples(node_factory, l4, l5, l6, regenerate_blockchain)
         generate_list_examples(bitcoind, l1, l2, l3, c12, c23_2, c34_2, inv_l31, inv_l32, offer_l23, inv_req_l1_l22, address_l22)
+        generate_currencyrate_examples(l3)
+        generate_splice_examples(node_factory, bitcoind, regenerate_blockchain)
+        generate_clnrest_examples(node_factory)
         update_examples_in_schema_files()
         logger.info('All Done!!!')
     except Exception as e:
