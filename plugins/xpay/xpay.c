@@ -145,6 +145,11 @@ struct payment {
 	/* Useful information from prior attempts if any. */
 	char *prior_results;
 
+	/* Nodes that have already returned unknown_next_peer.  The first
+	 * failure only disables that channel (it can be a stale scid).  A
+	 * second failure from the same node excludes it. */
+	struct node_id *unknown_next_peers;
+
 	/* Requests currently outstanding */
 	struct out_req **requests;
 
@@ -905,6 +910,41 @@ static void payment_already_paid(struct payment *payment)
 	send_outreq(req);
 }
 
+/* unknown_next_peer is returned by the node that cannot forward.  One hit
+ * can be a stale scid, so we only disable that channel.  The same node
+ * returning it again means every other channel through it will fail too. */
+static void maybe_exclude_unknown_next_peer(struct command *aux_cmd,
+					    struct attempt *attempt,
+					    size_t index)
+{
+	struct payment *payment = attempt->payment;
+	struct node_id erring;
+	struct out_req *req;
+	bool seen = false;
+
+	if (index == 0)
+		return;
+	node_id_from_pubkey(&erring, &attempt->hops[index - 1].next_node);
+	for (size_t i = 0; i < tal_count(payment->unknown_next_peers); i++) {
+		if (node_id_eq(&payment->unknown_next_peers[i], &erring)) {
+			seen = true;
+			break;
+		}
+	}
+	if (!seen) {
+		tal_arr_expand(&payment->unknown_next_peers, erring);
+		return;
+	}
+
+	add_result_summary(attempt, LOG_DBG,
+			   "Repeated unknown_next_peer from %s: disabling node for this payment",
+			   fmt_node_id(tmpctx, &erring));
+	req = payment_ignored_req(aux_cmd, attempt, "askrene-disable-node");
+	json_add_string(req->js, "layer", payment->private_layer);
+	json_add_node_id(req->js, "node", &erring);
+	send_payment_req(aux_cmd, attempt->payment, req);
+}
+
 static void update_knowledge_from_error(struct command *aux_cmd,
 					const char *buf,
 					const jsmntok_t *error,
@@ -1057,6 +1097,12 @@ static void update_knowledge_from_error(struct command *aux_cmd,
 		case WIRE_PERMANENT_CHANNEL_FAILURE:
 		case WIRE_REQUIRED_CHANNEL_FEATURE_MISSING:
 		case WIRE_UNKNOWN_NEXT_PEER:
+			/* A final node must not send this.  The erring node is
+			 * the one that cannot forward; exclude it on repeat. */
+			maybe_exclude_unknown_next_peer(aux_cmd, attempt, index);
+			index--;
+			goto strange_error;
+
 		case WIRE_AMOUNT_BELOW_MINIMUM:
 		case WIRE_FEE_INSUFFICIENT:
 		case WIRE_INCORRECT_CLTV_EXPIRY:
@@ -1130,9 +1176,19 @@ static void update_knowledge_from_error(struct command *aux_cmd,
 					   fmt_amount_msat(tmpctx, attempt->hops[index].amount_out));
 			goto channel_capacity;
 
+		case WIRE_UNKNOWN_NEXT_PEER:
+			/* One hit can be a stale scid, so disable that channel.
+			 * The same node returning it again is excluded, or we
+			 * walk every other channel through it. */
+			add_result_summary(attempt, LOG_DBG,
+					   "We got %s for %s: disabling it for this payment",
+					   errmsg,
+					   describe_scidd(attempt, index));
+			maybe_exclude_unknown_next_peer(aux_cmd, attempt, index);
+			goto disable_channel;
+
 		case WIRE_PERMANENT_CHANNEL_FAILURE:
 		case WIRE_REQUIRED_CHANNEL_FEATURE_MISSING:
-		case WIRE_UNKNOWN_NEXT_PEER:
 		case WIRE_AMOUNT_BELOW_MINIMUM:
 		case WIRE_FEE_INSUFFICIENT:
 		case WIRE_INCORRECT_CLTV_EXPIRY:
@@ -2648,6 +2704,7 @@ static struct payment *new_payment(const tal_t *ctx,
 	list_head_init(&payment->past_attempts);
 	payment->amount_being_routed = AMOUNT_MSAT(0);
 	payment->prior_results = tal_strdup(payment, "");
+	payment->unknown_next_peers = tal_arr(payment, struct node_id, 0);
 	payment->requests = tal_arr(payment, struct out_req *, 0);
 	payment->start_time = clock_time();
 	payment->pay_compat = as_pay;
