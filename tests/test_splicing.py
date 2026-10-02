@@ -991,3 +991,51 @@ def test_splice_candidate_spent_before_lock(node_factory, bitcoind):
     chan = only_one(l1.rpc.listpeerchannels()['channels'])
     assert chan['state'] == 'ONCHAIN'
     assert chan['funding_txid'] == splice_txid
+
+
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_splice_fundee_with_balance(node_factory, bitcoind):
+    """Splice a channel whose fundee already holds a balance.
+
+    The hsmd setup_channel push_value must report the fundee's full
+    post-splice balance (prior balance + splice contribution), not just
+    its funding contribution.  Other splice tests do exercise funded
+    fundees, but none can observe this value: stock hsmd signs
+    unconditionally and no test asserts what hsmd was told.
+    """
+    l1, l2 = node_factory.line_graph(2, fundamount=1000000, wait_for_announce=True)
+
+    # Give the fundee a pre-splice balance: 500k sat routed to l2.
+    inv = l2.rpc.invoice(500000000, 'fundee-balance', 'fundee balance')
+    l1.rpc.xpay(inv['bolt11'])
+    wait_for(lambda: only_one(l2.rpc.listpeerchannels()['channels'])['spendable_msat'] > 450000000)
+    pre = only_one(l2.rpc.listpeerchannels()['channels'])['spendable_msat']
+
+    chan_id = l1.get_channel_id(l2)
+
+    # The funder splices in on top of the fundee's balance.
+    funds_result = l1.rpc.fundpsbt("111722sat", 0, 0, excess_as_change=True)
+    result = l1.rpc.splice_init(chan_id, 100000, funds_result['psbt'])
+    result = l1.rpc.splice_update(chan_id, result['psbt'])
+    assert result['commitments_secured'] is False
+    result = l1.rpc.splice_update(chan_id, result['psbt'])
+    assert result['commitments_secured'] is True
+    result = l1.rpc.signpsbt(result['psbt'])
+    result = l1.rpc.splice_signed(chan_id, result['signed_psbt'])
+
+    l1.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
+    l2.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
+    bitcoind.generate_block(6, wait_for_mempool=1)
+    l1.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
+    l2.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
+
+    # The fundee keeps its balance across the splice (allow for the
+    # larger channel reserve on the spliced capacity).
+    wait_for(lambda: only_one(l2.rpc.listpeerchannels()['channels'])['spendable_msat'] >= pre - 5000000)
+
+    # And the channel still routes: pay the fundee another invoice.
+    inv = l2.rpc.invoice(100000000, 'fundee-balance-2', 'fundee balance 2')
+    l1.rpc.xpay(inv['bolt11'])
+    wait_for(lambda: only_one(l2.rpc.listinvoices('fundee-balance-2')['invoices'])['status'] == 'paid')
