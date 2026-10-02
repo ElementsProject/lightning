@@ -1059,6 +1059,21 @@ int main(int argc, char *argv[])
 						wrong_funding,
 						&closing_txid,
 						their_feerange);
+			/* BOLT #2:
+			 * - otherwise, if `fee_satoshis` is not strictly between its last-sent
+			 *   `fee_satoshis` and its previously-received `fee_satoshis`, UNLESS it
+			 *   has since reconnected:
+			 *   - SHOULD send a `warning` and close the connection, or send an `error`
+			 *     and fail the channel.
+			 */
+			if (!amount_sat_eq(offer[REMOTE], offer[LOCAL])
+			    && (amount_sat_less(offer[REMOTE], feerange.min)
+				|| amount_sat_greater(offer[REMOTE], feerange.max)))
+				peer_failed_warn(pps, &channel_id,
+						 "Fee offer %s outside negotiation range %s-%s",
+						 fmt_amount_sat(tmpctx, offer[REMOTE]),
+						 fmt_amount_sat(tmpctx, feerange.min),
+						 fmt_amount_sat(tmpctx, feerange.max));
 		}
 
 		whose_turn = !whose_turn;
