@@ -3244,12 +3244,16 @@ static void handle_their_unilateral(const struct tx_parts *tx,
 			if (found)
 				continue;
 
+			/* This can be an old commitment of ours which we
+			 * revoked before they revoked theirs: it then has the
+			 * number of their current one.  Dying here would
+			 * only repeat on every restart. */
 			record_external_output(&outpoint, amt,
 					       tx_blockheight,
 					       mk_mvt_tags(MVT_PENALTY));
-			status_failed(STATUS_FAIL_INTERNAL_ERROR,
-				      "Could not find resolution for output %zu",
-				      i);
+			status_broken("Could not find resolution for output %zu:"
+				      " did *we* cheat?", i);
+			continue;
 		}
 
 		if (matches_direction(matches, htlcs_info->htlcs) == LOCAL) {
