@@ -34,7 +34,7 @@ PLUGIN_RENEPAY_HDRS :=				\
 	plugins/renepay/errorcodes.h		\
 	plugins/renepay/json.h
 
-PLUGIN_RENEPAY_OBJS := $(PLUGIN_RENEPAY_SRC:.c=.o)
+PLUGIN_RENEPAY_OBJS := $(PLUGIN_RENEPAY_SRC:%.c=$(BUILDDIR)/%.o)
 
 # Make sure these depend on everything.
 PLUGIN_ALL_SRC += $(PLUGIN_RENEPAY_SRC)
@@ -43,6 +43,9 @@ PLUGIN_ALL_HEADER += $(PLUGIN_RENEPAY_HDRS)
 # Make all plugins depend on all plugin headers, for simplicity (and this file).
 $(PLUGIN_RENEPAY_OBJS): $(PLUGIN_RENEPAY_HDRS) plugins/renepay/Makefile
 
-plugins/cln-renepay: $(PLUGIN_RENEPAY_OBJS) $(PLUGIN_LIB_OBJS) libcommon.a
+$(BUILDDIR)/plugins/cln-renepay: $(PLUGIN_RENEPAY_OBJS) $(PLUGIN_LIB_OBJS) $(BUILDDIR)/libcommon.a
+
+obsclean::
+	$(RM) plugins/renepay/*.o
 
 include plugins/renepay/test/Makefile

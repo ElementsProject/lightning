@@ -11,29 +11,26 @@ GOSSIPD_HEADERS_WSRC := gossipd/gossipd_wiregen.h \
 GOSSIPD_HEADERS := $(GOSSIPD_HEADERS_WSRC)
 
 GOSSIPD_SRC := $(GOSSIPD_HEADERS_WSRC:.h=.c)
-GOSSIPD_OBJS := $(GOSSIPD_SRC:.c=.o)
+GOSSIPD_OBJS := $(GOSSIPD_SRC:%.c=$(BUILDDIR)/%.o)
 $(GOSSIPD_OBJS): $(GOSSIPD_HEADERS)
 
 GOSSIPD_COMPACT_SRC := gossipd/compactd.c
-GOSSIPD_COMPACT_OBJS := $(GOSSIPD_COMPACT_SRC:.c=.o)
+GOSSIPD_COMPACT_OBJS := $(GOSSIPD_COMPACT_SRC:%.c=$(BUILDDIR)/%.o)
 
 # Make sure these depend on everything.
 ALL_C_SOURCES += $(GOSSIPD_SRC) $(GOSSIPD_COMPACT_SRC)
 ALL_C_HEADERS += $(GOSSIPD_HEADERS)
-ALL_PROGRAMS += lightningd/lightning_gossipd lightningd/lightning_gossip_compactd
+ALL_PROGRAMS += $(addprefix $(BUILDDIR)/lightningd/,lightning_gossipd lightning_gossip_compactd)
 
 # Here's what lightningd depends on
 LIGHTNINGD_CONTROL_HEADERS += gossipd/gossipd_wiregen.h
-LIGHTNINGD_CONTROL_OBJS += gossipd/gossipd_wiregen.o
+LIGHTNINGD_CONTROL_OBJS += $(BUILDDIR)/gossipd/gossipd_wiregen.o
 
-lightningd/lightning_gossipd: $(GOSSIPD_OBJS) $(HSMD_CLIENT_OBJS) connectd/connectd_gossipd_wiregen.o libcommon.a
+$(BUILDDIR)/lightningd/lightning_gossipd: $(GOSSIPD_OBJS) $(HSMD_CLIENT_OBJS) $(addprefix $(BUILDDIR)/,connectd/connectd_gossipd_wiregen.o libcommon.a)
 
-lightningd/lightning_gossip_compactd: $(GOSSIPD_COMPACT_OBJS) libcommon.a
+$(BUILDDIR)/lightningd/lightning_gossip_compactd: $(GOSSIPD_COMPACT_OBJS) $(BUILDDIR)/libcommon.a
 
-# The CSV was removed, but the generated files may live on!
-clean: clean-old-gossip-gen
-
-clean-old-gossip-gen:
-	$(RM) gossipd_peerd_wiregen.*
+obsclean::
+	$(RM) gossipd_peerd_wiregen.* gossipd/*.o
 
 include gossipd/test/Makefile

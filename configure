@@ -20,14 +20,19 @@ LIBRARY_PATH=/usr/local/lib
 export PKG_CONFIG_PATH=${PKG_CONFIG_PATH}:/usr/local/opt/sqlite/lib/pkgconfig
 fi
 
-: ${PKG_CONFIG=pkg-config}
+: "${PKG_CONFIG=pkg-config}"
 
-# You can set PG_CONFIG in the environment to direct configure to call
-# a specific 'pg_config' binary. If you set it to an empty string, then
-# PostgreSQL support will be explicitly disabled, even if a 'pg_config'
-# binary exists in your PATH. If you leave it unset, then the following
-# line enables the automagic detection that most users want.
-: ${PG_CONFIG=pg_config}
+# You can set PG_CONFIG in the environment to direct configure to call a
+# specific 'pg_config' binary. If you set it to an empty string, then automagic
+# detection of PostgreSQL will be explicitly disabled even if a 'pg_config'
+# binary exists in your PATH. However, fallback detection will still happen.
+# You can disable PostgreSQL support entirely by setting POSTGRES_LDLIBS to an
+# empty string, or you can set POSTGRES_INCLUDE and POSTGRES_LDLIBS (which
+# specify options to pass to the C preprocessor and linker respectively) to
+# attempt to build against a specific PostgreSQL installation. If you leave
+# all three variables unset, then the following line enables the automagic
+# detection that most users want.
+: "${PG_CONFIG=pg_config}"
 
 usage_with_default()
 {
@@ -134,12 +139,12 @@ check_command()
     name="$1"
     shift 1
 
-    echo -n "checking for $name... "
+    printf 'checking for %s... ' "${name}" >&2
     if "$@" >/dev/null 2>&1 </dev/null; then
-	echo 'found'
+	echo 'found' >&2
 	return 0
     fi
-    echo 'not found'
+    echo 'not found' >&2
     return 1
 }
 
@@ -169,11 +174,15 @@ set_defaults()
     # Note that ":-" means substitute if empty or unset, "-" means only if unset
     # which matters since you might explicitly set of these blank.
     PREFIX=${PREFIX:-/usr/local}
-    CC=${CC:-cc}
+    # A more compact way of setting the default value of a variable.
+    # Similar to the above, ":=" means assign if empty or unset; "=" means assign only if unset.
+    # The quotes suppress the globbing that would otherwise occur after variable expansion.
+    : "${CC:=${HOST:+$HOST-}cc}"
+    : "${CPPFLAGS=-std=gnu11}"
             # Detect macOS and use appropriate debug flags for libbacktrace compatibility
     if [ "$(uname -s)" = "Darwin" ]; then
         # Always override to avoid DWARF 5
-        CDEBUGFLAGS="-std=gnu11 -g -gdwarf-4 -fno-standalone-debug -fstack-protector-strong"
+        CDEBUGFLAGS="-g -gdwarf-4 -fno-standalone-debug -fstack-protector-strong"
         # Set SDKROOT for macOS
         SDKROOT="$(xcrun --sdk macosx --show-sdk-path)"
 
@@ -182,7 +191,7 @@ set_defaults()
             echo "Warning: dsymutil not found. Install Xcode Command Line Tools for better debug support."
         fi
     else
-        CDEBUGFLAGS=${CDEBUGFLAGS--std=gnu11 -g -fstack-protector-strong}
+        CDEBUGFLAGS=${CDEBUGFLAGS--g -fstack-protector-strong}
     fi
     DEBUGBUILD=${DEBUGBUILD:-0}
     COMPAT=${COMPAT:-1}
@@ -211,6 +220,17 @@ set_defaults()
     PYTEST=${PYTEST-$(default_pytest $PYTHON)}
     COPTFLAGS=${COPTFLAGS-$(default_coptflags "$DEBUGBUILD")}
     CONFIGURATOR_CC=${CONFIGURATOR_CC-$CC}
+    if [ "x$BUILD" = "x$HOST" ]; then
+	: "${CC_FOR_BUILD:=$CC}"
+	: "${CFLAGS_FOR_BUILD=$CFLAGS}"
+	: "${CPPFLAGS_FOR_BUILD=$CPPFLAGS}"
+	: "${LDFLAGS_FOR_BUILD=$LDFLAGS}"
+    else
+	: "${CC_FOR_BUILD:=${BUILD:+$BUILD-}cc}"
+	: "${CFLAGS_FOR_BUILD=-O1}"
+	: "${CPPFLAGS_FOR_BUILD=-std=gnu11}"
+	: "${LDFLAGS_FOR_BUILD=}"
+    fi
     VALGRIND=${VALGRIND:-$(default_valgrind_setting)}
     TEST_NETWORK=${TEST_NETWORK:-regtest}
     RUST=${RUST:-$(default_rust_setting)}
@@ -223,7 +243,7 @@ have_function_sections()
     TMPCFILE=$CONFIG_VAR_FILE.$$.c
     TMPOBJFILE=$CONFIG_VAR_FILE.$$.o
     
-    echo "int foo(void); int foo(void) { return 0; }" > $TMPCFILE
+    echo "int main(void); int main(void) { return 0; }" > $TMPCFILE
     # We *want* this to fail if we get a warning, hence use -Werror.
     $1 $2 -Werror -ffunction-sections -Wl,--gc-sections $TMPCFILE -o $TMPOBJFILE
 }
@@ -236,21 +256,36 @@ usage()
     set_defaults
     DEFAULT_COPTFLAGS="$(default_coptflags $DEBUGBUILD)"
     # We assume we have a modern gcc.
-    DEFAULT_CWARNFLAGS="$(default_cwarnflags ""$DEFAULT_COPTFLAGS"" 1 1 ""$DEBUGBUILD"")"
+    DEFAULT_CWARNFLAGS="$(default_cwarnflags "$DEFAULT_COPTFLAGS" 1 1 "$DEBUGBUILD")"
     usage_with_default "CC" "$CC"
     usage_with_default "CWARNFLAGS" "$DEFAULT_CWARNFLAGS"
     usage_with_default "COPTFLAGS" "$DEFAULT_COPTFLAGS"
     usage_with_default "CDEBUGFLAGS" "$CDEBUGFLAGS"
+    usage_with_default "CFLAGS" "$CFLAGS"
+    usage_with_default "CPPFLAGS" "$CPPFLAGS"
+    usage_with_default "LDFLAGS" "$LDFLAGS"
     if [ "$(uname -s)" = "Darwin" ]; then
         echo "    Note: On macOS, -g is used instead of -g3 for libbacktrace compatibility"
     fi
     usage_with_default "CONFIGURATOR_CC" "${CONFIGURATOR_CC:-$CC}"
     echo "    To override compile line for configurator itself"
+    usage_with_default "CC_FOR_BUILD" "$CC_FOR_BUILD"
+    echo "    To set compiler driver for build system when cross-compiling"
+    usage_with_default "CFLAGS_FOR_BUILD" "$CFLAGS_FOR_BUILD"
+    echo "    To set compiler flags for build system when cross-compiling"
+    usage_with_default "CPPFLAGS_FOR_BUILD" "$CPPFLAGS_FOR_BUILD"
+    echo "    To set preprocessor flags for build system when cross-compiling"
+    usage_with_default "LDFLAGS_FOR_BUILD" "$LDFLAGS_FOR_BUILD"
+    echo "    To set linker flags for build system when cross-compiling"
     usage_with_default "PYTEST" "$PYTEST"
     usage_with_default "VALGRIND" "$VALGRIND"
     usage_with_default "SED" "$SED"
 
     echo "Options include:"
+    usage_with_default "--host=" "$HOST"
+    echo "    Compile to execute on host machine tuple"
+    usage_with_default "--build=" "$BUILD"
+    echo "    Compile on build machine tuple"
     usage_with_default "--prefix=" "$PREFIX"
     echo "    Prefix for make install"
     usage_with_default "--enable/disable-debugbuild" "$DEBUGBUILD" "enable" "disable"
@@ -277,9 +312,9 @@ usage()
 add_var()
 {
     if [ -n "$2" ]; then
-        echo "Setting $1... $2"
+        echo "Setting $1... $2" >&2
     else
-        echo "$1 not found"
+        echo "$1 not found" >&2
     fi
     echo "$1=$2" >> $CONFIG_VAR_FILE.$$
     [ -z "$3" ] || echo "#define $1 $2" >> "$3"
@@ -314,7 +349,16 @@ for opt in "$@"; do
 	CWARNFLAGS=*) CWARNFLAGS="${opt#CWARNFLAGS=}";;
 	CDEBUGFLAGS=*) CDEBUGFLAGS="${opt#CDEBUGFLAGS=}";;
 	COPTFLAGS=*) COPTFLAGS="${opt#COPTFLAGS=}";;
+	CFLAGS=*) CFLAGS="${opt#CFLAGS=}";;
+	CPPFLAGS=*) CPPFLAGS="${opt#CPPFLAGS=}";;
+	LDFLAGS=*) LDFLAGS="${opt#LDFLAGS=}";;
+	CC_FOR_BUILD=*) CC_FOR_BUILD="${opt#*=}";;
+	CFLAGS_FOR_BUILD=*) CFLAGS_FOR_BUILD="${opt#*=}";;
+	CPPFLAGS_FOR_BUILD=*) CPPFLAGS_FOR_BUILD="${opt#*=}";;
+	LDFLAGS_FOR_BUILD=*) LDFLAGS_FOR_BUILD="${opt#*=}";;
 	PYTEST=*) PYTEST="${opt#PYTEST=}";;
+	--host=*) HOST="${opt#*=}";;
+	--build=*) BUILD="${opt#*=}";;
 	--prefix=*) PREFIX="${opt#--prefix=}";;
 	--enable-debugbuild) DEBUGBUILD=1;;
 	--disable-debugbuild) DEBUGBUILD=0;;
@@ -334,10 +378,10 @@ for opt in "$@"; do
 	--disable-fuzzing) FUZZING=0;;
 	--enable-rust) RUST=1;;
 	--disable-rust) RUST=0;;
-	--help|-h) usage;;
+	--help|-h) usage >&2;;
 	*)
 	    echo "Unknown option '$opt'" >&2
-	    usage
+	    usage >&2
 	    ;;
     esac
 done
@@ -347,7 +391,7 @@ set_defaults
 
 if [ "$ASAN" = "1" ]; then
     if [ "$VALGRIND" = "1" ]; then
-	echo "Address sanitizer (ASAN) and valgrind cannot be enabled at the same time"
+	echo "Address sanitizer (ASAN) and valgrind cannot be enabled at the same time" >&2
 	exit 1
     fi
 
@@ -371,26 +415,38 @@ EOF
 fi
 
 # We call this first, so we can make sure configurator runs with it as a sanity check!
-if have_function_sections $CC "${CWARNFLAGS-$BASE_WARNFLAGS} $CDEBUGFLAGS $COPTFLAGS"; then
-    HAVE_FUNCTION_SECTIONS=1
-    LDFLAGS="-Wl,--gc-sections"
-    COPTFLAGS="$COPTFLAGS -ffunction-sections"
-else
-    HAVE_FUNCTION_SECTIONS=0
-    LDFLAGS=
+if have_function_sections $CC "${CWARNFLAGS-$BASE_WARNFLAGS} $CDEBUGFLAGS $COPTFLAGS $CFLAGS $CPPFLAGS"; then
+    case " $CFLAGS " in
+	*' -ffunction-sections '*) ;;
+	*) CFLAGS="-ffunction-sections $CFLAGS" ;;
+    esac
+    case "$LDFLAGS" in
+	*'--gc-sections'*) ;;
+	*) LDFLAGS="-Wl,--gc-sections $LDFLAGS";;
+    esac
+    if [ "x$CC_FOR_BUILD" = "x$CC" ]; then
+	case " $CFLAGS_FOR_BUILD " in
+	    *' -ffunction-sections '*) ;;
+	    *) CFLAGS_FOR_BUILD="-ffunction-sections $CFLAGS_FOR_BUILD";;
+	esac
+	case "$LDFLAGS_FOR_BUILD" in
+	    *'--gc-sections'*) ;;
+	    *) LDFLAGS_FOR_BUILD="-Wl,--gc-sections $LDFLAGS_FOR_BUILD";;
+	esac
+    fi
 fi
 
 # We assume warning flags don't affect congfigurator that much!
-echo -n "Compiling $CONFIGURATOR..."
-$CC ${CWARNFLAGS-$BASE_WARNFLAGS} $CDEBUGFLAGS $COPTFLAGS $LDFLAGS -o $CONFIGURATOR $CONFIGURATOR.c
-echo "done"
+printf 'Compiling %s...' "${CONFIGURATOR}" >&2
+$CC_FOR_BUILD $CFLAGS_FOR_BUILD $CPPFLAGS_FOR_BUILD $LDFLAGS_FOR_BUILD -o $CONFIGURATOR $CONFIGURATOR.c
+echo "done" >&2
 
 if [ "$CLANG_COVERAGE" = "1" ]; then
 	case "$CC" in
 		(*"clang"*)
 			;;
 		(*)
-			echo "Clang coverage requires building with CC=clang."
+			echo "Clang coverage requires building with CC=clang." >&2
 			exit 1
 			;;
 	esac
@@ -401,123 +457,109 @@ if [ "$FUZZING" = "1" ]; then
 		(*"clang"*)
 			;;
 		(*)
-			echo "Fuzzing is currently only supported with clang."
+			echo "Fuzzing is currently only supported with clang." >&2
 			exit 1
 			;;
 	esac
 fi
 
 
-SQLITE3_CFLAGS=""
-SQLITE3_LDLIBS="-lsqlite3"
-if command -v "${PKG_CONFIG}" >/dev/null; then
-    SQLITE3_CFLAGS="$("${PKG_CONFIG}" --silence-errors --cflags sqlite3 || :)"
-    SQLITE3_LDLIBS="$("${PKG_CONFIG}" --silence-errors --libs sqlite3 || :)"
+# Setting SQLITE3_CFLAGS or SQLITE3_LDLIBS in the environment (even to an empty
+# string) disables automagic detection via pkg-config as well as the fallback
+# default values.
+if [ -z "${SQLITE3_CFLAGS+x}" -a -z "${SQLITE3_LDLIBS+x}" ]; then
+    SQLITE3_LDLIBS="-lsqlite3"
+    if command -v "${PKG_CONFIG}" >/dev/null; then
+	SQLITE3_CFLAGS="$("${PKG_CONFIG}" --silence-errors --cflags sqlite3 || :)"
+	SQLITE3_LDLIBS="$("${PKG_CONFIG}" --silence-errors --libs sqlite3 || :)"
+    fi
 fi
 
-SODIUM_CFLAGS=""
-SODIUM_LDLIBS="-lsodium"
-if command -v "${PKG_CONFIG}" >/dev/null; then
-    SODIUM_CFLAGS="$("${PKG_CONFIG}" --silence-errors --cflags libsodium || :)"
-    SODIUM_LDLIBS="$("${PKG_CONFIG}" --silence-errors --libs libsodium || :)"
+# Setting SODIUM_CFLAGS or SODIUM_LDLIBS in the environment (even to an empty
+# string) disables automagic detection via pkg-config as well as the fallback
+# default values.
+if [ -z "${SODIUM_CFLAGS+x}" -a -z "${SODIUM_LDLIBS+x}" ]; then
+    SODIUM_LDLIBS="-lsodium"
+    if command -v "${PKG_CONFIG}" >/dev/null; then
+	SODIUM_CFLAGS="$("${PKG_CONFIG}" --silence-errors --cflags libsodium || :)"
+	SODIUM_LDLIBS="$("${PKG_CONFIG}" --silence-errors --libs libsodium || :)"
+    fi
 fi
 
-POSTGRES_INCLUDE=""
-POSTGRES_LDLIBS=""
-if command -v "${PG_CONFIG}" >/dev/null; then
-    POSTGRES_INCLUDE="-I$("${PG_CONFIG}" --includedir)"
-    POSTGRES_LDLIBS="-L$("${PG_CONFIG}" --libdir) -lpq"
+# Setting POSTGRES_INCLUDE or POSTGRES_LDLIBS in the environment (even to an
+# empty string) disables automagic detection via pg_config as well as the
+# fallback default values.
+if [ -z "${POSTGRES_INCLUDE+x}" -a -z "${POSTGRES_LDLIBS+x}" ]; then
+    POSTGRES_LDLIBS="-lpq"
+    if command -v "${PG_CONFIG}" >/dev/null; then
+	POSTGRES_INCLUDE="-I$("${PG_CONFIG}" --includedir)"
+	POSTGRES_LDLIBS="-L$("${PG_CONFIG}" --libdir) -lpq"
+    fi
 fi
 
 # Clean up on exit.
 trap "rm -f $CONFIG_VAR_FILE.$$*" 0
 
-$CONFIGURATOR --extra-tests --autotools-style --var-file=$CONFIG_VAR_FILE.$$ --header-file=$CONFIG_HEADER.$$ --configurator-cc="$CONFIGURATOR_CC" --wrapper="$CONFIGURATOR_WRAPPER" "$CC" ${CWARNFLAGS-$BASE_WARNFLAGS} $CDEBUGFLAGS $COPTFLAGS $CSANFLAGS -I$CPATH -L$LIBRARY_PATH $SQLITE3_CFLAGS $SODIUM_CFLAGS $POSTGRES_INCLUDE <<EOF
+$CONFIGURATOR --extra-tests --autotools-style --var-file=$CONFIG_VAR_FILE.$$ --header-file=$CONFIG_HEADER.$$ --configurator-cc="$CONFIGURATOR_CC" --wrapper="$CONFIGURATOR_WRAPPER" "$CC" ${CWARNFLAGS-$BASE_WARNFLAGS} $CDEBUGFLAGS $COPTFLAGS $CSANFLAGS $SQLITE3_CFLAGS $SODIUM_CFLAGS $CFLAGS -I$CPATH $POSTGRES_INCLUDE $CPPFLAGS -L$LIBRARY_PATH $LDFLAGS <<EOF
 
 var=HAVE_ZLIB
 desc=zlib support
-style=DEFINES_EVERYTHING|EXECUTE|MAY_NOT_COMPILE
+style=OUTSIDE_MAIN
 link=-lz
 code=
 #include <zlib.h>
-#include <stdlib.h>
 
-int main(void)
-{
-	gzFile f = gzopen("/dev/null", "wb");
-	if (f != NULL) {
-		gzclose(f);
-		return 0;
-	}
-	return 1;
-}
+gzFile (*test0)(const char *, const char *) = &gzopen;
+int (*test1)(gzFile) = &gzclose;
 /*END*/
 var=HAVE_GOOD_LIBSODIUM
 desc=libsodium with IETF chacha20 variants
-style=DEFINES_EVERYTHING|EXECUTE|MAY_NOT_COMPILE
-link=$SODIUM_LDLIBS
+style=OUTSIDE_MAIN
+link=${SODIUM_LDLIBS:--lsodium_disabled}
 code=
 #include <sodium.h>
-#include <stdio.h>
-#include <string.h>
 
-int main(void)
-{
-	crypto_secretstream_xchacha20poly1305_state crypto_state;
-	unsigned char header[crypto_secretstream_xchacha20poly1305_HEADERBYTES];
-	unsigned char key[crypto_secretstream_xchacha20poly1305_KEYBYTES];
-
-	crypto_secretstream_xchacha20poly1305_keygen(key);
-	crypto_secretstream_xchacha20poly1305_init_push(&crypto_state, header,
-	                                                key);
-	printf("%p\n", crypto_aead_chacha20poly1305_ietf_encrypt);
-	printf("%d\n", crypto_aead_chacha20poly1305_ietf_NPUBBYTES);
-	return 0;
-}
+void (*func0)(unsigned char *) = &crypto_secretstream_xchacha20poly1305_keygen;
+int (*func1)(crypto_secretstream_xchacha20poly1305_state *, unsigned char *,
+	     const unsigned char *)
+	= &crypto_secretstream_xchacha20poly1305_init_push;
+int (*func2)(unsigned char *, unsigned long long *, const unsigned char *,
+	     unsigned long long, const unsigned char *, unsigned long long,
+	     const unsigned char *, const unsigned char *,
+	     const unsigned char *)
+	= &crypto_aead_chacha20poly1305_ietf_encrypt;
+enum { TEST = crypto_aead_chacha20poly1305_NPUBBYTES };
 /*END*/
 var=HAVE_SQLITE3
 desc=sqlite3
-style=DEFINES_EVERYTHING|EXECUTE|MAY_NOT_COMPILE
-link=$SQLITE3_LDLIBS
+style=OUTSIDE_MAIN
+link=${SQLITE3_LDLIBS:--lsqlite3_disabled}
 code=
 #include <sqlite3.h>
-#include <stdio.h>
 
-int main(void)
-{
-	printf("%p\n", sqlite3_prepare_v2);
-	return 0;
-}
+int (*func)(sqlite3 *, const char *, int, sqlite3_stmt **, const char **)
+	= &sqlite3_prepare_v2;
 /*END*/
 var=HAVE_POSTGRES
 desc=postgres
-style=DEFINES_EVERYTHING|EXECUTE|MAY_NOT_COMPILE
-link=$POSTGRES_LDLIBS
+style=OUTSIDE_MAIN
+link=${POSTGRES_LDLIBS:--lpq_disabled}
 code=
 #include <libpq-fe.h>
-#include <stdio.h>
 
-int main(void)
-{
-	printf("libpq version %d\n", PQlibVersion());
-	return 0;
-}
+int (*func)(void) = &PQlibVersion;
 /*END*/
 var=HAVE_USDT
 desc=User Statically-Defined Tracing (USDT)
-style=DEFINES_EVERYTHING|EXECUTE|MAY_NOT_COMPILE
+style=DEFINES_FUNC
 code=
 #include <sys/sdt.h>
 
-int main(void)
-{
-	DTRACE_PROBE(lightningd, test_sdt);
-	return 0;
-}
+static void func(void) { DTRACE_PROBE(lightningd, test_sdt); }
 /*END*/
 var=HAVE_GCC
 desc=compiler is GCC
-style=OUTSIDE_MAIN
+style=DEFINES_EVERYTHING
 code=
 #ifndef __GNUC__
 #error "Not GCC"
@@ -528,7 +570,7 @@ code=
 /*END*/
 var=HAVE_MODERN_GCC
 desc=GCC version is 7 or above
-style=OUTSIDE_MAIN
+style=DEFINES_EVERYTHING
 code=
 #if __GNUC__ < 7
 #error "Not modern GCC"
@@ -604,12 +646,21 @@ if [ -z ${CWARNFLAGS+x} ]; then
 		    "$DEBUGBUILD")
 fi
 
+add_var HOST "$HOST"
+add_var BUILD "$BUILD"
 add_var PREFIX "$PREFIX"
 add_var CC "$CC"
 add_var CONFIGURATOR_CC "$CONFIGURATOR_CC"
 add_var CWARNFLAGS "$CWARNFLAGS"
 add_var CDEBUGFLAGS "$CDEBUGFLAGS"
 add_var COPTFLAGS "$COPTFLAGS"
+add_var CFLAGS "$CFLAGS"
+add_var CPPFLAGS "$CPPFLAGS"
+add_var LDFLAGS "$LDFLAGS"
+add_var CC_FOR_BUILD "$CC_FOR_BUILD"
+add_var CFLAGS_FOR_BUILD "$CFLAGS_FOR_BUILD"
+add_var CPPFLAGS_FOR_BUILD "$CPPFLAGS_FOR_BUILD"
+add_var LDFLAGS_FOR_BUILD "$LDFLAGS_FOR_BUILD"
 if [ -n "${SDKROOT:-}" ]; then
     add_var SDKROOT "$SDKROOT"
 fi
@@ -637,7 +688,6 @@ add_var FUZZING "$FUZZING"
 add_var RUST "$RUST"
 add_var PYTHON "$PYTHON"
 add_var SED "$SED"
-add_var HAVE_FUNCTION_SECTIONS "$HAVE_FUNCTION_SECTIONS"
 
 # Hack to avoid sha256 name clash with libwally: will be fixed when that
 # becomes a standalone shared lib.

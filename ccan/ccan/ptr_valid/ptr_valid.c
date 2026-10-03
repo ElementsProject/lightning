@@ -10,7 +10,7 @@
 #include <assert.h>
 #include <string.h>
 
-#if HAVE_PROC_SELF_MAPS
+#if !defined(HAVE_PROC_SELF_MAPS) || HAVE_PROC_SELF_MAPS
 static char *grab(const char *filename)
 {
 	int ret, fd;
@@ -28,9 +28,10 @@ static char *grab(const char *filename)
 	while ((ret = read(fd, buffer + s, max - s)) > 0) {
 		s += ret;
 		if (s == max) {
-			buffer = realloc(buffer, max*2+1);
-			if (!buffer)
-				goto close;
+			char *nb = realloc(buffer, max*2+1);
+			if (!nb)
+				goto free;
+			buffer = nb;
 			max *= 2;
 		}
 	}
@@ -62,10 +63,14 @@ static struct ptr_valid_map *add_map(struct ptr_valid_map *map,
 				     unsigned long start, unsigned long end, bool is_write)
 {
 	if (*num == *max) {
+		struct ptr_valid_map *newmap;
 		*max *= 2;
-		map = realloc(map, sizeof(*map) * *max);
-		if (!map)
+		newmap = realloc(map, sizeof(*newmap) * *max);
+		if (!newmap) {
+			free(map);
 			return NULL;
+		}
+		map = newmap;
 	}
 	map[*num].start = (void *)start;
 	map[*num].end = (void *)end;
@@ -182,9 +187,9 @@ static void run_child(int infd, int outfd)
 
 		/* This is weird. */
 		if (read(infd, &size, sizeof(size)) != sizeof(size))
-			exit(1);
+			_exit(1);
 		if (read(infd, &is_write, sizeof(is_write)) != sizeof(is_write))
-			exit(2);
+			_exit(2);
 
 		for (i = 0; i < size; i++) {
 			ret = p[i];
@@ -194,9 +199,9 @@ static void run_child(int infd, int outfd)
 
 		/* If we're still here, the answer is "yes". */
 		if (write(outfd, &ret, 1) != 1)
-			exit(3);
+			_exit(3);
 	}
-	exit(0);
+	_exit(0);
 }
 
 static bool create_child(struct ptr_valid_batch *batch)
@@ -271,16 +276,22 @@ bool ptr_valid_batch(struct ptr_valid_batch *batch,
 	char *start, *end;
 	bool ret;
 
-	if ((intptr_t)p & (alignment - 1))
+	if ((intptr_t)p & (alignment - 1)) {
+		errno = EFAULT;
 		return false;
+	}
 
 	start = (void *)((intptr_t)p & ~(getpagesize() - 1));
 	end = (void *)(((intptr_t)p + size - 1) & ~(getpagesize() - 1));
 
 	/* We cache single page hits. */
 	if (start == end) {
-		if (batch->last && batch->last == start)
+		if (batch->last && batch->last == start
+		    && batch->last_write == write) {
+			if (!batch->last_ok)
+				errno = EFAULT;
 			return batch->last_ok;
+		}
 	}
 
 	if (batch->num_maps)
@@ -291,8 +302,11 @@ bool ptr_valid_batch(struct ptr_valid_batch *batch,
 	if (start == end) {
 		batch->last = start;
 		batch->last_ok = ret;
+		batch->last_write = write;
 	}
 
+	if (!ret)
+		errno = EFAULT;
 	return ret;
 }
 

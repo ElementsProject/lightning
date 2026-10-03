@@ -10,10 +10,10 @@ check-units: check-tools
 
 TOOL_TEST_INCL_SRC := tools/test/enum.c
 TOOL_GEN_SRC := tools/test/test_gen.c tools/test/print_gen.c
-TOOL_GEN_OBJS := $(TOOL_GEN_SRC:.c=.o)
+TOOL_GEN_OBJS := $(TOOL_GEN_SRC:%.c=$(BUILDDIR)/%.o)
 TOOL_GEN_HEADER := tools/test/test_gen.h tools/test/print_gen.h
 TOOL_TEST_SRC := $(wildcard tools/test/run-*.c)
-TOOL_TEST_OBJS := $(TOOL_TEST_SRC:.c=.o)
+TOOL_TEST_OBJS := $(TOOL_TEST_SRC:%.c=$(BUILDDIR)/%.o)
 TOOL_TEST_PROGRAMS := $(TOOL_TEST_OBJS:.o=)
 
 # Get dependencies correct
@@ -22,9 +22,9 @@ ALL_C_HEADERS += $(TOOL_GEN_HEADER)
 
 TOOLS_WIRE_DEPS := $(BOLT_DEPS) tools/test/test_cases $(wildcard tools/gen/*_template)
 
-tools/test/enum.o: ccan/config.h
+$(BUILDDIR)/tools/test/enum.o: ccan/config.h
 $(TOOL_TEST_OBJS) $(TOOL_GEN_OBJS): $(TOOL_GEN_HEADER) tools/test/Makefile
-$(TOOL_TEST_PROGRAMS): $(TOOL_GEN_OBJS) tools/test/enum.o libcommon.a
+$(TOOL_TEST_PROGRAMS): $(TOOL_GEN_OBJS) $(addprefix $(BUILDDIR)/,tools/test/enum.o libcommon.a)
 
 tools/test/test_gen.h: $(TOOLS_WIRE_DEPS) tools/test/Makefile
 	$(BOLT_GEN) --page header $@ test_type < tools/test/test_cases > $@
@@ -45,6 +45,8 @@ check-tools: $(TOOL_TEST_PROGRAMS:%=unittest/%)
 
 clean: tools-test-clean
 
+obsclean::
+	$(RM) tools/test/*.o
+
 tools-test-clean:
-	$(RM) $(TOOL_GEN_HEADER) $(TOOL_GEN_SRC) $(TOOL_TEST_OBJS) $(TOOL_TEST_PROGRAMS)
-	$(RM) $(TOOL_GEN_SRC:.c=.o) tools/test/enum.o
+	$(RM) $(TOOL_GEN_HEADER) $(TOOL_GEN_SRC)

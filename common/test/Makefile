@@ -1,14 +1,16 @@
 COMMON_TEST_SRC := $(wildcard common/test/run-*.c)
 
-COMMON_TEST_OBJS := $(COMMON_TEST_SRC:.c=.o)
+COMMON_TEST_OBJS := $(COMMON_TEST_SRC:%.c=$(BUILDDIR)/%.o)
 COMMON_TEST_PROGRAMS := $(COMMON_TEST_OBJS:.o=)
 
 COMMON_TEST_COMMON_OBJS :=				\
+	$(addprefix $(BUILDDIR)/, 			\
 	common/autodata.o				\
 	common/randbytes.o				\
 	common/clock_time.o				\
 	common/setup.o					\
-	common/utils.o
+	common/utils.o					\
+	)
 
 $(COMMON_TEST_PROGRAMS): $(COMMON_TEST_COMMON_OBJS) $(BITCOIN_OBJS)
 $(COMMON_TEST_OBJS): $(COMMON_HEADERS) $(WIRE_HEADERS) $(COMMON_SRC) common/test/Makefile
@@ -20,13 +22,14 @@ ALL_TEST_PROGRAMS += $(COMMON_TEST_PROGRAMS)
 $(COMMON_TEST_OBJS): $(COMMON_SRC)
 
 # Sphinx test wants to decode TLVs.
-common/test/run-sphinx: wire/onion_wiregen.o wire/towire.o wire/fromwire.o
-common/test/run-blindedpath_enctlv common/test/run-blindedpath_onion: common/base32.o common/wireaddr.o wire/onion_wiregen.o wire/peer_wiregen.o wire/towire.o wire/fromwire.o wire/tlvstream.o
-common/test/run-route_blinding_test: wire/onion_wiregen.o wire/peer_wiregen.o wire/towire.o wire/fromwire.o wire/tlvstream.o common/coin_mvt.o
-common/test/run-route_blinding_override_test: common/base32.o common/wireaddr.o wire/onion_wiregen.o wire/peer_wiregen.o wire/towire.o wire/fromwire.o wire/tlvstream.o common/coin_mvt.o
+$(BUILDDIR)/common/test/run-sphinx: $(addprefix $(BUILDDIR)/,wire/onion_wiregen.o wire/towire.o wire/fromwire.o)
+$(BUILDDIR)/common/test/run-blindedpath_enctlv $(BUILDDIR)/common/test/run-blindedpath_onion: $(addprefix $(BUILDDIR)/,common/base32.o common/wireaddr.o wire/onion_wiregen.o wire/peer_wiregen.o wire/towire.o wire/fromwire.o wire/tlvstream.o)
+$(BUILDDIR)/common/test/run-route_blinding_test: $(addprefix $(BUILDDIR)/,wire/onion_wiregen.o wire/peer_wiregen.o wire/towire.o wire/fromwire.o wire/tlvstream.o common/coin_mvt.o)
+$(BUILDDIR)/common/test/run-route_blinding_override_test: $(addprefix $(BUILDDIR)/,common/base32.o common/wireaddr.o wire/onion_wiregen.o wire/peer_wiregen.o wire/towire.o wire/fromwire.o wire/tlvstream.o common/coin_mvt.o)
 
-common/test/run-param					\
-common/test/run-json:					\
+$(BUILDDIR)/common/test/run-param			\
+$(BUILDDIR)/common/test/run-json:			\
+	$(addprefix $(BUILDDIR)/,			\
 	common/amount.o					\
 	common/base32.o					\
 	common/bigsize.o				\
@@ -41,9 +44,13 @@ common/test/run-json:					\
 	wire/fromwire.o					\
 	wire/onion_wiregen.o				\
 	wire/peer_wiregen.o				\
-	wire/towire.o
+	wire/towire.o					\
+	)
 
-common/test/run-route common/test/run-route-specific common/test/run-route-infloop:	\
+$(BUILDDIR)/common/test/run-route			\
+$(BUILDDIR)/common/test/run-route-specific		\
+$(BUILDDIR)/common/test/run-route-infloop:		\
+	$(addprefix $(BUILDDIR)/,			\
 	common/amount.o					\
 	common/dijkstra.o				\
 	common/fp16.o					\
@@ -55,25 +62,31 @@ common/test/run-route common/test/run-route-specific common/test/run-route-inflo
         common/gossip_store_wiregen.o			\
 	wire/fromwire.o					\
 	wire/peer_wiregen.o				\
-	wire/towire.o
+	wire/towire.o					\
+	)
 
-common/test/run-gossmap_local:				\
+$(BUILDDIR)/common/test/run-gossmap_local:		\
+	$(addprefix $(BUILDDIR)/,			\
 	common/base32.o					\
 	common/wireaddr.o				\
 	wire/fromwire.o					\
 	wire/peer_wiregen.o				\
 	wire/tlvstream.o				\
-	wire/towire.o
+	wire/towire.o					\
+	)
 
-common/test/run-gossmap_canned:				\
+$(BUILDDIR)/common/test/run-gossmap_canned:		\
+	$(addprefix $(BUILDDIR)/,			\
 	common/base32.o					\
 	common/wireaddr.o				\
 	wire/fromwire.o					\
 	wire/peer_wiregen.o				\
 	wire/tlvstream.o				\
-	wire/towire.o
+	wire/towire.o					\
+	)
 
-common/test/run-bolt12_merkle:				\
+$(BUILDDIR)/common/test/run-bolt12_merkle:		\
+	$(addprefix $(BUILDDIR)/,			\
 	common/amount.o					\
 	common/bigsize.o				\
 	common/base32.o					\
@@ -86,9 +99,11 @@ common/test/run-bolt12_merkle:				\
 	wire/fromwire.o					\
 	wire/tlvstream.o				\
 	wire/peer_wiregen.o				\
-	wire/towire.o
+	wire/towire.o					\
+	)
 
-common/test/run-bolt12_merkle-partial:			\
+$(BUILDDIR)/common/test/run-bolt12_merkle-partial:	\
+	$(addprefix $(BUILDDIR)/,			\
 	common/amount.o					\
 	common/bigsize.o				\
 	common/base32.o					\
@@ -101,9 +116,11 @@ common/test/run-bolt12_merkle-partial:			\
 	wire/fromwire.o					\
 	wire/tlvstream.o				\
 	wire/peer_wiregen.o				\
-	wire/towire.o
+	wire/towire.o					\
+	)
 
-common/test/run-bolt12-format-string-test:		\
+$(BUILDDIR)/common/test/run-bolt12-format-string-test:	\
+	$(addprefix $(BUILDDIR)/,			\
 	common/amount.o					\
 	common/bigsize.o				\
 	common/base32.o					\
@@ -113,13 +130,18 @@ common/test/run-bolt12-format-string-test:		\
 	common/node_id.o				\
 	wire/bolt12_wiregen.o				\
 	wire/tlvstream.o				\
-	wire/towire.o
+	wire/towire.o					\
+	)
 
-common/test/run-bolt12_merkle-json:			\
+$(BUILDDIR)/common/test/run-bolt12_merkle-json:		\
+	$(addprefix $(BUILDDIR)/,			\
 	common/base32.o					\
-	common/wireaddr.o
+	common/wireaddr.o				\
+	)
 
-common/test/run-bolt12_proof common/test/run-bolt12_proof_vectors: \
+$(BUILDDIR)/common/test/run-bolt12_proof		\
+$(BUILDDIR)/common/test/run-bolt12_proof_vectors:	\
+	$(addprefix $(BUILDDIR)/,			\
 	common/bolt12.o					\
 	common/bigsize.o				\
 	common/amount.o					\
@@ -128,15 +150,19 @@ common/test/run-bolt12_proof common/test/run-bolt12_proof_vectors: \
 	wire/onion_wiregen.o				\
 	wire/tlvstream.o				\
 	wire/fromwire.o					\
-	wire/towire.o
+	wire/towire.o					\
+	)
 
-common/test/run-version:				\
+$(BUILDDIR)/common/test/run-version:			\
+	$(addprefix $(BUILDDIR)/,			\
 	common/amount.o                                 \
 	wire/fromwire.o					\
-	wire/towire.o
+	wire/towire.o					\
+	)
 
 
-common/test/run-splice_script:				\
+$(BUILDDIR)/common/test/run-splice_script:		\
+	$(addprefix $(BUILDDIR)/,			\
 	common/amount.o					\
 	common/node_id.o				\
 	common/bech32.o					\
@@ -144,38 +170,61 @@ common/test/run-splice_script:				\
 	common/wireaddr.o				\
 	common/base32.o					\
 	wire/fromwire.o					\
-	wire/towire.o
+	wire/towire.o					\
+	)
 
 
-common/test/run-trace:					\
+$(BUILDDIR)/common/test/run-trace:			\
+	$(addprefix $(BUILDDIR)/,			\
 	common/amount.o                                 \
 	common/memleak.o				\
 	common/pseudorand.o				\
 	common/randbytes.o				\
 	common/trace.o					\
 	wire/fromwire.o					\
-	wire/towire.o
+	wire/towire.o					\
+	)
 
-common/test/run-mkdatastorekey:				\
-	common/pseudorand.o
+$(BUILDDIR)/common/test/run-mkdatastorekey:		\
+	$(addprefix $(BUILDDIR)/,			\
+	common/pseudorand.o				\
+	)
 
-common/test/run-htable:					\
+$(BUILDDIR)/common/test/run-htable:			\
+	$(addprefix $(BUILDDIR)/,			\
 	common/randbytes.o				\
-	common/pseudorand.o
+	common/pseudorand.o				\
+	)
 
-common/test/run-shutdown_scriptpubkey: wire/towire.o wire/fromwire.o
+$(BUILDDIR)/common/test/run-shutdown_scriptpubkey:	\
+	$(addprefix $(BUILDDIR)/,			\
+	wire/towire.o					\
+	wire/fromwire.o					\
+	)
 
-common/test/run-wireaddr: wire/towire.o wire/fromwire.o
+$(BUILDDIR)/common/test/run-wireaddr:			\
+	$(addprefix $(BUILDDIR)/,			\
+	wire/towire.o					\
+	wire/fromwire.o					\
+	)
 
-common/test/run-jsonrpc_io: common/json_parse_simple.o
+$(BUILDDIR)/common/test/run-jsonrpc_io:			\
+	$(addprefix $(BUILDDIR)/,			\
+	common/json_parse_simple.o			\
+	)
 
-common/test/run-close_tx:			\
+$(BUILDDIR)/common/test/run-close_tx:			\
+	$(addprefix $(BUILDDIR)/,			\
 	common/amount.o					\
 	common/close_tx.o				\
 	common/permute_tx.o				\
 	common/psbt_keypath.o			\
 	common/pseudorand.o				\
 	wire/fromwire.o					\
-	wire/towire.o
+	wire/towire.o					\
+	)
 
 check-units: $(COMMON_TEST_PROGRAMS:%=unittest/%)
+
+obsclean::
+	$(RM) common/test/*.o

@@ -132,7 +132,7 @@ COMMON_HEADERS_GEN := common/htlc_state_names_gen.h common/status_wiregen.h comm
 COMMON_HEADERS := $(COMMON_HEADERS_GEN) $(COMMON_HEADERS_NOGEN)
 COMMON_SRC := $(COMMON_SRC_NOGEN) $(COMMON_SRC_GEN)
 
-COMMON_OBJS := $(COMMON_SRC:.c=.o)
+COMMON_OBJS := $(COMMON_SRC:%.c=$(BUILDDIR)/%.o)
 
 common/scb_wiregen.h_args := -s
 common/scb_wiregen.c_args := -s
@@ -145,28 +145,29 @@ check-common-files:
 check-source: check-common-files
 
 # Only common/version.c can include this header.
-common/version.o: version_gen.h
+$(BUILDDIR)/common/version.o: version_gen.h
 
 # Rebuild objects should this file change.
 $(COMMON_OBJS): common/Makefile
 
 # We make a static library, this way linker can discard unused parts.
-libcommon.a: $(COMMON_OBJS) $(WIRE_OBJS) $(BITCOIN_OBJS)
-	@$(call VERBOSE, "ar $@", $(AR) r $@ $?)
+$(BUILDDIR)/libcommon.a: $(BUILDDIR)/libcommon.a($(COMMON_OBJS) $(WIRE_OBJS) $(BITCOIN_OBJS))
 
 ALL_C_HEADERS += $(COMMON_HEADERS)
 ALL_C_SOURCES += $(COMMON_SRC)
 
-common/htlc_state_names_gen.h: common/htlc_state.h ccan/ccan/cdump/tools/cdump-enumstr
-	ccan/ccan/cdump/tools/cdump-enumstr common/htlc_state.h > $@
+common/htlc_state_names_gen.h: common/htlc_state.h $(CDUMP_ENUMSTR)
+	$(CDUMP_ENUMSTR) common/htlc_state.h > $@
 
 check-source-bolt: $(COMMON_SRC_NOGEN:%=bolt-check/%) $(COMMON_HEADERS_NOGEN:%=bolt-check/%)
 check-whitespace: $(COMMON_SRC_NOGEN:%=check-whitespace/%) $(COMMON_HEADERS_NOGEN:%=check-whitespace/%)
 
 clean: common-clean
 
+obsclean::
+	$(RM) libcommon.a common/*.o
+
 common-clean:
-	$(RM) libcommon.a
 	$(RM) common/gen*
 
 include common/test/Makefile
