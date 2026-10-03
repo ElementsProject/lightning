@@ -648,7 +648,7 @@ const char *gossmap_manage_channel_announcement(const tal_t *ctx,
 			       tal_hex(tmpctx, announce));
 	}
 
-	/* BOLT-gossip-node-check #7:
+	/* BOLT #7:
 	 * The receiving node:
 	 *...
 	 *   - if `node_id_1` is not lexicographically less than `node_id_2`:

@@ -4,11 +4,11 @@
 #include <common/sciddir_or_pubkey.h>
 #include <wire/wire.h>
 
-/* BOLT-sciddir_or_pubkey #1:
+/* BOLT #1:
  * * `sciddir_or_pubkey`: either 9 or 33 bytes referencing or identifying a node, respectively
  *    * if the first byte is 0 or 1, then an 8-byte `short_channel_id` follows for a total of 9 bytes
- *        * 0 for the first byte indicates this refers to `node_id_1` in the `channel_announcement` for `short_channel_id` (see [BOLT #7](07-routing-gossip.md#the-channel_announcement-message))
- *        * 1 for the first byte indicates this refers to `node_id_2` in the `channel_announcement` for `short_channel_id` (see [BOLT #7](07-routing-gossip.md#the-channel_announcement-message))
+ *        * 0 for the first byte indicates this refers to `node_id_1` in the `channel_announcement` for `short_channel_id`
+ *        * 1 for the first byte indicates this refers to `node_id_2` in the `channel_announcement` for `short_channel_id` (see [BOLT #7](07-routing-gossip.md#the-channel_announcement-message)
  *    * if the first byte is 2 or 3, then the value is a 33-byte `point`
  */
 void towire_sciddir_or_pubkey(u8 **pptr,

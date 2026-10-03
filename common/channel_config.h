@@ -74,9 +74,8 @@ struct channel_config {
 	 * HTLCs the remote node can offer. */
 	u16 max_accepted_htlcs;
 
-	/* BOLT-TBD #X
-	 *
-	 * maximum dust exposure allowed for this channel
+	/* BOLT #2:
+	 * ### Bounding exposure to trimmed in-flight HTLCs: `max_dust_htlc_exposure_msat`
 	 */
 	struct amount_msat max_dust_htlc_exposure_msat;
 };

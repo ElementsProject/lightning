@@ -263,7 +263,7 @@ static void normal_gossip_start(struct seeker *seeker, struct peer *peer, bool a
 {
 	bool enable_stream = false;
 
-	/* BOLT-remove-old-features #7:
+	/* BOLT #7:
 	 * Understanding of messages used to be indicated with the `gossip_queries`
 	 * feature bit; now these messages are universally supported, that feature has
 	 * now been slightly repurposed.  Not offering this feature means a node is not
@@ -950,7 +950,7 @@ static bool peer_is_not_gossipper(const struct peer *peer)
 {
 	const struct seeker *seeker = peer->daemon->seeker;
 
-	/* BOLT-remove-old-features #7:
+	/* BOLT #7:
 	 * `gossip_queries`... Not offering this feature means a node is not
 	 * worth querying for gossip
 	 */

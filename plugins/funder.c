@@ -872,7 +872,7 @@ json_openchannel2_call(struct command *cmd,
 	if (!amount_sat_is_zero(info->requested_lease)) {
 		u32 upper_bound, lower_bound;
 
-		/* BOLT- #2:
+		/* BOLT-liquidity-ads #2:
 		 * The receiving node:
 		 * - MAY fail the negotiation if:  ...
 		 *   - if the `option_will_fund` tlv is present and:

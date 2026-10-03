@@ -276,7 +276,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 	 *    output](#to_local-output).
 	 */
 	if (amount_msat_greater_eq_sat(self_pay, dust_limit)) {
-		/* BOLT- #3:
+		/* BOLT-liquidity-ads #3:
 		 * In a leased channel, the `to_local` output that
 		 * pays the `accepter` node is modified so that its
 		 * CSV is equal to the greater of the
@@ -331,7 +331,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 							 &keyset->other_payment_key,
 							 (!side) == lessor ?
 							       csv_lock : 1);
-			/* BOLT- #3:
+			/* BOLT-liquidity-ads #3:
 			 * ##### Leased channel (`option_will_fund`)
 			 *
 			 * If a `lease` applies to the channel, the
