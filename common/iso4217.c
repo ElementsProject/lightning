@@ -6,6 +6,7 @@
 #include <common/iso4217.h>
 #include <common/overflows.h>
 #include <common/utils.h>
+#include <inttypes.h>
 
 /* Wikipedia leads me to: https://www.currency-iso.org/en/home/tables/table-a1.html
 
@@ -205,6 +206,31 @@ const struct iso4217_name_and_divisor *find_iso4217(const utf8 *prefix,
 			return &iso4217[i];
 	}
 	return NULL;
+}
+
+u64 iso4217_divisor(const struct iso4217_name_and_divisor *isocode)
+{
+	u64 divisor = 1;
+
+	for (unsigned int i = 0; i < isocode->minor_unit; i++)
+		divisor *= 10;
+	return divisor;
+}
+
+const char *fmt_iso4217_amount(const tal_t *ctx,
+			       const struct iso4217_name_and_divisor *isocode,
+			       u64 amount)
+{
+	u64 divisor;
+
+	if (isocode->minor_unit == 0)
+		return tal_fmt(ctx, "%"PRIu64, amount);
+
+	divisor = iso4217_divisor(isocode);
+	return tal_fmt(ctx, "%"PRIu64".%0*"PRIu64,
+		       amount / divisor,
+		       (int)isocode->minor_unit,
+		       amount % divisor);
 }
 
 static bool msat_or_any(const tal_t *ctx,
