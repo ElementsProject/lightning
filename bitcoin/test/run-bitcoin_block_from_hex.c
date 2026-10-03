@@ -62,12 +62,117 @@ static const char block[] =
 
 STRUCTEQ_DEF(sha256_double, 0, sha);
 
+static void add_bytes(u8 **buf, u8 byte, size_t n)
+{
+	size_t off = tal_count(*buf);
+	tal_resize(buf, off + n);
+	memset(*buf + off, byte, n);
+}
+
+/* Elements header up to (and including) the version, hashes, timestamp
+ * and height. */
+static u8 *elements_header_start(bool dynafed)
+{
+	u8 *buf = tal_arr(tmpctx, u8, 0);
+
+	/* version: the MSB signals dynafed */
+	add_bytes(&buf, 0, 3);
+	add_bytes(&buf, dynafed ? 0x80 : 0, 1);
+	/* prev_hash, merkle_hash, timestamp, height */
+	add_bytes(&buf, 0, 32 + 32 + 4 + 4);
+	return buf;
+}
+
+/* Dynafed header up to (and including) the current params' fedpegscript. */
+static u8 *dynafed_header_to_fedpegscript(void)
+{
+	u8 *buf = elements_header_start(true);
+
+	add_bytes(&buf, DYNAFED_PARAMS_FULL, 1);
+	/* signblockscript */
+	add_varint(&buf, 2);
+	add_bytes(&buf, 0x51, 2);
+	/* signblock_witness_limit */
+	add_bytes(&buf, 0, 4);
+	/* fedpeg_program */
+	add_varint(&buf, 1);
+	add_bytes(&buf, 0x51, 1);
+	/* fedpegscript */
+	add_varint(&buf, 1);
+	add_bytes(&buf, 0x51, 1);
+	return buf;
+}
+
+static struct bitcoin_block *parse(const struct chainparams *cp,
+				   const u8 *buf, size_t len)
+{
+	const char *hex = tal_hexstr(tmpctx, buf, len);
+	return bitcoin_block_from_hex(tmpctx, cp, hex, strlen(hex));
+}
+
+/* A valid empty block must parse; every truncation of it must be refused. */
+static void check_truncations(const struct chainparams *cp, const u8 *buf)
+{
+	struct bitcoin_block *b = parse(cp, buf, tal_bytelen(buf));
+	assert(b);
+	assert(tal_count(b->tx) == 0);
+
+	for (size_t i = 0; i < tal_bytelen(buf); i++)
+		assert(!parse(cp, buf, i));
+}
+
+static void test_elements(void)
+{
+	const struct chainparams *cp = chainparams_for_network("liquid-regtest");
+	u8 *buf;
+
+	/* Non-dynafed: challenge, solution, then no txs. */
+	buf = elements_header_start(false);
+	add_varint(&buf, 1);
+	add_bytes(&buf, 0x51, 1);
+	add_varint(&buf, 1);
+	add_bytes(&buf, 0, 1);
+	add_varint(&buf, 0);
+	check_truncations(cp, buf);
+
+	/* Dynafed: full current params, compact proposed params,
+	 * one signblock witness, then no txs. */
+	buf = dynafed_header_to_fedpegscript();
+	/* extension space */
+	add_varint(&buf, 1);
+	add_varint(&buf, 1);
+	add_bytes(&buf, 0x51, 1);
+	/* proposed params: signblockscript, witness limit, elided_root */
+	add_bytes(&buf, DYNAFED_PARAMS_COMPACT, 1);
+	add_varint(&buf, 1);
+	add_bytes(&buf, 0x51, 1);
+	add_bytes(&buf, 0, 4 + 32);
+	/* signblock_witness */
+	add_varint(&buf, 1);
+	add_varint(&buf, 1);
+	add_bytes(&buf, 0, 1);
+	add_varint(&buf, 0);
+	check_truncations(cp, buf);
+
+	/* A huge extension space count with no data must not spin. */
+	buf = dynafed_header_to_fedpegscript();
+	add_varint(&buf, SIZE_MAX);
+	assert(!parse(cp, buf, tal_bytelen(buf)));
+
+	/* Same for a huge signblock_witness count. */
+	buf = elements_header_start(true);
+	add_bytes(&buf, DYNAFED_PARAMS_NULL, 2);
+	add_varint(&buf, SIZE_MAX);
+	assert(!parse(cp, buf, tal_bytelen(buf)));
+}
+
 int main(int argc, const char *argv[])
 {
 	struct bitcoin_blkid prev;
 	struct sha256_double merkle;
 	struct bitcoin_txid txid, expected_txid;
 	struct bitcoin_block *b;
+	const char *hex;
 
 	common_setup(argv[0]);
 	chainparams = chainparams_for_network("bitcoin");
@@ -103,6 +208,14 @@ int main(int argc, const char *argv[])
 	assert(bitcoin_txid_eq(&txid, &expected_txid));
 
 	tal_free(b);
+
+	/* The 80-byte header followed by a huge tx count must be refused,
+	 * not abort trying to allocate the tx array. */
+	hex = tal_fmt(tmpctx, "%.160sffffffffffffffffff", block);
+	assert(!bitcoin_block_from_hex(tmpctx, chainparams, hex, strlen(hex)));
+
+	test_elements();
+
 	common_shutdown();
 	return 0;
 }
