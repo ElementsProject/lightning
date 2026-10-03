@@ -5,7 +5,7 @@ import warnings
 
 from pyln.grpc import node_pb2 as node__pb2
 
-GRPC_GENERATED_VERSION = '1.75.1'
+GRPC_GENERATED_VERSION = '1.81.1'
 GRPC_VERSION = grpc.__version__
 _version_not_supported = False
 
@@ -18,14 +18,14 @@ except ImportError:
 if _version_not_supported:
     raise RuntimeError(
         f'The grpc package installed is at version {GRPC_VERSION},'
-        + f' but the generated code in node_pb2_grpc.py depends on'
+        + ' but the generated code in node_pb2_grpc.py depends on'
         + f' grpcio>={GRPC_GENERATED_VERSION}.'
         + f' Please upgrade your grpc module to grpcio>={GRPC_GENERATED_VERSION}'
         + f' or downgrade your generated code using grpcio-tools<={GRPC_VERSION}.'
     )
 
 
-class NodeStub(object):
+class NodeStub:
     """Missing associated documentation comment in .proto file."""
 
     def __init__(self, channel):
@@ -921,7 +921,7 @@ class NodeStub(object):
                 _registered_method=True)
 
 
-class NodeServicer(object):
+class NodeServicer:
     """Missing associated documentation comment in .proto file."""
 
     def Getinfo(self, request, context):
@@ -2882,7 +2882,7 @@ def add_NodeServicer_to_server(servicer, server):
 
 
  # This class is part of an EXPERIMENTAL API.
-class Node(object):
+class Node:
     """Missing associated documentation comment in .proto file."""
 
     @staticmethod
