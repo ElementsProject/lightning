@@ -64,8 +64,7 @@ void tal_wally_end(const tal_t *parent)
 	wally_tal_ctx = tal_free(wally_tal_ctx);
 }
 
-void tal_wally_end_onto_(const tal_t *parent,
-			 tal_t *from_wally,
+void tal_wally_end_onto_(const tal_t *parent, tal_t *from_wally,
 			 const char *from_wally_name)
 {
 	if (from_wally)
@@ -137,14 +136,14 @@ void clean_tmpctx(void)
 
 void tal_arr_remove_(void *p, size_t elemsize, size_t n)
 {
-    /* p is a pointer-to-pointer for tal_resize. */
-    char *objp = *(char **)p;
-    size_t len = tal_bytelen(objp);
-    assert(len % elemsize == 0);
-    assert((n + 1) * elemsize <= len);
-    memmove(objp + elemsize * n, objp + elemsize * (n+1),
-	    len - (elemsize * (n+1)));
-    tal_resize((char **)p, len - elemsize);
+	/* p is a pointer-to-pointer for tal_resize. */
+	char *objp = *(char **)p;
+	size_t len = tal_bytelen(objp);
+	assert(len % elemsize == 0);
+	assert((n + 1) * elemsize <= len);
+	memmove(objp + elemsize * n, objp + elemsize * (n + 1),
+		len - (elemsize * (n + 1)));
+	tal_resize((char **)p, len - elemsize);
 }
 
 void tal_arr_remove_range_(void *p, size_t position, size_t chunk_size)
@@ -243,7 +242,8 @@ char *str_lowering(const void *ctx, const char *string TAKES)
 	char *ret;
 
 	ret = tal_strdup(ctx, string);
-	for (char *p = ret; *p; p++) *p = tolower(*p);
+	for (char *p = ret; *p; p++)
+		*p = tolower(*p);
 	return ret;
 }
 
@@ -252,7 +252,8 @@ char *str_uppering(const void *ctx, const char *string TAKES)
 	char *ret;
 
 	ret = tal_strdup(ctx, string);
-	for (char *p = ret; *p; p++) *p = toupper(*p);
+	for (char *p = ret; *p; p++)
+		*p = toupper(*p);
 	return ret;
 }
 
@@ -281,6 +282,63 @@ bool str_to_u64(const char *buf, size_t buflen, u64 *num)
 			return false;
 		val = val * 10 + digit;
 	}
+	*num = val;
+	return true;
+}
+
+bool str_to_s64(const char *buf, size_t buflen, s64 *num)
+{
+	s64 val = 0;
+	bool is_negative = false;
+
+	if (buflen == 0)
+		return false;
+
+	if (buflen == 1) {
+		if (buf[0] == '-')
+			return false;
+	}
+
+	for (size_t i = 0; i < buflen; i++) {
+
+		s64 digit;
+
+		if (i == 0) {
+			if (buf[i] < '0' || buf[i] > '9') {
+				if (buf[i] != '-') {
+					return false;
+				}
+			}
+			if (buf[i] == '-')
+				is_negative = true;
+			else {
+				digit = buf[i] - '0';
+				if (val > (INT64_MAX - digit) / 10)
+					return false;
+				val = val * 10 + digit;
+			}
+		}
+
+		else {
+			if (buf[i] < '0' || buf[i] > '9')
+				return false;
+			digit = buf[i] - '0';
+			if (is_negative) {
+				if (val < (INT64_MIN + digit) / 10)
+					return false;
+
+				val = val * 10 - digit;
+			}
+
+			else {
+				if (val > (INT64_MAX - digit) / 10)
+					return false;
+
+				val = val * 10 + digit;
+			}
+		}
+	}
+
 	*num = val;
 	return true;
 }
