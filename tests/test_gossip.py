@@ -2170,7 +2170,7 @@ def test_gossip_throttle(node_factory, bitcoind, chainparams):
     """Make some gossip, test it gets throttled"""
     l1, l2, l3, l4 = node_factory.line_graph(4, wait_for_announce=True,
                                              opts=[{}, {}, {},
-                                                   {'broken_log': 'Throttling incoming peer',
+                                                   {'broken_log': 'Throttling (incoming|outgoing) peer',
                                                     'dev-throttle-gossip': None}])
 
     # We expect: self-advertizement (3 messages for l1 and l4) plus
@@ -2257,6 +2257,77 @@ def test_gossip_throttle(node_factory, bitcoind, chainparams):
     time_slow = time.time() - start_slow
     assert time_slow > 3
     assert set(out2) == set(out4)
+
+
+def test_gossip_query_channel_range_cpu_throttle(node_factory, chainparams):
+    """query_channel_range walks the *entire* gossmap regardless of the
+    range asked for, so a peer can force a full scan cheaply just by
+    asking for a range that matches nothing.  Make sure that's throttled
+    by CPU, not just by the (tiny, in this case) reply size."""
+    # A big, cheap-to-generate synthetic chain of channels: no bitcoind
+    # needed, but big enough that scanning it costs real CPU.
+    chans = [GenChannel(i, i + 1) for i in range(15000)]
+    gsfile, nodemap = generate_gossip_store(chans)
+
+    # recover (and some others) load their own copy of the whole gossmap
+    # at startup: with a big synthetic one, that (not connectd) becomes
+    # the slow part.  We don't need them for this test.
+    unneeded_plugins = ['recover', 'cln-askrene', 'cln-renepay', 'bookkeeper',
+                        'topology', 'cln-xpay']
+    l1, l2 = node_factory.get_nodes(
+        2,
+        opts=[{'gossip_store_file': gsfile.name,
+               'disable-plugin': unneeded_plugins},
+              {'gossip_store_file': gsfile.name,
+               'disable-plugin': unneeded_plugins,
+               'dev-throttle-gossip': None,
+               'broken_log': 'Throttling (incoming|outgoing) peer'}])
+
+    # A range far beyond any scid we generated: the reply matches
+    # nothing, so it's tiny either way.
+    query = subprocess.run(['devtools/mkquery',
+                            'query_channel_range',
+                            chainparams['chain_hash'],
+                            '1000000', '1'],
+                           check=True, timeout=TIMEOUT,
+                           stdout=subprocess.PIPE).stdout.strip()
+
+    # l1 (normal budget): answers promptly.  (Generous bound: this is
+    # about "doesn't get throttled", not a tight perf check.)
+    start = time.time()
+    subprocess.run(['devtools/gossipwith',
+                    '--no-gossip',
+                    '--network={}'.format(TEST_NETWORK),
+                    '--filter=264',
+                    '--max-messages=1',
+                    '{}@localhost:{}'.format(l1.info['id'], l1.port),
+                    query],
+                   check=True, timeout=TIMEOUT, stdout=subprocess.PIPE)
+    assert time.time() - start < 10
+
+    # l2 (--dev-throttle-gossip): the query itself is small to read, but
+    # *answering* it means walking the whole gossmap, which blows the
+    # tiny CPU budget: throttled even though the reply is minuscule.
+    # Ten queries down one connection, so we blow the budget by a wide
+    # margin rather than by a hair.  The earlier version asserted on wall
+    # clock after a single query, which only held while the budget stayed
+    # at its original value -- it was later tripled, leaving ~10% of margin
+    # and a test that passed or failed on how fast the machine was.  The
+    # throttle log is the real signal, so assert on that alone.  Don't
+    # wait for the replies either: the throttle we're provoking is exactly
+    # what delays them, and on a slow machine (or under valgrind) they can
+    # take longer than TIMEOUT to arrive.
+    subprocess.run(['devtools/gossipwith',
+                    '--no-gossip',
+                    '--network={}'.format(TEST_NETWORK),
+                    '--filter=264',
+                    '--max-messages=10',
+                    '--timeout-after=10',
+                    '{}@localhost:{}'.format(l2.info['id'], l2.port)]
+                   + [query] * 10,
+                   timeout=TIMEOUT, stdout=subprocess.PIPE)
+
+    l2.daemon.wait_for_log(r'Throttling outgoing peer .*: too much CPU')
 
 
 def test_generate_gossip_store(node_factory):

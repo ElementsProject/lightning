@@ -3236,6 +3236,64 @@ def test_dataloss_protection(node_factory, bitcoind):
 
 
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "sqlite3-specific DB rollback")
+def test_dataloss_protection_reconnect(node_factory, bitcoind):
+    """l2's first ERROR never hits the wire: reconnect must still work."""
+    l1 = node_factory.get_node(may_reconnect=True,
+                               allow_warning=True,
+                               feerates=(7500, 7500, 7500, 7500),
+                               options={'dev-no-reconnect': None})
+    l2 = node_factory.get_node(may_reconnect=True,
+                               broken_log='Cannot broadcast our commitment tx: they have a future one',
+                               disconnect=['-WIRE_ERROR'],
+                               feerates=(7500, 7500, 7500, 7500),
+                               options={'dev-no-reconnect': None})
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.fundchannel(l2, 10**6)
+    l2.stop()
+
+    # Save copy of the db.
+    dbpath = os.path.join(l2.daemon.lightning_dir, TEST_NETWORK, "lightningd.sqlite3")
+    orig_db = Path(dbpath).read_bytes()
+    l2.start()
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    # After an htlc, we should get different results (two more commits)
+    l1.rpc.xpay(l2.rpc.invoice(200000000, 'test', 'test')['bolt11'])
+
+    # Make sure both sides consider it completely settled (has received both
+    # REVOKE_AND_ACK)
+    l1.daemon.wait_for_logs(["peer_in WIRE_REVOKE_AND_ACK"] * 2)
+    l2.daemon.wait_for_logs(["peer_in WIRE_REVOKE_AND_ACK"] * 2)
+
+    # Now, move l2 back in time.
+    l2.stop()
+    Path(dbpath).write_bytes(orig_db)
+    l2.start()
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    # l2 freaks out, but its ERROR is dropped before it hits the wire.
+    l2.daemon.wait_for_logs(["Peer permanent failure in CHANNELD_NORMAL:.*Awaiting unilateral close",
+                             "Cannot broadcast our commitment tx: they have a future one",
+                             'dev_disconnect: -WIRE_ERROR'])
+    assert not l2.daemon.is_in_log('sendrawtx exit 0',
+                                   start=l2.daemon.logsearch_start)
+
+    # l1 has seen no error, so it must not have gone onchain by itself.
+    time.sleep(1)
+    assert bitcoind.rpc.getrawmempool(False) == []
+
+    # Reconnect: l2 resends channel->error, so l1 drops to chain.
+    try:
+        l1.rpc.disconnect(l2.info['id'], force=True)
+    except RpcError as err:
+        assert "Peer not connected" in err.error['message']
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.wait_for_channel_onchain(l2.info['id'])
+
+
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "sqlite3-specific DB rollback")
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 def test_dataloss_protection_no_broadcast(node_factory, bitcoind):
@@ -4597,6 +4655,49 @@ def test_connect_transient_pending(node_factory, bitcoind, executor):
             fut2.result(TIMEOUT)
 
 
+def test_onionmessage_unknown_invoice_no_leak(node_factory):
+    """An unsolicited invoice must not echo uninitialised memory back.
+
+    Adapted from the reporter's PoC.  On a non-developer node, rejecting an
+    invoice with invreq_paths that did not arrive via a path formatted an
+    invreq_id which had not been set yet into the invoice_error text.
+    """
+    l1 = node_factory.get_node()
+    # Non-developer node: developer mode takes a different error branch.
+    l2 = node_factory.get_node(start=False)
+    l2.daemon.early_opts = [o for o in l2.daemon.early_opts if o != '--developer']
+    l2.daemon.opts = {k: v for k, v in l2.daemon.opts.items()
+                      if not k.startswith('dev-')}
+    l2.start()
+    l1.connect(l2)
+
+    # invoice with only invreq_paths: first_node_id (point), first_path_key,
+    # num_hops=0.
+    l2_pub = bytes.fromhex(l2.info['id'])
+    blinded_path = (l2_pub
+                    + coincurve.PrivateKey().public_key.format(True)
+                    + b'\x00')
+    invoice = TlvPayload()
+    invoice.add_field(90, blinded_path)
+    tlv = TlvPayload()
+    tlv.add_field(66, invoice.to_bytes(include_prefix=False))
+
+    # Route-blinding tweak so the onion decrypts as l2's real key.
+    blinding = coincurve.PrivateKey()
+    path_key = blinding.public_key.format(True)
+    ss = blinding.ecdh(coincurve.PublicKey(l2_pub).public_key)
+    tweak = hmac.new(b'blinded_node_id', ss, sha256).digest()
+    blinded_pub = coincurve.PublicKey(l2_pub).multiply(tweak).format(True)
+
+    onion = l1.rpc.createonion(hops=[{'pubkey': blinded_pub.hex(),
+                                      'payload': tlv.to_bytes().hex()}],
+                               assocdata="")
+    l2.rpc.injectonionmessage(message=onion['onion'], path_key=path_key.hex())
+
+    l2.daemon.wait_for_log(r'Unknown invoice_request')
+    assert not l2.daemon.is_in_log(r'Unknown invoice_request [0-9a-f]{64}')
+
+
 def test_injectonionmessage(node_factory):
     """Test for injectonionmessage API"""
     # Hardcoded onion message was created with old hsmsecret format
@@ -4652,6 +4753,55 @@ def test_onionmessage_reply_path_no_hops(node_factory):
     # node stays up. Without the fix this log never appears: the offers plugin
     # calls plugin_err and lightningd_exit takes the node down instead.
     l2.daemon.wait_for_log('Ignoring reply path with no hops', timeout=30)
+
+
+def inject_onionmsg_tlv(sender, dest, tlv):
+    """Have `sender` build a one-hop onion message carrying `tlv` and inject
+    it into `dest` as if it had arrived from the network."""
+    dest_pub = bytes.fromhex(dest.info['id'])
+    blinding = coincurve.PrivateKey()
+    path_key = blinding.public_key.format(True)
+
+    # Route-blinding tweak so the onion decrypts as dest's real key.
+    ss = blinding.ecdh(coincurve.PublicKey(dest_pub).public_key)
+    tweak = hmac.new(b'blinded_node_id', ss, sha256).digest()
+    blinded_pub = coincurve.PublicKey(dest_pub).multiply(tweak).format(True)
+
+    onion = sender.rpc.createonion(hops=[{'pubkey': blinded_pub.hex(),
+                                          'payload': tlv.to_bytes().hex()}],
+                                   assocdata="")
+    dest.rpc.injectonionmessage(message=onion['onion'], path_key=path_key.hex())
+
+
+def test_onionmessage_reply_path_zero_scid(node_factory):
+    """A reply_path whose first hop is scid 0x0x0 must be used as that scid.
+
+    Adapted from the reporter's PoC.  A zero scid is valid on the wire, but
+    json_to_blinded_path used it as a sentinel for "a first_node_id was
+    given", and copied an uninitialised stack pubkey into the reply path.
+    No channel is needed, only a peer.
+    """
+    l1 = node_factory.get_node()
+    l2 = node_factory.get_node()
+    l1.connect(l2)
+
+    # blinded_path: first_node_id as sciddir (dir 0, scid 0x0x0),
+    # first_path_key, num_hops=1, one hop with empty encrypted data.
+    hop = coincurve.PrivateKey().public_key.format(True) + b'\x00\x00'
+    reply_path = (b'\x00' + bytes(8)
+                  + coincurve.PrivateKey().public_key.format(True)
+                  + b'\x01' + hop)
+    tlv = TlvPayload()
+    tlv.add_field(2, reply_path)
+    # An invalid invoice_request, so offers tries to reply with an error.
+    tlv.add_field(64, b'\xff')
+
+    inject_onionmsg_tlv(l1, l2, tlv)
+
+    # The reply must be routed via the zero scid (which cannot resolve),
+    # not via whatever pubkey happened to be on the stack.
+    l2.daemon.wait_for_log(r'Cannot resolve initial reply scidd 0x0x0/0')
+    assert not l2.daemon.is_in_log('Failed to connect for reply via')
     assert l2.rpc.getinfo()['id'] == l2.info['id']
 
 
@@ -5295,3 +5445,101 @@ def test_connect_proxy_maxlen_hostname(node_factory):
                        + bytes([len(hostname)])
                        + hostname.encode('ascii')
                        + (1234).to_bytes(2, 'big'))
+
+
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "rewinds the peers' dbs, which are assumed sqlite3")
+def test_peer_reuses_htlc_id(node_factory):
+    """A peer re-offering the id of an HTLC we have already resolved must be
+    rejected: channeld has forgotten it, but the db has not."""
+    peer_opts = {'may_reconnect': True,
+                 'allow_warning': True,
+                 # We rewind their db behind their back, so they complain.
+                 'broken_log': '.*'}
+    l1, l2, l3 = node_factory.get_nodes(3, opts=[peer_opts,
+                                                 {'may_reconnect': True,
+                                                  'allow_warning': True,
+                                                  # Without the fix lightningd
+                                                  # dies here, and we want
+                                                  # that to be a test failure
+                                                  # rather than a teardown
+                                                  # error.
+                                                  'may_fail': True,
+                                                  'broken_log': '.*'},
+                                                 peer_opts])
+    node_factory.join_nodes([l1, l2])
+    node_factory.join_nodes([l3, l2])
+
+    # l2 receives, and fully resolves, HTLC id 0 from each of them.
+    for peer in (l1, l3):
+        peer.pay(l2, 100000)
+        peer.wait_for_htlcs()
+    l2.wait_for_htlcs()
+
+    def rewind(peer):
+        # peer forgets it ever offered an HTLC, so it uses id 0 again.
+        peer.stop()
+        peer.db_manip("DELETE FROM channel_htlcs;")
+        peer.db_manip("UPDATE channels SET next_htlc_id=0;")
+
+    def reuse_id(peer, label):
+        peer.start()
+
+        def reestablished():
+            chan = only_one(peer.rpc.listpeerchannels(l2.info['id'])['channels'])
+            return any('Reconnected, and reestablished' in s for s in chan['status'])
+        wait_for(reestablished)
+
+        inv = l2.rpc.invoice(100000, label, 'desc')
+        route = [{'amount_msat': 100000, 'id': l2.info['id'], 'delay': 18,
+                  'channel': first_scid(peer, l2)}]
+        peer.rpc.sendpay(route, inv['payment_hash'],
+                         payment_secret=inv['payment_secret'])
+        line = l2.daemon.wait_for_log(r'{}-.*Bad peer_add_htlc: id 0 but expected 1|Error executing statement'.format(peer.info['id']))
+        assert 'Bad peer_add_htlc' in line
+        l2.rpc.getinfo()
+
+    # l2's channeld restarts on reconnect, lightningd tells it what to expect.
+    rewind(l1)
+    reuse_id(l1, 'reuse1')
+    # l1 committed to that HTLC, which l2 never accepts, so it's done.
+    l1.stop()
+
+    # Same again, but l2 has to work out what to expect from its db.
+    l2.stop()
+    rewind(l3)
+    l2.start()
+    reuse_id(l3, 'reuse2')
+
+    assert not l2.daemon.is_in_log(r'\*\*BROKEN\*\*')
+
+
+@pytest.mark.slow_test
+def test_parallel_opens(node_factory, bitcoind, executor):
+    """On macOS a socket closed by its sender while in flight over SCM_RIGHTS
+    could arrive unable to read, losing a subdaemon its hsmd or peer
+    connection under load (#5808)."""
+    pairs, opens = 6, 50
+    nodes = node_factory.get_nodes(2 * pairs)
+    openers, peers = nodes[:pairs], nodes[pairs:]
+
+    outputs = {}
+    for l1, l2 in zip(openers, peers):
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+        for _ in range(opens):
+            outputs[l1.rpc.newaddr('bech32')['bech32']] = 0.02
+    bitcoind.rpc.sendmany("", outputs)
+    bitcoind.generate_block(1)
+    for l1 in openers:
+        wait_for(lambda: len([o for o in l1.rpc.listfunds()['outputs']
+                              if o['status'] == 'confirmed']) == opens)
+
+    def open_all(l1, l2):
+        for _ in range(opens):
+            l1.rpc.fundchannel(l2.info['id'], 10**6)
+
+    futs = [executor.submit(open_all, l1, l2) for l1, l2 in zip(openers, peers)]
+    for fut in futs:
+        fut.result(TIMEOUT)
+
+    for node in nodes:
+        assert not node.daemon.is_in_log(r'Owning subdaemon channeld died \(0\)')

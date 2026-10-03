@@ -2025,6 +2025,8 @@ static size_t resolve_their_htlc(struct tracked_output *out,
 /* Return tal_arr of htlc indexes. */
 static const size_t *match_htlc_output(const tal_t *ctx,
 				       const struct wally_tx_output *out,
+				       struct amount_sat amt,
+				       const struct htlc_stub *htlcs,
 				       u8 **htlc_scripts)
 {
 	size_t *matches = tal_arr(ctx, size_t, 0);
@@ -2036,6 +2038,13 @@ static const size_t *match_htlc_output(const tal_t *ctx,
 	for (size_t i = 0; i < tal_count(htlc_scripts); i++) {
 		struct sha256 sha;
 		if (!htlc_scripts[i])
+			continue;
+
+		/* Scripts don't commit to the amount, so HTLCs with the same
+		 * payment_hash (and cltv) look identical: a trimmed one must
+		 * not be mistaken for a live one! */
+		if (!amount_sat_eq(amount_msat_to_sat_round_down(htlcs[i].amount),
+				   amt))
 			continue;
 
 		sha256(&sha, htlc_scripts[i], tal_count(htlc_scripts[i]));
@@ -2353,7 +2362,8 @@ static void handle_our_unilateral(const struct tx_parts *tx,
 			continue;
 		}
 
-		matches = match_htlc_output(tmpctx, tx->outputs[i], htlc_scripts);
+		matches = match_htlc_output(tmpctx, tx->outputs[i], amt,
+					    htlcs_info->htlcs, htlc_scripts);
 		/* FIXME: limp along when this happens! */
 		if (tal_count(matches) == 0) {
 			bool found = false;
@@ -2836,7 +2846,8 @@ static void handle_their_cheat(const struct tx_parts *tx,
 			continue;
 		}
 
-		matches = match_htlc_output(tmpctx, tx->outputs[i], htlc_scripts);
+		matches = match_htlc_output(tmpctx, tx->outputs[i], amt,
+					    htlcs_info->htlcs, htlc_scripts);
 		if (tal_count(matches) == 0) {
 			bool found = false;
 			if (opener == REMOTE && script[LOCAL]) {
@@ -3162,7 +3173,8 @@ static void handle_their_unilateral(const struct tx_parts *tx,
 			continue;
 		}
 
-		matches = match_htlc_output(tmpctx, tx->outputs[i], htlc_scripts);
+		matches = match_htlc_output(tmpctx, tx->outputs[i], amt,
+					    htlcs_info->htlcs, htlc_scripts);
 		if (tal_count(matches) == 0) {
 			bool found = false;
 

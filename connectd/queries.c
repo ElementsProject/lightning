@@ -82,6 +82,11 @@ static int pubkey_order(const struct node_id *k1,
 	return node_id_cmp(k1, k2);
 }
 
+/* Defined below: trickles out a reply to query_channel_range, if any. */
+static const u8 *maybe_create_range_response(const tal_t *ctx,
+					     struct peer *peer,
+					     struct gossmap *gossmap);
+
 static void uniquify_node_ids(struct node_id **ids)
 {
 	size_t dst, src;
@@ -251,6 +256,14 @@ const u8 **maybe_create_query_responses(const tal_t *ctx,
 		peer->scid_query_nodes_idx = 0;
 	}
 
+	/* Nothing to say about scid_queries?  Maybe we owe them a
+	 * (trickled) reply to a query_channel_range. */
+	if (tal_count(msgs) == 0) {
+		const u8 *range_msg = maybe_create_range_response(msgs, peer, gossmap);
+		if (range_msg)
+			tal_arr_expand(&msgs, range_msg);
+	}
+
 	return msgs;
 }
 
@@ -367,64 +380,6 @@ void handle_query_short_channel_ids(struct peer *peer, const u8 *msg)
 	io_wake(peer->peer_outq);
 }
 
-/*~ We can send multiple replies when the peer queries for all channels in
- * a given range of blocks; each one indicates the range of blocks it covers. */
-static void send_reply_channel_range(struct peer *peer,
-				     u32 first_blocknum, u32 number_of_blocks,
-				     const struct short_channel_id *scids,
-				     const struct channel_update_timestamps *tstamps,
-				     const struct channel_update_checksums *csums,
-				     size_t num_scids,
-				     bool final)
-{
-	/* BOLT #7:
-	 *
-	 * - MUST respond with one or more `reply_channel_range`:
-	 *   - MUST set with `chain_hash` equal to that of `query_channel_range`,
-	 *   - MUST limit `number_of_blocks` to the maximum number of blocks
-	 *     whose results could fit in `encoded_short_ids`
-	 */
-	u8 *encoded_scids = encoding_start(tmpctx, true);
-	u8 *encoded_timestamps = encoding_start(tmpctx, false);
- 	struct tlv_reply_channel_range_tlvs *tlvs
- 		= tlv_reply_channel_range_tlvs_new(tmpctx);
-
-	/* Encode them all */
-	for (size_t i = 0; i < num_scids; i++)
-		encoding_add_short_channel_id(&encoded_scids, scids[i]);
-	encoding_end(encoded_scids, tal_bytelen(encoded_scids));
-
-	if (tstamps) {
-		for (size_t i = 0; i < num_scids; i++)
-			encoding_add_timestamps(&encoded_timestamps, &tstamps[i]);
-
-		tlvs->timestamps_tlv = tal(tlvs, struct tlv_reply_channel_range_tlvs_timestamps_tlv);
-		tlvs->timestamps_tlv->encoding_type = ARR_UNCOMPRESSED;
-		encoding_end(encoded_timestamps,
-			     tal_bytelen(encoded_timestamps));
-		tlvs->timestamps_tlv->encoded_timestamps
-			= tal_steal(tlvs, encoded_timestamps);
-	}
-
-	/* Must be a tal object! */
-	if (csums)
-		tlvs->checksums_tlv = tal_dup_arr(tlvs,
-						  struct channel_update_checksums,
-						  csums, num_scids, 0);
-
-	/* BOLT #7:
-	 *
-	 * - MUST set `sync_complete` to `false` if this is not the final
-	 *   `reply_channel_range`.
-	 */
-	u8 *msg = towire_reply_channel_range(NULL,
-					     &chainparams->genesis_blockhash,
-					     first_blocknum,
-					     number_of_blocks,
-					     final, encoded_scids, tlvs);
-	inject_peer_msg(peer, take(msg));
-}
-
 /* Helper to get non-signature, non-timestamp parts of (valid!) channel_update */
 static void get_cupdate_parts(const u8 *channel_update,
 			      const u8 *parts[2],
@@ -508,6 +463,85 @@ static u32 get_checksum(struct gossmap *gossmap,
 	return crc32_of_update(cupdate);
 }
 
+/*~ We can send multiple replies when the peer queries for all channels in
+ * a given range of blocks; each one indicates the range of blocks it covers. */
+static u8 *make_reply_channel_range(const tal_t *ctx,
+				    struct gossmap *gossmap,
+				    u32 first_blocknum, u32 number_of_blocks,
+				    const struct short_channel_id *scids,
+				    size_t num_scids,
+				    enum query_option_flags query_option_flags,
+				    bool final)
+{
+	/* BOLT #7:
+	 *
+	 * - MUST respond with one or more `reply_channel_range`:
+	 *   - MUST set with `chain_hash` equal to that of `query_channel_range`,
+	 *   - MUST limit `number_of_blocks` to the maximum number of blocks
+	 *     whose results could fit in `encoded_short_ids`
+	 */
+	u8 *encoded_scids = encoding_start(tmpctx, true);
+	u8 *encoded_timestamps = encoding_start(tmpctx, false);
+ 	struct tlv_reply_channel_range_tlvs *tlvs
+ 		= tlv_reply_channel_range_tlvs_new(tmpctx);
+	/* BOLT #7:
+	 * If the incoming message includes `query_option`, the receiver
+	 * MAY append additional information to its reply:
+	 * - if bit 0 in `query_option_flags` is set, the receiver MAY
+	 *   append a `timestamps_tlv`...
+	 * - if bit 1 in `query_option_flags` is set, the receiver MAY
+	 *   append a `checksums_tlv`...
+	 */
+	bool add_timestamps = (query_option_flags & QUERY_ADD_TIMESTAMPS);
+	bool add_checksums = (query_option_flags & QUERY_ADD_CHECKSUMS);
+
+	/* Encode them all */
+	for (size_t i = 0; i < num_scids; i++)
+		encoding_add_short_channel_id(&encoded_scids, scids[i]);
+	encoding_end(encoded_scids, tal_bytelen(encoded_scids));
+
+	if (add_timestamps) {
+		for (size_t i = 0; i < num_scids; i++) {
+			struct gossmap_chan *chan = gossmap_find_chan(gossmap, &scids[i]);
+			struct channel_update_timestamps ts;
+
+			ts.timestamp_node_id_1 = chan ? get_timestamp(gossmap, chan, 0) : 0;
+			ts.timestamp_node_id_2 = chan ? get_timestamp(gossmap, chan, 1) : 0;
+			encoding_add_timestamps(&encoded_timestamps, &ts);
+		}
+
+		tlvs->timestamps_tlv = tal(tlvs, struct tlv_reply_channel_range_tlvs_timestamps_tlv);
+		tlvs->timestamps_tlv->encoding_type = ARR_UNCOMPRESSED;
+		encoding_end(encoded_timestamps,
+			     tal_bytelen(encoded_timestamps));
+		tlvs->timestamps_tlv->encoded_timestamps
+			= tal_steal(tlvs, encoded_timestamps);
+	}
+
+	if (add_checksums) {
+		tlvs->checksums_tlv = tal_arr(tlvs, struct channel_update_checksums,
+					      num_scids);
+		for (size_t i = 0; i < num_scids; i++) {
+			struct gossmap_chan *chan = gossmap_find_chan(gossmap, &scids[i]);
+
+			tlvs->checksums_tlv[i].checksum_node_id_1
+				= chan ? get_checksum(gossmap, chan, 0) : 0;
+			tlvs->checksums_tlv[i].checksum_node_id_2
+				= chan ? get_checksum(gossmap, chan, 1) : 0;
+		}
+	}
+
+	/* BOLT #7:
+	 *
+	 * - MUST set `sync_complete` to `false` if this is not the final
+	 *   `reply_channel_range`.
+	 */
+	return towire_reply_channel_range(ctx,
+					  &chainparams->genesis_blockhash,
+					  first_blocknum,
+					  number_of_blocks,
+					  final, encoded_scids, tlvs);
+}
 
 /* FIXME: This assumes that the tlv type encodes into 1 byte! */
 static size_t tlv_overhead(size_t num_entries, size_t size)
@@ -560,30 +594,19 @@ static size_t max_entries(enum query_option_flags query_option_flags)
 	return max_encoded_bytes / per_entry_size;
 }
 
-/* This gets all the scids they asked for, and optionally the timestamps and checksums */
-static struct short_channel_id *gather_range(const tal_t *ctx,
-					     struct daemon *daemon,
-					     u32 first_blocknum, u32 number_of_blocks,
-					     enum query_option_flags query_option_flags,
-					     struct channel_update_timestamps **tstamps,
-					     struct channel_update_checksums **csums)
+/* This just gathers the scids they asked for: no channel_update lookups
+ * (i.e. no timestamps or checksums), so it's cheap regardless of how large
+ * a range they asked for. */
+static struct short_channel_id *gather_range_scids(const tal_t *ctx,
+						    struct gossmap *gossmap,
+						    u32 first_blocknum,
+						    u32 number_of_blocks)
 {
-	struct short_channel_id *scids;
+	struct short_channel_id *scids = tal_arr(ctx, struct short_channel_id, 0);
 	u32 end_block;
-	struct gossmap *gossmap = get_gossmap(daemon);
-
-	scids = tal_arr(ctx, struct short_channel_id, 0);
-	if (query_option_flags & QUERY_ADD_TIMESTAMPS)
-		*tstamps = tal_arr(ctx, struct channel_update_timestamps, 0);
-	else
-		*tstamps = NULL;
-	if (query_option_flags & QUERY_ADD_CHECKSUMS)
-		*csums = tal_arr(ctx, struct channel_update_checksums, 0);
-	else
-		*csums = NULL;
 
 	if (number_of_blocks == 0)
-		return NULL;
+		return scids;
 
 	/* Fix up number_of_blocks to avoid overflow. */
 	end_block = first_blocknum + number_of_blocks - 1;
@@ -613,21 +636,6 @@ static struct short_channel_id *gather_range(const tal_t *ctx,
 		}
 
 		tal_arr_expand(&scids, scid);
-
-		if (*tstamps) {
-			struct channel_update_timestamps ts;
-
-			ts.timestamp_node_id_1 = get_timestamp(gossmap, chan, 0);
-			ts.timestamp_node_id_2 = get_timestamp(gossmap, chan, 1);
-			tal_arr_expand(tstamps, ts);
-		}
-
-		if (*csums) {
-			struct channel_update_checksums cs;
-			cs.checksum_node_id_1 = get_checksum(gossmap, chan, 0);
-			cs.checksum_node_id_2 = get_checksum(gossmap, chan, 1);
-			tal_arr_expand(csums, cs);
-		}
 	}
 
 	return scids;
@@ -637,77 +645,75 @@ static struct short_channel_id *gather_range(const tal_t *ctx,
  * size.  But because we use compression, we can't actually tell how much
  * we'll use.  We pack them into the maximum amount for uncompressed, then
  * compress afterwards.
- */
-static void queue_channel_ranges(struct peer *peer,
-				 u32 first_blocknum, u32 number_of_blocks,
-				 enum query_option_flags query_option_flags)
+ *
+ * Like maybe_create_query_responses(), we're careful to avoid the peer
+ * DoSing us with a huge query_channel_range: this sends a single chunk per
+ * call (computing timestamps/checksums only for that chunk), and is called
+ * repeatedly by the write loop until the whole reply has trickled out. */
+static const u8 *maybe_create_range_response(const tal_t *ctx,
+					     struct peer *peer,
+					     struct gossmap *gossmap)
 {
-	struct daemon *daemon = peer->daemon;
-	struct channel_update_timestamps *tstamps;
-	struct channel_update_checksums *csums;
-	struct short_channel_id *scids;
-	size_t off, limit;
+	size_t off, n, limit, num;
+	u32 this_num_blocks;
+	bool final;
 
-	scids = gather_range(tmpctx, daemon, first_blocknum, number_of_blocks,
-			     query_option_flags, &tstamps, &csums);
+	if (!peer->range_scids)
+		return NULL;
 
-	limit = max_entries(query_option_flags);
-	off = 0;
+	limit = max_entries(peer->range_query_option_flags);
+	off = peer->range_scid_off;
+	num = tal_count(peer->range_scids);
+	n = num - off;
 
-	/* We need to send an empty msg if we have nothing! */
-	do {
-		size_t n = tal_count(scids) - off;
-		u32 this_num_blocks;
+	if (n > limit) {
+		status_debug("reply_channel_range: splitting %zu-%zu of %zu",
+			     off, off + limit, num);
+		n = limit;
 
-		if (n > limit) {
-			status_debug("reply_channel_range: splitting %zu-%zu of %zu",
-				     off, off + limit, tal_count(scids));
-			n = limit;
-
-			/* ... and reduce to a block boundary. */
-			while (short_channel_id_blocknum(scids[off + n - 1])
-			       == short_channel_id_blocknum(scids[off + limit])) {
-				/* We assume one block doesn't have limit #
-				 * channels.  If it does, we have to violate
-				 * spec and send over multiple blocks. */
-				if (n == 0) {
-					status_broken("reply_channel_range: "
-						      "could not fit %zu scids for %u!",
-						      limit,
-						      short_channel_id_blocknum(scids[off + n - 1]));
-					n = limit;
-					break;
-				}
-				n--;
+		/* ... and reduce to a block boundary. */
+		while (short_channel_id_blocknum(peer->range_scids[off + n - 1])
+		       == short_channel_id_blocknum(peer->range_scids[off + limit])) {
+			/* We assume one block doesn't have limit #
+			 * channels.  If it does, we have to violate
+			 * spec and send over multiple blocks. */
+			if (n == 0) {
+				status_broken("reply_channel_range: "
+					      "could not fit %zu scids for %u!",
+					      limit,
+					      short_channel_id_blocknum(peer->range_scids[off + limit]));
+				n = limit;
+				break;
 			}
-			/* Get *next* channel, add num blocks */
-			this_num_blocks
-				= short_channel_id_blocknum(scids[off + n])
-				- first_blocknum;
-		} else
-			/* Last one must end with correct total */
-			this_num_blocks = number_of_blocks;
+			n--;
+		}
+		/* Get *next* channel, add num blocks */
+		this_num_blocks
+			= short_channel_id_blocknum(peer->range_scids[off + n])
+			- peer->range_first_blocknum;
+		final = false;
+	} else {
+		/* Last one must end with correct total */
+		this_num_blocks = peer->range_blocks_remaining;
+		final = true;
+	}
 
-		/* BOLT #7:
-		 * If the incoming message includes `query_option`, the receiver
-		 * MAY append additional information to its reply:
-		 * - if bit 0 in `query_option_flags` is set, the receiver MAY
-		 *   append a `timestamps_tlv`...
-		 * - if bit 1 in `query_option_flags` is set, the receiver MAY
-		 *   append a `checksums_tlv`...
-		 */
-		send_reply_channel_range(peer, first_blocknum, this_num_blocks,
-					 scids + off,
-					 query_option_flags & QUERY_ADD_TIMESTAMPS
-					 ? tstamps + off : NULL,
-					 query_option_flags & QUERY_ADD_CHECKSUMS
-					 ? csums + off : NULL,
-					 n,
-					 this_num_blocks == number_of_blocks);
-		first_blocknum += this_num_blocks;
-		number_of_blocks -= this_num_blocks;
-		off += n;
-	} while (number_of_blocks);
+	const u8 *msg = make_reply_channel_range(ctx, gossmap,
+						 peer->range_first_blocknum,
+						 this_num_blocks,
+						 peer->range_scids + off, n,
+						 peer->range_query_option_flags,
+						 final);
+
+	peer->range_first_blocknum += this_num_blocks;
+	peer->range_blocks_remaining -= this_num_blocks;
+	peer->range_scid_off += n;
+
+	/* We're done!  Clean up so we simply pass-through next time. */
+	if (final)
+		peer->range_scids = tal_free(peer->range_scids);
+
+	return msg;
 }
 
 /*~ The peer can ask for all channels in a series of blocks.  We reply with one
@@ -743,12 +749,30 @@ void handle_query_channel_range(struct peer *peer, const u8 *msg)
 		return;
 	}
 
+	/* We only answer one query_channel_range at a time (like
+	 * query_short_channel_ids), so we don't have to juggle multiple
+	 * in-flight trickled replies per peer. */
+	if (peer->range_scids) {
+		warning_to_peer(peer, "Bad concurrent query_channel_range");
+		return;
+	}
+
 	/* Fix up number_of_blocks to avoid overflow. */
 	if (first_blocknum + number_of_blocks < first_blocknum)
 		number_of_blocks = UINT_MAX - first_blocknum;
 
-	queue_channel_ranges(peer, first_blocknum, number_of_blocks,
-			     query_option_flags);
+	/* Gathering the scids is cheap; we work out timestamps/checksums
+	 * (and actually send the replies) lazily, as we trickle them out
+	 * via maybe_create_query_responses(). */
+	peer->range_scids = gather_range_scids(peer, get_gossmap(peer->daemon),
+					       first_blocknum, number_of_blocks);
+	peer->range_scid_off = 0;
+	peer->range_first_blocknum = first_blocknum;
+	peer->range_blocks_remaining = number_of_blocks;
+	peer->range_query_option_flags = query_option_flags;
+
+	/* Notify the write loop to invoke maybe_create_query_responses */
+	io_wake(peer->peer_outq);
 }
 
 /* This is a testing hack to allow us to artificially lower the maximum bytes

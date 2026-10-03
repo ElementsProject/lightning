@@ -580,8 +580,10 @@ static u32 calc_feerate(struct amount_sat excess_sats,
 
 	if (!amount_sat_sub(&fee, excess_sats, output_sats_required))
 		return 0;
+	/* A legal wallet amount can imply more than UINT32_MAX sat/kw on a
+	 * small tx.  That is above every representable feerate_target. */
 	if (!amount_feerate(&feerate, fee, weight))
-		abort();
+		return UINT32_MAX;
 	return feerate;
 }
 
@@ -612,16 +614,8 @@ struct utxo **wallet_utxo_boost(const tal_t *ctx,
 		struct utxo *utxo = all_utxos[i];
 
 		/* Are we already happy? */
-		if (feerate >= feerate_target) {
-			log_debug(w->log, "wallet_utxo_boost: got %zu UTXOs, excess %s (needed %s), weight %zu, feerate %u >= %u",
-				  tal_count(utxos),
-				  fmt_amount_sat(tmpctx, excess_sats),
-				  fmt_amount_sat(tmpctx, output_sats_required),
-				  *weight, feerate, feerate_target);
-			if (insufficient)
-				*insufficient = false;
-			return utxos;
-		}
+		if (feerate >= feerate_target)
+			goto target_reached;
 
 		/* Don't add reserved ones */
 		if (utxo_is_reserved(utxo, blockheight))
@@ -655,10 +649,25 @@ struct utxo **wallet_utxo_boost(const tal_t *ctx,
 		tal_arr_expand(&utxos, tal_steal(utxos, utxo));
 	}
 
+	/* Are we already happy? */
+	if (feerate >= feerate_target)
+		goto target_reached;
+
 	log_debug(w->log, "wallet_utxo_boost: fell short, returning %zu UTXOs",
 		  tal_count(utxos));
 	if (insufficient)
 		*insufficient = true;
+	return utxos;
+
+target_reached:
+	log_debug(w->log,
+		  "wallet_utxo_boost: got %zu UTXOs, excess %s (needed %s), "
+		  "weight %zu, feerate %u >= %u",
+		  tal_count(utxos), fmt_amount_sat(tmpctx, excess_sats),
+		  fmt_amount_sat(tmpctx, output_sats_required), *weight,
+		  feerate, feerate_target);
+	if (insufficient)
+		*insufficient = false;
 	return utxos;
 }
 
@@ -1581,9 +1590,8 @@ void wallet_inflight_save(struct wallet *w,
 			  struct channel_inflight *inflight)
 {
 	struct db_stmt *stmt;
-	/* The *only* thing you can update on an
-	 * inflight is the funding PSBT (to add sigs)
-	 * and the last_tx/last_sig or locked_scid if this is for a splice */
+	/* Update inflight PSBT (to add sigs), last_tx/last_sig,
+	 * locked_scid, and i_sent_sigs. */
 	stmt = db_prepare_v2(w->db,
 			     SQL("UPDATE channel_funding_inflights SET"
 				 "  funding_psbt=?"
@@ -2635,7 +2643,7 @@ void wallet_htlcsigs_confirm_inflight(struct wallet *w, struct channel *chan,
 					" AND (inflight_tx_id is NULL"
 					     " OR ("
 						 " inflight_tx_id!=?"
-						 " AND "
+						 " OR "
 						 " inflight_tx_outnum!=?"
 						 ")"
 					     ")"));
@@ -3766,6 +3774,24 @@ bool wallet_htlcs_load_in_for_channel(struct wallet *wallet,
 	log_debug(chan->log,
 		  "Loading in HTLCs for channel %"PRIu64" (state=%s)",
 		  chan->dbid, channel_state_name(chan));
+
+	/* Resolved HTLCs aren't loaded, but they're still in the db, so
+	 * that's where we find the next id they may offer. */
+	stmt = db_prepare_v2(wallet->db, SQL("SELECT channel_htlc_id"
+					     " FROM channel_htlcs"
+					     " WHERE channel_id = ?"
+					     " AND direction = ?"
+					     " ORDER BY channel_htlc_id DESC"
+					     " LIMIT 1"));
+	db_bind_u64(stmt, chan->dbid);
+	db_bind_int(stmt, DIRECTION_INCOMING);
+	db_query_prepared(stmt);
+	if (db_step(stmt))
+		chan->next_their_htlc_id = db_col_u64(stmt, "channel_htlc_id") + 1;
+	else
+		chan->next_their_htlc_id = 0;
+	tal_free(stmt);
+
 	stmt = db_prepare_v2(wallet->db, SQL("SELECT"
 					     "  id"
 					     ", channel_htlc_id"
@@ -3874,7 +3900,7 @@ struct htlc_stub *wallet_htlc_stubs(const tal_t *ctx, struct wallet *wallet,
 
 	stmt = db_prepare_v2(wallet->db,
 			     SQL("SELECT channel_id, direction, cltv_expiry, "
-				 "channel_htlc_id, payment_hash "
+				 "channel_htlc_id, payment_hash, msatoshi "
 				 "FROM channel_htlcs WHERE channel_id = ? AND min_commit_num <= ? AND ((max_commit_num IS NULL) OR max_commit_num >= ?);"));
 
 	db_bind_u64(stmt, chan->dbid);
@@ -3893,6 +3919,7 @@ struct htlc_stub *wallet_htlc_stubs(const tal_t *ctx, struct wallet *wallet,
 		stub.owner = db_col_int(stmt, "direction")==DIRECTION_INCOMING?REMOTE:LOCAL;
 		stub.cltv_expiry = db_col_int(stmt, "cltv_expiry");
 		stub.id = db_col_u64(stmt, "channel_htlc_id");
+		stub.amount = db_col_amount_msat(stmt, "msatoshi");
 
 		db_col_sha256(stmt, "payment_hash", &payment_hash);
 		ripemd160(&stub.ripemd, payment_hash.u.u8, sizeof(payment_hash.u));

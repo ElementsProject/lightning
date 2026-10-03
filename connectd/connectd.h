@@ -7,6 +7,7 @@
 #include <ccan/timer/timer.h>
 #include <common/bigsize.h>
 #include <common/crypto_state.h>
+#include <common/gossip_constants.h>
 #include <common/node_id.h>
 #include <common/wireaddr.h>
 #include <connectd/handshake.h>
@@ -27,10 +28,17 @@ struct gossip_state {
 	struct gossip_rcvd_filter *grf;
 	/* Offset within the gossip_store file */
 	struct gossmap_iter *iter;
-	/* Bytes sent in the last second. */
+
+	/* This peer's per-second budget. */
+	struct timemono window_start;
+	/* Bytes received from peer in the last second. */
+	size_t bytes_rcvd_this_second;
+	/* Bytes sent to peer in the last second. */
 	size_t bytes_this_second;
-	/* When that second starts */
-	struct timemono bytes_start_time;
+	/* CPU time spent on their behalf in the last second. */
+	u64 cpu_usec_this_second;
+	/* Only log throttling once */
+	bool throttle_warned;
 };
 
 /*~ We need to know if we were expecting a pong, and why */
@@ -85,11 +93,7 @@ struct peer {
 	/* Input buffer. */
 	u8 *peer_in;
 
-	/* Bytes received in the last second. */
-	size_t bytes_rcvd_this_second;
-	/* When that second starts */
-	struct timemono bytes_rcvd_start_time;
-	/* Timer when we're throttling input */
+	/* Timer when we're throttling input (budgets are in peer->gs) */
 	struct oneshot *recv_timer;
 	/* Only send message once if peer gets throttled */
 	bool throttle_warned;
@@ -141,6 +145,15 @@ struct peer {
 	/* Are there outstanding node_announcements from scid_queries? */
 	struct node_id *scid_query_nodes;
 	size_t scid_query_nodes_idx;
+
+	/* Non-NULL (even if empty) iff we're trickling out a reply to a
+	 * query_channel_range. */
+	const struct short_channel_id *range_scids;
+	size_t range_scid_off;
+	/* first_blocknum/number_of_blocks of the *remaining* reply. */
+	u32 range_first_blocknum;
+	u32 range_blocks_remaining;
+	enum query_option_flags range_query_option_flags;
 };
 
 /* We gain one token per msec, and each msg uses 250 tokens. */
@@ -325,6 +338,9 @@ struct daemon {
 
 	/* How much incomign traffic do we allow per peer every second (bytes) */
 	size_t incoming_stream_limit;
+
+	/* Total CPU time to spend across all peers for gossip_queries etc */
+	u64 cpu_budget_usec_limit;
 
 	/* We support use of a SOCKS5 proxy (e.g. Tor) */
 	struct addrinfo *proxyaddr;

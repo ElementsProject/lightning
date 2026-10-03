@@ -26,6 +26,124 @@ use crate::{
 /// Maximum size (in bytes) of an accepted request body.
 /// Oversized bodies are rejected with 413.
 pub const MAX_BODY_SIZE: usize = 2 * 1024 * 1024; // 2 MiB
+/// We refuse to convert XML nested deeper than this.  roxmltree's tokenizer is
+/// recursive-descent (`parse_element` -> `parse_content`), so `Document::parse`
+/// itself recurses once per element nesting level and overflows the thread
+/// stack on deep input before we ever get a DOM to inspect.  The depth must
+/// therefore be bounded on the raw bytes, before parsing.  This mirrors the
+/// JSON depth bound in common/json_parse_simple.c; real RPC params nest only a
+/// handful of levels, far below this.
+const MAX_XML_NESTING: usize = 256;
+
+/// Find the first occurrence of `needle` in `haystack`, or None.
+fn find_bytes(haystack: &[u8], needle: &[u8]) -> Option<usize> {
+    haystack.windows(needle.len()).position(|w| w == needle)
+}
+
+/// Iteratively bound the element nesting depth of `s` without building a DOM
+/// or recursing, so it cannot itself overflow.  Runs *before* roxmltree's
+/// recursive parse; only needs to be exact on well-formed XML (malformed input
+/// is rejected downstream) and a miscount can only over-reject, never
+/// under-protect.
+fn xml_nesting_ok(s: &str) -> bool {
+    let b = s.as_bytes();
+    let mut depth = 0usize;
+    let mut i = 0usize;
+    while i < b.len() {
+        if b[i] != b'<' {
+            i += 1;
+            continue;
+        }
+        // Comments: <!-- ... -->.
+        if b[i..].starts_with(b"<!--") {
+            match find_bytes(&b[i + 4..], b"-->") {
+                Some(off) => i += 4 + off + 3,
+                None => return true, // malformed; parse rejects it
+            }
+            continue;
+        }
+        // CDATA: <![CDATA[ ... ]]>.
+        if b[i..].starts_with(b"<![CDATA[") {
+            match find_bytes(&b[i + 9..], b"]]>") {
+                Some(off) => i += 9 + off + 3,
+                None => return true,
+            }
+            continue;
+        }
+        // Processing instructions and declarations: <? ... ?>.
+        if b[i..].starts_with(b"<?") {
+            match find_bytes(&b[i + 2..], b"?>") {
+                Some(off) => i += 2 + off + 2,
+                None => return true,
+            }
+            continue;
+        }
+        // DOCTYPE: <!DOCTYPE ...> (may contain a bracketed internal subset).
+        if b[i..].starts_with(b"<!") {
+            let mut j = i + 2;
+            let mut subset = 0usize;
+            while j < b.len() {
+                match b[j] {
+                    b'[' => subset += 1,
+                    b']' if subset > 0 => subset -= 1,
+                    b'>' if subset == 0 => {
+                        i = j + 1;
+                        break;
+                    }
+                    _ => (),
+                }
+                j += 1;
+            }
+            if j >= b.len() {
+                return true;
+            }
+            continue;
+        }
+        // Closing tag: </name>.
+        if b[i..].starts_with(b"</") {
+            match find_bytes(&b[i + 2..], b">") {
+                Some(off) => {
+                    if depth == 0 {
+                        return true; // malformed; parse rejects it
+                    }
+                    depth -= 1;
+                    i += 2 + off + 1;
+                }
+                None => return true,
+            }
+            continue;
+        }
+        // Opening tag <name ...> or self-closing <name .../>.  Scan to the end
+        // of the tag, honouring quoted attribute values.
+        let mut j = i + 1;
+        let mut in_quote: Option<u8> = None;
+        while j < b.len() {
+            let c = b[j];
+            if let Some(q) = in_quote {
+                if c == q {
+                    in_quote = None;
+                }
+            } else if c == b'"' || c == b'\'' {
+                in_quote = Some(c);
+            } else if c == b'>' {
+                break;
+            }
+            j += 1;
+        }
+        if j >= b.len() {
+            return true;
+        }
+        // Self-closing tags don't increase the nesting depth.
+        if b[j - 1] != b'/' {
+            depth += 1;
+            if depth > MAX_XML_NESTING {
+                return false;
+            }
+        }
+        i = j + 1;
+    }
+    true
+}
 
 /* Handler for list-methods */
 #[utoipa::path(
@@ -239,7 +357,7 @@ fn request_body_to_rpc_params(
     }
 
     let body_rpc_params: serde_json::Map<String, serde_json::Value> = match format {
-        "yaml" => serde_yaml_ng::from_slice(&request_bytes).map_err(|e| {
+        "yaml" => crate::yaml::from_slice(&request_bytes).map_err(|e| {
             AppError::InternalServerError(RpcError {
                 code: None,
                 data: None,
@@ -262,6 +380,16 @@ fn request_body_to_rpc_params(
                     ),
                 })
             })?;
+            // Bound element nesting on the raw bytes *before* parsing: roxmltree's
+            // tokenizer recurses per nesting level, so parsing deep input
+            // overflows the stack before we get a DOM to inspect.
+            if !xml_nesting_ok(req_str) {
+                return Err(AppError::BadRequest(RpcError {
+                    code: None,
+                    data: None,
+                    message: format!("XML request is nested deeper than {MAX_XML_NESTING} levels"),
+                }));
+            }
             let json_with_root = roxmltree_to_serde::xml_str_to_json(
                 req_str,
                 &roxmltree_to_serde::Config::new_with_defaults(),

@@ -288,6 +288,69 @@ def test_splice_rbf(node_factory, bitcoind):
     assert l1.db_query("SELECT count(*) as c FROM channeltxs;")[0]['c'] == 0
 
 
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_splice_rbf_htlc_sigs(node_factory, bitcoind, executor):
+    """Once a splice-RBF candidate confirms, only its HTLC signatures become
+    the active set, even when the other candidates place the funding output
+    at the same index."""
+    l1, l2 = node_factory.line_graph(2, fundamount=1000000)
+    chan_id = l1.get_channel_id(l2)
+
+    def htlc_sig_rows(node):
+        return node.db_query("SELECT inflight_tx_id, inflight_tx_outnum"
+                             " FROM htlc_sigs;")
+
+    def fee_bump_splice(fee):
+        # No inputs and no extra outputs: the new funding output is the only
+        # output, so every candidate puts it at index 0.
+        result = l1.rpc.splice_init(chan_id, -fee)
+        result = l1.rpc.splice_update(chan_id, result['psbt'])
+        assert result['commitments_secured'] is False
+        result = l1.rpc.splice_update(chan_id, result['psbt'])
+        assert result['commitments_secured'] is True
+        return l1.rpc.splice_signed(chan_id, result['psbt'])
+
+    first = fee_bump_splice(5801)
+    l1.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
+    l2.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
+    wait_for(lambda: bitcoind.rpc.getrawmempool() == [first['txid']])
+
+    second = fee_bump_splice(11722)
+    l1.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_AWAITING_SPLICE')
+    l2.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_AWAITING_SPLICE')
+    wait_for(lambda: bitcoind.rpc.getrawmempool() == [second['txid']])
+
+    # The losing candidate differs from the winner only by txid.
+    assert first['txid'] != second['txid']
+    assert first['outnum'] == second['outnum'] == 0
+
+    # Leave one HTLC stuck on the channel. The commitment that adds it
+    # carries an HTLC signature for the active funding and for each
+    # candidate, which is what gets stored in htlc_sigs.
+    l2.rpc.dev_ignore_htlcs(id=l1.info['id'], ignore=True)
+    inv = l2.rpc.invoice(10000000, '1', 'no_1')
+    executor.submit(l1.rpc.xpay, inv['bolt11'])
+    l2.daemon.wait_for_log('their htlc 0 dev_ignore_htlcs')
+
+    # One active row plus one per candidate, on both sides.
+    for node in (l1, l2):
+        wait_for(lambda: len(htlc_sig_rows(node)) == 3)
+        rows = htlc_sig_rows(node)
+        assert len([r for r in rows if r['inflight_tx_id'] is None]) == 1
+        assert [r['inflight_tx_outnum'] for r in rows
+                if r['inflight_tx_id'] is not None] == [0, 0]
+
+    bitcoind.generate_block(6, wait_for_mempool=1)
+    l1.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
+    l2.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
+
+    # Only the confirmed candidate's signature survives, now active.
+    for node in (l1, l2):
+        rows = htlc_sig_rows(node)
+        assert len(rows) == 1, rows
+        assert rows[0]['inflight_tx_id'] is None
+
+
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
@@ -771,3 +834,160 @@ def test_splice_abort_after_sigs_sent(node_factory, bitcoind):
 
     assert l2.db_query("SELECT count(*) as c FROM channel_funding_inflights;")[0]['c'] == 1, \
         "inflight dropped by tx_abort after we had already sent our signature"
+
+
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+@pytest.mark.parametrize("closer", ["initiator", "accepter"])
+def test_splice_locked_then_force_close(node_factory, bitcoind, closer):
+    """A force close after a locked splice must drop our current commitment.
+
+    Once the splice locked, the channel's last_tx moved on with every
+    commitment update, but the inflight kept the commitment from the moment
+    of the lock.  A unilateral close broadcast that stale inflight commitment
+    instead of channel->last_tx, and after any post-lock update it has been
+    revoked: our peer would sweep it with a penalty, and our own onchaind,
+    not recognising it, took it for a revoked commitment of theirs.
+    """
+    l1, l2 = node_factory.line_graph(2, fundamount=1000000,
+                                     wait_for_announce=True,
+                                     opts={'allow_warning': True})
+    victim, peer = (l1, l2) if closer == "initiator" else (l2, l1)
+
+    chan_id = l1.get_channel_id(l2)
+
+    funds_result = l1.rpc.fundpsbt("111722sat", 0, 0, excess_as_change=True)
+    result = l1.rpc.splice_init(chan_id, 100000, funds_result['psbt'])
+    result = l1.rpc.splice_update(chan_id, result['psbt'])
+    assert result['commitments_secured'] is False
+    result = l1.rpc.splice_update(chan_id, result['psbt'])
+    assert result['commitments_secured'] is True
+    result = l1.rpc.signpsbt(result['psbt'])
+    result = l1.rpc.splice_signed(chan_id, result['signed_psbt'])
+
+    l2.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
+    l1.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
+
+    bitcoind.generate_block(6, wait_for_mempool=result['txid'])
+
+    l2.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
+    l1.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
+    lock_time = bitcoind.rpc.decoderawtransaction(
+        victim.rpc.dev_sign_last_tx(peer.info['id'])['tx'])['txid']
+
+    # Any commitment update after the lock revokes the lock-time commitment.
+    inv = l2.rpc.invoice(10**7, 'post-lock', 'post-lock')
+    l1.rpc.xpay(inv['bolt11'])
+    for n in (l1, l2):
+        wait_for(lambda: only_one(n.rpc.listpeerchannels()['channels'])['htlcs'] == [])
+
+    current = bitcoind.rpc.decoderawtransaction(
+        victim.rpc.dev_sign_last_tx(peer.info['id'])['tx'])['txid']
+
+    # Keep the peer from dropping its own commitment on our error, so ours is
+    # the only one that can confirm.
+    victim.rpc.disconnect(peer.info['id'], force=True)
+    victim.rpc.dev_fail(peer.info['id'])
+    victim.daemon.wait_for_log('Peer permanent failure in CHANNELD_NORMAL')
+    broadcast = victim.daemon.wait_for_log(r'Broadcasting txid [0-9a-f]{64}')
+    assert current != lock_time
+    assert lock_time not in broadcast, "broadcast the revoked lock-time commitment"
+    assert current in broadcast
+
+    bitcoind.generate_block(1, wait_for_mempool=current)
+
+    victim.daemon.wait_for_log(r'Resolved FUNDING_TRANSACTION/FUNDING_OUTPUT by OUR_UNILATERAL')
+    peer.daemon.wait_for_log(r'Resolved FUNDING_TRANSACTION/FUNDING_OUTPUT by THEIR_UNILATERAL')
+    assert not victim.daemon.is_in_log('THEIR_REVOKED_UNILATERAL')
+    assert not peer.daemon.is_in_log('THEIR_REVOKED_UNILATERAL')
+    assert not peer.daemon.is_in_log('OUR_PENALTY_TX')
+
+
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_splice_unconfirmed_force_close_publishes_current(node_factory, bitcoind):
+    """A force close with an unconfirmed splice must publish the live commitment too.
+
+    Until the splice confirms, the channel's own commitment (spending the
+    original funding) is the only one that can go on chain; the inflight's
+    commitment spends the splice output.  drop_to_chain used to publish the
+    inflight's alone whenever an inflight existed, leaving the live channel
+    unclosed if the splice never confirmed.
+    """
+    l1, l2 = node_factory.line_graph(2, fundamount=1000000,
+                                     wait_for_announce=True,
+                                     opts={'may_reconnect': True,
+                                           'allow_warning': True})
+
+    chan_id = l1.get_channel_id(l2)
+    funding_txid = only_one(l1.rpc.listpeerchannels()['channels'])['funding_txid']
+
+    funds_result = l1.rpc.fundpsbt("109000sat", 0, 0, excess_as_change=True)
+    result = l1.rpc.splice_init(chan_id, 100000, funds_result['psbt'])
+    result = l1.rpc.splice_update(chan_id, result['psbt'])
+    assert result['commitments_secured'] is False
+    result = l1.rpc.splice_update(chan_id, result['psbt'])
+    assert result['commitments_secured'] is True
+    result = l1.rpc.signpsbt(result['psbt'])
+    result = l1.rpc.splice_signed(chan_id, result['signed_psbt'])
+    splice_txid = result['txid']
+    l1.daemon.wait_for_log(' to CHANNELD_AWAITING_SPLICE')
+    wait_for(lambda: splice_txid in bitcoind.rpc.getrawmempool())
+
+    # The live commitment spends the original funding; the inflight's spends
+    # the (unconfirmed) splice output.
+    current = bitcoind.rpc.decoderawtransaction(
+        l1.rpc.dev_sign_last_tx(l2.info['id'])['tx'])
+    assert only_one(current['vin'])['txid'] == funding_txid
+    inflight = only_one(only_one(l1.rpc.listpeerchannels()['channels'])['inflight'])
+    assert inflight['funding_txid'] == splice_txid
+
+    l1.rpc.dev_fail(l2.info['id'])
+    l1.daemon.wait_for_log('Peer permanent failure in CHANNELD_AWAITING_SPLICE')
+
+    # Both commitments are published, not just the inflight's.
+    l1.daemon.wait_for_logs([r'Broadcasting txid {}'.format(current['txid']),
+                             r'Broadcasting txid {}'.format(inflight['scratch_txid'])])
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_splice_candidate_spent_before_lock(node_factory, bitcoind):
+    """A confirmed splice output spent before splice_locked must be adopted.
+
+    splice_locked needs both sides; a peer that never sends it and closes
+    on the confirmed splice output must still send us to onchaind on that
+    output, not on the funding the splice already spent.
+    """
+    l1, l2 = node_factory.line_graph(2, fundamount=1000000,
+                                     opts={'may_reconnect': True})
+    chan_id = l1.get_channel_id(l2)
+
+    # Fee-bump splice: no inputs, no payout, so the funding is output 0.
+    result = l1.rpc.splice_init(chan_id, -5801)
+    result = l1.rpc.splice_update(chan_id, result['psbt'])
+    assert result['commitments_secured'] is False
+    result = l1.rpc.splice_update(chan_id, result['psbt'])
+    assert result['commitments_secured'] is True
+    result = l1.rpc.splice_signed(chan_id, result['psbt'])
+    splice_txid = result['txid']
+    l1.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
+    l2.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
+    wait_for(lambda: bitcoind.rpc.getrawmempool() == [splice_txid])
+
+    # l1 is away while the splice confirms, so it never gets splice_locked.
+    l1.stop()
+    bitcoind.generate_block(1, wait_for_mempool=splice_txid)
+
+    # l2 closes on the confirmed splice output.
+    l2.rpc.close(l1.info['id'], unilateraltimeout=1)
+    l2.daemon.wait_for_log(r'to AWAITING_UNILATERAL')
+    bitcoind.generate_block(1, wait_for_mempool=1)
+
+    # l1 must go to onchaind on the splice output, not on the old funding.
+    l1.start()
+    l1.daemon.wait_for_log('Resolved FUNDING_TRANSACTION/FUNDING_OUTPUT by THEIR_UNILATERAL')
+    chan = only_one(l1.rpc.listpeerchannels()['channels'])
+    assert chan['state'] == 'ONCHAIN'
+    assert chan['funding_txid'] == splice_txid

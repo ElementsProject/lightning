@@ -103,6 +103,9 @@ struct tx_state {
 	/* Have we gotten the peer's tx-sigs yet? */
 	bool remote_funding_sigs_rcvd;
 
+	/* Have we sent our tx_signatures to the peer? */
+	bool local_funding_sigs_sent;
+
 	/* Have we gotten the peer's commitments yet? */
 	bool has_commitments;
 
@@ -133,6 +136,7 @@ static struct tx_state *new_tx_state(const tal_t *ctx)
 	struct tx_state *tx_state = tal(ctx, struct tx_state);
 	tx_state->psbt = NULL;
 	tx_state->remote_funding_sigs_rcvd = false;
+	tx_state->local_funding_sigs_sent = false;
 	tx_state->has_commitments = false;
 
 	tx_state->lease_expiry = 0;
@@ -601,6 +605,20 @@ static void handle_failure_fatal(struct state *state, u8 *msg)
 
 	if (!fromwire_dualopend_fail(msg, msg, &err))
 		master_badmsg(fromwire_peektype(msg), msg);
+
+	/* BOLT #2:
+	 *
+	 * A sending node:
+	 *   - MUST NOT have already transmitted `tx_signatures`
+	 *   - SHOULD forget the current negotiation and reset their state.
+	 */
+	/* We can still cleanly abort (tx_abort) if we haven't
+	 * transmitted our tx_signatures; we'll finish up when the
+	 * peer echoes the abort back */
+	if (!state->tx_state->local_funding_sigs_sent) {
+		open_abort(state, "%s", err);
+		return;
+	}
 
 	/* We're gonna fail here */
 	open_err_fatal(state, "%s", err);
@@ -1480,6 +1498,7 @@ static void handle_send_tx_sigs(struct state *state, const u8 *msg)
 	/*  Send our sigs to peer */
 	msg = psbt_to_tx_sigs_msg(tmpctx, state, tx_state->psbt);
 	peer_write(state->pps, take(msg));
+	tx_state->local_funding_sigs_sent = true;
 
 	/* Notify lightningd that we've sent sigs */
 	wire_sync_write(REQ_FD, take(towire_dualopend_tx_sigs_sent(NULL)));
@@ -1585,11 +1604,30 @@ static void handle_tx_abort(struct state *state, u8 *msg)
 	 * process without worrying about stale messages.
 	 */
 	if (!state->aborted_err) {
-		/* If they sent this after tx-sigs, it's a
-		 * protocol error */
+		/* If they sent this after their tx-sigs, it's a
+		 * protocol error (they MUST NOT send tx_abort after
+		 * transmitting tx_signatures). */
 		if (state->tx_state->remote_funding_sigs_rcvd)
 			open_err_fatal(state, "tx-abort rcvd after"
 				       " tx-sigs");
+
+		/* BOLT #2:
+		 *
+		 * A receiving node:
+		 *   - if they have already sent `tx_signatures` to the peer:
+		 *     - MUST NOT forget the channel until any inputs to the
+		 *       negotiated tx have been spent.
+		 *   - if they have not sent `tx_signatures`:
+		 *     - SHOULD forget the current negotiation and reset their
+		 *       state.
+		 */
+		/* We echo the abort either way; if we already sent our
+		 * signatures the peer may still broadcast, so lightningd
+		 * must remember the channel (it checks our sigs-sent flag
+		 * before deleting anything). */
+		if (state->tx_state->local_funding_sigs_sent)
+			status_unusual("tx-abort rcvd after we sent tx-sigs;"
+				       " remembering channel");
 
 		open_abort(state, "%s", "Rcvd tx-abort");
 		desc = tal_fmt(tmpctx, "They sent %s",
@@ -4127,6 +4165,7 @@ static void do_reconnect_dance(struct state *state)
 			if (send_our_sigs && psbt_side_finalized(tx_state->psbt, state->our_role)) {
 				msg = psbt_to_tx_sigs_msg(NULL, state, tx_state->psbt);
 				peer_write(state->pps, take(msg));
+				tx_state->local_funding_sigs_sent = true;
 
 				/* Notify lightningd that we've (re)sent sigs */
 				wire_sync_write(REQ_FD, take(towire_dualopend_tx_sigs_sent(NULL)));
@@ -4499,7 +4538,8 @@ int main(int argc, char *argv[])
 					     &state->channel_type,
 					     &state->require_confirmed_inputs[LOCAL],
 					     &state->require_confirmed_inputs[REMOTE],
-					     &state->local_alias)) {
+					     &state->local_alias,
+					     &state->tx_state->local_funding_sigs_sent)) {
 
 		bool ok;
 

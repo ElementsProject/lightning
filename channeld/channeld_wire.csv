@@ -52,6 +52,7 @@ msgdata,channeld_init,next_index_local,u64,
 msgdata,channeld_init,next_index_remote,u64,
 msgdata,channeld_init,revocations_received,u64,
 msgdata,channeld_init,next_htlc_id,u64,
+msgdata,channeld_init,next_their_htlc_id,u64,
 msgdata,channeld_init,num_existing_htlcs,u16,
 msgdata,channeld_init,htlcs,existing_htlc,num_existing_htlcs
 msgdata,channeld_init,local_channel_ready,bool,

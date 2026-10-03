@@ -90,7 +90,8 @@ static void merge_deadlines(struct channel *channel, struct anchor_details *adet
 	for (size_t i = 1; i < tal_count(adet->vals); i++) {
 		assert(adet->vals[i].important);
 		if (adet->vals[i].block != adet->vals[dst].block) {
-			dst = i;
+			dst++;
+			adet->vals[dst] = adet->vals[i];
 			continue;
 		}
 		if (!amount_msat_accumulate(&adet->vals[dst].msat,
@@ -324,7 +325,7 @@ static struct wally_psbt *try_anchor_psbt(const tal_t *ctx,
 	if (!amount_sat_add(&fee, *fee_spent, anch->info.commitment_fee))
 		abort();
 	if (!amount_feerate(feerate, fee, *total_weight))
-		abort();
+		*feerate = UINT32_MAX;
 
 	return psbt;
 }

@@ -44,6 +44,8 @@ msgdata,closingd_received_signature,tx,bitcoin_tx,
 
 msgtype,closingd_received_signature_reply,2102
 msgdata,closingd_received_signature_reply,closing_txid,bitcoin_txid,
+# Whether we may agree to this offer at all.
+msgdata,closingd_received_signature_reply,acceptable,bool,
 
 # Negotiations complete, we're exiting.
 msgtype,closingd_complete,2004

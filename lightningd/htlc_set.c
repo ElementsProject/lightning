@@ -248,8 +248,12 @@ void htlc_set_add_(struct lightningd *ld,
 	 *   - SHOULD fulfill all HTLCs in the HTLC set
 	 */
 	if (amount_msat_greater_eq(set->so_far, total_msat)) {
+		/* Already complete, and waiting on invoice_hook?  This
+		 * part simply joins the set, and is resolved with it. */
+		if (!set->timeout)
+			return;
 		/* Disable timer now, in case invoice_hook is slow! */
-		tal_free(set->timeout);
+		set->timeout = tal_free(set->timeout);
 		invoice_try_pay(ld, set, details, set->so_far, NULL);
 		return;
 	}

@@ -1007,23 +1007,72 @@ static enum watch_result opening_depth_cb(struct lightningd *ld,
 					  unsigned int depth,
 					  struct channel_inflight *inflight)
 {
+	struct channel *channel = inflight->channel;
+
 	/* Usually, we're here because we're awaiting a lockin, but
 	 * we could also mutual shutdown */
-	if (inflight->channel->state != DUALOPEND_AWAITING_LOCKIN)
+	if (channel->state != DUALOPEND_AWAITING_LOCKIN)
 		return DELETE_WATCH;
 
-	if (depth >= inflight->channel->minimum_depth)
-		update_channel_from_inflight(ld, inflight->channel, inflight,
-					     false);
+	/*~ Now we commit the channel to *this* candidate.  Both halves have to
+	 * move together: the scid says "we're confirmed", channel->funding says
+	 * "and this is the tx we confirmed".  We used to set the scid the
+	 * instant we saw the tx in a block (inline, while the block was being
+	 * processed) but only get here -- and so only update channel->funding --
+	 * once we'd caught up on every queued block.  A reconnect landing in
+	 * between saw a mixed state and happily locked in whatever RBF candidate
+	 * was last negotiated, which may never have been mined at all. */
+	if (depth >= channel->minimum_depth) {
+		struct amount_msat our_msat;
 
-	dualopend_tell_depth(inflight->channel, &inflight->funding->outpoint.txid, depth);
+		assert(inflight->scid);
+		update_channel_from_inflight(ld, channel, inflight, false);
+
+		/*~ Balances only ever move with the *latest* RBF attempt:
+		 * wallet_update_channel() writes our_msat/msat_to_us_min/
+		 * msat_to_us_max whenever a new attempt is negotiated.  If a
+		 * non-last candidate is the one that got mined, they'd name a
+		 * different contribution than the funding we just promoted to,
+		 * and peer_start_channeld() would hand channeld a balance the
+		 * peer doesn't agree with.  Recompute them from the promoted
+		 * inflight's contribution; a fresh channel has no payment
+		 * history, so min == max == our_msat. */
+		if (!amount_sat_to_msat(&our_msat, channel->our_funds)) {
+			channel_internal_error(channel,
+					       "Unable to convert funds");
+			return DELETE_WATCH;
+		}
+		channel->our_msat = our_msat;
+		channel->msat_to_us_min = our_msat;
+		channel->msat_to_us_max = our_msat;
+
+		channel_apply_scid(channel, &inflight->funding->outpoint,
+				   *inflight->scid);
+	}
+
+	dualopend_tell_depth(channel, &inflight->funding->outpoint.txid, depth);
 	return KEEP_WATCHING;
 }
 
 static enum watch_result opening_reorged_cb(struct lightningd *ld, struct channel_inflight *inflight)
 {
+	struct channel *channel = inflight->channel;
+
 	/* Reorged out?  OK, we're not committed yet. */
-	log_info(inflight->channel->log, "Candidate funding tx was in a block, now reorged out");
+	log_info(channel->log, "Candidate funding tx was in a block, now reorged out");
+	inflight->scid = tal_free(inflight->scid);
+
+	/*~ If this candidate had been promoted (ie. it was deep enough),
+	 * un-promote it: the scid is what makes reestablish claim
+	 * local_channel_ready.  Leave channel->funding alone, it names the
+	 * only candidate we ever saw mined.  channel_set_scid doesn't
+	 * persist, so save explicitly. */
+	if (channel->scid
+	    && bitcoin_outpoint_eq(&channel->funding,
+				   &inflight->funding->outpoint)) {
+		channel_set_scid(channel, NULL);
+		wallet_channel_save(ld->wallet, channel);
+	}
 	return DELETE_WATCH;
 }
 
@@ -1033,19 +1082,27 @@ static void dual_funding_found(struct lightningd *ld,
 			       const struct txlocator *loc,
 			       struct channel_inflight *inflight)
 {
-	/* Kill it if the channel funding isn't a valid scid */
-	if (!depthcb_update_scid(inflight->channel,
-				 &inflight->funding->outpoint,
-				 loc))
+	/*~ Record where *this* candidate landed, but deliberately don't touch
+	 * channel->scid yet: while we're catching up on blocks this runs inline
+	 * per-block, whereas the blockdepth callbacks below don't run until
+	 * we've run out of blocks to fetch.  Publishing a scid on the channel
+	 * here would advertise "funding confirmed" while channel->funding still
+	 * named a different (possibly never-mined) RBF candidate.  We may be
+	 * called again for the same inflight after a reorg, so don't assert it's
+	 * unset. */
+	tal_free(inflight->scid);
+	inflight->scid = tal(inflight, struct short_channel_id);
+	if (!mk_short_channel_id(inflight->scid,
+				 loc->blkheight, loc->index,
+				 inflight->funding->outpoint.n)) {
+		inflight->scid = tal_free(inflight->scid);
+		channel_fail_permanent(inflight->channel,
+				       REASON_LOCAL,
+				       "Invalid funding scid %u:%u:%u",
+				       loc->blkheight, loc->index,
+				       inflight->funding->outpoint.n);
 		return;
-
-	/* This inflight is the one the chain chose: record it now, so
-	 * anyone consulting the channel before we finish catching up
-	 * with the chain (e.g. a reconnecting peer) sees the mined
-	 * funding tx, not the latest RBF attempt. */
-	if (inflight->channel->state == DUALOPEND_AWAITING_LOCKIN)
-		update_channel_from_inflight(ld, inflight->channel,
-					     inflight, false);
+	}
 
 	/* Otherwise, watch for block depth increases (we'll immediately expect one) */
 	watch_blockdepth(inflight, ld->topology, loc->blkheight,
@@ -1299,6 +1356,72 @@ wallet_update_channel(struct lightningd *ld,
 				false,
 				false);
 	wallet_inflight_add(ld->wallet, inflight);
+	/* Watch the candidate's output from the moment the peer could
+	 * broadcast it: it can confirm and close on it before lock-in. */
+	channel_watch_inflight_outs(ld, inflight->channel);
+
+	return inflight;
+}
+
+/*~ An RBF attempt negotiated after opening_depth_cb() has already promoted
+ * a mined candidate.  The entry guards (rbf_got_offer, openchannel_bump)
+ * refuse new attempts once channel->scid is set, but one that was already
+ * in flight when the block arrived still completes: dualopend only reads
+ * the peer fd until commitment_signed is exchanged, and the peer decides
+ * when that is.  Record it on its own inflight only.  channel->funding,
+ * our_msat and last_tx stay with the promoted candidate; if this attempt
+ * is ever the one that gets mined (after a reorg), opening_depth_cb()
+ * promotes it from the inflight like any other. */
+static struct channel_inflight *
+wallet_add_inflight_attempt(struct lightningd *ld,
+			    struct channel *channel,
+			    const struct bitcoin_outpoint *funding,
+			    struct amount_sat total_funding,
+			    struct amount_sat our_funding,
+			    u32 funding_feerate,
+			    struct wally_psbt *psbt STEALS,
+			    const u32 lease_expiry,
+			    struct amount_sat lease_fee,
+			    const secp256k1_ecdsa_signature *lease_commit_sig,
+			    const u32 lease_chan_max_msat,
+			    const u16 lease_chan_max_ppt,
+			    const u32 lease_blockheight_start,
+			    struct amount_sat lease_amt)
+{
+	struct amount_msat lease_fee_msat;
+	struct channel_inflight *inflight;
+
+	if (!amount_sat_to_msat(&lease_fee_msat, lease_fee)) {
+		log_broken(channel->log, "Unable to convert 'lease_fee'");
+		return NULL;
+	}
+
+	assert(channel->scid);
+	log_info(channel->log,
+		 "RBF attempt %s completed after funding %s was promoted:"
+		 " recording it as an inflight only",
+		 fmt_bitcoin_txid(tmpctx, &funding->txid),
+		 fmt_bitcoin_txid(tmpctx, &channel->funding.txid));
+
+	inflight = new_inflight(channel,
+				NULL,
+				funding,
+				funding_feerate,
+				total_funding,
+				our_funding,
+				psbt,
+				lease_expiry,
+				lease_commit_sig,
+				lease_chan_max_msat,
+				lease_chan_max_ppt,
+				lease_blockheight_start,
+				lease_fee_msat,
+				lease_amt,
+				0,
+				false,
+				false,
+				false);
+	wallet_inflight_add(ld->wallet, inflight);
 
 	return inflight;
 }
@@ -1310,9 +1433,24 @@ wallet_update_channel_commit(struct lightningd *ld,
 			     struct bitcoin_tx *remote_commit,
 			     struct bitcoin_signature *remote_commit_sig)
 {
-	channel_set_last_tx(channel,
-			    tal_steal(channel, remote_commit),
-			    remote_commit_sig);
+	/*~ Only the candidate channel->funding names gets to be the
+	 * channel's commitment.  Before promotion that is always the latest
+	 * attempt (wallet_update_channel moved channel->funding to it); after
+	 * promotion an attempt still completing belongs to its inflight only,
+	 * see wallet_add_inflight_attempt. */
+	if (bitcoin_outpoint_eq(&inflight->funding->outpoint,
+				&channel->funding)) {
+		channel_set_last_tx(channel,
+				    tal_steal(channel, remote_commit),
+				    remote_commit_sig);
+	} else {
+		log_info(channel->log,
+			 "Not updating channel commitment from RBF attempt %s:"
+			 " funding is %s",
+			 fmt_bitcoin_txid(tmpctx,
+					  &inflight->funding->outpoint.txid),
+			 fmt_bitcoin_txid(tmpctx, &channel->funding.txid));
+	}
 
 	/* We can't call channel_set_state here: channel isn't in db, so
 	 * really this is a "channel creation" event. */
@@ -1525,6 +1663,9 @@ wallet_commit_channel(struct lightningd *ld,
 				false,
 				false);
 	wallet_inflight_add(ld->wallet, inflight);
+	/* Watch the candidate's output from the moment the peer could
+	 * broadcast it: it can confirm and close on it before lock-in. */
+	channel_watch_inflight_outs(ld, inflight->channel);
 	return inflight;
 }
 
@@ -1800,6 +1941,12 @@ static void handle_peer_tx_sigs_sent(struct subd *dualopend,
 		return;
 	}
 
+	/* Once we have sent tx_signatures we must not forget the channel
+	 * until an input of the negotiated tx is spent (BOLT #2 tx_abort
+	 * receiver rule). */
+	inflight->i_sent_sigs = true;
+	wallet_inflight_save(dualopend->ld->wallet, inflight);
+
 	/* Once we've sent our sigs to the peer, we're fine
 	 * to broadcast the transaction, even if they haven't
 	 * sent us their tx-sigs yet. They're not allowed to
@@ -1956,9 +2103,36 @@ static void handle_channel_locked(struct subd *dualopend,
 	}
 	peer_fd = new_peer_fd_arr(tmpctx, fds);
 
-	assert(channel->scid);
+	/*~ If the promoted candidate was reorged out, our scid is NULL again,
+	 * but dualopend still carried the (pre-reorg) local ready bit: it just
+	 * combined it with their re-arriving channel_ready and exited having
+	 * "locked in" -- which without a restart would leave the channel stuck
+	 * awaiting lockin forever.  Restart it over the peer fd it handed us,
+	 * seeded with the truth (local ready is scid != NULL, remote ready is
+	 * the latch).  from_abort=true skips the reestablish dance since we're
+	 * still connected; when a candidate re-mines the depth callback fires
+	 * DEPTH_REACHED and this time CHANNEL_LOCKED lands with a scid. */
+	if (!channel->scid) {
+		log_unusual(channel->log,
+			    "Peer locked in, but our scid is gone (candidate"
+			    " reorged); restarting dualopend to await re-mine");
+		if (!peer_restart_dualopend(channel->peer, peer_fd, channel,
+					    /*from_abort=*/true))
+			log_broken(channel->log,
+				   "Lockin deferred, but dualopend restart failed");
+		return;
+	}
 	assert(channel->remote_channel_ready);
 
+	/*~ We deliberately don't cross-check channel->funding against the
+	 * chain here: during the startup rescan our_txs.blockheight is
+	 * zeroed for the whole rescan window while peer reestablish runs
+	 * concurrently, so "have we seen this tx mined" is transiently
+	 * unanswerable exactly when this function runs.  The scid/funding
+	 * pair only ever moves together (opening_depth_cb), and a reorg of
+	 * the promoted candidate un-promotes it (opening_reorged_cb), so by
+	 * the time both sides are ready, channel->funding names a tx we did
+	 * see mined. */
 	log_debug(channel->log, "Lockin complete state %s",
 		  channel_state_name(channel));
 	/* This can happen if we missed their sigs, for some reason */
@@ -1975,10 +2149,12 @@ static void handle_channel_locked(struct subd *dualopend,
 			    short_channel_id_blocknum(*channel->scid),
 			    true);
 
-	/* Empty out the inflights */
+	/* Empty out the inflights, and drop the spend watches we armed on
+	 * them: the funding output is watched as the channel's own from
+	 * here, and a second watch would fire funding_spent() twice. */
 	wallet_channel_clear_inflights(dualopend->ld->wallet, channel);
+	channel_watch_inflight_outs(dualopend->ld, channel);
 
-	/* That freed watchers in inflights: now watch funding tx */
 	channel_watch_depth(dualopend->ld, short_channel_id_blocknum(*channel->scid), channel);
 	channel_watch_funding_out(dualopend->ld, channel);
 
@@ -2024,6 +2200,23 @@ static void rbf_got_offer(struct subd *dualopend, const u8 *msg)
 			      take(towire_dualopend_fail(NULL,
 					"Error. Already negotiation"
 					" in progress")));
+		return;
+	}
+
+	/*~ Same as for our own openchannel_bump: once a candidate is confirmed
+	 * deeply enough that we've committed the channel to it, there is nothing
+	 * left to replace, and accepting an attempt would only strand the scid
+	 * on one tx and channel->funding on another.  A reorg un-promotes and
+	 * clears the scid, which makes RBF available again. */
+	if (channel->scid) {
+		log_debug(channel->log,
+			  "RBF attempted after funding tx %s confirmed",
+			  fmt_bitcoin_txid(tmpctx, &channel->funding.txid));
+
+		subd_send_msg(dualopend,
+			      take(towire_dualopend_fail(NULL,
+					"Error. Funding transaction"
+					" already confirmed")));
 		return;
 	}
 
@@ -2424,14 +2617,16 @@ json_openchannel_abort(struct command *cmd,
 		if (list_empty(&channel->inflights))
 			return command_fail(cmd, FUNDING_STATE_INVALID,
 					    "Channel open not in progress");
-		return command_fail(cmd, FUNDING_STATE_INVALID,
-				    "Sigs already exchanged, can't cancel");
-	}
-
-	if (channel->open_attempt->cmd)
+		/* Commitments may already be stored; we can still abort
+		 * until we have sent tx_signatures. */
+		if (channel_funding_sigs_sent(channel))
+			return command_fail(cmd, FUNDING_STATE_INVALID,
+					    "Already sent sigs, can't cancel");
+	} else if (channel->open_attempt->cmd) {
 		return command_fail(cmd, FUNDING_STATE_INVALID,
 				    "Another openchannel command"
 				    " is in progress");
+	}
 
 	if (channel->openchannel_signed_cmd)
 		return command_fail(cmd, FUNDING_STATE_INVALID,
@@ -2439,6 +2634,12 @@ json_openchannel_abort(struct command *cmd,
 
 	if (command_check_only(cmd))
 		return command_check_done(cmd);
+
+	/* If commitments were already exchanged there's no open_attempt;
+	 * make one to park the command on, so we respond with the actual
+	 * outcome once the abort completes. */
+	if (!channel->open_attempt)
+		channel->open_attempt = new_channel_open_attempt(channel);
 
 	/* Mark it as aborted so when we clean-up, we send the
 	 * correct response */
@@ -2469,12 +2670,7 @@ static char *restart_dualopend(const tal_t *ctx, const struct lightningd *ld,
 		close(other_fd);
 		return tal_fmt(ctx, "Peer not connected");
 	}
-	subd_send_msg(ld->connectd,
-		      take(towire_connectd_peer_connect_subd(NULL,
-							     &channel->peer->id,
-							     channel->peer->connectd_counter,
-							     &channel->cid)));
-	subd_send_fd(ld->connectd, other_fd);
+	connectd_connect_subd(channel->peer, &channel->cid, other_fd);
 	return NULL;
 }
 
@@ -2651,6 +2847,21 @@ json_openchannel_bump(struct command *cmd,
 				    " Current state %s, expected state %s",
 				    channel_state_name(channel),
 				    channel_state_str(DUALOPEND_AWAITING_LOCKIN));
+
+	/*~ RBF is over once a candidate has confirmed deeply enough for us to
+	 * commit the channel to it: the scid and channel->funding now name that
+	 * candidate, and negotiating another attempt would move channel->funding
+	 * off it while the scid stayed behind -- the very mixed state we set out
+	 * to close, reached through the front door.  Promotion doesn't change
+	 * the channel state (lockin does), so the check above doesn't catch it.
+	 * If the candidate is later reorged out we un-promote it and clear the
+	 * scid, and RBF becomes available again. */
+	if (channel->scid)
+		return command_fail(cmd, FUNDING_STATE_INVALID,
+				    "Funding transaction %s is already"
+				    " confirmed, cannot RBF",
+				    fmt_bitcoin_txid(tmpctx,
+						     &channel->funding.txid));
 	if (channel->opener != LOCAL)
 		return command_fail(cmd, FUNDING_STATE_INVALID,
 				    "Only the channel opener can initiate an"
@@ -3162,12 +3373,7 @@ static struct command_result *openchannel_init(struct command *cmd,
 	subd_send_msg(channel->owner, channel->open_attempt->open_msg);
 
 	/* Tell connectd connect this to this channel id. */
-	subd_send_msg(peer->ld->connectd,
-		      take(towire_connectd_peer_connect_subd(NULL,
-							     &peer->id,
-							     peer->connectd_counter,
-							     &channel->cid)));
-	subd_send_fd(peer->ld->connectd, fds[1]);
+	connectd_connect_subd(peer, &channel->cid, fds[1]);
 	return command_still_pending(cmd);
 }
 
@@ -3563,13 +3769,51 @@ static void handle_commit_ready(struct subd *dualopend,
 		return;
 	}
 
-	/* We need to update the channel reserve on the config */
-	channel_update_reserve(channel,
-			       &channel_info.their_config,
-			       total_funding);
+	/* A funding outpoint funds at most one channel; refuse a second
+	 * channel (or candidate) reusing one we already have, as the
+	 * single-funded path does in opening_control.c.  Our funding pubkey
+	 * is derived per channel, so an honest negotiation cannot produce
+	 * this; refusing it keeps a duplicate outpoint out of the wallet. */
+	{
+		struct channel *other;
+
+		other = find_channel_by_funding_outpoint(channel->peer,
+							 &funding);
+		if (other && other != channel) {
+			channel_internal_error(channel,
+					       "Funding outpoint %s already"
+					       " in use by channel %s",
+					       fmt_bitcoin_outpoint(tmpctx,
+								    &funding),
+					       fmt_channel_id(tmpctx,
+							      &other->cid));
+			channel->open_attempt
+				= tal_free(channel->open_attempt);
+			notify_channel_open_failed(channel->peer->ld,
+						   &channel->cid);
+			return;
+		}
+	}
+
+	/* We need to update the channel reserve on the config.  Not once
+	 * we're promoted: the reserve then belongs to the mined candidate. */
+	if (!channel->scid)
+		channel_update_reserve(channel,
+				       &channel_info.their_config,
+				       total_funding);
 
 	/* First time (not an RBF) */
 	if (channel->state == DUALOPEND_OPEN_INIT) {
+		/* Never commit a second channel with the same channel_id
+		 * (this frees the uncommitted channel). */
+		if (channel_id_in_use(ld, &channel->cid, channel)) {
+			channel_internal_error(channel,
+					       "channel_id %s already in use",
+					       fmt_channel_id(tmpctx,
+							      &channel->cid));
+			return;
+		}
+
 		/* Now we know if it's public or not, we can init channel_gossip */
 		assert(channel->channel_gossip == NULL);
 		channel_gossip_init(channel, NULL);
@@ -3601,6 +3845,33 @@ static void handle_commit_ready(struct subd *dualopend,
 			return;
 		}
 
+	} else if (channel->scid) {
+		/* An RBF that was already in flight when a candidate got
+		 * promoted: keep it off the channel itself. */
+		assert(channel->state == DUALOPEND_AWAITING_LOCKIN);
+
+		if (!(inflight = wallet_add_inflight_attempt(ld, channel,
+							     &funding,
+							     total_funding,
+							     funding_ours,
+							     feerate_funding,
+							     psbt,
+							     lease_expiry,
+							     lease_fee,
+							     lease_commit_sig,
+							     lease_chan_max_msat,
+							     lease_chan_max_ppt,
+							     lease_blockheight_start,
+							     lease_amt))) {
+			channel_internal_error(channel,
+					       "wallet_add_inflight_attempt failed"
+					       " (chan %s)",
+					       fmt_channel_id(tmpctx,
+							      &channel->cid));
+			channel->open_attempt
+				= tal_free(channel->open_attempt);
+			return;
+		}
 	} else {
 		/* We're doing an RBF */
 		assert(channel->state == DUALOPEND_AWAITING_LOCKIN);
@@ -3974,12 +4245,7 @@ static struct command_result *json_queryrates(struct command *cmd,
 	subd_send_msg(channel->owner, channel->open_attempt->open_msg);
 
 	/* Tell connectd connect this to this channel id. */
-	subd_send_msg(peer->ld->connectd,
-		      take(towire_connectd_peer_connect_subd(NULL,
-							     &peer->id,
-							     peer->connectd_counter,
-							     &channel->cid)));
-	subd_send_fd(peer->ld->connectd, fds[1]);
+	connectd_connect_subd(peer, &channel->cid, fds[1]);
  	return command_still_pending(cmd);
  }
 
@@ -4022,6 +4288,27 @@ AUTODATA(json_command, &openchannel_signed_command);
 AUTODATA(json_command, &openchannel_bump_command);
 AUTODATA(json_command, &openchannel_abort_command);
 
+/* BOLT #2:
+ *
+ * A receiving node:
+ *   - if they have already sent `tx_signatures` to the peer:
+ *     - MUST NOT forget the channel until any inputs to the negotiated tx
+ *       have been spent.
+ *   - if they have not sent `tx_signatures`:
+ *     - SHOULD forget the current negotiation and reset their state.
+ */
+/* Every path in dualopen_errmsg which forgets a channel funnels through
+ * here, so the MUST NOT half of the rule above is enforced in a single
+ * place.  Does nothing if we've already sent our tx_signatures. */
+static void forget_channel_open(struct channel *channel, const char *why)
+{
+	if (channel_funding_sigs_sent(channel))
+		return;
+
+	log_info(channel->log, "%s. Deleting channel.", why);
+	delete_channel(channel, false);
+}
+
 static void dualopen_errmsg(struct channel *channel,
 			    struct peer_fd *peer_fd,
 			    const char *desc,
@@ -4032,16 +4319,16 @@ static void dualopen_errmsg(struct channel *channel,
 	/* Clean up any in-progress open attempts */
 	channel_cleanup_commands(channel, desc);
 
+	/* An unsaved channel has nothing to remember (and cannot have
+	 * sent tx_signatures). */
 	if (channel_state_uncommitted(channel->state)) {
-		log_info(channel->log, "%s", "Unsaved peer failed."
-			 " Deleting channel.");
-		delete_channel(channel, false);
+		forget_channel_open(channel, "Unsaved peer failed");
 		return;
 	}
-	if ((warning || disconnect) && channel_state_open_uncommitted(channel->state)) {
-		log_info(channel->log, "%s", "Commit ready peer failed."
-			 " Deleting channel.");
-		delete_channel(channel, false);
+	if ((warning || disconnect)
+	    && channel_state_open_uncommitted(channel->state)
+	    && !channel_funding_sigs_sent(channel)) {
+		forget_channel_open(channel, "Commit ready peer failed");
 		return;
 	}
 
@@ -4082,12 +4369,23 @@ static void dualopen_errmsg(struct channel *channel,
 
 
 		if (!disconnect) {
-			if (channel_state_open_uncommitted(channel->state)) {
-				log_info(channel->log, "%s", "Commit ready peer can't reconnect."
-					 " Deleting channel.");
-				delete_channel(channel, false);
+			if (channel_state_open_uncommitted(channel->state)
+			    && !channel_funding_sigs_sent(channel)) {
+				forget_channel_open(channel,
+						    "Commit ready peer can't reconnect");
 				return;
 			}
+			if (!warning
+			    && channel->state == DUALOPEND_OPEN_COMMITTED
+			    && !channel_funding_sigs_sent(channel)) {
+				forget_channel_open(channel,
+						    "Open aborted before we sent"
+						    " tx_signatures");
+				return;
+			}
+			if (channel_funding_sigs_sent(channel))
+				log_info(channel->log,
+					 "Already sent tx_signatures, remembering channel");
 			char *err = restart_dualopend(tmpctx,
 						      channel->peer->ld,
 						      channel, true);
@@ -4099,16 +4397,6 @@ static void dualopen_errmsg(struct channel *channel,
 
 		return;
 	}
-
-	/* BOLT #1:
-	 *
-	 * A sending node:
-	 *...
-	 *   - when sending `error`:
-	 *     - MUST fail the channel(s) referred to by the error message.
-	 *     - MAY set `channel_id` to all zero to indicate all channels.
-	 */
-	/* FIXME: Close if it's an all-channels error sent or rcvd */
 
 	/* BOLT #1:
 	 *
@@ -4127,10 +4415,12 @@ static void dualopen_errmsg(struct channel *channel,
 	 *        sending node.
 	 */
 
+	/* FIXME: Close if it's an all-channels error sent or rcvd */
 	/* FIXME: We don't close all channels */
 	/* We should immediately forget the channel if we receive error during
 	 * CHANNELD_AWAITING_LOCKIN if we are fundee. */
-	if (!err_for_them && channel_state_open_uncommitted(channel->state))
+	if (!err_for_them && channel_state_open_uncommitted(channel->state)
+	    && !channel_funding_sigs_sent(channel))
 		channel_fail_forget(channel, "%s: %s ERROR %s",
 				    channel->owner->name,
 				    err_for_them ? "sent" : "received", desc);
@@ -4315,13 +4605,13 @@ bool peer_restart_dualopend(struct peer *peer,
 		       &max_to_self_delay,
 		       &min_effective_htlc_capacity);
 
-	/* If a funding tx already confirmed, it is not necessarily the
-	 * latest inflight: reestablish using the one the chain chose. */
-	if (channel->scid)
-		inflight = channel_inflight_find(channel,
-						 &channel->funding.txid);
-	else
-		inflight = NULL;
+	/*~ Once we've committed to a candidate (ie. it was mined deep enough),
+	 * channel->funding names it, and that's what we have to reinit dualopend
+	 * with -- not whatever RBF attempt happens to be last in the list.  Note
+	 * we can't just take the list tail and hope: inflights are reloaded
+	 * ORDER BY funding_feerate, so across a restart the tail is the
+	 * highest-feerate attempt regardless of which one got mined. */
+	inflight = channel_inflight_find(channel, &channel->funding.txid);
 	if (!inflight)
 		inflight = channel_current_inflight(channel);
 	assert(inflight);
@@ -4387,7 +4677,8 @@ bool peer_restart_dualopend(struct peer *peer,
 				      channel->type,
 				      channel->req_confirmed_ins[LOCAL],
 				      channel->req_confirmed_ins[REMOTE],
-				      *channel->alias[LOCAL]);
+				      *channel->alias[LOCAL],
+				      inflight->i_sent_sigs);
 
 	subd_send_msg(channel->owner, take(msg));
 	return true;

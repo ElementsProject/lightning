@@ -2540,6 +2540,82 @@ def test_onchain_middleman_fulfill_after_fail(node_factory, bitcoind):
     assert [f['status'] for f in forwards] == ['settled', 'settled']
 
 
+def test_onchain_middleman_trimmed_same_hash(node_factory, bitcoind):
+    """A trimmed HTLC must not be mistaken for a live one with the same hash.
+
+    l2 forwards two HTLCs to l3 with the same payment hash and cltv: one is
+    trimmed from the commitment, the other isn't.  Their output scripts are
+    identical, so only the amount tells them apart.  If l2 matches the live
+    output to the trimmed HTLC, it fails the large HTLC upstream as missing,
+    and l3 then takes the large output onchain with the preimage.
+    """
+    opts = {'max-dust-htlc-exposure-msat': '1000000sat'}
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True,
+                                         opts=[opts,
+                                               {**opts, 'dev-no-reconnect': None},
+                                               {**opts, 'dev-no-reconnect': None,
+                                                'disconnect': ['-WIRE_UPDATE_FULFILL_HTLC']}])
+
+    # l3 needs funds of its own to pay for its onchain claim.
+    l3.fundwallet(10**6)
+    # Both parts must get the same cltv.
+    sync_blockheight(bitcoind, [l1, l2, l3])
+
+    # The small part is below dust, the large one isn't.
+    small, large = 1000, 100_000_000
+    inv = l3.rpc.invoice(small + large, 'trimmed', 'desc')
+    rhash = inv['payment_hash']
+
+    for partid, amt in [(1, small), (2, large)]:
+        l1.rpc.sendpay(l1.single_route(l3.info['id'], amt), rhash,
+                       amount_msat=small + large,
+                       payment_secret=inv['payment_secret'],
+                       partid=partid, groupid=1)
+        wait_for(lambda: len(l2.rpc.listforwards()['forwards']) == partid)
+
+    # l3 has the whole payment, but doesn't tell l2 the preimage.
+    l3.daemon.wait_for_log('dev_disconnect: -WIRE_UPDATE_FULFILL_HTLC')
+    htlcs = only_one(l2.rpc.listpeerchannels(l3.info['id'])['channels'])['htlcs']
+    assert len(htlcs) == 2
+    assert len(set(h['expiry'] for h in htlcs)) == 1
+
+    # l3 drops to chain, then goes away so it can't reveal the preimage yet.
+    commitment = l3.rpc.dev_sign_last_tx(l2.info['id'])['tx']
+    outputs = bitcoind.rpc.decoderawtransaction(commitment)['vout']
+    values = [round(o['value'] * 10**8) for o in outputs]
+    assert large // 1000 in values
+    assert small // 1000 not in values
+    l3.stop()
+    bitcoind.rpc.sendrawtransaction(commitment)
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    l2.daemon.wait_for_log('Their unilateral tx')
+
+    # l2 can fail the trimmed HTLC upstream straight away, but not the live one.
+    def part_status():
+        return {p['partid']: p['status'] for p in l1.rpc.listsendpays(payment_hash=rhash)['payments']}
+
+    wait_for(lambda: 'failed' in part_status().values())
+    assert part_status() == {1: 'failed', 2: 'pending'}
+
+    # l3 comes back and takes the live output with the preimage.
+    l3.start()
+    _, txid, _ = l3.wait_for_onchaind_tx('OUR_HTLC_SUCCESS_TX',
+                                         'OUR_UNILATERAL/THEIR_HTLC')
+    blocks = bitcoind.generate_block(1, wait_for_mempool=txid)
+    l2.daemon.wait_for_log('THEIR_UNILATERAL/OUR_HTLC gave us preimage')
+
+    # Elements has no txindex: name the block the claim was mined in.
+    commitment_txid = bitcoind.rpc.decoderawtransaction(commitment)['txid']
+    claim = bitcoind.rpc.getrawtransaction(txid, True, blocks[0])
+    vin = only_one([i for i in claim['vin'] if i['txid'] == commitment_txid])
+    assert values[vin['vout']] == large // 1000
+
+    # So l2 must fulfill the large HTLC upstream.
+    l1.rpc.waitsendpay(rhash, TIMEOUT, partid=2)
+    forward = only_one(l2.rpc.listforwards(status='settled')['forwards'])
+    assert forward['out_msat'] == large
+
+
 @pytest.mark.parametrize("anchors", [False, True])
 def test_onchain_middleman_their_unilateral_in(node_factory, bitcoind, chainparams, anchors):
     """ This is the same as test_onchain_middleman, except that
@@ -4209,6 +4285,38 @@ def test_closing_anchorspend_htlc_tx_rbf(node_factory, bitcoind):
     assert bitcoind.rpc.getrawmempool() == []
 
 
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'Large BTC UTXO amounts are bitcoin-regtest specific')
+def test_htlc_timeout_boost_large_utxo(node_factory, bitcoind):
+    """A large wallet UTXO must not abort lightningd when boosting an HTLC timeout."""
+    l1, l2 = node_factory.get_nodes(2, opts=[{}, {'disconnect': ['-WIRE_UPDATE_FAIL_HTLC']}])
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    # Fund first so the channel open leaves a single huge change output.
+    l1.fundwallet(40 * 10**8)
+    l1.rpc.fundchannel(l2.info['id'], 10**5)
+
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    sync_blockheight(bitcoind, [l1, l2])
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['state'] == 'CHANNELD_NORMAL')
+    wait_for(lambda: only_one(l2.rpc.listpeerchannels()['channels'])['state'] == 'CHANNELD_NORMAL')
+
+    inv = l2.rpc.invoice(10**6, 'inv', 'desc')
+    l2.rpc.delinvoice('inv', 'unpaid')
+    l1.rpc.sendpay([{'amount_msat': 10**6, 'id': l2.info['id'], 'delay': 12,
+                     'channel': first_scid(l1, l2)}],
+                   inv['payment_hash'], payment_secret=inv['payment_secret'])
+    l2.daemon.wait_for_log('dev_disconnect')
+
+    l1.rpc.dev_fail(l2.info['id'])
+    l1.wait_for_channel_onchain(l2.info['id'])
+    bitcoind.generate_block(1, wait_for_mempool=1)
+
+    # Before the fix, calc_feerate() abort()ed here.
+    log_line = l1.daemon.wait_for_log("wallet_utxo_boost")
+    assert "got 1 UTXOs" in log_line
+    l1.wait_for_onchaind_tx('OUR_HTLC_TIMEOUT_TX', 'OUR_UNILATERAL/OUR_HTLC')
+
+
 @pytest.mark.parametrize("anchors", [False, True])
 def test_htlc_no_force_close(node_factory, bitcoind, anchors):
     """l2<->l3 force closes while an HTLC is in flight from l1, but l2 can't timeout because the feerate has spiked.  It should do so anyway."""
@@ -4269,11 +4377,30 @@ def test_htlc_no_force_close(node_factory, bitcoind, anchors):
 
     # Now, surprise!  l3 fulfills htlc (l2 loses out!)
     assert htlc_txs != []
+    # l3 was watching its own (censored) commitment tx, so it takes a while
+    # before it notices l2's commitment is the one onchain and tries to fulfill
+    # the HTLC by spending its HTLC output.  Wait for that attempt before we
+    # release the censored txs, otherwise we only broadcast l3's own commitment
+    # txs, which conflict with l2's (already mined) commitment and are rejected.
+    commit_txid = only_one(l2.rpc.listpeerchannels(l3.info['id'])['channels'])['scratch_txid']
+    wait_for(lambda: any(vin['txid'] == commit_txid
+                         for tx in htlc_txs
+                         for vin in bitcoind.rpc.decoderawtransaction(tx)['vin']))
+
+    # l3 can try the fulfill more than once (it rebroadcasts the same tx, or
+    # RBFs it if the feerate estimate changed), so keep only the txs spending
+    # l2's commitment, deduped by txid and in capture order (so a later RBF
+    # version replaces an earlier one).  l3's own commitment txs conflict with
+    # l2's mined commitment and can never be mined, so don't bother releasing
+    # them.
+    fulfill_txs = {}
     for tx in htlc_txs:
-        try:
-            bitcoind.rpc.sendrawtransaction(tx)
-        except bitcoin.rpc.VerifyError:
-            pass
+        d = bitcoind.rpc.decoderawtransaction(tx)
+        if any(vin['txid'] == commit_txid for vin in d['vin']):
+            fulfill_txs[d['txid']] = tx
+
+    for tx in fulfill_txs.values():
+        bitcoind.rpc.sendrawtransaction(tx)
 
     # l2 should note this, but not crash, at least.
     bitcoind.generate_block(1, wait_for_mempool=1)
@@ -4319,6 +4446,105 @@ def test_closing_minfee(node_factory, bitcoind):
 
     txid = only_one(l1.rpc.close(l2.info['id'])['txids'])
     bitcoind.generate_block(1, wait_for_mempool=txid)
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd anchors not supportd')
+def test_closing_fee_rounding_at_ceiling(node_factory, bitcoind):
+    """A close pinned at the fee ceiling stays a mutual close.
+
+    With every estimate at the floor, the opener's closing fee range is
+    a single value.  Each output is rounded down to whole satoshis, so
+    the msat remainders end up in the fee and the transaction pays one
+    satoshi more than the agreed fee.  lightningd must still accept it
+    rather than fall back to broadcasting the commitment.
+    """
+    l1, l2 = node_factory.line_graph(2, opts={'feerates': (253, 253, 253, 253)})
+    chan = only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])
+    funding = int(Millisatoshi(chan['total_msat']).to_satoshi())
+
+    # Leave remainders which sum to exactly 1000msat: l1 keeps ...999msat,
+    # l2 gets ...001msat.  Rounding both down costs one satoshi of fee.
+    l1.pay(l2, 100000001)
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['htlcs'] == [])
+
+    fee = closing_fee(253, 2)
+    res = l1.rpc.close(l2.info['id'])
+    assert res['type'] == 'mutual'
+    tx = bitcoind.rpc.decoderawtransaction(only_one(res['txs']))
+
+    # A closing transaction, not the commitment.
+    assert len(tx['vout']) == 2
+    assert tx['locktime'] == 0
+
+    # The agreed fee plus the rounded-off remainders.
+    paid = funding - sum(int(round(o['value'] * 10**8)) for o in tx['vout'])
+    assert paid == fee + 1
+    billboard = only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['status']
+    assert billboard == ['CLOSINGD_SIGEXCHANGE:We agreed on a closing fee of {} satoshi for tx:{}'.format(fee, tx['txid'])]
+
+    bitcoind.generate_block(1, wait_for_mempool=tx['txid'])
+    wait_for(lambda: 'ONCHAIN:Tracking mutual close transaction' in only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['status'])
+    assert tx['txid'] in [o['txid'] for o in l1.rpc.listfunds()['outputs']]
+    assert tx['txid'] in [o['txid'] for o in l2.rpc.listfunds()['outputs']]
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd anchors not supportd')
+def test_closing_feerange_below_estimates(node_factory, bitcoind):
+    """A close with a feerange below the estimate floor stays a mutual close.
+
+    closingd negotiates within the feerange given to `close`, but
+    lightningd checked the agreed fee against the floor derived from its
+    fee estimates.  With estimates above the range, the agreed fee was
+    rejected as too low and the commitment was broadcast instead.
+    """
+    l1, l2 = node_factory.line_graph(2, opts={'feerates': (253, 253, 253, 253),
+                                              'may_reconnect': True})
+    l1.pay(l2, 100000000)
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['htlcs'] == [])
+
+    # l1's estimate floor becomes 1000perkw, well above the range.
+    l1.force_feerates(2000)
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    fee = closing_fee(253, 2)
+    res = l1.rpc.close(l2.info['id'], feerange=['253perkw', '253perkw'])
+    assert res['type'] == 'mutual'
+    tx = bitcoind.rpc.decoderawtransaction(only_one(res['txs']))
+
+    # A closing transaction at the agreed fee, not the commitment.
+    assert len(tx['vout']) == 2
+    assert tx['locktime'] == 0
+    billboard = only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['status']
+    assert 'CLOSINGD_SIGEXCHANGE:We agreed on a closing fee of {} satoshi for tx:{}'.format(fee, tx['txid']) in billboard
+
+    bitcoind.generate_block(1, wait_for_mempool=tx['txid'])
+    wait_for(lambda: 'ONCHAIN:Tracking mutual close transaction' in only_one(l1.rpc.listpeerchannels(l2.info['id'])['channels'])['status'])
+    assert tx['txid'] in [o['txid'] for o in l1.rpc.listfunds()['outputs']]
+    assert tx['txid'] in [o['txid'] for o in l2.rpc.listfunds()['outputs']]
+
+
+def test_closing_rejected_fee_fails_negotiation(node_factory, bitcoind):
+    """A closing fee lightningd rejects ends the negotiation.
+
+    closingd only learns the txid from lightningd's reply, never the
+    verdict, so it agrees to a rejected offer and lightningd broadcasts
+    the commitment as if it were the mutual close.  The known reasons for
+    a rejection are fixed, so --dev-reject-closing-fee forces one.
+    """
+    l1, l2 = node_factory.line_graph(2, opts=[{}, {'dev-reject-closing-fee': None}])
+    l1.pay(l2, 100000000)
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['htlcs'] == [])
+
+    # l2 refuses l1's offer, so nobody completes the negotiation and l1
+    # closes unilaterally when its timeout expires.
+    res = l1.rpc.close(l2.info['id'], unilateraltimeout=10)
+    assert res['type'] == 'unilateral'
+    assert not l2.daemon.is_in_log('We agreed on a closing fee')
+    l2.daemon.wait_for_log('outside our fee limits')
+
+    # The only transaction on the wire is that unilateral close.
+    txid = only_one(res['txids'])
+    wait_for(lambda: bitcoind.rpc.getrawmempool() == [txid])
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd anchors not supportd')
@@ -5094,7 +5320,6 @@ def test_onchain_close_no_p2tr(node_factory, bitcoind):
 
 def test_htlc_timeout_during_stfu(node_factory, bitcoind):
     # Originally authored by claude-fable-5 v2.1.228 (Claude Code)
-
     """An HTLC that hits its deadline while the channel is quiescent (STFU)
     must still force-close and get timed out onchain."""
     plugin = os.path.join(os.getcwd(), 'tests/plugins/hold_htlcs.py')

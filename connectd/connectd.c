@@ -128,8 +128,6 @@ static struct peer *new_peer(struct daemon *daemon,
 	peer->cs = *cs;
 	peer->subds = tal_arr(peer, struct subd *, 0);
 	peer->peer_in = NULL;
-	peer->bytes_rcvd_this_second = 0;
-	peer->bytes_rcvd_start_time = time_mono();
 	peer->recv_timer = NULL;
 	peer->throttle_warned = false;
 	membuf_init(&peer->encrypted_peer_out,
@@ -151,6 +149,11 @@ static struct peer *new_peer(struct daemon *daemon,
 	peer->scid_query_idx = 0;
 	peer->scid_query_nodes = NULL;
 	peer->scid_query_nodes_idx = 0;
+	peer->range_scids = NULL;
+	peer->range_scid_off = 0;
+	peer->range_first_blocknum = 0;
+	peer->range_blocks_remaining = 0;
+	peer->range_query_option_flags = 0;
 	peer->onionmsg_incoming_tokens = ONION_MSG_TOKENS_MAX;
 	peer->onionmsg_last_incoming = time_mono();
 	peer->onionmsg_limit_warned = false;
@@ -1779,10 +1782,14 @@ static void connect_init(struct daemon *daemon, const u8 *msg)
 		daemon->dev_disconnect_fd = -1;
 	}
 
-	/* 500 bytes per second, not 1M per second */
+	/* 1000 bytes, and 1500usec of CPU, per second: not 1M/500k.
+	 * (These need to be enough that ordinary message handling doesn't
+	 * blow the budget by a huge multiple: since overage is no longer
+	 * capped, that would mean a very long test wait!) */
 	if (dev_throttle_gossip) {
-		daemon->gossip_stream_limit = 500;
-		daemon->incoming_stream_limit = 500;
+		daemon->gossip_stream_limit = 1000;
+		daemon->incoming_stream_limit = 1000;
+		daemon->cpu_budget_usec_limit = 1500;
 	}
 
 	if (dev_limit_connections_inflight)
@@ -2356,6 +2363,8 @@ static struct io_plan *recv_peer_connect_subd(struct io_conn *conn,
 					      int fd,
 					      struct daemon *daemon)
 {
+	daemon_conn_send(daemon->master,
+			 take(towire_connectd_peer_connect_subd_reply(NULL)));
 	peer_connect_subd(daemon, msg, fd);
 	return daemon_conn_read_next(conn, daemon->master);
 }
@@ -2463,6 +2472,7 @@ static struct io_plan *recv_req(struct io_conn *conn,
 	/* We send these, we don't receive them */
 	case WIRE_CONNECTD_INIT_REPLY:
 	case WIRE_CONNECTD_ACTIVATE_REPLY:
+	case WIRE_CONNECTD_PEER_CONNECT_SUBD_REPLY:
 	case WIRE_CONNECTD_PEER_CONNECTED:
 	case WIRE_CONNECTD_PEER_SPOKE:
 	case WIRE_CONNECTD_CONNECT_FAILED:
@@ -2558,6 +2568,8 @@ int main(int argc, char *argv[])
 	/* We generally allow 1MB per second per peer, except for dev testing */
 	daemon->gossip_stream_limit = 1000000;
 	daemon->incoming_stream_limit = 1000000;
+	/* Half a CPU-second/sec, total, split across however many peers we have */
+	daemon->cpu_budget_usec_limit = 500000;
 	daemon->scid_htable = new_htable(daemon, scid_htable);
 
 	/* stdin == control */

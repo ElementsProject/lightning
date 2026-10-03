@@ -11,6 +11,7 @@
 #include <lightningd/channel.h>
 #include <lightningd/channel_gossip.h>
 #include <lightningd/channel_state_names_gen.h>
+#include <lightningd/closed_channel.h>
 #include <lightningd/connect_control.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/notification.h>
@@ -136,6 +137,11 @@ bool maybe_cleanup_last_inflight(struct channel *channel)
 		return false;
 
 	if (inflight->last_tx)
+		return false;
+
+	/* Don't drop an inflight we already signed (BOLT #2 tx_abort
+	 * receiver rule). */
+	if (inflight->i_sent_sigs)
 		return false;
 
 	/* Remove from database */
@@ -375,6 +381,7 @@ struct channel *new_unsaved_channel(struct peer *peer,
 	channel->next_index[LOCAL] = 1;
 	channel->next_index[REMOTE] = 1;
 	channel->next_htlc_id = 0;
+	channel->next_their_htlc_id = 0;
 	channel->funding_spend_watch = NULL;
 	channel->inflight_spend_watches = NULL;
 	/* FIXME: remove push when v1 deprecated */
@@ -612,6 +619,8 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->next_index[LOCAL] = next_index_local;
 	channel->next_index[REMOTE] = next_index_remote;
 	channel->next_htlc_id = next_htlc_id;
+	/* Set by wallet_htlcs_load_in_for_channel */
+	channel->next_their_htlc_id = 0;
 	channel->funding = *funding;
 	channel->funding_sats = funding_sats;
 	channel->funding_spend_watch = NULL;
@@ -869,6 +878,27 @@ struct channel *channel_by_cid(struct lightningd *ld,
 	return NULL;
 }
 
+bool channel_id_in_use(struct lightningd *ld,
+		       const struct channel_id *cid,
+		       const struct channel *ignore)
+{
+	struct peer *p;
+	struct channel *channel;
+	struct peer_node_id_map_iter it;
+	struct closed_channel_map_iter cc_it;
+
+	for (p = peer_node_id_map_first(ld->peers, &it);
+	     p;
+	     p = peer_node_id_map_next(ld->peers, &it)) {
+		list_for_each(&p->channels, channel, list) {
+			if (channel != ignore && channel_id_eq(&channel->cid, cid))
+				return true;
+		}
+	}
+
+	return closed_channel_map_getfirst(ld->closed_channels, cid, &cc_it) != NULL;
+}
+
 struct channel *find_channel_by_id(const struct peer *peer,
 				   const struct channel_id *cid)
 {
@@ -887,6 +917,9 @@ struct channel *find_channel_by_funding_outpoint(const struct peer *peer,
 	struct channel *c;
 
 	list_for_each(&peer->channels, c, list) {
+		/* Still negotiating: no funding outpoint yet. */
+		if (channel_state_open_uncommitted(c->state))
+			continue;
 		if (bitcoin_outpoint_eq(&c->funding, outpoint))
 			return c;
 	}
@@ -1111,6 +1144,15 @@ static void channel_fail_perm(struct channel *channel,
 	/* FIXME: We only implement a subset of this; we keep waiting
 	 * as long as it was finished opening. */
 	if (channel_state_open_uncommitted(channel->state)) {
+		/* If we already sent tx_signatures we must not forget the
+		 * channel until an input of the negotiated tx is spent (the
+		 * BOLT #2 tx_abort receiver rule). */
+		if (channel_funding_sigs_sent(channel)) {
+			log_unusual(channel->log,
+				    "Already sent tx_signatures, remembering"
+				    " channel after permanent failure");
+			return;
+		}
 		delete_channel(channel, false);
 		return;
 	}
@@ -1188,6 +1230,12 @@ channel_current_inflight(const struct channel *channel)
 	/* The last inflight should always be the one in progress */
 	return list_tail(&channel->inflights,
 			 struct channel_inflight, list);
+}
+
+bool channel_funding_sigs_sent(const struct channel *channel)
+{
+	struct channel_inflight *inflight = channel_current_inflight(channel);
+	return inflight && inflight->i_sent_sigs;
 }
 
 u32 channel_last_funding_feerate(const struct channel *channel)

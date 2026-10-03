@@ -3,7 +3,7 @@ from fixtures import TEST_NETWORK
 from pyln.client import RpcError, Millisatoshi
 from utils import (
     only_one, wait_for, sync_blockheight, first_channel_id, calc_lease_fee, check_coin_moves,
-    scriptpubkey_addr
+    scriptpubkey_addr, TIMEOUT
 )
 from pyln.testing.utils import FUNDAMOUNT
 from bitcoin.rpc import JSONRPCError
@@ -496,6 +496,38 @@ def test_v2_fail_second(node_factory, bitcoind):
     assert l1.rpc.getpeer(l2.info['id'])['connected']
     start = l1.rpc.openchannel_init(l2.info['id'], amount, psbt)
     assert len(l1.rpc.listpeerchannels(l2.info['id'])['channels']) == 2
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+@pytest.mark.openchannel('v2')
+def test_v2_abort_after_accepter_tx_sigs(node_factory, bitcoind):
+    """Opener aborts after the accepter has sent tx_signatures.
+
+    Per the BOLT #2 tx_abort receiver rule, the accepter must not forget
+    the channel until an input of the negotiated funding transaction is
+    spent.
+    """
+    l1, l2 = node_factory.get_nodes(2)
+
+    l1.fundwallet(10**6)
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    amount = 100000
+    psbt = l1.rpc.fundpsbt(amount, '253perkw', 250, reserve=0)['psbt']
+    start = l1.rpc.openchannel_init(l2.info['id'], amount, psbt)
+    update = l1.rpc.openchannel_update(start['channel_id'], start['psbt'])
+    assert update['commitments_secured']
+
+    l2.daemon.wait_for_log(r'peer_out WIRE_TX_SIGNATURES')
+
+    # Legal for the opener: they have not sent tx_signatures yet.
+    l1.rpc.openchannel_abort(start['channel_id'])
+
+    l2.daemon.wait_for_log(r'tx-abort rcvd after we sent tx-sigs'
+                           r'|Already sent tx_signatures, remembering channel')
+
+    chans = l2.rpc.listpeerchannels(l1.info['id'])['channels']
+    assert any(c['channel_id'] == start['channel_id'] for c in chans)
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
@@ -1631,23 +1663,25 @@ def test_rbf_non_last_mined(node_factory, bitcoind, chainparams):
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @pytest.mark.openchannel('v2')
 def test_rbf_reconnect_non_last_mined(node_factory, bitcoind, chainparams):
-    """
+    """A reconnect must not lock in an RBF candidate that was never mined.
+
     Deterministic version of the race in test_rbf_non_last_mined.
 
-    When a non-tip RBF candidate is mined, we identify the mined
-    inflight while processing its block, but only record it on the
-    channel once we have finished catching up with the chain.  A peer
-    reconnecting inside that window reestablishes against the *newest*
-    inflight, locking the channel in with a funding tx that was never
-    mined.
-
-    We hold the window open deterministically: stall l1's fetch of the
-    block after the funding block, so l1 has seen the funding confirm
-    (its scid is set) but never finishes catching up, then reconnect.
+    We set the scid the instant we see a funding tx in a block (inline, while
+    the block is being processed), but we only promote that inflight to be
+    'the' funding tx from the blockdepth watches, which don't run until we've
+    caught up on every queued block.  A reconnect landing between those two
+    steps used to see a mixed state -- confirmed according to the scid, but
+    still naming the *latest* (unmined) RBF candidate as the funding tx -- and
+    would lock that in, deleting the inflight holding the commitment for the
+    tx that actually got mined.
     """
     l1, l2 = node_factory.get_nodes(2,
                                     opts={'allow_warning': True,
-                                          'may_reconnect': True})
+                                          'may_reconnect': True,
+                                          # We drive every (re)connect by hand,
+                                          # so we can land one in the window.
+                                          'dev-no-reconnect': None})
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     amount = 2**24
@@ -1663,10 +1697,8 @@ def test_rbf_reconnect_non_last_mined(node_factory, bitcoind, chainparams):
     assert only_one(vins)
     prev_utxos = ["{}:{}".format(vins[0]['txid'], vins[0]['vout'])]
 
-    # Check that we're waiting for lockin
     l1.daemon.wait_for_log(' to DUALOPEND_AWAITING_LOCKIN')
-    inflights = only_one(l1.rpc.listpeerchannels()['channels'])['inflight']
-    assert inflights[-1]['funding_txid'] in bitcoind.rpc.getrawmempool()
+    l2.daemon.wait_for_log(' to DUALOPEND_AWAITING_LOCKIN')
 
     def run_retry():
         startweight = 42 + 173
@@ -1684,12 +1716,12 @@ def test_rbf_reconnect_non_last_mined(node_factory, bitcoind, chainparams):
 
         return l1.rpc.signpsbt(update['psbt'])['signed_psbt']
 
-    # Make a second inflight
-    signed_psbt = run_retry()
-    l1.rpc.openchannel_signed(chan_id, signed_psbt)
+    # Second inflight: this is the one that will actually get mined.
+    l1.rpc.openchannel_signed(chan_id, run_retry())
 
-    # Make it such that l1 and l2 cannot broadcast transactions
-    # (mimics failing to reach the miner with replacement)
+    # Now stop both of them reaching the miner, so the third inflight
+    # ends up negotiated-but-never-broadcast (an attacker would instead
+    # double-spend an input they contributed to it).
     def censoring_sendrawtx(r):
         return {'id': r['id'], 'result': {}}
 
@@ -1718,56 +1750,394 @@ def test_rbf_reconnect_non_last_mined(node_factory, bitcoind, chainparams):
     l1.daemon.rpcproxy.mock_rpc('sendrawtransaction', None)
     l2.daemon.rpcproxy.mock_rpc('sendrawtransaction', None)
 
-    # We fetch out our inflights list
     inflights = only_one(l1.rpc.listpeerchannels()['channels'])['inflight']
     assert len(inflights) == 3
+    mined, never_mined = inflights[1], inflights[2]
+    assert mined['funding_txid'] in bitcoind.rpc.getrawmempool()
+    assert never_mined['funding_txid'] not in bitcoind.rpc.getrawmempool()
 
-    # l2 goes offline (as in the race, l1's dualopend dies with it)
+    # Grab l2's own view of the same inflight: commitment txs are asymmetric,
+    # so l2's commitment for the mined funding tx is not l1's.
+    l2_mined = only_one([i for i in
+                         only_one(l2.rpc.listpeerchannels()['channels'])['inflight']
+                         if i['funding_txid'] == mined['funding_txid']])
+
+    # l2 goes offline, and misses the whole thing.
     l2.stop()
 
-    # Stall l1's fetch of the block *after* the funding block.  The
-    # mock must hang, not error: an error makes bcli report "no block
-    # yet", which lets l1 conclude it has caught up.  Returning None
-    # passes the request through to the real bitcoind.
-    height = bitcoind.rpc.getblockcount()
-    release_block = threading.Event()
+    # The second inflight gets mined...
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    mined_height = bitcoind.rpc.getblockcount()
+    assert mined['funding_txid'] in bitcoind.rpc.getblock(
+        bitcoind.rpc.getblockhash(mined_height))['tx']
 
-    def stalling_getblockhash(r):
-        if r['params'][0] == height + 2:
-            release_block.wait(timeout=180)
+    # ...and then some more blocks, so l2 has a backlog to chew through
+    # and won't reach updates_complete() in one go.
+    bitcoind.generate_block(5)
+
+    # l1 is up throughout, so it sees the right tx confirm.
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['funding_txid'] == mined['funding_txid'])
+
+    # Wedge l2's catch-up *after* it has processed the block holding the
+    # funding tx, but before it runs out of blocks to fetch.  That is exactly
+    # the window: scid set, inflight not yet promoted.
+    stall_blockid = bitcoind.rpc.getblockhash(mined_height + 1)
+    release = threading.Event()
+
+    def stall_getblock(r):
+        if r['params'][0] == stall_blockid:
+            release.wait(TIMEOUT)
+        # Fall through to the real bitcoind.
         return None
 
-    l1.daemon.rpcproxy.mock_rpc('getblockhash', stalling_getblockhash)
+    l2.daemon.rpcproxy.mock_rpc('getblock', stall_getblock)
+    l2.start(wait_for_bitcoind_sync=False)
 
-    # The 2nd inflight (the mempool tx) gets mined in block height+1.
-    bitcoind.generate_block(2, wait_for_mempool=1)
+    # Wait until l2 is sitting in the window: it has processed the block
+    # holding the funding tx (so its tip is at mined_height) but is wedged
+    # before it can run out of blocks to fetch, so the blockdepth watches
+    # haven't fired.  Deliberately keyed off the block height rather than the
+    # scid, so this stays a valid trigger once the scid is no longer published
+    # ahead of the funding outpoint.
+    def in_the_window():
+        return (l2.rpc.getinfo()['blockheight'] == mined_height
+                and only_one(l2.rpc.listpeerchannels()['channels'])['state']
+                == 'DUALOPEND_AWAITING_LOCKIN')
 
-    # l1 has seen the funding confirm (scid is set), but is wedged
-    # fetching block height+2, so it has not yet recorded *which*
-    # inflight was mined.
-    wait_for(lambda: 'short_channel_id'
-             in only_one(l1.rpc.listpeerchannels()['channels']))
+    wait_for(in_the_window)
+    # We really are mid-catch-up, not done.
+    assert mined_height < bitcoind.rpc.getblockcount()
 
-    # l2 comes back fully synced, and reconnects to wedged l1.
-    l2.start()
-    sync_blockheight(bitcoind, [l2])
-    l2.rpc.connect(l1.info['id'], 'localhost', l1.port)
+    # Land the reconnect right here.
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    # Let l2 finish catching up.
+    release.set()
+    l2.daemon.rpcproxy.mock_rpc('getblock', None)
+    sync_blockheight(bitcoind, [l1, l2])
 
     l1.daemon.wait_for_log(r'to CHANNELD_NORMAL')
     l2.daemon.wait_for_log(r'to CHANNELD_NORMAL')
 
-    # Let l1 finish catching up before we look at the result.
-    release_block.set()
-    l1.daemon.rpcproxy.mock_rpc('getblockhash', None)
+    # l2 must have locked in the tx that was actually mined, not the last
+    # one it negotiated.
+    chan = only_one(l2.rpc.listpeerchannels()['channels'])
+    assert chan['funding_txid'] == mined['funding_txid'], \
+        "l2 locked in {} which was never mined".format(chan['funding_txid'])
+    assert chan['funding_txid'] != never_mined['funding_txid']
+    # ... and it must hold the matching commitment tx, so it can still
+    # unilaterally close.
+    assert chan['scratch_txid'] == l2_mined['scratch_txid']
+
+    # Both sides agree.
+    assert only_one(l1.rpc.listpeerchannels()['channels'])['funding_txid'] == mined['funding_txid']
+
+    # And l2 really can drop to chain on its own.
+    l1.stop()
+    l2.rpc.close(chan_id, 1)
+    l2.daemon.wait_for_log('Broadcasting txid {}'.format(chan['scratch_txid']))
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    l2.daemon.wait_for_log(r'to ONCHAIN')
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+@pytest.mark.openchannel('v2')
+def test_rbf_refused_once_funding_confirmed(node_factory, bitcoind, chainparams):
+    """Once we've committed the channel to a mined candidate, RBF is over.
+
+    Promotion doesn't change the channel state -- lockin does -- so a channel
+    whose funding tx has confirmed deeply enough sits in
+    DUALOPEND_AWAITING_LOCKIN until the peer's channel_ready arrives.  An RBF
+    negotiated in there would point channel->funding at a fresh candidate
+    while the scid stayed behind on the mined one: the same mixed state, with
+    no reconnect and no catch-up involved.
+
+    A reorg that takes the confirmation away un-promotes the candidate and
+    clears the scid, and RBF has to become available again.
+    """
+    l1, l2 = node_factory.get_nodes(2,
+                                    opts={'allow_warning': True,
+                                          'may_reconnect': True,
+                                          'dev-no-reconnect': None})
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    chan_amount = 100000
+    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['p2tr'], 0.02)
+    bitcoind.generate_block(1)
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) > 0)
+
+    res = l1.rpc.fundchannel(l2.info['id'], chan_amount, feerate='7500perkw')
+    chan_id = res['channel_id']
+    vins = bitcoind.rpc.decoderawtransaction(res['tx'])['vin']
+    assert only_one(vins)
+    prev_utxos = ["{}:{}".format(vins[0]['txid'], vins[0]['vout'])]
+
+    l1.daemon.wait_for_log(' to DUALOPEND_AWAITING_LOCKIN')
+    l2.daemon.wait_for_log(' to DUALOPEND_AWAITING_LOCKIN')
+
+    def chan(n):
+        return only_one(n.rpc.listpeerchannels()['channels'])
+
+    def bump_psbt():
+        startweight = 42 + 173
+        rate = int(find_next_feerate(l1, l2)[:-5])
+        # We 2x the feerate to beat the min-relay fee
+        next_feerate = '{}perkw'.format(rate * 2)
+        return l1.rpc.utxopsbt(chan_amount, next_feerate, startweight,
+                               prev_utxos, reservedok=True,
+                               excess_as_change=True)['psbt']
+
+    # Build the replacement PSBT now: once the funding tx confirms, its
+    # input is a spent UTXO and utxopsbt won't hand it to us at all.
+    refused_psbt = bump_psbt()
+
+    # l2 goes offline, so the funding confirms with no channel_ready
+    # exchange: l1 promotes the candidate but stays awaiting lockin.
+    l2.stop()
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    mined_blockid = bitcoind.rpc.getblockhash(bitcoind.rpc.getblockcount())
+    sync_blockheight(bitcoind, [l1])
+    wait_for(lambda: chan(l1).get('short_channel_id') is not None)
+    assert chan(l1)['state'] == 'DUALOPEND_AWAITING_LOCKIN'
+
+    # We're committed to the tx that got mined, so there's nothing left to
+    # replace.
+    with pytest.raises(RpcError, match=r'already confirmed, cannot RBF'):
+        l1.rpc.openchannel_bump(chan_id, chan_amount, refused_psbt)
+
+    # Reorg the funding block out, and extend the competing branch with empty
+    # blocks so the funding tx stays unmined (it goes back to the mempool).
+    bitcoind.rpc.invalidateblock(mined_blockid)
+    empty_addr = bitcoind.rpc.getnewaddress()
+    bitcoind.rpc.generateblock(empty_addr, [])
+    bitcoind.rpc.generateblock(empty_addr, [])
     sync_blockheight(bitcoind, [l1])
 
-    # The mined inflight (the 2nd) must be the one locked in -- on
-    # both sides, and with its commitment tx.
-    channel = only_one(l1.rpc.listpeerchannels()['channels'])
-    assert channel['funding_txid'] == inflights[1]['funding_txid']
-    assert channel['scratch_txid'] == inflights[1]['scratch_txid']
-    l2_channel = only_one(l2.rpc.listpeerchannels()['channels'])
-    assert l2_channel['funding_txid'] == inflights[1]['funding_txid']
+    l1.daemon.wait_for_log('was in a block, now reorged out')
+    # Un-promoted: the scid is gone, so we're not committed to anything...
+    wait_for(lambda: chan(l1).get('short_channel_id') is None)
+    assert chan(l1)['state'] == 'DUALOPEND_AWAITING_LOCKIN'
+
+    # ... and RBF is possible again.
+    l2.start()
+    sync_blockheight(bitcoind, [l1, l2])
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    bump = l1.rpc.openchannel_bump(chan_id, chan_amount, bump_psbt())
+    update = l1.rpc.openchannel_update(chan_id, bump['psbt'])
+    assert update['commitments_secured']
+    signed_psbt = l1.rpc.signpsbt(update['psbt'])['signed_psbt']
+    l1.rpc.openchannel_signed(chan_id, signed_psbt)
+    assert len(chan(l1)['inflight']) == 2
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+@pytest.mark.openchannel('v2')
+def test_v2_funding_spent_before_lockin(node_factory, bitcoind):
+    """A dual-funded funding output spent before lock-in must go to onchaind.
+
+    Before lock-in we only watched whether the funding tx confirmed and how
+    deep it was; the spend watch was armed at lock-in.  With funding-confirms
+    at 3 (the mainnet default) the opener can confirm the funding and close
+    on it in the next block, and we would sail on to CHANNELD_NORMAL with no
+    funding output, never noticing the spend or, later, the cheat.
+    """
+    l1, l2 = node_factory.get_nodes(2, opts={'funding-confirms': 3,
+                                             'allow_warning': True,
+                                             'may_reconnect': True})
+    # l2 opens; l1 is the accepter with nothing in the channel.
+    l2.fundwallet(10**7)
+    l2.rpc.connect(l1.info['id'], 'localhost', l1.port)
+    l2.rpc.fundchannel(l1.info['id'], 10**6)
+    l1.daemon.wait_for_log(' to DUALOPEND_AWAITING_LOCKIN')
+
+    # Funding confirms once; minimum_depth is 3, so no lock-in yet.
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    sync_blockheight(bitcoind, [l1, l2])
+    chan = only_one(l1.rpc.listpeerchannels()['channels'])
+    assert chan['state'] == 'DUALOPEND_AWAITING_LOCKIN'
+    funding_txid = chan['funding_txid']
+
+    # The opener drops its commitment to chain without telling us.
+    commit_tx = l2.rpc.dev_sign_last_tx(l1.info['id'])['tx']
+    assert only_one(bitcoind.rpc.decoderawtransaction(commit_tx)['vin'])['txid'] == funding_txid
+    l2.stop()
+    commit_txid = bitcoind.rpc.sendrawtransaction(commit_tx)
+    bitcoind.generate_block(1, wait_for_mempool=commit_txid)
+
+    # We must notice the spend and hand the channel to onchaind.
+    l1.daemon.wait_for_log('Funding transaction spent')
+    l1.daemon.wait_for_log('Resolved FUNDING_TRANSACTION/FUNDING_OUTPUT by THEIR_UNILATERAL')
+    assert only_one(l1.rpc.listpeerchannels()['channels'])['state'] == 'ONCHAIN'
+
+    # Reaching minimum_depth must not resurrect it.
+    bitcoind.generate_block(3)
+    sync_blockheight(bitcoind, [l1])
+    assert only_one(l1.rpc.listpeerchannels()['channels'])['state'] == 'ONCHAIN'
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+@pytest.mark.openchannel('v2')
+def test_lockin_restart_rescan_race(node_factory, bitcoind, chainparams):
+    """A reconnect landing inside the startup rescan window must not fail a
+    healthy channel.
+
+    Every startup zeroes our_txs.blockheight for the trailing --rescan
+    window and re-fetches those blocks one at a time; peer reestablish
+    runs concurrently.  If the channel reached minimum_depth while its
+    peer was offline, a reconnect completing before the rescan re-confirms
+    the funding block transiently sees get_tx_depth(funding) == 0 for a
+    perfectly healthy channel.  Lockin must not key off that: the channel
+    simply locks in.
+    """
+    l1, l2 = node_factory.get_nodes(2,
+                                    opts={'allow_warning': True,
+                                          'may_reconnect': True,
+                                          # We drive every (re)connect by hand.
+                                          'dev-no-reconnect': None})
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    chan_amount = 100000
+    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['p2tr'], 0.02)
+    bitcoind.generate_block(1)
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) > 0)
+
+    l1.rpc.fundchannel(l2.info['id'], chan_amount, feerate='7500perkw')
+
+    l1.daemon.wait_for_log(' to DUALOPEND_AWAITING_LOCKIN')
+    l2.daemon.wait_for_log(' to DUALOPEND_AWAITING_LOCKIN')
+
+    # l1 goes offline before the funding tx mines, so l2 promotes the
+    # channel (sets and persists its scid) without ever exchanging
+    # channel_ready.
+    l1.stop()
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    mined_blockid = bitcoind.rpc.getblockhash(bitcoind.rpc.getblockcount())
+
+    def promoted(n):
+        chan = only_one(n.rpc.listpeerchannels()['channels'])
+        return chan.get('short_channel_id') is not None
+
+    wait_for(lambda: promoted(l2))
+    l2.stop()
+
+    # l1 comes back and promotes too, still with no ready exchange.
+    l1.start()
+    wait_for(lambda: promoted(l1))
+
+    # Wedge l2's startup rescan *on the funding block*: every other block
+    # is re-fetched normally, but the rescan can't re-confirm the funding
+    # tx, so our_txs.blockheight for it stays zeroed -- while peer
+    # reestablish runs concurrently.
+    release = threading.Event()
+
+    def stall_getblock(r):
+        if r['params'][0] == mined_blockid:
+            release.wait(TIMEOUT)
+        # Fall through to the real bitcoind.
+        return None
+
+    l2.daemon.rpcproxy.mock_rpc('getblock', stall_getblock)
+    l2.start(wait_for_bitcoind_sync=False)
+
+    # Land the reconnect inside the window: l1 retransmits channel_ready
+    # (BOLT 2 says it must), l2 is locally ready from its persisted scid,
+    # so l2's lockin runs before its rescan has re-confirmed the funding
+    # block.
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    # The channel locks in despite the zeroed depth: both sides reach
+    # CHANNELD_NORMAL naming the real funding tx.
+    l2.daemon.wait_for_log(r'to CHANNELD_NORMAL')
+    l1.daemon.wait_for_log(r'to CHANNELD_NORMAL')
+
+    # Let l2's rescan finish.
+    release.set()
+    l2.daemon.rpcproxy.mock_rpc('getblock', None)
+    sync_blockheight(bitcoind, [l1, l2])
+
+    funding_txid = only_one(l1.rpc.listpeerchannels()['channels'])['funding_txid']
+    assert only_one(l2.rpc.listpeerchannels()['channels'])['funding_txid'] == funding_txid
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+@pytest.mark.openchannel('v2')
+def test_lockin_reorg_after_promotion(node_factory, bitcoind, chainparams):
+    """A reorg of the promoted funding candidate must un-promote it, and a
+    reconnect landing in the unmined gap must not lock in the dead tx.
+
+    Once a candidate is deep enough the channel commits to it: scid set,
+    funding moved.  If that block is reorged out before lockin completes,
+    the channel must go back to awaiting a candidate -- scid cleared, so a
+    reestablish doesn't claim local_channel_ready against a scid that no
+    longer exists on-chain -- and simply wait for a candidate to mine
+    again.
+    """
+    l1, l2 = node_factory.get_nodes(2,
+                                    opts={'allow_warning': True,
+                                          'may_reconnect': True,
+                                          'dev-no-reconnect': None})
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['p2tr'], 0.02)
+    bitcoind.generate_block(1)
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) > 0)
+
+    l1.rpc.fundchannel(l2.info['id'], 100000, feerate='7500perkw')
+    l1.daemon.wait_for_log(' to DUALOPEND_AWAITING_LOCKIN')
+    l2.daemon.wait_for_log(' to DUALOPEND_AWAITING_LOCKIN')
+
+    def chan(n):
+        return only_one(n.rpc.listpeerchannels()['channels'])
+
+    # l1 goes offline; the funding tx mines and l2 promotes it alone, so
+    # no channel_ready has been exchanged when the reorg hits.
+    l1.stop()
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    mined_blockid = bitcoind.rpc.getblockhash(bitcoind.rpc.getblockcount())
+    wait_for(lambda: chan(l2).get('short_channel_id') is not None)
+
+    # Reorg the funding block out and extend the competing branch so l2
+    # has a longer tip to discover: the funding tx goes back to the
+    # mempool and re-mines at the same height, under a different hash.
+    bitcoind.rpc.invalidateblock(mined_blockid)
+    bitcoind.generate_block(2, wait_for_mempool=1)
+
+    # Wedge l2's fetch of *only* the competing block holding the funding
+    # tx: l2 can discover the reorg and roll back (getblockcount/
+    # getblockhash suffice for that), but it can't re-confirm the funding
+    # tx, so from l2's view the promoted candidate is unmined for now.
+    remined_blockid = bitcoind.rpc.getblockhash(bitcoind.rpc.getblockcount() - 1)
+    release = threading.Event()
+
+    def stall_getblock(r):
+        if r['params'][0] == remined_blockid:
+            release.wait(TIMEOUT)
+        # Fall through to the real bitcoind.
+        return None
+
+    l2.daemon.rpcproxy.mock_rpc('getblock', stall_getblock)
+
+    l2.daemon.wait_for_log('was in a block, now reorged out')
+    # The promoted candidate is un-promoted: scid gone, still awaiting a
+    # candidate.
+    wait_for(lambda: chan(l2).get('short_channel_id') is None)
+    assert chan(l2)['state'] == 'DUALOPEND_AWAITING_LOCKIN'
+
+    # Reconnect into the gap: l1 restarts against the current chain (where
+    # the funding tx *is* mined), promotes it, and per BOLT 2 retransmits
+    # channel_ready.  l2 must not lock in the (from its view) unmined tx,
+    # and must not fail the channel.
+    l1.start()
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    # Let l2 fetch the competing block, re-promote, and lock in.
+    release.set()
+    l2.daemon.rpcproxy.mock_rpc('getblock', None)
+
+    l1.daemon.wait_for_log(r'to CHANNELD_NORMAL')
+    l2.daemon.wait_for_log(r'to CHANNELD_NORMAL')
+    assert chan(l1)['funding_txid'] == chan(l2)['funding_txid']
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
@@ -3792,3 +4162,67 @@ def test_zero_length_upfront_shutdown_script(node_factory, bitcoind):
     assert l1_after == l1_before
     assert not any(o['address'] == sweep_addr
                    for o in l1.rpc.listfunds()['outputs'])
+
+
+@pytest.mark.openchannel('v2')
+def test_v2_lockin_single_spend_watch(node_factory, bitcoind):
+    """Lock-in must drop the candidate's spend watch, not stack a second one.
+
+    The funding output is watched from the moment a candidate is signed; at
+    lock-in the channel takes over that outpoint as its own.  If the candidate
+    watch survived, every later spend would fire funding_spent() twice.
+    """
+    l1, l2 = node_factory.line_graph(2, fundchannel=True,
+                                     opts={'may_reconnect': True})
+
+    l1.rpc.close(l2.info['id'], unilateraltimeout=1)
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    l2.daemon.wait_for_log(r'State changed from \S+ to FUNDING_SPEND_SEEN')
+    l1.daemon.wait_for_log(r'State changed from \S+ to FUNDING_SPEND_SEEN')
+
+    state_change_re = re.compile(r'State changed from \S+ to FUNDING_SPEND_SEEN')
+    for node in (l1, l2):
+        assert len([l for l in node.daemon.logs if state_change_re.search(l)]) == 1
+
+
+@pytest.mark.openchannel('v1')
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "Uses db_manip on sqlite3")
+def test_duplicate_channel_id_in_db(node_factory, bitcoind):
+    """Nodes which already committed two channels with the same channel_id
+    crashed when the second one was closed, and then on every restart."""
+    l1, l2 = node_factory.get_nodes(2, opts=[{}, {'may_fail': True, 'broken_log': 'lightningd: (FATAL SIGNAL|backtrace)'}])
+    l1.fundwallet(10**7)
+    l1.connect(l2)
+    amount = 10**6
+
+    # A channel l2 forgets, so it's in the closed channels.
+    funding_addr = l1.rpc.fundchannel_start(l2.info['id'], amount)['funding_address']
+    prep = l1.rpc.txprepare([{funding_addr: amount}])
+    l1.rpc.fundchannel_complete(l2.info['id'], prep['psbt'])
+    cid = only_one(l2.rpc.listpeerchannels(l1.info['id'])['channels'])['channel_id']
+    l1.rpc.fundchannel_cancel(l2.info['id'])
+    wait_for(lambda: l2.rpc.listpeerchannels(l1.info['id'])['channels'] == [])
+    l1.rpc.txdiscard(prep['txid'])
+
+    # Another one, still awaiting lockin.
+    funding_addr = l1.rpc.fundchannel_start(l2.info['id'], amount)['funding_address']
+    prep = l1.rpc.txprepare([{funding_addr: amount}])
+    l1.rpc.fundchannel_complete(l2.info['id'], prep['psbt'])
+    cid2 = only_one(l2.rpc.listpeerchannels(l1.info['id'])['channels'])['channel_id']
+
+    # Give the live channel the closed channel's channel_id, as old nodes
+    # may have done.
+    l1.stop()
+    l2.stop()
+    l2.db_manip(f"UPDATE channels SET full_channel_id = X'{cid}' WHERE full_channel_id = X'{cid2}';")
+    l2.start()
+    assert only_one(l2.rpc.listpeerchannels(l1.info['id'])['channels'])['channel_id'] == cid
+
+    # Closing it puts a second channel with that channel_id into closed channels.
+    l2.rpc.dev_forget_channel(l1.info['id'], True)
+    wait_for(lambda: l2.rpc.listpeerchannels(l1.info['id'])['channels'] == [])
+    assert [c['channel_id'] for c in l2.rpc.listclosedchannels()['closedchannels']] == [cid, cid]
+
+    # And we can still start with both in the db.
+    l2.restart()
+    assert [c['channel_id'] for c in l2.rpc.listclosedchannels()['closedchannels']] == [cid, cid]

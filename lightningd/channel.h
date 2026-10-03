@@ -200,6 +200,8 @@ struct channel {
 	/* Tracking commitment transaction numbers. */
 	u64 next_index[NUM_SIDES];
 	u64 next_htlc_id;
+	/* The id we expect for the next HTLC they offer. */
+	u64 next_their_htlc_id;
 
 	/* Funding outpoint and amount */
 	struct bitcoin_outpoint funding;
@@ -499,6 +501,9 @@ struct channel_inflight *channel_inflight_find(struct channel *channel,
 /* What's the most recent inflight for this channel? */
 struct channel_inflight *
 channel_current_inflight(const struct channel *channel);
+
+/* True if we have already sent tx_signatures for the current inflight. */
+bool channel_funding_sigs_sent(const struct channel *channel);
 
 /* What's the last feerate used for a funding tx on this channel? */
 u32 channel_last_funding_feerate(const struct channel *channel);
@@ -916,6 +921,12 @@ struct channel *any_channel_by_scid(struct lightningd *ld,
 /* Get channel by channel_id */
 struct channel *channel_by_cid(struct lightningd *ld,
 			       const struct channel_id *cid);
+
+/* Is this channel_id used by a channel with any peer (other than @ignore),
+ * or by a closed channel? */
+bool channel_id_in_use(struct lightningd *ld,
+		       const struct channel_id *cid,
+		       const struct channel *ignore);
 
 /* Find this channel within peer */
 struct channel *find_channel_by_id(const struct peer *peer,

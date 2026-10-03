@@ -961,11 +961,19 @@ struct bolt11 *bolt11_decode_nosig(const tal_t *ctx, const char *str,
 	 *...
 	 * - MUST include either exactly one `d` or exactly one `h` field.
 	 */
-	/* FIXME: It doesn't actually say the reader must check though! */
+	/* BOLT #11:
+	 * A reader:
+	 *...
+	 * - MUST fail the payment if neither a `d` field nor a `h` field is present, or if both are present.
+	 */
 	if (!have_field[bech32_charset_rev['d']]
 	    && !have_field[bech32_charset_rev['h']])
 		return decode_fail(b11, fail,
 				   "must have either 'd' or 'h' field");
+	if (have_field[bech32_charset_rev['d']]
+	    && have_field[bech32_charset_rev['h']])
+		return decode_fail(b11, fail,
+				   "must not have both 'd' and 'h' fields");
 
 	hash_u5_done(&hu5, hash);
 	*sig = tal_dup_arr(ctx, u5, data, data_len, 0);
@@ -1159,7 +1167,7 @@ static void encode_x(u5 **data, u64 expiry)
 	push_varlen_field(data, 'x', expiry);
 }
 
-static void encode_c(u5 **data, u16 min_final_cltv_expiry)
+static void encode_c(u5 **data, u32 min_final_cltv_expiry)
 {
 	if (dev_bolt11_omit_c_value)
 		return;

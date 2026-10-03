@@ -5,6 +5,7 @@
 #include <ccan/tal/tal.h>
 #include <common/utils.h>
 
+struct channel_id;
 struct lightningd;
 struct peer;
 struct pubkey;
@@ -20,6 +21,12 @@ void connectd_connect_to_peer(struct lightningd *ld,
 			      const struct peer *peer,
 			      const char *reason,
 			      bool is_important);
+
+/* Tell connectd to connect this channel to the subd at the other end of fd
+ * (takes ownership of fd). */
+void connectd_connect_subd(const struct peer *peer,
+			   const struct channel_id *channel_id,
+			   int fd);
 
 /* Kill subds, tell connectd to disconnect once they're drained. */
 void force_peer_disconnect(struct lightningd *ld,

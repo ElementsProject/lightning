@@ -5363,6 +5363,7 @@ def test_tracing(node_factory):
 
     traces = set()
     suspended = set()
+    emitted = {}
     for fname in glob.glob(f"{trace_fnamebase}.*"):
         with open(fname, "rt") as f:
             for linenum, l in enumerate(f.readlines(), 1):
@@ -5387,6 +5388,7 @@ def test_tracing(node_factory):
                         assert res['parentId'] in traces
                         expected_keys.append('parentId')
                     assert set(res.keys()) == set(expected_keys)
+                    emitted[res['id']] = res
                     traces.remove(spanid)
                 elif cmd == 'span_end':
                     assert spanid in traces
@@ -5408,6 +5410,14 @@ def test_tracing(node_factory):
         # We can actually have a calls suspended when we shut down!
         assert len(suspended) <= 1
         assert suspended == traces
+
+    extend_tips = {s['id'] for s in emitted.values() if s['name'] == 'extend_tip'}
+    assert extend_tips, "No extend_tip span emitted"
+    assert any(s['name'] == 'plugin/bitcoind'
+               and s['tags'].get('method') == 'getrawblockbyheight'
+               and s.get('parentId') in extend_tips
+               for s in emitted.values()), \
+        "getrawblockbyheight call is not nested under extend_tip"
 
     # Test parent trace
     trace_fnamebase = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "l1.parent.trace")

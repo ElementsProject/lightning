@@ -395,12 +395,7 @@ static void handle_splice_abort(struct lightningd *ld,
 	}
 
 	if (peer_start_channeld(channel, pfd, NULL, false)) {
-		subd_send_msg(ld->connectd,
-			      take(towire_connectd_peer_connect_subd(NULL,
-			      					     &peer->id,
-								     peer->connectd_counter,
-								     &channel->cid)));
-		subd_send_fd(ld->connectd, other_fd);
+		connectd_connect_subd(peer, &channel->cid, other_fd);
 	} else {
 		log_info(channel->log, "peer_start_channeld failed");
 		close(other_fd);
@@ -849,28 +844,15 @@ static void change_scid(struct channel *channel,
 	channel_gossip_scid_changed(channel);
 }
 
-bool depthcb_update_scid(struct channel *channel,
-			 const struct bitcoin_outpoint *outpoint,
-			 const struct txlocator *loc)
+void channel_apply_scid(struct channel *channel,
+			const struct bitcoin_outpoint *outpoint,
+			struct short_channel_id scid)
 {
 	struct lightningd *ld = channel->peer->ld;
-	struct short_channel_id scid;
-
-	/* What scid is this giving us? */
-	if (!mk_short_channel_id(&scid,
-				 loc->blkheight, loc->index,
-				 outpoint->n)) {
-		channel_fail_permanent(channel,
-				       REASON_LOCAL,
-				       "Invalid funding scid %u:%u:%u",
-				       loc->blkheight, loc->index,
-				       outpoint->n);
-		return false;
-	}
 
 	/* No change?  Great. */
 	if (channel->scid && short_channel_id_eq(*channel->scid, scid))
-		return true;
+		return;
 
 	if (!channel->scid) {
 		wallet_annotate_txout(ld->wallet, outpoint,
@@ -891,6 +873,27 @@ bool depthcb_update_scid(struct channel *channel,
 	}
 
 	scid_updated(channel);
+}
+
+bool depthcb_update_scid(struct channel *channel,
+			 const struct bitcoin_outpoint *outpoint,
+			 const struct txlocator *loc)
+{
+	struct short_channel_id scid;
+
+	/* What scid is this giving us? */
+	if (!mk_short_channel_id(&scid,
+				 loc->blkheight, loc->index,
+				 outpoint->n)) {
+		channel_fail_permanent(channel,
+				       REASON_LOCAL,
+				       "Invalid funding scid %u:%u:%u",
+				       loc->blkheight, loc->index,
+				       outpoint->n);
+		return false;
+	}
+
+	channel_apply_scid(channel, outpoint, scid);
 	return true;
 }
 
@@ -1211,17 +1214,10 @@ static void handle_peer_splice_locked(struct channel *channel, const u8 *msg)
 	/* Remember that we got the lockin */
 	wallet_channel_save(channel->peer->ld->wallet, channel);
 
-	log_debug(channel->log, "lightningd, splice_locked clearing inflights");
-
-	/* Take out the successful inflight from the list temporarily */
-	list_del(&inflight->list);
-
-	wallet_channel_clear_inflights(channel->peer->ld->wallet, channel);
-
 	/* Update the scid and tell everyone */
 	change_scid(channel, *inflight->locked_scid);
 
-	/* That freed watchers in inflights: now watch funding tx */
+	/* Now watch the new funding tx */
 	channel_watch_funding(channel->peer->ld, channel);
 
 	/* Log that funding output has been spent */
@@ -1234,13 +1230,19 @@ static void handle_peer_splice_locked(struct channel *channel, const u8 *msg)
 			      &locked_txid,
 			      inflight);
 
-	/* Put the successful inflight back in as a memory-only object.
-	 * peer_control's funding_spent function will pick this up and clean up
-	 * our inflight.
-	 *
-	 * This prevents any potential race conditions between us and them. */
-	inflight->splice_locked_memonly = true;
-	list_add_tail(&channel->inflights, &inflight->list);
+	/* The channel has everything it needs from the inflights now, so empty
+	 * them out, including the successful one (and their watchers).  We must
+	 * not keep that one: its last_tx is the commitment from the time of the
+	 * lock, which is revoked by the next update, and anything walking the
+	 * inflights (e.g. drop_to_chain) would use it. */
+	log_debug(channel->log, "lightningd, splice_locked clearing inflights");
+	wallet_channel_clear_inflights(channel->peer->ld->wallet, channel);
+
+	/* The inflight spend watches are owned by the channel, not the
+	 * inflights: rebuild them from the (now empty) list so the watch on
+	 * what is now our funding outpoint does not linger alongside
+	 * funding_spend_watch. */
+	channel_watch_inflight_outs(channel->peer->ld, channel);
 
 	lockin_complete(channel, CHANNELD_AWAITING_SPLICE);
 }
@@ -1973,6 +1975,7 @@ bool peer_start_channeld(struct channel *channel,
 				       channel->next_index[REMOTE],
 				       num_revocations,
 				       channel->next_htlc_id,
+				       channel->next_their_htlc_id,
 				       htlcs,
 				       channel->scid != NULL,
 				       channel->remote_channel_ready,

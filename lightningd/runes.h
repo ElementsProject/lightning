@@ -4,6 +4,10 @@
 
 struct rune;
 
+/* Runes came out of commando, hence the derivation key is 'commando'.
+ * makesecret must refuse it, or it would hand out our master rune secret. */
+#define RUNES_SECRET_LABEL "commando"
+
 /* Initialize ld->runes enough for rune_is_ours(): needs HSM. */
 struct runes *runes_early_init(struct lightningd *ld);
 

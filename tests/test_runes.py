@@ -3,6 +3,7 @@ from fixtures import TEST_NETWORK
 from pyln.client import RpcError
 from utils import only_one
 import base64
+import hashlib
 import os
 import pytest
 import time
@@ -917,3 +918,68 @@ def test_rune_bolt12_parse(node_factory):
                          rune=rune_node_l1,
                          method='pay',
                          params={'bolt11': l2inv})
+
+
+def forge_rune(secret, unique_id):
+    """Mint a rune with no restriction but its unique_id from a master secret.
+
+    The authcode is the SHA256 state after the secret and each restriction,
+    each padded exactly like the SHA256 end marker, so knowing the secret it
+    is plain SHA256 over the whole padded stream."""
+    padded = (secret + b'\x80' + bytes(64 - len(secret) - 1 - 8)
+              + (len(secret) * 8).to_bytes(8, 'big'))
+    restr = ('=' + unique_id).encode()
+    authcode = hashlib.sha256(padded + restr).digest()
+    return base64.urlsafe_b64encode(authcode + restr).decode()
+
+
+def test_makesecret_rune_master_secret(node_factory):
+    """Anyone allowed makesecret must not be able to mint runes of their own"""
+    l1 = node_factory.get_node()
+    rune0 = l1.rpc.createrune()
+
+    for req in ({'string': 'commando'}, {'hex': b'commando'.hex()}):
+        try:
+            secret = bytes.fromhex(l1.rpc.makesecret(**req)['secret'])
+        except RpcError as err:
+            assert err.error['code'] == -32602
+            assert 'reserved' in err.error['message']
+            continue
+
+        # It is our master secret: it reproduces the rune we created...
+        assert forge_rune(secret, '0') == rune0['rune']
+        # ...and mints an unrestricted rune we never issued nor stored.
+        forged = forge_rune(secret, '99999999')
+        assert l1.rpc.checkrune(nodeid=l1.info['id'],
+                                rune=forged,
+                                method='withdraw')['valid'] is True
+        assert l1.rpc.showrunes(rune=forged)['runes'][0]['stored'] is False
+        pytest.fail(f"makesecret {req} leaked the rune master secret, forged {forged}")
+
+    # Only the exact label is reserved.
+    l1.rpc.makesecret(string='commando2')
+    l1.rpc.makesecret(string='command')
+
+
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "Direct database manipulation")
+def test_blacklistrune_out_of_range(node_factory):
+    """blacklistrune cannot reach ids >= 100,000,000, so those must be refused"""
+    l1 = node_factory.get_node()
+
+    l1.rpc.createrune()
+    # The next unique_id is max(id) + 1: jump to the edge of the range.
+    l1.stop()
+    l1.db_manip("UPDATE runes SET id=99999999 WHERE id=0;")
+    l1.start()
+
+    rune = l1.rpc.createrune()
+    assert rune['unique_id'] == '100000000'
+
+    # Blacklist everything we are able to.
+    l1.rpc.blacklistrune(start=0, end=99_999_999)
+
+    with pytest.raises(RpcError, match='Not authorized: Blacklisted rune') as exc_info:
+        l1.rpc.checkrune(nodeid=l1.info['id'],
+                         rune=rune['rune'],
+                         method='getinfo')
+    assert exc_info.value.error['code'] == 0x5df

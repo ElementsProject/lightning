@@ -57,7 +57,7 @@ static bool unique_id_num(const struct rune *rune, u64 *num)
 
 	if (!rune->unique_id)
 		return false;
-	l = strtoull(rune->unique_id, &end, 0);
+	l = strtoull(rune->unique_id, &end, 10);
 	if (*end)
 		return false;
 
@@ -165,8 +165,8 @@ struct runes *runes_early_init(struct lightningd *ld)
 	const u8 *data;
 	struct secret secret;
 
-	/* Runes came out of commando, hence the derivation key is 'commando' */
-	data = tal_dup_arr(tmpctx, u8, (u8 *)"commando", strlen("commando"), 0);
+	data = tal_dup_arr(tmpctx, u8, (u8 *)RUNES_SECRET_LABEL,
+			   strlen(RUNES_SECRET_LABEL), 0);
 	msg = hsm_sync_req(tmpctx, ld, towire_hsmd_derive_secret(tmpctx, data));
 	if (!fromwire_hsmd_derive_secret_reply(msg, &secret))
 		fatal("Bad reply from HSM: %s", tal_hex(tmpctx, msg));
@@ -196,7 +196,7 @@ static struct rune_blacklist *bitmap_to_blacklist(tal_t *ctx,
 	while ((i = bitmap_ffs(bitmap, i, nbits)) != nbits) {
 		struct rune_blacklist b;
 		b.start = b.end = i;
-		while (b.end < nbits && bitmap_test_bit(bitmap, b.end + 1))
+		while (b.end + 1 < nbits && bitmap_test_bit(bitmap, b.end + 1))
 			b.end++;
 		tal_arr_expand(&blist, b);
 		i = b.end + 1;
@@ -328,7 +328,10 @@ static bool is_rune_blacklisted(const struct runes *runes, const struct rune *ru
 		return false;
 	}
 	uid = rune_unique_id(rune);
-	return uid < MAX_BLACKLIST_NUM && bitmap_test_bit(runes->blist_bitmap, uid);
+	/* blacklistrune cannot reach these, so we could never revoke them. */
+	if (uid >= MAX_BLACKLIST_NUM)
+		return true;
+	return bitmap_test_bit(runes->blist_bitmap, uid);
 }
 
 static void join_strings(char **base, const char *connector, char *append)
