@@ -1577,3 +1577,31 @@ def test_bkpr_report_lightning_cli_csv(node_factory):
     parsed = [next(csv.reader(io.StringIO(line))) for line in res.splitlines()]
     assert parsed
     assert all(len(row) == 3 for row in parsed)
+
+
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "edits the sqlite db directly")
+def test_bookkeeping_listbalances_underflow(node_factory, bitcoind):
+    """An account whose debits exceed its credits must not take lightningd
+    down: bkpr-listbalances logs the inconsistency and reports 0msat."""
+    l1, l2 = node_factory.line_graph(2, opts=[{'broken_log': 'Account balance underflow'}, {}])
+
+    # A payment gives l1's channel account a debit entry to corrupt.
+    inv = l2.rpc.invoice(10000, 'inv', 'desc')
+    l1.rpc.pay(inv['bolt11'])
+
+    chan_id = first_channel_id(l1, l2)
+    accts = l1.rpc.bkpr_listbalances()['accounts']
+    wallet_bal = only_one([a for a in accts if a['account'] == 'wallet'])['balances'][0]['balance_msat']
+    assert only_one([a for a in accts if a['account'] == chan_id])['balances'][0]['balance_msat'] > 0
+
+    # Make that debit exceed everything the channel was ever credited.
+    l1.stop()
+    l1.db_manip("UPDATE channel_moves SET credit_or_debit = -10000000000000 WHERE credit_or_debit < 0")
+    l1.start()
+
+    accts = l1.rpc.bkpr_listbalances()['accounts']
+    assert l1.daemon.is_in_log('Account balance underflow for account {}'.format(chan_id))
+    assert only_one([a for a in accts if a['account'] == chan_id])['balances'][0]['balance_msat'] == 0
+    assert only_one([a for a in accts if a['account'] == 'wallet'])['balances'][0]['balance_msat'] == wallet_bal
+    # lightningd survived.
+    l1.rpc.getinfo()

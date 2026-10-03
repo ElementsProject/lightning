@@ -937,11 +937,17 @@ static struct command_result *do_list_balances(struct command *cmd,
 						      accts[i]->name,
 						      &credit, &debit);
 		if (!amount_msat_sub(&balance, credit, debit)) {
-			plugin_err(cmd->plugin,
-				   "Account balance underflow for account %s (credit %s, debit %s)",
+			/* The ledger for this account is inconsistent.
+			 * Log it and report zero: exiting here would
+			 * take lightningd down with us, since the
+			 * bookkeeper is an important plugin. */
+			plugin_log(cmd->plugin, LOG_BROKEN,
+				   "Account balance underflow for account %s"
+				   " (credit %s, debit %s): reporting 0msat",
 				   accts[i]->name,
 				   fmt_amount_msat(tmpctx, credit),
 				   fmt_amount_msat(tmpctx, debit));
+			balance = AMOUNT_MSAT(0);
 		}
 
 		/* Skip the external acct balance, it's effectively
