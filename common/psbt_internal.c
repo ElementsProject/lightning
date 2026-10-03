@@ -32,6 +32,13 @@ static bool next_size(const u8 **cursor, size_t *max, size_t *size)
 	return true;
 }
 
+bool witness_stack_items(const u8 *witness, size_t *num_items)
+{
+	const u8 *cursor = witness;
+	size_t max = tal_count(witness);
+	return next_size(&cursor, &max, num_items);
+}
+
 static u8 *next_script(const tal_t *ctx, const u8 **cursor, size_t *max)
 {
 	const u8 *p;
