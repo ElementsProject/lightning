@@ -71,7 +71,9 @@
             "ipv6": 2,
             "local socket": 0,
             "torv2": 3,
-            "torv3": 4
+            "torv3": 4,
+            "unresolved": 6,
+            "websocket": 5
         },
         "ConnectDirection": {
             "in": 0,
@@ -415,6 +417,7 @@
             "OPENINGD": 0
         },
         "ListpeersLevel": {
+            "broken": 5,
             "debug": 1,
             "info": 2,
             "io": 0,
@@ -536,6 +539,7 @@
             "local socket": 0,
             "torv2": 3,
             "torv3": 4,
+            "unresolved": 6,
             "websocket": 5
         },
         "PeerConnectDirection": {
@@ -1384,10 +1388,12 @@
         },
         "ConnectAddress": {
             "Connect.address.address": 3,
+            "Connect.address.name": 5,
             "Connect.address.port": 4,
             "Connect.address.socket": 2,
             "Connect.address.type": 1,
             "connect.address.address": 3,
+            "connect.address.name": 5,
             "connect.address.port": 4,
             "connect.address.socket": 2,
             "connect.address.type": 1
@@ -2013,18 +2019,22 @@
             "FetchInvoice.next_period": 3
         },
         "ForwardEventNotification": {
+            "forward_event.created_index": 13,
             "forward_event.failcode": 8,
             "forward_event.failreason": 9,
             "forward_event.fee_msat": 6,
             "forward_event.in_channel": 2,
+            "forward_event.in_htlc_id": 14,
             "forward_event.in_msat": 4,
             "forward_event.out_channel": 3,
             "forward_event.out_msat": 5,
             "forward_event.payment_hash": 1,
+            "forward_event.preimage": 15,
             "forward_event.received_time": 11,
             "forward_event.resolved_time": 12,
             "forward_event.status": 7,
-            "forward_event.style": 10
+            "forward_event.style": 10,
+            "forward_event.updated_index": 16
         },
         "FundchannelCancelRequest": {
             "FundChannel_Cancel.id": 1
@@ -3106,11 +3116,13 @@
             "ListFunds.outputs[].address": 5,
             "ListFunds.outputs[].amount_msat": 3,
             "ListFunds.outputs[].blockheight": 8,
+            "ListFunds.outputs[].csv_lock": 11,
             "ListFunds.outputs[].output": 2,
             "ListFunds.outputs[].redeemscript": 6,
             "ListFunds.outputs[].reserved": 9,
             "ListFunds.outputs[].reserved_to_block": 10,
             "ListFunds.outputs[].scriptpubkey": 4,
+            "ListFunds.outputs[].spendable_at": 12,
             "ListFunds.outputs[].status": 7,
             "ListFunds.outputs[].txid": 1
         },
@@ -6313,35 +6325,35 @@
             "deprecated": null
         },
         "CancelRecurringInvoice": {
-            "added": "v25.09",
+            "added": "v25.12",
             "deprecated": null
         },
         "CancelRecurringInvoice.bip353": {
-            "added": "v25.09",
+            "added": "v25.12",
             "deprecated": null
         },
         "CancelRecurringInvoice.bolt12": {
-            "added": "v25.09",
+            "added": "v25.12",
             "deprecated": null
         },
         "CancelRecurringInvoice.offer": {
-            "added": "v25.09",
+            "added": "v25.12",
             "deprecated": null
         },
         "CancelRecurringInvoice.payer_note": {
-            "added": "v25.09",
+            "added": "v25.12",
             "deprecated": null
         },
         "CancelRecurringInvoice.recurrence_counter": {
-            "added": "v25.09",
+            "added": "v25.12",
             "deprecated": null
         },
         "CancelRecurringInvoice.recurrence_label": {
-            "added": "v25.09",
+            "added": "v25.12",
             "deprecated": null
         },
         "CancelRecurringInvoice.recurrence_start": {
-            "added": "v25.09",
+            "added": "v25.12",
             "deprecated": null
         },
         "CheckMessage": {
@@ -6485,6 +6497,10 @@
             "deprecated": null
         },
         "Connect.address.address": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "Connect.address.name": {
             "added": "pre-v0.10.1",
             "deprecated": null
         },
@@ -11288,6 +11304,10 @@
             "added": "pre-v0.10.1",
             "deprecated": null
         },
+        "ListFunds.outputs[].csv_lock": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
         "ListFunds.outputs[].output": {
             "added": "pre-v0.10.1",
             "deprecated": null
@@ -11305,6 +11325,10 @@
             "deprecated": null
         },
         "ListFunds.outputs[].scriptpubkey": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListFunds.outputs[].spendable_at": {
             "added": "pre-v0.10.1",
             "deprecated": null
         },
@@ -15648,6 +15672,10 @@
             "added": "pre-v0.10.1",
             "deprecated": null
         },
+        "connect.address.name": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
         "connect.address.port": {
             "added": "pre-v0.10.1",
             "deprecated": null
@@ -15732,6 +15760,10 @@
             "added": "pre-v0.10.1",
             "deprecated": null
         },
+        "forward_event.created_index": {
+            "added": "v23.11",
+            "deprecated": null
+        },
         "forward_event.failcode": {
             "added": "pre-v0.10.1",
             "deprecated": null
@@ -15745,6 +15777,10 @@
             "deprecated": null
         },
         "forward_event.in_channel": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "forward_event.in_htlc_id": {
             "added": "pre-v0.10.1",
             "deprecated": null
         },
@@ -15764,6 +15800,10 @@
             "added": "pre-v0.10.1",
             "deprecated": null
         },
+        "forward_event.preimage": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
         "forward_event.received_time": {
             "added": "pre-v0.10.1",
             "deprecated": null
@@ -15777,6 +15817,10 @@
             "deprecated": null
         },
         "forward_event.style": {
+            "added": "v23.11",
+            "deprecated": null
+        },
+        "forward_event.updated_index": {
             "added": "v23.11",
             "deprecated": null
         },
@@ -16380,11 +16424,31 @@
             "added": "pre-v0.10.1",
             "deprecated": null
         },
+        "openchannel2.channel_fee_max_base_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel2.channel_fee_max_proportional_thousandths": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
         "openchannel2.close_to": {
             "added": "pre-v0.10.1",
             "deprecated": null
         },
         "openchannel2.error_message": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel2.funding_weight": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel2.lease_fee_base_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel2.lease_fee_basis": {
             "added": "pre-v0.10.1",
             "deprecated": null
         },

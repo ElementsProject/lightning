@@ -84,7 +84,6 @@ impl From<responses::ListpeersPeersLog> for pb::ListpeersPeersLog {
             data: c.data.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
             log: c.log, // Rule #2 for type string?
             node_id: c.node_id.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
-            num_skipped: c.num_skipped, // Rule #2 for type u32?
             source: c.source, // Rule #2 for type string?
             time: c.time, // Rule #2 for type string?
             item_type: c.item_type as i32,
@@ -143,11 +142,13 @@ impl From<responses::ListfundsOutputs> for pb::ListfundsOutputs {
             address: c.address, // Rule #2 for type string?
             amount_msat: Some(c.amount_msat.into()), // Rule #2 for type msat
             blockheight: c.blockheight, // Rule #2 for type u32?
+            csv_lock: c.csv_lock, // Rule #2 for type u32?
             output: c.output, // Rule #2 for type u32
             redeemscript: c.redeemscript.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
             reserved: c.reserved, // Rule #2 for type boolean
             reserved_to_block: c.reserved_to_block, // Rule #2 for type u32?
             scriptpubkey: hex::decode(&c.scriptpubkey).unwrap(), // Rule #2 for type hex
+            spendable_at: c.spendable_at, // Rule #2 for type u32?
             status: c.status as i32,
             txid: hex::decode(&c.txid).unwrap(), // Rule #2 for type txid
         }
@@ -174,8 +175,8 @@ impl From<responses::SendpayResponse> for pb::SendpayResponse {
             amount_sent_msat: Some(c.amount_sent_msat.into()), // Rule #2 for type msat
             bolt11: c.bolt11, // Rule #2 for type string?
             bolt12: c.bolt12, // Rule #2 for type string?
-            completed_at: c.completed_at, // Rule #2 for type u64?
-            created_at: c.created_at, // Rule #2 for type u64
+            completed_at: c.completed_at, // Rule #2 for type u32?
+            created_at: c.created_at, // Rule #2 for type u32
             created_index: c.created_index, // Rule #2 for type u64
             destination: c.destination.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
             groupid: c.groupid, // Rule #2 for type u64
@@ -467,6 +468,7 @@ impl From<responses::ConnectAddress> for pb::ConnectAddress {
     fn from(c: responses::ConnectAddress) -> Self {
         Self {
             address: c.address, // Rule #2 for type string?
+            name: c.name, // Rule #2 for type string?
             port: c.port.map(|v| v.into()), // Rule #2 for type u16?
             socket: c.socket, // Rule #2 for type string?
             item_type: c.item_type as i32,
@@ -809,7 +811,7 @@ impl From<responses::SendonionResponse> for pb::SendonionResponse {
             amount_sent_msat: Some(c.amount_sent_msat.into()), // Rule #2 for type msat
             bolt11: c.bolt11, // Rule #2 for type string?
             bolt12: c.bolt12, // Rule #2 for type string?
-            created_at: c.created_at, // Rule #2 for type u64
+            created_at: c.created_at, // Rule #2 for type u32
             created_index: c.created_index, // Rule #2 for type u64
             destination: c.destination.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
             id: c.id, // Rule #2 for type u64
@@ -832,8 +834,8 @@ impl From<responses::ListsendpaysPayments> for pb::ListsendpaysPayments {
             amount_sent_msat: Some(c.amount_sent_msat.into()), // Rule #2 for type msat
             bolt11: c.bolt11, // Rule #2 for type string?
             bolt12: c.bolt12, // Rule #2 for type string?
-            completed_at: c.completed_at, // Rule #2 for type u64?
-            created_at: c.created_at, // Rule #2 for type u64
+            completed_at: c.completed_at, // Rule #2 for type u32?
+            created_at: c.created_at, // Rule #2 for type u32
             created_index: c.created_index, // Rule #2 for type u64
             description: c.description, // Rule #2 for type string?
             destination: c.destination.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
@@ -960,11 +962,11 @@ impl From<responses::ListnodesNodesOptionWillFund> for pb::ListnodesNodesOptionW
     fn from(c: responses::ListnodesNodesOptionWillFund) -> Self {
         Self {
             channel_fee_max_base_msat: Some(c.channel_fee_max_base_msat.into()), // Rule #2 for type msat
-            channel_fee_max_proportional_thousandths: c.channel_fee_max_proportional_thousandths, // Rule #2 for type u32
+            channel_fee_max_proportional_thousandths: c.channel_fee_max_proportional_thousandths.into(), // Rule #2 for type u16
             compact_lease: hex::decode(&c.compact_lease).unwrap(), // Rule #2 for type hex
-            funding_weight: c.funding_weight, // Rule #2 for type u32
+            funding_weight: c.funding_weight.into(), // Rule #2 for type u16
             lease_fee_base_msat: Some(c.lease_fee_base_msat.into()), // Rule #2 for type msat
-            lease_fee_basis: c.lease_fee_basis, // Rule #2 for type u32
+            lease_fee_basis: c.lease_fee_basis.into(), // Rule #2 for type u16
         }
     }
 }
@@ -1069,8 +1071,8 @@ impl From<responses::WaitsendpayResponse> for pb::WaitsendpayResponse {
             amount_sent_msat: Some(c.amount_sent_msat.into()), // Rule #2 for type msat
             bolt11: c.bolt11, // Rule #2 for type string?
             bolt12: c.bolt12, // Rule #2 for type string?
-            completed_at: c.completed_at, // Rule #2 for type number?
-            created_at: c.created_at, // Rule #2 for type u64
+            completed_at: c.completed_at, // Rule #2 for type u32?
+            created_at: c.created_at, // Rule #2 for type u32
             created_index: c.created_index, // Rule #2 for type u64
             destination: c.destination.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
             groupid: c.groupid, // Rule #2 for type u64
@@ -1399,18 +1401,17 @@ impl From<responses::ListpeerchannelsChannels> for pb::ListpeerchannelsChannels 
             last_stable_connection: c.last_stable_connection, // Rule #2 for type u64?
             last_tx_fee_msat: c.last_tx_fee_msat.map(|f| f.into()), // Rule #2 for type msat?
             lost_state: c.lost_state, // Rule #2 for type boolean?
-            max_accepted_htlcs: c.max_accepted_htlcs, // Rule #2 for type u32?
+            max_accepted_htlcs: c.max_accepted_htlcs.map(|v| v.into()), // Rule #2 for type u16?
             max_to_us_msat: c.max_to_us_msat.map(|f| f.into()), // Rule #2 for type msat?
             maximum_htlc_out_msat: c.maximum_htlc_out_msat.map(|f| f.into()), // Rule #2 for type msat?
             min_to_us_msat: c.min_to_us_msat.map(|f| f.into()), // Rule #2 for type msat?
             minimum_htlc_in_msat: c.minimum_htlc_in_msat.map(|f| f.into()), // Rule #2 for type msat?
             minimum_htlc_out_msat: c.minimum_htlc_out_msat.map(|f| f.into()), // Rule #2 for type msat?
-            next_fee_step: c.next_fee_step, // Rule #2 for type u32?
             next_feerate: c.next_feerate, // Rule #2 for type string?
             opener: c.opener as i32,
             our_max_htlc_value_in_flight_msat: c.our_max_htlc_value_in_flight_msat.map(|f| f.into()), // Rule #2 for type msat?
             our_reserve_msat: c.our_reserve_msat.map(|f| f.into()), // Rule #2 for type msat?
-            our_to_self_delay: c.our_to_self_delay, // Rule #2 for type u32?
+            our_to_self_delay: c.our_to_self_delay.map(|v| v.into()), // Rule #2 for type u16?
             out_fulfilled_msat: c.out_fulfilled_msat.map(|f| f.into()), // Rule #2 for type msat?
             out_offered_msat: c.out_offered_msat.map(|f| f.into()), // Rule #2 for type msat?
             out_payments_fulfilled: c.out_payments_fulfilled, // Rule #2 for type u64?
@@ -1431,7 +1432,7 @@ impl From<responses::ListpeerchannelsChannels> for pb::ListpeerchannelsChannels 
             status: c.status.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
             their_max_htlc_value_in_flight_msat: c.their_max_htlc_value_in_flight_msat.map(|f| f.into()), // Rule #2 for type msat?
             their_reserve_msat: c.their_reserve_msat.map(|f| f.into()), // Rule #2 for type msat?
-            their_to_self_delay: c.their_to_self_delay, // Rule #2 for type u32?
+            their_to_self_delay: c.their_to_self_delay.map(|v| v.into()), // Rule #2 for type u16?
             to_us_msat: c.to_us_msat.map(|f| f.into()), // Rule #2 for type msat?
             total_msat: c.total_msat.map(|f| f.into()), // Rule #2 for type msat?
             updates: c.updates.map(|v| v.into()),
@@ -1489,7 +1490,7 @@ impl From<responses::ListclosedchannelsClosedchannels> for pb::Listclosedchannel
             funding_txid: hex::decode(&c.funding_txid).unwrap(), // Rule #2 for type txid
             funding_withheld: c.funding_withheld, // Rule #2 for type boolean?
             last_commitment_fee_msat: c.last_commitment_fee_msat.map(|f| f.into()), // Rule #2 for type msat?
-            last_commitment_txid: c.last_commitment_txid.map(|v| <Sha256 as AsRef<[u8]>>::as_ref(&v).to_vec()), // Rule #2 for type hash?
+            last_commitment_txid: c.last_commitment_txid.map(|v| hex::decode(v).unwrap()), // Rule #2 for type txid?
             last_stable_connection: c.last_stable_connection, // Rule #2 for type u64?
             leased: c.leased, // Rule #2 for type boolean
             max_to_us_msat: Some(c.max_to_us_msat.into()), // Rule #2 for type msat
@@ -1853,8 +1854,8 @@ impl From<responses::DelpayPayments> for pb::DelpayPayments {
             amount_sent_msat: Some(c.amount_sent_msat.into()), // Rule #2 for type msat
             bolt11: c.bolt11, // Rule #2 for type string?
             bolt12: c.bolt12, // Rule #2 for type string?
-            completed_at: c.completed_at, // Rule #2 for type u64?
-            created_at: c.created_at, // Rule #2 for type u64
+            completed_at: c.completed_at, // Rule #2 for type u32?
+            created_at: c.created_at, // Rule #2 for type u32
             created_index: c.created_index, // Rule #2 for type u64
             destination: c.destination.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
             erroronion: c.erroronion.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
@@ -2163,7 +2164,6 @@ impl From<responses::GetlogLog> for pb::GetlogLog {
             data: c.data.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
             log: c.log, // Rule #2 for type string?
             node_id: c.node_id.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
-            num_skipped: c.num_skipped, // Rule #2 for type u32?
             source: c.source, // Rule #2 for type string?
             time: c.time, // Rule #2 for type string?
             item_type: c.item_type as i32,
@@ -2189,13 +2189,13 @@ impl From<responses::FunderupdateResponse> for pb::FunderupdateResponse {
     fn from(c: responses::FunderupdateResponse) -> Self {
         Self {
             channel_fee_max_base_msat: c.channel_fee_max_base_msat.map(|f| f.into()), // Rule #2 for type msat?
-            channel_fee_max_proportional_thousandths: c.channel_fee_max_proportional_thousandths, // Rule #2 for type u32?
+            channel_fee_max_proportional_thousandths: c.channel_fee_max_proportional_thousandths.map(|v| v.into()), // Rule #2 for type u16?
             compact_lease: c.compact_lease.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
             fund_probability: c.fund_probability, // Rule #2 for type u32
-            funding_weight: c.funding_weight, // Rule #2 for type u32?
+            funding_weight: c.funding_weight.map(|v| v.into()), // Rule #2 for type u16?
             fuzz_percent: c.fuzz_percent, // Rule #2 for type u32
             lease_fee_base_msat: c.lease_fee_base_msat.map(|f| f.into()), // Rule #2 for type msat?
-            lease_fee_basis: c.lease_fee_basis, // Rule #2 for type u32?
+            lease_fee_basis: c.lease_fee_basis.map(|v| v.into()), // Rule #2 for type u16?
             leases_only: c.leases_only, // Rule #2 for type boolean
             max_their_funding_msat: Some(c.max_their_funding_msat.into()), // Rule #2 for type msat
             min_their_funding_msat: Some(c.min_their_funding_msat.into()), // Rule #2 for type msat
@@ -2326,8 +2326,8 @@ impl From<responses::ListpaysPays> for pb::ListpaysPays {
             amount_sent_msat: Some(c.amount_sent_msat.into()), // Rule #2 for type msat
             bolt11: c.bolt11, // Rule #2 for type string?
             bolt12: c.bolt12, // Rule #2 for type string?
-            completed_at: c.completed_at, // Rule #2 for type u64?
-            created_at: c.created_at, // Rule #2 for type u64
+            completed_at: c.completed_at, // Rule #2 for type u32?
+            created_at: c.created_at, // Rule #2 for type u32
             created_index: c.created_index, // Rule #2 for type u64?
             description: c.description, // Rule #2 for type string?
             destination: c.destination.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
@@ -2843,7 +2843,6 @@ impl From<responses::SpliceinResponse> for pb::SpliceinResponse {
     fn from(c: responses::SpliceinResponse) -> Self {
         Self {
             psbt: c.psbt, // Rule #2 for type string
-            tx: c.tx, // Rule #2 for type string?
             txid: c.txid, // Rule #2 for type string
         }
     }
@@ -2854,7 +2853,6 @@ impl From<responses::SpliceoutResponse> for pb::SpliceoutResponse {
     fn from(c: responses::SpliceoutResponse) -> Self {
         Self {
             psbt: c.psbt, // Rule #2 for type string
-            tx: c.tx, // Rule #2 for type string?
             txid: c.txid, // Rule #2 for type string
         }
     }
@@ -4840,8 +4838,8 @@ impl From<responses::AskrenelistreservationsResponse> for pb::Askrenelistreserva
 impl From<responses::InjectpaymentonionResponse> for pb::InjectpaymentonionResponse {
     fn from(c: responses::InjectpaymentonionResponse) -> Self {
         Self {
-            completed_at: c.completed_at, // Rule #2 for type u64
-            created_at: c.created_at, // Rule #2 for type u64
+            completed_at: c.completed_at, // Rule #2 for type u32
+            created_at: c.created_at, // Rule #2 for type u32
             created_index: c.created_index, // Rule #2 for type u64
             payment_preimage: c.payment_preimage.to_vec(), // Rule #2 for type secret
         }
@@ -5161,6 +5159,7 @@ impl From<notifications::ConnectAddress> for pb::PeerConnectAddress {
     fn from(c: notifications::ConnectAddress) -> Self {
         Self {
             address: c.address, // Rule #2 for type string?
+            name: c.name, // Rule #2 for type string?
             port: c.port.map(|v| v.into()), // Rule #2 for type u16?
             socket: c.socket, // Rule #2 for type string?
             item_type: c.item_type as i32,
@@ -5250,18 +5249,22 @@ impl From<notifications::DisconnectNotification> for pb::DisconnectNotification 
 impl From<notifications::ForwardEventNotification> for pb::ForwardEventNotification {
     fn from(c: notifications::ForwardEventNotification) -> Self {
         Self {
+            created_index: c.created_index, // Rule #2 for type u64?
             failcode: c.failcode, // Rule #2 for type u32?
             failreason: c.failreason, // Rule #2 for type string?
             fee_msat: c.fee_msat.map(|f| f.into()), // Rule #2 for type msat?
             in_channel: c.in_channel.to_string(), // Rule #2 for type short_channel_id
+            in_htlc_id: c.in_htlc_id, // Rule #2 for type u64?
             in_msat: Some(c.in_msat.into()), // Rule #2 for type msat
             out_channel: c.out_channel.map(|v| v.to_string()), // Rule #2 for type short_channel_id?
             out_msat: c.out_msat.map(|f| f.into()), // Rule #2 for type msat?
             payment_hash: <Sha256 as AsRef<[u8]>>::as_ref(&c.payment_hash).to_vec(), // Rule #2 for type hash
+            preimage: c.preimage.map(|v| v.to_vec()), // Rule #2 for type secret?
             received_time: c.received_time, // Rule #2 for type number
             resolved_time: c.resolved_time, // Rule #2 for type number?
             status: c.status as i32,
             style: c.style.map(|v| v as i32),
+            updated_index: c.updated_index, // Rule #2 for type u64?
         }
     }
 }
@@ -5359,8 +5362,8 @@ impl From<notifications::SendpayFailureData> for pb::SendpayFailureData {
             amount_sent_msat: c.amount_sent_msat.map(|f| f.into()), // Rule #2 for type msat?
             bolt11: c.bolt11, // Rule #2 for type string?
             bolt12: c.bolt12, // Rule #2 for type string?
-            completed_at: c.completed_at, // Rule #2 for type u64?
-            created_at: c.created_at, // Rule #2 for type u64?
+            completed_at: c.completed_at, // Rule #2 for type u32?
+            created_at: c.created_at, // Rule #2 for type u32?
             created_index: c.created_index, // Rule #2 for type u64?
             description: c.description, // Rule #2 for type string?
             destination: c.destination.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
@@ -5404,8 +5407,8 @@ impl From<notifications::SendPaySuccessNotification> for pb::SendPaySuccessNotif
             amount_sent_msat: Some(c.amount_sent_msat.into()), // Rule #2 for type msat
             bolt11: c.bolt11, // Rule #2 for type string?
             bolt12: c.bolt12, // Rule #2 for type string?
-            completed_at: c.completed_at, // Rule #2 for type u64?
-            created_at: c.created_at, // Rule #2 for type u64
+            completed_at: c.completed_at, // Rule #2 for type u32?
+            created_at: c.created_at, // Rule #2 for type u32
             created_index: c.created_index, // Rule #2 for type u64
             description: c.description, // Rule #2 for type string?
             destination: c.destination.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
@@ -6259,9 +6262,9 @@ impl From<requests::CancelrecurringinvoiceRequest> for pb::Cancelrecurringinvoic
             bip353: c.bip353, // Rule #2 for type string?
             offer: c.offer, // Rule #2 for type string
             payer_note: c.payer_note, // Rule #2 for type string?
-            recurrence_counter: c.recurrence_counter, // Rule #2 for type u64
+            recurrence_counter: c.recurrence_counter, // Rule #2 for type u32
             recurrence_label: c.recurrence_label, // Rule #2 for type string
-            recurrence_start: c.recurrence_start, // Rule #2 for type number?
+            recurrence_start: c.recurrence_start, // Rule #2 for type u32?
         }
     }
 }
@@ -6341,13 +6344,13 @@ impl From<requests::FunderupdateRequest> for pb::FunderupdateRequest {
     fn from(c: requests::FunderupdateRequest) -> Self {
         Self {
             channel_fee_max_base_msat: c.channel_fee_max_base_msat.map(|f| f.into()), // Rule #2 for type msat?
-            channel_fee_max_proportional_thousandths: c.channel_fee_max_proportional_thousandths, // Rule #2 for type u32?
+            channel_fee_max_proportional_thousandths: c.channel_fee_max_proportional_thousandths.map(|v| v.into()), // Rule #2 for type u16?
             compact_lease: c.compact_lease.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
             fund_probability: c.fund_probability, // Rule #2 for type u32?
-            funding_weight: c.funding_weight, // Rule #2 for type u32?
+            funding_weight: c.funding_weight.map(|v| v.into()), // Rule #2 for type u16?
             fuzz_percent: c.fuzz_percent, // Rule #2 for type u32?
             lease_fee_base_msat: c.lease_fee_base_msat.map(|f| f.into()), // Rule #2 for type msat?
-            lease_fee_basis: c.lease_fee_basis, // Rule #2 for type u32?
+            lease_fee_basis: c.lease_fee_basis.map(|v| v.into()), // Rule #2 for type u16?
             leases_only: c.leases_only, // Rule #2 for type boolean?
             max_their_funding_msat: c.max_their_funding_msat.map(|f| f.into()), // Rule #2 for type msat?
             min_their_funding_msat: c.min_their_funding_msat.map(|f| f.into()), // Rule #2 for type msat?
@@ -7305,7 +7308,7 @@ impl From<requests::ListchainmovesRequest> for pb::ListchainmovesRequest {
 impl From<requests::ListnetworkeventsRequest> for pb::ListnetworkeventsRequest {
     fn from(c: requests::ListnetworkeventsRequest) -> Self {
         Self {
-            id: c.id, // Rule #2 for type string?
+            id: c.id.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
             index: c.index.map(|v| v as i32),
             limit: c.limit, // Rule #2 for type u32?
             start: c.start, // Rule #2 for type u64?
@@ -8353,9 +8356,9 @@ impl From<pb::CancelrecurringinvoiceRequest> for requests::Cancelrecurringinvoic
             bip353: c.bip353, // Rule #1 for type string?
             offer: c.offer, // Rule #1 for type string
             payer_note: c.payer_note, // Rule #1 for type string?
-            recurrence_counter: c.recurrence_counter, // Rule #1 for type u64
+            recurrence_counter: c.recurrence_counter, // Rule #1 for type u32
             recurrence_label: c.recurrence_label, // Rule #1 for type string
-            recurrence_start: c.recurrence_start, // Rule #1 for type number?
+            recurrence_start: c.recurrence_start, // Rule #1 for type u32?
         }
     }
 }
@@ -8432,13 +8435,13 @@ impl From<pb::FunderupdateRequest> for requests::FunderupdateRequest {
     fn from(c: pb::FunderupdateRequest) -> Self {
         Self {
             channel_fee_max_base_msat: c.channel_fee_max_base_msat.map(|a| a.into()), // Rule #1 for type msat?
-            channel_fee_max_proportional_thousandths: c.channel_fee_max_proportional_thousandths, // Rule #1 for type u32?
+            channel_fee_max_proportional_thousandths: c.channel_fee_max_proportional_thousandths.map(|v| v as u16), // Rule #1 for type u16?
             compact_lease: c.compact_lease.map(|v| hex::encode(v)), // Rule #1 for type hex?
             fund_probability: c.fund_probability, // Rule #1 for type u32?
-            funding_weight: c.funding_weight, // Rule #1 for type u32?
+            funding_weight: c.funding_weight.map(|v| v as u16), // Rule #1 for type u16?
             fuzz_percent: c.fuzz_percent, // Rule #1 for type u32?
             lease_fee_base_msat: c.lease_fee_base_msat.map(|a| a.into()), // Rule #1 for type msat?
-            lease_fee_basis: c.lease_fee_basis, // Rule #1 for type u32?
+            lease_fee_basis: c.lease_fee_basis.map(|v| v as u16), // Rule #1 for type u16?
             leases_only: c.leases_only, // Rule #1 for type boolean?
             max_their_funding_msat: c.max_their_funding_msat.map(|a| a.into()), // Rule #1 for type msat?
             min_their_funding_msat: c.min_their_funding_msat.map(|a| a.into()), // Rule #1 for type msat?
@@ -9364,7 +9367,7 @@ impl From<pb::ListchainmovesRequest> for requests::ListchainmovesRequest {
 impl From<pb::ListnetworkeventsRequest> for requests::ListnetworkeventsRequest {
     fn from(c: pb::ListnetworkeventsRequest) -> Self {
         Self {
-            id: c.id, // Rule #1 for type string?
+            id: c.id.map(|v| PublicKey::from_slice(&v).unwrap()), // Rule #1 for type pubkey?
             index: c.index.map(|v| v.try_into().unwrap()),
             limit: c.limit, // Rule #1 for type u32?
             start: c.start, // Rule #1 for type u64?

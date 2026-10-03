@@ -1,7 +1,7 @@
 {
   "$schema": "../rpc-schema-draft.json",
   "type": "object",
-  "added": "v25.09",
+  "added": "v25.12",
   "rpc": "cancelrecurringinvoice",
   "title": "Command for sending a cancel message for a recurring offer",
   "description": [
@@ -24,7 +24,7 @@
         ]
       },
       "recurrence_counter": {
-        "type": "u64",
+        "type": "u32",
         "description": [
           "One later than the last-specified recurrence_counter for the last invoice."
         ]
@@ -36,7 +36,7 @@
         ]
       },
       "recurrence_start": {
-        "type": "number",
+        "type": "u32",
         "description": [
           "Indicates what period number to start at (usually 0).  This will be the same as previous fetchinvoice calls."
         ]
