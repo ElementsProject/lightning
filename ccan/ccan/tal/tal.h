@@ -143,7 +143,16 @@ void *tal_free(const tal_t *p);
  *
  * This may need to perform an allocation, in which case it may fail; thus
  * it can return NULL, otherwise returns @ptr.  If @ptr is NULL, this function does
- * nothing.
+ * nothing.  It also fails (returning NULL) if @ctx is currently being
+ * destroyed.
+ *
+ * A destructor or TAL_NOTIFY_FREE notifier may use this to rescue @ptr
+ * from destruction by moving it to a new parent; the free is then
+ * aborted.  The rescue is only noticed once every notifier and
+ * destructor registered for this pass has run, so later ones still
+ * fire (and all of them fire again when the object is finally
+ * destroyed).  If the rescue fails (allocation failure), the free
+ * proceeds.
  */
 #if HAVE_STATEMENT_EXPR
 /* Weird macro avoids gcc's 'warning: value computed is not used'. */
@@ -174,7 +183,8 @@ void *tal_free(const tal_t *p);
  *
  * If @function has not been successfully added as a destructor, this returns
  * false.  Note that if we're inside the destructor call itself, this will
- * return false.
+ * return false, and the destructor remains registered: it is restored when
+ * the call returns, in case the object was rescued from destruction.
  */
 #define tal_del_destructor(ptr, function)				      \
 	tal_del_destructor_((ptr), typesafe_cb(void, void *, (function), (ptr)))
@@ -206,7 +216,8 @@ void *tal_free(const tal_t *p);
  *
  * If @function has not been successfully added as a destructor, this returns
  * false.  Note that if we're inside the destructor call itself, this will
- * return false.
+ * return false, and the destructor remains registered: it is restored when
+ * the call returns, in case the object was rescued from destruction.
  */
 #define tal_del_destructor(ptr, function)				      \
 	tal_del_destructor_((ptr), typesafe_cb(void, void *, (function), (ptr)))
@@ -271,6 +282,17 @@ enum tal_notify_type {
  * tal_free()d: @info is the child.  Note that TAL_NOTIFY_DEL_CHILD is
  * not called when this context is tal_free()d: TAL_NOTIFY_FREE is
  * considered sufficient for that case.
+ *
+ * For TAL_NOTIFY_ADD_CHILD, the callback must not tal_free() or
+ * tal_steal() the child: the allocating call will still return it to
+ * the caller, so this will crash or corrupt.
+ *
+ * For TAL_NOTIFY_DEL_CHILD, the child is already unlinked and marked
+ * destroying: calling tal_free() on it from the callback is a no-op,
+ * and tal_steal()ing it rescues it from destruction (aborting the
+ * free).
+ *
+ * In all cases, the callback must not tal_free() @ptr itself.
  *
  * TAL_NOTIFY_ADD_NOTIFIER/TAL_NOTIFIER_DEL_NOTIFIER are called when a
  * notifier is added or removed (not for this notifier): @info is the
