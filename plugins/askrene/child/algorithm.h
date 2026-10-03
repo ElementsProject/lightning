@@ -62,11 +62,12 @@ bool BFS_path(const tal_t *ctx, const struct graph *graph,
  * cost[i]>=0
  * if prune is true the destination must be valid
  * */
+/* max_hops is the arc limit on the reconstructed path.  0 means none. */
 bool dijkstra_path(const tal_t *ctx, const struct graph *graph,
 		   const struct node source, const struct node destination,
 		   bool prune, const s64 *capacity, const s64 cap_threshold,
 		   const s64 *cost, const s64 *potential, struct arc *prev,
-		   s64 *distance);
+		   s64 *distance, size_t max_hops);
 
 
 /* Finds any flow that satisfy the capacity constraints:

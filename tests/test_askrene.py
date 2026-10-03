@@ -927,6 +927,52 @@ def test_getroutes(node_factory):
                             'cltv_out': 99}]])
 
 
+def test_getroutes_maxhops(node_factory):
+    """maxhops is a hard cap, not a preference.
+
+    A line of channels has only one route. Asking for fewer hops than that
+    route must fail, and asking for exactly that many must succeed. xpay
+    uses this so a blinded tail still fits in the 1300-byte onion.
+    """
+    gsfile, nodemap = generate_gossip_store([
+        GenChannel(0, 1),
+        GenChannel(1, 2),
+        GenChannel(2, 3),
+        GenChannel(3, 4),
+    ])
+    l1 = node_factory.get_node(gossip_store_file=gsfile.name)
+
+    with pytest.raises(RpcError, match=r"could not find|usable set of paths|excessive"):
+        l1.rpc.getroutes(source=nodemap[0],
+                         destination=nodemap[4],
+                         amount_msat=1000,
+                         layers=[],
+                         maxfee_msat=100000,
+                         final_cltv=10,
+                         maxhops=2)
+
+    routes = l1.rpc.getroutes(source=nodemap[0],
+                              destination=nodemap[4],
+                              amount_msat=1000,
+                              layers=[],
+                              maxfee_msat=100000,
+                              final_cltv=10,
+                              maxhops=4)
+    assert len(routes['routes']) >= 1
+    for r in routes['routes']:
+        assert len(r['path']) <= 4
+
+    # Zero is the default: no hop limit.
+    routes = l1.rpc.getroutes(source=nodemap[0],
+                              destination=nodemap[4],
+                              amount_msat=1000,
+                              layers=[],
+                              maxfee_msat=100000,
+                              final_cltv=10,
+                              maxhops=0)
+    assert len(routes['routes'][0]['path']) == 4
+
+
 def test_getroutes_single_path(node_factory):
     """Test getroutes generating single path payments"""
     gsfile, nodemap = generate_gossip_store(
