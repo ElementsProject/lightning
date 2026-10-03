@@ -99,6 +99,11 @@ def test_gossip_disable_channels(node_factory, bitcoind):
         connected = len([p for p in node.rpc.listpeerchannels()['channels'] if p['peer_connected'] is True])
         return connected * len(active)
 
+    def our_dir_active(node):
+        # `active` of the update this node itself originated.
+        return [c['active'] for c in node.rpc.listchannels(scid)['channels']
+                if c['source'] == node.info['id']]
+
     l1.wait_channel_active(scid)
     l2.wait_channel_active(scid)
 
@@ -110,11 +115,16 @@ def test_gossip_disable_channels(node_factory, bitcoind):
     wait_for(lambda: count_active(l1) == 0)
     assert(count_active(l2) == 0)
 
+    # We MAY disable our side while the peer is unreachable (see BOLT #7).
+    wait_for(lambda: our_dir_active(l1) == [False])
+
     # Now reconnect, they should re-enable the channels
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
     wait_for(lambda: count_active(l1) == 2)
     wait_for(lambda: count_active(l2) == 2)
+    wait_for(lambda: our_dir_active(l1) == [True])
+    wait_for(lambda: our_dir_active(l2) == [True])
 
 
 def test_announce_address(node_factory, bitcoind):

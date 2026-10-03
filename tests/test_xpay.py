@@ -4,7 +4,8 @@ from pyln.client import RpcError
 from pyln.testing.utils import FUNDAMOUNT, only_one, scid_to_int
 from utils import (
     TIMEOUT, first_scid, first_scidd, GenChannel, generate_gossip_store, wait_for,
-    sync_blockheight,
+    sync_blockheight, get_channel_update_hex, channel_direction,
+    fail_htlc_with_channel_update, WIRE_TEMPORARY_CHANNEL_FAILURE,
 )
 
 import os
@@ -1299,20 +1300,45 @@ def test_xpay_user_layers(node_factory):
 
 
 def test_xpay_get_error_with_update(node_factory):
-    """We should process an update inside a temporary_channel_failure"""
-    l1, l2, l3 = node_factory.line_graph(3, opts={'log-level': 'io'}, fundchannel=True, wait_for_announce=True)
+    """We should process an update inside a temporary_channel_failure.
+
+    CLN no longer includes one (BOLT #1173), so simulate a peer that still
+    does (e.g. lnd/eclair): l2 fails the forward carrying a channel_update
+    for its channel to l3 that differs from l1's graph.
+    """
+    upd = {'hex': None}
+
+    l1 = node_factory.get_node()
+    l2 = node_factory.get_node(
+        opts={'log-level': 'io'},
+        inline_plugin=fail_htlc_with_channel_update(
+            lambda: upd['hex'], failcode=WIRE_TEMPORARY_CHANNEL_FAILURE))
+    l3 = node_factory.get_node()
+    node_factory.join_nodes([l1, l2, l3], fundchannel=True,
+                            wait_for_announce=True)
     chanid2 = l2.get_channel_scid(l3)
+    l2_dir = channel_direction(l2, l3)
 
     inv = l3.rpc.invoice(123000, 'test_xpay_get_error_with_update', 'description')
 
     # Make sure it's not doing startup any more (where it doesn't disable channels!)
     l2.daemon.wait_for_log("channel_gossip: no longer in startup mode", timeout=70)
 
-    # Make sure l2 doesn't tell l1 directly that channel is disabled.
+    # Change l2's fee and keep it local: gives us a channel_update that
+    # differs from l1's graph, so xpay will process it.
     l2.rpc.dev_suppress_gossip()
-    l3.stop()
+    l2.rpc.setchannel(l3.info['id'], 1337, 137, enforcedelay=0)
 
-    # Make sure that l2 has seen disconnect, considers channel disabled.
+    def fetch():
+        h = get_channel_update_hex(l2, chanid2, l2_dir, fee_base=1337)
+        if h:
+            upd['hex'] = h
+        return h
+
+    wait_for(fetch)
+
+    # Make sure that l2 has seen disconnect.
+    l3.stop()
     wait_for(lambda: only_one(l2.rpc.listpeerchannels(l3.info['id'])['channels'])['peer_connected'] is False)
 
     assert(l1.is_channel_active(chanid2))
@@ -1324,7 +1350,7 @@ def test_xpay_get_error_with_update(node_factory):
     # channel_update, and it should patch it to include a type prefix. The
     # prefix 0x0102 should be in the channel_update, but not in the
     # onionreply (negation of 0x0102 in the RE)
-    l1.daemon.wait_for_log(rf'Got channel_update from error for {chanid2}/0: 0102')
+    l1.daemon.wait_for_log(rf'Got channel_update from error for {chanid2}/{l2_dir}: 0102')
 
     # But this update is only for this one, not future ones!
     time.sleep(5)
@@ -1332,8 +1358,20 @@ def test_xpay_get_error_with_update(node_factory):
 
 
 def test_xpay_error_update_fees(node_factory):
-    """We should process an update inside a temporary_channel_failure"""
-    l1, l2, l3 = node_factory.line_graph(3, fundchannel=True, wait_for_announce=True)
+    """We should process an update inside a failure.
+
+    CLN no longer includes channel_update in failures (BOLT #1173), so
+    simulate a peer that still does: l2 fails the first forward with
+    fee_insufficient carrying the updated channel_update.
+    """
+    upd = {'hex': None}
+
+    l1 = node_factory.get_node()
+    l2 = node_factory.get_node(
+        inline_plugin=fail_htlc_with_channel_update(lambda: upd['hex']))
+    l3 = node_factory.get_node()
+    node_factory.join_nodes([l1, l2, l3], fundchannel=True,
+                            wait_for_announce=True)
 
     # Don't include any routehints in first invoice.
     inv1 = l3.dev_invoice(amount_msat=123000,
@@ -1346,8 +1384,18 @@ def test_xpay_error_update_fees(node_factory):
     assert 'routes' in l1.rpc.decode(inv2['bolt11'])
 
     # Make sure l2 doesn't tell l1 directly that channel fee is changed.
+    scid = l2.get_channel_scid(l3)
     l2.rpc.dev_suppress_gossip()
     l2.rpc.setchannel(l3.info['id'], 1337, 137, enforcedelay=0)
+
+    def fetch():
+        h = get_channel_update_hex(l2, scid, channel_direction(l2, l3),
+                                   fee_base=1337)
+        if h:
+            upd['hex'] = h
+        return h
+
+    wait_for(fetch)
 
     # Should bounce off and retry...
     ret = l1.rpc.xpay(inv1['bolt11'])
