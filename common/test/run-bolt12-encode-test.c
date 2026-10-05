@@ -463,6 +463,14 @@ int main(int argc, char *argv[])
 	print_invalid_offer(offer, "Second offer_path is empty");
 	offer->offer_paths = NULL;
 
+	/* An offer_paths with no entries is invalid. */
+	offer->offer_issuer_id = tal(offer, struct pubkey);
+	assert(pubkey_from_secret(&alice, offer->offer_issuer_id));
+	offer->offer_paths = tal_arr(offer, struct blinded_path *, 0);
+	print_invalid_offer(offer, "offer_paths with zero entries");
+	offer->offer_paths = NULL;
+	offer->offer_issuer_id = NULL;
+
 	offer->offer_chains = tal_arr(offer, struct bitcoin_blkid, 0);
 	print_invalid_offer(offer, "offer_chains with zero entries");
 	offer->offer_chains = NULL;
