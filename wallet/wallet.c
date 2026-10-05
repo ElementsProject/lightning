@@ -2631,8 +2631,10 @@ void wallet_announcement_save(struct wallet *w, u64 id,
 }
 
 
-void wallet_htlcsigs_confirm_inflight(struct wallet *w, struct channel *chan,
-				      const struct bitcoin_outpoint *confirmed_outpoint)
+struct bitcoin_signature *
+wallet_htlcsigs_confirm_inflight(const tal_t *ctx,
+				 struct wallet *w, struct channel *chan,
+				 const struct bitcoin_outpoint *confirmed_outpoint)
 {
 	struct db_stmt *stmt;
 
@@ -2657,6 +2659,9 @@ void wallet_htlcsigs_confirm_inflight(struct wallet *w, struct channel *chan,
 					" WHERE channelid=?"));
 	db_bind_u64(stmt, chan->dbid);
 	db_exec_prepared_v2(take(stmt));
+
+	return wallet_htlc_sigs_load(ctx, w, chan->dbid,
+				     channel_type_has_anchors(chan->type));
 }
 
 void wallet_channel_save(struct wallet *w, struct channel *chan)
