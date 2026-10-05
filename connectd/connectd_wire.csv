@@ -26,6 +26,7 @@ msgdata,connectd_init,dev_no_ping_timer,bool,
 # Allow incoming connections, but don't talk.
 msgdata,connectd_init,dev_noreply,bool,
 msgdata,connectd_init,dev_throttle_gossip,bool,
+msgdata,connectd_init,dev_gossip_cpu_budget,u32,
 msgdata,connectd_init,dev_no_reconnect,bool,
 msgdata,connectd_init,dev_fast_reconnect,bool,
 msgdata,connectd_init,dev_limit_connections_inflight,bool,

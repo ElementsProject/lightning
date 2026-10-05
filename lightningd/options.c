@@ -928,6 +928,10 @@ static void dev_register_opts(struct lightningd *ld)
 		     opt_set_bool,
 		     &ld->dev_throttle_gossip,
 		     "Throttle gossip right down, for testing");
+	clnopt_witharg("--dev-gossip-cpu-budget", OPT_DEV|OPT_SHOWINT,
+		       opt_set_u32, opt_show_u32,
+		       &ld->dev_gossip_cpu_budget,
+		       "Total CPU usec per second for answering gossip queries (0: default)");
 	clnopt_noarg("--dev-limit-connections-inflight", OPT_DEV,
 		     opt_set_bool,
 		     &ld->dev_limit_connections_inflight,

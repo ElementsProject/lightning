@@ -129,6 +129,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->dev_fast_gossip = false;
 	ld->dev_fast_gossip_prune = false;
 	ld->dev_throttle_gossip = false;
+	ld->dev_gossip_cpu_budget = 0;
 	ld->dev_suppress_gossip = false;
 	ld->dev_fast_reconnect = false;
 	ld->dev_reject_closing_fee = false;
