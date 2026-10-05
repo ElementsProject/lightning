@@ -258,6 +258,13 @@ struct tlv_offer *offer_decode(const tal_t *ctx,
 		return tal_free(offer);
 	}
 
+	/* An empty offer_paths has no path to use, but fetchinvoice assumes a
+	 * non-NULL offer_paths has one.  Reject it, as we do empty offer_chains. */
+	if (offer->offer_paths && tal_count(offer->offer_paths) == 0) {
+		*fail = tal_strdup(ctx, "Offer contains an empty offer_paths");
+		return tal_free(offer);
+	}
+
 	/* BOLT #12:
 	 *...
 	 *   - if `num_hops` is 0 in any `blinded_path` in `offer_paths`:
@@ -366,6 +373,12 @@ struct tlv_invoice_request *invrequest_decode(const tal_t *ctx,
 		*fail = tal_fmt(ctx,
 				"Invoice request %"PRIu64" field outside invoice request range",
 				badf->numtype);
+		return tal_free(invrequest);
+	}
+
+	/* Likewise, sendinvoice assumes a non-NULL invreq_paths has a path. */
+	if (invrequest->invreq_paths && tal_count(invrequest->invreq_paths) == 0) {
+		*fail = tal_strdup(ctx, "Invoice request contains an empty invreq_paths");
 		return tal_free(invrequest);
 	}
 
