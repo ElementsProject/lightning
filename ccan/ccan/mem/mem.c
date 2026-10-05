@@ -3,8 +3,21 @@
 #include "config.h"
 
 #include <assert.h>
+#include <stdlib.h>
 #include <string.h>
 #include <ccan/mem/mem.h>
+
+bool mem_under_valgrind(void)
+{
+	const char *e = getenv("RUNNING_ON_VALGRIND");
+	if (e && strcmp(e, "1") == 0)
+		return true;
+#if HAVE_VALGRIND_MEMCHECK_H
+	return RUNNING_ON_VALGRIND;
+#else
+	return false;
+#endif
+}
 
 #if !HAVE_MEMMEM
 void *memmem(const void *haystack, size_t haystacklen,
@@ -33,7 +46,7 @@ void *memrchr(const void *s, int c, size_t n)
 	unsigned char *p = (unsigned char *)s;
 
 	while (n) {
-		if (p[n-1] == c)
+		if (p[n-1] == (unsigned char)c)
 			return p + n - 1;
 		n--;
 	}
@@ -56,11 +69,11 @@ void *mempbrkm(const void *data_, size_t len, const void *accept_, size_t accept
 
 void *memcchr(void const *data, int c, size_t data_len)
 {
-	char const *p = data;
+	unsigned char const *p = data;
 	size_t i;
 
 	for (i = 0; i < data_len; i++)
-		if (p[i] != c)
+		if (p[i] != (unsigned char)c)
 			return (void *)&p[i];
 
 	return NULL;

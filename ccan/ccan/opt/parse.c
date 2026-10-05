@@ -92,12 +92,13 @@ int parse_one(int *argc, char *argv[], enum opt_type is_early, unsigned *offset,
 		arg = 1;
 	} else {
 		for (arg = 1; argv[arg]; arg++) {
-			if (argv[arg][0] == '-')
+			if (argv[arg][0] == '-' && argv[arg][1])
 				break;
 		}
 	}
 
-	if (!argv[arg] || argv[arg][0] != '-')
+	/* A bare '-' is an operand, not an option. */
+	if (!argv[arg] || argv[arg][0] != '-' || argv[arg][1] == '\0')
 		return 0;
 
 	/* Special arg terminator option. */

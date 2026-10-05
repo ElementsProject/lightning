@@ -447,14 +447,14 @@ char *opt_set_charp(const char *arg, char **p);
 /* If *p is NULL, this returns false (i.e. doesn't show a default) */
 bool opt_show_charp(char *buf, size_t len, char *const *p);
 
-/* Set an integer value, various forms.  Sets to 1 on arg == NULL. */
-char *opt_set_intval(const char *arg, int *i);
+/* Set an integer value, various forms. */
+char *opt_set_intval(const char *arg, int *i) NO_NULL_ARGS;
 bool opt_show_intval(char *buf, size_t len, const int *i);
-char *opt_set_uintval(const char *arg, unsigned int *ui);
+char *opt_set_uintval(const char *arg, unsigned int *ui) NO_NULL_ARGS;
 bool opt_show_uintval(char *buf, size_t len, const unsigned int *ui);
-char *opt_set_longval(const char *arg, long *l);
+char *opt_set_longval(const char *arg, long *l) NO_NULL_ARGS;
 bool opt_show_longval(char *buf, size_t len, const long *l);
-char *opt_set_ulongval(const char *arg, unsigned long *ul);
+char *opt_set_ulongval(const char *arg, unsigned long *ul) NO_NULL_ARGS;
 bool opt_show_ulongval(char *buf, size_t len, const unsigned long *ul);
 
 /* Set an floating point value, various forms. */
