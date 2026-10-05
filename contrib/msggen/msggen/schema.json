@@ -7193,7 +7193,7 @@
           "rune": {
             "type": "string",
             "description": [
-              "If supplied, the restrictions are simple appended to that *rune* (it doesn't need to be a rune belonging to this node). If not supplied, a new *rune* is constructed, with a new unique id."
+              "If supplied, the restrictions are simple appended to that *rune* (it doesn't need to be a rune belonging to this node). If not supplied, a new *rune* is constructed, with a new unique id. When the call is authorized by a rune (e.g. through commando or clnrest), only a rune without restrictions can construct a new *rune*: any rune can still add restrictions to a *rune* it supplies."
             ]
           },
           "restrictions": {
@@ -7286,7 +7286,7 @@
         "Every other operator except `#` fails if *name* does not exist!"
       ],
       "sharing_runes": [
-        "Because anyone can add a restriction to a rune, you can always turn a normal rune into a read-only rune, or restrict access for 30 minutes from the time you give it to someone. Adding restrictions before sharing runes is best practice.",
+        "Because anyone can add a restriction to a rune, you can always turn a normal rune into a read-only rune, or restrict access for 30 minutes from the time you give it to someone. Adding restrictions before sharing runes is best practice. Note that a time limit alone still lets the rune do anything during that time, including things which last longer (like sending funds), so restrict the methods too.",
         "",
         "If a rune has a ratelimit, any derived rune will have the same id, and thus will compete for that ratelimit. You might want to consider adding a tighter ratelimit to a rune before sharing it, so you will keep the remainder. For example, if your rune has a limit of 60 times per minute, adding a limit of 5 times per minute and handing that rune out means you can still use your original rune 55 times per minute."
       ],
