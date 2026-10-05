@@ -915,6 +915,16 @@ static void update_rune_usage_time(struct runes *runes,
 	wallet_rune_update_last_used(runes->ld->wallet, rune, now);
 }
 
+/* invokerune and destroyrune are aliases - a rune must see the command that actually runs, or "method/createrune" is bypassed by the alias */
+static const char *canonical_method(const char *method)
+{
+	if (method && streq(method, "invokerune"))
+		return "createrune";
+	if (method && streq(method, "destroyrune"))
+		return "blacklistrune";
+	return method;
+}
+
 static struct command_result *json_checkrune(struct command *cmd,
 						 const char *buffer,
 						 const jsmntok_t *obj UNNEEDED,
@@ -941,7 +951,7 @@ static struct command_result *json_checkrune(struct command *cmd,
 	cinfo.runes = cmd->ld->runes;
 	cinfo.peer = nodeid;
 	cinfo.buf = buffer;
-	cinfo.method = method;
+	cinfo.method = canonical_method(method);
 	cinfo.params = methodparams;
 	cinfo.now = clock_time();
 	strmap_init(&cinfo.cached_params);

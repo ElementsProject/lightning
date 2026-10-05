@@ -7,7 +7,7 @@
   "description": [
     "The **createrune** RPC command creates a base64 string called a *rune* which can be used to access commands on this node. Each *rune* contains a unique id (a number starting at 0), and can have restrictions inside it. Nobody can remove restrictions from a rune: if you try, the rune will be rejected. There is no limit on how many runes you can issue; the node simply decodes and checks them as they are received.",
     "",
-    "Oh, I almost forgot. Runes can also be invoked like in ancient times with the **invokerune** command. Feel the magical powers of a rune by invoking it."
+    "**invokerune** is an alias for **createrune**: it does exactly the same thing. Rune restrictions treat it as **createrune** (so `method/createrune` also forbids **invokerune**)."
   ],
   "request": {
     "required": [],
