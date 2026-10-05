@@ -668,10 +668,12 @@ static void handle_splice_confirmed_signed(struct lightningd *ld,
 
 	bitcoin_txid(tx, &txid);
 	inflight = channel_inflight_find(channel, &txid);
-	if (!inflight)
+	if (!inflight) {
 		channel_internal_error(channel, "Unable to load inflight for"
 				       " splice_confirmed_signed txid %s",
 				       fmt_bitcoin_txid(tmpctx, &txid));
+		return;
+	}
 
 	inflight->remote_tx_sigs = true;
 	wallet_inflight_save(ld->wallet, inflight);
@@ -792,10 +794,12 @@ static void handle_splice_sending_sigs(struct lightningd *ld,
 	}
 
 	inflight = channel_inflight_find(channel, &txid);
-	if (!inflight)
+	if (!inflight) {
 		channel_internal_error(channel, "Unable to load inflight for"
 				       " splice_confirmed_signed txid %s",
 				       fmt_bitcoin_txid(tmpctx, &txid));
+		return;
+	}
 
 	/* We can get here because of a splice RBF or because re-signing during
 	 * or because of a splice RBF. In the latter case, we will be adding
@@ -981,16 +985,20 @@ static void handle_update_inflight(struct lightningd *ld,
 
 	psbt_txid(tmpctx, psbt, &txid, NULL);
 	inflight = channel_inflight_find(channel, &txid);
-	if (!inflight)
+	if (!inflight) {
 		channel_internal_error(channel, "Unable to load inflight for"
 				       " update_inflight txid %s",
 				       fmt_bitcoin_txid(tmpctx, &txid));
+		return;
+	}
 
-	if (!!last_tx != !!last_sig)
+	if (!!last_tx != !!last_sig) {
 		channel_internal_error(channel, "Must set last_tx and last_sig"
 				       " together at the same time for"
 				       " update_inflight txid %s",
 				       fmt_bitcoin_txid(tmpctx, &txid));
+		return;
+	}
 
 	if (last_tx) {
 		tal_free(inflight->last_tx);
@@ -1191,10 +1199,12 @@ static void handle_peer_splice_locked(struct channel *channel, const u8 *msg)
 	}
 
 	inflight = channel_inflight_find(channel, &locked_txid);
-	if(!inflight)
+	if (!inflight) {
 		channel_internal_error(channel, "Unable to load inflight for"
 				       " locked_txid %s",
 				       fmt_bitcoin_txid(tmpctx, &locked_txid));
+		return;
+	}
 
 	wallet_htlcsigs_confirm_inflight(channel->peer->ld->wallet, channel,
 					 &inflight->funding->outpoint);
