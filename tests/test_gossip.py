@@ -2330,6 +2330,33 @@ def test_gossip_query_channel_range_cpu_throttle(node_factory, chainparams):
     l2.daemon.wait_for_log(r'Throttling outgoing peer .*: too much CPU')
 
 
+@pytest.mark.xfail(strict=True)
+def test_gossip_cpu_throttle_only_queries(node_factory):
+    """Only answering gossip queries counts against the CPU budget: a
+    peer sending us ordinary messages (here pings) must not get its reads
+    throttled, even with a tiny CPU budget."""
+    # A tiny CPU budget, but the normal traffic limits, so only CPU can
+    # trip the throttle.
+    l1 = node_factory.get_node(options={'dev-gossip-cpu-budget': 10})
+
+    # ping with num_pong_bytes 0, no padding.
+    ping = '0012' + '0000' + '0000'
+    out = subprocess.run(['devtools/gossipwith',
+                          '--no-gossip',
+                          '--hex',
+                          '--network={}'.format(TEST_NETWORK),
+                          '--filter=19',
+                          '--max-messages=200',
+                          '--timeout-after=30',
+                          '{}@localhost:{}'.format(l1.info['id'], l1.port)]
+                         + [ping] * 200,
+                         timeout=TIMEOUT, stdout=subprocess.PIPE).stdout.split()
+
+    # Every ping was answered, so all 200 really were read.
+    assert len(out) == 200
+    assert not l1.daemon.is_in_log('Throttling incoming peer')
+
+
 def test_generate_gossip_store(node_factory):
     l1 = node_factory.get_node(start=False)
     chans = [GenChannel(0, 1),
