@@ -6085,7 +6085,7 @@
             "type": "boolean",
             "added": "v25.02",
             "description": [
-              "Undo the blacklisting (if any) of every rune in range start to end (inclusive)"
+              "Undo the blacklisting (if any) of every rune in range start to end (inclusive). When called with a rune (via commando or clnrest), only a rune without restrictions can do this"
             ]
           }
         },
