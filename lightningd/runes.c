@@ -664,6 +664,10 @@ static struct command_result *json_blacklistrune(struct command *cmd,
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS, "Cannot blacklist beyond %u", MAX_BLACKLIST_NUM);
 	}
 
+	if (start && *start > *end) {
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS, "Can not specify end before start");
+	}
+
 	if (command_check_only(cmd))
 		return command_check_done(cmd);
 
@@ -912,6 +916,28 @@ static const char *check_condition(const tal_t *ctx,
 				   ptok->end - ptok->start);
 }
 
+/* blacklistrune relist=true un-revokes runes, not just the caller s */
+static bool relists_runes(const char *buffer,
+			  const char *method,
+			  const jsmntok_t *params)
+{
+	const jsmntok_t *relisttok;
+	bool relist;
+
+	if (!method
+	    || (!streq(method, "blacklistrune") && !streq(method, "destroyrune")))
+		return false;
+
+	if (!params)
+		return false;
+	if (params->type == JSMN_OBJECT)
+		relisttok = json_get_member(buffer, params, "relist");
+	else
+		relisttok = json_get_arr(params, 2);
+	/* same parse as param_bool - anything else fails the command anyway */
+	return relisttok && json_to_bool(buffer, relisttok, &relist) && relist;
+}
+
 static void update_rune_usage_time(struct runes *runes,
 						 struct rune *rune, struct timeabs now)
 {
@@ -983,6 +1009,11 @@ static struct command_result *json_checkrune(struct command *cmd,
 			err = tal_strcat(tmpctx, "invoice parameter ", err + strlen("pinv"));
 		return command_fail(cmd, RUNE_NOT_PERMITTED, "Not permitted: %s", err);
 	}
+
+	if (tal_count(ras->rune->restrs) > 1
+	    && relists_runes(buffer, method, methodparams))
+		return command_fail(cmd, RUNE_NOT_PERMITTED,
+				    "Not permitted: only a rune without restrictions can relist runes");
 
 	update_rune_usage_time(cmd->ld->runes, ras->rune, cinfo.now);
 
