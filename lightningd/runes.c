@@ -938,6 +938,26 @@ static bool relists_runes(const char *buffer,
 	return relisttok && json_to_bool(buffer, relisttok, &relist) && relist;
 }
 
+/* createrune without a rune makes a new one from our master secret */
+static bool creates_new_rune(const char *buffer,
+			     const char *method,
+			     const jsmntok_t *params)
+{
+	const jsmntok_t *runetok;
+
+	if (!method
+	    || (!streq(method, "createrune") && !streq(method, "invokerune")))
+		return false;
+
+	if (!params)
+		return true;
+	if (params->type == JSMN_OBJECT)
+		runetok = json_get_member(buffer, params, "rune");
+	else
+		runetok = json_get_arr(params, 0);
+	return !runetok || json_tok_is_null(buffer, runetok);
+}
+
 static void update_rune_usage_time(struct runes *runes,
 						 struct rune *rune, struct timeabs now)
 {
@@ -1014,6 +1034,11 @@ static struct command_result *json_checkrune(struct command *cmd,
 	    && relists_runes(buffer, method, methodparams))
 		return command_fail(cmd, RUNE_NOT_PERMITTED,
 				    "Not permitted: only a rune without restrictions can relist runes");
+
+	if (tal_count(ras->rune->restrs) > 1
+	    && creates_new_rune(buffer, method, methodparams))
+		return command_fail(cmd, RUNE_NOT_PERMITTED,
+				    "Not permitted: only a rune without restrictions can create a new rune");
 
 	update_rune_usage_time(cmd->ld->runes, ras->rune, cinfo.now);
 
