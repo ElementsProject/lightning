@@ -2330,7 +2330,6 @@ def test_gossip_query_channel_range_cpu_throttle(node_factory, chainparams):
     l2.daemon.wait_for_log(r'Throttling outgoing peer .*: too much CPU')
 
 
-@pytest.mark.xfail(strict=True)
 def test_gossip_cpu_throttle_only_queries(node_factory):
     """Only answering gossip queries counts against the CPU budget: a
     peer sending us ordinary messages (here pings) must not get its reads
