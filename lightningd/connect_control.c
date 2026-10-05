@@ -760,6 +760,7 @@ int connectd_init(struct lightningd *ld)
 				   ld->dev_no_ping_timer,
 				   ld->dev_handshake_no_reply,
 				   ld->dev_throttle_gossip,
+				   ld->dev_gossip_cpu_budget,
 				   !ld->reconnect,
 				   ld->dev_fast_reconnect,
 				   ld->dev_limit_connections_inflight,

@@ -1695,6 +1695,7 @@ static void connect_init(struct daemon *daemon, const u8 *msg)
 	struct wireaddr *announceable;
 	char *tor_password;
 	bool dev_disconnect, dev_throttle_gossip, dev_limit_connections_inflight;
+	u32 dev_gossip_cpu_budget;
 	char *errstr;
 
 	/* Fields which require allocation are allocated off daemon */
@@ -1717,6 +1718,7 @@ static void connect_init(struct daemon *daemon, const u8 *msg)
 				    &daemon->dev_no_ping_timer,
 				    &daemon->dev_handshake_no_reply,
 				    &dev_throttle_gossip,
+				    &dev_gossip_cpu_budget,
 				    &daemon->dev_no_reconnect,
 				    &daemon->dev_fast_reconnect,
 				    &dev_limit_connections_inflight,
@@ -1791,6 +1793,8 @@ static void connect_init(struct daemon *daemon, const u8 *msg)
 		daemon->incoming_stream_limit = 1000;
 		daemon->cpu_budget_usec_limit = 1500;
 	}
+	if (dev_gossip_cpu_budget)
+		daemon->cpu_budget_usec_limit = dev_gossip_cpu_budget;
 
 	if (dev_limit_connections_inflight)
 		daemon->max_connect_in_flight = 1;
