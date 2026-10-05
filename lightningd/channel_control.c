@@ -970,13 +970,13 @@ static void handle_update_inflight(struct lightningd *ld,
 	struct wally_psbt *psbt;
 	struct bitcoin_txid txid;
 	struct bitcoin_tx *last_tx;
-	struct bitcoin_signature *last_sig;
+	struct bitcoin_signature *last_sig, *htlc_sigs;
 	struct short_channel_id *locked_scid;
 	bool i_sent_sigs;
 
 	if (!fromwire_channeld_update_inflight(tmpctx, msg, &psbt, &last_tx,
-					       &last_sig, &locked_scid,
-					       &i_sent_sigs)) {
+					       &last_sig, &htlc_sigs,
+					       &locked_scid, &i_sent_sigs)) {
 		channel_internal_error(channel,
 				       "bad channel_add_inflight %s",
 				       tal_hex(channel, msg));
@@ -1003,6 +1003,11 @@ static void handle_update_inflight(struct lightningd *ld,
 	if (last_tx) {
 		tal_free(inflight->last_tx);
 		inflight->last_tx = clone_bitcoin_tx(inflight, last_tx);
+		/* Its HTLC outputs need their sigs too, should we ever
+		 * close with it. */
+		wallet_inflight_htlc_sigs_save(ld->wallet, channel->dbid,
+					       &inflight->funding->outpoint,
+					       htlc_sigs);
 	}
 
 	if (last_sig)

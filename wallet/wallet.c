@@ -4783,6 +4783,24 @@ void wallet_htlc_sigs_add(struct wallet *w, u64 channel_id,
 	}
 }
 
+void wallet_inflight_htlc_sigs_save(struct wallet *w, u64 channel_id,
+				    const struct bitcoin_outpoint *inflight_outpoint,
+				    const struct bitcoin_signature *htlc_sigs)
+{
+	struct db_stmt *stmt;
+
+	stmt = db_prepare_v2(w->db, SQL("DELETE FROM htlc_sigs"
+					" WHERE channelid=?"
+					" AND inflight_tx_id=?"
+					" AND inflight_tx_outnum=?"));
+	db_bind_u64(stmt, channel_id);
+	db_bind_txid(stmt, &inflight_outpoint->txid);
+	db_bind_int(stmt, inflight_outpoint->n);
+	db_exec_prepared_v2(take(stmt));
+
+	wallet_htlc_sigs_add(w, channel_id, *inflight_outpoint, htlc_sigs);
+}
+
 bool wallet_sanity_check(struct wallet *w)
 {
 	struct bitcoin_blkid chainhash;
