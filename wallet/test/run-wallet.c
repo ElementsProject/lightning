@@ -1661,7 +1661,7 @@ static bool test_htlcsigs_confirm_inflight(struct wallet *w,
 					   struct channel *chan)
 {
 	struct bitcoin_outpoint winner, same_txid, same_outnum, neither;
-	struct bitcoin_signature *active, *win, *lose, *loaded;
+	struct bitcoin_signature *active, *win, *lose, *loaded, *confirmed;
 
 	memset(&winner.txid, 1, sizeof(winner.txid));
 	winner.n = 0;
@@ -1689,12 +1689,14 @@ static bool test_htlcsigs_confirm_inflight(struct wallet *w,
 	/* The active set and all four inflight candidates were stored */
 	CHECK(count_htlc_sigs(w, chan->dbid) == 5);
 
-	wallet_htlcsigs_confirm_inflight(w, chan, &winner);
+	confirmed = wallet_htlcsigs_confirm_inflight(tmpctx, w, chan, &winner);
 
-	/* Winner's sigs are now the active set */
+	/* Winner's sigs are now the active set, and that's what we got back */
 	loaded = wallet_htlc_sigs_load(tmpctx, w, chan->dbid, false);
 	CHECK(tal_count(loaded) == 1);
 	CHECK(memeq(&loaded[0].s, sizeof(loaded[0].s), &win[0].s, sizeof(win[0].s)));
+	CHECK(tal_count(confirmed) == 1);
+	CHECK(memeq(&confirmed[0].s, sizeof(confirmed[0].s), &win[0].s, sizeof(win[0].s)));
 
 	/* Old active set and losing inflights are gone */
 	CHECK(count_htlc_sigs(w, chan->dbid) == 1);
