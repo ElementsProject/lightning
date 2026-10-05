@@ -1694,6 +1694,15 @@ static struct command_result *json_createinvoice(struct command *cmd,
 		return command_param_failed();
 
 	sha256(&payment_hash, preimage, sizeof(*preimage));
+
+	/* invoices_create() only catches duplicate labels (reported via
+	 * fail_exists() below), but payment_hash is UNIQUE in the db too. */
+	if (!invoices_find_by_label(cmd->ld->wallet->invoices, &inv_dbid, label)
+	    && invoices_find_by_rhash(cmd->ld->wallet->invoices,
+				      &inv_dbid, &payment_hash))
+		return command_fail(cmd, INVOICE_PREIMAGE_ALREADY_EXISTS,
+				    "preimage already used");
+
 	b11 = bolt11_decode_nosig(cmd, invstring, cmd->ld->our_features,
 				  NULL, chainparams, &hash, &sig, &have_n,
 				  &fail);
