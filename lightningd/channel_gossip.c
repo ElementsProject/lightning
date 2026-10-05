@@ -1334,7 +1334,8 @@ static struct channel *lookup_by_peer_remote_alias(struct lightningd *ld,
 }
 
 /* A peer sent gossipd an update_channel message for one of our channels.
- * Gossipd checked the signature.
+ * Gossipd checked the signature: against the channel_announcement if
+ * source is NULL, otherwise only that source signed it.
  */
 void channel_gossip_set_remote_update(struct lightningd *ld,
 				      const struct peer_update *update TAKES,
@@ -1364,12 +1365,11 @@ void channel_gossip_set_remote_update(struct lightningd *ld,
 		return;
 	}
 
-	/* For public channels, it could come from anywhere.  Private
-	 * channels must come from gossipd itself (the old store
-	 * migration!) or the correct peer. */
-	if (is_private(channel)
-	    && source
-	    && !node_id_eq(source, &channel->peer->id)) {
+	/* gossipd doesn't know about our unannounced channels (even
+	 * public ones which aren't announced yet), so unless it checked
+	 * the update against the channel_announcement (NULL source), it
+	 * must come from the correct peer. */
+	if (source && !node_id_eq(source, &channel->peer->id)) {
 		log_unusual(ld->log, "Bad gossip order: %s sent us a channel update for a "
 			    "channel owned by %s (%s)",
 			    fmt_node_id(tmpctx, source),
