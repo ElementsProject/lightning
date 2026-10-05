@@ -87,7 +87,7 @@ static const char *last_time_check(const struct rune *rune,
 	struct timeabs last_used;
 
 	if (!wallet_get_rune(tmpctx, cinfo->runes->ld->wallet, atol(rune->unique_id), &last_used)) {
-		/* FIXME: If we do not know the rune, per does not work */
+		/* Never used: update_rune_usage_time will add it. */
 		return NULL;
 	}
 	if (time_before(cinfo->now, last_used)) {
@@ -957,6 +957,18 @@ static bool creates_new_rune(const char *buffer,
 static void update_rune_usage_time(struct runes *runes,
 						 struct rune *rune, struct timeabs now)
 {
+	u64 uid = rune_unique_id(rune);
+	struct timeabs last_used;
+
+	if (!wallet_get_rune(tmpctx, runes->ld->wallet, uid, &last_used)) {
+		log_unusual(runes->ld->log,
+			    "Rune with unique_id %"PRIu64" is not in our database: adding it",
+			    uid);
+		wallet_rune_insert(runes->ld->wallet, rune);
+		if (uid >= runes->next_unique_id)
+			runes->next_unique_id = uid + 1;
+	}
+
 	/* FIXME: we could batch DB access if this is too slow */
 	wallet_rune_update_last_used(runes->ld->wallet, rune, now);
 }
