@@ -114,6 +114,15 @@ impl Source {
             _ => return Err(anyhow!("Price is invalid json type")),
         };
 
+        if !price.is_finite() {
+            log::warn!("{} returned a non-finite price for {}", self.name, currency);
+            return Err(anyhow!(
+                "{} returned a non-finite price for {}",
+                self.name,
+                currency
+            ));
+        }
+
         if price == 0.0 {
             log::warn!("{} returned 0.0 as price for {}", self.name, currency);
             return Err(anyhow!(
@@ -580,7 +589,7 @@ impl BtcPriceOracle {
 
 fn get_median(source_results: Vec<SourceResult>) -> f64 {
     let mut prices: Vec<f64> = source_results.iter().map(|r| r.price).collect();
-    prices.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    prices.sort_by(f64::total_cmp);
     let mid = prices.len() / 2;
     if prices.len() % 2 == 1 {
         prices[mid]
