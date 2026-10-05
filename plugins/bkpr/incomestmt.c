@@ -7,6 +7,8 @@
 #include <common/clock_time.h>
 #include <common/coin_mvt.h>
 #include <common/json_stream.h>
+#include <errno.h>
+#include <fcntl.h>
 #include <inttypes.h>
 #include <plugins/bkpr/account.h>
 #include <plugins/bkpr/account_entry.h>
@@ -20,6 +22,7 @@
 #include <plugins/bkpr/recorder.h>
 #include <plugins/bkpr/sql.h>
 #include <time.h>
+#include <unistd.h>
 
 #define ONCHAIN_FEE "onchain_fee"
 
@@ -846,10 +849,18 @@ char *csv_print_income_events(const tal_t *ctx,
 			      struct income_event **evs)
 {
 	FILE *csvf;
+	int fd;
 
-	csvf = fopen(filename, "w");
-	if (!csvf)
+	/* Like fopen(.., "w"), but don't follow a symlink. */
+	fd = open(filename, O_WRONLY|O_CREAT|O_TRUNC|O_NOFOLLOW, 0666);
+	if (fd < 0)
+		return tal_fmt(ctx, "Failed to open csv file %s: %s",
+			       filename, strerror(errno));
+	csvf = fdopen(fd, "w");
+	if (!csvf) {
+		close(fd);
 		return tal_fmt(ctx, "Failed to open csv file %s", filename);
+	}
 
 	csvfmt->emit_header(csvf);
 	for (size_t i = 0; i < tal_count(evs); i++)
