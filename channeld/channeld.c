@@ -1338,8 +1338,8 @@ static u8 *send_commit_part(const tal_t *ctx,
 	if (notify_master) {
 		status_debug("Telling master we're about to commit...");
 		/* Tell master to save this next commit to database, then wait.
-		 * This must happen before signing so stateful signers can retry
-		 * the same request after a crash.
+		 * Must happen before signing: a stateful signer (e.g. VLS) won't
+		 * sign a different commitment at this index after a crash.
 		 */
 		msg = sending_commitsig_msg(NULL, remote_index, pbase,
 					    peer->channel->fee_states,
