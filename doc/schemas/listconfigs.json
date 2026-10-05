@@ -506,7 +506,7 @@
               "value_str": {
                 "type": "string",
                 "description": [
-                  "Field from config or cmdline, or default."
+                  "Always `...` (the value is concealed)."
                 ]
               },
               "source": {
@@ -1522,7 +1522,7 @@
                 "added": "v23.11",
                 "type": "string",
                 "description": [
-                  "Mnemonic or hex secret to restore the node."
+                  "Always `...` (the value is concealed)."
                 ]
               },
               "source": {
@@ -1740,7 +1740,7 @@
               "value_str": {
                 "type": "string",
                 "description": [
-                  "Field from config or cmdline, or default."
+                  "Always `...` (the value is concealed)."
                 ]
               },
               "source": {
@@ -2388,7 +2388,7 @@
             "plugin": "/usr/local/libexec/plugins/bcli"
           },
           "bitcoin-rpcpassword": {
-            "value_str": "rpcpass",
+            "value_str": "...",
             "source": "cmdline",
             "plugin": "/usr/local/libexec/plugins/bcli"
           },
@@ -2485,11 +2485,6 @@
             "values_str": [],
             "sources": [],
             "plugin": "/usr/local/libexec/plugins/cln-xpay"
-          },
-          "exposesecret-passphrase": {
-            "value_str": "...",
-            "source": "default",
-            "plugin": "/usr/local/libexec/plugins/exposesecret"
           },
           "funder-fund-probability": {
             "value_int": 100,

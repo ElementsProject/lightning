@@ -64,8 +64,9 @@ static const char *get_opt_val(const struct opt_table *ot,
 			       char buf[],
 			       const struct configvar *cv)
 {
+	/* Only show that it's set, not the value */
 	if (ot->type & OPT_CONCEAL)
-		return "...";
+		return cv ? "..." : NULL;
 
 	if (ot->show == (void *)opt_show_charp) {
 		/* Don't truncate or quote! */
