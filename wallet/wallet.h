@@ -641,8 +641,19 @@ bool wallet_shachain_add_hash(struct wallet *wallet,
  */
 u64 wallet_get_channel_dbid(struct wallet *wallet);
 
-void wallet_htlcsigs_confirm_inflight(struct wallet *w, struct channel *chan,
-				      const struct bitcoin_outpoint *confirmed_outpoint);
+/**
+ * wallet_htlcsigs_confirm_inflight - Make an inflight's HTLC sigs the channel's
+ *
+ * Drops the HTLC sigs for the channel's current commitment and for every other
+ * inflight, keeping only those for @confirmed_outpoint's commitment.
+ *
+ * Returns those sigs, allocated off @ctx: they go with that commitment, so
+ * whoever moves the channel onto it needs them too.
+ */
+struct bitcoin_signature *wallet_htlcsigs_confirm_inflight(const tal_t *ctx,
+							   struct wallet *w,
+							   struct channel *chan,
+							   const struct bitcoin_outpoint *confirmed_outpoint);
 
 /**
  * wallet_channel_save -- Upsert the channel into the database

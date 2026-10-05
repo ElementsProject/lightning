@@ -698,6 +698,12 @@ bool wallet_htlcs_load_out_for_channel(struct wallet *wallet UNNEEDED,
 				       struct htlc_out_map *htlcs_out UNNEEDED,
 				       struct htlc_in_map *remaining_htlcs_in UNNEEDED)
 { fprintf(stderr, "wallet_htlcs_load_out_for_channel called!\n"); abort(); }
+/* Generated stub for wallet_htlcsigs_confirm_inflight */
+struct bitcoin_signature *wallet_htlcsigs_confirm_inflight(const tal_t *ctx UNNEEDED,
+							   struct wallet *w UNNEEDED,
+							   struct channel *chan UNNEEDED,
+							   const struct bitcoin_outpoint *confirmed_outpoint UNNEEDED)
+{ fprintf(stderr, "wallet_htlcsigs_confirm_inflight called!\n"); abort(); }
 /* Generated stub for wallet_init_channels */
 bool wallet_init_channels(struct wallet *w UNNEEDED)
 { fprintf(stderr, "wallet_init_channels called!\n"); abort(); }

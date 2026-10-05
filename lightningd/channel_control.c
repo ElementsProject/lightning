@@ -1208,9 +1208,6 @@ static void handle_peer_splice_locked(struct channel *channel, const u8 *msg)
 		return;
 	}
 
-	wallet_htlcsigs_confirm_inflight(channel->peer->ld->wallet, channel,
-					 &inflight->funding->outpoint);
-
 	/* Stash prev funding data so we can log it after scid is updated
 	 * (to get the blockheight) */
 	prev_our_msats = channel->our_msat;

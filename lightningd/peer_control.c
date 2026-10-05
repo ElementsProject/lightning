@@ -2464,6 +2464,16 @@ void update_channel_from_inflight(struct lightningd *ld,
 			    			 inflight->last_tx->psbt),
 			    &inflight->last_sig);
 
+	/* The peer's HTLC sigs go with that commitment: onchaind needs them
+	 * to spend its HTLC outputs if it's the one we close with. */
+	if (is_splice) {
+		tal_free(channel->last_htlc_sigs);
+		channel->last_htlc_sigs
+			= wallet_htlcsigs_confirm_inflight(channel, ld->wallet,
+							   channel,
+							   &inflight->funding->outpoint);
+	}
+
 	/* If the remote side rotated their pubkey during splice, update now */
 	if (inflight->funding->splice_remote_funding)
 		channel->channel_info.remote_fundingkey = *inflight->funding->splice_remote_funding;
