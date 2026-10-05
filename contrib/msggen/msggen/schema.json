@@ -3410,7 +3410,7 @@
       "rpc": "bkpr-dumpincomecsv",
       "title": "Command to emit a CSV of income events",
       "description": [
-        "The **bkpr-dumpincomcsv** RPC command writes a CSV file to disk at *csv_file* location. This is a formatted output of the **listincome** RPC command."
+        "The **bkpr-dumpincomcsv** RPC command writes a CSV file named *csv_file* in the node's network directory. This is a formatted output of the **listincome** RPC command."
       ],
       "request": {
         "required": [
@@ -3427,7 +3427,7 @@
           "csv_file": {
             "type": "string",
             "description": [
-              "On-disk destination of the generated CSV file."
+              "Filename of the generated CSV file: a plain name ending in `.csv`, without a directory. It is written in the node's network directory (e.g. *~/.lightning/bitcoin*), replacing an existing file of that name, but never through a symlink."
             ]
           },
           "consolidate_fees": {

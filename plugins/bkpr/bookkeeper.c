@@ -467,6 +467,30 @@ static struct command_result *do_dump_income(struct command *cmd,
 	return command_finished(cmd, res);
 }
 
+/* The CSV is written in our (network) directory, next to the node's own
+ * files, so only allow a plain *.csv filename there: no directory, no
+ * hidden name, nothing which could name one of those files. */
+static struct command_result *param_csv_filename(struct command *cmd,
+						 const char *name,
+						 const char *buffer,
+						 const jsmntok_t *tok,
+						 const char **filename)
+{
+	struct command_result *ret;
+	const char *f;
+
+	ret = param_string(cmd, name, buffer, tok, &f);
+	if (ret)
+		return ret;
+
+	if (strchr(f, '/') || f[0] == '.' || !strends(f, ".csv"))
+		return command_fail_badparam(cmd, name, buffer, tok,
+					     "must be a filename ending in .csv,"
+					     " without a directory");
+	*filename = f;
+	return NULL;
+}
+
 static struct command_result *json_dump_income(struct command *cmd,
 					       const char *buf,
 					       const jsmntok_t *params)
@@ -475,7 +499,7 @@ static struct command_result *json_dump_income(struct command *cmd,
 
 	if (!param(cmd, buf, params,
 		   p_req("csv_format", param_csv_format, &info->csv_fmt),
-		   p_opt("csv_file", param_string, &info->filename),
+		   p_opt("csv_file", param_csv_filename, &info->filename),
 		   p_opt_def("consolidate_fees", param_bool,
 			     &info->consolidate_fees, true),
 		   p_opt_def("start_time", param_u64, &info->start_time, 0),
