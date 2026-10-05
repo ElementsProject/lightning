@@ -3827,20 +3827,23 @@ static void update_view_from_inflights(struct peer *peer)
 	struct inflight **inflights = peer->splice_state->inflights;
 
 	for (size_t i = 0; i < tal_count(inflights); i++) {
-		s64 splice_amnt = inflights[i]->amnt.satoshis; /* Raw: splicing */
+		/* Each side's balance change on this inflight's commitment,
+		 * relative to the current funding: the same amounts
+		 * channel_txs() applies when it builds that commitment. */
+		s64 splice_amnt = inflights[i]->splice_amnt;
 		s64 funding_diff = sats_diff(inflights[i]->amnt, peer->channel->funding_sats);
-		s64 remote_splice_amnt = funding_diff - inflights[i]->splice_amnt;
+		s64 remote_splice_amnt = funding_diff - splice_amnt;
 
 		if (splice_amnt < peer->channel->view[LOCAL].lowest_splice_amnt[LOCAL])
 			peer->channel->view[LOCAL].lowest_splice_amnt[LOCAL] = splice_amnt;
 
-		if (splice_amnt < peer->channel->view[REMOTE].lowest_splice_amnt[REMOTE])
+		if (splice_amnt < peer->channel->view[REMOTE].lowest_splice_amnt[LOCAL])
 			peer->channel->view[REMOTE].lowest_splice_amnt[LOCAL] = splice_amnt;
 
 		if (remote_splice_amnt < peer->channel->view[LOCAL].lowest_splice_amnt[REMOTE])
 			peer->channel->view[LOCAL].lowest_splice_amnt[REMOTE] = remote_splice_amnt;
 
-		if (remote_splice_amnt < peer->channel->view[REMOTE].lowest_splice_amnt[LOCAL])
+		if (remote_splice_amnt < peer->channel->view[REMOTE].lowest_splice_amnt[REMOTE])
 			peer->channel->view[REMOTE].lowest_splice_amnt[REMOTE] = remote_splice_amnt;
 	}
 }
