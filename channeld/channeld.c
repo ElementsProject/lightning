@@ -1299,6 +1299,12 @@ static u8 *send_commit_part(const tal_t *ctx,
 			  remote_index, REMOTE,
 			  splice_amnt, remote_splice_amnt, &local_anchor_outnum,
 			  funding_pubkeys);
+	if (!txs)
+		peer_failed_err(peer->pps, &peer->channel_id,
+				"Could not create commitment %"PRIu64
+				" for funding %s",
+				remote_index,
+				fmt_bitcoin_outpoint(tmpctx, funding));
 	htlc_sigs =
 	    calc_commitsigs(tmpctx, peer, txs, funding_wscript, htlc_map,
 			    remote_index, remote_per_commit, &commit_sig,
@@ -2215,6 +2221,12 @@ static struct commitsig_info *handle_peer_commit_sig(struct peer *peer,
 			  local_index, LOCAL, splice_amnt,
 			  remote_splice_amnt, &remote_anchor_outnum,
 			  funding_pubkeys);
+	if (!txs)
+		peer_failed_err(peer->pps, &peer->channel_id,
+				"Could not create commitment %"PRIu64
+				" for funding %s",
+				local_index,
+				fmt_bitcoin_outpoint(tmpctx, &outpoint));
 
 	/* Set the commit_sig on the commitment tx psbt */
 	if (!psbt_input_set_signature(txs[0]->psbt, 0,
