@@ -5228,6 +5228,23 @@ static void handle_abort_req(struct peer *peer, const u8 *inmsg)
 	if (!fromwire_channeld_abort(inmsg))
 		master_badmsg(WIRE_CHANNELD_ABORT, inmsg);
 
+	for (size_t i = 0; i < tal_count(peer->splice_state->inflights); i++) {
+		struct inflight *it = peer->splice_state->inflights[i];
+		if (have_i_signed_inflight(peer, it) || it->i_sent_sigs) {
+			status_unusual("Abort requested but signatures"
+				       " already sent for inflight %s",
+				       fmt_bitcoin_txid(tmpctx,
+							&it->outpoint.txid));
+			wire_sync_write(MASTER_FD,
+					take(towire_channeld_splice_abort(
+						NULL, true, &it->outpoint,
+						"abort_channels refused:"
+						" signatures already sent")));
+			close(MASTER_FD);
+			exit(0);
+		}
+	}
+
 	splice_abort(peer, last_inflight(peer), "requested by user");
 }
 
@@ -6099,9 +6116,27 @@ static void peer_reconnect(struct peer *peer,
 				    " is negotiating one that matches current"
 				    " channel, ignoring it: %s",
 				    fmt_bitcoin_outpoint(tmpctx, &peer->channel->funding));
-		else
-			splice_abort(peer, NULL,
-				     "next_funding_txid not recognized.");
+		else {
+			/* Initiator lost its negotiation state (disconnect
+			 * before add_inflight was persisted). tx_abort is
+			 * illegal after commitment_signed was exchanged;
+			 * notify master to fail the splice command and
+			 * restart clean on the current funding. */
+			status_unusual("Peer claims next_funding txid %s but"
+				       " no inflight (lost state); staying on"
+				       " funding %s",
+				       fmt_bitcoin_txid(tmpctx,
+							&remote_next_funding->next_funding_txid),
+				       fmt_bitcoin_txid(tmpctx,
+							&peer->channel->funding.txid));
+			wire_sync_write(MASTER_FD,
+					take(towire_channeld_splice_abort(
+						NULL, true, NULL,
+						"negotiation state lost after"
+						" disconnect (no inflight)")));
+			close(MASTER_FD);
+			exit(0);
+		}
 	}
 
 	/* "none of those channel_reestablish messages contain

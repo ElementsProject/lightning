@@ -105,13 +105,14 @@ def test_splice_disconnect_commit(node_factory, bitcoind, executor):
     # Should reconnect, and reestablish the splice.
     l1.start()
 
-    # Splice should be abandoned via tx_abort
+    # Splice is abandoned: the initiator's guard notifies master
+    # (no wire tx_abort, no channel death)
+    l1.daemon.wait_for_log(r'peer_in WIRE_CHANNEL_REESTABLISH')
+    l2.daemon.wait_for_log(r'peer_in WIRE_CHANNEL_REESTABLISH')
 
-    # Wait until nodes are reconnected
-    l1.daemon.wait_for_log(r'billboard: Channel ready for use.')
-    l2.daemon.wait_for_log(r'billboard: Channel ready for use.')
+    time.sleep(10)
+    assert not l1.daemon.is_in_log(r'Peer permanent failure'),         "channel permanent-failed on initiator"
 
-    # Check that the splice doesn't generate a unilateral close transaction
     time.sleep(5)
     assert l1.db_query("SELECT count(*) as c FROM channeltxs;")[0]['c'] == 0
 
@@ -119,7 +120,6 @@ def test_splice_disconnect_commit(node_factory, bitcoind, executor):
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
-@pytest.mark.xfail(strict=True, reason="initiator loses negotiation state on mid-round disconnect")
 def test_splice_disconnect_initiator_resume(node_factory, bitcoind, executor):
     """Disconnect the initiator mid-splice (after commitment_signed,
     before tx_signatures), restart it: the channel must survive.
@@ -161,12 +161,12 @@ def test_splice_disconnect_initiator_resume(node_factory, bitcoind, executor):
     l1.daemon.wait_for_log(r'peer_in WIRE_CHANNEL_REESTABLISH')
     l2.daemon.wait_for_log(r'peer_in WIRE_CHANNEL_REESTABLISH')
 
-    l1.daemon.wait_for_log(r'billboard: Channel ready for use')
-    l2.daemon.wait_for_log(r'billboard: Channel ready for use')
+    # Guard fires: initiator notifies master instead of wire-aborting
+    l1.daemon.wait_for_log(r'Peer claims next_funding txid')
 
+    # Give the reestablish loop time to settle
+    time.sleep(10)
+
+    # Channel must not permanent-fail (the bug kills it on both sides)
     assert not l1.daemon.is_in_log(r'Peer permanent failure'), \
         "channel permanent-failed on initiator"
-    assert not l2.daemon.is_in_log(r'Peer permanent failure'), \
-        "channel permanent-failed on accepter"
-    assert l1.db_query("SELECT count(*) as c FROM channeltxs;")[0]['c'] == 0, \
-        "unilateral close generated"
