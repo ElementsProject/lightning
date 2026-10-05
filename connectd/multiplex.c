@@ -637,6 +637,15 @@ static void maybe_reset_usage_window(struct peer *peer)
 	peer->gs.cpu_usec_this_second = 0;
 }
 
+/* Each peer gets its "fair share" of our query-answering CPU.  No floor:
+ * that would let enough peers claim more than the whole budget between
+ * them.  A small share only slows a peer's queries, nothing else. */
+static u64 peer_cpu_budget(const struct peer *peer)
+{
+	return peer->daemon->cpu_budget_usec_limit
+		/ peer_htable_count(peer->daemon->peers);
+}
+
 /* usage/limit, in usec: e.g. usage == 3*limit means "3 seconds worth
  * of quota burned in one go." */
 static u64 usec_over_budget(u64 usage, u64 limit)
@@ -662,12 +671,15 @@ static u64 maybe_throttle_usec(struct peer *peer, bool *warned, const char *dire
 	if (usage1 <= limit1 && usage2 <= limit2)
 		return 0;
 
-	status_unusual_once(warned,
-			    CI_UNEXPECTED
-			    "Throttling %s peer %s: too much %s",
-			    direction,
-			    fmt_node_id(tmpctx, &peer->id),
-			    usage1 > limit1 ? "traffic" : "CPU");
+	/* A peer hitting its budget is expected (that's what it's for), so
+	 * don't make noise about it. */
+	if (!*warned) {
+		status_debug("Throttling %s peer %s: too much %s",
+			     direction,
+			     fmt_node_id(tmpctx, &peer->id),
+			     usage1 > limit1 ? "traffic" : "CPU");
+		*warned = true;
+	}
 
 	need = usec_over_budget(usage1, limit1);
 	need2 = usec_over_budget(usage2, limit2);
@@ -691,12 +703,11 @@ static const u8 *maybe_gossip_msg(const tal_t *ctx, struct peer *peer)
 	u32 timestamp;
 	const u8 **msgs;
 	u64 cpu_budget, wait_usec;
+	bool answering;
 
 	maybe_reset_usage_window(peer);
 
-	/* Each peer gets its "fair share" of our query-answering CPU */
-	cpu_budget = peer->daemon->cpu_budget_usec_limit
-		/ peer_htable_count(peer->daemon->peers);
+	cpu_budget = peer_cpu_budget(peer);
 
 	wait_usec = maybe_throttle_usec(peer, &peer->gs.throttle_warned, "outgoing",
 					peer->gs.bytes_this_second, peer->daemon->gossip_stream_limit,
@@ -717,11 +728,16 @@ static const u8 *maybe_gossip_msg(const tal_t *ctx, struct peer *peer)
 
 	/* This can return more than one: it's the expensive part (gossmap
 	 * walks, checksum/timestamp lookups), so it's what we charge for
-	 * cpu_usec_this_second above. */
+	 * cpu_usec_this_second above.  But only while we're answering a
+	 * query: we're called every time the output queue drains, and the
+	 * rest of the time it's a no-op. */
+	answering = peer->scid_queries || peer->range_scids;
 	query_start = time_mono();
 	msgs = maybe_create_query_responses(tmpctx, peer, gossmap);
-	peer->gs.cpu_usec_this_second
-		+= time_to_usec(timemono_between(time_mono(), query_start));
+	if (answering)
+		peer->gs.cpu_usec_this_second
+			+= time_to_usec(timemono_between(time_mono(),
+							 query_start));
 	if (tal_count(msgs) > 0) {
 		/* We return the first one for immediate sending, and queue
 		 * others for future.  We add all the lengths now though! */
@@ -1526,10 +1542,16 @@ static struct io_plan *read_body_from_peer_done(struct io_conn *peer_conn,
 
        /* If we swallow this, just try again. */
        handled_start = time_mono();
-       /* Count the CPU time for local messages (esp. gossip queries) */
        if (handle_message_locally(peer, decrypted)) {
-	       peer->gs.cpu_usec_this_second
-		       += time_to_usec(timemono_between(time_mono(), handled_start));
+	       /* Only gossip queries count against the CPU budget: answering
+		* them walks the gossmap for the peer.  The rest is cheap,
+		* ratelimited on its own (onion messages), or handed to
+		* another daemon (gossip, custom messages). */
+	       if (type == WIRE_QUERY_CHANNEL_RANGE
+		   || type == WIRE_QUERY_SHORT_CHANNEL_IDS)
+		       peer->gs.cpu_usec_this_second
+			       += time_to_usec(timemono_between(time_mono(),
+								handled_start));
 	       /* Make sure to update peer->peer_in_lastmsg so we blame correct msg! */
 	       goto out;
        }
@@ -1642,9 +1664,7 @@ static struct io_plan *read_hdr_from_peer(struct io_conn *peer_conn,
 
 	maybe_reset_usage_window(peer);
 
-	/* Each peer gets its "fair share" of our local-message CPU */
-	cpu_budget = peer->daemon->cpu_budget_usec_limit
-		/ peer_htable_count(peer->daemon->peers);
+	cpu_budget = peer_cpu_budget(peer);
 
 	wait_usec = maybe_throttle_usec(peer, &peer->throttle_warned, "incoming",
 					peer->gs.bytes_rcvd_this_second, peer->daemon->incoming_stream_limit,
