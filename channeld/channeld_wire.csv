@@ -280,6 +280,9 @@ msgtype,channeld_update_inflight,7219
 msgdata,channeld_update_inflight,psbt,wally_psbt,
 msgdata,channeld_update_inflight,last_tx,?bitcoin_tx,
 msgdata,channeld_update_inflight,last_sig,?bitcoin_signature,
+# If last_tx is set, their HTLC signatures for it.
+msgdata,channeld_update_inflight,num_htlc_sigs,u16,
+msgdata,channeld_update_inflight,htlc_sigs,bitcoin_signature,num_htlc_sigs
 msgdata,channeld_update_inflight,locked_scid,?short_channel_id,
 msgdata,channeld_update_inflight,i_sent_sigs,bool,
 
