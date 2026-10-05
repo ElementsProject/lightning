@@ -974,7 +974,11 @@ static const char *process_channel_update(const tal_t *ctx,
 			    gossmap_nth_node(gossmap, chan, !dir),
 			    &remote_id);
 	if (node_id_eq(&remote_id, &gm->daemon->id)) {
-		tell_lightningd_peer_update(gm->daemon, source_peer,
+		/* We can get public channel_updates from other than
+		 * the direct peer, but we've checked the signature
+		 * against the channel_announcement, so tell lightningd
+		 * to trust us (NULL source). */
+		tell_lightningd_peer_update(gm->daemon, NULL,
 					    scid, fee_base_msat,
 					    fee_proportional_millionths,
 					    cltv_expiry_delta, htlc_minimum_msat,
