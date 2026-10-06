@@ -73,5 +73,11 @@ WORKDIR /build
 # that we no longer take the zipfile.
 CMD git clone /repo . \
     && uv sync --all-extras --all-groups \
-    && uv run tools/repro-build.sh \
-    && cp *.xz /repo/release/
+    && if [ "$(dpkg --print-architecture)" = arm64 ]; then \
+           uv run tools/repro-build.arm64.sh \
+           && mkdir -p /repo/release-arm64 \
+           && cp *.xz /repo/release-arm64/; \
+       else \
+           uv run tools/repro-build.sh \
+           && cp *.xz /repo/release/; \
+       fi
