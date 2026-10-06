@@ -94,8 +94,7 @@ Here's a checklist for the release process.
 1. Edit the GitHub draft and include the `SHA256SUMS-v<VERSION>.asc` file.
 2. Publish the release as not a draft.
 3. Announce the final release on core-lightning's release-chat channel on Discord & Telegram.
-4. Send a mail to c-lightning mailing list (`c-lightning@lists.ozlabs.org`), using the same wording as the Release Notes in GitHub.
-5. Write release blog, post it on [Blockstream](https://blog.blockstream.com/) and announce the release on Twitter.
+4. Write release blog, post it on [Blockstream](https://blog.blockstream.com/) and announce the release on Twitter.
 
 ## Post-release
 

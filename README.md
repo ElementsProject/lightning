@@ -25,7 +25,6 @@ Core Lightning (previously c-lightning) is a lightweight, highly customizable an
 [![Blockstream][blockstream-badge]][blockstream]
 [![Telegram][telegram-badge]][telegram]
 [![Discord][discord-badge]][discord]
-[![Irc][IRC-badge]][IRC]
 
 This implementation has been in production use on the Bitcoin mainnet since early 2018, with the launch of the [Blockstream Store][blockstream-store-blog].
 We recommend getting started by experimenting on `testnet` (`testnet4` or `regtest`), but the implementation is considered stable and can be safely used on mainnet.
@@ -33,7 +32,7 @@ We recommend getting started by experimenting on `testnet` (`testnet4` or `regte
 ## Reach Out to Us
 
 Any help testing the implementation, reporting bugs, or helping with outstanding issues is very welcome.
-Don't hesitate to reach out to us on the implementation-specific [mailing list][ml1], or on [CLN Discord][discord], or on [CLN Telegram][telegram], or on IRC at [dev][irc1]/[gen][irc2] channel.
+Don't hesitate to reach out to us on [CLN Discord][discord], or on [CLN Telegram][telegram].
 
 ## Getting Started
 
@@ -214,15 +213,10 @@ Developers wishing to contribute should start with the developer guide [here](do
 [std]: https://github.com/lightning/bolts
 [prs-badge]: https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat
 [prs]: http://makeapullrequest.com
-[ml1]: https://lists.ozlabs.org/listinfo/c-lightning
 [discord-badge]: https://badgen.net/badge/Discord/chat/blue
 [discord]: https://discord.gg/mE9s4rc5un
 [telegram-badge]: https://badgen.net/badge/Telegram/chat/blue
 [telegram]: https://t.me/lightningd
-[IRC-badge]: https://img.shields.io/badge/IRC-chat-blue.svg
-[IRC]: https://web.libera.chat/#c-lightning
-[irc1]: https://web.libera.chat/#lightning-dev
-[irc2]: https://web.libera.chat/#c-lightning
 [docs-badge]: https://readthedocs.org/projects/lightning/badge/?version=docs
 [docs]: https://docs.corelightning.org/docs
 [releases]: https://github.com/ElementsProject/lightning/releases
