@@ -26,6 +26,18 @@ jobs:
           name: c-lightning-${{ inputs.version }}
           path: release/
 
+      - name: Download arm64 artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: c-lightning-${{ inputs.version }}-arm64
+          path: release-arm64/
+
+      - name: Download armv7 artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: c-lightning-${{ inputs.version }}-armv7
+          path: release-armv7/
+
       - name: Import GPG keys
         id: gpg
         uses: crazy-max/ghaction-import-gpg@v7
@@ -40,7 +52,15 @@ jobs:
         run: echo "default-key $GPG_KEYID" >> ~/.gnupg/gpg.conf
 
       - name: Sign release
-        run: tools/build-release.sh --without-zip sign
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          tools/build-release.sh --without-zip sign
+          for arch in arm64 armv7; do
+            tools/sign-release-arm.sh "$INPUT_VERSION" "$arch"
+            # Their manifests and signatures sit next to the amd64 ones.
+            mv release-"$arch"/SHA256SUMS-* release/
+          done
 
       - name: Upload signed artifact
         uses: actions/upload-artifact@v7
@@ -48,6 +68,20 @@ jobs:
           name: c-lightning-${{ inputs.version }}
           overwrite: true
           path: release/
+
+      - name: Upload arm64 artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: c-lightning-${{ inputs.version }}-arm64
+          overwrite: true
+          path: release-arm64/
+
+      - name: Upload armv7 artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: c-lightning-${{ inputs.version }}-armv7
+          overwrite: true
+          path: release-armv7/
 
       - name: Determine release data
         id: release_data
@@ -68,5 +102,8 @@ jobs:
           tag_name: ${{ inputs.version }}
           draft: true
           prerelease: contains(inputs.version, "-rc")
-          files: release/*
+          files: |
+            release/*
+            release-arm64/*
+            release-armv7/*
           fail_on_unmatched_files: true
