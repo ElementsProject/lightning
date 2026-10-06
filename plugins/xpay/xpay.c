@@ -1097,9 +1097,6 @@ static void update_knowledge_from_error(struct command *aux_cmd,
 		case WIRE_PERMANENT_CHANNEL_FAILURE:
 		case WIRE_REQUIRED_CHANNEL_FEATURE_MISSING:
 		case WIRE_UNKNOWN_NEXT_PEER:
-			/* A final node must not send this.  The erring node is
-			 * the one that cannot forward; exclude it on repeat. */
-			maybe_exclude_unknown_next_peer(aux_cmd, attempt, index);
 			index--;
 			goto strange_error;
 
