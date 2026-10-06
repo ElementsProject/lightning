@@ -4,6 +4,56 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [26.06.9] - 2026-10-06: "Quantum-Resistant Lightning Channel VI"
+
+This point release is recommended for all users.
+
+### Added
+
+ - Releases now include signed reproducible arm64 and armv7 binaries for Ubuntu 22.04, 24.04 and 26.04.
+
+### Changed
+
+ - JSON-RPC: `blacklistrune` with `relist` needs a rune without restrictions when called through a rune, and refuses an `end` before `start`.
+ - JSON-RPC: `createrune` without a `rune` needs a rune without restrictions when called through a rune; any rune can still add restrictions to a rune it supplies.
+ - JSON-RPC: `listconfigs` shows `...` instead of the value of `wallet`, `recover`, `tor-service-password`, `bitcoin-rpcpassword` and the old `bookkeeper-db`, for every caller; unset ones are omitted.
+
+### Fixed
+
+ - JSON-RPC: `getroutes` with `maxparts=0` no longer crashes the askrene solver.
+ - JSON-RPC: a very large `datastore` value no longer crashes lightningd.
+ - onchaind: a channel closed by one of our own old commitments no longer crashes onchaind on every restart, and now resolves.
+ - currencyrate: reject non-finite prices from sources instead of hanging the RPC
+ - clnrest and wss-proxy: plugins now create TLS private keys with restrictive (0600) permissions regardless of umask.
+ - wss-proxy: now rejects messages larger than a BOLT8 wire message (65535 bytes) and caps concurrent connections.
+ - wss-proxy: an idle client no longer blocks the accept loop and prevents all new connections
+ - cln-bip353: fetchbip353 (and xpay payments to a human readable name) no longer hang when a remote endpoint stops responding
+ - lightningd: an incoming HTLC whose onion can't be parsed is now always failed as malformed, instead of crashing the node in some cases.
+ - channeld: a peer's `channel_reestablish` asking for a commitment it has already acknowledged now fails the channel instead of getting it re-signed.
+ - lightningd: an offered HTLC that reaches its deadline while the channel is shutting down now force-closes the channel, so forwarded funds cannot be lost to a late fulfill.
+ - askrene-getroutes: don't crash on invalid user input, source==destination
+ - lightningd: don't spuriously try to re-broadcast funding txs of already-confirmed channels on startup.
+ - Fix: SIGINT was ignored by the cln docker container
+ - Crash when trying to pay and you have recovered channel stubs in your peers list
+ - lightningd: a node recovering from a static channel backup no longer hangs up on the peer when one of the recovered channels has already closed, so the peer can still close the channels which are still open.
+ - invoice could omit warning_offline if created right after a peer disconnect
+ - macOS: channeld no longer dies silently with status 0 right after a channel open under load.
+ - macOS: fundchannel no longer fails or hangs with "Peer connection lost" when opening channels under load.
+ - plugins: a command whose id or method name needs JSON escaping no longer hangs.
+ - lightningd: a splice message for an inflight we don't know about now fails that channel instead of crashing the node.
+ - lightningd: `checkrune` no longer uses freed memory when a rune has several restrictions on the same parameter.
+ - protocol: reply to query_channel_range with channels ranges in correct block order
+ - channeld: no longer crash-loops when an HTLC that only the pre-splice commitment can carry is added during a splice-out.
+ - splicing: closing with a splice's commitment before any later commitment update can now time out or claim the HTLCs on it.
+ - lightningd: a valid rune missing from the database (e.g. after restoring an older backup) is recorded on first use, so its `per` and `rate` limits apply and its id isn't reused.
+ - connectd: ordinary gossip, pings and onion messages no longer count against the gossip query CPU budget, so busy nodes no longer throttle their peers.
+ - A channel peer can no longer crash lightningd by RBF-ing a splice into a transaction the node has already recorded.
+ - `setconfig` no longer permits config-line injection through persistent option values.
+ - channeld: when accepting a splice, we now enforce the negotiated feerate on the splice transaction, so a peer can no longer get us to sign a splice paying (almost) no fees
+ - 'checkrune': 'method/createrune' and 'method/blacklistrune' restrictions can no longer be bypassed with the 'invokerune'/'destroyrune' aliases
+ - runes: a rune with restrictions can no longer relist blacklisted runes.
+ - runes: a rune with restrictions can no longer create a new rune without them.
+
 ## [26.06.8] - 2026-09-19: "Quantum-Resistant Lightning Channel V"
 
 This point release is recommended for all users.
