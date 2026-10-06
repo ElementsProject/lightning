@@ -103,6 +103,8 @@ jammy/
 noble/
 resolute/
 release/
+release-arm64/
+release-armv7/
 .vscode/
 .cache/
 

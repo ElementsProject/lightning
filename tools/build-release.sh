@@ -144,7 +144,23 @@ fi
 
 TARGETS=${TARGETS:-$ALL_TARGETS}
 
-RELEASEDIR="$(pwd)/release"
+# ARM targets get their own release directory per architecture
+# (release-arm64/, release-armv7/), and never build the zip: the zip is
+# architecture-independent, and its block unconditionally removes release/'s
+# copy before rebuilding it from the current HEAD.
+case "$TARGETS" in
+    *-arm64*)
+        RELEASEDIR="$(pwd)/release-arm64"
+        WITHOUT_ZIP=true
+        ;;
+    *-armv7*)
+        RELEASEDIR="$(pwd)/release-armv7"
+        WITHOUT_ZIP=true
+        ;;
+    *)
+        RELEASEDIR="$(pwd)/release"
+        ;;
+esac
 BARE_VERSION="$(echo "${VERSION}" | sed 's/^v//g')"
 TARBALL="${RELEASEDIR}/lightningd_${BARE_VERSION}.orig.tar.bz2"
 DATE=$(date +%Y%m%d%H%M%S)
