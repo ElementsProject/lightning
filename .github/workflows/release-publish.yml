@@ -94,16 +94,24 @@ jobs:
           RELEASE_TITLE=$(echo $CHANGELOG_TITLE | cut -d'"' -f2)
           echo "release_title=$RELEASE_TITLE" >> "$GITHUB_OUTPUT"
 
+      # Never replace what is already on the release: release captains add
+      # their signatures to the .asc files by hand, and a re-run must keep
+      # them.  tools/publish-release-assets.sh uploads only missing files,
+      # refuses any that differ from the published copy, and appends our
+      # signature to an existing .asc instead of overwriting it.
       - name: Prepare release draft
         if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.create_release) }}
-        uses: softprops/action-gh-release@v3
-        with:
-          name: "${{ inputs.version }} ${{ steps.release_data.outputs.release_title }}"
-          tag_name: ${{ inputs.version }}
-          draft: true
-          prerelease: contains(inputs.version, "-rc")
-          files: |
-            release/*
-            release-arm64/*
-            release-armv7/*
-          fail_on_unmatched_files: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_VERSION: ${{ inputs.version }}
+          RELEASE_TITLE: ${{ steps.release_data.outputs.release_title }}
+        run: |
+          if ! gh release view "$INPUT_VERSION" >/dev/null 2>&1; then
+            PRERELEASE=""
+            case "$INPUT_VERSION" in *-rc*) PRERELEASE=--prerelease;; esac
+            # --target only matters for an untagged test run: gh then
+            # creates the tag, as the previous upload action did.
+            gh release create "$INPUT_VERSION" --draft --target "$GITHUB_SHA" $PRERELEASE \
+              --title "$INPUT_VERSION $RELEASE_TITLE" --notes ""
+          fi
+          tools/publish-release-assets.sh "$INPUT_VERSION" release/* release-arm64/* release-armv7/*
