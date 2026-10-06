@@ -31,8 +31,8 @@ privacy:
 | keysend                                            | Command            | v26.06           | v27.03         | Replaced by more powerful `xkeysend`.                                                                                     |
 | renepay                                            | Command            | v26.06           | v27.03         | Use `xpay` instead.                                                                                                       |
 | renepaystatus                                      | Command            | v26.06           | v27.03         | Use `xpay` notifications and `listpays` or `listsendpays` instead.                                                        |
-| invokerune                                         | Command            | v26.09           | v27.06         | Alias for `createrune`: use `createrune` instead.                                                                         |
-| destroyrune                                        | Command            | v26.09           | v27.06         | Alias for `blacklistrune`: use `blacklistrune` instead.                                                                   |
+| invokerune                                         | Command            | v26.12           | v27.09         | Alias for `createrune`: use `createrune` instead.                                                                         |
+| destroyrune                                        | Command            | v26.12           | v27.09         | Alias for `blacklistrune`: use `blacklistrune` instead.                                                                   |
 
 Inevitably there are features which need to change: either to be generalized, or removed when they can no longer be supported.
 

@@ -615,8 +615,8 @@ AUTODATA(json_command, &creatrune_command);
 static const struct json_command invokerune_command = {
 	"invokerune",
 	json_createrune,
-	.depr_start = "v26.09",
-	.depr_end = "v27.06",
+	.depr_start = "v26.12",
+	.depr_end = "v27.09",
 };
 AUTODATA(json_command, &invokerune_command);
 
@@ -698,8 +698,8 @@ AUTODATA(json_command, &blacklistrune_command);
 static const struct json_command destroyrune_command = {
 	"destroyrune",
 	json_blacklistrune,
-	.depr_start = "v26.09",
-	.depr_end = "v27.06",
+	.depr_start = "v26.12",
+	.depr_end = "v27.09",
 };
 AUTODATA(json_command, &destroyrune_command);
 
