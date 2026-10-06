@@ -13,30 +13,52 @@ on:
 jobs:
   releases:
     name: Releases
-    runs-on: ubuntu-24.04
+    runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
-        target:
-          - 'bin-Fedora'
-          - 'bin-Ubuntu-jammy'
-          - 'bin-Ubuntu-noble'
-          - 'bin-Ubuntu-resolute'
+        # dir is where build-release.sh puts the target's output; arch picks
+        # the merged artifact, since each architecture is checksummed and
+        # signed separately.
+        include:
+          - { target: 'bin-Fedora', runner: 'ubuntu-24.04', arch: 'amd64', dir: 'release' }
+          - { target: 'bin-Ubuntu-jammy', runner: 'ubuntu-24.04', arch: 'amd64', dir: 'release' }
+          - { target: 'bin-Ubuntu-noble', runner: 'ubuntu-24.04', arch: 'amd64', dir: 'release' }
+          - { target: 'bin-Ubuntu-resolute', runner: 'ubuntu-24.04', arch: 'amd64', dir: 'release' }
+          # arm64 builds natively on an arm64 runner.
+          - { target: 'bin-Ubuntu-jammy-arm64', runner: 'ubuntu-24.04-arm', arch: 'arm64', dir: 'release-arm64' }
+          - { target: 'bin-Ubuntu-noble-arm64', runner: 'ubuntu-24.04-arm', arch: 'arm64', dir: 'release-arm64' }
+          - { target: 'bin-Ubuntu-resolute-arm64', runner: 'ubuntu-24.04-arm', arch: 'arm64', dir: 'release-arm64' }
+          # armv7 cross-compiles in the amd64 builder image (see
+          # tools/repro-build.armv7.sh), with qemu for the few armv7 programs
+          # the build runs.
+          - { target: 'bin-Ubuntu-jammy-armv7', runner: 'ubuntu-24.04', arch: 'armv7', dir: 'release-armv7' }
+          - { target: 'bin-Ubuntu-noble-armv7', runner: 'ubuntu-24.04', arch: 'armv7', dir: 'release-armv7' }
+          - { target: 'bin-Ubuntu-resolute-armv7', runner: 'ubuntu-24.04', arch: 'armv7', dir: 'release-armv7' }
     steps:
       - name: Git checkout
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
+        with:
+          platforms: arm
+        if: endsWith(matrix.target, '-armv7')
+
       - name: Build environment setup
         run: |
           distribution=$(echo ${{ matrix.target }} | cut -d'-' -f3)
+          # Same naming as contrib/cl-repro.sh: arm64 images are suffixed.
+          suffix=""
+          [ "$(dpkg --print-architecture)" = arm64 ] && suffix="-arm64"
           sudo docker run --rm -v $(pwd):/build ubuntu:${distribution} bash -c "\
               apt-get update && \
               apt-get install -y debootstrap && \
               debootstrap ${distribution} /build/${distribution}"
           sudo tar -C ${distribution} -c . | docker import - ${distribution}
-          docker build -t cl-repro-${distribution} - < contrib/reprobuild/Dockerfile.${distribution}
+          docker build -t cl-repro-${distribution}${suffix} - < contrib/reprobuild/Dockerfile.${distribution}
         if: contains(matrix.target, 'Ubuntu')
 
       - name: Build release
@@ -53,8 +75,8 @@ jobs:
       - name: Upload target artifacts
         uses: actions/upload-artifact@v7
         with:
-          path: release/
-          name: ${{ matrix.target }}
+          path: ${{ matrix.dir }}/
+          name: ${{ matrix.arch }}-${{ matrix.target }}
           if-no-files-found: error
 
   artifact:
@@ -62,9 +84,23 @@ jobs:
     needs: releases
     runs-on: ubuntu-24.04
     steps:
-      - name: Merge artifacts
+      - name: Merge amd64 artifacts
         uses: actions/upload-artifact/merge@v7
         with:
           name: c-lightning-${{ inputs.version }}
-          pattern: bin-*
+          pattern: amd64-bin-*
+          delete-merged: true
+
+      - name: Merge arm64 artifacts
+        uses: actions/upload-artifact/merge@v7
+        with:
+          name: c-lightning-${{ inputs.version }}-arm64
+          pattern: arm64-bin-*
+          delete-merged: true
+
+      - name: Merge armv7 artifacts
+        uses: actions/upload-artifact/merge@v7
+        with:
+          name: c-lightning-${{ inputs.version }}-armv7
+          pattern: armv7-bin-*
           delete-merged: true
