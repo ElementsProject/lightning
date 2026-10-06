@@ -219,7 +219,17 @@ for target in $TARGETS; do
             # Capitalize the first letter of distro
             D=$(echo "$d" | awk '{print toupper(substr($0,1,1))substr($0,2)}')
             echo "Building Ubuntu $D Image"
-            docker run --rm -v "$(pwd)":/repo -e FORCE_MTIME="$MTIME" -e FORCE_VERSION="$VERSION" -e MAKEPAR="$MAKEPAR" cl-repro-"$d"
+            # armv7 is cross-compiled in the amd64 builder image; arm64
+            # builds natively in its own cl-repro-<dist>-arm64 image.
+            IMAGE=cl-repro-"$d"
+            REPRO_ARCH=""
+            case "$d" in
+            *-armv7)
+                IMAGE=cl-repro-"${d%-armv7}"
+                REPRO_ARCH=armv7
+                ;;
+            esac
+            docker run --rm -v "$(pwd)":/repo -e FORCE_MTIME="$MTIME" -e FORCE_VERSION="$VERSION" -e MAKEPAR="$MAKEPAR" -e REPRO_ARCH="$REPRO_ARCH" "$IMAGE"
             echo "Ubuntu $D Image Built"
         done
         ;;
