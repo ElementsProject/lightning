@@ -33,7 +33,7 @@ Here's a checklist for the release process.
 3. Confirm that the tag will show up for builds with `git describe`. We don't push it to GitHub yet, just in case the following steps fail, and more fixes are required!
 4. Run `contrib/cl-repro.sh` to generate the required `cl-repro-<codename>` builder images for the reproducible build environment.
 5. Execute `tools/build-release.sh bin-Fedora bin-Ubuntu sign` to locally reproduce the release, generating a matching `SHA256SUMS-v<VERSION>` file and signing it with your GPG key.
-6. Push the tag to trigger the "Release 🚀" CI action, which drafts a new `v<VERSION>rc1` pre-release on GitHub and uploads reproducible builds alongside the `SHA256SUMS-v<VERSION>` file and its signature from the `cln@blockstream.com` key.
+6. Push the tag to trigger the "Release 🚀" CI action, which drafts a new `v<VERSION>rc1` pre-release on GitHub and uploads reproducible builds alongside the `SHA256SUMS-v<VERSION>` file and its signature from the `cln@blockstream.com` key. The arm64 and armv7 tarballs each come with their own manifest, `SHA256SUMS-v<VERSION>-arm64` and `SHA256SUMS-v<VERSION>-armv7`, and its `.asc`. The CI never replaces a file already on the release: re-running it only adds missing files, and appends its signature to an `.asc` that already has yours.
 7. Verify your local `SHA256SUMS-v<VERSION>` file matches the one in the draft release, then append your local signatures to the release's `SHA256SUMS-v<VERSION>.asc` file to attest to the build's integrity.
 8. Announce rc1 release on core-lightning's release-chat channel on Discord & Telegram.
 9. Use `devtools/credit --verbose v<PREVIOUS-VERSION>` to get commits, days and contributors data for release note.
@@ -119,7 +119,7 @@ Here's a checklist for the release process.
 5. Create a new commit that includes the updates from `update-versions` and `CHANGELOG.md`.
 6. Tag the release with `git pull && git tag -s v<VERSION>.<POINT_VERSION>`. You will be prompted to enter a tag message, ensure this is filled out.
 7. Confirm that the tag is properly set up for builds by running `git describe`.
-8. Trigger the pre-release by pushing the version tag with `git push origin v<VERSION>.<POINT_VERSION>`; the CI will handle drafting the release and uploading the initial signed checksums.
+8. Trigger the pre-release by pushing the version tag with `git push origin v<VERSION>.<POINT_VERSION>`; the CI will handle drafting the release and uploading the initial signed checksums, for amd64 (`SHA256SUMS-v<VERSION>`), arm64 (`SHA256SUMS-v<VERSION>-arm64`) and armv7 (`SHA256SUMS-v<VERSION>-armv7`).
 9. Generate the required builder images by running `contrib/cl-repro.sh`.
 10. Sign the release locally by running `tools/build-release.sh bin-Fedora bin-Ubuntu sign` which will sign the release contents and create `SHA256SUMS-v<VERSION>` and `SHA256SUMS-v<VERSION>.asc` in the release folder.
 11. Validate that your local checksums `SHA256SUMS-v<VERSION>` match the Draft release's, then add your signatures to the draft release's signature `SHA256SUMS-v<VERSION>.asc` file.
