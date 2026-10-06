@@ -72,7 +72,7 @@
       },
       "response": {
         "layer": "test_layers",
-        "num_removed": 2
+        "num_removed": 3
       }
     }
   ]
