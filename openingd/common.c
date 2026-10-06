@@ -165,6 +165,19 @@ bool check_config_bounds(const tal_t *ctx,
 		return false;
 	}
 
+	/* BOLT #2:
+	 *
+	 * The receiving node MUST fail the channel if:
+	 *...
+	 *  - `dust_limit_satoshis` is smaller than `354 satoshis` (see [BOLT 3](03-transactions.md#dust-limits)).
+	 */
+	if (amount_sat_less(remoteconf->dust_limit, AMOUNT_SAT(354))) {
+		*err_reason = tal_fmt(ctx,
+				      "dust_limit_satoshis %s too small",
+				      fmt_amount_sat(ctx, remoteconf->dust_limit));
+		return false;
+	}
+
 	return true;
 }
 
