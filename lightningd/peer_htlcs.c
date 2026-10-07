@@ -2575,6 +2575,16 @@ void peer_got_commitsig(struct channel *channel, const u8 *msg)
 		  tal_count(failed), tal_count(changed),
 		  tal_count(inflight_commit_sigs));
 
+	/* We may still forget a channel awaiting lockin, and forgetting
+	 * one with HTLCs is fatal: channeld shouldn't let this happen. */
+	if (tal_count(added) != 0
+	    && channel->state == CHANNELD_AWAITING_LOCKIN) {
+		channel_internal_error(channel,
+				       "Got commitsig adding HTLCs in state %s",
+				       channel_state_name(channel));
+		return;
+	}
+
 	i = 0;
 	list_for_each(&channel->inflights, inflight, list) {
 		if (!inflight->splice_locked_memonly)
