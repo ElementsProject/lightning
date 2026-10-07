@@ -25,6 +25,12 @@ struct splice_state {
 	u32 count;
 };
 
+struct commitsig;
+
+/* Returns false without changing inflight if the peer sent no commitment. */
+bool splice_record_commitment(struct inflight *inflight,
+			      struct commitsig *commit);
+
 /* Sets `splice_state` items to default values */
 struct splice_state *splice_state_new(const tal_t *ctx);
 
