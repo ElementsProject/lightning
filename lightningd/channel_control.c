@@ -2120,6 +2120,12 @@ is_fundee_should_forget(struct lightningd *ld,
 	if (!amount_msat_is_zero(channel->msat_to_us_max))
 		return false;
 
+	/* A channel with committed HTLCs is not safe to forget, even if a
+	 * buggy peer managed to add them before the funding transaction was
+	 * confirmed. */
+	if (channel_has_htlc_out(channel) || channel_has_htlc_in(channel))
+		return false;
+
 	/* Ah forget it! */
 	return true;
 }

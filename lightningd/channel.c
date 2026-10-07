@@ -1212,6 +1212,17 @@ void channel_fail_forget(struct channel *channel, const char *fmt, ...)
 	why = tal_vfmt(tmpctx, fmt, ap);
 	va_end(ap);
 
+	/* A peer can only make this channel forgettable before commitment
+	 * updates are possible.  Keep the channel if an older or buggy
+	 * channeld nevertheless attached an HTLC to it. */
+	if (channel_has_htlc_out(channel) || channel_has_htlc_in(channel)) {
+		channel_fail_permanent(channel, REASON_PROTOCOL,
+				       "Cannot forget channel with HTLCs: %s",
+				       why);
+		tal_free(why);
+		return;
+	}
+
 	log_unusual(channel->log, "Peer permanent failure in %s: %s, "
 		    "forget channel",
 		    channel_state_name(channel), why);
