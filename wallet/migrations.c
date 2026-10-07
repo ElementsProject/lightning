@@ -1221,6 +1221,9 @@ static const struct db_migration dbmigrations[] = {
      /* Clamping is idempotent, so no revert needed */
      NULL, NULL},
     /* ^v26.09 */
+
+    {SQL("/*PSQL*/ALTER TABLE vars ALTER COLUMN intval TYPE BIGINT"), NULL,
+     SQL("/*PSQL*/ALTER TABLE vars ALTER COLUMN intval TYPE INTEGER"), NULL},
 };
 
 const struct db_migration *get_db_migrations(size_t *num)
