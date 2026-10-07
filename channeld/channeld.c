@@ -5274,8 +5274,8 @@ static void peer_in(struct peer *peer, const u8 *msg)
 		}
 	}
 
-	/* Must get channel_ready before almost anything. */
-	if (!peer->channel_ready[REMOTE]) {
+	/* Must exchange channel_ready before almost anything. */
+	if (!peer->channel_ready[LOCAL] || !peer->channel_ready[REMOTE]) {
 		if (type != WIRE_CHANNEL_READY
 		    && type != WIRE_SHUTDOWN
 		    /* We expect these for v2 !! */
