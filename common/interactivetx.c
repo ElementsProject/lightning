@@ -846,8 +846,14 @@ char *process_interactivetx_updates(const tal_t *ctx,
 				       tal_hex(ctx, msg));
 		}
 
-		if (!(we_complete && they_complete))
-			send_next(ctx, ictx, &we_complete);
+		if (!(we_complete && they_complete)) {
+			/* A failed send used to be ignored. The loop then
+			 * blocked in peer_read even though nothing went out,
+			 * which is the splice_update hang in #9599. */
+			error = send_next(ctx, ictx, &we_complete);
+			if (error)
+				return error;
+		}
 	}
 
 	/* Sort psbt! */
