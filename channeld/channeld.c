@@ -3965,12 +3965,7 @@ static void resume_splice_negotiation(struct peer *peer,
 
 	check_tx_abort(peer, msg_received, &inflight->outpoint.txid);
 
-	if (their_commit) {
-		if (inflight->last_tx != their_commit->tx)
-			inflight->last_tx = tal_free(inflight->last_tx);
-		inflight->last_tx = tal_steal(inflight, their_commit->tx);
-		inflight->last_sig = their_commit->commit_signature;
-
+	if (splice_record_commitment(inflight, their_commit)) {
 		msg = towire_channeld_update_inflight(NULL, current_psbt,
 						      their_commit->tx,
 						      &their_commit->commit_signature,
@@ -4861,9 +4856,9 @@ static void splice_initiator_user_finalized(struct peer *peer)
 						    our_role,
 						    last_inflight_index(peer),
 						    true, true, NULL, 0);
-
-	new_inflight->last_tx = tal_steal(new_inflight, their_commit->tx);
-	new_inflight->last_sig = their_commit->commit_signature;
+	if (!splice_record_commitment(new_inflight, their_commit))
+		peer_failed_err(peer->pps, &peer->channel_id,
+				"Splice finalize: peer sent no commitment_signed");
 
 	outmsg = towire_channeld_update_inflight(NULL, new_inflight->psbt,
 						 their_commit->tx,

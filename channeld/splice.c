@@ -1,5 +1,19 @@
 #include "config.h"
+#include <channeld/channeld_wiregen.h>
 #include <channeld/splice.h>
+
+bool splice_record_commitment(struct inflight *inflight,
+			      struct commitsig *commit)
+{
+	if (!commit)
+		return false;
+
+	if (inflight->last_tx != commit->tx)
+		inflight->last_tx = tal_free(inflight->last_tx);
+	inflight->last_tx = tal_steal(inflight, commit->tx);
+	inflight->last_sig = commit->commit_signature;
+	return true;
+}
 
 struct splice_state *splice_state_new(const tal_t *ctx)
 {
