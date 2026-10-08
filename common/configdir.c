@@ -191,7 +191,8 @@ static void parse_configvars(struct configvar **cvs,
 			     bool developer)
 {
 	for (size_t i = 0; i < tal_count(cvs); i++) {
-		const char *problem;
+		const char *problem, *line;
+		const struct opt_table *ot;
 		bool should_know;
 
 		should_know = full_knowledge;
@@ -208,12 +209,18 @@ static void parse_configvars(struct configvar **cvs,
 		if (!problem)
 			continue;
 
+		/* Don't print secrets */
+		ot = configvar_unparsed(cvs[i]);
+		if (ot && (ot->type & OPT_CONCEAL) && cvs[i]->optarg)
+			line = tal_fmt(tmpctx, "%s=...", cvs[i]->optvar);
+		else
+			line = cvs[i]->configline;
+
 		if (cvs[i]->file) {
 			errx(opt_exitcode, "Config file %s line %u: %s: %s",
-			     cvs[i]->file, cvs[i]->linenum,
-			     cvs[i]->configline, problem);
+			     cvs[i]->file, cvs[i]->linenum, line, problem);
 		} else {
-			errx(opt_exitcode, "--%s: %s", cvs[i]->configline, problem);
+			errx(opt_exitcode, "--%s: %s", line, problem);
 		}
 	}
 }
