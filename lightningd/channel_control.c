@@ -694,8 +694,7 @@ static enum watch_result splice_depth_cb(struct lightningd *ld,
 					 struct channel_inflight *inflight)
 {
 	/* Usually, we're here because we're awaiting a splice, but
-	 * we could also mutual shutdown, or that weird splice_locked_memonly
-	 * hack... */
+	 * we could also mutual shutdown. */
 	if (inflight->channel->state != CHANNELD_AWAITING_SPLICE) {
 		log_debug(inflight->channel->log, "Splice inflight event but not"
 			  " in AWAITING_SPLICE, ending watch of txid %s",
@@ -1905,9 +1904,6 @@ bool peer_start_channeld(struct channel *channel,
 	inflights = tal_arr(tmpctx, struct inflight *, 0);
 	list_for_each(&channel->inflights, inflight, list) {
 		struct inflight *infcopy;
-
-		if (inflight->splice_locked_memonly)
-			continue;
 
 		if (!inflight->funding->splice_remote_funding) {
 			send_backtrace("Inflight has no splice_remote_funding?!");

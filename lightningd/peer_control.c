@@ -980,7 +980,6 @@ static void NON_NULL_ARGS(1, 2, 4, 5) json_add_channel(struct command *cmd,
 	struct amount_sat peer_funded_sats;
 	const struct peer_update *peer_update;
 	u32 feerate;
-	bool has_valid_inflights;
 
 	json_object_start(response, key);
 	json_add_node_id(response, "peer_id", &peer->id);
@@ -1069,15 +1068,7 @@ static void NON_NULL_ARGS(1, 2, 4, 5) json_add_channel(struct command *cmd,
 	json_add_txid(response, "funding_txid", &channel->funding.txid);
 	json_add_num(response, "funding_outnum", channel->funding.n);
 
-	has_valid_inflights = false;
 	if (!list_empty(&channel->inflights)) {
-		struct channel_inflight *inflight;
-		list_for_each(&channel->inflights, inflight, list)
-			if (!inflight->splice_locked_memonly)
-				has_valid_inflights = true;
-	}
-
-	if (has_valid_inflights) {
 		struct channel_inflight *initial, *inflight;
 		u32 last_feerate, next_feerate;
 
@@ -1118,8 +1109,6 @@ static void NON_NULL_ARGS(1, 2, 4, 5) json_add_channel(struct command *cmd,
 		json_array_start(response, "inflight");
 		list_for_each(&channel->inflights, inflight, list) {
 			struct bitcoin_txid txid;
-			if (inflight->splice_locked_memonly)
-				continue;
 
 			json_object_start(response, NULL);
 			json_add_txid(response, "funding_txid",
@@ -2764,14 +2753,6 @@ static enum watch_result funding_spent(struct channel *channel,
 	list_for_each(&channel->inflights, inflight, list) {
 		if (bitcoin_txid_eq(&txid,
 				    &inflight->funding->outpoint.txid)) {
-			/* splice_locked is a special flag that indicates this
-			 * is a memory-only inflight acting as a race condition
-			 * safeguard. When we see this, it is our responsability
-			 * to clean up this memory-only inflight. */
-			if (inflight->splice_locked_memonly) {
-				tal_free(inflight);
-				return DELETE_WATCH;
-			}
 			return KEEP_WATCHING;
 		}
 	}
@@ -4114,8 +4095,6 @@ static struct command_result *json_sign_last_tx(struct command *cmd,
 
 		json_array_start(response, "inflights");
 		list_for_each(&channel->inflights, inflight, list) {
-			if (inflight->splice_locked_memonly)
-				continue;
 			tx = sign_last_tx(cmd, channel, inflight->last_tx,
 					  &inflight->last_sig);
 			json_object_start(response, NULL);

@@ -2912,8 +2912,7 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 	/* Update the inflights also */
 	struct channel_inflight *inflight;
 	list_for_each(&chan->inflights, inflight, list)
-		if (!inflight->splice_locked_memonly)
-			wallet_inflight_save(w, inflight);
+		wallet_inflight_save(w, inflight);
 
 	db_bind_talarr(stmt, last_sent_commit);
 	db_bind_u64(stmt, chan->dbid);
