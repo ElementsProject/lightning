@@ -700,6 +700,15 @@ static enum channel_add_err add_htlc(struct channel *channel,
 		return CHANNEL_ERR_HTLC_BELOW_MINIMUM;
 	}
 
+	/* BOLT #1:
+	 *
+	 * milli-satoshi amounts MUST be at most `0x1d24b2dfac520000`
+	 */
+	/* Anything above this wraps the signed subtraction in balance_add_htlc(). */
+	if (amount_msat_greater(htlc->amount, AMOUNT_MSAT(0x1d24b2dfac520000ULL))) {
+		return CHANNEL_ERR_MAX_HTLC_VALUE_EXCEEDED;
+	}
+
 	/* FIXME: There used to be a requirement that we not send more than
 	 * 2^32 msat, *but* only electrum enforced it.  Remove in next version:
 	 *
