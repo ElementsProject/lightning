@@ -293,7 +293,7 @@ def test_splice_rbf_htlc_sigs(node_factory, bitcoind, executor):
     """Once a splice-RBF candidate confirms, only its HTLC signatures become
     the active set, even when the other candidates place the funding output
     at the same index."""
-    l1, l2 = node_factory.line_graph(2, fundamount=1000000)
+    l1, l2 = node_factory.line_graph(2, fundamount=1000000, wait_for_announce=True)
     chan_id = l1.get_channel_id(l2)
 
     def htlc_sig_rows(node):
