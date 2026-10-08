@@ -25,7 +25,7 @@ ${PROTOS} &: ${PROTOSRC}
           --mypy_out=pyln/grpc \
 	  --experimental_allow_proto3_optional
 
-	python \
+	uv run \
 	  -m grpc_tools.protoc \
 	  -I ../../cln-grpc/proto \
 	  ../../cln-grpc/proto/primitives.proto \
