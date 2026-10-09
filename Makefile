@@ -39,6 +39,9 @@ BOLTVERSION := $(DEFAULT_BOLTVERSION)
 
 -include config.vars
 
+# The PyPI release build bumps pyln versions without running ./configure.
+SED ?= sed
+
 # Use Homebrew LLVM toolchain for fuzzing support on macOS
 ifeq ($(OS),Darwin)
 export PATH := /opt/homebrew/opt/llvm/bin:$(PATH)
@@ -886,13 +889,20 @@ PYLNS=client proto testing
 update-versions: update-pyln-versions update-reckless-version update-dot-version # FIXME: update-doc-examples
 	@uv lock
 
-update-pyln-versions: $(PYLNS:%=update-pyln-version-%)
+update-pyln-versions: $(PYLNS:%=update-pyln-version-%) update-pyln-version-grpc-proto
 
 update-pyln-version-%:
 	@if [ -z "$(NEW_VERSION)" ]; then echo "Set NEW_VERSION!" >&2; exit 1; fi
 	@echo "Updating contrib/pyln-$* to $(NEW_VERSION)"
 	@$(SED) -i.bak 's/^version = .*/version = "$(NEW_VERSION)"/' contrib/pyln-$*/pyproject.toml && rm contrib/pyln-$*/pyproject.toml.bak
 	@$(SED) -i.bak 's/^__version__ = .*/__version__ = "$(NEW_VERSION)"/' contrib/pyln-$*/pyln/$*/__init__.py && rm contrib/pyln-$*/pyln/$*/__init__.py.bak
+
+# pyln-grpc-proto keeps its module in pyln/grpc, not pyln/grpc-proto.
+update-pyln-version-grpc-proto:
+	@if [ -z "$(NEW_VERSION)" ]; then echo "Set NEW_VERSION!" >&2; exit 1; fi
+	@echo "Updating contrib/pyln-grpc-proto to $(NEW_VERSION)"
+	@$(SED) -i.bak 's/^version = .*/version = "$(NEW_VERSION)"/' contrib/pyln-grpc-proto/pyproject.toml && rm contrib/pyln-grpc-proto/pyproject.toml.bak
+	@$(SED) -i.bak 's/^__version__ = .*/__version__ = "$(NEW_VERSION)"/' contrib/pyln-grpc-proto/pyln/grpc/__init__.py && rm contrib/pyln-grpc-proto/pyln/grpc/__init__.py.bak
 
 pyln-release:  $(PYLNS:%=pyln-release-%)
 
