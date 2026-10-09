@@ -105,12 +105,68 @@ def test_splice_disconnect_commit(node_factory, bitcoind, executor):
     # Should reconnect, and reestablish the splice.
     l1.start()
 
-    # Splice should be abandoned via tx_abort
+    # Splice is abandoned: the initiator's guard notifies master
+    # (no wire tx_abort, no channel death)
+    l1.daemon.wait_for_log(r'peer_in WIRE_CHANNEL_REESTABLISH')
+    l2.daemon.wait_for_log(r'peer_in WIRE_CHANNEL_REESTABLISH')
 
-    # Wait until nodes are reconnected
-    l1.daemon.wait_for_log(r'billboard: Channel ready for use.')
-    l2.daemon.wait_for_log(r'billboard: Channel ready for use.')
+    time.sleep(10)
+    assert not l1.daemon.is_in_log(r'Peer permanent failure'),         "channel permanent-failed on initiator"
 
-    # Check that the splice doesn't generate a unilateral close transaction
     time.sleep(5)
     assert l1.db_query("SELECT count(*) as c FROM channeltxs;")[0]['c'] == 0
+
+
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_splice_disconnect_initiator_resume(node_factory, bitcoind, executor):
+    """Disconnect the initiator mid-splice (after commitment_signed,
+    before tx_signatures), restart it: the channel must survive.
+
+    The initiator only persists its inflight at signing time; a
+    disconnect after the commitment exchange but before signing
+    leaves no recoverable state, causing an illegal tx_abort that
+    kills the channel on both sides."""
+    if EXPERIMENTAL_DUAL_FUND:
+        disconnects = ['+WIRE_COMMITMENT_SIGNED*2']
+    else:
+        disconnects = ['+WIRE_COMMITMENT_SIGNED']
+
+    l1 = node_factory.get_node(disconnect=disconnects,
+                               options={'dev-no-reconnect': None},
+                               may_reconnect=True)
+    l2 = node_factory.get_node(options={'dev-no-reconnect': None},
+                               may_reconnect=True)
+    l1.openchannel(l2, 1000000)
+
+    chan_id = l1.get_channel_id(l2)
+
+    funds_result = l1.rpc.fundpsbt("107527sat", 0, 0, excess_as_change=True)
+
+    result = l1.rpc.splice_init(chan_id, 100000, funds_result['psbt'])
+    result = l1.rpc.splice_update(chan_id, result['psbt'])
+    assert(result['commitments_secured'] is False)
+
+    executor.submit(l1.rpc.splice_update, chan_id, result['psbt'])
+
+    l1.daemon.wait_for_log(r'dev_disconnect: \+WIRE_COMMITMENT_SIGNED')
+    time.sleep(0.2)
+
+    l1.daemon.kill()
+    del l1.daemon.opts['dev-no-reconnect']
+    del l1.daemon.opts['dev-disconnect']
+    l1.start()
+
+    l1.daemon.wait_for_log(r'peer_in WIRE_CHANNEL_REESTABLISH')
+    l2.daemon.wait_for_log(r'peer_in WIRE_CHANNEL_REESTABLISH')
+
+    # Guard fires: initiator notifies master instead of wire-aborting
+    l1.daemon.wait_for_log(r'Peer claims next_funding txid')
+
+    # Give the reestablish loop time to settle
+    time.sleep(10)
+
+    # Channel must not permanent-fail (the bug kills it on both sides)
+    assert not l1.daemon.is_in_log(r'Peer permanent failure'), \
+        "channel permanent-failed on initiator"
