@@ -896,6 +896,20 @@ def test_gossip_query_channel_range(node_factory, bitcoind, chainparams):
                     # encoded_short_ids
                     + '000100']
 
+    # Unknown chain: incomplete, but encoded_short_ids still has encoding type
+    msgs = l4.query_gossip('query_channel_range',
+                           'ff' * 32,
+                           0, 1000000,
+                           filters=['0109', '0107', '0012'])
+    # reply_channel_range == 264
+    assert msgs == ['0108'
+                    # blockhash
+                    + 'ff' * 32
+                    # first_blocknum, number_of_blocks, complete
+                    + format(0, '08x') + format(1000000, '08x') + '00'
+                    # encoded_short_ids
+                    + '000100']
+
     # Make l4 split reply into two (technically async)
     l4.rpc.dev_set_max_scids_encode_size(max=9)
     l4.daemon.wait_for_log('Set max_scids_encode_bytes to 9')
