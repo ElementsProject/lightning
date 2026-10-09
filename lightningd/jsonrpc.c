@@ -706,8 +706,12 @@ void json_stream_log_suppress_for_cmd(struct json_stream *js,
 				     const struct command *cmd)
 {
 	const char *nm = cmd->json_cmd->name;
-	const char *s = tal_fmt(tmpctx, "Suppressing logging of %s command", nm);
-	log_io(cmd->jcon->log, LOG_IO_OUT, NULL, s, NULL, 0);
+
+	/* Catch the case where they sent this command then hung up. */
+	if (cmd->jcon) {
+		const char *s = tal_fmt(tmpctx, "Suppressing logging of %s command", nm);
+		log_io(cmd->jcon->log, LOG_IO_OUT, NULL, s, NULL, 0);
+	}
 
 	/* Really shouldn't be used for anything else */
 	assert(streq(nm, "getlog"));
@@ -1490,7 +1494,8 @@ static struct command_result *param_command(struct command *cmd,
 					    const jsmntok_t *tok,
 					    const jsmntok_t **out)
 {
-	cmd->json_cmd = find_cmd(cmd->jcon->ld->jsonrpc, buffer, tok);
+	/* Not cmd->jcon: they may have hung up while a hook held us. */
+	cmd->json_cmd = find_cmd(cmd->ld->jsonrpc, buffer, tok);
 	if (cmd->json_cmd) {
 		*out = tok;
 		return NULL;
