@@ -156,6 +156,30 @@ def test_splice_feerate_too_high(node_factory, bitcoind):
 
 
 @pytest.mark.openchannel('v1')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_splice_out_exceeds_balance(node_factory, bitcoind):
+    l1, l2 = node_factory.line_graph(2, fundamount=1000000,
+                                     wait_for_announce=True,
+                                     opts={'allow_warning': True,
+                                           'may_reconnect': True})
+    chan_id = l1.get_channel_id(l2)
+
+    funds_result = l1.rpc.addpsbtoutput(100000)
+
+    # l2 refuses on receipt of splice_init, so the splice_ack l1 is waiting
+    # for never arrives - run it in a daemon thread so the test can proceed
+    def _splice():
+        try:
+            l1.rpc.splice_init(chan_id, -1000001, funds_result['psbt'])
+        except Exception:
+            pass
+
+    threading.Thread(target=_splice, daemon=True).start()
+
+    l2.daemon.wait_for_log(r'Splice contribution -1000001sat exceeds peer balance')
+
+
+@pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 def test_two_chan_splice_in(node_factory, bitcoind):

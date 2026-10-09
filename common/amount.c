@@ -402,7 +402,7 @@ WARN_UNUSED_RESULT bool amount_msat_add_sat_s64(struct amount_msat *val,
 						s64 b)
 {
 	if (b < 0)
-		return amount_msat_sub_sat(val, a, amount_sat(-b));
+		return amount_msat_sub_sat(val, a, amount_sat(-(u64)b));
 	else
 		return amount_msat_add_sat(val, a, amount_sat(b));
 }
@@ -413,7 +413,7 @@ WARN_UNUSED_RESULT bool amount_sat_add_sat_s64(struct amount_sat *val,
 					       s64 b)
 {
 	if (b < 0)
-		return amount_sat_sub(val, a, amount_sat(-b));
+		return amount_sat_sub(val, a, amount_sat(-(u64)b));
 	else
 		return amount_sat_add(val, a, amount_sat(b));
 }
