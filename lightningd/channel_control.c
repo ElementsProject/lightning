@@ -1797,12 +1797,10 @@ bool peer_start_channeld(struct channel *channel,
 
 	hsmfd = hsm_get_client_fd(ld, &channel->peer->id,
 				  channel->dbid,
-				  HSM_PERM_SIGN_GOSSIP
-				  | HSM_PERM_ECDH
+				  HSM_PERM_ECDH
 				  | HSM_PERM_COMMITMENT_POINT
 				  | HSM_PERM_SIGN_REMOTE_TX
 				  | HSM_PERM_SIGN_ONCHAIN_TX
-				  | HSM_PERM_SIGN_CLOSING_TX
 				  | HSM_PERM_SIGN_SPLICE_TX
 				  | HSM_PERM_LOCK_OUTPOINT);
 	if (hsmfd < 0) {
