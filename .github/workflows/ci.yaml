@@ -707,14 +707,16 @@ jobs:
           TEST_DEBUG: 1
           PYTEST_OPTS: ${{ env.PYTEST_OPTS_BASE }} --test-group-random-seed=42
         run: |
+          # Memory is logged to the job log during the run, so readings before a VM kill survive.
+          (while sleep 15; do
+            printf '\n[mem %s] %s\n' "$(date +%T)" "$(free -m | awk '/Mem:/{print "used="$3"MB avail="$7"MB"}')"
+            ps -eo rss=,comm= | awk '{s[$2]+=$1} END{for(k in s) print int(s[k]/1024), k}' | sort -rn | head -n 5 | awk '{printf "[mem]   %6d MB  %s\n", $1, $2}'
+          done) &
+          mem_pid=$!
+          trap 'kill $mem_pid 2>/dev/null' EXIT
           # -n $(nproc) rather than $(nproc)+1: one fewer parallel node-cluster
           # keeps peak RSS under the 16GB hosted-runner ceiling.
           VALGRIND=1 sg wireshark "uv run eatmydata pytest tests/ -n $(nproc) ${PYTEST_OPTS} --test-group=${{ matrix.GROUP }} --test-group-count=${{ matrix.GROUP_COUNT }}"
-      - name: Report OOM kills
-        if: failure()
-        run: |
-          echo "=== dmesg (OOM) ==="; sudo dmesg | grep -i -E 'oom|out of memory|killed process' || echo "no OOM lines in dmesg"
-          echo "=== kernel log ==="; sudo journalctl -k --no-pager | tail -n 50 || true
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v7
@@ -778,14 +780,16 @@ jobs:
         env:
           PYTEST_OPTS: ${{ env.PYTEST_OPTS_BASE }} --test-group-random-seed=42
         run: |
-          # -n $(nproc) rather than $(nproc)+1: one fewer parallel node-cluster
-          # keeps ASan peak RSS under the 16GB hosted-runner ceiling.
-          sg wireshark "uv run eatmydata pytest tests/ -n $(nproc) ${PYTEST_OPTS} --test-group=${{ matrix.GROUP }} --test-group-count=${{ matrix.GROUP_COUNT }}"
-      - name: Report OOM kills
-        if: failure()
-        run: |
-          echo "=== dmesg (OOM) ==="; sudo dmesg | grep -i -E 'oom|out of memory|killed process' || echo "no OOM lines in dmesg"
-          echo "=== kernel log ==="; sudo journalctl -k --no-pager | tail -n 50 || true
+          # Memory is logged to the job log during the run, so readings before a VM kill survive.
+          (while sleep 15; do
+            printf '\n[mem %s] %s\n' "$(date +%T)" "$(free -m | awk '/Mem:/{print "used="$3"MB avail="$7"MB"}')"
+            ps -eo rss=,comm= | awk '{s[$2]+=$1} END{for(k in s) print int(s[k]/1024), k}' | sort -rn | head -n 5 | awk '{printf "[mem]   %6d MB  %s\n", $1, $2}'
+          done) &
+          mem_pid=$!
+          trap 'kill $mem_pid 2>/dev/null' EXIT
+          # -n nproc-1: two fewer parallel node-clusters than nproc+1 keeps
+          # ASan peak RSS under the 16GB hosted-runner ceiling.
+          sg wireshark "uv run eatmydata pytest tests/ -n $(($(nproc) - 1)) ${PYTEST_OPTS} --test-group=${{ matrix.GROUP }} --test-group-count=${{ matrix.GROUP_COUNT }}"
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v7
