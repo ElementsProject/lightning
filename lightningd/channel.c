@@ -228,7 +228,6 @@ new_inflight(struct channel *channel,
 	inflight->force_sign_first = force_sign_first;
 	inflight->locked_scid = NULL;
 	inflight->i_sent_sigs = i_sent_sigs;
-	inflight->splice_locked_memonly = false;
 
 	list_add_tail(&channel->inflights, &inflight->list);
 	tal_add_destructor(inflight, destroy_inflight);

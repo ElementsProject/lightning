@@ -93,16 +93,6 @@ struct channel_inflight {
 
 	/* Have I sent my peer my sigs? */
 	bool i_sent_sigs;
-
-	/* Note: This field is not stored in the database.
-	 *
-	 * After splice_locked, we need a way to stop the chain watchers from
-	 * thinking the old channel was spent.
-	 *
-	 * Leaving the inflight in memory-only with splice_locked true leaves
-	 * moves the responsiblity of cleaning up the inflight to the watcher,
-	 * avoiding any potential race conditions. */
-	bool splice_locked_memonly;
 };
 
 struct open_attempt {
