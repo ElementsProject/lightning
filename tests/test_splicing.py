@@ -991,3 +991,27 @@ def test_splice_candidate_spent_before_lock(node_factory, bitcoind):
     chan = only_one(l1.rpc.listpeerchannels()['channels'])
     assert chan['state'] == 'ONCHAIN'
     assert chan['funding_txid'] == splice_txid
+
+
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(
+    TEST_NETWORK != "regtest", "elementsd doesnt yet support PSBT features we need"
+)
+def test_splice_tx_add_output_sum_above_max_supply(node_factory, bitcoind):
+    """Splice outputs that sum above MAX_MONEY must be rejected, not crash the accepter."""
+    l1, l2 = node_factory.line_graph(2, fundamount=1000000, wait_for_announce=True)
+    chan_id = l1.get_channel_id(l2)
+
+    # Each fits under MAX_MONEY, so libwally accepts them; 10M + 11M BTC + 1 sat does not.
+    psbt = l1.rpc.addpsbtoutput(1000000000000000)["psbt"]
+    psbt = l1.rpc.addpsbtoutput(1100000000000001, psbt)["psbt"]
+
+    result = l1.rpc.splice_init(chan_id, 0, psbt)
+    # serial_ids are random, so either output may be the one that tips it over.
+    error_match = r"Adding output amount [0-9]+sat would exceed max supply"
+    with pytest.raises(RpcError, match=error_match):
+        l1.rpc.splice_update(chan_id, result["psbt"])
+
+    # l2 run the checks and fails the splice producing the rpc error above
+    l2.daemon.is_in_log(error_match)
