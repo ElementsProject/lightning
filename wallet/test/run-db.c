@@ -456,6 +456,42 @@ static bool test_empty_db_migrate(struct lightningd *ld)
 	return true;
 }
 
+static bool test_v26_06_8_migrate(struct lightningd *ld)
+{
+	struct db *db = create_test_db();
+	struct db_stmt *stmt;
+	const struct ext_key *bip32_base = NULL;
+
+	CHECK(db);
+	db_begin_transaction(db);
+	db_migrate(ld, db, bip32_base);
+
+	/* v26.06.8 used migrations 283 and 284 for the feerate repairs.
+	 * Recreate its schema at that version and verify master starts its new
+	 * migrations at 285 rather than skipping the wallet table creation. */
+	stmt = db_prepare_v2(db, SQL("DROP TABLE our_outputs;"));
+	db_exec_prepared_v2(take(stmt));
+	stmt = db_prepare_v2(db, SQL("DROP TABLE our_txs;"));
+	db_exec_prepared_v2(take(stmt));
+	stmt = db_prepare_v2(db, SQL("ALTER TABLE payments DROP COLUMN failmsg;"));
+	db_exec_prepared_v2(take(stmt));
+	stmt = db_prepare_v2(db, SQL("UPDATE version SET version=284;"));
+	db_exec_prepared_v2(take(stmt));
+	db_commit_transaction(db);
+
+	ld->db_upgrade_ok = tal(ld, bool);
+	*ld->db_upgrade_ok = true;
+	db_begin_transaction(db);
+	db_migrate(ld, db, bip32_base);
+	CHECK(db_get_version(db) == ARRAY_SIZE(dbmigrations) - 1);
+	db_commit_transaction(db);
+	tal_free(ld->db_upgrade_ok);
+	ld->db_upgrade_ok = NULL;
+
+	tal_free(db);
+	return true;
+}
+
 static bool test_primitives(void)
 {
 	struct db_stmt *stmt;
@@ -602,6 +638,7 @@ int main(int argc, char *argv[])
 	/* We do a runtime test here, so we still check compile! */
 	if (HAVE_SQLITE3) {
 		ok &= test_empty_db_migrate(ld);
+		ok &= test_v26_06_8_migrate(ld);
 		ok &= test_vars(ld);
 		ok &= test_primitives();
 		ok &= test_manip_columns();
