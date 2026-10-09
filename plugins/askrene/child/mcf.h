@@ -18,8 +18,8 @@ const char *default_routes(const tal_t *ctx, struct route_query *rq,
 			   const struct gossmap_node *dstnode,
 			   struct amount_msat amount,
 			   struct amount_msat maxfee, u32 finalcltv,
-			   u32 maxdelay, size_t maxparts, struct flow ***flows,
-			   double *probability,
+			   u32 maxdelay, size_t maxparts, size_t maxhops,
+			   struct flow ***flows, double *probability,
 			   enum jsonrpc_errcode *ecode);
 
 /* A wrapper to the single-path constrained solver. */
@@ -29,8 +29,8 @@ const char *single_path_routes(const tal_t *ctx, struct route_query *rq,
 			       const struct gossmap_node *dstnode,
 			       struct amount_msat amount,
 			       struct amount_msat maxfee, u32 finalcltv,
-			       u32 maxdelay, struct flow ***flows,
-			       double *probability,
+			       u32 maxdelay, size_t maxhops,
+			       struct flow ***flows, double *probability,
 			       enum jsonrpc_errcode *ecode);
 
 #endif /* LIGHTNING_PLUGINS_ASKRENE_CHILD_MCF_H */

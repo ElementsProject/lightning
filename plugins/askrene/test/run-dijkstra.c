@@ -84,7 +84,7 @@ int main(int argc, char *argv[])
 	struct node dst = {.idx = 6};
 
 	bool result = dijkstra_path(ctx, graph, src, dst, false, capacity, 1,
-				    cost, potential, prev, distance);
+				    cost, potential, prev, distance, 0);
 	CHECK(result);
 
 	int pathlen = 0;
