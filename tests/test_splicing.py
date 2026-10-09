@@ -5,6 +5,7 @@ import pytest
 import threading
 import unittest
 import time
+import base64
 from utils import (
     sync_blockheight, wait_for, TEST_NETWORK, first_scid, only_one
 )
@@ -991,3 +992,91 @@ def test_splice_candidate_spent_before_lock(node_factory, bitcoind):
     chan = only_one(l1.rpc.listpeerchannels()['channels'])
     assert chan['state'] == 'ONCHAIN'
     assert chan['funding_txid'] == splice_txid
+
+
+def _read_compact(buf, i):
+    n = buf[i]
+    i += 1
+    if n < 0xfd:
+        return n, i
+    if n == 0xfd:
+        return int.from_bytes(buf[i:i + 2], 'little'), i + 2
+    if n == 0xfe:
+        return int.from_bytes(buf[i:i + 4], 'little'), i + 4
+    return int.from_bytes(buf[i:i + 8], 'little'), i + 8
+
+
+def _write_compact(n):
+    if n < 0xfd:
+        return bytes([n])
+    if n <= 0xffff:
+        return b'\xfd' + n.to_bytes(2, 'little')
+    if n <= 0xffffffff:
+        return b'\xfe' + n.to_bytes(4, 'little')
+    return b'\xff' + n.to_bytes(8, 'little')
+
+
+def _strip_non_witness_utxo(psbt):
+    """Drop PSBT_IN_NON_WITNESS_UTXO from inputs that also have witness_utxo.
+
+    That is the user's contributed input: witness_utxo is set, and the
+    previous transaction that tx_add_input requires is removed. The shared
+    funding input does not have that pair.
+    """
+    assert psbt[:5] == b'psbt\xff'
+    i = 5
+    while True:
+        klen, i = _read_compact(psbt, i)
+        if klen == 0:
+            break
+        i += klen
+        vlen, i = _read_compact(psbt, i)
+        i += vlen
+    out = bytearray(psbt[:i])
+    while i < len(psbt):
+        pairs = []
+        while True:
+            klen, ni = _read_compact(psbt, i)
+            if klen == 0:
+                i = ni
+                break
+            key = psbt[ni:ni + klen]
+            ni += klen
+            vlen, ni = _read_compact(psbt, ni)
+            val = psbt[ni:ni + vlen]
+            ni += vlen
+            i = ni
+            pairs.append((key, val))
+        has_witness_utxo = any(key == b'\x01' for key, _val in pairs)
+        for key, val in pairs:
+            if has_witness_utxo and key == b'\x00':
+                continue
+            out += _write_compact(len(key)) + key
+            out += _write_compact(len(val)) + val
+        out += b'\x00'
+    return bytes(out)
+
+
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@pytest.mark.timeout(90)
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_splice_update_missing_prevtx(node_factory, bitcoind):
+    """ElementsProject/lightning#9599.
+
+    bitcoind's utxoupdatepsbt fills witness_utxo and not the previous
+    transaction. Every non-shared tx_add_input needs that previous
+    transaction. The shared channel input is built by channeld, so the
+    first turn goes out and the peer answers tx_complete. Sending the
+    user's input then fails. That error used to be discarded, so channeld
+    went back to peer_read and splice_update never returned.
+    """
+    l1, l2 = node_factory.line_graph(2, fundamount=1000000, wait_for_announce=True)
+    chan_id = l1.get_channel_id(l2)
+
+    funds_result = l1.rpc.fundpsbt("111722sat", 0, 0, excess_as_change=True)
+    result = l1.rpc.splice_init(chan_id, 100000, funds_result['psbt'])
+
+    stripped = _strip_non_witness_utxo(base64.b64decode(result['psbt']))
+    with pytest.raises(RpcError, match=r'previous transaction'):
+        l1.rpc.splice_update(chan_id, base64.b64encode(stripped).decode())
