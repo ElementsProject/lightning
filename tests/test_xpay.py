@@ -1559,3 +1559,45 @@ def test_sendamount_bip353(node_factory):
     ret = l2.rpc.sendamount("fake@fake.com", "100sat")
     assert ret["successful_parts"] == 1
     assert ret["amount_sent_msat"] == 100000
+
+
+def test_xpay_unknown_next_peer_excludes_node(node_factory, bitcoind):
+    """Issue 9590: repeated unknown_next_peer must exclude the next node.
+
+    payer -> hub -> {a,b,c,d} -> dest
+
+    hub fails every forward with unknown_next_peer (the code lnd returns when
+    the next peer is offline). A single failure may be a stale scid, so the
+    first channel is disabled and another path is allowed. The second failure
+    to the same next node must exclude that node, so xpay must not walk every
+    remaining channel into it.
+    """
+    plugin = os.path.join(os.path.dirname(__file__), 'plugins/fail_unknown_next_peer.py')
+    # This tree has no cln-grpc plugin. The harness passes --grpc-port unless it is disabled.
+    payer, hub, a, b, c, d, dest = node_factory.get_nodes(
+        7, opts=[{'disable-plugin': 'cln-grpc'},
+                 {'disable-plugin': 'cln-grpc', 'plugin': plugin},
+                 {'disable-plugin': 'cln-grpc'},
+                 {'disable-plugin': 'cln-grpc'},
+                 {'disable-plugin': 'cln-grpc'},
+                 {'disable-plugin': 'cln-grpc'},
+                 {'disable-plugin': 'cln-grpc'}])
+    node_factory.join_nodes([payer, hub], fundamount=10**6, wait_for_announce=True)
+    for spoke in (a, b, c, d):
+        node_factory.join_nodes([hub, spoke, dest], fundamount=10**6, wait_for_announce=True)
+
+    wait_for(lambda: len(payer.rpc.listchannels()['channels']) >= 9 * 2)
+
+    inv = dest.rpc.invoice(10000, 'issue-9590', 'issue 9590')['bolt11']
+    started = time.time()
+    with pytest.raises(RpcError) as err:
+        payer.rpc.xpay(invstring=inv, retry_for=15)
+    elapsed = time.time() - started
+
+    msg = err.value.error['message']
+    # One channel disable, then the node is excluded. Walking all four exits
+    # is the bug. The exclusion line also contains the failcode name.
+    unknown = msg.count('We got unknown_next_peer')
+    assert 0 < unknown <= 2, msg
+    assert elapsed < 10, 'spent the retry window walking the same node: {}'.format(msg)
+    assert 'disabling node' in msg or 'Repeated unknown_next_peer' in msg
