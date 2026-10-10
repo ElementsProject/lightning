@@ -185,7 +185,7 @@ impl ToString for PeerConnectDirection {
     }
 }
 
-/// ['Type of connection (*torv2*/*torv3* only if **direction** is *out*)']
+/// ['Type of connection (*torv2*/*torv3* only if **direction** is *out*).', '*unresolved* is used when the peer address was not resolved (e.g. with **always-use-proxy**).']
 #[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[allow(non_camel_case_types)]
 pub enum PeerConnectAddressType {
@@ -201,6 +201,8 @@ pub enum PeerConnectAddressType {
     TORV3 = 4,
     #[serde(rename = "websocket")]
     WEBSOCKET = 5,
+    #[serde(rename = "unresolved")]
+    UNRESOLVED = 6,
 }
 
 impl TryFrom<i32> for PeerConnectAddressType {
@@ -213,6 +215,7 @@ impl TryFrom<i32> for PeerConnectAddressType {
     3 => Ok(PeerConnectAddressType::TORV2),
     4 => Ok(PeerConnectAddressType::TORV3),
     5 => Ok(PeerConnectAddressType::WEBSOCKET),
+    6 => Ok(PeerConnectAddressType::UNRESOLVED),
             o => Err(anyhow::anyhow!("Unknown variant {} for enum PeerConnectAddressType", o)),
         }
     }
@@ -227,6 +230,7 @@ impl ToString for PeerConnectAddressType {
             PeerConnectAddressType::TORV2 => "TORV2",
             PeerConnectAddressType::TORV3 => "TORV3",
             PeerConnectAddressType::WEBSOCKET => "WEBSOCKET",
+            PeerConnectAddressType::UNRESOLVED => "UNRESOLVED",
         }.to_string()
     }
 }
@@ -235,6 +239,8 @@ impl ToString for PeerConnectAddressType {
 pub struct ConnectAddress {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub address: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub port: Option<u16>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -537,19 +543,27 @@ impl ToString for ForwardEventStatus {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ForwardEventNotification {
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub created_index: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub failcode: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub failreason: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub fee_msat: Option<Amount>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub in_htlc_id: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub out_channel: Option<ShortChannelId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub out_msat: Option<Amount>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub preimage: Option<Secret>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub resolved_time: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub style: Option<ForwardEventStyle>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_index: Option<u64>,
     // Path `forward_event.status`
     pub status: ForwardEventStatus,
     pub in_channel: ShortChannelId,
@@ -711,9 +725,9 @@ pub struct SendpayFailureData {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub bolt12: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub completed_at: Option<u64>,
+    pub completed_at: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub created_at: Option<u64>,
+    pub created_at: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub created_index: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -798,7 +812,7 @@ pub struct SendPaySuccessNotification {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub bolt12: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub completed_at: Option<u64>,
+    pub completed_at: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -816,7 +830,7 @@ pub struct SendPaySuccessNotification {
     // Path `sendpay_success.status`
     pub status: SendpaySuccessStatus,
     pub amount_sent_msat: Amount,
-    pub created_at: u64,
+    pub created_at: u32,
     pub created_index: u64,
     pub groupid: u64,
     pub id: u64,

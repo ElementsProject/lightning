@@ -219,6 +219,7 @@ message GetinfoAddress {
 		IPV6 = 2;
 		TORV2 = 3;
 		TORV3 = 4;
+		WEBSOCKET = 5 [deprecated = true];
 	}
 	GetinfoAddressType item_type = 1;
 	uint32 port = 2;
@@ -257,6 +258,7 @@ message ListpeersRequest {
 		INFO = 2;
 		UNUSUAL = 3;
 		TRACE = 4;
+		BROKEN = 5;
 	}
 	optional bytes id = 1;
 	optional ListpeersLevel level = 2;
@@ -279,7 +281,7 @@ message ListpeersPeers {
 message ListpeersPeersLog {
 	// ListPeers.peers[].log[].type
 	enum ListpeersPeersLogType {
-		SKIPPED = 0;
+		SKIPPED = 0 [deprecated = true];
 		BROKEN = 1;
 		UNUSUAL = 2;
 		INFO = 3;
@@ -289,7 +291,6 @@ message ListpeersPeersLog {
 		TRACE = 7;
 	}
 	ListpeersPeersLogType item_type = 1;
-	optional uint32 num_skipped = 2;
 	optional string time = 3;
 	optional string source = 4;
 	optional string log = 5;
@@ -336,6 +337,8 @@ message ListfundsOutputs {
 	optional uint32 blockheight = 8;
 	bool reserved = 9;
 	optional uint32 reserved_to_block = 10;
+	optional uint32 csv_lock = 11;
+	optional uint32 spendable_at = 12;
 }
 
 message SendpayRequest {
@@ -364,7 +367,7 @@ message SendpayResponse {
 	SendpayStatus status = 4;
 	optional Amount amount_msat = 5;
 	optional bytes destination = 6;
-	uint64 created_at = 7;
+	uint32 created_at = 7;
 	Amount amount_sent_msat = 8;
 	optional string label = 9;
 	optional uint64 partid = 10;
@@ -372,7 +375,7 @@ message SendpayResponse {
 	optional string bolt12 = 12;
 	optional bytes payment_preimage = 13;
 	optional string message = 14;
-	optional uint64 completed_at = 15;
+	optional uint32 completed_at = 15;
 	uint64 created_index = 16;
 	optional uint64 updated_index = 17;
 }
@@ -610,11 +613,14 @@ message ConnectAddress {
 		IPV6 = 2;
 		TORV2 = 3;
 		TORV3 = 4;
+		WEBSOCKET = 5;
+		UNRESOLVED = 6;
 	}
 	ConnectAddressType item_type = 1;
 	optional string socket = 2;
 	optional string address = 3;
 	optional uint32 port = 4;
+	optional string name = 5;
 }
 
 message CreateinvoiceRequest {
@@ -981,7 +987,7 @@ message SendonionResponse {
 	SendonionStatus status = 3;
 	optional Amount amount_msat = 4;
 	optional bytes destination = 5;
-	uint64 created_at = 6;
+	uint32 created_at = 6;
 	Amount amount_sent_msat = 7;
 	optional string label = 8;
 	optional string bolt11 = 9;
@@ -1036,7 +1042,7 @@ message ListsendpaysPayments {
 	ListsendpaysPaymentsStatus status = 4;
 	optional Amount amount_msat = 5;
 	optional bytes destination = 6;
-	uint64 created_at = 7;
+	uint32 created_at = 7;
 	Amount amount_sent_msat = 8;
 	optional string label = 9;
 	optional string bolt11 = 10;
@@ -1047,7 +1053,7 @@ message ListsendpaysPayments {
 	optional uint64 partid = 15;
 	uint64 created_index = 16;
 	optional uint64 updated_index = 17;
-	optional uint64 completed_at = 18;
+	optional uint32 completed_at = 18;
 }
 
 message ListtransactionsRequest {
@@ -1149,6 +1155,7 @@ message ListnodesNodesAddresses {
 		IPV6 = 2;
 		TORV2 = 3;
 		TORV3 = 4;
+		WEBSOCKET = 5 [deprecated = true];
 	}
 	ListnodesNodesAddressesType item_type = 1;
 	uint32 port = 2;
@@ -1247,14 +1254,14 @@ message WaitsendpayResponse {
 	WaitsendpayStatus status = 4;
 	optional Amount amount_msat = 5;
 	optional bytes destination = 6;
-	uint64 created_at = 7;
+	uint32 created_at = 7;
 	Amount amount_sent_msat = 8;
 	optional string label = 9;
 	optional uint64 partid = 10;
 	optional string bolt11 = 11;
 	optional string bolt12 = 12;
 	optional bytes payment_preimage = 13;
-	optional double completed_at = 14;
+	optional uint32 completed_at = 14;
 	uint64 created_index = 15;
 	optional uint64 updated_index = 16;
 }
@@ -1453,7 +1460,6 @@ message ListpeerchannelsChannels {
 	optional string initial_feerate = 12;
 	optional string last_feerate = 13;
 	optional string next_feerate = 14;
-	optional uint32 next_fee_step = 15;
 	repeated ListpeerchannelsChannelsInflight inflight = 16;
 	optional bytes close_to = 17;
 	optional bool private = 18;
@@ -1916,9 +1922,9 @@ message DelpayPayments {
 	optional uint64 partid = 6;
 	optional bytes destination = 7;
 	optional Amount amount_msat = 8;
-	uint64 created_at = 9;
+	uint32 created_at = 9;
 	optional uint64 updated_index = 10;
-	optional uint64 completed_at = 11;
+	optional uint32 completed_at = 11;
 	uint64 groupid = 12;
 	optional bytes payment_preimage = 13;
 	optional string label = 14;
@@ -2097,9 +2103,9 @@ message FetchinvoiceNextPeriod {
 
 message CancelrecurringinvoiceRequest {
 	string offer = 1;
-	uint64 recurrence_counter = 2;
+	uint32 recurrence_counter = 2;
 	string recurrence_label = 3;
-	optional double recurrence_start = 4;
+	optional uint32 recurrence_start = 4;
 	optional string payer_note = 5;
 	optional string bip353 = 6;
 }
@@ -2191,6 +2197,7 @@ message GetlogRequest {
 		UNUSUAL = 1;
 		INFO = 2;
 		DEBUG = 3;
+		IO = 4 [deprecated = true];
 		TRACE = 5;
 	}
 	optional GetlogLevel level = 1;
@@ -2206,7 +2213,7 @@ message GetlogResponse {
 message GetlogLog {
 	// GetLog.log[].type
 	enum GetlogLogType {
-		SKIPPED = 0;
+		SKIPPED = 0 [deprecated = true];
 		BROKEN = 1;
 		UNUSUAL = 2;
 		INFO = 3;
@@ -2216,7 +2223,6 @@ message GetlogLog {
 		TRACE = 7;
 	}
 	GetlogLogType item_type = 1;
-	optional uint32 num_skipped = 2;
 	optional string time = 3;
 	optional string source = 4;
 	optional string log = 5;
@@ -2428,7 +2434,7 @@ message ListpaysPays {
 	bytes payment_hash = 1;
 	ListpaysPaysStatus status = 2;
 	optional bytes destination = 3;
-	uint64 created_at = 4;
+	uint32 created_at = 4;
 	optional string label = 5;
 	optional string bolt11 = 6;
 	optional string bolt12 = 7;
@@ -2436,7 +2442,7 @@ message ListpaysPays {
 	Amount amount_sent_msat = 9;
 	optional bytes erroronion = 10;
 	optional string description = 11;
-	optional uint64 completed_at = 12;
+	optional uint32 completed_at = 12;
 	optional bytes preimage = 13;
 	optional uint64 number_of_parts = 14;
 	optional uint64 created_index = 15;
@@ -2931,7 +2937,6 @@ message SpliceinRequest {
 
 message SpliceinResponse {
 	string psbt = 1;
-	optional string tx = 2;
 	string txid = 3;
 }
 
@@ -2944,7 +2949,6 @@ message SpliceoutRequest {
 
 message SpliceoutResponse {
 	string psbt = 1;
-	optional string tx = 2;
 	string txid = 3;
 }
 
@@ -4374,8 +4378,8 @@ message InjectpaymentonionRequest {
 }
 
 message InjectpaymentonionResponse {
-	uint64 created_at = 1;
-	uint64 completed_at = 2;
+	uint32 created_at = 1;
+	uint32 completed_at = 2;
 	uint64 created_index = 3;
 	bytes payment_preimage = 4;
 }
@@ -4515,7 +4519,7 @@ message ListnetworkeventsRequest {
 	enum ListnetworkeventsIndex {
 		CREATED = 0;
 	}
-	optional string id = 1;
+	optional bytes id = 1;
 	optional ListnetworkeventsIndex index = 2;
 	optional uint64 start = 3;
 	optional uint32 limit = 4;
@@ -4741,11 +4745,13 @@ message PeerConnectAddress {
 		TORV2 = 3;
 		TORV3 = 4;
 		WEBSOCKET = 5;
+		UNRESOLVED = 6;
 	}
 	PeerConnectAddressType item_type = 1;
 	optional string socket = 2;
 	optional string address = 3;
 	optional uint32 port = 4;
+	optional string name = 5;
 }
 
 message StreamCoinMovementRequest {
@@ -4861,6 +4867,10 @@ message ForwardEventNotification {
 	optional ForwardEventStyle style = 10;
 	double received_time = 11;
 	optional double resolved_time = 12;
+	optional uint64 created_index = 13;
+	optional uint64 in_htlc_id = 14;
+	optional bytes preimage = 15;
+	optional uint64 updated_index = 16;
 }
 
 message StreamInvoiceCreationRequest {
@@ -4966,8 +4976,8 @@ message SendpayFailureData {
 	optional bytes destination = 7;
 	optional Amount amount_msat = 8;
 	optional Amount amount_sent_msat = 9;
-	optional uint64 created_at = 10;
-	optional uint64 completed_at = 11;
+	optional uint32 created_at = 10;
+	optional uint32 completed_at = 11;
 	optional SendpayFailureDataStatus status = 12;
 	optional bytes payment_preimage = 13;
 	optional string label = 14;
@@ -5002,8 +5012,8 @@ message SendPaySuccessNotification {
 	optional bytes destination = 7;
 	optional Amount amount_msat = 8;
 	Amount amount_sent_msat = 9;
-	uint64 created_at = 10;
-	optional uint64 completed_at = 11;
+	uint32 created_at = 10;
+	optional uint32 completed_at = 11;
 	SendpaySuccessStatus status = 12;
 	optional bytes payment_preimage = 13;
 	optional string label = 14;

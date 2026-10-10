@@ -210,13 +210,13 @@
                         ]
                       },
                       "lease_fee_basis": {
-                        "type": "u32",
+                        "type": "u16",
                         "description": [
                           "The proportional fee in basis points (parts per 10,000) for a lease."
                         ]
                       },
                       "funding_weight": {
-                        "type": "u32",
+                        "type": "u16",
                         "description": [
                           "The onchain weight you'll have to pay for a lease."
                         ]
@@ -228,7 +228,7 @@
                         ]
                       },
                       "channel_fee_max_proportional_thousandths": {
-                        "type": "u32",
+                        "type": "u16",
                         "description": [
                           "The maximum proportional routing fee this node will charge during the lease (in thousandths, not millionths like channel_update)."
                         ]
