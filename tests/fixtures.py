@@ -1,4 +1,4 @@
-from utils import TEST_NETWORK, VALGRIND  # noqa: F401,F403
+from utils import TEST_NETWORK, BITCOIND_CONFIG, VALGRIND  # noqa: F401,F403
 from pyln.testing.fixtures import directory, test_base_dir, test_name, chainparams, node_factory, bitcoind, teardown_checks, db_provider, executor, setup_logging, jsonschemas  # noqa: F401,F403
 from pyln.testing import utils
 from utils import COMPAT
@@ -11,6 +11,8 @@ import shutil
 import subprocess
 import tempfile
 import time
+from pyln.testing.utils import env
+from vls import ValidatingLightningSignerD
 
 
 @pytest.fixture
@@ -18,12 +20,37 @@ def node_cls():
     return LightningNode
 
 
+@pytest.fixture
+def use_vls(pytestconfig):
+    # This fixture is used to mark tests as using VLS. It doesn't do anything
+    # by itself, but it allows us to select tests with `-m vls` and to skip
+    # them if the signer is not available.
+    markerexpr = pytestconfig.getoption("markexpr") or ""
+    return "vls" in markerexpr.split()
+
+
 class LightningNode(utils.LightningNode):
     def __init__(self, *args, **kwargs):
+        options = dict(kwargs.get("options") or {})
+        use_vls = options.pop("use_vls", False)
+        kwargs["options"] = options
+
         # Yes, we really want to test the local development version, not
         # something in out path.
         kwargs["executable"] = "lightningd/lightningd"
         utils.LightningNode.__init__(self, *args, **kwargs)
+
+        # node_id is pyln's first positional arg; keep it for the VLS label.
+        self._node_id = args[0] if args else kwargs["node_id"]
+        self.network = TEST_NETWORK
+
+        if use_vls is True:
+            self.vls_mode = "cln:socket"
+        elif use_vls is False:
+            self.vls_mode = "cln:native"
+
+        self.use_vls = self.vls_mode == "cln:socket"
+        self.vlsd: ValidatingLightningSignerD | None = None
 
         # Avoid socket path name too long on Linux
         if os.uname()[0] == 'Linux' and \
@@ -60,6 +87,60 @@ class LightningNode(utils.LightningNode):
         if db_type == 'postgres' and ('disable-plugin', 'bookkeeper') not in self.daemon.opts.items():
             accts_db = self.db.provider.get_db('', 'accounts', 0)
             self.daemon.opts['bookkeeper-db'] = accts_db.get_dsn()
+
+    def start(self, wait_for_bitcoind_sync=True, stderr_redir=False):
+        # Start the signer first and wait for it to be up, otherwise lightningd
+        # hangs on the hsmd init message.
+        if self.use_vls:
+            self.vlsd = ValidatingLightningSignerD(
+                lightning_dir=self.lightning_dir,
+                node_id=self._node_id,
+                network=self.network,
+            )
+            self.daemon.opts["subdaemon"] = f"hsmd:{self.vlsd.remote_socket}"
+
+            # FIXME: VLS doesn't implement WIRE_HSMD_SIGN_SPLICE_TX, so lightningd
+            # would fatal() during hsm_init if OPT_SPLICE (bit 62) is offered.
+            # Strip the optional splice bit (63 = OPTIONAL_FEATURE(62)).
+            self.daemon.opts["dev-force-features"] = "-63"
+
+            # These are consumed by lightningd's remote_hsmd_socket bridge;
+            # they go on the daemon's per-proc env so each node gets its own
+            # signer configuration (see test-env precedence in pyln).
+            self.daemon.env["VLS_PORT"] = str(self.vlsd.port)
+            self.daemon.env["VLS_LSS"] = env("LSS_URI", "")
+            self.daemon.env["VLS_NETWORK"] = env("VLS_NETWORK", self.network)
+            self.daemon.env["BITCOIND_RPC_URL"] = env(
+                "BITCOIND_RPC_URL",
+                f"http://{BITCOIND_CONFIG['rpcuser']}:{BITCOIND_CONFIG['rpcpassword']}@127.0.0.1:{self.bitcoin.rpcport}",
+            )
+            # We must feed `remote_hsmd_socket` (via VLS_CLN_VERSION) *just*
+            # the bare version, otherwise the check fails and lightningd
+            # exits before spawning hsmd.
+            raw = subprocess.check_output(
+                [self.daemon.executable, "--version"]
+            ).decode("ascii")
+            cln_version = next(
+                line for line in reversed(raw.splitlines()) if line.strip()
+            )
+            self.daemon.env["VLS_CLN_VERSION"] = env("VLS_CLN_VERSION", cln_version)
+            self.vlsd.start()
+
+        utils.LightningNode.start(
+            self,
+            wait_for_bitcoind_sync=wait_for_bitcoind_sync,
+            stderr_redir=stderr_redir,
+        )
+
+    def stop(self, timeout: int = 10):
+        try:
+            return utils.LightningNode.stop(self, timeout=timeout)
+        finally:
+            # Stop the signer even if lightningd failed to stop (or never
+            # started), otherwise vlsd is left running.
+            if self.vlsd is not None and self.vlsd.proc is not None:
+                rc = self.vlsd.stop(timeout=timeout)
+                print(f"VLSD2 exited with rc={rc}")
 
 
 class CompatLevel(object):
