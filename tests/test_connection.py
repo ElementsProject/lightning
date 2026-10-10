@@ -499,7 +499,11 @@ def test_disconnect_opener(node_factory):
                        '-WIRE_TX_ADD_OUTPUT',
                        '+WIRE_TX_ADD_OUTPUT',
                        '-WIRE_TX_COMPLETE',
-                       '=WIRE_TX_COMPLETE']
+                       # Close after sending tx_complete.  A plain '=' used
+                       # to abort this open only because an unknown
+                       # channel_reestablish made us hang up (#8822); we no
+                       # longer do that, so the open would succeed.
+                       '+WIRE_TX_COMPLETE']
 
     l1 = node_factory.get_node(disconnect=disconnects,
                                may_reconnect=EXPERIMENTAL_DUAL_FUND,
