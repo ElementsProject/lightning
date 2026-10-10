@@ -536,6 +536,10 @@ struct getchaininfo_call {
 		   u32 blockcount,
 		   const bool ibd,
 		   void *);
+	/* If non-NULL, a backend "error" response invokes this (so the
+	 * caller can retry) instead of fatal().  NULL preserves the
+	 * historical fatal-on-error behaviour. */
+	void (*err_cb)(struct bitcoind *bitcoind, void *arg);
 	void *cb_arg;
 };
 
@@ -543,10 +547,28 @@ static void getchaininfo_callback(const char *buf, const jsmntok_t *toks,
 				  const jsmntok_t *idtok,
 				  struct getchaininfo_call *call)
 {
-	const jsmntok_t *resulttok;
+	const jsmntok_t *resulttok, *errtok, *msgtok;
 	const char *err, *chain;
 	u32 headers, blocks;
 	bool ibd;
+
+	/* A backend failure (bitcoind restarting, RPC timeout, ...) is
+	 * transient: polling callers would rather retry than die.  A
+	 * malformed success response is still a bug, so it stays fatal
+	 * via get_bitcoin_result() below. */
+	errtok = json_get_member(buf, toks, "error");
+	if (errtok && call->err_cb) {
+		msgtok = json_get_member(buf, errtok, "message");
+		log_unusual(call->bitcoind->log,
+			    "Bitcoin backend error for getchaininfo: %.*s (retrying)",
+			    msgtok ? json_tok_full_len(msgtok)
+				   : json_tok_full_len(errtok),
+			    msgtok ? json_tok_full(buf, msgtok)
+				   : json_tok_full(buf, errtok));
+		call->err_cb(call->bitcoind, call->cb_arg);
+		tal_free(call);
+		return;
+	}
 
 	resulttok = get_bitcoin_result(call->bitcoind, buf, toks, "getchaininfo");
 
@@ -566,6 +588,39 @@ static void getchaininfo_callback(const char *buf, const jsmntok_t *toks,
 	tal_free(call);
 }
 
+static void getchaininfo_send(struct getchaininfo_call *call, u32 height)
+{
+	struct jsonrpc_request *req;
+	req = jsonrpc_request_start(call, "getchaininfo", NULL,
+				    call->bitcoind->log,
+				    NULL, getchaininfo_callback, call);
+	json_add_u32(req->stream, "last_height", height);
+	jsonrpc_request_end(req);
+	bitcoin_plugin_send(call->bitcoind, req);
+}
+
+static void getchaininfo_new(const tal_t *ctx,
+			     struct bitcoind *bitcoind,
+			     const u32 height,
+			     void (*cb)(struct bitcoind *bitcoind,
+					const char *chain,
+					u32 headercount,
+					u32 blockcount,
+					const bool ibd,
+					void *),
+			     void (*err_cb)(struct bitcoind *bitcoind,
+					    void *arg),
+			     void *cb_arg)
+{
+	struct getchaininfo_call *call = tal(ctx, struct getchaininfo_call);
+
+	call->bitcoind = bitcoind;
+	call->cb = cb;
+	call->err_cb = err_cb;
+	call->cb_arg = cb_arg;
+	getchaininfo_send(call, height);
+}
+
 void bitcoind_getchaininfo_(const tal_t *ctx,
 			    struct bitcoind *bitcoind,
 			    const u32 height,
@@ -577,19 +632,23 @@ void bitcoind_getchaininfo_(const tal_t *ctx,
 				       void *),
 			    void *cb_arg)
 {
-	struct jsonrpc_request *req;
-	struct getchaininfo_call *call = tal(ctx, struct getchaininfo_call);
+	getchaininfo_new(ctx, bitcoind, height, cb, NULL, cb_arg);
+}
 
-	call->bitcoind = bitcoind;
-	call->cb = cb;
-	call->cb_arg = cb_arg;
-
-	req = jsonrpc_request_start(call, "getchaininfo", NULL,
-				    bitcoind->log,
-				    NULL, getchaininfo_callback, call);
-	json_add_u32(req->stream, "last_height", height);
-	jsonrpc_request_end(req);
-	bitcoin_plugin_send(bitcoind, req);
+void bitcoind_getchaininfo_retryable_(const tal_t *ctx,
+				      struct bitcoind *bitcoind,
+				      const u32 height,
+				      void (*cb)(struct bitcoind *bitcoind,
+						 const char *chain,
+						 u32 headercount,
+						 u32 blockcount,
+						 const bool ibd,
+						 void *),
+				      void (*err_cb)(struct bitcoind *bitcoind,
+						     void *arg),
+				      void *cb_arg)
+{
+	getchaininfo_new(ctx, bitcoind, height, cb, err_cb, cb_arg);
 }
 
 /* `getutxout`
