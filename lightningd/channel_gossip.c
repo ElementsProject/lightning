@@ -555,6 +555,28 @@ static bool update_channel_update(const struct channel *channel,
 	return true;
 }
 
+/* We MAY disable a channel on loss of connectivity and re-enable it later
+ * (BOLT #7's channel_update `disable` bit). */
+static void set_channel_disabled(struct channel *channel, bool disabled)
+{
+	struct channel_gossip *cg = channel->channel_gossip;
+	struct lightningd *ld = channel->peer->ld;
+
+	/* Only announced channels are gossiped. */
+	if (!cg || cg->state != CGOSSIP_ANNOUNCED)
+		return;
+
+	/* Don't create/broadcast updates while shutting down. */
+	if (!ld->gossip || ld->state == LD_STATE_GRACE
+	    || ld->state == LD_STATE_SHUTDOWN)
+		return;
+
+	if (update_channel_update(channel, !disabled))
+		broadcast_new_gossip(ld, cg->cupdate, NULL,
+				     disabled ? "channel disabled"
+					      : "channel enabled");
+}
+
 /* Using default logic, should this channel be enabled? */
 static bool channel_should_enable(const struct channel *channel,
 				  bool ok_if_disconnected)
@@ -625,7 +647,7 @@ static void cupdate_timer_refresh(struct channel *channel)
 
 	/* Free old cupdate to force a new one to be generated */
 	cg->cupdate = tal_free(cg->cupdate);
-	update_channel_update(channel, channel_should_enable(channel, true));
+	update_channel_update(channel, channel_should_enable(channel, false));
 
 	broadcast_new_gossip(ld, cg->cupdate, NULL, "channel update");
 	arm_refresh_timer(channel);
@@ -856,7 +878,7 @@ static void set_gossip_state(struct channel *channel,
 		send_channel_announcement(channel);
 
 		/* Any private cupdate will be different from this, so will force a refresh. */
-		update_channel_update(channel, channel_should_enable(channel, true));
+		update_channel_update(channel, channel_should_enable(channel, false));
 		broadcast_new_gossip(channel->peer->ld, cg->cupdate, NULL, "channel update");
 
 		/* We need to refresh channel update every 13 days */
@@ -919,7 +941,7 @@ static void update_gossip_state(struct channel *channel)
 		return;
 	case CGOSSIP_ANNOUNCED:
 		/* If a channel parameter has changed, send new update */
-		if (update_channel_update(channel, channel_should_enable(channel, true)))
+		if (update_channel_update(channel, channel_should_enable(channel, false)))
 			broadcast_new_gossip(channel->peer->ld, cg->cupdate, NULL,
 					     "channel update");
 		return;
@@ -1193,7 +1215,7 @@ void channel_gossip_init_done(struct lightningd *ld)
 				    "gossipd lost track of announced channel: re-announcing!");
 			check_channel_gossip(channel);
 			send_channel_announcement(channel);
-			update_channel_update(channel, channel_should_enable(channel, true));
+			update_channel_update(channel, channel_should_enable(channel, false));
 			broadcast_new_gossip(ld, channel->channel_gossip->cupdate, NULL, "channel update");
 
 			/* We need to refresh channel update every 13 days */
@@ -1231,6 +1253,9 @@ void channel_gossip_channel_reestablished(struct channel *channel,
 
 	/* We can re-xmit sigs once per reconnect */
 	channel->channel_gossip->sent_sigs = false;
+
+	/* We may have disabled this channel when the peer went away. */
+	set_channel_disabled(channel, false);
 
 	if (announcement_sigs_requested)
 		send_channel_announce_sigs(channel);
@@ -1271,40 +1296,10 @@ void channel_gossip_channel_disconnect(struct channel *channel)
 {
 	channel->stable_conn_timer = tal_free(channel->stable_conn_timer);
 	channel->reestablished = false;
-}
 
-/* We *could* send channel_updates for private channels, or
- * unannounced.  We do not */
-const u8 *channel_gossip_update_for_error(const tal_t *ctx,
-					  struct channel *channel)
-{
-	/* We cannot ask this about unsaved channels. */
-	struct channel_gossip *cg = channel->channel_gossip;
-
-	switch (cg->state) {
-	case CGOSSIP_CHANNEL_DEAD:
-	case CGOSSIP_CHANNEL_UNANNOUNCED_DYING:
-	case CGOSSIP_PRIVATE_WAITING_FOR_USABLE:
-	case CGOSSIP_PRIVATE:
-	case CGOSSIP_WAITING_FOR_USABLE:
-	case CGOSSIP_WAITING_FOR_SCID:
-	case CGOSSIP_WAITING_FOR_MATCHING_PEER_SIGS:
-	case CGOSSIP_WAITING_FOR_ANNOUNCE_DEPTH:
-		return NULL;
-	case CGOSSIP_CHANNEL_ANNOUNCED_DYING:
-	case CGOSSIP_CHANNEL_ANNOUNCED_DEAD:
-		return cg->cupdate;
-	case CGOSSIP_ANNOUNCED:
-		/* At this point we actually disable disconnected peers. */
-		if (update_channel_update(channel, channel_should_enable(channel, false))) {
-			broadcast_new_gossip(channel->peer->ld,
-					     cg->cupdate, NULL,
-					     "channel update");
-		}
-		check_channel_gossip(channel);
-		return cg->cupdate;
-	}
-	fatal("Bad channel_gossip_state %u", cg->state);
+	/* We MAY disable on loss of connectivity; re-enabled in
+	 * channel_gossip_channel_reestablished() (BOLT #7). */
+	set_channel_disabled(channel, true);
 }
 
 /* BOLT #7:
