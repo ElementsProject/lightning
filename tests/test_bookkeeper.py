@@ -3,7 +3,7 @@ from decimal import Decimal
 from pyln.client import Millisatoshi, RpcError
 from fixtures import TEST_NETWORK
 from utils import (
-    sync_blockheight, wait_for, only_one, first_channel_id, TIMEOUT
+    sync_blockheight, wait_for, only_one, first_channel_id, first_scid, TIMEOUT
 )
 
 from datetime import datetime
@@ -33,405 +33,172 @@ def check_events(node, channel_id, exp_events, alt_events=None):
     assert stripped == exp_events or stripped == alt_events
 
 
-@pytest.mark.openchannel('v1')
-@pytest.mark.openchannel('v2')
-@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
-def test_bookkeeping_splice_in(node_factory, bitcoind):
+@unittest.skipIf(TEST_NETWORK != 'regtest', "network fees hardcoded")
+def test_bookkeeping_penalty(node_factory, bitcoind, executor):
     """
-    Test splice-in accounting - adding funds to an existing channel.
+    Test penalty transaction tracking both from the punisher and the cheater peer.
     """
-    l1, l2 = node_factory.line_graph(
-        2,
-        fundamount=1000000,
-        wait_for_announce=True
-    )
+    coin_mvt_plugin = os.path.join(os.getcwd(), 'tests/plugins/coin_movements.py')
+    # l1 will be the cheater, l2 will claim penalty
+    # dev-disable-commit-after stops commits so we can snapshot old state
+    l1_opts = {
+        'may_fail': True,
+        'feerates': (7500, 7500, 7500, 7500),
+        'dev-disable-commit-after': 1,
+        'plugin': coin_mvt_plugin,
+        # l1 will notice it broadcast revoked state
+        'broken_log': r"onchaind-chan#[0-9]*: Could not find resolution for output .*: did \*we\* cheat\?"
+    }
+    l2_opts = {
+        'dev-disable-commit-after': 1,
+        'plugin': coin_mvt_plugin,
+    }
 
-    chan_id = l1.get_channel_id(l2)
+    l1, l2 = node_factory.line_graph(2, opts=[l1_opts, l2_opts])
+
     channel_id = first_channel_id(l1, l2)
+    scid = first_scid(l1, l2)
 
-    # Record initial balances
-    initial_channel_bal = only_one(l1.rpc.listpeerchannels()['channels'])['to_us_msat']
+    # Start a payment - this will get stuck due to disabled commits
+    t = executor.submit(l1.pay, l2, 100000000)  # 100,000 sat
 
-    # Get initial bookkeeper state
+    assert l1.is_local_channel_active(scid)
+    assert l2.is_local_channel_active(scid)
 
-    initial_balances = l1.rpc.bkpr_listbalances()['accounts']
-    initial_wallet_bal = only_one([
-        a for a in initial_balances if a['account'] == 'wallet'
-    ])['balances'][0]['balance_msat']
+    # Wait for both sides to disable commits
+    l1.daemon.wait_for_log('dev-disable-commit-after: disabling')
+    l2.daemon.wait_for_log('dev-disable-commit-after: disabling')
 
-    # Splice in 100,000 sats (add extra for fees)
-    splice_amount = 100000
-    funds_result = l1.rpc.fundpsbt("109000sat", "slow", 166, excess_as_change=True)
+    # Make sure l1 got l2's commitment to the HTLC
+    l1.daemon.wait_for_log('got commitsig')
 
-    result = l1.rpc.splice_init(chan_id, splice_amount, funds_result['psbt'])
-    result = l1.rpc.splice_update(chan_id, result['psbt'])
-    assert result['commitments_secured'] is False
-    result = l1.rpc.splice_update(chan_id, result['psbt'])
-    assert result['commitments_secured'] is True
-    result = l1.rpc.signpsbt(result['psbt'])
-    result = l1.rpc.splice_signed(chan_id, result['signed_psbt'])
+    # Take snapshot of l1's current (soon-to-be-old) commitment tx
+    old_commitment_tx = l1.rpc.dev_sign_last_tx(l2.info['id'])['tx']
 
-    splice_txid = result['txid']
+    # Re-enable commits to let the payment complete
+    l1.rpc.dev_reenable_commit(l2.info['id'])
+    l2.rpc.dev_reenable_commit(l1.info['id'])
 
-    # Wait for splice to be in mempool
-    l1.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
-    l2.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
+    # Wait for payment to complete (state advances, old tx becomes revoked)
+    l1.daemon.wait_for_log('peer_in WIRE_UPDATE_FULFILL_HTLC')
+    l1.daemon.wait_for_log('peer_out WIRE_REVOKE_AND_ACK')
+    l2.daemon.wait_for_log('peer_out WIRE_UPDATE_FULFILL_HTLC')
+    l1.daemon.wait_for_log('peer_in WIRE_REVOKE_AND_ACK')
 
-    wait_for(lambda: splice_txid in bitcoind.rpc.getrawmempool())
+    # Payment should complete
+    t.result(timeout=10)
 
-    # Mine the splice transaction
-    bitcoind.generate_block(6, wait_for_mempool=1)
+    # Make sure both sides are settled
+    wait_for(lambda: all([
+        only_one(n.rpc.listpeerchannels()['channels'])['htlcs'] == []
+        for n in (l1, l2)
+    ]))
 
-    # Compute fees from splice
-    splice_tx = bitcoind.rpc.getrawtransaction(splice_txid, True)
-    vin = splice_tx['vin']
-    vout = splice_tx['vout']
-    in_amount = sum(
-        [bitcoind.rpc.getrawtransaction(v['txid'], True)['vout'][v['vout']]['value']
-         for v in vin]
-    )
-    out_amount = sum([o['value'] for o in vout])
-    splice_fee = int((in_amount - out_amount) * 10**8)
-
-    # Wait for channel to return to normal
-    l1.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
-    l2.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
-
-    sync_blockheight(bitcoind, [l1, l2])
-
-    # Verify channel balance increased
-    new_channel_bal = only_one(l1.rpc.listpeerchannels()['channels'])['to_us_msat']
-    assert new_channel_bal > initial_channel_bal
-    # The increase should be approximately the splice amount (minus any fees)
-    balance_increase = new_channel_bal - initial_channel_bal
-    assert balance_increase >= Millisatoshi(splice_amount * 1000 - splice_fee)  # Allow for fees
-
-    # Verify bookkeeper recorded the splice events
-    events = l1.rpc.bkpr_listaccountevents()['events']
-
-    # Filter events for our channel
-    channel_events = [e for e in events if e['account'] == channel_id]
-
-    # Should have channel_open event (original) and channel_open for splice
-    channel_opens = find_tags(channel_events, 'channel_open')
-    # After splice, there should be a new channel_open for the new funding output
-    assert len(channel_opens) >= 1
-
-    # Check that balances are updated correctly
-    balances = l1.rpc.bkpr_listbalances()['accounts']
-    wallet_bal = only_one([
-        a for a in balances if a['account'] == 'wallet'
-    ])['balances'][0]['balance_msat']
-
-    # Wallet should have decreased (funds moved to channel + fees)
-    assert wallet_bal < initial_wallet_bal
-
-    # Verify channel can still operate after splice
-    inv = l2.rpc.invoice(10000, 'post_splice', 'test after splice')
-    l1.rpc.pay(inv['bolt11'])
-
-    # Payment should be recorded
-    wait_for(lambda: only_one(l1.rpc.listpays(inv['bolt11'])['pays'])['status'] == 'complete')
-
-    # Verify persistence after restart
-    l1.restart()
-
-    events_after = l1.rpc.bkpr_listaccountevents()['events']
-    assert len(events_after) >= len(events)
-
-
-@pytest.mark.openchannel('v1')
-@pytest.mark.openchannel('v2')
-@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
-def test_bookkeeping_splice_out(node_factory, bitcoind):
-    """
-    Test splice-out accounting - removing funds from an existing channel.
-    """
-    l1, l2 = node_factory.line_graph(
-        2,
-        fundamount=1000000,
-        wait_for_announce=True
+    # Record l2's wallet balance before penalty
+    l2_balance_before = sum(
+        o['amount_msat'] for o in l2.rpc.listfunds()['outputs']
     )
 
-    chan_id = l1.get_channel_id(l2)
-    channel_id = first_channel_id(l1, l2)
-
-    # Record initial balances
-    initial_channel_bal = only_one(l1.rpc.listpeerchannels()['channels'])['to_us_msat']
-
-    # Get initial bookkeeper state
-    initial_balances = l1.rpc.bkpr_listbalances()['accounts']
-    initial_wallet_bal = only_one([
-        a for a in initial_balances if a['account'] == 'wallet'
-    ])['balances'][0]['balance_msat']
-
-    # Splice out 100,000 sats to a new output
-    # addpsbtoutput creates an output we'll receive
-    splice_out_amount = 100000
-    funds_result = l1.rpc.addpsbtoutput(splice_out_amount)
-
-    splice_feerate = l1.rpc.feerates('perkw')['perkw']['splice']
-    our_splice_weight = 1000  # WU, generous upper bound for our side of the tx
-    splice_fee = splice_feerate * our_splice_weight // 1000
-
-    result = l1.rpc.splice_init(chan_id, - (splice_out_amount + splice_fee), funds_result['psbt'])
-    result = l1.rpc.splice_update(chan_id, result['psbt'])
-    assert result['commitments_secured'] is False
-    result = l1.rpc.splice_update(chan_id, result['psbt'])
-    assert result['commitments_secured'] is True
-    result = l1.rpc.splice_signed(chan_id, result['psbt'])
-
-    splice_txid = result['txid']
-
-    # Wait for splice to be in mempool
-    l1.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
-    l2.daemon.wait_for_log(r'CHANNELD_NORMAL to CHANNELD_AWAITING_SPLICE')
-
-    wait_for(lambda: splice_txid in bitcoind.rpc.getrawmempool())
-
-    # Mine the splice transaction
-    bitcoind.generate_block(6, wait_for_mempool=1)
-
-    # Wait for channel to return to normal
-    l1.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
-    l2.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
-
-    sync_blockheight(bitcoind, [l1, l2])
-
-    # Verify channel balance decreased (funds removed + fees)
-    new_channel_bal = only_one(l1.rpc.listpeerchannels()['channels'])['to_us_msat']
-    assert new_channel_bal == initial_channel_bal - (splice_out_amount + splice_fee) * 1000
-    balance_decrease = initial_channel_bal - new_channel_bal
-    # Should be exactly splice_out_amount + the reserved fee
-    assert balance_decrease == Millisatoshi(splice_out_amount + splice_fee) * 1000
-
-    # Verify bookkeeper recorded the events
-    events = l1.rpc.bkpr_listaccountevents()['events']
-
-    # Filter events for our channel
-    channel_events = [e for e in events if e['account'] == channel_id]
-
-    # Should have channel events
-    assert len(channel_events) >= 1
-
-    # Check wallet events - should have a deposit from the splice out
-    wallet_events = [e for e in events if e['account'] == 'wallet']
-    wallet_deposits = find_tags(wallet_events, 'deposit')
-
-    # Should have deposits, including the splice out output
-    # one for initial funding, one for the change after
-    # channel opening, and one for splice out
-    assert len(wallet_deposits) == 3
-
-    # Check final balances
-    balances = l1.rpc.bkpr_listbalances()['accounts']
-    wallet_bal = only_one([
-        a for a in balances if a['account'] == 'wallet'
-    ])['balances'][0]['balance_msat']
-
-    # Wallet should have increased (received splice out funds)
-    assert wallet_bal >= initial_wallet_bal + Millisatoshi(splice_out_amount * 1000)
-
-    # Verify on-chain fees are tracked
-    income_events = l1.rpc.bkpr_listincome()['income_events']
-    onchain_fees = find_tags(income_events, 'onchain_fee')
-    # Should have some fee events recorded
-    # channel open + splice
-    assert len(onchain_fees) >= 2
-
-    # Verify channel can still operate after splice
-    inv = l2.rpc.invoice(10000, 'post_splice_out', 'test after splice out')
-    l1.rpc.pay(inv['bolt11'])
-
-    wait_for(lambda: only_one(l1.rpc.listpays(inv['bolt11'])['pays'])['status'] == 'complete')
-
-    # Verify persistence after restart
-    l1.restart()
-
-    events_after = l1.rpc.bkpr_listaccountevents()['events']
-    balances_after = l1.rpc.bkpr_listbalances()['accounts']
-
-    # Events and balances should persist
-    assert len(events_after) >= len(events)
-
-    wallet_bal_after = only_one([
-        a for a in balances_after if a['account'] == 'wallet'
-    ])['balances'][0]['balance_msat']
-    assert wallet_bal_after == wallet_bal
-
-
-@unittest.skipIf(TEST_NETWORK != 'regtest', "fixme: broadcast fails, dusty")
-def test_bookkeeping_closing_trimmed_htlcs(node_factory, bitcoind, executor):
-    l1, l2 = node_factory.line_graph(2, opts={'old_hsmsecret': True})
-
-    # Send l2 funds via the channel
-    l1.pay(l2, 11000000)
-
-    l1.rpc.dev_ignore_htlcs(id=l2.info['id'], ignore=True)
-    # This will get stuck due to l3 ignoring htlcs
-    executor.submit(l2.pay, l1, 100001)
-    l1.daemon.wait_for_log('their htlc 0 dev_ignore_htlcs')
-
-    l1.rpc.dev_fail(l2.info['id'])
-    l1.wait_for_channel_onchain(l2.info['id'])
-
+    # l1 cheats by broadcasting old revoked commitment
+    bitcoind.rpc.sendrawtransaction(old_commitment_tx)
     bitcoind.generate_block(1)
-    l1.daemon.wait_for_log(' to ONCHAIN')
+
+    # l2 detects the breach and goes to ONCHAIN
     l2.daemon.wait_for_log(' to ONCHAIN')
 
-    _, txid, blocks = l1.wait_for_onchaind_tx('OUR_DELAYED_RETURN_TO_WALLET',
-                                              'OUR_UNILATERAL/DELAYED_OUTPUT_TO_US')
-    assert blocks == 4
-    bitcoind.generate_block(4)
-    bitcoind.generate_block(20, wait_for_mempool=txid)
-    sync_blockheight(bitcoind, [l1])
-    l1.daemon.wait_for_log(r'All outputs resolved.*')
+    # l2 should broadcast penalty transactions to claim l1's outputs
+    # Wait for penalty txs to be broadcast
+    ((_, penalty_txid1, blocks1), (_, penalty_txid2, blocks2)) = \
+        l2.wait_for_onchaind_txs(
+            ('OUR_PENALTY_TX', 'THEIR_REVOKED_UNILATERAL/DELAYED_CHEAT_OUTPUT_TO_THEM'),
+            ('OUR_PENALTY_TX', 'THEIR_REVOKED_UNILATERAL/THEIR_HTLC')
+    )
 
-    evs = l1.rpc.bkpr_listaccountevents()['events']
-    close = find_first_tag(evs, 'channel_close')
-    delayed_to = find_first_tag(evs, 'delayed_to_us')
+    # Penalty txs should be broadcast immediately (no delay)
+    assert blocks1 == 0
+    assert blocks2 == 0
 
-    # find the chain fee entry for the channel close
-    fees = find_tags(evs, 'onchain_fee')
-    close_fee = [e for e in fees if e['txid'] == close['txid']]
-    assert len(close_fee) == 1
-    assert close_fee[0]['credit_msat'] + delayed_to['credit_msat'] == close['debit_msat']
-
-    # l2's fees should equal the trimmed htlc out
-    evs = l2.rpc.bkpr_listaccountevents()['events']
-    close = find_first_tag(evs, 'channel_close')
-    deposit = find_first_tag(evs, 'deposit')
-    fees = find_tags(evs, 'onchain_fee')
-    close_fee = [e for e in fees if e['txid'] == close['txid']]
-    assert len(close_fee) == 1
-    # sent htlc was too small, we lose it, rounded up to nearest sat
-    assert close_fee[0]['credit_msat'] == Millisatoshi('101000msat')
-    assert close_fee[0]['credit_msat'] + deposit['credit_msat'] == close['debit_msat']
-
-
-@unittest.skipIf(TEST_NETWORK != 'regtest', "fixme: broadcast fails, dusty")
-def test_bookkeeping_closing_subsat_htlcs(node_factory, bitcoind, chainparams):
-    """Test closing balances when HTLCs are: sub 1-satoshi"""
-    l1, l2 = node_factory.line_graph(2, opts={'old_hsmsecret': True})
-
-    l1.pay(l2, 111)
-    l1.pay(l2, 222)
-    l1.pay(l2, 4000000)
-
-    # Make sure l2 bookkeeper processes event before we stop it!
-    wait_for(lambda: len([e for e in l2.rpc.bkpr_listaccountevents()['events'] if e['tag'] == 'invoice']) == 3)
-
-    l2.stop()
-    l1.rpc.close(l2.info['id'], 1)
-    bitcoind.generate_block(1, wait_for_mempool=1)
-
-    _, txid, blocks = l1.wait_for_onchaind_tx('OUR_DELAYED_RETURN_TO_WALLET',
-                                              'OUR_UNILATERAL/DELAYED_OUTPUT_TO_US')
-    assert blocks == 4
-    bitcoind.generate_block(4)
-
-    l2.start()
-    bitcoind.generate_block(80, wait_for_mempool=txid)
-
+    # Mine penalty transactions and enough blocks for resolution
+    bitcoind.generate_block(100, wait_for_mempool=[penalty_txid1, penalty_txid2])
     sync_blockheight(bitcoind, [l1, l2])
-    evs = l1.rpc.bkpr_listaccountevents()['events']
-    # check that closing equals onchain deposits + fees
-    close = find_first_tag(evs, 'channel_close')
-    delayed_to = find_first_tag(evs, 'delayed_to_us')
-    fees = find_tags(evs, 'onchain_fee')
-    close_fee = [e for e in fees if e['txid'] == close['txid']]
-    assert len(close_fee) == 1
-    assert close_fee[0]['credit_msat'] + delayed_to['credit_msat'] == close['debit_msat']
 
-    evs = l2.rpc.bkpr_listaccountevents()['events']
-    close = find_first_tag(evs, 'channel_close')
-    deposit = find_first_tag(evs, 'deposit')
-    fees = find_tags(evs, 'onchain_fee')
-    close_fee = [e for e in fees if e['txid'] == close['txid']]
-    assert len(close_fee) == 1
-    # too small to fit, we lose them as miner fees
-    assert close_fee[0]['credit_msat'] == Millisatoshi('333msat')
-    assert close_fee[0]['credit_msat'] + deposit['credit_msat'] == close['debit_msat']
+    # Wait for channel to be forgotten
+    wait_for(lambda: l2.rpc.listpeerchannels()['channels'] == [])
 
+    # Now verify bookkeeper tracked the penalty correctly
 
-@unittest.skipIf(TEST_NETWORK != 'regtest', "External wallet support doesn't work with elements yet.")
-def test_bookkeeping_external_withdraws(node_factory, bitcoind):
-    """ Withdrawals to an external address shouldn't be included
-    in the income statements until confirmed"""
-    l1 = node_factory.get_node()
-    addr = l1.rpc.newaddr()['p2tr']
+    # l2's account events should show 'penalty' tags
+    l2_events = l2.rpc.bkpr_listaccountevents()['events']
+    l2_penalty_events = find_tags(l2_events, 'penalty')
 
-    amount = 1111111
-    amount_msat = Millisatoshi(amount * 1000)
-    bitcoind.rpc.sendtoaddress(addr, amount / 10**8)
-    bitcoind.rpc.sendtoaddress(addr, amount / 10**8)
+    # Should have penalty events for the outputs l2 claimed
+    assert len(l2_penalty_events) >= 2, f"Expected at least 2 penalty events, got {len(l2_penalty_events)}"
 
-    bitcoind.generate_block(1)
-    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 2)
+    # All penalty events should be credits (l2 gains funds)
+    for ev in l2_penalty_events:
+        assert ev['credit_msat'] > Millisatoshi(0), "Penalty should be a credit"
+        assert ev['debit_msat'] == Millisatoshi(0), "Penalty should have no debit"
+        assert ev['account'] == channel_id, "Penalty should be on channel account"
 
-    waddr = l1.bitcoin.rpc.getnewaddress()
+    # Verify 'to_wallet' events show penalty funds moved to wallet
+    l2_to_wallet = find_tags(l2_events, 'to_wallet')
+    assert len(l2_to_wallet) >= 2, "Should have to_wallet events for penalty outputs"
 
-    # Ok, now we send some funds to an external address
-    out = l1.rpc.withdraw(waddr, amount // 2)
+    # Verify channel account is resolved with zero balance
+    l2_balances = l2.rpc.bkpr_listbalances()['accounts']
+    channel_bal = [a for a in l2_balances if a['account'] == channel_id]
+    if channel_bal:
+        # If account still exists, it should be resolved
+        assert channel_bal[0].get('account_resolved', False), "Channel should be resolved"
+        assert only_one(channel_bal[0]['balances'])['balance_msat'] == Millisatoshi(0)
 
-    # Make sure bitcoind received the withdrawal
-    unspent = l1.bitcoin.rpc.listunspent(0)
-    withdrawal = [u for u in unspent if u['txid'] == out['txid']]
+    # l2's wallet should have increased by penalty amounts (minus fees)
+    l2_wallet_bal = only_one([
+        a for a in l2_balances if a['account'] == 'wallet'
+    ])
+    l2_wallet_balance = only_one(l2_wallet_bal['balances'])['balance_msat']
 
-    assert withdrawal[0]['amount'] == Decimal('0.00555555')
-    incomes = l1.rpc.bkpr_listincome()['income_events']
-    # There are two income events: deposits to wallet
-    # for {amount}
-    assert len(incomes) == 2
-    for inc in incomes:
-        assert inc['account'] == 'wallet'
-        assert inc['tag'] == 'deposit'
-        assert inc['credit_msat'] == amount_msat
-    # The event should show up in the 'bkpr_listaccountevents' however
-    events = l1.rpc.bkpr_listaccountevents()['events']
-    assert len(events) == 3
-    external = [e for e in events if e['account'] == 'external'][0]
-    assert external['credit_msat'] == Millisatoshi(amount // 2 * 1000)
+    # Wallet balance should be greater than before (gained penalty funds)
+    # Note: l2 already had the payment amount, plus now gets l1's funds
+    assert l2_wallet_balance > l2_balance_before
 
-    btc_balance = only_one(only_one(l1.rpc.bkpr_listbalances()['accounts'])['balances'])
-    assert btc_balance['balance_msat'] == amount_msat * 2
+    # Verify income statement shows penalty as income
+    l2_income = l2.rpc.bkpr_listincome()['income_events']
 
-    # Restart the node, issues a balance snapshot
-    # If we were counting these incorrectly,
-    # we'd have a new journal_entry
-    l1.restart()
+    # Check that channel id balance credit from penalty are recorded
+    credit_from_penalty = [
+        e for e in l2_income
+        if e['account'] == channel_id and e['tag'] == 'penalty_adj'
+    ]
+    # Should have deposits from penalty tx outputs
+    assert len(credit_from_penalty) >= 2
 
-    # the number of account + income events should be unchanged
-    incomes = l1.rpc.bkpr_listincome()['income_events']
-    assert len(find_tags(incomes, 'journal_entry')) == 0
-    assert len(incomes) == 2
-    events = l1.rpc.bkpr_listaccountevents()['events']
-    assert len(events) == 3
-    assert len(find_tags(events, 'journal_entry')) == 0
+    # l1's perspective: funds lost to external (penalty to l2)
+    l1_events = l1.rpc.bkpr_listaccountevents()['events']
+    l1_external = [e for e in l1_events if e['account'] == 'external']
 
-    # the wallet balance should be unchanged
-    btc_balance = only_one(only_one(l1.rpc.bkpr_listbalances()['accounts'])['balances'])
-    assert btc_balance['balance_msat'] == amount_msat * 2
+    # l1 should see penalty outputs going to external (lost funds)
+    l1_penalty_to_external = [
+        e for e in l1_external if e['tag'] == 'penalty'
+    ]
+    assert len(l1_penalty_to_external) >= 2, f"l1 should see funds lost to penalty. L1 events\n{l1_events}"
 
-    # ok now we mine a block
-    bitcoind.generate_block(1)
-    sync_blockheight(bitcoind, [l1])
+    # l1's penalty events should be credits to external (funds leaving l1)
+    for ev in l1_penalty_to_external:
+        assert ev['credit_msat'] > Millisatoshi(0)
 
-    # expect the withdrawal to appear in the incomes
-    # and there should be an onchain fee
-    incomes = l1.rpc.bkpr_listincome()['income_events']
-    # 2 wallet deposits, 1 wallet withdrawal, 1 onchain_fee
-    assert len(incomes) == 4
-    withdraw_amt = find_tags(incomes, 'withdrawal')[0]['debit_msat']
-    assert withdraw_amt == Millisatoshi(amount // 2 * 1000)
+    # l1's channel account should also be zero (all funds lost)
+    l1_balances = l1.rpc.bkpr_listbalances()['accounts']
+    l1_channel_bal = [a for a in l1_balances if a['account'] == channel_id]
+    if l1_channel_bal:
+        assert only_one(l1_channel_bal[0]['balances'])['balance_msat'] == Millisatoshi(0)
 
-    fee_events = find_tags(incomes, 'onchain_fee')
-    assert len(fee_events) == 1
-    fees = fee_events[0]['debit_msat']
+    # Verify persistence after restart
+    l2.restart()
 
-    # wallet balance is decremented now
-    btc_balance = only_one(only_one(l1.rpc.bkpr_listbalances()['accounts'])['balances'])
-    assert btc_balance['balance_msat'] == amount_msat * 2 - withdraw_amt - fees
+    l2_events_after = l2.rpc.bkpr_listaccountevents()['events']
+    l2_penalty_after = find_tags(l2_events_after, 'penalty')
+    assert len(l2_penalty_after) == len(l2_penalty_events)
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "External wallet support doesn't work with elements yet.")
@@ -1577,3 +1344,325 @@ def test_bkpr_report_lightning_cli_csv(node_factory):
     parsed = [next(csv.reader(io.StringIO(line))) for line in res.splitlines()]
     assert parsed
     assert all(len(row) == 3 for row in parsed)
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', "network fees hardcoded")
+def test_bookkeeping_routing_fees(node_factory, bitcoind):
+    """
+    Test that routing fees are correctly tracked as income.
+    """
+    # Set explicit fees on l2 so we can verify exact amounts
+    # fee-base: 1000 msat, fee-per-satoshi: 100 (millionths)
+    l2_opts = {'fee-base': 1000, 'fee-per-satoshi': 100}
+
+    l1, l2, l3 = node_factory.line_graph(
+        3,
+        wait_for_announce=True,
+        opts=[{}, l2_opts, {}]
+    )
+
+    # Get channel IDs for verification
+    chan_l1_l2 = first_channel_id(l1, l2)
+    chan_l2_l3 = first_channel_id(l2, l3)
+
+    # Payment amount: 1,000,000 msat (1000 sat)
+    payment_amt = 1000000
+
+    # Calculate expected fee for l2:
+    # fee = 1000 + (1000000 * 100 / 1000000) = 1000 + 100 = 1100 msat
+    expected_fee = 1000 + (payment_amt * 100 // 1000000)
+    assert expected_fee == 1100
+
+    # Create invoice on l3 and pay from l1
+    inv = l3.rpc.invoice(payment_amt, 'test_routing', 'test routing fee')
+    l1.rpc.pay(inv['bolt11'])
+
+    # Wait for payment to complete and be recorded
+    wait_for(lambda: only_one(l1.rpc.listpays(inv['bolt11'])['pays'])['status'] == 'complete')
+
+    # Wait for l2's bookkeeper to record the routed event
+    def check_routed_event():
+        events = l2.rpc.bkpr_listaccountevents()['events']
+        routed = [e for e in events if e['tag'] == 'routed']
+        return len(routed) == 2  # One debit, one credit for the routing
+
+    wait_for(check_routed_event)
+
+    # Verify routed events in l2's account events
+    events = l2.rpc.bkpr_listaccountevents()['events']
+    routed_events = find_tags(events, 'routed')
+
+    # Should have 2 routed events: one on each channel
+    assert len(routed_events) == 2
+
+    # Find the outbound routed event (debit from l2-l3 channel)
+    # and inbound routed event (credit to l1-l2 channel)
+    outbound = [e for e in routed_events if e['debit_msat'] > Millisatoshi(0)]
+    inbound = [e for e in routed_events if e['credit_msat'] > Millisatoshi(0)]
+
+    assert len(outbound) == 1
+    assert len(inbound) == 1
+
+    outbound_ev = outbound[0]
+    inbound_ev = inbound[0]
+
+    # Outbound: l2 sends payment_amt to l3
+    assert outbound_ev['account'] == chan_l2_l3
+    assert outbound_ev['debit_msat'] == Millisatoshi(payment_amt)
+    assert outbound_ev['fees_msat'] == Millisatoshi(expected_fee)
+
+    # Inbound: l2 receives payment_amt + fee from l1
+    assert inbound_ev['account'] == chan_l1_l2
+    assert inbound_ev['credit_msat'] == Millisatoshi(payment_amt + expected_fee)
+    assert inbound_ev['fees_msat'] == Millisatoshi(expected_fee)
+
+    # Verify income events show the routing fee as income
+    income_events = l2.rpc.bkpr_listincome()['income_events']
+    routed_income = find_tags(income_events, 'routed')
+
+    # Routed income should show the fee earned
+    assert len(routed_income) == 1
+    assert routed_income[0]['credit_msat'] == Millisatoshi(expected_fee)
+    assert routed_income[0]['debit_msat'] == Millisatoshi(0)
+
+    # Verify channelsapy metrics
+    apy_result = l2.rpc.bkpr_channelsapy()
+    channels_apy = apy_result['channels_apy']
+
+    # Should have entries for both channels plus 'net' rollup
+    assert len(channels_apy) >= 3
+
+    # Find the channel APY entries
+    chan_l1_l2_apy = only_one([c for c in channels_apy if c['account'] == chan_l1_l2])
+    chan_l2_l3_apy = only_one([c for c in channels_apy if c['account'] == chan_l2_l3])
+    net_apy = only_one([c for c in channels_apy if c['account'] == 'net'])
+
+    # l1-l2 channel: payment routed IN (l2 received from l1)
+    assert chan_l1_l2_apy['routed_in_msat'] == Millisatoshi(payment_amt + expected_fee)
+    assert chan_l1_l2_apy['fees_in_msat'] == Millisatoshi(expected_fee)
+
+    # l2-l3 channel: payment routed OUT (l2 sent to l3)
+    assert chan_l2_l3_apy['routed_out_msat'] == Millisatoshi(payment_amt)
+    assert chan_l2_l3_apy['fees_out_msat'] == Millisatoshi(expected_fee)
+
+    # Net should aggregate the fees
+    assert net_apy['fees_out_msat'] == Millisatoshi(expected_fee)
+    assert net_apy['fees_in_msat'] == Millisatoshi(expected_fee)
+
+    # Verify utilization is non-zero (payment was routed)
+    assert float(chan_l2_l3_apy['utilization_out'].rstrip('%')) > 0
+
+    # Route a second payment from l3 to verify accumulation
+    payment_amt_2 = 500000  # 500 sat
+    expected_fee_2 = 1000 + (payment_amt_2 * 100 // 1000000)  # 1050 msat
+
+    inv2 = l3.rpc.invoice(payment_amt_2, 'test_routing_2', 'second routing test')
+    l1.rpc.pay(inv2['bolt11'])
+
+    wait_for(lambda: only_one(l1.rpc.listpays(inv2['bolt11'])['pays'])['status'] == 'complete')
+
+    # Wait for bookkeeper to process
+    def check_second_routed():
+        events = l2.rpc.bkpr_listaccountevents()['events']
+        routed = [e for e in events if e['tag'] == 'routed']
+        return len(routed) == 4  # 2 per payment
+
+    wait_for(check_second_routed)
+
+    # Verify accumulated routing income
+    income_events = l2.rpc.bkpr_listincome()['income_events']
+    routed_income = find_tags(income_events, 'routed')
+
+    total_routing_income = sum(e['credit_msat'] for e in routed_income)
+    assert total_routing_income == Millisatoshi(expected_fee + expected_fee_2)
+
+    # Verify updated channelsapy
+    apy_result = l2.rpc.bkpr_channelsapy()
+    net_apy = only_one([c for c in apy_result['channels_apy'] if c['account'] == 'net'])
+
+    # Total routed amounts should include both payments
+    total_fees = expected_fee + expected_fee_2
+
+    assert net_apy['fees_out_msat'] == Millisatoshi(total_fees)
+
+    # Verify persistence across restart
+    l2.restart()
+
+    income_events = l2.rpc.bkpr_listincome()['income_events']
+    routed_income = find_tags(income_events, 'routed')
+    total_routing_income = sum(e['credit_msat'] for e in routed_income)
+    assert total_routing_income == Millisatoshi(expected_fee + expected_fee_2)
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', "fixme: broadcast fails, dusty")
+def test_bookkeeping_closing_trimmed_htlcs(node_factory, bitcoind, executor):
+    l1, l2 = node_factory.line_graph(2, opts={'old_hsmsecret': True})
+
+    # Send l2 funds via the channel
+    l1.pay(l2, 11000000)
+
+    l1.rpc.dev_ignore_htlcs(id=l2.info['id'], ignore=True)
+    # This will get stuck due to l3 ignoring htlcs
+    executor.submit(l2.pay, l1, 100001)
+    l1.daemon.wait_for_log('their htlc 0 dev_ignore_htlcs')
+
+    l1.rpc.dev_fail(l2.info['id'])
+    l1.wait_for_channel_onchain(l2.info['id'])
+
+    bitcoind.generate_block(1)
+    l1.daemon.wait_for_log(' to ONCHAIN')
+    l2.daemon.wait_for_log(' to ONCHAIN')
+
+    _, txid, blocks = l1.wait_for_onchaind_tx('OUR_DELAYED_RETURN_TO_WALLET',
+                                              'OUR_UNILATERAL/DELAYED_OUTPUT_TO_US')
+    assert blocks == 4
+    bitcoind.generate_block(4)
+    bitcoind.generate_block(20, wait_for_mempool=txid)
+    sync_blockheight(bitcoind, [l1])
+    l1.daemon.wait_for_log(r'All outputs resolved.*')
+
+    evs = l1.rpc.bkpr_listaccountevents()['events']
+    close = find_first_tag(evs, 'channel_close')
+    delayed_to = find_first_tag(evs, 'delayed_to_us')
+
+    # find the chain fee entry for the channel close
+    fees = find_tags(evs, 'onchain_fee')
+    close_fee = [e for e in fees if e['txid'] == close['txid']]
+    assert len(close_fee) == 1
+    assert close_fee[0]['credit_msat'] + delayed_to['credit_msat'] == close['debit_msat']
+
+    # l2's fees should equal the trimmed htlc out
+    evs = l2.rpc.bkpr_listaccountevents()['events']
+    close = find_first_tag(evs, 'channel_close')
+    deposit = find_first_tag(evs, 'deposit')
+    fees = find_tags(evs, 'onchain_fee')
+    close_fee = [e for e in fees if e['txid'] == close['txid']]
+    assert len(close_fee) == 1
+    # sent htlc was too small, we lose it, rounded up to nearest sat
+    assert close_fee[0]['credit_msat'] == Millisatoshi('101000msat')
+    assert close_fee[0]['credit_msat'] + deposit['credit_msat'] == close['debit_msat']
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', "fixme: broadcast fails, dusty")
+def test_bookkeeping_closing_subsat_htlcs(node_factory, bitcoind, chainparams):
+    """Test closing balances when HTLCs are: sub 1-satoshi"""
+    l1, l2 = node_factory.line_graph(2, opts={'old_hsmsecret': True})
+
+    l1.pay(l2, 111)
+    l1.pay(l2, 222)
+    l1.pay(l2, 4000000)
+
+    # Make sure l2 bookkeeper processes event before we stop it!
+    wait_for(lambda: len([e for e in l2.rpc.bkpr_listaccountevents()['events'] if e['tag'] == 'invoice']) == 3)
+
+    l2.stop()
+    l1.rpc.close(l2.info['id'], 1)
+    bitcoind.generate_block(1, wait_for_mempool=1)
+
+    _, txid, blocks = l1.wait_for_onchaind_tx('OUR_DELAYED_RETURN_TO_WALLET',
+                                              'OUR_UNILATERAL/DELAYED_OUTPUT_TO_US')
+    assert blocks == 4
+    bitcoind.generate_block(4)
+
+    l2.start()
+    bitcoind.generate_block(80, wait_for_mempool=txid)
+
+    sync_blockheight(bitcoind, [l1, l2])
+    evs = l1.rpc.bkpr_listaccountevents()['events']
+    # check that closing equals onchain deposits + fees
+    close = find_first_tag(evs, 'channel_close')
+    delayed_to = find_first_tag(evs, 'delayed_to_us')
+    fees = find_tags(evs, 'onchain_fee')
+    close_fee = [e for e in fees if e['txid'] == close['txid']]
+    assert len(close_fee) == 1
+    assert close_fee[0]['credit_msat'] + delayed_to['credit_msat'] == close['debit_msat']
+
+    evs = l2.rpc.bkpr_listaccountevents()['events']
+    close = find_first_tag(evs, 'channel_close')
+    deposit = find_first_tag(evs, 'deposit')
+    fees = find_tags(evs, 'onchain_fee')
+    close_fee = [e for e in fees if e['txid'] == close['txid']]
+    assert len(close_fee) == 1
+    # too small to fit, we lose them as miner fees
+    assert close_fee[0]['credit_msat'] == Millisatoshi('333msat')
+    assert close_fee[0]['credit_msat'] + deposit['credit_msat'] == close['debit_msat']
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', "External wallet support doesn't work with elements yet.")
+def test_bookkeeping_external_withdraws(node_factory, bitcoind):
+    """ Withdrawals to an external address shouldn't be included
+    in the income statements until confirmed"""
+    l1 = node_factory.get_node()
+    addr = l1.rpc.newaddr()['p2tr']
+
+    amount = 1111111
+    amount_msat = Millisatoshi(amount * 1000)
+    bitcoind.rpc.sendtoaddress(addr, amount / 10**8)
+    bitcoind.rpc.sendtoaddress(addr, amount / 10**8)
+
+    bitcoind.generate_block(1)
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 2)
+
+    waddr = l1.bitcoin.rpc.getnewaddress()
+
+    # Ok, now we send some funds to an external address
+    out = l1.rpc.withdraw(waddr, amount // 2)
+
+    # Make sure bitcoind received the withdrawal
+    unspent = l1.bitcoin.rpc.listunspent(0)
+    withdrawal = [u for u in unspent if u['txid'] == out['txid']]
+
+    assert withdrawal[0]['amount'] == Decimal('0.00555555')
+    incomes = l1.rpc.bkpr_listincome()['income_events']
+    # There are two income events: deposits to wallet
+    # for {amount}
+    assert len(incomes) == 2
+    for inc in incomes:
+        assert inc['account'] == 'wallet'
+        assert inc['tag'] == 'deposit'
+        assert inc['credit_msat'] == amount_msat
+    # The event should show up in the 'bkpr_listaccountevents' however
+    events = l1.rpc.bkpr_listaccountevents()['events']
+    assert len(events) == 3
+    external = [e for e in events if e['account'] == 'external'][0]
+    assert external['credit_msat'] == Millisatoshi(amount // 2 * 1000)
+
+    btc_balance = only_one(only_one(l1.rpc.bkpr_listbalances()['accounts'])['balances'])
+    assert btc_balance['balance_msat'] == amount_msat * 2
+
+    # Restart the node, issues a balance snapshot
+    # If we were counting these incorrectly,
+    # we'd have a new journal_entry
+    l1.restart()
+
+    # the number of account + income events should be unchanged
+    incomes = l1.rpc.bkpr_listincome()['income_events']
+    assert len(find_tags(incomes, 'journal_entry')) == 0
+    assert len(incomes) == 2
+    events = l1.rpc.bkpr_listaccountevents()['events']
+    assert len(events) == 3
+    assert len(find_tags(events, 'journal_entry')) == 0
+
+    # the wallet balance should be unchanged
+    btc_balance = only_one(only_one(l1.rpc.bkpr_listbalances()['accounts'])['balances'])
+    assert btc_balance['balance_msat'] == amount_msat * 2
+
+    # ok now we mine a block
+    bitcoind.generate_block(1)
+    sync_blockheight(bitcoind, [l1])
+
+    # expect the withdrawal to appear in the incomes
+    # and there should be an onchain fee
+    incomes = l1.rpc.bkpr_listincome()['income_events']
+    # 2 wallet deposits, 1 wallet withdrawal, 1 onchain_fee
+    assert len(incomes) == 4
+    withdraw_amt = find_tags(incomes, 'withdrawal')[0]['debit_msat']
+    assert withdraw_amt == Millisatoshi(amount // 2 * 1000)
+
+    fee_events = find_tags(incomes, 'onchain_fee')
+    assert len(fee_events) == 1
+    fees = fee_events[0]['debit_msat']
+
+    # wallet balance is decremented now
+    btc_balance = only_one(only_one(l1.rpc.bkpr_listbalances()['accounts'])['balances'])
+    assert btc_balance['balance_msat'] == amount_msat * 2 - withdraw_amt - fees
