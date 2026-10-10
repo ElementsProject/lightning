@@ -31,6 +31,16 @@ channeld/test/run-full_channel:			\
 	common/setup.o				\
 	common/utils.o
 
+# run-splice_fundee_msat includes channeld.c itself (so we can see statics),
+# like the hsmd tests: do not also link channeld.o.  The sibling channeld
+# objects, hsmd client objects and libcommon.a satisfy the rest.
+channeld/test/run-splice_fundee_msat:			\
+	$(filter-out channeld/channeld.o,$(CHANNELD_OBJS))	\
+	$(HSMD_CLIENT_OBJS)				\
+	$(BITCOIN_OBJS)					\
+	wire/towire.o					\
+	wire/fromwire.o
+
 $(CHANNELD_TEST_OBJS): $(CHANNELD_HEADERS) $(CHANNELD_SRC) channeld/test/Makefile
 
 check-units: $(CHANNELD_TEST_PROGRAMS:%=unittest/%)
