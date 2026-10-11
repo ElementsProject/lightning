@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum PromiseError {
     TooLong { length: usize, max: usize },
+    InvalidChar { position: usize, ch: char },
 }
 
 impl core::fmt::Display for PromiseError {
@@ -13,6 +14,14 @@ impl core::fmt::Display for PromiseError {
                     f,
                     "promise string is too long: {} bytes (max allowed {})",
                     length, max
+                )
+            }
+            PromiseError::InvalidChar { position, ch } => {
+                write!(
+                    f,
+                    "promise string contains {:?} at byte {}: only printable ASCII \
+                     without '\"' and '\\' is allowed",
+                    ch, position
                 )
             }
         }
@@ -27,6 +36,23 @@ impl core::error::Error for PromiseError {}
 /// parse or interpret this string, and only provide it verbatim later"
 /// (bLIP-52). This type only checks the limits the spec puts on the string
 /// and gives access to it as `&str`.
+///
+/// bLIP-52 requires of the LSP, when generating the `promise`:
+///
+/// > * MUST ensure the promise is no longer than 512 bytes (not including
+/// >   the `"` delimiters) when encoded as a UTF8-encoded JSON string.
+/// > * MUST avoid characters outside of the printable ASCII range.
+/// > * MUST avoid characters that would require escapes in JSON format.
+///
+/// and of the client, when reading it:
+///
+/// > * MUST abort this flow if `promise` exceeds 512 bytes (not including
+/// >   the `"` delimiters) when encoded as a UTF8-encoded JSON string.
+///
+/// Both sides enforce both rules here: a promise is at most 512 bytes of
+/// printable ASCII (0x20 to 0x7E) other than `"` and `\`. With that
+/// character set the JSON encoding has no escapes, so the decoded length
+/// is the encoded length.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub struct Promise(String);
@@ -45,14 +71,16 @@ impl TryFrom<String> for Promise {
 
     fn try_from(s: String) -> Result<Self, Self::Error> {
         let len = s.len();
-        if len <= Promise::MAX_BYTES {
-            Ok(Promise(s))
-        } else {
-            Err(PromiseError::TooLong {
+        if len > Promise::MAX_BYTES {
+            return Err(PromiseError::TooLong {
                 length: len,
                 max: Promise::MAX_BYTES,
-            })
+            });
         }
+        if let Some((position, ch)) = s.char_indices().find(|&(_, c)| !is_allowed_char(c)) {
+            return Err(PromiseError::InvalidChar { position, ch });
+        }
+        Ok(Promise(s))
     }
 }
 
@@ -62,6 +90,11 @@ impl TryFrom<&str> for Promise {
     fn try_from(s: &str) -> Result<Self, Self::Error> {
         Promise::try_from(s.to_owned())
     }
+}
+
+/// Printable ASCII that needs no escape in a JSON string.
+fn is_allowed_char(c: char) -> bool {
+    matches!(c, ' '..='~') && c != '"' && c != '\\'
 }
 
 impl From<Promise> for String {
@@ -104,6 +137,48 @@ mod tests {
                 max: 512
             })
         );
+    }
+
+    #[test]
+    fn test_promise_charset() {
+        // Every printable ASCII character except '"' and '\\' is allowed.
+        let allowed: String = (0x20u8..=0x7e)
+            .map(char::from)
+            .filter(|&c| c != '"' && c != '\\')
+            .collect();
+        assert_eq!(allowed.len(), 93);
+        assert_eq!(
+            Promise::try_from(allowed.as_str()).unwrap().as_str(),
+            allowed
+        );
+
+        for (s, position, ch) in [
+            ("ab\"c", 2, '"'),
+            ("ab\\c", 2, '\\'),
+            ("ab\nc", 2, '\n'),
+            ("\u{7f}", 0, '\u{7f}'),
+            ("\u{1f}", 0, '\u{1f}'),
+            ("abc\u{e9}", 3, '\u{e9}'),
+        ] {
+            assert_eq!(
+                Promise::try_from(s),
+                Err(PromiseError::InvalidChar { position, ch }),
+                "{s:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_serde_promise_rejects_escaped_chars() {
+        // Valid JSON strings that decode to forbidden characters.
+        for json in [
+            r#""a\"b""#,
+            r#""a\\b""#,
+            r#""a\u0041\u0000""#,
+            r#""\u00e9""#,
+        ] {
+            assert!(serde_json::from_str::<Promise>(json).is_err(), "{json}");
+        }
     }
 
     #[test]
