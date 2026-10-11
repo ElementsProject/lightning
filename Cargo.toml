@@ -13,6 +13,7 @@ package.rust-version = "1.85.0"
 members = [
     "cln-rpc",
     "cln-grpc",
+    "lsps-types",
     "plugins",
     "plugins/grpc-plugin",
     "plugins/rest-plugin",
@@ -26,3 +27,4 @@ members = [
 cln-rpc = { path = "cln-rpc", version = "0.7.0" }
 cln-grpc = { path = "cln-grpc", version = "0.7.0" }
 cln-plugin = { path = "plugins", version = "0.7.0" }
+lsps-types = { path = "lsps-types", version = "0.7.0" }

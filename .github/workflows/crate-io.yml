@@ -27,3 +27,8 @@ jobs:
           path: './cln-grpc'
           registry-token: ${{ secrets.CARGO_REGISTRY_TOKEN }}
           ignore-unpublished-changes: true
+      - uses: katyo/publish-crates@v2
+        with:
+          path: './lsps-types'
+          registry-token: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          ignore-unpublished-changes: true
