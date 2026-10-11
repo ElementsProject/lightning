@@ -90,16 +90,23 @@ impl PolicyOpeningFeeParams {
     }
 
     pub fn with_promise(&self, secret: &[u8; 32]) -> OpeningFeeParams {
+        // Rebuild valid_until so it is sent in the LSPS0 datetime format,
+        // and compute the promise over exactly the value the client echoes.
+        let policy = PolicyOpeningFeeParams {
+            valid_until: self.valid_until.as_chrono().into(),
+            ..self.clone()
+        };
+        let promise =
+            Promise::try_from(policy.get_hmac_hex(secret)).expect("hex HMAC is a valid promise");
         OpeningFeeParams {
-            min_fee_msat: self.min_fee_msat,
-            proportional: self.proportional,
-            valid_until: self.valid_until,
-            min_lifetime: self.min_lifetime,
-            max_client_to_self_delay: self.max_client_to_self_delay,
-            min_payment_size_msat: self.min_payment_size_msat,
-            max_payment_size_msat: self.max_payment_size_msat,
-            promise: Promise::try_from(self.get_hmac_hex(secret))
-                .expect("hex HMAC is a valid promise"),
+            min_fee_msat: policy.min_fee_msat,
+            proportional: policy.proportional,
+            valid_until: policy.valid_until,
+            min_lifetime: policy.min_lifetime,
+            max_client_to_self_delay: policy.max_client_to_self_delay,
+            min_payment_size_msat: policy.min_payment_size_msat,
+            max_payment_size_msat: policy.max_payment_size_msat,
+            promise,
         }
     }
 }
@@ -109,7 +116,7 @@ impl From<&OpeningFeeParams> for PolicyOpeningFeeParams {
         PolicyOpeningFeeParams {
             min_fee_msat: params.min_fee_msat,
             proportional: params.proportional,
-            valid_until: params.valid_until,
+            valid_until: params.valid_until.clone(),
             min_lifetime: params.min_lifetime,
             max_client_to_self_delay: params.max_client_to_self_delay,
             min_payment_size_msat: params.min_payment_size_msat,
@@ -173,6 +180,23 @@ mod tests {
             &params,
             b"different_secret_key_32_bytes___"
         ));
+    }
+
+    #[test]
+    fn test_with_promise_sends_spec_datetime() {
+        // A policy plugin may hand out any RFC 3339 string with any
+        // precision; the LSP sends the LSPS0 format and its promise must
+        // still verify on the echoed params.
+        let mut json = serde_json::to_value(policy()).unwrap();
+        json["valid_until"] = "2100-01-01T02:00:00.123456789+02:00".into();
+        let policy: PolicyOpeningFeeParams = serde_json::from_value(json).unwrap();
+
+        let params = policy.with_promise(SECRET);
+        let sent = serde_json::to_value(&params).unwrap();
+        assert_eq!(sent["valid_until"], "2100-01-01T00:00:00.123Z");
+
+        let echoed: OpeningFeeParams = serde_json::from_value(sent).unwrap();
+        assert!(verify_promise(&echoed, SECRET));
     }
 
     #[test]
