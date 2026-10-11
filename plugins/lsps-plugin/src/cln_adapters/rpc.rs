@@ -3,7 +3,7 @@ use crate::{
         Blockheight, BlockheightProvider, DatastoreProvider, LightningProvider, Lsps2OfferProvider,
     },
     proto::{
-        lsps0::Msat,
+        lsps0::{Msat, ShortChannelId},
         lsps2::{
             DatastoreEntry, Lsps2PolicyGetChannelCapacityRequest,
             Lsps2PolicyGetChannelCapacityResponse, Lsps2PolicyGetInfoRequest,
@@ -23,7 +23,7 @@ use cln_rpc::{
         },
         responses::ListdatastoreResponse,
     },
-    primitives::{AmountSat, AmountSatOrAll, ChannelState, Sha256, ShortChannelId},
+    primitives::{AmountSat, AmountSatOrAll, ChannelState, Sha256},
 };
 use core::fmt;
 use serde::Serialize;

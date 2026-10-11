@@ -8,14 +8,15 @@ use crate::{
         jsonrpc::{RpcError, RpcErrorExt as _},
         lsps0::{LSPS0RpcErrorExt as _, ShortChannelId},
         lsps2::{
-            Lsps2BuyRequest, Lsps2BuyResponse, Lsps2GetInfoRequest, Lsps2GetInfoResponse,
-            Lsps2PolicyGetInfoRequest, OpeningFeeParams, ShortChannelIdJITExt,
+            Error, Lsps2BuyRequest, Lsps2BuyResponse, Lsps2GetInfoRequest, Lsps2GetInfoResponse,
+            Lsps2PolicyGetInfoRequest, OpeningFeeParams, ShortChannelIdJITExt, verify_promise,
         },
     },
     register_handler,
 };
 use async_trait::async_trait;
 use bitcoin::secp256k1::PublicKey;
+use chrono::Utc;
 use std::sync::Arc;
 
 const DEFAULT_CLTV_EXPIRY_DELTA: u32 = 144;
@@ -100,10 +101,15 @@ impl<A: DatastoreProvider + BlockheightProvider + Lsps2OfferProvider + 'static> 
     ) -> core::result::Result<Lsps2BuyResponse, RpcError> {
         let fee_params = request.opening_fee_params;
 
-        // FIXME: In the future we should replace the \`None\` with a meaningful
-        // value that reflects the inbound capacity for this node from the
-        // public network for a better pre-condition check on the payment_size.
-        fee_params.validate(&self.promise_secret, request.payment_size_msat, None)?;
+        // FIXME: In the future we should also check the inbound capacity for
+        // this node from the public network for a better pre-condition check
+        // on the payment_size.
+        if !verify_promise(&fee_params, &self.promise_secret) {
+            return Err(Error::InvalidOpeningFeeParams.into());
+        }
+        fee_params
+            .validate(&Utc::now().into(), request.payment_size_msat)
+            .map_err(Error::from)?;
 
         // Generate a tmp scid to identify jit channel request in htlc.
         let blockheight = self
@@ -164,7 +170,7 @@ mod tests {
         PolicyOpeningFeeParams {
             min_fee_msat: Msat(2_000),
             proportional: Ppm(10_000),
-            valid_until: Utc.with_ymd_and_hms(2100, 1, 1, 0, 0, 0).unwrap(),
+            valid_until: Utc.with_ymd_and_hms(2100, 1, 1, 0, 0, 0).unwrap().into(),
             min_lifetime: 1000,
             max_client_to_self_delay: 2016,
             min_payment_size_msat: Msat(1_000_000),
@@ -178,7 +184,7 @@ mod tests {
 
     fn expired_opening_fee_params(secret: &[u8; 32]) -> OpeningFeeParams {
         let mut policy = test_policy_params();
-        policy.valid_until = Utc.with_ymd_and_hms(2000, 1, 1, 0, 0, 0).unwrap();
+        policy.valid_until = Utc.with_ymd_and_hms(2000, 1, 1, 0, 0, 0).unwrap().into();
         policy.with_promise(secret)
     }
 
@@ -343,7 +349,7 @@ mod tests {
         let params = &response.opening_fee_params_menu[0];
         assert_eq!(params.min_fee_msat, Msat(2_000));
         assert_eq!(params.proportional, Ppm(10_000));
-        assert!(!params.promise.0.is_empty());
+        assert!(!params.promise.as_str().is_empty());
     }
 
     #[tokio::test]

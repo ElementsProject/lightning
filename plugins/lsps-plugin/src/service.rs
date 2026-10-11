@@ -12,7 +12,7 @@ use cln_lsps::{
         },
         server::LspsService,
     },
-    proto::lsps0::{LSPS0_MESSAGE_TYPE, Msat},
+    proto::lsps0::{LSPS0_MESSAGE_TYPE, Msat, ShortChannelId},
 };
 use cln_plugin::{HookBuilder, HookFilter, Plugin, options};
 use log::{debug, error, trace};
@@ -175,7 +175,7 @@ async fn handle_htlc_inner(
     let handler = HtlcAcceptedHookHandler::new(api, 1000);
 
     let onion = Onion {
-        short_channel_id,
+        short_channel_id: ShortChannelId::from(short_channel_id.to_u64()),
         payload: req.onion.payload,
     };
 
