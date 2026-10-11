@@ -12,10 +12,10 @@ use cln_lsps::{
         },
         server::LspsService,
     },
-    proto::lsps0::{LSPS0_MESSAGE_TYPE, Msat, ShortChannelId},
 };
 use cln_plugin::{HookBuilder, HookFilter, Plugin, options};
 use log::{debug, error, trace};
+use lsps_types::lsps0::{LSPS0_MESSAGE_TYPE, Msat, ShortChannelId};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 

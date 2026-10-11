@@ -1,7 +1,7 @@
-use crate::proto::jsonrpc::{JsonRpcResponse, RequestObject};
 use async_trait::async_trait;
 use bitcoin::secp256k1::PublicKey;
 use core::fmt::Debug;
+use lsps_types::jsonrpc::{JsonRpcResponse, RequestObject};
 use serde::{Serialize, de::DeserializeOwned};
 use std::{collections::HashMap, sync::Arc, time::Duration};
 use thiserror::Error;

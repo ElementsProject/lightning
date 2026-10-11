@@ -1,5 +1,5 @@
 use crate::core::router::{JsonRpcRouter, JsonRpcRouterBuilder, RequestContext};
-use crate::proto::lsps0::{Lsps0listProtocolsRequest, Lsps0listProtocolsResponse};
+use lsps_types::lsps0::{Lsps0listProtocolsRequest, Lsps0listProtocolsResponse};
 
 pub trait LspsProtocol: Send + Sync + 'static {
     fn register_handler(&self, router: &mut JsonRpcRouterBuilder);
