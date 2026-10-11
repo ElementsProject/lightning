@@ -297,6 +297,31 @@ async fn on_lsps_lsps2_approve(
     Ok(serde_json::Value::default())
 }
 
+/// Selects the opening fee parameters to buy a JIT channel with.
+///
+/// Simple strategy for now: choose the first usable option as LSPS2 requires
+/// the menu to be ordered by increasing fees. Could be more sophisticated
+/// (e.g., user choice). An option is unusable if it expires within a minute
+/// (extra time for network delay) or if its `min_payment_size_msat` is
+/// above its `max_payment_size_msat`, so no payment size fits.
+fn select_opening_fee_params(
+    menu: &[OpeningFeeParams],
+    now: chrono::DateTime<Utc>,
+) -> Option<&OpeningFeeParams> {
+    menu.iter().find(|params| {
+        let fut_now = now + Duration::minutes(1);
+        if params.valid_until.as_chrono() <= fut_now {
+            warn!("Ignoring expired fee params from LSP {:?}", params);
+            return false;
+        }
+        if let Err(e) = params.check_limits() {
+            warn!("Ignoring unusable fee params from LSP {:?}: {}", params, e);
+            return false;
+        }
+        true
+    })
+}
+
 /// RPC Method handler for `lsps-jitchannel`.
 /// Calls lsps2.get_info, selects parameters, calculates fee, calls lsps2.buy,
 /// creates invoice.
@@ -337,20 +362,7 @@ async fn on_lsps_lsps2_invoice(
         .await?;
 
     // 2. Select Fee Parameters.
-    // Simple strategy for now: choose the first valid option as LSPS2 requires
-    // this to be the cheapest. Could be more sophisticated (e.g., user choice).
-    let selected_params = info_res
-        .opening_fee_params_menu
-        .iter()
-        .find(|params| {
-            // Basic validation on client side: check expiry and promise length
-            let fut_now = Utc::now() + Duration::minutes(1); // Add some extra time for network delay
-            let expiry_valid = params.valid_until.as_chrono() > fut_now;
-            if !expiry_valid {
-                warn!("Ignoring expired fee params from LSP {:?}", params);
-            }
-            expiry_valid
-        })
+    let selected_params = select_opening_fee_params(&info_res.opening_fee_params_menu, Utc::now())
         .cloned() // Clone the selected params
         .ok_or_else(|| {
             anyhow!(
@@ -922,4 +934,67 @@ struct ClnRpcLsps2Approve {
 struct DatastoreRecord {
     jit_channel_scid: ShortChannelId,
     client_trusts_lsp: bool,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::TimeZone as _;
+    use lsps_types::{lsps0::Ppm, lsps2::Promise};
+
+    fn now() -> chrono::DateTime<Utc> {
+        Utc.with_ymd_and_hms(2026, 1, 1, 0, 0, 0).unwrap()
+    }
+
+    fn params(min_payment_size: u64, max_payment_size: u64, promise: &str) -> OpeningFeeParams {
+        OpeningFeeParams {
+            min_fee_msat: Msat::from_msat(1_000),
+            proportional: Ppm::from_ppm(1_000),
+            valid_until: (now() + Duration::hours(1)).into(),
+            min_lifetime: 144,
+            max_client_to_self_delay: 2016,
+            min_payment_size_msat: Msat::from_msat(min_payment_size),
+            max_payment_size_msat: Msat::from_msat(max_payment_size),
+            promise: Promise::try_from(promise).unwrap(),
+        }
+    }
+
+    #[test]
+    fn select_skips_params_with_min_above_max() {
+        let menu = vec![params(2_000, 1_000, "inverted"), params(1_000, 2_000, "ok")];
+        let selected = select_opening_fee_params(&menu, now()).unwrap();
+        assert_eq!(selected.promise.as_str(), "ok");
+    }
+
+    #[test]
+    fn select_accepts_min_equal_max() {
+        let menu = vec![params(1_000, 1_000, "equal")];
+        let selected = select_opening_fee_params(&menu, now()).unwrap();
+        assert_eq!(selected.promise.as_str(), "equal");
+    }
+
+    #[test]
+    fn select_fails_if_all_params_have_min_above_max() {
+        let menu = vec![params(2_000, 1_000, "a"), params(5_000, 4_999, "b")];
+        assert!(select_opening_fee_params(&menu, now()).is_none());
+    }
+
+    #[test]
+    fn select_skips_params_expiring_within_a_minute() {
+        let mut soon = params(1_000, 2_000, "soon");
+        soon.valid_until = (now() + Duration::seconds(60)).into();
+        let menu = vec![soon, params(1_000, 2_000, "later")];
+        let selected = select_opening_fee_params(&menu, now()).unwrap();
+        assert_eq!(selected.promise.as_str(), "later");
+    }
+
+    #[test]
+    fn select_takes_the_first_usable_params() {
+        let menu = vec![
+            params(1_000, 2_000, "first"),
+            params(1_000, 2_000, "second"),
+        ];
+        let selected = select_opening_fee_params(&menu, now()).unwrap();
+        assert_eq!(selected.promise.as_str(), "first");
+    }
 }
