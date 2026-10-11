@@ -249,13 +249,25 @@ impl core::str::FromStr for ShortChannelId {
                 parts.len()
             )));
         }
-        let parse = |name: &str, part: &str| {
-            part.parse::<u64>()
-                .map_err(|e| ParseShortChannelIdError(format!("bad {name}: {e}")))
+        // LSPS0.scid: "`BBB` is the top 24 bits in decimal text. `TTT` is the
+        // middle 24 bits in decimal text. `OOO` is the lowest 16 bits in
+        // decimal text."
+        let parse = |name: &str, part: &str, bits: u32| {
+            if part.is_empty() || !part.bytes().all(|b| b.is_ascii_digit()) {
+                return Err(ParseShortChannelIdError(format!(
+                    "{name} is not a decimal number: {part:?}"
+                )));
+            }
+            match part.parse::<u64>() {
+                Ok(v) if v < 1 << bits => Ok(v),
+                _ => Err(ParseShortChannelIdError(format!(
+                    "{name} {part} does not fit in {bits} bits"
+                ))),
+            }
         };
-        let block = parse("block", parts[0])?;
-        let txindex = parse("txindex", parts[1])?;
-        let outnum = parse("outnum", parts[2])?;
+        let block = parse("block", parts[0], 24)?;
+        let txindex = parse("txindex", parts[1], 24)?;
+        let outnum = parse("outnum", parts[2], 16)?;
         Ok(ShortChannelId((block << 40) | (txindex << 16) | outnum))
     }
 }
@@ -441,8 +453,32 @@ mod tests {
 
     #[test]
     fn test_scid_malformed() {
-        for s in ["", "1x2", "1x2x3x4", "ax2x3", "1x2x-3"] {
+        for s in [
+            "", "1x2", "1x2x3x4", "ax2x3", "1x2x-3", "+1x2x3", "1xx3", " 1x2x3",
+        ] {
             assert!(s.parse::<ShortChannelId>().is_err(), "{s} should not parse");
+        }
+    }
+
+    #[test]
+    fn test_scid_component_ranges() {
+        let max: ShortChannelId = "16777215x16777215x65535".parse().unwrap();
+        assert_eq!(max.to_u64(), u64::MAX);
+        assert_eq!(max.to_string(), "16777215x16777215x65535");
+        assert_eq!("0x0x0".parse::<ShortChannelId>().unwrap().to_u64(), 0);
+
+        // One above each component's range used to spill into the
+        // neighboring bits.
+        for s in ["16777216x0x0", "0x16777216x0", "0x0x65536", "1x1x70000"] {
+            assert!(s.parse::<ShortChannelId>().is_err(), "{s} should not parse");
+        }
+    }
+
+    #[test]
+    fn test_scid_string_roundtrip() {
+        for v in [0u64, 1, 0x083a8400034d0001, u64::MAX, 1 << 40, 1 << 16] {
+            let scid = ShortChannelId::from(v);
+            assert_eq!(scid.to_string().parse::<ShortChannelId>(), Ok(scid));
         }
     }
 
