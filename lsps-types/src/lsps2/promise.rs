@@ -21,12 +21,23 @@ impl core::fmt::Display for PromiseError {
 
 impl core::error::Error for PromiseError {}
 
+/// The `promise` of an `opening_fee_params` object.
+///
+/// The promise is opaque: it is created by the LSP, and clients "MUST NOT
+/// parse or interpret this string, and only provide it verbatim later"
+/// (bLIP-52). This type only checks the limits the spec puts on the string
+/// and gives access to it as `&str`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(try_from = "String")]
-pub struct Promise(pub String);
+#[serde(try_from = "String", into = "String")]
+pub struct Promise(String);
 
 impl Promise {
     pub const MAX_BYTES: usize = 512;
+
+    /// Returns the promise string.
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
 }
 
 impl TryFrom<String> for Promise {
@@ -49,21 +60,13 @@ impl TryFrom<&str> for Promise {
     type Error = PromiseError;
 
     fn try_from(s: &str) -> Result<Self, Self::Error> {
-        let len = s.len();
-        if len <= Promise::MAX_BYTES {
-            Ok(Promise(s.to_owned()))
-        } else {
-            Err(PromiseError::TooLong {
-                length: len,
-                max: Promise::MAX_BYTES,
-            })
-        }
+        Promise::try_from(s.to_owned())
     }
 }
 
-impl core::fmt::Display for Promise {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
+impl From<Promise> for String {
+    fn from(promise: Promise) -> Self {
+        promise.0
     }
 }
 
@@ -84,7 +87,23 @@ mod tests {
         let result = serde_json::from_str::<TestData>(json);
         assert!(result.is_ok());
         let data = result.unwrap();
-        assert_eq!(data.value.0, "This is valid");
+        assert_eq!(data.value.as_str(), "This is valid");
+        assert_eq!(
+            serde_json::to_string(&data.value).unwrap(),
+            r#""This is valid""#
+        );
+    }
+
+    #[test]
+    fn test_promise_max_length() {
+        assert!(Promise::try_from("a".repeat(512)).is_ok());
+        assert_eq!(
+            Promise::try_from("a".repeat(513)),
+            Err(PromiseError::TooLong {
+                length: 513,
+                max: 512
+            })
+        );
     }
 
     #[test]
