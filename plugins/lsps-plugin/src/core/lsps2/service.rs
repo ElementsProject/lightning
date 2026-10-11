@@ -502,7 +502,39 @@ mod tests {
 
         let result = h.handle_buy(test_peer_id(), request).await;
 
-        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().code, 202);
+    }
+
+    #[tokio::test]
+    async fn buy_rejects_payment_just_below_min() {
+        let api = MockApi::new();
+        let h = handler(api);
+
+        // The opening fee (10_000) is well below this payment size, only the
+        // limit rejects it.
+        let request = Lsps2BuyRequest {
+            opening_fee_params: test_opening_fee_params(&test_secret()),
+            payment_size_msat: Some(Msat(999_999)),
+        };
+
+        let result = h.handle_buy(test_peer_id(), request).await;
+
+        assert_eq!(result.unwrap_err().code, 202);
+    }
+
+    #[tokio::test]
+    async fn buy_accepts_payment_at_limits() {
+        for payment_size in [1_000_000, 100_000_000] {
+            let api = MockApi::new()
+                .with_blockheight(800_000)
+                .with_store_result(true);
+            let h = handler(api);
+            let request = Lsps2BuyRequest {
+                opening_fee_params: test_opening_fee_params(&test_secret()),
+                payment_size_msat: Some(Msat(payment_size)),
+            };
+            assert!(h.handle_buy(test_peer_id(), request).await.is_ok());
+        }
     }
 
     #[tokio::test]
@@ -517,7 +549,22 @@ mod tests {
 
         let result = h.handle_buy(test_peer_id(), request).await;
 
-        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().code, 203);
+    }
+
+    #[tokio::test]
+    async fn buy_rejects_payment_just_above_max() {
+        let api = MockApi::new();
+        let h = handler(api);
+
+        let request = Lsps2BuyRequest {
+            opening_fee_params: test_opening_fee_params(&test_secret()),
+            payment_size_msat: Some(Msat(100_000_001)),
+        };
+
+        let result = h.handle_buy(test_peer_id(), request).await;
+
+        assert_eq!(result.unwrap_err().code, 203);
     }
 
     #[tokio::test]
