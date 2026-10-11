@@ -285,34 +285,106 @@ impl<'de> Deserialize<'de> for ShortChannelId {
     }
 }
 
-/// Represents a datetime as defined in LSPS0.datetime. Uses ISO8601 in UTC
-/// timezone.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-#[serde(transparent)]
-pub struct DateTime(chrono::DateTime<chrono::Utc>);
+/// Represents a datetime as defined in LSPS0.datetime:
+///
+/// > Particular points of time in the modern era (a "datetime") MUST be
+/// > encoded as a JSON string containing the [ISO 8601] format
+/// > `"YYYY-MM-DDThh:mm:ss.uuuZ"`.
+/// > These are always in the UTC timezone.
+///
+/// A datetime built locally (from a [`chrono::DateTime`]) is truncated to
+/// milliseconds and serialized in exactly that format. A datetime
+/// deserialized from JSON keeps the string it was parsed from and
+/// serializes back to that string unchanged, so a client can echo
+/// `opening_fee_params` verbatim. Parsing accepts any RFC 3339 datetime.
+///
+/// Equality, ordering and hashing only consider the point in time, not the
+/// string it came from.
+///
+/// [ISO 8601]: https://www.iso.org/iso-8601-date-and-time-format.html
+#[derive(Clone, Debug)]
+pub struct DateTime {
+    value: chrono::DateTime<chrono::Utc>,
+    /// The string this datetime was deserialized from, if any.
+    wire: Option<String>,
+}
 
 impl DateTime {
     /// Returns the datetime as a [`chrono::DateTime`].
     pub fn as_chrono(&self) -> chrono::DateTime<chrono::Utc> {
-        self.0
+        self.value
     }
 }
 
 impl From<chrono::DateTime<chrono::Utc>> for DateTime {
     fn from(dt: chrono::DateTime<chrono::Utc>) -> Self {
-        DateTime(dt)
+        use chrono::SubsecRound as _;
+        DateTime {
+            value: dt.trunc_subsecs(3),
+            wire: None,
+        }
     }
 }
 
 impl From<DateTime> for chrono::DateTime<chrono::Utc> {
     fn from(dt: DateTime) -> Self {
-        dt.0
+        dt.value
+    }
+}
+
+impl PartialEq for DateTime {
+    fn eq(&self, other: &Self) -> bool {
+        self.value == other.value
+    }
+}
+
+impl Eq for DateTime {}
+
+impl PartialOrd for DateTime {
+    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for DateTime {
+    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+        self.value.cmp(&other.value)
+    }
+}
+
+impl core::hash::Hash for DateTime {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
+        self.value.hash(state)
     }
 }
 
 impl core::fmt::Display for DateTime {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        core::fmt::Display::fmt(&self.0, f)
+        core::fmt::Display::fmt(&self.value, f)
+    }
+}
+
+impl Serialize for DateTime {
+    fn serialize<S: Serializer>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error> {
+        match &self.wire {
+            Some(wire) => serializer.serialize_str(wire),
+            None => serializer.collect_str(&self.value.format("%Y-%m-%dT%H:%M:%S%.3fZ")),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for DateTime {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> std::result::Result<Self, D::Error> {
+        let wire = String::deserialize(deserializer)?;
+        // Same parsing as chrono's serde implementation.
+        let value = wire
+            .parse::<chrono::DateTime<chrono::FixedOffset>>()
+            .map_err(de::Error::custom)?
+            .with_timezone(&chrono::Utc);
+        Ok(DateTime {
+            value,
+            wire: Some(wire),
+        })
     }
 }
 
@@ -487,5 +559,60 @@ mod tests {
         let json = r#""2023-02-23T08:47:30.511Z""#;
         let dt: DateTime = serde_json::from_str(json).unwrap();
         assert_eq!(serde_json::to_string(&dt).unwrap(), json);
+    }
+
+    #[test]
+    fn test_datetime_echoes_received_string() {
+        // chrono's own serde would turn the first two into "...30Z" and
+        // "...30.511Z".
+        for json in [
+            r#""2023-02-23T08:47:30.000Z""#,
+            r#""2023-02-23T08:47:30.511+00:00""#,
+            r#""2023-02-23T08:47:30Z""#,
+            r#""2023-02-23T08:47:30.5112Z""#,
+            r#""2023-02-23T10:47:30.511+02:00""#,
+        ] {
+            let dt: DateTime = serde_json::from_str(json).unwrap();
+            assert_eq!(serde_json::to_string(&dt).unwrap(), json);
+        }
+    }
+
+    #[test]
+    fn test_datetime_equality_ignores_the_string() {
+        let a: DateTime = serde_json::from_str(r#""2023-02-23T08:47:30.511Z""#).unwrap();
+        let b: DateTime = serde_json::from_str(r#""2023-02-23T10:47:30.511+02:00""#).unwrap();
+        assert_eq!(a, b);
+        assert_eq!(a.cmp(&b), core::cmp::Ordering::Equal);
+        assert_eq!(DateTime::from(a.as_chrono()), a);
+    }
+
+    #[test]
+    fn test_datetime_local_values_use_the_spec_format() {
+        use chrono::TimeZone;
+        let whole = chrono::Utc
+            .with_ymd_and_hms(2023, 2, 23, 8, 47, 30)
+            .unwrap();
+        assert_eq!(
+            serde_json::to_string(&DateTime::from(whole)).unwrap(),
+            r#""2023-02-23T08:47:30.000Z""#
+        );
+
+        // Sub-millisecond precision is dropped when the value is built, so
+        // the value matches what a peer parses back.
+        let precise = whole + chrono::Duration::nanoseconds(511_200_300);
+        let dt = DateTime::from(precise);
+        assert_eq!(
+            serde_json::to_string(&dt).unwrap(),
+            r#""2023-02-23T08:47:30.511Z""#
+        );
+        let parsed: DateTime = serde_json::from_str(&serde_json::to_string(&dt).unwrap()).unwrap();
+        assert_eq!(parsed.as_chrono(), dt.as_chrono());
+    }
+
+    #[test]
+    fn test_datetime_rejects_garbage() {
+        for json in [r#""""#, r#""2023-02-23""#, r#""yesterday""#, "1677142050"] {
+            assert!(serde_json::from_str::<DateTime>(json).is_err(), "{json}");
+        }
     }
 }

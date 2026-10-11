@@ -143,7 +143,7 @@ impl OpeningFeeParams {
     ) -> Result<Option<Msat>, ValidationError> {
         if self.is_expired_at(now) {
             return Err(ValidationError::Expired {
-                valid_until: self.valid_until,
+                valid_until: self.valid_until.clone(),
             });
         }
         payment_size
