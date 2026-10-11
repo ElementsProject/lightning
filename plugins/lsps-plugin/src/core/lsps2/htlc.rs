@@ -120,12 +120,12 @@ impl<A: DatastoreProvider + Lsps2OfferProvider + LightningProvider> HtlcAccepted
         }
 
         // B) Is the fee option menu still valid?
-        if Utc::now() >= ds_rec.opening_fee_params.valid_until {
+        if Utc::now() >= ds_rec.opening_fee_params.valid_until.as_chrono() {
             // Not valid anymore, remove from DS and fail HTLC.
             let _ = self.api.del_buy_request(&onion.short_channel_id).await;
             return Ok(HtlcDecision::Reject {
                 reason: RejectReason::OfferExpired {
-                    valid_until: ds_rec.opening_fee_params.valid_until,
+                    valid_until: ds_rec.opening_fee_params.valid_until.as_chrono(),
                 },
             });
         }
@@ -270,7 +270,7 @@ mod tests {
         OpeningFeeParams {
             min_fee_msat: Msat(2_000),
             proportional: Ppm(10_000), // 1%
-            valid_until: Utc.with_ymd_and_hms(2100, 1, 1, 0, 0, 0).unwrap(),
+            valid_until: Utc.with_ymd_and_hms(2100, 1, 1, 0, 0, 0).unwrap().into(),
             min_lifetime: 1000,
             max_client_to_self_delay: 2016,
             min_payment_size_msat: Msat(1_000_000),
@@ -281,7 +281,7 @@ mod tests {
 
     fn expired_opening_fee_params() -> OpeningFeeParams {
         OpeningFeeParams {
-            valid_until: Utc.with_ymd_and_hms(2000, 1, 1, 0, 0, 0).unwrap(),
+            valid_until: Utc.with_ymd_and_hms(2000, 1, 1, 0, 0, 0).unwrap().into(),
             ..valid_opening_fee_params()
         }
     }

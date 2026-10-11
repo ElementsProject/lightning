@@ -537,6 +537,7 @@ dependencies = [
  "cln-rpc",
  "hex",
  "log",
+ "lsps-types",
  "rand 0.10.2",
  "serde",
  "serde_json",

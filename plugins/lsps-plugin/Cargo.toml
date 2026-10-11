@@ -20,6 +20,7 @@ chrono = { version = "0.4.42", features = ["serde"] }
 cln-plugin = { workspace = true }
 cln-rpc = { workspace = true }
 hex = "0.4"
+lsps-types = { workspace = true }
 log = "0.4"
 rand = "0.10"
 serde = { version = "1.0", features = ["derive"] }

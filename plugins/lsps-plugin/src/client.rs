@@ -345,7 +345,7 @@ async fn on_lsps_lsps2_invoice(
         .find(|params| {
             // Basic validation on client side: check expiry and promise length
             let fut_now = Utc::now() + Duration::minutes(1); // Add some extra time for network delay
-            let expiry_valid = params.valid_until > fut_now;
+            let expiry_valid = params.valid_until.as_chrono() > fut_now;
             if !expiry_valid {
                 warn!("Ignoring expired fee params from LSP {:?}", params);
             }
@@ -406,7 +406,7 @@ async fn on_lsps_lsps2_invoice(
 
     // We define the invoice expiry here to avoid cloning `selected_params`
     // as they are about to be moved to the `Lsps2BuyRequest`.
-    let expiry = (selected_params.valid_until - Utc::now()).num_seconds();
+    let expiry = (selected_params.valid_until.as_chrono() - Utc::now()).num_seconds();
     if expiry <= 10 {
         return Err(anyhow!(
             "Invoice lifetime is too short, options are valid until: {}",
@@ -485,7 +485,7 @@ async fn on_lsps_lsps2_invoice(
     // 5. Approve jit_channel_scid for a jit channel opening.
     let appr_req = ClnRpcLsps2Approve {
         lsp_id: req.lsp_id,
-        jit_channel_scid: buy_res.jit_channel_scid,
+        jit_channel_scid: ShortChannelId::from(buy_res.jit_channel_scid.to_u64()),
         payment_hash: public_inv.payment_hash.to_string(),
         client_trusts_lsp: Some(buy_res.client_trusts_lsp),
     };
