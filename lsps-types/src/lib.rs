@@ -7,3 +7,7 @@
 //!
 //! [LSPS0]: https://github.com/lightning/blips/blob/master/blip-0050.md
 //! [LSPS2]: https://github.com/lightning/blips/blob/master/blip-0052.md
+
+#[macro_use]
+pub mod jsonrpc;
+pub mod lsps0;
