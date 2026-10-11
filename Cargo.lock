@@ -1753,6 +1753,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "lsps-types"
+version = "0.7.0"
+
+[[package]]
 name = "matchers"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

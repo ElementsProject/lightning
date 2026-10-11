@@ -1,0 +1,10 @@
+[package]
+name = "lsps-types"
+version = "0.7.0"
+edition = "2024"
+license = "MIT"
+description = "LSPS0 and LSPS2 protocol types and the LSPS2 opening fee computation, shared by LSPS clients and services."
+homepage = "https://github.com/ElementsProject/lightning/tree/master/lsps-types"
+repository = "https://github.com/ElementsProject/lightning"
+documentation = "https://docs.rs/lsps-types"
+rust-version.workspace = true
