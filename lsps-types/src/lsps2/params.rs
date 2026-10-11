@@ -25,6 +25,10 @@ pub enum ValidationError {
     MinAboveMax { min: Msat, max: Msat },
     /// `valid_until` is in the past.
     Expired { valid_until: DateTime },
+    /// `payment_size` is below `min_payment_size_msat`.
+    BelowMinPaymentSize { payment_size: Msat, min: Msat },
+    /// `payment_size` is above `max_payment_size_msat`.
+    AboveMaxPaymentSize { payment_size: Msat, max: Msat },
     /// Computing the opening fee for `payment_size` overflowed.
     FeeOverflow { payment_size: Msat },
     /// The opening fee is not strictly less than `payment_size`.
@@ -45,6 +49,16 @@ impl core::fmt::Display for ValidationError {
             ValidationError::Expired { valid_until } => {
                 write!(f, "opening fee params expired at {}", valid_until)
             }
+            ValidationError::BelowMinPaymentSize { payment_size, min } => write!(
+                f,
+                "payment size {} is below min_payment_size_msat {}",
+                payment_size, min
+            ),
+            ValidationError::AboveMaxPaymentSize { payment_size, max } => write!(
+                f,
+                "payment size {} is above max_payment_size_msat {}",
+                payment_size, max
+            ),
             ValidationError::FeeOverflow { payment_size } => write!(
                 f,
                 "opening fee computation overflowed for payment size {}",
@@ -65,14 +79,21 @@ impl core::fmt::Display for ValidationError {
 impl core::error::Error for ValidationError {}
 
 /// Maps a validation failure to the `lsps2.buy` error an LSP returns for it.
+///
+/// bLIP-52 names no error for a `payment_size_msat` outside the params'
+/// limits; below the minimum maps to `payment_size_too_small` (202) and
+/// above the maximum to `payment_size_too_large` (203).
 impl From<ValidationError> for Error {
     fn from(error: ValidationError) -> Self {
         match error {
             ValidationError::MinAboveMax { .. } | ValidationError::Expired { .. } => {
                 Error::InvalidOpeningFeeParams
             }
-            ValidationError::FeeOverflow { .. } => Error::PaymentSizeTooLarge,
-            ValidationError::FeeNotBelowPaymentSize { .. } => Error::PaymentSizeTooSmall,
+            ValidationError::BelowMinPaymentSize { .. }
+            | ValidationError::FeeNotBelowPaymentSize { .. } => Error::PaymentSizeTooSmall,
+            ValidationError::AboveMaxPaymentSize { .. } | ValidationError::FeeOverflow { .. } => {
+                Error::PaymentSizeTooLarge
+            }
         }
     }
 }
@@ -106,8 +127,12 @@ impl OpeningFeeParams {
         *now > self.valid_until
     }
 
-    /// Computes the opening fee for `payment_size` and checks it as the LSP
+    /// Checks `payment_size` and computes the opening fee for it as the LSP
     /// must when `payment_size_msat` is specified in `lsps2.buy`:
+    ///
+    /// > The LSP MUST validate that the `payment_size_msat` is within the
+    /// > previous `min_payment_size_msat` and `max_payment_size_msat`
+    /// > parameters from the LSP.
     ///
     /// > MUST compute the `opening_fee` and check that the computation did
     /// > not hit an overflow failure.
@@ -116,6 +141,18 @@ impl OpeningFeeParams {
     ///
     /// Returns the opening fee.
     pub fn check_payment_size(&self, payment_size: Msat) -> Result<Msat, ValidationError> {
+        if payment_size < self.min_payment_size_msat {
+            return Err(ValidationError::BelowMinPaymentSize {
+                payment_size,
+                min: self.min_payment_size_msat,
+            });
+        }
+        if payment_size > self.max_payment_size_msat {
+            return Err(ValidationError::AboveMaxPaymentSize {
+                payment_size,
+                max: self.max_payment_size_msat,
+            });
+        }
         let opening_fee = self
             .opening_fee(payment_size)
             .ok_or(ValidationError::FeeOverflow { payment_size })?;
@@ -216,6 +253,7 @@ mod tests {
     fn test_validate_payment_size_overflow() {
         let p = OpeningFeeParams {
             proportional: Ppm::from_ppm(u32::MAX),
+            max_payment_size_msat: Msat::from_msat(u64::MAX),
             ..params()
         };
         let err = p
@@ -241,9 +279,11 @@ mod tests {
     #[test]
     fn test_validate_opening_fee_greater_than_payment_size() {
         // Less than min_fee_msat.
-        let err = params()
-            .validate(&now(), Some(Msat::from_msat(500)))
-            .unwrap_err();
+        let p = OpeningFeeParams {
+            min_payment_size_msat: Msat::from_msat(1),
+            ..params()
+        };
+        let err = p.validate(&now(), Some(Msat::from_msat(500))).unwrap_err();
         assert!(matches!(
             err,
             ValidationError::FeeNotBelowPaymentSize { .. }
@@ -269,6 +309,42 @@ mod tests {
             ..params()
         };
         assert_eq!(p.validate(&now(), None), Ok(None));
+    }
+
+    #[test]
+    fn test_validate_payment_size_limits_are_inclusive() {
+        let p = OpeningFeeParams {
+            min_fee_msat: Msat::from_msat(0),
+            min_payment_size_msat: Msat::from_msat(5_000),
+            max_payment_size_msat: Msat::from_msat(10_000),
+            ..params()
+        };
+        assert!(p.validate(&now(), Some(Msat::from_msat(5_000))).is_ok());
+        assert!(p.validate(&now(), Some(Msat::from_msat(10_000))).is_ok());
+
+        let err = p
+            .validate(&now(), Some(Msat::from_msat(4_999)))
+            .unwrap_err();
+        assert_eq!(
+            err,
+            ValidationError::BelowMinPaymentSize {
+                payment_size: Msat::from_msat(4_999),
+                min: Msat::from_msat(5_000),
+            }
+        );
+        assert_eq!(Error::from(err), Error::PaymentSizeTooSmall);
+
+        let err = p
+            .validate(&now(), Some(Msat::from_msat(10_001)))
+            .unwrap_err();
+        assert_eq!(
+            err,
+            ValidationError::AboveMaxPaymentSize {
+                payment_size: Msat::from_msat(10_001),
+                max: Msat::from_msat(10_000),
+            }
+        );
+        assert_eq!(Error::from(err), Error::PaymentSizeTooLarge);
     }
 
     #[test]
