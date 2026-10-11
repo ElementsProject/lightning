@@ -4,19 +4,20 @@ use crate::{
         router::JsonRpcRouterBuilder,
         server::LspsProtocol,
     },
-    proto::{
-        jsonrpc::{RpcError, RpcErrorExt as _},
-        lsps0::{LSPS0RpcErrorExt as _, ShortChannelId},
-        lsps2::{
-            Error, Lsps2BuyRequest, Lsps2BuyResponse, Lsps2GetInfoRequest, Lsps2GetInfoResponse,
-            Lsps2PolicyGetInfoRequest, OpeningFeeParams, ShortChannelIdJITExt, verify_promise,
-        },
-    },
+    proto::lsps2::{Lsps2PolicyGetInfoRequest, ShortChannelIdJITExt, verify_promise},
     register_handler,
 };
 use async_trait::async_trait;
 use bitcoin::secp256k1::PublicKey;
 use chrono::Utc;
+use lsps_types::{
+    jsonrpc::{RpcError, RpcErrorExt as _},
+    lsps0::{LSPS0RpcErrorExt as _, ShortChannelId},
+    lsps2::{
+        Error, Lsps2BuyRequest, Lsps2BuyResponse, Lsps2GetInfoRequest, Lsps2GetInfoResponse,
+        OpeningFeeParams,
+    },
+};
 use std::sync::Arc;
 
 const DEFAULT_CLTV_EXPIRY_DELTA: u32 = 144;
@@ -146,14 +147,14 @@ impl<A: DatastoreProvider + BlockheightProvider + Lsps2OfferProvider + 'static> 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::proto::lsps0::{Msat, Ppm};
     use crate::proto::lsps2::{
         DatastoreEntry, Lsps2PolicyGetChannelCapacityRequest,
-        Lsps2PolicyGetChannelCapacityResponse, Lsps2PolicyGetInfoResponse, OpeningFeeParams,
-        PolicyOpeningFeeParams, Promise,
+        Lsps2PolicyGetChannelCapacityResponse, Lsps2PolicyGetInfoResponse, PolicyOpeningFeeParams,
     };
     use anyhow::{Result as AnyResult, anyhow};
     use chrono::{TimeZone, Utc};
+    use lsps_types::lsps0::{Msat, Ppm};
+    use lsps_types::lsps2::{OpeningFeeParams, Promise};
     use std::sync::{Arc, Mutex};
 
     fn test_peer_id() -> PublicKey {

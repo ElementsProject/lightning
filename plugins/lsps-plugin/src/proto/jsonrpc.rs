@@ -1,5 +1,4 @@
-pub use lsps_types::jsonrpc::*;
-
+use lsps_types::jsonrpc::{JsonRpcRequest, RequestObject};
 use rand::{TryRng, rngs::SysRng};
 
 /// Builds JSON-RPC request objects with a random `id`.

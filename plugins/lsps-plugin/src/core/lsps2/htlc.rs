@@ -3,16 +3,17 @@ use crate::{
         lsps2::provider::{DatastoreProvider, LightningProvider, Lsps2OfferProvider},
         tlv::{TLV_FORWARD_AMT, TlvStream},
     },
-    proto::{
-        lsps0::{Msat, ShortChannelId},
-        lsps2::{
-            Lsps2PolicyGetChannelCapacityRequest, compute_opening_fee,
-            failure_codes::{TEMPORARY_CHANNEL_FAILURE, UNKNOWN_NEXT_PEER},
-        },
+    proto::lsps2::{
+        Lsps2PolicyGetChannelCapacityRequest,
+        failure_codes::{TEMPORARY_CHANNEL_FAILURE, UNKNOWN_NEXT_PEER},
     },
 };
 use bitcoin::hashes::sha256::Hash;
 use chrono::Utc;
+use lsps_types::{
+    lsps0::{Msat, ShortChannelId},
+    lsps2::compute_opening_fee,
+};
 use std::time::Duration;
 use thiserror::Error;
 
@@ -237,16 +238,17 @@ impl<A: DatastoreProvider + Lsps2OfferProvider + LightningProvider> HtlcAccepted
 mod tests {
     use super::*;
     use crate::core::tlv::TlvStream;
-    use crate::proto::lsps0::{Msat, Ppm, ShortChannelId};
     use crate::proto::lsps2::{
         DatastoreEntry, Lsps2PolicyGetChannelCapacityResponse, Lsps2PolicyGetInfoRequest,
-        Lsps2PolicyGetInfoResponse, OpeningFeeParams, Promise,
+        Lsps2PolicyGetInfoResponse,
     };
     use anyhow::{Result as AnyResult, anyhow};
     use async_trait::async_trait;
     use bitcoin::hashes::{Hash, sha256::Hash as Sha256};
     use bitcoin::secp256k1::PublicKey;
     use chrono::{TimeZone, Utc};
+    use lsps_types::lsps0::{Msat, Ppm, ShortChannelId};
+    use lsps_types::lsps2::{OpeningFeeParams, Promise};
     use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::{Arc, Mutex};
     use std::time::Duration;

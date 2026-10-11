@@ -16,10 +16,6 @@ use cln_lsps::{
         tlv::{TLV_FORWARD_AMT, TLV_PAYMENT_SECRET, encode_tu64},
         transport::{MultiplexedTransport, PendingRequests},
     },
-    proto::{
-        lsps0::{LSP_FEATURE_BIT, LSPS0_MESSAGE_TYPE, Msat},
-        lsps2::{Lsps2BuyResponse, Lsps2GetInfoResponse, OpeningFeeParams, compute_opening_fee},
-    },
 };
 use cln_plugin::{HookBuilder, HookFilter, options};
 use cln_rpc::{
@@ -34,6 +30,10 @@ use cln_rpc::{
     primitives::{Amount, AmountOrAny, PublicKey, ShortChannelId},
 };
 use log::{debug, info, warn};
+use lsps_types::{
+    lsps0::{LSP_FEATURE_BIT, LSPS0_MESSAGE_TYPE, Msat},
+    lsps2::{Lsps2BuyResponse, Lsps2GetInfoResponse, OpeningFeeParams, compute_opening_fee},
+};
 use rand::{CryptoRng, Rng};
 use serde::{Deserialize, Serialize};
 use std::path::Path;

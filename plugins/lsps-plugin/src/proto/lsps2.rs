@@ -1,7 +1,8 @@
-pub use lsps_types::lsps2::*;
-
-use crate::proto::lsps0::{DateTime, Msat, Ppm, ShortChannelId};
 use bitcoin::hashes::{Hash, HashEngine, Hmac, HmacEngine, sha256};
+use lsps_types::{
+    lsps0::{DateTime, Msat, Ppm, ShortChannelId},
+    lsps2::{Lsps2GetInfoRequest, OpeningFeeParams, Promise},
+};
 use serde::{Deserialize, Serialize};
 
 pub mod failure_codes {

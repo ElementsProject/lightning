@@ -1,10 +1,8 @@
-use crate::{
-    core::transport::{Error as TransportError, MessageSender},
-    proto::lsps0,
-};
+use crate::core::transport::{Error as TransportError, MessageSender};
 use async_trait::async_trait;
 use bitcoin::secp256k1::PublicKey;
 use cln_rpc::{ClnRpc, model::requests::SendcustommsgRequest};
+use lsps_types::lsps0;
 use std::path::PathBuf;
 
 #[derive(Clone)]

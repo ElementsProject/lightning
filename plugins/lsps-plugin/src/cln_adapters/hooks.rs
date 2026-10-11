@@ -1,11 +1,11 @@
 use crate::{
     cln_adapters::state::{ClientState, ServiceState},
     core::{router::RequestContext, transport::MessageSender as _},
-    proto::lsps0,
 };
 use anyhow::Result;
 use bitcoin::secp256k1::PublicKey;
 use cln_plugin::Plugin;
+use lsps_types::lsps0;
 use serde::Deserialize;
 use serde_json::Value;
 

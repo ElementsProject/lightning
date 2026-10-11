@@ -2,13 +2,14 @@ use bitcoin::secp256k1::PublicKey;
 
 use crate::{
     core::transport::{self, Transport},
-    proto::{
-        jsonrpc::{JsonRpcRequestExt as _, JsonRpcResponse},
-        lsps0::{Lsps0listProtocolsRequest, Lsps0listProtocolsResponse, Msat},
-        lsps2::{
-            Lsps2BuyRequest, Lsps2BuyResponse, Lsps2GetInfoRequest, Lsps2GetInfoResponse,
-            OpeningFeeParams,
-        },
+    proto::jsonrpc::JsonRpcRequestExt as _,
+};
+use lsps_types::{
+    jsonrpc::JsonRpcResponse,
+    lsps0::{Lsps0listProtocolsRequest, Lsps0listProtocolsResponse, Msat},
+    lsps2::{
+        Lsps2BuyRequest, Lsps2BuyResponse, Lsps2GetInfoRequest, Lsps2GetInfoResponse,
+        OpeningFeeParams,
     },
 };
 

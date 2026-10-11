@@ -1,5 +1,5 @@
-use crate::proto::jsonrpc::{RpcError, RpcErrorExt};
 use bitcoin::secp256k1::PublicKey;
+use lsps_types::jsonrpc::{RpcError, RpcErrorExt};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::value::RawValue;
 use std::{collections::HashMap, future::Future, pin::Pin};
@@ -184,7 +184,7 @@ fn error_response(id: Option<&str>, error: RpcError) -> Vec<u8> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::proto::jsonrpc::{INVALID_PARAMS, INVALID_REQUEST, METHOD_NOT_FOUND, PARSE_ERROR};
+    use lsps_types::jsonrpc::{INVALID_PARAMS, INVALID_REQUEST, METHOD_NOT_FOUND, PARSE_ERROR};
     use serde::{Deserialize, Serialize};
     use serde_json::{self, json};
 
