@@ -4,7 +4,7 @@ from pyln.client import RpcError
 from pyln.testing.utils import FUNDAMOUNT, only_one, scid_to_int
 from utils import (
     TIMEOUT, first_scid, first_scidd, GenChannel, generate_gossip_store, wait_for,
-    sync_blockheight,
+    sync_blockheight, serialize_payload_tlv, serialize_payload_final_tlv,
 )
 
 import os
@@ -1202,6 +1202,73 @@ def test_xpay_limited_max_accepted_htlcs(node_factory):
     with pytest.raises(RpcError, match="We got temporary_channel_failure"):
         l3.rpc.xpay(inv2)
     l3.daemon.wait_for_log('Final answer has 7 flows')
+
+
+def test_xpay_local_too_many_htlcs_not_capacity(node_factory, executor):
+    """A local full HTLC slot table is not a 1 msat capacity shortfall.
+
+    channeld fails that add with temporary_channel_failure ("Too many HTLCs")
+    no matter the amount. Treating it as constrained makes askrene shrink the
+    maximum by 1 msat, so the next getroutes sends the same channel again,
+    1 msat smaller (#9597).
+
+    The full channel has to be our own outgoing hop, not the final hop: a
+    direct payment is failed by the receiver before our slot check runs.
+    """
+    hold = os.path.join(os.path.dirname(__file__), 'plugins/htlc_accepted-hold.py')
+    # l2->l3 has one slot. A held forward keeps it full while xpay retries.
+    l1, l2, l3 = node_factory.line_graph(
+        3, wait_for_announce=True,
+        opts=[{}, {'max-concurrent-htlcs': 1}, {'plugin': hold}])
+
+    inv_hold = l3.rpc.invoice('10000msat', 'hold-slot', 'hold-slot')
+    route = l1.single_route(l3.info['id'], 10000)
+    blockheight = l1.rpc.getinfo()['blockheight']
+    hops = []
+    for h, n in zip(route[:-1], route[1:]):
+        hops.append({
+            "pubkey": h['node_id_out'],
+            "payload": serialize_payload_tlv(
+                n['amount_out_msat'], n['cltv_out'],
+                n['short_channel_id_dir'].rsplit('/', 1)[0], blockheight).hex()
+        })
+    hops.append({
+        "pubkey": route[-1]['node_id_out'],
+        "payload": serialize_payload_final_tlv(
+            route[-1]['amount_out_msat'], route[-1]['cltv_out'],
+            route[-1]['amount_out_msat'], blockheight,
+            inv_hold['payment_secret']).hex()
+    })
+    onion = l1.rpc.createonion(hops=hops, assocdata=inv_hold['payment_hash'])
+    first_hop = {
+        'id': route[0]['node_id_out'],
+        'amount_msat': route[0]['amount_out_msat'],
+        'delay': route[0]['cltv_out'],
+    }
+    l1.rpc.call('sendonion', {
+        'onion': onion['onion'],
+        'first_hop': first_hop,
+        'payment_hash': inv_hold['payment_hash'],
+        'partid': 1,
+        'groupid': 1,
+    })
+    l3.daemon.wait_for_log(r'holding htlc')
+
+    inv = l3.rpc.invoice('1000000msat', 'too-many-htlcs', 'too-many-htlcs')
+    fut = executor.submit(l1.rpc.xpay, inv['bolt11'], retry_for=10)
+    l1.daemon.wait_for_log(
+        r"HTLC slots are full, disabling it for this payment")
+    with pytest.raises(RpcError, match=r"HTLC slots are full"):
+        fut.result(TIMEOUT)
+
+    # The dust loop logged a capacity assumption once per msat. Disabling the
+    # channel stops that after the first failure. attempt_log also emits a
+    # notification copy of the same line, so count the prefixed copy only.
+    l1.daemon.logs_catchup()
+    assert not any("assuming it can't carry" in l for l in l1.daemon.logs)
+    assert sum("plugin-cln-xpay: 1:" in l and
+               "HTLC slots are full, disabling it for this payment" in l
+               for l in l1.daemon.logs) == 1
 
 
 def test_xpay_blockheight_mismatch(node_factory, bitcoind, executor):
