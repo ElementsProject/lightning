@@ -787,9 +787,8 @@ jobs:
           done) &
           mem_pid=$!
           trap 'kill $mem_pid 2>/dev/null' EXIT
-          # -n $(nproc) rather than $(nproc)+1: one fewer parallel node-cluster
-          # keeps ASan peak RSS under the 16GB hosted-runner ceiling.
-          sg wireshark "uv run eatmydata pytest tests/ -n $(nproc) ${PYTEST_OPTS} --test-group=${{ matrix.GROUP }} --test-group-count=${{ matrix.GROUP_COUNT }}"
+          # loadgroup: tests marked heavy run one at a time on a single worker.
+          sg wireshark "uv run eatmydata pytest tests/ -n $(nproc) --dist loadgroup ${PYTEST_OPTS} --test-group=${{ matrix.GROUP }} --test-group-count=${{ matrix.GROUP_COUNT }}"
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v7

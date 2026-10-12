@@ -3730,6 +3730,7 @@ def test_invalid_upfront_shutdown_script(node_factory, bitcoind, executor):
 
 
 @pytest.mark.slow_test
+@pytest.mark.xdist_group("heavy")
 def test_segwit_shutdown_script(node_factory, bitcoind, executor):
     """
 Try a range of future segwit versions as shutdown scripts.  We create many nodes, so this is quite slow under valgrind
