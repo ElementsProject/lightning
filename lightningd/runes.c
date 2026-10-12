@@ -17,6 +17,9 @@
 /* "640k should be enough for anybody!" */
 #define MAX_BLACKLIST_NUM 100000000
 
+/* Real runes are tiny; rune decoding is quadratic in length, so refuse huge ones. */
+#define MAX_RUNE_LEN (64 * 1024)
+
 static const u64 sec_per_nsec = 1000000000;
 
 struct cond_info {
@@ -224,6 +227,10 @@ static struct command_result *param_rune(struct command *cmd, const char *name,
 					 struct rune_and_string **rune_and_string)
 {
 	u64 uid;
+
+	if (tok->end - tok->start > MAX_RUNE_LEN)
+		return command_fail_badparam(cmd, name, buffer, tok,
+					     "is too long");
 
 	*rune_and_string = tal(cmd, struct rune_and_string);
 	(*rune_and_string)->runestr = json_strdup(*rune_and_string, buffer, tok);

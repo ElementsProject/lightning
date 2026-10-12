@@ -18,6 +18,9 @@
 /* Specifically: bad/missing rune */
 #define COMMANDO_ERROR_REMOTE_AUTH 0x4c51
 
+/* Real runes are tiny; rune decoding is quadratic in length, so refuse huge ones. */
+#define MAX_RUNE_LEN (64 * 1024)
+
 enum commando_msgtype {
 	/* Requests are split across multiple CONTINUES, then TERM. */
 	COMMANDO_MSG_CMD_CONTINUES = 0x4c4d,
@@ -406,6 +409,10 @@ static struct command_result *try_command(struct command *cmd,
 	if (!runetok) {
 		return commando_error(cmd, incoming, COMMANDO_ERROR_REMOTE,
 				      "Missing rune");
+	}
+	if (runetok->end - runetok->start > MAX_RUNE_LEN) {
+		return commando_error(cmd, incoming, COMMANDO_ERROR_REMOTE,
+				      "Rune too long");
 	}
 	rune = rune_from_base64n(tmpctx, buf + runetok->start,
 				 runetok->end - runetok->start);
