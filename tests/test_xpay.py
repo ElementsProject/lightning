@@ -1152,6 +1152,7 @@ def test_xpay_shadow_cltv(node_factory, bitcoind):
     assert l2.daemon.is_in_log(f"Adding HTLC .* amount=10000msat cltv={expected_cltv} gave CHANNEL_ERR_ADD_OK")
 
 
+@pytest.mark.xdist_group("heavy")
 def test_xpay_limited_max_accepted_htlcs(node_factory):
     """xpay should try to reduce flows to 6 if there is an unannounced channel, and only try more if that fails"""
     CHANNEL_SIZE_SATS = 10**6

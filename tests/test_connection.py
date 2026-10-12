@@ -1479,6 +1479,7 @@ def test_funding_v2_corners(node_factory, bitcoind):
 
 @pytest.mark.slow_test
 @pytest.mark.openchannel('v1')
+@pytest.mark.xdist_group("heavy")
 def test_funding_cancel_race(node_factory, bitcoind, executor):
     l1 = node_factory.get_node()
 
@@ -3648,6 +3649,7 @@ def test_feerate_stress(node_factory, executor):
 
 
 @pytest.mark.slow_test
+@pytest.mark.xdist_group("heavy")
 def test_pay_disconnect_stress(node_factory, executor):
     """Expose race in htlc restoration in channeld: 50% chance of failure"""
     if VALGRIND:
@@ -5523,6 +5525,7 @@ def test_peer_reuses_htlc_id(node_factory):
 
 
 @pytest.mark.slow_test
+@pytest.mark.xdist_group("heavy")
 def test_parallel_opens(node_factory, bitcoind, executor):
     """On macOS a socket closed by its sender while in flight over SCM_RIGHTS
     could arrive unable to read, losing a subdaemon its hsmd or peer
