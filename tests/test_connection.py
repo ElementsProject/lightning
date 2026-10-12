@@ -15,7 +15,7 @@ from utils import (
     mine_funding_to_announce, first_scid,
     CHANNEL_SIZE
 )
-from pyln.testing.utils import VALGRIND, EXPERIMENTAL_DUAL_FUND, FUNDAMOUNT, RUST, SLOW_MACHINE
+from pyln.testing.utils import VALGRIND, EXPERIMENTAL_DUAL_FUND, FUNDAMOUNT, RUST, SLOW_MACHINE, env
 
 import coincurve
 import hashlib
@@ -1490,6 +1490,8 @@ def test_funding_cancel_race(node_factory, bitcoind, executor):
 
     if VALGRIND:
         num = 5
+    elif env('ASAN') == '1':
+        num = 10
     elif SLOW_MACHINE:
         num = 20
     else:
@@ -5525,7 +5527,10 @@ def test_parallel_opens(node_factory, bitcoind, executor):
     """On macOS a socket closed by its sender while in flight over SCM_RIGHTS
     could arrive unable to read, losing a subdaemon its hsmd or peer
     connection under load (#5808)."""
-    pairs, opens = 6, 50
+    if env('ASAN') == '1':
+        pairs, opens = 2, 10
+    else:
+        pairs, opens = 6, 50
     nodes = node_factory.get_nodes(2 * pairs)
     openers, peers = nodes[:pairs], nodes[pairs:]
 
