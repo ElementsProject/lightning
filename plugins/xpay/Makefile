@@ -1,8 +1,12 @@
 PLUGIN_XPAY_SRC :=				\
 	plugins/xpay/listpays.c			\
+	plugins/xpay/onion_budget.c		\
 	plugins/xpay/xpay.c
 
-PLUGIN_XPAY_HDRS :=
+PLUGIN_XPAY_HDRS :=				\
+	plugins/xpay/listpays.h			\
+	plugins/xpay/onion_budget.h		\
+	plugins/xpay/xpay.h
 
 PLUGIN_XPAY_OBJS := $(PLUGIN_XPAY_SRC:.c=.o)
 

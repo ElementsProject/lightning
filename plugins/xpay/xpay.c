@@ -28,6 +28,7 @@
 #include <inttypes.h>
 #include <plugins/libplugin.h>
 #include <plugins/xpay/listpays.h>
+#include <plugins/xpay/onion_budget.h>
 #include <plugins/xpay/xpay.h>
 #include <stdarg.h>
 
@@ -1378,56 +1379,18 @@ static void append_blinded_payloads(struct sphinx_path *sp,
 	const struct amount_msat mpp_amount = attempt_mpp_amount(attempt);
 
 	for (size_t i = 0; i < tal_count(path->path); i++) {
-		bool first = (i == 0);
-		bool final = (i == tal_count(path->path) - 1);
-		const u8 *payload;
-
-		/* BOLT #4:
-		 * - For every node inside a blinded route:
-		 *   - MUST include the `encrypted_recipient_data` provided by the
-		 *     recipient
-		 *   - For the first node in the blinded route:
-		 *     - MUST include the `path_key` provided by the
-		 *       recipient in `current_path_key`
-		 *   - If it is the final node:
-		 *     - MUST include `amt_to_forward`, `outgoing_cltv_value` and `total_amount_msat`.
-		 *...
-		 *   - MUST NOT include any other tlv field.
-		 */
-		payload = onion_blinded_hop(NULL,
-					    final ? &deliver : NULL,
-					    final ? &mpp_amount : NULL,
-					    final ? &final_cltv : NULL,
-					    path->path[i]->encrypted_recipient_data,
-					    first ? &path->first_path_key : NULL);
+		const u8 *payload = onion_blinded_payload(tmpctx,
+							  path,
+							  i,
+							  &deliver,
+							  &mpp_amount,
+							  &final_cltv);
 		sphinx_add_hop_has_length(sp,
-					  first ? &path->first_node_id.pubkey
-					  : &path->path[i]->blinded_node_id,
+					  i == 0
+					      ? &path->first_node_id.pubkey
+					      : &path->path[i]->blinded_node_id,
 					  take(payload));
 	}
-}
-
-/* hop has size prepended, so this isn't a simple "append" */
-static void hop_append(u8 **hop, const u8 *appendme)
-{
-	bigsize_t prepended_len;
-	const u8 *cursor = *hop;
-	size_t tlvs_len = tal_bytelen(*hop);
-	u8 *result;
-
-	/* Pull off length */
-	prepended_len = fromwire_bigsize(&cursor, &tlvs_len);
-	assert(cursor);
-	assert(prepended_len == tlvs_len);
-
-	/* Rewrite: length + contents */
-	result = tal_arr(tal_parent(*hop), u8, 0);
-	towire_bigsize(&result, tlvs_len + tal_bytelen(appendme));
-	towire(&result, cursor, tlvs_len);
-	towire(&result, appendme, tal_bytelen(appendme));
-
-	tal_free(*hop);
-	*hop = result;
 }
 
 static const u8 *create_onion(const tal_t *ctx,
@@ -1462,8 +1425,10 @@ static const u8 *create_onion(const tal_t *ctx,
 			break;
 		}
 		/* We tell it how much to send *out* */
-		payload = onion_nonfinal_hop(NULL, &hop->scidd.scid, hop->amount_out,
-					     hop->cltv_value_out + effective_bheight);
+		payload = onion_forward_payload(tmpctx,
+						&hop->scidd.scid,
+						hop->amount_out,
+						hop->cltv_value_out + effective_bheight);
 		sphinx_add_hop_has_length(sp, node, take(payload));
 		node = &hop->next_node;
 	}
@@ -1471,13 +1436,13 @@ static const u8 *create_onion(const tal_t *ctx,
 	/* If we use a blinded path, final has to be special, so
 	 * that's done in append_blinded_payloads. */
 	if (!blinded_path) {
-		u8 *final = onion_final_hop(NULL,
-					    attempt_deliver(attempt),
-					    attempt->payment->final_cltv + effective_bheight,
-					    mpp_amount,
-					    attempt->payment->payment_secret,
-					    attempt->payment->payment_metadata);
-		hop_append(&final, attempt->payment->extra_tlvs);
+		u8 *final = onion_final_payload(tmpctx,
+						attempt_deliver(attempt),
+						attempt->payment->final_cltv + effective_bheight,
+						mpp_amount,
+						attempt->payment->payment_secret,
+						attempt->payment->payment_metadata,
+						attempt->payment->extra_tlvs);
 		sphinx_add_hop_has_length(sp, node, take(final));
 	}
 
