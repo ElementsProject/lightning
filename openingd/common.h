@@ -20,6 +20,11 @@ bool check_config_bounds(const tal_t *ctx,
 			 bool option_anchors_zero_fee_htlc_tx,
 			 char **err_reason);
 
+bool check_dust_limit(const tal_t *ctx,
+		      const struct channel_config *remoteconf,
+		      const struct channel_config *localconf,
+		      char **err_reason);
+
 bool anchors_negotiated(struct feature_set *our_features,
 			const u8 *their_features);
 

@@ -168,6 +168,29 @@ bool check_config_bounds(const tal_t *ctx,
 	return true;
 }
 
+bool check_dust_limit(const tal_t *ctx,
+		      const struct channel_config *remoteconf,
+		      const struct channel_config *localconf,
+		      char **err_reason)
+{
+	/* BOLT #2:
+	 *
+	 * The receiving node MUST fail the channel if:
+	 *...
+	 *   - `dust_limit_satoshis` is greater than `channel_reserve_satoshis`.
+	 */
+	if (amount_sat_greater(remoteconf->dust_limit,
+			       localconf->channel_reserve)) {
+		*err_reason = tal_fmt(ctx,
+				      "dust_limit_satoshis %s"
+				      " would be above our reserve %s",
+				      fmt_amount_sat(ctx, remoteconf->dust_limit),
+				      fmt_amount_sat(ctx, localconf->channel_reserve));
+		return false;
+	}
+	return true;
+}
+
 u8 *no_upfront_shutdown_script(const tal_t *ctx,
 			       bool developer,
 			       struct feature_set *our_features,
