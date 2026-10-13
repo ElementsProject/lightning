@@ -190,7 +190,7 @@
           "erring_direction": {
             "type": "u32",
             "description": [
-              "The direction within the erring channel."
+              "The direction within the erring channel. Only present with *erring_channel*."
             ]
           },
           "raw_message": {

@@ -364,9 +364,11 @@
     "",
     "*erring_index*: The index of the node along the route that reported the error. 0 for the local node, 1 for the first hop, and so on.",
     "*erring_node*: The hex string of the pubkey id of the node that reported the error.",
-    "*erring_channel*: The short channel ID of the channel that has the error, or *0:0:0* if the destination node raised the error. In addition *erring_direction* will indicate which direction of the channel caused the failure.",
+    "*erring_channel*: The short channel ID of the channel that has the error. Only present if the channel is known.",
+    "*erring_direction*: The direction of traversing the *erring_channel*. Only present with *erring_channel*.",
     "*failcode*: The failure code, as per BOLT #4.",
-    "*channel_update*: The hex string of the *channel_update* message received from the remote node. Only present if error is from the remote node and the *failcode* has the UPDATE bit set, as per BOLT #4."
+    "*failcodename*: The human-readable name corresponding to *failcode*, if known.",
+    "*raw_message*: The hex string of the raw failure message from the node that reported the error. Not present for failures that did not come from a node, such as a local routing failure."
   ],
   "author": [
     "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
