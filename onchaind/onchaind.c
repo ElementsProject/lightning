@@ -1140,10 +1140,23 @@ static void steal_htlc_tx(struct tracked_output *out,
 	struct amount_asset asset;
 	struct amount_sat htlc_out_amt;
 	const u8 *msg;
+	u8 *wscript;
 
-	u8 *wscript = bitcoin_wscript_htlc_tx(htlc_tx, to_self_delay[REMOTE],
-					      &keyset->self_revocation_key,
-					      &keyset->self_delayed_payment_key);
+	if (htlc_outpoint->n >= tal_count(htlc_tx->outputs)) {
+		status_unusual("%s/%s spent by input %u of %s, which has"
+			       " only %zu outputs: cannot steal",
+			       tx_type_name(out->tx_type),
+			       output_type_name(out->output_type),
+			       htlc_outpoint->n,
+			       fmt_bitcoin_txid(tmpctx, &htlc_tx->txid),
+			       tal_count(htlc_tx->outputs));
+		resolved_by_other(out, &htlc_tx->txid, htlc_tx_type);
+		return;
+	}
+
+	wscript = bitcoin_wscript_htlc_tx(htlc_tx, to_self_delay[REMOTE],
+					  &keyset->self_revocation_key,
+					  &keyset->self_delayed_payment_key);
 
 	asset = wally_tx_output_get_amount(htlc_tx->outputs[htlc_outpoint->n]);
 	assert(amount_asset_is_main(&asset));
