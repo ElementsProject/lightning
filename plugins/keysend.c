@@ -75,6 +75,7 @@ static struct command_result *keysend_cb(struct keysend_data *d, struct payment 
 		   featurebit method.*/
 
 		if (p->result != NULL &&
+		    p->result->erring_node != NULL &&
 		    node_id_eq(p->route_destination, p->result->erring_node) &&
 		    p->result->failcode == WIRE_INVALID_ONION_PAYLOAD) {
 			return payment_abort(
