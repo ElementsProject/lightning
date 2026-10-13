@@ -54,6 +54,7 @@ struct pending_cupdate {
 
 struct pending_nannounce {
 	struct node_id node_id;
+	secp256k1_ecdsa_signature signature;
 	u32 timestamp;
 	const u8 *nannounce;
 	const struct node_id *source_peer;
@@ -171,6 +172,7 @@ static void enqueue_cupdate(struct pending_cupdate ***queue,
 
 static void enqueue_nannounce(struct pending_nannounce ***queue,
 			      const struct node_id *node_id,
+			      const secp256k1_ecdsa_signature *signature,
 			      u32 timestamp,
 			      const u8 *nannounce TAKES,
 			      const struct node_id *source_peer TAKES)
@@ -193,6 +195,7 @@ static void enqueue_nannounce(struct pending_nannounce ***queue,
 	pna = tal(*queue, struct pending_nannounce);
 
 	pna->node_id = *node_id;
+	pna->signature = *signature;
 	pna->timestamp = timestamp;
 	pna->nannounce = tal_dup_talarr(pna, u8, nannounce);
 	pna->source_peer = tal_dup_or_null(pna, struct node_id, source_peer);
@@ -688,6 +691,16 @@ const char *gossmap_manage_channel_announcement(const tal_t *ctx,
 	    || map_get(&gm->early_ann_map, scid))
 		return NULL;
 
+	/* dont expect to be more than 12 blocks behind! */
+	if (!known_amount
+	    && blockheight != 0
+	    && short_channel_id_blocknum(scid) > blockheight + 12) {
+		return tal_fmt(ctx,
+			       "Bad gossip order: ignoring channel_announcement %s at blockheight %u",
+			       fmt_short_channel_id(tmpctx, scid),
+			       blockheight);
+	}
+
 	warn = sigcheck_channel_announcement(ctx, &node_id_1, &node_id_2,
 					     &bitcoin_key_1, &bitcoin_key_2,
 					     &node_signature_1, &node_signature_2,
@@ -722,15 +735,6 @@ const char *gossmap_manage_channel_announcement(const tal_t *ctx,
 
 	/* Don't know blockheight yet, or not yet deep enough?  Don't even ask */
 	if (!is_scid_depth_announceable(scid, blockheight)) {
-		/* Don't expect to be more than 12 blocks behind! */
-		if (blockheight != 0
-		    && short_channel_id_blocknum(scid) > blockheight + 12) {
-			return tal_fmt(ctx,
-				       "Bad gossip order: ignoring channel_announcement %s at blockheight %u",
-				       fmt_short_channel_id(tmpctx, scid),
-				       blockheight);
-		}
-
 		if (!map_add(&gm->early_ann_map, scid, pca)) {
 			/* Already pending?  Ignore */
 			tal_free(pca);
@@ -932,6 +936,17 @@ static const char *process_channel_update(const tal_t *ctx,
 		return NULL;
 	}
 
+	if (gossmap_chan_set(chan, dir)) {
+		u32 prev_timestamp
+			= gossip_store_get_timestamp(gm->gs, chan->cupdate_off[dir]);
+		if (prev_timestamp >= timestamp) {
+			if (timestamp < prev_timestamp)
+				status_trace("Too-old update for %s",
+					     fmt_short_channel_id(tmpctx, scid));
+			return NULL;
+		}
+	}
+
 	/* Now we know node, we can check signature. */
 	gossmap_node_get_id(gossmap,
 			    gossmap_nth_node(gossmap, chan, dir),
@@ -947,24 +962,10 @@ static const char *process_channel_update(const tal_t *ctx,
 			       fmt_short_channel_id(tmpctx, scid));
 	}
 
-	/* Do we have same or earlier update? */
-	if (gossmap_chan_set(chan, dir)) {
-		u32 prev_timestamp
-			= gossip_store_get_timestamp(gm->gs, chan->cupdate_off[dir]);
-		if (prev_timestamp >= timestamp) {
-			/* Don't spam the logs for duplicates! */
-			if (timestamp < prev_timestamp)
-				status_trace("Too-old update for %s",
-					     fmt_short_channel_id(tmpctx, scid));
-			/* Too old / redundant, ignore */
-			return NULL;
-		}
-	} else {
-		/* Is this the first update in either direction?  If so,
-		 * rewrite channel_announcement so timestamp is correct. */
-		if (!gossmap_chan_set(chan, !dir))
-			gossip_store_set_timestamp(gm->gs, chan->cann_off, timestamp);
-	}
+	/* Is this the first update in either direction?  If so,
+	 * rewrite channel_announcement so timestamp is correct. */
+	if (!gossmap_chan_set(chan, dir) && !gossmap_chan_set(chan, !dir))
+		gossip_store_set_timestamp(gm->gs, chan->cann_off, timestamp);
 
 	/* OK, apply the new one */
 	offset = gossip_store_add(gm->gs, update, timestamp);
@@ -1139,15 +1140,19 @@ const char *gossmap_manage_channel_update(const tal_t *ctx,
 				      timestamp, update, source_peer);
 }
 
-static void process_node_announcement(struct gossmap_manage *gm,
-				      struct gossmap *gossmap,
-				      const struct gossmap_node *node,
-				      u32 timestamp,
-				      const struct node_id *node_id,
-				      const u8 *nannounce,
-				      const struct node_id *source_peer)
+/* This is called both from when we receive the node announcement, and if we had to defer. */
+static const char *process_node_announcement(const tal_t *ctx,
+					     struct gossmap_manage *gm,
+					     struct gossmap *gossmap,
+					     const struct gossmap_node *node,
+					     const secp256k1_ecdsa_signature *signature,
+					     u32 timestamp,
+					     const struct node_id *node_id,
+					     const u8 *nannounce,
+					     const struct node_id *source_peer)
 {
 	u64 offset;
+	const char *err;
 
 	/* Do we have a later one?  If so, ignore */
 	if (gossmap_node_announced(node)) {
@@ -1155,9 +1160,14 @@ static void process_node_announcement(struct gossmap_manage *gm,
 			= gossip_store_get_timestamp(gm->gs, node->nann_off);
 		if (prev_timestamp >= timestamp) {
 			/* Too old, ignore */
-			return;
+			return NULL;
 		}
 	}
+
+	/* only now do the (expensive) signature check */
+	err = sigcheck_node_announcement(ctx, node_id, signature, nannounce);
+	if (err)
+		return err;
 
 	/* OK, apply the new one */
 	offset = gossip_store_add(gm->gs, nannounce, timestamp);
@@ -1178,6 +1188,7 @@ static void process_node_announcement(struct gossmap_manage *gm,
 	status_peer_trace(source_peer,
 			  "Received node_announcement for node %s",
 			  fmt_node_id(tmpctx, node_id));
+	return NULL;
 }
 
 const char *gossmap_manage_node_announcement(const tal_t *ctx,
@@ -1194,7 +1205,6 @@ const char *gossmap_manage_node_announcement(const tal_t *ctx,
 	struct wireaddr *wireaddrs;
 	struct tlv_node_ann_tlvs *na_tlv;
 	struct gossmap_node *node;
-	const char *err;
 	struct gossmap *gossmap = gossmap_manage_get_gossmap(gm);
 
 	if (taken(nannounce))
@@ -1234,11 +1244,7 @@ const char *gossmap_manage_node_announcement(const tal_t *ctx,
 			       tal_hex(tmpctx, nannounce));
 	}
 
-	err = sigcheck_node_announcement(ctx, &node_id, &signature,
-					 nannounce);
-	if (err)
-		return err;
-
+	/* We check the signature in process_node_announcement, after cheaper checks for unknown node and stale timestamp. */
 	node = gossmap_find_node(gossmap, &node_id);
 	if (!node) {
 		/* Still waiting for some channel_announcement? */
@@ -1246,6 +1252,7 @@ const char *gossmap_manage_node_announcement(const tal_t *ctx,
 		    || !map_empty(&gm->early_ann_map)) {
 			enqueue_nannounce(&gm->pending_nannounces,
 					  &node_id,
+					  &signature,
 					  timestamp,
 					  take(nannounce),
 					  source_peer);
@@ -1263,8 +1270,9 @@ const char *gossmap_manage_node_announcement(const tal_t *ctx,
 		return NULL;
 	}
 
-	process_node_announcement(gm, gossmap, node, timestamp, &node_id, nannounce, source_peer);
-	return NULL;
+	return process_node_announcement(ctx, gm, gossmap, node, &signature,
+					 timestamp, &node_id, nannounce,
+					 source_peer);
 }
 
 static void process_pending_cupdate(struct gossmap_manage *gm,
@@ -1356,6 +1364,7 @@ static void reprocess_queued_msgs(struct gossmap_manage *gm)
 		for (size_t i = 0; i < tal_count(pnas); i++) {
 			struct gossmap_node *node;
 			struct gossmap *gossmap = gossmap_manage_get_gossmap(gm);
+			const char *err;
 
 			node = gossmap_find_node(gossmap, &pnas[i]->node_id);
 			if (!node) {
@@ -1371,11 +1380,15 @@ static void reprocess_queued_msgs(struct gossmap_manage *gm)
 				continue;
 			}
 
-			process_node_announcement(gm, gossmap, node,
-						  pnas[i]->timestamp,
-						  &pnas[i]->node_id,
-						  pnas[i]->nannounce,
-						  pnas[i]->source_peer);
+			err = process_node_announcement(tmpctx, gm, gossmap, node,
+							&pnas[i]->signature,
+							pnas[i]->timestamp,
+							&pnas[i]->node_id,
+							pnas[i]->nannounce,
+							pnas[i]->source_peer);
+			if (err)
+				peer_warning(gm, pnas[i]->source_peer,
+					     "node_announcement: %s", err);
 		}
 
 		/* Won't add any new ones */
