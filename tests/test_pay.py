@@ -3467,11 +3467,22 @@ caused a crash in 0.8.0, so we then disallowed it.
     assert inv['amount_received_msat'] == Millisatoshi(1001)
 
 
-def test_reject_invalid_payload(node_factory):
+@pytest.mark.parametrize(
+    "wait_for_failure",
+    [
+        False,
+        pytest.param(True, marks=pytest.mark.xfail(strict=True)),
+    ],
+)
+def test_reject_invalid_payload(node_factory, wait_for_failure):
     """Send an onion payload with an unknown even type.
 
     Recipient l2 should reject it the incoming HTLC with an invalid onion
     payload error.
+
+    With wait_for_failure, waitsendpay runs only after the sender has recorded
+    the failure, so it reads the failure from the database rather than from a
+    live waiter. That path used to report "Payment failure reason unknown".
 
     """
 
@@ -3491,6 +3502,8 @@ def test_reject_invalid_payload(node_factory):
                      first_hop=first_hop,
                      payment_hash=inv['payment_hash'],
                      shared_secrets=onion['shared_secrets'])
+    if wait_for_failure:
+        l1.daemon.wait_for_log(r'htlc failed from 0th node')
     with pytest.raises(RpcError, match=r'WIRE_INVALID_ONION_PAYLOAD'):
         l1.rpc.waitsendpay(inv['payment_hash'])
 
