@@ -720,7 +720,7 @@ static struct command_result *wait_payment(struct lightningd *ld,
 					    &faildirection,
 					    &failmsg);
 		/* Old DB might not save failure information */
-		if (!failonionreply && !failnode) {
+		if (!failonionreply && !failnode && !failmsg) {
 			return command_fail(cmd, PAY_UNSPECIFIED_ERROR,
 					    "Payment failure reason unknown");
 		} else if (failonionreply) {
@@ -732,13 +732,14 @@ static struct command_result *wait_payment(struct lightningd *ld,
 					       NULL, faildetail),
 			    NULL);
 		} else {
-			/* Parsed onion error, get its details */
-			assert(failnode);
+			/* Parsed onion error, get its details. A sendonion
+			 * failure has no erring node, only the failmsg. */
+			assert(failnode || failmsg);
 			fail = tal(tmpctx, struct routing_failure);
 			fail->erring_index = failindex;
 			fail->failcode = failcode;
 			fail->erring_node =
-			    tal_dup(fail, struct node_id, failnode);
+			    tal_dup_or_null(fail, struct node_id, failnode);
 
 			if (failchannel) {
 				fail->erring_channel = tal_dup(
