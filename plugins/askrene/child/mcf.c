@@ -301,6 +301,10 @@ struct pay_parameters {
 
 	double delay_feefactor;
 	double base_fee_penalty;
+
+	/* An homogeneous (same for every channel) constant (does not depend on
+	 * the amount we forward) probability of success. */
+	double const_success_probability;
 };
 
 /* Helper function.
@@ -386,15 +390,60 @@ static void linearize_channel(const struct pay_parameters *params,
 					params->accuracy),
 		amount_msat_ratio_ceil(params->amount, params->accuracy));
 
+	const double k =
+	    1000 * amount_msat_ratio(params->amount, params->accuracy);
+	const double linear_const_cost =
+	    -log(params->const_success_probability);
+
 	set_capacity(&capacity[0], a, &cap_on_capacity);
-	cost[0]=0;
+	cost[0] = k * linear_const_cost;
 	for(size_t i=1;i<CHANNEL_PARTS;++i)
 	{
 		set_capacity(&capacity[i], params->cap_fraction[i]*(b-a), &cap_on_capacity);
 
-		cost[i] = params->cost_fraction[i] * 1000
-			  * amount_msat_ratio(params->amount, params->accuracy)
-			  / (b - a);
+		/* We have
+		 * 	cost(x) = - k log P_pickhardt(x)
+		 * where k is an arbitrary constant and P_pickhardt(x) is the probability
+		 * of success.  In the range a <= x < b
+		 * 	P_pickhardt(x) = 1 - (x-a)/(b-a) = 1 - t
+		 * t is the probability of failure and a convenient variable to
+		 * write down the piecewise linearization of -log P. In terms of
+		 * t the linearization of -log P in the ranges [0, 0.5, 0.8, 0.95]
+		 * produces the t-space slopes [0, 1.38, 3.05, 9.24], therefore the
+		 * slopes for cost(x) are
+		 * 	m_0 = 0
+		 * 	m_1 = 1.38 * k / (b-a)
+		 * 	m_2 = 3.05 * k / (b-a)
+		 * 	m_3 = 9.24 * k / (b-a)
+		 *
+		 * In the formula below cost_fraction[] corresponds to the
+		 * t-space slopes and k = T * 1000, being T the total payment
+		 * amount.
+		 *
+		 * The choice of k is based on the fact that cost[] is integer.
+		 * Simply letting k=1 makes the slopes zero for most of useful
+		 * arcs, eg. 1.38/(b-a) = 0. Since the slope has inverse units
+		 * of msats the natural choice of k is to have equivalent msats
+		 * units. With k = T * 1000 we neutralize the units of the slope
+		 * and we lift from zero a whole range of useful arc costs.
+		 * A linear arc will have a zero cost if (b-a) > 1000 * T
+		 * that is roughly an arc that can carry 1000T above the `a`
+		 * lower bound, therefore a probability of failure less than 1
+		 * in 1000.
+		 *
+		 * Introducing a constant probability of success factor works as
+		 * follows:
+		 * 	P_success(x) = P_const * P_pickhardt(x)
+		 *
+		 * 	cost(x) = -k log P_success(x)
+		 * 		= -k log P_const - k log P_pickhardt(x)
+		 *
+		 * A simple linearization strategy for a constant factor f is
+		 * simply consider linear_cost(x) = x * f, therefore
+		 * 	linear_cost(x) = (-k log P_const) * x + linear_pickhardt(x)
+		 * */
+		cost[i] = k * (params->cost_fraction[i] / (b - a) +
+			       linear_const_cost);
 	}
 }
 
@@ -951,7 +1000,8 @@ static struct flow **minflow(const tal_t *ctx,
 			     const struct gossmap_node *target,
 			     struct amount_msat amount,
 			     u32 mu,
-			     double delay_feefactor)
+			     double delay_feefactor,
+			     double per_hop_penalty)
 {
 	struct flow **flow_paths;
 	/* We allocate everything off this, and free it at the end,
@@ -986,6 +1036,8 @@ static struct flow **minflow(const tal_t *ctx,
 
 	params->delay_feefactor = delay_feefactor;
 	params->base_fee_penalty = base_fee_penalty_estimate(amount);
+	assert(per_hop_penalty >= 0 && per_hop_penalty <= 1);
+	params->const_success_probability = 1 - per_hop_penalty;
 
 	// build the uncertainty network with linearization and residual arcs
 	struct graph *graph;
@@ -1112,7 +1164,8 @@ static void init_linear_network_single_path(
 
 			const double probability =
 			    pickhardt_richter_probability(mincap, maxcap,
-							  params->amount);
+							  params->amount) *
+			    params->const_success_probability;
 
 			/* too unlikely it is not worth considering */
 			if (probability < 1e-6)
@@ -1171,7 +1224,8 @@ static struct flow **single_path_flow(const tal_t *ctx, const struct route_query
 				      const struct gossmap_node *source,
 				      const struct gossmap_node *target,
 				      struct amount_msat amount, u32 mu,
-				      double delay_feefactor)
+				      double delay_feefactor,
+				      double per_hop_penalty)
 {
 	struct flow **flow_paths;
 	/* We allocate everything off this, and free it at the end,
@@ -1188,6 +1242,8 @@ static struct flow **single_path_flow(const tal_t *ctx, const struct route_query
 	params->accuracy = amount;
 	params->delay_feefactor = delay_feefactor;
 	params->base_fee_penalty = base_fee_penalty_estimate(amount);
+	assert(per_hop_penalty >= 0 && per_hop_penalty <= 1);
+	params->const_success_probability = 1 - per_hop_penalty;
 
 	struct graph *graph;
 	double *arc_prob_cost;
@@ -1335,13 +1391,18 @@ static bool check_htlc_max_limits(struct route_query *rq, struct flow **flows)
 	return true;
 }
 
-/* FIXME: add extra constraint maximum route length, use an activation
- * probability cost for each channel. Recall that every activation cost, eg.
- * base fee and activation probability can only be properly added modifying the
- * graph topology by creating an activation node for every half channel. */
-/* FIXME: add extra constraint maximum number of routes, fixes issue 8331. */
-/* FIXME: add a boolean option to make recipient pay for fees, fixes issue 8353.
- */
+/* If needed we increase the per_hop_penalty linearly in the
+ * -log(1-penalty) scale. Which translates into a linear increase of the
+ * slope inside the MCF solver approximation, but most importantly it
+ * keeps the per_hop_penalty naturally in the range [0,1).
+ * For values near zero it is near adding 0.05. */
+static double new_per_hop_penalty(double per_hop_penalty)
+{
+	/* exp(-0.05) */
+	static const double per_hop_penalty_increment = 0.951229424500714;
+	return 1.0 - (1.0 - per_hop_penalty) * per_hop_penalty_increment;
+}
+
 static const char *
 linear_routes(const tal_t *ctx, struct route_query *rq,
 	      struct timemono deadline,
@@ -1349,12 +1410,13 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 	      const struct gossmap_node *dstnode, struct amount_msat amount,
 	      struct amount_msat maxfee, u32 finalcltv, u32 maxdelay,
 	      size_t maxparts,
+	      u32 maxhops,
 	      struct flow ***flows, double *probability,
 	      enum jsonrpc_errcode *ecode,
 	      struct flow **(*solver)(const tal_t *, const struct route_query *,
 				      const struct gossmap_node *,
 				      const struct gossmap_node *,
-				      struct amount_msat, u32, double))
+				      struct amount_msat, u32, double, double))
 {
 	const tal_t *working_ctx = tal(ctx, tal_t);
 	const char *error_message;
@@ -1367,6 +1429,9 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 	u32 mu = 1;
 	/* we start at 1e-6 and increase it exponentially (x2) up to 10. */
 	double delay_feefactor = 1e-6;
+
+	/* An homogeneous 1% probability of failure is assumed per hop. */
+	double per_hop_penalty = 0.01;
 
 	struct flow **new_flows = NULL;
 	struct amount_msat all_deliver;
@@ -1397,13 +1462,23 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
                  * amount. */
 		if (amount_msat_less_eq(amount_to_deliver,
 					SINGLE_PATH_THRESHOLD)) {
-			new_flows = single_path_flow(working_ctx, rq, srcnode,
-						     dstnode, amount_to_deliver,
-						     mu, delay_feefactor);
+			new_flows = single_path_flow(working_ctx,
+						     rq,
+						     srcnode,
+						     dstnode,
+						     amount_to_deliver,
+						     mu,
+						     delay_feefactor,
+						     per_hop_penalty);
 		} else {
-			new_flows =
-			    solver(working_ctx, rq, srcnode, dstnode,
-				   amount_to_deliver, mu, delay_feefactor);
+			new_flows = solver(working_ctx,
+					   rq,
+					   srcnode,
+					   dstnode,
+					   amount_to_deliver,
+					   mu,
+					   delay_feefactor,
+					   per_hop_penalty);
 		}
 
 		if (!new_flows) {
@@ -1525,6 +1600,33 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
                         continue;
 		}
 
+		/* Too many hops? */
+		u32 count_hops = flows_worst_length(new_flows);
+		if (count_hops > maxhops) {
+			if (per_hop_penalty > 0.9) {
+				error_message =
+				    child_log(ctx, LOG_UNUSUAL,
+					      "Could not find route without "
+					      "excessive hop count");
+				*ecode = PAY_ROUTE_NOT_FOUND;
+				goto fail;
+			}
+
+			if (per_hop_penalty > 0.3)
+				/* Cost goes exponentially from here to reduce
+				 * the number of iterations. */
+				per_hop_penalty += 0.1;
+			else
+				per_hop_penalty =
+				    new_per_hop_penalty(per_hop_penalty);
+			child_log(tmpctx, LOG_INFORM,
+				  "The worst flow number of hops is %" PRIu32
+				  " (> %" PRIu32
+				  "), retrying with per_hop_penalty %.3f ...",
+				  count_hops, maxhops, per_hop_penalty);
+			continue;
+		}
+
 		all_fees = AMOUNT_MSAT(0);
 		all_deliver = AMOUNT_MSAT(0);
 		/* add the new flows to the final solution */
@@ -1638,14 +1740,17 @@ const char *default_routes(const tal_t *ctx, struct route_query *rq,
 			   const struct gossmap_node *srcnode,
 			   const struct gossmap_node *dstnode,
 			   struct amount_msat amount, struct amount_msat maxfee,
-			   u32 finalcltv, u32 maxdelay, size_t maxparts,
+			   u32 finalcltv,
+			   u32 maxdelay,
+			   size_t maxparts,
+			   u32 maxhops,
 			   struct flow ***flows,
 			   double *probability,
 			   enum jsonrpc_errcode *ecode)
 {
-	return linear_routes(ctx, rq, deadline, srcnode, dstnode, amount, maxfee,
-			     finalcltv, maxdelay, maxparts, flows, probability, ecode,
-			     minflow);
+	return linear_routes(ctx, rq, deadline, srcnode, dstnode, amount,
+			     maxfee, finalcltv, maxdelay, maxparts, maxhops,
+			     flows, probability, ecode, minflow);
 }
 
 const char *single_path_routes(const tal_t *ctx, struct route_query *rq,
@@ -1654,11 +1759,13 @@ const char *single_path_routes(const tal_t *ctx, struct route_query *rq,
 			       const struct gossmap_node *dstnode,
 			       struct amount_msat amount,
 			       struct amount_msat maxfee, u32 finalcltv,
-			       u32 maxdelay, struct flow ***flows,
+			       u32 maxdelay,
+			       u32 maxhops,
+			       struct flow ***flows,
 			       double *probability,
 			       enum jsonrpc_errcode *ecode)
 {
-	return linear_routes(ctx, rq, deadline, srcnode, dstnode, amount, maxfee,
-			     finalcltv, maxdelay, 1, flows, probability, ecode,
-			     single_path_flow);
+	return linear_routes(ctx, rq, deadline, srcnode, dstnode, amount,
+			     maxfee, finalcltv, maxdelay, 1, maxhops, flows,
+			     probability, ecode, single_path_flow);
 }

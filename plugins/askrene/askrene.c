@@ -359,6 +359,7 @@ struct getroutes_info {
 	/* Non-NULL if we are told to use "auto.localchans" */
 	struct layer *local_layer;
 	u32 maxparts;
+	u32 maxhops;
 };
 
 static void add_layer(const struct layer ***layers,
@@ -716,7 +717,11 @@ static struct command_result *do_getroutes(struct command *cmd,
 			  take(capacities),
 			  info->dev_algo == ALGO_SINGLE_PATH,
 			  deadline, srcnode, dstnode, info->amount,
-			  info->maxfee, info->finalcltv, info->maxdelay, info->maxparts,
+			  info->maxfee,
+			  info->finalcltv,
+			  info->maxdelay,
+			  info->maxparts,
+			  info->maxhops,
 			  include_fees,
 			  cmd->idstr, cmd->filter,
 			  include_next_node_id,
@@ -900,14 +905,14 @@ static struct command_result *json_getroutes(struct command *cmd,
 	/* FIXME: Typo in spec for CLTV in descripton! But it breaks our spelling check, so we omit it above */
 	const u32 maxdelay_allowed = 2016;
 	struct askrene *askrene = get_askrene(cmd->plugin);
-	const u32 default_maxparts = 100;
+	const u32 default_maxparts = 100, default_maxhops = 100;
 	struct getroutes_info *info = tal(cmd, struct getroutes_info);
 	/* param functions require pointers */
 	struct node_id *source, *dest;
 	struct amount_msat *amount, *maxfee;
 	u32 *finalcltv, *maxdelay;
 	enum algorithm *dev_algo;
-	u32 *maxparts;
+	u32 *maxparts, *maxhops;
 
 	if (!param_check(cmd, buffer, params,
 			 p_req("source", param_node_id, &source),
@@ -920,6 +925,8 @@ static struct command_result *json_getroutes(struct command *cmd,
 				   maxdelay_allowed),
 			 p_opt_def("maxparts", param_u32, &maxparts,
 				   default_maxparts),
+			 p_opt_dev("dev_maxhops", param_u32, &maxhops,
+				   default_maxhops),
 			 p_opt_dev("dev_algorithm", param_algorithm,
 				   &dev_algo, ALGO_DEFAULT),
 			 NULL))
@@ -961,6 +968,7 @@ static struct command_result *json_getroutes(struct command *cmd,
 	info->dev_algo = *dev_algo;
 	info->additional_costs = new_htable(info, additional_cost_htable);
 	info->maxparts = *maxparts;
+	info->maxhops = *maxhops;
 
 	if (askrene->num_live_requests >= askrene->max_children) {
 		cmd_log(tmpctx, cmd, LOG_INFORM,
