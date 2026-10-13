@@ -1347,6 +1347,83 @@ def test_htlc_accepted_hook_direct_restart(node_factory, executor):
     f1.result()
 
 
+def test_htlc_accepted_hook_restart_during_shutdown(node_factory, executor):
+    """Replay a held HTLC after its channel entered shutdown."""
+    l1, l2 = node_factory.line_graph(2, opts=[
+        {'may_reconnect': True},
+        {'may_reconnect': True,
+         'plugin': os.path.join(os.getcwd(), 'tests/plugins/hold_htlcs.py')}
+    ])
+
+    inv = l2.rpc.invoice(amount_msat=1000,
+                         label="shutdown",
+                         description="desc")['bolt11']
+    payment = executor.submit(l1.rpc.xpay, inv)
+
+    l2.daemon.wait_for_log(r'Holding onto an incoming htlc for 10 seconds')
+
+    # Have the peer start a cooperative close while the hook is pending.
+    close = executor.submit(l1.rpc.close, l2.info['id'], 0)
+    l2.daemon.wait_for_log(
+        r'State changed from CHANNELD_NORMAL to CHANNELD_SHUTTING_DOWN')
+
+    needle = l2.daemon.logsearch_start
+    l2.restart()
+
+    # The committed HTLC predates shutdown, so replay it through the hook.
+    l2.daemon.logsearch_start = needle + 1
+    l2.daemon.wait_for_log(r'hold_htlcs.py initializing')
+    l2.daemon.wait_for_log(r'Replaying old unprocessed HTLC #')
+    l2.daemon.wait_for_log(r'Holding onto an incoming htlc for 10 seconds')
+
+    payment.result()
+    close.result()
+    assert only_one(l2.rpc.listinvoices("shutdown")['invoices'])['status'] == 'paid'
+
+
+def test_htlc_accepted_hook_restart_after_force_close(node_factory, bitcoind,
+                                                      executor):
+    """Replay a held HTLC after its peer force-closed the channel."""
+    l1, l2 = node_factory.line_graph(2, opts=[
+        {'may_reconnect': True},
+        {'may_reconnect': True,
+         'plugin': os.path.join(os.getcwd(), 'tests/plugins/hold_htlcs.py'),
+         'hold-time': 60}
+    ])
+
+    inv = l2.rpc.invoice(amount_msat=100000000,
+                         label="force-close",
+                         description="desc")['bolt11']
+    payment = executor.submit(l1.rpc.xpay, inv)
+
+    l2.daemon.wait_for_log(r'Holding onto an incoming htlc for 60 seconds')
+
+    # The payer force-closes while the recipient's hook is still pending.
+    l1.rpc.close(l2.info['id'], 1)
+    bitcoind.generate_block(1)
+    l2.daemon.wait_for_log(r' to ONCHAIN')
+
+    needle = l2.daemon.logsearch_start
+    l2.stop()
+    l2.daemon.opts['hold-time'] = 1
+    l2.start()
+
+    # Replay the HTLC and give its preimage to the restarted onchaind.
+    l2.daemon.logsearch_start = needle + 1
+    l2.daemon.wait_for_log(r'hold_htlcs.py initializing')
+    l2.daemon.wait_for_log(r'Replaying old unprocessed HTLC #')
+    l2.daemon.wait_for_log(r'Holding onto an incoming htlc for 1 seconds')
+
+    _, txid, blocks = l2.wait_for_onchaind_tx(
+        'THEIR_HTLC_FULFILL_TO_US',
+        'THEIR_UNILATERAL/THEIR_HTLC')
+    assert blocks == 0
+
+    bitcoind.generate_block(1, wait_for_mempool=txid)
+    payment.result()
+    assert only_one(l2.rpc.listinvoices("force-close")['invoices'])['status'] == 'paid'
+
+
 def test_htlc_accepted_hook_direct_restart_blinded(node_factory, executor):
     """l2 restarts while it is pondering what to do with a blinded HTLC."""
     l1, l2 = node_factory.line_graph(2, opts=[
