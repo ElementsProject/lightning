@@ -270,7 +270,7 @@ struct tlv_offer *offer_decode(const tal_t *ctx,
 		}
 	}
 
-	/* BOLT-recurrence #12
+	/* BOLT-recurrence #12:
 	 *   - if `offer_recurrence_optional` or `offer_recurrence_compulsory` are set:
 	 *     - if `time_unit` is not one of 0, 1, or 2:
 	 *        - MUST NOT respond to the offer.
@@ -297,7 +297,7 @@ struct tlv_offer *offer_decode(const tal_t *ctx,
 			return tal_free(offer);
 		}
 	} else {
-		/* BOLT-recurrence #12
+		/* BOLT-recurrence: #12
 		 *   - otherwise: (no recurrence):
 		 *     - if it `offer_recurrence_paywindow`, `offer_recurrence_limit` or `offer_recurrence_base` are set:
 		 *        - MUST NOT respond to the offer.
