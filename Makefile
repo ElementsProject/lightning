@@ -261,20 +261,30 @@ man5dir = $(mandir)/man5
 man7dir = $(mandir)/man7
 man8dir = $(mandir)/man8
 
+ifndef IN_NIX_SHELL
 # M1 macos machines with homebrew will install the native libraries in
 # /opt/homebrew instead of /usr/local, most likely because they
 # emulate x86_64 compatibility via Rosetta, and wanting to keep the
 # libraries separate. This however means we also need to switch out
 # the paths accordingly when we detect we're on an M1 macos machine.
 ifeq ("$(OS)-$(ARCH)", "Darwin-arm64")
-CPATH := /opt/homebrew/include
-LIBRARY_PATH := /opt/homebrew/lib
+CPATH ?= /opt/homebrew/include
+LIBRARY_PATH ?= /opt/homebrew/lib
 else
-CPATH := /usr/local/include
-LIBRARY_PATH := /usr/local/lib
+CPATH ?= /usr/local/include
+LIBRARY_PATH ?= /usr/local/lib
+endif
+endif
+
+ifneq ($(CPATH),)
+CPATH_CFLAGS := -I$(CPATH)
+endif
+ifneq ($(LIBRARY_PATH),)
+LIBRARY_PATH_LDFLAGS := -L$(LIBRARY_PATH)
 endif
 
 # Detect OpenSSL and SQLite paths dynamically using brew --prefix
+ifndef IN_NIX_SHELL
 ifeq ("$(OS)", "Darwin")
 OPENSSL_PREFIX := $(shell brew --prefix openssl@3 2>/dev/null || brew --prefix openssl 2>/dev/null || echo "")
 SQLITE_PREFIX := $(shell brew --prefix sqlite 2>/dev/null || echo "")
@@ -288,9 +298,10 @@ CPPFLAGS += -I$(SQLITE_PREFIX)/include
 PKG_CONFIG_PATH := $(SQLITE_PREFIX)/lib/pkgconfig:$(PKG_CONFIG_PATH)
 endif
 endif
+endif
 
 CPPFLAGS += -DCLN_NEXT_VERSION="\"$(CLN_NEXT_VERSION)\"" -DPKGLIBEXECDIR="\"$(pkglibexecdir)\"" -DBINDIR="\"$(bindir)\"" -DPLUGINDIR="\"$(plugindir)\"" -DCCAN_TAL_NEVER_RETURN_NULL=1
-CFLAGS = $(CPPFLAGS) $(CWARNFLAGS) $(CDEBUGFLAGS) $(COPTFLAGS) -I $(CCANDIR) $(EXTERNAL_INCLUDE_FLAGS) -I . -I$(CPATH) $(SQLITE3_CFLAGS) $(SODIUM_CFLAGS) $(POSTGRES_INCLUDE) $(FEATURES) $(COVFLAGS) $(DEV_CFLAGS) -DSHACHAIN_BITS=48 -DJSMN_PARENT_LINKS $(PIE_CFLAGS) $(COMPAT_CFLAGS) $(CSANFLAGS)
+CFLAGS = $(CPPFLAGS) $(CWARNFLAGS) $(CDEBUGFLAGS) $(COPTFLAGS) -I $(CCANDIR) $(EXTERNAL_INCLUDE_FLAGS) -I . $(CPATH_CFLAGS) $(SQLITE3_CFLAGS) $(SODIUM_CFLAGS) $(POSTGRES_INCLUDE) $(FEATURES) $(COVFLAGS) $(DEV_CFLAGS) -DSHACHAIN_BITS=48 -DJSMN_PARENT_LINKS $(PIE_CFLAGS) $(COMPAT_CFLAGS) $(CSANFLAGS)
 
 # If CFLAGS is already set in the environment of make (to whatever value, it
 # does not matter) then it would export it to subprocesses with the above value
@@ -308,9 +319,9 @@ ifeq ($(STATIC),1)
 # For MacOS, Jacob Rapoport <jacob@rumblemonkey.com> changed this to:
 #  -L/usr/local/lib -lsqlite3 -lz -Wl,-lm -lpthread -ldl $(COVFLAGS)
 # But that doesn't static link.
-LDLIBS = -L$(CPATH) -Wl,-dn $(SQLITE3_LDLIBS) -Wl,-dy -lm -lpthread -ldl $(COVFLAGS)
+LDLIBS = $(LIBRARY_PATH_LDFLAGS) -Wl,-dn $(SQLITE3_LDLIBS) -Wl,-dy -lm -lpthread -ldl $(COVFLAGS)
 else
-LDLIBS = -L$(CPATH) -lm $(SQLITE3_LDLIBS) $(COVFLAGS)
+LDLIBS = $(LIBRARY_PATH_LDFLAGS) -lm $(SQLITE3_LDLIBS) $(COVFLAGS)
 endif
 
 ifeq ($(HAVE_FUNCTION_SECTIONS),1)
