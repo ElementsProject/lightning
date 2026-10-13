@@ -3471,7 +3471,7 @@ caused a crash in 0.8.0, so we then disallowed it.
     "wait_for_failure",
     [
         False,
-        pytest.param(True, marks=pytest.mark.xfail(strict=True)),
+        True,
     ],
 )
 def test_reject_invalid_payload(node_factory, wait_for_failure):
