@@ -43,5 +43,18 @@
   ],
   "resources": [
     "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
+  ],
+  "examples": [
+    {
+      "request": {
+        "id": "example:askrene-remove-channel-update#1",
+        "method": "askrene-remove-channel-update",
+        "params": {
+          "layer": "test_layers",
+          "short_channel_id_dir": "0x0x1/0"
+        }
+      },
+      "response": {}
+    }
   ]
 }

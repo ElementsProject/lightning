@@ -50,7 +50,7 @@
       "bip353": {
         "type": "string",
         "description": [
-          "BIP353 string (optionally with ₿) indicating where we fetched the offer from"
+          "BIP353 string (optionally with \u20bf) indicating where we fetched the offer from"
         ]
       }
     }
@@ -77,5 +77,22 @@
   ],
   "resources": [
     "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
+  ],
+  "examples": [
+    {
+      "request": {
+        "id": "example:cancelrecurringinvoice#1",
+        "method": "cancelrecurringinvoice",
+        "params": {
+          "offer": "lno1qgsqvgnwgcg35z6ee2h3yczraddm72xrfua9uve2rlrm9deu7xyfzrcgqv85ysq2zefx2cm4wfexjmn8ypeh2cnnvdexjur5d9hku93pqg58h7kghxdn23m7h6fnfmk7rcetrz0zgezwkuquq7tpgufrx88vpl3mnt9psqsq8s",
+          "recurrence_counter": 1,
+          "recurrence_label": "subscription l3",
+          "payer_note": "Cancelling subscription"
+        }
+      },
+      "response": {
+        "bolt12": "lnr1qqsquux3chfhckgak29er5ljyamfzyln7uka69lf6fddl7te7k20w0gzyqrzymjxzydqkkw24ufxqslttwlj3s608f0rx2slc7etw0833zgs7zqrpapyqzsk2fjkxatjwf5kueeqwd6kyumrwf5hqarfdahpvggz9pal4j9env65wl47jv6wahs7x2ccncjxgn4hq8q8jc28zge3emq9qgqxyfhyvyg6pdvu4tcjvpp7kkal9rp57wj7xv4pl3ajku70rzy3pa2qqkppqtpdhn70ts2jyn6f0x8zf7p3sqfrglh2v4s7zqg5pxlfq8gs8f9dckghgdskucm9d3kxjmn8ypeh2cnnvdexjur5d9hkauzqthdkt4nhqfewafy75t27xycdfgmyak7wsfpjwu6wc3l9r3dqspfnjzeda9xslw7q8k9c6wzxcsyzegn49rl43ykntut4x0dktle4re878wdv5xqzqq70uae4j3wqzq07wu6eghsq"
+      }
+    }
   ]
 }
