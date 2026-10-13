@@ -2047,6 +2047,10 @@ def test_addgossip(node_factory):
     else:
         badupdate = badupdate[:-1] + 'f'
 
+    # Newer than the one we have, or it's ignored before the signature check.
+    # type(2) signature(64) chain_hash(32) scid(8) timestamp(4)
+    timestamp = int(badupdate[212:220], 16) + 1
+    badupdate = badupdate[:212] + format(timestamp, '08x') + badupdate[220:]
     with pytest.raises(RpcError, match='Bad signature'):
         l3.rpc.addgossip(badupdate)
 
