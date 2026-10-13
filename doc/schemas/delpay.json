@@ -189,7 +189,7 @@
   },
   "errors": [
     "On failure, an error is returned. If the lightning process fails before responding, the",
-    "caller should use lightning-listsentpays(7) or lightning-listpays(7) to query whether this payment was deleted or not.",
+    "caller should use lightning-listsendpays(7) or lightning-listpays(7) to query whether this payment was deleted or not.",
     "",
     "The following error codes may occur:",
     "",
