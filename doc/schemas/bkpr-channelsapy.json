@@ -198,7 +198,7 @@
   ],
   "see_also": [
     "lightning-bkpr-listincome(7)",
-    "lightning-bkpr-listfunds(7)",
+    "lightning-bkpr-listbalances(7)",
     "lightning-bkpr-listaccountevents(7)",
     "lightning-bkpr-dumpincomecsv(7)",
     "lightning-listpeers(7)"

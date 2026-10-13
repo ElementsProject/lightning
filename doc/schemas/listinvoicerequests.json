@@ -93,7 +93,7 @@
     "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
   ],
   "see_also": [
-    "lightning-invoicerequests(7)",
+    "lightning-invoicerequest(7)",
     "lightning-disableinvoicerequest(7)"
   ],
   "resources": [

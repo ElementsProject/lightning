@@ -111,7 +111,7 @@
       "localinvreqid": {
         "type": "hash",
         "description": [
-          "`localinvreqid` is used by offers to link a payment attempt to a local `invoice_request` offer created by lightningd-invoicerequest(7)."
+          "`localinvreqid` is used by offers to link a payment attempt to a local `invoice_request` offer created by lightning-invoicerequest(7)."
         ]
       },
       "groupid": {

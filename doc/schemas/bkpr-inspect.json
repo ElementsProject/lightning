@@ -200,7 +200,7 @@
     "Lisa Neigut [niftynei@gmail.com](mailto:niftynei@gmail.com) is mainly responsible."
   ],
   "see_also": [
-    "lightning-listbalances(7)",
+    "lightning-bkpr-listbalances(7)",
     "lightning-listfunds(7)",
     "lightning-listpeers(7)"
   ],

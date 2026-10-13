@@ -3420,7 +3420,7 @@
       ],
       "see_also": [
         "lightning-bkpr-listincome(7)",
-        "lightning-bkpr-listfunds(7)",
+        "lightning-bkpr-listbalances(7)",
         "lightning-bkpr-listaccountevents(7)",
         "lightning-bkpr-dumpincomecsv(7)",
         "lightning-listpeers(7)"
@@ -3608,7 +3608,7 @@
       ],
       "see_also": [
         "lightning-bkpr-listincome(7)",
-        "lightning-bkpr-listfunds(7)",
+        "lightning-bkpr-listbalances(7)",
         "lightning-bkpr-listaccountevents(7)",
         "lightning-bkpr-channelsapy(7)",
         "lightning-listpeers(7)"
@@ -4449,7 +4449,7 @@
         "Lisa Neigut [niftynei@gmail.com](mailto:niftynei@gmail.com) is mainly responsible."
       ],
       "see_also": [
-        "lightning-listbalances(7)",
+        "lightning-bkpr-listbalances(7)",
         "lightning-listfunds(7)",
         "lightning-listpeers(7)"
       ],
@@ -8399,7 +8399,7 @@
         "daywalker90 is mainly responsible."
       ],
       "see_also": [
-        "lightning-currencyrates(7)"
+        "lightning-currencyrate(7)"
       ],
       "resources": [
         "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
@@ -12649,7 +12649,7 @@
       },
       "errors": [
         "On failure, an error is returned. If the lightning process fails before responding, the",
-        "caller should use lightning-listsentpays(7) or lightning-listpays(7) to query whether this payment was deleted or not.",
+        "caller should use lightning-listsendpays(7) or lightning-listpays(7) to query whether this payment was deleted or not.",
         "",
         "The following error codes may occur:",
         "",
@@ -17860,7 +17860,7 @@
           "localinvreqid": {
             "type": "hash",
             "description": [
-              "`localinvreqid` is used by offers to link a payment attempt to a local `invoice_request` offer created by lightningd-invoicerequest(7)."
+              "`localinvreqid` is used by offers to link a payment attempt to a local `invoice_request` offer created by lightning-invoicerequest(7)."
             ]
           },
           "destination_msat": {
@@ -25001,7 +25001,7 @@
         "Rusty Russell [rusty@rustcorp.com.au](mailto:rusty@rustcorp.com.au) is mainly responsible."
       ],
       "see_also": [
-        "lightning-invoicerequests(7)",
+        "lightning-invoicerequest(7)",
         "lightning-disableinvoicerequest(7)"
       ],
       "resources": [
@@ -32647,7 +32647,7 @@
             "description": [
               "NOTE: `invstring` is an alternate name for this parameter, since v26.06, for xpay compatibility.",
               "",
-              "Bolt11 or bolt12 invoice (such as one received from lightningd-fetchinvoice(7)). For a bolt11 invoice, if it does not contain an amount, *amount_msat* is required, otherwise if it is specified it must be *null*."
+              "Bolt11 or bolt12 invoice (such as one received from lightning-fetchinvoice(7)). For a bolt11 invoice, if it does not contain an amount, *amount_msat* is required, otherwise if it is specified it must be *null*."
             ]
           },
           "amount_msat": {
@@ -32699,7 +32699,7 @@
           "localinvreqid": {
             "type": "hex",
             "description": [
-              "`localinvreqid` is used by offers to link a payment attempt to a local `invoice_request` offer created by lightningd-invoicerequest(7). This  ensures that we only make a single payment for an offer, and that the offer is marked `used` once paid."
+              "`localinvreqid` is used by offers to link a payment attempt to a local `invoice_request` offer created by lightning-invoicerequest(7). This  ensures that we only make a single payment for an offer, and that the offer is marked `used` once paid."
             ]
           },
           "exclude": {
@@ -35165,7 +35165,7 @@
           "localinvreqid": {
             "type": "hash",
             "description": [
-              "`localinvreqid` is used by offers to link a payment attempt to a local `invoice_request` offer created by lightningd-invoicerequest(7)."
+              "`localinvreqid` is used by offers to link a payment attempt to a local `invoice_request` offer created by lightning-invoicerequest(7)."
             ]
           },
           "groupid": {
@@ -41380,7 +41380,7 @@
             "type": "hex",
             "added": "v26.06",
             "description": [
-              "`localinvreqid` is used by offers to link a payment attempt to a local `invoice_request` offer created by lightningd-invoicerequest(7). This  ensures that we only make a single payment for an offer, and that the offer is marked `used` once paid."
+              "`localinvreqid` is used by offers to link a payment attempt to a local `invoice_request` offer created by lightning-invoicerequest(7). This  ensures that we only make a single payment for an offer, and that the offer is marked `used` once paid."
             ]
           },
           "dev_use_shadow": {
