@@ -1540,7 +1540,7 @@ static bool peer_accepted_htlc(const tal_t *ctx,
 	 *
 	 *   - SHOULD fail to route any HTLC added after it has sent `shutdown`.
 	 */
-	if (!channel_state_can_add_htlc(channel->state)) {
+	if (!replay && !channel_state_can_add_htlc(channel->state)) {
 		*failmsg = towire_permanent_channel_failure(ctx);
 		log_debug(channel->log,
 			  "Rejecting their htlc %"PRIu64
