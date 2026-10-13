@@ -217,11 +217,12 @@
     "A routing failure object has the fields below:",
     "",
     "*erring_index*: The index of the node along the route that reported the error. 0 for the local node, 1 for the first hop, and so on.",
-    "*erring_node*: The hex string of the pubkey id of the node that reported the error.",
-    "*erring_channel*: The short channel ID of the channel that has the error (or the final channel if the destination raised the error).",
-    "*erring_direction*: The direction of traversing the *erring_channel*:",
+    "*erring_node*: The hex string of the pubkey id of the node that reported the error. Only present if the node is known: a payment sent with **sendonion** does not record it.",
+    "*erring_channel*: The short channel ID of the channel that has the error. Only present if the channel is known.",
+    "*erring_direction*: The direction of traversing the *erring_channel*. Only present with *erring_channel*.",
     "*failcode*: The failure code, as per BOLT #4.",
-    "*failcodename*: The human-readable name corresponding to *failcode*, if known."
+    "*failcodename*: The human-readable name corresponding to *failcode*, if known.",
+    "*raw_message*: The hex string of the raw failure message from the node that reported the error. Not present for failures that did not come from a node, such as a local routing failure."
   ],
   "author": [
     "ZmnSCPxj [ZmnSCPxj@protonmail.com](mailto:ZmnSCPxj@protonmail.com) is mainly responsible."
