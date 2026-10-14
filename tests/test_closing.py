@@ -946,13 +946,19 @@ def test_channel_lease_unilat_closes(node_factory, bitcoind):
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     rates = l1.rpc.dev_queryrates(l2.info['id'], amount, amount)
     # l1 leases a channel from l2
-    l1.rpc.fundchannel(l2.info['id'], amount, request_amt=amount,
-                       feerate='{}perkw'.format(feerate),
-                       compact_lease=rates['compact_lease'])
+    fc = l1.rpc.fundchannel(
+        l2.info["id"],
+        amount,
+        request_amt=amount,
+        feerate="{}perkw".format(feerate),
+        compact_lease=rates["compact_lease"],
+    )
 
     # l2 leases a channel from l3
     l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
     rates = l2.rpc.dev_queryrates(l3.info['id'], amount, amount)
+    # minconf=0 below needs l2 to see its change from the l1 funding tx
+    l2.daemon.wait_for_log(rf'Owning output.* txid {fc["txid"]}')
     l2.rpc.fundchannel(l3.info['id'], amount, request_amt=amount,
                        feerate='{}perkw'.format(feerate), minconf=0,
                        compact_lease=rates['compact_lease'])
@@ -983,6 +989,7 @@ def test_channel_lease_unilat_closes(node_factory, bitcoind):
     # make sure we're at the right place for the csv lock
     height = bitcoind.rpc.getblockchaininfo()['blocks']
     l2.daemon.wait_for_log(f'Blockheight: SENT_ADD_ACK_COMMIT->RCVD_ADD_ACK_REVOCATION LOCAL now {height}')
+    l3.daemon.wait_for_log(f'got commitsig .*: feerate .*, blockheight: {height},')
     l2.stop()
 
     # unilateral close channels l1<->l2 & l3<->l2
