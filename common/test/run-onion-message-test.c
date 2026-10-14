@@ -230,6 +230,72 @@ static u8 *add_hop(const char *name,
 	return encrypted_recipient_data;
 }
 
+/* Single-hop onion message to @id, whose per-hop payload is @payload */
+static u8 *single_hop_onionmsg(const struct pubkey *id,
+			       const struct privkey *path_key,
+			       const u8 *payload,
+			       struct secret **path_secrets)
+{
+	struct secret ss;
+	struct pubkey alias;
+	struct sphinx_path *sp;
+	struct onionpacket *op;
+
+	mykey = path_key;
+	ecdh(id, &ss);
+	assert(blindedpath_get_alias(&ss, id, &alias));
+
+	sp = sphinx_path_new(tmpctx, NULL, 0);
+	sphinx_add_hop(sp, &alias, payload);
+	op = create_onionpacket(tmpctx, sp, ROUTING_INFO_SIZE, path_secrets);
+	return serialize_onionpacket(tmpctx, op);
+}
+
+/* BOLT #4 - a 0 'length' would mean an empty 'onionmsg_payload' */
+static void test_empty_onionmsg_payload(const struct privkey *privkey,
+					const struct pubkey *id)
+{
+	struct privkey path_key;
+	struct pubkey path_key_pub;
+	struct secret *path_secrets, *final_path_id;
+	struct sciddir_or_pubkey next_node;
+	struct tlv_onionmsg_tlv *final_om;
+	struct pubkey final_alias;
+	struct onionpacket *op;
+	u8 *packet, *next_onion_msg;
+	const u8 one_byte_payload[] = { 0x01 };
+
+	memset(&path_key, 42, sizeof(path_key));
+	assert(pubkey_from_privkey(&path_key, &path_key_pub));
+
+	packet = single_hop_onionmsg(id, &path_key,
+				     tal_arr(tmpctx, u8, 0), &path_secrets);
+
+	op = parse_onionpacket(tmpctx, packet, tal_bytelen(packet), NULL);
+	assert(!process_onionpacket(tmpctx, op, &path_secrets[0], NULL, 0));
+
+	mykey = privkey;
+	assert(onion_message_parse(tmpctx, packet, &path_key_pub, id,
+				   &next_onion_msg, &next_node,
+				   &final_om, &final_alias,
+				   &final_path_id) == NULL);
+	assert(!next_onion_msg);
+	assert(final_om);
+	assert(tal_count(final_om->fields) == 0);
+	assert(pubkey_eq(&final_alias, id));
+	assert(!final_path_id);
+
+	packet = single_hop_onionmsg(id, &path_key,
+				     tal_dup_arr(tmpctx, u8, one_byte_payload,
+						 sizeof(one_byte_payload), 0),
+				     &path_secrets);
+	mykey = privkey;
+	assert(onion_message_parse(tmpctx, packet, &path_key_pub, id,
+				   &next_onion_msg, &next_node,
+				   &final_om, &final_alias,
+				   &final_path_id) != NULL);
+}
+
 int main(int argc, char *argv[])
 {
 	const char *alias[] = {"Alice", "Bob", "Carol", "Dave"};
@@ -388,5 +454,7 @@ int main(int argc, char *argv[])
 	json_end(']');
 	json_end('}');
 	json_end('}');
+
+	test_empty_onionmsg_payload(&privkey[3], &id[3]);
 	common_shutdown();
 }

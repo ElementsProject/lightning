@@ -111,6 +111,10 @@ struct route_step *process_onionpacket(
 	const u8 *assocdata,
 	const size_t assocdatalen);
 
+struct route_step *process_onionmsg_packet(const tal_t *ctx,
+					   const struct onionpacket *packet,
+					   const struct secret *shared_secret);
+
 /**
  * serialize_onionpacket - Serialize an onionpacket to a buffer.
  *

@@ -146,7 +146,7 @@ static u8 *next_onion(const tal_t *ctx, u8 *omsg,
 	assert(unblind_onion(&path_key, ecdh, &ephemeral, &ss));
 
 	ecdh(&ephemeral, &onion_ss);
-	rs = process_onionpacket(tmpctx, op, &onion_ss, NULL, 0);
+	rs = process_onionmsg_packet(tmpctx, op, &onion_ss);
 	assert(rs);
 
 	/* The raw payload is prepended with length in the modern onion. */
