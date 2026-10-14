@@ -97,6 +97,10 @@ enum query_option_flags {
 #define GOSSIP_TOKEN_TIME(dev_fast_gossip_flag) \
 	DEV_FAST_GOSSIP(dev_fast_gossip_flag, 1, 3600)
 
+/* How often we save a peer's channel_update for our channel to the db. */
+#define PEER_UPDATE_SAVE_INTERVAL(dev_fast_gossip_flag) \
+	DEV_FAST_GOSSIP(dev_fast_gossip_flag, 5, 60)
+
 /* This is where we keep our gossip */
 #define GOSSIP_STORE_FILENAME "gossip_store"
 

@@ -1598,6 +1598,10 @@ stop:
 	/* Get rid of per-channel subdaemons. */
 	subd_shutdown_nonglobals(ld);
 
+	/* Save peers' channel_updates we held back, while db_write
+	 * plugins can still see them. */
+	channel_gossip_shutdown(ld);
+
 	/* Tell plugins we're shutting down, use force if necessary. */
 	shutdown_plugins(ld);
 

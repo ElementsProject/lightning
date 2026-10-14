@@ -6,6 +6,7 @@
 #include <common/timeout.h>
 #include <common/wire_error.h>
 #include <connectd/connectd_wiregen.h>
+#include <db/exec.h>
 #include <hsmd/hsmd_wiregen.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/channel.h>
@@ -190,6 +191,11 @@ struct channel_gossip {
 
 	/* Details of latest channel_update sent by peer */
 	const struct peer_update *peer_update;
+
+	/* The peer can send updates as fast as it likes, so once we've
+	 * saved one, we only save the latest when this timer expires. */
+	struct oneshot *peer_update_timer;
+	bool peer_update_unsaved;
 
 	/* To avoid a storm, we only respond to announcement_signatures with
 	 * our own signatures once */
@@ -936,6 +942,8 @@ void channel_gossip_init(struct channel *channel,
 	cg->cupdate = NULL;
 	cg->refresh_timer = NULL;
 	cg->peer_update = tal_dup_or_null(channel, struct peer_update, remote_update);
+	cg->peer_update_timer = NULL;
+	cg->peer_update_unsaved = false;
 	cg->remote_sigs = NULL;
 	cg->sent_sigs = false;
 
@@ -1333,6 +1341,42 @@ static struct channel *lookup_by_peer_remote_alias(struct lightningd *ld,
 	return NULL;
 }
 
+static bool peer_update_eq(const struct peer_update *a,
+			   const struct peer_update *b)
+{
+	return short_channel_id_eq(a->scid, b->scid)
+		&& a->fee_base == b->fee_base
+		&& a->fee_ppm == b->fee_ppm
+		&& a->cltv_delta == b->cltv_delta
+		&& amount_msat_eq(a->htlc_minimum_msat, b->htlc_minimum_msat)
+		&& amount_msat_eq(a->htlc_maximum_msat, b->htlc_maximum_msat);
+}
+
+static void save_peer_update(struct channel *channel);
+
+static void peer_update_timer_expired(struct channel *channel)
+{
+	struct channel_gossip *cg = channel->channel_gossip;
+
+	cg->peer_update_timer = NULL;
+	if (cg->peer_update_unsaved)
+		save_peer_update(channel);
+}
+
+static void save_peer_update(struct channel *channel)
+{
+	struct lightningd *ld = channel->peer->ld;
+	struct channel_gossip *cg = channel->channel_gossip;
+
+	log_debug(channel->log, "Saving peer's channel_update");
+	wallet_channel_save(ld->wallet, channel);
+	cg->peer_update_unsaved = false;
+	cg->peer_update_timer
+		= new_reltimer(ld->timers, cg,
+			       time_from_sec(PEER_UPDATE_SAVE_INTERVAL(ld->dev_fast_gossip)),
+			       peer_update_timer_expired, channel);
+}
+
 /* A peer sent gossipd an update_channel message for one of our channels.
  * Gossipd checked the signature: against the channel_announcement if
  * source is NULL, otherwise only that source signed it.
@@ -1378,11 +1422,20 @@ void channel_gossip_set_remote_update(struct lightningd *ld,
 		return;
 	}
 
+	/* Nothing changed?  Don't let them spam us with db writes. */
+	if (cg->peer_update && peer_update_eq(cg->peer_update, update))
+		return;
+
 	log_debug(ld->log, "updating channel %s with inbound settings",
 		  fmt_short_channel_id(tmpctx, update->scid));
 	tal_free(cg->peer_update);
 	cg->peer_update = tal_dup(cg, struct peer_update, update);
-	wallet_channel_save(ld->wallet, channel);
+
+	/* Saved one recently?  Timer will save this one. */
+	if (cg->peer_update_timer)
+		cg->peer_update_unsaved = true;
+	else
+		save_peer_update(channel);
 }
 
 const struct peer_update *channel_gossip_get_remote_update(const struct channel *channel)
@@ -1392,6 +1445,28 @@ const struct peer_update *channel_gossip_get_remote_update(const struct channel 
 	if (!cg)
 		return NULL;
 	return cg->peer_update;
+}
+
+void channel_gossip_shutdown(struct lightningd *ld)
+{
+	struct peer *peer;
+	struct peer_node_id_map_iter it;
+
+	db_begin_transaction(ld->wallet->db);
+	for (peer = peer_node_id_map_first(ld->peers, &it);
+	     peer;
+	     peer = peer_node_id_map_next(ld->peers, &it)) {
+		struct channel *channel;
+		list_for_each(&peer->channels, channel, list) {
+			struct channel_gossip *cg = channel->channel_gossip;
+
+			if (!cg || !cg->peer_update_unsaved)
+				continue;
+			wallet_channel_save(ld->wallet, channel);
+			cg->peer_update_unsaved = false;
+		}
+	}
+	db_commit_transaction(ld->wallet->db);
 }
 
 static bool has_announced_channels(struct lightningd *ld)
