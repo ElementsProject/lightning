@@ -117,7 +117,7 @@ const char *onion_message_parse(const tal_t *ctx,
 
 	/* Now get onion shared secret and parse it. */
 	ecdh(&ephemeral, &onion_ss);
-	rs = process_onionpacket(tmpctx, op, &onion_ss, NULL, 0);
+	rs = process_onionmsg_packet(tmpctx, op, &onion_ss);
 	if (!rs) {
 		return tal_fmt(ctx, "onion_message_parse: can't process onionpacket ss=%s",
 			       fmt_secret(tmpctx, &onion_ss));

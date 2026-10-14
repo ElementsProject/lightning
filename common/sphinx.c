@@ -643,13 +643,12 @@ bool dev_fail_process_onionpacket;
  * Given an onionpacket msg extract the information for the current
  * node and unwrap the remainder so that the node can forward it.
  */
-struct route_step *process_onionpacket(
-	const tal_t *ctx,
-	const struct onionpacket *msg,
-	const struct secret *shared_secret,
-	const u8 *assocdata,
-	const size_t assocdatalen
-	)
+static struct route_step *process_onion(const tal_t *ctx,
+					const struct onionpacket *msg,
+					const struct secret *shared_secret,
+					const u8 *assocdata,
+					const size_t assocdatalen,
+					bool is_onion_message)
 {
 	struct route_step *step = talz(ctx, struct route_step);
 	struct hmac hmac;
@@ -715,7 +714,15 @@ struct route_step *process_onionpacket(
 	 * Since no `payload` TLV value can ever be shorter than 2 bytes, `length` values of 0 and 1 are
 	 * reserved.  (`0` indicated a legacy format no longer supported, and `1` is reserved for future
 	 * use). */
-	if (payload_size < 2 || !cursor)
+	if (!cursor)
+		return tal_free(step);
+
+	/* BOLT #4:
+	 * The `onionmsg_payloads` themselves are the same
+	 * as the `hop_payloads` format, except there is no "legacy" length: a 0
+	 * `length` would mean an empty `onionmsg_payload`
+	 */
+	if (payload_size < 2 && !(is_onion_message && payload_size == 0))
 		return tal_free(step);
 
 	/* This includes length field and hmac */
@@ -735,6 +742,25 @@ struct route_step *process_onionpacket(
 
 	tal_free(paddedheader);
 	return step;
+}
+
+struct route_step *process_onionpacket(
+	const tal_t *ctx,
+	const struct onionpacket *msg,
+	const struct secret *shared_secret,
+	const u8 *assocdata,
+	const size_t assocdatalen
+	)
+{
+	return process_onion(ctx, msg, shared_secret,
+			     assocdata, assocdatalen, false);
+}
+
+struct route_step *process_onionmsg_packet(const tal_t *ctx,
+					   const struct onionpacket *msg,
+					   const struct secret *shared_secret)
+{
+	return process_onion(ctx, msg, shared_secret, NULL, 0, true);
 }
 
 unsigned dev_onion_reply_length = 256;
