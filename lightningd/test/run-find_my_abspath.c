@@ -15,6 +15,9 @@ void begin_topology(struct chain_topology *topo UNNEEDED)
 /* Generated stub for channel_gossip_notify_new_block */
 void channel_gossip_notify_new_block(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "channel_gossip_notify_new_block called!\n"); abort(); }
+/* Generated stub for channel_gossip_shutdown */
+void channel_gossip_shutdown(struct lightningd *ld UNNEEDED)
+{ fprintf(stderr, "channel_gossip_shutdown called!\n"); abort(); }
 /* Generated stub for channel_notify_new_block */
 void channel_notify_new_block(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "channel_notify_new_block called!\n"); abort(); }
