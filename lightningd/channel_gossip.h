@@ -61,4 +61,9 @@ const u8 *channel_gossip_update_for_error(const tal_t *ctx,
 /* Get the peer's last-sent channel_update info, if any. */
 const struct peer_update *channel_gossip_get_remote_update(const struct channel *channel);
 
+/* We're shutting down: save anything we were going to save later.
+ * Call before shutdown_plugins(), so db_write plugins see it.  Any
+ * update after this is lost, but the peer sends it again on reconnect. */
+void channel_gossip_shutdown(struct lightningd *ld);
+
 #endif /* LIGHTNING_LIGHTNINGD_CHANNEL_GOSSIP_H */
