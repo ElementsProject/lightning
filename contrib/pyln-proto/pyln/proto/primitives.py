@@ -1,4 +1,4 @@
-import coincurve
+import secp256k1
 import struct
 
 
@@ -113,35 +113,35 @@ class PrivateKey(object):
             raise ValueError(f"rawkey must be 32-byte long. {len(rawkey)} received")
 
         self.rawkey = rawkey
-        self.key = coincurve.PrivateKey(rawkey)
+        self.key = secp256k1.PrivateKey(rawkey)
 
     def serializeCompressed(self):
-        return self.key.secret
+        return self.key.private_key
 
     def public_key(self):
-        return PublicKey(self.key.public_key)
+        return PublicKey(self.key.pubkey.serialize())
 
 
 class PublicKey(object):
     def __init__(self, innerkey):
-        # We accept either 33-bytes raw keys, or an EC PublicKey as returned
-        # by coincurve
+        # We accept either 33-bytes raw keys, or a PublicKey as returned
+        # by the secp256k1 package
         if isinstance(innerkey, bytes):
             if innerkey[0] in [2, 3] and len(innerkey) == 33:
-                innerkey = coincurve.PublicKey(innerkey)
+                innerkey = secp256k1.PublicKey(innerkey, raw=True)
             else:
                 raise ValueError(
                     "Byte keys must be 33-byte long starting from either 02 or 03"
                 )
 
-        elif not isinstance(innerkey, coincurve.keys.PublicKey):
+        elif not isinstance(innerkey, secp256k1.PublicKey):
             raise TypeError(
-                "Key must either be bytes or coincurve.keys.PublicKey"
+                "Key must either be bytes or secp256k1.PublicKey"
             )
         self.key = innerkey
 
     def serializeCompressed(self):
-        return self.key.format(compressed=True)
+        return self.key.serialize(compressed=True)
 
     def to_bytes(self) -> bytes:
         return self.serializeCompressed()
@@ -155,7 +155,7 @@ class PublicKey(object):
         if not isinstance(other, PublicKey):
             return False
 
-        return self.key == other.key
+        return self.serializeCompressed() == other.serializeCompressed()
 
     def __hash__(self):
         return self.to_bytes().__hash__()

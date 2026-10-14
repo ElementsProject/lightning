@@ -1,4 +1,5 @@
 from .bech32 import bech32_encode, bech32_decode, CHARSET
+from .primitives import PublicKey
 from binascii import hexlify, unhexlify
 from decimal import Decimal
 from io import BufferedReader, BytesIO
@@ -6,7 +7,7 @@ import base58
 import bitstring
 import hashlib
 import re
-import coincurve
+import secp256k1
 import time
 import struct
 
@@ -181,14 +182,14 @@ class Invoice(object):
 
     def __str__(self):
         return "Invoice[{}, amount={}{} tags=[{}]]".format(
-            hexlify(self.pubkey.format()).decode('utf-8'),
+            hexlify(self.pubkey.serializeCompressed()).decode('utf-8'),
             self.amount, self.currency,
             ", ".join([k + '=' + str(v) for k, v in self.tags])
         )
 
     @property
     def hexpubkey(self):
-        return hexlify(self.pubkey.format()).decode('ASCII')
+        return hexlify(self.pubkey.serializeCompressed()).decode('ASCII')
 
     @property
     def hexpaymenthash(self):
@@ -277,8 +278,11 @@ class Invoice(object):
             raise ValueError("Must include either 'd' or 'h'")
 
         # We actually sign the hrp, then data (padded to 8 bits with zeroes).
-        privkey = coincurve.PrivateKey(secret=bytes(unhexlify(privkey)))
-        data += privkey.sign_recoverable(bytearray([ord(c) for c in hrp]) + data.tobytes())
+        privkey = secp256k1.PrivateKey(bytes(unhexlify(privkey)))
+        rawsig = privkey.ecdsa_sign_recoverable(
+            bytearray([ord(c) for c in hrp]) + data.tobytes())
+        sig, recid = privkey.ecdsa_recoverable_serialize(rawsig)
+        data += sig + bytes([recid])
 
         return bech32_encode(hrp, bitarray_to_u5(data))
 
@@ -379,7 +383,7 @@ class Invoice(object):
                 if data_length != 53:
                     inv.unknown_tags.append((tag, tagdata))
                     continue
-                inv.pubkey = coincurve.PublicKey(trim_to_bytes(tagdata))
+                inv.pubkey = PublicKey(trim_to_bytes(tagdata))
 
             elif tag == 'c':
                 inv.min_final_cltv_expiry = tagdata.uint
@@ -394,15 +398,19 @@ class Invoice(object):
             # A reader:...
             #   - if a valid `n` field is provided:
             #     - MUST use the `n` field to validate the signature instead of performing public-key recovery.
-            inv.signature = inv.pubkey.ecdsa_deserialize_compact(sigdecoded[0:64])
-            if not inv.pubkey.ecdsa_verify(bytearray([ord(c) for c in hrp]) + data.tobytes(), inv.signature):
+            inv.signature = sigdecoded[0:64]
+            sig = inv.pubkey.key.ecdsa_deserialize_compact(sigdecoded[0:64])
+            if not inv.pubkey.key.ecdsa_verify(bytearray([ord(c) for c in hrp]) + data.tobytes(), sig):
                 raise ValueError('Invalid signature')
         else:  # Recover pubkey from signature.
-            inv.signature = coincurve.ecdsa.deserialize_recoverable(
-                sigdecoded[0:65])
-            inv.pubkey = coincurve.PublicKey.from_signature_and_message(
-                sigdecoded[0:65],
-                bytearray([ord(c) for c in hrp]) + data.tobytes())
+            inv.signature = sigdecoded[0:64]
+            helper = secp256k1.PublicKey()
+            recoverable = helper.ecdsa_recoverable_deserialize(
+                sigdecoded[0:64], sigdecoded[64])
+            inv.pubkey = PublicKey(secp256k1.PublicKey(
+                helper.ecdsa_recover(
+                    bytearray([ord(c) for c in hrp]) + data.tobytes(),
+                    recoverable)))
 
         return inv
 
