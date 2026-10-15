@@ -818,7 +818,10 @@ struct onionreply *wrap_onionreply(const tal_t *ctx,
 	 */
 	subkey_from_hmac("ammag", shared_secret, &key);
 	result->contents = tal_dup_talarr(result, u8, reply->contents);
-	xor_cipher_stream(result->contents, &key, tal_bytelen(result->contents));
+	/* A peer can send an empty reason, leaving contents NULL. */
+	if (tal_bytelen(result->contents))
+		xor_cipher_stream(result->contents, &key,
+				  tal_bytelen(result->contents));
 	return result;
 }
 
