@@ -60,6 +60,8 @@
 
 #define SAT_MIN(a, b) (amount_sat_less((a), (b)) ? (a) : (b))
 
+#define MAX_START_BATCH_SIZE 20
+
 struct peer {
 	struct per_peer_state *pps;
 	bool channel_ready[NUM_SIDES];
@@ -2610,6 +2612,19 @@ static void handle_peer_start_batch(struct peer *peer, const u8 *msg)
 				 "Don't send a start_batch with batch size"
 				 "below 2");
 	}
+
+	/* Bolt #2 (in specs newer than this branch's BOLTVERSION):
+	 * A receiving node:
+	 *...
+	 *  - If `batch_size` is strictly greater than 20:
+	 *    - MUST send a `warning` and close the connection, or send an `error` and
+	 *      fail the channel.
+	 */
+	if (batch_size > MAX_START_BATCH_SIZE)
+		peer_failed_warn(peer->pps, &peer->channel_id,
+				 "start_batch batch_size %"PRIu16
+				 " exceeds maximum of %u",
+				 batch_size, MAX_START_BATCH_SIZE);
 
 	handle_peer_commit_sig_batch(peer, peer_read(tmpctx, peer->pps),
 				     peer->channel->funding_pubkey[REMOTE],
