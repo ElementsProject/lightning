@@ -30,17 +30,19 @@ static struct command_result *do_find_peer_storage (struct command *cmd, void *u
 static struct node_id local_id;
 
 /* List of most connected nodes on the network */
-static const char *nodes_for_gossip[] = {
-	"03864ef025fde8fb587d989186ce6a4a186895ee44a926bfc370e2c366597a3f8f@3.33.236.230", //ACINQ
-	"035e4ff418fc8b5554c5d9eea66396c227bd429a3251c8cbc711002ba215bfc226@170.75.163.209", //WalletOfSatoshi
-	"0217890e3aad8d35bc054f43acc00084b25229ecff0ab68debd82883ad65ee8266@23.237.77.11", //1ML.com node ALPHA
-	"0242a4ae0c5bef18048fbecf995094b74bfb0f7391418d71ed394784373f41e4f3@3.124.63.44", //CoinGate
-	"0364913d18a19c671bb36dd04d6ad5be0fe8f2894314c36a9db3f03c2d414907e1@192.243.215.102", //LQwD-Canada
-	"02f1a8c87607f415c8f22c00593002775941dea48869ce23096af27b0cfdcc0b69@52.13.118.208", //Kraken ≡ƒÉÖΓÜí
-	"037659a0ac8eb3b8d0a720114efc861d3a940382dcfa1403746b4f8f6b2e8810ba@34.78.139.195" //nicehash-ln1
-	"024b9a1fa8e006f1e3937f65f66c408e6da8e1ca728ea43222a7381df1cc449605@165.232.168.69", //BLUEIRON-v23.08.1
-	"034ea80f8b148c750463546bd999bf7321a0e6dfc60aaf84bd0400a2e8d376c0d5@213.174.156.66", //LNBiG Hub-1
-	"026165850492521f4ac8abd9bd8088123446d126f648ca35e60f88177dc149ceb2@45.86.229.190", //Boltz
+static const struct {
+	const char *node;
+} nodes_for_gossip[] = {
+	{ "03864ef025fde8fb587d989186ce6a4a186895ee44a926bfc370e2c366597a3f8f@3.33.236.230" }, //ACINQ
+	{ "035e4ff418fc8b5554c5d9eea66396c227bd429a3251c8cbc711002ba215bfc226@170.75.163.209" }, //WalletOfSatoshi
+	{ "0217890e3aad8d35bc054f43acc00084b25229ecff0ab68debd82883ad65ee8266@23.237.77.11" }, //1ML.com node ALPHA
+	{ "0242a4ae0c5bef18048fbecf995094b74bfb0f7391418d71ed394784373f41e4f3@3.124.63.44" }, //CoinGate
+	{ "0364913d18a19c671bb36dd04d6ad5be0fe8f2894314c36a9db3f03c2d414907e1@192.243.215.102" }, //LQwD-Canada
+	{ "02f1a8c87607f415c8f22c00593002775941dea48869ce23096af27b0cfdcc0b69@52.13.118.208" }, //Kraken
+	{ "037659a0ac8eb3b8d0a720114efc861d3a940382dcfa1403746b4f8f6b2e8810ba@34.78.139.195" }, //nicehash-ln1
+	{ "024b9a1fa8e006f1e3937f65f66c408e6da8e1ca728ea43222a7381df1cc449605@165.232.168.69" }, //BLUEIRON-v23.08.1
+	{ "034ea80f8b148c750463546bd999bf7321a0e6dfc60aaf84bd0400a2e8d376c0d5@213.174.156.66" }, //LNBiG Hub-1
+	{ "026165850492521f4ac8abd9bd8088123446d126f648ca35e60f88177dc149ceb2@45.86.229.190" }, //Boltz
 };
 
 
@@ -164,8 +166,8 @@ static void entering_recovery_mode(struct command *cmd)
 						    connect_success,
 						    connect_fail,
 						    NULL);
-			plugin_log (plugin, LOG_DBG, "Connecting to %s", nodes_for_gossip[i]);
-			json_add_string(req->js, "id", nodes_for_gossip[i]);
+			plugin_log (plugin, LOG_DBG, "Connecting to %s", nodes_for_gossip[i].node);
+			json_add_string(req->js, "id", nodes_for_gossip[i].node);
 			send_outreq(req);
 		}
 	}
