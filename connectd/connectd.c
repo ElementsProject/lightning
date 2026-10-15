@@ -485,6 +485,27 @@ static void conn_timeout(struct io_conn *conn)
 	io_close(conn);
 }
 
+/* Incoming connection which hasn't sent init yet. */
+struct pending_in {
+	struct list_node list;
+	struct io_conn *conn;
+	struct wireaddr_internal addr;
+};
+
+static void destroy_pending_in(struct pending_in *pin)
+{
+	list_del(&pin->list);
+}
+
+static void conn_in_timeout(struct pending_in *pin)
+{
+	struct io_conn *conn = pin->conn;
+
+	/* timer_expired() moved us to tmpctx, but conn is about to go. */
+	tal_free(pin);
+	conn_timeout(conn);
+}
+
 /*~ So, where are you from? */
 static bool get_remote_address(struct io_conn *conn,
 			       struct wireaddr_internal *addr)
@@ -552,12 +573,22 @@ static struct io_plan *conn_in(struct io_conn *conn,
 			       struct conn_in *conn_in_arg)
 {
 	struct daemon *daemon = conn_in_arg->daemon;
+	struct pending_in *pin;
 	struct oneshot *timeout;
+
+	pin = tal(conn, struct pending_in);
+	pin->conn = conn;
+	pin->addr = conn_in_arg->addr;
+	list_add_tail(&daemon->pending_in, &pin->list);
+	tal_add_destructor(pin, destroy_pending_in);
 
 	/* If they don't complete handshake in reasonable time, we hang up */
 	timeout = new_reltimer(&daemon->timers, conn,
 			       time_from_sec(daemon->timeout_secs),
-			       conn_timeout, conn);
+			       conn_in_timeout, pin);
+
+	/* Timer is freed when they send init: then they're not pending. */
+	tal_steal(timeout, pin);
 
 	/*~ The crypto handshake differs depending on whether you received or
 	 * initiated the socket connection, so there are two entry points.
@@ -595,6 +626,17 @@ void close_random_connection(struct daemon *daemon)
 	struct connecting *c;
 	struct connecting_htable_iter cit;
 	bool closed_connect_attempt = false;
+	struct pending_in *pin;
+
+	/* Cheapest to lose: the oldest incoming connection without init. */
+	pin = list_top(&daemon->pending_in, struct pending_in, list);
+	if (pin) {
+		status_debug("due to stress, closing incoming connection from %s"
+			     " which has not sent init",
+			     fmt_wireaddr_internal(tmpctx, &pin->addr));
+		io_close(pin->conn);
+		return;
+	}
 
 	/* First, close all transient connection attempts in-flight */
 	for (c = connecting_htable_first(daemon->connecting, &cit);
@@ -2532,6 +2574,7 @@ int main(int argc, char *argv[])
 	daemon->peers = new_htable(daemon, peer_htable);
 	daemon->listeners = tal_arr(daemon, struct io_listener *, 0);
 	daemon->connecting = new_htable(daemon, connecting_htable);
+	list_head_init(&daemon->pending_in);
 	daemon->important_ids = new_htable(daemon, important_id_htable);
 	timers_init(&daemon->timers, time_mono());
 	daemon->gossmap_raw = NULL;

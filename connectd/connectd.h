@@ -3,6 +3,7 @@
 #include "config.h"
 #include <bitcoin/short_channel_id.h>
 #include <ccan/htable/htable_type.h>
+#include <ccan/list/list.h>
 #include <ccan/membuf/membuf.h>
 #include <ccan/timer/timer.h>
 #include <common/bigsize.h>
@@ -314,6 +315,9 @@ struct daemon {
 
 	/* Peers we are trying to reach right now. */
 	struct connecting_htable *connecting;
+
+	/* Incoming connections which haven't sent init, oldest first */
+	struct list_head pending_in;
 
 	/* Important (non-transient) peers we should reconnect to */
 	struct important_id_htable *important_ids;
