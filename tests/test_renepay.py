@@ -6,6 +6,9 @@ from utils import (
     mine_funding_to_announce,
     sync_blockheight,
     TEST_NETWORK,
+    get_channel_update_hex,
+    channel_direction,
+    fail_htlc_with_channel_update,
 )
 import pytest
 import random
@@ -616,7 +619,26 @@ def test_fees(node_factory):
         {"disable-mpp": None, "fee-base": 1010, "fee-per-satoshi": 100, 'allow-deprecated-apis': True},
         {"disable-mpp": None, "fee-base": 1050, "fee-per-satoshi": 100, 'allow-deprecated-apis': True},
     ]
-    nodes = node_factory.line_graph(len(opts), wait_for_announce=True, opts=opts)
+    # CLN no longer includes channel_update in failures (BOLT #1173), so
+    # nodes 2 and 3 will inject the changed fee policy via a plugin,
+    # simulating a peer that still sends one.
+    upd2 = {'hex': None}
+    upd3 = {'hex': None}
+
+    nodes = []
+    for i, opt in enumerate(opts):
+        if i == 2:
+            nodes.append(node_factory.get_node(
+                options=opt,
+                inline_plugin=fail_htlc_with_channel_update(lambda: upd2['hex'])))
+        elif i == 3:
+            nodes.append(node_factory.get_node(
+                options=opt,
+                inline_plugin=fail_htlc_with_channel_update(lambda: upd3['hex'])))
+        else:
+            nodes.append(node_factory.get_node(options=opt))
+    node_factory.join_nodes(nodes, fundchannel=True, wait_for_announce=True)
+
     source = nodes[0]
     dest = nodes[-1]
 
@@ -627,11 +649,26 @@ def test_fees(node_factory):
     assert invoice["amount_received_msat"] == Millisatoshi("100000sat")
 
     # if we update fee policy but gossip is not updated ...
+    scid23 = nodes[2].get_channel_scid(nodes[3])
+    scid34 = nodes[3].get_channel_scid(nodes[4])
+
     nodes[2].rpc.dev_suppress_gossip()
     nodes[2].rpc.setchannel(nodes[3].info["id"], 4000, 300, enforcedelay=0)
 
     nodes[3].rpc.dev_suppress_gossip()
     nodes[3].rpc.setchannel(nodes[4].info["id"], 3000, 350, enforcedelay=0)
+
+    # Nodes still store the new updates locally (addgossip happens even when
+    # peer broadcast is suppressed); fetch them for the injected failures.
+    def fetch(cell, node, scid, peer, fee_base):
+        h = get_channel_update_hex(node, scid, channel_direction(node, peer),
+                                   fee_base=fee_base)
+        if h:
+            cell['hex'] = h
+        return h
+
+    wait_for(lambda: fetch(upd2, nodes[2], scid23, nodes[3], 4000))
+    wait_for(lambda: fetch(upd3, nodes[3], scid34, nodes[4], 3000))
 
     invstr = dest.rpc.invoice("150000sat", "inv2", "description")["bolt11"]
     source.rpc.call("renepay", {"invstring": invstr})

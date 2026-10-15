@@ -54,10 +54,6 @@ void channel_gossip_set_remote_update(struct lightningd *ld,
 				      const struct peer_update *update TAKES,
 				      const struct node_id *source);
 
-/* Get channel_update to send in an error onion reply (can give NULL!) */
-const u8 *channel_gossip_update_for_error(const tal_t *ctx,
-					  struct channel *channel);
-
 /* Get the peer's last-sent channel_update info, if any. */
 const struct peer_update *channel_gossip_get_remote_update(const struct channel *channel);
 

@@ -8,7 +8,8 @@ from pyln.testing.utils import EXPERIMENTAL_DUAL_FUND, FUNDAMOUNT, scid_to_int
 from utils import (
     wait_for, only_one, sync_blockheight, TIMEOUT,
     mine_funding_to_announce, first_scid, serialize_payload_tlv, serialize_payload_final_tlv,
-    tu64_encode
+    tu64_encode, get_channel_update_hex, channel_direction,
+    fail_htlc_with_channel_update
 )
 import copy
 import os
@@ -283,8 +284,20 @@ def test_pay_disconnect(node_factory, bitcoind):
 
 
 def test_pay_error_update_fees(node_factory):
-    """We should process an update inside a temporary_channel_failure"""
-    l1, l2, l3 = node_factory.line_graph(3, fundchannel=True, wait_for_announce=True)
+    """We should process a channel_update inside an onion failure.
+
+    CLN no longer includes channel_update in failures (BOLT #1173), so
+    this simulates a peer that still does: l2 fails the first forward
+    with fee_insufficient carrying the updated channel_update.
+    """
+    upd = {'hex': None}
+
+    l1 = node_factory.get_node()
+    l2 = node_factory.get_node(
+        inline_plugin=fail_htlc_with_channel_update(lambda: upd['hex']))
+    l3 = node_factory.get_node()
+    node_factory.join_nodes([l1, l2, l3], fundchannel=True,
+                            wait_for_announce=True)
 
     # Don't include any routehints in first invoice.
     inv1 = l3.dev_invoice(amount_msat=123000,
@@ -295,8 +308,20 @@ def test_pay_error_update_fees(node_factory):
     inv2 = l3.rpc.invoice(123000, 'test_pay_error_update_fees2', 'desc')  # noqa: F841
 
     # Make sure l2 doesn't tell l1 directly that channel fee is changed.
+    scid = l2.get_channel_scid(l3)
     l2.rpc.dev_suppress_gossip()
     l2.rpc.setchannel(l3.info['id'], 1337, 137, enforcedelay=0)
+
+    # l2 still stores the new update in its gossip_store (addgossip happens
+    # even when peer broadcast is suppressed).  Fetch it for the plugin.
+    def fetch():
+        h = get_channel_update_hex(l2, scid, channel_direction(l2, l3),
+                                   fee_base=1337)
+        if h:
+            upd['hex'] = h
+        return h
+
+    wait_for(fetch)
 
     # Should bounce off and retry...
     ret = l1.rpc.pay(inv1['bolt11'])
