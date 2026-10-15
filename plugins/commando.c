@@ -373,6 +373,9 @@ static struct command_result *try_command(struct command *cmd,
 	struct rune *rune;
 	struct out_req *req;
 
+	destroy_commando(incoming, &incoming_commands);
+	tal_del_destructor2(incoming, destroy_commando, &incoming_commands);
+
 	toks = json_parse_simple(incoming, buf, tal_bytelen(buf));
 	if (!toks) {
 		return commando_error(cmd, incoming, COMMANDO_ERROR_REMOTE,
@@ -412,10 +415,6 @@ static struct command_result *try_command(struct command *cmd,
 	}
 	/* Gather all the info we need to execute this command (steals toks). */
 	cinfo = new_cond_info(incoming, incoming, toks, method, params, id, filter);
-
-	/* Don't count this towards incomings anymore */
-	destroy_commando(incoming, &incoming_commands);
-	tal_del_destructor2(incoming, destroy_commando, &incoming_commands);
 
 	req = jsonrpc_request_start(cmd, "checkrune",
 				    checkrune_done, checkrune_failed,
@@ -551,8 +550,9 @@ static struct command_result *handle_reply(struct node_id *peer,
 	}
 
 	result = json_get_member(replystr, toks, "result");
-	if (!result)
-		return command_fail(ocmd->cmd, COMMANDO_ERROR_LOCAL, "Reply had no result");
+	if (!result || result->type != JSMN_OBJECT)
+		return command_fail(ocmd->cmd, COMMANDO_ERROR_LOCAL,
+				    "Reply had no valid result");
 
 	res = jsonrpc_stream_success(ocmd->cmd);
 
