@@ -81,6 +81,7 @@ def env(name, default=None):
 
 
 VALGRIND = env("VALGRIND") == "1"
+ASAN = env("ASAN", "0") == "1"
 TEST_NETWORK = env("TEST_NETWORK", 'regtest')
 TEST_DEBUG = env("TEST_DEBUG", "0") == "1"
 

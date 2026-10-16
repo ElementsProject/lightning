@@ -2107,6 +2107,7 @@ def test_unreserve_all(node_factory):
     assert l1.rpc.askrene_listreservations() == {"reservations": []}
 
 
+@pytest.mark.xdist_group("heavy")
 def test_reservations_leak_under_load(node_factory, executor):
     """Stress-test reservation cleanup: concurrent payments over shared channels
     must leave zero stale reservations after all payments settle."""
