@@ -3,13 +3,13 @@ use async_trait::async_trait;
 use bitcoin::hashes::sha256::Hash;
 use bitcoin::secp256k1::PublicKey;
 
-use crate::proto::{
+use crate::proto::lsps2::{
+    DatastoreEntry, Lsps2PolicyGetChannelCapacityRequest, Lsps2PolicyGetChannelCapacityResponse,
+    Lsps2PolicyGetInfoRequest, Lsps2PolicyGetInfoResponse,
+};
+use lsps_types::{
     lsps0::{Msat, ShortChannelId},
-    lsps2::{
-        DatastoreEntry, Lsps2PolicyGetChannelCapacityRequest,
-        Lsps2PolicyGetChannelCapacityResponse, Lsps2PolicyGetInfoRequest,
-        Lsps2PolicyGetInfoResponse, OpeningFeeParams,
-    },
+    lsps2::OpeningFeeParams,
 };
 
 pub type Blockheight = u32;

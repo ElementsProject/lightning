@@ -2,13 +2,10 @@ use crate::{
     core::lsps2::provider::{
         Blockheight, BlockheightProvider, DatastoreProvider, LightningProvider, Lsps2OfferProvider,
     },
-    proto::{
-        lsps0::Msat,
-        lsps2::{
-            DatastoreEntry, Lsps2PolicyGetChannelCapacityRequest,
-            Lsps2PolicyGetChannelCapacityResponse, Lsps2PolicyGetInfoRequest,
-            Lsps2PolicyGetInfoResponse, OpeningFeeParams,
-        },
+    proto::lsps2::{
+        DatastoreEntry, Lsps2PolicyGetChannelCapacityRequest,
+        Lsps2PolicyGetChannelCapacityResponse, Lsps2PolicyGetInfoRequest,
+        Lsps2PolicyGetInfoResponse,
     },
 };
 use anyhow::{Context, Result};
@@ -23,9 +20,13 @@ use cln_rpc::{
         },
         responses::ListdatastoreResponse,
     },
-    primitives::{AmountSat, AmountSatOrAll, ChannelState, Sha256, ShortChannelId},
+    primitives::{AmountSat, AmountSatOrAll, ChannelState, Sha256},
 };
 use core::fmt;
+use lsps_types::{
+    lsps0::{Msat, ShortChannelId},
+    lsps2::OpeningFeeParams,
+};
 use serde::Serialize;
 use std::path::PathBuf;
 

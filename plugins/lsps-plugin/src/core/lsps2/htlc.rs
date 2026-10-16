@@ -3,16 +3,17 @@ use crate::{
         lsps2::provider::{DatastoreProvider, LightningProvider, Lsps2OfferProvider},
         tlv::{TLV_FORWARD_AMT, TlvStream},
     },
-    proto::{
-        lsps0::{Msat, ShortChannelId},
-        lsps2::{
-            Lsps2PolicyGetChannelCapacityRequest, compute_opening_fee,
-            failure_codes::{TEMPORARY_CHANNEL_FAILURE, UNKNOWN_NEXT_PEER},
-        },
+    proto::lsps2::{
+        Lsps2PolicyGetChannelCapacityRequest,
+        failure_codes::{TEMPORARY_CHANNEL_FAILURE, UNKNOWN_NEXT_PEER},
     },
 };
 use bitcoin::hashes::sha256::Hash;
 use chrono::Utc;
+use lsps_types::{
+    lsps0::{Msat, ShortChannelId},
+    lsps2::compute_opening_fee,
+};
 use std::time::Duration;
 use thiserror::Error;
 
@@ -120,12 +121,12 @@ impl<A: DatastoreProvider + Lsps2OfferProvider + LightningProvider> HtlcAccepted
         }
 
         // B) Is the fee option menu still valid?
-        if Utc::now() >= ds_rec.opening_fee_params.valid_until {
+        if Utc::now() >= ds_rec.opening_fee_params.valid_until.as_chrono() {
             // Not valid anymore, remove from DS and fail HTLC.
             let _ = self.api.del_buy_request(&onion.short_channel_id).await;
             return Ok(HtlcDecision::Reject {
                 reason: RejectReason::OfferExpired {
-                    valid_until: ds_rec.opening_fee_params.valid_until,
+                    valid_until: ds_rec.opening_fee_params.valid_until.as_chrono(),
                 },
             });
         }
@@ -237,16 +238,17 @@ impl<A: DatastoreProvider + Lsps2OfferProvider + LightningProvider> HtlcAccepted
 mod tests {
     use super::*;
     use crate::core::tlv::TlvStream;
-    use crate::proto::lsps0::{Msat, Ppm, ShortChannelId};
     use crate::proto::lsps2::{
         DatastoreEntry, Lsps2PolicyGetChannelCapacityResponse, Lsps2PolicyGetInfoRequest,
-        Lsps2PolicyGetInfoResponse, OpeningFeeParams, Promise,
+        Lsps2PolicyGetInfoResponse,
     };
     use anyhow::{Result as AnyResult, anyhow};
     use async_trait::async_trait;
     use bitcoin::hashes::{Hash, sha256::Hash as Sha256};
     use bitcoin::secp256k1::PublicKey;
     use chrono::{TimeZone, Utc};
+    use lsps_types::lsps0::{Msat, Ppm, ShortChannelId};
+    use lsps_types::lsps2::{OpeningFeeParams, Promise};
     use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::{Arc, Mutex};
     use std::time::Duration;
@@ -270,7 +272,7 @@ mod tests {
         OpeningFeeParams {
             min_fee_msat: Msat(2_000),
             proportional: Ppm(10_000), // 1%
-            valid_until: Utc.with_ymd_and_hms(2100, 1, 1, 0, 0, 0).unwrap(),
+            valid_until: Utc.with_ymd_and_hms(2100, 1, 1, 0, 0, 0).unwrap().into(),
             min_lifetime: 1000,
             max_client_to_self_delay: 2016,
             min_payment_size_msat: Msat(1_000_000),
@@ -281,7 +283,7 @@ mod tests {
 
     fn expired_opening_fee_params() -> OpeningFeeParams {
         OpeningFeeParams {
-            valid_until: Utc.with_ymd_and_hms(2000, 1, 1, 0, 0, 0).unwrap(),
+            valid_until: Utc.with_ymd_and_hms(2000, 1, 1, 0, 0, 0).unwrap().into(),
             ..valid_opening_fee_params()
         }
     }
