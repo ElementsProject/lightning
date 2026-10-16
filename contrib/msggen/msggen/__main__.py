@@ -1,6 +1,7 @@
 import json
 import os
 import argparse
+import sys
 from pathlib import Path
 from msggen.gen.grpc import GrpcGenerator, GrpcConverterGenerator, GrpcUnconverterGenerator, GrpcServerGenerator
 from msggen.gen.grpc2py import Grpc2PyGenerator
@@ -125,10 +126,15 @@ def main():
         schema = combine_schemas(src, dest)
         print(f"Created {dest} from {len(schema)} files")
     elif args.command == 'missing-grpc':
+        missing, stale = check_missing()
         print("Missing RPC commands in grpc:")
-        missing = check_missing()
-        for name in missing:
+        for name in sorted(missing):
             print(name)
+        print("Stale grpc_method_blacklist entries:")
+        for name in sorted(stale):
+            print(name)
+        if missing or stale:
+            sys.exit(1)
 
 
 if __name__ == "__main__":

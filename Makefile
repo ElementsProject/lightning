@@ -685,7 +685,7 @@ check-security:
 	@bash -lc 'diff -u <(tail -n +3 -- SECURITY.md) <(tail -n +9 -- doc/contribute-to-core-lightning/security-policy.md)'
 
 # This should NOT compile things!
-check-source: check-makefile check-whitespace check-spelling check-python-flake8 check-includes check-shellcheck check-setup_locale check-tmpctx check-discouraged-functions check-amount-access check-bad-sprintf check-wire-format check-source-bolt check-security
+check-source: check-makefile check-whitespace check-spelling check-python-flake8 check-includes check-shellcheck check-setup_locale check-tmpctx check-discouraged-functions check-amount-access check-bad-sprintf check-wire-format check-source-bolt check-security check-msggen-grpc
 
 full-check: check check-source
 
