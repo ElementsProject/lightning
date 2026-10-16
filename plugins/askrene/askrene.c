@@ -376,7 +376,10 @@ static void add_layer(const struct layer ***layers,
 	layer_clear_overridden_capacities(l, gossmap, capacities);
 }
 
-/* Gather layers, clear capacities where layers contains info */
+/* Gather layers, clear capacities where layers contains info.
+ * Returns NULL (and sets *unknown) if a layer no longer exists: layer
+ * names are only checked when the command arrives, and the layer can be
+ * removed while the request is waiting for a free child. */
 static const struct layer **apply_layers(const tal_t *ctx,
 					 struct askrene *askrene,
 					 struct command *cmd,
@@ -384,7 +387,8 @@ static const struct layer **apply_layers(const tal_t *ctx,
 					 struct gossmap_localmods *localmods,
 					 const char **layernames,
 					 const struct layer *local_layer,
-					 fp16_t *capacities)
+					 fp16_t *capacities,
+					 const char **unknown)
 {
 	const struct layer **layers = tal_arr(ctx, const struct layer *, 0);
 	/* Layers must exist, but might be special ones! */
@@ -402,10 +406,12 @@ static const struct layer **apply_layers(const tal_t *ctx,
 				/* This layer takes effect when converting flows
 				 * into routes. */
 				continue;
-			} else {
-				assert(streq(layernames[i], "auto.sourcefree"));
+			} else if (streq(layernames[i], "auto.sourcefree")) {
 				cmd_log(tmpctx, cmd, LOG_DBG, "Adding auto.sourcefree");
 				l = source_free_layer(layernames, askrene, source, localmods);
+			} else {
+				*unknown = layernames[i];
+				return tal_free(layers);
 			}
 		}
 		add_layer(&layers, l, askrene->gossmap, localmods, capacities);
@@ -553,6 +559,7 @@ static struct command_result *do_getroutes(struct command *cmd,
 	int replyfds[2], logfds[2];
 	struct router_child *child;
 	const struct layer **layers;
+	const char *unknown_layer;
 	s8 *biases;
 	fp16_t *capacities;
 	bool include_next_node_id, include_amount_msat, include_delay;
@@ -600,8 +607,12 @@ static struct command_result *do_getroutes(struct command *cmd,
 	/* apply selected layers to the localmods */
 	layers = apply_layers(cmd, askrene, cmd,
 			      &info->source, localmods,
-			      info->layers, info->local_layer, capacities);
-
+			      info->layers, info->local_layer, capacities,
+			      &unknown_layer);
+	if (!layers)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Layer %s was removed before routing began",
+				    unknown_layer);
 
 	/* no parallel payments means we can drop any smaller channels */
 	if (info->maxparts == 1) {
