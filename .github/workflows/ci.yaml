@@ -707,11 +707,7 @@ jobs:
           TEST_DEBUG: 1
           PYTEST_OPTS: ${{ env.PYTEST_OPTS_BASE }} --test-group-random-seed=42
         run: |
-          # Memory is logged to the job log during the run, so readings before a VM kill survive.
-          (while sleep 15; do
-            printf '\n[mem %s] %s\n' "$(date +%T)" "$(free -m | awk '/Mem:/{print "used="$3"MB avail="$7"MB"}')"
-            ps -eo rss=,comm= | awk '{s[$2]+=$1; c[$2]++} END{for(k in s) printf "%d %d %s\n", s[k]/1024, c[k], k}' | sort -rn | head -n 5 | awk '{printf "[mem]   %6d MB  x%-4d %s\n", $1, $2, $3}'
-          done) &
+          .github/scripts/mem-monitor.sh &
           mem_pid=$!
           trap 'kill $mem_pid 2>/dev/null' EXIT
           # -n $(nproc) rather than $(nproc)+1: one fewer parallel node-cluster
@@ -780,11 +776,7 @@ jobs:
         env:
           PYTEST_OPTS: ${{ env.PYTEST_OPTS_BASE }} --test-group-random-seed=42
         run: |
-          # Memory is logged to the job log during the run, so readings before a VM kill survive.
-          (while sleep 15; do
-            printf '\n[mem %s] %s\n' "$(date +%T)" "$(free -m | awk '/Mem:/{print "used="$3"MB avail="$7"MB"}')"
-            ps -eo rss=,comm= | awk '{s[$2]+=$1; c[$2]++} END{for(k in s) printf "%d %d %s\n", s[k]/1024, c[k], k}' | sort -rn | head -n 5 | awk '{printf "[mem]   %6d MB  x%-4d %s\n", $1, $2, $3}'
-          done) &
+          .github/scripts/mem-monitor.sh &
           mem_pid=$!
           trap 'kill $mem_pid 2>/dev/null' EXIT
           # loadgroup: tests marked heavy run one at a time on a single worker.
