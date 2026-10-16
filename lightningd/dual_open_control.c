@@ -511,6 +511,19 @@ static void rbf_channel_remove_dualopend(struct subd *dualopend,
 	payload->dualopend = NULL;
 }
 
+/* The channel itself is fine (its funding tx is signed and broadcast), so
+ * only the RBF attempt is dropped.  dualopend only reads the peer while
+ * negotiating, so it can't act on the funding tx confirming until we
+ * disconnect to unblock it; channel_cleanup_commands fires
+ * channel_open_failed so funder cleans up its side of the attempt. */
+static void accepter_rbf_timeout(struct channel *channel)
+{
+	channel_disconnect(channel, LOG_INFORM, true,
+			   tal_fmt(tmpctx,
+				   "Peer did not complete RBF within %u seconds",
+				   channel->peer->ld->dev_max_dualopen_negotiation_secs));
+}
+
 static void rbf_channel_hook_cb(struct rbf_channel_payload *payload STEALS)
 {
 	struct subd *dualopend = payload->dualopend;
@@ -550,6 +563,11 @@ static void rbf_channel_hook_cb(struct rbf_channel_payload *payload STEALS)
 
 	/* Update channel with new open attempt. */
 	channel->open_attempt = new_channel_open_attempt(channel);
+	/* Bound how long the peer can stall us, as for the initial open.
+	 * Freed with open_attempt at commitment_signed. */
+	notleak(new_reltimer(dualopend->ld->timers, channel->open_attempt,
+			     time_from_sec(dualopend->ld->dev_max_dualopen_negotiation_secs),
+			     accepter_rbf_timeout, channel));
 	msg = towire_dualopend_got_rbf_offer_reply(NULL,
 						   payload->our_funding,
 						   payload->psbt);

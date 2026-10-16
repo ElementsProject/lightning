@@ -848,8 +848,9 @@ static void dev_register_opts(struct lightningd *ld)
 		       OPT_DEV|OPT_SHOWINT,
 		       opt_set_u32, opt_show_u32,
 		       &ld->dev_max_dualopen_negotiation_secs,
-		       "Maximum seconds a peer opening a dual-funded "
-		       "channel with us gets to reach commitment_signed.");
+		       "Maximum seconds a peer opening or RBFing a "
+		       "dual-funded channel with us gets to reach "
+		       "commitment_signed.");
 	clnopt_witharg("--dev-force-tmp-channel-id", OPT_DEV,
 		       opt_force_tmp_channel_id, NULL, ld,
 		       "Force the temporary channel id, instead of random");
