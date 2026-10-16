@@ -8,6 +8,7 @@
 #include <common/gossmap.h>
 #include <common/jsonrpc_errors.h>
 
+struct flow;
 struct route_query;
 
 /* A wrapper to the min. cost flow solver that actually takes into consideration
@@ -32,5 +33,14 @@ const char *single_path_routes(const tal_t *ctx, struct route_query *rq,
 			       u32 maxdelay, struct flow ***flows,
 			       double *probability,
 			       enum jsonrpc_errcode *ecode);
+
+/* The probability of forwarding a payment amount given a high and low liquidity
+ * bounds.
+ * @low: the liquidity is known to be greater or equal than "low"
+ * @high: the liquidity is known to be less than "high"
+ * @amount: how much is required to forward */
+double pickhardt_richter_probability(struct amount_msat low,
+				     struct amount_msat high,
+				     struct amount_msat amount);
 
 #endif /* LIGHTNING_PLUGINS_ASKRENE_CHILD_MCF_H */
