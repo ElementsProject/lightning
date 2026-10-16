@@ -348,6 +348,9 @@ struct lightningd {
 	 * if we are the fundee. */
 	u32 dev_max_funding_unconfirmed;
 
+	/* Seconds a peer's dual-funded open has to reach commitment_signed. */
+	u32 dev_max_dualopen_negotiation_secs;
+
 	/* Special switches to test onion compatibility */
 	bool dev_ignore_modern_onion;
 
