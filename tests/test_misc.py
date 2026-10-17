@@ -3432,6 +3432,32 @@ def test_restorefrompeer(node_factory, bitcoind):
     wait_for(lambda: l2.rpc.listfunds()["channels"][0]["state"] == "ONCHAIN")
 
 
+def test_recover_nodes_for_gossip():
+    """Verify nodes_for_gossip bootstrap addresses in plugins/recover.c."""
+    with open("plugins/recover.c", "r", encoding="utf-8", errors="ignore") as f:
+        content = f.read()
+
+    match = re.search(r"nodes_for_gossip\[\]\s*=\s*\{([^}]+)\};", content)
+    assert match, "Could not find nodes_for_gossip in plugins/recover.c"
+
+    entries = []
+    for line in match.group(1).splitlines():
+        line = line.strip()
+        if not line or line.startswith("//"):
+            continue
+        str_match = re.search(r'"([^"]+)"', line)
+        if str_match:
+            entries.append(str_match.group(1))
+
+    assert len(entries) == 10
+    for e in entries:
+        assert "@" in e
+        assert e.count("@") == 1
+        node_id, host = e.split("@")
+        assert len(node_id) == 66
+        int(node_id, 16)
+
+
 def test_commitfee_option(node_factory):
     """Sanity check for the --commit-fee startup option."""
     l1, l2 = node_factory.get_nodes(2, opts=[{"commit-fee": "200",
