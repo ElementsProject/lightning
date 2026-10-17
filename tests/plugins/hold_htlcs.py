@@ -31,6 +31,10 @@ def on_htlc_accepted(htlc, onion, plugin, **kwargs):
 
     # Give the tester something to look for
     plugin.log("htlc_accepted hook called")
+    if plugin.hold_result == "fail":
+        # WIRE_TEMPORARY_NODE_FAILURE
+        return {'result': 'fail', 'failure_message': '2002'}
+
     return {'result': plugin.hold_result}
 
 

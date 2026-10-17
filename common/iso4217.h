@@ -19,6 +19,19 @@ struct iso4217_name_and_divisor {
 const struct iso4217_name_and_divisor *find_iso4217(const utf8 *prefix,
 						    size_t len);
 
+/* 10^minor_unit, e.g. 100 for USD (cents), 1 for JPY. */
+u64 iso4217_divisor(const struct iso4217_name_and_divisor *isocode);
+
+/**
+ * fmt_iso4217_amount - format a raw minor-unit amount for display.
+ * @amount: value in minor units (e.g. cents), as from parse_currency_amount.
+ *
+ * Returns e.g. "12.34" for USD, "1234" for JPY (whose minor_unit is 0).
+ */
+const char *fmt_iso4217_amount(const tal_t *ctx,
+			       const struct iso4217_name_and_divisor *isocode,
+			       u64 amount);
+
 /**
  * parse_currency_amount - convert msat amount, any, or currency amount.
  *
