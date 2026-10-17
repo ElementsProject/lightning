@@ -120,6 +120,7 @@ struct peer *new_peer(struct lightningd *ld, u64 dbid,
 	else
 		peer->their_features = NULL;
 
+	peer->unknown_channel_reestablishes = 0;
 	peer->dev_ignore_htlcs = false;
 
 	peer_node_id_map_add(ld->peers, peer);
@@ -1950,6 +1951,9 @@ void handle_peer_connected(struct lightningd *ld, const u8 *msg)
 	 * on peer commands, and it knows to ignore if it's wrong. */
 	peer->connectd_counter = connectd_counter;
 
+	/* Fresh connection, fresh spam allowance. */
+	peer->unknown_channel_reestablishes = 0;
+
 	/* We mark peer in "connecting" state until hooks have passed. */
 	assert(peer->connected == PEER_DISCONNECTED);
 	peer->connected = PEER_CONNECTING;
@@ -2038,6 +2042,11 @@ static void send_reestablish(struct peer *peer,
 							 peer->connectd_counter,
 							 msg)));
 }
+
+/* How many channel_reestablish for channels we don't know we answer without
+ * hanging up.  An honest peer needs one per stale channel; past that it's
+ * cheaper for us to make them reconnect (which connectd rate-limits). */
+#define MAX_UNKNOWN_CHANNEL_REESTABLISHES 10
 
 /* Is this a dual-funded open which has not reached the funding transaction
  * yet?  All of these still own a dualopend, and none of them have a funding
@@ -2150,6 +2159,10 @@ void handle_peer_spoke(struct lightningd *ld, const u8 *msg)
 	struct peer_fd *pfd;
 	char *errmsg;
 	bool sent_reestablish = false;
+	/* Every error we send here hangs up, except the unknown-channel
+	 * reestablish case below, and a reestablish for a channel whose
+	 * siblings are still live. */
+	bool hangup = true;
 
 	if (!fromwire_connectd_peer_spoke(msg, msg, &id, &connectd_counter, &msgtype, &channel_id, &errmsg))
 		fatal("Connectd gave bad CONNECTD_PEER_SPOKE message %s",
@@ -2328,9 +2341,30 @@ void handle_peer_spoke(struct lightningd *ld, const u8 *msg)
 						"Channel is closed and forgotten");
 			goto send_error;
 		}
+		/* BOLT #1:
+		 *
+		 * A sending node:
+		 *...
+		 *  - when sending `error`:
+		 *    - MUST fail the channel(s) referred to by the error message.
+		 */
+		/* We don't know the channel, so there's nothing for us to
+		 * fail, and nothing tells us to drop the connection: `error`
+		 * exists so that we don't have to.  Staying up matters here,
+		 * because the peer needs this error to forget its own (saved,
+		 * commitment-ready) channel: hanging up races with the error
+		 * delivery, and then it retries on every reconnect (#8822).
+		 *
+		 * A hostile peer could use that to stream reestablishes for
+		 * random channel_ids down a single connection, so we only
+		 * tolerate a few before hanging up like we used to. */
+		if (++peer->unknown_channel_reestablishes
+		    <= MAX_UNKNOWN_CHANNEL_REESTABLISHES)
+			hangup = false;
+		break;
 	}
 
-	/* Weird message?  Log and reply with error. */
+	/* Unknown channel, or a weird message?  Log and reply with error. */
 	log_peer_unusual(ld->log, &peer->id,
 			 "Unknown channel %s for %s",
 			 fmt_channel_id(tmpctx,
@@ -2354,7 +2388,7 @@ send_error:
 
 	log_peer_debug(ld->log, &peer->id, "Telling connectd to send error %s",
 		       tal_hex(tmpctx, error));
-	/* Get connectd to send error. */
+	/* Get connectd to send error, and (usually) close. */
 	subd_send_msg(ld->connectd,
 		      take(towire_connectd_peer_send_msg(NULL, &peer->id,
 							 peer->connectd_counter,
@@ -2371,10 +2405,11 @@ send_error:
 	    && peer_has_other_live_channel(peer, &channel_id))
 		return;
 
-	subd_send_msg(ld->connectd,
-		      take(towire_connectd_disconnect_peer(NULL,
-							&peer->id,
-							peer->connectd_counter)));
+	if (hangup)
+		subd_send_msg(ld->connectd,
+			      take(towire_connectd_disconnect_peer(NULL,
+								&peer->id,
+								peer->connectd_counter)));
 	return;
 
 tell_connectd:
