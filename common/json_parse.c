@@ -509,6 +509,13 @@ bool json_to_bitcoin_amount(const char *buffer, const jsmntok_t *tok,
 {
 	char *end;
 	unsigned long btc, sat;
+	uint64_t btc_sats;
+
+	if (tok->end <= tok->start)
+		return false;
+
+	if (!cisdigit(buffer[tok->start]))
+		return false;
 
 	errno = 0;
 	btc = strtoul(buffer + tok->start, &end, 10);
@@ -518,6 +525,8 @@ bool json_to_bitcoin_amount(const char *buffer, const jsmntok_t *tok,
 		/* Expect always 8 decimal places. */
 		if (*end != '.' || buffer + tok->end - end != 9)
 			return false;
+		if (!cisdigit(end[1]))
+			return false;
 		sat = strtoul(end+1, &end, 10);
 		if (sat == ULONG_MAX && errno == ERANGE)
 			return false;
@@ -526,10 +535,14 @@ bool json_to_bitcoin_amount(const char *buffer, const jsmntok_t *tok,
 	} else
 		sat = 0;
 
-	*satoshi = btc * (uint64_t)100000000 + sat;
-	if (*satoshi != btc * (uint64_t)100000000 + sat)
+	if (mul_overflows_u64(btc, (uint64_t)100000000))
+		return false;
+	btc_sats = btc * (uint64_t)100000000;
+
+	if (add_overflows_u64(btc_sats, sat))
 		return false;
 
+	*satoshi = btc_sats + sat;
 	return true;
 }
 

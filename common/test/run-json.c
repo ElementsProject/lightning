@@ -51,7 +51,7 @@ void towire_tlv(u8 **pptr UNNEEDED,
 
 // issue #577
 
-static void do_json_tok_bitcoin_amount(const char* val, uint64_t expected)
+static void do_json_tok_bitcoin_amount(const char *val, bool ok, uint64_t expected)
 {
 	uint64_t amount;
 	jsmntok_t tok;
@@ -59,10 +59,12 @@ static void do_json_tok_bitcoin_amount(const char* val, uint64_t expected)
 	tok.start = 0;
 	tok.end = strlen(val);
 
-	fprintf(stderr, "do_json_tok_bitcoin_amount(\"%s\", %"PRIu64"): ", val, expected);
+	fprintf(stderr, "do_json_tok_bitcoin_amount(\"%s\", %s, %"PRIu64"): ",
+		val, ok ? "true" : "false", expected);
 
-	assert(json_to_bitcoin_amount(val, &tok, &amount) == true);
-	assert(amount == expected);
+	assert(json_to_bitcoin_amount(val, &tok, &amount) == ok);
+	if (ok)
+		assert(amount == expected);
 
 	fprintf(stderr, "ok\n");
 }
@@ -70,13 +72,25 @@ static void do_json_tok_bitcoin_amount(const char* val, uint64_t expected)
 
 static int test_json_tok_bitcoin_amount(void)
 {
-	do_json_tok_bitcoin_amount("0.00000001", 1);
-	do_json_tok_bitcoin_amount("0.00000007", 7);
-	do_json_tok_bitcoin_amount("0.00000008", 8);
-	do_json_tok_bitcoin_amount("0.00000010", 10);
-	do_json_tok_bitcoin_amount("0.12345678", 12345678);
-	do_json_tok_bitcoin_amount("0.01234567", 1234567);
-	do_json_tok_bitcoin_amount("123.45678900", 12345678900);
+	do_json_tok_bitcoin_amount("0", true, 0);
+	do_json_tok_bitcoin_amount("0.00000000", true, 0);
+	do_json_tok_bitcoin_amount("0.00000001", true, 1);
+	do_json_tok_bitcoin_amount("0.00000007", true, 7);
+	do_json_tok_bitcoin_amount("0.00000008", true, 8);
+	do_json_tok_bitcoin_amount("0.00000010", true, 10);
+	do_json_tok_bitcoin_amount("0.12345678", true, 12345678);
+	do_json_tok_bitcoin_amount("0.01234567", true, 1234567);
+	do_json_tok_bitcoin_amount("123.45678900", true, 12345678900);
+	do_json_tok_bitcoin_amount("21000000.00000000", true, 2100000000000000ULL);
+
+	/* Invalid inputs */
+	do_json_tok_bitcoin_amount("", false, 0);
+	do_json_tok_bitcoin_amount("-1", false, 0);
+	do_json_tok_bitcoin_amount("-0.00000001", false, 0);
+	do_json_tok_bitcoin_amount("+1.00000000", false, 0);
+	do_json_tok_bitcoin_amount("1.0000000", false, 0);  /* 7 decimals */
+	do_json_tok_bitcoin_amount("1.000000000", false, 0); /* 9 decimals */
+	do_json_tok_bitcoin_amount("184467440738.00000000", false, 0); /* overflows u64 */
 
 	return 0;
 }
