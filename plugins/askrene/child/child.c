@@ -219,8 +219,8 @@ void run_child(const struct gossmap *gossmap,
 	       const struct gossmap_node *srcnode,
 	       const struct gossmap_node *dstnode,
 	       struct amount_msat amount, struct amount_msat maxfee,
-	       u32 finalcltv, u32 maxdelay, size_t maxparts,
-              bool include_fees,
+	       u32 finalcltv, u32 maxdelay, size_t maxparts, size_t maxhops,
+	       bool include_fees,
 	       const char *cmd_id,
 	       struct json_filter *cmd_filter,
 	       bool include_next_node_id,
@@ -243,11 +243,13 @@ void run_child(const struct gossmap *gossmap,
 	if (single_path) {
 		err = single_path_routes(rq, rq, deadline, srcnode, dstnode,
 					 amount, maxfee, finalcltv,
-					 maxdelay, &flows, &probability, &ecode);
+					 maxdelay, maxhops, &flows,
+					 &probability, &ecode);
 	} else {
 		err = default_routes(rq, rq, deadline, srcnode, dstnode,
 				     amount, maxfee, finalcltv, maxdelay,
-				     maxparts, &flows, &probability, &ecode);
+				     maxparts, maxhops, &flows, &probability,
+				     &ecode);
 	}
 	if (err) {
 		write_all(replyfd, &ecode, sizeof(ecode));
