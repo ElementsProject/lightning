@@ -502,6 +502,9 @@ static bool test_vars(struct lightningd *ld)
 	/* Check updating */
 	db_set_intvar(db, varname, 2);
 	CHECK(db_get_intvar(db, varname, 42) == 2);
+
+	db_set_intvar(db, varname, 10000000000LL);
+	CHECK(db_get_intvar(db, varname, 42) == 10000000000LL);
 	db_commit_transaction(db);
 
 	tal_free(db);
