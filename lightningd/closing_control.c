@@ -700,12 +700,14 @@ static bool channel_state_can_close(enum channel_state state)
 	case CHANNELD_AWAITING_SPLICE:
 	case CHANNELD_AWAITING_LOCKIN:
 	case DUALOPEND_AWAITING_LOCKIN:
-	case DUALOPEND_OPEN_INIT:
 	case DUALOPEND_OPEN_COMMIT_READY:
 	case DUALOPEND_OPEN_COMMITTED:
 	case CLOSINGD_SIGEXCHANGE:
 	case CHANNELD_SHUTTING_DOWN:
 		return true;
+	/* Not in the db yet, so not a real channel: param_channel_or_peer
+	 * hands it back as unsaved_channel instead. */
+	case DUALOPEND_OPEN_INIT:
 	case CLOSINGD_COMPLETE:
 	case AWAITING_UNILATERAL:
 	case FUNDING_SPEND_SEEN:
