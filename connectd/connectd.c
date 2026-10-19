@@ -688,6 +688,19 @@ void close_random_connection(struct daemon *daemon)
 	io_close(best_peer->to_peer);
 }
 
+/*~ We enabled io_set_extended_errors(), so when accept() fails, our
+ * listener callback is called with a NULL conn. */
+static struct io_plan *accept_failed(struct daemon *daemon)
+{
+	static bool accept_logged = false;
+	status_broken_once(&accept_logged,
+			   "accepting incoming fd failed: %s",
+			   strerror(errno));
+	/* Maybe free up some fds by closing something. */
+	close_random_connection(daemon);
+	return NULL;
+}
+
 /*~ When we get a direct connection in we set up its network address
  * then call handshake.c to set up the crypto state. */
 static struct io_plan *connection_in(struct io_conn *conn,
@@ -696,15 +709,8 @@ static struct io_plan *connection_in(struct io_conn *conn,
 	struct conn_in conn_in_arg;
 
 	/* Did we fail to accept? */
-	if (!conn) {
-		static bool accept_logged = false;
-		status_broken_once(&accept_logged,
-				   "accepting incoming fd failed: %s",
-				   strerror(errno));
-		/* Maybe free up some fds by closing something. */
-		close_random_connection(daemon);
-		return NULL;
-	}
+	if (!conn)
+		return accept_failed(daemon);
 
 	conn_in_arg.addr.u.wireaddr.is_websocket = false;
 	if (!get_remote_address(conn, &conn_in_arg.addr))
@@ -729,6 +735,10 @@ static struct io_plan *websocket_connection_in(struct io_conn *conn,
 	pid_t childpid;
 	int err;
 	struct conn_in conn_in_arg;
+
+	/* Did we fail to accept? */
+	if (!conn)
+		return accept_failed(daemon);
 
 	conn_in_arg.addr.u.wireaddr.is_websocket = true;
 	if (!get_remote_address(conn, &conn_in_arg.addr))
