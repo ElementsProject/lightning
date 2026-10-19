@@ -647,3 +647,117 @@ def test_lsps2_mock_jit_channel_mpp_fixed_invoice(node_factory):
     only_one(l1.rpc.listpeerchannels()["channels"])
     paid = only_one(l1.rpc.listinvoices("lsp-jit-channel-0")["invoices"])
     assert paid["status"] == "paid"
+
+
+LIST_PROTOCOLS_RESULT = {"jsonrpc": "2.0", "result": {"protocols": [2]}, "id": "1"}
+
+
+@pytest.mark.parametrize(
+    "transport,expected",
+    [
+        ({"behavior": "honest"}, [LIST_PROTOCOLS_RESULT]),
+        ({"behavior": "drop"}, []),
+        ({"behavior": "wrong_id"}, [{**LIST_PROTOCOLS_RESULT, "id": "mock-wrong-id"}]),
+        (
+            {"behavior": "duplicate", "change": {"protocols": [1]}},
+            [
+                LIST_PROTOCOLS_RESULT,
+                {**LIST_PROTOCOLS_RESULT, "result": {"protocols": [1]}},
+            ],
+        ),
+        ({"behavior": "replace", "payload": "garbage"}, ["garbage"]),
+        (
+            {"behavior": "add_fields", "fields": {"unknown": 1}},
+            [{**LIST_PROTOCOLS_RESULT, "result": {"protocols": [2], "unknown": 1}}],
+        ),
+        (
+            {"behavior": "error", "error": {"code": -32603, "message": "boom"}},
+            [
+                {
+                    "jsonrpc": "2.0",
+                    "id": "1",
+                    "error": {"code": -32603, "message": "boom"},
+                }
+            ],
+        ),
+        # Limited to other methods: honest.
+        (
+            {"behavior": "drop", "methods": ["lsps2.buy"]},
+            [LIST_PROTOCOLS_RESULT],
+        ),
+    ],
+)
+def test_lsps2_mock_transport_behaviors(node_factory, transport, expected):
+    l1, l2 = node_factory.line_graph(
+        2, fundchannel=False, opts=[{}, {"plugin": LSPS2_MOCK}]
+    )
+    l2.rpc.call("lsps2-mock-configure", {"config": {"transport": transport}})
+
+    assert lsps2_mock_request(l1, l2, "lsps0.list_protocols", {}) == expected
+
+
+def test_lsps2_mock_rejects_missing_parameters(node_factory):
+    l1 = node_factory.get_node(options={"plugin": LSPS2_MOCK})
+
+    with pytest.raises(RpcError, match="missing parameters"):
+        l1.rpc.call(
+            "lsps2-mock-configure", {"config": {"transport": {"behavior": "replace"}}}
+        )
+
+
+def test_lsps2_mock_buy_result(node_factory):
+    """The buy result fields are fixtures."""
+    l1, l2 = node_factory.line_graph(
+        2, fundchannel=False, opts=[{}, {"plugin": LSPS2_MOCK}]
+    )
+    fields = {
+        "jit_channel_scid": "1x2x3",
+        "lsp_cltv_expiry_delta": 400,
+        "client_trusts_lsp": True,
+    }
+    l2.rpc.call("lsps2-mock-configure", {"config": {"buy": fields}})
+
+    res = only_one(lsps2_mock_request(l1, l2, "lsps2.get_info", {}))
+    params = only_one(res["result"]["opening_fee_params_menu"])
+    res = only_one(
+        lsps2_mock_request(l1, l2, "lsps2.buy", {"opening_fee_params": params})
+    )
+    assert res["result"] == fields
+
+
+def test_lsps2_mock_htlc_deduct(node_factory):
+    """`deduct` sets the deduction and the extra_fee TLV per part."""
+    l1, l2, l3 = lsps2_mock_nodes(node_factory)
+    fee_msat = 1_000_000
+    l2.rpc.call(
+        "lsps2-mock-configure",
+        {
+            "config": {
+                "get_info": {"menu": [lsps2_mock_menu_entry(fee_msat)]},
+                "htlc": {
+                    "behavior": "deduct",
+                    "deductions": [fee_msat],
+                    "extra_fees": [fee_msat],
+                },
+            }
+        },
+    )
+
+    amt = 10_000_000
+    assert lsps2_mock_pay_var_invoice(l1, l2, l3, amt)["payment_preimage"]
+
+    fwd = only_one(lsps2_mock_forwards(l2))
+    assert fwd["forward_msat"] == amt - fee_msat
+    assert fwd["extra_fee_msat"] == fee_msat
+
+
+def test_lsps2_mock_open_never(node_factory):
+    """With `open.never` the mock fails the payment instead of opening."""
+    l1, l2, l3 = lsps2_mock_nodes(node_factory)
+    l2.rpc.call("lsps2-mock-configure", {"config": {"open": {"behavior": "never"}}})
+
+    with pytest.raises(RpcError):
+        lsps2_mock_pay_var_invoice(l1, l2, l3, 10_000_000)
+
+    only_one(lsps2_mock_events(l2, "open_skipped"))
+    assert l1.rpc.listpeerchannels()["channels"] == []

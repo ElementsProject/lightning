@@ -43,7 +43,9 @@ SCID_BLOCK = 1_000_000
 # Default parameters per phase. A phase config replaces the defaults key by
 # key.
 DEFAULT_CONFIG = {
-    "transport": {"behavior": "honest"},
+    # `methods` limits a transport misbehavior to responses to these methods;
+    # None means all.
+    "transport": {"behavior": "honest", "methods": None},
     "list_protocols": {"behavior": "honest", "protocols": [2]},
     "get_info": {
         "behavior": "honest",
@@ -63,6 +65,8 @@ DEFAULT_CONFIG = {
     },
     "buy": {
         "behavior": "honest",
+        # None allocates a fresh SCID per session.
+        "jit_channel_scid": None,
         "lsp_cltv_expiry_delta": 144,
         "client_trusts_lsp": False,
     },
@@ -70,15 +74,49 @@ DEFAULT_CONFIG = {
     "htlc": {"behavior": "honest", "fee_msat": 0},
 }
 
-# Behaviors per phase, with the parameters each one accepts on top of the
-# phase defaults.
+REQUIRED = object()
+
+# Behaviors per phase, with the parameters each one takes on top of the
+# phase defaults, and their defaults. A new attack is a new entry here plus
+# its handling in the phase.
 BEHAVIORS = {
-    "transport": {"honest": set()},
-    "list_protocols": {"honest": set()},
-    "get_info": {"honest": set()},
-    "buy": {"honest": set()},
-    "open": {"honest": set()},
-    "htlc": {"honest": set()},
+    "transport": {
+        "honest": {},
+        # Send nothing.
+        "drop": {},
+        # Answer with a different JSON-RPC id.
+        "wrong_id": {"id": "mock-wrong-id"},
+        # Send the response twice; `change` is merged into the second
+        # result.
+        "duplicate": {"change": {}},
+        # Send `payload` verbatim instead of the response.
+        "replace": {"payload": REQUIRED},
+        # Merge `fields` into the result.
+        "add_fields": {"fields": REQUIRED},
+        # Answer with `error` instead of the result.
+        "error": {"error": REQUIRED},
+    },
+    "list_protocols": {"honest": {}},
+    "get_info": {"honest": {}},
+    "buy": {"honest": {}},
+    "open": {
+        "honest": {},
+        # Never open; fail the collected parts.
+        "never": {},
+        # Open a second zero-conf channel after the first.
+        "twice": {},
+    },
+    "htlc": {
+        "honest": {},
+        # Deduct `deductions[i]` from part i (in arrival order, 0 beyond the
+        # list) and send `extra_fees[i]` as extra_fee, None omits the TLV.
+        # Without `extra_fees` the extra_fee matches the deduction.
+        "deduct": {"deductions": REQUIRED, "extra_fees": None},
+        # Forward only the parts with these indices, fail the others.
+        "forward_subset": {"parts": REQUIRED},
+        # Deduct `fee_msat` again from payments after the session.
+        "deduct_again": {},
+    },
 }
 
 
@@ -140,12 +178,18 @@ def build_config(overrides):
         behavior = entry.get("behavior", "honest")
         if behavior not in BEHAVIORS[phase]:
             raise RpcException(f"unknown behavior {behavior!r} for {phase!r}")
-        allowed = set(DEFAULT_CONFIG[phase]) | BEHAVIORS[phase][behavior]
-        unknown = set(entry) - allowed
+        params = BEHAVIORS[phase][behavior]
+        unknown = set(entry) - set(DEFAULT_CONFIG[phase]) - set(params)
         if unknown:
             raise RpcException(
                 f"unknown parameters {sorted(unknown)} for {phase}.{behavior}"
             )
+        missing = [k for k, v in params.items() if v is REQUIRED and k not in entry]
+        if missing:
+            raise RpcException(
+                f"missing parameters {missing} for {phase}.{behavior}"
+            )
+        config[phase].update(deepcopy(params))
         config[phase].update(deepcopy(entry))
     return config
 
@@ -236,10 +280,39 @@ def send_raw(peer_id, payload):
     plugin.rpc.sendcustommsg(peer_id, msg.hex())
 
 
+def send_json(peer_id, message):
+    send_raw(peer_id, json.dumps(message).encode())
+
+
 def respond(peer_id, method, req_id, response):
     """Send a response through the configured transport behavior."""
+    cfg = state.config["transport"]
     message = {"jsonrpc": "2.0", **response, "id": req_id}
-    send_raw(peer_id, json.dumps(message).encode())
+    behavior = cfg["behavior"]
+    if cfg["methods"] is not None and method not in cfg["methods"]:
+        behavior = "honest"
+
+    if behavior == "honest":
+        send_json(peer_id, message)
+    elif behavior == "drop":
+        record("drop", peer_id=peer_id, method=method)
+    elif behavior == "wrong_id":
+        send_json(peer_id, {**message, "id": cfg["id"]})
+    elif behavior == "duplicate":
+        send_json(peer_id, message)
+        second = deepcopy(message)
+        if isinstance(second.get("result"), dict):
+            second["result"].update(cfg["change"])
+        send_json(peer_id, second)
+    elif behavior == "replace":
+        send_raw(peer_id, cfg["payload"].encode())
+    elif behavior == "add_fields":
+        if isinstance(message.get("result"), dict):
+            message["result"].update(cfg["fields"])
+        send_json(peer_id, message)
+    elif behavior == "error":
+        message.pop("result", None)
+        send_json(peer_id, {**message, "error": cfg["error"]})
 
 
 def handle_message(peer_id, raw):
@@ -351,7 +424,7 @@ def buy(peer_id, params):
 
     with state.lock:
         state.scid_counter += 1
-        scid = f"{SCID_BLOCK}x{state.scid_counter}x0"
+        scid = cfg["jit_channel_scid"] or f"{SCID_BLOCK}x{state.scid_counter}x0"
         session = Session(scid, peer_id, ofp, payment_size_msat)
         state.sessions[scid] = session
     record("buy", **session.to_json())
@@ -373,21 +446,32 @@ METHODS = {
 # --- Channel open ----------------------------------------------------------
 
 
+def fund_zero_conf(peer_id, capacity_sat):
+    return plugin.rpc.call(
+        "fundchannel",
+        {
+            "id": peer_id,
+            "amount": capacity_sat,
+            "announce": False,
+            "mindepth": 0,
+            "channel_type": [12, 46, 50],
+        },
+    )
+
+
 def open_channel(session):
     """Open the JIT channel, run on a worker thread so that the hooks and
     notifications keep flowing while `fundchannel` waits for the peer."""
     cfg = state.config["open"]
+    if cfg["behavior"] == "never":
+        record("open_skipped", jit_channel_scid=session.scid)
+        with state.lock:
+            fail_parts(session.parts)
+            session.parts = []
+            session.state = "collecting"
+        return
     try:
-        res = plugin.rpc.call(
-            "fundchannel",
-            {
-                "id": session.peer_id,
-                "amount": cfg["capacity_sat"],
-                "announce": False,
-                "mindepth": 0,
-                "channel_type": [12, 46, 50],
-            },
-        )
+        res = fund_zero_conf(session.peer_id, cfg["capacity_sat"])
     except RpcError as e:
         record("open_failed", jit_channel_scid=session.scid, error=str(e))
         with state.lock:
@@ -410,6 +494,15 @@ def open_channel(session):
         session.htlc_minimum_msat = int(channel["minimum_htlc_out_msat"])
         if channel_id in state.normal_channels:
             release(session)
+
+    if cfg["behavior"] == "twice":
+        try:
+            res = fund_zero_conf(session.peer_id, cfg["capacity_sat"])
+            record("open", jit_channel_scid=session.scid,
+                   channel_id=res["channel_id"],
+                   capacity_sat=cfg["capacity_sat"])
+        except RpcError as e:
+            record("open_failed", jit_channel_scid=session.scid, error=str(e))
 
 
 @plugin.subscribe("channel_state_changed")
@@ -435,16 +528,17 @@ def fail_parts(parts):
         )
 
 
-def forward_part(session, part, deduction_msat):
+def forward_part(session, part, deduction_msat, extra_fee_msat):
+    """Forward `part` over the session's channel, `deduction_msat` short of
+    its onion amount, with `extra_fee_msat` as extra_fee (None: no TLV)."""
     onion_msat = int(part["onion"]["forward_msat"])
     forward_msat = onion_msat - deduction_msat
     response = {"result": "continue", "forward_to": session.channel_id}
-    extra_fee_msat = None
     if deduction_msat:
         response["payload"] = payload_with_amount(
             part["onion"]["payload"], forward_msat
         )
-        extra_fee_msat = deduction_msat
+    if extra_fee_msat is not None:
         response["extra_tlvs"] = extra_fee_tlvs(extra_fee_msat)
     record(
         "htlc",
@@ -483,13 +577,33 @@ def release(session):
     session.state = "forwarded"
     parts, session.parts = session.parts, []
     cfg = state.config["htlc"]
+
+    if cfg["behavior"] == "deduct":
+        for i, part in enumerate(parts):
+            deductions, extra_fees = cfg["deductions"], cfg["extra_fees"]
+            deduction = deductions[i] if i < len(deductions) else 0
+            if extra_fees is None:
+                extra_fee = deduction or None
+            else:
+                extra_fee = extra_fees[i] if i < len(extra_fees) else None
+            forward_part(session, part, deduction, extra_fee)
+        return
+
+    if cfg["behavior"] == "forward_subset":
+        fail_parts([p for i, p in enumerate(parts) if i not in cfg["parts"]])
+        parts = [p for i, p in enumerate(parts) if i in cfg["parts"]]
+
+    forward_with_fee(session, parts, cfg["fee_msat"])
+
+
+def forward_with_fee(session, parts, fee_msat):
     amounts = [int(p["onion"]["forward_msat"]) for p in parts]
-    deductions = split_fee(amounts, cfg["fee_msat"], session.htlc_minimum_msat)
+    deductions = split_fee(amounts, fee_msat, session.htlc_minimum_msat)
     if deductions is None:
         fail_parts(parts)
         return
     for part, deduction in zip(parts, deductions):
-        forward_part(session, part, deduction)
+        forward_part(session, part, deduction, deduction or None)
 
 
 def collected_enough(session):
@@ -513,7 +627,9 @@ def on_htlc_accepted(onion, htlc, request, **kwargs):
         if session.state == "forwarded":
             # The session is done; the jit_channel_scid is now just another
             # alias of the channel.
-            forward_part(session, part, 0)
+            cfg = state.config["htlc"]
+            fee_msat = cfg["fee_msat"] if cfg["behavior"] == "deduct_again" else 0
+            forward_with_fee(session, [part], fee_msat)
             return
 
         session.parts.append(part)
@@ -553,6 +669,31 @@ def lsps2_mock_state(**kwargs):
             "sessions": [s.to_json() for s in state.sessions.values()],
             "events": state.events,
         }
+
+
+@plugin.method("lsps2-mock-send")
+def lsps2_mock_send(peer_id, payload, **kwargs):
+    """Send `payload` (a string) to `peer_id` as an LSPS0 message, outside
+    of any request."""
+    send_raw(peer_id, payload.encode())
+    return {}
+
+
+@plugin.async_method("lsps2-mock-open")
+def lsps2_mock_open(peer_id, request, capacity_sat=100_000, **kwargs):
+    """Open a zero-conf channel to `peer_id` outside of any session."""
+
+    def run():
+        try:
+            res = fund_zero_conf(peer_id, capacity_sat)
+        except RpcError as e:
+            request.set_exception(e)
+            return
+        record("open", jit_channel_scid=None, channel_id=res["channel_id"],
+               capacity_sat=capacity_sat)
+        request.set_result({"channel_id": res["channel_id"]})
+
+    threading.Thread(target=run, daemon=True).start()
 
 
 plugin.add_option(
