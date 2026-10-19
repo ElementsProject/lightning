@@ -1,6 +1,8 @@
 from fixtures import *  # noqa: F401,F403
+from pyln.client import RpcError
 from pyln.testing.utils import RUST
-from utils import only_one
+from utils import only_one, wait_for
+import json
 import os
 import pytest
 import unittest
@@ -351,3 +353,126 @@ def test_lsps2_non_approved_zero_conf(node_factory, bitcoind):
     # l1 shouldn't have a new channel.
     chs = l1.rpc.listpeerchannels()["channels"]
     assert len(chs) == 0
+
+
+LSPS2_MOCK = os.path.join(os.path.dirname(__file__), "plugins/lsps2_mock.py")
+
+
+def lsps2_mock_events(lsp, kind):
+    return [e for e in lsp.rpc.call("lsps2-mock-state")["events"] if e["type"] == kind]
+
+
+def lsps2_mock_exchange(client, lsp, payload):
+    """Send `payload` (str) from `client` to the mock on `lsp` as an LSPS0
+    message and return the messages the mock sent in response, decoded if
+    they are JSON."""
+    seen = len(lsps2_mock_events(lsp, "rx"))
+    sent = len(lsps2_mock_events(lsp, "tx"))
+    msg = (37913).to_bytes(2, "big") + payload.encode()
+    client.rpc.sendcustommsg(lsp.info["id"], msg.hex())
+    # The mock answers while handling the message, so its answer is
+    # recorded by the time the message shows up.
+    wait_for(lambda: len(lsps2_mock_events(lsp, "rx")) > seen)
+    return [decode_json(e["payload"]) for e in lsps2_mock_events(lsp, "tx")[sent:]]
+
+
+def decode_json(s):
+    try:
+        return json.loads(s)
+    except ValueError:
+        return s
+
+
+def lsps2_mock_request(client, lsp, method, params, req_id="1"):
+    request = {"jsonrpc": "2.0", "id": req_id, "method": method, "params": params}
+    return lsps2_mock_exchange(client, lsp, json.dumps(request))
+
+
+def test_lsps2_mock_rejects_unknown_config(node_factory):
+    l1 = node_factory.get_node(options={"plugin": LSPS2_MOCK})
+
+    with pytest.raises(RpcError, match="unknown phase"):
+        l1.rpc.call("lsps2-mock-configure", {"config": {"bogus": {}}})
+    with pytest.raises(RpcError, match="unknown behavior"):
+        l1.rpc.call("lsps2-mock-configure", {"config": {"buy": {"behavior": "bogus"}}})
+    with pytest.raises(RpcError, match="unknown parameters"):
+        l1.rpc.call(
+            "lsps2-mock-configure",
+            {"config": {"buy": {"lsp_cltv_expiry_deltaa": 1}}},
+        )
+
+
+def test_lsps2_mock_config_option(node_factory):
+    """The mock can be configured at startup."""
+    config = {"list_protocols": {"protocols": [1, 2]}}
+    l1, l2 = node_factory.line_graph(
+        2,
+        fundchannel=False,
+        opts=[{}, {"plugin": LSPS2_MOCK, "lsps2-mock-config": json.dumps(config)}],
+    )
+
+    res = only_one(lsps2_mock_request(l1, l2, "lsps0.list_protocols", {}))
+    assert res["result"] == {"protocols": [1, 2]}
+
+
+def test_lsps2_mock_protocol(node_factory):
+    """The client can talk LSPS0 and LSPS2 to the mock."""
+    l1, l2 = node_factory.line_graph(
+        2,
+        fundchannel=False,
+        opts=[{"experimental-lsps-client": None}, {"plugin": LSPS2_MOCK}],
+    )
+
+    assert l1.rpc.lsps_listprotocols(lsp_id=l2.info["id"])["protocols"] == [2]
+
+    menu = l1.rpc.lsps_lsps2_getinfo(lsp_id=l2.info["id"])["opening_fee_params_menu"]
+    params = only_one(menu)
+    res = l1.rpc.lsps_lsps2_buy(lsp_id=l2.info["id"], opening_fee_params=params)
+    assert res["jit_channel_scid"] == "1000000x1x0"
+
+    # The client echoed the promise and the params verbatim.
+    buy = only_one(lsps2_mock_events(l2, "buy"))
+    assert buy["opening_fee_params"] == params
+
+
+def test_lsps2_mock_protocol_errors(node_factory):
+    """The mock answers malformed and invalid requests as bLIP-50/52 say."""
+    l1, l2 = node_factory.line_graph(
+        2, fundchannel=False, opts=[{}, {"plugin": LSPS2_MOCK}]
+    )
+
+    res = only_one(lsps2_mock_exchange(l1, l2, "{"))
+    assert res["id"] is None
+    assert res["error"]["code"] == -32700
+
+    res = only_one(lsps2_mock_request(l1, l2, "lsps9.nope", {}))
+    assert res["error"]["code"] == -32601
+
+    res = only_one(lsps2_mock_request(l1, l2, "lsps2.get_info", {"bogus": 1}))
+    assert res["error"]["code"] == -32602
+    assert res["error"]["data"] == {"unrecognized": ["bogus"]}
+
+    res = only_one(lsps2_mock_request(l1, l2, "lsps2.get_info", {}))
+    params = only_one(res["result"]["opening_fee_params_menu"])
+
+    # Any change to the promised params invalidates the promise.
+    tampered = {**params, "min_fee_msat": "0"}
+    res = only_one(
+        lsps2_mock_request(l1, l2, "lsps2.buy", {"opening_fee_params": tampered})
+    )
+    assert res["error"]["code"] == 201
+
+    res = only_one(
+        lsps2_mock_request(
+            l1,
+            l2,
+            "lsps2.buy",
+            {"opening_fee_params": params, "payment_size_msat": "999"},
+        )
+    )
+    assert res["error"]["code"] == 202
+
+    res = only_one(
+        lsps2_mock_request(l1, l2, "lsps2.buy", {"opening_fee_params": params})
+    )
+    assert res["result"]["jit_channel_scid"] == "1000000x1x0"
