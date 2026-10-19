@@ -4,11 +4,15 @@
 Runs on the LSP node. Implements the service side of bLIP-50 (LSPS0) and
 bLIP-52 (LSPS2) from the spec text, independently of any other
 implementation in this repository, so that client and mock do not share
-bugs. It answers `lsps0.list_protocols`, `lsps2.get_info` and
-`lsps2.buy`.
+bugs:
+
+- answers `lsps0.list_protocols`, `lsps2.get_info` and `lsps2.buy`,
+- intercepts the HTLCs sent to a `jit_channel_scid`, opens a zero-conf
+  channel to the client and forwards the parts with the opening fee
+  deducted.
 
 What the mock does is driven by a config with one entry per phase:
-`transport`, `list_protocols`, `get_info` and `buy`. Each
+`transport`, `list_protocols`, `get_info`, `buy`, `open` and `htlc`. Each
 entry names a `behavior` plus its parameters; `honest` follows the spec.
 Set the config at startup with the `lsps2-mock-config` option (JSON) or at
 runtime with `lsps2-mock-configure`. Every call starts from the defaults,
@@ -23,11 +27,14 @@ import threading
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 
-from pyln.client import Plugin, RpcException
+from pyln.client import Plugin, RpcError, RpcException
 
 plugin = Plugin()
 
 LSPS0_MESSAGE_TYPE = 37913
+TLV_AMT_TO_FORWARD = 2
+TLV_EXTRA_FEE = 65537
+UNKNOWN_NEXT_PEER = "400a"
 
 # Allocated jit_channel_scids are `SCID_BLOCK`x`n`x0, far above any block
 # height a regtest test reaches, so they never collide with real channels.
@@ -59,6 +66,8 @@ DEFAULT_CONFIG = {
         "lsp_cltv_expiry_delta": 144,
         "client_trusts_lsp": False,
     },
+    "open": {"behavior": "honest", "capacity_sat": 100_000},
+    "htlc": {"behavior": "honest", "fee_msat": 0},
 }
 
 # Behaviors per phase, with the parameters each one accepts on top of the
@@ -68,6 +77,8 @@ BEHAVIORS = {
     "list_protocols": {"honest": set()},
     "get_info": {"honest": set()},
     "buy": {"honest": set()},
+    "open": {"honest": set()},
+    "htlc": {"honest": set()},
 }
 
 
@@ -87,6 +98,11 @@ class Session:
         self.peer_id = peer_id
         self.params = params
         self.payment_size_msat = payment_size_msat
+        # collecting -> opening -> forwarded
+        self.state = "collecting"
+        self.parts = []
+        self.channel_id = None
+        self.htlc_minimum_msat = 0
 
     def to_json(self):
         return {
@@ -94,6 +110,8 @@ class Session:
             "peer_id": self.peer_id,
             "opening_fee_params": self.params,
             "payment_size_msat": self.payment_size_msat,
+            "state": self.state,
+            "channel_id": self.channel_id,
         }
 
 
@@ -104,6 +122,7 @@ class State:
         # promise -> the opening_fee_params it was issued for.
         self.issued = {}
         self.sessions = {}
+        self.normal_channels = set()
         self.events = []
         self.promise_counter = 0
         self.scid_counter = 0
@@ -148,6 +167,63 @@ def lsps_datetime(dt):
 def parse_lsps_datetime(s):
     dt = datetime.strptime(s, "%Y-%m-%dT%H:%M:%S.%fZ")
     return dt.replace(tzinfo=timezone.utc)
+
+
+# --- TLV helpers (BOLT 1 BigSize, BOLT 4 tu64) -----------------------------
+
+
+def bigsize_encode(n):
+    if n < 0xFD:
+        return n.to_bytes(1, "big")
+    if n <= 0xFFFF:
+        return b"\xfd" + n.to_bytes(2, "big")
+    if n <= 0xFFFFFFFF:
+        return b"\xfe" + n.to_bytes(4, "big")
+    return b"\xff" + n.to_bytes(8, "big")
+
+
+def bigsize_decode(b, pos):
+    first = b[pos]
+    if first < 0xFD:
+        return first, pos + 1
+    width = {0xFD: 2, 0xFE: 4, 0xFF: 8}[first]
+    return int.from_bytes(b[pos + 1:pos + 1 + width], "big"), pos + 1 + width
+
+
+def tlv_decode(b):
+    """Decode a TLV stream into a list of (type, value) pairs."""
+    fields = []
+    pos = 0
+    while pos < len(b):
+        typ, pos = bigsize_decode(b, pos)
+        length, pos = bigsize_decode(b, pos)
+        fields.append((typ, b[pos:pos + length]))
+        pos += length
+    return fields
+
+
+def tlv_encode(fields):
+    return b"".join(bigsize_encode(t) + bigsize_encode(len(v)) + v for t, v in fields)
+
+
+def tu64(n):
+    return n.to_bytes(8, "big").lstrip(b"\x00")
+
+
+def payload_with_amount(payload_hex, amount_msat):
+    """Return our hop payload with `amt_to_forward` replaced, without the
+    length prefix (lightningd adds it back)."""
+    raw = bytes.fromhex(payload_hex)
+    length, pos = bigsize_decode(raw, 0)
+    fields = [
+        (t, tu64(amount_msat) if t == TLV_AMT_TO_FORWARD else v)
+        for t, v in tlv_decode(raw[pos:pos + length])
+    ]
+    return tlv_encode(fields).hex()
+
+
+def extra_fee_tlvs(extra_fee_msat):
+    return tlv_encode([(TLV_EXTRA_FEE, extra_fee_msat.to_bytes(8, "big"))]).hex()
 
 
 # --- Transport (bLIP-50) ---------------------------------------------------
@@ -292,6 +368,158 @@ METHODS = {
     "lsps2.get_info": get_info,
     "lsps2.buy": buy,
 }
+
+
+# --- Channel open ----------------------------------------------------------
+
+
+def open_channel(session):
+    """Open the JIT channel, run on a worker thread so that the hooks and
+    notifications keep flowing while `fundchannel` waits for the peer."""
+    cfg = state.config["open"]
+    try:
+        res = plugin.rpc.call(
+            "fundchannel",
+            {
+                "id": session.peer_id,
+                "amount": cfg["capacity_sat"],
+                "announce": False,
+                "mindepth": 0,
+                "channel_type": [12, 46, 50],
+            },
+        )
+    except RpcError as e:
+        record("open_failed", jit_channel_scid=session.scid, error=str(e))
+        with state.lock:
+            fail_parts(session.parts)
+            session.parts = []
+            session.state = "collecting"
+        return
+
+    channel_id = res["channel_id"]
+    channels = plugin.rpc.listpeerchannels(session.peer_id)["channels"]
+    channel = next(c for c in channels if c["channel_id"] == channel_id)
+    record(
+        "open",
+        jit_channel_scid=session.scid,
+        channel_id=channel_id,
+        capacity_sat=cfg["capacity_sat"],
+    )
+    with state.lock:
+        session.channel_id = channel_id
+        session.htlc_minimum_msat = int(channel["minimum_htlc_out_msat"])
+        if channel_id in state.normal_channels:
+            release(session)
+
+
+@plugin.subscribe("channel_state_changed")
+def on_channel_state_changed(channel_state_changed, **kwargs):
+    if channel_state_changed["new_state"] != "CHANNELD_NORMAL":
+        return
+    channel_id = channel_state_changed["channel_id"]
+    with state.lock:
+        state.normal_channels.add(channel_id)
+        for session in state.sessions.values():
+            if session.channel_id == channel_id and session.state == "opening":
+                release(session)
+
+
+# --- HTLC interception and forwarding --------------------------------------
+
+
+def fail_parts(parts):
+    for part in parts:
+        record("htlc", payment_hash=part["htlc"]["payment_hash"], decision="fail")
+        part["request"].set_result(
+            {"result": "fail", "failure_message": UNKNOWN_NEXT_PEER}
+        )
+
+
+def forward_part(session, part, deduction_msat):
+    onion_msat = int(part["onion"]["forward_msat"])
+    forward_msat = onion_msat - deduction_msat
+    response = {"result": "continue", "forward_to": session.channel_id}
+    extra_fee_msat = None
+    if deduction_msat:
+        response["payload"] = payload_with_amount(
+            part["onion"]["payload"], forward_msat
+        )
+        extra_fee_msat = deduction_msat
+        response["extra_tlvs"] = extra_fee_tlvs(extra_fee_msat)
+    record(
+        "htlc",
+        jit_channel_scid=session.scid,
+        payment_hash=part["htlc"]["payment_hash"],
+        amount_msat=int(part["htlc"]["amount_msat"]),
+        onion_forward_msat=onion_msat,
+        forward_msat=forward_msat,
+        extra_fee_msat=extra_fee_msat,
+        decision="forward",
+    )
+    part["request"].set_result(response)
+
+
+def split_fee(amounts, fee_msat, htlc_minimum_msat):
+    """Distribute the opening fee over the parts as in the bLIP-52 example
+    algorithm. Returns the deduction per part, or None if the parts cannot
+    carry the fee while each keeps `htlc_minimum_msat` (and at least 1 msat,
+    BOLT 2 forbids zero-amount HTLCs)."""
+    floor = max(htlc_minimum_msat, 1)
+    deductions = []
+    remaining = fee_msat
+    for amount in amounts:
+        if amount - floor >= remaining:
+            deduction = remaining
+        else:
+            deduction = max(amount - floor, 0)
+        deductions.append(deduction)
+        remaining -= deduction
+    return deductions if remaining == 0 else None
+
+
+def release(session):
+    """Forward the collected parts over the now usable channel. Called with
+    the state lock held."""
+    session.state = "forwarded"
+    parts, session.parts = session.parts, []
+    cfg = state.config["htlc"]
+    amounts = [int(p["onion"]["forward_msat"]) for p in parts]
+    deductions = split_fee(amounts, cfg["fee_msat"], session.htlc_minimum_msat)
+    if deductions is None:
+        fail_parts(parts)
+        return
+    for part, deduction in zip(parts, deductions):
+        forward_part(session, part, deduction)
+
+
+def collected_enough(session):
+    if session.payment_size_msat is None:
+        # no-MPP+var-invoice: the first part is the payment.
+        return True
+    total = sum(int(p["onion"]["forward_msat"]) for p in session.parts)
+    return total >= session.payment_size_msat
+
+
+@plugin.async_hook("htlc_accepted")
+def on_htlc_accepted(onion, htlc, request, **kwargs):
+    scid = onion.get("short_channel_id")
+    with state.lock:
+        session = state.sessions.get(scid)
+        if session is None:
+            request.set_result({"result": "continue"})
+            return
+
+        part = {"onion": onion, "htlc": htlc, "request": request}
+        if session.state == "forwarded":
+            # The session is done; the jit_channel_scid is now just another
+            # alias of the channel.
+            forward_part(session, part, 0)
+            return
+
+        session.parts.append(part)
+        if session.state == "collecting" and collected_enough(session):
+            session.state = "opening"
+            threading.Thread(target=open_channel, args=(session,), daemon=True).start()
 
 
 @plugin.hook("custommsg", filters=[LSPS0_MESSAGE_TYPE])
