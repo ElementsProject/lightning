@@ -80,8 +80,10 @@ DEFAULT_CONFIG = {
     },
     "open": {"behavior": "honest", "capacity_sat": 100_000},
     # `fee_msat` is the fee to deduct; None deducts the opening fee computed
-    # from the session's params.
-    "htlc": {"behavior": "honest", "fee_msat": None},
+    # from the session's params. `clock_offset_seconds` moves the clock the
+    # mock checks valid_until against, so a test can let a session expire
+    # without waiting.
+    "htlc": {"behavior": "honest", "fee_msat": None, "clock_offset_seconds": 0},
 }
 
 REQUIRED = object()
@@ -739,6 +741,14 @@ def var_invoice_fee(session, amount_msat):
     return fee_msat
 
 
+def expired(session):
+    """Whether the session's params expired: bLIP-52 opens the channel only
+    while the current time is strictly less than valid_until."""
+    offset = timedelta(seconds=state.config["htlc"]["clock_offset_seconds"])
+    now = datetime.now(timezone.utc) + offset
+    return now >= parse_lsps_datetime(session.params["valid_until"])
+
+
 def collected_enough(session):
     if session.payment_size_msat is None:
         # no-MPP+var-invoice: the first part is the payment.
@@ -762,6 +772,11 @@ def on_htlc_accepted(onion, htlc, request, **kwargs):
             # alias of the channel.
             again = state.config["htlc"]["behavior"] == "deduct_again"
             forward_with_fee(session, [part], session_fee(session) if again else 0)
+            return
+
+        if session.state == "collecting" and expired(session):
+            fail_parts(session.parts + [part], "expired")
+            session.parts = []
             return
 
         # In no-MPP+var-invoice mode the first part opens the channel, so a

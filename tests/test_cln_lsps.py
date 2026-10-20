@@ -925,6 +925,25 @@ def test_lsps2_mock_buy_fee_checks(node_factory):
     assert only_one(sessions)["opening_fee_msat"] == 1_000_000
 
 
+def test_lsps2_mock_expired_session(node_factory):
+    """The mock fails a JIT payment that arrives once the params expired,
+    without opening a channel."""
+    l1, l2, l3 = lsps2_mock_nodes(node_factory)
+    # Past the default validity of an hour.
+    l2.rpc.call(
+        "lsps2-mock-configure", {"config": {"htlc": {"clock_offset_seconds": 7200}}}
+    )
+
+    with pytest.raises(RpcError) as err:
+        lsps2_mock_pay_var_invoice(l1, l2, l3, 10_000_000)
+    # unknown_next_peer
+    assert err.value.error["data"]["failcode"] == 0x400A
+
+    fail = only_one(lsps2_mock_events(l2, "htlc"))
+    assert fail["reason"] == "expired"
+    assert lsps2_mock_events(l2, "open") == []
+
+
 @pytest.mark.parametrize("amt", [1000, 10_000_001])
 def test_lsps2_mock_var_invoice_payment_size(node_factory, amt):
     """no-MPP+var-invoice: the mock fails a payment outside the size limits
