@@ -16,6 +16,7 @@ from lsps2_mock_helpers import (
 )
 from lsps2_oracles import check_oracles, lsps2_mock_fee
 from pyln.client import RpcError
+from concurrent import futures
 from utils import only_one
 import json
 import pytest
@@ -196,6 +197,133 @@ def test_lsps2_bad_transport(node_factory, case):
     assert honest_menu(l1.rpc.lsps_lsps2_getinfo(lsp_id=l2.info["id"]))
     check_oracles(l1, l2)
     assert case["check"](l1, res, err), (res, err)
+
+
+# --- get_info and opening fee params ---------------------------------------
+
+
+def menu(*entries):
+    """A menu of `entries`, each overriding fields of a usable entry; entry i
+    has the promise "entry-i" unless it sets its own."""
+    return [
+        {**lsps2_mock_menu_entry(1000), "promise": f"entry-{i}", **entry}
+        for i, entry in enumerate(entries)
+    ]
+
+
+def without(entry, field):
+    return {k: v for k, v in entry.items() if k != field}
+
+
+def buy_requests(l2):
+    requests = [json.loads(e["payload"]) for e in lsps2_mock_events(l2, "rx")]
+    return [r["params"] for r in requests if r.get("method") == "lsps2.buy"]
+
+
+PAST = "2020-01-01T00:00:00.000Z"
+U64_MAX = str(2**64 - 1)
+
+# The largest menu that fits one LSPS0 message: all but the last entry
+# expired, so the client has to read to the end.
+FULL_MENU_ENTRIES = 1
+while len(json.dumps(
+    {
+        "jsonrpc": "2.0",
+        "id": "x" * 64,
+        "result": {"opening_fee_params_menu": menu(*[{"valid_until": PAST}] * (FULL_MENU_ENTRIES + 1))},
+    }
+)) <= MAX_PAYLOAD:
+    FULL_MENU_ENTRIES += 1
+FULL_MENU = menu(*[{"valid_until": PAST}] * (FULL_MENU_ENTRIES - 1), {})
+
+# Every printable ASCII character but '"' and '\'.
+PRINTABLE_PROMISE = "".join(chr(c) for c in range(0x20, 0x7F) if chr(c) not in '"\\')
+
+# The mock answers at once, so an invoice call that takes this long hangs.
+INVOICE_TIMEOUT_SECS = 30
+
+# Each scenario: the mock serves `menu`, with `get_info` config on top, and
+# the client asks for a JIT invoice of `amount`. `buy` is the index of the
+# entry the client must buy, or None if it must abort before buying.
+FEE_PARAMS_CASES = [
+    # An expired entry is not used.
+    scenario("expired", menu=menu({"valid_until": PAST}), buy=None),
+    scenario("expired-then-valid", menu=menu({"valid_until": PAST}, {}), buy=1),
+    # An entry expiring within the client's margin of a minute, so it could
+    # expire before buy.
+    scenario("expiring-soon", menu=menu({}), get_info={"valid_for_seconds": 30}, buy=None),
+    # A minimum payment size above the maximum.
+    scenario("inverted-limits", menu=menu({"min_payment_size_msat": "100000001"}), buy=None),
+    scenario(
+        "inverted-then-valid",
+        menu=menu({"min_payment_size_msat": "100000001"}, {}),
+        buy=1,
+    ),
+    # A fee that is all of the payment.
+    scenario("fee-is-payment", menu=menu({"proportional": 1_000_000}), amount=AMT, buy=None),
+    # A fee that overflows u64.
+    scenario(
+        "fee-overflow",
+        menu=menu(
+            {
+                "min_fee_msat": "0",
+                "proportional": 2**32 - 1,
+                "max_payment_size_msat": U64_MAX,
+            }
+        ),
+        amount=2**33,
+        buy=None,
+    ),
+    # A large max_client_to_self_delay is fine: it only lengthens the
+    # client's punishment window.
+    scenario("large-self-delay", menu=menu({"max_client_to_self_delay": 50_000}), buy=0),
+    # A min_lifetime of 0 is a commercial term; accept.
+    scenario("zero-min-lifetime", menu=menu({"min_lifetime": 0}), buy=0),
+    # A menu filling a whole message.
+    scenario("full-message-menu", menu=FULL_MENU, buy=FULL_MENU_ENTRIES - 1),
+    # A promise over 512 bytes aborts the flow, even in an entry the client
+    # would not pick; 512 bytes are fine.
+    scenario("long-promise", menu=menu({"promise": "x" * 513}), buy=None),
+    scenario("long-promise-unpicked", menu=menu({}, {"promise": "x" * 513}), buy=None),
+    scenario("promise-512-bytes", menu=menu({"promise": "x" * 512}), buy=0),
+    # A promise with a character outside 0x20-0x7E, '"' or '\' aborts the
+    # flow; any other is echoed as it is.
+    scenario("promise-quote", menu=menu({"promise": 'a"b'}), buy=None),
+    scenario("promise-backslash", menu=menu({"promise": "a\\b"}), buy=None),
+    scenario("promise-non-ascii", menu=menu({"promise": "caf\u00e9"}), buy=None),
+    scenario("promise-control", menu=menu({"promise": "a\x7fb"}), buy=None),
+    scenario("promise-printable", menu=menu({"promise": PRINTABLE_PROMISE}), buy=0),
+    # Two entries alike but for the promise.
+    scenario("duplicate-entries", menu=menu({}, {}), buy=0),
+    # An entry missing a field, or with a field bLIP-52 does not define, is
+    # not used.
+    scenario("missing-field", menu=[without(menu({})[0], "min_lifetime")], buy=None),
+    scenario("extra-field", menu=menu({"x-extra": 1}), buy=None),
+]
+
+
+@pytest.mark.parametrize("case", FEE_PARAMS_CASES)
+def test_lsps2_bad_fee_params(node_factory, executor, case):
+    l1, l2 = client_and_lsp(node_factory)
+    entries = case["menu"]
+    lsps2_mock_configure(l2, get_info={"menu": entries, **case.get("get_info", {})})
+    fut = executor.submit(jit_invoice, l1, l2, case.get("amount", "any"))
+    try:
+        fut.result(INVOICE_TIMEOUT_SECS)
+        err = None
+    except RpcError as e:
+        err = e
+    except futures.TimeoutError:
+        err = "no answer"
+
+    check_oracles(l1, l2)
+    buys = buy_requests(l2)
+    if case["buy"] is None:
+        assert isinstance(err, RpcError) and buys == [], (err, buys)
+    else:
+        assert err is None, err
+        promise = only_one(buys)["opening_fee_params"]["promise"]
+        assert promise == entries[case["buy"]]["promise"]
 
 
 # --- fee deduction and HTLC amounts ----------------------------------------
