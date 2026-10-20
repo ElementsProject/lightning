@@ -897,7 +897,7 @@ class LightningRpc(UnixDomainSocketRpc):
         return self.call("getroute", payload)
 
     def getroutes(self, source, destination, amount_msat, layers, maxfee_msat,
-                  final_cltv, maxdelay=None, maxparts=None):
+                  final_cltv, maxdelay=None, maxparts=None, maxhops=None):
         """Find routes from {source} to {destination} for {amount_msat},
         applying {layers}, paying no more than {maxfee_msat},
         ending in {final_cltv}.
@@ -911,6 +911,7 @@ class LightningRpc(UnixDomainSocketRpc):
             "final_cltv": final_cltv,
             "maxdelay": maxdelay,
             "maxparts": maxparts,
+            "maxhops": maxhops,
         }
         return self.call("getroutes", payload)
 
