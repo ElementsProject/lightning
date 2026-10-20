@@ -23,9 +23,9 @@ where
         plugin.state().pending().complete(&id, hook.payload).await;
     }
 
-    return Ok(serde_json::json!({
+    Ok(serde_json::json!({
       "result": "continue"
-    }));
+    }))
 }
 
 pub async fn service_custommsg_hook<S>(plugin: Plugin<S>, v: Value) -> Result<Value>
