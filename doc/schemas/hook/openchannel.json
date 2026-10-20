@@ -61,7 +61,7 @@
           "dust_limit_msat": {
             "type": "msat",
             "description": [
-              "Dust limit for outputs."
+              "Dust limit for outputs on the peer's commitment transaction. Opens where this is below 354 sat or above 5000 sat are rejected before the hook is called."
             ]
           },
           "max_htlc_value_in_flight_msat": {
