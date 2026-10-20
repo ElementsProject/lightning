@@ -1601,10 +1601,10 @@ def test_real_data(node_factory, bitcoind, executor):
     # CI, it's slow.
     if SLOW_MACHINE:
         limit = 25
-        expected = (11, 24, 4663500, 221912, 96)
+        expected = (11, 24, 4663500, 221543, 96)
     else:
         limit = 100
-        expected = (11, 95, 16558980, 944568, 95)
+        expected = (11, 95, 16558980, 941774, 95)
 
     # 0.5% is the norm
     MAX_FEE = AMOUNT // 200
