@@ -2,6 +2,7 @@ from fixtures import *  # noqa: F401,F403
 from pyln.client import RpcError
 from pyln.testing.utils import RUST
 from utils import only_one, wait_for
+import importlib.util
 import json
 import os
 import pytest
@@ -356,6 +357,18 @@ def test_lsps2_non_approved_zero_conf(node_factory, bitcoind):
 
 
 LSPS2_MOCK = os.path.join(os.path.dirname(__file__), "plugins/lsps2_mock.py")
+
+
+def load_lsps2_mock_fee():
+    """The mock's fee module; tests/plugins is not a package."""
+    path = os.path.join(os.path.dirname(__file__), "plugins/lsps2_mock_fee.py")
+    spec = importlib.util.spec_from_file_location("lsps2_mock_fee", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+lsps2_mock_fee = load_lsps2_mock_fee()
 
 
 def lsps2_mock_nodes(node_factory, client_opts=None):
@@ -849,3 +862,31 @@ def test_lsps2_mock_htlc_error(node_factory):
 
     assert only_one(lsps2_mock_events(l2, "error"))["where"] == "release"
     assert only_one(lsps2_mock_events(l2, "htlc"))["decision"] == "fail"
+
+
+def test_lsps2_mock_fee():
+    """The mock's opening fee, against values worked out by hand from the
+    bLIP-52 formula."""
+    fee = lsps2_mock_fee.opening_fee
+    u64_max = lsps2_mock_fee.U64_MAX
+
+    # The proportional part rounds up to the next msat.
+    assert fee(1_000_000, 0, 7) == 7
+    assert fee(1_000_001, 0, 7) == 8
+    assert fee(999_999, 0, 1) == 1
+    assert fee(0, 0, 1000) == 0
+
+    # min_fee_msat is a floor.
+    assert fee(10_000_000, 1000, 99) == 1000
+    assert fee(10_000_000, 1000, 101) == 1010
+    assert fee(1, u64_max, 0) == u64_max
+
+    # Every multiplication and addition stays within unsigned 64 bits.
+    largest_product = u64_max - 999_999
+    assert fee(largest_product, 0, 1) == u64_max // 1_000_000
+    with pytest.raises(lsps2_mock_fee.FeeOverflow):
+        fee(largest_product + 1, 0, 1)
+    with pytest.raises(lsps2_mock_fee.FeeOverflow):
+        fee(2**32, 0, 2**32)
+    with pytest.raises(ValueError):
+        fee(-1, 0, 0)
