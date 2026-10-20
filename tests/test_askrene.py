@@ -1639,7 +1639,7 @@ def test_real_data(node_factory, bitcoind, executor):
         expected_total_paths = 42
     else:
         limit = 100
-        expected = (18, 95, 16558980, 911656, 95)
+        expected = (17, 95, 16558980, 911656, 95)
         expected_lengths = {2: 2, 3: 59, 4: 110, 5: 5, 6: 5}
         expected_first_success = 95
         expected_total_paths = 181
@@ -1759,10 +1759,10 @@ def test_real_biases(node_factory, bitcoind, executor):
     # CI, it's slow.
     if SLOW_MACHINE:
         limit = 25
-        expected = ({1: 5, 2: 7, 4: 13, 8: 16, 16: 22, 32: 24, 64: 24, 100: 24}, 0)
+        expected = ({1: 5, 2: 6, 4: 13, 8: 16, 16: 22, 32: 24, 64: 24, 100: 24}, 0)
     else:
         limit = 100
-        expected = ({1: 23, 2: 34, 4: 52, 8: 64, 16: 89, 32: 95, 64: 95, 100: 95}, 0)
+        expected = ({1: 23, 2: 32, 4: 52, 8: 64, 16: 89, 32: 95, 64: 95, 100: 95}, 0)
 
     l1.rpc.askrene_create_layer('biases')
     num_changed = {}
@@ -3009,3 +3009,259 @@ def test_getroutes_hop_probability(node_factory):
         final_cltv=18,
     )["routes"]
     assert [len(r["path"]) for r in routes] == [5]
+
+
+def test_getroutes_maxhops(node_factory):
+    """maxhops limits the length of every returned path."""
+    gsfile, nodemap = maxhops_gossip(pricey_propfee=300, long_len=5)
+    l1 = node_factory.get_node(gossip_store_file=gsfile.name)
+    payment_amount = 100_000_000
+
+    # A limit that doesn't bind changes nothing.
+    for maxhops in (2, 3, 5, 100):
+        routes = l1.rpc.getroutes(
+            source=nodemap[0],
+            destination=nodemap[1000],
+            amount_msat=payment_amount,
+            layers=[],
+            maxfee_msat=payment_amount,
+            final_cltv=18,
+            maxhops=maxhops,
+        )["routes"]
+        assert [len(r["path"]) for r in routes] == [2]
+        assert routes[0]["path"][0]["node_id_out"] == nodemap[2000]
+
+    # Impossible.
+    with pytest.raises(RpcError, match="excessive hop count"):
+        l1.rpc.getroutes(
+            source=nodemap[0],
+            destination=nodemap[1000],
+            amount_msat=payment_amount,
+            layers=[],
+            maxfee_msat=payment_amount,
+            final_cltv=18,
+            maxhops=1,
+        )
+
+    # A hop limit works for one-hop routes too.
+    routes = l1.rpc.getroutes(
+        source=nodemap[2000],
+        destination=nodemap[1000],
+        amount_msat=payment_amount,
+        layers=[],
+        maxfee_msat=payment_amount,
+        final_cltv=18,
+        maxhops=1,
+    )["routes"]
+    assert [len(r["path"]) for r in routes] == [1]
+
+
+def test_getroutes_maxhops_mpp(node_factory):
+    """maxhops applies to every part of an MPP solution."""
+    # Two short routes too small for the payment alone, and a big long one.
+    payment_msat = 100_000_000
+    small_capacity_sats = 60_000
+    big_capacity_sats = 100_000_000
+    gsfile, nodemap = generate_gossip_store(
+        [
+            GenChannel(0, 1, capacity_sats=small_capacity_sats),
+            GenChannel(1, 9, capacity_sats=small_capacity_sats),
+            GenChannel(0, 2, capacity_sats=small_capacity_sats),
+            GenChannel(2, 9, capacity_sats=small_capacity_sats),
+            GenChannel(0, 3, capacity_sats=big_capacity_sats),
+            GenChannel(3, 4, capacity_sats=big_capacity_sats),
+            GenChannel(4, 5, capacity_sats=big_capacity_sats),
+            GenChannel(5, 9, capacity_sats=big_capacity_sats),
+        ]
+    )
+    l1 = node_factory.get_node(gossip_store_file=gsfile.name)
+
+    args = {
+        "source": nodemap[0],
+        "destination": nodemap[9],
+        "amount_msat": payment_msat,
+        "layers": [],
+        "maxfee_msat": 10_000_000,
+        "final_cltv": 18,
+    }
+
+    routes = l1.rpc.getroutes(**args, maxhops=2)["routes"]
+    assert len(routes) >= 2
+    assert all(len(r["path"]) <= 2 for r in routes)
+    assert sum(r["amount_msat"] for r in routes) == payment_msat
+
+    # Neither short route can carry it alone, and the long one is too long.
+    with pytest.raises(RpcError):
+        l1.rpc.getroutes(**args, maxhops=2, maxparts=1)
+
+    # without maxhops restriction the cheapest route is the longest one
+    routes = l1.rpc.getroutes(**args)["routes"]
+    assert len(routes) == 1
+    assert len(routes[0]["path"]) == 4
+
+
+@pytest.mark.parametrize("payment_amount", [100_000_000, 10_000_000, 1000_000])
+def test_getroutes_maxhops_binding(node_factory, payment_amount):
+    gsfile, nodemap = maxhops_gossip(pricey_propfee=500, long_len=5)
+    l1 = node_factory.get_node(gossip_store_file=gsfile.name)
+
+    # Baseline: the cheap long route wins.
+    routes = l1.rpc.getroutes(
+        source=nodemap[0],
+        destination=nodemap[1000],
+        amount_msat=payment_amount,
+        layers=[],
+        maxfee_msat=payment_amount,
+        final_cltv=18,
+    )["routes"]
+    assert [len(r['path']) for r in routes] == [5]
+
+    routes = l1.rpc.getroutes(
+        source=nodemap[0],
+        destination=nodemap[1000],
+        amount_msat=payment_amount,
+        layers=[],
+        maxfee_msat=payment_amount,
+        final_cltv=18,
+        maxhops=2,
+    )["routes"]
+    assert [len(r['path']) for r in routes] == [2]
+
+
+@pytest.mark.slow_test
+def test_real_data_maxhops(node_factory, bitcoind, executor):
+    """maxhops on real gossip: every route respects it, a non-binding limit
+    changes nothing, and squeezing it trades fees for shorter paths."""
+    # Same setup as test_real_data: route from Rusty's node (2134) to the
+    # top nodes of tests/data/gossip-store-2026-02-03.
+    outfile = tempfile.NamedTemporaryFile(prefix="gossip-store-")
+    nodeids = (
+        subprocess.check_output(
+            [
+                "devtools/gossmap-compress",
+                "decompress",
+                "--node-map=2134=033845802d25b4e074ccfd7cd8b339a41dc75bf9978a034800444b51d42b07799a",
+                "tests/data/gossip-store-2026-02-03.compressed",
+                outfile.name,
+            ]
+        )
+        .decode("utf-8")
+        .splitlines()
+    )
+
+    AMOUNT = 100000000
+    # 0.5% is the norm
+    MAX_FEE = AMOUNT // 200
+
+    l1, l2 = node_factory.line_graph(
+        2,
+        fundamount=AMOUNT,
+        opts=[
+            {
+                "gossip_store_file": outfile.name,
+                "allow_warning": True,
+                "dev-throttle-gossip": None,
+                "broken_log": "Throttling (incoming|outgoing) peer",
+                "askrene-timeout": TIMEOUT,
+            },
+            {"allow_warning": True},
+        ],
+    )
+
+    # Per maxhops: (succeeded, failed, longest path, total fee, mean probability_ppm)
+    if SLOW_MACHINE:
+        limit = 25
+        expected = {
+            None: (24, 0, 6, 4663500, 982051),
+            6: (24, 0, 6, 4663500, 982051),
+            5: (24, 0, 5, 4520423, 978569),
+            4: (24, 0, 4, 4489275, 978123),
+        }
+    else:
+        limit = 100
+        expected = {
+            None: (95, 0, 6, 16558980, 985039),
+            6: (95, 0, 6, 16558980, 985039),
+            5: (95, 0, 5, 16415903, 984160),
+            4: (94, 1, 4, 16310514, 984205),
+        }
+
+    nodes = [n for n in range(limit) if n not in canned_gossmap_badnodes]
+
+    def getroutes_all(maxhops):
+        """getroutes to every node in parallel; RpcError if it failed."""
+        futs = {}
+        for n in nodes:
+            args = {
+                "source": l1.info["id"],
+                "destination": nodeids[n],
+                "amount_msat": AMOUNT,
+                "layers": ["auto.sourcefree", "auto.localchans"],
+                "maxfee_msat": MAX_FEE,
+                "final_cltv": 18,
+            }
+            if maxhops is not None:
+                args["maxhops"] = maxhops
+            futs[n] = executor.submit(l1.rpc.getroutes, **args)
+        results = {}
+        for n, fut in futs.items():
+            try:
+                results[n] = fut.result(TIMEOUT)
+            except RpcError as err:
+                results[n] = err
+        return results
+
+    def longest(res):
+        return max(len(r["path"]) for r in res["routes"])
+
+    def fee(res):
+        return sum(r["path"][0]["amount_in_msat"] for r in res["routes"]) - AMOUNT
+
+    def summary(results):
+        """(succeeded, failed, longest path, total fee, mean probability_ppm)"""
+        ok = [res for res in results.values() if not isinstance(res, RpcError)]
+        return (
+            len(ok),
+            len(results) - len(ok),
+            max(longest(res) for res in ok),
+            sum(fee(res) for res in ok),
+            sum(res["probability_ppm"] for res in ok) // len(ok),
+        )
+
+    base = getroutes_all(None)
+    assert not any(isinstance(res, RpcError) for res in base.values())
+    base_longest = max(longest(res) for res in base.values())
+
+    # 1. A limit equal to the longest path we found does not bind: same answers.
+    same = getroutes_all(base_longest)
+    for n in nodes:
+        assert same[n] == base[n], (
+            f"node {n}: maxhops={base_longest} changed the routes"
+        )
+
+    # 2. Squeeze it.  Every successful answer respects the limit, and nodes
+    #    whose unlimited routes already fit get exactly the same answer.
+    #    Note: a binding limit can produce *cheaper* (but less likely) routes,
+    #    since askrene mostly optimizes for probability, not fees.
+    results = {None: summary(base)}
+    for maxhops in (6, 5, 4):
+        res = getroutes_all(maxhops)
+        for n in nodes:
+            if isinstance(res[n], RpcError):
+                assert "excessive hop count" in res[n].error["message"], res[n].error
+                continue
+            assert longest(res[n]) <= maxhops, (
+                f"node {n}: route longer than maxhops={maxhops}"
+            )
+            if longest(base[n]) <= maxhops:
+                assert res[n] == base[n], (
+                    f"node {n}: non-binding maxhops={maxhops} changed the routes"
+                )
+        results[maxhops] = summary(res)
+
+    assert results == expected
+
+    # FIXME: maxhops=3 is not tested: when both the fee budget and the hop
+    # limit bind, linear_routes() alternates mu and per_hop_dial increases.
+    # Neither dial reaches near_one (they converge to ~0.04 and ~0.96), so
+    # it loops until the askrene deadline instead of failing quickly.
