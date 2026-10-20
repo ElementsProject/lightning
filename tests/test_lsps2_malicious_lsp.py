@@ -6,6 +6,7 @@ checks how the client reacts and then the oracles in lsps2_oracles.py.
 
 from fixtures import *  # noqa: F401,F403
 from lsps2_mock_helpers import (
+    LSPS2_MOCK,
     lsps2_mock_configure,
     lsps2_mock_events,
     lsps2_mock_forwards,
@@ -16,6 +17,7 @@ from lsps2_mock_helpers import (
 from lsps2_oracles import check_oracles, lsps2_mock_fee
 from pyln.client import RpcError
 from utils import only_one
+import json
 import pytest
 
 
@@ -54,6 +56,146 @@ def scenario(name, slow=False, **fields):
     if slow:
         marks.append(pytest.mark.slow_test)
     return pytest.param(fields, id=name, marks=marks)
+
+
+# --- JSON-RPC and transport -----------------------------------------------
+
+
+def client_and_lsp(node_factory):
+    """Client l1 connected to l2 running the mock, without a channel."""
+    return node_factory.line_graph(
+        2,
+        fundchannel=False,
+        opts=[{"experimental-lsps-client": None}, {"plugin": LSPS2_MOCK}],
+    )
+
+
+def honest_menu(res):
+    return len(res["opening_fee_params_menu"]) == 1
+
+
+def timed_out(err):
+    return err is not None and "Timeout" in err.error["message"]
+
+
+# A response for no request.
+UNSOLICITED = {
+    "jsonrpc": "2.0",
+    "id": "mock-unsolicited",
+    "result": {"opening_fee_params_menu": []},
+}
+
+# The largest LSPS0 message (BOLT 8 payload minus the message type).
+MAX_PAYLOAD = 65533
+NESTED_JSON = "[" * (MAX_PAYLOAD // 2) + "]" * (MAX_PAYLOAD // 2) + " "
+GARBAGE = ("not json: {[" * MAX_PAYLOAD)[:MAX_PAYLOAD]
+
+
+def menu_entry_with(**fields):
+    return {"get_info": {"menu": [{**lsps2_mock_menu_entry(1000), **fields}]}}
+
+
+def error_config(code, message):
+    return {"transport": {"behavior": "error", "error": {"code": code, "message": message}}}
+
+
+# Each scenario: the mock sends each of `send` unsolicited, then the client
+# calls lsps-lsps2-getinfo with the mock configured by `config`;
+# `check(l1, result, error)` judges the outcome. Afterwards the client must
+# still get an honest menu.
+TRANSPORT_CASES = [
+    # A response with another request's id: the request times out.
+    scenario(
+        "wrong-id",
+        slow=True,
+        config={"transport": {"behavior": "wrong_id"}},
+        check=lambda l1, res, err: timed_out(err),
+    ),
+    # A response to no request is ignored and creates no session.
+    scenario(
+        "unsolicited",
+        send=[json.dumps(UNSOLICITED)],
+        check=lambda l1, res, err: (
+            honest_menu(res) and l1.rpc.listdatastore(["lsps"])["datastore"] == []
+        ),
+    ),
+    # Only the first of two responses counts.
+    scenario(
+        "duplicate",
+        config={
+            "transport": {
+                "behavior": "duplicate",
+                "change": {"opening_fee_params_menu": []},
+            }
+        },
+        check=lambda l1, res, err: honest_menu(res),
+    ),
+    # A negative msat, or one above u64: a clean error.
+    scenario(
+        "msat-negative",
+        config=menu_entry_with(min_fee_msat="-1000"),
+        check=lambda l1, res, err: err is not None and not timed_out(err),
+    ),
+    scenario(
+        "msat-overflow",
+        config=menu_entry_with(min_fee_msat="18446744073709551616"),
+        check=lambda l1, res, err: err is not None and not timed_out(err),
+    ),
+    # Unknown keys in a result are ignored (bLIP-50).
+    scenario(
+        "unknown-fields",
+        config={
+            "transport": {
+                "behavior": "add_fields",
+                "fields": {"x-mock-extension": {"nested": [1, 2]}},
+            }
+        },
+        check=lambda l1, res, err: honest_menu(res),
+    ),
+    # A full-size message of garbage or deeply nested JSON is ignored.
+    scenario(
+        "garbage",
+        send=[GARBAGE],
+        check=lambda l1, res, err: honest_menu(res),
+    ),
+    scenario(
+        "nested-json",
+        send=[NESTED_JSON],
+        check=lambda l1, res, err: honest_menu(res),
+    ),
+    # No response: the request times out.
+    scenario(
+        "no-response",
+        slow=True,
+        config={"transport": {"behavior": "drop"}},
+        check=lambda l1, res, err: timed_out(err),
+    ),
+    # An error with a huge message does not fill the log.
+    scenario(
+        "huge-error-log",
+        config=error_config(-32603, "x" * 60_000),
+        check=lambda l1, res, err: not l1.daemon.is_in_log("x" * 10_000),
+    ),
+]
+
+
+@pytest.mark.parametrize("case", TRANSPORT_CASES)
+def test_lsps2_bad_transport(node_factory, case):
+    l1, l2 = client_and_lsp(node_factory)
+    for payload in case.get("send", []):
+        l2.rpc.call("lsps2-mock-send", {"peer_id": l1.info["id"], "payload": payload})
+    lsps2_mock_configure(l2, **case.get("config", {}))
+    try:
+        res, err = l1.rpc.lsps_lsps2_getinfo(lsp_id=l2.info["id"]), None
+    except RpcError as e:
+        res, err = None, e
+
+    # lightningd hands the client one message from a peer at a time, so the
+    # mock's messages above were handled once this request is answered.
+    lsps2_mock_configure(l2)
+    assert honest_menu(l1.rpc.lsps_lsps2_getinfo(lsp_id=l2.info["id"]))
+    check_oracles(l1, l2)
+    assert case["check"](l1, res, err), (res, err)
 
 
 # --- fee deduction and HTLC amounts ----------------------------------------
