@@ -244,18 +244,20 @@ def test_lsps2_buyjitchannel_mpp_fixed_invoice(node_factory, bitcoind):
     eventualy this will result in the following situation
          (LSP)
     l1----l2----l3
+
+    The in-tree service does not support MPP, so l2 runs the mock service.
     """
-    # A mock for lsps2 mpp payments, contains the policy plugin as well.
-    plugin = os.path.join(os.path.dirname(__file__), "plugins/lsps2_service_mock.py")
+    # 10% of the payment, the fee spreads over several parts.
+    fee_msat = 1_000_000
+    menu = [lsps2_mock_menu_entry(1000, proportional=100_000)]
 
     l1, l2, l3 = node_factory.get_nodes(
         3,
         opts=[
             {"experimental-lsps-client": None},
             {
-                "experimental-lsps2-service": None,
-                "experimental-lsps2-promise-secret": "0" * 64,
-                "plugin": plugin,
+                "plugin": LSPS2_MOCK,
+                "lsps2-mock-config": json.dumps({"get_info": {"menu": menu}}),
                 "fee-base": 0,  # We are going to deduct our fee anyways,
                 "fee-per-satoshi": 0,  # We are going to deduct our fee anyways,
             },
@@ -281,10 +283,6 @@ def test_lsps2_buyjitchannel_mpp_fixed_invoice(node_factory, bitcoind):
         label="lsp-jit-channel-0",
     )
     dec = l3.rpc.decode(inv["bolt11"])
-
-    l2.rpc.setuplsps2service(
-        peer_id=l1.info["id"], channel_cap=100_000, opening_fee_msat=1000_000
-    )
 
     routehint = only_one(only_one(dec["routes"]))
 
@@ -326,6 +324,19 @@ def test_lsps2_buyjitchannel_mpp_fixed_invoice(node_factory, bitcoind):
 
     # Check that the client cleaned up after themselves.
     assert l1.rpc.listdatastore("lsps") == {"datastore": []}
+
+    # The fee is spread over the parts; a part without a deduction carries
+    # no extra_fee TLV.
+    assert lsps2_mock_fee.opening_fee(amt, 1000, 100_000) == fee_msat
+    fwds = lsps2_mock_forwards(l2)
+    assert len(fwds) == parts
+    assert sum(f["extra_fee_msat"] or 0 for f in fwds) == fee_msat
+    assert sum(f["forward_msat"] for f in fwds) == amt - fee_msat
+    assert any(f["extra_fee_msat"] is None for f in fwds)
+
+    paid = only_one(l1.rpc.listinvoices("lsp-jit-channel-0")["invoices"])
+    assert paid["status"] == "paid"
+    check_oracles(l1, l2)
 
 
 @pytest.mark.parametrize("service", LSPS2_SERVICES)
@@ -616,72 +627,6 @@ def test_lsps2_mock_jit_channel_var_invoice(node_factory):
     paid = only_one(l1.rpc.listinvoices("lsp-jit-channel-0")["invoices"])
     assert paid["status"] == "paid"
     assert paid["amount_received_msat"] == amt - fee_msat
-    check_oracles(l1, l2)
-
-
-def test_lsps2_mock_jit_channel_mpp_fixed_invoice(node_factory):
-    """MPP+fixed-invoice: the mock waits for all parts, then forwards them
-    with the opening fee for the payment size spread over the parts."""
-    l1, l2, l3 = lsps2_mock_nodes(node_factory)
-    menu_entry = lsps2_mock_menu_entry(1000, proportional=150_000)
-    l2.rpc.call(
-        "lsps2-mock-configure", {"config": {"get_info": {"menu": [menu_entry]}}}
-    )
-
-    amt = 10_000_000
-    fee_msat = lsps2_mock_fee.opening_fee(amt, 1000, 150_000)
-    assert fee_msat == 1_500_000
-    inv = l1.rpc.lsps_lsps2_invoice(
-        lsp_id=l2.info["id"],
-        amount_msat=amt,
-        description="lsp-jit-channel-0",
-        label="lsp-jit-channel-0",
-    )
-    dec = l3.rpc.decode(inv["bolt11"])
-    routehint = only_one(only_one(dec["routes"]))
-    chanid = only_one(l3.rpc.listpeerchannels(l2.info["id"])["channels"])[
-        "short_channel_id"
-    ]
-
-    parts = 10
-    route_part = [
-        {
-            "amount_msat": amt // parts,
-            "id": l2.info["id"],
-            "delay": routehint["cltv_expiry_delta"] + 6,
-            "channel": chanid,
-        },
-        {
-            "amount_msat": amt // parts,
-            "id": l1.info["id"],
-            "delay": 6,
-            "channel": routehint["short_channel_id"],
-        },
-    ]
-    for partid in range(1, parts + 1):
-        l3.rpc.sendpay(
-            route_part,
-            dec["payment_hash"],
-            payment_secret=inv["payment_secret"],
-            bolt11=inv["bolt11"],
-            amount_msat=amt,
-            groupid=1,
-            partid=partid,
-        )
-    for partid in range(1, parts + 1):
-        res = l3.rpc.waitsendpay(dec["payment_hash"], partid=partid, groupid=1)
-        assert res["payment_preimage"]
-
-    fwds = lsps2_mock_forwards(l2)
-    assert len(fwds) == parts
-    assert sum(f["extra_fee_msat"] or 0 for f in fwds) == fee_msat
-    assert sum(f["forward_msat"] for f in fwds) == amt - fee_msat
-    # A part without a deduction carries no extra_fee TLV.
-    assert any(f["extra_fee_msat"] is None for f in fwds)
-
-    only_one(l1.rpc.listpeerchannels()["channels"])
-    paid = only_one(l1.rpc.listinvoices("lsp-jit-channel-0")["invoices"])
-    assert paid["status"] == "paid"
     check_oracles(l1, l2)
 
 
