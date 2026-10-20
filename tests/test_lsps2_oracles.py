@@ -69,6 +69,7 @@ def honest_run():
                 "amount_received_msat": 9_900_000,
                 "expires_at": VALID_UNTIL_TIMESTAMP,
                 "decoded": {
+                    "min_final_cltv_expiry": 21,
                     "routes": [
                         [
                             {
@@ -95,6 +96,8 @@ def honest_run():
                 "htlcs": [],
             }
         ],
+        "plugins": ["cln-lsps-client"],
+        "crash_logs": [],
     }
 
 
@@ -270,3 +273,22 @@ def test_lsps2_oracles_invoice():
     assert check_ids(run) == []
     run["invoices"][0]["decoded"]["amount_msat"] = 9_899_999
     assert check_ids(run) == ["params.invoice"]
+
+
+def test_lsps2_oracles_robustness():
+    run = honest_run()
+    run["plugins"] = []
+    assert check_ids(run) == ["robustness.crash"]
+
+    run = honest_run()
+    run["crash_logs"] = ["plugin-cln-lsps-client: Killing plugin: exited"]
+    assert check_ids(run) == ["robustness.crash"]
+
+    run = honest_run()
+    run["channels"][0]["htlcs"] = [{"direction": "in", "amount_msat": 1000}]
+    assert check_ids(run) == ["robustness.hanging"]
+
+    run = honest_run()
+    request = {"jsonrpc": "2.0", "id": "2", "method": "lsps2.get_info", "params": {}}
+    run["mock_state"]["events"] += [message_event("rx", request)] * 20
+    assert check_ids(run) == ["robustness.retry_storm"]

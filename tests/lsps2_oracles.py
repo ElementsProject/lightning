@@ -23,7 +23,10 @@ import importlib.util
 import json
 import math
 import os
+import re
 from datetime import datetime, timezone
+
+from pyln.testing.utils import wait_for
 
 
 def _load_plugin_module(name):
@@ -41,12 +44,26 @@ lsps2_mock_fee = _load_plugin_module("lsps2_mock_fee")
 # that needs no escaping in JSON; the client aborts on anything else.
 MAX_PROMISE_BYTES = 512
 
+# LSPS requests a client may send in one test; a retry loop exceeds it.
+MAX_LSPS_REQUESTS = 20
+LSPS_CLIENT_PLUGIN = "cln-lsps-client"
+CRASH_LOG = re.compile(LSPS_CLIENT_PLUGIN + r".*(panicked|Killing plugin)")
+
 
 class Observation:
     """What the client and the mock service on the LSP did, as plain data,
     so that checks can also be fed by hand."""
 
-    def __init__(self, client_id, lsp_id, mock_state, invoices, channels):
+    def __init__(
+        self,
+        client_id,
+        lsp_id,
+        mock_state,
+        invoices,
+        channels,
+        plugins,
+        crash_logs,
+    ):
         self.client_id = client_id
         self.lsp_id = lsp_id
         self.issued = mock_state["issued"]
@@ -59,6 +76,10 @@ class Observation:
         # listpeerchannels entries, with the funding tx's confirmations
         # under "confirmations".
         self.channels = channels
+        # Names of the client's active plugins.
+        self.plugins = plugins
+        # Client log lines showing the LSPS client crashed.
+        self.crash_logs = crash_logs
 
     @classmethod
     def from_nodes(cls, client, lsp):
@@ -70,12 +91,19 @@ class Observation:
             {**c, "confirmations": _confirmations(client, c.get("funding_txid"))}
             for c in client.rpc.listpeerchannels()["channels"]
         ]
+        plugins = [
+            os.path.basename(p["name"])
+            for p in client.rpc.plugin("list")["plugins"]
+            if p["active"]
+        ]
         return cls(
             client.info["id"],
             lsp.info["id"],
             lsp.rpc.call("lsps2-mock-state"),
             invoices,
             channels,
+            plugins,
+            [line for line in client.daemon.logs if CRASH_LOG.search(line)],
         )
 
     def paid_invoices(self):
@@ -198,6 +226,16 @@ def violations(obs, waive=()):
 def check_oracles(client, lsp, waive=()):
     """Check the oracles on what `client` did with the mock service on `lsp`;
     `waive` lists check IDs to skip."""
+
+    def settled():
+        channels = client.rpc.listpeerchannels()["channels"]
+        return not any(c["htlcs"] for c in channels)
+
+    try:
+        wait_for(settled)
+    except ValueError:
+        # Reported as hanging.
+        pass
     found = violations(Observation.from_nodes(client, lsp), waive)
     if found:
         raise OracleViolation(
@@ -395,3 +433,33 @@ def check_invoice(obs):
             yield "params.invoice", (
                 f"invoice {inv['label']!r} amount is not the payment size bought"
             )
+
+
+# --- Robustness ------------------------------------------------------------
+
+
+@check
+def check_crash(obs):
+    """The LSPS client plugin is still running and never crashed."""
+    if LSPS_CLIENT_PLUGIN not in obs.plugins:
+        yield "robustness.crash", f"{LSPS_CLIENT_PLUGIN} is not running"
+    for line in obs.crash_logs:
+        yield "robustness.crash", line
+
+
+@check
+def check_hanging(obs):
+    """No HTLC is left pending in the client's channels."""
+    for c in obs.channels:
+        if c["htlcs"]:
+            yield "robustness.hanging", (
+                f"{len(c['htlcs'])} HTLCs pending in channel {c['channel_id']}"
+            )
+
+
+@check
+def check_retry_storm(obs):
+    """The client sent a bounded number of LSPS requests."""
+    requests = [m for _, m in obs.messages("rx") if "method" in m]
+    if len(requests) > MAX_LSPS_REQUESTS:
+        yield "robustness.retry_storm", f"client sent {len(requests)} LSPS requests"

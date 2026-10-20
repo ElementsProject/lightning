@@ -1,5 +1,8 @@
 from fixtures import *  # noqa: F401,F403
-from lsps2_oracles import check_oracles, lsps2_mock_fee
+from lsps2_oracles import (
+    check_oracles,
+    lsps2_mock_fee,
+)
 from pyln.client import RpcError
 from pyln.testing.utils import RUST
 from utils import only_one, wait_for
