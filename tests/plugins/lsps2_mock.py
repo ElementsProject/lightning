@@ -157,6 +157,8 @@ class Session:
         # collecting -> opening -> forwarded
         self.state = "collecting"
         self.parts = []
+        # The payment that opens the channel and pays the opening fee.
+        self.payment_hash = None
         self.channel_id = None
         self.htlc_minimum_msat = 0
 
@@ -168,6 +170,7 @@ class Session:
             "payment_size_msat": self.payment_size_msat,
             "opening_fee_msat": self.opening_fee_msat,
             "state": self.state,
+            "payment_hash": self.payment_hash,
             "channel_id": self.channel_id,
             "held_parts": len(self.parts),
         }
@@ -225,8 +228,9 @@ state = State()
 
 
 def record(kind, **fields):
+    now = lsps_datetime(datetime.now(timezone.utc))
     with state.lock:
-        state.events.append({"type": kind, **fields})
+        state.events.append({"type": kind, "time": now, **fields})
 
 
 def report_error(where, e, **fields):
@@ -819,6 +823,7 @@ def on_htlc_accepted(onion, htlc, request, **kwargs):
             session.opening_fee_msat = fee_msat
 
         if not session.parts:
+            session.payment_hash = htlc["payment_hash"]
             arm_expiry(session)
         session.parts.append(part)
         if session.state == "collecting" and collected_enough(session):
@@ -857,10 +862,11 @@ def lsps2_mock_configure(config, **kwargs):
 
 @plugin.method("lsps2-mock-state")
 def lsps2_mock_state(**kwargs):
-    """Return config, sessions and every recorded event."""
+    """Return config, issued params, sessions and every recorded event."""
     with state.lock:
         return {
             "config": state.config,
+            "issued": list(state.issued.values()),
             "sessions": [s.to_json() for s in state.sessions.values()],
             "events": state.events,
         }
