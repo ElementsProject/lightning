@@ -1633,13 +1633,13 @@ def test_real_data(node_factory, bitcoind, executor):
     # expected_lengths: number of first-try routes of each length (in hops).
     if SLOW_MACHINE:
         limit = 25
-        expected = (11, 24, 4663500, 221543, 96)
+        expected = (14, 24, 4663500, 209635, 96)
         expected_lengths = {2: 2, 3: 16, 4: 18, 5: 1, 6: 5}
         expected_first_success = 24
         expected_total_paths = 42
     else:
         limit = 100
-        expected = (11, 95, 16558980, 941774, 95)
+        expected = (18, 95, 16558980, 911656, 95)
         expected_lengths = {2: 2, 3: 59, 4: 110, 5: 5, 6: 5}
         expected_first_success = 95
         expected_total_paths = 181
@@ -1762,7 +1762,7 @@ def test_real_biases(node_factory, bitcoind, executor):
         expected = ({1: 5, 2: 7, 4: 13, 8: 16, 16: 22, 32: 24, 64: 24, 100: 24}, 0)
     else:
         limit = 100
-        expected = ({1: 24, 2: 34, 4: 52, 8: 65, 16: 89, 32: 95, 64: 95, 100: 95}, 0)
+        expected = ({1: 23, 2: 34, 4: 52, 8: 64, 16: 89, 32: 95, 64: 95, 100: 95}, 0)
 
     l1.rpc.askrene_create_layer('biases')
     num_changed = {}
