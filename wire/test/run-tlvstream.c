@@ -455,6 +455,37 @@ static bool ignored_fields(const struct tlv_n1 *tlv_n1)
 		&& tlv_n1->tlv4 == NULL;
 }
 
+/* tlvstream_set_raw() appends fields we have no tlv_record_type for: they
+ * must look unknown (meta == NULL) to towire_tlv() and tlv_update_fields(),
+ * otherwise those silently drop them. */
+static void test_tlvstream_set_raw(void)
+{
+	struct tlv_n1 *tlv_n1 = tlv_n1_new(tmpctx);
+	u64 amount = 1;
+	u8 *p = tal_arr(tmpctx, u8, 0);
+
+	tlv_n1->tlv1 = &amount;
+	tlvstream_set_raw(&tlv_n1->fields, 5, "hi", 2);
+	assert(tal_count(tlv_n1->fields) == 1);
+	assert(tlv_n1->fields[0].meta == NULL);
+
+	towire_tlv_n1(&p, tlv_n1);
+	assert(tal_arr_eq(p, stream(tmpctx, "01 01 01 05 02 6869")));
+
+	tlv_update_fields(tlv_n1, tlv_n1, &tlv_n1->fields);
+	assert(tal_count(tlv_n1->fields) == 2);
+	assert(tlv_n1->fields[0].meta == &tlvs_tlv_n1[0]);
+	assert(tlv_n1->fields[1].numtype == 5);
+	assert(tlv_n1->fields[1].meta == NULL);
+
+	/* Overwriting an existing field keeps its meta. */
+	tlvstream_set_raw(&tlv_n1->fields, 1, "\x02", 1);
+	assert(tal_count(tlv_n1->fields) == 2);
+	assert(tlv_n1->fields[0].meta == &tlvs_tlv_n1[0]);
+	assert(tlv_n1->fields[0].length == 1);
+	assert(tlv_n1->fields[0].value[0] == 2);
+}
+
 int main(int argc, char *argv[])
 {
 	common_setup(argv[0]);
@@ -643,5 +674,7 @@ int main(int argc, char *argv[])
 			assert(tal_arr_eq(orig_p, p2));
 		}
 	}
+
+	test_tlvstream_set_raw();
 	common_shutdown();
 }

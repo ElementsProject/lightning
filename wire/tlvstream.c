@@ -58,7 +58,9 @@ void tlvstream_set_raw(struct tlv_field **stream, u64 type, const void *value TA
 		e->length = valuelen;
 		e->value = tal_dup_arr(*stream, u8, value, e->length, 0);
 	} else {
-		/* If we haven't found it insert it insead. */
+		/* If we haven't found it insert it insead.  We have no
+		 * tlv_record_type for it, so it's an unknown field. */
+		f.meta = NULL;
 		f.length = valuelen;
 		f.numtype = type;
 		f.value = tal_dup_arr(*stream, u8, value, f.length, 0);
