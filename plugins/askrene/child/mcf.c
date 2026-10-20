@@ -451,15 +451,6 @@ static void linearize_channel(const struct pay_parameters *params,
 	}
 }
 
-static int cmp_u64(const u64 *a, const u64 *b, void *unused)
-{
-	if (*a < *b)
-		return -1;
-	if (*a > *b)
-		return 1;
-	return 0;
-}
-
 static int cmp_double(const double *a, const double *b, void *unused)
 {
 	if (*a < *b)
@@ -469,14 +460,13 @@ static int cmp_double(const double *a, const double *b, void *unused)
 	return 0;
 }
 
-static double get_median_ratio(const tal_t *working_ctx,
-			       const struct graph *graph,
-			       const double *arc_prob_cost,
-			       const s64 *arc_fee_cost)
+static double get_median(const tal_t *working_ctx,
+			 const struct graph *graph,
+			 const double *arc_cost)
 {
 	const size_t max_num_arcs = graph_max_num_arcs(graph);
-	u64 *u64_arr = tal_arr(working_ctx, u64, max_num_arcs);
-	double *double_arr = tal_arr(working_ctx, double, max_num_arcs);
+	double *cost_arr = tal_arr(working_ctx, double, max_num_arcs);
+	double result;
 	size_t n = 0;
 
 	for (struct arc arc = {.idx=0};arc.idx < max_num_arcs; ++arc.idx) {
@@ -484,31 +474,35 @@ static double get_median_ratio(const tal_t *working_ctx,
 		if (arc_is_dual(graph, arc) || !arc_enabled(graph, arc))
 			continue;
 		assert(n < max_num_arcs/2);
-		u64_arr[n] = arc_fee_cost[arc.idx];
-		double_arr[n] = arc_prob_cost[arc.idx];
+		cost_arr[n] = arc_cost[arc.idx];
 		n++;
 	}
-	asort(u64_arr, n, cmp_u64, NULL);
-	asort(double_arr, n, cmp_double, NULL);
 
-	/* Empty network, or tiny probability, nobody cares */
-	if (n == 0 || double_arr[n/2] < 0.001)
-		return 1;
+	asort(cost_arr, n, cmp_double, NULL);
 
-	/* You need to scale arc_prob_cost by this to match arc_fee_cost */
-	return u64_arr[n/2] / double_arr[n/2];
+	/* Empty network or too small value. */
+	if (n == 0)
+		result = 1;
+	else
+		result = cost_arr[n / 2];
+
+	if (result < 1e-6)
+		result = 1;
+
+	tal_free(cost_arr);
+	return result;
 }
 
 static void combine_cost_function(const tal_t *working_ctx,
 				  const struct graph *graph,
 				  const double *arc_prob_cost,
-				  const s64 *arc_fee_cost, const s8 *biases,
+				  const double *arc_fee_cost, const s8 *biases,
 				  s64 mu, s64 *arc_cost)
 {
 	/* probabilty and fee costs are not directly comparable!
 	 * Scale by ratio of (positive) medians. */
-	const double k =
-	    get_median_ratio(working_ctx, graph, arc_prob_cost, arc_fee_cost);
+	const double k = get_median(working_ctx, graph, arc_fee_cost) /
+			 get_median(working_ctx, graph, arc_prob_cost);
 	const double ln_30 = log(30);
 	const size_t max_num_arcs = graph_max_num_arcs(graph);
 
@@ -518,13 +512,13 @@ static void combine_cost_function(const tal_t *working_ctx,
 			continue;
 
 		const double pcost = arc_prob_cost[arc.idx];
-		const s64 fcost = arc_fee_cost[arc.idx];
+		const double fcost = arc_fee_cost[arc.idx];
 		double combined;
 		u32 chanidx;
 		int chandir;
 		s32 bias;
 
-		assert(fcost != INFINITE);
+		assert(fcost != DBL_MAX);
 		assert(pcost != DBL_MAX);
 		combined = fcost*mu + (MU_MAX-mu)*pcost*k;
 
@@ -562,11 +556,11 @@ static void combine_cost_function(const tal_t *working_ctx,
  *  use `base_fee_penalty` to weight the base fee and `delay_feefactor` to
  *  weight the CLTV delay.
  *  */
-static s64 linear_fee_cost(u32 base_fee, u32 proportional_fee, u16 cltv_delta,
+static double linear_fee_cost(u32 base_fee, u32 proportional_fee, u16 cltv_delta,
 			   double base_fee_penalty,
 			   double delay_feefactor)
 {
-	s64 pfee = proportional_fee,
+	double pfee = proportional_fee,
 	    bfee = base_fee,
 	    delay = cltv_delta;
 
@@ -584,7 +578,7 @@ static double base_fee_penalty_estimate(struct amount_msat amount)
 static void init_linear_network(const tal_t *ctx,
 				const struct pay_parameters *params,
 				struct graph **graph, double **arc_prob_cost,
-				s64 **arc_fee_cost, s64 **arc_capacity)
+				double **arc_fee_cost, s64 **arc_capacity)
 {
 	const struct gossmap *gossmap = params->rq->gossmap;
 	const size_t max_num_chans = gossmap_max_chan_idx(gossmap);
@@ -596,9 +590,9 @@ static void init_linear_network(const tal_t *ctx,
 	for (size_t i = 0; i < max_num_arcs; ++i)
 		(*arc_prob_cost)[i] = DBL_MAX;
 
-	*arc_fee_cost = tal_arr(ctx, s64, max_num_arcs);
+	*arc_fee_cost = tal_arr(ctx, double, max_num_arcs);
 	for (size_t i = 0; i < max_num_arcs; ++i)
-		(*arc_fee_cost)[i] = INT64_MAX;
+		(*arc_fee_cost)[i] = DBL_MAX;
 
 	*arc_capacity = tal_arrz(ctx, s64, max_num_arcs);
 
@@ -641,7 +635,7 @@ static void init_linear_network(const tal_t *ctx,
 			linearize_channel(params, c, half, capacity, prob_cost);
 
 			/* linear fee_cost per unit of flow */
-			const s64 fee_cost = linear_fee_cost(
+			const double fee_cost = linear_fee_cost(
 				c->half[half].base_fee,
 				c->half[half].proportional_fee,
 				c->half[half].delay,
@@ -1046,7 +1040,7 @@ static struct flow **minflow(const tal_t *ctx,
 	// build the uncertainty network with linearization and residual arcs
 	struct graph *graph;
 	double *arc_prob_cost;
-	s64 *arc_fee_cost;
+	double *arc_fee_cost;
 	s64 *arc_capacity;
 	init_linear_network(working_ctx, params, &graph, &arc_prob_cost,
 			    &arc_fee_cost, &arc_capacity);
@@ -1113,7 +1107,7 @@ fail:
 /* Initialize the data vectors for the single-path solver. */
 static void init_linear_network_single_path(
     const tal_t *ctx, const struct pay_parameters *params, struct graph **graph,
-    double **arc_prob_cost, s64 **arc_fee_cost, s64 **arc_capacity)
+    double **arc_prob_cost, double **arc_fee_cost, s64 **arc_capacity)
 {
 	const size_t max_num_chans = gossmap_max_chan_idx(params->rq->gossmap);
 	const size_t max_num_arcs = max_num_chans * ARCS_PER_CHANNEL;
@@ -1124,9 +1118,9 @@ static void init_linear_network_single_path(
 	for (size_t i = 0; i < max_num_arcs; ++i)
 		(*arc_prob_cost)[i] = DBL_MAX;
 
-	*arc_fee_cost = tal_arr(ctx, s64, max_num_arcs);
+	*arc_fee_cost = tal_arr(ctx, double, max_num_arcs);
 	for (size_t i = 0; i < max_num_arcs; ++i)
-		(*arc_fee_cost)[i] = INT64_MAX;
+		(*arc_fee_cost)[i] = DBL_MAX;
 	*arc_capacity = tal_arrz(ctx, s64, max_num_arcs);
 
 	const struct gossmap *gossmap = params->rq->gossmap;
@@ -1251,7 +1245,7 @@ static struct flow **single_path_flow(const tal_t *ctx, const struct route_query
 
 	struct graph *graph;
 	double *arc_prob_cost;
-	s64 *arc_fee_cost;
+	double *arc_fee_cost;
 	s64 *arc_capacity;
 
 	init_linear_network_single_path(working_ctx, params, &graph,
