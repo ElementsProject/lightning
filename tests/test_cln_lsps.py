@@ -13,6 +13,49 @@ import unittest
 
 RUST_PROFILE = os.environ.get("RUST_PROFILE", "debug")
 
+LSPS2_POLICY = os.path.join(os.path.dirname(__file__), "plugins/lsps2_policy.py")
+LSPS2_MOCK = os.path.join(os.path.dirname(__file__), "plugins/lsps2_mock.py")
+
+# The opening fee menu of plugins/lsps2_policy.py, for the mock to serve the
+# same.
+LSPS2_POLICY_MENU = [
+    {
+        "min_fee_msat": "1000",
+        "proportional": 1000,
+        "min_lifetime": 2000,
+        "max_client_to_self_delay": 2016,
+        "min_payment_size_msat": "1000",
+        "max_payment_size_msat": "100000000",
+    },
+    {
+        "min_fee_msat": "1092000",
+        "proportional": 2400,
+        "min_lifetime": 1008,
+        "max_client_to_self_delay": 2016,
+        "min_payment_size_msat": "1000",
+        "max_payment_size_msat": "1000000",
+    },
+]
+
+# The client tests run against both the in-tree LSPS2 service and the mock
+# service in plugins/lsps2_mock.py.
+LSPS2_SERVICES = ["in-tree", "mock"]
+
+
+def lsps2_service_opts(service, policy=False):
+    """Options for an LSP node running `service`. The in-tree service gets
+    the policy plugin if `policy`; the mock always serves its menu."""
+    if service == "mock":
+        config = {"get_info": {"menu": LSPS2_POLICY_MENU}}
+        return {"plugin": LSPS2_MOCK, "lsps2-mock-config": json.dumps(config)}
+    opts = {
+        "experimental-lsps2-service": None,
+        "experimental-lsps2-promise-secret": "0" * 64,
+    }
+    if policy:
+        opts["plugin"] = LSPS2_POLICY
+    return opts
+
 
 def test_lsps_service_disabled(node_factory):
     """By default we disable the LSPS service plugin.
@@ -26,15 +69,13 @@ def test_lsps_service_disabled(node_factory):
 
 
 @unittest.skipUnless(RUST, "RUST is not enabled")
-def test_lsps0_listprotocols(node_factory):
+@pytest.mark.parametrize("service", LSPS2_SERVICES)
+def test_lsps0_listprotocols(node_factory, service):
     l1, l2 = node_factory.get_nodes(
         2,
         opts=[
             {"experimental-lsps-client": None},
-            {
-                "experimental-lsps2-service": None,
-                "experimental-lsps2-promise-secret": "0" * 64,
-            },
+            lsps2_service_opts(service),
         ],
     )
 
@@ -45,15 +86,13 @@ def test_lsps0_listprotocols(node_factory):
     assert res
 
 
-def test_lsps2_enabled(node_factory):
+@pytest.mark.parametrize("service", LSPS2_SERVICES)
+def test_lsps2_enabled(node_factory, service):
     l1, l2 = node_factory.get_nodes(
         2,
         opts=[
             {"experimental-lsps-client": None},
-            {
-                "experimental-lsps2-service": None,
-                "experimental-lsps2-promise-secret": "0" * 64,
-            },
+            lsps2_service_opts(service),
         ],
     )
 
@@ -63,18 +102,13 @@ def test_lsps2_enabled(node_factory):
     assert res["protocols"] == [2]
 
 
-def test_lsps2_getinfo(node_factory):
-    plugin = os.path.join(os.path.dirname(__file__), "plugins/lsps2_policy.py")
-
+@pytest.mark.parametrize("service", LSPS2_SERVICES)
+def test_lsps2_getinfo(node_factory, service):
     l1, l2 = node_factory.get_nodes(
         2,
         opts=[
             {"experimental-lsps-client": None},
-            {
-                "experimental-lsps2-service": None,
-                "experimental-lsps2-promise-secret": "0" * 64,
-                "plugin": plugin,
-            },
+            lsps2_service_opts(service, policy=True),
         ],
     )
 
@@ -84,19 +118,14 @@ def test_lsps2_getinfo(node_factory):
     assert res["opening_fee_params_menu"]
 
 
-def test_lsps2_buy(node_factory):
-    # We need a policy service to fetch from.
-    plugin = os.path.join(os.path.dirname(__file__), "plugins/lsps2_policy.py")
-
+@pytest.mark.parametrize("service", LSPS2_SERVICES)
+def test_lsps2_buy(node_factory, service):
+    # The in-tree service needs a policy service to fetch from.
     l1, l2 = node_factory.get_nodes(
         2,
         opts=[
             {"experimental-lsps-client": None},
-            {
-                "experimental-lsps2-service": None,
-                "experimental-lsps2-promise-secret": "0" * 64,
-                "plugin": plugin,
-            },
+            lsps2_service_opts(service, policy=True),
         ],
     )
 
@@ -110,7 +139,8 @@ def test_lsps2_buy(node_factory):
     assert res
 
 
-def test_lsps2_buyjitchannel_no_mpp_var_invoice(node_factory, bitcoind):
+@pytest.mark.parametrize("service", LSPS2_SERVICES)
+def test_lsps2_buyjitchannel_no_mpp_var_invoice(node_factory, bitcoind, service):
     """Tests the creation of a "Just-In-Time-Channel" (jit-channel).
 
     At the beginning we have the following situation where l2 acts as the LSP
@@ -127,17 +157,13 @@ def test_lsps2_buyjitchannel_no_mpp_var_invoice(node_factory, bitcoind):
          (LSP)
     l1----l2----l3
     """
-    # We need a policy service to fetch from.
-    plugin = os.path.join(os.path.dirname(__file__), "plugins/lsps2_policy.py")
-
     l1, l2, l3 = node_factory.get_nodes(
         3,
         opts=[
             {"experimental-lsps-client": None},
             {
-                "experimental-lsps2-service": None,
-                "experimental-lsps2-promise-secret": "0" * 64,
-                "plugin": plugin,
+                # The in-tree service needs a policy service to fetch from.
+                **lsps2_service_opts(service, policy=True),
                 "fee-base": 0,  # We are going to deduct our fee anyways,
                 "fee-per-satoshi": 0,  # We are going to deduct our fee anyways,
             },
@@ -197,6 +223,9 @@ def test_lsps2_buyjitchannel_no_mpp_var_invoice(node_factory, bitcoind):
 
     # Check that the client cleaned up after themselves.
     assert l1.rpc.listdatastore(["lsps"]) == {"datastore": []}
+
+    if service == "mock":
+        check_oracles(l1, l2)
 
 
 def test_lsps2_buyjitchannel_mpp_fixed_invoice(node_factory, bitcoind):
@@ -299,21 +328,18 @@ def test_lsps2_buyjitchannel_mpp_fixed_invoice(node_factory, bitcoind):
     assert l1.rpc.listdatastore("lsps") == {"datastore": []}
 
 
-def test_lsps2_non_approved_zero_conf(node_factory, bitcoind):
+@pytest.mark.parametrize("service", LSPS2_SERVICES)
+def test_lsps2_non_approved_zero_conf(node_factory, bitcoind, service):
     """Checks that we don't allow zerof_conf channels from an LSP if we did
     not approve it first.
     """
-    # We need a policy service to fetch from.
-    plugin = os.path.join(os.path.dirname(__file__), "plugins/lsps2_policy.py")
-
     l1, l2, l3 = node_factory.get_nodes(
         3,
         opts=[
             {"experimental-lsps-client": None},
             {
-                "experimental-lsps2-service": None,
-                "experimental-lsps2-promise-secret": "0" * 64,
-                "plugin": plugin,
+                # The in-tree service needs a policy service to fetch from.
+                **lsps2_service_opts(service, policy=True),
                 "fee-base": 0,  # We are going to deduct our fee anyways,
                 "fee-per-satoshi": 0,  # We are going to deduct our fee anyways,
             },
@@ -358,8 +384,9 @@ def test_lsps2_non_approved_zero_conf(node_factory, bitcoind):
     chs = l1.rpc.listpeerchannels()["channels"]
     assert len(chs) == 0
 
-
-LSPS2_MOCK = os.path.join(os.path.dirname(__file__), "plugins/lsps2_mock.py")
+    if service == "mock":
+        # The test made the invoice, not the client.
+        check_oracles(l1, l2, waive={"params.invoice"})
 
 
 def lsps2_mock_nodes(node_factory, client_opts=None):
