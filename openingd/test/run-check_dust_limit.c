@@ -47,14 +47,30 @@ int main(int argc, char *argv[])
 {
 	common_setup(argv[0]);
 
+	/* Normal cases. */
+	assert(dust_ok(354, 10000));
 	assert(dust_ok(546, 10000));
-	assert(dust_ok(10000, 10000));
+	assert(dust_ok(5000, 10000));
+	assert(dust_ok(5000, 5000));
 
-	assert(dust_fails_with(10001, 10000, false, "would be above our reserve"));
-	assert(dust_fails_with(2100000000000000ULL, 10000, false, "would be above our reserve"));
-
+	/* Above our reserve (#125): spec says MUST fail. */
+	assert(dust_fails_with(1001, 1000, false, "would be above our reserve"));
 	/* ...unless we deliberately allow sub-dust reserves. */
-	assert(dust_err(10001, 10000, true) == NULL);
+	assert(dust_err(1001, 1000, true) == NULL);
+
+	/* Below the BOLT #3 floor. */
+	assert(dust_fails_with(353, 10000, false, "too small"));
+	assert(dust_fails_with(0, 10000, false, "too small"));
+
+	/* Above our ceiling (#201): rejected even when the reserve has
+	 * been inflated to cover it, and even with allow_dust_reserve. */
+	assert(dust_fails_with(5001, 5001, false, "too large"));
+	assert(dust_fails_with(5001, 5001, true, "too large"));
+	assert(dust_fails_with(400000, 400000, false, "too large"));
+	assert(dust_fails_with(2100000000000000ULL, 10000, false, "too large"));
+
+	/* The ceiling is reported before the reserve check. */
+	assert(dust_fails_with(10001, 10000, false, "too large"));
 
 	common_shutdown();
 	return 0;
