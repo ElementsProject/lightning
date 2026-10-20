@@ -179,7 +179,31 @@ def test_lsps2_oracles_amount():
     run["invoices"].append(later)
     run["mock_state"]["events"].append(forward_event("bb" * 32, 10_000_000, 100_000))
     run["channels"][0]["to_us_msat"] *= 2
-    assert check_ids(run) == ["amount.received"]
+    assert check_ids(run) == ["amount.received", "amount.extra_fee"]
+
+
+def test_lsps2_oracles_extra_fee():
+    run = honest_run()
+    run["mock_state"]["events"][2]["extra_fee_msat"] = None
+    assert check_ids(run) == ["amount.extra_fee"]
+
+    run = honest_run()
+    run["mock_state"]["events"][2]["extra_fee_msat"] = 99_999
+    assert check_ids(run) == ["amount.extra_fee"]
+
+    # Within the fee, as long as each part matches its extra_fee.
+    run = honest_run()
+    forward = run["mock_state"]["events"][2]
+    forward.update(forward_msat=9_950_000, extra_fee_msat=50_000)
+    run["invoices"][0]["amount_received_msat"] = 9_950_000
+    run["channels"][0]["to_us_msat"] = 9_950_000
+    assert check_ids(run) == []
+
+    # More extra_fee than the payment owes, even if the parts match.
+    run = honest_run()
+    forward = run["mock_state"]["events"][2]
+    forward.update(onion_forward_msat=10_100_001, extra_fee_msat=200_001)
+    assert check_ids(run) == ["amount.received", "amount.extra_fee"]
 
 
 def test_lsps2_oracles_balance():
