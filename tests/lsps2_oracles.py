@@ -281,6 +281,37 @@ def check_amount(obs):
 
 
 @check
+def check_extra_fee(obs):
+    """Each part of a paid invoice arrived short of its onion amount by
+    exactly its extra_fee, and the extra_fees add up to at most what the
+    payment owes (bLIP-52, "Channel Opening And Forwarding")."""
+    for inv in obs.paid_invoices():
+        forwards = obs.forwards(inv["payment_hash"])
+        for f in forwards:
+            extra_fee_msat = f["extra_fee_msat"] or 0
+            if f["forward_msat"] + extra_fee_msat != f["onion_forward_msat"]:
+                yield "amount.extra_fee", (
+                    f"invoice {inv['label']!r} paid by a part of "
+                    f"{f['forward_msat']} msat with extra_fee "
+                    f"{f['extra_fee_msat']} for an onion amount of "
+                    f"{f['onion_forward_msat']} msat"
+                )
+        session = obs.session(payment_hash=inv["payment_hash"])
+        owed_msat = 0
+        if session is not None:
+            size_msat = session["payment_size_msat"] or sum(
+                f["onion_forward_msat"] for f in forwards
+            )
+            owed_msat = opening_fee(session["opening_fee_params"], size_msat)
+        total_msat = sum(f["extra_fee_msat"] or 0 for f in forwards)
+        if owed_msat is not None and total_msat > owed_msat:
+            yield "amount.extra_fee", (
+                f"invoice {inv['label']!r} paid with extra_fees of "
+                f"{total_msat} msat, more than the {owed_msat} msat owed"
+            )
+
+
+@check
 def check_balance(obs):
     """The client's balance in channels it did not open does not exceed
     what its paid invoices received: nothing was released outside an
