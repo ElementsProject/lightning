@@ -20,6 +20,8 @@ it finds.
 """
 
 import importlib.util
+import json
+import math
 import os
 from datetime import datetime, timezone
 
@@ -34,6 +36,10 @@ def _load_plugin_module(name):
 
 
 lsps2_mock_fee = _load_plugin_module("lsps2_mock_fee")
+
+# bLIP-52 lets the LSP send promises of up to 512 bytes, in printable ASCII
+# that needs no escaping in JSON; the client aborts on anything else.
+MAX_PROMISE_BYTES = 512
 
 
 class Observation:
@@ -104,6 +110,43 @@ class Observation:
                 return s
         return None
 
+    def messages(self, kind):
+        """(time, message) for each JSON object in the mock's `kind` events
+        with the client: "rx" received from it, "tx" sent to it."""
+        out = []
+        for e in self.events:
+            if e["type"] != kind or e["peer_id"] != self.client_id:
+                continue
+            try:
+                msg = json.loads(e["payload"])
+            except ValueError:
+                continue
+            if isinstance(msg, dict):
+                out.append((e["time"], msg))
+        return out
+
+    def buy_result(self, scid):
+        """The first buy result the client was sent for `scid`."""
+        for _, msg in self.messages("tx"):
+            result = msg.get("result")
+            if isinstance(result, dict) and result.get("jit_channel_scid") == scid:
+                return result
+        return None
+
+    def lsps2_invoices(self):
+        """(invoice, session) for each invoice with a route hint on a
+        jit_channel_scid of the client's sessions."""
+        out = []
+        for inv in self.invoices:
+            seen = []
+            for route in inv["decoded"].get("routes", []):
+                for hop in route:
+                    session = self.session(jit_channel_scid=hop["short_channel_id"])
+                    if session is not None and session not in seen:
+                        seen.append(session)
+                        out.append((inv, session))
+        return out
+
     def channel_ids(self):
         """Every SCID and alias the client knows for its channels."""
         ids = set()
@@ -139,6 +182,13 @@ def opening_fee(params, payment_size_msat):
 def parse_lsps_datetime(s):
     dt = datetime.strptime(s, "%Y-%m-%dT%H:%M:%S.%fZ")
     return dt.replace(tzinfo=timezone.utc)
+
+
+def parse_msat(v):
+    """An LSPS0.msat (a string of decimal digits) as int, or None."""
+    if isinstance(v, str) and v.isdigit():
+        return int(v)
+    return None
 
 
 CHECKS = []
@@ -265,4 +315,97 @@ def check_zero_conf_channel(obs):
             yield "identity.zero_conf_channel", (
                 f"client uses unconfirmed channel {c['channel_id']} from "
                 f"{c['peer_id']}, which no session opened"
+            )
+
+
+# --- Params and deadlines --------------------------------------------------
+
+
+def promise_ok(promise):
+    return (
+        isinstance(promise, str)
+        and len(promise.encode()) <= MAX_PROMISE_BYTES
+        and all(0x20 <= ord(c) <= 0x7E and c not in '"\\' for c in promise)
+    )
+
+
+@check
+def check_buy_params(obs):
+    """The client buys only with params the LSP issued, unchanged, before
+    they expire, and consistent."""
+    for time, req in obs.messages("rx"):
+        if req.get("method") != "lsps2.buy":
+            continue
+        if not isinstance(req.get("params"), dict):
+            continue
+        params = req["params"]
+        ofp = params.get("opening_fee_params")
+        if ofp not in obs.issued:
+            yield "params.modified", "client bought with params the LSP did not issue"
+            continue
+
+        try:
+            valid_until = parse_lsps_datetime(ofp["valid_until"])
+            expired = valid_until <= parse_lsps_datetime(time)
+        except (KeyError, TypeError, ValueError):
+            expired = True
+        if expired:
+            yield "params.expired", (
+                f"client bought with params valid until "
+                f"{ofp.get('valid_until')!r}"
+            )
+
+        min_msat = parse_msat(ofp.get("min_payment_size_msat"))
+        max_msat = parse_msat(ofp.get("max_payment_size_msat"))
+        size_msat = parse_msat(params.get("payment_size_msat"))
+        if min_msat is None or max_msat is None or min_msat > max_msat:
+            yield "params.contradictory", "client bought with unusable size limits"
+        elif "payment_size_msat" not in params:
+            pass
+        elif size_msat is None or not min_msat <= size_msat <= max_msat:
+            yield "params.contradictory", "client bought a size outside the limits"
+        else:
+            fee_msat = opening_fee(ofp, size_msat)
+            if fee_msat is None or fee_msat >= size_msat:
+                yield "params.contradictory", "client bought a size the fee eats up"
+
+        if not promise_ok(ofp.get("promise")):
+            yield "params.promise", "client bought with an invalid promise"
+
+
+@check
+def check_invoice(obs):
+    """An LSPS2 invoice follows the buy result and the params: the LSP's
+    cltv delta is in the route hint with zero fees, the invoice expires by
+    valid_until, and its amount is the payment size."""
+    for inv, session in obs.lsps2_invoices():
+        result = obs.buy_result(session["jit_channel_scid"]) or {}
+        delta = result.get("lsp_cltv_expiry_delta")
+        for route in inv["decoded"]["routes"]:
+            for hop in route:
+                fees = (hop["fee_base_msat"], hop["fee_proportional_millionths"])
+                if hop["cltv_expiry_delta"] != delta or fees != (0, 0):
+                    yield "params.invoice", (
+                        f"invoice {inv['label']!r} route hint does not match "
+                        f"the buy result"
+                    )
+
+        # Invoice timestamps (BOLT 11) have one-second resolution.
+        params = session["opening_fee_params"]
+        valid_until = parse_lsps_datetime(params["valid_until"])
+        if inv["expires_at"] > math.ceil(valid_until.timestamp()):
+            yield "params.invoice", (
+                f"invoice {inv['label']!r} expires after the params' valid_until"
+            )
+
+        # The client replaces the invoice it hands out by a copy for the
+        # payment size minus the fee, which the reduced HTLCs pay.
+        size_msat = session["payment_size_msat"]
+        if size_msat is None:
+            amounts = [None]
+        else:
+            amounts = [size_msat, size_msat - (opening_fee(params, size_msat) or 0)]
+        if inv["decoded"].get("amount_msat") not in amounts:
+            yield "params.invoice", (
+                f"invoice {inv['label']!r} amount is not the payment size bought"
             )
