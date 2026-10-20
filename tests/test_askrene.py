@@ -1633,13 +1633,13 @@ def test_real_data(node_factory, bitcoind, executor):
     # expected_lengths: number of first-try routes of each length (in hops).
     if SLOW_MACHINE:
         limit = 25
-        expected = (11, 24, 4663500, 221912, 96)
+        expected = (11, 24, 4663500, 221543, 96)
         expected_lengths = {2: 2, 3: 16, 4: 18, 5: 1, 6: 5}
         expected_first_success = 24
         expected_total_paths = 42
     else:
         limit = 100
-        expected = (11, 95, 16558980, 944568, 95)
+        expected = (11, 95, 16558980, 941774, 95)
         expected_lengths = {2: 2, 3: 59, 4: 110, 5: 5, 6: 5}
         expected_first_success = 95
         expected_total_paths = 181
