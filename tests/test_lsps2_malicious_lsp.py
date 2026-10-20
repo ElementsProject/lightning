@@ -17,7 +17,7 @@ from lsps2_mock_helpers import (
 from lsps2_oracles import check_oracles, lsps2_mock_fee
 from pyln.client import RpcError
 from concurrent import futures
-from utils import only_one
+from utils import only_one, wait_for
 import json
 import pytest
 
@@ -324,6 +324,130 @@ def test_lsps2_bad_fee_params(node_factory, executor, case):
         assert err is None, err
         promise = only_one(buys)["opening_fee_params"]["promise"]
         assert promise == entries[case["buy"]]["promise"]
+
+
+# --- buy, SCID and identity ------------------------------------------------
+
+
+def no_invoice(l1, err):
+    return isinstance(err, RpcError) and l1.rpc.listinvoices(LABEL)["invoices"] == []
+
+
+def hint_scid(l1):
+    routes = l1.rpc.decode(invoice(l1)["bolt11"])["routes"]
+    return only_one(only_one(routes))["short_channel_id"]
+
+
+def buy_transport(**transport):
+    return {"transport": {**transport, "methods": ["lsps2.buy"]}}
+
+
+# Each scenario: the client asks for a JIT invoice from the mock configured
+# by `config`; `invoice` is whether it must get one, and `check(l1, l2)`
+# checks more.
+BUY_RESULT_CASES = [
+    # A jit_channel_scid that is no SCID.
+    scenario("scid-text", config={"buy": {"jit_channel_scid": "not-an-scid"}}, invoice=False),
+    scenario("scid-short", config={"buy": {"jit_channel_scid": "1x2"}}, invoice=False),
+    scenario(
+        "scid-block-too-large",
+        config={"buy": {"jit_channel_scid": "16777216x0x0"}},
+        invoice=False,
+    ),
+    # An lsp_cltv_expiry_delta of 0 is fine.
+    scenario("zero-cltv-delta", config={"buy": {"lsp_cltv_expiry_delta": 0}}, invoice=True),
+    # "Invalid promise" for an unchanged promise: fail once, no retries.
+    scenario(
+        "invalid-promise-error",
+        config=buy_transport(
+            behavior="error",
+            error={"code": 201, "message": "invalid_opening_fee_params"},
+        ),
+        invoice=False,
+        check=lambda l1, l2: len(buy_requests(l2)) == 1,
+    ),
+    # A second buy result with another SCID: the first one counts.
+    scenario(
+        "second-buy-result",
+        config=buy_transport(behavior="duplicate", change={"jit_channel_scid": "1x1x1"}),
+        invoice=True,
+        check=lambda l1, l2: (
+            hint_scid(l1) == only_one(lsps2_mock_events(l2, "buy"))["jit_channel_scid"]
+        ),
+    ),
+]
+
+
+@pytest.mark.parametrize("case", BUY_RESULT_CASES)
+def test_lsps2_bad_buy_result(node_factory, case):
+    l1, l2 = client_and_lsp(node_factory)
+    lsps2_mock_configure(l2, **case["config"])
+    try:
+        jit_invoice(l1, l2)
+        err = None
+    except RpcError as e:
+        err = e
+
+    check_oracles(l1, l2)
+    if case["invoice"]:
+        assert err is None, err
+    else:
+        assert no_invoice(l1, err), err
+    assert case.get("check", lambda l1, l2: True)(l1, l2)
+
+
+def unconfirmed_channels(l1, peer):
+    return [
+        c
+        for c in l1.rpc.listpeerchannels(peer.info["id"])["channels"]
+        if c["state"] == "CHANNELD_NORMAL" and "short_channel_id" not in c
+    ]
+
+
+@pytest.mark.parametrize("when", ["before", "after"])
+def test_lsps2_open_outside_session(node_factory, when):
+    """The LSP opens a zero-conf channel to the client outside a
+    session, before any buy or after the session's channel. The client
+    rejects it."""
+    l1, l2, l3 = lsps2_mock_nodes(node_factory)
+    if when == "after":
+        lsps2_mock_configure(l2, get_info={"menu": MENU})
+        results = lsps2_mock_pay_parts(l1, l2, l3, jit_invoice(l1, l2), [AMT])
+        assert_paid(l1, results)
+
+    with pytest.raises(RpcError):
+        l2.rpc.call("lsps2-mock-open", {"peer_id": l1.info["id"]})
+    check_oracles(l1, l2)
+    assert len(unconfirmed_channels(l1, l2)) == (1 if when == "after" else 0)
+
+
+def test_lsps2_second_open(node_factory):
+    """The LSP opens a second zero-conf channel for the session. The
+    client takes only the first."""
+    l1, l2, l3 = lsps2_mock_nodes(node_factory)
+    lsps2_mock_configure(l2, get_info={"menu": MENU}, open={"behavior": "twice"})
+    assert_paid(l1, lsps2_mock_pay_parts(l1, l2, l3, jit_invoice(l1, l2), [AMT]))
+
+    wait_for(lambda: lsps2_mock_events(l2, "open_failed"))
+    check_oracles(l1, l2)
+    assert len(unconfirmed_channels(l1, l2)) == 1
+
+
+def test_lsps2_open_from_other_node(node_factory):
+    """While the client has a session with the LSP, another node opens
+    a zero-conf channel to it. The client rejects it."""
+    l1, l2 = client_and_lsp(node_factory)
+    l4 = node_factory.get_node()
+    l4.fundwallet(1_000_000)
+    l4.connect(l1)
+    jit_invoice(l1, l2)
+
+    with pytest.raises(RpcError):
+        l4.rpc.fundchannel(
+            l1.info["id"], 100_000, announce=False, mindepth=0, channel_type=[12, 46, 50]
+        )
+    check_oracles(l1, l2)
+    assert unconfirmed_channels(l1, l4) == []
 
 
 # --- fee deduction and HTLC amounts ----------------------------------------
