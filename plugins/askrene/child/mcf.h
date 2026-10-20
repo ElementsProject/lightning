@@ -18,7 +18,10 @@ const char *default_routes(const tal_t *ctx, struct route_query *rq,
 			   const struct gossmap_node *dstnode,
 			   struct amount_msat amount,
 			   struct amount_msat maxfee, u32 finalcltv,
-			   u32 maxdelay, size_t maxparts, struct flow ***flows,
+			   u32 maxdelay,
+			   size_t maxparts,
+			   u32 maxhops,
+			   struct flow ***flows,
 			   double *probability,
 			   enum jsonrpc_errcode *ecode);
 
@@ -29,7 +32,9 @@ const char *single_path_routes(const tal_t *ctx, struct route_query *rq,
 			       const struct gossmap_node *dstnode,
 			       struct amount_msat amount,
 			       struct amount_msat maxfee, u32 finalcltv,
-			       u32 maxdelay, struct flow ***flows,
+			       u32 maxdelay,
+			       u32 maxhops,
+			       struct flow ***flows,
 			       double *probability,
 			       enum jsonrpc_errcode *ecode);
 

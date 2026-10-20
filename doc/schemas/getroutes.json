@@ -81,6 +81,14 @@
           "Maximum number of routes in the solution."
         ],
         "default": "100"
+      },
+      "maxhops": {
+        "type": "u32",
+        "added": "v26.12",
+        "description": [
+          "Maximum number of hops for every path."
+        ],
+        "default": "100"
       }
     }
   },
