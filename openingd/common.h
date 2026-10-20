@@ -20,9 +20,12 @@ bool check_config_bounds(const tal_t *ctx,
 			 bool option_anchors_zero_fee_htlc_tx,
 			 char **err_reason);
 
+/* Check their dust_limit_satoshis is not above the reserve we hold
+ * them to (unless allow_dust_reserve). */
 bool check_dust_limit(const tal_t *ctx,
 		      const struct channel_config *remoteconf,
 		      const struct channel_config *localconf,
+		      bool allow_dust_reserve,
 		      char **err_reason);
 
 bool anchors_negotiated(struct feature_set *our_features,

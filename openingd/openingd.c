@@ -446,14 +446,9 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags,
 				fmt_channel_id(msg,
 					       &state->channel_id));
 
-	if (!state->allowdustreserve &&
-	    amount_sat_greater(state->remoteconf.dust_limit,
-			       state->localconf.channel_reserve)) {
-		negotiation_failed(state,
-				   "dust limit %s"
-				   " would be above our reserve %s",
-				   fmt_amount_sat(tmpctx, state->remoteconf.dust_limit),
-				   fmt_amount_sat(tmpctx, state->localconf.channel_reserve));
+	if (!check_dust_limit(tmpctx, &state->remoteconf, &state->localconf,
+			      state->allowdustreserve, &err_reason)) {
+		negotiation_failed(state, "%s", err_reason);
 		return NULL;
 	}
 
@@ -980,7 +975,9 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 		return NULL;
 	}
 
-	/* This reserves 1% of the channel (rounded up) */
+	/* This reserves 1% of the channel (rounded up), or their dust
+	 * limit if that's higher: so check_dust_limit()'s ceiling is what
+	 * actually bounds their dust limit here. */
 	set_reserve(state, state->remoteconf.dust_limit);
 
 	/* Pending proposal to remove these limits. */
@@ -993,14 +990,9 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	 * - MUST set `dust_limit_satoshis` less than or equal to
          *   `channel_reserve_satoshis` from the `open_channel` message.
 	 */
-	if (!state->allowdustreserve &&
-	    amount_sat_greater(state->remoteconf.dust_limit,
-			       state->localconf.channel_reserve)) {
-		negotiation_failed(state,
-				   "Our channel reserve %s"
-				   " would be below their dust %s",
-				   fmt_amount_sat(tmpctx, state->localconf.channel_reserve),
-				   fmt_amount_sat(tmpctx, state->remoteconf.dust_limit));
+	if (!check_dust_limit(tmpctx, &state->remoteconf, &state->localconf,
+			      state->allowdustreserve, &err_reason)) {
+		negotiation_failed(state, "%s", err_reason);
 		return NULL;
 	}
 

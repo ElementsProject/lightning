@@ -171,6 +171,7 @@ bool check_config_bounds(const tal_t *ctx,
 bool check_dust_limit(const tal_t *ctx,
 		      const struct channel_config *remoteconf,
 		      const struct channel_config *localconf,
+		      bool allow_dust_reserve,
 		      char **err_reason)
 {
 	/* BOLT #2:
@@ -179,8 +180,9 @@ bool check_dust_limit(const tal_t *ctx,
 	 *...
 	 *   - `dust_limit_satoshis` is greater than `channel_reserve_satoshis`.
 	 */
-	if (amount_sat_greater(remoteconf->dust_limit,
-			       localconf->channel_reserve)) {
+	if (!allow_dust_reserve
+	    && amount_sat_greater(remoteconf->dust_limit,
+				  localconf->channel_reserve)) {
 		*err_reason = tal_fmt(ctx,
 				      "dust_limit_satoshis %s"
 				      " would be above our reserve %s",
