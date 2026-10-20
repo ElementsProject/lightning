@@ -2774,7 +2774,7 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 				 channel_type_has(state->channel_type, OPT_ANCHORS_ZERO_FEE_HTLC_TX),
 				 &err_reason)
 	    || !check_dust_limit(tmpctx, &tx_state->remoteconf,
-				 &tx_state->localconf, &err_reason)) {
+				 &tx_state->localconf, false, &err_reason)) {
 		negotiation_failed(state, "%s", err_reason);
 		return;
 	}
@@ -3430,7 +3430,7 @@ static void opener_start(struct state *state, u8 *msg)
 				 channel_type_has(state->channel_type, OPT_ANCHORS_ZERO_FEE_HTLC_TX),
 				 &err_reason)
 	    || !check_dust_limit(tmpctx, &tx_state->remoteconf,
-				 &tx_state->localconf, &err_reason)) {
+				 &tx_state->localconf, false, &err_reason)) {
 		negotiation_failed(state, "%s", err_reason);
 		return;
 	}
@@ -3741,7 +3741,7 @@ static void rbf_local_start(struct state *state, u8 *msg)
 				 channel_type_has(state->channel_type, OPT_ANCHORS_ZERO_FEE_HTLC_TX),
 				 &err_reason)
 	    || !check_dust_limit(tmpctx, &tx_state->remoteconf,
-				 &tx_state->localconf, &err_reason)) {
+				 &tx_state->localconf, false, &err_reason)) {
 		open_abort(state, "%s", err_reason);
 		return;
 	}
@@ -3901,7 +3901,7 @@ static void rbf_remote_start(struct state *state, const u8 *rbf_msg)
 				 channel_type_has(state->channel_type, OPT_ANCHORS_ZERO_FEE_HTLC_TX),
 				 &err_reason)
 	    || !check_dust_limit(tmpctx, &tx_state->remoteconf,
-				 &tx_state->localconf, &err_reason)) {
+				 &tx_state->localconf, false, &err_reason)) {
 		negotiation_failed(state, "%s", err_reason);
 		goto free_rbf_ctx;
 	}
