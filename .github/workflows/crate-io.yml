@@ -6,29 +6,56 @@ on:
     branches:
       - "master"
 
+permissions:
+  contents: read
+
 jobs:
   release_rust:
     runs-on: ubuntu-22.04
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
-      - uses: katyo/publish-crates@v2
-        with:
-          path: './cln-rpc'
-          registry-token: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-          ignore-unpublished-changes: true
-      - uses: katyo/publish-crates@v2
-        with:
-          path: './plugins'
-          registry-token: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-          ignore-unpublished-changes: true
-      - uses: katyo/publish-crates@v2
-        with:
-          path: './cln-grpc'
-          registry-token: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-          ignore-unpublished-changes: true
-      - uses: katyo/publish-crates@v2
-        with:
-          path: './lsps-types'
-          registry-token: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-          ignore-unpublished-changes: true
+      - name: Publish crates whose git version is newer than crates.io
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          set -euo pipefail
+          # Dependency order: each crate comes after the in-repo crates it depends on.
+          for dir in cln-rpc cln-grpc plugins lsps-types; do
+            metadata=$(cargo metadata --no-deps --format-version 1 --manifest-path "$dir/Cargo.toml")
+            pkg=$(jq -r --arg m "$PWD/$dir/Cargo.toml" \
+              '.packages[] | select(.manifest_path == $m) | "\(.name) \(.version)"' <<< "$metadata")
+            name=${pkg% *}
+            version=${pkg#* }
+            decision=$(python3 - "$name" "$version" <<'EOF'
+          import json, sys, urllib.error, urllib.request
+
+          def semver_key(v):
+              core, _, pre = v.split("+")[0].partition("-")
+              nums = tuple(int(x) for x in core.split("."))
+              if not pre:
+                  return nums, 1, ()
+              ids = tuple((0, int(i), "") if i.isdigit() else (1, 0, i) for i in pre.split("."))
+              return nums, 0, ids
+
+          name, local = sys.argv[1], sys.argv[2]
+          url = f"https://index.crates.io/{name[:2]}/{name[2:4]}/{name}"
+          try:
+              with urllib.request.urlopen(url, timeout=30) as resp:
+                  published = [json.loads(line)["vers"] for line in resp.read().decode().splitlines() if line]
+          except urllib.error.HTTPError as err:
+              if err.code != 404:
+                  raise
+              published = []
+          newer = not published or semver_key(local) > max(semver_key(v) for v in published)
+          print("publish" if newer else "skip")
+          EOF
+            )
+            if [ "$decision" = "publish" ]; then
+              echo "Publishing $name $version from $dir"
+              cargo publish --manifest-path "$dir/Cargo.toml"
+            else
+              echo "Skipping $name $version: crates.io already has an equal or newer version"
+            fi
+          done
