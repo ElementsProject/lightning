@@ -396,10 +396,10 @@ def lsps2_mock_nodes(node_factory, client_opts=None):
     return l1, l2, l3
 
 
-def lsps2_mock_menu_entry(min_fee_msat):
+def lsps2_mock_menu_entry(min_fee_msat, proportional=0):
     return {
         "min_fee_msat": str(min_fee_msat),
-        "proportional": 0,
+        "proportional": proportional,
         "min_lifetime": 1008,
         "max_client_to_self_delay": 2016,
         "min_payment_size_msat": "1000",
@@ -578,20 +578,16 @@ def test_lsps2_mock_protocol_errors(node_factory):
 
 def test_lsps2_mock_jit_channel_var_invoice(node_factory):
     """no-MPP+var-invoice: the mock opens a channel on the first HTLC and
-    forwards it with the opening fee deducted."""
+    forwards it with the opening fee for its amount deducted."""
     l1, l2, l3 = lsps2_mock_nodes(node_factory)
-    fee_msat = 1_000_000
+    menu_entry = lsps2_mock_menu_entry(1000, proportional=10_000)
     l2.rpc.call(
-        "lsps2-mock-configure",
-        {
-            "config": {
-                "get_info": {"menu": [lsps2_mock_menu_entry(fee_msat)]},
-                "htlc": {"fee_msat": fee_msat},
-            }
-        },
+        "lsps2-mock-configure", {"config": {"get_info": {"menu": [menu_entry]}}}
     )
 
     amt = 10_000_000
+    fee_msat = lsps2_mock_fee.opening_fee(amt, 1000, 10_000)
+    assert fee_msat == 100_000
     assert lsps2_mock_pay_var_invoice(l1, l2, l3, amt)["payment_preimage"]
 
     fwd = only_one(lsps2_mock_forwards(l2))
@@ -606,20 +602,16 @@ def test_lsps2_mock_jit_channel_var_invoice(node_factory):
 
 def test_lsps2_mock_jit_channel_mpp_fixed_invoice(node_factory):
     """MPP+fixed-invoice: the mock waits for all parts, then forwards them
-    with the opening fee spread over the parts."""
+    with the opening fee for the payment size spread over the parts."""
     l1, l2, l3 = lsps2_mock_nodes(node_factory)
-    fee_msat = 1_500_000
+    menu_entry = lsps2_mock_menu_entry(1000, proportional=150_000)
     l2.rpc.call(
-        "lsps2-mock-configure",
-        {
-            "config": {
-                "get_info": {"menu": [lsps2_mock_menu_entry(fee_msat)]},
-                "htlc": {"fee_msat": fee_msat},
-            }
-        },
+        "lsps2-mock-configure", {"config": {"get_info": {"menu": [menu_entry]}}}
     )
 
     amt = 10_000_000
+    fee_msat = lsps2_mock_fee.opening_fee(amt, 1000, 150_000)
+    assert fee_msat == 1_500_000
     inv = l1.rpc.lsps_lsps2_invoice(
         lsp_id=l2.info["id"],
         amount_msat=amt,
@@ -890,3 +882,69 @@ def test_lsps2_mock_fee():
         fee(2**32, 0, 2**32)
     with pytest.raises(ValueError):
         fee(-1, 0, 0)
+
+
+def test_lsps2_mock_buy_fee_checks(node_factory):
+    """buy fails with 202 when the opening fee eats the payment and with 203
+    when computing it overflows."""
+    l1, l2 = node_factory.line_graph(
+        2, fundchannel=False, opts=[{}, {"plugin": LSPS2_MOCK}]
+    )
+    u64_max = str(lsps2_mock_fee.U64_MAX)
+    menu = [
+        {**lsps2_mock_menu_entry(1_000_000), "max_payment_size_msat": u64_max},
+        {
+            **lsps2_mock_menu_entry(0, proportional=2**32 - 1),
+            "max_payment_size_msat": u64_max,
+        },
+    ]
+    l2.rpc.call("lsps2-mock-configure", {"config": {"get_info": {"menu": menu}}})
+    res = only_one(lsps2_mock_request(l1, l2, "lsps2.get_info", {}))
+    min_fee, proportional = res["result"]["opening_fee_params_menu"]
+
+    def buy(params, payment_size_msat):
+        return only_one(
+            lsps2_mock_request(
+                l1,
+                l2,
+                "lsps2.buy",
+                {
+                    "opening_fee_params": params,
+                    "payment_size_msat": str(payment_size_msat),
+                },
+            )
+        )
+
+    assert buy(min_fee, 1_000_000)["error"]["code"] == 202
+    assert "result" in buy(min_fee, 1_000_001)
+    with pytest.raises(lsps2_mock_fee.FeeOverflow):
+        lsps2_mock_fee.opening_fee(2**33, 0, 2**32 - 1)
+    assert buy(proportional, 2**33)["error"]["code"] == 203
+
+    sessions = l2.rpc.call("lsps2-mock-state")["sessions"]
+    assert only_one(sessions)["opening_fee_msat"] == 1_000_000
+
+
+@pytest.mark.parametrize("amt", [1000, 10_000_001])
+def test_lsps2_mock_var_invoice_payment_size(node_factory, amt):
+    """no-MPP+var-invoice: the mock fails a payment outside the size limits
+    or too small to carry the opening fee, without opening a channel."""
+    l1, l2, l3 = lsps2_mock_nodes(node_factory)
+    menu_entry = {
+        **lsps2_mock_menu_entry(1000),
+        "max_payment_size_msat": "10000000",
+    }
+    l2.rpc.call(
+        "lsps2-mock-configure", {"config": {"get_info": {"menu": [menu_entry]}}}
+    )
+
+    with pytest.raises(RpcError) as err:
+        lsps2_mock_pay_var_invoice(l1, l2, l3, amt)
+    # unknown_next_peer
+    assert err.value.error["data"]["failcode"] == 0x400A
+
+    fail = only_one(lsps2_mock_events(l2, "htlc"))
+    assert fail["decision"] == "fail"
+    assert fail["reason"] == "payment_size"
+    assert lsps2_mock_events(l2, "open") == []
+    assert l1.rpc.listpeerchannels()["channels"] == []
