@@ -19,8 +19,8 @@
 # `pkgs` is the row's package set -- pkgsStatic, or
 # pkgsCross.<target>.pkgsStatic -- so every value below is per-row.
 #
-# Exports: arm32, staticPieFlags, staticPieCc, releaseCc, rustStaticPieCc and
-# noRpathEnv, all consumed by default.nix and vls.nix.
+# Exports: arm32, extraObjsManifest, staticPieFlags, staticPieCc, releaseCc,
+# rustStaticPieCc and noRpathEnv, all consumed by default.nix and vls.nix.
 { pkgs, lib }:
 let
   inherit (pkgs) stdenv;
@@ -43,6 +43,44 @@ rec {
   # Static-pie on every row is what this preserves.  The alternatives were to
   # drop the 32-bit ARM row, or to ship it without ASLR.
   arm32 = stdenv.hostPlatform.isAarch32;
+  # musl's malloc made the static lightningd 16% slower than a glibc build,
+  # most of it in sqlite3_expanded_sql's alloc/copy churn.  The object, not
+  # libmimalloc.a: an archive member is only pulled for an undefined symbol,
+  # so libc.a could win the race and musl's malloc would ship silently.
+  mimalloc = pkgs.mimalloc;
+  # musl's x86_64 memcpy is `rep movsq` with byte loops either side, ~5x
+  # slower than LLVM libc's for the short copies sqlite's string building
+  # makes.  The arm rows' musl memcpy is already an optimised one.  memmove
+  # must come too: musl's calls `__memcpy_fwd`, which would pull in musl's
+  # memcpy.o and clash with ours.  Built by clang, not the row's gcc: gcc's
+  # memmove came out 3-4x slower on large copies.  Baseline x86-64 (SSE2),
+  # since a static binary has no ifunc to pick a wider one at run time.
+  llvmLibc = bp.llvmPackages.libc;
+  llvmMem = bp.runCommand "llvm-libc-memcpy-${llvmLibc.version}" { } ''
+    clang=${bp.llvmPackages.clang-unwrapped}/bin/clang++
+    mkdir -p $out
+    for f in memcpy memmove; do
+      $clang --target=${stdenv.hostPlatform.config} -march=x86-64 -std=c++17 -O2 \
+        -fPIC -ffreestanding -fno-builtin -fno-exceptions -fno-rtti -fno-stack-protector \
+        -nostdinc -isystem "$($clang -print-resource-dir)/include" \
+        -DLIBC_NAMESPACE=__llvm_libc_cln -DLIBC_COPT_PUBLIC_PACKAGING \
+        -I${llvmLibc.src}/libc -c ${llvmLibc.src}/libc/src/string/$f.cpp -o $out/$f.o
+    done
+    install -m644 ${llvmLibc.src}/libc/LICENSE.TXT $out/
+  '';
+  extraObjs = [
+    "${mimalloc}/lib/mimalloc.o"
+  ]
+  ++ lib.optionals stdenv.hostPlatform.isx86_64 [
+    "${llvmMem}/memcpy.o"
+    "${llvmMem}/memmove.o"
+  ];
+  extraObjsArgs = lib.concatStringsSep " " extraObjs;
+  # Listed in the input manifests next to the toolchain.
+  extraObjsManifest = [
+    "mimalloc ${mimalloc.version}"
+  ]
+  ++ lib.optional stdenv.hostPlatform.isx86_64 "llvm-libc memcpy+memmove ${llvmLibc.version}";
   gccLibDir = "${stdenv.cc.cc}/lib/gcc/${stdenv.hostPlatform.config}/${stdenv.cc.cc.version}";
   muslLibDir = "${stdenv.cc.libc}/lib";
   # How "link this statically, as a PIE" is spelled for this row.
@@ -65,7 +103,7 @@ rec {
     exec ${stdenv.cc}/bin/${stdenv.cc.targetPrefix}cc \
       ${staticPieFlags} -nostartfiles \
       ${muslLibDir}/rcrt1.o ${muslLibDir}/crti.o ${gccLibDir}/crtbeginS.o \
-      "$@" \
+      ${extraObjsArgs} "$@" \
       ${gccLibDir}/crtendS.o ${muslLibDir}/crtn.o
   '';
   # What configure is handed as the compiler for the release link.
@@ -73,7 +111,10 @@ rec {
     if arm32 then
       "${staticPieCc}/bin/${stdenv.cc.targetPrefix}static-pie-cc"
     else
-      "${stdenv.cc.targetPrefix}cc ${staticPieFlags}";
+      # -Wl, so a compile-only invocation ignores the objects instead of warning.
+      "${stdenv.cc.targetPrefix}cc ${staticPieFlags} ${
+        lib.concatMapStringsSep " " (o: "-Wl,${o}") extraObjs
+      }";
   # The second gap: rustc.
   #
   # rustc links a crt-static musl target with plain `-static` unless the
@@ -129,6 +170,7 @@ rec {
         *) args+=("$a") ;;
       esac
     done
-    exec ${stdenv.cc}/bin/${stdenv.cc.targetPrefix}cc ${staticPieFlags} "''${args[@]}"
+    # Rust's default System allocator calls malloc, so this covers it too.
+    exec ${stdenv.cc}/bin/${stdenv.cc.targetPrefix}cc ${staticPieFlags} ${extraObjsArgs} "''${args[@]}"
   '';
 }

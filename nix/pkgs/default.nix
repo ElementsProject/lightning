@@ -70,6 +70,7 @@ let
   # carries the reasoning for each wrapper; these are just the names it exports.
   inherit (import ./static-pie.nix { inherit pkgs lib; })
     arm32
+    extraObjsManifest
     staticPieFlags
     staticPieCc
     releaseCc
@@ -521,6 +522,7 @@ stdenv.mkDerivation {
           "rustc ${rustBin.version}"
           "python ${bp.python3.version}"
         ]
+        ++ extraObjsManifest
         ++ rustBin.manifestLines
       )
       + section "nativeBuildInputs" (lib.sort lib.lessThan (map nv nativeInputs))

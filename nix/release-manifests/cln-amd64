@@ -2,8 +2,8 @@ row
   arch amd64
   host x86_64-unknown-linux-musl
 recipe
-  default.nix ba6e48ddb89353ff24f1037a8fcbaea98e43df244f3bd9feecbfbda4477e30a9
-  static-pie.nix 53b6c6f5f74c968f7a381119c5eecff57bbaa51ad3c0c157cb3f41bee6dbf96c
+  default.nix 6d3a61d1d24a39f24c13c7717e865f7859445fdbe3503ff4a01ed1633ba5f2b0
+  static-pie.nix 2b0ec6abe3d9c95204a339bee42e89ea4bcb797867387d343ecee592a9bc3141
   rust-bin.nix 51d59ab9b8451020c4865bc28f036d601a78e10ec06d1104b4f535496ccd62b3
   flake-module.nix c6feedbd6e609c3e4e29c6d69a0f64f27a6e846cc4807f34c3099efe944dd24b
   flake.nix 66b107f9cfbf0d69c0b9df603b583ddce493128aa00522acfee51c461f079b98
@@ -11,6 +11,8 @@ toolchain
   gcc 16.2.0
   rustc 1.98.1
   python 3.14.7
+  mimalloc 3.5.3
+  llvm-libc memcpy+memmove 21.1.8
   rust-dist 1.98.1 2026-09-03 48a229ceaefd4985c50990b14116b6d856af0985
   rust-dist rustc-x86_64-unknown-linux-gnu e974f036b28565f37c0f3bd92ddefa809bee16c04f9dcf07b9ed96e05aaaf7c4
   rust-dist cargo-x86_64-unknown-linux-gnu ea1de9f9e23107d97ee2b41a72c552f34064a593da503789218387aee59f3ba4
