@@ -187,9 +187,11 @@ static struct command_result *json_connect(struct command *cmd,
 	if (id_addr.host) {
 		u16 port = id_addr.port ? *id_addr.port : chainparams_get_ln_port(chainparams);
 		addr = tal(cmd, struct wireaddr_internal);
+		/* Never resolve names here: getaddrinfo() would block
+		 * lightningd's main loop for as long as the nameserver takes.
+		 * Names come back unresolved, and connectd deals with them. */
 		err_msg = parse_wireaddr_internal(tmpctx, id_addr.host, port,
-						  !cmd->ld->always_use_proxy
-						  && !cmd->ld->pure_tor_setup, addr);
+						  false, addr);
 		if (err_msg) {
 			return command_fail(cmd, LIGHTNINGD,
 					    "Host %s:%u not valid: %s",
@@ -199,8 +201,26 @@ static struct command_result *json_connect(struct command *cmd,
 		switch (addr->itype) {
 		case ADDR_INTERNAL_SOCKNAME:
 		case ADDR_INTERNAL_WIREADDR:
-		/* Can happen if we're disable DNS */
+			break;
 		case ADDR_INTERNAL_FORPROXY:
+			/* With a proxy, it resolves the name for us. */
+			if (cmd->ld->always_use_proxy || cmd->ld->pure_tor_setup)
+				break;
+			/* Otherwise connectd resolves it off its io loop,
+			 * just like a DNS address from a node_announcement
+			 * (and honours --disable-dns). */
+			err_msg = parse_wireaddr(tmpctx,
+						 tal_fmt(tmpctx, "dns:%s",
+							 addr->u.unresolved.name),
+						 addr->u.unresolved.port, NULL,
+						 &addr->u.wireaddr.wireaddr);
+			if (err_msg) {
+				return command_fail(cmd, LIGHTNINGD,
+						    "Host %s:%u not valid: %s",
+						    id_addr.host, port, err_msg);
+			}
+			addr->itype = ADDR_INTERNAL_WIREADDR;
+			addr->u.wireaddr.is_websocket = false;
 			break;
 		case ADDR_INTERNAL_ALLPROTO:
 		case ADDR_INTERNAL_AUTOTOR:

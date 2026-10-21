@@ -3,6 +3,7 @@
 CONNECTD_HEADERS := connectd/connectd_wiregen.h		\
 	connectd/connectd_gossipd_wiregen.h		\
 	connectd/connectd.h				\
+	connectd/dns.h					\
 	connectd/peer_exchange_initmsg.h		\
 	connectd/handshake.h				\
 	connectd/gossip_store.h				\
