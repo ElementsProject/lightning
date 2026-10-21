@@ -29,8 +29,9 @@ tooling on either side, so there is one source of truth.
   verify   <SHA256SUMS>  co-signer flow
   certify  [--no-verify] re-pin nixpkgs rev + input manifests,
                          from-source build, acceptance suite
-  publish                images -> Docker Hub, staging -> T0 host
-  disclose               source zip, tag push, GitHub release
+  publish                everything public in one go: tarballs, manifests and
+                         source zip -> download host, images -> Docker Hub,
+                         tag -> GitHub, and the GitHub release
   accept   [archs]       portability rows + the two-tree probe
   all                    zip + build all + fetch + docker + sign
 
@@ -189,15 +190,31 @@ class Driver:
                 die(f"unknown arch '{a}' (not in nix/release-rows)")
         return sel
 
+    # Digits belong in the key pattern: REPRO_S3_BUCKET and friends have one,
+    # and a name class that quietly does not match them yields a dict missing
+    # exactly the keys the caller is about to index.
+    VARS_RE = r"^([A-Z0-9_]+)=(.*)$"
+
     def pins(self) -> dict[str, str]:
         text = (self.top / "contrib/reprobuild/pins").read_text()
-        return dict(
-            re.findall(r"^([A-Z_]+)=(.*)$", text, re.M)
-        )
+        return dict(re.findall(self.VARS_RE, text, re.M))
 
     def publish_vars(self) -> dict[str, str]:
         text = (self.top / "contrib/reprobuild/publish.vars").read_text()
-        return dict(re.findall(r"^([A-Z_]+)=(.*)$", text, re.M))
+        return dict(re.findall(self.VARS_RE, text, re.M))
+
+    def rclone_args(self, v: dict[str, str]) -> list[str]:
+        """The credentials are the shared publisher account's HMAC key, taken
+        from the environment so they are never written to a file here."""
+        key = os.environ.get("REPRO_S3_ACCESS_KEY_ID")
+        secret = os.environ.get("REPRO_S3_SECRET_ACCESS_KEY")
+        if not key or not secret:
+            die("REPRO_S3_ACCESS_KEY_ID / REPRO_S3_SECRET_ACCESS_KEY are not set.\n"
+                "  They are the HMAC key of the shared publisher account; put them in\n"
+                "  the environment for this command only.")
+        return ["rclone", "--s3-provider", v["REPRO_S3_PROVIDER"],
+                "--s3-endpoint", v["REPRO_S3_ENDPOINT"],
+                "--s3-access-key-id", key, "--s3-secret-access-key", secret]
 
     def vls_source(self) -> str:
         """The VLS pin is read at the rev being built, not from the working
@@ -710,8 +727,6 @@ class Driver:
         else:
             if (docker / f"DIGESTS-{ver}").exists():
                 files.append(f"DIGESTS-{ver}")
-            # Listed at T0, uploaded only at disclosure; users run
-            # `sha256sum -c --ignore-missing`.
             files.append(f"clightning-{ver}.zip")
         return files
 
@@ -847,7 +862,7 @@ class Driver:
         if subprocess.run(["git", "-C", str(self.top), "cat-file", "-e", f"{mrev}^{{commit}}"],
                           capture_output=True).returncode:
             die(f"commit {mrev} is not in this checkout.\n"
-                "  Fetch the tag first (for an embargoed release, from the private mirror).")
+                "  Fetch the tag first: git fetch origin tag <version>.")
         self.args.mtime, self.rev = mmtime, mrev
         self.flake_ref = f"git+file://{self.top}?submodules=1&rev={mrev}"
         info(f"verify: rebuilding {mrev} (mtime {mmtime}) as {base} names it")
@@ -912,7 +927,7 @@ class Driver:
         run("gpg", "--armor", "--detach-sign", "--output", str(asc), str(mf))
         info(f"every file reproduced; wrote {asc}")
 
-    # --- certify, publish, disclose, all ----------------------------------
+    # --- certify, publish, all --------------------------------------------
 
     def verb_certify(self, no_verify: bool) -> None:
         """Certification is an intentional act, kept out of `all`: re-pin the
@@ -983,6 +998,19 @@ class Driver:
         return n
 
     def verb_publish(self) -> None:
+        """Everything a release makes public, in one go: the tarballs, manifests
+        and source zip to the download host, the images to Docker Hub, the tag to
+        GitHub, and the GitHub release itself.
+
+        One verb on purpose.  Binaries and source go out together, so there is
+        nothing for a second verb to express, and splitting it would only offer
+        ways to half-publish a release.
+
+        The order is least-reversible-last: an upload can be deleted, a Docker
+        Hub push is awkward to undo, and a pushed tag is public forever.  The
+        upload is read back and checked against the signed manifest before the
+        tag goes anywhere.
+        """
         self.prepare_tree()
         ver, vlsver, out = self.version(), self.vls_version(), Path(self.args.out)
         main = out / f"SHA256SUMS-{ver}"
@@ -1004,7 +1032,23 @@ class Driver:
         if subprocess.run(["git", "-C", str(self.top), "ls-remote", "--exit-code",
                            "--tags", "origin", f"refs/tags/{ver}"],
                           capture_output=True).returncode == 0:
-            die(f"{ver} already exists on the GitHub remote -- the source is not embargoed")
+            die(f"{ver} is already on the GitHub remote; refusing to publish it twice")
+        # A tag push publishes the pyln modules on its own schedule, and this
+        # verb pushes a tag.  Checked first, because it is the one precondition
+        # that cannot be fixed after the upload has happened.
+        if shutil.which("gh"):
+            state = run("gh", "workflow", "view", "Release 🚀", "--json", "state",
+                        "--jq", ".state", capture=True, check=False) or "unknown"
+            if state.startswith("disabled"):
+                info(f'publish: "Release 🚀" is {state}')
+            elif state == "unknown":
+                info('publish: WARNING: cannot read the "Release 🚀" state; check by hand')
+            else:
+                die(f'the "Release 🚀" workflow is {state}.\n'
+                    '  Run: gh workflow disable "Release 🚀"\n'
+                    "  Re-enable it afterwards.")
+        else:
+            info('publish: WARNING: no gh; check the "Release 🚀" workflow by hand')
 
         n = self.good_sigs(main, Path(f"{main}.asc"))
         if n < 3:
@@ -1015,14 +1059,12 @@ class Driver:
             info(f"publish: {na} good signature(s) on {armhf.name} (captain-only is "
                  "expected; armhf does not gate a release)")
 
-        # The staging dir is the whole upload: debug/, cache/ and the withheld
-        # source zip are excluded by construction, not by a filter.
+        # The staging dir is the whole upload: debug/ and cache/ are excluded
+        # by construction, not by a filter.
         stage = out / "publish" / ver
         shutil.rmtree(stage, ignore_errors=True)
         stage.mkdir(parents=True)
         for f in self.manifest_files("main", ver, vlsver) + self.manifest_files("armhf", ver, vlsver):
-            if f == f"clightning-{ver}.zip":
-                continue
             src = out / "docker" / f if f.startswith("DIGESTS-") else out / f
             shutil.copyfile(src, stage / f)
         for mf in (main, armhf):
@@ -1033,27 +1075,35 @@ class Driver:
         info(f"publish: staged {len(list(stage.iterdir()))} files in {stage}")
 
         v = self.publish_vars()
-        key = os.environ.get("REPRO_S3_ACCESS_KEY_ID")
-        secret = os.environ.get("REPRO_S3_SECRET_ACCESS_KEY")
-        if not key or not secret:
-            die("REPRO_S3_ACCESS_KEY_ID / REPRO_S3_SECRET_ACCESS_KEY are not set.\n"
-                "  They are the HMAC key of the shared publisher account; put them in\n"
-                "  the environment for this command only.")
-        rclone = ["rclone", "--s3-provider", v["REPRO_S3_PROVIDER"],
-                  "--s3-endpoint", v["REPRO_S3_ENDPOINT"],
-                  "--s3-access-key-id", key, "--s3-secret-access-key", secret]
+        base = v["PUBLISH_BASE_URL"]
+        rclone = self.rclone_args(v)
         # Object versioning is off by decision, so immutability is a driver
         # rule: refuse rather than overwrite a prefix that already exists.
         listing = run(*rclone, "lsf", f":s3:{v['REPRO_S3_BUCKET']}/{ver}/",
                       capture=True, check=False)
         if listing.strip():
-            die(f"{v['PUBLISH_BASE_URL']}/{ver}/ already has objects; refusing to overwrite")
+            die(f"{base}/{ver}/ already has objects; refusing to overwrite")
         run(*rclone, "copy", str(stage), f":s3:{v['REPRO_S3_BUCKET']}/{ver}/")
-        info(f"publish: uploaded to {v['PUBLISH_BASE_URL']}/{ver}/")
+        info(f"publish: uploaded to {base}/{ver}/")
 
-        # Images last: an S3 upload is undoable in a way a Docker Hub push is
-        # not.  --all copies every platform, --preserve-digests keeps the
-        # bytes DIGESTS names.
+        # Read back what we just uploaded and check it against the manifest.
+        # rclone reporting success is not the same as the bytes being right,
+        # and this is the last moment before the tag makes the release real.
+        with tempfile.TemporaryDirectory() as d:
+            for line in main.read_text().splitlines():
+                if line.startswith("#") or not line.strip():
+                    continue
+                want, name = line.split(maxsplit=1)
+                name = name.strip().lstrip("*")
+                dest = Path(d) / name
+                run("curl", "-fsSL", "-o", str(dest), f"{base}/{ver}/{name}")
+                if sha256(dest) != want:
+                    die(f"{name} on the download host does not match the manifest")
+                info(f"publish: verified on the download host  {name}")
+
+        # Images next: an upload can be deleted, a Docker Hub push cannot.
+        # --all copies every platform, --preserve-digests keeps the bytes
+        # DIGESTS names.
         repo, layoutdir = "docker.io/elementsproject/", out / "docker"
         images = ["lightningd"] + (["lightningd-vls"] if RELEASE_SHIPS_VLS else [])
         for image in images:
@@ -1077,85 +1127,35 @@ class Driver:
                 info(f"publish: tagging latest{suffix}")
                 self.skopeo("copy", "--all", "--preserve-digests",
                             f"oci:{layout}", f"docker://{repo}lightningd:latest{suffix}")
-        info("publish: done.  disclose is the T0+14 verb; nothing else pushes.")
 
-    def verb_disclose(self) -> None:
-        """T0 + 14: the source becomes public.  Every pre-flight answers 'is
-        the embargo still intact, and is what we published what we signed?'"""
-        self.prepare_tree()
-        ver, out = self.version(), Path(self.args.out)
-        main = out / f"SHA256SUMS-{ver}"
-        if not main.exists():
-            die(f"no {main}")
-        # A tag push would publish the pyln modules on its own schedule; do
-        # that deliberately instead.
-        if shutil.which("gh"):
-            state = run("gh", "workflow", "view", "Release 🚀", "--json", "state",
-                        "--jq", ".state", capture=True, check=False) or "unknown"
-            if state.startswith("disabled"):
-                info(f'disclose: "Release 🚀" is {state}')
-            elif state == "unknown":
-                info('disclose: WARNING: cannot read the "Release 🚀" state; check by hand')
-            else:
-                die(f'the "Release 🚀" workflow is {state}.\n'
-                    '  Run: gh workflow disable "Release 🚀"\n'
-                    "  Re-enable it afterwards.")
-        else:
-            info('disclose: WARNING: no gh; check the "Release 🚀" workflow by hand')
-        if subprocess.run(["git", "-C", str(self.top), "ls-remote", "--exit-code",
-                           "--tags", "origin", f"refs/tags/{ver}"],
-                          capture_output=True).returncode == 0:
-            die(f"{ver} is already on the GitHub remote")
-
-        # What is on the T0 host must be what was signed, byte for byte,
-        # before the source goes out.
-        v = self.publish_vars()
-        base = v["PUBLISH_BASE_URL"]
-        with tempfile.TemporaryDirectory() as d:
-            for line in main.read_text().splitlines():
-                if line.startswith("#") or not line.strip():
-                    continue
-                want, name = line.split(maxsplit=1)
-                name = name.strip().lstrip("*")
-                if name == f"clightning-{ver}.zip":
-                    continue
-                dest = Path(d) / name
-                run("curl", "-fsSL", "-o", str(dest), f"{base}/{ver}/{name}")
-                if sha256(dest) != want:
-                    die(f"{name} on the T0 host does not match the manifest")
-                info(f"disclose: ok on the T0 host  {name}")
-
-        zipfile = f"clightning-{ver}.zip"
-        key = os.environ.get("REPRO_S3_ACCESS_KEY_ID")
-        secret = os.environ.get("REPRO_S3_SECRET_ACCESS_KEY")
-        if not key or not secret:
-            die("REPRO_S3_ACCESS_KEY_ID / REPRO_S3_SECRET_ACCESS_KEY are not set")
-        run("rclone", "--s3-provider", v["REPRO_S3_PROVIDER"],
-            "--s3-endpoint", v["REPRO_S3_ENDPOINT"],
-            "--s3-access-key-id", key, "--s3-secret-access-key", secret,
-            "copyto", str(out / zipfile), f":s3:{v['REPRO_S3_BUCKET']}/{ver}/{zipfile}")
-        info(f"disclose: uploaded {base}/{ver}/{zipfile}")
-
+        # The tag last: it is the one step that cannot be taken back.
         run("git", "-C", str(self.top), "push", "origin", ver)
-        info(f"disclose: pushed tag {ver}")
+        info(f"publish: pushed tag {ver}")
         if shutil.which("gh"):
             notes = (f"Reproducible release artifacts: {base}/{ver}/\n\n"
-                     f"Verify with: sha256sum -c --ignore-missing SHA256SUMS-{ver}\n\n"
+                     f"Verify with: sha256sum -c SHA256SUMS-{ver}\n\n"
                      f"armhf artifacts are listed in SHA256SUMS-{ver}-armhf; see the\n"
                      "reproducibility caveat in the reproducible-builds documentation.")
-            assets = [str(out / zipfile), str(main), *map(str, out.glob(f"{main.name}.asc*"))]
-            armhf = out / f"SHA256SUMS-{ver}-armhf"
+            assets = [str(out / f"clightning-{ver}.zip"), str(main),
+                      *map(str, out.glob(f"{main.name}.asc*"))]
             if armhf.exists():
                 assets += [str(armhf), *map(str, out.glob(f"{armhf.name}.asc*"))]
             with tempfile.NamedTemporaryFile("w", suffix=".md") as nf:
                 nf.write(notes)
                 nf.flush()
-                run("gh", "release", "create", ver, "--title", ver,
+                # As a draft, deliberately.  Everything before this point is
+                # already public -- the artifacts are on the download host and
+                # the tag is pushed -- but the release page is the thing people
+                # read, and the runbook has always had the captain check it and
+                # publish it by hand.  Creating it published would skip that
+                # step silently.
+                run("gh", "release", "create", ver, "--draft", "--title", ver,
                     "--notes-file", nf.name, *assets)
-            info("disclose: created the GitHub release")
+            info("publish: created the GitHub release as a DRAFT -- review it "
+                 "and publish it by hand")
         else:
-            info("disclose: no gh; create the GitHub release by hand")
-        info('disclose: REMEMBER to re-enable the "Release 🚀" workflow')
+            info("publish: no gh; create the GitHub release by hand")
+        info('publish: done.  REMEMBER to re-enable the "Release 🚀" workflow')
 
     def verb_all(self) -> None:
         # Normally first, to fail before an hour of building.  --wait-for-key
@@ -1178,7 +1178,7 @@ class Driver:
             run(str(self.top / "contrib/reprobuild/portability.sh"),
                 str(Path(self.args.out) / f"clightning-{ver}-static-{arch}.tar.xz"),
                 f"--images={RELEASE_SMOKE_IMAGE}")
-        info("all: done -- publish and disclose are separate, deliberate verbs")
+        info("all: done -- publish is a separate, deliberate verb")
 
 
 def main() -> None:
@@ -1215,8 +1215,7 @@ def main() -> None:
                    help="certify: regenerate the rows and manifests only, "
                         "skipping the from-source build and the acceptance suite")
     p.add_argument("verb", choices=["fetch", "build", "vls", "zip", "docker", "sign",
-                                    "verify", "certify", "publish", "disclose",
-                                    "accept", "all"])
+                                    "verify", "certify", "publish", "accept", "all"])
     p.add_argument("rest", nargs="*", metavar="archs|manifest",
                    help="`all` or arch tokens from nix/release-rows; "
                         "verify takes a manifest")
@@ -1234,7 +1233,6 @@ def main() -> None:
         case "verify": d.verb_verify(rest[0] if rest else "")
         case "certify": d.verb_certify(args.no_verify)
         case "publish": d.verb_publish()
-        case "disclose": d.verb_disclose()
         case "accept": d.verb_accept(rest)
         case "all": d.verb_all()
 
