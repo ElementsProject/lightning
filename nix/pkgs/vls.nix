@@ -328,6 +328,7 @@ stdenv.mkDerivation {
     + section "recipe" [
       "vls.nix ${builtins.hashFile "sha256" ./vls.nix}"
       "static-pie.nix ${builtins.hashFile "sha256" ./static-pie.nix}"
+      "flake.nix ${builtins.hashFile "sha256" ../../flake.nix}"
     ]
     + section "pin" [
       "url ${pin.url}"

@@ -76,27 +76,23 @@ let
     rustStaticPieCc
     noRpathEnv
     ;
-  # The row's libpq, bound once.  On arm32, postgres cannot even
-  # *configure*: its "whether the C compiler works" test links an
-  # executable, and nixpkgs' `pie` hardening plus pkgsStatic's `-static`
-  # make gcc pick the non-PIE crtbeginT.o for a PIE link -- "relocation
-  # R_ARM_MOVW_ABS_NC against a local symbol can not be used when making a
-  # shared object".  Isolated to the hardening flag on a one-line program:
-  # `pie` on fails, `pie` off links, and a command-line `-no-pie` does not
-  # rescue it.  Only the library's own build is affected; our binaries still
-  # link static-pie, via `staticPieCc` above.
+  # The row's libpq, bound once.
   #
-  # Bound here rather than inline in buildInputs because `POSTGRES_LDLIBS`
-  # below needs the *same* derivation: referring to the un-overridden
-  # `libpq` there pulled both into the closure, and the build then died on
-  # the one this override exists to avoid.
-  libpqRow =
-    if arm32 then
-      libpq.overrideAttrs (o: {
-        hardeningDisable = (o.hardeningDisable or [ ]) ++ [ "pie" ];
-      })
-    else
-      libpq;
+  # This used to carry `hardeningDisable = [ "pie" ]` on the 32-bit ARM row,
+  # because postgres could not even *configure* there: its "whether the C
+  # compiler works" test links an executable, and nixpkgs' `pie` hardening plus
+  # pkgsStatic's `-static` made gcc pick the non-PIE crtbeginT.o for a PIE link
+  # ("relocation R_ARM_MOVW_ABS_NC against a local symbol can not be used when
+  # making a shared object").  `pie` is no longer one of nixpkgs' hardening
+  # flags, so naming it now aborts evaluation outright, and there is nothing
+  # left to disable under that name.  Dropped rather than translated: the flag
+  # it would translate to is not obviously the same flag, and the 32-bit ARM
+  # row is what decides whether the problem is back.
+  #
+  # Still bound to a name rather than written inline in buildInputs, because
+  # `POSTGRES_LDLIBS` below has to refer to the *same* derivation -- naming
+  # `libpq` twice pulled two of them into the closure.
+  libpqRow = libpq;
 
   # when building on darwin we need cctools to provide the correct libtool
   # as libwally-core detects the host as darwin and tries to add the -static
@@ -105,7 +101,10 @@ let
     with bp;
     [
       autoconf
-      autogen
+      # No GNU autogen: libwally's tools/autogen.sh is a shell script that runs
+      # autoreconf, and nothing in this build invokes the autogen program.  It
+      # was pulling guile 2.2.7 and its boehm-gc into the closure, which is
+      # broken under pkgsStatic in current nixpkgs.
       automake
       gettext
       gitMinimal
@@ -499,6 +498,10 @@ stdenv.mkDerivation {
         "default.nix ${builtins.hashFile "sha256" ./default.nix}"
         "static-pie.nix ${builtins.hashFile "sha256" ./static-pie.nix}"
         "flake-module.nix ${builtins.hashFile "sha256" ./flake-module.nix}"
+        # flake.nix too: its overlays reach every package in the row, which is
+        # not hypothetical -- a fetchurl overlay lived there and changed how
+        # every source tarball was fetched.
+        "flake.nix ${builtins.hashFile "sha256" ../../flake.nix}"
       ]
       + section "toolchain" [
         "gcc ${stdenv.cc.cc.version}"

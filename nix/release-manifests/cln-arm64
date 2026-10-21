@@ -2,39 +2,39 @@ row
   arch arm64
   host aarch64-unknown-linux-musl
 recipe
-  default.nix 516a427ca6e85d6f31eaed81fb6969d95b192a4ae4d3b78a5c8444f2ffa5d41c
-  static-pie.nix 67d8839bbcc99e7abe4b1037767505f6a42cdd0af754a13020cd2adebbac9421
+  default.nix cec0bca25a7cd8d009fb0332a538b3b7740dbaa35767881107635cb0b01ad163
+  static-pie.nix 53b6c6f5f74c968f7a381119c5eecff57bbaa51ad3c0c157cb3f41bee6dbf96c
   flake-module.nix c6feedbd6e609c3e4e29c6d69a0f64f27a6e846cc4807f34c3099efe944dd24b
+  flake.nix 66b107f9cfbf0d69c0b9df603b583ddce493128aa00522acfee51c461f079b98
 toolchain
-  gcc 14.3.0
-  rustc 1.89.0
-  python 3.13.8
+  gcc 16.2.0
+  rustc 1.98.1
+  python 3.14.7
 nativeBuildInputs
-  aarch64-unknown-linux-musl-cargo 1.89.0
-  aarch64-unknown-linux-musl-pkgconf-wrapper 2.4.3
-  aarch64-unknown-linux-musl-rustc 1.89.0
-  autoconf 2.72
-  autogen 5.18.16
+  aarch64-unknown-linux-musl-cargo 1.98.1
+  aarch64-unknown-linux-musl-pkgconf-wrapper 2.5.1
+  aarch64-unknown-linux-musl-rustc 1.98.1
+  autoconf 2.73
   automake 1.18.1
-  file 5.45
-  gcc-wrapper 14.3.0
-  gettext 0.25.1
-  git-minimal 2.51.0
-  jq 1.8.1
-  libtool 2.5.4
-  lowdown 2.0.2
-  protobuf 32.1
-  python3 3.13.8-env
+  file 5.48
+  gcc-wrapper 16.2.0
+  gettext 1.0
+  git-minimal 2.55.0
+  jq 1.8.2
+  libtool 2.6.2
+  lowdown 3.0.1
+  protobuf 36.2
+  python3 3.14.7-env
   unzip 6.0
-  which 2.23
+  which 2.25
 buildInputs
   gmp-with-cxx 6.3.0
-  jq 1.8.1
-  libpq 18.0
-  libsodium 1.0.20
-  openssl 3.6.0
-  sqlite 3.50.4
-  zlib 1.3.1
+  jq 1.8.2
+  libpq 18.6
+  libsodium 1.0.22-unstable-2026-08-13
+  openssl 3.5.8
+  sqlite 3.53.3
+  zlib 1.3.2
 flags
   configure --disable-valgrind --prefix=/usr/local
   dontBuild true

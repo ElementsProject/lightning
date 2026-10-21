@@ -8,13 +8,13 @@
 # otherwise be unrecorded inputs to a signed artifact.  `--host-nix` is the
 # opt-in for whoever has Nix and wants the faster loop; both are expected to
 # produce the same bytes, which has been measured on two machines.
-NIX_IMAGE=nixos/nix@sha256:d49538facc7757890eccfa5f57869ad18c823c24903e3b8ac6ca8a301d84a9b6
-NIX_IMAGE_TAG=2.31.3
+NIX_IMAGE=nixos/nix@sha256:7a007c766426c1877758ddc5cb87a965ac131fc78c582ce0083d922d51ae945c
+NIX_IMAGE_TAG=2.35.2
 
 # The skopeo the `docker` verb uses for OCI layouts and pushes.
 # Ubuntu 22.04's skopeo 1.4.1 lacks --preserve-digests, so the pinned
 # container is the normative path (a new enough host skopeo is used if found).
-SKOPEO_IMAGE=quay.io/skopeo/stable:v1.20.0
+SKOPEO_IMAGE=quay.io/skopeo/stable:v1.22.3
 
 # The runtime image's base digest lives in the Dockerfile itself
 # (FROM debian:trixie-slim@sha256:...), bumped deliberately like a pin.

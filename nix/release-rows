@@ -16,7 +16,7 @@ amd64    pkgsStatic                                       linux/amd64
 arm64    pkgsCross.aarch64-multiplatform-musl.pkgsStatic  linux/arm64
 armhf    pkgsCross.armv7l-hf-multiplatform.pkgsStatic     linux/arm/v7
 
-@nixpkgs 6a08e6bb4e46ff7fcbb53d409b253f6bad8a28ce
+@nixpkgs b4fd65b198c599cbe814fcb9f42d25d021595ec9
 
 # Rows a co-signer is not required to reproduce: armhf's Rust binaries
 # differ across machines, so its artifacts live in their own manifest, signed
