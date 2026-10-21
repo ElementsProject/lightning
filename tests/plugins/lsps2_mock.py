@@ -37,7 +37,11 @@ plugin = Plugin()
 LSPS0_MESSAGE_TYPE = 37913
 TLV_AMT_TO_FORWARD = 2
 TLV_EXTRA_FEE = 65537
+# Failure messages from BOLT 4.
 UNKNOWN_NEXT_PEER = "400a"
+TEMPORARY_NODE_FAILURE = "2002"
+# With an empty channel_update.
+TEMPORARY_CHANNEL_FAILURE = "10070000"
 
 # Allocated jit_channel_scids are `SCID_BLOCK`x`n`x0, far above any block
 # height a regtest test reaches, so they never collide with real channels.
@@ -500,13 +504,19 @@ def fails_held_parts(func):
             with state.lock:
                 parts = {id(p): p for p in held + session.parts}.values()
                 fail_parts(
-                    [p for p in parts if p["request"].state == RequestState.PENDING]
+                    [p for p in parts if p["request"].state == RequestState.PENDING],
+                    TEMPORARY_NODE_FAILURE,
                 )
                 session.parts = []
                 if session.state == "opening":
                     session.state = "collecting"
 
     return wrapper
+
+
+def peer_connected(peer_id):
+    peers = plugin.rpc.listpeers(peer_id)["peers"]
+    return bool(peers) and peers[0]["connected"]
 
 
 @fails_held_parts
@@ -524,9 +534,22 @@ def open_channel(session):
     try:
         res = fund_zero_conf(session.peer_id, cfg["capacity_sat"])
     except RpcError as e:
-        record("open_failed", jit_channel_scid=session.scid, error=str(e))
+        # bLIP-52: a client that rejects the open with an `error` gets
+        # unknown_next_peer; one that disconnects before funding_signed gets
+        # temporary_channel_failure, so the payer may retry later. A client
+        # that rejects the open stays connected.
+        connected = peer_connected(session.peer_id)
+        record(
+            "open_failed",
+            jit_channel_scid=session.scid,
+            error=str(e),
+            connected=connected,
+        )
         with state.lock:
-            fail_parts(session.parts)
+            fail_parts(
+                session.parts,
+                UNKNOWN_NEXT_PEER if connected else TEMPORARY_CHANNEL_FAILURE,
+            )
             session.parts = []
             session.state = "collecting"
         return
@@ -571,11 +594,16 @@ def on_channel_state_changed(channel_state_changed, **kwargs):
 # --- HTLC interception and forwarding --------------------------------------
 
 
-def fail_parts(parts):
+def fail_parts(parts, failure_message=UNKNOWN_NEXT_PEER):
     for part in parts:
-        record("htlc", payment_hash=part["htlc"]["payment_hash"], decision="fail")
+        record(
+            "htlc",
+            payment_hash=part["htlc"]["payment_hash"],
+            decision="fail",
+            failure_message=failure_message,
+        )
         part["request"].set_result(
-            {"result": "fail", "failure_message": UNKNOWN_NEXT_PEER}
+            {"result": "fail", "failure_message": failure_message}
         )
 
 
