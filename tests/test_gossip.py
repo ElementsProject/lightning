@@ -2,6 +2,7 @@ from collections import Counter
 from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
 from pyln.client import RpcError, Millisatoshi
+from pyln.testing.utils import reserve_unused_port, drop_unused_port
 from utils import (
     wait_for, TIMEOUT, only_one, sync_blockheight,
     expected_node_features,
@@ -248,9 +249,12 @@ def test_announce_and_connect_via_dns(node_factory, bitcoind):
         - --disable-dns is needed so the first node does not announce 127.0.0.1 itself.
         - 'dev-allow-localhost' must not be set, so it does not resolve localhost anyway.
     """
+    # Reserve the port from the pool the other nodes draw from: a fixed
+    # port can be handed to a node of a test running alongside this one.
+    port = reserve_unused_port()
     opts1 = {'disable-dns': None,
-             'announce-addr': ['dns:localhost.localdomain:12345'],  # announce dns
-             'bind-addr': ['127.0.0.1:12345', '[::1]:12345']}   # and bind local IPs
+             'announce-addr': [f'dns:localhost.localdomain:{port}'],  # announce dns
+             'bind-addr': [f'127.0.0.1:{port}', f'[::1]:{port}']}   # and bind local IPs
     opts3 = {'may_reconnect': True}
     opts4 = {'disable-dns': None}
     l1, l2, l3, l4 = node_factory.get_nodes(4, opts=[opts1, {}, opts3, opts4])
@@ -275,13 +279,13 @@ def test_announce_and_connect_via_dns(node_factory, bitcoind):
     assert(len(addresses) == 1)  # no other addresses must be announced for this
     assert(addresses[0]['type'] == 'dns')
     assert(addresses[0]['address'] == 'localhost.localdomain')
-    assert(addresses[0]['port'] == 12345)
+    assert(addresses[0]['port'] == port)
 
     # now l3 must be able to use DNS to resolve and connect to l1
     result = l3.rpc.connect(l1.info['id'])
     assert result['id'] == l1.info['id']
     assert result['direction'] == 'out'
-    assert result['address']['port'] == 12345
+    assert result['address']['port'] == port
     if result['address']['type'] == 'ipv4':
         assert result['address']['address'] == '127.0.0.1'
     elif result['address']['type'] == 'ipv6':
@@ -293,6 +297,8 @@ def test_announce_and_connect_via_dns(node_factory, bitcoind):
     # This raises RpcError code 401, currently with an empty error message.
     with pytest.raises(RpcError, match=r"401.*dns disabled"):
         l4.rpc.connect(l1.info['id'])
+
+    drop_unused_port(port)
 
 
 def test_only_announce_one_dns(node_factory, bitcoind):
