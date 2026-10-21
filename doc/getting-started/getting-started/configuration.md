@@ -452,7 +452,9 @@ If a 'DNS' hostname was given that resolves to a local interface, the daemon wil
 
 - **disable-dns**
 
-  Disable the DNS bootstrapping mechanism to find a node by its node ID.
+  Disable DNS lookups: the DNS bootstrapping mechanism to find a node by its
+  node ID, resolving DNS addresses announced by peers, and resolving a
+  *host* name passed to `connect`.
 
 - **tor-service-password**=_PASSWORD_
 
