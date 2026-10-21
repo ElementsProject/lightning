@@ -35,6 +35,7 @@
 #include <connectd/connectd.h>
 #include <connectd/connectd_gossipd_wiregen.h>
 #include <connectd/connectd_wiregen.h>
+#include <connectd/dns.h>
 #include <connectd/multiplex.h>
 #include <connectd/netaddress.h>
 #include <connectd/onion_message.h>
@@ -1105,6 +1106,33 @@ static struct io_plan *conn_proxy_init(struct io_conn *conn,
 			      connect);
 }
 
+/*~ Resolving a DNS address used to be a synchronous getaddrinfo() right
+ * here: a slow or unresponsive nameserver would then hold up every peer
+ * on the box for the duration of the lookup.  Now the lookup is forked
+ * off, and we come back here from the io loop when it's done: append the
+ * results (they go after any remaining announced addresses, exactly as the
+ * old code's appendings did) and move on. */
+static void dns_resolved(void *arg, const struct wireaddr *addrs,
+			 const char *err)
+{
+	struct connecting *connect = arg;
+	const struct wireaddr_internal *addr = &connect->addrs[connect->addrnum];
+
+	if (err) {
+		tal_append_fmt(&connect->errors,
+			       "%s: %s. ",
+			       fmt_wireaddr_internal(tmpctx, addr), err);
+	} else {
+		for (size_t i = 0; i < tal_count(addrs); i++)
+			append_addr(&connect->addrs, &addrs[i]);
+	}
+
+	/* This causes the same very limited recursion as `goto next` below,
+	 * from a safe (timer) context. */
+	connect->addrnum++;
+	try_connect_one_addr(connect);
+}
+
 /*~ This is the routine which tries to connect. */
 static void try_connect_one_addr(struct connecting *connect)
 {
@@ -1113,10 +1141,6 @@ static void try_connect_one_addr(struct connecting *connect)
 	const struct wireaddr_internal *addr = &connect->addrs[connect->addrnum];
 	struct io_conn *conn;
 	bool use_dns = connect->daemon->use_dns;
-	struct addrinfo hints, *ais, *aii;
-	int gai_err;
-	struct sockaddr_in *sa4;
-	struct sockaddr_in6 *sa6;
 
 	assert(!connect->conn);
 	assert(!connect->waiting);
@@ -1184,46 +1208,18 @@ static void try_connect_one_addr(struct connecting *connect)
 					       fmt_wireaddr_internal(tmpctx, addr));
 				goto next;
 			}
-			/* Resolve with getaddrinfo */
-			memset(&hints, 0, sizeof(hints));
-			hints.ai_socktype = SOCK_STREAM;
-			hints.ai_family = AF_UNSPEC;
-			hints.ai_protocol = 0;
-			hints.ai_flags = AI_ADDRCONFIG;
-			gai_err = getaddrinfo((char *)addr->u.wireaddr.wireaddr.addr,
-					      tal_fmt(tmpctx, "%d",
-						      addr->u.wireaddr.wireaddr.port),
-					      &hints, &ais);
-			if (gai_err != 0) {
-				tal_append_fmt(&connect->errors,
-					       "%s: getaddrinfo error '%s'. ",
-					       fmt_wireaddr_internal(tmpctx, addr),
-					       gai_strerror(gai_err));
-				goto next;
-			}
-			/* create new addrhints on-the-fly per result ... */
-			for (aii = ais; aii; aii = aii->ai_next) {
-				struct wireaddr wa;
-				if (aii->ai_family == AF_INET) {
-					sa4 = (struct sockaddr_in *) aii->ai_addr;
-					wireaddr_from_ipv4(&wa,
-							   &sa4->sin_addr,
-							   addr->u.wireaddr.wireaddr.port);
-				} else if (aii->ai_family == AF_INET6) {
-					sa6 = (struct sockaddr_in6 *) aii->ai_addr;
-					wireaddr_from_ipv6(&wa,
-							   &sa6->sin6_addr,
-							   addr->u.wireaddr.wireaddr.port);
-				} else {
-					/* skip unsupported ai_family */
-					continue;
-				}
-				append_addr(&connect->addrs, &wa);
-				/* don't forget to update convenience pointer */
-				addr = &connect->addrs[connect->addrnum];
-			}
-			freeaddrinfo(ais);
-			goto next;
+			/* Resolve in a forked child so a stalling
+			 * nameserver cannot block the loop: dns_resolved()
+			 * will pick this back up from the io loop. */
+			async_dns_resolve(connect,
+					  &connect->daemon->timers,
+					  tal_strndup(tmpctx,
+						      (const char *)addr->u.wireaddr.wireaddr.addr,
+						      addr->u.wireaddr.wireaddr.addrlen),
+					  addr->u.wireaddr.wireaddr.port,
+					  dns_resolved, connect);
+			connect->connstate = "Resolving dns";
+			return;
 		}
 	}
 

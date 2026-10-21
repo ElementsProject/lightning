@@ -721,7 +721,9 @@ all DNS lookups, to avoid leaking information.
 
 * **disable-dns**
 
-  Disable the DNS bootstrapping mechanism to find a node by its node ID.
+  Disable DNS lookups: the DNS bootstrapping mechanism to find a node by its
+  node ID, resolving DNS addresses announced by peers, and resolving a
+  *host* name passed to `connect`.
 
 * **message-padding**=*BOOL*
 
