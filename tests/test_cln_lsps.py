@@ -788,3 +788,48 @@ def test_lsps2_mock_open_failed(node_factory):
     assert only_one(lsps2_mock_events(l2, "htlc"))["decision"] == "fail"
     assert l1.rpc.listpeerchannels()["channels"] == []
 
+
+def test_lsps2_mock_request_error(node_factory):
+    """An exception in a request handler is answered as an internal error and
+    logged as BROKEN, without taking the node down."""
+    config = {"get_info": {"menu": [{**lsps2_mock_menu_entry(1000), "valid_until": "x"}]}}
+    l1, l2 = node_factory.line_graph(
+        2,
+        fundchannel=False,
+        opts=[
+            {},
+            {
+                "plugin": LSPS2_MOCK,
+                "lsps2-mock-config": json.dumps(config),
+                "broken_log": "lsps2.buy failed",
+            },
+        ],
+    )
+
+    res = only_one(lsps2_mock_request(l1, l2, "lsps2.get_info", {}))
+    params = only_one(res["result"]["opening_fee_params_menu"])
+    res = only_one(
+        lsps2_mock_request(l1, l2, "lsps2.buy", {"opening_fee_params": params})
+    )
+    assert res["error"] == {"code": -32603, "message": "Internal error"}
+    assert only_one(lsps2_mock_events(l2, "error"))["where"] == "lsps2.buy"
+    assert l2.rpc.call("lsps2-mock-state")
+
+
+def test_lsps2_mock_htlc_error(node_factory):
+    """An exception while forwarding fails the held parts instead of
+    leaving them unanswered."""
+    l1, l2, l3 = lsps2_mock_nodes(node_factory)
+    l2.broken_log = "release failed"
+    amt = 10_000_000
+    # A deduction above the amount cannot be encoded.
+    l2.rpc.call(
+        "lsps2-mock-configure",
+        {"config": {"htlc": {"behavior": "deduct", "deductions": [amt + 1]}}},
+    )
+
+    with pytest.raises(RpcError):
+        lsps2_mock_pay_var_invoice(l1, l2, l3, amt)
+
+    assert only_one(lsps2_mock_events(l2, "error"))["where"] == "release"
+    assert only_one(lsps2_mock_events(l2, "htlc"))["decision"] == "fail"
