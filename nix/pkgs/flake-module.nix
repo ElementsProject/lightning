@@ -73,11 +73,28 @@
           * revert the change to nix/ that moved it
       '';
 
+      # Package sets a row can name besides nixpkgs' own.  The armv7 tarball
+      # is for the Raspberry Pi 2 and later, and every one of those has NEON
+      # and VFPv4 with 32 D registers; nixpkgs' armv7l-hf-multiplatform is
+      # Debian's VFPv3-D16 without NEON.  The FPU is baked into gcc
+      # (--with-fpu), so this is a separate package set, not a flag.
+      releaseSets = {
+        pkgsCrossRaspberryPi = import inputs.nixpkgs {
+          localSystem = system;
+          crossSystem = lib.systems.examples.armv7l-hf-multiplatform // {
+            gcc = {
+              arch = "armv7-a";
+              fpu = "neon-vfpv4";
+            };
+          };
+        };
+      };
+
       pkgsFor =
         row:
         lib.attrByPath (lib.splitString "." row.pkgsPath)
           (throw "nix/release-rows: no package set ${row.pkgsPath}")
-          pkgs;
+          (pkgs // releaseSets);
 
       # Unguarded: what certify reads to regenerate the manifests, and what
       # the guards compare against.

@@ -20,7 +20,8 @@
 # pkgsCross.<target>.pkgsStatic -- so every value below is per-row.
 #
 # Exports: arm32, extraObjsManifest, staticPieFlags, staticPieCc, releaseCc,
-# rustStaticPieCc and noRpathEnv, all consumed by default.nix and vls.nix.
+# rustStaticPieCc, rustTargetFlags and noRpathEnv, all consumed by
+# default.nix and vls.nix.
 { pkgs, lib }:
 let
   inherit (pkgs) stdenv;
@@ -43,6 +44,19 @@ rec {
   # Static-pie on every row is what this preserves.  The alternatives were to
   # drop the 32-bit ARM row, or to ship it without ASLR.
   arm32 = stdenv.hostPlatform.isAarch32;
+  # rustc ignores the row's gcc.fpu: its armv7 musl target is VFPv3 with
+  # NEON off, yet LLVM still uses D16-D31, so neither the Debian nor the
+  # Raspberry Pi baseline came out.  Say it explicitly, from the same fpu.
+  # Leading space, so the other rows' RUSTFLAGS stay byte-identical.
+  rustTargetFlags =
+    if !arm32 then
+      ""
+    else
+      {
+        "neon-vfpv4" = " -C target-feature=+vfp4,+neon";
+      }
+      .${stdenv.hostPlatform.gcc.fpu or ""}
+        or (throw "static-pie.nix: no rustc flags for this 32-bit ARM fpu");
   # musl's malloc made the static lightningd 16% slower than a glibc build,
   # most of it in sqlite3_expanded_sql's alloc/copy churn.  The object, not
   # libmimalloc.a: an archive member is only pulled for an undefined symbol,

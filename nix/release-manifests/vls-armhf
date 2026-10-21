@@ -1,9 +1,10 @@
 row
   arch armhf
   host armv7l-unknown-linux-musleabihf
+  fpu neon-vfpv4
 recipe
-  vls.nix 3c352d5004c77608cef4a010d5e75a5f94bf29dd45af6ddb76cfcc3d8a9fff1b
-  static-pie.nix 2b0ec6abe3d9c95204a339bee42e89ea4bcb797867387d343ecee592a9bc3141
+  vls.nix ceb35d83c38ce8cdc2cd974af9987a4c1a97fd35921ea028e161ed6dad27d14f
+  static-pie.nix 6abd5d2f05e276148f14fdca74cb732b15709613c71b8071b40da631ae1a1450
   flake.nix 66b107f9cfbf0d69c0b9df603b583ddce493128aa00522acfee51c461f079b98
   rust-bin.nix 51d59ab9b8451020c4865bc28f036d601a78e10ec06d1104b4f535496ccd62b3
 pin
@@ -27,6 +28,6 @@ toolchain
 flags
   cargo build --offline --locked --release -p vls-proxy --bin remote_hsmd_socket
   strip --strip-all
-  rustflags --remap-path-prefix=$NIX_BUILD_TOP=/home/clightning --remap-path-prefix=<cargo-vendor>=/home/clightning/vendor -C link-arg=-Wl,--build-id=sha1
+  rustflags --remap-path-prefix=$NIX_BUILD_TOP=/home/clightning --remap-path-prefix=<cargo-vendor>=/home/clightning/vendor -C link-arg=-Wl,--build-id=sha1 -C target-feature=+vfp4,+neon
   env NIX_DONT_SET_RPATH_armv7l_unknown_linux_musleabihf=1
   env NIX_NO_SELF_RPATH=1

@@ -75,6 +75,7 @@ let
     staticPieCc
     releaseCc
     rustStaticPieCc
+    rustTargetFlags
     noRpathEnv
     ;
   rustBin = import ./rust-bin.nix { inherit pkgs lib; };
@@ -207,7 +208,7 @@ let
   # in the manifest line -- remapping is what stops it mattering -- but its
   # presence is.
   vendorRemap = "--remap-path-prefix=${cargoVendor}=/home/clightning/vendor";
-  rustflagsShape = "--remap-path-prefix=$NIX_BUILD_TOP=/home/clightning --remap-path-prefix=<cargo-vendor>=/home/clightning/vendor -C link-arg=-Wl,--build-id=sha1";
+  rustflagsShape = "--remap-path-prefix=$NIX_BUILD_TOP=/home/clightning --remap-path-prefix=<cargo-vendor>=/home/clightning/vendor -C link-arg=-Wl,--build-id=sha1${rustTargetFlags}";
 
 in
 stdenv.mkDerivation {
@@ -303,7 +304,7 @@ stdenv.mkDerivation {
     # on a nixpkgs bump that changes only the vendoring code.  rustc (1.89.0)
     # and gcc (14.3.0) both apply the *last* matching map, so the general one
     # stays first.
-    export CARGO_TARGET_${rustTargetEnv}_RUSTFLAGS="--remap-path-prefix=$NIX_BUILD_TOP=/home/clightning ${vendorRemap} -C link-arg=-Wl,--build-id=sha1"
+    export CARGO_TARGET_${rustTargetEnv}_RUSTFLAGS="--remap-path-prefix=$NIX_BUILD_TOP=/home/clightning ${vendorRemap} -C link-arg=-Wl,--build-id=sha1${rustTargetFlags}"
 
     # The static link, stated here and not in configure.
     #
@@ -493,10 +494,13 @@ stdenv.mkDerivation {
       section = title: lines: "${title}\n" + lib.concatMapStrings (l: "  ${l}\n") lines;
     in
     lib.optionalString release (
-      section "row" [
-        "arch ${releaseArch}"
-        "host ${stdenv.hostPlatform.config}"
-      ]
+      section "row" (
+        [
+          "arch ${releaseArch}"
+          "host ${stdenv.hostPlatform.config}"
+        ]
+        ++ lib.optional (stdenv.hostPlatform.gcc ? fpu) "fpu ${stdenv.hostPlatform.gcc.fpu}"
+      )
       # The recipe itself, by content hash.  Everything below describes the
       # build's *inputs* -- which package versions, which flags -- and says
       # nothing about the files that decide what is done with them.  Without

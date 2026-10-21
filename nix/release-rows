@@ -11,10 +11,15 @@
 # fails at bump time if it does not, and the release derivations refuse to
 # evaluate.  Move it only with `tools/reprobuild certify`.
 #
+# The arm rows are for the Raspberry Pi: arm64 for any 64-bit Pi OS, armhf
+# for 32-bit Pi OS on a Pi 2 or later (ARMv7, NEON, VFPv4).  The ARMv6 Pi 1
+# and Zero cannot run armhf.  pkgsCrossRaspberryPi is defined in
+# nix/pkgs/flake-module.nix.
+#
 # arch   package-set path                                 docker platform
 amd64    pkgsStatic                                       linux/amd64
 arm64    pkgsCross.aarch64-multiplatform-musl.pkgsStatic  linux/arm64
-armhf    pkgsCross.armv7l-hf-multiplatform.pkgsStatic     linux/arm/v7
+armhf    pkgsCrossRaspberryPi.pkgsStatic                  linux/arm/v7
 
 @nixpkgs b4fd65b198c599cbe814fcb9f42d25d021595ec9
 
