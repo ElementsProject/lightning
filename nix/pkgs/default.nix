@@ -187,7 +187,7 @@ let
       "CC_FOR_BUILD=cc"
     ];
 
-  configureFlags = [ "--disable-valgrind" ] ++ lib.optionals release [ "--prefix=/usr" ];
+  configureFlags = [ "--disable-valgrind" ] ++ lib.optionals release [ "--prefix=/usr/local" ];
 
   # Environment the release build needs set; also listed in the input
   # manifest, since each of these moves release bytes.
@@ -257,14 +257,16 @@ stdenv.mkDerivation {
   # (`--enable-static --disable-shared`, `--build=`, `--host=`) with
   # "Unknown option".  Suppress them and hand it the one prefix it wants;
   # `prefix` (not a configureFlags entry) so nixpkgs emits it exactly once.
-  # The tarball must unpack over `/`, so the release installs to
-  # DESTDIR=$out with --prefix=/usr, as the Alpine hook did.
+  # The tarball must unpack over `/`, so the release installs to a DESTDIR
+  # with --prefix=/usr/local -- where CLN has always documented its binaries,
+  # and where a hand-built `make install` puts them.  A release tarball is not
+  # the place to move a project's install directory.
   # `prefix` is not the knob to use here: nixpkgs feeds it to configure
-  # *and* runs `mkdir -p "$prefix"` in installPhase, so prefix=/usr fails
-  # with "mkdir: cannot create directory '/usr': Permission denied".
+  # *and* runs `mkdir -p "$prefix"` in installPhase, so an absolute prefix
+  # fails with "mkdir: cannot create directory: Permission denied".
   # Suppress nixpkgs' own --prefix and pass ours in configureFlags; $out
-  # stays the prefix nixpkgs creates, and DESTDIR=$out + --prefix=/usr
-  # reproduces the Alpine tarball layout (unpacks over `/`).
+  # stays the prefix nixpkgs creates, and DESTDIR + --prefix=/usr/local gives
+  # a tarball that unpacks over `/`.
   dontAddPrefix = release;
   dontAddStaticConfigureFlags = release;
   configurePlatforms = [ ];
@@ -395,8 +397,8 @@ stdenv.mkDerivation {
   # what the hook's own comment contemplates.
   // lib.optionalAttrs release releaseEnv;
 
-  # Release installs into a DESTDIR with --prefix=/usr, so the tarball
-  # unpacks over `/` exactly as the Alpine-built ones did.  The DESTDIR is in
+  # Release installs into a DESTDIR with --prefix=/usr/local, so the tarball
+  # unpacks over `/` and lands where CLN has always documented it.  The DESTDIR is in
   # the build directory, not $out: $out holds only the tarball.
   preInstall = lib.optionalString release ''
     dest=$NIX_BUILD_TOP/dest

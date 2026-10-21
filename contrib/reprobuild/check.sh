@@ -24,6 +24,12 @@ tmp=$(mktemp -d)
 trap 'chmod -R u+w "$tmp" 2>/dev/null; rm -rf "$tmp"' EXIT
 tar -xf "$tarball" -C "$tmp"
 
+# Located rather than spelled out: which prefix the tarball installs under is
+# the release derivation's business, not a second fact this script has to keep
+# in step with it.
+lightningd=$(find "$tmp" -type f -name lightningd | head -1)
+[ -n "$lightningd" ] || { echo "check: no lightningd in $tarball" >&2; exit 1; }
+
 elfs=0 bad=0 nonpie=0 nobuildid=0 stripped_bad=0
 # shellcheck disable=SC2044
 for fp in $(find "$tmp" -type f); do
@@ -59,9 +65,9 @@ done
 # armhf is ARMv7 hard-float, and -mfpu=vfpv3-d16 had to be stated by hand
 # because clang defaults armv7-a to NEON, and Alpine's
 # "armhf" is ARMv6 entirely.  readelf -A is where the answer actually lands.
-if readelf -hW "$tmp/usr/bin/lightningd" 2>/dev/null | grep -q 'Machine:.*ARM'; then
-    echo "--- ARM build attributes (usr/bin/lightningd)"
-    readelf -A "$tmp/usr/bin/lightningd" 2>/dev/null |
+if readelf -hW "$lightningd" 2>/dev/null | grep -q 'Machine:.*ARM'; then
+    echo "--- ARM build attributes ($(basename "$lightningd"))"
+    readelf -A "$lightningd" 2>/dev/null |
         grep -E 'Tag_CPU_arch|Tag_FP_arch|Tag_ABI_VFP_args|Tag_Advanced_SIMD|Tag_CPU_name' || true
 fi
 

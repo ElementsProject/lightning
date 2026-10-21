@@ -2,7 +2,7 @@ row
   arch arm64
   host aarch64-unknown-linux-musl
 recipe
-  default.nix 4349d4705c9609f7c4167466dcb1af85d71cf21c6875c33ce8a40048ba60a016
+  default.nix 516a427ca6e85d6f31eaed81fb6969d95b192a4ae4d3b78a5c8444f2ffa5d41c
   static-pie.nix 67d8839bbcc99e7abe4b1037767505f6a42cdd0af754a13020cd2adebbac9421
   flake-module.nix c6feedbd6e609c3e4e29c6d69a0f64f27a6e846cc4807f34c3099efe944dd24b
 toolchain
@@ -36,7 +36,7 @@ buildInputs
   sqlite 3.50.4
   zlib 1.3.1
 flags
-  configure --disable-valgrind --prefix=/usr
+  configure --disable-valgrind --prefix=/usr/local
   dontBuild true
   dontPatchELF true
   strip --strip-all

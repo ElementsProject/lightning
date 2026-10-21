@@ -27,12 +27,10 @@ Then you can fetch a pre-compiled binary from the [releases](https://github.com/
 
 Unsure which one you want? `dpkg --print-architecture`, or `uname -m` (`x86_64` → amd64, `aarch64` → arm64, `armv7l` → armhf). On a Raspberry Pi 3, 4 or 5 prefer `arm64` even if your userland is 32-bit, since the hardware is ARMv8.
 
-The tarballs unpack over the filesystem root, with everything under `/usr`:
+Normally these binaries are extracted into `/usr/local`:
 ```shell
-# If you are upgrading, remove the old plugins first to avoid conflicts.
-# Releases up to and including v25.09 installed into /usr/local:
-sudo rm -R /usr/local/libexec/c-lightning/plugins /usr/libexec/c-lightning/plugins
-sudo tar -xvf clightning-<version>-static-<arch>.tar.xz -C /
+sudo rm -R /usr/local/libexec/c-lightning/plugins # If you are upgrading run this first to avoid plugin conflicts
+sudo tar -xvf clightning-<version>-static-<arch>.tar.xz -C /usr/local --strip-components=2
 ```
 
 Both sqlite and PostgreSQL support are built in, and the binaries need no libraries from your distribution — not even a libc.

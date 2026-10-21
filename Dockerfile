@@ -7,7 +7,7 @@
 # output = OCI layout dir), which passes three named build contexts:
 #
 #   release   clightning-${VERSION}-static-{amd64,arm64,armhf}.tar.xz
-#             (the signed static tarballs, --prefix=/usr layout)
+#             (the signed static tarballs, --prefix=/usr/local layout)
 #   bitcoin   <triplet>/bin/bitcoin-cli, pre-verified by `tools/reprobuild fetch`
 #   vls       remote_hsmd_socket-${VLS_VERSION}-{amd64,arm64,armhf}
 #
@@ -49,7 +49,7 @@ RUN apt-get update && \
 
 COPY --from=bitcoin ${bitcoin_triplet}/bin/bitcoin-cli /usr/bin/bitcoin-cli
 
-# The tarball unpacks straight onto / (its layout is /usr/...); mounting it
+# The tarball unpacks straight onto / (its layout is /usr/local/...); mounting it
 # keeps the archive itself out of the image.
 RUN --mount=from=release,source=clightning-${VERSION}-static-${cl_arch}.tar.xz,target=/tmp/cln.tar.xz \
     tar -xJf /tmp/cln.tar.xz -C /

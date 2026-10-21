@@ -6,8 +6,11 @@
 # Runs inside a bare debian:bookworm-slim with the extracted tree at /cln.
 set -u
 cp -a /cln/. / || exit 1
+# Found on PATH, not at a fixed path: the install prefix is the release's
+# business, and this script should not be a second place that has to know it.
+lightningd_bin=$(command -v lightningd) || { echo "lightningd not on PATH after unpacking" >&2; exit 1; }
 echo "=== ldd (expect: not a dynamic executable / static-pie)"
-ldd /usr/bin/lightningd 2>&1 | head -2
+ldd "$lightningd_bin" 2>&1 | head -2
 echo "=== --version"
 lightningd --version
 lightning-cli --version
@@ -21,7 +24,8 @@ rc=$?
 tail -25 /tmp/ln/start.log
 echo "lightningd exit=$rc"
 echo "=== plugin manifest handshake: every plugin must answer getmanifest (static Rust included)"
-for p in /usr/libexec/c-lightning/plugins/*; do
+plugin_dir=$(dirname "$(dirname "$lightningd_bin")")/libexec/c-lightning/plugins
+for p in "$plugin_dir"/*; do
     # keep stdin open: a plugin that sees EOF right after the request exits 0 before answering
     out=$( { printf '{"jsonrpc":"2.0","id":"cln:getmanifest#0","method":"getmanifest","params":{"allow-deprecated-apis":false}}\n\n'; sleep 3; } | timeout 20 "$p" 2>/dev/null | head -c 200)
     case "$out" in

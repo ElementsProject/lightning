@@ -95,8 +95,14 @@ echo "vls-regtest: $(basename "$TARBALL") + $(basename "$SIGNER")"
 # not create itself.
 mkdir -p "$tmp/tree" "$tmp/ln" "$tmp/vls" "$tmp/btc" "$tmp/regtest"
 tar -xf "$TARBALL" -C "$tmp/tree"
-LIGHTNINGD=$tmp/tree/usr/bin/lightningd
-CLI=$tmp/tree/usr/bin/lightning-cli
+# Located, not spelled out: the install prefix belongs to the release
+# derivation, not to this harness.
+LIGHTNINGD=$(find "$tmp/tree" -type f -name lightningd | head -1)
+CLI=$(find "$tmp/tree" -type f -name lightning-cli | head -1)
+if [ -z "$LIGHTNINGD" ] || [ -z "$CLI" ]; then
+    echo "vls-regtest: no lightningd/lightning-cli in the tarball" >&2
+    exit 1
+fi
 [ -x "$LIGHTNINGD" ] || { echo "vls-regtest: the tarball has no usr/bin/lightningd" >&2; exit 1; }
 
 # --- bitcoind ---------------------------------------------------------------
