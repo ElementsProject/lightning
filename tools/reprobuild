@@ -391,45 +391,80 @@ class Driver:
             return Path(store_path)
         return self.store_dir() / store_path.removeprefix("/nix/")
 
-    def build_expr(self, expr: str) -> str:
+    def parallelism(self, width: int) -> list[str]:
+        """--max-jobs/--cores for `width` heavy top-level derivations.
+
+        nix's default `cores = 0` hands every derivation all CPUs, so three
+        rows building at once would each run `make -jNPROC`.  The budget is
+        split over the heavy ones instead (the zip is not one: it only copies
+        files).  --cores does not reach the output bytes: xz is pinned to one
+        thread and cargo's codegen does not depend on its job count.
+        """
+        width = max(1, min(width, self.args.jobs))
+        # --max-jobs counts every derivation, including the small ones (the
+        # zip, a wrapper script); +1 lets one run beside the heavy rows.
+        return [
+            "--max-jobs",
+            str(width + 1),
+            "--cores",
+            str(max(1, self.args.jobs // width)),
+        ]
+
+    def build_exprs(self, exprs: list[str], width: int) -> list[str]:
+        """Build every expression in one `nix build`, so independent rows
+        overlap; returns the output paths in the order given."""
+        attrs = "; ".join(f"a{i} = {e}" for i, e in enumerate(exprs))
         out = self.nix(
             "build",
             "--impure",
-            "--max-jobs",
-            str(self.args.jobs),
+            *self.parallelism(width),
             "--print-out-paths",
             "--no-link",
             "-L",
             "--expr",
-            expr,
+            f"{{ {attrs}; }}",
+            *(f"a{i}" for i in range(len(exprs))),
             capture=True,
             stream_stderr=True,
         )
-        if not out:
-            die("nix build produced no output path")
-        return out.splitlines()[-1]
+        paths = out.splitlines()
+        if len(paths) != len(exprs):
+            die(
+                f"nix build printed {len(paths)} output paths for {len(exprs)} attributes"
+            )
+        return paths
 
-    def rebuild(self, store_path: str) -> None:
+    def rebuild(self, store_paths: list[str], width: int) -> None:
         """`nix build --rebuild` holds the *inputs* identical by construction,
         which is stronger than two runs of this driver.  It must name the
-        derivation that was just built, by store path: re-evaluating asks the
-        flake what the tree says *now*."""
-        drv = self.nix("path-info", "--derivation", store_path,
-                       capture=True, check=False)
-        if not drv:
-            die(f"cannot find the deriver of {store_path}")
-        drv = drv.splitlines()[0]
-        info(f"nix build --rebuild {drv}^out")
-        log = self.nix("build", "--rebuild", "--max-jobs", str(self.args.jobs),
-                       "--no-link", "-L", f"{drv}^out", capture=True, check=False,
-                       merge=True)
+        derivations that were just built, by store path: re-evaluating asks
+        the flake what the tree says *now*."""
+        drvs = []
+        for sp in store_paths:
+            drv = self.nix("path-info", "--derivation", sp, capture=True, check=False)
+            if not drv:
+                die(f"cannot find the deriver of {sp}")
+            drvs.append(drv.splitlines()[0] + "^out")
+        info(f"nix build --rebuild {' '.join(drvs)}")
+        log = self.nix(
+            "build",
+            "--rebuild",
+            *self.parallelism(width),
+            "--no-link",
+            "-L",
+            *drvs,
+            capture=True,
+            check=False,
+            merge=True,
+        )
         # "Could not check" and "differs" are *not* the same answer, and a
         # release gate must never conflate them.
         if "not valid, so checking is not possible" in log:
-            die(f"--rebuild COULD NOT CHECK {store_path} (its output is not in the store)")
+            die(f"--rebuild COULD NOT CHECK {' '.join(store_paths)} (not in the store)")
         if "differs" in log or "may not be deterministic" in log:
-            die(f"--rebuild DIFFERS for {store_path}")
-        info(f"--rebuild reproduced {store_path}")
+            print(log, file=sys.stderr)
+            die(f"--rebuild DIFFERS for one of {' '.join(store_paths)}")
+        info(f"--rebuild reproduced {' '.join(store_paths)}")
 
     # --- provenance: which tree an artifact on disk came from -------------
 
@@ -486,58 +521,99 @@ class Driver:
         run(str(self.top / "contrib/reprobuild/fetch-bitcoin.sh"),
             f"--cache={out}/cache/bitcoin-{bv}")
 
-    def _artifact(self, attr: str, name: str, mode: int, override: str = "") -> None:
-        expr = f'(builtins.getFlake "{self.flake_ref}").packages.x86_64-linux.{attr}'
-        if override:
-            expr += override
-        store = self.build_expr(expr)
+    def _artifacts(self, specs: list[tuple[str, str, int, str]]) -> list[Path]:
+        """Build (attr, file name, mode, override) specs in one nix build and
+        install each output file under --out."""
+        flake = f'(builtins.getFlake "{self.flake_ref}").packages.x86_64-linux'
+        width = max(
+            1, sum(1 for attr, _, _, _ in specs if attr != "cln-release-source-zip")
+        )
+        stores = self.build_exprs(
+            [f"{flake}.{attr}{override}" for attr, _, _, override in specs], width
+        )
         if self.args.rebuild:
-            self.rebuild(store)
-        src = self.host_path(store) / name
-        if not src.is_file():
-            die(f"the derivation produced no {name}")
-        dst = Path(self.args.out) / name
-        dst.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(src, dst)
-        dst.chmod(mode)
-        self.record_provenance(name)
-        info(f"wrote {dst}")
-        print(f"{sha256(dst)}  {dst}")
+            self.rebuild(stores, width)
+        written = []
+        for store, (_, name, mode, _) in zip(stores, specs):
+            src = self.host_path(store) / name
+            if not src.is_file():
+                die(f"the derivation produced no {name}")
+            dst = Path(self.args.out) / name
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(src, dst)
+            dst.chmod(mode)
+            self.record_provenance(name)
+            info(f"wrote {dst}")
+            print(f"{sha256(dst)}  {dst}")
+            written.append(dst)
+        return written
 
-    def verb_build(self, archs: list[str]) -> None:
+    def release_specs(
+        self,
+        archs: list[str] | None,
+        vls: bool,
+        zip_: bool,
+        vls_archs: list[str] | None = None,
+    ) -> list[tuple[str, str, int, str]]:
+        """What `build`, `vls` and `zip` produce, as _artifacts() specs."""
         self.prepare_tree()
         ver, mtime = self.version(), self.args.mtime
-        for arch in self.arch_list(archs):
-            name = f"clightning-{ver}-static-{arch}.tar.xz"
-            info(f"build {arch}: {name} (version={ver} mtime={mtime} jobs={self.args.jobs})")
-            # Version and mtime reach the derivation through `.override`, the
-            # same knob the flake exposes to any consumer.
-            self._artifact(f"cln-release-static-{arch}", name, 0o644,
-                           f'.override {{ releaseVersion = "{ver}"; releaseMtime = "{mtime}"; }}')
-            # Stripped, position-independent, no embedded library search path,
-            # build-id present: a precondition of `sign`, not advice.
-            run(str(self.top / "contrib/reprobuild/check.sh"),
-                str(Path(self.args.out) / name))
-
-    def verb_vls(self, archs: list[str]) -> None:
-        self.prepare_tree()
-        vlsver = self.vls_version()
-        for arch in self.arch_list(archs):
+        # Version and mtime reach the derivations through `.override`, the
+        # same knob the flake exposes to any consumer.
+        ov = f'.override {{ releaseVersion = "{ver}"; releaseMtime = "{mtime}"; }}'
+        specs = []
+        if zip_:
+            specs.append(("cln-release-source-zip", f"clightning-{ver}.zip", 0o644, ov))
+        for arch in self.arch_list(archs) if archs is not None else []:
+            specs.append(
+                (
+                    f"cln-release-static-{arch}",
+                    f"clightning-{ver}-static-{arch}.tar.xz",
+                    0o644,
+                    ov,
+                )
+            )
+        if vls:
             # No override: which VLS ships is a release decision with its own
             # review cadence, pinned in nix/pkgs/vls.nix.
-            name = f"remote_hsmd_socket-{vlsver}-{arch}"
-            info(f"vls {arch}: {name}")
-            self._artifact(f"vls-release-static-{arch}", name, 0o755)
+            vlsver = self.vls_version()
+            for arch in self.arch_list(vls_archs if vls_archs is not None else archs):
+                specs.append(
+                    (
+                        f"vls-release-static-{arch}",
+                        f"remote_hsmd_socket-{vlsver}-{arch}",
+                        0o755,
+                        "",
+                    )
+                )
+        return specs
+
+    def build_release(
+        self,
+        archs: list[str] | None,
+        vls: bool = False,
+        zip_: bool = False,
+        vls_archs: list[str] | None = None,
+    ) -> None:
+        """Every requested artifact in one nix build, then the per-tarball
+        checks: stripped, position-independent, no embedded library search
+        path, build-id present -- a precondition of `sign`, not advice."""
+        specs = self.release_specs(archs, vls, zip_, vls_archs)
+        info("building " + ", ".join(name for _, name, _, _ in specs))
+        for dst in self._artifacts(specs):
+            if dst.name.endswith(".tar.xz"):
+                run(str(self.top / "contrib/reprobuild/check.sh"), str(dst))
+
+    def verb_build(self, archs: list[str]) -> None:
+        self.build_release(archs)
+
+    def verb_vls(self, archs: list[str]) -> None:
+        self.build_release(None, vls=True, vls_archs=archs)
 
     def verb_zip(self) -> None:
         """The source zip is a derivation like every other signed artifact, so
         it does not depend on the working tree, the host's `zip` or a locale."""
-        self.prepare_tree()
-        ver = self.version()
-        name = f"clightning-{ver}.zip"
-        info(f"zip: {name} (version={ver} mtime={self.args.mtime})")
-        self._artifact("cln-release-source-zip", name, 0o644,
-                       f'.override {{ releaseVersion = "{ver}"; releaseMtime = "{self.args.mtime}"; }}')
+        self.build_release(None, zip_=True)
 
     # --- OCI layouts ------------------------------------------------------
 
@@ -872,11 +948,11 @@ class Driver:
         if not archs:
             die(f"{base} lists no tarball this matrix knows")
         info(f"verify {base}: rows {' '.join(archs)} (version {ver})")
-        self.verb_build(archs)
-        if RELEASE_SHIPS_VLS:
-            self.verb_vls(archs)
-        if f" clightning-{ver}.zip" in mf.read_text():
-            self.verb_zip()
+        self.build_release(
+            archs,
+            vls=RELEASE_SHIPS_VLS,
+            zip_=f" clightning-{ver}.zip" in mf.read_text(),
+        )
 
         out, bad = Path(self.args.out), []
         for line in mf.read_text().splitlines():
@@ -1164,10 +1240,7 @@ class Driver:
         if not self.args.wait_for_key:
             self.preflight_sign()
         self.verb_fetch()
-        self.verb_zip()
-        self.verb_build(["all"])
-        if RELEASE_SHIPS_VLS:
-            self.verb_vls(["all"])
+        self.build_release(["all"], vls=RELEASE_SHIPS_VLS, zip_=True)
         self.verb_docker()
         self.verb_sign()
         # Last: the binaries that were just signed, unpacked and run on a
