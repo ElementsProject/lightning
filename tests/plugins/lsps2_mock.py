@@ -169,6 +169,7 @@ class Session:
             "opening_fee_msat": self.opening_fee_msat,
             "state": self.state,
             "channel_id": self.channel_id,
+            "held_parts": len(self.parts),
         }
 
 
@@ -741,12 +742,41 @@ def var_invoice_fee(session, amount_msat):
     return fee_msat
 
 
+def seconds_to_expiry(session):
+    """Seconds until the session's params expire, by the mock's clock."""
+    offset = timedelta(seconds=state.config["htlc"]["clock_offset_seconds"])
+    now = datetime.now(timezone.utc) + offset
+    return (parse_lsps_datetime(session.params["valid_until"]) - now).total_seconds()
+
+
 def expired(session):
     """Whether the session's params expired: bLIP-52 opens the channel only
     while the current time is strictly less than valid_until."""
-    offset = timedelta(seconds=state.config["htlc"]["clock_offset_seconds"])
-    now = datetime.now(timezone.utc) + offset
-    return now >= parse_lsps_datetime(session.params["valid_until"])
+    return seconds_to_expiry(session) <= 0
+
+
+def expire_held_parts(session):
+    """bLIP-52: parts held while waiting for the payment time out at
+    valid_until, even if no further part arrives. Called with the state lock
+    held."""
+    if session.state == "collecting" and session.parts and expired(session):
+        fail_parts(session.parts, "expired")
+        session.parts = []
+
+
+def arm_expiry(session):
+    """Run `expire_held_parts` at valid_until."""
+
+    def run():
+        with state.lock:
+            expire_held_parts(session)
+            # The clock may have been moved back since.
+            if session.state == "collecting" and session.parts:
+                arm_expiry(session)
+
+    timer = threading.Timer(max(seconds_to_expiry(session), 0), run)
+    timer.daemon = True
+    timer.start()
 
 
 def collected_enough(session):
@@ -788,6 +818,8 @@ def on_htlc_accepted(onion, htlc, request, **kwargs):
                 return
             session.opening_fee_msat = fee_msat
 
+        if not session.parts:
+            arm_expiry(session)
         session.parts.append(part)
         if session.state == "collecting" and collected_enough(session):
             session.state = "opening"
@@ -817,6 +849,9 @@ def lsps2_mock_configure(config, **kwargs):
     new_config = build_config(config)
     with state.lock:
         state.config = new_config
+        # The clock may have moved past valid_until.
+        for session in state.sessions.values():
+            expire_held_parts(session)
     return {"config": new_config}
 
 
