@@ -65,14 +65,14 @@ What this means in practice:
 
 ## Installing a tarball
 
-The tarballs unpack over the filesystem root, with everything under `/usr`:
+The tarballs install into `/usr/local`, where they always have:
 
 ```shell
-sudo tar -xvf clightning-<version>-static-<arch>.tar.xz -C /
+sudo tar -xvf clightning-<version>-static-<arch>.tar.xz -C /usr/local --strip-components=2
 ```
 
 Inspect one first with `tar -tvf` if you would rather see what it contains before
-unpacking it over `/`, or unpack it somewhere harmless and copy what you need.
+unpacking it, or unpack it somewhere harmless and copy what you need.
 
 # Build environment setup
 
