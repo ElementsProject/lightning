@@ -1685,3 +1685,153 @@ def test_xpay_onion_budget_blinded_introduction(node_factory):
     ret = l1.rpc.xpay(inv)
     assert ret["failed_parts"] == 0
     l1.daemon.wait_for_log(r"onion budget is 0\.")
+
+
+def test_xpay_maxhops(node_factory, bitcoind):
+    """A blinded path with a large tail limits the public route we can use.
+
+    lpayee sits behind a private channel to lintro, so its invoices carry a
+    two-hop blinded path lintro -> lpayee.  dev-invoice-blinded-padding pads
+    the final blinded hop to eat into the onion."""
+    # Long route l1-l2-l3-lintro and short route l1-lintro.  We make the
+    # short one unusable for the first payment so we know we can take the
+    # long one, then remove that restriction.
+    l1, l2, l3, lintro = node_factory.get_nodes(4)
+    node_factory.join_nodes([l1, l2, l3, lintro], wait_for_announce=True)
+    node_factory.join_nodes([l1, lintro], wait_for_announce=True)
+
+    lpayee = node_factory.get_node()
+    node_factory.join_nodes([lintro, lpayee], announce_channels=False)
+    wait_for(lambda: len(l1.rpc.listchannels()["channels"]) == 8)
+    wait_for(lambda: len(lpayee.rpc.listchannels()["channels"]) == 8)
+    sync_blockheight(bitcoind, [l1, lpayee])
+
+    offer = lpayee.rpc.offer("any")["bolt12"]
+
+    def fetch(padding):
+        lpayee.rpc.setconfig("dev-invoice-blinded-padding", padding)
+        inv = l1.rpc.fetchinvoice(offer, "100000msat")["invoice"]
+        path = only_one(l1.rpc.decode(inv)["invoice_paths"])
+        assert path["first_node_id"] == lintro.info["id"]
+        assert len(path["path"]) == 2
+        return inv
+
+    scid_short = first_scidd(l1, lintro)
+    l1.rpc.askrene_create_layer("noshort")
+    l1.rpc.askrene_update_channel(
+        layer="noshort", short_channel_id_dir=scid_short, enabled=False
+    )
+
+    # Unpadded: plenty of room, takes the long route.
+    ret = l1.rpc.call("xpay", {"invstring": fetch(0), "layers": ["noshort"]})
+    assert ret["failed_parts"] == 0
+    assert len(l2.rpc.listforwards(status="settled")["forwards"]) == 1
+
+    # Padded so only 2 forwarding payloads fit before the blinded path: the
+    # long route is impossible...
+    with pytest.raises(RpcError, match=r"excessive hop count"):
+        l1.rpc.call("xpay", {"invstring": fetch(920), "layers": ["noshort"]})
+    l1.daemon.wait_for_log(r"onion budget is 2\.")
+
+    # ...but l1-lintro is fine.
+    ret = l1.rpc.xpay(fetch(920))
+    assert ret["failed_parts"] == 0
+    # And l2 never saw a second payment.
+    assert len(l2.rpc.listforwards()["forwards"]) == 1
+
+
+@pytest.mark.slow_test
+@unittest.skipIf(TEST_NETWORK != "regtest", "Invoice is network specific")
+def test_xpay_maxhops_bolt11(node_factory, chainparams):
+    """A bolt11 final payload that no longer fits the cheap route forces the short one.
+
+    The cheap route is longer than a 639-byte payment_metadata onion budget,
+    and still fits a plain bolt11.  The other route is 2 hops and much more
+    expensive, so it is used only when the long one does not fit.
+
+    The expensive hop is not the first one.  xpay applies auto.sourcefree, so
+    a direct channel would look free and always win.
+    """
+    plugin = os.path.join(
+        os.path.dirname(__file__), "plugins/accept_payment_metadata.py"
+    )
+    # payee is node #2, so bolt11-cli can sign with L2_PRIVKEY.
+    l1, payee = node_factory.get_nodes(2, opts=[{}, {"plugin": plugin}])
+    # 12 hops: one more than the budget left by a max-size bolt11 metadata field.
+    mids = node_factory.get_nodes(11)
+    line = [l1] + mids + [payee]
+    long_hops = len(line) - 1
+    short_hops = 2
+    node_factory.join_nodes(line, wait_for_announce=True)
+    # Expensive shortcut: l1 -> mids[0] -> payee.
+    node_factory.join_nodes([mids[0], payee], wait_for_announce=True)
+
+    cheap_feeppm = 1
+    # High enough that the per-hop success penalty does not prefer these 2 hops
+    # over the cheap 12, but still inside maxfee.
+    pricey_feeppm = 500_000
+    for a, b in zip(line, line[1:]):
+        a.rpc.setchannel(
+            first_scid(a, b), feebase=0, feeppm=cheap_feeppm, htlcmin=1, enforcedelay=0
+        )
+    mids[0].rpc.setchannel(
+        first_scid(mids[0], payee),
+        feebase=0,
+        feeppm=pricey_feeppm,
+        htlcmin=1,
+        enforcedelay=0,
+    )
+
+    def fees_visible():
+        chans = l1.rpc.listchannels()["channels"]
+        cheap = sum(
+            1
+            for c in chans
+            if c["fee_per_millionth"] == cheap_feeppm
+            and c["base_fee_millisatoshi"] == 0
+        )
+        pricey = sum(1 for c in chans if c["fee_per_millionth"] == pricey_feeppm)
+        return cheap >= long_hops - 1 and pricey >= 1
+
+    wait_for(fees_visible)
+
+    # Last hop of the long route.  The expensive shortcut never reaches it.
+    def long_forwards():
+        return len(mids[-1].rpc.listforwards(status="settled")["forwards"])
+
+    def budget_of(line):
+        return int(re.search(r"onion budget is ([0-9]+)\.", line).group(1))
+
+    # payment_log prints "N: onion budget is X."  A second copy of the same
+    # line is also forwarded as a notify, so match the numbered one only.
+
+    amount = 100_000
+
+    def pay(label, preimage, metadata=None):
+        inv = payee.rpc.invoice(amount, label, label, preimage=preimage)
+        if metadata is None:
+            bolt = inv["bolt11"]
+        else:
+            payee.rpc.setmetadatapreimage(preimage=preimage, metadata=metadata.hex())
+            bolt = bolt11_with_metadata(l1, chainparams, inv, metadata)
+        return l1.rpc.xpay(bolt, maxfee="80000msat")
+
+    ret = pay("plain", "11" * 32)
+    assert ret["payment_preimage"] == "11" * 32
+    assert ret["failed_parts"] == 0
+    plain_budget = budget_of(l1.daemon.wait_for_log(r"\d+: onion budget is [0-9]+\."))
+    assert plain_budget >= long_hops
+    # Long cheap route: the last mid forwarded, and the payer paid almost no fee.
+    assert long_forwards() == 1
+    assert ret["amount_sent_msat"] - amount < 1000
+
+    # Bolt-11 field limit: 1023 5-bit units, so metadata is at most 639 bytes.
+    metadata = bytes([7]) * 639
+    ret = pay("big", "22" * 32, metadata)
+    assert ret["payment_preimage"] == "22" * 32
+    assert ret["failed_parts"] == 0
+    meta_budget = budget_of(l1.daemon.wait_for_log(r"\d+: onion budget is [0-9]+\."))
+    assert short_hops <= meta_budget < long_hops
+    # Expensive short route: the last mid saw nothing more, and the payer paid the high fee.
+    assert long_forwards() == 1
+    assert ret["amount_sent_msat"] - amount > 1000
