@@ -33,6 +33,15 @@ fi
 # override what 'pg_config' reports, e.g. to link libpq statically where
 # libpq.a needs extra archives: POSTGRES_LDLIBS="-lpq -lpgcommon -lpgport
 # -lssl -lcrypto".  Leave unset for the automagic pg_config detection.
+#
+# Recorded here, before --reconfigure loads config.vars: that loop sets any
+# variable config.vars mentions, so afterwards a stored *empty* value looks
+# exactly like an environment setting, and the `: ${VAR=...}` defaults below
+# would skip the pg_config probe and silently drop PostgreSQL support.  Only
+# the environment speaks for the caller; a value that merely came back from
+# config.vars gets probed again.
+POSTGRES_LDLIBS_FROM_ENV=${POSTGRES_LDLIBS+y}
+POSTGRES_INCLUDE_FROM_ENV=${POSTGRES_INCLUDE+y}
 
 usage_with_default()
 {
@@ -438,6 +447,10 @@ if command -v "${PKG_CONFIG}" >/dev/null; then
     SODIUM_LDLIBS="$("${PKG_CONFIG}" --silence-errors --libs libsodium || :)"
 fi
 
+# Anything that did not come from the environment is re-probed, exactly as a
+# first run would: see POSTGRES_*_FROM_ENV above.
+[ -n "$POSTGRES_LDLIBS_FROM_ENV" ] || unset POSTGRES_LDLIBS
+[ -n "$POSTGRES_INCLUDE_FROM_ENV" ] || unset POSTGRES_INCLUDE
 if command -v "${PG_CONFIG}" >/dev/null; then
     : ${POSTGRES_INCLUDE="-I$("${PG_CONFIG}" --includedir)"}
     : ${POSTGRES_LDLIBS="-L$("${PG_CONFIG}" --libdir) -lpq"}
