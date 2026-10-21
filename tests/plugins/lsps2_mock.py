@@ -22,12 +22,15 @@ Everything the mock receives, sends and decides is recorded and returned by
 `lsps2-mock-state`.
 """
 
+import functools
 import json
 import threading
+import traceback
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 
 from pyln.client import Plugin, RpcError, RpcException
+from pyln.client.plugin import RequestState
 
 plugin = Plugin()
 
@@ -212,6 +215,16 @@ def record(kind, **fields):
         state.events.append({"type": kind, **fields})
 
 
+def report_error(where, e, **fields):
+    """Record and log the exception `e` being handled. It is a bug in the
+    mock or in the test's config: it is logged as BROKEN, so the test fails
+    at teardown."""
+    tb = traceback.format_exc()
+    record("error", where=where, error=tb, **fields)
+    plugin.log(f"{where} failed: {e!r}", level="broken")
+    plugin.log(tb, level="debug")
+
+
 def lsps_datetime(dt):
     """Format a datetime as LSPS0.datetime: YYYY-MM-DDThh:mm:ss.uuuZ."""
     dt = dt.astimezone(timezone.utc)
@@ -364,6 +377,9 @@ def handle_message(peer_id, raw):
         response = {"result": handler(peer_id, params)}
     except LspsError as e:
         response = {"error": e.error}
+    except Exception as e:
+        report_error(method, e)
+        response = {"error": {"code": -32603, "message": "Internal error"}}
     respond(peer_id, method, req_id, response)
 
 
@@ -469,6 +485,31 @@ def fund_zero_conf(peer_id, capacity_sat):
     )
 
 
+def fails_held_parts(func):
+    """Wrap `func(session)`, which holds the session's HTLCs: on an
+    unexpected exception, fail the parts still held instead of leaving them
+    unanswered until the payment times out."""
+
+    @functools.wraps(func)
+    def wrapper(session):
+        held = list(session.parts)
+        try:
+            func(session)
+        except Exception as e:
+            report_error(func.__name__, e, jit_channel_scid=session.scid)
+            with state.lock:
+                parts = {id(p): p for p in held + session.parts}.values()
+                fail_parts(
+                    [p for p in parts if p["request"].state == RequestState.PENDING]
+                )
+                session.parts = []
+                if session.state == "opening":
+                    session.state = "collecting"
+
+    return wrapper
+
+
+@fails_held_parts
 def open_channel(session):
     """Open the JIT channel, run on a worker thread so that the hooks and
     notifications keep flowing while `fundchannel` waits for the peer."""
@@ -581,6 +622,7 @@ def split_fee(amounts, fee_msat, htlc_minimum_msat):
     return deductions if remaining == 0 else None
 
 
+@fails_held_parts
 def release(session):
     """Forward the collected parts over the now usable channel. Called with
     the state lock held."""
@@ -654,7 +696,11 @@ def on_custommsg(peer_id, payload, **kwargs):
     if int.from_bytes(raw[:2], "big") == LSPS0_MESSAGE_TYPE:
         raw = raw[2:]
         record("rx", peer_id=peer_id, payload=raw.decode("utf-8", "replace"))
-        handle_message(peer_id, raw)
+        # lightningd treats an error from this hook as fatal.
+        try:
+            handle_message(peer_id, raw)
+        except Exception as e:
+            report_error("custommsg", e, peer_id=peer_id)
     return {"result": "continue"}
 
 
