@@ -771,3 +771,20 @@ def test_lsps2_mock_open_never(node_factory):
 
     only_one(lsps2_mock_events(l2, "open_skipped"))
     assert l1.rpc.listpeerchannels()["channels"] == []
+
+
+def test_lsps2_mock_open_failed(node_factory):
+    """If the open fails, the mock fails the payment instead of holding it."""
+    l1, l2, l3 = lsps2_mock_nodes(node_factory)
+    # More than the LSP's wallet holds.
+    l2.rpc.call(
+        "lsps2-mock-configure", {"config": {"open": {"capacity_sat": 10_000_000}}}
+    )
+
+    with pytest.raises(RpcError):
+        lsps2_mock_pay_var_invoice(l1, l2, l3, 10_000_000)
+
+    only_one(lsps2_mock_events(l2, "open_failed"))
+    assert only_one(lsps2_mock_events(l2, "htlc"))["decision"] == "fail"
+    assert l1.rpc.listpeerchannels()["channels"] == []
+
