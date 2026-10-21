@@ -763,12 +763,15 @@ def test_reconnect_no_update(node_factory, executor, bitcoind):
     # LightningNode.fundchannel will fund the channel and generate a
     # block. The block triggers the channel_ready message, which
     # causes a disconnect. The retransmission is then caused by the
-    # automatic retry.
+    # automatic retry.  Wait for it on l2: l2 disconnects as it sends
+    # channel_ready, so it has sent it by the time it reconnects, while
+    # l1 may not have reached the funding depth yet and would then send
+    # its channel_ready for the first time instead of retransmitting.
+    # With dual funding the retransmission comes from l2's dualopend, or
+    # from channeld when l1's channel_ready arrived before l2 reached
+    # the depth and the channel had already moved on, so match either.
     fundchannel_exec = executor.submit(l1.fundchannel, l2, 10**6, False)
-    if l1.config('experimental-dual-fund'):
-        l1.daemon.wait_for_log(r"dualopend.* Retransmitting channel_ready for channel")
-    else:
-        l1.daemon.wait_for_log(r"channeld.* Retransmitting channel_ready for channel")
+    l2.daemon.wait_for_log(r"Retransmitting channel_ready for channel")
     sync_blockheight(bitcoind, [l1, l2])
     fundchannel_exec.result()
     l1.stop()
@@ -776,9 +779,16 @@ def test_reconnect_no_update(node_factory, executor, bitcoind):
     # For closingd reconnection
     l1.daemon.start()
     # Close will trigger the -WIRE_SHUTDOWN and we then wait for the
-    # automatic reconnection to trigger the retransmission.
+    # automatic reconnection to complete the close.  channel_ready is
+    # not retransmitted on this reconnect: it is only retransmitted
+    # while both commitment numbers are still 1, and the fee update
+    # after lock-in has already advanced them.  The earlier wait for
+    # it on l2 was satisfied by the first reconnect's retransmission.
+    # l2 is in CHANNELD_SHUTTING_DOWN or already in CLOSINGD_SIGEXCHANGE
+    # at the reconnect, depending on whether its channeld reported both
+    # shutdowns before the disconnect took it down.
     l1.rpc.close(l2.info['id'], 0)
-    l2.daemon.wait_for_log(r"channeld.* Retransmitting channel_ready for channel")
+    l2.daemon.wait_for_log(r"Peer has reconnected, state (CHANNELD_SHUTTING_DOWN|CLOSINGD_SIGEXCHANGE)")
     l1.daemon.wait_for_log(r"CLOSINGD_COMPLETE")
 
 
