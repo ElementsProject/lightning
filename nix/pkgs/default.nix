@@ -490,6 +490,20 @@ stdenv.mkDerivation {
         "arch ${releaseArch}"
         "host ${stdenv.hostPlatform.config}"
       ]
+      # The recipe itself, by content hash.  Everything below describes the
+      # build's *inputs* -- which package versions, which flags -- and says
+      # nothing about the files that decide what is done with them.  Without
+      # this, an edit to static-pie.nix could change how every shipped binary
+      # is linked, move the output bytes, and leave this manifest
+      # byte-identical, so guard 2 would not fire: the compiler wrapper
+      # reaches the build through configureFlagsArray in the build phase and
+      # the Rust linker through an exported variable, and neither is in the
+      # configureFlags attribute the flags section below is built from.
+      + section "recipe" [
+        "default.nix ${builtins.hashFile "sha256" ./default.nix}"
+        "static-pie.nix ${builtins.hashFile "sha256" ./static-pie.nix}"
+        "flake-module.nix ${builtins.hashFile "sha256" ./flake-module.nix}"
+      ]
       + section "toolchain" [
         "gcc ${stdenv.cc.cc.version}"
         "rustc ${bp.rustc.version}"
