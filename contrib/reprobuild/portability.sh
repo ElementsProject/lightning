@@ -59,17 +59,23 @@ plugins=$(find "$tmp/tree" -path '*/libexec/c-lightning/plugins/*' -type f | gre
 [ "$plugins" -gt 0 ] || { echo "portability: no plugins found in the tarball" >&2; exit 1; }
 echo "portability: $plugins plugins in the tarball; every one must answer getmanifest"
 
+# Every image at once (each container only reads the shared tree), reported
+# afterwards in the order listed.  The tag goes into the file name, so ':' is
+# replaced.
+for img in $IMAGES; do
+    docker run --rm --platform "$PLATFORM" \
+        -v "$tmp/tree:/cln:ro" -v "$smoke:/smoke.sh:ro" \
+        "$img" sh /smoke.sh > "$tmp/out.$(echo "$img" | tr ':/' '__')" 2>&1 &
+done
+wait
+
 pass=0 fail=0
 for img in $IMAGES; do
+    out=$tmp/out.$(echo "$img" | tr ':/' '__')
     echo "################ $img ($PLATFORM)"
-    if docker run --rm --platform "$PLATFORM" \
-        -v "$tmp/tree:/cln:ro" -v "$smoke:/smoke.sh:ro" \
-        "$img" sh /smoke.sh > "$tmp/out.$$" 2>&1; then
-        :
-    fi
-    ok=$(grep -c '^ok   ' "$tmp/out.$$" || true)
-    bad=$(grep -c '^FAIL ' "$tmp/out.$$" || true)
-    ver=$(grep -m1 -A1 '=== --version' "$tmp/out.$$" | tail -1 || true)
+    ok=$(grep -c '^ok   ' "$out" || true)
+    bad=$(grep -c '^FAIL ' "$out" || true)
+    ver=$(grep -m1 -A1 '=== --version' "$out" | tail -1 || true)
     echo "  version line: $ver"
     echo "  plugins: $ok ok, $bad FAIL (of $plugins in the tarball)"
     if [ "$bad" = 0 ] && [ "$ok" -eq "$plugins" ]; then
@@ -77,7 +83,10 @@ for img in $IMAGES; do
         pass=$((pass + 1))
     else
         echo "  => FAIL"
-        sed -n '1,40p' "$tmp/out.$$"
+        # The failing plugins first: in an image run they come last, and the
+        # 40-line head of the log would cut them off.
+        grep '^FAIL ' "$out" || true
+        sed -n '1,40p' "$out"
         fail=$((fail + 1))
     fi
 done
