@@ -21,6 +21,14 @@ tmp=$(mktemp -d)
 trap 'chmod -R u+w "$tmp" 2>/dev/null; rm -rf "$tmp"' EXIT
 tar -xf "$tarball" -C "$tmp"
 
+# The documented install is `-C /usr/local --strip-components=2`, which only
+# works when every member is usr/local/..., as in the official tarballs.
+if tar -tf "$tarball" | grep -qvE '^usr/(local/.*)?$'; then
+    echo "check: $tarball has members outside usr/local/:" >&2
+    tar -tf "$tarball" | grep -vE '^usr/(local/.*)?$' | head -5 >&2
+    exit 1
+fi
+
 # Located rather than spelled out: which prefix the tarball installs under is
 # the release derivation's business, not a second fact this script has to keep
 # in step with it.

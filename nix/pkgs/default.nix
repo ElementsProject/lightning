@@ -466,14 +466,16 @@ stdenv.mkDerivation {
         # --rebuild` covers the bytes that are signed and no host's tar or xz
         # sits inside the promise.  The recipe:
         # the artifact name, sorted entries, fixed mtime, numeric root
-        # ownership, and ./usr only.  --mode normalises what `make install`
-        # left, so unpacking over `/` never leaves /usr unwritable.  xz is
-        # pinned to one thread: since xz 5.4 the default is multi-threaded,
-        # whose block layout depends on the machine's core count.
+        # ownership, and usr/ only (no leading ./, like the official
+        # tarballs, so `-C /usr/local --strip-components=2` works).  --mode
+        # normalises what `make install` left, so unpacking over `/` never
+        # leaves /usr unwritable.  xz is pinned to one thread: since xz 5.4
+        # the default is multi-threaded, whose block layout depends on the
+        # machine's core count.
         mkdir -p $out
         tar --sort=name --mtime="${mtime} 00:00Z" \
             --owner=0 --group=0 --numeric-owner --mode='u+rwX,go=rX' \
-            -cf - -C "$dest" ./usr \
+            -cf - -C "$dest" usr \
           | xz -T1 -6 -c > $out/clightning-${version}-static-${releaseArch}.tar.xz
       ''
     else
