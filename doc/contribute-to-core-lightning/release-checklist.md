@@ -34,7 +34,14 @@ Here's a checklist for the release process.
 4. Build and sign the release locally: `tools/reprobuild all`. This is the whole
    build — three static tarballs, the source zip, the multi-arch image and both
    signed manifests — and it needs only docker, coreutils and python3. Every rc is a
-   rehearsal of the release flow, so do not skip it.
+   rehearsal of the release flow, so do not skip it. The signing key has to answer
+   before the build starts, so that an hour of building cannot end on a key nobody
+   can reach. If you would rather not sit next to the machine for that hour, add
+   `--wait-for-key`: the build then runs unattended and waits (30 minutes by
+   default, `--wait-for-key=SECONDS` to change it) once it has something to sign,
+   so you only need to plug in and unlock the smartcard at the end. It polls the
+   key rather than waiting for a keypress, so this works for a detached run whose
+   log you are tailing.
 5. Publish the rc: `tools/reprobuild publish`. Images go to Docker Hub and the
    tarballs, manifests and signatures to the download host. `latest` is never
    applied to an rc.
