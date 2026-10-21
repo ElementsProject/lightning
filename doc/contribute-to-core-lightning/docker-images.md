@@ -83,14 +83,24 @@ static tarballs the release signs — the image compiles nothing:
    platform of the image under `binfmt` before it is published).
 
 2. `tools/reprobuild docker` builds one multi-arch image into a local OCI layout
-   under `release/docker/` and records its per-architecture digests in
-   `DIGESTS-<version>` and `DIGESTS-<version>-armhf`, which the release
-   manifests sign. Nothing is pushed.
+   under `release/docker/` and logs its per-architecture digests. Nothing is
+   pushed, and the digests are not signed — see below.
 
 3. `tools/reprobuild publish` pushes it, with `skopeo copy --all
-   --preserve-digests`, so the digests users pull are the digests that were
-   signed. Add `--latest` to also move the `latest` tag; it is never implied and
+   --preserve-digests`, so what users pull is what was built and smoke-tested
+   rather than a recompressed copy. Before pushing it checks the layout's own
+   OCI labels, so a layout left over from another release or another commit is
+   refused. Add `--latest` to also move the `latest` tag; it is never implied and
    never applied to an rc.
+
+The image digests are deliberately **not** part of the signed manifests. The
+image has one unpinned, network-touching input — the `apt-get install` of the
+entrypoint's runtime dependencies — so a third party cannot rebuild it later and
+arrive at the same digest, and a signature over a hash nobody can re-derive
+would claim more than it can support. What is attested is stronger and sits one
+level down: the release tarballs are built from source under Nix, reproduce
+byte-for-byte, and carry three signatures, and the image is built from those
+signed bytes.
 
 See the [release checklist](https://docs.corelightning.org/docs/release-checklist)
 for where those steps sit in a release.

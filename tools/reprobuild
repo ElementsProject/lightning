@@ -621,6 +621,23 @@ class Driver:
         idx = json.loads((layout / "index.json").read_text())
         return idx["manifests"][0]["digest"]
 
+    def oci_image_labels(self, layout: Path, platform: str) -> dict[str, str]:
+        """The labels of one platform's image config, read out of the layout.
+
+        This is what `publish` checks instead of an image digest: it answers
+        "is this layout the one built for this release, from this commit",
+        which is a staleness question and has an answer.  "Are these the exact
+        bytes someone else would get" does not, because the image build has an
+        unpinned apt step."""
+        algo_h = dict(self.oci_platform_digests(layout)).get(platform)
+        if not algo_h:
+            die(f"{layout}: no image for {platform}")
+        algo, h = algo_h.split(":")
+        manifest = json.loads((layout / "blobs" / algo / h).read_text())
+        calgo, ch = manifest["config"]["digest"].split(":")
+        cfg = json.loads((layout / "blobs" / calgo / ch).read_text())
+        return cfg.get("config", {}).get("Labels") or {}
+
     def oci_platform_digests(self, layout: Path) -> list[tuple[str, str]]:
         """Each entry of the index blob is one platform."""
         d = self.oci_index_digest(layout)
@@ -642,7 +659,7 @@ class Driver:
         ver, out = self.version(), Path(self.args.out)
         bv = self.pins()["BITCOIN_VERSION"]
         bitcoin = out / f"cache/bitcoin-{bv}"
-        layoutdir, repo = out / "docker", "docker.io/elementsproject/"
+        layoutdir = out / "docker"
         images = ["lightningd"] + (["lightningd-vls"] if RELEASE_SHIPS_VLS else [])
         sde = int(time.mktime(time.strptime(self.args.mtime + " +0000", "%Y-%m-%d %z")))
         created = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(sde))
@@ -661,10 +678,6 @@ class Driver:
             run("docker", "buildx", "create", "--name", "cln-builder",
                 "--driver", "docker-container", "--bootstrap")
         layoutdir.mkdir(parents=True, exist_ok=True)
-        main, armhf = layoutdir / f"DIGESTS-{ver}", layoutdir / f"DIGESTS-{ver}-armhf"
-        main.write_text("")
-        armhf.write_text("")
-        optional = self.cosign_optional()
         for image in images:
             shutil.rmtree(layoutdir / image, ignore_errors=True)
             info(f"docker: building {image} ({platforms})")
@@ -686,33 +699,23 @@ class Driver:
                 str(self.top))
             if not (layoutdir / image / "index.json").exists():
                 die(f"build of {image} produced no layout")
-            # Two DIGESTS files: the per-arch manifest digests a co-signer
-            # reproduces go in the main one; the armhf digests **and the
-            # multi-arch index digest** in the other, because the index is
-            # computed over all three entries and so is captain-attested.
+            # The digests are logged, not recorded as an artifact and not
+            # signed.  They are useful to an operator comparing what Docker Hub
+            # ended up with against what was pushed, and they are not evidence
+            # of anything: this image has an unpinned apt step, so nobody can
+            # re-derive these bytes later and a signature over them would
+            # attest less than the signed tarball the image is built from.
             idx = self.oci_index_digest(layoutdir / image)
-            with armhf.open("a") as fh:
-                fh.write(f"{idx} {repo}{image}:{ver} index\n")
+            info(f"docker: {image} index {idx}")
             for platform, digest in self.oci_platform_digests(layoutdir / image):
-                arch = next((a for a in self.arch_list(None)
-                             if self.platform_of(a) == platform), None)
-                if not arch:
-                    continue
-                target = armhf if arch in optional else main
-                with target.open("a") as fh:
-                    fh.write(f"{digest} {repo}{image}:{ver} {platform}\n")
-            info(f"docker: {image} {idx}")
+                info(f"docker: {image} {platform} {digest}")
         if not self.args.no_smoke:
             self.smoke_images(layoutdir, ver, images)
-        self.record_provenance(f"DIGESTS-{ver}")
-        self.record_provenance(f"DIGESTS-{ver}-armhf")
-        info(f"wrote {main} and {armhf}")
-        print(main.read_text() + armhf.read_text(), end="")
 
     def skopeo(self, *args: str, capture: bool = False) -> str:
         """Ubuntu 22.04's skopeo 1.4.1 lacks --preserve-digests, and pushing
-        without it re-compresses the layers, so the digests DIGESTS records --
-        and three people signed -- would not be the digests users pull."""
+        without it re-compresses the layers, so what users pull would not be
+        the bytes that were built, smoke-tested and logged here."""
         host = shutil.which("skopeo")
         if host and "--preserve-digests" in run(host, "copy", "--help",
                                                 capture=True, check=False, merge=True):
@@ -822,13 +825,7 @@ class Driver:
             files.append(f"clightning-{ver}-static-{arch}.tar.xz")
             if RELEASE_SHIPS_VLS:
                 files.append(f"remote_hsmd_socket-{vlsver}-{arch}")
-        docker = Path(self.args.out) / "docker"
-        if which == "armhf":
-            if (docker / f"DIGESTS-{ver}-armhf").exists():
-                files.append(f"DIGESTS-{ver}-armhf")
-        else:
-            if (docker / f"DIGESTS-{ver}").exists():
-                files.append(f"DIGESTS-{ver}")
+        if which != "armhf":
             files.append(f"clightning-{ver}.zip")
         return files
 
@@ -986,16 +983,6 @@ class Driver:
                 continue
             want, name = line.split(maxsplit=1)
             name = name.strip().lstrip("*")
-            if name.startswith("DIGESTS-"):
-                # Informational and never blocks: images are optional for a
-                # co-signer, and the layer can drift between sittings.
-                built = out / "docker" / name
-                if built.exists():
-                    same = sha256(built) == want
-                    info(f"{'ok (informational)' if same else 'differs (informational)'}  {name}")
-                else:
-                    info(f"skipped (informational, not built here)  {name}")
-                continue
             path = out / name
             if not path.exists():
                 info(f"MISSING  {name}")
@@ -1167,8 +1154,7 @@ class Driver:
         shutil.rmtree(stage, ignore_errors=True)
         stage.mkdir(parents=True)
         for f in self.manifest_files("main", ver, vlsver) + self.manifest_files("armhf", ver, vlsver):
-            src = out / "docker" / f if f.startswith("DIGESTS-") else out / f
-            shutil.copyfile(src, stage / f)
+            shutil.copyfile(out / f, stage / f)
         for mf in (main, armhf):
             if mf.exists():
                 shutil.copyfile(mf, stage / mf.name)
@@ -1204,22 +1190,34 @@ class Driver:
                 info(f"publish: verified on the download host  {name}")
 
         # Images next: an upload can be deleted, a Docker Hub push cannot.
-        # --all copies every platform, --preserve-digests keeps the bytes
-        # DIGESTS names.
+        # --all copies every platform, --preserve-digests keeps the bytes that
+        # were built and smoke-tested.
+        #
+        # The layout used to be checked against a recorded index digest.  That
+        # digest is gone, because the image build has an unpinned apt step and a
+        # signature over bytes nobody can re-derive attests less than the signed
+        # tarball the image is built from.  What is checkable, and what the old
+        # guard was really protecting against, is staleness: that this layout is
+        # the one built for *this* release, from *this* commit.  The image's own
+        # OCI labels answer that.
         repo, layoutdir = "docker.io/elementsproject/", out / "docker"
         images = ["lightningd"] + (["lightningd-vls"] if RELEASE_SHIPS_VLS else [])
         for image in images:
             layout = layoutdir / image
             if not layout.is_dir():
                 die(f"no OCI layout at {layout}; run docker first")
+            for platform, _ in self.oci_platform_digests(layout):
+                labels = self.oci_image_labels(layout, platform)
+                lver = labels.get("org.opencontainers.image.version", "")
+                lrev = labels.get("org.opencontainers.image.revision", "")
+                if lver != ver:
+                    die(f"{image} {platform}: the layout says version {lver!r}, not "
+                        f"{ver!r}.  It is from another release; run docker again.")
+                if lrev != mrev:
+                    die(f"{image} {platform}: the layout was built from {lrev!r}, but "
+                        f"{main.name} was built from {mrev!r}.  Run docker again.")
             idx = self.oci_index_digest(layout)
-            recorded = next((ln.split()[0] for ln in
-                             (layoutdir / f"DIGESTS-{ver}-armhf").read_text().splitlines()
-                             if ln.endswith(f"{repo}{image}:{ver} index")), "")
-            if idx != recorded:
-                die(f"{image}: the layout's index digest ({idx}) is not the one "
-                    f"DIGESTS records ({recorded}).  Rebuild the images and re-sign.")
-            info(f"publish: pushing {image}:{ver} ({idx})")
+            info(f"publish: pushing {image}:{ver} ({idx}), labels match {mrev[:12]}")
             self.skopeo("copy", "--all", "--preserve-digests",
                         f"oci:{layout}", f"docker://{repo}{image}:{ver}")
             if self.args.latest:
