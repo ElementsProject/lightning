@@ -1560,3 +1560,129 @@ def test_sendamount_bip353(node_factory):
     ret = l2.rpc.sendamount("fake@fake.com", "100sat")
     assert ret["successful_parts"] == 1
     assert ret["amount_sent_msat"] == 100000
+
+
+# l2's private key (node #2 always gets this hsm_secret, see test_pay_bolt11_metadata)
+L2_PRIVKEY = "0c633a7c17c701a0980158f5483035e01fa8bd091b47fadf2e86e589a9f93fca"
+
+
+def bolt11_with_metadata(node, chainparams, inv, metadata):
+    """Re-encode inv (made by l2) with payment metadata attached."""
+    dec = node.rpc.decode(inv["bolt11"])
+    return (
+        subprocess.check_output(
+            [
+                "devtools/bolt11-cli",
+                "encode",
+                L2_PRIVKEY,
+                f"currency={chainparams['bip173_prefix']}",
+                f"p={inv['payment_hash']}",
+                f"s={inv['payment_secret']}",
+                f"d={dec['description']}",
+                f"amount={dec['amount_msat']}msat",
+                f"x={dec['expiry']}",
+                f"c={dec['min_final_cltv_expiry']}",
+                f"9={dec['features']}",
+                "m=" + metadata.hex(),
+            ]
+        )
+        .decode("utf-8")
+        .strip()
+    )
+
+
+@unittest.skipIf(TEST_NETWORK != "regtest", "Invoice is network specific")
+def test_xpay_onion_budget_bolt11_metadata(node_factory, chainparams):
+    """Large payment_metadata is carried intact, and reduces the hop budget.
+
+    BOLT11 limits a field to 1023 5-bit units, so metadata can be at most
+    639 bytes: with that, there's still room for 11 forwarding payloads."""
+    plugin = os.path.join(
+        os.path.dirname(__file__), "plugins/accept_payment_metadata.py"
+    )
+    l1, l2, l3 = node_factory.get_nodes(3, opts=[{}, {"plugin": plugin}, {}])
+    node_factory.join_nodes([l1, l3, l2], wait_for_announce=True)
+
+    metadata = bytes([7]) * 639
+    inv = l2.rpc.invoice(10000, "big", "big", preimage="02" * 32)
+    b11 = bolt11_with_metadata(l1, chainparams, inv, metadata)
+    assert l1.rpc.decode(b11)["payment_metadata"] == metadata.hex()
+    l2.rpc.setmetadatapreimage(preimage="02" * 32, metadata=metadata.hex())
+
+    ret = l1.rpc.xpay(b11)
+    assert ret["payment_preimage"] == "02" * 32
+    assert ret["failed_parts"] == 0
+    l1.daemon.wait_for_log(r"onion budget is 11\.")
+
+
+@unittest.skipIf(TEST_NETWORK != "regtest", "Invoice is network specific")
+def test_xpay_onion_budget_keysend(node_factory):
+    """xkeysend with large extratlvs is limited by the onion budget too."""
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
+
+    # Fits through l2.
+    l1.rpc.xkeysend(l3.info["id"], 1000, extratlvs={133773310: "00" * 900})
+
+    # Way too big.
+    with pytest.raises(
+        RpcError, match=r"The final payload is too big to fit an onion packet"
+    ):
+        l1.rpc.xkeysend(l3.info["id"], 1000, extratlvs={133773310: "00" * 1300})
+
+    # Fits only with zero forwarding hops, but we're not the destination.
+    with pytest.raises(
+        RpcError, match=r"onion budget is 0 and we are not the destination node"
+    ):
+        l1.rpc.xkeysend(l3.info["id"], 1000, extratlvs={133773310: "00" * 1180})
+
+
+def test_xpay_onion_budget_blinded(node_factory, bitcoind):
+    """Test early failures of xpay if the tail onion is too big."""
+    l1, lintro, lpayee = node_factory.get_nodes(3)
+    node_factory.join_nodes([l1, lintro], wait_for_announce=True)
+    node_factory.join_nodes([lintro, lpayee], announce_channels=False)
+    wait_for(lambda: len(l1.rpc.listchannels()["channels"]) == 2)
+    wait_for(lambda: len(lpayee.rpc.listchannels()["channels"]) == 2)
+    sync_blockheight(bitcoind, [l1, lpayee])
+
+    offer = lpayee.rpc.offer("any")["bolt12"]
+
+    def fetch(padding):
+        lpayee.rpc.setconfig("dev-invoice-blinded-padding", padding)
+        inv = l1.rpc.fetchinvoice(offer, "100000msat")["invoice"]
+        path = only_one(l1.rpc.decode(inv)["invoice_paths"])
+        assert path["first_node_id"] == lintro.info["id"]
+        assert len(path["path"]) == 2
+        return inv
+
+    # Padded so no forwarding payload fits: we're not the introduction point.
+    with pytest.raises(
+        RpcError,
+        match=r"onion budget is 0 and we are not a front node",
+    ):
+        l1.rpc.xpay(fetch(1010))
+    l1.daemon.wait_for_log(r"onion budget is 0\.")
+
+    # Padded so the blinded path alone can't fit: discarded up front.
+    with pytest.raises(
+        RpcError,
+        match=r"Cannot use any blinded path, the smallest one needs at least [0-9]* byte onion packet",
+    ):
+        l1.rpc.xpay(fetch(1100))
+    l1.daemon.wait_for_log(r"discarding blinded path: requires [0-9]* bytes")
+
+
+def test_xpay_onion_budget_blinded_introduction(node_factory):
+    """If we are the introduction point, a budget of 0 is fine."""
+    l1, l2 = node_factory.get_nodes(2)
+    node_factory.join_nodes([l1, l2], wait_for_announce=True)
+
+    offer = l2.rpc.offer(amount="any", fronting_nodes=[l1.info["id"]])["bolt12"]
+    l2.rpc.setconfig("dev-invoice-blinded-padding", 1010)
+    inv = l1.rpc.fetchinvoice(offer, "100000msat")["invoice"]
+    path = only_one(l1.rpc.decode(inv)["invoice_paths"])
+    assert path["first_node_id"] == l1.info["id"]
+
+    ret = l1.rpc.xpay(inv)
+    assert ret["failed_parts"] == 0
+    l1.daemon.wait_for_log(r"onion budget is 0\.")
