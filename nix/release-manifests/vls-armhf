@@ -2,8 +2,9 @@ row
   arch armhf
   host armv7l-unknown-linux-musleabihf
 recipe
-  vls.nix 1b55e651928a56ea59c6542173199f5e4d7817f3c3ec8d28064553a0ae327ccf
-  static-pie.nix 67d8839bbcc99e7abe4b1037767505f6a42cdd0af754a13020cd2adebbac9421
+  vls.nix 9d38bae02faf962b80c8a929fbb9ad1d4cd011143e926f80e02cfcb91ad86d3a
+  static-pie.nix 53b6c6f5f74c968f7a381119c5eecff57bbaa51ad3c0c157cb3f41bee6dbf96c
+  flake.nix 66b107f9cfbf0d69c0b9df603b583ddce493128aa00522acfee51c461f079b98
 pin
   url https://gitlab.com/lightning-signer/validating-lightning-signer.git
   version v0.14.0
@@ -12,9 +13,9 @@ pin
   vendorHash sha256-fxPAZV2uSqN4RlWqTZLDHwsl0/RZdhPcg1fhmiNtgQo=
   git-desc v0.14.0-0-g9c0fd05c946d
 toolchain
-  gcc 14.3.0
-  rustc 1.89.0
-  protobuf 32.1
+  gcc 16.2.0
+  rustc 1.98.1
+  protobuf 36.2
 flags
   cargo build --offline --locked --release -p vls-proxy --bin remote_hsmd_socket
   strip --strip-all
