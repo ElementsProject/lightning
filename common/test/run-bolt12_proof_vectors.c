@@ -113,6 +113,88 @@ static bool include_amount(const struct tlv_field *f, void *arg UNNEEDED)
 		|| f->numtype == TLV_PAYER_PROOF_INVOICE_AMOUNT;
 }
 
+/* include_required_only: invreq_payer_id, invoice_payment_hash,
+ * invoice_node_id.  Same shape as include_minimal but without
+ * invoice_features, so the marker-jump invoice (which has no features
+ * field) iterates cleanly through the 64 trailing dummies. */
+static bool include_required_only(const struct tlv_field *f, void *arg UNNEEDED)
+{
+	if (f->numtype == 0)
+		return false;
+	return f->numtype == TLV_PAYER_PROOF_INVREQ_PAYER_ID
+		|| f->numtype == TLV_PAYER_PROOF_INVOICE_PAYMENT_HASH
+		|| f->numtype == TLV_PAYER_PROOF_INVOICE_NODE_ID;
+}
+
+/* Build a signed minimal invoice plus 64 dummy unknown TLVs at odd
+ * extension-range types (1000000001, 1000000003, ..., 1000000127).  When
+ * all these dummies are omitted from a payer_proof, the writer marker
+ * counter walks past 239 and triggers the 239 -> 1000000000 gap-jump
+ * emission via next_marker.  Exercising this scenario across
+ * implementations is the cross-impl coverage for the spec issue raised on
+ *   https://github.com/lightning/bolts/pull/1295#discussion_r3286972971
+ */
+#define MARKER_JUMP_N_DUMMIES 64
+
+static struct tlv_invoice *build_marker_jump_invoice(const struct preimage *preimage)
+{
+	struct tlv_invoice *mj = tlv_invoice_new(tmpctx);
+
+	mj->invreq_metadata = tal_arrz(mj, u8, 16);
+	mj->offer_issuer_id = pubkey_for_letter(mj, 'F', NULL);
+	mj->invreq_amount = tal(mj, u64);
+	*mj->invreq_amount = 1000;
+	mj->invreq_payer_id = pubkey_for_letter(mj, 'B', NULL);
+
+	mj->invoice_paths = tal_arr(mj, struct blinded_path *, 1);
+	mj->invoice_paths[0] = tal(mj->invoice_paths, struct blinded_path);
+	sciddir_or_pubkey_from_pubkey(&mj->invoice_paths[0]->first_node_id,
+				      pubkey_for_letter(tmpctx, 'C', NULL));
+	mj->invoice_paths[0]->first_path_key = *pubkey_for_letter(tmpctx, 'D', NULL);
+	mj->invoice_paths[0]->path = tal_arr(mj->invoice_paths[0],
+					     struct blinded_path_hop *, 1);
+	mj->invoice_paths[0]->path[0] = tal(mj->invoice_paths[0]->path,
+					    struct blinded_path_hop);
+	mj->invoice_paths[0]->path[0]->blinded_node_id =
+		*pubkey_for_letter(tmpctx, 'E', NULL);
+	mj->invoice_paths[0]->path[0]->encrypted_recipient_data =
+		tal_arrz(mj->invoice_paths[0]->path[0], u8, 16);
+
+	mj->invoice_blindedpay = tal_arr(mj, struct blinded_payinfo *, 1);
+	mj->invoice_blindedpay[0] = tal(mj->invoice_blindedpay,
+					struct blinded_payinfo);
+	mj->invoice_blindedpay[0]->fee_base_msat = 1;
+	mj->invoice_blindedpay[0]->fee_proportional_millionths = 2;
+	mj->invoice_blindedpay[0]->cltv_expiry_delta = 3;
+	mj->invoice_blindedpay[0]->htlc_minimum_msat = AMOUNT_MSAT(4);
+	mj->invoice_blindedpay[0]->htlc_maximum_msat = AMOUNT_MSAT(5);
+	mj->invoice_blindedpay[0]->features = NULL;
+
+	mj->invoice_created_at = tal(mj, u64);
+	*mj->invoice_created_at = 1733458312;
+	mj->invoice_payment_hash = tal(mj, struct sha256);
+	sha256(mj->invoice_payment_hash, preimage, sizeof(*preimage));
+	mj->invoice_amount = tal(mj, u64);
+	*mj->invoice_amount = 1000;
+	mj->invoice_node_id = pubkey_for_letter(mj, 'F', NULL);
+
+	/* Canonicalise so the dummies merge into a fully sorted fields[]. */
+	tlv_update_fields(mj, tlv_invoice, &mj->fields);
+
+	for (size_t i = 0; i < MARKER_JUMP_N_DUMMIES; i++) {
+		struct tlv_field f;
+		f.meta = NULL;
+		f.numtype = 1000000001ULL + 2 * i;
+		f.value = tal_arr(mj, u8, 1);
+		f.value[0] = (u8)(i + 1);
+		f.length = 1;
+		tal_arr_expand(&mj->fields, f);
+	}
+
+	mj->signature = invoice_signature(mj, mj, 'F');
+	return mj;
+}
+
 static void print_fields_json(const struct tlv_field *fields, size_t n,
 			      bool (*include_field)(const struct tlv_field *, void *),
 			      void *arg)
@@ -574,6 +656,21 @@ int main(int argc, char *argv[])
 	 * omit the field when empty, so readers must accept both forms. */
 	generate_valid_vector("empty_proof_omitted_tlvs_explicit", inv, &preimage, 'B', NULL,
 			      include_all, true);
+	printf(",\n");
+
+	/* marker_jump_239_to_1000000000: a separate invoice with 64 dummy
+	 * unknown TLVs at odd extension-range types so the writer's marker
+	 * counter walks past 239 and emits the 239 -> 1000000000 gap-jump.
+	 * Implementations consuming this vector verify that their reader
+	 * accepts the writer-rule-mandated jump (see
+	 * https://github.com/lightning/bolts/pull/1295#discussion_r3286972971).
+	 */
+	{
+		struct tlv_invoice *mj = build_marker_jump_invoice(&preimage);
+		generate_valid_vector("marker_jump_239_to_1000000000", mj,
+				      &preimage, 'B', NULL,
+				      include_required_only, false);
+	}
 	printf("\n],\n");
 
 	printf("\"invalid_vectors\":[\n");
