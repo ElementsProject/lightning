@@ -1,0 +1,1186 @@
+#!/usr/bin/env python3
+"""The reproducible-release driver.
+
+The host is required to have **docker, coreutils and python3 (>= 3.10)**, and
+nothing else: this script imports only the standard library, and every nix
+invocation happens inside a digest-pinned `nixos/nix` container, against a
+store under $XDG_CACHE_HOME.  `--host-nix` is an opt-in for whoever has Nix
+and wants the faster loop; both routes are expected to produce identical
+bytes.
+
+Deliberately not run through `uv`: a co-signer reproducing a release should
+need a python interpreter, not a python package manager.
+
+3.10 rather than the repo's own `requires-python` floor, deliberately: that
+floor is about who can install the pyln packages, this is about who can
+reproduce a release, and there is no reason to shut out a co-signer on Ubuntu
+22.04 for a script that runs there. Raise it only when something here needs to.
+
+The matrix is data (nix/release-rows), read here and by the flake with no
+tooling on either side, so there is one source of truth.
+
+  fetch                  bitcoin-cli tarballs + SHA256SUMS.asc, GPG-verified
+  build    [archs]       tarball per arch, as a Nix output
+  vls      [archs]       remote_hsmd_socket per arch, a Nix output
+                         -- NOT part of `all`: this release ships no VLS
+  zip                    source zip
+  docker                 runtime images to a local OCI layout
+  sign                   SHA256SUMS-<ver>[-armhf] + .asc
+  verify   <SHA256SUMS>  co-signer flow
+  certify  [--no-verify] re-pin nixpkgs rev + input manifests,
+                         from-source build, acceptance suite
+  publish                images -> Docker Hub, staging -> T0 host
+  disclose               source zip, tag push, GitHub release
+  accept   [archs]       portability rows + the two-tree probe
+  all                    zip + build all + fetch + docker + sign
+
+`certify` is deliberately *not* part of `all`: certification is an intentional
+act, and folding it in would let a release day quietly re-certify a toolchain
+nobody examined.
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+import time
+from dataclasses import dataclass, field
+from pathlib import Path
+
+# Whether this release publishes VLS.  Core Lightning offers splicing by
+# default and refuses an hsmd that cannot sign splices; no released VLS
+# implements it, so the binaries and the -vls image could not start against
+# the release shipping them.  The derivations, the `vls` verb and the regtest
+# harness stay: bringing VLS back is a pin bump, a green regtest run and this.
+RELEASE_SHIPS_VLS = False
+
+# The distro `all` smoke-tests the finished tarballs on.  The full matrix
+# lives in `accept`; what this catches is the release-day question -- do the
+# binaries we just signed actually run.
+RELEASE_SMOKE_IMAGE = "ubuntu:26.04"
+
+
+def die(msg: str) -> None:
+    sys.exit(f"reprobuild: {msg}")
+
+
+def info(msg: str) -> None:
+    """Progress goes to stderr, like die().  It must not go to stdout: the
+    verbs that capture a nix store path capture stdout, and a progress line
+    printed while seeding the store -- which only happens on a cold cache --
+    would be captured as part of the path."""
+    print(f"reprobuild: {msg}", file=sys.stderr, flush=True)
+
+
+def run(
+    *cmd: str,
+    capture: bool = False,
+    check: bool = True,
+    merge: bool = False,
+    stream_stderr: bool = False,
+    **kw,
+) -> str:
+    """Run a command, returning stdout (and stderr, with merge) when asked.
+    With stream_stderr, only stdout is captured and stderr goes to the
+    terminal, so a long build's log is visible while it runs."""
+    # Build logs can carry raw bytes; a decode error must never kill a release.
+    kw.setdefault("errors", "replace")
+    if merge:
+        kw["stderr"] = subprocess.STDOUT
+        kw["stdout"] = subprocess.PIPE
+        p = subprocess.run(cmd, text=True, **kw)
+    elif capture and stream_stderr:
+        p = subprocess.run(cmd, text=True, stdout=subprocess.PIPE, **kw)
+    else:
+        p = subprocess.run(cmd, text=True, capture_output=capture, **kw)
+    if check and p.returncode != 0:
+        if capture and p.stderr:
+            print(p.stderr, file=sys.stderr, end="")
+        die(f"failed ({p.returncode}): {' '.join(cmd)}")
+    return (p.stdout or "").strip() if capture else ""
+
+
+def sha256(path: Path) -> str:
+    h = hashlib.sha256()
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+@dataclass
+class Row:
+    arch: str
+    pkgs: str
+    platform: str
+
+
+@dataclass
+class Driver:
+    args: argparse.Namespace
+    top: Path
+    rev: str = ""
+    flake_ref: str = ""
+    narhash: str = ""
+    substitute: bool = True
+    _version: str = ""
+    _rows: list[Row] = field(default_factory=list)
+
+    # --- data: the matrix, the pins, the version -------------------------
+
+    @property
+    def rows_file(self) -> Path:
+        return self.top / "nix/release-rows"
+
+    def rows(self) -> list[Row]:
+        """nix/release-rows, minus comments and the `@directive` lines."""
+        if not self._rows:
+            for line in self.rows_file.read_text().splitlines():
+                f = line.split()
+                if not f or f[0].startswith(("#", "@")):
+                    continue
+                if len(f) < 3:
+                    die(f"nix/release-rows: short row: {line}")
+                self._rows.append(Row(*f[:3]))
+        return self._rows
+
+    def directive(self, name: str) -> str:
+        hits = [
+            ln.split()[1]
+            for ln in self.rows_file.read_text().splitlines()
+            if ln.startswith(f"@{name} ")
+        ]
+        if len(hits) != 1:
+            die(f"nix/release-rows: expected exactly one @{name} line")
+        return hits[0]
+
+    def certified_rev(self) -> str:
+        return self.directive("nixpkgs")
+
+    def cosign_optional(self) -> list[str]:
+        """Rows a co-signer is not required to reproduce: their artifacts go
+        in the -armhf manifest, signed only by someone who reproduced them."""
+        try:
+            return self.directive("cosign-optional").split()
+        except SystemExit:
+            return []
+
+    def platform_of(self, arch: str) -> str:
+        return next(r.platform for r in self.rows() if r.arch == arch)
+
+    def arch_list(self, sel: list[str] | None) -> list[str]:
+        known = [r.arch for r in self.rows()]
+        if not sel or sel == ["all"]:
+            return known
+        for a in sel:
+            if a not in known:
+                die(f"unknown arch '{a}' (not in nix/release-rows)")
+        return sel
+
+    def pins(self) -> dict[str, str]:
+        text = (self.top / "contrib/reprobuild/pins").read_text()
+        return dict(
+            re.findall(r"^([A-Z_]+)=(.*)$", text, re.M)
+        )
+
+    def publish_vars(self) -> dict[str, str]:
+        text = (self.top / "contrib/reprobuild/publish.vars").read_text()
+        return dict(re.findall(r"^([A-Z_]+)=(.*)$", text, re.M))
+
+    def vls_source(self) -> str:
+        """The VLS pin is read at the rev being built, not from the working
+        tree: a co-signer verifying an older release must see the pin that
+        produced those bytes."""
+        if self.rev:
+            return run("git", "-C", str(self.top), "show",
+                       f"{self.rev}:nix/pkgs/vls.nix", capture=True)
+        return (self.top / "nix/pkgs/vls.nix").read_text()
+
+    def vls_pin(self, field_name: str) -> str:
+        m = re.search(rf'^\s*{field_name} = "([^"]*)";', self.vls_source(), re.M)
+        return m.group(1) if m else ""
+
+    def vls_version(self) -> str:
+        v = self.vls_pin("version")
+        if not v:
+            die("cannot read the VLS version from nix/pkgs/vls.nix")
+        return v
+
+    def version(self) -> str:
+        if not self._version:
+            self._version = self.args.version or run(
+                "git", "-C", str(self.top), "describe", "--tags", "--abbrev=7",
+                capture=True)
+        return self._version
+
+    # --- the tree a release is built from ---------------------------------
+
+    def prepare_tree(self) -> None:
+        """A release is never built from a dirty tree: nix caches the fetched
+        worktree and would happily build a snapshot that is neither the
+        working tree nor any commit, which the rev+narHash manifest identity
+        would then describe without having built it."""
+        if self.flake_ref:
+            return
+        dirty = run("git", "-C", str(self.top), "status", "--porcelain",
+                    "--untracked-files=no", capture=True)
+        if dirty and not self.args.allow_dirty:
+            die("the tree is dirty; commit first.\n"
+                "  A release must never be built from a dirty tree: nix caches the\n"
+                "  fetched worktree, so the artifacts would be labelled with a commit\n"
+                "  they were not built from.  --allow-dirty is for experiments only.")
+        if dirty:
+            info("WARNING: --allow-dirty: building the working tree, not a commit")
+        self.rev = run("git", "-C", str(self.top), "rev-parse", "HEAD", capture=True)
+        base = f"git+file://{self.top}?submodules=1"
+        self.flake_ref = base if self.args.allow_dirty else f"{base}&rev={self.rev}"
+
+    # --- nix, in the pinned container (or on the host) --------------------
+
+    def substituters(self) -> str:
+        """Passed by the *driver*, identical for captain and co-signers, so
+        nobody's personal nix.conf is an input to a signed artifact."""
+        v = self.publish_vars()
+        base, prefix = v.get("PUBLISH_BASE_URL"), v.get("PUBLISH_PREFIX_ARCHIVE")
+        return (f"{base}/{prefix} https://cache.nixos.org" if base and prefix
+                else "https://cache.nixos.org")
+
+    def store_dir(self) -> Path:
+        if self.args.store_dir:
+            return Path(self.args.store_dir)
+        cache = os.environ.get("XDG_CACHE_HOME") or (Path.home() / ".cache")
+        return Path(cache) / "cln-reprobuild/nix"
+
+    def seed_store(self) -> None:
+        """`-v $store:/nix` shadows the image's own /nix, where the nix binary
+        and its closure live, so the container could not exec nix at all.
+        Seed the store from the image once."""
+        store = self.store_dir()
+        store.mkdir(parents=True, exist_ok=True)
+        if not (store / "store").is_dir():
+            info(f"seeding {store} from {self.pins()['NIX_IMAGE']}")
+            run("docker", "run", "--rm", "-v", f"{store}:/seed",
+                self.pins()["NIX_IMAGE"], "sh", "-c", "cp -a /nix/. /seed/")
+
+    def nix(
+        self,
+        *args: str,
+        capture: bool = False,
+        check: bool = True,
+        merge: bool = False,
+        stream_stderr: bool = False,
+    ) -> str:
+        subs = self.substituters()
+        sub = "true" if self.substitute else "false"
+        if self.args.host_nix:
+            # The sandbox is a release gate, not a preference: an unsandboxed
+            # build bakes a random build directory into every locally compiled
+            # Rust artifact, so it can reproduce nothing.  On the host this is
+            # a daemon setting a non-trusted user cannot override, so it is
+            # checked rather than asked for.
+            have = run("nix", "--extra-experimental-features", "nix-command flakes",
+                       "config", "show", "sandbox", capture=True, check=False)
+            if have not in ("true", "relaxed"):
+                die(f"the host's nix has sandbox={have or 'unknown'}; a release build "
+                    "must be sandboxed.\n  Set 'sandbox = true' in /etc/nix/nix.conf "
+                    "and restart nix-daemon, or drop --host-nix.")
+            return run(
+                "nix",
+                "--extra-experimental-features",
+                "nix-command flakes",
+                "--option",
+                "substituters",
+                subs,
+                "--option",
+                "substitute",
+                sub,
+                "--option",
+                "sandbox-fallback",
+                "false",
+                *args,
+                capture=capture,
+                check=check,
+                merge=merge,
+                stream_stderr=stream_stderr,
+            )
+
+        self.seed_store()
+        # In a linked git worktree, `.git` is a file pointing at
+        # <main-repo>/.git/worktrees/<name>, where the submodule git dirs also
+        # live -- none of it inside $top.  Mount the common dir too, at the
+        # same absolute path.
+        common = Path(run("git", "-C", str(self.top), "rev-parse",
+                          "--git-common-dir", capture=True))
+        if not common.is_absolute():
+            common = self.top / common
+        mounts = [] if common == self.top / ".git" else ["-v", f"{common}:{common}:ro"]
+        # nix's libgit2 fetcher refuses a repository it does not own, and the
+        # container runs as root against a tree owned by the invoking user.
+        with tempfile.NamedTemporaryFile("w", suffix=".gitconfig") as gc:
+            gc.write("[safe]\n\tdirectory = *\n")
+            gc.flush()
+            # --privileged supplies the namespaces nix needs for the sandbox;
+            # sandbox-fallback = false makes a failure to set it up loud
+            # instead of silently unreproducible.
+            return run(
+                "docker",
+                "run",
+                "--rm",
+                "--privileged",
+                "-v",
+                f"{self.top}:{self.top}:ro",
+                *mounts,
+                "-v",
+                f"{self.store_dir()}:/nix",
+                "-v",
+                f"{gc.name}:/root/.gitconfig:ro",
+                "-e",
+                "NIX_CONFIG="
+                + "\n".join(
+                    [
+                        "experimental-features = nix-command flakes",
+                        "filter-syscalls = false",
+                        "sandbox = true",
+                        "sandbox-fallback = false",
+                        f"substitute = {sub}",
+                        f"substituters = {subs}",
+                    ]
+                ),
+                self.pins()["NIX_IMAGE"],
+                "nix",
+                *args,
+                capture=capture,
+                check=check,
+                merge=merge,
+                stream_stderr=stream_stderr,
+            )
+
+    def host_path(self, store_path: str) -> Path:
+        """A store path printed by the container exists only inside it: a
+        verifier's host has no /nix, which is the entire point of this route."""
+        if self.args.host_nix:
+            return Path(store_path)
+        return self.store_dir() / store_path.removeprefix("/nix/")
+
+    def build_expr(self, expr: str) -> str:
+        out = self.nix(
+            "build",
+            "--impure",
+            "--max-jobs",
+            str(self.args.jobs),
+            "--print-out-paths",
+            "--no-link",
+            "-L",
+            "--expr",
+            expr,
+            capture=True,
+            stream_stderr=True,
+        )
+        if not out:
+            die("nix build produced no output path")
+        return out.splitlines()[-1]
+
+    def rebuild(self, store_path: str) -> None:
+        """`nix build --rebuild` holds the *inputs* identical by construction,
+        which is stronger than two runs of this driver.  It must name the
+        derivation that was just built, by store path: re-evaluating asks the
+        flake what the tree says *now*."""
+        drv = self.nix("path-info", "--derivation", store_path,
+                       capture=True, check=False)
+        if not drv:
+            die(f"cannot find the deriver of {store_path}")
+        drv = drv.splitlines()[0]
+        info(f"nix build --rebuild {drv}^out")
+        log = self.nix("build", "--rebuild", "--max-jobs", str(self.args.jobs),
+                       "--no-link", "-L", f"{drv}^out", capture=True, check=False,
+                       merge=True)
+        # "Could not check" and "differs" are *not* the same answer, and a
+        # release gate must never conflate them.
+        if "not valid, so checking is not possible" in log:
+            die(f"--rebuild COULD NOT CHECK {store_path} (its output is not in the store)")
+        if "differs" in log or "may not be deterministic" in log:
+            die(f"--rebuild DIFFERS for {store_path}")
+        info(f"--rebuild reproduced {store_path}")
+
+    # --- provenance: which tree an artifact on disk came from -------------
+
+    @property
+    def provenance(self) -> Path:
+        return Path(self.args.out) / ".provenance"
+
+    def tree_narhash(self) -> str:
+        if not self.narhash:
+            self.narhash = self.nix("eval", "--raw", "--impure", "--expr",
+                                    f'(builtins.getFlake "{self.flake_ref}").narHash',
+                                    capture=True)
+        return self.narhash
+
+    def record_provenance(self, name: str) -> None:
+        """The driver cannot stop someone building rows on Monday and signing
+        on Wednesday, but it can refuse to describe them with today's rev."""
+        self.provenance.parent.mkdir(parents=True, exist_ok=True)
+        lines = [ln for ln in (self.provenance.read_text().splitlines()
+                               if self.provenance.exists() else [])
+                 if not ln.startswith(f"{name} ")]
+        lines.append(f"{name} {self.rev} {self.tree_narhash()}")
+        self.provenance.write_text("\n".join(lines) + "\n")
+
+    def provenance_of(self, names: list[str]) -> tuple[str, str]:
+        if not self.provenance.exists():
+            die(f"no {self.provenance}: these artifacts were not built by this "
+                "driver.  Rebuild them so the manifest can say which tree they "
+                "came from.")
+        have = dict()
+        for ln in self.provenance.read_text().splitlines():
+            f = ln.split()
+            if len(f) == 3:
+                have[f[0]] = (f[1], f[2])
+        seen = {}
+        for n in names:
+            if n not in have:
+                die(f"{n} has no provenance line in {self.provenance}; rebuild it")
+            seen[n] = have[n]
+        revs = {v[0] for v in seen.values()}
+        if len(revs) != 1:
+            odd = ", ".join(f"{n}({v[0]})" for n, v in seen.items())
+            die(f"these artifacts were built from different trees: {odd}\n"
+                "  Everything in one manifest must come from one tree.  Rebuild.")
+        return next(iter(seen.values()))
+
+    # --- verbs ------------------------------------------------------------
+
+    def verb_fetch(self) -> None:
+        """bitcoin-cli, GPG-verified, into the cache the image build reads."""
+        bv = self.pins()["BITCOIN_VERSION"]
+        out = Path(self.args.out)
+        (out / "cache").mkdir(parents=True, exist_ok=True)
+        run(str(self.top / "contrib/reprobuild/fetch-bitcoin.sh"),
+            f"--cache={out}/cache/bitcoin-{bv}")
+
+    def _artifact(self, attr: str, name: str, mode: int, override: str = "") -> None:
+        expr = f'(builtins.getFlake "{self.flake_ref}").packages.x86_64-linux.{attr}'
+        if override:
+            expr += override
+        store = self.build_expr(expr)
+        if self.args.rebuild:
+            self.rebuild(store)
+        src = self.host_path(store) / name
+        if not src.is_file():
+            die(f"the derivation produced no {name}")
+        dst = Path(self.args.out) / name
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(src, dst)
+        dst.chmod(mode)
+        self.record_provenance(name)
+        info(f"wrote {dst}")
+        print(f"{sha256(dst)}  {dst}")
+
+    def verb_build(self, archs: list[str]) -> None:
+        self.prepare_tree()
+        ver, mtime = self.version(), self.args.mtime
+        for arch in self.arch_list(archs):
+            name = f"clightning-{ver}-static-{arch}.tar.xz"
+            info(f"build {arch}: {name} (version={ver} mtime={mtime} jobs={self.args.jobs})")
+            # Version and mtime reach the derivation through `.override`, the
+            # same knob the flake exposes to any consumer.
+            self._artifact(f"cln-release-static-{arch}", name, 0o644,
+                           f'.override {{ releaseVersion = "{ver}"; releaseMtime = "{mtime}"; }}')
+            # Stripped, position-independent, no embedded library search path,
+            # build-id present: a precondition of `sign`, not advice.
+            run(str(self.top / "contrib/reprobuild/check.sh"),
+                str(Path(self.args.out) / name))
+
+    def verb_vls(self, archs: list[str]) -> None:
+        self.prepare_tree()
+        vlsver = self.vls_version()
+        for arch in self.arch_list(archs):
+            # No override: which VLS ships is a release decision with its own
+            # review cadence, pinned in nix/pkgs/vls.nix.
+            name = f"remote_hsmd_socket-{vlsver}-{arch}"
+            info(f"vls {arch}: {name}")
+            self._artifact(f"vls-release-static-{arch}", name, 0o755)
+
+    def verb_zip(self) -> None:
+        """The source zip is a derivation like every other signed artifact, so
+        it does not depend on the working tree, the host's `zip` or a locale."""
+        self.prepare_tree()
+        ver = self.version()
+        name = f"clightning-{ver}.zip"
+        info(f"zip: {name} (version={ver} mtime={self.args.mtime})")
+        self._artifact("cln-release-source-zip", name, 0o644,
+                       f'.override {{ releaseVersion = "{ver}"; releaseMtime = "{self.args.mtime}"; }}')
+
+    # --- OCI layouts ------------------------------------------------------
+
+    def oci_index_digest(self, layout: Path) -> str:
+        idx = json.loads((layout / "index.json").read_text())
+        return idx["manifests"][0]["digest"]
+
+    def oci_platform_digests(self, layout: Path) -> list[tuple[str, str]]:
+        """Each entry of the index blob is one platform."""
+        d = self.oci_index_digest(layout)
+        algo, h = d.split(":")
+        blob = json.loads((layout / "blobs" / algo / h).read_text())
+        out = []
+        for m in blob["manifests"]:
+            p = m.get("platform", {})
+            if not p.get("os") or not p.get("architecture"):
+                continue
+            name = f"{p['os']}/{p['architecture']}"
+            if p.get("variant"):
+                name += f"/{p['variant']}"
+            out.append((name, m["digest"]))
+        return out
+
+    def verb_docker(self) -> None:
+        self.prepare_tree()
+        ver, out = self.version(), Path(self.args.out)
+        bv = self.pins()["BITCOIN_VERSION"]
+        bitcoin = out / f"cache/bitcoin-{bv}"
+        layoutdir, repo = out / "docker", "docker.io/elementsproject/"
+        images = ["lightningd"] + (["lightningd-vls"] if RELEASE_SHIPS_VLS else [])
+        sde = int(time.mktime(time.strptime(self.args.mtime + " +0000", "%Y-%m-%d %z")))
+        created = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(sde))
+        platforms = ",".join(self.platform_of(a) for a in self.arch_list(None))
+
+        missing = [str(out / f"clightning-{ver}-static-{a}.tar.xz")
+                   for a in self.arch_list(None)
+                   if not (out / f"clightning-{ver}-static-{a}.tar.xz").exists()]
+        if not bitcoin.is_dir():
+            missing.append(f"{bitcoin} (run fetch)")
+        if missing:
+            die("missing input(s): " + ", ".join(missing))
+
+        if subprocess.run(["docker", "buildx", "inspect", "cln-builder"],
+                          capture_output=True).returncode != 0:
+            run("docker", "buildx", "create", "--name", "cln-builder",
+                "--driver", "docker-container", "--bootstrap")
+        layoutdir.mkdir(parents=True, exist_ok=True)
+        main, armhf = layoutdir / f"DIGESTS-{ver}", layoutdir / f"DIGESTS-{ver}-armhf"
+        main.write_text("")
+        armhf.write_text("")
+        optional = self.cosign_optional()
+        for image in images:
+            shutil.rmtree(layoutdir / image, ignore_errors=True)
+            info(f"docker: building {image} ({platforms})")
+            # The -vls overlay is the only consumer of the vls context.
+            vls_args = (["--build-context", f"vls={out}",
+                         "--build-arg", f"VLS_VERSION={self.vls_version()}"]
+                        if RELEASE_SHIPS_VLS else [])
+            run("docker", "buildx", "build", "--builder", "cln-builder", "--no-cache",
+                "--platform", platforms, "--target", image,
+                "-f", str(self.top / "Dockerfile"),
+                "--build-context", f"release={out}",
+                "--build-context", f"bitcoin={bitcoin}", *vls_args,
+                "--build-arg", f"VERSION={ver}",
+                "--build-arg", f"SOURCE_DATE_EPOCH={sde}",
+                "--build-arg", f"CREATED={created}",
+                "--build-arg", f"REVISION={self.rev}",
+                "--provenance=false", "--sbom=false",
+                "--output", f"type=oci,tar=false,rewrite-timestamp=true,dest={layoutdir / image}",
+                str(self.top))
+            if not (layoutdir / image / "index.json").exists():
+                die(f"build of {image} produced no layout")
+            # Two DIGESTS files: the per-arch manifest digests a co-signer
+            # reproduces go in the main one; the armhf digests **and the
+            # multi-arch index digest** in the other, because the index is
+            # computed over all three entries and so is captain-attested.
+            idx = self.oci_index_digest(layoutdir / image)
+            with armhf.open("a") as fh:
+                fh.write(f"{idx} {repo}{image}:{ver} index\n")
+            for platform, digest in self.oci_platform_digests(layoutdir / image):
+                arch = next((a for a in self.arch_list(None)
+                             if self.platform_of(a) == platform), None)
+                if not arch:
+                    continue
+                target = armhf if arch in optional else main
+                with target.open("a") as fh:
+                    fh.write(f"{digest} {repo}{image}:{ver} {platform}\n")
+            info(f"docker: {image} {idx}")
+        if not self.args.no_smoke:
+            self.smoke_images(layoutdir, ver, images)
+        self.record_provenance(f"DIGESTS-{ver}")
+        self.record_provenance(f"DIGESTS-{ver}-armhf")
+        info(f"wrote {main} and {armhf}")
+        print(main.read_text() + armhf.read_text(), end="")
+
+    def skopeo(self, *args: str, capture: bool = False) -> str:
+        """Ubuntu 22.04's skopeo 1.4.1 lacks --preserve-digests, and pushing
+        without it re-compresses the layers, so the digests DIGESTS records --
+        and three people signed -- would not be the digests users pull."""
+        host = shutil.which("skopeo")
+        if host and "--preserve-digests" in run(host, "copy", "--help",
+                                                capture=True, check=False, merge=True):
+            return run(host, *args, capture=capture)
+        out = Path(self.args.out)
+        return run("docker", "run", "--rm", "--network", "host",
+                   "-v", f"{out / 'docker'}:{out / 'docker'}:ro",
+                   self.pins()["SKOPEO_IMAGE"], *args, capture=capture)
+
+    def smoke_images(self, layoutdir: Path, ver: str, images: list[str]) -> None:
+        """The layout bytes go through a loopback registry (this host's classic
+        image store cannot `docker load` a manifest list), then every platform
+        runs under binfmt."""
+        port = 5000 + os.getpid() % 1000
+        name = f"cln-smoke-registry-{os.getpid()}"
+        subprocess.run(["docker", "rm", "-f", name], capture_output=True)
+        run("docker", "run", "-d", "--rm", "--name", name,
+            "-p", f"127.0.0.1:{port}:5000", "registry:2", capture=True)
+        time.sleep(2)
+        fail = False
+        try:
+            for image in images:
+                ref = f"127.0.0.1:{port}/{image}:{ver}"
+                self.skopeo("copy", "--all", "--preserve-digests",
+                            "--dest-tls-verify=false",
+                            f"oci:{layoutdir / image}", f"docker://{ref}", capture=True)
+                for arch in self.arch_list(None):
+                    platform = self.platform_of(arch)
+                    run("docker", "pull", "-q", "--platform", platform, ref, capture=True)
+                    got = run("docker", "run", "--rm", "--platform", platform,
+                              "--entrypoint", "lightningd", ref, "--version",
+                              capture=True, check=False).splitlines()[-1:]
+                    if got and got[0] == ver:
+                        info(f"ok   {image} {platform}: lightningd {got[0]}")
+                    else:
+                        info(f"FAIL {image} {platform}: lightningd --version -> {got}")
+                        fail = True
+                    subprocess.run(["docker", "rmi", "-f", ref], capture_output=True)
+        finally:
+            subprocess.run(["docker", "rm", "-f", name], capture_output=True)
+        if fail:
+            die("the image smoke test failed")
+        info("docker: smoke test passed")
+
+    # --- accept, sign, verify --------------------------------------------
+
+    def verb_accept(self, archs: list[str]) -> None:
+        """The suite that costs real time, kept out of `all` and run by
+        `certify`: the portability rows and the two-tree probe on every row."""
+        ver, out = self.version(), Path(self.args.out)
+        fail = False
+        for arch in self.arch_list(archs):
+            tarball = out / f"clightning-{ver}-static-{arch}.tar.xz"
+            if not tarball.exists():
+                die(f"no {tarball}; run build first")
+            info(f"accept: portability rows for {arch}")
+            if subprocess.run([str(self.top / "contrib/reprobuild/portability.sh"),
+                               str(tarball)]).returncode:
+                fail = True
+            info(f"accept: two-tree probe for {arch}")
+            probe = [str(self.top / "contrib/reprobuild/two-tree-probe.sh"),
+                     f"--arch={arch}", f"--jobs={self.args.jobs}"]
+            if self.args.host_nix:
+                probe.append("--host-nix")
+            if subprocess.run(probe).returncode:
+                fail = True
+        if RELEASE_SHIPS_VLS:
+            die("accept: wire vls-regtest.sh here when VLS returns")
+        if fail:
+            die("the acceptance suite failed")
+        info("accept: OK")
+
+    def manifest_files(self, which: str, ver: str, vlsver: str) -> list[str]:
+        """SHA256SUMS-<ver> holds everything a co-signer is expected to
+        reproduce; SHA256SUMS-<ver>-armhf the rows marked @cosign-optional,
+        signed by a co-signer only when they did reproduce them."""
+        optional, files = self.cosign_optional(), []
+        for arch in self.arch_list(None):
+            if (arch in optional) != (which == "armhf"):
+                continue
+            files.append(f"clightning-{ver}-static-{arch}.tar.xz")
+            if RELEASE_SHIPS_VLS:
+                files.append(f"remote_hsmd_socket-{vlsver}-{arch}")
+        docker = Path(self.args.out) / "docker"
+        if which == "armhf":
+            if (docker / f"DIGESTS-{ver}-armhf").exists():
+                files.append(f"DIGESTS-{ver}-armhf")
+        else:
+            if (docker / f"DIGESTS-{ver}").exists():
+                files.append(f"DIGESTS-{ver}")
+            # Listed at T0, uploaded only at disclosure; users run
+            # `sha256sum -c --ignore-missing`.
+            files.append(f"clightning-{ver}.zip")
+        return files
+
+    def manifest_header(self, ver: str, rev: str, narhash: str) -> str:
+        """What the build consumed: the version string is a label a human
+        picks, the narHash is the content the build consumed and is
+        machine-independent.  The VLS pin is identity only when VLS ships."""
+        lines = [f"# Core Lightning {ver}", f"# rev {rev}", f"# narHash {narhash}",
+                 "# submodules true", f"# mtime {self.args.mtime}",
+                 f"# nixpkgs-certified {self.certified_rev()}"]
+        if RELEASE_SHIPS_VLS:
+            lines += [f"# vls-rev {self.vls_pin('rev')}",
+                      f"# vls-vendorHash {self.vls_pin('vendorHash')}"]
+        return "\n".join(lines) + "\n"
+
+    def preflight_sign(self) -> None:
+        """`all` ends in `sign`, and an hour of building that dies on a key
+        nobody could reach is the worst possible ordering."""
+        if self.args.no_sign:
+            return
+        with tempfile.TemporaryDirectory() as d:
+            f = Path(d) / "preflight"
+            f.write_text("preflight\n")
+            p = subprocess.run(["gpg", "--batch", "--yes", "--armor",
+                                "--detach-sign", "--output", f"{f}.asc", str(f)],
+                               capture_output=True, text=True)
+            if p.returncode:
+                err = " ".join(p.stderr.strip().splitlines()[-2:])
+                die(f"the signing key does not answer, and this run would end in a "
+                    f"signature:\n  {err}\n  If the key is on a smartcard, plug it in "
+                    "and unlock it, then try again.\n  To build without signing (no "
+                    "release can be published this way), pass --no-sign.")
+        info("preflight: the signing key answers")
+
+    def verb_sign(self) -> None:
+        self.preflight_sign()
+        self.prepare_tree()
+        ver, vlsver, out = self.version(), self.vls_version(), Path(self.args.out)
+        if not out.is_dir():
+            die(f"no {out}; run build/vls/zip/docker first")
+        for which in ("main", "armhf"):
+            mf = out / (f"SHA256SUMS-{ver}" + ("-armhf" if which == "armhf" else ""))
+            files = self.manifest_files(which, ver, vlsver)
+            if not files:
+                continue
+            missing = [f for f in files
+                       if not (out / f).exists() and not (out / "docker" / f).exists()]
+            if missing:
+                die(f"cannot sign {mf.name}, missing: {' '.join(missing)}")
+            # The identity is the artifacts' own, not the working tree's.
+            rev, narhash = self.provenance_of(files)
+            self.rev = rev
+            body = self.manifest_header(ver, rev, narhash)
+            for f in files:
+                path = out / "docker" / f if (out / "docker" / f).exists() else out / f
+                body += f"{sha256(path)}  {f}\n"
+            mf.write_text(body)
+            # The VLS binaries are named by *their* version, so a
+            # release-version glob misses them; assert the count instead.
+            want = 0 if not RELEASE_SHIPS_VLS else sum(
+                1 for a in self.arch_list(None)
+                if (a in self.cosign_optional()) == (which == "armhf"))
+            got = body.count(" remote_hsmd_socket-")
+            if got != want:
+                die(f"{mf.name} lists {got} VLS binaries, expected {want}")
+            info(f"wrote {mf} ({len(files)} files, {got} VLS)")
+            if self.args.no_sign:
+                info(f"--no-sign: {mf.name} left unsigned (publish will refuse it)")
+            else:
+                asc = Path(f"{mf}.asc")
+                asc.unlink(missing_ok=True)
+                run("gpg", "--armor", "--detach-sign", "--output", str(asc), str(mf))
+                info(f"signed {asc}")
+
+    def verb_verify(self, manifest: str) -> None:
+        """Per manifest, not per release: an armhf mismatch prints the hashes
+        and withholds only that signature.  On the main manifest a mismatch
+        withholds and stops; resolving it is manual between captain and
+        co-signer, and no automated triage is owed."""
+        mf = Path(manifest).resolve()
+        if not mf.is_file():
+            die("usage: tools/reprobuild verify <SHA256SUMS-file>")
+        base = mf.name
+        ver = base.removeprefix("SHA256SUMS-").removesuffix("-armhf")
+        self._version = ver
+        # Everything the build consumed comes out of the manifest, not out of
+        # whatever the co-signer happens to have checked out.
+        head = dict(re.findall(r"^# (\w[\w-]*) (.*)$", mf.read_text(), re.M))
+        mrev, mmtime = head.get("rev"), head.get("mtime")
+        if not mrev or not mmtime:
+            die(f"{base} has no '# rev'/'# mtime' line; it was written by an older driver")
+        if subprocess.run(["git", "-C", str(self.top), "cat-file", "-e", f"{mrev}^{{commit}}"],
+                          capture_output=True).returncode:
+            die(f"commit {mrev} is not in this checkout.\n"
+                "  Fetch the tag first (for an embargoed release, from the private mirror).")
+        self.args.mtime, self.rev = mmtime, mrev
+        self.flake_ref = f"git+file://{self.top}?submodules=1&rev={mrev}"
+        info(f"verify: rebuilding {mrev} (mtime {mmtime}) as {base} names it")
+
+        archs = [a for a in self.arch_list(None)
+                 if f"clightning-{ver}-static-{a}.tar.xz" in mf.read_text()]
+        if not archs:
+            die(f"{base} lists no tarball this matrix knows")
+        info(f"verify {base}: rows {' '.join(archs)} (version {ver})")
+        self.verb_build(archs)
+        if RELEASE_SHIPS_VLS:
+            self.verb_vls(archs)
+        if f" clightning-{ver}.zip" in mf.read_text():
+            self.verb_zip()
+
+        out, bad = Path(self.args.out), []
+        for line in mf.read_text().splitlines():
+            if line.startswith("#") or not line.strip():
+                continue
+            want, name = line.split(maxsplit=1)
+            name = name.strip().lstrip("*")
+            if name.startswith("DIGESTS-"):
+                # Informational and never blocks: images are optional for a
+                # co-signer, and the layer can drift between sittings.
+                built = out / "docker" / name
+                if built.exists():
+                    same = sha256(built) == want
+                    info(f"{'ok (informational)' if same else 'differs (informational)'}  {name}")
+                else:
+                    info(f"skipped (informational, not built here)  {name}")
+                continue
+            path = out / name
+            if not path.exists():
+                info(f"MISSING  {name}")
+                bad.append(name)
+            elif sha256(path) == want:
+                info(f"ok       {name}")
+            else:
+                info(f"DIFFERS  {name}")
+                info(f"  captain: {want}")
+                info(f"  here:    {sha256(path)}")
+                bad.append(name)
+
+        if bad:
+            if base.endswith("-armhf"):
+                info(f"armhf manifest differs: {' '.join(bad)}")
+                info(f"signature WITHHELD for {base} -- expected for armhf, "
+                     "not a reason to hold the release")
+                return
+            die(f"manifest differs: {' '.join(bad)}\n"
+                "  Signature withheld.  Retract the unverified hashes, fix the cause\n"
+                "  and retry with the captain until the hashes match.")
+        if self.args.no_sign:
+            info("every file reproduced; --no-sign, so no signature was written")
+            return
+        keys = run("gpg", "--list-secret-keys", "--with-colons", capture=True, check=False)
+        fpr = next((ln.split(":")[9] for ln in keys.splitlines() if ln.startswith("fpr:")), "")
+        if not fpr:
+            die("no secret key to sign with")
+        asc = Path(f"{self.args.out}/{base}.asc.{fpr[-16:]}")
+        asc.unlink(missing_ok=True)
+        run("gpg", "--armor", "--detach-sign", "--output", str(asc), str(mf))
+        info(f"every file reproduced; wrote {asc}")
+
+    # --- certify, publish, disclose, all ----------------------------------
+
+    def verb_certify(self, no_verify: bool) -> None:
+        """Certification is an intentional act, kept out of `all`: re-pin the
+        certified nixpkgs rev and the input manifests, then build every row
+        from source with substitution off, so cache.nixos.org is *checked*
+        once per certification rather than trusted forever."""
+        self.prepare_tree()
+        locked = self.nix("eval", "--raw", "--impure", "--expr",
+                          f'(builtins.getFlake "{self.flake_ref}").inputs.nixpkgs.rev',
+                          capture=True)
+        if not locked:
+            die("cannot read the locked nixpkgs rev")
+        current = self.certified_rev()
+        if locked == current:
+            info(f"certify: nix/release-rows already names {locked}")
+        else:
+            info(f"certify: {current} -> {locked}")
+            text = re.sub(r"^@nixpkgs .*$", f"@nixpkgs {locked}",
+                          self.rows_file.read_text(), flags=re.M)
+            self.rows_file.write_text(text)
+            info("certify: re-pinned nix/release-rows (commit it)")
+        # The input manifests come from the *unguarded* attributes, since the
+        # guard is exactly what a stale manifest trips.
+        for arch in self.arch_list(None):
+            for kind in ("cln", "vls"):
+                name = f"{kind}-{arch}"
+                text = self.nix("eval", "--raw", "--impure", "--expr",
+                                f'(builtins.getFlake "{self.flake_ref}")'
+                                f".legacyPackages.x86_64-linux.release.manifests.{name}",
+                                capture=True)
+                # The trailing newline matters: the guard compares the file
+                # against the derivation's string with builtins.readFile, and
+                # run() strips what it captures, so a manifest written without
+                # it could never match and certify would leave the guard
+                # tripped in exactly the state it exists to clear.
+                (self.top / "nix/release-manifests" / name).write_text(
+                    text if text.endswith("\n") else text + "\n")
+                info(f"certify: wrote nix/release-manifests/{name}")
+        info("certify: re-pinned rows and manifests; commit them before building")
+        if no_verify:
+            info("certify: --no-verify, skipping the from-source build and the suite")
+            return
+        info("certify: building every row from source (substituters off)")
+        self.substitute = False
+        self.verb_build(["all"])
+        self.verb_accept(["all"])
+        info("certify: from-source build and acceptance suite passed")
+        info("certify: the nix copy of the source closures into the bucket is still owed")
+
+    def good_sigs(self, manifest: Path, sigprefix: Path) -> int:
+        """Count good signatures from the committed keyring, the way `fetch`
+        counts them over Bitcoin Core's: gpg's exit status answers a different
+        question, since a file may carry signatures from keys we do not vendor."""
+        n = 0
+        with tempfile.TemporaryDirectory() as home:
+            env = {**os.environ, "GNUPGHOME": home}
+            for key in sorted((self.top / "contrib/keys").glob("*.txt")):
+                subprocess.run(["gpg", "--batch", "--quiet", "--import", str(key)],
+                               env=env, capture_output=True)
+            for sig in sorted(sigprefix.parent.glob(sigprefix.name + "*")):
+                p = subprocess.run(["gpg", "--batch", "--status-fd", "1", "--verify",
+                                    str(sig), str(manifest)],
+                                   env=env, capture_output=True, text=True)
+                if "[GNUPG:] BADSIG " in p.stdout:
+                    die(f"BAD signature: {sig}")
+                if "[GNUPG:] VALIDSIG " in p.stdout:
+                    n += 1
+        return n
+
+    def verb_publish(self) -> None:
+        self.prepare_tree()
+        ver, vlsver, out = self.version(), self.vls_version(), Path(self.args.out)
+        main = out / f"SHA256SUMS-{ver}"
+        armhf = out / f"SHA256SUMS-{ver}-armhf"
+        if not main.exists():
+            die(f"no {main}; run sign first")
+        tag = run("git", "-C", str(self.top), "tag", "--points-at", "HEAD",
+                  capture=True).split("\n")[0]
+        if tag != ver:
+            die(f"HEAD is tagged '{tag}', not '{ver}'")
+        # ...and the artifacts must come from that commit: `sign` only proved
+        # they came from *one* tree.
+        mrev = next((ln.split()[2] for ln in main.read_text().splitlines()
+                     if ln.startswith("# rev ")), "")
+        tagrev = run("git", "-C", str(self.top), "rev-parse", f"{ver}^{{commit}}", capture=True)
+        if mrev != tagrev:
+            die(f"{main.name} was built from {mrev}, but {ver} is {tagrev}.\n"
+                "  Rebuild from the tag, or publish the tag those artifacts came from.")
+        if subprocess.run(["git", "-C", str(self.top), "ls-remote", "--exit-code",
+                           "--tags", "origin", f"refs/tags/{ver}"],
+                          capture_output=True).returncode == 0:
+            die(f"{ver} already exists on the GitHub remote -- the source is not embargoed")
+
+        n = self.good_sigs(main, Path(f"{main}.asc"))
+        if n < 3:
+            die(f"only {n} good signature(s) on {main.name}; three are required")
+        info(f"publish: {n} good signatures on {main.name}")
+        if armhf.exists():
+            na = self.good_sigs(armhf, Path(f"{armhf}.asc"))
+            info(f"publish: {na} good signature(s) on {armhf.name} (captain-only is "
+                 "expected; armhf does not gate a release)")
+
+        # The staging dir is the whole upload: debug/, cache/ and the withheld
+        # source zip are excluded by construction, not by a filter.
+        stage = out / "publish" / ver
+        shutil.rmtree(stage, ignore_errors=True)
+        stage.mkdir(parents=True)
+        for f in self.manifest_files("main", ver, vlsver) + self.manifest_files("armhf", ver, vlsver):
+            if f == f"clightning-{ver}.zip":
+                continue
+            src = out / "docker" / f if f.startswith("DIGESTS-") else out / f
+            shutil.copyfile(src, stage / f)
+        for mf in (main, armhf):
+            if mf.exists():
+                shutil.copyfile(mf, stage / mf.name)
+                for asc in mf.parent.glob(mf.name + ".asc*"):
+                    shutil.copyfile(asc, stage / asc.name)
+        info(f"publish: staged {len(list(stage.iterdir()))} files in {stage}")
+
+        v = self.publish_vars()
+        key = os.environ.get("REPRO_S3_ACCESS_KEY_ID")
+        secret = os.environ.get("REPRO_S3_SECRET_ACCESS_KEY")
+        if not key or not secret:
+            die("REPRO_S3_ACCESS_KEY_ID / REPRO_S3_SECRET_ACCESS_KEY are not set.\n"
+                "  They are the HMAC key of the shared publisher account; put them in\n"
+                "  the environment for this command only.")
+        rclone = ["rclone", "--s3-provider", v["REPRO_S3_PROVIDER"],
+                  "--s3-endpoint", v["REPRO_S3_ENDPOINT"],
+                  "--s3-access-key-id", key, "--s3-secret-access-key", secret]
+        # Object versioning is off by decision, so immutability is a driver
+        # rule: refuse rather than overwrite a prefix that already exists.
+        listing = run(*rclone, "lsf", f":s3:{v['REPRO_S3_BUCKET']}/{ver}/",
+                      capture=True, check=False)
+        if listing.strip():
+            die(f"{v['PUBLISH_BASE_URL']}/{ver}/ already has objects; refusing to overwrite")
+        run(*rclone, "copy", str(stage), f":s3:{v['REPRO_S3_BUCKET']}/{ver}/")
+        info(f"publish: uploaded to {v['PUBLISH_BASE_URL']}/{ver}/")
+
+        # Images last: an S3 upload is undoable in a way a Docker Hub push is
+        # not.  --all copies every platform, --preserve-digests keeps the
+        # bytes DIGESTS names.
+        repo, layoutdir = "docker.io/elementsproject/", out / "docker"
+        images = ["lightningd"] + (["lightningd-vls"] if RELEASE_SHIPS_VLS else [])
+        for image in images:
+            layout = layoutdir / image
+            if not layout.is_dir():
+                die(f"no OCI layout at {layout}; run docker first")
+            idx = self.oci_index_digest(layout)
+            recorded = next((ln.split()[0] for ln in
+                             (layoutdir / f"DIGESTS-{ver}-armhf").read_text().splitlines()
+                             if ln.endswith(f"{repo}{image}:{ver} index")), "")
+            if idx != recorded:
+                die(f"{image}: the layout's index digest ({idx}) is not the one "
+                    f"DIGESTS records ({recorded}).  Rebuild the images and re-sign.")
+            info(f"publish: pushing {image}:{ver} ({idx})")
+            self.skopeo("copy", "--all", "--preserve-digests",
+                        f"oci:{layout}", f"docker://{repo}{image}:{ver}")
+            if self.args.latest:
+                if "rc" in ver:
+                    die(f"refusing --latest on an rc tag ({ver})")
+                suffix = "-vls" if image == "lightningd-vls" else ""
+                info(f"publish: tagging latest{suffix}")
+                self.skopeo("copy", "--all", "--preserve-digests",
+                            f"oci:{layout}", f"docker://{repo}lightningd:latest{suffix}")
+        info("publish: done.  disclose is the T0+14 verb; nothing else pushes.")
+
+    def verb_disclose(self) -> None:
+        """T0 + 14: the source becomes public.  Every pre-flight answers 'is
+        the embargo still intact, and is what we published what we signed?'"""
+        self.prepare_tree()
+        ver, out = self.version(), Path(self.args.out)
+        main = out / f"SHA256SUMS-{ver}"
+        if not main.exists():
+            die(f"no {main}")
+        # A tag push would publish the pyln modules on its own schedule; do
+        # that deliberately instead.
+        if shutil.which("gh"):
+            state = run("gh", "workflow", "view", "Release 🚀", "--json", "state",
+                        "--jq", ".state", capture=True, check=False) or "unknown"
+            if state.startswith("disabled"):
+                info(f'disclose: "Release 🚀" is {state}')
+            elif state == "unknown":
+                info('disclose: WARNING: cannot read the "Release 🚀" state; check by hand')
+            else:
+                die(f'the "Release 🚀" workflow is {state}.\n'
+                    '  Run: gh workflow disable "Release 🚀"\n'
+                    "  Re-enable it afterwards.")
+        else:
+            info('disclose: WARNING: no gh; check the "Release 🚀" workflow by hand')
+        if subprocess.run(["git", "-C", str(self.top), "ls-remote", "--exit-code",
+                           "--tags", "origin", f"refs/tags/{ver}"],
+                          capture_output=True).returncode == 0:
+            die(f"{ver} is already on the GitHub remote")
+
+        # What is on the T0 host must be what was signed, byte for byte,
+        # before the source goes out.
+        v = self.publish_vars()
+        base = v["PUBLISH_BASE_URL"]
+        with tempfile.TemporaryDirectory() as d:
+            for line in main.read_text().splitlines():
+                if line.startswith("#") or not line.strip():
+                    continue
+                want, name = line.split(maxsplit=1)
+                name = name.strip().lstrip("*")
+                if name == f"clightning-{ver}.zip":
+                    continue
+                dest = Path(d) / name
+                run("curl", "-fsSL", "-o", str(dest), f"{base}/{ver}/{name}")
+                if sha256(dest) != want:
+                    die(f"{name} on the T0 host does not match the manifest")
+                info(f"disclose: ok on the T0 host  {name}")
+
+        zipfile = f"clightning-{ver}.zip"
+        key = os.environ.get("REPRO_S3_ACCESS_KEY_ID")
+        secret = os.environ.get("REPRO_S3_SECRET_ACCESS_KEY")
+        if not key or not secret:
+            die("REPRO_S3_ACCESS_KEY_ID / REPRO_S3_SECRET_ACCESS_KEY are not set")
+        run("rclone", "--s3-provider", v["REPRO_S3_PROVIDER"],
+            "--s3-endpoint", v["REPRO_S3_ENDPOINT"],
+            "--s3-access-key-id", key, "--s3-secret-access-key", secret,
+            "copyto", str(out / zipfile), f":s3:{v['REPRO_S3_BUCKET']}/{ver}/{zipfile}")
+        info(f"disclose: uploaded {base}/{ver}/{zipfile}")
+
+        run("git", "-C", str(self.top), "push", "origin", ver)
+        info(f"disclose: pushed tag {ver}")
+        if shutil.which("gh"):
+            notes = (f"Reproducible release artifacts: {base}/{ver}/\n\n"
+                     f"Verify with: sha256sum -c --ignore-missing SHA256SUMS-{ver}\n\n"
+                     f"armhf artifacts are listed in SHA256SUMS-{ver}-armhf; see the\n"
+                     "reproducibility caveat in the reproducible-builds documentation.")
+            assets = [str(out / zipfile), str(main), *map(str, out.glob(f"{main.name}.asc*"))]
+            armhf = out / f"SHA256SUMS-{ver}-armhf"
+            if armhf.exists():
+                assets += [str(armhf), *map(str, out.glob(f"{armhf.name}.asc*"))]
+            with tempfile.NamedTemporaryFile("w", suffix=".md") as nf:
+                nf.write(notes)
+                nf.flush()
+                run("gh", "release", "create", ver, "--title", ver,
+                    "--notes-file", nf.name, *assets)
+            info("disclose: created the GitHub release")
+        else:
+            info("disclose: no gh; create the GitHub release by hand")
+        info('disclose: REMEMBER to re-enable the "Release 🚀" workflow')
+
+    def verb_all(self) -> None:
+        self.preflight_sign()
+        self.verb_fetch()
+        self.verb_zip()
+        self.verb_build(["all"])
+        if RELEASE_SHIPS_VLS:
+            self.verb_vls(["all"])
+        self.verb_docker()
+        self.verb_sign()
+        # Last: the binaries that were just signed, unpacked and run on a
+        # current distro.  One container per row; `accept` runs the full matrix.
+        ver = self.version()
+        for arch in self.arch_list(None):
+            info(f"all: smoke test on {RELEASE_SMOKE_IMAGE} ({arch})")
+            run(str(self.top / "contrib/reprobuild/portability.sh"),
+                str(Path(self.args.out) / f"clightning-{ver}-static-{arch}.tar.xz"),
+                f"--images={RELEASE_SMOKE_IMAGE}")
+        info("all: done -- publish and disclose are separate, deliberate verbs")
+
+
+def main() -> None:
+    top = Path(run("git", "rev-parse", "--show-toplevel", capture=True))
+    p = argparse.ArgumentParser(
+        prog="reprobuild", description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter)
+    p.add_argument("--version", help="release version (default: git describe --tags)")
+    p.add_argument("--mtime", default=time.strftime("%Y-%m-%d", time.gmtime()),
+                   help="timestamp baked into artifacts (default: today, UTC)")
+    p.add_argument("--jobs", type=int, default=os.cpu_count() or 4)
+    p.add_argument("--host-nix", action="store_true",
+                   help="use the host's nix instead of the pinned container")
+    p.add_argument("--store-dir", help="the container's nix store")
+    p.add_argument("--out", default=str(top / "release"), help="where artifacts land")
+    p.add_argument("--rebuild", action="store_true",
+                   help="also run `nix build --rebuild` on what was just built")
+    p.add_argument("--allow-dirty", action="store_true",
+                   help="build from an uncommitted tree; never valid for a release")
+    p.add_argument("--no-sign", action="store_true",
+                   help="write the manifests but do not gpg-sign them")
+    p.add_argument("--no-smoke", action="store_true",
+                   help="skip the image smoke test in `docker`")
+    p.add_argument("--latest", action="store_true",
+                   help="publish: also tag latest (never on an rc, never implied)")
+    p.add_argument("--no-verify", action="store_true",
+                   help="certify: regenerate the rows and manifests only, "
+                        "skipping the from-source build and the acceptance suite")
+    p.add_argument("verb", choices=["fetch", "build", "vls", "zip", "docker", "sign",
+                                    "verify", "certify", "publish", "disclose",
+                                    "accept", "all"])
+    p.add_argument("rest", nargs="*", metavar="archs|manifest",
+                   help="`all` or arch tokens from nix/release-rows; "
+                        "verify takes a manifest")
+    args = p.parse_args()
+
+    d = Driver(args=args, top=top)
+    rest = list(args.rest)
+    match args.verb:
+        case "fetch": d.verb_fetch()
+        case "build": d.verb_build(rest)
+        case "vls": d.verb_vls(rest)
+        case "zip": d.verb_zip()
+        case "docker": d.verb_docker()
+        case "sign": d.verb_sign()
+        case "verify": d.verb_verify(rest[0] if rest else "")
+        case "certify": d.verb_certify(args.no_verify)
+        case "publish": d.verb_publish()
+        case "disclose": d.verb_disclose()
+        case "accept": d.verb_accept(rest)
+        case "all": d.verb_all()
+
+
+if __name__ == "__main__":
+    main()
