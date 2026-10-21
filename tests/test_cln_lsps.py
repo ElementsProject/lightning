@@ -474,6 +474,16 @@ def test_lsps2_mock_rejects_unknown_config(node_factory):
             "lsps2-mock-configure",
             {"config": {"buy": {"lsp_cltv_expiry_deltaa": 1}}},
         )
+    with pytest.raises(RpcError, match="transport.methods must be a list"):
+        l1.rpc.call(
+            "lsps2-mock-configure",
+            {"config": {"transport": {"behavior": "drop", "methods": "lsps2.buy"}}},
+        )
+    with pytest.raises(RpcError, match="htlc.parts must be a list"):
+        l1.rpc.call(
+            "lsps2-mock-configure",
+            {"config": {"htlc": {"behavior": "forward_subset", "parts": None}}},
+        )
 
 
 def test_lsps2_mock_config_option(node_factory):

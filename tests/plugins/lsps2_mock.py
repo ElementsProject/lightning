@@ -76,6 +76,9 @@ DEFAULT_CONFIG = {
 
 REQUIRED = object()
 
+# Parameters whose value must be a list, or None where that is the default.
+LIST_PARAMS = {"methods", "protocols", "menu", "deductions", "extra_fees", "parts"}
+
 # Behaviors per phase, with the parameters each one takes on top of the
 # phase defaults, and their defaults. A new attack is a new entry here plus
 # its handling in the phase.
@@ -189,6 +192,13 @@ def build_config(overrides):
             raise RpcException(
                 f"missing parameters {missing} for {phase}.{behavior}"
             )
+        defaults = {**DEFAULT_CONFIG[phase], **params}
+        for key in LIST_PARAMS & set(entry):
+            value = entry[key]
+            if not isinstance(value, list) and not (
+                value is None and defaults[key] is None
+            ):
+                raise RpcException(f"{phase}.{key} must be a list")
         config[phase].update(deepcopy(params))
         config[phase].update(deepcopy(entry))
     return config
