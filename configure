@@ -229,7 +229,10 @@ have_function_sections()
     TMPCFILE=$CONFIG_VAR_FILE.$$.c
     TMPOBJFILE=$CONFIG_VAR_FILE.$$.o
     
-    echo "int foo(void); int foo(void) { return 0; }" > $TMPCFILE
+    # Needs a main().  Without one the link fails -- "undefined reference to
+    # `main'" -- on every platform, not just a fully static one against musl's
+    # crt1.o, so the probe answered "no" however capable the toolchain was.
+    echo "int foo(void); int foo(void) { return 0; } int main(void) { return foo(); }" > $TMPCFILE
     # We *want* this to fail if we get a warning, hence use -Werror.
     $1 $2 -Werror -ffunction-sections -Wl,--gc-sections $TMPCFILE -o $TMPOBJFILE
 }
