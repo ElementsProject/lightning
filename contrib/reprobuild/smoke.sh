@@ -25,11 +25,33 @@ tail -25 /tmp/ln/start.log
 echo "lightningd exit=$rc"
 echo "=== plugin manifest handshake: every plugin must answer getmanifest (static Rust included)"
 plugin_dir=$(dirname "$(dirname "$lightningd_bin")")/libexec/c-lightning/plugins
+req='{"jsonrpc":"2.0","id":"cln:getmanifest#0","method":"getmanifest","params":{"allow-deprecated-apis":false}}'
+# All plugins at once.  stdin stays open until the reply is in (a plugin that
+# sees EOF right after the request exits 0 without answering), and closes as
+# soon as it is: under qemu every plugin answers in about a second, so a fixed
+# wait per plugin was nearly all of this test's run time.
+handshake() {
+    out=/tmp/manifest.$(basename "$1")
+    : > "$out"
+    # The feeder polls the file the plugin writes, on purpose.
+    # shellcheck disable=SC2094
+    {
+        printf '%s\n\n' "$req"
+        i=0
+        while [ $i -lt 200 ] && ! grep -q '"result"' "$out"; do
+            sleep 0.1
+            i=$((i + 1))
+        done
+    } | timeout 25 "$1" > "$out" 2>/dev/null
+}
+for p in "$plugin_dir"/*; do handshake "$p" & done
+wait
 for p in "$plugin_dir"/*; do
-    # keep stdin open: a plugin that sees EOF right after the request exits 0 before answering
-    out=$( { printf '{"jsonrpc":"2.0","id":"cln:getmanifest#0","method":"getmanifest","params":{"allow-deprecated-apis":false}}\n\n'; sleep 3; } | timeout 20 "$p" 2>/dev/null | head -c 200)
-    case "$out" in
-        *'"result"'*) echo "ok   $(basename "$p")";;
-        *) echo "FAIL $(basename "$p"): ${out:-no output}";;
-    esac
+    out=/tmp/manifest.$(basename "$p")
+    if grep -q '"result"' "$out"; then
+        echo "ok   $(basename "$p")"
+    else
+        got=$(head -c 200 "$out" | tr -d '\n')
+        echo "FAIL $(basename "$p"): ${got:-no output}"
+    fi
 done
