@@ -49,7 +49,30 @@
         {
           _module.args.pkgs = import inputs.nixpkgs {
             inherit system;
-            overlays = [ (final: prev: { craneLib = (inputs.crane.mkLib pkgs); }) ];
+            overlays = [
+              (final: prev: { craneLib = (inputs.crane.mkLib pkgs); })
+              # crates.io now 403s any
+              # User-Agent starting with "curl/", which is exactly what
+              # nixpkgs' fetchurl sends
+              # (`curl/$curlVersion Nixpkgs/$nixpkgsVersion`), so every
+              # crate tarball that is not already in cache.nixos.org fails
+              # to fetch.  Send a UA it accepts.  fetchurl outputs are
+              # fixed-output, so this changes no store path -- only whether
+              # the fetch succeeds.
+              (final: prev: {
+                fetchurl =
+                  args:
+                  prev.fetchurl (
+                    args
+                    // {
+                      curlOptsList = (args.curlOptsList or [ ]) ++ [
+                        "--user-agent"
+                        "Nixpkgs fetchurl (Core Lightning reprobuild)"
+                      ];
+                    }
+                  );
+              })
+            ];
           };
         };
     };
