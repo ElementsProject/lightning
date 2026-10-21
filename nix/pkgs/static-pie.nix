@@ -1,21 +1,33 @@
-# the row's static-pie link recipe.
+# How a release binary is linked: statically, as position-independent code.
 #
-# Extracted verbatim from `default.nix`'s let block by so the VLS
-# derivation can link the same way CLN does.  38 is a *third-party*
-# repository, but it is the same rustc, the same musl targets and the same
-# armv7 gcc gap, so a second copy of this reasoning would be a second thing
-# to keep in step.  Nothing here changed in the move: the wrapper
-# derivations' store paths were compared before and after
-# (`s03iqdph...-armv7l-unknown-linux-musleabihf-rust-cc.drv` and friends).
+# This is the shared half of one recipe, not a layer or an abstraction.  It is
+# its own file for exactly one reason: both `default.nix` (Core Lightning) and
+# `vls.nix` (the VLS signer) import it, and the two must link identically.  VLS
+# is a separate upstream project, but it is the same rustc, the same musl
+# targets and the same 32-bit ARM gcc gap, so a second copy of what follows
+# would be a second thing to keep in step.
 #
-# `pkgs` is the *row's* package set -- pkgsStatic, or pkgsCross.<t>.pkgsStatic.
+# Everything here is a workaround for one of two upstream gaps:
+#
+#   * nixpkgs' gcc cannot link static-pie for 32-bit ARM, and fails quietly;
+#   * rustc will not emit static-pie for the ARM musl targets at all.
+#
+# Each is closed by a generated wrapper script that rewrites the compiler's
+# arguments, because what has to change is argument *order*, which a flag
+# cannot express.  Both are commented where they are defined.
+#
+# `pkgs` is the row's package set -- pkgsStatic, or
+# pkgsCross.<target>.pkgsStatic -- so every value below is per-row.
+#
+# Exports: arm32, staticPieFlags, staticPieCc, releaseCc, rustStaticPieCc and
+# noRpathEnv, all consumed by default.nix and vls.nix.
 { pkgs, lib }:
 let
   inherit (pkgs) stdenv;
   bp = pkgs.buildPackages;
 in
 rec {
-  # the armhf row's static-pie problem.
+  # The first of the two gaps: gcc on the 32-bit ARM row.
   #
   # nixpkgs' gcc 14.3.0 cannot link static-pie for 32-bit arm, and fails
   # *quietly*: `-static-pie` produces a **dynamically** linked PIE asking for
@@ -28,8 +40,8 @@ rec {
   # and runs under qemu-arm.  Verified on a one-line program before being
   # committed to a build.
   #
-  #  (static-pie everywhere) is what this preserves; the human
-  # chose it on 2026-09-12 over dropping armhf or shipping it without ASLR.
+  # Static-pie on every row is what this preserves.  The alternatives were to
+  # drop the 32-bit ARM row, or to ship it without ASLR.
   arm32 = stdenv.hostPlatform.isAarch32;
   gccLibDir = "${stdenv.cc.cc}/lib/gcc/${stdenv.hostPlatform.config}/${stdenv.cc.cc.version}";
   muslLibDir = "${stdenv.cc.libc}/lib";
@@ -62,16 +74,15 @@ rec {
       "${staticPieCc}/bin/${stdenv.cc.targetPrefix}static-pie-cc"
     else
       "${stdenv.cc.targetPrefix}cc ${staticPieFlags}";
-  # rustc's static-pie gap, which is
-  # The same gap the Alpine builder's `<triple>-rust-clang` wrapper closed.  nixpkgs
-  # supplies rustc 1.89.0 rather than the 1.85, and the gap is unchanged:
+  # The second gap: rustc.
+  #
   # rustc links a crt-static musl target with plain `-static` unless the
   # target spec claims static-pie support, which x86_64-unknown-linux-musl
-  # does and the aarch64/armv7 musl targets still do not.  The arm64
-  # artifact says it plainly -- 33 C binaries DYN, the seven Rust plugins
-  # EXEC -- and the release wants static-pie on everything.  `-static` also
-  # wins gcc's crt selection, so it has to be *removed*, not overridden.
-  # no rpath on the arm32 row.
+  # does and the aarch64/armv7 musl targets still do not.  The first arm64
+  # artifact said it plainly: 33 C binaries ET_DYN, the seven Rust plugins
+  # ET_EXEC, where the release wants static-pie on all of them.  `-static`
+  # also wins gcc's crt selection, so it has to be *removed* from the link
+  # rather than overridden.
   #
   # nixpkgs' link wrapper classifies a link as `static-pie` only if it sees
   # the literal `-static-pie` flag, and only then does it filter rpaths.
@@ -79,10 +90,11 @@ rec {
   # the wrapper kept stdenv's self-rpath (`-rpath $out/lib`, from
   # NIX_LDFLAGS) and added one for the musl lib dir -- a DT_RUNPATH naming
   # the *output store path* in every Rust plugin and in VLS.  Harmless at
-  # run time (static), but it made those bytes a function of $out, and so of
-  # the tree: the exact class closed, which its amd64-only two-tree
-  # probe could not see.  These go in the derivation's env, arm32 only, so
-  # the other rows' derivations are not touched by it.
+  # run time, since the binary is static, but it made those bytes a function
+  # of $out and so of the tree -- exactly the class of difference the two-tree
+  # probe exists to catch, and one an amd64-only probe cannot see.  These go
+  # in the derivation's env on the 32-bit ARM row only, so the other rows'
+  # derivations are untouched.
   noRpathEnv = lib.optionalAttrs arm32 {
     NIX_NO_SELF_RPATH = "1";
     "NIX_DONT_SET_RPATH_${stdenv.cc.suffixSalt}" = "1";
@@ -90,8 +102,8 @@ rec {
 
   rustStaticPieCc = bp.writeShellScriptBin "${stdenv.cc.targetPrefix}rust-cc" ''
     # A `-shared` link passes through untouched: cargo links proc macros
-    # and cdylibs through a linker too, and lost a build to a
-    # wrapper that forced a static link onto those.  The name matters as
+    # and cdylibs through a linker too, and a wrapper that forced a static
+    # link onto those cost a whole build.  The name matters as
     # well -- a wrapper whose name ends in `-ld` makes rustc switch to its
     # raw-ld flavour and emit a different link line entirely.
     for a in "$@"; do
@@ -103,8 +115,8 @@ rec {
     # rustc links a musl target *self-contained*, passing the crt objects
     # from its own `rustlib/<target>/lib/self-contained` dir by path.  Those
     # are the non-PIE pair, so the link stays ET_EXEC however the driver is
-    # invoked.  The objects themselves are PIC, so the fix is the one ticket
-    # 22 arrived at: rewrite the link into the static-pie one --
+    # invoked.  The objects themselves are PIC, so the fix is to rewrite the
+    # link into the static-pie one --
     # crt1.o -> rcrt1.o, crtbegin.o -> crtbeginS.o, `-static`/`-no-pie`
     # dropped, `-static-pie` added.  (Both replacement objects ship in
     # nixpkgs' cross rustc, checked before relying on them.)

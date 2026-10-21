@@ -1,17 +1,16 @@
 #!/bin/sh
-# The portability matrix, run against a release tarball: the binding
-# constraint of the whole Nix switch (33) is that these tarballs still run on
-# Ubuntu and Fedora, so it is measured every time rather than assumed.
+# The portability matrix, run against a release tarball.
 #
 #   contrib/reprobuild/portability.sh release/clightning-...tar.xz
 #
-# The original 11/11 was obtained with Alpine-built binaries and does not
-# transfer:
-# "The tarballs must still run on Ubuntu/Fedora/elsewhere" is the
-# binding constraint of the whole Nix switch, so it has to be re-measured,
-# not assumed.  35 did the amd64 rows; 36 extends it to the two cross rows,
-# so the arch is read off the tarball name and picks both the row set and
-# the `--platform` the foreign rows run under (host binfmt, as 26 did).
+# One tarball per architecture replaced one per distribution, and the whole
+# bet is that a static binary runs anywhere.  That is a claim about other
+# people's systems, so it is measured every time rather than assumed -- and
+# measured again whenever the toolchain moves, because a result obtained with
+# a different libc does not transfer.
+#
+# The arch is read off the tarball name, and picks both the set of distro
+# images and the `--platform` the foreign rows run under.
 #
 # Each row unpacks the tarball over / in a bare distro container and runs
 # smoke.sh: --version, a regtest start, and a getmanifest
@@ -41,8 +40,7 @@ case "$tarball" in
 *) echo "cannot tell the arch from $tarball" >&2; exit 1 ;;
 esac
 # A release run checks the newest distro only -- enough to catch "the tarball
-# does not run", which is the binding constraint of the whole static switch
-# (33) -- and the full matrix is kept for the acceptance suite.
+# does not run" -- and the full matrix is kept for the acceptance suite.
 [ -n "$IMAGES_OVERRIDE" ] && IMAGES=$IMAGES_OVERRIDE
 echo "portability: $ARCH ($PLATFORM) <- $(basename "$tarball")"
 echo "portability: images: $IMAGES"

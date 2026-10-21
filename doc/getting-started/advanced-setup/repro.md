@@ -218,18 +218,10 @@ writes `SHA256SUMS-<version>.asc.<keyid>` only if all of them matched. Send
 that signature to the release captain, who merges it with the others.
 
 If the driver tells you that commit is not in your clone, fetch the tag first.
-For an ordinary release it is on GitHub:
+The tag is on GitHub:
 
 ```shell
 git fetch origin tag v<version>
-```
-
-For an **embargoed** release the tag is only on the project's private mirror
-until disclosure, so fetch it from there instead — ask the release captain for
-the remote if you do not have it:
-
-```shell
-git fetch <private-mirror> tag v<version>
 ```
 
 You do not need to check the tag out: `verify` builds the commit the manifest
@@ -333,10 +325,8 @@ clightning-v25.12.zip: OK
 ```
 
 `--ignore-missing` is there because the manifest lists every file in the
-release and you have probably downloaded only the ones you need — including the
-source archive, which is listed from the start but only published later for an
-embargoed release. Without it, `sha256sum` reports the files you do not have as
-failures. A failure to verify the hash would give a warning like the following:
+release and you have probably downloaded only the ones you need. Without it,
+`sha256sum` reports the files you do not have as failures. A failure to verify the hash would give a warning like the following:
 
 ```shell
 sha256sum: WARNING: 1 computed checksum did NOT match

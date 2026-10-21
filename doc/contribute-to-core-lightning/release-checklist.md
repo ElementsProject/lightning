@@ -42,14 +42,13 @@ Here's a checklist for the release process.
    so you only need to plug in and unlock the smartcard at the end. It polls the
    key rather than waiting for a keypress, so this works for a detached run whose
    log you are tailing.
-5. Publish the rc: `tools/reprobuild publish`. Images go to Docker Hub and the
-   tarballs, manifests and signatures to the download host. `latest` is never
-   applied to an rc.
-6. Push the tag, then `tools/reprobuild disclose`, which uploads the source zip,
-   pushes the tag and drafts the GitHub release. **The "Release 🚀" workflow
-   must be disabled** (`gh workflow disable "Release 🚀"`): a tag push would
-   publish the pyln modules on its own schedule. `disclose` refuses while it is
-   enabled.
+5. Publish the rc: `tools/reprobuild publish`. That is the whole publication —
+   tarballs, manifests, signatures and the source zip to the download host, the
+   multi-arch image to Docker Hub, the tag to GitHub, and the GitHub release.
+   `latest` is never applied to an rc. **The "Release 🚀" workflow must be
+   disabled** (`gh workflow disable "Release 🚀"`): pushing a tag would publish
+   the pyln modules on its own schedule, and `publish` refuses while it is
+   enabled. Re-enable it afterwards.
 8. Announce rc1 release on core-lightning's release-chat channel on Discord & Telegram.
 9. Use `devtools/credit --markdown v<PREVIOUS-VERSION>` to generate a single contributor list for the release notes. Use `devtools/credit --verbose v<PREVIOUS-VERSION>` for namer selection and detailed annotations.
 10. Prepare release notes draft including the contributor list from above, and share with the team for editing.
@@ -57,7 +56,7 @@ Here's a checklist for the release process.
 12. Github action `Publish Python 🐍 distributions 📦 to PyPI and TestPyPI` uploads the pyln modules on test PyPI server. Make sure that the action has been triggered with RC tag and that the modules have been published on `https://test.pypi.org/project/pyln-*/#history`.
 13. The rc's Docker images were published in step 5 by `tools/reprobuild
     publish`, which pushes one multi-arch image built from the same tarballs
-    that were signed.
+    that were signed. There is nothing to trigger in CI.
 
 ## Releasing -rc2, ..., -rcN
 
@@ -66,7 +65,7 @@ Here's a checklist for the release process.
 3. Add a PR with the rcN, and merge it.
 4. Tag it `git pull && git tag -s v<VERSION>rcN && git push origin v<VERSION>rcN`.
 5. Build, sign and publish as for rc1: `tools/reprobuild all`, then
-   `tools/reprobuild publish`, then `tools/reprobuild disclose`.
+   `tools/reprobuild publish`.
 6. Co-signers rebuild with `tools/reprobuild verify SHA256SUMS-v<VERSION>rcN` and
    send you their signatures; append them to the manifest's `.asc`.
 9. Announce tagged rc release on core-lightning's release-chat channel on Discord & Telegram.
@@ -84,8 +83,8 @@ Here's a checklist for the release process.
    - Set the current release version in your shell (e.g., if the current release is `v26.04`): `VERSION=26.04`
    - Create a signed, annotated tag: `git tag -a -s v$VERSION -m "v$VERSION"`
    - Push the tag: `git push origin v$VERSION`
-5. Do **not** push the tag yet: the source becomes public when the tag does, and
-   for an embargoed release that is 14 days after the binaries ship. Confirm the
+5. Do **not** push the tag by hand: `tools/reprobuild publish` pushes it, last,
+   once everything else has gone out and been verified. Confirm the
    "Release 🚀" workflow is disabled.
 6. Build and sign everything: `tools/reprobuild all`. It ends with
    `SHA256SUMS-v<VERSION>` and `SHA256SUMS-v<VERSION>-armhf`, each signed with
@@ -93,8 +92,7 @@ Here's a checklist for the release process.
 7. Send both manifests and their signatures to the co-signers. They run
    `tools/reprobuild verify SHA256SUMS-v<VERSION>` — which rebuilds from the
    commit and timestamp the manifest names — and send back
-   `SHA256SUMS-v<VERSION>.asc.<keyid>`. For an embargoed release they fetch the
-   tag from the private mirror, not from GitHub.
+   `SHA256SUMS-v<VERSION>.asc.<keyid>`.
 8. Append their signatures to `SHA256SUMS-v<VERSION>.asc` and check the result
    with `gpg --verify SHA256SUMS-v<VERSION>.asc SHA256SUMS-v<VERSION>` — always
    pass the manifest as the second argument, or `gpg` may verify a payload
@@ -104,10 +102,11 @@ Here's a checklist for the release process.
    `armhf` manifest may carry only your signature, which does not hold up the
    release (see the caveat in the [reproducible builds
    page](https://docs.corelightning.org/docs/repro)).
-9. Publish the binaries: `tools/reprobuild publish`, or
-   `tools/reprobuild publish --latest` if this release should also become
-   `latest` on Docker Hub. This is T₀ — the images and tarballs are public, the
-   source is not.
+9. Publish: `tools/reprobuild publish`, or `tools/reprobuild publish --latest`
+   if this release should also become `latest` on Docker Hub. This uploads the
+   artifacts and the source zip, reads them back and checks them against the
+   signed manifest, pushes the images, pushes the tag and creates the GitHub
+   release — in that order, so the irreversible step comes last.
 10. Run the acceptance suite if you have not since certifying:
     `tools/reprobuild accept`. It runs the portability matrix and the two-tree
     probe; `tools/reprobuild certify` is the fuller version that rebuilds
@@ -118,18 +117,18 @@ Here's a checklist for the release process.
     - ... repeat for each pyln package with the appropriate token.
 14. Docker images were published by `tools/reprobuild publish` in step 9; there
     is nothing to trigger in CI, and the CI image workflow stays disabled.
+    Re-enable the "Release 🚀" workflow if the project wants it back on
+    (`gh workflow enable "Release 🚀"`).
 
 ## Performing the Release
 
-1. For an embargoed release, this is T₀ + 14 days. Run
-   `tools/reprobuild disclose`: it re-downloads every published file and
-   compares it against the signed manifest before anything moves, uploads the
-   withheld source zip, pushes the tag and creates the GitHub release with both
-   manifests and their signatures. For an ordinary release it follows straight
-   after `publish`.
-2. Publish the release as not a draft, and re-enable the "Release 🚀" workflow
+1. `tools/reprobuild publish` in the previous section already pushed the tag and
+   created the GitHub release **as a draft** — the artifacts and the tag are
+   public at that point, but the release page is not. Check that it reads the way
+   you want, publish it, and re-enable the "Release 🚀" workflow
    (`gh workflow enable "Release 🚀"`) if the project wants it back on.
-3. Announce the final release on core-lightning's release-chat channel on Discord & Telegram.
+2. Announce the final release on core-lightning's release-chat channel on Discord & Telegram.
+3. Send a mail to c-lightning mailing list (`c-lightning@lists.ozlabs.org`), using the same wording as the Release Notes in GitHub.
 4. Write release blog, post it on [Blockstream](https://blog.blockstream.com/) and announce the release on Twitter.
 
 ## Post-release
@@ -154,24 +153,20 @@ Here's a checklist for the release process.
 5. Create a new commit that includes the updates from `update-versions` and `CHANGELOG.md`.
 6. Tag the release with `git pull && git tag -s v<VERSION>.<POINT_VERSION>`. You will be prompted to enter a tag message, ensure this is filled out.
 7. Confirm that the tag is properly set up for builds by running `git describe`.
-8. Do not push the tag yet, and confirm the "Release 🚀" workflow is disabled.
-   A hotfix is the case where the source most often has to stay back: an
-   embargoed fix publishes binaries at T₀ and the source 14 days later.
+8. Do not push the tag by hand; `tools/reprobuild publish` does it. Confirm the
+   "Release 🚀" workflow is disabled.
 9. Build and sign: `tools/reprobuild all`.
 10. Send both manifests and their signatures to the co-signers, who run
     `tools/reprobuild verify SHA256SUMS-v<VERSION>.<POINT_VERSION>` and send
-    back their detached signatures. For an embargoed fix they take the tag from
-    the private mirror.
+    back their detached signatures.
 11. Append their signatures; three good ones from distinct committed keys are
     required before publishing. Check the result with `gpg --verify
     SHA256SUMS-v<VERSION>.<POINT_VERSION>.asc
     SHA256SUMS-v<VERSION>.<POINT_VERSION>` — the manifest must be the second
     argument, or `gpg` may verify a payload embedded in the `.asc` instead.
-12. `tools/reprobuild publish` (T₀). Add `--latest` only if this point release
-    should become `latest` on Docker Hub.
-13. `tools/reprobuild disclose` — immediately for an ordinary hotfix, or at
-    T₀ + 14 for an embargoed one. It pushes the tag and creates the GitHub
-    release.
+12. `tools/reprobuild publish`. Add `--latest` only if this point release should
+    become `latest` on Docker Hub. It publishes the artifacts, pushes the tag and
+    creates the GitHub release.
 14. Finalize and publish the release (change it from draft to public).
 15. Check that the `Publish Python 🐍 distributions 📦 to PyPI and TestPyPI`
     action published the pyln modules on `https://pypi.org/project/pyln-*`, or

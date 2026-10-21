@@ -6,12 +6,10 @@
   postgresSupport ? false,
   # Release mode.
   #
-  # The release artifacts are built from *this* derivation, as a
-  # static/cross variant, not from a second release-only one (map Notes,
-  # The release artifacts are built from *this* derivation, as a
-  # static/cross variant, not from a second release-only one.
-  # `release = true` switches on everything the reprobuild
-  # contract needs and nothing the ordinary `nix build .#cln` wants:
+  # The release artifacts are built from *this* derivation, as a static and/or
+  # cross variant of it, rather than from a second release-only derivation that
+  # could drift from what `nix build .#cln` produces.  `release = true` switches
+  # on everything the release needs and nothing an ordinary build wants:
   #
   #   * version/mtime come from the driver (REPRO_VERSION / REPRO_MTIME),
   #     not from `.version` and `self.lastModifiedDate` -- bit-identity
@@ -45,10 +43,9 @@ let
     p.grpcio-tools
     p.mako
   ]);
-  # Offline cargo vendor dir.  The reprobuild contract allowed
-  # Lockfile-hashed fetches are allowed at build time; a Nix sandbox has
-  # no network, so the same guarantee is expressed as a vendor derivation
-  # keyed on Cargo.lock.  Same input, same pinning, earlier.
+  # Offline cargo vendor dir.  A Nix sandbox has no network, so "fetches are
+  # allowed as long as the lockfile pins them" becomes a vendor derivation keyed
+  # on Cargo.lock: the same inputs, pinned the same way, fetched earlier.
   cargoVendor = buildPackages.rustPlatform.importCargoLock {
     lockFile = ../../Cargo.lock;
   };
@@ -68,11 +65,9 @@ let
   # nixpkgs would use, pinned by the same revision as everything else.
   crossRow = !(stdenv.buildPlatform.canExecute stdenv.hostPlatform);
   emulator = stdenv.hostPlatform.emulator bp;
-  # The static-pie link recipe lives in static-pie.nix, so the VLS
-  # to `static-pie.nix` so the VLS derivation links exactly as this one does.
-  # `arm32`, `staticPieFlags`, `staticPieCc`, `releaseCc` and
-  # derivation links exactly as this one does; that file carries their
-  # reasoning.
+  # How a release binary is linked lives in static-pie.nix, imported here and
+  # by vls.nix so the signer links exactly as Core Lightning does.  That file
+  # carries the reasoning for each wrapper; these are just the names it exports.
   inherit (import ./static-pie.nix { inherit pkgs lib; })
     arm32
     staticPieFlags
@@ -405,11 +400,10 @@ stdenv.mkDerivation {
     installFlagsArray+=("DESTDIR=$dest")
   '';
 
-  # Stripping is a *security* property, not a size one: the 14 days
-  # between publishing binaries and publishing source are exactly when an
-  # unstripped symbol table hands a reader the patched functions by name.
-  # An embargoed release has already been given away this way, so this must
-  # fail loudly rather than degrade quietly.
+  # Every shipped ELF is stripped, and the result is asserted rather than
+  # assumed.  It keeps the tarballs small and matches what every other release
+  # of this project shipped; the build-id survives, so a crash in a stripped
+  # binary is still resolvable against the unstripped twin kept beside it.
   #
   # nixpkgs' own fixupPhase is not enough on its own: it runs
   # `--strip-debug` over bin/ and lib/, keeping .symtab, and its behaviour

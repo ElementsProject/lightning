@@ -1,20 +1,17 @@
 #!/bin/sh
-# The driver-level `check` of run on a finished tarball.
+# What the driver's `check` runs on a finished tarball.
 #
 #   contrib/reprobuild/check.sh release/clightning-...tar.xz
 #
-# Stripping is a security property, not a size one.  Between publishing
-# binaries at T0 and publishing source 14 days later, a surviving symbol
-# table names the patched functions outright -- which is how an embargoed
-# release has already been given away.  So this refuses the tarball if any
-# shipped ELF still carries .symtab or .debug_*, and it is a precondition of
-# `sign`, not an advisory.
+# These are properties a release must have and the build could lose silently,
+# so they are asserted on the shipped bytes rather than trusted, and `sign`
+# refuses a tarball that fails:
 #
-# It also asserts what the Nix switch put at risk:
-#   * static-pie -- pkgsStatic's stdenv appends `-static`, which silently
+#   * stripped -- no .symtab or .debug_* in any shipped ELF;
+#   * static-pie -- pkgsStatic's stdenv appends `-static`, which quietly
 #     yields a non-PIE static binary and loses ASLR;
-#   * a build-id -- nixpkgs' toolchain emits none by default, and without it
-#     a stripped crash report cannot be resolved at all.
+#   * a build-id -- nixpkgs' toolchain emits none by default, and without one
+#     a crash report from a stripped binary cannot be resolved at all.
 set -eu
 
 tarball=${1:?usage: check.sh <tarball>}

@@ -18,7 +18,7 @@ armhf    pkgsCross.armv7l-hf-multiplatform.pkgsStatic     linux/arm/v7
 
 @nixpkgs 6a08e6bb4e46ff7fcbb53d409b253f6bad8a28ce
 
-# Rows a co-signer is not required to reproduce (45): armhf's Rust binaries
+# Rows a co-signer is not required to reproduce: armhf's Rust binaries
 # differ across machines, so its artifacts live in their own manifest, signed
 # by a co-signer only if they did reproduce them.  Never a reason to hold a
 # release.
