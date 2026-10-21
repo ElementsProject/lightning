@@ -54,7 +54,7 @@ nav:
         - "Fuzzing": FUZZING.md
       - Maintainers:
         - "Making Releases": MAKING-RELEASES.md
-        - "Reproducible Builds": REPRODUCIBLE.md
+        - "Reproducible Builds": getting-started/advanced-setup/repro.md
 
   - Reference:
       - reference/index.md
