@@ -1,11 +1,8 @@
-config.vars
-.cargo/
-.vscode/
-.venv/
-dist/
-target/
-release/
-focal/
-jammy/
-noble/
-resolute/
+# The runtime Dockerfile needs only the entrypoint from the main context;
+# release artifacts and bitcoin-cli arrive as named build contexts.
+# Builder images (contrib/reprobuild/<distro>/Dockerfile) COPY their pins
+# and rust-toolchain.toml, so keep those visible.
+*
+!tools/docker-entrypoint.sh
+!contrib/reprobuild/
+!rust-toolchain.toml
