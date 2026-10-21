@@ -12,6 +12,7 @@
 #include <common/daemon.h>
 #include <common/dijkstra.h>
 #include <common/features.h>
+#include <common/gossip_constants.h>
 #include <common/gossmap.h>
 #include <common/gossmods_listpeerchannels.h>
 #include <common/json_param.h>
@@ -159,6 +160,9 @@ struct payment {
 
 	/* Are we to add a shadow route? */
 	bool use_shadow;
+
+	/* Maximum number of forward hops we can afford for this payment. */
+	u32 onion_budget;
 };
 
 /* One step in a path. */
@@ -1621,6 +1625,24 @@ struct getroutes_request {
 	struct payment *payment;
 };
 
+static u32 get_askrene_onion_budget(const struct payment *payment)
+{
+	if (payment->paths) {
+		/* For bolt12 payments we try to route through a blinded route,
+		 * the destination is hidden behind the fake channels
+		 * representing the blinded tail of the payment.
+		 * Therefore in askrene's terms the onion_budget is the
+		 * real maximum forwarding hops including the sender plus one
+		 * more hop that accounts for the blinded path. */
+		return payment->onion_budget + 1;
+	} else {
+		/* For bolt11 payments we try to hit the bare destination so the
+		 * onion_budget is the real maximum forwarding hops including
+		 * the sender. */
+		return payment->onion_budget;
+	}
+}
+
 static const struct pubkey *
 get_askrene_destination(const struct payment *payment)
 {
@@ -1642,6 +1664,7 @@ static struct command_result *getroutes_done(struct command *aux_cmd,
 	struct amount_msat needs_routing, was_routing;
 	struct payment *payment = getroutes_request->payment;
 	struct gossmap *gossmap = get_gossmap(xpay_of(payment->plugin));
+	u32 askrene_onion_budget = get_askrene_onion_budget(payment);
 	trace_span_resume(payment);
 	trace_span_resume(getroutes_request);
 	trace_span_end(getroutes_request);
@@ -1697,6 +1720,25 @@ static struct command_result *getroutes_done(struct command *aux_cmd,
 		json_to_msat(buf, json_get_member(buf, t, "amount_msat"),
 			     &delivers);
 		path = json_get_member(buf, t, "path");
+		if (path->type != JSMN_ARRAY)
+			plugin_err(aux_cmd->plugin,
+				   "Malformed getroutes result: "
+				   "routes[%zu].path should be an array",
+				   i);
+		if(path->size > askrene_onion_budget){
+			char *error = tal_fmt(
+			    tmpctx,
+			    "We asked for maxhops=%" PRIu32
+			    ", but getroutes gave us a route with %d hops",
+			    askrene_onion_budget, path->size);
+
+			payment_log(payment, LOG_BROKEN, "%s", error);
+
+			payment_give_up(aux_cmd, payment,
+					PAY_UNSPECIFIED_ERROR, "%s", error);
+			return command_still_pending(aux_cmd);
+		}
+
 		hops = tal_arr(NULL, struct hop, path->size);
 		json_for_each_arr(j, hoptok, path) {
 			const char *err;
@@ -1843,6 +1885,7 @@ static struct command_result *getroutes_for(struct command *aux_cmd,
 	struct out_req *req;
 	const struct pubkey *dst;
 	struct amount_msat maxfee;
+	u32 askrene_onion_budget = get_askrene_onion_budget(payment);
 
 	/* I would normally assert here, but we have reports of this happening... */
 	if (amount_msat_is_zero(deliver)) {
@@ -1936,6 +1979,7 @@ static struct command_result *getroutes_for(struct command *aux_cmd,
 		assert(payment->maxparts > count_pending);
 		json_add_u32(req->js, "maxparts", payment->maxparts - count_pending);
 	}
+	json_add_u32(req->js, "maxhops", askrene_onion_budget);
 
 	return send_payment_req(aux_cmd, payment, req);
 }
@@ -2625,6 +2669,9 @@ static struct payment *new_payment(const tal_t *ctx,
 	payment->unique_id = xpay->counter++;
 	payment->private_layer = tal_fmt(payment,
 					 "xpay-%"PRIu64, payment->unique_id);
+	/* If we don't compute the onion budget ahead this is still a reference
+	 * value to keep in mind. */
+	payment->onion_budget = ROUTING_MAX_HOPS;
 
 	list_add_tail(&xpay->payments, &payment->list);
 	tal_add_destructor(payment, destroy_payment);
@@ -3172,6 +3219,7 @@ static struct command_result *check_onion_budget(struct command *cmd,
 	}
 
 	payment_log(payment, LOG_DBG, "onion budget is %" PRIu32 ".", max_hops);
+	payment->onion_budget = max_hops;
 
 	dst = get_askrene_destination(payment);
 	/* This is bolt11 payment with 0 hops and we are not the destination. */
