@@ -944,6 +944,65 @@ def test_lsps2_mock_expired_session(node_factory):
     assert lsps2_mock_events(l2, "open") == []
 
 
+def test_lsps2_mock_expired_held_parts(node_factory):
+    """MPP+fixed-invoice: parts still held when the params expire are failed,
+    without another part arriving."""
+    l1, l2, l3 = lsps2_mock_nodes(node_factory)
+    amt = 10_000_000
+    inv = l1.rpc.lsps_lsps2_invoice(
+        lsp_id=l2.info["id"],
+        amount_msat=amt,
+        description="lsp-jit-channel-0",
+        label="lsp-jit-channel-0",
+    )
+    dec = l3.rpc.decode(inv["bolt11"])
+    routehint = only_one(only_one(dec["routes"]))
+    chanid = only_one(l3.rpc.listpeerchannels(l2.info["id"])["channels"])[
+        "short_channel_id"
+    ]
+    # Half of the payment, so the mock holds it.
+    route = [
+        {
+            "amount_msat": amt // 2,
+            "id": l2.info["id"],
+            "delay": routehint["cltv_expiry_delta"] + 6,
+            "channel": chanid,
+        },
+        {
+            "amount_msat": amt // 2,
+            "id": l1.info["id"],
+            "delay": 6,
+            "channel": routehint["short_channel_id"],
+        },
+    ]
+    l3.rpc.sendpay(
+        route,
+        dec["payment_hash"],
+        payment_secret=inv["payment_secret"],
+        bolt11=inv["bolt11"],
+        amount_msat=amt,
+        groupid=1,
+        partid=1,
+    )
+    wait_for(
+        lambda: only_one(l2.rpc.call("lsps2-mock-state")["sessions"])["held_parts"]
+        == 1
+    )
+
+    # Past the default validity of an hour.
+    l2.rpc.call(
+        "lsps2-mock-configure", {"config": {"htlc": {"clock_offset_seconds": 7200}}}
+    )
+    with pytest.raises(RpcError) as err:
+        l3.rpc.waitsendpay(dec["payment_hash"], partid=1, groupid=1)
+    # unknown_next_peer
+    assert err.value.error["data"]["failcode"] == 0x400A
+
+    fail = only_one(lsps2_mock_events(l2, "htlc"))
+    assert fail["reason"] == "expired"
+    assert lsps2_mock_events(l2, "open") == []
+
+
 @pytest.mark.parametrize("amt", [1000, 10_000_001])
 def test_lsps2_mock_var_invoice_payment_size(node_factory, amt):
     """no-MPP+var-invoice: the mock fails a payment outside the size limits
