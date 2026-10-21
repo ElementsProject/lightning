@@ -13,8 +13,27 @@ NIX_IMAGE_TAG=2.35.2
 
 # The skopeo the `docker` verb uses for OCI layouts and pushes.
 # Ubuntu 22.04's skopeo 1.4.1 lacks --preserve-digests, so the pinned
-# container is the normative path (a new enough host skopeo is used if found).
-SKOPEO_IMAGE=quay.io/skopeo/stable:v1.22.3
+# container is the normative path (a new enough host skopeo is used if found,
+# so this is the floor and not a ceiling).
+#
+# 1.22.3 is the newest skopeo *image*, which is not the newest skopeo: there are
+# v1.23.0, v1.24.0 and v1.24.1 source releases, but no 1.23.x or 1.24.x
+# container on quay.io/skopeo/stable (all 77 tags checked), on
+# quay.io/containers/skopeo, on ghcr.io or on Docker Hub.  skopeo maintains
+# several stable branches at once and backports to them -- v1.22.3 shipped the
+# same day as v1.24.1 -- and the image track follows one of those branches.  So
+# do not "fix" this to 1.24.x without first checking that an image exists.
+#
+# By *index* digest, like NIX_IMAGE above -- but of the `-immutable` tag, which
+# matters more than it sounds.  quay's version tags float: `v1.22.3` was
+# re-pushed on 2026-10-02 and again on 2026-10-07.  Worse, quay garbage-collects
+# a manifest once no tag points at it, so a digest taken from the floating tag
+# *stops resolving*: the digest below's predecessor, 249b92db, was verified
+# working on 2026-09-30 and was `manifest unknown` by 2026-10-07, which broke the
+# docker verb. Upstream publishes `-immutable` for exactly this, and it has not
+# moved since 2026-09-21. Pin that digest, so a tag keeps the manifest alive.
+SKOPEO_IMAGE=quay.io/skopeo/stable@sha256:c0ee1f4edca5c01cb8d5611124f92f3cc47196ecab68aee5d0f90834e00574d5
+SKOPEO_IMAGE_TAG=v1.22.3-immutable
 
 # The runtime image's base digest lives in the Dockerfile itself
 # (FROM debian:trixie-slim@sha256:...), bumped deliberately like a pin.
