@@ -324,6 +324,12 @@ stdenv.mkDerivation {
       "arch ${releaseArch}"
       "host ${stdenv.hostPlatform.config}"
     ]
+    # See the same section in default.nix: the pin below says which VLS, and
+    # the flags say how, but neither covers the files that decide the link.
+    + section "recipe" [
+      "vls.nix ${builtins.hashFile "sha256" ./vls.nix}"
+      "static-pie.nix ${builtins.hashFile "sha256" ./static-pie.nix}"
+    ]
     + section "pin" [
       "url ${pin.url}"
       "version ${pin.version}"

@@ -1,6 +1,10 @@
 row
   arch arm64
   host aarch64-unknown-linux-musl
+recipe
+  default.nix 4349d4705c9609f7c4167466dcb1af85d71cf21c6875c33ce8a40048ba60a016
+  static-pie.nix 67d8839bbcc99e7abe4b1037767505f6a42cdd0af754a13020cd2adebbac9421
+  flake-module.nix c6feedbd6e609c3e4e29c6d69a0f64f27a6e846cc4807f34c3099efe944dd24b
 toolchain
   gcc 14.3.0
   rustc 1.89.0
