@@ -181,7 +181,18 @@ let
       "CC_FOR_BUILD=cc"
     ];
 
-  configureFlags = [ "--disable-valgrind" ] ++ lib.optionals release [ "--prefix=/usr/local" ];
+  # -O2 on the release path.  CLN's configure defaults COPTFLAGS to -Og, which
+  # is "optimise without getting in the debugger's way" -- roughly -O1, and not
+  # what a shipped binary wants.  Measured on this tree: three interleaved pairs
+  # of runs, +17% on listpays and grpc getinfo, +8% and +7% on grpc listpeers
+  # and listinvoices, with identical RSS.  Only the C half was affected; Rust
+  # already builds with RUST_PROFILE=release.
+  configureFlags =
+    [ "--disable-valgrind" ]
+    ++ lib.optionals release [
+      "--prefix=/usr/local"
+      "COPTFLAGS=-O2"
+    ];
 
   # Environment the release build needs set; also listed in the input
   # manifest, since each of these moves release bytes.
