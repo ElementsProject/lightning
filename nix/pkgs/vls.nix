@@ -45,7 +45,7 @@
 let
   inherit (pkgs) stdenv;
   bp = pkgs.buildPackages;
-  inherit (import ./static-pie.nix { inherit pkgs lib; }) rustStaticPieCc noRpathEnv extraObjsManifest;
+  inherit (import ./static-pie.nix { inherit pkgs lib; }) rustStaticPieCc rustTargetFlags noRpathEnv extraObjsManifest;
   rustBin = import ./rust-bin.nix { inherit pkgs lib; };
 
   # --- the pin -------------
@@ -226,7 +226,7 @@ stdenv.mkDerivation {
     # that nixpkgs' own vendoring code can move with no change of ours -- the
     # one input 38 singled out as movable from outside.  rustc applies the
     # *last* matching map, so the general one stays first.
-    export CARGO_TARGET_${rustTargetEnv}_RUSTFLAGS="--remap-path-prefix=$NIX_BUILD_TOP=/home/clightning --remap-path-prefix=${cargoVendor}=/home/clightning/vendor -C link-arg=-Wl,--build-id=sha1"
+    export CARGO_TARGET_${rustTargetEnv}_RUSTFLAGS="--remap-path-prefix=$NIX_BUILD_TOP=/home/clightning --remap-path-prefix=${cargoVendor}=/home/clightning/vendor -C link-arg=-Wl,--build-id=sha1${rustTargetFlags}"
 
     # VLS pulls in C through cc-rs (secp256k1-sys and friends), which reads
     # these rather than the stdenv's exported CC.  The Alpine hook set the
@@ -319,10 +319,13 @@ stdenv.mkDerivation {
     let
       section = title: lines: "${title}\n" + lib.concatMapStrings (l: "  ${l}\n") lines;
     in
-    section "row" [
-      "arch ${releaseArch}"
-      "host ${stdenv.hostPlatform.config}"
-    ]
+    section "row" (
+      [
+        "arch ${releaseArch}"
+        "host ${stdenv.hostPlatform.config}"
+      ]
+      ++ lib.optional (stdenv.hostPlatform.gcc ? fpu) "fpu ${stdenv.hostPlatform.gcc.fpu}"
+    )
     # See the same section in default.nix: the pin below says which VLS, and
     # the flags say how, but neither covers the files that decide the link.
     + section "recipe" [
@@ -352,7 +355,7 @@ stdenv.mkDerivation {
       [
         "cargo build --offline --locked --release -p vls-proxy --bin remote_hsmd_socket"
         "strip --strip-all"
-        "rustflags --remap-path-prefix=$NIX_BUILD_TOP=/home/clightning --remap-path-prefix=<cargo-vendor>=/home/clightning/vendor -C link-arg=-Wl,--build-id=sha1"
+        "rustflags --remap-path-prefix=$NIX_BUILD_TOP=/home/clightning --remap-path-prefix=<cargo-vendor>=/home/clightning/vendor -C link-arg=-Wl,--build-id=sha1${rustTargetFlags}"
       ]
       ++ lib.mapAttrsToList (k: v: "env ${k}=${v}") noRpathEnv
     );

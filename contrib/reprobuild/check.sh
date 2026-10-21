@@ -57,15 +57,67 @@ for fp in $(find "$tmp" -type f); do
     fi
 done
 
-# On the armhf row the *ABI* is the thing
-# that has to be right, and it is invisible in the checks above.  Debian
-# armhf is ARMv7 hard-float, and -mfpu=vfpv3-d16 had to be stated by hand
-# because clang defaults armv7-a to NEON, and Alpine's
-# "armhf" is ARMv6 entirely.  readelf -A is where the answer actually lands.
-if readelf -hW "$lightningd" 2>/dev/null | grep -q 'Machine:.*ARM'; then
-    echo "--- ARM build attributes ($(basename "$lightningd"))"
-    readelf -A "$lightningd" 2>/dev/null |
-        grep -E 'Tag_CPU_arch|Tag_FP_arch|Tag_ABI_VFP_args|Tag_Advanced_SIMD|Tag_CPU_name' || true
+# The arm tarballs are for the Raspberry Pi (nix/release-rows): armhf must
+# run on a Pi 2 (Cortex-A7: ARMv7, VFPv4, NEON), arm64 on a Pi 3
+# (Cortex-A53: ARMv8.0).  Neither shows in the checks above.
+machine=$(readelf -hW "$lightningd" | sed -n 's/^ *Machine: *//p')
+case "$machine" in
+*AArch64*) qemu=qemu-aarch64 cpu=cortex-a53 ;;
+*ARM*) qemu=qemu-arm cpu=cortex-a7 ;;
+*) qemu='' cpu='' ;;
+esac
+
+# armhf: what each binary was compiled for.  A tag above the Pi 2, or a
+# soft-float ABI, fails.
+armattr_bad=0
+if [ "$qemu" = qemu-arm ]; then
+    # shellcheck disable=SC2044
+    for fp in $(find "$tmp" -type f); do
+        [ "$(head -c 4 "$fp" | od -An -tx1 | tr -d ' \n')" = "7f454c46" ] || continue
+        rel=${fp#"$tmp"}
+        attrs=$(readelf -A "$fp" 2>/dev/null || true)
+        tag() { printf '%s\n' "$attrs" | sed -n "s/^ *$1: //p"; }
+        why=
+        [ "$(tag Tag_CPU_arch)" = v7 ] || why="$why CPU_arch=$(tag Tag_CPU_arch)"
+        case "$(tag Tag_FP_arch)" in
+        VFPv3 | VFPv3-D16 | VFPv4 | VFPv4-D16) ;;
+        *) why="$why FP_arch=$(tag Tag_FP_arch)" ;;
+        esac
+        case "$(tag Tag_Advanced_SIMD_arch)" in
+        "" | NEONv1 | "NEONv1 with Fused-MAC") ;;
+        *) why="$why Advanced_SIMD=$(tag Tag_Advanced_SIMD_arch)" ;;
+        esac
+        [ "$(tag Tag_ABI_VFP_args)" = "VFP registers" ] || why="$why not hard-float"
+        if [ -n "$why" ]; then
+            echo "FAIL  $rel: not for a Raspberry Pi 2:$why"
+            armattr_bad=$((armattr_bad + 1)); bad=$((bad + 1))
+        fi
+    done
+fi
+
+# Both arm rows: run every binary on the oldest Pi's CPU.  This catches
+# code the attributes do not declare (rustc's armv7 target used D16-D31
+# under a VFPv3 tag).  The plugins exit with no lightningd on stdin, which
+# is fine; a signal is not.  qemu is the pinned one, not the host's.
+cpu_bad=0
+if [ -n "$qemu" ]; then
+    top=$(cd "$(dirname "$0")/../.." && pwd)
+    qemudir=$(nix --extra-experimental-features 'nix-command flakes' build --impure \
+        --no-link --print-out-paths --expr \
+        "(import (builtins.getFlake \"git+file://$top?submodules=1\").inputs.nixpkgs { system = \"x86_64-linux\"; }).qemu-user" |
+        head -1)
+    [ -x "$qemudir/bin/$qemu" ] || { echo "CHECK FAILED: no $qemu in $qemudir" >&2; exit 1; }
+    echo "--- running every ELF on $cpu"
+    # shellcheck disable=SC2044
+    for fp in $(find "$tmp" -type f); do
+        [ "$(head -c 4 "$fp" | od -An -tx1 | tr -d ' \n')" = "7f454c46" ] || continue
+        rc=0
+        timeout 120 "$qemudir/bin/$qemu" -cpu "$cpu" "$fp" --version </dev/null >/dev/null 2>&1 || rc=$?
+        if [ "$rc" -ge 124 ]; then
+            echo "FAIL  ${fp#"$tmp"}: died on $cpu (exit $rc)"
+            cpu_bad=$((cpu_bad + 1)); bad=$((bad + 1))
+        fi
+    done
 fi
 
 echo "---"
@@ -73,6 +125,10 @@ echo "ELFs checked:        $elfs"
 echo "unstripped:          $stripped_bad"
 echo "non-PIE:             $nonpie"
 echo "missing build-id:    $nobuildid"
+if [ -n "$qemu" ]; then
+    [ "$qemu" = qemu-arm ] && echo "above Pi 2 ABI:      $armattr_bad"
+    echo "crashed on $cpu: $cpu_bad"
+fi
 if [ "$elfs" = 0 ]; then
     echo "CHECK FAILED: no ELF files found in $tarball" >&2
     exit 1
