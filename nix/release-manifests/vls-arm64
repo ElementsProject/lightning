@@ -1,0 +1,18 @@
+row
+  arch arm64
+  host aarch64-unknown-linux-musl
+pin
+  url https://gitlab.com/lightning-signer/validating-lightning-signer.git
+  version v0.14.0
+  rev 9c0fd05c946d549f643d3e1833d8663168d2b0db
+  hash sha256-gKTkOOaj7EGunJF/xi7lW5dNNRvzWoj0nKuEIv3+TUk=
+  vendorHash sha256-fxPAZV2uSqN4RlWqTZLDHwsl0/RZdhPcg1fhmiNtgQo=
+  git-desc v0.14.0-0-g9c0fd05c946d
+toolchain
+  gcc 14.3.0
+  rustc 1.89.0
+  protobuf 32.1
+flags
+  cargo build --offline --locked --release -p vls-proxy --bin remote_hsmd_socket
+  strip --strip-all
+  rustflags --remap-path-prefix=$NIX_BUILD_TOP=/home/clightning --remap-path-prefix=<cargo-vendor>=/home/clightning/vendor -C link-arg=-Wl,--build-id=sha1
