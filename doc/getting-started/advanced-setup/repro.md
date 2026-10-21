@@ -82,6 +82,13 @@ no package pin lists to refresh and no per-distribution setup: the compiler, eve
 library and every build tool are content-addressed store paths, fixed by that one
 revision, and Nix builds them in a sandbox with no network access.
 
+The one exception is Rust: the release uses the Rust project's own release
+binaries (`rustc`, `cargo`, and the standard library for each target), pinned by
+sha256 in `nix/pkgs/rust-bin.nix`. nixpkgs has no prebuilt Rust compiler for the
+static cross rows, so otherwise every arm build would compile rustc from source
+first. nixpkgs' own rustc is bootstrapped from these same binaries, so this adds
+no new trust.
+
 All you need is Nix with flakes enabled (`nix-command` and `flakes` in
 `experimental-features`). The builds above are produced with Nix 2.31.3; if your
 Nix cannot evaluate the flake, the driver can also run the whole build inside a
@@ -145,9 +152,9 @@ get signed rather than a `tar` run afterwards:
 tools/reprobuild build amd64 --rebuild
 ```
 
-The build takes 20–40 minutes per row on a modern 16-thread machine, and the first
-run of a cross row also builds that architecture's toolchain, which can take
-considerably longer.
+A row takes about 5 minutes on a 24-thread machine once its toolchain is in the
+store. The first `armhf` run also builds that architecture's C toolchain (gcc,
+binutils, musl and the static libraries), which adds about 10 minutes.
 
 The source archive is a Nix output too, built from the same tree rather than
 assembled on your machine, so `tools/reprobuild zip` gives the same bytes

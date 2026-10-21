@@ -2,9 +2,10 @@ row
   arch amd64
   host x86_64-unknown-linux-musl
 recipe
-  vls.nix 9d38bae02faf962b80c8a929fbb9ad1d4cd011143e926f80e02cfcb91ad86d3a
+  vls.nix 1972c8b7ec8b98d2249322b26c231f396e6cedc687fa28c2892d492d2a76cb85
   static-pie.nix 53b6c6f5f74c968f7a381119c5eecff57bbaa51ad3c0c157cb3f41bee6dbf96c
   flake.nix 66b107f9cfbf0d69c0b9df603b583ddce493128aa00522acfee51c461f079b98
+  rust-bin.nix 51d59ab9b8451020c4865bc28f036d601a78e10ec06d1104b4f535496ccd62b3
 pin
   url https://gitlab.com/lightning-signer/validating-lightning-signer.git
   version v0.14.0
@@ -16,6 +17,12 @@ toolchain
   gcc 16.2.0
   rustc 1.98.1
   protobuf 36.2
+  rust-dist 1.98.1 2026-09-03 48a229ceaefd4985c50990b14116b6d856af0985
+  rust-dist rustc-x86_64-unknown-linux-gnu e974f036b28565f37c0f3bd92ddefa809bee16c04f9dcf07b9ed96e05aaaf7c4
+  rust-dist cargo-x86_64-unknown-linux-gnu ea1de9f9e23107d97ee2b41a72c552f34064a593da503789218387aee59f3ba4
+  rust-dist rust-std-x86_64-unknown-linux-gnu fa3ff450172a16c026944030230c5069947af93c728d9179971d44e5e0cfb561
+  rust-dist rust-std-x86_64-unknown-linux-musl bd9f35880de21dab0e387e84009c00001ae7836a4ba565cb16823f13f75f325f
+  rust-dist musl-objects musl 1.2.6
 flags
   cargo build --offline --locked --release -p vls-proxy --bin remote_hsmd_socket
   strip --strip-all

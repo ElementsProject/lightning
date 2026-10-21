@@ -46,6 +46,7 @@ let
   inherit (pkgs) stdenv;
   bp = pkgs.buildPackages;
   inherit (import ./static-pie.nix { inherit pkgs lib; }) rustStaticPieCc noRpathEnv;
+  rustBin = import ./rust-bin.nix { inherit pkgs lib; };
 
   # --- the pin -------------
   #
@@ -180,8 +181,7 @@ stdenv.mkDerivation {
   # `strip --strip-all` deletes again, and its install hook would copy
   # every binary in the workspace.
   nativeBuildInputs = [
-    bp.cargo
-    bp.rustc
+    rustBin
     # `vlsd` and `lightning-storage-server` drive prost/tonic codegen.
     bp.protobuf
     gitShim
@@ -329,6 +329,7 @@ stdenv.mkDerivation {
       "vls.nix ${builtins.hashFile "sha256" ./vls.nix}"
       "static-pie.nix ${builtins.hashFile "sha256" ./static-pie.nix}"
       "flake.nix ${builtins.hashFile "sha256" ../../flake.nix}"
+      "rust-bin.nix ${builtins.hashFile "sha256" ./rust-bin.nix}"
     ]
     + section "pin" [
       "url ${pin.url}"
@@ -338,11 +339,14 @@ stdenv.mkDerivation {
       "vendorHash ${pin.vendorHash}"
       "git-desc ${gitDesc}"
     ]
-    + section "toolchain" [
-      "gcc ${stdenv.cc.cc.version}"
-      "rustc ${bp.rustc.version}"
-      "protobuf ${bp.protobuf.version}"
-    ]
+    + section "toolchain" (
+      [
+        "gcc ${stdenv.cc.cc.version}"
+        "rustc ${rustBin.version}"
+        "protobuf ${bp.protobuf.version}"
+      ]
+      ++ rustBin.manifestLines
+    )
     + section "flags" (
       [
         "cargo build --offline --locked --release -p vls-proxy --bin remote_hsmd_socket"

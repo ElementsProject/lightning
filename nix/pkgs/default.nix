@@ -76,6 +76,7 @@ let
     rustStaticPieCc
     noRpathEnv
     ;
+  rustBin = import ./rust-bin.nix { inherit pkgs lib; };
   # The row's libpq, bound once.
   #
   # This used to carry `hardeningDisable = [ "pie" ]` on the 32-bit ARM row,
@@ -120,8 +121,7 @@ let
       pkgs.libpq.pg_config
     ]
     ++ lib.optionals release [
-      cargo
-      rustc
+      rustBin
       protobuf
       file
       # configure needs a jq it can *run* ("*** We need jq!"); the one in
@@ -508,17 +508,21 @@ stdenv.mkDerivation {
       + section "recipe" [
         "default.nix ${builtins.hashFile "sha256" ./default.nix}"
         "static-pie.nix ${builtins.hashFile "sha256" ./static-pie.nix}"
+        "rust-bin.nix ${builtins.hashFile "sha256" ./rust-bin.nix}"
         "flake-module.nix ${builtins.hashFile "sha256" ./flake-module.nix}"
         # flake.nix too: its overlays reach every package in the row, which is
         # not hypothetical -- a fetchurl overlay lived there and changed how
         # every source tarball was fetched.
         "flake.nix ${builtins.hashFile "sha256" ../../flake.nix}"
       ]
-      + section "toolchain" [
-        "gcc ${stdenv.cc.cc.version}"
-        "rustc ${bp.rustc.version}"
-        "python ${bp.python3.version}"
-      ]
+      + section "toolchain" (
+        [
+          "gcc ${stdenv.cc.cc.version}"
+          "rustc ${rustBin.version}"
+          "python ${bp.python3.version}"
+        ]
+        ++ rustBin.manifestLines
+      )
       + section "nativeBuildInputs" (lib.sort lib.lessThan (map nv nativeInputs))
       + section "buildInputs" (lib.sort lib.lessThan (map nv hostInputs))
       + section "flags" (
