@@ -759,19 +759,45 @@ class Driver:
 
     # --- accept, sign, verify --------------------------------------------
 
+    def portability(self, tarballs: list[Path], images: str | None = None) -> bool:
+        """portability.sh on every tarball at once, each run's output printed
+        whole and in order afterwards.  The rows are separate containers, and
+        the foreign ones spend their time in qemu, so nothing is gained by
+        waiting for one to finish before starting the next."""
+        extra = [f"--images={images}"] if images else []
+        script = str(self.top / "contrib/reprobuild/portability.sh")
+        procs = [
+            subprocess.Popen(
+                [script, str(t), *extra],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                errors="replace",
+            )
+            for t in tarballs
+        ]
+        ok = True
+        for p in procs:
+            log, _ = p.communicate()
+            print(log, end="", flush=True)
+            ok = ok and p.returncode == 0
+        return ok
+
     def verb_accept(self, archs: list[str]) -> None:
         """The suite that costs real time, kept out of `all` and run by
         `certify`: the portability rows and the two-tree probe on every row."""
         ver, out = self.version(), Path(self.args.out)
-        fail = False
+        tarballs = []
         for arch in self.arch_list(archs):
             tarball = out / f"clightning-{ver}-static-{arch}.tar.xz"
             if not tarball.exists():
                 die(f"no {tarball}; run build first")
-            info(f"accept: portability rows for {arch}")
-            if subprocess.run([str(self.top / "contrib/reprobuild/portability.sh"),
-                               str(tarball)]).returncode:
-                fail = True
+            tarballs.append(tarball)
+        info(f"accept: portability rows for {' '.join(self.arch_list(archs))}")
+        fail = not self.portability(tarballs)
+        # The probe builds, so it stays one row at a time: the build already
+        # uses every core it is given.
+        for arch in self.arch_list(archs):
             info(f"accept: two-tree probe for {arch}")
             probe = [str(self.top / "contrib/reprobuild/two-tree-probe.sh"),
                      f"--arch={arch}", f"--jobs={self.args.jobs}"]
@@ -1246,11 +1272,16 @@ class Driver:
         # Last: the binaries that were just signed, unpacked and run on a
         # current distro.  One container per row; `accept` runs the full matrix.
         ver = self.version()
-        for arch in self.arch_list(None):
-            info(f"all: smoke test on {RELEASE_SMOKE_IMAGE} ({arch})")
-            run(str(self.top / "contrib/reprobuild/portability.sh"),
-                str(Path(self.args.out) / f"clightning-{ver}-static-{arch}.tar.xz"),
-                f"--images={RELEASE_SMOKE_IMAGE}")
+        archs = self.arch_list(None)
+        info(f"all: smoke test on {RELEASE_SMOKE_IMAGE} ({' '.join(archs)})")
+        if not self.portability(
+            [
+                Path(self.args.out) / f"clightning-{ver}-static-{a}.tar.xz"
+                for a in archs
+            ],
+            RELEASE_SMOKE_IMAGE,
+        ):
+            die("the smoke test failed")
         info("all: done -- publish is a separate, deliberate verb")
 
 
