@@ -1,6 +1,6 @@
 #!/bin/sh
 # check.sh's assertions for the VLS signer binary.  VLS is deferred from the
-# release (51), so this runs only when the `vls` verb is used directly, and it
+# release, so this runs only when the `vls` verb is used directly, and it
 # is part of the gate for bringing VLS back.
 #
 #   contrib/reprobuild/vls-check.sh release/remote_hsmd_socket-v0.14.0-<arch>

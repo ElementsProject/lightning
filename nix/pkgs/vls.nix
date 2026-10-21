@@ -273,10 +273,9 @@ stdenv.mkDerivation {
   # see `noRpathEnv` in static-pie.nix (arm32 only).
   env = noRpathEnv;
 
-  # asserted rather than assumed -- the same recipe CLN's
-  # derivation uses.  The 14 days between publishing binaries and publishing
-  # source are exactly when a symbol table hands a reader the patched
-  # functions by name, so this fails the build rather than degrading quietly.
+  # Stripped, asserted rather than assumed, by the same recipe Core Lightning's
+  # derivation uses: the two must ship the same way, and an assertion that fails
+  # the build is the only version of this that cannot degrade quietly.
   postInstall = ''
     strip_one() {
       ${stdenv.cc.targetPrefix}strip --strip-all --preserve-dates "$1" \
