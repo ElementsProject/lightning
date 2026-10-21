@@ -1580,6 +1580,16 @@ static void add_cltv_shadow(struct payment *payment,
 	}
 }
 
+static const struct pubkey *
+get_askrene_destination(const struct payment *payment)
+{
+	struct xpay *xpay = xpay_of(payment->plugin);
+	if (payment->paths)
+		return &xpay->fakenode;
+	else
+		return &payment->destination;
+}
+
 static struct command_result *getroutes_done(struct command *aux_cmd,
 					     const char *method,
 					     const char *buf,
@@ -1789,11 +1799,7 @@ static struct command_result *getroutes_for(struct command *aux_cmd,
 
 	/* If we get injectpaymentonion responses, they can wait */
 	payment->amount_being_routed = deliver;
-
-	if (payment->paths)
-		dst = &xpay->fakenode;
-	else
-		dst = &payment->destination;
+	dst = get_askrene_destination(payment);
 
 	/* Self-pay?  Shortcut all this */
 	if (pubkey_eq(&xpay->local_id, dst)) {
@@ -2108,6 +2114,9 @@ static struct command_result *populate_private_layer(struct command *cmd,
 	return batch_done(aux_cmd, batch);
 }
 
+static struct command_result *check_onion_budget(struct command *cmd,
+						 struct payment *payment);
+
 static struct command_result *
 preapproveinvoice_succeed(struct command *cmd,
 			  const char *method,
@@ -2120,7 +2129,7 @@ preapproveinvoice_succeed(struct command *cmd,
 		return command_check_done(cmd);
 	}
 
-	return populate_private_layer(cmd, payment);
+	return check_onion_budget(cmd, payment);
 }
 
 /* If it returns NULL, *authorized is the most we agreed to pay. */
@@ -3014,6 +3023,129 @@ static struct command_result *age_done(struct command *timer_cmd,
 	return timer_complete(timer_cmd);
 }
 
+static struct command_result *check_onion_budget(struct command *cmd,
+						 struct payment *payment)
+{
+	struct xpay *xpay = xpay_of(payment->plugin);
+	const u32 blockheight_slack = 100;
+	u32 max_hops;
+	size_t tail_size, smallest_tail_size = SIZE_MAX;
+	char *error;
+	const struct pubkey *dst;
+	bool this_node_front = false;
+
+	if (payment->paths) {
+		/* Among all possible blinded routes assume the worst case. */
+		max_hops = UINT32_MAX;
+		if (tal_count(payment->paths) == 0) {
+			error =
+			    tal_fmt(tmpctx, "Weird! There are no blinded paths "
+					    "left to build routes to.");
+			payment_log(payment, LOG_UNUSUAL, "%s", error);
+			return command_fail(cmd, PAY_ROUTE_NOT_FOUND, "%s",
+					    error);
+		}
+		for (size_t i = 0; i < tal_count(payment->paths); i++) {
+			u32 this_hops = onion_budget(payment->mpp_amount,
+						     payment->maxfee,
+						     /* give some blockheight
+						      * slack */
+						     payment->start_blockheight + blockheight_slack,
+						     payment->maxdelay,
+						     payment->paths[i],
+						     payment->payment_secret,
+						     payment->payment_metadata,
+						     payment->extra_tlvs,
+						     &tail_size);
+
+			if (smallest_tail_size > tail_size)
+				smallest_tail_size = tail_size;
+
+			if (this_hops == UINT32_MAX) {
+				payment_log(payment, LOG_UNUSUAL,
+					    "discarding blinded path: requires "
+					    "%zu bytes",
+					    tail_size);
+				/* Remove blinded paths that cannot be used. */
+				tal_arr_remove(&payment->paths, i);
+				tal_arr_remove(&payment->payinfos, i);
+				i--;
+				continue;
+			}
+
+			/* Using the worst case here to make all blinded paths
+			 * equivalently *good* down the line, which is simpler.
+			 * A more complicated approach could be: "try with this
+			 * number, if no path is found try the next worst case
+			 * and remove the blinded paths under this number." */
+			if (this_hops < max_hops)
+				max_hops = this_hops;
+
+			if (payment->paths[i]->first_node_id.is_pubkey &&
+			    pubkey_eq(&xpay->local_id,
+				      &payment->paths[i]->first_node_id.pubkey))
+				this_node_front = true;
+		}
+		if(tal_count(payment->paths) == 0) {
+			error = tal_fmt(
+			    tmpctx,
+			    "Cannot use any blinded path, the smallest one "
+			    "needs at least %zu byte onion packet",
+			    smallest_tail_size);
+			payment_log(payment, LOG_INFORM, "%s", error);
+			return command_fail(cmd, PAY_ROUTE_NOT_FOUND, "%s",
+					    error);
+		}
+	} else {
+		max_hops = onion_budget(payment->mpp_amount,
+					payment->maxfee,
+					/* give some blockheight slack */
+					payment->start_blockheight + blockheight_slack,
+					payment->maxdelay,
+					NULL,
+					payment->payment_secret,
+					payment->payment_metadata,
+					payment->extra_tlvs,
+					&tail_size);
+		if (max_hops == UINT32_MAX) {
+			error = tal_fmt(tmpctx,
+					"The final payload is too big to "
+					"fit an onion packet: %zu bytes",
+					tail_size);
+			payment_log(payment, LOG_INFORM, "%s", error);
+			return command_fail(cmd, PAY_ROUTE_NOT_FOUND, "%s",
+					    error);
+		}
+	}
+
+	payment_log(payment, LOG_DBG, "onion budget is %" PRIu32 ".", max_hops);
+
+	dst = get_askrene_destination(payment);
+	/* This is bolt11 payment with 0 hops and we are not the destination. */
+	if (max_hops == 0 && !payment->paths &&
+	    !pubkey_eq(&xpay->local_id, dst)) {
+		error = tal_fmt(
+		    tmpctx,
+		    "onion budget is 0 and we are not the destination node, "
+		    "this payment is impossible");
+		payment_log(payment, LOG_INFORM, "%s", error);
+		return command_fail(cmd, PAY_ROUTE_NOT_FOUND, "%s", error);
+	}
+
+	/* It is a payment through a blinded path and we are not the front node.
+	 */
+	if (max_hops == 0 && payment->paths &&
+	    pubkey_eq(&xpay->fakenode, dst) && !this_node_front) {
+		error = tal_fmt(tmpctx, "onion budget is 0 and we are not a "
+					"front node in any blinded path, "
+					"this payment is impossible");
+		payment_log(payment, LOG_INFORM, "%s", error);
+		return command_fail(cmd, PAY_ROUTE_NOT_FOUND, "%s", error);
+	}
+
+	return populate_private_layer(cmd, payment);
+}
+
 static struct command_result *age_layer(struct command *timer_cmd, void *unused)
 {
 	struct out_req *req;
@@ -3057,8 +3189,7 @@ preapprovekeysend_succeed(struct command *cmd,
 		return command_check_done(cmd);
 	}
 
-	/* Actually we don't need a private layer, but unification is easy. */
-	return populate_private_layer(cmd, payment);
+	return check_onion_budget(cmd, payment);
 }
 
 static struct command_result *json_xkeysend(struct command *cmd,
