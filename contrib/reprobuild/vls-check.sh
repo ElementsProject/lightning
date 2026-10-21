@@ -47,9 +47,10 @@ fi
 machine=$(printf '%s' "$hdr" | sed -n 's/^ *Machine: *//p')
 case "$machine" in
 *X86-64*) emu=; qemu= ;;
-*AArch64*) qemu="qemu-aarch64" ;;
+# The oldest Raspberry Pi each arm row must run on (nix/release-rows).
+*AArch64*) qemu="qemu-aarch64" cpu=cortex-a53 ;;
 *ARM*)
-    qemu="qemu-arm"
+    qemu="qemu-arm" cpu=cortex-a7
     echo "--- ARM build attributes"
     readelf -A "$bin" |
         grep -E 'Tag_CPU_arch|Tag_FP_arch|Tag_ABI_VFP_args|Tag_Advanced_SIMD|Tag_CPU_name' || true
@@ -65,8 +66,8 @@ if [ -n "${qemu:-}" ]; then
         --no-link --print-out-paths --expr \
         "(import (builtins.getFlake \"git+file://$top?submodules=1\").inputs.nixpkgs { system = \"x86_64-linux\"; }).qemu" |
         head -1)
-    emu="$qemudir/bin/$qemu"
-    [ -x "$emu" ] || { echo "CHECK FAILED: no $qemu in $qemudir" >&2; exit 1; }
+    emu="$qemudir/bin/$qemu -cpu $cpu"
+    [ -x "$qemudir/bin/$qemu" ] || { echo "CHECK FAILED: no $qemu in $qemudir" >&2; exit 1; }
 fi
 
 echo "--- run"
