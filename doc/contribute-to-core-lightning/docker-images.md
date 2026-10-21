@@ -75,11 +75,25 @@ Platforms: linux/amd64, linux/amd64/v2, linux/amd64/v3, linux/amd64/v4, linux/38
 ```
 
 # Building/publishing images on Dockerhub
-1. Ensure that your multiarch setup is working
 
-2. Run script `tools/build-release.sh --push docker` to build `amd64`, `arm64v8`, `latest` and `multiarch` images and publish them on Dockerhub.
+Release images are built and published by the release driver, from the same
+static tarballs the release signs — the image compiles nothing:
 
-3. If you do not want to push the images directly on Dockerhub then run `tools/build-release.sh docker`. It will only create images locally but not push them to Dockerhub.
+1. Ensure that your multiarch setup is working (the driver smoke-tests every
+   platform of the image under `binfmt` before it is published).
+
+2. `tools/reprobuild docker` builds one multi-arch image into a local OCI layout
+   under `release/docker/` and records its per-architecture digests in
+   `DIGESTS-<version>` and `DIGESTS-<version>-armhf`, which the release
+   manifests sign. Nothing is pushed.
+
+3. `tools/reprobuild publish` pushes it, with `skopeo copy --all
+   --preserve-digests`, so the digests users pull are the digests that were
+   signed. Add `--latest` to also move the `latest` tag; it is never implied and
+   never applied to an rc.
+
+See the [release checklist](https://docs.corelightning.org/docs/release-checklist)
+for where those steps sit in a release.
 
 
 # Miscellaneous
@@ -96,26 +110,20 @@ The Core Lightning (CLN) Docker image (platforms: `linux/amd64`, `linux/arm64`, 
 docker run -it --rm --platform=linux/amd64 --network=host -v '/root/.lightning:/root/.lightning' -v '/root/.bitcoin:/root/.bitcoin' elementsproject/lightningd:latest --network=regtest
 ```
 
-## Test repro Dockerfiles and repro-build.sh:
-1. Once the `cl-repro-<distro>` builder image is created, you can run it with:
+## Testing the reproducible build
+
+There are no `cl-repro-<distro>` builder images any more: the release is built
+by a Nix derivation inside a digest-pinned `nixos/nix` container, and
+`tools/reprobuild` is the only entry point. To poke at the build environment:
 
 ```shell
-docker run -it -v $(pwd):/repo cl-repro-noble /bin/bash
+tools/reprobuild build amd64            # one row
+tools/reprobuild build amd64 --rebuild  # and have Nix prove it reproduces
 ```
 
-2. Get the Docker container ID of the above container using:
-
-```shell
-docker container ps
-```
-
-3. Start a shell in the container with:
-
-```shell
-docker exec -it <container-id-from-step2> bash
-```
-
-4. You can now run `. tools/repro-build.sh` with `--force-version` and `--force-mtime` arguments as needed.
+`--host-nix` uses your own Nix instead of the container, which is faster if you
+have one. See the [reproducible builds
+page](https://docs.corelightning.org/docs/repro) for the full flow.
 
 ## Execute other scripts for testing:
 
@@ -162,7 +170,15 @@ export RUST_BACKTRACE=1
 
 4. Finally, run the Core Lightning node:
 
-4.1 Either by utilizing our docker image flavor `elementsproject/lightningd:v25.12-vls` which comes with pre-built `remote_hsmd_socket` binaries.
+> 🚧 The `-vls` image flavour is not published at the moment
+>
+> Core Lightning offers channel splicing by default and refuses to start with a
+> signer that cannot sign splice transactions, which no released VLS does yet.
+> The `-vls` image and the released `remote_hsmd_socket` binaries are therefore
+> suspended — 4.1 below describes how they work and will work again, but for now
+> use 4.2 with a signer you built yourself.
+
+4.1 Either by utilizing our docker image flavor `elementsproject/lightningd:v25.12-vls` which comes with pre-built `remote_hsmd_socket` binaries. The image sets `VLS_ENABLED`, `VLS_CLN_VERSION` and the network for you; you still have to pass `BITCOIND_RPC_URL`, because the signer validates against the chain itself and its bitcoind need not be the node's.
 
 ```shell
 docker run -it --rm -d \
