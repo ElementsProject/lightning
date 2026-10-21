@@ -31,6 +31,8 @@ struct offers_data {
 	struct short_channel_id *dev_invoice_internal_scid;
 	/* --dev-currency-expiry: max invoice expiry for currency offers (default 600) */
 	u32 dev_currency_expiry;
+	/* --dev-invoice-blinded-padding: pad our final blinded hop by this much */
+	u32 dev_invoice_blinded_padding;
 	/* Use get_gossmap() to access this! */
 	struct gossmap *global_gossmap_;
 };

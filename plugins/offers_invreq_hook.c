@@ -392,6 +392,11 @@ static struct command_result *found_best_peer(struct command *cmd,
 						   &od->invoicesecret_base,
 						   ir->inv->invoice_payment_hash);
 
+		/* Testing: make the blinded path take more onion space */
+		if (od->dev_invoice_blinded_padding)
+			etlvs[1]->padding = tal_arrz(etlvs[1], u8,
+						     od->dev_invoice_blinded_padding);
+
 		ir->inv->invoice_paths = tal_arr(ir->inv, struct blinded_path *, 1);
 		ir->inv->invoice_paths[0]
 			= blinded_path_from_encdata_tlvs(ir->inv->invoice_paths,

@@ -1998,6 +1998,7 @@ int main(int argc, char *argv[])
 	od->dev_invoice_bpath_scid = false;
 	od->dev_invoice_internal_scid = NULL;
 	od->dev_currency_expiry = 600;
+	od->dev_invoice_blinded_padding = 0;
 	od->global_gossmap_ = NULL;
 
 	/* We deal in UTC; mktime() uses local time */
@@ -2019,5 +2020,8 @@ int main(int argc, char *argv[])
 		    plugin_option_dev_dynamic("dev-currency-expiry", "int",
 					      "Max invoice expiry (seconds) for currency-denominated recurring offers",
 					      u32_option, u32_jsonfmt, &od->dev_currency_expiry),
+		    plugin_option_dev_dynamic("dev-invoice-blinded-padding", "int",
+					      "Add this many bytes of padding to the final hop of invoice blinded paths",
+					      u32_option, u32_jsonfmt, &od->dev_invoice_blinded_padding),
 		    NULL);
 }
