@@ -66,6 +66,11 @@ RELEASE_SHIPS_VLS = False
 # binaries we just signed actually run.
 RELEASE_SMOKE_IMAGE = "ubuntu:26.04"
 
+# How often --wait-for-key retries the key.  Each retry is a real signature
+# attempt, so this is not free: often enough that nobody stands around waiting,
+# rare enough that a smartcard is not hammered for half an hour.
+KEY_POLL_SECONDS = 10
+
 
 def die(msg: str) -> None:
     sys.exit(f"reprobuild: {msg}")
@@ -722,28 +727,69 @@ class Driver:
                       f"# vls-vendorHash {self.vls_pin('vendorHash')}"]
         return "\n".join(lines) + "\n"
 
-    def preflight_sign(self) -> None:
-        """`all` ends in `sign`, and an hour of building that dies on a key
-        nobody could reach is the worst possible ordering."""
-        if self.args.no_sign:
-            return
+    def key_answers(self) -> str:
+        """Sign a throwaway file: the only honest test of the signing key, and
+        the only one that also unlocks a smartcard.  Returns "" on success, or
+        gpg's complaint."""
         with tempfile.TemporaryDirectory() as d:
             f = Path(d) / "preflight"
             f.write_text("preflight\n")
             p = subprocess.run(["gpg", "--batch", "--yes", "--armor",
                                 "--detach-sign", "--output", f"{f}.asc", str(f)],
                                capture_output=True, text=True)
-            if p.returncode:
-                err = " ".join(p.stderr.strip().splitlines()[-2:])
-                die(f"the signing key does not answer, and this run would end in a "
-                    f"signature:\n  {err}\n  If the key is on a smartcard, plug it in "
-                    "and unlock it, then try again.\n  To build without signing (no "
-                    "release can be published this way), pass --no-sign.")
-        info("preflight: the signing key answers")
+            if not p.returncode:
+                return ""
+            return " ".join(p.stderr.strip().splitlines()[-2:]) or "gpg failed"
+
+    def preflight_sign(self) -> None:
+        """`all` ends in `sign`, and an hour of building that dies on a key
+        nobody could reach is the worst possible ordering.
+
+        With --wait-for-key that ordering is given up on purpose: the operator
+        is not expected to be at the machine when the build starts, so absence
+        stops being an error and becomes something to wait for.  The wait polls
+        this same test rather than reading a keypress -- long runs here are
+        started detached, where there is no stdin to read from, but a log to
+        tail; and polling the key is the answer to "is it ready", where a
+        keypress is only a claim that it is."""
+        if self.args.no_sign:
+            return
+        err = self.key_answers()
+        if not err:
+            info("preflight: the signing key answers")
+            return
+        advice = ("If the key is on a smartcard, plug it in and unlock it, then try "
+                  "again.\n  To build without signing (no release can be published "
+                  "this way), pass --no-sign.")
+        if not self.args.wait_for_key:
+            die("the signing key does not answer, and this run would end in a "
+                f"signature:\n  {err}\n  {advice}\n  To wait for it instead of "
+                "failing, pass --wait-for-key.")
+        limit = self.args.wait_for_key
+        info(f"WAITING for the signing key -- plug it in and unlock it. "
+             f"Giving up after {limit}s. (Ctrl-C to abort.)")
+        info(f"  gpg says: {err}")
+        start, nagged = time.monotonic(), 0.0
+        while True:
+            waited = time.monotonic() - start
+            if waited >= limit:
+                die(f"the signing key still does not answer after {int(waited)}s.\n"
+                    f"  {err}\n  {advice}")
+            time.sleep(min(KEY_POLL_SECONDS, limit - waited))
+            err = self.key_answers()
+            if not err:
+                info(f"the signing key answers after {int(time.monotonic() - start)}s")
+                return
+            if time.monotonic() - start - nagged >= 60:
+                nagged = time.monotonic() - start
+                info(f"  still waiting for the signing key ({int(nagged)}s of {limit}s)")
 
     def verb_sign(self) -> None:
-        self.preflight_sign()
+        # Tree first, key second: the tree check is instant, and --wait-for-key
+        # can block for half an hour.  Summoning someone to unlock a smartcard
+        # and then refusing the run for a dirty tree is the wrong order.
         self.prepare_tree()
+        self.preflight_sign()
         ver, vlsver, out = self.version(), self.vls_version(), Path(self.args.out)
         if not out.is_dir():
             die(f"no {out}; run build/vls/zip/docker first")
@@ -1112,7 +1158,11 @@ class Driver:
         info('disclose: REMEMBER to re-enable the "Release 🚀" workflow')
 
     def verb_all(self) -> None:
-        self.preflight_sign()
+        # Normally first, to fail before an hour of building.  --wait-for-key
+        # trades that away deliberately: the key is expected to arrive later,
+        # so the wait belongs in `sign`, not here.
+        if not self.args.wait_for_key:
+            self.preflight_sign()
         self.verb_fetch()
         self.verb_zip()
         self.verb_build(["all"])
@@ -1150,6 +1200,13 @@ def main() -> None:
                    help="build from an uncommitted tree; never valid for a release")
     p.add_argument("--no-sign", action="store_true",
                    help="write the manifests but do not gpg-sign them")
+    p.add_argument("--wait-for-key", nargs="?", type=int, const=1800, default=0,
+                   metavar="SECONDS",
+                   help="if the signing key does not answer, wait for it instead "
+                        "of failing (default 1800s). `all` then skips its up-front "
+                        "key check and waits when it reaches sign, so the build "
+                        "needs nobody at the machine until there is something to "
+                        "sign")
     p.add_argument("--no-smoke", action="store_true",
                    help="skip the image smoke test in `docker`")
     p.add_argument("--latest", action="store_true",
