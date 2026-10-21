@@ -358,15 +358,16 @@ def test_lsps2_non_approved_zero_conf(node_factory, bitcoind):
 LSPS2_MOCK = os.path.join(os.path.dirname(__file__), "plugins/lsps2_mock.py")
 
 
-def lsps2_mock_nodes(node_factory):
+def lsps2_mock_nodes(node_factory, client_opts=None):
     """Client l1, LSP l2 running the mock service, payer l3.
 
     l3 has a public channel to l2; l1 is only connected to l2.
+    `client_opts` are added to l1's options.
     """
     l1, l2, l3 = node_factory.get_nodes(
         3,
         opts=[
-            {"experimental-lsps-client": None},
+            {"experimental-lsps-client": None, **(client_opts or {})},
             {
                 "plugin": LSPS2_MOCK,
                 # The mock deducts the opening fee; no forwarding fee on top.
@@ -784,9 +785,23 @@ def test_lsps2_mock_open_failed(node_factory):
     with pytest.raises(RpcError):
         lsps2_mock_pay_var_invoice(l1, l2, l3, 10_000_000)
 
-    only_one(lsps2_mock_events(l2, "open_failed"))
+    assert only_one(lsps2_mock_events(l2, "open_failed"))["connected"]
     assert only_one(lsps2_mock_events(l2, "htlc"))["decision"] == "fail"
     assert l1.rpc.listpeerchannels()["channels"] == []
+
+
+def test_lsps2_mock_open_disconnect(node_factory):
+    """If the client disconnects before funding_signed, the mock fails the
+    payment with temporary_channel_failure (bLIP-52)."""
+    l1, l2, l3 = lsps2_mock_nodes(
+        node_factory, client_opts={"disconnect": ["-WIRE_FUNDING_SIGNED"]}
+    )
+
+    with pytest.raises(RpcError) as err:
+        lsps2_mock_pay_var_invoice(l1, l2, l3, 10_000_000)
+    assert err.value.error["data"]["failcode"] == 0x1007
+
+    assert not only_one(lsps2_mock_events(l2, "open_failed"))["connected"]
 
 
 def test_lsps2_mock_request_error(node_factory):
@@ -828,8 +843,9 @@ def test_lsps2_mock_htlc_error(node_factory):
         {"config": {"htlc": {"behavior": "deduct", "deductions": [amt + 1]}}},
     )
 
-    with pytest.raises(RpcError):
+    with pytest.raises(RpcError) as err:
         lsps2_mock_pay_var_invoice(l1, l2, l3, amt)
+    assert err.value.error["data"]["failcode"] == 0x2002
 
     assert only_one(lsps2_mock_events(l2, "error"))["where"] == "release"
     assert only_one(lsps2_mock_events(l2, "htlc"))["decision"] == "fail"
