@@ -1,0 +1,49 @@
+row
+  arch armhf
+  host armv7l-unknown-linux-musleabihf
+toolchain
+  gcc 14.3.0
+  rustc 1.89.0
+  python 3.13.8
+nativeBuildInputs
+  armv7l-unknown-linux-musleabihf-cargo 1.89.0
+  armv7l-unknown-linux-musleabihf-pkgconf-wrapper 2.4.3
+  armv7l-unknown-linux-musleabihf-rustc 1.89.0
+  autoconf 2.72
+  autogen 5.18.16
+  automake 1.18.1
+  file 5.45
+  gcc-wrapper 14.3.0
+  gettext 0.25.1
+  git-minimal 2.51.0
+  jq 1.8.1
+  libtool 2.5.4
+  lowdown 2.0.2
+  protobuf 32.1
+  python3 3.13.8-env
+  unzip 6.0
+  which 2.23
+buildInputs
+  gmp-with-cxx 6.3.0
+  jq 1.8.1
+  libpq 18.0
+  libsodium 1.0.20
+  openssl 3.6.0
+  sqlite 3.50.4
+  zlib 1.3.1
+flags
+  configure --disable-valgrind --prefix=/usr
+  dontBuild true
+  dontPatchELF true
+  strip --strip-all
+  rustflags --remap-path-prefix=$NIX_BUILD_TOP=/home/clightning --remap-path-prefix=<cargo-vendor>=/home/clightning/vendor -C link-arg=-Wl,--build-id=sha1
+  env NIX_DONT_SET_RPATH_armv7l_unknown_linux_musleabihf=1
+  env NIX_NO_SELF_RPATH=1
+  env NIX_OUTPATH_USED_AS_RANDOM_SEED=cln-release
+  make RUST_PROFILE=release
+  make PIE_LDFLAGS=-static-pie
+  make TARGET=armv7-unknown-linux-musleabihf
+  make AR=armv7l-unknown-linux-musleabihf-ar
+  make BUILD=x86_64-unknown-linux-gnu
+  make MAKE_HOST=armv7l-unknown-linux-musleabihf
+  make CC_FOR_BUILD=cc
