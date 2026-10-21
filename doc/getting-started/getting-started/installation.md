@@ -17,13 +17,27 @@ sudo snap refresh --hold bitcoin-core	# To prevent automated update of bitcoin-c
 sudo ln -s /snap/bitcoin-core/current/bin/bitcoin{d,-cli} /usr/local/bin/
 ```
 
-Then you can fetch a pre-compiled binary from the [releases](https://github.com/ElementsProject/lightning/releases) page on GitHub. Core Lightning provides binaries for both Ubuntu and Fedora distributions. Normally these binaries are extracted into /usr/local:
+Then you can fetch a pre-compiled binary from the [releases](https://github.com/ElementsProject/lightning/releases) page on GitHub. There is **one binary tarball per architecture**, not one per distribution: the binaries are statically linked, so the same tarball works on any Linux distribution.
+
+| Tarball | Architecture | Requires |
+|---|---|---|
+| `clightning-<version>-static-amd64.tar.xz` | x86-64 | any Linux |
+| `clightning-<version>-static-arm64.tar.xz` | AArch64 (`arm64`) | any Linux, ARMv8-A or newer — Raspberry Pi 3, 4, 5 |
+| `clightning-<version>-static-armhf.tar.xz` | 32-bit ARM (`armhf`) | any Linux, ARMv7-A hard-float or newer — Raspberry Pi 2 and newer, **not** Pi 1 / Zero / Zero W |
+
+Unsure which one you want? `dpkg --print-architecture`, or `uname -m` (`x86_64` → amd64, `aarch64` → arm64, `armv7l` → armhf). On a Raspberry Pi 3, 4 or 5 prefer `arm64` even if your userland is 32-bit, since the hardware is ARMv8.
+
+The tarballs unpack over the filesystem root, with everything under `/usr`:
 ```shell
-sudo rm -R /usr/local/libexec/c-lightning/plugins # If you are upgrading run this first to avoid plugin conflicts
-sudo tar -xvf <release>.tar.xz -C /usr/local --strip-components=2
+# If you are upgrading, remove the old plugins first to avoid conflicts.
+# Releases up to and including v25.09 installed into /usr/local:
+sudo rm -R /usr/local/libexec/c-lightning/plugins /usr/libexec/c-lightning/plugins
+sudo tar -xvf clightning-<version>-static-<arch>.tar.xz -C /
 ```
 
-If you're on a different distribution or OS, you can compile the source by following the instructions from [Installing from Source](doc:installation#installing-from-source).
+Both sqlite and PostgreSQL support are built in, and the binaries need no libraries from your distribution — not even a libc.
+
+If you're on an OS other than Linux, or on 32-bit ARM older than ARMv7, you can compile the source by following the instructions from [Installing from Source](doc:installation#installing-from-source).
 
 # Docker
 

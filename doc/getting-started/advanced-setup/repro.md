@@ -6,7 +6,16 @@ privacy:
 ---
 [Reproducible builds](https://reproducible-builds.org/) close the final gap in the lifecycle of open-source projects by allowing anyone to verify that a given binary was produced by compiling publicly available source code.
 
-Core Lightning has provided a manifest of the binaries included in a release, along with signatures from the maintainers since version 0.6.2.
+Core Lightning has provided a manifest of the binaries included in a release, along with signatures from the maintainers, since version 0.6.2.
+
+> 🚧 Status
+>
+> This page documents the Nix-based build introduced on the
+> `prototype/nix-static` branch, driven by `tools/reprobuild`. All three
+> architectures build, reproduce under `nix build --rebuild` and pass the
+> release checks, and a co-signer's `verify` has reproduced every file in
+> both manifests. What has not yet run against a real key is the signing
+> itself.
 
 The steps involved in creating reproducible builds are:
 
@@ -16,105 +25,133 @@ The steps involved in creating reproducible builds are:
 - Creation of a manifest (`SHA256SUMS` file containing the cryptographic hashes of the binaries and packages)
 - Signing of the manifest by maintainers and volunteers that have reproduced the files in the manifest starting from the source.
 
-The bulk of these operations are handled by the [`repro-build.sh`](https://github.com/ElementsProject/lightning/blob/master/tools/repro-build.sh) script, but some manual operations are required to setup the build environment. Since a binary is built against platform specific libraries we also need to replicate the steps once for each OS distribution and architecture, so the majority of this guide will describe how to set up those starting from a minimal trusted base. This minimal trusted base in most cases is the official installation medium from the OS provider.
+Note: Since your signature certifies the integrity of the resulting binaries, please familiarize yourself with the build setup before signing anything.
 
-Note: Since your signature certifies the integrity of the resulting binaries, please familiarize yourself with both the [`repro-build.sh`](https://github.com/ElementsProject/lightning/blob/master/tools/repro-build.sh) script, as well as with the setup instructions for the build environments before signing anything.
+# The available binaries
 
-# Build Environment Setup
+Every release ships **one build per architecture**, not one per distribution. The binaries are statically linked against [musl libc](https://musl.libc.org/), so they carry no runtime dependency on the libc, OpenSSL, sqlite or libpq of the machine they run on, and the same tarball works on any Linux distribution for that architecture.
 
-The build environments are a set of docker images that are created directly from the installation mediums and repositories from the OS provider. The following sections describe how to create those images. Don't worry, you only have to create each image once and can then reuse the images for future builds.
+| Artifact | Architecture | Runs on | Notes |
+|---|---|---|---|
+| `clightning-<version>-static-amd64.tar.xz` | x86-64 | any Linux, x86-64 | baseline x86-64; uses hardware CRC32 where the CPU reports it |
+| `clightning-<version>-static-arm64.tar.xz` | AArch64 (`arm64`) | any Linux, ARMv8-A and newer | Raspberry Pi 3, 4, 5, Zero 2 W; most ARM servers |
+| `clightning-<version>-static-armhf.tar.xz` | 32-bit ARM (`armhf`) | any Linux, **ARMv7-A** hard-float and newer | Raspberry Pi 2 and newer. **Not** Pi 1 / Zero / Zero W, which are ARMv6. Signed in the separate `armhf` manifest — see the caveat under [Co-signing the release manifest](#co-signing-the-release-manifest) |
+| `lightningd` Docker image | amd64, arm64, arm/v7 | Docker | built *from* the tarballs above, one multi-arch manifest. The `arm/v7` half inherits the `armhf` caveat below |
+| `clightning-<version>.zip` | — | — | source archive |
 
-## Script cl-repro
+What this means in practice:
 
-The script `contrib/cl-repro.sh` covers below `Base image creation` and `Builder image setup` steps. You can skip these steps by simply running the `contrib/cl-repro.sh` script.
+- **There is no distribution dimension any more.** Earlier releases shipped
+  `clightning-<version>-Ubuntu-22.04.tar.xz` and friends, one per distribution and
+  version, because the binaries were dynamically linked against that distribution's
+  libraries. Pick the tarball for your architecture instead.
+- **32-bit ARM requires ARMv7-A with hardware floating point.** Raspberry Pi 1,
+  Pi Zero and Pi Zero W are ARMv6 and are not supported; build from source there.
+  On a Pi 3, 4 or 5 prefer the `arm64` tarball, even if you run a 32-bit userland —
+  the hardware is ARMv8.
+- **PostgreSQL and sqlite are both built in.** `--wallet=postgres://…` works out of
+  the box; libpq is linked statically like everything else.
+- **The binaries are stripped**, and each one keeps its GNU build-id so a crash
+  report can still be resolved against the release. Debug symbols are not published.
+- Every executable is a **static PIE** (`static-pie`), so ASLR still applies.
+- **There is no Validating Lightning Signer binary and no `-vls` image in this
+  release.** Core Lightning offers channel splicing by default and refuses to
+  run with a signer that cannot sign splice transactions; no released VLS
+  implements that yet, so the signer binary and the image built around it
+  could only have been published unable to start. Both return, with the
+  manifest lines that go with them, once upstream VLS signs splices. The build
+  recipe stays in the tree (`tools/reprobuild vls`) for anyone who wants to
+  build one anyway.
 
-## Base image creation
+## Installing a tarball
 
-Depending on the distribution that we want to build for the instructions to create a base image can vary. In the following sections we discuss the specific instructions for each distribution, whereas the instructions are identical again once we have the base image.
-
-### Debian / Ubuntu and derivative OSs
-
-For operating systems derived from Debian we can use the `debootstrap` tool to build a minimal OS image, that can then be transformed into a docker image. The packages for the minimal OS image are directly downloaded from the installation repositories operated by the OS provider.
-
-We cannot really use the `debian` and `ubuntu` images from the docker hub, mainly because it'd be yet another trusted third party, but it is also complicated by the fact that the images have some of the packages updated. The latter means that if we disable the `updates` and `security` repositories for `apt` we find ourselves in a situation where we can't install any additional packages (wrongly updated packages depending on the versions not available in  
-the non-updated repos).
-
-The following table lists the codenames of distributions that we currently support:
-
-- Ubuntu 22.04:
-  - Distribution Version: 22.04
-  - Codename: jammy
-- Ubuntu 24.04:
-  - Distribution Version: 24.04
-  - Codename: noble
-- Ubuntu 26.04:
-  - Distribution Version: 26.04
-  - Codename: resolute
-
-Depending on your host OS release you might not have `debootstrap` manifests for versions newer than your host OS. Due to this we run the `debootstrap` commands in a container of the latest version itself:
-
-```shell
-for v in jammy noble resolute; do
-  echo "Building base image for $v"
-  docker run --rm -v $(pwd):/build ubuntu:$v \
-	bash -c "apt-get update && apt-get install -y debootstrap && debootstrap $v /build/$v"
-  tar -C $v -c . | docker import - $v
-done
-```
-
-Verify that the image corresponds to our expectation and is runnable:
+The tarballs unpack over the filesystem root, with everything under `/usr`:
 
 ```shell
-docker run ubuntu:noble cat /etc/lsb-release
+sudo tar -xvf clightning-<version>-static-<arch>.tar.xz -C /
 ```
 
-Which should result in the following output for `noble`:
+Inspect one first with `tar -tvf` if you would rather see what it contains before
+unpacking it over `/`, or unpack it somewhere harmless and copy what you need.
+
+# Build environment setup
+
+The build environment is a **pinned nixpkgs revision**, recorded in `flake.lock` in
+the repository. There are no builder images to construct from installation media,
+no package pin lists to refresh and no per-distribution setup: the compiler, every
+library and every build tool are content-addressed store paths, fixed by that one
+revision, and Nix builds them in a sandbox with no network access.
+
+All you need is Nix with flakes enabled (`nix-command` and `flakes` in
+`experimental-features`). The builds above are produced with Nix 2.31.3; if your
+Nix cannot evaluate the flake, the driver can also run the whole build inside a
+digest-pinned `nixos/nix` container instead of using your own Nix.
+
+The release artifacts are built from **the same derivation as `packages.default`**,
+evaluated as a static (and, for the arm rows, cross) variant — the flake's
+`cln-release-static-amd64`, `cln-release-static-arm64` and
+`cln-release-static-armhf` attributes, which are generated from the plain table
+in `nix/release-rows`. The thing that gets tested hardest every release is
+therefore the same thing Nix users install.
+
+Two guards keep that sharing honest. `nix/release-rows` also records the nixpkgs
+revision the release is *certified* against: if `flake.lock` moves, the release
+attributes refuse to evaluate and `nix flake check` fails, in the commit that
+moved it. And each row commits a short file under `nix/release-manifests/`
+listing what that row is made of — its direct inputs with versions, the
+toolchain versions, the build flags and the environment — so a change that
+reaches the release shows up as a diff you can read without knowing Nix.
+
+# Building
+
+Check out the tag you are building and run the driver. It needs **docker,
+coreutils and python3 (3.10 or newer)**, and nothing else: the driver is a
+single standard-library script, and every Nix command runs inside a
+digest-pinned `nixos/nix` container, with a store under
+`~/.cache/cln-reprobuild`. If you have Nix yourself and want the faster loop,
+add `--host-nix`.
 
 ```shell
-DISTRIB_ID=Ubuntu
-DISTRIB_RELEASE=24.04
-DISTRIB_CODENAME=noble
-DISTRIB_DESCRIPTION="Ubuntu 24.04 LTS"
+tools/reprobuild build          # all three rows
+tools/reprobuild build amd64    # or one
 ```
 
-## Builder image setup
+The driver refuses to build a release from a tree with uncommitted changes: Nix
+caches the working tree it fetched, so the artifacts could otherwise be labelled
+with a commit they were not built from.
 
-Once we have the clean base image we need to customize it to be able to build Core Lightning. This includes disabling the update repositories, downloading the build dependencies and specifying the steps required to perform the build.
+The arm rows are cross-compiled from x86-64; no emulation is involved except for
+the handful of build steps that run their own output, which use a QEMU taken from
+the pinned closure rather than from the host's `binfmt` registration. That matters
+for reproducibility: a build that relied on the host's `binfmt` would give a
+different answer on a machine configured differently.
 
-For this purpose we have a number of Dockerfiles in the [`contrib/reprobuild`](https://github.com/ElementsProject/lightning/tree/master/contrib/reprobuild) directory that have the specific instructions for each base image.
-
-We can then build the builder image by calling `docker build` and passing it the `Dockerfile`:
+Each row prints the hash of the artifact it wrote, and then checks it — every
+shipped executable must be stripped, position-independent, free of any embedded
+library search path, and still carry its build-id:
 
 ```shell
-docker build -t cl-repro-jammy - < contrib/reprobuild/Dockerfile.jammy
-docker build -t cl-repro-noble - < contrib/reprobuild/Dockerfile.noble
-docker build -t cl-repro-resolute - < contrib/reprobuild/Dockerfile.resolute
+reprobuild: wrote release/clightning-v25.12-static-amd64.tar.xz
+57666565916779e12046cf8277e31554e1ce65ea08f3cd459694fb7101f85346  release/clightning-v25.12-static-amd64.tar.xz
+check: OK (40 ELFs, all static-pie, stripped, with build-id)
 ```
 
-Since we pass the `Dockerfile` through `stdin` the build command will not create a context, i.e., the current directory is not passed to `docker` and it'll be independent of the currently checked out version. This also means that you will be able to reuse the docker image for future builds, and don't have to repeat this dance every time. Verifying the `Dockerfile` therefore is  
-sufficient to ensure that the resulting `cl-repro-<codename>` image is reproducible.
-
-The dockerfiles assume that the base image has the codename as its image name.
-
-# Building using the builder image
-
-Finally, after finishing the environment setup we can perform the actual build. At this point we have a container image that has been prepared to build reproducibly. As you can see from the `Dockerfile` above we assume the source git repository gets mounted as `/repo` in the docker container. The container will clone the repository to an internal path, in order to keep the repository clean, build the artifacts there, and then copy them back to `/repo/release`.  
-We'll need the release directory available for this, so create it now if it doesn't exist:`mkdir release`, then we can simply execute the following command inside the git repository (remember to checkout the tag you are trying to build):
-
-```bash
-docker run --rm -v $(pwd):/repo -ti cl-repro-jammy
-docker run --rm -v $(pwd):/repo -ti cl-repro-noble
-docker run --rm -v $(pwd):/repo -ti cl-repro-resolute
-```
-
-The last few lines of output also contain the `sha256sum` hashes of all artifacts, so if you're just verifying the build those are the lines that are of interest to you:
+The tarball is itself a Nix output, so `--rebuild` has Nix build it a second
+time and compare against the store. That is a stronger statement than running
+the driver twice, which is only a store hit, and it covers the exact bytes that
+get signed rather than a `tar` run afterwards:
 
 ```shell
-ee83cf4948228ab1f644dbd9d28541fd8ef7c453a3fec90462b08371a8686df8  /repo/release/clightning-v0.9.0rc1-Ubuntu-18.04.tar.xz
-94bd77f400c332ac7571532c9f85b141a266941057e8fe1bfa04f054918d8c33  /repo/release/clightning-v0.9.0rc1.zip
+tools/reprobuild build amd64 --rebuild
 ```
 
-Repeat this step for each distribution and each architecture you wish to sign. Once all the binaries are in the `release/` subdirectory we can sign the hashes.
+The build takes 20–40 minutes per row on a modern 16-thread machine, and the first
+run of a cross row also builds that architecture's toolchain, which can take
+considerably longer.
+
+The source archive is a Nix output too, built from the same tree rather than
+assembled on your machine, so `tools/reprobuild zip` gives the same bytes
+everywhere.
 
 ## ARM builds (arm64 and armv7)
 
@@ -134,60 +171,133 @@ Once the tarballs are built, `tools/sign-release-arm.sh v<VERSION> arm64` (or `a
 
 # Signing the release manifest
 
-The release captain is in charge of creating the manifest, whereas contributors and interested bystanders may contribute their signatures to further increase trust in the binaries.
+The release captain is in charge of creating the manifest, whereas contributors and
+interested bystanders may contribute their signatures to further increase trust in
+the binaries.
 
-## Script build-release
-1: Pull latest code from master
+There are **two** manifests, because one architecture cannot currently be
+confirmed by anyone but the captain (see the caveat below):
 
-2: Run the `tools/build-release.sh bin-Fedora bin-Ubuntu sign` script. This will create a release directory, build binaries for Fedora, and build binaries for Ubuntu (Jammy, Noble, and Resolute). Finally, it will sign the ZIP, Fedora, and Ubuntu builds.
+- `SHA256SUMS-<version>` — every release file except the 32-bit ARM ones. Every
+  co-signer is expected to reproduce and sign this.
+- `SHA256SUMS-<version>-armhf` — the `armhf` tarball and the `armhf` image
+  digests. Co-signers sign this **only if** they actually reproduced it, and
+  simply omit their signature otherwise.
 
-## Manual
-The release captain creates the manifest as follows:
+The release captain writes and signs both with one command:
 
 ```shell
-cd release/
-sha256sum *v0.9.0* > SHA256SUMS
-gpg -sb --armor SHA256SUMS
+tools/reprobuild sign
 ```
+
+Each manifest begins with a comment block recording what the build consumed —
+the commit, the flake's `narHash`, whether submodules were included, the
+timestamp baked into the artifacts, and the certified nixpkgs revision.
+`sha256sum` ignores those lines; they are there so that a hash is never
+reported without the tree it came from. The driver refuses to write a manifest
+whose files were not all built from the same tree.
+
+The split is deliberate: it keeps a co-signer from having to choose between
+signing bytes they could not verify and withholding a signature from the whole
+release.
 
 # Co-signing the release manifest
 
-## Script build-release
-1: Pull latest code from master.
-
-2: Rename checksum files, shared by the release captain, to `SHA256SUMS-v($VERSION)` and `SHA256SUMS-v($VERSION).asc`.
-
-2: Copy above files in the lightning directory.
-
-3: Run `tools/build-release.sh --verify` script. It will build binaries for Ubuntu (Jammy, Noble & Resolute), verify zip & Ubuntu builds while copying Fedora checksums from the release captain's file.
-
-4. Then send the resulting `release/SHA256SUMS.asc` file to the release captain so it can be merged with the other signatures into `SHASUMS.asc`.
-
-## Manual
-Co-maintainers and contributors wishing to add their own signature verify that the `SHA256SUMS` and `SHA256SUMS.asc` files created by the release captain matches their binaries before also signing the manifest.
-
-Always pass **both** files to `gpg --verify`: the signature first, then the file it is supposed to cover. See [Verifying a reproducible build](doc:repro#verifying-a-reproducible-build) below for why the single-argument form is not sufficient.
+Co-maintainers and contributors wishing to add their own signature rebuild the
+release and compare it against the captain's manifest. Hand the manifest to the
+driver and it does the rest:
 
 ```shell
-cd release/
-gpg --verify SHA256SUMS.asc SHA256SUMS
-sha256sum -c SHA256SUMS
-cat SHA256SUMS | gpg -sb --armor > SHA256SUMS.new
+tools/reprobuild verify SHA256SUMS-<version>
 ```
 
-Then send the resulting `SHA256SUMS.new` file to the release captain so it can be merged with the other signatures into `SHASUMS.asc`.
+It takes the commit and the timestamp **from the manifest**, not from whatever
+you have checked out — so you need that commit in your clone, but not on your
+current branch — rebuilds every file the manifest lists, compares them, and
+writes `SHA256SUMS-<version>.asc.<keyid>` only if all of them matched. Send
+that signature to the release captain, who merges it with the others.
+
+If the driver tells you that commit is not in your clone, fetch the tag first.
+For an ordinary release it is on GitHub:
+
+```shell
+git fetch origin tag v<version>
+```
+
+For an **embargoed** release the tag is only on the project's private mirror
+until disclosure, so fetch it from there instead — ask the release captain for
+the remote if you do not have it:
+
+```shell
+git fetch <private-mirror> tag v<version>
+```
+
+You do not need to check the tag out: `verify` builds the commit the manifest
+names, wherever your working tree happens to be.
+
+Lines for image digests are reported but never block: building the images is
+optional for a co-signer.
+
+If a file differs, the driver prints both hashes and withholds the signature.
+That is the whole protocol: tell the captain what you got, and the two of you
+work out the cause before anything is published.
+
+For the second manifest, run the same command against it. If it does not match,
+do not sign it — report the hashes you got and move on. That is a
+known-possible outcome today, and withholding the signature is the correct
+response, not a reason to hold up the release.
+
+Because one tarball now covers every distribution for its architecture, a co-signer
+with an x86-64 machine can reproduce **all three** rows: the arm rows are
+cross-compiled, so no ARM hardware is needed.
+
+> **Caveat: the `armhf` row is not currently reproducible across machines.**
+>
+> The `amd64` and `arm64` artifacts have been confirmed byte-identical when
+> built on two different x86-64 machines — different CPU vendors, different
+> core counts, different kernels, one with host Nix and one through the
+> pinned container. The `armhf` artifacts have not: two machines produce two
+> different hashes, stably, for `clightning-<version>-static-armhf.tar.xz`.
+>
+> This is a build-toolchain defect, not something about your machine: the
+> build inputs carry identical content hashes on both ends, each machine
+> reproduces its *own* output exactly (`--rebuild` passes everywhere), and
+> the difference is confined to the 32-bit ARM Rust binaries — every C
+> binary is byte-identical, build-ids included. The differing bytes are a
+> reordered string table in the ARM exception-unwinding objects that Rust
+> links in, with the rest following from the strings having moved.
+>
+> **What this means in practice:** the `armhf` files live in their own
+> `SHA256SUMS-<version>-armhf` manifest precisely so that this stays a local
+> problem. A mismatch there, with the main manifest passing, is currently
+> expected and is *not* evidence of a tampered artifact: report the hashes you
+> got, withhold your signature on the `armhf` manifest, and sign the main one
+> as normal. The 32-bit ARM binaries are still built, published and signed by
+> the captain; what they may lack is *independent* confirmation.
+>
+> Concretely, this means the `armhf` artifacts can carry a weaker guarantee
+> than the rest of the release — captain-attested rather than
+> multi-party-reproduced — and you should weigh that as you would any
+> single-source binary. The `amd64` and `arm64` artifacts are unaffected.
+>
+> The same applies to the `linux/arm/v7` half of the Docker images, and by
+> extension to the multi-arch image index, whose digest is computed over all
+> three architectures and so cannot be reproduced independently either. The
+> `linux/amd64` and `linux/arm64` image digests can be, and are signed in the
+> main manifest. A single 3-arch image is still published, so `docker pull`
+> is unchanged whichever architecture you are on.
 
 # Verifying a reproducible build
 
 You can verify the reproducible build in two ways:
 
 - Repeating the entire reproducible build, making sure from scratch that the binaries match. Just follow the instructions above for this.
-- Verifying that the downloaded binaries match the hashes in `SHA256SUMS` and that the signatures in `SHA256SUMS.asc` are valid.
+- Verifying that the downloaded binaries match the hashes in `SHA256SUMS-<version>` and that the signatures in `SHA256SUMS-<version>.asc` are valid.
 
 Assuming you have downloaded the binaries, the manifest and the signatures into the same directory, you can verify the signatures with the following:
 
 ```shell
-gpg --verify SHA256SUMS.asc SHA256SUMS
+gpg --verify SHA256SUMS-<version>.asc SHA256SUMS-<version>
 ```
 
 Pass both filenames explicitly. With a single argument `gpg` picks its verification mode from the packet structure of the `.asc` file: for a genuine detached signature it guesses the sibling `SHA256SUMS`, but for an inline (clear-signed or embedded) message it verifies only the payload carried inside the `.asc` itself. It never reads `SHA256SUMS` in that case, and although it prints `WARNING: not a detached signature; file 'SHA256SUMS' was NOT verified!`, it still exits with status 0 — so the warning is easy to miss by eye and invisible to any script that only checks the exit code. Naming the manifest as the second argument forces `gpg` to check the signatures against that exact file, and to fail outright if the `.asc` is not a detached signature over it.
@@ -206,27 +316,27 @@ gpg:                using RSA key 30DE693AE0DE9E37B3E7EB6BBFF0F67810C1EED1
 gpg: Good signature from "Lisa Neigut <niftynei@gmail.com>" [full]
 ```
 
-If there are any issues `gpg` will print `Bad signature`, it might be because the signatures in `SHA256SUMS.asc` do not match the `SHA256SUMS` file, and could be the result of a filename change. Do not continue using the binaries, and contact the maintainers, if this is not the case, a failure here means that the verification failed.
+If there are any issues `gpg` will print `Bad signature`, it might be because the signatures do not match the manifest, and could be the result of a filename change. Do not continue using the binaries, and contact the maintainers, if this is not the case, a failure here means that the verification failed.
 
 Next we verify that the binaries match the ones in the manifest:
 
 ```shell
-sha256sum -c SHA256SUMS
+sha256sum -c --ignore-missing SHA256SUMS-<version>
 ```
 
 Producing output similar to the following:
 
 ```shell
-sha256sum: clightning-v24.11-Fedora-35-amd64.tar.gz: No such file or directory
-clightning-v24.11-Fedora-35-amd64.tar.gz: FAILED open or read
-clightning-v24.11-Ubuntu-22.04.tar.xz: OK
-clightning-v24.11-Ubuntu-24.04.tar.xz: OK
-clightning-v24.11-Ubuntu-26.04.tar.xz: OK
-clightning-v24.11.zip: OK
-sha256sum: WARNING: 1 listed file could not be read
+clightning-v25.12-static-amd64.tar.xz: OK
+clightning-v25.12-static-arm64.tar.xz: OK
+clightning-v25.12.zip: OK
 ```
 
-Notice that the two files we downloaded are marked as `OK`, but we're missing one file. If you didn't download that file this is to be expected, and is nothing to worry about. A failure to verify the hash would give a warning like the following:
+`--ignore-missing` is there because the manifest lists every file in the
+release and you have probably downloaded only the ones you need — including the
+source archive, which is listed from the start but only published later for an
+embargoed release. Without it, `sha256sum` reports the files you do not have as
+failures. A failure to verify the hash would give a warning like the following:
 
 ```shell
 sha256sum: WARNING: 1 computed checksum did NOT match
