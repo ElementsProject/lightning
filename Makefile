@@ -620,7 +620,9 @@ check-python-flake8:
 	@# E731 do not assign a lambda expression, use a def
 	@# W503: line break before binary operator
 	@# E741: ambiguous variable name
-	@uv run flake8 --ignore=E501,E731,E741,W503,F541,E275 --exclude $(shell echo ${PYTHON_GENERATED} | $(SED) 's/ \+/,/g') ${PYSRC}
+	@# tools/reprobuild is python without a .py suffix -- it is the release
+	@# entry point, named in the docs -- so PYSRC's *.py glob misses it.
+	@uv run flake8 --ignore=E501,E731,E741,W503,F541,E275 --exclude $(shell echo ${PYTHON_GENERATED} | $(SED) 's/ \+/,/g') ${PYSRC} tools/reprobuild
 
 check-pytest-pyln-proto:
 	PATH=$(PYLN_PATH) PYTHONPATH=$(MY_CHECK_PYTHONPATH) uv run $(PYTEST) contrib/pyln-proto/tests/
