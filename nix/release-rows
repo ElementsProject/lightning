@@ -1,0 +1,25 @@
+# The release matrix: one row per static tarball (and VLS binary).
+#
+# Read by the flake (nix/pkgs/flake-module.nix), which generates
+# `cln-release-static-<arch>` and `vls-release-static-<arch>` from it, and by
+# tools/reprobuild with a plain `while read`.  No tooling on either side, so
+# keep it whitespace-separated, one row per line, `#` comments on their own
+# lines only.
+#
+# The `@nixpkgs` line is the nixpkgs revision these rows are *certified*
+# against.  It must equal the nixpkgs rev in flake.lock: `nix flake check`
+# fails at bump time if it does not, and the release derivations refuse to
+# evaluate.  Move it only with `tools/reprobuild certify`.
+#
+# arch   package-set path                                 docker platform
+amd64    pkgsStatic                                       linux/amd64
+arm64    pkgsCross.aarch64-multiplatform-musl.pkgsStatic  linux/arm64
+armhf    pkgsCross.armv7l-hf-multiplatform.pkgsStatic     linux/arm/v7
+
+@nixpkgs 6a08e6bb4e46ff7fcbb53d409b253f6bad8a28ce
+
+# Rows a co-signer is not required to reproduce (45): armhf's Rust binaries
+# differ across machines, so its artifacts live in their own manifest, signed
+# by a co-signer only if they did reproduce them.  Never a reason to hold a
+# release.
+@cosign-optional armhf
