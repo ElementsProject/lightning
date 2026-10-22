@@ -2618,23 +2618,6 @@ static void handle_peer_start_batch(struct peer *peer, const u8 *msg)
 }
 
 
-/* Pops the penalty base for the given commitnum from our internal list. There
- * may not be one, in which case we return NULL and leave the list
- * unmodified. */
-static struct penalty_base *
-penalty_base_by_commitnum(const tal_t *ctx, struct peer *peer, u64 commitnum)
-{
-	struct penalty_base *res = NULL;
-	for (size_t i = 0; i < tal_count(peer->pbases); i++) {
-		if (peer->pbases[i]->commitment_num == commitnum) {
-			res = tal_steal(ctx, peer->pbases[i]);
-			tal_arr_remove(&peer->pbases, i);
-			break;
-		}
-	}
-	return res;
-}
-
 static u8 *got_revoke_msg(struct peer *peer, u64 revoke_num,
 			  const struct secret *per_commitment_secret,
 			  const struct pubkey *next_per_commit_point,
@@ -2643,9 +2626,9 @@ static u8 *got_revoke_msg(struct peer *peer, u64 revoke_num,
 			  const struct height_states *blockheight_states)
 {
 	u8 *msg;
-	struct penalty_base *pbase;
+	struct penalty_base *pbases = tal_arr(tmpctx, struct penalty_base, 0);
+	const struct bitcoin_tx **ptxs = tal_arr(tmpctx, const struct bitcoin_tx *, 0);
 	struct changed_htlc *changed = tal_arr(tmpctx, struct changed_htlc, 0);
-	const struct bitcoin_tx *ptx = NULL;
 
 	for (size_t i = 0; i < tal_count(changed_htlcs); i++) {
 		struct changed_htlc c;
@@ -2660,23 +2643,36 @@ static u8 *got_revoke_msg(struct peer *peer, u64 revoke_num,
 		tal_arr_expand(&changed, c);
 	}
 
-	pbase = penalty_base_by_commitnum(tmpctx, peer, revoke_num);
+	/* During a splice we signed a commitment at revoke_num for the
+	 * current funding and one for each splice candidate: the peer can
+	 * broadcast whichever ends up valid, so each needs a penalty tx. */
+	for (size_t i = 0; i < tal_count(peer->pbases);) {
+		const struct penalty_base *pbase = peer->pbases[i];
+		const struct bitcoin_tx *ptx;
 
-	if (pbase) {
-		/* DTODO we need penalty tx's per splice candidate */
+		if (pbase->commitment_num != revoke_num) {
+			i++;
+			continue;
+		}
+
 		ptx = penalty_tx_create(
-		    NULL, peer->channel, peer->feerate_penalty,
+		    ptxs, peer->channel, peer->feerate_penalty,
 		    peer->final_index, peer->final_ext_key,
 		    peer->final_scriptpubkey, per_commitment_secret,
 		    &pbase->txid, pbase->outnum, pbase->amount,
 		    HSM_FD);
+		if (ptx) {
+			tal_arr_expand(&pbases, *pbase);
+			tal_arr_expand(&ptxs, ptx);
+		}
+		tal_free(peer->pbases[i]);
+		tal_arr_remove(&peer->pbases, i);
 	}
 
 	msg = towire_channeld_got_revoke(peer, revoke_num, per_commitment_secret,
 					next_per_commit_point, fee_states,
 					blockheight_states, changed,
-					pbase, ptx);
-	tal_free(ptx);
+					pbases, ptxs);
 	return msg;
 }
 

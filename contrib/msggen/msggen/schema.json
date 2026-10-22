@@ -43436,6 +43436,8 @@
         "The `commitment_revocation` hook is used to inform the plugin about the state transition being completed, and deliver the penalty transaction.",
         "The penalty transaction could then be sent to a watchtower that automatically reacts in case one party attempts to settle using a revoked commitment.",
         "",
+        "While a splice is pending, each state has a commitment transaction for the current funding and one for each splice candidate, any of which could be broadcast: the hook is then called once for each of them, with the same `commitnum` and a different `commitment_txid`.",
+        "",
         "This is a chained hook: multiple plugins may be registered."
       ],
       "request": {
