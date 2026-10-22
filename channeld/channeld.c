@@ -3423,39 +3423,6 @@ static size_t calc_weight(enum tx_role role, const struct wally_psbt *psbt,
 	return weight;
 }
 
-/* Get the fundee amount in the channel after the splice */
-static struct amount_msat
-relative_splice_balance_fundee(struct peer *peer,
-			       enum tx_role our_role,
-			       const struct wally_psbt *psbt,
-			       int chan_output_index,
-			       int chan_input_index)
-{
-	/* Relative fundee channel balance */
-	u64 push_value;
-
-	/* We calculcate the `push_value` to send to the
-	 * hsmd, that is the remote amount in the channel
-	 * after the splice. */
-	switch (our_role) {
-	case TX_INITIATOR:
-		/* push_value is the fundee relative value so if we open the channel
-		 * fundee is the remote node. */
-		push_value = peer->splicing->accepter_relative;
-		break;
-	case TX_ACCEPTER:
-		/* push_value is the fundee relative value so if the remote node open the channel
-		 * fundee in this case is the opener. */
-		push_value = peer->splicing->opener_relative;
-		break;
-	default:
-		/* This should never happen. Help us to early catch the tx_role change */
-		abort();
-	}
-
-	return amount_msat(push_value);
-}
-
 static struct amount_sat calc_balance(struct peer *peer)
 {
 	struct amount_sat funding_amount_res;
@@ -4282,11 +4249,38 @@ static struct inflight *inflights_new(struct peer *peer)
 	return inf;
 }
 
-static void update_hsmd_with_splice(struct peer *peer, struct inflight *inflight,
-				    const enum tx_role our_role,
-				    const struct amount_msat push_val)
+/* hsmd_setup_channel's push_value is what the side which did *not* open the
+ * channel has in it (as openingd and dualopend send it).  After a splice,
+ * that's its current balance plus its share of the splice, which is what
+ * channel_update_funding() will apply once the splice locks. */
+static struct amount_msat splice_push_value(const struct peer *peer,
+					    const struct inflight *inflight)
+{
+	enum side fundee = peer->channel->opener == LOCAL ? REMOTE : LOCAL;
+	s64 funding_diff = sats_diff(inflight->amnt,
+				     peer->channel->funding_sats);
+	s64 relative = fundee == LOCAL ? inflight->splice_amnt
+		: funding_diff - inflight->splice_amnt;
+	struct amount_msat push;
+
+	if (!amount_msat_add_sat_s64(&push,
+				     peer->channel->view[LOCAL].owed[fundee],
+				     relative))
+		peer_failed_err(peer->pps, &peer->channel_id,
+				"Splice would make %s balance negative",
+				fundee == LOCAL ? "our" : "your");
+	return push;
+}
+
+static void update_hsmd_with_splice(struct peer *peer, struct inflight *inflight)
 {
 	u8 *msg;
+	struct amount_msat push_val = splice_push_value(peer, inflight);
+
+	status_debug("Splice setup_channel to hsmd: channel_value %s,"
+		     " push_value %s",
+		     fmt_amount_sat(tmpctx, inflight->amnt),
+		     fmt_amount_msat(tmpctx, push_val));
 
 	/* local_upfront_shutdown_script, local_upfront_shutdown_wallet_index,
 	 * remote_upfront_shutdown_script aren't allowed to change, so we
@@ -4347,7 +4341,6 @@ static void splice_accepter(struct peer *peer, const u8 *inmsg)
 	struct inflight *new_inflight;
 	struct wally_psbt_output *new_chan_output;
 	struct bitcoin_outpoint outpoint;
-	struct amount_msat current_push_val;
 	const enum tx_role our_role = TX_ACCEPTER;
 	u8 *abort_msg;
 	enum peer_wire type;
@@ -4551,9 +4544,7 @@ static void splice_accepter(struct peer *peer, const u8 *inmsg)
 	new_inflight->locked_scid = NULL;
 	new_inflight->i_sent_sigs = false;
 
-	current_push_val = relative_splice_balance_fundee(peer, our_role,ictx->current_psbt,
-					  outpoint.n, splice_funding_index);
-	update_hsmd_with_splice(peer, new_inflight, our_role, current_push_val);
+	update_hsmd_with_splice(peer, new_inflight);
 
 	update_view_from_inflights(peer);
 
@@ -4727,7 +4718,6 @@ static void splice_initiator_user_finalized(struct peer *peer)
 	struct bitcoin_txid current_psbt_txid;
 	struct amount_sat both_amount;
 	struct commitsig *their_commit;
-	struct amount_msat current_push_val;
 	const enum tx_role our_role = TX_INITIATOR;
 	u8 *abort_msg;
 	const u8* msg;
@@ -4861,11 +4851,7 @@ static void splice_initiator_user_finalized(struct peer *peer)
 	 * to it. */
 	new_inflight->psbt = clone_psbt(new_inflight, ictx->current_psbt);
 
-	current_push_val = relative_splice_balance_fundee(peer, our_role,
-							  new_inflight->psbt,
-							  chan_output_index,
-							  splice_funding_index);
-	update_hsmd_with_splice(peer, new_inflight, our_role, current_push_val);
+	update_hsmd_with_splice(peer, new_inflight);
 
 	update_view_from_inflights(peer);
 
