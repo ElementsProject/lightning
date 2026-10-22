@@ -1601,10 +1601,10 @@ def test_real_data(node_factory, bitcoind, executor):
     # CI, it's slow.
     if SLOW_MACHINE:
         limit = 25
-        expected = (9, 24, 1935647, 219066, 89)
+        expected = (11, 24, 4663500, 221912, 96)
     else:
         limit = 100
-        expected = (11, 95, 8026484, 925406, 89)
+        expected = (11, 95, 16558980, 944568, 95)
 
     # 0.5% is the norm
     MAX_FEE = AMOUNT // 200
@@ -1711,10 +1711,10 @@ def test_real_biases(node_factory, bitcoind, executor):
     # CI, it's slow.
     if SLOW_MACHINE:
         limit = 25
-        expected = ({1: 6, 2: 7, 4: 12, 8: 13, 16: 18, 32: 23, 64: 24, 100: 24}, 0)
+        expected = ({1: 5, 2: 7, 4: 13, 8: 16, 16: 22, 32: 24, 64: 24, 100: 24}, 0)
     else:
         limit = 100
-        expected = ({1: 26, 2: 33, 4: 48, 8: 57, 16: 77, 32: 90, 64: 95, 100: 95}, 0)
+        expected = ({1: 24, 2: 34, 4: 52, 8: 65, 16: 89, 32: 95, 64: 95, 100: 95}, 0)
 
     l1.rpc.askrene_create_layer('biases')
     num_changed = {}
@@ -2749,3 +2749,56 @@ def test_impossible_payment(node_factory):
             final_cltv=5,
             maxparts=1,
         )
+
+
+def maxhops_gossip(pricey_propfee, long_len):
+    """A cheap long route from 0 to 1000 and a high fee short one."""
+    cheap = GenChannel.Half(propfee=1)
+    pricey = GenChannel.Half(propfee=pricey_propfee)
+    source = 0
+    destination = 1000
+    pricey_node = 2000
+    chain = [i for i in range(1, long_len)]
+
+    chans = [
+        GenChannel(source, chain[0], forward=cheap),
+        GenChannel(chain[-1], destination, forward=cheap),
+        GenChannel(source, pricey_node, forward=cheap),
+        GenChannel(pricey_node, destination, forward=pricey),
+    ]
+    chans += [GenChannel(a, b, forward=cheap) for (a, b) in zip(chain[:-1], chain[1:])]
+    return generate_gossip_store(chans)
+
+
+def test_getroutes_hop_probability(node_factory):
+    """Test the effects of the default per_hop_probability (limit the length of
+    payment paths) and how limits in the fees triggers the variation of mu so
+    that even a long route could be a good solution if it satisfies the maxfee
+    constraint."""
+    gsfile, nodemap = maxhops_gossip(pricey_propfee=300, long_len=5)
+    l1 = node_factory.get_node(gossip_store_file=gsfile.name)
+    payment_amount = 100_000_000
+
+    # The default per-hop probability prefers a pricier short route
+    # (300ppm instead of 5 x 1ppm).
+    routes = l1.rpc.getroutes(
+        source=nodemap[0],
+        destination=nodemap[1000],
+        amount_msat=payment_amount,
+        layers=[],
+        maxfee_msat=payment_amount,
+        final_cltv=18,
+    )["routes"]
+    assert [len(r["path"]) for r in routes] == [2]
+
+    # If limiting the payment fees becomes a priority, the long cheap route is
+    # chosen.
+    routes = l1.rpc.getroutes(
+        source=nodemap[0],
+        destination=nodemap[1000],
+        amount_msat=payment_amount,
+        layers=[],
+        maxfee_msat=int(payment_amount * 0.0002),
+        final_cltv=18,
+    )["routes"]
+    assert [len(r["path"]) for r in routes] == [5]
