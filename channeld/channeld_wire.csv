@@ -202,8 +202,11 @@ msgdata,channeld_got_revoke,fee_states,fee_states,
 msgdata,channeld_got_revoke,blockheight_states,height_states,
 msgdata,channeld_got_revoke,num_changed,u16,
 msgdata,channeld_got_revoke,changed,changed_htlc,num_changed
-msgdata,channeld_got_revoke,pbase,?penalty_base,
-msgdata,channeld_got_revoke,penalty_tx,?bitcoin_tx,
+# One for each commitment we signed at revokenum which has a penalty tx: the
+# current funding's, and during a splice each splice candidate's.
+msgdata,channeld_got_revoke,num_penalties,u16,
+msgdata,channeld_got_revoke,pbases,penalty_base,num_penalties
+msgdata,channeld_got_revoke,penalty_txs,bitcoin_tx,num_penalties
 # Wait for reply, to make sure it's on disk before we continue
 # (eg. if we sent another commitment_signed, that would implicitly ack).
 msgtype,channeld_got_revoke_reply,1122
