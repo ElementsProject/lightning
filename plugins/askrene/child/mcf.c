@@ -499,13 +499,15 @@ static void combine_cost_function(const tal_t *working_ctx,
 				  const s8 *biases,
 				  double fee_dial,
 				  double delay_dial,
+				  double per_hop_dial,
 				  double prob_dial,
 				  s64 *arc_cost)
 {
 	assert(prob_dial >= 0);
 	assert(fee_dial >= 0);
 	assert(delay_dial >= 0);
-	const double total_dial = prob_dial + fee_dial + delay_dial;
+	assert(per_hop_dial >= 0);
+	const double total_dial = prob_dial + fee_dial + delay_dial + per_hop_dial;
 	assert(fabs(total_dial - 1.0) < 1e-9);
 
 	/* probabilty and fee costs are not directly comparable!
@@ -533,6 +535,8 @@ static void combine_cost_function(const tal_t *working_ctx,
 		assert(pcost != DBL_MAX);
 		combined = fcost / median_fee * fee_dial +
 			   dcost / median_delay * delay_dial +
+			   /* per-hop cost is 1 for every arc */
+			   1.0 * per_hop_dial +
 			   pcost / median_prob * prob_dial;
 
 		/* The median costs corresponds to the normalize value 1.0.
@@ -1022,6 +1026,7 @@ static struct flow **minflow(const tal_t *ctx,
 			     struct amount_msat amount,
 			     double mu,
 			     double delay_dial,
+			     double per_hop_dial,
 			     double prob_dial,
 			     double per_hop_probability)
 {
@@ -1101,6 +1106,7 @@ static struct flow **minflow(const tal_t *ctx,
 			      rq->biases,
 			      mu,
 			      delay_dial,
+			      per_hop_dial,
 			      prob_dial,
 			      arc_cost);
 
@@ -1251,6 +1257,7 @@ static struct flow **single_path_flow(const tal_t *ctx, const struct route_query
 				      struct amount_msat amount,
 				      double mu,
 				      double delay_dial,
+				      double per_hop_dial,
 				      double prob_dial,
 				      double per_hop_probability)
 {
@@ -1295,7 +1302,7 @@ static struct flow **single_path_flow(const tal_t *ctx, const struct route_query
 
 	combine_cost_function(working_ctx, graph, arc_prob_cost, arc_fee_cost,
 			      arc_delay_cost, rq->biases, mu, delay_dial,
-			      prob_dial, arc_cost);
+			      per_hop_dial, prob_dial, arc_cost);
 
 	/* We solve a linear cost flow problem. */
 	if (!dijkstra_path(working_ctx, graph, src, dst,
@@ -1424,21 +1431,16 @@ static bool check_htlc_max_limits(struct route_query *rq, struct flow **flows)
  * All values assumed to be positive. */
 static void renormalize_dials(double *fee_dial,
 			      double *delay_dial,
+			      double *per_hop_dial,
 			      double *prob_dial)
 {
-	double sum = *fee_dial + *delay_dial + *prob_dial;
+	double sum = *fee_dial + *delay_dial + *per_hop_dial + *prob_dial;
 	*fee_dial /= sum;
 	*delay_dial /= sum;
+	*per_hop_dial /= sum;
 	*prob_dial /= sum;
 }
 
-/* FIXME: add extra constraint maximum route length, use an activation
- * probability cost for each channel. Recall that every activation cost, eg.
- * base fee and activation probability can only be properly added modifying the
- * graph topology by creating an activation node for every half channel. */
-/* FIXME: add extra constraint maximum number of routes, fixes issue 8331. */
-/* FIXME: add a boolean option to make recipient pay for fees, fixes issue 8353.
- */
 static const char *
 linear_routes(const tal_t *ctx, struct route_query *rq,
 	      struct timemono deadline,
@@ -1446,12 +1448,14 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 	      const struct gossmap_node *dstnode, struct amount_msat amount,
 	      struct amount_msat maxfee, u32 finalcltv, u32 maxdelay,
 	      size_t maxparts,
+	      u32 maxhops,
 	      struct flow ***flows, double *probability,
 	      enum jsonrpc_errcode *ecode,
 	      struct flow **(*solver)(const tal_t *, const struct route_query *,
 				      const struct gossmap_node *,
 				      const struct gossmap_node *,
 				      struct amount_msat,
+				      double,
 				      double,
 				      double,
 				      double,
@@ -1469,7 +1473,8 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 	 * equal to 1. */
 	double mu = 0.01;
 	double delay_dial = 0.001;
-	double prob_dial = 0.989;
+	double per_hop_dial = 0.001;
+	double prob_dial = 0.988;
 
 	/* An homogeneous 1% probability of failure is assumed per hop.  We
 	 * don't have a proper treatment of *activation costs* on arcs right
@@ -1514,6 +1519,7 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 						     amount_to_deliver,
 						     mu,
 						     delay_dial,
+						     per_hop_dial,
 						     prob_dial,
 						     per_hop_probability);
 		} else {
@@ -1524,6 +1530,7 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 					   amount_to_deliver,
 					   mu,
 					   delay_dial,
+					   per_hop_dial,
 					   prob_dial,
 					   per_hop_probability);
 		}
@@ -1593,6 +1600,7 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 				 * to fix it increasing mu. */
 				mu *= 2;
 				renormalize_dials(&mu, &delay_dial,
+						  &per_hop_dial,
 						  &prob_dial);
 				child_log(
 				    tmpctx, LOG_INFORM,
@@ -1638,13 +1646,38 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 			}
 
 			delay_dial *= 2;
-			renormalize_dials(&mu, &delay_dial, &prob_dial);
+			renormalize_dials(&mu, &delay_dial, &per_hop_dial,
+					  &prob_dial);
 			child_log(tmpctx, LOG_INFORM,
 				  "The worst flow delay is %" PRIu64
 				  " (> %i), retrying with delay_dial %f...",
 				  flows_worst_delay(new_flows), maxdelay - finalcltv,
 				  delay_dial);
                         continue;
+		}
+
+		/* Too many hops? */
+		u32 count_hops = flows_worst_length(new_flows);
+		if (count_hops > maxhops) {
+			if (per_hop_dial >= near_one) {
+				error_message =
+				    child_log(ctx, LOG_UNUSUAL,
+					      "Could not find route without "
+					      "excessive hop count");
+				*ecode = PAY_ROUTE_NOT_FOUND;
+				goto fail;
+			}
+
+			per_hop_dial *= 2;
+			renormalize_dials(&mu, &delay_dial, &per_hop_dial,
+					  &prob_dial);
+
+			child_log(tmpctx, LOG_INFORM,
+				  "The worst flow number of hops is %" PRIu32
+				  " (> %" PRIu32
+				  "), retrying with per_hop_dial %f ...",
+				  count_hops, maxhops, per_hop_dial);
+			continue;
 		}
 
 		all_fees = AMOUNT_MSAT(0);
@@ -1760,14 +1793,17 @@ const char *default_routes(const tal_t *ctx, struct route_query *rq,
 			   const struct gossmap_node *srcnode,
 			   const struct gossmap_node *dstnode,
 			   struct amount_msat amount, struct amount_msat maxfee,
-			   u32 finalcltv, u32 maxdelay, size_t maxparts,
+			   u32 finalcltv,
+			   u32 maxdelay,
+			   size_t maxparts,
+			   u32 maxhops,
 			   struct flow ***flows,
 			   double *probability,
 			   enum jsonrpc_errcode *ecode)
 {
-	return linear_routes(ctx, rq, deadline, srcnode, dstnode, amount, maxfee,
-			     finalcltv, maxdelay, maxparts, flows, probability, ecode,
-			     minflow);
+	return linear_routes(ctx, rq, deadline, srcnode, dstnode, amount,
+			     maxfee, finalcltv, maxdelay, maxparts, maxhops,
+			     flows, probability, ecode, minflow);
 }
 
 const char *single_path_routes(const tal_t *ctx, struct route_query *rq,
@@ -1776,11 +1812,13 @@ const char *single_path_routes(const tal_t *ctx, struct route_query *rq,
 			       const struct gossmap_node *dstnode,
 			       struct amount_msat amount,
 			       struct amount_msat maxfee, u32 finalcltv,
-			       u32 maxdelay, struct flow ***flows,
+			       u32 maxdelay,
+			       u32 maxhops,
+			       struct flow ***flows,
 			       double *probability,
 			       enum jsonrpc_errcode *ecode)
 {
-	return linear_routes(ctx, rq, deadline, srcnode, dstnode, amount, maxfee,
-			     finalcltv, maxdelay, 1, flows, probability, ecode,
-			     single_path_flow);
+	return linear_routes(ctx, rq, deadline, srcnode, dstnode, amount,
+			     maxfee, finalcltv, maxdelay, 1, maxhops, flows,
+			     probability, ecode, single_path_flow);
 }

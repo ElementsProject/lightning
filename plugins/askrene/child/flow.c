@@ -173,6 +173,17 @@ u64 flows_worst_delay(struct flow **flows)
 	return maxdelay;
 }
 
+u32 flows_worst_length(struct flow **flows)
+{
+	u32 maxlen = 0;
+	for (size_t i = 0; i < tal_count(flows); i++) {
+		u32 len = tal_count(flows[i]->path);
+		if (len > maxlen)
+			maxlen = len;
+	}
+	return maxlen;
+}
+
 const char *fmt_flows_step_scid(const tal_t *ctx,
 				const struct route_query *rq,
 				const struct flow *flow, size_t i)

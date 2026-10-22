@@ -29,6 +29,8 @@
 #include <plugins/askrene/child/child_log.h>
 #include <plugins/askrene/layer.h>
 #include <plugins/askrene/reserve.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/wait.h>
 #include <wire/wire_io.h>
 #include <wire/wire_sync.h>
@@ -91,6 +93,44 @@ static struct command_result *param_direction(struct command *cmd,
 	return NULL;
 }
 
+static bool is_maxhops(const char *s)
+{
+	return strncmp(s, "maxhops=", strlen("maxhops=")) == 0;
+}
+
+static bool parse_maxhops(const char *s, u32 *v)
+{
+	if(!is_maxhops(s))
+		return false;
+
+	const char *num = s + strlen("maxhops=");
+	char *end;
+	unsigned long n;
+
+	if (*num < '0' || *num > '9')
+		return false;
+	errno = 0;
+	n = strtoul(num, &end, 10);
+	if (*end != '\0' || errno == ERANGE || n > UINT32_MAX)
+		return false;
+	*v = n;
+	return true;
+}
+
+static u32 extract_maxhops(const char ***layers, u32 default_maxhops)
+{
+	u32 maxhops = default_maxhops;
+	for (size_t i = 0; i < tal_count(*layers); i++) {
+		u32 v;
+		if (parse_maxhops((*layers)[i], &v)) {
+			maxhops = v;
+			tal_arr_remove(layers, i);
+			i--;
+		}
+	}
+	return maxhops;
+}
+
 /* Valid, known layers */
 static struct command_result *param_layer_names(struct command *cmd,
 						const char *name,
@@ -111,6 +151,15 @@ static struct command_result *param_layer_names(struct command *cmd,
 			return command_fail_badparam(cmd, name, buffer, t,
 						     "should be a string");
 		(*arr)[i] = json_strdup(*arr, buffer, t);
+
+		if (is_maxhops((*arr)[i])) {
+			u32 v;
+			if (!parse_maxhops((*arr)[i], &v))
+				return command_fail_badparam(
+				    cmd, name, buffer, t,
+				    "maxhops must be a u32");
+			continue;
+		}
 
 		/* Must be a known layer name */
 		if (streq((*arr)[i], "auto.localchans")
@@ -359,6 +408,7 @@ struct getroutes_info {
 	/* Non-NULL if we are told to use "auto.localchans" */
 	struct layer *local_layer;
 	u32 maxparts;
+	u32 maxhops;
 };
 
 static void add_layer(const struct layer ***layers,
@@ -716,7 +766,11 @@ static struct command_result *do_getroutes(struct command *cmd,
 			  take(capacities),
 			  info->dev_algo == ALGO_SINGLE_PATH,
 			  deadline, srcnode, dstnode, info->amount,
-			  info->maxfee, info->finalcltv, info->maxdelay, info->maxparts,
+			  info->maxfee,
+			  info->finalcltv,
+			  info->maxdelay,
+			  info->maxparts,
+			  info->maxhops,
 			  include_fees,
 			  cmd->id, cmd->filter,
 			  include_next_node_id,
@@ -900,7 +954,7 @@ static struct command_result *json_getroutes(struct command *cmd,
 	/* FIXME: Typo in spec for CLTV in descripton! But it breaks our spelling check, so we omit it above */
 	const u32 maxdelay_allowed = 2016;
 	struct askrene *askrene = get_askrene(cmd->plugin);
-	const u32 default_maxparts = 100;
+	const u32 default_maxparts = 100, default_maxhops = 100;
 	struct getroutes_info *info = tal(cmd, struct getroutes_info);
 	/* param functions require pointers */
 	struct node_id *source, *dest;
@@ -961,6 +1015,11 @@ static struct command_result *json_getroutes(struct command *cmd,
 	info->dev_algo = *dev_algo;
 	info->additional_costs = new_htable(info, additional_cost_htable);
 	info->maxparts = *maxparts;
+
+	/* A trick to pass maxhops without introducing a new RPC or requiring
+	 * developer option.  We pass maxhops as a layer string, eg.
+	 * "maxhops=10" */
+	info->maxhops = extract_maxhops(&info->layers, default_maxhops);
 
 	if (askrene->num_live_requests >= askrene->max_children) {
 		cmd_log(tmpctx, cmd, LOG_INFORM,
@@ -1367,6 +1426,11 @@ static struct command_result *json_askrene_create_layer(struct command *cmd,
 	if (strstarts(layername, "auto."))
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "Cannot create auto layer");
+
+	if (strstarts(layername, "maxhops="))
+		return command_fail(
+		    cmd, JSONRPC2_INVALID_PARAMS,
+		    "Cannot create layer \"maxhops=\", name is reserved");
 
 	/* If it's persistent, creation is a noop if it already exists */
 	layer = find_layer(askrene, layername);
