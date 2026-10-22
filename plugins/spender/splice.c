@@ -2217,22 +2217,10 @@ json_splice(struct command *cmd, const char *buf, const jsmntok_t *params)
 }
 
 static struct command_result *
-json_splicein(struct command *cmd, const char *buf, const jsmntok_t *params)
+start_splicein(struct command *cmd, char *script)
 {
 	struct out_req *req;
-	const char *channel, *amount;
 	struct splice_cmd *splice_cmd;
-	char *script;
-
-	if (!param(cmd, buf, params,
-		   p_req("channel", param_string, &channel),
-		   p_req("amount", param_string, &amount),
-		   NULL))
-		return command_param_failed();
-
-	script = tal_fmt(NULL,
-			 "wallet -> %s + fee; %s -> %s",
-			 amount, amount, channel);
 
 	splice_cmd = tal(cmd, struct splice_cmd);
 
@@ -2257,6 +2245,82 @@ json_splicein(struct command *cmd, const char *buf, const jsmntok_t *params)
 				    splice_error, splice_cmd);
 
 	return send_outreq(req);
+}
+
+/* fundpsbt "all" told us what the wallet can spend, keeping back
+ * min-emergency-msat as change if we need it: splice in the rest. */
+static struct command_result *splicein_all_funded(struct command *cmd,
+						  const char *method,
+						  const char *buf,
+						  const jsmntok_t *result,
+						  char *channel)
+{
+	const jsmntok_t *psbttok, *changetok;
+	struct wally_psbt *psbt;
+	struct amount_sat total = AMOUNT_SAT(0);
+	int change_outnum;
+
+	psbttok = json_get_member(buf, result, "psbt");
+	psbt = psbttok ? json_to_psbt(tmpctx, buf, psbttok) : NULL;
+	/* fundpsbt hands back v0; the amount helpers want v2 */
+	if (!psbt || !psbt_set_version(psbt, 2))
+		return command_fail(cmd, LIGHTNINGD,
+				    "Unparsable fundpsbt result: %.*s",
+				    json_tok_full_len(result),
+				    json_tok_full(buf, result));
+
+	for (size_t i = 0; i < psbt->num_inputs; i++)
+		if (!amount_sat_add(&total, total,
+				    psbt_input_get_amount(psbt, i)))
+			return command_fail(cmd, LIGHTNINGD,
+					    "Wallet total overflow");
+
+	changetok = json_get_member(buf, result, "change_outnum");
+	if (changetok && json_to_int(buf, changetok, &change_outnum)
+	    && !amount_sat_sub(&total, total,
+			       psbt_output_get_amount(psbt, change_outnum)))
+		return command_fail(cmd, LIGHTNINGD,
+				    "Emergency change exceeds wallet total");
+
+	/* The fee comes out of the wallet funds, the rest goes in. */
+	return start_splicein(cmd,
+			      tal_fmt(NULL, "wallet -> %s; * -> %s",
+				      fmt_amount_sat(tmpctx, total),
+				      channel));
+}
+
+static struct command_result *
+json_splicein(struct command *cmd, const char *buf, const jsmntok_t *params)
+{
+	const char *channel, *amount;
+
+	if (!param(cmd, buf, params,
+		   p_req("channel", param_string, &channel),
+		   p_req("amount", param_string, &amount),
+		   NULL))
+		return command_param_failed();
+
+	/* The splice script has no "whole wallet", so ask fundpsbt what
+	 * "all" means (without reserving anything). */
+	if (streq(amount, "all")) {
+		struct out_req *req;
+
+		req = jsonrpc_request_start(cmd, "fundpsbt",
+					    splicein_all_funded,
+					    forward_error,
+					    tal_strdup(cmd, channel));
+		json_add_string(req->js, "satoshi", "all");
+		json_add_string(req->js, "feerate", "opening");
+		json_add_u32(req->js, "startweight", 0);
+		json_add_u32(req->js, "reserve", 0);
+		json_add_bool(req->js, "excess_as_change", true);
+		return send_outreq(req);
+	}
+
+	return start_splicein(cmd,
+			      tal_fmt(NULL,
+				      "wallet -> %s + fee; %s -> %s",
+				      amount, amount, channel));
 }
 
 static struct command_result *
