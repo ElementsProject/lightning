@@ -3783,6 +3783,7 @@
             "OpenChannel_Bump.channel_id": 1,
             "OpenChannel_Bump.channel_type": 2,
             "OpenChannel_Bump.commitments_secured": 4,
+            "OpenChannel_Bump.funding_outnum": 7,
             "OpenChannel_Bump.funding_serial": 5,
             "OpenChannel_Bump.psbt": 3,
             "OpenChannel_Bump.requires_confirmed_inputs": 6
@@ -3807,6 +3808,7 @@
             "OpenChannel_Init.channel_id": 1,
             "OpenChannel_Init.channel_type": 3,
             "OpenChannel_Init.commitments_secured": 4,
+            "OpenChannel_Init.funding_outnum": 7,
             "OpenChannel_Init.funding_serial": 5,
             "OpenChannel_Init.psbt": 2,
             "OpenChannel_Init.requires_confirmed_inputs": 6
@@ -3834,6 +3836,7 @@
             "OpenChannel_Update.close_to": 6,
             "OpenChannel_Update.commitments_secured": 4,
             "OpenChannel_Update.funding_outnum": 5,
+            "OpenChannel_Update.funding_serial": 8,
             "OpenChannel_Update.psbt": 3,
             "OpenChannel_Update.requires_confirmed_inputs": 7
         },
@@ -13196,6 +13199,10 @@
             "added": "pre-v0.10.1",
             "deprecated": null
         },
+        "OpenChannel_Bump.funding_outnum": {
+            "added": "v26.09",
+            "deprecated": null
+        },
         "OpenChannel_Bump.funding_serial": {
             "added": "pre-v0.10.1",
             "deprecated": null
@@ -13262,6 +13269,10 @@
         },
         "OpenChannel_Init.funding_feerate": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "OpenChannel_Init.funding_outnum": {
+            "added": "v26.09",
             "deprecated": null
         },
         "OpenChannel_Init.funding_serial": {
@@ -13338,6 +13349,10 @@
         },
         "OpenChannel_Update.funding_outnum": {
             "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "OpenChannel_Update.funding_serial": {
+            "added": "v26.09",
             "deprecated": null
         },
         "OpenChannel_Update.psbt": {

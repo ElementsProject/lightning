@@ -2495,6 +2495,7 @@ impl From<responses::OpenchannelBumpResponse> for pb::OpenchannelBumpResponse {
             channel_id: <Sha256 as AsRef<[u8]>>::as_ref(&c.channel_id).to_vec(), // Rule #2 for type hash
             channel_type: Some(c.channel_type.into()),
             commitments_secured: c.commitments_secured, // Rule #2 for type boolean
+            funding_outnum: c.funding_outnum, // Rule #2 for type u32?
             funding_serial: c.funding_serial, // Rule #2 for type u64
             psbt: c.psbt, // Rule #2 for type string
             requires_confirmed_inputs: c.requires_confirmed_inputs, // Rule #2 for type boolean
@@ -2521,6 +2522,7 @@ impl From<responses::OpenchannelInitResponse> for pb::OpenchannelInitResponse {
             channel_id: <Sha256 as AsRef<[u8]>>::as_ref(&c.channel_id).to_vec(), // Rule #2 for type hash
             channel_type: Some(c.channel_type.into()),
             commitments_secured: c.commitments_secured, // Rule #2 for type boolean
+            funding_outnum: c.funding_outnum, // Rule #2 for type u32?
             funding_serial: c.funding_serial, // Rule #2 for type u64
             psbt: c.psbt, // Rule #2 for type string
             requires_confirmed_inputs: c.requires_confirmed_inputs, // Rule #2 for type boolean
@@ -2560,6 +2562,7 @@ impl From<responses::OpenchannelUpdateResponse> for pb::OpenchannelUpdateRespons
             close_to: c.close_to.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
             commitments_secured: c.commitments_secured, // Rule #2 for type boolean
             funding_outnum: c.funding_outnum, // Rule #2 for type u32
+            funding_serial: c.funding_serial, // Rule #2 for type u64?
             psbt: c.psbt, // Rule #2 for type string
             requires_confirmed_inputs: c.requires_confirmed_inputs, // Rule #2 for type boolean?
         }

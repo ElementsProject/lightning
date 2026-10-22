@@ -116,6 +116,8 @@ struct open_attempt {
 	struct command *cmd;
 	struct amount_sat funding;
 	const u8 *our_upfront_shutdown_script;
+	/* serial_id of the funding output, once dualopend tells us */
+	u64 *funding_serial;
 
 	/* First msg to send to dualopend (to make it create channel) */
 	const u8 *open_msg;

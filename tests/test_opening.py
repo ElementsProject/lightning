@@ -532,6 +532,43 @@ def test_v2_abort_after_accepter_tx_sigs(node_factory, bitcoind):
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @pytest.mark.openchannel('v2')
+def test_v2_openchannel_update_changed_psbt(node_factory, bitcoind):
+    """openchannel_update must not drop the channel's funding output, and a
+    changed (but valid) PSBT gets an intermediate reply matching the schema."""
+    l1, l2 = node_factory.get_nodes(2)
+
+    l1.fundwallet(10**6)
+    l1.fundwallet(10**6)
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    amount = 100000
+    utxos = ['{}:{}'.format(o['txid'], o['output'])
+             for o in l1.rpc.listfunds()['outputs']]
+    assert len(utxos) == 2
+    psbt_a = l1.rpc.utxopsbt(amount, '253perkw', 250, [utxos[0]],
+                             reserve=0, excess_as_change=True)['psbt']
+    psbt_b = l1.rpc.utxopsbt(amount, '253perkw', 250, [utxos[1]],
+                             reserve=0, excess_as_change=True)['psbt']
+
+    start = l1.rpc.openchannel_init(l2.info['id'], amount, psbt_a)
+    assert 'funding_outnum' in start
+
+    # A fresh PSBT lacks the funding output openchannel_init added.
+    with pytest.raises(RpcError, match='missing the channel funding output'):
+        l1.rpc.openchannel_update(start['channel_id'], psbt_b)
+
+    # Adding an output is a real change, so the peer must see it first.
+    changed = l1.rpc.addpsbtoutput(1000, start['psbt'])['psbt']
+    update = l1.rpc.openchannel_update(start['channel_id'], changed)
+    assert not update['commitments_secured']
+    assert 'funding_outnum' in update
+
+    l1.rpc.openchannel_abort(start['channel_id'])
+    assert l2.rpc.getinfo()['id'] == l2.info['id']
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+@pytest.mark.openchannel('v2')
 def test_v2_open_sigs_restart_while_dead(node_factory, bitcoind):
     # Same thing as above, except the transaction mines
     # while we're asleep

@@ -2599,6 +2599,7 @@ message OpenchannelBumpResponse {
 	bool commitments_secured = 4;
 	uint64 funding_serial = 5;
 	bool requires_confirmed_inputs = 6;
+	optional uint32 funding_outnum = 7;
 }
 
 message OpenchannelBumpChannelType {
@@ -2626,6 +2627,7 @@ message OpenchannelInitResponse {
 	bool commitments_secured = 4;
 	uint64 funding_serial = 5;
 	bool requires_confirmed_inputs = 6;
+	optional uint32 funding_outnum = 7;
 }
 
 message OpenchannelInitChannelType {
@@ -2657,6 +2659,7 @@ message OpenchannelUpdateResponse {
 	uint32 funding_outnum = 5;
 	optional bytes close_to = 6;
 	optional bool requires_confirmed_inputs = 7;
+	optional uint64 funding_serial = 8;
 }
 
 message OpenchannelUpdateChannelType {

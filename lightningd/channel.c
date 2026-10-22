@@ -255,6 +255,7 @@ struct open_attempt *new_channel_open_attempt(struct channel *channel)
 	oa->our_config = channel->our_config;
 	oa->role = channel->opener == LOCAL ? TX_INITIATOR : TX_ACCEPTER;
 	oa->our_upfront_shutdown_script = NULL;
+	oa->funding_serial = NULL;
 	oa->cmd = NULL;
 	oa->aborted = false;
 	oa->open_msg = NULL;

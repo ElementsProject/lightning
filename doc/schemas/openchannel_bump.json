@@ -129,6 +129,13 @@
           "The serial_id of the funding output in the *psbt*."
         ]
       },
+      "funding_outnum": {
+        "type": "u32",
+        "added": "v26.09",
+        "description": [
+          "The index of the funding output in the *psbt*."
+        ]
+      },
       "requires_confirmed_inputs": {
         "type": "boolean",
         "description": [

@@ -1829,6 +1829,7 @@ def openchannel_bump2py(m):
     return remove_default({
         "channel_id": hexlify(m.channel_id),  # PrimitiveField in generate_composite
         "commitments_secured": m.commitments_secured,  # PrimitiveField in generate_composite
+        "funding_outnum": m.funding_outnum,  # PrimitiveField in generate_composite
         "funding_serial": m.funding_serial,  # PrimitiveField in generate_composite
         "psbt": m.psbt,  # PrimitiveField in generate_composite
         "requires_confirmed_inputs": m.requires_confirmed_inputs,  # PrimitiveField in generate_composite
@@ -1846,6 +1847,7 @@ def openchannel_init2py(m):
     return remove_default({
         "channel_id": hexlify(m.channel_id),  # PrimitiveField in generate_composite
         "commitments_secured": m.commitments_secured,  # PrimitiveField in generate_composite
+        "funding_outnum": m.funding_outnum,  # PrimitiveField in generate_composite
         "funding_serial": m.funding_serial,  # PrimitiveField in generate_composite
         "psbt": m.psbt,  # PrimitiveField in generate_composite
         "requires_confirmed_inputs": m.requires_confirmed_inputs,  # PrimitiveField in generate_composite
@@ -1873,6 +1875,7 @@ def openchannel_update2py(m):
         "close_to": hexlify(m.close_to),  # PrimitiveField in generate_composite
         "commitments_secured": m.commitments_secured,  # PrimitiveField in generate_composite
         "funding_outnum": m.funding_outnum,  # PrimitiveField in generate_composite
+        "funding_serial": m.funding_serial,  # PrimitiveField in generate_composite
         "psbt": m.psbt,  # PrimitiveField in generate_composite
         "requires_confirmed_inputs": m.requires_confirmed_inputs,  # PrimitiveField in generate_composite
     })

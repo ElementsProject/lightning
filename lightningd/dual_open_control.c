@@ -3230,6 +3230,19 @@ static struct command_result *json_openchannel_update(struct command *cmd,
 				    "PSBT is missing required fields %s",
 				    fmt_wally_psbt(tmpctx, psbt));
 
+	/* Otherwise we'd tell the peer to remove the channel's own
+	 * funding output (e.g. they passed a fresh PSBT, not the one
+	 * openchannel_init/openchannel_update returned). */
+	if (channel->open_attempt->funding_serial
+	    && psbt_find_serial_output(psbt,
+				       *channel->open_attempt->funding_serial) < 0)
+		return command_fail(cmd, FUNDING_PSBT_INVALID,
+				    "PSBT is missing the channel funding output"
+				    " (serial_id %"PRIu64"): pass the PSBT"
+				    " returned by the last openchannel_init or"
+				    " openchannel_update",
+				    *channel->open_attempt->funding_serial);
+
 	if (command_check_only(cmd))
 		return command_check_done(cmd);
 
@@ -3653,6 +3666,7 @@ static void handle_psbt_changed(struct subd *dualopend,
 {
 	struct channel_id cid;
 	u64 funding_serial;
+	int funding_outnum;
 	struct wally_psbt *psbt;
 	struct json_stream *response;
 	struct openchannel2_psbt_payload *payload;
@@ -3691,6 +3705,8 @@ static void handle_psbt_changed(struct subd *dualopend,
 		}
 		/* This might be the first time we learn the channel_id */
 		channel->cid = cid;
+		tal_free(oa->funding_serial);
+		oa->funding_serial = tal_dup(oa, u64, &funding_serial);
 		response = json_stream_success(cmd);
 		json_add_string(response, "channel_id",
 				fmt_channel_id(tmpctx, &channel->cid));
@@ -3698,6 +3714,10 @@ static void handle_psbt_changed(struct subd *dualopend,
 		json_add_channel_type(response, "channel_type", channel->type);
 		json_add_bool(response, "commitments_secured", false);
 		json_add_u64(response, "funding_serial", funding_serial);
+		/* For convenience sake, we include the funding outnum */
+		funding_outnum = psbt_find_serial_output(psbt, funding_serial);
+		if (funding_outnum >= 0)
+			json_add_num(response, "funding_outnum", funding_outnum);
 		json_add_bool(response, "requires_confirmed_inputs",
 			      channel->req_confirmed_ins[REMOTE]);
 

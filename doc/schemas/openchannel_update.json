@@ -113,6 +113,13 @@
           "The index of the funding output in the psbt."
         ]
       },
+      "funding_serial": {
+        "type": "u64",
+        "added": "v26.09",
+        "description": [
+          "The serial_id of the funding output in the *psbt* (only if *commitments_secured* is false)."
+        ]
+      },
       "close_to": {
         "type": "hex",
         "description": [
@@ -168,9 +175,19 @@
           }
         },
         "else": {
+          "required": [
+            "funding_serial",
+            "requires_confirmed_inputs"
+          ],
           "additionalProperties": false,
           "properties": {
-            "commitments_secured": {}
+            "channel_id": {},
+            "channel_type": {},
+            "psbt": {},
+            "commitments_secured": {},
+            "funding_outnum": {},
+            "funding_serial": {},
+            "requires_confirmed_inputs": {}
           }
         }
       }

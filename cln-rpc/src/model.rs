@@ -9780,6 +9780,8 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct OpenchannelBumpResponse {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub funding_outnum: Option<u32>,
 	    pub channel_id: Sha256,
 	    pub channel_type: OpenchannelBumpChannelType,
 	    pub commitments_secured: bool,
@@ -9807,6 +9809,8 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct OpenchannelInitResponse {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub funding_outnum: Option<u32>,
 	    pub channel_id: Sha256,
 	    pub channel_type: OpenchannelInitChannelType,
 	    pub commitments_secured: bool,
@@ -9854,6 +9858,8 @@ pub mod responses {
 	pub struct OpenchannelUpdateResponse {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub close_to: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub funding_serial: Option<u64>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub requires_confirmed_inputs: Option<bool>,
 	    pub channel_id: Sha256,
