@@ -184,10 +184,12 @@ You can verify the reproducible build in two ways:
 - Repeating the entire reproducible build, making sure from scratch that the binaries match. Just follow the instructions above for this.
 - Verifying that the downloaded binaries match the hashes in `SHA256SUMS` and that the signatures in `SHA256SUMS.asc` are valid.
 
-Assuming you have downloaded the binaries, the manifest and the signatures into the same directory, you can verify the signatures with the following:
+Each release has one manifest per architecture: `SHA256SUMS-<version>` covers the amd64 binaries and the source zip, and `SHA256SUMS-<version>-arm64` and `SHA256SUMS-<version>-armv7` cover the ARM binaries. Each manifest's signatures are in a matching `.asc` file. Assuming you have downloaded the binaries, the manifests and the signatures into the same directory, you can verify the signatures with the following (using v26.06.9 as the example):
 
 ```shell
-gpg --verify SHA256SUMS.asc SHA256SUMS
+gpg --verify SHA256SUMS-v26.06.9.asc SHA256SUMS-v26.06.9
+gpg --verify SHA256SUMS-v26.06.9-arm64.asc SHA256SUMS-v26.06.9-arm64
+gpg --verify SHA256SUMS-v26.06.9-armv7.asc SHA256SUMS-v26.06.9-armv7
 ```
 
 Pass both filenames explicitly. With a single argument `gpg` picks its verification mode from the packet structure of the `.asc` file: for a genuine detached signature it guesses the sibling `SHA256SUMS`, but for an inline (clear-signed or embedded) message it verifies only the payload carried inside the `.asc` itself. It never reads `SHA256SUMS` in that case, and although it prints `WARNING: not a detached signature; file 'SHA256SUMS' was NOT verified!`, it still exits with status 0 — so the warning is easy to miss by eye and invisible to any script that only checks the exit code. Naming the manifest as the second argument forces `gpg` to check the signatures against that exact file, and to fail outright if the `.asc` is not a detached signature over it.
@@ -195,15 +197,51 @@ Pass both filenames explicitly. With a single argument `gpg` picks its verificat
 And you should see a list of messages like the following:
 
 ```shell
-gpg: Signature made Fr 08 Mai 2020 07:46:38 CEST
-gpg:                using RSA key 15EE8D6CAB0E7F0CF999BFCBD9200E6CD1ADB8F1
-gpg: Good signature from "Rusty Russell <rusty@rustcorp.com.au>" [full]
-gpg: Signature made Fr 08 Mai 2020 12:30:10 CEST
-gpg:                using RSA key B7C4BE81184FC203D52C35C51416D83DC4F0E86D
-gpg: Good signature from "Christian Decker <decker.christian@gmail.com>" [ultimate]
-gpg: Signature made Fr 08 Mai 2020 21:35:28 CEST
-gpg:                using RSA key 30DE693AE0DE9E37B3E7EB6BBFF0F67810C1EED1
-gpg: Good signature from "Lisa Neigut <niftynei@gmail.com>" [full]
+gpg: Signature made Tue Oct  6 20:44:46 2026 UTC
+gpg:                using EDDSA key 4E4A142F8BD3C38A56B362ED578CAC08472545C5
+gpg: Good signature from "nGoline <n@ngoline.com>" [full]
+gpg:                 aka "Níckolas Goline <nickolas.goline+github@gmail.com>" [full]
+gpg: Signature made Tue Oct  6 20:52:07 2026 UTC
+gpg:                using EDDSA key 13054F60BEEB87D2B9C7D77DFAFE0D6665547AD6
+gpg:                issuer "jaonoctus@protonmail.com"
+gpg: Good signature from "jaonoctus <jaonoctus@protonmail.com>" [full]
+gpg: Signature made Tue Oct  6 20:13:09 2026 UTC
+gpg:                using EDDSA key 8A079421A871D0B1083511937AB4802ED5A639F3
+gpg: Good signature from "daywalker90 <daywalker990@gmx.de>" [full]
+gpg: Signature made Wed Oct  7 08:21:38 2026 UTC
+gpg:                using EDDSA key C491580878207F03C3B966F9B4088CD4608A7CA1
+gpg: Good signature from "Lagrang3 <lagrang3@protonmail.com>" [full]
+gpg: Signature made Wed Oct  7 13:49:21 2026 UTC
+gpg:                using RSA key 616C52F99D0612B2A151B1074129A994AA7E9852
+gpg: Good signature from "Core Lightning (CLN) <cln@blockstream.com>" [full]
+gpg: Signature made Tue Oct  6 19:43:33 2026 UTC
+gpg:                using EDDSA key 4E4A142F8BD3C38A56B362ED578CAC08472545C5
+gpg: Good signature from "nGoline <n@ngoline.com>" [full]
+gpg:                 aka "Níckolas Goline <nickolas.goline+github@gmail.com>" [full]
+gpg: Signature made Tue Oct  6 21:51:11 2026 UTC
+gpg:                using EDDSA key 13054F60BEEB87D2B9C7D77DFAFE0D6665547AD6
+gpg:                issuer "jaonoctus@protonmail.com"
+gpg: Good signature from "jaonoctus <jaonoctus@protonmail.com>" [full]
+gpg: Signature made Wed Oct  7 01:31:17 2026 UTC
+gpg:                using RSA key 1A371C2C30645FAA91AA6B7DB643E61284221961
+gpg: Good signature from "Sangbida Chaudhuri <sangbidac@gmail.com>" [full]
+gpg: Signature made Wed Oct  7 13:49:22 2026 UTC
+gpg:                using RSA key 616C52F99D0612B2A151B1074129A994AA7E9852
+gpg: Good signature from "Core Lightning (CLN) <cln@blockstream.com>" [full]
+gpg: Signature made Tue Oct  6 21:26:43 2026 UTC
+gpg:                using EDDSA key 4E4A142F8BD3C38A56B362ED578CAC08472545C5
+gpg: Good signature from "nGoline <n@ngoline.com>" [full]
+gpg:                 aka "Níckolas Goline <nickolas.goline+github@gmail.com>" [full]
+gpg: Signature made Tue Oct  6 20:52:35 2026 UTC
+gpg:                using EDDSA key 13054F60BEEB87D2B9C7D77DFAFE0D6665547AD6
+gpg:                issuer "jaonoctus@protonmail.com"
+gpg: Good signature from "jaonoctus <jaonoctus@protonmail.com>" [full]
+gpg: Signature made Tue Oct  6 20:38:44 2026 UTC
+gpg:                using EDDSA key 8A079421A871D0B1083511937AB4802ED5A639F3
+gpg: Good signature from "daywalker90 <daywalker990@gmx.de>" [full]
+gpg: Signature made Wed Oct  7 13:49:23 2026 UTC
+gpg:                using RSA key 616C52F99D0612B2A151B1074129A994AA7E9852
+gpg: Good signature from "Core Lightning (CLN) <cln@blockstream.com>" [full]
 ```
 
 If there are any issues `gpg` will print `Bad signature`, it might be because the signatures in `SHA256SUMS.asc` do not match the `SHA256SUMS` file, and could be the result of a filename change. Do not continue using the binaries, and contact the maintainers, if this is not the case, a failure here means that the verification failed.
@@ -211,22 +249,26 @@ If there are any issues `gpg` will print `Bad signature`, it might be because th
 Next we verify that the binaries match the ones in the manifest:
 
 ```shell
-sha256sum -c SHA256SUMS
+sha256sum -c SHA256SUMS-v26.06.9 SHA256SUMS-v26.06.9-arm64 SHA256SUMS-v26.06.9-armv7
 ```
 
 Producing output similar to the following:
 
 ```shell
-sha256sum: clightning-v24.11-Fedora-35-amd64.tar.gz: No such file or directory
-clightning-v24.11-Fedora-35-amd64.tar.gz: FAILED open or read
-clightning-v24.11-Ubuntu-22.04.tar.xz: OK
-clightning-v24.11-Ubuntu-24.04.tar.xz: OK
-clightning-v24.11-Ubuntu-26.04.tar.xz: OK
-clightning-v24.11.zip: OK
-sha256sum: WARNING: 1 listed file could not be read
+clightning-v26.06.9-Fedora-40-amd64.tar.gz: OK
+clightning-v26.06.9-Ubuntu-22.04-amd64.tar.xz: OK
+clightning-v26.06.9-Ubuntu-24.04-amd64.tar.xz: OK
+clightning-v26.06.9-Ubuntu-26.04-amd64.tar.xz: OK
+clightning-v26.06.9.zip: OK
+clightning-v26.06.9-Ubuntu-22.04-arm64.tar.xz: OK
+clightning-v26.06.9-Ubuntu-24.04-arm64.tar.xz: OK
+clightning-v26.06.9-Ubuntu-26.04-arm64.tar.xz: OK
+clightning-v26.06.9-Ubuntu-22.04-armv7.tar.xz: OK
+clightning-v26.06.9-Ubuntu-24.04-armv7.tar.xz: OK
+clightning-v26.06.9-Ubuntu-26.04-armv7.tar.xz: OK
 ```
 
-Notice that the two files we downloaded are marked as `OK`, but we're missing one file. If you didn't download that file this is to be expected, and is nothing to worry about. A failure to verify the hash would give a warning like the following:
+Each file should be marked as `OK`. If you only downloaded some of the files, add `--ignore-missing` to skip the ones you don't have. A failure to verify the hash would give a warning like the following:
 
 ```shell
 sha256sum: WARNING: 1 computed checksum did NOT match
