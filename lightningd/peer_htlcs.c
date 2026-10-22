@@ -2731,9 +2731,8 @@ void peer_got_revoke(struct channel *channel, const u8 *msg)
 	struct lightningd *ld = channel->peer->ld;
 	struct fee_states *fee_states;
 	struct height_states *blockheight_states;
-	struct penalty_base *pbase;
-	struct commitment_revocation_payload *payload;
-	struct bitcoin_tx *penalty_tx;
+	struct penalty_base *pbases;
+	struct bitcoin_tx **penalty_txs;
 
 	if (!fromwire_channeld_got_revoke(msg, msg,
 					 &revokenum, &per_commitment_secret,
@@ -2741,8 +2740,8 @@ void peer_got_revoke(struct channel *channel, const u8 *msg)
 					 &fee_states,
 					 &blockheight_states,
 					 &changed,
-					 &pbase,
-					 &penalty_tx)
+					 &pbases,
+					 &penalty_txs)
 	    || !fee_states_valid(fee_states, channel->opener)
 	    || !height_states_valid(blockheight_states, channel->opener)) {
 		channel_internal_error(channel, "bad fromwire_channeld_got_revoke %s",
@@ -2869,17 +2868,20 @@ void peer_got_revoke(struct channel *channel, const u8 *msg)
 	/* Maybe graceful wants to know? */
 	check_graceful_shutdown(ld);
 
-	if (penalty_tx == NULL)
-		return;
+	/* During a splice there is one per splice candidate, as well as the
+	 * one for the current funding: the peer could broadcast any of them. */
+	for (i = 0; i < tal_count(penalty_txs); i++) {
+		struct commitment_revocation_payload *payload;
 
-	payload = tal(tmpctx, struct commitment_revocation_payload);
-	payload->commitment_txid = pbase->txid;
-	payload->penalty_tx = tal_steal(payload, penalty_tx);
-	payload->wallet = ld->wallet;
-	payload->channel_dbid = channel->dbid;
-	payload->commitnum = pbase->commitment_num;
-	payload->channel_id = channel->cid;
-	plugin_hook_call_commitment_revocation(ld, NULL, payload);
+		payload = tal(tmpctx, struct commitment_revocation_payload);
+		payload->commitment_txid = pbases[i].txid;
+		payload->penalty_tx = tal_steal(payload, penalty_txs[i]);
+		payload->wallet = ld->wallet;
+		payload->channel_dbid = channel->dbid;
+		payload->commitnum = pbases[i].commitment_num;
+		payload->channel_id = channel->cid;
+		plugin_hook_call_commitment_revocation(ld, NULL, payload);
+	}
 }
 
 
