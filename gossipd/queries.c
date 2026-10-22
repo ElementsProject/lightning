@@ -354,7 +354,10 @@ const u8 *handle_reply_channel_range(struct peer *peer, const u8 *msg)
 	peer->range_replies = NULL;
 	peer->query_channel_range_cb = NULL;
 
-	cb(peer, first_blocknum, number_of_blocks, replies);
+	/* Tell them about the range they asked for: the last reply
+	 * might only cover the end of it. */
+	cb(peer, peer->range_first_blocknum,
+	   peer->range_end_blocknum - peer->range_first_blocknum, replies);
 	return NULL;
 }
 
