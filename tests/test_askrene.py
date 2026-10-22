@@ -1630,12 +1630,19 @@ def test_real_data(node_factory, bitcoind, executor):
                                            {'allow_warning': True}])
 
     # CI, it's slow.
+    # expected_lengths: number of first-try routes of each length (in hops).
     if SLOW_MACHINE:
         limit = 25
         expected = (9, 24, 1935647, 219066, 89)
+        expected_lengths = {2: 1, 3: 3, 4: 11, 5: 15, 6: 6, 7: 6, 8: 3}
+        expected_first_success = 24
+        expected_total_paths = 45
     else:
         limit = 100
         expected = (11, 95, 8026484, 925406, 89)
+        expected_lengths = {2: 1, 3: 8, 4: 34, 5: 77, 6: 45, 7: 23, 8: 4}
+        expected_first_success = 95
+        expected_total_paths = 192
 
     # 0.5% is the norm
     MAX_FEE = AMOUNT // 200
@@ -1661,6 +1668,16 @@ def test_real_data(node_factory, bitcoind, executor):
             continue
 
         prevs[n] = futs[n].result(TIMEOUT)
+
+    # Histogram of first-try path lengths: shows how route length changes
+    # when the cost function does.
+    lengths = {}
+    for res in prevs.values():
+        for r in res['routes']:
+            lengths[len(r['path'])] = lengths.get(len(r['path']), 0) + 1
+    assert dict(sorted(lengths.items())) == expected_lengths
+    assert len(prevs) == expected_first_success
+    assert sum(lengths.values()) == expected_total_paths
 
     # Stress it by asking harder for each one which succeeded
     while prevs != {}:
