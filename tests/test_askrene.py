@@ -3175,6 +3175,7 @@ def test_real_data_maxhops(node_factory, bitcoind, executor):
             6: (24, 0, 6, 4663500, 982051),
             5: (24, 0, 5, 4520423, 978569),
             4: (24, 0, 4, 4489275, 978123),
+            3: (17, 7, 3, 3313847, 988287),
         }
     else:
         limit = 100
@@ -3183,6 +3184,7 @@ def test_real_data_maxhops(node_factory, bitcoind, executor):
             6: (95, 0, 6, 16558980, 985039),
             5: (95, 0, 5, 16415903, 984160),
             4: (94, 1, 4, 16310514, 984205),
+            3: (57, 38, 3, 10180411, 982875),
         }
 
     nodes = [n for n in range(limit) if n not in canned_gossmap_badnodes]
@@ -3243,11 +3245,15 @@ def test_real_data_maxhops(node_factory, bitcoind, executor):
     #    Note: a binding limit can produce *cheaper* (but less likely) routes,
     #    since askrene mostly optimizes for probability, not fees.
     results = {None: summary(base)}
-    for maxhops in (6, 5, 4):
+    for maxhops in (6, 5, 4, 3):
         res = getroutes_all(maxhops)
         for n in nodes:
             if isinstance(res[n], RpcError):
-                assert "excessive hop count" in res[n].error["message"], res[n].error
+                assert (
+                    "excessive hop count" in res[n].error["message"]
+                    or "can't satisfy both maxfee and maxhops"
+                    in res[n].error["message"]
+                ), res[n].error
                 continue
             assert longest(res[n]) <= maxhops, (
                 f"node {n}: route longer than maxhops={maxhops}"
@@ -3259,8 +3265,3 @@ def test_real_data_maxhops(node_factory, bitcoind, executor):
         results[maxhops] = summary(res)
 
     assert results == expected
-
-    # FIXME: maxhops=3 is not tested: when both the fee budget and the hop
-    # limit bind, linear_routes() alternates mu and per_hop_dial increases.
-    # Neither dial reaches near_one (they converge to ~0.04 and ~0.96), so
-    # it loops until the askrene deadline instead of failing quickly.
