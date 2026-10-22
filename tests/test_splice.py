@@ -553,6 +553,33 @@ def test_easy_splice_in(node_factory, bitcoind, chainparams):
     wait_for(lambda: len(l1.rpc.listfunds()['channels']) == 1)
 
 
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_easy_splice_in_all(node_factory, bitcoind):
+    fundamt = 1000000
+    l1, l2 = node_factory.line_graph(2, fundamount=fundamt, wait_for_announce=True)
+    emergency = 25000
+
+    wallet = sum(o['amount_msat'] for o in l1.rpc.listfunds()['outputs']
+                 if o['status'] == 'confirmed') // 1000
+    assert wallet > emergency
+
+    # Everything but the fee and (with anchors) min-emergency-msat goes in.
+    l1.rpc.splicein("*:?", "all")
+    p1 = only_one(l1.rpc.listpeerchannels(peer_id=l2.info['id'])['channels'])
+    spliceamt = p1['inflight'][0]['splice_amount']
+    assert wallet - emergency - 10000 < spliceamt < wallet - emergency
+
+    bitcoind.generate_block(6, wait_for_mempool=1)
+    l2.daemon.wait_for_log(r'lightningd, splice_locked clearing inflights')
+
+    p1 = only_one(l1.rpc.listpeerchannels(peer_id=l2.info['id'])['channels'])
+    assert p1['to_us_msat'] == (fundamt + spliceamt) * 1000
+    left = [Millisatoshi(emergency * 1000)]
+    wait_for(lambda: [o['amount_msat'] for o in l1.rpc.listfunds()['outputs']] == left)
+
+
 # Makes channels going from node 1 -> 2, 2 -> 3, etc up to 'qty' number channels.
 # If balanced is True, than each channel will be balanced -- otherwise the lower
 # index channel will have funds in the channel to the higher indexed one.
