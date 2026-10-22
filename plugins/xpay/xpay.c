@@ -1397,17 +1397,32 @@ static void append_blinded_payloads(struct sphinx_path *sp,
 	}
 }
 
-static const u8 *create_onion(const tal_t *ctx,
-			      struct attempt *attempt,
-			      u32 effective_bheight)
+struct xpay_onion {
+	/* Serialized onion. */
+	const u8 *raw_onion;
+
+	/* Number of forwarding hops before the tail including the sender. */
+	u32 num_forwards;
+
+	/* Bytes (payloads + HMACs) used by forward hops. */
+	size_t forward_bytes;
+
+	/* Bytes in the final payload plus blinded hops if present. */
+	size_t tail_bytes;
+};
+
+static struct xpay_onion *create_onion(const tal_t *ctx,
+				       struct attempt *attempt,
+				       u32 effective_bheight)
 {
 	struct xpay *xpay = xpay_of(attempt->payment->plugin);
 	bool blinded_path = false;
 	struct onionpacket *packet;
 	struct sphinx_path *sp;
-	const u8 *payload, *ret;
+	const u8 *payload;
 	const struct pubkey *node;
 	const struct amount_msat mpp_amount = attempt_mpp_amount(attempt);
+	struct xpay_onion *xpay_onion = talz(ctx, struct xpay_onion);
 
 	sp = sphinx_path_new(ctx, attempt->payment->payment_hash.u.u8,
 			     sizeof(attempt->payment->payment_hash.u.u8));
@@ -1421,6 +1436,7 @@ static const u8 *create_onion(const tal_t *ctx,
 		if (pubkey_eq(&hop->next_node, &xpay->fakenode)
 		    && hop->scidd.scid.u64 < tal_count(attempt->payment->paths)) {
 			blinded_path = true;
+			xpay_onion->forward_bytes = sphinx_path_payloads_size(sp);
 			append_blinded_payloads(sp, attempt, effective_bheight,
 						hop->scidd.scid.u64);
 			/* This must be at the end, unless they put the fake nodeid
@@ -1434,12 +1450,14 @@ static const u8 *create_onion(const tal_t *ctx,
 						hop->amount_out,
 						hop->cltv_value_out + effective_bheight);
 		sphinx_add_hop_has_length(sp, node, take(payload));
+		xpay_onion->num_forwards++;
 		node = &hop->next_node;
 	}
 
 	/* If we use a blinded path, final has to be special, so
 	 * that's done in append_blinded_payloads. */
 	if (!blinded_path) {
+		xpay_onion->forward_bytes = sphinx_path_payloads_size(sp);
 		u8 *final = onion_final_payload(tmpctx,
 						attempt_deliver(attempt),
 						attempt->payment->final_cltv + effective_bheight,
@@ -1449,32 +1467,51 @@ static const u8 *create_onion(const tal_t *ctx,
 						attempt->payment->extra_tlvs);
 		sphinx_add_hop_has_length(sp, node, take(final));
 	}
+	xpay_onion->tail_bytes =
+	    sphinx_path_payloads_size(sp) - xpay_onion->forward_bytes;
 
 	/* Fails if would be too long */
 	packet = create_onionpacket(attempt, sp, ROUTING_INFO_SIZE,
 				    &attempt->shared_secrets);
-	if (!packet)
-		return NULL;
+	if (packet)
+		xpay_onion->raw_onion =
+		    serialize_onionpacket(xpay_onion, packet);
 
-	ret = serialize_onionpacket(ctx, packet);
+	tal_free(sp);
 	tal_free(packet);
-	return ret;
+	return xpay_onion;
 }
 
 static struct command_result *do_inject(struct command *aux_cmd,
 					struct attempt *attempt)
 {
 	struct out_req *req;
-	const u8 *onion;
+	const struct xpay_onion *xpay_onion;
 	struct xpay *xpay = xpay_of(attempt->payment->plugin);
 	/* In case a block comes in, we give CLTVs an extra 1. */
 	u32 effective_bheight = xpay->blockheight + 1;
 
-	onion = create_onion(tmpctx, attempt, effective_bheight);
-	/* FIXME: Handle this better! */
-	if (!onion) {
-		payment_give_up(aux_cmd, attempt->payment, PAY_UNSPECIFIED_ERROR,
-				"Could not create payment onion: path too long!");
+	xpay_onion = create_onion(tmpctx, attempt, effective_bheight);
+	if (!xpay_onion->raw_onion) {
+		char *error;
+		size_t total =
+		    xpay_onion->forward_bytes + xpay_onion->tail_bytes;
+		if (total > ROUTING_INFO_SIZE)
+			error = tal_fmt(
+			    tmpctx,
+			    "%zu bytes needed (%" PRIu32
+			    " hops using %zu bytes, plus %zu bytes for the "
+			    "final payload or blinded path)",
+			    total, xpay_onion->num_forwards,
+			    xpay_onion->forward_bytes, xpay_onion->tail_bytes);
+		else
+			error = tal_fmt(tmpctx, "failed to derive shared secrets");
+
+		payment_log(attempt->payment, LOG_BROKEN,
+			    "create_onion failed: %s", error);
+		payment_give_up(aux_cmd, attempt->payment,
+				PAY_UNSPECIFIED_ERROR,
+				"Could not create payment onion: %s", error);
 		return command_still_pending(aux_cmd);
 	}
 
@@ -1492,7 +1529,7 @@ static struct command_result *do_inject(struct command *aux_cmd,
 				    injectpaymentonion_succeeded,
 				    injectpaymentonion_failed,
 				    attempt);
-	json_add_hex_talarr(req->js, "onion", onion);
+	json_add_hex_talarr(req->js, "onion", xpay_onion->raw_onion);
 	json_add_sha256(req->js, "payment_hash", &attempt->payment->payment_hash);
 	/* If no route, its the same as delivery (self-pay) */
 	json_add_amount_msat(req->js, "amount_msat", inject_amount(attempt));
