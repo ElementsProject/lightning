@@ -301,6 +301,10 @@ struct pay_parameters {
 
 	double delay_feefactor;
 	double base_fee_penalty;
+
+	/* An homogeneous (same for every channel) constant (does not depend on
+	 * the amount we forward) probability of success. */
+	double const_success_probability;
 };
 
 /* Helper function.
@@ -386,15 +390,64 @@ static void linearize_channel(const struct pay_parameters *params,
 					params->accuracy),
 		amount_msat_ratio_ceil(params->amount, params->accuracy));
 
+	const double flow_units = amount_msat_ratio(params->amount, params->accuracy);
+	const double k = 1000 * flow_units;
+
+	assert(params->const_success_probability > 0);
+	assert(params->const_success_probability <= 1.0);
+	/* Moving the entire payment through */
+	const double linear_const_cost =
+	    -log(params->const_success_probability) / flow_units;
+
 	set_capacity(&capacity[0], a, &cap_on_capacity);
-	cost[0]=0;
+	cost[0] = k * linear_const_cost;
 	for(size_t i=1;i<CHANNEL_PARTS;++i)
 	{
 		set_capacity(&capacity[i], params->cap_fraction[i]*(b-a), &cap_on_capacity);
 
-		cost[i] = params->cost_fraction[i] * 1000
-			  * amount_msat_ratio(params->amount, params->accuracy)
-			  / (b - a);
+		/* We have
+		 * 	cost(x) = - k log P_pickhardt(x)
+		 * where k is an arbitrary constant and P_pickhardt(x) is the probability
+		 * of success.  In the range a <= x < b
+		 * 	P_pickhardt(x) = 1 - (x-a)/(b-a) = 1 - t
+		 * t is the probability of failure and a convenient variable to
+		 * write down the piecewise linearization of -log P. In terms of
+		 * t the linearization of -log P in the ranges [0, 0.5, 0.8, 0.95]
+		 * produces the t-space slopes [0, 1.38, 3.05, 9.24], therefore the
+		 * slopes for cost(x) are
+		 * 	m_0 = 0
+		 * 	m_1 = 1.38 * k / (b-a)
+		 * 	m_2 = 3.05 * k / (b-a)
+		 * 	m_3 = 9.24 * k / (b-a)
+		 *
+		 * In the formula below cost_fraction[] corresponds to the
+		 * t-space slopes and k = T * 1000, being T the total payment
+		 * amount.
+		 *
+		 * The choice of k is based on the fact that cost[] is integer.
+		 * Simply letting k=1 makes the slopes zero for most of useful
+		 * arcs, eg. 1.38/(b-a) = 0. Since the slope has inverse units
+		 * of msats the natural choice of k is to have equivalent msats
+		 * units. With k = T * 1000 we neutralize the units of the slope
+		 * and we lift from zero a whole range of useful arc costs.
+		 * A linear arc will have a zero cost if (b-a) > 1000 * T
+		 * that is roughly an arc that can carry 1000T above the `a`
+		 * lower bound, therefore a probability of failure less than 1
+		 * in 1000.
+		 *
+		 * Introducing a constant probability of success factor works as
+		 * follows:
+		 * 	P_success(x) = P_const * P_pickhardt(x)
+		 *
+		 * 	cost(x) = -k log P_success(x)
+		 * 		= -k log P_const - k log P_pickhardt(x)
+		 *
+		 * A simple linearization strategy for a constant factor f is
+		 * simply consider linear_cost(x) = x * f / T, therefore
+		 * 	linear_cost(x) = (-k log P_const / T) * x + linear_pickhardt(x)
+		 * */
+		cost[i] = k * (params->cost_fraction[i] / (b - a) +
+			       linear_const_cost);
 	}
 }
 
@@ -951,7 +1004,8 @@ static struct flow **minflow(const tal_t *ctx,
 			     const struct gossmap_node *target,
 			     struct amount_msat amount,
 			     u32 mu,
-			     double delay_feefactor)
+			     double delay_feefactor,
+			     double per_hop_probability)
 {
 	struct flow **flow_paths;
 	/* We allocate everything off this, and free it at the end,
@@ -986,6 +1040,8 @@ static struct flow **minflow(const tal_t *ctx,
 
 	params->delay_feefactor = delay_feefactor;
 	params->base_fee_penalty = base_fee_penalty_estimate(amount);
+	assert(per_hop_probability > 0 && per_hop_probability <= 1);
+	params->const_success_probability = per_hop_probability;
 
 	// build the uncertainty network with linearization and residual arcs
 	struct graph *graph;
@@ -1110,6 +1166,15 @@ static void init_linear_network_single_path(
 			if (amount_msat_greater_eq(params->amount, maxcap))
 				continue;
 
+			const double probability =
+			    pickhardt_richter_probability(mincap, maxcap,
+							  params->amount) *
+			    params->const_success_probability;
+
+			/* too unlikely it is not worth considering */
+			if (probability < 1e-6)
+				continue;
+
 			const u32 chan_id = gossmap_chan_idx(gossmap, c);
 
 			const struct gossmap_node *next =
@@ -1128,9 +1193,7 @@ static void init_linear_network_single_path(
 				      node_obj(next_id));
 
 			(*arc_capacity)[arc.idx] = 1;
-			(*arc_prob_cost)[arc.idx] =
-			    (-1.0) * log(pickhardt_richter_probability(
-					 mincap, maxcap, params->amount));
+			(*arc_prob_cost)[arc.idx] = (-1.0) * log(probability);
 
 			struct amount_msat fee;
 			if (!amount_msat_fee(&fee, params->amount,
@@ -1164,7 +1227,8 @@ static struct flow **single_path_flow(const tal_t *ctx, const struct route_query
 				      const struct gossmap_node *source,
 				      const struct gossmap_node *target,
 				      struct amount_msat amount, u32 mu,
-				      double delay_feefactor)
+				      double delay_feefactor,
+				      double per_hop_probability)
 {
 	struct flow **flow_paths;
 	/* We allocate everything off this, and free it at the end,
@@ -1181,6 +1245,8 @@ static struct flow **single_path_flow(const tal_t *ctx, const struct route_query
 	params->accuracy = amount;
 	params->delay_feefactor = delay_feefactor;
 	params->base_fee_penalty = base_fee_penalty_estimate(amount);
+	assert(per_hop_probability > 0 && per_hop_probability <= 1);
+	params->const_success_probability = per_hop_probability;
 
 	struct graph *graph;
 	double *arc_prob_cost;
@@ -1347,7 +1413,7 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 	      struct flow **(*solver)(const tal_t *, const struct route_query *,
 				      const struct gossmap_node *,
 				      const struct gossmap_node *,
-				      struct amount_msat, u32, double))
+				      struct amount_msat, u32, double, double))
 {
 	const tal_t *working_ctx = tal(ctx, tal_t);
 	const char *error_message;
@@ -1360,6 +1426,13 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 	u32 mu = 1;
 	/* we start at 1e-6 and increase it exponentially (x2) up to 10. */
 	double delay_feefactor = 1e-6;
+
+	/* An homogeneous 1% probability of failure is assumed per hop.  We
+	 * don't have a proper treatment of *activation costs* on arcs right
+	 * now, but we use a simple linearization instead.  The result is still
+	 * a reduction of the mean path length.  Shorter paths are more likely
+	 * but also be more msat expensive. */
+	double per_hop_probability = 0.99;
 
 	struct flow **new_flows = NULL;
 	struct amount_msat all_deliver;
@@ -1390,13 +1463,23 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
                  * amount. */
 		if (amount_msat_less_eq(amount_to_deliver,
 					SINGLE_PATH_THRESHOLD)) {
-			new_flows = single_path_flow(working_ctx, rq, srcnode,
-						     dstnode, amount_to_deliver,
-						     mu, delay_feefactor);
+			new_flows = single_path_flow(working_ctx,
+						     rq,
+						     srcnode,
+						     dstnode,
+						     amount_to_deliver,
+						     mu,
+						     delay_feefactor,
+						     per_hop_probability);
 		} else {
-			new_flows =
-			    solver(working_ctx, rq, srcnode, dstnode,
-				   amount_to_deliver, mu, delay_feefactor);
+			new_flows = solver(working_ctx,
+					   rq,
+					   srcnode,
+					   dstnode,
+					   amount_to_deliver,
+					   mu,
+					   delay_feefactor,
+					   per_hop_probability);
 		}
 
 		if (!new_flows) {
