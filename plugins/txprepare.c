@@ -1,6 +1,7 @@
 #include "config.h"
 #include <bitcoin/psbt.h>
 #include <ccan/array_size/array_size.h>
+#include <common/addr.h>
 #include <common/json_param.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>
@@ -25,6 +26,9 @@ struct txprepare {
 	/* Once we have a PSBT, it goes here. */
 	struct wally_psbt *psbt;
 	u32 feerate;
+
+	/* Output fundpsbt added as change next to an 'all' output. */
+	int all_change_outnum;
 
 	/* For withdraw, we actually send immediately. */
 	bool is_withdraw;
@@ -284,6 +288,37 @@ static struct command_result *finish_txprepare(struct command *cmd,
 	return command_finished(cmd, js);
 }
 
+/* If the 'all' output goes to our own wallet, any change fundpsbt split
+ * off (to keep min-emergency-msat) would just be a second wallet UTXO:
+ * fold it back into the 'all' output, which keeps those funds anyway. */
+static struct command_result *all_output_checked(struct command *cmd,
+						 const char *method,
+						 const char *buf,
+						 const jsmntok_t *result,
+						 struct txprepare *txp)
+{
+	const jsmntok_t *addrs = json_get_member(buf, result, "addresses");
+	struct tx_output *all = &txp->outputs[txp->all_output_idx];
+	struct amount_sat change, saved_fee;
+	size_t change_weight;
+
+	/* Not ours (or listaddresses failed): leave it alone. */
+	if (!addrs || addrs->type != JSMN_ARRAY || addrs->size == 0)
+		return finish_txprepare(cmd, txp);
+
+	change = psbt_output_get_amount(txp->psbt, txp->all_change_outnum);
+	change_weight = bitcoin_tx_output_weight(
+		txp->psbt->outputs[txp->all_change_outnum].script_len);
+	saved_fee = amount_tx_fee(txp->feerate, change_weight);
+
+	if (!amount_sat_add(&all->amount, all->amount, change)
+	    || !amount_sat_add(&all->amount, all->amount, saved_fee))
+		return command_fail(cmd, LIGHTNINGD, "Output amount overflow");
+
+	psbt_rm_output(txp->psbt, txp->all_change_outnum);
+	return finish_txprepare(cmd, txp);
+}
+
 /* fundpsbt/utxopsbt gets a viable PSBT for us. */
 static struct command_result *psbt_created(struct command *cmd,
 					   const char *method,
@@ -291,7 +326,7 @@ static struct command_result *psbt_created(struct command *cmd,
 					   const jsmntok_t *result,
 					   struct txprepare *txp)
 {
-	const jsmntok_t *psbttok;
+	const jsmntok_t *psbttok, *changetok;
 	struct amount_msat excess_msat;
 	struct amount_sat excess;
 	u32 weight;
@@ -349,6 +384,30 @@ static struct command_result *psbt_created(struct command *cmd,
 					    fmt_amount_sat(tmpctx, excess));
 		}
 		txp->outputs[txp->all_output_idx].amount = excess;
+
+		/* With 'all' there's only change if fundpsbt kept back
+		 * min-emergency-msat: check if that's even needed. */
+		changetok = json_get_member(buf, result, "change_outnum");
+		if (changetok
+		    && json_to_int(buf, changetok, &txp->all_change_outnum)) {
+			const struct tx_output *all
+				= &txp->outputs[txp->all_output_idx];
+			const char *addr
+				= encode_scriptpubkey_to_addr(tmpctx,
+							      chainparams,
+							      all->script,
+							      tal_bytelen(all->script));
+			if (addr) {
+				struct out_req *req;
+
+				req = jsonrpc_request_start(cmd, "listaddresses",
+							    all_output_checked,
+							    all_output_checked,
+							    txp);
+				json_add_string(req->js, "address", addr);
+				return send_outreq(req);
+			}
+		}
 	}
 
 	return finish_txprepare(cmd, txp);

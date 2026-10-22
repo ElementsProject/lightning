@@ -3282,6 +3282,30 @@ def test_anchor_min_emergency(bitcoind, node_factory):
     wait_for(lambda: l1.rpc.listfunds()['outputs'] == [])
 
 
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd has different tx costs')
+def test_anchor_min_emergency_withdraw_to_self(bitcoind, node_factory):
+    """Consolidating with withdraw 'all' to our own address keeps the
+    emergency funds in that output, rather than a separate change UTXO."""
+    l1, l2 = node_factory.line_graph(2)
+    assert 'anchors/even' in only_one(l1.rpc.listpeerchannels()['channels'])['channel_type']['names']
+
+    for _ in range(2):
+        bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['p2tr'], 100000 / 10**8)
+    bitcoind.generate_block(1, wait_for_mempool=2)
+    sync_blockheight(bitcoind, [l1])
+    wait_for(lambda: len([o for o in l1.rpc.listfunds()['outputs']
+                          if o['status'] == 'confirmed']) >= 3)
+
+    addr = l1.rpc.newaddr()['p2tr']
+    res = l1.rpc.withdraw(addr, 'all')
+    outs = bitcoind.rpc.decoderawtransaction(res['tx'])['vout']
+    assert [o['scriptPubKey']['address'] for o in outs] == [addr]
+
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    sync_blockheight(bitcoind, [l1])
+    wait_for(lambda: [o['address'] for o in l1.rpc.listfunds()['outputs']] == [addr])
+
+
 def test_fundchannel_utxo_too_small(bitcoind, node_factory):
     l1, l2 = node_factory.get_nodes(2)
 
