@@ -1211,7 +1211,9 @@
         },
         "Bkpr-listaccounteventsRequest": {
             "Bkpr-ListAccountEvents.account": 1,
-            "Bkpr-ListAccountEvents.payment_id": 2
+            "Bkpr-ListAccountEvents.end_time": 4,
+            "Bkpr-ListAccountEvents.payment_id": 2,
+            "Bkpr-ListAccountEvents.start_time": 3
         },
         "Bkpr-listaccounteventsResponse": {
             "Bkpr-ListAccountEvents.events[]": 1
@@ -6076,6 +6078,10 @@
             "added": "pre-v0.10.1",
             "deprecated": null
         },
+        "Bkpr-ListAccountEvents.end_time": {
+            "added": "v26.09",
+            "deprecated": null
+        },
         "Bkpr-ListAccountEvents.events[]": {
             "added": "pre-v0.10.1",
             "deprecated": null
@@ -6150,6 +6156,10 @@
         },
         "Bkpr-ListAccountEvents.payment_id": {
             "added": "v24.08",
+            "deprecated": null
+        },
+        "Bkpr-ListAccountEvents.start_time": {
+            "added": "v26.09",
             "deprecated": null
         },
         "Bkpr-ListBalances": {

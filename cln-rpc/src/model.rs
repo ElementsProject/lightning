@@ -4259,7 +4259,11 @@ pub mod requests {
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub account: Option<String>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub end_time: Option<u64>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub payment_id: Option<String>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub start_time: Option<u64>,
 	}
 
 	impl From<BkprlistaccounteventsRequest> for Request {

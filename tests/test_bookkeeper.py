@@ -1445,6 +1445,20 @@ def test_listincome_and_report_timebox(node_factory, bitcoind):
 
     assert first_entries + last_entries == all_entries
 
+    # bkpr-listaccountevents brackets the same way.
+    first_evs = l1.rpc.bkpr_listaccountevents(end_time=first_one)['events']
+    last_evs = l1.rpc.bkpr_listaccountevents(start_time=first_one)['events']
+    all_evs = l1.rpc.bkpr_listaccountevents()['events']
+    assert first_evs and last_evs
+    assert all(e['timestamp'] <= first_one for e in first_evs)
+    assert all(e['timestamp'] > first_one for e in last_evs)
+    assert first_evs + last_evs == all_evs
+
+    # And combines with the account filter.
+    wallet_evs = l1.rpc.bkpr_listaccountevents(account='wallet',
+                                               start_time=first_one)['events']
+    assert wallet_evs == [e for e in last_evs if e['account'] == 'wallet']
+
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "Snapshots are bitcoin regtest.")
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "uses snapshots")

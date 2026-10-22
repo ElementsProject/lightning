@@ -6924,7 +6924,9 @@ impl From<requests::BkprlistaccounteventsRequest> for pb::BkprlistaccounteventsR
     fn from(c: requests::BkprlistaccounteventsRequest) -> Self {
         Self {
             account: c.account, // Rule #2 for type string?
+            end_time: c.end_time, // Rule #2 for type u64?
             payment_id: c.payment_id, // Rule #2 for type string?
+            start_time: c.start_time, // Rule #2 for type u64?
         }
     }
 }
@@ -8990,7 +8992,9 @@ impl From<pb::BkprlistaccounteventsRequest> for requests::BkprlistaccounteventsR
     fn from(c: pb::BkprlistaccounteventsRequest) -> Self {
         Self {
             account: c.account, // Rule #1 for type string?
+            end_time: c.end_time, // Rule #1 for type u64?
             payment_id: c.payment_id, // Rule #1 for type string?
+            start_time: c.start_time, // Rule #1 for type u64?
         }
     }
 }

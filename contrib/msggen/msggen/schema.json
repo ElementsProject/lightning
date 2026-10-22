@@ -4519,6 +4519,22 @@
             "description": [
               "Receive events for the specified payment id."
             ]
+          },
+          "start_time": {
+            "type": "u64",
+            "added": "v26.09",
+            "description": [
+              "UNIX timestamp (in seconds) that filters events after the provided timestamp."
+            ],
+            "default": "zero"
+          },
+          "end_time": {
+            "type": "u64",
+            "added": "v26.09",
+            "description": [
+              "UNIX timestamp (in seconds) that filters events up to and at the provided timestamp."
+            ],
+            "default": "max-int"
           }
         }
       },

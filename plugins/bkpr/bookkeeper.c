@@ -767,7 +767,21 @@ static void json_add_events(struct json_stream *res,
 struct account_events_info {
 	const char *acct_name;
 	struct sha256 *payment_id;
+	u64 *start_time, *end_time;
 };
+
+/* Drop entries outside (start_time, end_time], like bkpr-listincome. */
+#define filter_timebox(arr, info)					\
+	do {								\
+		size_t n_ = 0;						\
+		for (size_t i_ = 0; i_ < tal_count(arr); i_++) {	\
+			if ((arr)[i_]->timestamp > *(info)->start_time	\
+			    && (arr)[i_]->timestamp <= *(info)->end_time) \
+				(arr)[n_++] = (arr)[i_];		\
+		}							\
+		if (n_ != tal_count(arr))				\
+			tal_resize(&(arr), n_);				\
+	} while (0)
 
 static struct command_result *do_account_events(struct command *cmd,
 						struct account_events_info *info)
@@ -815,6 +829,10 @@ static struct command_result *do_account_events(struct command *cmd,
 		onchain_fees = list_chain_fees(cmd, bkpr);
 	}
 
+	filter_timebox(channel_events, info);
+	filter_timebox(chain_events, info);
+	filter_timebox(onchain_fees, info);
+
 	res = jsonrpc_stream_success(cmd);
 	json_array_start(res, "events");
 	json_add_events(res, bkpr, channel_events, chain_events, onchain_fees);
@@ -832,6 +850,9 @@ static struct command_result *json_list_account_events(struct command *cmd,
 	if (!param(cmd, buf, params,
 		   p_opt("account", param_string, &info->acct_name),
 		   p_opt("payment_id", param_sha256, &info->payment_id),
+		   p_opt_def("start_time", param_u64, &info->start_time, 0),
+		   p_opt_def("end_time", param_u64, &info->end_time,
+			     SQLITE_MAX_UINT),
 		   NULL))
 		return command_param_failed();
 
