@@ -1476,6 +1476,11 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 	double per_hop_dial = 0.001;
 	double prob_dial = 0.988;
 
+	/* Counters to keep a record of how many times the dials have been
+	 * updated. */
+	int count_mu_updates = 0, count_delay_updates = 0,
+	    count_hop_updates = 0;
+
 	/* An homogeneous 1% probability of failure is assumed per hop.  We
 	 * don't have a proper treatment of *activation costs* on arcs right
 	 * now, but we use a simple linearization instead.  The result is still
@@ -1497,6 +1502,36 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 						  "%s: timed out after deadline",
 						  __func__);
 			*ecode = PAY_STOPPED_RETRYING;
+			goto fail;
+		}
+
+		/* If we see any indication of a race between any pair of dials
+		 * we can't guarantee converge so we stop. */
+		if (count_mu_updates > 10 && count_delay_updates > 10) {
+			error_message =
+			    child_log(ctx, LOG_UNUSUAL,
+				      "%s: can't satisfy both maxfee and "
+				      "maxdelay constraints",
+				      __func__);
+			*ecode = PAY_ROUTE_NOT_FOUND;
+			goto fail;
+		}
+		if (count_mu_updates > 10 && count_hop_updates > 10) {
+			error_message =
+			    child_log(ctx, LOG_UNUSUAL,
+				      "%s: can't satisfy both maxfee and "
+				      "maxhops constraints",
+				      __func__);
+			*ecode = PAY_ROUTE_NOT_FOUND;
+			goto fail;
+		}
+		if (count_hop_updates > 10 && count_delay_updates > 10) {
+			error_message =
+			    child_log(ctx, LOG_UNUSUAL,
+				      "%s: can't satisfy both maxhops and "
+				      "maxdelay constraints",
+				      __func__);
+			*ecode = PAY_ROUTE_NOT_FOUND;
 			goto fail;
 		}
 
@@ -1599,6 +1634,7 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 				/* all_fees exceed the strong budget limit, try
 				 * to fix it increasing mu. */
 				mu *= 2;
+				count_mu_updates++;
 				renormalize_dials(&mu, &delay_dial,
 						  &per_hop_dial,
 						  &prob_dial);
@@ -1646,6 +1682,7 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 			}
 
 			delay_dial *= 2;
+			count_delay_updates++;
 			renormalize_dials(&mu, &delay_dial, &per_hop_dial,
 					  &prob_dial);
 			child_log(tmpctx, LOG_INFORM,
@@ -1669,6 +1706,7 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 			}
 
 			per_hop_dial *= 2;
+			count_hop_updates++;
 			renormalize_dials(&mu, &delay_dial, &per_hop_dial,
 					  &prob_dial);
 
