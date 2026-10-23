@@ -537,7 +537,7 @@ static struct route_info **select_inchan(const tal_t *ctx,
 					 const struct routehint_candidate
 					 *candidates)
 {
-	/* BOLT-11 struct wants an array of arrays (can provide multiple routes) */
+	/* Struct in BOLT-11 wants an array of arrays (can provide multiple routes) */
 	struct route_info **r = NULL;
 	double total_weight = 0.0;
 

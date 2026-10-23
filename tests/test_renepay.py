@@ -863,13 +863,13 @@ def test_offer_selfpay(node_factory):
 
 def test_unannounced(node_factory):
     l1, l2 = node_factory.line_graph(2, announce_channels=False, opts={'allow-deprecated-apis': True})
-    # BOLT-11 direct peer
+    # Direct peer: BOLT-11
     b11 = l2.rpc.invoice(
         "100sat", "test_renepay_unannounced", "test_renepay_unannounced"
     )["bolt11"]
     ret = l1.rpc.call("renepay", {"invstring": b11})
     assert ret["status"] == "complete"
-    # BOLT-12 direct peer
+    # Direct peer: BOLT-12
     offer = l2.rpc.offer("any")["bolt12"]
     b12 = l1.rpc.fetchinvoice(offer, "21sat")["invoice"]
     ret = l1.rpc.call("renepay", {"invstring": b12})
@@ -889,7 +889,7 @@ def test_cltv_value(node_factory, bitcoind):
         },
     )
     blockheight = l1.rpc.waitblockheight(0)["blockheight"]
-    # BOLT-11 direct peer
+    # Direct peer, BOLT-11 
     b11 = l3.rpc.invoice(
         "100sat", "test_renepay_expiry_too_far", "test_renepay_expiry_too_far"
     )["bolt11"]
