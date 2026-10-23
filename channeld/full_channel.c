@@ -769,7 +769,7 @@ static enum channel_add_err add_htlc(struct channel *channel,
 	if (enforce_aggregate_limits
 	    && amount_msat_greater(msat_in_htlcs,
 				   channel->config[recipient].max_htlc_value_in_flight)) {
-		return CHANNEL_ERR_MAX_HTLC_VALUE_EXCEEDED;
+		return CHANNEL_ERR_MAX_HTLC_VALUE_IN_FLIGHT_EXCEEDED;
 	}
 
 	/* BOLT #2:
