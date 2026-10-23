@@ -205,6 +205,31 @@ static const struct htlc **include_htlcs(struct channel *channel, enum side side
 	return htlcs;
 }
 
+/* A received update_add_htlc over the BOLT #1 amount ceiling must be refused,
+ * not admitted via signed-overflow of channeld's balance check. */
+static void test_reject_oversized_htlc(struct channel *channel)
+{
+	const u64 max_msat = 0x1d24b2dfac520000ULL; /* BOLT #1: 21M BTC */
+	u8 *dummy_routing = tal_arr(tmpctx, u8,
+				    TOTAL_PACKET_SIZE(ROUTING_INFO_SIZE));
+	struct sha256 hash;
+	enum channel_add_err e;
+
+	memset(&hash, 0, sizeof(hash));
+
+	e = channel_add_htlc(channel, REMOTE, 0, AMOUNT_MSAT(UINT64_MAX),
+			     500, &hash, dummy_routing,
+			     NULL, NULL, NULL, NULL, false);
+	assert(e != CHANNEL_ERR_ADD_OK);
+
+	e = channel_add_htlc(channel, REMOTE, 1, AMOUNT_MSAT(max_msat + 1),
+			     500, &hash, dummy_routing,
+			     NULL, NULL, NULL, NULL, false);
+	assert(e != CHANNEL_ERR_ADD_OK);
+
+	tal_free(dummy_routing);
+}
+
 static struct pubkey pubkey_from_hex(const char *hex)
 {
 	struct pubkey pubkey;
@@ -517,6 +542,9 @@ int main(int argc, const char *argv[])
 				    &remote_funding_pubkey,
 				    &local_funding_pubkey,
 				    take(channel_type_static_remotekey(NULL)), false, REMOTE);
+
+	/* Oversized-amount HTLC must be refused, not admitted via overflow. */
+	test_reject_oversized_htlc(lchannel);
 
 	/* BOLT #3:
 	 *
