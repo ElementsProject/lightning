@@ -10492,105 +10492,6 @@ pub mod responses {
 	    }
 	}
 
-	/// ['Status of the payment.', 'Still ongoing, completed, failed locally, or failed after forwarding.', "Whether it's paid, unpaid or unpayable."]
-	#[deprecated]
-	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
-	#[allow(non_camel_case_types)]
-	pub enum WaitDetailsStatus {
-	    #[serde(rename = "unpaid")]
-	    UNPAID = 0,
-	    #[serde(rename = "paid")]
-	    PAID = 1,
-	    #[serde(rename = "expired")]
-	    EXPIRED = 2,
-	    #[serde(rename = "pending")]
-	    PENDING = 3,
-	    #[serde(rename = "failed")]
-	    FAILED = 4,
-	    #[serde(rename = "complete")]
-	    COMPLETE = 5,
-	    #[serde(rename = "offered")]
-	    OFFERED = 6,
-	    #[serde(rename = "settled")]
-	    SETTLED = 7,
-	    #[serde(rename = "local_failed")]
-	    LOCAL_FAILED = 8,
-	}
-
-	impl TryFrom<i32> for WaitDetailsStatus {
-	    type Error = anyhow::Error;
-	    fn try_from(c: i32) -> Result<WaitDetailsStatus, anyhow::Error> {
-	        match c {
-	    0 => Ok(WaitDetailsStatus::UNPAID),
-	    1 => Ok(WaitDetailsStatus::PAID),
-	    2 => Ok(WaitDetailsStatus::EXPIRED),
-	    3 => Ok(WaitDetailsStatus::PENDING),
-	    4 => Ok(WaitDetailsStatus::FAILED),
-	    5 => Ok(WaitDetailsStatus::COMPLETE),
-	    6 => Ok(WaitDetailsStatus::OFFERED),
-	    7 => Ok(WaitDetailsStatus::SETTLED),
-	    8 => Ok(WaitDetailsStatus::LOCAL_FAILED),
-	            o => Err(anyhow::anyhow!("Unknown variant {} for enum WaitDetailsStatus", o)),
-	        }
-	    }
-	}
-
-	impl ToString for WaitDetailsStatus {
-	    fn to_string(&self) -> String {
-	        match self {
-	            WaitDetailsStatus::COMPLETE => "COMPLETE",
-	            WaitDetailsStatus::EXPIRED => "EXPIRED",
-	            WaitDetailsStatus::FAILED => "FAILED",
-	            WaitDetailsStatus::LOCAL_FAILED => "LOCAL_FAILED",
-	            WaitDetailsStatus::OFFERED => "OFFERED",
-	            WaitDetailsStatus::PAID => "PAID",
-	            WaitDetailsStatus::PENDING => "PENDING",
-	            WaitDetailsStatus::SETTLED => "SETTLED",
-	            WaitDetailsStatus::UNPAID => "UNPAID",
-	        }.to_string()
-	    }
-	}
-
-	#[deprecated = "deprecated since CLN v25.05"]
-	#[derive(Clone, Debug, Deserialize, Serialize)]
-	pub struct WaitDetails {
-	    #[deprecated]
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub bolt11: Option<String>,
-	    #[deprecated]
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub bolt12: Option<String>,
-	    #[deprecated]
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub description: Option<String>,
-	    #[deprecated]
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub groupid: Option<u64>,
-	    #[deprecated]
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub in_channel: Option<ShortChannelId>,
-	    #[deprecated]
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub in_htlc_id: Option<u64>,
-	    #[deprecated]
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub in_msat: Option<Amount>,
-	    #[deprecated]
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub label: Option<String>,
-	    #[deprecated]
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub out_channel: Option<ShortChannelId>,
-	    #[deprecated]
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub partid: Option<u64>,
-	    #[deprecated]
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub payment_hash: Option<Sha256>,
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub status: Option<WaitDetailsStatus>,
-	}
-
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct WaitChainmoves {
 	    pub account: String,
@@ -10898,9 +10799,6 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct WaitResponse {
-	    #[deprecated]
-	    #[serde(skip_serializing_if = "Option::is_none")]
-	    pub details: Option<WaitDetails>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub chainmoves: Option<WaitChainmoves>,
 	    #[serde(skip_serializing_if = "Option::is_none")]

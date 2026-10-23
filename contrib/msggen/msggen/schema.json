@@ -39401,8 +39401,7 @@
           "htlcs": {},
           "chainmoves": {},
           "channelmoves": {},
-          "networkevents": {},
-          "details": {}
+          "networkevents": {}
         },
         "allOf": [
           {
@@ -39424,51 +39423,6 @@
                 "created": {},
                 "updated": {},
                 "deleted": {},
-                "details": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "deprecated": [
-                    "v25.05",
-                    "v26.06"
-                  ],
-                  "properties": {
-                    "status": {
-                      "type": "string",
-                      "enum": [
-                        "unpaid",
-                        "paid",
-                        "expired"
-                      ],
-                      "description": [
-                        "Whether it's paid, unpaid or unpayable."
-                      ]
-                    },
-                    "label": {
-                      "type": "string",
-                      "description": [
-                        "Unique label supplied at invoice creation."
-                      ]
-                    },
-                    "description": {
-                      "type": "string",
-                      "description": [
-                        "Description used in the invoice."
-                      ]
-                    },
-                    "bolt11": {
-                      "type": "string",
-                      "description": [
-                        "The BOLT11 string."
-                      ]
-                    },
-                    "bolt12": {
-                      "type": "string",
-                      "description": [
-                        "The BOLT12 string."
-                      ]
-                    }
-                  }
-                },
                 "invoices": {
                   "type": "object",
                   "added": "v25.05",
@@ -39538,52 +39492,6 @@
                 "created": {},
                 "updated": {},
                 "deleted": {},
-                "details": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "deprecated": [
-                    "v25.05",
-                    "v26.06"
-                  ],
-                  "properties": {
-                    "status": {
-                      "type": "string",
-                      "enum": [
-                        "offered",
-                        "settled",
-                        "failed",
-                        "local_failed"
-                      ],
-                      "description": [
-                        "Still ongoing, completed, failed locally, or failed after forwarding."
-                      ]
-                    },
-                    "in_channel": {
-                      "type": "short_channel_id",
-                      "description": [
-                        "Unique label supplied at invoice creation."
-                      ]
-                    },
-                    "in_htlc_id": {
-                      "type": "u64",
-                      "description": [
-                        "The unique HTLC id the sender gave this (not present if incoming channel was closed before upgrade to v22.11)."
-                      ]
-                    },
-                    "in_msat": {
-                      "type": "msat",
-                      "description": [
-                        "The value of the incoming HTLC."
-                      ]
-                    },
-                    "out_channel": {
-                      "type": "short_channel_id",
-                      "description": [
-                        "The channel that the HTLC (trying to) forward to."
-                      ]
-                    }
-                  }
-                },
                 "forwards": {
                   "added": "v25.05",
                   "type": "object",
@@ -39654,45 +39562,6 @@
                 "created": {},
                 "updated": {},
                 "deleted": {},
-                "details": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "deprecated": [
-                    "v25.05",
-                    "v26.06"
-                  ],
-                  "properties": {
-                    "status": {
-                      "type": "string",
-                      "enum": [
-                        "pending",
-                        "failed",
-                        "complete"
-                      ],
-                      "description": [
-                        "Status of the payment."
-                      ]
-                    },
-                    "partid": {
-                      "type": "u64",
-                      "description": [
-                        "Part number (for multiple parts to a single payment)."
-                      ]
-                    },
-                    "groupid": {
-                      "type": "u64",
-                      "description": [
-                        "Grouping key to disambiguate multiple attempts to pay an invoice or the same payment_hash."
-                      ]
-                    },
-                    "payment_hash": {
-                      "type": "hash",
-                      "description": [
-                        "The hash of the *payment_preimage* which will prove payment."
-                      ]
-                    }
-                  }
-                },
                 "sendpays": {
                   "type": "object",
                   "added": "v25.05",
@@ -41708,7 +41577,7 @@
           "short_channel_id": {
             "type": "short_channel_id",
             "description": [
-              "The short channel id of the channel. If the channel is not yet confirmed, this field will be null."
+              "The short channel id of the channel. If the channel is not yet confirmed, this field will be missing."
             ]
           },
           "timestamp": {
@@ -41872,22 +41741,6 @@
               "The UNIX timestamp when the movement was recorded."
             ]
           },
-          "tags": {
-            "type": "array",
-            "description": [
-              "Deprecated legacy combined tag array, emitted only for deprecated output compatibility."
-            ],
-            "deprecated": [
-              "v25.09",
-              "v26.09"
-            ],
-            "items": {
-              "type": "string",
-              "description": [
-                "A legacy movement tag."
-              ]
-            }
-          },
           "primary_tag": {
             "type": "string",
             "enum": [
@@ -41976,42 +41829,12 @@
               "The originating account for an external chain movement, if any."
             ]
           },
-          "txid": {
-            "type": "txid",
-            "description": [
-              "Deprecated legacy field for the spending transaction id."
-            ],
-            "deprecated": [
-              "v25.09",
-              "v26.09"
-            ]
-          },
           "spending_txid": {
             "type": "txid",
             "description": [
               "The spending transaction id for a chain movement, if any."
             ],
             "added": "v25.09"
-          },
-          "utxo_txid": {
-            "type": "txid",
-            "description": [
-              "Deprecated legacy field for the outpoint transaction id."
-            ],
-            "deprecated": [
-              "v25.09",
-              "v26.09"
-            ]
-          },
-          "vout": {
-            "type": "u32",
-            "description": [
-              "Deprecated legacy field for the outpoint output index."
-            ],
-            "deprecated": [
-              "v25.09",
-              "v26.09"
-            ]
           },
           "output_msat": {
             "type": "msat",

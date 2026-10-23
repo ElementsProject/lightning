@@ -2136,23 +2136,6 @@ def wait_channelmoves2py(m):
     })
 
 
-def wait_details2py(m):
-    return remove_default({
-        "status": str(m.status),  # EnumField in generate_composite
-        "bolt11": m.bolt11,  # PrimitiveField in generate_composite
-        "bolt12": m.bolt12,  # PrimitiveField in generate_composite
-        "description": m.description,  # PrimitiveField in generate_composite
-        "groupid": m.groupid,  # PrimitiveField in generate_composite
-        "in_channel": m.in_channel,  # PrimitiveField in generate_composite
-        "in_htlc_id": m.in_htlc_id,  # PrimitiveField in generate_composite
-        "in_msat": amount2msat(m.in_msat),  # PrimitiveField in generate_composite
-        "label": m.label,  # PrimitiveField in generate_composite
-        "out_channel": m.out_channel,  # PrimitiveField in generate_composite
-        "partid": m.partid,  # PrimitiveField in generate_composite
-        "payment_hash": hexlify(m.payment_hash),  # PrimitiveField in generate_composite
-    })
-
-
 def wait_forwards2py(m):
     return remove_default({
         "status": str(m.status),  # EnumField in generate_composite

@@ -397,15 +397,6 @@ static void channel_hint_notify(struct plugin *plugin,
 	struct json_stream *js =
 	    plugin_notification_start_obs(plugin, "channel_hint_update");
 
-	/* Fake up the old "payload" style, *and* the old unwrapped style */
-	if (notification_deprecated_out_ok(plugin, "notification", "payload",
-					   "v25.09", "v26.09")) {
-		json_add_string(js, "origin", "pay");
-		json_object_start(js, "payload");
-		channel_hint_notify_core(plugin, js, "channel_hint", hint);
-		json_object_end(js);
-	}
-
 	channel_hint_notify_core(plugin, js, "channel_hint_update", hint);
 	plugin_notification_end_obs(plugin, js);
 }
@@ -2116,15 +2107,6 @@ static void payment_notify_failure(struct payment *p, const char *error_message)
 	struct json_stream *n;
 
 	n = plugin_notification_start_obs(p->plugin, "pay_failure");
-	/* Fake up the old "payload" style, *and* the old unwrapped style */
-	if (notification_deprecated_out_ok(p->plugin, "notification", "payload",
-					   "v25.09", "v26.09")) {
-		json_add_string(n, "origin", "pay");
-		json_object_start(n, "payload");
-		payment_failure_notify_core(p, n, error_message);
-		json_object_end(n);
-	}
-
 	json_object_start(n, "pay_failure");
 	payment_failure_notify_core(p, n, error_message);
 	json_object_end(n);
@@ -2164,17 +2146,6 @@ void json_add_payment_success(struct json_stream *js,
 	json_add_string(js, "status", "complete");
 
 	n = plugin_notification_start_obs(p->plugin, "pay_success");
-	/* Fake up the old "payload" style, *and* the old unwrapped style */
-	if (notification_deprecated_out_ok(p->plugin, "notification", "payload",
-					   "v25.09", "v26.09")) {
-		json_add_string(n, "origin", "pay");
-		json_object_start(n, "payload");
-		json_add_sha256(n, "payment_hash", p->payment_hash);
-		if (root->invstring != NULL)
-			json_add_string(n, "bolt11", root->invstring);
-		json_object_end(n);
-	}
-
 	json_object_start(n, "pay_success");
 	json_add_sha256(n, "payment_hash", p->payment_hash);
 	if (root->invstring != NULL)

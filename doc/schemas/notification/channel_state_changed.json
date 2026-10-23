@@ -33,7 +33,7 @@
       "short_channel_id": {
         "type": "short_channel_id",
         "description": [
-          "The short channel id of the channel. If the channel is not yet confirmed, this field will be null."
+          "The short channel id of the channel. If the channel is not yet confirmed, this field will be missing."
         ]
       },
       "timestamp": {

@@ -1089,13 +1089,8 @@ where
         method: String,
         v: serde_json::Value,
     ) -> Result<(), Error> {
-        // Modern has them inside object of same name.
-        // This is deprecated, scheduled for removal 26.09.
-        let mut params = match &v {
-            serde_json::Value::Object(map) => map.clone(),
-            _ => return Err(anyhow::anyhow!("params must be a JSON object")),
-        };
-        params.insert(method.clone(), json!(v));
+        let mut params = serde_json::Map::new();
+        params.insert(method.clone(), v);
 
         self.sender
             .send(json!({
