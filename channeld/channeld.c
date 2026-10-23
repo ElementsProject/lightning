@@ -6644,6 +6644,10 @@ static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
 		failwiremsg = towire_required_node_feature_missing(inmsg);
 		failstr = "Mini mode: maximum value exceeded";
 		goto failed;
+	case CHANNEL_ERR_MAX_HTLC_VALUE_IN_FLIGHT_EXCEEDED:
+		failwiremsg = towire_temporary_channel_failure(inmsg, NULL);
+		failstr = "Aggregate value of committed HTLCs would exceed max_htlc_value_in_flight_msat";
+		goto failed;
 	/* FIXME: Fuzz the boundaries a bit to avoid probing? */
 	case CHANNEL_ERR_CHANNEL_CAPACITY_EXCEEDED:
 		failwiremsg = towire_temporary_channel_failure(inmsg, NULL);
