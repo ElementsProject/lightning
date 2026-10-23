@@ -398,18 +398,6 @@ impl ToString for CoinMovementType {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct CoinMovementNotification {
-    #[deprecated]
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub txid: Option<String>,
-    #[deprecated]
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub utxo_txid: Option<String>,
-    #[deprecated]
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub vout: Option<u32>,
-    #[deprecated]
-    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
-    pub tags: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub blockheight: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
