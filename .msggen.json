@@ -2249,6 +2249,7 @@
             "GetRoutes.layers[]": 4,
             "GetRoutes.maxdelay": 8,
             "GetRoutes.maxfee_msat": 5,
+            "GetRoutes.maxhops": 10,
             "GetRoutes.maxparts": 9,
             "GetRoutes.source": 1
         },
@@ -8814,6 +8815,10 @@
         },
         "GetRoutes.maxfee_msat": {
             "added": "v24.08",
+            "deprecated": null
+        },
+        "GetRoutes.maxhops": {
+            "added": "v26.09",
             "deprecated": null
         },
         "GetRoutes.maxparts": {
