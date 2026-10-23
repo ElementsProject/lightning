@@ -215,7 +215,7 @@ static void billboard_update(const struct peer *peer)
 					       peer->depth_togo,
 					       num_channel_htlcs(peer->channel));
 
-	peer_billboard(false, update);
+	peer_billboard(false, "%s", update);
 }
 
 const u8 *hsm_req(const tal_t *ctx, const u8 *req TAKES)
@@ -1299,6 +1299,12 @@ static u8 *send_commit_part(const tal_t *ctx,
 			  remote_index, REMOTE,
 			  splice_amnt, remote_splice_amnt, &local_anchor_outnum,
 			  funding_pubkeys);
+	if (!txs)
+		peer_failed_err(peer->pps, &peer->channel_id,
+				"Could not create commitment %"PRIu64
+				" for funding %s",
+				remote_index,
+				fmt_bitcoin_outpoint(tmpctx, funding));
 	htlc_sigs =
 	    calc_commitsigs(tmpctx, peer, txs, funding_wscript, htlc_map,
 			    remote_index, remote_per_commit, &commit_sig,
@@ -2051,6 +2057,23 @@ static NORETURN void splice_abort(struct peer *peer, struct inflight *inflight,
 	exit(0);
 }
 
+/* lightningd keys inflights by funding txid, so a splice tx which
+ * reuses the txid of one we already have (e.g. an RBF that rebuilt an
+ * identical tx) cannot be recorded.  Abort the splice rather than hand
+ * lightningd a duplicate. */
+static void check_duplicate_inflight(struct peer *peer,
+				     const struct bitcoin_txid *txid)
+{
+	for (size_t i = 0; i < tal_count(peer->splice_state->inflights); i++) {
+		if (!bitcoin_txid_eq(&peer->splice_state->inflights[i]->outpoint.txid,
+				     txid))
+			continue;
+		splice_abort(peer, NULL,
+			     "Splice tx %s duplicates an existing inflight",
+			     fmt_bitcoin_txid(tmpctx, txid));
+	}
+}
+
 struct commitsig_info {
 	struct commitsig *commitsig;
 	struct secret *old_secret;
@@ -2215,6 +2238,12 @@ static struct commitsig_info *handle_peer_commit_sig(struct peer *peer,
 			  local_index, LOCAL, splice_amnt,
 			  remote_splice_amnt, &remote_anchor_outnum,
 			  funding_pubkeys);
+	if (!txs)
+		peer_failed_err(peer->pps, &peer->channel_id,
+				"Could not create commitment %"PRIu64
+				" for funding %s",
+				local_index,
+				fmt_bitcoin_outpoint(tmpctx, &outpoint));
 
 	/* Set the commit_sig on the commitment tx psbt */
 	if (!psbt_input_set_signature(txs[0]->psbt, 0,
@@ -3674,6 +3703,13 @@ static struct amount_sat check_balances(struct peer *peer,
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "amount_sat_less / amount_sat_sub mismtach");
 
+	/* feerate_per_kw must have been negotiated (accepter) or supplied by
+	 * the user (initiator) by this point: 0 would silently collapse the
+	 * fee floors below to zero and let a near-zero-fee splice through. */
+	if (peer->splicing->feerate_per_kw == 0)
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "check_balances called with unset splicing feerate_per_kw");
+
 	min_initiator_fee = amount_tx_fee(peer->splicing->feerate_per_kw,
 					  calc_weight(TX_INITIATOR, psbt, false));
 	min_accepter_fee = amount_tx_fee(peer->splicing->feerate_per_kw,
@@ -3815,20 +3851,23 @@ static void update_view_from_inflights(struct peer *peer)
 	struct inflight **inflights = peer->splice_state->inflights;
 
 	for (size_t i = 0; i < tal_count(inflights); i++) {
-		s64 splice_amnt = inflights[i]->amnt.satoshis; /* Raw: splicing */
+		/* Each side's balance change on this inflight's commitment,
+		 * relative to the current funding: the same amounts
+		 * channel_txs() applies when it builds that commitment. */
+		s64 splice_amnt = inflights[i]->splice_amnt;
 		s64 funding_diff = sats_diff(inflights[i]->amnt, peer->channel->funding_sats);
-		s64 remote_splice_amnt = funding_diff - inflights[i]->splice_amnt;
+		s64 remote_splice_amnt = funding_diff - splice_amnt;
 
 		if (splice_amnt < peer->channel->view[LOCAL].lowest_splice_amnt[LOCAL])
 			peer->channel->view[LOCAL].lowest_splice_amnt[LOCAL] = splice_amnt;
 
-		if (splice_amnt < peer->channel->view[REMOTE].lowest_splice_amnt[REMOTE])
+		if (splice_amnt < peer->channel->view[REMOTE].lowest_splice_amnt[LOCAL])
 			peer->channel->view[REMOTE].lowest_splice_amnt[LOCAL] = splice_amnt;
 
 		if (remote_splice_amnt < peer->channel->view[LOCAL].lowest_splice_amnt[REMOTE])
 			peer->channel->view[LOCAL].lowest_splice_amnt[REMOTE] = remote_splice_amnt;
 
-		if (remote_splice_amnt < peer->channel->view[REMOTE].lowest_splice_amnt[LOCAL])
+		if (remote_splice_amnt < peer->channel->view[REMOTE].lowest_splice_amnt[REMOTE])
 			peer->channel->view[REMOTE].lowest_splice_amnt[REMOTE] = remote_splice_amnt;
 	}
 }
@@ -3935,6 +3974,7 @@ static void resume_splice_negotiation(struct peer *peer,
 		msg = towire_channeld_update_inflight(NULL, current_psbt,
 						      their_commit->tx,
 						      &their_commit->commit_signature,
+						      their_commit->htlc_signatures,
 						      inflight->locked_scid,
 						      inflight->i_sent_sigs);
 		wire_sync_write(MASTER_FD, take(msg));
@@ -4007,7 +4047,7 @@ static void resume_splice_negotiation(struct peer *peer,
 			    inflight->force_sign_first)
 		&& send_signature) {
 		msg = towire_channeld_update_inflight(NULL, current_psbt,
-						      NULL, NULL,
+						      NULL, NULL, NULL,
 						      inflight->locked_scid,
 						      inflight->i_sent_sigs);
 		wire_sync_write(MASTER_FD, take(msg));
@@ -4186,7 +4226,7 @@ static void resume_splice_negotiation(struct peer *peer,
 	if (recv_signature || send_signature) {
 		/* We let core validate our peer's signatures are correct. */
 		msg = towire_channeld_update_inflight(NULL, current_psbt, NULL,
-						      NULL,
+						      NULL, NULL,
 						      inflight->locked_scid,
 						      inflight->i_sent_sigs);
 		wire_sync_write(MASTER_FD, take(msg));
@@ -4390,6 +4430,8 @@ static void splice_accepter(struct peer *peer, const u8 *inmsg)
 				 funding_feerate_perkw,
 				 accepted_feerate_max(peer));
 
+	peer->splicing->feerate_per_kw = funding_feerate_perkw;
+
 	/* TODO: Add plugin hook for user to adjust accepter amount */
 	peer->splicing->accepter_relative = 0;
 
@@ -4460,6 +4502,7 @@ static void splice_accepter(struct peer *peer, const u8 *inmsg)
 	psbt_elements_normalize_fees(ictx->current_psbt);
 
 	psbt_txid(tmpctx, ictx->current_psbt, &outpoint.txid, NULL);
+	check_duplicate_inflight(peer, &outpoint.txid);
 
 	psbt_finalize(ictx->current_psbt);
 
@@ -4764,6 +4807,7 @@ static void splice_initiator_user_finalized(struct peer *peer)
 		     fmt_wally_psbt(tmpctx, ictx->current_psbt));
 
 	psbt_txid(tmpctx, ictx->current_psbt, &current_psbt_txid, NULL);
+	check_duplicate_inflight(peer, &current_psbt_txid);
 
 	outmsg = towire_channeld_add_inflight(tmpctx,
 					      &peer->splicing->remote_funding_pubkey,
@@ -4824,6 +4868,7 @@ static void splice_initiator_user_finalized(struct peer *peer)
 	outmsg = towire_channeld_update_inflight(NULL, new_inflight->psbt,
 						 their_commit->tx,
 						 &their_commit->commit_signature,
+						 their_commit->htlc_signatures,
 						 new_inflight->locked_scid,
 						 new_inflight->i_sent_sigs);
 	wire_sync_write(MASTER_FD, take(outmsg));
@@ -5020,8 +5065,7 @@ static void splice_initiator_user_signed(struct peer *peer, const u8 *inmsg)
 	/* Save the user provided signatures to DB incase we have to
 	 * restart and reestablish later. */
 	outmsg = towire_channeld_update_inflight(NULL, inflight->psbt,
-						 inflight->last_tx,
-						 &inflight->last_sig,
+						 NULL, NULL, NULL,
 						 inflight->locked_scid,
 						 inflight->i_sent_sigs);
 
@@ -6219,9 +6263,20 @@ static void peer_reconnect(struct peer *peer,
 	 *       `commitment_signed`.
 	 */
 	if (next_commitment_number == peer->next_index[REMOTE] - 1) {
-		if (!recv_tlvs || !recv_tlvs->next_funding)
+		if (!recv_tlvs || !recv_tlvs->next_funding) {
+			/* They only revoke the previous commitment once they
+			 * have our last commitment_signed, so they can't need
+			 * it again.  And re-signing it now would use the
+			 * per-commitment point of the one after. */
+			if (peer->revocations_received != peer->next_index[REMOTE] - 2)
+				peer_failed_err(peer->pps,
+						&peer->channel_id,
+						"bad reestablish commitment_number: %"
+						PRIu64" but you already revoked %"PRIu64,
+						next_commitment_number,
+						peer->revocations_received - 1);
 			retransmit_commitment_signed = true;
-		else
+		} else
 			retransmit_commitment_signed = false;
 
 	/* BOLT #2:
@@ -6388,6 +6443,7 @@ static void handle_funding_depth(struct peer *peer, const u8 *msg)
 									scid);
 					msg = towire_channeld_update_inflight(NULL,
 									      inflight->psbt,
+									      NULL,
 									      NULL,
 									      NULL,
 									      inflight->locked_scid,

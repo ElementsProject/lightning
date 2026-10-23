@@ -144,7 +144,23 @@ fi
 
 TARGETS=${TARGETS:-$ALL_TARGETS}
 
-RELEASEDIR="$(pwd)/release"
+# ARM targets get their own release directory per architecture
+# (release-arm64/, release-armv7/), and never build the zip: the zip is
+# architecture-independent, and its block unconditionally removes release/'s
+# copy before rebuilding it from the current HEAD.
+case "$TARGETS" in
+    *-arm64*)
+        RELEASEDIR="$(pwd)/release-arm64"
+        WITHOUT_ZIP=true
+        ;;
+    *-armv7*)
+        RELEASEDIR="$(pwd)/release-armv7"
+        WITHOUT_ZIP=true
+        ;;
+    *)
+        RELEASEDIR="$(pwd)/release"
+        ;;
+esac
 BARE_VERSION="$(echo "${VERSION}" | sed 's/^v//g')"
 TARBALL="${RELEASEDIR}/lightningd_${BARE_VERSION}.orig.tar.bz2"
 DATE=$(date +%Y%m%d%H%M%S)
@@ -203,7 +219,17 @@ for target in $TARGETS; do
             # Capitalize the first letter of distro
             D=$(echo "$d" | awk '{print toupper(substr($0,1,1))substr($0,2)}')
             echo "Building Ubuntu $D Image"
-            docker run --rm -v "$(pwd)":/repo -e FORCE_MTIME="$MTIME" -e FORCE_VERSION="$VERSION" -e MAKEPAR="$MAKEPAR" cl-repro-"$d"
+            # armv7 is cross-compiled in the amd64 builder image; arm64
+            # builds natively in its own cl-repro-<dist>-arm64 image.
+            IMAGE=cl-repro-"$d"
+            REPRO_ARCH=""
+            case "$d" in
+            *-armv7)
+                IMAGE=cl-repro-"${d%-armv7}"
+                REPRO_ARCH=armv7
+                ;;
+            esac
+            docker run --rm -v "$(pwd)":/repo -e FORCE_MTIME="$MTIME" -e FORCE_VERSION="$VERSION" -e MAKEPAR="$MAKEPAR" -e REPRO_ARCH="$REPRO_ARCH" "$IMAGE"
             echo "Ubuntu $D Image Built"
         done
         ;;
@@ -276,8 +302,11 @@ if [ "$VERIFY_RELEASE" = "true" ]; then
         echo "Error: SHA256SUMS do NOT Match"
     exit 1
     fi
-    # verify release captain signature
-    gpg --verify "../SHA256SUMS-$VERSION.asc"
+    # Verify release captain signature. Pass the manifest explicitly: with only
+    # the .asc argument gpg picks its mode from the file's packet structure and
+    # would verify a payload embedded in an inline-signed .asc, exiting 0
+    # without ever reading the checksums we just compared.
+    gpg --verify "../SHA256SUMS-$VERSION.asc" "../SHA256SUMS-$VERSION"
     # create ASCII-armored detached signature
     gpg -sb --armor < SHA256SUMS > SHA256SUMS.new
     echo "Verified Successfully! Signature Updated in release/SHA256SUMS.new"

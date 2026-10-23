@@ -78,6 +78,11 @@
  * It is assumed that @arg is of pointer type: usually @arg is passed
  * or assigned to a void * elsewhere anyway.
  *
+ * Note that the callback must have a prototype: an unprototyped
+ * function (ie. "void fn()") defeats this check entirely, and is
+ * silently accepted with any @arg type (gcc and clang give no
+ * diagnostic at -Wall).
+ *
  * Example:
  *	void _register_callback(void (*fn)(void *arg), void *arg);
  *	#define register_callback(fn, arg) \

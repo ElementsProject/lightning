@@ -1472,14 +1472,17 @@ static void register_opts(struct lightningd *ld)
 	/* This immediately makes is a daemon. */
 	opt_register_early_noarg("--daemon", opt_start_daemon, ld,
 				 "Run in the background, suppress stdout/stderr");
-	opt_register_early_arg("--wallet", opt_set_talstr, NULL,
-			       &ld->wallet_dsn,
-			       "Location of the wallet database.");
+	/* DSN can contain a database password */
+	clnopt_witharg("--wallet", OPT_EARLY|OPT_CONCEAL,
+		       opt_set_talstr, NULL,
+		       &ld->wallet_dsn,
+		       "Location of the wallet database.");
 
-	opt_register_early_arg("--recover", opt_set_hsm_secret, NULL,
-				ld,
-				"Populate hsm_secret with the given codex32/hex/mnemonic secret"
-				" and starts the node in `offline` mode.");
+	clnopt_witharg("--recover", OPT_EARLY|OPT_CONCEAL,
+		       opt_set_hsm_secret, NULL,
+		       ld,
+		       "Populate hsm_secret with the given codex32/hex/mnemonic secret"
+		       " and starts the node in `offline` mode.");
 
 	/* This affects our features, so set early. */
 	opt_register_early_noarg("--large-channels|--wumbo",
@@ -1595,9 +1598,10 @@ static void register_opts(struct lightningd *ld)
 		       "If true, listen on default port and announce if it seems to be a public interface");
 	opt_register_arg("--proxy", opt_add_proxy_addr, NULL,
 			ld,"Set a socks v5 proxy IP address and port");
-	opt_register_arg("--tor-service-password", opt_set_talstr, NULL,
-			 &ld->tor_service_password,
-			 "Set a Tor hidden service password");
+	clnopt_witharg("--tor-service-password", OPT_CONCEAL,
+		       opt_set_talstr, NULL,
+		       &ld->tor_service_password,
+		       "Set a Tor hidden service password");
 
 	clnopt_witharg("--accept-htlc-tlv-type", OPT_MULTI|OPT_SHOWINT,
 		       opt_add_accept_htlc_tlv, NULL,
@@ -1668,10 +1672,10 @@ static void register_opts(struct lightningd *ld)
 			       opt_set_talstr, NULL,
 			       &ld->old_bookkeeper_dir,
 			       opt_hidden);
-	opt_register_early_arg("--bookkeeper-db",
-			       opt_set_talstr, NULL,
-			       &ld->old_bookkeeper_db,
-			       opt_hidden);
+	clnopt_witharg("--bookkeeper-db", OPT_EARLY|OPT_CONCEAL,
+		       opt_set_talstr, NULL,
+		       &ld->old_bookkeeper_db,
+		       opt_hidden);
 	clnopt_witharg("--message-padding", OPT_SHOWBOOL,
 		       opt_set_bool_arg, opt_show_bool,
 		       &ld->message_padding,

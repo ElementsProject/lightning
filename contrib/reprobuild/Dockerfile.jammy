@@ -68,10 +68,14 @@ RUN wget https://sh.rustup.rs -O rustup-install.sh && \
 # Download protoc manually, it is in the update repos which we
 # disabled above, so `apt-get` can't find it anymore.
 RUN cd /tmp/ && \
-    wget https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-x86_64.zip && \
-    unzip protoc-${PROTOC_VERSION}-linux-x86_64.zip && \
+    case "$(dpkg --print-architecture)" in \
+      arm64) PROTOC_ARCH=aarch_64 ;; \
+      *)     PROTOC_ARCH=x86_64 ;; \
+    esac && \
+    wget https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-${PROTOC_ARCH}.zip && \
+    unzip protoc-${PROTOC_VERSION}-linux-${PROTOC_ARCH}.zip && \
     mv bin/protoc /usr/local/bin && \
-    rm -rf include bin protoc-${PROTOC_VERSION}-linux-x86_64.zip
+    rm -rf include bin protoc-${PROTOC_VERSION}-linux-${PROTOC_ARCH}.zip
 
 RUN mkdir /build
 WORKDIR /build
@@ -82,5 +86,15 @@ WORKDIR /build
 # that we no longer take the zipfile.
 CMD git clone /repo . \
     && uv sync --all-extras --all-groups \
-    && uv run tools/repro-build.sh \
-    && cp *.xz /repo/release/
+    && if [ "$REPRO_ARCH" = armv7 ]; then \
+           uv run tools/repro-build.armv7.sh \
+           && mkdir -p /repo/release-armv7 \
+           && cp *.xz /repo/release-armv7/; \
+       elif [ "$(dpkg --print-architecture)" = arm64 ]; then \
+           uv run tools/repro-build.arm64.sh \
+           && mkdir -p /repo/release-arm64 \
+           && cp *.xz /repo/release-arm64/; \
+       else \
+           uv run tools/repro-build.sh \
+           && cp *.xz /repo/release/; \
+       fi

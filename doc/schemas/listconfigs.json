@@ -473,7 +473,7 @@
               "value_str": {
                 "type": "string",
                 "description": [
-                  "Field from config or cmdline, or default."
+                  "Always `...` (the value is concealed)."
                 ]
               },
               "source": {
@@ -1481,7 +1481,7 @@
               "value_str": {
                 "type": "string",
                 "description": [
-                  "Field from config or cmdline, or default."
+                  "Always `...` (the value is concealed)."
                 ]
               },
               "source": {
@@ -1837,7 +1837,7 @@
             "plugin": "/root/lightning/plugins/bcli"
           },
           "bitcoin-rpcpassword": {
-            "value_str": "rpcpass",
+            "value_str": "...",
             "source": "cmdline",
             "plugin": "/root/lightning/plugins/bcli"
           },

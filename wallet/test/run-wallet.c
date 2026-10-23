@@ -222,6 +222,11 @@ void connect_succeeded(struct lightningd *ld UNNEEDED, const struct peer *peer U
 		       bool incoming UNNEEDED,
 		       const struct wireaddr_internal *addr UNNEEDED)
 { fprintf(stderr, "connect_succeeded called!\n"); abort(); }
+/* Generated stub for connectd_connect_subd */
+void connectd_connect_subd(const struct peer *peer UNNEEDED,
+			   const struct channel_id *channel_id UNNEEDED,
+			   int fd UNNEEDED)
+{ fprintf(stderr, "connectd_connect_subd called!\n"); abort(); }
 /* Generated stub for connectd_connect_to_peer */
 void connectd_connect_to_peer(struct lightningd *ld UNNEEDED,
 			      const struct peer *peer UNNEEDED,
@@ -636,9 +641,6 @@ struct subd_req *subd_req_(const tal_t *ctx UNNEEDED,
 	       void (*replycb)(struct subd * UNNEEDED, const u8 * UNNEEDED, const int * UNNEEDED, void *) UNNEEDED,
 	       void *replycb_data TAKES UNNEEDED)
 { fprintf(stderr, "subd_req_ called!\n"); abort(); }
-/* Generated stub for subd_send_fd */
-void subd_send_fd(struct subd *sd UNNEEDED, int fd UNNEEDED)
-{ fprintf(stderr, "subd_send_fd called!\n"); abort(); }
 /* Generated stub for subd_send_msg */
 void subd_send_msg(struct subd *sd UNNEEDED, const u8 *msg_out UNNEEDED)
 { fprintf(stderr, "subd_send_msg called!\n"); abort(); }
@@ -686,9 +688,6 @@ u8 *towire_channeld_sending_commitsig_reply(const tal_t *ctx UNNEEDED)
 /* Generated stub for towire_connectd_disconnect_peer */
 u8 *towire_connectd_disconnect_peer(const tal_t *ctx UNNEEDED, const struct node_id *id UNNEEDED, u64 counter UNNEEDED)
 { fprintf(stderr, "towire_connectd_disconnect_peer called!\n"); abort(); }
-/* Generated stub for towire_connectd_peer_connect_subd */
-u8 *towire_connectd_peer_connect_subd(const tal_t *ctx UNNEEDED, const struct node_id *id UNNEEDED, u64 counter UNNEEDED, const struct channel_id *channel_id UNNEEDED)
-{ fprintf(stderr, "towire_connectd_peer_connect_subd called!\n"); abort(); }
 /* Generated stub for towire_connectd_peer_send_msg */
 u8 *towire_connectd_peer_send_msg(const tal_t *ctx UNNEEDED, const struct node_id *id UNNEEDED, u64 counter UNNEEDED, const u8 *msg UNNEEDED)
 { fprintf(stderr, "towire_connectd_peer_send_msg called!\n"); abort(); }
@@ -1569,7 +1568,7 @@ static bool test_htlcsigs_confirm_inflight(struct wallet *w,
 					   struct channel *chan)
 {
 	struct bitcoin_outpoint winner, same_txid, same_outnum, neither;
-	struct bitcoin_signature *active, *win, *lose, *loaded;
+	struct bitcoin_signature *active, *win, *lose, *loaded, *confirmed;
 
 	memset(&winner.txid, 1, sizeof(winner.txid));
 	winner.n = 0;
@@ -1597,12 +1596,14 @@ static bool test_htlcsigs_confirm_inflight(struct wallet *w,
 	/* The active set and all four inflight candidates were stored */
 	CHECK(count_htlc_sigs(w, chan->dbid) == 5);
 
-	wallet_htlcsigs_confirm_inflight(w, chan, &winner);
+	confirmed = wallet_htlcsigs_confirm_inflight(tmpctx, w, chan, &winner);
 
-	/* Winner's sigs are now the active set */
+	/* Winner's sigs are now the active set, and that's what we got back */
 	loaded = wallet_htlc_sigs_load(tmpctx, w, chan->dbid, false);
 	CHECK(tal_count(loaded) == 1);
 	CHECK(memeq(&loaded[0].s, sizeof(loaded[0].s), &win[0].s, sizeof(win[0].s)));
+	CHECK(tal_count(confirmed) == 1);
+	CHECK(memeq(&confirmed[0].s, sizeof(confirmed[0].s), &win[0].s, sizeof(win[0].s)));
 
 	/* Old active set and losing inflights are gone */
 	CHECK(count_htlc_sigs(w, chan->dbid) == 1);

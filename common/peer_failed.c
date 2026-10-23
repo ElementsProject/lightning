@@ -46,7 +46,7 @@ peer_failed(struct per_peer_state *pps,
 				       desc,
 				       warn,
 				       msg);
-	peer_billboard(true, desc);
+	peer_billboard(true, "%s", desc);
 	peer_fatal_continue(take(msg), pps);
 }
 

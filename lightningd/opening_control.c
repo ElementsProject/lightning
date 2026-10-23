@@ -1249,12 +1249,7 @@ static struct command_result *fundchannel_start(struct command *cmd,
 	subd_send_msg(peer->uncommitted_channel->open_daemon, fc->open_msg);
 
 	/* Tell connectd connect this to this channel id. */
-	subd_send_msg(peer->ld->connectd,
-		      take(towire_connectd_peer_connect_subd(NULL,
-							     &peer->id,
-							     peer->connectd_counter,
-							     &peer->uncommitted_channel->cid)));
-	subd_send_fd(peer->ld->connectd, fds[1]);
+	connectd_connect_subd(peer, &peer->uncommitted_channel->cid, fds[1]);
 	return command_still_pending(cmd);
 }
 

@@ -64,8 +64,9 @@ static const char *get_opt_val(const struct opt_table *ot,
 			       char buf[],
 			       const struct configvar *cv)
 {
+	/* Only show that it's set, not the value */
 	if (ot->type & OPT_CONCEAL)
-		return "...";
+		return cv ? "..." : NULL;
 
 	if (ot->show == (void *)opt_show_charp) {
 		/* Don't truncate or quote! */
@@ -687,6 +688,13 @@ static struct command_result *json_setconfig(struct command *cmd,
 			vals = tal_arr(cmd, const char *, valtok->size);
 			json_for_each_arr(i, t, valtok) {
 				vals[i] = json_strdup(vals, buffer, t);
+				if (!*transient
+				    && (strchr(vals[i], '\n')
+					|| strchr(vals[i], '\r')))
+					return command_fail(cmd,
+							    JSONRPC2_INVALID_PARAMS,
+							    "%s value must not contain newlines",
+							    ot->names + 2);
 			}
 		} else {
 			/* No val means empty array (clear all) */
@@ -738,6 +746,11 @@ static struct command_result *json_setconfig(struct command *cmd,
 	if (!*transient) {
 		const struct configvar *cv;
 		const char *fname;
+
+		if (val && (strchr(val, '\n') || strchr(val, '\r')))
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "%s value must not contain newlines",
+					    ot->names + 2);
 
 		cv = configvar_first(cmd->ld->configvars,
 				     opt_names_arr(tmpctx, ot));

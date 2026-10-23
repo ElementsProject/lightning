@@ -396,6 +396,9 @@ static const struct test base_tests[] = {
 	{ "HAVE_STATEMENT_EXPR", "statement expression support",
 	  "INSIDE_MAIN", NULL, NULL,
 	  "return ({ int x = argc; x == argc ? 0 : 1; });" },
+	{ "HAVE_STATIC_ASSERT", "_Static_assert support",
+	  "INSIDE_MAIN", NULL, NULL,
+	  "_Static_assert(1, \"OK\"); return 0;" },
 	{ "HAVE_SYS_FILIO_H", "<sys/filio.h>",
 	  "OUTSIDE_MAIN", NULL, NULL, /* Solaris needs this for FIONREAD */
 	  "#include <sys/filio.h>\n" },

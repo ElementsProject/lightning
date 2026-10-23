@@ -4,6 +4,18 @@ use std::fs;
 use std::net::IpAddr;
 use std::path::{Path, PathBuf};
 
+fn write_private_key(path: PathBuf, contents: &[u8]) -> Result<(), Error> {
+    use std::io::Write;
+    use std::os::unix::fs::PermissionsExt;
+
+    let mut file = fs::File::create(&path)?;
+    let mut perms = fs::metadata(&path)?.permissions();
+    perms.set_mode(0o600);
+    fs::set_permissions(&path, perms)?;
+    file.write_all(contents)?;
+    Ok(())
+}
+
 pub fn generate_certificates(certs_path: &PathBuf, rest_host: &str) -> Result<(), Error> {
     /* Generate the CA certificate */
     let mut ca_params = CertificateParams::new(vec![
@@ -23,7 +35,7 @@ pub fn generate_certificates(certs_path: &PathBuf, rest_host: &str) -> Result<()
     fs::create_dir_all(certs_path)?;
 
     fs::write(certs_path.join("ca.pem"), ca_cert.pem())?;
-    fs::write(
+    write_private_key(
         certs_path.join("ca-key.pem"),
         ca_key.serialize_pem().as_bytes(),
     )?;
@@ -58,7 +70,7 @@ pub fn generate_certificates(certs_path: &PathBuf, rest_host: &str) -> Result<()
     let server_pem = server_params.signed_by(&server_key, &ca_issuer)?.pem();
 
     fs::write(certs_path.join("server.pem"), server_pem)?;
-    fs::write(
+    write_private_key(
         certs_path.join("server-key.pem"),
         server_key.serialize_pem().as_bytes(),
     )?;
@@ -78,7 +90,7 @@ pub fn generate_certificates(certs_path: &PathBuf, rest_host: &str) -> Result<()
     let client_pem = client_params.signed_by(&client_key, &ca_issuer)?.pem();
 
     fs::write(certs_path.join("client.pem"), client_pem)?;
-    fs::write(
+    write_private_key(
         certs_path.join("client-key.pem"),
         client_key.serialize_pem().as_bytes(),
     )?;

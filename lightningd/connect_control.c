@@ -4,6 +4,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/json_command.h>
 #include <connectd/connectd_wiregen.h>
+#include <errno.h>
 #include <hsmd/permissions.h>
 #include <lightningd/channel.h>
 #include <lightningd/connect_control.h>
@@ -12,8 +13,10 @@
 #include <lightningd/notification.h>
 #include <lightningd/onion_message.h>
 #include <lightningd/opening_common.h>
+#include <lightningd/peer_fd.h>
 #include <lightningd/ping.h>
 #include <lightningd/plugin_hook.h>
+#include <unistd.h>
 
 struct connect {
 	struct list_node list;
@@ -490,6 +493,37 @@ void connectd_connect_to_peer(struct lightningd *ld,
 							   reason)));
 }
 
+/* Freeing the request frees our copy of the fd. */
+static void peer_connect_subd_reply(struct subd *connectd UNUSED,
+				    const u8 *reply,
+				    const int *fds UNUSED,
+				    struct peer_fd *our_copy UNUSED)
+{
+	if (!fromwire_connectd_peer_connect_subd_reply(reply))
+		fatal("Bad connectd_peer_connect_subd_reply: %s",
+		      tal_hex(reply, reply));
+}
+
+/*~ On macOS, a socket whose only reference is in flight over SCM_RIGHTS can
+ * arrive unable to read.  So connectd gets a dup, and we keep ours until it
+ * replies. */
+void connectd_connect_subd(const struct peer *peer,
+			   const struct channel_id *channel_id,
+			   int fd)
+{
+	int copy = dup(fd);
+
+	if (copy < 0)
+		fatal("Could not dup fd for connectd: %s", strerror(errno));
+
+	subd_req(peer->ld->connectd, peer->ld->connectd,
+		 take(towire_connectd_peer_connect_subd(NULL, &peer->id,
+							peer->connectd_counter,
+							channel_id)),
+		 copy, 0, peer_connect_subd_reply,
+		 take(new_peer_fd(NULL, fd)));
+}
+
 void tell_connectd_peer_importance(struct peer *peer,
 				   bool was_important)
 {
@@ -561,6 +595,7 @@ static unsigned connectd_msg(struct subd *connectd, const u8 *msg, const int *fd
 	/* This is a reply, so never gets through to here. */
 	case WIRE_CONNECTD_INIT_REPLY:
 	case WIRE_CONNECTD_ACTIVATE_REPLY:
+	case WIRE_CONNECTD_PEER_CONNECT_SUBD_REPLY:
 	case WIRE_CONNECTD_DEV_MEMLEAK_REPLY:
 	case WIRE_CONNECTD_START_SHUTDOWN_REPLY:
 	case WIRE_CONNECTD_INJECT_ONIONMSG_REPLY:

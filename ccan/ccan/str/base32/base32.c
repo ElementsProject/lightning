@@ -153,7 +153,7 @@ bool base32_encode(const void *buf, size_t bufsize, char *dest, size_t destsize)
 		destsize -= 8;
 		dest += 8;
 	}
-	if (destsize != 1)
+	if (destsize < 1)
 		return false;
 	*dest = '\0';
 	return true;

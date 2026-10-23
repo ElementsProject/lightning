@@ -992,7 +992,7 @@ static struct command_result *pendingsendpays_done(struct command *cmd,
 	 * who's result gets replayed if we end up suspending. */
 	bool has_pending = false;
 	u64 unused_groupid;
-	u64 pending_group_id COMPILER_WANTS_INIT("12.3.0-17ubuntu1 -O3");
+	u64 pending_group_id COMPILER_WANTS_INIT(0, "12.3.0-17ubuntu1 -O3");
 	u64 max_pending_partid = 0;
 	struct amount_msat pending_sent = AMOUNT_MSAT(0),
 			   pending_msat = AMOUNT_MSAT(0);

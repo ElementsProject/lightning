@@ -7,9 +7,11 @@
   "description": [
     "The **blacklistrune** RPC command allows you to effectively revoke the rune you have created (and any runes derived from that rune with additional restictions). Attempting to use these runes will be resulted in a `Blacklisted rune` error message.",
     "",
-    "Destroy a rune like in olden times with the **destroyrune** command.",
+    "**destroyrune** is an alias for **blacklistrune**: it does exactly the same thing. Rune restrictions treat it as **blacklistrune** (so `method/blacklistrune` also forbids **destroyrune**).",
     "",
-    "All runes created by lightning have a unique sequential id within them and can be blacklisted in ranges for efficiency. The command always returns the blacklisted ranges on success. If no parameters are specified, no changes have been made. If start specified without end, that single rune is blacklisted. If end is also specified, every rune from start till end inclusive is blacklisted."
+    "All runes created by lightning have a unique sequential id within them and can be blacklisted in ranges for efficiency. The command always returns the blacklisted ranges on success. If no parameters are specified, no changes have been made. If start specified without end, that single rune is blacklisted. If end is also specified, every rune from start till end inclusive is blacklisted.",
+    "",
+    "The blacklist is stored in the database, but runes are checked with the `hsm_secret`. If you restore an older database, runes you blacklisted after that backup work again, so blacklist them again. Runes created after that backup are only added to **showrunes** when they are first used."
   ],
   "request": {
     "required": [],
@@ -31,7 +33,7 @@
         "type": "boolean",
         "added": "v25.02",
         "description": [
-          "Undo the blacklisting (if any) of every rune in range start to end (inclusive)"
+          "Undo the blacklisting (if any) of every rune in range start to end (inclusive). When called with a rune (via commando or clnrest), only a rune without restrictions can do this"
         ]
       }
     },

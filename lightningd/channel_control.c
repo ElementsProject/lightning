@@ -392,12 +392,7 @@ static void handle_splice_abort(struct lightningd *ld,
 	}
 
 	if (peer_start_channeld(channel, pfd, NULL, false)) {
-		subd_send_msg(ld->connectd,
-			      take(towire_connectd_peer_connect_subd(NULL,
-			      					     &peer->id,
-								     peer->connectd_counter,
-								     &channel->cid)));
-		subd_send_fd(ld->connectd, other_fd);
+		connectd_connect_subd(peer, &channel->cid, other_fd);
 	} else {
 		log_info(channel->log, "peer_start_channeld failed");
 		close(other_fd);
@@ -670,10 +665,12 @@ static void handle_splice_confirmed_signed(struct lightningd *ld,
 
 	bitcoin_txid(tx, &txid);
 	inflight = channel_inflight_find(channel, &txid);
-	if (!inflight)
+	if (!inflight) {
 		channel_internal_error(channel, "Unable to load inflight for"
 				       " splice_confirmed_signed txid %s",
 				       fmt_bitcoin_txid(tmpctx, &txid));
+		return;
+	}
 
 	inflight->remote_tx_sigs = true;
 	wallet_inflight_save(ld->wallet, inflight);
@@ -794,10 +791,12 @@ static void handle_splice_sending_sigs(struct lightningd *ld,
 	}
 
 	inflight = channel_inflight_find(channel, &txid);
-	if (!inflight)
+	if (!inflight) {
 		channel_internal_error(channel, "Unable to load inflight for"
 				       " splice_confirmed_signed txid %s",
 				       fmt_bitcoin_txid(tmpctx, &txid));
+		return;
+	}
 
 	/* We can get here because of a splice RBF or because re-signing during
 	 * or because of a splice RBF. In the latter case, we will be adding
@@ -930,6 +929,30 @@ static void handle_add_inflight(struct lightningd *ld,
 		return;
 	}
 
+	/* An RBF that rebuilds a byte-identical splice tx reuses the
+	 * funding txid.  Inserting a second inflight with the same
+	 * (channel_id, funding_tx_id) violates the primary key, and
+	 * the DB layer treats that as fatal and aborts the node.  A
+	 * peer can force it by RBF-ing into a tx we already recorded.
+	 * Fail the pending splice command and the channel instead. */
+	if (channel_inflight_find(channel, &outpoint.txid)) {
+		struct splice_command *cc;
+		const char *txid;
+
+		txid = fmt_bitcoin_txid(tmpctx, &outpoint.txid);
+		cc = splice_command_for_chan(ld, channel);
+		if (cc)
+			was_pending(command_fail(cc->cmd, SPLICE_CHANNEL_ERROR,
+						 "add_inflight: duplicate inflight"
+						 " funding txid %s",
+						 txid));
+		channel_internal_error(channel,
+				       "add_inflight: duplicate inflight funding"
+				       " txid %s",
+				       txid);
+		return;
+	}
+
 	inflight = new_inflight(channel,
 				remote_funding,
 				&outpoint,
@@ -968,13 +991,13 @@ static void handle_update_inflight(struct lightningd *ld,
 	struct wally_psbt *psbt;
 	struct bitcoin_txid txid;
 	struct bitcoin_tx *last_tx;
-	struct bitcoin_signature *last_sig;
+	struct bitcoin_signature *last_sig, *htlc_sigs;
 	struct short_channel_id *locked_scid;
 	bool i_sent_sigs;
 
 	if (!fromwire_channeld_update_inflight(tmpctx, msg, &psbt, &last_tx,
-					       &last_sig, &locked_scid,
-					       &i_sent_sigs)) {
+					       &last_sig, &htlc_sigs,
+					       &locked_scid, &i_sent_sigs)) {
 		channel_internal_error(channel,
 				       "bad channel_add_inflight %s",
 				       tal_hex(channel, msg));
@@ -983,20 +1006,29 @@ static void handle_update_inflight(struct lightningd *ld,
 
 	psbt_txid(tmpctx, psbt, &txid, NULL);
 	inflight = channel_inflight_find(channel, &txid);
-	if (!inflight)
+	if (!inflight) {
 		channel_internal_error(channel, "Unable to load inflight for"
 				       " update_inflight txid %s",
 				       fmt_bitcoin_txid(tmpctx, &txid));
+		return;
+	}
 
-	if (!!last_tx != !!last_sig)
+	if (!!last_tx != !!last_sig) {
 		channel_internal_error(channel, "Must set last_tx and last_sig"
 				       " together at the same time for"
 				       " update_inflight txid %s",
 				       fmt_bitcoin_txid(tmpctx, &txid));
+		return;
+	}
 
 	if (last_tx) {
 		tal_free(inflight->last_tx);
 		inflight->last_tx = clone_bitcoin_tx(inflight, last_tx);
+		/* Its HTLC outputs need their sigs too, should we ever
+		 * close with it. */
+		wallet_inflight_htlc_sigs_save(ld->wallet, channel->dbid,
+					       &inflight->funding->outpoint,
+					       htlc_sigs);
 	}
 
 	if (last_sig)
@@ -1193,13 +1225,12 @@ static void handle_peer_splice_locked(struct channel *channel, const u8 *msg)
 	}
 
 	inflight = channel_inflight_find(channel, &locked_txid);
-	if(!inflight)
+	if (!inflight) {
 		channel_internal_error(channel, "Unable to load inflight for"
 				       " locked_txid %s",
 				       fmt_bitcoin_txid(tmpctx, &locked_txid));
-
-	wallet_htlcsigs_confirm_inflight(channel->peer->ld->wallet, channel,
-					 &inflight->funding->outpoint);
+		return;
+	}
 
 	/* Stash prev funding data so we can log it after scid is updated
 	 * (to get the blockheight) */

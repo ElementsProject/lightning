@@ -375,7 +375,7 @@ static void open_abort(struct state *state,
 	 * each state, which can be used to indicate what went wrong in that
 	 * state (such as here), and a single transient area for current
 	 * status. */
-	peer_billboard(true, errmsg);
+	peer_billboard(true, "%s", errmsg);
 	msg = towire_tx_abort(NULL, &state->channel_id,
 			      (u8 *)tal_dup_arr(tmpctx, char, errmsg,
 						strlen(errmsg), 0));
@@ -489,7 +489,7 @@ static void billboard_update(struct state *state)
 					       state->shutdown_sent,
 					       0, /* Always zero? */
 					       0);
-	peer_billboard(false, update);
+	peer_billboard(false, "%s", update);
 }
 
 static void lock_signer_outpoint(const struct bitcoin_outpoint *outpoint)
@@ -4064,7 +4064,9 @@ static void do_reconnect_dance(struct state *state)
 	 *   - MUST set `next_funding_txid` to the txid of that interactive transaction.
 	 */
 	tlvs = tlv_channel_reestablish_tlvs_new(tmpctx);
-	if (!tx_state->remote_funding_sigs_rcvd) {
+	/* Track whether we set next_funding before tlvs is overwritten by received msg */
+	bool we_set_next_funding = !tx_state->remote_funding_sigs_rcvd;
+	if (we_set_next_funding) {
 		tlvs->next_funding = talz(tlvs, struct tlv_channel_reestablish_tlvs_next_funding);
 		tlvs->next_funding->next_funding_txid = tx_state->funding.txid;
 		tlvs->next_funding->retransmit_flags = 1; /* COMMITMENT_SIGNED */
@@ -4168,15 +4170,22 @@ static void do_reconnect_dance(struct state *state)
 				status_debug("Unable to send our sigs, our psbt isn't signed");
 			} else
 				status_debug("No commitment, not sending our sigs (reconnected)");
+		} else if (we_set_next_funding) {
+			/* The spec (newer than the bolts version we check
+			 * against here): if it also sets `next_funding` in
+			 * its own `channel_reestablish`, but the values don't
+			 * match, we MUST send an `error` and fail the channel. */
+			open_err_fatal(state, "next_funding_txid %s doesn't match ours %s",
+				       fmt_bitcoin_txid(tmpctx,
+							&tlvs->next_funding->next_funding_txid),
+				       fmt_bitcoin_txid(tmpctx,
+							&tx_state->funding.txid));
 		} else {
-			peer_billboard(true, "Non-matching next_funding on reconnect. Aborting.");
 			open_abort(state, "Sent next_funding_txid %s doesn't match ours %s",
-
 				   fmt_bitcoin_txid(tmpctx,
 						    &tlvs->next_funding->next_funding_txid),
 				   fmt_bitcoin_txid(tmpctx,
 						    &tx_state->funding.txid));
-			return;
 		}
 	}
 
@@ -4438,8 +4447,9 @@ int main(int argc, char *argv[])
 	 * writing to REQ_FD */
 	status_setup_sync(REQ_FD);
 
-	/* Init state to not aborted */
+	/* Init state to not aborted, and not reconnected until we know better */
 	state->aborted_err = NULL;
+	state->reconnected = false;
 
 	/*~ The very first thing we read from lightningd is our init msg */
 	msg = wire_sync_read(tmpctx, REQ_FD);

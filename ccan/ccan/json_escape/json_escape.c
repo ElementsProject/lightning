@@ -61,6 +61,8 @@ static struct json_escape *escape(const tal_t *ctx,
 
 	/* Worst case: all \uXXXX */
 	esc = (struct json_escape *)tal_arr(ctx, char, len * 6 + 1);
+	if (!esc)
+		return NULL;
 
 	for (i = n = 0; i < len; i++, n++) {
 		char escape = 0;

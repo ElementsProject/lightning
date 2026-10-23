@@ -83,6 +83,8 @@ static inline size_t membuf_num_elems_(const struct membuf *mb)
 
 static inline void *membuf_elems_(const struct membuf *mb, size_t elemsize)
 {
+	if (!mb->elems)
+		return NULL;
 	return mb->elems + mb->start * elemsize;
 }
 
@@ -130,6 +132,8 @@ static inline size_t membuf_num_space_(const struct membuf *mb)
 
 static inline void *membuf_space_(struct membuf *mb, size_t elemsize)
 {
+	if (!mb->elems)
+		return NULL;
 	return mb->elems + mb->end * elemsize;
 }
 

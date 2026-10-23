@@ -1,0 +1,63 @@
+name: PyPI publish
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        type: string
+        required: true
+      dist-location:
+        type: string
+        required: true
+
+jobs:
+  publish:
+    name: Publish ${{ matrix.PACKAGE }} 🐍
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - PACKAGE: pyln-client
+          - PACKAGE: pyln-testing
+          - PACKAGE: pyln-proto
+    steps:
+    - name: Download built distribution
+      uses: actions/download-artifact@v8
+      with:
+        name: dist-${{ matrix.PACKAGE }}
+        path: dist/
+
+    - name: Determine PyPI distribution location
+      id: set-values
+      env:
+        DIST_LOCATION: ${{ inputs.dist-location }}
+        REF_TYPE: ${{ github.ref_type }}
+        VERSION: ${{ inputs.version }}
+        EVENT_DIST_LOCATION: ${{ github.event.inputs.dist-location }}
+      run: |
+        if [[ -n "$DIST_LOCATION" ]]; then
+          DISTLOCATION="$DIST_LOCATION"
+        elif [[ "$REF_TYPE" == "tag" ]] && [[ ! "$VERSION" =~ rc ]]; then
+          DISTLOCATION="prod"
+        else
+          DISTLOCATION="test"
+        fi
+        echo "DISTLOCATION=$DISTLOCATION" >> "$GITHUB_OUTPUT"
+        echo "EVENT DISTLOCATION: $EVENT_DIST_LOCATION"
+        echo "Resolved dist-location: $DISTLOCATION"
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v8.1.0
+
+    - name: Publish distribution 📦 to Test PyPI
+      if: github.repository == 'ElementsProject/lightning' && steps.set-values.outputs.DISTLOCATION == 'test'
+      env:
+        UV_PUBLISH_TOKEN: ${{ secrets.TEST_PYPI_API_TOKEN }}
+      run: uv publish --publish-url https://test.pypi.org/legacy/ --check-url https://test.pypi.org/simple/ dist/*
+
+    - name: Publish distribution 📦 to PyPI
+      if: github.repository == 'ElementsProject/lightning' && steps.set-values.outputs.DISTLOCATION == 'prod'
+      env:
+        UV_PUBLISH_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+      run: uv publish dist/*

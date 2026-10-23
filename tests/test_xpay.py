@@ -1486,3 +1486,174 @@ def test_sendamount_bip353(node_factory):
     ret = l2.rpc.sendamount("fake@fake.com", "100sat")
     assert ret["successful_parts"] == 1
     assert ret["amount_sent_msat"] == 100000
+
+
+# l2's private key (node #2 always gets this hsm_secret, see test_pay_bolt11_metadata)
+L2_PRIVKEY = "0c633a7c17c701a0980158f5483035e01fa8bd091b47fadf2e86e589a9f93fca"
+
+
+def bolt11_with_metadata(node, chainparams, inv, metadata):
+    """Re-encode inv (made by l2) with payment metadata attached."""
+    dec = node.rpc.decode(inv["bolt11"])
+    return (
+        subprocess.check_output(
+            [
+                "devtools/bolt11-cli",
+                "encode",
+                L2_PRIVKEY,
+                f"currency={chainparams['bip173_prefix']}",
+                f"p={inv['payment_hash']}",
+                f"s={inv['payment_secret']}",
+                f"d={dec['description']}",
+                f"amount={dec['amount_msat']}msat",
+                f"x={dec['expiry']}",
+                f"c={dec['min_final_cltv_expiry']}",
+                f"9={dec['features']}",
+                "m=" + metadata.hex(),
+            ]
+        )
+        .decode("utf-8")
+        .strip()
+    )
+
+
+@unittest.skipIf(TEST_NETWORK != "regtest", "Invoice is network specific")
+def test_xpay_onion_budget_bolt11_metadata(node_factory, chainparams):
+    """Large payment_metadata is carried intact, and reduces the hop budget.
+
+    BOLT11 limits a field to 1023 5-bit units, so metadata can be at most
+    639 bytes: with that, there's still room for 11 forwarding payloads."""
+    plugin = os.path.join(
+        os.path.dirname(__file__), "plugins/accept_payment_metadata.py"
+    )
+    l1, l2, l3 = node_factory.get_nodes(3, opts=[{}, {"plugin": plugin}, {}])
+    node_factory.join_nodes([l1, l3, l2], wait_for_announce=True)
+
+    metadata = bytes([7]) * 639
+    inv = l2.rpc.invoice(10000, "big", "big", preimage="02" * 32)
+    b11 = bolt11_with_metadata(l1, chainparams, inv, metadata)
+    assert l1.rpc.decode(b11)["payment_metadata"] == metadata.hex()
+    l2.rpc.setmetadatapreimage(preimage="02" * 32, metadata=metadata.hex())
+
+    ret = l1.rpc.xpay(b11)
+    assert ret["payment_preimage"] == "02" * 32
+    assert ret["failed_parts"] == 0
+    l1.daemon.wait_for_log(r"onion budget is 11\.")
+
+
+@unittest.skipIf(TEST_NETWORK != "regtest", "Invoice is network specific")
+def test_xpay_onion_budget_keysend(node_factory):
+    """xkeysend with large extratlvs is limited by the onion budget too."""
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
+
+    # Fits through l2.
+    l1.rpc.xkeysend(l3.info["id"], 1000, extratlvs={133773310: "00" * 900})
+
+    # Way too big.
+    with pytest.raises(
+        RpcError, match=r"The final payload is too big to fit an onion packet"
+    ):
+        l1.rpc.xkeysend(l3.info["id"], 1000, extratlvs={133773310: "00" * 1300})
+
+    # Fits only with zero forwarding hops, but we're not the destination.
+    with pytest.raises(
+        RpcError, match=r"onion budget is 0 and we are not the destination node"
+    ):
+        l1.rpc.xkeysend(l3.info["id"], 1000, extratlvs={133773310: "00" * 1180})
+
+
+@pytest.mark.slow_test
+@unittest.skipIf(TEST_NETWORK != "regtest", "Invoice is network specific")
+def test_xpay_maxhops_bolt11(node_factory, chainparams):
+    """A bolt11 final payload that no longer fits the cheap route forces the short one.
+
+    The cheap route is longer than a 639-byte payment_metadata onion budget,
+    and still fits a plain bolt11.  The other route is 2 hops and much more
+    expensive, so it is used only when the long one does not fit.
+
+    The expensive hop is not the first one.  xpay applies auto.sourcefree, so
+    a direct channel would look free and always win.
+    """
+    plugin = os.path.join(
+        os.path.dirname(__file__), "plugins/accept_payment_metadata.py"
+    )
+    # payee is node #2, so bolt11-cli can sign with L2_PRIVKEY.
+    l1, payee = node_factory.get_nodes(2, opts=[{}, {"plugin": plugin}])
+    # 12 hops: one more than the budget left by a max-size bolt11 metadata field.
+    mids = node_factory.get_nodes(11)
+    line = [l1] + mids + [payee]
+    long_hops = len(line) - 1
+    short_hops = 2
+    node_factory.join_nodes(line, wait_for_announce=True)
+    # Expensive shortcut: l1 -> mids[0] -> payee.
+    node_factory.join_nodes([mids[0], payee], wait_for_announce=True)
+
+    cheap_feeppm = 1
+    # High enough that the per-hop success penalty does not prefer these 2 hops
+    # over the cheap 12, but still inside maxfee.
+    pricey_feeppm = 500_000
+    for a, b in zip(line, line[1:]):
+        a.rpc.setchannel(
+            first_scid(a, b), feebase=0, feeppm=cheap_feeppm, htlcmin=1, enforcedelay=0
+        )
+    mids[0].rpc.setchannel(
+        first_scid(mids[0], payee),
+        feebase=0,
+        feeppm=pricey_feeppm,
+        htlcmin=1,
+        enforcedelay=0,
+    )
+
+    def fees_visible():
+        chans = l1.rpc.listchannels()["channels"]
+        cheap = sum(
+            1
+            for c in chans
+            if c["fee_per_millionth"] == cheap_feeppm
+            and c["base_fee_millisatoshi"] == 0
+        )
+        pricey = sum(1 for c in chans if c["fee_per_millionth"] == pricey_feeppm)
+        return cheap >= long_hops - 1 and pricey >= 1
+
+    wait_for(fees_visible)
+
+    # Last hop of the long route.  The expensive shortcut never reaches it.
+    def long_forwards():
+        return len(mids[-1].rpc.listforwards(status="settled")["forwards"])
+
+    def budget_of(line):
+        return int(re.search(r"onion budget is ([0-9]+)\.", line).group(1))
+
+    # payment_log prints "N: onion budget is X."  A second copy of the same
+    # line is also forwarded as a notify, so match the numbered one only.
+
+    amount = 100_000
+
+    def pay(label, preimage, metadata=None):
+        inv = payee.rpc.invoice(amount, label, label, preimage=preimage)
+        if metadata is None:
+            bolt = inv["bolt11"]
+        else:
+            payee.rpc.setmetadatapreimage(preimage=preimage, metadata=metadata.hex())
+            bolt = bolt11_with_metadata(l1, chainparams, inv, metadata)
+        return l1.rpc.xpay(bolt, maxfee="80000msat")
+
+    ret = pay("plain", "11" * 32)
+    assert ret["payment_preimage"] == "11" * 32
+    assert ret["failed_parts"] == 0
+    plain_budget = budget_of(l1.daemon.wait_for_log(r"\d+: onion budget is [0-9]+\."))
+    assert plain_budget >= long_hops
+    # Long cheap route: the last mid forwarded, and the payer paid almost no fee.
+    assert long_forwards() == 1
+    assert ret["amount_sent_msat"] - amount < 1000
+
+    # Bolt-11 field limit: 1023 5-bit units, so metadata is at most 639 bytes.
+    metadata = bytes([7]) * 639
+    ret = pay("big", "22" * 32, metadata)
+    assert ret["payment_preimage"] == "22" * 32
+    assert ret["failed_parts"] == 0
+    meta_budget = budget_of(l1.daemon.wait_for_log(r"\d+: onion budget is [0-9]+\."))
+    assert short_hops <= meta_budget < long_hops
+    # Expensive short route: the last mid saw nothing more, and the payer paid the high fee.
+    assert long_forwards() == 1
+    assert ret["amount_sent_msat"] - amount > 1000

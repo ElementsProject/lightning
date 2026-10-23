@@ -99,7 +99,7 @@ char *likely_stats(unsigned int min_hits, unsigned int percent)
 		}
 	}
 
-	if (worst_ratio * 100 > percent)
+	if (!worst || worst_ratio * 100 > percent)
 		return NULL;
 
 	maxlen = strlen(worst->condstr) +

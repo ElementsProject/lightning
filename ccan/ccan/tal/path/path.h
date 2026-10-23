@@ -52,6 +52,9 @@ char *path_simplify(const tal_t *ctx, const char *a TAKES);
  *
  * If @a is an absolute path, return a copy of it.  Otherwise, attach
  * @a to @base.
+ *
+ * @base and @a must not be NULL, except as the taken result of a
+ * failed take() chain (e.g. path_join(ctx, take(tal_fmt(...)), "x")).
  */
 char *path_join(const tal_t *ctx, const char *base TAKES, const char *a TAKES);
 

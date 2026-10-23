@@ -116,6 +116,22 @@ ee83cf4948228ab1f644dbd9d28541fd8ef7c453a3fec90462b08371a8686df8  /repo/release/
 
 Repeat this step for each distribution and each architecture you wish to sign. Once all the binaries are in the `release/` subdirectory we can sign the hashes.
 
+## ARM builds (arm64 and armv7)
+
+Each ARM architecture has its own manifest and signatures: `SHA256SUMS-v<VERSION>-arm64` / `.asc` and `SHA256SUMS-v<VERSION>-armv7` / `.asc`. They are separate because they are reproduced differently (arm64 natively, armv7 cross-compiled), so you can verify and co-sign one without the other. Their output goes to `release-arm64/` and `release-armv7/`, not `release/`, so the manifests never mix.
+
+- **arm64** builds natively, on an arm64 machine. Running `contrib/cl-repro.sh` there creates the builder images as `cl-repro-<codename>-arm64`, and `tools/build-release.sh bin-Ubuntu-<codename>-arm64` (or `docker run --rm -v $(pwd):/repo -ti cl-repro-<codename>-arm64`) builds the tarball using the pinned packages in `tools/repro-build.arm64.sh`.
+- **armv7** is cross-compiled on an amd64 machine, in the same `cl-repro-<codename>` image as the amd64 build, using the pinned toolchain and armhf libraries in `tools/repro-build.armv7.sh`. The build runs a few armv7 programs, so register qemu with the kernel first (once per boot):
+
+  ```shell
+  docker run --privileged --rm tonistiigi/binfmt --install arm
+  tools/build-release.sh bin-Ubuntu-noble-armv7
+  # or directly:
+  docker run --rm -v $(pwd):/repo -e REPRO_ARCH=armv7 -ti cl-repro-noble
+  ```
+
+Once the tarballs are built, `tools/sign-release-arm.sh v<VERSION> arm64` (or `armv7`) creates and signs `SHA256SUMS-v<VERSION>-arm64` (or `-armv7`).
+
 # Signing the release manifest
 
 The release captain is in charge of creating the manifest, whereas contributors and interested bystanders may contribute their signatures to further increase trust in the binaries.

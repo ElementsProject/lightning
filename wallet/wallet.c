@@ -2647,8 +2647,10 @@ void wallet_announcement_save(struct wallet *w, u64 id,
 }
 
 
-void wallet_htlcsigs_confirm_inflight(struct wallet *w, struct channel *chan,
-				      const struct bitcoin_outpoint *confirmed_outpoint)
+struct bitcoin_signature *
+wallet_htlcsigs_confirm_inflight(const tal_t *ctx,
+				 struct wallet *w, struct channel *chan,
+				 const struct bitcoin_outpoint *confirmed_outpoint)
 {
 	struct db_stmt *stmt;
 
@@ -2673,6 +2675,9 @@ void wallet_htlcsigs_confirm_inflight(struct wallet *w, struct channel *chan,
 					" WHERE channelid=?"));
 	db_bind_u64(stmt, chan->dbid);
 	db_exec_prepared_v2(take(stmt));
+
+	return wallet_htlc_sigs_load(ctx, w, chan->dbid,
+				     channel_type_has_anchors(chan->type));
 }
 
 void wallet_channel_save(struct wallet *w, struct channel *chan)
@@ -4800,6 +4805,24 @@ void wallet_htlc_sigs_add(struct wallet *w, u64 channel_id,
 		db_bind_signature(stmt, &htlc_sigs[i].s);
 		db_exec_prepared_v2(take(stmt));
 	}
+}
+
+void wallet_inflight_htlc_sigs_save(struct wallet *w, u64 channel_id,
+				    const struct bitcoin_outpoint *inflight_outpoint,
+				    const struct bitcoin_signature *htlc_sigs)
+{
+	struct db_stmt *stmt;
+
+	stmt = db_prepare_v2(w->db, SQL("DELETE FROM htlc_sigs"
+					" WHERE channelid=?"
+					" AND inflight_tx_id=?"
+					" AND inflight_tx_outnum=?"));
+	db_bind_u64(stmt, channel_id);
+	db_bind_txid(stmt, &inflight_outpoint->txid);
+	db_bind_int(stmt, inflight_outpoint->n);
+	db_exec_prepared_v2(take(stmt));
+
+	wallet_htlc_sigs_add(w, channel_id, *inflight_outpoint, htlc_sigs);
 }
 
 bool wallet_sanity_check(struct wallet *w)

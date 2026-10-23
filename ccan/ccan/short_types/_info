@@ -40,7 +40,7 @@
  *		*size_total += size;
  *	}
  *
- *	#define EVALUATE(psx, short, pt, st, t)				\
+ *	#define EVALUATE(psx, sht, pt, st, t)				\
  *		evaluate(sizeof(psx), stringify(psx), stringify(sht), pt, st, t)
  *
  *	int main(void)

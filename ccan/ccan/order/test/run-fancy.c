@@ -56,13 +56,13 @@ int main(void)
 	ok1(total_order_cmp(order2, &item2, &item2) == 0);
 	ok1(total_order_cmp(order2, &item3, &item3) == 0);
 
-	ok1(total_order_cmp(order2, &item1, &item2) == 1);
+	ok1(total_order_cmp(order2, &item1, &item2) == -1);
 	ok1(total_order_cmp(order2, &item2, &item3) == 1);
 	ok1(total_order_cmp(order2, &item1, &item3) == 1);
 
-	ok1(total_order_cmp(order2, &item2, &item1) == -1);
+	ok1(total_order_cmp(order2, &item2, &item1) == 1);
 	ok1(total_order_cmp(order2, &item3, &item2) == -1);
 	ok1(total_order_cmp(order2, &item3, &item1) == -1);
-	
-	exit(0);
+
+	return exit_status();
 }

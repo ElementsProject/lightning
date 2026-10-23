@@ -11,7 +11,7 @@ char *billboard_message(const tal_t *ctx,
 			size_t num_htlcs)
 {
 	const char *funding_status, *announce_status,
-		*shutdown_status COMPILER_WANTS_INIT("gcc 8.3.0");
+		*shutdown_status COMPILER_WANTS_INIT(NULL, "gcc 8.3.0");
 
 	if (channel_ready[LOCAL] && channel_ready[REMOTE])
 		funding_status = "Channel ready for use.";

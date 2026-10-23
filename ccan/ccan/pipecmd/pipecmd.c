@@ -54,6 +54,7 @@ pid_t pipecmdarr(int *fd_tochild, int *fd_fromchild, int *fd_errfromchild,
 	int child_close[4], num_child_close = 0;
 	pid_t childpid;
 	int err;
+	ssize_t r;
 
 	if (fd_tochild) {
 		if (fd_tochild == &pipecmd_preserve) {
@@ -164,7 +165,9 @@ pid_t pipecmdarr(int *fd_tochild, int *fd_fromchild, int *fd_errfromchild,
 		if (write(execfail[1], &err, sizeof(err))) {
 			;
 		}
-		exit(127);
+		/* _exit: don't flush the parent's stdio buffers again,
+		 * nor run its atexit handlers. */
+		_exit(127);
 	}
 
 	int i;
@@ -172,9 +175,22 @@ pid_t pipecmdarr(int *fd_tochild, int *fd_fromchild, int *fd_errfromchild,
 		close(par_close[i]);
 
 	/* Child will close this without writing on successful exec. */
-	if (read(execfail[0], &err, sizeof(err)) == sizeof(err)) {
+	do {
+		r = read(execfail[0], &err, sizeof(err));
+	} while (r < 0 && errno == EINTR);
+
+	if (r == sizeof(err)) {
 		close(execfail[0]);
-		waitpid(childpid, NULL, 0);
+		/* Useless now: close the parent-side pipe ends too. */
+		if (fd_tochild && fd_tochild != &pipecmd_preserve)
+			close(tochild[1]);
+		if (fd_fromchild && fd_fromchild != &pipecmd_preserve)
+			close(fromchild[0]);
+		if (fd_errfromchild && fd_errfromchild != &pipecmd_preserve
+		    && fd_errfromchild != fd_fromchild)
+			close(errfromchild[0]);
+		while (waitpid(childpid, NULL, 0) < 0 && errno == EINTR)
+			;
 		errno = err;
 		return -1;
 	}
@@ -190,6 +206,8 @@ pid_t pipecmdarr(int *fd_tochild, int *fd_fromchild, int *fd_errfromchild,
 fail:
 	for (i = 0; i < num_par_close; i++)
 		close_noerr(par_close[i]);
+	for (i = 0; i < num_child_close; i++)
+		close_noerr(child_close[i]);
 	return -1;
 }
 

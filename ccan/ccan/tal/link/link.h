@@ -11,6 +11,9 @@
  * The object will be freed when @newobj is freed or the last tal_link()
  * is tal_delink'ed.
  *
+ * Note: @newobj must not be tal_free()'d or tal_steal()'d while it has
+ * links: that aborts.  Remove all links first.
+ *
  * Returns @newobj or NULL (if an allocation fails).
  *
  * Example:

@@ -121,11 +121,23 @@ int main(void)
 	TEST_SCALAR(unsigned, uint, 0, 1, 10, INT_MAX, (unsigned)INT_MAX+1,
 		    -10, -1);
 
+	/* These sequences must be strictly increasing.  On platforms
+	 * where long is the same width as int (e.g. 32-bit), INT_MIN ==
+	 * LONG_MIN and INT_MAX == LONG_MAX, so including both would
+	 * produce equal-valued (non-strictly-increasing) entries. */
+#if LONG_MAX > INT_MAX
 	TEST_SCALAR(long, long, LONG_MIN, INT_MIN, -10, -1, 0, 1, 10, INT_MAX,
 		    LONG_MAX);
+#else
+	TEST_SCALAR(long, long, LONG_MIN, -10, -1, 0, 1, 10, LONG_MAX);
+#endif
+#if ULONG_MAX > UINT_MAX
 	TEST_SCALAR(unsigned long, ulong, 0, 1, 10, INT_MAX,
 		    (unsigned long)INT_MAX+1, LONG_MAX,
 		    (unsigned long)LONG_MAX+1, -10, -1);
+#else
+	TEST_SCALAR(unsigned long, ulong, 0, 1, 10, LONG_MAX, -10, -1);
+#endif
 
 	TEST_SCALAR(float, float, -INFINITY, -FLT_MAX, -1.0, 0.0, FLT_MIN,
 		  0.1, M_E, M_PI, 5.79, FLT_MAX, INFINITY);

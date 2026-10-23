@@ -87,7 +87,7 @@ static const char *last_time_check(const struct rune *rune,
 	struct timeabs last_used;
 
 	if (!wallet_get_rune(tmpctx, cinfo->runes->ld->wallet, atol(rune->unique_id), &last_used)) {
-		/* FIXME: If we do not know the rune, per does not work */
+		/* Never used: update_rune_usage_time will add it. */
 		return NULL;
 	}
 	if (time_before(cinfo->now, last_used)) {
@@ -196,7 +196,7 @@ static struct rune_blacklist *bitmap_to_blacklist(tal_t *ctx,
 	while ((i = bitmap_ffs(bitmap, i, nbits)) != nbits) {
 		struct rune_blacklist b;
 		b.start = b.end = i;
-		while (b.end < nbits && bitmap_test_bit(bitmap, b.end + 1))
+		while (b.end + 1 < nbits && bitmap_test_bit(bitmap, b.end + 1))
 			b.end++;
 		tal_arr_expand(&blist, b);
 		i = b.end + 1;
@@ -662,6 +662,10 @@ static struct command_result *json_blacklistrune(struct command *cmd,
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS, "Cannot blacklist beyond %u", MAX_BLACKLIST_NUM);
 	}
 
+	if (start && *start > *end) {
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS, "Can not specify end before start");
+	}
+
 	if (command_check_only(cmd))
 		return command_check_done(cmd);
 
@@ -857,7 +861,7 @@ static const char *check_condition(const tal_t *ctx,
 
 		if (cinfo->params->type == JSMN_OBJECT) {
 			json_for_each_obj(i, t, cinfo->params) {
-				char *pmemname = tal_fmt(ctx,
+				char *pmemname = tal_fmt(tmpctx,
 							 "pname%.*s",
 							 t->end - t->start,
 							 cinfo->buf + t->start);
@@ -865,7 +869,7 @@ static const char *check_condition(const tal_t *ctx,
 
 				/* First, add version with underscores intact. */
 				strmap_add(&cinfo->cached_params,
-					   tal_strdup(ctx, pmemname), t+1);
+					   tal_strdup(tmpctx, pmemname), t+1);
 
 				/* Now with punctuation removed: */
 				for (size_t n = off; pmemname[n]; n++) {
@@ -908,11 +912,75 @@ static const char *check_condition(const tal_t *ctx,
 				   ptok->end - ptok->start);
 }
 
+/* blacklistrune relist=true un-revokes runes, not just the caller s */
+static bool relists_runes(const char *buffer,
+			  const char *method,
+			  const jsmntok_t *params)
+{
+	const jsmntok_t *relisttok;
+	bool relist;
+
+	if (!method
+	    || (!streq(method, "blacklistrune") && !streq(method, "destroyrune")))
+		return false;
+
+	if (!params)
+		return false;
+	if (params->type == JSMN_OBJECT)
+		relisttok = json_get_member(buffer, params, "relist");
+	else
+		relisttok = json_get_arr(params, 2);
+	/* same parse as param_bool - anything else fails the command anyway */
+	return relisttok && json_to_bool(buffer, relisttok, &relist) && relist;
+}
+
+/* createrune without a rune makes a new one from our master secret */
+static bool creates_new_rune(const char *buffer,
+			     const char *method,
+			     const jsmntok_t *params)
+{
+	const jsmntok_t *runetok;
+
+	if (!method
+	    || (!streq(method, "createrune") && !streq(method, "invokerune")))
+		return false;
+
+	if (!params)
+		return true;
+	if (params->type == JSMN_OBJECT)
+		runetok = json_get_member(buffer, params, "rune");
+	else
+		runetok = json_get_arr(params, 0);
+	return !runetok || json_tok_is_null(buffer, runetok);
+}
+
 static void update_rune_usage_time(struct runes *runes,
 						 struct rune *rune, struct timeabs now)
 {
+	u64 uid = rune_unique_id(rune);
+	struct timeabs last_used;
+
+	if (!wallet_get_rune(tmpctx, runes->ld->wallet, uid, &last_used)) {
+		log_unusual(runes->ld->log,
+			    "Rune with unique_id %"PRIu64" is not in our database: adding it",
+			    uid);
+		wallet_rune_insert(runes->ld->wallet, rune);
+		if (uid >= runes->next_unique_id)
+			runes->next_unique_id = uid + 1;
+	}
+
 	/* FIXME: we could batch DB access if this is too slow */
 	wallet_rune_update_last_used(runes->ld->wallet, rune, now);
+}
+
+/* invokerune and destroyrune are aliases - a rune must see the command that actually runs, or "method/createrune" is bypassed by the alias */
+static const char *canonical_method(const char *method)
+{
+	if (method && streq(method, "invokerune"))
+		return "createrune";
+	if (method && streq(method, "destroyrune"))
+		return "blacklistrune";
+	return method;
 }
 
 static struct command_result *json_checkrune(struct command *cmd,
@@ -941,7 +1009,7 @@ static struct command_result *json_checkrune(struct command *cmd,
 	cinfo.runes = cmd->ld->runes;
 	cinfo.peer = nodeid;
 	cinfo.buf = buffer;
-	cinfo.method = method;
+	cinfo.method = canonical_method(method);
 	cinfo.params = methodparams;
 	cinfo.now = clock_time();
 	strmap_init(&cinfo.cached_params);
@@ -969,6 +1037,16 @@ static struct command_result *json_checkrune(struct command *cmd,
 			err = tal_strcat(tmpctx, "invoice parameter ", err + strlen("pinv"));
 		return command_fail(cmd, RUNE_NOT_PERMITTED, "Not permitted: %s", err);
 	}
+
+	if (tal_count(ras->rune->restrs) > 1
+	    && relists_runes(buffer, method, methodparams))
+		return command_fail(cmd, RUNE_NOT_PERMITTED,
+				    "Not permitted: only a rune without restrictions can relist runes");
+
+	if (tal_count(ras->rune->restrs) > 1
+	    && creates_new_rune(buffer, method, methodparams))
+		return command_fail(cmd, RUNE_NOT_PERMITTED,
+				    "Not permitted: only a rune without restrictions can create a new rune");
 
 	update_rune_usage_time(cmd->ld->runes, ras->rune, cinfo.now);
 

@@ -68,9 +68,10 @@ static inline char *container_of_or_null_(void *member_ptr, size_t offset)
 }
 #define container_of_or_null(member_ptr, containing_type, member)	\
 	((containing_type *)						\
-	 container_of_or_null_(member_ptr,				\
-			       container_off(containing_type, member))	\
-	 + check_types_match(*(member_ptr), ((containing_type *)0)->member))
+	 ((void)check_types_match(*(member_ptr),			\
+				  ((containing_type *)0)->member),	\
+	  container_of_or_null_(member_ptr,				\
+				container_off(containing_type, member))))
 
 /**
  * container_off - get offset to enclosing structure

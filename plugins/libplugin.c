@@ -1,5 +1,6 @@
 #include "config.h"
 #include <ccan/io/io.h>
+#include <ccan/json_escape/json_escape.h>
 #include <ccan/json_out/json_out.h>
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/tal/path/path.h>
@@ -354,6 +355,15 @@ static const char *json_id(const tal_t *ctx, struct plugin *plugin,
 	} else {
 		rawid = prefix;
 		rawidlen = strlen(prefix);
+	}
+
+	/* Don't create weird IDs: they get escaped, we won't match the
+	 * reply, and the command never finishes. */
+	if (json_escape_needed(method, strlen(method)))
+		method = "!weird!";
+	if (json_escape_needed(rawid, rawidlen)) {
+		rawid = "!weird!";
+		rawidlen = strlen(rawid);
 	}
 
 	return tal_fmt(ctx, "\"%.*s/%s:%s#%"PRIu64"\"",

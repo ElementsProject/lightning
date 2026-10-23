@@ -46,6 +46,37 @@ static struct io_plan *write_more(struct io_conn *conn, struct data *d)
 				write_done, d);
 }
 
+/* Read-exclusive suppresses writes for the connection's whole life here
+ * (unlike write-exclusive's EPIPE-idle case, read's EOF closes the
+ * conn outright rather than idling, so there's no point where write
+ * could resume): the pattern should be nothing but "<...>"-marked
+ * reads, whose concatenated content -- across however many chunks the
+ * peer's two writes happened to arrive in, which is TCP/kernel
+ * delivery detail, not something to assert an exact split for --
+ * equals what was sent. */
+static bool exclusive_read_pattern_ok(const char *pattern, const char *expect)
+{
+	const char *p;
+	char *data;
+	size_t len = 0;
+	bool ok;
+
+	for (p = pattern; *p; p++) {
+		if (*p == '>')
+			return false; /* a write happened: exclusivity lied */
+	}
+
+	data = malloc(strlen(pattern) + 1);
+	for (p = pattern; *p; p++) {
+		if (*p != '<')
+			data[len++] = *p;
+	}
+	data[len] = '\0';
+	ok = (strcmp(data, expect) == 0);
+	free(data);
+	return ok;
+}
+
 static struct io_plan *read_priority_init(struct io_conn *conn, struct data *d)
 {
 	/* This should suppress the write */
@@ -131,8 +162,9 @@ int main(void)
 
 	d.pattern = tal_arrz(NULL, char, 1);
 	ok1(io_loop(NULL, NULL) == NULL);
-	/* No trace of writes */
-	ok1(strcmp(d.pattern, "<1hellothere<1helloagain") == 0);
+	/* No trace of writes; all of the peer's data read, however it
+	 * got chunked. */
+	ok1(exclusive_read_pattern_ok(d.pattern, "1hellothere1helloagain"));
 	tal_free(d.pattern);
 
 	ok1(wait(&status));

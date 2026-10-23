@@ -49,7 +49,8 @@ struct sha256_ctx {
 		uint32_t u32[16];
 		unsigned char u8[64];
 	} buf;
-	size_t bytes;
+	/* uint64_t: hashing 4GB+ must not wrap the length on 32-bit. */
+	uint64_t bytes;
 #endif
 };
 

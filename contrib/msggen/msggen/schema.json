@@ -5319,9 +5319,11 @@
       "description": [
         "The **blacklistrune** RPC command allows you to effectively revoke the rune you have created (and any runes derived from that rune with additional restictions). Attempting to use these runes will be resulted in a `Blacklisted rune` error message.",
         "",
-        "Destroy a rune like in olden times with the **destroyrune** command.",
+        "**destroyrune** is an alias for **blacklistrune**: it does exactly the same thing. Rune restrictions treat it as **blacklistrune** (so `method/blacklistrune` also forbids **destroyrune**).",
         "",
-        "All runes created by lightning have a unique sequential id within them and can be blacklisted in ranges for efficiency. The command always returns the blacklisted ranges on success. If no parameters are specified, no changes have been made. If start specified without end, that single rune is blacklisted. If end is also specified, every rune from start till end inclusive is blacklisted."
+        "All runes created by lightning have a unique sequential id within them and can be blacklisted in ranges for efficiency. The command always returns the blacklisted ranges on success. If no parameters are specified, no changes have been made. If start specified without end, that single rune is blacklisted. If end is also specified, every rune from start till end inclusive is blacklisted.",
+        "",
+        "The blacklist is stored in the database, but runes are checked with the `hsm_secret`. If you restore an older database, runes you blacklisted after that backup work again, so blacklist them again. Runes created after that backup are only added to **showrunes** when they are first used."
       ],
       "request": {
         "required": [],
@@ -5343,7 +5345,7 @@
             "type": "boolean",
             "added": "v25.02",
             "description": [
-              "Undo the blacklisting (if any) of every rune in range start to end (inclusive)"
+              "Undo the blacklisting (if any) of every rune in range start to end (inclusive). When called with a rune (via commando or clnrest), only a rune without restrictions can do this"
             ]
           }
         },
@@ -7184,7 +7186,7 @@
       "description": [
         "The **createrune** RPC command creates a base64 string called a *rune* which can be used to access commands on this node. Each *rune* contains a unique id (a number starting at 0), and can have restrictions inside it. Nobody can remove restrictions from a rune: if you try, the rune will be rejected. There is no limit on how many runes you can issue; the node simply decodes and checks them as they are received.",
         "",
-        "Oh, I almost forgot. Runes can also be invoked like in ancient times with the **invokerune** command. Feel the magical powers of a rune by invoking it."
+        "**invokerune** is an alias for **createrune**: it does exactly the same thing. Rune restrictions treat it as **createrune** (so `method/createrune` also forbids **invokerune**)."
       ],
       "request": {
         "required": [],
@@ -7193,7 +7195,7 @@
           "rune": {
             "type": "string",
             "description": [
-              "If supplied, the restrictions are simple appended to that *rune* (it doesn't need to be a rune belonging to this node). If not supplied, a new *rune* is constructed, with a new unique id."
+              "If supplied, the restrictions are simple appended to that *rune* (it doesn't need to be a rune belonging to this node). If not supplied, a new *rune* is constructed, with a new unique id. When the call is authorized by a rune (e.g. through commando or clnrest), only a rune without restrictions can construct a new *rune*: any rune can still add restrictions to a *rune* it supplies."
             ]
           },
           "restrictions": {
@@ -7286,7 +7288,7 @@
         "Every other operator except `#` fails if *name* does not exist!"
       ],
       "sharing_runes": [
-        "Because anyone can add a restriction to a rune, you can always turn a normal rune into a read-only rune, or restrict access for 30 minutes from the time you give it to someone. Adding restrictions before sharing runes is best practice.",
+        "Because anyone can add a restriction to a rune, you can always turn a normal rune into a read-only rune, or restrict access for 30 minutes from the time you give it to someone. Adding restrictions before sharing runes is best practice. Note that a time limit alone still lets the rune do anything during that time, including things which last longer (like sending funds), so restrict the methods too.",
         "",
         "If a rune has a ratelimit, any derived rune will have the same id, and thus will compete for that ratelimit. You might want to consider adding a tighter ratelimit to a rune before sharing it, so you will keep the remainder. For example, if your rune has a limit of 60 times per minute, adding a limit of 5 times per minute and handing that rune out means you can still use your original rune 55 times per minute."
       ],
@@ -20175,7 +20177,7 @@
                   "value_str": {
                     "type": "string",
                     "description": [
-                      "Field from config or cmdline, or default."
+                      "Always `...` (the value is concealed)."
                     ]
                   },
                   "source": {
@@ -21183,7 +21185,7 @@
                   "value_str": {
                     "type": "string",
                     "description": [
-                      "Field from config or cmdline, or default."
+                      "Always `...` (the value is concealed)."
                     ]
                   },
                   "source": {
@@ -21539,7 +21541,7 @@
                 "plugin": "/root/lightning/plugins/bcli"
               },
               "bitcoin-rpcpassword": {
-                "value_str": "rpcpass",
+                "value_str": "...",
                 "source": "cmdline",
                 "plugin": "/root/lightning/plugins/bcli"
               },
