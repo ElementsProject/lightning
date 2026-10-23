@@ -9,7 +9,7 @@ bugs:
 - answers `lsps0.list_protocols`, `lsps2.get_info` and `lsps2.buy`,
 - intercepts the HTLCs sent to a `jit_channel_scid`, opens a zero-conf
   channel to the client and forwards the parts with the opening fee
-  deducted.
+  deducted. The fee comes from lsps2_mock_fee.py.
 
 What the mock does is driven by a config with one entry per phase:
 `transport`, `list_protocols`, `get_info`, `buy`, `open` and `htlc`. Each
@@ -29,6 +29,7 @@ import traceback
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 
+from lsps2_mock_fee import FeeOverflow, opening_fee
 from pyln.client import Plugin, RpcError, RpcException
 from pyln.client.plugin import RequestState
 
@@ -78,7 +79,11 @@ DEFAULT_CONFIG = {
         "client_trusts_lsp": False,
     },
     "open": {"behavior": "honest", "capacity_sat": 100_000},
-    "htlc": {"behavior": "honest", "fee_msat": 0},
+    # `fee_msat` is the fee to deduct; None deducts the opening fee computed
+    # from the session's params. `clock_offset_seconds` moves the clock the
+    # mock checks valid_until against, so a test can let a session expire
+    # without waiting.
+    "htlc": {"behavior": "honest", "fee_msat": None, "clock_offset_seconds": 0},
 }
 
 REQUIRED = object()
@@ -124,7 +129,7 @@ BEHAVIORS = {
         "deduct": {"deductions": REQUIRED, "extra_fees": None},
         # Forward only the parts with these indices, fail the others.
         "forward_subset": {"parts": REQUIRED},
-        # Deduct `fee_msat` again from payments after the session.
+        # Deduct the fee again from payments after the session.
         "deduct_again": {},
     },
 }
@@ -141,14 +146,19 @@ class LspsError(Exception):
 
 
 class Session:
-    def __init__(self, scid, peer_id, params, payment_size_msat):
+    def __init__(self, scid, peer_id, params, payment_size_msat, opening_fee_msat):
         self.scid = scid
         self.peer_id = peer_id
         self.params = params
         self.payment_size_msat = payment_size_msat
+        # Known at buy in MPP+fixed-invoice mode, set by the first HTLC in
+        # no-MPP+var-invoice mode.
+        self.opening_fee_msat = opening_fee_msat
         # collecting -> opening -> forwarded
         self.state = "collecting"
         self.parts = []
+        # The payment that opens the channel and pays the opening fee.
+        self.payment_hash = None
         self.channel_id = None
         self.htlc_minimum_msat = 0
 
@@ -158,8 +168,11 @@ class Session:
             "peer_id": self.peer_id,
             "opening_fee_params": self.params,
             "payment_size_msat": self.payment_size_msat,
+            "opening_fee_msat": self.opening_fee_msat,
             "state": self.state,
+            "payment_hash": self.payment_hash,
             "channel_id": self.channel_id,
+            "held_parts": len(self.parts),
         }
 
 
@@ -215,8 +228,9 @@ state = State()
 
 
 def record(kind, **fields):
+    now = lsps_datetime(datetime.now(timezone.utc))
     with state.lock:
-        state.events.append({"type": kind, **fields})
+        state.events.append({"type": kind, "time": now, **fields})
 
 
 def report_error(where, e, **fields):
@@ -442,6 +456,7 @@ def buy(peer_id, params):
         raise LspsError(201, "invalid_opening_fee_params")
 
     payment_size_msat = None
+    fee_msat = None
     if "payment_size_msat" in params:
         try:
             payment_size_msat = int(params["payment_size_msat"])
@@ -451,11 +466,17 @@ def buy(peer_id, params):
             raise LspsError(202, "payment_size_too_small")
         if payment_size_msat > int(ofp["max_payment_size_msat"]):
             raise LspsError(203, "payment_size_too_large")
+        try:
+            fee_msat = params_fee(ofp, payment_size_msat)
+        except FeeOverflow:
+            raise LspsError(203, "payment_size_too_large")
+        if fee_msat >= payment_size_msat:
+            raise LspsError(202, "payment_size_too_small")
 
     with state.lock:
         state.scid_counter += 1
         scid = cfg["jit_channel_scid"] or f"{SCID_BLOCK}x{state.scid_counter}x0"
-        session = Session(scid, peer_id, ofp, payment_size_msat)
+        session = Session(scid, peer_id, ofp, payment_size_msat, fee_msat)
         state.sessions[scid] = session
     record("buy", **session.to_json())
 
@@ -464,6 +485,12 @@ def buy(peer_id, params):
         "lsp_cltv_expiry_delta": cfg["lsp_cltv_expiry_delta"],
         "client_trusts_lsp": cfg["client_trusts_lsp"],
     }
+
+
+def params_fee(ofp, payment_size_msat):
+    return opening_fee(
+        payment_size_msat, int(ofp["min_fee_msat"]), int(ofp["proportional"])
+    )
 
 
 METHODS = {
@@ -505,6 +532,7 @@ def fails_held_parts(func):
                 parts = {id(p): p for p in held + session.parts}.values()
                 fail_parts(
                     [p for p in parts if p["request"].state == RequestState.PENDING],
+                    "error",
                     TEMPORARY_NODE_FAILURE,
                 )
                 session.parts = []
@@ -527,7 +555,7 @@ def open_channel(session):
     if cfg["behavior"] == "never":
         record("open_skipped", jit_channel_scid=session.scid)
         with state.lock:
-            fail_parts(session.parts)
+            fail_parts(session.parts, "open_skipped")
             session.parts = []
             session.state = "collecting"
         return
@@ -548,6 +576,7 @@ def open_channel(session):
         with state.lock:
             fail_parts(
                 session.parts,
+                "open_failed",
                 UNKNOWN_NEXT_PEER if connected else TEMPORARY_CHANNEL_FAILURE,
             )
             session.parts = []
@@ -594,12 +623,13 @@ def on_channel_state_changed(channel_state_changed, **kwargs):
 # --- HTLC interception and forwarding --------------------------------------
 
 
-def fail_parts(parts, failure_message=UNKNOWN_NEXT_PEER):
+def fail_parts(parts, reason, failure_message=UNKNOWN_NEXT_PEER):
     for part in parts:
         record(
             "htlc",
             payment_hash=part["htlc"]["payment_hash"],
             decision="fail",
+            reason=reason,
             failure_message=failure_message,
         )
         part["request"].set_result(
@@ -670,20 +700,87 @@ def release(session):
         return
 
     if cfg["behavior"] == "forward_subset":
-        fail_parts([p for i, p in enumerate(parts) if i not in cfg["parts"]])
+        fail_parts(
+            [p for i, p in enumerate(parts) if i not in cfg["parts"]],
+            "forward_subset",
+        )
         parts = [p for i, p in enumerate(parts) if i in cfg["parts"]]
 
-    forward_with_fee(session, parts, cfg["fee_msat"])
+    forward_with_fee(session, parts, session_fee(session))
+
+
+def session_fee(session):
+    fee_msat = state.config["htlc"]["fee_msat"]
+    return session.opening_fee_msat if fee_msat is None else fee_msat
 
 
 def forward_with_fee(session, parts, fee_msat):
     amounts = [int(p["onion"]["forward_msat"]) for p in parts]
     deductions = split_fee(amounts, fee_msat, session.htlc_minimum_msat)
     if deductions is None:
-        fail_parts(parts)
+        fail_parts(parts, "fee_exceeds_parts")
         return
     for part, deduction in zip(parts, deductions):
         forward_part(session, part, deduction, deduction or None)
+
+
+def var_invoice_fee(session, amount_msat):
+    """no-MPP+var-invoice: the opening fee for the first HTLC, whose onion
+    amount is the payment size, or None if the LSP must fail it."""
+    ofp = session.params
+    if not (
+        int(ofp["min_payment_size_msat"])
+        <= amount_msat
+        <= int(ofp["max_payment_size_msat"])
+    ):
+        return None
+    try:
+        fee_msat = params_fee(ofp, amount_msat)
+    except FeeOverflow:
+        return None
+    # bLIP-52 requires opening_fee + htlc_minimum_msat <= htlc_value_msat.
+    # The channel's htlc_minimum_msat is only known once it is open, and
+    # release() checks it then; here use the 1 msat every HTLC needs.
+    if fee_msat + 1 > amount_msat:
+        return None
+    return fee_msat
+
+
+def seconds_to_expiry(session):
+    """Seconds until the session's params expire, by the mock's clock."""
+    offset = timedelta(seconds=state.config["htlc"]["clock_offset_seconds"])
+    now = datetime.now(timezone.utc) + offset
+    return (parse_lsps_datetime(session.params["valid_until"]) - now).total_seconds()
+
+
+def expired(session):
+    """Whether the session's params expired: bLIP-52 opens the channel only
+    while the current time is strictly less than valid_until."""
+    return seconds_to_expiry(session) <= 0
+
+
+def expire_held_parts(session):
+    """bLIP-52: parts held while waiting for the payment time out at
+    valid_until, even if no further part arrives. Called with the state lock
+    held."""
+    if session.state == "collecting" and session.parts and expired(session):
+        fail_parts(session.parts, "expired")
+        session.parts = []
+
+
+def arm_expiry(session):
+    """Run `expire_held_parts` at valid_until."""
+
+    def run():
+        with state.lock:
+            expire_held_parts(session)
+            # The clock may have been moved back since.
+            if session.state == "collecting" and session.parts:
+                arm_expiry(session)
+
+    timer = threading.Timer(max(seconds_to_expiry(session), 0), run)
+    timer.daemon = True
+    timer.start()
 
 
 def collected_enough(session):
@@ -707,11 +804,27 @@ def on_htlc_accepted(onion, htlc, request, **kwargs):
         if session.state == "forwarded":
             # The session is done; the jit_channel_scid is now just another
             # alias of the channel.
-            cfg = state.config["htlc"]
-            fee_msat = cfg["fee_msat"] if cfg["behavior"] == "deduct_again" else 0
-            forward_with_fee(session, [part], fee_msat)
+            again = state.config["htlc"]["behavior"] == "deduct_again"
+            forward_with_fee(session, [part], session_fee(session) if again else 0)
             return
 
+        if session.state == "collecting" and expired(session):
+            fail_parts(session.parts + [part], "expired")
+            session.parts = []
+            return
+
+        # In no-MPP+var-invoice mode the first part opens the channel, so a
+        # collecting session has no parts yet.
+        if session.payment_size_msat is None and session.state == "collecting":
+            fee_msat = var_invoice_fee(session, int(onion["forward_msat"]))
+            if fee_msat is None:
+                fail_parts([part], "payment_size")
+                return
+            session.opening_fee_msat = fee_msat
+
+        if not session.parts:
+            session.payment_hash = htlc["payment_hash"]
+            arm_expiry(session)
         session.parts.append(part)
         if session.state == "collecting" and collected_enough(session):
             session.state = "opening"
@@ -741,15 +854,19 @@ def lsps2_mock_configure(config, **kwargs):
     new_config = build_config(config)
     with state.lock:
         state.config = new_config
+        # The clock may have moved past valid_until.
+        for session in state.sessions.values():
+            expire_held_parts(session)
     return {"config": new_config}
 
 
 @plugin.method("lsps2-mock-state")
 def lsps2_mock_state(**kwargs):
-    """Return config, sessions and every recorded event."""
+    """Return config, issued params, sessions and every recorded event."""
     with state.lock:
         return {
             "config": state.config,
+            "issued": list(state.issued.values()),
             "sessions": [s.to_json() for s in state.sessions.values()],
             "events": state.events,
         }
