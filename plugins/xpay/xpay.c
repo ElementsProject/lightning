@@ -12,6 +12,7 @@
 #include <common/daemon.h>
 #include <common/dijkstra.h>
 #include <common/features.h>
+#include <common/gossip_constants.h>
 #include <common/gossmap.h>
 #include <common/gossmods_listpeerchannels.h>
 #include <common/json_param.h>
@@ -28,6 +29,7 @@
 #include <inttypes.h>
 #include <plugins/libplugin.h>
 #include <plugins/xpay/listpays.h>
+#include <plugins/xpay/onion_budget.h>
 #include <plugins/xpay/xpay.h>
 #include <stdarg.h>
 
@@ -158,6 +160,9 @@ struct payment {
 
 	/* Are we to add a shadow route? */
 	bool use_shadow;
+
+	/* Maximum number of forward hops we can afford for this payment. */
+	u32 onion_budget;
 };
 
 /* One step in a path. */
@@ -1378,69 +1383,46 @@ static void append_blinded_payloads(struct sphinx_path *sp,
 	const struct amount_msat mpp_amount = attempt_mpp_amount(attempt);
 
 	for (size_t i = 0; i < tal_count(path->path); i++) {
-		bool first = (i == 0);
-		bool final = (i == tal_count(path->path) - 1);
-		const u8 *payload;
-
-		/* BOLT #4:
-		 * - For every node inside a blinded route:
-		 *   - MUST include the `encrypted_recipient_data` provided by the
-		 *     recipient
-		 *   - For the first node in the blinded route:
-		 *     - MUST include the `path_key` provided by the
-		 *       recipient in `current_path_key`
-		 *   - If it is the final node:
-		 *     - MUST include `amt_to_forward`, `outgoing_cltv_value` and `total_amount_msat`.
-		 *...
-		 *   - MUST NOT include any other tlv field.
-		 */
-		payload = onion_blinded_hop(NULL,
-					    final ? &deliver : NULL,
-					    final ? &mpp_amount : NULL,
-					    final ? &final_cltv : NULL,
-					    path->path[i]->encrypted_recipient_data,
-					    first ? &path->first_path_key : NULL);
+		const u8 *payload = onion_blinded_payload(tmpctx,
+							  path,
+							  i,
+							  &deliver,
+							  &mpp_amount,
+							  &final_cltv);
 		sphinx_add_hop_has_length(sp,
-					  first ? &path->first_node_id.pubkey
-					  : &path->path[i]->blinded_node_id,
+					  i == 0
+					      ? &path->first_node_id.pubkey
+					      : &path->path[i]->blinded_node_id,
 					  take(payload));
 	}
 }
 
-/* hop has size prepended, so this isn't a simple "append" */
-static void hop_append(u8 **hop, const u8 *appendme)
-{
-	bigsize_t prepended_len;
-	const u8 *cursor = *hop;
-	size_t tlvs_len = tal_bytelen(*hop);
-	u8 *result;
+struct xpay_onion {
+	/* Serialized onion. */
+	const u8 *raw_onion;
 
-	/* Pull off length */
-	prepended_len = fromwire_bigsize(&cursor, &tlvs_len);
-	assert(cursor);
-	assert(prepended_len == tlvs_len);
+	/* Number of forwarding hops before the tail including the sender. */
+	u32 num_forwards;
 
-	/* Rewrite: length + contents */
-	result = tal_arr(tal_parent(*hop), u8, 0);
-	towire_bigsize(&result, tlvs_len + tal_bytelen(appendme));
-	towire(&result, cursor, tlvs_len);
-	towire(&result, appendme, tal_bytelen(appendme));
+	/* Bytes (payloads + HMACs) used by forward hops. */
+	size_t forward_bytes;
 
-	tal_free(*hop);
-	*hop = result;
-}
+	/* Bytes in the final payload plus blinded hops if present. */
+	size_t tail_bytes;
+};
 
-static const u8 *create_onion(const tal_t *ctx,
-			      struct attempt *attempt,
-			      u32 effective_bheight)
+static struct xpay_onion *create_onion(const tal_t *ctx,
+				       struct attempt *attempt,
+				       u32 effective_bheight)
 {
 	struct xpay *xpay = xpay_of(attempt->payment->plugin);
 	bool blinded_path = false;
 	struct onionpacket *packet;
 	struct sphinx_path *sp;
-	const u8 *payload, *ret;
+	const u8 *payload;
 	const struct pubkey *node;
 	const struct amount_msat mpp_amount = attempt_mpp_amount(attempt);
+	struct xpay_onion *xpay_onion = talz(ctx, struct xpay_onion);
 
 	sp = sphinx_path_new(ctx, attempt->payment->payment_hash.u.u8,
 			     sizeof(attempt->payment->payment_hash.u.u8));
@@ -1454,6 +1436,7 @@ static const u8 *create_onion(const tal_t *ctx,
 		if (pubkey_eq(&hop->next_node, &xpay->fakenode)
 		    && hop->scidd.scid.u64 < tal_count(attempt->payment->paths)) {
 			blinded_path = true;
+			xpay_onion->forward_bytes = sphinx_path_payloads_size(sp);
 			append_blinded_payloads(sp, attempt, effective_bheight,
 						hop->scidd.scid.u64);
 			/* This must be at the end, unless they put the fake nodeid
@@ -1462,50 +1445,73 @@ static const u8 *create_onion(const tal_t *ctx,
 			break;
 		}
 		/* We tell it how much to send *out* */
-		payload = onion_nonfinal_hop(NULL, &hop->scidd.scid, hop->amount_out,
-					     hop->cltv_value_out + effective_bheight);
+		payload = onion_forward_payload(tmpctx,
+						&hop->scidd.scid,
+						hop->amount_out,
+						hop->cltv_value_out + effective_bheight);
 		sphinx_add_hop_has_length(sp, node, take(payload));
+		xpay_onion->num_forwards++;
 		node = &hop->next_node;
 	}
 
 	/* If we use a blinded path, final has to be special, so
 	 * that's done in append_blinded_payloads. */
 	if (!blinded_path) {
-		u8 *final = onion_final_hop(NULL,
-					    attempt_deliver(attempt),
-					    attempt->payment->final_cltv + effective_bheight,
-					    mpp_amount,
-					    attempt->payment->payment_secret,
-					    attempt->payment->payment_metadata);
-		hop_append(&final, attempt->payment->extra_tlvs);
+		xpay_onion->forward_bytes = sphinx_path_payloads_size(sp);
+		u8 *final = onion_final_payload(tmpctx,
+						attempt_deliver(attempt),
+						attempt->payment->final_cltv + effective_bheight,
+						mpp_amount,
+						attempt->payment->payment_secret,
+						attempt->payment->payment_metadata,
+						attempt->payment->extra_tlvs);
 		sphinx_add_hop_has_length(sp, node, take(final));
 	}
+	xpay_onion->tail_bytes =
+	    sphinx_path_payloads_size(sp) - xpay_onion->forward_bytes;
 
 	/* Fails if would be too long */
 	packet = create_onionpacket(attempt, sp, ROUTING_INFO_SIZE,
 				    &attempt->shared_secrets);
-	if (!packet)
-		return NULL;
+	if (packet)
+		xpay_onion->raw_onion =
+		    serialize_onionpacket(xpay_onion, packet);
 
-	ret = serialize_onionpacket(ctx, packet);
+	tal_free(sp);
 	tal_free(packet);
-	return ret;
+	return xpay_onion;
 }
 
 static struct command_result *do_inject(struct command *aux_cmd,
 					struct attempt *attempt)
 {
 	struct out_req *req;
-	const u8 *onion;
+	const struct xpay_onion *xpay_onion;
 	struct xpay *xpay = xpay_of(attempt->payment->plugin);
 	/* In case a block comes in, we give CLTVs an extra 1. */
 	u32 effective_bheight = xpay->blockheight + 1;
 
-	onion = create_onion(tmpctx, attempt, effective_bheight);
-	/* FIXME: Handle this better! */
-	if (!onion) {
-		payment_give_up(aux_cmd, attempt->payment, PAY_UNSPECIFIED_ERROR,
-				"Could not create payment onion: path too long!");
+	xpay_onion = create_onion(tmpctx, attempt, effective_bheight);
+	if (!xpay_onion->raw_onion) {
+		char *error;
+		size_t total =
+		    xpay_onion->forward_bytes + xpay_onion->tail_bytes;
+		if (total > ROUTING_INFO_SIZE)
+			error = tal_fmt(
+			    tmpctx,
+			    "%zu bytes needed (%" PRIu32
+			    " hops using %zu bytes, plus %zu bytes for the "
+			    "final payload or blinded path)",
+			    total, xpay_onion->num_forwards,
+			    xpay_onion->forward_bytes, xpay_onion->tail_bytes);
+		else
+			error = tal_fmt(tmpctx, "failed to derive shared secrets");
+
+		payment_log(attempt->payment, LOG_BROKEN,
+			    "create_onion failed: %s", error);
+		payment_give_up(aux_cmd, attempt->payment,
+				PAY_UNSPECIFIED_ERROR,
+				"Could not create payment onion: %s", error);
 		return command_still_pending(aux_cmd);
 	}
 
@@ -1523,7 +1529,7 @@ static struct command_result *do_inject(struct command *aux_cmd,
 				    injectpaymentonion_succeeded,
 				    injectpaymentonion_failed,
 				    attempt);
-	json_add_hex_talarr(req->js, "onion", onion);
+	json_add_hex_talarr(req->js, "onion", xpay_onion->raw_onion);
 	json_add_sha256(req->js, "payment_hash", &attempt->payment->payment_hash);
 	/* If no route, its the same as delivery (self-pay) */
 	json_add_amount_msat(req->js, "amount_msat", inject_amount(attempt));
@@ -1656,6 +1662,34 @@ struct getroutes_request {
 	struct payment *payment;
 };
 
+static u32 get_askrene_onion_budget(const struct payment *payment)
+{
+	if (payment->paths) {
+		/* For bolt12 payments we try to route through a blinded route,
+		 * the destination is hidden behind the fake channels
+		 * representing the blinded tail of the payment.
+		 * Therefore in askrene's terms the onion_budget is the
+		 * real maximum forwarding hops including the sender plus one
+		 * more hop that accounts for the blinded path. */
+		return payment->onion_budget + 1;
+	} else {
+		/* For bolt11 payments we try to hit the bare destination so the
+		 * onion_budget is the real maximum forwarding hops including
+		 * the sender. */
+		return payment->onion_budget;
+	}
+}
+
+static const struct pubkey *
+get_askrene_destination(const struct payment *payment)
+{
+	struct xpay *xpay = xpay_of(payment->plugin);
+	if (payment->paths)
+		return &xpay->fakenode;
+	else
+		return &payment->destination;
+}
+
 static struct command_result *getroutes_done(struct command *aux_cmd,
 					     const char *method,
 					     const char *buf,
@@ -1667,6 +1701,7 @@ static struct command_result *getroutes_done(struct command *aux_cmd,
 	struct amount_msat needs_routing, was_routing;
 	struct payment *payment = getroutes_request->payment;
 	struct gossmap *gossmap = get_gossmap(xpay_of(payment->plugin));
+	u32 askrene_onion_budget = get_askrene_onion_budget(payment);
 	trace_span_resume(payment);
 	trace_span_resume(getroutes_request);
 	trace_span_end(getroutes_request);
@@ -1722,6 +1757,25 @@ static struct command_result *getroutes_done(struct command *aux_cmd,
 		json_to_msat(buf, json_get_member(buf, t, "amount_msat"),
 			     &delivers);
 		path = json_get_member(buf, t, "path");
+		if (path->type != JSMN_ARRAY)
+			plugin_err(aux_cmd->plugin,
+				   "Malformed getroutes result: "
+				   "routes[%zu].path should be an array",
+				   i);
+		if(path->size > askrene_onion_budget){
+			char *error = tal_fmt(
+			    tmpctx,
+			    "We asked for maxhops=%" PRIu32
+			    ", but getroutes gave us a route with %d hops",
+			    askrene_onion_budget, path->size);
+
+			payment_log(payment, LOG_BROKEN, "%s", error);
+
+			payment_give_up(aux_cmd, payment,
+					PAY_UNSPECIFIED_ERROR, "%s", error);
+			return command_still_pending(aux_cmd);
+		}
+
 		hops = tal_arr(NULL, struct hop, path->size);
 		json_for_each_arr(j, hoptok, path) {
 			const char *err;
@@ -1868,6 +1922,7 @@ static struct command_result *getroutes_for(struct command *aux_cmd,
 	struct out_req *req;
 	const struct pubkey *dst;
 	struct amount_msat maxfee;
+	u32 askrene_onion_budget = get_askrene_onion_budget(payment);
 
 	/* I would normally assert here, but we have reports of this happening... */
 	if (amount_msat_is_zero(deliver)) {
@@ -1877,11 +1932,7 @@ static struct command_result *getroutes_for(struct command *aux_cmd,
 
 	/* If we get injectpaymentonion responses, they can wait */
 	payment->amount_being_routed = deliver;
-
-	if (payment->paths)
-		dst = &xpay->fakenode;
-	else
-		dst = &payment->destination;
+	dst = get_askrene_destination(payment);
 
 	/* Self-pay?  Shortcut all this */
 	if (pubkey_eq(&xpay->local_id, dst)) {
@@ -1965,6 +2016,7 @@ static struct command_result *getroutes_for(struct command *aux_cmd,
 		assert(payment->maxparts > count_pending);
 		json_add_u32(req->js, "maxparts", payment->maxparts - count_pending);
 	}
+	json_add_u32(req->js, "maxhops", askrene_onion_budget);
 
 	return send_payment_req(aux_cmd, payment, req);
 }
@@ -2654,6 +2706,9 @@ static struct payment *new_payment(const tal_t *ctx,
 	payment->unique_id = xpay->counter++;
 	payment->private_layer = tal_fmt(payment,
 					 "xpay-%"PRIu64, payment->unique_id);
+	/* If we don't compute the onion budget ahead this is still a reference
+	 * value to keep in mind. */
+	payment->onion_budget = ROUTING_MAX_HOPS;
 
 	list_add_tail(&xpay->payments, &payment->list);
 	tal_add_destructor(payment, destroy_payment);
@@ -3105,13 +3160,137 @@ static struct command_result *getinfo_done(struct command *aux_cmd,
 static struct command_result *populate_private_layer(struct command *cmd,
 						     struct payment *payment);
 
+static struct command_result *check_onion_budget(struct command *cmd,
+						 struct payment *payment)
+{
+	struct xpay *xpay = xpay_of(payment->plugin);
+	const u32 blockheight_slack = 100;
+	u32 max_hops;
+	size_t tail_size, smallest_tail_size = SIZE_MAX;
+	char *error;
+	const struct pubkey *dst;
+	bool this_node_front = false;
+
+	if (payment->paths) {
+		/* Among all possible blinded routes assume the worst case. */
+		max_hops = UINT32_MAX;
+		if (tal_count(payment->paths) == 0) {
+			error =
+			    tal_fmt(tmpctx, "Weird! There are no blinded paths "
+					    "left to build routes to.");
+			payment_log(payment, LOG_UNUSUAL, "%s", error);
+			return command_fail(cmd, PAY_ROUTE_NOT_FOUND, "%s",
+					    error);
+		}
+		for (size_t i = 0; i < tal_count(payment->paths); i++) {
+			u32 this_hops = onion_budget(payment->mpp_amount,
+						     payment->maxfee,
+						     /* give some blockheight
+						      * slack */
+						     payment->start_blockheight + blockheight_slack,
+						     payment->maxdelay,
+						     payment->paths[i],
+						     payment->payment_secret,
+						     payment->payment_metadata,
+						     payment->extra_tlvs,
+						     &tail_size);
+
+			if (smallest_tail_size > tail_size)
+				smallest_tail_size = tail_size;
+
+			if (this_hops == UINT32_MAX) {
+				payment_log(payment, LOG_UNUSUAL,
+					    "discarding blinded path: requires "
+					    "%zu bytes",
+					    tail_size);
+				/* Remove blinded paths that cannot be used. */
+				tal_arr_remove(&payment->paths, i);
+				tal_arr_remove(&payment->payinfos, i);
+				i--;
+				continue;
+			}
+
+			/* Using the worst case here to make all blinded paths
+			 * equivalently *good* down the line, which is simpler.
+			 * A more complicated approach could be: "try with this
+			 * number, if no path is found try the next worst case
+			 * and remove the blinded paths under this number." */
+			if (this_hops < max_hops)
+				max_hops = this_hops;
+
+			if (payment->paths[i]->first_node_id.is_pubkey &&
+			    pubkey_eq(&xpay->local_id,
+				      &payment->paths[i]->first_node_id.pubkey))
+				this_node_front = true;
+		}
+		if(tal_count(payment->paths) == 0) {
+			error = tal_fmt(
+			    tmpctx,
+			    "Cannot use any blinded path, the smallest one "
+			    "needs at least %zu byte onion packet",
+			    smallest_tail_size);
+			payment_log(payment, LOG_INFORM, "%s", error);
+			return command_fail(cmd, PAY_ROUTE_NOT_FOUND, "%s",
+					    error);
+		}
+	} else {
+		max_hops = onion_budget(payment->mpp_amount,
+					payment->maxfee,
+					/* give some blockheight slack */
+					payment->start_blockheight + blockheight_slack,
+					payment->maxdelay,
+					NULL,
+					payment->payment_secret,
+					payment->payment_metadata,
+					payment->extra_tlvs,
+					&tail_size);
+		if (max_hops == UINT32_MAX) {
+			error = tal_fmt(tmpctx,
+					"The final payload is too big to "
+					"fit an onion packet: %zu bytes",
+					tail_size);
+			payment_log(payment, LOG_INFORM, "%s", error);
+			return command_fail(cmd, PAY_ROUTE_NOT_FOUND, "%s",
+					    error);
+		}
+	}
+
+	payment_log(payment, LOG_DBG, "onion budget is %" PRIu32 ".", max_hops);
+	payment->onion_budget = max_hops;
+
+	dst = get_askrene_destination(payment);
+	/* This is bolt11 payment with 0 hops and we are not the destination. */
+	if (max_hops == 0 && !payment->paths &&
+	    !pubkey_eq(&xpay->local_id, dst)) {
+		error = tal_fmt(
+		    tmpctx,
+		    "onion budget is 0 and we are not the destination node, "
+		    "this payment is impossible");
+		payment_log(payment, LOG_INFORM, "%s", error);
+		return command_fail(cmd, PAY_ROUTE_NOT_FOUND, "%s", error);
+	}
+
+	/* It is a payment through a blinded path and we are not the front node.
+	 */
+	if (max_hops == 0 && payment->paths &&
+	    pubkey_eq(&xpay->fakenode, dst) && !this_node_front) {
+		error = tal_fmt(tmpctx, "onion budget is 0 and we are not a "
+					"front node in any blinded path, "
+					"this payment is impossible");
+		payment_log(payment, LOG_INFORM, "%s", error);
+		return command_fail(cmd, PAY_ROUTE_NOT_FOUND, "%s", error);
+	}
+
+	return populate_private_layer(cmd, payment);
+}
+
 static struct command_result *age_done(struct command *cmd,
 				       const char *method UNUSED,
 				       const char *buf UNUSED,
 				       const jsmntok_t *result UNUSED,
 				       struct payment *payment)
 {
-	return populate_private_layer(cmd, payment);
+	return check_onion_budget(cmd, payment);
 }
 
 static struct command_result *age_layer(struct command *cmd, struct payment *payment)
@@ -3119,7 +3298,7 @@ static struct command_result *age_layer(struct command *cmd, struct payment *pay
 	struct xpay *xpay = xpay_of(cmd->plugin);
 
 	if (xpay->dev_no_age)
-		return populate_private_layer(cmd, payment);
+		return check_onion_budget(cmd, payment);
 
 	struct out_req *req;
 	req = jsonrpc_request_start(cmd, "askrene-age",

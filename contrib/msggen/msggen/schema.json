@@ -17329,6 +17329,14 @@
               "Maximum number of routes in the solution."
             ],
             "default": "100"
+          },
+          "maxhops": {
+            "type": "u32",
+            "added": "v26.12",
+            "description": [
+              "Maximum number of hops for every path."
+            ],
+            "default": "100"
           }
         }
       },
@@ -23143,6 +23151,12 @@
               },
               "dev-currency-expiry": {
                 "value_int": 600,
+                "source": "default",
+                "plugin": "/usr/local/libexec/plugins/offers",
+                "dynamic": true
+              },
+              "dev-invoice-blinded-padding": {
+                "value_int": 0,
                 "source": "default",
                 "plugin": "/usr/local/libexec/plugins/offers",
                 "dynamic": true
