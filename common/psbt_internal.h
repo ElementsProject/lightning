@@ -9,6 +9,9 @@ struct wally_psbt;
 struct wally_psbt_input;
 struct witness;
 
+/* How many items are written in this witness blob. */
+bool witness_stack_items(const u8 *witness, size_t *num_items);
+
 /* psbt_finalize_input - Finalize an input with a given witness stack
  *
  * Sets the given witness elements onto the PSBT. Also finalizes
