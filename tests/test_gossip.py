@@ -2252,7 +2252,13 @@ def test_gossip_throttle(node_factory, bitcoind, chainparams):
                           check=True,
                           timeout=TIMEOUT, stdout=subprocess.PIPE).stdout.split()
     time_slow = time.time() - start_slow
-    assert time_slow > 3
+    # The throttle checks a one-second window's usage before each send
+    # and waits at least a second once the window is over its 1000
+    # bytes.  These messages are well over that, so at least one wait
+    # is certain; how many depends on how they pack into the windows,
+    # so the bound is one second, not a count of waits.
+    assert time_slow > 1
+    l4.daemon.wait_for_log(r'Throttling outgoing peer')
 
     # Contents should be identical (once uniquified, since each
     # doubles-up on its own gossip)
@@ -2304,7 +2310,8 @@ def test_gossip_throttle(node_factory, bitcoind, chainparams):
                           check=True,
                           timeout=TIMEOUT, stdout=subprocess.PIPE).stdout.split()
     time_slow = time.time() - start_slow
-    assert time_slow > 3
+    assert time_slow > 1
+    l4.daemon.wait_for_log(r'Throttling outgoing peer')
     assert set(out2) == set(out4)
 
 
