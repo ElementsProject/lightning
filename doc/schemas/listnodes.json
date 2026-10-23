@@ -277,7 +277,7 @@
         "nodes": [
           {
             "nodeid": "03cecbfdc68544cc596223b68ce0710c9e5d2c9cb317ee07822d95079acc703d31",
-            "alias": "HOPPINGFIRE-v26.09",
+            "alias": "HOPPINGFIRE-v26.12",
             "color": "03cecb",
             "last_timestamp": 1738000000,
             "features": "808898882a8a59a1",
@@ -296,7 +296,7 @@
         "nodes": [
           {
             "nodeid": "033845802d25b4e074ccfd7cd8b339a41dc75bf9978a034800444b51d42b07799a",
-            "alias": "SILENTARTIST-v26.09",
+            "alias": "SILENTARTIST-v26.12",
             "color": "033845",
             "last_timestamp": 1738000000,
             "features": "808898882a8a59a1",
@@ -304,7 +304,7 @@
           },
           {
             "nodeid": "038194b5f32bdf0aa59812c86c4ef7ad2f294104fa027d1ace9b469bb6f88cf37b",
-            "alias": "JUNIORBEAM-v26.09",
+            "alias": "JUNIORBEAM-v26.12",
             "color": "038194",
             "last_timestamp": 1738000000,
             "features": "808898882a8a59a1",
@@ -312,7 +312,7 @@
           },
           {
             "nodeid": "03cecbfdc68544cc596223b68ce0710c9e5d2c9cb317ee07822d95079acc703d31",
-            "alias": "HOPPINGFIRE-v26.09",
+            "alias": "HOPPINGFIRE-v26.12",
             "color": "03cecb",
             "last_timestamp": 1738000000,
             "features": "808898882a8a59a1",
@@ -320,7 +320,7 @@
           },
           {
             "nodeid": "02287bfac8b99b35477ebe9334eede1e32b189e24644eb701c079614712331cec0",
-            "alias": "JUNIORFELONY-v26.09",
+            "alias": "JUNIORFELONY-v26.12",
             "color": "02287b",
             "last_timestamp": 1738000000,
             "features": "808898882a8a59a1",
