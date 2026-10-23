@@ -7,6 +7,8 @@
 #include <gossipd/gossipd.h>
 #include <gossipd/queries.h>
 
+#define MAX_RANGE_REPLIES 1000000
+
 /* BOLT #7:
  *
  * There are several messages which contain a long array of
@@ -144,7 +146,7 @@ static u8 *append_range_reply(struct peer *peer,
 			      const struct tlv_reply_channel_range_tlvs_timestamps_tlv
 			      *timestamps_tlv)
 {
-	u16 i, old_num, added;
+	size_t old_num, added;
 	const struct channel_update_timestamps *ts;
 	/* Zero means "no timestamp" */
 	const static struct channel_update_timestamps zero_ts = { 0, 0 };
@@ -166,8 +168,8 @@ static u8 *append_range_reply(struct peer *peer,
 
 	old_num = tal_count(peer->range_replies);
 	added = tal_count(scids);
-	for (i = 0; i < added; i++) {
-		tal_resize(&peer->range_replies, old_num + i + 1);
+	tal_resize(&peer->range_replies, old_num + added);
+	for (size_t i = 0; i < added; i++) {
 		peer->range_replies[old_num + i].scid = scids[i];
 		if (ts)
 			peer->range_replies[old_num + i].ts = ts[i];
@@ -226,6 +228,14 @@ const u8 *handle_reply_channel_range(struct peer *peer, const u8 *msg)
 		return towire_warningfmt(peer, NULL,
 					 "Bad reply_channel_range encoding %s",
 					 tal_hex(tmpctx, encoded));
+	}
+
+	if (tal_count(peer->range_replies) + tal_count(scids)
+	    > MAX_RANGE_REPLIES) {
+		peer->range_replies = tal_free(peer->range_replies);
+		peer->query_channel_range_cb = NULL;
+		return towire_warningfmt(peer, NULL,
+					 "reply_channel_range too many scids");
 	}
 
 	status_peer_debug(&peer->id,
