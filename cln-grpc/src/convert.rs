@@ -2941,37 +2941,6 @@ impl From<responses::WaitChannelmoves> for pb::WaitChannelmoves {
     }
 }
 
-#[allow(unused_variables,deprecated)]
-impl From<responses::WaitDetails> for pb::WaitDetails {
-    fn from(c: responses::WaitDetails) -> Self {
-        Self {
-            #[allow(deprecated)]
-            bolt11: c.bolt11, // Rule #2 for type string?
-            #[allow(deprecated)]
-            bolt12: c.bolt12, // Rule #2 for type string?
-            #[allow(deprecated)]
-            description: c.description, // Rule #2 for type string?
-            #[allow(deprecated)]
-            groupid: c.groupid, // Rule #2 for type u64?
-            #[allow(deprecated)]
-            in_channel: c.in_channel.map(|v| v.to_string()), // Rule #2 for type short_channel_id?
-            #[allow(deprecated)]
-            in_htlc_id: c.in_htlc_id, // Rule #2 for type u64?
-            #[allow(deprecated)]
-            in_msat: c.in_msat.map(|f| f.into()), // Rule #2 for type msat?
-            #[allow(deprecated)]
-            label: c.label, // Rule #2 for type string?
-            #[allow(deprecated)]
-            out_channel: c.out_channel.map(|v| v.to_string()), // Rule #2 for type short_channel_id?
-            #[allow(deprecated)]
-            partid: c.partid, // Rule #2 for type u64?
-            #[allow(deprecated)]
-            payment_hash: c.payment_hash.map(|v| <Sha256 as AsRef<[u8]>>::as_ref(&v).to_vec()), // Rule #2 for type hash?
-            status: c.status.map(|v| v as i32),
-        }
-    }
-}
-
 #[allow(unused_variables)]
 impl From<responses::WaitForwards> for pb::WaitForwards {
     fn from(c: responses::WaitForwards) -> Self {
@@ -3036,7 +3005,7 @@ impl From<responses::WaitSendpays> for pb::WaitSendpays {
     }
 }
 
-#[allow(unused_variables,deprecated)]
+#[allow(unused_variables)]
 impl From<responses::WaitResponse> for pb::WaitResponse {
     fn from(c: responses::WaitResponse) -> Self {
         Self {
@@ -3044,7 +3013,6 @@ impl From<responses::WaitResponse> for pb::WaitResponse {
             channelmoves: c.channelmoves.map(|v| v.into()),
             created: c.created, // Rule #2 for type u64?
             deleted: c.deleted, // Rule #2 for type u64?
-            details: c.details.map(|v| v.into()),
             forwards: c.forwards.map(|v| v.into()),
             htlcs: c.htlcs.map(|v| v.into()),
             invoices: c.invoices.map(|v| v.into()),
@@ -5179,7 +5147,7 @@ impl From<notifications::ConnectNotification> for pb::PeerConnectNotification {
     }
 }
 
-#[allow(unused_variables,deprecated)]
+#[allow(unused_variables)]
 impl From<notifications::CoinMovementNotification> for pb::CoinMovementNotification {
     fn from(c: notifications::CoinMovementNotification) -> Self {
         Self {
@@ -5202,18 +5170,10 @@ impl From<notifications::CoinMovementNotification> for pb::CoinMovementNotificat
             peer_id: c.peer_id.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
             primary_tag: c.primary_tag.map(|v| v as i32),
             spending_txid: c.spending_txid.map(|v| hex::decode(v).unwrap()), // Rule #2 for type txid?
-            // Field: coin_movement.tags[]
-            tags: c.tags.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
             timestamp: c.timestamp, // Rule #2 for type u64
-            #[allow(deprecated)]
-            txid: c.txid.map(|v| hex::decode(v).unwrap()), // Rule #2 for type txid?
             item_type: c.item_type as i32,
             utxo: c.utxo.map(|o|o.into()), // Rule #2 for type outpoint?
-            #[allow(deprecated)]
-            utxo_txid: c.utxo_txid.map(|v| hex::decode(v).unwrap()), // Rule #2 for type txid?
             version: c.version, // Rule #2 for type u32
-            #[allow(deprecated)]
-            vout: c.vout, // Rule #2 for type u32?
         }
     }
 }

@@ -46,7 +46,7 @@ static void copy_data(u8 **out, const u8 *in, size_t len)
 
 /* v25.12: askrene added DSTORE_CHANNEL_BIAS_V2 (convertable) and
  *         DSTORE_NODE_BIAS (not convertable)
- * v26.09: askrene added DSTORE_CHANNEL_IMPRESSION.
+ * v26.12: askrene added DSTORE_CHANNEL_IMPRESSION.
  */
 static const char *convert_layer_data(const tal_t *ctx,
 				      const char *layername,

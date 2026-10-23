@@ -749,10 +749,6 @@ class Plugin(object):
         # Old style?
         if 'payload' in request.params and request.method not in request.params:
             request.params[request.method] = request.params['payload']
-        # New style?
-        elif 'payload' not in request.params and request.method in request.params and self.deprecated_apis:
-            # Create payload for older plugins, on modern systems.
-            request.params['payload'] = request.params[request.method]
 
         # Always hoist origin into params:
         if request.origin and 'origin' not in request.params:

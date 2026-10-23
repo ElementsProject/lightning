@@ -5230,8 +5230,6 @@ def test_pay_plugin_notifications(node_factory, bitcoind, chainparams):
                                 'enabled': True}
     channel_hint_update = {'origin': 'pay',
                            'channel_hint_update': channel_hint_update_core}
-    # pyln-client's plugin.py duplicated payload into same name as update.
-    channel_hint_update['payload'] = {'channel_hint': channel_hint_update_core}
 
     assert data == channel_hint_update
 
@@ -5243,8 +5241,6 @@ def test_pay_plugin_notifications(node_factory, bitcoind, chainparams):
                     'bolt11': inv1['bolt11']}
     success = {'origin': 'pay',
                'pay_success': success_core}
-    # pyln-client's plugin.py duplicated payload into same name as update.
-    success['payload'] = success_core
     assert data == success
 
     inv2 = l3.rpc.invoice(10000, "second", "desc")
@@ -5258,8 +5254,6 @@ def test_pay_plugin_notifications(node_factory, bitcoind, chainparams):
     failure_core = {'payment_hash': inv2['payment_hash'], 'bolt11': inv2['bolt11'], 'error': {'message': 'failed: WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS (reply from remote)'}}
     failure = {'origin': 'pay',
                'pay_failure': failure_core}
-    # pyln-client's plugin.py duplicated payload into same name as update.
-    failure['payload'] = failure_core
     assert data == failure
 
 

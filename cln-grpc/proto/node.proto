@@ -3039,7 +3039,6 @@ message WaitResponse {
 	optional uint64 created = 2;
 	optional uint64 updated = 3;
 	optional uint64 deleted = 4;
-	optional WaitDetails details = 5 [deprecated = true];
 	optional WaitForwards forwards = 6;
 	optional WaitInvoices invoices = 7;
 	optional WaitSendpays sendpays = 8;
@@ -3059,33 +3058,6 @@ message WaitChannelmoves {
 	string account = 1;
 	Amount credit_msat = 2;
 	Amount debit_msat = 3;
-}
-
-message WaitDetails {
-	// Wait.details.status
-	enum WaitDetailsStatus {
-		UNPAID = 0 [deprecated = true];
-		PAID = 1 [deprecated = true];
-		EXPIRED = 2 [deprecated = true];
-		PENDING = 3 [deprecated = true];
-		FAILED = 4 [deprecated = true];
-		COMPLETE = 5 [deprecated = true];
-		OFFERED = 6 [deprecated = true];
-		SETTLED = 7 [deprecated = true];
-		LOCAL_FAILED = 8 [deprecated = true];
-	}
-	optional WaitDetailsStatus status = 1 [deprecated = true];
-	optional string label = 2 [deprecated = true];
-	optional string description = 3 [deprecated = true];
-	optional string bolt11 = 4 [deprecated = true];
-	optional string bolt12 = 5 [deprecated = true];
-	optional uint64 partid = 6 [deprecated = true];
-	optional uint64 groupid = 7 [deprecated = true];
-	optional bytes payment_hash = 8 [deprecated = true];
-	optional string in_channel = 9 [deprecated = true];
-	optional uint64 in_htlc_id = 10 [deprecated = true];
-	optional Amount in_msat = 11 [deprecated = true];
-	optional string out_channel = 12 [deprecated = true];
 }
 
 message WaitForwards {
@@ -4792,7 +4764,6 @@ message CoinMovementNotification {
 	Amount credit_msat = 7;
 	Amount debit_msat = 8;
 	uint64 timestamp = 9;
-	repeated string tags = 10 [deprecated = true];
 	optional CoinMovementPrimaryTag primary_tag = 11;
 	repeated string extra_tags = 12;
 	optional bytes payment_hash = 13;
@@ -4802,10 +4773,7 @@ message CoinMovementNotification {
 	optional Outpoint utxo = 17;
 	optional bytes peer_id = 18;
 	optional string originating_account = 19;
-	optional bytes txid = 20 [deprecated = true];
 	optional bytes spending_txid = 21;
-	optional bytes utxo_txid = 22 [deprecated = true];
-	optional uint32 vout = 23 [deprecated = true];
 	optional Amount output_msat = 24;
 	optional uint32 output_count = 25;
 	optional uint32 blockheight = 26;

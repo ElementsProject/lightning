@@ -4917,19 +4917,19 @@
             "deprecated": null
         },
         "AskRene-Create-Layer.layers[].impressions[]": {
-            "added": "v26.09",
+            "added": "v26.12",
             "deprecated": null
         },
         "AskRene-Create-Layer.layers[].impressions[].amount_msat": {
-            "added": "v26.09",
+            "added": "v26.12",
             "deprecated": null
         },
         "AskRene-Create-Layer.layers[].impressions[].short_channel_id_dir": {
-            "added": "v26.09",
+            "added": "v26.12",
             "deprecated": null
         },
         "AskRene-Create-Layer.layers[].impressions[].timestamp": {
-            "added": "v26.09",
+            "added": "v26.12",
             "deprecated": null
         },
         "AskRene-Create-Layer.layers[].layer": {
@@ -5041,23 +5041,23 @@
             "deprecated": null
         },
         "AskRene-Inform-Channel.impressions[]": {
-            "added": "v26.09",
+            "added": "v26.12",
             "deprecated": null
         },
         "AskRene-Inform-Channel.impressions[].amount_msat": {
-            "added": "v26.09",
+            "added": "v26.12",
             "deprecated": null
         },
         "AskRene-Inform-Channel.impressions[].layer": {
-            "added": "v26.09",
+            "added": "v26.12",
             "deprecated": null
         },
         "AskRene-Inform-Channel.impressions[].short_channel_id_dir": {
-            "added": "v26.09",
+            "added": "v26.12",
             "deprecated": null
         },
         "AskRene-Inform-Channel.impressions[].timestamp": {
-            "added": "v26.09",
+            "added": "v26.12",
             "deprecated": null
         },
         "AskRene-Inform-Channel.inform": {
@@ -5225,19 +5225,19 @@
             "deprecated": null
         },
         "AskRene-ListLayers.layers[].impressions[]": {
-            "added": "v26.09",
+            "added": "v26.12",
             "deprecated": null
         },
         "AskRene-ListLayers.layers[].impressions[].amount_msat": {
-            "added": "v26.09",
+            "added": "v26.12",
             "deprecated": null
         },
         "AskRene-ListLayers.layers[].impressions[].short_channel_id_dir": {
-            "added": "v26.09",
+            "added": "v26.12",
             "deprecated": null
         },
         "AskRene-ListLayers.layers[].impressions[].timestamp": {
-            "added": "v26.09",
+            "added": "v26.12",
             "deprecated": null
         },
         "AskRene-ListLayers.layers[].layer": {
@@ -10293,15 +10293,15 @@
             "deprecated": null
         },
         "ListConfigs.configs.experimental-simple-close": {
-            "added": "v26.09",
+            "added": "v26.12",
             "deprecated": null
         },
         "ListConfigs.configs.experimental-simple-close.set": {
-            "added": "v26.09",
+            "added": "v26.12",
             "deprecated": null
         },
         "ListConfigs.configs.experimental-simple-close.source": {
-            "added": "v26.09",
+            "added": "v26.12",
             "deprecated": null
         },
         "ListConfigs.configs.experimental-splicing": {

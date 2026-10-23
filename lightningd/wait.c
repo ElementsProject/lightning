@@ -77,8 +77,7 @@ static u64 *wait_index_ptr(struct lightningd *ld,
 	return &indexes->i[index];
 }
 
-static void json_add_index(struct command *cmd,
-			   struct json_stream *response,
+static void json_add_index(struct json_stream *response,
 			   enum wait_subsystem subsystem,
 			   enum wait_index index,
 			   u64 val,
@@ -93,26 +92,6 @@ static void json_add_index(struct command *cmd,
 		return;
 
 	va_copy(ap2, *ap);
-	/* "htlcs" etc never had details field: they came after! */
-	if (subsystem < WAIT_SUBSYSTEM_HTLCS
-	    && command_deprecated_out_ok(cmd, "details", "v25.05", "v26.06")) {
-		json_object_start(response, "details");
-		while ((name = va_arg(*ap, const char *)) != NULL) {
-			value = va_arg(*ap, const char *);
-			if (!value)
-				continue;
-
-			/* This is a hack! */
-			if (name[0] == '=') {
-				/* Copy in literallty! */
-				json_add_jsonstr(response, name + 1, value, strlen(value));
-			} else {
-				json_add_string(response, name, value);
-			}
-		}
-		json_object_end(response);
-	}
-
 	json_object_start(response, wait_subsystem_name(subsystem));
 	while ((name = va_arg(ap2, const char *)) != NULL) {
 		value = va_arg(ap2, const char *);
@@ -168,7 +147,7 @@ static u64 wait_index_bump(struct lightningd *ld,
 
 		response = json_stream_success(i->cmd);
 		va_copy(ap, ap_master);
-		json_add_index(i->cmd, response, subsystem, index, *idxval, &ap);
+		json_add_index(response, subsystem, index, *idxval, &ap);
 		va_end(ap);
 		/* Delete before freeing */
 		list_del_from(&ld->wait_commands, &i->list);
@@ -269,7 +248,7 @@ static struct command_result *json_wait(struct command *cmd,
 		struct json_stream *response;
 
 		response = json_stream_success(cmd);
-		json_add_index(cmd, response,
+		json_add_index(response,
 			       *waiter->subsystem,
 			       *waiter->index,
 			       val, NULL);

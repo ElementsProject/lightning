@@ -400,7 +400,7 @@
       },
       "response": {
         "id": "033845802d25b4e074ccfd7cd8b339a41dc75bf9978a034800444b51d42b07799a",
-        "alias": "SILENTARTIST-v26.09",
+        "alias": "SILENTARTIST-v26.12",
         "color": "033845",
         "num_peers": 0,
         "num_pending_channels": 0,
@@ -414,7 +414,7 @@
             "port": 30003
           }
         ],
-        "version": "v26.09",
+        "version": "v26.12",
         "blockheight": 114,
         "network": "regtest",
         "fees_collected_msat": 0,
