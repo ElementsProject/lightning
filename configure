@@ -29,6 +29,20 @@ fi
 # line enables the automagic detection that most users want.
 : ${PG_CONFIG=pg_config}
 
+# You can set POSTGRES_LDLIBS (and POSTGRES_INCLUDE) in the environment to
+# override what 'pg_config' reports, e.g. to link libpq statically where
+# libpq.a needs extra archives: POSTGRES_LDLIBS="-lpq -lpgcommon -lpgport
+# -lssl -lcrypto".  Leave unset for the automagic pg_config detection.
+#
+# Recorded here, before --reconfigure loads config.vars: that loop sets any
+# variable config.vars mentions, so afterwards a stored *empty* value looks
+# exactly like an environment setting, and the `: ${VAR=...}` defaults below
+# would skip the pg_config probe and silently drop PostgreSQL support.  Only
+# the environment speaks for the caller; a value that merely came back from
+# config.vars gets probed again.
+POSTGRES_LDLIBS_FROM_ENV=${POSTGRES_LDLIBS+y}
+POSTGRES_INCLUDE_FROM_ENV=${POSTGRES_INCLUDE+y}
+
 usage_with_default()
 {
     if [ $# = 4 ]; then
@@ -211,6 +225,7 @@ set_defaults()
     PYTEST=${PYTEST-$(default_pytest $PYTHON)}
     COPTFLAGS=${COPTFLAGS-$(default_coptflags "$DEBUGBUILD")}
     CONFIGURATOR_CC=${CONFIGURATOR_CC-$CC}
+    CONFIGURATOR_WRAPPER=${CONFIGURATOR_WRAPPER-}
     VALGRIND=${VALGRIND:-$(default_valgrind_setting)}
     TEST_NETWORK=${TEST_NETWORK:-regtest}
     RUST=${RUST:-$(default_rust_setting)}
@@ -223,7 +238,10 @@ have_function_sections()
     TMPCFILE=$CONFIG_VAR_FILE.$$.c
     TMPOBJFILE=$CONFIG_VAR_FILE.$$.o
     
-    echo "int foo(void); int foo(void) { return 0; }" > $TMPCFILE
+    # Needs a main().  Without one the link fails -- "undefined reference to
+    # `main'" -- on every platform, not just a fully static one against musl's
+    # crt1.o, so the probe answered "no" however capable the toolchain was.
+    echo "int foo(void); int foo(void) { return 0; } int main(void) { return foo(); }" > $TMPCFILE
     # We *want* this to fail if we get a warning, hence use -Werror.
     $1 $2 -Werror -ffunction-sections -Wl,--gc-sections $TMPCFILE -o $TMPOBJFILE
 }
@@ -245,7 +263,10 @@ usage()
         echo "    Note: On macOS, -g is used instead of -g3 for libbacktrace compatibility"
     fi
     usage_with_default "CONFIGURATOR_CC" "${CONFIGURATOR_CC:-$CC}"
-    echo "    To override compile line for configurator itself"
+    echo "    To override compile line for configurator itself (it runs on"
+    echo "    the build machine, so set it to a native compiler when cross-compiling)"
+    usage_with_default "CONFIGURATOR_WRAPPER" "$CONFIGURATOR_WRAPPER"
+    echo "    Command prefix to run configurator's test programs, e.g. qemu-aarch64-static -L /"
     usage_with_default "PYTEST" "$PYTEST"
     usage_with_default "VALGRIND" "$VALGRIND"
     usage_with_default "SED" "$SED"
@@ -311,6 +332,7 @@ for opt in "$@"; do
 	    ;;
 	CC=*) CC="${opt#CC=}";;
 	CONFIGURATOR_CC=*) CONFIGURATOR_CC="${opt#CONFIGURATOR_CC=}";;
+	CONFIGURATOR_WRAPPER=*) CONFIGURATOR_WRAPPER="${opt#CONFIGURATOR_WRAPPER=}";;
 	CWARNFLAGS=*) CWARNFLAGS="${opt#CWARNFLAGS=}";;
 	CDEBUGFLAGS=*) CDEBUGFLAGS="${opt#CDEBUGFLAGS=}";;
 	COPTFLAGS=*) COPTFLAGS="${opt#COPTFLAGS=}";;
@@ -381,8 +403,11 @@ else
 fi
 
 # We assume warning flags don't affect congfigurator that much!
+# The configurator itself runs here, on the build machine, so it is compiled
+# with CONFIGURATOR_CC (defaults to CC; a native compiler when cross-compiling).
+# Its test programs are compiled with CC and run via CONFIGURATOR_WRAPPER.
 echo -n "Compiling $CONFIGURATOR..."
-$CC ${CWARNFLAGS-$BASE_WARNFLAGS} $CDEBUGFLAGS $COPTFLAGS $LDFLAGS -o $CONFIGURATOR $CONFIGURATOR.c
+$CONFIGURATOR_CC ${CWARNFLAGS-$BASE_WARNFLAGS} $CDEBUGFLAGS $COPTFLAGS $LDFLAGS -o $CONFIGURATOR $CONFIGURATOR.c
 echo "done"
 
 if [ "$CLANG_COVERAGE" = "1" ]; then
@@ -422,17 +447,26 @@ if command -v "${PKG_CONFIG}" >/dev/null; then
     SODIUM_LDLIBS="$("${PKG_CONFIG}" --silence-errors --libs libsodium || :)"
 fi
 
-POSTGRES_INCLUDE=""
-POSTGRES_LDLIBS=""
+# Anything that did not come from the environment is re-probed, exactly as a
+# first run would: see POSTGRES_*_FROM_ENV above.
+[ -n "$POSTGRES_LDLIBS_FROM_ENV" ] || unset POSTGRES_LDLIBS
+[ -n "$POSTGRES_INCLUDE_FROM_ENV" ] || unset POSTGRES_INCLUDE
 if command -v "${PG_CONFIG}" >/dev/null; then
-    POSTGRES_INCLUDE="-I$("${PG_CONFIG}" --includedir)"
-    POSTGRES_LDLIBS="-L$("${PG_CONFIG}" --libdir) -lpq"
+    : ${POSTGRES_INCLUDE="-I$("${PG_CONFIG}" --includedir)"}
+    : ${POSTGRES_LDLIBS="-L$("${PG_CONFIG}" --libdir) -lpq"}
+else
+    # No pg_config, but the environment may still say how to reach libpq --
+    # which is how a static or cross build states it (the comment above).
+    # Assigning here unconditionally would throw that answer away and
+    # silently drop PostgreSQL support, so default rather than assign.
+    : ${POSTGRES_INCLUDE=}
+    : ${POSTGRES_LDLIBS=}
 fi
 
 # Clean up on exit.
 trap "rm -f $CONFIG_VAR_FILE.$$*" 0
 
-$CONFIGURATOR --extra-tests --autotools-style --var-file=$CONFIG_VAR_FILE.$$ --header-file=$CONFIG_HEADER.$$ --configurator-cc="$CONFIGURATOR_CC" --wrapper="$CONFIGURATOR_WRAPPER" "$CC" ${CWARNFLAGS-$BASE_WARNFLAGS} $CDEBUGFLAGS $COPTFLAGS $CSANFLAGS -I$CPATH -L$LIBRARY_PATH $SQLITE3_CFLAGS $SODIUM_CFLAGS $POSTGRES_INCLUDE <<EOF
+$CONFIGURATOR --extra-tests --autotools-style --var-file=$CONFIG_VAR_FILE.$$ --header-file=$CONFIG_HEADER.$$ --wrapper="$CONFIGURATOR_WRAPPER" "$CC" ${CWARNFLAGS-$BASE_WARNFLAGS} $CDEBUGFLAGS $COPTFLAGS $CSANFLAGS -I$CPATH -L$LIBRARY_PATH $SQLITE3_CFLAGS $SODIUM_CFLAGS $POSTGRES_INCLUDE <<EOF
 
 var=HAVE_ZLIB
 desc=zlib support
@@ -607,6 +641,7 @@ fi
 add_var PREFIX "$PREFIX"
 add_var CC "$CC"
 add_var CONFIGURATOR_CC "$CONFIGURATOR_CC"
+add_var CONFIGURATOR_WRAPPER "$CONFIGURATOR_WRAPPER"
 add_var CWARNFLAGS "$CWARNFLAGS"
 add_var CDEBUGFLAGS "$CDEBUGFLAGS"
 add_var COPTFLAGS "$COPTFLAGS"

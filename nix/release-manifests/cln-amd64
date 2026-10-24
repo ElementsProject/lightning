@@ -1,0 +1,56 @@
+row
+  arch amd64
+  host x86_64-unknown-linux-musl
+recipe
+  default.nix 1f2f924dea4e19bcd723b76c378dd2b3db7bbfe3ad91a1c3cd96707b06b53636
+  static-pie.nix 6abd5d2f05e276148f14fdca74cb732b15709613c71b8071b40da631ae1a1450
+  rust-bin.nix 51d59ab9b8451020c4865bc28f036d601a78e10ec06d1104b4f535496ccd62b3
+  flake-module.nix 8fcc8fa3f96dc6c329acbc34f923da995e41df8b0003f9133604dd8a631d0518
+  flake.nix 66b107f9cfbf0d69c0b9df603b583ddce493128aa00522acfee51c461f079b98
+toolchain
+  gcc 16.2.0
+  rustc 1.98.1
+  python 3.14.7
+  mimalloc 3.5.3
+  llvm-libc memcpy+memmove 21.1.8
+  rust-dist 1.98.1 2026-09-03 48a229ceaefd4985c50990b14116b6d856af0985
+  rust-dist rustc-x86_64-unknown-linux-gnu e974f036b28565f37c0f3bd92ddefa809bee16c04f9dcf07b9ed96e05aaaf7c4
+  rust-dist cargo-x86_64-unknown-linux-gnu ea1de9f9e23107d97ee2b41a72c552f34064a593da503789218387aee59f3ba4
+  rust-dist rust-std-x86_64-unknown-linux-gnu fa3ff450172a16c026944030230c5069947af93c728d9179971d44e5e0cfb561
+  rust-dist rust-std-x86_64-unknown-linux-musl bd9f35880de21dab0e387e84009c00001ae7836a4ba565cb16823f13f75f325f
+  rust-dist musl-objects musl 1.2.6
+nativeBuildInputs
+  autoconf 2.73
+  automake 1.18.1
+  file 5.48
+  gcc-wrapper 16.2.0
+  gettext 1.0
+  git-minimal 2.55.0
+  jq 1.8.2
+  libtool 2.6.2
+  lowdown 3.0.1
+  protobuf 36.2
+  python3 3.14.7-env
+  rust-bin-x86_64-unknown-linux-musl 1.98.1
+  unzip 6.0
+  which 2.25
+  x86_64-unknown-linux-musl-pkgconf-wrapper 2.5.1
+buildInputs
+  gmp-with-cxx 6.3.0
+  jq 1.8.2
+  libpq 18.6
+  libsodium 1.0.22-unstable-2026-08-13
+  openssl 3.5.8
+  sqlite 3.53.3
+  zlib 1.3.2
+flags
+  configure --disable-valgrind --prefix=/usr/local COPTFLAGS=-O2
+  dontBuild true
+  dontPatchELF true
+  strip --strip-all
+  rustflags --remap-path-prefix=$NIX_BUILD_TOP=/home/clightning --remap-path-prefix=<cargo-vendor>=/home/clightning/vendor -C link-arg=-Wl,--build-id=sha1
+  env NIX_OUTPATH_USED_AS_RANDOM_SEED=cln-release
+  make RUST_PROFILE=release
+  make PIE_LDFLAGS=-static-pie
+  make TARGET=x86_64-unknown-linux-musl
+  make AR=x86_64-unknown-linux-musl-ar

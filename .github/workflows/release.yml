@@ -1,5 +1,21 @@
 ---
 # https://docs.corelightning.org/docs/release-checklist
+#
+# The release *binaries* are no longer built or signed here: they are produced
+# and signed locally by `tools/reprobuild`, from one static build per
+# architecture, and published from the release captain's machine.  The jobs that
+# built the old per-distribution tarballs, drafted the release and signed it
+# with the project key are gone with the scripts they called.
+#
+# The Docker images are gone from here too.  They are built locally by
+# `tools/reprobuild docker` -- a Dockerfile over the digest-pinned
+# debian:trixie-slim, consuming the static tarball that was just signed, so the
+# image compiles nothing -- and pushed by `tools/reprobuild publish` with
+# `skopeo copy --all --preserve-digests`, which is what makes the digests users
+# pull the digests the release manifests signed.  `latest` is a deliberate
+# `--latest` flag, never applied automatically and never to an rc.
+#
+# What is left here is the tag check and PyPI.
 name: "Release 🚀"
 on:
   push:
@@ -17,20 +33,6 @@ on:
         description: Skip release validation for untagged commit testing
         default: false
         type: boolean
-      create_release:
-        description: Create a draft release
-        default: false
-        type: boolean
-      dh-repository-owner:
-        description: 'Dockerhub repository owner'
-        default: 'elementsproject'
-      platforms-to-build:
-        description: 'List of platforms to build'
-        default: 'linux/amd64,linux/arm64,linux/arm/v7'
-      push-latest:
-        description: 'Push the latest Docker tag'
-        type: boolean
-        default: false
       dist-location:
         description: 'PyPI distribution location'
         type: choice
@@ -48,16 +50,6 @@ jobs:
       skip_validation: ${{ github.event.inputs.skip_validation == 'true' }}
 
 
-  docker-build:
-    name: Docker build
-    needs: check-version
-    uses: ./.github/workflows/docker-build.yml
-    with:
-      version: ${{ needs.check-version.outputs.version }}
-      dh-repository-owner: ${{ github.event.inputs.dh-repository-owner || 'elementsproject' }}
-      platforms-to-build: ${{ github.event.inputs.platforms-to-build || 'linux/amd64,linux/arm64,linux/arm/v7' }}
-    secrets: inherit
-
   pypi-build:
     name: PyPI build
     needs: check-version
@@ -66,46 +58,12 @@ jobs:
       version: ${{ needs.check-version.outputs.version }}
     secrets: inherit
 
-  release-build:
-    name: Release binaries build
-    needs: check-version
-    uses: ./.github/workflows/release-build.yml
-    with:
-      version: ${{ needs.check-version.outputs.version }}
-      skip_validation: ${{ github.event.inputs.skip_validation == 'true' }}
-    secrets: inherit
-
-  gate:
-    name: All builds succeeded
-    needs: [docker-build, pypi-build, release-build]
-    runs-on: ubuntu-24.04
-    steps:
-      - run: echo "All three build paths succeeded — proceeding to publish."
-
-  docker-publish:
-    name: Docker publish
-    needs: [check-version, gate]
-    uses: ./.github/workflows/docker-publish.yml
-    with:
-      version: ${{ needs.check-version.outputs.version }}
-      dh-repository-owner: ${{ github.event.inputs.dh-repository-owner || 'elementsproject' }}
-      push-latest: ${{ github.event.inputs.push-latest }}
-    secrets: inherit
-
   pypi-publish:
     name: PyPI publish
-    needs: [check-version, gate]
+    needs: [check-version, pypi-build]
     uses: ./.github/workflows/pypi-publish.yml
     with:
       version: ${{ needs.check-version.outputs.version }}
       dist-location: ${{ github.event.inputs.dist-location }}
     secrets: inherit
 
-  release-publish:
-    name: Release sign + draft
-    needs: [check-version, gate]
-    uses: ./.github/workflows/release-publish.yml
-    with:
-      version: ${{ needs.check-version.outputs.version }}
-      create_release: ${{ github.event.inputs.create_release == 'true' }}
-    secrets: inherit
