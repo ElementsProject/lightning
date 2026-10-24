@@ -261,6 +261,17 @@ class Driver:
         if dirty:
             info("WARNING: --allow-dirty: building the working tree, not a commit")
         self.rev = run("git", "-C", str(self.top), "rev-parse", "HEAD", capture=True)
+        # The timestamp baked into the artifacts is the commit's, not the
+        # machine's: a co-signer building the same commit a week later, on
+        # the other side of midnight or of the world, gets the same bytes.
+        # The date-only shape is what every consumer expects (tar's
+        # `--mtime="$MTIME 00:00Z"`, configure's MTIME, docker's
+        # SOURCE_DATE_EPOCH); `verify` pins the manifest's own value and
+        # `--mtime` overrides, neither lands here.
+        if self.args.mtime is None:
+            ct = int(run("git", "-C", str(self.top), "log", "-1", "--format=%ct",
+                         self.rev, capture=True))
+            self.args.mtime = time.strftime("%Y-%m-%d", time.gmtime(ct))
         base = f"git+file://{self.top}?submodules=1"
         self.flake_ref = base if self.args.allow_dirty else f"{base}&rev={self.rev}"
 
@@ -1289,8 +1300,9 @@ def main() -> None:
         prog="reprobuild", description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--version", help="release version (default: git describe --tags)")
-    p.add_argument("--mtime", default=time.strftime("%Y-%m-%d", time.gmtime()),
-                   help="timestamp baked into artifacts (default: today, UTC)")
+    p.add_argument("--mtime", default=None,
+                   help="timestamp baked into artifacts, YYYY-MM-DD "
+                        "(default: the built commit's date, UTC)")
     p.add_argument("--jobs", type=int, default=os.cpu_count() or 4)
     p.add_argument("--host-nix", action="store_true",
                    help="use the host's nix instead of the pinned container")
