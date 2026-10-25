@@ -1,34 +1,49 @@
 ---
 name: "Release Rust 🦀"
+
+# Publishing is restricted to the protected master branch and requires a
+# crates.io Trusted Publisher entry for this workflow and environment.
 on:
   workflow_dispatch:
   push:
-    branches:
-      - "master"
+    branches: ["master"]
+
+permissions:
+  contents: read
 
 jobs:
   release_rust:
+    if: github.repository == 'ElementsProject/lightning' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-22.04
+    environment: release-cargo
+    permissions:
+      contents: read
+      id-token: write
     steps:
-      - uses: actions/checkout@v6
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: katyo/publish-crates@v2
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # pinned
+      - name: Get temporary crates.io publication token
+        id: crates_auth
+        uses: rust-lang/crates-io-auth-action@63a7064947ceca9989005e118db3a5fecdc9259f # v1.0.0
+      - uses: katyo/publish-crates@02cc2f1ad653fb25c7d1ff9eb590a8a50d06186b # v2
         with:
           path: './cln-rpc'
-          registry-token: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          registry-token: ${{ steps.crates_auth.outputs.token }}
           ignore-unpublished-changes: true
-      - uses: katyo/publish-crates@v2
+      - uses: katyo/publish-crates@02cc2f1ad653fb25c7d1ff9eb590a8a50d06186b # v2
         with:
           path: './plugins'
-          registry-token: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          registry-token: ${{ steps.crates_auth.outputs.token }}
           ignore-unpublished-changes: true
-      - uses: katyo/publish-crates@v2
+      - uses: katyo/publish-crates@02cc2f1ad653fb25c7d1ff9eb590a8a50d06186b # v2
         with:
           path: './cln-grpc'
-          registry-token: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          registry-token: ${{ steps.crates_auth.outputs.token }}
           ignore-unpublished-changes: true
-      - uses: katyo/publish-crates@v2
+      - uses: katyo/publish-crates@02cc2f1ad653fb25c7d1ff9eb590a8a50d06186b # v2
         with:
           path: './lsps-types'
-          registry-token: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          registry-token: ${{ steps.crates_auth.outputs.token }}
           ignore-unpublished-changes: true
