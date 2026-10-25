@@ -87,9 +87,9 @@ Here's a checklist for the release process.
    once everything else has gone out and been verified. Confirm the
    "Release 🚀" workflow is disabled.
 6. Build and sign everything: `tools/reprobuild all`. It ends with
-   `SHA256SUMS-v<VERSION>` and `SHA256SUMS-v<VERSION>-armhf`, each signed with
-   your key. The build takes 1–2 hours for all three rows.
-7. Send both manifests and their signatures to the co-signers. They run
+   `SHA256SUMS-v<VERSION>`, signed with your key. The build takes 1–2 hours for
+   all three rows.
+7. Send the manifest and your signature to the co-signers. They run
    `tools/reprobuild verify SHA256SUMS-v<VERSION>` — which rebuilds from the
    commit and timestamp the manifest names — and send back
    `SHA256SUMS-v<VERSION>.asc.<keyid>`.
