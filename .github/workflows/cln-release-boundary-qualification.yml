@@ -66,4 +66,5 @@ jobs:
         if: github.repository == 'ElementsProject/lightning' && github.ref_type == 'tag'
         run: exit 99
       - name: Confirm unsigned fork test completed
-        run: echo 'PASS: test workflow has no publication secrets or external release actions'
+        run: |
+          echo 'PASS: test workflow has no publication secrets or external release actions'
