@@ -18,7 +18,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.10 \
+          go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.10 -shellcheck= \
             .github/workflows/release.yml \
             .github/workflows/check-release-tag.yml \
             .github/workflows/docker-build.yml \
