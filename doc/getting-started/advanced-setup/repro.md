@@ -35,8 +35,8 @@ Every release ships **one build per architecture**, not one per distribution. Th
 |---|---|---|---|
 | `clightning-<version>-static-amd64.tar.xz` | x86-64 | any Linux, x86-64 | baseline x86-64; uses hardware CRC32 where the CPU reports it |
 | `clightning-<version>-static-arm64.tar.xz` | AArch64 (`arm64`) | any Linux, ARMv8-A and newer | Raspberry Pi 3, 4, 5, Zero 2 W; most ARM servers |
-| `clightning-<version>-static-armhf.tar.xz` | 32-bit ARM (`armhf`) | any Linux, **ARMv7-A** hard-float and newer | Raspberry Pi 2 and newer. **Not** Pi 1 / Zero / Zero W, which are ARMv6. Signed in the separate `armhf` manifest — see the caveat under [Co-signing the release manifest](#co-signing-the-release-manifest) |
-| `lightningd` Docker image | amd64, arm64, arm/v7 | Docker | built *from* the tarballs above, one multi-arch manifest. The `arm/v7` half inherits the `armhf` caveat below |
+| `clightning-<version>-static-armhf.tar.xz` | 32-bit ARM (`armhf`) | any Linux, **ARMv7-A** hard-float and newer | Raspberry Pi 2 and newer. **Not** Pi 1 / Zero / Zero W, which are ARMv6 |
+| `lightningd` Docker image | amd64, arm64, arm/v7 | Docker | built *from* the tarballs above, one multi-arch manifest |
 | `clightning-<version>.zip` | — | — | source archive |
 
 What this means in practice:
@@ -182,16 +182,10 @@ The release captain is in charge of creating the manifest, whereas contributors 
 interested bystanders may contribute their signatures to further increase trust in
 the binaries.
 
-There are **two** manifests, because one architecture cannot currently be
-confirmed by anyone but the captain (see the caveat below):
+There is **one** manifest, `SHA256SUMS-<version>` — every release file, all
+three architectures. Every co-signer is expected to reproduce and sign it.
 
-- `SHA256SUMS-<version>` — every release file except the 32-bit ARM ones. Every
-  co-signer is expected to reproduce and sign this.
-- `SHA256SUMS-<version>-armhf` — the `armhf` tarball and the `armhf` image
-  digests. Co-signers sign this **only if** they actually reproduced it, and
-  simply omit their signature otherwise.
-
-The release captain writes and signs both with one command:
+The release captain writes and signs it with one command:
 
 ```shell
 tools/reprobuild sign
@@ -203,10 +197,6 @@ timestamp baked into the artifacts, and the certified nixpkgs revision.
 `sha256sum` ignores those lines; they are there so that a hash is never
 reported without the tree it came from. The driver refuses to write a manifest
 whose files were not all built from the same tree.
-
-The split is deliberate: it keeps a co-signer from having to choose between
-signing bytes they could not verify and withholding a signature from the whole
-release.
 
 # Co-signing the release manifest
 
@@ -250,41 +240,18 @@ Because one tarball now covers every distribution for its architecture, a co-sig
 with an x86-64 machine can reproduce **all three** rows: the arm rows are
 cross-compiled, so no ARM hardware is needed.
 
-> **Caveat: the `armhf` row is not currently reproducible across machines.**
+> **History: the `armhf` row used to diverge across machines.**
 >
-> The `amd64` and `arm64` artifacts have been confirmed byte-identical when
-> built on two different x86-64 machines — different CPU vendors, different
-> core counts, different kernels, one with host Nix and one through the
-> pinned container. The `armhf` artifacts have not: two machines produce two
-> different hashes, stably, for `clightning-<version>-static-armhf.tar.xz`.
->
-> This is a build-toolchain defect, not something about your machine: the
-> build inputs carry identical content hashes on both ends, each machine
-> reproduces its *own* output exactly (`--rebuild` passes everywhere), and
-> the difference is confined to the 32-bit ARM Rust binaries — every C
-> binary is byte-identical, build-ids included. The differing bytes are a
-> reordered string table in the ARM exception-unwinding objects that Rust
-> links in, with the rest following from the strings having moved.
->
-> **What this means in practice:** the `armhf` files live in their own
-> `SHA256SUMS-<version>-armhf` manifest precisely so that this stays a local
-> problem. A mismatch there, with the main manifest passing, is currently
-> expected and is *not* evidence of a tampered artifact: report the hashes you
-> got, withhold your signature on the `armhf` manifest, and sign the main one
-> as normal. The 32-bit ARM binaries are still built, published and signed by
-> the captain; what they may lack is *independent* confirmation.
->
-> Concretely, this means the `armhf` artifacts can carry a weaker guarantee
-> than the rest of the release — captain-attested rather than
-> multi-party-reproduced — and you should weigh that as you would any
-> single-source binary. The `amd64` and `arm64` artifacts are unaffected.
->
-> The same applies to the `linux/arm/v7` half of the Docker images, and by
-> extension to the multi-arch image index, whose digest is computed over all
-> three architectures and so cannot be reproduced independently either. The
-> `linux/amd64` and `linux/arm64` image digests can be, and are signed in the
-> main manifest. A single 3-arch image is still published, so `docker pull`
-> is unchanged whichever architecture you are on.
+> Until the 2026 toolchain move, the 32-bit ARM Rust binaries differed
+> stably between build machines — a reordered string table in the ARM
+> exception-unwinding objects Rust links in — and those artifacts lived in
+> a separate `SHA256SUMS-<version>-armhf` manifest, which a co-signer
+> signed only if they had reproduced it. That divergence is gone: all
+> three rows now come out byte-identical across machines (different CPU
+> vendors, host Nix and pinned container alike, confirmed by independent
+> co-signers), so `armhf` co-signs like every other row. Releases from
+> the split era keep their `-armhf` manifest, and `tools/reprobuild
+> verify` still reproduces and signs those.
 
 # Verifying a reproducible build
 
