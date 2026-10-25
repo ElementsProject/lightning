@@ -25,7 +25,7 @@ tooling on either side, so there is one source of truth.
                          -- NOT part of `all`: this release ships no VLS
   zip                    source zip
   docker                 runtime images to a local OCI layout
-  sign                   SHA256SUMS-<ver>[-armhf] + .asc
+  sign                   SHA256SUMS-<ver> + .asc
   verify   <SHA256SUMS>  co-signer flow
   certify  [--no-verify] re-pin nixpkgs rev + input manifests,
                          from-source build, acceptance suite
@@ -169,14 +169,6 @@ class Driver:
 
     def certified_rev(self) -> str:
         return self.directive("nixpkgs")
-
-    def cosign_optional(self) -> list[str]:
-        """Rows a co-signer is not required to reproduce: their artifacts go
-        in the -armhf manifest, signed only by someone who reproduced them."""
-        try:
-            return self.directive("cosign-optional").split()
-        except SystemExit:
-            return []
 
     def platform_of(self, arch: str) -> str:
         return next(r.platform for r in self.rows() if r.arch == arch)
@@ -825,19 +817,17 @@ class Driver:
             die("the acceptance suite failed")
         info("accept: OK")
 
-    def manifest_files(self, which: str, ver: str, vlsver: str) -> list[str]:
-        """SHA256SUMS-<ver> holds everything a co-signer is expected to
-        reproduce; SHA256SUMS-<ver>-armhf the rows marked @cosign-optional,
-        signed by a co-signer only when they did reproduce them."""
-        optional, files = self.cosign_optional(), []
+    def manifest_files(self, ver: str, vlsver: str) -> list[str]:
+        """SHA256SUMS-<ver> holds every release file: one manifest, every row
+        a co-signer reproduces.  (armhf was scoped into a separate manifest
+        while its Rust binaries diverged across machines; the toolchain move
+        fixed that — see the note in the reproducible-builds doc.)"""
+        files = []
         for arch in self.arch_list(None):
-            if (arch in optional) != (which == "armhf"):
-                continue
             files.append(f"clightning-{ver}-static-{arch}.tar.xz")
             if RELEASE_SHIPS_VLS:
                 files.append(f"remote_hsmd_socket-{vlsver}-{arch}")
-        if which != "armhf":
-            files.append(f"clightning-{ver}.zip")
+        files.append(f"clightning-{ver}.zip")
         return files
 
     def manifest_header(self, ver: str, rev: str, narhash: str) -> str:
@@ -918,45 +908,42 @@ class Driver:
         ver, vlsver, out = self.version(), self.vls_version(), Path(self.args.out)
         if not out.is_dir():
             die(f"no {out}; run build/vls/zip/docker first")
-        for which in ("main", "armhf"):
-            mf = out / (f"SHA256SUMS-{ver}" + ("-armhf" if which == "armhf" else ""))
-            files = self.manifest_files(which, ver, vlsver)
-            if not files:
-                continue
-            missing = [f for f in files
-                       if not (out / f).exists() and not (out / "docker" / f).exists()]
-            if missing:
-                die(f"cannot sign {mf.name}, missing: {' '.join(missing)}")
-            # The identity is the artifacts' own, not the working tree's.
-            rev, narhash = self.provenance_of(files)
-            self.rev = rev
-            body = self.manifest_header(ver, rev, narhash)
-            for f in files:
-                path = out / "docker" / f if (out / "docker" / f).exists() else out / f
-                body += f"{sha256(path)}  {f}\n"
-            mf.write_text(body)
-            # The VLS binaries are named by *their* version, so a
-            # release-version glob misses them; assert the count instead.
-            want = 0 if not RELEASE_SHIPS_VLS else sum(
-                1 for a in self.arch_list(None)
-                if (a in self.cosign_optional()) == (which == "armhf"))
-            got = body.count(" remote_hsmd_socket-")
-            if got != want:
-                die(f"{mf.name} lists {got} VLS binaries, expected {want}")
-            info(f"wrote {mf} ({len(files)} files, {got} VLS)")
-            if self.args.no_sign:
-                info(f"--no-sign: {mf.name} left unsigned (publish will refuse it)")
-            else:
-                asc = Path(f"{mf}.asc")
-                asc.unlink(missing_ok=True)
-                run("gpg", "--armor", "--detach-sign", "--output", str(asc), str(mf))
-                info(f"signed {asc}")
+        mf = out / f"SHA256SUMS-{ver}"
+        files = self.manifest_files(ver, vlsver)
+        missing = [f for f in files
+                   if not (out / f).exists() and not (out / "docker" / f).exists()]
+        if missing:
+            die(f"cannot sign {mf.name}, missing: {' '.join(missing)}")
+        # The identity is the artifacts' own, not the working tree's.
+        rev, narhash = self.provenance_of(files)
+        self.rev = rev
+        body = self.manifest_header(ver, rev, narhash)
+        for f in files:
+            path = out / "docker" / f if (out / "docker" / f).exists() else out / f
+            body += f"{sha256(path)}  {f}\n"
+        mf.write_text(body)
+        # The VLS binaries are named by *their* version, so a
+        # release-version glob misses them; assert the count instead.
+        want = len(self.arch_list(None)) if RELEASE_SHIPS_VLS else 0
+        got = body.count(" remote_hsmd_socket-")
+        if got != want:
+            die(f"{mf.name} lists {got} VLS binaries, expected {want}")
+        info(f"wrote {mf} ({len(files)} files, {got} VLS)")
+        if self.args.no_sign:
+            info(f"--no-sign: {mf.name} left unsigned (publish will refuse it)")
+        else:
+            asc = Path(f"{mf}.asc")
+            asc.unlink(missing_ok=True)
+            run("gpg", "--armor", "--detach-sign", "--output", str(asc), str(mf))
+            info(f"signed {asc}")
 
     def verb_verify(self, manifest: str) -> None:
-        """Per manifest, not per release: an armhf mismatch prints the hashes
-        and withholds only that signature.  On the main manifest a mismatch
-        withholds and stops; resolving it is manual between captain and
-        co-signer, and no automated triage is owed."""
+        """Per manifest, not per release: a mismatch prints the hashes and
+        withholds the signature; resolving it is manual between captain and
+        co-signer, and no automated triage is owed.  Releases published while
+        armhf carried its own `-armhf` manifest still verify here: a mismatch
+        in such a legacy manifest withholds that signature without holding
+        the release, which is how it was signed back then."""
         mf = Path(manifest).resolve()
         if not mf.is_file():
             die("usage: tools/reprobuild verify <SHA256SUMS-file>")
@@ -1009,8 +996,8 @@ class Driver:
         if bad:
             if base.endswith("-armhf"):
                 info(f"armhf manifest differs: {' '.join(bad)}")
-                info(f"signature WITHHELD for {base} -- expected for armhf, "
-                     "not a reason to hold the release")
+                info(f"signature WITHHELD for {base} -- a legacy split manifest; "
+                     "for that release an armhf mismatch did not gate anything")
                 return
             die(f"manifest differs: {' '.join(bad)}\n"
                 "  Signature withheld.  Retract the unverified hashes, fix the cause\n"
@@ -1156,15 +1143,15 @@ class Driver:
         info(f"publish: {n} good signatures on {main.name}")
         if armhf.exists():
             na = self.good_sigs(armhf, Path(f"{armhf}.asc"))
-            info(f"publish: {na} good signature(s) on {armhf.name} (captain-only is "
-                 "expected; armhf does not gate a release)")
+            info(f"publish: {na} good signature(s) on {armhf.name} (a legacy split "
+                 "manifest; current releases stage exactly one)")
 
         # The staging dir is the whole upload: debug/ and cache/ are excluded
         # by construction, not by a filter.
         stage = out / "publish" / ver
         shutil.rmtree(stage, ignore_errors=True)
         stage.mkdir(parents=True)
-        for f in self.manifest_files("main", ver, vlsver) + self.manifest_files("armhf", ver, vlsver):
+        for f in self.manifest_files(ver, vlsver):
             shutil.copyfile(out / f, stage / f)
         for mf in (main, armhf):
             if mf.exists():
@@ -1244,9 +1231,7 @@ class Driver:
         info(f"publish: pushed tag {ver}")
         if shutil.which("gh"):
             notes = (f"Reproducible release artifacts: {base}/{ver}/\n\n"
-                     f"Verify with: sha256sum -c SHA256SUMS-{ver}\n\n"
-                     f"armhf artifacts are listed in SHA256SUMS-{ver}-armhf; see the\n"
-                     "reproducibility caveat in the reproducible-builds documentation.")
+                     f"Verify with: sha256sum -c SHA256SUMS-{ver}")
             assets = [str(out / f"clightning-{ver}.zip"), str(main),
                       *map(str, out.glob(f"{main.name}.asc*"))]
             if armhf.exists():

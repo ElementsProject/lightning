@@ -23,8 +23,3 @@ armhf    pkgsCrossRaspberryPi.pkgsStatic                  linux/arm/v7
 
 @nixpkgs b4fd65b198c599cbe814fcb9f42d25d021595ec9
 
-# Rows a co-signer is not required to reproduce: armhf's Rust binaries
-# differ across machines, so its artifacts live in their own manifest, signed
-# by a co-signer only if they did reproduce them.  Never a reason to hold a
-# release.
-@cosign-optional armhf
