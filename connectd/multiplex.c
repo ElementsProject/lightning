@@ -1602,30 +1602,27 @@ static struct io_plan *read_body_from_peer_done(struct io_conn *peer_conn,
 	       }
 
 	       /* Don't allocate a subd for these: nobody would claim it. */
-	       if (t == WIRE_ERROR || t == WIRE_WARNING) {
+	       if (t != WIRE_ERROR && t != WIRE_WARNING) {
+		       status_peer_debug(&peer->id, "Activating for message %s",
+					 peer_wire_name(t));
+		       subd = new_subd(peer, &channel_id);
+	       } else {
 		       status_peer_io(LOG_IO_IN, &peer->id, decrypted);
 		       status_peer_debug(&peer->id, "Received %s: %s",
 					 peer_wire_name(t),
 					 sanitize_error(tmpctx, decrypted, NULL));
-		       daemon_conn_send(peer->daemon->master,
-					take(towire_connectd_peer_spoke(NULL, &peer->id,
-									peer->counter,
-									t,
-									&channel_id,
-									is_peer_error(tmpctx, decrypted))));
-		       return next_read(peer_conn, peer);
 	       }
 
-	       status_peer_debug(&peer->id, "Activating for message %s",
-				 peer_wire_name(t));
-	       subd = new_subd(peer, &channel_id);
-	       /* We tell lightningd to fire up a subdaemon to handle this! */
+	       /* We tell lightningd, which fires up a subdaemon to handle
+	        * this, or deals with an error/warning itself. */
 	       daemon_conn_send(peer->daemon->master,
 				take(towire_connectd_peer_spoke(NULL, &peer->id,
 								peer->counter,
 								t,
 								&channel_id,
 								is_peer_error(tmpctx, decrypted))));
+	       if (!subd)
+		       return next_read(peer_conn, peer);
        }
 
        /* Even if we just created it, call this to catch open_channel2 */
