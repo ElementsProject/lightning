@@ -433,8 +433,8 @@ include plugins/Makefile
 include tests/plugins/Makefile
 
 # Only include fuzz tests if OpenSSL >= 3.0, will be disabled on ubuntu focal
-OPENSSL_VERSION := $(shell openssl version | $(SED) -n 's/OpenSSL \([0-9]\+\)\..*/\1/p')
-ifneq ($(shell test $(OPENSSL_VERSION) -ge 3 && echo yes),)
+OPENSSL_VERSION := $(shell openssl version 2>/dev/null | $(SED) -n 's/OpenSSL \([0-9]\+\)\..*/\1/p')
+ifneq ($(shell test "$(OPENSSL_VERSION)" -ge 3 2>/dev/null && echo yes),)
 include tests/fuzz/Makefile
 endif
 
@@ -602,8 +602,8 @@ LOCAL_BOLTDIR=.tmp.lightningrfc
 bolt-precheck:
 	@[ -d $(BOLTDIR) ] || exit 0; set -e; if [ -z "$(BOLTVERSION)" ]; then rm -rf $(LOCAL_BOLTDIR); ln -sf $(BOLTDIR) $(LOCAL_BOLTDIR); exit 0; fi; [ "$$(git -C $(LOCAL_BOLTDIR) rev-list --max-count=1 HEAD 2>/dev/null)" != "$(BOLTVERSION)" ] || exit 0; rm -rf $(LOCAL_BOLTDIR) && git clone -q $(BOLTDIR) $(LOCAL_BOLTDIR) && cd $(LOCAL_BOLTDIR) && git checkout -q $(BOLTVERSION)
 
-PYSRC=$(shell git ls-files "*.py" | grep -v /text.py)
-RUSTSRC=$(shell git ls-files "*.rs")
+PYSRC=$(shell git ls-files "*.py" 2>/dev/null | grep -v /text.py)
+RUSTSRC=$(shell git ls-files "*.rs" 2>/dev/null)
 
 check-source-bolt: $(ALL_NONGEN_SRCFILES:%=bolt-check/%) $(PYSRC:%=bolt-check-py/%) $(RUSTSRC:%=bolt-check-rs/%)
 
