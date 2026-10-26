@@ -2345,6 +2345,25 @@ message ListforwardsResponse {
 }
 
 message ListforwardsForwards {
+	// ListForwards.forwards[].failure_reason
+	enum ListforwardsForwardsFailureReason {
+		INSUFFICIENT_OUTGOING_LIQUIDITY = 0;
+		TOO_MANY_HTLCS = 1;
+		DUST_LIMIT = 2;
+		HTLC_BELOW_MINIMUM = 3;
+		HTLC_ABOVE_MAXIMUM = 4;
+		FEE_INSUFFICIENT = 5;
+		CLTV_INCORRECT = 6;
+		CLTV_EXPIRY_TOO_SOON = 7;
+		CLTV_EXPIRY_TOO_FAR = 8;
+		UNKNOWN_NEXT_PEER = 9;
+		OUTGOING_PEER_OFFLINE = 10;
+		CHANNEL_FAILED_PERMANENT = 11;
+		INVALID_ONION = 12;
+		CHANNEL_SHUTTING_DOWN = 13;
+		MAX_HTLC_VALUE_IN_FLIGHT = 14;
+		PEER_CANNOT_AFFORD_FEE = 15;
+	}
 	// ListForwards.forwards[].status
 	enum ListforwardsForwardsStatus {
 		OFFERED = 0;
@@ -2372,6 +2391,7 @@ message ListforwardsForwards {
 	optional double resolved_time = 14;
 	optional uint32 failcode = 15;
 	optional string failreason = 16;
+	optional ListforwardsForwardsFailureReason failure_reason = 17;
 }
 
 message ListoffersRequest {
@@ -4837,6 +4857,25 @@ message StreamForwardEventRequest {
 }
 
 message ForwardEventNotification {
+	// forward_event.failure_reason
+	enum ForwardEventFailureReason {
+		INSUFFICIENT_OUTGOING_LIQUIDITY = 0;
+		TOO_MANY_HTLCS = 1;
+		DUST_LIMIT = 2;
+		HTLC_BELOW_MINIMUM = 3;
+		HTLC_ABOVE_MAXIMUM = 4;
+		FEE_INSUFFICIENT = 5;
+		CLTV_INCORRECT = 6;
+		CLTV_EXPIRY_TOO_SOON = 7;
+		CLTV_EXPIRY_TOO_FAR = 8;
+		UNKNOWN_NEXT_PEER = 9;
+		OUTGOING_PEER_OFFLINE = 10;
+		CHANNEL_FAILED_PERMANENT = 11;
+		INVALID_ONION = 12;
+		CHANNEL_SHUTTING_DOWN = 13;
+		MAX_HTLC_VALUE_IN_FLIGHT = 14;
+		PEER_CANNOT_AFFORD_FEE = 15;
+	}
 	// forward_event.status
 	enum ForwardEventStatus {
 		OFFERED = 0;
@@ -4861,6 +4900,7 @@ message ForwardEventNotification {
 	optional ForwardEventStyle style = 10;
 	double received_time = 11;
 	optional double resolved_time = 12;
+	optional ForwardEventFailureReason failure_reason = 13;
 }
 
 message StreamInvoiceCreationRequest {

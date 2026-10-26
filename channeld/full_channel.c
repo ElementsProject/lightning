@@ -769,7 +769,7 @@ static enum channel_add_err add_htlc(struct channel *channel,
 	if (enforce_aggregate_limits
 	    && amount_msat_greater(msat_in_htlcs,
 				   channel->config[recipient].max_htlc_value_in_flight)) {
-		return CHANNEL_ERR_MAX_HTLC_VALUE_EXCEEDED;
+		return CHANNEL_ERR_MAX_HTLC_VALUE_IN_FLIGHT_EXCEEDED;
 	}
 
 	/* BOLT #2:
@@ -836,16 +836,23 @@ static enum channel_add_err add_htlc(struct channel *channel,
 		/* Try not to add a payment which will take opener into fees
 		 * on either our side or theirs. */
 		if (sender == LOCAL) {
+			/* If they opened the channel, their balance pays for
+			 * the extra output, so this isn't our liquidity */
+			enum channel_add_err fee_err
+				= channel->opener == sender
+				? CHANNEL_ERR_CHANNEL_CAPACITY_EXCEEDED
+				: CHANNEL_ERR_OPENER_CANNOT_AFFORD_FEE;
+
 			if (!get_room_above_reserve(channel, view,
 						    adding, removing,
 						    channel->opener,
 						    &remainder))
-				return CHANNEL_ERR_CHANNEL_CAPACITY_EXCEEDED;
+				return fee_err;
 
 			if ((option_anchor_outputs || option_anchors_zero_fee_htlc_tx)
 			    && channel->opener != sender
 			    && !amount_msat_deduct_sat(&remainder, AMOUNT_SAT(660)))
-				return CHANNEL_ERR_CHANNEL_CAPACITY_EXCEEDED;
+				return fee_err;
 
 			/* Should be able to afford both their own commit tx
 			 * fee, and other's commit tx fee, which are subtly
@@ -862,7 +869,7 @@ static enum channel_add_err add_htlc(struct channel *channel,
 				status_debug("Funder could not afford own fee %s with %s above reserve",
 					     fmt_amount_sat(tmpctx, fee),
 					     fmt_amount_msat(tmpctx, remainder));
-				return CHANNEL_ERR_CHANNEL_CAPACITY_EXCEEDED;
+				return fee_err;
 			}
 			fee = fee_for_htlcs(channel,
 					    committed,
@@ -876,7 +883,7 @@ static enum channel_add_err add_htlc(struct channel *channel,
 				status_debug("Funder could not afford peer's fee `%s with %s above reserve",
 					     fmt_amount_sat(tmpctx, fee),
 					     fmt_amount_msat(tmpctx, remainder));
-				return CHANNEL_ERR_CHANNEL_CAPACITY_EXCEEDED;
+				return fee_err;
 			}
 		}
 	}

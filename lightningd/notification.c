@@ -351,6 +351,7 @@ static void forward_event_notification_serialize(struct json_stream *stream,
 						 const struct amount_msat *amount_out,
 						 enum forward_status state,
 						 enum onion_wire failcode,
+						 enum forward_failure_reason reason,
 						 struct timeabs *resolved_time,
 						 enum forward_style forward_style,
 						 u64 created_index,
@@ -386,6 +387,7 @@ static void forward_event_notification_serialize(struct json_stream *stream,
 	cur->htlc_id_out = NULL;
 	cur->status = state;
 	cur->failcode = failcode;
+	cur->reason = reason;
 	cur->received_time = in->received_time;
 	cur->resolved_time = tal_steal(cur, resolved_time);
 	cur->forward_style = forward_style;
@@ -403,6 +405,7 @@ void notify_forward_event(struct lightningd *ld,
 			  const struct amount_msat *amount_out,
 			  enum forward_status state,
 			  enum onion_wire failcode,
+			  enum forward_failure_reason reason,
 			  struct timeabs *resolved_time,
 			  enum forward_style forward_style,
 			  u64 created_index,
@@ -411,7 +414,7 @@ void notify_forward_event(struct lightningd *ld,
 	struct jsonrpc_notification *n = notify_start(ld, "forward_event");
 	if (!n)
 		return;
-	forward_event_notification_serialize(n->stream, in, scid_out, amount_out, state, failcode, resolved_time, forward_style, created_index, updated_index);
+	forward_event_notification_serialize(n->stream, in, scid_out, amount_out, state, failcode, reason, resolved_time, forward_style, created_index, updated_index);
 	notify_send(ld, n);
 }
 
