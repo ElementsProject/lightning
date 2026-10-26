@@ -2722,30 +2722,6 @@ void peer_got_revoke(struct channel *channel, const u8 *msg)
 		  "got revoke %"PRIu64": %zu changed",
 		  revokenum, tal_count(changed));
 
-	/* Save any immediate failures for after we reply. */
-	badonions = tal_arrz(msg, enum onion_wire, tal_count(changed));
-	failmsgs = tal_arrz(msg, u8 *, tal_count(changed));
-	for (i = 0; i < tal_count(changed); i++) {
-		/* BOLT #2:
-		 * A node:
-		 *   - until an incoming HTLC has been irrevocably committed:
-		 *     - MUST NOT offer the corresponding outgoing HTLC
-		 *       (`update_add_htlc`) in response to that incoming HTLC.
-		 */
-		/* If we're doing final accept, we need to forward */
-		if (changed[i].newstate == RCVD_ADD_ACK_REVOCATION) {
-			peer_accepted_htlc(failmsgs,
-					   channel, changed[i].id, false,
-					   &badonions[i], &failmsgs[i]);
-		} else {
-			if (!changed_htlc(channel, &changed[i])) {
-				channel_internal_error(channel,
-						    "got_revoke: update failed");
-				return;
-			}
-		}
-	}
-
 	if (revokenum >= (1ULL << 48)) {
 		channel_internal_error(channel, "got_revoke: too many txs %"PRIu64,
 				    revokenum);
@@ -2776,6 +2752,31 @@ void peer_got_revoke(struct channel *channel, const u8 *msg)
 				       fmt_secret(msg, &per_commitment_secret),
 				       revokenum);
 		return;
+	}
+
+	/* Store the revocation secret before acting on the HTLCs it
+	 * locks in. */
+	badonions = tal_arrz(msg, enum onion_wire, tal_count(changed));
+	failmsgs = tal_arrz(msg, u8 *, tal_count(changed));
+	for (i = 0; i < tal_count(changed); i++) {
+		/* BOLT #2:
+		 * A node:
+		 *   - until an incoming HTLC has been irrevocably committed:
+		 *     - MUST NOT offer the corresponding outgoing HTLC
+		 *       (`update_add_htlc`) in response to that incoming HTLC.
+		 */
+		/* If we're doing final accept, we need to forward */
+		if (changed[i].newstate == RCVD_ADD_ACK_REVOCATION) {
+			peer_accepted_htlc(failmsgs,
+					   channel, changed[i].id, false,
+					   &badonions[i], &failmsgs[i]);
+		} else {
+			if (!changed_htlc(channel, &changed[i])) {
+				channel_internal_error(channel,
+						    "got_revoke: update failed");
+				return;
+			}
+		}
 	}
 
 	tal_free(channel->fee_states);
