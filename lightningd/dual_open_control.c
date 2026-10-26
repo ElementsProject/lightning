@@ -1027,6 +1027,7 @@ static enum watch_result opening_depth_cb(struct lightningd *ld,
 
 		assert(inflight->scid);
 		update_channel_from_inflight(ld, channel, inflight, false);
+		channel_mark_inflights_superseded(ld, channel, inflight);
 
 		/*~ Balances only ever move with the *latest* RBF attempt:
 		 * wallet_update_channel() writes our_msat/msat_to_us_min/

@@ -3391,6 +3391,7 @@
             "ListPeerChannels.channels[].inflight[].our_funding_msat": 5,
             "ListPeerChannels.channels[].inflight[].scratch_txid": 6,
             "ListPeerChannels.channels[].inflight[].splice_amount": 7,
+            "ListPeerChannels.channels[].inflight[].superseded": 8,
             "ListPeerChannels.channels[].inflight[].total_funding_msat": 4
         },
         "ListpeerchannelsChannelsStateChanges": {
@@ -12022,6 +12023,10 @@
         },
         "ListPeerChannels.channels[].inflight[].splice_amount": {
             "added": "v23.08",
+            "deprecated": null
+        },
+        "ListPeerChannels.channels[].inflight[].superseded": {
+            "added": "v26.09",
             "deprecated": null
         },
         "ListPeerChannels.channels[].inflight[].total_funding_msat": {
