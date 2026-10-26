@@ -1,4 +1,11 @@
-"""Unit tests for the LSPS2 oracles, on observations written by hand."""
+"""Unit tests for the LSPS2 oracles, on observations written by hand.
+
+In the client tests the client behaves, so every oracle passes there, and
+an oracle that can never fire would pass too. Each test here breaks one
+thing in an honest run and asserts that exactly the matching check fires,
+so we know the oracles can catch what they claim to. The honest run, and
+the variants that stay within the rules, guard against false positives.
+"""
 
 from copy import deepcopy
 from lsps2_oracles import Observation, violations
