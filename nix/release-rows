@@ -1,0 +1,25 @@
+# The release matrix: one row per static tarball (and VLS binary).
+#
+# Read by the flake (nix/pkgs/flake-module.nix), which generates
+# `cln-release-static-<arch>` and `vls-release-static-<arch>` from it, and by
+# tools/reprobuild with a plain `while read`.  No tooling on either side, so
+# keep it whitespace-separated, one row per line, `#` comments on their own
+# lines only.
+#
+# The `@nixpkgs` line is the nixpkgs revision these rows are *certified*
+# against.  It must equal the nixpkgs rev in flake.lock: `nix flake check`
+# fails at bump time if it does not, and the release derivations refuse to
+# evaluate.  Move it only with `tools/reprobuild certify`.
+#
+# The arm rows are for the Raspberry Pi: arm64 for any 64-bit Pi OS, armhf
+# for 32-bit Pi OS on a Pi 2 or later (ARMv7, NEON, VFPv4).  The ARMv6 Pi 1
+# and Zero cannot run armhf.  pkgsCrossRaspberryPi is defined in
+# nix/pkgs/flake-module.nix.
+#
+# arch   package-set path                                 docker platform
+amd64    pkgsStatic                                       linux/amd64
+arm64    pkgsCross.aarch64-multiplatform-musl.pkgsStatic  linux/arm64
+armhf    pkgsCrossRaspberryPi.pkgsStatic                  linux/arm/v7
+
+@nixpkgs b4fd65b198c599cbe814fcb9f42d25d021595ec9
+

@@ -205,7 +205,7 @@ OLD_MARKDOWNPAGES_WITH_EXT := $(PREFIXED_MANPAGES:=.md)
 # - Generate the tables schema via plugins/sql
 # - Merge both and generate final schemas/sql.json
 doc/schemas/sql.json: doc/schemas/sql-template.json plugins/sql
-	@plugins/sql --print-docs | jq --arg sqldata "$$(awk '{printf "%s\n", $$0}')" '.tables += [$$sqldata]' $< > "$@.tmp" && mv "$@.tmp" "$@";
+	@$(CONFIGURATOR_WRAPPER) plugins/sql --print-docs | jq --arg sqldata "$$(awk '{printf "%s\n", $$0}')" '.tables += [$$sqldata]' $< > "$@.tmp" && mv "$@.tmp" "$@";
 
 doc-all: $(MANPAGES) doc/index.rst
 

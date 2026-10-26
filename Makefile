@@ -620,7 +620,9 @@ check-python-flake8:
 	@# E731 do not assign a lambda expression, use a def
 	@# W503: line break before binary operator
 	@# E741: ambiguous variable name
-	@uv run flake8 --ignore=E501,E731,E741,W503,F541,E275 --exclude $(shell echo ${PYTHON_GENERATED} | $(SED) 's/ \+/,/g') ${PYSRC}
+	@# tools/reprobuild is python without a .py suffix -- it is the release
+	@# entry point, named in the docs -- so PYSRC's *.py glob misses it.
+	@uv run flake8 --ignore=E501,E731,E741,W503,F541,E275 --exclude $(shell echo ${PYTHON_GENERATED} | $(SED) 's/ \+/,/g') ${PYSRC} tools/reprobuild
 
 check-pytest-pyln-proto:
 	PATH=$(PYLN_PATH) PYTHONPATH=$(MY_CHECK_PYTHONPATH) uv run $(PYTEST) contrib/pyln-proto/tests/
@@ -758,11 +760,17 @@ TAGS:
 tags:
 	$(RM) tags; find * -name test -type d -prune -o \( -name '*.[ch]' -o -name '*.py' \) -print0 | xargs -0 ctags --append
 
-ccan/ccan/cdump/tools/cdump-enumstr: ccan/ccan/cdump/tools/cdump-enumstr.o libccan.a
+# cdump-enumstr is *run* during the build (it generates the *_names_gen.h
+# headers), so it is built for the build machine with CC_FOR_BUILD, which only
+# differs from CC when cross-compiling: make CC=aarch64-linux-gnu-gcc CC_FOR_BUILD=cc
+# It is linked from its own sources rather than libccan.a, which is target code.
+CC_FOR_BUILD ?= $(CC)
+CDUMP_ENUMSTR_SRCS := ccan/ccan/cdump/tools/cdump-enumstr.c \
+	$(patsubst %,$(CCANDIR)/ccan/%.c,cdump/cdump tal/tal tal/str/str tal/grab_file/grab_file take/take list/list read_write_all/read_write_all strmap/strmap noerr/noerr err/err)
+ccan/ccan/cdump/tools/cdump-enumstr: $(CDUMP_ENUMSTR_SRCS) $(CCAN_HEADERS) ccan/config.h Makefile
+	@$(call VERBOSE, "cc-for-build $@", $(CC_FOR_BUILD) -Wall -I $(CCANDIR) -I . -o $@ $(CDUMP_ENUMSTR_SRCS))
 
-ALL_PROGRAMS += ccan/ccan/cdump/tools/cdump-enumstr
-# Can't add to ALL_OBJS, as that makes a circular dep.
-ccan/ccan/cdump/tools/cdump-enumstr.o: $(CCAN_HEADERS) Makefile
+# Not in ALL_PROGRAMS: that would hand it the generic (target) link rule.
 
 # Without a working git, you can't generate this file, so assume if it exists
 # it is ok (fixes "sudo make install").
@@ -778,7 +786,7 @@ endif
 
 # That forces this rule to be run every time, too.
 header_versions_gen.h: tools/headerversions $(FORCE)
-	@tools/headerversions $@
+	@$(CONFIGURATOR_WRAPPER) tools/headerversions $@
 
 # Once you have libccan.a, you don't need these.
 .INTERMEDIATE: $(CCAN_OBJS)
@@ -830,7 +838,7 @@ endif
 $(CCAN_OBJS) $(CDUMP_OBJS): $(CCAN_HEADERS) Makefile ccan_compat.h
 
 # Except for CCAN, we treat everything else as dependent on external/ bitcoin/ common/ wire/ and all generated headers, and Makefile
-$(ALL_OBJS): $(BITCOIN_HEADERS) $(COMMON_HEADERS) $(CCAN_HEADERS) $(WIRE_HEADERS) $(ALL_GEN_HEADERS) $(EXTERNAL_HEADERS) Makefile
+$(ALL_OBJS): $(BITCOIN_HEADERS) $(COMMON_HEADERS) $(CCAN_HEADERS) $(WIRE_HEADERS) $(ALL_GEN_HEADERS) $(EXTERNAL_HEADERS) Makefile | $(EXTERNAL_GEN_HEADERS)
 
 # Test files can literally #include generated C files.
 $(ALL_TEST_PROGRAMS:=.o): $(ALL_GEN_SOURCES)
@@ -874,7 +882,7 @@ clean: obsclean
 	$(RM) $(ALL_FUZZ_TARGETS)
 	$(RM) $(MSGGEN_GEN_ALL)
 	$(RM) ccan/tools/configurator/configurator
-	$(RM) ccan/ccan/cdump/tools/cdump-enumstr.o
+	$(RM) ccan/ccan/cdump/tools/cdump-enumstr ccan/ccan/cdump/tools/cdump-enumstr.o
 	find . -name '*gcda' -delete
 	find . -name '*gcno' -delete
 	find . -name '*.nccout' -delete
@@ -1012,7 +1020,8 @@ TESTPACK_EXTRAS :=			\
 	config.vars ccan/config.h	\
 	header_versions_gen.h		\
 	$(DEFAULT_TARGETS)		\
-	$(EXTERNAL_LIBS)
+	$(EXTERNAL_LIBS)		\
+	$(EXTERNAL_GEN_HEADERS)
 
 # The testpack is used in CI to transfer built artefacts between the
 # build and the test phase.  Only useful on a freshly build tree!

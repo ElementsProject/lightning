@@ -279,20 +279,13 @@ $(RUST_TARGET_DIR)/examples/cln-plugin-reentrant: ${CLN_PLUGIN_SRC} plugins/exam
 $(RUST_TARGET_DIR)/examples/cln-subscribe-wildcard: ${CLN_RPC_SOURCES} ${CLN_PLUGIN_SRC} plugins/examples/cln-subscribe-wildcard.rs
 	$(CARGO) build ${CARGO_OPTS} --example cln-subscribe-wildcard
 
-$(RUST_TARGET_DIR)/cln-grpc: ${CLN_PLUGIN_SRC} ${CLN_GRPC_PLUGIN_SRC} ${CLN_RPC_SOURCES} $(MSGGEN_GENALL) $(MSGGEN_GEN_ALL)
-	$(CARGO) build ${CARGO_OPTS} --bin cln-grpc
-$(RUST_TARGET_DIR)/clnrest: ${CLN_REST_PLUGIN_SRC} ${CLN_RPC_SOURCES} ${CLN_PLUGIN_SRC}
-	$(CARGO) build ${CARGO_OPTS} --bin clnrest
-$(RUST_TARGET_DIR)/cln-lsps-client: ${CLN_LSPS_PLUGIN_SRC} ${LSPS_TYPES_SOURCES} ${CLN_RPC_SOURCES} ${CLN_PLUGIN_SRC}
-	$(CARGO) build ${CARGO_OPTS} --bin cln-lsps-client
-$(RUST_TARGET_DIR)/cln-lsps-service: ${CLN_LSPS_PLUGIN_SRC} ${LSPS_TYPES_SOURCES} ${CLN_RPC_SOURCES} ${CLN_PLUGIN_SRC}
-	$(CARGO) build ${CARGO_OPTS} --bin cln-lsps-service
-$(RUST_TARGET_DIR)/wss-proxy: ${CLN_WSS_PROXY_PLUGIN_SRC} ${CLN_RPC_SOURCES} ${CLN_PLUGIN_SRC}
-	$(CARGO) build ${CARGO_OPTS} --bin wss-proxy
-$(RUST_TARGET_DIR)/cln-bip353: ${CLN_BIP353_PLUGIN_SRC} ${CLN_PLUGIN_SRC}
-	$(CARGO) build ${CARGO_OPTS} --bin cln-bip353
-$(RUST_TARGET_DIR)/cln-currencyrate: ${CLN_CURRENCYRATE_PLUGIN_SRC} ${CLN_RPC_SOURCES} ${CLN_PLUGIN_SRC}
-	$(CARGO) build ${CARGO_OPTS} --bin cln-currencyrate
+# One cargo invocation for all of them: separate ones serialize on cargo's
+# target-dir lock, and each then builds its own final crate alone.  The
+# leading + hands cargo make's jobserver, so it shares the -j budget.
+$(RUST_PLUGIN_NAMES:%=$(RUST_TARGET_DIR)/%) &: ${CLN_PLUGIN_SRC} ${LSPS_TYPES_SOURCES} ${CLN_RPC_SOURCES} $(MSGGEN_GENALL) $(MSGGEN_GEN_ALL) \
+		${CLN_GRPC_PLUGIN_SRC} ${CLN_REST_PLUGIN_SRC} ${CLN_LSPS_PLUGIN_SRC} ${CLN_WSS_PROXY_PLUGIN_SRC} \
+		${CLN_BIP353_PLUGIN_SRC} ${CLN_CURRENCYRATE_PLUGIN_SRC}
+	+$(CARGO) build ${CARGO_OPTS} $(RUST_PLUGIN_NAMES:%=--bin %)
 
 ifneq ($(RUST),0)
 include plugins/rest-plugin/Makefile
