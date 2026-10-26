@@ -17,6 +17,9 @@ enum channel_add_err {
 	CHANNEL_ERR_MAX_HTLC_VALUE_IN_FLIGHT_EXCEEDED,
 	/* Can't afford it */
 	CHANNEL_ERR_CHANNEL_CAPACITY_EXCEEDED,
+	/* The remote opener can't afford the commitment fee (or anchors)
+	 * for one more HTLC output, although we can afford the HTLC */
+	CHANNEL_ERR_OPENER_CANNOT_AFFORD_FEE,
 	/* HTLC is below htlc_minimum_msat */
 	CHANNEL_ERR_HTLC_BELOW_MINIMUM,
 	/* HTLC would push past max_accepted_htlcs */

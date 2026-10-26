@@ -1720,6 +1720,83 @@ def test_forward_local_failed_stats(node_factory, bitcoind, executor):
     # Correct in and out channels
     assert [s['in_channel'] for s in stats['forwards']] == [c12] * 5
     assert [s.get('out_channel') for s in stats['forwards']] == [c23, c24, c25, None, c24]
+    # And we record why each of them failed
+    assert [s.get('failure_reason') for s in stats['forwards']] == ['unknown_next_peer', 'fee_insufficient', 'htlc_above_maximum', 'invalid_onion', 'channel_failed_permanent']
+
+
+def test_forward_local_failed_reason(node_factory, bitcoind):
+    """
+    Check that we classify insufficient outgoing liquidity precisely
+    """
+    l1, l2, l3 = node_factory.get_nodes(3)
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
+    l1.fundchannel(l2, 10**7)
+    c23, _ = l2.fundchannel(l3, 3 * 10**6)
+
+    mine_funding_to_announce(bitcoind, [l1, l2, l3])
+    l1.wait_channel_active(c23)
+    wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 4)
+
+    # Drain most of l2's spendable balance on c23 over to l3
+    l1.rpc.xpay(l3.rpc.invoice(2_500_000_000, 'drain', 'drain')['bolt11'])
+
+    # Now ask for more than l2 has left to spend on c23. getroute is
+    # deprecated, so build the two-hop route by hand: the failure happens
+    # at l2, so the exact delays don't matter.
+    amt = 2_000_000_000
+    inv = l3.rpc.invoice(amt, "insufficient_liquidity", "desc")
+    payment_hash = inv['payment_hash']
+    c12 = l1.get_channel_scid(l2)
+    route = [{'amount_msat': amt + 10**6, 'id': l2.info['id'], 'delay': 30, 'channel': c12},
+             {'amount_msat': amt, 'id': l3.info['id'], 'delay': 20, 'channel': c23}]
+
+    with pytest.raises(RpcError):
+        l1.rpc.sendpay(route, payment_hash, payment_secret=inv['payment_secret'])
+        l1.rpc.waitsendpay(payment_hash)
+
+    wait_for(lambda: len(l2.rpc.listforwards(status='local_failed')['forwards']) == 1)
+
+    forward = only_one(l2.rpc.listforwards(status='local_failed')['forwards'])
+    assert forward['failure_reason'] == 'insufficient_outgoing_liquidity'
+
+
+@pytest.mark.openchannel('v1', 'Uses push-msat')
+def test_forward_local_failed_peer_cannot_afford_fee(node_factory, bitcoind):
+    """
+    If the peer opened the outgoing channel and can't pay the commitment
+    fee for one more HTLC, that's not *our* lack of liquidity.
+    """
+    l1, l2, l3 = node_factory.get_nodes(3)
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l3.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    c12, _ = l1.fundchannel(l2, 10**7)
+
+    # l3 opens and pushes everything but its reserve to l2
+    l3.fundwallet(2 * 10**6)
+    txid = l3.rpc.fundchannel(l2.info['id'], 10**6, push_msat=990_000_000)['txid']
+    bitcoind.generate_block(1, wait_for_mempool=txid)
+    wait_for(lambda: l2.channel_state(l3) == 'CHANNELD_NORMAL')
+    c23 = l2.get_channel_scid(l3)
+
+    # We have plenty to spend on it...
+    amt = 100_000_000
+    chan = only_one(l2.rpc.listpeerchannels(l3.info['id'])['channels'])
+    assert chan['spendable_msat'] > amt
+
+    inv = l3.rpc.invoice(amt, "peer_cannot_afford_fee", "desc")
+    route = [{'amount_msat': amt + 10**6, 'id': l2.info['id'], 'delay': 30, 'channel': c12},
+             {'amount_msat': amt, 'id': l3.info['id'], 'delay': 20, 'channel': c23}]
+
+    with pytest.raises(RpcError):
+        l1.rpc.sendpay(route, inv['payment_hash'], payment_secret=inv['payment_secret'])
+        l1.rpc.waitsendpay(inv['payment_hash'])
+
+    # ...but l3 can't pay the fee for the extra HTLC output
+    forward = only_one(l2.rpc.listforwards(status='local_failed')['forwards'])
+    assert forward['failure_reason'] == 'peer_cannot_afford_fee'
 
 
 @pytest.mark.slow_test
