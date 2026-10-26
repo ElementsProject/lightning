@@ -102,6 +102,9 @@ def test_splice_stored_feerate_repaired_on_upgrade(node_factory, bitcoind,
     # safe.  This is an absolute version, so it keeps pointing at the clamps
     # when later migrations are appended.
     l1.db_manip("UPDATE version SET version = {}".format(PRE_FEERATE_CLAMP_DB_VERSION))
+    # Every migration after the clamps runs again too, so undo the ones that
+    # cannot simply be repeated.  Add to this as migrations are appended.
+    l1.db_manip("ALTER TABLE forwards DROP COLUMN reason")
     l1.daemon.opts['database-upgrade'] = 'true'
     l1.start()
 

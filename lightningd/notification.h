@@ -2,6 +2,7 @@
 #define LIGHTNING_LIGHTNINGD_NOTIFICATION_H
 #include "config.h"
 #include <common/coin_mvt.h>
+#include <common/forward_failure_reason.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/pay.h>
 #include <lightningd/plugin.h>
@@ -73,6 +74,7 @@ void notify_forward_event(struct lightningd *ld,
 			  const struct amount_msat *amount_out,
 			  enum forward_status state,
 			  enum onion_wire failcode,
+			  enum forward_failure_reason reason,
 			  struct timeabs *resolved_time,
 			  enum forward_style forward_style,
 			  u64 created_index,

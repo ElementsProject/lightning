@@ -1661,6 +1661,7 @@ def listaddresses2py(m):
 
 def listforwards_forwards2py(m):
     return remove_default({
+        "failure_reason": str(m.failure_reason),  # EnumField in generate_composite
         "status": str(m.status),  # EnumField in generate_composite
         "style": str(m.style),  # EnumField in generate_composite
         "created_index": m.created_index,  # PrimitiveField in generate_composite

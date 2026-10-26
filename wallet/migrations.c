@@ -1221,6 +1221,9 @@ static const struct db_migration dbmigrations[] = {
      /* Clamping is idempotent, so no revert needed */
      NULL, NULL},
     /* ^v26.09 */
+
+    {SQL("ALTER TABLE forwards ADD reason INTEGER DEFAULT NULL"), NULL,
+     SQL("ALTER TABLE forwards DROP COLUMN reason"), NULL},
 };
 
 const struct db_migration *get_db_migrations(size_t *num)
