@@ -131,6 +131,8 @@ struct chain_topology {
 	/* Timers we're running. */
 	struct oneshot *checkchain_timer, *extend_timer, *updatefee_timer, *rebroadcast_timer;
 
+	struct oneshot *zeroconf_poll_timer;
+
 	/* Parent context for requests (to bcli plugin) we have outstanding. */
 	tal_t *request_ctx;
 

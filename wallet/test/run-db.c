@@ -255,7 +255,8 @@ struct channel *new_channel(struct peer *peer UNNEEDED, u64 dbid UNNEEDED,
 			    const struct channel_stats *stats UNNEEDED,
 			    struct channel_state_change **state_changes STEALS UNNEEDED,
 			    const struct wally_psbt *funding_psbt STEALS UNNEEDED,
-			    bool withheld UNNEEDED)
+			    bool withheld UNNEEDED,
+			    enum funding_tx_status funding_tx_status UNNEEDED)
 { fprintf(stderr, "new_channel called!\n"); abort(); }
 /* Generated stub for new_channel_state_change */
 struct channel_state_change *new_channel_state_change(const tal_t *ctx UNNEEDED,
@@ -317,6 +318,7 @@ void notify_forward_event(struct lightningd *ld UNNEEDED,
 			  const struct amount_msat *amount_out UNNEEDED,
 			  enum forward_status state UNNEEDED,
 			  enum onion_wire failcode UNNEEDED,
+			  enum forward_failure_reason reason UNNEEDED,
 			  struct timeabs *resolved_time UNNEEDED,
 			  enum forward_style forward_style UNNEEDED,
 			  u64 created_index UNNEEDED,
