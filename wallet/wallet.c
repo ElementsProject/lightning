@@ -5487,6 +5487,7 @@ static bool wallet_forwarded_payment_update(struct wallet *w,
 					    const struct htlc_out *out,
 					    enum forward_status state,
 					    enum onion_wire failcode,
+					    enum forward_failure_reason reason,
 					    struct timeabs *resolved_time,
 					    enum forward_style forward_style)
 {
@@ -5505,6 +5506,7 @@ static bool wallet_forwarded_payment_update(struct wallet *w,
 				 ", state=?"
 				 ", resolved_time=?"
 				 ", failcode=?"
+				 ", reason=?"
 				 ", forward_style=?"
 				 " WHERE in_htlc_id=? AND in_channel_scid=?"));
 	/* This may not work so don't increment index yet! */
@@ -5532,6 +5534,13 @@ static bool wallet_forwarded_payment_update(struct wallet *w,
 		db_bind_null(stmt);
 	}
 
+	if (reason != FORWARD_FAIL_UNKNOWN) {
+		assert(state == FORWARD_LOCAL_FAILED);
+		db_bind_int(stmt, (int)reason);
+	} else {
+		db_bind_null(stmt);
+	}
+
 	/* This can happen for malformed onions, reload from db. */
 	if (forward_style == FORWARD_STYLE_UNKNOWN)
 		db_bind_null(stmt);
@@ -5551,7 +5560,8 @@ void wallet_forwarded_payment_add(struct wallet *w, const struct htlc_in *in,
 				  const struct short_channel_id *scid_out,
 				  const struct htlc_out *out,
 				  enum forward_status state,
-				  enum onion_wire failcode)
+				  enum onion_wire failcode,
+				  enum forward_failure_reason reason)
 {
 	struct db_stmt *stmt;
 	struct timeabs *resolved_time;
@@ -5564,7 +5574,7 @@ void wallet_forwarded_payment_add(struct wallet *w, const struct htlc_in *in,
 		resolved_time = NULL;
 	}
 
-	if (wallet_forwarded_payment_update(w, in, out, state, failcode, resolved_time, forward_style)) {
+	if (wallet_forwarded_payment_update(w, in, out, state, failcode, reason, resolved_time, forward_style)) {
 		updated_index =
 			forward_index_update_status(w->ld,
 						    state,
@@ -5590,8 +5600,9 @@ void wallet_forwarded_payment_add(struct wallet *w, const struct htlc_in *in,
 				 ", received_time"
 				 ", resolved_time"
 				 ", failcode"
+				 ", reason"
 				 ", forward_style"
-				 ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
+				 ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
 	id = forward_index_created(w->ld,
 				   state,
 				   channel_scid_or_local_alias(in->key.channel),
@@ -5644,6 +5655,14 @@ void wallet_forwarded_payment_add(struct wallet *w, const struct htlc_in *in,
 	} else {
 		db_bind_null(stmt);
 	}
+
+	if (reason != FORWARD_FAIL_UNKNOWN) {
+		assert(state == FORWARD_LOCAL_FAILED);
+		db_bind_int(stmt, (int)reason);
+	} else {
+		db_bind_null(stmt);
+	}
+
 	/* This can happen for malformed onions, reload from db! */
 	if (forward_style == FORWARD_STYLE_UNKNOWN)
 		db_bind_null(stmt);
@@ -5654,7 +5673,7 @@ void wallet_forwarded_payment_add(struct wallet *w, const struct htlc_in *in,
 
 notify:
 	notify_forward_event(w->ld, in, scid_out, out ? &out->msat : NULL,
-			     state, failcode, resolved_time, forward_style,
+			     state, failcode, reason, resolved_time, forward_style,
 			     id, updated_index);
 }
 
@@ -5714,6 +5733,7 @@ struct db_stmt *forwarding_first(struct wallet *w,
 			    ", received_time"
 			    ", resolved_time"
 			    ", failcode "
+			    ", reason "
 			    ", forward_style "
 			    ", rowid "
 			    ", updated_index "
@@ -5765,6 +5785,7 @@ struct db_stmt *forwarding_first(struct wallet *w,
 			    ", received_time"
 			    ", resolved_time"
 			    ", failcode "
+			    ", reason "
 			    ", forward_style "
 			    ", rowid "
 			    ", updated_index "
@@ -5803,6 +5824,7 @@ struct db_stmt *forwarding_first(struct wallet *w,
 			    ", received_time"
 			    ", resolved_time"
 			    ", failcode "
+			    ", reason "
 			    ", forward_style "
 			    ", rowid "
 			    ", updated_index "
@@ -5910,6 +5932,14 @@ const struct forwarding *forwarding_details(const tal_t *ctx,
 	} else {
 		fwd->failcode = 0;
 	}
+
+	if (!db_col_is_null(stmt, "reason")) {
+		assert(fwd->status == FORWARD_LOCAL_FAILED);
+		fwd->reason = db_col_int(stmt, "reason");
+	} else {
+		fwd->reason = FORWARD_FAIL_UNKNOWN;
+	}
+
 	if (db_col_is_null(stmt, "forward_style")) {
 		fwd->forward_style = FORWARD_STYLE_UNKNOWN;
 	} else {

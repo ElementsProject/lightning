@@ -192,6 +192,7 @@
                   "out_htlc_id": {},
                   "failcode": {},
                   "failreason": {},
+                  "failure_reason": {},
                   "fee_msat": {
                     "type": "msat",
                     "description": [
@@ -222,6 +223,7 @@
                   "resolved_time": {},
                   "failcode": {},
                   "failreason": {},
+                  "failure_reason": {},
                   "out_channel": {}
                 }
               }
@@ -262,6 +264,7 @@
                   "out_msat": {},
                   "failcode": {},
                   "failreason": {},
+                  "failure_reason": {},
                   "resolved_time": {
                     "type": "number",
                     "description": [
@@ -288,6 +291,7 @@
                   "fee_msat": {},
                   "failcode": {},
                   "failreason": {},
+                  "failure_reason": {},
                   "out_msatoshi": {},
                   "out_msat": {}
                 }
@@ -336,6 +340,32 @@
                     "type": "string",
                     "description": [
                       "The name of the onion code returned."
+                    ]
+                  },
+                  "failure_reason": {
+                    "type": "string",
+                    "added": "v26.12",
+                    "enum": [
+                      "insufficient_outgoing_liquidity",
+                      "too_many_htlcs",
+                      "dust_limit",
+                      "htlc_below_minimum",
+                      "htlc_above_maximum",
+                      "fee_insufficient",
+                      "cltv_incorrect",
+                      "cltv_expiry_too_soon",
+                      "cltv_expiry_too_far",
+                      "unknown_next_peer",
+                      "outgoing_peer_offline",
+                      "channel_failed_permanent",
+                      "invalid_onion",
+                      "channel_shutting_down",
+                      "max_htlc_value_in_flight",
+                      "peer_cannot_afford_fee"
+                    ],
+                    "description": [
+                      "The root cause of the failure, more specific than *failcode*/*failreason*. Only set for *local_failed* forwards, and not always known.",
+                      "*insufficient_outgoing_liquidity* means our own spendable balance on the outgoing channel was too low; *peer_cannot_afford_fee* means the peer opened the outgoing channel and cannot pay the commitment fee for another HTLC."
                     ]
                   }
                 }
@@ -531,6 +561,7 @@
             "status": "local_failed",
             "failcode": 4109,
             "failreason": "WIRE_INCORRECT_CLTV_EXPIRY",
+            "failure_reason": "cltv_incorrect",
             "style": "tlv",
             "received_time": 1738000000.0
           },
@@ -543,6 +574,7 @@
             "status": "local_failed",
             "failcode": 16394,
             "failreason": "WIRE_UNKNOWN_NEXT_PEER",
+            "failure_reason": "unknown_next_peer",
             "style": "tlv",
             "received_time": 1738000000.0
           },
@@ -568,6 +600,7 @@
             "status": "local_failed",
             "failcode": 4108,
             "failreason": "WIRE_FEE_INSUFFICIENT",
+            "failure_reason": "fee_insufficient",
             "style": "tlv",
             "received_time": 1738000000.0
           },

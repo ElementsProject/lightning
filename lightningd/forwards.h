@@ -3,6 +3,7 @@
 #define LIGHTNING_LIGHTNINGD_FORWARDS_H
 #include "config.h"
 #include <ccan/time/time.h>
+#include <common/forward_failure_reason.h>
 #include <wire/onion_wiregen.h>
 
 struct json_stream;
@@ -46,6 +47,9 @@ struct forwarding {
 	enum forward_style forward_style;
 	enum forward_status status;
 	enum onion_wire failcode;
+	/* Root cause of a FORWARD_LOCAL_FAILED forward - FORWARD_FAIL_UNKNOWN
+	 * if not classified or not applicable */
+	enum forward_failure_reason reason;
 	struct timeabs received_time;
 	/* May not be present if the HTLC was not resolved yet. */
 	struct timeabs *resolved_time;
