@@ -17,7 +17,7 @@ jobs:
         version: ['jammy', 'noble', 'resolute']
     steps:
       - name: Git checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Build environment setup - ${{ matrix.version }}
         run: |
@@ -89,7 +89,7 @@ jobs:
 
       - name: Send email on failure
         if: ${{ failure() }}
-        uses: dawidd6/action-send-mail@v17
+        uses: dawidd6/action-send-mail@v23
         with:
           server_address: smtp.gmail.com
           server_port: 465

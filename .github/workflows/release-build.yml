@@ -37,7 +37,7 @@ jobs:
           - { target: 'bin-Ubuntu-resolute-armv7', runner: 'ubuntu-24.04', arch: 'armv7', dir: 'release-armv7' }
     steps:
       - name: Git checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
