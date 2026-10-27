@@ -1967,8 +1967,13 @@ static bool run_tx_interactive(struct state *state,
 				asset = amount_sat_to_asset(&amt,
 							    chainparams->fee_asset_tag);
 				/* FIXME: persist nonces */
+				/* The asset belongs to the input we just
+				 * appended, not the prevtx output index:
+				 * outpoint.n is bounded only by the peer's
+				 * prevtx and can be well past our PSBT's
+				 * inputs. */
 				psbt_elements_input_set_asset(psbt,
-							      outpoint.n,
+							      psbt->num_inputs - 1,
 							      &asset);
 			}
 			psbt_input_set_serial_id(psbt, in, serial_id);
