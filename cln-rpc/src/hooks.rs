@@ -129,11 +129,10 @@ pub mod events{
     #[derive(Clone, Debug, Deserialize, Serialize)]
     pub struct OpenchannelOpenchannel {
         #[serde(skip_serializing_if = "Option::is_none")]
-        pub channel_type: Option<OpenchannelOpenchannelChannelType>,
-        #[serde(skip_serializing_if = "Option::is_none")]
         pub shutdown_scriptpubkey: Option<String>,
         pub channel_flags: u8,
         pub channel_reserve_msat: Amount,
+        pub channel_type: OpenchannelOpenchannelChannelType,
         pub dust_limit_msat: Amount,
         pub feerate_per_kw: u32,
         pub funding_msat: Amount,
@@ -159,8 +158,6 @@ pub mod events{
     #[derive(Clone, Debug, Deserialize, Serialize)]
     pub struct Openchannel2Openchannel2 {
         #[serde(skip_serializing_if = "Option::is_none")]
-        pub channel_type: Option<Openchannel2Openchannel2ChannelType>,
-        #[serde(skip_serializing_if = "Option::is_none")]
         pub lease_blockheight_start: Option<u32>,
         #[serde(skip_serializing_if = "Option::is_none")]
         pub node_blockheight: Option<u32>,
@@ -171,6 +168,7 @@ pub mod events{
         pub channel_flags: u8,
         pub channel_id: Sha256,
         pub channel_max_msat: Amount,
+        pub channel_type: Openchannel2Openchannel2ChannelType,
         pub commitment_feerate_per_kw: u32,
         pub dust_limit_msat: Amount,
         pub feerate_our_max: u32,
@@ -336,11 +334,10 @@ pub mod events{
         #[serde(skip_serializing_if = "Option::is_none")]
         pub first_node_id: Option<PublicKey>,
         #[serde(skip_serializing_if = "Option::is_none")]
-        pub first_path_key: Option<PublicKey>,
-        #[serde(skip_serializing_if = "Option::is_none")]
         pub first_scid: Option<ShortChannelId>,
         #[serde(skip_serializing_if = "Option::is_none")]
         pub first_scid_dir: Option<u32>,
+        pub first_path_key: PublicKey,
         pub hops: Vec<OnionMessageRecvOnionMessageReplyBlindedpathHops>,
     }
 
@@ -379,11 +376,10 @@ pub mod events{
         #[serde(skip_serializing_if = "Option::is_none")]
         pub first_node_id: Option<PublicKey>,
         #[serde(skip_serializing_if = "Option::is_none")]
-        pub first_path_key: Option<PublicKey>,
-        #[serde(skip_serializing_if = "Option::is_none")]
         pub first_scid: Option<ShortChannelId>,
         #[serde(skip_serializing_if = "Option::is_none")]
         pub first_scid_dir: Option<u32>,
+        pub first_path_key: PublicKey,
         pub hops: Vec<OnionMessageRecvSecretOnionMessageReplyBlindedpathHops>,
     }
 
