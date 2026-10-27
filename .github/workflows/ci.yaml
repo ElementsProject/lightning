@@ -101,7 +101,7 @@ jobs:
           VALGRIND: 0
           PYTEST_OPTS: ${{ env.PYTEST_OPTS_BASE }}
         run: |
-          uv run make -j $(nproc) check-source BASE_REF="origin/${{ github.base_ref }}" CARGO=false CC=devtools/cc-nobuild SUPPRESS_GENERATION=1
+          uv run make -j $(nproc) check-source BASE_REF="origin/${{ github.base_ref }}" GRPC_BREAKING_BASE_REF="origin/${{ github.base_ref || 'master' }}" CARGO=false CC=devtools/cc-nobuild SUPPRESS_GENERATION=1
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v7
