@@ -16,7 +16,7 @@ jobs:
         bitcoind-version: ["27.1"]
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Download Bitcoin ${{ matrix.bitcoind-version }} & install binaries
         run: |
@@ -29,12 +29,12 @@ jobs:
           rm -rf bitcoin-${BITCOIND_VERSION}-${TARGET_ARCH}.tar.gz bitcoin-${BITCOIND_VERSION}
 
       - name: Set up Python 3.10
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.10"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v8.1.0
+        uses: astral-sh/setup-uv@v10.3.2
 
       - name: Install dependencies
         run: |

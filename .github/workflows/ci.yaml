@@ -34,7 +34,7 @@ jobs:
       fail-fast: true
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
@@ -75,14 +75,14 @@ jobs:
           fi
 
       - name: Set up Python 3.10
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.10"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v8.1.0
+        uses: astral-sh/setup-uv@v10.3.2
 
-      - uses: actions/cache@v5
+      - uses: actions/cache@v6
         with:
           path: ~/ci-cache
           key: apt-${{ runner.os }}
@@ -149,17 +149,17 @@ jobs:
             DEBUG_BUILD:
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up Python 3.10
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.10"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v8.1.0
+        uses: astral-sh/setup-uv@v10.3.2
 
-      - uses: actions/cache@v5
+      - uses: actions/cache@v6
         with:
           path: ~/ci-cache
           key: apt-${{ runner.os }}
@@ -171,7 +171,7 @@ jobs:
           bash -x .github/scripts/setup.sh
 
       - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.10
+        uses: mozilla-actions/sccache-action@v0.0.11
       - run: sccache --zero-stats
 
       - name: Build
@@ -204,17 +204,17 @@ jobs:
         CFG: [compile-gcc]
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up Python 3.10
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.10"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v8.1.0
+        uses: astral-sh/setup-uv@v10.3.2
 
-      - uses: actions/cache@v5
+      - uses: actions/cache@v6
         with:
           path: ~/ci-cache
           key: apt-${{ runner.os }}
@@ -238,7 +238,7 @@ jobs:
           tar xaf cln-${{ matrix.CFG }}.tar.gz
 
       - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.10
+        uses: mozilla-actions/sccache-action@v0.0.11
       - run: sccache --zero-stats
 
       - name: Check
@@ -269,17 +269,17 @@ jobs:
             VALGRIND: 0
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up Python 3.10
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.10"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v8.1.0
+        uses: astral-sh/setup-uv@v10.3.2
 
-      - uses: actions/cache@v5
+      - uses: actions/cache@v6
         with:
           path: ~/ci-cache
           key: apt-${{ runner.os }}
@@ -306,7 +306,7 @@ jobs:
 
       # external/Makefile uses `TARGET_DIR := external/build-$(shell ${CC} -dumpmachine)` so we need sccache to "work" for that.
       - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.10
+        uses: mozilla-actions/sccache-action@v0.0.11
 
       - name: Check
         run: |
@@ -320,7 +320,7 @@ jobs:
       - prebuild
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Add i386 architecture
         run: |
@@ -328,7 +328,7 @@ jobs:
           sudo apt-get update -qq
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v8.1.0
+        uses: astral-sh/setup-uv@v10.3.2
 
       - name: Install dependencies
         env:
@@ -355,17 +355,17 @@ jobs:
       - prebuild
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up Python 3.10
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.10"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v8.1.0
+        uses: astral-sh/setup-uv@v10.3.2
 
-      - uses: actions/cache@v5
+      - uses: actions/cache@v6
         with:
           path: ~/ci-cache
           key: apt-${{ runner.os }}
@@ -377,7 +377,7 @@ jobs:
           bash -x .github/scripts/setup.sh
 
       - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.10
+        uses: mozilla-actions/sccache-action@v0.0.11
       - run: sccache --zero-stats
 
       - name: Build
@@ -408,17 +408,17 @@ jobs:
             TEST_NETWORK: liquid-regtest
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up Python 3.10
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.10"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v8.1.0
+        uses: astral-sh/setup-uv@v10.3.2
 
-      - uses: actions/cache@v5
+      - uses: actions/cache@v6
         with:
           path: ~/ci-cache
           key: apt-${{ runner.os }}
@@ -500,17 +500,17 @@ jobs:
         TEST_NETWORK: [regtest]
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up Python 3.10
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.10"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v8.1.0
+        uses: astral-sh/setup-uv@v10.3.2
 
-      - uses: actions/cache@v5
+      - uses: actions/cache@v6
         with:
           path: ~/ci-cache
           key: apt-${{ runner.os }}
@@ -591,17 +591,17 @@ jobs:
             EXPERIMENTAL_DUAL_FUND: 1
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up Python 3.10
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.10"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v8.1.0
+        uses: astral-sh/setup-uv@v10.3.2
 
-      - uses: actions/cache@v5
+      - uses: actions/cache@v6
         with:
           path: ~/ci-cache
           key: apt-${{ runner.os }}
@@ -670,17 +670,17 @@ jobs:
         GROUP_COUNT: [12]
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up Python 3.10
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.10"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v8.1.0
+        uses: astral-sh/setup-uv@v10.3.2
 
-      - uses: actions/cache@v5
+      - uses: actions/cache@v6
         with:
           path: ~/ci-cache
           key: apt-${{ runner.os }}
@@ -739,17 +739,17 @@ jobs:
         GROUP_COUNT: [6]
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up Python 3.10
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.10"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v8.1.0
+        uses: astral-sh/setup-uv@v10.3.2
 
-      - uses: actions/cache@v5
+      - uses: actions/cache@v6
         with:
           path: ~/ci-cache
           key: apt-${{ runner.os }}
@@ -805,16 +805,16 @@ jobs:
       - compile
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Set up Python 3.10
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.10"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v8.1.0
+        uses: astral-sh/setup-uv@v10.3.2
 
-      - uses: actions/cache@v5
+      - uses: actions/cache@v6
         with:
           path: ~/ci-cache
           key: apt-${{ runner.os }}
@@ -913,17 +913,17 @@ jobs:
             MIN_BTC_VERSION: "25.0"
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up Python 3.10
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.10"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v8.1.0
+        uses: astral-sh/setup-uv@v10.3.2
 
-      - uses: actions/cache@v5
+      - uses: actions/cache@v6
         with:
           path: ~/ci-cache
           key: apt-${{ runner.os }}
