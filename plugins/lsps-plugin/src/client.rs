@@ -322,6 +322,18 @@ fn select_opening_fee_params(
     })
 }
 
+/// Seconds to take off an invoice's expiry so that it does not outlive the
+/// params' `valid_until`. lightningd adds the expiry to its own clock when it
+/// creates the invoice, so the time the `invoice` call takes counts against
+/// `valid_until` too.
+const INVOICE_EXPIRY_MARGIN_SECS: i64 = 5;
+
+/// The expiry, in seconds, for an invoice created at `now` that must not
+/// outlive `valid_until`.
+fn invoice_expiry(valid_until: chrono::DateTime<Utc>, now: chrono::DateTime<Utc>) -> i64 {
+    (valid_until - now).num_seconds() - INVOICE_EXPIRY_MARGIN_SECS
+}
+
 /// RPC Method handler for `lsps-jitchannel`.
 /// Calls lsps2.get_info, selects parameters, calculates fee, calls lsps2.buy,
 /// creates invoice.
@@ -418,7 +430,8 @@ async fn on_lsps_lsps2_invoice(
 
     // We define the invoice expiry here to avoid cloning `selected_params`
     // as they are about to be moved to the `Lsps2BuyRequest`.
-    let expiry = (selected_params.valid_until.as_chrono() - Utc::now()).num_seconds();
+    let valid_until = selected_params.valid_until.as_chrono();
+    let expiry = invoice_expiry(valid_until, Utc::now());
     if expiry <= 10 {
         return Err(anyhow!(
             "Invoice lifetime is too short, options are valid until: {}",
@@ -475,6 +488,17 @@ async fn on_lsps_lsps2_invoice(
             })
             .await?;
 
+        // Not `expiry`: creating the public invoice took time, and this
+        // one must not outlive `valid_until` either. `invoice` accepts an
+        // expiry of 0, so don't create one that is already expired.
+        let reduced_expiry = invoice_expiry(valid_until, Utc::now());
+        if reduced_expiry <= 0 {
+            return Err(anyhow!(
+                "Opening fee params expired while creating the invoice, they were valid until: {}",
+                selected_params.valid_until,
+            ));
+        }
+
         let _: cln_rpc::model::responses::InvoiceResponse = cln_client
             .call_raw(
                 "invoice",
@@ -483,7 +507,7 @@ async fn on_lsps_lsps2_invoice(
                     dev_routes: Some(vec![vec![hint]]),
                     description: req.description,
                     label: req.label,
-                    expiry: Some(expiry as u64),
+                    expiry: Some(reduced_expiry as u64),
                     cltv: None,
                     deschashonly: None,
                     preimage,
