@@ -1,6 +1,7 @@
 # A grpc model
 from msggen.model import ArrayField, CompositeField, EnumField, PrimitiveField, Service
 from msggen.gen.grpc.util import notification_typename_overrides
+from msggen.gen.grpc.wire import WireState
 from msggen.gen import IGenerator
 from typing import TextIO
 from textwrap import indent, dedent
@@ -9,8 +10,9 @@ import logging
 
 
 class GrpcConverterGenerator(IGenerator):
-    def __init__(self, dest: TextIO):
+    def __init__(self, dest: TextIO, state: WireState):
         self.dest = dest
+        self.state = state
         self.logger = logging.getLogger("msggen.grpc.GrpcConversionGenerator")
 
     def generate_array(self, prefix, field: ArrayField, override):
@@ -41,7 +43,12 @@ class GrpcConverterGenerator(IGenerator):
         # warning we mark the construction here to allow deprecated
         # fields being access.
 
-        has_deprecated = any([f.deprecated for f in field.fields])
+        has_deprecated = any(
+            [
+                f.deprecated or f"{pbname}.{f.path}" in self.state.legacy
+                for f in field.fields
+            ]
+        )
         deprecated = ",deprecated" if has_deprecated else ""
 
         # And now we can convert the current field:
@@ -60,6 +67,7 @@ class GrpcConverterGenerator(IGenerator):
 
             name = f.normalized()
             name = re.sub(r"(?<!^)(?=[A-Z])", "_", name).lower()
+            key = f"{pbname}.{f.path}"
             if isinstance(f, ArrayField):
                 typ = f.itemtype.typename
                 # The inner conversion applied to each element in the
@@ -87,9 +95,27 @@ class GrpcConverterGenerator(IGenerator):
                     )
             elif isinstance(f, EnumField):
                 if not f.optional:
-                    self.write(f"{name}: c.{name} as i32,\n", numindent=3)
+                    rhs = f"c.{name} as i32"
                 else:
-                    self.write(f"{name}: c.{name}.map(|v| v as i32),\n", numindent=3)
+                    rhs = f"c.{name}.map(|v| v as i32)"
+                rhs = self.pin_to_proto(key, rhs)
+                self.write(f"{name}: {rhs},\n", numindent=3)
+
+            elif isinstance(f, PrimitiveField) and key in self.state.legacy:
+                if prefix != "requests":
+                    raise ValueError(
+                        f"{f.path}: renumbered fields are only supported in requests"
+                    )
+                legacy = self.state.legacy[key]
+                typ = f.typename + ("?" if f.optional else "")
+                rhs = {
+                    "sat": f"Some(c.{name}.into())",
+                    "sat?": f"c.{name}.map(|f| f.into())",
+                    "sat_or_all": f"Some(c.{name}.into())",
+                    "sat_or_all?": f"c.{name}.map(|o| o.into())",
+                }[typ]
+                self.write(f"{legacy['new_name']}: {rhs},\n", numindent=3)
+                self.write(f"{name}: None,\n", numindent=3)
 
             elif isinstance(f, PrimitiveField):
                 typ = f.typename + ("?" if f.optional else "")
@@ -144,6 +170,8 @@ class GrpcConverterGenerator(IGenerator):
                     f"c.{name}",  # default to just assignment
                 )
 
+                rhs = self.pin_to_proto(key, rhs)
+
                 if f.deprecated:
                     self.write(f"#[allow(deprecated)]\n", numindent=3)
                 self.write(f"{name}: {rhs}, // Rule #2 for type {typ}\n", numindent=3)
@@ -163,6 +191,29 @@ class GrpcConverterGenerator(IGenerator):
 
         """
         )
+
+    def pin_to_proto(self, key: str, rhs: str) -> str:
+        """Adapt an expression of the schema-implied proto type to the
+        released proto type of the field."""
+        pin = self.state.pinned.get(key)
+        if pin is None:
+            return rhs
+        proto, schema = pin["proto"], pin["schema"]
+        optional = schema["label"] == "optional"
+
+        if proto["type"] != schema["type"]:
+            conv = {
+                ("uint64", "uint32"): "u64::from",
+                ("double", "uint32"): "f64::from",
+                ("string", "bytes"): "hex::encode",
+            }[(proto["type"], schema["type"])]
+            rhs = f"{rhs}.map({conv})" if optional else f"{conv}({rhs})"
+
+        if proto["label"] == "optional" and not optional:
+            rhs = f"Some({rhs})"
+        elif proto["label"] == "plain" and optional:
+            rhs = f"{rhs}.unwrap_or_default()"
+        return rhs
 
     def to_camel_case(self, snake_str):
         components = snake_str.split("_")
