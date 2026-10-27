@@ -36,6 +36,8 @@ dev = [
   "pytest-benchmark",
   "pdoc3>=0.11.6",
   "pre-commit>=4.3.0",
+  # Provides the buf CLI used by check-grpc-breaking
+  "buf-bin==1.75.0",
 ]
 
 [project.optional-dependencies]
