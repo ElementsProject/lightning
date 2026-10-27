@@ -2,6 +2,7 @@
 from typing import TextIO, List, Dict, Any
 from textwrap import dedent
 import logging
+import re
 
 from msggen.gen import IGenerator
 from msggen.gen.grpc.util import (
@@ -9,9 +10,11 @@ from msggen.gen.grpc.util import (
     method_name_overrides,
     notification_typename_overrides,
 )
+from msggen.gen.grpc import wire
 from msggen.model import (
     ArrayField,
     Field,
+    FieldName,
     CompositeField,
     EnumField,
     EnumVariant,
@@ -27,10 +30,12 @@ from msggen.model import (
 class GrpcGenerator(IGenerator):
     """A generator that generates protobuf files."""
 
-    def __init__(self, dest: TextIO, meta: Dict[str, Any]):
+    def __init__(self, dest: TextIO, meta: Dict[str, Any], state: wire.WireState):
         self.dest = dest
         self.logger = logging.getLogger("msggen.grpc.GrpcGenerator")
         self.meta = meta
+        self.state = state
+        wire.ensure_meta(meta)
 
     def write(self, text: str, cleanup: bool = True) -> None:
         if cleanup:
@@ -38,7 +43,7 @@ class GrpcGenerator(IGenerator):
         else:
             self.dest.write(text)
 
-    def field2number(self, message_name: TypeName, field):
+    def field2number(self, message_name: TypeName, field, taken=()):
         m = self.meta["grpc-field-map"]
 
         message_name = (
@@ -59,7 +64,7 @@ class GrpcGenerator(IGenerator):
         # Now let's find the highest number we have in the parent
         # context
         parent = ".".join(field.path.split(".")[:-1])
-        maxnum = 0
+        maxnum = max(taken, default=0)
         for k, v in m.items():
             parent2 = ".".join(k.split(".")[:-1])
             if parent2 == parent:
@@ -232,35 +237,137 @@ class GrpcGenerator(IGenerator):
             if isinstance(f, EnumField) and not f.override():
                 self.generate_enum(f, indent=1, typename_override=typename_override)
 
+        pbname = str(typename_override(message.typename))
+        contract = self.meta["grpc-wire-contract"].setdefault(pbname, {})
+        emitted = []
+
         for i, f in self.enumerate_fields(message.typename, message.fields):
             if f.omit():
                 continue
 
-            opt = "optional " if f.optional and not (isinstance(f, PrimitiveField) and f.typename == "string_map") else ""
-            depri = " [deprecated = true]" if f.deprecated else ""
+            label, typename = self.field_decl(f, typename_override)
+            name = f.normalized()
+            key = f"{pbname}.{f.path}"
+            current = {"label": label, "type": self.wire_type(f, typename)}
+            schema_type = getattr(f, "typename", None)
 
-            if isinstance(f, ArrayField):
-                typename = f.override(
-                    typemap.get(f.itemtype.typename, f.itemtype.typename)
+            if str(i) not in contract:
+                contract[str(i)] = wire.pack(current)
+            resolved = wire.resolve(
+                f.path, schema_type, wire.unpack(contract[str(i)]), current
+            )
+
+            if resolved.get("renumber"):
+                # Keep serving the released msat field under its old
+                # number, and move the sat value to a new one.
+                legacy = self.meta["grpc-legacy-fields"].setdefault(
+                    f.path, {"number": i, **wire.unpack(contract[str(i)])}
                 )
-                self.write(f"\trepeated {typename} {f.normalized()} = {i}{depri};\n", False)
-            elif isinstance(f, PrimitiveField):
-                typename = f.override(typemap.get(f.typename, f.typename))
-                typename = typename_override(typename)
-                self.write(f"\t{opt}{typename} {f.normalized()} = {i}{depri};\n", False)
-            elif isinstance(f, EnumField):
-                typename = f.override(f.typename)
-                typename = typename_override(typename)
-                self.write(f"\t{opt}{typename} {f.normalized()} = {i}{depri};\n", False)
-            elif isinstance(f, CompositeField):
-                typename = f.override(f.typename)
-                typename = typename_override(typename)
-                self.write(f"\t{opt}{typename} {f.normalized()} = {i}{depri};\n", False)
+                self.state.legacy[key] = {"new_name": f"{name}_sat", **legacy}
+                emitted.append(
+                    (legacy["number"], legacy["label"], legacy["type"], name, True)
+                )
+                name = f"{name}_sat"
+                i = self.field2number(
+                    message.typename,
+                    wire.RenumberedField(f.path),
+                    taken=[int(n) for n in contract],
+                )
+                if str(i) not in contract:
+                    contract[str(i)] = wire.pack(current)
+                resolved = wire.resolve(
+                    f.path, schema_type, wire.unpack(contract[str(i)]), current
+                )
+                if resolved.get("renumber"):
+                    raise wire.WireCompatError(f"{f.path}: renumbered twice")
+
+            contract[str(i)] = wire.pack(
+                {
+                    "label": resolved["label"],
+                    "type": wire.unpack(contract[str(i)])["type"],
+                }
+            )
+
+            if resolved["type"] != current["type"]:
+                self.state.pinned[key] = {"proto": resolved, "schema": current}
+                typename = resolved["type"]
+            elif resolved["label"] != current["label"] and wire.is_scalar(current):
+                # Message fields are `Option<T>` in prost regardless of
+                # the label, so only scalars need converting.
+                self.state.pinned[key] = {"proto": resolved, "schema": current}
+
+            emitted.append((i, resolved["label"], typename, name, bool(f.deprecated)))
+
+        used = {e[0] for e in emitted}
+        known = {int(n) for n in contract}
+        known |= set(
+            self.meta["grpc-field-map"].get(message.typename.name, {}).values()
+        )
+        reserved = sorted(known - used)
+        names = {
+            num: path.split(".")[-1].replace("[]", "")
+            for path, num in self.meta["grpc-field-map"]
+            .get(message.typename.name, {})
+            .items()
+        }
+        emitted_names = {e[3] for e in emitted}
+        reserved_names = sorted(
+            {
+                FieldName(names[n]).normalized()
+                for n in reserved
+                if n in names and re.fullmatch(r"[A-Za-z_][A-Za-z0-9_-]*", names[n])
+            }
+            - emitted_names
+        )
+
+        for i, label, typename, name, deprecated in sorted(emitted):
+            depri = " [deprecated = true]" if deprecated else ""
+            self.write(
+                f"\t{self.decl_label(label)}{typename} {name} = {i}{depri};\n", False
+            )
+
+        if reserved:
+            nums = ", ".join(str(n) for n in reserved)
+            self.write(f"\treserved {nums};\n", False)
+        if reserved_names:
+            quoted = ", ".join(f'"{n}"' for n in reserved_names)
+            self.write(f"\treserved {quoted};\n", False)
 
         self.write(
             """}
         """
         )
+
+    @staticmethod
+    def decl_label(label: str) -> str:
+        return "" if label == "plain" else f"{label} "
+
+    def field_decl(self, f: Field, typename_override):
+        """Return the (label, typename) the schema implies for a field."""
+        if isinstance(f, ArrayField):
+            typename = f.override(typemap.get(f.itemtype.typename, f.itemtype.typename))
+            return "repeated", typename
+
+        if isinstance(f, PrimitiveField):
+            typename = typename_override(
+                f.override(typemap.get(f.typename, f.typename))
+            )
+            if f.typename == "string_map":
+                return "plain", typename
+        else:
+            typename = typename_override(f.override(f.typename))
+        return ("optional" if f.optional else "plain"), str(typename)
+
+    @staticmethod
+    def wire_type(f: Field, typename: str) -> str:
+        """Generated types are only identified by kind, since their
+        names derive from the (stable) field path."""
+        item = f.itemtype if isinstance(f, ArrayField) else f
+        if isinstance(item, CompositeField):
+            return "message"
+        if isinstance(item, EnumField):
+            return "enum"
+        return typename
 
     def generate(self, service: Service) -> None:
         """Generate the GRPC protobuf file and write to `dest`"""

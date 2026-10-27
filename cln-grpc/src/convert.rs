@@ -97,7 +97,7 @@ impl From<responses::ListpeersPeers> for pb::ListpeersPeers {
     fn from(c: responses::ListpeersPeers) -> Self {
         Self {
             connected: c.connected, // Rule #2 for type boolean
-            features: hex::decode(&c.features).unwrap(), // Rule #2 for type hex
+            features: Some(hex::decode(&c.features).unwrap()), // Rule #2 for type hex
             id: c.id.serialize().to_vec(), // Rule #2 for type pubkey
             // Field: ListPeers.peers[].log[]
             log: c.log.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
@@ -178,7 +178,7 @@ impl From<responses::SendpayResponse> for pb::SendpayResponse {
             created_at: c.created_at, // Rule #2 for type u64
             created_index: c.created_index, // Rule #2 for type u64
             destination: c.destination.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
-            groupid: c.groupid, // Rule #2 for type u64
+            groupid: Some(c.groupid), // Rule #2 for type u64
             id: c.id, // Rule #2 for type u64
             label: c.label, // Rule #2 for type string?
             message: c.message, // Rule #2 for type string?
@@ -524,8 +524,8 @@ impl From<responses::CreateinvoiceResponse> for pb::CreateinvoiceResponse {
 impl From<responses::DatastoreResponse> for pb::DatastoreResponse {
     fn from(c: responses::DatastoreResponse) -> Self {
         Self {
-            generation: c.generation, // Rule #2 for type u64
-            hex: hex::decode(&c.hex).unwrap(), // Rule #2 for type hex
+            generation: Some(c.generation), // Rule #2 for type u64
+            hex: Some(hex::decode(&c.hex).unwrap()), // Rule #2 for type hex
             // Field: Datastore.key
             key: c.key.into_iter().map(|i| i.into()).collect(), // Rule #3 for type string
             string: c.string, // Rule #2 for type string?
@@ -567,8 +567,8 @@ impl From<responses::CreateonionResponse> for pb::CreateonionResponse {
 impl From<responses::DeldatastoreResponse> for pb::DeldatastoreResponse {
     fn from(c: responses::DeldatastoreResponse) -> Self {
         Self {
-            generation: c.generation, // Rule #2 for type u64
-            hex: hex::decode(&c.hex).unwrap(), // Rule #2 for type hex
+            generation: Some(c.generation), // Rule #2 for type u64
+            hex: Some(hex::decode(&c.hex).unwrap()), // Rule #2 for type hex
             // Field: DelDatastore.key
             key: c.key.into_iter().map(|i| i.into()).collect(), // Rule #3 for type string
             string: c.string, // Rule #2 for type string?
@@ -930,7 +930,7 @@ impl From<responses::PayResponse> for pb::PayResponse {
             #[allow(deprecated)]
             created_at: c.created_at, // Rule #2 for type number
             #[allow(deprecated)]
-            destination: c.destination.serialize().to_vec(), // Rule #2 for type pubkey
+            destination: Some(c.destination.serialize().to_vec()), // Rule #2 for type pubkey
             #[allow(deprecated)]
             parts: c.parts, // Rule #2 for type u32
             #[allow(deprecated)]
@@ -1073,7 +1073,7 @@ impl From<responses::WaitsendpayResponse> for pb::WaitsendpayResponse {
             created_at: c.created_at, // Rule #2 for type u64
             created_index: c.created_index, // Rule #2 for type u64
             destination: c.destination.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
-            groupid: c.groupid, // Rule #2 for type u64
+            groupid: Some(c.groupid), // Rule #2 for type u64
             id: c.id, // Rule #2 for type u64
             label: c.label, // Rule #2 for type string?
             partid: c.partid, // Rule #2 for type u64?
@@ -1858,7 +1858,7 @@ impl From<responses::DelpayPayments> for pb::DelpayPayments {
             created_index: c.created_index, // Rule #2 for type u64
             destination: c.destination.map(|v| v.serialize().to_vec()), // Rule #2 for type pubkey?
             erroronion: c.erroronion.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
-            groupid: c.groupid, // Rule #2 for type u64
+            groupid: Some(c.groupid), // Rule #2 for type u64
             id: c.id, // Rule #2 for type u64
             label: c.label, // Rule #2 for type string?
             partid: c.partid, // Rule #2 for type u64?
@@ -1936,7 +1936,7 @@ impl From<responses::FeeratesOnchainFeeEstimates> for pb::FeeratesOnchainFeeEsti
             htlc_timeout_satoshis: c.htlc_timeout_satoshis, // Rule #2 for type u64
             mutual_close_satoshis: c.mutual_close_satoshis, // Rule #2 for type u64
             opening_channel_satoshis: c.opening_channel_satoshis, // Rule #2 for type u64
-            unilateral_close_nonanchor_satoshis: c.unilateral_close_nonanchor_satoshis, // Rule #2 for type u64
+            unilateral_close_nonanchor_satoshis: Some(c.unilateral_close_nonanchor_satoshis), // Rule #2 for type u64
             unilateral_close_satoshis: c.unilateral_close_satoshis, // Rule #2 for type u64
         }
     }
@@ -2497,7 +2497,7 @@ impl From<responses::OpenchannelBumpResponse> for pb::OpenchannelBumpResponse {
             commitments_secured: c.commitments_secured, // Rule #2 for type boolean
             funding_serial: c.funding_serial, // Rule #2 for type u64
             psbt: c.psbt, // Rule #2 for type string
-            requires_confirmed_inputs: c.requires_confirmed_inputs, // Rule #2 for type boolean
+            requires_confirmed_inputs: Some(c.requires_confirmed_inputs), // Rule #2 for type boolean
         }
     }
 }
@@ -2523,7 +2523,7 @@ impl From<responses::OpenchannelInitResponse> for pb::OpenchannelInitResponse {
             commitments_secured: c.commitments_secured, // Rule #2 for type boolean
             funding_serial: c.funding_serial, // Rule #2 for type u64
             psbt: c.psbt, // Rule #2 for type string
-            requires_confirmed_inputs: c.requires_confirmed_inputs, // Rule #2 for type boolean
+            requires_confirmed_inputs: Some(c.requires_confirmed_inputs), // Rule #2 for type boolean
         }
     }
 }
@@ -2611,13 +2611,13 @@ impl From<responses::RenepaystatusPaystatus> for pb::RenepaystatusPaystatus {
             #[allow(deprecated)]
             created_at: c.created_at, // Rule #2 for type number
             #[allow(deprecated)]
-            destination: c.destination.serialize().to_vec(), // Rule #2 for type pubkey
+            destination: Some(c.destination.serialize().to_vec()), // Rule #2 for type pubkey
             #[allow(deprecated)]
             groupid: c.groupid, // Rule #2 for type u32
             // Field: RenePayStatus.paystatus[].notes[]
             notes: c.notes.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
             #[allow(deprecated)]
-            parts: c.parts, // Rule #2 for type u32
+            parts: Some(c.parts), // Rule #2 for type u32
             #[allow(deprecated)]
             payment_hash: <Sha256 as AsRef<[u8]>>::as_ref(&c.payment_hash).to_vec(), // Rule #2 for type hash
             #[allow(deprecated)]
@@ -2652,9 +2652,9 @@ impl From<responses::RenepayResponse> for pb::RenepayResponse {
             #[allow(deprecated)]
             created_at: c.created_at, // Rule #2 for type number
             #[allow(deprecated)]
-            destination: c.destination.serialize().to_vec(), // Rule #2 for type pubkey
+            destination: Some(c.destination.serialize().to_vec()), // Rule #2 for type pubkey
             #[allow(deprecated)]
-            groupid: c.groupid, // Rule #2 for type u64
+            groupid: Some(c.groupid), // Rule #2 for type u64
             #[allow(deprecated)]
             parts: c.parts, // Rule #2 for type u32
             #[allow(deprecated)]
@@ -2819,7 +2819,7 @@ impl From<responses::SpliceInitResponse> for pb::SpliceInitResponse {
 impl From<responses::SpliceSignedResponse> for pb::SpliceSignedResponse {
     fn from(c: responses::SpliceSignedResponse) -> Self {
         Self {
-            outnum: c.outnum, // Rule #2 for type u32
+            outnum: Some(c.outnum), // Rule #2 for type u32
             psbt: c.psbt, // Rule #2 for type string
             tx: hex::decode(&c.tx).unwrap(), // Rule #2 for type hex
             txid: hex::decode(&c.txid).unwrap(), // Rule #2 for type txid
@@ -2842,9 +2842,9 @@ impl From<responses::SpliceUpdateResponse> for pb::SpliceUpdateResponse {
 impl From<responses::SpliceinResponse> for pb::SpliceinResponse {
     fn from(c: responses::SpliceinResponse) -> Self {
         Self {
-            psbt: c.psbt, // Rule #2 for type string
+            psbt: Some(c.psbt), // Rule #2 for type string
             tx: c.tx, // Rule #2 for type string?
-            txid: c.txid, // Rule #2 for type string
+            txid: Some(c.txid), // Rule #2 for type string
         }
     }
 }
@@ -2853,9 +2853,9 @@ impl From<responses::SpliceinResponse> for pb::SpliceinResponse {
 impl From<responses::SpliceoutResponse> for pb::SpliceoutResponse {
     fn from(c: responses::SpliceoutResponse) -> Self {
         Self {
-            psbt: c.psbt, // Rule #2 for type string
+            psbt: Some(c.psbt), // Rule #2 for type string
             tx: c.tx, // Rule #2 for type string?
-            txid: c.txid, // Rule #2 for type string
+            txid: Some(c.txid), // Rule #2 for type string
         }
     }
 }
@@ -4007,7 +4007,7 @@ impl From<responses::HelpHelp> for pb::HelpHelp {
 impl From<responses::HelpResponse> for pb::HelpResponse {
     fn from(c: responses::HelpResponse) -> Self {
         Self {
-            format_hint: c.format_hint as i32,
+            format_hint: Some(c.format_hint as i32),
             // Field: Help.help[]
             help: c.help.into_iter().map(|i| i.into()).collect(), // Rule #3 for type HelpHelp
         }
@@ -5573,14 +5573,15 @@ impl From<requests::AddgossipRequest> for pb::AddgossipRequest {
     }
 }
 
-#[allow(unused_variables)]
+#[allow(unused_variables,deprecated)]
 impl From<requests::AddpsbtoutputRequest> for pb::AddpsbtoutputRequest {
     fn from(c: requests::AddpsbtoutputRequest) -> Self {
         Self {
             destination: c.destination, // Rule #2 for type string?
             initialpsbt: c.initialpsbt, // Rule #2 for type string?
             locktime: c.locktime, // Rule #2 for type u32?
-            satoshi: Some(c.satoshi.into()), // Rule #2 for type sat
+            satoshi_sat: Some(c.satoshi.into()),
+            satoshi: None,
         }
     }
 }
@@ -6004,14 +6005,15 @@ impl From<requests::NewaddrRequest> for pb::NewaddrRequest {
     }
 }
 
-#[allow(unused_variables)]
+#[allow(unused_variables,deprecated)]
 impl From<requests::WithdrawRequest> for pb::WithdrawRequest {
     fn from(c: requests::WithdrawRequest) -> Self {
         Self {
             destination: c.destination, // Rule #2 for type string
             feerate: c.feerate.map(|o|o.into()), // Rule #2 for type feerate?
             minconf: c.minconf.map(|v| v.into()), // Rule #2 for type u16?
-            satoshi: Some(c.satoshi.into()), // Rule #2 for type sat_or_all
+            satoshi_sat: Some(c.satoshi.into()),
+            satoshi: None,
             // Field: Withdraw.utxos[]
             utxos: c.utxos.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
         }
@@ -6046,7 +6048,7 @@ impl From<requests::KeysendRequest> for pb::KeysendRequest {
     }
 }
 
-#[allow(unused_variables)]
+#[allow(unused_variables,deprecated)]
 impl From<requests::FundpsbtRequest> for pb::FundpsbtRequest {
     fn from(c: requests::FundpsbtRequest) -> Self {
         Self {
@@ -6058,7 +6060,8 @@ impl From<requests::FundpsbtRequest> for pb::FundpsbtRequest {
             nonwrapped: c.nonwrapped, // Rule #2 for type boolean?
             opening_anchor_channel: c.opening_anchor_channel, // Rule #2 for type boolean?
             reserve: c.reserve, // Rule #2 for type u32?
-            satoshi: Some(c.satoshi.into()), // Rule #2 for type sat_or_all
+            satoshi_sat: Some(c.satoshi.into()),
+            satoshi: None,
             startweight: c.startweight, // Rule #2 for type u32
         }
     }
@@ -6085,7 +6088,7 @@ impl From<requests::SignpsbtRequest> for pb::SignpsbtRequest {
     }
 }
 
-#[allow(unused_variables)]
+#[allow(unused_variables,deprecated)]
 impl From<requests::UtxopsbtRequest> for pb::UtxopsbtRequest {
     fn from(c: requests::UtxopsbtRequest) -> Self {
         Self {
@@ -6096,7 +6099,8 @@ impl From<requests::UtxopsbtRequest> for pb::UtxopsbtRequest {
             opening_anchor_channel: c.opening_anchor_channel, // Rule #2 for type boolean?
             reserve: c.reserve, // Rule #2 for type u32?
             reservedok: c.reservedok, // Rule #2 for type boolean?
-            satoshi: Some(c.satoshi.into()), // Rule #2 for type sat_or_all
+            satoshi_sat: Some(c.satoshi.into()),
+            satoshi: None,
             startweight: c.startweight, // Rule #2 for type u32
             // Field: UtxoPsbt.utxos[]
             utxos: c.utxos.into_iter().map(|i| i.into()).collect(), // Rule #3 for type outpoint
@@ -6286,11 +6290,12 @@ impl From<requests::FundchannelCompleteRequest> for pb::FundchannelCompleteReque
     }
 }
 
-#[allow(unused_variables)]
+#[allow(unused_variables,deprecated)]
 impl From<requests::FundchannelRequest> for pb::FundchannelRequest {
     fn from(c: requests::FundchannelRequest) -> Self {
         Self {
-            amount: Some(c.amount.into()), // Rule #2 for type sat_or_all
+            amount_sat: Some(c.amount.into()),
+            amount: None,
             announce: c.announce, // Rule #2 for type boolean?
             // Field: FundChannel.channel_type[]
             channel_type: c.channel_type.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
@@ -6301,19 +6306,22 @@ impl From<requests::FundchannelRequest> for pb::FundchannelRequest {
             minconf: c.minconf, // Rule #2 for type u32?
             mindepth: c.mindepth, // Rule #2 for type u32?
             push_msat: c.push_msat.map(|f| f.into()), // Rule #2 for type msat?
-            request_amt: c.request_amt.map(|f| f.into()), // Rule #2 for type sat?
-            reserve: c.reserve.map(|f| f.into()), // Rule #2 for type sat?
+            request_amt_sat: c.request_amt.map(|f| f.into()),
+            request_amt: None,
+            reserve_sat: c.reserve.map(|f| f.into()),
+            reserve: None,
             // Field: FundChannel.utxos[]
             utxos: c.utxos.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
         }
     }
 }
 
-#[allow(unused_variables)]
+#[allow(unused_variables,deprecated)]
 impl From<requests::FundchannelStartRequest> for pb::FundchannelStartRequest {
     fn from(c: requests::FundchannelStartRequest) -> Self {
         Self {
-            amount: Some(c.amount.into()), // Rule #2 for type sat
+            amount_sat: Some(c.amount.into()),
+            amount: None,
             announce: c.announce, // Rule #2 for type boolean?
             // Field: FundChannel_Start.channel_type[]
             channel_type: c.channel_type.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
@@ -6322,7 +6330,8 @@ impl From<requests::FundchannelStartRequest> for pb::FundchannelStartRequest {
             id: c.id.serialize().to_vec(), // Rule #2 for type pubkey
             mindepth: c.mindepth, // Rule #2 for type u32?
             push_msat: c.push_msat.map(|f| f.into()), // Rule #2 for type msat?
-            reserve: c.reserve.map(|f| f.into()), // Rule #2 for type sat?
+            reserve_sat: c.reserve.map(|f| f.into()),
+            reserve: None,
         }
     }
 }
@@ -6445,19 +6454,22 @@ impl From<requests::ListhtlcsRequest> for pb::ListhtlcsRequest {
     }
 }
 
-#[allow(unused_variables)]
+#[allow(unused_variables,deprecated)]
 impl From<requests::MultifundchannelDestinations> for pb::MultifundchannelDestinations {
     fn from(c: requests::MultifundchannelDestinations) -> Self {
         Self {
-            amount: Some(c.amount.into()), // Rule #2 for type sat_or_all
+            amount_sat: Some(c.amount.into()),
+            amount: None,
             announce: c.announce, // Rule #2 for type boolean?
             close_to: c.close_to, // Rule #2 for type string?
             compact_lease: c.compact_lease, // Rule #2 for type string?
             id: c.id, // Rule #2 for type string
             mindepth: c.mindepth, // Rule #2 for type u32?
             push_msat: c.push_msat.map(|f| f.into()), // Rule #2 for type msat?
-            request_amt: c.request_amt.map(|f| f.into()), // Rule #2 for type sat?
-            reserve: c.reserve.map(|f| f.into()), // Rule #2 for type sat?
+            request_amt_sat: c.request_amt.map(|f| f.into()),
+            request_amt: None,
+            reserve_sat: c.reserve.map(|f| f.into()),
+            reserve: None,
         }
     }
 }
@@ -6524,11 +6536,12 @@ impl From<requests::OpenchannelAbortRequest> for pb::OpenchannelAbortRequest {
     }
 }
 
-#[allow(unused_variables)]
+#[allow(unused_variables,deprecated)]
 impl From<requests::OpenchannelBumpRequest> for pb::OpenchannelBumpRequest {
     fn from(c: requests::OpenchannelBumpRequest) -> Self {
         Self {
-            amount: Some(c.amount.into()), // Rule #2 for type sat
+            amount_sat: Some(c.amount.into()),
+            amount: None,
             channel_id: <Sha256 as AsRef<[u8]>>::as_ref(&c.channel_id).to_vec(), // Rule #2 for type hash
             funding_feerate: c.funding_feerate.map(|o|o.into()), // Rule #2 for type feerate?
             initialpsbt: c.initialpsbt, // Rule #2 for type string
@@ -6536,11 +6549,12 @@ impl From<requests::OpenchannelBumpRequest> for pb::OpenchannelBumpRequest {
     }
 }
 
-#[allow(unused_variables)]
+#[allow(unused_variables,deprecated)]
 impl From<requests::OpenchannelInitRequest> for pb::OpenchannelInitRequest {
     fn from(c: requests::OpenchannelInitRequest) -> Self {
         Self {
-            amount: Some(c.amount.into()), // Rule #2 for type sat
+            amount_sat: Some(c.amount.into()),
+            amount: None,
             announce: c.announce, // Rule #2 for type boolean?
             // Field: OpenChannel_Init.channel_type[]
             channel_type: c.channel_type.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
@@ -6550,7 +6564,8 @@ impl From<requests::OpenchannelInitRequest> for pb::OpenchannelInitRequest {
             funding_feerate: c.funding_feerate.map(|o|o.into()), // Rule #2 for type feerate?
             id: c.id.serialize().to_vec(), // Rule #2 for type pubkey
             initialpsbt: c.initialpsbt, // Rule #2 for type string
-            request_amt: c.request_amt.map(|f| f.into()), // Rule #2 for type sat?
+            request_amt_sat: c.request_amt.map(|f| f.into()),
+            request_amt: None,
         }
     }
 }
@@ -6974,7 +6989,7 @@ impl From<requests::BkprreportRequest> for pb::BkprreportRequest {
         Self {
             end_time: c.end_time, // Rule #2 for type u32?
             escape: c.escape, // Rule #2 for type string?
-            format: c.format, // Rule #2 for type string
+            format: Some(c.format), // Rule #2 for type string
             // Field: Bkpr-Report.headers[]
             headers: c.headers.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
             start_time: c.start_time, // Rule #2 for type u32?
@@ -7633,6 +7648,46 @@ fn missing_field(field: &str) -> tonic::Status {
     tonic::Status::invalid_argument(format!("Missing required field `{}`", field))
 }
 
+fn double_to_u32(field: &str, v: f64) -> Result<u32, tonic::Status> {
+    if v.fract() != 0.0 || !(0.0..=u32::MAX as f64).contains(&v) {
+        return Err(invalid_argument(field, format!("{} is not a u32", v)));
+    }
+    Ok(v as u32)
+}
+
+fn msat_to_sat(field: &str, a: pb::Amount) -> Result<cln_rpc::primitives::AmountSat, tonic::Status> {
+    cln_rpc::primitives::AmountSat::from_msat(a.msat)
+        .map_err(|e| invalid_argument(field, e))
+}
+
+fn msat_or_all_to_sat(field: &str, a: pb::AmountOrAll) -> Result<cln_rpc::primitives::AmountSatOrAll, tonic::Status> {
+    use cln_rpc::primitives::{AmountSat, AmountSatOrAll};
+    Ok(match a.value {
+        Some(pb::amount_or_all::Value::Amount(a)) => AmountSatOrAll::AmountSat(
+            AmountSat::from_msat(a.msat).map_err(|e| invalid_argument(field, e))?,
+        ),
+        Some(pb::amount_or_all::Value::All(_)) => AmountSatOrAll::All,
+        None => return Err(invalid_argument(field, "AmountOrAll is empty")),
+    })
+}
+
+fn sat_or_legacy<N, L, T>(
+    field: &str,
+    new: Option<N>,
+    legacy: Option<L>,
+    conv_new: impl FnOnce(N) -> Result<T, tonic::Status>,
+    conv_legacy: impl FnOnce(L) -> Result<T, tonic::Status>,
+) -> Result<Option<T>, tonic::Status> {
+    match (new, legacy) {
+        (Some(_), Some(_)) => Err(tonic::Status::invalid_argument(format!(
+            "Fields `{field}_sat` and deprecated `{field}` are mutually exclusive"
+        ))),
+        (Some(n), None) => conv_new(n).map(Some),
+        (None, Some(l)) => conv_legacy(l).map(Some),
+        (None, None) => Ok(None),
+    }
+}
+
 #[allow(unused_variables)]
 impl TryFrom<pb::GetinfoRequest> for requests::GetinfoRequest {
     type Error = tonic::Status;
@@ -7722,7 +7777,7 @@ impl TryFrom<pb::AddgossipRequest> for requests::AddgossipRequest {
     }
 }
 
-#[allow(unused_variables)]
+#[allow(unused_variables,deprecated)]
 impl TryFrom<pb::AddpsbtoutputRequest> for requests::AddpsbtoutputRequest {
     type Error = tonic::Status;
     fn try_from(c: pb::AddpsbtoutputRequest) -> Result<Self, Self::Error> {
@@ -7730,7 +7785,7 @@ impl TryFrom<pb::AddpsbtoutputRequest> for requests::AddpsbtoutputRequest {
             destination: c.destination, // Rule #1 for type string?
             initialpsbt: c.initialpsbt, // Rule #1 for type string?
             locktime: c.locktime, // Rule #1 for type u32?
-            satoshi: c.satoshi.ok_or_else(|| missing_field("satoshi"))?.into(), // Rule #1 for type sat
+            satoshi: sat_or_legacy("satoshi", c.satoshi_sat, c.satoshi, |a| Ok(a.into()), |a| msat_to_sat("satoshi", a))?.ok_or_else(|| missing_field("satoshi"))?,
         })
     }
 }
@@ -8166,7 +8221,7 @@ impl TryFrom<pb::NewaddrRequest> for requests::NewaddrRequest {
     }
 }
 
-#[allow(unused_variables)]
+#[allow(unused_variables,deprecated)]
 impl TryFrom<pb::WithdrawRequest> for requests::WithdrawRequest {
     type Error = tonic::Status;
     fn try_from(c: pb::WithdrawRequest) -> Result<Self, Self::Error> {
@@ -8174,7 +8229,7 @@ impl TryFrom<pb::WithdrawRequest> for requests::WithdrawRequest {
             destination: c.destination, // Rule #1 for type string
             feerate: c.feerate.map(|a| a.try_into().map_err(|e| invalid_argument("feerate", e))).transpose()?, // Rule #1 for type feerate?
             minconf: c.minconf.map(|v| u16::try_from(v).map_err(|e| invalid_argument("minconf", e))).transpose()?, // Rule #1 for type u16?
-            satoshi: c.satoshi.ok_or_else(|| missing_field("satoshi"))?.try_into().map_err(|e| invalid_argument("satoshi", e))?, // Rule #1 for type sat_or_all
+            satoshi: sat_or_legacy("satoshi", c.satoshi_sat, c.satoshi, |a| a.try_into().map_err(|e| invalid_argument("satoshi_sat", e)), |a| msat_or_all_to_sat("satoshi", a))?.ok_or_else(|| missing_field("satoshi"))?,
             utxos: Some(c.utxos.into_iter().map(|s| s.try_into().map_err(|e| invalid_argument("utxos", e))).collect::<Result<Vec<_>, tonic::Status>>()?), // Rule #4
         })
     }
@@ -8199,7 +8254,7 @@ impl TryFrom<pb::KeysendRequest> for requests::KeysendRequest {
     }
 }
 
-#[allow(unused_variables)]
+#[allow(unused_variables,deprecated)]
 impl TryFrom<pb::FundpsbtRequest> for requests::FundpsbtRequest {
     type Error = tonic::Status;
     fn try_from(c: pb::FundpsbtRequest) -> Result<Self, Self::Error> {
@@ -8212,7 +8267,7 @@ impl TryFrom<pb::FundpsbtRequest> for requests::FundpsbtRequest {
             nonwrapped: c.nonwrapped, // Rule #1 for type boolean?
             opening_anchor_channel: c.opening_anchor_channel, // Rule #1 for type boolean?
             reserve: c.reserve, // Rule #1 for type u32?
-            satoshi: c.satoshi.ok_or_else(|| missing_field("satoshi"))?.try_into().map_err(|e| invalid_argument("satoshi", e))?, // Rule #1 for type sat_or_all
+            satoshi: sat_or_legacy("satoshi", c.satoshi_sat, c.satoshi, |a| a.try_into().map_err(|e| invalid_argument("satoshi_sat", e)), |a| msat_or_all_to_sat("satoshi", a))?.ok_or_else(|| missing_field("satoshi"))?,
             startweight: c.startweight, // Rule #1 for type u32
         })
     }
@@ -8240,7 +8295,7 @@ impl TryFrom<pb::SignpsbtRequest> for requests::SignpsbtRequest {
     }
 }
 
-#[allow(unused_variables)]
+#[allow(unused_variables,deprecated)]
 impl TryFrom<pb::UtxopsbtRequest> for requests::UtxopsbtRequest {
     type Error = tonic::Status;
     fn try_from(c: pb::UtxopsbtRequest) -> Result<Self, Self::Error> {
@@ -8252,7 +8307,7 @@ impl TryFrom<pb::UtxopsbtRequest> for requests::UtxopsbtRequest {
             opening_anchor_channel: c.opening_anchor_channel, // Rule #1 for type boolean?
             reserve: c.reserve, // Rule #1 for type u32?
             reservedok: c.reservedok, // Rule #1 for type boolean?
-            satoshi: c.satoshi.ok_or_else(|| missing_field("satoshi"))?.try_into().map_err(|e| invalid_argument("satoshi", e))?, // Rule #1 for type sat_or_all
+            satoshi: sat_or_legacy("satoshi", c.satoshi_sat, c.satoshi, |a| a.try_into().map_err(|e| invalid_argument("satoshi_sat", e)), |a| msat_or_all_to_sat("satoshi", a))?.ok_or_else(|| missing_field("satoshi"))?,
             startweight: c.startweight, // Rule #1 for type u32
             utxos: c.utxos.into_iter().map(|s| s.try_into().map_err(|e| invalid_argument("utxos", e))).collect::<Result<Vec<_>, tonic::Status>>()?, // Rule #4
         })
@@ -8456,12 +8511,12 @@ impl TryFrom<pb::FundchannelCompleteRequest> for requests::FundchannelCompleteRe
     }
 }
 
-#[allow(unused_variables)]
+#[allow(unused_variables,deprecated)]
 impl TryFrom<pb::FundchannelRequest> for requests::FundchannelRequest {
     type Error = tonic::Status;
     fn try_from(c: pb::FundchannelRequest) -> Result<Self, Self::Error> {
         Ok(Self {
-            amount: c.amount.ok_or_else(|| missing_field("amount"))?.try_into().map_err(|e| invalid_argument("amount", e))?, // Rule #1 for type sat_or_all
+            amount: sat_or_legacy("amount", c.amount_sat, c.amount, |a| a.try_into().map_err(|e| invalid_argument("amount_sat", e)), |a| msat_or_all_to_sat("amount", a))?.ok_or_else(|| missing_field("amount"))?,
             announce: c.announce, // Rule #1 for type boolean?
             channel_type: Some(c.channel_type.into_iter().map(|s| s).collect()), // Rule #4
             close_to: c.close_to, // Rule #1 for type string?
@@ -8471,19 +8526,19 @@ impl TryFrom<pb::FundchannelRequest> for requests::FundchannelRequest {
             minconf: c.minconf, // Rule #1 for type u32?
             mindepth: c.mindepth, // Rule #1 for type u32?
             push_msat: c.push_msat.map(|a| a.into()), // Rule #1 for type msat?
-            request_amt: c.request_amt.map(|a| a.into()), // Rule #1 for type sat?
-            reserve: c.reserve.map(|a| a.into()), // Rule #1 for type sat?
+            request_amt: sat_or_legacy("request_amt", c.request_amt_sat, c.request_amt, |a| Ok(a.into()), |a| msat_to_sat("request_amt", a))?,
+            reserve: sat_or_legacy("reserve", c.reserve_sat, c.reserve, |a| Ok(a.into()), |a| msat_to_sat("reserve", a))?,
             utxos: Some(c.utxos.into_iter().map(|s| s.try_into().map_err(|e| invalid_argument("utxos", e))).collect::<Result<Vec<_>, tonic::Status>>()?), // Rule #4
         })
     }
 }
 
-#[allow(unused_variables)]
+#[allow(unused_variables,deprecated)]
 impl TryFrom<pb::FundchannelStartRequest> for requests::FundchannelStartRequest {
     type Error = tonic::Status;
     fn try_from(c: pb::FundchannelStartRequest) -> Result<Self, Self::Error> {
         Ok(Self {
-            amount: c.amount.ok_or_else(|| missing_field("amount"))?.into(), // Rule #1 for type sat
+            amount: sat_or_legacy("amount", c.amount_sat, c.amount, |a| Ok(a.into()), |a| msat_to_sat("amount", a))?.ok_or_else(|| missing_field("amount"))?,
             announce: c.announce, // Rule #1 for type boolean?
             channel_type: Some(c.channel_type.into_iter().map(|s| s).collect()), // Rule #4
             close_to: c.close_to, // Rule #1 for type string?
@@ -8491,7 +8546,7 @@ impl TryFrom<pb::FundchannelStartRequest> for requests::FundchannelStartRequest 
             id: PublicKey::from_slice(&c.id).map_err(|e| invalid_argument("id", e))?, // Rule #1 for type pubkey
             mindepth: c.mindepth, // Rule #1 for type u32?
             push_msat: c.push_msat.map(|a| a.into()), // Rule #1 for type msat?
-            reserve: c.reserve.map(|a| a.into()), // Rule #1 for type sat?
+            reserve: sat_or_legacy("reserve", c.reserve_sat, c.reserve, |a| Ok(a.into()), |a| msat_to_sat("reserve", a))?,
         })
     }
 }
@@ -8614,20 +8669,20 @@ impl TryFrom<pb::ListhtlcsRequest> for requests::ListhtlcsRequest {
     }
 }
 
-#[allow(unused_variables)]
+#[allow(unused_variables,deprecated)]
 impl TryFrom<pb::MultifundchannelDestinations> for requests::MultifundchannelDestinations {
     type Error = tonic::Status;
     fn try_from(c: pb::MultifundchannelDestinations) -> Result<Self, Self::Error> {
         Ok(Self {
-            amount: c.amount.ok_or_else(|| missing_field("amount"))?.try_into().map_err(|e| invalid_argument("amount", e))?, // Rule #1 for type sat_or_all
+            amount: sat_or_legacy("amount", c.amount_sat, c.amount, |a| a.try_into().map_err(|e| invalid_argument("amount_sat", e)), |a| msat_or_all_to_sat("amount", a))?.ok_or_else(|| missing_field("amount"))?,
             announce: c.announce, // Rule #1 for type boolean?
             close_to: c.close_to, // Rule #1 for type string?
             compact_lease: c.compact_lease, // Rule #1 for type string?
             id: c.id, // Rule #1 for type string
             mindepth: c.mindepth, // Rule #1 for type u32?
             push_msat: c.push_msat.map(|a| a.into()), // Rule #1 for type msat?
-            request_amt: c.request_amt.map(|a| a.into()), // Rule #1 for type sat?
-            reserve: c.reserve.map(|a| a.into()), // Rule #1 for type sat?
+            request_amt: sat_or_legacy("request_amt", c.request_amt_sat, c.request_amt, |a| Ok(a.into()), |a| msat_to_sat("request_amt", a))?,
+            reserve: sat_or_legacy("reserve", c.reserve_sat, c.reserve, |a| Ok(a.into()), |a| msat_to_sat("reserve", a))?,
         })
     }
 }
@@ -8693,12 +8748,12 @@ impl TryFrom<pb::OpenchannelAbortRequest> for requests::OpenchannelAbortRequest 
     }
 }
 
-#[allow(unused_variables)]
+#[allow(unused_variables,deprecated)]
 impl TryFrom<pb::OpenchannelBumpRequest> for requests::OpenchannelBumpRequest {
     type Error = tonic::Status;
     fn try_from(c: pb::OpenchannelBumpRequest) -> Result<Self, Self::Error> {
         Ok(Self {
-            amount: c.amount.ok_or_else(|| missing_field("amount"))?.into(), // Rule #1 for type sat
+            amount: sat_or_legacy("amount", c.amount_sat, c.amount, |a| Ok(a.into()), |a| msat_to_sat("amount", a))?.ok_or_else(|| missing_field("amount"))?,
             channel_id: Sha256::from_slice(&c.channel_id).map_err(|e| invalid_argument("channel_id", e))?, // Rule #1 for type hash
             funding_feerate: c.funding_feerate.map(|a| a.try_into().map_err(|e| invalid_argument("funding_feerate", e))).transpose()?, // Rule #1 for type feerate?
             initialpsbt: c.initialpsbt, // Rule #1 for type string
@@ -8706,12 +8761,12 @@ impl TryFrom<pb::OpenchannelBumpRequest> for requests::OpenchannelBumpRequest {
     }
 }
 
-#[allow(unused_variables)]
+#[allow(unused_variables,deprecated)]
 impl TryFrom<pb::OpenchannelInitRequest> for requests::OpenchannelInitRequest {
     type Error = tonic::Status;
     fn try_from(c: pb::OpenchannelInitRequest) -> Result<Self, Self::Error> {
         Ok(Self {
-            amount: c.amount.ok_or_else(|| missing_field("amount"))?.into(), // Rule #1 for type sat
+            amount: sat_or_legacy("amount", c.amount_sat, c.amount, |a| Ok(a.into()), |a| msat_to_sat("amount", a))?.ok_or_else(|| missing_field("amount"))?,
             announce: c.announce, // Rule #1 for type boolean?
             channel_type: Some(c.channel_type.into_iter().map(|s| s).collect()), // Rule #4
             close_to: c.close_to, // Rule #1 for type string?
@@ -8720,7 +8775,7 @@ impl TryFrom<pb::OpenchannelInitRequest> for requests::OpenchannelInitRequest {
             funding_feerate: c.funding_feerate.map(|a| a.try_into().map_err(|e| invalid_argument("funding_feerate", e))).transpose()?, // Rule #1 for type feerate?
             id: PublicKey::from_slice(&c.id).map_err(|e| invalid_argument("id", e))?, // Rule #1 for type pubkey
             initialpsbt: c.initialpsbt, // Rule #1 for type string
-            request_amt: c.request_amt.map(|a| a.into()), // Rule #1 for type sat?
+            request_amt: sat_or_legacy("request_amt", c.request_amt_sat, c.request_amt, |a| Ok(a.into()), |a| msat_to_sat("request_amt", a))?,
         })
     }
 }
@@ -9172,7 +9227,7 @@ impl TryFrom<pb::BkprreportRequest> for requests::BkprreportRequest {
         Ok(Self {
             end_time: c.end_time, // Rule #1 for type u32?
             escape: c.escape, // Rule #1 for type string?
-            format: c.format, // Rule #1 for type string
+            format: (c.format.ok_or_else(|| missing_field("format"))?), // Rule #1 for type string
             headers: Some(c.headers.into_iter().map(|s| s.into()).collect()), // Rule #4
             start_time: c.start_time, // Rule #1 for type u32?
         })
