@@ -267,8 +267,19 @@ static void plugin_hook_callback(const char *buffer, const jsmntok_t *toks,
 	ecode = 0;
 	json_scan(tmpctx, buffer, toks, "{error:{code:%}}",
 		  JSON_SCAN(json_to_jsonrpc_errcode, &ecode));
-	if (ecode == PLUGIN_TERMINATED)
+	if (ecode == PLUGIN_TERMINATED) {
+		/* An important plugin dying takes us down with it.  Don't act
+		 * as if it said "continue": leave the hook unanswered, like at
+		 * shutdown, so it's called again when we restart. */
+		if (h && h->plugin->important) {
+			log_unusual(ph_req->ld->log,
+				    "Important plugin %s died from %s hook call:"
+				    " leaving it for restart",
+				    h->plugin->shortname, ph_req->hook->name);
+			return;
+		}
 		h = NULL;
+	}
 
 	/* We really only handle plugins dying: other errors are fatal. */
 	if (h) {
