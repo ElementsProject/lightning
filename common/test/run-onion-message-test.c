@@ -251,7 +251,7 @@ static u8 *single_hop_onionmsg(const struct pubkey *id,
 	return serialize_onionpacket(tmpctx, op);
 }
 
-/* BOLT #4 - a 0 'length' would mean an empty 'onionmsg_payload' */
+/* Per bolt 4, a 0 'length' would mean an empty 'onionmsg_payload' */
 static void test_empty_onionmsg_payload(const struct privkey *privkey,
 					const struct pubkey *id)
 {
