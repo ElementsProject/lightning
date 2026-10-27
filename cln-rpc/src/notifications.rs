@@ -413,8 +413,6 @@ pub struct CoinMovementNotification {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub blockheight: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub created_index: Option<u64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub fees_msat: Option<Amount>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub group_id: Option<u64>,
@@ -431,20 +429,20 @@ pub struct CoinMovementNotification {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub peer_id: Option<PublicKey>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub primary_tag: Option<CoinMovementPrimaryTag>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub spending_txid: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub utxo: Option<Outpoint>,
-    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
-    pub extra_tags: Option<Vec<String>>,
+    // Path `coin_movement.primary_tag`
+    pub primary_tag: CoinMovementPrimaryTag,
     // Path `coin_movement.type`
     #[serde(rename = "type")]
     pub item_type: CoinMovementType,
     pub account_id: String,
     pub coin_type: String,
+    pub created_index: u64,
     pub credit_msat: Amount,
     pub debit_msat: Amount,
+    pub extra_tags: Vec<String>,
     pub node_id: PublicKey,
     pub timestamp: u64,
     pub version: u32,
