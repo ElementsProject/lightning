@@ -1,5 +1,6 @@
 from fixtures import *  # noqa: F401,F403
 from pyln.client import RpcError
+import os
 import pytest
 import threading
 import unittest
@@ -63,6 +64,8 @@ def _splice_to_inflight(l1, chan_id, amount=100000):
 
 @pytest.mark.openchannel('v1')
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3',
+                 "modifies database, which is assumed sqlite3")
 # -1 is how lightningd itself stored a u32 above INT_MAX (db_bind_int); the
 # positive form is what you get writing the same value by hand.
 @pytest.mark.parametrize("poison,repaired", [(4294967295, 1000000),
