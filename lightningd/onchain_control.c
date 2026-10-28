@@ -132,9 +132,10 @@ static void handle_onchain_init_reply(struct channel *channel, const u8 *msg)
 {
 	struct htlc_stub *stubs;
 	u64 commit_num;
+	bool our_commitment;
 	bool *tell, *tell_immediate;
 
-	if (!fromwire_onchaind_init_reply(msg, &commit_num)) {
+	if (!fromwire_onchaind_init_reply(msg, &commit_num, &our_commitment)) {
 		channel_internal_error(channel, "Invalid onchaind_init_reply %s",
 				       tal_hex(tmpctx, msg));
 		return;

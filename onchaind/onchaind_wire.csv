@@ -52,6 +52,8 @@ msgdata,onchaind_init,min_relay_feerate,u32,
 # This says we're ready; give us htlcs and preimages.
 msgtype,onchaind_init_reply,5101
 msgdata,onchaind_init_reply,commit_num,u64,
+# Is this our own commitment tx (otherwise it's one of theirs)?
+msgdata,onchaind_init_reply,our_commitment,bool,
 
 #include <onchaind/onchaind_wire.h>
 msgtype,onchaind_htlcs,5002

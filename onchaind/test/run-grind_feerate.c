@@ -67,7 +67,7 @@ u8 *towire_onchaind_extracted_preimage(const tal_t *ctx UNNEEDED, const struct p
 u8 *towire_onchaind_htlc_timeout(const tal_t *ctx UNNEEDED, const struct htlc_stub *htlc UNNEEDED)
 { fprintf(stderr, "towire_onchaind_htlc_timeout called!\n"); abort(); }
 /* Generated stub for towire_onchaind_init_reply */
-u8 *towire_onchaind_init_reply(const tal_t *ctx UNNEEDED, u64 commit_num UNNEEDED)
+u8 *towire_onchaind_init_reply(const tal_t *ctx UNNEEDED, u64 commit_num UNNEEDED, bool our_commitment UNNEEDED)
 { fprintf(stderr, "towire_onchaind_init_reply called!\n"); abort(); }
 /* Generated stub for towire_onchaind_missing_htlc_output */
 u8 *towire_onchaind_missing_htlc_output(const tal_t *ctx UNNEEDED, const struct htlc_stub *htlc UNNEEDED)
