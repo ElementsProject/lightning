@@ -1,12 +1,9 @@
 use anyhow::anyhow;
+use bitreq::Client;
 use futures::future::join_all;
-use reqwest::header::{HeaderMap, HeaderValue, USER_AGENT};
-use reqwest::{Client, Proxy};
-use rustls::ClientConfig;
 use serde_json::Value;
 use std::cmp::Reverse;
 use std::collections::HashMap;
-use std::error::Error;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -63,32 +60,46 @@ impl Source {
         &self.name
     }
 
-    async fn get_rate(&self, client: &Client, currency: &str) -> Result<f64, anyhow::Error> {
+    async fn get_rate(
+        &self,
+        proxy: Option<bitreq::Proxy>,
+        client: &Client,
+        currency: &str,
+    ) -> Result<f64, anyhow::Error> {
         let now = Instant::now();
 
         let currency_lc = currency.to_lowercase();
         let currency = currency.to_uppercase();
         let url = self.url(&currency_lc, &currency);
 
-        let response = client
-            .get(&url)
-            .send()
-            .await
-            .map_err(|e| anyhow!("Request failed {url}: {:?}", e.source()))?;
+        let mut request = bitreq::get(&url)
+            .with_header("User-Agent", "cln-currencyrate")
+            .with_timeout(SOURCE_TIMEOUT_SECS)
+            .with_max_redirects(10);
 
-        let status = response.status();
+        if let Some(tp) = proxy {
+            request = request.with_proxy(tp);
+        }
 
-        if !status.is_success() {
+        let raw_resp: bitreq::Response = client.send_async(request).await?;
+
+        if raw_resp.status_code < 200 || raw_resp.status_code > 299 {
             return Err(anyhow!(
-                "HTTP error {status} from {url}: body={}",
-                response.text().await?
+                "HTTP error {} from {url}: body={}",
+                raw_resp.status_code,
+                body_str(&raw_resp)
             ));
         }
 
-        let resp: Value = response
-            .json()
-            .await
-            .map_err(|e| anyhow!("Failed to parse JSON from {url}: {:?}", e.source()))?;
+        let resp: Value = match raw_resp.json() {
+            Ok(resp) => resp,
+            Err(e) => {
+                return Err(anyhow!(
+                    "Could not decode: {} as json: {e}",
+                    body_str(&raw_resp)
+                ));
+            }
+        };
 
         let reply_members = self.reply_members(&currency_lc, &currency);
 
@@ -103,6 +114,13 @@ impl Source {
 
         Ok(price)
     }
+}
+
+fn body_str(body: &bitreq::Response) -> String {
+    body.as_str().map_or_else(
+        |e| format!("response body contains invalid UTF-8: {e}"),
+        std::string::ToString::to_string,
+    )
 }
 
 fn extract_price_from_response(
@@ -253,42 +271,23 @@ impl OracleInner {
 pub struct BtcPriceOracle {
     inner: Arc<Mutex<OracleInner>>,
     client: Client,
+    proxy: Option<bitreq::Proxy>,
 }
 
 impl BtcPriceOracle {
     pub fn new(tor_proxy: Option<SocketAddr>, sources: Vec<Source>) -> Result<Self, anyhow::Error> {
-        let mut headers = HeaderMap::new();
-        headers.insert(USER_AGENT, HeaderValue::from_static("cln-currencyrate"));
-
-        let root_store = rustls::RootCertStore {
-            roots: webpki_roots::TLS_SERVER_ROOTS.to_vec(),
-        };
-
-        let tls = ClientConfig::builder()
-            .with_root_certificates(root_store)
-            .with_no_client_auth();
-
-        let mut client = Client::builder()
-            .default_headers(headers)
-            .tls_backend_preconfigured(tls)
-            .timeout(SOURCE_TIMEOUT_SECS)
-            .pool_max_idle_per_host(5);
-
-        if let Some(tp) = tor_proxy {
-            let proxy_url = format!("socks5h://{tp}");
-            let proxy = Proxy::all(&proxy_url)?;
-
-            client = client.proxy(proxy);
-        }
-
-        let client = client
-            .build()
-            .map_err(|e| anyhow!("HTTP client failed to build: {:?}", e.source()))?;
+        let client = Client::new(sources.len() * 2);
 
         let mut map = HashMap::new();
         for s in sources {
             map.insert(s.name().to_owned(), SourceHealth::new(s));
         }
+
+        let proxy = if let Some(tp) = tor_proxy {
+            Some(bitreq::Proxy::new_socks5(format!("socks5h://{tp}"))?)
+        } else {
+            None
+        };
 
         Ok(Self {
             inner: Arc::new(Mutex::new(OracleInner {
@@ -296,6 +295,7 @@ impl BtcPriceOracle {
                 currencies: HashMap::new(),
             })),
             client,
+            proxy,
         })
     }
 
@@ -394,6 +394,7 @@ impl BtcPriceOracle {
             let inner = self.inner.clone();
             let client = self.client.clone();
             let source_name = source_name.clone();
+            let proxy = self.proxy.clone();
 
             async move {
                 let source = {
@@ -401,7 +402,7 @@ impl BtcPriceOracle {
                     inner.sources.get(&source_name).unwrap().source.clone()
                 };
 
-                let rate_result = source.get_rate(&client, currency).await;
+                let rate_result = source.get_rate(proxy, &client, currency).await;
 
                 let mut inner = inner.lock().await;
 
@@ -450,6 +451,7 @@ impl BtcPriceOracle {
     fn background_refresh(&self, currency: &str) {
         let inner = self.inner.clone();
         let client = self.client.clone();
+        let proxy = self.proxy.clone();
         let currency = currency.to_owned();
         tokio::spawn(async move {
             tokio::time::sleep(SOURCE_TIMEOUT_SECS * 5).await;
@@ -505,7 +507,11 @@ impl BtcPriceOracle {
 
                 for (name, _) in sources_by_staleness {
                     let source_health = inner.sources.get_mut(&name).unwrap();
-                    match source_health.source.get_rate(&client, &currency).await {
+                    match source_health
+                        .source
+                        .get_rate(proxy.clone(), &client, &currency)
+                        .await
+                    {
                         Ok(price) => {
                             source_health.mark_success();
 

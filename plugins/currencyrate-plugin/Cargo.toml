@@ -18,19 +18,12 @@ tokio = { version = "1" }
 
 log-panics = "2"
 
-reqwest = { version = "0.13", default-features = false, features = [
-    "rustls-no-provider",
-    "socks",
-    "json",
-    "http2",
+bitreq = { version = "0.4", features = [
+    "proxy",
+    "async-https-rustls",
+    "json-using-serde",
+    "log",
 ] }
-rustls = { version = "0.23", default-features = false, features = [
-    "logging",
-    "tls12",
-    "std",
-    "ring",
-] }
-webpki-roots = "1"
 
 futures = "0.3"
 

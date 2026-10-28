@@ -45,13 +45,11 @@ async fn main() -> Result<(), anyhow::Error> {
         // Therefore, no concurrent access is possible.
         std::env::set_var(
             "CLN_PLUGIN_LOG",
-            "cln_plugin=info,cln_rpc=info,cln_currencyrate=debug,warn",
-        )
+            "cln_plugin=info,cln_rpc=info,cln_currencyrate=trace,warn",
+        );
     };
 
     log_panics::init();
-
-    let _ = rustls::crypto::ring::default_provider().install_default();
 
     let add_source_opt = StringArrayConfigOption::new_str_arr_no_default(
         "currencyrate-add-source",
@@ -325,16 +323,47 @@ async fn check_proxy_config(
         .as_str()
         .ok_or(anyhow!("proxy value is not a string"))?;
 
-    if let Ok(addr) = SocketAddr::from_str(proxy_str) {
-        return Ok(Some(addr));
-    }
-
-    if let Ok(ip) = IpAddr::from_str(proxy_str) {
-        return Ok(Some(SocketAddr::new(ip, DEFAULT_PROXY_PORT)));
-    }
-
-    Err(anyhow!("Could not parse proxy value: {proxy_str}"))
+    parse_proxy_addr(proxy_str).map(Some)
 }
+
+fn parse_proxy_addr(proxy_str: &str) -> Result<SocketAddr, anyhow::Error> {
+    let addr = if let Ok(addr) = SocketAddr::from_str(proxy_str) {
+        addr
+    } else if let Ok(ip) = IpAddr::from_str(proxy_str) {
+        SocketAddr::new(ip, DEFAULT_PROXY_PORT)
+    } else {
+        return Err(anyhow!("Could not parse proxy value: {proxy_str}"));
+    };
+
+    if addr.is_ipv6() {
+        return Err(anyhow!(
+            "IPv6 proxy addresses are not supported by bitreq (got `{proxy_str}`); \
+             use an IPv4 address instead"
+        ));
+    }
+
+    Ok(addr)
+}
+
+#[test]
+fn test_parse_proxy_addr() {
+    assert_eq!(
+        parse_proxy_addr("127.0.0.1:9050").unwrap(),
+        "127.0.0.1:9050".parse().unwrap()
+    );
+    assert_eq!(
+        parse_proxy_addr("127.0.0.1").unwrap(),
+        "127.0.0.1:9050".parse().unwrap()
+    );
+
+    for proxy in ["::1", "[::1]:9050"] {
+        let err = parse_proxy_addr(proxy).unwrap_err().to_string();
+        assert!(err.contains("IPv6 proxy addresses are not supported"));
+    }
+
+    assert!(parse_proxy_addr("not-an-address").is_err());
+}
+
 fn gather_sources(
     plugin: &ConfiguredPlugin<PluginState, tokio::io::Stdin, tokio::io::Stdout>,
     has_proxy: bool,
