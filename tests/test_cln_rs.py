@@ -211,6 +211,170 @@ def test_grpc_connect(node_factory):
         ))
 
 
+def test_grpc_request_validation(node_factory):
+    """Malformed gRPC request values must be rejected, not panic the server."""
+    l1 = node_factory.get_node()
+    wait_for_grpc_start(l1)
+    stub = l1.grpc
+
+    valid_pubkey = bytes.fromhex(l1.info["id"])
+    valid_hash = b"\x00" * 32
+
+    cases = [
+        (
+            "pubkey",
+            lambda: stub.ListPeers(clnpb.ListpeersRequest(id=b"\x00" * 33)),
+            "id",
+        ),
+        (
+            "u16_overflow",
+            lambda: stub.ConnectPeer(clnpb.ConnectRequest(id="x", port=65536)),
+            "port",
+        ),
+        ("enum", lambda: stub.ListPeers(clnpb.ListpeersRequest(level=9999)), "level"),
+        (
+            "hash",
+            lambda: stub.ListPays(clnpb.ListpaysRequest(payment_hash=b"\x00" * 31)),
+            "payment_hash",
+        ),
+        (
+            "secret",
+            lambda: stub.SendPay(
+                clnpb.SendpayRequest(
+                    payment_hash=valid_hash, payment_secret=b"\x00" * 31
+                )
+            ),
+            "payment_secret",
+        ),
+        (
+            "short_channel_id",
+            lambda: stub.ListChannels(
+                clnpb.ListchannelsRequest(short_channel_id="not-a-scid")
+            ),
+            "short_channel_id",
+        ),
+        (
+            "short_channel_id_dir",
+            lambda: stub.AskReneBiasChannel(
+                clnpb.AskrenebiaschannelRequest(
+                    layer="x", bias=1, short_channel_id_dir="not-a-scid"
+                )
+            ),
+            "short_channel_id_dir",
+        ),
+        (
+            "missing_required",
+            lambda: stub.Withdraw(clnpb.WithdrawRequest(destination="bcrt1qtest")),
+            "satoshi",
+        ),
+        (
+            "array_pubkey",
+            lambda: stub.SendPay(
+                clnpb.SendpayRequest(
+                    payment_hash=valid_hash,
+                    route=[
+                        clnpb.SendpayRoute(
+                            id=b"\x00" * 33,
+                            channel="1x1x1",
+                            amount_msat=clnpb.Amount(msat=1000),
+                        )
+                    ],
+                )
+            ),
+            "id",
+        ),
+        (
+            "array_secret",
+            lambda: stub.SendOnion(
+                clnpb.SendonionRequest(
+                    onion=b"\x00",
+                    first_hop=clnpb.SendonionFirstHop(
+                        id=valid_pubkey, amount_msat=clnpb.Amount(msat=1000), delay=1
+                    ),
+                    payment_hash=valid_hash,
+                    shared_secrets=[b"\x00" * 31],
+                )
+            ),
+            "shared_secrets",
+        ),
+        (
+            "feerate",
+            lambda: stub.Withdraw(clnpb.WithdrawRequest(feerate=clnpb.Feerate())),
+            "feerate",
+        ),
+        (
+            "outpoint",
+            lambda: stub.TxPrepare(
+                clnpb.TxprepareRequest(utxos=[clnpb.Outpoint(txid=b"\x00" * 31)])
+            ),
+            "utxos",
+        ),
+        (
+            "outputdesc",
+            lambda: stub.TxPrepare(
+                clnpb.TxprepareRequest(outputs=[clnpb.OutputDesc(address="bcrt1qtest")])
+            ),
+            "outputs",
+        ),
+        (
+            "amount_sat_or_all",
+            lambda: stub.Withdraw(
+                clnpb.WithdrawRequest(satoshi=clnpb.AmountSatOrAll())
+            ),
+            "satoshi",
+        ),
+        (
+            "amount_or_any",
+            lambda: stub.Invoice(clnpb.InvoiceRequest(amount_msat=clnpb.AmountOrAny())),
+            "amount_msat",
+        ),
+        (
+            "routehint",
+            lambda: stub.KeySend(
+                clnpb.KeysendRequest(
+                    destination=valid_pubkey,
+                    amount_msat=clnpb.Amount(msat=1000),
+                    routehints=clnpb.RoutehintList(
+                        hints=[
+                            clnpb.Routehint(
+                                hops=[
+                                    clnpb.RouteHop(
+                                        id=b"\x00" * 33,
+                                        scid="1x1x1",
+                                        feebase=clnpb.Amount(msat=1),
+                                    )
+                                ]
+                            )
+                        ]
+                    ),
+                )
+            ),
+            "routehints",
+        ),
+        (
+            "proof_field",
+            lambda: stub.CreateProof(
+                clnpb.CreateproofRequest(include=[clnpb.ProofField()], invstring="x")
+            ),
+            "include",
+        ),
+    ]
+
+    for name, call, field in cases:
+        with pytest.raises(grpc.RpcError) as exc:
+            call()
+        assert exc.value.code() == grpc.StatusCode.INVALID_ARGUMENT, (
+            f"{name}: unexpected status {exc.value.code()}: {exc.value.details()}"
+        )
+        assert field in exc.value.details(), (
+            f"{name}: expected {field!r} in {exc.value.details()!r}"
+        )
+
+    # The worker task must not have panicked, and the plugin must still serve.
+    stub.Getinfo(clnpb.GetinfoRequest())
+    assert not l1.daemon.is_in_log(r"panicked")
+
+
 def test_grpc_generate_certificate(node_factory):
     """Test whether we correctly generate the certificates.
 
