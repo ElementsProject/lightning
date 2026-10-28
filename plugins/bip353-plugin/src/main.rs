@@ -137,16 +137,16 @@ async fn fetch_payment_instructions(
     plugin: Plugin<()>,
     hrn: &HumanReadableName,
 ) -> Result<PaymentInstructions, anyhow::Error> {
-    let mut client = reqwest::Client::builder().timeout(Duration::from_secs(25));
-    if let Some(proxy_info) = get_proxy(plugin) {
-        let proxy = reqwest::Proxy::all(format!(
-            "socks5h://{}:{}",
-            proxy_info.address, proxy_info.port
-        ))?;
-        client = client.proxy(proxy);
-    }
-
-    let hrn_resolver = HTTPHrnResolver::with_client(client.build()?);
+    let hrn_resolver = match get_proxy(plugin) {
+        Some(proxy_info) => {
+            let proxy = bitreq::Proxy::new_socks5(format!(
+                "socks5h://{}:{}",
+                proxy_info.address, proxy_info.port
+            ))?;
+            HTTPHrnResolver::new_proxied(proxy)
+        }
+        None => HTTPHrnResolver::new(),
+    };
 
     log::debug!(
         "Trying to fetch payment instructions for `{}@{}`",
