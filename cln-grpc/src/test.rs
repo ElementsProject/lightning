@@ -299,7 +299,7 @@ fn test_keysend() {
             maxfee: None,
         };
 
-    let u: cln_rpc::model::requests::KeysendRequest = g.into();
+    let u: cln_rpc::model::requests::KeysendRequest = g.try_into().unwrap();
     let _ser = serde_json::to_string(&u);
 
     let j = r#"{
@@ -344,7 +344,7 @@ fn test_xkeysend() {
         layers: vec!["xpay".to_owned()],
     };
 
-    let u: cln_rpc::model::requests::XkeysendRequest = g.into();
+    let u: cln_rpc::model::requests::XkeysendRequest = g.try_into().unwrap();
     let _ser = serde_json::to_string(&u);
 
     let j = r#"{
@@ -362,6 +362,85 @@ fn test_xkeysend() {
     let g: cln_rpc::model::responses::XkeysendResponse = u.into();
     let v2 = serde_json::to_value(g).unwrap();
     assert_eq!(v, v2);
+}
+
+/// Regression test for S10-T14-1: malformed client pubkeys must be rejected, not panic.
+#[cfg(feature = "server")]
+#[test]
+fn test_grpc_listpeers_malformed_pubkey_rejected() {
+    use prost::Message;
+
+    // tag for field 1, wire type 2 (length-delimited) is 0x0a.
+    let mut wire = vec![0x0a, 33];
+    wire.extend_from_slice(&[0u8; 33]);
+
+    let req = ListpeersRequest::decode(&wire[..]).unwrap();
+    assert_eq!(req.id.as_deref(), Some(&[0u8; 33][..]));
+
+    let err = cln_rpc::model::requests::ListpeersRequest::try_from(req).unwrap_err();
+    assert_eq!(err.code(), tonic::Code::InvalidArgument);
+    assert!(
+        err.message().contains("id"),
+        "unexpected message: {}",
+        err.message()
+    );
+}
+
+/// Regression test: a u16 field larger than u16::MAX must be rejected, not truncated.
+#[cfg(feature = "server")]
+#[test]
+fn test_grpc_connect_port_out_of_range_rejected() {
+    let req = ConnectRequest {
+        id: "x".into(),
+        host: None,
+        port: Some(65536),
+    };
+
+    let err = cln_rpc::model::requests::ConnectRequest::try_from(req).unwrap_err();
+    assert_eq!(err.code(), tonic::Code::InvalidArgument);
+    assert!(
+        err.message().contains("port"),
+        "unexpected message: {}",
+        err.message()
+    );
+}
+
+/// Regression test: a required u16 field larger than u16::MAX must be rejected, not truncated.
+#[cfg(feature = "server")]
+#[test]
+fn test_grpc_sendonion_delay_out_of_range_rejected() {
+    let req = SendonionFirstHop {
+        amount_msat: Some(Amount { msat: 1000 }),
+        delay: 65536,
+        id: vec![0; 33],
+    };
+
+    let err = cln_rpc::model::requests::SendonionFirstHop::try_from(req).unwrap_err();
+    assert_eq!(err.code(), tonic::Code::InvalidArgument);
+    assert!(
+        err.message().contains("delay"),
+        "unexpected message: {}",
+        err.message()
+    );
+}
+
+/// Regression test: a ProofField without an ident must be rejected, not exit.
+#[cfg(feature = "server")]
+#[test]
+fn test_grpc_createproof_missing_proof_field_ident_rejected() {
+    let req = CreateproofRequest {
+        include: vec![ProofField { ident: None }],
+        invstring: "x".into(),
+        note: None,
+    };
+
+    let err = cln_rpc::model::requests::CreateproofRequest::try_from(req).unwrap_err();
+    assert_eq!(err.code(), tonic::Code::InvalidArgument);
+    assert!(
+        err.message().contains("include"),
+        "unexpected message: {}",
+        err.message()
+    );
 }
 
 /// Verify serde round-trip: serialize to JSON, deserialize back, and
