@@ -48,7 +48,6 @@ stdenv.mkDerivation {
     libtool
     lowdownForBuild
     pkgconf
-    protobuf
     py3
     unzip
     which
