@@ -1,8 +1,11 @@
 from fixtures import *  # noqa: F401,F403
+from lsps2_oracles import (
+    check_oracles,
+    lsps2_mock_fee,
+)
 from pyln.client import RpcError
 from pyln.testing.utils import RUST
 from utils import only_one, wait_for
-import importlib.util
 import json
 import os
 import pytest
@@ -359,18 +362,6 @@ def test_lsps2_non_approved_zero_conf(node_factory, bitcoind):
 LSPS2_MOCK = os.path.join(os.path.dirname(__file__), "plugins/lsps2_mock.py")
 
 
-def load_lsps2_mock_fee():
-    """The mock's fee module; tests/plugins is not a package."""
-    path = os.path.join(os.path.dirname(__file__), "plugins/lsps2_mock_fee.py")
-    spec = importlib.util.spec_from_file_location("lsps2_mock_fee", path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-lsps2_mock_fee = load_lsps2_mock_fee()
-
-
 def lsps2_mock_nodes(node_factory, client_opts=None):
     """Client l1, LSP l2 running the mock service, payer l3.
 
@@ -598,6 +589,7 @@ def test_lsps2_mock_jit_channel_var_invoice(node_factory):
     paid = only_one(l1.rpc.listinvoices("lsp-jit-channel-0")["invoices"])
     assert paid["status"] == "paid"
     assert paid["amount_received_msat"] == amt - fee_msat
+    check_oracles(l1, l2)
 
 
 def test_lsps2_mock_jit_channel_mpp_fixed_invoice(node_factory):
@@ -663,6 +655,7 @@ def test_lsps2_mock_jit_channel_mpp_fixed_invoice(node_factory):
     only_one(l1.rpc.listpeerchannels()["channels"])
     paid = only_one(l1.rpc.listinvoices("lsp-jit-channel-0")["invoices"])
     assert paid["status"] == "paid"
+    check_oracles(l1, l2)
 
 
 LIST_PROTOCOLS_RESULT = {"jsonrpc": "2.0", "result": {"protocols": [2]}, "id": "1"}
@@ -942,6 +935,7 @@ def test_lsps2_mock_expired_session(node_factory):
     fail = only_one(lsps2_mock_events(l2, "htlc"))
     assert fail["reason"] == "expired"
     assert lsps2_mock_events(l2, "open") == []
+    check_oracles(l1, l2)
 
 
 def test_lsps2_mock_expired_held_parts(node_factory):
