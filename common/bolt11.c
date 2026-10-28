@@ -147,8 +147,15 @@ static const char *unknown_field(struct bolt11 *b11,
 	return err;
 }
 
-/* If field isn't expected length (in *bech32*!), call unknown_field.
- * Otherwise copy into dst without padding, set have_flag if non-NULL. */
+/* Copy a field of `expected_length` 5-bit digits into dst.
+ * Otherwise fail: this is not an unknown field a reader may skip.
+ *
+ * BOLT #11:
+ *
+ * A reader...
+ * - MUST fail the payment if any field with fixed `data_length` (`p`, `h`, `s`, `n`)
+ *   does not have the correct length (52, 52, 52, 53).
+ */
 static const char *pull_expected_length(struct bolt11 *b11,
 					struct hash_u5 *hu5,
 					const u5 **data, size_t *field_len,
@@ -157,12 +164,21 @@ static const char *pull_expected_length(struct bolt11 *b11,
 					bool *have_flag,
 					void *dst)
 {
-	if (*field_len != expected_length)
-		return unknown_field(b11, hu5, data, field_len, type);
+	size_t got = *field_len;
+
+	if (got != expected_length) {
+		u8 *discard = tal_arr(tmpctx, u8, (got * 5 + 7) / 8);
+
+		/* Hash the digits.  Do not record the field. */
+		if (pull_bits(hu5, data, field_len, discard, got * 5, true))
+			return tal_fmt(b11, "%c: truncated", type);
+		return tal_fmt(b11, "%c: invalid length %zu (expected %zu)",
+			       type, got, expected_length);
+	}
 
 	if (have_flag)
 		*have_flag = true;
-	return pull_bits(hu5, data, field_len, dst, *field_len * 5, false);
+	return pull_bits(hu5, data, field_len, dst, got * 5, false);
 }
 
 /* BOLT #11:
@@ -180,14 +196,9 @@ static const char *decode_p(struct bolt11 *b11,
 	 *
 	 * A payer... SHOULD use the first `p` field as the payment hash.
 	 */
-	assert(!*have_p);
+	if (have_p)
+		assert(!*have_p);
 
-	/* BOLT #11:
-	 *
-	 * A reader...
-	 * - MUST fail the payment if any field with fixed `data_length` (`p`, `h`, `s`, `n`)
-	 *   does not have the correct length (52, 52, 52, 53).
-	 */
 	return pull_expected_length(b11, hu5, data, field_len, 52, 'p',
 				    have_p, &b11->payment_hash);
 }
@@ -235,17 +246,13 @@ static const char *decode_h(struct bolt11 *b11,
 	const char *err;
 	struct sha256 hash;
 
-	assert(!*have_h);
-	/* BOLT #11:
-	 *
-	 * A reader...
-	 * - MUST fail the payment if any field with fixed `data_length` (`p`, `h`, `s`, `n`)
-	 *   does not have the correct length (52, 52, 52, 53). */
+	if (have_h)
+		assert(!*have_h);
 	err = pull_expected_length(b11, hu5, data, field_len, 52, 'h',
 				    have_h, &hash);
 
 	/* If that gave us the hash, store it */
-	if (*have_h)
+	if (have_h && *have_h)
 		b11->description_hash = tal_dup(b11, struct sha256, &hash);
 	return err;
 }
@@ -320,17 +327,13 @@ static const char *decode_n(struct bolt11 *b11,
 {
 	const char *err;
 
-	assert(!*have_n);
-	/* BOLT #11:
-	 *
-	 * A reader...
-	 * - MUST fail the payment if any field with fixed `data_length` (`p`, `h`, `s`, `n`)
-	 *   does not have the correct length (52, 52, 52, 53). */
+	if (have_n)
+		assert(!*have_n);
 	err = pull_expected_length(b11, hu5, data, field_len, 53, 'n', have_n,
 				   &b11->receiver_id.k);
 
 	/* If that gave us a node ID, check it. */
-	if (*have_n) {
+	if (have_n && *have_n) {
 		struct pubkey k;
 		if (!pubkey_from_node_id(&k, &b11->receiver_id))
 			return tal_fmt(
@@ -355,16 +358,12 @@ static const char *decode_s(struct bolt11 *b11,
 	const char *err;
 	struct secret secret;
 
-	assert(!*have_s);
+	if (have_s)
+		assert(!*have_s);
 
-	/* BOLT #11:
-	 *
-	 * A reader...
-	 * - MUST fail the payment if any field with fixed `data_length` (`p`, `h`, `s`, `n`)
-	 *   does not have the correct length (52, 52, 52, 53). */
 	err = pull_expected_length(b11, hu5, data, field_len, 52, 's',
 				   have_s, &secret);
-	if (*have_s)
+	if (have_s && *have_s)
 		b11->payment_secret = tal_dup(b11, struct secret, &secret);
 	return err;
 }
@@ -889,6 +888,7 @@ struct bolt11 *bolt11_decode_nosig(const tal_t *ctx, const char *str,
 		u64 type, field_len64;
 		size_t field_len;
 		const struct decoder *decoder;
+		bool bad_fixed_len;
 
 		/* BOLT #11:
 		 *
@@ -921,12 +921,35 @@ struct bolt11 *bolt11_decode_nosig(const tal_t *ctx, const char *str,
 		data_len -= field_len;
 
 		decoder = find_decoder(bech32_charset[type]);
-		if (!decoder || (have_field[type] && !decoder->allow_duplicates)) {
+		/* BOLT #11:
+		 *
+		 * A reader...
+		 * - MUST fail the payment if any field with fixed `data_length` (`p`, `h`, `s`, `n`)
+		 *   does not have the correct length (52, 52, 52, 53).
+		 */
+		if (bech32_charset[type] == 'p'
+		    || bech32_charset[type] == 'h'
+		    || bech32_charset[type] == 's')
+			bad_fixed_len = field_len != 52;
+		else if (bech32_charset[type] == 'n')
+			bad_fixed_len = field_len != 53;
+		else
+			bad_fixed_len = false;
+
+		/* A duplicate of the right length is an unknown field.
+		 * A duplicate of the wrong length is still that field. */
+		if (decoder && have_field[type] && !decoder->allow_duplicates
+		    && bad_fixed_len) {
+			problem = decoder->decode(b11, our_features, &hu5,
+						  &data, &field_len, NULL);
+		} else if (!decoder
+			   || (have_field[type] && !decoder->allow_duplicates)) {
 			problem = unknown_field(b11, &hu5, &data, &field_len,
 						bech32_charset[type]);
 		} else {
 			problem = decoder->decode(b11, our_features, &hu5,
-						  &data, &field_len, &have_field[type]);
+						  &data, &field_len,
+						  &have_field[type]);
 		}
 		if (problem)
 			return decode_fail(b11, fail, "%s", problem);

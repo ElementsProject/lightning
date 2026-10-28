@@ -9,7 +9,9 @@
 #include "../hash_u5.c"
 #include "../wire/fromwire.c"
 #include "../wire/towire.c"
+#include <ccan/array_size/array_size.h>
 #include <ccan/err/err.h>
+#include <ccan/str/str.h>
 #include <common/randbytes.h>
 #include <common/setup.h>
 #include <stdio.h>
@@ -645,7 +647,10 @@ int main(int argc, char *argv[])
 	 * * `z599y53s3ujmcfjp5xrdap68qxymkqphwsexhmhr8wdz5usdzkzrse33chw6dlp3jhuhge9ley7j2ayx36kawe7kmgg8sv5ugdyusdcq`: signature
 	 * * `zn8z9x`: Bech32 checksum
 	 */
-	extra = tal_arr(b11, struct bolt11_field, 10);
+	/* The breakdown marks wrong-length p/h/s/n "(ignored)".  The reader
+	 * requirement says to fail those.  Unknown fields are still skipped;
+	 * the vector string is rejected below. */
+	extra = tal_arr(b11, struct bolt11_field, 2);
 	/* Unknown field */
 	extra[0].tag = '2';
 	extra[0].data = tal_arrz(extra, u8, 3);
@@ -655,40 +660,67 @@ int main(int argc, char *argv[])
 	extra[1].data = tal_arrz(extra, u8, 33);
 	list_add_tail(&b11->extra_fields, &extra[1].list);
 	extra[1].data[0] = 19;
-	/* p field too short & long */
-	extra[2].tag = 'p';
-	extra[2].data = tal_arrz(extra, u8, 51);
-	list_add_tail(&b11->extra_fields, &extra[2].list);
-	extra[3].tag = 'p';
-	extra[3].data = tal_arrz(extra, u8, 53);
-	list_add_tail(&b11->extra_fields, &extra[3].list);
-	/* h field too short & long */
-	extra[4].tag = 'h';
-	extra[4].data = tal_arrz(extra, u8, 51);
-	list_add_tail(&b11->extra_fields, &extra[4].list);
-	extra[5].tag = 'h';
-	extra[5].data = tal_arrz(extra, u8, 53);
-	list_add_tail(&b11->extra_fields, &extra[5].list);
-	/* s field too short & long */
-	extra[6].tag = 's';
-	extra[6].data = tal_arrz(extra, u8, 51);
-	list_add_tail(&b11->extra_fields, &extra[6].list);
-	extra[7].tag = 's';
-	extra[7].data = tal_arrz(extra, u8, 53);
-	list_add_tail(&b11->extra_fields, &extra[7].list);
-	/* n field too short & long */
-	extra[8].tag = 'n';
-	extra[8].data = tal_arrz(extra, u8, 52);
-	list_add_tail(&b11->extra_fields, &extra[8].list);
-	extra[9].tag = 'n';
-	extra[9].data = tal_arrz(extra, u8, 54);
-	list_add_tail(&b11->extra_fields, &extra[9].list);
 
 	dev_bolt11_old_order = true;
- 	dev_bolt11_omit_c_value = true;
-	test_b11("lnbc25m1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5vdhkven9v5sxyetpdeessp5zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygs9q5sqqqqqqqqqqqqqqqqsgq2qrqqqfppnqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqppnqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqpp4qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhpnqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhp4qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqspnqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqsp4qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqnp5qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqnpkqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqz599y53s3ujmcfjp5xrdap68qxymkqphwsexhmhr8wdz5usdzkzrse33chw6dlp3jhuhge9ley7j2ayx36kawe7kmgg8sv5ugdyusdcqzn8z9x", b11, NULL);
+	dev_bolt11_omit_c_value = true;
+	{
+		const char *skipped;
+
+		skipped = bolt11_encode(tmpctx, b11, false, test_sign, NULL);
+		test_b11(skipped, b11, NULL);
+	}
+
+	/* p/h/s of 51 and 53, n of 52 and 54: the lengths that vector skips. */
+	{
+		static const struct {
+			char tag;
+			size_t len;
+		} bad_lens[] = {
+			{ 'p', 51 }, { 'p', 53 },
+			{ 'h', 51 }, { 'h', 53 },
+			{ 's', 51 }, { 's', 53 },
+			{ 'n', 52 }, { 'n', 54 },
+		};
+
+		/* Without the unknown fields, so the only reason to reject
+		 * is the one wrong-length field. */
+		list_head_init(&b11->extra_fields);
+		for (size_t i = 0; i < ARRAY_SIZE(bad_lens); i++) {
+			struct bolt11_field *bad = tal(b11, struct bolt11_field);
+			const char *enc, *badfail;
+			size_t expect = bad_lens[i].tag == 'n' ? 53 : 52;
+
+			bad->tag = bad_lens[i].tag;
+			bad->data = tal_arrz(bad, u5, bad_lens[i].len);
+			list_add_tail(&b11->extra_fields, &bad->list);
+			enc = bolt11_encode(tmpctx, b11, false, test_sign, NULL);
+			assert(!bolt11_decode(tmpctx, enc, NULL, NULL,
+					      b11->chain, &badfail));
+			assert(streq(badfail,
+				     tal_fmt(tmpctx,
+					     "%c: invalid length %zu (expected %zu)",
+					     bad_lens[i].tag, bad_lens[i].len,
+					     expect)));
+			list_del(&bad->list);
+		}
+	}
+
+	assert(!bolt11_decode(tmpctx,
+			      "lnbc25m1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5vdhkven9v5sxyetpdeessp5zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygs9q5sqqqqqqqqqqqqqqqqsgq2qrqqqfppnqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqppnqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqpp4qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhpnqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhp4qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqspnqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqsp4qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqnp5qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqnpkqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqz599y53s3ujmcfjp5xrdap68qxymkqphwsexhmhr8wdz5usdzkzrse33chw6dlp3jhuhge9ley7j2ayx36kawe7kmgg8sv5ugdyusdcqzn8z9x",
+			      NULL, NULL, NULL, &fail));
+	assert(streq(fail, "p: invalid length 51 (expected 52)"));
+
+	/* Invalid-invoice vector from bolts 1914628, "Same, but with an n
+	 * field of invalid length". Not in the pinned BOLTVERSION yet, so
+	 * this is not a quote. data_length 52 rather than 53.
+	 */
+	assert(!bolt11_decode(tmpctx,
+			      "lnbc25m1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5vdhkven9v5sxyetpdeessp5zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygs9q5sqqqqqqqqqqqqqqqqsgqnp5qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqf9dt6rzhc3ynq3u7axf4xc3zaw3fy2kyqal6n86nh5j3lhgcutdjzhvswudd5l8ay9acgrrpd2e6vw9sdqxq6dzq983sgt7dpxk5wacqacdc2y",
+			      NULL, NULL, NULL, &fail));
+	assert(streq(fail, "n: invalid length 52 (expected 53)"));
+
 	dev_bolt11_old_order = false;
- 	dev_bolt11_omit_c_value = false;
+	dev_bolt11_omit_c_value = false;
 
 	/* BOLT #11:
 	 *
