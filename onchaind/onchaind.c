@@ -1864,7 +1864,8 @@ static int cmp_htlc_with_tells_cltv(const struct htlc_with_tells *a,
 	return 0;
 }
 
-static struct htlcs_info *init_reply(const tal_t *ctx, const char *what)
+static struct htlcs_info *init_reply(const tal_t *ctx, const char *what,
+				     bool our_commitment)
 {
 	struct htlcs_info *htlcs_info = tal(ctx, struct htlcs_info);
 	const u8 *msg;
@@ -1875,7 +1876,8 @@ static struct htlcs_info *init_reply(const tal_t *ctx, const char *what)
 
 	/* Send init_reply first, so billboard gets credited to ONCHAIND */
 	wire_sync_write(REQ_FD,
-			take(towire_onchaind_init_reply(NULL, commit_num)));
+			take(towire_onchaind_init_reply(NULL, commit_num,
+							our_commitment)));
 
 	peer_billboard(true, "%s", what);
 
@@ -1915,7 +1917,7 @@ static void handle_mutual_close(struct tracked_output **outs,
 				const struct tx_parts *tx)
 {
 	/* In this case, we don't care about htlcs: there are none. */
-	init_reply(tmpctx, "Tracking mutual close transaction");
+	init_reply(tmpctx, "Tracking mutual close transaction", false);
 
 	/* Annotate the first input as close. We can currently only have a
 	 * single input for these. */
@@ -2327,7 +2329,7 @@ static void handle_our_unilateral(const struct tx_parts *tx,
 	size_t i;
 	struct htlcs_info *htlcs_info;
 
-	htlcs_info = init_reply(tx, "Tracking our own unilateral close");
+	htlcs_info = init_reply(tx, "Tracking our own unilateral close", true);
 	onchain_annotate_txin(&tx->txid, 0, TX_CHANNEL_UNILATERAL);
 
 	/* BOLT #5:
@@ -2778,7 +2780,8 @@ static void handle_their_cheat(const struct tx_parts *tx,
 	struct htlcs_info *htlcs_info;
 
 	htlcs_info = init_reply(tx,
-				"Tracking their illegal close: taking all funds");
+				"Tracking their illegal close: taking all funds",
+				false);
 	onchain_annotate_txin(
 	    &tx->txid, 0, TX_CHANNEL_UNILATERAL | TX_CHANNEL_CHEAT | TX_THEIRS);
 
@@ -3112,7 +3115,7 @@ static void handle_their_unilateral(const struct tx_parts *tx,
 	size_t i;
 	struct htlcs_info *htlcs_info;
 
-	htlcs_info = init_reply(tx, "Tracking their unilateral close");
+	htlcs_info = init_reply(tx, "Tracking their unilateral close", false);
 	onchain_annotate_txin(&tx->txid, 0, TX_CHANNEL_UNILATERAL | TX_THEIRS);
 
 	/* HSM can't derive this. */
@@ -3524,12 +3527,14 @@ found:
 	if (to_us_output == -1) {
 		status_broken("FUNDS LOST.  Unknown commitment #%"PRIu64"!",
 			      commit_num);
-		htlcs_info = init_reply(tx, "ERROR: FUNDS LOST.  Unknown commitment!");
+		htlcs_info = init_reply(tx, "ERROR: FUNDS LOST.  Unknown commitment!",
+					false);
 	} else {
 		status_broken("ERROR: Unknown commitment #%"PRIu64
 			      ", recovering our funds!",
 			      commit_num);
-		htlcs_info = init_reply(tx, "ERROR: Unknown commitment, recovering our funds!");
+		htlcs_info = init_reply(tx, "ERROR: Unknown commitment, recovering our funds!",
+					false);
 	}
 
 	/* Tell master to give up on HTLCs immediately. */
