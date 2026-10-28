@@ -1238,8 +1238,10 @@ static struct command_result *json_channel_open_failed(struct command *cmd,
 	if (open)
 		unreserve_psbt(cmd, open);
 
-	/* Also clean up datastore for this channel */
-	return delete_channel_from_datastore(cmd, &cid);
+	/* Keep the channel's saved utxos: a failed RBF attempt also ends up
+	 * here, and the next RBF still builds on them.  They're removed when
+	 * the channel leaves AWAITING_LOCKIN (json_channel_state_changed). */
+	return notification_handled(cmd);
 }
 
 static void json_add_policy(struct json_stream *stream,
