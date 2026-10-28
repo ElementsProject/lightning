@@ -12,6 +12,7 @@
         default = pkgs.mkShell {
           inputsFrom = [ config.packages.default ];
           buildInputs = [
+            pkgs.openssl
             pkgs.stdenv.cc.cc.lib
             pkgs.uv
           ];
@@ -21,7 +22,10 @@
             export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib''${LD_LIBRARY_PATH:+:}$LD_LIBRARY_PATH"
           '';
         };
-        postgres = pkgs.mkShell { inputsFrom = [ config.packages.cln-postgres ]; };
+        postgres = pkgs.mkShell {
+          inputsFrom = [ config.packages.cln-postgres ];
+          buildInputs = [ pkgs.openssl ];
+        };
         rust = pkgs.craneLib.devShell {
           checks = {
             inherit (self.checks.${system}) rust;
