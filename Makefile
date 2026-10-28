@@ -24,7 +24,6 @@ endif
 CARGO := cargo
 DISTRO=$(shell lsb_release -is 2>/dev/null || echo unknown)-$(shell lsb_release -rs 2>/dev/null || echo unknown)
 OS=$(shell uname -s)
-ARCH=$(shell uname -m)
 # Changing this could break installs!
 PKGNAME = c-lightning
 
@@ -39,10 +38,17 @@ BOLTVERSION := $(DEFAULT_BOLTVERSION)
 
 -include config.vars
 
-# Use Homebrew LLVM toolchain for fuzzing support on macOS
+# Homebrew lives in /opt/homebrew on Apple Silicon and /usr/local on Intel.
+# Ask brew rather than guessing, and use nothing from it if it isn't found
+# (e.g. in a nix build), so we don't pick up stray headers and tools.
 ifeq ($(OS),Darwin)
-export PATH := /opt/homebrew/opt/llvm/bin:$(PATH)
-export DYLD_LIBRARY_PATH := /opt/homebrew/opt/llvm/lib:$(DYLD_LIBRARY_PATH)
+BREW_PREFIX := $(shell brew --prefix 2>/dev/null)
+endif
+
+# Use Homebrew LLVM toolchain for fuzzing support on macOS
+ifneq ($(BREW_PREFIX),)
+export PATH := $(BREW_PREFIX)/opt/llvm/bin:$(PATH)
+export DYLD_LIBRARY_PATH := $(BREW_PREFIX)/opt/llvm/lib:$(DYLD_LIBRARY_PATH)
 endif
 
 # Define EXTERNAL_LDLIBS for linking external libraries
@@ -261,15 +267,14 @@ man5dir = $(mandir)/man5
 man7dir = $(mandir)/man7
 man8dir = $(mandir)/man8
 
+# Extra directories to search for headers and libraries: Homebrew's on macOS
+# (if installed), /usr/local elsewhere (e.g. the BSDs don't search it by default).
 ifndef IN_NIX_SHELL
-# M1 macos machines with homebrew will install the native libraries in
-# /opt/homebrew instead of /usr/local, most likely because they
-# emulate x86_64 compatibility via Rosetta, and wanting to keep the
-# libraries separate. This however means we also need to switch out
-# the paths accordingly when we detect we're on an M1 macos machine.
-ifeq ("$(OS)-$(ARCH)", "Darwin-arm64")
-CPATH ?= /opt/homebrew/include
-LIBRARY_PATH ?= /opt/homebrew/lib
+ifeq ($(OS),Darwin)
+ifneq ($(BREW_PREFIX),)
+CPATH ?= $(BREW_PREFIX)/include
+LIBRARY_PATH ?= $(BREW_PREFIX)/lib
+endif
 else
 CPATH ?= /usr/local/include
 LIBRARY_PATH ?= /usr/local/lib
@@ -285,7 +290,7 @@ endif
 
 # Detect OpenSSL and SQLite paths dynamically using brew --prefix
 ifndef IN_NIX_SHELL
-ifeq ("$(OS)", "Darwin")
+ifneq ($(BREW_PREFIX),)
 OPENSSL_PREFIX := $(shell brew --prefix openssl@3 2>/dev/null || brew --prefix openssl 2>/dev/null || echo "")
 SQLITE_PREFIX := $(shell brew --prefix sqlite 2>/dev/null || echo "")
 ifneq ("$(OPENSSL_PREFIX)", "")

@@ -9,12 +9,17 @@ CONFIG_HEADER=ccan/config.h
 BASE_WARNFLAGS="-Wall -Wundef -Wmissing-prototypes -Wmissing-declarations -Wstrict-prototypes -Wold-style-definition"
 
 OS=$(uname -s)
-ARCH=$(uname -m)
 if [ -z "$IN_NIX_SHELL" ]; then
-    if [ "$OS-$ARCH" = "Darwin-arm64" ]; then
-	CPATH=${CPATH:-/opt/homebrew/include}
-	LIBRARY_PATH=${LIBRARY_PATH:-/opt/homebrew/lib}
-	export PKG_CONFIG_PATH=${PKG_CONFIG_PATH}:/opt/homebrew/opt/sqlite/lib/pkgconfig
+    if [ "$OS" = "Darwin" ]; then
+	# Homebrew lives in /opt/homebrew on Apple Silicon and /usr/local on
+	# Intel.  Ask brew, and use nothing from it if it isn't found (e.g. in
+	# a nix build), so we don't pick up stray headers.
+	BREW_PREFIX=$(brew --prefix 2>/dev/null || echo "")
+	if [ -n "$BREW_PREFIX" ]; then
+	    CPATH=${CPATH:-$BREW_PREFIX/include}
+	    LIBRARY_PATH=${LIBRARY_PATH:-$BREW_PREFIX/lib}
+	    export PKG_CONFIG_PATH=${PKG_CONFIG_PATH}:$BREW_PREFIX/opt/sqlite/lib/pkgconfig
+	fi
     else
 	CPATH=${CPATH:-/usr/local/include}
 	LIBRARY_PATH=${LIBRARY_PATH:-/usr/local/lib}
