@@ -144,7 +144,8 @@ static bool breakup(const char *str, size_t slen,
 	}
 
 	*suffix_ptr = str + i;
-	*suffix_len = slen - i;
+	for (; i < slen && str[i] != '\0'; i++)
+		(*suffix_len)++;
 	return true;
 }
 
@@ -207,13 +208,13 @@ bool parse_amount_msat(struct amount_msat *msat, const char *s, size_t slen)
 		     &suffix_ptr, &suffix_len))
 		return false;
 
-	if (!post_decimal_ptr && !suffix_ptr)
+	if (!post_decimal_ptr && (!suffix_ptr || suffix_len == 0))
 		return from_number(&msat->millisatoshis, s, whole_number_len, 0);
-	if (!post_decimal_ptr && memstarts_str(suffix_ptr, suffix_len, "msat"))
+	if (!post_decimal_ptr && memeqstr(suffix_ptr, suffix_len, "msat"))
 		return from_number(&msat->millisatoshis, s, whole_number_len, 0);
-	if (!post_decimal_ptr && memstarts_str(suffix_ptr, suffix_len, "sat"))
+	if (!post_decimal_ptr && memeqstr(suffix_ptr, suffix_len, "sat"))
 		return from_number(&msat->millisatoshis, s, whole_number_len, 3);
-	if (memstarts_str(suffix_ptr, suffix_len, "btc")) {
+	if (memeqstr(suffix_ptr, suffix_len, "btc")) {
 		if (post_decimal_len > 0)
 			return from_numbers(&msat->millisatoshis,
 					    s, whole_number_len, 11,
@@ -241,20 +242,21 @@ bool parse_amount_sat(struct amount_sat *sat, const char *s, size_t slen)
 		     &suffix_ptr, &suffix_len))
 		return false;
 
-	if (!post_decimal_ptr && !suffix_ptr)
+	if (!post_decimal_ptr && (!suffix_ptr || suffix_len == 0))
 		return from_number(&sat->satoshis, s, whole_number_len, 0);
-	if (!post_decimal_ptr && memstarts_str(suffix_ptr, suffix_len, "sat"))
+	if (!post_decimal_ptr && memeqstr(suffix_ptr, suffix_len, "sat"))
 		return from_number(&sat->satoshis, s, whole_number_len, 0);
-	if (!post_decimal_ptr && memstarts_str(suffix_ptr, suffix_len, "msat")) {
-		if (!memends(s, whole_number_len, "000", strlen("000"))) {
-			if (memstarts_str(s, whole_number_len, "0"))
-				return from_number(&sat->satoshis, s,
-						   whole_number_len, 0);
-			return false;
+	if (!post_decimal_ptr && memeqstr(suffix_ptr, suffix_len, "msat")) {
+		u64 val;
+		if (from_number(&val, s, whole_number_len, 0) && val == 0) {
+			sat->satoshis = 0;
+			return true;
 		}
+		if (!memends(s, whole_number_len, "000", strlen("000")))
+			return false;
 		return from_number(&sat->satoshis, s, whole_number_len - 3, 0);
 	}
-	if (memstarts_str(suffix_ptr, suffix_len, "btc")) {
+	if (memeqstr(suffix_ptr, suffix_len, "btc")) {
 		if (post_decimal_len > 0)
 			return from_numbers(&sat->satoshis,
 					    s, whole_number_len, 8,

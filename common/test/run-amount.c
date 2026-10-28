@@ -300,6 +300,10 @@ int main(int argc, char *argv[])
 	FAIL_MSAT(&msat, "1.000000000000btc");
 	FAIL_MSAT(&msat, "-1.23456789btc");
 	FAIL_MSAT(&msat, "-1.23456789012btc");
+	FAIL_MSAT(&msat, "100satoshis");
+	FAIL_MSAT(&msat, "100sats");
+	FAIL_MSAT(&msat, "100msats");
+	FAIL_MSAT(&msat, "100btcfoo");
 
 	/* Overflowingly big. */
 	FAIL_MSAT(&msat, "21000000000000000000000000.00000000btc");
@@ -330,6 +334,19 @@ int main(int argc, char *argv[])
 	FAIL_SAT(&sat, "100msat");
 	FAIL_SAT(&sat, "2000000000000000999msat");
 	FAIL_SAT(&sat, "-1000msat");
+	FAIL_SAT(&sat, "01msat");
+	FAIL_SAT(&sat, "0500msat");
+	FAIL_SAT(&sat, "0999msat");
+	FAIL_SAT(&sat, "001msat");
+	PASS_SAT(&sat, "000msat", 0);
+	PASS_SAT(&sat, "00msat", 0);
+	PASS_SAT(&sat, "05000msat", 5);
+	FAIL_SAT(&sat, "100satoshis");
+	FAIL_SAT(&sat, "100sats");
+	FAIL_SAT(&sat, "100msats");
+	FAIL_SAT(&sat, "100btcfoo");
+	assert(parse_amount_sat(&sat, "100sat\0", 7) && sat.satoshis == 100);
+	assert(parse_amount_msat(&msat, "100msat\0", 8) && msat.millisatoshis == 100);
 
 	PASS_SAT(&sat, "0.00000000btc", 0);
 	FAIL_SAT(&sat, "0.00000000000btc");
