@@ -1847,11 +1847,12 @@ struct htlcs_info {
 	struct htlc_stub *htlcs;
 	bool *tell_if_missing;
 	bool *tell_immediately;
+	bool *present;
 };
 
 struct htlc_with_tells {
 	struct htlc_stub htlc;
-	bool tell_if_missing, tell_immediately;
+	bool tell_if_missing, tell_immediately, present;
 };
 
 static int cmp_htlc_with_tells_cltv(const struct htlc_with_tells *a,
@@ -1886,7 +1887,8 @@ static struct htlcs_info *init_reply(const tal_t *ctx, const char *what,
 	if (!fromwire_onchaind_htlcs(htlcs_info, msg,
 				     &htlcs_info->htlcs,
 				     &htlcs_info->tell_if_missing,
-				     &htlcs_info->tell_immediately))
+				     &htlcs_info->tell_immediately,
+				     &htlcs_info->present))
 		master_badmsg(WIRE_ONCHAIND_HTLCS, msg);
 
 	/* One convenient structure, so we sort them together! */
@@ -1895,6 +1897,7 @@ static struct htlcs_info *init_reply(const tal_t *ctx, const char *what,
 		htlcs[i].htlc = htlcs_info->htlcs[i];
 		htlcs[i].tell_if_missing = htlcs_info->tell_if_missing[i];
 		htlcs[i].tell_immediately = htlcs_info->tell_immediately[i];
+		htlcs[i].present = htlcs_info->present[i];
 	}
 
 	/* Sort by CLTV, so matches are in CLTV order (and easy to skip dups) */
@@ -1904,10 +1907,12 @@ static struct htlcs_info *init_reply(const tal_t *ctx, const char *what,
 	htlcs_info->htlcs = tal_arr(htlcs_info, struct htlc_stub, tal_count(htlcs));
 	htlcs_info->tell_if_missing = tal_arr(htlcs_info, bool, tal_count(htlcs));
 	htlcs_info->tell_immediately = tal_arr(htlcs_info, bool, tal_count(htlcs));
+	htlcs_info->present = tal_arr(htlcs_info, bool, tal_count(htlcs));
 	for (size_t i = 0; i < tal_count(htlcs); i++) {
 		htlcs_info->htlcs[i] = htlcs[i].htlc;
 		htlcs_info->tell_if_missing[i] = htlcs[i].tell_if_missing;
 		htlcs_info->tell_immediately[i] = htlcs[i].tell_immediately;
+		htlcs_info->present[i] = htlcs[i].present;
 	}
 
 	return htlcs_info;

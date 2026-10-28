@@ -128,12 +128,94 @@ static bool tell_if_missing(const struct channel *channel,
 	return true;
 }
 
+/* Is this HTLC in the commitment tx which went onchain?
+ *
+ * The stubs cover a range of commitment numbers, so they include HTLCs
+ * removed just before this commitment: those can be indistinguishable
+ * onchain from a live HTLC with the same payment hash, amount and cltv.
+ * We know the exact state of every HTLC we still track, so we can tell
+ * onchaind which stubs are really in this tx (as best we know). */
+static bool htlc_in_commitment(const struct channel *channel,
+			       const struct htlc_stub *stub,
+			       u64 commit_num,
+			       bool our_commitment)
+{
+	enum htlc_state hstate;
+	int flags;
+	enum side side;
+	bool current;
+
+	if (stub->owner == LOCAL) {
+		const struct htlc_out *hout;
+		hout = find_htlc_out(channel->peer->ld->htlcs_out, channel,
+				     stub->id);
+		if (!hout)
+			return false;
+		hstate = hout->hstate;
+	} else {
+		const struct htlc_in *hin;
+		hin = find_htlc_in(channel->peer->ld->htlcs_in, channel,
+				   stub->id);
+		if (!hin)
+			return false;
+		hstate = hin->hstate;
+	}
+
+	/* The only commitment of ours we ever broadcast is the latest. */
+	if (our_commitment) {
+		side = LOCAL;
+		current = true;
+	} else {
+		u64 nrev;
+
+		side = REMOTE;
+		nrev = revocations_received(&channel->their_shachain.chain);
+		/* next_index[REMOTE] advances when we send commitment_signed,
+		 * so next_index - 2 is their previous commitment.  That one
+		 * is still unrevoked only while we're waiting for
+		 * revoke_and_ack (revocations_received == next_index - 2).
+		 * Once they have revoked it, onchaind takes the cheat path
+		 * and sweeps every output, so the present bit doesn't matter. */
+		if (commit_num + 1 == channel->next_index[REMOTE])
+			current = true;
+		else if (nrev + 2 == channel->next_index[REMOTE]
+			 && commit_num + 2 == channel->next_index[REMOTE])
+			current = false;
+		else
+			/* A revoked (or unknown) commitment: we take
+			 * everything anyway, so being here is good enough. */
+			return true;
+	}
+
+	flags = htlc_state_flags(hstate);
+
+	/* HTLC_F_COMMITTED/HTLC_F_REVOKED refer to the change in progress
+	 * (adding or removing), not to the HTLC itself. */
+	if (flags & HTLC_ADDING) {
+		if (current)
+			return flags & HTLC_FLAG(side, HTLC_F_COMMITTED);
+		/* In the previous commitment iff it was added before
+		 * that one, i.e. the add has been revoked in. */
+		return flags & HTLC_FLAG(side, HTLC_F_REVOKED);
+	}
+	if (flags & HTLC_REMOVING) {
+		if (current)
+			return flags & HTLC_FLAG(side, HTLC_F_COMMITTED);
+		/* In the previous commitment unless the removal has
+		 * already been revoked in. */
+		return !(flags & HTLC_FLAG(side, HTLC_F_REVOKED));
+	}
+
+	/* Fully added, not being removed: in every valid commitment. */
+	return true;
+}
+
 static void handle_onchain_init_reply(struct channel *channel, const u8 *msg)
 {
 	struct htlc_stub *stubs;
 	u64 commit_num;
 	bool our_commitment;
-	bool *tell, *tell_immediate;
+	bool *tell, *tell_immediate, *present;
 
 	if (!fromwire_onchaind_init_reply(msg, &commit_num, &our_commitment)) {
 		channel_internal_error(channel, "Invalid onchaind_init_reply %s",
@@ -154,12 +236,16 @@ static void handle_onchain_init_reply(struct channel *channel, const u8 *msg)
 				  commit_num);
 	tell = tal_arr(stubs, bool, tal_count(stubs));
 	tell_immediate = tal_arr(stubs, bool, tal_count(stubs));
+	present = tal_arr(stubs, bool, tal_count(stubs));
 
 	for (size_t i = 0; i < tal_count(stubs); i++) {
 		tell[i] = tell_if_missing(channel, &stubs[i],
 					  &tell_immediate[i]);
+		present[i] = htlc_in_commitment(channel, &stubs[i],
+						commit_num, our_commitment);
 	}
-	msg = towire_onchaind_htlcs(channel, stubs, tell, tell_immediate);
+	msg = towire_onchaind_htlcs(channel, stubs, tell, tell_immediate,
+				    present);
 	subd_send_msg(channel->owner, take(msg));
 
 	/* Tell it about any preimages we know. */

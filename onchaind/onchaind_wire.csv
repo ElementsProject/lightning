@@ -62,6 +62,9 @@ msgdata,onchaind_htlcs,htlc,htlc_stub,num_htlcs
 # If it's not in the commitment tx, tell us (immediately or htlc_missing_depth)
 msgdata,onchaind_htlcs,tell_if_missing,bool,num_htlcs
 msgdata,onchaind_htlcs,tell_immediately,bool,num_htlcs
+# Does lightningd believe this htlc is in this commitment tx?  Stubs cover
+# a range of commitments, so a removed htlc can look just like a live one.
+msgdata,onchaind_htlcs,present,bool,num_htlcs
 
 # master->onchaind: Notifier that an output has been spent by input_num of tx.
 msgtype,onchaind_spent,5004
