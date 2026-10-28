@@ -1358,6 +1358,7 @@ static bool check_sync(struct bitcoind *bitcoind,
 
 /* Loop to see if bitcoind is synced */
 static void retry_sync(struct chain_topology *topo);
+static void retry_sync_error(struct bitcoind *bitcoind, void *arg);
 static void retry_sync_getchaininfo_done(struct bitcoind *bitcoind, const char *chain,
 					 const u32 headercount, const u32 blockcount, const bool ibd,
 					 struct chain_topology *topo)
@@ -1374,11 +1375,26 @@ static void retry_sync_getchaininfo_done(struct bitcoind *bitcoind, const char *
 					      retry_sync, topo);
 }
 
+static void retry_sync_error(struct bitcoind *bitcoind, void *arg)
+{
+	struct chain_topology *topo = arg;
+
+	log_unusual(bitcoind->log,
+		    "Bitcoin backend unavailable, retrying sync check");
+	topo->checkchain_timer = new_reltimer(bitcoind->ld->timers, topo,
+					      /* Be 4x more aggressive in this case. */
+					      time_divide(time_from_sec(bitcoind->ld->topology
+									->poll_seconds), 4),
+					      retry_sync, topo);
+}
+
 static void retry_sync(struct chain_topology *topo)
 {
 	topo->checkchain_timer = NULL;
-	bitcoind_getchaininfo(topo->request_ctx, topo->bitcoind, get_block_height(topo),
-			      retry_sync_getchaininfo_done, topo);
+	bitcoind_getchaininfo_retryable(topo->request_ctx, topo->bitcoind,
+					get_block_height(topo),
+					retry_sync_getchaininfo_done,
+					retry_sync_error, topo);
 }
 
 struct chaininfo_once {
@@ -1431,6 +1447,7 @@ struct wait_for_height {
 
 /* Timer recursion */
 static void retry_height_reached(struct wait_for_height *wh);
+static void retry_height_error(struct bitcoind *bitcoind, void *arg);
 
 static void wait_until_height_reached(struct bitcoind *bitcoind, const char *chain,
 				      const u32 headercount, const u32 blockcount, const bool ibd,
@@ -1449,8 +1466,19 @@ static void wait_until_height_reached(struct bitcoind *bitcoind, const char *cha
 
 static void retry_height_reached(struct wait_for_height *wh)
 {
-	bitcoind_getchaininfo(wh, wh->bitcoind, wh->minheight,
-			      wait_until_height_reached, wh);
+	bitcoind_getchaininfo_retryable(wh, wh->bitcoind, wh->minheight,
+					wait_until_height_reached,
+					retry_height_error, wh);
+}
+
+static void retry_height_error(struct bitcoind *bitcoind, void *arg)
+{
+	struct wait_for_height *wh = arg;
+
+	log_unusual(bitcoind->log,
+		    "Bitcoin backend unavailable, retrying height wait");
+	new_reltimer(bitcoind->ld->timers, bitcoind, time_from_sec(5),
+		     retry_height_reached, wh);
 }
 
 /* Subtract, but floored at 0 */
