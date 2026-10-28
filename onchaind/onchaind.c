@@ -1862,6 +1862,13 @@ static int cmp_htlc_with_tells_cltv(const struct htlc_with_tells *a,
 		return -1;
 	else if (a->htlc.cltv_expiry > b->htlc.cltv_expiry)
 		return 1;
+
+	/* lightningd hands us every HTLC which might be in this commitment,
+	 * including ones removed just before it.  Such an HTLC can have the
+	 * same payment hash, amount and cltv as a live one, and so the same
+	 * output script: make sure the live one gets the output. */
+	if (a->present != b->present)
+		return a->present ? -1 : 1;
 	return 0;
 }
 
@@ -1900,7 +1907,8 @@ static struct htlcs_info *init_reply(const tal_t *ctx, const char *what,
 		htlcs[i].present = htlcs_info->present[i];
 	}
 
-	/* Sort by CLTV, so matches are in CLTV order (and easy to skip dups) */
+	/* Sort by CLTV, so matches are in CLTV order (and easy to skip dups),
+	 * with the ones which are really in this tx first. */
 	asort(htlcs, tal_count(htlcs), cmp_htlc_with_tells_cltv, NULL);
 
 	/* Now put them back (prev were allocated off tmpctx) */
