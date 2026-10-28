@@ -48,25 +48,32 @@ mod convert {
         }
     }
 
-    impl From<Outpoint> for JOutpoint {
-        fn from(a: Outpoint) -> Self {
-            JOutpoint {
-                txid: bitcoin::hashes::sha256::Hash::from_slice(&a.txid).unwrap(),
+    impl TryFrom<Outpoint> for JOutpoint {
+        type Error = tonic::Status;
+        fn try_from(a: Outpoint) -> Result<Self, Self::Error> {
+            Ok(JOutpoint {
+                txid: bitcoin::hashes::sha256::Hash::from_slice(&a.txid).map_err(|e| {
+                    tonic::Status::invalid_argument(format!("Invalid outpoint txid: {e}"))
+                })?,
                 outnum: a.outnum,
-            }
+            })
         }
     }
 
-    impl From<Feerate> for cln_rpc::primitives::Feerate {
-        fn from(f: Feerate) -> cln_rpc::primitives::Feerate {
+    impl TryFrom<Feerate> for cln_rpc::primitives::Feerate {
+        type Error = tonic::Status;
+        fn try_from(f: Feerate) -> Result<Self, Self::Error> {
             use feerate::Style;
-            match f.style.unwrap() {
+            let style = f
+                .style
+                .ok_or_else(|| tonic::Status::invalid_argument("Missing feerate style"))?;
+            Ok(match style {
                 Style::Slow(_) => JFeerate::Slow,
                 Style::Normal(_) => JFeerate::Normal,
                 Style::Urgent(_) => JFeerate::Urgent,
                 Style::Perkw(i) => JFeerate::PerKw(i),
                 Style::Perkb(i) => JFeerate::PerKb(i),
-            }
+            })
         }
     }
 
@@ -84,12 +91,16 @@ mod convert {
         }
     }
 
-    impl From<OutputDesc> for JOutputDesc {
-        fn from(od: OutputDesc) -> JOutputDesc {
-            JOutputDesc {
+    impl TryFrom<OutputDesc> for JOutputDesc {
+        type Error = tonic::Status;
+        fn try_from(od: OutputDesc) -> Result<Self, Self::Error> {
+            Ok(JOutputDesc {
                 address: od.address,
-                amount: od.amount.unwrap().into(),
-            }
+                amount: od
+                    .amount
+                    .ok_or_else(|| tonic::Status::invalid_argument("Missing output amount"))?
+                    .into(),
+            })
         }
     }
 
@@ -115,13 +126,18 @@ mod convert {
         }
     }
 
-    impl From<AmountOrAll> for JAmountOrAll {
-        fn from(a: AmountOrAll) -> Self {
-            match a.value {
+    impl TryFrom<AmountOrAll> for JAmountOrAll {
+        type Error = tonic::Status;
+        fn try_from(a: AmountOrAll) -> Result<Self, Self::Error> {
+            Ok(match a.value {
                 Some(amount_or_all::Value::Amount(a)) => JAmountOrAll::Amount(a.into()),
                 Some(amount_or_all::Value::All(_)) => JAmountOrAll::All,
-                None => panic!("AmountOrAll is neither amount nor all: {:?}", a),
-            }
+                None => {
+                    return Err(tonic::Status::invalid_argument(
+                        "AmountOrAll is neither amount nor all",
+                    ));
+                }
+            })
         }
     }
 
@@ -138,15 +154,20 @@ mod convert {
         }
     }
 
-    impl From<AmountSatOrAll> for JAmountSatOrAll {
-        fn from(a: AmountSatOrAll) -> Self {
-            match a.value {
+    impl TryFrom<AmountSatOrAll> for JAmountSatOrAll {
+        type Error = tonic::Status;
+        fn try_from(a: AmountSatOrAll) -> Result<Self, Self::Error> {
+            Ok(match a.value {
                 Some(amount_sat_or_all::Value::AmountSat(a)) => {
                     JAmountSatOrAll::AmountSat(a.into())
                 }
                 Some(amount_sat_or_all::Value::All(_)) => JAmountSatOrAll::All,
-                None => panic!("AmountSatOrAll is neither amount nor all: {:?}", a),
-            }
+                None => {
+                    return Err(tonic::Status::invalid_argument(
+                        "AmountSatOrAll is neither amount nor all",
+                    ));
+                }
+            })
         }
     }
 
@@ -162,40 +183,65 @@ mod convert {
             }
         }
     }
-    impl From<AmountOrAny> for JAmountOrAny {
-        fn from(a: AmountOrAny) -> Self {
-            match a.value {
+    impl TryFrom<AmountOrAny> for JAmountOrAny {
+        type Error = tonic::Status;
+        fn try_from(a: AmountOrAny) -> Result<Self, Self::Error> {
+            Ok(match a.value {
                 Some(amount_or_any::Value::Amount(a)) => JAmountOrAny::Amount(a.into()),
                 Some(amount_or_any::Value::Any(_)) => JAmountOrAny::Any,
-                None => panic!("AmountOrAny is neither amount nor any: {:?}", a),
-            }
+                None => {
+                    return Err(tonic::Status::invalid_argument(
+                        "AmountOrAny is neither amount nor any",
+                    ));
+                }
+            })
         }
     }
-    impl From<RouteHop> for cln_rpc::primitives::Routehop {
-        fn from(c: RouteHop) -> Self {
-            Self {
-                id: cln_rpc::primitives::PublicKey::from_slice(&c.id).unwrap(),
-                scid: cln_rpc::primitives::ShortChannelId::from_str(&c.scid).unwrap(),
-                feebase: c.feebase.unwrap().into(),
+    impl TryFrom<RouteHop> for cln_rpc::primitives::Routehop {
+        type Error = tonic::Status;
+        fn try_from(c: RouteHop) -> Result<Self, Self::Error> {
+            Ok(Self {
+                id: cln_rpc::primitives::PublicKey::from_slice(&c.id).map_err(|e| {
+                    tonic::Status::invalid_argument(format!("Invalid routehop id: {e}"))
+                })?,
+                scid: cln_rpc::primitives::ShortChannelId::from_str(&c.scid).map_err(|e| {
+                    tonic::Status::invalid_argument(format!("Invalid routehop scid: {e}"))
+                })?,
+                feebase: c
+                    .feebase
+                    .ok_or_else(|| tonic::Status::invalid_argument("Missing routehop feebase"))?
+                    .into(),
                 feeprop: c.feeprop,
-                expirydelta: c.expirydelta as u16,
-            }
+                expirydelta: u16::try_from(c.expirydelta).map_err(|e| {
+                    tonic::Status::invalid_argument(format!("expirydelta too large: {e}"))
+                })?,
+            })
         }
     }
 
-    impl From<Routehint> for cln_rpc::primitives::Routehint {
-        fn from(c: Routehint) -> Self {
-            Self {
-                hops: c.hops.into_iter().map(|h| h.into()).collect(),
-            }
+    impl TryFrom<Routehint> for cln_rpc::primitives::Routehint {
+        type Error = tonic::Status;
+        fn try_from(c: Routehint) -> Result<Self, Self::Error> {
+            Ok(Self {
+                hops: c
+                    .hops
+                    .into_iter()
+                    .map(std::convert::TryInto::try_into)
+                    .collect::<Result<Vec<_>, _>>()?,
+            })
         }
     }
 
-    impl From<RoutehintList> for cln_rpc::primitives::RoutehintList {
-        fn from(c: RoutehintList) -> Self {
-            Self {
-                hints: c.hints.into_iter().map(|h| h.into()).collect(),
-            }
+    impl TryFrom<RoutehintList> for cln_rpc::primitives::RoutehintList {
+        type Error = tonic::Status;
+        fn try_from(c: RoutehintList) -> Result<Self, Self::Error> {
+            Ok(Self {
+                hints: c
+                    .hints
+                    .into_iter()
+                    .map(std::convert::TryInto::try_into)
+                    .collect::<Result<Vec<_>, _>>()?,
+            })
         }
     }
 
@@ -205,7 +251,7 @@ mod convert {
                 id: c.id.serialize().to_vec(),
                 feebase: Some(c.feebase.into()),
                 feeprop: c.feeprop,
-                expirydelta: c.expirydelta as u32,
+                expirydelta: u32::from(c.expirydelta),
                 scid: c.scid.to_string(),
             }
         }
@@ -214,7 +260,7 @@ mod convert {
     impl From<cln_rpc::primitives::Routehint> for Routehint {
         fn from(c: cln_rpc::primitives::Routehint) -> Self {
             Self {
-                hops: c.hops.into_iter().map(|h| h.into()).collect(),
+                hops: c.hops.into_iter().map(std::convert::Into::into).collect(),
             }
         }
     }
@@ -222,39 +268,63 @@ mod convert {
     impl From<cln_rpc::primitives::RoutehintList> for RoutehintList {
         fn from(c: cln_rpc::primitives::RoutehintList) -> Self {
             Self {
-                hints: c.hints.into_iter().map(|e| e.into()).collect(),
+                hints: c.hints.into_iter().map(std::convert::Into::into).collect(),
             }
         }
     }
 
-    impl From<DecodeRouteHop> for cln_rpc::primitives::DecodeRoutehop {
-        fn from(c: DecodeRouteHop) -> Self {
-            Self {
-                pubkey: cln_rpc::primitives::PublicKey::from_slice(&c.pubkey).unwrap(),
+    impl TryFrom<DecodeRouteHop> for cln_rpc::primitives::DecodeRoutehop {
+        type Error = tonic::Status;
+        fn try_from(c: DecodeRouteHop) -> Result<Self, Self::Error> {
+            Ok(Self {
+                pubkey: cln_rpc::primitives::PublicKey::from_slice(&c.pubkey).map_err(|e| {
+                    tonic::Status::invalid_argument(format!("Invalid routehop pubkey: {e}"))
+                })?,
                 short_channel_id: cln_rpc::primitives::ShortChannelId::from_str(
                     &c.short_channel_id,
                 )
-                .unwrap(),
-                fee_base_msat: c.fee_base_msat.unwrap().into(),
+                .map_err(|e| {
+                    tonic::Status::invalid_argument(format!(
+                        "Invalid routehop short_channel_id: {e}"
+                    ))
+                })?,
+                fee_base_msat: c
+                    .fee_base_msat
+                    .ok_or_else(|| {
+                        tonic::Status::invalid_argument("Missing routehop fee_base_msat")
+                    })?
+                    .into(),
                 fee_proportional_millionths: c.fee_proportional_millionths,
-                cltv_expiry_delta: c.cltv_expiry_delta as u16,
-            }
+                cltv_expiry_delta: u16::try_from(c.cltv_expiry_delta).map_err(|e| {
+                    tonic::Status::invalid_argument(format!("cltv_expiry_delta too large: {e}"))
+                })?,
+            })
         }
     }
 
-    impl From<DecodeRoutehint> for cln_rpc::primitives::DecodeRoutehint {
-        fn from(c: DecodeRoutehint) -> Self {
-            Self {
-                hops: c.hops.into_iter().map(|h| h.into()).collect(),
-            }
+    impl TryFrom<DecodeRoutehint> for cln_rpc::primitives::DecodeRoutehint {
+        type Error = tonic::Status;
+        fn try_from(c: DecodeRoutehint) -> Result<Self, Self::Error> {
+            Ok(Self {
+                hops: c
+                    .hops
+                    .into_iter()
+                    .map(std::convert::TryInto::try_into)
+                    .collect::<Result<Vec<_>, _>>()?,
+            })
         }
     }
 
-    impl From<DecodeRoutehintList> for cln_rpc::primitives::DecodeRoutehintList {
-        fn from(c: DecodeRoutehintList) -> Self {
-            Self {
-                hints: c.hints.into_iter().map(|h| h.into()).collect(),
-            }
+    impl TryFrom<DecodeRoutehintList> for cln_rpc::primitives::DecodeRoutehintList {
+        type Error = tonic::Status;
+        fn try_from(c: DecodeRoutehintList) -> Result<Self, Self::Error> {
+            Ok(Self {
+                hints: c
+                    .hints
+                    .into_iter()
+                    .map(std::convert::TryInto::try_into)
+                    .collect::<Result<Vec<_>, _>>()?,
+            })
         }
     }
 
@@ -264,7 +334,7 @@ mod convert {
                 pubkey: c.pubkey.serialize().to_vec(),
                 fee_base_msat: Some(c.fee_base_msat.into()),
                 fee_proportional_millionths: c.fee_proportional_millionths,
-                cltv_expiry_delta: c.cltv_expiry_delta as u32,
+                cltv_expiry_delta: u32::from(c.cltv_expiry_delta),
                 short_channel_id: c.short_channel_id.to_string(),
             }
         }
@@ -273,7 +343,7 @@ mod convert {
     impl From<cln_rpc::primitives::DecodeRoutehint> for DecodeRoutehint {
         fn from(c: cln_rpc::primitives::DecodeRoutehint) -> Self {
             Self {
-                hops: c.hops.into_iter().map(|h| h.into()).collect(),
+                hops: c.hops.into_iter().map(std::convert::Into::into).collect(),
             }
         }
     }
@@ -281,7 +351,7 @@ mod convert {
     impl From<cln_rpc::primitives::DecodeRoutehintList> for DecodeRoutehintList {
         fn from(c: cln_rpc::primitives::DecodeRoutehintList) -> Self {
             Self {
-                hints: c.hints.into_iter().map(|e| e.into()).collect(),
+                hints: c.hints.into_iter().map(std::convert::Into::into).collect(),
             }
         }
     }
@@ -289,7 +359,11 @@ mod convert {
     impl From<TlvStream> for cln_rpc::primitives::TlvStream {
         fn from(s: TlvStream) -> Self {
             Self {
-                entries: s.entries.into_iter().map(|e| e.into()).collect(),
+                entries: s
+                    .entries
+                    .into_iter()
+                    .map(std::convert::Into::into)
+                    .collect(),
             }
         }
     }
@@ -306,7 +380,11 @@ mod convert {
     impl From<cln_rpc::primitives::TlvStream> for TlvStream {
         fn from(s: cln_rpc::primitives::TlvStream) -> Self {
             Self {
-                entries: s.entries.into_iter().map(|e| e.into()).collect(),
+                entries: s
+                    .entries
+                    .into_iter()
+                    .map(std::convert::Into::into)
+                    .collect(),
             }
         }
     }
@@ -333,7 +411,7 @@ mod convert {
                     } else if let Some(f) = n.as_f64() {
                         Some(json_value::Kind::DoubleValue(f))
                     } else {
-                        let error = format!("Failed to parse number: `{}`", n);
+                        let error = format!("Failed to parse number: `{n}`");
                         println!(
                             "{}",
                             serde_json::json!({"jsonrpc": "2.0",
@@ -389,7 +467,7 @@ mod convert {
                 Some(json_value::Kind::DoubleValue(f)) => match serde_json::Number::from_f64(f) {
                     Some(num) => serde_json::Value::Number(num),
                     None => {
-                        let error = format!("Failed to parse number: `{}`", f);
+                        let error = format!("Failed to parse number: `{f}`");
                         println!(
                             "{}",
                             serde_json::json!({"jsonrpc": "2.0",
@@ -446,7 +524,7 @@ mod convert {
                     match serde_json::Number::from_f64(d) {
                         Some(num) => JJsonScalar::Number(num),
                         None => {
-                            let error = format!("Failed to parse number: `{}`", d);
+                            let error = format!("Failed to parse number: `{d}`");
                             println!(
                                 "{}",
                                 serde_json::json!({"jsonrpc": "2.0",
@@ -473,21 +551,15 @@ mod convert {
         }
     }
 
-    impl From<ProofField> for JProofField {
-        fn from(v: ProofField) -> Self {
+    impl TryFrom<ProofField> for JProofField {
+        type Error = tonic::Status;
+        fn try_from(v: ProofField) -> Result<Self, Self::Error> {
             match v.ident {
-                Some(proof_field::Ident::Name(n)) => JProofField::Name(n),
-                Some(proof_field::Ident::Number(n)) => JProofField::Number(n),
-                None => {
-                    let error = format!("Failed to parse proof field");
-                    println!(
-                        "{}",
-                        serde_json::json!({"jsonrpc": "2.0",
-                          "method": "log",
-                          "params": {"level":"warn", "message": error}})
-                    );
-                    std::process::exit(1);
-                }
+                Some(proof_field::Ident::Name(n)) => Ok(JProofField::Name(n)),
+                Some(proof_field::Ident::Number(n)) => Ok(JProofField::Number(n)),
+                None => Err(tonic::Status::invalid_argument(
+                    "ProofField ident is neither name nor number",
+                )),
             }
         }
     }

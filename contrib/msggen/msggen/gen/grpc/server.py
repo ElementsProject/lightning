@@ -133,7 +133,7 @@ class GrpcServerGenerator(IGenerator):
                 request: tonic::Request<pb::{pbname_request}>,
             ) -> Result<tonic::Response<pb::{pbname_response}>, tonic::Status> {{
                 let req = request.into_inner();{depri}
-                let req: requests::{method.request.typename} = req.into();
+                let req: requests::{method.request.typename} = req.try_into()?;
                 debug!("Client asked for {name}");
                 trace!("{name} request: {{:?}}", req);
                 let mut rpc = ClnRpc::new(&self.rpc_path)

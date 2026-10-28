@@ -7624,53 +7624,67 @@ impl From<notifications::requests::StreamPayPartStartRequest> for pb::StreamPayP
 }
 
 
+
+fn invalid_argument(field: &str, err: impl std::fmt::Display) -> tonic::Status {
+    tonic::Status::invalid_argument(format!("Invalid value for field `{}`: {}", field, err))
+}
+
+fn missing_field(field: &str) -> tonic::Status {
+    tonic::Status::invalid_argument(format!("Missing required field `{}`", field))
+}
+
 #[allow(unused_variables)]
-impl From<pb::GetinfoRequest> for requests::GetinfoRequest {
-    fn from(c: pb::GetinfoRequest) -> Self {
-        Self {
-        }
+impl TryFrom<pb::GetinfoRequest> for requests::GetinfoRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::GetinfoRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::ListpeersRequest> for requests::ListpeersRequest {
-    fn from(c: pb::ListpeersRequest) -> Self {
-        Self {
-            id: c.id.map(|v| PublicKey::from_slice(&v).unwrap()), // Rule #1 for type pubkey?
-            level: c.level.map(|v| v.try_into().unwrap()),
-        }
+impl TryFrom<pb::ListpeersRequest> for requests::ListpeersRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::ListpeersRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+            id: c.id.map(|v| PublicKey::from_slice(&v).map_err(|e| invalid_argument("id", e))).transpose()?, // Rule #1 for type pubkey?
+            level: c.level.map(|v| v.try_into().map_err(|e| invalid_argument("level", e))).transpose()?,
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::ListfundsRequest> for requests::ListfundsRequest {
-    fn from(c: pb::ListfundsRequest) -> Self {
-        Self {
+impl TryFrom<pb::ListfundsRequest> for requests::ListfundsRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::ListfundsRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             spent: c.spent, // Rule #1 for type boolean?
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::SendpayRoute> for requests::SendpayRoute {
-    fn from(c: pb::SendpayRoute) -> Self {
-        Self {
+impl TryFrom<pb::SendpayRoute> for requests::SendpayRoute {
+    type Error = tonic::Status;
+    fn try_from(c: pb::SendpayRoute) -> Result<Self, Self::Error> {
+        Ok(Self {
             amount_msat: c.amount_msat.map(|a| a.into()), // Rule #1 for type msat?
             amount_out_msat: c.amount_out_msat.map(|a| a.into()), // Rule #1 for type msat?
-            channel: c.channel.map(|v| cln_rpc::primitives::ShortChannelId::from_str(&v).unwrap()), // Rule #1 for type short_channel_id?
+            channel: c.channel.map(|v| cln_rpc::primitives::ShortChannelId::from_str(&v).map_err(|e| invalid_argument("channel", e))).transpose()?, // Rule #1 for type short_channel_id?
             cltv_out: c.cltv_out, // Rule #1 for type u32?
             delay: c.delay, // Rule #1 for type u32?
-            id: c.id.map(|v| PublicKey::from_slice(&v).unwrap()), // Rule #1 for type pubkey?
-            node_id_out: c.node_id_out.map(|v| PublicKey::from_slice(&v).unwrap()), // Rule #1 for type pubkey?
-            short_channel_id_dir: c.short_channel_id_dir.map(|v| cln_rpc::primitives::ShortChannelIdDir::from_str(&v).unwrap()), // Rule #1 for type short_channel_id_dir?
-        }
+            id: c.id.map(|v| PublicKey::from_slice(&v).map_err(|e| invalid_argument("id", e))).transpose()?, // Rule #1 for type pubkey?
+            node_id_out: c.node_id_out.map(|v| PublicKey::from_slice(&v).map_err(|e| invalid_argument("node_id_out", e))).transpose()?, // Rule #1 for type pubkey?
+            short_channel_id_dir: c.short_channel_id_dir.map(|v| cln_rpc::primitives::ShortChannelIdDir::from_str(&v).map_err(|e| invalid_argument("short_channel_id_dir", e))).transpose()?, // Rule #1 for type short_channel_id_dir?
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::SendpayRequest> for requests::SendpayRequest {
-    fn from(c: pb::SendpayRequest) -> Self {
-        Self {
+impl TryFrom<pb::SendpayRequest> for requests::SendpayRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::SendpayRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             amount_msat: c.amount_msat.map(|a| a.into()), // Rule #1 for type msat?
             bolt11: c.bolt11, // Rule #1 for type string?
             description: c.description, // Rule #1 for type string?
@@ -7678,376 +7692,409 @@ impl From<pb::SendpayRequest> for requests::SendpayRequest {
             label: c.label, // Rule #1 for type string?
             localinvreqid: c.localinvreqid.map(|v| hex::encode(v)), // Rule #1 for type hex?
             partid: c.partid, // Rule #1 for type u64?
-            payment_hash: Sha256::from_slice(&c.payment_hash).unwrap(), // Rule #1 for type hash
+            payment_hash: Sha256::from_slice(&c.payment_hash).map_err(|e| invalid_argument("payment_hash", e))?, // Rule #1 for type hash
             payment_metadata: c.payment_metadata.map(|v| hex::encode(v)), // Rule #1 for type hex?
-            payment_secret: c.payment_secret.map(|v| v.try_into().unwrap()), // Rule #1 for type secret?
-            route: c.route.into_iter().map(|s| s.into()).collect(), // Rule #4
-        }
+            payment_secret: c.payment_secret.map(|v| v.try_into().map_err(|e| invalid_argument("payment_secret", e))).transpose()?, // Rule #1 for type secret?
+            route: c.route.into_iter().map(|s| s.try_into()).collect::<Result<Vec<_>, tonic::Status>>()?, // Rule #4
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::ListchannelsRequest> for requests::ListchannelsRequest {
-    fn from(c: pb::ListchannelsRequest) -> Self {
-        Self {
-            destination: c.destination.map(|v| PublicKey::from_slice(&v).unwrap()), // Rule #1 for type pubkey?
-            short_channel_id: c.short_channel_id.map(|v| cln_rpc::primitives::ShortChannelId::from_str(&v).unwrap()), // Rule #1 for type short_channel_id?
-            source: c.source.map(|v| PublicKey::from_slice(&v).unwrap()), // Rule #1 for type pubkey?
-        }
+impl TryFrom<pb::ListchannelsRequest> for requests::ListchannelsRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::ListchannelsRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+            destination: c.destination.map(|v| PublicKey::from_slice(&v).map_err(|e| invalid_argument("destination", e))).transpose()?, // Rule #1 for type pubkey?
+            short_channel_id: c.short_channel_id.map(|v| cln_rpc::primitives::ShortChannelId::from_str(&v).map_err(|e| invalid_argument("short_channel_id", e))).transpose()?, // Rule #1 for type short_channel_id?
+            source: c.source.map(|v| PublicKey::from_slice(&v).map_err(|e| invalid_argument("source", e))).transpose()?, // Rule #1 for type pubkey?
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::AddgossipRequest> for requests::AddgossipRequest {
-    fn from(c: pb::AddgossipRequest) -> Self {
-        Self {
+impl TryFrom<pb::AddgossipRequest> for requests::AddgossipRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::AddgossipRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             message: hex::encode(&c.message), // Rule #1 for type hex
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::AddpsbtoutputRequest> for requests::AddpsbtoutputRequest {
-    fn from(c: pb::AddpsbtoutputRequest) -> Self {
-        Self {
+impl TryFrom<pb::AddpsbtoutputRequest> for requests::AddpsbtoutputRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::AddpsbtoutputRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             destination: c.destination, // Rule #1 for type string?
             initialpsbt: c.initialpsbt, // Rule #1 for type string?
             locktime: c.locktime, // Rule #1 for type u32?
-            satoshi: c.satoshi.unwrap().into(), // Rule #1 for type sat
-        }
+            satoshi: c.satoshi.ok_or_else(|| missing_field("satoshi"))?.into(), // Rule #1 for type sat
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::AutocleanonceRequest> for requests::AutocleanonceRequest {
-    fn from(c: pb::AutocleanonceRequest) -> Self {
-        Self {
+impl TryFrom<pb::AutocleanonceRequest> for requests::AutocleanonceRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::AutocleanonceRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             age: c.age, // Rule #1 for type u64
-            subsystem: c.subsystem.try_into().unwrap(),
-        }
+            subsystem: c.subsystem.try_into().map_err(|e| invalid_argument("subsystem", e))?,
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::AutocleanstatusRequest> for requests::AutocleanstatusRequest {
-    fn from(c: pb::AutocleanstatusRequest) -> Self {
-        Self {
-            subsystem: c.subsystem.map(|v| v.try_into().unwrap()),
-        }
+impl TryFrom<pb::AutocleanstatusRequest> for requests::AutocleanstatusRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::AutocleanstatusRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+            subsystem: c.subsystem.map(|v| v.try_into().map_err(|e| invalid_argument("subsystem", e))).transpose()?,
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::CheckmessageRequest> for requests::CheckmessageRequest {
-    fn from(c: pb::CheckmessageRequest) -> Self {
-        Self {
+impl TryFrom<pb::CheckmessageRequest> for requests::CheckmessageRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::CheckmessageRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             message: c.message, // Rule #1 for type string
-            pubkey: c.pubkey.map(|v| PublicKey::from_slice(&v).unwrap()), // Rule #1 for type pubkey?
+            pubkey: c.pubkey.map(|v| PublicKey::from_slice(&v).map_err(|e| invalid_argument("pubkey", e))).transpose()?, // Rule #1 for type pubkey?
             zbase: c.zbase, // Rule #1 for type string
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::CloseRequest> for requests::CloseRequest {
-    fn from(c: pb::CloseRequest) -> Self {
-        Self {
+impl TryFrom<pb::CloseRequest> for requests::CloseRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::CloseRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             destination: c.destination, // Rule #1 for type string?
             fee_negotiation_step: c.fee_negotiation_step, // Rule #1 for type string?
-            feerange: Some(c.feerange.into_iter().map(|s| s.into()).collect()), // Rule #4
+            feerange: Some(c.feerange.into_iter().map(|s| s.try_into().map_err(|e| invalid_argument("feerange", e))).collect::<Result<Vec<_>, tonic::Status>>()?), // Rule #4
             force_lease_closed: c.force_lease_closed, // Rule #1 for type boolean?
             id: c.id, // Rule #1 for type string
             unilateraltimeout: c.unilateraltimeout, // Rule #1 for type u32?
-            wrong_funding: c.wrong_funding.map(|a| a.into()), // Rule #1 for type outpoint?
-        }
+            wrong_funding: c.wrong_funding.map(|a| a.try_into().map_err(|e| invalid_argument("wrong_funding", e))).transpose()?, // Rule #1 for type outpoint?
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::ConnectRequest> for requests::ConnectRequest {
-    fn from(c: pb::ConnectRequest) -> Self {
-        Self {
+impl TryFrom<pb::ConnectRequest> for requests::ConnectRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::ConnectRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             host: c.host, // Rule #1 for type string?
             id: c.id, // Rule #1 for type string
-            port: c.port.map(|v| v as u16), // Rule #1 for type u16?
-        }
+            port: c.port.map(|v| u16::try_from(v).map_err(|e| invalid_argument("port", e))).transpose()?, // Rule #1 for type u16?
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::CreateinvoiceRequest> for requests::CreateinvoiceRequest {
-    fn from(c: pb::CreateinvoiceRequest) -> Self {
-        Self {
+impl TryFrom<pb::CreateinvoiceRequest> for requests::CreateinvoiceRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::CreateinvoiceRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             invstring: c.invstring, // Rule #1 for type string
             label: c.label, // Rule #1 for type string
             preimage: hex::encode(&c.preimage), // Rule #1 for type hex
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::DatastoreRequest> for requests::DatastoreRequest {
-    fn from(c: pb::DatastoreRequest) -> Self {
-        Self {
+impl TryFrom<pb::DatastoreRequest> for requests::DatastoreRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::DatastoreRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             generation: c.generation, // Rule #1 for type u64?
             hex: c.hex.map(|v| hex::encode(v)), // Rule #1 for type hex?
             key: c.key.into_iter().map(|s| s.into()).collect(), // Rule #4
-            mode: c.mode.map(|v| v.try_into().unwrap()),
+            mode: c.mode.map(|v| v.try_into().map_err(|e| invalid_argument("mode", e))).transpose()?,
             string: c.string, // Rule #1 for type string?
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::DatastoreusageRequest> for requests::DatastoreusageRequest {
-    fn from(c: pb::DatastoreusageRequest) -> Self {
-        Self {
+impl TryFrom<pb::DatastoreusageRequest> for requests::DatastoreusageRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::DatastoreusageRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             key: Some(c.key.into_iter().map(|s| s.into()).collect()), // Rule #4
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::CreateonionHops> for requests::CreateonionHops {
-    fn from(c: pb::CreateonionHops) -> Self {
-        Self {
+impl TryFrom<pb::CreateonionHops> for requests::CreateonionHops {
+    type Error = tonic::Status;
+    fn try_from(c: pb::CreateonionHops) -> Result<Self, Self::Error> {
+        Ok(Self {
             payload: hex::encode(&c.payload), // Rule #1 for type hex
-            pubkey: PublicKey::from_slice(&c.pubkey).unwrap(), // Rule #1 for type pubkey
-        }
+            pubkey: PublicKey::from_slice(&c.pubkey).map_err(|e| invalid_argument("pubkey", e))?, // Rule #1 for type pubkey
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::CreateonionRequest> for requests::CreateonionRequest {
-    fn from(c: pb::CreateonionRequest) -> Self {
-        Self {
+impl TryFrom<pb::CreateonionRequest> for requests::CreateonionRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::CreateonionRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             assocdata: hex::encode(&c.assocdata), // Rule #1 for type hex
-            hops: c.hops.into_iter().map(|s| s.into()).collect(), // Rule #4
-            onion_size: c.onion_size.map(|v| v as u16), // Rule #1 for type u16?
-            session_key: c.session_key.map(|v| v.try_into().unwrap()), // Rule #1 for type secret?
-        }
+            hops: c.hops.into_iter().map(|s| s.try_into()).collect::<Result<Vec<_>, tonic::Status>>()?, // Rule #4
+            onion_size: c.onion_size.map(|v| u16::try_from(v).map_err(|e| invalid_argument("onion_size", e))).transpose()?, // Rule #1 for type u16?
+            session_key: c.session_key.map(|v| v.try_into().map_err(|e| invalid_argument("session_key", e))).transpose()?, // Rule #1 for type secret?
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::DeldatastoreRequest> for requests::DeldatastoreRequest {
-    fn from(c: pb::DeldatastoreRequest) -> Self {
-        Self {
+impl TryFrom<pb::DeldatastoreRequest> for requests::DeldatastoreRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::DeldatastoreRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             generation: c.generation, // Rule #1 for type u64?
             key: c.key.into_iter().map(|s| s.into()).collect(), // Rule #4
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::DelinvoiceRequest> for requests::DelinvoiceRequest {
-    fn from(c: pb::DelinvoiceRequest) -> Self {
-        Self {
+impl TryFrom<pb::DelinvoiceRequest> for requests::DelinvoiceRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::DelinvoiceRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             desconly: c.desconly, // Rule #1 for type boolean?
             label: c.label, // Rule #1 for type string
-            status: c.status.try_into().unwrap(),
-        }
+            status: c.status.try_into().map_err(|e| invalid_argument("status", e))?,
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::DevforgetchannelRequest> for requests::DevforgetchannelRequest {
-    fn from(c: pb::DevforgetchannelRequest) -> Self {
-        Self {
-            channel_id: c.channel_id.map(|v| Sha256::from_slice(&v).unwrap()), // Rule #1 for type hash?
+impl TryFrom<pb::DevforgetchannelRequest> for requests::DevforgetchannelRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::DevforgetchannelRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+            channel_id: c.channel_id.map(|v| Sha256::from_slice(&v).map_err(|e| invalid_argument("channel_id", e))).transpose()?, // Rule #1 for type hash?
             force: c.force, // Rule #1 for type boolean?
-            id: PublicKey::from_slice(&c.id).unwrap(), // Rule #1 for type pubkey
-            short_channel_id: c.short_channel_id.map(|v| cln_rpc::primitives::ShortChannelId::from_str(&v).unwrap()), // Rule #1 for type short_channel_id?
-        }
+            id: PublicKey::from_slice(&c.id).map_err(|e| invalid_argument("id", e))?, // Rule #1 for type pubkey
+            short_channel_id: c.short_channel_id.map(|v| cln_rpc::primitives::ShortChannelId::from_str(&v).map_err(|e| invalid_argument("short_channel_id", e))).transpose()?, // Rule #1 for type short_channel_id?
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::EmergencyrecoverRequest> for requests::EmergencyrecoverRequest {
-    fn from(c: pb::EmergencyrecoverRequest) -> Self {
-        Self {
-        }
+impl TryFrom<pb::EmergencyrecoverRequest> for requests::EmergencyrecoverRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::EmergencyrecoverRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::GetemergencyrecoverdataRequest> for requests::GetemergencyrecoverdataRequest {
-    fn from(c: pb::GetemergencyrecoverdataRequest) -> Self {
-        Self {
-        }
+impl TryFrom<pb::GetemergencyrecoverdataRequest> for requests::GetemergencyrecoverdataRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::GetemergencyrecoverdataRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::ExposesecretRequest> for requests::ExposesecretRequest {
-    fn from(c: pb::ExposesecretRequest) -> Self {
-        Self {
+impl TryFrom<pb::ExposesecretRequest> for requests::ExposesecretRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::ExposesecretRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             identifier: c.identifier, // Rule #1 for type string?
             passphrase: c.passphrase, // Rule #1 for type string
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::RecoverRequest> for requests::RecoverRequest {
-    fn from(c: pb::RecoverRequest) -> Self {
-        Self {
+impl TryFrom<pb::RecoverRequest> for requests::RecoverRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::RecoverRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             hsmsecret: c.hsmsecret, // Rule #1 for type string
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::RecoverchannelRequest> for requests::RecoverchannelRequest {
-    fn from(c: pb::RecoverchannelRequest) -> Self {
-        Self {
+impl TryFrom<pb::RecoverchannelRequest> for requests::RecoverchannelRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::RecoverchannelRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             scb: c.scb.into_iter().map(|s| hex::encode(s)).collect(), // Rule #4
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::InvoiceRequest> for requests::InvoiceRequest {
-    fn from(c: pb::InvoiceRequest) -> Self {
-        Self {
-            amount_msat: c.amount_msat.unwrap().into(), // Rule #1 for type msat_or_any
+impl TryFrom<pb::InvoiceRequest> for requests::InvoiceRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::InvoiceRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+            amount_msat: c.amount_msat.ok_or_else(|| missing_field("amount_msat"))?.try_into().map_err(|e| invalid_argument("amount_msat", e))?, // Rule #1 for type msat_or_any
             cltv: c.cltv, // Rule #1 for type u32?
             deschashonly: c.deschashonly, // Rule #1 for type boolean?
             description: c.description, // Rule #1 for type string
             expiry: c.expiry, // Rule #1 for type u64?
-            exposeprivatechannels: Some(c.exposeprivatechannels.into_iter().map(|s| cln_rpc::primitives::ShortChannelId::from_str(&s).unwrap()).collect()), // Rule #4
+            exposeprivatechannels: Some(c.exposeprivatechannels.into_iter().map(|s| cln_rpc::primitives::ShortChannelId::from_str(&s).map_err(|e| invalid_argument("exposeprivatechannels", e))).collect::<Result<Vec<_>, tonic::Status>>()?), // Rule #4
             fallbacks: Some(c.fallbacks.into_iter().map(|s| s.into()).collect()), // Rule #4
             label: c.label, // Rule #1 for type string
             preimage: c.preimage.map(|v| hex::encode(v)), // Rule #1 for type hex?
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::InvoicerequestRequest> for requests::InvoicerequestRequest {
-    fn from(c: pb::InvoicerequestRequest) -> Self {
-        Self {
+impl TryFrom<pb::InvoicerequestRequest> for requests::InvoicerequestRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::InvoicerequestRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             absolute_expiry: c.absolute_expiry, // Rule #1 for type u64?
-            amount: c.amount.unwrap().into(), // Rule #1 for type msat
+            amount: c.amount.ok_or_else(|| missing_field("amount"))?.into(), // Rule #1 for type msat
             description: c.description, // Rule #1 for type string?
             issuer: c.issuer, // Rule #1 for type string?
             label: c.label, // Rule #1 for type string?
             single_use: c.single_use, // Rule #1 for type boolean?
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::DisableinvoicerequestRequest> for requests::DisableinvoicerequestRequest {
-    fn from(c: pb::DisableinvoicerequestRequest) -> Self {
-        Self {
+impl TryFrom<pb::DisableinvoicerequestRequest> for requests::DisableinvoicerequestRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::DisableinvoicerequestRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             invreq_id: c.invreq_id, // Rule #1 for type string
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::ListinvoicerequestsRequest> for requests::ListinvoicerequestsRequest {
-    fn from(c: pb::ListinvoicerequestsRequest) -> Self {
-        Self {
+impl TryFrom<pb::ListinvoicerequestsRequest> for requests::ListinvoicerequestsRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::ListinvoicerequestsRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             active_only: c.active_only, // Rule #1 for type boolean?
             invreq_id: c.invreq_id, // Rule #1 for type string?
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::ListdatastoreRequest> for requests::ListdatastoreRequest {
-    fn from(c: pb::ListdatastoreRequest) -> Self {
-        Self {
+impl TryFrom<pb::ListdatastoreRequest> for requests::ListdatastoreRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::ListdatastoreRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             key: Some(c.key.into_iter().map(|s| s.into()).collect()), // Rule #4
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::ListinvoicesRequest> for requests::ListinvoicesRequest {
-    fn from(c: pb::ListinvoicesRequest) -> Self {
-        Self {
-            index: c.index.map(|v| v.try_into().unwrap()),
+impl TryFrom<pb::ListinvoicesRequest> for requests::ListinvoicesRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::ListinvoicesRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+            index: c.index.map(|v| v.try_into().map_err(|e| invalid_argument("index", e))).transpose()?,
             invstring: c.invstring, // Rule #1 for type string?
             label: c.label, // Rule #1 for type string?
             limit: c.limit, // Rule #1 for type u32?
             offer_id: c.offer_id, // Rule #1 for type string?
             payment_hash: c.payment_hash.map(|v| hex::encode(v)), // Rule #1 for type hex?
             start: c.start, // Rule #1 for type u64?
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::SendonionFirstHop> for requests::SendonionFirstHop {
-    fn from(c: pb::SendonionFirstHop) -> Self {
-        Self {
-            amount_msat: c.amount_msat.unwrap().into(), // Rule #1 for type msat
-            delay: c.delay as u16, // Rule #1 for type u16
-            id: PublicKey::from_slice(&c.id).unwrap(), // Rule #1 for type pubkey
-        }
+impl TryFrom<pb::SendonionFirstHop> for requests::SendonionFirstHop {
+    type Error = tonic::Status;
+    fn try_from(c: pb::SendonionFirstHop) -> Result<Self, Self::Error> {
+        Ok(Self {
+            amount_msat: c.amount_msat.ok_or_else(|| missing_field("amount_msat"))?.into(), // Rule #1 for type msat
+            delay: u16::try_from(c.delay).map_err(|e| invalid_argument("delay", e))?, // Rule #1 for type u16
+            id: PublicKey::from_slice(&c.id).map_err(|e| invalid_argument("id", e))?, // Rule #1 for type pubkey
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::SendonionRequest> for requests::SendonionRequest {
-    fn from(c: pb::SendonionRequest) -> Self {
-        Self {
+impl TryFrom<pb::SendonionRequest> for requests::SendonionRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::SendonionRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             amount_msat: c.amount_msat.map(|a| a.into()), // Rule #1 for type msat?
             bolt11: c.bolt11, // Rule #1 for type string?
             description: c.description, // Rule #1 for type string?
-            destination: c.destination.map(|v| PublicKey::from_slice(&v).unwrap()), // Rule #1 for type pubkey?
-            first_hop: c.first_hop.unwrap().into(),
+            destination: c.destination.map(|v| PublicKey::from_slice(&v).map_err(|e| invalid_argument("destination", e))).transpose()?, // Rule #1 for type pubkey?
+            first_hop: c.first_hop.ok_or_else(|| missing_field("first_hop"))?.try_into()?,
             groupid: c.groupid, // Rule #1 for type u64?
             label: c.label, // Rule #1 for type string?
-            localinvreqid: c.localinvreqid.map(|v| Sha256::from_slice(&v).unwrap()), // Rule #1 for type hash?
+            localinvreqid: c.localinvreqid.map(|v| Sha256::from_slice(&v).map_err(|e| invalid_argument("localinvreqid", e))).transpose()?, // Rule #1 for type hash?
             onion: hex::encode(&c.onion), // Rule #1 for type hex
-            partid: c.partid.map(|v| v as u16), // Rule #1 for type u16?
-            payment_hash: Sha256::from_slice(&c.payment_hash).unwrap(), // Rule #1 for type hash
-            shared_secrets: Some(c.shared_secrets.into_iter().map(|s| s.try_into().unwrap()).collect()), // Rule #4
+            partid: c.partid.map(|v| u16::try_from(v).map_err(|e| invalid_argument("partid", e))).transpose()?, // Rule #1 for type u16?
+            payment_hash: Sha256::from_slice(&c.payment_hash).map_err(|e| invalid_argument("payment_hash", e))?, // Rule #1 for type hash
+            shared_secrets: Some(c.shared_secrets.into_iter().map(|s| cln_rpc::primitives::Secret::try_from(s).map_err(|e| invalid_argument("shared_secrets", e))).collect::<Result<Vec<_>, tonic::Status>>()?), // Rule #4
             total_amount_msat: c.total_amount_msat.map(|a| a.into()), // Rule #1 for type msat?
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::ListsendpaysRequest> for requests::ListsendpaysRequest {
-    fn from(c: pb::ListsendpaysRequest) -> Self {
-        Self {
+impl TryFrom<pb::ListsendpaysRequest> for requests::ListsendpaysRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::ListsendpaysRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             bolt11: c.bolt11, // Rule #1 for type string?
-            index: c.index.map(|v| v.try_into().unwrap()),
+            index: c.index.map(|v| v.try_into().map_err(|e| invalid_argument("index", e))).transpose()?,
             limit: c.limit, // Rule #1 for type u32?
-            payment_hash: c.payment_hash.map(|v| Sha256::from_slice(&v).unwrap()), // Rule #1 for type hash?
+            payment_hash: c.payment_hash.map(|v| Sha256::from_slice(&v).map_err(|e| invalid_argument("payment_hash", e))).transpose()?, // Rule #1 for type hash?
             start: c.start, // Rule #1 for type u64?
-            status: c.status.map(|v| v.try_into().unwrap()),
-        }
+            status: c.status.map(|v| v.try_into().map_err(|e| invalid_argument("status", e))).transpose()?,
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::ListtransactionsRequest> for requests::ListtransactionsRequest {
-    fn from(c: pb::ListtransactionsRequest) -> Self {
-        Self {
-        }
+impl TryFrom<pb::ListtransactionsRequest> for requests::ListtransactionsRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::ListtransactionsRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::MakesecretRequest> for requests::MakesecretRequest {
-    fn from(c: pb::MakesecretRequest) -> Self {
-        Self {
+impl TryFrom<pb::MakesecretRequest> for requests::MakesecretRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::MakesecretRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             hex: c.hex.map(|v| hex::encode(v)), // Rule #1 for type hex?
             string: c.string, // Rule #1 for type string?
-        }
+        })
     }
 }
 
 #[allow(unused_variables,deprecated)]
-impl From<pb::PayRequest> for requests::PayRequest {
-    fn from(c: pb::PayRequest) -> Self {
-        Self {
+impl TryFrom<pb::PayRequest> for requests::PayRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::PayRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             amount_msat: c.amount_msat.map(|a| a.into()), // Rule #1 for type msat?
             bolt11: c.bolt11, // Rule #1 for type string
             description: c.description, // Rule #1 for type string?
@@ -8055,84 +8102,91 @@ impl From<pb::PayRequest> for requests::PayRequest {
             exemptfee: c.exemptfee.map(|a| a.into()), // Rule #1 for type msat?
             label: c.label, // Rule #1 for type string?
             localinvreqid: c.localinvreqid.map(|v| hex::encode(v)), // Rule #1 for type hex?
-            maxdelay: c.maxdelay.map(|v| v as u16), // Rule #1 for type u16?
+            maxdelay: c.maxdelay.map(|v| u16::try_from(v).map_err(|e| invalid_argument("maxdelay", e))).transpose()?, // Rule #1 for type u16?
             maxfee: c.maxfee.map(|a| a.into()), // Rule #1 for type msat?
             maxfeepercent: c.maxfeepercent, // Rule #1 for type number?
             partial_msat: c.partial_msat.map(|a| a.into()), // Rule #1 for type msat?
-            retry_for: c.retry_for.map(|v| v as u16), // Rule #1 for type u16?
+            retry_for: c.retry_for.map(|v| u16::try_from(v).map_err(|e| invalid_argument("retry_for", e))).transpose()?, // Rule #1 for type u16?
             riskfactor: c.riskfactor, // Rule #1 for type number?
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::ListnodesRequest> for requests::ListnodesRequest {
-    fn from(c: pb::ListnodesRequest) -> Self {
-        Self {
-            id: c.id.map(|v| PublicKey::from_slice(&v).unwrap()), // Rule #1 for type pubkey?
-        }
+impl TryFrom<pb::ListnodesRequest> for requests::ListnodesRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::ListnodesRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+            id: c.id.map(|v| PublicKey::from_slice(&v).map_err(|e| invalid_argument("id", e))).transpose()?, // Rule #1 for type pubkey?
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::WaitanyinvoiceRequest> for requests::WaitanyinvoiceRequest {
-    fn from(c: pb::WaitanyinvoiceRequest) -> Self {
-        Self {
+impl TryFrom<pb::WaitanyinvoiceRequest> for requests::WaitanyinvoiceRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::WaitanyinvoiceRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             lastpay_index: c.lastpay_index, // Rule #1 for type u64?
             timeout: c.timeout, // Rule #1 for type u64?
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::WaitinvoiceRequest> for requests::WaitinvoiceRequest {
-    fn from(c: pb::WaitinvoiceRequest) -> Self {
-        Self {
+impl TryFrom<pb::WaitinvoiceRequest> for requests::WaitinvoiceRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::WaitinvoiceRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             label: c.label, // Rule #1 for type string
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::WaitsendpayRequest> for requests::WaitsendpayRequest {
-    fn from(c: pb::WaitsendpayRequest) -> Self {
-        Self {
+impl TryFrom<pb::WaitsendpayRequest> for requests::WaitsendpayRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::WaitsendpayRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             groupid: c.groupid, // Rule #1 for type u64?
             partid: c.partid, // Rule #1 for type u64?
-            payment_hash: Sha256::from_slice(&c.payment_hash).unwrap(), // Rule #1 for type hash
+            payment_hash: Sha256::from_slice(&c.payment_hash).map_err(|e| invalid_argument("payment_hash", e))?, // Rule #1 for type hash
             timeout: c.timeout, // Rule #1 for type u32?
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::NewaddrRequest> for requests::NewaddrRequest {
-    fn from(c: pb::NewaddrRequest) -> Self {
-        Self {
-            addresstype: c.addresstype.map(|v| v.try_into().unwrap()),
-        }
+impl TryFrom<pb::NewaddrRequest> for requests::NewaddrRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::NewaddrRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+            addresstype: c.addresstype.map(|v| v.try_into().map_err(|e| invalid_argument("addresstype", e))).transpose()?,
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::WithdrawRequest> for requests::WithdrawRequest {
-    fn from(c: pb::WithdrawRequest) -> Self {
-        Self {
+impl TryFrom<pb::WithdrawRequest> for requests::WithdrawRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::WithdrawRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             destination: c.destination, // Rule #1 for type string
-            feerate: c.feerate.map(|a| a.into()), // Rule #1 for type feerate?
-            minconf: c.minconf.map(|v| v as u16), // Rule #1 for type u16?
-            satoshi: c.satoshi.unwrap().into(), // Rule #1 for type sat_or_all
-            utxos: Some(c.utxos.into_iter().map(|s| s.into()).collect()), // Rule #4
-        }
+            feerate: c.feerate.map(|a| a.try_into().map_err(|e| invalid_argument("feerate", e))).transpose()?, // Rule #1 for type feerate?
+            minconf: c.minconf.map(|v| u16::try_from(v).map_err(|e| invalid_argument("minconf", e))).transpose()?, // Rule #1 for type u16?
+            satoshi: c.satoshi.ok_or_else(|| missing_field("satoshi"))?.try_into().map_err(|e| invalid_argument("satoshi", e))?, // Rule #1 for type sat_or_all
+            utxos: Some(c.utxos.into_iter().map(|s| s.try_into().map_err(|e| invalid_argument("utxos", e))).collect::<Result<Vec<_>, tonic::Status>>()?), // Rule #4
+        })
     }
 }
 
 #[allow(unused_variables,deprecated)]
-impl From<pb::KeysendRequest> for requests::KeysendRequest {
-    fn from(c: pb::KeysendRequest) -> Self {
-        Self {
-            amount_msat: c.amount_msat.unwrap().into(), // Rule #1 for type msat
-            destination: PublicKey::from_slice(&c.destination).unwrap(), // Rule #1 for type pubkey
+impl TryFrom<pb::KeysendRequest> for requests::KeysendRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::KeysendRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+            amount_msat: c.amount_msat.ok_or_else(|| missing_field("amount_msat"))?.into(), // Rule #1 for type msat
+            destination: PublicKey::from_slice(&c.destination).map_err(|e| invalid_argument("destination", e))?, // Rule #1 for type pubkey
             exemptfee: c.exemptfee.map(|a| a.into()), // Rule #1 for type msat?
             extratlvs: c.extratlvs.map(|s| s.into()), // Rule #1 for type TlvStream?
             label: c.label, // Rule #1 for type string?
@@ -8140,199 +8194,217 @@ impl From<pb::KeysendRequest> for requests::KeysendRequest {
             maxfee: c.maxfee.map(|a| a.into()), // Rule #1 for type msat?
             maxfeepercent: c.maxfeepercent, // Rule #1 for type number?
             retry_for: c.retry_for, // Rule #1 for type u32?
-            routehints: c.routehints.map(|rl| rl.into()), // Rule #1 for type RoutehintList?
-        }
+            routehints: c.routehints.map(|rl| rl.try_into().map_err(|e| invalid_argument("routehints", e))).transpose()?, // Rule #1 for type RoutehintList?
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::FundpsbtRequest> for requests::FundpsbtRequest {
-    fn from(c: pb::FundpsbtRequest) -> Self {
-        Self {
+impl TryFrom<pb::FundpsbtRequest> for requests::FundpsbtRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::FundpsbtRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             excess_as_change: c.excess_as_change, // Rule #1 for type boolean?
-            feerate: c.feerate.unwrap().into(), // Rule #1 for type feerate
+            feerate: c.feerate.ok_or_else(|| missing_field("feerate"))?.try_into().map_err(|e| invalid_argument("feerate", e))?, // Rule #1 for type feerate
             locktime: c.locktime, // Rule #1 for type u32?
             min_witness_weight: c.min_witness_weight, // Rule #1 for type u32?
             minconf: c.minconf, // Rule #1 for type u32?
             nonwrapped: c.nonwrapped, // Rule #1 for type boolean?
             opening_anchor_channel: c.opening_anchor_channel, // Rule #1 for type boolean?
             reserve: c.reserve, // Rule #1 for type u32?
-            satoshi: c.satoshi.unwrap().into(), // Rule #1 for type sat_or_all
+            satoshi: c.satoshi.ok_or_else(|| missing_field("satoshi"))?.try_into().map_err(|e| invalid_argument("satoshi", e))?, // Rule #1 for type sat_or_all
             startweight: c.startweight, // Rule #1 for type u32
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::SendpsbtRequest> for requests::SendpsbtRequest {
-    fn from(c: pb::SendpsbtRequest) -> Self {
-        Self {
+impl TryFrom<pb::SendpsbtRequest> for requests::SendpsbtRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::SendpsbtRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             psbt: c.psbt, // Rule #1 for type string
             reserve: c.reserve, // Rule #1 for type u32?
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::SignpsbtRequest> for requests::SignpsbtRequest {
-    fn from(c: pb::SignpsbtRequest) -> Self {
-        Self {
+impl TryFrom<pb::SignpsbtRequest> for requests::SignpsbtRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::SignpsbtRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             psbt: c.psbt, // Rule #1 for type string
             signonly: Some(c.signonly.into_iter().map(|s| s).collect()), // Rule #4
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::UtxopsbtRequest> for requests::UtxopsbtRequest {
-    fn from(c: pb::UtxopsbtRequest) -> Self {
-        Self {
+impl TryFrom<pb::UtxopsbtRequest> for requests::UtxopsbtRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::UtxopsbtRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             excess_as_change: c.excess_as_change, // Rule #1 for type boolean?
-            feerate: c.feerate.unwrap().into(), // Rule #1 for type feerate
+            feerate: c.feerate.ok_or_else(|| missing_field("feerate"))?.try_into().map_err(|e| invalid_argument("feerate", e))?, // Rule #1 for type feerate
             locktime: c.locktime, // Rule #1 for type u32?
             min_witness_weight: c.min_witness_weight, // Rule #1 for type u32?
             opening_anchor_channel: c.opening_anchor_channel, // Rule #1 for type boolean?
             reserve: c.reserve, // Rule #1 for type u32?
             reservedok: c.reservedok, // Rule #1 for type boolean?
-            satoshi: c.satoshi.unwrap().into(), // Rule #1 for type sat_or_all
+            satoshi: c.satoshi.ok_or_else(|| missing_field("satoshi"))?.try_into().map_err(|e| invalid_argument("satoshi", e))?, // Rule #1 for type sat_or_all
             startweight: c.startweight, // Rule #1 for type u32
-            utxos: c.utxos.into_iter().map(|s| s.into()).collect(), // Rule #4
-        }
+            utxos: c.utxos.into_iter().map(|s| s.try_into().map_err(|e| invalid_argument("utxos", e))).collect::<Result<Vec<_>, tonic::Status>>()?, // Rule #4
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::TxdiscardRequest> for requests::TxdiscardRequest {
-    fn from(c: pb::TxdiscardRequest) -> Self {
-        Self {
+impl TryFrom<pb::TxdiscardRequest> for requests::TxdiscardRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::TxdiscardRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             txid: hex::encode(&c.txid), // Rule #1 for type txid
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::TxprepareRequest> for requests::TxprepareRequest {
-    fn from(c: pb::TxprepareRequest) -> Self {
-        Self {
-            feerate: c.feerate.map(|a| a.into()), // Rule #1 for type feerate?
+impl TryFrom<pb::TxprepareRequest> for requests::TxprepareRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::TxprepareRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+            feerate: c.feerate.map(|a| a.try_into().map_err(|e| invalid_argument("feerate", e))).transpose()?, // Rule #1 for type feerate?
             minconf: c.minconf, // Rule #1 for type u32?
-            outputs: c.outputs.into_iter().map(|s| s.into()).collect(), // Rule #4
-            utxos: Some(c.utxos.into_iter().map(|s| s.into()).collect()), // Rule #4
-        }
+            outputs: c.outputs.into_iter().map(|s| s.try_into().map_err(|e| invalid_argument("outputs", e))).collect::<Result<Vec<_>, tonic::Status>>()?, // Rule #4
+            utxos: Some(c.utxos.into_iter().map(|s| s.try_into().map_err(|e| invalid_argument("utxos", e))).collect::<Result<Vec<_>, tonic::Status>>()?), // Rule #4
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::TxsendRequest> for requests::TxsendRequest {
-    fn from(c: pb::TxsendRequest) -> Self {
-        Self {
+impl TryFrom<pb::TxsendRequest> for requests::TxsendRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::TxsendRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             txid: hex::encode(&c.txid), // Rule #1 for type txid
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::ListpeerchannelsRequest> for requests::ListpeerchannelsRequest {
-    fn from(c: pb::ListpeerchannelsRequest) -> Self {
-        Self {
-            channel_id: c.channel_id.map(|v| Sha256::from_slice(&v).unwrap()), // Rule #1 for type hash?
-            id: c.id.map(|v| PublicKey::from_slice(&v).unwrap()), // Rule #1 for type pubkey?
-            short_channel_id: c.short_channel_id.map(|v| cln_rpc::primitives::ShortChannelId::from_str(&v).unwrap()), // Rule #1 for type short_channel_id?
-        }
+impl TryFrom<pb::ListpeerchannelsRequest> for requests::ListpeerchannelsRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::ListpeerchannelsRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+            channel_id: c.channel_id.map(|v| Sha256::from_slice(&v).map_err(|e| invalid_argument("channel_id", e))).transpose()?, // Rule #1 for type hash?
+            id: c.id.map(|v| PublicKey::from_slice(&v).map_err(|e| invalid_argument("id", e))).transpose()?, // Rule #1 for type pubkey?
+            short_channel_id: c.short_channel_id.map(|v| cln_rpc::primitives::ShortChannelId::from_str(&v).map_err(|e| invalid_argument("short_channel_id", e))).transpose()?, // Rule #1 for type short_channel_id?
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::ListclosedchannelsRequest> for requests::ListclosedchannelsRequest {
-    fn from(c: pb::ListclosedchannelsRequest) -> Self {
-        Self {
-            id: c.id.map(|v| PublicKey::from_slice(&v).unwrap()), // Rule #1 for type pubkey?
-        }
+impl TryFrom<pb::ListclosedchannelsRequest> for requests::ListclosedchannelsRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::ListclosedchannelsRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+            id: c.id.map(|v| PublicKey::from_slice(&v).map_err(|e| invalid_argument("id", e))).transpose()?, // Rule #1 for type pubkey?
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::DecodeRequest> for requests::DecodeRequest {
-    fn from(c: pb::DecodeRequest) -> Self {
-        Self {
+impl TryFrom<pb::DecodeRequest> for requests::DecodeRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::DecodeRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             string: c.string, // Rule #1 for type string
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::DelpayRequest> for requests::DelpayRequest {
-    fn from(c: pb::DelpayRequest) -> Self {
-        Self {
+impl TryFrom<pb::DelpayRequest> for requests::DelpayRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::DelpayRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             groupid: c.groupid, // Rule #1 for type u64?
             partid: c.partid, // Rule #1 for type u64?
-            payment_hash: Sha256::from_slice(&c.payment_hash).unwrap(), // Rule #1 for type hash
-            status: c.status.try_into().unwrap(),
-        }
+            payment_hash: Sha256::from_slice(&c.payment_hash).map_err(|e| invalid_argument("payment_hash", e))?, // Rule #1 for type hash
+            status: c.status.try_into().map_err(|e| invalid_argument("status", e))?,
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::DelforwardRequest> for requests::DelforwardRequest {
-    fn from(c: pb::DelforwardRequest) -> Self {
-        Self {
-            in_channel: cln_rpc::primitives::ShortChannelId::from_str(&c.in_channel).unwrap(), // Rule #1 for type short_channel_id
+impl TryFrom<pb::DelforwardRequest> for requests::DelforwardRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::DelforwardRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+            in_channel: cln_rpc::primitives::ShortChannelId::from_str(&c.in_channel).map_err(|e| invalid_argument("in_channel", e))?, // Rule #1 for type short_channel_id
             in_htlc_id: c.in_htlc_id, // Rule #1 for type u64
-            status: c.status.try_into().unwrap(),
-        }
+            status: c.status.try_into().map_err(|e| invalid_argument("status", e))?,
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::DisableofferRequest> for requests::DisableofferRequest {
-    fn from(c: pb::DisableofferRequest) -> Self {
-        Self {
-            offer_id: Sha256::from_slice(&c.offer_id).unwrap(), // Rule #1 for type hash
-        }
+impl TryFrom<pb::DisableofferRequest> for requests::DisableofferRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::DisableofferRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+            offer_id: Sha256::from_slice(&c.offer_id).map_err(|e| invalid_argument("offer_id", e))?, // Rule #1 for type hash
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::EnableofferRequest> for requests::EnableofferRequest {
-    fn from(c: pb::EnableofferRequest) -> Self {
-        Self {
-            offer_id: Sha256::from_slice(&c.offer_id).unwrap(), // Rule #1 for type hash
-        }
+impl TryFrom<pb::EnableofferRequest> for requests::EnableofferRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::EnableofferRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+            offer_id: Sha256::from_slice(&c.offer_id).map_err(|e| invalid_argument("offer_id", e))?, // Rule #1 for type hash
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::DisconnectRequest> for requests::DisconnectRequest {
-    fn from(c: pb::DisconnectRequest) -> Self {
-        Self {
+impl TryFrom<pb::DisconnectRequest> for requests::DisconnectRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::DisconnectRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             force: c.force, // Rule #1 for type boolean?
-            id: PublicKey::from_slice(&c.id).unwrap(), // Rule #1 for type pubkey
-        }
+            id: PublicKey::from_slice(&c.id).map_err(|e| invalid_argument("id", e))?, // Rule #1 for type pubkey
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::FeeratesRequest> for requests::FeeratesRequest {
-    fn from(c: pb::FeeratesRequest) -> Self {
-        Self {
-            style: c.style.try_into().unwrap(),
-        }
+impl TryFrom<pb::FeeratesRequest> for requests::FeeratesRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::FeeratesRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+            style: c.style.try_into().map_err(|e| invalid_argument("style", e))?,
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::Fetchbip353Request> for requests::Fetchbip353Request {
-    fn from(c: pb::Fetchbip353Request) -> Self {
-        Self {
+impl TryFrom<pb::Fetchbip353Request> for requests::Fetchbip353Request {
+    type Error = tonic::Status;
+    fn try_from(c: pb::Fetchbip353Request) -> Result<Self, Self::Error> {
+        Ok(Self {
             address: c.address, // Rule #1 for type string
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::FetchinvoiceRequest> for requests::FetchinvoiceRequest {
-    fn from(c: pb::FetchinvoiceRequest) -> Self {
-        Self {
+impl TryFrom<pb::FetchinvoiceRequest> for requests::FetchinvoiceRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::FetchinvoiceRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             amount_msat: c.amount_msat.map(|a| a.into()), // Rule #1 for type msat?
             bip353: c.bip353, // Rule #1 for type string?
             offer: c.offer, // Rule #1 for type string
@@ -8343,95 +8415,102 @@ impl From<pb::FetchinvoiceRequest> for requests::FetchinvoiceRequest {
             recurrence_label: c.recurrence_label, // Rule #1 for type string?
             recurrence_start: c.recurrence_start, // Rule #1 for type number?
             timeout: c.timeout, // Rule #1 for type number?
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::CancelrecurringinvoiceRequest> for requests::CancelrecurringinvoiceRequest {
-    fn from(c: pb::CancelrecurringinvoiceRequest) -> Self {
-        Self {
+impl TryFrom<pb::CancelrecurringinvoiceRequest> for requests::CancelrecurringinvoiceRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::CancelrecurringinvoiceRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             bip353: c.bip353, // Rule #1 for type string?
             offer: c.offer, // Rule #1 for type string
             payer_note: c.payer_note, // Rule #1 for type string?
             recurrence_counter: c.recurrence_counter, // Rule #1 for type u64
             recurrence_label: c.recurrence_label, // Rule #1 for type string
             recurrence_start: c.recurrence_start, // Rule #1 for type number?
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::FundchannelCancelRequest> for requests::FundchannelCancelRequest {
-    fn from(c: pb::FundchannelCancelRequest) -> Self {
-        Self {
-            id: PublicKey::from_slice(&c.id).unwrap(), // Rule #1 for type pubkey
-        }
+impl TryFrom<pb::FundchannelCancelRequest> for requests::FundchannelCancelRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::FundchannelCancelRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+            id: PublicKey::from_slice(&c.id).map_err(|e| invalid_argument("id", e))?, // Rule #1 for type pubkey
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::FundchannelCompleteRequest> for requests::FundchannelCompleteRequest {
-    fn from(c: pb::FundchannelCompleteRequest) -> Self {
-        Self {
-            id: PublicKey::from_slice(&c.id).unwrap(), // Rule #1 for type pubkey
+impl TryFrom<pb::FundchannelCompleteRequest> for requests::FundchannelCompleteRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::FundchannelCompleteRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+            id: PublicKey::from_slice(&c.id).map_err(|e| invalid_argument("id", e))?, // Rule #1 for type pubkey
             psbt: c.psbt, // Rule #1 for type string
             withhold: c.withhold, // Rule #1 for type boolean?
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::FundchannelRequest> for requests::FundchannelRequest {
-    fn from(c: pb::FundchannelRequest) -> Self {
-        Self {
-            amount: c.amount.unwrap().into(), // Rule #1 for type sat_or_all
+impl TryFrom<pb::FundchannelRequest> for requests::FundchannelRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::FundchannelRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+            amount: c.amount.ok_or_else(|| missing_field("amount"))?.try_into().map_err(|e| invalid_argument("amount", e))?, // Rule #1 for type sat_or_all
             announce: c.announce, // Rule #1 for type boolean?
             channel_type: Some(c.channel_type.into_iter().map(|s| s).collect()), // Rule #4
             close_to: c.close_to, // Rule #1 for type string?
             compact_lease: c.compact_lease, // Rule #1 for type string?
-            feerate: c.feerate.map(|a| a.into()), // Rule #1 for type feerate?
-            id: PublicKey::from_slice(&c.id).unwrap(), // Rule #1 for type pubkey
+            feerate: c.feerate.map(|a| a.try_into().map_err(|e| invalid_argument("feerate", e))).transpose()?, // Rule #1 for type feerate?
+            id: PublicKey::from_slice(&c.id).map_err(|e| invalid_argument("id", e))?, // Rule #1 for type pubkey
             minconf: c.minconf, // Rule #1 for type u32?
             mindepth: c.mindepth, // Rule #1 for type u32?
             push_msat: c.push_msat.map(|a| a.into()), // Rule #1 for type msat?
             request_amt: c.request_amt.map(|a| a.into()), // Rule #1 for type sat?
             reserve: c.reserve.map(|a| a.into()), // Rule #1 for type sat?
-            utxos: Some(c.utxos.into_iter().map(|s| s.into()).collect()), // Rule #4
-        }
+            utxos: Some(c.utxos.into_iter().map(|s| s.try_into().map_err(|e| invalid_argument("utxos", e))).collect::<Result<Vec<_>, tonic::Status>>()?), // Rule #4
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::FundchannelStartRequest> for requests::FundchannelStartRequest {
-    fn from(c: pb::FundchannelStartRequest) -> Self {
-        Self {
-            amount: c.amount.unwrap().into(), // Rule #1 for type sat
+impl TryFrom<pb::FundchannelStartRequest> for requests::FundchannelStartRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::FundchannelStartRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+            amount: c.amount.ok_or_else(|| missing_field("amount"))?.into(), // Rule #1 for type sat
             announce: c.announce, // Rule #1 for type boolean?
             channel_type: Some(c.channel_type.into_iter().map(|s| s).collect()), // Rule #4
             close_to: c.close_to, // Rule #1 for type string?
-            feerate: c.feerate.map(|a| a.into()), // Rule #1 for type feerate?
-            id: PublicKey::from_slice(&c.id).unwrap(), // Rule #1 for type pubkey
+            feerate: c.feerate.map(|a| a.try_into().map_err(|e| invalid_argument("feerate", e))).transpose()?, // Rule #1 for type feerate?
+            id: PublicKey::from_slice(&c.id).map_err(|e| invalid_argument("id", e))?, // Rule #1 for type pubkey
             mindepth: c.mindepth, // Rule #1 for type u32?
             push_msat: c.push_msat.map(|a| a.into()), // Rule #1 for type msat?
             reserve: c.reserve.map(|a| a.into()), // Rule #1 for type sat?
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::GetlogRequest> for requests::GetlogRequest {
-    fn from(c: pb::GetlogRequest) -> Self {
-        Self {
-            level: c.level.map(|v| v.try_into().unwrap()),
-        }
+impl TryFrom<pb::GetlogRequest> for requests::GetlogRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::GetlogRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+            level: c.level.map(|v| v.try_into().map_err(|e| invalid_argument("level", e))).transpose()?,
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::FunderupdateRequest> for requests::FunderupdateRequest {
-    fn from(c: pb::FunderupdateRequest) -> Self {
-        Self {
+impl TryFrom<pb::FunderupdateRequest> for requests::FunderupdateRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::FunderupdateRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             channel_fee_max_base_msat: c.channel_fee_max_base_msat.map(|a| a.into()), // Rule #1 for type msat?
             channel_fee_max_proportional_thousandths: c.channel_fee_max_proportional_thousandths, // Rule #1 for type u32?
             compact_lease: c.compact_lease.map(|v| hex::encode(v)), // Rule #1 for type hex?
@@ -8445,95 +8524,102 @@ impl From<pb::FunderupdateRequest> for requests::FunderupdateRequest {
             min_their_funding_msat: c.min_their_funding_msat.map(|a| a.into()), // Rule #1 for type msat?
             per_channel_max_msat: c.per_channel_max_msat.map(|a| a.into()), // Rule #1 for type msat?
             per_channel_min_msat: c.per_channel_min_msat.map(|a| a.into()), // Rule #1 for type msat?
-            policy: c.policy.map(|v| v.try_into().unwrap()),
+            policy: c.policy.map(|v| v.try_into().map_err(|e| invalid_argument("policy", e))).transpose()?,
             policy_mod: c.policy_mod.map(|a| a.into()), // Rule #1 for type msat?
             reserve_tank_msat: c.reserve_tank_msat.map(|a| a.into()), // Rule #1 for type msat?
-        }
+        })
     }
 }
 
 #[allow(unused_variables,deprecated)]
-impl From<pb::GetrouteRequest> for requests::GetrouteRequest {
-    fn from(c: pb::GetrouteRequest) -> Self {
-        Self {
-            amount_msat: c.amount_msat.unwrap().into(), // Rule #1 for type msat
+impl TryFrom<pb::GetrouteRequest> for requests::GetrouteRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::GetrouteRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+            amount_msat: c.amount_msat.ok_or_else(|| missing_field("amount_msat"))?.into(), // Rule #1 for type msat
             cltv: c.cltv, // Rule #1 for type u32?
             exclude: Some(c.exclude.into_iter().map(|s| s.into()).collect()), // Rule #4
-            fromid: c.fromid.map(|v| PublicKey::from_slice(&v).unwrap()), // Rule #1 for type pubkey?
+            fromid: c.fromid.map(|v| PublicKey::from_slice(&v).map_err(|e| invalid_argument("fromid", e))).transpose()?, // Rule #1 for type pubkey?
             fuzzpercent: c.fuzzpercent, // Rule #1 for type u32?
-            id: PublicKey::from_slice(&c.id).unwrap(), // Rule #1 for type pubkey
+            id: PublicKey::from_slice(&c.id).map_err(|e| invalid_argument("id", e))?, // Rule #1 for type pubkey
             maxhops: c.maxhops, // Rule #1 for type u32?
             riskfactor: c.riskfactor, // Rule #1 for type u64
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::ListaddressesRequest> for requests::ListaddressesRequest {
-    fn from(c: pb::ListaddressesRequest) -> Self {
-        Self {
+impl TryFrom<pb::ListaddressesRequest> for requests::ListaddressesRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::ListaddressesRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             address: c.address, // Rule #1 for type string?
             limit: c.limit, // Rule #1 for type u32?
             start: c.start, // Rule #1 for type u64?
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::ListforwardsRequest> for requests::ListforwardsRequest {
-    fn from(c: pb::ListforwardsRequest) -> Self {
-        Self {
-            in_channel: c.in_channel.map(|v| cln_rpc::primitives::ShortChannelId::from_str(&v).unwrap()), // Rule #1 for type short_channel_id?
-            index: c.index.map(|v| v.try_into().unwrap()),
+impl TryFrom<pb::ListforwardsRequest> for requests::ListforwardsRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::ListforwardsRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+            in_channel: c.in_channel.map(|v| cln_rpc::primitives::ShortChannelId::from_str(&v).map_err(|e| invalid_argument("in_channel", e))).transpose()?, // Rule #1 for type short_channel_id?
+            index: c.index.map(|v| v.try_into().map_err(|e| invalid_argument("index", e))).transpose()?,
             limit: c.limit, // Rule #1 for type u32?
-            out_channel: c.out_channel.map(|v| cln_rpc::primitives::ShortChannelId::from_str(&v).unwrap()), // Rule #1 for type short_channel_id?
+            out_channel: c.out_channel.map(|v| cln_rpc::primitives::ShortChannelId::from_str(&v).map_err(|e| invalid_argument("out_channel", e))).transpose()?, // Rule #1 for type short_channel_id?
             start: c.start, // Rule #1 for type u64?
-            status: c.status.map(|v| v.try_into().unwrap()),
-        }
+            status: c.status.map(|v| v.try_into().map_err(|e| invalid_argument("status", e))).transpose()?,
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::ListoffersRequest> for requests::ListoffersRequest {
-    fn from(c: pb::ListoffersRequest) -> Self {
-        Self {
+impl TryFrom<pb::ListoffersRequest> for requests::ListoffersRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::ListoffersRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             active_only: c.active_only, // Rule #1 for type boolean?
-            offer_id: c.offer_id.map(|v| Sha256::from_slice(&v).unwrap()), // Rule #1 for type hash?
-        }
+            offer_id: c.offer_id.map(|v| Sha256::from_slice(&v).map_err(|e| invalid_argument("offer_id", e))).transpose()?, // Rule #1 for type hash?
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::ListpaysRequest> for requests::ListpaysRequest {
-    fn from(c: pb::ListpaysRequest) -> Self {
-        Self {
+impl TryFrom<pb::ListpaysRequest> for requests::ListpaysRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::ListpaysRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             bolt11: c.bolt11, // Rule #1 for type string?
-            index: c.index.map(|v| v.try_into().unwrap()),
+            index: c.index.map(|v| v.try_into().map_err(|e| invalid_argument("index", e))).transpose()?,
             limit: c.limit, // Rule #1 for type u32?
-            payment_hash: c.payment_hash.map(|v| Sha256::from_slice(&v).unwrap()), // Rule #1 for type hash?
+            payment_hash: c.payment_hash.map(|v| Sha256::from_slice(&v).map_err(|e| invalid_argument("payment_hash", e))).transpose()?, // Rule #1 for type hash?
             start: c.start, // Rule #1 for type u64?
-            status: c.status.map(|v| v.try_into().unwrap()),
-        }
+            status: c.status.map(|v| v.try_into().map_err(|e| invalid_argument("status", e))).transpose()?,
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::ListhtlcsRequest> for requests::ListhtlcsRequest {
-    fn from(c: pb::ListhtlcsRequest) -> Self {
-        Self {
+impl TryFrom<pb::ListhtlcsRequest> for requests::ListhtlcsRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::ListhtlcsRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             id: c.id, // Rule #1 for type string?
-            index: c.index.map(|v| v.try_into().unwrap()),
+            index: c.index.map(|v| v.try_into().map_err(|e| invalid_argument("index", e))).transpose()?,
             limit: c.limit, // Rule #1 for type u32?
             start: c.start, // Rule #1 for type u64?
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::MultifundchannelDestinations> for requests::MultifundchannelDestinations {
-    fn from(c: pb::MultifundchannelDestinations) -> Self {
-        Self {
-            amount: c.amount.unwrap().into(), // Rule #1 for type sat_or_all
+impl TryFrom<pb::MultifundchannelDestinations> for requests::MultifundchannelDestinations {
+    type Error = tonic::Status;
+    fn try_from(c: pb::MultifundchannelDestinations) -> Result<Self, Self::Error> {
+        Ok(Self {
+            amount: c.amount.ok_or_else(|| missing_field("amount"))?.try_into().map_err(|e| invalid_argument("amount", e))?, // Rule #1 for type sat_or_all
             announce: c.announce, // Rule #1 for type boolean?
             close_to: c.close_to, // Rule #1 for type string?
             compact_lease: c.compact_lease, // Rule #1 for type string?
@@ -8542,44 +8628,47 @@ impl From<pb::MultifundchannelDestinations> for requests::MultifundchannelDestin
             push_msat: c.push_msat.map(|a| a.into()), // Rule #1 for type msat?
             request_amt: c.request_amt.map(|a| a.into()), // Rule #1 for type sat?
             reserve: c.reserve.map(|a| a.into()), // Rule #1 for type sat?
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::MultifundchannelRequest> for requests::MultifundchannelRequest {
-    fn from(c: pb::MultifundchannelRequest) -> Self {
-        Self {
-            commitment_feerate: c.commitment_feerate.map(|a| a.into()), // Rule #1 for type feerate?
-            destinations: c.destinations.into_iter().map(|s| s.into()).collect(), // Rule #4
-            feerate: c.feerate.map(|a| a.into()), // Rule #1 for type feerate?
+impl TryFrom<pb::MultifundchannelRequest> for requests::MultifundchannelRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::MultifundchannelRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+            commitment_feerate: c.commitment_feerate.map(|a| a.try_into().map_err(|e| invalid_argument("commitment_feerate", e))).transpose()?, // Rule #1 for type feerate?
+            destinations: c.destinations.into_iter().map(|s| s.try_into()).collect::<Result<Vec<_>, tonic::Status>>()?, // Rule #4
+            feerate: c.feerate.map(|a| a.try_into().map_err(|e| invalid_argument("feerate", e))).transpose()?, // Rule #1 for type feerate?
             minchannels: c.minchannels, // Rule #1 for type integer?
             minconf: c.minconf, // Rule #1 for type integer?
-            utxos: Some(c.utxos.into_iter().map(|s| s.into()).collect()), // Rule #4
-        }
+            utxos: Some(c.utxos.into_iter().map(|s| s.try_into().map_err(|e| invalid_argument("utxos", e))).collect::<Result<Vec<_>, tonic::Status>>()?), // Rule #4
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::MultiwithdrawRequest> for requests::MultiwithdrawRequest {
-    fn from(c: pb::MultiwithdrawRequest) -> Self {
-        Self {
-            feerate: c.feerate.map(|a| a.into()), // Rule #1 for type feerate?
+impl TryFrom<pb::MultiwithdrawRequest> for requests::MultiwithdrawRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::MultiwithdrawRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+            feerate: c.feerate.map(|a| a.try_into().map_err(|e| invalid_argument("feerate", e))).transpose()?, // Rule #1 for type feerate?
             minconf: c.minconf, // Rule #1 for type u32?
-            outputs: c.outputs.into_iter().map(|s| s.into()).collect(), // Rule #4
-            utxos: Some(c.utxos.into_iter().map(|s| s.into()).collect()), // Rule #4
-        }
+            outputs: c.outputs.into_iter().map(|s| s.try_into().map_err(|e| invalid_argument("outputs", e))).collect::<Result<Vec<_>, tonic::Status>>()?, // Rule #4
+            utxos: Some(c.utxos.into_iter().map(|s| s.try_into().map_err(|e| invalid_argument("utxos", e))).collect::<Result<Vec<_>, tonic::Status>>()?), // Rule #4
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::OfferRequest> for requests::OfferRequest {
-    fn from(c: pb::OfferRequest) -> Self {
-        Self {
+impl TryFrom<pb::OfferRequest> for requests::OfferRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::OfferRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             absolute_expiry: c.absolute_expiry, // Rule #1 for type u64?
             amount: c.amount, // Rule #1 for type string
             description: c.description, // Rule #1 for type string?
-            fronting_nodes: Some(c.fronting_nodes.into_iter().map(|s| PublicKey::from_slice(&s).unwrap()).collect()), // Rule #4
+            fronting_nodes: Some(c.fronting_nodes.into_iter().map(|s| PublicKey::from_slice(&s).map_err(|e| invalid_argument("fronting_nodes", e))).collect::<Result<Vec<_>, tonic::Status>>()?), // Rule #4
             issuer: c.issuer, // Rule #1 for type string?
             label: c.label, // Rule #1 for type string?
             optional_recurrence: c.optional_recurrence, // Rule #1 for type boolean?
@@ -8590,105 +8679,114 @@ impl From<pb::OfferRequest> for requests::OfferRequest {
             recurrence_limit: c.recurrence_limit, // Rule #1 for type u32?
             recurrence_paywindow: c.recurrence_paywindow, // Rule #1 for type string?
             single_use: c.single_use, // Rule #1 for type boolean?
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::OpenchannelAbortRequest> for requests::OpenchannelAbortRequest {
-    fn from(c: pb::OpenchannelAbortRequest) -> Self {
-        Self {
-            channel_id: Sha256::from_slice(&c.channel_id).unwrap(), // Rule #1 for type hash
-        }
+impl TryFrom<pb::OpenchannelAbortRequest> for requests::OpenchannelAbortRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::OpenchannelAbortRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+            channel_id: Sha256::from_slice(&c.channel_id).map_err(|e| invalid_argument("channel_id", e))?, // Rule #1 for type hash
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::OpenchannelBumpRequest> for requests::OpenchannelBumpRequest {
-    fn from(c: pb::OpenchannelBumpRequest) -> Self {
-        Self {
-            amount: c.amount.unwrap().into(), // Rule #1 for type sat
-            channel_id: Sha256::from_slice(&c.channel_id).unwrap(), // Rule #1 for type hash
-            funding_feerate: c.funding_feerate.map(|a| a.into()), // Rule #1 for type feerate?
+impl TryFrom<pb::OpenchannelBumpRequest> for requests::OpenchannelBumpRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::OpenchannelBumpRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+            amount: c.amount.ok_or_else(|| missing_field("amount"))?.into(), // Rule #1 for type sat
+            channel_id: Sha256::from_slice(&c.channel_id).map_err(|e| invalid_argument("channel_id", e))?, // Rule #1 for type hash
+            funding_feerate: c.funding_feerate.map(|a| a.try_into().map_err(|e| invalid_argument("funding_feerate", e))).transpose()?, // Rule #1 for type feerate?
             initialpsbt: c.initialpsbt, // Rule #1 for type string
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::OpenchannelInitRequest> for requests::OpenchannelInitRequest {
-    fn from(c: pb::OpenchannelInitRequest) -> Self {
-        Self {
-            amount: c.amount.unwrap().into(), // Rule #1 for type sat
+impl TryFrom<pb::OpenchannelInitRequest> for requests::OpenchannelInitRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::OpenchannelInitRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+            amount: c.amount.ok_or_else(|| missing_field("amount"))?.into(), // Rule #1 for type sat
             announce: c.announce, // Rule #1 for type boolean?
             channel_type: Some(c.channel_type.into_iter().map(|s| s).collect()), // Rule #4
             close_to: c.close_to, // Rule #1 for type string?
-            commitment_feerate: c.commitment_feerate.map(|a| a.into()), // Rule #1 for type feerate?
+            commitment_feerate: c.commitment_feerate.map(|a| a.try_into().map_err(|e| invalid_argument("commitment_feerate", e))).transpose()?, // Rule #1 for type feerate?
             compact_lease: c.compact_lease.map(|v| hex::encode(v)), // Rule #1 for type hex?
-            funding_feerate: c.funding_feerate.map(|a| a.into()), // Rule #1 for type feerate?
-            id: PublicKey::from_slice(&c.id).unwrap(), // Rule #1 for type pubkey
+            funding_feerate: c.funding_feerate.map(|a| a.try_into().map_err(|e| invalid_argument("funding_feerate", e))).transpose()?, // Rule #1 for type feerate?
+            id: PublicKey::from_slice(&c.id).map_err(|e| invalid_argument("id", e))?, // Rule #1 for type pubkey
             initialpsbt: c.initialpsbt, // Rule #1 for type string
             request_amt: c.request_amt.map(|a| a.into()), // Rule #1 for type sat?
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::OpenchannelSignedRequest> for requests::OpenchannelSignedRequest {
-    fn from(c: pb::OpenchannelSignedRequest) -> Self {
-        Self {
-            channel_id: Sha256::from_slice(&c.channel_id).unwrap(), // Rule #1 for type hash
+impl TryFrom<pb::OpenchannelSignedRequest> for requests::OpenchannelSignedRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::OpenchannelSignedRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+            channel_id: Sha256::from_slice(&c.channel_id).map_err(|e| invalid_argument("channel_id", e))?, // Rule #1 for type hash
             signed_psbt: c.signed_psbt, // Rule #1 for type string
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::OpenchannelUpdateRequest> for requests::OpenchannelUpdateRequest {
-    fn from(c: pb::OpenchannelUpdateRequest) -> Self {
-        Self {
-            channel_id: Sha256::from_slice(&c.channel_id).unwrap(), // Rule #1 for type hash
+impl TryFrom<pb::OpenchannelUpdateRequest> for requests::OpenchannelUpdateRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::OpenchannelUpdateRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+            channel_id: Sha256::from_slice(&c.channel_id).map_err(|e| invalid_argument("channel_id", e))?, // Rule #1 for type hash
             psbt: c.psbt, // Rule #1 for type string
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::PingRequest> for requests::PingRequest {
-    fn from(c: pb::PingRequest) -> Self {
-        Self {
-            id: PublicKey::from_slice(&c.id).unwrap(), // Rule #1 for type pubkey
-            len: c.len.map(|v| v as u16), // Rule #1 for type u16?
-            pongbytes: c.pongbytes.map(|v| v as u16), // Rule #1 for type u16?
-        }
+impl TryFrom<pb::PingRequest> for requests::PingRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::PingRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+            id: PublicKey::from_slice(&c.id).map_err(|e| invalid_argument("id", e))?, // Rule #1 for type pubkey
+            len: c.len.map(|v| u16::try_from(v).map_err(|e| invalid_argument("len", e))).transpose()?, // Rule #1 for type u16?
+            pongbytes: c.pongbytes.map(|v| u16::try_from(v).map_err(|e| invalid_argument("pongbytes", e))).transpose()?, // Rule #1 for type u16?
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::PluginRequest> for requests::PluginRequest {
-    fn from(c: pb::PluginRequest) -> Self {
-        Self {
+impl TryFrom<pb::PluginRequest> for requests::PluginRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::PluginRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             directory: c.directory, // Rule #1 for type string?
             options: Some(c.options.into_iter().map(|s| s.into()).collect()), // Rule #4
             plugin: c.plugin, // Rule #1 for type string?
-            subcommand: c.subcommand.try_into().unwrap(),
-        }
+            subcommand: c.subcommand.try_into().map_err(|e| invalid_argument("subcommand", e))?,
+        })
     }
 }
 
 #[allow(unused_variables,deprecated)]
-impl From<pb::RenepaystatusRequest> for requests::RenepaystatusRequest {
-    fn from(c: pb::RenepaystatusRequest) -> Self {
-        Self {
+impl TryFrom<pb::RenepaystatusRequest> for requests::RenepaystatusRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::RenepaystatusRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             invstring: c.invstring, // Rule #1 for type string?
-        }
+        })
     }
 }
 
 #[allow(unused_variables,deprecated)]
-impl From<pb::RenepayRequest> for requests::RenepayRequest {
-    fn from(c: pb::RenepayRequest) -> Self {
-        Self {
+impl TryFrom<pb::RenepayRequest> for requests::RenepayRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::RenepayRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             amount_msat: c.amount_msat.map(|a| a.into()), // Rule #1 for type msat?
             description: c.description, // Rule #1 for type string?
             dev_use_shadow: c.dev_use_shadow, // Rule #1 for type boolean?
@@ -8698,48 +8796,52 @@ impl From<pb::RenepayRequest> for requests::RenepayRequest {
             maxdelay: c.maxdelay, // Rule #1 for type u32?
             maxfee: c.maxfee.map(|a| a.into()), // Rule #1 for type msat?
             retry_for: c.retry_for, // Rule #1 for type u32?
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::ReserveinputsRequest> for requests::ReserveinputsRequest {
-    fn from(c: pb::ReserveinputsRequest) -> Self {
-        Self {
+impl TryFrom<pb::ReserveinputsRequest> for requests::ReserveinputsRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::ReserveinputsRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             exclusive: c.exclusive, // Rule #1 for type boolean?
             psbt: c.psbt, // Rule #1 for type string
             reserve: c.reserve, // Rule #1 for type u32?
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::SendcustommsgRequest> for requests::SendcustommsgRequest {
-    fn from(c: pb::SendcustommsgRequest) -> Self {
-        Self {
+impl TryFrom<pb::SendcustommsgRequest> for requests::SendcustommsgRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::SendcustommsgRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             msg: hex::encode(&c.msg), // Rule #1 for type hex
-            node_id: PublicKey::from_slice(&c.node_id).unwrap(), // Rule #1 for type pubkey
-        }
+            node_id: PublicKey::from_slice(&c.node_id).map_err(|e| invalid_argument("node_id", e))?, // Rule #1 for type pubkey
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::SendinvoiceRequest> for requests::SendinvoiceRequest {
-    fn from(c: pb::SendinvoiceRequest) -> Self {
-        Self {
+impl TryFrom<pb::SendinvoiceRequest> for requests::SendinvoiceRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::SendinvoiceRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             amount_msat: c.amount_msat.map(|a| a.into()), // Rule #1 for type msat?
             invreq: c.invreq, // Rule #1 for type string
             label: c.label, // Rule #1 for type string
             quantity: c.quantity, // Rule #1 for type u64?
             timeout: c.timeout, // Rule #1 for type u32?
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::SetchannelRequest> for requests::SetchannelRequest {
-    fn from(c: pb::SetchannelRequest) -> Self {
-        Self {
+impl TryFrom<pb::SetchannelRequest> for requests::SetchannelRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::SetchannelRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             enforcedelay: c.enforcedelay, // Rule #1 for type u32?
             feebase: c.feebase.map(|a| a.into()), // Rule #1 for type msat?
             feeppm: c.feeppm, // Rule #1 for type u32?
@@ -8747,574 +8849,627 @@ impl From<pb::SetchannelRequest> for requests::SetchannelRequest {
             htlcmin: c.htlcmin.map(|a| a.into()), // Rule #1 for type msat?
             id: c.id, // Rule #1 for type string
             ignorefeelimits: c.ignorefeelimits, // Rule #1 for type boolean?
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::SetconfigRequest> for requests::SetconfigRequest {
-    fn from(c: pb::SetconfigRequest) -> Self {
-        Self {
+impl TryFrom<pb::SetconfigRequest> for requests::SetconfigRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::SetconfigRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             config: c.config, // Rule #1 for type string
             transient: c.transient, // Rule #1 for type boolean?
             val: c.val, // Rule #1 for type string?
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::SetpsbtversionRequest> for requests::SetpsbtversionRequest {
-    fn from(c: pb::SetpsbtversionRequest) -> Self {
-        Self {
+impl TryFrom<pb::SetpsbtversionRequest> for requests::SetpsbtversionRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::SetpsbtversionRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             psbt: c.psbt, // Rule #1 for type string
             version: c.version, // Rule #1 for type u32
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::SigninvoiceRequest> for requests::SigninvoiceRequest {
-    fn from(c: pb::SigninvoiceRequest) -> Self {
-        Self {
+impl TryFrom<pb::SigninvoiceRequest> for requests::SigninvoiceRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::SigninvoiceRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             invstring: c.invstring, // Rule #1 for type string
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::SignmessageRequest> for requests::SignmessageRequest {
-    fn from(c: pb::SignmessageRequest) -> Self {
-        Self {
+impl TryFrom<pb::SignmessageRequest> for requests::SignmessageRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::SignmessageRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             message: c.message, // Rule #1 for type string
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::SpliceInitRequest> for requests::SpliceInitRequest {
-    fn from(c: pb::SpliceInitRequest) -> Self {
-        Self {
-            channel_id: Sha256::from_slice(&c.channel_id).unwrap(), // Rule #1 for type hash
+impl TryFrom<pb::SpliceInitRequest> for requests::SpliceInitRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::SpliceInitRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+            channel_id: Sha256::from_slice(&c.channel_id).map_err(|e| invalid_argument("channel_id", e))?, // Rule #1 for type hash
             feerate_per_kw: c.feerate_per_kw, // Rule #1 for type u32?
             force_feerate: c.force_feerate, // Rule #1 for type boolean?
             initialpsbt: c.initialpsbt, // Rule #1 for type string?
             relative_amount: c.relative_amount, // Rule #1 for type integer
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::SpliceSignedRequest> for requests::SpliceSignedRequest {
-    fn from(c: pb::SpliceSignedRequest) -> Self {
-        Self {
-            channel_id: c.channel_id.map(|v| Sha256::from_slice(&v).unwrap()), // Rule #1 for type hash?
+impl TryFrom<pb::SpliceSignedRequest> for requests::SpliceSignedRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::SpliceSignedRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+            channel_id: c.channel_id.map(|v| Sha256::from_slice(&v).map_err(|e| invalid_argument("channel_id", e))).transpose()?, // Rule #1 for type hash?
             psbt: c.psbt, // Rule #1 for type string
             sign_first: c.sign_first, // Rule #1 for type boolean?
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::SpliceUpdateRequest> for requests::SpliceUpdateRequest {
-    fn from(c: pb::SpliceUpdateRequest) -> Self {
-        Self {
-            channel_id: Sha256::from_slice(&c.channel_id).unwrap(), // Rule #1 for type hash
+impl TryFrom<pb::SpliceUpdateRequest> for requests::SpliceUpdateRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::SpliceUpdateRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+            channel_id: Sha256::from_slice(&c.channel_id).map_err(|e| invalid_argument("channel_id", e))?, // Rule #1 for type hash
             psbt: c.psbt, // Rule #1 for type string
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::SpliceinRequest> for requests::SpliceinRequest {
-    fn from(c: pb::SpliceinRequest) -> Self {
-        Self {
+impl TryFrom<pb::SpliceinRequest> for requests::SpliceinRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::SpliceinRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             amount: c.amount, // Rule #1 for type string
             channel: c.channel, // Rule #1 for type string
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::SpliceoutRequest> for requests::SpliceoutRequest {
-    fn from(c: pb::SpliceoutRequest) -> Self {
-        Self {
+impl TryFrom<pb::SpliceoutRequest> for requests::SpliceoutRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::SpliceoutRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             amount: c.amount, // Rule #1 for type string
             channel: c.channel, // Rule #1 for type string
             destination: c.destination, // Rule #1 for type string?
             force_feerate: c.force_feerate, // Rule #1 for type boolean?
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::DevspliceRequest> for requests::DevspliceRequest {
-    fn from(c: pb::DevspliceRequest) -> Self {
-        Self {
+impl TryFrom<pb::DevspliceRequest> for requests::DevspliceRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::DevspliceRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             debug_log: c.debug_log, // Rule #1 for type boolean?
             dev_wetrun: c.dev_wetrun, // Rule #1 for type boolean?
             dryrun: c.dryrun, // Rule #1 for type boolean?
             force_feerate: c.force_feerate, // Rule #1 for type boolean?
             script_or_json: c.script_or_json, // Rule #1 for type string
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::UnreserveinputsRequest> for requests::UnreserveinputsRequest {
-    fn from(c: pb::UnreserveinputsRequest) -> Self {
-        Self {
+impl TryFrom<pb::UnreserveinputsRequest> for requests::UnreserveinputsRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::UnreserveinputsRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             psbt: c.psbt, // Rule #1 for type string
             reserve: c.reserve, // Rule #1 for type u32?
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::UpgradewalletRequest> for requests::UpgradewalletRequest {
-    fn from(c: pb::UpgradewalletRequest) -> Self {
-        Self {
-            feerate: c.feerate.map(|a| a.into()), // Rule #1 for type feerate?
+impl TryFrom<pb::UpgradewalletRequest> for requests::UpgradewalletRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::UpgradewalletRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+            feerate: c.feerate.map(|a| a.try_into().map_err(|e| invalid_argument("feerate", e))).transpose()?, // Rule #1 for type feerate?
             reservedok: c.reservedok, // Rule #1 for type boolean?
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::WaitblockheightRequest> for requests::WaitblockheightRequest {
-    fn from(c: pb::WaitblockheightRequest) -> Self {
-        Self {
+impl TryFrom<pb::WaitblockheightRequest> for requests::WaitblockheightRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::WaitblockheightRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             blockheight: c.blockheight, // Rule #1 for type u32
             timeout: c.timeout, // Rule #1 for type u32?
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::WaitRequest> for requests::WaitRequest {
-    fn from(c: pb::WaitRequest) -> Self {
-        Self {
-            indexname: c.indexname.try_into().unwrap(),
+impl TryFrom<pb::WaitRequest> for requests::WaitRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::WaitRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+            indexname: c.indexname.try_into().map_err(|e| invalid_argument("indexname", e))?,
             nextvalue: c.nextvalue, // Rule #1 for type u64
-            subsystem: c.subsystem.try_into().unwrap(),
-        }
+            subsystem: c.subsystem.try_into().map_err(|e| invalid_argument("subsystem", e))?,
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::ListconfigsRequest> for requests::ListconfigsRequest {
-    fn from(c: pb::ListconfigsRequest) -> Self {
-        Self {
+impl TryFrom<pb::ListconfigsRequest> for requests::ListconfigsRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::ListconfigsRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             config: c.config, // Rule #1 for type string?
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::StopRequest> for requests::StopRequest {
-    fn from(c: pb::StopRequest) -> Self {
-        Self {
-        }
+impl TryFrom<pb::StopRequest> for requests::StopRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::StopRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::HelpRequest> for requests::HelpRequest {
-    fn from(c: pb::HelpRequest) -> Self {
-        Self {
+impl TryFrom<pb::HelpRequest> for requests::HelpRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::HelpRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             command: c.command, // Rule #1 for type string?
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::PreapprovekeysendRequest> for requests::PreapprovekeysendRequest {
-    fn from(c: pb::PreapprovekeysendRequest) -> Self {
-        Self {
-            amount_msat: c.amount_msat.unwrap().into(), // Rule #1 for type msat
-            destination: PublicKey::from_slice(&c.destination).unwrap(), // Rule #1 for type pubkey
+impl TryFrom<pb::PreapprovekeysendRequest> for requests::PreapprovekeysendRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::PreapprovekeysendRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+            amount_msat: c.amount_msat.ok_or_else(|| missing_field("amount_msat"))?.into(), // Rule #1 for type msat
+            destination: PublicKey::from_slice(&c.destination).map_err(|e| invalid_argument("destination", e))?, // Rule #1 for type pubkey
             payment_hash: hex::encode(&c.payment_hash), // Rule #1 for type hex
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::PreapproveinvoiceRequest> for requests::PreapproveinvoiceRequest {
-    fn from(c: pb::PreapproveinvoiceRequest) -> Self {
-        Self {
+impl TryFrom<pb::PreapproveinvoiceRequest> for requests::PreapproveinvoiceRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::PreapproveinvoiceRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             bolt11: c.bolt11, // Rule #1 for type string
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::StaticbackupRequest> for requests::StaticbackupRequest {
-    fn from(c: pb::StaticbackupRequest) -> Self {
-        Self {
-        }
+impl TryFrom<pb::StaticbackupRequest> for requests::StaticbackupRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::StaticbackupRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::BkprchannelsapyRequest> for requests::BkprchannelsapyRequest {
-    fn from(c: pb::BkprchannelsapyRequest) -> Self {
-        Self {
+impl TryFrom<pb::BkprchannelsapyRequest> for requests::BkprchannelsapyRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::BkprchannelsapyRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             end_time: c.end_time, // Rule #1 for type u64?
             start_time: c.start_time, // Rule #1 for type u64?
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::BkprdumpincomecsvRequest> for requests::BkprdumpincomecsvRequest {
-    fn from(c: pb::BkprdumpincomecsvRequest) -> Self {
-        Self {
+impl TryFrom<pb::BkprdumpincomecsvRequest> for requests::BkprdumpincomecsvRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::BkprdumpincomecsvRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             consolidate_fees: c.consolidate_fees, // Rule #1 for type boolean?
             csv_file: c.csv_file, // Rule #1 for type string?
             csv_format: c.csv_format, // Rule #1 for type string
             end_time: c.end_time, // Rule #1 for type u64?
             start_time: c.start_time, // Rule #1 for type u64?
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::BkprinspectRequest> for requests::BkprinspectRequest {
-    fn from(c: pb::BkprinspectRequest) -> Self {
-        Self {
+impl TryFrom<pb::BkprinspectRequest> for requests::BkprinspectRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::BkprinspectRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             account: c.account, // Rule #1 for type string
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::BkprlistaccounteventsRequest> for requests::BkprlistaccounteventsRequest {
-    fn from(c: pb::BkprlistaccounteventsRequest) -> Self {
-        Self {
+impl TryFrom<pb::BkprlistaccounteventsRequest> for requests::BkprlistaccounteventsRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::BkprlistaccounteventsRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             account: c.account, // Rule #1 for type string?
             payment_id: c.payment_id, // Rule #1 for type string?
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::BkprlistbalancesRequest> for requests::BkprlistbalancesRequest {
-    fn from(c: pb::BkprlistbalancesRequest) -> Self {
-        Self {
-        }
+impl TryFrom<pb::BkprlistbalancesRequest> for requests::BkprlistbalancesRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::BkprlistbalancesRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::BkprlistincomeRequest> for requests::BkprlistincomeRequest {
-    fn from(c: pb::BkprlistincomeRequest) -> Self {
-        Self {
+impl TryFrom<pb::BkprlistincomeRequest> for requests::BkprlistincomeRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::BkprlistincomeRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             consolidate_fees: c.consolidate_fees, // Rule #1 for type boolean?
             end_time: c.end_time, // Rule #1 for type u32?
             start_time: c.start_time, // Rule #1 for type u32?
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::BkpreditdescriptionbypaymentidRequest> for requests::BkpreditdescriptionbypaymentidRequest {
-    fn from(c: pb::BkpreditdescriptionbypaymentidRequest) -> Self {
-        Self {
+impl TryFrom<pb::BkpreditdescriptionbypaymentidRequest> for requests::BkpreditdescriptionbypaymentidRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::BkpreditdescriptionbypaymentidRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             description: c.description, // Rule #1 for type string
             payment_id: c.payment_id, // Rule #1 for type string
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::BkpreditdescriptionbyoutpointRequest> for requests::BkpreditdescriptionbyoutpointRequest {
-    fn from(c: pb::BkpreditdescriptionbyoutpointRequest) -> Self {
-        Self {
+impl TryFrom<pb::BkpreditdescriptionbyoutpointRequest> for requests::BkpreditdescriptionbyoutpointRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::BkpreditdescriptionbyoutpointRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             description: c.description, // Rule #1 for type string
             outpoint: c.outpoint, // Rule #1 for type string
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::BkprreportRequest> for requests::BkprreportRequest {
-    fn from(c: pb::BkprreportRequest) -> Self {
-        Self {
+impl TryFrom<pb::BkprreportRequest> for requests::BkprreportRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::BkprreportRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             end_time: c.end_time, // Rule #1 for type u32?
             escape: c.escape, // Rule #1 for type string?
             format: c.format, // Rule #1 for type string
             headers: Some(c.headers.into_iter().map(|s| s.into()).collect()), // Rule #4
             start_time: c.start_time, // Rule #1 for type u32?
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::BlacklistruneRequest> for requests::BlacklistruneRequest {
-    fn from(c: pb::BlacklistruneRequest) -> Self {
-        Self {
+impl TryFrom<pb::BlacklistruneRequest> for requests::BlacklistruneRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::BlacklistruneRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             end: c.end, // Rule #1 for type u64?
             relist: c.relist, // Rule #1 for type boolean?
             start: c.start, // Rule #1 for type u64?
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::CheckruneRequest> for requests::CheckruneRequest {
-    fn from(c: pb::CheckruneRequest) -> Self {
-        Self {
+impl TryFrom<pb::CheckruneRequest> for requests::CheckruneRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::CheckruneRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             method: c.method, // Rule #1 for type string?
             nodeid: c.nodeid, // Rule #1 for type string?
             params: Some(c.params.into_iter().map(|s| s.into()).collect()), // Rule #4
             rune: c.rune, // Rule #1 for type string
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::CreateruneRequest> for requests::CreateruneRequest {
-    fn from(c: pb::CreateruneRequest) -> Self {
-        Self {
+impl TryFrom<pb::CreateruneRequest> for requests::CreateruneRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::CreateruneRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             restrictions: Some(c.restrictions.into_iter().map(|s| s.into()).collect()), // Rule #4
             rune: c.rune, // Rule #1 for type string?
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::ShowrunesRequest> for requests::ShowrunesRequest {
-    fn from(c: pb::ShowrunesRequest) -> Self {
-        Self {
+impl TryFrom<pb::ShowrunesRequest> for requests::ShowrunesRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::ShowrunesRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             rune: c.rune, // Rule #1 for type string?
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::AskreneunreservePath> for requests::AskreneunreservePath {
-    fn from(c: pb::AskreneunreservePath) -> Self {
-        Self {
-            amount_msat: c.amount_msat.unwrap().into(), // Rule #1 for type msat
+impl TryFrom<pb::AskreneunreservePath> for requests::AskreneunreservePath {
+    type Error = tonic::Status;
+    fn try_from(c: pb::AskreneunreservePath) -> Result<Self, Self::Error> {
+        Ok(Self {
+            amount_msat: c.amount_msat.ok_or_else(|| missing_field("amount_msat"))?.into(), // Rule #1 for type msat
             layer: c.layer, // Rule #1 for type string?
-            short_channel_id_dir: cln_rpc::primitives::ShortChannelIdDir::from_str(&c.short_channel_id_dir).unwrap(), // Rule #1 for type short_channel_id_dir
-        }
+            short_channel_id_dir: cln_rpc::primitives::ShortChannelIdDir::from_str(&c.short_channel_id_dir).map_err(|e| invalid_argument("short_channel_id_dir", e))?, // Rule #1 for type short_channel_id_dir
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::AskreneunreserveRequest> for requests::AskreneunreserveRequest {
-    fn from(c: pb::AskreneunreserveRequest) -> Self {
-        Self {
+impl TryFrom<pb::AskreneunreserveRequest> for requests::AskreneunreserveRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::AskreneunreserveRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             dev_remove_all: c.dev_remove_all, // Rule #1 for type boolean?
-            path: c.path.into_iter().map(|s| s.into()).collect(), // Rule #4
-        }
+            path: c.path.into_iter().map(|s| s.try_into()).collect::<Result<Vec<_>, tonic::Status>>()?, // Rule #4
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::AskrenelistlayersRequest> for requests::AskrenelistlayersRequest {
-    fn from(c: pb::AskrenelistlayersRequest) -> Self {
-        Self {
+impl TryFrom<pb::AskrenelistlayersRequest> for requests::AskrenelistlayersRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::AskrenelistlayersRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             layer: c.layer, // Rule #1 for type string?
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::AskrenecreatelayerRequest> for requests::AskrenecreatelayerRequest {
-    fn from(c: pb::AskrenecreatelayerRequest) -> Self {
-        Self {
+impl TryFrom<pb::AskrenecreatelayerRequest> for requests::AskrenecreatelayerRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::AskrenecreatelayerRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             layer: c.layer, // Rule #1 for type string
             persistent: c.persistent, // Rule #1 for type boolean?
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::AskreneremovelayerRequest> for requests::AskreneremovelayerRequest {
-    fn from(c: pb::AskreneremovelayerRequest) -> Self {
-        Self {
+impl TryFrom<pb::AskreneremovelayerRequest> for requests::AskreneremovelayerRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::AskreneremovelayerRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             layer: c.layer, // Rule #1 for type string
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::AskreneremovechannelupdateRequest> for requests::AskreneremovechannelupdateRequest {
-    fn from(c: pb::AskreneremovechannelupdateRequest) -> Self {
-        Self {
+impl TryFrom<pb::AskreneremovechannelupdateRequest> for requests::AskreneremovechannelupdateRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::AskreneremovechannelupdateRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             layer: c.layer, // Rule #1 for type string
-            short_channel_id_dir: cln_rpc::primitives::ShortChannelIdDir::from_str(&c.short_channel_id_dir).unwrap(), // Rule #1 for type short_channel_id_dir
-        }
+            short_channel_id_dir: cln_rpc::primitives::ShortChannelIdDir::from_str(&c.short_channel_id_dir).map_err(|e| invalid_argument("short_channel_id_dir", e))?, // Rule #1 for type short_channel_id_dir
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::AskrenereservePath> for requests::AskrenereservePath {
-    fn from(c: pb::AskrenereservePath) -> Self {
-        Self {
-            amount_msat: c.amount_msat.unwrap().into(), // Rule #1 for type msat
+impl TryFrom<pb::AskrenereservePath> for requests::AskrenereservePath {
+    type Error = tonic::Status;
+    fn try_from(c: pb::AskrenereservePath) -> Result<Self, Self::Error> {
+        Ok(Self {
+            amount_msat: c.amount_msat.ok_or_else(|| missing_field("amount_msat"))?.into(), // Rule #1 for type msat
             layer: c.layer, // Rule #1 for type string?
-            short_channel_id_dir: cln_rpc::primitives::ShortChannelIdDir::from_str(&c.short_channel_id_dir).unwrap(), // Rule #1 for type short_channel_id_dir
-        }
+            short_channel_id_dir: cln_rpc::primitives::ShortChannelIdDir::from_str(&c.short_channel_id_dir).map_err(|e| invalid_argument("short_channel_id_dir", e))?, // Rule #1 for type short_channel_id_dir
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::AskrenereserveRequest> for requests::AskrenereserveRequest {
-    fn from(c: pb::AskrenereserveRequest) -> Self {
-        Self {
-            path: c.path.into_iter().map(|s| s.into()).collect(), // Rule #4
-        }
+impl TryFrom<pb::AskrenereserveRequest> for requests::AskrenereserveRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::AskrenereserveRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+            path: c.path.into_iter().map(|s| s.try_into()).collect::<Result<Vec<_>, tonic::Status>>()?, // Rule #4
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::AskreneageRequest> for requests::AskreneageRequest {
-    fn from(c: pb::AskreneageRequest) -> Self {
-        Self {
+impl TryFrom<pb::AskreneageRequest> for requests::AskreneageRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::AskreneageRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             cutoff: c.cutoff, // Rule #1 for type u64
             layer: c.layer, // Rule #1 for type string
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::GetroutesRequest> for requests::GetroutesRequest {
-    fn from(c: pb::GetroutesRequest) -> Self {
-        Self {
-            amount_msat: c.amount_msat.unwrap().into(), // Rule #1 for type msat
-            destination: PublicKey::from_slice(&c.destination).unwrap(), // Rule #1 for type pubkey
+impl TryFrom<pb::GetroutesRequest> for requests::GetroutesRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::GetroutesRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+            amount_msat: c.amount_msat.ok_or_else(|| missing_field("amount_msat"))?.into(), // Rule #1 for type msat
+            destination: PublicKey::from_slice(&c.destination).map_err(|e| invalid_argument("destination", e))?, // Rule #1 for type pubkey
             final_cltv: c.final_cltv, // Rule #1 for type u32
             layers: c.layers.into_iter().map(|s| s.into()).collect(), // Rule #4
             maxdelay: c.maxdelay, // Rule #1 for type u32?
-            maxfee_msat: c.maxfee_msat.unwrap().into(), // Rule #1 for type msat
+            maxfee_msat: c.maxfee_msat.ok_or_else(|| missing_field("maxfee_msat"))?.into(), // Rule #1 for type msat
             maxhops: c.maxhops, // Rule #1 for type u32?
             maxparts: c.maxparts, // Rule #1 for type u32?
-            source: PublicKey::from_slice(&c.source).unwrap(), // Rule #1 for type pubkey
-        }
+            source: PublicKey::from_slice(&c.source).map_err(|e| invalid_argument("source", e))?, // Rule #1 for type pubkey
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::AskrenedisablenodeRequest> for requests::AskrenedisablenodeRequest {
-    fn from(c: pb::AskrenedisablenodeRequest) -> Self {
-        Self {
+impl TryFrom<pb::AskrenedisablenodeRequest> for requests::AskrenedisablenodeRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::AskrenedisablenodeRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             layer: c.layer, // Rule #1 for type string
-            node: PublicKey::from_slice(&c.node).unwrap(), // Rule #1 for type pubkey
-        }
+            node: PublicKey::from_slice(&c.node).map_err(|e| invalid_argument("node", e))?, // Rule #1 for type pubkey
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::AskreneinformchannelRequest> for requests::AskreneinformchannelRequest {
-    fn from(c: pb::AskreneinformchannelRequest) -> Self {
-        Self {
-            amount_msat: c.amount_msat.unwrap().into(), // Rule #1 for type msat
-            inform: c.inform.try_into().unwrap(),
+impl TryFrom<pb::AskreneinformchannelRequest> for requests::AskreneinformchannelRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::AskreneinformchannelRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+            amount_msat: c.amount_msat.ok_or_else(|| missing_field("amount_msat"))?.into(), // Rule #1 for type msat
+            inform: c.inform.try_into().map_err(|e| invalid_argument("inform", e))?,
             layer: c.layer, // Rule #1 for type string
-            short_channel_id_dir: cln_rpc::primitives::ShortChannelIdDir::from_str(&c.short_channel_id_dir).unwrap(), // Rule #1 for type short_channel_id_dir
-        }
+            short_channel_id_dir: cln_rpc::primitives::ShortChannelIdDir::from_str(&c.short_channel_id_dir).map_err(|e| invalid_argument("short_channel_id_dir", e))?, // Rule #1 for type short_channel_id_dir
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::AskrenecreatechannelRequest> for requests::AskrenecreatechannelRequest {
-    fn from(c: pb::AskrenecreatechannelRequest) -> Self {
-        Self {
-            capacity_msat: c.capacity_msat.unwrap().into(), // Rule #1 for type msat
-            destination: PublicKey::from_slice(&c.destination).unwrap(), // Rule #1 for type pubkey
+impl TryFrom<pb::AskrenecreatechannelRequest> for requests::AskrenecreatechannelRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::AskrenecreatechannelRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+            capacity_msat: c.capacity_msat.ok_or_else(|| missing_field("capacity_msat"))?.into(), // Rule #1 for type msat
+            destination: PublicKey::from_slice(&c.destination).map_err(|e| invalid_argument("destination", e))?, // Rule #1 for type pubkey
             layer: c.layer, // Rule #1 for type string
-            short_channel_id: cln_rpc::primitives::ShortChannelId::from_str(&c.short_channel_id).unwrap(), // Rule #1 for type short_channel_id
-            source: PublicKey::from_slice(&c.source).unwrap(), // Rule #1 for type pubkey
-        }
+            short_channel_id: cln_rpc::primitives::ShortChannelId::from_str(&c.short_channel_id).map_err(|e| invalid_argument("short_channel_id", e))?, // Rule #1 for type short_channel_id
+            source: PublicKey::from_slice(&c.source).map_err(|e| invalid_argument("source", e))?, // Rule #1 for type pubkey
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::AskreneupdatechannelRequest> for requests::AskreneupdatechannelRequest {
-    fn from(c: pb::AskreneupdatechannelRequest) -> Self {
-        Self {
-            cltv_expiry_delta: c.cltv_expiry_delta.map(|v| v as u16), // Rule #1 for type u16?
+impl TryFrom<pb::AskreneupdatechannelRequest> for requests::AskreneupdatechannelRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::AskreneupdatechannelRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+            cltv_expiry_delta: c.cltv_expiry_delta.map(|v| u16::try_from(v).map_err(|e| invalid_argument("cltv_expiry_delta", e))).transpose()?, // Rule #1 for type u16?
             enabled: c.enabled, // Rule #1 for type boolean?
             fee_base_msat: c.fee_base_msat.map(|a| a.into()), // Rule #1 for type msat?
             fee_proportional_millionths: c.fee_proportional_millionths, // Rule #1 for type u32?
             htlc_maximum_msat: c.htlc_maximum_msat.map(|a| a.into()), // Rule #1 for type msat?
             htlc_minimum_msat: c.htlc_minimum_msat.map(|a| a.into()), // Rule #1 for type msat?
             layer: c.layer, // Rule #1 for type string
-            short_channel_id_dir: cln_rpc::primitives::ShortChannelIdDir::from_str(&c.short_channel_id_dir).unwrap(), // Rule #1 for type short_channel_id_dir
-        }
+            short_channel_id_dir: cln_rpc::primitives::ShortChannelIdDir::from_str(&c.short_channel_id_dir).map_err(|e| invalid_argument("short_channel_id_dir", e))?, // Rule #1 for type short_channel_id_dir
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::AskrenebiaschannelRequest> for requests::AskrenebiaschannelRequest {
-    fn from(c: pb::AskrenebiaschannelRequest) -> Self {
-        Self {
+impl TryFrom<pb::AskrenebiaschannelRequest> for requests::AskrenebiaschannelRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::AskrenebiaschannelRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             bias: c.bias, // Rule #1 for type integer
             description: c.description, // Rule #1 for type string?
             layer: c.layer, // Rule #1 for type string
             relative: c.relative, // Rule #1 for type boolean?
-            short_channel_id_dir: cln_rpc::primitives::ShortChannelIdDir::from_str(&c.short_channel_id_dir).unwrap(), // Rule #1 for type short_channel_id_dir
-        }
+            short_channel_id_dir: cln_rpc::primitives::ShortChannelIdDir::from_str(&c.short_channel_id_dir).map_err(|e| invalid_argument("short_channel_id_dir", e))?, // Rule #1 for type short_channel_id_dir
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::AskrenebiasnodeRequest> for requests::AskrenebiasnodeRequest {
-    fn from(c: pb::AskrenebiasnodeRequest) -> Self {
-        Self {
+impl TryFrom<pb::AskrenebiasnodeRequest> for requests::AskrenebiasnodeRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::AskrenebiasnodeRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             bias: c.bias, // Rule #1 for type integer
             description: c.description, // Rule #1 for type string?
             direction: c.direction, // Rule #1 for type string
             layer: c.layer, // Rule #1 for type string
-            node: PublicKey::from_slice(&c.node).unwrap(), // Rule #1 for type pubkey
+            node: PublicKey::from_slice(&c.node).map_err(|e| invalid_argument("node", e))?, // Rule #1 for type pubkey
             relative: c.relative, // Rule #1 for type boolean?
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::AskrenelistreservationsRequest> for requests::AskrenelistreservationsRequest {
-    fn from(c: pb::AskrenelistreservationsRequest) -> Self {
-        Self {
-        }
+impl TryFrom<pb::AskrenelistreservationsRequest> for requests::AskrenelistreservationsRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::AskrenelistreservationsRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::InjectpaymentonionRequest> for requests::InjectpaymentonionRequest {
-    fn from(c: pb::InjectpaymentonionRequest) -> Self {
-        Self {
-            amount_msat: c.amount_msat.unwrap().into(), // Rule #1 for type msat
-            cltv_expiry: c.cltv_expiry as u16, // Rule #1 for type u16
-            destination: c.destination.map(|v| PublicKey::from_slice(&v).unwrap()), // Rule #1 for type pubkey?
+impl TryFrom<pb::InjectpaymentonionRequest> for requests::InjectpaymentonionRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::InjectpaymentonionRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+            amount_msat: c.amount_msat.ok_or_else(|| missing_field("amount_msat"))?.into(), // Rule #1 for type msat
+            cltv_expiry: u16::try_from(c.cltv_expiry).map_err(|e| invalid_argument("cltv_expiry", e))?, // Rule #1 for type u16
+            destination: c.destination.map(|v| PublicKey::from_slice(&v).map_err(|e| invalid_argument("destination", e))).transpose()?, // Rule #1 for type pubkey?
             destination_msat: c.destination_msat.map(|a| a.into()), // Rule #1 for type msat?
             groupid: c.groupid, // Rule #1 for type u64
             invstring: c.invstring, // Rule #1 for type string?
             label: c.label, // Rule #1 for type string?
-            localinvreqid: c.localinvreqid.map(|v| Sha256::from_slice(&v).unwrap()), // Rule #1 for type hash?
+            localinvreqid: c.localinvreqid.map(|v| Sha256::from_slice(&v).map_err(|e| invalid_argument("localinvreqid", e))).transpose()?, // Rule #1 for type hash?
             onion: hex::encode(&c.onion), // Rule #1 for type hex
             partid: c.partid, // Rule #1 for type u64
-            payment_hash: Sha256::from_slice(&c.payment_hash).unwrap(), // Rule #1 for type hash
-        }
+            payment_hash: Sha256::from_slice(&c.payment_hash).map_err(|e| invalid_argument("payment_hash", e))?, // Rule #1 for type hash
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::InjectonionmessageRequest> for requests::InjectonionmessageRequest {
-    fn from(c: pb::InjectonionmessageRequest) -> Self {
-        Self {
+impl TryFrom<pb::InjectonionmessageRequest> for requests::InjectonionmessageRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::InjectonionmessageRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             message: hex::encode(&c.message), // Rule #1 for type hex
-            path_key: PublicKey::from_slice(&c.path_key).unwrap(), // Rule #1 for type pubkey
-        }
+            path_key: PublicKey::from_slice(&c.path_key).map_err(|e| invalid_argument("path_key", e))?, // Rule #1 for type pubkey
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::XpayRequest> for requests::XpayRequest {
-    fn from(c: pb::XpayRequest) -> Self {
-        Self {
+impl TryFrom<pb::XpayRequest> for requests::XpayRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::XpayRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             amount_msat: c.amount_msat.map(|a| a.into()), // Rule #1 for type msat?
             dev_use_shadow: c.dev_use_shadow, // Rule #1 for type boolean?
             invstring: c.invstring, // Rule #1 for type string
@@ -9326,121 +9481,132 @@ impl From<pb::XpayRequest> for requests::XpayRequest {
             partial_msat: c.partial_msat.map(|a| a.into()), // Rule #1 for type msat?
             payer_note: c.payer_note, // Rule #1 for type string?
             retry_for: c.retry_for, // Rule #1 for type u32?
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::SignmessagewithkeyRequest> for requests::SignmessagewithkeyRequest {
-    fn from(c: pb::SignmessagewithkeyRequest) -> Self {
-        Self {
+impl TryFrom<pb::SignmessagewithkeyRequest> for requests::SignmessagewithkeyRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::SignmessagewithkeyRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             address: c.address, // Rule #1 for type string
             message: c.message, // Rule #1 for type string
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::ListchannelmovesRequest> for requests::ListchannelmovesRequest {
-    fn from(c: pb::ListchannelmovesRequest) -> Self {
-        Self {
-            index: c.index.map(|v| v.try_into().unwrap()),
+impl TryFrom<pb::ListchannelmovesRequest> for requests::ListchannelmovesRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::ListchannelmovesRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+            index: c.index.map(|v| v.try_into().map_err(|e| invalid_argument("index", e))).transpose()?,
             limit: c.limit, // Rule #1 for type u32?
             start: c.start, // Rule #1 for type u64?
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::ListchainmovesRequest> for requests::ListchainmovesRequest {
-    fn from(c: pb::ListchainmovesRequest) -> Self {
-        Self {
-            index: c.index.map(|v| v.try_into().unwrap()),
+impl TryFrom<pb::ListchainmovesRequest> for requests::ListchainmovesRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::ListchainmovesRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+            index: c.index.map(|v| v.try_into().map_err(|e| invalid_argument("index", e))).transpose()?,
             limit: c.limit, // Rule #1 for type u32?
             start: c.start, // Rule #1 for type u64?
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::ListnetworkeventsRequest> for requests::ListnetworkeventsRequest {
-    fn from(c: pb::ListnetworkeventsRequest) -> Self {
-        Self {
+impl TryFrom<pb::ListnetworkeventsRequest> for requests::ListnetworkeventsRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::ListnetworkeventsRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             id: c.id, // Rule #1 for type string?
-            index: c.index.map(|v| v.try_into().unwrap()),
+            index: c.index.map(|v| v.try_into().map_err(|e| invalid_argument("index", e))).transpose()?,
             limit: c.limit, // Rule #1 for type u32?
             start: c.start, // Rule #1 for type u64?
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::DelnetworkeventRequest> for requests::DelnetworkeventRequest {
-    fn from(c: pb::DelnetworkeventRequest) -> Self {
-        Self {
+impl TryFrom<pb::DelnetworkeventRequest> for requests::DelnetworkeventRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::DelnetworkeventRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             created_index: c.created_index, // Rule #1 for type u64
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::ClnrestregisterpathRuneRestrictions> for requests::ClnrestregisterpathRuneRestrictions {
-    fn from(c: pb::ClnrestregisterpathRuneRestrictions) -> Self {
-        Self {
+impl TryFrom<pb::ClnrestregisterpathRuneRestrictions> for requests::ClnrestregisterpathRuneRestrictions {
+    type Error = tonic::Status;
+    fn try_from(c: pb::ClnrestregisterpathRuneRestrictions) -> Result<Self, Self::Error> {
+        Ok(Self {
             method: c.method, // Rule #1 for type string?
             nodeid: c.nodeid, // Rule #1 for type string?
             params: Some(c.params), // Rule #1 for type string_map?
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::ClnrestregisterpathRequest> for requests::ClnrestregisterpathRequest {
-    fn from(c: pb::ClnrestregisterpathRequest) -> Self {
-        Self {
+impl TryFrom<pb::ClnrestregisterpathRequest> for requests::ClnrestregisterpathRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::ClnrestregisterpathRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             http_method: c.http_method, // Rule #1 for type string?
             path: c.path, // Rule #1 for type string
             rpc_method: c.rpc_method, // Rule #1 for type string
             rune_required: c.rune_required, // Rule #1 for type boolean?
-            rune_restrictions: c.rune_restrictions.map(|v| v.into()),
-        }
+            rune_restrictions: c.rune_restrictions.map(|v| v.try_into()).transpose()?,
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::ListcurrencyratesRequest> for requests::ListcurrencyratesRequest {
-    fn from(c: pb::ListcurrencyratesRequest) -> Self {
-        Self {
+impl TryFrom<pb::ListcurrencyratesRequest> for requests::ListcurrencyratesRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::ListcurrencyratesRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             currency: c.currency, // Rule #1 for type string
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::CurrencyconvertRequest> for requests::CurrencyconvertRequest {
-    fn from(c: pb::CurrencyconvertRequest) -> Self {
-        Self {
+impl TryFrom<pb::CurrencyconvertRequest> for requests::CurrencyconvertRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::CurrencyconvertRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             amount: c.amount, // Rule #1 for type number
             currency: c.currency, // Rule #1 for type string
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::CurrencyrateRequest> for requests::CurrencyrateRequest {
-    fn from(c: pb::CurrencyrateRequest) -> Self {
-        Self {
+impl TryFrom<pb::CurrencyrateRequest> for requests::CurrencyrateRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::CurrencyrateRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             currency: c.currency, // Rule #1 for type string
             source: c.source, // Rule #1 for type string?
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::SendamountRequest> for requests::SendamountRequest {
-    fn from(c: pb::SendamountRequest) -> Self {
-        Self {
-            amount_msat: c.amount_msat.unwrap().into(), // Rule #1 for type msat
+impl TryFrom<pb::SendamountRequest> for requests::SendamountRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::SendamountRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+            amount_msat: c.amount_msat.ok_or_else(|| missing_field("amount_msat"))?.into(), // Rule #1 for type msat
             invstring: c.invstring, // Rule #1 for type string
             label: c.label, // Rule #1 for type string?
             layers: Some(c.layers.into_iter().map(|s| s.into()).collect()), // Rule #4
@@ -9448,235 +9614,262 @@ impl From<pb::SendamountRequest> for requests::SendamountRequest {
             maxfee: c.maxfee.map(|a| a.into()), // Rule #1 for type msat?
             payer_note: c.payer_note, // Rule #1 for type string?
             retry_for: c.retry_for, // Rule #1 for type u32?
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::CreateproofRequest> for requests::CreateproofRequest {
-    fn from(c: pb::CreateproofRequest) -> Self {
-        Self {
-            include: Some(c.include.into_iter().map(|s| s.into()).collect()), // Rule #4
+impl TryFrom<pb::CreateproofRequest> for requests::CreateproofRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::CreateproofRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+            include: Some(c.include.into_iter().map(|s| s.try_into().map_err(|e| invalid_argument("include", e))).collect::<Result<Vec<_>, tonic::Status>>()?), // Rule #4
             invstring: c.invstring, // Rule #1 for type string
             note: c.note, // Rule #1 for type string?
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::XkeysendRequest> for requests::XkeysendRequest {
-    fn from(c: pb::XkeysendRequest) -> Self {
-        Self {
-            amount_msat: c.amount_msat.unwrap().into(), // Rule #1 for type msat
-            destination: PublicKey::from_slice(&c.destination).unwrap(), // Rule #1 for type pubkey
+impl TryFrom<pb::XkeysendRequest> for requests::XkeysendRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::XkeysendRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+            amount_msat: c.amount_msat.ok_or_else(|| missing_field("amount_msat"))?.into(), // Rule #1 for type msat
+            destination: PublicKey::from_slice(&c.destination).map_err(|e| invalid_argument("destination", e))?, // Rule #1 for type pubkey
             extratlvs: Some(c.extratlvs), // Rule #1 for type string_map?
             label: c.label, // Rule #1 for type string?
             layers: Some(c.layers.into_iter().map(|s| s.into()).collect()), // Rule #4
             maxdelay: c.maxdelay, // Rule #1 for type u32?
             maxfee: c.maxfee.map(|a| a.into()), // Rule #1 for type msat?
             retry_for: c.retry_for, // Rule #1 for type u32?
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::GracefulRequest> for requests::GracefulRequest {
-    fn from(c: pb::GracefulRequest) -> Self {
-        Self {
+impl TryFrom<pb::GracefulRequest> for requests::GracefulRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::GracefulRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
             timeout: c.timeout, // Rule #1 for type u32?
-        }
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::StreamBalanceSnapshotRequest> for notifications::requests::StreamBalanceSnapshotRequest {
-    fn from(c: pb::StreamBalanceSnapshotRequest) -> Self {
-        Self {
-        }
+impl TryFrom<pb::StreamBalanceSnapshotRequest> for notifications::requests::StreamBalanceSnapshotRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::StreamBalanceSnapshotRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::StreamBlockAddedRequest> for notifications::requests::StreamBlockAddedRequest {
-    fn from(c: pb::StreamBlockAddedRequest) -> Self {
-        Self {
-        }
+impl TryFrom<pb::StreamBlockAddedRequest> for notifications::requests::StreamBlockAddedRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::StreamBlockAddedRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::StreamChannelOpenFailedRequest> for notifications::requests::StreamChannelOpenFailedRequest {
-    fn from(c: pb::StreamChannelOpenFailedRequest) -> Self {
-        Self {
-        }
+impl TryFrom<pb::StreamChannelOpenFailedRequest> for notifications::requests::StreamChannelOpenFailedRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::StreamChannelOpenFailedRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::StreamChannelOpenedRequest> for notifications::requests::StreamChannelOpenedRequest {
-    fn from(c: pb::StreamChannelOpenedRequest) -> Self {
-        Self {
-        }
+impl TryFrom<pb::StreamChannelOpenedRequest> for notifications::requests::StreamChannelOpenedRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::StreamChannelOpenedRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::StreamChannelStateChangedRequest> for notifications::requests::StreamChannelStateChangedRequest {
-    fn from(c: pb::StreamChannelStateChangedRequest) -> Self {
-        Self {
-        }
+impl TryFrom<pb::StreamChannelStateChangedRequest> for notifications::requests::StreamChannelStateChangedRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::StreamChannelStateChangedRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::StreamConnectRequest> for notifications::requests::StreamConnectRequest {
-    fn from(c: pb::StreamConnectRequest) -> Self {
-        Self {
-        }
+impl TryFrom<pb::StreamConnectRequest> for notifications::requests::StreamConnectRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::StreamConnectRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::StreamCoinMovementRequest> for notifications::requests::StreamCoinMovementRequest {
-    fn from(c: pb::StreamCoinMovementRequest) -> Self {
-        Self {
-        }
+impl TryFrom<pb::StreamCoinMovementRequest> for notifications::requests::StreamCoinMovementRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::StreamCoinMovementRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::StreamCustomMsgRequest> for notifications::requests::StreamCustomMsgRequest {
-    fn from(c: pb::StreamCustomMsgRequest) -> Self {
-        Self {
-        }
+impl TryFrom<pb::StreamCustomMsgRequest> for notifications::requests::StreamCustomMsgRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::StreamCustomMsgRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::StreamDeprecatedOneshotRequest> for notifications::requests::StreamDeprecatedOneshotRequest {
-    fn from(c: pb::StreamDeprecatedOneshotRequest) -> Self {
-        Self {
-        }
+impl TryFrom<pb::StreamDeprecatedOneshotRequest> for notifications::requests::StreamDeprecatedOneshotRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::StreamDeprecatedOneshotRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::StreamDisconnectRequest> for notifications::requests::StreamDisconnectRequest {
-    fn from(c: pb::StreamDisconnectRequest) -> Self {
-        Self {
-        }
+impl TryFrom<pb::StreamDisconnectRequest> for notifications::requests::StreamDisconnectRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::StreamDisconnectRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::StreamForwardEventRequest> for notifications::requests::StreamForwardEventRequest {
-    fn from(c: pb::StreamForwardEventRequest) -> Self {
-        Self {
-        }
+impl TryFrom<pb::StreamForwardEventRequest> for notifications::requests::StreamForwardEventRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::StreamForwardEventRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::StreamInvoiceCreationRequest> for notifications::requests::StreamInvoiceCreationRequest {
-    fn from(c: pb::StreamInvoiceCreationRequest) -> Self {
-        Self {
-        }
+impl TryFrom<pb::StreamInvoiceCreationRequest> for notifications::requests::StreamInvoiceCreationRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::StreamInvoiceCreationRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::StreamInvoicePaymentRequest> for notifications::requests::StreamInvoicePaymentRequest {
-    fn from(c: pb::StreamInvoicePaymentRequest) -> Self {
-        Self {
-        }
+impl TryFrom<pb::StreamInvoicePaymentRequest> for notifications::requests::StreamInvoicePaymentRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::StreamInvoicePaymentRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::StreamLogRequest> for notifications::requests::StreamLogRequest {
-    fn from(c: pb::StreamLogRequest) -> Self {
-        Self {
-        }
+impl TryFrom<pb::StreamLogRequest> for notifications::requests::StreamLogRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::StreamLogRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::StreamOnionMessageForwardFailRequest> for notifications::requests::StreamOnionMessageForwardFailRequest {
-    fn from(c: pb::StreamOnionMessageForwardFailRequest) -> Self {
-        Self {
-        }
+impl TryFrom<pb::StreamOnionMessageForwardFailRequest> for notifications::requests::StreamOnionMessageForwardFailRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::StreamOnionMessageForwardFailRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::StreamOpenChannelPeerSigsRequest> for notifications::requests::StreamOpenChannelPeerSigsRequest {
-    fn from(c: pb::StreamOpenChannelPeerSigsRequest) -> Self {
-        Self {
-        }
+impl TryFrom<pb::StreamOpenChannelPeerSigsRequest> for notifications::requests::StreamOpenChannelPeerSigsRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::StreamOpenChannelPeerSigsRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::StreamPluginStartedRequest> for notifications::requests::StreamPluginStartedRequest {
-    fn from(c: pb::StreamPluginStartedRequest) -> Self {
-        Self {
-        }
+impl TryFrom<pb::StreamPluginStartedRequest> for notifications::requests::StreamPluginStartedRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::StreamPluginStartedRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::StreamPluginStoppedRequest> for notifications::requests::StreamPluginStoppedRequest {
-    fn from(c: pb::StreamPluginStoppedRequest) -> Self {
-        Self {
-        }
+impl TryFrom<pb::StreamPluginStoppedRequest> for notifications::requests::StreamPluginStoppedRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::StreamPluginStoppedRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::StreamSendPayFailureRequest> for notifications::requests::StreamSendPayFailureRequest {
-    fn from(c: pb::StreamSendPayFailureRequest) -> Self {
-        Self {
-        }
+impl TryFrom<pb::StreamSendPayFailureRequest> for notifications::requests::StreamSendPayFailureRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::StreamSendPayFailureRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::StreamSendPaySuccessRequest> for notifications::requests::StreamSendPaySuccessRequest {
-    fn from(c: pb::StreamSendPaySuccessRequest) -> Self {
-        Self {
-        }
+impl TryFrom<pb::StreamSendPaySuccessRequest> for notifications::requests::StreamSendPaySuccessRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::StreamSendPaySuccessRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::StreamShutdownRequest> for notifications::requests::StreamShutdownRequest {
-    fn from(c: pb::StreamShutdownRequest) -> Self {
-        Self {
-        }
+impl TryFrom<pb::StreamShutdownRequest> for notifications::requests::StreamShutdownRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::StreamShutdownRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::StreamWarningRequest> for notifications::requests::StreamWarningRequest {
-    fn from(c: pb::StreamWarningRequest) -> Self {
-        Self {
-        }
+impl TryFrom<pb::StreamWarningRequest> for notifications::requests::StreamWarningRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::StreamWarningRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::StreamPayPartEndRequest> for notifications::requests::StreamPayPartEndRequest {
-    fn from(c: pb::StreamPayPartEndRequest) -> Self {
-        Self {
-        }
+impl TryFrom<pb::StreamPayPartEndRequest> for notifications::requests::StreamPayPartEndRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::StreamPayPartEndRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+        })
     }
 }
 
 #[allow(unused_variables)]
-impl From<pb::StreamPayPartStartRequest> for notifications::requests::StreamPayPartStartRequest {
-    fn from(c: pb::StreamPayPartStartRequest) -> Self {
-        Self {
-        }
+impl TryFrom<pb::StreamPayPartStartRequest> for notifications::requests::StreamPayPartStartRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::StreamPayPartStartRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+        })
     }
 }
 
