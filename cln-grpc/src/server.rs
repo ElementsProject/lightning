@@ -87,7 +87,7 @@ impl Node for Server
         request: tonic::Request<pb::GetinfoRequest>,
     ) -> Result<tonic::Response<pb::GetinfoResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::GetinfoRequest = req.into();
+        let req: requests::GetinfoRequest = req.try_into()?;
         debug!("Client asked for getinfo");
         trace!("getinfo request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -119,7 +119,7 @@ impl Node for Server
         request: tonic::Request<pb::ListpeersRequest>,
     ) -> Result<tonic::Response<pb::ListpeersResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::ListpeersRequest = req.into();
+        let req: requests::ListpeersRequest = req.try_into()?;
         debug!("Client asked for list_peers");
         trace!("list_peers request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -151,7 +151,7 @@ impl Node for Server
         request: tonic::Request<pb::ListfundsRequest>,
     ) -> Result<tonic::Response<pb::ListfundsResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::ListfundsRequest = req.into();
+        let req: requests::ListfundsRequest = req.try_into()?;
         debug!("Client asked for list_funds");
         trace!("list_funds request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -183,7 +183,7 @@ impl Node for Server
         request: tonic::Request<pb::SendpayRequest>,
     ) -> Result<tonic::Response<pb::SendpayResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::SendpayRequest = req.into();
+        let req: requests::SendpayRequest = req.try_into()?;
         debug!("Client asked for send_pay");
         trace!("send_pay request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -215,7 +215,7 @@ impl Node for Server
         request: tonic::Request<pb::ListchannelsRequest>,
     ) -> Result<tonic::Response<pb::ListchannelsResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::ListchannelsRequest = req.into();
+        let req: requests::ListchannelsRequest = req.try_into()?;
         debug!("Client asked for list_channels");
         trace!("list_channels request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -247,7 +247,7 @@ impl Node for Server
         request: tonic::Request<pb::AddgossipRequest>,
     ) -> Result<tonic::Response<pb::AddgossipResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::AddgossipRequest = req.into();
+        let req: requests::AddgossipRequest = req.try_into()?;
         debug!("Client asked for add_gossip");
         trace!("add_gossip request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -279,7 +279,7 @@ impl Node for Server
         request: tonic::Request<pb::AddpsbtoutputRequest>,
     ) -> Result<tonic::Response<pb::AddpsbtoutputResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::AddpsbtoutputRequest = req.into();
+        let req: requests::AddpsbtoutputRequest = req.try_into()?;
         debug!("Client asked for add_psbt_output");
         trace!("add_psbt_output request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -311,7 +311,7 @@ impl Node for Server
         request: tonic::Request<pb::AutocleanonceRequest>,
     ) -> Result<tonic::Response<pb::AutocleanonceResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::AutocleanonceRequest = req.into();
+        let req: requests::AutocleanonceRequest = req.try_into()?;
         debug!("Client asked for auto_clean_once");
         trace!("auto_clean_once request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -343,7 +343,7 @@ impl Node for Server
         request: tonic::Request<pb::AutocleanstatusRequest>,
     ) -> Result<tonic::Response<pb::AutocleanstatusResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::AutocleanstatusRequest = req.into();
+        let req: requests::AutocleanstatusRequest = req.try_into()?;
         debug!("Client asked for auto_clean_status");
         trace!("auto_clean_status request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -375,7 +375,7 @@ impl Node for Server
         request: tonic::Request<pb::CheckmessageRequest>,
     ) -> Result<tonic::Response<pb::CheckmessageResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::CheckmessageRequest = req.into();
+        let req: requests::CheckmessageRequest = req.try_into()?;
         debug!("Client asked for check_message");
         trace!("check_message request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -407,7 +407,7 @@ impl Node for Server
         request: tonic::Request<pb::CloseRequest>,
     ) -> Result<tonic::Response<pb::CloseResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::CloseRequest = req.into();
+        let req: requests::CloseRequest = req.try_into()?;
         debug!("Client asked for close");
         trace!("close request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -439,7 +439,7 @@ impl Node for Server
         request: tonic::Request<pb::ConnectRequest>,
     ) -> Result<tonic::Response<pb::ConnectResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::ConnectRequest = req.into();
+        let req: requests::ConnectRequest = req.try_into()?;
         debug!("Client asked for connect_peer");
         trace!("connect_peer request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -471,7 +471,7 @@ impl Node for Server
         request: tonic::Request<pb::CreateinvoiceRequest>,
     ) -> Result<tonic::Response<pb::CreateinvoiceResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::CreateinvoiceRequest = req.into();
+        let req: requests::CreateinvoiceRequest = req.try_into()?;
         debug!("Client asked for create_invoice");
         trace!("create_invoice request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -503,7 +503,7 @@ impl Node for Server
         request: tonic::Request<pb::DatastoreRequest>,
     ) -> Result<tonic::Response<pb::DatastoreResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::DatastoreRequest = req.into();
+        let req: requests::DatastoreRequest = req.try_into()?;
         debug!("Client asked for datastore");
         trace!("datastore request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -535,7 +535,7 @@ impl Node for Server
         request: tonic::Request<pb::DatastoreusageRequest>,
     ) -> Result<tonic::Response<pb::DatastoreusageResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::DatastoreusageRequest = req.into();
+        let req: requests::DatastoreusageRequest = req.try_into()?;
         debug!("Client asked for datastore_usage");
         trace!("datastore_usage request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -567,7 +567,7 @@ impl Node for Server
         request: tonic::Request<pb::CreateonionRequest>,
     ) -> Result<tonic::Response<pb::CreateonionResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::CreateonionRequest = req.into();
+        let req: requests::CreateonionRequest = req.try_into()?;
         debug!("Client asked for create_onion");
         trace!("create_onion request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -599,7 +599,7 @@ impl Node for Server
         request: tonic::Request<pb::DeldatastoreRequest>,
     ) -> Result<tonic::Response<pb::DeldatastoreResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::DeldatastoreRequest = req.into();
+        let req: requests::DeldatastoreRequest = req.try_into()?;
         debug!("Client asked for del_datastore");
         trace!("del_datastore request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -631,7 +631,7 @@ impl Node for Server
         request: tonic::Request<pb::DelinvoiceRequest>,
     ) -> Result<tonic::Response<pb::DelinvoiceResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::DelinvoiceRequest = req.into();
+        let req: requests::DelinvoiceRequest = req.try_into()?;
         debug!("Client asked for del_invoice");
         trace!("del_invoice request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -663,7 +663,7 @@ impl Node for Server
         request: tonic::Request<pb::DevforgetchannelRequest>,
     ) -> Result<tonic::Response<pb::DevforgetchannelResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::DevforgetchannelRequest = req.into();
+        let req: requests::DevforgetchannelRequest = req.try_into()?;
         debug!("Client asked for dev_forget_channel");
         trace!("dev_forget_channel request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -695,7 +695,7 @@ impl Node for Server
         request: tonic::Request<pb::EmergencyrecoverRequest>,
     ) -> Result<tonic::Response<pb::EmergencyrecoverResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::EmergencyrecoverRequest = req.into();
+        let req: requests::EmergencyrecoverRequest = req.try_into()?;
         debug!("Client asked for emergency_recover");
         trace!("emergency_recover request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -727,7 +727,7 @@ impl Node for Server
         request: tonic::Request<pb::GetemergencyrecoverdataRequest>,
     ) -> Result<tonic::Response<pb::GetemergencyrecoverdataResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::GetemergencyrecoverdataRequest = req.into();
+        let req: requests::GetemergencyrecoverdataRequest = req.try_into()?;
         debug!("Client asked for get_emergency_recover_data");
         trace!("get_emergency_recover_data request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -759,7 +759,7 @@ impl Node for Server
         request: tonic::Request<pb::ExposesecretRequest>,
     ) -> Result<tonic::Response<pb::ExposesecretResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::ExposesecretRequest = req.into();
+        let req: requests::ExposesecretRequest = req.try_into()?;
         debug!("Client asked for expose_secret");
         trace!("expose_secret request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -791,7 +791,7 @@ impl Node for Server
         request: tonic::Request<pb::RecoverRequest>,
     ) -> Result<tonic::Response<pb::RecoverResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::RecoverRequest = req.into();
+        let req: requests::RecoverRequest = req.try_into()?;
         debug!("Client asked for recover");
         trace!("recover request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -823,7 +823,7 @@ impl Node for Server
         request: tonic::Request<pb::RecoverchannelRequest>,
     ) -> Result<tonic::Response<pb::RecoverchannelResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::RecoverchannelRequest = req.into();
+        let req: requests::RecoverchannelRequest = req.try_into()?;
         debug!("Client asked for recover_channel");
         trace!("recover_channel request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -855,7 +855,7 @@ impl Node for Server
         request: tonic::Request<pb::InvoiceRequest>,
     ) -> Result<tonic::Response<pb::InvoiceResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::InvoiceRequest = req.into();
+        let req: requests::InvoiceRequest = req.try_into()?;
         debug!("Client asked for invoice");
         trace!("invoice request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -887,7 +887,7 @@ impl Node for Server
         request: tonic::Request<pb::InvoicerequestRequest>,
     ) -> Result<tonic::Response<pb::InvoicerequestResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::InvoicerequestRequest = req.into();
+        let req: requests::InvoicerequestRequest = req.try_into()?;
         debug!("Client asked for create_invoice_request");
         trace!("create_invoice_request request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -919,7 +919,7 @@ impl Node for Server
         request: tonic::Request<pb::DisableinvoicerequestRequest>,
     ) -> Result<tonic::Response<pb::DisableinvoicerequestResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::DisableinvoicerequestRequest = req.into();
+        let req: requests::DisableinvoicerequestRequest = req.try_into()?;
         debug!("Client asked for disable_invoice_request");
         trace!("disable_invoice_request request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -951,7 +951,7 @@ impl Node for Server
         request: tonic::Request<pb::ListinvoicerequestsRequest>,
     ) -> Result<tonic::Response<pb::ListinvoicerequestsResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::ListinvoicerequestsRequest = req.into();
+        let req: requests::ListinvoicerequestsRequest = req.try_into()?;
         debug!("Client asked for list_invoice_requests");
         trace!("list_invoice_requests request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -983,7 +983,7 @@ impl Node for Server
         request: tonic::Request<pb::ListdatastoreRequest>,
     ) -> Result<tonic::Response<pb::ListdatastoreResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::ListdatastoreRequest = req.into();
+        let req: requests::ListdatastoreRequest = req.try_into()?;
         debug!("Client asked for list_datastore");
         trace!("list_datastore request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -1015,7 +1015,7 @@ impl Node for Server
         request: tonic::Request<pb::ListinvoicesRequest>,
     ) -> Result<tonic::Response<pb::ListinvoicesResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::ListinvoicesRequest = req.into();
+        let req: requests::ListinvoicesRequest = req.try_into()?;
         debug!("Client asked for list_invoices");
         trace!("list_invoices request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -1047,7 +1047,7 @@ impl Node for Server
         request: tonic::Request<pb::SendonionRequest>,
     ) -> Result<tonic::Response<pb::SendonionResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::SendonionRequest = req.into();
+        let req: requests::SendonionRequest = req.try_into()?;
         debug!("Client asked for send_onion");
         trace!("send_onion request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -1079,7 +1079,7 @@ impl Node for Server
         request: tonic::Request<pb::ListsendpaysRequest>,
     ) -> Result<tonic::Response<pb::ListsendpaysResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::ListsendpaysRequest = req.into();
+        let req: requests::ListsendpaysRequest = req.try_into()?;
         debug!("Client asked for list_send_pays");
         trace!("list_send_pays request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -1111,7 +1111,7 @@ impl Node for Server
         request: tonic::Request<pb::ListtransactionsRequest>,
     ) -> Result<tonic::Response<pb::ListtransactionsResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::ListtransactionsRequest = req.into();
+        let req: requests::ListtransactionsRequest = req.try_into()?;
         debug!("Client asked for list_transactions");
         trace!("list_transactions request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -1143,7 +1143,7 @@ impl Node for Server
         request: tonic::Request<pb::MakesecretRequest>,
     ) -> Result<tonic::Response<pb::MakesecretResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::MakesecretRequest = req.into();
+        let req: requests::MakesecretRequest = req.try_into()?;
         debug!("Client asked for make_secret");
         trace!("make_secret request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -1176,7 +1176,7 @@ impl Node for Server
     ) -> Result<tonic::Response<pb::PayResponse>, tonic::Status> {
         let req = request.into_inner();
         #[allow(deprecated)]
-        let req: requests::PayRequest = req.into();
+        let req: requests::PayRequest = req.try_into()?;
         debug!("Client asked for pay");
         trace!("pay request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -1208,7 +1208,7 @@ impl Node for Server
         request: tonic::Request<pb::ListnodesRequest>,
     ) -> Result<tonic::Response<pb::ListnodesResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::ListnodesRequest = req.into();
+        let req: requests::ListnodesRequest = req.try_into()?;
         debug!("Client asked for list_nodes");
         trace!("list_nodes request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -1240,7 +1240,7 @@ impl Node for Server
         request: tonic::Request<pb::WaitanyinvoiceRequest>,
     ) -> Result<tonic::Response<pb::WaitanyinvoiceResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::WaitanyinvoiceRequest = req.into();
+        let req: requests::WaitanyinvoiceRequest = req.try_into()?;
         debug!("Client asked for wait_any_invoice");
         trace!("wait_any_invoice request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -1272,7 +1272,7 @@ impl Node for Server
         request: tonic::Request<pb::WaitinvoiceRequest>,
     ) -> Result<tonic::Response<pb::WaitinvoiceResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::WaitinvoiceRequest = req.into();
+        let req: requests::WaitinvoiceRequest = req.try_into()?;
         debug!("Client asked for wait_invoice");
         trace!("wait_invoice request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -1304,7 +1304,7 @@ impl Node for Server
         request: tonic::Request<pb::WaitsendpayRequest>,
     ) -> Result<tonic::Response<pb::WaitsendpayResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::WaitsendpayRequest = req.into();
+        let req: requests::WaitsendpayRequest = req.try_into()?;
         debug!("Client asked for wait_send_pay");
         trace!("wait_send_pay request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -1336,7 +1336,7 @@ impl Node for Server
         request: tonic::Request<pb::NewaddrRequest>,
     ) -> Result<tonic::Response<pb::NewaddrResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::NewaddrRequest = req.into();
+        let req: requests::NewaddrRequest = req.try_into()?;
         debug!("Client asked for new_addr");
         trace!("new_addr request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -1368,7 +1368,7 @@ impl Node for Server
         request: tonic::Request<pb::WithdrawRequest>,
     ) -> Result<tonic::Response<pb::WithdrawResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::WithdrawRequest = req.into();
+        let req: requests::WithdrawRequest = req.try_into()?;
         debug!("Client asked for withdraw");
         trace!("withdraw request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -1401,7 +1401,7 @@ impl Node for Server
     ) -> Result<tonic::Response<pb::KeysendResponse>, tonic::Status> {
         let req = request.into_inner();
         #[allow(deprecated)]
-        let req: requests::KeysendRequest = req.into();
+        let req: requests::KeysendRequest = req.try_into()?;
         debug!("Client asked for key_send");
         trace!("key_send request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -1433,7 +1433,7 @@ impl Node for Server
         request: tonic::Request<pb::FundpsbtRequest>,
     ) -> Result<tonic::Response<pb::FundpsbtResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::FundpsbtRequest = req.into();
+        let req: requests::FundpsbtRequest = req.try_into()?;
         debug!("Client asked for fund_psbt");
         trace!("fund_psbt request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -1465,7 +1465,7 @@ impl Node for Server
         request: tonic::Request<pb::SendpsbtRequest>,
     ) -> Result<tonic::Response<pb::SendpsbtResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::SendpsbtRequest = req.into();
+        let req: requests::SendpsbtRequest = req.try_into()?;
         debug!("Client asked for send_psbt");
         trace!("send_psbt request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -1497,7 +1497,7 @@ impl Node for Server
         request: tonic::Request<pb::SignpsbtRequest>,
     ) -> Result<tonic::Response<pb::SignpsbtResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::SignpsbtRequest = req.into();
+        let req: requests::SignpsbtRequest = req.try_into()?;
         debug!("Client asked for sign_psbt");
         trace!("sign_psbt request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -1529,7 +1529,7 @@ impl Node for Server
         request: tonic::Request<pb::UtxopsbtRequest>,
     ) -> Result<tonic::Response<pb::UtxopsbtResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::UtxopsbtRequest = req.into();
+        let req: requests::UtxopsbtRequest = req.try_into()?;
         debug!("Client asked for utxo_psbt");
         trace!("utxo_psbt request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -1561,7 +1561,7 @@ impl Node for Server
         request: tonic::Request<pb::TxdiscardRequest>,
     ) -> Result<tonic::Response<pb::TxdiscardResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::TxdiscardRequest = req.into();
+        let req: requests::TxdiscardRequest = req.try_into()?;
         debug!("Client asked for tx_discard");
         trace!("tx_discard request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -1593,7 +1593,7 @@ impl Node for Server
         request: tonic::Request<pb::TxprepareRequest>,
     ) -> Result<tonic::Response<pb::TxprepareResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::TxprepareRequest = req.into();
+        let req: requests::TxprepareRequest = req.try_into()?;
         debug!("Client asked for tx_prepare");
         trace!("tx_prepare request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -1625,7 +1625,7 @@ impl Node for Server
         request: tonic::Request<pb::TxsendRequest>,
     ) -> Result<tonic::Response<pb::TxsendResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::TxsendRequest = req.into();
+        let req: requests::TxsendRequest = req.try_into()?;
         debug!("Client asked for tx_send");
         trace!("tx_send request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -1657,7 +1657,7 @@ impl Node for Server
         request: tonic::Request<pb::ListpeerchannelsRequest>,
     ) -> Result<tonic::Response<pb::ListpeerchannelsResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::ListpeerchannelsRequest = req.into();
+        let req: requests::ListpeerchannelsRequest = req.try_into()?;
         debug!("Client asked for list_peer_channels");
         trace!("list_peer_channels request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -1689,7 +1689,7 @@ impl Node for Server
         request: tonic::Request<pb::ListclosedchannelsRequest>,
     ) -> Result<tonic::Response<pb::ListclosedchannelsResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::ListclosedchannelsRequest = req.into();
+        let req: requests::ListclosedchannelsRequest = req.try_into()?;
         debug!("Client asked for list_closed_channels");
         trace!("list_closed_channels request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -1721,7 +1721,7 @@ impl Node for Server
         request: tonic::Request<pb::DecodeRequest>,
     ) -> Result<tonic::Response<pb::DecodeResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::DecodeRequest = req.into();
+        let req: requests::DecodeRequest = req.try_into()?;
         debug!("Client asked for decode");
         trace!("decode request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -1753,7 +1753,7 @@ impl Node for Server
         request: tonic::Request<pb::DelpayRequest>,
     ) -> Result<tonic::Response<pb::DelpayResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::DelpayRequest = req.into();
+        let req: requests::DelpayRequest = req.try_into()?;
         debug!("Client asked for del_pay");
         trace!("del_pay request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -1785,7 +1785,7 @@ impl Node for Server
         request: tonic::Request<pb::DelforwardRequest>,
     ) -> Result<tonic::Response<pb::DelforwardResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::DelforwardRequest = req.into();
+        let req: requests::DelforwardRequest = req.try_into()?;
         debug!("Client asked for del_forward");
         trace!("del_forward request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -1817,7 +1817,7 @@ impl Node for Server
         request: tonic::Request<pb::DisableofferRequest>,
     ) -> Result<tonic::Response<pb::DisableofferResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::DisableofferRequest = req.into();
+        let req: requests::DisableofferRequest = req.try_into()?;
         debug!("Client asked for disable_offer");
         trace!("disable_offer request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -1849,7 +1849,7 @@ impl Node for Server
         request: tonic::Request<pb::EnableofferRequest>,
     ) -> Result<tonic::Response<pb::EnableofferResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::EnableofferRequest = req.into();
+        let req: requests::EnableofferRequest = req.try_into()?;
         debug!("Client asked for enable_offer");
         trace!("enable_offer request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -1881,7 +1881,7 @@ impl Node for Server
         request: tonic::Request<pb::DisconnectRequest>,
     ) -> Result<tonic::Response<pb::DisconnectResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::DisconnectRequest = req.into();
+        let req: requests::DisconnectRequest = req.try_into()?;
         debug!("Client asked for disconnect");
         trace!("disconnect request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -1913,7 +1913,7 @@ impl Node for Server
         request: tonic::Request<pb::FeeratesRequest>,
     ) -> Result<tonic::Response<pb::FeeratesResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::FeeratesRequest = req.into();
+        let req: requests::FeeratesRequest = req.try_into()?;
         debug!("Client asked for feerates");
         trace!("feerates request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -1945,7 +1945,7 @@ impl Node for Server
         request: tonic::Request<pb::Fetchbip353Request>,
     ) -> Result<tonic::Response<pb::Fetchbip353Response>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::Fetchbip353Request = req.into();
+        let req: requests::Fetchbip353Request = req.try_into()?;
         debug!("Client asked for fetch_bip353");
         trace!("fetch_bip353 request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -1977,7 +1977,7 @@ impl Node for Server
         request: tonic::Request<pb::FetchinvoiceRequest>,
     ) -> Result<tonic::Response<pb::FetchinvoiceResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::FetchinvoiceRequest = req.into();
+        let req: requests::FetchinvoiceRequest = req.try_into()?;
         debug!("Client asked for fetch_invoice");
         trace!("fetch_invoice request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -2009,7 +2009,7 @@ impl Node for Server
         request: tonic::Request<pb::CancelrecurringinvoiceRequest>,
     ) -> Result<tonic::Response<pb::CancelrecurringinvoiceResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::CancelrecurringinvoiceRequest = req.into();
+        let req: requests::CancelrecurringinvoiceRequest = req.try_into()?;
         debug!("Client asked for cancel_recurring_invoice");
         trace!("cancel_recurring_invoice request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -2041,7 +2041,7 @@ impl Node for Server
         request: tonic::Request<pb::FundchannelCancelRequest>,
     ) -> Result<tonic::Response<pb::FundchannelCancelResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::FundchannelCancelRequest = req.into();
+        let req: requests::FundchannelCancelRequest = req.try_into()?;
         debug!("Client asked for fund_channel_cancel");
         trace!("fund_channel_cancel request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -2073,7 +2073,7 @@ impl Node for Server
         request: tonic::Request<pb::FundchannelCompleteRequest>,
     ) -> Result<tonic::Response<pb::FundchannelCompleteResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::FundchannelCompleteRequest = req.into();
+        let req: requests::FundchannelCompleteRequest = req.try_into()?;
         debug!("Client asked for fund_channel_complete");
         trace!("fund_channel_complete request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -2105,7 +2105,7 @@ impl Node for Server
         request: tonic::Request<pb::FundchannelRequest>,
     ) -> Result<tonic::Response<pb::FundchannelResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::FundchannelRequest = req.into();
+        let req: requests::FundchannelRequest = req.try_into()?;
         debug!("Client asked for fund_channel");
         trace!("fund_channel request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -2137,7 +2137,7 @@ impl Node for Server
         request: tonic::Request<pb::FundchannelStartRequest>,
     ) -> Result<tonic::Response<pb::FundchannelStartResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::FundchannelStartRequest = req.into();
+        let req: requests::FundchannelStartRequest = req.try_into()?;
         debug!("Client asked for fund_channel_start");
         trace!("fund_channel_start request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -2169,7 +2169,7 @@ impl Node for Server
         request: tonic::Request<pb::GetlogRequest>,
     ) -> Result<tonic::Response<pb::GetlogResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::GetlogRequest = req.into();
+        let req: requests::GetlogRequest = req.try_into()?;
         debug!("Client asked for get_log");
         trace!("get_log request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -2201,7 +2201,7 @@ impl Node for Server
         request: tonic::Request<pb::FunderupdateRequest>,
     ) -> Result<tonic::Response<pb::FunderupdateResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::FunderupdateRequest = req.into();
+        let req: requests::FunderupdateRequest = req.try_into()?;
         debug!("Client asked for funder_update");
         trace!("funder_update request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -2234,7 +2234,7 @@ impl Node for Server
     ) -> Result<tonic::Response<pb::GetrouteResponse>, tonic::Status> {
         let req = request.into_inner();
         #[allow(deprecated)]
-        let req: requests::GetrouteRequest = req.into();
+        let req: requests::GetrouteRequest = req.try_into()?;
         debug!("Client asked for get_route");
         trace!("get_route request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -2266,7 +2266,7 @@ impl Node for Server
         request: tonic::Request<pb::ListaddressesRequest>,
     ) -> Result<tonic::Response<pb::ListaddressesResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::ListaddressesRequest = req.into();
+        let req: requests::ListaddressesRequest = req.try_into()?;
         debug!("Client asked for list_addresses");
         trace!("list_addresses request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -2298,7 +2298,7 @@ impl Node for Server
         request: tonic::Request<pb::ListforwardsRequest>,
     ) -> Result<tonic::Response<pb::ListforwardsResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::ListforwardsRequest = req.into();
+        let req: requests::ListforwardsRequest = req.try_into()?;
         debug!("Client asked for list_forwards");
         trace!("list_forwards request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -2330,7 +2330,7 @@ impl Node for Server
         request: tonic::Request<pb::ListoffersRequest>,
     ) -> Result<tonic::Response<pb::ListoffersResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::ListoffersRequest = req.into();
+        let req: requests::ListoffersRequest = req.try_into()?;
         debug!("Client asked for list_offers");
         trace!("list_offers request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -2362,7 +2362,7 @@ impl Node for Server
         request: tonic::Request<pb::ListpaysRequest>,
     ) -> Result<tonic::Response<pb::ListpaysResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::ListpaysRequest = req.into();
+        let req: requests::ListpaysRequest = req.try_into()?;
         debug!("Client asked for list_pays");
         trace!("list_pays request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -2394,7 +2394,7 @@ impl Node for Server
         request: tonic::Request<pb::ListhtlcsRequest>,
     ) -> Result<tonic::Response<pb::ListhtlcsResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::ListhtlcsRequest = req.into();
+        let req: requests::ListhtlcsRequest = req.try_into()?;
         debug!("Client asked for list_htlcs");
         trace!("list_htlcs request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -2426,7 +2426,7 @@ impl Node for Server
         request: tonic::Request<pb::MultifundchannelRequest>,
     ) -> Result<tonic::Response<pb::MultifundchannelResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::MultifundchannelRequest = req.into();
+        let req: requests::MultifundchannelRequest = req.try_into()?;
         debug!("Client asked for multi_fund_channel");
         trace!("multi_fund_channel request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -2458,7 +2458,7 @@ impl Node for Server
         request: tonic::Request<pb::MultiwithdrawRequest>,
     ) -> Result<tonic::Response<pb::MultiwithdrawResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::MultiwithdrawRequest = req.into();
+        let req: requests::MultiwithdrawRequest = req.try_into()?;
         debug!("Client asked for multi_withdraw");
         trace!("multi_withdraw request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -2490,7 +2490,7 @@ impl Node for Server
         request: tonic::Request<pb::OfferRequest>,
     ) -> Result<tonic::Response<pb::OfferResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::OfferRequest = req.into();
+        let req: requests::OfferRequest = req.try_into()?;
         debug!("Client asked for offer");
         trace!("offer request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -2522,7 +2522,7 @@ impl Node for Server
         request: tonic::Request<pb::OpenchannelAbortRequest>,
     ) -> Result<tonic::Response<pb::OpenchannelAbortResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::OpenchannelAbortRequest = req.into();
+        let req: requests::OpenchannelAbortRequest = req.try_into()?;
         debug!("Client asked for open_channel_abort");
         trace!("open_channel_abort request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -2554,7 +2554,7 @@ impl Node for Server
         request: tonic::Request<pb::OpenchannelBumpRequest>,
     ) -> Result<tonic::Response<pb::OpenchannelBumpResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::OpenchannelBumpRequest = req.into();
+        let req: requests::OpenchannelBumpRequest = req.try_into()?;
         debug!("Client asked for open_channel_bump");
         trace!("open_channel_bump request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -2586,7 +2586,7 @@ impl Node for Server
         request: tonic::Request<pb::OpenchannelInitRequest>,
     ) -> Result<tonic::Response<pb::OpenchannelInitResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::OpenchannelInitRequest = req.into();
+        let req: requests::OpenchannelInitRequest = req.try_into()?;
         debug!("Client asked for open_channel_init");
         trace!("open_channel_init request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -2618,7 +2618,7 @@ impl Node for Server
         request: tonic::Request<pb::OpenchannelSignedRequest>,
     ) -> Result<tonic::Response<pb::OpenchannelSignedResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::OpenchannelSignedRequest = req.into();
+        let req: requests::OpenchannelSignedRequest = req.try_into()?;
         debug!("Client asked for open_channel_signed");
         trace!("open_channel_signed request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -2650,7 +2650,7 @@ impl Node for Server
         request: tonic::Request<pb::OpenchannelUpdateRequest>,
     ) -> Result<tonic::Response<pb::OpenchannelUpdateResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::OpenchannelUpdateRequest = req.into();
+        let req: requests::OpenchannelUpdateRequest = req.try_into()?;
         debug!("Client asked for open_channel_update");
         trace!("open_channel_update request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -2682,7 +2682,7 @@ impl Node for Server
         request: tonic::Request<pb::PingRequest>,
     ) -> Result<tonic::Response<pb::PingResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::PingRequest = req.into();
+        let req: requests::PingRequest = req.try_into()?;
         debug!("Client asked for ping");
         trace!("ping request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -2714,7 +2714,7 @@ impl Node for Server
         request: tonic::Request<pb::PluginRequest>,
     ) -> Result<tonic::Response<pb::PluginResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::PluginRequest = req.into();
+        let req: requests::PluginRequest = req.try_into()?;
         debug!("Client asked for plugin");
         trace!("plugin request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -2747,7 +2747,7 @@ impl Node for Server
     ) -> Result<tonic::Response<pb::RenepaystatusResponse>, tonic::Status> {
         let req = request.into_inner();
         #[allow(deprecated)]
-        let req: requests::RenepaystatusRequest = req.into();
+        let req: requests::RenepaystatusRequest = req.try_into()?;
         debug!("Client asked for rene_pay_status");
         trace!("rene_pay_status request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -2780,7 +2780,7 @@ impl Node for Server
     ) -> Result<tonic::Response<pb::RenepayResponse>, tonic::Status> {
         let req = request.into_inner();
         #[allow(deprecated)]
-        let req: requests::RenepayRequest = req.into();
+        let req: requests::RenepayRequest = req.try_into()?;
         debug!("Client asked for rene_pay");
         trace!("rene_pay request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -2812,7 +2812,7 @@ impl Node for Server
         request: tonic::Request<pb::ReserveinputsRequest>,
     ) -> Result<tonic::Response<pb::ReserveinputsResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::ReserveinputsRequest = req.into();
+        let req: requests::ReserveinputsRequest = req.try_into()?;
         debug!("Client asked for reserve_inputs");
         trace!("reserve_inputs request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -2844,7 +2844,7 @@ impl Node for Server
         request: tonic::Request<pb::SendcustommsgRequest>,
     ) -> Result<tonic::Response<pb::SendcustommsgResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::SendcustommsgRequest = req.into();
+        let req: requests::SendcustommsgRequest = req.try_into()?;
         debug!("Client asked for send_custom_msg");
         trace!("send_custom_msg request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -2876,7 +2876,7 @@ impl Node for Server
         request: tonic::Request<pb::SendinvoiceRequest>,
     ) -> Result<tonic::Response<pb::SendinvoiceResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::SendinvoiceRequest = req.into();
+        let req: requests::SendinvoiceRequest = req.try_into()?;
         debug!("Client asked for send_invoice");
         trace!("send_invoice request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -2908,7 +2908,7 @@ impl Node for Server
         request: tonic::Request<pb::SetchannelRequest>,
     ) -> Result<tonic::Response<pb::SetchannelResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::SetchannelRequest = req.into();
+        let req: requests::SetchannelRequest = req.try_into()?;
         debug!("Client asked for set_channel");
         trace!("set_channel request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -2940,7 +2940,7 @@ impl Node for Server
         request: tonic::Request<pb::SetconfigRequest>,
     ) -> Result<tonic::Response<pb::SetconfigResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::SetconfigRequest = req.into();
+        let req: requests::SetconfigRequest = req.try_into()?;
         debug!("Client asked for set_config");
         trace!("set_config request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -2972,7 +2972,7 @@ impl Node for Server
         request: tonic::Request<pb::SetpsbtversionRequest>,
     ) -> Result<tonic::Response<pb::SetpsbtversionResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::SetpsbtversionRequest = req.into();
+        let req: requests::SetpsbtversionRequest = req.try_into()?;
         debug!("Client asked for set_psbt_version");
         trace!("set_psbt_version request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -3004,7 +3004,7 @@ impl Node for Server
         request: tonic::Request<pb::SigninvoiceRequest>,
     ) -> Result<tonic::Response<pb::SigninvoiceResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::SigninvoiceRequest = req.into();
+        let req: requests::SigninvoiceRequest = req.try_into()?;
         debug!("Client asked for sign_invoice");
         trace!("sign_invoice request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -3036,7 +3036,7 @@ impl Node for Server
         request: tonic::Request<pb::SignmessageRequest>,
     ) -> Result<tonic::Response<pb::SignmessageResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::SignmessageRequest = req.into();
+        let req: requests::SignmessageRequest = req.try_into()?;
         debug!("Client asked for sign_message");
         trace!("sign_message request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -3068,7 +3068,7 @@ impl Node for Server
         request: tonic::Request<pb::SpliceInitRequest>,
     ) -> Result<tonic::Response<pb::SpliceInitResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::SpliceInitRequest = req.into();
+        let req: requests::SpliceInitRequest = req.try_into()?;
         debug!("Client asked for splice_init");
         trace!("splice_init request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -3100,7 +3100,7 @@ impl Node for Server
         request: tonic::Request<pb::SpliceSignedRequest>,
     ) -> Result<tonic::Response<pb::SpliceSignedResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::SpliceSignedRequest = req.into();
+        let req: requests::SpliceSignedRequest = req.try_into()?;
         debug!("Client asked for splice_signed");
         trace!("splice_signed request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -3132,7 +3132,7 @@ impl Node for Server
         request: tonic::Request<pb::SpliceUpdateRequest>,
     ) -> Result<tonic::Response<pb::SpliceUpdateResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::SpliceUpdateRequest = req.into();
+        let req: requests::SpliceUpdateRequest = req.try_into()?;
         debug!("Client asked for splice_update");
         trace!("splice_update request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -3164,7 +3164,7 @@ impl Node for Server
         request: tonic::Request<pb::SpliceinRequest>,
     ) -> Result<tonic::Response<pb::SpliceinResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::SpliceinRequest = req.into();
+        let req: requests::SpliceinRequest = req.try_into()?;
         debug!("Client asked for splice_in");
         trace!("splice_in request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -3196,7 +3196,7 @@ impl Node for Server
         request: tonic::Request<pb::SpliceoutRequest>,
     ) -> Result<tonic::Response<pb::SpliceoutResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::SpliceoutRequest = req.into();
+        let req: requests::SpliceoutRequest = req.try_into()?;
         debug!("Client asked for splice_out");
         trace!("splice_out request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -3228,7 +3228,7 @@ impl Node for Server
         request: tonic::Request<pb::DevspliceRequest>,
     ) -> Result<tonic::Response<pb::DevspliceResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::DevspliceRequest = req.into();
+        let req: requests::DevspliceRequest = req.try_into()?;
         debug!("Client asked for dev_splice");
         trace!("dev_splice request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -3260,7 +3260,7 @@ impl Node for Server
         request: tonic::Request<pb::UnreserveinputsRequest>,
     ) -> Result<tonic::Response<pb::UnreserveinputsResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::UnreserveinputsRequest = req.into();
+        let req: requests::UnreserveinputsRequest = req.try_into()?;
         debug!("Client asked for unreserve_inputs");
         trace!("unreserve_inputs request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -3292,7 +3292,7 @@ impl Node for Server
         request: tonic::Request<pb::UpgradewalletRequest>,
     ) -> Result<tonic::Response<pb::UpgradewalletResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::UpgradewalletRequest = req.into();
+        let req: requests::UpgradewalletRequest = req.try_into()?;
         debug!("Client asked for upgrade_wallet");
         trace!("upgrade_wallet request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -3324,7 +3324,7 @@ impl Node for Server
         request: tonic::Request<pb::WaitblockheightRequest>,
     ) -> Result<tonic::Response<pb::WaitblockheightResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::WaitblockheightRequest = req.into();
+        let req: requests::WaitblockheightRequest = req.try_into()?;
         debug!("Client asked for wait_block_height");
         trace!("wait_block_height request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -3356,7 +3356,7 @@ impl Node for Server
         request: tonic::Request<pb::WaitRequest>,
     ) -> Result<tonic::Response<pb::WaitResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::WaitRequest = req.into();
+        let req: requests::WaitRequest = req.try_into()?;
         debug!("Client asked for wait");
         trace!("wait request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -3388,7 +3388,7 @@ impl Node for Server
         request: tonic::Request<pb::ListconfigsRequest>,
     ) -> Result<tonic::Response<pb::ListconfigsResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::ListconfigsRequest = req.into();
+        let req: requests::ListconfigsRequest = req.try_into()?;
         debug!("Client asked for list_configs");
         trace!("list_configs request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -3420,7 +3420,7 @@ impl Node for Server
         request: tonic::Request<pb::StopRequest>,
     ) -> Result<tonic::Response<pb::StopResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::StopRequest = req.into();
+        let req: requests::StopRequest = req.try_into()?;
         debug!("Client asked for stop");
         trace!("stop request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -3452,7 +3452,7 @@ impl Node for Server
         request: tonic::Request<pb::HelpRequest>,
     ) -> Result<tonic::Response<pb::HelpResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::HelpRequest = req.into();
+        let req: requests::HelpRequest = req.try_into()?;
         debug!("Client asked for help");
         trace!("help request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -3484,7 +3484,7 @@ impl Node for Server
         request: tonic::Request<pb::PreapprovekeysendRequest>,
     ) -> Result<tonic::Response<pb::PreapprovekeysendResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::PreapprovekeysendRequest = req.into();
+        let req: requests::PreapprovekeysendRequest = req.try_into()?;
         debug!("Client asked for pre_approve_keysend");
         trace!("pre_approve_keysend request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -3516,7 +3516,7 @@ impl Node for Server
         request: tonic::Request<pb::PreapproveinvoiceRequest>,
     ) -> Result<tonic::Response<pb::PreapproveinvoiceResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::PreapproveinvoiceRequest = req.into();
+        let req: requests::PreapproveinvoiceRequest = req.try_into()?;
         debug!("Client asked for pre_approve_invoice");
         trace!("pre_approve_invoice request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -3548,7 +3548,7 @@ impl Node for Server
         request: tonic::Request<pb::StaticbackupRequest>,
     ) -> Result<tonic::Response<pb::StaticbackupResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::StaticbackupRequest = req.into();
+        let req: requests::StaticbackupRequest = req.try_into()?;
         debug!("Client asked for static_backup");
         trace!("static_backup request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -3580,7 +3580,7 @@ impl Node for Server
         request: tonic::Request<pb::BkprchannelsapyRequest>,
     ) -> Result<tonic::Response<pb::BkprchannelsapyResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::BkprchannelsapyRequest = req.into();
+        let req: requests::BkprchannelsapyRequest = req.try_into()?;
         debug!("Client asked for bkpr_channels_apy");
         trace!("bkpr_channels_apy request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -3612,7 +3612,7 @@ impl Node for Server
         request: tonic::Request<pb::BkprdumpincomecsvRequest>,
     ) -> Result<tonic::Response<pb::BkprdumpincomecsvResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::BkprdumpincomecsvRequest = req.into();
+        let req: requests::BkprdumpincomecsvRequest = req.try_into()?;
         debug!("Client asked for bkpr_dump_income_csv");
         trace!("bkpr_dump_income_csv request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -3644,7 +3644,7 @@ impl Node for Server
         request: tonic::Request<pb::BkprinspectRequest>,
     ) -> Result<tonic::Response<pb::BkprinspectResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::BkprinspectRequest = req.into();
+        let req: requests::BkprinspectRequest = req.try_into()?;
         debug!("Client asked for bkpr_inspect");
         trace!("bkpr_inspect request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -3676,7 +3676,7 @@ impl Node for Server
         request: tonic::Request<pb::BkprlistaccounteventsRequest>,
     ) -> Result<tonic::Response<pb::BkprlistaccounteventsResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::BkprlistaccounteventsRequest = req.into();
+        let req: requests::BkprlistaccounteventsRequest = req.try_into()?;
         debug!("Client asked for bkpr_list_account_events");
         trace!("bkpr_list_account_events request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -3708,7 +3708,7 @@ impl Node for Server
         request: tonic::Request<pb::BkprlistbalancesRequest>,
     ) -> Result<tonic::Response<pb::BkprlistbalancesResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::BkprlistbalancesRequest = req.into();
+        let req: requests::BkprlistbalancesRequest = req.try_into()?;
         debug!("Client asked for bkpr_list_balances");
         trace!("bkpr_list_balances request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -3740,7 +3740,7 @@ impl Node for Server
         request: tonic::Request<pb::BkprlistincomeRequest>,
     ) -> Result<tonic::Response<pb::BkprlistincomeResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::BkprlistincomeRequest = req.into();
+        let req: requests::BkprlistincomeRequest = req.try_into()?;
         debug!("Client asked for bkpr_list_income");
         trace!("bkpr_list_income request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -3772,7 +3772,7 @@ impl Node for Server
         request: tonic::Request<pb::BkpreditdescriptionbypaymentidRequest>,
     ) -> Result<tonic::Response<pb::BkpreditdescriptionbypaymentidResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::BkpreditdescriptionbypaymentidRequest = req.into();
+        let req: requests::BkpreditdescriptionbypaymentidRequest = req.try_into()?;
         debug!("Client asked for bkpr_edit_description_by_payment_id");
         trace!("bkpr_edit_description_by_payment_id request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -3804,7 +3804,7 @@ impl Node for Server
         request: tonic::Request<pb::BkpreditdescriptionbyoutpointRequest>,
     ) -> Result<tonic::Response<pb::BkpreditdescriptionbyoutpointResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::BkpreditdescriptionbyoutpointRequest = req.into();
+        let req: requests::BkpreditdescriptionbyoutpointRequest = req.try_into()?;
         debug!("Client asked for bkpr_edit_description_by_outpoint");
         trace!("bkpr_edit_description_by_outpoint request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -3836,7 +3836,7 @@ impl Node for Server
         request: tonic::Request<pb::BkprreportRequest>,
     ) -> Result<tonic::Response<pb::BkprreportResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::BkprreportRequest = req.into();
+        let req: requests::BkprreportRequest = req.try_into()?;
         debug!("Client asked for bkpr_report");
         trace!("bkpr_report request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -3868,7 +3868,7 @@ impl Node for Server
         request: tonic::Request<pb::BlacklistruneRequest>,
     ) -> Result<tonic::Response<pb::BlacklistruneResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::BlacklistruneRequest = req.into();
+        let req: requests::BlacklistruneRequest = req.try_into()?;
         debug!("Client asked for blacklist_rune");
         trace!("blacklist_rune request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -3900,7 +3900,7 @@ impl Node for Server
         request: tonic::Request<pb::CheckruneRequest>,
     ) -> Result<tonic::Response<pb::CheckruneResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::CheckruneRequest = req.into();
+        let req: requests::CheckruneRequest = req.try_into()?;
         debug!("Client asked for check_rune");
         trace!("check_rune request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -3932,7 +3932,7 @@ impl Node for Server
         request: tonic::Request<pb::CreateruneRequest>,
     ) -> Result<tonic::Response<pb::CreateruneResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::CreateruneRequest = req.into();
+        let req: requests::CreateruneRequest = req.try_into()?;
         debug!("Client asked for create_rune");
         trace!("create_rune request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -3964,7 +3964,7 @@ impl Node for Server
         request: tonic::Request<pb::ShowrunesRequest>,
     ) -> Result<tonic::Response<pb::ShowrunesResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::ShowrunesRequest = req.into();
+        let req: requests::ShowrunesRequest = req.try_into()?;
         debug!("Client asked for show_runes");
         trace!("show_runes request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -3996,7 +3996,7 @@ impl Node for Server
         request: tonic::Request<pb::AskreneunreserveRequest>,
     ) -> Result<tonic::Response<pb::AskreneunreserveResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::AskreneunreserveRequest = req.into();
+        let req: requests::AskreneunreserveRequest = req.try_into()?;
         debug!("Client asked for ask_rene_unreserve");
         trace!("ask_rene_unreserve request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -4028,7 +4028,7 @@ impl Node for Server
         request: tonic::Request<pb::AskrenelistlayersRequest>,
     ) -> Result<tonic::Response<pb::AskrenelistlayersResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::AskrenelistlayersRequest = req.into();
+        let req: requests::AskrenelistlayersRequest = req.try_into()?;
         debug!("Client asked for ask_rene_list_layers");
         trace!("ask_rene_list_layers request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -4060,7 +4060,7 @@ impl Node for Server
         request: tonic::Request<pb::AskrenecreatelayerRequest>,
     ) -> Result<tonic::Response<pb::AskrenecreatelayerResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::AskrenecreatelayerRequest = req.into();
+        let req: requests::AskrenecreatelayerRequest = req.try_into()?;
         debug!("Client asked for ask_rene_create_layer");
         trace!("ask_rene_create_layer request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -4092,7 +4092,7 @@ impl Node for Server
         request: tonic::Request<pb::AskreneremovelayerRequest>,
     ) -> Result<tonic::Response<pb::AskreneremovelayerResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::AskreneremovelayerRequest = req.into();
+        let req: requests::AskreneremovelayerRequest = req.try_into()?;
         debug!("Client asked for ask_rene_remove_layer");
         trace!("ask_rene_remove_layer request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -4124,7 +4124,7 @@ impl Node for Server
         request: tonic::Request<pb::AskreneremovechannelupdateRequest>,
     ) -> Result<tonic::Response<pb::AskreneremovechannelupdateResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::AskreneremovechannelupdateRequest = req.into();
+        let req: requests::AskreneremovechannelupdateRequest = req.try_into()?;
         debug!("Client asked for ask_rene_remove_channel_update");
         trace!("ask_rene_remove_channel_update request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -4156,7 +4156,7 @@ impl Node for Server
         request: tonic::Request<pb::AskrenereserveRequest>,
     ) -> Result<tonic::Response<pb::AskrenereserveResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::AskrenereserveRequest = req.into();
+        let req: requests::AskrenereserveRequest = req.try_into()?;
         debug!("Client asked for ask_rene_reserve");
         trace!("ask_rene_reserve request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -4188,7 +4188,7 @@ impl Node for Server
         request: tonic::Request<pb::AskreneageRequest>,
     ) -> Result<tonic::Response<pb::AskreneageResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::AskreneageRequest = req.into();
+        let req: requests::AskreneageRequest = req.try_into()?;
         debug!("Client asked for ask_rene_age");
         trace!("ask_rene_age request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -4220,7 +4220,7 @@ impl Node for Server
         request: tonic::Request<pb::GetroutesRequest>,
     ) -> Result<tonic::Response<pb::GetroutesResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::GetroutesRequest = req.into();
+        let req: requests::GetroutesRequest = req.try_into()?;
         debug!("Client asked for get_routes");
         trace!("get_routes request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -4252,7 +4252,7 @@ impl Node for Server
         request: tonic::Request<pb::AskrenedisablenodeRequest>,
     ) -> Result<tonic::Response<pb::AskrenedisablenodeResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::AskrenedisablenodeRequest = req.into();
+        let req: requests::AskrenedisablenodeRequest = req.try_into()?;
         debug!("Client asked for ask_rene_disable_node");
         trace!("ask_rene_disable_node request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -4284,7 +4284,7 @@ impl Node for Server
         request: tonic::Request<pb::AskreneinformchannelRequest>,
     ) -> Result<tonic::Response<pb::AskreneinformchannelResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::AskreneinformchannelRequest = req.into();
+        let req: requests::AskreneinformchannelRequest = req.try_into()?;
         debug!("Client asked for ask_rene_inform_channel");
         trace!("ask_rene_inform_channel request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -4316,7 +4316,7 @@ impl Node for Server
         request: tonic::Request<pb::AskrenecreatechannelRequest>,
     ) -> Result<tonic::Response<pb::AskrenecreatechannelResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::AskrenecreatechannelRequest = req.into();
+        let req: requests::AskrenecreatechannelRequest = req.try_into()?;
         debug!("Client asked for ask_rene_create_channel");
         trace!("ask_rene_create_channel request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -4348,7 +4348,7 @@ impl Node for Server
         request: tonic::Request<pb::AskreneupdatechannelRequest>,
     ) -> Result<tonic::Response<pb::AskreneupdatechannelResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::AskreneupdatechannelRequest = req.into();
+        let req: requests::AskreneupdatechannelRequest = req.try_into()?;
         debug!("Client asked for ask_rene_update_channel");
         trace!("ask_rene_update_channel request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -4380,7 +4380,7 @@ impl Node for Server
         request: tonic::Request<pb::AskrenebiaschannelRequest>,
     ) -> Result<tonic::Response<pb::AskrenebiaschannelResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::AskrenebiaschannelRequest = req.into();
+        let req: requests::AskrenebiaschannelRequest = req.try_into()?;
         debug!("Client asked for ask_rene_bias_channel");
         trace!("ask_rene_bias_channel request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -4412,7 +4412,7 @@ impl Node for Server
         request: tonic::Request<pb::AskrenebiasnodeRequest>,
     ) -> Result<tonic::Response<pb::AskrenebiasnodeResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::AskrenebiasnodeRequest = req.into();
+        let req: requests::AskrenebiasnodeRequest = req.try_into()?;
         debug!("Client asked for askrene_bias_node");
         trace!("askrene_bias_node request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -4444,7 +4444,7 @@ impl Node for Server
         request: tonic::Request<pb::AskrenelistreservationsRequest>,
     ) -> Result<tonic::Response<pb::AskrenelistreservationsResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::AskrenelistreservationsRequest = req.into();
+        let req: requests::AskrenelistreservationsRequest = req.try_into()?;
         debug!("Client asked for ask_rene_list_reservations");
         trace!("ask_rene_list_reservations request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -4476,7 +4476,7 @@ impl Node for Server
         request: tonic::Request<pb::InjectpaymentonionRequest>,
     ) -> Result<tonic::Response<pb::InjectpaymentonionResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::InjectpaymentonionRequest = req.into();
+        let req: requests::InjectpaymentonionRequest = req.try_into()?;
         debug!("Client asked for inject_payment_onion");
         trace!("inject_payment_onion request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -4508,7 +4508,7 @@ impl Node for Server
         request: tonic::Request<pb::InjectonionmessageRequest>,
     ) -> Result<tonic::Response<pb::InjectonionmessageResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::InjectonionmessageRequest = req.into();
+        let req: requests::InjectonionmessageRequest = req.try_into()?;
         debug!("Client asked for inject_onion_message");
         trace!("inject_onion_message request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -4540,7 +4540,7 @@ impl Node for Server
         request: tonic::Request<pb::XpayRequest>,
     ) -> Result<tonic::Response<pb::XpayResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::XpayRequest = req.into();
+        let req: requests::XpayRequest = req.try_into()?;
         debug!("Client asked for xpay");
         trace!("xpay request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -4572,7 +4572,7 @@ impl Node for Server
         request: tonic::Request<pb::SignmessagewithkeyRequest>,
     ) -> Result<tonic::Response<pb::SignmessagewithkeyResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::SignmessagewithkeyRequest = req.into();
+        let req: requests::SignmessagewithkeyRequest = req.try_into()?;
         debug!("Client asked for sign_message_with_key");
         trace!("sign_message_with_key request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -4604,7 +4604,7 @@ impl Node for Server
         request: tonic::Request<pb::ListchannelmovesRequest>,
     ) -> Result<tonic::Response<pb::ListchannelmovesResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::ListchannelmovesRequest = req.into();
+        let req: requests::ListchannelmovesRequest = req.try_into()?;
         debug!("Client asked for list_channel_moves");
         trace!("list_channel_moves request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -4636,7 +4636,7 @@ impl Node for Server
         request: tonic::Request<pb::ListchainmovesRequest>,
     ) -> Result<tonic::Response<pb::ListchainmovesResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::ListchainmovesRequest = req.into();
+        let req: requests::ListchainmovesRequest = req.try_into()?;
         debug!("Client asked for list_chain_moves");
         trace!("list_chain_moves request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -4668,7 +4668,7 @@ impl Node for Server
         request: tonic::Request<pb::ListnetworkeventsRequest>,
     ) -> Result<tonic::Response<pb::ListnetworkeventsResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::ListnetworkeventsRequest = req.into();
+        let req: requests::ListnetworkeventsRequest = req.try_into()?;
         debug!("Client asked for list_network_events");
         trace!("list_network_events request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -4700,7 +4700,7 @@ impl Node for Server
         request: tonic::Request<pb::DelnetworkeventRequest>,
     ) -> Result<tonic::Response<pb::DelnetworkeventResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::DelnetworkeventRequest = req.into();
+        let req: requests::DelnetworkeventRequest = req.try_into()?;
         debug!("Client asked for del_network_event");
         trace!("del_network_event request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -4732,7 +4732,7 @@ impl Node for Server
         request: tonic::Request<pb::ClnrestregisterpathRequest>,
     ) -> Result<tonic::Response<pb::ClnrestregisterpathResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::ClnrestregisterpathRequest = req.into();
+        let req: requests::ClnrestregisterpathRequest = req.try_into()?;
         debug!("Client asked for clnrest_register_path");
         trace!("clnrest_register_path request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -4764,7 +4764,7 @@ impl Node for Server
         request: tonic::Request<pb::ListcurrencyratesRequest>,
     ) -> Result<tonic::Response<pb::ListcurrencyratesResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::ListcurrencyratesRequest = req.into();
+        let req: requests::ListcurrencyratesRequest = req.try_into()?;
         debug!("Client asked for list_currency_rates");
         trace!("list_currency_rates request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -4796,7 +4796,7 @@ impl Node for Server
         request: tonic::Request<pb::CurrencyconvertRequest>,
     ) -> Result<tonic::Response<pb::CurrencyconvertResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::CurrencyconvertRequest = req.into();
+        let req: requests::CurrencyconvertRequest = req.try_into()?;
         debug!("Client asked for currency_convert");
         trace!("currency_convert request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -4828,7 +4828,7 @@ impl Node for Server
         request: tonic::Request<pb::CurrencyrateRequest>,
     ) -> Result<tonic::Response<pb::CurrencyrateResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::CurrencyrateRequest = req.into();
+        let req: requests::CurrencyrateRequest = req.try_into()?;
         debug!("Client asked for currency_rate");
         trace!("currency_rate request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -4860,7 +4860,7 @@ impl Node for Server
         request: tonic::Request<pb::SendamountRequest>,
     ) -> Result<tonic::Response<pb::SendamountResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::SendamountRequest = req.into();
+        let req: requests::SendamountRequest = req.try_into()?;
         debug!("Client asked for send_amount");
         trace!("send_amount request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -4892,7 +4892,7 @@ impl Node for Server
         request: tonic::Request<pb::CreateproofRequest>,
     ) -> Result<tonic::Response<pb::CreateproofResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::CreateproofRequest = req.into();
+        let req: requests::CreateproofRequest = req.try_into()?;
         debug!("Client asked for create_proof");
         trace!("create_proof request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -4924,7 +4924,7 @@ impl Node for Server
         request: tonic::Request<pb::XkeysendRequest>,
     ) -> Result<tonic::Response<pb::XkeysendResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::XkeysendRequest = req.into();
+        let req: requests::XkeysendRequest = req.try_into()?;
         debug!("Client asked for xkeysend");
         trace!("xkeysend request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
@@ -4956,7 +4956,7 @@ impl Node for Server
         request: tonic::Request<pb::GracefulRequest>,
     ) -> Result<tonic::Response<pb::GracefulResponse>, tonic::Status> {
         let req = request.into_inner();
-        let req: requests::GracefulRequest = req.into();
+        let req: requests::GracefulRequest = req.try_into()?;
         debug!("Client asked for graceful");
         trace!("graceful request: {:?}", req);
         let mut rpc = ClnRpc::new(&self.rpc_path)
