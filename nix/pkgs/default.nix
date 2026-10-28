@@ -52,7 +52,6 @@ stdenv.mkDerivation {
     gmp
     jq
     libsodium
-    openssl
     sqlite
     zlib
   ];
