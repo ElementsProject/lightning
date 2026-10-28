@@ -32,6 +32,14 @@ For example, to disable bitstamp:
 currencyrate-disable-source=bitstamp
 ```
 
+## Proxy
+
+cln-currencyrate fetches rates through the `proxy` configured in `lightningd`.
+
+IPv6 proxy addresses are not supported by the underlying HTTP client (bitreq).
+If `proxy` is an IPv6 address, the plugin refuses to start; use an IPv4 address
+such as `proxy=127.0.0.1:9050` instead.
+
 ## Default Sources
 
 | Source | Notes |
