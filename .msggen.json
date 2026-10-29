@@ -1387,16 +1387,7 @@
             "Connect.address.address": 3,
             "Connect.address.port": 4,
             "Connect.address.socket": 2,
-            "Connect.address.type": 1,
-            "connect.address.address": 3,
-            "connect.address.port": 4,
-            "connect.address.socket": 2,
-            "connect.address.type": 1
-        },
-        "ConnectNotification": {
-            "connect.address": 3,
-            "connect.direction": 2,
-            "connect.id": 1
+            "Connect.address.type": 1
         },
         "ConnectRequest": {
             "Connect.host": 2,
@@ -3910,6 +3901,17 @@
             "Pay.payment_preimage": 1,
             "Pay.status": 9,
             "Pay.warning_partial_completion": 8
+        },
+        "PeerConnectAddress": {
+            "connect.address.address": 3,
+            "connect.address.port": 4,
+            "connect.address.socket": 2,
+            "connect.address.type": 1
+        },
+        "PeerConnectNotification": {
+            "connect.address": 3,
+            "connect.direction": 2,
+            "connect.id": 1
         },
         "PingRequest": {
             "Ping.id": 1,
