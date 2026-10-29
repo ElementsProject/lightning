@@ -319,9 +319,9 @@ def test_grpc_request_validation(node_factory):
         (
             "amount_sat_or_all",
             lambda: stub.Withdraw(
-                clnpb.WithdrawRequest(satoshi=clnpb.AmountSatOrAll())
+                clnpb.WithdrawRequest(satoshi_sat=clnpb.AmountSatOrAll())
             ),
-            "satoshi",
+            "satoshi_sat",
         ),
         (
             "amount_or_any",
