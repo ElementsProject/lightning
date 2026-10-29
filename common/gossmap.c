@@ -92,6 +92,9 @@ struct gossmap {
 	/* How many live and dead records? */
 	size_t num_live, num_dead;
 
+	/* Bytes in records which were already deleted when we read them. */
+	u64 deleted_bytes_read;
+
 	/* Optional logging callback */
 	void (*logcb)(void *cbarg,
 		      enum log_level level,
@@ -790,6 +793,7 @@ static bool reopen_store(struct gossmap *map, u64 ended_off)
 
 	/* This isn't quite true, as there may be deleted ones, but not many. */
 	map->num_dead = 0;
+	map->deleted_bytes_read = 0;
 
 	/* Now do reload. */
 	map_catchup(map, NULL, NULL, false, &changed);
@@ -843,6 +847,7 @@ static bool map_catchup(struct gossmap *map,
 
 		if (flags & GOSSIP_STORE_DELETED_BIT) {
 			map->num_dead++;
+			map->deleted_bytes_read += reclen;
 			continue;
 		}
 
@@ -1418,6 +1423,7 @@ struct gossmap *gossmap_load_(const tal_t *ctx,
 	map->fname = tal_strdup(map, filename);
 	map->fd = open(map->fname, O_RDONLY);
 	map->num_live = map->num_dead = 0;
+	map->deleted_bytes_read = 0;
  	if (map->fd < 0)
 		return tal_free(map);
 	if (logcb)
@@ -2032,4 +2038,9 @@ void gossmap_stats(const struct gossmap *map, u64 *num_live, u64 *num_dead)
 {
 	*num_live = map->num_live;
 	*num_dead = map->num_dead;
+}
+
+u64 gossmap_deleted_bytes_read(const struct gossmap *map)
+{
+	return map->deleted_bytes_read;
 }
