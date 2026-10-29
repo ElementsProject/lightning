@@ -1000,7 +1000,7 @@ def test_splice_candidate_spent_before_lock(node_factory, bitcoind):
     TEST_NETWORK != "regtest", "elementsd doesnt yet support PSBT features we need"
 )
 def test_splice_tx_add_output_sum_above_max_supply(node_factory, bitcoind):
-    """Splice outputs that sum above MAX_MONEY must be rejected, not crash the accepter."""
+    """Splice outputs that sum above MAX_MONEY are refused by the initiator, not sent to crash the accepter."""
     l1, l2 = node_factory.line_graph(2, fundamount=1000000, wait_for_announce=True)
     chan_id = l1.get_channel_id(l2)
 
@@ -1008,11 +1008,38 @@ def test_splice_tx_add_output_sum_above_max_supply(node_factory, bitcoind):
     psbt = l1.rpc.addpsbtoutput(1000000000000000)["psbt"]
     psbt = l1.rpc.addpsbtoutput(1100000000000001, psbt)["psbt"]
 
-    result = l1.rpc.splice_init(chan_id, 0, psbt)
-    # serial_ids are random, so either output may be the one that tips it over.
+    # l1 refuses before sending them, when it adds the channel output.
     error_match = r"Adding output amount [0-9]+sat would exceed max supply"
     with pytest.raises(RpcError, match=error_match):
-        l1.rpc.splice_update(chan_id, result["psbt"])
+        l1.rpc.splice_init(chan_id, 0, psbt)
+    l2.daemon.wait_for_log(r'Peer initiated tx_abort for reason: .*' + error_match)
 
-    # l2 run the checks and fails the splice producing the rpc error above
-    l2.daemon.is_in_log(error_match)
+
+# The first takes the new funding output alone above max supply.  With our
+# 100000sat, the second makes it exactly max supply, so our change output
+# takes the total over.
+@pytest.mark.parametrize("contribution", [2100000000000000,
+                                          2100000000000000 - 1100000])
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_splice_ack_contribution_above_max_supply(node_factory, bitcoind, contribution):
+    """A splice_ack contribution that takes our outputs above max supply
+    must abort the splice, not crash channeld."""
+    l1, l2 = node_factory.line_graph(2, fundamount=1000000, wait_for_announce=True,
+                                     opts=[{'may_reconnect': True,
+                                            'allow_warning': True},
+                                           {'dev-splice-ack-contribution': contribution,
+                                            'may_reconnect': True,
+                                            'allow_warning': True}])
+    chan_id = l1.get_channel_id(l2)
+
+    funds_result = l1.rpc.fundpsbt("111722sat", 0, 0, excess_as_change=True)
+    with pytest.raises(RpcError, match='exceeds? max supply'):
+        l1.rpc.splice_init(chan_id, 100000, funds_result['psbt'])
+    l1.daemon.wait_for_log(r'Restarting channeld after tx_abort on CHANNELD_NORMAL channel')
+
+    assert not l1.daemon.is_in_log('Peer permanent failure')
+    assert l1.db_query("SELECT count(*) as c FROM channel_funding_inflights;")[0]['c'] == 0
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['peer_connected'])
+    assert only_one(l1.rpc.listpeerchannels()['channels'])['state'] == 'CHANNELD_NORMAL'

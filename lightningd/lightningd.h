@@ -360,6 +360,9 @@ struct lightningd {
 	/* Tell openingd/dualopend to accept all, allow sending any. */
 	bool dev_any_channel_type;
 
+	/* Contribute this many sats in every splice_ack, without funding it */
+	u64 dev_splice_ack_contribution;
+
 	/* Allow changing of shutdown output point even if dangerous */
 	bool dev_allow_shutdown_destination_change;
 

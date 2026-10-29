@@ -900,6 +900,10 @@ static void dev_register_opts(struct lightningd *ld)
 		     opt_set_bool,
 		     &ld->dev_any_channel_type,
 		     "Allow sending any channel type, and accept any");
+	clnopt_witharg("--dev-splice-ack-contribution", OPT_DEV|OPT_SHOWINT,
+		       opt_set_u64, opt_show_u64,
+		       &ld->dev_splice_ack_contribution,
+		       "Contribute this many sats in every splice_ack, without funding it");
 	clnopt_noarg("--dev-allow-shutdown-destination-change", OPT_DEV,
 		     opt_set_bool,
 		     &ld->dev_allow_shutdown_destination_change,

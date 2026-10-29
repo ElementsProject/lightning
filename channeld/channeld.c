@@ -180,6 +180,9 @@ struct peer {
 	/* If set, don't fire commit counter when this hits 0 */
 	u32 *dev_disable_commit;
 
+	/* Contribute this many sats in every splice_ack, without funding it */
+	u64 dev_splice_ack_contribution;
+
 	/* Information used for reestablishment. */
 	bool last_was_revoke;
 	struct changed_htlc *last_sent_commit;
@@ -2072,6 +2075,19 @@ static void check_duplicate_inflight(struct peer *peer,
 			     "Splice tx %s duplicates an existing inflight",
 			     fmt_bitcoin_txid(tmpctx, txid));
 	}
+}
+
+/* The shared output's amount is only set once negotiation completes, so
+ * the per-output checks never saw it.  libwally rejects a tx whose outputs
+ * total more than max supply. */
+static void check_max_money(struct peer *peer, struct wally_psbt *psbt)
+{
+	char *error;
+
+	error = interactive_tx_add_output_check_max_money(tmpctx, psbt,
+							  AMOUNT_SAT(0));
+	if (error)
+		splice_abort(peer, NULL, "%s", error);
 }
 
 struct commitsig_info {
@@ -4435,7 +4451,7 @@ static void splice_accepter(struct peer *peer, const u8 *inmsg)
 	peer->splicing->feerate_per_kw = funding_feerate_perkw;
 
 	/* TODO: Add plugin hook for user to adjust accepter amount */
-	peer->splicing->accepter_relative = 0;
+	peer->splicing->accepter_relative = peer->dev_splice_ack_contribution;
 
 	if (type == WIRE_SPLICE_INIT) {
 		msg = towire_splice_ack(NULL,
@@ -4446,7 +4462,7 @@ static void splice_accepter(struct peer *peer, const u8 *inmsg)
 	} else if (type == WIRE_TX_INIT_RBF) {
 		ack_rbf_tlvs = tlv_tx_ack_rbf_tlvs_new(tmpctx);
 		ack_rbf_tlvs->funding_output_contribution = tal(ack_rbf_tlvs, s64);
-		*ack_rbf_tlvs->funding_output_contribution = 0;
+		*ack_rbf_tlvs->funding_output_contribution = peer->splicing->accepter_relative;
 		ack_rbf_tlvs->require_confirmed_inputs = NULL;
 		msg = towire_tx_ack_rbf(NULL,
 					&peer->channel_id,
@@ -4501,6 +4517,7 @@ static void splice_accepter(struct peer *peer, const u8 *inmsg)
 	both_amount = check_balances(peer, our_role, ictx->current_psbt,
 				     outpoint.n, splice_funding_index);
 	new_chan_output->amount = both_amount.satoshis; /* Raw: type conv */
+	check_max_money(peer, ictx->current_psbt);
 
 	psbt_elements_normalize_fees(ictx->current_psbt);
 
@@ -4568,6 +4585,8 @@ static void splice_initiator(struct peer *peer, const u8 *inmsg)
 	u8 *scriptPubkey;
 	enum peer_wire type;
 	struct tlv_tx_ack_rbf_tlvs *ack_rbf_tlvs;
+	struct amount_sat new_amount;
+	char *error;
 
 	if (!peer->splicing)
 		peer_failed_warn(peer->pps, &peer->channel_id,
@@ -4671,10 +4690,18 @@ static void splice_initiator(struct peer *peer, const u8 *inmsg)
 	 *   ...
 	 *     - MUST `tx_add_output` a zero-value output which pays to the two
 	 *       funding keys using the higher of the two `generation` fields.
+	 *
+	 * Their contribution sets its amount here, and libwally rejects
+	 * one above max supply.
 	 */
+	new_amount = calc_balance(peer);
+	error = interactive_tx_add_output_check_max_money(tmpctx, psbt,
+							  new_amount);
+	if (error)
+		splice_abort(peer, NULL, "%s", error);
 	psbt_append_output(psbt,
 			   scriptpubkey_p2wsh(psbt, new_wit_script),
-			   calc_balance(peer));
+			   new_amount);
 
 	psbt_add_serials(psbt, TX_INITIATOR);
 
@@ -4767,6 +4794,7 @@ static void splice_initiator_user_finalized(struct peer *peer)
 	both_amount = check_balances(peer, our_role, ictx->current_psbt,
 				     chan_output_index, splice_funding_index);
 	new_chan_output->amount = both_amount.satoshis; /* Raw: type conv */
+	check_max_money(peer, ictx->current_psbt);
 
 	psbt_elements_normalize_fees(ictx->current_psbt);
 
@@ -7102,7 +7130,8 @@ static void init_channel(struct peer *peer)
 				    &peer->dev_disable_commit,
 				    &pbases,
 				    &peer->splice_state->inflights,
-				    &peer->local_alias)) {
+				    &peer->local_alias,
+				    &peer->dev_splice_ack_contribution)) {
 		master_badmsg(WIRE_CHANNELD_INIT, msg);
 	}
 

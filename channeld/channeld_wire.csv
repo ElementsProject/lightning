@@ -80,6 +80,7 @@ msgdata,channeld_init,pbases,penalty_base,num_penalty_bases
 msgdata,channeld_init,num_inflights,u16,
 msgdata,channeld_init,inflights,inflight,num_inflights
 msgdata,channeld_init,scid_alias,short_channel_id,
+msgdata,channeld_init,dev_splice_ack_contribution,u64,
 
 # channeld->lightningd: successfully negotated reestablishment.
 msgtype,channeld_reestablished,1101
