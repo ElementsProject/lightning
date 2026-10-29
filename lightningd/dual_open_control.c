@@ -10,6 +10,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/blockheight_states.h>
 #include <common/clock_time.h>
+#include <common/interactivetx.h>
 #include <common/json_channel_type.h>
 #include <common/json_command.h>
 #include <common/psbt_open.h>
@@ -2929,6 +2930,7 @@ json_openchannel_signed(struct command *cmd,
 	struct channel *channel;
 	struct bitcoin_txid txid;
 	struct channel_inflight *inflight;
+	char *err;
 
 	if (!param_check(cmd, buffer, params,
 			 p_req("channel_id", param_channel_id, &cid),
@@ -2939,6 +2941,13 @@ json_openchannel_signed(struct command *cmd,
 	/* We only deal in v2 */
 	if (!psbt_set_version(psbt, 2))
 		return command_fail(cmd, LIGHTNINGD, "Could not set PSBT version.");
+
+	/* libwally can't extract a tx whose outputs come to more than
+	 * max supply, and we do below. */
+	err = interactive_tx_add_output_check_max_money(tmpctx, psbt,
+							AMOUNT_SAT(0));
+	if (err)
+		return command_fail(cmd, FUNDING_PSBT_INVALID, "%s", err);
 
 	channel = channel_by_cid(cmd->ld, cid);
 	if (!channel)
@@ -3191,6 +3200,7 @@ static struct command_result *json_openchannel_update(struct command *cmd,
 	struct psbt_validator *pv;
 	struct command_result *ret;
 	struct channel_inflight *inflight;
+	char *err;
 
 	if (!param_check(cmd, buffer, params,
 			 p_req("channel_id", param_channel_id, &cid),
@@ -3201,6 +3211,13 @@ static struct command_result *json_openchannel_update(struct command *cmd,
 	/* We only deal in v2 */
 	if (!psbt_set_version(psbt, 2))
 		return command_fail(cmd, LIGHTNINGD, "Could not set PSBT version.");
+
+	/* libwally can't extract a tx whose outputs come to more than
+	 * max supply, and we do below. */
+	err = interactive_tx_add_output_check_max_money(tmpctx, psbt,
+							AMOUNT_SAT(0));
+	if (err)
+		return command_fail(cmd, FUNDING_PSBT_INVALID, "%s", err);
 
 	channel = channel_by_cid(cmd->ld, cid);
 	if (!channel)
