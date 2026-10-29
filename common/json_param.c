@@ -453,6 +453,31 @@ struct command_result *param_escaped_string(struct command *cmd,
 				     "should be a string (without \\u)");
 }
 
+static struct command_result *check_utf8_text(struct command *cmd,
+					      const char *name,
+					      const char *buffer,
+					      const jsmntok_t *tok,
+					      const char *str)
+{
+	if (!utf8_check_text(str, strlen(str)))
+		return command_fail_badparam(cmd, name, buffer, tok,
+					     "should not contain control, format, private-use or unassigned Unicode characters");
+	return NULL;
+}
+
+struct command_result *param_escaped_utf8_string(struct command *cmd,
+						  const char *name,
+						  const char *buffer,
+						  const jsmntok_t *tok,
+						  const char **str)
+{
+	struct command_result *ret = param_escaped_string(cmd, name, buffer, tok, str);
+	if (ret)
+		return ret;
+
+	return check_utf8_text(cmd, name, buffer, tok, *str);
+}
+
 struct command_result *param_string(struct command *cmd, const char *name,
 				    const char * buffer, const jsmntok_t *tok,
 				    const char **str)
@@ -460,6 +485,17 @@ struct command_result *param_string(struct command *cmd, const char *name,
 	*str = tal_strndup(cmd, buffer + tok->start,
 			   tok->end - tok->start);
 	return NULL;
+}
+
+struct command_result *param_utf8_string(struct command *cmd, const char *name,
+					 const char * buffer, const jsmntok_t *tok,
+					 const char **str)
+{
+	struct command_result *ret = param_string(cmd, name, buffer, tok, str);
+	if (ret)
+		return ret;
+
+	return check_utf8_text(cmd, name, buffer, tok, *str);
 }
 
 /* Extract a string or a json array */
