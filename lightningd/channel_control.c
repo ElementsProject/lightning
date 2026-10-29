@@ -2401,6 +2401,7 @@ static struct command_result *json_splice_init(struct command *cmd,
 	struct wally_psbt *initialpsbt;
 	s64 *relative_amount;
 	u32 *feerate_per_kw;
+	u32 last_feerate, next_feerate_min;
 	bool *force_feerate, *skip_stfu;
 	u8 *msg;
 
@@ -2420,12 +2421,39 @@ static struct command_result *json_splice_init(struct command *cmd,
 				    "Currently waiting on previous splice"
 				    " command to finish.");
 
+	/* With a splice pending, channeld sends this as tx_init_rbf.
+	 *
+	 * BOLT #2:
+	 * The sender:
+	 *   - MUST set `feerate` greater than or equal to 25/24 times the
+	 *     `feerate` of the previously constructed transaction, rounded
+	 *     down.
+	 */
+	last_feerate = channel_last_funding_feerate(channel);
+	if (!last_feerate)
+		next_feerate_min = 0;
+	else if (!next_funding_feerate(last_feerate, &next_feerate_min))
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Can't calculate the next feerate: the"
+				    " pending splice's feerate (%u) is out"
+				    " of range",
+				    last_feerate);
+
+	if (feerate_per_kw && *feerate_per_kw < next_feerate_min)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Next feerate must be at least 1/24th"
+				    " greater than the pending splice's. Min"
+				    " req %u, you proposed %u",
+				    next_feerate_min, *feerate_per_kw);
+
 	if (command_check_only(cmd))
 		return command_check_done(cmd);
 
 	if (!feerate_per_kw) {
 		feerate_per_kw = tal(cmd, u32);
 		*feerate_per_kw = splice_feerate(cmd->ld->topology, cmd->ld);
+		if (*feerate_per_kw < next_feerate_min)
+			*feerate_per_kw = next_feerate_min;
 	}
 
 	if (!initialpsbt)
