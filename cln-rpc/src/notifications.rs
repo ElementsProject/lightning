@@ -185,7 +185,7 @@ impl ToString for PeerConnectDirection {
     }
 }
 
-/// ['Type of connection (*torv2*/*torv3* only if **direction** is *out*)']
+/// ['Type of connection (*torv2*/*torv3* only if **direction** is *out*).', '*unresolved* is used when the peer address was not resolved (e.g. with **always-use-proxy**).']
 #[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[allow(non_camel_case_types)]
 pub enum PeerConnectAddressType {
@@ -201,6 +201,8 @@ pub enum PeerConnectAddressType {
     TORV3 = 4,
     #[serde(rename = "websocket")]
     WEBSOCKET = 5,
+    #[serde(rename = "unresolved")]
+    UNRESOLVED = 6,
 }
 
 impl TryFrom<i32> for PeerConnectAddressType {
@@ -213,6 +215,7 @@ impl TryFrom<i32> for PeerConnectAddressType {
     3 => Ok(PeerConnectAddressType::TORV2),
     4 => Ok(PeerConnectAddressType::TORV3),
     5 => Ok(PeerConnectAddressType::WEBSOCKET),
+    6 => Ok(PeerConnectAddressType::UNRESOLVED),
             o => Err(anyhow::anyhow!("Unknown variant {} for enum PeerConnectAddressType", o)),
         }
     }
@@ -227,6 +230,7 @@ impl ToString for PeerConnectAddressType {
             PeerConnectAddressType::TORV2 => "TORV2",
             PeerConnectAddressType::TORV3 => "TORV3",
             PeerConnectAddressType::WEBSOCKET => "WEBSOCKET",
+            PeerConnectAddressType::UNRESOLVED => "UNRESOLVED",
         }.to_string()
     }
 }
@@ -235,6 +239,8 @@ impl ToString for PeerConnectAddressType {
 pub struct ConnectAddress {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub address: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub port: Option<u16>,
     #[serde(skip_serializing_if = "Option::is_none")]
