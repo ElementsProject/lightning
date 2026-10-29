@@ -5244,10 +5244,31 @@ static void handle_stfu_req(struct peer *peer, const u8 *inmsg)
 
 static void handle_abort_req(struct peer *peer, const u8 *inmsg)
 {
+	struct inflight *inflight;
+
 	if (!fromwire_channeld_abort(inmsg))
 		master_badmsg(WIRE_CHANNELD_ABORT, inmsg);
 
-	splice_abort(peer, last_inflight(peer), "requested by user");
+	/* tx_abort is only for a negotiation, or to leave quiescence: once a
+	 * splice is signed we are neither, and the peer may be sending us
+	 * updates that splice_abort() would throw away. */
+	if (!peer->splicing && !is_stfu_active(peer)) {
+		wire_sync_write(MASTER_FD,
+				take(towire_channeld_splice_state_error(NULL,
+					"No splice negotiation to abort")));
+		return;
+	}
+
+	/* BOLT #2:
+	 * A sending node:
+	 *   - MUST NOT have already transmitted `tx_signatures`
+	 */
+	/* So keep a splice we have signed: abort only this negotiation. */
+	inflight = last_inflight(peer);
+	if (inflight && inflight->i_sent_sigs)
+		inflight = NULL;
+
+	splice_abort(peer, inflight, "requested by user");
 }
 
 static void peer_in(struct peer *peer, const u8 *msg)
