@@ -62,6 +62,20 @@ static bool unknown_type(enum peer_wire t)
 	return true;
 }
 
+bool is_oversized_gossip_msg(const u8 *msg)
+{
+	switch ((enum peer_wire)fromwire_peektype(msg)) {
+	case WIRE_CHANNEL_ANNOUNCEMENT:
+		return tal_bytelen(msg) > MAX_CHANNEL_ANNOUNCEMENT_LEN;
+	case WIRE_CHANNEL_UPDATE:
+		return tal_bytelen(msg) > MAX_CHANNEL_UPDATE_LEN;
+	case WIRE_NODE_ANNOUNCEMENT:
+		return tal_bytelen(msg) > MAX_NODE_ANNOUNCEMENT_LEN;
+	default:
+		return false;
+	}
+}
+
 bool is_msg_for_gossipd(const u8 *cursor)
 {
 	switch ((enum peer_wire)fromwire_peektype(cursor)) {

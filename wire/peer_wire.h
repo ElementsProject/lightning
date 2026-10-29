@@ -18,6 +18,15 @@
 bool is_unknown_msg_discardable(const u8 *cursor);
 /* Return true if it's a message for gossipd. */
 bool is_msg_for_gossipd(const u8 *cursor);
+
+/* Generous upper bounds on a well-formed gossip message: real ones are a
+ * few hundred bytes.  We ignore anything larger. */
+#define MAX_CHANNEL_ANNOUNCEMENT_LEN 1024
+#define MAX_CHANNEL_UPDATE_LEN 1024
+#define MAX_NODE_ANNOUNCEMENT_LEN 2048
+
+/* Return true if it's a gossip message larger than any valid one. */
+bool is_oversized_gossip_msg(const u8 *msg);
 /* Returns true if the message type should be treated as a custommsg */
 bool peer_wire_is_internal(enum peer_wire type);
 /* Extract channel_id from various packets, return true if possible. */
