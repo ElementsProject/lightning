@@ -9,15 +9,22 @@ CONFIG_HEADER=ccan/config.h
 BASE_WARNFLAGS="-Wall -Wundef -Wmissing-prototypes -Wmissing-declarations -Wstrict-prototypes -Wold-style-definition"
 
 OS=$(uname -s)
-ARCH=$(uname -m)
-if [ "$OS-$ARCH" = "Darwin-arm64" ]; then
-CPATH=/opt/homebrew/include
-LIBRARY_PATH=/opt/homebrew/lib
-export PKG_CONFIG_PATH=${PKG_CONFIG_PATH}:/opt/homebrew/opt/sqlite/lib/pkgconfig
-else
-CPATH=/usr/local/lib
-LIBRARY_PATH=/usr/local/lib
-export PKG_CONFIG_PATH=${PKG_CONFIG_PATH}:/usr/local/opt/sqlite/lib/pkgconfig
+if [ -z "$IN_NIX_SHELL" ]; then
+    if [ "$OS" = "Darwin" ]; then
+	# Homebrew lives in /opt/homebrew on Apple Silicon and /usr/local on
+	# Intel.  Ask brew, and use nothing from it if it isn't found (e.g. in
+	# a nix build), so we don't pick up stray headers.
+	BREW_PREFIX=$(brew --prefix 2>/dev/null || echo "")
+	if [ -n "$BREW_PREFIX" ]; then
+	    CPATH=${CPATH:-$BREW_PREFIX/include}
+	    LIBRARY_PATH=${LIBRARY_PATH:-$BREW_PREFIX/lib}
+	    export PKG_CONFIG_PATH=${PKG_CONFIG_PATH}:$BREW_PREFIX/opt/sqlite/lib/pkgconfig
+	fi
+    else
+	CPATH=${CPATH:-/usr/local/include}
+	LIBRARY_PATH=${LIBRARY_PATH:-/usr/local/lib}
+	export PKG_CONFIG_PATH=${PKG_CONFIG_PATH}:/usr/local/opt/sqlite/lib/pkgconfig
+    fi
 fi
 
 : ${PKG_CONFIG=pkg-config}
@@ -444,7 +451,11 @@ fi
 # Clean up on exit.
 trap "rm -f $CONFIG_VAR_FILE.$$*" 0
 
-$CONFIGURATOR --extra-tests --autotools-style --var-file=$CONFIG_VAR_FILE.$$ --header-file=$CONFIG_HEADER.$$ --configurator-cc="$CONFIGURATOR_CC" --wrapper="$CONFIGURATOR_WRAPPER" "$CC" ${CWARNFLAGS-$BASE_WARNFLAGS} $CDEBUGFLAGS $COPTFLAGS $CSANFLAGS -I$CPATH -L$LIBRARY_PATH $SQLITE3_CFLAGS $SODIUM_CFLAGS $POSTGRES_INCLUDE <<EOF
+CONFIGURATOR_PATH_FLAGS=
+[ -z "$CPATH" ] || CONFIGURATOR_PATH_FLAGS="$CONFIGURATOR_PATH_FLAGS -I$CPATH"
+[ -z "$LIBRARY_PATH" ] || CONFIGURATOR_PATH_FLAGS="$CONFIGURATOR_PATH_FLAGS -L$LIBRARY_PATH"
+
+$CONFIGURATOR --extra-tests --autotools-style --var-file=$CONFIG_VAR_FILE.$$ --header-file=$CONFIG_HEADER.$$ --configurator-cc="$CONFIGURATOR_CC" --wrapper="$CONFIGURATOR_WRAPPER" "$CC" ${CWARNFLAGS-$BASE_WARNFLAGS} $CDEBUGFLAGS $COPTFLAGS $CSANFLAGS $CONFIGURATOR_PATH_FLAGS $SQLITE3_CFLAGS $SODIUM_CFLAGS $POSTGRES_INCLUDE <<EOF
 
 var=HAVE_ZLIB
 desc=zlib support

@@ -24,7 +24,6 @@ endif
 CARGO := cargo
 DISTRO=$(shell lsb_release -is 2>/dev/null || echo unknown)-$(shell lsb_release -rs 2>/dev/null || echo unknown)
 OS=$(shell uname -s)
-ARCH=$(shell uname -m)
 # Changing this could break installs!
 PKGNAME = c-lightning
 
@@ -39,10 +38,17 @@ BOLTVERSION := $(DEFAULT_BOLTVERSION)
 
 -include config.vars
 
-# Use Homebrew LLVM toolchain for fuzzing support on macOS
+# Homebrew lives in /opt/homebrew on Apple Silicon and /usr/local on Intel.
+# Ask brew rather than guessing, and use nothing from it if it isn't found
+# (e.g. in a nix build), so we don't pick up stray headers and tools.
 ifeq ($(OS),Darwin)
-export PATH := /opt/homebrew/opt/llvm/bin:$(PATH)
-export DYLD_LIBRARY_PATH := /opt/homebrew/opt/llvm/lib:$(DYLD_LIBRARY_PATH)
+BREW_PREFIX := $(shell brew --prefix 2>/dev/null)
+endif
+
+# Use Homebrew LLVM toolchain for fuzzing support on macOS
+ifneq ($(BREW_PREFIX),)
+export PATH := $(BREW_PREFIX)/opt/llvm/bin:$(PATH)
+export DYLD_LIBRARY_PATH := $(BREW_PREFIX)/opt/llvm/lib:$(DYLD_LIBRARY_PATH)
 endif
 
 # Define EXTERNAL_LDLIBS for linking external libraries
@@ -261,21 +267,30 @@ man5dir = $(mandir)/man5
 man7dir = $(mandir)/man7
 man8dir = $(mandir)/man8
 
-# M1 macos machines with homebrew will install the native libraries in
-# /opt/homebrew instead of /usr/local, most likely because they
-# emulate x86_64 compatibility via Rosetta, and wanting to keep the
-# libraries separate. This however means we also need to switch out
-# the paths accordingly when we detect we're on an M1 macos machine.
-ifeq ("$(OS)-$(ARCH)", "Darwin-arm64")
-CPATH := /opt/homebrew/include
-LIBRARY_PATH := /opt/homebrew/lib
+# Extra directories to search for headers and libraries: Homebrew's on macOS
+# (if installed), /usr/local elsewhere (e.g. the BSDs don't search it by default).
+ifndef IN_NIX_SHELL
+ifeq ($(OS),Darwin)
+ifneq ($(BREW_PREFIX),)
+CPATH ?= $(BREW_PREFIX)/include
+LIBRARY_PATH ?= $(BREW_PREFIX)/lib
+endif
 else
-CPATH := /usr/local/include
-LIBRARY_PATH := /usr/local/lib
+CPATH ?= /usr/local/include
+LIBRARY_PATH ?= /usr/local/lib
+endif
+endif
+
+ifneq ($(CPATH),)
+CPATH_CFLAGS := -I$(CPATH)
+endif
+ifneq ($(LIBRARY_PATH),)
+LIBRARY_PATH_LDFLAGS := -L$(LIBRARY_PATH)
 endif
 
 # Detect OpenSSL and SQLite paths dynamically using brew --prefix
-ifeq ("$(OS)", "Darwin")
+ifndef IN_NIX_SHELL
+ifneq ($(BREW_PREFIX),)
 OPENSSL_PREFIX := $(shell brew --prefix openssl@3 2>/dev/null || brew --prefix openssl 2>/dev/null || echo "")
 SQLITE_PREFIX := $(shell brew --prefix sqlite 2>/dev/null || echo "")
 ifneq ("$(OPENSSL_PREFIX)", "")
@@ -288,9 +303,10 @@ CPPFLAGS += -I$(SQLITE_PREFIX)/include
 PKG_CONFIG_PATH := $(SQLITE_PREFIX)/lib/pkgconfig:$(PKG_CONFIG_PATH)
 endif
 endif
+endif
 
 CPPFLAGS += -DCLN_NEXT_VERSION="\"$(CLN_NEXT_VERSION)\"" -DPKGLIBEXECDIR="\"$(pkglibexecdir)\"" -DBINDIR="\"$(bindir)\"" -DPLUGINDIR="\"$(plugindir)\"" -DCCAN_TAL_NEVER_RETURN_NULL=1
-CFLAGS = $(CPPFLAGS) $(CWARNFLAGS) $(CDEBUGFLAGS) $(COPTFLAGS) -I $(CCANDIR) $(EXTERNAL_INCLUDE_FLAGS) -I . -I$(CPATH) $(SQLITE3_CFLAGS) $(SODIUM_CFLAGS) $(POSTGRES_INCLUDE) $(FEATURES) $(COVFLAGS) $(DEV_CFLAGS) -DSHACHAIN_BITS=48 -DJSMN_PARENT_LINKS $(PIE_CFLAGS) $(COMPAT_CFLAGS) $(CSANFLAGS)
+CFLAGS = $(CPPFLAGS) $(CWARNFLAGS) $(CDEBUGFLAGS) $(COPTFLAGS) -I $(CCANDIR) $(EXTERNAL_INCLUDE_FLAGS) -I . $(CPATH_CFLAGS) $(SQLITE3_CFLAGS) $(SODIUM_CFLAGS) $(POSTGRES_INCLUDE) $(FEATURES) $(COVFLAGS) $(DEV_CFLAGS) -DSHACHAIN_BITS=48 -DJSMN_PARENT_LINKS $(PIE_CFLAGS) $(COMPAT_CFLAGS) $(CSANFLAGS)
 
 # If CFLAGS is already set in the environment of make (to whatever value, it
 # does not matter) then it would export it to subprocesses with the above value
@@ -308,9 +324,9 @@ ifeq ($(STATIC),1)
 # For MacOS, Jacob Rapoport <jacob@rumblemonkey.com> changed this to:
 #  -L/usr/local/lib -lsqlite3 -lz -Wl,-lm -lpthread -ldl $(COVFLAGS)
 # But that doesn't static link.
-LDLIBS = -L$(CPATH) -Wl,-dn $(SQLITE3_LDLIBS) -Wl,-dy -lm -lpthread -ldl $(COVFLAGS)
+LDLIBS = $(LIBRARY_PATH_LDFLAGS) -Wl,-dn $(SQLITE3_LDLIBS) -Wl,-dy -lm -lpthread -ldl $(COVFLAGS)
 else
-LDLIBS = -L$(CPATH) -lm $(SQLITE3_LDLIBS) $(COVFLAGS)
+LDLIBS = $(LIBRARY_PATH_LDFLAGS) -lm $(SQLITE3_LDLIBS) $(COVFLAGS)
 endif
 
 ifeq ($(HAVE_FUNCTION_SECTIONS),1)
@@ -417,8 +433,8 @@ include plugins/Makefile
 include tests/plugins/Makefile
 
 # Only include fuzz tests if OpenSSL >= 3.0, will be disabled on ubuntu focal
-OPENSSL_VERSION := $(shell openssl version | $(SED) -n 's/OpenSSL \([0-9]\+\)\..*/\1/p')
-ifneq ($(shell test $(OPENSSL_VERSION) -ge 3 && echo yes),)
+OPENSSL_VERSION := $(shell openssl version 2>/dev/null | $(SED) -n 's/OpenSSL \([0-9]\+\)\..*/\1/p')
+ifneq ($(shell test "$(OPENSSL_VERSION)" -ge 3 2>/dev/null && echo yes),)
 include tests/fuzz/Makefile
 endif
 
@@ -586,8 +602,8 @@ LOCAL_BOLTDIR=.tmp.lightningrfc
 bolt-precheck:
 	@[ -d $(BOLTDIR) ] || exit 0; set -e; if [ -z "$(BOLTVERSION)" ]; then rm -rf $(LOCAL_BOLTDIR); ln -sf $(BOLTDIR) $(LOCAL_BOLTDIR); exit 0; fi; [ "$$(git -C $(LOCAL_BOLTDIR) rev-list --max-count=1 HEAD 2>/dev/null)" != "$(BOLTVERSION)" ] || exit 0; rm -rf $(LOCAL_BOLTDIR) && git clone -q $(BOLTDIR) $(LOCAL_BOLTDIR) && cd $(LOCAL_BOLTDIR) && git checkout -q $(BOLTVERSION)
 
-PYSRC=$(shell git ls-files "*.py" | grep -v /text.py)
-RUSTSRC=$(shell git ls-files "*.rs")
+PYSRC=$(shell git ls-files "*.py" 2>/dev/null | grep -v /text.py)
+RUSTSRC=$(shell git ls-files "*.rs" 2>/dev/null)
 
 check-source-bolt: $(ALL_NONGEN_SRCFILES:%=bolt-check/%) $(PYSRC:%=bolt-check-py/%) $(RUSTSRC:%=bolt-check-rs/%)
 
