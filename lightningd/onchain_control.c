@@ -951,8 +951,11 @@ static struct bitcoin_tx *onchaind_tx_unsigned(const tal_t *ctx,
  		channel_internal_error(channel, "Could not add keypath?");
 		return tal_free(tx);
 	}
-	/* Worst-case sig is 73 bytes */
-	weight = bitcoin_tx_weight(tx) + 1 + 3 + 73 + 0 + tal_count(info->wscript);
+	/* Worst-case sig is 73 bytes.  The stack element (a revocation
+	 * pubkey or a preimage, if any) goes in the witness too: without it,
+	 * at the minimum feerate the fee falls below the minimum relay fee. */
+	weight = bitcoin_tx_weight(tx) + 1 + 3 + 73
+		+ tal_bytelen(info->stack_elem) + tal_count(info->wscript);
 	weight += elements_tx_overhead(chainparams, 1, 1);
 
 	/* BOLT #5:
