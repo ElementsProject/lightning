@@ -536,6 +536,7 @@
             "local socket": 0,
             "torv2": 3,
             "torv3": 4,
+            "unresolved": 6,
             "websocket": 5
         },
         "PeerConnectDirection": {
@@ -3904,6 +3905,7 @@
         },
         "PeerConnectAddress": {
             "connect.address.address": 3,
+            "connect.address.name": 5,
             "connect.address.port": 4,
             "connect.address.socket": 2,
             "connect.address.type": 1
@@ -7697,7 +7699,8 @@
             "1": "plain enum",
             "2": "optional string",
             "3": "optional string",
-            "4": "optional uint32"
+            "4": "optional uint32",
+            "5": "optional string"
         },
         "PeerConnectNotification": {
             "1": "plain bytes",
@@ -19498,6 +19501,10 @@
             "deprecated": null
         },
         "connect.address.address": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "connect.address.name": {
             "added": "pre-v0.10.1",
             "deprecated": null
         },
