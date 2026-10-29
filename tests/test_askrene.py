@@ -1731,6 +1731,37 @@ def test_real_data(node_factory, bitcoind, executor):
     assert l1.daemon.is_in_log(r"Too many running at once \(4 vs 4\): waiting")
 
 
+def test_layer_removed_while_waiting(node_factory, executor):
+    """A layer removed while getroutes waits for a free child must not crash askrene"""
+    gsfile, nodemap = generate_gossip_store([GenChannel(0, 1),
+                                             GenChannel(1, 2)])
+    l1 = node_factory.get_node(gossip_store_file=gsfile.name)
+
+    def getroutes(layers):
+        return l1.rpc.getroutes(source=nodemap[0],
+                                destination=nodemap[2],
+                                amount_msat=1000,
+                                layers=layers,
+                                maxfee_msat=1000,
+                                final_cltv=99)
+
+    # With no children allowed, the request has to wait.
+    l1.rpc.askrene_create_layer('vanishing')
+    l1.rpc.setconfig('askrene-max-threads', 0)
+    waiting = executor.submit(getroutes, ['vanishing'])
+    l1.daemon.wait_for_log(r"Too many running at once \(0 vs 0\): waiting")
+    l1.rpc.askrene_remove_layer('vanishing')
+
+    # Finishing another request wakes the waiting one.
+    l1.rpc.setconfig('askrene-max-threads', 1)
+    getroutes([])
+    with pytest.raises(RpcError, match="Layer vanishing was removed before routing began"):
+        waiting.result(TIMEOUT)
+
+    # askrene is still alive.
+    getroutes([])
+
+
 @pytest.mark.slow_test
 def test_real_biases(node_factory, bitcoind, executor):
     # Route from Rusty's node to the top 100.
