@@ -31,7 +31,8 @@ struct splice_state *splice_state_new(const tal_t *ctx);
 /* An active splice negotiation. Born when splice beings and dies when a splice
  * negotation has finished */
 struct splicing {
-	/* The remote side's rotated funding pubkey */
+	/* The remote side's rotated funding pubkey. There is no local counterpart - we always reuse channel->funding_pubkey[LOCAL],
+	 * which is fixed for the channel's lifetime. Local funding pubkey rotation is not implemented */
 	struct pubkey remote_funding_pubkey;
 	/* The opener side's relative balance change */
 	s64 opener_relative;
