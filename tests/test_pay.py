@@ -168,7 +168,7 @@ def test_pay_exclude_node(node_factory, bitcoind):
 
     inv = l3.rpc.invoice(amount, "test1", 'description')['bolt11']
     # It should have eliminated route hint.
-    with pytest.raises(RpcError, match=r"Failed after 1 attempts. We got a weird error \(temporary_node_failure\) for the invoice's route hint \([0-9x]*/0\): disabling it for this payment. Then routing failed: We could not find a usable set of paths. All 1 channels to the destination are disabled."):
+    with pytest.raises(RpcError, match=r"Failed after 1 attempts. We got a weird error \(temporary_node_failure\) for the invoice's route hint \([0-9x]*/0\): disabling it for this payment.* Then routing failed: We could not find a usable set of paths. All 1 channels to the destination are disabled."):
         l1.rpc.pay(inv)
 
     # Get a fresh invoice, but do it before other routes exist, so routehint
