@@ -28,6 +28,7 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <wire/peer_wire.h>
 
 #define PENDING_LIMIT 10000
 #define GOSSIP_STORE_COMPACT_FILENAME "gossip_store.compact"
@@ -644,6 +645,14 @@ const char *gossmap_manage_channel_announcement(const tal_t *ctx,
 	if (taken(announce))
 		tal_steal(tmpctx, announce);
 
+	/* Ignore messages larger than any valid one. */
+	if (is_oversized_gossip_msg(announce)) {
+		status_debug("Ignoring oversized channel_announcement (%zu bytes)",
+			     tal_bytelen(announce));
+		tal_free_if_taken(source_peer);
+		return NULL;
+	}
+
 	if (!fromwire_channel_announcement(tmpctx, announce, &node_signature_1, &node_signature_2,
 					   &bitcoin_signature_1, &bitcoin_signature_2, &features, &chain_hash,
 					   &scid, &node_id_1, &node_id_2, &bitcoin_key_1, &bitcoin_key_2)) {
@@ -1050,6 +1059,13 @@ const char *gossmap_manage_channel_update(const tal_t *ctx,
 	if (taken(source_peer))
 		tal_steal(tmpctx, source_peer);
 
+	/* Ignore messages larger than any valid one. */
+	if (is_oversized_gossip_msg(update)) {
+		status_debug("Ignoring oversized channel_update (%zu bytes)",
+			     tal_bytelen(update));
+		return NULL;
+	}
+
 	if (!fromwire_channel_update(update, &signature,
 				     &chain_hash, &scid,
 				     &timestamp, &message_flags,
@@ -1212,6 +1228,13 @@ const char *gossmap_manage_node_announcement(const tal_t *ctx,
 
 	if (taken(source_peer))
 		tal_steal(tmpctx, source_peer);
+
+	/* Ignore messages larger than any valid one. */
+	if (is_oversized_gossip_msg(nannounce)) {
+		status_debug("Ignoring oversized node_announcement (%zu bytes)",
+			     tal_bytelen(nannounce));
+		return NULL;
+	}
 
 	if (!fromwire_node_announcement(tmpctx, nannounce,
 					&signature, &features, &timestamp,
