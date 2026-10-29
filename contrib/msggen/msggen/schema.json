@@ -23099,6 +23099,12 @@
                 "sources": [],
                 "plugin": "/usr/local/libexec/plugins/cln-xpay"
               },
+              "xpay-failing-node-tolerance": {
+                "value_int": 4,
+                "source": "default",
+                "plugin": "/usr/local/libexec/plugins/cln-xpay",
+                "dynamic": true
+              },
               "funder-fund-probability": {
                 "value_int": 100,
                 "source": "default",

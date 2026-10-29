@@ -56,6 +56,10 @@ struct xpay {
 	/* Suppress calls to askrene-age */
 	bool dev_no_age;
 	const char **user_layers;
+
+	/* How many times a forwarding node can give us a weird error before we
+	 * disable it for the current payment session. */
+	u32 fail_node_tolerance;
 };
 
 static struct xpay *xpay_of(struct plugin *plugin)
@@ -966,6 +970,7 @@ static void maybe_exclude_node(struct command *aux_cmd, struct attempt *attempt,
 			       size_t index, enum onion_wire failcode)
 {
 	struct payment *payment = attempt->payment;
+	struct xpay *xpay = xpay_of(attempt->payment->plugin);
 	struct out_req *req;
 	struct node_id nodeid;
 	struct short_channel_id scid;
@@ -1068,7 +1073,7 @@ static void maybe_exclude_node(struct command *aux_cmd, struct attempt *attempt,
 
 	/* Our tolerance could be any number, but the higher it is
 	 * we risk failing the payment retrying too much on a bad node. */
-	if (tal_count(current_noderr->errs) >= 2) {
+	if (tal_count(current_noderr->errs) >= xpay->fail_node_tolerance) {
 		/* FIXME: we should check if this node is a compulsory bridge
 		 * between us and the destination (eg. an LSP), and in that case
 		 * we should not disable it.  A high tolerance value reduces
@@ -3930,6 +3935,7 @@ int main(int argc, char *argv[])
 	xpay->slow_mode = false;
 	xpay->dev_no_age = false;
 	xpay->user_layers = tal_arr(xpay, const char *, 0);
+	xpay->fail_node_tolerance = 4;
 	list_head_init(&xpay->payments);
 	plugin_main(argv, init, take(xpay),
 		    PLUGIN_RESTARTABLE, true, NULL,
@@ -3943,6 +3949,9 @@ int main(int argc, char *argv[])
 		    plugin_option_dynamic("xpay-slow-mode", "bool",
 					  "Wait until all parts have completed before returning success or failure",
 					  bool_option, bool_jsonfmt, &xpay->slow_mode),
+		    plugin_option_dynamic("xpay-failing-node-tolerance", "int",
+					  "How many times a node can give us a weird error before we disable it.",
+					  u32_option, u32_jsonfmt, &xpay->fail_node_tolerance),
 		    plugin_option_multi("xpay-user-layer", "string",
 					"Add a layer that will be used for every payment",
 					multi_string_option, string_array_jsonfmt, &xpay->user_layers),

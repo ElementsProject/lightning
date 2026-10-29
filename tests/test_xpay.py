@@ -1851,7 +1851,7 @@ def test_xpay_unknown_next_peer_excludes_node(node_factory, bitcoind):
     """
     plugin = os.path.join(os.path.dirname(__file__), 'plugins/fail_unknown_next_peer.py')
     payer, hub, a, b, c, d, dest = node_factory.get_nodes(
-        7, opts=[{},
+        7, opts=[{'xpay-failing-node-tolerance': 2},
                  {'plugin': plugin},
                  {},
                  {},
@@ -1936,7 +1936,7 @@ def test_xpay_fee_insufficient_bias(node_factory, bitcoind):
     inv = dest.rpc.invoice(100000, "fee-bias", "fee-bias")["bolt11"]
     ret = payer.rpc.xpay(invstring=inv, retry_for=30)
     assert 0 < ret["failed_parts"] <= 2, ret
-    assert payer.daemon.is_in_log("disabling node for this payment")
+    assert not payer.daemon.is_in_log("disabling node for this payment")
     assert payer.daemon.is_in_log(
         "adding a global bias to node {}".format(hub.info["id"])
     )
@@ -1948,3 +1948,65 @@ def test_xpay_fee_insufficient_bias(node_factory, bitcoind):
     )
     assert node_bias["out_bias"] < 0
     assert "fee_insufficient" in node_bias["description"]
+
+
+def test_xpay_fee_insufficient_disable(node_factory, bitcoind):
+    """A hub repeatedly returning fee_insufficient gets disabled.
+
+    The alternative route is so expensive that the node bias is not
+    enough, so we keep trying the hub until it reaches the default
+    xpay-failing-node-tolerance (4) and is disabled for this payment.  It has
+    more channels than that, so it's the disabling which makes us succeed.
+    """
+    payer, hub, alt, dest = setup_failing_hub(node_factory, num_spokes=5, alt_ppm=5000)
+    assert (
+        payer.rpc.listconfigs("xpay-failing-node-tolerance")["configs"][
+            "xpay-failing-node-tolerance"
+        ]["value_int"]
+        == 4
+    )
+
+    inv = dest.rpc.invoice(100000, "fee-disable", "fee-disable")["bolt11"]
+    ret = payer.rpc.xpay(invstring=inv, retry_for=30)
+    assert 2 < ret["failed_parts"] <= 4, ret
+    line = payer.daemon.is_in_log(
+        r"Repeated weird errors \(.*\) from {}: disabling node for this payment".format(
+            hub.info["id"]
+        )
+    )
+    assert line.count("fee_insufficient on") == 4, line
+
+
+def test_xpay_failing_node_tolerance(node_factory, bitcoind):
+    """xpay-failing-node-tolerance controls when a failing node is disabled."""
+    payer, hub, alt, dest = setup_failing_hub(node_factory, num_spokes=5, alt_ppm=5000)
+    disabled = (
+        r"Repeated weird errors \(.*\) from {}: disabling node for this payment".format(
+            hub.info["id"]
+        )
+    )
+
+    with pytest.raises(RpcError):
+        payer.rpc.setconfig("xpay-failing-node-tolerance", -1)
+
+    payer.rpc.setconfig("xpay-failing-node-tolerance", 1)
+    conf = payer.rpc.listconfigs("xpay-failing-node-tolerance")["configs"][
+        "xpay-failing-node-tolerance"
+    ]
+    assert conf["value_int"] == 1
+
+    # A single failure is now enough to disable the hub.
+    start = len(payer.daemon.logs)
+    inv = dest.rpc.invoice(100000, "tolerance-1", "tolerance-1")["bolt11"]
+    ret = payer.rpc.xpay(invstring=inv, retry_for=30)
+    assert ret["failed_parts"] == 1, ret
+    assert payer.daemon.is_in_log(disabled, start=start)
+
+    # With a tolerance above the hub's channel count, we never disable it:
+    # we walk all its channels before using the expensive route.
+    payer.rpc.setconfig("xpay-failing-node-tolerance", 100)
+    start = len(payer.daemon.logs)
+    inv = dest.rpc.invoice(100000, "tolerance-100", "tolerance-100")["bolt11"]
+    ret = payer.rpc.xpay(invstring=inv, retry_for=60)
+    assert ret["failed_parts"] == 5, ret
+    assert not payer.daemon.is_in_log(disabled, start=start)
