@@ -7,7 +7,6 @@ from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from .primitives import Secret, PrivateKey, PublicKey
 from hashlib import sha256
 from typing import Tuple
-import coincurve
 import os
 import socket
 import socks
@@ -42,10 +41,7 @@ def hkdf_two_keys(ikm, salt):
 
 
 def ecdh(k, rk):
-    k = coincurve.PrivateKey(secret=k.rawkey)
-    rk = coincurve.PublicKey(data=rk.serializeCompressed())
-    a = k.ecdh(rk.public_key)
-    return Secret(a)
+    return Secret(rk.key.ecdh(k.rawkey))
 
 
 def encryptWithAD(k, n, ad, plaintext):
