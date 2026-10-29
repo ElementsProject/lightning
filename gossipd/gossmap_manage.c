@@ -119,6 +119,11 @@ struct gossmap_manage {
 
 	/* Non-NULL if a compactd is running. */
 	struct compactd *compactd;
+
+	/* Roughly how much of gossip_store is live: its length right after
+	 * our last compaction, or at startup, its length minus deleted
+	 * records. */
+	u64 compacted_len;
 };
 
 /* Timer recursion */
@@ -553,6 +558,7 @@ struct gossmap_manage *gossmap_manage_new(const tal_t *ctx,
 					  struct daemon *daemon)
 {
 	struct gossmap_manage *gm = tal(ctx, struct gossmap_manage);
+	u64 deleted;
 
 	if (!setup_gossmap(gm, daemon)) {
 		tal_free(gm->dying_channels);
@@ -565,6 +571,11 @@ struct gossmap_manage *gossmap_manage_new(const tal_t *ctx,
 	assert(gm->raw_gossmap);
 	gm->daemon = daemon;
 	gm->compactd = NULL;
+	deleted = gossmap_deleted_bytes_read(gm->raw_gossmap);
+	if (deleted < gossip_store_len_written(gm->gs))
+		gm->compacted_len = gossip_store_len_written(gm->gs) - deleted;
+	else
+		gm->compacted_len = 0;
 
 	map_init(&gm->pending_ann_map, "pending announcements");
 	gm->pending_cupdates = tal_arr(gm, struct pending_cupdate *, 0);
@@ -1776,6 +1787,7 @@ static void compactd_done(struct io_conn *unused, struct gossmap_manage *gm)
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Error renaming gossip store: %s",
 			      strerror(errno));
+	gm->compacted_len = st.st_size;
 
 	/* Now append record to old one, so everyone will switch */
 	gossip_store_add(gm->gs,
@@ -1785,8 +1797,12 @@ static void compactd_done(struct io_conn *unused, struct gossmap_manage *gm)
 	if (gm->compactd->dev_compact)
 		daemon_conn_send(gm->daemon->master,
 				 take(towire_gossipd_dev_compact_store_reply(NULL, "")));
+	gm->compactd = tal_free(gm->compactd);
+	return;
 
 failed:
+	/* Don't retry on every message: wait until it grows 5x again. */
+	gm->compacted_len = gossip_store_len_written(gm->gs);
 	gm->compactd = tal_free(gm->compactd);
 }
 
@@ -1919,8 +1935,12 @@ void gossmap_manage_maybe_compact(struct gossmap_manage *gm)
 	if (gossip_store_len_written(gm->gs) < 10000000)
 		return;
 
-	/* Compact when the density would be 5x better */
-	if (num_dead < 4 * num_live)
+	/* Compact when the density would be 5x better.  Records vary in size
+	 * (a node_announcement can be ten times a channel_update), so counting
+	 * records alone lets large dead records pile up: also compact once the
+	 * store is 5x its (roughly live) size after the last compaction. */
+	if (num_dead < 4 * num_live
+	    && gossip_store_len_written(gm->gs) < 5 * gm->compacted_len)
 		return;
 
 	compact_started = gossmap_compact(gm, false);
