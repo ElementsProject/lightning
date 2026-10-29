@@ -71,7 +71,9 @@
             "ipv6": 2,
             "local socket": 0,
             "torv2": 3,
-            "torv3": 4
+            "torv3": 4,
+            "unresolved": 6,
+            "websocket": 5
         },
         "ConnectDirection": {
             "in": 0,
@@ -572,6 +574,7 @@
             "local socket": 0,
             "torv2": 3,
             "torv3": 4,
+            "unresolved": 6,
             "websocket": 5
         },
         "PeerConnectDirection": {
@@ -1421,6 +1424,7 @@
         },
         "ConnectAddress": {
             "Connect.address.address": 3,
+            "Connect.address.name": 5,
             "Connect.address.port": 4,
             "Connect.address.socket": 2,
             "Connect.address.type": 1
@@ -3944,6 +3948,7 @@
         },
         "PeerConnectAddress": {
             "connect.address.address": 3,
+            "connect.address.name": 5,
             "connect.address.port": 4,
             "connect.address.socket": 2,
             "connect.address.type": 1
@@ -5490,7 +5495,8 @@
             "1": "plain enum",
             "2": "optional string",
             "3": "optional string",
-            "4": "optional uint32"
+            "4": "optional uint32",
+            "5": "optional string"
         },
         "ConnectRequest": {
             "1": "plain string",
@@ -7741,7 +7747,8 @@
             "1": "plain enum",
             "2": "optional string",
             "3": "optional string",
-            "4": "optional uint32"
+            "4": "optional uint32",
+            "5": "optional string"
         },
         "PeerConnectNotification": {
             "1": "plain bytes",
@@ -10378,6 +10385,10 @@
             "deprecated": null
         },
         "Connect.address.address": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "Connect.address.name": {
             "added": "pre-v0.10.1",
             "deprecated": null
         },
@@ -19554,6 +19565,10 @@
             "deprecated": null
         },
         "connect.address.address": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "connect.address.name": {
             "added": "pre-v0.10.1",
             "deprecated": null
         },
