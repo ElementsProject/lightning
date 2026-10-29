@@ -523,13 +523,19 @@ void drop_to_chain(struct lightningd *ld, struct channel *channel,
 	 * force close. */
 	if (cooperative) {
 		list_for_each(&channel->inflights, inflight, list) {
+			const struct pubkey *remote_funding;
+			const u8 *funding_wscript;
+
 			if (bitcoin_outpoint_eq(&inflight->funding->outpoint,
 						&channel->funding)) {
 				continue;
 			}
-			const u8 *funding_wscript = bitcoin_redeem_2of2(tmpctx,
-									&channel->local_funding_pubkey,
-									inflight->funding->splice_remote_funding);
+			remote_funding = inflight->funding->splice_remote_funding;
+			if (!remote_funding)
+				remote_funding = &channel->channel_info.remote_fundingkey;
+			funding_wscript = bitcoin_redeem_2of2(tmpctx,
+							      &channel->local_funding_pubkey,
+							      remote_funding);
 			watch_scriptpubkey(inflight, ld->topology,
 					   take(scriptpubkey_p2wsh(NULL, funding_wscript)),
 					   &inflight->funding->outpoint,
