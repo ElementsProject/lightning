@@ -3430,29 +3430,56 @@ relative_splice_balance_fundee(struct peer *peer,
 			       int chan_output_index,
 			       int chan_input_index)
 {
-	/* Relative fundee channel balance */
-	u64 push_value;
+	/* hsmd_setup_channel's push_value is the fundee's TOTAL balance at
+	 * the start of the new channel era: pre-splice settled balance,
+	 * plus HTLCs pending at splice setup attributable to the fundee,
+	 * plus its funding contribution.  A signer that validates the
+	 * balances reported to it reads this as the fundee's entitlement
+	 * for the new era, so it must cover the fundee's balance in every
+	 * pending-HTLC resolution direction (a fundee-owned HTLC failing
+	 * back raises the fundee output above its settled at-setup
+	 * balance).  A negative total is a genuine over-draw and fails the
+	 * peer; nothing is ever wrapped or clamped. */
+	enum side fundee_side = peer->channel->opener == LOCAL ? REMOTE : LOCAL;
+	bool fundee_is_splice_initiator =
+		(fundee_side == LOCAL) == (our_role == TX_INITIATOR);
+	s64 fundee_contribution = fundee_is_splice_initiator
+		? peer->splicing->opener_relative
+		: peer->splicing->accepter_relative;
+	struct htlc_map_iter it;
+	const struct htlc *htlc;
 
-	/* We calculcate the `push_value` to send to the
-	 * hsmd, that is the remote amount in the channel
-	 * after the splice. */
-	switch (our_role) {
-	case TX_INITIATOR:
-		/* push_value is the fundee relative value so if we open the channel
-		 * fundee is the remote node. */
-		push_value = peer->splicing->accepter_relative;
-		break;
-	case TX_ACCEPTER:
-		/* push_value is the fundee relative value so if the remote node open the channel
-		 * fundee in this case is the opener. */
-		push_value = peer->splicing->opener_relative;
-		break;
-	default:
-		/* This should never happen. Help us to early catch the tx_role change */
-		abort();
+	/* The fundee's pre-splice settled balance; views agree on owed[]. */
+	struct amount_msat push_value_msat
+		= peer->channel->view[LOCAL].owed[fundee_side];
+
+	/* HTLCs pending at splice setup attributable to the fundee,
+	 * selected by owner side (the same bucketing check_balances uses
+	 * for its pending_htlcs).  Callers run after check_balances, so
+	 * the view and htlc set are final for this round. */
+	for (htlc = htlc_map_first(peer->channel->htlcs, &it);
+	     htlc;
+	     htlc = htlc_map_next(peer->channel->htlcs, &it)) {
+		if (htlc_owner(htlc) != fundee_side)
+			continue;
+		if (!amount_msat_accumulate(&push_value_msat, htlc->amount))
+			peer_failed_warn(peer->pps, &peer->channel_id,
+					 "Unable to add HTLC balance");
 	}
 
-	return amount_msat(push_value);
+	/* opener_relative/accepter_relative are satoshi contributions
+	 * (everywhere else they feed amount_msat_add_sat_s64); a negative
+	 * contribution is a splice-out and subtracts.  A negative total,
+	 * or an add that overflows, is an over-draw the peer is failed
+	 * for rather than reported wrapped. */
+	if (fundee_contribution == INT64_MIN ||
+	    !amount_msat_add_sat_s64(&push_value_msat, push_value_msat,
+				     fundee_contribution))
+		peer_failed_warn(peer->pps, &peer->channel_id,
+				 "splice funding contribution out of range"
+				 " for fundee balance");
+
+	return push_value_msat;
 }
 
 static struct amount_sat calc_balance(struct peer *peer)

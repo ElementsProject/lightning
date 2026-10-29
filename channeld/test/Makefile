@@ -21,7 +21,7 @@ channeld/test/run-full_channel:			\
 	common/features.o			\
 	common/htlc_state.o			\
 	common/htlc_trim.o			\
-	common/htlc_tx.o			\
+	common/htlc_tx.o				\
 	common/initial_commit_tx.o		\
 	common/key_derive.o			\
 	common/msg_queue.o			\
@@ -30,6 +30,16 @@ channeld/test/run-full_channel:			\
 	common/randbytes.o			\
 	common/setup.o				\
 	common/utils.o
+
+# run-splice_fundee_msat includes channeld.c itself (so we can see statics),
+# like the hsmd tests: do not also link channeld.o.  The sibling channeld
+# objects, hsmd client objects and libcommon.a satisfy the rest.
+channeld/test/run-splice_fundee_msat:			\
+	$(filter-out channeld/channeld.o,$(CHANNELD_OBJS))	\
+	$(HSMD_CLIENT_OBJS)				\
+	$(BITCOIN_OBJS)					\
+	wire/towire.o					\
+	wire/fromwire.o
 
 $(CHANNELD_TEST_OBJS): $(CHANNELD_HEADERS) $(CHANNELD_SRC) channeld/test/Makefile
 
