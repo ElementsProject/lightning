@@ -3145,8 +3145,10 @@ static void setup_peer(struct peer *peer)
 				watch_opening_inflight(ld, inflight);
 			break;
 
-		/* We need to watch all inflights which may splice */
+		/* We need to watch all inflights which may splice, and the
+		 * current funding, which is live until one of them does. */
 		case CHANNELD_AWAITING_SPLICE:
+			channel_watch_funding(ld, channel);
 			list_for_each(&channel->inflights, inflight, list)
 				watch_splice_inflight(ld, inflight);
 			break;
