@@ -2469,6 +2469,12 @@
             "source": "default",
             "plugin": "/usr/local/libexec/plugins/cln-xpay"
           },
+          "xpay-failing-node-tolerance": {
+            "value_int": 4,
+            "source": "default",
+            "plugin": "/usr/local/libexec/plugins/cln-xpay",
+            "dynamic": true
+          },
           "xpay-handle-pay": {
             "value_bool": true,
             "source": "default",
