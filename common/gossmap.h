@@ -312,6 +312,11 @@ void gossmap_iter_end(const struct gossmap *map, struct gossmap_iter *iter);
 /* How dense is this? */
 void gossmap_stats(const struct gossmap *map, u64 *num_live, u64 *num_dead);
 
+/* Bytes in records which were already deleted when we read them: right
+ * after loading, that's every deleted record in the file.  Records deleted
+ * after we've read them are not counted. */
+u64 gossmap_deleted_bytes_read(const struct gossmap *map);
+
 /* For debugging: returns length read, and total known length of file */
 u64 gossmap_lengths(const struct gossmap *map, u64 *total);
 
