@@ -246,7 +246,8 @@ u8 *p2tr_for_keyidx(const tal_t *ctx, struct lightningd *ld, u64 keyidx)
 static struct bitcoin_tx *sign_last_tx(const tal_t *ctx,
 				       const struct channel *channel,
 				       const struct bitcoin_tx *last_tx,
-				       const struct bitcoin_signature *last_sig)
+				       const struct bitcoin_signature *last_sig,
+				       const struct pubkey *remote_fundingkey)
 {
 	struct lightningd *ld = channel->peer->ld;
 	struct bitcoin_signature sig;
@@ -260,8 +261,7 @@ static struct bitcoin_tx *sign_last_tx(const tal_t *ctx,
 					     &channel->peer->id,
 					     channel->dbid,
 					     tx,
-					     &channel->channel_info
-					     .remote_fundingkey,
+					     remote_fundingkey,
 					     commit_index);
 
 	msg = hsm_sync_req(tmpctx, ld, take(msg));
@@ -271,11 +271,21 @@ static struct bitcoin_tx *sign_last_tx(const tal_t *ctx,
 
 	witness =
 	    bitcoin_witness_2of2(tx, last_sig,
-				 &sig, &channel->channel_info.remote_fundingkey,
+				 &sig, remote_fundingkey,
 				 &channel->local_funding_pubkey);
 
 	bitcoin_tx_input_set_witness(tx, 0, take(witness));
 	return tx;
+}
+
+/* The peer may use a new funding key for a splice: that inflight's
+ * commitment spends the splice output, not the current funding. */
+static const struct pubkey *
+inflight_remote_fundingkey(const struct channel_inflight *inflight)
+{
+	if (inflight->funding->splice_remote_funding)
+		return inflight->funding->splice_remote_funding;
+	return &inflight->channel->channel_info.remote_fundingkey;
 }
 
 bool invalid_last_tx(const struct bitcoin_tx *tx)
@@ -316,13 +326,15 @@ static struct bitcoin_tx *sign_and_send_last(const tal_t *ctx,
 					     struct channel *channel,
 					     const char *cmd_id,
 					     const struct bitcoin_tx *last_tx,
-					     const struct bitcoin_signature *last_sig)
+					     const struct bitcoin_signature *last_sig,
+					     const struct pubkey *remote_fundingkey)
 {
 	struct bitcoin_txid txid;
 	struct anchor_details *adet;
 	struct bitcoin_tx *tx;
 
-	tx = sign_last_tx(ctx, channel, last_tx, last_sig);
+	tx = sign_last_tx(ctx, channel, last_tx, last_sig,
+			  remote_fundingkey);
 	bitcoin_txid(tx, &txid);
 	wallet_transaction_add(ld->wallet, tx->wtx, 0, 0);
 	wallet_extract_owned_outputs(ld->wallet, tx->wtx, false, NULL, NULL);
@@ -498,18 +510,21 @@ void drop_to_chain(struct lightningd *ld, struct channel *channel,
 									channel,
 									cmd_id,
 									inflight->last_tx,
-									&inflight->last_sig));
+									&inflight->last_sig,
+									inflight_remote_fundingkey(inflight)));
 			}
 			if (!have_current)
 				tal_arr_expand(&txs, sign_and_send_last(tmpctx, ld,
 									channel, cmd_id,
 									channel->last_tx,
-									&channel->last_sig));
+									&channel->last_sig,
+									&channel->channel_info.remote_fundingkey));
 		} else {
 			tal_arr_expand(&txs, sign_and_send_last(tmpctx, ld,
 								channel, cmd_id,
 								channel->last_tx,
-								&channel->last_sig));
+								&channel->last_sig,
+								&channel->channel_info.remote_fundingkey));
 		}
 
 		resolve_close_command(ld, channel, cooperative, txs);
@@ -4090,7 +4105,8 @@ static struct command_result *json_sign_last_tx(struct command *cmd,
 	log_debug(channel->log, "dev-sign-last-tx: signing tx with %zu outputs",
 		  channel->last_tx->wtx->num_outputs);
 
-	tx = sign_last_tx(cmd, channel, channel->last_tx, &channel->last_sig);
+	tx = sign_last_tx(cmd, channel, channel->last_tx, &channel->last_sig,
+			  &channel->channel_info.remote_fundingkey);
 	json_add_tx(response, "tx", tx);
 
 	/* If we've got inflights, return them */
@@ -4102,7 +4118,8 @@ static struct command_result *json_sign_last_tx(struct command *cmd,
 			if (inflight->splice_locked_memonly)
 				continue;
 			tx = sign_last_tx(cmd, channel, inflight->last_tx,
-					  &inflight->last_sig);
+					  &inflight->last_sig,
+					  inflight_remote_fundingkey(inflight));
 			json_object_start(response, NULL);
 			json_add_txid(response, "funding_txid",
 				      &inflight->funding->outpoint.txid);
