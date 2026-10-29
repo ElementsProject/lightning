@@ -469,6 +469,7 @@ impl From<responses::ConnectAddress> for pb::ConnectAddress {
     fn from(c: responses::ConnectAddress) -> Self {
         Self {
             address: c.address, // Rule #2 for type string?
+            name: c.name, // Rule #2 for type string?
             port: c.port.map(|v| v.into()), // Rule #2 for type u16?
             socket: c.socket, // Rule #2 for type string?
             item_type: c.item_type as i32,
@@ -5132,6 +5133,7 @@ impl From<notifications::ConnectAddress> for pb::PeerConnectAddress {
     fn from(c: notifications::ConnectAddress) -> Self {
         Self {
             address: c.address, // Rule #2 for type string?
+            name: c.name, // Rule #2 for type string?
             port: c.port.map(|v| v.into()), // Rule #2 for type u16?
             socket: c.socket, // Rule #2 for type string?
             item_type: c.item_type as i32,
