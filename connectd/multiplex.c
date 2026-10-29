@@ -920,6 +920,16 @@ static void handle_gossip_in(struct peer *peer, const u8 *msg)
 	if (daemon_conn_queue_length(peer->daemon->gossipd) > 500000)
 		return;
 
+	/* Don't queue gossip larger than any valid message: gossipd would
+	 * only ignore it. */
+	if (is_oversized_gossip_msg(msg)) {
+		status_peer_debug(&peer->id,
+				  "Ignoring oversized gossip %s (%zu bytes)",
+				  peer_wire_name(fromwire_peektype(msg)),
+				  tal_bytelen(msg));
+		return;
+	}
+
 	gmsg = towire_gossipd_recv_gossip(NULL, &peer->id, msg);
 
 	/* gossipd doesn't log IO, so we log it here. */
