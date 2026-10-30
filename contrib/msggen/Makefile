@@ -13,3 +13,7 @@ MSGGEN_DATA = \
 
 contrib/msggen/msggen/schema.json: ${SCHEMAS}
 	PYTHONPATH=contrib/msggen ${PYTHON} contrib/msggen/msggen/__main__.py bundle doc/schemas
+
+# Fails on schema commands missing from gRPC, or stale blacklist entries.
+check-msggen-grpc:
+	PYTHONPATH=contrib/msggen ${PYTHON} contrib/msggen/msggen/__main__.py missing-grpc

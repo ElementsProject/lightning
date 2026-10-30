@@ -209,6 +209,8 @@ message GetinfoResponse {
 	repeated GetinfoBinding binding = 15;
 	optional string warning_bitcoind_sync = 16;
 	optional string warning_lightningd_sync = 17;
+	reserved 18;
+	reserved "msatoshi_fees_collected";
 }
 
 message GetinfoAddress {
@@ -219,6 +221,7 @@ message GetinfoAddress {
 		IPV6 = 2;
 		TORV2 = 3;
 		TORV3 = 4;
+		WEBSOCKET = 5 [deprecated = true];
 	}
 	GetinfoAddressType item_type = 1;
 	uint32 port = 2;
@@ -271,9 +274,11 @@ message ListpeersPeers {
 	bool connected = 2;
 	repeated ListpeersPeersLog log = 3;
 	repeated string netaddr = 5;
-	bytes features = 6;
+	optional bytes features = 6;
 	optional string remote_addr = 7;
 	uint32 num_channels = 8;
+	reserved 4;
+	reserved "channels";
 }
 
 message ListpeersPeersLog {
@@ -350,6 +355,8 @@ message SendpayRequest {
 	optional bytes localinvreqid = 11;
 	optional bytes payment_metadata = 12;
 	optional string description = 13;
+	reserved 4, 8;
+	reserved "localofferid", "msatoshi";
 }
 
 message SendpayResponse {
@@ -359,7 +366,7 @@ message SendpayResponse {
 		COMPLETE = 1;
 	}
 	uint64 id = 1;
-	uint64 groupid = 2;
+	optional uint64 groupid = 2;
 	bytes payment_hash = 3;
 	SendpayStatus status = 4;
 	optional Amount amount_msat = 5;
@@ -386,6 +393,8 @@ message SendpayRoute {
 	optional bytes node_id_out = 7;
 	optional Amount amount_out_msat = 8;
 	optional uint32 cltv_out = 9;
+	reserved 1;
+	reserved "msatoshi";
 }
 
 message ListchannelsRequest {
@@ -412,7 +421,7 @@ message ListchannelsChannels {
 	uint32 fee_per_millionth = 11;
 	uint32 delay = 12;
 	Amount htlc_minimum_msat = 13;
-	Amount htlc_maximum_msat = 14;
+	optional Amount htlc_maximum_msat = 14;
 	bytes features = 15;
 	uint32 direction = 16;
 }
@@ -425,10 +434,11 @@ message AddgossipResponse {
 }
 
 message AddpsbtoutputRequest {
-	AmountSat satoshi = 1;
+	Amount satoshi = 1 [deprecated = true];
 	optional uint32 locktime = 2;
 	optional string initialpsbt = 3;
 	optional string destination = 4;
+	AmountSat satoshi_sat = 5;
 }
 
 message AddpsbtoutputResponse {
@@ -582,6 +592,8 @@ message CloseResponse {
 	CloseType item_type = 1;
 	repeated bytes txs = 4;
 	repeated bytes txids = 5;
+	reserved 2, 3;
+	reserved "tx", "txid";
 }
 
 message ConnectRequest {
@@ -646,6 +658,8 @@ message CreateinvoiceResponse {
 	optional string invreq_payer_note = 15;
 	uint64 created_index = 16;
 	optional CreateinvoicePaidOutpoint paid_outpoint = 17;
+	reserved 14;
+	reserved "payer_note";
 }
 
 message CreateinvoicePaidOutpoint {
@@ -667,13 +681,15 @@ message DatastoreRequest {
 	optional uint64 generation = 4;
 	repeated string key = 5;
 	optional string string = 6;
+	reserved 1;
 }
 
 message DatastoreResponse {
-	uint64 generation = 2;
-	bytes hex = 3;
+	optional uint64 generation = 2;
+	optional bytes hex = 3;
 	optional string string = 4;
 	repeated string key = 5;
+	reserved 1;
 }
 
 message DatastoreusageRequest {
@@ -709,13 +725,15 @@ message CreateonionHops {
 message DeldatastoreRequest {
 	optional uint64 generation = 2;
 	repeated string key = 3;
+	reserved 1;
 }
 
 message DeldatastoreResponse {
-	uint64 generation = 2;
-	bytes hex = 3;
+	optional uint64 generation = 2;
+	optional bytes hex = 3;
 	optional string string = 4;
 	repeated string key = 5;
+	reserved 1;
 }
 
 message DelinvoiceRequest {
@@ -753,6 +771,8 @@ message DelinvoiceResponse {
 	optional Amount amount_received_msat = 15;
 	optional uint64 paid_at = 16;
 	optional bytes payment_preimage = 17;
+	reserved 10;
+	reserved "payer_note";
 }
 
 message DevforgetchannelRequest {
@@ -825,6 +845,8 @@ message InvoiceRequest {
 	repeated string exposeprivatechannels = 8;
 	optional bool deschashonly = 9;
 	AmountOrAny amount_msat = 10;
+	reserved 1;
+	reserved "msatoshi";
 }
 
 message InvoiceResponse {
@@ -891,6 +913,7 @@ message ListinvoicerequestsInvoicerequests {
 
 message ListdatastoreRequest {
 	repeated string key = 2;
+	reserved 1;
 }
 
 message ListdatastoreResponse {
@@ -947,6 +970,8 @@ message ListinvoicesInvoices {
 	uint64 created_index = 16;
 	optional uint64 updated_index = 17;
 	optional ListinvoicesInvoicesPaidOutpoint paid_outpoint = 18;
+	reserved 10;
+	reserved "payer_note";
 }
 
 message ListinvoicesInvoicesPaidOutpoint {
@@ -968,6 +993,8 @@ message SendonionRequest {
 	optional bytes localinvreqid = 13;
 	optional string description = 14;
 	optional Amount total_amount_msat = 15;
+	reserved 8, 10;
+	reserved "localofferid", "msatoshi";
 }
 
 message SendonionResponse {
@@ -1066,18 +1093,24 @@ message ListtransactionsTransactions {
 	uint32 version = 8;
 	repeated ListtransactionsTransactionsInputs inputs = 9;
 	repeated ListtransactionsTransactionsOutputs outputs = 10;
+	reserved 5, 6;
+	reserved "channel", "item_type";
 }
 
 message ListtransactionsTransactionsInputs {
 	bytes txid = 1;
 	uint32 index = 2;
 	uint32 sequence = 3;
+	reserved 4, 5;
+	reserved "channel", "item_type";
 }
 
 message ListtransactionsTransactionsOutputs {
 	uint32 index = 1;
 	bytes scriptPubKey = 3;
 	Amount amount_msat = 6;
+	reserved 2, 4, 5;
+	reserved "channel", "item_type", "msat";
 }
 
 message MakesecretRequest {
@@ -1103,6 +1136,8 @@ message PayRequest {
 	optional Amount amount_msat = 13 [deprecated = true];
 	optional bytes localinvreqid = 14 [deprecated = true];
 	optional Amount partial_msat = 15 [deprecated = true];
+	reserved 2, 9;
+	reserved "localofferid", "msatoshi";
 }
 
 message PayResponse {
@@ -1113,7 +1148,7 @@ message PayResponse {
 		FAILED = 2 [deprecated = true];
 	}
 	bytes payment_preimage = 1 [deprecated = true];
-	bytes destination = 2 [deprecated = true];
+	optional bytes destination = 2 [deprecated = true];
 	bytes payment_hash = 3 [deprecated = true];
 	double created_at = 4 [deprecated = true];
 	uint32 parts = 5 [deprecated = true];
@@ -1149,6 +1184,7 @@ message ListnodesNodesAddresses {
 		IPV6 = 2;
 		TORV2 = 3;
 		TORV3 = 4;
+		WEBSOCKET = 5 [deprecated = true];
 	}
 	ListnodesNodesAddressesType item_type = 1;
 	uint32 port = 2;
@@ -1242,7 +1278,7 @@ message WaitsendpayResponse {
 		COMPLETE = 0;
 	}
 	uint64 id = 1;
-	uint64 groupid = 2;
+	optional uint64 groupid = 2;
 	bytes payment_hash = 3;
 	WaitsendpayStatus status = 4;
 	optional Amount amount_msat = 5;
@@ -1276,10 +1312,11 @@ message NewaddrResponse {
 
 message WithdrawRequest {
 	string destination = 1;
-	AmountSatOrAll satoshi = 2;
+	AmountOrAll satoshi = 2 [deprecated = true];
 	optional uint32 minconf = 3;
 	repeated Outpoint utxos = 4;
 	optional Feerate feerate = 5;
+	AmountSatOrAll satoshi_sat = 6;
 }
 
 message WithdrawResponse {
@@ -1299,6 +1336,8 @@ message KeysendRequest {
 	optional TlvStream extratlvs = 9 [deprecated = true];
 	Amount amount_msat = 10 [deprecated = true];
 	optional Amount maxfee = 11 [deprecated = true];
+	reserved 2;
+	reserved "msatoshi";
 }
 
 message KeysendResponse {
@@ -1318,7 +1357,7 @@ message KeysendResponse {
 }
 
 message FundpsbtRequest {
-	AmountSatOrAll satoshi = 1;
+	AmountOrAll satoshi = 1 [deprecated = true];
 	Feerate feerate = 2;
 	uint32 startweight = 3;
 	optional uint32 minconf = 4;
@@ -1328,6 +1367,7 @@ message FundpsbtRequest {
 	optional bool excess_as_change = 8;
 	optional bool nonwrapped = 9;
 	optional bool opening_anchor_channel = 10;
+	AmountSatOrAll satoshi_sat = 11;
 }
 
 message FundpsbtResponse {
@@ -1367,7 +1407,7 @@ message SignpsbtResponse {
 }
 
 message UtxopsbtRequest {
-	AmountSatOrAll satoshi = 1;
+	AmountOrAll satoshi = 1 [deprecated = true];
 	Feerate feerate = 2;
 	uint32 startweight = 3;
 	repeated Outpoint utxos = 4;
@@ -1377,6 +1417,7 @@ message UtxopsbtRequest {
 	optional bool reservedok = 8;
 	optional bool excess_as_change = 9;
 	optional bool opening_anchor_channel = 10;
+	AmountSatOrAll satoshi_sat = 11;
 }
 
 message UtxopsbtResponse {
@@ -1410,6 +1451,8 @@ message TxprepareRequest {
 	optional uint32 minconf = 3;
 	repeated Outpoint utxos = 4;
 	repeated OutputDesc outputs = 5;
+	reserved 1;
+	reserved "outptus";
 }
 
 message TxprepareResponse {
@@ -1443,7 +1486,7 @@ message ListpeerchannelsChannels {
 	bool peer_connected = 2;
 	ChannelState state = 3;
 	optional bytes scratch_txid = 4;
-	ListpeerchannelsChannelsChannelType channel_type = 5;
+	optional ListpeerchannelsChannelsChannelType channel_type = 5;
 	optional ListpeerchannelsChannelsFeerate feerate = 6;
 	optional string owner = 7;
 	optional string short_channel_id = 8;
@@ -1500,6 +1543,8 @@ message ListpeerchannelsChannels {
 	optional Amount their_max_htlc_value_in_flight_msat = 61;
 	optional Amount our_max_htlc_value_in_flight_msat = 62;
 	repeated string features = 63;
+	reserved 21, 30;
+	reserved "max_total_htlc_in_msat";
 }
 
 message ListpeerchannelsChannelsAlias {
@@ -1616,7 +1661,7 @@ message ListclosedchannelsClosedchannels {
 	ChannelSide opener = 5;
 	optional ChannelSide closer = 6;
 	bool private = 7;
-	ListclosedchannelsClosedchannelsChannelType channel_type = 8;
+	optional ListclosedchannelsClosedchannelsChannelType channel_type = 8;
 	uint64 total_local_commitments = 9;
 	uint64 total_remote_commitments = 10;
 	uint64 total_htlcs_sent = 11;
@@ -1759,6 +1804,8 @@ message DecodeResponse {
 	optional string proof_note = 97;
 	optional string proof_signature = 98;
 	repeated DecodeUnknownPayerProofTlvs unknown_payer_proof_tlvs = 99;
+	reserved 17, 20, 68;
+	reserved "offer_node_id", "warning_missing_offer_node_id";
 }
 
 message DecodeExtra {
@@ -1778,6 +1825,8 @@ message DecodeFallbacks {
 	DecodeFallbacksType item_type = 2;
 	optional string addr = 3;
 	bytes hex = 4;
+	reserved 1;
+	reserved "warning_invoice_fallbacks_version_invalid";
 }
 
 message DecodeInvoiceFallbacks {
@@ -1820,6 +1869,8 @@ message DecodeInvreqPaths {
 	optional string first_scid = 4;
 	repeated DecodeInvreqPathsPath path = 5;
 	optional bytes first_path_key = 6;
+	reserved 2;
+	reserved "blinding";
 }
 
 message DecodeInvreqPathsPath {
@@ -1833,6 +1884,8 @@ message DecodeOfferPaths {
 	optional uint32 first_scid_dir = 4;
 	optional string first_scid = 5;
 	optional bytes first_path_key = 6;
+	reserved 2;
+	reserved "blinding";
 }
 
 message DecodeOfferPathsPath {
@@ -1919,7 +1972,7 @@ message DelpayPayments {
 	uint64 created_at = 9;
 	optional uint64 updated_index = 10;
 	optional uint64 completed_at = 11;
-	uint64 groupid = 12;
+	optional uint64 groupid = 12;
 	optional bytes payment_preimage = 13;
 	optional string label = 14;
 	optional string bolt11 = 15;
@@ -2002,7 +2055,7 @@ message FeeratesOnchainFeeEstimates {
 	uint64 unilateral_close_satoshis = 3;
 	uint64 htlc_timeout_satoshis = 4;
 	uint64 htlc_success_satoshis = 5;
-	uint64 unilateral_close_nonanchor_satoshis = 6;
+	optional uint64 unilateral_close_nonanchor_satoshis = 6;
 }
 
 message FeeratesPerkb {
@@ -2016,6 +2069,8 @@ message FeeratesPerkb {
 	uint32 floor = 10;
 	optional uint32 unilateral_anchor_close = 11;
 	optional uint32 splice = 12;
+	reserved 6, 7;
+	reserved "delayed_to_us", "htlc_resolution";
 }
 
 message FeeratesPerkbEstimates {
@@ -2035,6 +2090,8 @@ message FeeratesPerkw {
 	uint32 floor = 10;
 	optional uint32 unilateral_anchor_close = 11;
 	optional uint32 splice = 12;
+	reserved 6, 7;
+	reserved "delayed_to_us", "htlc_resolution";
 }
 
 message FeeratesPerkwEstimates {
@@ -2128,19 +2185,23 @@ message FundchannelCompleteResponse {
 }
 
 message FundchannelRequest {
-	AmountSatOrAll amount = 1;
+	AmountOrAll amount = 1 [deprecated = true];
 	optional Feerate feerate = 2;
 	optional bool announce = 3;
 	optional Amount push_msat = 5;
 	optional string close_to = 6;
-	optional AmountSat request_amt = 7;
+	optional Amount request_amt = 7 [deprecated = true];
 	optional string compact_lease = 8;
 	bytes id = 9;
 	optional uint32 minconf = 10;
 	repeated Outpoint utxos = 11;
 	optional uint32 mindepth = 12;
-	optional AmountSat reserve = 13;
+	optional Amount reserve = 13 [deprecated = true];
 	repeated uint32 channel_type = 14;
+	AmountSatOrAll amount_sat = 15;
+	optional AmountSat request_amt_sat = 16;
+	optional AmountSat reserve_sat = 17;
+	reserved 4;
 }
 
 message FundchannelResponse {
@@ -2160,20 +2221,22 @@ message FundchannelChannelType {
 
 message FundchannelStartRequest {
 	bytes id = 1;
-	AmountSat amount = 2;
+	Amount amount = 2 [deprecated = true];
 	optional Feerate feerate = 3;
 	optional bool announce = 4;
 	optional string close_to = 5;
 	optional Amount push_msat = 6;
 	optional uint32 mindepth = 7;
-	optional AmountSat reserve = 8;
+	optional Amount reserve = 8 [deprecated = true];
 	repeated uint32 channel_type = 9;
+	AmountSat amount_sat = 10;
+	optional AmountSat reserve_sat = 11;
 }
 
 message FundchannelStartResponse {
 	string funding_address = 1;
 	bytes scriptpubkey = 2;
-	FundchannelStartChannelType channel_type = 3;
+	optional FundchannelStartChannelType channel_type = 3;
 	optional bytes close_to = 4;
 	string warning_usage = 5;
 	optional uint32 mindepth = 6;
@@ -2191,6 +2254,7 @@ message GetlogRequest {
 		UNUSUAL = 1;
 		INFO = 2;
 		DEBUG = 3;
+		IO = 4 [deprecated = true];
 		TRACE = 5;
 	}
 	optional GetlogLevel level = 1;
@@ -2284,6 +2348,8 @@ message GetrouteRequest {
 	repeated string exclude = 7 [deprecated = true];
 	optional uint32 maxhops = 8 [deprecated = true];
 	Amount amount_msat = 9 [deprecated = true];
+	reserved 2;
+	reserved "msatoshi";
 }
 
 message GetrouteResponse {
@@ -2301,6 +2367,8 @@ message GetrouteRoute {
 	Amount amount_msat = 4 [deprecated = true];
 	uint32 delay = 5 [deprecated = true];
 	GetrouteRouteStyle style = 6 [deprecated = true];
+	reserved 7;
+	reserved "msatoshi";
 }
 
 message ListaddressesRequest {
@@ -2372,6 +2440,8 @@ message ListforwardsForwards {
 	optional double resolved_time = 14;
 	optional uint32 failcode = 15;
 	optional string failreason = 16;
+	reserved 6;
+	reserved "payment_hash";
 }
 
 message ListoffersRequest {
@@ -2433,7 +2503,7 @@ message ListpaysPays {
 	optional string bolt11 = 6;
 	optional string bolt12 = 7;
 	optional Amount amount_msat = 8;
-	Amount amount_sent_msat = 9;
+	optional Amount amount_sent_msat = 9;
 	optional bytes erroronion = 10;
 	optional string description = 11;
 	optional uint64 completed_at = 12;
@@ -2494,14 +2564,17 @@ message MultifundchannelResponse {
 
 message MultifundchannelDestinations {
 	string id = 1;
-	AmountSatOrAll amount = 2;
+	AmountOrAll amount = 2 [deprecated = true];
 	optional bool announce = 3;
 	optional Amount push_msat = 4;
 	optional string close_to = 5;
-	optional AmountSat request_amt = 6;
+	optional Amount request_amt = 6 [deprecated = true];
 	optional string compact_lease = 7;
 	optional uint32 mindepth = 8;
-	optional AmountSat reserve = 9;
+	optional Amount reserve = 9 [deprecated = true];
+	AmountSatOrAll amount_sat = 10;
+	optional AmountSat request_amt_sat = 11;
+	optional AmountSat reserve_sat = 12;
 }
 
 message MultifundchannelChannelIds {
@@ -2562,6 +2635,8 @@ message OfferRequest {
 	optional bool proportional_amount = 13;
 	optional bool optional_recurrence = 14;
 	repeated bytes fronting_nodes = 15;
+	reserved 12;
+	reserved "recurrence_start_any_period";
 }
 
 message OfferResponse {
@@ -2589,7 +2664,8 @@ message OpenchannelBumpRequest {
 	bytes channel_id = 1;
 	string initialpsbt = 2;
 	optional Feerate funding_feerate = 3;
-	AmountSat amount = 4;
+	Amount amount = 4 [deprecated = true];
+	AmountSat amount_sat = 5;
 }
 
 message OpenchannelBumpResponse {
@@ -2598,7 +2674,7 @@ message OpenchannelBumpResponse {
 	string psbt = 3;
 	bool commitments_secured = 4;
 	uint64 funding_serial = 5;
-	bool requires_confirmed_inputs = 6;
+	optional bool requires_confirmed_inputs = 6;
 }
 
 message OpenchannelBumpChannelType {
@@ -2613,10 +2689,12 @@ message OpenchannelInitRequest {
 	optional Feerate funding_feerate = 4;
 	optional bool announce = 5;
 	optional string close_to = 6;
-	optional AmountSat request_amt = 7;
+	optional Amount request_amt = 7 [deprecated = true];
 	optional bytes compact_lease = 8;
 	repeated uint32 channel_type = 9;
-	AmountSat amount = 10;
+	Amount amount = 10 [deprecated = true];
+	optional AmountSat request_amt_sat = 11;
+	AmountSat amount_sat = 12;
 }
 
 message OpenchannelInitResponse {
@@ -2625,7 +2703,7 @@ message OpenchannelInitResponse {
 	OpenchannelInitChannelType channel_type = 3;
 	bool commitments_secured = 4;
 	uint64 funding_serial = 5;
-	bool requires_confirmed_inputs = 6;
+	optional bool requires_confirmed_inputs = 6;
 }
 
 message OpenchannelInitChannelType {
@@ -2685,6 +2763,8 @@ message PluginResponse {
 	PluginSubcommand command = 1;
 	repeated PluginPlugins plugins = 2;
 	optional string result = 3;
+	reserved 4;
+	reserved "subcommand";
 }
 
 message PluginPlugins {
@@ -2713,11 +2793,11 @@ message RenepaystatusPaystatus {
 	bytes payment_hash = 3 [deprecated = true];
 	double created_at = 4 [deprecated = true];
 	uint32 groupid = 5 [deprecated = true];
-	uint32 parts = 6 [deprecated = true];
+	optional uint32 parts = 6 [deprecated = true];
 	Amount amount_msat = 7 [deprecated = true];
 	optional Amount amount_sent_msat = 8 [deprecated = true];
 	RenepaystatusPaystatusStatus status = 9 [deprecated = true];
-	bytes destination = 10 [deprecated = true];
+	optional bytes destination = 10 [deprecated = true];
 	repeated string notes = 11 [deprecated = true];
 }
 
@@ -2747,10 +2827,10 @@ message RenepayResponse {
 	Amount amount_msat = 5 [deprecated = true];
 	Amount amount_sent_msat = 6 [deprecated = true];
 	RenepayStatus status = 7 [deprecated = true];
-	bytes destination = 8 [deprecated = true];
+	optional bytes destination = 8 [deprecated = true];
 	optional string bolt11 = 9 [deprecated = true];
 	optional string bolt12 = 10 [deprecated = true];
-	uint64 groupid = 11 [deprecated = true];
+	optional uint64 groupid = 11 [deprecated = true];
 }
 
 message ReserveinputsRequest {
@@ -2909,7 +2989,7 @@ message SpliceSignedRequest {
 message SpliceSignedResponse {
 	bytes tx = 1;
 	bytes txid = 2;
-	uint32 outnum = 3;
+	optional uint32 outnum = 3;
 	string psbt = 4;
 }
 
@@ -2930,9 +3010,9 @@ message SpliceinRequest {
 }
 
 message SpliceinResponse {
-	string psbt = 1;
+	optional string psbt = 1;
 	optional string tx = 2;
-	string txid = 3;
+	optional string txid = 3;
 }
 
 message SpliceoutRequest {
@@ -2943,9 +3023,9 @@ message SpliceoutRequest {
 }
 
 message SpliceoutResponse {
-	string psbt = 1;
+	optional string psbt = 1;
 	optional string tx = 2;
-	string txid = 3;
+	optional string txid = 3;
 }
 
 message DevspliceRequest {
@@ -3163,7 +3243,9 @@ message ListconfigsRequest {
 }
 
 message ListconfigsResponse {
-	ListconfigsConfigs configs = 1;
+	optional ListconfigsConfigs configs = 1;
+	reserved 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72;
+	reserved "accept_htlc_tlv_types", "addr", "alias", "allow_deprecated_apis", "always_use_proxy", "announce_addr", "announce_addr_discovered", "announce_addr_discovered_port", "announce_addr_dns", "autoconnect_seeker_peers", "autolisten", "bind_addr", "bookkeeper_db", "bookkeeper_dir", "cltv_delta", "cltv_final", "commit_fee", "commit_feerate_offset", "commit_time", "conf", "daemon", "database_upgrade", "dev_allowdustreserve", "developer", "disable_dns", "disable_plugin", "encrypted_hsm", "experimental_dual_fund", "experimental_offers", "experimental_onion_messages", "experimental_peer_storage", "experimental_quiesce", "experimental_shutdown_wrong_funding", "experimental_splicing", "experimental_upgrade_protocol", "fee_base", "fee_per_satoshi", "fetchinvoice_noconnect", "force_feerates", "funding_confirms", "htlc_maximum_msat", "htlc_minimum_msat", "ignore_fee_limits", "important_plugins", "invoices_onchain_fallback", "large_channels", "lightning_dir", "log_file", "log_level", "log_prefix", "log_timestamps", "max_concurrent_htlcs", "max_dust_htlc_exposure_msat", "max_locktime_blocks", "min_capacity_sat", "min_emergency_msat", "network", "offline", "pid_file", "plugins", "proxy", "require_confirmed_inputs", "rescan", "rgb", "rpc_file", "rpc_file_mode", "subdaemon", "tor_service_password", "wallet", "watchtime_blocks";
 }
 
 message ListconfigsConfigs {
@@ -3246,6 +3328,8 @@ message ListconfigsConfigs {
 	optional ListconfigsConfigsMinemergencymsat min_emergency_msat = 82;
 	optional ListconfigsConfigsPaymentfrontingnode payment_fronting_node = 83;
 	optional ListconfigsConfigsRecover recover = 84;
+	reserved 23, 24, 65, 72, 73;
+	reserved "accept_htlc_tlv_types", "add_source", "disable_source", "experimental_offers", "experimental_onion_messages";
 }
 
 message ListconfigsConfigsAccepthtlctlvtype {
@@ -3679,11 +3763,13 @@ message HelpResponse {
 		SIMPLE = 0;
 	}
 	repeated HelpHelp help = 1;
-	HelpFormathint format_hint = 2;
+	optional HelpFormathint format_hint = 2;
 }
 
 message HelpHelp {
 	string command = 1;
+	reserved 2, 3, 4;
+	reserved "category", "description", "verbose";
 }
 
 message PreapprovekeysendRequest {
@@ -3729,7 +3815,7 @@ message BkprchannelsapyChannelsApy {
 	Amount our_start_balance_msat = 8;
 	Amount channel_start_balance_msat = 9;
 	Amount fees_out_msat = 10;
-	Amount fees_in_msat = 11;
+	optional Amount fees_in_msat = 11;
 	string utilization_out = 12;
 	optional string utilization_out_initial = 13;
 	string utilization_in = 14;
@@ -3939,7 +4025,7 @@ message BkpreditdescriptionbyoutpointUpdated {
 }
 
 message BkprreportRequest {
-	string format = 1;
+	optional string format = 1;
 	repeated string headers = 2;
 	optional string escape = 3;
 	optional uint32 start_time = 4;
@@ -4030,6 +4116,8 @@ message AskreneunreservePath {
 	Amount amount_msat = 3;
 	string short_channel_id_dir = 4;
 	optional string layer = 5;
+	reserved 1, 2;
+	reserved "direction", "short_channel_id";
 }
 
 message AskrenelistlayersRequest {
@@ -4075,6 +4163,8 @@ message AskrenelistlayersLayersConstraints {
 	optional Amount minimum_msat = 4;
 	string short_channel_id_dir = 5;
 	optional uint64 timestamp = 6;
+	reserved 1, 2;
+	reserved "direction", "short_channel_id";
 }
 
 message AskrenelistlayersLayersCreatedChannels {
@@ -4082,6 +4172,8 @@ message AskrenelistlayersLayersCreatedChannels {
 	bytes destination = 2;
 	string short_channel_id = 3;
 	Amount capacity_msat = 4;
+	reserved 5, 6, 7, 8, 9;
+	reserved "delay", "fee_base_msat", "fee_proportional_millionths", "htlc_maximum_msat", "htlc_minimum_msat";
 }
 
 message AskrenelistlayersLayersImpressions {
@@ -4189,6 +4281,8 @@ message AskrenereservePath {
 	Amount amount_msat = 3;
 	string short_channel_id_dir = 4;
 	optional string layer = 5;
+	reserved 1, 2;
+	reserved "direction", "short_channel_id";
 }
 
 message AskreneageRequest {
@@ -4211,6 +4305,8 @@ message GetroutesRequest {
 	optional uint32 maxdelay = 8;
 	optional uint32 maxparts = 9;
 	optional uint32 maxhops = 10;
+	reserved 6;
+	reserved "finalcltv";
 }
 
 message GetroutesResponse {
@@ -4236,6 +4332,8 @@ message GetroutesRoutesPath {
 	optional bytes node_id_out = 10;
 	optional uint32 cltv_in = 11;
 	optional uint32 cltv_out = 12;
+	reserved 1, 2;
+	reserved "direction", "short_channel_id";
 }
 
 message AskrenedisablenodeRequest {
@@ -4257,11 +4355,15 @@ message AskreneinformchannelRequest {
 	string short_channel_id_dir = 6;
 	Amount amount_msat = 7;
 	AskreneinformchannelInform inform = 8;
+	reserved 2, 3, 4, 5;
+	reserved "direction", "maximum_msat", "minimum_msat", "short_channel_id";
 }
 
 message AskreneinformchannelResponse {
 	repeated AskreneinformchannelConstraints constraints = 2;
 	repeated AskreneinformchannelImpressions impressions = 3;
+	reserved 1;
+	reserved "constraint";
 }
 
 message AskreneinformchannelConstraints {
@@ -4285,6 +4387,8 @@ message AskrenecreatechannelRequest {
 	bytes destination = 3;
 	string short_channel_id = 4;
 	Amount capacity_msat = 5;
+	reserved 6, 7, 8, 9, 10;
+	reserved "base_fee", "delay", "htlc_max", "htlc_min", "proportional_fee";
 }
 
 message AskrenecreatechannelResponse {
@@ -4509,6 +4613,7 @@ message ListchainmovesChainmoves {
 	optional uint32 output_count = 14;
 	uint32 blockheight = 15;
 	repeated string extra_tags = 16;
+	reserved 7;
 }
 
 message ListnetworkeventsRequest {
