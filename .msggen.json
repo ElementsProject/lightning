@@ -20645,7 +20645,27 @@
             "added": "pre-v0.10.1",
             "deprecated": null
         },
+        "rbf_channel.channel_fee_max_base_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "rbf_channel.channel_fee_max_proportional_thousandths": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
         "rbf_channel.error_message": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "rbf_channel.funding_weight": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "rbf_channel.lease_fee_base_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "rbf_channel.lease_fee_basis": {
             "added": "pre-v0.10.1",
             "deprecated": null
         },
