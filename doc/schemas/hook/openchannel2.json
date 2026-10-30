@@ -263,6 +263,36 @@
           "This amount must NOT be included in any outputs in the provided PSBT.",
           "Change outputs must be included separately."
         ]
+      },
+      "lease_fee_base_msat": {
+        "type": "msat",
+        "description": [
+          "Flat fee to charge for a channel lease."
+        ]
+      },
+      "lease_fee_basis": {
+        "type": "u16",
+        "description": [
+          "Proportional fee to charge for a channel lease, calculated as 1/10,000th of requested funds."
+        ]
+      },
+      "funding_weight": {
+        "type": "u16",
+        "description": [
+          "Transaction weight the channel opener will pay us for a leased funding transaction."
+        ]
+      },
+      "channel_fee_max_base_msat": {
+        "type": "msat",
+        "description": [
+          "Maximum channel_fee_base_msat we'll charge for routing funds leased on this channel."
+        ]
+      },
+      "channel_fee_max_proportional_thousandths": {
+        "type": "u16",
+        "description": [
+          "Maximum channel_fee_proportional_millitionths we'll charge for routing funds leased on this channel, in thousandths."
+        ]
       }
     },
     "if": {

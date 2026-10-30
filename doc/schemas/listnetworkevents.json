@@ -16,7 +16,7 @@
     "additionalProperties": false,
     "properties": {
       "id": {
-        "type": "string",
+        "type": "pubkey",
         "description": [
           "A node id: if set, only network events for this peer are returned"
         ]

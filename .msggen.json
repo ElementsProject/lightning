@@ -71,7 +71,9 @@
             "ipv6": 2,
             "local socket": 0,
             "torv2": 3,
-            "torv3": 4
+            "torv3": 4,
+            "unresolved": 6,
+            "websocket": 5
         },
         "ConnectDirection": {
             "in": 0,
@@ -415,6 +417,7 @@
             "OPENINGD": 0
         },
         "ListpeersLevel": {
+            "broken": 5,
             "debug": 1,
             "info": 2,
             "io": 0,
@@ -536,6 +539,7 @@
             "local socket": 0,
             "torv2": 3,
             "torv3": 4,
+            "unresolved": 6,
             "websocket": 5
         },
         "PeerConnectDirection": {
@@ -690,7 +694,8 @@
             "AddPsbtOutput.destination": 4,
             "AddPsbtOutput.initialpsbt": 3,
             "AddPsbtOutput.locktime": 2,
-            "AddPsbtOutput.satoshi": 1
+            "AddPsbtOutput.satoshi": 1,
+            "AddPsbtOutput.satoshi#sat": 5
         },
         "AddpsbtoutputResponse": {
             "AddPsbtOutput.estimated_added_weight": 2,
@@ -1384,18 +1389,10 @@
         },
         "ConnectAddress": {
             "Connect.address.address": 3,
+            "Connect.address.name": 5,
             "Connect.address.port": 4,
             "Connect.address.socket": 2,
-            "Connect.address.type": 1,
-            "connect.address.address": 3,
-            "connect.address.port": 4,
-            "connect.address.socket": 2,
-            "connect.address.type": 1
-        },
-        "ConnectNotification": {
-            "connect.address": 3,
-            "connect.direction": 2,
-            "connect.id": 1
+            "Connect.address.type": 1
         },
         "ConnectRequest": {
             "Connect.host": 2,
@@ -2013,18 +2010,22 @@
             "FetchInvoice.next_period": 3
         },
         "ForwardEventNotification": {
+            "forward_event.created_index": 13,
             "forward_event.failcode": 8,
             "forward_event.failreason": 9,
             "forward_event.fee_msat": 6,
             "forward_event.in_channel": 2,
+            "forward_event.in_htlc_id": 14,
             "forward_event.in_msat": 4,
             "forward_event.out_channel": 3,
             "forward_event.out_msat": 5,
             "forward_event.payment_hash": 1,
+            "forward_event.preimage": 15,
             "forward_event.received_time": 11,
             "forward_event.resolved_time": 12,
             "forward_event.status": 7,
-            "forward_event.style": 10
+            "forward_event.style": 10,
+            "forward_event.updated_index": 16
         },
         "FundchannelCancelRequest": {
             "FundChannel_Cancel.id": 1
@@ -2047,6 +2048,7 @@
         },
         "FundchannelRequest": {
             "FundChannel.amount": 1,
+            "FundChannel.amount#sat": 15,
             "FundChannel.announce": 3,
             "FundChannel.channel_type[]": 14,
             "FundChannel.close_to": 6,
@@ -2058,7 +2060,9 @@
             "FundChannel.mindepth": 12,
             "FundChannel.push_msat": 5,
             "FundChannel.request_amt": 7,
+            "FundChannel.request_amt#sat": 16,
             "FundChannel.reserve": 13,
+            "FundChannel.reserve#sat": 17,
             "FundChannel.utxos[]": 11
         },
         "FundchannelResponse": {
@@ -2076,6 +2080,7 @@
         },
         "FundchannelStartRequest": {
             "FundChannel_Start.amount": 2,
+            "FundChannel_Start.amount#sat": 10,
             "FundChannel_Start.announce": 4,
             "FundChannel_Start.channel_type[]": 9,
             "FundChannel_Start.close_to": 5,
@@ -2083,7 +2088,8 @@
             "FundChannel_Start.id": 1,
             "FundChannel_Start.mindepth": 7,
             "FundChannel_Start.push_msat": 6,
-            "FundChannel_Start.reserve": 8
+            "FundChannel_Start.reserve": 8,
+            "FundChannel_Start.reserve#sat": 11
         },
         "FundchannelStartResponse": {
             "FundChannel_Start.channel_type": 3,
@@ -2140,6 +2146,7 @@
             "FundPsbt.opening_anchor_channel": 10,
             "FundPsbt.reserve": 5,
             "FundPsbt.satoshi": 1,
+            "FundPsbt.satoshi#sat": 11,
             "FundPsbt.startweight": 3
         },
         "FundpsbtReservations": {
@@ -3107,11 +3114,13 @@
             "ListFunds.outputs[].address": 5,
             "ListFunds.outputs[].amount_msat": 3,
             "ListFunds.outputs[].blockheight": 8,
+            "ListFunds.outputs[].csv_lock": 11,
             "ListFunds.outputs[].output": 2,
             "ListFunds.outputs[].redeemscript": 6,
             "ListFunds.outputs[].reserved": 9,
             "ListFunds.outputs[].reserved_to_block": 10,
             "ListFunds.outputs[].scriptpubkey": 4,
+            "ListFunds.outputs[].spendable_at": 12,
             "ListFunds.outputs[].status": 7,
             "ListFunds.outputs[].txid": 1
         },
@@ -3636,6 +3645,7 @@
         },
         "MultifundchannelDestinations": {
             "MultiFundChannel.destinations[].amount": 2,
+            "MultiFundChannel.destinations[].amount#sat": 10,
             "MultiFundChannel.destinations[].announce": 3,
             "MultiFundChannel.destinations[].close_to": 5,
             "MultiFundChannel.destinations[].compact_lease": 7,
@@ -3643,7 +3653,9 @@
             "MultiFundChannel.destinations[].mindepth": 8,
             "MultiFundChannel.destinations[].push_msat": 4,
             "MultiFundChannel.destinations[].request_amt": 6,
+            "MultiFundChannel.destinations[].request_amt#sat": 11,
             "MultiFundChannel.destinations[].reserve": 9,
+            "MultiFundChannel.destinations[].reserve#sat": 12,
             "multifundchannel.destinations[].amount": 2,
             "multifundchannel.destinations[].announce": 3,
             "multifundchannel.destinations[].close_to": 5,
@@ -3776,6 +3788,7 @@
         },
         "OpenchannelBumpRequest": {
             "OpenChannel_Bump.amount": 4,
+            "OpenChannel_Bump.amount#sat": 5,
             "OpenChannel_Bump.channel_id": 1,
             "OpenChannel_Bump.funding_feerate": 3,
             "OpenChannel_Bump.initialpsbt": 2
@@ -3794,6 +3807,7 @@
         },
         "OpenchannelInitRequest": {
             "OpenChannel_Init.amount": 10,
+            "OpenChannel_Init.amount#sat": 12,
             "OpenChannel_Init.announce": 5,
             "OpenChannel_Init.channel_type[]": 9,
             "OpenChannel_Init.close_to": 6,
@@ -3802,7 +3816,8 @@
             "OpenChannel_Init.funding_feerate": 4,
             "OpenChannel_Init.id": 1,
             "OpenChannel_Init.initialpsbt": 2,
-            "OpenChannel_Init.request_amt": 7
+            "OpenChannel_Init.request_amt": 7,
+            "OpenChannel_Init.request_amt#sat": 11
         },
         "OpenchannelInitResponse": {
             "OpenChannel_Init.channel_id": 1,
@@ -3893,6 +3908,18 @@
             "Pay.payment_preimage": 1,
             "Pay.status": 9,
             "Pay.warning_partial_completion": 8
+        },
+        "PeerConnectAddress": {
+            "connect.address.address": 3,
+            "connect.address.name": 5,
+            "connect.address.port": 4,
+            "connect.address.socket": 2,
+            "connect.address.type": 1
+        },
+        "PeerConnectNotification": {
+            "connect.address": 3,
+            "connect.direction": 2,
+            "connect.id": 1
         },
         "PingRequest": {
             "Ping.id": 1,
@@ -4432,6 +4459,7 @@
             "UtxoPsbt.reserve": 5,
             "UtxoPsbt.reservedok": 8,
             "UtxoPsbt.satoshi": 1,
+            "UtxoPsbt.satoshi#sat": 11,
             "UtxoPsbt.startweight": 3,
             "UtxoPsbt.utxos[]": 4
         },
@@ -4619,6 +4647,7 @@
             "Withdraw.feerate": 5,
             "Withdraw.minconf": 3,
             "Withdraw.satoshi": 2,
+            "Withdraw.satoshi#sat": 6,
             "Withdraw.utxos[]": 4
         },
         "WithdrawResponse": {
@@ -4662,6 +4691,3837 @@
             "Xpay.failed_parts": 2,
             "Xpay.payment_preimage": 1,
             "Xpay.successful_parts": 3
+        }
+    },
+    "grpc-legacy-fields": {
+        "AddPsbtOutput.satoshi": {
+            "label": "plain",
+            "number": 1,
+            "type": "Amount"
+        },
+        "FundChannel.amount": {
+            "label": "plain",
+            "number": 1,
+            "type": "AmountOrAll"
+        },
+        "FundChannel.request_amt": {
+            "label": "optional",
+            "number": 7,
+            "type": "Amount"
+        },
+        "FundChannel.reserve": {
+            "label": "optional",
+            "number": 13,
+            "type": "Amount"
+        },
+        "FundChannel_Start.amount": {
+            "label": "plain",
+            "number": 2,
+            "type": "Amount"
+        },
+        "FundChannel_Start.reserve": {
+            "label": "optional",
+            "number": 8,
+            "type": "Amount"
+        },
+        "FundPsbt.satoshi": {
+            "label": "plain",
+            "number": 1,
+            "type": "AmountOrAll"
+        },
+        "MultiFundChannel.destinations[].amount": {
+            "label": "plain",
+            "number": 2,
+            "type": "AmountOrAll"
+        },
+        "MultiFundChannel.destinations[].request_amt": {
+            "label": "optional",
+            "number": 6,
+            "type": "Amount"
+        },
+        "MultiFundChannel.destinations[].reserve": {
+            "label": "optional",
+            "number": 9,
+            "type": "Amount"
+        },
+        "OpenChannel_Bump.amount": {
+            "label": "plain",
+            "number": 4,
+            "type": "Amount"
+        },
+        "OpenChannel_Init.amount": {
+            "label": "plain",
+            "number": 10,
+            "type": "Amount"
+        },
+        "OpenChannel_Init.request_amt": {
+            "label": "optional",
+            "number": 7,
+            "type": "Amount"
+        },
+        "UtxoPsbt.satoshi": {
+            "label": "plain",
+            "number": 1,
+            "type": "AmountOrAll"
+        },
+        "Withdraw.satoshi": {
+            "label": "plain",
+            "number": 2,
+            "type": "AmountOrAll"
+        }
+    },
+    "grpc-wire-contract": {
+        "AddgossipRequest": {
+            "1": "plain bytes"
+        },
+        "AddgossipResponse": {},
+        "AddpsbtoutputRequest": {
+            "1": "plain Amount",
+            "2": "optional uint32",
+            "3": "optional string",
+            "4": "optional string",
+            "5": "plain AmountSat"
+        },
+        "AddpsbtoutputResponse": {
+            "1": "plain string",
+            "2": "plain uint32",
+            "3": "plain uint32"
+        },
+        "Amount": {
+            "1": "plain uint64"
+        },
+        "AmountOrAll": {
+            "1": "plain message",
+            "2": "plain bool"
+        },
+        "AmountOrAny": {
+            "1": "plain message",
+            "2": "plain bool"
+        },
+        "AskreneageRequest": {
+            "1": "plain string",
+            "2": "plain uint64"
+        },
+        "AskreneageResponse": {
+            "1": "plain string",
+            "2": "plain uint64"
+        },
+        "AskrenebiaschannelBiases": {
+            "1": "plain string",
+            "2": "plain string",
+            "3": "plain sint64",
+            "4": "optional string",
+            "5": "optional uint64"
+        },
+        "AskrenebiaschannelRequest": {
+            "1": "plain string",
+            "2": "plain string",
+            "3": "plain sint64",
+            "4": "optional string",
+            "5": "optional bool"
+        },
+        "AskrenebiaschannelResponse": {
+            "1": "repeated message"
+        },
+        "AskrenebiasnodeNodeBiases": {
+            "1": "plain string",
+            "2": "plain bytes",
+            "3": "plain sint64",
+            "4": "plain sint64",
+            "5": "optional string",
+            "6": "plain uint64"
+        },
+        "AskrenebiasnodeRequest": {
+            "1": "plain string",
+            "2": "plain bytes",
+            "3": "plain string",
+            "4": "plain sint64",
+            "5": "optional string",
+            "6": "optional bool"
+        },
+        "AskrenebiasnodeResponse": {
+            "1": "repeated message"
+        },
+        "AskrenecreatechannelRequest": {
+            "1": "plain string",
+            "2": "plain bytes",
+            "3": "plain bytes",
+            "4": "plain string",
+            "5": "plain Amount"
+        },
+        "AskrenecreatechannelResponse": {},
+        "AskrenecreatelayerLayers": {
+            "1": "plain string",
+            "10": "repeated message",
+            "2": "plain bool",
+            "3": "repeated bytes",
+            "4": "repeated string",
+            "5": "repeated message",
+            "6": "repeated message",
+            "7": "repeated message",
+            "8": "repeated message",
+            "9": "repeated message"
+        },
+        "AskrenecreatelayerLayersBiases": {
+            "1": "plain string",
+            "2": "plain sint64",
+            "3": "optional string",
+            "4": "optional uint64"
+        },
+        "AskrenecreatelayerLayersChannelUpdates": {
+            "1": "optional Amount",
+            "2": "optional Amount",
+            "3": "optional Amount",
+            "4": "optional uint32",
+            "5": "optional uint32"
+        },
+        "AskrenecreatelayerLayersConstraints": {
+            "1": "plain string",
+            "2": "plain uint32",
+            "3": "optional Amount",
+            "4": "optional Amount"
+        },
+        "AskrenecreatelayerLayersCreatedChannels": {
+            "1": "plain bytes",
+            "2": "plain bytes",
+            "3": "plain string",
+            "4": "plain Amount"
+        },
+        "AskrenecreatelayerLayersImpressions": {
+            "1": "plain Amount",
+            "2": "plain string",
+            "3": "plain uint64"
+        },
+        "AskrenecreatelayerLayersNodeBiases": {
+            "1": "plain bytes",
+            "2": "plain sint64",
+            "3": "plain sint64",
+            "4": "optional string",
+            "5": "plain uint64"
+        },
+        "AskrenecreatelayerRequest": {
+            "1": "plain string",
+            "2": "optional bool"
+        },
+        "AskrenecreatelayerResponse": {
+            "1": "repeated message"
+        },
+        "AskrenedisablenodeRequest": {
+            "1": "plain string",
+            "2": "plain bytes"
+        },
+        "AskrenedisablenodeResponse": {},
+        "AskreneinformchannelConstraints": {
+            "1": "plain string",
+            "2": "plain string",
+            "3": "plain uint64",
+            "4": "optional Amount",
+            "5": "optional Amount"
+        },
+        "AskreneinformchannelImpressions": {
+            "1": "plain Amount",
+            "2": "plain string",
+            "3": "plain string",
+            "4": "plain uint64"
+        },
+        "AskreneinformchannelRequest": {
+            "1": "plain string",
+            "6": "plain string",
+            "7": "plain Amount",
+            "8": "plain enum"
+        },
+        "AskreneinformchannelResponse": {
+            "2": "repeated message",
+            "3": "repeated message"
+        },
+        "AskrenelistlayersLayers": {
+            "1": "plain string",
+            "10": "repeated message",
+            "2": "repeated bytes",
+            "3": "repeated message",
+            "4": "repeated message",
+            "5": "plain bool",
+            "6": "repeated string",
+            "7": "repeated message",
+            "8": "repeated message",
+            "9": "repeated message"
+        },
+        "AskrenelistlayersLayersBiases": {
+            "1": "plain string",
+            "2": "plain sint64",
+            "3": "optional string",
+            "4": "optional uint64"
+        },
+        "AskrenelistlayersLayersChannelUpdates": {
+            "1": "plain string",
+            "2": "optional bool",
+            "3": "optional Amount",
+            "4": "optional Amount",
+            "5": "optional Amount",
+            "6": "optional uint32",
+            "7": "optional uint32"
+        },
+        "AskrenelistlayersLayersConstraints": {
+            "3": "optional Amount",
+            "4": "optional Amount",
+            "5": "plain string",
+            "6": "optional uint64"
+        },
+        "AskrenelistlayersLayersCreatedChannels": {
+            "1": "plain bytes",
+            "2": "plain bytes",
+            "3": "plain string",
+            "4": "plain Amount"
+        },
+        "AskrenelistlayersLayersImpressions": {
+            "1": "plain Amount",
+            "2": "plain string",
+            "3": "plain uint64"
+        },
+        "AskrenelistlayersLayersNodeBiases": {
+            "1": "plain bytes",
+            "2": "plain sint64",
+            "3": "plain sint64",
+            "4": "optional string",
+            "5": "plain uint64"
+        },
+        "AskrenelistlayersRequest": {
+            "1": "optional string"
+        },
+        "AskrenelistlayersResponse": {
+            "1": "repeated message"
+        },
+        "AskrenelistreservationsRequest": {},
+        "AskrenelistreservationsReservations": {
+            "1": "plain string",
+            "2": "plain Amount",
+            "3": "plain uint64",
+            "4": "plain string"
+        },
+        "AskrenelistreservationsResponse": {
+            "1": "repeated message"
+        },
+        "AskreneremovechannelupdateRequest": {
+            "1": "plain string",
+            "2": "plain string"
+        },
+        "AskreneremovechannelupdateResponse": {},
+        "AskreneremovelayerRequest": {
+            "1": "plain string"
+        },
+        "AskreneremovelayerResponse": {},
+        "AskrenereservePath": {
+            "3": "plain Amount",
+            "4": "plain string",
+            "5": "optional string"
+        },
+        "AskrenereserveRequest": {
+            "1": "repeated message"
+        },
+        "AskrenereserveResponse": {},
+        "AskreneunreservePath": {
+            "3": "plain Amount",
+            "4": "plain string",
+            "5": "optional string"
+        },
+        "AskreneunreserveRequest": {
+            "1": "repeated message",
+            "2": "optional bool"
+        },
+        "AskreneunreserveResponse": {},
+        "AskreneupdatechannelRequest": {
+            "1": "plain string",
+            "2": "plain string",
+            "3": "optional bool",
+            "4": "optional Amount",
+            "5": "optional Amount",
+            "6": "optional Amount",
+            "7": "optional uint32",
+            "8": "optional uint32"
+        },
+        "AskreneupdatechannelResponse": {},
+        "AutocleanonceAutoclean": {
+            "1": "optional message",
+            "2": "optional message",
+            "3": "optional message",
+            "4": "optional message",
+            "5": "optional message",
+            "6": "optional message",
+            "7": "optional message"
+        },
+        "AutocleanonceAutocleanExpiredinvoices": {
+            "1": "plain uint64",
+            "2": "plain uint64"
+        },
+        "AutocleanonceAutocleanFailedforwards": {
+            "1": "plain uint64",
+            "2": "plain uint64"
+        },
+        "AutocleanonceAutocleanFailedpays": {
+            "1": "plain uint64",
+            "2": "plain uint64"
+        },
+        "AutocleanonceAutocleanNetworkevents": {
+            "1": "plain uint64",
+            "2": "plain uint64"
+        },
+        "AutocleanonceAutocleanPaidinvoices": {
+            "1": "plain uint64",
+            "2": "plain uint64"
+        },
+        "AutocleanonceAutocleanSucceededforwards": {
+            "1": "plain uint64",
+            "2": "plain uint64"
+        },
+        "AutocleanonceAutocleanSucceededpays": {
+            "1": "plain uint64",
+            "2": "plain uint64"
+        },
+        "AutocleanonceRequest": {
+            "1": "plain enum",
+            "2": "plain uint64"
+        },
+        "AutocleanonceResponse": {
+            "1": "plain message"
+        },
+        "AutocleanstatusAutoclean": {
+            "1": "optional message",
+            "2": "optional message",
+            "3": "optional message",
+            "4": "optional message",
+            "5": "optional message",
+            "6": "optional message",
+            "7": "optional message"
+        },
+        "AutocleanstatusAutocleanExpiredinvoices": {
+            "1": "plain bool",
+            "2": "plain uint64",
+            "3": "optional uint64"
+        },
+        "AutocleanstatusAutocleanFailedforwards": {
+            "1": "plain bool",
+            "2": "plain uint64",
+            "3": "optional uint64"
+        },
+        "AutocleanstatusAutocleanFailedpays": {
+            "1": "plain bool",
+            "2": "plain uint64",
+            "3": "optional uint64"
+        },
+        "AutocleanstatusAutocleanNetworkevents": {
+            "1": "plain bool",
+            "2": "plain uint64",
+            "3": "optional uint64"
+        },
+        "AutocleanstatusAutocleanPaidinvoices": {
+            "1": "plain bool",
+            "2": "plain uint64",
+            "3": "optional uint64"
+        },
+        "AutocleanstatusAutocleanSucceededforwards": {
+            "1": "plain bool",
+            "2": "plain uint64",
+            "3": "optional uint64"
+        },
+        "AutocleanstatusAutocleanSucceededpays": {
+            "1": "plain bool",
+            "2": "plain uint64",
+            "3": "optional uint64"
+        },
+        "AutocleanstatusRequest": {
+            "1": "optional enum"
+        },
+        "AutocleanstatusResponse": {
+            "1": "plain message"
+        },
+        "BalanceSnapshotAccounts": {
+            "1": "plain string",
+            "2": "plain Amount",
+            "3": "plain string"
+        },
+        "BalanceSnapshotNotification": {
+            "1": "plain bytes",
+            "2": "plain uint32",
+            "3": "plain uint32",
+            "4": "repeated message"
+        },
+        "BkprchannelsapyChannelsApy": {
+            "1": "plain string",
+            "10": "plain Amount",
+            "11": "optional Amount",
+            "12": "plain string",
+            "13": "optional string",
+            "14": "plain string",
+            "15": "optional string",
+            "16": "plain string",
+            "17": "optional string",
+            "18": "plain string",
+            "19": "optional string",
+            "2": "plain Amount",
+            "20": "plain string",
+            "21": "optional string",
+            "22": "optional string",
+            "3": "plain Amount",
+            "4": "plain Amount",
+            "5": "plain Amount",
+            "6": "plain Amount",
+            "7": "plain Amount",
+            "8": "plain Amount",
+            "9": "plain Amount"
+        },
+        "BkprchannelsapyRequest": {
+            "1": "optional uint64",
+            "2": "optional uint64"
+        },
+        "BkprchannelsapyResponse": {
+            "1": "repeated message"
+        },
+        "BkprdumpincomecsvRequest": {
+            "1": "plain string",
+            "2": "optional string",
+            "3": "optional bool",
+            "4": "optional uint64",
+            "5": "optional uint64"
+        },
+        "BkprdumpincomecsvResponse": {
+            "1": "plain string",
+            "2": "plain enum"
+        },
+        "BkpreditdescriptionbyoutpointRequest": {
+            "1": "plain string",
+            "2": "plain string"
+        },
+        "BkpreditdescriptionbyoutpointResponse": {
+            "1": "repeated message"
+        },
+        "BkpreditdescriptionbyoutpointUpdated": {
+            "1": "plain string",
+            "10": "optional uint32",
+            "11": "optional string",
+            "12": "optional bytes",
+            "13": "optional bytes",
+            "14": "optional Amount",
+            "15": "optional bool",
+            "16": "optional uint32",
+            "2": "plain enum",
+            "3": "plain string",
+            "4": "plain Amount",
+            "5": "plain Amount",
+            "6": "plain string",
+            "7": "plain uint32",
+            "8": "plain string",
+            "9": "optional string"
+        },
+        "BkpreditdescriptionbypaymentidRequest": {
+            "1": "plain string",
+            "2": "plain string"
+        },
+        "BkpreditdescriptionbypaymentidResponse": {
+            "1": "repeated message"
+        },
+        "BkpreditdescriptionbypaymentidUpdated": {
+            "1": "plain string",
+            "10": "optional uint32",
+            "11": "optional string",
+            "12": "optional bytes",
+            "13": "optional bytes",
+            "14": "optional Amount",
+            "15": "optional bool",
+            "16": "optional uint32",
+            "2": "plain enum",
+            "3": "plain string",
+            "4": "plain Amount",
+            "5": "plain Amount",
+            "6": "plain string",
+            "7": "plain uint32",
+            "8": "optional string",
+            "9": "optional string"
+        },
+        "BkprinspectRequest": {
+            "1": "plain string"
+        },
+        "BkprinspectResponse": {
+            "1": "repeated message"
+        },
+        "BkprinspectTxs": {
+            "1": "plain bytes",
+            "2": "optional uint32",
+            "3": "plain Amount",
+            "4": "repeated message"
+        },
+        "BkprinspectTxsOutputs": {
+            "1": "plain string",
+            "10": "optional bytes",
+            "11": "optional bytes",
+            "2": "plain uint32",
+            "3": "plain Amount",
+            "4": "plain string",
+            "5": "optional Amount",
+            "6": "optional Amount",
+            "7": "optional string",
+            "8": "optional string",
+            "9": "optional string"
+        },
+        "BkprlistaccounteventsEvents": {
+            "1": "plain string",
+            "10": "optional string",
+            "11": "optional bytes",
+            "12": "optional bytes",
+            "13": "optional string",
+            "14": "optional Amount",
+            "15": "optional bool",
+            "16": "optional uint32",
+            "17": "optional double",
+            "2": "plain enum",
+            "3": "plain string",
+            "4": "plain Amount",
+            "5": "plain Amount",
+            "6": "plain string",
+            "7": "plain uint32",
+            "8": "optional string",
+            "9": "optional uint32"
+        },
+        "BkprlistaccounteventsRequest": {
+            "1": "optional string",
+            "2": "optional string"
+        },
+        "BkprlistaccounteventsResponse": {
+            "1": "repeated message"
+        },
+        "BkprlistbalancesAccounts": {
+            "1": "plain string",
+            "2": "repeated message",
+            "3": "optional bytes",
+            "4": "optional bool",
+            "5": "optional bool",
+            "6": "optional bool",
+            "7": "optional uint32"
+        },
+        "BkprlistbalancesAccountsBalances": {
+            "1": "plain Amount",
+            "2": "plain string"
+        },
+        "BkprlistbalancesRequest": {},
+        "BkprlistbalancesResponse": {
+            "1": "repeated message"
+        },
+        "BkprlistincomeIncomeEvents": {
+            "1": "plain string",
+            "10": "optional bytes",
+            "2": "plain string",
+            "3": "plain Amount",
+            "4": "plain Amount",
+            "5": "plain string",
+            "6": "plain uint32",
+            "7": "optional string",
+            "8": "optional string",
+            "9": "optional bytes"
+        },
+        "BkprlistincomeRequest": {
+            "1": "optional bool",
+            "2": "optional uint32",
+            "3": "optional uint32"
+        },
+        "BkprlistincomeResponse": {
+            "1": "repeated message"
+        },
+        "BkprreportRequest": {
+            "1": "optional string",
+            "2": "repeated string",
+            "3": "optional string",
+            "4": "optional uint32",
+            "5": "optional uint32"
+        },
+        "BkprreportResponse": {
+            "1": "repeated string"
+        },
+        "BlacklistruneBlacklist": {
+            "1": "plain uint64",
+            "2": "plain uint64"
+        },
+        "BlacklistruneRequest": {
+            "1": "optional uint64",
+            "2": "optional uint64",
+            "3": "optional bool"
+        },
+        "BlacklistruneResponse": {
+            "1": "repeated message"
+        },
+        "BlockAddedNotification": {
+            "1": "plain bytes",
+            "2": "plain uint32"
+        },
+        "CancelrecurringinvoiceRequest": {
+            "1": "plain string",
+            "2": "plain uint64",
+            "3": "plain string",
+            "4": "optional double",
+            "5": "optional string",
+            "6": "optional string"
+        },
+        "CancelrecurringinvoiceResponse": {
+            "1": "plain string"
+        },
+        "ChannelOpenFailedNotification": {
+            "1": "plain bytes"
+        },
+        "ChannelOpenedNotification": {
+            "1": "plain bytes",
+            "2": "plain Amount",
+            "3": "plain bytes",
+            "4": "plain bool"
+        },
+        "ChannelStateChangedNotification": {
+            "1": "plain bytes",
+            "2": "plain bytes",
+            "3": "optional string",
+            "4": "plain string",
+            "5": "optional enum",
+            "6": "plain enum",
+            "7": "plain enum",
+            "8": "optional string"
+        },
+        "CheckmessageRequest": {
+            "1": "plain string",
+            "2": "plain string",
+            "3": "optional bytes"
+        },
+        "CheckmessageResponse": {
+            "1": "plain bool",
+            "2": "plain bytes"
+        },
+        "CheckruneRequest": {
+            "1": "plain string",
+            "2": "optional string",
+            "3": "optional string",
+            "4": "repeated string"
+        },
+        "CheckruneResponse": {
+            "1": "plain bool"
+        },
+        "ClnrestregisterpathRequest": {
+            "1": "plain string",
+            "2": "plain string",
+            "3": "optional message",
+            "4": "optional bool",
+            "5": "optional string"
+        },
+        "ClnrestregisterpathResponse": {},
+        "ClnrestregisterpathRuneRestrictions": {
+            "1": "optional string",
+            "2": "optional string",
+            "3": "plain map<string, string>"
+        },
+        "CloseRequest": {
+            "1": "plain string",
+            "2": "optional uint32",
+            "3": "optional string",
+            "4": "optional string",
+            "5": "optional Outpoint",
+            "6": "optional bool",
+            "7": "repeated Feerate"
+        },
+        "CloseResponse": {
+            "1": "plain enum",
+            "4": "repeated bytes",
+            "5": "repeated bytes"
+        },
+        "CoinMovementNotification": {
+            "1": "plain uint32",
+            "10": "repeated string",
+            "11": "optional enum",
+            "12": "repeated string",
+            "13": "optional bytes",
+            "14": "optional uint64",
+            "15": "optional uint64",
+            "16": "optional Amount",
+            "17": "optional Outpoint",
+            "18": "optional bytes",
+            "19": "optional string",
+            "2": "plain string",
+            "20": "optional bytes",
+            "21": "optional bytes",
+            "22": "optional bytes",
+            "23": "optional uint32",
+            "24": "optional Amount",
+            "25": "optional uint32",
+            "26": "optional uint32",
+            "3": "plain bytes",
+            "4": "plain enum",
+            "5": "optional uint64",
+            "6": "plain string",
+            "7": "plain Amount",
+            "8": "plain Amount",
+            "9": "plain uint64"
+        },
+        "ConnectAddress": {
+            "1": "plain enum",
+            "2": "optional string",
+            "3": "optional string",
+            "4": "optional uint32",
+            "5": "optional string"
+        },
+        "ConnectRequest": {
+            "1": "plain string",
+            "2": "optional string",
+            "3": "optional uint32"
+        },
+        "ConnectResponse": {
+            "1": "plain bytes",
+            "2": "plain bytes",
+            "3": "plain enum",
+            "4": "plain message"
+        },
+        "CreateinvoicePaidOutpoint": {
+            "1": "plain bytes",
+            "2": "plain uint32"
+        },
+        "CreateinvoiceRequest": {
+            "1": "plain string",
+            "2": "plain string",
+            "3": "plain bytes"
+        },
+        "CreateinvoiceResponse": {
+            "1": "plain string",
+            "10": "optional Amount",
+            "11": "optional uint64",
+            "12": "optional bytes",
+            "13": "optional bytes",
+            "15": "optional string",
+            "16": "plain uint64",
+            "17": "optional message",
+            "2": "optional string",
+            "3": "optional string",
+            "4": "plain bytes",
+            "5": "optional Amount",
+            "6": "plain enum",
+            "7": "optional string",
+            "8": "plain uint64",
+            "9": "optional uint64"
+        },
+        "CreateonionHops": {
+            "1": "plain bytes",
+            "2": "plain bytes"
+        },
+        "CreateonionRequest": {
+            "1": "repeated message",
+            "2": "plain bytes",
+            "3": "optional bytes",
+            "4": "optional uint32"
+        },
+        "CreateonionResponse": {
+            "1": "plain bytes",
+            "2": "repeated bytes"
+        },
+        "CreateproofProofs": {
+            "1": "plain string",
+            "2": "repeated ProofField",
+            "3": "repeated ProofField",
+            "4": "repeated ProofField"
+        },
+        "CreateproofRequest": {
+            "1": "plain string",
+            "2": "optional string",
+            "3": "repeated ProofField"
+        },
+        "CreateproofResponse": {
+            "1": "repeated message"
+        },
+        "CreateruneRequest": {
+            "1": "optional string",
+            "2": "repeated string"
+        },
+        "CreateruneResponse": {
+            "1": "plain string",
+            "2": "plain string",
+            "3": "optional string"
+        },
+        "CurrencyconvertRequest": {
+            "1": "plain double",
+            "2": "plain string"
+        },
+        "CurrencyconvertResponse": {
+            "1": "plain Amount"
+        },
+        "CurrencyrateRequest": {
+            "1": "plain string",
+            "2": "optional string"
+        },
+        "CurrencyrateResponse": {
+            "1": "plain double"
+        },
+        "CustomMsgNotification": {
+            "1": "plain bytes",
+            "2": "plain bytes"
+        },
+        "DatastoreRequest": {
+            "2": "optional bytes",
+            "3": "optional enum",
+            "4": "optional uint64",
+            "5": "repeated string",
+            "6": "optional string"
+        },
+        "DatastoreResponse": {
+            "2": "optional uint64",
+            "3": "optional bytes",
+            "4": "optional string",
+            "5": "repeated string"
+        },
+        "DatastoreusageDatastoreusage": {
+            "1": "plain string",
+            "2": "plain uint64"
+        },
+        "DatastoreusageRequest": {
+            "1": "repeated string"
+        },
+        "DatastoreusageResponse": {
+            "1": "plain message"
+        },
+        "DecodeExtra": {
+            "1": "plain string",
+            "2": "plain string"
+        },
+        "DecodeFallbacks": {
+            "2": "plain enum",
+            "3": "optional string",
+            "4": "plain bytes"
+        },
+        "DecodeInvoiceFallbacks": {
+            "1": "plain uint32",
+            "2": "plain bytes",
+            "3": "optional string"
+        },
+        "DecodeInvoicePaths": {
+            "1": "repeated message",
+            "2": "plain message",
+            "3": "optional bytes",
+            "4": "optional bytes",
+            "5": "optional uint32",
+            "6": "optional string"
+        },
+        "DecodeInvoicePathsPath": {
+            "1": "plain bytes",
+            "2": "plain bytes"
+        },
+        "DecodeInvoicePathsPayinfo": {
+            "1": "optional Amount",
+            "2": "plain bytes",
+            "3": "plain Amount",
+            "4": "plain uint32",
+            "5": "optional Amount",
+            "6": "plain uint32"
+        },
+        "DecodeInvreqBip353Name": {
+            "1": "optional string",
+            "2": "optional string"
+        },
+        "DecodeInvreqPaths": {
+            "1": "optional uint32",
+            "3": "optional bytes",
+            "4": "optional string",
+            "5": "repeated message",
+            "6": "optional bytes"
+        },
+        "DecodeInvreqPathsPath": {
+            "1": "plain bytes",
+            "2": "plain bytes"
+        },
+        "DecodeOfferPaths": {
+            "1": "optional bytes",
+            "3": "repeated message",
+            "4": "optional uint32",
+            "5": "optional string",
+            "6": "optional bytes"
+        },
+        "DecodeOfferPathsPath": {
+            "1": "plain bytes",
+            "2": "plain bytes"
+        },
+        "DecodeOfferRecurrence": {
+            "1": "plain uint32",
+            "2": "optional bool",
+            "3": "optional string",
+            "4": "plain uint32",
+            "5": "optional uint64",
+            "6": "optional message",
+            "7": "optional uint32"
+        },
+        "DecodeOfferRecurrencePaywindow": {
+            "1": "plain uint32",
+            "2": "plain uint32",
+            "3": "optional bool"
+        },
+        "DecodeRequest": {
+            "1": "plain string"
+        },
+        "DecodeResponse": {
+            "1": "plain enum",
+            "10": "optional Amount",
+            "11": "optional string",
+            "12": "optional string",
+            "13": "optional bytes",
+            "14": "optional uint64",
+            "15": "optional uint64",
+            "16": "repeated message",
+            "18": "optional message",
+            "19": "repeated message",
+            "2": "plain bool",
+            "21": "optional string",
+            "22": "optional string",
+            "23": "optional string",
+            "24": "optional string",
+            "25": "optional bytes",
+            "26": "optional bytes",
+            "27": "optional bytes",
+            "28": "optional Amount",
+            "29": "optional bytes",
+            "3": "optional bytes",
+            "30": "optional uint64",
+            "31": "optional string",
+            "32": "optional uint32",
+            "33": "optional uint32",
+            "34": "repeated message",
+            "35": "optional string",
+            "36": "optional string",
+            "37": "optional string",
+            "38": "optional string",
+            "39": "optional string",
+            "4": "repeated bytes",
+            "40": "repeated message",
+            "41": "optional uint64",
+            "42": "optional uint32",
+            "43": "optional bytes",
+            "44": "optional Amount",
+            "45": "repeated message",
+            "46": "optional bytes",
+            "47": "optional bytes",
+            "48": "optional uint64",
+            "49": "repeated message",
+            "5": "optional bytes",
+            "50": "optional string",
+            "51": "optional string",
+            "52": "optional string",
+            "53": "optional string",
+            "54": "optional string",
+            "55": "optional string",
+            "56": "optional string",
+            "57": "optional string",
+            "58": "optional string",
+            "59": "repeated message",
+            "6": "optional string",
+            "60": "optional uint64",
+            "61": "optional uint64",
+            "62": "optional bytes",
+            "63": "optional bytes",
+            "64": "optional bytes",
+            "65": "optional uint32",
+            "66": "optional bytes",
+            "67": "optional bytes",
+            "69": "repeated message",
+            "7": "optional string",
+            "70": "optional string",
+            "71": "optional string",
+            "72": "optional string",
+            "73": "repeated message",
+            "74": "optional string",
+            "75": "optional bytes",
+            "76": "optional bytes",
+            "77": "optional string",
+            "78": "optional string",
+            "79": "optional Amount",
+            "8": "optional uint32",
+            "80": "optional string",
+            "81": "optional bytes",
+            "82": "optional DecodeRoutehintList",
+            "83": "optional bytes",
+            "84": "optional string",
+            "85": "repeated message",
+            "86": "optional string",
+            "87": "optional message",
+            "88": "optional string",
+            "89": "optional string",
+            "9": "optional uint64",
+            "90": "optional bool",
+            "91": "optional string",
+            "92": "optional string",
+            "93": "optional bytes",
+            "94": "repeated uint64",
+            "95": "repeated bytes",
+            "96": "repeated bytes",
+            "97": "optional string",
+            "98": "optional string",
+            "99": "repeated message"
+        },
+        "DecodeRestrictions": {
+            "1": "repeated string",
+            "2": "plain string"
+        },
+        "DecodeRouteHop": {
+            "1": "plain bytes",
+            "2": "plain string",
+            "3": "plain message",
+            "4": "plain uint32",
+            "5": "plain uint32"
+        },
+        "DecodeRoutehint": {
+            "1": "repeated message"
+        },
+        "DecodeRoutehintList": {
+            "2": "repeated message"
+        },
+        "DecodeUnknownInvoiceRequestTlvs": {
+            "1": "plain uint64",
+            "2": "plain uint64",
+            "3": "plain bytes"
+        },
+        "DecodeUnknownInvoiceTlvs": {
+            "1": "plain uint64",
+            "2": "plain uint64",
+            "3": "plain bytes"
+        },
+        "DecodeUnknownOfferTlvs": {
+            "1": "plain uint64",
+            "2": "plain uint64",
+            "3": "plain bytes"
+        },
+        "DecodeUnknownPayerProofTlvs": {
+            "1": "plain uint64",
+            "2": "plain uint64",
+            "3": "plain bytes"
+        },
+        "DeldatastoreRequest": {
+            "2": "optional uint64",
+            "3": "repeated string"
+        },
+        "DeldatastoreResponse": {
+            "2": "optional uint64",
+            "3": "optional bytes",
+            "4": "optional string",
+            "5": "repeated string"
+        },
+        "DelforwardRequest": {
+            "1": "plain string",
+            "2": "plain uint64",
+            "3": "plain enum"
+        },
+        "DelforwardResponse": {},
+        "DelinvoiceRequest": {
+            "1": "plain string",
+            "2": "plain enum",
+            "3": "optional bool"
+        },
+        "DelinvoiceResponse": {
+            "1": "plain string",
+            "11": "optional string",
+            "12": "plain uint64",
+            "13": "optional uint64",
+            "14": "optional uint64",
+            "15": "optional Amount",
+            "16": "optional uint64",
+            "17": "optional bytes",
+            "2": "optional string",
+            "3": "optional string",
+            "4": "optional Amount",
+            "5": "optional string",
+            "6": "plain bytes",
+            "7": "plain enum",
+            "8": "plain uint64",
+            "9": "optional bytes"
+        },
+        "DelnetworkeventRequest": {
+            "1": "plain uint64"
+        },
+        "DelnetworkeventResponse": {},
+        "DelpayPayments": {
+            "1": "plain uint64",
+            "10": "optional uint64",
+            "11": "optional uint64",
+            "12": "optional uint64",
+            "13": "optional bytes",
+            "14": "optional string",
+            "15": "optional string",
+            "16": "optional string",
+            "17": "optional bytes",
+            "2": "plain uint64",
+            "3": "plain bytes",
+            "4": "plain enum",
+            "5": "plain Amount",
+            "6": "optional uint64",
+            "7": "optional bytes",
+            "8": "optional Amount",
+            "9": "plain uint64"
+        },
+        "DelpayRequest": {
+            "1": "plain bytes",
+            "2": "plain enum",
+            "3": "optional uint64",
+            "4": "optional uint64"
+        },
+        "DelpayResponse": {
+            "1": "repeated message"
+        },
+        "DeprecatedOneshotNotification": {
+            "1": "plain bool"
+        },
+        "DevforgetchannelRequest": {
+            "1": "plain bytes",
+            "2": "optional string",
+            "3": "optional bytes",
+            "4": "optional bool"
+        },
+        "DevforgetchannelResponse": {
+            "1": "plain bool",
+            "2": "plain bool",
+            "3": "plain bytes"
+        },
+        "DevspliceRequest": {
+            "1": "plain string",
+            "2": "optional bool",
+            "3": "optional bool",
+            "4": "optional bool",
+            "5": "optional bool"
+        },
+        "DevspliceResponse": {
+            "1": "repeated string",
+            "2": "optional string",
+            "3": "optional string",
+            "4": "optional string",
+            "5": "repeated string"
+        },
+        "DisableinvoicerequestRequest": {
+            "1": "plain string"
+        },
+        "DisableinvoicerequestResponse": {
+            "1": "plain bytes",
+            "2": "plain bool",
+            "3": "plain bool",
+            "4": "plain string",
+            "5": "plain bool",
+            "6": "optional string"
+        },
+        "DisableofferRequest": {
+            "1": "plain bytes"
+        },
+        "DisableofferResponse": {
+            "1": "plain bytes",
+            "2": "plain bool",
+            "3": "plain bool",
+            "4": "plain string",
+            "5": "plain bool",
+            "6": "optional string",
+            "7": "optional string",
+            "8": "optional bool"
+        },
+        "DisconnectNotification": {
+            "1": "plain bytes"
+        },
+        "DisconnectRequest": {
+            "1": "plain bytes",
+            "2": "optional bool"
+        },
+        "DisconnectResponse": {},
+        "EmergencyrecoverRequest": {},
+        "EmergencyrecoverResponse": {
+            "1": "repeated bytes"
+        },
+        "EnableofferRequest": {
+            "1": "plain bytes"
+        },
+        "EnableofferResponse": {
+            "1": "plain bytes",
+            "2": "plain bool",
+            "3": "plain bool",
+            "4": "plain string",
+            "5": "plain bool",
+            "6": "optional string",
+            "7": "optional string",
+            "8": "optional bool"
+        },
+        "ExposesecretRequest": {
+            "1": "plain string",
+            "2": "optional string"
+        },
+        "ExposesecretResponse": {
+            "1": "plain string",
+            "2": "plain string",
+            "3": "optional string"
+        },
+        "Feerate": {
+            "1": "plain bool",
+            "2": "plain bool",
+            "3": "plain bool",
+            "4": "plain uint32",
+            "5": "plain uint32"
+        },
+        "FeeratesOnchainFeeEstimates": {
+            "1": "plain uint64",
+            "2": "plain uint64",
+            "3": "plain uint64",
+            "4": "plain uint64",
+            "5": "plain uint64",
+            "6": "optional uint64"
+        },
+        "FeeratesPerkb": {
+            "1": "plain uint32",
+            "10": "plain uint32",
+            "11": "optional uint32",
+            "12": "optional uint32",
+            "2": "plain uint32",
+            "3": "optional uint32",
+            "4": "optional uint32",
+            "5": "optional uint32",
+            "8": "optional uint32",
+            "9": "repeated message"
+        },
+        "FeeratesPerkbEstimates": {
+            "1": "plain uint32",
+            "2": "plain uint32",
+            "3": "plain uint32"
+        },
+        "FeeratesPerkw": {
+            "1": "plain uint32",
+            "10": "plain uint32",
+            "11": "optional uint32",
+            "12": "optional uint32",
+            "2": "plain uint32",
+            "3": "optional uint32",
+            "4": "optional uint32",
+            "5": "optional uint32",
+            "8": "optional uint32",
+            "9": "repeated message"
+        },
+        "FeeratesPerkwEstimates": {
+            "1": "plain uint32",
+            "2": "plain uint32",
+            "3": "plain uint32"
+        },
+        "FeeratesRequest": {
+            "1": "plain enum"
+        },
+        "FeeratesResponse": {
+            "1": "optional string",
+            "2": "optional message",
+            "3": "optional message",
+            "4": "optional message"
+        },
+        "Fetchbip353Instructions": {
+            "1": "optional string",
+            "2": "optional string",
+            "3": "optional string",
+            "4": "optional uint64",
+            "5": "optional uint64"
+        },
+        "Fetchbip353Request": {
+            "1": "plain string"
+        },
+        "Fetchbip353Response": {
+            "1": "plain string",
+            "2": "repeated message"
+        },
+        "FetchinvoiceChanges": {
+            "1": "optional string",
+            "2": "optional string",
+            "3": "optional string",
+            "4": "optional string",
+            "5": "optional Amount"
+        },
+        "FetchinvoiceNextPeriod": {
+            "1": "plain uint64",
+            "2": "plain uint64",
+            "3": "plain uint64",
+            "4": "plain uint64",
+            "5": "plain uint64"
+        },
+        "FetchinvoiceRequest": {
+            "1": "plain string",
+            "10": "optional string",
+            "2": "optional Amount",
+            "3": "optional uint64",
+            "4": "optional uint64",
+            "5": "optional double",
+            "6": "optional string",
+            "7": "optional double",
+            "8": "optional string",
+            "9": "optional string"
+        },
+        "FetchinvoiceResponse": {
+            "1": "plain string",
+            "2": "plain message",
+            "3": "optional message"
+        },
+        "ForwardEventNotification": {
+            "1": "plain bytes",
+            "10": "optional enum",
+            "11": "plain double",
+            "12": "optional double",
+            "13": "optional uint64",
+            "14": "optional uint64",
+            "15": "optional bytes",
+            "16": "optional uint64",
+            "2": "plain string",
+            "3": "optional string",
+            "4": "plain Amount",
+            "5": "optional Amount",
+            "6": "optional Amount",
+            "7": "plain enum",
+            "8": "optional uint32",
+            "9": "optional string"
+        },
+        "FundchannelCancelRequest": {
+            "1": "plain bytes"
+        },
+        "FundchannelCancelResponse": {
+            "1": "plain string"
+        },
+        "FundchannelChannelType": {
+            "1": "repeated uint32",
+            "2": "repeated enum"
+        },
+        "FundchannelCompleteRequest": {
+            "1": "plain bytes",
+            "2": "plain string",
+            "3": "optional bool"
+        },
+        "FundchannelCompleteResponse": {
+            "1": "plain bytes",
+            "2": "plain bool"
+        },
+        "FundchannelRequest": {
+            "1": "plain AmountOrAll",
+            "10": "optional uint32",
+            "11": "repeated Outpoint",
+            "12": "optional uint32",
+            "13": "optional Amount",
+            "14": "repeated uint32",
+            "15": "plain AmountSatOrAll",
+            "16": "optional AmountSat",
+            "17": "optional AmountSat",
+            "2": "optional Feerate",
+            "3": "optional bool",
+            "5": "optional Amount",
+            "6": "optional string",
+            "7": "optional Amount",
+            "8": "optional string",
+            "9": "plain bytes"
+        },
+        "FundchannelResponse": {
+            "1": "plain bytes",
+            "2": "plain bytes",
+            "3": "plain uint32",
+            "4": "plain bytes",
+            "5": "optional bytes",
+            "6": "optional uint32",
+            "7": "plain message"
+        },
+        "FundchannelStartChannelType": {
+            "1": "repeated uint32",
+            "2": "repeated enum"
+        },
+        "FundchannelStartRequest": {
+            "1": "plain bytes",
+            "10": "plain AmountSat",
+            "11": "optional AmountSat",
+            "2": "plain Amount",
+            "3": "optional Feerate",
+            "4": "optional bool",
+            "5": "optional string",
+            "6": "optional Amount",
+            "7": "optional uint32",
+            "8": "optional Amount",
+            "9": "repeated uint32"
+        },
+        "FundchannelStartResponse": {
+            "1": "plain string",
+            "2": "plain bytes",
+            "3": "optional message",
+            "4": "optional bytes",
+            "5": "plain string",
+            "6": "optional uint32"
+        },
+        "FunderupdateRequest": {
+            "1": "optional enum",
+            "10": "optional uint32",
+            "11": "optional Amount",
+            "12": "optional uint32",
+            "13": "optional uint32",
+            "14": "optional Amount",
+            "15": "optional uint32",
+            "16": "optional bytes",
+            "2": "optional Amount",
+            "3": "optional bool",
+            "4": "optional Amount",
+            "5": "optional Amount",
+            "6": "optional Amount",
+            "7": "optional Amount",
+            "8": "optional Amount",
+            "9": "optional uint32"
+        },
+        "FunderupdateResponse": {
+            "1": "plain string",
+            "10": "plain uint32",
+            "11": "plain uint32",
+            "12": "optional Amount",
+            "13": "optional uint32",
+            "14": "optional uint32",
+            "15": "optional Amount",
+            "16": "optional uint32",
+            "17": "optional bytes",
+            "2": "plain enum",
+            "3": "plain uint32",
+            "4": "plain bool",
+            "5": "plain Amount",
+            "6": "plain Amount",
+            "7": "plain Amount",
+            "8": "plain Amount",
+            "9": "plain Amount"
+        },
+        "FundpsbtRequest": {
+            "1": "plain AmountOrAll",
+            "10": "optional bool",
+            "11": "plain AmountSatOrAll",
+            "2": "plain Feerate",
+            "3": "plain uint32",
+            "4": "optional uint32",
+            "5": "optional uint32",
+            "6": "optional uint32",
+            "7": "optional uint32",
+            "8": "optional bool",
+            "9": "optional bool"
+        },
+        "FundpsbtReservations": {
+            "1": "plain bytes",
+            "2": "plain uint32",
+            "3": "plain bool",
+            "4": "plain bool",
+            "5": "plain uint32"
+        },
+        "FundpsbtResponse": {
+            "1": "plain string",
+            "2": "plain uint32",
+            "3": "plain uint32",
+            "4": "plain Amount",
+            "5": "optional uint32",
+            "6": "repeated message"
+        },
+        "GetemergencyrecoverdataRequest": {},
+        "GetemergencyrecoverdataResponse": {
+            "1": "plain bytes",
+            "2": "optional bool",
+            "3": "repeated bytes"
+        },
+        "GetinfoAddress": {
+            "1": "plain enum",
+            "2": "plain uint32",
+            "3": "optional string"
+        },
+        "GetinfoBinding": {
+            "1": "plain enum",
+            "2": "optional string",
+            "3": "optional uint32",
+            "4": "optional string",
+            "5": "optional string"
+        },
+        "GetinfoOurFeatures": {
+            "1": "plain bytes",
+            "2": "plain bytes",
+            "3": "plain bytes",
+            "4": "plain bytes"
+        },
+        "GetinfoRequest": {},
+        "GetinfoResponse": {
+            "1": "plain bytes",
+            "10": "optional message",
+            "11": "plain uint32",
+            "12": "plain string",
+            "13": "plain Amount",
+            "14": "repeated message",
+            "15": "repeated message",
+            "16": "optional string",
+            "17": "optional string",
+            "2": "plain string",
+            "3": "plain bytes",
+            "4": "plain uint32",
+            "5": "plain uint32",
+            "6": "plain uint32",
+            "7": "plain uint32",
+            "8": "plain string",
+            "9": "plain string"
+        },
+        "GetlogLog": {
+            "1": "plain enum",
+            "2": "optional uint32",
+            "3": "optional string",
+            "4": "optional string",
+            "5": "optional string",
+            "6": "optional bytes",
+            "7": "optional bytes"
+        },
+        "GetlogRequest": {
+            "1": "optional enum"
+        },
+        "GetlogResponse": {
+            "1": "plain string",
+            "2": "plain uint32",
+            "3": "plain uint32",
+            "4": "repeated message"
+        },
+        "GetrouteRequest": {
+            "1": "plain bytes",
+            "3": "plain uint64",
+            "4": "optional uint32",
+            "5": "optional bytes",
+            "6": "optional uint32",
+            "7": "repeated string",
+            "8": "optional uint32",
+            "9": "plain Amount"
+        },
+        "GetrouteResponse": {
+            "1": "repeated message"
+        },
+        "GetrouteRoute": {
+            "1": "plain bytes",
+            "2": "plain string",
+            "3": "plain uint32",
+            "4": "plain Amount",
+            "5": "plain uint32",
+            "6": "plain enum"
+        },
+        "GetroutesRequest": {
+            "1": "plain bytes",
+            "10": "optional uint32",
+            "2": "plain bytes",
+            "3": "plain Amount",
+            "4": "repeated string",
+            "5": "plain Amount",
+            "7": "plain uint32",
+            "8": "optional uint32",
+            "9": "optional uint32"
+        },
+        "GetroutesResponse": {
+            "1": "plain uint64",
+            "2": "repeated message"
+        },
+        "GetroutesRoutes": {
+            "1": "plain uint64",
+            "2": "plain Amount",
+            "3": "repeated message",
+            "4": "plain uint32"
+        },
+        "GetroutesRoutesPath": {
+            "10": "optional bytes",
+            "11": "optional uint32",
+            "12": "optional uint32",
+            "3": "optional Amount",
+            "4": "optional bytes",
+            "5": "optional uint32",
+            "6": "plain string",
+            "7": "optional Amount",
+            "8": "optional Amount",
+            "9": "optional bytes"
+        },
+        "GracefulRequest": {
+            "1": "optional uint32"
+        },
+        "GracefulResponse": {
+            "1": "repeated uint32",
+            "2": "repeated bytes"
+        },
+        "HelpHelp": {
+            "1": "plain string"
+        },
+        "HelpRequest": {
+            "1": "optional string"
+        },
+        "HelpResponse": {
+            "1": "repeated message",
+            "2": "optional enum"
+        },
+        "InjectonionmessageRequest": {
+            "1": "plain bytes",
+            "2": "plain bytes"
+        },
+        "InjectonionmessageResponse": {},
+        "InjectpaymentonionRequest": {
+            "1": "plain bytes",
+            "10": "optional Amount",
+            "11": "optional bytes",
+            "2": "plain bytes",
+            "3": "plain Amount",
+            "4": "plain uint32",
+            "5": "plain uint64",
+            "6": "plain uint64",
+            "7": "optional string",
+            "8": "optional string",
+            "9": "optional bytes"
+        },
+        "InjectpaymentonionResponse": {
+            "1": "plain uint64",
+            "2": "plain uint64",
+            "3": "plain uint64",
+            "4": "plain bytes"
+        },
+        "InvoiceCreationNotification": {
+            "1": "optional Amount",
+            "2": "plain bytes",
+            "3": "plain string",
+            "4": "optional bytes"
+        },
+        "InvoicePaymentNotification": {
+            "1": "plain Amount",
+            "2": "plain bytes",
+            "3": "optional Outpoint",
+            "4": "plain string"
+        },
+        "InvoiceRequest": {
+            "10": "plain AmountOrAny",
+            "2": "plain string",
+            "3": "plain string",
+            "4": "repeated string",
+            "5": "optional bytes",
+            "6": "optional uint32",
+            "7": "optional uint64",
+            "8": "repeated string",
+            "9": "optional bool"
+        },
+        "InvoiceResponse": {
+            "1": "plain string",
+            "10": "plain uint64",
+            "2": "plain bytes",
+            "3": "plain bytes",
+            "4": "plain uint64",
+            "5": "optional string",
+            "6": "optional string",
+            "7": "optional string",
+            "8": "optional string",
+            "9": "optional string"
+        },
+        "InvoicerequestRequest": {
+            "1": "plain Amount",
+            "2": "optional string",
+            "3": "optional string",
+            "4": "optional string",
+            "5": "optional uint64",
+            "6": "optional bool"
+        },
+        "InvoicerequestResponse": {
+            "1": "plain bytes",
+            "2": "plain bool",
+            "3": "plain bool",
+            "4": "plain string",
+            "5": "plain bool",
+            "6": "optional string"
+        },
+        "JsonArray": {
+            "1": "repeated message"
+        },
+        "JsonObject": {
+            "1": "plain map<string, JsonValue>"
+        },
+        "JsonObjectOrArray": {
+            "1": "plain message"
+        },
+        "JsonScalar": {
+            "4": "plain double",
+            "5": "plain string"
+        },
+        "JsonValue": {
+            "4": "plain double",
+            "5": "plain string"
+        },
+        "KeysendRequest": {
+            "1": "plain bytes",
+            "10": "plain Amount",
+            "11": "optional Amount",
+            "3": "optional string",
+            "4": "optional double",
+            "5": "optional uint32",
+            "6": "optional uint32",
+            "7": "optional Amount",
+            "8": "optional RoutehintList",
+            "9": "optional TlvStream"
+        },
+        "KeysendResponse": {
+            "1": "plain bytes",
+            "2": "optional bytes",
+            "3": "plain bytes",
+            "4": "plain double",
+            "5": "plain uint32",
+            "6": "plain Amount",
+            "7": "plain Amount",
+            "8": "optional string",
+            "9": "plain enum"
+        },
+        "ListaddressesAddresses": {
+            "1": "plain uint64",
+            "2": "optional string",
+            "3": "optional string"
+        },
+        "ListaddressesRequest": {
+            "1": "optional string",
+            "2": "optional uint64",
+            "3": "optional uint32"
+        },
+        "ListaddressesResponse": {
+            "1": "repeated message"
+        },
+        "ListchainmovesChainmoves": {
+            "1": "plain uint64",
+            "10": "optional bytes",
+            "11": "plain Outpoint",
+            "12": "optional bytes",
+            "13": "plain Amount",
+            "14": "optional uint32",
+            "15": "plain uint32",
+            "16": "repeated string",
+            "2": "plain string",
+            "3": "plain Amount",
+            "4": "plain Amount",
+            "5": "plain uint64",
+            "6": "plain enum",
+            "8": "optional bytes",
+            "9": "optional string"
+        },
+        "ListchainmovesRequest": {
+            "1": "optional enum",
+            "2": "optional uint64",
+            "3": "optional uint32"
+        },
+        "ListchainmovesResponse": {
+            "1": "repeated message"
+        },
+        "ListchannelmovesChannelmoves": {
+            "1": "plain uint64",
+            "10": "plain Amount",
+            "2": "plain string",
+            "3": "plain Amount",
+            "4": "plain Amount",
+            "5": "plain uint64",
+            "6": "plain enum",
+            "7": "optional bytes",
+            "8": "optional uint64",
+            "9": "optional uint64"
+        },
+        "ListchannelmovesRequest": {
+            "1": "optional enum",
+            "2": "optional uint64",
+            "3": "optional uint32"
+        },
+        "ListchannelmovesResponse": {
+            "1": "repeated message"
+        },
+        "ListchannelsChannels": {
+            "1": "plain bytes",
+            "10": "plain uint32",
+            "11": "plain uint32",
+            "12": "plain uint32",
+            "13": "plain Amount",
+            "14": "optional Amount",
+            "15": "plain bytes",
+            "16": "plain uint32",
+            "2": "plain bytes",
+            "3": "plain string",
+            "4": "plain bool",
+            "5": "plain Amount",
+            "6": "plain uint32",
+            "7": "plain uint32",
+            "8": "plain bool",
+            "9": "plain uint32"
+        },
+        "ListchannelsRequest": {
+            "1": "optional string",
+            "2": "optional bytes",
+            "3": "optional bytes"
+        },
+        "ListchannelsResponse": {
+            "1": "repeated message"
+        },
+        "ListclosedchannelsClosedchannels": {
+            "1": "optional bytes",
+            "10": "plain uint64",
+            "11": "plain uint64",
+            "12": "plain bytes",
+            "13": "plain uint32",
+            "14": "plain bool",
+            "15": "optional Amount",
+            "16": "optional Amount",
+            "17": "optional Amount",
+            "18": "plain Amount",
+            "19": "plain Amount",
+            "2": "plain bytes",
+            "20": "plain Amount",
+            "21": "plain Amount",
+            "22": "optional bytes",
+            "23": "optional Amount",
+            "24": "plain enum",
+            "25": "optional uint64",
+            "26": "optional string",
+            "27": "optional bool",
+            "3": "optional string",
+            "4": "optional message",
+            "5": "plain enum",
+            "6": "optional enum",
+            "7": "plain bool",
+            "8": "optional message",
+            "9": "plain uint64"
+        },
+        "ListclosedchannelsClosedchannelsAlias": {
+            "1": "optional string",
+            "2": "optional string"
+        },
+        "ListclosedchannelsClosedchannelsChannelType": {
+            "1": "repeated uint32",
+            "2": "repeated enum"
+        },
+        "ListclosedchannelsRequest": {
+            "1": "optional bytes"
+        },
+        "ListclosedchannelsResponse": {
+            "1": "repeated message"
+        },
+        "ListconfigsConfigs": {
+            "1": "optional message",
+            "10": "optional message",
+            "11": "optional message",
+            "12": "optional message",
+            "13": "optional message",
+            "14": "optional message",
+            "15": "optional message",
+            "16": "optional message",
+            "17": "optional message",
+            "18": "optional message",
+            "19": "optional message",
+            "2": "optional message",
+            "20": "optional message",
+            "21": "optional message",
+            "22": "optional message",
+            "25": "optional message",
+            "26": "optional message",
+            "27": "optional message",
+            "28": "optional message",
+            "29": "optional message",
+            "3": "optional message",
+            "30": "optional message",
+            "31": "optional message",
+            "32": "optional message",
+            "33": "optional message",
+            "34": "optional message",
+            "35": "optional message",
+            "36": "optional message",
+            "37": "optional message",
+            "38": "optional message",
+            "39": "optional message",
+            "4": "optional message",
+            "40": "optional message",
+            "41": "optional message",
+            "42": "optional message",
+            "43": "optional message",
+            "44": "optional message",
+            "45": "optional message",
+            "46": "optional message",
+            "47": "optional message",
+            "48": "optional message",
+            "49": "optional message",
+            "5": "optional message",
+            "50": "optional message",
+            "51": "optional message",
+            "52": "optional message",
+            "53": "optional message",
+            "54": "optional message",
+            "55": "optional message",
+            "56": "optional message",
+            "57": "optional message",
+            "58": "optional message",
+            "59": "optional message",
+            "6": "optional message",
+            "60": "optional message",
+            "61": "optional message",
+            "62": "optional message",
+            "63": "optional message",
+            "64": "optional message",
+            "66": "optional message",
+            "67": "optional message",
+            "68": "optional message",
+            "69": "optional message",
+            "7": "optional message",
+            "70": "optional message",
+            "71": "optional message",
+            "74": "optional message",
+            "75": "optional message",
+            "76": "optional message",
+            "77": "optional message",
+            "78": "optional message",
+            "79": "optional message",
+            "8": "optional message",
+            "80": "optional message",
+            "81": "optional message",
+            "82": "optional message",
+            "83": "optional message",
+            "84": "optional message",
+            "9": "optional message"
+        },
+        "ListconfigsConfigsAccepthtlctlvtype": {
+            "1": "repeated string",
+            "2": "repeated uint32"
+        },
+        "ListconfigsConfigsAddr": {
+            "1": "repeated string",
+            "2": "repeated string"
+        },
+        "ListconfigsConfigsAlias": {
+            "1": "plain string",
+            "2": "plain string"
+        },
+        "ListconfigsConfigsAllowdeprecatedapis": {
+            "1": "plain bool",
+            "2": "plain string"
+        },
+        "ListconfigsConfigsAlwaysuseproxy": {
+            "1": "plain bool",
+            "2": "plain string"
+        },
+        "ListconfigsConfigsAnnounceaddr": {
+            "1": "repeated string",
+            "2": "repeated string"
+        },
+        "ListconfigsConfigsAnnounceaddrdiscovered": {
+            "1": "plain enum",
+            "2": "plain string"
+        },
+        "ListconfigsConfigsAnnounceaddrdiscoveredport": {
+            "1": "plain uint32",
+            "2": "plain string"
+        },
+        "ListconfigsConfigsAnnounceaddrdns": {
+            "1": "plain bool",
+            "2": "plain string"
+        },
+        "ListconfigsConfigsAutoconnectseekerpeers": {
+            "1": "plain uint32",
+            "2": "plain string"
+        },
+        "ListconfigsConfigsAutolisten": {
+            "1": "plain bool",
+            "2": "plain string"
+        },
+        "ListconfigsConfigsBindaddr": {
+            "1": "repeated string",
+            "2": "repeated string"
+        },
+        "ListconfigsConfigsClearplugins": {
+            "1": "plain bool",
+            "2": "plain string"
+        },
+        "ListconfigsConfigsCltvdelta": {
+            "1": "plain uint32",
+            "2": "plain string"
+        },
+        "ListconfigsConfigsCltvfinal": {
+            "1": "plain uint32",
+            "2": "plain string"
+        },
+        "ListconfigsConfigsCommitfee": {
+            "1": "plain uint64",
+            "2": "plain string"
+        },
+        "ListconfigsConfigsCommitfeerateoffset": {
+            "1": "plain uint32",
+            "2": "plain string"
+        },
+        "ListconfigsConfigsCommittime": {
+            "1": "plain uint32",
+            "2": "plain string"
+        },
+        "ListconfigsConfigsConf": {
+            "1": "plain string",
+            "2": "plain enum"
+        },
+        "ListconfigsConfigsCurrencyrateaddsource": {
+            "1": "repeated string",
+            "2": "repeated string",
+            "3": "optional string"
+        },
+        "ListconfigsConfigsCurrencyratedisablesource": {
+            "1": "repeated string",
+            "2": "repeated string",
+            "3": "optional string"
+        },
+        "ListconfigsConfigsDaemon": {
+            "1": "plain bool",
+            "2": "plain string"
+        },
+        "ListconfigsConfigsDatabaseupgrade": {
+            "1": "plain bool",
+            "2": "plain string"
+        },
+        "ListconfigsConfigsDeveloper": {
+            "1": "plain bool",
+            "2": "plain string"
+        },
+        "ListconfigsConfigsDisabledns": {
+            "1": "plain bool",
+            "2": "plain string"
+        },
+        "ListconfigsConfigsDisablempp": {
+            "1": "plain bool",
+            "2": "plain string",
+            "3": "optional string"
+        },
+        "ListconfigsConfigsDisableplugin": {
+            "1": "repeated string",
+            "2": "repeated string"
+        },
+        "ListconfigsConfigsEncryptedhsm": {
+            "1": "plain bool",
+            "2": "plain string"
+        },
+        "ListconfigsConfigsExperimentalanchors": {
+            "1": "plain bool",
+            "2": "plain string"
+        },
+        "ListconfigsConfigsExperimentaldualfund": {
+            "1": "plain bool",
+            "2": "plain string"
+        },
+        "ListconfigsConfigsExperimentalpeerstorage": {
+            "1": "plain bool",
+            "2": "plain string"
+        },
+        "ListconfigsConfigsExperimentalshutdownwrongfunding": {
+            "1": "plain bool",
+            "2": "plain string"
+        },
+        "ListconfigsConfigsExperimentalsimpleclose": {
+            "1": "plain bool",
+            "2": "plain string"
+        },
+        "ListconfigsConfigsExperimentalsplicing": {
+            "1": "plain bool",
+            "2": "plain string"
+        },
+        "ListconfigsConfigsFeebase": {
+            "1": "plain uint32",
+            "2": "plain string"
+        },
+        "ListconfigsConfigsFeepersatoshi": {
+            "1": "plain uint32",
+            "2": "plain string"
+        },
+        "ListconfigsConfigsFetchinvoicenoconnect": {
+            "1": "plain bool",
+            "2": "plain string",
+            "3": "optional string"
+        },
+        "ListconfigsConfigsForcefeerates": {
+            "1": "plain string",
+            "2": "plain string"
+        },
+        "ListconfigsConfigsFundingconfirms": {
+            "1": "plain uint32",
+            "2": "plain string"
+        },
+        "ListconfigsConfigsHsmpassphrase": {
+            "1": "plain bool",
+            "2": "plain string"
+        },
+        "ListconfigsConfigsHtlcmaximummsat": {
+            "1": "plain Amount",
+            "2": "plain string"
+        },
+        "ListconfigsConfigsHtlcminimummsat": {
+            "1": "plain Amount",
+            "2": "plain string"
+        },
+        "ListconfigsConfigsIgnorefeelimits": {
+            "1": "plain bool",
+            "2": "plain string"
+        },
+        "ListconfigsConfigsImportantplugin": {
+            "1": "repeated string",
+            "2": "repeated string"
+        },
+        "ListconfigsConfigsInvoicesonchainfallback": {
+            "1": "plain bool",
+            "2": "plain string"
+        },
+        "ListconfigsConfigsIpromisetofixbrokenapiuser": {
+            "1": "repeated string",
+            "2": "repeated string"
+        },
+        "ListconfigsConfigsLargechannels": {
+            "1": "plain bool",
+            "2": "plain string"
+        },
+        "ListconfigsConfigsLightningdir": {
+            "1": "plain string",
+            "2": "plain string"
+        },
+        "ListconfigsConfigsLogfile": {
+            "1": "repeated string",
+            "2": "repeated string"
+        },
+        "ListconfigsConfigsLoglevel": {
+            "1": "plain string",
+            "2": "plain string"
+        },
+        "ListconfigsConfigsLogprefix": {
+            "1": "plain string",
+            "2": "plain string"
+        },
+        "ListconfigsConfigsLogtimestamps": {
+            "1": "plain bool",
+            "2": "plain string"
+        },
+        "ListconfigsConfigsMainnet": {
+            "1": "plain bool",
+            "2": "plain string"
+        },
+        "ListconfigsConfigsMaxconcurrenthtlcs": {
+            "1": "plain uint32",
+            "2": "plain string"
+        },
+        "ListconfigsConfigsMaxdusthtlcexposuremsat": {
+            "1": "plain Amount",
+            "2": "plain string"
+        },
+        "ListconfigsConfigsMaxlocktimeblocks": {
+            "1": "plain uint32",
+            "2": "plain string"
+        },
+        "ListconfigsConfigsMessagepadding": {
+            "1": "plain string",
+            "2": "plain bool"
+        },
+        "ListconfigsConfigsMincapacitysat": {
+            "1": "plain uint64",
+            "2": "plain string",
+            "3": "optional bool"
+        },
+        "ListconfigsConfigsMinemergencymsat": {
+            "1": "plain string",
+            "2": "plain Amount"
+        },
+        "ListconfigsConfigsNetwork": {
+            "1": "plain string",
+            "2": "plain string"
+        },
+        "ListconfigsConfigsOffline": {
+            "1": "plain bool",
+            "2": "plain string"
+        },
+        "ListconfigsConfigsPaymentfrontingnode": {
+            "1": "repeated string",
+            "2": "repeated string"
+        },
+        "ListconfigsConfigsPidfile": {
+            "1": "plain string",
+            "2": "plain string"
+        },
+        "ListconfigsConfigsPlugin": {
+            "1": "repeated string",
+            "2": "repeated string"
+        },
+        "ListconfigsConfigsPlugindir": {
+            "1": "repeated string",
+            "2": "repeated string"
+        },
+        "ListconfigsConfigsProxy": {
+            "1": "plain string",
+            "2": "plain string"
+        },
+        "ListconfigsConfigsRecover": {
+            "1": "plain string",
+            "2": "plain string"
+        },
+        "ListconfigsConfigsRegtest": {
+            "1": "plain bool",
+            "2": "plain string"
+        },
+        "ListconfigsConfigsRequireconfirmedinputs": {
+            "1": "plain bool",
+            "2": "plain string"
+        },
+        "ListconfigsConfigsRescan": {
+            "1": "plain sint64",
+            "2": "plain string"
+        },
+        "ListconfigsConfigsRgb": {
+            "1": "plain bytes",
+            "2": "plain string"
+        },
+        "ListconfigsConfigsRpcfile": {
+            "1": "plain string",
+            "2": "plain string"
+        },
+        "ListconfigsConfigsRpcfilemode": {
+            "1": "plain string",
+            "2": "plain string"
+        },
+        "ListconfigsConfigsSignet": {
+            "1": "plain bool",
+            "2": "plain string"
+        },
+        "ListconfigsConfigsSubdaemon": {
+            "1": "repeated string",
+            "2": "repeated string"
+        },
+        "ListconfigsConfigsTestnet": {
+            "1": "plain bool",
+            "2": "plain string"
+        },
+        "ListconfigsConfigsTorservicepassword": {
+            "1": "plain string",
+            "2": "plain string"
+        },
+        "ListconfigsConfigsWallet": {
+            "1": "plain string",
+            "2": "plain string"
+        },
+        "ListconfigsConfigsWatchtimeblocks": {
+            "1": "plain uint32",
+            "2": "plain string"
+        },
+        "ListconfigsRequest": {
+            "1": "optional string"
+        },
+        "ListconfigsResponse": {
+            "1": "optional message"
+        },
+        "ListcurrencyratesCurrencyrates": {
+            "1": "plain string",
+            "2": "plain double"
+        },
+        "ListcurrencyratesRequest": {
+            "1": "plain string"
+        },
+        "ListcurrencyratesResponse": {
+            "1": "repeated message"
+        },
+        "ListdatastoreDatastore": {
+            "1": "repeated string",
+            "2": "optional uint64",
+            "3": "optional bytes",
+            "4": "optional string"
+        },
+        "ListdatastoreRequest": {
+            "2": "repeated string"
+        },
+        "ListdatastoreResponse": {
+            "1": "repeated message"
+        },
+        "ListforwardsForwards": {
+            "1": "plain string",
+            "10": "optional uint64",
+            "11": "optional uint64",
+            "12": "plain uint64",
+            "13": "optional uint64",
+            "14": "optional double",
+            "15": "optional uint32",
+            "16": "optional string",
+            "2": "plain Amount",
+            "3": "plain enum",
+            "4": "plain double",
+            "5": "optional string",
+            "7": "optional Amount",
+            "8": "optional Amount",
+            "9": "optional enum"
+        },
+        "ListforwardsRequest": {
+            "1": "optional enum",
+            "2": "optional string",
+            "3": "optional string",
+            "4": "optional enum",
+            "5": "optional uint64",
+            "6": "optional uint32"
+        },
+        "ListforwardsResponse": {
+            "1": "repeated message"
+        },
+        "ListfundsChannels": {
+            "1": "plain bytes",
+            "2": "plain Amount",
+            "3": "plain Amount",
+            "4": "plain bytes",
+            "5": "plain uint32",
+            "6": "plain bool",
+            "7": "plain enum",
+            "8": "optional string",
+            "9": "plain bytes"
+        },
+        "ListfundsOutputs": {
+            "1": "plain bytes",
+            "10": "optional uint32",
+            "11": "optional uint32",
+            "12": "optional uint32",
+            "2": "plain uint32",
+            "3": "plain Amount",
+            "4": "plain bytes",
+            "5": "optional string",
+            "6": "optional bytes",
+            "7": "plain enum",
+            "8": "optional uint32",
+            "9": "plain bool"
+        },
+        "ListfundsRequest": {
+            "1": "optional bool"
+        },
+        "ListfundsResponse": {
+            "1": "repeated message",
+            "2": "repeated message"
+        },
+        "ListhtlcsHtlcs": {
+            "1": "plain string",
+            "2": "plain uint64",
+            "3": "plain uint32",
+            "4": "plain Amount",
+            "5": "plain enum",
+            "6": "plain bytes",
+            "7": "plain enum",
+            "8": "optional uint64",
+            "9": "optional uint64"
+        },
+        "ListhtlcsRequest": {
+            "1": "optional string",
+            "2": "optional enum",
+            "3": "optional uint64",
+            "4": "optional uint32"
+        },
+        "ListhtlcsResponse": {
+            "1": "repeated message"
+        },
+        "ListinvoicerequestsInvoicerequests": {
+            "1": "plain bytes",
+            "2": "plain bool",
+            "3": "plain bool",
+            "4": "plain string",
+            "5": "plain bool",
+            "6": "optional string"
+        },
+        "ListinvoicerequestsRequest": {
+            "1": "optional string",
+            "2": "optional bool"
+        },
+        "ListinvoicerequestsResponse": {
+            "1": "repeated message"
+        },
+        "ListinvoicesInvoices": {
+            "1": "plain string",
+            "11": "optional uint64",
+            "12": "optional Amount",
+            "13": "optional uint64",
+            "14": "optional bytes",
+            "15": "optional string",
+            "16": "plain uint64",
+            "17": "optional uint64",
+            "18": "optional message",
+            "2": "optional string",
+            "3": "plain bytes",
+            "4": "plain enum",
+            "5": "plain uint64",
+            "6": "optional Amount",
+            "7": "optional string",
+            "8": "optional string",
+            "9": "optional bytes"
+        },
+        "ListinvoicesInvoicesPaidOutpoint": {
+            "1": "plain bytes",
+            "2": "plain uint32"
+        },
+        "ListinvoicesRequest": {
+            "1": "optional string",
+            "2": "optional string",
+            "3": "optional bytes",
+            "4": "optional string",
+            "5": "optional enum",
+            "6": "optional uint64",
+            "7": "optional uint32"
+        },
+        "ListinvoicesResponse": {
+            "1": "repeated message"
+        },
+        "ListnetworkeventsNetworkevents": {
+            "1": "plain uint64",
+            "2": "plain uint64",
+            "3": "plain bytes",
+            "4": "plain string",
+            "5": "optional string",
+            "6": "optional uint64",
+            "7": "optional bool"
+        },
+        "ListnetworkeventsRequest": {
+            "1": "optional string",
+            "2": "optional enum",
+            "3": "optional uint64",
+            "4": "optional uint32"
+        },
+        "ListnetworkeventsResponse": {
+            "1": "repeated message"
+        },
+        "ListnodesNodes": {
+            "1": "plain bytes",
+            "2": "optional uint32",
+            "3": "optional string",
+            "4": "optional bytes",
+            "5": "optional bytes",
+            "6": "repeated message",
+            "7": "optional message"
+        },
+        "ListnodesNodesAddresses": {
+            "1": "plain enum",
+            "2": "plain uint32",
+            "3": "optional string"
+        },
+        "ListnodesNodesOptionWillFund": {
+            "1": "plain Amount",
+            "2": "plain uint32",
+            "3": "plain uint32",
+            "4": "plain Amount",
+            "5": "plain uint32",
+            "6": "plain bytes"
+        },
+        "ListnodesRequest": {
+            "1": "optional bytes"
+        },
+        "ListnodesResponse": {
+            "1": "repeated message"
+        },
+        "ListoffersOffers": {
+            "1": "plain bytes",
+            "2": "plain bool",
+            "3": "plain bool",
+            "4": "plain string",
+            "5": "plain bool",
+            "6": "optional string",
+            "7": "optional string",
+            "8": "optional bool"
+        },
+        "ListoffersRequest": {
+            "1": "optional bytes",
+            "2": "optional bool"
+        },
+        "ListoffersResponse": {
+            "1": "repeated message"
+        },
+        "ListpaysPays": {
+            "1": "plain bytes",
+            "10": "optional bytes",
+            "11": "optional string",
+            "12": "optional uint64",
+            "13": "optional bytes",
+            "14": "optional uint64",
+            "15": "optional uint64",
+            "16": "optional uint64",
+            "2": "plain enum",
+            "3": "optional bytes",
+            "4": "plain uint64",
+            "5": "optional string",
+            "6": "optional string",
+            "7": "optional string",
+            "8": "optional Amount",
+            "9": "optional Amount"
+        },
+        "ListpaysRequest": {
+            "1": "optional string",
+            "2": "optional bytes",
+            "3": "optional enum",
+            "4": "optional enum",
+            "5": "optional uint64",
+            "6": "optional uint32"
+        },
+        "ListpaysResponse": {
+            "1": "repeated message"
+        },
+        "ListpeerchannelsChannels": {
+            "1": "plain bytes",
+            "10": "optional bytes",
+            "11": "optional uint32",
+            "12": "optional string",
+            "13": "optional string",
+            "14": "optional string",
+            "15": "optional uint32",
+            "16": "repeated message",
+            "17": "optional bytes",
+            "18": "optional bool",
+            "19": "plain enum",
+            "2": "plain bool",
+            "20": "optional enum",
+            "22": "optional message",
+            "23": "optional Amount",
+            "24": "optional Amount",
+            "25": "optional Amount",
+            "26": "optional Amount",
+            "27": "optional Amount",
+            "28": "optional uint32",
+            "29": "optional Amount",
+            "3": "plain enum",
+            "31": "optional Amount",
+            "32": "optional Amount",
+            "33": "optional Amount",
+            "34": "optional Amount",
+            "35": "optional Amount",
+            "36": "optional Amount",
+            "37": "optional Amount",
+            "38": "optional uint32",
+            "39": "optional uint32",
+            "4": "optional bytes",
+            "40": "optional uint32",
+            "41": "optional message",
+            "42": "repeated message",
+            "43": "repeated string",
+            "44": "optional uint64",
+            "45": "optional Amount",
+            "46": "optional uint64",
+            "47": "optional Amount",
+            "48": "optional uint64",
+            "49": "optional Amount",
+            "5": "optional message",
+            "50": "optional uint64",
+            "51": "optional Amount",
+            "52": "repeated message",
+            "53": "optional string",
+            "54": "optional bool",
+            "55": "optional message",
+            "56": "optional uint64",
+            "57": "optional bool",
+            "58": "optional bool",
+            "59": "optional Amount",
+            "6": "optional message",
+            "60": "optional uint32",
+            "61": "optional Amount",
+            "62": "optional Amount",
+            "63": "repeated string",
+            "7": "optional string",
+            "8": "optional string",
+            "9": "optional bytes"
+        },
+        "ListpeerchannelsChannelsAlias": {
+            "1": "optional string",
+            "2": "optional string"
+        },
+        "ListpeerchannelsChannelsChannelType": {
+            "1": "repeated uint32",
+            "2": "repeated enum"
+        },
+        "ListpeerchannelsChannelsFeerate": {
+            "1": "plain uint32",
+            "2": "plain uint32"
+        },
+        "ListpeerchannelsChannelsFunding": {
+            "1": "optional Amount",
+            "2": "plain Amount",
+            "3": "plain Amount",
+            "4": "optional Amount",
+            "5": "optional Amount",
+            "6": "optional string",
+            "7": "optional bool"
+        },
+        "ListpeerchannelsChannelsHtlcs": {
+            "1": "plain enum",
+            "2": "plain uint64",
+            "3": "plain Amount",
+            "4": "plain uint32",
+            "5": "plain bytes",
+            "6": "optional bool",
+            "7": "optional string",
+            "8": "plain enum"
+        },
+        "ListpeerchannelsChannelsInflight": {
+            "1": "plain bytes",
+            "2": "plain uint32",
+            "3": "plain string",
+            "4": "plain Amount",
+            "5": "plain Amount",
+            "6": "optional bytes",
+            "7": "plain sint64"
+        },
+        "ListpeerchannelsChannelsStateChanges": {
+            "1": "plain string",
+            "2": "plain enum",
+            "3": "plain enum",
+            "4": "plain enum",
+            "5": "plain string"
+        },
+        "ListpeerchannelsChannelsUpdates": {
+            "1": "plain message",
+            "2": "optional message"
+        },
+        "ListpeerchannelsChannelsUpdatesLocal": {
+            "1": "plain Amount",
+            "2": "plain Amount",
+            "3": "plain uint32",
+            "4": "plain Amount",
+            "5": "plain uint32"
+        },
+        "ListpeerchannelsChannelsUpdatesRemote": {
+            "1": "plain Amount",
+            "2": "plain Amount",
+            "3": "plain uint32",
+            "4": "plain Amount",
+            "5": "plain uint32"
+        },
+        "ListpeerchannelsRequest": {
+            "1": "optional bytes",
+            "2": "optional string",
+            "3": "optional bytes"
+        },
+        "ListpeerchannelsResponse": {
+            "1": "repeated message"
+        },
+        "ListpeersPeers": {
+            "1": "plain bytes",
+            "2": "plain bool",
+            "3": "repeated message",
+            "5": "repeated string",
+            "6": "optional bytes",
+            "7": "optional string",
+            "8": "plain uint32"
+        },
+        "ListpeersPeersLog": {
+            "1": "plain enum",
+            "2": "optional uint32",
+            "3": "optional string",
+            "4": "optional string",
+            "5": "optional string",
+            "6": "optional bytes",
+            "7": "optional bytes"
+        },
+        "ListpeersRequest": {
+            "1": "optional bytes",
+            "2": "optional enum"
+        },
+        "ListpeersResponse": {
+            "1": "repeated message"
+        },
+        "ListsendpaysPayments": {
+            "1": "plain uint64",
+            "10": "optional string",
+            "11": "optional string",
+            "12": "optional bytes",
+            "13": "optional bytes",
+            "14": "optional string",
+            "15": "optional uint64",
+            "16": "plain uint64",
+            "17": "optional uint64",
+            "18": "optional uint64",
+            "2": "plain uint64",
+            "3": "plain bytes",
+            "4": "plain enum",
+            "5": "optional Amount",
+            "6": "optional bytes",
+            "7": "plain uint64",
+            "8": "plain Amount",
+            "9": "optional string"
+        },
+        "ListsendpaysRequest": {
+            "1": "optional string",
+            "2": "optional bytes",
+            "3": "optional enum",
+            "4": "optional enum",
+            "5": "optional uint64",
+            "6": "optional uint32"
+        },
+        "ListsendpaysResponse": {
+            "1": "repeated message"
+        },
+        "ListtransactionsRequest": {},
+        "ListtransactionsResponse": {
+            "1": "repeated message"
+        },
+        "ListtransactionsTransactions": {
+            "1": "plain bytes",
+            "10": "repeated message",
+            "2": "plain bytes",
+            "3": "plain uint32",
+            "4": "plain uint32",
+            "7": "plain uint32",
+            "8": "plain uint32",
+            "9": "repeated message"
+        },
+        "ListtransactionsTransactionsInputs": {
+            "1": "plain bytes",
+            "2": "plain uint32",
+            "3": "plain uint32"
+        },
+        "ListtransactionsTransactionsOutputs": {
+            "1": "plain uint32",
+            "3": "plain bytes",
+            "6": "plain Amount"
+        },
+        "LogNotification": {
+            "1": "plain enum",
+            "2": "plain string",
+            "3": "plain string",
+            "4": "plain string",
+            "5": "plain string"
+        },
+        "MakesecretRequest": {
+            "1": "optional bytes",
+            "2": "optional string"
+        },
+        "MakesecretResponse": {
+            "1": "plain bytes"
+        },
+        "MultifundchannelChannelIds": {
+            "1": "plain bytes",
+            "2": "plain uint32",
+            "3": "plain bytes",
+            "4": "plain message",
+            "5": "optional bytes"
+        },
+        "MultifundchannelChannelIdsChannelType": {
+            "1": "repeated uint32",
+            "2": "repeated enum"
+        },
+        "MultifundchannelDestinations": {
+            "1": "plain string",
+            "10": "plain AmountSatOrAll",
+            "11": "optional AmountSat",
+            "12": "optional AmountSat",
+            "2": "plain AmountOrAll",
+            "3": "optional bool",
+            "4": "optional Amount",
+            "5": "optional string",
+            "6": "optional Amount",
+            "7": "optional string",
+            "8": "optional uint32",
+            "9": "optional Amount"
+        },
+        "MultifundchannelFailed": {
+            "1": "plain bytes",
+            "2": "plain enum",
+            "3": "plain message"
+        },
+        "MultifundchannelFailedError": {
+            "1": "plain sint64",
+            "2": "plain string"
+        },
+        "MultifundchannelRequest": {
+            "1": "repeated message",
+            "2": "optional Feerate",
+            "3": "optional sint64",
+            "4": "repeated Outpoint",
+            "5": "optional sint64",
+            "6": "optional Feerate"
+        },
+        "MultifundchannelResponse": {
+            "1": "plain bytes",
+            "2": "plain bytes",
+            "3": "repeated message",
+            "4": "repeated message"
+        },
+        "MultiwithdrawRequest": {
+            "1": "repeated OutputDesc",
+            "2": "optional Feerate",
+            "3": "optional uint32",
+            "4": "repeated Outpoint"
+        },
+        "MultiwithdrawResponse": {
+            "1": "plain bytes",
+            "2": "plain bytes"
+        },
+        "NewaddrRequest": {
+            "1": "optional enum"
+        },
+        "NewaddrResponse": {
+            "1": "optional string",
+            "3": "optional string"
+        },
+        "OfferRequest": {
+            "1": "plain string",
+            "10": "optional uint32",
+            "11": "optional bool",
+            "13": "optional bool",
+            "14": "optional bool",
+            "15": "repeated bytes",
+            "2": "optional string",
+            "3": "optional string",
+            "4": "optional string",
+            "5": "optional uint64",
+            "6": "optional uint64",
+            "7": "optional string",
+            "8": "optional string",
+            "9": "optional string"
+        },
+        "OfferResponse": {
+            "1": "plain bytes",
+            "2": "plain bool",
+            "3": "plain bool",
+            "4": "plain string",
+            "5": "plain bool",
+            "6": "plain bool",
+            "7": "optional string",
+            "8": "optional bool"
+        },
+        "OnionMessageForwardFailNotification": {
+            "1": "plain bytes",
+            "2": "plain bytes",
+            "3": "plain bytes",
+            "4": "optional bytes",
+            "5": "optional bytes",
+            "6": "optional string"
+        },
+        "OpenChannelPeerSigsNotification": {
+            "1": "plain bytes",
+            "2": "plain string"
+        },
+        "OpenchannelAbortRequest": {
+            "1": "plain bytes"
+        },
+        "OpenchannelAbortResponse": {
+            "1": "plain bytes",
+            "2": "plain bool",
+            "3": "plain string"
+        },
+        "OpenchannelBumpChannelType": {
+            "1": "repeated uint32",
+            "2": "repeated enum"
+        },
+        "OpenchannelBumpRequest": {
+            "1": "plain bytes",
+            "2": "plain string",
+            "3": "optional Feerate",
+            "4": "plain Amount",
+            "5": "plain AmountSat"
+        },
+        "OpenchannelBumpResponse": {
+            "1": "plain bytes",
+            "2": "plain message",
+            "3": "plain string",
+            "4": "plain bool",
+            "5": "plain uint64",
+            "6": "optional bool"
+        },
+        "OpenchannelInitChannelType": {
+            "1": "repeated uint32",
+            "2": "repeated enum"
+        },
+        "OpenchannelInitRequest": {
+            "1": "plain bytes",
+            "10": "plain Amount",
+            "11": "optional AmountSat",
+            "12": "plain AmountSat",
+            "2": "plain string",
+            "3": "optional Feerate",
+            "4": "optional Feerate",
+            "5": "optional bool",
+            "6": "optional string",
+            "7": "optional Amount",
+            "8": "optional bytes",
+            "9": "repeated uint32"
+        },
+        "OpenchannelInitResponse": {
+            "1": "plain bytes",
+            "2": "plain string",
+            "3": "plain message",
+            "4": "plain bool",
+            "5": "plain uint64",
+            "6": "optional bool"
+        },
+        "OpenchannelSignedRequest": {
+            "1": "plain bytes",
+            "2": "plain string"
+        },
+        "OpenchannelSignedResponse": {
+            "1": "plain bytes",
+            "2": "plain bytes",
+            "3": "plain bytes"
+        },
+        "OpenchannelUpdateChannelType": {
+            "1": "repeated uint32",
+            "2": "repeated enum"
+        },
+        "OpenchannelUpdateRequest": {
+            "1": "plain bytes",
+            "2": "plain string"
+        },
+        "OpenchannelUpdateResponse": {
+            "1": "plain bytes",
+            "2": "plain message",
+            "3": "plain string",
+            "4": "plain bool",
+            "5": "plain uint32",
+            "6": "optional bytes",
+            "7": "optional bool"
+        },
+        "Outpoint": {
+            "1": "plain bytes",
+            "2": "plain uint32"
+        },
+        "OutputDesc": {
+            "1": "plain string",
+            "2": "plain message"
+        },
+        "PayPartEndNotification": {
+            "1": "plain enum",
+            "10": "optional uint32",
+            "11": "optional string",
+            "2": "plain double",
+            "3": "plain bytes",
+            "4": "plain uint64",
+            "5": "plain uint64",
+            "6": "optional bytes",
+            "7": "optional bytes",
+            "8": "optional string",
+            "9": "optional uint32"
+        },
+        "PayPartStartHops": {
+            "1": "plain bytes",
+            "2": "plain string",
+            "3": "plain uint32",
+            "4": "plain Amount",
+            "5": "plain Amount"
+        },
+        "PayPartStartNotification": {
+            "1": "plain bytes",
+            "2": "plain uint64",
+            "3": "plain uint64",
+            "4": "plain Amount",
+            "5": "plain Amount",
+            "6": "repeated message"
+        },
+        "PayRequest": {
+            "1": "plain string",
+            "10": "repeated string",
+            "11": "optional Amount",
+            "12": "optional string",
+            "13": "optional Amount",
+            "14": "optional bytes",
+            "15": "optional Amount",
+            "3": "optional string",
+            "4": "optional double",
+            "5": "optional uint32",
+            "6": "optional uint32",
+            "7": "optional Amount",
+            "8": "optional double"
+        },
+        "PayResponse": {
+            "1": "plain bytes",
+            "2": "optional bytes",
+            "3": "plain bytes",
+            "4": "plain double",
+            "5": "plain uint32",
+            "6": "plain Amount",
+            "7": "plain Amount",
+            "8": "optional string",
+            "9": "plain enum"
+        },
+        "PeerConnectAddress": {
+            "1": "plain enum",
+            "2": "optional string",
+            "3": "optional string",
+            "4": "optional uint32",
+            "5": "optional string"
+        },
+        "PeerConnectNotification": {
+            "1": "plain bytes",
+            "2": "plain enum",
+            "3": "plain message"
+        },
+        "PingRequest": {
+            "1": "plain bytes",
+            "2": "optional uint32",
+            "3": "optional uint32"
+        },
+        "PingResponse": {
+            "1": "plain uint32"
+        },
+        "PluginPlugins": {
+            "1": "plain string",
+            "2": "plain bool",
+            "3": "plain bool"
+        },
+        "PluginRequest": {
+            "1": "plain enum",
+            "2": "optional string",
+            "3": "optional string",
+            "4": "repeated string"
+        },
+        "PluginResponse": {
+            "1": "plain enum",
+            "2": "repeated message",
+            "3": "optional string"
+        },
+        "PluginStartedNotification": {
+            "1": "plain string",
+            "2": "plain string",
+            "3": "repeated string"
+        },
+        "PluginStoppedNotification": {
+            "1": "plain string",
+            "2": "plain string",
+            "3": "repeated string"
+        },
+        "PreapproveinvoiceRequest": {
+            "1": "plain string"
+        },
+        "PreapproveinvoiceResponse": {},
+        "PreapprovekeysendRequest": {
+            "1": "plain bytes",
+            "2": "plain bytes",
+            "3": "plain Amount"
+        },
+        "PreapprovekeysendResponse": {},
+        "ProofField": {
+            "2": "plain uint64"
+        },
+        "RecoverRequest": {
+            "1": "plain string"
+        },
+        "RecoverResponse": {
+            "1": "plain enum"
+        },
+        "RecoverchannelRequest": {
+            "1": "repeated bytes"
+        },
+        "RecoverchannelResponse": {
+            "1": "repeated string"
+        },
+        "RenepayRequest": {
+            "1": "plain string",
+            "2": "optional Amount",
+            "3": "optional Amount",
+            "4": "optional uint32",
+            "5": "optional uint32",
+            "6": "optional string",
+            "7": "optional string",
+            "8": "optional bool",
+            "9": "repeated string"
+        },
+        "RenepayResponse": {
+            "1": "plain bytes",
+            "10": "optional string",
+            "11": "optional uint64",
+            "2": "plain bytes",
+            "3": "plain double",
+            "4": "plain uint32",
+            "5": "plain Amount",
+            "6": "plain Amount",
+            "7": "plain enum",
+            "8": "optional bytes",
+            "9": "optional string"
+        },
+        "RenepaystatusPaystatus": {
+            "1": "plain string",
+            "10": "optional bytes",
+            "11": "repeated string",
+            "2": "optional bytes",
+            "3": "plain bytes",
+            "4": "plain double",
+            "5": "plain uint32",
+            "6": "optional uint32",
+            "7": "plain Amount",
+            "8": "optional Amount",
+            "9": "plain enum"
+        },
+        "RenepaystatusRequest": {
+            "1": "optional string"
+        },
+        "RenepaystatusResponse": {
+            "1": "repeated message"
+        },
+        "ReserveinputsRequest": {
+            "1": "plain string",
+            "2": "optional bool",
+            "3": "optional uint32"
+        },
+        "ReserveinputsReservations": {
+            "1": "plain bytes",
+            "2": "plain uint32",
+            "3": "plain bool",
+            "4": "plain bool",
+            "5": "plain uint32"
+        },
+        "ReserveinputsResponse": {
+            "1": "repeated message"
+        },
+        "RouteHop": {
+            "1": "plain bytes",
+            "2": "plain string",
+            "3": "plain message",
+            "4": "plain uint32",
+            "5": "plain uint32"
+        },
+        "Routehint": {
+            "1": "repeated message"
+        },
+        "RoutehintList": {
+            "2": "repeated message"
+        },
+        "SendPayFailureNotification": {
+            "1": "plain sint64",
+            "2": "plain string",
+            "3": "plain message"
+        },
+        "SendPaySuccessNotification": {
+            "1": "plain uint64",
+            "10": "plain uint64",
+            "11": "optional uint64",
+            "12": "plain enum",
+            "13": "optional bytes",
+            "14": "optional string",
+            "15": "optional string",
+            "16": "optional string",
+            "17": "optional string",
+            "18": "optional bytes",
+            "2": "plain uint64",
+            "3": "plain bytes",
+            "4": "plain uint64",
+            "5": "optional uint64",
+            "6": "optional uint64",
+            "7": "optional bytes",
+            "8": "optional Amount",
+            "9": "plain Amount"
+        },
+        "SendamountRequest": {
+            "1": "plain string",
+            "2": "plain Amount",
+            "3": "optional Amount",
+            "4": "repeated string",
+            "5": "optional uint32",
+            "6": "optional uint32",
+            "7": "optional string",
+            "8": "optional string"
+        },
+        "SendamountResponse": {
+            "1": "plain bytes",
+            "2": "plain uint64",
+            "3": "plain uint64",
+            "4": "plain Amount",
+            "5": "plain Amount"
+        },
+        "SendcustommsgRequest": {
+            "1": "plain bytes",
+            "2": "plain bytes"
+        },
+        "SendcustommsgResponse": {
+            "1": "plain string"
+        },
+        "SendinvoiceRequest": {
+            "1": "plain string",
+            "2": "plain string",
+            "3": "optional Amount",
+            "4": "optional uint32",
+            "5": "optional uint64"
+        },
+        "SendinvoiceResponse": {
+            "1": "plain string",
+            "10": "optional uint64",
+            "11": "optional Amount",
+            "12": "optional uint64",
+            "13": "optional bytes",
+            "2": "optional string",
+            "3": "plain bytes",
+            "4": "plain enum",
+            "5": "plain uint64",
+            "6": "optional Amount",
+            "7": "optional string",
+            "8": "plain uint64",
+            "9": "optional uint64"
+        },
+        "SendonionFirstHop": {
+            "1": "plain bytes",
+            "2": "plain Amount",
+            "3": "plain uint32"
+        },
+        "SendonionRequest": {
+            "1": "plain bytes",
+            "11": "optional uint64",
+            "12": "optional Amount",
+            "13": "optional bytes",
+            "14": "optional string",
+            "15": "optional Amount",
+            "2": "plain message",
+            "3": "plain bytes",
+            "4": "optional string",
+            "5": "repeated bytes",
+            "6": "optional uint32",
+            "7": "optional string",
+            "9": "optional bytes"
+        },
+        "SendonionResponse": {
+            "1": "plain uint64",
+            "10": "optional string",
+            "11": "optional bytes",
+            "12": "optional string",
+            "13": "optional uint64",
+            "14": "plain uint64",
+            "15": "optional uint64",
+            "2": "plain bytes",
+            "3": "plain enum",
+            "4": "optional Amount",
+            "5": "optional bytes",
+            "6": "plain uint64",
+            "7": "plain Amount",
+            "8": "optional string",
+            "9": "optional string"
+        },
+        "SendpayFailureData": {
+            "1": "optional uint64",
+            "10": "optional uint64",
+            "11": "optional uint64",
+            "12": "optional enum",
+            "13": "optional bytes",
+            "14": "optional string",
+            "15": "optional string",
+            "16": "optional string",
+            "17": "optional string",
+            "18": "optional bytes",
+            "19": "optional bytes",
+            "2": "optional uint64",
+            "20": "optional uint32",
+            "21": "optional uint32",
+            "22": "optional string",
+            "23": "optional bytes",
+            "24": "optional string",
+            "25": "optional uint32",
+            "26": "optional bytes",
+            "3": "optional bytes",
+            "4": "optional uint64",
+            "5": "optional uint64",
+            "6": "optional uint64",
+            "7": "optional bytes",
+            "8": "optional Amount",
+            "9": "optional Amount"
+        },
+        "SendpayRequest": {
+            "1": "repeated message",
+            "10": "optional Amount",
+            "11": "optional bytes",
+            "12": "optional bytes",
+            "13": "optional string",
+            "2": "plain bytes",
+            "3": "optional string",
+            "5": "optional string",
+            "6": "optional bytes",
+            "7": "optional uint64",
+            "9": "optional uint64"
+        },
+        "SendpayResponse": {
+            "1": "plain uint64",
+            "10": "optional uint64",
+            "11": "optional string",
+            "12": "optional string",
+            "13": "optional bytes",
+            "14": "optional string",
+            "15": "optional uint64",
+            "16": "plain uint64",
+            "17": "optional uint64",
+            "2": "optional uint64",
+            "3": "plain bytes",
+            "4": "plain enum",
+            "5": "optional Amount",
+            "6": "optional bytes",
+            "7": "plain uint64",
+            "8": "plain Amount",
+            "9": "optional string"
+        },
+        "SendpayRoute": {
+            "2": "optional bytes",
+            "3": "optional uint32",
+            "4": "optional string",
+            "5": "optional Amount",
+            "6": "optional string",
+            "7": "optional bytes",
+            "8": "optional Amount",
+            "9": "optional uint32"
+        },
+        "SendpsbtRequest": {
+            "1": "plain string",
+            "2": "optional uint32"
+        },
+        "SendpsbtResponse": {
+            "1": "plain bytes",
+            "2": "plain bytes"
+        },
+        "SetchannelChannels": {
+            "1": "plain bytes",
+            "10": "plain bool",
+            "2": "plain bytes",
+            "3": "optional string",
+            "4": "plain Amount",
+            "5": "plain uint32",
+            "6": "plain Amount",
+            "7": "optional string",
+            "8": "plain Amount",
+            "9": "optional string"
+        },
+        "SetchannelRequest": {
+            "1": "plain string",
+            "2": "optional Amount",
+            "3": "optional uint32",
+            "4": "optional Amount",
+            "5": "optional Amount",
+            "6": "optional uint32",
+            "7": "optional bool"
+        },
+        "SetchannelResponse": {
+            "1": "repeated message"
+        },
+        "SetconfigConfig": {
+            "1": "plain string",
+            "10": "repeated string",
+            "11": "repeated string",
+            "2": "optional string",
+            "3": "optional string",
+            "4": "plain bool",
+            "5": "optional bool",
+            "6": "optional string",
+            "7": "optional Amount",
+            "8": "optional sint64",
+            "9": "optional bool"
+        },
+        "SetconfigRequest": {
+            "1": "plain string",
+            "2": "optional string",
+            "3": "optional bool"
+        },
+        "SetconfigResponse": {
+            "1": "plain message"
+        },
+        "SetpsbtversionRequest": {
+            "1": "plain string",
+            "2": "plain uint32"
+        },
+        "SetpsbtversionResponse": {
+            "1": "plain string"
+        },
+        "ShowrunesRequest": {
+            "1": "optional string"
+        },
+        "ShowrunesResponse": {
+            "1": "repeated message"
+        },
+        "ShowrunesRunes": {
+            "1": "plain string",
+            "2": "plain string",
+            "3": "repeated message",
+            "4": "plain string",
+            "5": "optional bool",
+            "6": "optional bool",
+            "7": "optional double",
+            "8": "optional bool"
+        },
+        "ShowrunesRunesRestrictions": {
+            "1": "repeated message",
+            "2": "plain string"
+        },
+        "ShowrunesRunesRestrictionsAlternatives": {
+            "1": "plain string",
+            "2": "plain string",
+            "3": "plain string",
+            "4": "plain string"
+        },
+        "ShutdownNotification": {},
+        "SigninvoiceRequest": {
+            "1": "plain string"
+        },
+        "SigninvoiceResponse": {
+            "1": "plain string"
+        },
+        "SignmessageRequest": {
+            "1": "plain string"
+        },
+        "SignmessageResponse": {
+            "1": "plain bytes",
+            "2": "plain bytes",
+            "3": "plain string"
+        },
+        "SignmessagewithkeyRequest": {
+            "1": "plain string",
+            "2": "plain string"
+        },
+        "SignmessagewithkeyResponse": {
+            "1": "plain string",
+            "2": "plain bytes",
+            "3": "plain bytes",
+            "4": "plain string"
+        },
+        "SignpsbtRequest": {
+            "1": "plain string",
+            "2": "repeated uint32"
+        },
+        "SignpsbtResponse": {
+            "1": "plain string"
+        },
+        "SpliceInitRequest": {
+            "1": "plain bytes",
+            "2": "plain sint64",
+            "3": "optional string",
+            "4": "optional uint32",
+            "5": "optional bool"
+        },
+        "SpliceInitResponse": {
+            "1": "plain string"
+        },
+        "SpliceSignedRequest": {
+            "1": "optional bytes",
+            "2": "plain string",
+            "3": "optional bool"
+        },
+        "SpliceSignedResponse": {
+            "1": "plain bytes",
+            "2": "plain bytes",
+            "3": "optional uint32",
+            "4": "plain string"
+        },
+        "SpliceUpdateRequest": {
+            "1": "plain bytes",
+            "2": "plain string"
+        },
+        "SpliceUpdateResponse": {
+            "1": "plain string",
+            "2": "plain bool",
+            "3": "optional bool"
+        },
+        "SpliceinRequest": {
+            "1": "plain string",
+            "2": "plain string"
+        },
+        "SpliceinResponse": {
+            "1": "optional string",
+            "2": "optional string",
+            "3": "optional string"
+        },
+        "SpliceoutRequest": {
+            "1": "plain string",
+            "2": "plain string",
+            "3": "optional string",
+            "4": "optional bool"
+        },
+        "SpliceoutResponse": {
+            "1": "optional string",
+            "2": "optional string",
+            "3": "optional string"
+        },
+        "StaticbackupRequest": {},
+        "StaticbackupResponse": {
+            "1": "repeated bytes"
+        },
+        "StopRequest": {},
+        "StopResponse": {
+            "1": "plain enum"
+        },
+        "StreamBalanceSnapshotRequest": {},
+        "StreamBlockAddedRequest": {},
+        "StreamChannelOpenFailedRequest": {},
+        "StreamChannelOpenedRequest": {},
+        "StreamChannelStateChangedRequest": {},
+        "StreamCoinMovementRequest": {},
+        "StreamConnectRequest": {},
+        "StreamCustomMsgRequest": {},
+        "StreamDeprecatedOneshotRequest": {},
+        "StreamDisconnectRequest": {},
+        "StreamForwardEventRequest": {},
+        "StreamInvoiceCreationRequest": {},
+        "StreamInvoicePaymentRequest": {},
+        "StreamLogRequest": {},
+        "StreamOnionMessageForwardFailRequest": {},
+        "StreamOpenChannelPeerSigsRequest": {},
+        "StreamPayPartEndRequest": {},
+        "StreamPayPartStartRequest": {},
+        "StreamPluginStartedRequest": {},
+        "StreamPluginStoppedRequest": {},
+        "StreamSendPayFailureRequest": {},
+        "StreamSendPaySuccessRequest": {},
+        "StreamShutdownRequest": {},
+        "StreamWarningRequest": {},
+        "TlvEntry": {
+            "1": "plain uint64",
+            "2": "plain bytes"
+        },
+        "TlvStream": {
+            "1": "repeated message"
+        },
+        "TxdiscardRequest": {
+            "1": "plain bytes"
+        },
+        "TxdiscardResponse": {
+            "1": "plain bytes",
+            "2": "plain bytes"
+        },
+        "TxprepareRequest": {
+            "2": "optional Feerate",
+            "3": "optional uint32",
+            "4": "repeated Outpoint",
+            "5": "repeated OutputDesc"
+        },
+        "TxprepareResponse": {
+            "1": "plain string",
+            "2": "plain bytes",
+            "3": "plain bytes"
+        },
+        "TxsendRequest": {
+            "1": "plain bytes"
+        },
+        "TxsendResponse": {
+            "1": "plain string",
+            "2": "plain bytes",
+            "3": "plain bytes"
+        },
+        "UnreserveinputsRequest": {
+            "1": "plain string",
+            "2": "optional uint32"
+        },
+        "UnreserveinputsReservations": {
+            "1": "plain bytes",
+            "2": "plain uint32",
+            "3": "plain bool",
+            "4": "plain bool",
+            "5": "optional uint32"
+        },
+        "UnreserveinputsResponse": {
+            "1": "repeated message"
+        },
+        "UpgradewalletRequest": {
+            "1": "optional Feerate",
+            "2": "optional bool"
+        },
+        "UpgradewalletResponse": {
+            "1": "plain uint64",
+            "2": "optional string",
+            "3": "optional bytes",
+            "4": "optional bytes"
+        },
+        "UtxopsbtRequest": {
+            "1": "plain AmountOrAll",
+            "10": "optional bool",
+            "11": "plain AmountSatOrAll",
+            "2": "plain Feerate",
+            "3": "plain uint32",
+            "4": "repeated Outpoint",
+            "5": "optional uint32",
+            "6": "optional uint32",
+            "7": "optional uint32",
+            "8": "optional bool",
+            "9": "optional bool"
+        },
+        "UtxopsbtReservations": {
+            "1": "plain bytes",
+            "2": "plain uint32",
+            "3": "plain bool",
+            "4": "plain bool",
+            "5": "plain uint32"
+        },
+        "UtxopsbtResponse": {
+            "1": "plain string",
+            "2": "plain uint32",
+            "3": "plain uint32",
+            "4": "plain Amount",
+            "5": "optional uint32",
+            "6": "repeated message"
+        },
+        "WaitChainmoves": {
+            "1": "plain string",
+            "2": "plain Amount",
+            "3": "plain Amount"
+        },
+        "WaitChannelmoves": {
+            "1": "plain string",
+            "2": "plain Amount",
+            "3": "plain Amount"
+        },
+        "WaitDetails": {
+            "1": "optional enum",
+            "10": "optional uint64",
+            "11": "optional Amount",
+            "12": "optional string",
+            "2": "optional string",
+            "3": "optional string",
+            "4": "optional string",
+            "5": "optional string",
+            "6": "optional uint64",
+            "7": "optional uint64",
+            "8": "optional bytes",
+            "9": "optional string"
+        },
+        "WaitForwards": {
+            "1": "optional enum",
+            "2": "optional string",
+            "3": "optional uint64",
+            "4": "optional Amount",
+            "5": "optional string"
+        },
+        "WaitHtlcs": {
+            "1": "optional enum",
+            "2": "optional uint64",
+            "3": "optional string",
+            "4": "optional uint32",
+            "5": "optional Amount",
+            "6": "optional enum",
+            "7": "optional bytes"
+        },
+        "WaitInvoices": {
+            "1": "optional enum",
+            "2": "optional string",
+            "3": "optional string",
+            "4": "optional string",
+            "5": "optional string"
+        },
+        "WaitNetworkevents": {
+            "1": "optional uint64",
+            "2": "optional enum",
+            "3": "optional bytes"
+        },
+        "WaitRequest": {
+            "1": "plain enum",
+            "2": "plain enum",
+            "3": "plain uint64"
+        },
+        "WaitResponse": {
+            "1": "plain enum",
+            "10": "optional message",
+            "11": "optional message",
+            "12": "optional message",
+            "2": "optional uint64",
+            "3": "optional uint64",
+            "4": "optional uint64",
+            "5": "optional message",
+            "6": "optional message",
+            "7": "optional message",
+            "8": "optional message",
+            "9": "optional message"
+        },
+        "WaitSendpays": {
+            "1": "optional enum",
+            "2": "optional uint64",
+            "3": "optional uint64",
+            "4": "optional bytes"
+        },
+        "WaitanyinvoicePaidOutpoint": {
+            "1": "plain bytes",
+            "2": "plain uint32"
+        },
+        "WaitanyinvoiceRequest": {
+            "1": "optional uint64",
+            "2": "optional uint64"
+        },
+        "WaitanyinvoiceResponse": {
+            "1": "plain string",
+            "10": "optional Amount",
+            "11": "optional uint64",
+            "12": "optional bytes",
+            "13": "plain uint64",
+            "14": "optional uint64",
+            "15": "optional message",
+            "2": "optional string",
+            "3": "plain bytes",
+            "4": "plain enum",
+            "5": "plain uint64",
+            "6": "optional Amount",
+            "7": "optional string",
+            "8": "optional string",
+            "9": "optional uint64"
+        },
+        "WaitblockheightRequest": {
+            "1": "plain uint32",
+            "2": "optional uint32"
+        },
+        "WaitblockheightResponse": {
+            "1": "plain uint32"
+        },
+        "WaitinvoicePaidOutpoint": {
+            "1": "plain bytes",
+            "2": "plain uint32"
+        },
+        "WaitinvoiceRequest": {
+            "1": "plain string"
+        },
+        "WaitinvoiceResponse": {
+            "1": "plain string",
+            "10": "optional Amount",
+            "11": "optional uint64",
+            "12": "optional bytes",
+            "13": "plain uint64",
+            "14": "optional uint64",
+            "15": "optional message",
+            "2": "optional string",
+            "3": "plain bytes",
+            "4": "plain enum",
+            "5": "plain uint64",
+            "6": "optional Amount",
+            "7": "optional string",
+            "8": "optional string",
+            "9": "optional uint64"
+        },
+        "WaitsendpayRequest": {
+            "1": "plain bytes",
+            "2": "optional uint64",
+            "3": "optional uint32",
+            "4": "optional uint64"
+        },
+        "WaitsendpayResponse": {
+            "1": "plain uint64",
+            "10": "optional uint64",
+            "11": "optional string",
+            "12": "optional string",
+            "13": "optional bytes",
+            "14": "optional double",
+            "15": "plain uint64",
+            "16": "optional uint64",
+            "2": "optional uint64",
+            "3": "plain bytes",
+            "4": "plain enum",
+            "5": "optional Amount",
+            "6": "optional bytes",
+            "7": "plain uint64",
+            "8": "plain Amount",
+            "9": "optional string"
+        },
+        "WarningNotification": {
+            "1": "plain enum",
+            "2": "plain string",
+            "3": "plain string",
+            "4": "plain string",
+            "5": "plain string"
+        },
+        "WithdrawRequest": {
+            "1": "plain string",
+            "2": "plain AmountOrAll",
+            "3": "optional uint32",
+            "4": "repeated Outpoint",
+            "5": "optional Feerate",
+            "6": "plain AmountSatOrAll"
+        },
+        "WithdrawResponse": {
+            "1": "plain bytes",
+            "2": "plain bytes",
+            "3": "plain string"
+        },
+        "XkeysendRequest": {
+            "1": "plain bytes",
+            "2": "plain Amount",
+            "3": "optional string",
+            "4": "optional Amount",
+            "5": "repeated string",
+            "6": "optional uint32",
+            "7": "optional uint32",
+            "8": "plain map<string, string>"
+        },
+        "XkeysendResponse": {
+            "1": "plain bytes",
+            "2": "plain uint64",
+            "3": "plain uint64",
+            "4": "plain Amount",
+            "5": "plain Amount"
+        },
+        "XpayRequest": {
+            "1": "plain string",
+            "10": "optional bytes",
+            "11": "optional bool",
+            "2": "optional Amount",
+            "3": "optional Amount",
+            "4": "repeated string",
+            "5": "optional uint32",
+            "6": "optional Amount",
+            "7": "optional uint32",
+            "8": "optional string",
+            "9": "optional string"
+        },
+        "XpayResponse": {
+            "1": "plain bytes",
+            "2": "plain uint64",
+            "3": "plain uint64",
+            "4": "plain Amount",
+            "5": "plain Amount"
         }
     },
     "model-field-versions": {
@@ -6314,35 +10174,35 @@
             "deprecated": null
         },
         "CancelRecurringInvoice": {
-            "added": "v25.09",
+            "added": "v25.12",
             "deprecated": null
         },
         "CancelRecurringInvoice.bip353": {
-            "added": "v25.09",
+            "added": "v25.12",
             "deprecated": null
         },
         "CancelRecurringInvoice.bolt12": {
-            "added": "v25.09",
+            "added": "v25.12",
             "deprecated": null
         },
         "CancelRecurringInvoice.offer": {
-            "added": "v25.09",
+            "added": "v25.12",
             "deprecated": null
         },
         "CancelRecurringInvoice.payer_note": {
-            "added": "v25.09",
+            "added": "v25.12",
             "deprecated": null
         },
         "CancelRecurringInvoice.recurrence_counter": {
-            "added": "v25.09",
+            "added": "v25.12",
             "deprecated": null
         },
         "CancelRecurringInvoice.recurrence_label": {
-            "added": "v25.09",
+            "added": "v25.12",
             "deprecated": null
         },
         "CancelRecurringInvoice.recurrence_start": {
-            "added": "v25.09",
+            "added": "v25.12",
             "deprecated": null
         },
         "CheckMessage": {
@@ -6486,6 +10346,10 @@
             "deprecated": null
         },
         "Connect.address.address": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "Connect.address.name": {
             "added": "pre-v0.10.1",
             "deprecated": null
         },
@@ -11293,6 +15157,10 @@
             "added": "pre-v0.10.1",
             "deprecated": null
         },
+        "ListFunds.outputs[].csv_lock": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
         "ListFunds.outputs[].output": {
             "added": "pre-v0.10.1",
             "deprecated": null
@@ -11310,6 +15178,10 @@
             "deprecated": null
         },
         "ListFunds.outputs[].scriptpubkey": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListFunds.outputs[].spendable_at": {
             "added": "pre-v0.10.1",
             "deprecated": null
         },
@@ -15653,6 +19525,10 @@
             "added": "pre-v0.10.1",
             "deprecated": null
         },
+        "connect.address.name": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
         "connect.address.port": {
             "added": "pre-v0.10.1",
             "deprecated": null
@@ -15737,6 +19613,10 @@
             "added": "pre-v0.10.1",
             "deprecated": null
         },
+        "forward_event.created_index": {
+            "added": "v23.11",
+            "deprecated": null
+        },
         "forward_event.failcode": {
             "added": "pre-v0.10.1",
             "deprecated": null
@@ -15750,6 +19630,10 @@
             "deprecated": null
         },
         "forward_event.in_channel": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "forward_event.in_htlc_id": {
             "added": "pre-v0.10.1",
             "deprecated": null
         },
@@ -15769,6 +19653,10 @@
             "added": "pre-v0.10.1",
             "deprecated": null
         },
+        "forward_event.preimage": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
         "forward_event.received_time": {
             "added": "pre-v0.10.1",
             "deprecated": null
@@ -15782,6 +19670,10 @@
             "deprecated": null
         },
         "forward_event.style": {
+            "added": "v23.11",
+            "deprecated": null
+        },
+        "forward_event.updated_index": {
             "added": "v23.11",
             "deprecated": null
         },
@@ -16385,11 +20277,31 @@
             "added": "pre-v0.10.1",
             "deprecated": null
         },
+        "openchannel2.channel_fee_max_base_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel2.channel_fee_max_proportional_thousandths": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
         "openchannel2.close_to": {
             "added": "pre-v0.10.1",
             "deprecated": null
         },
         "openchannel2.error_message": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel2.funding_weight": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel2.lease_fee_base_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "openchannel2.lease_fee_basis": {
             "added": "pre-v0.10.1",
             "deprecated": null
         },
@@ -16733,7 +20645,27 @@
             "added": "pre-v0.10.1",
             "deprecated": null
         },
+        "rbf_channel.channel_fee_max_base_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "rbf_channel.channel_fee_max_proportional_thousandths": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
         "rbf_channel.error_message": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "rbf_channel.funding_weight": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "rbf_channel.lease_fee_base_msat": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "rbf_channel.lease_fee_basis": {
             "added": "pre-v0.10.1",
             "deprecated": null
         },

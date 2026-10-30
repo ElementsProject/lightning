@@ -253,7 +253,7 @@
               ]
             },
             "last_commitment_txid": {
-              "type": "hash",
+              "type": "txid",
               "description": [
                 "The final commitment tx's txid (or mutual close, if we accepted it). Not present for some very old, small channels pre-0.7.0."
               ]

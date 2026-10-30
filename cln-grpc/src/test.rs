@@ -509,9 +509,9 @@ fn test_coin_movement() {
     );
     assert_eq!(
         u.primary_tag,
-        Some(cln_rpc::notifications::CoinMovementPrimaryTag::INVOICE)
+        cln_rpc::notifications::CoinMovementPrimaryTag::INVOICE
     );
-    assert_eq!(u.extra_tags, Some(vec!["keysend".to_string()]));
+    assert_eq!(u.extra_tags, vec!["keysend".to_string()]);
     let _pb: crate::pb::CoinMovementNotification = u.into();
 
     // Also test chain_mvt with utxo
@@ -526,6 +526,7 @@ fn test_coin_movement() {
         "debit_msat": 50000000,
         "timestamp": 1648222600,
         "primary_tag": "withdrawal",
+        "extra_tags": [],
         "utxo": "9e76017c75baab960aa7aad24f3b7b0a9708f2dbfdc9544a5cfa72fc44206a00:0",
         "blockheight": 110,
         "spending_txid": "67efdfb11bee25aa8b2249055a4162e4bd5fa9134bc865c3f054ca666d7ab744",
@@ -539,7 +540,7 @@ fn test_coin_movement() {
     );
     assert_eq!(
         u2.primary_tag,
-        Some(cln_rpc::notifications::CoinMovementPrimaryTag::WITHDRAWAL)
+        cln_rpc::notifications::CoinMovementPrimaryTag::WITHDRAWAL
     );
     assert!(u2.utxo.is_some());
     assert_eq!(u2.blockheight, Some(110));

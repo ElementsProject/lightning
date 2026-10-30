@@ -417,7 +417,8 @@ fn test_openchannel_hook() {
         "feerate_per_kw": 7500,
         "to_self_delay": 5,
         "max_accepted_htlcs": 483,
-        "channel_flags": 1
+        "channel_flags": 1,
+        "channel_type": {"bits": [12, 22], "names": ["static_remotekey/even", "anchors/even"]}
       }
     });
     let d: OpenchannelEvent = serde_json::from_value(r).unwrap();
@@ -497,11 +498,11 @@ fn test_openchannel2_hook() {
     assert_eq!(d.openchannel2.max_accepted_htlcs, 483);
     assert_eq!(d.openchannel2.channel_flags, 1);
     assert_eq!(
-        d.openchannel2.channel_type.as_ref().unwrap().bits,
+        d.openchannel2.channel_type.bits,
         vec![12, 22]
     );
     assert_eq!(
-        d.openchannel2.channel_type.as_ref().unwrap().names,
+        d.openchannel2.channel_type.names,
         vec!["static_remotekey/even", "anchors/even"]
     );
     assert_eq!(d.openchannel2.locktime, 2453);
@@ -876,8 +877,6 @@ fn test_onionmessage_recv() {
             .as_ref()
             .unwrap()
             .first_path_key
-            .as_ref()
-            .unwrap()
             .to_string(),
         "02df5ffe895c778e10f7742a6c5b8a0cefbe9465df58b92fadeb883752c8107c8f"
     );
@@ -1002,8 +1001,6 @@ fn test_onionmessage_recv_secret() {
             .as_ref()
             .unwrap()
             .first_path_key
-            .as_ref()
-            .unwrap()
             .to_string(),
         "02df5ffe895c778e10f7742a6c5b8a0cefbe9465df58b92fadeb883752c8107c8f"
     );
