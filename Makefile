@@ -408,9 +408,9 @@ include doc/Makefile
 include contrib/msggen/Makefile
 include devtools/Makefile
 include tools/Makefile
-ifneq ($(RUST),0)
 include cln-rpc/Makefile
 include cln-grpc/Makefile
+ifneq ($(RUST),0)
 include lsps-types/Makefile
 endif
 include plugins/Makefile
