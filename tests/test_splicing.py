@@ -1015,6 +1015,34 @@ def test_splice_tx_add_output_sum_above_max_supply(node_factory, bitcoind):
     l2.daemon.wait_for_log(r'Peer initiated tx_abort for reason: .*' + error_match)
 
 
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_splice_signed_psbt_above_max_supply(node_factory, bitcoind):
+    """splice_signed refuses a PSBT whose outputs sum above max supply, not crash channeld."""
+    l1, l2 = node_factory.line_graph(2, fundamount=1000000, wait_for_announce=True)
+    chan_id = l1.get_channel_id(l2)
+
+    funds_result = l1.rpc.fundpsbt("111722sat", 0, 0, excess_as_change=True)
+    result = l1.rpc.splice_init(chan_id, 100000, funds_result['psbt'])
+    result = l1.rpc.splice_update(chan_id, result['psbt'])
+    result = l1.rpc.splice_update(chan_id, result['psbt'])
+    assert result['commitments_secured'] is True
+    signed = l1.rpc.signpsbt(result['psbt'])['signed_psbt']
+
+    # Each fits under max supply, so libwally accepts them; 10M + 11M BTC + 1 sat does not.
+    bad = l1.rpc.setpsbtversion(signed, 2)['psbt']
+    bad = l1.rpc.addpsbtoutput(1000000000000000, bad)['psbt']
+    bad = l1.rpc.addpsbtoutput(1100000000000001, bad)['psbt']
+    with pytest.raises(RpcError, match='exceed max supply'):
+        l1.rpc.splice_signed(chan_id, bad)
+
+    # The splice is still there to sign.
+    result = l1.rpc.splice_signed(chan_id, signed)
+    bitcoind.generate_block(6, wait_for_mempool=result['txid'])
+    l1.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
+
+
 # The first takes the new funding output alone above max supply.  With our
 # 100000sat, the second makes it exactly max supply, so our change output
 # takes the total over.
