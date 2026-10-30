@@ -1,5 +1,6 @@
 from pyln.testing.utils import TEST_NETWORK, TIMEOUT, VALGRIND, DEPRECATED_APIS  # noqa: F401
 from pyln.testing.utils import env, only_one, wait_for, write_config, TailableProc, sync_blockheight, wait_channel_quiescent, get_tx_p2wsh_outnum, mine_funding_to_announce, scid_to_int  # noqa: F401
+import base64
 import bitstring
 from pyln.client import Millisatoshi
 from pyln.testing.utils import EXPERIMENTAL_DUAL_FUND
@@ -683,3 +684,59 @@ def check_feerate(nodes, actual_feerate, expected_feerate):
             return
     # Use assert as it shows the actual values on failure
     assert actual_feerate < expected_feerate + 2
+
+
+def _psbt_read_compact(b, i):
+    n = b[i]
+    if n < 0xfd:
+        return n, i + 1
+    size = {0xfd: 2, 0xfe: 4, 0xff: 8}[n]
+    return int.from_bytes(b[i + 1:i + 1 + size], 'little'), i + 1 + size
+
+
+def _psbt_compact(n):
+    if n < 0xfd:
+        return bytes([n])
+    if n <= 0xffff:
+        return b'\xfd' + n.to_bytes(2, 'little')
+    if n <= 0xffffffff:
+        return b'\xfe' + n.to_bytes(4, 'little')
+    return b'\xff' + n.to_bytes(8, 'little')
+
+
+def psbt_maps(psbt):
+    """Split a base64 version 2 PSBT into its global, input and output
+    maps, each a list of (key, value)."""
+    b = base64.b64decode(psbt)
+    assert b[:5] == b'psbt\xff'
+    i = 5
+    maps = []
+    cur = []
+    counts = {}
+    while True:
+        klen, i = _psbt_read_compact(b, i)
+        if klen == 0:
+            maps.append(cur)
+            cur = []
+            if len(maps) == 1 + counts[0x04] + counts[0x05]:
+                break
+            continue
+        key = b[i:i + klen]
+        i += klen
+        vlen, i = _psbt_read_compact(b, i)
+        val = b[i:i + vlen]
+        i += vlen
+        if not maps and key[0] in (0x04, 0x05):
+            counts[key[0]], _ = _psbt_read_compact(val, 0)
+        cur.append((key, val))
+    return maps[0], maps[1:1 + counts[0x04]], maps[1 + counts[0x04]:]
+
+
+def psbt_join(glob, inputs, outputs):
+    """The inverse of psbt_maps."""
+    out = b'psbt\xff'
+    for m in [glob] + inputs + outputs:
+        for k, v in m:
+            out += _psbt_compact(len(k)) + k + _psbt_compact(len(v)) + v
+        out += b'\x00'
+    return base64.b64encode(out).decode()
