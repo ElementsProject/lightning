@@ -13,7 +13,7 @@ from utils import (
     check_coin_moves, first_channel_id, account_balance, basic_fee,
     scriptpubkey_addr, default_ln_port,
     mine_funding_to_announce, first_scid,
-    CHANNEL_SIZE
+    CHANNEL_SIZE, psbt_maps, psbt_join,
 )
 from pyln.testing.utils import VALGRIND, ASAN, EXPERIMENTAL_DUAL_FUND, FUNDAMOUNT, RUST, SLOW_MACHINE
 
@@ -1845,6 +1845,34 @@ def test_fundchannel_complete_rejects_nonsegwit_unsigned(node_factory, bitcoind)
     )['psbt']
 
     with pytest.raises(RpcError, match=r'non-segwit and unsigned'):
+        l1.rpc.fundchannel_complete(l2.info['id'], psbt)
+
+    l1.rpc.fundchannel_cancel(l2.info['id'])
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+@pytest.mark.openchannel('v1')
+def test_fundchannel_complete_conflicting_locktimes(node_factory, bitcoind):
+    """One input requiring a time locktime and another a height locktime
+    leave the funding transaction no valid locktime."""
+    l1, l2 = node_factory.get_nodes(2)
+    l1.fundwallet(10**6)
+    l1.fundwallet(10**6)
+    l1.connect(l2)
+
+    amount = 1_500_000
+    start = l1.rpc.fundchannel_start(l2.info['id'], amount)
+    psbt = l1.rpc.fundpsbt(amount, '253perkw', 250, reserve=0)['psbt']
+    psbt = l1.rpc.setpsbtversion(psbt, 2)['psbt']
+    psbt = l1.rpc.addpsbtoutput(amount, psbt,
+                                destination=start['funding_address'])['psbt']
+    glob, inputs, outputs = psbt_maps(psbt)
+    assert len(inputs) == 2
+    inputs[0].append((b'\x11', struct.pack('<I', 500000000)))
+    inputs[1].append((b'\x12', struct.pack('<I', 100)))
+    psbt = psbt_join(glob, inputs, outputs)
+
+    with pytest.raises(RpcError, match=r'Expected a PSBT'):
         l1.rpc.fundchannel_complete(l2.info['id'], psbt)
 
     l1.rpc.fundchannel_cancel(l2.info['id'])
