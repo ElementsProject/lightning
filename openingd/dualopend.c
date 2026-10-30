@@ -1367,6 +1367,8 @@ static void handle_tx_sigs(struct state *state, const u8 *msg)
 	struct bitcoin_txid txid;
 	const struct witness **witnesses;
 	struct tx_state *tx_state = state->tx_state;
+	size_t peer_input_count = 0;
+	const char *err;
 
 	struct tlv_tx_signatures_tlvs *txsig_tlvs = tlv_tx_signatures_tlvs_new(tmpctx);
 	if (!fromwire_tx_signatures(tmpctx, msg, &cid, &txid,
@@ -1423,8 +1425,18 @@ static void handle_tx_sigs(struct state *state, const u8 *msg)
 			       "tx_signatures sent before commitment sigs %s",
 			       tal_hex(msg, msg));
 
+	/* BOLT #2:
+	 * The receiving node:
+	 *   - MUST fail the negotiation if:
+	 *     - the message contains an empty `witness`
+	 *     - the number of `witnesses` does not equal the number of inputs
+	 *       added by the sending node
+	 *     - the `txid` does not match the txid of the transaction
+	 *     - the `witnesses` are non-standard
+	 *     - a signature uses a flag that is not `SIGHASH_ALL` (0x01)
+	 */
 	/* We put the PSBT + sigs all together */
-	for (size_t i = 0, j = 0; i < tx_state->psbt->num_inputs; i++) {
+	for (size_t i = 0, j; i < tx_state->psbt->num_inputs; i++) {
 		struct wally_psbt_input *in =
 			&tx_state->psbt->inputs[i];
 		u64 in_serial;
@@ -1437,14 +1449,31 @@ static void handle_tx_sigs(struct state *state, const u8 *msg)
 		}
 		if (in_serial % 2 != their_role(state))
 			continue;
+		peer_input_count++;
 
-		if (j == tal_count(witnesses))
+		if (peer_input_count > tal_count(witnesses))
 			open_err_warn(state, "Mismatched witness stack count %s",
 				      tal_hex(msg, msg));
 
+		j = peer_input_count - 1;
+
+		/* do some checks before handing the witness to wally */
+		err = check_tx_signatures_witness(tmpctx, in, witnesses[j]);
+		if (err)
+			open_err_warn(state,
+				      "Bad witness at position %zu: %s. "
+				      "Received tx_signatures: %s",
+				      j, err, tal_hex(msg, msg));
+
 		psbt_finalize_input(tx_state->psbt, in, witnesses[j]);
-		j++;
 	}
+
+	err = check_tx_signatures_witness_count(tmpctx, tx_state->psbt,
+						their_role(state),
+						tal_count(witnesses), -1);
+	if (err)
+		open_err_warn(state, "%s. Received tx_signatures: %s",
+			      err, tal_hex(msg, msg));
 
 	tx_state->remote_funding_sigs_rcvd = true;
 	/* Send to the controller, who will broadcast the funding_tx

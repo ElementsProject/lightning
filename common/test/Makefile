@@ -11,6 +11,11 @@ COMMON_TEST_COMMON_OBJS :=				\
 	common/utils.o
 
 $(COMMON_TEST_PROGRAMS): $(COMMON_TEST_COMMON_OBJS) $(BITCOIN_OBJS)
+
+# These call into psbt_internal, which is not #included.
+common/test/run-tx_signatures_witness	\
+common/test/run-tx_signatures_count:	\
+	libcommon.a
 $(COMMON_TEST_OBJS): $(COMMON_HEADERS) $(WIRE_HEADERS) $(COMMON_SRC) common/test/Makefile
 
 ALL_C_SOURCES += $(COMMON_TEST_SRC)
