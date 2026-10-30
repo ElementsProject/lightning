@@ -782,7 +782,17 @@ pub mod actions{
     #[derive(Clone, Debug, Deserialize, Serialize)]
     pub struct RbfChannelAction {
         #[serde(skip_serializing_if = "Option::is_none")]
+        pub channel_fee_max_base_msat: Option<Amount>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub channel_fee_max_proportional_thousandths: Option<u16>,
+        #[serde(skip_serializing_if = "Option::is_none")]
         pub error_message: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub funding_weight: Option<u16>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub lease_fee_base_msat: Option<Amount>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub lease_fee_basis: Option<u16>,
         #[serde(skip_serializing_if = "Option::is_none")]
         pub our_funding_msat: Option<Amount>,
         #[serde(skip_serializing_if = "Option::is_none")]
