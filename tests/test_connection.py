@@ -5257,12 +5257,12 @@ def feature_offered(bits, b):
     return False
 
 
-def raw_peer_connect(node):
+def raw_peer_connect(node, privkey=bytes([0x11] * 32)):
     """Handshake to node as a raw peer, echoing back its own features.
 
     Returns the connection and a channel_type the node will accept.
     """
-    lconn = wire.connect(wire.PrivateKey(bytes([0x11] * 32)),
+    lconn = wire.connect(wire.PrivateKey(privkey),
                          wire.PublicKey(bytes.fromhex(node.info['id'])),
                          '127.0.0.1', node.port)
 
@@ -5823,6 +5823,138 @@ def test_open_channel2_tx_add_output_sum_above_max_supply(node_factory, bitcoind
             second_sats, first_sats
         )
     )
+
+    # node is still up
+    assert l1.rpc.getinfo()["id"] == l1.info["id"]
+
+
+def raw_accept_channel2(lconn, funding_sats):
+    """Read the node's open_channel2 and accept it, contributing
+    funding_sats (MAX_SUPPLY_SAT - theirs if None).  Returns the channel_id."""
+    for _ in range(40):
+        msg = lconn.read_message()
+        if int.from_bytes(msg[0:2], "big") == WIRE_OPEN_CHANNEL2:
+            break
+    else:
+        raise AssertionError("no open_channel2")
+    payload = msg[2:]
+    temp_chan_id = payload[32:64]
+    opener_sats = struct.unpack(">Q", payload[72:80])[0]
+    keys_off = 32 + 32 + 4 + 4 + 8 + 8 + 8 + 8 + 2 + 2 + 4
+    opener_revocation = payload[keys_off + 33:keys_off + 66]
+    tlvs = payload[keys_off + 7 * 33 + 1:]
+    assert tlvs[0] == 1, "expected channel_type tlv first"
+    channel_type = tlvs[2:2 + tlvs[1]]
+
+    if funding_sats is None:
+        funding_sats = MAX_SUPPLY_SAT - opener_sats
+
+    keys = [
+        wire.PrivateKey(bytes([i + 2] * 32)).public_key().serializeCompressed()
+        for i in range(7)
+    ]
+    accept = struct.pack(">H", WIRE_ACCEPT_CHANNEL2)
+    accept += temp_chan_id
+    accept += struct.pack(">Q", funding_sats)
+    accept += struct.pack(">Q", 546)  # dust_limit_satoshis
+    accept += struct.pack(">Q", 0xFFFFFFFFFFFF)  # max_htlc_value_in_flight_msat
+    accept += struct.pack(">Q", 0)  # htlc_minimum_msat
+    accept += struct.pack(">I", 3)  # minimum_depth
+    accept += struct.pack(">H", 144)  # to_self_delay
+    accept += struct.pack(">H", 483)  # max_accepted_htlcs
+    for k in keys:
+        accept += k
+    accept += tlv_encode(1, channel_type)
+    lconn.send_message(accept)
+    return derive_channel_id_v2(opener_revocation, keys[1])
+
+
+def raw_interactive_tx(lconn, channel_id, add_output_sats=None, serial_id=1):
+    """Answer the node's interactive tx messages with tx_complete until it
+    aborts or hangs up, first adding one output of add_output_sats if given.
+    Acks the tx_abort."""
+    script = bytes([0x00, 0x14]) + bytes(range(20))
+    for _ in range(100):
+        try:
+            msg = lconn.read_message()
+        except ValueError:
+            # It hung up, e.g. multifundchannel giving up on all of us.
+            return None
+        mtype = int.from_bytes(msg[0:2], "big")
+        if mtype in (WIRE_TX_ADD_INPUT, WIRE_TX_ADD_OUTPUT, WIRE_TX_COMPLETE):
+            if add_output_sats is not None:
+                # serial_id odd => from accepter.
+                send_tx_add_output(lconn, channel_id, serial_id, add_output_sats, script)
+                add_output_sats = None
+            else:
+                lconn.send_message(struct.pack(">H", WIRE_TX_COMPLETE) + channel_id)
+        elif mtype == WIRE_TX_ABORT:
+            # Ack it, so the RPC sees the reason.
+            lconn.send_message(struct.pack(">H", WIRE_TX_ABORT) + msg[2:34]
+                               + struct.pack(">H", 0))
+            return mtype
+        elif mtype in (WIRE_WARNING, WIRE_ERROR):
+            return mtype
+    raise AssertionError("interactive tx did not finish")
+
+
+@pytest.mark.openchannel("v2")
+@unittest.skipIf(
+    TEST_NETWORK != "regtest", "elementsd doesnt yet support PSBT features we need"
+)
+def test_open_channel2_accepter_funding_sum_above_max_supply(node_factory, bitcoind, executor):
+    """An accepter contribution that brings the funding output to max supply
+    must fail the open, since our change output takes the total above it."""
+    l1 = node_factory.get_node(options={"experimental-dual-fund": None},
+                               allow_warning=True)
+    l1.fundwallet(10**7)
+
+    lconn, _ = raw_peer_connect(l1)
+    raw_id = wire.PrivateKey(bytes([0x11] * 32)).public_key().serializeCompressed().hex()
+    wait_for(lambda: l1.rpc.listpeers(raw_id)["peers"] != [])
+
+    fut = executor.submit(l1.rpc.fundchannel, raw_id, 100000)
+    channel_id = raw_accept_channel2(lconn, None)
+    assert raw_interactive_tx(lconn, channel_id) == WIRE_TX_ABORT
+
+    with pytest.raises(RpcError, match="would exceed max supply"):
+        fut.result(TIMEOUT)
+
+    # node is still up
+    assert l1.rpc.getinfo()["id"] == l1.info["id"]
+
+
+@pytest.mark.openchannel("v2")
+@unittest.skipIf(
+    TEST_NETWORK != "regtest", "elementsd doesnt yet support PSBT features we need"
+)
+def test_multifundchannel_peer_outputs_sum_above_max_supply(node_factory, bitcoind, executor):
+    """Two peers' outputs, each fine for its own open, must not take the
+    combined multifundchannel tx above max supply."""
+    l1 = node_factory.get_node(options={"experimental-dual-fund": None},
+                               allow_warning=True)
+    l1.fundwallet(10**7)
+
+    peers = []
+    for k in (0x11, 0x12):
+        privkey = bytes([k] * 32)
+        lconn, _ = raw_peer_connect(l1, privkey)
+        raw_id = wire.PrivateKey(privkey).public_key().serializeCompressed().hex()
+        wait_for(lambda: l1.rpc.listpeers(raw_id)["peers"] != [])
+        peers.append((lconn, raw_id))
+
+    fut = executor.submit(l1.rpc.multifundchannel,
+                          [{"id": raw_id, "amount": 100000} for _, raw_id in peers])
+    channel_ids = [raw_accept_channel2(lconn, 0) for lconn, _ in peers]
+    # 11M BTC each: under max supply alone, over it together.
+    # Distinct serial_ids, or merging them fails for that instead.
+    replies = [executor.submit(raw_interactive_tx, lconn, cid, 1100000000000000, serial)
+               for (lconn, _), cid, serial in zip(peers, channel_ids, (1, 3))]
+
+    with pytest.raises(RpcError, match="would exceed max supply"):
+        fut.result(TIMEOUT)
+    for r in replies:
+        r.result(TIMEOUT)
 
     # node is still up
     assert l1.rpc.getinfo()["id"] == l1.info["id"]

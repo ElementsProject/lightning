@@ -10,6 +10,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/blockheight_states.h>
 #include <common/clock_time.h>
+#include <common/interactivetx.h>
 #include <common/json_channel_type.h>
 #include <common/json_command.h>
 #include <common/psbt_open.h>
@@ -447,7 +448,8 @@ hook_extract_psbt(const tal_t *ctx, struct subd *dualopend, const char *buffer,
 	}
 
 	*out = json_to_psbt(ctx, buffer, psbt_tok);
-	if (!*out)
+	/* We only deal in v2 */
+	if (!*out || !psbt_set_version(*out, 2))
 		fatal("Plugin must return a valid 'psbt' to a 'continue'd"
 		      "%s %.*s", hook_name,
 		      toks[0].end - toks[0].start,
@@ -2759,6 +2761,10 @@ json_openchannel_bump(struct command *cmd,
 			 NULL))
 		return command_param_failed();
 
+	/* We only deal in v2 */
+	if (!psbt_set_version(info->psbt, 2))
+		return command_fail(cmd, LIGHTNINGD, "Could not set PSBT version.");
+
 	psbt_val = AMOUNT_SAT(0);
 	for (size_t i = 0; i < info->psbt->num_inputs; i++) {
 		struct amount_sat in_amt = psbt_input_get_amount(info->psbt, i);
@@ -2924,12 +2930,24 @@ json_openchannel_signed(struct command *cmd,
 	struct channel *channel;
 	struct bitcoin_txid txid;
 	struct channel_inflight *inflight;
+	char *err;
 
 	if (!param_check(cmd, buffer, params,
 			 p_req("channel_id", param_channel_id, &cid),
 			 p_req("signed_psbt", param_psbt, &psbt),
 			 NULL))
 		return command_param_failed();
+
+	/* We only deal in v2 */
+	if (!psbt_set_version(psbt, 2))
+		return command_fail(cmd, LIGHTNINGD, "Could not set PSBT version.");
+
+	/* libwally can't extract a tx whose outputs come to more than
+	 * max supply, and we do below. */
+	err = interactive_tx_add_output_check_max_money(tmpctx, psbt,
+							AMOUNT_SAT(0));
+	if (err)
+		return command_fail(cmd, FUNDING_PSBT_INVALID, "%s", err);
 
 	channel = channel_by_cid(cmd->ld, cid);
 	if (!channel)
@@ -3182,12 +3200,24 @@ static struct command_result *json_openchannel_update(struct command *cmd,
 	struct psbt_validator *pv;
 	struct command_result *ret;
 	struct channel_inflight *inflight;
+	char *err;
 
 	if (!param_check(cmd, buffer, params,
 			 p_req("channel_id", param_channel_id, &cid),
 			 p_req("psbt", param_psbt, &psbt),
 			 NULL))
 		return command_param_failed();
+
+	/* We only deal in v2 */
+	if (!psbt_set_version(psbt, 2))
+		return command_fail(cmd, LIGHTNINGD, "Could not set PSBT version.");
+
+	/* libwally can't extract a tx whose outputs come to more than
+	 * max supply, and we do below. */
+	err = interactive_tx_add_output_check_max_money(tmpctx, psbt,
+							AMOUNT_SAT(0));
+	if (err)
+		return command_fail(cmd, FUNDING_PSBT_INVALID, "%s", err);
 
 	channel = channel_by_cid(cmd->ld, cid);
 	if (!channel)

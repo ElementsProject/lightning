@@ -1080,6 +1080,7 @@ static struct channel *handle_init(struct info *info, const u8 *init_msg)
 	u32 *dev_disable_commit;
 	struct inflight **inflights;
 	struct short_channel_id local_alias;
+	u64 dev_splice_ack_contribution;
 	struct channel *channel;
 	const u8 *wscript;
 	char *err_reason;
@@ -1142,7 +1143,8 @@ static struct channel *handle_init(struct info *info, const u8 *init_msg)
 				    &dev_disable_commit,
 				    &pbases,
 				    &inflights,
-				    &local_alias))
+				    &local_alias,
+				    &dev_splice_ack_contribution))
 		abort();
 
 	status_debug("Parsed init...");

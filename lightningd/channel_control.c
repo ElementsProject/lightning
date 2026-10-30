@@ -6,6 +6,7 @@
 #include <closingd/simpleclosed_wiregen.h>
 #include <common/daemon.h>
 #include <common/features.h>
+#include <common/interactivetx.h>
 #include <common/json_command.h>
 #include <common/psbt_open.h>
 #include <common/shutdown_scriptpubkey.h>
@@ -2036,7 +2037,8 @@ bool peer_start_channeld(struct channel *channel,
 				       pbases,
 				       cast_const2(const struct inflight **,
 						   inflights),
-				       *channel->alias[LOCAL]);
+				       *channel->alias[LOCAL],
+				       ld->dev_splice_ack_contribution);
 
 	/* We don't expect a response: we are triggered by funding_depth_cb. */
 	subd_send_msg(channel->owner, take(initmsg));
@@ -2515,6 +2517,7 @@ static struct command_result *single_splice_signed(struct command *cmd,
 {
 	struct splice_command *cc;
 	u8 *msg;
+	char *err;
 
 	if (splice_command_for_chan(cmd->ld, channel))
 		return command_fail(cmd,
@@ -2536,6 +2539,13 @@ static struct command_result *single_splice_signed(struct command *cmd,
 		return command_fail(cmd,
 				    SPLICE_INPUT_ERROR,
 				    "Splice failed to convert to v2");
+
+	/* libwally can't extract a tx whose outputs come to more than
+	 * max supply, and channeld does. */
+	err = interactive_tx_add_output_check_max_money(tmpctx, psbt,
+							AMOUNT_SAT(0));
+	if (err)
+		return command_fail(cmd, SPLICE_INPUT_ERROR, "%s", err);
 
 	/* Update "funding" psbt now */
 	tal_free(channel->funding_psbt);

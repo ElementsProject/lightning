@@ -811,6 +811,22 @@ def test_addpsbtoutput(node_factory, bitcoind, chainparams):
     assert psbt_info['tx']['vout'][n]['scriptPubKey']['address'] == dest
 
 
+def test_addpsbtoutput_above_max_supply(node_factory):
+    """addpsbtoutput refuses an output libwally would, not crash."""
+    l1 = node_factory.get_node()
+    with pytest.raises(RpcError, match='exceeds max supply'):
+        l1.rpc.addpsbtoutput(2100000000000001)
+
+    # In a version 0 PSBT, libwally also refuses outputs totalling above it.
+    psbt = l1.rpc.addpsbtoutput(1000000000000000)['psbt']
+    v0 = l1.rpc.setpsbtversion(psbt, 0)['psbt']
+    with pytest.raises(RpcError, match='would exceed max supply'):
+        l1.rpc.addpsbtoutput(1100000000000001, v0)
+
+    # A version 2 PSBT holds them; what it's given to refuses it.
+    l1.rpc.addpsbtoutput(1100000000000001, psbt)
+
+
 def test_utxopsbt(node_factory, bitcoind, chainparams):
     amount = 1000000
     l1 = node_factory.get_node()

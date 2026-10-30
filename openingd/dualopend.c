@@ -1522,7 +1522,15 @@ fetch_psbt_changes(struct state *state,
 	if (fromwire_dualopend_fail(msg, msg, &err)) {
 		open_abort(state, "%s", err);
 	} else if (fromwire_dualopend_psbt_updated(state, msg, updated_psbt)) {
-		return true;
+		/* A plugin's openchannel2_changed reply can set any output
+		 * amounts, which no check here has seen. */
+		err = interactive_tx_add_output_check_max_money(tmpctx,
+								*updated_psbt,
+								AMOUNT_SAT(0));
+		if (!err)
+			return true;
+		*updated_psbt = tal_free(*updated_psbt);
+		open_abort(state, "%s", err);
 	} else
 		master_badmsg(fromwire_peektype(msg), msg);
 
@@ -3398,6 +3406,16 @@ static void opener_start(struct state *state, u8 *msg)
 		}
 	}
 
+	/* Their funding is in total, and libwally rejects a tx whose
+	 * outputs come to more than max supply. */
+	err_reason = interactive_tx_add_output_check_max_money(tmpctx,
+							       tx_state->psbt,
+							       total);
+	if (err_reason) {
+		negotiation_failed(state, "%s", err_reason);
+		return;
+	}
+
 	/* BOLT #2:
 	 * The sending node:
 	 * - if is the *opener*:
@@ -3499,9 +3517,17 @@ static void rbf_wrap_up(struct state *state,
 	 * - if is the *opener*:
 	 *   - MUST send at least one `tx_add_output`,  which contains the
 	 *   channel's funding output */
-	if (state->our_role == TX_INITIATOR)
+	if (state->our_role == TX_INITIATOR) {
+		/* Their funding is in total, as for the first open */
+		err_reason = interactive_tx_add_output_check_max_money(tmpctx,
+								       tx_state->psbt,
+								       total);
+		if (err_reason) {
+			open_abort(state, "%s", err_reason);
+			return;
+		}
 		add_funding_output(tx_state, state, total);
-	else
+	} else
 		/* if accepter, set to an invalid number, 1 (odd is invalid) */
 		tx_state->funding_serial = 1;
 
