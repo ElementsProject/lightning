@@ -3852,6 +3852,8 @@ static void resume_splice_negotiation(struct peer *peer,
 	enum tx_role our_role = inflight->i_am_initiator
 						   ? TX_INITIATOR
 						   : TX_ACCEPTER;
+	enum tx_role their_role =
+	    our_role == TX_INITIATOR ? TX_ACCEPTER : TX_INITIATOR;
 	const u8 *wit_script;
 	struct channel_id cid;
 	enum peer_wire type;
@@ -3871,6 +3873,7 @@ static void resume_splice_negotiation(struct peer *peer,
 	const u8 *msg_received;
 	struct witness **inws;
 	struct bitcoin_signature *their_sig;
+	const char *err;
 
 	if (peer->splicing) {
 		inws = peer->splicing->inws;
@@ -4112,12 +4115,6 @@ static void resume_splice_negotiation(struct peer *peer,
 					 splice_funding_index,
 					 wit_script);
 
-		if (tal_count(inws) > current_psbt->num_inputs)
-			peer_failed_warn(peer->pps, &peer->channel_id,
-					 "%zu too many witness elements"
-					 " received",
-					 tal_count(inws) - current_psbt->num_inputs);
-
 		/* We put the PSBT + sigs all together */
 		for (size_t j = 0, i = 0; i < current_psbt->num_inputs; i++) {
 			struct wally_psbt_input *in =
@@ -4152,9 +4149,25 @@ static void resume_splice_negotiation(struct peer *peer,
 						 tal_count(inws));
 			}
 
+			err = check_tx_signatures_witness(tmpctx, in, inws[j]);
+			if (err)
+				peer_failed_warn(
+				    peer->pps, &peer->channel_id,
+				    "Bad witness at position %zu: %s", j, err);
+
 			psbt_finalize_input(current_psbt, in,
 					    inws[j++]);
 		}
+
+		/* Same checks as dualopen. The splice funding input is not
+		 * in the witness array; its signature is the TLV. Extra
+		 * witnesses used to be ignored if they fit under num_inputs. */
+		err = check_tx_signatures_witness_count(
+		    tmpctx, current_psbt, their_role, tal_count(inws),
+		    (int)splice_funding_index);
+		if (err)
+			peer_failed_warn(peer->pps, &peer->channel_id, "%s",
+					 err);
 
 		final_tx = bitcoin_tx_with_psbt(tmpctx, current_psbt);
 
