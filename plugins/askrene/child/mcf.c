@@ -168,7 +168,6 @@
 static const double CHANNEL_PIVOTS[]={0,0.5,0.8,0.95};
 
 static const s64 INFINITE = INT64_MAX;
-static const s64 MU_MAX = 100;
 
 /* every payment under 1000sat will be routed through a single path */
 static const struct amount_msat SINGLE_PATH_THRESHOLD = AMOUNT_MSAT(1000000);
@@ -299,8 +298,11 @@ struct pay_parameters {
 	double cap_fraction[CHANNEL_PARTS],
 	       cost_fraction[CHANNEL_PARTS];
 
-	double delay_feefactor;
 	double base_fee_penalty;
+
+	/* An homogeneous (same for every channel) constant (does not depend on
+	 * the amount we forward) probability of success. */
+	double const_success_probability;
 };
 
 /* Helper function.
@@ -386,25 +388,65 @@ static void linearize_channel(const struct pay_parameters *params,
 					params->accuracy),
 		amount_msat_ratio_ceil(params->amount, params->accuracy));
 
+	const double flow_units = amount_msat_ratio(params->amount, params->accuracy);
+	const double k = 1000 * flow_units;
+
+	assert(params->const_success_probability > 0);
+	assert(params->const_success_probability <= 1.0);
+	/* Moving the entire payment through */
+	const double linear_const_cost =
+	    -log(params->const_success_probability) / flow_units;
+
 	set_capacity(&capacity[0], a, &cap_on_capacity);
-	cost[0]=0;
+	cost[0] = k * linear_const_cost;
 	for(size_t i=1;i<CHANNEL_PARTS;++i)
 	{
 		set_capacity(&capacity[i], params->cap_fraction[i]*(b-a), &cap_on_capacity);
 
-		cost[i] = params->cost_fraction[i] * 1000
-			  * amount_msat_ratio(params->amount, params->accuracy)
-			  / (b - a);
+		/* We have
+		 * 	cost(x) = - k log P_pickhardt(x)
+		 * where k is an arbitrary constant and P_pickhardt(x) is the probability
+		 * of success.  In the range a <= x < b
+		 * 	P_pickhardt(x) = 1 - (x-a)/(b-a) = 1 - t
+		 * t is the probability of failure and a convenient variable to
+		 * write down the piecewise linearization of -log P. In terms of
+		 * t the linearization of -log P in the ranges [0, 0.5, 0.8, 0.95]
+		 * produces the t-space slopes [0, 1.38, 3.05, 9.24], therefore the
+		 * slopes for cost(x) are
+		 * 	m_0 = 0
+		 * 	m_1 = 1.38 * k / (b-a)
+		 * 	m_2 = 3.05 * k / (b-a)
+		 * 	m_3 = 9.24 * k / (b-a)
+		 *
+		 * In the formula below cost_fraction[] corresponds to the
+		 * t-space slopes and k = T * 1000, being T the total payment
+		 * amount.
+		 *
+		 * The choice of k is based on the fact that cost[] is integer.
+		 * Simply letting k=1 makes the slopes zero for most of useful
+		 * arcs, eg. 1.38/(b-a) = 0. Since the slope has inverse units
+		 * of msats the natural choice of k is to have equivalent msats
+		 * units. With k = T * 1000 we neutralize the units of the slope
+		 * and we lift from zero a whole range of useful arc costs.
+		 * A linear arc will have a zero cost if (b-a) > 1000 * T
+		 * that is roughly an arc that can carry 1000T above the `a`
+		 * lower bound, therefore a probability of failure less than 1
+		 * in 1000.
+		 *
+		 * Introducing a constant probability of success factor works as
+		 * follows:
+		 * 	P_success(x) = P_const * P_pickhardt(x)
+		 *
+		 * 	cost(x) = -k log P_success(x)
+		 * 		= -k log P_const - k log P_pickhardt(x)
+		 *
+		 * A simple linearization strategy for a constant factor f is
+		 * simply consider linear_cost(x) = x * f / T, therefore
+		 * 	linear_cost(x) = (-k log P_const / T) * x + linear_pickhardt(x)
+		 * */
+		cost[i] = k * (params->cost_fraction[i] / (b - a) +
+			       linear_const_cost);
 	}
-}
-
-static int cmp_u64(const u64 *a, const u64 *b, void *unused)
-{
-	if (*a < *b)
-		return -1;
-	if (*a > *b)
-		return 1;
-	return 0;
 }
 
 static int cmp_double(const double *a, const double *b, void *unused)
@@ -416,14 +458,13 @@ static int cmp_double(const double *a, const double *b, void *unused)
 	return 0;
 }
 
-static double get_median_ratio(const tal_t *working_ctx,
-			       const struct graph *graph,
-			       const double *arc_prob_cost,
-			       const s64 *arc_fee_cost)
+static double get_median(const tal_t *working_ctx,
+			 const struct graph *graph,
+			 const double *arc_cost)
 {
 	const size_t max_num_arcs = graph_max_num_arcs(graph);
-	u64 *u64_arr = tal_arr(working_ctx, u64, max_num_arcs);
-	double *double_arr = tal_arr(working_ctx, double, max_num_arcs);
+	double *cost_arr = tal_arr(working_ctx, double, max_num_arcs);
+	double result;
 	size_t n = 0;
 
 	for (struct arc arc = {.idx=0};arc.idx < max_num_arcs; ++arc.idx) {
@@ -431,31 +472,49 @@ static double get_median_ratio(const tal_t *working_ctx,
 		if (arc_is_dual(graph, arc) || !arc_enabled(graph, arc))
 			continue;
 		assert(n < max_num_arcs/2);
-		u64_arr[n] = arc_fee_cost[arc.idx];
-		double_arr[n] = arc_prob_cost[arc.idx];
+		cost_arr[n] = arc_cost[arc.idx];
 		n++;
 	}
-	asort(u64_arr, n, cmp_u64, NULL);
-	asort(double_arr, n, cmp_double, NULL);
 
-	/* Empty network, or tiny probability, nobody cares */
-	if (n == 0 || double_arr[n/2] < 0.001)
-		return 1;
+	asort(cost_arr, n, cmp_double, NULL);
 
-	/* You need to scale arc_prob_cost by this to match arc_fee_cost */
-	return u64_arr[n/2] / double_arr[n/2];
+	/* Empty network or too small value. */
+	if (n == 0)
+		result = 1;
+	else
+		result = cost_arr[n / 2];
+
+	if (result < 1e-6)
+		result = 1;
+
+	tal_free(cost_arr);
+	return result;
 }
 
 static void combine_cost_function(const tal_t *working_ctx,
 				  const struct graph *graph,
 				  const double *arc_prob_cost,
-				  const s64 *arc_fee_cost, const s8 *biases,
-				  s64 mu, s64 *arc_cost)
+				  const double *arc_fee_cost,
+				  const double *arc_delay_cost,
+				  const s8 *biases,
+				  double fee_dial,
+				  double delay_dial,
+				  double per_hop_dial,
+				  double prob_dial,
+				  s64 *arc_cost)
 {
+	assert(prob_dial >= 0);
+	assert(fee_dial >= 0);
+	assert(delay_dial >= 0);
+	assert(per_hop_dial >= 0);
+	const double total_dial = prob_dial + fee_dial + delay_dial + per_hop_dial;
+	assert(fabs(total_dial - 1.0) < 1e-9);
+
 	/* probabilty and fee costs are not directly comparable!
 	 * Scale by ratio of (positive) medians. */
-	const double k =
-	    get_median_ratio(working_ctx, graph, arc_prob_cost, arc_fee_cost);
+	const double median_fee = get_median(working_ctx, graph, arc_fee_cost);
+	const double median_prob = get_median(working_ctx, graph, arc_prob_cost);
+	const double median_delay = get_median(working_ctx, graph, arc_delay_cost);
 	const double ln_30 = log(30);
 	const size_t max_num_arcs = graph_max_num_arcs(graph);
 
@@ -465,15 +524,29 @@ static void combine_cost_function(const tal_t *working_ctx,
 			continue;
 
 		const double pcost = arc_prob_cost[arc.idx];
-		const s64 fcost = arc_fee_cost[arc.idx];
+		const double fcost = arc_fee_cost[arc.idx];
+		const double dcost = arc_delay_cost[arc.idx];
 		double combined;
 		u32 chanidx;
 		int chandir;
 		s32 bias;
 
-		assert(fcost != INFINITE);
+		assert(fcost != DBL_MAX);
 		assert(pcost != DBL_MAX);
-		combined = fcost*mu + (MU_MAX-mu)*pcost*k;
+		combined = fcost / median_fee * fee_dial +
+			   dcost / median_delay * delay_dial +
+			   /* per-hop cost is 1 for every arc */
+			   1.0 * per_hop_dial +
+			   pcost / median_prob * prob_dial;
+
+		/* The median costs corresponds to the normalize value 1.0.
+		 * An arbitrary up-scale is used here to capture values below
+		 * the median when converting costs from double to u64.
+		 * To match the rough values of the previous version
+		 * (see commit 2a0f09fc2d79c636817d610e529c3160b531d51e)
+		 * we use the median of the fee times the old MU_MAX (100).
+		 *  */
+		combined *= median_fee * 100;
 
 		/* Bias is in human scale, where "bigger is better" */
 		arc_to_parts(arc, &chanidx, &chandir, NULL, NULL);
@@ -505,19 +578,14 @@ static void combine_cost_function(const tal_t *working_ctx,
  * into
  *
  *  	fee = c_fee/10^6 * x
- *
- *  use `base_fee_penalty` to weight the base fee and `delay_feefactor` to
- *  weight the CLTV delay.
  *  */
-static s64 linear_fee_cost(u32 base_fee, u32 proportional_fee, u16 cltv_delta,
-			   double base_fee_penalty,
-			   double delay_feefactor)
+static double linear_fee_cost(u32 base_fee, u32 proportional_fee,
+			   double base_fee_penalty)
 {
-	s64 pfee = proportional_fee,
-	    bfee = base_fee,
-	    delay = cltv_delta;
+	double pfee = proportional_fee,
+	    bfee = base_fee;
 
-	return pfee + bfee* base_fee_penalty+ delay*delay_feefactor;
+	return pfee + bfee* base_fee_penalty;
 }
 
 /* This is inversely proportional to the amount we expect to send.  Let's
@@ -531,7 +599,9 @@ static double base_fee_penalty_estimate(struct amount_msat amount)
 static void init_linear_network(const tal_t *ctx,
 				const struct pay_parameters *params,
 				struct graph **graph, double **arc_prob_cost,
-				s64 **arc_fee_cost, s64 **arc_capacity)
+				double **arc_fee_cost,
+				double **arc_delay_cost,
+				s64 **arc_capacity)
 {
 	const struct gossmap *gossmap = params->rq->gossmap;
 	const size_t max_num_chans = gossmap_max_chan_idx(gossmap);
@@ -543,9 +613,13 @@ static void init_linear_network(const tal_t *ctx,
 	for (size_t i = 0; i < max_num_arcs; ++i)
 		(*arc_prob_cost)[i] = DBL_MAX;
 
-	*arc_fee_cost = tal_arr(ctx, s64, max_num_arcs);
+	*arc_fee_cost = tal_arr(ctx, double, max_num_arcs);
 	for (size_t i = 0; i < max_num_arcs; ++i)
-		(*arc_fee_cost)[i] = INT64_MAX;
+		(*arc_fee_cost)[i] = DBL_MAX;
+
+	*arc_delay_cost = tal_arr(ctx, double, max_num_arcs);
+	for (size_t i = 0; i < max_num_arcs; ++i)
+		(*arc_delay_cost)[i] = DBL_MAX;
 
 	*arc_capacity = tal_arrz(ctx, s64, max_num_arcs);
 
@@ -588,12 +662,10 @@ static void init_linear_network(const tal_t *ctx,
 			linearize_channel(params, c, half, capacity, prob_cost);
 
 			/* linear fee_cost per unit of flow */
-			const s64 fee_cost = linear_fee_cost(
+			const double fee_cost = linear_fee_cost(
 				c->half[half].base_fee,
 				c->half[half].proportional_fee,
-				c->half[half].delay,
-				params->base_fee_penalty,
-				params->delay_feefactor);
+				params->base_fee_penalty);
 
 			// let's subscribe the 4 parts of the channel direction
 			// (c,half), the dual of these guys will be subscribed
@@ -613,6 +685,7 @@ static void init_linear_network(const tal_t *ctx,
 				(*arc_capacity)[arc.idx] = capacity[k];
 				(*arc_prob_cost)[arc.idx] = prob_cost[k];
 				(*arc_fee_cost)[arc.idx] = fee_cost;
+				(*arc_delay_cost)[arc.idx] = c->half[half].delay;
 
 				// + the respective dual
 				struct arc dual = arc_dual(*graph, arc);
@@ -620,6 +693,7 @@ static void init_linear_network(const tal_t *ctx,
 				(*arc_capacity)[dual.idx] = 0;
 				(*arc_prob_cost)[dual.idx] = -prob_cost[k];
 				(*arc_fee_cost)[dual.idx] = -fee_cost;
+				(*arc_delay_cost)[dual.idx] = -c->half[half].delay;
 			}
 		}
 	}
@@ -950,8 +1024,11 @@ static struct flow **minflow(const tal_t *ctx,
 			     const struct gossmap_node *source,
 			     const struct gossmap_node *target,
 			     struct amount_msat amount,
-			     u32 mu,
-			     double delay_feefactor)
+			     double mu,
+			     double delay_dial,
+			     double per_hop_dial,
+			     double prob_dial,
+			     double per_hop_probability)
 {
 	struct flow **flow_paths;
 	/* We allocate everything off this, and free it at the end,
@@ -984,16 +1061,20 @@ static struct flow **minflow(const tal_t *ctx,
 			/params->cap_fraction[i];
 	}
 
-	params->delay_feefactor = delay_feefactor;
 	params->base_fee_penalty = base_fee_penalty_estimate(amount);
+	assert(per_hop_probability > 0 && per_hop_probability <= 1);
+	params->const_success_probability = per_hop_probability;
 
 	// build the uncertainty network with linearization and residual arcs
 	struct graph *graph;
 	double *arc_prob_cost;
-	s64 *arc_fee_cost;
+	double *arc_fee_cost;
+	double *arc_delay_cost;
 	s64 *arc_capacity;
 	init_linear_network(working_ctx, params, &graph, &arc_prob_cost,
-			    &arc_fee_cost, &arc_capacity);
+			    &arc_fee_cost,
+			    &arc_delay_cost,
+			    &arc_capacity);
 
 	const size_t max_num_arcs = graph_max_num_arcs(graph);
 	const size_t max_num_nodes = graph_max_num_nodes(graph);
@@ -1021,7 +1102,13 @@ static struct flow **minflow(const tal_t *ctx,
 		goto fail;
 	}
 	combine_cost_function(working_ctx, graph, arc_prob_cost, arc_fee_cost,
-			      rq->biases, mu, arc_cost);
+			      arc_delay_cost,
+			      rq->biases,
+			      mu,
+			      delay_dial,
+			      per_hop_dial,
+			      prob_dial,
+			      arc_cost);
 
 	/* We solve a linear MCF problem. */
 	if (!mcf_refinement(working_ctx,
@@ -1057,7 +1144,8 @@ fail:
 /* Initialize the data vectors for the single-path solver. */
 static void init_linear_network_single_path(
     const tal_t *ctx, const struct pay_parameters *params, struct graph **graph,
-    double **arc_prob_cost, s64 **arc_fee_cost, s64 **arc_capacity)
+    double **arc_prob_cost, double **arc_fee_cost, double **arc_delay_cost,
+    s64 **arc_capacity)
 {
 	const size_t max_num_chans = gossmap_max_chan_idx(params->rq->gossmap);
 	const size_t max_num_arcs = max_num_chans * ARCS_PER_CHANNEL;
@@ -1068,9 +1156,13 @@ static void init_linear_network_single_path(
 	for (size_t i = 0; i < max_num_arcs; ++i)
 		(*arc_prob_cost)[i] = DBL_MAX;
 
-	*arc_fee_cost = tal_arr(ctx, s64, max_num_arcs);
+	*arc_fee_cost = tal_arr(ctx, double, max_num_arcs);
 	for (size_t i = 0; i < max_num_arcs; ++i)
-		(*arc_fee_cost)[i] = INT64_MAX;
+		(*arc_fee_cost)[i] = DBL_MAX;
+
+	*arc_delay_cost = tal_arr(ctx, double, max_num_arcs);
+	for (size_t i = 0; i < max_num_arcs; ++i)
+		(*arc_delay_cost)[i] = DBL_MAX;
 	*arc_capacity = tal_arrz(ctx, s64, max_num_arcs);
 
 	const struct gossmap *gossmap = params->rq->gossmap;
@@ -1110,6 +1202,11 @@ static void init_linear_network_single_path(
 			if (amount_msat_greater_eq(params->amount, maxcap))
 				continue;
 
+			const double probability =
+			    pickhardt_richter_probability(mincap, maxcap,
+							  params->amount) *
+			    params->const_success_probability;
+
 			const u32 chan_id = gossmap_chan_idx(gossmap, c);
 
 			const struct gossmap_node *next =
@@ -1128,18 +1225,15 @@ static void init_linear_network_single_path(
 				      node_obj(next_id));
 
 			(*arc_capacity)[arc.idx] = 1;
-			(*arc_prob_cost)[arc.idx] =
-			    (-1.0) * log(pickhardt_richter_probability(
-					 mincap, maxcap, params->amount));
+			(*arc_prob_cost)[arc.idx] = (-1.0) * log(probability);
 
 			struct amount_msat fee;
 			if (!amount_msat_fee(&fee, params->amount,
 					     c->half[half].base_fee,
 					     c->half[half].proportional_fee))
 				abort();
-			(*arc_fee_cost)[arc.idx] =
-			    fee.millisatoshis + /* Raw: fee cost */
-			    params->delay_feefactor * c->half[half].delay;
+			(*arc_fee_cost)[arc.idx] = fee.millisatoshis; /* Raw: fee cost */
+			(*arc_delay_cost)[arc.idx] = c->half[half].delay;
 		}
 	}
 }
@@ -1151,20 +1245,21 @@ static void init_linear_network_single_path(
  * @source: the source to start from
  * @target: the target to pay
  * @amount: the amount we want to reach @target
- * @mu: 0 = corresponds to only probabilities, 100 corresponds to only fee.
- * @delay_feefactor: convert 1 block delay into msat.
- *
- * @delay_feefactor converts 1 block delay into msat, as if it were an additional
- * fee.  So if a CLTV delay on a node is 5 blocks, that's treated as if it
- * were a fee of 5 * @delay_feefactor.
+ * @mu: 0 = corresponds to only probabilities, 1 corresponds to only fee.
+ * @delay_dial: same as mu but for delays.
+ * @prob_dial: same as mu but for probabilities.
  *
  * Returns an array with one flow which deliver amount to target, or NULL.
  */
 static struct flow **single_path_flow(const tal_t *ctx, const struct route_query *rq,
 				      const struct gossmap_node *source,
 				      const struct gossmap_node *target,
-				      struct amount_msat amount, u32 mu,
-				      double delay_feefactor)
+				      struct amount_msat amount,
+				      double mu,
+				      double delay_dial,
+				      double per_hop_dial,
+				      double prob_dial,
+				      double per_hop_probability)
 {
 	struct flow **flow_paths;
 	/* We allocate everything off this, and free it at the end,
@@ -1179,16 +1274,19 @@ static struct flow **single_path_flow(const tal_t *ctx, const struct route_query
 	/* for the single-path solver the accuracy does not detriment
 	 * performance */
 	params->accuracy = amount;
-	params->delay_feefactor = delay_feefactor;
 	params->base_fee_penalty = base_fee_penalty_estimate(amount);
+	assert(per_hop_probability > 0 && per_hop_probability <= 1);
+	params->const_success_probability = per_hop_probability;
 
 	struct graph *graph;
 	double *arc_prob_cost;
-	s64 *arc_fee_cost;
+	double *arc_fee_cost;
+	double *arc_delay_cost;
 	s64 *arc_capacity;
 
 	init_linear_network_single_path(working_ctx, params, &graph,
 					&arc_prob_cost, &arc_fee_cost,
+					&arc_delay_cost,
 					&arc_capacity);
 
 	const struct node dst = {.idx = gossmap_node_idx(rq->gossmap, target)};
@@ -1203,7 +1301,8 @@ static struct flow **single_path_flow(const tal_t *ctx, const struct route_query
 	struct arc *prev = tal_arrz(working_ctx, struct arc, max_num_nodes);
 
 	combine_cost_function(working_ctx, graph, arc_prob_cost, arc_fee_cost,
-			      rq->biases, mu, arc_cost);
+			      arc_delay_cost, rq->biases, mu, delay_dial,
+			      per_hop_dial, prob_dial, arc_cost);
 
 	/* We solve a linear cost flow problem. */
 	if (!dijkstra_path(working_ctx, graph, src, dst,
@@ -1328,13 +1427,20 @@ static bool check_htlc_max_limits(struct route_query *rq, struct flow **flows)
 	return true;
 }
 
-/* FIXME: add extra constraint maximum route length, use an activation
- * probability cost for each channel. Recall that every activation cost, eg.
- * base fee and activation probability can only be properly added modifying the
- * graph topology by creating an activation node for every half channel. */
-/* FIXME: add extra constraint maximum number of routes, fixes issue 8331. */
-/* FIXME: add a boolean option to make recipient pay for fees, fixes issue 8353.
- */
+/* Renormalize the dials so that their sum is always 1.
+ * All values assumed to be positive. */
+static void renormalize_dials(double *fee_dial,
+			      double *delay_dial,
+			      double *per_hop_dial,
+			      double *prob_dial)
+{
+	double sum = *fee_dial + *delay_dial + *per_hop_dial + *prob_dial;
+	*fee_dial /= sum;
+	*delay_dial /= sum;
+	*per_hop_dial /= sum;
+	*prob_dial /= sum;
+}
+
 static const char *
 linear_routes(const tal_t *ctx, struct route_query *rq,
 	      struct timemono deadline,
@@ -1342,24 +1448,45 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 	      const struct gossmap_node *dstnode, struct amount_msat amount,
 	      struct amount_msat maxfee, u32 finalcltv, u32 maxdelay,
 	      size_t maxparts,
+	      u32 maxhops,
 	      struct flow ***flows, double *probability,
 	      enum jsonrpc_errcode *ecode,
 	      struct flow **(*solver)(const tal_t *, const struct route_query *,
 				      const struct gossmap_node *,
 				      const struct gossmap_node *,
-				      struct amount_msat, u32, double))
+				      struct amount_msat,
+				      double,
+				      double,
+				      double,
+				      double,
+				      double))
 {
+	/* Almost 1 to limit the dials' iterations. */
+	const double near_one = 1. - 1e-6;
 	const tal_t *working_ctx = tal(ctx, tal_t);
 	const char *error_message;
 	struct amount_msat amount_to_deliver = amount;
 	struct amount_msat feebudget = maxfee;
 
-	/* FIXME: mu is an integer from 0 to MU_MAX that we use to combine fees
-	 * and probability costs, but I think we can make it a real number from
-	 * 0 to 1. */
-	u32 mu = 1;
-	/* we start at 1e-6 and increase it exponentially (x2) up to 10. */
-	double delay_feefactor = 1e-6;
+	/* These are the cost dials for the feature costs we combine.
+	 * Each one must be a number between 0 and 1, and the sum of all must be
+	 * equal to 1. */
+	double mu = 0.01;
+	double delay_dial = 0.001;
+	double per_hop_dial = 0.001;
+	double prob_dial = 0.988;
+
+	/* Counters to keep a record of how many times the dials have been
+	 * updated. */
+	int count_mu_updates = 0, count_delay_updates = 0,
+	    count_hop_updates = 0;
+
+	/* An homogeneous 1% probability of failure is assumed per hop.  We
+	 * don't have a proper treatment of *activation costs* on arcs right
+	 * now, but we use a simple linearization instead.  The result is still
+	 * a reduction of the mean path length.  Shorter paths are more likely
+	 * but also be more msat expensive. */
+	double per_hop_probability = 0.99;
 
 	struct flow **new_flows = NULL;
 	struct amount_msat all_deliver;
@@ -1378,6 +1505,36 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 			goto fail;
 		}
 
+		/* If we see any indication of a race between any pair of dials
+		 * we can't guarantee converge so we stop. */
+		if (count_mu_updates > 10 && count_delay_updates > 10) {
+			error_message =
+			    child_log(ctx, LOG_UNUSUAL,
+				      "%s: can't satisfy both maxfee and "
+				      "maxdelay constraints",
+				      __func__);
+			*ecode = PAY_ROUTE_NOT_FOUND;
+			goto fail;
+		}
+		if (count_mu_updates > 10 && count_hop_updates > 10) {
+			error_message =
+			    child_log(ctx, LOG_UNUSUAL,
+				      "%s: can't satisfy both maxfee and "
+				      "maxhops constraints",
+				      __func__);
+			*ecode = PAY_ROUTE_NOT_FOUND;
+			goto fail;
+		}
+		if (count_hop_updates > 10 && count_delay_updates > 10) {
+			error_message =
+			    child_log(ctx, LOG_UNUSUAL,
+				      "%s: can't satisfy both maxhops and "
+				      "maxdelay constraints",
+				      __func__);
+			*ecode = PAY_ROUTE_NOT_FOUND;
+			goto fail;
+		}
+
 		new_flows = tal_free(new_flows);
 
 		/* If the amount_to_deliver is very small we better use a single
@@ -1390,13 +1547,27 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
                  * amount. */
 		if (amount_msat_less_eq(amount_to_deliver,
 					SINGLE_PATH_THRESHOLD)) {
-			new_flows = single_path_flow(working_ctx, rq, srcnode,
-						     dstnode, amount_to_deliver,
-						     mu, delay_feefactor);
+			new_flows = single_path_flow(working_ctx,
+						     rq,
+						     srcnode,
+						     dstnode,
+						     amount_to_deliver,
+						     mu,
+						     delay_dial,
+						     per_hop_dial,
+						     prob_dial,
+						     per_hop_probability);
 		} else {
-			new_flows =
-			    solver(working_ctx, rq, srcnode, dstnode,
-				   amount_to_deliver, mu, delay_feefactor);
+			new_flows = solver(working_ctx,
+					   rq,
+					   srcnode,
+					   dstnode,
+					   amount_to_deliver,
+					   mu,
+					   delay_dial,
+					   per_hop_dial,
+					   prob_dial,
+					   per_hop_probability);
 		}
 
 		if (!new_flows) {
@@ -1459,18 +1630,18 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 			goto fail;
 		}
 		if (amount_msat_greater(all_fees, partial_feebudget)) {
-			if (mu < MU_MAX) {
+			if (mu < near_one) {
 				/* all_fees exceed the strong budget limit, try
 				 * to fix it increasing mu. */
-				if (mu == 1)
-					mu = 10;
-				else
-					mu += 10;
-				mu = MIN(mu, MU_MAX);
+				mu *= 2;
+				count_mu_updates++;
+				renormalize_dials(&mu, &delay_dial,
+						  &per_hop_dial,
+						  &prob_dial);
 				child_log(
 				    tmpctx, LOG_INFORM,
 				    "The flows had a fee of %s, greater than "
-				    "max of %s, retrying with mu of %u%%...",
+				    "max of %s, retrying with mu of %.6lf...",
 				    fmt_amount_msat(tmpctx, all_fees),
 				    fmt_amount_msat(tmpctx, partial_feebudget),
 				    mu);
@@ -1501,7 +1672,7 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 
 		/* Too much delay? */
 		if (finalcltv + flows_worst_delay(new_flows) > maxdelay) {
-			if (delay_feefactor > 10) {
+			if (delay_dial >= near_one) {
 				error_message =
 				    child_log(ctx, LOG_UNUSUAL,
 					      "Could not find route without "
@@ -1510,13 +1681,41 @@ linear_routes(const tal_t *ctx, struct route_query *rq,
 				goto fail;
 			}
 
-			delay_feefactor *= 2;
+			delay_dial *= 2;
+			count_delay_updates++;
+			renormalize_dials(&mu, &delay_dial, &per_hop_dial,
+					  &prob_dial);
 			child_log(tmpctx, LOG_INFORM,
 				  "The worst flow delay is %" PRIu64
-				  " (> %i), retrying with delay_feefactor %f...",
+				  " (> %i), retrying with delay_dial %f...",
 				  flows_worst_delay(new_flows), maxdelay - finalcltv,
-				  delay_feefactor);
+				  delay_dial);
                         continue;
+		}
+
+		/* Too many hops? */
+		u32 count_hops = flows_worst_length(new_flows);
+		if (count_hops > maxhops) {
+			if (per_hop_dial >= near_one) {
+				error_message =
+				    child_log(ctx, LOG_UNUSUAL,
+					      "Could not find route without "
+					      "excessive hop count");
+				*ecode = PAY_ROUTE_NOT_FOUND;
+				goto fail;
+			}
+
+			per_hop_dial *= 2;
+			count_hop_updates++;
+			renormalize_dials(&mu, &delay_dial, &per_hop_dial,
+					  &prob_dial);
+
+			child_log(tmpctx, LOG_INFORM,
+				  "The worst flow number of hops is %" PRIu32
+				  " (> %" PRIu32
+				  "), retrying with per_hop_dial %f ...",
+				  count_hops, maxhops, per_hop_dial);
+			continue;
 		}
 
 		all_fees = AMOUNT_MSAT(0);
@@ -1632,14 +1831,17 @@ const char *default_routes(const tal_t *ctx, struct route_query *rq,
 			   const struct gossmap_node *srcnode,
 			   const struct gossmap_node *dstnode,
 			   struct amount_msat amount, struct amount_msat maxfee,
-			   u32 finalcltv, u32 maxdelay, size_t maxparts,
+			   u32 finalcltv,
+			   u32 maxdelay,
+			   size_t maxparts,
+			   u32 maxhops,
 			   struct flow ***flows,
 			   double *probability,
 			   enum jsonrpc_errcode *ecode)
 {
-	return linear_routes(ctx, rq, deadline, srcnode, dstnode, amount, maxfee,
-			     finalcltv, maxdelay, maxparts, flows, probability, ecode,
-			     minflow);
+	return linear_routes(ctx, rq, deadline, srcnode, dstnode, amount,
+			     maxfee, finalcltv, maxdelay, maxparts, maxhops,
+			     flows, probability, ecode, minflow);
 }
 
 const char *single_path_routes(const tal_t *ctx, struct route_query *rq,
@@ -1648,11 +1850,13 @@ const char *single_path_routes(const tal_t *ctx, struct route_query *rq,
 			       const struct gossmap_node *dstnode,
 			       struct amount_msat amount,
 			       struct amount_msat maxfee, u32 finalcltv,
-			       u32 maxdelay, struct flow ***flows,
+			       u32 maxdelay,
+			       u32 maxhops,
+			       struct flow ***flows,
 			       double *probability,
 			       enum jsonrpc_errcode *ecode)
 {
-	return linear_routes(ctx, rq, deadline, srcnode, dstnode, amount, maxfee,
-			     finalcltv, maxdelay, 1, flows, probability, ecode,
-			     single_path_flow);
+	return linear_routes(ctx, rq, deadline, srcnode, dstnode, amount,
+			     maxfee, finalcltv, maxdelay, 1, maxhops, flows,
+			     probability, ecode, single_path_flow);
 }
