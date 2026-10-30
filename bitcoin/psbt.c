@@ -870,6 +870,7 @@ struct wally_psbt *psbt_from_b64(const tal_t *ctx,
 				 size_t b64len)
 {
 	struct wally_psbt *psbt;
+	size_t locktime;
 
 	tal_wally_start();
 	if (wally_psbt_from_base64_n(b64, b64len, /* flags */ 0, &psbt) == WALLY_OK)
@@ -877,6 +878,13 @@ struct wally_psbt *psbt_from_b64(const tal_t *ctx,
 	else
 		psbt = NULL;
 	tal_wally_end_onto(ctx, psbt, struct wally_psbt);
+
+	/* One input requiring a time locktime and another a height locktime
+	 * leave the transaction no valid locktime, and psbt_txid aborts on
+	 * it. */
+	if (psbt && psbt->version == 2
+	    && wally_psbt_get_locktime(psbt, &locktime) != WALLY_OK)
+		return tal_free(psbt);
 
 	return psbt;
 }
