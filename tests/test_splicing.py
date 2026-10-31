@@ -9,6 +9,10 @@ from utils import (
     sync_blockheight, wait_for, TEST_NETWORK, first_scid, only_one
 )
 
+# The DB version right before the two channel_funding_inflights.funding_feerate
+# clamping migrations in wallet/migrations.c.
+PRE_FEERATE_CLAMP_DB_VERSION = 286
+
 
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
@@ -92,10 +96,12 @@ def test_splice_stored_feerate_repaired_on_upgrade(node_factory, bitcoind,
     l1.db_manip("UPDATE channel_funding_inflights"
                 " SET funding_feerate = {}".format(poison))
 
-    # Rewind past the two clamping migrations so they run again over the row
-    # we just planted, which is the upgrade an attacked node goes through.
-    # They are plain idempotent UPDATEs, so re-running them is safe.
-    l1.db_manip("UPDATE version SET version = version - 2")
+    # Rewind to just before the two clamping migrations so they run again
+    # over the row we just planted, which is the upgrade an attacked node
+    # goes through.  They are plain idempotent UPDATEs, so re-running them is
+    # safe.  This is an absolute version, so it keeps pointing at the clamps
+    # when later migrations are appended.
+    l1.db_manip("UPDATE version SET version = {}".format(PRE_FEERATE_CLAMP_DB_VERSION))
     l1.daemon.opts['database-upgrade'] = 'true'
     l1.start()
 
