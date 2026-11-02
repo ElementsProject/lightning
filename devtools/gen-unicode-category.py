@@ -3,6 +3,8 @@
 from argparse import ArgumentParser
 
 BANNED_CATEGORIES = ("Cc", "Cf", "Co")
+# TAB, LF and CR are Cc, but are used in multi-line descriptions in the wild
+ALLOWED_CODEPOINTS = (0x09, 0x0A, 0x0D)
 MAX_CODEPOINT = 0x10FFFF
 
 HEADER_BANNER = """
@@ -47,7 +49,7 @@ def compute_banned_ranges(assigned):
     banned = []
 
     for start, end, category in assigned:
-        if category in BANNED_CATEGORIES:
+        if category in BANNED_CATEGORIES and start not in ALLOWED_CODEPOINTS:
             banned.append((start, end))
 
     next_free = 0
@@ -102,7 +104,8 @@ struct unicode_range {{
 \tu32 start, end;
 }};
 
-/* Sorted, non-overlapping, coalesced ranges banned as Cc/Cf/Co/Cn. */
+/* Sorted, non-overlapping, coalesced ranges banned as Cc/Cf/Co/Cn
+ * (except TAB, LF and CR). */
 static const struct unicode_range banned_ranges[] = {{
 """
         )
