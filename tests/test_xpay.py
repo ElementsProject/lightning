@@ -1486,3 +1486,115 @@ def test_sendamount_bip353(node_factory):
     ret = l2.rpc.sendamount("fake@fake.com", "100sat")
     assert ret["successful_parts"] == 1
     assert ret["amount_sent_msat"] == 100000
+
+
+def test_xpay_unknown_next_peer_excludes_node(node_factory, bitcoind):
+    """Issue 9590: repeated unknown_next_peer must exclude the next node.
+
+    payer -> hub -> {a,b,c,d} -> dest
+
+    hub fails every forward with unknown_next_peer (the code lnd returns when
+    the next peer is offline). A single failure may be a stale scid, so the
+    first channel is disabled and another path is allowed. The second failure
+    to the same next node must exclude that node, so xpay must not walk every
+    remaining channel into it.
+    """
+    plugin = os.path.join(os.path.dirname(__file__), 'plugins/fail_unknown_next_peer.py')
+    payer, hub, a, b, c, d, dest = node_factory.get_nodes(
+        7, opts=[{},
+                 {'plugin': plugin},
+                 {},
+                 {},
+                 {},
+                 {},
+                 {}])
+    node_factory.join_nodes([payer, hub], fundamount=10**6, wait_for_announce=True)
+    for spoke in (a, b, c, d):
+        node_factory.join_nodes([hub, spoke, dest], fundamount=10**6, wait_for_announce=True)
+
+    wait_for(lambda: len(payer.rpc.listchannels()['channels']) >= 9 * 2)
+
+    inv = dest.rpc.invoice(10000, 'issue-9590', 'issue 9590')['bolt11']
+    started = time.time()
+    with pytest.raises(RpcError) as err:
+        payer.rpc.xpay(invstring=inv, retry_for=15)
+    elapsed = time.time() - started
+
+    msg = err.value.error['message']
+    # One channel disable, then the node is excluded. Walking all four exits
+    # is the bug. The exclusion line also contains the failcode name.
+    unknown = msg.count('We got a weird error (unknown_next_peer)')
+    assert 0 < unknown <= 2, msg
+    assert elapsed < 10, 'spent the retry window walking the same node: {}'.format(msg)
+    assert 'disabling node' in msg or 'Repeated weird errors' in msg
+
+
+def setup_failing_hub(node_factory, num_spokes, alt_ppm):
+    """payer -> hub -> {spokes} -> dest, plus payer -> alt -> altspoke -> dest.
+
+    hub is the cheap, well-connected path but fails every forward with
+    fee_insufficient (with no channel_update, so there is nothing to learn
+    from it).  The alternative path through alt charges alt_ppm.
+    """
+
+    def setup(plugin):
+        @plugin.hook("htlc_accepted")
+        def on_htlc_accepted(onion, plugin, **kwargs):
+            # Forwards carry forward_msat. Local invoices do not.
+            if onion.get("forward_msat") is None:
+                return {"result": "continue"}
+            # WIRE_FEE_INSUFFICIENT = UPDATE|12, htlc_msat, empty channel_update
+            return {"result": "fail", "failure_message": "100c" + "00" * 8 + "0000"}
+
+    payer = node_factory.get_node()
+    hub = node_factory.get_node(inline_plugin=setup)
+    alt, altspoke, dest, *spokes = node_factory.get_nodes(3 + num_spokes)
+    node_factory.join_nodes([payer, hub], fundamount=10**6, wait_for_announce=True)
+    for spoke in spokes:
+        node_factory.join_nodes(
+            [hub, spoke, dest], fundamount=10**6, wait_for_announce=True
+        )
+    node_factory.join_nodes(
+        [payer, alt, altspoke, dest], fundamount=10**6, wait_for_announce=True
+    )
+
+    alt.rpc.setchannel(altspoke.info["id"], feebase=1, feeppm=alt_ppm)
+    num_chans = 1 + 2 * num_spokes + 3
+    wait_for(lambda: len(payer.rpc.listchannels()["channels"]) == num_chans * 2)
+    wait_for(
+        lambda: (
+            [
+                c["fee_per_millionth"]
+                for c in payer.rpc.listchannels(source=alt.info["id"])["channels"]
+                if c["destination"] == altspoke.info["id"]
+            ]
+            == [alt_ppm]
+        )
+    )
+    return payer, hub, alt, dest
+
+
+def test_xpay_fee_insufficient_bias(node_factory, bitcoind):
+    """A hub repeatedly returning fee_insufficient gets a node bias.
+
+    The alternative route is only slightly more expensive, so the node bias
+    added on the second failure is enough to route around the hub: we should
+    not need to disable the hub.
+    """
+    payer, hub, alt, dest = setup_failing_hub(node_factory, num_spokes=5, alt_ppm=300)
+
+    inv = dest.rpc.invoice(100000, "fee-bias", "fee-bias")["bolt11"]
+    ret = payer.rpc.xpay(invstring=inv, retry_for=30)
+    assert 0 < ret["failed_parts"] <= 2, ret
+    assert payer.daemon.is_in_log("disabling node for this payment")
+    assert payer.daemon.is_in_log(
+        "adding a global bias to node {}".format(hub.info["id"])
+    )
+
+    # The bias persists in the xpay layer for future payments.
+    layer = only_one(payer.rpc.askrene_listlayers("xpay")["layers"])
+    node_bias = only_one(
+        [b for b in layer["node_biases"] if b["node"] == hub.info["id"]]
+    )
+    assert node_bias["out_bias"] < 0
+    assert "fee_insufficient" in node_bias["description"]
