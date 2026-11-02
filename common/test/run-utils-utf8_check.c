@@ -120,6 +120,9 @@ static void test_valid(void)
 
 	assert(utf8_check("", 0));
 	assert(utf8_check_text("", 0));
+
+	/* TAB, LF and CR are Cc, but are allowed in text fields */
+	assert(utf8_check_text("a\tb\r\nc\n", strlen("a\tb\r\nc\n")));
 }
 
 /* NUL, surrogates and overlong encodings are rejected by ccan/utf8
@@ -139,17 +142,17 @@ static void test_encoding_banned(void)
  * fields */
 static void test_text_banned(void)
 {
-	static const u8 tab[] = { 'a', '\t', 'b' };
+	static const u8 esc[] = { 'a', 0x1b, 'b' };
 	static const u8 del[] = { 'a', 0x7f, 'b' };
 	static const u8 c1_control[] = { 'a', 0xc2, 0x85, 'b' };
 	static const u8 rtl_override[] = { 'a', 0xe2, 0x80, 0xae, 'b' };
 	static const u8 private_use[] = { 'a', 0xee, 0x80, 0x80, 'b' };
 	static const u8 unassigned[] = { 'a', 0xcd, 0xb8, 'b' };
 	static const u8 *cases[] = {
-		tab, del, c1_control, rtl_override, private_use, unassigned
+		esc, del, c1_control, rtl_override, private_use, unassigned
 	};
 	static const size_t lens[] = {
-		sizeof(tab), sizeof(del), sizeof(c1_control),
+		sizeof(esc), sizeof(del), sizeof(c1_control),
 		sizeof(rtl_override), sizeof(private_use), sizeof(unassigned)
 	};
 

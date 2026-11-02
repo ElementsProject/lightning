@@ -140,7 +140,8 @@ bool utf8_check(const void *buf, size_t buflen);
 char *utf8_str(const tal_t *ctx, const u8 *buf TAKES, size_t buflen);
 
 /* Like utf8_check(), but also reject codepoints in Unicode general
- * categories Cc/Cf/Co/Cn (control, format, private-use, unassigned) */
+ * categories Cc/Cf/Co/Cn (control, format, private-use, unassigned).
+ * TAB, LF and CR are still allowed. */
 bool utf8_check_text(const void *buf, size_t buflen);
 
 /* Like utf8_str(), but using utf8_check_text() instead of utf8_check(). */

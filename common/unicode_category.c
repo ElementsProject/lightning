@@ -13,9 +13,12 @@ struct unicode_range {
 	u32 start, end;
 };
 
-/* Sorted, non-overlapping, coalesced ranges banned as Cc/Cf/Co/Cn. */
+/* Sorted, non-overlapping, coalesced ranges banned as Cc/Cf/Co/Cn
+ * (except TAB, LF and CR). */
 static const struct unicode_range banned_ranges[] = {
-	{ 0x000000, 0x00001F },
+	{ 0x000000, 0x000008 },
+	{ 0x00000B, 0x00000C },
+	{ 0x00000E, 0x00001F },
 	{ 0x00007F, 0x00009F },
 	{ 0x0000AD, 0x0000AD },
 	{ 0x000378, 0x000379 },
