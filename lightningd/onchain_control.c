@@ -1043,6 +1043,31 @@ static u8 **sign_and_get_witness(const tal_t *ctx,
 					       info->wscript);
 }
 
+/* Our HTLC tx input is always input 0 */
+static u8 **sign_and_get_htlc_witness(const tal_t *ctx,
+				      struct lightningd *ld,
+				      const struct bitcoin_tx *tx,
+				      const struct onchain_signing_info *info)
+{
+	const u8 *msg;
+	struct bitcoin_signature sig;
+
+	msg = hsm_sync_req(tmpctx, ld, take(info->sign(NULL, tx, info)));
+	if (!fromwire_hsmd_sign_tx_reply(msg, &sig))
+		fatal("Reading sign_tx_reply: %s", tal_hex(tmpctx, msg));
+
+	if (info->msgtype == WIRE_ONCHAIND_SPEND_HTLC_SUCCESS)
+		return bitcoin_witness_htlc_success_tx(ctx, &sig,
+						       &info->u.htlc_success.remote_htlc_sig,
+						       &info->u.htlc_success.preimage,
+						       info->wscript);
+
+	assert(info->msgtype == WIRE_ONCHAIND_SPEND_HTLC_TIMEOUT);
+	return bitcoin_witness_htlc_timeout_tx(ctx, &sig,
+					       &info->u.htlc_timeout.remote_htlc_sig,
+					       info->wscript);
+}
+
 /* Always sets *welements, returns tx.  Sets *worthwhile to false if
  * it wasn't worthwhile at the given feerate (and it had to drop feerate).
  * Returns NULL iff it called channel_internal_error().
@@ -1231,6 +1256,15 @@ static bool consider_onchain_htlc_tx_rebroadcast(struct channel *channel,
 	newtx->wtx = psbt_final_tx(newtx, psbt);
 	assert(newtx->wtx);
 	newtx->psbt = tal_steal(newtx, psbt);
+
+	/* BOLT #5:
+	 * The local signature MUST use `SIGHASH_ALL`, otherwise
+	 * anyone can attach additional inputs and outputs to the tx
+	 */
+	/* So our signature from raw_htlc_tx is not valid here - re-sign */
+	bitcoin_tx_input_set_witness(newtx, 0,
+				     take(sign_and_get_htlc_witness(NULL, ld,
+								    newtx, info)));
 
 	bitcoin_txid(*tx, &oldtxid);
 	bitcoin_txid(newtx, &newtxid);
@@ -1488,7 +1522,6 @@ static void handle_onchaind_spend_htlc_success(struct channel *channel,
 	u8 *htlc_wscript;
 	struct bitcoin_tx *tx;
 	u8 **witness;
-	struct bitcoin_signature sig;
 	const struct onchain_witness_element **welements;
 	const bool option_anchor_outputs = channel_has(channel, OPT_ANCHOR_OUTPUTS_DEPRECATED);
 	const bool option_anchors_zero_fee_htlc_tx = channel_has(channel, OPT_ANCHORS_ZERO_FEE_HTLC_TX);
@@ -1527,14 +1560,8 @@ static void handle_onchaind_spend_htlc_success(struct channel *channel,
 	info->deadline_block = htlc_incoming_deadline(channel, htlc_id);
 
 	/* Now sign, and set witness */
-	msg = hsm_sync_req(tmpctx, ld, take(sign_htlc_success(NULL, tx, info)));
-	if (!fromwire_hsmd_sign_tx_reply(msg, &sig))
-		fatal("Reading sign_tx_reply: %s", tal_hex(tmpctx, msg));
-
-	witness = bitcoin_witness_htlc_success_tx(NULL, &sig,
-						  &info->u.htlc_success.remote_htlc_sig,
-						  &info->u.htlc_success.preimage,
-						  info->wscript);
+	info->sign = sign_htlc_success;
+	witness = sign_and_get_htlc_witness(NULL, ld, tx, info);
 	welements = onchain_witness_htlc_tx(tmpctx, witness);
 	bitcoin_tx_input_set_witness(tx, 0, take(witness));
 
@@ -1569,7 +1596,6 @@ static void handle_onchaind_spend_htlc_timeout(struct channel *channel,
 	u8 *htlc_wscript;
 	struct bitcoin_tx *tx;
 	u8 **witness;
-	struct bitcoin_signature sig;
 	const struct onchain_witness_element **welements;
 	const bool option_anchor_outputs = channel_has(channel, OPT_ANCHOR_OUTPUTS_DEPRECATED);
 	const bool option_anchors_zero_fee_htlc_tx = channel_has(channel, OPT_ANCHORS_ZERO_FEE_HTLC_TX);
@@ -1610,13 +1636,8 @@ static void handle_onchaind_spend_htlc_timeout(struct channel *channel,
 	info->minblock = cltv_expiry + 1;
 
 	/* Now sign, and set witness */
-	msg = hsm_sync_req(tmpctx, ld, take(sign_htlc_timeout(NULL, tx, info)));
-	if (!fromwire_hsmd_sign_tx_reply(msg, &sig))
-		fatal("Reading sign_tx_reply: %s", tal_hex(tmpctx, msg));
-
-	witness = bitcoin_witness_htlc_timeout_tx(NULL, &sig,
-						  &info->u.htlc_timeout.remote_htlc_sig,
-						  info->wscript);
+	info->sign = sign_htlc_timeout;
+	witness = sign_and_get_htlc_witness(NULL, ld, tx, info);
 	welements = onchain_witness_htlc_tx(tmpctx, witness);
 	bitcoin_tx_input_set_witness(tx, 0, take(witness));
 
