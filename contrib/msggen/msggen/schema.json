@@ -22597,6 +22597,31 @@
                     ]
                   }
                 }
+              },
+              "zeroconf-require-funding-seen": {
+                "added": "v26.12",
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "value_bool",
+                  "source"
+                ],
+                "properties": {
+                  "value_bool": {
+                    "added": "v26.12",
+                    "type": "boolean",
+                    "description": [
+                      "Field from config or cmdline, or default."
+                    ]
+                  },
+                  "source": {
+                    "added": "v26.12",
+                    "type": "string",
+                    "description": [
+                      "Source of configuration setting."
+                    ]
+                  }
+                }
               }
             }
           }
@@ -22934,6 +22959,10 @@
                 "sources": []
               },
               "message-padding": {
+                "value_bool": false,
+                "source": "default"
+              },
+              "zeroconf-require-funding-seen": {
                 "value_bool": false,
                 "source": "default"
               },
@@ -23766,7 +23795,8 @@
                           "invalid_onion",
                           "channel_shutting_down",
                           "max_htlc_value_in_flight",
-                          "peer_cannot_afford_fee"
+                          "peer_cannot_afford_fee",
+                          "funding_not_broadcast"
                         ],
                         "description": [
                           "The root cause of the failure, more specific than *failcode*/*failreason*. Only set for *local_failed* forwards, and not always known.",
@@ -42294,7 +42324,8 @@
               "invalid_onion",
               "channel_shutting_down",
               "max_htlc_value_in_flight",
-              "peer_cannot_afford_fee"
+              "peer_cannot_afford_fee",
+              "funding_not_broadcast"
             ],
             "description": [
               "The root cause of the failure, more specific than *failcode*/*failreason*. Only set for *local_failed* forwards, and not always known.",

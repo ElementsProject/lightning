@@ -378,6 +378,7 @@ struct channel *new_unsaved_channel(struct peer *peer,
 
 	channel->last_htlc_sigs = NULL;
 	channel->remote_channel_ready = false;
+	channel->funding_tx_status = FUNDING_TX_STATUS_UNKNOWN;
 	channel->scid = NULL;
 	channel->old_scids = NULL;
 	channel->next_index[LOCAL] = 1;
@@ -752,6 +753,18 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->funding_psbt = tal_steal(channel, funding_psbt);
 	channel->withheld = withheld;
 	return channel;
+}
+
+bool channel_zeroconf_funding_unseen(const struct channel *channel)
+{
+	if (!channel->peer->ld->zeroconf_require_funding_seen)
+		return false;
+	if (channel->minimum_depth != 0)
+		return false;
+	/* If we funded it, we're the ones who broadcast (or withhold) it */
+	if (channel->opener != REMOTE)
+		return false;
+	return channel->funding_tx_status == FUNDING_TX_STATUS_UNKNOWN;
 }
 
 const char *channel_state_name(const struct channel *channel)

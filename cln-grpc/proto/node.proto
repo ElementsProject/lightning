@@ -2438,6 +2438,7 @@ message ListforwardsForwards {
 		CHANNEL_SHUTTING_DOWN = 13;
 		MAX_HTLC_VALUE_IN_FLIGHT = 14;
 		PEER_CANNOT_AFFORD_FEE = 15;
+		FUNDING_NOT_BROADCAST = 16;
 	}
 	// ListForwards.forwards[].status
 	enum ListforwardsForwardsStatus {
@@ -3331,6 +3332,7 @@ message ListconfigsConfigs {
 	optional ListconfigsConfigsMinemergencymsat min_emergency_msat = 82;
 	optional ListconfigsConfigsPaymentfrontingnode payment_fronting_node = 83;
 	optional ListconfigsConfigsRecover recover = 84;
+	optional ListconfigsConfigsZeroconfrequirefundingseen zeroconf_require_funding_seen = 85;
 	reserved 23, 24, 65, 72, 73;
 	reserved "accept_htlc_tlv_types", "add_source", "disable_source", "experimental_offers", "experimental_onion_messages";
 }
@@ -3743,6 +3745,11 @@ message ListconfigsConfigsWallet {
 message ListconfigsConfigsWatchtimeblocks {
 	uint32 value_int = 1;
 	string source = 2;
+}
+
+message ListconfigsConfigsZeroconfrequirefundingseen {
+	string source = 1;
+	bool value_bool = 2;
 }
 
 message StopRequest {
@@ -4964,6 +4971,7 @@ message ForwardEventNotification {
 		CHANNEL_SHUTTING_DOWN = 13;
 		MAX_HTLC_VALUE_IN_FLIGHT = 14;
 		PEER_CANNOT_AFFORD_FEE = 15;
+		FUNDING_NOT_BROADCAST = 16;
 	}
 	// forward_event.status
 	enum ForwardEventStatus {

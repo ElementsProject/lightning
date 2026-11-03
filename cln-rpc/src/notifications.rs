@@ -494,6 +494,8 @@ pub enum ForwardEventFailureReason {
     MAX_HTLC_VALUE_IN_FLIGHT = 14,
     #[serde(rename = "peer_cannot_afford_fee")]
     PEER_CANNOT_AFFORD_FEE = 15,
+    #[serde(rename = "funding_not_broadcast")]
+    FUNDING_NOT_BROADCAST = 16,
 }
 
 impl TryFrom<i32> for ForwardEventFailureReason {
@@ -516,6 +518,7 @@ impl TryFrom<i32> for ForwardEventFailureReason {
     13 => Ok(ForwardEventFailureReason::CHANNEL_SHUTTING_DOWN),
     14 => Ok(ForwardEventFailureReason::MAX_HTLC_VALUE_IN_FLIGHT),
     15 => Ok(ForwardEventFailureReason::PEER_CANNOT_AFFORD_FEE),
+    16 => Ok(ForwardEventFailureReason::FUNDING_NOT_BROADCAST),
             o => Err(anyhow::anyhow!("Unknown variant {} for enum ForwardEventFailureReason", o)),
         }
     }
@@ -540,6 +543,7 @@ impl ToString for ForwardEventFailureReason {
             ForwardEventFailureReason::CHANNEL_SHUTTING_DOWN => "CHANNEL_SHUTTING_DOWN",
             ForwardEventFailureReason::MAX_HTLC_VALUE_IN_FLIGHT => "MAX_HTLC_VALUE_IN_FLIGHT",
             ForwardEventFailureReason::PEER_CANNOT_AFFORD_FEE => "PEER_CANNOT_AFFORD_FEE",
+            ForwardEventFailureReason::FUNDING_NOT_BROADCAST => "FUNDING_NOT_BROADCAST",
         }.to_string()
     }
 }

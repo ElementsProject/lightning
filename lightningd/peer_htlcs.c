@@ -780,16 +780,21 @@ const u8 *send_htlc_out(const tal_t *ctx,
 	if (!channel_state_can_add_htlc(out->state)) {
 		log_info(out->log, "Attempt to send HTLC but not ready (%s)",
 			 channel_state_name(out));
-		if (reason) {
-			if ((out->state == CHANNELD_AWAITING_LOCKIN
-			     || out->state == DUALOPEND_AWAITING_LOCKIN)
-			    && out->minimum_depth == 0
-			    && out->funding_tx_status == FUNDING_TX_STATUS_UNKNOWN)
-				*reason = FORWARD_FAIL_FUNDING_NOT_BROADCAST;
-			else
-				*reason = FORWARD_FAIL_UNKNOWN_NEXT_PEER;
-		}
+		if (reason)
+			*reason = FORWARD_FAIL_UNKNOWN_NEXT_PEER;
 		return towire_unknown_next_peer(ctx);
+	}
+
+	/* We accept HTLCs over it, but don't risk our own funds on a zero-conf
+	 * channel whose funding tx may never be broadcast. */
+	if (channel_zeroconf_funding_unseen(out)) {
+		log_info(out->log, "Attempt to send HTLC but funding tx %s"
+			 " not yet seen",
+			 fmt_bitcoin_txid(tmpctx, &out->funding.txid));
+		if (reason)
+			*reason = FORWARD_FAIL_FUNDING_NOT_BROADCAST;
+		return towire_temporary_channel_failure(ctx,
+							channel_update_for_error(tmpctx, in, out));
 	}
 
 	if (!out->owner) {
@@ -857,6 +862,8 @@ struct channel *best_channel(struct lightningd *ld,
 		struct amount_msat spendable;
 		if (!channel_state_can_add_htlc(channel->state))
 			continue;
+		if (channel_zeroconf_funding_unseen(channel))
+			continue;
 		spendable = channel_amount_spendable(channel);
 		if (!amount_msat_greater(spendable, best_spendable))
 			continue;
@@ -911,22 +918,13 @@ static void forward_htlc(struct htlc_in *hin,
 
 	/* Unknown peer, or peer not ready. */
 	if (!next || !channel_state_can_add_htlc(next->state)) {
-		enum forward_failure_reason unready_reason = FORWARD_FAIL_UNKNOWN_NEXT_PEER;
-
-		if (next
-		    && (next->state == CHANNELD_AWAITING_LOCKIN
-			|| next->state == DUALOPEND_AWAITING_LOCKIN)
-		    && next->minimum_depth == 0
-		    && next->funding_tx_status == FUNDING_TX_STATUS_UNKNOWN)
-			unready_reason = FORWARD_FAIL_FUNDING_NOT_BROADCAST;
-
 		local_fail_in_htlc(hin, take(towire_unknown_next_peer(NULL)));
 		wallet_forwarded_payment_add(hin->key.channel->peer->ld->wallet,
 					 hin, FORWARD_STYLE_TLV,
 					 forward_scid, NULL,
 					 FORWARD_LOCAL_FAILED,
 					 WIRE_UNKNOWN_NEXT_PEER,
-					 unready_reason);
+					 FORWARD_FAIL_UNKNOWN_NEXT_PEER);
 		return;
 	}
 

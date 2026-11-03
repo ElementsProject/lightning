@@ -10,7 +10,6 @@
 #include <db/exec.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/channel.h>
-#include <lightningd/channel_control.h>
 #include <lightningd/coin_mvts.h>
 #include <lightningd/feerate.h>
 #include <lightningd/gossip_control.h>
@@ -214,6 +213,8 @@ static void rebroadcast_txs(struct chain_topology *topo)
 /* Mutual recursion via timer */
 static void poll_zeroconf_unbroadcast_funding(struct chain_topology *topo);
 
+/* Allocated off the channel, so if the channel is freed while the
+ * request is outstanding, the callback is never called. */
 struct zeroconf_utxo_check {
 	struct channel *channel;
 };
@@ -229,13 +230,11 @@ static void zeroconf_utxo_checked(struct bitcoind *bitcoind,
 
 	if (txout && channel->funding_tx_status == FUNDING_TX_STATUS_UNKNOWN) {
 		log_info(channel->log,
-			 "Funding tx %s now visible to our bitcoind"
-			 " (we are not the broadcaster of this zeroconf"
-			 " channel)",
+			 "Funding tx %s now visible to our bitcoind,"
+			 " can now offer HTLCs over it",
 			 fmt_bitcoin_txid(tmpctx, &channel->funding.txid));
 		channel->funding_tx_status = FUNDING_TX_STATUS_MEMPOOL;
 		wallet_channel_save(bitcoind->ld->wallet, channel);
-		channeld_tell_depth(channel, &channel->funding.txid, 0);
 	}
 	tal_free(check);
 }
@@ -256,14 +255,14 @@ static void poll_zeroconf_unbroadcast_funding(struct chain_topology *topo)
 			struct zeroconf_utxo_check *check;
 
 			if (channel->state != CHANNELD_AWAITING_LOCKIN
-			    && channel->state != DUALOPEND_AWAITING_LOCKIN)
+			    && channel->state != DUALOPEND_AWAITING_LOCKIN
+			    && channel->state != CHANNELD_NORMAL)
 				continue;
-			if (channel->minimum_depth != 0)
-				continue;
-			if (channel->funding_tx_status != FUNDING_TX_STATUS_UNKNOWN)
+			/* Only the channels we refuse to offer HTLCs over */
+			if (!channel_zeroconf_funding_unseen(channel))
 				continue;
 
-			check = tal(topo, struct zeroconf_utxo_check);
+			check = tal(channel, struct zeroconf_utxo_check);
 			check->channel = channel;
 			bitcoind_getutxout(check, topo->bitcoind,
 					   &channel->funding,
@@ -1722,7 +1721,9 @@ void begin_topology(struct chain_topology *topo)
 	if (topo->old_block_scan)
 		fixup_scan(topo);
 
-	poll_zeroconf_unbroadcast_funding(topo);
+	/* Without this option, we don't care whether we've seen it */
+	if (topo->ld->zeroconf_require_funding_seen)
+		poll_zeroconf_unbroadcast_funding(topo);
 }
 
 void stop_topology(struct chain_topology *topo)

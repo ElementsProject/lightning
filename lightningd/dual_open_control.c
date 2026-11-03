@@ -1865,9 +1865,6 @@ static void handle_tx_broadcast(struct channel_send *cs)
 
 		cs->channel->openchannel_signed_cmd = NULL;
 	}
-
-	if (channel->minimum_depth == 0)
-		channeld_tell_depth(channel, &channel->funding.txid, 0);
 }
 
 static void check_utxo_block(struct bitcoind *bitcoind UNUSED,
