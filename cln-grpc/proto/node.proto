@@ -1551,6 +1551,7 @@ message ListpeerchannelsChannelsInflight {
 	Amount our_funding_msat = 5;
 	optional bytes scratch_txid = 6;
 	sint64 splice_amount = 7;
+	optional bool superseded = 8;
 }
 
 message ListpeerchannelsChannelsStateChanges {
