@@ -576,7 +576,7 @@ class Gossmap(object):
         # read metadata
         node.features = _parse_features(fields['features'])
         node.timestamp = fields['timestamp']
-        node.alias = bytes(fields['alias']).decode('utf-8')
+        node.alias = bytes(fields['alias']).decode('utf-8', errors='replace')
         node.rgb = fields['rgb_color']
         node._parse_addresses(bytes(fields['addresses']))
         node.announced = True
