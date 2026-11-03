@@ -2770,6 +2770,13 @@ def listconfigs_configs_watchtime_blocks2py(m):
     })
 
 
+def listconfigs_configs_zeroconf_require_funding_seen2py(m):
+    return remove_default({
+        "source": m.source,  # PrimitiveField in generate_composite
+        "value_bool": m.value_bool,  # PrimitiveField in generate_composite
+    })
+
+
 def listconfigs_configs2py(m):
     return remove_default({
     })

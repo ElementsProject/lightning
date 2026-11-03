@@ -376,6 +376,7 @@ struct channel *new_unsaved_channel(struct peer *peer,
 
 	channel->last_htlc_sigs = NULL;
 	channel->remote_channel_ready = false;
+	channel->funding_tx_status = FUNDING_TX_STATUS_UNKNOWN;
 	channel->scid = NULL;
 	channel->old_scids = NULL;
 	channel->next_index[LOCAL] = 1;

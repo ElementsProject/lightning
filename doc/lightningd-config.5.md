@@ -729,6 +729,15 @@ all DNS lookups, to avoid leaking information.
 uniform length.  Some implementations don't accept these extra bytes,
 and our detection of them is not always reliable, so this option defaults to `false`.
 
+* **zeroconf-require-funding-seen**=*BOOL*
+
+  If set to `true`, a zero-conf channel (`minimum_depth` 0) is not used, and we
+don't send `channel_ready` for it, until our own bitcoind has seen its funding
+transaction in the mempool or in a block.  Forwards over it fail with
+`failure_reason` `funding_not_broadcast` until then.  Zero-conf means trusting the
+funder, so this defaults to `false`.  Note that with `true`, a channel whose funding
+is withheld (`fundchannel_complete` *withhold*) cannot be used until it is broadcast
+
 * **tor-service-password**=*PASSWORD*
 
   Set a Tor control password, which may be needed for *autotor:* to

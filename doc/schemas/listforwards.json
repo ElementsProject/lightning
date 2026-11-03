@@ -621,6 +621,7 @@
             "status": "local_failed",
             "failcode": 4109,
             "failreason": "WIRE_INCORRECT_CLTV_EXPIRY",
+            "failure_reason": "cltv_incorrect",
             "style": "tlv",
             "received_time": 1738000000.0
           },
@@ -633,6 +634,7 @@
             "status": "local_failed",
             "failcode": 16394,
             "failreason": "WIRE_UNKNOWN_NEXT_PEER",
+            "failure_reason": "unknown_next_peer",
             "style": "tlv",
             "received_time": 1738000000.0
           },
@@ -658,6 +660,7 @@
             "status": "local_failed",
             "failcode": 4108,
             "failreason": "WIRE_FEE_INSUFFICIENT",
+            "failure_reason": "fee_insufficient",
             "style": "tlv",
             "received_time": 1738000000.0
           },

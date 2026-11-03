@@ -1738,7 +1738,7 @@ def test_forward_local_failed_reason(node_factory, bitcoind):
     wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 4)
 
     # Drain most of l2's spendable balance on c23 over to l3
-    l1.pay(l3, 2_500_000_000, route=True)
+    l1.rpc.xpay(l3.rpc.invoice(2_500_000_000, "drain", "drain")['bolt11'])
 
     # Now ask for more than l2 has left to spend on c23, but well within
     # the channels advertised capacity/htlc_maximum_msat, so getroute()

@@ -1813,7 +1813,7 @@ static void handle_tx_broadcast(struct channel_send *cs)
 		cs->channel->openchannel_signed_cmd = NULL;
 	}
 
-	if (channel->minimum_depth == 0)
+	if (channel->minimum_depth == 0 && ld->zeroconf_require_funding_seen)
 		channeld_tell_depth(channel, &channel->funding.txid, 0);
 }
 

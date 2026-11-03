@@ -3264,6 +3264,7 @@ message ListconfigsConfigs {
 	optional ListconfigsConfigsMinemergencymsat min_emergency_msat = 82;
 	optional ListconfigsConfigsPaymentfrontingnode payment_fronting_node = 83;
 	optional ListconfigsConfigsRecover recover = 84;
+	optional ListconfigsConfigsZeroconfrequirefundingseen zeroconf_require_funding_seen = 85;
 }
 
 message ListconfigsConfigsAccepthtlctlvtype {
@@ -3674,6 +3675,11 @@ message ListconfigsConfigsWallet {
 message ListconfigsConfigsWatchtimeblocks {
 	uint32 value_int = 1;
 	string source = 2;
+}
+
+message ListconfigsConfigsZeroconfrequirefundingseen {
+	string source = 1;
+	bool value_bool = 2;
 }
 
 message StopRequest {

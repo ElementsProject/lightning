@@ -1222,10 +1222,13 @@ static const struct db_migration dbmigrations[] = {
      NULL, NULL},
     /* ^v26.09 */
 
-    {SQL("ALTER TABLE forwards ADD reason INTEGER DEFAULT NULL"), NULL},
+    {SQL("ALTER TABLE forwards ADD reason INTEGER DEFAULT NULL"), NULL,
+     SQL("ALTER TABLE forwards DROP COLUMN reason"), NULL},
 
-    {SQL("ALTER TABLE channels ADD COLUMN funding_tx_status INTEGER DEFAULT 0;"), NULL},
-    {SQL("ALTER TABLE channel_funding_inflights ADD COLUMN funding_tx_status INTEGER DEFAULT 0;"), NULL},
+    {SQL("ALTER TABLE channels ADD COLUMN funding_tx_status INTEGER DEFAULT 0;"), NULL,
+     SQL("ALTER TABLE channels DROP COLUMN funding_tx_status"), NULL},
+    {SQL("ALTER TABLE channel_funding_inflights ADD COLUMN funding_tx_status INTEGER DEFAULT 0;"), NULL,
+     SQL("ALTER TABLE channel_funding_inflights DROP COLUMN funding_tx_status"), NULL},
     /* channels already past the pre-lockin dance obviously had
      * their funding tx broadcast and confirmed already, so dont
      * retroactively block them from forwarding. Excludes the states that

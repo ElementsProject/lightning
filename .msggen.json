@@ -2624,7 +2624,8 @@
             "ListConfigs.configs.testnet": 8,
             "ListConfigs.configs.tor-service-password": 66,
             "ListConfigs.configs.wallet": 19,
-            "ListConfigs.configs.watchtime-blocks": 33
+            "ListConfigs.configs.watchtime-blocks": 33,
+            "ListConfigs.configs.zeroconf-require-funding-seen": 85
         },
         "ListconfigsConfigsAccept-htlc-tlv-type": {
             "ListConfigs.configs.accept-htlc-tlv-type.sources[]": 1,
@@ -2968,6 +2969,10 @@
         "ListconfigsConfigsWatchtime-blocks": {
             "ListConfigs.configs.watchtime-blocks.source": 2,
             "ListConfigs.configs.watchtime-blocks.value_int": 1
+        },
+        "ListconfigsConfigsZeroconf-require-funding-seen": {
+            "ListConfigs.configs.zeroconf-require-funding-seen.source": 1,
+            "ListConfigs.configs.zeroconf-require-funding-seen.value_bool": 2
         },
         "ListconfigsImportant-plugins": {
             "ListConfigs.important-plugins[].name": 2,
@@ -10884,6 +10889,18 @@
         },
         "ListConfigs.configs.watchtime-blocks.value_int": {
             "added": "v23.08",
+            "deprecated": null
+        },
+        "ListConfigs.configs.zeroconf-require-funding-seen": {
+            "added": "v26.12",
+            "deprecated": null
+        },
+        "ListConfigs.configs.zeroconf-require-funding-seen.source": {
+            "added": "v26.12",
+            "deprecated": null
+        },
+        "ListConfigs.configs.zeroconf-require-funding-seen.value_bool": {
+            "added": "v26.12",
             "deprecated": null
         },
         "ListConfigs.daemon": {

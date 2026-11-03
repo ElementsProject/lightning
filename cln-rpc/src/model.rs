@@ -11439,6 +11439,12 @@ pub mod responses {
 	}
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct ListconfigsConfigsZeroconfrequirefundingseen {
+	    pub source: String,
+	    pub value_bool: bool,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct ListconfigsConfigsAddr {
 	    pub sources: Vec<String>,
 	    pub values_str: Vec<String>,
@@ -11766,6 +11772,9 @@ pub mod responses {
 	    #[serde(rename = "watchtime-blocks")]
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub watchtime_blocks: Option<ListconfigsConfigsWatchtimeblocks>,
+	    #[serde(rename = "zeroconf-require-funding-seen")]
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub zeroconf_require_funding_seen: Option<ListconfigsConfigsZeroconfrequirefundingseen>,
 	    #[serde(skip_serializing_if = "Option::is_none")]
 	    pub addr: Option<ListconfigsConfigsAddr>,
 	    #[serde(skip_serializing_if = "Option::is_none")]

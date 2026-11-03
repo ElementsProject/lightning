@@ -229,13 +229,11 @@ static void zeroconf_utxo_checked(struct bitcoind *bitcoind,
 
 	if (txout && channel->funding_tx_status == FUNDING_TX_STATUS_UNKNOWN) {
 		log_info(channel->log,
-			 "Funding tx %s now visible to our bitcoind"
-			 " (we are not the broadcaster of this zeroconf"
-			 " channel)",
+			 "Funding tx %s now visible to our bitcoind",
 			 fmt_bitcoin_txid(tmpctx, &channel->funding.txid));
 		channel->funding_tx_status = FUNDING_TX_STATUS_MEMPOOL;
 		wallet_channel_save(bitcoind->ld->wallet, channel);
-		channeld_tell_depth(channel, &channel->funding.txid, 0);
+		channeld_zeroconf_funding_seen(channel);
 	}
 	tal_free(check);
 }
@@ -1722,7 +1720,9 @@ void begin_topology(struct chain_topology *topo)
 	if (topo->old_block_scan)
 		fixup_scan(topo);
 
-	poll_zeroconf_unbroadcast_funding(topo);
+	/* Without this option, zero-conf channels don't wait for it */
+	if (topo->ld->zeroconf_require_funding_seen)
+		poll_zeroconf_unbroadcast_funding(topo);
 }
 
 void stop_topology(struct chain_topology *topo)

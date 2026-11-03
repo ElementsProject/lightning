@@ -3686,6 +3686,45 @@ def test_opening_incoming_unknown_feerates(node_factory, bitcoind):
         l1.rpc.fundchannel(l2.info['id'], 100000)
 
 
+def test_zeroconf_require_funding_seen(node_factory, bitcoind):
+    """With zeroconf-require-funding-seen, neither side uses a zero-conf
+    channel until its own bitcoind has seen the funding tx"""
+    plugin_path = Path(__file__).parent / "plugins" / "zeroconf-selective.py"
+
+    l1, l2 = node_factory.get_nodes(2, opts=[{'zeroconf-require-funding-seen': True},
+                                             {'plugin': str(plugin_path),
+                                              'zeroconf_allow': '038194b5f32bdf0aa59812c86c4ef7ad2f294104fa027d1ace9b469bb6f88cf37b',
+                                              'zeroconf-require-funding-seen': True}])
+    l1.fundwallet(10**7)
+    l1.connect(l2)
+    amount = 1000000
+    funding_addr = l1.rpc.fundchannel_start(l2.info['id'], f"{amount}sat", mindepth=0)['funding_address']
+    psbt = l1.rpc.fundpsbt(amount, "1000perkw", 1000, excess_as_change=True)['psbt']
+    psbt = l1.rpc.addpsbtoutput(amount, psbt, destination=funding_addr)['psbt']
+    assert l1.rpc.fundchannel_complete(l2.info['id'], psbt, withhold=True)['commitments_secured']
+
+    # While the funding tx is withheld, neither side locks in
+    l1.daemon.wait_for_log('Not sending artificial zeroconf depth event')
+    l2.daemon.wait_for_log('Not sending artificial zeroconf depth event')
+    # Give the 5 second visibility poll a chance to (wrongly) fire
+    time.sleep(6)
+    assert only_one(l1.rpc.listpeerchannels()['channels'])['state'] == 'CHANNELD_AWAITING_LOCKIN'
+    assert only_one(l2.rpc.listpeerchannels()['channels'])['state'] == 'CHANNELD_AWAITING_LOCKIN'
+    assert bitcoind.rpc.getrawmempool() == []
+
+    # Once it's in the mempool, both see it and lock in, without a block
+    l1.rpc.sendpsbt(l1.rpc.signpsbt(psbt)['signed_psbt'])
+    wait_for(lambda: len(bitcoind.rpc.getrawmempool()) == 1)
+    l1.daemon.wait_for_log('now visible to our bitcoind')
+    l2.daemon.wait_for_log('now visible to our bitcoind')
+    wait_for(lambda: only_one(l1.rpc.listpeerchannels()['channels'])['state'] == 'CHANNELD_NORMAL')
+    wait_for(lambda: only_one(l2.rpc.listpeerchannels()['channels'])['state'] == 'CHANNELD_NORMAL')
+
+    wait_for(lambda: 'remote' in only_one(l1.rpc.listpeerchannels()['channels'])['updates'])
+    l1.rpc.xpay(l2.rpc.invoice(100, "test_zeroconf_require_funding_seen", "desc")['bolt11'])
+    assert len(bitcoind.rpc.getrawmempool()) == 1
+
+
 def test_zeroconf_withhold_htlc_failback(node_factory, bitcoind):
     """Test that CLTV timeout on a withheld channel fails HTLCs back upstream without force-close."""
     zeroconf_plugin = str(Path(__file__).parent / "plugins" / "zeroconf-selective.py")
