@@ -2,7 +2,6 @@ from pyln.client import Gossmap, GossmapNode, GossmapNodeId
 
 import os.path
 import lzma
-import pytest
 
 
 def unxz_data_tmp(src, tmp_path, dst, wmode):
@@ -324,7 +323,6 @@ def test_gossmap_alias_invalid_utf8(tmp_path):
     assert l1.alias == 'SILENTARTIST--73-g31d1e15-modded'
 
 
-@pytest.mark.xfail(strict=True)
 def test_gossmap_alias_nul_padding(tmp_path):
     """Aliases shorter than 32 bytes are NUL padded: listnodes drops that"""
     sfile = gossip_store_with_alias(tmp_path, b'bob' + bytes(29))
