@@ -242,6 +242,22 @@
         "ListconfigsConfigsConfSource": {
             "cmdline": 0
         },
+        "ListforwardsForwardsFailureReason": {
+            "channel_failed_permanent": 11,
+            "cltv_expiry_too_far": 8,
+            "cltv_expiry_too_soon": 7,
+            "cltv_incorrect": 6,
+            "dust_limit": 2,
+            "fee_insufficient": 5,
+            "funding_not_broadcast": 13,
+            "htlc_above_maximum": 4,
+            "htlc_below_minimum": 3,
+            "insufficient_outgoing_liquidity": 0,
+            "invalid_onion": 12,
+            "outgoing_peer_offline": 10,
+            "too_many_htlcs": 1,
+            "unknown_next_peer": 9
+        },
         "ListforwardsForwardsStatus": {
             "failed": 3,
             "local_failed": 2,
@@ -2608,7 +2624,8 @@
             "ListConfigs.configs.testnet": 8,
             "ListConfigs.configs.tor-service-password": 66,
             "ListConfigs.configs.wallet": 19,
-            "ListConfigs.configs.watchtime-blocks": 33
+            "ListConfigs.configs.watchtime-blocks": 33,
+            "ListConfigs.configs.zeroconf-require-funding-seen": 85
         },
         "ListconfigsConfigsAccept-htlc-tlv-type": {
             "ListConfigs.configs.accept-htlc-tlv-type.sources[]": 1,
@@ -2953,6 +2970,10 @@
             "ListConfigs.configs.watchtime-blocks.source": 2,
             "ListConfigs.configs.watchtime-blocks.value_int": 1
         },
+        "ListconfigsConfigsZeroconf-require-funding-seen": {
+            "ListConfigs.configs.zeroconf-require-funding-seen.source": 1,
+            "ListConfigs.configs.zeroconf-require-funding-seen.value_bool": 2
+        },
         "ListconfigsImportant-plugins": {
             "ListConfigs.important-plugins[].name": 2,
             "ListConfigs.important-plugins[].options": 3,
@@ -3067,6 +3088,7 @@
             "ListForwards.forwards[].created_index": 12,
             "ListForwards.forwards[].failcode": 15,
             "ListForwards.forwards[].failreason": 16,
+            "ListForwards.forwards[].failure_reason": 17,
             "ListForwards.forwards[].fee_msat": 7,
             "ListForwards.forwards[].in_channel": 1,
             "ListForwards.forwards[].in_htlc_id": 10,
@@ -10869,6 +10891,18 @@
             "added": "v23.08",
             "deprecated": null
         },
+        "ListConfigs.configs.zeroconf-require-funding-seen": {
+            "added": "v26.12",
+            "deprecated": null
+        },
+        "ListConfigs.configs.zeroconf-require-funding-seen.source": {
+            "added": "v26.12",
+            "deprecated": null
+        },
+        "ListConfigs.configs.zeroconf-require-funding-seen.value_bool": {
+            "added": "v26.12",
+            "deprecated": null
+        },
         "ListConfigs.daemon": {
             "added": "pre-v0.10.1",
             "deprecated": "v23.08"
@@ -11158,6 +11192,10 @@
             "deprecated": null
         },
         "ListForwards.forwards[].failreason": {
+            "added": "pre-v0.10.1",
+            "deprecated": null
+        },
+        "ListForwards.forwards[].failure_reason": {
             "added": "pre-v0.10.1",
             "deprecated": null
         },

@@ -1515,8 +1515,9 @@ void wallet_inflight_add(struct wallet *w, struct channel_inflight *inflight)
 				 ", remote_funding"
 				 ", locked_scid"
 				 ", i_sent_sigs"
+				 ", funding_tx_status"
 				 ") VALUES ("
-				 "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
+				 "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
 
 	db_bind_u64(stmt, inflight->channel->dbid);
 	db_bind_txid(stmt, &inflight->funding->outpoint.txid);
@@ -1564,6 +1565,7 @@ void wallet_inflight_add(struct wallet *w, struct channel_inflight *inflight)
 	else
 		db_bind_null(stmt);
 	db_bind_int(stmt, inflight->i_sent_sigs);
+	db_bind_int(stmt, inflight->funding_tx_status);
 
 	db_exec_prepared_v2(stmt);
 	assert(!stmt->error);
@@ -1591,7 +1593,8 @@ void wallet_inflight_save(struct wallet *w,
 {
 	struct db_stmt *stmt;
 	/* Update inflight PSBT (to add sigs), last_tx/last_sig,
-	 * locked_scid, and i_sent_sigs. */
+	 * locked_scid, i_sent_sigs, and funding_tx_status (once we
+	 * observe the tx broadcast). */
 	stmt = db_prepare_v2(w->db,
 			     SQL("UPDATE channel_funding_inflights SET"
 				 "  funding_psbt=?"
@@ -1600,6 +1603,7 @@ void wallet_inflight_save(struct wallet *w,
 				 ", last_sig=?"
 				 ", locked_scid=?"
 				 ", i_sent_sigs=?"
+				 ", funding_tx_status=?"
 				 " WHERE"
 				 "  channel_id=?"
 				 " AND funding_tx_id=?"
@@ -1618,6 +1622,7 @@ void wallet_inflight_save(struct wallet *w,
 	else
 		db_bind_null(stmt);
 	db_bind_int(stmt, inflight->i_sent_sigs);
+	db_bind_int(stmt, inflight->funding_tx_status);
 	db_bind_u64(stmt, inflight->channel->dbid);
 	db_bind_txid(stmt, &inflight->funding->outpoint.txid);
 	db_bind_int(stmt, inflight->funding->outpoint.n);
@@ -1755,6 +1760,7 @@ wallet_stmt2inflight(struct wallet *w, struct db_stmt *stmt,
 
 	/* Pull out the serialized tx-sigs-received-ness */
 	inflight->remote_tx_sigs = db_col_int(stmt, "funding_tx_remote_sigs_received");
+	inflight->funding_tx_status = db_col_int(stmt, "funding_tx_status");
 	return inflight;
 }
 
@@ -1787,6 +1793,7 @@ static bool wallet_channel_load_inflights(struct wallet *w,
 					", remote_funding"
 					", locked_scid"
 					", i_sent_sigs"
+					", funding_tx_status"
 					" FROM channel_funding_inflights"
 					" WHERE channel_id = ?"
 					" ORDER BY funding_feerate"));
@@ -2186,7 +2193,8 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 			   &stats,
 			   state_changes,
 			   funding_psbt,
-			   db_col_int(stmt, "withheld"));
+			   db_col_int(stmt, "withheld"),
+			   db_col_int(stmt, "funding_tx_status"));
 
 	if (!wallet_channel_load_inflights(w, chan)) {
 		tal_free(chan);
@@ -2450,6 +2458,7 @@ static bool wallet_channels_load_active(struct wallet *w)
 					", close_attempt_height"
 					", funding_psbt"
 					", withheld"
+					", funding_tx_status"
 					" FROM channels"
                                         " WHERE state != ?;")); //? 0
 	db_bind_int(stmt, CLOSED);
@@ -2730,7 +2739,8 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 					"  require_confirm_inputs_remote=?,"
 					"  close_attempt_height=?,"
 					"  funding_psbt=?,"
-					"  withheld=?"
+					"  withheld=?,"
+					"  funding_tx_status=?"
 					" WHERE id=?"));
 	db_bind_u64(stmt, chan->their_shachain.id);
 	if (chan->scid)
@@ -2833,6 +2843,7 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 	else
 		db_bind_null(stmt);
 	db_bind_int(stmt, chan->withheld);
+	db_bind_int(stmt, chan->funding_tx_status);
 	db_bind_u64(stmt, chan->dbid);
 	db_exec_prepared_v2(take(stmt));
 
@@ -5487,6 +5498,7 @@ static bool wallet_forwarded_payment_update(struct wallet *w,
 					    const struct htlc_out *out,
 					    enum forward_status state,
 					    enum onion_wire failcode,
+					    enum forward_failure_reason reason,
 					    struct timeabs *resolved_time,
 					    enum forward_style forward_style)
 {
@@ -5505,6 +5517,7 @@ static bool wallet_forwarded_payment_update(struct wallet *w,
 				 ", state=?"
 				 ", resolved_time=?"
 				 ", failcode=?"
+				 ", reason=?"
 				 ", forward_style=?"
 				 " WHERE in_htlc_id=? AND in_channel_scid=?"));
 	/* This may not work so don't increment index yet! */
@@ -5532,6 +5545,13 @@ static bool wallet_forwarded_payment_update(struct wallet *w,
 		db_bind_null(stmt);
 	}
 
+	if (reason != FORWARD_FAIL_UNKNOWN) {
+		assert(state == FORWARD_LOCAL_FAILED);
+		db_bind_int(stmt, (int)reason);
+	} else {
+		db_bind_null(stmt);
+	}
+
 	/* This can happen for malformed onions, reload from db. */
 	if (forward_style == FORWARD_STYLE_UNKNOWN)
 		db_bind_null(stmt);
@@ -5551,7 +5571,8 @@ void wallet_forwarded_payment_add(struct wallet *w, const struct htlc_in *in,
 				  const struct short_channel_id *scid_out,
 				  const struct htlc_out *out,
 				  enum forward_status state,
-				  enum onion_wire failcode)
+				  enum onion_wire failcode,
+				  enum forward_failure_reason reason)
 {
 	struct db_stmt *stmt;
 	struct timeabs *resolved_time;
@@ -5564,7 +5585,7 @@ void wallet_forwarded_payment_add(struct wallet *w, const struct htlc_in *in,
 		resolved_time = NULL;
 	}
 
-	if (wallet_forwarded_payment_update(w, in, out, state, failcode, resolved_time, forward_style)) {
+	if (wallet_forwarded_payment_update(w, in, out, state, failcode, reason, resolved_time, forward_style)) {
 		updated_index =
 			forward_index_update_status(w->ld,
 						    state,
@@ -5590,8 +5611,9 @@ void wallet_forwarded_payment_add(struct wallet *w, const struct htlc_in *in,
 				 ", received_time"
 				 ", resolved_time"
 				 ", failcode"
+				 ", reason"
 				 ", forward_style"
-				 ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
+				 ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
 	id = forward_index_created(w->ld,
 				   state,
 				   channel_scid_or_local_alias(in->key.channel),
@@ -5644,6 +5666,14 @@ void wallet_forwarded_payment_add(struct wallet *w, const struct htlc_in *in,
 	} else {
 		db_bind_null(stmt);
 	}
+
+	if (reason != FORWARD_FAIL_UNKNOWN) {
+		assert(state == FORWARD_LOCAL_FAILED);
+		db_bind_int(stmt, (int)reason);
+	} else {
+		db_bind_null(stmt);
+	}
+
 	/* This can happen for malformed onions, reload from db! */
 	if (forward_style == FORWARD_STYLE_UNKNOWN)
 		db_bind_null(stmt);
@@ -5654,7 +5684,7 @@ void wallet_forwarded_payment_add(struct wallet *w, const struct htlc_in *in,
 
 notify:
 	notify_forward_event(w->ld, in, scid_out, out ? &out->msat : NULL,
-			     state, failcode, resolved_time, forward_style,
+			     state, failcode, reason, resolved_time, forward_style,
 			     id, updated_index);
 }
 
@@ -5714,6 +5744,7 @@ struct db_stmt *forwarding_first(struct wallet *w,
 			    ", received_time"
 			    ", resolved_time"
 			    ", failcode "
+			    ", reason "
 			    ", forward_style "
 			    ", rowid "
 			    ", updated_index "
@@ -5765,6 +5796,7 @@ struct db_stmt *forwarding_first(struct wallet *w,
 			    ", received_time"
 			    ", resolved_time"
 			    ", failcode "
+			    ", reason "
 			    ", forward_style "
 			    ", rowid "
 			    ", updated_index "
@@ -5803,6 +5835,7 @@ struct db_stmt *forwarding_first(struct wallet *w,
 			    ", received_time"
 			    ", resolved_time"
 			    ", failcode "
+			    ", reason "
 			    ", forward_style "
 			    ", rowid "
 			    ", updated_index "
@@ -5910,6 +5943,14 @@ const struct forwarding *forwarding_details(const tal_t *ctx,
 	} else {
 		fwd->failcode = 0;
 	}
+
+	if (!db_col_is_null(stmt, "reason")) {
+		assert(fwd->status == FORWARD_LOCAL_FAILED);
+		fwd->reason = db_col_int(stmt, "reason");
+	} else {
+		fwd->reason = FORWARD_FAIL_UNKNOWN;
+	}
+
 	if (db_col_is_null(stmt, "forward_style")) {
 		fwd->forward_style = FORWARD_STYLE_UNKNOWN;
 	} else {

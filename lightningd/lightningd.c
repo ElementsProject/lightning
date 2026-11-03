@@ -388,6 +388,11 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	 * don't like it, so it can be disabled. */
 	ld->message_padding = false;
 
+	/*~ option_zeroconf means trusting the funder, so by default a zero-conf
+	 * channel is usable at once (which `fundchannel_complete withhold`
+	 * relies on).  This makes us wait until we've seen the funding tx */
+	ld->zeroconf_require_funding_seen = false;
+
 	return ld;
 }
 

@@ -2345,6 +2345,23 @@ message ListforwardsResponse {
 }
 
 message ListforwardsForwards {
+	// ListForwards.forwards[].failure_reason
+	enum ListforwardsForwardsFailureReason {
+		INSUFFICIENT_OUTGOING_LIQUIDITY = 0;
+		TOO_MANY_HTLCS = 1;
+		DUST_LIMIT = 2;
+		HTLC_BELOW_MINIMUM = 3;
+		HTLC_ABOVE_MAXIMUM = 4;
+		FEE_INSUFFICIENT = 5;
+		CLTV_INCORRECT = 6;
+		CLTV_EXPIRY_TOO_SOON = 7;
+		CLTV_EXPIRY_TOO_FAR = 8;
+		UNKNOWN_NEXT_PEER = 9;
+		OUTGOING_PEER_OFFLINE = 10;
+		CHANNEL_FAILED_PERMANENT = 11;
+		INVALID_ONION = 12;
+		FUNDING_NOT_BROADCAST = 13;
+	}
 	// ListForwards.forwards[].status
 	enum ListforwardsForwardsStatus {
 		OFFERED = 0;
@@ -2372,6 +2389,7 @@ message ListforwardsForwards {
 	optional double resolved_time = 14;
 	optional uint32 failcode = 15;
 	optional string failreason = 16;
+	optional ListforwardsForwardsFailureReason failure_reason = 17;
 }
 
 message ListoffersRequest {
@@ -3246,6 +3264,7 @@ message ListconfigsConfigs {
 	optional ListconfigsConfigsMinemergencymsat min_emergency_msat = 82;
 	optional ListconfigsConfigsPaymentfrontingnode payment_fronting_node = 83;
 	optional ListconfigsConfigsRecover recover = 84;
+	optional ListconfigsConfigsZeroconfrequirefundingseen zeroconf_require_funding_seen = 85;
 }
 
 message ListconfigsConfigsAccepthtlctlvtype {
@@ -3656,6 +3675,11 @@ message ListconfigsConfigsWallet {
 message ListconfigsConfigsWatchtimeblocks {
 	uint32 value_int = 1;
 	string source = 2;
+}
+
+message ListconfigsConfigsZeroconfrequirefundingseen {
+	string source = 1;
+	bool value_bool = 2;
 }
 
 message StopRequest {

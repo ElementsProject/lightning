@@ -2,6 +2,7 @@
 #ifndef LIGHTNING_LIGHTNINGD_PEER_HTLCS_H
 #define LIGHTNING_LIGHTNINGD_PEER_HTLCS_H
 #include "config.h"
+#include <common/forward_failure_reason.h>
 #include <common/htlc_wire.h>
 
 struct channel;
@@ -26,7 +27,6 @@ void peer_got_revoke(struct channel *channel, const u8 *msg);
 void update_per_commit_point(struct channel *channel,
 			     const struct pubkey *per_commitment_point);
 
-/* Returns NULL on success, otherwise failmsg*/
 const u8 *send_htlc_out(const tal_t *ctx,
 			struct channel *out,
 			struct amount_msat amount, u32 cltv,
@@ -38,7 +38,8 @@ const u8 *send_htlc_out(const tal_t *ctx,
 			u64 groupid,
 			const u8 *onion_routing_packet,
 			struct htlc_in *in,
-			struct htlc_out **houtp);
+			struct htlc_out **houtp,
+			enum forward_failure_reason *reason);
 
 void onchain_failed_our_htlc(const struct channel *channel,
 			     const struct htlc_stub *htlc,

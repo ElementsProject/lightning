@@ -1305,7 +1305,25 @@ static void peer_got_channel_ready(struct channel *channel, const u8 *msg)
 	/* Remember that we got the lockin */
 	wallet_channel_save(channel->peer->ld->wallet, channel);
 
-	if (channel->depth >= channel->minimum_depth)
+	/* For zero-conf, depth 0 >= minimum_depth 0 holds from the start, but
+	 * our channeld isn't locked until we have seen the funding tx ourselves
+	 * (see channeld_zeroconf_funding_seen()).  Their channel_ready alone
+	 * must not make us CHANNELD_NORMAL, or we'd offer HTLCs to a channeld
+	 * that isn't locked in. */
+	if (channel->depth >= channel->minimum_depth
+	    && (channel->minimum_depth != 0
+		|| !channel->peer->ld->zeroconf_require_funding_seen
+		|| channel->funding_tx_status >= FUNDING_TX_STATUS_MEMPOOL))
+		lockin_complete(channel, CHANNELD_AWAITING_LOCKIN);
+}
+
+void channeld_zeroconf_funding_seen(struct channel *channel)
+{
+	channeld_tell_depth(channel, &channel->funding.txid, 0);
+
+	/* If their channel_ready already came in, we deferred the lockin above - complete it now. */
+	if (channel->state == CHANNELD_AWAITING_LOCKIN
+	    && channel->remote_channel_ready)
 		lockin_complete(channel, CHANNELD_AWAITING_LOCKIN);
 }
 
@@ -1812,7 +1830,6 @@ bool peer_start_channeld(struct channel *channel,
 	bool ignore_fee_limits;
 	struct channel_inflight *inflight;
 	struct inflight **inflights;
-	struct bitcoin_txid txid;
 
 	hsmfd = hsm_get_client_fd(ld, &channel->peer->id,
 				  channel->dbid,
@@ -2052,14 +2069,23 @@ bool peer_start_channeld(struct channel *channel,
 	if (!reconnected)
 		channel_gossip_channel_reestablished(channel, false);
 
-	/* FIXME: DTODO: Use a pointer to a txid instead of zero'ing one out. */
-	memset(&txid, 0, sizeof(txid));
-
-	/* Artificial confirmation event for zeroconf */
-	subd_send_msg(channel->owner,
-		      take(towire_channeld_funding_depth(
-			   NULL, channel->scid, 0, false,
-			   &txid)));
+	/* Artificial confirmation event for zeroconf: by default at once, as
+	 * option_zeroconf means trusting the funder.  With
+	 * zeroconf-require-funding-seen, only once we've seen the funding tx;
+	 * until then poll_zeroconf_unbroadcast_funding() watches for it. */
+	if (!ld->zeroconf_require_funding_seen
+	    || channel->funding_tx_status >= FUNDING_TX_STATUS_MEMPOOL) {
+		subd_send_msg(channel->owner,
+			      take(towire_channeld_funding_depth(
+				   NULL, channel->scid, 0, false,
+				   &channel->funding.txid)));
+	} else {
+		log_unusual(channel->log,
+			    "Not sending artificial zeroconf depth event:"
+			    " funding transaction %s has never been observed"
+			    " broadcast",
+			    fmt_bitcoin_txid(tmpctx, &channel->funding.txid));
+	}
 	return true;
 }
 

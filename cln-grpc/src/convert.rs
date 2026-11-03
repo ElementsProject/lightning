@@ -2266,6 +2266,7 @@ impl From<responses::ListforwardsForwards> for pb::ListforwardsForwards {
             created_index: c.created_index, // Rule #2 for type u64
             failcode: c.failcode, // Rule #2 for type u32?
             failreason: c.failreason, // Rule #2 for type string?
+            failure_reason: c.failure_reason.map(|v| v as i32),
             fee_msat: c.fee_msat.map(|f| f.into()), // Rule #2 for type msat?
             in_channel: c.in_channel.to_string(), // Rule #2 for type short_channel_id
             in_htlc_id: c.in_htlc_id, // Rule #2 for type u64?
@@ -3889,6 +3890,16 @@ impl From<responses::ListconfigsConfigsWatchtimeblocks> for pb::ListconfigsConfi
     }
 }
 
+#[allow(unused_variables)]
+impl From<responses::ListconfigsConfigsZeroconfrequirefundingseen> for pb::ListconfigsConfigsZeroconfrequirefundingseen {
+    fn from(c: responses::ListconfigsConfigsZeroconfrequirefundingseen) -> Self {
+        Self {
+            source: c.source, // Rule #2 for type string
+            value_bool: c.value_bool, // Rule #2 for type boolean
+        }
+    }
+}
+
 #[allow(unused_variables,deprecated)]
 impl From<responses::ListconfigsConfigs> for pb::ListconfigsConfigs {
     fn from(c: responses::ListconfigsConfigs) -> Self {
@@ -3972,6 +3983,7 @@ impl From<responses::ListconfigsConfigs> for pb::ListconfigsConfigs {
             tor_service_password: c.tor_service_password.map(|v| v.into()),
             wallet: c.wallet.map(|v| v.into()),
             watchtime_blocks: c.watchtime_blocks.map(|v| v.into()),
+            zeroconf_require_funding_seen: c.zeroconf_require_funding_seen.map(|v| v.into()),
         }
     }
 }

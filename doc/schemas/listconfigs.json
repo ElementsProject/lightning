@@ -1964,6 +1964,31 @@
                 ]
               }
             }
+          },
+          "zeroconf-require-funding-seen": {
+            "added": "v26.12",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "value_bool",
+              "source"
+            ],
+            "properties": {
+              "value_bool": {
+                "added": "v26.12",
+                "type": "boolean",
+                "description": [
+                  "Field from config or cmdline, or default."
+                ]
+              },
+              "source": {
+                "added": "v26.12",
+                "type": "string",
+                "description": [
+                  "Source of configuration setting."
+                ]
+              }
+            }
           }
         }
       }
@@ -2309,6 +2334,10 @@
             "sources": []
           },
           "message-padding": {
+            "value_bool": false,
+            "source": "default"
+          },
+          "zeroconf-require-funding-seen": {
             "value_bool": false,
             "source": "default"
           },

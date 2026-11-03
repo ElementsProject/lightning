@@ -22,6 +22,11 @@ void channeld_tell_depth(struct channel *channel,
 			 const struct bitcoin_txid *txid,
 			 u32 depth);
 
+/* A zero-conf channel's funding tx has just been seen (funding_tx_status
+ * went to MEMPOOL) - send channeld its depth-0 event, and complete a lockin
+ * that was waiting on it */
+void channeld_zeroconf_funding_seen(struct channel *channel);
+
 /* Notify channels of new blocks. */
 void channel_notify_new_block(struct lightningd *ld);
 

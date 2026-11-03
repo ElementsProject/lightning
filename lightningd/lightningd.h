@@ -449,6 +449,10 @@ struct lightningd {
 
 	/* Whether connectd should pad messages to make them equal length */
 	bool message_padding;
+
+	/* Don't use a zero-conf channel until we've seen its funding tx
+	 * (in our bitcoind's mempool or a block) ourselves */
+	bool zeroconf_require_funding_seen;
 };
 
 /* Turning this on allows a tal allocation to return NULL, rather than aborting.
