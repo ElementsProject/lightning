@@ -533,6 +533,13 @@ void channel_add_old_scid(struct channel *channel,
 const char *channel_state_name(const struct channel *channel);
 const char *channel_state_str(enum channel_state state);
 
+/* With zeroconf-require-funding-seen: is this a zero-conf channel which
+ * the peer funded, whose funding tx we have never seen (mempool or block)?
+ * We still exchange channel_ready and accept HTLCs on it (JIT channels
+ * need that, as the funder only broadcasts once paid), but we don't
+ * offer HTLCs over it ourselves until we've seen the funding tx. */
+bool channel_zeroconf_funding_unseen(const struct channel *channel);
+
 /* Can this channel send an HTLC? */
 static inline bool channel_state_can_add_htlc(enum channel_state state)
 {

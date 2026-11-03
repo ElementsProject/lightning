@@ -145,6 +145,7 @@
             "cltv_incorrect": 6,
             "dust_limit": 2,
             "fee_insufficient": 5,
+            "funding_not_broadcast": 16,
             "htlc_above_maximum": 4,
             "htlc_below_minimum": 3,
             "insufficient_outgoing_liquidity": 0,
@@ -270,7 +271,7 @@
             "cltv_incorrect": 6,
             "dust_limit": 2,
             "fee_insufficient": 5,
-            "funding_not_broadcast": 13,
+            "funding_not_broadcast": 16,
             "htlc_above_maximum": 4,
             "htlc_below_minimum": 3,
             "insufficient_outgoing_liquidity": 0,
@@ -2653,7 +2654,8 @@
             "ListConfigs.configs.testnet": 8,
             "ListConfigs.configs.tor-service-password": 66,
             "ListConfigs.configs.wallet": 19,
-            "ListConfigs.configs.watchtime-blocks": 33
+            "ListConfigs.configs.watchtime-blocks": 33,
+            "ListConfigs.configs.zeroconf-require-funding-seen": 85
         },
         "ListconfigsConfigsAccept-htlc-tlv-type": {
             "ListConfigs.configs.accept-htlc-tlv-type.sources[]": 1,
@@ -2997,6 +2999,10 @@
         "ListconfigsConfigsWatchtime-blocks": {
             "ListConfigs.configs.watchtime-blocks.source": 2,
             "ListConfigs.configs.watchtime-blocks.value_int": 1
+        },
+        "ListconfigsConfigsZeroconf-require-funding-seen": {
+            "ListConfigs.configs.zeroconf-require-funding-seen.source": 1,
+            "ListConfigs.configs.zeroconf-require-funding-seen.value_bool": 2
         },
         "ListconfigsImportant-plugins": {
             "ListConfigs.important-plugins[].name": 2,
@@ -6697,6 +6703,7 @@
             "82": "optional message",
             "83": "optional message",
             "84": "optional message",
+            "85": "optional message",
             "9": "optional message"
         },
         "ListconfigsConfigsAccepthtlctlvtype": {
@@ -7019,6 +7026,10 @@
         "ListconfigsConfigsWatchtimeblocks": {
             "1": "plain uint32",
             "2": "plain string"
+        },
+        "ListconfigsConfigsZeroconfrequirefundingseen": {
+            "1": "plain string",
+            "2": "plain bool"
         },
         "ListconfigsRequest": {
             "1": "optional string"
@@ -14772,6 +14783,18 @@
         },
         "ListConfigs.configs.watchtime-blocks.value_int": {
             "added": "v23.08",
+            "deprecated": null
+        },
+        "ListConfigs.configs.zeroconf-require-funding-seen": {
+            "added": "v26.12",
+            "deprecated": null
+        },
+        "ListConfigs.configs.zeroconf-require-funding-seen.source": {
+            "added": "v26.12",
+            "deprecated": null
+        },
+        "ListConfigs.configs.zeroconf-require-funding-seen.value_bool": {
+            "added": "v26.12",
             "deprecated": null
         },
         "ListConfigs.daemon": {

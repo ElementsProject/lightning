@@ -2054,18 +2054,16 @@ bool peer_start_channeld(struct channel *channel,
 	if (!reconnected)
 		channel_gossip_channel_reestablished(channel, false);
 
-	if (channel->funding_tx_status >= FUNDING_TX_STATUS_MEMPOOL) {
-		subd_send_msg(channel->owner,
-			      take(towire_channeld_funding_depth(
-				   NULL, channel->scid, 0, false,
-				   &channel->funding.txid)));
-	} else {
-		log_unusual(channel->log,
-			    "Not sending artificial zeroconf depth event:"
-			    " funding transaction %s has never been observed"
-			    " broadcast",
-			    fmt_bitcoin_txid(tmpctx, &channel->funding.txid));
-	}
+	/* Artificial confirmation event for zeroconf.  We always exchange
+	 * channel_ready, even with zeroconf-require-funding-seen: a JIT
+	 * channel's funder only broadcasts once the HTLC over it is accepted,
+	 * so holding back channel_ready would deadlock.  Instead, we don't
+	 * *offer* HTLCs over it until we've seen the funding tx (see
+	 * channel_zeroconf_funding_unseen()). */
+	subd_send_msg(channel->owner,
+		      take(towire_channeld_funding_depth(
+			   NULL, channel->scid, 0, false,
+			   &channel->funding.txid)));
 	return true;
 }
 
