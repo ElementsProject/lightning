@@ -2,7 +2,6 @@ from pyln.client import Gossmap, GossmapNode, GossmapNodeId
 
 import os.path
 import lzma
-import pytest
 
 
 def unxz_data_tmp(src, tmp_path, dst, wmode):
@@ -310,7 +309,6 @@ def gossip_store_with_alias(tmp_path, alias):
     return sfile
 
 
-@pytest.mark.xfail(strict=True)
 def test_gossmap_alias_invalid_utf8(tmp_path):
     """Aliases are 32 arbitrary bytes, so a peer can announce invalid UTF-8"""
     # Two bytes of a three byte emoji.
