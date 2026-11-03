@@ -2456,6 +2456,19 @@ static struct command_result *json_splice_init(struct command *cmd,
 			*feerate_per_kw = next_feerate_min;
 	}
 
+	/* channeld would refuse this too, but only after marking a splice in
+	 * progress, which then blocks the next splice_init. */
+	if (!*force_feerate
+	    && !channel->ignore_fee_limits
+	    && !cmd->ld->config.ignore_fee_limits
+	    && *feerate_per_kw > our_feerate_max(cmd->ld, NULL))
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Feerate %u is above the most we'll pay"
+				    " (%u); the pending splice is at %u",
+				    *feerate_per_kw,
+				    our_feerate_max(cmd->ld, NULL),
+				    last_feerate);
+
 	if (!initialpsbt)
 		initialpsbt = create_psbt(cmd, 0, 0, 0);
 	if (!validate_psbt(initialpsbt))
