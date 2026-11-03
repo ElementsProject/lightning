@@ -630,6 +630,21 @@ def test_invalid_restrictions(node_factory):
             print(l1.rpc.createrune(restrictions=[[f"{cond}method"]]))
 
 
+@pytest.mark.xfail(strict=True)
+def test_createrune_empty_restriction(node_factory):
+    """A restriction needs at least one alternative (#9673)"""
+    l1 = node_factory.get_node()
+
+    for restrs in ([[]],
+                   [["method=getinfo"], []],
+                   [["method=getinfo"], [], ["rate=60"]]):
+        with pytest.raises(RpcError, match='not a valid restriction'):
+            l1.rpc.createrune(restrictions=restrs)
+
+    # Nothing was stored, so showrunes has nothing to choke on.
+    assert l1.rpc.showrunes()['runes'] == []
+
+
 def test_nonnumeric_uniqueid(node_factory):
     """We always use numeric uniqueids, don't allow other forms"""
     l1 = node_factory.get_node()
