@@ -35,13 +35,13 @@ jobs:
       - name: Build with coverage instrumentation
         run: |
           ./configure --enable-debugbuild --enable-coverage CC=clang
-          uv run make -j $(nproc) testpack.tar.bz2
+          uv run make -j $(nproc) testpack.tar.gz
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v7
         with:
           name: cln-coverage-build
-          path: testpack.tar.bz2
+          path: testpack.tar.gz
 
   test:
     name: Test (${{ matrix.name }})
@@ -82,7 +82,7 @@ jobs:
           name: cln-coverage-build
 
       - name: Unpack build
-        run: tar -xaf testpack.tar.bz2
+        run: tar -xaf testpack.tar.gz
 
       - name: Run tests with coverage
         env:
@@ -129,7 +129,7 @@ jobs:
           name: cln-coverage-build
 
       - name: Unpack build
-        run: tar -xaf testpack.tar.bz2
+        run: tar -xaf testpack.tar.gz
 
       - name: Download all coverage artifacts
         uses: actions/download-artifact@v8
