@@ -515,6 +515,10 @@ static struct rune_restr *rune_restr_from_json(struct command *cmd,
 	if (tok->type != JSMN_ARRAY)
 		return NULL;
 
+	/* An empty restriction encodes as "&&", which no longer decodes. */
+	if (tok->size == 0)
+		return NULL;
+
 	restr->alterns = tal_arr(restr, struct rune_altern *, tok->size);
 	json_for_each_arr(i, t, tok) {
 		restr->alterns[i] = rune_altern_from_json(restr->alterns,

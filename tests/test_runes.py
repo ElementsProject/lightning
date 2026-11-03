@@ -630,7 +630,6 @@ def test_invalid_restrictions(node_factory):
             print(l1.rpc.createrune(restrictions=[[f"{cond}method"]]))
 
 
-@pytest.mark.xfail(strict=True)
 def test_createrune_empty_restriction(node_factory):
     """A restriction needs at least one alternative (#9673)"""
     l1 = node_factory.get_node()
