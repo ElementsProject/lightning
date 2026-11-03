@@ -1270,7 +1270,8 @@ param_policy_mod(struct command *cmd, const char *name,
 		tal_free(err);
 		if (!parse_amount_sat(&sats, arg_str, strlen(arg_str)))
 			return command_fail_badparam(cmd, name,
-						     buffer, tok, err);
+						     buffer, tok,
+						     "should be a number or a sat amount");
 
 		**mod = sats.satoshis; /* Raw: convert to u64 */
 	}
