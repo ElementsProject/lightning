@@ -7,6 +7,7 @@
 #include <common/bech32_util.h>
 #include <common/bolt11.h>
 #include <common/features.h>
+#include <common/overflows.h>
 #include <errno.h>
 #include <inttypes.h>
 #include <lightningd/lightningd.h>
@@ -855,6 +856,11 @@ struct bolt11 *bolt11_decode_nosig(const tal_t *ctx, const char *str,
 		 * `amount` by the `multiplier` value to derive the
 		 * amount required for payment.
 		*/
+		/* Over 2^64 pico-bitcoin (about 18 million BTC) would wrap */
+		if (mul_overflows_u64(amount, m10))
+			return decode_fail(b11, fail,
+					   "Invalid amount '%s'", amountstr);
+
 		b11->msat = tal(b11, struct amount_msat);
 		/* BOLT #11:
 		 *
