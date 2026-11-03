@@ -1,19 +1,19 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.10, <4.0"
 resolution-markers = [
     "python_full_version == '3.14.*' and platform_machine == 'x86_64' and sys_platform == 'linux'",
-    "python_full_version != '3.14.*' and platform_machine == 'x86_64' and sys_platform == 'linux'",
     "python_full_version == '3.14.*' and platform_machine == 'aarch64' and sys_platform == 'linux'",
-    "python_full_version != '3.14.*' and platform_machine == 'aarch64' and sys_platform == 'linux'",
     "python_full_version == '3.14.*' and platform_machine == 'x86_64' and sys_platform == 'darwin'",
-    "python_full_version != '3.14.*' and platform_machine == 'x86_64' and sys_platform == 'darwin'",
     "python_full_version == '3.14.*' and platform_machine == 'arm64' and sys_platform == 'darwin'",
-    "python_full_version != '3.14.*' and platform_machine == 'arm64' and sys_platform == 'darwin'",
     "python_full_version == '3.14.*' and platform_machine == 'AMD64' and sys_platform == 'win32'",
+    "(python_full_version == '3.14.*' and platform_machine != 'AMD64' and platform_machine != 'aarch64' and platform_machine != 'arm64' and platform_machine != 'x86_64') or (python_full_version == '3.14.*' and platform_machine == 'AMD64' and sys_platform == 'darwin') or (python_full_version == '3.14.*' and platform_machine == 'aarch64' and sys_platform == 'darwin') or (python_full_version == '3.14.*' and platform_machine == 'AMD64' and sys_platform == 'linux') or (python_full_version == '3.14.*' and platform_machine == 'arm64' and sys_platform == 'linux') or (python_full_version == '3.14.*' and platform_machine == 'aarch64' and sys_platform == 'win32') or (python_full_version == '3.14.*' and platform_machine == 'arm64' and sys_platform == 'win32') or (python_full_version == '3.14.*' and platform_machine == 'x86_64' and sys_platform == 'win32') or (python_full_version == '3.14.*' and sys_platform != 'darwin' and sys_platform != 'linux' and sys_platform != 'win32')",
+    "python_full_version != '3.14.*' and platform_machine == 'x86_64' and sys_platform == 'linux'",
+    "python_full_version != '3.14.*' and platform_machine == 'aarch64' and sys_platform == 'linux'",
+    "python_full_version != '3.14.*' and platform_machine == 'x86_64' and sys_platform == 'darwin'",
+    "python_full_version != '3.14.*' and platform_machine == 'arm64' and sys_platform == 'darwin'",
     "python_full_version != '3.14.*' and platform_machine == 'AMD64' and sys_platform == 'win32'",
-    "(python_full_version == '3.14.*' and platform_machine != 'arm64' and platform_machine != 'x86_64' and sys_platform == 'darwin') or (python_full_version == '3.14.*' and platform_machine != 'aarch64' and platform_machine != 'x86_64' and sys_platform == 'linux') or (python_full_version == '3.14.*' and platform_machine != 'AMD64' and sys_platform == 'win32') or (python_full_version == '3.14.*' and sys_platform != 'darwin' and sys_platform != 'linux' and sys_platform != 'win32')",
-    "(python_full_version != '3.14.*' and platform_machine != 'arm64' and platform_machine != 'x86_64' and sys_platform == 'darwin') or (python_full_version != '3.14.*' and platform_machine != 'aarch64' and platform_machine != 'x86_64' and sys_platform == 'linux') or (python_full_version != '3.14.*' and platform_machine != 'AMD64' and sys_platform == 'win32') or (python_full_version != '3.14.*' and sys_platform != 'darwin' and sys_platform != 'linux' and sys_platform != 'win32')",
+    "(python_full_version != '3.14.*' and platform_machine != 'AMD64' and platform_machine != 'aarch64' and platform_machine != 'arm64' and platform_machine != 'x86_64') or (python_full_version != '3.14.*' and platform_machine == 'AMD64' and sys_platform == 'darwin') or (python_full_version != '3.14.*' and platform_machine == 'aarch64' and sys_platform == 'darwin') or (python_full_version != '3.14.*' and platform_machine == 'AMD64' and sys_platform == 'linux') or (python_full_version != '3.14.*' and platform_machine == 'arm64' and sys_platform == 'linux') or (python_full_version != '3.14.*' and platform_machine == 'aarch64' and sys_platform == 'win32') or (python_full_version != '3.14.*' and platform_machine == 'arm64' and sys_platform == 'win32') or (python_full_version != '3.14.*' and platform_machine == 'x86_64' and sys_platform == 'win32') or (python_full_version != '3.14.*' and sys_platform != 'darwin' and sys_platform != 'linux' and sys_platform != 'win32')",
 ]
 
 [manifest]
@@ -163,6 +163,23 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/21/28/9b3f50ce0e048515135495f198351908d99540d69bfdc8c1d15b73dc55ce/blinker-1.9.0.tar.gz", hash = "sha256:b4ce2265a7abece45e7cc896e98dbebe6cead56bcf805a3d23136d145f5445bf", size = 22460, upload-time = "2024-11-08T17:25:47.436Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/10/cb/f2ad4230dc2eb1a74edf38f1a38b9b52277f75bef262d8908e60d957e13c/blinker-1.9.0-py3-none-any.whl", hash = "sha256:ba0efaa9080b619ff2f3459d1d500c57bddea4a6b424b60a91141db6fd2f08bc", size = 8458, upload-time = "2024-11-08T17:25:46.184Z" },
+]
+
+[[package]]
+name = "buf-bin"
+version = "1.75.0"
+source = { registry = "https://pypi.org/simple" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e3/0d/e239680e28d5aa2bb31b356aba540b1a8d61b53ce9ffb1ab428f78c3811a/buf_bin-1.75.0-py3-none-macosx_11_0_arm64.whl", hash = "sha256:b5b1032fe41ec5f7823161697e82597c58081406b035ee6a419e8eb01f35bed6", size = 14686779, upload-time = "2026-10-22T01:03:52.943Z" },
+    { url = "https://files.pythonhosted.org/packages/cd/fe/7229270d75a29a99bd67309b37e5d6979e54a66539e9cd4a1406f21b02d5/buf_bin-1.75.0-py3-none-macosx_11_0_x86_64.whl", hash = "sha256:6d4e480719070602fdae059f991186c995f26f697f5c49c9a4e5dc50360e4bf5", size = 15921643, upload-time = "2026-10-22T01:03:55.628Z" },
+    { url = "https://files.pythonhosted.org/packages/ad/5b/0a6fba03e7623bbbd48c60fb2abdd2290cec90c613e87c73f91e8b35fa6d/buf_bin-1.75.0-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.musllinux_1_1_aarch64.whl", hash = "sha256:159e994efa072a7f3c84e5b90cf57f7b9a5e9f6387121bfc70e82ec7167d5694", size = 13969539, upload-time = "2026-10-22T01:03:58.068Z" },
+    { url = "https://files.pythonhosted.org/packages/4a/7d/165589e1f9a9d606bf7ba597fe4e39c33fc56dd71e8b97c1e75455e927d0/buf_bin-1.75.0-py3-none-manylinux2014_armv7l.manylinux_2_17_armv7l.musllinux_1_1_armv7l.whl", hash = "sha256:c484b46594895b29846a01eaef295f07592e9c97066c2282823c66233ee42e16", size = 14248519, upload-time = "2026-10-22T01:04:00.509Z" },
+    { url = "https://files.pythonhosted.org/packages/35/b2/c8e39193eb84c30c4bfa94e2047a78d4c30c4120530bc062b7da7f970d15/buf_bin-1.75.0-py3-none-manylinux2014_ppc64le.manylinux_2_17_ppc64le.musllinux_1_1_ppc64le.whl", hash = "sha256:bc900e4377bfcda30349e6c5ced3afd73354f1970c6576420454130db9a7d300", size = 13728446, upload-time = "2026-10-22T01:04:02.692Z" },
+    { url = "https://files.pythonhosted.org/packages/4b/5a/cb97717803fff171ea35b0c8092b41f1ea463f81116b0c634de621de5232/buf_bin-1.75.0-py3-none-manylinux2014_s390x.manylinux_2_17_s390x.musllinux_1_1_s390x.whl", hash = "sha256:2a589eef159951cdf826f9f995b7e4e92b407192914ff0e0e471e5c62de4cb0b", size = 14875121, upload-time = "2026-10-22T01:04:05.104Z" },
+    { url = "https://files.pythonhosted.org/packages/e8/c9/bafa84dbf513c14807e27329050e5645ed8452631bc3c8f3c2fb188dad31/buf_bin-1.75.0-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.musllinux_1_1_x86_64.whl", hash = "sha256:6fd3ecb1694b6f5bcdfb9bef5297b330ffb9731b95445a42944c1b6158428101", size = 15556953, upload-time = "2026-10-22T01:04:07.614Z" },
+    { url = "https://files.pythonhosted.org/packages/43/25/7484f7823e9d299b1c734c1ed927745ed0b6db4d159b5147bfa124cccd6c/buf_bin-1.75.0-py3-none-manylinux_2_17_riscv64.musllinux_1_2_riscv64.whl", hash = "sha256:6c08705d9efea4bcd92403a40773751aab05a048bee87dfa47e2ab46772e0a75", size = 14253545, upload-time = "2026-10-22T01:04:10.37Z" },
+    { url = "https://files.pythonhosted.org/packages/3a/7e/33e72d9b6def80aaa6c718f72b9a4bd41a0e42ba4ff94bbfe2b0b286c1c2/buf_bin-1.75.0-py3-none-win_amd64.whl", hash = "sha256:1d0c4bd5c334db7336ead53bde518023db786bf2d5e4470201ee9a77d3840a9a", size = 15870230, upload-time = "2026-10-22T01:04:13.014Z" },
+    { url = "https://files.pythonhosted.org/packages/25/21/458db4833abab660b446820a5644176e47536260616d8024ead6c63ff3fb/buf_bin-1.75.0-py3-none-win_arm64.whl", hash = "sha256:af2636e5cf99af659b754c8b5a768b2159eac15309c8ba0475fcfe8dac1f0304", size = 14070923, upload-time = "2026-10-22T01:04:15.654Z" },
 ]
 
 [[package]]
@@ -421,6 +438,7 @@ grpc = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "buf-bin" },
     { name = "crc32c" },
     { name = "flake8" },
     { name = "flask-socketio" },
@@ -456,6 +474,7 @@ provides-extras = ["grpc"]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "buf-bin", specifier = "==1.75.0" },
     { name = "crc32c", specifier = ">=2.2.post0" },
     { name = "flake8", specifier = ">=7.0" },
     { name = "flask-socketio", specifier = ">=5" },

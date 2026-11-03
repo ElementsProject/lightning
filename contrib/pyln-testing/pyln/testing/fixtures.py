@@ -759,8 +759,17 @@ def checkPluginJSON(node):
                 os.path.join("doc/schemas/notification", fname)
             )
 
-    # FIXME: add doc/schemas/hook/
+    try:
+        hookfiles = os.listdir("doc/schemas/hook")
+    except FileNotFoundError:
+        hookfiles = []
+
     hooks = {}
+    for fname in hookfiles:
+        if fname.endswith(".json"):
+            base = fname.replace(".json", "")
+            # Request is 0 and Response is 1
+            hooks[base] = _load_schema(os.path.join("doc/schemas/hook", fname))
 
     for f in (Path(node.daemon.lightning_dir) / "plugin-io").iterdir():
         # e.g. hook_in-peer_connected-124567-358

@@ -129,20 +129,19 @@ pub mod events{
     #[derive(Clone, Debug, Deserialize, Serialize)]
     pub struct OpenchannelOpenchannel {
         #[serde(skip_serializing_if = "Option::is_none")]
-        pub channel_type: Option<OpenchannelOpenchannelChannelType>,
-        #[serde(skip_serializing_if = "Option::is_none")]
         pub shutdown_scriptpubkey: Option<String>,
         pub channel_flags: u8,
         pub channel_reserve_msat: Amount,
+        pub channel_type: OpenchannelOpenchannelChannelType,
         pub dust_limit_msat: Amount,
         pub feerate_per_kw: u32,
         pub funding_msat: Amount,
         pub htlc_minimum_msat: Amount,
         pub id: PublicKey,
-        pub max_accepted_htlcs: u32,
+        pub max_accepted_htlcs: u16,
         pub max_htlc_value_in_flight_msat: Amount,
         pub push_msat: Amount,
-        pub to_self_delay: u32,
+        pub to_self_delay: u16,
     }
 
     #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -159,8 +158,6 @@ pub mod events{
     #[derive(Clone, Debug, Deserialize, Serialize)]
     pub struct Openchannel2Openchannel2 {
         #[serde(skip_serializing_if = "Option::is_none")]
-        pub channel_type: Option<Openchannel2Openchannel2ChannelType>,
-        #[serde(skip_serializing_if = "Option::is_none")]
         pub lease_blockheight_start: Option<u32>,
         #[serde(skip_serializing_if = "Option::is_none")]
         pub node_blockheight: Option<u32>,
@@ -171,6 +168,7 @@ pub mod events{
         pub channel_flags: u8,
         pub channel_id: Sha256,
         pub channel_max_msat: Amount,
+        pub channel_type: Openchannel2Openchannel2ChannelType,
         pub commitment_feerate_per_kw: u32,
         pub dust_limit_msat: Amount,
         pub feerate_our_max: u32,
@@ -242,7 +240,7 @@ pub mod events{
         pub extra_tlvs: Option<String>,
         pub amount_msat: Amount,
         pub cltv_expiry: u32,
-        pub cltv_expiry_relative: u32,
+        pub cltv_expiry_relative: i64,
         pub id: u64,
         pub payment_hash: Sha256,
         pub short_channel_id: ShortChannelId,
@@ -336,11 +334,10 @@ pub mod events{
         #[serde(skip_serializing_if = "Option::is_none")]
         pub first_node_id: Option<PublicKey>,
         #[serde(skip_serializing_if = "Option::is_none")]
-        pub first_path_key: Option<PublicKey>,
-        #[serde(skip_serializing_if = "Option::is_none")]
         pub first_scid: Option<ShortChannelId>,
         #[serde(skip_serializing_if = "Option::is_none")]
         pub first_scid_dir: Option<u32>,
+        pub first_path_key: PublicKey,
         pub hops: Vec<OnionMessageRecvOnionMessageReplyBlindedpathHops>,
     }
 
@@ -379,11 +376,10 @@ pub mod events{
         #[serde(skip_serializing_if = "Option::is_none")]
         pub first_node_id: Option<PublicKey>,
         #[serde(skip_serializing_if = "Option::is_none")]
-        pub first_path_key: Option<PublicKey>,
-        #[serde(skip_serializing_if = "Option::is_none")]
         pub first_scid: Option<ShortChannelId>,
         #[serde(skip_serializing_if = "Option::is_none")]
         pub first_scid_dir: Option<u32>,
+        pub first_path_key: PublicKey,
         pub hops: Vec<OnionMessageRecvSecretOnionMessageReplyBlindedpathHops>,
     }
 
@@ -666,9 +662,19 @@ pub mod actions{
     #[derive(Clone, Debug, Deserialize, Serialize)]
     pub struct Openchannel2Action {
         #[serde(skip_serializing_if = "Option::is_none")]
+        pub channel_fee_max_base_msat: Option<Amount>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub channel_fee_max_proportional_thousandths: Option<u16>,
+        #[serde(skip_serializing_if = "Option::is_none")]
         pub close_to: Option<String>,
         #[serde(skip_serializing_if = "Option::is_none")]
         pub error_message: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub funding_weight: Option<u16>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub lease_fee_base_msat: Option<Amount>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub lease_fee_basis: Option<u16>,
         #[serde(skip_serializing_if = "Option::is_none")]
         pub our_funding_msat: Option<Amount>,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -776,7 +782,17 @@ pub mod actions{
     #[derive(Clone, Debug, Deserialize, Serialize)]
     pub struct RbfChannelAction {
         #[serde(skip_serializing_if = "Option::is_none")]
+        pub channel_fee_max_base_msat: Option<Amount>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub channel_fee_max_proportional_thousandths: Option<u16>,
+        #[serde(skip_serializing_if = "Option::is_none")]
         pub error_message: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub funding_weight: Option<u16>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub lease_fee_base_msat: Option<Amount>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub lease_fee_basis: Option<u16>,
         #[serde(skip_serializing_if = "Option::is_none")]
         pub our_funding_msat: Option<Amount>,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -846,15 +862,11 @@ pub mod actions{
     }
 
     #[derive(Clone, Debug, Deserialize, Serialize)]
-    pub struct RpcCommandReturnResult {
-    }
-
-    #[derive(Clone, Debug, Deserialize, Serialize)]
     pub struct RpcCommandReturn {
         #[serde(skip_serializing_if = "Option::is_none")]
         pub error: Option<RpcCommandReturnError>,
         #[serde(skip_serializing_if = "Option::is_none")]
-        pub result: Option<RpcCommandReturnResult>,
+        pub result: Option<JsonObjectOrArray>,
     }
 
     /// ['The JSON-RPC version.']

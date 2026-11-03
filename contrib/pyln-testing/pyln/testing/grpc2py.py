@@ -73,7 +73,6 @@ def listpeers_peers_log2py(m):
         "data": hexlify(m.data),  # PrimitiveField in generate_composite
         "log": m.log,  # PrimitiveField in generate_composite
         "node_id": hexlify(m.node_id),  # PrimitiveField in generate_composite
-        "num_skipped": m.num_skipped,  # PrimitiveField in generate_composite
         "source": m.source,  # PrimitiveField in generate_composite
         "time": m.time,  # PrimitiveField in generate_composite
     })
@@ -117,11 +116,13 @@ def listfunds_outputs2py(m):
         "address": m.address,  # PrimitiveField in generate_composite
         "amount_msat": amount2msat(m.amount_msat),  # PrimitiveField in generate_composite
         "blockheight": m.blockheight,  # PrimitiveField in generate_composite
+        "csv_lock": m.csv_lock,  # PrimitiveField in generate_composite
         "output": m.output,  # PrimitiveField in generate_composite
         "redeemscript": hexlify(m.redeemscript),  # PrimitiveField in generate_composite
         "reserved": m.reserved,  # PrimitiveField in generate_composite
         "reserved_to_block": m.reserved_to_block,  # PrimitiveField in generate_composite
         "scriptpubkey": hexlify(m.scriptpubkey),  # PrimitiveField in generate_composite
+        "spendable_at": m.spendable_at,  # PrimitiveField in generate_composite
         "txid": hexlify(m.txid),  # PrimitiveField in generate_composite
     })
 
@@ -339,6 +340,7 @@ def connect_address2py(m):
     return remove_default({
         "type": str(m.item_type),  # EnumField in generate_composite
         "address": m.address,  # PrimitiveField in generate_composite
+        "name": m.name,  # PrimitiveField in generate_composite
         "port": m.port,  # PrimitiveField in generate_composite
         "socket": m.socket,  # PrimitiveField in generate_composite
     })
@@ -1030,7 +1032,6 @@ def listpeerchannels_channels2py(m):
         "min_to_us_msat": amount2msat(m.min_to_us_msat),  # PrimitiveField in generate_composite
         "minimum_htlc_in_msat": amount2msat(m.minimum_htlc_in_msat),  # PrimitiveField in generate_composite
         "minimum_htlc_out_msat": amount2msat(m.minimum_htlc_out_msat),  # PrimitiveField in generate_composite
-        "next_fee_step": m.next_fee_step,  # PrimitiveField in generate_composite
         "next_feerate": m.next_feerate,  # PrimitiveField in generate_composite
         "our_max_htlc_value_in_flight_msat": amount2msat(m.our_max_htlc_value_in_flight_msat),  # PrimitiveField in generate_composite
         "our_reserve_msat": amount2msat(m.our_reserve_msat),  # PrimitiveField in generate_composite
@@ -1591,7 +1592,6 @@ def getlog_log2py(m):
         "data": hexlify(m.data),  # PrimitiveField in generate_composite
         "log": m.log,  # PrimitiveField in generate_composite
         "node_id": hexlify(m.node_id),  # PrimitiveField in generate_composite
-        "num_skipped": m.num_skipped,  # PrimitiveField in generate_composite
         "source": m.source,  # PrimitiveField in generate_composite
         "time": m.time,  # PrimitiveField in generate_composite
     })
@@ -2066,7 +2066,6 @@ def splice_update2py(m):
 def splicein2py(m):
     return remove_default({
         "psbt": m.psbt,  # PrimitiveField in generate_composite
-        "tx": m.tx,  # PrimitiveField in generate_composite
         "txid": m.txid,  # PrimitiveField in generate_composite
     })
 
@@ -2074,7 +2073,6 @@ def splicein2py(m):
 def spliceout2py(m):
     return remove_default({
         "psbt": m.psbt,  # PrimitiveField in generate_composite
-        "tx": m.tx,  # PrimitiveField in generate_composite
         "txid": m.txid,  # PrimitiveField in generate_composite
     })
 
