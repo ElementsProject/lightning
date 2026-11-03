@@ -3026,7 +3026,7 @@ def test_onchain_all_dust(node_factory, bitcoind, executor):
     bitcoind.generate_block(5)
 
     # 100 deep and l2 forgets.
-    bitcoind.generate_block(93, wait_for_mempool=txid)
+    mined = bitcoind.generate_block(93, wait_for_mempool=txid)
     sync_blockheight(bitcoind, [l1, l2])
     assert not l2.daemon.is_in_log('onchaind complete, forgetting peer')
     assert not l1.daemon.is_in_log('onchaind complete, forgetting peer')
@@ -3043,7 +3043,8 @@ def test_onchain_all_dust(node_factory, bitcoind, executor):
     # count from when it was mined, not from the commitment tx, so it
     # trails l2 by however long the lowball fee sat in the mempool.
     assert not l1.daemon.is_in_log('onchaind complete, forgetting peer')
-    confs = bitcoind.rpc.getrawtransaction(txid, True)['confirmations']
+    # The test elementsd runs without -txindex: look the spend up in its block.
+    confs = bitcoind.rpc.getrawtransaction(txid, True, mined[0])['confirmations']
     bitcoind.generate_block(100 - confs)
     l1.daemon.wait_for_log('onchaind complete, forgetting peer')
 
