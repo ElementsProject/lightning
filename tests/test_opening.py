@@ -2160,6 +2160,11 @@ def test_funder_options(node_factory, bitcoind):
     assert funder_opts['fund_probability'] == 100
     assert funder_opts['leases_only']
 
+    # Neither a number nor a sat amount
+    with pytest.raises(RpcError, match='policy_mod: should be a number or a sat amount'):
+        l1.rpc.call('funderupdate', {'policy_mod': 'notanumber'})
+    assert l1.rpc.call('funderupdate')['policy_mod'] == 0
+
     # l2 funds a chanenl with us. We don't contribute
     l2.rpc.connect(l1.info['id'], 'localhost', l1.port)
     l2.fundchannel(l1, 10**6)
