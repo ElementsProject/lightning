@@ -18,6 +18,29 @@ struct command;
 struct layer;
 struct json_stream;
 
+/* A public version of channel_intel, it contains a reference to the layer that
+ * produced it. */
+struct channel_intel_out {
+	/* Which layer contained it */
+	const struct layer *layer;
+	struct short_channel_id_dir scidd;
+	/* Time this constraint was last updated */
+	u64 timestamp;
+	bool is_impression;
+	union {
+		struct {
+			struct amount_msat min, max;
+		} min_max;
+		struct amount_msat impression;
+	} value;
+
+	/* Position before sorting, order after combining all layers. */
+	size_t index;
+};
+
+void layer_get_intels(const struct layer *layer,
+		      struct channel_intel_out **intels);
+
 /* Create a layer hash table */
 struct layer_name_hash *new_layer_name_hash(const tal_t *ctx);
 
@@ -94,13 +117,6 @@ void layer_remove_channel_update(struct layer *layer,
 void layer_clear_overridden_capacities(const struct layer *layer,
 				       const struct gossmap *gossmap,
 				       fp16_t *capacities);
-
-/* Apply constraints from a layer (reduce min, increase max). */
-void layer_apply_constraints(const struct layer *layer,
-			     const struct short_channel_id_dir *scidd,
-			     struct amount_msat *min,
-			     struct amount_msat *max)
-	NO_NULL_ARGS;
 
 /* Apply biases from a layer. */
 void layer_apply_biases(const struct layer *layer,

@@ -1141,37 +1141,37 @@ const struct local_channel *layer_find_local_channel(const struct layer *layer,
 	return local_channel_hash_get(layer->local_channels, scid);
 }
 
-void layer_apply_constraints(const struct layer *layer,
-			     const struct short_channel_id_dir *scidd,
-			     struct amount_msat *min,
-			     struct amount_msat *max)
+void layer_get_intels(const struct layer *layer,
+		      struct channel_intel_out **intels)
 {
 	const struct channel_intel *intelarr;
+	struct channel_intel_hash_iter intelit;
+	struct channel_intel_out current;
 
-	/* Apply any intel we have, in order */
-	intelarr = channel_intel_hash_get(layer->channel_intels, scidd->scid);
-	for (size_t i = 0; i < tal_count(intelarr); i++) {
-		if (intelarr[i].constraint) {
-			const struct constraint *c = intelarr[i].constraint;
-			if (c->scidd.dir == scidd->dir) {
-				*min = amount_msat_max(*min, c->min);
-				*max = amount_msat_min(*max, c->max);
-			}
-		} else {
-			const struct impression *imp = intelarr[i].impression;
-			/* We made payment along this channel?  Capacity has reduced */
-			if (imp->scidd.dir == scidd->dir) {
-				if (!amount_msat_sub(min, *min, imp->amount))
-					*min = AMOUNT_MSAT(0);
-				if (!amount_msat_sub(max, *max, imp->amount))
-					*max = AMOUNT_MSAT(0);
+	current.layer = layer;
+	for (intelarr =
+		 channel_intel_hash_first(layer->channel_intels, &intelit);
+	     intelarr; intelarr = channel_intel_hash_next(layer->channel_intels,
+							  &intelit)) {
+		for (size_t i = 0; i < tal_count(intelarr); i++) {
+			if (intelarr[i].constraint) {
+				current.scidd = intelarr[i].constraint->scidd;
+				current.is_impression = false;
+				current.timestamp =
+				    intelarr[i].constraint->timestamp;
+				current.value.min_max.min =
+				    intelarr[i].constraint->min;
+				current.value.min_max.max =
+				    intelarr[i].constraint->max;
 			} else {
-				/* We made the other way?  Capacity has increased */
-				if (!amount_msat_add(min, *min, imp->amount))
-					*min = AMOUNT_MSAT(UINT64_MAX);
-				if (!amount_msat_add(max, *max, imp->amount))
-					*max = AMOUNT_MSAT(UINT64_MAX);
+				current.scidd = intelarr[i].impression->scidd;
+				current.is_impression = true;
+				current.timestamp =
+				    intelarr[i].impression->timestamp;
+				current.value.impression =
+				    intelarr[i].impression->amount;
 			}
+			tal_arr_expand(intels, current);
 		}
 	}
 }
