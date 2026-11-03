@@ -590,7 +590,7 @@ static const struct node_id *random_peers(const tal_t *ctx,
 			tal_arr_expand(&ids, *peer);
 		}
 	} else {
-		while (peer_map_count(cb->peers) < NUM_BACKUP_PEERS) {
+		while (tal_count(ids) < NUM_BACKUP_PEERS) {
 			peer = peer_map_pick(cb->peers, pseudorand_u64(), &it);
 			if (already_have_node_id(ids, peer))
 				continue;
