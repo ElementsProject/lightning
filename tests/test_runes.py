@@ -644,7 +644,6 @@ def test_createrune_empty_restriction(node_factory):
     assert l1.rpc.showrunes()['runes'] == []
 
 
-@pytest.mark.xfail(strict=True)
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "Edits the sqlite3 db directly")
 def test_showrunes_undecodable_stored_rune(node_factory):
     """Older nodes may have stored a rune with an empty restriction (#9673)"""
