@@ -6374,7 +6374,6 @@ def test_huge_log_entry(node_factory):
     assert l1.rpc.getinfo()['id'] == l1.info['id']
 
 
-@pytest.mark.xfail(strict=True, reason="issue #9683: updates reach no storage peers when more than two are available")
 def test_peer_storage_refresh_three_peers(node_factory, bitcoind):
     """Channel changes must refresh two of three peer-storage backups."""
     l1, l2, l3, l4 = node_factory.get_nodes(
