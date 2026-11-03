@@ -1256,6 +1256,45 @@ const struct constraint *layer_add_constraint(struct layer *layer,
 	return c;
 }
 
+static const struct channel_observations *add_observation(struct layer *layer,
+							  const struct short_channel_id_dir *scidd,
+							  const enum observation_result result,
+							  const u64 timestamp,
+							  const struct amount_msat amount)
+{
+	struct observation obs;
+	struct channel_observations *layer_obs =
+	    channel_observations_htable_get(layer->channel_observations,
+					    scidd->scid);
+
+	obs.dir = scidd->dir;
+	obs.result = result;
+	obs.timestamp = timestamp;
+	obs.amount = amount;
+
+	if (!layer_obs) {
+		/* No observations yet for this scid */
+		layer_obs = tal(layer, struct channel_observations);
+		layer_obs->scid = scidd->scid;
+		layer_obs->obs = tal_arr(layer_obs, struct observation, 0);
+	}
+	tal_arr_expand(&layer_obs->obs, obs);
+	return layer_obs;
+}
+
+const struct channel_observations *layer_add_observation(struct layer *layer,
+							 const struct short_channel_id_dir *scidd,
+							 const enum observation_result result,
+							 const u64 timestamp,
+							 const struct amount_msat amount)
+{
+	const struct channel_observations *layer_obs =
+	    add_observation(layer, scidd, result, timestamp, amount);
+	// FIXME: add persistency of observations
+	// save_channel_observations(layer, layer_obs);
+	return layer_obs;
+}
+
 const struct impression *layer_add_impression(struct layer *layer,
 					      const struct short_channel_id_dir *scidd,
 					      u64 timestamp,

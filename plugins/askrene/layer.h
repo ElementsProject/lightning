@@ -226,4 +226,11 @@ bool layer_disables_chan(const struct layer *layer, const struct short_channel_i
 /* For explain_failure: did this layer disable this node? */
 bool layer_disables_node(const struct layer *layer, const struct node_id *node);
 
+/* Add channel observation to this layer. */
+const struct channel_observations *layer_add_observation(struct layer *layer,
+							 const struct short_channel_id_dir *scidd,
+							 enum observation_result result,
+							 u64 timestamp,
+							 const struct amount_msat amount);
+
 #endif /* LIGHTNING_PLUGINS_ASKRENE_LAYER_H */
