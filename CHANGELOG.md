@@ -4,6 +4,74 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [26.06.10] - 2026-11-05: "Quantum-Resistant Lightning Channel VII"
+
+This point release is recommended for all users.
+
+### Added
+
+ - offers: create a CLN policy to constraint recurrence parameters to reasonable values, to avoid user footguns and computation overflows.
+ - docs: offers and fetchinvoice documentation mention the limits set on recurrence variables stablished by CLN's policy.
+
+### Changed
+
+ - xpay: computes a budget for the number of hops in the payment depending on the final payload and blinded paths, it can fail early if the onion packet doesn't fit
+ - askrene-getroutes: penalizes every extra hop in every route with an homogeneous and constant probability of failure of 1%, as a consequence askrene will slightly prefer smaller routes and fewer payment parts.
+ - Plugins: a hook handler that fails or panics (pyln-client, cln-plugin) now gets a safe default reply instead of crashing or hanging lightningd; commitment_revocation and db_write still stop the node.
+ - bookkeeper: `bkpr-dumpincomecsv` `csv_file` must now be a plain filename ending in `.csv`; it is written in the node's network directory, and never through a symlink.
+ - `connect` with a host name now resolves it asynchronously in connectd, and fails with `--disable-dns`.
+ - currencyrate: IPv6 proxy addresses are rejected because bitreq does not support them
+
+### Fixed
+
+ - xpay: Clamp the length of the payment routes using askrene's maxhops option aiming at producing routes that fit the data limits in the onion packet.
+ - JSON-RPC: `createinvoice` now returns error 901 for an already-used preimage instead of crashing the node.
+ - offers: no longer crashes on an offer with an empty offer_paths.
+ - channeld no longer crashes when a peer sends tx_signatures instead of commitment_signed during splice finalization.
+ - Protocol: a connected node could overwrite our peer's channel_update for a public channel before it was announced.
+ - JSON-RPC: `signpsbt` no longer crashes the node when given a PSBT it cannot sign (e.g. one with no outputs); it returns an error instead.
+ - dual-funding: a peer stalling a channel open no longer keeps our contributed UTXOs reserved.
+ - dual-funding: a peer stalling an RBF can no longer keep our channel from confirming.
+ - dualopend: a v2 channel open requesting 'option_zeroconf' is now refused unless we're configured to accept 0-confirmation channels from that peer, as openingd already does.
+ - Avoid closingd crashes on invalid legacy closing fee offers.
+ - runes: `pname` restrictions can no longer be bypassed with duplicate or punctuation-variant parameter names.
+ - onchaind: no longer crashes when an unexpected transaction spends a revoked HTLC output with too few outputs
+ - Protocol: onion messages with an empty (0-length) per-hop payload are now accepted, as BOLT 4 allows, instead of being silently dropped
+ - commando: a peer can no longer crash the node via a use-after-free by reusing a command id after a failed command
+ - dual-funding: `close` on a channel still being negotiated no longer crashes the node.
+ - dualopend: reject a dual-funded channel whose peer dust_limit exceeds the channel reserve.
+ - a peer can no longer open a channel with a dust_limit_satoshis above 5000sat, which let it trim our balance into fees on force close.
+ - Plugins: `commitment_revocation` is now called for each splice candidate while a splice is pending, so watchtowers can penalize whichever revoked commitment gets broadcast.
+ - lightningd: a self-payment completing while another payment was in flight read freed memory.
+ - openingd: a dual-funding peer could crash our Elements dualopend with an out-of-range prevtx_vout.
+ - Protocol: a peer could crash lightningd by committing an HTLC before the funding tx confirmed, then sending an error.
+ - lightningd: a channel peer flooding us with channel_updates no longer causes a db write for each one.
+ - lightningd: replay htlc_accepted for HTLCs committed before shutdown or on-chain instead of failing them on restart without calling the hook.
+ - lightningd: no longer crashes if a client hangs up while an `rpc_command` hook holds its `getlog` or `check` command.
+ - connectd: when out of file descriptors, close incoming connections which haven't sent init before disconnecting peers.
+ - connectd: no longer crashes when accepting a websocket connection fails (e.g. out of file descriptors).
+ - Plugins: hooks pending on an important plugin that dies are now called again on restart, instead of continuing as if the plugin had answered (an `htlc_accepted` hook could fail the HTLC).
+ - gossipd: more efficient handling of large reply_channel_range replies.
+ - lightningd: fix a crash on cooperative close of an unconfirmed dual-funded channel.
+ - gossipd: ignore gossip messages far larger than any valid one.
+ - gossipd: stale, duplicate and unknown-node gossip is now rejected before signature verification, so peers can no longer force needless ECDSA work
+ - gossipd: the gossip_store is also compacted based on its size, not just its record count.
+ - connectd: gossip messages far larger than any valid one are dropped before they are queued for gossipd.
+ - lightningd: a channel with an unconfirmed splice now notices if its funding output gets spent after a restart.
+ - connectd: a stalling DNS name in a peer's announced address no longer freezes all peer traffic; resolution is now done asynchronously.
+ - cln-grpc no longer panics on malformed request values.
+ - onchaind: Fixed a race between preimage return from downstream to upstream
+ - onchaind: Don't wait forever if the peer takes back an HTLC we were trying to claim with a late preimage
+ - bookkeeper: An incoming HTLC we claim with a late preimage after it timed out is no longer booked both to the peer and to us
+ - lightningd: unilateral close of a channel with a pending splice now works when the peer used a new funding key for it.
+ - splice_init: RBF of a pending splice now uses at least 25/24 of its feerate, which peers such as Eclair require.
+ - splice_init: a feerate above the most we'll pay no longer leaves the channel unable to splice until channeld restarts.
+ - abort_channels no longer fails the channel when a splice we already signed is pending.
+ - Protocol: channeld now rejects a 'start_batch' with 'batch_size' above 20, as the spec requires, so a peer can no longer stall the channel or use up memory
+ - dualopen and splicing: added tx_signatures verification according to BOLT-2
+ - onchaind: an HTLC removed just before a unilateral close, with the same payment hash, amount and cltv as a live one, could be mistaken for it onchain, causing us to fail the live HTLC upstream while the peer could still claim it.
+ - commando and rune RPCs reject oversized runes instead of spending quadratic time decoding them.
+
 ## [26.06.9] - 2026-10-06: "Quantum-Resistant Lightning Channel VI"
 
 This point release is recommended for all users.
