@@ -40,17 +40,12 @@ static const char *why_max_constrained(const tal_t *ctx,
 	char *ret = NULL;
 	const char *reservations;
 	const struct layer *constrains = NULL;
-	struct amount_msat max = amount;
+	struct amount_msat min, max;
 
 	/* Figure out the layer that constrains us (most) */
-	for (size_t i = 0; i < tal_count(rq->layers); i++) {
-		struct amount_msat min = AMOUNT_MSAT(0), new_max = max;
-
-		layer_apply_constraints(rq->layers[i], scidd, &min, &new_max);
-		if (!amount_msat_eq(new_max, max))
-			constrains = rq->layers[i];
-		max = new_max;
-	}
+	if (!get_layer_bounds(rq, scidd, &min, &max, &constrains)
+	    || !amount_msat_less(max, amount))
+		constrains = NULL;
 
 	if (constrains) {
 		if (!ret)
@@ -120,7 +115,6 @@ static const struct layer **node_stats(const tal_t *ctx,
 				       const struct route_query *rq,
 				       const struct gossmap_node *node,
 				       enum node_direction node_direction,
-				       const struct layer **layers,
 				       struct node_stats *stats)
 {
 	const struct layer **most_constraining = tal_arr(ctx, const struct layer *, 0);
@@ -139,14 +133,9 @@ static const struct layer **node_stats(const tal_t *ctx,
 		if (node_direction == INTO_NODE)
 			scidd.dir = !scidd.dir;
 
-		min = AMOUNT_MSAT(0);
-		max = cap_msat;
-		constrainer = NULL;
-		for (size_t j = 0; j < tal_count(layers); j++) {
-			struct amount_msat old_max = max;
-			layer_apply_constraints(layers[j], &scidd, &min, &max);
-			if (!amount_msat_eq(max, old_max))
-				constrainer = layers[j];
+		if (!get_layer_bounds(rq, &scidd, &min, &max, &constrainer)) {
+			max = cap_msat;
+			constrainer = NULL;
 		}
 		if (constrainer && !layer_in_array(most_constraining, constrainer))
 			tal_arr_expand(&most_constraining, constrainer);
@@ -204,7 +193,7 @@ static const char *check_capacity(const tal_t *ctx,
 	struct node_stats stats;
 	const struct layer **most_constraining;
 
-	most_constraining = node_stats(tmpctx, rq, node, node_direction, rq->layers, &stats);
+	most_constraining = node_stats(tmpctx, rq, node, node_direction, &stats);
 	if (amount_msat_greater(amount, stats.total.capacity)) {
 		*total_capacity_failure = true;
 		return child_log(ctx, LOG_DBG,
