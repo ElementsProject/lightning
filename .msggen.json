@@ -4785,6 +4785,7 @@
             "Xpay.localinvreqid": 10,
             "Xpay.maxdelay": 7,
             "Xpay.maxfee": 3,
+            "Xpay.maxparts": 12,
             "Xpay.partial_msat": 6,
             "Xpay.payer_note": 8,
             "Xpay.retry_for": 5
@@ -8659,6 +8660,7 @@
             "1": "plain string",
             "10": "optional bytes",
             "11": "optional bool",
+            "12": "optional uint32",
             "2": "optional Amount",
             "3": "optional Amount",
             "4": "repeated string",
@@ -19535,6 +19537,10 @@
         },
         "Xpay.maxfee": {
             "added": "v24.11",
+            "deprecated": null
+        },
+        "Xpay.maxparts": {
+            "added": "v26.12",
             "deprecated": null
         },
         "Xpay.partial_msat": {

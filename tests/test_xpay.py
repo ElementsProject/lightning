@@ -1,6 +1,6 @@
 from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
-from pyln.client import RpcError
+from pyln.client import Millisatoshi, RpcError
 from pyln.testing.utils import FUNDAMOUNT, only_one, scid_to_int
 from utils import (
     TIMEOUT, first_scid, first_scidd, GenChannel, generate_gossip_store, wait_for,
@@ -2045,3 +2045,411 @@ def test_xpay_failing_node_nonfinal(node_factory, bitcoind):
     ret = payer.rpc.xpay(invstring=inv, retry_for=30)
     assert ret["failed_parts"] == 1, ret
     assert payer.daemon.is_in_log(disabled, start=start)
+
+
+@pytest.mark.slow_test
+@pytest.mark.xdist_group("heavy")
+def test_xpay_maxparts(node_factory):
+    """xpay's maxparts option limits the number of parts"""
+    CHANNEL_SIZE_SATS = 10**6
+    l1, l2 = node_factory.line_graph(
+        2, fundamount=CHANNEL_SIZE_SATS * 20, announce_channels=False
+    )
+
+    # We want 10 paths between l3 and l1.
+    l3 = node_factory.get_node()
+    nodes = node_factory.get_nodes(10)
+    for n in nodes:
+        node_factory.join_nodes([l3, n, l1], fundamount=CHANNEL_SIZE_SATS)
+
+    def failing_invoice(node, amount_sat, label):
+        """Invoice which fails at the destination, so we don't use up capacity"""
+        inv = node.rpc.invoice(f"{amount_sat}sat", label, label)["bolt11"]
+        node.rpc.delinvoice(label, "unpaid")
+        return inv
+
+    def num_flows():
+        line = l3.daemon.wait_for_log(r"Final answer has [0-9]+ flows")
+        return int(re.search(r"Final answer has ([0-9]+) flows", line).group(1))
+
+    def wait_xpay_done():
+        wait_for(lambda: l3.rpc.askrene_listreservations() == {"reservations": []})
+
+    # Default (0) is unconstrained: 5 channels' worth needs X flows.
+    inv = failing_invoice(l1, CHANNEL_SIZE_SATS * 5, "default")
+    with pytest.raises(RpcError, match="Destination said it doesn't know invoice"):
+        l3.rpc.xpay(invstring=inv)
+    baseline_num_parts = num_flows()
+    # we know the baseline does not exceed 100 parts
+    assert baseline_num_parts <= 100
+    wait_xpay_done()
+
+    # Forget that we have learned that channels have enough liquidity, keep it
+    # "expensive" in terms of probability to route near to the capacity of a
+    # channel.
+    l3.rpc.askrene_age('xpay', int(time.time()))
+
+    # Explicit 0 is the same as the default.
+    inv = failing_invoice(l1, CHANNEL_SIZE_SATS * 5, "zero")
+    with pytest.raises(RpcError, match="Destination said it doesn't know invoice"):
+        l3.rpc.xpay(invstring=inv, maxparts=0)
+    assert num_flows() == baseline_num_parts
+    wait_xpay_done()
+
+    l3.rpc.askrene_age('xpay', int(time.time()))
+    # A large limit has no effect.
+    inv = failing_invoice(l1, CHANNEL_SIZE_SATS * 5, "large")
+    with pytest.raises(RpcError, match="Destination said it doesn't know invoice"):
+        l3.rpc.xpay(invstring=inv, maxparts=100)
+    # and maxparts=100 is a number so high that the final answer has as many
+    # parts as the baseline
+    assert num_flows() == baseline_num_parts
+    wait_xpay_done()
+
+    l3.rpc.askrene_age('xpay', int(time.time()))
+    # Squeeze it into 6 parts.
+    inv = failing_invoice(l1, CHANNEL_SIZE_SATS * 5, "six")
+    with pytest.raises(RpcError, match="Destination said it doesn't know invoice"):
+        l3.rpc.xpay(invstring=inv, maxparts=6)
+    assert num_flows() <= 6
+    wait_xpay_done()
+
+    l3.rpc.askrene_age('xpay', int(time.time()))
+    # A smaller payment can be done in fewer parts.
+    inv = failing_invoice(l1, CHANNEL_SIZE_SATS * 2, "three")
+    with pytest.raises(RpcError, match="Destination said it doesn't know invoice"):
+        l3.rpc.xpay(invstring=inv, maxparts=3)
+    assert num_flows() <= 3
+    wait_xpay_done()
+
+    l3.rpc.askrene_age('xpay', int(time.time()))
+    # Impossible with only 2 parts
+    inv = failing_invoice(l1, CHANNEL_SIZE_SATS * 5, "two")
+    with pytest.raises(RpcError, match=r"Failed to reduce [0-9]+ flows down to maxparts \(2\)"):
+        l3.rpc.xpay(invstring=inv, maxparts=2)
+    wait_xpay_done()
+
+    l3.rpc.askrene_age('xpay', int(time.time()))
+    # maxparts=1 means a single part.
+    inv = failing_invoice(l1, CHANNEL_SIZE_SATS // 2, "one")
+    with pytest.raises(RpcError, match="Destination said it doesn't know invoice"):
+        l3.rpc.xpay(invstring=inv, maxparts=1)
+    l3.daemon.wait_for_log("maxparts == 1: switching to a single path algorithm")
+    assert num_flows() == 1
+    wait_xpay_done()
+
+    l3.rpc.askrene_age('xpay', int(time.time()))
+    # Unannounced destination (via routehint): we default to at most 6 parts...
+    inv = failing_invoice(l2, CHANNEL_SIZE_SATS * 5, "hint_default")
+    with pytest.raises(RpcError, match="Destination said it doesn't know invoice"):
+        l3.rpc.xpay(invstring=inv)
+    l3.daemon.wait_for_log("Limiting maxparts to 6: the destination is unannounced")
+    assert num_flows() <= 6
+    wait_xpay_done()
+
+    l3.rpc.askrene_age('xpay', int(time.time()))
+    # ... and a larger maxparts does not override that ...
+    inv = failing_invoice(l2, CHANNEL_SIZE_SATS * 5, "hint_large")
+    with pytest.raises(RpcError, match="Destination said it doesn't know invoice"):
+        l3.rpc.xpay(invstring=inv, maxparts=10)
+    l3.daemon.wait_for_log("Limiting maxparts to 6: the destination is unannounced")
+    assert num_flows() <= 6
+    wait_xpay_done()
+
+    l3.rpc.askrene_age('xpay', int(time.time()))
+    # ... but a smaller one is honored.
+    inv = failing_invoice(l2, CHANNEL_SIZE_SATS * 2, "hint_small")
+    with pytest.raises(RpcError, match="Destination said it doesn't know invoice"):
+        l3.rpc.xpay(invstring=inv, maxparts=3)
+    l3.daemon.wait_for_log("Limiting maxparts to 3: set by the user")
+    assert num_flows() <= 3
+    wait_xpay_done()
+
+    l3.rpc.askrene_age('xpay', int(time.time()))
+    # Finally, a real payment respecting maxparts.
+    inv = l1.rpc.invoice(f"{CHANNEL_SIZE_SATS * 2}sat", "real", "real")["bolt11"]
+    ret = l3.rpc.xpay(invstring=inv, maxparts=3)
+    assert ret["amount_msat"] == CHANNEL_SIZE_SATS * 2 * 1000
+    assert ret["successful_parts"] <= 3
+    assert num_flows() <= 3
+
+
+def receive_maxparts_plugin(plugin):
+    """Inline plugin: fail incoming MPP payments with more than
+    `receive_maxparts` concurrent parts (0 means unlimited)."""
+    plugin.add_option(
+        "receive_maxparts",
+        0,
+        "Maximum number of concurrent parts accepted for an incoming payment",
+        opt_type="int",
+        dynamic=True,
+    )
+    # payment_hash -> list of (htlc, request) we are holding
+    held = {}
+    # payment_hashes we already refused: fail any stragglers
+    rejected = set()
+
+    def fail(htlc, request):
+        # incorrect_or_unknown_payment_details: htlc_msat, height
+        msat = int(Millisatoshi(htlc["amount_msat"]))
+        request.set_result(
+            {
+                "result": "fail",
+                "failure_message": "400f" + msat.to_bytes(8, "big").hex() + "00000000",
+            }
+        )
+
+    @plugin.async_hook("htlc_accepted")
+    def on_htlc_accepted(htlc, onion, request, plugin, **kwargs):
+        if "total_msat" not in onion:
+            request.set_result({"result": "continue"})
+            return
+
+        phash = htlc["payment_hash"]
+        if phash in rejected:
+            fail(htlc, request)
+            return
+
+        parts = held.setdefault(phash, [])
+        parts.append((htlc, request))
+        maxparts = plugin.get_option("receive_maxparts")
+        if maxparts and len(parts) > maxparts:
+            plugin.log(
+                f"Rejecting {phash}: {len(parts)} parts exceeds receive_maxparts={maxparts}"
+            )
+            rejected.add(phash)
+            for h, r in held.pop(phash):
+                fail(h, r)
+            return
+
+        total = sum(int(Millisatoshi(h["amount_msat"])) for h, _ in parts)
+        if total >= int(Millisatoshi(onion["total_msat"])):
+            plugin.log(f"Accepting {phash} in {len(parts)} parts")
+            for _, r in held.pop(phash):
+                r.set_result({"result": "continue"})
+
+
+@pytest.mark.slow_test
+@pytest.mark.xdist_group("heavy")
+@pytest.mark.parametrize(
+    "receive_maxparts,amount_sat",
+    [
+        (7, 5_000_000),
+        (6, 5_000_000),
+        (5, 4_000_000),
+        (4, 3_000_000),
+        (3, 2_000_000),
+        (2, 1_500_000),
+        (1, 900_000),
+    ],
+)
+def test_xpay_maxparts_receiver_limit(node_factory, receive_maxparts, amount_sat):
+    """Destination refuses payments in more than receive_maxparts parts:
+    without maxparts xpay fails, with maxparts it succeeds"""
+    NUM_PATHS = 12
+    CHANNEL_SIZE_SATS = 10**6
+    l1 = node_factory.get_node()
+    l2 = node_factory.get_node(
+        inline_plugin=receive_maxparts_plugin,
+        options={"receive_maxparts": receive_maxparts},
+    )
+    # NUM_PATHS disjoint paths between l1 and l2.
+    for n in node_factory.get_nodes(NUM_PATHS):
+        node_factory.join_nodes(
+            [l1, n, l2], fundamount=CHANNEL_SIZE_SATS, wait_for_announce=True
+        )
+
+    def num_flows():
+        line = l1.daemon.wait_for_log(r"Final answer has [0-9]+ flows")
+        return int(re.search(r"Final answer has ([0-9]+) flows", line).group(1))
+
+    # Unconstrained, xpay splits into more parts than the destination accepts.
+    inv = l2.rpc.invoice(f"{amount_sat}sat", "unconstrained", "unconstrained")["bolt11"]
+    with pytest.raises(RpcError, match="Destination said it doesn't know invoice"):
+        l1.rpc.xpay(invstring=inv, maxparts=0)
+    assert num_flows() > receive_maxparts
+    l2.daemon.wait_for_log(f"exceeds receive_maxparts={receive_maxparts}")
+    wait_for(lambda: l1.rpc.askrene_listreservations() == {"reservations": []})
+
+    # Respecting the destination's limit, it succeeds.
+    inv = l2.rpc.invoice(f"{amount_sat}sat", "constrained", "constrained")["bolt11"]
+    ret = l1.rpc.xpay(invstring=inv, maxparts=receive_maxparts)
+    assert ret["amount_msat"] == amount_sat * 1000
+    assert ret["failed_parts"] == 0
+    assert ret["successful_parts"] <= receive_maxparts
+    assert num_flows() <= receive_maxparts
+    l2.daemon.wait_for_log("Accepting .* in [0-9]+ parts")
+    assert only_one(l2.rpc.listinvoices("constrained")["invoices"])["status"] == "paid"
+
+
+@pytest.mark.slow_test
+@pytest.mark.xdist_group("heavy")
+def test_xpay_maxparts_unannounced_retry(node_factory):
+    """If the 6-part unannounced-destination default is too small, xpay
+    retries with the user's larger maxparts."""
+    NUM_PATHS = 12
+    CHANNEL_SIZE_SATS = 10**6
+    l1, l2 = node_factory.line_graph(
+        2, fundamount=CHANNEL_SIZE_SATS * 20, announce_channels=False
+    )
+    l3 = node_factory.get_node()
+    for n in node_factory.get_nodes(NUM_PATHS):
+        node_factory.join_nodes(
+            [l3, n, l1], fundamount=CHANNEL_SIZE_SATS, wait_for_announce=True
+        )
+
+    # 7M sat needs more than 6 of the one-million-sat paths, but fits in the
+    # 10 parts the user allows.
+    inv = l2.rpc.invoice(f"{CHANNEL_SIZE_SATS * 7}sat", "retry", "retry")["bolt11"]
+    ret = l3.rpc.xpay(invstring=inv, maxparts=10)
+    assert ret["amount_msat"] == CHANNEL_SIZE_SATS * 7 * 1000
+    assert ret["failed_parts"] == 0
+    assert 7 <= ret["successful_parts"] <= 10
+
+    l3.daemon.wait_for_logs(
+        [
+            "Limiting maxparts to 6: the destination is unannounced",
+            "getroute failed with maxparts=6, so retrying with maxparts=10",
+        ]
+    )
+
+
+def test_xpay_maxparts_no_mpp_bolt11(node_factory, chainparams):
+    """maxparts cannot override a bolt11 invoice's lack of MPP support."""
+    l1, l2, l3, l4 = node_factory.get_nodes(4)
+    node_factory.join_nodes([l1, l2, l3], wait_for_announce=True)
+    node_factory.join_nodes([l1, l4, l3], wait_for_announce=True)
+
+    # Enough that xpay would normally split, but still payable in one part.
+    AMOUNT = 500000000
+    no_mpp = l3.rpc.invoice(AMOUNT, "maxparts_no_mpp_bolt11", "maxparts without mpp")
+    # Re-encode l3's invoice without the MPP feature bit.  The private key is
+    # l3's deterministic test key (lightning-3).
+    inv = (
+        subprocess.check_output(
+            [
+                "devtools/bolt11-cli",
+                "encode",
+                "79893b45d1e57cf2ebf302af91aa52c9e573f638a61a83c6e603a331b53f452c",
+                f"currency={chainparams['bip173_prefix']}",
+                f"p={no_mpp['payment_hash']}",
+                f"s={no_mpp['payment_secret']}",
+                "d=maxparts without mpp",
+                f"amount={AMOUNT}",
+            ]
+        )
+        .decode("utf-8")
+        .strip()
+    )
+
+    ret = l1.rpc.xpay(invstring=inv, maxparts=5)
+    assert ret["failed_parts"] == 0
+    assert ret["successful_parts"] == 1
+    l1.daemon.wait_for_logs(
+        [
+            "Limiting maxparts to 1: No MPP support",
+            r'json_getroutes called: .*"maxparts":1,',
+        ]
+    )
+
+
+def test_xpay_maxparts_no_mpp_bolt12(node_factory):
+    """maxparts cannot override a bolt12 invoice's lack of MPP support."""
+    # l3 must not advertise MPP.  dev-allow-localhost makes l3 consider its
+    # localhost address advertised, so the offers plugin doesn't add a
+    # fronting blinded path via l2/l4.  (lightningd still appends a one-hop
+    # stub path to l3 itself, as BOLT12 requires invoice_paths.)
+    opts = [{}, {}, {"dev-force-features": -17, "dev-allow-localhost": None}, {}]
+    l1, l2, l3, l4 = node_factory.get_nodes(4, opts=opts)
+    node_factory.join_nodes([l1, l2, l3], wait_for_announce=True)
+    node_factory.join_nodes([l1, l4, l3], wait_for_announce=True)
+
+    AMOUNT = 800000000
+    offer = l3.rpc.offer(AMOUNT, "maxparts_no_mpp_bolt12")
+    inv = l1.rpc.fetchinvoice(offer["bolt12"])
+    assert l1.rpc.decode(inv["invoice"])["invoice_features"] == ""
+
+    ret = l1.rpc.xpay(inv["invoice"], maxparts=5)
+    assert ret["failed_parts"] == 0
+    assert ret["successful_parts"] == 1
+    l1.daemon.wait_for_logs(
+        [
+            "Limiting maxparts to 1: No MPP support",
+            r'json_getroutes called: .*"maxparts":1,',
+        ]
+    )
+
+
+def test_xpay_maxparts_offer(node_factory):
+    """maxparts survives the fetchinvoice round-trip of an offer payment."""
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
+
+    offer = l3.rpc.offer("any")["bolt12"]
+    ret = l1.rpc.xpay(offer, 100, maxparts=2)
+    assert ret["failed_parts"] == 0
+    assert ret["successful_parts"] == 1
+    l1.daemon.wait_for_logs(
+        [
+            "Limiting maxparts to 2: set by the user",
+            r'json_getroutes called: .*"maxparts":2,',
+        ]
+    )
+
+
+def test_xpay_maxparts_bip353(node_factory):
+    """maxparts survives the fetchbip353 + fetchinvoice round-trip."""
+    fakebip353_plugin = Path(__file__).parent / "plugins" / "fakebip353.py"
+
+    l1 = node_factory.get_node()
+    offer = l1.rpc.offer("any")["bolt12"]
+
+    l2 = node_factory.get_node(
+        options={
+            "disable-plugin": "cln-bip353",
+            "plugin": fakebip353_plugin,
+            "bip353offer": offer,
+        }
+    )
+    node_factory.join_nodes([l2, l1])
+
+    ret = l2.rpc.xpay("fake@fake.com", 100, maxparts=2)
+    assert ret["failed_parts"] == 0
+    assert ret["successful_parts"] == 1
+    l2.daemon.wait_for_logs(
+        [
+            "Limiting maxparts to 2: set by the user",
+            r'json_getroutes called: .*"maxparts":2,',
+        ]
+    )
+
+
+def test_sendamount_maxparts(node_factory):
+    """sendamount is always single-part: it asks getroutes for maxparts=1."""
+    l1, l2, l3, l4 = node_factory.get_nodes(4)
+    node_factory.join_nodes([l1, l2, l3, l4], wait_for_announce=True)
+
+    # Direct bolt11 payment.
+    b11 = l4.rpc.invoice("any", "sendamount_maxparts_b11", "sendamount maxparts b11")[
+        "bolt11"
+    ]
+    ret = l1.rpc.sendamount(b11, "100sat")
+    assert ret["successful_parts"] == 1
+    assert ret["amount_sent_msat"] == 100000
+    l1.daemon.wait_for_logs(
+        [
+            "Limiting maxparts to 1: paying with sendamount",
+            r'json_getroutes called: .*"maxparts":1,',
+        ]
+    )
+
+    # BOLT-12 offer payment goes through fetchinvoice before getroutes.
+    b12 = l4.rpc.offer("any")["bolt12"]
+    ret = l1.rpc.sendamount(b12, "100sat")
+    assert ret["successful_parts"] == 1
+    assert ret["amount_sent_msat"] == 100000
+    l1.daemon.wait_for_logs(
+        [
+            "Limiting maxparts to 1: paying with sendamount",
+            r'json_getroutes called: .*"maxparts":1,',
+        ]
+    )

@@ -41689,6 +41689,14 @@
               "`localinvreqid` is used by offers to link a payment attempt to a local `invoice_request` offer created by lightning-invoicerequest(7). This  ensures that we only make a single payment for an offer, and that the offer is marked `used` once paid."
             ]
           },
+          "maxparts": {
+            "type": "u32",
+            "added": "v26.12",
+            "description": [
+              "Maximum number of parts (HTLCs) in flight at the same time for this payment. xpay may use fewer, and never uses more. 0 (the default) means no user limit: xpay still starts with at most 6 parts for an unannounced destination, and uses a single part for invoices which do not support multi-part payments."
+            ],
+            "default": "0"
+          },
           "dev_use_shadow": {
             "hidden": true,
             "type": "boolean",
