@@ -340,6 +340,23 @@ def test_invalid_manifest_does_not_hide_sources(node_factory, tmp_path):
 
 
 @unittest.skipIf(VALGRIND, "virtual environment triggers memleak detection")
+def test_python_plugin_with_package_json(node_factory, tmp_path):
+    repo = tmp_path / "pyjsrepo"
+    plug = repo / "testplugpyjs"
+    plug.mkdir(parents=True)
+    (plug / "testplugpyjs.py").write_text(
+        "#!/usr/bin/env python3\nfrom pyln.client import Plugin\nplugin = Plugin()\nplugin.run()\n"
+    )
+    (plug / "requirements.txt").write_text("pyln-client\n")
+    (plug / "package.json").write_text('{"name": "tooling", "version": "1.0.0"}')
+    n = node_factory.get_node(options={})
+    n.rpc.call("reckless", ["source", "-v", "add", str(repo)])
+    r = n.rpc.call("reckless", ["install", "-v", "testplugpyjs"])
+    assert any("using installer pythonuvlegacy" in line for line in r["log"])
+    assert any("testplugpyjs enabled" in line for line in r["log"])
+
+
+@unittest.skipIf(VALGRIND, "virtual environment triggers memleak detection")
 def test_local_dir_install(node_factory):
     """Test search and install from local directory source."""
     n = node_factory.get_node(options={})
