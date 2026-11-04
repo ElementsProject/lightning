@@ -595,13 +595,29 @@ async fn create_wrapper(
         .to_str()
         .ok_or_else(|| anyhow!("entryfile has invalid utf-8 characters"))?;
 
+    let entry_dir = rl_plugin
+        .source_path()
+        .join(
+            rl_plugin
+                .manifest()
+                .entrypoint
+                .as_ref()
+                .ok_or_else(|| anyhow!("no entrypoint found"))?,
+        )
+        .parent()
+        .ok_or_else(|| anyhow!("entryfile has no parent directory"))?
+        .to_str()
+        .ok_or_else(|| anyhow!("entry directory contains invalid utf-8"))?
+        .to_owned();
+
     let wrapper = format!(
         r#"#!{python}
 import sys
 import runpy
 
-if '{source_str}' not in sys.path:
-    sys.path.append('{source_str}')
+for p in ['{source_str}', '{entry_dir}']:
+    if p not in sys.path:
+        sys.path.append(p)
 
 if '{path_str}' in sys.path:
     sys.path.remove('{path_str}')
