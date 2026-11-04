@@ -1189,7 +1189,7 @@ class LightningRpc(UnixDomainSocketRpc):
 
     def xpay(self, invstring, amount_msat=None, maxfee=None, retry_for=None,
              partial_msat=None, maxdelay=None, payer_note=None, label=None, localinvreqid=None,
-             dev_use_shadow=None):
+             dev_use_shadow=None, maxparts=None):
         """
         Send payment specified by {invstring}.
         """
@@ -1200,6 +1200,7 @@ class LightningRpc(UnixDomainSocketRpc):
             "retry_for": retry_for,
             "partial_msat": partial_msat,
             "maxdelay": maxdelay,
+            "maxparts": maxparts,
             "label": label,
             "localinvreqid": localinvreqid,
             "dev_use_shadow": dev_use_shadow,
