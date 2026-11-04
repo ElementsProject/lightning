@@ -6,6 +6,7 @@ use std::{
 use anyhow::anyhow;
 use cln_rpc::notifications::LogLevel;
 use tokio::{fs, process::Command};
+use which::which;
 
 use crate::{
     structs::{RecklessLogger, RecklessPlugin},
@@ -92,13 +93,18 @@ pub async fn install_nodejs_plugin(
     };
 
     let plugin_path = rl_plugin.source_path().join(plugin_entry);
-    set_executable(&plugin_path).await?;
+    let node = which("node")?;
+    let wrapper = format!(
+        "#!/bin/sh\nexec '{}' '{}' \"$@\"\n",
+        node.display(),
+        plugin_path.display()
+    );
+    let wrapper_path = rl_plugin.get_entrypath()?;
+    fs::write(&wrapper_path, wrapper).await?;
 
-    let symlink_path = rl_plugin.get_entrypath()?;
+    set_executable(&wrapper_path).await?;
 
-    create_symlink(&plugin_path, &symlink_path)?;
-
-    Ok(symlink_path)
+    Ok(wrapper_path)
 }
 
 pub async fn install_rust_plugin(
