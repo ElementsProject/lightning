@@ -62,7 +62,7 @@ This command will stop a plugin, update it, and start it again.
 To uninstall a plugin with `reckless`, it must have been previously installed with `reckless`.
 
 ```bash
-lightning-cli reckless install <name>
+lightning-cli reckless uninstall <name>
 ```
 
 This will remove the plugin's files and it's configuration.
