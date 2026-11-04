@@ -304,6 +304,25 @@ def test_install_subdir_entrypoint(node_factory):
     assert n.rpc.call("testplugsubdir") == "I live."
 
 
+def test_invalid_manifest_does_not_hide_sources(node_factory, tmp_path):
+    repo = tmp_path / "badmanifestrepo"
+    good = repo / "testplugokmanifest"
+    good.mkdir(parents=True)
+    (good / "testplugokmanifest.py").write_text("#!/usr/bin/env python3\n")
+    (good / "requirements.txt").write_text("")
+    bad = repo / "testplugbadmanifest"
+    bad.mkdir()
+    (bad / "testplugbadmanifest.py").write_text("#!/usr/bin/env python3\n")
+    (bad / "requirements.txt").write_text("")
+    (bad / "manifest.json").write_text('{"installable": false,}')
+    n = node_factory.get_node(options={})
+    n.rpc.call("reckless", ["source", "-v", "add", str(repo)])
+    r = n.rpc.call("reckless", ["listavailable", "-v", "testplugokmanifest"])
+    assert any("testplugokmanifest" in line for line in r["log"])
+    with pytest.raises(RpcError, match="testplugbadmanifest not found in any known sources"):
+        n.rpc.call("reckless", ["install", "-v", "testplugbadmanifest"])
+
+
 @unittest.skipIf(VALGRIND, "virtual environment triggers memleak detection")
 def test_local_dir_install(node_factory):
     """Test search and install from local directory source."""
