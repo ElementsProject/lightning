@@ -425,7 +425,7 @@ pub async fn find_plugin_locs(
                         plugin_origin,
                         path.clone(),
                         repo_dir.clone(),
-                        name.to_owned(),
+                        normalize_plugin_name(name),
                         reckless_dir,
                         installer,
                         rl_manifest,
