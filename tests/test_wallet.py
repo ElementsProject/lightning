@@ -2959,3 +2959,39 @@ def test_withdraw_unreserves_on_broadcast_failure(node_factory, bitcoind):
     bitcoind.generate_block(1)
     sync_blockheight(bitcoind, [l1])
     assert l1.db_query('SELECT COUNT(*) as c FROM our_outputs WHERE spendheight IS NULL AND reserved_til = 0')[0]['c'] == 0
+
+
+def test_txsend_failure_unreserves_inputs(node_factory, bitcoind):
+    """txsend removes the utx from txprepare's list before signing. If signing
+    produces garbage, the inputs used to be left reserved forever, and
+    txdiscard could no longer find the tx to release them."""
+    plugin = os.path.join(os.getcwd(), 'tests/plugins/badsignpsbt.py')
+    l1 = node_factory.get_node(options={'plugin': plugin})
+
+    addr = l1.rpc.newaddr()['bech32']
+    bitcoind.rpc.sendtoaddress(addr, 1)
+    bitcoind.generate_block(1)
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 1)
+
+    dest = l1.rpc.newaddr()['bech32']
+    prep = l1.rpc.txprepare([{dest: 50000000}])
+
+    # txprepare reserves the input.
+    assert all(o['reserved'] for o in l1.rpc.listfunds()['outputs'])
+
+    # The hook makes signpsbt return an unsigned PSBT, so finalization fails.
+    with pytest.raises(RpcError, match=r'Signed PSBT not finalizeable'):
+        l1.rpc.txsend(prep['txid'])
+
+    # utx has been consumed by txsend: txdiscard cannot help us any more.
+    with pytest.raises(RpcError, match=r'Unknown txid'):
+        l1.rpc.txdiscard(prep['txid'])
+
+    # ...so txsend itself must have released the reservation.
+    wait_for(lambda: not any(o['reserved']
+                             for o in l1.rpc.listfunds()['outputs']))
+
+    # And the funds are usable again: a fresh txprepare must succeed
+    # (it would fail with "Insufficient funds" if the input were still reserved).
+    prep2 = l1.rpc.txprepare([{dest: 50000000}])
+    l1.rpc.txdiscard(prep2['txid'])
