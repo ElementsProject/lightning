@@ -677,6 +677,6 @@ async fn set_executable(path: &Path) -> Result<(), anyhow::Error> {
 }
 
 #[cfg(not(unix))]
-async fn set_executable(_path: &Path) -> Result<()> {
+async fn set_executable(_path: &Path) -> Result<(), anyhow::Error> {
     Ok(())
 }
