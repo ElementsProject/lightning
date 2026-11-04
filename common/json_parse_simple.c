@@ -67,30 +67,7 @@ bool json_to_u64(const char *buffer, const jsmntok_t *tok, u64 *num)
 /* Uncommon, we don't optimize these */
 bool json_to_s64(const char *buffer, const jsmntok_t *tok, s64 *num)
 {
-	const char *tmpbuf = json_strdup(tmpctx, buffer, tok);
-	char *end;
-	long long l;
-
-	errno = 0;
-	/* From json.org: "A number is very much like a C or Java number,
-	 * except that the octal and hexadecimal formats are not used." */
-	l = strtoll(tmpbuf, &end, 10);
-	if (tmpbuf[0] == '\0' || *end != '\0')
-		return false;
-
-	BUILD_ASSERT(sizeof(l) >= sizeof(*num));
-	*num = l;
-
-	/* Check for overflow/underflow */
-	if ((l == LONG_MAX || l == LONG_MIN) && errno == ERANGE)
-		return false;
-
-	/* Check if the number did not fit in `s64` (in case `long long`
-	is a bigger type). */
-	if (*num != l)
-		return false;
-
-	return true;
+	return str_to_s64(buffer + tok->start, tok->end - tok->start, num);
 }
 
 bool json_to_double(const char *buffer, const jsmntok_t *tok, double *num)
