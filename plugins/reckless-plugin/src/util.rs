@@ -847,7 +847,13 @@ pub async fn detect_installer(
         return Err(anyhow!("go plugin requires go"));
     }
 
-    if has("package.json").is_some() {
+    let entry_is_python = entry_file.as_ref().is_some_and(|ef| {
+        Path::new(ef)
+            .extension()
+            .is_some_and(|e| e.eq_ignore_ascii_case("py"))
+    });
+
+    if has("package.json").is_some() && !entry_is_python {
         if entry_file.is_none() {
             return Err(anyhow!("node plugin entrypoint not found"));
         }
