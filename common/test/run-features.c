@@ -247,12 +247,65 @@ static void test_feature_trim(void)
 	}
 }
 
+static void test_featurebits_unset(void)
+{
+	u8 *bits = tal_arr(tmpctx, u8, 0);
+
+	/* Two bits in the same byte: 0b00001010 (bits 1 and 3) */
+	set_feature_bit(&bits, 1);
+	set_feature_bit(&bits, 3);
+	assert(tal_bytelen(bits) == 1);
+	assert(bits[0] == 0x0A);
+	assert(feature_is_set(bits, 1));
+	assert(feature_is_set(bits, 3));
+
+	/* Unset bit 3: bit 1 must survive (byte must NOT be wiped). */
+	featurebits_unset(&bits, 3);
+	assert(tal_bytelen(bits) == 1);
+	assert(bits[0] == 0x02);
+	assert(feature_is_set(bits, 1));
+	assert(!feature_is_set(bits, 3));
+
+	/* Unsetting an already-cleared bit is a no-op. */
+	featurebits_unset(&bits, 3);
+	assert(tal_bytelen(bits) == 1);
+	assert(bits[0] == 0x02);
+	assert(feature_is_set(bits, 1));
+
+	/* Unsetting an out-of-bounds bit is a no-op. */
+	featurebits_unset(&bits, 100);
+	assert(tal_bytelen(bits) == 1);
+	assert(bits[0] == 0x02);
+	assert(feature_is_set(bits, 1));
+
+	/* Bit in a higher byte: unsetting it trims the array back down,
+	 * and does not disturb the lower byte. */
+	set_feature_bit(&bits, 9);
+	assert(tal_bytelen(bits) == 2);
+	assert(feature_is_set(bits, 9));
+	featurebits_unset(&bits, 9);
+	assert(tal_bytelen(bits) == 1);
+	assert(!feature_is_set(bits, 9));
+	assert(feature_is_set(bits, 1));
+
+	/* Unsetting the last remaining bit trims to empty. */
+	featurebits_unset(&bits, 1);
+	assert(tal_bytelen(bits) == 0);
+	assert(!feature_is_set(bits, 1));
+
+	/* Out-of-bounds on an empty array is safe. */
+	featurebits_unset(&bits, 0);
+	assert(tal_bytelen(bits) == 0);
+}
+
 int main(int argc, char *argv[])
 {
 	u8 *bits;
 	struct feature_set *fset;
 
 	common_setup(argv[0]);
+
+	test_featurebits_unset();
 
 	/* Just some bits to set. */
 	fset = feature_set_for_feature(tmpctx,

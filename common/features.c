@@ -545,7 +545,7 @@ void featurebits_unset(u8 **ptr, size_t bit)
 	if (bit / 8 >= len)
 		return;
 
-	(*ptr)[len - 1 - bit / 8] &= (0 << (bit % 8));
+	(*ptr)[len - 1 - bit / 8] &= ~(1U << (bit % 8));
 
 	trim_features(ptr);
 }
