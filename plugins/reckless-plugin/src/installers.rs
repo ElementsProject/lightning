@@ -95,9 +95,9 @@ pub async fn install_nodejs_plugin(
     let plugin_path = rl_plugin.source_path().join(plugin_entry);
     let node = which("node")?;
     let wrapper = format!(
-        "#!/bin/sh\nexec '{}' '{}' \"$@\"\n",
-        node.display(),
-        plugin_path.display()
+        "#!/bin/sh\nexec {} {} \"$@\"\n",
+        sh_quote(&node.display().to_string()),
+        sh_quote(&plugin_path.display().to_string()),
     );
     let wrapper_path = rl_plugin.get_entrypath()?;
     fs::write(&wrapper_path, wrapper).await?;
@@ -616,22 +616,35 @@ async fn create_wrapper(
         .ok_or_else(|| anyhow!("entry directory contains invalid utf-8"))?
         .to_owned();
 
-    let wrapper = format!(
-        r#"#!{python}
-import sys
+    let script = r#"import sys
 import runpy
 
-for p in ['{source_str}', '{entry_dir}']:
+source, entry_dir, path, module = sys.argv[1:5]
+for p in [source, entry_dir]:
     if p not in sys.path:
         sys.path.append(p)
 
-if '{path_str}' in sys.path:
-    sys.path.remove('{path_str}')
+if path in sys.path:
+    sys.path.remove(path)
 
-runpy.run_module("{module_name}", {{}}, "__main__")
-"#
+sys.argv = sys.argv[:1] + sys.argv[5:]
+runpy.run_module(module, {}, "__main__")
+"#;
+
+    let wrapper = format!(
+        "#!/bin/sh\nexec {} -c {} {} {} {} {} \"$@\"\n",
+        sh_quote(&python),
+        sh_quote(script),
+        sh_quote(&source_str),
+        sh_quote(&entry_dir),
+        sh_quote(path_str),
+        sh_quote(module_name),
     );
     Ok(wrapper)
+}
+
+fn sh_quote(value: &str) -> String {
+    format!("'{}'", value.replace('\'', r"'\''"))
 }
 
 async fn check_venv(venv: &Path) -> Result<PathBuf, anyhow::Error> {
