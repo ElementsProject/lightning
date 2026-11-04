@@ -297,6 +297,14 @@ def test_poetry_install(node_factory):
 
 
 @unittest.skipIf(VALGRIND, "virtual environment triggers memleak detection")
+def test_install_subdir_entrypoint(node_factory):
+    n = node_factory.get_node(options={})
+    r = n.rpc.call("reckless", ["install", "-v", "testplugsubdir"])
+    assert any("testplugsubdir enabled" in line for line in r["log"])
+    assert n.rpc.call("testplugsubdir") == "I live."
+
+
+@unittest.skipIf(VALGRIND, "virtual environment triggers memleak detection")
 def test_local_dir_install(node_factory):
     """Test search and install from local directory source."""
     n = node_factory.get_node(options={})
