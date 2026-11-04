@@ -86,6 +86,10 @@ struct noderr {
 	struct weird_error *errs;
 };
 
+enum payment_type {
+	XPAY_CMD, SENDAMOUNT_CMD, XKEYSEND_CMD,
+};
+
 /* The unifies bolt11 and bolt12 handling */
 struct payment {
 	/* Inside xpay->payments */
@@ -98,6 +102,7 @@ struct payment {
 	/* This is the command which is expecting the success/fail.  When
 	 * it's NULL, that means we're just cleaning up */
 	struct command *cmd;
+	enum payment_type payment_type;
 	/* Unique id */
 	u64 unique_id;
 	/* For logging, and for sendpays: NULL for xkeysend! */
@@ -124,6 +129,12 @@ struct payment {
 	u32 maxdelay;
 	/* If non-zero: maximum number of payment routes that can be pending. */
 	u32 maxparts;
+	/* This is the maxparts set by the user, the internal one we send to
+	 * getroutes might be different. */
+	u32 user_maxparts;
+	/* This payment does not support MPP.  This option overrides the user
+	 * maxparts. */
+	bool disable_mpp;
 	/* BOLT-11 payment secret (NULL for BOLT-12, it uses blinded paths) */
 	const struct secret *payment_secret;
 	/* BOLT-11 payment metadata (NULL for BOLT-12, it uses blinded paths) */
@@ -227,6 +238,7 @@ struct attempt {
 
 /* Recursion */
 static struct command_result *xpay_core(struct command *cmd,
+					enum payment_type payment_type,
 					const char *invstring TAKES,
 					const struct amount_msat *msat,
 					const struct amount_msat *maxfee,
@@ -234,6 +246,7 @@ static struct command_result *xpay_core(struct command *cmd,
 					u32 retryfor,
 					const struct amount_msat *partial,
 					u32 maxdelay,
+					u32 user_maxparts,
 					const struct json_escape *label,
 					const struct sha256 *local_invreq_id,
 					bool use_shadow,
@@ -2079,13 +2092,25 @@ static struct command_result *getroutes_done_err(struct command *aux_cmd,
 	msg = json_strdup(tmpctx, buf, json_get_member(buf, error, "message"));
 	json_to_int(buf, json_get_member(buf, error, "code"), &code);
 
-	/* If we were restricting the number of parts, we remove that
-	 * restriction and try again. */
-	if (payment->maxparts) {
-		payment_log(payment, LOG_INFORM,
-			    "getroute failed with maxparts=%u, so retrying without that restriction",
-			    payment->maxparts);
-		payment->maxparts = 0;
+	/* If we were restricting the number of parts, we relax it up to the
+	 * user's provided maxparts (if any) and try again.  Unless MPP is
+	 * disabled. */
+	if (payment->maxparts &&
+	    (payment->user_maxparts == 0 ||
+	     payment->user_maxparts > payment->maxparts) &&
+	    !payment->disable_mpp) {
+
+		if (payment->user_maxparts)
+			payment_log(payment, LOG_INFORM,
+				    "getroute failed with maxparts=%u, so "
+				    "retrying with maxparts=%" PRIu32,
+				    payment->maxparts, payment->user_maxparts);
+		else
+			payment_log(payment, LOG_INFORM,
+				    "getroute failed with maxparts=%u, so "
+				    "retrying without that restriction",
+				    payment->maxparts);
+		payment->maxparts = payment->user_maxparts;
 		return getroutes_for(aux_cmd, payment, payment->amount_being_routed);
 	}
 
@@ -2253,6 +2278,55 @@ static struct command_result *getroutes_for(struct command *aux_cmd,
 static struct command_result *start_getroutes(struct command *aux_cmd,
 					      struct payment *payment)
 {
+	struct xpay *xpay = xpay_of(aux_cmd->plugin);
+	struct gossmap *gossmap = get_gossmap(xpay);
+	struct node_id dstid;
+	const char *why_maxparts;
+
+	/* Let's use this wrapper function to set the value of maxparts for the
+	 * first round of getroutes request. */
+
+	/* First, we are constrained by the maxparts set by the user. */
+	payment->maxparts = payment->user_maxparts;
+	why_maxparts = "set by the user";
+
+	/* If we are using an unannounced channel, we assume we can
+	 * only do 6 HTLCs at a time.  This is currently true for
+	 * Phoenix, which is a large and significant node. */
+	node_id_from_pubkey(&dstid, &payment->destination);
+	if (!gossmap_find_node(gossmap, &dstid) &&
+	    (payment->maxparts == 0 || payment->maxparts > 6)) {
+		/* Notice we can decrease maxparts but not increase it, that
+		 * would break our promise to the user. */
+		payment->maxparts = 6;
+		why_maxparts = "the destination is unannounced";
+	}
+
+	/* Next deciding factor is the payment type. */
+	switch (payment->payment_type) {
+		case XPAY_CMD:
+			if (payment->disable_mpp) {
+				payment->maxparts = 1;
+				why_maxparts = "No MPP support";
+			}
+			break;
+		case SENDAMOUNT_CMD:
+			payment->disable_mpp = true;
+			payment->maxparts = 1;
+			why_maxparts = "paying with sendamount";
+			break;
+		case XKEYSEND_CMD:
+			payment->disable_mpp = true;
+			payment->maxparts = 1;
+			why_maxparts = "paying with xkeysend";
+			break;
+	}
+
+	if (payment->maxparts)
+		payment_log(payment, LOG_INFORM,
+			    "Limiting maxparts to %" PRIu32 ": %s",
+			    payment->maxparts, why_maxparts);
+
 	return getroutes_for(aux_cmd, payment, payment->amount);
 }
 
@@ -2591,9 +2665,11 @@ struct xpay_params {
 	const char **layers;
 	unsigned int retryfor;
 	u32 maxdelay;
+	u32 maxparts;
 	const char *bip353;
 	const char *payer_note;
 	struct json_escape *label;
+	enum payment_type payment_type;
 };
 
 static struct command_result *
@@ -2647,9 +2723,10 @@ invoice_fetched(struct command *cmd,
 		}
 	}
 
-	return xpay_core(cmd, inv,
+	return xpay_core(cmd, params->payment_type, inv,
 			 NULL, params->maxfee, params->layers,
 			 params->retryfor, params->partial, params->maxdelay,
+			 params->maxparts,
 			 params->label, NULL, false, false,
 			 params->includefees_msat);
 }
@@ -2726,7 +2803,7 @@ static struct command_result *json_xpay_params(struct command *cmd,
 	struct amount_msat *msat, *maxfee, *partial;
 	const char *invstring;
 	const char **layers;
-	u32 *maxdelay;
+	u32 *maxdelay, *maxparts;
         const char *payer_note;
         unsigned int *retryfor;
 	struct sha256 *localinvreqid;
@@ -2746,6 +2823,7 @@ static struct command_result *json_xpay_params(struct command *cmd,
 			 p_opt("payer_note", param_string, &payer_note),
 			 p_opt("label", param_label, &label),
 			 p_opt("localinvreqid", param_sha256, &localinvreqid),
+			 p_opt_def("maxparts", param_u32, &maxparts, 0),
 			 p_opt_dev("dev_use_shadow", param_bool, &dev_use_shadow, true),
                          NULL))
 		return command_param_failed();
@@ -2777,9 +2855,11 @@ static struct command_result *json_xpay_params(struct command *cmd,
 		xparams->layers = layers;
 		xparams->retryfor = *retryfor;
 		xparams->maxdelay = *maxdelay;
+		xparams->maxparts = *maxparts;
 		xparams->bip353 = NULL;
                 xparams->payer_note = payer_note;
 		xparams->label = label;
+		xparams->payment_type = XPAY_CMD;
                 xparams->includefees_msat = NULL;
 		xparams->authorized_msat = tal_dup(xparams, struct amount_msat,
 						   &authorized);
@@ -2807,9 +2887,11 @@ static struct command_result *json_xpay_params(struct command *cmd,
 		xparams->layers = layers;
 		xparams->retryfor = *retryfor;
 		xparams->maxdelay = *maxdelay;
+		xparams->maxparts = *maxparts;
 		xparams->bip353 = invstring;
                 xparams->payer_note = payer_note;
 		xparams->label = label;
+		xparams->payment_type = XPAY_CMD;
                 xparams->includefees_msat = NULL;
 		/* Set once bip353_fetched() knows the offer. */
 		xparams->authorized_msat = NULL;
@@ -2821,9 +2903,9 @@ static struct command_result *json_xpay_params(struct command *cmd,
 		return send_outreq(req);
 	}
 
-	return xpay_core(cmd, invstring,
-			 msat, maxfee, layers, *retryfor, partial, *maxdelay,
-			 label, localinvreqid, *dev_use_shadow, as_pay, NULL);
+	return xpay_core(cmd, XPAY_CMD, invstring, msat, maxfee, layers, *retryfor,
+			 partial, *maxdelay, *maxparts, label, localinvreqid,
+			 *dev_use_shadow, as_pay, NULL);
 }
 
 static void destroy_payment(struct payment *payment)
@@ -2836,13 +2918,16 @@ static void destroy_payment(struct payment *payment)
 /* Does NOT set:
  * ->maxparts
  * ->use_shadow
+ * ->disable_mpp
  *
  * On bad settings, return NULL and sets *err.
  */
 static struct payment *new_payment(const tal_t *ctx,
 				   struct command *cmd,
+				   enum payment_type payment_type,
 				   u32 retryfor,
 				   u32 maxdelay,
+				   u32 user_maxparts,
 				   const char **layers,
 				   const char *invstring TAKES,
 				   const struct pubkey *destination,
@@ -2869,6 +2954,7 @@ static struct payment *new_payment(const tal_t *ctx,
 		       fmt_sha256(payment, payment_hash));
 	trace_span_suspend_may_free(payment);
 
+	payment->payment_type = payment_type;
 	payment->plugin = cmd->plugin;
 	payment->deadline = timemono_add(time_mono(), time_from_sec(retryfor));
 	payment->start_blockheight = xpay->blockheight;
@@ -2912,6 +2998,7 @@ static struct payment *new_payment(const tal_t *ctx,
 						  AMOUNT_MSAT(5000));
 	}
 	payment->maxdelay = maxdelay;
+	payment->user_maxparts = user_maxparts;
 	payment->payment_secret = tal_dup_or_null(payment, struct secret, payment_secret);
 	payment->payment_metadata = tal_dup_talarr(payment, u8, payment_metadata);
 	payment->final_cltv = final_cltv;
@@ -2959,6 +3046,7 @@ bool attempt_ongoing(struct plugin *plugin, const struct sha256 *payment_hash,
 }
 
 static struct command_result *xpay_core(struct command *cmd,
+					enum payment_type payment_type,
 					const char *invstring TAKES,
 					const struct amount_msat *msat,
 					const struct amount_msat *maxfee,
@@ -2966,6 +3054,7 @@ static struct command_result *xpay_core(struct command *cmd,
 					u32 retryfor,
 					const struct amount_msat *partial,
 					u32 maxdelay,
+					u32 user_maxparts,
 					const struct json_escape *label,
 					const struct sha256 *localinvreqid,
 					bool use_shadow,
@@ -2975,8 +3064,6 @@ static struct command_result *xpay_core(struct command *cmd,
 	struct payment *payment;
 	struct xpay *xpay = xpay_of(cmd->plugin);
 	struct gossmap *gossmap = get_gossmap(xpay);
-	struct node_id dstid;
-	bool disable_mpp;
 	u64 now, invexpiry;
 	struct out_req *req;
 	const char *err;
@@ -3025,8 +3112,10 @@ static struct command_result *xpay_core(struct command *cmd,
 		invoice_msat = amount_msat(*b12inv->invoice_amount);
 
 		payment = new_payment(cmd, cmd,
+				      payment_type,
 				      retryfor,
 				      maxdelay,
+				      user_maxparts,
 				      layers,
 				      take(invstring),
 				      b12inv->invoice_node_id,
@@ -3087,7 +3176,8 @@ static struct command_result *xpay_core(struct command *cmd,
 		 *  - otherwise:
 		 *    - MUST NOT use multiple parts to pay the invoice.
 		 */
-		disable_mpp = !feature_offered(b12inv->invoice_features, OPT_BASIC_MPP);
+		payment->disable_mpp =
+		    !feature_offered(b12inv->invoice_features, OPT_BASIC_MPP);
 	} else {
 		struct pubkey dst;
 		struct bolt11 *b11
@@ -3132,8 +3222,10 @@ static struct command_result *xpay_core(struct command *cmd,
 			}
 		}
 		payment = new_payment(cmd, cmd,
+				      payment_type,
 				      retryfor,
 				      maxdelay,
+				      user_maxparts,
 				      layers,
 				      take(invstring),
 				      &dst,
@@ -3154,7 +3246,7 @@ static struct command_result *xpay_core(struct command *cmd,
 					    "%s", err);
 
 		payment->route_hints = tal_steal(payment, b11->routes);
-		disable_mpp = !feature_offered(b11->features, OPT_BASIC_MPP);
+		payment->disable_mpp = !feature_offered(b11->features, OPT_BASIC_MPP);
 		if (!includefees_msat && amount_msat_is_zero(payment->mpp_amount))
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "Cannot pay bolt11 invoice with zero amount");
@@ -3175,7 +3267,7 @@ static struct command_result *xpay_core(struct command *cmd,
 		payment->mpp_amount = AMOUNT_MSAT(0);
 		payment->includefees = true;
 		/* Force single-part: fee semantics break with MPP */
-		disable_mpp = true;
+		payment->disable_mpp = true;
 		/* Piecewise default maxfee based on send amount, unless user specified */
 		if (!maxfee) {
 			if (amount_msat_less_eq(*includefees_msat, AMOUNT_MSAT(10000)))
@@ -3205,21 +3297,6 @@ static struct command_result *xpay_core(struct command *cmd,
 	}
 
 	payment->use_shadow = use_shadow;
-
-	/* If we are using an unannounced channel, we assume we can
-	 * only do 6 HTLCs at a time.  This is currently true for
-	 * Phoenix, which is a large and significant node. */
-	node_id_from_pubkey(&dstid, &payment->destination);
-	if (!gossmap_find_node(gossmap, &dstid))
-		payment->maxparts = 6;
-	else
-		payment->maxparts = 0;
-
-	if (disable_mpp) {
-		payment->maxparts = 1;
-		if (!includefees_msat)
-			payment_log(payment, LOG_INFORM, "No MPP support: this is going to be hard to pay");
-	}
 
 	/* Now preapprove, then start payment. */
 	if (command_check_only(cmd)) {
@@ -3310,9 +3387,11 @@ static struct command_result *json_sendamount(struct command *cmd,
 		xparams->layers = layers;
 		xparams->retryfor = *retryfor;
 		xparams->maxdelay = *maxdelay;
+		xparams->maxparts = 0;
 		xparams->bip353 = NULL;
 		xparams->payer_note = payer_note;
 		xparams->label = label;
+		xparams->payment_type = SENDAMOUNT_CMD;
 		/* xpay_core() insists the invoice match *msat exactly here. */
 		xparams->authorized_msat = NULL;
 
@@ -3330,9 +3409,11 @@ static struct command_result *json_sendamount(struct command *cmd,
 		xparams->layers = layers;
 		xparams->retryfor = *retryfor;
 		xparams->maxdelay = *maxdelay;
+		xparams->maxparts = 0;
 		xparams->bip353 = invstring;
 		xparams->payer_note = payer_note;
 		xparams->label = label;
+		xparams->payment_type = SENDAMOUNT_CMD;
 		/* xpay_core() insists the invoice match *msat exactly here. */
 		xparams->authorized_msat = NULL;
 
@@ -3343,8 +3424,8 @@ static struct command_result *json_sendamount(struct command *cmd,
 	}
 
 	/* Probably a bolt11, an invoice already. */
-	return xpay_core(cmd, invstring,
-			 &invoice_msat, maxfee, layers, *retryfor, NULL, *maxdelay,
+	return xpay_core(cmd, SENDAMOUNT_CMD, invstring, &invoice_msat, maxfee,
+			 layers, *retryfor, NULL, *maxdelay, /* user_maxparts = */ 0,
 			 label, NULL, false, false, send_msat);
 }
 
@@ -3589,8 +3670,10 @@ static struct command_result *json_xkeysend(struct command *cmd,
 	}
 
 	payment = new_payment(cmd, cmd,
+			      XKEYSEND_CMD,
 			      *retryfor,
 			      *maxdelay,
+			      /* user_maxparts =  */ 0,
 			      layers,
 			      NULL, /* NULL invstring is the marker of a keysend vs pay */
 			      dst,
@@ -3615,9 +3698,6 @@ static struct command_result *json_xkeysend(struct command *cmd,
 		extra_fields = tal_arr(cmd, struct tlv_field, 0);
 	tlvstream_set_raw(&extra_fields, PREIMAGE_TLV_TYPE,
 			  &preimage, sizeof(struct preimage));
-
-	/* Keysend only supports a single part, usually (we support multi!) */
-	payment->maxparts = 1;
 
 	/* Single payments should always use shadow routes */
 	payment->use_shadow = true;
