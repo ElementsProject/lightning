@@ -406,11 +406,18 @@ pub async fn find_plugin_locs(
             continue;
         };
 
-        let rl_manifest = read_reckless_manifest(&path).await?;
-        let mut rl_manifest = rl_manifest.unwrap_or_default();
+        let detected = match read_reckless_manifest(&path).await {
+            Ok(m) => {
+                let mut rl_manifest = m.unwrap_or_default();
+                detect_installer(&path, &mut rl_manifest)
+                    .await
+                    .map(|installer| (installer, rl_manifest))
+            }
+            Err(e) => Err(anyhow!("invalid manifest: {e}")),
+        };
 
-        match detect_installer(&path, &mut rl_manifest).await {
-            Ok(installer) => {
+        match detected {
+            Ok((installer, rl_manifest)) => {
                 let plugin_origin = PluginOrigin::new(&origin)?;
                 plugin_locs.insert(
                     normalize_plugin_name(name),
