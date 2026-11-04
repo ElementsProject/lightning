@@ -88,7 +88,7 @@ async fn main() -> Result<(), anyhow::Error> {
     };
     let custom_cln_config = configs_resp
         .configs
-        .and_then(|c| c.conf)
+        .conf
         .map(|cc| PathBuf::from(cc.value_str));
 
     let (cln_global_conf, cln_conf, cln_setconfig) = if let Some(custom_config) = custom_cln_config
