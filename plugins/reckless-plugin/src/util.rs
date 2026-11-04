@@ -391,7 +391,7 @@ pub async fn find_plugin_locs(
 
         if depth == 1 {
             if let Some(name) = path.file_name().and_then(|p| p.to_str()) {
-                if name.contains("archive")
+                if name.eq("archived")
                     || name.eq(".git")
                     || name.eq(".venv")
                     || name.eq(".ci")
