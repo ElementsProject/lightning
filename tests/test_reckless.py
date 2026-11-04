@@ -304,6 +304,22 @@ def test_install_subdir_entrypoint(node_factory):
     assert n.rpc.call("testplugsubdir") == "I live."
 
 
+def test_mixed_case_plugin_dir_uninstall(node_factory, tmp_path):
+    repo = tmp_path / "mixedcaserepo"
+    plug = repo / "TestPlugMixed"
+    plug.mkdir(parents=True)
+    (plug / "TestPlugMixed.py").write_text(
+        "#!/usr/bin/env python3\nfrom pyln.client import Plugin\nplugin = Plugin()\nplugin.run()\n"
+    )
+    (plug / "requirements.txt").write_text("pyln-client\n")
+    n = node_factory.get_node(options={})
+    n.rpc.call("reckless", ["source", "-v", "add", str(repo)])
+    r = n.rpc.call("reckless", ["install", "-v", "TestPlugMixed"])
+    assert any("testplugmixed enabled" in line for line in r["log"])
+    r = n.rpc.call("reckless", ["uninstall", "-v", "TestPlugMixed"])
+    assert not (Path(n.lightning_dir) / "reckless/testplugmixed").exists()
+
+
 def test_invalid_manifest_does_not_hide_sources(node_factory, tmp_path):
     repo = tmp_path / "badmanifestrepo"
     good = repo / "testplugokmanifest"
