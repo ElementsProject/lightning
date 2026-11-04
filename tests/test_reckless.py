@@ -356,6 +356,31 @@ def test_python_plugin_with_package_json(node_factory, tmp_path):
     assert any("testplugpyjs enabled" in line for line in r["log"])
 
 
+def test_nodejs_plugin_without_shebang(node_factory, tmp_path):
+    repo = tmp_path / "jsnoshebang"
+    plug = repo / "testplugjs"
+    plug.mkdir(parents=True)
+    (plug / "testplugjs.js").write_text(
+        "const readline = require('readline');\n"
+        "const rl = readline.createInterface({ input: process.stdin });\n"
+        "rl.on('line', (line) => {\n"
+        "    if (!line.trim()) return;\n"
+        "    const req = JSON.parse(line);\n"
+        "    if (req.method === 'getmanifest') {\n"
+        "        const res = { options: [], rpcmethods: [], subscriptions: [], hooks: [], dynamic: true };\n"
+        "        process.stdout.write(JSON.stringify({ jsonrpc: '2.0', id: req.id, result: res }) + '\\n\\n');\n"
+        "    } else if (req.method === 'init') {\n"
+        "        process.stdout.write(JSON.stringify({ jsonrpc: '2.0', id: req.id, result: {} }) + '\\n\\n');\n"
+        "    }\n"
+        "});\n"
+    )
+    (plug / "package.json").write_text('{"name": "testplugjs", "version": "1.0.0"}')
+    n = node_factory.get_node(options={})
+    n.rpc.call("reckless", ["source", "-v", "add", str(repo)])
+    r = n.rpc.call("reckless", ["install", "-v", "testplugjs"])
+    assert any("testplugjs enabled" in line for line in r["log"])
+
+
 @unittest.skipIf(VALGRIND, "virtual environment triggers memleak detection")
 def test_local_dir_install(node_factory):
     """Test search and install from local directory source."""
