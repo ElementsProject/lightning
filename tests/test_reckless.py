@@ -381,6 +381,43 @@ def test_nodejs_plugin_without_shebang(node_factory, tmp_path):
     assert any("testplugjs enabled" in line for line in r["log"])
 
 
+def test_python_plugin_quoted_paths(node_factory, tmp_path):
+    repo = tmp_path / "quoted repo's"
+    plug = repo / "testplugquote"
+    plug.mkdir(parents=True)
+    (plug / "testplugquote.py").write_text(
+        "#!/usr/bin/env python3\nfrom pyln.client import Plugin\nplugin = Plugin()\nplugin.run()\n"
+    )
+    (plug / "requirements.txt").write_text("pyln-client\n")
+    n = node_factory.get_node(options={})
+    n.rpc.call("reckless", ["source", "-v", "add", str(repo)])
+    r = n.rpc.call("reckless", ["install", "-v", "testplugquote"])
+    assert any("testplugquote enabled" in line for line in r["log"])
+
+
+def test_nodejs_plugin_quoted_paths(node_factory, tmp_path):
+    repo = tmp_path / "quoted repo's"
+    plug = repo / "testplugjsquote"
+    plug.mkdir(parents=True)
+    (plug / "testplugjsquote.js").write_text(
+        "const readline = require('readline');\n"
+        "const rl = readline.createInterface({ input: process.stdin });\n"
+        "rl.on('line', (line) => {\n"
+        "    if (!line.trim()) return;\n"
+        "    const req = JSON.parse(line);\n"
+        "    const res = req.method === 'getmanifest'\n"
+        "        ? { options: [], rpcmethods: [], subscriptions: [], hooks: [], dynamic: true }\n"
+        "        : {};\n"
+        "    process.stdout.write(JSON.stringify({ jsonrpc: '2.0', id: req.id, result: res }) + '\\n\\n');\n"
+        "});\n"
+    )
+    (plug / "package.json").write_text('{"name": "testplugjsquote", "version": "1.0.0"}')
+    n = node_factory.get_node(options={})
+    n.rpc.call("reckless", ["source", "-v", "add", str(repo)])
+    r = n.rpc.call("reckless", ["install", "-v", "testplugjsquote"])
+    assert any("testplugjsquote enabled" in line for line in r["log"])
+
+
 @unittest.skipIf(VALGRIND, "virtual environment triggers memleak detection")
 def test_local_dir_install(node_factory):
     """Test search and install from local directory source."""
