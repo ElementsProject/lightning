@@ -92,10 +92,13 @@ def test_splice_stored_feerate_repaired_on_upgrade(node_factory, bitcoind,
     l1.db_manip("UPDATE channel_funding_inflights"
                 " SET funding_feerate = {}".format(poison))
 
-    # Rewind past the two clamping migrations so they run again over the row
-    # we just planted, which is the upgrade an attacked node goes through.
-    # They are plain idempotent UPDATEs, so re-running them is safe.
-    l1.db_manip("UPDATE version SET version = version - 2")
+    # Recreate the schema immediately before the two clamping migrations so
+    # they run again over the row we just planted.  Drop the schema added by
+    # later, non-idempotent migrations before rewinding to version 282.
+    l1.db_manip("DROP TABLE our_outputs")
+    l1.db_manip("DROP TABLE our_txs")
+    l1.db_manip("ALTER TABLE payments DROP COLUMN failmsg")
+    l1.db_manip("UPDATE version SET version = 282")
     l1.daemon.opts['database-upgrade'] = 'true'
     l1.start()
 
