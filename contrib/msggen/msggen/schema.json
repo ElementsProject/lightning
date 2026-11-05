@@ -210,7 +210,7 @@
       "title": "Command for expiring information in a layer",
       "added": "v24.11",
       "description": [
-        "The **askrene-age** RPC command tells askrene that information added to a layer by *askrene-inform-channel* and *askrene-bias-channel* beyond a certain age is less useful.  It currently completely forgets constraints and biases older than *cutoff*."
+        "The **askrene-age** RPC command tells askrene that information added to a layer by *askrene-inform-channel*, *askrene-bias-channel* and *askrene-bias-node* beyond a certain age is less useful.  It currently completely forgets constraints, impressions and biases older than *cutoff*."
       ],
       "request": {
         "required": [
@@ -228,7 +228,7 @@
           "cutoff": {
             "type": "u64",
             "description": [
-              "The UNIX timestamp: constraints older than this will be forgotten."
+              "The UNIX timestamp: constraints, impressions and biases older than this will be forgotten."
             ]
           }
         }
@@ -249,7 +249,7 @@
           "num_removed": {
             "type": "u64",
             "description": [
-              "The number of constraints and impressions removed from *layer*"
+              "The number of constraints, impressions and biases removed from *layer*"
             ]
           }
         }
@@ -257,6 +257,8 @@
       "see_also": [
         "lightning-getroutes(7)",
         "lightning-askrene-inform-channel(7)",
+        "lightning-askrene-bias-channel(7)",
+        "lightning-askrene-bias-node(7)",
         "lightning-askrene-listlayers(7)"
       ],
       "author": [
