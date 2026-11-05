@@ -9,6 +9,7 @@ from utils import (
     check_utxos_channel, check_feerate, did_short_sig, first_scid,
 )
 
+import base64
 import os
 import pytest
 import subprocess
@@ -809,6 +810,48 @@ def test_addpsbtoutput(node_factory, bitcoind, chainparams):
     assert psbt_info['tx']['vout'][n]['value'] * 100000000 == amount2
     assert psbt_info['tx']['vout'][n]['n'] == result['outnum']
     assert psbt_info['tx']['vout'][n]['scriptPubKey']['address'] == dest
+
+
+def psbt_strip_tx_modifiable(psbt_b64):
+    """Remove PSBT_GLOBAL_TX_MODIFIABLE, which makes a v2 PSBT unmodifiable"""
+
+    def read_compact(b, i):
+        n = b[i]
+        if n < 0xFD:
+            return n, i + 1
+        size = {0xFD: 2, 0xFE: 4, 0xFF: 8}[n]
+        start = i + 1
+        return int.from_bytes(b[start:][:size], "little"), start + size
+
+    b = base64.b64decode(psbt_b64)
+    assert b[:5] == b"psbt\xff"
+    out = b[:5]
+    i = 5
+    while b[i] != 0:
+        start = i
+        klen, i = read_compact(b, i)
+        key = b[i:][:klen]
+        i += klen
+        vlen, i = read_compact(b, i)
+        i += vlen
+        if key != b"\x06":
+            out += b[start:i]
+    return base64.b64encode(out + b[i:]).decode()
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_addpsbt_unmodifiable(node_factory):
+    l1 = node_factory.get_node()
+    l1.fundwallet(10**7)
+
+    psbt = l1.rpc.addpsbtoutput(1000000)["psbt"]
+    psbt = psbt_strip_tx_modifiable(l1.rpc.setpsbtversion(psbt, 2)["psbt"])
+
+    with pytest.raises(RpcError, match="PSBT does not allow adding outputs"):
+        l1.rpc.addpsbtoutput(1000000, psbt)
+
+    with pytest.raises(RpcError, match="PSBT does not allow adding inputs"):
+        l1.rpc.addpsbtinput(1000000, psbt)
 
 
 def test_utxopsbt(node_factory, bitcoind, chainparams):
