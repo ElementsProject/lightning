@@ -856,11 +856,6 @@ struct bolt11 *bolt11_decode_nosig(const tal_t *ctx, const char *str,
 		 * `amount` by the `multiplier` value to derive the
 		 * amount required for payment.
 		*/
-		/* Over 2^64 pico-bitcoin (about 18 million BTC) would wrap */
-		if (mul_overflows_u64(amount, m10))
-			return decode_fail(b11, fail,
-					   "Invalid amount '%s'", amountstr);
-
 		b11->msat = tal(b11, struct amount_msat);
 		/* BOLT #11:
 		 *
@@ -868,12 +863,21 @@ struct bolt11 *bolt11_decode_nosig(const tal_t *ctx, const char *str,
 		 *   not 0:
 		 *    - MUST fail the payment.
 		 */
-		if (amount * m10 % 10 != 0)
-			return decode_fail(b11, fail,
-					   "Invalid sub-millisatoshi amount"
-					   " '%sp'", amountstr);
-
-		*b11->msat = amount_msat(amount * m10 / 10);
+		if (m10 % 10 != 0) {
+			/* p: m10 == 1 */
+			if (amount % 10 != 0)
+				return decode_fail(b11, fail,
+						   "Invalid sub-millisatoshi amount"
+						   " '%sp'", amountstr);
+			*b11->msat = amount_msat(amount / 10);
+		} else {
+			/* Multiply in msat, so it can only wrap if the
+			 * amount itself doesn't fit in a u64 of msat. */
+			if (mul_overflows_u64(amount, m10 / 10))
+				return decode_fail(b11, fail,
+						   "Invalid amount '%s'", amountstr);
+			*b11->msat = amount_msat(amount * (m10 / 10));
+		}
 	}
 
 	/* BOLT #11:
