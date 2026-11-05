@@ -619,6 +619,38 @@ static void advanced_fail(void)
 	} \
 }
 
+static void string_or_array(void)
+{
+	struct str_or_arr *res;
+
+	/* A JSON string has its escapes decoded: a "\n" escape becomes a
+	 * newline, which dev-splice relies on to separate script segments. */
+	{
+		struct json *j = json_parse(cmd, "[ 'wallet -> 1sat\\n1sat -> x' ]");
+		assert(param(cmd, j->buffer, j->toks,
+			     p_req("script", param_string_or_array, &res),
+			     NULL));
+		assert(res->arr == NULL);
+		assert(streq(res->str, "wallet -> 1sat\n1sat -> x"));
+	}
+	{
+		struct json *j = json_parse(cmd, "[ 'back\\\\slash' ]");
+		assert(param(cmd, j->buffer, j->toks,
+			     p_req("script", param_string_or_array, &res),
+			     NULL));
+		assert(streq(res->str, "back\\slash"));
+	}
+	/* An array is passed through untouched. */
+	{
+		struct json *j = json_parse(cmd, "[ [ 1, 2 ] ]");
+		assert(param(cmd, j->buffer, j->toks,
+			     p_req("script", param_string_or_array, &res),
+			     NULL));
+		assert(res->str == NULL);
+		assert(res->arr && res->arr->type == JSMN_ARRAY);
+	}
+}
+
 static void param_tests(void)
 {
 	test_cb(param_bool, bool, "[ true ]", true, true);
@@ -697,6 +729,7 @@ int main(int argc, char *argv[])
 	advanced();
 	advanced_fail();
 	param_tests();
+	string_or_array();
 	usage();
 	invalid_bech32m();
 
