@@ -3764,6 +3764,15 @@ def test_autoclean_once(node_factory):
     assert l3.rpc.autoclean_status() == expected[2]
 
 
+
+@pytest.mark.xfail(strict=True)
+def test_autoclean_once_zero_age(node_factory):
+    """age is documented as non-zero: 0 would clean every entry"""
+    l1 = node_factory.get_node()
+
+    with pytest.raises(RpcError, match='age: Must be non-zero'):
+        l1.rpc.autoclean_once('failedpays', 0)
+
 def test_block_added_notifications(node_factory, bitcoind):
     """Test if a plugin gets notifications when a new block is found"""
     base = bitcoind.rpc.getblockchaininfo()["blocks"]
