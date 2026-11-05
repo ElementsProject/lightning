@@ -5409,7 +5409,9 @@ def test_open_channel_zero_funding_txid(node_factory, bitcoind):
     reply = read_channel_reply(lconn)
     assert reply in (WIRE_WARNING, WIRE_ERROR)
 
+    l1.daemon.wait_for_log(r'funding_created has zero funding_txid')
     assert not l1.daemon.is_in_log('Owning subdaemon openingd died')
+    assert l1.rpc.getinfo()['id'] == l1.info['id']
 
 
 def test_connect_proxy_maxlen_hostname(node_factory):
