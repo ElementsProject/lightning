@@ -418,7 +418,8 @@ async fn on_lsps_lsps2_invoice(
 
     // We define the invoice expiry here to avoid cloning `selected_params`
     // as they are about to be moved to the `Lsps2BuyRequest`.
-    let expiry = (selected_params.valid_until.as_chrono() - Utc::now()).num_seconds();
+    let valid_until = selected_params.valid_until.as_chrono();
+    let expiry = (valid_until - Utc::now()).num_seconds();
     if expiry <= 10 {
         return Err(anyhow!(
             "Invoice lifetime is too short, options are valid until: {}",
@@ -483,7 +484,9 @@ async fn on_lsps_lsps2_invoice(
                     dev_routes: Some(vec![vec![hint]]),
                     description: req.description,
                     label: req.label,
-                    expiry: Some(expiry as u64),
+                    // Not `expiry`: creating the public invoice took time,
+                    // and this one must not outlive `valid_until` either.
+                    expiry: Some((valid_until - Utc::now()).num_seconds().max(0) as u64),
                     cltv: None,
                     deschashonly: None,
                     preimage,
