@@ -1,0 +1,4 @@
+version: v2
+breaking:
+  use:
+    - WIRE_JSON

@@ -408,9 +408,9 @@ include doc/Makefile
 include contrib/msggen/Makefile
 include devtools/Makefile
 include tools/Makefile
-ifneq ($(RUST),0)
 include cln-rpc/Makefile
 include cln-grpc/Makefile
+ifneq ($(RUST),0)
 include lsps-types/Makefile
 endif
 include plugins/Makefile
@@ -684,8 +684,18 @@ check-wire-format: bolt-precheck
 check-security:
 	@bash -lc 'diff -u <(tail -n +3 -- SECURITY.md) <(tail -n +9 -- doc/contribute-to-core-lightning/security-policy.md)'
 
+# Compare the gRPC protos against the newest release tag reachable from
+# GRPC_BREAKING_BASE_REF, so breaking changes are caught before a release.
+BUF ?= buf
+GRPC_BREAKING_BASE_REF ?= origin/master
+check-grpc-breaking:
+	@tag=$$(git tag --merged $(GRPC_BREAKING_BASE_REF) --list 'v[0-9]*' --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+(\.[0-9]+)?$$' | head -1); \
+	if [ -z "$$tag" ]; then echo "No release tag reachable from $(GRPC_BREAKING_BASE_REF)" >&2; exit 1; fi; \
+	echo "Checking gRPC protos against $$tag"; \
+	$(BUF) breaking cln-grpc/proto --against ".git#tag=$$tag,subdir=cln-grpc/proto"
+
 # This should NOT compile things!
-check-source: check-makefile check-whitespace check-spelling check-python-flake8 check-includes check-shellcheck check-setup_locale check-tmpctx check-discouraged-functions check-amount-access check-bad-sprintf check-wire-format check-source-bolt check-security
+check-source: check-makefile check-whitespace check-spelling check-python-flake8 check-includes check-shellcheck check-setup_locale check-tmpctx check-discouraged-functions check-amount-access check-bad-sprintf check-wire-format check-source-bolt check-security check-msggen-grpc check-grpc-breaking
 
 full-check: check check-source
 
