@@ -1,6 +1,7 @@
 from pyln.client import Gossmap, GossmapNode, GossmapNodeId
 
 import os.path
+import pytest
 import lzma
 
 
@@ -297,7 +298,11 @@ def test_mesh(tmp_path):
 
 
 def gossip_store_with_alias(tmp_path, alias):
-    """gossip_store.simple with JUNIORBEAM's alias replaced by `alias`"""
+    """gossip_store.simple with JUNIORBEAM's alias replaced by `alias`
+
+    This invalidates the node_announcement signature, which is fine as
+    long as Gossmap doesn't check signatures.
+    """
     sfile = unxz_data_tmp("gossip_store.simple.xz", tmp_path, "gossip_store", "xb")
     old = b'JUNIORBEAM-09-73-g31d1e15-modded'
     assert len(alias) == len(old)
@@ -323,10 +328,16 @@ def test_gossmap_alias_invalid_utf8(tmp_path):
     assert l1.alias == 'SILENTARTIST--73-g31d1e15-modded'
 
 
-def test_gossmap_alias_nul_padding(tmp_path):
+@pytest.mark.parametrize("alias,expected", [
+    (b'bob' + bytes(29), 'bob'),
+    (bytes(32), ''),
+    # Like tal_strndup(), anything after the first NUL is dropped.
+    (b'bob\x00junk' + bytes(24), 'bob'),
+])
+def test_gossmap_alias_nul_padding(tmp_path, alias, expected):
     """Aliases shorter than 32 bytes are NUL padded: listnodes drops that"""
-    sfile = gossip_store_with_alias(tmp_path, b'bob' + bytes(29))
+    sfile = gossip_store_with_alias(tmp_path, alias)
     g = Gossmap(sfile)
 
     l2 = g.get_node('0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518')
-    assert l2.alias == 'bob'
+    assert l2.alias == expected
