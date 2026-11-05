@@ -845,7 +845,6 @@ def psbt_set_tx_modifiable(psbt_b64, flags):
 @unittest.skipIf(
     TEST_NETWORK != "regtest", "elementsd doesnt yet support PSBT features we need"
 )
-@pytest.mark.xfail(strict=True)
 def test_addpsbt_unmodifiable(node_factory):
     l1 = node_factory.get_node()
     l1.fundwallet(10**7)
