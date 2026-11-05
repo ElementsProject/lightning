@@ -16,7 +16,7 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms
 from hashlib import sha256
 from io import BytesIO, SEEK_CUR
 from typing import List, Optional, Union, Tuple
-import coincurve
+import secp256k1
 import io
 import os
 import struct
@@ -472,9 +472,9 @@ def blind(pubkey, sharedsecret) -> Secret:
 
 
 def blind_group_element(pubkey, blind: Secret) -> PublicKey:
-    pubkey = coincurve.PublicKey(data=pubkey.to_bytes())
-    blinded = pubkey.multiply(blind.to_bytes(), update=False)
-    return PublicKey(blinded.format(compressed=True))
+    blinded = secp256k1.PublicKey(pubkey.to_bytes(), raw=True).tweak_mul(
+        blind.to_bytes())
+    return PublicKey(blinded.serialize())
 
 
 def chacha20_stream(key: bytes, dest: Union[bytearray, memoryview]):
