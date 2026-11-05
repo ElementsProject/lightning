@@ -371,3 +371,24 @@ void towire_dstore_channel_observation(u8 **data,
 	towire_u64(data, timestamp);
 	towire_amount_msat(data, amount);
 }
+
+bool fromwire_dstore_channel_observation(const tal_t *ctx,
+					 const u8 **cursor,
+					 size_t *len,
+					 struct short_channel_id_dir *scidd,
+					 u16 *result,
+					 u64 *timestamp,
+					 struct amount_msat *amount,
+					 struct amount_msat *reserves)
+{
+	if (fromwire_u16(cursor, len) != DSTORE_CHANNEL_OBSERVATION) {
+		fromwire_fail(cursor, len);
+		return false;
+	}
+	fromwire_short_channel_id_dir(cursor, len, scidd);
+	*result = fromwire_u16(cursor, len);
+	*timestamp = fromwire_u64(cursor, len);
+	*amount = fromwire_amount_msat(cursor, len);
+	*reserves = fromwire_amount_msat(cursor, len);
+	return *cursor != NULL;
+}

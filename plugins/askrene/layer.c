@@ -710,6 +710,48 @@ static void load_channel_impression(struct plugin *plugin,
 		add_impression(layer, &scidd, timestamp, amount);
 }
 
+static const struct channel_observations *add_observation(struct layer *layer,
+							  const struct short_channel_id_dir *scidd,
+							  const enum observation_result result,
+							  const u64 timestamp,
+							  const struct amount_msat amount)
+{
+	struct observation obs;
+	struct channel_observations *layer_obs =
+	    channel_observations_htable_get(layer->channel_observations,
+					    scidd->scid);
+
+	obs.dir = scidd->dir;
+	obs.result = result;
+	obs.timestamp = timestamp;
+	obs.amount = amount;
+
+	if (!layer_obs) {
+		/* No observations yet for this scid */
+		layer_obs = tal(layer, struct channel_observations);
+		layer_obs->scid = scidd->scid;
+		layer_obs->obs = tal_arr(layer_obs, struct observation, 0);
+	}
+	tal_arr_expand(&layer_obs->obs, obs);
+	return layer_obs;
+}
+
+static void load_channel_observation(struct plugin *plugin,
+				     struct layer *layer,
+				     const u8 **cursor,
+				     size_t *len)
+{
+	struct short_channel_id_dir scidd;
+	struct amount_msat amount, reserves;
+	u64 timestamp;
+	u16 result;
+
+	if (fromwire_dstore_channel_observation(tmpctx, cursor, len, &scidd,
+						&result, &timestamp, &amount,
+						&reserves))
+		add_observation(layer, &scidd, result, timestamp, amount);
+}
+
 static void towire_save_channel_bias(u8 **data, const struct bias *bias)
 {
 	towire_dstore_channel_bias_v2(data,
@@ -969,7 +1011,7 @@ static void populate_layer(struct askrene *askrene,
 			load_channel_impression(askrene->plugin, layer, &data, &len);
 			continue;
 		case DSTORE_CHANNEL_OBSERVATION:
-			// FIXME: implement load from datastore
+			load_channel_observation(askrene->plugin, layer, &data, &len);
 			continue;
 		}
 		plugin_err(askrene->plugin, "Invalid type %i in datastore: layer %s %s",
@@ -1257,32 +1299,6 @@ const struct constraint *layer_add_constraint(struct layer *layer,
 	c = add_constraint(layer, scidd, timestamp, min, max);
 	save_channel_constraint(layer, c);
 	return c;
-}
-
-static const struct channel_observations *add_observation(struct layer *layer,
-							  const struct short_channel_id_dir *scidd,
-							  const enum observation_result result,
-							  const u64 timestamp,
-							  const struct amount_msat amount)
-{
-	struct observation obs;
-	struct channel_observations *layer_obs =
-	    channel_observations_htable_get(layer->channel_observations,
-					    scidd->scid);
-
-	obs.dir = scidd->dir;
-	obs.result = result;
-	obs.timestamp = timestamp;
-	obs.amount = amount;
-
-	if (!layer_obs) {
-		/* No observations yet for this scid */
-		layer_obs = tal(layer, struct channel_observations);
-		layer_obs->scid = scidd->scid;
-		layer_obs->obs = tal_arr(layer_obs, struct observation, 0);
-	}
-	tal_arr_expand(&layer_obs->obs, obs);
-	return layer_obs;
 }
 
 /* Saves the very last channel observation event.  The others are assumed to be

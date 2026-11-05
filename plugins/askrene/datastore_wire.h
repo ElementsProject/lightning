@@ -115,4 +115,13 @@ void towire_dstore_channel_observation(u8 **data,
 				       u64 timestamp,
 				       struct amount_msat amount);
 
+bool fromwire_dstore_channel_observation(const tal_t *ctx,
+					 const u8 **cursor,
+					 size_t *len,
+					 struct short_channel_id_dir *scidd,
+					 u16 *result,
+					 u64 *timestamp,
+					 struct amount_msat *amount,
+					 struct amount_msat *reserves);
+
 #endif /* LIGHTNING_PLUGINS_ASKRENE_DATASTORE_WIRE_H */
