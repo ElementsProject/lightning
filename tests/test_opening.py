@@ -2161,7 +2161,7 @@ def test_funder_options(node_factory, bitcoind):
     assert funder_opts['leases_only']
 
     # Neither a number nor a sat amount
-    with pytest.raises(RpcError, match='policy_mod: should be a number or a sat amount'):
+    with pytest.raises(RpcError, match="policy_mod: Unable to parse option 'notanumber'"):
         l1.rpc.call('funderupdate', {'policy_mod': 'notanumber'})
     assert l1.rpc.call('funderupdate')['policy_mod'] == 0
 
