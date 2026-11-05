@@ -358,3 +358,16 @@ void towire_dstore_disabled_node(u8 **data, const struct node_id *node)
 	towire_u16(data, DSTORE_DISABLED_NODE);
 	towire_node_id(data, node);
 }
+
+void towire_dstore_channel_observation(u8 **data,
+				       const struct short_channel_id_dir *scidd,
+				       u16 result,
+				       u64 timestamp,
+				       struct amount_msat amount)
+{
+	towire_u16(data, DSTORE_CHANNEL_OBSERVATION);
+	towire_short_channel_id_dir(data, scidd);
+	towire_u16(data, result);
+	towire_u64(data, timestamp);
+	towire_amount_msat(data, amount);
+}

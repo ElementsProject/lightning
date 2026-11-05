@@ -968,6 +968,9 @@ static void populate_layer(struct askrene *askrene,
 		case DSTORE_CHANNEL_IMPRESSION:
 			load_channel_impression(askrene->plugin, layer, &data, &len);
 			continue;
+		case DSTORE_CHANNEL_OBSERVATION:
+			// FIXME: implement load from datastore
+			continue;
 		}
 		plugin_err(askrene->plugin, "Invalid type %i in datastore: layer %s %s",
 			   type, layer->name, tal_hexstr(tmpctx, data, len));
@@ -1282,6 +1285,33 @@ static const struct channel_observations *add_observation(struct layer *layer,
 	return layer_obs;
 }
 
+/* Saves the very last channel observation event.  The others are assumed to be
+ * already in the datastore. */
+static void towire_save_channel_observations(u8 **data, const struct channel_observations *layer_obs){
+	const size_t len = tal_count(layer_obs->obs);
+	const struct observation *obs = &layer_obs->obs[len-1];
+	struct short_channel_id_dir scidd;
+	scidd.dir = obs->dir;
+	scidd.scid = layer_obs->scid;
+	towire_dstore_channel_observation(data,
+					  &scidd,
+					  obs->result,
+					  obs->timestamp,
+					  obs->amount);
+}
+
+static void save_channel_observations(struct layer *layer,
+				      const struct channel_observations *layer_obs)
+{
+	u8 *data;
+	if (!layer->persistent)
+		return;
+
+	data = tal_arr(tmpctx, u8, 0);
+	towire_save_channel_observations(&data, layer_obs);
+	append_layer_datastore(layer, data);
+}
+
 const struct channel_observations *layer_add_observation(struct layer *layer,
 							 const struct short_channel_id_dir *scidd,
 							 const enum observation_result result,
@@ -1290,8 +1320,7 @@ const struct channel_observations *layer_add_observation(struct layer *layer,
 {
 	const struct channel_observations *layer_obs =
 	    add_observation(layer, scidd, result, timestamp, amount);
-	// FIXME: add persistency of observations
-	// save_channel_observations(layer, layer_obs);
+	save_channel_observations(layer, layer_obs);
 	return layer_obs;
 }
 

@@ -18,6 +18,7 @@ enum dstore_layer_type {
 	DSTORE_CHANNEL_BIAS_V2 = 6,
 	DSTORE_NODE_BIAS = 7,
 	DSTORE_CHANNEL_IMPRESSION = 8,
+	DSTORE_CHANNEL_OBSERVATION = 9,
 };
 
 bool fromwire_dstore_channel(const u8 **cursor, size_t *len,
@@ -107,5 +108,11 @@ void towire_dstore_node_bias(u8 **data,
 void towire_dstore_disabled_node(u8 **data, const struct node_id *node);
 bool fromwire_dstore_disabled_node(const u8 **cursor, size_t *len,
 				   struct node_id *node);
+
+void towire_dstore_channel_observation(u8 **data,
+				       const struct short_channel_id_dir *scidd,
+				       u16 result,
+				       u64 timestamp,
+				       struct amount_msat amount);
 
 #endif /* LIGHTNING_PLUGINS_ASKRENE_DATASTORE_WIRE_H */
