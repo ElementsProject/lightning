@@ -7129,7 +7129,6 @@ def test_injectpaymentonion_failures(node_factory, executor):
 
 
 
-@pytest.mark.xfail(strict=True)
 def test_injectpaymentonion_zero_partid(node_factory):
     """partid is documented as non-zero"""
     l1 = node_factory.get_node()
