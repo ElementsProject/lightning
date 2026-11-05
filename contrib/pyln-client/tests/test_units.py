@@ -37,6 +37,12 @@ def test_to_approx_str():
     assert amount.to_approx_str(1) == "12btc"  # note: no rounding
 
 
+
+@pytest.mark.xfail(strict=True)
+def test_to_approx_str_zero():
+    assert Millisatoshi(0).to_approx_str() == "0btc"
+    assert Millisatoshi('0sat').to_approx_str(1) == "0btc"
+
 def test_floats():
     # test parsing amounts from floating number strings
     amount = Millisatoshi("0.01btc")
