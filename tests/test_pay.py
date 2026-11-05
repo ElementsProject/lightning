@@ -7128,7 +7128,6 @@ def test_injectpaymentonion_failures(node_factory, executor):
     assert 'onionreply' in err.value.error['data']
 
 
-
 def test_injectpaymentonion_zero_partid(node_factory):
     """partid is documented as non-zero"""
     l1 = node_factory.get_node()
@@ -7145,6 +7144,7 @@ def test_injectpaymentonion_zero_partid(node_factory):
                                   cltv_expiry=blockheight + 18,
                                   partid=0,
                                   groupid=0)
+
 
 def test_injectpaymentonion_peerfail(node_factory, executor):
     l1, l2 = node_factory.line_graph(2,
