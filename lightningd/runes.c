@@ -518,7 +518,6 @@ static struct rune_restr *rune_restr_from_json(struct command *cmd,
 	size_t i;
 	struct rune_restr *restr;
 
-	restr = tal(ctx, struct rune_restr);
 	/* FIXME: allow singletons again? */
 	if (tok->type != JSMN_ARRAY)
 		return NULL;
@@ -527,6 +526,7 @@ static struct rune_restr *rune_restr_from_json(struct command *cmd,
 	if (tok->size == 0)
 		return NULL;
 
+	restr = tal(ctx, struct rune_restr);
 	restr->alterns = tal_arr(restr, struct rune_altern *, tok->size);
 	json_for_each_arr(i, t, tok) {
 		restr->alterns[i] = rune_altern_from_json(restr->alterns,
