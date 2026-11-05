@@ -1220,7 +1220,7 @@ static const struct db_migration dbmigrations[] = {
 	 " WHERE funding_feerate = 0 OR funding_feerate IS NULL;"), NULL,
      /* Clamping is idempotent, so no revert needed */
      NULL, NULL},
-    /* ^v26.09 */
+    /* ^v26.12 */
 
     {SQL("ALTER TABLE forwards ADD reason INTEGER DEFAULT NULL"), NULL,
      SQL("ALTER TABLE forwards DROP COLUMN reason"), NULL},

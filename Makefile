@@ -7,7 +7,7 @@ VERSION ?= $(shell git describe --tags --always --dirty=-modded --abbrev=7 2>/de
 $(info Building version $(VERSION))
 
 # Next release.
-CLN_NEXT_VERSION := v26.09
+CLN_NEXT_VERSION := v26.12
 
 # Previous release (for downgrade testing)
 CLN_PREV_VERSION := v26.06
