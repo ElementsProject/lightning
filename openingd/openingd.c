@@ -12,6 +12,7 @@
 #include <bitcoin/script.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/breakpoint/breakpoint.h>
+#include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
 #include <common/fee_states.h>
 #include <common/initial_channel.h>
@@ -1127,6 +1128,10 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 				fmt_channel_id(msg,
 					       &state->channel_id),
 				fmt_channel_id(msg, &id_in));
+
+	if (memeqzero(&state->funding.txid, sizeof(state->funding.txid)))
+		peer_failed_err(state->pps, &state->channel_id,
+				"funding_created has zero funding_txid");
 
 	/*~ Channel is ready; Report the channel parameters to the signer. */
 	msg = towire_hsmd_setup_channel(NULL,
