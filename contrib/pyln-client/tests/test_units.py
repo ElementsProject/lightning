@@ -38,7 +38,6 @@ def test_to_approx_str():
 
 
 
-@pytest.mark.xfail(strict=True)
 def test_to_approx_str_zero():
     assert Millisatoshi(0).to_approx_str() == "0btc"
     assert Millisatoshi('0sat').to_approx_str(1) == "0btc"
