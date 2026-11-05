@@ -936,7 +936,7 @@ static void populate_layer(struct askrene *askrene,
 
 	layer = add_layer(askrene, layername, true);
 	plugin_log(askrene->plugin, LOG_DBG,
-		   "Loaded level %s (%zu bytes)",
+		   "Loaded layer %s (%zu bytes)",
 		   layer->name, len);
 
 	while (len != 0) {
