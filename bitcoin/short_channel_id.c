@@ -2,6 +2,7 @@
 #include <bitcoin/short_channel_id.h>
 #include <ccan/tal/str/str.h>
 #include <common/randbytes.h>
+#include <common/utils.h>
 #include <stdio.h>
 #include <wire/wire.h>
 
@@ -40,17 +41,30 @@ bool mk_short_channel_id(struct short_channel_id *scid,
 bool short_channel_id_from_str(const char *str, size_t strlen,
 			       struct short_channel_id *dst)
 {
-	u32 blocknum, txnum;
-	u16 outnum;
-	int matches;
+	const char *x1, *x2;
+	u64 blocknum, txnum, outnum;
 
-	char buf[strlen + 1];
-	memcpy(buf, str, strlen);
-	buf[strlen] = 0;
+	x1 = memchr(str, 'x', strlen);
+	if (!x1)
+		return false;
 
-	matches = sscanf(buf, "%ux%ux%hu", &blocknum, &txnum, &outnum);
-	return matches == 3
-		&& mk_short_channel_id(dst, blocknum, txnum, outnum);
+	x2 = memchr(x1 + 1, 'x', strlen - (x1 + 1 - str));
+	if (!x2)
+		return false;
+
+	if (memchr(x2 + 1, 'x', strlen - (x2 + 1 - str)))
+		return false;
+
+	if (!str_to_u64(str, x1 - str, &blocknum))
+		return false;
+
+	if (!str_to_u64(x1 + 1, x2 - (x1 + 1), &txnum))
+		return false;
+
+	if (!str_to_u64(x2 + 1, (str + strlen) - (x2 + 1), &outnum))
+		return false;
+
+	return mk_short_channel_id(dst, blocknum, txnum, outnum);
 }
 
 char *fmt_short_channel_id(const tal_t *ctx, struct short_channel_id scid)
