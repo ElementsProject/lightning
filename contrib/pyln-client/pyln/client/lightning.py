@@ -126,10 +126,11 @@ class Millisatoshi:
 
         Rounds to significant `digits`. Default: 3
         """
+        # log10(0) is undefined, and zero has nothing to round anyway.
+        if self.millisatoshis == 0:
+            return "0btc"
+
         def round_to_n(x: int, n: int) -> float:
-            # log10(0) is undefined, and zero has nothing to round anyway.
-            if x == 0:
-                return 0
             return round(x, -int(floor(log10(x))) + (n - 1))
         result = self.to_satoshi_str()
 
