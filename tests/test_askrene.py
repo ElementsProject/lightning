@@ -3266,3 +3266,64 @@ def test_real_data_maxhops(node_factory, bitcoind, executor):
         results[maxhops] = summary(res)
 
     assert results == expected
+
+
+def test_bias_aging(node_factory):
+    """Test that askrene-age ages both channel and node biases."""
+    # remove xpay, since it creates a layer!
+    l1 = node_factory.get_node(opts={"disable-plugin": "cln-xpay"})
+
+    expect = {
+        "layer": "test_layers",
+        "persistent": False,
+        "disabled_nodes": [],
+        "created_channels": [],
+        "channel_updates": [],
+        "constraints": [],
+        "impressions": [],
+        "biases": [],
+        "node_biases": [],
+    }
+    l1.rpc.askrene_create_layer("test_layers")
+
+    # Add an old channel bias.
+    r = l1.rpc.askrene_bias_channel("test_layers", "1x1x1/1", 10)
+    channel_ts = r["biases"][0]["timestamp"]
+    expect["biases"] = [
+        {"short_channel_id_dir": "1x1x1/1", "bias": 10, "timestamp": channel_ts}
+    ]
+
+    # Aging to the timestamp itself does nothing.
+    assert l1.rpc.askrene_age("test_layers", channel_ts) == {
+        "layer": "test_layers",
+        "num_removed": 0,
+    }
+
+    # Make sure the node bias has a later timestamp.
+    time.sleep(2)
+    node_id = "020000000000000000000000000000000000000000000000000000000000000001"
+    r = l1.rpc.askrene_bias_node(
+        layer="test_layers", node=node_id, direction="out", bias=-5, relative=False
+    )
+    node_ts = r["node_biases"][0]["timestamp"]
+    assert channel_ts < node_ts
+    expect["node_biases"] = [
+        {"node": node_id, "in_bias": 0, "out_bias": -5, "timestamp": node_ts}
+    ]
+    assert l1.rpc.askrene_listlayers("test_layers") == {"layers": [expect]}
+
+    # Aging to the node bias timestamp only removes the older channel bias.
+    assert l1.rpc.askrene_age("test_layers", node_ts) == {
+        "layer": "test_layers",
+        "num_removed": 1,
+    }
+    expect["biases"] = []
+    assert l1.rpc.askrene_listlayers("test_layers") == {"layers": [expect]}
+
+    # A later cutoff removes the node bias too.
+    assert l1.rpc.askrene_age("test_layers", node_ts + 1) == {
+        "layer": "test_layers",
+        "num_removed": 1,
+    }
+    expect["node_biases"] = []
+    assert l1.rpc.askrene_listlayers("test_layers") == {"layers": [expect]}
