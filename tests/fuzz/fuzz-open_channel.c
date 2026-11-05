@@ -397,6 +397,9 @@ static u8 *create_open_channel_msg(const tal_t *ctx, struct state *state)
 	if (to_self_delay > state->max_to_self_delay)
 		to_self_delay = state->max_to_self_delay;
 
+	if (amount_sat_less(dust_limit_satoshis, AMOUNT_SAT(354)))
+		dust_limit_satoshis = AMOUNT_SAT(354);
+
 	struct amount_sat total_reserve;
 	if (!amount_sat_add(&total_reserve,
 			channel_reserve_satoshis,
