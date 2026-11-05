@@ -3765,7 +3765,6 @@ def test_autoclean_once(node_factory):
 
 
 
-@pytest.mark.xfail(strict=True)
 def test_autoclean_once_zero_age(node_factory):
     """age is documented as non-zero: 0 would clean every entry"""
     l1 = node_factory.get_node()
