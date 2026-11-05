@@ -1253,28 +1253,43 @@ param_funder_opt(struct command *cmd, const char *name,
 }
 
 
+static char *amount_sat_or_u64_option(struct command *cmd,
+				      const char *arg,
+				      bool check_only,
+				      u64 *amt)
+{
+	struct amount_sat sats;
+	char *err;
+
+	err = u64_option(cmd, arg, false, &sats.satoshis); /* Raw: want sats below */
+	if (err) {
+		tal_free(err);
+		if (!parse_amount_sat(&sats, arg, strlen(arg)))
+			return tal_fmt(tmpctx,
+				       "Unable to parse option '%s'",
+				       arg);
+	}
+
+	if (!check_only)
+		*amt = sats.satoshis; /* Raw: convert to u64 */
+
+	return NULL;
+}
+
 static struct command_result *
 param_policy_mod(struct command *cmd, const char *name,
 		 const char *buffer, const jsmntok_t *tok,
 		 u64 **mod)
 {
-	struct amount_sat sats;
 	char *arg_str, *err;
 
 	*mod = tal(cmd, u64);
 	arg_str = tal_strndup(cmd, buffer + tok->start,
 			      tok->end - tok->start);
 
-	err = u64_option(cmd, arg_str, false, *mod);
-	if (err) {
-		tal_free(err);
-		if (!parse_amount_sat(&sats, arg_str, strlen(arg_str)))
-			return command_fail_badparam(cmd, name,
-						     buffer, tok,
-						     "should be a number or a sat amount");
-
-		**mod = sats.satoshis; /* Raw: convert to u64 */
-	}
+	err = amount_sat_or_u64_option(cmd, arg_str, false, *mod);
+	if (err)
+		return command_fail_badparam(cmd, name, buffer, tok, err);
 
 	return NULL;
 }
@@ -1679,29 +1694,6 @@ static char *option_lease_weight_max(struct command *cmd, const char *arg,
 	if (!policy->rates)
 		policy->rates = default_lease_rates(policy);
 	policy->rates->funding_weight = fw;
-	return NULL;
-}
-
-static char *amount_sat_or_u64_option(struct command *cmd,
-				      const char *arg,
-				      bool check_only,
-				      u64 *amt)
-{
-	struct amount_sat sats;
-	char *err;
-
-	err = u64_option(cmd, arg, false, &sats.satoshis); /* Raw: want sats below */
-	if (err) {
-		tal_free(err);
-		if (!parse_amount_sat(&sats, arg, strlen(arg)))
-			return tal_fmt(tmpctx,
-				       "Unable to parse option '%s'",
-				       arg);
-	}
-
-	if (!check_only)
-		*amt = sats.satoshis; /* Raw: convert to u64 */
-
 	return NULL;
 }
 
