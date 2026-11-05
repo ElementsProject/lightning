@@ -642,6 +642,12 @@ static const struct json_command fundpsbt_command = {
 };
 AUTODATA(json_command, &fundpsbt_command);
 
+static bool psbt_modifiable(const struct wally_psbt *psbt, u32 flags)
+{
+	return psbt->version == 0 ||
+	       (psbt->tx_modifiable_flags & flags) == flags;
+}
+
 static struct command_result *json_addpsbtoutput(struct command *cmd,
 					    const char *buffer,
 					    const jsmntok_t *obj UNNEEDED,
@@ -685,6 +691,10 @@ static struct command_result *json_addpsbtoutput(struct command *cmd,
 		return command_fail(cmd,
 				    FUNDING_PSBT_INVALID,
 				    "PSBT failed to validate.");
+
+	if (!psbt_modifiable(psbt, WALLY_PSBT_TXMOD_OUTPUTS))
+		return command_fail(cmd, FUNDING_PSBT_INVALID,
+				    "PSBT does not allow adding outputs");
 
 	if (amount_sat_less(*amount, chainparams->dust_limit))
 		return command_fail(cmd, FUND_OUTPUT_IS_DUST,
@@ -796,6 +806,10 @@ static struct command_result *json_addpsbtinput(struct command *cmd,
 		return command_fail(cmd,
 				    FUNDING_PSBT_INVALID,
 				    "PSBT failed to validate.");
+
+	if (!psbt_modifiable(psbt, WALLY_PSBT_TXMOD_INPUTS))
+		return command_fail(cmd, FUNDING_PSBT_INVALID,
+				    "PSBT does not allow adding inputs");
 
 	if (!req_amount || amount_sat_is_zero(*req_amount))
 		return command_fail(cmd, FUND_INPUT_IS_ZERO, "Cannot add input"
