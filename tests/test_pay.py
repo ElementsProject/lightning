@@ -7128,6 +7128,25 @@ def test_injectpaymentonion_failures(node_factory, executor):
     assert 'onionreply' in err.value.error['data']
 
 
+
+@pytest.mark.xfail(strict=True)
+def test_injectpaymentonion_zero_partid(node_factory):
+    """partid is documented as non-zero"""
+    l1 = node_factory.get_node()
+    blockheight = l1.rpc.getinfo()['blockheight']
+
+    hops = [{'pubkey': l1.info['id'],
+             'payload': serialize_payload_final_tlv(1000, 18, 1000, blockheight, '00' * 32).hex()}]
+    onion = l1.rpc.createonion(hops=hops, assocdata='00' * 32)
+
+    with pytest.raises(RpcError, match='partid: Must be non-zero'):
+        l1.rpc.injectpaymentonion(onion=onion['onion'],
+                                  payment_hash='00' * 32,
+                                  amount_msat=1000,
+                                  cltv_expiry=blockheight + 18,
+                                  partid=0,
+                                  groupid=0)
+
 def test_injectpaymentonion_peerfail(node_factory, executor):
     l1, l2 = node_factory.line_graph(2,
                                      opts=[{'may_reconnect': True,
