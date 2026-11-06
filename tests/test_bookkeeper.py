@@ -932,6 +932,9 @@ def test_bookkeeping_descriptions(node_factory, bitcoind, chainparams):
     # Check the CSVs look groovy
     l1.rpc.bkpr_dumpincomecsv('koinly', 'koinly.csv')
     l2.rpc.bkpr_dumpincomecsv('koinly', 'koinly.csv')
+    # An unknown format lists the valid ones, and nothing else.
+    with pytest.raises(RpcError, match=r'csv_format: should be one of: "cointracker","koinly","harmony","quickbooks"'):
+        l1.rpc.bkpr_dumpincomecsv('bogus', 'bogus.csv')
     koinly_path = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'koinly.csv')
     l1_koinly_csv = Path(koinly_path).read_bytes()
     bolt11_exp = bytes('invoice,"test \'bolt11\' description, 🥰🪢",', 'utf-8')
