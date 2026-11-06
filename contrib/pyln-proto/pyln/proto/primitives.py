@@ -61,8 +61,18 @@ class ShortChannelId(object):
         return cls(block=block, txnum=txnum, outnum=outnum)
 
     @classmethod
-    def from_str(self, s):
-        return ShortChannelId(*map(int, s.split('x')))
+    def from_str(cls, s):
+        parts = s.split('x')
+        if len(parts) != 3:
+            raise ValueError("Malformed short_channel_id: {}".format(s))
+        block, txnum, outnum = map(int, parts)
+        # block and txnum are 3 bytes, outnum is 2: anything larger
+        # would spill into the neighbouring field in to_int().
+        if not (0 <= block <= 0xFFFFFF
+                and 0 <= txnum <= 0xFFFFFF
+                and 0 <= outnum <= 0xFFFF):
+            raise ValueError("short_channel_id {} has an element out of range".format(s))
+        return cls(block=block, txnum=txnum, outnum=outnum)
 
     def to_int(self):
         return self.block << 40 | self.txnum << 16 | self.outnum
