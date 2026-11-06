@@ -422,6 +422,14 @@ impl FromStr for ShortChannelId {
                 "Malformed short_channel_id: element count mismatch"
             ));
         }
+        // block and txindex are 3 bytes, outnum is 2 bytes: anything
+        // larger would spill into the neighbouring field.
+        if parts[0] > 0xFFFFFF || parts[1] > 0xFFFFFF || parts[2] > 0xFFFF {
+            return Err(anyhow!(
+                "Malformed short_channel_id: {} has an element out of range",
+                s
+            ));
+        }
 
         Ok(ShortChannelId(
             (parts[0] << 40) | (parts[1] << 16) | (parts[2] << 0),
@@ -893,6 +901,31 @@ mod test {
     use crate::model::responses::FundchannelResponse;
 
     use super::*;
+
+    #[test]
+    fn test_short_channel_id_from_str() {
+        let scid = ShortChannelId::from_str("16777215x16777215x65535").unwrap();
+        assert_eq!(scid.block(), 0xFFFFFF);
+        assert_eq!(scid.txindex(), 0xFFFFFF);
+        assert_eq!(scid.outnum(), 0xFFFF);
+        assert_eq!(scid.to_string(), "16777215x16777215x65535");
+
+        let scid = ShortChannelId::from_str("1x2x3").unwrap();
+        assert_eq!((scid.block(), scid.txindex(), scid.outnum()), (1, 2, 3));
+
+        // Out of range elements used to spill into the next field, so
+        // e.g. "1x0x65536" silently parsed as 1x1x0.
+        for bad in [
+            "16777216x0x0",
+            "0x16777216x0",
+            "1x0x65536",
+            "1x2",
+            "1x2x3x4",
+            "1xax3",
+        ] {
+            assert!(ShortChannelId::from_str(bad).is_err(), "{} parsed", bad);
+        }
+    }
 
     #[test]
     fn test_amount_serde() {
