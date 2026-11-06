@@ -1577,3 +1577,44 @@ def test_bkpr_report_lightning_cli_csv(node_factory):
     parsed = [next(csv.reader(io.StringIO(line))) for line in res.splitlines()]
     assert parsed
     assert all(len(row) == 3 for row in parsed)
+
+
+@pytest.mark.xfail(strict=True)
+@pytest.mark.openchannel('v1', 'Uses push-msat')
+def test_bkpr_channelsapy_total_initial(node_factory, bitcoind):
+    """apy_total_initial is total fees over *our* start balance, not the
+    channel's start balance (that's apy_total)."""
+    l1, l2, l3 = node_factory.get_nodes(3)
+
+    open_amt = 10**7
+    push_amt = 10**6 * 1000
+
+    l1.fundwallet(10**8)
+    l2.fundwallet(10**8)
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
+    # Push some funds so our start balance is below the channel's.
+    txid12 = l1.rpc.fundchannel(l2.info['id'], open_amt, push_msat=push_amt)['txid']
+    txid23 = l2.rpc.fundchannel(l3.info['id'], open_amt, push_msat=push_amt)['txid']
+    bitcoind.generate_block(6, wait_for_mempool=[txid12, txid23])
+    sync_blockheight(bitcoind, [l1, l2, l3])
+    wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 4)
+
+    # Route a payment through l2 so it earns fees.
+    inv = l3.rpc.invoice(10**9, 'test_bkpr_channelsapy_total_initial', 'desc')['bolt11']
+    l1.rpc.pay(inv)
+    wait_for(lambda: all(c['htlcs'] == [] for c in l2.rpc.listpeerchannels()['channels']))
+
+    def pct(s):
+        return Decimal(s.rstrip('%'))
+
+    earned = [a for a in l2.rpc.bkpr_channelsapy()['channels_apy']
+              if a['account'] != 'net' and pct(a['apy_total']) != 0]
+    assert earned
+    for apy in earned:
+        ratio = (Decimal(int(apy['channel_start_balance_msat']))
+                 / Decimal(int(apy['our_start_balance_msat'])))
+        assert ratio > 1
+        # Same fees over a smaller base: scales by the balance ratio.
+        expected = pct(apy['apy_total']) * ratio
+        assert abs(pct(apy['apy_total_initial']) - expected) <= Decimal('0.0001') * ratio + Decimal('0.0001')
