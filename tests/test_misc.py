@@ -4415,7 +4415,6 @@ def test_feerate_arg(node_factory):
         assert abs(l1.rpc.parsefeerate(f"{block}blocks")['perkw'] - fee) <= 1
 
 
-@pytest.mark.xfail(strict=True)
 def test_parsefeerate_named_param(node_factory):
     """The parameter is called `feerate` (multifundchannel passes it that
     way), so the schema should accept it by name too."""

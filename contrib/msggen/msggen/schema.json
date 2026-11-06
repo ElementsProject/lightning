@@ -32581,15 +32581,15 @@
       "rpc": "parsefeerate",
       "title": "Command for parsing a feerate string to a feerate",
       "description": [
-        "The **parsefeerate** command returns the current feerate for any valid *feerate_str*. This is useful for finding the current feerate that a **fundpsbt** or **utxopsbt** command might use."
+        "The **parsefeerate** command returns the current feerate for any valid *feerate*. This is useful for finding the current feerate that a **fundpsbt** or **utxopsbt** command might use."
       ],
       "request": {
         "required": [
-          "feerate_str"
+          "feerate"
         ],
         "additionalProperties": false,
         "properties": {
-          "feerate_str": {
+          "feerate": {
             "type": "string",
             "description": [
               "The feerate string to parse."
@@ -32606,14 +32606,14 @@
           "perkw": {
             "type": "u32",
             "description": [
-              "Value of *feerate_str* in kilosipa."
+              "Value of *feerate* in kilosipa."
             ],
             "additionalProperties": false
           }
         }
       },
       "errors": [
-        "The **parsefeerate** command will error if the *feerate_str* format is not recognized.",
+        "The **parsefeerate** command will error if the *feerate* format is not recognized.",
         "",
         "- -32602: If the given parameters are wrong."
       ],
