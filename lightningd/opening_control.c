@@ -7,6 +7,7 @@
 #include <common/blockheight_states.h>
 #include <common/clock_time.h>
 #include <common/fee_states.h>
+#include <common/interactivetx.h>
 #include <common/json_channel_type.h>
 #include <common/json_command.h>
 #include <common/memleak.h>
@@ -1050,6 +1051,7 @@ static struct command_result *json_fundchannel_complete(struct command *cmd,
 	u32 *funding_txout_num = NULL;
 	struct funding_channel *fc;
 	bool *withhold;
+	char *err;
 
 	if (!param_check(cmd, buffer, params,
 			 p_req("id", param_node_id, &id),
@@ -1083,6 +1085,13 @@ static struct command_result *json_fundchannel_complete(struct command *cmd,
 	if (!psbt_set_version(funding_psbt, 2)) {
 		return command_fail(cmd, LIGHTNINGD, "Could not set PSBT version.");
 	}
+
+	/* libwally can't extract a tx whose outputs come to more than
+	 * max supply, and we do below. */
+	err = interactive_tx_add_output_check_max_money(tmpctx, funding_psbt,
+							AMOUNT_SAT(0));
+	if (err)
+		return command_fail(cmd, FUNDING_PSBT_INVALID, "%s", err);
 
 	/* Figure out the correct output, and perform sanity checks. */
 	for (size_t i = 0; i < funding_psbt->num_outputs; i++) {

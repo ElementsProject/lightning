@@ -500,6 +500,67 @@ def test_v2_fail_second(node_factory, bitcoind):
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @pytest.mark.openchannel('v2')
+def test_v2_open_rpc_psbt_above_max_supply(node_factory, bitcoind):
+    """A PSBT whose outputs sum above max supply is refused, not crash us."""
+    l1, l2 = node_factory.get_nodes(2)
+
+    l1.fundwallet(10**6)
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    amount = 100000
+    psbt = l1.rpc.fundpsbt(amount, '253perkw', 250, reserve=0)['psbt']
+    start = l1.rpc.openchannel_init(l2.info['id'], amount, psbt)
+    update = l1.rpc.openchannel_update(start['channel_id'], start['psbt'])
+    assert update['commitments_secured']
+
+    # Each fits under max supply, so libwally accepts them; 10M + 11M BTC + 1 sat does not.
+    bad = l1.rpc.addpsbtoutput(1000000000000000, update['psbt'])['psbt']
+    bad = l1.rpc.addpsbtoutput(1100000000000001, bad)['psbt']
+    for method in ('openchannel_update', 'openchannel_signed'):
+        with pytest.raises(RpcError, match='exceed max supply'):
+            l1.rpc.call(method, [start['channel_id'], bad])
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+@pytest.mark.openchannel('v2')
+def test_v2_open_changed_hook_psbt_above_max_supply(node_factory, bitcoind):
+    """openchannel2_changed returning a PSBT whose outputs sum above max
+    supply fails the open, not crash the accepter's dualopend."""
+    plugin = os.path.join(os.getcwd(), 'tests/plugins/df_accept_psbt_above_max_supply.py')
+    l1, l2 = node_factory.get_nodes(2, opts=[{'may_reconnect': True},
+                                             {'plugin': plugin,
+                                              'disable-plugin': 'funder',
+                                              'may_reconnect': True}])
+    l1.fundwallet(2000000)
+    l2.fundwallet(2000000)
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    with pytest.raises(RpcError):
+        l1.rpc.fundchannel(l2.info['id'], 500000)
+    l2.daemon.wait_for_log(r'would exceed max supply')
+    for n in (l1, l2):
+        assert not n.daemon.is_in_log('FATAL SIGNAL')
+    assert bitcoind.rpc.getrawmempool() == []
+
+
+@pytest.mark.openchannel('v1')
+def test_fundchannel_complete_psbt_above_max_supply(node_factory, bitcoind):
+    """A PSBT whose outputs sum above max supply is refused, not crash us."""
+    l1, l2 = node_factory.get_nodes(2)
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    amount = 100000
+    start = l1.rpc.fundchannel_start(l2.info['id'], amount)
+    psbt = l1.rpc.call('addpsbtoutput', {'satoshi': amount,
+                                         'destination': start['funding_address']})['psbt']
+    psbt = l1.rpc.addpsbtoutput(1000000000000000, psbt)['psbt']
+    psbt = l1.rpc.addpsbtoutput(1100000000000001, psbt)['psbt']
+    with pytest.raises(RpcError, match='exceed max supply'):
+        l1.rpc.fundchannel_complete(l2.info['id'], psbt)
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+@pytest.mark.openchannel('v2')
 def test_v2_abort_after_accepter_tx_sigs(node_factory, bitcoind):
     """Opener aborts after the accepter has sent tx_signatures.
 
@@ -4226,3 +4287,68 @@ def test_duplicate_channel_id_in_db(node_factory, bitcoind):
     # And we can still start with both in the db.
     l2.restart()
     assert [c['channel_id'] for c in l2.rpc.listclosedchannels()['closedchannels']] == [cid, cid]
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+@pytest.mark.openchannel('v2')
+def test_v2_open_psbt_version_0(node_factory, bitcoind):
+    """openchannel_update and openchannel_signed, and the accepter's hooks,
+    take version 0 PSBTs, as openchannel_init already does."""
+    plugin = os.path.join(os.getcwd(), 'tests/plugins/df_accept_psbt_v0.py')
+    l1, l2 = node_factory.get_nodes(2, opts=[{},
+                                             {'plugin': plugin,
+                                              'disable-plugin': 'funder'}])
+    l1.fundwallet(2000000)
+    l2.fundwallet(2000000)
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    def v0(psbt):
+        return l1.rpc.setpsbtversion(psbt, 0)['psbt']
+
+    psbt = l1.rpc.fundpsbt(500000, '7500perkw', 250, excess_as_change=True)['psbt']
+    start = l1.rpc.openchannel_init(l2.info['id'], 500000, v0(psbt))
+    chan_id = start['channel_id']
+    update = l1.rpc.openchannel_update(chan_id, v0(start['psbt']))
+    while not update['commitments_secured']:
+        update = l1.rpc.openchannel_update(chan_id, v0(update['psbt']))
+    l1.rpc.openchannel_signed(chan_id, v0(l1.rpc.signpsbt(update['psbt'])['signed_psbt']))
+    l1.daemon.wait_for_log(' to DUALOPEND_AWAITING_LOCKIN')
+
+    bitcoind.generate_block(6, wait_for_mempool=1)
+    for n in (l1, l2):
+        n.daemon.wait_for_log(' to CHANNELD_NORMAL')
+    funding = only_one(l1.rpc.listpeerchannels()['channels'])['funding']
+    assert funding['remote_funds_msat'] == Millisatoshi(100000 * 1000)
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+@pytest.mark.openchannel('v2')
+def test_v2_rbf_psbt_version_0(node_factory, bitcoind):
+    """openchannel_bump takes a version 0 PSBT."""
+    l1, l2 = node_factory.get_nodes(2)
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    chan_amount = 100000
+    l1.fundwallet(2**24)
+
+    def v0(psbt):
+        return l1.rpc.setpsbtversion(psbt, 0)['psbt']
+
+    res = l1.rpc.fundchannel(l2.info['id'], chan_amount)
+    chan_id = res['channel_id']
+    vin = only_one(bitcoind.rpc.decoderawtransaction(res['tx'])['vin'])
+    l1.daemon.wait_for_log(' to DUALOPEND_AWAITING_LOCKIN')
+
+    startweight = 42 + 172  # base weight, funding output
+    initpsbt = l1.rpc.utxopsbt(chan_amount, find_next_feerate(l1, l2), startweight,
+                               ["{}:{}".format(vin['txid'], vin['vout'])],
+                               reservedok=True, excess_as_change=True)['psbt']
+    bump = l1.rpc.openchannel_bump(chan_id, chan_amount, v0(initpsbt))
+    update = l1.rpc.openchannel_update(chan_id, v0(bump['psbt']))
+    assert update['commitments_secured']
+    l1.rpc.openchannel_signed(chan_id, v0(l1.rpc.signpsbt(update['psbt'])['signed_psbt']))
+
+    bitcoind.generate_block(6, wait_for_mempool=1)
+    for n in (l1, l2):
+        n.daemon.wait_for_log(' to CHANNELD_NORMAL')
+    # The bump is what confirmed.
+    assert only_one(l1.rpc.listpeerchannels()['channels'])['funding_txid'] != res['txid']
