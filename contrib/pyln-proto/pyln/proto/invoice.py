@@ -53,6 +53,12 @@ def unshorten_amount(amount):
     if not re.fullmatch(r'\d+[pnum]?', str(amount)):
         raise ValueError("Invalid amount '{}'".format(amount))
 
+    # BOLT #11:
+    # - if multiplier is `p` and the last decimal of `amount` is not 0:
+    #    - MUST fail the payment.
+    if unit == 'p' and int(amount[:-1]) % 10 != 0:
+        raise ValueError("Invalid sub-millisatoshi amount '{}'".format(amount))
+
     if unit in units.keys():
         return Decimal(amount[:-1]) / units[unit]
     else:
