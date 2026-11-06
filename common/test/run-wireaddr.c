@@ -126,6 +126,19 @@ int main(int argc, char *argv[])
 	assert(parse_wireaddr(tmpctx, "127.0.0.1", 9055, NULL, &expect->u.torservice.address) == NULL);
 	assert(wireaddr_internal_eq(&addr, expect));
 
+	/* autotor address with valid boundary torport */
+	assert(parse_wireaddr_internal(tmpctx, "autotor:127.0.0.1/torport=65535", DEFAULT_PORT, false, &addr) == NULL);
+	assert(addr.u.torservice.port == 65535);
+
+	/* autotor address with invalid torports */
+	assert(streq(parse_wireaddr_internal(tmpctx, "autotor:127.0.0.1/torport=0", DEFAULT_PORT, false, &addr), "Bad :torport: number"));
+	assert(streq(parse_wireaddr_internal(tmpctx, "autotor:127.0.0.1/torport=65536", DEFAULT_PORT, false, &addr), "Bad :torport: number"));
+	assert(streq(parse_wireaddr_internal(tmpctx, "autotor:127.0.0.1/torport=65537", DEFAULT_PORT, false, &addr), "Bad :torport: number"));
+	assert(streq(parse_wireaddr_internal(tmpctx, "autotor:127.0.0.1/torport=75271", DEFAULT_PORT, false, &addr), "Bad :torport: number"));
+	assert(streq(parse_wireaddr_internal(tmpctx, "autotor:127.0.0.1/torport=-1", DEFAULT_PORT, false, &addr), "Bad :torport: number"));
+	assert(streq(parse_wireaddr_internal(tmpctx, "autotor:127.0.0.1/torport=+9735", DEFAULT_PORT, false, &addr), "Bad :torport: number"));
+	assert(streq(parse_wireaddr_internal(tmpctx, "autotor:127.0.0.1/torport= 9735", DEFAULT_PORT, false, &addr), "Bad :torport: number"));
+
 	/* statictor address */
 	assert(parse_wireaddr_internal(tmpctx, "statictor:127.0.0.1", DEFAULT_PORT, false, &addr) == NULL);
 	expect->itype = ADDR_INTERNAL_STATICTOR;
@@ -164,6 +177,19 @@ int main(int argc, char *argv[])
 	memset(expect->u.torservice.blob, 'x', sizeof(expect->u.torservice.blob)-1);
 	assert(parse_wireaddr(tmpctx, "127.0.0.1", 9055, NULL, &expect->u.torservice.address) == NULL);
 	assert(wireaddr_internal_eq(&addr, expect));
+
+	/* statictor address with valid boundary torport */
+	assert(parse_wireaddr_internal(tmpctx, "statictor:127.0.0.1/torport=65535", DEFAULT_PORT, false, &addr) == NULL);
+	assert(addr.u.torservice.port == 65535);
+
+	/* statictor address with invalid torports */
+	assert(streq(parse_wireaddr_internal(tmpctx, "statictor:127.0.0.1/torport=0", DEFAULT_PORT, false, &addr), "Bad :torport: number"));
+	assert(streq(parse_wireaddr_internal(tmpctx, "statictor:127.0.0.1/torport=65536", DEFAULT_PORT, false, &addr), "Bad :torport: number"));
+	assert(streq(parse_wireaddr_internal(tmpctx, "statictor:127.0.0.1/torport=65537", DEFAULT_PORT, false, &addr), "Bad :torport: number"));
+	assert(streq(parse_wireaddr_internal(tmpctx, "statictor:127.0.0.1/torport=75271", DEFAULT_PORT, false, &addr), "Bad :torport: number"));
+	assert(streq(parse_wireaddr_internal(tmpctx, "statictor:127.0.0.1/torport=-1", DEFAULT_PORT, false, &addr), "Bad :torport: number"));
+	assert(streq(parse_wireaddr_internal(tmpctx, "statictor:127.0.0.1/torport=+9735", DEFAULT_PORT, false, &addr), "Bad :torport: number"));
+	assert(streq(parse_wireaddr_internal(tmpctx, "statictor:127.0.0.1/torport= 9735", DEFAULT_PORT, false, &addr), "Bad :torport: number"));
 
 	/* local socket path */
 	assert(parse_wireaddr_internal(tmpctx, "/tmp/foo.sock", DEFAULT_PORT, false, &addr) == NULL);

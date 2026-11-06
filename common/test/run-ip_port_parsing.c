@@ -150,7 +150,18 @@ int main(int argc, char *argv[])
 	assert(!separate_address_and_port(tmpctx, "[::1]:8f", &ip, &port));
 	assert(!separate_address_and_port(tmpctx, "127.0.0.1:8f", &ip, &port));
 	assert(!separate_address_and_port(tmpctx, "127.0.0.1:0", &ip, &port));
+	assert(!separate_address_and_port(tmpctx, "127.0.0.1:65536", &ip, &port));
+	assert(!separate_address_and_port(tmpctx, "127.0.0.1:65537", &ip, &port));
+	assert(!separate_address_and_port(tmpctx, "127.0.0.1:75271", &ip, &port));
+	assert(!separate_address_and_port(tmpctx, "127.0.0.1:99999", &ip, &port));
+	assert(!separate_address_and_port(tmpctx, "127.0.0.1:18446744073709551616", &ip, &port));
+	assert(!separate_address_and_port(tmpctx, "127.0.0.1:-1", &ip, &port));
+	assert(!separate_address_and_port(tmpctx, "127.0.0.1:+9735", &ip, &port));
+	assert(!separate_address_and_port(tmpctx, "127.0.0.1: 9735", &ip, &port));
 	assert(!separate_address_and_port(tmpctx, "127.0.0.1:ff", &ip, &port));
+	assert(!separate_address_and_port(tmpctx, "[::1]:65536", &ip, &port));
+	assert(!separate_address_and_port(tmpctx, "[::1]:65537", &ip, &port));
+	assert(!separate_address_and_port(tmpctx, "[::1]:-1", &ip, &port));
 
 	/* ret = getaddrinfo("[::1]:80", NULL, NULL, &res); */
 	assert(separate_address_and_port(tmpctx, "[::1]:80", &ip, &port));
@@ -169,6 +180,10 @@ int main(int argc, char *argv[])
 	assert(separate_address_and_port(tmpctx, "192.168.1.1:8000", &ip, &port));
 	assert(streq(ip, "192.168.1.1"));
 	assert(port == 8000);
+
+	assert(separate_address_and_port(tmpctx, "127.0.0.1:65535", &ip, &port));
+	assert(streq(ip, "127.0.0.1"));
+	assert(port == 65535);
 
 	port = 0;
 	assert(separate_address_and_port(tmpctx, "192.168.2.255", &ip, &port));
