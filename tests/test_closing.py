@@ -641,6 +641,57 @@ def test_penalty_inhtlc(node_factory, bitcoind, executor, chainparams, anchors):
 
 
 @pytest.mark.parametrize("anchors", [False, True])
+def test_penalty_htlc_min_feerate(node_factory, bitcoind, executor, chainparams, anchors):
+    """As test_penalty_inhtlc, but with every feerate estimate at the floor:
+    the penalty for the HTLC must still pay the minimum relay fee, so its
+    weight has to include the revocation pubkey in its witness."""
+
+    if chainparams['elements'] and anchors:
+        pytest.skip('elementsd anchors unsupported')
+
+    opts = {'dev-disable-commit-after': 1,
+            'feerates': (253, 253, 253, 253)}
+    if anchors is False:
+        opts['dev-force-features'] = "-23"
+
+    l1, l2 = node_factory.line_graph(2, opts=[{**opts, 'may_fail': True,
+                                               # We try to cheat!
+                                               'broken_log': r"onchaind-chan#[0-9]*: Could not find resolution for output .*: did \*we\* cheat\?"},
+                                              opts])
+    scid = first_scid(l1, l2)
+
+    # This gets stuck once the HTLC is in l1's commitment.
+    t = executor.submit(l1.pay, l2, 100000000)
+    l1.daemon.wait_for_log('dev-disable-commit-after: disabling')
+    l2.daemon.wait_for_log('dev-disable-commit-after: disabling')
+    l1.daemon.wait_for_log('got commitsig')
+
+    tx = l1.rpc.dev_sign_last_tx(l2.info['id'])['tx']
+
+    l1.rpc.dev_reenable_commit(l2.info['id'])
+    l2.rpc.dev_reenable_commit(l1.info['id'])
+    t.result(timeout=TIMEOUT)
+    wait_for(lambda: all([only_one(n.rpc.listpeerchannels()['channels'])['htlcs'] == [] for n in (l1, l2)]))
+
+    bitcoind.rpc.sendrawtransaction(tx)
+    bitcoind.generate_block(1)
+    l2.daemon.wait_for_log(' to ONCHAIN')
+    wait_for(lambda: l2.is_local_channel_active(scid) is False)
+
+    ((_, txid1, _), (_, txid2, _)) = \
+        l2.wait_for_onchaind_txs(('OUR_PENALTY_TX',
+                                  'THEIR_REVOKED_UNILATERAL/DELAYED_CHEAT_OUTPUT_TO_THEM'),
+                                 ('OUR_PENALTY_TX',
+                                  'THEIR_REVOKED_UNILATERAL/THEIR_HTLC'))
+    assert not l2.daemon.is_in_log('min relay fee not met')
+
+    # Both get into the mempool, and are mined.
+    bitcoind.generate_block(1, wait_for_mempool=[txid1, txid2])
+    l2.daemon.wait_for_logs([r'Resolved THEIR_REVOKED_UNILATERAL/DELAYED_CHEAT_OUTPUT_TO_THEM by our proposal OUR_PENALTY_TX',
+                             r'Resolved THEIR_REVOKED_UNILATERAL/THEIR_HTLC by our proposal OUR_PENALTY_TX'])
+
+
+@pytest.mark.parametrize("anchors", [False, True])
 def test_penalty_outhtlc(node_factory, bitcoind, executor, chainparams, anchors):
     """Test penalty transaction with an outgoing HTLC"""
 
