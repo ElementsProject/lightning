@@ -686,6 +686,13 @@ static struct command_result *json_addpsbtoutput(struct command *cmd,
 				    FUNDING_PSBT_INVALID,
 				    "PSBT failed to validate.");
 
+	/* Without this flag, adding an output may invalidate a signature
+	 * already made. */
+	if (psbt->version == 2
+	    && !(psbt->tx_modifiable_flags & WALLY_PSBT_TXMOD_OUTPUTS))
+		return command_fail(cmd, FUNDING_PSBT_INVALID,
+				    "PSBT does not allow adding outputs");
+
 	if (amount_sat_less(*amount, chainparams->dust_limit))
 		return command_fail(cmd, FUND_OUTPUT_IS_DUST,
 				    "Receive amount is below dust limit (%s)",
@@ -796,6 +803,13 @@ static struct command_result *json_addpsbtinput(struct command *cmd,
 		return command_fail(cmd,
 				    FUNDING_PSBT_INVALID,
 				    "PSBT failed to validate.");
+
+	/* Without this flag, adding an input may invalidate a signature
+	 * already made. */
+	if (psbt->version == 2
+	    && !(psbt->tx_modifiable_flags & WALLY_PSBT_TXMOD_INPUTS))
+		return command_fail(cmd, FUNDING_PSBT_INVALID,
+				    "PSBT does not allow adding inputs");
 
 	if (!req_amount || amount_sat_is_zero(*req_amount))
 		return command_fail(cmd, FUND_INPUT_IS_ZERO, "Cannot add input"

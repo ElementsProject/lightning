@@ -7,6 +7,7 @@ from utils import (
     only_one, wait_for, sync_blockheight, mine_funding_to_announce,
     VALGRIND, check_coin_moves, TailableProc, scriptpubkey_addr,
     check_utxos_channel, check_feerate, did_short_sig, first_scid,
+    psbt_maps, psbt_join,
 )
 
 import os
@@ -809,6 +810,37 @@ def test_addpsbtoutput(node_factory, bitcoind, chainparams):
     assert psbt_info['tx']['vout'][n]['value'] * 100000000 == amount2
     assert psbt_info['tx']['vout'][n]['n'] == result['outnum']
     assert psbt_info['tx']['vout'][n]['scriptPubKey']['address'] == dest
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_addpsbt_unmodifiable(node_factory, bitcoind):
+    """A version 2 PSBT without PSBT_GLOBAL_TX_MODIFIABLE does not allow
+    adding inputs or outputs."""
+    l1 = node_factory.get_node()
+    l1.fundwallet(10**6)
+    glob, inputs, outputs = psbt_maps(l1.rpc.addpsbtoutput(100000)['psbt'])
+    assert any(k == b'\x06' for k, _ in glob)
+    psbt = psbt_join([(k, v) for k, v in glob if k != b'\x06'], inputs, outputs)
+
+    with pytest.raises(RpcError, match='PSBT does not allow adding outputs'):
+        l1.rpc.addpsbtoutput(100000, psbt)
+    with pytest.raises(RpcError, match='PSBT does not allow adding inputs'):
+        l1.rpc.call('addpsbtinput', {'satoshi': 200000, 'initialpsbt': psbt})
+
+    # Either flag alone allows only that.
+    def with_flags(flags):
+        return psbt_join([(k, v) for k, v in glob if k != b'\x06'] + [(b'\x06', bytes([flags]))],
+                         inputs, outputs)
+
+    inputs_only = with_flags(1)
+    l1.rpc.call('addpsbtinput', {'satoshi': 200000, 'initialpsbt': inputs_only, 'reserve': 0})
+    with pytest.raises(RpcError, match='PSBT does not allow adding outputs'):
+        l1.rpc.addpsbtoutput(100000, inputs_only)
+
+    outputs_only = with_flags(2)
+    l1.rpc.addpsbtoutput(100000, outputs_only)
+    with pytest.raises(RpcError, match='PSBT does not allow adding inputs'):
+        l1.rpc.call('addpsbtinput', {'satoshi': 200000, 'initialpsbt': outputs_only})
 
 
 def test_utxopsbt(node_factory, bitcoind, chainparams):
