@@ -91,6 +91,38 @@ static void test_block_range(struct seeker *seeker,
 	va_end(ap);
 }
 
+/* The startup peer streams gossip (gossip_counter), probes answer our
+ * queries (query_reply_counter): each must be judged on its own. */
+static void test_peer_progress(struct seeker *seeker)
+{
+	struct peer *peer = tal(seeker, struct peer);
+
+	seeker->daemon->dev_fast_gossip = false;
+	peer->gossip_counter = peer->query_reply_counter = 0;
+
+	seeker->state = STARTING_UP;
+	selected_peer(seeker, peer);
+	/* Grace period on first check */
+	assert(peer_made_progress(seeker, peer));
+	/* Still streaming: not finished. */
+	peer->gossip_counter += GOSSIP_SEEKER_INTERVAL(seeker);
+	assert(peer_made_progress(seeker, peer));
+	/* Query replies don't count while it streams. */
+	peer->query_reply_counter += GOSSIP_SEEKER_INTERVAL(seeker);
+	assert(!peer_made_progress(seeker, peer));
+
+	seeker->state = PROBING_SCIDS;
+	selected_peer(seeker, peer);
+	assert(peer_made_progress(seeker, peer));
+	peer->query_reply_counter += GOSSIP_SEEKER_INTERVAL(seeker);
+	assert(peer_made_progress(seeker, peer));
+	/* Streamed gossip doesn't answer a probe. */
+	peer->gossip_counter += GOSSIP_SEEKER_INTERVAL(seeker);
+	assert(!peer_made_progress(seeker, peer));
+
+	tal_free(peer);
+}
+
 int main(int argc, char *argv[])
 {
 	struct seeker *seeker = tal(NULL, struct seeker);
@@ -128,6 +160,8 @@ int main(int argc, char *argv[])
 			 0, 29,
 			 60, 100,
 			 -1);
+
+	test_peer_progress(seeker);
 
 	tal_free(seeker);
 	common_shutdown();

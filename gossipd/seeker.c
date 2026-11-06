@@ -60,6 +60,10 @@ struct seeker {
 	/* Channels we've heard about, but don't know (by scid). */
 	UINTMAP(bool) unknown_scids;
 	size_t num_unknown_scids;
+	/* Did we drop any because unknown_scids was full? */
+	bool unknown_scids_overflowed;
+	/* Channels we knew when we last rescanned for those. */
+	size_t rescan_num_chans;
 
 	/* Channels we've heard about newer timestamps for (by scid).  u8 is
 	 * query_flags. */
@@ -109,6 +113,16 @@ static void begin_check_timer(struct seeker *seeker)
 					   seeker_check, seeker);
 }
 
+/* The startup peer streams gossip at us; everyone else is answering
+ * our queries. */
+static size_t progress_counter(const struct seeker *seeker,
+			       const struct peer *peer)
+{
+	if (seeker->state == STARTING_UP)
+		return peer->gossip_counter;
+	return peer->query_reply_counter;
+}
+
 /* Set this peer as our random peer; return false if NULL. */
 static bool selected_peer(struct seeker *seeker, struct peer *peer)
 {
@@ -119,7 +133,7 @@ static bool selected_peer(struct seeker *seeker, struct peer *peer)
 
 	/* Give it some grace in case we immediately hit timer */
 	seeker->prev_gossip_count
-		= peer->query_reply_counter - GOSSIP_SEEKER_INTERVAL(seeker);
+		= progress_counter(seeker, peer) - GOSSIP_SEEKER_INTERVAL(seeker);
 	return true;
 }
 
@@ -152,6 +166,8 @@ struct seeker *new_seeker(struct daemon *daemon)
 	seeker->daemon = daemon;
 	uintmap_init(&seeker->unknown_scids);
 	seeker->num_unknown_scids = 0;
+	seeker->unknown_scids_overflowed = false;
+	seeker->rescan_num_chans = 0;
 	uintmap_init(&seeker->stale_scids);
 	seeker->random_peer = NULL;
 	u32 gossipers = daemon->autoconnect_seeker_peers > SEEKER_GOSSIPERS ?
@@ -206,9 +222,10 @@ static bool peer_made_progress(struct seeker *seeker, const struct peer *peer)
 	/* Has it made progress (at least one valid update per second)?  If
 	 * not, we assume it's finished, and if it hasn't, we'll end up
 	 * querying backwards in next steps. */
-	if (peer->query_reply_counter
-	    >= seeker->prev_gossip_count + GOSSIP_SEEKER_INTERVAL(seeker)) {
-		seeker->prev_gossip_count = peer->query_reply_counter;
+	size_t counter = progress_counter(seeker, peer);
+
+	if (counter >= seeker->prev_gossip_count + GOSSIP_SEEKER_INTERVAL(seeker)) {
+		seeker->prev_gossip_count = counter;
 		return true;
 	}
 
@@ -336,9 +353,30 @@ static bool peer_can_take_scid_query(const struct peer *peer)
 		&& !peer->scid_query_outstanding;
 }
 
+static bool seek_any_unknown_scids(struct seeker *seeker);
+static void probe_all_scids(struct seeker *seeker);
+
 static void scid_query_done(struct peer *peer, bool complete)
 {
 	struct seeker *seeker = peer->daemon->seeker;
+
+	/* We only ask for 8000 at once: get the rest first. */
+	if (seek_any_unknown_scids(seeker))
+		return;
+
+	/* A probe found more unknown scids than we could hold, so go
+	 * back and get the ones we dropped.  Unless the last time didn't
+	 * get us any more channels (e.g. we can't validate them). */
+	if (seeker->unknown_scids_overflowed) {
+		size_t num_chans = gossmap_num_chans(gossmap_manage_get_gossmap(seeker->daemon->gm));
+
+		seeker->unknown_scids_overflowed = false;
+		if (num_chans > seeker->rescan_num_chans) {
+			seeker->rescan_num_chans = num_chans;
+			probe_all_scids(seeker);
+			return;
+		}
+	}
 
 	/* Peer completed!  OK, start random scid probe in case we're
 	 * still missing gossip. */
@@ -692,9 +730,11 @@ static bool add_unknown_scid(struct seeker *seeker,
 			     struct short_channel_id scid,
 			     struct peer *peer)
 {
-	/* We can't know everything! */
-	if (seeker->num_unknown_scids > 10000)
+	/* We can't know everything (at once)! */
+	if (seeker->num_unknown_scids > 10000) {
+		seeker->unknown_scids_overflowed = true;
 		return false;
+	}
 
 	/* Check we're not already getting this one. */
 	if (!uintmap_add(&seeker->unknown_scids, scid.u64, true))
@@ -876,6 +916,17 @@ static void maybe_get_new_peer(struct seeker *seeker)
 	tal_free(random_node);
 }
 
+/* Ask a random peer for all channels */
+static void probe_all_scids(struct seeker *seeker)
+{
+	seeker->scid_probe_start = chainparams->when_lightning_became_cool;
+	seeker->scid_probe_end = seeker->daemon->current_blockheight;
+	if (seeker->scid_probe_start > seeker->scid_probe_end)
+		seeker->scid_probe_start = 0;
+	seeker->nannounce_scids = NULL;
+	peer_gossip_probe_scids(seeker);
+}
+
 static void check_firstpeer(struct seeker *seeker)
 {
 	struct peer *peer = seeker->random_peer;
@@ -917,11 +968,7 @@ static void check_firstpeer(struct seeker *seeker)
 	}
 
 	/* Ask a random peer for all channels, in case we're missing */
-	seeker->scid_probe_start = chainparams->when_lightning_became_cool;
-	seeker->scid_probe_end = seeker->daemon->current_blockheight;
-	if (seeker->scid_probe_start > seeker->scid_probe_end)
-		seeker->scid_probe_start = 0;
-	peer_gossip_probe_scids(seeker);
+	probe_all_scids(seeker);
 }
 
 static void check_probe(struct seeker *seeker,
@@ -941,7 +988,8 @@ static void check_probe(struct seeker *seeker,
 
 	status_peer_debug(&peer->id,
 			  "has only moved gossip %zu->%zu for probe, giving up on it",
-			  seeker->prev_gossip_count, peer->query_reply_counter);
+			  seeker->prev_gossip_count,
+			  progress_counter(seeker, peer));
 	seeker->random_peer = NULL;
 	restart(seeker);
 }
