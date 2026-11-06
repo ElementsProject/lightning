@@ -217,7 +217,7 @@ static struct command_result *after_listpeerchannels(struct command *cmd,
 	lost_state_timer =
 	    global_timer(plugin, time_from_sec(CHECK_PEER_INTERVAL),
 			 do_check_lost_peer, NULL);
-	return command_still_pending(cmd);
+	return timer_complete(cmd);
 }
 
 static struct command_result *check_lost_peer(struct command *cmd)
