@@ -28,7 +28,6 @@ def test_encode():
     assert(i == 'lnbc1u1p0zyt04pp5wcnjhxu4k98td0kw8ng9zqrd3246cc7r559a063tk5mp9v9fxf9sdpqw3jhxazlwpshjhmjda6hgetzdahhxapjxqyjw5q0s43wfg4f6yl200hc805kc9u97dp7m6j98fz33uzf4t6kp73trcz8fxkrpass063j2j4quxjr4th2r72lk27tm2aw383zgnl8zpgajsq5kmll8')
 
 
-@pytest.mark.xfail(strict=True)
 def test_decode_sub_msat_amount():
     # BOLT #11 test vector "Invalid sub-millisatoshi precision"
     i = 'lnbc2500000001p1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5xysxxatsyp3k7enxv4jsxqzpusp5zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygs9qrsgq0lzc236j96a95uv0m3umg28gclm5lqxtqqwk32uuk4k6673k6n5kfvx3d2h8s295fad45fdhmusm8sjudfhlf6dcsxmfvkeywmjdkxcp99202x'
