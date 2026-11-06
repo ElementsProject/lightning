@@ -1579,7 +1579,6 @@ def test_bkpr_report_lightning_cli_csv(node_factory):
     assert all(len(row) == 3 for row in parsed)
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.openchannel('v1', 'Uses push-msat')
 def test_bkpr_channelsapy_total_initial(node_factory, bitcoind):
     """apy_total_initial is total fees over *our* start balance, not the
