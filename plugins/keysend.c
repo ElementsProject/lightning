@@ -488,7 +488,7 @@ static struct command_result *htlc_accepted_call(struct command *cmd,
 
 		/* Longest (unknown) text field wins. */
 		if (!field->meta
-		    && utf8_check(field->value, field->length)
+		    && utf8_check_text(field->value, field->length)
 		    && (!desc_field || field->length > desc_field->length))
 			desc_field = field;
 	}

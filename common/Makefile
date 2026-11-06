@@ -105,6 +105,7 @@ COMMON_SRC_NOGEN :=				\
 	common/timeout.c			\
 	common/trace.c				\
 	common/tx_roles.c			\
+	common/unicode_category.c		\
 	common/utils.c				\
 	common/utxo.c				\
 	common/version.c			\
