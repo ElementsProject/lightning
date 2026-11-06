@@ -585,7 +585,6 @@ def test_xpay_preapprove(node_factory):
         l1.rpc.xpay(inv)
 
 
-@pytest.mark.xfail(strict=True)
 def test_xpay_check_keeps_counter(node_factory):
     """`check xpay` must not use up a payment id (issue #9281)"""
     l1, l2 = node_factory.line_graph(2, wait_for_announce=True)
