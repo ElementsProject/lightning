@@ -2352,6 +2352,20 @@ def test_bcli(node_factory, bitcoind, chainparams):
     assert not resp["success"] and "decode failed" in resp["errmsg"]
 
 
+def test_bcli_sendrawtransaction_already_in_chain(node_factory, bitcoind):
+    """Sending a transaction that is already in the chain succeeds: bitcoind
+    refuses it as already in the UTXO set, which bcli takes as success."""
+    l1 = node_factory.get_node()
+
+    _, txid = l1.fundwallet(10**6)
+    rawtx = bitcoind.rpc.gettransaction(txid)["hex"]
+
+    resp = l1.rpc.call("sendrawtransaction", {"tx": rawtx, "allowhighfees": False})
+    assert resp["success"], resp
+    # The message differs between bitcoind versions, the error code does not.
+    assert "error code: -27" in resp["errmsg"]
+
+
 def test_bcli_concurrent(node_factory, bitcoind, executor):
     """Test bcli handles concurrent requests while `getblockfrompeer` retry is active.
 
