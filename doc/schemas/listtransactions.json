@@ -51,13 +51,13 @@
             "blockheight": {
               "type": "u32",
               "description": [
-                "The block height of this tx."
+                "The block height of this tx, or 0 if it is not in a block (yet, or any more after a reorg)."
               ]
             },
             "txindex": {
               "type": "u32",
               "description": [
-                "The transaction number within the block."
+                "The transaction number within the block, or 0 if it is not in a block."
               ]
             },
             "locktime": {
