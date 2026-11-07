@@ -6,6 +6,7 @@ from lsps2_mock_helpers import (
     lsps2_mock_forwards,
     lsps2_mock_menu_entry,
     lsps2_mock_nodes,
+    lsps2_mock_pay,
     lsps2_mock_pay_var_invoice,
     lsps2_mock_request,
 )
@@ -676,6 +677,72 @@ def test_lsps2_mock_open_disconnect(node_factory):
     assert err.value.error["data"]["failcode"] == 0x1007
 
     assert not only_one(lsps2_mock_events(l2, "open_failed"))["connected"]
+
+
+def test_lsps2_mock_open_retry(node_factory):
+    """If the client disconnects before funding_signed, the LSP's open for
+    the payer's retry gets the zero-conf channel: the failed open did not
+    spend the client's approval."""
+    l1, l2, l3 = lsps2_mock_nodes(
+        node_factory,
+        client_opts={
+            "disconnect": ["-WIRE_FUNDING_SIGNED"],
+            "may_reconnect": True,
+            "dev-no-reconnect": None,
+        },
+    )
+    inv = l1.rpc.lsps_lsps2_invoice(
+        lsp_id=l2.info["id"], amount_msat="any", description="retry", label="retry"
+    )
+
+    with pytest.raises(RpcError) as err:
+        lsps2_mock_pay(l1, l2, l3, inv, 10_000_000)
+    assert err.value.error["data"]["failcode"] == 0x1007
+    assert not only_one(lsps2_mock_events(l2, "open_failed"))["connected"]
+
+    # On reconnect, the LSP doesn't know the channel it never got our
+    # funding_signed for: it errors and hangs up, and we forget the channel.
+    l1.rpc.connect(l2.info["id"], "localhost", l2.port)
+    wait_for(lambda: l1.rpc.listpeers(l2.info["id"])["peers"] == [])
+
+    l1.rpc.connect(l2.info["id"], "localhost", l2.port)
+    assert lsps2_mock_pay(l1, l2, l3, inv, 10_000_000)["payment_preimage"]
+    only_one(lsps2_mock_events(l2, "open"))
+    assert l1.rpc.listdatastore(["lsps"]) == {"datastore": []}
+
+
+def test_lsps2_mock_two_buys(node_factory):
+    """Two outstanding JIT invoices from the same LSP each get their
+    zero-conf channel."""
+    l1, l2, l3 = lsps2_mock_nodes(node_factory)
+    # A confirmed UTXO for each channel: the first one's change isn't.
+    l2.fundwallet(1_000_000)
+    invs = [
+        l1.rpc.lsps_lsps2_invoice(
+            lsp_id=l2.info["id"], amount_msat="any", description=label, label=label
+        )
+        for label in ("buy-1", "buy-2")
+    ]
+
+    for inv in invs:
+        assert lsps2_mock_pay(l1, l2, l3, inv, 10_000_000)["payment_preimage"]
+    assert len(lsps2_mock_events(l2, "open")) == 2
+    assert l1.rpc.listdatastore(["lsps"]) == {"datastore": []}
+
+
+def test_lsps2_mock_open_twice(node_factory):
+    """The LSP opens a second zero-conf channel for a buy whose channel is
+    open. The client refuses it."""
+    l1, l2, l3 = lsps2_mock_nodes(node_factory)
+    # A confirmed UTXO for each channel: the first one's change isn't.
+    l2.fundwallet(1_000_000)
+    l2.rpc.call("lsps2-mock-configure", {"config": {"open": {"behavior": "twice"}}})
+
+    assert lsps2_mock_pay_var_invoice(l1, l2, l3, 10_000_000)["payment_preimage"]
+    wait_for(lambda: lsps2_mock_events(l2, "open_failed"))
+    assert "not on our allowlist" in only_one(lsps2_mock_events(l2, "open_failed"))["error"]
+    only_one(lsps2_mock_events(l2, "open"))
+    only_one(l1.rpc.listpeerchannels(l2.info["id"])["channels"])
 
 
 def test_lsps2_mock_request_error(node_factory):
