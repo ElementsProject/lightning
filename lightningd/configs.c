@@ -471,7 +471,8 @@ static const char *base_conf_file(const tal_t *ctx,
 	if (ld->config_filename) {
 		if (must_exist)
 			*must_exist = true;
-		return ld->config_filename;
+		/* Copy, so callers can always tal_steal() the result. */
+		return tal_strdup(ctx, ld->config_filename);
 	} else {
 		if (must_exist)
 			*must_exist = false;
