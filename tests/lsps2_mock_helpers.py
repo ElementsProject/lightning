@@ -7,11 +7,11 @@ import os
 LSPS2_MOCK = os.path.join(os.path.dirname(__file__), "plugins/lsps2_mock.py")
 
 
-def lsps2_mock_nodes(node_factory, client_opts=None):
+def lsps2_mock_nodes(node_factory, client_opts=None, lsp_opts=None):
     """Client l1, LSP l2 running the mock service, payer l3.
 
     l3 has a public channel to l2; l1 is only connected to l2.
-    `client_opts` are added to l1's options.
+    `client_opts` are added to l1's options, `lsp_opts` to l2's.
     """
     l1, l2, l3 = node_factory.get_nodes(
         3,
@@ -22,6 +22,7 @@ def lsps2_mock_nodes(node_factory, client_opts=None):
                 # The mock deducts the opening fee; no forwarding fee on top.
                 "fee-base": 0,
                 "fee-per-satoshi": 0,
+                **(lsp_opts or {}),
             },
             {},
         ],
