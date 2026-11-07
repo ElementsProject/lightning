@@ -688,6 +688,7 @@ static struct command_result *getutxout(struct command *cmd,
 	struct json_stream *response;
 	struct bitcoin_tx_output output;
 	const char *err;
+	const char **argv;
 
 	/* bitcoin-cli wants strings. */
 	if (!param(cmd, buf, toks,
@@ -696,11 +697,23 @@ static struct command_result *getutxout(struct command *cmd,
 	           NULL))
 		return command_param_failed();
 
-	res = run_bitcoin_cli(cmd, cmd->plugin, "gettxout", txid, vout, NULL);
+	/* A failed call (bitcoind unreachable, still starting up, ...) says
+	 * nothing about the output, and lightningd would take a null answer
+	 * as "spent". -rpcwait retries while bitcoind is unreachable or warming
+	 * up, until bitcoin-retry-timeout, and passes any other error straight
+	 * back. -rpcwaittimeout=0 means "forever", so wait at least a second.
+	 * -rpcwait flags go on the command line, not stdin. */
+	argv = gather_args(cmd, NULL, "-rpcwait",
+			   tal_fmt(tmpctx, "-rpcwaittimeout=%"PRIu64,
+				   bitcoind->retry_timeout ? bitcoind->retry_timeout : 1),
+			   "gettxout", txid, vout, NULL);
+	res = execute_bitcoin_cli(cmd, cmd->plugin, argv, NULL);
+	if (res->exitstatus != 0)
+		return command_err(cmd, res, "command failed");
 
 	/* As of at least v0.15.1.0, bitcoind returns "success" but an empty
 	   string on a spent txout. */
-	if (res->exitstatus != 0 || res->output_len == 0) {
+	if (res->output_len == 0) {
 		response = jsonrpc_stream_success(cmd);
 		json_add_null(response, "amount");
 		json_add_null(response, "script");
