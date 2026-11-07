@@ -1877,3 +1877,37 @@ def test_xpay_unknown_next_peer_excludes_node(node_factory, bitcoind):
     assert 0 < unknown <= 2, msg
     assert elapsed < 10, 'spent the retry window walking the same node: {}'.format(msg)
     assert 'disabling node' in msg or 'Repeated unknown_next_peer' in msg
+
+
+@pytest.mark.parametrize("slow_mode", [False, True])
+def test_listpays_after_xpay_failure(node_factory, slow_mode):
+    """Failed commands are terminal before and after private layer cleanup."""
+    plugin = os.path.join(os.path.dirname(__file__), 'plugins/hold-xpay-cleanup.py')
+    l1, l2 = node_factory.line_graph(2, opts=[{'plugin': plugin, 'xpay-slow-mode': slow_mode}, {}])
+    assert l1.rpc.releasecleanup() == {}
+
+    invoices = []
+    try:
+        # Hold two cleanup requests so neither can overwrite the other.
+        for i in range(2):
+            label = f'cleanup-failure-{i}'
+            inv = l2.rpc.invoice(100000, label, 'description')
+            invoices.append(inv)
+            l2.rpc.delinvoice(label, 'unpaid')
+            with pytest.raises(RpcError, match="Destination said it doesn't know invoice"):
+                l1.rpc.xpay(inv['bolt11'])
+            l1.daemon.wait_for_log('Holding xpay cleanup')
+
+        assert len(l1.rpc.askrene_listlayers()['layers']) == 3
+        for inv in invoices:
+            pay = only_one(l1.rpc.listpays(payment_hash=inv['payment_hash'])['pays'])
+            assert pay['status'] == 'failed'
+    finally:
+        l1.rpc.releasecleanup()
+
+    # Only the persistent xpay layer remains once both removals complete.
+    wait_for(lambda: len(l1.rpc.askrene_listlayers()['layers']) == 1)
+    for inv in invoices:
+        pay = only_one(l1.rpc.listpays(payment_hash=inv['payment_hash'])['pays'])
+        assert pay['status'] == 'failed'
+    assert l1.rpc.releasecleanup() == {}

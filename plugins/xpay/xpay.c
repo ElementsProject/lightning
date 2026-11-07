@@ -2773,7 +2773,9 @@ bool attempt_ongoing(struct plugin *plugin, const struct sha256 *payment_hash,
 	const struct payment *payment;
 
 	list_for_each(&xpay->payments, payment, list) {
-		if (sha256_eq(&payment->payment_hash, payment_hash) &&
+		/* A finished payment can remain in this list during cleanup. */
+		if (payment->cmd &&
+		    sha256_eq(&payment->payment_hash, payment_hash) &&
 		    payment->group_id == groupid)
 			return true;
 	}
