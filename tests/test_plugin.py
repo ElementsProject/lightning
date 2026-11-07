@@ -2456,6 +2456,65 @@ def test_bcli_retry_timeout(node_factory, bitcoind):
     assert getblockfrompeer_count > 0
 
 
+def gettxout_failing(times=None):
+    """A bitcoind proxy mock for `gettxout` that fails the way bitcoind does
+    while it starts up: `times` times, then lets the calls through (never,
+    if None)."""
+    failed = 0
+
+    def mock(r):
+        nonlocal failed
+        if times is not None and failed >= times:
+            return None
+        failed += 1
+        return {"id": r["id"], "result": None,
+                "error": {"code": -28, "message": "Loading block index..."}}
+    return mock
+
+
+def test_bcli_getutxout_failure(node_factory, bitcoind):
+    """A failed `gettxout` doesn't make bcli answer that the output is
+    spent: it retries, and fails once `bitcoin-retry-timeout` has passed."""
+    l1 = node_factory.get_node(options={"bitcoin-retry-timeout": 5})
+    _, txid = l1.fundwallet(10**6)
+    out = only_one([o for o in l1.rpc.listfunds()["outputs"] if o["txid"] == txid])
+    args = {"txid": txid, "vout": out["output"]}
+
+    # An error that retrying can't fix comes back at once.
+    with pytest.raises(RpcError, match=r"command failed \(error code: -8"):
+        l1.rpc.call("getutxout", {"txid": "zz", "vout": 0})
+
+    l1.daemon.rpcproxy.mock_rpc("gettxout", gettxout_failing(times=2))
+    txo = l1.rpc.call("getutxout", args)
+    assert txo == {"amount": f"{10**6}sat", "script": out["scriptpubkey"]}
+    assert l1.daemon.rpcproxy.mock_counts["gettxout"] == 3
+
+    l1.daemon.rpcproxy.mock_rpc("gettxout", gettxout_failing())
+    with pytest.raises(RpcError, match="timeout on transient error"):
+        l1.rpc.call("getutxout", args)
+
+
+def test_bcli_getutxout_failure_fundchannel_cancel(node_factory, bitcoind):
+    """With `gettxout` failing for a while, `fundchannel_cancel` still finds
+    the funding tx, which was broadcast by another wallet (here bitcoind),
+    and doesn't forget the channel."""
+    l1, l2 = node_factory.get_nodes(2)
+    l1.fundwallet(10**7)
+    l1.connect(l2)
+
+    amount = 10**6
+    start = l1.rpc.fundchannel_start(l2.info["id"], amount)
+    prep = l1.rpc.txprepare([{start["funding_address"]: amount}])
+    l1.rpc.fundchannel_complete(l2.info["id"], prep["psbt"])
+    signed = l1.rpc.signpsbt(prep["psbt"])["signed_psbt"]
+    bitcoind.rpc.sendrawtransaction(l1.rpc.dev_finalizepsbt(signed)["tx"])
+
+    l1.daemon.rpcproxy.mock_rpc("gettxout", gettxout_failing(times=2))
+    with pytest.raises(RpcError, match="funding transaction has been broadcast"):
+        l1.rpc.fundchannel_cancel(l2.info["id"])
+    only_one(l1.rpc.listpeerchannels(l2.info["id"])["channels"])
+
+
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'p2tr addresses not supported by elementsd')
 def test_hook_crash(node_factory, executor, bitcoind):
     """Verify that we fail over if a plugin crashes while handling a hook.
