@@ -84,6 +84,13 @@ def lsps2_mock_pay_var_invoice(l1, l2, l3, amt, label="lsp-jit-channel-0"):
     inv = l1.rpc.lsps_lsps2_invoice(
         lsp_id=l2.info["id"], amount_msat="any", description=label, label=label
     )
+    return lsps2_mock_pay(l1, l2, l3, inv, amt)
+
+
+def lsps2_mock_pay(l1, l2, l3, inv, amt):
+    """l3 pays `amt` through l2 to l1's JIT invoice `inv`.
+
+    Returns the result of waitsendpay; raises if the payment failed."""
     dec = l3.rpc.decode(inv["bolt11"])
     routehint = only_one(only_one(dec["routes"]))
     chanid = only_one(l3.rpc.listpeerchannels(l2.info["id"])["channels"])[
