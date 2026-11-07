@@ -640,8 +640,9 @@ static const char *config_not_writable(const tal_t *ctx,
 	 * amend the config file. */
 	if (!ld->setconfig_file) {
 		fname = base_conf_file(tmpctx, ld, NULL);
+		/* Copy: with --conf, fname is ld->config_filename itself. */
 		if (!dir_writable(fname))
-			return tal_steal(ctx, fname);
+			return tal_strdup(ctx, fname);
 	} else {
 		/* We will try to append config.setconfig */
 		if (!file_writable(ld->setconfig_file))
