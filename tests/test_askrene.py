@@ -3327,3 +3327,121 @@ def test_bias_aging(node_factory):
     }
     expect["node_biases"] = []
     assert l1.rpc.askrene_listlayers("test_layers") == {"layers": [expect]}
+
+
+@pytest.mark.xfail(strict=True)
+def test_flows_account_for_fees(node_factory):
+    """A probability function that neglects the fees together with the flows
+    would fail this test producing a far from optimal flow partition."""
+    known_min = 50_000_000
+    known_max = 50_050_000
+    pay_amount = 60_000_000
+    chan02_capacity = 1000_000
+    btc_capacity = 100_000_000
+    # 0->1->3 is cheap in probability up to 50k sats, but 50k plus fees nearly
+    # touches the known maximum there so the optimal solution is to send a value
+    # x through 0->1->3 such that x+fees == 50k and send the rest through
+    # 0->2->3 that even with unkown liquidity it is a huge channel.
+    gsfile, nodemap = generate_gossip_store(
+        [
+            GenChannel(0, 1, capacity_sats=1000_000),
+            GenChannel(
+                1, 3, forward=GenChannel.Half(propfee=1000), capacity_sats=btc_capacity
+            ),
+            GenChannel(0, 2, capacity_sats=chan02_capacity),
+            GenChannel(
+                2, 3, forward=GenChannel.Half(propfee=1000), capacity_sats=btc_capacity
+            ),
+        ]
+    )
+    l1 = node_factory.get_node(gossip_store_file=gsfile.name)
+
+    chan01 = only_one(
+        [
+            c
+            for c in l1.rpc.listchannels(source=nodemap[0])["channels"]
+            if c["destination"] == nodemap[1]
+        ]
+    )
+    scidd01 = f"{chan01['short_channel_id']}/{chan01['direction']}"
+    chan02 = only_one(
+        [
+            c
+            for c in l1.rpc.listchannels(source=nodemap[0])["channels"]
+            if c["destination"] == nodemap[2]
+        ]
+    )
+    scidd02 = f"{chan02['short_channel_id']}/{chan02['direction']}"
+    l1.rpc.askrene_create_layer("known_cap")
+    l1.rpc.askrene_inform_channel(
+        layer="known_cap",
+        short_channel_id_dir=scidd01,
+        amount_msat=known_min,
+        inform="unconstrained",
+    )
+    l1.rpc.askrene_inform_channel(
+        layer="known_cap",
+        short_channel_id_dir=scidd01,
+        amount_msat=known_max + 1,
+        inform="constrained",
+    )
+
+    # A generous maxfee must not prevent us from using the known capacity.
+    for maxfee in (
+        pay_amount // 900,
+        pay_amount // 500,
+        pay_amount // 200,
+        pay_amount // 100,
+        pay_amount // 50,
+        pay_amount // 10,
+        pay_amount,
+    ):
+        routes = l1.rpc.getroutes(
+            source=nodemap[0],
+            destination=nodemap[3],
+            amount_msat=pay_amount,
+            layers=["known_cap"],
+            maxfee_msat=maxfee,
+            final_cltv=99,
+        )["routes"]
+        assert sum(r["amount_msat"] for r in routes) == pay_amount
+
+        # We use the known channel almost to its full capacity, fees included,
+        # but never beyond it.
+        amounts01 = [
+            h["amount_out_msat"]
+            for r in routes
+            for h in r["path"]
+            if h["short_channel_id_dir"] == scidd01
+        ]
+        assert len(amounts01) == 1
+        amount01 = amounts01[0]
+        amounts02 = [
+            h["amount_out_msat"]
+            for r in routes
+            for h in r["path"]
+            if h["short_channel_id_dir"] == scidd02
+        ]
+        assert len(amounts02) == 1
+        amount02 = amounts02[0]
+
+        # total at 0->1 and 0->2 must match the final destination amount plus
+        # fees that are the same over each route.
+        assert amount01 + amount02 == 60_060_000
+
+        # over 0->1->3 we use almost all of its known_min, that is a necessary
+        # condition for optimality
+        assert known_min * 0.98 <= amount01
+
+        # whatever that is, it must not exceed the known_max
+        assert amount01 <= known_max
+
+        prob_fail01 = (
+            (amount01 - known_min) / (known_max - known_min)
+            if amount01 >= known_min
+            else 0.0
+        )
+        prob_fail02 = (amount02) / (chan02_capacity * 1000)
+
+        # the optimal solution is when prob_fail01 is near prob_fail02
+        assert abs(prob_fail01 - prob_fail02) < 0.02
