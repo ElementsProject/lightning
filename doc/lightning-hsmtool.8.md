@@ -40,6 +40,13 @@ of the specified channel with the specified peer,
 identified by the channel database index.
 Specify *password* if the `hsm_secret_path` is encrypted.
 
+**dumpcommitments** **--point-only** *node\_id* *channel\_dbid* *commitment\_number* *hsm\_secret\_path*
+
+  Show only the per-commitment point of commitment *commitment\_number*
+of the specified channel.
+Unlike the form above, this prints no secrets, so the result is safe to
+give to the peer of that channel.
+
 **guesstoremote** *p2wpkh* *node\_id* *max\_channel\_dbid* *hsm\_secret\_path* \[*password*\]
 
   Brute-force the private key to our funds from a remote unilateral close
