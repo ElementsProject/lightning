@@ -79,6 +79,9 @@ struct channel_observation_out {
 void layer_get_intels(const struct layer *layer,
 		      struct channel_intel_out **intels);
 
+void layer_get_observations(const struct layer *layer,
+			    struct channel_observation_out **observations);
+
 /* Create a layer hash table */
 struct layer_name_hash *new_layer_name_hash(const tal_t *ctx);
 

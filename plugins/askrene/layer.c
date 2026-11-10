@@ -1218,6 +1218,31 @@ void layer_get_intels(const struct layer *layer,
 	}
 }
 
+void layer_get_observations(const struct layer *layer,
+			    struct channel_observation_out **observations)
+{
+	const struct channel_observations *chan_obs;
+	struct channel_observations_htable_iter it;
+	struct channel_observation_out current;
+	struct observation *o;
+
+	current.layer = layer;
+	for (chan_obs = channel_observations_htable_first(
+		 layer->channel_observations, &it);
+	     chan_obs; chan_obs = channel_observations_htable_next(
+			   layer->channel_observations, &it)) {
+		for (size_t i = 0; i < tal_count(chan_obs->obs); i++) {
+			o = &chan_obs->obs[i];
+			current.result = o->result;
+			current.scidd.scid = chan_obs->scid;
+			current.scidd.dir = o->dir;
+			current.timestamp = o->timestamp;
+			current.amount = o->amount;
+			tal_arr_expand(observations, current);
+		}
+	}
+}
+
 const struct constraint *layer_add_constraint(struct layer *layer,
 					      const struct short_channel_id_dir *scidd,
 					      u64 timestamp,
