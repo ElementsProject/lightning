@@ -38,9 +38,53 @@ struct channel_intel_out {
 	size_t index;
 };
 
-/* It appends all intels from this layer into out_intels */
+enum observation_result {
+	/* Temporary failure, usually not enough liquidity.  Use this to
+	 * indicate that we tried x amount but the current hop returned
+	 * TEMPORARY_CHANNEL_FAILURE. */
+	OBSERVATION_HTLC_FAILED,
+
+	/* The HTLC was accepted and the channel commitment advanced, it does
+	 * not necessarily means the funds moved.  Use this to communicate that
+	 * up to this hop the x amount was accepted, but the payment failed
+	 * further in the route. */
+	OBSERVATION_HTLC_ACCEPTED,
+
+	/* The HTLC was accepted and the funds moved to the other side of the
+	 * channel.  Use this to communicate that the payment succeeded. */
+	OBSERVATION_HTLC_FORWARDED,
+};
+
+/* An observation reflects the outcome of a payment attempt through a channel. */
+struct channel_observation_out {
+	/* Which layer contained it */
+	const struct layer *layer;
+
+	/* Which channel and direction. */
+	struct short_channel_id_dir scidd;
+
+	/* Outcome of the attempt. */
+	enum observation_result result;
+
+	/* Time this observation was gathered. */
+	u64 timestamp;
+
+	/* The HTLC amount. */
+	struct amount_msat amount;
+
+	/* Position before sorting, order after combining all layers. */
+	size_t index;
+};
+
+/* It appends all intels from this layer into out_intels.
+ * It doesn't set channel_intel_out.index */
 void layer_get_intels(const struct layer *layer,
 		      struct channel_intel_out **out_intels);
+
+/* It appends all channel observations from this layer into "out_observations"
+ * It doesn't set channel_observation_out.index */
+void layer_get_observations(const struct layer *layer,
+			    struct channel_observation_out **out_observations);
 
 /* Create a layer hash table */
 struct layer_name_hash *new_layer_name_hash(const tal_t *ctx);
@@ -185,5 +229,12 @@ bool layer_disables_chan(const struct layer *layer, const struct short_channel_i
 
 /* For explain_failure: did this layer disable this node? */
 bool layer_disables_node(const struct layer *layer, const struct node_id *node);
+
+/* Add channel observation to this layer. */
+const struct channel_observations *layer_add_observation(struct layer *layer,
+							 const struct short_channel_id_dir *scidd,
+							 enum observation_result result,
+							 u64 timestamp,
+							 struct amount_msat amount);
 
 #endif /* LIGHTNING_PLUGINS_ASKRENE_LAYER_H */

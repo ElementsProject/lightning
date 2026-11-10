@@ -93,6 +93,58 @@ static inline bool channel_intel_eq_scid(const struct channel_intel *intelarr,
 HTABLE_DEFINE_NODUPS_TYPE(struct channel_intel, channel_intel_scid, hash_scid,
 			  channel_intel_eq_scid, channel_intel_hash);
 
+/* One observation event. */
+struct observation {
+	/* Outcome of the attempt. */
+	enum observation_result result;
+
+	/* This is the direction of the payment, but it affects both ways. */
+	int dir;
+
+	/* Time this observation was gathered. */
+	u64 timestamp;
+
+	/* The HTLC amount. */
+	struct amount_msat amount;
+};
+
+static const char *fmt_observation_result(enum observation_result result)
+{
+	switch (result) {
+	case OBSERVATION_HTLC_FAILED:
+		return "failed";
+	case OBSERVATION_HTLC_ACCEPTED:
+		return "accepted";
+	case OBSERVATION_HTLC_FORWARDED:
+		return "succeeded";
+	}
+	return "invalid";
+}
+
+/* Holds all observations belonging to the same channel in both directions. */
+struct channel_observations {
+	/* All these observations regard this channel. */
+	struct short_channel_id scid;
+
+	/* Many observations. */
+	struct observation *obs;
+};
+
+static struct short_channel_id channel_observations_scid(const struct channel_observations *c)
+{
+	return c->scid;
+}
+
+static bool channel_observations_eq(const struct channel_observations *c,
+				    struct short_channel_id scid)
+{
+	return short_channel_id_eq(scid, channel_observations_scid(c));
+}
+
+HTABLE_DEFINE_NODUPS_TYPE(struct channel_observations,
+			  channel_observations_scid, hash_scid,
+			  channel_observations_eq, channel_observations_htable);
+
 static struct short_channel_id
 local_channel_scid(const struct local_channel *lc)
 {
@@ -181,6 +233,8 @@ struct layer {
 	/* Constraints and impressions, indexed by scid */
 	struct channel_intel_hash *channel_intels;
 
+	struct channel_observations_htable *channel_observations;
+
 	/* Bias, indexed by scid+dir */
 	struct bias_hash *biases;
 
@@ -220,6 +274,7 @@ struct layer *new_temp_layer(const tal_t *ctx, struct askrene *askrene, const ch
 	l->local_channels = new_htable(l, local_channel_hash);
 	l->local_updates = new_htable(l, local_update_hash);
 	l->channel_intels = new_htable(l, channel_intel_hash);
+	l->channel_observations = new_htable(l, channel_observations_htable);
 	l->biases = new_htable(l, bias_hash);
 	l->node_biases = new_htable(l, node_bias_hash);
 	l->disabled_nodes = tal_arr(l, struct node_id, 0);
@@ -668,6 +723,49 @@ static void load_channel_impression(struct plugin *plugin,
 		add_impression(layer, &scidd, timestamp, amount);
 }
 
+static const struct channel_observations *add_observation(struct layer *layer,
+							  const struct short_channel_id_dir *scidd,
+							  enum observation_result result,
+							  u64 timestamp,
+							  struct amount_msat amount)
+{
+	struct observation obs;
+	struct channel_observations *layer_obs =
+	    channel_observations_htable_get(layer->channel_observations,
+					    scidd->scid);
+
+	obs.dir = scidd->dir;
+	obs.result = result;
+	obs.timestamp = timestamp;
+	obs.amount = amount;
+
+	if (!layer_obs) {
+		/* No observations yet for this scid */
+		layer_obs = tal(layer, struct channel_observations);
+		layer_obs->scid = scidd->scid;
+		layer_obs->obs = tal_arr(layer_obs, struct observation, 0);
+		channel_observations_htable_add(layer->channel_observations,
+						layer_obs);
+	}
+	tal_arr_expand(&layer_obs->obs, obs);
+	return layer_obs;
+}
+
+static void load_channel_observation(struct plugin *plugin,
+				     struct layer *layer,
+				     const u8 **cursor,
+				     size_t *len)
+{
+	struct short_channel_id_dir scidd;
+	struct amount_msat amount;
+	u64 timestamp;
+	u16 result;
+
+	if (fromwire_dstore_channel_observation(cursor, len, &scidd,
+						&result, &timestamp, &amount))
+		add_observation(layer, &scidd, result, timestamp, amount);
+}
+
 static void towire_save_channel_bias(u8 **data, const struct bias *bias)
 {
 	towire_dstore_channel_bias_v2(data,
@@ -824,8 +922,11 @@ static void save_complete_layer(struct layer *layer)
 	const struct local_update *lu;
 	struct local_update_hash_iter luit;
 	const struct channel_intel *intelarr;
+	const struct channel_observations *chan_obs;
+	const struct observation *o;
 	struct channel_intel_hash_iter intelit;
 	struct bias_hash_iter biasit;
+	struct channel_observations_htable_iter obsit;
 	const struct bias *b;
 	struct node_bias_hash_iter nbiasit;
 	const struct node_bias *nb;
@@ -863,6 +964,19 @@ static void save_complete_layer(struct layer *layer)
 			}
 		}
 	}
+	for (chan_obs = channel_observations_htable_first(
+		 layer->channel_observations, &obsit);
+	     chan_obs; chan_obs = channel_observations_htable_next(
+			   layer->channel_observations, &obsit)) {
+		for (size_t i = 0; i < tal_count(chan_obs->obs); i++) {
+			struct short_channel_id_dir scidd;
+			o = &chan_obs->obs[i];
+			scidd.dir = o->dir;
+			scidd.scid = chan_obs->scid;
+			towire_dstore_channel_observation(
+			    &data, &scidd, o->result, o->timestamp, o->amount);
+		}
+	}
 	for (b = bias_hash_first(layer->biases, &biasit);
 	     b;
 	     b = bias_hash_next(layer->biases, &biasit)) {
@@ -894,7 +1008,7 @@ static void populate_layer(struct askrene *askrene,
 
 	layer = add_layer(askrene, layername, true);
 	plugin_log(askrene->plugin, LOG_DBG,
-		   "Loaded level %s (%zu bytes)",
+		   "Loaded layer %s (%zu bytes)",
 		   layer->name, len);
 
 	while (len != 0) {
@@ -925,6 +1039,9 @@ static void populate_layer(struct askrene *askrene,
 			continue;
 		case DSTORE_CHANNEL_IMPRESSION:
 			load_channel_impression(askrene->plugin, layer, &data, &len);
+			continue;
+		case DSTORE_CHANNEL_OBSERVATION:
+			load_channel_observation(askrene->plugin, layer, &data, &len);
 			continue;
 		}
 		plugin_err(askrene->plugin, "Invalid type %i in datastore: layer %s %s",
@@ -1188,6 +1305,31 @@ void layer_get_intels(const struct layer *layer,
 	}
 }
 
+void layer_get_observations(const struct layer *layer,
+			    struct channel_observation_out **out_observations)
+{
+	const struct channel_observations *chan_obs;
+	struct channel_observations_htable_iter it;
+	struct channel_observation_out current;
+	struct observation *o;
+
+	current.layer = layer;
+	for (chan_obs = channel_observations_htable_first(
+		 layer->channel_observations, &it);
+	     chan_obs; chan_obs = channel_observations_htable_next(
+			   layer->channel_observations, &it)) {
+		for (size_t i = 0; i < tal_count(chan_obs->obs); i++) {
+			o = &chan_obs->obs[i];
+			current.result = o->result;
+			current.scidd.scid = chan_obs->scid;
+			current.scidd.dir = o->dir;
+			current.timestamp = o->timestamp;
+			current.amount = o->amount;
+			tal_arr_expand(out_observations, current);
+		}
+	}
+}
+
 const struct constraint *layer_add_constraint(struct layer *layer,
 					      const struct short_channel_id_dir *scidd,
 					      u64 timestamp,
@@ -1199,6 +1341,47 @@ const struct constraint *layer_add_constraint(struct layer *layer,
 	c = add_constraint(layer, scidd, timestamp, min, max);
 	save_channel_constraint(layer, c);
 	return c;
+}
+
+/* Saves the very last channel observation event.  The others are assumed to be
+ * already in the datastore. */
+static void towire_save_last_channel_observation(u8 **data,
+						 const struct channel_observations *layer_obs)
+{
+	const size_t len = tal_count(layer_obs->obs);
+	const struct observation *obs = &layer_obs->obs[len-1];
+	struct short_channel_id_dir scidd;
+	scidd.dir = obs->dir;
+	scidd.scid = layer_obs->scid;
+	towire_dstore_channel_observation(data,
+					  &scidd,
+					  obs->result,
+					  obs->timestamp,
+					  obs->amount);
+}
+
+static void save_channel_observations(struct layer *layer,
+				      const struct channel_observations *layer_obs)
+{
+	u8 *data;
+	if (!layer->persistent)
+		return;
+
+	data = tal_arr(tmpctx, u8, 0);
+	towire_save_last_channel_observation(&data, layer_obs);
+	append_layer_datastore(layer, data);
+}
+
+const struct channel_observations *layer_add_observation(struct layer *layer,
+							 const struct short_channel_id_dir *scidd,
+							 enum observation_result result,
+							 u64 timestamp,
+							 struct amount_msat amount)
+{
+	const struct channel_observations *layer_obs =
+	    add_observation(layer, scidd, result, timestamp, amount);
+	save_channel_observations(layer, layer_obs);
+	return layer_obs;
 }
 
 const struct impression *layer_add_impression(struct layer *layer,
@@ -1244,6 +1427,29 @@ size_t layer_trim_constraints(struct layer *layer, u64 cutoff)
 	struct bias *bias;
 	struct node_bias_hash_iter node_it;
 	struct node_bias *node_bias;
+	struct channel_observations *chan_obs;
+	struct channel_observations_htable_iter ob_it;
+
+	for (chan_obs = channel_observations_htable_first(
+		 layer->channel_observations, &ob_it);
+	     chan_obs; chan_obs = channel_observations_htable_next(
+			   layer->channel_observations, &ob_it)) {
+		size_t n = 0;
+		for (size_t i = 0; i < tal_count(chan_obs->obs); i++) {
+			if (chan_obs->obs[i].timestamp < cutoff) {
+				num_removed++;
+				continue;
+			}
+			chan_obs->obs[n++] = chan_obs->obs[i];
+		}
+		tal_resize(&chan_obs->obs, n);
+
+		if (tal_count(chan_obs->obs) == 0) {
+			channel_observations_htable_delval(
+			    layer->channel_observations, &ob_it);
+			tal_free(chan_obs);
+		}
+	}
 
 	modified_intelarr = tal_arr(tmpctx, const struct channel_intel *, 0);
 	for (intelarr = channel_intel_hash_first(layer->channel_intels, &intelit);
@@ -1442,6 +1648,23 @@ void json_add_constraint(struct json_stream *js,
 	json_object_end(js);
 }
 
+static void json_add_single_observation(struct json_stream *js,
+					const char *fieldname,
+					const struct observation *obs,
+					const struct short_channel_id *scid,
+					const struct layer *layer)
+{
+	struct short_channel_id_dir scidd = {.dir = obs->dir, .scid = *scid};
+	json_object_start(js, fieldname);
+	if (layer)
+		json_add_string(js, "layer", layer->name);
+	json_add_short_channel_id_dir(js, "short_channel_id_dir", scidd);
+	json_add_u64(js, "timestamp", obs->timestamp);
+	json_add_amount_msat(js, "amount_msat", obs->amount);
+	json_add_string(js, "result", fmt_observation_result(obs->result));
+	json_object_end(js);
+}
+
 void json_add_impression(struct json_stream *js,
 			 const char *fieldname,
 			 const struct impression *imp,
@@ -1499,6 +1722,8 @@ static void json_add_layer(struct json_stream *js,
 	struct local_update_hash_iter luit;
 	struct channel_intel_hash_iter intelit;
 	const struct channel_intel *intelarr;
+	struct channel_observations_htable_iter obsit;
+	const struct channel_observations *chan_obs;
 	struct bias_hash_iter biasit;
 	const struct bias *b;
 	struct node_bias_hash_iter node_it;
@@ -1548,6 +1773,16 @@ static void json_add_layer(struct json_stream *js,
 				continue;
 			json_add_impression(js, NULL, intelarr[i].impression, NULL);
 		}
+	}
+	json_array_end(js);
+	json_array_start(js, "observations");
+	for (chan_obs = channel_observations_htable_first(
+		 layer->channel_observations, &obsit);
+	     chan_obs; chan_obs = channel_observations_htable_next(
+			   layer->channel_observations, &obsit)) {
+		for (size_t i = 0; i < tal_count(chan_obs->obs); i++)
+			json_add_single_observation(js, NULL, &chan_obs->obs[i],
+						    &chan_obs->scid, NULL);
 	}
 	json_array_end(js);
 	json_array_start(js, "biases");

@@ -12451,6 +12451,49 @@ pub mod responses {
 	    pub timestamp: u64,
 	}
 
+	/// ['The result of the observation.']
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+	#[allow(non_camel_case_types)]
+	pub enum AskrenelistlayersLayersObservationsResult {
+	    #[serde(rename = "failed")]
+	    FAILED = 0,
+	    #[serde(rename = "accepted")]
+	    ACCEPTED = 1,
+	    #[serde(rename = "succeeded")]
+	    SUCCEEDED = 2,
+	}
+
+	impl TryFrom<i32> for AskrenelistlayersLayersObservationsResult {
+	    type Error = anyhow::Error;
+	    fn try_from(c: i32) -> Result<AskrenelistlayersLayersObservationsResult, anyhow::Error> {
+	        match c {
+	    0 => Ok(AskrenelistlayersLayersObservationsResult::FAILED),
+	    1 => Ok(AskrenelistlayersLayersObservationsResult::ACCEPTED),
+	    2 => Ok(AskrenelistlayersLayersObservationsResult::SUCCEEDED),
+	            o => Err(anyhow::anyhow!("Unknown variant {} for enum AskrenelistlayersLayersObservationsResult", o)),
+	        }
+	    }
+	}
+
+	impl ToString for AskrenelistlayersLayersObservationsResult {
+	    fn to_string(&self) -> String {
+	        match self {
+	            AskrenelistlayersLayersObservationsResult::FAILED => "FAILED",
+	            AskrenelistlayersLayersObservationsResult::ACCEPTED => "ACCEPTED",
+	            AskrenelistlayersLayersObservationsResult::SUCCEEDED => "SUCCEEDED",
+	        }.to_string()
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AskrenelistlayersLayersObservations {
+	    // Path `AskRene-ListLayers.layers[].observations[].result`
+	    pub result: AskrenelistlayersLayersObservationsResult,
+	    pub amount_msat: Amount,
+	    pub short_channel_id_dir: ShortChannelIdDir,
+	    pub timestamp: u64,
+	}
+
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct AskrenelistlayersLayersBiases {
 	    #[serde(skip_serializing_if = "Option::is_none")]
@@ -12512,6 +12555,8 @@ pub mod responses {
 	    pub disabled_channels: Option<Vec<ShortChannelIdDir>>,
 	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
 	    pub impressions: Option<Vec<AskrenelistlayersLayersImpressions>>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub observations: Option<Vec<AskrenelistlayersLayersObservations>>,
 	    pub biases: Vec<AskrenelistlayersLayersBiases>,
 	    pub channel_updates: Vec<AskrenelistlayersLayersChannelUpdates>,
 	    pub constraints: Vec<AskrenelistlayersLayersConstraints>,
@@ -12540,6 +12585,49 @@ pub mod responses {
 
 	#[derive(Clone, Debug, Deserialize, Serialize)]
 	pub struct AskrenecreatelayerLayersImpressions {
+	    pub amount_msat: Amount,
+	    pub short_channel_id_dir: ShortChannelIdDir,
+	    pub timestamp: u64,
+	}
+
+	/// ['The result of the observation.']
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+	#[allow(non_camel_case_types)]
+	pub enum AskrenecreatelayerLayersObservationsResult {
+	    #[serde(rename = "failed")]
+	    FAILED = 0,
+	    #[serde(rename = "accepted")]
+	    ACCEPTED = 1,
+	    #[serde(rename = "succeeded")]
+	    SUCCEEDED = 2,
+	}
+
+	impl TryFrom<i32> for AskrenecreatelayerLayersObservationsResult {
+	    type Error = anyhow::Error;
+	    fn try_from(c: i32) -> Result<AskrenecreatelayerLayersObservationsResult, anyhow::Error> {
+	        match c {
+	    0 => Ok(AskrenecreatelayerLayersObservationsResult::FAILED),
+	    1 => Ok(AskrenecreatelayerLayersObservationsResult::ACCEPTED),
+	    2 => Ok(AskrenecreatelayerLayersObservationsResult::SUCCEEDED),
+	            o => Err(anyhow::anyhow!("Unknown variant {} for enum AskrenecreatelayerLayersObservationsResult", o)),
+	        }
+	    }
+	}
+
+	impl ToString for AskrenecreatelayerLayersObservationsResult {
+	    fn to_string(&self) -> String {
+	        match self {
+	            AskrenecreatelayerLayersObservationsResult::FAILED => "FAILED",
+	            AskrenecreatelayerLayersObservationsResult::ACCEPTED => "ACCEPTED",
+	            AskrenecreatelayerLayersObservationsResult::SUCCEEDED => "SUCCEEDED",
+	        }.to_string()
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AskrenecreatelayerLayersObservations {
+	    // Path `AskRene-Create-Layer.layers[].observations[].result`
+	    pub result: AskrenecreatelayerLayersObservationsResult,
 	    pub amount_msat: Amount,
 	    pub short_channel_id_dir: ShortChannelIdDir,
 	    pub timestamp: u64,
@@ -12602,6 +12690,8 @@ pub mod responses {
 	    pub disabled_channels: Option<Vec<ShortChannelIdDir>>,
 	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
 	    pub impressions: Option<Vec<AskrenecreatelayerLayersImpressions>>,
+	    #[serde(skip_serializing_if = "crate::is_none_or_empty")]
+	    pub observations: Option<Vec<AskrenecreatelayerLayersObservations>>,
 	    pub biases: Vec<AskrenecreatelayerLayersBiases>,
 	    pub channel_updates: Vec<AskrenecreatelayerLayersChannelUpdates>,
 	    pub constraints: Vec<AskrenecreatelayerLayersConstraints>,
