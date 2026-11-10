@@ -1,6 +1,7 @@
 #include "config.h"
 #include <bitcoin/locktime.h>
 #include <bitcoin/script.h>
+#include <ccan/crypto/ripemd160/ripemd160.h>
 #include <ccan/mem/mem.h>
 #include <common/derive_basepoints.h>
 #include <common/hsm_secret.h>
@@ -75,7 +76,7 @@ bool hsmtool_recoverhtlc_derive_keys(
 }
 
 /* Rebuild an HTLC witness script from the peer's commitment. */
-u8 *hsmtool_recoverhtlc_wscript(
+static u8 *recovery_wscript(
 	const tal_t *ctx,
 	enum recoverhtlc_kind kind,
 	bool anchors,
@@ -115,6 +116,7 @@ struct recoverhtlc_match *hsmtool_recoverhtlc_match_script(
 	const u8 *wscript)
 {
 	struct recoverhtlc_match *match = tal(ctx, struct recoverhtlc_match);
+	/* Commitment outputs contain the P2WSH hash, not the witness script. */
 	const u8 *scriptpubkey = scriptpubkey_p2wsh(tmpctx, wscript);
 
 	match->kind = kind;
@@ -134,4 +136,37 @@ struct recoverhtlc_match *hsmtool_recoverhtlc_match_script(
 	if (tal_count(match->outnums) == 0)
 		return tal_free(match);
 	return match;
+}
+
+/* Find the requested HTLC without requiring its channel type. */
+struct recoverhtlc_match *hsmtool_recoverhtlc_find_outputs(
+	const tal_t *ctx,
+	const struct bitcoin_tx *tx,
+	enum recoverhtlc_kind kind,
+	const struct recoverhtlc_keys *keys,
+	const struct sha256 *payment_hash,
+	u32 cltv_expiry)
+{
+	struct ripemd160 payment_ripemd;
+
+	ripemd160(&payment_ripemd,
+		  payment_hash->u.u8, sizeof(payment_hash->u.u8));
+
+	/* Anchors append `1 CSV DROP`, changing the P2WSH hash.  Try both
+	 * forms; only the negotiated form can match a commitment output. */
+	for (int anchors = 0; anchors <= 1; anchors++) {
+		struct recoverhtlc_match *match;
+		const u8 *wscript = recovery_wscript(
+			tmpctx, kind, anchors, keys,
+			&payment_ripemd, cltv_expiry);
+
+		if (!wscript)
+			return NULL;
+		match = hsmtool_recoverhtlc_match_script(
+			ctx, tx, kind, anchors, wscript);
+		/* A match also records which anchor form was used. */
+		if (match)
+			return match;
+	}
+	return NULL;
 }

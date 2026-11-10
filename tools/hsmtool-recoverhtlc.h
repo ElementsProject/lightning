@@ -3,6 +3,7 @@
 #include "config.h"
 #include <bitcoin/privkey.h>
 #include <bitcoin/tx.h>
+#include <ccan/crypto/sha256/sha256.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
 
@@ -38,19 +39,19 @@ bool hsmtool_recoverhtlc_derive_keys(
 	const char *hsm_secret_path,
 	struct recoverhtlc_keys *keys);
 
-u8 *hsmtool_recoverhtlc_wscript(
-	const tal_t *ctx,
-	enum recoverhtlc_kind kind,
-	bool anchors,
-	const struct recoverhtlc_keys *keys,
-	const struct ripemd160 *payment_ripemd,
-	u32 cltv_expiry);
-
 struct recoverhtlc_match *hsmtool_recoverhtlc_match_script(
 	const tal_t *ctx,
 	const struct bitcoin_tx *tx,
 	enum recoverhtlc_kind kind,
 	bool anchors,
 	const u8 *wscript);
+
+struct recoverhtlc_match *hsmtool_recoverhtlc_find_outputs(
+	const tal_t *ctx,
+	const struct bitcoin_tx *tx,
+	enum recoverhtlc_kind kind,
+	const struct recoverhtlc_keys *keys,
+	const struct sha256 *payment_hash,
+	u32 cltv_expiry);
 
 #endif /* LIGHTNING_TOOLS_HSMTOOL_RECOVERHTLC_H */
