@@ -1,6 +1,7 @@
 #include "config.h"
 #include <bitcoin/locktime.h>
 #include <bitcoin/script.h>
+#include <ccan/mem/mem.h>
 #include <common/derive_basepoints.h>
 #include <common/hsm_secret.h>
 #include <common/htlc_tx.h>
@@ -103,4 +104,34 @@ u8 *hsmtool_recoverhtlc_wscript(
 					    &keyset, anchors, false);
 	}
 	abort();
+}
+
+/* Collect every output with this witness script, including identical MPPs. */
+struct recoverhtlc_match *hsmtool_recoverhtlc_match_script(
+	const tal_t *ctx,
+	const struct bitcoin_tx *tx,
+	enum recoverhtlc_kind kind,
+	bool anchors,
+	const u8 *wscript)
+{
+	struct recoverhtlc_match *match = tal(ctx, struct recoverhtlc_match);
+	const u8 *scriptpubkey = scriptpubkey_p2wsh(tmpctx, wscript);
+
+	match->kind = kind;
+	match->anchors = anchors;
+	match->wscript = tal_dup_arr(match, u8, wscript, tal_bytelen(wscript), 0);
+	match->outnums = tal_arr(match, size_t, 0);
+
+	for (size_t i = 0; i < tx->wtx->num_outputs; i++) {
+		const struct wally_tx_output *output = &tx->wtx->outputs[i];
+
+		if (!memeq(output->script, output->script_len,
+			   scriptpubkey, tal_bytelen(scriptpubkey)))
+			continue;
+		tal_arr_expand(&match->outnums, i);
+	}
+
+	if (tal_count(match->outnums) == 0)
+		return tal_free(match);
+	return match;
 }
