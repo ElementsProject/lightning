@@ -8,6 +8,14 @@
 #include <sodium.h>
 #include <sys/types.h>
 
+struct node_id;
+
+/* Derive the seed for one channel from the first 32 bytes of hsm_secret. */
+void derive_channel_seed(struct secret *channel_seed,
+			 const u8 hsm_secret[32],
+			 const struct node_id *peer_id,
+			 u64 dbid);
+
 /* Length constants for encrypted HSM secret files */
 #define HS_HEADER_LEN crypto_secretstream_xchacha20poly1305_HEADERBYTES
 #define HS_CIPHERTEXT_LEN \

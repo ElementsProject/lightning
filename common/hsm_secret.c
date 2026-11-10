@@ -1,11 +1,13 @@
 #include "config.h"
 #include <assert.h>
+#include <ccan/crypto/hkdf_sha256/hkdf_sha256.h>
 #include <ccan/mem/mem.h>
 #include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/str/str.h>
 #include <common/errcode.h>
 #include <common/hsm_secret.h>
 #include <common/memleak.h>
+#include <common/node_id.h>
 #include <common/utils.h>
 #include <errno.h>
 #include <sys/stat.h>
@@ -27,6 +29,34 @@
 #define ENCRYPTED_HSM_SECRET_LEN (HS_HEADER_LEN + HS_CIPHERTEXT_LEN)
 #define PASSPHRASE_HASH_LEN 32
 #define HSM_SECRET_PLAIN_SIZE 32
+
+/*~ This gets the seed for this particular channel. */
+void derive_channel_seed(struct secret *channel_seed,
+			 const u8 hsm_secret[32],
+			 const struct node_id *peer_id,
+			 u64 dbid)
+{
+	struct secret channel_base;
+	u8 input[sizeof(peer_id->k) + sizeof(dbid)];
+
+	/*~ "per-peer" should be "per-channel", but Hysterical Raisins. */
+	hkdf_sha256(&channel_base, sizeof(channel_base), NULL, 0,
+		    hsm_secret, 32, "peer seed", strlen("peer seed"));
+	/*~ We use the compressed encoding of the pubkey, because it is
+	 * platform independent.  Since the dbid is unique, however, it is
+	 * completely unnecessary, but existing users cannot be broken. */
+	/* FIXME: lnd has a nicer BIP32 method for deriving secrets which we
+	 * should migrate to. */
+	memcpy(input, peer_id->k, sizeof(peer_id->k));
+	BUILD_ASSERT(sizeof(peer_id->k) == PUBKEY_CMPR_LEN);
+	/*~ For all that talk about platform independence, note that this field
+	 * is endian-dependent!  But let's face it, little-endian won.  In
+	 * related news, we do not support EBCDIC or middle-endian. */
+	memcpy(input + PUBKEY_CMPR_LEN, &dbid, sizeof(dbid));
+	hkdf_sha256(channel_seed, sizeof(*channel_seed),
+		    input, sizeof(input), &channel_base, sizeof(channel_base),
+		    "per-peer seed", strlen("per-peer seed"));
+}
 
 /* Helper function to validate a mnemonic string */
 enum hsm_secret_error validate_mnemonic(const char *mnemonic)
