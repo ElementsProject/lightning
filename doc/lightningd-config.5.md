@@ -566,7 +566,7 @@ command, so they invoices can also be paid onchain.
 
 * **xpay-slow-mode**=*BOOL* [plugin `xpay`, *dynamic*]
 
-  Setting this makes `xpay` wait until all parts have failed/succeeded before returning.  Usually this is unnecessary, as xpay will return on the first success (we have the preimage, if they don't take all the parts that's their problem) or failure (the destination could succeed another part, but it would mean it was only partially paid).  The default is `false`.
+  Setting this makes `xpay` wait until all parts have failed or succeeded before returning a failure.  Usually this is unnecessary, as xpay will return on the first failure (the destination could succeed another part, but it would mean it was only partially paid).  Success is always returned as soon as we have the preimage: at that point any future attempt to pay this invoice will succeed immediately without sending any HTLC, so there is no possibility of overpay.  The default is `false`.
 
 * **xpay-user-layer**=*name* [plugin `xpay`]
 
