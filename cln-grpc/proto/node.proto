@@ -4142,6 +4142,7 @@ message AskrenelistlayersLayers {
 	repeated AskrenelistlayersLayersBiases biases = 8;
 	repeated AskrenelistlayersLayersNodeBiases node_biases = 9;
 	repeated AskrenelistlayersLayersImpressions impressions = 10;
+	repeated AskrenelistlayersLayersObservations observations = 11;
 }
 
 message AskrenelistlayersLayersBiases {
@@ -4193,6 +4194,19 @@ message AskrenelistlayersLayersNodeBiases {
 	uint64 timestamp = 5;
 }
 
+message AskrenelistlayersLayersObservations {
+	// AskRene-ListLayers.layers[].observations[].result
+	enum AskrenelistlayersLayersObservationsResult {
+		FAILED = 0;
+		ACCEPTED = 1;
+		SUCCEEDED = 2;
+	}
+	Amount amount_msat = 1;
+	AskrenelistlayersLayersObservationsResult result = 2;
+	string short_channel_id_dir = 3;
+	uint64 timestamp = 4;
+}
+
 message AskrenecreatelayerRequest {
 	string layer = 1;
 	optional bool persistent = 2;
@@ -4213,6 +4227,7 @@ message AskrenecreatelayerLayers {
 	repeated AskrenecreatelayerLayersBiases biases = 8;
 	repeated AskrenecreatelayerLayersNodeBiases node_biases = 9;
 	repeated AskrenecreatelayerLayersImpressions impressions = 10;
+	repeated AskrenecreatelayerLayersObservations observations = 11;
 }
 
 message AskrenecreatelayerLayersBiases {
@@ -4256,6 +4271,19 @@ message AskrenecreatelayerLayersNodeBiases {
 	sint64 out_bias = 3;
 	optional string description = 4;
 	uint64 timestamp = 5;
+}
+
+message AskrenecreatelayerLayersObservations {
+	// AskRene-Create-Layer.layers[].observations[].result
+	enum AskrenecreatelayerLayersObservationsResult {
+		FAILED = 0;
+		ACCEPTED = 1;
+		SUCCEEDED = 2;
+	}
+	Amount amount_msat = 1;
+	AskrenecreatelayerLayersObservationsResult result = 2;
+	string short_channel_id_dir = 3;
+	uint64 timestamp = 4;
 }
 
 message AskreneremovelayerRequest {

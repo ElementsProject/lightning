@@ -1,9 +1,19 @@
 {
     "grpc-enum-map": {
+        "Askrene-create-layerLayersObservationsResult": {
+            "accepted": 1,
+            "failed": 0,
+            "succeeded": 2
+        },
         "Askrene-inform-channelInform": {
             "constrained": 0,
             "succeeded": 2,
             "unconstrained": 1
+        },
+        "Askrene-listlayersLayersObservationsResult": {
+            "accepted": 1,
+            "failed": 0,
+            "succeeded": 2
         },
         "Bkpr-dumpincomecsvCsvFormat": {
             "cointracker": 0,
@@ -804,6 +814,7 @@
             "AskRene-Create-Layer.layers[].impressions[]": 10,
             "AskRene-Create-Layer.layers[].layer": 1,
             "AskRene-Create-Layer.layers[].node_biases[]": 9,
+            "AskRene-Create-Layer.layers[].observations[]": 11,
             "AskRene-Create-Layer.layers[].persistent": 2
         },
         "Askrene-create-layerLayersBiases": {
@@ -842,6 +853,12 @@
             "AskRene-Create-Layer.layers[].node_biases[].node": 1,
             "AskRene-Create-Layer.layers[].node_biases[].out_bias": 3,
             "AskRene-Create-Layer.layers[].node_biases[].timestamp": 5
+        },
+        "Askrene-create-layerLayersObservations": {
+            "AskRene-Create-Layer.layers[].observations[].amount_msat": 1,
+            "AskRene-Create-Layer.layers[].observations[].result": 2,
+            "AskRene-Create-Layer.layers[].observations[].short_channel_id_dir": 3,
+            "AskRene-Create-Layer.layers[].observations[].timestamp": 4
         },
         "Askrene-create-layerRequest": {
             "AskRene-Create-Layer.layer": 1,
@@ -899,6 +916,7 @@
             "AskRene-ListLayers.layers[].impressions[]": 10,
             "AskRene-ListLayers.layers[].layer": 1,
             "AskRene-ListLayers.layers[].node_biases[]": 9,
+            "AskRene-ListLayers.layers[].observations[]": 11,
             "AskRene-ListLayers.layers[].persistent": 5
         },
         "Askrene-listlayersLayersBiases": {
@@ -946,6 +964,12 @@
             "AskRene-ListLayers.layers[].node_biases[].node": 1,
             "AskRene-ListLayers.layers[].node_biases[].out_bias": 3,
             "AskRene-ListLayers.layers[].node_biases[].timestamp": 5
+        },
+        "Askrene-listlayersLayersObservations": {
+            "AskRene-ListLayers.layers[].observations[].amount_msat": 1,
+            "AskRene-ListLayers.layers[].observations[].result": 2,
+            "AskRene-ListLayers.layers[].observations[].short_channel_id_dir": 3,
+            "AskRene-ListLayers.layers[].observations[].timestamp": 4
         },
         "Askrene-listlayersRequest": {
             "AskRene-ListLayers.layer": 1
@@ -4891,6 +4915,7 @@
         "AskrenecreatelayerLayers": {
             "1": "plain string",
             "10": "repeated message",
+            "11": "repeated message",
             "2": "plain bool",
             "3": "repeated bytes",
             "4": "repeated string",
@@ -4937,6 +4962,12 @@
             "4": "optional string",
             "5": "plain uint64"
         },
+        "AskrenecreatelayerLayersObservations": {
+            "1": "plain Amount",
+            "2": "plain enum",
+            "3": "plain string",
+            "4": "plain uint64"
+        },
         "AskrenecreatelayerRequest": {
             "1": "plain string",
             "2": "optional bool"
@@ -4975,6 +5006,7 @@
         "AskrenelistlayersLayers": {
             "1": "plain string",
             "10": "repeated message",
+            "11": "repeated message",
             "2": "repeated bytes",
             "3": "repeated message",
             "4": "repeated message",
@@ -5022,6 +5054,12 @@
             "3": "plain sint64",
             "4": "optional string",
             "5": "plain uint64"
+        },
+        "AskrenelistlayersLayersObservations": {
+            "1": "plain Amount",
+            "2": "plain enum",
+            "3": "plain string",
+            "4": "plain uint64"
         },
         "AskrenelistlayersRequest": {
             "1": "optional string"
@@ -8861,6 +8899,26 @@
             "added": "v25.12",
             "deprecated": null
         },
+        "AskRene-Create-Layer.layers[].observations[]": {
+            "added": "v26.12",
+            "deprecated": null
+        },
+        "AskRene-Create-Layer.layers[].observations[].amount_msat": {
+            "added": "v26.12",
+            "deprecated": null
+        },
+        "AskRene-Create-Layer.layers[].observations[].result": {
+            "added": "v26.12",
+            "deprecated": null
+        },
+        "AskRene-Create-Layer.layers[].observations[].short_channel_id_dir": {
+            "added": "v26.12",
+            "deprecated": null
+        },
+        "AskRene-Create-Layer.layers[].observations[].timestamp": {
+            "added": "v26.12",
+            "deprecated": null
+        },
         "AskRene-Create-Layer.layers[].persistent": {
             "added": "v24.11",
             "deprecated": null
@@ -9167,6 +9225,26 @@
         },
         "AskRene-ListLayers.layers[].node_biases[].timestamp": {
             "added": "v25.12",
+            "deprecated": null
+        },
+        "AskRene-ListLayers.layers[].observations[]": {
+            "added": "v26.12",
+            "deprecated": null
+        },
+        "AskRene-ListLayers.layers[].observations[].amount_msat": {
+            "added": "v26.12",
+            "deprecated": null
+        },
+        "AskRene-ListLayers.layers[].observations[].result": {
+            "added": "v26.12",
+            "deprecated": null
+        },
+        "AskRene-ListLayers.layers[].observations[].short_channel_id_dir": {
+            "added": "v26.12",
+            "deprecated": null
+        },
+        "AskRene-ListLayers.layers[].observations[].timestamp": {
+            "added": "v26.12",
             "deprecated": null
         },
         "AskRene-ListLayers.layers[].persistent": {

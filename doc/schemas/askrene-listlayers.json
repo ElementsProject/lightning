@@ -37,6 +37,7 @@
             "created_channels",
             "channel_updates",
             "impressions",
+            "observations",
             "constraints",
             "biases",
             "node_biases"
@@ -234,6 +235,51 @@
                 }
               }
             },
+            "observations": {
+              "added": "v26.12",
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "short_channel_id_dir",
+                  "timestamp",
+                  "amount_msat",
+                  "result"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "short_channel_id_dir": {
+                    "type": "short_channel_id_dir",
+                    "description": [
+                      "The short channel id and direction."
+                    ]
+                  },
+                  "timestamp": {
+                    "type": "u64",
+                    "description": [
+                      "The UNIX timestamp when this observation was created."
+                    ]
+                  },
+                  "amount_msat": {
+                    "type": "msat",
+                    "description": [
+                      "The amount involved in the observation."
+                    ]
+                  },
+                  "result": {
+                    "type": "string",
+                    "enum": [
+                      "failed",
+                      "accepted",
+                      "succeeded"
+                    ],
+                    "description": [
+                      "The result of the observation."
+                    ]
+                  }
+                }
+              }
+            },
             "biases": {
               "type": "array",
               "items": {
@@ -387,6 +433,7 @@
               }
             ],
             "impressions": [],
+            "observations": [],
             "biases": [
               {
                 "short_channel_id_dir": "116x1x1/1",
@@ -440,6 +487,7 @@
               }
             ],
             "impressions": [],
+            "observations": [],
             "biases": [
               {
                 "short_channel_id_dir": "116x1x1/1",
@@ -458,6 +506,7 @@
             "channel_updates": [],
             "constraints": [],
             "impressions": [],
+            "observations": [],
             "biases": [],
             "node_biases": []
           }

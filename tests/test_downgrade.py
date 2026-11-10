@@ -135,8 +135,8 @@ def test_downgrade_bias(node_factory, executor):
 
 @pytest.mark.skipif(not CLN_PREV_VERSION, reason="Depends on CLN_PREV_VERSION")
 @pytest.mark.skipif(not PREV_LIGHTNINGD, reason="Depends on PREV_LIGHTNINGD")
-def test_downgrade_impressions(node_factory, executor):
-    """Impressions are added since v26.12, the downgrade tool should remove
+def test_downgrade_impressions_and_observations(node_factory, executor):
+    """Impressions and observations are added since v26.12, the downgrade tool should remove
     them while the rest of the askrene data remains."""
     cap_msat = 1000_000_000
     gsfile, nodemap = generate_gossip_store(
@@ -155,6 +155,7 @@ def test_downgrade_impressions(node_factory, executor):
         "created_channels": [],
         "disabled_nodes": [],
         "impressions": [],
+        "observations": [],
         "layer": "test_downgrade",
         "node_biases": [],
         "persistent": True,
@@ -260,6 +261,7 @@ def test_downgrade_impressions(node_factory, executor):
     # in the old node the impressions field doesn't even exist
     if CLN_PREV_VERSION == "v26.06":
         del expect["impressions"]
+        del expect["observations"]
     l1.daemon.executable = PREV_LIGHTNINGD
 
     l1.start()

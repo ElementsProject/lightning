@@ -4450,6 +4450,18 @@ impl From<responses::AskrenelistlayersLayersNodeBiases> for pb::Askrenelistlayer
 }
 
 #[allow(unused_variables)]
+impl From<responses::AskrenelistlayersLayersObservations> for pb::AskrenelistlayersLayersObservations {
+    fn from(c: responses::AskrenelistlayersLayersObservations) -> Self {
+        Self {
+            amount_msat: Some(c.amount_msat.into()), // Rule #2 for type msat
+            result: c.result as i32,
+            short_channel_id_dir: c.short_channel_id_dir.to_string(), // Rule #2 for type short_channel_id_dir
+            timestamp: c.timestamp, // Rule #2 for type u64
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::AskrenelistlayersLayers> for pb::AskrenelistlayersLayers {
     fn from(c: responses::AskrenelistlayersLayers) -> Self {
         Self {
@@ -4470,6 +4482,8 @@ impl From<responses::AskrenelistlayersLayers> for pb::AskrenelistlayersLayers {
             layer: c.layer, // Rule #2 for type string
             // Field: AskRene-ListLayers.layers[].node_biases[]
             node_biases: c.node_biases.into_iter().map(|i| i.into()).collect(), // Rule #3 for type AskrenelistlayersLayersNodeBiases
+            // Field: AskRene-ListLayers.layers[].observations[]
+            observations: c.observations.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
             persistent: c.persistent, // Rule #2 for type boolean
         }
     }
@@ -4559,6 +4573,18 @@ impl From<responses::AskrenecreatelayerLayersNodeBiases> for pb::Askrenecreatela
 }
 
 #[allow(unused_variables)]
+impl From<responses::AskrenecreatelayerLayersObservations> for pb::AskrenecreatelayerLayersObservations {
+    fn from(c: responses::AskrenecreatelayerLayersObservations) -> Self {
+        Self {
+            amount_msat: Some(c.amount_msat.into()), // Rule #2 for type msat
+            result: c.result as i32,
+            short_channel_id_dir: c.short_channel_id_dir.to_string(), // Rule #2 for type short_channel_id_dir
+            timestamp: c.timestamp, // Rule #2 for type u64
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::AskrenecreatelayerLayers> for pb::AskrenecreatelayerLayers {
     fn from(c: responses::AskrenecreatelayerLayers) -> Self {
         Self {
@@ -4579,6 +4605,8 @@ impl From<responses::AskrenecreatelayerLayers> for pb::AskrenecreatelayerLayers 
             layer: c.layer, // Rule #2 for type string
             // Field: AskRene-Create-Layer.layers[].node_biases[]
             node_biases: c.node_biases.into_iter().map(|i| i.into()).collect(), // Rule #3 for type AskrenecreatelayerLayersNodeBiases
+            // Field: AskRene-Create-Layer.layers[].observations[]
+            observations: c.observations.map(|arr| arr.into_iter().map(|i| i.into()).collect()).unwrap_or(vec![]), // Rule #3
             persistent: c.persistent, // Rule #2 for type boolean
         }
     }
