@@ -2,6 +2,7 @@
 #define LIGHTNING_TOOLS_HSMTOOL_RECOVERHTLC_H
 #include "config.h"
 #include <bitcoin/privkey.h>
+#include <bitcoin/tx.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
 
@@ -10,6 +11,13 @@ struct node_id;
 enum recoverhtlc_kind {
 	HTLC_THEY_OFFERED,
 	HTLC_WE_OFFERED,
+};
+
+struct recoverhtlc_match {
+	enum recoverhtlc_kind kind;
+	bool anchors;
+	u8 *wscript;
+	size_t *outnums;
 };
 
 /* Key names are from the commitment owner's perspective. */
@@ -37,5 +45,12 @@ u8 *hsmtool_recoverhtlc_wscript(
 	const struct recoverhtlc_keys *keys,
 	const struct ripemd160 *payment_ripemd,
 	u32 cltv_expiry);
+
+struct recoverhtlc_match *hsmtool_recoverhtlc_match_script(
+	const tal_t *ctx,
+	const struct bitcoin_tx *tx,
+	enum recoverhtlc_kind kind,
+	bool anchors,
+	const u8 *wscript);
 
 #endif /* LIGHTNING_TOOLS_HSMTOOL_RECOVERHTLC_H */
