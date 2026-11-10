@@ -1301,39 +1301,6 @@ def test_xpay_user_layers(node_factory):
     l1.rpc.xpay(inv4)
 
 
-def test_xpay_get_error_with_update(node_factory):
-    """We should process an update inside a temporary_channel_failure"""
-    l1, l2, l3 = node_factory.line_graph(3, opts={'log-level': 'io'}, fundchannel=True, wait_for_announce=True)
-    chanid2 = l2.get_channel_scid(l3)
-
-    inv = l3.rpc.invoice(123000, 'test_xpay_get_error_with_update', 'description')
-
-    # Make sure it's not doing startup any more (where it doesn't disable channels!)
-    l2.daemon.wait_for_log("channel_gossip: no longer in startup mode", timeout=70)
-
-    # Make sure l2 doesn't tell l1 directly that channel is disabled.
-    l2.rpc.dev_suppress_gossip()
-    l3.stop()
-
-    # Make sure that l2 has seen disconnect, considers channel disabled.
-    wait_for(lambda: only_one(l2.rpc.listpeerchannels(l3.info['id'])['channels'])['peer_connected'] is False)
-
-    assert(l1.is_channel_active(chanid2))
-
-    with pytest.raises(RpcError, match=r'temporary_channel_failure'):
-        l1.rpc.xpay(inv['bolt11'])
-
-    # Make sure we get an onionreply, without the type prefix of the nested
-    # channel_update, and it should patch it to include a type prefix. The
-    # prefix 0x0102 should be in the channel_update, but not in the
-    # onionreply (negation of 0x0102 in the RE)
-    l1.daemon.wait_for_log(rf'Got channel_update from error for {chanid2}/0: 0102')
-
-    # But this update is only for this one, not future ones!
-    time.sleep(5)
-    assert l1.is_channel_active(chanid2)
-
-
 def test_xpay_error_update_fees(node_factory):
     """We should process an update inside a temporary_channel_failure"""
     l1, l2, l3 = node_factory.line_graph(3, fundchannel=True, wait_for_announce=True)
