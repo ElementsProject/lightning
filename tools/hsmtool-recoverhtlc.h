@@ -3,8 +3,14 @@
 #include "config.h"
 #include <bitcoin/privkey.h>
 #include <ccan/short_types/short_types.h>
+#include <ccan/tal/tal.h>
 
 struct node_id;
+
+enum recoverhtlc_kind {
+	HTLC_THEY_OFFERED,
+	HTLC_WE_OFFERED,
+};
 
 /* Key names are from the commitment owner's perspective. */
 struct recoverhtlc_keys {
@@ -23,5 +29,13 @@ bool hsmtool_recoverhtlc_derive_keys(
 	const struct pubkey *remote_htlc_basepoint,
 	const char *hsm_secret_path,
 	struct recoverhtlc_keys *keys);
+
+u8 *hsmtool_recoverhtlc_wscript(
+	const tal_t *ctx,
+	enum recoverhtlc_kind kind,
+	bool anchors,
+	const struct recoverhtlc_keys *keys,
+	const struct ripemd160 *payment_ripemd,
+	u32 cltv_expiry);
 
 #endif /* LIGHTNING_TOOLS_HSMTOOL_RECOVERHTLC_H */

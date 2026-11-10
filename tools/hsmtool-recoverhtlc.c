@@ -1,7 +1,11 @@
 #include "config.h"
+#include <bitcoin/locktime.h>
+#include <bitcoin/script.h>
 #include <common/derive_basepoints.h>
 #include <common/hsm_secret.h>
+#include <common/htlc_tx.h>
 #include <common/key_derive.h>
+#include <common/keyset.h>
 #include <common/node_id.h>
 #include <common/utils.h>
 #include <tools/hsmtool-recoverhtlc.h>
@@ -67,4 +71,36 @@ bool hsmtool_recoverhtlc_derive_keys(
 	return derive_revocation_key(&keys->our_revocation_basepoint,
 				     commitment_point,
 				     &keys->revocation_key);
+}
+
+/* Rebuild an HTLC witness script from the peer's commitment. */
+u8 *hsmtool_recoverhtlc_wscript(
+	const tal_t *ctx,
+	enum recoverhtlc_kind kind,
+	bool anchors,
+	const struct recoverhtlc_keys *keys,
+	const struct ripemd160 *payment_ripemd,
+	u32 cltv_expiry)
+{
+	struct abs_locktime expiry;
+	struct keyset keyset = {
+		.self_revocation_key = keys->revocation_key,
+		.self_htlc_key = keys->their_htlc_key,
+		.other_htlc_key = keys->our_htlc_key,
+	};
+
+	switch (kind) {
+	/* The peer offered it, so this is their offered HTLC script. */
+	case HTLC_THEY_OFFERED:
+		return htlc_offered_wscript(ctx, payment_ripemd, &keyset,
+					   anchors, false);
+
+	/* We offered it, so this is the peer's received HTLC script. */
+	case HTLC_WE_OFFERED:
+		if (!blocks_to_abs_locktime(cltv_expiry, &expiry))
+			return NULL;
+		return htlc_received_wscript(ctx, payment_ripemd, &expiry,
+					    &keyset, anchors, false);
+	}
+	abort();
 }
