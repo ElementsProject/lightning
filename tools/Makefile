@@ -5,7 +5,7 @@ TOOLS_OBJ := $(TOOLS_SRC:.c=.o)
 
 # Make sure these depend on everything.
 ALL_C_SOURCES += $(TOOLS_SRC)
-ALL_C_HEADERS +=
+ALL_C_HEADERS += tools/lightning-hsmtool.h
 ALL_PROGRAMS += $(TOOLS)
 
 # We force make to relink this every time, to detect version changes.

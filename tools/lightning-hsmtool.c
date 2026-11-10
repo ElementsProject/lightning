@@ -24,14 +24,13 @@
 #include <fcntl.h>
 #include <inttypes.h>
 #include <sys/stat.h>
+#include <tools/lightning-hsmtool.h>
 #include <unistd.h>
 #include <wally_bip32.h>
 #include <wally_bip39.h>
 
-#define ERROR_USAGE 2
 #define ERROR_LIBSODIUM 3
 #define ERROR_LIBWALLY 4
-#define ERROR_KEYDERIV 5
 #define ERROR_LANG_NOT_SUPPORTED 6
 #define ERROR_TERM 7
 
@@ -88,7 +87,8 @@ static bool ensure_hsm_secret_exists(int fd, const char *path)
 	return true;
 }
 /* Load hsm_secret using the unified interface */
-static struct hsm_secret *load_hsm_secret(const tal_t *ctx, const char *hsm_secret_path)
+struct hsm_secret *hsmtool_load_hsm_secret(const tal_t *ctx,
+					   const char *hsm_secret_path)
 {
 	u8 *contents = grab_file_raw(tmpctx, hsm_secret_path);
 	const char *passphrase = NULL;
@@ -136,7 +136,7 @@ static void decrypt_hsm(const char *hsm_secret_path)
 	}
 
 	/* Load the hsm_secret */
-	hsms = load_hsm_secret(tmpctx, hsm_secret_path);
+	hsms = hsmtool_load_hsm_secret(tmpctx, hsm_secret_path);
 
 	dir = path_dirname(NULL, hsm_secret_path);
 	backup = path_join(dir, dir, "hsm_secret.backup");
@@ -193,7 +193,7 @@ static void encrypt_hsm(const char *hsm_secret_path)
 	}
 
 	/* Load the hsm_secret */
-	hsms = load_hsm_secret(tmpctx, hsm_secret_path);
+	hsms = hsmtool_load_hsm_secret(tmpctx, hsm_secret_path);
 
 	printf("Enter hsm_secret password:\n");
 	fflush(stdout);
@@ -263,7 +263,8 @@ static void print_secret(const char *hsm_secret_path, const char *id, bool must_
 	struct secret hsm_secret;
 	char *bip93;
 	const char *err;
-	struct hsm_secret *hsms = load_hsm_secret(tmpctx, hsm_secret_path);
+	struct hsm_secret *hsms
+		= hsmtool_load_hsm_secret(tmpctx, hsm_secret_path);
 
 	switch (hsms->type) {
 	case HSM_SECRET_ENCRYPTED:
@@ -317,7 +318,8 @@ static void dump_commitments_infos(struct node_id *node_id, u64 channel_id,
 	struct sha256 shaseed;
 	struct secret hsm_secret, channel_seed, per_commitment_secret;
 	struct pubkey per_commitment_point;
-	struct hsm_secret *hsms = load_hsm_secret(tmpctx, hsm_secret_path);
+	struct hsm_secret *hsms
+		= hsmtool_load_hsm_secret(tmpctx, hsm_secret_path);
 	/* Extract first 32 bytes for legacy compatibility */
 	memcpy(hsm_secret.data, hsms->secret_data, 32);
 	get_channel_seed(&channel_seed, node_id, channel_id, &hsm_secret);
@@ -357,7 +359,8 @@ static void print_commitment_point(const struct node_id *node_id,
 	struct sha256 shaseed;
 	struct secret hsm_secret, channel_seed;
 	struct pubkey point;
-	struct hsm_secret *hsms = load_hsm_secret(tmpctx, hsm_secret_path);
+	struct hsm_secret *hsms
+		= hsmtool_load_hsm_secret(tmpctx, hsm_secret_path);
 
 	memcpy(hsm_secret.data, hsms->secret_data, sizeof(hsm_secret.data));
 	get_channel_seed(&channel_seed, node_id, channel_id, &hsm_secret);
@@ -385,7 +388,8 @@ static void guess_to_remote(const char *address, struct node_id *node_id,
 	if (segwit_addr_decode(&witver, goal_pubkeyhash, &witlen, hrp, address) != 1)
 		errx(ERROR_USAGE, "Wrong bech32 address");
 
-	struct hsm_secret *hsms = load_hsm_secret(tmpctx, hsm_secret_path);
+	struct hsm_secret *hsms
+		= hsmtool_load_hsm_secret(tmpctx, hsm_secret_path);
 	memcpy(hsm_secret.data, hsms->secret_data, 32);
 
 	for (u64 dbid = 1; dbid < tries ; dbid++) {
@@ -479,7 +483,8 @@ static void derive_to_remote(const struct unilateral_close_info *info, const cha
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
 						 | SECP256K1_CONTEXT_SIGN);
 
-	struct hsm_secret *hsms = load_hsm_secret(tmpctx, hsm_secret_path);
+	struct hsm_secret *hsms
+		= hsmtool_load_hsm_secret(tmpctx, hsm_secret_path);
 	/* Copy first 32 bytes of secret_data to the local secret struct */
 	memcpy(hsm_secret.data, hsms->secret_data, sizeof(hsm_secret.data));
 	get_channel_seed(&channel_seed, &info->peer_id, info->channel_id, &hsm_secret);
@@ -505,7 +510,8 @@ static void dumponchaindescriptors(const char *hsm_secret_path,
 	struct ext_key master_extkey;
 	char *enc_xkey, *descriptor;
 	struct descriptor_checksum checksum;
-	struct hsm_secret *hsms = load_hsm_secret(tmpctx, hsm_secret_path);
+	struct hsm_secret *hsms
+		= hsmtool_load_hsm_secret(tmpctx, hsm_secret_path);
 	const char *path;
 
 	/* For BIP 86, we derive from subkey: m/86'/0'/0' */
@@ -594,7 +600,8 @@ static void check_hsm(const char *hsm_secret_path)
 	enum hsm_secret_error err;
 
 	/* Load the hsm_secret (handles decryption automatically if needed) */
-	struct hsm_secret *hsms = load_hsm_secret(tmpctx, hsm_secret_path);
+	struct hsm_secret *hsms
+		= hsmtool_load_hsm_secret(tmpctx, hsm_secret_path);
 	/* Extract first 32 bytes for legacy compatibility */
 	memcpy(file_secret.data, hsms->secret_data, 32);
 
@@ -634,7 +641,8 @@ static void make_rune(const char *hsm_secret_path)
 {
 	struct secret hsm_secret, derived_secret, rune_secret;
 	struct rune *master_rune, *rune;
-	struct hsm_secret *hsms = load_hsm_secret(tmpctx, hsm_secret_path);
+	struct hsm_secret *hsms
+		= hsmtool_load_hsm_secret(tmpctx, hsm_secret_path);
 	/* Extract first 32 bytes for legacy compatibility */
 	memcpy(hsm_secret.data, hsms->secret_data, 32);
 
@@ -662,7 +670,8 @@ static void print_node_id(const char *hsm_secret_path)
 	struct secret hsm_secret;
 	struct privkey node_privkey;
 	struct pubkey node_id;
-	struct hsm_secret *hsms = load_hsm_secret(tmpctx, hsm_secret_path);
+	struct hsm_secret *hsms
+		= hsmtool_load_hsm_secret(tmpctx, hsm_secret_path);
 	/* Extract first 32 bytes for legacy compatibility */
 	memcpy(hsm_secret.data, hsms->secret_data, 32);
 
