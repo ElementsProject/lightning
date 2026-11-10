@@ -5,6 +5,7 @@
 #include <ccan/noerr/noerr.h>
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/rune/rune.h>
+#include <ccan/str/str.h>
 #include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
@@ -48,6 +49,8 @@ static void show_usage(const char *progname)
 	printf("	- encrypt <path/to/hsm_secret> [LEGACY - binary format only]\n");
 	printf("	- dumpcommitments <node id> <channel dbid> <depth> "
 		"<path/to/hsm_secret>\n");
+	printf("	- dumpcommitments --point-only <node id> <channel dbid> "
+		"<commitment number> <path/to/hsm_secret>\n");
 	printf("	- guesstoremote <P2WPKH address> <node id> <tries> "
 		"<path/to/hsm_secret>\n");
 	printf("	- generatehsm <path/to/new/hsm_secret>\n");
@@ -346,6 +349,37 @@ static void dump_commitments_infos(struct node_id *node_id, u64 channel_id,
 		printf("commit point #%"PRIu64": %s\n",
 		       i, fmt_pubkey(tmpctx, &per_commitment_point));
 	}
+}
+
+/* Unlike atoll, refuses anything which is not entirely a number. */
+static bool parse_u64(const char *arg, u64 *val)
+{
+	char *end;
+
+	if (!arg[0] || !cisdigit(arg[0]))
+		return false;
+	errno = 0;
+	*val = strtoull(arg, &end, 10);
+	return !errno && *end == '\0';
+}
+
+static void print_commitment_point(const struct node_id *node_id,
+				   u64 channel_id,
+				   u64 commitment_number,
+				   const char *hsm_secret_path)
+{
+	struct sha256 shaseed;
+	struct secret hsm_secret, channel_seed;
+	struct pubkey point;
+	struct hsm_secret *hsms = load_hsm_secret(tmpctx, hsm_secret_path);
+
+	memcpy(hsm_secret.data, hsms->secret_data, sizeof(hsm_secret.data));
+	get_channel_seed(&channel_seed, node_id, channel_id, &hsm_secret);
+	derive_shaseed(&channel_seed, &shaseed);
+	if (!per_commit_point(&shaseed, &point, commitment_number))
+		errx(ERROR_KEYDERIV, "Could not derive point #%"PRIu64,
+		     commitment_number);
+	printf("%s\n", fmt_pubkey(tmpctx, &point));
 }
 
 static void guess_to_remote(const char *address, struct node_id *node_id,
@@ -687,14 +721,31 @@ int main(int argc, char *argv[])
 		encrypt_hsm(argv[2]);
 
 	} else if (streq(method, "dumpcommitments")) {
-		/*   node_id    channel_id   depth    hsm_secret  */
-		if (argc < 6)
-			show_usage(argv[0]);
 		struct node_id node_id;
-		if (!node_id_from_hexstr(argv[2], strlen(argv[2]), &node_id))
-			errx(ERROR_USAGE, "Bad node id");
-		dump_commitments_infos(&node_id, atol(argv[3]), atol(argv[4]),
-		                       argv[5]);
+
+		if (argc > 2 && streq(argv[2], "--point-only")) {
+			u64 dbid, commitment_number;
+
+			if (argc != 7)
+				show_usage(argv[0]);
+			if (!node_id_from_hexstr(argv[3], strlen(argv[3]), &node_id))
+				errx(ERROR_USAGE, "Bad node id");
+			/* A mistyped number must not print the wrong point. */
+			if (!parse_u64(argv[4], &dbid) || dbid == 0)
+				errx(ERROR_USAGE, "Bad channel dbid");
+			if (!parse_u64(argv[5], &commitment_number))
+				errx(ERROR_USAGE, "Bad commitment number");
+			print_commitment_point(&node_id, dbid,
+					       commitment_number, argv[6]);
+		} else {
+			/*   node_id    channel_id   depth    hsm_secret  */
+			if (argc < 6)
+				show_usage(argv[0]);
+			if (!node_id_from_hexstr(argv[2], strlen(argv[2]), &node_id))
+				errx(ERROR_USAGE, "Bad node id");
+			dump_commitments_infos(&node_id, atol(argv[3]),
+					       atol(argv[4]), argv[5]);
+		}
 
 	} else if (streq(method, "guesstoremote")) {
 		/*   address    node_id    depth    hsm_secret */
