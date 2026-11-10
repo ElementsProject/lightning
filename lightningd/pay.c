@@ -912,6 +912,8 @@ static struct command_result *check_progress(struct lightningd *ld,
 					     const struct wallet_payment **succeeded_payment)
 {
 	bool have_complete = false;
+	bool pending_other_group = false;
+	u64 pending_other_groupid = 0;
 	struct amount_msat msat_already_pending = AMOUNT_MSAT(0);
 
 	*succeeded_payment = NULL;
@@ -960,15 +962,14 @@ static struct command_result *check_progress(struct lightningd *ld,
 
 		case PAYMENT_PENDING:
 			/* At most one payment group can be in-flight at any
-			 * time. */
+			 * time.  However, we cannot fail yet: a later row
+			 * could show this hash already succeeded (we scan in
+			 * HTLC-creation order!), and a success is final: we
+			 * will not send an HTLC in any case (see below). */
 			if (payment->groupid != group) {
-				tal_free(stmt);
-				return command_fail(
-				    cmd, PAY_IN_PROGRESS,
-				    "Payment with groupid=%" PRIu64
-				    " still in progress, cannot retry before "
-				    "that completes.",
-				    payment->groupid);
+				pending_other_group = true;
+				pending_other_groupid = payment->groupid;
+				break;
 			}
 
 			/* Can't mix non-parallel and parallel payments! */
@@ -1048,10 +1049,23 @@ static struct command_result *check_progress(struct lightningd *ld,
 		}
 	}
 
-	/* If any part has succeeded, you can't start a new one! */
+	/* If any part has succeeded, you can't start a new one!  This takes
+	 * precedence over a pending payment from another group: whatever we
+	 * return here, no HTLC is sent, so stragglers from that group cannot
+	 * combine with ours and overpay. */
 	if (have_complete) {
 		return command_fail(cmd, PAY_RHASH_ALREADY_USED,
 				    "Already succeeded other parts");
+	}
+
+	/* Nothing has succeeded yet: we must not mix HTLCs from a different
+	 * (still-pending) group with ours. */
+	if (pending_other_group) {
+		return command_fail(cmd, PAY_IN_PROGRESS,
+				    "Payment with groupid=%" PRIu64
+				    " still in progress, cannot retry before "
+				    "that completes.",
+				    pending_other_groupid);
 	}
 
 	/* BOLT #4:
