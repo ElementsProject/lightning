@@ -46,6 +46,10 @@
           inputsFrom = [ config.packages.default ];
           buildInputs = [ pkgs.openssl ];
           packages = devTools;
+          # Without postgres in the shell, configure would use the host's
+          # pg_config and put the host's include and lib dirs ahead of nix's.
+          # An empty PG_CONFIG disables postgres; use the postgres shell for it.
+          PG_CONFIG = "";
           inherit shellHook;
         };
         postgres = pkgs.mkShell {
