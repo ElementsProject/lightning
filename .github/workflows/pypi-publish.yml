@@ -21,6 +21,7 @@ jobs:
           - PACKAGE: pyln-client
           - PACKAGE: pyln-testing
           - PACKAGE: pyln-proto
+          - PACKAGE: pyln-grpc-proto
     steps:
     - name: Download built distribution
       uses: actions/download-artifact@v8
