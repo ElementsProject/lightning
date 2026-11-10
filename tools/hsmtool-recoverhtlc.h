@@ -1,11 +1,13 @@
 #ifndef LIGHTNING_TOOLS_HSMTOOL_RECOVERHTLC_H
 #define LIGHTNING_TOOLS_HSMTOOL_RECOVERHTLC_H
 #include "config.h"
+#include <bitcoin/preimage.h>
 #include <bitcoin/privkey.h>
 #include <bitcoin/tx.h>
 #include <ccan/crypto/sha256/sha256.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
+#include <common/amount.h>
 
 struct node_id;
 
@@ -53,5 +55,15 @@ struct recoverhtlc_match *hsmtool_recoverhtlc_find_outputs(
 	const struct recoverhtlc_keys *keys,
 	const struct sha256 *payment_hash,
 	u32 cltv_expiry);
+
+struct bitcoin_tx *hsmtool_recoverhtlc_sign(
+	const tal_t *ctx,
+	const struct bitcoin_tx *commitment_tx,
+	const struct recoverhtlc_match *match,
+	const struct recoverhtlc_keys *keys,
+	const u8 *destination_script,
+	struct amount_sat output_amount,
+	u32 cltv_expiry,
+	const struct preimage *preimage);
 
 #endif /* LIGHTNING_TOOLS_HSMTOOL_RECOVERHTLC_H */
