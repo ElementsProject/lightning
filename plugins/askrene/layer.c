@@ -1402,11 +1402,28 @@ void layer_clear_overridden_capacities(const struct layer *layer,
 {
 	struct channel_intel_hash_iter intelit;
 	const struct channel_intel *intelarr;
+	struct channel_observations *chan_obs;
+	struct channel_observations_htable_iter ob_it;
 
 	for (intelarr = channel_intel_hash_first(layer->channel_intels, &intelit);
 	     intelarr;
 	     intelarr = channel_intel_hash_next(layer->channel_intels, &intelit)) {
 		const struct short_channel_id scid = channel_intel_scid(intelarr);
+		struct gossmap_chan *c = gossmap_find_chan(gossmap, &scid);
+		size_t idx;
+		if (!c)
+			continue;
+		idx = gossmap_chan_idx(gossmap, c);
+		if (idx < tal_count(capacities))
+			capacities[idx] = 0;
+	}
+
+	for (chan_obs = channel_observations_htable_first(
+		 layer->channel_observations, &ob_it);
+	     chan_obs; chan_obs = channel_observations_htable_next(
+			   layer->channel_observations, &ob_it)) {
+		const struct short_channel_id scid =
+		    channel_observations_scid(chan_obs);
 		struct gossmap_chan *c = gossmap_find_chan(gossmap, &scid);
 		size_t idx;
 		if (!c)
