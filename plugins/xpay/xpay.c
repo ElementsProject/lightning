@@ -431,8 +431,7 @@ static size_t count_current_attempts(const struct payment *payment)
 	return result;
 }
 
-/* We total up all attempts which succeeded in the past (if we're not
- * in slow mode, that's only the one which just succeeded), and then we
+/* We total up all attempts which succeeded in the past, and then we
  * assume any others currently-in-flight will also succeed. */
 static struct amount_msat total_sent(const struct payment *payment)
 {
@@ -453,7 +452,12 @@ static struct amount_msat total_sent(const struct payment *payment)
 	return total;
 }
 
-/* Should we finish command now? */
+/* Should we finish the (failing) command now?  Success never waits:
+ * once we have the preimage, a success is final: lightningd will
+ * resolve any future attempt for this hash without sending an HTLC
+ * (see check_progress), so slow mode only ever matters for failure,
+ * where the caller might retry (possibly elsewhere!) while our
+ * stragglers could still be collected alongside theirs. */
 static bool should_finish_command(const struct payment *payment)
 {
 	const struct xpay *xpay = xpay_of(payment->plugin);
@@ -471,8 +475,11 @@ static void payment_succeeded(struct payment *payment,
 {
 	struct json_stream *js;
 
-	/* Only succeed once */
-	if (payment->cmd && should_finish_command(payment)) {
+	/* Only succeed once.  We return as soon as we have the preimage,
+	 * even in slow mode: a success is final, so stragglers cannot
+	 * combine with a future attempt (lightningd hands that attempt
+	 * the stored preimage without sending any HTLC). */
+	if (payment->cmd) {
 		js = jsonrpc_stream_success(payment->cmd);
 		json_add_preimage(js, "payment_preimage", preimage);
 		json_add_amount_msat(js, "amount_msat", payment->amount);
@@ -3812,7 +3819,7 @@ int main(int argc, char *argv[])
 					  "Make xpay take over pay commands it can handle.",
 					  bool_option, bool_jsonfmt, &xpay->take_over_pay),
 		    plugin_option_dynamic("xpay-slow-mode", "bool",
-					  "Wait until all parts have completed before returning success or failure",
+					  "Wait until all parts have completed before returning failure (success is always returned immediately)",
 					  bool_option, bool_jsonfmt, &xpay->slow_mode),
 		    plugin_option_multi("xpay-user-layer", "string",
 					"Add a layer that will be used for every payment",

@@ -752,13 +752,27 @@ def test_fail_after_success(node_factory, bitcoind, executor, slow_mode):
     l4.daemon.wait_for_log('dev_disconnect: -WIRE_UPDATE_FULFILL_HTLC')
     l4.stop()
 
-    # Normally, we return as soon as first part succeeds.
-    if slow_mode is False:
-        assert fut.result(TIMEOUT) == {'payment_preimage': '00' * 32,
-                                       'amount_msat': 800000000,
-                                       'amount_sent_msat': 800016004,
-                                       'failed_parts': 0,
-                                       'successful_parts': 2}
+    # We return as soon as the first part succeeds: a success is final,
+    # even in slow mode (which only waits for all parts before returning
+    # *failure*).
+    assert fut.result(TIMEOUT) == {'payment_preimage': '00' * 32,
+                                   'amount_msat': 800000000,
+                                   'amount_sent_msat': 800016004,
+                                   'failed_parts': 0,
+                                   'successful_parts': 2}
+
+    # Retrying while the stuck part is still pending can never end up
+    # sending an HTLC for this hash again: we may succeed with the known
+    # preimage, be told it's already paid, or even fail to route at all
+    # (the first attempt's reservations are still held), but it must
+    # *not* be reported as "still in progress".
+    num_htlcs = len(l1.rpc.listsendpays(payment_hash=l1.rpc.decode(inv)['payment_hash'])['payments'])
+    try:
+        res = l1.rpc.xpay(inv)
+        assert res['payment_preimage'] == '00' * 32
+    except RpcError as e:
+        assert 'still in progress' not in e.error['message']
+    assert len(l1.rpc.listsendpays(payment_hash=l1.rpc.decode(inv)['payment_hash'])['payments']) == num_htlcs
 
     # Time it out, l2 will collect it.
     bitcoind.generate_block(13)
@@ -769,17 +783,6 @@ def test_fail_after_success(node_factory, bitcoind, executor, slow_mode):
     # Could be either way around, check both
     line = l1.daemon.is_in_log(r"UNUSUAL.*Destination accepted partial payment, failed a part")
     assert re.search(r'but accepted only .* of 800000000msat\.  Winning\?!', line)
-
-    if slow_mode is True:
-        # Now it succeeds, but notes that it only sent one part!
-        res = fut.result(TIMEOUT)
-        # Some variation due to floating point.
-        assert res['amount_sent_msat'] < 800000000
-        assert res == {'payment_preimage': '00' * 32,
-                       'amount_msat': 800000000,
-                       'amount_sent_msat': res['amount_sent_msat'],
-                       'failed_parts': 1,
-                       'successful_parts': 1}
 
 
 def test_xpay_twohop_bug(node_factory, bitcoind):
