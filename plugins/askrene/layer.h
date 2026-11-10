@@ -38,6 +38,44 @@ struct channel_intel_out {
 	size_t index;
 };
 
+enum observation_result {
+	/* Temporary failure, usually not enough liquidity.  Use this to
+	 * indicate that we tried x amount but the current hop returned
+	 * TEMPORARY_CHANNEL_FAILURE. */
+	OBSERVATION_HTLC_FAILED,
+
+	/* The HTLC was accepted and the channel commitment advanced, it does
+	 * not necessarily means the funds moved.  Use this to communicate that
+	 * up to this hop the x amount was accepted, but the payment failed
+	 * further in the route. */
+	OBSERVATION_HTLC_ACCEPTED,
+
+	/* The HTLC was accepted and the funds moved to the other side of the
+	 * channel.  Use this to communicate that the payment succeeded. */
+	OBSERVATION_HTLC_FORWARDED,
+};
+
+/* An observation reflects the outcome of a payment attempt through a channel. */
+struct channel_observation_out {
+	/* Which layer contained it */
+	const struct layer *layer;
+
+	/* Which channel and direction. */
+	struct short_channel_id_dir scidd;
+
+	/* Outcome of the attempt. */
+	enum observation_result result;
+
+	/* Time this observation was gathered. */
+	u64 timestamp;
+
+	/* The HTLC amount. */
+	struct amount_msat amount;
+
+	/* Position before sorting, order after combining all layers. */
+	size_t index;
+};
+
 void layer_get_intels(const struct layer *layer,
 		      struct channel_intel_out **intels);
 

@@ -93,6 +93,45 @@ static inline bool channel_intel_eq_scid(const struct channel_intel *intelarr,
 HTABLE_DEFINE_NODUPS_TYPE(struct channel_intel, channel_intel_scid, hash_scid,
 			  channel_intel_eq_scid, channel_intel_hash);
 
+/* One observation event. */
+struct observation {
+	/* Outcome of the attempt. */
+	enum observation_result result;
+
+	/* This is the direction of the payment, but it affects both ways. */
+	int dir;
+
+	/* Time this observation was gathered. */
+	u64 timestamp;
+
+	/* The HTLC amount. */
+	struct amount_msat amount;
+};
+
+/* Holds all observations belonging to the same channel in both directions. */
+struct channel_observations {
+	/* All these observations regard this channel. */
+	struct short_channel_id scid;
+
+	/* Many observations. */
+	struct observation *obs;
+};
+
+static struct short_channel_id channel_observations_scid(const struct channel_observations *c)
+{
+	return c->scid;
+}
+
+static bool channel_observations_eq(const struct channel_observations *c,
+				    struct short_channel_id scid)
+{
+	return short_channel_id_eq(scid, channel_observations_scid(c));
+}
+
+HTABLE_DEFINE_NODUPS_TYPE(struct channel_observations,
+			  channel_observations_scid, hash_scid,
+			  channel_observations_eq, channel_observations_htable);
+
 static struct short_channel_id
 local_channel_scid(const struct local_channel *lc)
 {
@@ -181,6 +220,8 @@ struct layer {
 	/* Constraints and impressions, indexed by scid */
 	struct channel_intel_hash *channel_intels;
 
+	struct channel_observations_htable *channel_observations;
+
 	/* Bias, indexed by scid+dir */
 	struct bias_hash *biases;
 
@@ -220,6 +261,7 @@ struct layer *new_temp_layer(const tal_t *ctx, struct askrene *askrene, const ch
 	l->local_channels = new_htable(l, local_channel_hash);
 	l->local_updates = new_htable(l, local_update_hash);
 	l->channel_intels = new_htable(l, channel_intel_hash);
+	l->channel_observations = new_htable(l, channel_observations_htable);
 	l->biases = new_htable(l, bias_hash);
 	l->node_biases = new_htable(l, node_bias_hash);
 	l->disabled_nodes = tal_arr(l, struct node_id, 0);
