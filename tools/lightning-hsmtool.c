@@ -255,21 +255,7 @@ static void encrypt_hsm(const char *hsm_secret_path)
 static void get_channel_seed(struct secret *channel_seed, const struct node_id *peer_id,
                              u64 dbid, struct secret *hsm_secret)
 {
-	struct secret channel_base;
-	u8 input[sizeof(peer_id->k) + sizeof(dbid)];
-	const char *info = "per-peer seed";
-
-	hkdf_sha256(&channel_base, sizeof(struct secret), NULL, 0,
-	            hsm_secret, sizeof(*hsm_secret),
-	             "peer seed", strlen("peer seed"));
-	memcpy(input, peer_id->k, sizeof(peer_id->k));
-	BUILD_ASSERT(sizeof(peer_id->k) == PUBKEY_CMPR_LEN);
-	memcpy(input + PUBKEY_CMPR_LEN, &dbid, sizeof(dbid));
-
-	hkdf_sha256(channel_seed, sizeof(*channel_seed),
-	            input, sizeof(input),
-	            &channel_base, sizeof(channel_base),
-	            info, strlen(info));
+	derive_channel_seed(channel_seed, hsm_secret->data, peer_id, dbid);
 }
 
 static void print_secret(const char *hsm_secret_path, const char *id, bool must_be_oldstyle)

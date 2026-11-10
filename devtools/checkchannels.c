@@ -9,51 +9,17 @@
 #include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/path/path.h>
 #include <common/configdir.h>
+#include <common/hsm_secret.h>
 #include <common/node_id.h>
 #include <common/utils.h>
 #include <inttypes.h>
 #include <sqlite3.h>
 
-static void hsm_channel_secret_base(struct secret *channel_seed_base,
-				    const struct secret *hsm_secret)
-{
-	hkdf_sha256(channel_seed_base, sizeof(struct secret), NULL, 0,
-		    hsm_secret, sizeof(*hsm_secret),
-		    /*~ Initially, we didn't support multiple channels per
-		     * peer at all: a channel had to be completely forgotten
-		     * before another could exist.  That was slightly relaxed,
-		     * but the phrase "peer seed" is wired into the seed
-		     * generation here, so we need to keep it that way for
-		     * existing clients, rather than using "channel seed". */
-		    "peer seed", strlen("peer seed"));
-}
-
 static void get_channel_seed(const struct secret *hsm_secret,
 			     const struct node_id *peer_id, u64 dbid,
 			     struct secret *channel_seed)
 {
-	struct secret channel_base;
-	u8 input[sizeof(peer_id->k) + sizeof(dbid)];
-	/*~ Again, "per-peer" should be "per-channel", but Hysterical Raisins */
-	const char *info = "per-peer seed";
-
-	/*~ We use the DER encoding of the pubkey, because it's platform
-	 * independent.  Since the dbid is unique, however, it's completely
-	 * unnecessary, but again, existing users can't be broken. */
-	/* FIXME: lnd has a nicer BIP32 method for deriving secrets which we
-	 * should migrate to. */
-	hsm_channel_secret_base(&channel_base, hsm_secret);
-	memcpy(input, peer_id->k, sizeof(peer_id->k));
-	BUILD_ASSERT(sizeof(peer_id->k) == PUBKEY_CMPR_LEN);
-	/*~ For all that talk about platform-independence, note that this
-	 * field is endian-dependent!  But let's face it, little-endian won.
-	 * In related news, we don't support EBCDIC or middle-endian. */
-	memcpy(input + PUBKEY_CMPR_LEN, &dbid, sizeof(dbid));
-
-	hkdf_sha256(channel_seed, sizeof(*channel_seed),
-		    input, sizeof(input),
-		    &channel_base, sizeof(channel_base),
-		    info, strlen(info));
+	derive_channel_seed(channel_seed, hsm_secret->data, peer_id, dbid);
 }
 
 struct keys {
