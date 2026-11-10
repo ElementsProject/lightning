@@ -1,6 +1,8 @@
 #include "config.h"
+#include <bitcoin/chainparams.h>
 #include <bitcoin/locktime.h>
 #include <bitcoin/script.h>
+#include <bitcoin/signature.h>
 #include <ccan/crypto/ripemd160/ripemd160.h>
 #include <ccan/mem/mem.h>
 #include <common/derive_basepoints.h>
@@ -169,4 +171,91 @@ struct recoverhtlc_match *hsmtool_recoverhtlc_find_outputs(
 			return match;
 	}
 	return NULL;
+}
+
+static struct bitcoin_tx *new_recovery_tx(
+	const tal_t *ctx,
+	const struct bitcoin_tx *commitment_tx,
+	const struct recoverhtlc_match *match,
+	const u8 *destination_script,
+	struct amount_sat output_amount,
+	u32 cltv_expiry)
+{
+	struct bitcoin_txid commitment_txid;
+	struct bitcoin_tx *tx;
+	size_t num_inputs = tal_count(match->outnums);
+
+	/* Our timeout path requires nLockTime; the preimage path does not. */
+	tx = bitcoin_tx(ctx, chainparams, num_inputs, 1,
+			match->kind == HTLC_WE_OFFERED ? cltv_expiry : 0);
+	bitcoin_txid(commitment_tx, &commitment_txid);
+
+	for (size_t i = 0; i < num_inputs; i++) {
+		struct bitcoin_outpoint outpoint = {
+			.txid = commitment_txid,
+			.n = match->outnums[i],
+		};
+		struct amount_sat amount = bitcoin_tx_output_get_amount_sat(
+			commitment_tx, match->outnums[i]);
+
+		/* Segwit signatures commit to each input's amount and script. */
+		/* Anchor HTLC spends must wait one confirmation. */
+		bitcoin_tx_add_input(tx, &outpoint, match->anchors ? 1 : 0,
+				     NULL, amount, NULL, match->wscript);
+	}
+	bitcoin_tx_add_output(tx, destination_script, NULL, output_amount);
+	return tx;
+}
+
+static bool sign_recovery_tx(struct bitcoin_tx *tx,
+			     const struct recoverhtlc_match *match,
+			     const struct recoverhtlc_keys *keys,
+			     const struct preimage *preimage)
+{
+	/* SIGHASH_ALL commits every input to the single destination output. */
+	for (size_t i = 0; i < tal_count(match->outnums); i++) {
+		struct bitcoin_signature signature;
+
+		sign_tx_input(tx, i, NULL, match->wscript,
+			      &keys->our_htlc_privkey, &keys->our_htlc_key,
+			      SIGHASH_ALL, &signature);
+		if (!check_tx_sig(tx, i, NULL, match->wscript,
+				  &keys->our_htlc_key, &signature))
+			return false;
+		/* Witness: signature, optional preimage, then the script. */
+		bitcoin_tx_input_set_witness(
+			tx, i,
+			take(bitcoin_witness_sig_and_element(
+				tx, &signature,
+				preimage ? preimage->r : NULL,
+				preimage ? sizeof(preimage->r) : 0,
+				match->wscript)));
+	}
+	return true;
+}
+
+/* Build and sign one transaction spending every matched HTLC output. */
+struct bitcoin_tx *hsmtool_recoverhtlc_sign(
+	const tal_t *ctx,
+	const struct bitcoin_tx *commitment_tx,
+	const struct recoverhtlc_match *match,
+	const struct recoverhtlc_keys *keys,
+	const u8 *destination_script,
+	struct amount_sat output_amount,
+	u32 cltv_expiry,
+	const struct preimage *preimage)
+{
+	struct bitcoin_tx *tx;
+
+	/* Peer-offered HTLCs need a preimage; our HTLCs use timeout. */
+	if (match->kind == HTLC_THEY_OFFERED && !preimage)
+		return NULL;
+	if (match->kind == HTLC_WE_OFFERED && preimage)
+		return NULL;
+
+	tx = new_recovery_tx(ctx, commitment_tx, match, destination_script,
+			     output_amount, cltv_expiry);
+	if (!sign_recovery_tx(tx, match, keys, preimage))
+		return tal_free(tx);
+	return tx;
 }
