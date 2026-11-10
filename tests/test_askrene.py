@@ -145,6 +145,7 @@ def test_layers(node_factory):
               'channel_updates': [],
               'constraints': [],
               'impressions': [],
+              'observations': [],
               'biases': [],
               'node_biases': []}
     l2.rpc.askrene_create_layer('test_layers')
@@ -379,6 +380,7 @@ def test_node_bias_rpc(node_factory):
         "channel_updates": [],
         "constraints": [],
         "impressions": [],
+        "observations": [],
         "biases": [],
         "node_biases": [],
     }
@@ -487,6 +489,7 @@ def test_node_bias_persistence(node_factory):
         "channel_updates": [],
         "constraints": [],
         "impressions": [],
+        "observations": [],
         "biases": [],
         "node_biases": [],
     }
@@ -653,6 +656,7 @@ def test_layer_persistence(node_factory):
               'channel_updates': [],
               'constraints': [],
               'impressions': [],
+              'observations': [],
               'biases': [],
               'node_biases': []}
     assert l1.rpc.askrene_listlayers('test_layer_persistence') == {'layers': [expect]}
@@ -3282,6 +3286,7 @@ def test_bias_aging(node_factory):
         "channel_updates": [],
         "constraints": [],
         "impressions": [],
+        "observations": [],
         "biases": [],
         "node_biases": [],
     }

@@ -210,7 +210,7 @@
       "title": "Command for expiring information in a layer",
       "added": "v24.11",
       "description": [
-        "The **askrene-age** RPC command tells askrene that information added to a layer by *askrene-inform-channel*, *askrene-bias-channel* and *askrene-bias-node* beyond a certain age is less useful.  It currently completely forgets constraints, impressions and biases older than *cutoff*."
+        "The **askrene-age** RPC command tells askrene that information added to a layer by *askrene-inform-channel*, *askrene-bias-channel* and *askrene-bias-node* beyond a certain age is less useful.  It currently completely forgets constraints, impressions, biases and observations older than *cutoff*."
       ],
       "request": {
         "required": [
@@ -228,7 +228,7 @@
           "cutoff": {
             "type": "u64",
             "description": [
-              "The UNIX timestamp: constraints, impressions and biases older than this will be forgotten."
+              "The UNIX timestamp: constraints, impressions, observations and biases older than this will be forgotten."
             ]
           }
         }
@@ -249,7 +249,7 @@
           "num_removed": {
             "type": "u64",
             "description": [
-              "The number of constraints, impressions and biases removed from *layer*"
+              "The number of constraints, impressions, observations and biases removed from *layer*"
             ]
           }
         }
@@ -767,6 +767,7 @@
                 "channel_updates",
                 "constraints",
                 "impressions",
+                "observations",
                 "biases",
                 "node_biases"
               ],
@@ -952,6 +953,51 @@
                     }
                   }
                 },
+                "observations": {
+                  "added": "v26.12",
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "short_channel_id_dir",
+                      "timestamp",
+                      "amount_msat",
+                      "result"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                      "short_channel_id_dir": {
+                        "type": "short_channel_id_dir",
+                        "description": [
+                          "The short channel id and direction."
+                        ]
+                      },
+                      "timestamp": {
+                        "type": "u64",
+                        "description": [
+                          "The UNIX timestamp when this observation was created."
+                        ]
+                      },
+                      "amount_msat": {
+                        "type": "msat",
+                        "description": [
+                          "The amount involved in the observation."
+                        ]
+                      },
+                      "result": {
+                        "type": "string",
+                        "enum": [
+                          "failed",
+                          "accepted",
+                          "succeeded"
+                        ],
+                        "description": [
+                          "The result of the observation."
+                        ]
+                      }
+                    }
+                  }
+                },
                 "biases": {
                   "type": "array",
                   "items": {
@@ -1080,6 +1126,7 @@
                 "channel_updates": [],
                 "constraints": [],
                 "impressions": [],
+                "observations": [],
                 "biases": [],
                 "node_biases": []
               }
@@ -1371,6 +1418,7 @@
                 "created_channels",
                 "channel_updates",
                 "impressions",
+                "observations",
                 "constraints",
                 "biases",
                 "node_biases"
@@ -1568,6 +1616,51 @@
                     }
                   }
                 },
+                "observations": {
+                  "added": "v26.12",
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "short_channel_id_dir",
+                      "timestamp",
+                      "amount_msat",
+                      "result"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                      "short_channel_id_dir": {
+                        "type": "short_channel_id_dir",
+                        "description": [
+                          "The short channel id and direction."
+                        ]
+                      },
+                      "timestamp": {
+                        "type": "u64",
+                        "description": [
+                          "The UNIX timestamp when this observation was created."
+                        ]
+                      },
+                      "amount_msat": {
+                        "type": "msat",
+                        "description": [
+                          "The amount involved in the observation."
+                        ]
+                      },
+                      "result": {
+                        "type": "string",
+                        "enum": [
+                          "failed",
+                          "accepted",
+                          "succeeded"
+                        ],
+                        "description": [
+                          "The result of the observation."
+                        ]
+                      }
+                    }
+                  }
+                },
                 "biases": {
                   "type": "array",
                   "items": {
@@ -1721,6 +1814,7 @@
                   }
                 ],
                 "impressions": [],
+                "observations": [],
                 "biases": [
                   {
                     "short_channel_id_dir": "116x1x1/1",
@@ -1774,6 +1868,7 @@
                   }
                 ],
                 "impressions": [],
+                "observations": [],
                 "biases": [
                   {
                     "short_channel_id_dir": "116x1x1/1",
@@ -1792,6 +1887,7 @@
                 "channel_updates": [],
                 "constraints": [],
                 "impressions": [],
+                "observations": [],
                 "biases": [],
                 "node_biases": []
               }
