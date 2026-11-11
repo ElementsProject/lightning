@@ -574,7 +574,7 @@ command, so they invoices can also be paid onchain.
 
 * **xpay-failing-node-tolerance**=*NUMBER* [plugin `xpay`, *dynamic*]
 
-  How many times a forwarding node can give us a weird error before we disable it for the current payment session.  If a node gives us weird errors on its channels repeatedly it could either be that we were unlucky and all the channels we tried have some kind of issue or it is the node that has an issue.  In the first case it would just be a matter of trying again through a different channel, but in the latter case it is better to avoid routing through it otherwise it'll make us waste our time and eventually fail the payment on timeout.  The tolerance must balance the odds of those two cases (the default is 4).
+  How many times a forwarding node can give us a weird error before we disable it for the current payment session.  If a node gives us weird errors on its channels repeatedly it could either be that we were unlucky and all the channels we tried have some kind of issue or it is the node that has an issue.  In the first case it would just be a matter of trying again through a different channel, but in the latter case it is better to avoid routing through it otherwise it'll make us waste our time and eventually fail the payment on timeout.  The tolerance must balance the odds of those two cases (the default is 4).  Some critical error types will trigger the node disable at the first hit regardless of the value of the tolerance.
 
 * **askrene-timeout**=*SECONDS* [plugin `askrene`, *dynamic*]
 

@@ -1005,10 +1005,10 @@ static const char *fmt_noderr(const tal_t *ctx, const struct noderr *noderr)
 /* A node failing too often with weird errors is probably going to fail every
  * other request. */
 static void maybe_exclude_node(struct command *aux_cmd, struct attempt *attempt,
-			       size_t index, enum onion_wire failcode)
+			       size_t index, enum onion_wire failcode,
+			       u32 exclude_tolerance)
 {
 	struct payment *payment = attempt->payment;
-	struct xpay *xpay = xpay_of(attempt->payment->plugin);
 	struct out_req *req;
 	struct node_id nodeid;
 	struct short_channel_id scid;
@@ -1019,8 +1019,8 @@ static void maybe_exclude_node(struct command *aux_cmd, struct attempt *attempt,
 	/* By default we apply the first bias after 2 hits, but if the fail
 	 * tolerance option is lower than that we apply the bias together with
 	 * the node disable. */
-	if (xpay->fail_node_tolerance < apply_bias_tolerance)
-		apply_bias_tolerance = xpay->fail_node_tolerance;
+	if (exclude_tolerance < apply_bias_tolerance)
+		apply_bias_tolerance = exclude_tolerance;
 
 	/* we returned the error ourselves */
 	if (index == 0)
@@ -1100,7 +1100,7 @@ static void maybe_exclude_node(struct command *aux_cmd, struct attempt *attempt,
 
 	/* Our tolerance could be any number, but the higher it is
 	 * we risk failing the payment retrying too much on a bad node. */
-	if (tal_count(current_noderr->errs) >= xpay->fail_node_tolerance) {
+	if (tal_count(current_noderr->errs) >= exclude_tolerance) {
 		/* FIXME: we should check if this node is a compulsory bridge
 		 * between us and the destination (eg. an LSP), and in that case
 		 * we should not disable it.  A high tolerance value reduces
@@ -1124,6 +1124,7 @@ static void update_knowledge_from_error(struct command *aux_cmd,
 					const jsmntok_t *error,
 					struct attempt *attempt)
 {
+	struct xpay *xpay = xpay_of(attempt->payment->plugin);
 	const jsmntok_t *tok;
 	struct onionreply *reply;
 	struct out_req *req;
@@ -1287,7 +1288,6 @@ static void update_knowledge_from_error(struct command *aux_cmd,
 			goto disable_channel;
 
 		case WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS: {
-			struct xpay *xpay = xpay_of(attempt->payment->plugin);
 			u32 blockheight = error_blockheight(replymsg);
 			if (blockheight > attempt->payment->start_blockheight) {
 				attempt_log(attempt, LOG_INFORM,
@@ -1342,7 +1342,8 @@ static void update_knowledge_from_error(struct command *aux_cmd,
 			    "disabling %s for this payment",
 			    errmsg, describe_scidd_from_index(attempt, index));
 
-			maybe_exclude_node(aux_cmd, attempt, index, failcode);
+			maybe_exclude_node(aux_cmd, attempt, index, failcode,
+					   /* tolerance = */ 0);
 			goto disable_channel;
 
 		case WIRE_TEMPORARY_CHANNEL_FAILURE:
@@ -1362,6 +1363,14 @@ static void update_knowledge_from_error(struct command *aux_cmd,
 		case WIRE_EXPIRY_TOO_FAR:
 		case WIRE_EXPIRY_TOO_SOON:
 		case WIRE_CHANNEL_DISABLED:
+			add_result_summary(attempt, LOG_DBG,
+					   "We got a weird error (%s) for %s: disabling it for this payment",
+					   errmsg,
+					   describe_scidd_from_index(attempt, index));
+			maybe_exclude_node(aux_cmd, attempt, index, failcode,
+					   xpay->fail_node_tolerance);
+			goto disable_channel;
+
 		case WIRE_PERMANENT_NODE_FAILURE:
 		case WIRE_TEMPORARY_NODE_FAILURE:
 		case WIRE_REQUIRED_NODE_FEATURE_MISSING:
@@ -1369,7 +1378,8 @@ static void update_knowledge_from_error(struct command *aux_cmd,
 					   "We got a weird error (%s) for %s: disabling it for this payment",
 					   errmsg,
 					   describe_scidd_from_index(attempt, index));
-			maybe_exclude_node(aux_cmd, attempt, index, failcode);
+			maybe_exclude_node(aux_cmd, attempt, index, failcode,
+					   /* tolerance = */ 0);
 			goto disable_channel;
 
 		case WIRE_INVALID_ONION_BLINDING:

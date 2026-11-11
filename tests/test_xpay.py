@@ -1879,12 +1879,14 @@ def test_xpay_unknown_next_peer_excludes_node(node_factory, bitcoind):
     assert 'disabling node' in msg or 'Repeated weird errors' in msg
 
 
-def setup_failing_hub(node_factory, num_spokes, alt_ppm):
+def setup_failing_hub(node_factory, num_spokes, alt_ppm,
+                      failure_message="100c" + "00" * 8 + "0000"):
     """payer -> hub -> {spokes} -> dest, plus payer -> alt -> altspoke -> dest.
 
     hub is the cheap, well-connected path but fails every forward with
-    fee_insufficient (with no channel_update, so there is nothing to learn
-    from it).  The alternative path through alt charges alt_ppm.
+    failure_message, by default fee_insufficient (with no channel_update, so
+    there is nothing to learn from it).  The alternative path through alt
+    charges alt_ppm.
     """
 
     def setup(plugin):
@@ -1893,8 +1895,7 @@ def setup_failing_hub(node_factory, num_spokes, alt_ppm):
             # Forwards carry forward_msat. Local invoices do not.
             if onion.get("forward_msat") is None:
                 return {"result": "continue"}
-            # WIRE_FEE_INSUFFICIENT = UPDATE|12, htlc_msat, empty channel_update
-            return {"result": "fail", "failure_message": "100c" + "00" * 8 + "0000"}
+            return {"result": "fail", "failure_message": failure_message}
 
     payer = node_factory.get_node()
     hub = node_factory.get_node(inline_plugin=setup)
@@ -2012,3 +2013,32 @@ def test_xpay_failing_node_tolerance(node_factory, bitcoind):
     ret = payer.rpc.xpay(invstring=inv, retry_for=60)
     assert ret["failed_parts"] == 5, ret
     assert not payer.daemon.is_in_log(disabled, start=start)
+
+
+def test_xpay_failing_node_nonfinal(node_factory, bitcoind):
+    """If an intermediate node returns an error that is meant for the final,
+    then we disable that node right away regardless of the value of
+    xpay-failing-node-tolerance."""
+    # WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS = PERM|15, htlc_msat, height
+    payer, hub, alt, dest = setup_failing_hub(
+        node_factory,
+        num_spokes=5,
+        alt_ppm=5000,
+        failure_message="400f" + "00" * 8 + "00" * 4,
+    )
+    disabled = r"Repeated weird errors \(incorrect_or_unknown_payment_details on [0-9x]+\) from {}: disabling node for this payment".format(
+        hub.info["id"]
+    )
+
+    payer.rpc.setconfig("xpay-failing-node-tolerance", 100)
+    conf = payer.rpc.listconfigs("xpay-failing-node-tolerance")["configs"][
+        "xpay-failing-node-tolerance"
+    ]
+    assert conf["value_int"] == 100
+
+    # Despite the high tolerance, a single failure disables the hub.
+    start = len(payer.daemon.logs)
+    inv = dest.rpc.invoice(100000, "nonfinal", "nonfinal")["bolt11"]
+    ret = payer.rpc.xpay(invstring=inv, retry_for=30)
+    assert ret["failed_parts"] == 1, ret
+    assert payer.daemon.is_in_log(disabled, start=start)
