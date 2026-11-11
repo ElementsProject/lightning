@@ -3867,45 +3867,55 @@ def test_closing_higherfee(node_factory, bitcoind, executor, anchors):
     wait_for(lambda: l2.rpc.listpeerchannels()['channels'][0]['state'] == 'CLOSINGD_COMPLETE')
 
 
-@pytest.mark.flaky(reruns=3)
 def test_htlc_rexmit_while_closing(node_factory, executor):
     """Retranmitting an HTLC revocation while shutting down should work"""
-    # FIXME: This should be in lnprototest!  UNRELIABLE.
-    # l1 disconnects after sending second COMMITMENT_SIGNED.
-    # Then it stops receiving after sending WIRE_SHUTDOWN (which is before it
-    # reads the revoke_and_ack).
-    disconnects = ['+WIRE_COMMITMENT_SIGNED*2',
-                   'xWIRE_SHUTDOWN']
+    # l2 drops the revoke_and_ack for l1's second COMMITMENT_SIGNED, and
+    # again when it retransmits it on reconnect.
+    disconnects = ["$WIRE_REVOKE_AND_ACK*2", "$WIRE_REVOKE_AND_ACK"]
 
-    l1, l2 = node_factory.line_graph(2, opts=[{'may_reconnect': True,
-                                               'dev-no-reconnect': None,
-                                               'disconnect': disconnects},
-                                              {'may_reconnect': True,
-                                               'dev-no-reconnect': None}])
+    l1, l2 = node_factory.line_graph(
+        2,
+        opts=[
+            {"may_reconnect": True, "dev-no-reconnect": None},
+            {
+                "may_reconnect": True,
+                "dev-no-reconnect": None,
+                "disconnect": disconnects,
+            },
+        ],
+    )
 
-    # Start payment, will disconnect
     l1.pay(l2, 200000)
-    wait_for(lambda: only_one(l1.rpc.listpeers()['peers'])['connected'] is False)
+    l2.daemon.wait_for_log(r'dev_disconnect: \$WIRE_REVOKE_AND_ACK')
 
     # Tell it to close (will block)
     fut = executor.submit(l1.rpc.close, l2.info['id'])
-
-    # Original problem was with multiple disconnects, but to simplify we make
-    # l2 send shutdown too.
     fut2 = executor.submit(l2.rpc.close, l1.info['id'])
+    wait_for(
+        lambda: (
+            only_one(l1.rpc.listpeerchannels()["channels"])["state"]
+            == "CHANNELD_SHUTTING_DOWN"
+        )
+    )
+    wait_for(
+        lambda: (
+            only_one(l2.rpc.listpeerchannels()["channels"])["state"]
+            == "CHANNELD_SHUTTING_DOWN"
+        )
+    )
 
-    # Reconnect, shutdown will continue disconnect again
+    # On reconnect, l1 sends shutdown but l2's revoke_and_ack is dropped again.
+    l1.rpc.disconnect(l2.info["id"], force=True)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l2.daemon.wait_for_log(r'dev_disconnect: \$WIRE_REVOKE_AND_ACK')
 
     # Now l2 should be in CLOSINGD_SIGEXCHANGE, l1 still waiting on
     # WIRE_REVOKE_AND_ACK.
     wait_for(lambda: only_one(l2.rpc.listpeerchannels()['channels'])['state'] == 'CLOSINGD_SIGEXCHANGE')
     assert only_one(l1.rpc.listpeerchannels()['channels'])['state'] == 'CHANNELD_SHUTTING_DOWN'
 
-    # They don't realize they're not talking, so disconnect and reconnect.
+    # l2 must retransmit revoke_and_ack even though it's in closingd.
     l1.rpc.disconnect(l2.info['id'], force=True)
-
-    # Now it hangs, since l1 is expecting rexmit of revoke-and-ack.
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
     fut.result(TIMEOUT)
