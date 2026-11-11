@@ -578,12 +578,9 @@ static void add_result_summary(struct attempt *attempt,
 	attempt_log(attempt, level, "%s", msg);
 }
 
-static const char *describe_scidd(struct attempt *attempt, size_t index)
+static const char *describe_scidd(struct attempt *attempt, struct short_channel_id_dir scidd)
 {
-	struct short_channel_id_dir scidd = attempt->hops[index].scidd;
 	struct payment *payment = attempt->payment;
-
-	assert(index < tal_count(attempt->hops));
 
 	/* Blinded paths? */
 	if (scidd.scid.u64 < tal_count(payment->paths)) {
@@ -617,6 +614,12 @@ static const char *describe_scidd(struct attempt *attempt, size_t index)
 
 	/* Just use normal names otherwise (may be public, may be local) */
 	return fmt_short_channel_id_dir(tmpctx, &scidd);
+}
+
+static const char *describe_scidd_from_index(struct attempt *attempt, size_t index)
+{
+	assert(index < tal_count(attempt->hops));
+	return describe_scidd(attempt, attempt->hops[index].scidd);
 }
 
 /* How much did previous successes deliver? */
@@ -718,6 +721,48 @@ static u32 error_blockheight(const u8 *errmsg)
 							   &height))
 		return 0;
 	return height;
+}
+
+static void add_node_bias(struct command *aux_cmd,
+			  struct attempt *attempt,
+			  const struct node_id *nodeid,
+			  const char *layer_name,
+			  int bias,
+			  const char *why)
+{
+	struct out_req *req;
+	add_result_summary(attempt, LOG_DBG, "adding a global bias to node %s",
+			   fmt_node_id(tmpctx, nodeid));
+	req = payment_ignored_req(aux_cmd, attempt, "askrene-bias-node");
+	json_add_string(req->js, "layer", layer_name);
+	json_add_node_id(req->js, "node", nodeid);
+	json_add_string(req->js, "direction", "out");
+	json_add_s32(req->js, "bias", bias);
+	json_add_bool(req->js, "relative", true);
+	if (why)
+		json_add_string(req->js, "description", why);
+	send_payment_req(aux_cmd, attempt->payment, req);
+}
+
+static void add_channel_bias(struct command *aux_cmd,
+			     struct attempt *attempt,
+			     const struct short_channel_id_dir scidd,
+			     const char *layer_name,
+			     int bias,
+			     const char *why)
+{
+	struct out_req *req;
+	add_result_summary(attempt, LOG_DBG,
+			   "adding a global bias to channel %s",
+			   describe_scidd(attempt, scidd));
+	req = payment_ignored_req(aux_cmd, attempt, "askrene-bias-channel");
+	json_add_string(req->js, "layer", layer_name);
+	json_add_short_channel_id_dir(req->js, "short_channel_id_dir", scidd);
+	json_add_s32(req->js, "bias", bias);
+	json_add_bool(req->js, "relative", true);
+	if (why)
+		json_add_string(req->js, "description", why);
+	send_payment_req(aux_cmd, attempt->payment, req);
 }
 
 /* Return true if this contained a channel_update which (potentially) changed something. */
@@ -831,17 +876,10 @@ static bool process_channel_update_from_onion_error(struct command *aux_cmd,
 
 	/* We also bias *against* the channel.  This should help if the node is
 	 * stuck somehow, or trying to track us. */
-	req = payment_ignored_req(aux_cmd, attempt, "askrene-bias-channel");
-	json_add_string(req->js, "layer", attempt->payment->private_layer);
-	json_add_short_channel_id_dir(req->js,
-				      "short_channel_id_dir",
-				      scidd);
-	json_add_s32(req->js, "bias", -1);
-	json_add_string(req->js, "description",
-			tal_fmt(tmpctx, "negative bias due to channel_update in error %s",
-				errname));
-	json_add_bool(req->js, "relative", true);
-	send_payment_req(aux_cmd, attempt->payment, req);
+	add_channel_bias(
+	    aux_cmd, attempt, scidd, attempt->payment->private_layer, -1,
+	    tal_fmt(tmpctx, "negative bias due to channel_update in error %s",
+		    errname));
 	return true;
 }
 
@@ -1025,45 +1063,27 @@ static void maybe_exclude_node(struct command *aux_cmd, struct attempt *attempt,
 	 * It doesn't apply to fake channels because of name clash, these are
 	 * kept private between payments. */
 	if (!attempt->hops[index].fake_channel) {
-		add_result_summary(attempt, LOG_DBG,
-				   "adding a global bias to channel %s",
-				   describe_scidd(attempt, index));
-		req = payment_ignored_req(aux_cmd, attempt,
-					  "askrene-bias-channel");
-		json_add_string(req->js, "layer", "xpay");
-		json_add_short_channel_id_dir(req->js, "short_channel_id_dir",
-					      attempt->hops[index].scidd);
-		json_add_s32(req->js, "bias", -5); /* cost x 1.18 */
-		json_add_bool(req->js, "relative", true);
-		json_add_string(
-		    req->js, "description",
+		add_channel_bias(
+		    aux_cmd, attempt, attempt->hops[index].scidd,
+		    /* layer = */ "xpay",
+		    /* bias = */ -5 /* cost x 1.18 */,
 		    tal_fmt(tmpctx, "xpay: weird error %s during payment %s",
 			    fmt_onion_error(tmpctx, failcode),
 			    fmt_sha256(tmpctx, &payment->payment_hash)));
-		send_payment_req(aux_cmd, attempt->payment, req);
 	}
 
 	if (tal_count(current_noderr->errs) >= 2) {
 		/* Also add a bias to this node, so that future payments avoid
 		 * it. */
-		add_result_summary(
-		    attempt, LOG_DBG, "adding a global bias to node %s",
-		    fmt_node_id(tmpctx, &current_noderr->nodeid));
-		req =
-		    payment_ignored_req(aux_cmd, attempt, "askrene-bias-node");
-		json_add_string(req->js, "layer", "xpay");
-		json_add_node_id(req->js, "node", &current_noderr->nodeid);
-		json_add_string(req->js, "direction", "out");
-		json_add_s32(req->js, "bias", -10); /* cost x 1.41 */
-		json_add_bool(req->js, "relative", true);
-		json_add_string(
-		    req->js, "description",
+		add_node_bias(
+		    aux_cmd, attempt, &current_noderr->nodeid,
+		    /* layer = */ "xpay",
+		    /* bias = */ -10 /* cost x 1.41 */,
 		    tal_fmt(
 			tmpctx,
 			"xpay: too many weird errors (%s) during payment %s",
 			fmt_noderr(tmpctx, current_noderr),
 			fmt_sha256(tmpctx, &payment->payment_hash)));
-		send_payment_req(aux_cmd, attempt->payment, req);
 	}
 
 	/* Our tolerance could be any number, but the higher it is
@@ -1151,7 +1171,7 @@ static void update_knowledge_from_error(struct command *aux_cmd,
 		description = "Garbled error message";
 		add_result_summary(attempt, LOG_UNUSUAL,
 				   "We got a garbled error message, and chose to (randomly) to disable %s for this payment",
-				   describe_scidd(attempt, index));
+				   describe_scidd_from_index(attempt, index));
 		goto disable_channel;
 	}
 
@@ -1251,7 +1271,7 @@ static void update_knowledge_from_error(struct command *aux_cmd,
 			    attempt, LOG_UNUSUAL,
 			    "Unexpected error (%s) from final node: disabling "
 			    "%s for this payment",
-			    errmsg, describe_scidd(attempt, index));
+			    errmsg, describe_scidd_from_index(attempt, index));
 			goto disable_channel;
 
 		case WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS: {
@@ -1288,7 +1308,7 @@ static void update_knowledge_from_error(struct command *aux_cmd,
 			add_result_summary(attempt, LOG_DBG,
 					   "We got %s for %s, containing a channel_update:"
 					   " updating our map",
-					   errmsg, describe_scidd(attempt, index));
+					   errmsg, describe_scidd_from_index(attempt, index));
 			goto check_previous_success;
 		}
 
@@ -1308,7 +1328,7 @@ static void update_knowledge_from_error(struct command *aux_cmd,
 			    attempt, LOG_UNUSUAL,
 			    "Unexpected error (%s) from intermediate node: "
 			    "disabling %s for this payment",
-			    errmsg, describe_scidd(attempt, index));
+			    errmsg, describe_scidd_from_index(attempt, index));
 
 			maybe_exclude_node(aux_cmd, attempt, index, failcode);
 			goto disable_channel;
@@ -1317,7 +1337,7 @@ static void update_knowledge_from_error(struct command *aux_cmd,
 			add_result_summary(attempt, LOG_DBG,
 					   "We got %s for %s, assuming it can't carry %s",
 					   errmsg,
-					   describe_scidd(attempt, index),
+					   describe_scidd_from_index(attempt, index),
 					   fmt_amount_msat(tmpctx, attempt->hops[index].amount_out));
 			goto channel_capacity;
 
@@ -1336,7 +1356,7 @@ static void update_knowledge_from_error(struct command *aux_cmd,
 			add_result_summary(attempt, LOG_DBG,
 					   "We got a weird error (%s) for %s: disabling it for this payment",
 					   errmsg,
-					   describe_scidd(attempt, index));
+					   describe_scidd_from_index(attempt, index));
 			maybe_exclude_node(aux_cmd, attempt, index, failcode);
 			goto disable_channel;
 
