@@ -985,8 +985,6 @@ fuzzunittest/%: % bolt-precheck
 
 # Commands
 MKDIR_P = mkdir -p
-RMDIR_P = rmdir -p
-CP_A = cp -a
 INSTALL = install
 INSTALL_PROGRAM = $(INSTALL)
 INSTALL_DATA = $(INSTALL) -m 644
@@ -1015,26 +1013,6 @@ install_targets = $(foreach f,$(2),$(call INSTALL_TARGET_tmpl,$(1),$(f),$(3)/$(n
 install_program_targets = $(call install_targets,$(INSTALL_PROGRAM),$(1),$(2))
 install_data_targets = $(call install_targets,$(INSTALL_DATA),$(1),$(2))
 
-# Defines a rule that touches $(1) whenever it is older than any file listed in $(2).
-define TOUCH_RULE_tmpl =
-$(1): $(2)
-	@touch $(1)
-endef
-
-# $(1) = source directory (with trailing slash)
-# $(2) = paths within that directory
-# $(3) = installation target path
-# Expands to the installation target path, defining its rules as a side effect.
-PY_PLUGIN_TARGET_tmpl = $(eval $(call TOUCH_RULE_tmpl,$(1),$(2)))$(eval $(call INSTALL_RULE_tmpl,$(RM) -r $$@ && $(CP_A),$(1),$(3)))$(3)
-
-# $(1) = list of files whose containing directories are to be installed to $(2)
-# $(2) = installation target directory
-# An installation target rule is defined for each distinct directory containing
-# any file listed in $(1). A containing directory will be touched whenever any
-# listed contained file is newer than it. The touched directory then will
-# trigger a re-installation of the whole directory.
-install_py_plugin_targets = $(foreach d,$(sort $(dir $(1))),$(call PY_PLUGIN_TARGET_tmpl,$(d),$(filter $(d)%,$(1)),$(2)/$(notdir $(patsubst %/,%,$(d)))))
-
 # Tags needed by some package systems.
 PRE_INSTALL = :
 NORMAL_INSTALL = :
@@ -1043,13 +1021,15 @@ PRE_UNINSTALL = :
 NORMAL_UNINSTALL = :
 POST_UNINSTALL = :
 
-$(DESTDIR)$(plugindir)/clnrest: uninstall-old-clnrest-plugin
+# clnrest and wss-proxy used to be Python plugins, installed as directories.
+# Remove such old directories (only if present) before installing the binaries.
+$(DESTDIR)$(plugindir)/clnrest: $(if $(wildcard $(DESTDIR)$(plugindir)/clnrest/.),uninstall-old-clnrest-plugin)
 uninstall-old-clnrest-plugin:
-	@[ ! -d $(DESTDIR)$(plugindir)/clnrest ] || $(RM) -r $(DESTDIR)$(plugindir)/clnrest
+	$(RM) -r $(DESTDIR)$(plugindir)/clnrest
 
-$(DESTDIR)$(plugindir)/wss-proxy: uninstall-old-wss-proxy-plugin
+$(DESTDIR)$(plugindir)/wss-proxy: $(if $(wildcard $(DESTDIR)$(plugindir)/wss-proxy/.),uninstall-old-wss-proxy-plugin)
 uninstall-old-wss-proxy-plugin:
-	@[ ! -d $(DESTDIR)$(plugindir)/wss-proxy ] || $(RM) -r $(DESTDIR)$(plugindir)/wss-proxy
+	$(RM) -r $(DESTDIR)$(plugindir)/wss-proxy
 
 .PHONY: uninstall-old-clnrest-plugin uninstall-old-wss-proxy-plugin
 
@@ -1058,8 +1038,7 @@ uninstall-old-wss-proxy-plugin:
 INSTALL_PROGRAM_TARGETS := \
 	$(call install_program_targets,$(BIN_PROGRAMS),$(DESTDIR)$(bindir)) \
 	$(call install_program_targets,$(PKGLIBEXEC_PROGRAMS),$(DESTDIR)$(pkglibexecdir)) \
-	$(call install_program_targets,$(PLUGINS),$(DESTDIR)$(plugindir)) \
-	$(call install_py_plugin_targets,$(PY_PLUGINS),$(DESTDIR)$(plugindir))
+	$(call install_program_targets,$(PLUGINS),$(DESTDIR)$(plugindir))
 
 install-program: $(INSTALL_PROGRAM_TARGETS)
 	@$(NORMAL_INSTALL)
@@ -1107,15 +1086,15 @@ testpack.tar.gz: all-programs all-fuzz-programs all-test-programs default-target
 uninstall-program:
 	@$(NORMAL_UNINSTALL)
 ifneq ($(strip $(INSTALL_PROGRAM_TARGETS)),)
-	$(RM) -r $(INSTALL_PROGRAM_TARGETS)
-	$(RMDIR_P) $(sort $(dir $(INSTALL_PROGRAM_TARGETS))) 2>/dev/null || :
+	$(RM) $(INSTALL_PROGRAM_TARGETS)
+	rmdir $(DESTDIR)$(plugindir) $(DESTDIR)$(pkglibexecdir) 2>/dev/null || :
 endif
 
 uninstall-data:
 	@$(NORMAL_UNINSTALL)
 ifneq ($(strip $(INSTALL_DATA_TARGETS)),)
-	$(RM) -r $(INSTALL_DATA_TARGETS)
-	$(RMDIR_P) $(sort $(dir $(INSTALL_DATA_TARGETS))) 2>/dev/null || :
+	$(RM) $(INSTALL_DATA_TARGETS)
+	rmdir $(DESTDIR)$(docdir) 2>/dev/null || :
 endif
 
 uninstall: uninstall-program uninstall-data
