@@ -1383,6 +1383,23 @@ size_t layer_trim_constraints(struct layer *layer, u64 cutoff)
 	struct bias *bias;
 	struct node_bias_hash_iter node_it;
 	struct node_bias *node_bias;
+	struct channel_observations *chan_obs;
+	struct channel_observations_htable_iter ob_it;
+
+	for (chan_obs = channel_observations_htable_first(
+		 layer->channel_observations, &ob_it);
+	     chan_obs; chan_obs = channel_observations_htable_next(
+			   layer->channel_observations, &ob_it)) {
+		for (size_t i = 0; i < tal_count(chan_obs->obs); i++) {
+			if (chan_obs->obs[i].timestamp < cutoff)
+				tal_arr_remove(&chan_obs->obs, i);
+			num_removed++;
+		}
+
+		if (tal_count(chan_obs->obs) == 0)
+			channel_observations_htable_del(
+			    layer->channel_observations, chan_obs);
+	}
 
 	modified_intelarr = tal_arr(tmpctx, const struct channel_intel *, 0);
 	for (intelarr = channel_intel_hash_first(layer->channel_intels, &intelit);
