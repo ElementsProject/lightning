@@ -7265,6 +7265,7 @@ impl From<requests::XpayRequest> for pb::XpayRequest {
             localinvreqid: c.localinvreqid.map(|v| hex::decode(v).unwrap()), // Rule #2 for type hex?
             maxdelay: c.maxdelay, // Rule #2 for type u32?
             maxfee: c.maxfee.map(|f| f.into()), // Rule #2 for type msat?
+            maxparts: c.maxparts, // Rule #2 for type u32?
             partial_msat: c.partial_msat.map(|f| f.into()), // Rule #2 for type msat?
             payer_note: c.payer_note, // Rule #2 for type string?
             retry_for: c.retry_for, // Rule #2 for type u32?
@@ -9480,6 +9481,7 @@ impl TryFrom<pb::XpayRequest> for requests::XpayRequest {
             localinvreqid: c.localinvreqid.map(|v| hex::encode(v)), // Rule #1 for type hex?
             maxdelay: c.maxdelay, // Rule #1 for type u32?
             maxfee: c.maxfee.map(|a| a.into()), // Rule #1 for type msat?
+            maxparts: c.maxparts, // Rule #1 for type u32?
             partial_msat: c.partial_msat.map(|a| a.into()), // Rule #1 for type msat?
             payer_note: c.payer_note, // Rule #1 for type string?
             retry_for: c.retry_for, // Rule #1 for type u32?

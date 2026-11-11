@@ -4690,6 +4690,7 @@
             "Xpay.localinvreqid": 10,
             "Xpay.maxdelay": 7,
             "Xpay.maxfee": 3,
+            "Xpay.maxparts": 12,
             "Xpay.partial_msat": 6,
             "Xpay.payer_note": 8,
             "Xpay.retry_for": 5
@@ -15421,6 +15422,10 @@
         },
         "Xpay.maxfee": {
             "added": "v24.11",
+            "deprecated": null
+        },
+        "Xpay.maxparts": {
+            "added": "v26.12",
             "deprecated": null
         },
         "Xpay.partial_msat": {
