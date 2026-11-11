@@ -18,12 +18,14 @@
 #include <common/hsm_secret.h>
 #include <common/key_derive.h>
 #include <common/memleak.h>
+#include <common/setup.h>
 #include <common/utils.h>
 #include <common/utxo.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
 #include <sys/stat.h>
+#include <tools/hsmtool-recoverhtlc.h>
 #include <tools/lightning-hsmtool.h>
 #include <unistd.h>
 #include <wally_bip32.h>
@@ -54,6 +56,8 @@ static void show_usage(const char *progname)
 		"<path/to/hsm_secret>\n");
 	printf("	- generatehsm <path/to/new/hsm_secret>\n");
 	printf("	- derivetoremote <node id> <channel dbid> [<cmt pt>] "
+	       "<path/to/hsm_secret>\n");
+	printf("	- recoverhtlc <path/to/bundle.json> <destination address> "
 	       "<path/to/hsm_secret>\n");
 	printf("	- checkhsm <path/to/new/hsm_secret>\n");
 	printf("	- dumponchaindescriptors [--show-secrets] <path/to/hsm_secret> [network]\n");
@@ -699,14 +703,24 @@ int main(int argc, char *argv[])
 
 	setup_locale();
 	err_set_progname(argv[0]);
-	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
-	                                         | SECP256K1_CONTEXT_SIGN);
 
 	method = argc > 1 ? argv[1] : NULL;
 	if (!method)
 		show_usage(argv[0]);
 
-	if (streq(method, "decrypt")) {
+	/* Recovery uses transaction helpers which require libwally's tal
+	 * allocator.  Do not create and then replace a secp256k1 context. */
+	if (streq(method, "recoverhtlc"))
+		common_setup(argv[0]);
+	else
+		secp256k1_ctx = secp256k1_context_create(
+			SECP256K1_CONTEXT_VERIFY | SECP256K1_CONTEXT_SIGN);
+
+	if (streq(method, "recoverhtlc")) {
+		if (argc != 5)
+			show_usage(argv[0]);
+		hsmtool_recoverhtlc(argv[2], argv[3], argv[4]);
+	} else if (streq(method, "decrypt")) {
 		if (argc < 3)
 			show_usage(argv[0]);
 		decrypt_hsm(argv[2]);
