@@ -211,6 +211,75 @@ static void validate_recovery_inputs(
 		errx(ERROR_KEYDERIV, "Could not derive HTLC recovery keys");
 }
 
+/* Say when the transaction becomes valid, and when that is too late. */
+static void print_recovery_timing(const struct recoverhtlc_match *match,
+				  u32 cltv_expiry)
+{
+	/* Anchor outputs carry a one-block relative delay. */
+	const char *confirmed = match->anchors
+		? "the commitment transaction has one confirmation" : NULL;
+
+	/* nLockTime keeps our timeout out until the HTLC has expired. */
+	if (match->kind == HTLC_WE_OFFERED) {
+		printf("valid        : once block %u is mined%s%s\n",
+		       cltv_expiry,
+		       confirmed ? " and " : "", confirmed ? confirmed : "");
+		return;
+	}
+
+	printf("valid        : %s%s\n",
+	       confirmed ? "once " : "now", confirmed ? confirmed : "");
+	/* After expiry the peer's own timeout races our preimage claim. */
+	if (cltv_expiry)
+		printf("deadline     : the peer can take this back once"
+		       " block %u is mined\n", cltv_expiry);
+	else
+		printf("deadline     : the peer can take this back once"
+		       " the HTLC expires\n");
+}
+
+static void print_recovery_tx(
+	const char *destination,
+	const struct bitcoin_tx *commitment_tx,
+	const struct recoverhtlc_match *match,
+	u32 cltv_expiry,
+	const struct bitcoin_tx *tx,
+	const struct recoverhtlc_amounts *amounts)
+{
+	struct bitcoin_txid commitment_txid, txid;
+	size_t weight = bitcoin_tx_weight(tx);
+	u32 feerate;
+
+	bitcoin_txid(commitment_tx, &commitment_txid);
+	bitcoin_txid(tx, &txid);
+	if (!amount_feerate(&feerate, amounts->fee, weight))
+		feerate = 0;
+
+	printf("kind         : %s\n",
+	       match->kind == HTLC_THEY_OFFERED
+	       ? "claim with preimage" : "reclaim after CLTV");
+	printf("channel type : %s\n", match->anchors ? "anchors" : "no anchors");
+	for (size_t i = 0; i < tal_count(match->outnums); i++) {
+		struct amount_sat amount = bitcoin_tx_output_get_amount_sat(
+			commitment_tx, match->outnums[i]);
+
+		printf("input[%zu]     : %s:%zu (%s)\n", i,
+		       fmt_bitcoin_txid(tmpctx, &commitment_txid),
+		       match->outnums[i], fmt_amount_sat(tmpctx, amount));
+	}
+	printf("output       : %s (%s)\n", destination,
+	       fmt_amount_sat(tmpctx, amounts->output));
+	printf("fee          : %s (%zu weight, %u sat/kw)\n",
+	       fmt_amount_sat(tmpctx, amounts->fee), weight, feerate);
+	printf("txid         : %s\n", fmt_bitcoin_txid(tmpctx, &txid));
+	print_recovery_timing(match, cltv_expiry);
+	printf("\n"
+	       "Verify with `bitcoin-cli decoderawtransaction` and"
+	       " `bitcoin-cli testmempoolaccept '[\"<tx>\"]'`.\n"
+	       "Broadcast with `bitcoin-cli sendrawtransaction <tx>`.\n\n");
+	printf("%s\n\n", fmt_bitcoin_tx(tmpctx, tx));
+}
+
 /* Parts of one payment share a script: the first claim sweeps them all. */
 static bool claim_already_swept(const struct recoverhtlc_claim *claims,
 				size_t n)
@@ -233,6 +302,7 @@ static const char *recover_claim(const struct recoverhtlc_bundle *bundle,
 				 const struct recoverhtlc_claim *claim,
 				 const struct bitcoin_tx *commitment_tx,
 				 const struct recoverhtlc_keys *keys,
+				 const char *destination,
 				 const u8 *destination_script)
 {
 	const struct preimage *preimage
@@ -263,7 +333,8 @@ static const char *recover_claim(const struct recoverhtlc_bundle *bundle,
 			"Warning: fee %s exceeds a quarter of the"
 			" recovered amount\n",
 			fmt_amount_sat(tmpctx, amounts.fee));
-	printf("%s\n", fmt_bitcoin_tx(tmpctx, tx));
+	print_recovery_tx(destination, commitment_tx, match,
+			  claim->cltv_expiry, tx, &amounts);
 	return NULL;
 }
 
@@ -297,7 +368,7 @@ void hsmtool_recoverhtlc(const char *bundle_path,
 		if (claim_already_swept(bundle.claims, i))
 			continue;
 		err = recover_claim(&bundle, claim, commitment_tx, &keys,
-				    destination_script);
+				    destination, destination_script);
 		if (!err) {
 			num_recovered++;
 			continue;
