@@ -3163,31 +3163,35 @@ void htlcs_notify_new_block(struct lightningd *ld)
 			if (channel->error)
 				continue;
 
-			/* Fulfill is in progress: we have the preimage
-			 * and have already told channeld (or will on
-			 * reconnect).  Don't force-close; if peer goes
-			 * on-chain, onchaind will claim using the
-			 * preimage.
-			 * See https://github.com/ElementsProject/lightning/issues/8899 */
-			if (hin->hstate >= SENT_REMOVE_HTLC) {
-				log_unusual(channel->log,
-					    "Fulfilled HTLC %"PRIu64
-					    " %s cltv %u hit deadline,"
-					    " but removal already in progress",
-					    hin->key.id,
-					    htlc_state_name(hin->hstate),
-					    hin->cltv_expiry);
-				continue;
-			}
+			/* hin->preimage is assigned only in fulfill_htlc(),
+			 * which persists SENT_REMOVE_HTLC in the same
+			 * wallet_htlc_update before this loop can observe
+			 * the HTLC.  A fulfilled HTLC still in the map is
+			 * therefore always removal-in-progress: channeld
+			 * has been told to send update_fulfill_htlc, or
+			 * will be on reconnect.
+			 *
+			 * Force-closing here is #8899.  The preimage is
+			 * already in the DB, so if the peer drops to chain
+			 * onchaind claims it.  This is a deliberate
+			 * deviation from the BOLT #2 MUST above: the
+			 * offering peer's own deadline still fails them.
+			 */
+			if (hin->hstate < SENT_REMOVE_HTLC)
+				log_broken(channel->log,
+					   "Fulfilled HTLC %"PRIu64
+					   " has preimage in state %s",
+					   hin->key.id,
+					   htlc_state_name(hin->hstate));
 
-			channel_fail_permanent(channel,
-					       REASON_PROTOCOL,
-					       "Fulfilled HTLC %"PRIu64
-					       " %s cltv %u hit deadline",
-					       hin->key.id,
-					       htlc_state_name(hin->hstate),
-					       hin->cltv_expiry);
-			removed = true;
+			log_unusual(channel->log,
+				    "Fulfilled HTLC %"PRIu64
+				    " %s cltv %u hit deadline,"
+				    " but removal already in progress",
+				    hin->key.id,
+				    htlc_state_name(hin->hstate),
+				    hin->cltv_expiry);
+			continue;
 		}
 	/* Iteration while removing is safe, but can skip entries! */
 	} while (removed);
