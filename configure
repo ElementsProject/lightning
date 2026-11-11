@@ -413,7 +413,10 @@ if have_function_sections $CC "${CWARNFLAGS-$BASE_WARNFLAGS} $CDEBUGFLAGS $COPTF
 	*'--gc-sections'*) ;;
 	*) LDFLAGS="-Wl,--gc-sections $LDFLAGS";;
     esac
-    COPTFLAGS="$COPTFLAGS -ffunction-sections"
+    case " $COPTFLAGS " in
+	*' -ffunction-sections '*) ;;
+	*) COPTFLAGS="$COPTFLAGS -ffunction-sections";;
+    esac
 fi
 
 # We assume warning flags don't affect congfigurator that much!
