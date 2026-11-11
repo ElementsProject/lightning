@@ -1,8 +1,10 @@
 #include "config.h"
 #include <bitcoin/chainparams.h>
+#include <bitcoin/feerate.h>
 #include <bitcoin/locktime.h>
 #include <bitcoin/script.h>
 #include <bitcoin/signature.h>
+#include <bitcoin/varint.h>
 #include <ccan/crypto/ripemd160/ripemd160.h>
 #include <ccan/mem/mem.h>
 #include <common/derive_basepoints.h>
@@ -173,12 +175,42 @@ struct recoverhtlc_match *hsmtool_recoverhtlc_find_outputs(
 	return NULL;
 }
 
+/* Witness stack count, signature, selector, and witness script. */
+static size_t recovery_witness_weight(const struct recoverhtlc_match *match)
+{
+	size_t wscript_len = tal_bytelen(match->wscript);
+
+	return 1 + bitcoin_tx_input_sig_weight()
+		+ (match->kind == HTLC_THEY_OFFERED ? 1 + 32 : 1)
+		+ varint_size(wscript_len) + wscript_len;
+}
+
+/* Deduct the signed transaction's fee from its single output. */
+static bool set_recovery_output_amount(
+	struct bitcoin_tx *tx,
+	const struct recoverhtlc_match *match,
+	u32 feerate_perkw,
+	struct recoverhtlc_amounts *amounts)
+{
+	/* The transaction is unsigned, so add each input's future witness. */
+	size_t weight = bitcoin_tx_weight(tx)
+		+ tal_count(match->outnums) * recovery_witness_weight(match);
+
+	amounts->fee = amount_tx_fee(feerate_perkw, weight);
+	/* Refuse a recovery whose fee consumes all of the HTLC value. */
+	if (!amount_sat_sub(&amounts->output, amounts->input, amounts->fee))
+		return false;
+	bitcoin_tx_output_set_amount(tx, 0, amounts->output);
+	return true;
+}
+
 static struct bitcoin_tx *new_recovery_tx(
 	const tal_t *ctx,
 	const struct bitcoin_tx *commitment_tx,
 	const struct recoverhtlc_match *match,
 	const u8 *destination_script,
-	struct amount_sat output_amount,
+	u32 feerate_perkw,
+	struct recoverhtlc_amounts *amounts,
 	u32 cltv_expiry)
 {
 	struct bitcoin_txid commitment_txid;
@@ -189,6 +221,7 @@ static struct bitcoin_tx *new_recovery_tx(
 	tx = bitcoin_tx(ctx, chainparams, num_inputs, 1,
 			match->kind == HTLC_WE_OFFERED ? cltv_expiry : 0);
 	bitcoin_txid(commitment_tx, &commitment_txid);
+	amounts->input = AMOUNT_SAT(0);
 
 	for (size_t i = 0; i < num_inputs; i++) {
 		struct bitcoin_outpoint outpoint = {
@@ -197,13 +230,22 @@ static struct bitcoin_tx *new_recovery_tx(
 		};
 		struct amount_sat amount = bitcoin_tx_output_get_amount_sat(
 			commitment_tx, match->outnums[i]);
+		struct amount_sat total;
+
+		if (!amount_sat_add(&total, amounts->input, amount))
+			return tal_free(tx);
+		amounts->input = total;
 
 		/* Segwit signatures commit to each input's amount and script. */
 		/* Anchor HTLC spends must wait one confirmation. */
 		bitcoin_tx_add_input(tx, &outpoint, match->anchors ? 1 : 0,
 				     NULL, amount, NULL, match->wscript);
 	}
-	bitcoin_tx_add_output(tx, destination_script, NULL, output_amount);
+
+	/* The complete transaction shape is needed to calculate its fee. */
+	bitcoin_tx_add_output(tx, destination_script, NULL, amounts->input);
+	if (!set_recovery_output_amount(tx, match, feerate_perkw, amounts))
+		return tal_free(tx);
 	return tx;
 }
 
@@ -234,16 +276,17 @@ static bool sign_recovery_tx(struct bitcoin_tx *tx,
 	return true;
 }
 
-/* Build and sign one transaction spending every matched HTLC output. */
+/* Calculate fees, then build and sign a transaction sweeping every match. */
 struct bitcoin_tx *hsmtool_recoverhtlc_sign(
 	const tal_t *ctx,
 	const struct bitcoin_tx *commitment_tx,
 	const struct recoverhtlc_match *match,
 	const struct recoverhtlc_keys *keys,
 	const u8 *destination_script,
-	struct amount_sat output_amount,
+	u32 feerate_perkw,
 	u32 cltv_expiry,
-	const struct preimage *preimage)
+	const struct preimage *preimage,
+	struct recoverhtlc_amounts *amounts)
 {
 	struct bitcoin_tx *tx;
 
@@ -254,7 +297,9 @@ struct bitcoin_tx *hsmtool_recoverhtlc_sign(
 		return NULL;
 
 	tx = new_recovery_tx(ctx, commitment_tx, match, destination_script,
-			     output_amount, cltv_expiry);
+			     feerate_perkw, amounts, cltv_expiry);
+	if (!tx)
+		return NULL;
 	if (!sign_recovery_tx(tx, match, keys, preimage))
 		return tal_free(tx);
 	return tx;
