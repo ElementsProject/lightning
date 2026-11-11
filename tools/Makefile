@@ -17,7 +17,7 @@ $(TOOLS): libcommon.a
 
 tools/headerversions.o: ccan/config.h
 tools/lightning-hsmtool: tools/lightning-hsmtool.o
-tools/lightning-downgrade.o: CFLAGS:=$(CFLAGS) -DCLN_PREV_VERSION=$(CLN_PREV_VERSION)
+tools/lightning-downgrade.o: CPPFLAGS += -DCLN_PREV_VERSION=$(CLN_PREV_VERSION)
 
 tools/lightning-downgrade:			\
 	db/exec.o				\

@@ -36,15 +36,28 @@ DEFAULT_BOLTVERSION := 4b539711d4726f274482051150bc6612e370b4e2
 # Can be overridden on cmdline.
 BOLTVERSION := $(DEFAULT_BOLTVERSION)
 
+USER_FLAGS_VARS := CFLAGS CPPFLAGS LDFLAGS
+
+# config.vars takes precedence over make's environment, so remember any of
+# these flags given in the environment before including it.
+$(foreach v,$(USER_FLAGS_VARS),$(if $(filter environment,$(origin $(v))),$(eval MAKE_ENV_$(v) := $$($(v)))))
+
 -include config.vars
 
-# Save flags inherited from environment (or config.vars) before we start munging them
-CFLAGS_FROM_ENV := $(CFLAGS)
-CFLAGS =
-CPPFLAGS_FROM_ENV := $(CPPFLAGS)
-CPPFLAGS =
-LDFLAGS_FROM_ENV := $(LDFLAGS)
-LDFLAGS =
+# Save the user's flags before we start munging them: those recorded by
+# configure (or given on the command line, which replaces them), followed by
+# any different ones given in make's environment.  We prepend our own flags
+# below; "override" makes that work for command-line values too.
+define SAVE_USER_FLAGS_tmpl =
+$(1)_FROM_ENV := $$($(1))
+ifneq ($$(origin $(1)),command line)
+ifneq ($$(strip $$(MAKE_ENV_$(1))),$$(strip $$($(1))))
+$(1)_FROM_ENV += $$(MAKE_ENV_$(1))
+endif
+endif
+override $(1) =
+endef
+$(foreach v,$(USER_FLAGS_VARS),$(eval $(call SAVE_USER_FLAGS_tmpl,$(v))))
 
 # Homebrew lives in /opt/homebrew on Apple Silicon and /usr/local on Intel.
 # Ask brew rather than guessing, and use nothing from it if it isn't found
@@ -302,28 +315,30 @@ ifneq ($(BREW_PREFIX),)
 OPENSSL_PREFIX := $(shell brew --prefix openssl@3 2>/dev/null || brew --prefix openssl 2>/dev/null || echo "")
 SQLITE_PREFIX := $(shell brew --prefix sqlite 2>/dev/null || echo "")
 ifneq ("$(OPENSSL_PREFIX)", "")
-LDFLAGS += -L$(OPENSSL_PREFIX)/lib
-CPPFLAGS += -I$(OPENSSL_PREFIX)/include
+override LDFLAGS += -L$(OPENSSL_PREFIX)/lib
+override CPPFLAGS += -I$(OPENSSL_PREFIX)/include
 endif
 ifneq ("$(SQLITE_PREFIX)", "")
-LDFLAGS += -L$(SQLITE_PREFIX)/lib
-CPPFLAGS += -I$(SQLITE_PREFIX)/include
+override LDFLAGS += -L$(SQLITE_PREFIX)/lib
+override CPPFLAGS += -I$(SQLITE_PREFIX)/include
 PKG_CONFIG_PATH := $(SQLITE_PREFIX)/lib/pkgconfig:$(PKG_CONFIG_PATH)
 endif
 endif
 endif
 
 # Put the environment-inherited flags *last* so the user has the final say.
-CPPFLAGS += -DCLN_NEXT_VERSION="\"$(CLN_NEXT_VERSION)\"" -DPKGLIBEXECDIR="\"$(pkglibexecdir)\"" -DBINDIR="\"$(bindir)\"" -DPLUGINDIR="\"$(plugindir)\"" -DCCAN_TAL_NEVER_RETURN_NULL=1 -I$(CCANDIR) $(EXTERNAL_INCLUDE_FLAGS) -I. $(CPATH_CFLAGS) $(POSTGRES_INCLUDE) -DSHACHAIN_BITS=48 -DJSMN_PARENT_LINKS $(COMPAT_CFLAGS) $(CPPFLAGS_FROM_ENV)
-CFLAGS = $(CWARNFLAGS) $(CDEBUGFLAGS) $(COPTFLAGS) $(SQLITE3_CFLAGS) $(SODIUM_CFLAGS) $(FEATURES) $(COVFLAGS) $(DEV_CFLAGS) $(PIE_CFLAGS) $(CSANFLAGS) $(CFLAGS_FROM_ENV)
-LDFLAGS += $(PIE_LDFLAGS) $(LDFLAGS_FROM_ENV)
+override CPPFLAGS += -DCLN_NEXT_VERSION="\"$(CLN_NEXT_VERSION)\"" -DPKGLIBEXECDIR="\"$(pkglibexecdir)\"" -DBINDIR="\"$(bindir)\"" -DPLUGINDIR="\"$(plugindir)\"" -DCCAN_TAL_NEVER_RETURN_NULL=1 -I$(CCANDIR) $(EXTERNAL_INCLUDE_FLAGS) -I. $(CPATH_CFLAGS) $(POSTGRES_INCLUDE) -DSHACHAIN_BITS=48 -DJSMN_PARENT_LINKS $(COMPAT_CFLAGS) $(CPPFLAGS_FROM_ENV)
+override CFLAGS = $(CWARNFLAGS) $(CDEBUGFLAGS) $(COPTFLAGS) $(SQLITE3_CFLAGS) $(SODIUM_CFLAGS) $(FEATURES) $(COVFLAGS) $(DEV_CFLAGS) $(PIE_CFLAGS) $(CSANFLAGS) $(CFLAGS_FROM_ENV)
+override LDFLAGS += $(PIE_LDFLAGS) $(LDFLAGS_FROM_ENV)
 
 # If CFLAGS is already set in the environment of make (to whatever value, it
 # does not matter) then it would export it to subprocesses with the above value
 # we set, including CWARNFLAGS which by default contains -Wall -Werror. This
 # breaks at least libwally-core which tries to switch off some warnings with
 # -Wno-whatever. So, tell make to not export our CFLAGS to subprocesses.
-unexport CFLAGS
+# The same goes for CPPFLAGS and LDFLAGS, which now hold our include paths,
+# defines and linker flags.
+unexport $(USER_FLAGS_VARS)
 
 # We can get configurator to run a different compile cmd to cross-configure.
 CONFIGURATOR_CC := $(CC)
