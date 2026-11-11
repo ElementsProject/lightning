@@ -97,4 +97,8 @@ struct bitcoin_tx *hsmtool_recoverhtlc_sign(
 const char *hsmtool_recoverhtlc_parse_bundle(
 	const tal_t *ctx, const char *path, struct recoverhtlc_bundle *bundle);
 
+void hsmtool_recoverhtlc(const char *bundle_path,
+			 const char *destination,
+			 const char *hsm_secret_path);
+
 #endif /* LIGHTNING_TOOLS_HSMTOOL_RECOVERHTLC_H */

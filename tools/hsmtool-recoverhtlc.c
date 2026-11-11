@@ -7,10 +7,12 @@
 #include <bitcoin/varint.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/crypto/ripemd160/ripemd160.h>
+#include <ccan/err/err.h>
 #include <ccan/mem/mem.h>
 #include <ccan/str/str.h>
 #include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/str/str.h>
+#include <common/addr.h>
 #include <common/derive_basepoints.h>
 #include <common/hsm_secret.h>
 #include <common/htlc_tx.h>
@@ -180,6 +182,138 @@ struct recoverhtlc_match *hsmtool_recoverhtlc_find_outputs(
 	}
 	return NULL;
 }
+
+static void validate_recovery_inputs(
+	const struct recoverhtlc_bundle *bundle,
+	const char *destination,
+	const char *hsm_secret_path,
+	struct bitcoin_tx **commitment_tx,
+	u8 **destination_script,
+	struct recoverhtlc_keys *keys)
+{
+	chainparams = chainparams_for_network(bundle->network);
+	if (!chainparams || chainparams->is_elements)
+		errx(ERROR_USAGE, "Unsupported recovery network '%s'",
+		     bundle->network);
+	if (!decode_scriptpubkey_from_addr(tmpctx, chainparams, destination,
+					   destination_script))
+		errx(ERROR_USAGE, "Invalid destination for network '%s'",
+		     bundle->network);
+	*commitment_tx = bitcoin_tx_from_hex(
+		tmpctx, bundle->commitment_tx_hex,
+		strlen(bundle->commitment_tx_hex));
+	if (!*commitment_tx)
+		errx(ERROR_USAGE, "Recovery bundle has an invalid commitment_tx");
+	if (!hsmtool_recoverhtlc_derive_keys(
+		    bundle->peer_id, bundle->channel_dbid,
+		    &bundle->commitment_point, &bundle->remote_htlc_basepoint,
+		    hsm_secret_path, keys))
+		errx(ERROR_KEYDERIV, "Could not derive HTLC recovery keys");
+}
+
+/* Parts of one payment share a script: the first claim sweeps them all. */
+static bool claim_already_swept(const struct recoverhtlc_claim *claims,
+				size_t n)
+{
+	for (size_t i = 0; i < n; i++) {
+		if (claims[i].kind != claims[n].kind
+		    || !sha256_eq(&claims[i].payment_hash,
+				  &claims[n].payment_hash))
+			continue;
+		/* Only the script of an HTLC we offered has its expiry. */
+		if (claims[n].kind == HTLC_THEY_OFFERED
+		    || claims[i].cltv_expiry == claims[n].cltv_expiry)
+			return true;
+	}
+	return false;
+}
+
+/* Sign and print one claim, or return why it has to be left out. */
+static const char *recover_claim(const struct recoverhtlc_bundle *bundle,
+				 const struct recoverhtlc_claim *claim,
+				 const struct bitcoin_tx *commitment_tx,
+				 const struct recoverhtlc_keys *keys,
+				 const u8 *destination_script)
+{
+	const struct preimage *preimage
+		= claim->kind == HTLC_THEY_OFFERED ? &claim->preimage : NULL;
+	struct recoverhtlc_match *match;
+	struct recoverhtlc_amounts amounts;
+	struct bitcoin_tx *tx;
+
+	match = hsmtool_recoverhtlc_find_outputs(
+		tmpctx, commitment_tx, claim->kind, keys,
+		&claim->payment_hash, claim->cltv_expiry);
+	/* An HTLC below the peer's dust limit never had an output. */
+	if (!match)
+		return "no commitment output matches it";
+	tx = hsmtool_recoverhtlc_sign(
+		tmpctx, commitment_tx, match, keys, destination_script,
+		bundle->feerate_perkw, claim->cltv_expiry, preimage, &amounts);
+	if (!tx)
+		return "its value does not cover the fee";
+	if (amount_sat_less(amounts.output, chainparams->dust_limit))
+		return "its value after the fee is below the dust limit";
+	if (amount_sat_greater(amounts.fee, amount_sat_div(amounts.input, 4))
+	    && !bundle->allow_high_fee)
+		return "fee exceeds a quarter of the recovered amount"
+			" (set allow_high_fee to true to override)";
+	if (amount_sat_greater(amounts.fee, amount_sat_div(amounts.input, 4)))
+		fprintf(stderr,
+			"Warning: fee %s exceeds a quarter of the"
+			" recovered amount\n",
+			fmt_amount_sat(tmpctx, amounts.fee));
+	printf("%s\n", fmt_bitcoin_tx(tmpctx, tx));
+	return NULL;
+}
+
+void hsmtool_recoverhtlc(const char *bundle_path,
+			 const char *destination,
+			 const char *hsm_secret_path)
+{
+	struct recoverhtlc_bundle bundle;
+	struct recoverhtlc_keys keys;
+	struct bitcoin_tx *commitment_tx;
+	const char *err;
+	u8 *destination_script;
+	size_t num_recovered = 0;
+
+	err = hsmtool_recoverhtlc_parse_bundle(tmpctx, bundle_path, &bundle);
+	if (err)
+		errx(ERROR_USAGE, "%s", err);
+
+	validate_recovery_inputs(&bundle, destination, hsm_secret_path,
+				 &commitment_tx, &destination_script, &keys);
+	if (bundle.feerate_perkw < FEERATE_FLOOR)
+		fprintf(stderr,
+			"Warning: feerate %u sat/kw is below the usual"
+			" relay minimum of %u sat/kw\n",
+			bundle.feerate_perkw, FEERATE_FLOOR);
+
+	/* One bad or trimmed HTLC must not block recovery of the others. */
+	for (size_t i = 0; i < tal_count(bundle.claims); i++) {
+		const struct recoverhtlc_claim *claim = &bundle.claims[i];
+
+		if (claim_already_swept(bundle.claims, i))
+			continue;
+		err = recover_claim(&bundle, claim, commitment_tx, &keys,
+				    destination_script);
+		if (!err) {
+			num_recovered++;
+			continue;
+		}
+		fprintf(stderr, "Skipping HTLC %zu (payment_hash %s): %s\n", i,
+			tal_hexstr(tmpctx, &claim->payment_hash,
+				   sizeof(claim->payment_hash)),
+			err);
+	}
+	if (num_recovered == 0)
+		errx(ERROR_USAGE,
+		     "No HTLC could be recovered.  If no output matched,"
+		     " check the bundle's commitment_point,"
+		     " remote_htlc_basepoint, peer_id and channel_dbid");
+}
+
 /* Witness stack count, signature, selector, and witness script. */
 static size_t recovery_witness_weight(const struct recoverhtlc_match *match)
 {
