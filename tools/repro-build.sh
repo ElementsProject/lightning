@@ -149,7 +149,7 @@ $INST $(cut -c66- < /tmp/SHASUMS)
 ./configure --prefix=/usr CC="gcc -fdebug-prefix-map=$(pwd)=/home/clightning"
 # libwally wants "python".  Seems to work to force it here.
 make -j"$MAKEPAR" PYTHON_VERSION=3 VERSION="$VERSION"
-make -j"$MAKEPAR" install DESTDIR=inst/
+make -j"$MAKEPAR" install DESTDIR=inst/ VERSION="$VERSION"
 
 cd inst && tar --sort=name \
       --mtime="$MTIME 00:00Z" \
