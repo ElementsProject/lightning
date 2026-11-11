@@ -23,6 +23,12 @@ struct recoverhtlc_match {
 	size_t *outnums;
 };
 
+struct recoverhtlc_amounts {
+	struct amount_sat input;
+	struct amount_sat fee;
+	struct amount_sat output;
+};
+
 /* Key names are from the commitment owner's perspective. */
 struct recoverhtlc_keys {
 	struct pubkey our_htlc_basepoint;
@@ -62,8 +68,9 @@ struct bitcoin_tx *hsmtool_recoverhtlc_sign(
 	const struct recoverhtlc_match *match,
 	const struct recoverhtlc_keys *keys,
 	const u8 *destination_script,
-	struct amount_sat output_amount,
+	u32 feerate_perkw,
 	u32 cltv_expiry,
-	const struct preimage *preimage);
+	const struct preimage *preimage,
+	struct recoverhtlc_amounts *amounts);
 
 #endif /* LIGHTNING_TOOLS_HSMTOOL_RECOVERHTLC_H */
