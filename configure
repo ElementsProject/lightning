@@ -188,10 +188,13 @@ set_defaults()
     # which matters since you might explicitly set of these blank.
     PREFIX=${PREFIX:-/usr/local}
     CC=${CC:-cc}
-    # A more compact way of setting the default value of a variable.
-    # Similar to the above, ":=" means assign if empty or unset; "=" means assign only if unset.
-    # The quotes suppress the globbing that would otherwise occur after variable expansion.
-    : "${CPPFLAGS=-std=gnu11}"
+    # Always select our C dialect, even when the user sets CPPFLAGS (as many
+    # packaging tools do), unless they chose a -std= option themselves. Put it
+    # first so that a later -std= in CPPFLAGS still wins.
+    case " $CPPFLAGS " in
+	*" -std="*) ;;
+	*) CPPFLAGS="-std=gnu11${CPPFLAGS:+ $CPPFLAGS}";;
+    esac
             # Detect macOS and use appropriate debug flags for libbacktrace compatibility
     if [ "$(uname -s)" = "Darwin" ]; then
         # Always override to avoid DWARF 5
