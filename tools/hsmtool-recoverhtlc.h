@@ -11,6 +11,8 @@
 
 struct node_id;
 
+#define RECOVERHTLC_DEFAULT_FEERATE 2500
+
 enum recoverhtlc_kind {
 	HTLC_THEY_OFFERED,
 	HTLC_WE_OFFERED,
@@ -27,6 +29,25 @@ struct recoverhtlc_amounts {
 	struct amount_sat input;
 	struct amount_sat fee;
 	struct amount_sat output;
+};
+
+struct recoverhtlc_claim {
+	enum recoverhtlc_kind kind;
+	struct sha256 payment_hash;
+	struct preimage preimage;
+	u32 cltv_expiry;
+};
+
+struct recoverhtlc_bundle {
+	char *network;
+	char *commitment_tx_hex;
+	struct node_id *peer_id;
+	struct pubkey remote_htlc_basepoint;
+	struct pubkey commitment_point;
+	u64 channel_dbid;
+	u32 feerate_perkw;
+	bool allow_high_fee;
+	struct recoverhtlc_claim *claims;
 };
 
 /* Key names are from the commitment owner's perspective. */
@@ -72,5 +93,8 @@ struct bitcoin_tx *hsmtool_recoverhtlc_sign(
 	u32 cltv_expiry,
 	const struct preimage *preimage,
 	struct recoverhtlc_amounts *amounts);
+
+const char *hsmtool_recoverhtlc_parse_bundle(
+	const tal_t *ctx, const char *path, struct recoverhtlc_bundle *bundle);
 
 #endif /* LIGHTNING_TOOLS_HSMTOOL_RECOVERHTLC_H */
