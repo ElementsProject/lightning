@@ -694,6 +694,11 @@ class NodeStub(object):
                 request_serializer=node__pb2.AskreneinformchannelRequest.SerializeToString,
                 response_deserializer=node__pb2.AskreneinformchannelResponse.FromString,
                 _registered_method=True)
+        self.AskReneChannelObservation = channel.unary_unary(
+                '/cln.Node/AskReneChannelObservation',
+                request_serializer=node__pb2.AskrenechannelobservationRequest.SerializeToString,
+                response_deserializer=node__pb2.AskrenechannelobservationResponse.FromString,
+                _registered_method=True)
         self.AskReneCreateChannel = channel.unary_unary(
                 '/cln.Node/AskReneCreateChannel',
                 request_serializer=node__pb2.AskrenecreatechannelRequest.SerializeToString,
@@ -1716,6 +1721,12 @@ class NodeServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def AskReneChannelObservation(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def AskReneCreateChannel(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -2648,6 +2659,11 @@ def add_NodeServicer_to_server(servicer, server):
                     servicer.AskReneInformChannel,
                     request_deserializer=node__pb2.AskreneinformchannelRequest.FromString,
                     response_serializer=node__pb2.AskreneinformchannelResponse.SerializeToString,
+            ),
+            'AskReneChannelObservation': grpc.unary_unary_rpc_method_handler(
+                    servicer.AskReneChannelObservation,
+                    request_deserializer=node__pb2.AskrenechannelobservationRequest.FromString,
+                    response_serializer=node__pb2.AskrenechannelobservationResponse.SerializeToString,
             ),
             'AskReneCreateChannel': grpc.unary_unary_rpc_method_handler(
                     servicer.AskReneCreateChannel,
@@ -6439,6 +6455,33 @@ class Node(object):
             '/cln.Node/AskReneInformChannel',
             node__pb2.AskreneinformchannelRequest.SerializeToString,
             node__pb2.AskreneinformchannelResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def AskReneChannelObservation(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/cln.Node/AskReneChannelObservation',
+            node__pb2.AskrenechannelobservationRequest.SerializeToString,
+            node__pb2.AskrenechannelobservationResponse.FromString,
             options,
             channel_credentials,
             insecure,

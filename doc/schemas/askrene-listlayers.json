@@ -433,7 +433,14 @@
               }
             ],
             "impressions": [],
-            "observations": [],
+            "observations": [
+              {
+                "short_channel_id_dir": "0x0x1/1",
+                "timestamp": 1738000000,
+                "amount_msat": 100000,
+                "result": "accepted"
+              }
+            ],
             "biases": [
               {
                 "short_channel_id_dir": "116x1x1/1",
@@ -487,7 +494,14 @@
               }
             ],
             "impressions": [],
-            "observations": [],
+            "observations": [
+              {
+                "short_channel_id_dir": "0x0x1/1",
+                "timestamp": 1738000000,
+                "amount_msat": 100000,
+                "result": "accepted"
+              }
+            ],
             "biases": [
               {
                 "short_channel_id_dir": "116x1x1/1",

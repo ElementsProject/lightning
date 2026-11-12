@@ -1682,6 +1682,20 @@ static void json_add_single_observation(struct json_stream *js,
 	json_object_end(js);
 }
 
+void json_add_observations(struct json_stream *js,
+			   const char *fieldname,
+			   const struct channel_observations *chan_obs,
+			   const struct layer *layer)
+{
+	json_array_start(js, fieldname);
+	if (chan_obs) {
+		for (size_t i = 0; i < tal_count(chan_obs->obs); i++)
+			json_add_single_observation(js, NULL, &chan_obs->obs[i],
+						    &chan_obs->scid, layer);
+	}
+	json_array_end(js);
+}
+
 void json_add_impression(struct json_stream *js,
 			 const char *fieldname,
 			 const struct impression *imp,

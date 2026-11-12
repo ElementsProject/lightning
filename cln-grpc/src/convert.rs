@@ -4747,6 +4747,29 @@ impl From<responses::AskreneinformchannelResponse> for pb::AskreneinformchannelR
 }
 
 #[allow(unused_variables)]
+impl From<responses::AskrenechannelobservationObservations> for pb::AskrenechannelobservationObservations {
+    fn from(c: responses::AskrenechannelobservationObservations) -> Self {
+        Self {
+            amount_msat: Some(c.amount_msat.into()), // Rule #2 for type msat
+            layer: c.layer, // Rule #2 for type string
+            result: c.result as i32,
+            short_channel_id_dir: c.short_channel_id_dir.to_string(), // Rule #2 for type short_channel_id_dir
+            timestamp: c.timestamp, // Rule #2 for type u64
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::AskrenechannelobservationResponse> for pb::AskrenechannelobservationResponse {
+    fn from(c: responses::AskrenechannelobservationResponse) -> Self {
+        Self {
+            // Field: AskRene-Channel-Observation.observations[]
+            observations: c.observations.into_iter().map(|i| i.into()).collect(), // Rule #3 for type AskrenechannelobservationObservations
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::AskrenecreatechannelResponse> for pb::AskrenecreatechannelResponse {
     fn from(c: responses::AskrenecreatechannelResponse) -> Self {
         Self {
@@ -7166,6 +7189,18 @@ impl From<requests::AskreneinformchannelRequest> for pb::AskreneinformchannelReq
 }
 
 #[allow(unused_variables)]
+impl From<requests::AskrenechannelobservationRequest> for pb::AskrenechannelobservationRequest {
+    fn from(c: requests::AskrenechannelobservationRequest) -> Self {
+        Self {
+            amount_msat: Some(c.amount_msat.into()), // Rule #2 for type msat
+            layer: c.layer, // Rule #2 for type string
+            result: c.result as i32,
+            short_channel_id_dir: c.short_channel_id_dir.to_string(), // Rule #2 for type short_channel_id_dir
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<requests::AskrenecreatechannelRequest> for pb::AskrenecreatechannelRequest {
     fn from(c: requests::AskrenecreatechannelRequest) -> Self {
         Self {
@@ -9408,6 +9443,19 @@ impl TryFrom<pb::AskreneinformchannelRequest> for requests::Askreneinformchannel
             amount_msat: c.amount_msat.ok_or_else(|| missing_field("amount_msat"))?.into(), // Rule #1 for type msat
             inform: c.inform.try_into().map_err(|e| invalid_argument("inform", e))?,
             layer: c.layer, // Rule #1 for type string
+            short_channel_id_dir: cln_rpc::primitives::ShortChannelIdDir::from_str(&c.short_channel_id_dir).map_err(|e| invalid_argument("short_channel_id_dir", e))?, // Rule #1 for type short_channel_id_dir
+        })
+    }
+}
+
+#[allow(unused_variables)]
+impl TryFrom<pb::AskrenechannelobservationRequest> for requests::AskrenechannelobservationRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::AskrenechannelobservationRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+            amount_msat: c.amount_msat.ok_or_else(|| missing_field("amount_msat"))?.into(), // Rule #1 for type msat
+            layer: c.layer, // Rule #1 for type string
+            result: c.result.try_into().map_err(|e| invalid_argument("result", e))?,
             short_channel_id_dir: cln_rpc::primitives::ShortChannelIdDir::from_str(&c.short_channel_id_dir).map_err(|e| invalid_argument("short_channel_id_dir", e))?, // Rule #1 for type short_channel_id_dir
         })
     }
