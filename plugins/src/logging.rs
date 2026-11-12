@@ -132,7 +132,15 @@ mod trace {
             }
 
             let level = event.metadata().level().into();
-            self.sender.send(LogEntry { level, message }).unwrap();
+            if let Err(err) = self.sender.send(LogEntry { level, message }) {
+                // The writer task is gone, most likely because the
+                // runtime is shutting down. We must not panic, and we
+                // must not silently drop the message, so write it to
+                // stderr: stdout is the JSON-RPC channel to
+                // lightningd.
+                let entry = err.0;
+                eprintln!("{:?}: {}", entry.level, entry.message);
+            }
         }
     }
 
@@ -173,5 +181,25 @@ mod trace {
             name,
             "log.target" | "log.module_path" | "log.file" | "log.line"
         )
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        /// The writer task may be gone by the time an event is
+        /// emitted, e.g., during shutdown. The `send` then fails with
+        /// a `SendError`, but logging must never panic: the entry
+        /// must be written to stderr instead.
+        #[test]
+        fn test_logging_layer_with_dropped_writer() {
+            let (sender, receiver) = mpsc::unbounded_channel::<LogEntry>();
+            drop(receiver); // Simulate the writer task having exited.
+
+            let subscriber = tracing_subscriber::registry().with(LoggingLayer::new(sender));
+            tracing::subscriber::with_default(subscriber, || {
+                tracing::info!("this must not panic");
+            });
+        }
     }
 }
