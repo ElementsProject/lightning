@@ -354,15 +354,9 @@ static bool channel_is_available(const struct route_query *rq,
 	       !bitmap_test_bit(rq->disabled_chans, c_idx * 2 + dir);
 }
 
-/* FIXME: unit test this */
-/* The probability of forwarding a payment amount given a high and low liquidity
- * bounds.
- * @low: the liquidity is known to be greater or equal than "low"
- * @high: the liquidity is known to be less than "high"
- * @amount: how much is required to forward */
-static double pickhardt_richter_probability(struct amount_msat low,
-					    struct amount_msat high,
-					    struct amount_msat amount)
+double pickhardt_richter_probability(struct amount_msat low,
+				     struct amount_msat high,
+				     struct amount_msat amount)
 {
 	struct amount_msat all_states, good_states;
 	if (amount_msat_greater_eq(amount, high))
