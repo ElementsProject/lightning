@@ -986,9 +986,10 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 		return NULL;
 	}
 
-	/* This reserves 1% of the channel (rounded up), or their dust
-	 * limit if that's higher: so check_dust_limit()'s ceiling is what
-	 * actually bounds their dust limit here. */
+	/* This reserves 1% of the channel (rounded up), or whichever dust
+	 * limit (theirs or ours) is higher: so check_dust_limit()'s ceiling
+	 * is what actually bounds their dust limit here, and our reserve
+	 * stays at or above our own dust limit too. */
 	set_reserve(state, state->remoteconf.dust_limit);
 
 	/* Pending proposal to remove these limits. */
