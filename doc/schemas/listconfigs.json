@@ -562,7 +562,7 @@
             }
           },
           "experimental-simple-close": {
-            "added": "v26.09",
+            "added": "v26.12",
             "type": "object",
             "additionalProperties": false,
             "required": [
@@ -571,14 +571,14 @@
             ],
             "properties": {
               "set": {
-                "added": "v26.09",
+                "added": "v26.12",
                 "type": "boolean",
                 "description": [
                   "`true` if set in config or cmdline."
                 ]
               },
               "source": {
-                "added": "v26.09",
+                "added": "v26.12",
                 "type": "string",
                 "description": [
                   "Source of configuration setting."
@@ -2142,7 +2142,7 @@
             "source": "default"
           },
           "alias": {
-            "value_str": "SILENTARTIST-v26.09",
+            "value_str": "SILENTARTIST-v26.12",
             "source": "default"
           },
           "pid-file": {

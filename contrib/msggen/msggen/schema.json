@@ -210,7 +210,7 @@
       "title": "Command for expiring information in a layer",
       "added": "v24.11",
       "description": [
-        "The **askrene-age** RPC command tells askrene that information added to a layer by *askrene-inform-channel* and *askrene-bias-channel* beyond a certain age is less useful.  It currently completely forgets constraints and biases older than *cutoff*."
+        "The **askrene-age** RPC command tells askrene that information added to a layer by *askrene-inform-channel*, *askrene-bias-channel* and *askrene-bias-node* beyond a certain age is less useful.  It currently completely forgets constraints, impressions and biases older than *cutoff*."
       ],
       "request": {
         "required": [
@@ -228,7 +228,7 @@
           "cutoff": {
             "type": "u64",
             "description": [
-              "The UNIX timestamp: constraints older than this will be forgotten."
+              "The UNIX timestamp: constraints, impressions and biases older than this will be forgotten."
             ]
           }
         }
@@ -249,7 +249,7 @@
           "num_removed": {
             "type": "u64",
             "description": [
-              "The number of constraints and impressions removed from *layer*"
+              "The number of constraints, impressions and biases removed from *layer*"
             ]
           }
         }
@@ -257,6 +257,8 @@
       "see_also": [
         "lightning-getroutes(7)",
         "lightning-askrene-inform-channel(7)",
+        "lightning-askrene-bias-channel(7)",
+        "lightning-askrene-bias-node(7)",
         "lightning-askrene-listlayers(7)"
       ],
       "author": [
@@ -918,7 +920,7 @@
                   }
                 },
                 "impressions": {
-                  "added": "v26.09",
+                  "added": "v26.12",
                   "type": "array",
                   "items": {
                     "type": "object",
@@ -1250,7 +1252,7 @@
             }
           },
           "impressions": {
-            "added": "v26.09",
+            "added": "v26.12",
             "type": "array",
             "items": {
               "type": "object",
@@ -1534,7 +1536,7 @@
                   }
                 },
                 "impressions": {
-                  "added": "v26.09",
+                  "added": "v26.12",
                   "type": "array",
                   "items": {
                     "type": "object",
@@ -16655,7 +16657,7 @@
           },
           "response": {
             "id": "033845802d25b4e074ccfd7cd8b339a41dc75bf9978a034800444b51d42b07799a",
-            "alias": "SILENTARTIST-v26.09",
+            "alias": "SILENTARTIST-v26.12",
             "color": "033845",
             "num_peers": 0,
             "num_pending_channels": 0,
@@ -16669,7 +16671,7 @@
                 "port": 30003
               }
             ],
-            "version": "v26.09",
+            "version": "v26.12",
             "blockheight": 114,
             "network": "regtest",
             "fees_collected_msat": 0,
@@ -21178,7 +21180,7 @@
                 }
               },
               "experimental-simple-close": {
-                "added": "v26.09",
+                "added": "v26.12",
                 "type": "object",
                 "additionalProperties": false,
                 "required": [
@@ -21187,14 +21189,14 @@
                 ],
                 "properties": {
                   "set": {
-                    "added": "v26.09",
+                    "added": "v26.12",
                     "type": "boolean",
                     "description": [
                       "`true` if set in config or cmdline."
                     ]
                   },
                   "source": {
-                    "added": "v26.09",
+                    "added": "v26.12",
                     "type": "string",
                     "description": [
                       "Source of configuration setting."
@@ -22758,7 +22760,7 @@
                 "source": "default"
               },
               "alias": {
-                "value_str": "SILENTARTIST-v26.09",
+                "value_str": "SILENTARTIST-v26.12",
                 "source": "default"
               },
               "pid-file": {
@@ -26091,7 +26093,7 @@
             "nodes": [
               {
                 "nodeid": "03cecbfdc68544cc596223b68ce0710c9e5d2c9cb317ee07822d95079acc703d31",
-                "alias": "HOPPINGFIRE-v26.09",
+                "alias": "HOPPINGFIRE-v26.12",
                 "color": "03cecb",
                 "last_timestamp": 1738000000,
                 "features": "808898882a8a59a1",
@@ -26110,7 +26112,7 @@
             "nodes": [
               {
                 "nodeid": "033845802d25b4e074ccfd7cd8b339a41dc75bf9978a034800444b51d42b07799a",
-                "alias": "SILENTARTIST-v26.09",
+                "alias": "SILENTARTIST-v26.12",
                 "color": "033845",
                 "last_timestamp": 1738000000,
                 "features": "808898882a8a59a1",
@@ -26118,7 +26120,7 @@
               },
               {
                 "nodeid": "038194b5f32bdf0aa59812c86c4ef7ad2f294104fa027d1ace9b469bb6f88cf37b",
-                "alias": "JUNIORBEAM-v26.09",
+                "alias": "JUNIORBEAM-v26.12",
                 "color": "038194",
                 "last_timestamp": 1738000000,
                 "features": "808898882a8a59a1",
@@ -26126,7 +26128,7 @@
               },
               {
                 "nodeid": "03cecbfdc68544cc596223b68ce0710c9e5d2c9cb317ee07822d95079acc703d31",
-                "alias": "HOPPINGFIRE-v26.09",
+                "alias": "HOPPINGFIRE-v26.12",
                 "color": "03cecb",
                 "last_timestamp": 1738000000,
                 "features": "808898882a8a59a1",
@@ -26134,7 +26136,7 @@
               },
               {
                 "nodeid": "02287bfac8b99b35477ebe9334eede1e32b189e24644eb701c079614712331cec0",
-                "alias": "JUNIORFELONY-v26.09",
+                "alias": "JUNIORFELONY-v26.12",
                 "color": "02287b",
                 "last_timestamp": 1738000000,
                 "features": "808898882a8a59a1",
@@ -30123,13 +30125,13 @@
                 "blockheight": {
                   "type": "u32",
                   "description": [
-                    "The block height of this tx."
+                    "The block height of this tx, or 0 if it is not in a block (yet, or any more after a reorg)."
                   ]
                 },
                 "txindex": {
                   "type": "u32",
                   "description": [
-                    "The transaction number within the block."
+                    "The transaction number within the block, or 0 if it is not in a block."
                   ]
                 },
                 "locktime": {
@@ -39455,8 +39457,7 @@
           "htlcs": {},
           "chainmoves": {},
           "channelmoves": {},
-          "networkevents": {},
-          "details": {}
+          "networkevents": {}
         },
         "allOf": [
           {
@@ -39478,51 +39479,6 @@
                 "created": {},
                 "updated": {},
                 "deleted": {},
-                "details": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "deprecated": [
-                    "v25.05",
-                    "v26.06"
-                  ],
-                  "properties": {
-                    "status": {
-                      "type": "string",
-                      "enum": [
-                        "unpaid",
-                        "paid",
-                        "expired"
-                      ],
-                      "description": [
-                        "Whether it's paid, unpaid or unpayable."
-                      ]
-                    },
-                    "label": {
-                      "type": "string",
-                      "description": [
-                        "Unique label supplied at invoice creation."
-                      ]
-                    },
-                    "description": {
-                      "type": "string",
-                      "description": [
-                        "Description used in the invoice."
-                      ]
-                    },
-                    "bolt11": {
-                      "type": "string",
-                      "description": [
-                        "The BOLT11 string."
-                      ]
-                    },
-                    "bolt12": {
-                      "type": "string",
-                      "description": [
-                        "The BOLT12 string."
-                      ]
-                    }
-                  }
-                },
                 "invoices": {
                   "type": "object",
                   "added": "v25.05",
@@ -39592,52 +39548,6 @@
                 "created": {},
                 "updated": {},
                 "deleted": {},
-                "details": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "deprecated": [
-                    "v25.05",
-                    "v26.06"
-                  ],
-                  "properties": {
-                    "status": {
-                      "type": "string",
-                      "enum": [
-                        "offered",
-                        "settled",
-                        "failed",
-                        "local_failed"
-                      ],
-                      "description": [
-                        "Still ongoing, completed, failed locally, or failed after forwarding."
-                      ]
-                    },
-                    "in_channel": {
-                      "type": "short_channel_id",
-                      "description": [
-                        "Unique label supplied at invoice creation."
-                      ]
-                    },
-                    "in_htlc_id": {
-                      "type": "u64",
-                      "description": [
-                        "The unique HTLC id the sender gave this (not present if incoming channel was closed before upgrade to v22.11)."
-                      ]
-                    },
-                    "in_msat": {
-                      "type": "msat",
-                      "description": [
-                        "The value of the incoming HTLC."
-                      ]
-                    },
-                    "out_channel": {
-                      "type": "short_channel_id",
-                      "description": [
-                        "The channel that the HTLC (trying to) forward to."
-                      ]
-                    }
-                  }
-                },
                 "forwards": {
                   "added": "v25.05",
                   "type": "object",
@@ -39708,45 +39618,6 @@
                 "created": {},
                 "updated": {},
                 "deleted": {},
-                "details": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "deprecated": [
-                    "v25.05",
-                    "v26.06"
-                  ],
-                  "properties": {
-                    "status": {
-                      "type": "string",
-                      "enum": [
-                        "pending",
-                        "failed",
-                        "complete"
-                      ],
-                      "description": [
-                        "Status of the payment."
-                      ]
-                    },
-                    "partid": {
-                      "type": "u64",
-                      "description": [
-                        "Part number (for multiple parts to a single payment)."
-                      ]
-                    },
-                    "groupid": {
-                      "type": "u64",
-                      "description": [
-                        "Grouping key to disambiguate multiple attempts to pay an invoice or the same payment_hash."
-                      ]
-                    },
-                    "payment_hash": {
-                      "type": "hash",
-                      "description": [
-                        "The hash of the *payment_preimage* which will prove payment."
-                      ]
-                    }
-                  }
-                },
                 "sendpays": {
                   "type": "object",
                   "added": "v25.05",
@@ -41762,7 +41633,7 @@
           "short_channel_id": {
             "type": "short_channel_id",
             "description": [
-              "The short channel id of the channel. If the channel is not yet confirmed, this field will be null."
+              "The short channel id of the channel. If the channel is not yet confirmed, this field will be missing."
             ]
           },
           "timestamp": {
@@ -41926,22 +41797,6 @@
               "The UNIX timestamp when the movement was recorded."
             ]
           },
-          "tags": {
-            "type": "array",
-            "description": [
-              "Deprecated legacy combined tag array, emitted only for deprecated output compatibility."
-            ],
-            "deprecated": [
-              "v25.09",
-              "v26.09"
-            ],
-            "items": {
-              "type": "string",
-              "description": [
-                "A legacy movement tag."
-              ]
-            }
-          },
           "primary_tag": {
             "type": "string",
             "enum": [
@@ -42030,42 +41885,12 @@
               "The originating account for an external chain movement, if any."
             ]
           },
-          "txid": {
-            "type": "txid",
-            "description": [
-              "Deprecated legacy field for the spending transaction id."
-            ],
-            "deprecated": [
-              "v25.09",
-              "v26.09"
-            ]
-          },
           "spending_txid": {
             "type": "txid",
             "description": [
               "The spending transaction id for a chain movement, if any."
             ],
             "added": "v25.09"
-          },
-          "utxo_txid": {
-            "type": "txid",
-            "description": [
-              "Deprecated legacy field for the outpoint transaction id."
-            ],
-            "deprecated": [
-              "v25.09",
-              "v26.09"
-            ]
-          },
-          "vout": {
-            "type": "u32",
-            "description": [
-              "Deprecated legacy field for the outpoint output index."
-            ],
-            "deprecated": [
-              "v25.09",
-              "v26.09"
-            ]
           },
           "output_msat": {
             "type": "msat",

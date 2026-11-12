@@ -1,5 +1,6 @@
 from binascii import unhexlify
 from pyln.proto.primitives import ShortChannelId
+import pytest
 
 
 def test_short_channel_id():
@@ -18,3 +19,16 @@ def test_short_channel_id():
     assert(expected.to_bytes() == b)
     assert(str(expected) == s)
     assert(expected.to_int() == num)
+
+
+def test_short_channel_id_from_str_bounds():
+    scid = ShortChannelId.from_str('16777215x16777215x65535')
+    assert scid == ShortChannelId(block=0xFFFFFF, txnum=0xFFFFFF, outnum=0xFFFF)
+    assert ShortChannelId.from_int(scid.to_int()) == scid
+
+    # Out of range elements used to spill into the next field, so
+    # e.g. '1x0x65536' had the same to_int() as '1x1x0'.
+    for bad in ['16777216x0x0', '0x16777216x0', '1x0x65536', '1x-1x0',
+                '1x2', '1x2x3x4']:
+        with pytest.raises(ValueError):
+            ShortChannelId.from_str(bad)
