@@ -462,7 +462,8 @@ struct command_result *param_string(struct command *cmd, const char *name,
 	return NULL;
 }
 
-/* Extract a string or a json array */
+/* Extract a string or a json array.  The string is unescaped, so that
+ * a JSON "\n" escape reaches the caller as a real newline. */
 struct command_result *param_string_or_array(struct command *cmd, const char *name,
 					     const char * buffer, const jsmntok_t *tok,
 					     struct str_or_arr **result)
@@ -475,7 +476,7 @@ struct command_result *param_string_or_array(struct command *cmd, const char *na
 		return NULL;
 	}
 
-	return param_string(cmd, name, buffer, tok, &(*result)->str);
+	return param_escaped_string(cmd, name, buffer, tok, &(*result)->str);
 }
 
 struct command_result *param_string_array(struct command *cmd, const char *name,
