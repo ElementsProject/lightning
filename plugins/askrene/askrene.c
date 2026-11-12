@@ -1250,6 +1250,46 @@ output:
 	return command_finished(cmd, response);
 }
 
+static struct command_result *json_askrene_constraint_channel(struct command *cmd,
+							      const char *buffer,
+							      const jsmntok_t *params)
+{
+	struct askrene *askrene = get_askrene(cmd->plugin);
+	struct layer *layer;
+	struct short_channel_id_dir *scidd;
+	struct json_stream *response;
+	struct amount_msat *amount;
+	const struct constraint *c;
+	bool *is_max;
+
+	if (!param_check(cmd, buffer, params,
+			 p_req("layer", param_known_layer, &layer),
+			 p_req("short_channel_id_dir", param_short_channel_id_dir, &scidd),
+			 p_req("amount_msat", param_msat, &amount),
+			 p_opt_def("upper", param_bool, &is_max, true),
+			 NULL))
+		return command_param_failed();
+	plugin_log(cmd->plugin, LOG_TRACE, "%s called: %.*s", __func__,
+		   json_tok_full_len(params), json_tok_full(buffer, params));
+
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
+
+	if (*is_max)
+		c = layer_add_constraint(layer, scidd, clock_time().ts.tv_sec,
+					 NULL, amount);
+	else
+		c = layer_add_constraint(layer, scidd, clock_time().ts.tv_sec,
+					 amount, NULL);
+
+	response = jsonrpc_stream_success(cmd);
+	json_array_start(response, "constraints");
+	if (c)
+		json_add_constraint(response, NULL, c, layer);
+	json_array_end(response);
+	return command_finished(cmd, response);
+}
+
 static struct command_result *param_observation_result(struct command *cmd,
 						       const char *name,
 						       const char *buffer,
