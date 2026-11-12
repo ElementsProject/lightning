@@ -5910,7 +5910,6 @@ def test_self_sendpay(node_factory):
     assert [p['status'] for p in l1.rpc.listsendpays()['payments'] if p['status'] != 'failed'] == ['complete']
 
 
-@pytest.mark.xfail(strict=True)
 def test_failinfo_per_groupid(node_factory):
     """A failed retry in a new group must not overwrite the failure details
     of an earlier group with the same payment_hash and partid."""
