@@ -3328,6 +3328,22 @@ def askrene_inform_channel2py(m):
     })
 
 
+def askrene_channel_observation_observations2py(m):
+    return remove_default({
+        "result": str(m.result),  # EnumField in generate_composite
+        "amount_msat": amount2msat(m.amount_msat),  # PrimitiveField in generate_composite
+        "layer": m.layer,  # PrimitiveField in generate_composite
+        "short_channel_id_dir": m.short_channel_id_dir,  # PrimitiveField in generate_composite
+        "timestamp": m.timestamp,  # PrimitiveField in generate_composite
+    })
+
+
+def askrene_channel_observation2py(m):
+    return remove_default({
+        "observations": [askrene_channel_observation_observations2py(i) for i in m.observations],  # ArrayField[composite] in generate_composite
+    })
+
+
 def askrene_create_channel2py(m):
     return remove_default({
     })

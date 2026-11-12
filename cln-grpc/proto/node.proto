@@ -140,6 +140,7 @@ service Node {
 	rpc GetRoutes(GetroutesRequest) returns (GetroutesResponse) {}
 	rpc AskReneDisableNode(AskrenedisablenodeRequest) returns (AskrenedisablenodeResponse) {}
 	rpc AskReneInformChannel(AskreneinformchannelRequest) returns (AskreneinformchannelResponse) {}
+	rpc AskReneChannelObservation(AskrenechannelobservationRequest) returns (AskrenechannelobservationResponse) {}
 	rpc AskReneCreateChannel(AskrenecreatechannelRequest) returns (AskrenecreatechannelResponse) {}
 	rpc AskReneUpdateChannel(AskreneupdatechannelRequest) returns (AskreneupdatechannelResponse) {}
 	rpc AskReneBiasChannel(AskrenebiaschannelRequest) returns (AskrenebiaschannelResponse) {}
@@ -4297,6 +4298,37 @@ message AskreneinformchannelImpressions {
 	string layer = 2;
 	string short_channel_id_dir = 3;
 	uint64 timestamp = 4;
+}
+
+message AskrenechannelobservationRequest {
+	// AskRene-Channel-Observation.result
+	enum AskrenechannelobservationResult {
+		FAILED = 0;
+		ACCEPTED = 1;
+		SUCCEEDED = 2;
+	}
+	Amount amount_msat = 1;
+	string layer = 2;
+	AskrenechannelobservationResult result = 3;
+	string short_channel_id_dir = 4;
+}
+
+message AskrenechannelobservationResponse {
+	repeated AskrenechannelobservationObservations observations = 1;
+}
+
+message AskrenechannelobservationObservations {
+	// AskRene-Channel-Observation.observations[].result
+	enum AskrenechannelobservationObservationsResult {
+		FAILED = 0;
+		ACCEPTED = 1;
+		SUCCEEDED = 2;
+	}
+	Amount amount_msat = 1;
+	string layer = 2;
+	AskrenechannelobservationObservationsResult result = 3;
+	string short_channel_id_dir = 4;
+	uint64 timestamp = 5;
 }
 
 message AskrenecreatechannelRequest {

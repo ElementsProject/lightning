@@ -193,6 +193,19 @@ def test_downgrade_impressions_and_observations(node_factory, executor):
         }
     )
 
+    ret = l1.rpc.askrene_channel_observation(
+        "test_downgrade", chan_dir, 1000000, "succeeded"
+    )
+
+    expect["observations"] = [
+        {
+            "amount_msat": 1000000,
+            "short_channel_id_dir": chan_dir,
+            "timestamp": ret["observations"][0]["timestamp"],
+            "result": "succeeded",
+        }
+    ]
+
     A_NODE = "020000000000000000000000000000000000000000000000000000000000000001"
     ret = l1.rpc.askrene_create_channel(
         "test_downgrade", A_NODE, l1.info["id"], "16000000x1x1", "100000000sat"

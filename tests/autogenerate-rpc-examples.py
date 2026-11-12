@@ -934,6 +934,7 @@ def generate_askrene_examples(l1, l2, l3, c12, c23_2):
         update_example(node=l2, method='askrene-create-channel', params={'layer': 'test_layers', 'source': l3.info['id'], 'destination': l1.info['id'], 'short_channel_id': '0x0x1', 'capacity_msat': '1000000sat'})
         update_example(node=l2, method='askrene-update-channel', params={'layer': 'test_layers', 'short_channel_id_dir': '0x0x1/0', 'htlc_minimum_msat': 100, 'htlc_maximum_msat': 900000000, 'fee_base_msat': 1, 'fee_proportional_millionths': 2, 'cltv_expiry_delta': 18})
         update_example(node=l2, method='askrene-inform-channel', params={'layer': 'test_layers', 'short_channel_id_dir': '0x0x1/1', 'amount_msat': 100000, 'inform': 'unconstrained'})
+        update_example(node=l2, method='askrene-channel-observation', params={'layer': 'test_layers', 'short_channel_id_dir': '0x0x1/1', 'amount_msat': 100000, 'result': 'accepted'})
         update_example(node=l2, method='askrene-bias-channel', params={'layer': 'test_layers', 'short_channel_id_dir': scid12dir, 'bias': 1})
         update_example(node=l2, method='askrene-bias-channel', params=['test_layers', scid12dir, -5, 'bigger bias'])
         askrene_listlayers_res1 = update_example(node=l2, method='askrene-listlayers', params=['test_layers'])

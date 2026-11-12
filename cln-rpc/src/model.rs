@@ -183,6 +183,8 @@ pub enum Request {
 	AskReneDisableNode(requests::AskrenedisablenodeRequest),
 	#[serde(rename = "askrene-inform-channel")]
 	AskReneInformChannel(requests::AskreneinformchannelRequest),
+	#[serde(rename = "askrene-channel-observation")]
+	AskReneChannelObservation(requests::AskrenechannelobservationRequest),
 	#[serde(rename = "askrene-create-channel")]
 	AskReneCreateChannel(requests::AskrenecreatechannelRequest),
 	#[serde(rename = "askrene-update-channel")]
@@ -381,6 +383,8 @@ pub enum Response {
 	AskReneDisableNode(responses::AskrenedisablenodeResponse),
 	#[serde(rename = "askrene-inform-channel")]
 	AskReneInformChannel(responses::AskreneinformchannelResponse),
+	#[serde(rename = "askrene-channel-observation")]
+	AskReneChannelObservation(responses::AskrenechannelobservationResponse),
 	#[serde(rename = "askrene-create-channel")]
 	AskReneCreateChannel(responses::AskrenecreatechannelResponse),
 	#[serde(rename = "askrene-update-channel")]
@@ -4797,6 +4801,66 @@ pub mod requests {
 
 	    fn method(&self) -> &str {
 	        "askrene-inform-channel"
+	    }
+	}
+	/// ['Whether this payment failed (implying that the available liquidity is below this amount), was accepted (implying that the channel has enough liquidity to forward this amount but the funds did not move) or succeeded (implying that the liquidity has been reduced in this direction)']
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+	#[allow(non_camel_case_types)]
+	pub enum AskrenechannelobservationResult {
+	    #[serde(rename = "failed")]
+	    FAILED = 0,
+	    #[serde(rename = "accepted")]
+	    ACCEPTED = 1,
+	    #[serde(rename = "succeeded")]
+	    SUCCEEDED = 2,
+	}
+
+	impl TryFrom<i32> for AskrenechannelobservationResult {
+	    type Error = anyhow::Error;
+	    fn try_from(c: i32) -> Result<AskrenechannelobservationResult, anyhow::Error> {
+	        match c {
+	    0 => Ok(AskrenechannelobservationResult::FAILED),
+	    1 => Ok(AskrenechannelobservationResult::ACCEPTED),
+	    2 => Ok(AskrenechannelobservationResult::SUCCEEDED),
+	            o => Err(anyhow::anyhow!("Unknown variant {} for enum AskrenechannelobservationResult", o)),
+	        }
+	    }
+	}
+
+	impl ToString for AskrenechannelobservationResult {
+	    fn to_string(&self) -> String {
+	        match self {
+	            AskrenechannelobservationResult::FAILED => "FAILED",
+	            AskrenechannelobservationResult::ACCEPTED => "ACCEPTED",
+	            AskrenechannelobservationResult::SUCCEEDED => "SUCCEEDED",
+	        }.to_string()
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AskrenechannelobservationRequest {
+	    // Path `AskRene-Channel-Observation.result`
+	    pub result: AskrenechannelobservationResult,
+	    pub amount_msat: Amount,
+	    pub layer: String,
+	    pub short_channel_id_dir: ShortChannelIdDir,
+	}
+
+	impl From<AskrenechannelobservationRequest> for Request {
+	    fn from(r: AskrenechannelobservationRequest) -> Self {
+	        Request::AskReneChannelObservation(r)
+	    }
+	}
+
+	impl IntoRequest for AskrenechannelobservationRequest {
+	    type Response = super::responses::AskrenechannelobservationResponse;
+	}
+
+	impl TypedRequest for AskrenechannelobservationRequest {
+	    type Response = super::responses::AskrenechannelobservationResponse;
+
+	    fn method(&self) -> &str {
+	        "askrene-channel-observation"
 	    }
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -12897,6 +12961,66 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::AskReneInformChannel(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	/// ['The result of the observation.']
+	#[derive(Copy, Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+	#[allow(non_camel_case_types)]
+	pub enum AskrenechannelobservationObservationsResult {
+	    #[serde(rename = "failed")]
+	    FAILED = 0,
+	    #[serde(rename = "accepted")]
+	    ACCEPTED = 1,
+	    #[serde(rename = "succeeded")]
+	    SUCCEEDED = 2,
+	}
+
+	impl TryFrom<i32> for AskrenechannelobservationObservationsResult {
+	    type Error = anyhow::Error;
+	    fn try_from(c: i32) -> Result<AskrenechannelobservationObservationsResult, anyhow::Error> {
+	        match c {
+	    0 => Ok(AskrenechannelobservationObservationsResult::FAILED),
+	    1 => Ok(AskrenechannelobservationObservationsResult::ACCEPTED),
+	    2 => Ok(AskrenechannelobservationObservationsResult::SUCCEEDED),
+	            o => Err(anyhow::anyhow!("Unknown variant {} for enum AskrenechannelobservationObservationsResult", o)),
+	        }
+	    }
+	}
+
+	impl ToString for AskrenechannelobservationObservationsResult {
+	    fn to_string(&self) -> String {
+	        match self {
+	            AskrenechannelobservationObservationsResult::FAILED => "FAILED",
+	            AskrenechannelobservationObservationsResult::ACCEPTED => "ACCEPTED",
+	            AskrenechannelobservationObservationsResult::SUCCEEDED => "SUCCEEDED",
+	        }.to_string()
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AskrenechannelobservationObservations {
+	    // Path `AskRene-Channel-Observation.observations[].result`
+	    pub result: AskrenechannelobservationObservationsResult,
+	    pub amount_msat: Amount,
+	    pub layer: String,
+	    pub short_channel_id_dir: ShortChannelIdDir,
+	    pub timestamp: u64,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AskrenechannelobservationResponse {
+	    pub observations: Vec<AskrenechannelobservationObservations>,
+	}
+
+	impl TryFrom<Response> for AskrenechannelobservationResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::AskReneChannelObservation(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }
