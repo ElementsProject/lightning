@@ -941,6 +941,7 @@ def generate_askrene_examples(l1, l2, l3, c12, c23_2):
         update_example(node=l2, method='askrene-listlayers', params={})
         ts1 = only_one(only_one(askrene_listlayers_res1['layers'])['constraints'])['timestamp']
         update_example(node=l2, method='askrene-age', params={'layer': 'test_layers', 'cutoff': ts1 + 1})
+        update_example(node=l2, method='askrene-constrain-channel', params={'layer': 'test_layers', 'short_channel_id_dir': '0x0x1/1', 'amount_msat': 100000, 'upper': False})
         update_example(node=l2, method='askrene-remove-layer', params={'layer': 'test_layers'})
         update_example(node=l1, method='getroutes', params={'source': l1.info['id'], 'destination': l3.info['id'], 'amount_msat': 1250000, 'layers': [], 'maxfee_msat': 125000, 'final_cltv': 0})
         update_example(node=l1, method='askrene-reserve', params={'path': [{'short_channel_id_dir': scid12dir, 'amount_msat': 1250_000}, {'short_channel_id_dir': scid23dir, 'amount_msat': 1250_001}]})

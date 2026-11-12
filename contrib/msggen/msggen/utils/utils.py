@@ -143,6 +143,7 @@ grpc_method_names = [
     "AskRene-Disable-Node",
     "AskRene-Inform-Channel",
     "AskRene-Channel-Observation",
+    "AskRene-Constrain-Channel",
     "AskRene-Create-Channel",
     "AskRene-Update-Channel",
     "AskRene-Bias-Channel",

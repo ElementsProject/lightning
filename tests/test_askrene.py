@@ -3642,3 +3642,60 @@ def test_askrene_observation_age(node_factory):
         "observations"
     ]
     assert obs == []
+
+
+def test_askrene_constrain_channel(node_factory):
+    """Test askrene-constrain-channel sets upper and lower bounds"""
+    gsfile, nodemap = generate_gossip_store([GenChannel(0, 1, capacity_sats=1000)])
+    l1 = node_factory.get_node(
+        gossip_store_file=gsfile.name, opts={"disable-plugin": "cln-xpay"}
+    )
+
+    chan_dir = scid_dir(nodemap, 0, 1, 0)
+
+    def getroutes(amount, layer):
+        return l1.rpc.getroutes(
+            source=nodemap[0],
+            destination=nodemap[1],
+            amount_msat=amount,
+            layers=[layer],
+            maxfee_msat=100_000,
+            final_cltv=5,
+        )
+
+    # Unknown layers are rejected.
+    with pytest.raises(RpcError, match="Unknown layer"):
+        l1.rpc.askrene_constrain_channel("no_such_layer", chan_dir, 400_000)
+
+    # An upper constraint is the default.
+    l1.rpc.askrene_create_layer("test_upper_constraint")
+    before = getroutes(300_000, "test_upper_constraint")["probability_ppm"]
+    c = only_one(
+        l1.rpc.askrene_constrain_channel("test_upper_constraint", chan_dir, 400_000)[
+            "constraints"
+        ]
+    )
+    assert c["layer"] == "test_upper_constraint"
+    assert c["short_channel_id_dir"] == chan_dir
+    assert c["maximum_msat"] == 400_000
+    assert "minimum_msat" not in c
+    assert c["timestamp"] > 0
+    after = getroutes(300_000, "test_upper_constraint")["probability_ppm"]
+    assert 0 < after < before
+    with pytest.raises(RpcError, match=r"We could not find a usable set of paths"):
+        getroutes(500_000, "test_upper_constraint")
+
+    # A lower constraint is set with upper=false.
+    l1.rpc.askrene_create_layer("test_lower_constraint")
+    before = getroutes(400_000, "test_lower_constraint")["probability_ppm"]
+    c = only_one(
+        l1.rpc.askrene_constrain_channel(
+            "test_lower_constraint", chan_dir, 500_000, False
+        )["constraints"]
+    )
+    assert c["layer"] == "test_lower_constraint"
+    assert c["short_channel_id_dir"] == chan_dir
+    assert c["minimum_msat"] == 500_000
+    assert "maximum_msat" not in c
+    assert c["timestamp"] > 0
+    assert getroutes(400_000, "test_lower_constraint")["probability_ppm"] > before
