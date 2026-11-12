@@ -5910,6 +5910,75 @@ def test_self_sendpay(node_factory):
     assert [p['status'] for p in l1.rpc.listsendpays()['payments'] if p['status'] != 'failed'] == ['complete']
 
 
+@pytest.mark.xfail(strict=True)
+def test_failinfo_per_groupid(node_factory):
+    """A failed retry in a new group must not overwrite the failure details
+    of an earlier group with the same payment_hash and partid."""
+
+    def setup(plugin):
+        @plugin.init()
+        def init(configuration, options, plugin):
+            plugin.failmsg = None
+
+        @plugin.method("setfailmsg")
+        def setfailmsg(plugin, failmsg):
+            plugin.failmsg = failmsg
+            return {}
+
+        @plugin.hook("htlc_accepted")
+        def on_htlc_accepted(htlc, onion, plugin, **kwargs):
+            return {"result": "fail", "failure_message": plugin.failmsg}
+
+    l1 = node_factory.get_node()
+    l2 = node_factory.get_node(inline_plugin=setup)
+    node_factory.join_nodes([l1, l2])
+
+    inv = l2.rpc.invoice(10000, "test_failinfo_per_groupid", "desc")
+    route = l1.single_route(l2.info["id"], 10000)
+
+    l2.rpc.setfailmsg("2002")
+    group1 = l1.rpc.sendpay(
+        route, inv["payment_hash"], payment_secret=inv["payment_secret"]
+    )["groupid"]
+    with pytest.raises(RpcError, match="WIRE_TEMPORARY_NODE_FAILURE"):
+        l1.rpc.waitsendpay(inv["payment_hash"], groupid=group1)
+
+    l2.rpc.setfailmsg("6002")
+    group2 = l1.rpc.sendpay(
+        route, inv["payment_hash"], payment_secret=inv["payment_secret"]
+    )["groupid"]
+    assert group2 != group1
+    with pytest.raises(RpcError, match="WIRE_PERMANENT_NODE_FAILURE"):
+        l1.rpc.waitsendpay(inv["payment_hash"], groupid=group2)
+
+    with pytest.raises(RpcError, match="WIRE_TEMPORARY_NODE_FAILURE") as err:
+        l1.rpc.waitsendpay(inv["payment_hash"], groupid=group1)
+    assert err.value.error["code"] == 204
+    assert err.value.error["data"]["raw_message"] == "2002"
+
+    # Self-payments fail through a different path, with the same problem.
+    selfinv = l1.rpc.invoice(10000, "test_failinfo_per_groupid_self", "desc")
+    with pytest.raises(RpcError, match="with wrong payment_secret"):
+        l1.rpc.sendpay(
+            [],
+            selfinv["payment_hash"],
+            amount_msat=10000,
+            payment_secret="00" * 32,
+            groupid=1,
+        )
+    with pytest.raises(RpcError, match="with amount 9999msat < 10000msat"):
+        l1.rpc.sendpay(
+            [],
+            selfinv["payment_hash"],
+            amount_msat=9999,
+            payment_secret=selfinv["payment_secret"],
+            groupid=2,
+        )
+
+    with pytest.raises(RpcError, match="with wrong payment_secret"):
+        l1.rpc.waitsendpay(selfinv["payment_hash"], groupid=1)
+
+
 def test_strip_lightning_suffix_from_inv(node_factory):
     """
     Reproducer for [1] that pay an invoice with the `lightning:<bolt11|bolt12>`
