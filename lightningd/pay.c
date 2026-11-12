@@ -655,6 +655,10 @@ void payment_failed(struct lightningd *ld,
 				    fail ? fail->channel_dir : 0,
 				    fail ? fail->msg : NULL);
 
+	/* Waiters and the notification need the updated status. */
+	payment = wallet_payment_by_hash(tmpctx, ld->wallet, payment_hash,
+					 partid, groupid);
+	assert(payment);
 	tell_waiters_failed(ld, payment, pay_errcode,
 			    failonion, fail, failstr);
 }
@@ -1551,6 +1555,9 @@ static struct command_result *self_payment(struct lightningd *ld,
 					    NULL, NULL,
 					    err,
 					    0, NULL);
+		payment = wallet_payment_by_hash(tmpctx, ld->wallet, rhash,
+						 partid, groupid);
+		assert(payment);
 		/* We do this even though there really can't be any waiters,
 		 * since we didn't block. */
 		tell_waiters_failed(ld, payment, PAY_DESTINATION_PERM_FAIL,

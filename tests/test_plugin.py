@@ -1888,7 +1888,6 @@ def test_sendpay_notifications_nowaiter(node_factory):
     assert len(results['sendpay_failure']) == 1
 
 
-@pytest.mark.xfail(strict=True)
 def test_sendpay_failure_status(node_factory, executor):
     """sendpay_failure and an already-waiting waitsendpay must report the
     final failed state, same as a waitsendpay issued afterwards (#7561)."""
