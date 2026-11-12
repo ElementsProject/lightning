@@ -630,6 +630,129 @@
         }
       ]
     },
+    "askrene-channel-observation.json": {
+      "$schema": "../rpc-schema-draft.json",
+      "type": "object",
+      "rpc": "askrene-channel-observation",
+      "title": "Command to add a channel observation to a layer",
+      "added": "v26.12",
+      "description": [
+        "The **askrene-channel-observation** RPC command tells askrene about channels we used so it can update its liquidity estimates.  For most accuracy, you should remove your own reservations before calling this.  It can be applied whether the current channel exists or not."
+      ],
+      "request": {
+        "required": [
+          "layer",
+          "short_channel_id_dir",
+          "amount_msat",
+          "result"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "layer": {
+            "type": "string",
+            "description": [
+              "The name of the layer to apply this change to.  Also causes us to consider any reservations which are local to that layer (which is useful for fake channels where `layer` is set in an `askrene-reserve` `path` object)."
+            ]
+          },
+          "short_channel_id_dir": {
+            "type": "short_channel_id_dir",
+            "description": [
+              "The short channel id and direction to apply this change to."
+            ]
+          },
+          "amount_msat": {
+            "type": "msat",
+            "description": [
+              "The amount we used on the channel"
+            ]
+          },
+          "result": {
+            "type": "string",
+            "enum": [
+              "failed",
+              "accepted",
+              "succeeded"
+            ],
+            "description": [
+              "Whether this payment failed (implying that the available liquidity is below this amount), was accepted (implying that the channel has enough liquidity to forward this amount but the funds did not move) or succeeded (implying that the liquidity has been reduced in this direction)"
+            ]
+          }
+        }
+      },
+      "response": {
+        "required": [
+          "observations"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "observations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "layer",
+                "short_channel_id_dir",
+                "timestamp",
+                "amount_msat",
+                "result"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "short_channel_id_dir": {
+                  "type": "short_channel_id_dir",
+                  "description": [
+                    "The short channel id and direction"
+                  ]
+                },
+                "layer": {
+                  "type": "string",
+                  "description": [
+                    "The name of the layer to apply this change to."
+                  ]
+                },
+                "timestamp": {
+                  "type": "u64",
+                  "description": [
+                    "The UNIX timestamp when this observation was created."
+                  ]
+                },
+                "amount_msat": {
+                  "type": "msat",
+                  "description": [
+                    "The amount involved in the observation."
+                  ]
+                },
+                "result": {
+                  "type": "string",
+                  "enum": [
+                    "failed",
+                    "accepted",
+                    "succeeded"
+                  ],
+                  "description": [
+                    "The result of the observation."
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "see_also": [
+        "lightning-getroutes(7)",
+        "lightning-askrene-disable-node(7)",
+        "lightning-askrene-create-channel(7)",
+        "lightning-askrene-listlayers(7)",
+        "lightning-askrene-age(7)"
+      ],
+      "author": [
+        "Lagrang3 [lagrang3@protonmail.com](mailto:lagrang3@protonmail.com) is mainly responsible."
+      ],
+      "resources": [
+        "Main web site: [https://github.com/ElementsProject/lightning](https://github.com/ElementsProject/lightning)"
+      ],
+      "examples": []
+    },
     "askrene-create-channel.json": {
       "$schema": "../rpc-schema-draft.json",
       "type": "object",

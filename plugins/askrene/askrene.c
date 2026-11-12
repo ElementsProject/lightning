@@ -1250,6 +1250,67 @@ output:
 	return command_finished(cmd, response);
 }
 
+static struct command_result *param_observation_result(struct command *cmd,
+						       const char *name,
+						       const char *buffer,
+						       const jsmntok_t *tok,
+						       enum observation_result **result)
+{
+	*result = tal(cmd, enum observation_result);
+	if (json_tok_streq(buffer, tok, "failed"))
+		**result = OBSERVATION_HTLC_FAILED;
+	else if (json_tok_streq(buffer, tok, "accepted"))
+		**result = OBSERVATION_HTLC_ACCEPTED;
+	else if (json_tok_streq(buffer, tok, "succeeded"))
+		**result = OBSERVATION_HTLC_FORWARDED;
+	else
+		command_fail_badparam(cmd, name, buffer, tok,
+				      "must be failed/accepted/succeeded");
+	return NULL;
+}
+
+static struct command_result *json_askrene_channel_observation(struct command *cmd,
+							       const char *buffer,
+							       const jsmntok_t *params)
+{
+	struct askrene *askrene = get_askrene(cmd->plugin);
+	struct layer *layer;
+	struct short_channel_id_dir *scidd;
+	struct json_stream *response;
+	struct amount_msat *amount;
+	enum observation_result *result;
+	struct channel_observations *chan_obs;
+
+	if (!param_check(
+		cmd, buffer, params, p_req("layer", param_known_layer, &layer),
+		p_req("short_channel_id_dir", param_short_channel_id_dir,
+		      &scidd),
+		p_req("amount_msat", param_msat, &amount),
+		p_req("result", param_observation_result, &result), NULL))
+		return command_param_failed();
+	plugin_log(cmd->plugin, LOG_TRACE, "%s called: %.*s", __func__,
+		   json_tok_full_len(params), json_tok_full(buffer, params));
+
+	if (*result == OBSERVATION_HTLC_FAILED) {
+		/* It didn't pass, so minimal assumption is that reserve was all
+		 * used. */
+		if (!reserve_accumulate(askrene->reserved, scidd, layer,
+					amount))
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Amount overflow with reserves");
+	}
+
+	if (command_check_only(cmd))
+		return command_check_done(cmd);
+
+	chan_obs = layer_add_observation(layer, scidd, *result,
+					 clock_time().ts.tv_sec, *amount);
+
+	response = jsonrpc_stream_success(cmd);
+	json_add_observations(response, "observations", chan_obs, layer);
+	return command_finished(cmd, response);
+}
+
 static struct command_result *param_s8_hundred(struct command *cmd,
 					       const char *name,
 					       const char *buffer,
@@ -1505,6 +1566,10 @@ static const struct plugin_command commands[] = {
 	{
 		"askrene-inform-channel",
 		json_askrene_inform_channel,
+	},
+	{
+		"askrene-channel-observation",
+		json_askrene_channel_observation,
 	},
 	{
 		"askrene-bias-channel",

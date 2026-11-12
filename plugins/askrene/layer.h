@@ -17,6 +17,7 @@ struct askrene;
 struct command;
 struct layer;
 struct json_stream;
+struct channel_observations;
 
 /* A public version of channel_intel, it contains a reference to the layer that
  * produced it. */
@@ -205,6 +206,13 @@ void json_add_impression(struct json_stream *js,
 			       const char *fieldname,
 			       const struct impression *imp,
 			       const struct layer *layer);
+
+/* Serializes a channel_observation object. It can contain multiple observation
+ * events all related to the same channel. */
+void json_add_observations(struct json_stream *js,
+			   const char *fieldname,
+			   const struct channel_observations *chan_obs,
+			   const struct layer *layer);
 
 /* Print a single bias */
 void json_add_bias(struct json_stream *js,

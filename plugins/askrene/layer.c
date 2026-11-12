@@ -108,6 +108,19 @@ struct observation {
 	struct amount_msat amount;
 };
 
+static const char *fmt_observation_result(enum observation_result result)
+{
+	switch (result) {
+	case OBSERVATION_HTLC_FAILED:
+		return "failed";
+	case OBSERVATION_HTLC_ACCEPTED:
+		return "accepted";
+	case OBSERVATION_HTLC_FORWARDED:
+		return "succeeded";
+	}
+	return NULL;
+}
+
 /* Holds all observations belonging to the same channel in both directions. */
 struct channel_observations {
 	/* All these observations regard this channel. */
@@ -1596,6 +1609,38 @@ void json_add_constraint(struct json_stream *js,
 	if (!amount_msat_eq(c->max, AMOUNT_MSAT(UINT64_MAX)))
 		json_add_amount_msat(js, "maximum_msat", c->max);
 	json_object_end(js);
+}
+
+static void json_add_single_observation(struct json_stream *js,
+					const char *fieldname,
+					const struct observation *obs,
+					const struct short_channel_id *scid,
+					const struct layer *layer)
+{
+	json_object_start(js, fieldname);
+	if (layer)
+		json_add_string(js, "layer", layer->name);
+	if (scid)
+		json_add_short_channel_id(js, "short_channel_id", *scid);
+	json_add_u64(js, "timestamp", obs->timestamp);
+	json_add_amount_msat(js, "amount_msat", obs->amount);
+	json_add_num(js, "dir", obs->dir);
+	json_add_string(js, "result", fmt_observation_result(obs->result));
+	json_object_end(js);
+}
+
+void json_add_observations(struct json_stream *js,
+			   const char *fieldname,
+			   const struct channel_observations *chan_obs,
+			   const struct layer *layer)
+{
+	json_array_start(js, fieldname);
+	if (chan_obs) {
+		for (size_t i = 0; i < tal_count(chan_obs->obs); i++)
+			json_add_single_observation(js, NULL, &chan_obs->obs[i],
+						    &chan_obs->scid, layer);
+	}
+	json_array_end(js);
 }
 
 void json_add_impression(struct json_stream *js,
