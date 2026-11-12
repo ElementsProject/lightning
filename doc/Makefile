@@ -10,6 +10,7 @@ MARKDOWNPAGES := doc/addgossip.7 \
 	doc/askrene-bias-channel.7 \
 	doc/askrene-bias-node.7 \
 	doc/askrene-channel-observation.7 \
+	doc/askrene-constrain-channel.7 \
 	doc/askrene-create-channel.7 \
 	doc/askrene-create-layer.7 \
 	doc/askrene-disable-node.7 \

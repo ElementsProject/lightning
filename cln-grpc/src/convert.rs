@@ -4770,6 +4770,29 @@ impl From<responses::AskrenechannelobservationResponse> for pb::Askrenechannelob
 }
 
 #[allow(unused_variables)]
+impl From<responses::AskreneconstrainchannelConstraints> for pb::AskreneconstrainchannelConstraints {
+    fn from(c: responses::AskreneconstrainchannelConstraints) -> Self {
+        Self {
+            layer: c.layer, // Rule #2 for type string
+            maximum_msat: c.maximum_msat.map(|f| f.into()), // Rule #2 for type msat?
+            minimum_msat: c.minimum_msat.map(|f| f.into()), // Rule #2 for type msat?
+            short_channel_id_dir: c.short_channel_id_dir.to_string(), // Rule #2 for type short_channel_id_dir
+            timestamp: c.timestamp, // Rule #2 for type u64
+        }
+    }
+}
+
+#[allow(unused_variables)]
+impl From<responses::AskreneconstrainchannelResponse> for pb::AskreneconstrainchannelResponse {
+    fn from(c: responses::AskreneconstrainchannelResponse) -> Self {
+        Self {
+            // Field: AskRene-Constrain-Channel.constraints[]
+            constraints: c.constraints.into_iter().map(|i| i.into()).collect(), // Rule #3 for type AskreneconstrainchannelConstraints
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<responses::AskrenecreatechannelResponse> for pb::AskrenecreatechannelResponse {
     fn from(c: responses::AskrenecreatechannelResponse) -> Self {
         Self {
@@ -7201,6 +7224,18 @@ impl From<requests::AskrenechannelobservationRequest> for pb::Askrenechannelobse
 }
 
 #[allow(unused_variables)]
+impl From<requests::AskreneconstrainchannelRequest> for pb::AskreneconstrainchannelRequest {
+    fn from(c: requests::AskreneconstrainchannelRequest) -> Self {
+        Self {
+            amount_msat: Some(c.amount_msat.into()), // Rule #2 for type msat
+            layer: c.layer, // Rule #2 for type string
+            short_channel_id_dir: c.short_channel_id_dir.to_string(), // Rule #2 for type short_channel_id_dir
+            upper: c.upper, // Rule #2 for type boolean?
+        }
+    }
+}
+
+#[allow(unused_variables)]
 impl From<requests::AskrenecreatechannelRequest> for pb::AskrenecreatechannelRequest {
     fn from(c: requests::AskrenecreatechannelRequest) -> Self {
         Self {
@@ -9457,6 +9492,19 @@ impl TryFrom<pb::AskrenechannelobservationRequest> for requests::Askrenechannelo
             layer: c.layer, // Rule #1 for type string
             result: c.result.try_into().map_err(|e| invalid_argument("result", e))?,
             short_channel_id_dir: cln_rpc::primitives::ShortChannelIdDir::from_str(&c.short_channel_id_dir).map_err(|e| invalid_argument("short_channel_id_dir", e))?, // Rule #1 for type short_channel_id_dir
+        })
+    }
+}
+
+#[allow(unused_variables)]
+impl TryFrom<pb::AskreneconstrainchannelRequest> for requests::AskreneconstrainchannelRequest {
+    type Error = tonic::Status;
+    fn try_from(c: pb::AskreneconstrainchannelRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+            amount_msat: c.amount_msat.ok_or_else(|| missing_field("amount_msat"))?.into(), // Rule #1 for type msat
+            layer: c.layer, // Rule #1 for type string
+            short_channel_id_dir: cln_rpc::primitives::ShortChannelIdDir::from_str(&c.short_channel_id_dir).map_err(|e| invalid_argument("short_channel_id_dir", e))?, // Rule #1 for type short_channel_id_dir
+            upper: c.upper, // Rule #1 for type boolean?
         })
     }
 }

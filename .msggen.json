@@ -818,6 +818,22 @@
         "Askrene-channel-observationResponse": {
             "AskRene-Channel-Observation.observations[]": 1
         },
+        "Askrene-constrain-channelConstraints": {
+            "AskRene-Constrain-Channel.constraints[].layer": 1,
+            "AskRene-Constrain-Channel.constraints[].maximum_msat": 2,
+            "AskRene-Constrain-Channel.constraints[].minimum_msat": 3,
+            "AskRene-Constrain-Channel.constraints[].short_channel_id_dir": 4,
+            "AskRene-Constrain-Channel.constraints[].timestamp": 5
+        },
+        "Askrene-constrain-channelRequest": {
+            "AskRene-Constrain-Channel.amount_msat": 1,
+            "AskRene-Constrain-Channel.layer": 2,
+            "AskRene-Constrain-Channel.short_channel_id_dir": 3,
+            "AskRene-Constrain-Channel.upper": 4
+        },
+        "Askrene-constrain-channelResponse": {
+            "AskRene-Constrain-Channel.constraints[]": 1
+        },
         "Askrene-create-channelRequest": {
             "AskRene-Create-Channel.base_fee": 8,
             "AskRene-Create-Channel.capacity_msat": 5,
@@ -4946,6 +4962,22 @@
         "AskrenechannelobservationResponse": {
             "1": "repeated message"
         },
+        "AskreneconstrainchannelConstraints": {
+            "1": "plain string",
+            "2": "optional Amount",
+            "3": "optional Amount",
+            "4": "plain string",
+            "5": "plain uint64"
+        },
+        "AskreneconstrainchannelRequest": {
+            "1": "plain Amount",
+            "2": "plain string",
+            "3": "plain string",
+            "4": "optional bool"
+        },
+        "AskreneconstrainchannelResponse": {
+            "1": "repeated message"
+        },
         "AskrenecreatechannelRequest": {
             "1": "plain string",
             "2": "plain bytes",
@@ -8790,6 +8822,50 @@
             "deprecated": null
         },
         "AskRene-Channel-Observation.short_channel_id_dir": {
+            "added": "v26.12",
+            "deprecated": null
+        },
+        "AskRene-Constrain-Channel": {
+            "added": "v26.12",
+            "deprecated": null
+        },
+        "AskRene-Constrain-Channel.amount_msat": {
+            "added": "v26.12",
+            "deprecated": null
+        },
+        "AskRene-Constrain-Channel.constraints[]": {
+            "added": "v26.12",
+            "deprecated": null
+        },
+        "AskRene-Constrain-Channel.constraints[].layer": {
+            "added": "v26.12",
+            "deprecated": null
+        },
+        "AskRene-Constrain-Channel.constraints[].maximum_msat": {
+            "added": "v26.12",
+            "deprecated": null
+        },
+        "AskRene-Constrain-Channel.constraints[].minimum_msat": {
+            "added": "v26.12",
+            "deprecated": null
+        },
+        "AskRene-Constrain-Channel.constraints[].short_channel_id_dir": {
+            "added": "v26.12",
+            "deprecated": null
+        },
+        "AskRene-Constrain-Channel.constraints[].timestamp": {
+            "added": "v26.12",
+            "deprecated": null
+        },
+        "AskRene-Constrain-Channel.layer": {
+            "added": "v26.12",
+            "deprecated": null
+        },
+        "AskRene-Constrain-Channel.short_channel_id_dir": {
+            "added": "v26.12",
+            "deprecated": null
+        },
+        "AskRene-Constrain-Channel.upper": {
             "added": "v26.12",
             "deprecated": null
         },

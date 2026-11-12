@@ -141,6 +141,7 @@ service Node {
 	rpc AskReneDisableNode(AskrenedisablenodeRequest) returns (AskrenedisablenodeResponse) {}
 	rpc AskReneInformChannel(AskreneinformchannelRequest) returns (AskreneinformchannelResponse) {}
 	rpc AskReneChannelObservation(AskrenechannelobservationRequest) returns (AskrenechannelobservationResponse) {}
+	rpc AskReneConstrainChannel(AskreneconstrainchannelRequest) returns (AskreneconstrainchannelResponse) {}
 	rpc AskReneCreateChannel(AskrenecreatechannelRequest) returns (AskrenecreatechannelResponse) {}
 	rpc AskReneUpdateChannel(AskreneupdatechannelRequest) returns (AskreneupdatechannelResponse) {}
 	rpc AskReneBiasChannel(AskrenebiaschannelRequest) returns (AskrenebiaschannelResponse) {}
@@ -4440,6 +4441,25 @@ message AskrenechannelobservationObservations {
 	Amount amount_msat = 1;
 	string layer = 2;
 	AskrenechannelobservationObservationsResult result = 3;
+	string short_channel_id_dir = 4;
+	uint64 timestamp = 5;
+}
+
+message AskreneconstrainchannelRequest {
+	Amount amount_msat = 1;
+	string layer = 2;
+	string short_channel_id_dir = 3;
+	optional bool upper = 4;
+}
+
+message AskreneconstrainchannelResponse {
+	repeated AskreneconstrainchannelConstraints constraints = 1;
+}
+
+message AskreneconstrainchannelConstraints {
+	string layer = 1;
+	optional Amount maximum_msat = 2;
+	optional Amount minimum_msat = 3;
 	string short_channel_id_dir = 4;
 	uint64 timestamp = 5;
 }
