@@ -5289,7 +5289,7 @@ def raw_peer_connect(node):
 
 
 def send_open_channel(lconn, chain_hash, temp_chan_id, funding_sat, push_msat,
-                      feerate_per_kw, channel_type):
+                      feerate_per_kw, channel_type, dust_limit_sat=546):
     # Six distinct valid points; they only have to parse.
     keys = [wire.PrivateKey(bytes([i + 1] * 32)).public_key().serializeCompressed()
             for i in range(6)]
@@ -5299,7 +5299,7 @@ def send_open_channel(lconn, chain_hash, temp_chan_id, funding_sat, push_msat,
     msg += temp_chan_id
     msg += struct.pack('>Q', funding_sat)       # funding_satoshis
     msg += struct.pack('>Q', push_msat)         # push_msat
-    msg += struct.pack('>Q', 546)               # dust_limit_satoshis
+    msg += struct.pack('>Q', dust_limit_sat)    # dust_limit_satoshis
     msg += struct.pack('>Q', 0xFFFFFFFFFFFF)    # max_htlc_value_in_flight_msat
     msg += struct.pack('>Q', 10000)             # channel_reserve_satoshis
     msg += struct.pack('>Q', 0)                 # htlc_minimum_msat
@@ -5314,14 +5314,18 @@ def send_open_channel(lconn, chain_hash, temp_chan_id, funding_sat, push_msat,
     lconn.send_message(msg)
 
 
-def read_channel_reply(lconn):
+def read_channel_reply_msg(lconn):
     """Read past gossip chatter to openingd's answer to our open_channel."""
     for _ in range(20):
         msg = lconn.read_message()
         mtype = int.from_bytes(msg[0:2], 'big')
         if mtype in (WIRE_ACCEPT_CHANNEL, WIRE_WARNING, WIRE_ERROR):
-            return mtype
+            return msg
     raise AssertionError("no reply to open_channel")
+
+
+def read_channel_reply(lconn):
+    return int.from_bytes(read_channel_reply_msg(lconn)[0:2], 'big')
 
 
 def send_funding_created(lconn, temp_chan_id):
@@ -5385,6 +5389,31 @@ def test_open_channel_funding_above_max_supply(node_factory, bitcoind):
                 funding_sat, push_msat)
 
     assert l1.rpc.getinfo()['id'] == l1.info['id']
+
+
+@pytest.mark.openchannel('v1')
+def test_open_channel_dust_limit_too_small(node_factory, bitcoind):
+    """BOLT #2: the fundee must fail the channel if dust_limit_satoshis < 354."""
+    l1 = node_factory.get_node()
+
+    chain_hash = bytes.fromhex(bitcoind.rpc.getblockhash(0))[::-1]
+    feerate = l1.rpc.feerates('perkw')['perkw']['opening']
+
+    lconn, channel_type = raw_peer_connect(l1)
+    send_open_channel(lconn, chain_hash, os.urandom(32), 200000, 0,
+                      feerate, channel_type, dust_limit_sat=353)
+    msg = read_channel_reply_msg(lconn)
+    assert int.from_bytes(msg[0:2], 'big') == WIRE_ERROR
+    # type, channel_id, len, data
+    errlen = struct.unpack('>H', msg[34:36])[0]
+    assert msg[36:36 + errlen].decode() == \
+        'You gave bad parameters: dust_limit_satoshis 353sat too small'
+
+    # 354 is the lowest value we must accept.
+    lconn, channel_type = raw_peer_connect(l1)
+    send_open_channel(lconn, chain_hash, os.urandom(32), 200000, 0,
+                      feerate, channel_type, dust_limit_sat=354)
+    assert read_channel_reply(lconn) == WIRE_ACCEPT_CHANNEL
 
 
 def test_connect_proxy_maxlen_hostname(node_factory):
