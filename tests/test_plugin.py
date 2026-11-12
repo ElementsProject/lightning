@@ -1888,6 +1888,66 @@ def test_sendpay_notifications_nowaiter(node_factory):
     assert len(results['sendpay_failure']) == 1
 
 
+@pytest.mark.xfail(strict=True)
+def test_sendpay_failure_status(node_factory, executor):
+    """sendpay_failure and an already-waiting waitsendpay must report the
+    final failed state, same as a waitsendpay issued afterwards (#7561)."""
+
+    def setup(plugin):
+        @plugin.init()
+        def init(configuration, options, plugin):
+            plugin.failure_list = []
+
+        @plugin.subscribe("sendpay_failure")
+        def notify_sendpay_failure(plugin, sendpay_failure, **kwargs):
+            plugin.failure_list.append(sendpay_failure)
+
+        @plugin.method("listsendpays_plugin")
+        def record_lookup(plugin):
+            return {"sendpay_failure": plugin.failure_list}
+
+    def hold_setup(plugin):
+        @plugin.init()
+        def init(configuration, options, plugin):
+            plugin.held = None
+
+        @plugin.async_hook("htlc_accepted")
+        def on_htlc_accepted(htlc, request, plugin, **kwargs):
+            plugin.held = request
+
+        @plugin.method("failhtlc")
+        def failhtlc(plugin):
+            plugin.held.set_result({"result": "fail", "failure_message": "2002"})
+            return {}
+
+    l1 = node_factory.get_node(inline_plugin=setup)
+    l2 = node_factory.get_node(inline_plugin=hold_setup)
+    node_factory.join_nodes([l1, l2])
+
+    inv = l2.rpc.invoice(10000, "test_sendpay_failure_status", "desc")
+    route = l1.single_route(l2.info["id"], 10000)
+    l1.rpc.sendpay(route, inv["payment_hash"], payment_secret=inv["payment_secret"])
+    l2.daemon.wait_for_log("Calling htlc_accepted hook")
+
+    # Make sure the waiter is registered before the HTLC fails.
+    fut = executor.submit(l1.rpc.waitsendpay, inv["payment_hash"])
+    l1.daemon.wait_for_log(r"Payment part 0/0/\d+ status 0")
+    l2.rpc.failhtlc()
+
+    with pytest.raises(RpcError, match="WIRE_TEMPORARY_NODE_FAILURE") as waiting:
+        fut.result(TIMEOUT)
+    with pytest.raises(RpcError, match="WIRE_TEMPORARY_NODE_FAILURE") as after:
+        l1.rpc.waitsendpay(inv["payment_hash"])
+
+    notification = only_one(l1.rpc.call("listsendpays_plugin")["sendpay_failure"])
+    for err in (notification, waiting.value.error, after.value.error):
+        assert err["data"]["status"] == "failed"
+        assert "completed_at" in err["data"]
+        assert "updated_index" in err["data"]
+    assert notification["data"] == after.value.error["data"]
+    assert waiting.value.error["data"] == after.value.error["data"]
+
+
 def test_inline_plugin_wait_for_log_no_selfmatch(node_factory):
     """On inline-plugin nodes the test process's logging is forwarded into
     the node's log.  wait_for_log()'s own 'Waiting for [pattern]'
