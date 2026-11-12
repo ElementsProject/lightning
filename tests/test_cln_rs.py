@@ -489,6 +489,76 @@ def test_grpc_legacy_sat_fields(bitcoind, node_factory):
     assert not l1.daemon.is_in_log(r"panicked")
 
 
+def test_grpc_sat_amounts_on_the_wire(bitcoind, node_factory):
+    """The amount that reaches the other side matches the requested amount.
+
+    Checks decoded transaction outputs and the channel state, not only the
+    RPC reply, so a unit mix-up (sat vs msat, 1000x) cannot pass unnoticed.
+    """
+    l1, l2 = node_factory.get_nodes(2)
+    wait_for_grpc_start(l1)
+    l1.connect(l2)
+    l1.fundwallet(10000000)
+    stub = l1.grpc
+    addr = l1.rpc.newaddr("bech32")["bech32"]
+    peer_id = bytes.fromhex(l2.info["id"])
+
+    def paid_to(tx_hex, address):
+        decoded = bitcoind.rpc.decoderawtransaction(tx_hex)
+        return [
+            int(round(vout["value"] * 10**8))
+            for vout in decoded["vout"]
+            if vout["scriptPubKey"].get("address") == address
+        ]
+
+    res = stub.Withdraw(
+        clnpb.WithdrawRequest(
+            destination=addr,
+            satoshi=clnpb.AmountOrAll(amount=clnpb.Amount(msat=1000000)),
+        )
+    )
+    assert paid_to(res.tx.hex(), addr) == [1000], "legacy withdraw paid the wrong sats"
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    sync_blockheight(bitcoind, [l1, l2])
+
+    res = stub.Withdraw(
+        clnpb.WithdrawRequest(
+            destination=addr,
+            satoshi_sat=clnpb.AmountSatOrAll(amount_sat=clnpb.AmountSat(sat=2000)),
+        )
+    )
+    assert paid_to(res.tx.hex(), addr) == [2000], (
+        "withdraw satoshi_sat paid the wrong sats"
+    )
+
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    sync_blockheight(bitcoind, [l1, l2])
+    received = [
+        int(o["amount_msat"])
+        for o in l1.rpc.listfunds()["outputs"]
+        if o.get("address") == addr
+    ]
+    assert sorted(received) == [1000000, 2000000], f"wallet received {received} msat"
+
+    res = stub.FundChannel(
+        clnpb.FundchannelRequest(
+            id=peer_id,
+            amount=clnpb.AmountOrAll(amount=clnpb.Amount(msat=100000000)),
+        )
+    )
+    funding_out = bitcoind.rpc.decoderawtransaction(res.tx.hex())["vout"][res.outnum]
+    assert round(funding_out["value"] * 10**8) == 100000, (
+        f"funding output is {funding_out['value']} BTC, expected 100000 sat"
+    )
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    sync_blockheight(bitcoind, [l1, l2])
+    chan = l1.rpc.listpeerchannels(l2.info["id"])["channels"][0]
+    assert int(chan["total_msat"]) == 100000000, (
+        f"channel total {chan['total_msat']} msat"
+    )
+    assert int(chan["funding"]["local_funds_msat"]) == 100000000, chan["funding"]
+
+
 def test_grpc_generate_certificate(node_factory):
     """Test whether we correctly generate the certificates.
 
