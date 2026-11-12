@@ -1,5 +1,15 @@
 {
     "grpc-enum-map": {
+        "Askrene-channel-observationObservationsResult": {
+            "accepted": 1,
+            "failed": 0,
+            "succeeded": 2
+        },
+        "Askrene-channel-observationResult": {
+            "accepted": 1,
+            "failed": 0,
+            "succeeded": 2
+        },
         "Askrene-create-layerLayersObservationsResult": {
             "accepted": 1,
             "failed": 0,
@@ -791,6 +801,22 @@
         },
         "Askrene-bias-nodeResponse": {
             "Askrene-Bias-Node.node_biases[]": 1
+        },
+        "Askrene-channel-observationObservations": {
+            "AskRene-Channel-Observation.observations[].amount_msat": 1,
+            "AskRene-Channel-Observation.observations[].layer": 2,
+            "AskRene-Channel-Observation.observations[].result": 3,
+            "AskRene-Channel-Observation.observations[].short_channel_id_dir": 4,
+            "AskRene-Channel-Observation.observations[].timestamp": 5
+        },
+        "Askrene-channel-observationRequest": {
+            "AskRene-Channel-Observation.amount_msat": 1,
+            "AskRene-Channel-Observation.layer": 2,
+            "AskRene-Channel-Observation.result": 3,
+            "AskRene-Channel-Observation.short_channel_id_dir": 4
+        },
+        "Askrene-channel-observationResponse": {
+            "AskRene-Channel-Observation.observations[]": 1
         },
         "Askrene-create-channelRequest": {
             "AskRene-Create-Channel.base_fee": 8,
@@ -4904,6 +4930,22 @@
         "AskrenebiasnodeResponse": {
             "1": "repeated message"
         },
+        "AskrenechannelobservationObservations": {
+            "1": "plain Amount",
+            "2": "plain string",
+            "3": "plain enum",
+            "4": "plain string",
+            "5": "plain uint64"
+        },
+        "AskrenechannelobservationRequest": {
+            "1": "plain Amount",
+            "2": "plain string",
+            "3": "plain enum",
+            "4": "plain string"
+        },
+        "AskrenechannelobservationResponse": {
+            "1": "repeated message"
+        },
         "AskrenecreatechannelRequest": {
             "1": "plain string",
             "2": "plain bytes",
@@ -8705,6 +8747,50 @@
         },
         "AskRene-Bias-Channel.short_channel_id_dir": {
             "added": "v24.11",
+            "deprecated": null
+        },
+        "AskRene-Channel-Observation": {
+            "added": "v26.12",
+            "deprecated": null
+        },
+        "AskRene-Channel-Observation.amount_msat": {
+            "added": "v26.12",
+            "deprecated": null
+        },
+        "AskRene-Channel-Observation.layer": {
+            "added": "v26.12",
+            "deprecated": null
+        },
+        "AskRene-Channel-Observation.observations[]": {
+            "added": "v26.12",
+            "deprecated": null
+        },
+        "AskRene-Channel-Observation.observations[].amount_msat": {
+            "added": "v26.12",
+            "deprecated": null
+        },
+        "AskRene-Channel-Observation.observations[].layer": {
+            "added": "v26.12",
+            "deprecated": null
+        },
+        "AskRene-Channel-Observation.observations[].result": {
+            "added": "v26.12",
+            "deprecated": null
+        },
+        "AskRene-Channel-Observation.observations[].short_channel_id_dir": {
+            "added": "v26.12",
+            "deprecated": null
+        },
+        "AskRene-Channel-Observation.observations[].timestamp": {
+            "added": "v26.12",
+            "deprecated": null
+        },
+        "AskRene-Channel-Observation.result": {
+            "added": "v26.12",
+            "deprecated": null
+        },
+        "AskRene-Channel-Observation.short_channel_id_dir": {
+            "added": "v26.12",
             "deprecated": null
         },
         "AskRene-Create-Channel": {

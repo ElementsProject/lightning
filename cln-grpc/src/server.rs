@@ -4311,6 +4311,38 @@ impl Node for Server
 
     }
 
+    async fn ask_rene_channel_observation(
+        &self,
+        request: tonic::Request<pb::AskrenechannelobservationRequest>,
+    ) -> Result<tonic::Response<pb::AskrenechannelobservationResponse>, tonic::Status> {
+        let req = request.into_inner();
+        let req: requests::AskrenechannelobservationRequest = req.try_into()?;
+        debug!("Client asked for ask_rene_channel_observation");
+        trace!("ask_rene_channel_observation request: {:?}", req);
+        let mut rpc = ClnRpc::new(&self.rpc_path)
+            .await
+            .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+        let result = rpc.call(Request::AskReneChannelObservation(req))
+            .await
+            .map_err(|e| Status::new(
+               Code::Unknown,
+               format!("Error calling method AskReneChannelObservation: {:?}", e)))?;
+        match result {
+            Response::AskReneChannelObservation(r) => {
+               trace!("ask_rene_channel_observation response: {:?}", r);
+               Ok(tonic::Response::new(r.into()))
+            },
+            r => Err(Status::new(
+                Code::Internal,
+                format!(
+                    "Unexpected result {:?} to method call AskReneChannelObservation",
+                    r
+                )
+            )),
+        }
+
+    }
+
     async fn ask_rene_create_channel(
         &self,
         request: tonic::Request<pb::AskrenecreatechannelRequest>,

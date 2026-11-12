@@ -17,6 +17,7 @@ Core Lightning Documentation
    askrene-age <askrene-age.7.md>
    askrene-bias-channel <askrene-bias-channel.7.md>
    askrene-bias-node <askrene-bias-node.7.md>
+   askrene-channel-observation <askrene-channel-observation.7.md>
    askrene-create-channel <askrene-create-channel.7.md>
    askrene-create-layer <askrene-create-layer.7.md>
    askrene-disable-node <askrene-disable-node.7.md>

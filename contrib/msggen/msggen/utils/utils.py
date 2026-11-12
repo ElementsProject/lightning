@@ -142,6 +142,7 @@ grpc_method_names = [
     "GetRoutes",
     "AskRene-Disable-Node",
     "AskRene-Inform-Channel",
+    "AskRene-Channel-Observation",
     "AskRene-Create-Channel",
     "AskRene-Update-Channel",
     "AskRene-Bias-Channel",

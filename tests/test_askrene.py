@@ -3496,3 +3496,205 @@ def test_flow_fee_adjustment_fallback(node_factory, bitcoind):
     )
     msg = "Could not find routes with enough capacity, retrying without a flow_fee_adjustment"
     assert l1.daemon.is_in_log(msg, start=0)
+
+
+def test_askrene_channel_observation(node_factory):
+    """Test askrene-channel-observation records and applies observations"""
+    cap_msat = 1_000_000
+    gsfile, nodemap = generate_gossip_store(
+        [GenChannel(0, 1, capacity_sats=cap_msat // 1000)]
+    )
+    l1 = node_factory.get_node(
+        gossip_store_file=gsfile.name, opts={"disable-plugin": "cln-xpay"}
+    )
+
+    chan_dir = scid_dir(nodemap, 0, 1, 0)
+
+    def getroutes(amount):
+        return l1.rpc.getroutes(
+            source=nodemap[0],
+            destination=nodemap[1],
+            amount_msat=amount,
+            layers=["test_observations"],
+            maxfee_msat=100_000,
+            final_cltv=5,
+        )
+
+    l1.rpc.askrene_create_layer("test_observations")
+
+    # Unknown layers are rejected.
+    with pytest.raises(RpcError, match="Unknown layer"):
+        l1.rpc.askrene_channel_observation("no_such_layer", chan_dir, 100_000, "failed")
+
+    # Invalid results are rejected.
+    with pytest.raises(RpcError, match="must be failed/accepted/succeeded"):
+        l1.rpc.askrene_channel_observation(
+            "test_observations", chan_dir, 100_000, "maybe"
+        )
+
+    # A failed observation means the channel cannot carry that much.
+    obs = l1.rpc.askrene_channel_observation(
+        "test_observations", chan_dir, 400_000, "failed"
+    )
+    observation = only_one(obs["observations"])
+    assert observation["layer"] == "test_observations"
+    assert observation["short_channel_id_dir"] == chan_dir
+    assert observation["amount_msat"] == 400_000
+    assert observation["result"] == "failed"
+    assert observation["timestamp"] > 0
+    assert getroutes(300_000)["probability_ppm"] > 0
+    with pytest.raises(RpcError, match=r"We could not find a usable set of paths"):
+        getroutes(400_000)
+
+    # An accepted observation means the channel can carry at least that much.
+    obs = l1.rpc.askrene_channel_observation(
+        "test_observations", chan_dir, 500_000, "accepted"
+    )
+    # Observations for a channel accumulate.
+    assert [o["result"] for o in obs["observations"]] == ["failed", "accepted"]
+    assert getroutes(400_000)["probability_ppm"] > 0
+    with pytest.raises(RpcError, match=r"We could not find a usable set of paths"):
+        getroutes(600_000)
+
+    # A succeeded observation reduces the available liquidity.
+    obs = l1.rpc.askrene_channel_observation(
+        "test_observations", chan_dir, 200_000, "succeeded"
+    )
+    assert [o["result"] for o in obs["observations"]] == [
+        "failed",
+        "accepted",
+        "succeeded",
+    ]
+    assert getroutes(300_000)["probability_ppm"] > 0
+    with pytest.raises(RpcError, match=r"We could not find a usable set of paths"):
+        getroutes(400_000)
+
+
+def test_askrene_observation_persistence(node_factory):
+    """Test channel observations are restored across restarts"""
+    gsfile, nodemap = generate_gossip_store([GenChannel(0, 1, capacity_sats=1000)])
+    l1 = node_factory.get_node(
+        gossip_store_file=gsfile.name, opts={"disable-plugin": "cln-xpay"}
+    )
+
+    chan_dir = scid_dir(nodemap, 0, 1, 0)
+
+    l1.rpc.askrene_create_layer(layer="test_observation_persistence", persistent=True)
+    l1.rpc.askrene_channel_observation(
+        "test_observation_persistence", chan_dir, 400_000, "failed"
+    )
+    l1.rpc.askrene_channel_observation(
+        "test_observation_persistence", chan_dir, 500_000, "accepted"
+    )
+
+    l1.restart()
+
+    # Adding another observation must return the restored ones as well.
+    l1.rpc.askrene_channel_observation(
+        "test_observation_persistence", chan_dir, 200_000, "succeeded"
+    )
+    obs = only_one(l1.rpc.askrene_listlayers("test_observation_persistence")["layers"])[
+        "observations"
+    ]
+    assert [(o["result"], o["amount_msat"]) for o in obs] == [
+        ("failed", 400_000),
+        ("accepted", 500_000),
+        ("succeeded", 200_000),
+    ]
+
+
+def test_askrene_observation_age(node_factory):
+    """Test askrene-age removes old channel observations"""
+    gsfile, nodemap = generate_gossip_store([GenChannel(0, 1, capacity_sats=1000)])
+    l1 = node_factory.get_node(
+        gossip_store_file=gsfile.name, opts={"disable-plugin": "cln-xpay"}
+    )
+
+    chan_dir = scid_dir(nodemap, 0, 1, 0)
+
+    l1.rpc.askrene_create_layer("test_observation_age")
+    l1.rpc.askrene_channel_observation(
+        "test_observation_age", chan_dir, 400_000, "failed"
+    )
+    l1.rpc.askrene_channel_observation(
+        "test_observation_age", chan_dir, 500_000, "accepted"
+    )
+    obs = l1.rpc.askrene_channel_observation(
+        "test_observation_age", chan_dir, 600_000, "failed"
+    )
+    assert len(obs["observations"]) == 3
+    max_ts = max(o["timestamp"] for o in obs["observations"])
+
+    # Nothing is old enough yet.
+    assert l1.rpc.askrene_age("test_observation_age", 1) == {
+        "layer": "test_observation_age",
+        "num_removed": 0,
+    }
+
+    # Everything is older than max_ts + 1.
+    assert l1.rpc.askrene_age("test_observation_age", max_ts + 1) == {
+        "layer": "test_observation_age",
+        "num_removed": 3,
+    }
+
+    # No observations are left
+    obs = only_one(l1.rpc.askrene_listlayers("test_observation_age")["layers"])[
+        "observations"
+    ]
+    assert obs == []
+
+
+def test_observations_relax_stale_lower_bound(node_factory):
+    """Observations relax a stale lower bound, hard constraints don't.
+
+    This is a regression test for the xpay fakenet bug: a successful payment
+    teaches us that a channel can carry at least amount X, but liquidity moves
+    and a later payment of the same X fails.  That failure is evidence our
+    belief was wrong, so the lower bound should be relaxed.
+
+    The old `askrene-inform-channel` recorded this as *hard* constraints, so
+    the lower bound stayed put and xpay kept trying (and failing at) amounts it
+    was "100% sure" about, walking the bound down a msat at a time until it
+    timed out.  `askrene-channel-observation` records *flexible* observations:
+    a failure that contradicts our prior lower bound halves it, so the next
+    attempt adapts to reality.
+    """
+    cap_msat = 1_000_000
+    gsfile, nodemap = generate_gossip_store(
+        [GenChannel(0, 1, capacity_sats=cap_msat // 1000)]
+    )
+    l1 = node_factory.get_node(
+        gossip_store_file=gsfile.name,
+        options={"disable-plugin": "cln-xpay", "allow-deprecated-apis": True},
+    )
+    chan_dir = scid_dir(nodemap, 0, 1, 0)
+
+    def getroutes(amount, layer):
+        return l1.rpc.getroutes(
+            source=nodemap[0],
+            destination=nodemap[1],
+            amount_msat=amount,
+            layers=[layer],
+            maxfee_msat=100_000,
+            final_cltv=5,
+        )
+
+    # Old way: a successful 400000msat payment then a failing 400000msat one.
+    l1.rpc.askrene_create_layer("old_way")
+    l1.rpc.askrene_inform_channel("old_way", chan_dir, 400_000, "unconstrained")
+    l1.rpc.askrene_inform_channel("old_way", chan_dir, 400_000, "constrained")
+    # Still "100% sure" it can carry 350000msat, even though 400000 just
+    # failed: this overconfidence is what made xpay retry forever.
+    assert getroutes(399_999, "old_way")["probability_ppm"] == 1_000_000
+
+    # New way: the same two events as observations.
+    l1.rpc.askrene_create_layer("new_way")
+    l1.rpc.askrene_channel_observation("new_way", chan_dir, 400_000, "accepted")
+    l1.rpc.askrene_channel_observation("new_way", chan_dir, 400_000, "failed")
+    # The contradictory failure halves the stale lower bound (400000 ->
+    # 200000): routing 200000 is still certain, 399999 is very unlikely, while
+    # 300000 is something in between, following Richter-Pickhardt's probability
+    # ~50%.
+    assert getroutes(200_000, "new_way")["probability_ppm"] == 1_000_000
+    assert getroutes(399_999, "new_way")["probability_ppm"] == 0
+    assert 490_000 < getroutes(300_000, "new_way")["probability_ppm"] < 510_000
