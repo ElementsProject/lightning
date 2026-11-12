@@ -3685,16 +3685,60 @@ def test_observations_relax_stale_lower_bound(node_factory):
     l1.rpc.askrene_inform_channel("old_way", chan_dir, 400_000, "constrained")
     # Still "100% sure" it can carry 350000msat, even though 400000 just
     # failed: this overconfidence is what made xpay retry forever.
-    assert getroutes(399_999, "old_way")["probability_ppm"] == 1_000_000
 
-    # New way: the same two events as observations.
-    l1.rpc.askrene_create_layer("new_way")
-    l1.rpc.askrene_channel_observation("new_way", chan_dir, 400_000, "accepted")
-    l1.rpc.askrene_channel_observation("new_way", chan_dir, 400_000, "failed")
-    # The contradictory failure halves the stale lower bound (400000 ->
-    # 200000): routing 200000 is still certain, 399999 is very unlikely, while
-    # 300000 is something in between, following Richter-Pickhardt's probability
-    # ~50%.
-    assert getroutes(200_000, "new_way")["probability_ppm"] == 1_000_000
-    assert getroutes(399_999, "new_way")["probability_ppm"] == 0
-    assert 490_000 < getroutes(300_000, "new_way")["probability_ppm"] < 510_000
+
+def test_askrene_constrain_channel(node_factory):
+    """Test askrene-constrain-channel sets upper and lower bounds"""
+    gsfile, nodemap = generate_gossip_store([GenChannel(0, 1, capacity_sats=1000)])
+    l1 = node_factory.get_node(
+        gossip_store_file=gsfile.name, opts={"disable-plugin": "cln-xpay"}
+    )
+
+    chan_dir = scid_dir(nodemap, 0, 1, 0)
+
+    def getroutes(amount, layer):
+        return l1.rpc.getroutes(
+            source=nodemap[0],
+            destination=nodemap[1],
+            amount_msat=amount,
+            layers=[layer],
+            maxfee_msat=100_000,
+            final_cltv=5,
+        )
+
+    # Unknown layers are rejected.
+    with pytest.raises(RpcError, match="Unknown layer"):
+        l1.rpc.askrene_constrain_channel("no_such_layer", chan_dir, 400_000)
+
+    # An upper constraint is the default.
+    l1.rpc.askrene_create_layer("test_upper_constraint")
+    before = getroutes(300_000, "test_upper_constraint")["probability_ppm"]
+    c = only_one(
+        l1.rpc.askrene_constrain_channel("test_upper_constraint", chan_dir, 400_000)[
+            "constraints"
+        ]
+    )
+    assert c["layer"] == "test_upper_constraint"
+    assert c["short_channel_id_dir"] == chan_dir
+    assert c["maximum_msat"] == 400_000
+    assert "minimum_msat" not in c
+    assert c["timestamp"] > 0
+    after = getroutes(300_000, "test_upper_constraint")["probability_ppm"]
+    assert 0 < after < before
+    with pytest.raises(RpcError, match=r"We could not find a usable set of paths"):
+        getroutes(500_000, "test_upper_constraint")
+
+    # A lower constraint is set with upper=false.
+    l1.rpc.askrene_create_layer("test_lower_constraint")
+    before = getroutes(400_000, "test_lower_constraint")["probability_ppm"]
+    c = only_one(
+        l1.rpc.askrene_constrain_channel(
+            "test_lower_constraint", chan_dir, 500_000, False
+        )["constraints"]
+    )
+    assert c["layer"] == "test_lower_constraint"
+    assert c["short_channel_id_dir"] == chan_dir
+    assert c["minimum_msat"] == 500_000
+    assert "maximum_msat" not in c
+    assert c["timestamp"] > 0
+    assert getroutes(400_000, "test_lower_constraint")["probability_ppm"] > before

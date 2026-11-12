@@ -4343,6 +4343,38 @@ impl Node for Server
 
     }
 
+    async fn ask_rene_constrain_channel(
+        &self,
+        request: tonic::Request<pb::AskreneconstrainchannelRequest>,
+    ) -> Result<tonic::Response<pb::AskreneconstrainchannelResponse>, tonic::Status> {
+        let req = request.into_inner();
+        let req: requests::AskreneconstrainchannelRequest = req.try_into()?;
+        debug!("Client asked for ask_rene_constrain_channel");
+        trace!("ask_rene_constrain_channel request: {:?}", req);
+        let mut rpc = ClnRpc::new(&self.rpc_path)
+            .await
+            .map_err(|e| Status::new(Code::Internal, e.to_string()))?;
+        let result = rpc.call(Request::AskReneConstrainChannel(req))
+            .await
+            .map_err(|e| Status::new(
+               Code::Unknown,
+               format!("Error calling method AskReneConstrainChannel: {:?}", e)))?;
+        match result {
+            Response::AskReneConstrainChannel(r) => {
+               trace!("ask_rene_constrain_channel response: {:?}", r);
+               Ok(tonic::Response::new(r.into()))
+            },
+            r => Err(Status::new(
+                Code::Internal,
+                format!(
+                    "Unexpected result {:?} to method call AskReneConstrainChannel",
+                    r
+                )
+            )),
+        }
+
+    }
+
     async fn ask_rene_create_channel(
         &self,
         request: tonic::Request<pb::AskrenecreatechannelRequest>,

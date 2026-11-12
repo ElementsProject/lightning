@@ -3342,6 +3342,22 @@ def askrene_channel_observation2py(m):
     })
 
 
+def askrene_constrain_channel_constraints2py(m):
+    return remove_default({
+        "layer": m.layer,  # PrimitiveField in generate_composite
+        "maximum_msat": amount2msat(m.maximum_msat),  # PrimitiveField in generate_composite
+        "minimum_msat": amount2msat(m.minimum_msat),  # PrimitiveField in generate_composite
+        "short_channel_id_dir": m.short_channel_id_dir,  # PrimitiveField in generate_composite
+        "timestamp": m.timestamp,  # PrimitiveField in generate_composite
+    })
+
+
+def askrene_constrain_channel2py(m):
+    return remove_default({
+        "constraints": [askrene_constrain_channel_constraints2py(i) for i in m.constraints],  # ArrayField[composite] in generate_composite
+    })
+
+
 def askrene_create_channel2py(m):
     return remove_default({
     })

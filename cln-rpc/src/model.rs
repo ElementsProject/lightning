@@ -185,6 +185,8 @@ pub enum Request {
 	AskReneInformChannel(requests::AskreneinformchannelRequest),
 	#[serde(rename = "askrene-channel-observation")]
 	AskReneChannelObservation(requests::AskrenechannelobservationRequest),
+	#[serde(rename = "askrene-constrain-channel")]
+	AskReneConstrainChannel(requests::AskreneconstrainchannelRequest),
 	#[serde(rename = "askrene-create-channel")]
 	AskReneCreateChannel(requests::AskrenecreatechannelRequest),
 	#[serde(rename = "askrene-update-channel")]
@@ -385,6 +387,8 @@ pub enum Response {
 	AskReneInformChannel(responses::AskreneinformchannelResponse),
 	#[serde(rename = "askrene-channel-observation")]
 	AskReneChannelObservation(responses::AskrenechannelobservationResponse),
+	#[serde(rename = "askrene-constrain-channel")]
+	AskReneConstrainChannel(responses::AskreneconstrainchannelResponse),
 	#[serde(rename = "askrene-create-channel")]
 	AskReneCreateChannel(responses::AskrenecreatechannelResponse),
 	#[serde(rename = "askrene-update-channel")]
@@ -4865,6 +4869,32 @@ pub mod requests {
 
 	    fn method(&self) -> &str {
 	        "askrene-channel-observation"
+	    }
+	}
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AskreneconstrainchannelRequest {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub upper: Option<bool>,
+	    pub amount_msat: Amount,
+	    pub layer: String,
+	    pub short_channel_id_dir: ShortChannelIdDir,
+	}
+
+	impl From<AskreneconstrainchannelRequest> for Request {
+	    fn from(r: AskreneconstrainchannelRequest) -> Self {
+	        Request::AskReneConstrainChannel(r)
+	    }
+	}
+
+	impl IntoRequest for AskreneconstrainchannelRequest {
+	    type Response = super::responses::AskreneconstrainchannelResponse;
+	}
+
+	impl TypedRequest for AskreneconstrainchannelRequest {
+	    type Response = super::responses::AskreneconstrainchannelResponse;
+
+	    fn method(&self) -> &str {
+	        "askrene-constrain-channel"
 	    }
 	}
 	#[derive(Clone, Debug, Deserialize, Serialize)]
@@ -12996,6 +13026,33 @@ pub mod responses {
 	    fn try_from(response: Response) -> Result<Self, Self::Error> {
 	        match response {
 	            Response::AskReneChannelObservation(response) => Ok(response),
+	            _ => Err(TryFromResponseError)
+	        }
+	    }
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AskreneconstrainchannelConstraints {
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub maximum_msat: Option<Amount>,
+	    #[serde(skip_serializing_if = "Option::is_none")]
+	    pub minimum_msat: Option<Amount>,
+	    pub layer: String,
+	    pub short_channel_id_dir: ShortChannelIdDir,
+	    pub timestamp: u64,
+	}
+
+	#[derive(Clone, Debug, Deserialize, Serialize)]
+	pub struct AskreneconstrainchannelResponse {
+	    pub constraints: Vec<AskreneconstrainchannelConstraints>,
+	}
+
+	impl TryFrom<Response> for AskreneconstrainchannelResponse {
+	    type Error = super::TryFromResponseError;
+
+	    fn try_from(response: Response) -> Result<Self, Self::Error> {
+	        match response {
+	            Response::AskReneConstrainChannel(response) => Ok(response),
 	            _ => Err(TryFromResponseError)
 	        }
 	    }
