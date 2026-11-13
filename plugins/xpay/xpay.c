@@ -1190,7 +1190,7 @@ static void update_knowledge_from_error(struct command *aux_cmd,
 
 	/* We learned something about prior nodes */
 	for (size_t i = 0; i < index; i++) {
-		req = payment_ignored_req(aux_cmd, attempt, "askrene-inform-channel");
+		req = payment_ignored_req(aux_cmd, attempt, "askrene-channel-observation");
 		/* Put what we learned in xpay, unless it's a fake channel */
 		json_add_string(req->js, "layer",
 				attempt->hops[i].fake_channel
@@ -1201,7 +1201,7 @@ static void update_knowledge_from_error(struct command *aux_cmd,
 					      attempt->hops[i].scidd);
 		json_add_amount_msat(req->js, "amount_msat",
 				     attempt->hops[i].amount_out);
-		json_add_string(req->js, "inform", "unconstrained");
+		json_add_string(req->js, "result", "accepted");
 		send_payment_req(aux_cmd, attempt->payment, req);
 	}
 
@@ -1412,7 +1412,7 @@ disable_channel:
 	goto check_previous_success;
 
 channel_capacity:
-	req = payment_ignored_req(aux_cmd, attempt, "askrene-inform-channel");
+	req = payment_ignored_req(aux_cmd, attempt, "askrene-channel-observation");
 	/* Put what we learned in xpay, unless it's a fake channel */
 	json_add_string(req->js, "layer",
 			attempt->hops[index].fake_channel
@@ -1422,7 +1422,7 @@ channel_capacity:
 				      "short_channel_id_dir",
 				      attempt->hops[index].scidd);
 	json_add_amount_msat(req->js, "amount_msat", attempt->hops[index].amount_out);
-	json_add_string(req->js, "inform", "constrained");
+	json_add_string(req->js, "result", "failed");
 	send_payment_req(aux_cmd, attempt->payment, req);
 
 check_previous_success:
@@ -1571,7 +1571,7 @@ static struct command_result *injectpaymentonion_succeeded(struct command *aux_c
 	 * auto.localchans is exact: adding an offset would make it worse! */
 	for (size_t i = 1; i < tal_count(attempt->hops); i++) {
 		struct out_req *req;
-		req = payment_ignored_req(aux_cmd, attempt, "askrene-inform-channel");
+		req = payment_ignored_req(aux_cmd, attempt, "askrene-channel-observation");
 		/* Put what we learned in xpay, unless it's a fake channel */
 		json_add_string(req->js, "layer",
 				attempt->hops[i].fake_channel
@@ -1582,7 +1582,7 @@ static struct command_result *injectpaymentonion_succeeded(struct command *aux_c
 					      attempt->hops[i].scidd);
 		json_add_amount_msat(req->js, "amount_msat",
 				     attempt->hops[i].amount_out);
-		json_add_string(req->js, "inform", "succeeded");
+		json_add_string(req->js, "result", "succeeded");
 		send_payment_req(aux_cmd, attempt->payment, req);
 	}
 

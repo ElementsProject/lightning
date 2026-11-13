@@ -1535,10 +1535,11 @@ def test_xpay_informs_askrene_on_success(node_factory):
     # xpay skips the local channel (hops[0]), so only the l2->l3 hop gets an impression
     scid23dir = first_scidd(l2, l3)
     layers = l1.rpc.askrene_listlayers('xpay')['layers']
-    impressions = only_one(layers)['impressions']
-    assert len(impressions) == 1
-    assert impressions[0]['short_channel_id_dir'] == scid23dir
-    assert impressions[0]['amount_msat'] == 100000
+    observations = only_one(layers)['observations']
+    assert len(observations) == 1
+    assert observations[0]['short_channel_id_dir'] == scid23dir
+    assert observations[0]['amount_msat'] == 100000
+    assert observations[0]['result'] == 'succeeded'
 
 
 def test_sendamount_bip353(node_factory):
