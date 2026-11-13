@@ -20,8 +20,9 @@ stdenv.mkDerivation {
   makeFlags = [
     "VERSION=${version}"
     "MTIME=${self.lastModifiedDate}"
-    "NO_PYTHON=1"
   ];
+
+  env.PYTHON = "${py3}/bin/python3";
 
   # when building on darwin we need cctools to provide the correct libtool
   # as libwally-core detects the host as darwin and tries to add the -static
