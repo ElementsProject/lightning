@@ -4421,6 +4421,7 @@ void wallet_payment_get_failinfo(const tal_t *ctx,
 void wallet_payment_set_failinfo(struct wallet *wallet,
 				 const struct sha256 *payment_hash,
 				 u64 partid,
+				 u64 groupid,
 				 const struct onionreply *failonionreply,
 				 bool faildestperm,
 				 int failindex,
@@ -4446,7 +4447,7 @@ void wallet_payment_set_failinfo(struct wallet *wallet,
 					     "     , faildetail=?"
 					     "     , failmsg=?"
 					     " WHERE payment_hash=?"
-					     " AND partid=?;"));
+					     " AND partid=? AND groupid=?;"));
 	if (failonionreply)
 		db_bind_talarr(stmt, failonionreply->contents);
 	else
@@ -4479,6 +4480,7 @@ void wallet_payment_set_failinfo(struct wallet *wallet,
 
 	db_bind_sha256(stmt, payment_hash);
 	db_bind_u64(stmt, partid);
+	db_bind_u64(stmt, groupid);
 
 	db_exec_prepared_v2(take(stmt));
 }
