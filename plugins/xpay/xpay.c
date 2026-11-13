@@ -56,6 +56,10 @@ struct xpay {
 	/* Suppress calls to askrene-age */
 	bool dev_no_age;
 	const char **user_layers;
+
+	/* How many times a forwarding node can give us a weird error before we
+	 * disable it for the current payment session. */
+	u32 fail_node_tolerance;
 };
 
 static struct xpay *xpay_of(struct plugin *plugin)
@@ -69,6 +73,18 @@ static struct gossmap *get_gossmap(struct xpay *xpay)
 	gossmap_refresh(xpay->global_gossmap);
 	return xpay->global_gossmap;
 }
+
+/* A record of a weird error returned by a forwarding node. */
+struct weird_error {
+	struct short_channel_id scid;
+	enum onion_wire failcode;
+};
+
+/* A per node record of weird errors. */
+struct noderr {
+	struct node_id nodeid;
+	struct weird_error *errs;
+};
 
 /* The unifies bolt11 and bolt12 handling */
 struct payment {
@@ -147,10 +163,8 @@ struct payment {
 	/* Useful information from prior attempts if any. */
 	char *prior_results;
 
-	/* Nodes that have already returned unknown_next_peer.  The first
-	 * failure only disables that channel (it can be a stale scid).  A
-	 * second failure from the same node excludes it. */
-	struct node_id *unknown_next_peers;
+	/* Keep a record of nodes that returned weird errors. */
+	struct noderr **noderrs;
 
 	/* Requests currently outstanding */
 	struct out_req **requests;
@@ -568,12 +582,9 @@ static void add_result_summary(struct attempt *attempt,
 	attempt_log(attempt, level, "%s", msg);
 }
 
-static const char *describe_scidd(struct attempt *attempt, size_t index)
+static const char *describe_scidd(struct attempt *attempt, struct short_channel_id_dir scidd)
 {
-	struct short_channel_id_dir scidd = attempt->hops[index].scidd;
 	struct payment *payment = attempt->payment;
-
-	assert(index < tal_count(attempt->hops));
 
 	/* Blinded paths? */
 	if (scidd.scid.u64 < tal_count(payment->paths)) {
@@ -607,6 +618,12 @@ static const char *describe_scidd(struct attempt *attempt, size_t index)
 
 	/* Just use normal names otherwise (may be public, may be local) */
 	return fmt_short_channel_id_dir(tmpctx, &scidd);
+}
+
+static const char *describe_scidd_from_index(struct attempt *attempt, size_t index)
+{
+	assert(index < tal_count(attempt->hops));
+	return describe_scidd(attempt, attempt->hops[index].scidd);
 }
 
 /* How much did previous successes deliver? */
@@ -708,6 +725,48 @@ static u32 error_blockheight(const u8 *errmsg)
 							   &height))
 		return 0;
 	return height;
+}
+
+static void add_node_bias(struct command *aux_cmd,
+			  struct attempt *attempt,
+			  const struct node_id *nodeid,
+			  const char *layer_name,
+			  int bias,
+			  const char *why)
+{
+	struct out_req *req;
+	add_result_summary(attempt, LOG_DBG, "adding a global bias to node %s",
+			   fmt_node_id(tmpctx, nodeid));
+	req = payment_ignored_req(aux_cmd, attempt, "askrene-bias-node");
+	json_add_string(req->js, "layer", layer_name);
+	json_add_node_id(req->js, "node", nodeid);
+	json_add_string(req->js, "direction", "out");
+	json_add_s32(req->js, "bias", bias);
+	json_add_bool(req->js, "relative", true);
+	if (why)
+		json_add_string(req->js, "description", why);
+	send_payment_req(aux_cmd, attempt->payment, req);
+}
+
+static void add_channel_bias(struct command *aux_cmd,
+			     struct attempt *attempt,
+			     const struct short_channel_id_dir scidd,
+			     const char *layer_name,
+			     int bias,
+			     const char *why)
+{
+	struct out_req *req;
+	add_result_summary(attempt, LOG_DBG,
+			   "adding a global bias to channel %s",
+			   describe_scidd(attempt, scidd));
+	req = payment_ignored_req(aux_cmd, attempt, "askrene-bias-channel");
+	json_add_string(req->js, "layer", layer_name);
+	json_add_short_channel_id_dir(req->js, "short_channel_id_dir", scidd);
+	json_add_s32(req->js, "bias", bias);
+	json_add_bool(req->js, "relative", true);
+	if (why)
+		json_add_string(req->js, "description", why);
+	send_payment_req(aux_cmd, attempt->payment, req);
 }
 
 /* Return true if this contained a channel_update which (potentially) changed something. */
@@ -821,17 +880,10 @@ static bool process_channel_update_from_onion_error(struct command *aux_cmd,
 
 	/* We also bias *against* the channel.  This should help if the node is
 	 * stuck somehow, or trying to track us. */
-	req = payment_ignored_req(aux_cmd, attempt, "askrene-bias-channel");
-	json_add_string(req->js, "layer", attempt->payment->private_layer);
-	json_add_short_channel_id_dir(req->js,
-				      "short_channel_id_dir",
-				      scidd);
-	json_add_s32(req->js, "bias", -1);
-	json_add_string(req->js, "description",
-			tal_fmt(tmpctx, "negative bias due to channel_update in error %s",
-				errname));
-	json_add_bool(req->js, "relative", true);
-	send_payment_req(aux_cmd, attempt->payment, req);
+	add_channel_bias(
+	    aux_cmd, attempt, scidd, attempt->payment->private_layer, -1,
+	    tal_fmt(tmpctx, "negative bias due to channel_update in error %s",
+		    errname));
 	return true;
 }
 
@@ -915,39 +967,156 @@ static void payment_already_paid(struct payment *payment)
 	send_outreq(req);
 }
 
-/* unknown_next_peer is returned by the node that cannot forward.  One hit
- * can be a stale scid, so we only disable that channel.  The same node
- * returning it again means every other channel through it will fail too. */
-static void maybe_exclude_unknown_next_peer(struct command *aux_cmd,
-					    struct attempt *attempt,
-					    size_t index)
+static void append_node_error(struct noderr *noderr,
+			      struct short_channel_id scid,
+			      enum onion_wire failcode)
+{
+	struct weird_error err;
+	err.scid = scid;
+	err.failcode = failcode;
+	tal_arr_expand(&noderr->errs, err);
+}
+
+static const char *fmt_onion_error(const tal_t *ctx, enum onion_wire failcode)
+{
+	const char *name = onion_wire_name(failcode), *str;
+	if (strstarts(name, "WIRE_"))
+		str = str_lowering(ctx, name + strlen("WIRE_"));
+	else
+		str = tal_strdup(ctx, name);
+	return str;
+}
+
+/* eg. "unknown_next_peer on 1x2x3, fee_insufficient on 4x5x6" */
+static const char *fmt_noderr(const tal_t *ctx, const struct noderr *noderr)
+{
+	char *s = tal_strdup(ctx, "");
+
+	for (size_t i = 0; i < tal_count(noderr->errs); i++) {
+		const char *name =
+		    fmt_onion_error(tmpctx, noderr->errs[i].failcode);
+		tal_append_fmt(
+		    &s, "%s%s on %s", i == 0 ? "" : ", ", name,
+		    fmt_short_channel_id(tmpctx, noderr->errs[i].scid));
+	}
+	return s;
+}
+
+/* A node failing too often with weird errors is probably going to fail every
+ * other request. */
+static void maybe_exclude_node(struct command *aux_cmd, struct attempt *attempt,
+			       size_t index, enum onion_wire failcode,
+			       u32 exclude_tolerance)
 {
 	struct payment *payment = attempt->payment;
-	struct node_id erring;
 	struct out_req *req;
-	bool seen = false;
+	struct node_id nodeid;
+	struct short_channel_id scid;
+	struct noderr *current_noderr = NULL;
+	bool same_channel = false;
+	u32 apply_bias_tolerance = 2;
 
+	/* By default we apply the first bias after 2 hits, but if the fail
+	 * tolerance option is lower than that we apply the bias together with
+	 * the node disable. */
+	if (exclude_tolerance < apply_bias_tolerance)
+		apply_bias_tolerance = exclude_tolerance;
+
+	/* we returned the error ourselves */
 	if (index == 0)
 		return;
-	node_id_from_pubkey(&erring, &attempt->hops[index - 1].next_node);
-	for (size_t i = 0; i < tal_count(payment->unknown_next_peers); i++) {
-		if (node_id_eq(&payment->unknown_next_peers[i], &erring)) {
-			seen = true;
+
+	scid = attempt->hops[index].scidd.scid;
+	node_id_from_pubkey(&nodeid, &attempt->hops[index - 1].next_node);
+
+	for (size_t i = 0; i < tal_count(payment->noderrs); i++) {
+		if (node_id_eq(&payment->noderrs[i]->nodeid, &nodeid)) {
+			current_noderr = payment->noderrs[i];
+
+			for (size_t j = 0; j < tal_count(current_noderr->errs);
+			     j++) {
+				if (short_channel_id_eq(
+					scid, current_noderr->errs[j].scid)) {
+					same_channel = true;
+					break;
+				}
+			}
+
+			if (!same_channel) {
+				/* We have not seen this scid failing for this
+				 * node before. */
+				append_node_error(current_noderr, scid,
+						  failcode);
+			}
+
 			break;
 		}
 	}
-	if (!seen) {
-		tal_arr_expand(&payment->unknown_next_peers, erring);
+
+	if (!current_noderr) {
+		current_noderr = tal(payment, struct noderr);
+		current_noderr->nodeid = nodeid;
+		current_noderr->errs =
+		    tal_arr(current_noderr, struct weird_error, 0);
+		tal_arr_expand(&payment->noderrs, current_noderr);
+
+		append_node_error(current_noderr, scid, failcode);
+	}
+
+	if (same_channel) {
+		/* Our fault.  We already saw some weird error on this channel
+		 * and we still try it a second time.  Probably two parallel
+		 * attempts shared the same channel.  But we don't want to
+		 * penalize this node twice for the same observation. */
 		return;
 	}
 
-	add_result_summary(attempt, LOG_DBG,
-			   "Repeated unknown_next_peer from %s: disabling node for this payment",
-			   fmt_node_id(tmpctx, &erring));
-	req = payment_ignored_req(aux_cmd, attempt, "askrene-disable-node");
-	json_add_string(req->js, "layer", payment->private_layer);
-	json_add_node_id(req->js, "node", &erring);
-	send_payment_req(aux_cmd, attempt->payment, req);
+	/* Also add a bias to this channel, so that future payments avoid it.
+	 * It doesn't apply to fake channels because of name clash, these are
+	 * kept private between payments. */
+	if (!attempt->hops[index].fake_channel) {
+		add_channel_bias(
+		    aux_cmd, attempt, attempt->hops[index].scidd,
+		    /* layer = */ "xpay",
+		    /* bias = */ -5 /* cost x 1.18 */,
+		    tal_fmt(tmpctx, "xpay: weird error %s during payment %s",
+			    fmt_onion_error(tmpctx, failcode),
+			    fmt_sha256(tmpctx, &payment->payment_hash)));
+	}
+
+	if (tal_count(current_noderr->errs) >= apply_bias_tolerance) {
+		/* Also add a bias to this node, so that future payments avoid
+		 * it. */
+		add_node_bias(
+		    aux_cmd, attempt, &current_noderr->nodeid,
+		    /* layer = */ "xpay",
+		    /* bias = */ -10 /* cost x 1.41 */,
+		    tal_fmt(
+			tmpctx,
+			"xpay: too many weird errors (%s) during payment %s",
+			fmt_noderr(tmpctx, current_noderr),
+			fmt_sha256(tmpctx, &payment->payment_hash)));
+	}
+
+	/* Our tolerance could be any number, but the higher it is
+	 * we risk failing the payment retrying too much on a bad node. */
+	if (tal_count(current_noderr->errs) >= exclude_tolerance) {
+		/* FIXME: we should check if this node is a compulsory bridge
+		 * between us and the destination (eg. an LSP), and in that case
+		 * we should not disable it.  A high tolerance value reduces
+		 * this risk. */
+		add_result_summary(
+		    attempt, LOG_DBG,
+		    "Repeated weird errors (%s) from %s: "
+		    "disabling node for this payment",
+		    fmt_noderr(tmpctx, current_noderr),
+		    fmt_node_id(tmpctx, &current_noderr->nodeid));
+		req = payment_ignored_req(aux_cmd, attempt,
+					  "askrene-disable-node");
+		json_add_string(req->js, "layer", payment->private_layer);
+		json_add_node_id(req->js, "node", &current_noderr->nodeid);
+		send_payment_req(aux_cmd, attempt->payment, req);
+	}
 }
 
 static void update_knowledge_from_error(struct command *aux_cmd,
@@ -955,6 +1124,7 @@ static void update_knowledge_from_error(struct command *aux_cmd,
 					const jsmntok_t *error,
 					struct attempt *attempt)
 {
+	struct xpay *xpay = xpay_of(attempt->payment->plugin);
 	const jsmntok_t *tok;
 	struct onionreply *reply;
 	struct out_req *req;
@@ -1014,7 +1184,7 @@ static void update_knowledge_from_error(struct command *aux_cmd,
 		description = "Garbled error message";
 		add_result_summary(attempt, LOG_UNUSUAL,
 				   "We got a garbled error message, and chose to (randomly) to disable %s for this payment",
-				   describe_scidd(attempt, index));
+				   describe_scidd_from_index(attempt, index));
 		goto disable_channel;
 	}
 
@@ -1044,11 +1214,7 @@ static void update_knowledge_from_error(struct command *aux_cmd,
 	} else
 		from_final = false;
 	failcode = fromwire_peektype(replymsg);
-	failcode_name = onion_wire_name(failcode);
-	if (strstarts(failcode_name, "WIRE_"))
-		failcode_name = str_lowering(tmpctx,
-					     failcode_name
-					     + strlen("WIRE_"));
+	failcode_name = fmt_onion_error(tmpctx, failcode);
 
 	/* For local errors, error message is informative. */
 	if (index == 0) {
@@ -1114,10 +1280,14 @@ static void update_knowledge_from_error(struct command *aux_cmd,
 		case WIRE_INVALID_ONION_BLINDING:
 			/* Blame hop *leading to* final node */
 			index--;
-			goto strange_error;
+			add_result_summary(
+			    attempt, LOG_UNUSUAL,
+			    "Unexpected error (%s) from final node: disabling "
+			    "%s for this payment",
+			    errmsg, describe_scidd_from_index(attempt, index));
+			goto disable_channel;
 
 		case WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS: {
-			struct xpay *xpay = xpay_of(attempt->payment->plugin);
 			u32 blockheight = error_blockheight(replymsg);
 			if (blockheight > attempt->payment->start_blockheight) {
 				attempt_log(attempt, LOG_INFORM,
@@ -1150,7 +1320,7 @@ static void update_knowledge_from_error(struct command *aux_cmd,
 			add_result_summary(attempt, LOG_DBG,
 					   "We got %s for %s, containing a channel_update:"
 					   " updating our map",
-					   errmsg, describe_scidd(attempt, index));
+					   errmsg, describe_scidd_from_index(attempt, index));
 			goto check_previous_success;
 		}
 
@@ -1165,27 +1335,26 @@ static void update_knowledge_from_error(struct command *aux_cmd,
 		case WIRE_FINAL_INCORRECT_HTLC_AMOUNT:
 		case WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS:
 		case WIRE_MPP_TIMEOUT:
-			goto strange_error;
+			/* We disable the erroneous channel for this */
+			add_result_summary(
+			    attempt, LOG_UNUSUAL,
+			    "Unexpected error (%s) from intermediate node: "
+			    "disabling %s for this payment",
+			    errmsg, describe_scidd_from_index(attempt, index));
+
+			maybe_exclude_node(aux_cmd, attempt, index, failcode,
+					   /* tolerance = */ 0);
+			goto disable_channel;
 
 		case WIRE_TEMPORARY_CHANNEL_FAILURE:
 			add_result_summary(attempt, LOG_DBG,
 					   "We got %s for %s, assuming it can't carry %s",
 					   errmsg,
-					   describe_scidd(attempt, index),
+					   describe_scidd_from_index(attempt, index),
 					   fmt_amount_msat(tmpctx, attempt->hops[index].amount_out));
 			goto channel_capacity;
 
 		case WIRE_UNKNOWN_NEXT_PEER:
-			/* One hit can be a stale scid, so disable that channel.
-			 * The same node returning it again is excluded, or we
-			 * walk every other channel through it. */
-			add_result_summary(attempt, LOG_DBG,
-					   "We got %s for %s: disabling it for this payment",
-					   errmsg,
-					   describe_scidd(attempt, index));
-			maybe_exclude_unknown_next_peer(aux_cmd, attempt, index);
-			goto disable_channel;
-
 		case WIRE_PERMANENT_CHANNEL_FAILURE:
 		case WIRE_REQUIRED_CHANNEL_FEATURE_MISSING:
 		case WIRE_AMOUNT_BELOW_MINIMUM:
@@ -1194,13 +1363,23 @@ static void update_knowledge_from_error(struct command *aux_cmd,
 		case WIRE_EXPIRY_TOO_FAR:
 		case WIRE_EXPIRY_TOO_SOON:
 		case WIRE_CHANNEL_DISABLED:
+			add_result_summary(attempt, LOG_DBG,
+					   "We got a weird error (%s) for %s: disabling it for this payment",
+					   errmsg,
+					   describe_scidd_from_index(attempt, index));
+			maybe_exclude_node(aux_cmd, attempt, index, failcode,
+					   xpay->fail_node_tolerance);
+			goto disable_channel;
+
 		case WIRE_PERMANENT_NODE_FAILURE:
 		case WIRE_TEMPORARY_NODE_FAILURE:
 		case WIRE_REQUIRED_NODE_FEATURE_MISSING:
 			add_result_summary(attempt, LOG_DBG,
 					   "We got a weird error (%s) for %s: disabling it for this payment",
 					   errmsg,
-					   describe_scidd(attempt, index));
+					   describe_scidd_from_index(attempt, index));
+			maybe_exclude_node(aux_cmd, attempt, index, failcode,
+					   /* tolerance = */ 0);
 			goto disable_channel;
 
 		case WIRE_INVALID_ONION_BLINDING:
@@ -1213,14 +1392,6 @@ static void update_knowledge_from_error(struct command *aux_cmd,
 			goto channel_capacity;
 		}
 	}
-
-strange_error:
-	/* We disable the erroneous channel for this */
-	add_result_summary(attempt, LOG_UNUSUAL,
-			   "Unexpected error (%s) from %s node: disabling %s for this payment",
-			   errmsg,
-			   from_final ? "final" : "intermediate",
-			   describe_scidd(attempt, index));
 
 disable_channel:
 	/* We only do this for the current payment */
@@ -2750,7 +2921,7 @@ static struct payment *new_payment(const tal_t *ctx,
 	list_head_init(&payment->past_attempts);
 	payment->amount_being_routed = AMOUNT_MSAT(0);
 	payment->prior_results = tal_strdup(payment, "");
-	payment->unknown_next_peers = tal_arr(payment, struct node_id, 0);
+	payment->noderrs = tal_arr(payment, struct noderr*, 0);
 	payment->requests = tal_arr(payment, struct out_req *, 0);
 	payment->start_time = clock_time();
 	payment->pay_compat = as_pay;
@@ -3801,6 +3972,7 @@ int main(int argc, char *argv[])
 	xpay->slow_mode = false;
 	xpay->dev_no_age = false;
 	xpay->user_layers = tal_arr(xpay, const char *, 0);
+	xpay->fail_node_tolerance = 4;
 	list_head_init(&xpay->payments);
 	plugin_main(argv, init, take(xpay),
 		    PLUGIN_RESTARTABLE, true, NULL,
@@ -3814,6 +3986,9 @@ int main(int argc, char *argv[])
 		    plugin_option_dynamic("xpay-slow-mode", "bool",
 					  "Wait until all parts have completed before returning success or failure",
 					  bool_option, bool_jsonfmt, &xpay->slow_mode),
+		    plugin_option_dynamic("xpay-failing-node-tolerance", "int",
+					  "How many times a node can give us a weird error before we disable it.",
+					  u32_option, u32_jsonfmt, &xpay->fail_node_tolerance),
 		    plugin_option_multi("xpay-user-layer", "string",
 					"Add a layer that will be used for every payment",
 					multi_string_option, string_array_jsonfmt, &xpay->user_layers),
