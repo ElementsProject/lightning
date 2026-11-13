@@ -1,11 +1,16 @@
 from fixtures import *  # noqa: F401,F403
+import os
 import pytest
 import unittest
 import time
 from pyln.testing.utils import EXPERIMENTAL_DUAL_FUND
 from utils import (
-    TEST_NETWORK
+    TEST_NETWORK, wait_for, only_one
 )
+
+# The DB version right before the funding_tx_index migrations in
+# wallet/migrations.c.
+PRE_FUNDING_TX_INDEX_DB_VERSION = 289
 
 
 @pytest.mark.openchannel('v1')
@@ -61,9 +66,67 @@ def test_splice_disconnect_sig(node_factory, bitcoind):
     inv = l2.rpc.invoice(10**2, '3', 'no_3')
     l1.rpc.xpay(inv['bolt11'])
 
+    # Both reestablish messages carried `next_funding` for the splice, and
+    # no commitment was ever updated, so `channel_ready` must not be
+    # retransmitted.
+    assert not l1.daemon.is_in_log(r'Retransmitting channel_ready')
+    assert not l2.daemon.is_in_log(r'Retransmitting channel_ready')
+
     # Check that the splice doesn't generate a unilateral close transaction
     time.sleep(5)
     assert l1.db_query("SELECT count(*) as c FROM channeltxs;")[0]['c'] == 0
+
+
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_splice_reconnect_after_lock_no_channel_ready(node_factory, bitcoind):
+    # Once a splice locks, channel funding txid is updated to the splice txid.
+    # On reconnect we must still recognise the peer's `my_current_funding_locked`
+    # as a splice (funding_tx_index > 0) and NOT retransmit `channel_ready`.
+    # channeld used to compare the txid against the (already-updated) channel
+    # funding txid, which is wrong once a splice completes.  This drives a full
+    # splice + restart + reestablish to exercise the funding_tx_index path end
+    # to end (DB columns, inflight wire, and the reestablish detection).
+    l1 = node_factory.get_node(may_reconnect=True)
+    l2 = node_factory.get_node(may_reconnect=True)
+    l1.openchannel(l2, 1000000)
+
+    chan_id = l1.get_channel_id(l2)
+
+    l1.rpc.splicein(chan_id, "100000")
+
+    # Confirm and lock the splice on both sides.
+    bitcoind.generate_block(6, wait_for_mempool=1)
+    l1.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
+    l2.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
+
+    # Restart l1 so it reloads channel + inflight state from the DB (exercising
+    # the new funding_tx_index columns) and reconnects/reestablishes.
+    l1.restart()
+
+    # Force the reconnect rather than waiting on auto-reconnect backoff.
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    l1.daemon.wait_for_log(r'peer_in WIRE_CHANNEL_REESTABLISH')
+    l2.daemon.wait_for_log(r'peer_in WIRE_CHANNEL_REESTABLISH')
+
+    # The locked splice must have been persisted with funding_tx_index == 1.
+    # The db transaction commits after the state-change log we waited for, so
+    # poll rather than reading once.
+    wait_for(lambda: max(r['funding_tx_index'] for r in
+                         l1.db_query("SELECT funding_tx_index FROM channels;")) == 1)
+
+    # Drive a payment so both peers finish reestablish; this guarantees any
+    # erroneous channel_ready retransmit is already logged before we assert it
+    # did not happen.
+    inv = l2.rpc.invoice(10**2, 'lbl', 'desc')
+    l1.rpc.xpay(inv['bolt11'])
+
+    # ...and the splice was recognised on reestablish, so channel_ready is NOT
+    # retransmitted.
+    assert not l1.daemon.is_in_log(r'Retransmitting channel_ready')
+    assert not l2.daemon.is_in_log(r'Retransmitting channel_ready')
 
 
 @pytest.mark.openchannel('v1')
@@ -114,3 +177,152 @@ def test_splice_disconnect_commit(node_factory, bitcoind, executor):
     # Check that the splice doesn't generate a unilateral close transaction
     time.sleep(5)
     assert l1.db_query("SELECT count(*) as c FROM channeltxs;")[0]['c'] == 0
+
+
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_splice_funding_tx_index_increments(node_factory, bitcoind):
+    # funding_tx_index is 0 for the original funding and increments by 1 per
+    # splice.  Two sequential splices must reach index 2 on the persisted
+    # channel (exercises the parent + 1 assignment).
+    l1 = node_factory.get_node(may_reconnect=True)
+    l2 = node_factory.get_node(may_reconnect=True)
+    l1.openchannel(l2, 1000000)
+    chan_id = l1.get_channel_id(l2)
+
+    def do_splice(amount):
+        l1.rpc.splicein(chan_id, str(amount))
+        bitcoind.generate_block(6, wait_for_mempool=1)
+        l1.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
+        l2.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
+
+    def channel_funding_tx_index():
+        rows = l1.db_query("SELECT funding_tx_index FROM channels;")
+        return max(r['funding_tx_index'] for r in rows)
+
+    # The db transaction commits after the state-change log do_splice() waits
+    # for, so poll rather than reading once.
+
+    # First splice: 0 -> 1
+    do_splice(100000)
+    wait_for(lambda: channel_funding_tx_index() == 1)
+
+    # Second splice: 1 -> 2
+    do_splice(50000)
+    wait_for(lambda: channel_funding_tx_index() == 2)
+
+
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_splice_inflight_funding_tx_index(node_factory, bitcoind):
+    # A pending (not-yet-locked) splice inflight carries funding_tx_index == 1
+    # (the open was index 0), and the value must survive a restart so the
+    # reestablish detection still has it.
+    l1 = node_factory.get_node(may_reconnect=True)
+    l2 = node_factory.get_node(may_reconnect=True)
+    l1.openchannel(l2, 1000000)
+    chan_id = l1.get_channel_id(l2)
+
+    l1.rpc.splicein(chan_id, "100000")
+
+    def inflight_funding_tx_indexes():
+        rows = l1.db_query("SELECT funding_tx_index FROM"
+                           " channel_funding_inflights;")
+        return [r['funding_tx_index'] for r in rows]
+
+    # The pending splice inflight is index 1.  The db transaction commits
+    # after the RPC returns, so poll rather than reading once.
+    wait_for(lambda: inflight_funding_tx_indexes() == [1])
+
+    # Restart l1: the inflight (and its index) must reload from the DB.
+    l1.restart()
+    l1.daemon.wait_for_log(r'peer_in WIRE_CHANNEL_REESTABLISH')
+    assert inflight_funding_tx_indexes() == [1]
+
+    # And the splice still completes after the restart.
+    bitcoind.generate_block(6, wait_for_mempool=1)
+    l1.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
+    l2.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
+
+
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_splice_locked_one_side_no_channel_ready(node_factory, bitcoind):
+    # l2's splice_locked is lost, so l2 completes the splice and l1 doesn't.
+    # On reestablish l1 has sent splice_locked for a pending splice, and
+    # l2's channel funding is already the splice: both messages carry
+    # `my_current_funding_locked` for the splice, so neither may retransmit
+    # `channel_ready`, although no commitment was ever updated.
+    l1 = node_factory.get_node(may_reconnect=True)
+    # Using the $ before message simply *drops* the packet.
+    l2 = node_factory.get_node(disconnect=['$WIRE_SPLICE_LOCKED'],
+                               may_reconnect=True)
+    l1.openchannel(l2, 1000000)
+    chan_id = l1.get_channel_id(l2)
+
+    l1.rpc.splicein(chan_id, "100000")
+    bitcoind.generate_block(6, wait_for_mempool=1)
+    l2.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
+    assert 'inflight' in only_one(l1.rpc.listpeerchannels()['channels'])
+
+    l1.restart()
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
+
+    # Payment round-trip, so both peers are past reestablish.
+    inv = l2.rpc.invoice(10**2, 'lbl', 'desc')
+    l1.rpc.xpay(inv['bolt11'])
+
+    assert not l1.daemon.is_in_log(r'Retransmitting channel_ready')
+    assert not l2.daemon.is_in_log(r'Retransmitting channel_ready')
+
+
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "rewinds the db, which is assumed sqlite3")
+def test_splice_upgrade_with_pending_splice(node_factory, bitcoind):
+    # A node upgrades while a splice is pending.  The funding_tx_index
+    # migrations must give that splice inflight index 1, or once it locks
+    # the channel is taken for the original funding and `channel_ready` is
+    # retransmitted on every reestablish.
+    l1 = node_factory.get_node(may_reconnect=True)
+    l2 = node_factory.get_node(may_reconnect=True)
+    l1.openchannel(l2, 1000000)
+    chan_id = l1.get_channel_id(l2)
+
+    l1.rpc.splicein(chan_id, "100000")
+    wait_for(lambda: len(bitcoind.rpc.getrawmempool()) == 1)
+
+    # Put l1's db back to before the funding_tx_index migrations.
+    l1.stop()
+    l1.db_manip("ALTER TABLE channel_funding_inflights DROP COLUMN funding_tx_index;")
+    l1.db_manip("ALTER TABLE channels DROP COLUMN funding_tx_index;")
+    l1.db_manip("UPDATE version SET version = {}".format(PRE_FUNDING_TX_INDEX_DB_VERSION))
+    l1.daemon.opts['database-upgrade'] = 'true'
+    l1.start()
+
+    assert [r['funding_tx_index'] for r in
+            l1.db_query("SELECT funding_tx_index FROM channel_funding_inflights;")] == [1]
+
+    bitcoind.generate_block(6)
+    l1.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
+    l2.daemon.wait_for_log(r'CHANNELD_AWAITING_SPLICE to CHANNELD_NORMAL')
+    wait_for(lambda: max(r['funding_tx_index'] for r in
+                         l1.db_query("SELECT funding_tx_index FROM channels;")) == 1)
+
+    # The reestablish right after the upgrade predates the lock, so it
+    # rightly retransmits `channel_ready`.  Once locked, it must not.
+    l1.daemon.logs_catchup()
+    l2.daemon.logs_catchup()
+    l1_start, l2_start = len(l1.daemon.logs), len(l2.daemon.logs)
+    l1.restart()
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    inv = l2.rpc.invoice(10**2, 'lbl', 'desc')
+    l1.rpc.xpay(inv['bolt11'])
+
+    assert not l1.daemon.is_in_log(r'Retransmitting channel_ready', start=l1_start)
+    assert not l2.daemon.is_in_log(r'Retransmitting channel_ready', start=l2_start)

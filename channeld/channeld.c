@@ -13,6 +13,7 @@
 #include "config.h"
 #include <bitcoin/feerate.h>
 #include <bitcoin/script.h>
+#include <ccan/array_size/array_size.h>
 #include <ccan/asort/asort.h>
 #include <ccan/cast/cast.h>
 #include <ccan/mem/mem.h>
@@ -514,6 +515,7 @@ static void check_mutual_splice_locked(struct peer *peer)
 		     fmt_channel(tmpctx, peer->channel));
 
 	error = channel_update_funding(peer->channel, &inflight->outpoint,
+				       inflight->funding_tx_index,
 				       inflight->amnt,
 				       inflight->splice_amnt);
 	if (error)
@@ -4533,6 +4535,7 @@ static void splice_accepter(struct peer *peer, const u8 *inmsg)
 					   &peer->splicing->remote_funding_pubkey,
 					   &outpoint.txid,
 					   outpoint.n,
+					   peer->channel->funding_tx_index + 1,
 					   funding_feerate_perkw,
 					   both_amount,
 					   peer->splicing->accepter_relative,
@@ -4550,6 +4553,8 @@ static void splice_accepter(struct peer *peer, const u8 *inmsg)
 		  &new_inflight->outpoint.txid, NULL);
 	new_inflight->remote_funding = peer->splicing->remote_funding_pubkey;
 	new_inflight->outpoint = outpoint;
+	/* A splice's funding tx is the parent funding's index + 1. */
+	new_inflight->funding_tx_index = peer->channel->funding_tx_index + 1;
 	new_inflight->amnt = both_amount;
 	new_inflight->psbt = clone_psbt(new_inflight, ictx->current_psbt);
 	new_inflight->splice_amnt = peer->splicing->accepter_relative;
@@ -4832,6 +4837,7 @@ static void splice_initiator_user_finalized(struct peer *peer)
 					      &peer->splicing->remote_funding_pubkey,
 					      &current_psbt_txid,
 					      chan_output_index,
+					      peer->channel->funding_tx_index + 1,
 					      peer->splicing->feerate_per_kw,
 					      amount_sat(new_chan_output->amount),
 					      peer->splicing->opener_relative,
@@ -4849,6 +4855,8 @@ static void splice_initiator_user_finalized(struct peer *peer)
 		  NULL);
 	new_inflight->remote_funding = peer->splicing->remote_funding_pubkey;
 	new_inflight->outpoint.n = chan_output_index;
+	/* A splice's funding tx is the parent funding's index + 1. */
+	new_inflight->funding_tx_index = peer->channel->funding_tx_index + 1;
 	new_inflight->amnt = amount_sat(new_chan_output->amount);
 	new_inflight->splice_amnt = peer->splicing->opener_relative;
 	new_inflight->last_tx = NULL;
@@ -5857,6 +5865,51 @@ static bool capture_premature_msg(const u8 ***shit_lnd_says, const u8 *msg)
 	return true;
 }
 
+/* Is this txid a splice transaction?  funding_tx_index is 0 for the original
+ * funding (including RBF attempts) and increments by 1 for each splice, so it
+ * answers this regardless of whether the splice has already become the current
+ * channel funding.  We check the channel funding and any pending splice
+ * inflight; an unrecognized txid is treated as a splice, which is the
+ * conservative choice for a reestablish we can't account for. */
+static bool txid_is_splice(const struct peer *peer,
+			   const struct bitcoin_txid *txid)
+{
+	if (bitcoin_txid_eq(txid, &peer->channel->funding.txid))
+		return peer->channel->funding_tx_index > 0;
+	for (size_t i = 0; i < tal_count(peer->splice_state->inflights); i++) {
+		const struct inflight *inf = peer->splice_state->inflights[i];
+		if (bitcoin_txid_eq(txid, &inf->outpoint.txid))
+			return inf->funding_tx_index > 0;
+	}
+	return true;
+}
+
+/* "none of those `channel_reestablish` messages contain
+ * `my_current_funding_locked` or `next_funding` for a splice transaction":
+ * checks both the message we sent and the one we received. */
+static bool reestablish_mentions_splice(const struct peer *peer,
+					const struct tlv_channel_reestablish_tlvs *send_tlvs,
+					const struct tlv_channel_reestablish_tlvs *recv_tlvs)
+{
+	const struct tlv_channel_reestablish_tlvs *tlvs[] = {
+		send_tlvs, recv_tlvs
+	};
+
+	for (size_t i = 0; i < ARRAY_SIZE(tlvs); i++) {
+		if (!tlvs[i])
+			continue;
+		if (tlvs[i]->next_funding
+		    && txid_is_splice(peer,
+				      &tlvs[i]->next_funding->next_funding_txid))
+			return true;
+		if (tlvs[i]->my_current_funding_locked
+		    && txid_is_splice(peer,
+				      &tlvs[i]->my_current_funding_locked->my_current_funding_locked_txid))
+			return true;
+	}
+	return false;
+}
+
 static void peer_reconnect(struct peer *peer,
 			   const struct secret *last_remote_per_commit_secret)
 {
@@ -6179,17 +6232,6 @@ static void peer_reconnect(struct peer *peer,
 				     "next_funding_txid not recognized.");
 	}
 
-	/* "none of those channel_reestablish messages contain
-	 * my_current_funding_locked or next_funding for a splice transaction" */
-	bool is_splice_active = local_next_funding
-		|| peer->splice_state->locked_ready[LOCAL]
-		|| remote_next_funding
-		|| (recv_tlvs
-		    && recv_tlvs->my_current_funding_locked
-		    && !bitcoin_txid_eq(
-			    &recv_tlvs->my_current_funding_locked->my_current_funding_locked_txid,
-			    &peer->channel->funding.txid));
-
 	/* BOLT #2:
 	 *
 	 * A node:
@@ -6213,7 +6255,7 @@ static void peer_reconnect(struct peer *peer,
 	if (peer->channel_ready[LOCAL]
 	    && peer->next_index[LOCAL] == 1
 	    && next_commitment_number == 1
-	    && !is_splice_active) {
+	    && !reestablish_mentions_splice(peer, send_tlvs, recv_tlvs)) {
 		struct tlv_channel_ready_tlvs *tlvs = tlv_channel_ready_tlvs_new(tmpctx);
 
 		tlvs->short_channel_id = &peer->local_alias;
@@ -7073,6 +7115,7 @@ static void init_channel(struct peer *peer)
 {
 	struct basepoints points[NUM_SIDES];
 	struct amount_sat funding_sats;
+	u32 funding_tx_index;
 	struct amount_msat local_msat;
 	struct pubkey funding_pubkey[NUM_SIDES];
 	struct channel_config conf[NUM_SIDES];
@@ -7102,6 +7145,7 @@ static void init_channel(struct peer *peer)
 				    &peer->channel_id,
 				    &funding,
 				    &funding_sats,
+				    &funding_tx_index,
 				    &minimum_depth,
 				    &peer->our_blockheight,
 				    &blockheight_states,
@@ -7219,6 +7263,7 @@ static void init_channel(struct peer *peer)
 
 	peer->channel = new_full_channel(peer, &peer->channel_id,
 					 &funding,
+					 funding_tx_index,
 					 minimum_depth,
 					 take(blockheight_states),
 					 lease_expiry,
